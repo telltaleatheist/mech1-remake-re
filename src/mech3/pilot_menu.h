@@ -31,6 +31,12 @@ class GameList : public FileList {
   explicit GameList(Engine& e) : FileList(e, -1) {}
   void on_left_up() override;        // +0x30  0x00488040: not in Instant Action
   void select(int32_t index) override;  // +0x98  0x00487f90: a campaign's save chosen
+  // Pirate's Moon's UP and DOWN (vt+0x90 0x00491340, +0x94 0x004913e0): a row, but in Training the training
+  // mission one back or on (1..4) and the lists filled again. PM's menus never show Training here (its fourth
+  // button opens the Standalone State), so only the row is reached.
+  void arrow_up() override { arrow(-1); }
+  void arrow_down() override { arrow(1); }
+  void arrow(int32_t by);
 };
 
 // SCENARIO_LIST (vtable 0x005c5080): the training missions; the other two

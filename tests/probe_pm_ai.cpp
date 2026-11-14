@@ -4,6 +4,8 @@
 #include <new>
 
 #include "gamez/zclass/cls_node.h"
+#include "mech3/veh_basic_object.h"
+#include "mech3/zai_walk_pm.h"
 #include "mech3/zai_valve.h"
 #include "mech3/zainet_inout.h"
 
@@ -56,4 +58,31 @@ extern "C" void probe_pm_inout_record(int reset, const uint8_t* bytes, uint32_t 
   else new (raw) mech3::ai::InOutRecordPm();
   zcls::frames().frame = frame_was;
   std::memcpy(out, raw, sizeof raw);
+}
+
+// PM's vehicle tons 0x459cd0 on a basic vehicle whose controls' motion mass is `mass`, or with none
+// (test_pm_vehicle_tons.py).
+extern "C" float probe_pm_vehicle_tons(int has_controls, float mass) {
+  mech3::VehicleControls c;
+  c.motion.mass = mass;
+  mech3::BasicVehicle v;
+  v.controls = has_controls ? &c : nullptr;
+  const float t = mech3::vehicle_tons(v);
+  v.controls = nullptr;
+  return t;
+}
+
+// PM's guard state's side state's steps 0x4dbe00 (test_pm_side_steps.py): the jump's value and next, the node's
+// place and links, each step's kind (1 when the jump, node and suspended manoeuvre's).
+extern "C" void probe_pm_side_steps(uint32_t value, const float* place, uint32_t* out) {
+  namespace ai = mech3::ai;
+  ai::SideStepsPm s(value, place);
+  out[0] = s.jump.value;
+  out[1] = s.jump.next == &s.node;
+  std::memcpy(out + 2, s.node.pos, 12);
+  out[5] = static_cast<uint32_t>(s.node.link_count());
+  out[6] = s.node.link(0) == &s.after;
+  out[7] = s.jump.kind == ai::StepKind::Jump && s.node.kind == ai::StepKind::Node &&
+           s.after.kind == ai::StepKind::AfterManoeuvre;
+  out[8] = s.jump.flags | s.node.flags | s.after.flags;
 }

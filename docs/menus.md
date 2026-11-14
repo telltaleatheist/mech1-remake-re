@@ -711,6 +711,17 @@ takes the focus (when the caller asks: not on the screen's construction).
 The screen's destructor (0x004878b0) deletes every pilot but the current
 one (0x004785f0), so saves them.
 
+**Pirate's Moon's arrows.** PM's file list sends UP and DOWN through two new
+slots of the list (vt+0x90 / +0x94, the base's 0x42fac0 / 0x42fad0: a row
+each way; the arrows' presses 0x48b250 / 0x48b270), and the games list
+overrides them (0x491340 up, 0x4913e0 down, `GameList::arrow`): in Training
+the chosen pilot's training mission steps one back or on, held to 1..4, and
+the lists are filled again (0x4916c0); otherwise the row. PM's menus never
+show the pilot screen for Training (the fourth button opens the Standalone
+State), so only the row is reached. Training with no pilot, or one whose
+game is not training, reads through null in the exe (FIX (A): nothing).
+`test_pm_pilot_arrows.py` checks both arrows on the exe.
+
 Found: the GAMELIST, PILOTLIST, both bars and SCENARIO_LIST reach the screen
 through their owner unchecked, so a PILOTDIALOG without one of them crashes
 (the shipped one has them all). DELETE with no pilot chosen (before any

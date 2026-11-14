@@ -12,7 +12,7 @@ namespace ai {
 bool pm_ai_on();  // zai_wire_pm.h
 }
 
-// Mech3.exe 1.2 @ 0x004b1170 / 0x004b12e0
+// Mech3.exe 1.2 @ 0x004b1170 / 0x004b12e0, Pirate's Moon 1.0 @ 0x004b5040 / 0x004b51a0
 PlannerScratch::PlannerScratch() {
   pairs.reserve(17);  // 0x88 bytes
   words.reserve(16);  // 0x40

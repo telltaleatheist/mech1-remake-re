@@ -57,6 +57,8 @@ zcls::Node* zn(Handle h) { return static_cast<zcls::Node*>(ob(h)); }
 float* fl(Handle h) { return static_cast<float*>(ob(h)); }
 
 // The weapons callback 0x004a7940: a hit on a turret's node.
+// Pirate's Moon 1.0 @ 0x004aaea0: the same, installed by PM's turret (0x004a9f21 through 0x005a4d80) as a cdecl
+// of four arguments: the node's owner (0x0040f710 on the hit's +0x24) takes 0x004aaa50's hit.
 uint32_t turret_damage_handler(zwep::Handle object, zwep::WeaponDef*, zwep::HitRecord*, float damage) {
   return static_cast<Turret*>(object)->hit(0, 0, damage);
 }

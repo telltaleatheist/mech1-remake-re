@@ -346,6 +346,10 @@ bool vehicle_gun_clamp_world(const BasicVehicle& v, const float d[3], float out[
 float vehicle_health_share(const BasicVehicle& v);                                 // vt+0x98 0x004ad820
 bool vehicle_can_aim(BasicVehicle& v, float cos_limit);                            // vt+0x150 0x004ad6e0: false without controls
 void vehicle_aim_at(BasicVehicle& v, const float dir[3], uint32_t unused);        // vt+0x154 0x004ad700
+// Pirate's Moon's vt+0x8c on the field base, the stealth object and the basic vehicle (0x00459cd0; a mech's is its
+// max_mass, the vehicle base's 0): the controls' motion mass, vehicle.zrd's `mass`. Its one caller, the bridges'
+// load 0x004e2e30, only the mech's frame reaches, so it is never asked (docs/vehicles.md, The motion block).
+float vehicle_tons(const BasicVehicle& v);
 
 // Mech3.exe 1.2 @ 0x004a2ef0 (vt+0xe0, the view target's HUD slot; its
 // frame time unread): a debug readout in the HUD's text lines 1 to 4.

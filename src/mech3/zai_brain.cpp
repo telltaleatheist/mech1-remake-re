@@ -737,7 +737,9 @@ void GateState::run(float dt) {
   order->set_behaviour(static_cast<const Step*>(from)->next);  // 0x004e8120: this state destroyed
 }
 
-// Mech3.exe 1.2 @ 0x004cd810: the walking states' turn toward (0x004cdd40,
+// Mech3.exe 1.2 @ 0x004cd810, Pirate's Moon 1.0 @ 0x004d6a60 (the same but its backing limit, cos 175 degrees
+// [0x0062fb18] where MW3 negates cos 5: the same float; the order run again through 0x004fbe60, PM's +0x158,
+// which the port's PM AI mirrors from +0x104). The walking states' turn toward (0x004cdd40,
 // inlined) from the vehicle's forward to the next step's place, kept while it
 // is behind. Facing it, the way finder's next step (else what follows) with
 // the order run again (+0x104); else no throttle and that turn (none while
@@ -811,6 +813,7 @@ BehaviourState* Behaviour::make_state(Order& o) {
     case StepKind::Sound: return new SoundState(&o, this);              // 0x004cce50
     case StepKind::Gate: return new GateState(&o, this);                // 0x004cd560
     case StepKind::BrainOwn: return new FaceState(&o, this);            // 0x004cd790 -> 0x004cd7b0
+    // (Pirate's Moon 1.0 @ 0x004d69a0 -> 0x004d6a00: the same, in an exception frame)
     case StepKind::Valve: return new PassState(&o, this);   // 0x004ca1f0
     case StepKind::Shunt: return new PassState(&o, this);   // 0x004cd700 -> 0x004cd720 (vtable 0x005cc270)
     case StepKind::ValveUnion: return new PassState(&o, this);  // 0x004cdb60 -> 0x004cdbd0 (vtable 0x005cc420)

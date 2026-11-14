@@ -339,6 +339,10 @@ class FileList : public ShellButton {
   void hide() override;              // +0x64  0x0048c8c0
   bool read_control(zrdr::Node* node, ztwod::Dialog* dialog) override;  // +0x84  0x0048c410
   void after_bind() override;        // +0x88  0x0048c7f0
+  // Pirate's Moon's UP and DOWN go through the list (vt+0x90 / +0x94, 0x0042fac0 / 0x0042fad0: a row each way),
+  // so a list can do otherwise (the pilot screen's games list, Training). MW3's slots from here on sit 8 later.
+  virtual void arrow_up() { scroll(-1); }
+  virtual void arrow_down() { scroll(1); }
   virtual bool can_light(int32_t) { return true; }      // +0x90  0x0040bad0
   virtual bool can_choose(int32_t) { return true; }     // +0x94  0x0040bad0 (asked by nothing here)
   virtual void select(int32_t index);  // +0x98  0x0048d0d0: -1 none; scrolled into view

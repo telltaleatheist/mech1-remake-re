@@ -615,8 +615,16 @@ void GuardStatePm::start(WalkPmHooks& h, zgame::Handle vehicle, int32_t arg) {
   reach = h.range_near();
 }
 
+// Pirate's Moon 1.0 @ 0x004dbe00
+SideStepsPm::SideStepsPm(uint32_t value, const float place[3])
+    : jump(ai::StepKind::Jump, value), node(ai::StepKind::Node, place, nullptr, 0), after(ai::StepKind::AfterManoeuvre) {
+  jump.next = &node;
+  node.links = {&after};
+  node.attached = true;
+}
+
 // Pirate's Moon 1.0 @ 0x004dffb0. Its other way out, a side state 0x004dbe00 on the brain's list (step 1), wants
-// the state's +0x2c, which only the constructor writes, with 0: never taken, and left out.
+// the state's +0x2c, which only the constructor writes, with 0: never taken, and left out (its steps: SideStepsPm).
 void GuardStatePm::run(WalkPmHooks& h, SteerPm& s, zgame::Handle vehicle) {
   WalkGuardPm c(h, s, vehicle);
   const auto judge = [&] {

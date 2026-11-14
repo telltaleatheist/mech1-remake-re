@@ -5,6 +5,7 @@
 // following the steering's carrot, what MW3's node state and its kin do in line (zai_node).
 // docs/pm-map.md, step 3. Nothing runs it until the orders' switch.
 #include "mech3/zai_steer_pm.h"
+#include "mech3/zai_steps.h"
 
 namespace mech3::ai {
 
@@ -215,6 +216,18 @@ struct GuardStatePm : GuardPickPm {
   float most = 0;           // +0x24  1.3 of the brain's +0x44
   void start(WalkPmHooks& h, zgame::Handle vehicle, int32_t arg);    // 0x004dfd00, 0x004dfe40
   void run(WalkPmHooks& h, SteerPm& s, zgame::Handle vehicle);       // 0x004dffb0
+};
+
+// The guard state's side state's steps (0x004dbe00, 0x54 bytes, vtable 0x005eede4 with only its destructor): a
+// jump of `value` to a place, on to the suspended manoeuvre's step, each linked to the next by its vt+0x30
+// (0x004d4650, 0x004d4080). Never made: GuardStatePm::run leaves its way out. Ported for preservation.
+struct SideStepsPm {
+  SideStepsPm(uint32_t value, const float place[3]);  // 0x004dbe00
+  SideStepsPm(const SideStepsPm&) = delete;
+  SideStepsPm& operator=(const SideStepsPm&) = delete;
+  ai::ValueStep jump;   // +0x04  0x004dadc0 (vtable 0x005eed00)
+  ai::NodeStep node;    // +0x18  0x004dd800(place, 0, 0) (vtable 0x005eef64)
+  ai::Behaviour after;  // +0x44  0x004d4d60 (vtable 0x005ee070)
 };
 
 class WalkPm {

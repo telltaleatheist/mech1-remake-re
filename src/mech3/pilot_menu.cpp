@@ -76,6 +76,20 @@ void GameList::on_left_up() {
   FileList::on_left_up();
 }
 
+// Pirate's Moon 1.0 @ 0x00491340, 0x004913e0 (up -1, down +1). FIX (A): without a chosen pilot whose game is
+// training, the exe calls through null (0x0047b740 answers 0); nothing happens here.
+void GameList::arrow(int32_t by) {
+  PilotScreen* s = screen_of(owner);
+  if (!s || s->mode != kTraining) {
+    scroll(by);
+    return;
+  }
+  TrainingGame* t = s->chosen ? s->chosen->training_game() : nullptr;
+  if (!t) return;
+  t->mission = std::clamp(t->mission + by, 1, 4);
+  s->fill_games();
+}
+
 // Mech3.exe 1.2 @ 0x00487f90: only a campaign's list chooses; the pilot plays
 // the save chosen (the list's index is the pilot's campaign).
 void GameList::select(int32_t index) {

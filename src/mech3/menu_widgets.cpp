@@ -792,10 +792,12 @@ void FileRow::flash(bool on, Handle font) {
   if (font) set_flash(ztwod::host().font_fields(font).color_top, 0.0f);
 }
 
-// Mech3.exe 1.2 @ 0x0048e4e0 (UP), 0x0048e500 (DOWN)
+// Mech3.exe 1.2 @ 0x0048e4e0 (UP), 0x0048e500 (DOWN); Pirate's Moon 1.0 @ 0x0048b250, 0x0048b270 through the
+// list's slots
 void FileListArrow::on_left_up() {
   Control::on_left_up();
-  list->scroll(by);
+  if (by < 0) list->arrow_up();
+  else list->arrow_down();
 }
 
 // Mech3.exe 1.2 @ 0x0048c0e0

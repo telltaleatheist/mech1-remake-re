@@ -203,6 +203,15 @@ controls' +0x214 for the collision count). Defaults in brackets:
   shipped vehicle model has them (which would leave it no collision points)
   is to check against the models.
 
+Pirate's Moon's block is 0x18 bytes longer before `mass` (+0x260, its
+inverse +0x264), so `mass` sits at the controls' +0x9c4. PM gives every
+vehicle a vt+0x8c for its tons: a mech's type's max mass (0x417270), the
+field base's, stealth object's and basic vehicle's this `mass` through
+their controls (0x459cd0, `vehicle_tons`; no controls reads through null,
+FIX (A)), the vehicle base's 0 (0x4a9370). Its one caller is the bridges'
+load (0x4e2e30), which only a mech's frame calls, so no vehicle's weight
+ever reaches a bridge.
+
 ## The speeds and turns (vt+0x114..+0x13c, ported in step 1c2b)
 
 What the AI asks a vehicle (the same slots the mechs answer, mech.h), from

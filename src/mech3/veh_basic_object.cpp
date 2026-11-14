@@ -705,6 +705,8 @@ void vehicle_aim_at(BasicVehicle& v, const float dir[3], uint32_t unused) {
   (void)unused;
   if (v.controls) v.controls->aim_at(dir);
 }
+// Pirate's Moon 1.0 @ 0x00459cd0. FIX (A): without controls the exe reads through null (its [0x260]); 0 here.
+float vehicle_tons(const BasicVehicle& v) { return v.controls ? v.controls->motion.mass : 0.0f; }
 
 // ---------------------------------------------------------------------------
 // The setup's points and zone (player.cpp)
