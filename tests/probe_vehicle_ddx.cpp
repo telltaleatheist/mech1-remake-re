@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <list>
 #include <string>
 #include <vector>
 
@@ -101,4 +102,44 @@ extern "C" void probe_ddx_float_text(float v, char* out) {
 extern "C" int probe_ddx_parse_float(const char* s, double* d) { return mech3::ddx_parse_float(s, *d) ? 1 : 0; }
 extern "C" int probe_ddx_parse_int(const char* s, int is_unsigned, int32_t* v) {
   return mech3::ddx_parse_int(s, is_unsigned != 0, *v) ? 1 : 0;
+}
+
+#include "mech3/zai_valve.h"
+#include "mech3/zainet_region.h"
+
+// The Valve page's two lists (0x004bb300 with 0x004bb2e0, 0x004bb620 with 0x004bb5f0) as the editor's making fills
+// them: valves and regions are "a|b|..." ('~' a valve without a name). out: "valves;regions", each list as shown.
+extern "C" int32_t probe_vehicle_lists(const char* valves, const char* regions, char* out, int32_t cap) {
+  using namespace mech3;
+  auto split = [](const char* s) {
+    std::vector<std::string> v;
+    std::string cur;
+    for (const char* p = s; *p; ++p) {
+      if (*p == '|') v.push_back(cur), cur.clear();
+      else cur += *p;
+    }
+    if (*s) v.push_back(cur);  // as Python's split, the empty string none
+    return v;
+  };
+  std::list<ai::Valve*> keep_v = ai::valves();
+  std::list<ai::Region*> keep_r = ai::regions();
+  ai::valves().clear(), ai::regions().clear();
+  std::vector<ai::Valve*> vs;
+  std::vector<ai::Region*> rs;
+  for (const std::string& n : split(valves)) vs.push_back(new ai::Valve(n == "~" ? nullptr : n.c_str()));
+  int32_t id = 20000;
+  for (const std::string& n : split(regions)) rs.push_back(new ai::Region(n.c_str(), id++, 0));
+  for (ai::Valve* v : vs) ai::valves().push_back(v);
+  for (ai::Region* r : rs) ai::regions().push_back(r);
+  VehicleEditor* e = vehicle_editor_create();
+  std::string s;
+  for (const std::string& t : e->pages[kPageValve].at(1176).combo.texts()) s += t + "|";
+  s += ";";
+  for (const std::string& t : e->pages[kPageValve].at(1177).combo.texts()) s += t + "|";
+  ai::valves() = keep_v, ai::regions() = keep_r;
+  for (ai::Valve* v : vs) delete v;
+  for (ai::Region* r : rs) delete r;
+  const int32_t n = static_cast<int32_t>(s.size()) < cap ? static_cast<int32_t>(s.size()) : cap;
+  std::memcpy(out, s.data(), static_cast<size_t>(n));
+  return n;
 }

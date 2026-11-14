@@ -68,3 +68,5 @@ pm	0x004862b0	(between branchep1\mech3ep1\mech_waynet.cpp and branchep1\mech3ep1
 pm	0x004862f0	(between branchep1\mech3ep1\mech_waynet.cpp and branchep1\mech3ep1\mission.cpp)	the frame's message map 0x005e6638
 pm	0x00486370	(between branchep1\mech3ep1\mech_waynet.cpp and branchep1\mech3ep1\mission.cpp)	the frame's message map 0x005e6638
 pm	0x004d46f0	(between branchep1\mech3ep1\zainetmechinout.cpp and branchep1\mech3ep1\zaitarget.cpp)	the steps' vtable 0x005edcf0, slot +0x4c (MW3 0x004c9dd0)
+pm	0x004c34d0	(between branchep1\mech3ep1\weapon.cpp and branchep1\mech3ep1\zainetedit.cpp)	PM's AI tester's message map 0x005ec8e0 (1233 CBN_CLOSEUP)
+pm	0x004c34e0	(between branchep1\mech3ep1\weapon.cpp and branchep1\mech3ep1\zainetedit.cpp)	PM's AI tester's message map 0x005ec8e0 (1233 CBN_DROPDOWN)

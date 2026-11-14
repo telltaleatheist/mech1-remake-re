@@ -2500,6 +2500,10 @@ file (docs/assets.md, Data versions):
   attack strategies where MW3's has five, but none of the new three has a
   settings page, and the expansion's exe doesn't contain the editor's
   windows at all, so it could never be opened there.
+- **Pirate's Moon once had an AI test window too.** It could kill a unit,
+  power a mech down and up, change its attack strategy and a few of its AI
+  settings, and it paused the game while you used it. The window itself was
+  cut before release; only the code behind its buttons remains.
 - **There was an AI tester in the game.** A developer dialog for steering a
   unit by hand ("Direct", "Zig Zag", "Circle", "Jump", "Random Move") and
   picking its target ("player", "nearest enemy") is still in the exe behind

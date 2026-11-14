@@ -306,6 +306,7 @@ add_library(mw3core STATIC
   src/mech3/zai_walk_pm.cpp
   src/mech3/zai_attack_pm.cpp
   src/mech3/zai_brain_pm.cpp
+  src/mech3/ai_tester_pm.cpp
   src/mech3/zai_drive_pm.cpp
   src/mech3/zai_node_pm.cpp
   src/mech3/zai_jump_pm.cpp
@@ -864,6 +865,7 @@ if(MW3_BUILD_PM)
   target_sources(pmprobe PRIVATE tests/probe_node_vehicle.cpp)  # test_pm_node_vehicle.py
   target_sources(pmprobe PRIVATE tests/probe_net_links.cpp)  # test_pm_net_links.py
   target_sources(pmprobe PRIVATE tests/probe_pm_vehicle_editor.cpp)  # test_pm_strategies.py, test_pm_apply.py
+  target_sources(pmprobe PRIVATE tests/probe_pm_ai_tester.cpp)  # test_pm_ai_tester.py
   # The vehicle editor's save on PM's aiv.zrd, its "target" tag kept (test_pm_aiv_save_mech3ax.py)
   target_sources(pmprobe PRIVATE tests/probe_aiv_save.cpp)
   target_sources(pmprobe PRIVATE tests/probe_pm_lobby_rules.cpp)

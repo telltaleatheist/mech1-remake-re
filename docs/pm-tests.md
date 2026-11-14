@@ -1660,3 +1660,13 @@ Tests: `test_vehicle_ddx.py` with MW3_EXE=pm (the eight in Attack's list: 2,000 
 `test_pm_strategies.py` (the table and both orders, run from 0x4c31c0 and 0x4c3280); `test_pm_apply.py` (0x4c1cb0
 with its compares and 0x4e9e10 the exe's, the copies, cache read and edit stood in, the vlists none: 3,000 applies,
 2,058 into the cache, 2,466 onto the brain, each record, mask, name and keep word identical, at 24 bits). Not AI code.
+
+## S11b: the vehicle editor's list steps and PM's AI tester (2026-11-14)
+
+MW3's port (main: `valve_add` / `region_add`, 0x4bb2e0 / 0x4bb5f0 under the fills 0x4bb300 / 0x4bb620) crossed with
+PM's twins 0x4c17d0 / 0x4c1ac0 and 0x4c17f0 / 0x4c1af0 (the combos at +0x3b8 / +0x3f8, the lists [0x62fbe4] /
+[0x62faac], a region's name 0x4d0f50). `test_vehicle_lists.py` with MW3_EXE=pm: 487 fills identical.
+PM's own: the AI tester's handlers (editor.md, PM's AI tester; `mech3/ai_tester_pm`), its class cut, its map
+0x5ec8e0 left: 0x4c3290, 0x4c32f0, 0x4c3320, 0x4c3380, 0x4c33e0, 0x4c3440, 0x4c34d0 and 0x4c34e0 (neither a Ghidra
+function: port_audit_extra.tsv), 0x4c34f0. `test_pm_ai_tester.py`: 3,840 runs, 23 call paths, every call out, the
+four settings words and the list flag identical; 4 of 4 breaks. Not AI code (an editor).
