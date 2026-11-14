@@ -28,6 +28,7 @@
 
 #include "check.h"
 #include "gamez/zgame/zgame_table.h"
+#include "gamez/zsound/zsnd.h"
 
 namespace check {
 std::vector<Test>& registry() {
@@ -247,8 +248,13 @@ int main() {
     // The game table (MW3's or PM's) each test starts with, put back after it: a PM test sets PM's, and a
     // later MW3-format writer (the new weapon form's reader.zbd) wrote PM's archives.
     const zgame::Table& game = zgame::game();
+    const int32_t sound = zsnd::state().initialized;
     t.fn();
     zgame::set_game(game);
+    // zSound as the test found it: its shutdown (0x00570510) never clears the init flag, as in the exe, where
+    // the init runs once a process; each app run after the first here said "zSndInit: FAILED". Only with
+    // the device closed (a test that leaves it open keeps it).
+    if (!zsnd::state().open) zsnd::state().initialized = sound;
     std::printf("%s %s\n", check::failures == before ? "ok  " : "FAIL", t.name);
 #if !defined(_WIN32)
     // Ours: MW3_TEST_FDS=1, the open files after each test (a leak would
