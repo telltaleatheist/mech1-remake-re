@@ -93,7 +93,7 @@ std::string pm_screenshot(const ShotHooks& h) {
   while (h.exists && h.exists(name.c_str())) name = name_of(++count);
   zimg::ScreenShot shot;  // 0x00533380
   std::string written;
-  if (shot.grab(h.grab)) {  // 0x00533320
+  if (shot.grab(h.grab, h.free_image)) {  // 0x00533320
     shot.write(name.c_str());  // 0x005335c0
     written = name;
   }
@@ -106,7 +106,7 @@ std::string pm_screenshot(const ShotHooks& h) {
 std::string debug_screenshot(const ShotHooks& h) {
   zimg::ScreenShot shot;  // 0x005199e0
   std::string name;
-  if (shot.grab(h.grab)) {  // 0x00519990
+  if (shot.grab(h.grab, h.free_image)) {  // 0x00519990
     if (!(h.lobby && h.lobby())) {
       screenshot_save_dialog(shot, h, &name);
     } else {

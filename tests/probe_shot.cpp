@@ -66,7 +66,7 @@ int probe_shot(int32_t w, int32_t h, const uint16_t* px, const int32_t* bits, co
   set_format(bits, masks);
   g_w = w, g_h = h, g_px = px;
   zimg::ScreenShot shot;
-  const bool ok = shot.grab(grab);
+  const bool ok = shot.grab(grab, nullptr);
   std::string o(1, ok ? '\1' : '\0');
   if (ok) {
     shot.write("shot.bmp");

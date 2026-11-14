@@ -21,9 +21,9 @@ struct ScreenShot {
 
   ScreenShot();                    // 0x005199e0
   void free_pixels();              // 0x00519a20 (its destructor's)
-  // 0x00519990: the screen grabbed (0x00579500(2) through `grab`: a new image, freed after), the format's bits and
-  // masks taken, then converted. False when the grab gives none.
-  bool grab(Texture* (*grab_screen)(int32_t buffer));
+  // 0x00519990: the screen grabbed (0x00579500(2) through `grab_screen`: a new image, freed after by `free_image`,
+  // 0x00517cc0), the format's bits and masks taken, then converted. False when the grab gives none.
+  bool grab(Texture* (*grab_screen)(int32_t buffer), void (*free_image)(Texture* image));
   bool convert(const Texture& image);  // 0x00519a40: 24-bit, then flipped; 1
   bool swap_rows(int32_t a, int32_t b);  // 0x00519b30: false when either is past the last row
   bool flip();                     // 0x00519be0

@@ -2561,6 +2561,7 @@ void wire_mission_hooks(GameEngine* e) {
     keys.debug_7e = [] {  // PM 0x004af600 (MW3 0x004abbc0): the screenshot (docs/screenshots.md)
       ShotHooks h;
       h.grab = [](int32_t buffer) { return ztwod::host().screen_grab(buffer); };
+      h.free_image = [](zimg::Texture* t) { ztwod::host().texture_free(t); };
       h.lobby = [] { return g_mission_engine->network_lobby_active() != 0; };
       h.hardware = [] { return true; };  // the port draws through the GPU
       h.gdi_surface = [] { g_mission_engine->unported("0x00577340", {}); };

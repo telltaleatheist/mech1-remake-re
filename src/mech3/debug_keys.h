@@ -26,6 +26,7 @@ void* next_view_mech(const std::vector<void*>& entities, void* target, void* (*m
 // The screenshot's calls out (0x004abbc0, 0x00519cc0).
 struct ShotHooks {
   zimg::Texture* (*grab)(int32_t buffer) = nullptr;  // 0x00579500: the screen as a new 16-bit image
+  void (*free_image)(zimg::Texture* image) = nullptr;  // 0x00517cc0 (null: zimg::free_texture)
   bool (*lobby)() = nullptr;                          // 0x00586ce0: a DirectPlay lobby session
   bool (*hardware)() = nullptr;                       // [0x0072f348]: the Direct3D path
   void (*gdi_surface)() = nullptr;                    // 0x00577340: the GDI surface flipped to, for the dialog

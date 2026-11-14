@@ -21,7 +21,7 @@ ScreenShot::ScreenShot() = default;
 void ScreenShot::free_pixels() { std::vector<uint8_t>().swap(pixels); }
 
 // Mech3.exe 1.2 @ 0x00519990, Pirate's Moon 1.0 @ 0x00533320
-bool ScreenShot::grab(Texture* (*grab_screen)(int32_t buffer)) {
+bool ScreenShot::grab(Texture* (*grab_screen)(int32_t buffer), void (*free_image)(Texture* image)) {
   Texture* image = grab_screen ? grab_screen(2) : nullptr;
   const zvid::PixelFormat& f = zvid::pixel_format();  // 0x00579260
   r_bits = f.r_bits, g_bits = f.g_bits, b_bits = f.b_bits;
@@ -29,7 +29,8 @@ bool ScreenShot::grab(Texture* (*grab_screen)(int32_t buffer)) {
   r_mask = m.r, g_mask = m.g, b_mask = m.b;
   if (!image) return false;
   const bool ok = convert(*image);
-  free_texture(image);  // 0x00517cc0
+  if (free_image) free_image(image);  // 0x00517cc0
+  else free_texture(image);
   return ok;
 }
 
