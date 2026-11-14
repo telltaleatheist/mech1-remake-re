@@ -138,7 +138,7 @@ void TeleportDialog::pick() {
   update(false);
 }
 
-// Mech3.exe 1.2 @ 0x00404a20: after Yes to "delete <the list's text>?", the
+// Mech3.exe 1.2 @ 0x00404a20, Pirate's Moon 1.0 @ 0x004a8f70: after Yes to "delete <the list's text>?", the
 // picked spot unsaved and out of the list.
 void TeleportDialog::remove() {
   const std::string text = dlg.at(kList).text.substr(0, 79);
