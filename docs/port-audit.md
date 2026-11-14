@@ -11,13 +11,13 @@ container code, or covered where the port names it); **replaced** (SDL or the pl
 
 | Class | Functions |
 |---|---|
-| folded | 3023 |
+| folded | 3042 |
 | replaced (SDL or the platform layer) | 222 |
 | software renderer | 113 |
 | unused: PORT (preserve) | 81 |
 | dev dialog (MFC), its logic: PORT (preserve) | 54 |
 | dev dialog (MFC), its window plumbing: replaced | 52 |
-| debug or dev tool: PORT (preserve) | 35 |
+| debug or dev tool: PORT (preserve) | 8 |
 | unlabelled | 2 |
 
 ## MISSING LOGIC
@@ -43,7 +43,6 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 - 1 functions, 25 decomp lines (0x0041cee0): read: the mech's vt+0xf8 (the player's view pick: the crosshair's ground point, +0x1d48 of 0x00430aa0's object, when this is the viewed mech), called only by the AI net editor's commands 0x00402d60 and 0x00403160 (game_editor_net.cpp:146, 229) through the viewed vehicle; the port's editor answers for the stealth object only (app_vehicle.cpp:475)
 - 1 functions, 32 decomp lines (0x004a3550): the vehicle pick of debug command 0x8a (app_key, never bound in the release): an MFC dialog (resource 0x430's list, 0x004aef00) whose chosen vehicle gets the view (its vt+0x108); with the dialog sittings
 - 2 functions, 18 decomp lines (0x004e2310, 0x004e53b0): the valve reader's print method (a vtable slot that fprintf's a value); nothing in the game prints a reader
-- 27 functions, 837 decomp lines (0x0058c590, 0x0058d3c0, 0x0058e440, 0x0058e460 ...): the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
 - 1 functions, 17 decomp lines (0x005a98d0): the developers' loose <name>.zan override for motion scripts (motion.md:36), like the reader's loose .zrd files
 - 3 functions, 219 decomp lines (0x005a9bc0, 0x005a9e10, 0x005aa210): the motion script's text side: the loose .zan reader (0x005a9e10, with 0x005aa210) behind the developers' override, and the writer (0x005a9bc0)
 
@@ -2771,7 +2770,7 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x00556240 | 38 | folded | covered by the port where it names it (src/gamez/zreader/zreader.cpp:918) |
 | 0x00557090 | 10 | folded | covered by the port where it names it (src/mech3/veh_basic_object.h:137) |
 
-### znetwork (141 not ported)
+### znetwork (133 not ported)
 
 | Address | Lines | Class | Why |
 |---|---|---|---|
@@ -2855,60 +2854,52 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x0058b380 | 8 | folded | returns a constant or a global |
 | 0x0058b390 | 14 | folded | covered by the port where it names it (src/gamez/znetwork/znet_object.h:8) |
 | 0x0058b3c0 | 18 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.h:13) |
-| 0x0058b510 | 14 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:528) |
-| 0x0058b530 | 9 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:507) |
+| 0x0058b510 | 14 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:552) |
+| 0x0058b530 | 9 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:531) |
 | 0x0058c570 | 14 | folded | the scalar deleting destructor (the destructor, then delete) |
-| 0x0058c590 | 35 | debug or dev tool: PORT (preserve) | the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
+| 0x0058c590 | 35 | folded | the destructor of a holder of one of the view's lists (from 0x0058e420): the port's lists are std::list |
 | 0x0058c620 | 11 | folded | a destructor (the exception unwinds call it; it resets the vtable) |
 | 0x0058c630 | 12 | folded | a destructor (the exception unwinds call it; it resets the vtable) |
 | 0x0058ca30 | 24 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.h:53) |
 | 0x0058ce10 | 74 | folded | covered: the DirectPlay error names (znet_dplay.cpp:142 names each through localize), the sessions' list clear (znet_session.cpp:248), the net view's inlined steps (znet_view.cpp:68, :151), the net object's static, ZGameApp's base InitInstance and engine start (overridden by the app's 0x00480000 / 0x00480570, game-loop.md) |
-| 0x0058d350 | 26 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.h:112) |
-| 0x0058d3c0 | 97 | debug or dev tool: PORT (preserve) | the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
+| 0x0058d350 | 26 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.h:113) |
 | 0x0058d9a0 | 23 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:31) |
 | 0x0058de40 | 93 | folded | covered: the DirectPlay error names (znet_dplay.cpp:142 names each through localize), the sessions' list clear (znet_session.cpp:248), the net view's inlined steps (znet_view.cpp:68, :151), the net object's static, ZGameApp's base InitInstance and engine start (overridden by the app's 0x00480000 / 0x00480570, game-loop.md) |
 | 0x0058e3b0 | 29 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:58) |
 | 0x0058e420 | 14 | folded | the scalar deleting destructor (the destructor, then delete) |
-| 0x0058e440 | 14 | debug or dev tool: PORT (preserve) | the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x0058e460 | 22 | debug or dev tool: PORT (preserve) | the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
+| 0x0058e440 | 14 | folded | the cursor element's place set (vtable 0x005cf250's +0x2c: three floats to its point): the port keeps the cursor's point as View::cursor_at |
+| 0x0058e460 | 22 | folded | the cursor element's link k (vtable 0x005cf250's +0x08: the k-th of its list, else its +0x10): the port's cursor lines (View::cursor_lines) |
 | 0x0058e770 | 18 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:141) |
 | 0x0058e7b0 | 44 | folded | covered: the DirectPlay error names (znet_dplay.cpp:142 names each through localize), the sessions' list clear (znet_session.cpp:248), the net view's inlined steps (znet_view.cpp:68, :151), the net object's static, ZGameApp's base InitInstance and engine start (overridden by the app's 0x00480000 / 0x00480570, game-loop.md) |
 | 0x0058e850 | 36 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:159) |
 | 0x0058e8e0 | 19 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:180) |
-| 0x0058e920 | 35 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:261) |
-| 0x0058e990 | 31 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:267) |
-| 0x0058ea10 | 9 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:253) |
-| 0x0058ea20 | 15 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:257) |
-| 0x0058ea40 | 12 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.h:173) |
+| 0x0058e920 | 35 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:285) |
+| 0x0058e990 | 31 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:291) |
+| 0x0058ea10 | 9 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:277) |
+| 0x0058ea20 | 15 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:281) |
+| 0x0058ea40 | 12 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.h:175) |
 | 0x0058ea60 | 9 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:167) |
 | 0x0058ea70 | 9 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:175) |
-| 0x0058ec20 | 27 | debug or dev tool: PORT (preserve) | the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x0058ec90 | 20 | debug or dev tool: PORT (preserve) | the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x0058ecd0 | 13 | debug or dev tool: PORT (preserve) | the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x0058ed00 | 20 | debug or dev tool: PORT (preserve) | the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x0058ed40 | 31 | debug or dev tool: PORT (preserve) | the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x0058eda0 | 21 | debug or dev tool: PORT (preserve) | the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x0058ee10 | 19 | debug or dev tool: PORT (preserve) | the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x0058ee40 | 135 | debug or dev tool: PORT (preserve) | the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x0058f170 | 55 | debug or dev tool: PORT (preserve) | the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x0058f270 | 11 | debug or dev tool: PORT (preserve) | the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
+| 0x0058ec20 | 27 | folded | container code of the view's std::list<Link> (the cursor lines): cleared |
+| 0x0058ec90 | 20 | folded | container code of the view's std::vector<Link>: destroyed |
+| 0x0058ecd0 | 13 | folded | container code of the view's std::vector<Link>: its size |
+| 0x0058ed00 | 20 | folded | container code of the view's std::vector<Mark>: destroyed |
+| 0x0058ed40 | 31 | folded | container code of the view's std::list<Link>: an item inserted (0x0058f420 its copy) |
+| 0x0058eda0 | 21 | folded | container code of the view's std::list<Link>: a range erased |
+| 0x0058ee10 | 19 | folded | container code of the view's std::list<Link>: a node made |
+| 0x0058ee40 | 135 | folded | container code of the view's std::vector<Link>: insert and reserve |
+| 0x0058f170 | 55 | folded | container code of the view's std::vector<Link>: a range erased (0x0058f630 the arrows' copy) |
+| 0x0058f270 | 11 | folded | container code of the view's std::vector<Link>: a range destroyed |
 | 0x0058f2a0 | 19 | folded | covered by the port where it names it (src/mech3/mech_fieldbase_dock.cpp:292) |
-| 0x0058f2d0 | 14 | debug or dev tool: PORT (preserve) | the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x0058f2e0 | 79 | debug or dev tool: PORT (preserve) | the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x0058f420 | 76 | debug or dev tool: PORT (preserve) | the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x0058f580 | 28 | debug or dev tool: PORT (preserve) | the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
+| 0x0058f2d0 | 14 | folded | container code: a Mark copied into place when not null (0x0058f580), from the vector's insert |
+| 0x0058f2e0 | 79 | folded | the Link's assignment (its arrows by 0x0059fe50): the port's Link copies as a struct |
+| 0x0058f420 | 76 | folded | the Link's copy constructor (the ahead arrow's vtable 0x005cf050 set again, the back's 0x005cf2d8): the port's Link copies as a struct |
+| 0x0058f580 | 28 | folded | the Mark's copy constructor (its circle 0x005cf150 by 0x0059fdf0): the port's Mark copies as a struct |
 | 0x0058f610 | 14 | folded | the scalar deleting destructor (the destructor, then delete) |
-| 0x0058f630 | 34 | debug or dev tool: PORT (preserve) | the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x0058f6a0 | 12 | debug or dev tool: PORT (preserve) | the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x0058f740 | 11 | debug or dev tool: PORT (preserve) | the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x0058f760 | 11 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.h:50) |
-| 0x0058f770 | 11 | debug or dev tool: PORT (preserve) | the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x0058f780 | 11 | debug or dev tool: PORT (preserve) | the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x0058f790 | 11 | debug or dev tool: PORT (preserve) | the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x0058f7a0 | 11 | debug or dev tool: PORT (preserve) | the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x0058f7b0 | 11 | debug or dev tool: PORT (preserve) | the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x0058f7c0 | 11 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.h:50) |
-| 0x0058f8b0 | 8 | debug or dev tool: PORT (preserve) | the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
+| 0x0058f630 | 34 | folded | the arrow's assignment (0x0059fe50, then its fields): the port's ArrowObject copies as a struct |
+| 0x0058f6a0 | 12 | folded | the back arrow's constructor (0x0058d350, then vtable 0x005cf2d8): the port's ArrowObject(true) |
+| 0x0058f740 | 11 | folded | the arrows' left-up and right-up (+0x30, +0x34 of 0x005cf050 / 0x005cf1d0 / 0x005cf2d8): with a live link, the empty 0x004bf620: nothing |
+| 0x0058f8b0 | 8 | folded | the view's window's MFC message map (vtable 0x005cf358's): replaced by zTwoD's routing in the port |
 | 0x0058f8c0 | 8 | folded | returns a constant or a global |
 | 0x0058f8d0 | 58 | folded | a destructor (the exception unwinds call it; it resets the vtable) |
 | 0x0058fa20 | 14 | folded | the scalar deleting destructor (the destructor, then delete) |
@@ -3363,63 +3354,6 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x00598b30 | 66 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
 | 0x00598c80 | 13 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
 
-### zclass (52 not ported)
-
-| Address | Lines | Class | Why |
-|---|---|---|---|
-| 0x004eb030 | 11 | folded | covered by the program's overrides or ports: immediate delete (app_mission.cpp:1567), node flags (app_mech.cpp:200), the node box (cls_di.cpp:1267), stamps frozen (app_mech.cpp:212), the scene walk's callbacks (app_mech.cpp:207), the HUD window's rect (app_hud.cpp:194), the deferred-delete list (list.cpp:189), zClass's start, reset and pool flag (list.cpp:338, :350; app_engine.cpp:853), the copy refusals for light and sound nodes (cls_util.cpp:208) |
-| 0x004eb040 | 8 | folded | returns a constant or a global |
-| 0x004eb420 | 17 | unlabelled |  |
-| 0x004eb6a0 | 17 | folded | covered by the port where it names it (src/gamez/zgeometry/zgeo_model.cpp:431) |
-| 0x004eb710 | 17 | folded | ported, by docs/symbols.csv: ported inline; node +0x24 bit 4 (the program's node_intersects) |
-| 0x004eb8a0 | 17 | folded | covered by the program's overrides or ports: immediate delete (app_mission.cpp:1567), node flags (app_mech.cpp:200), the node box (cls_di.cpp:1267), stamps frozen (app_mech.cpp:212), the scene walk's callbacks (app_mech.cpp:207), the HUD window's rect (app_hud.cpp:194), the deferred-delete list (list.cpp:189), zClass's start, reset and pool flag (list.cpp:338, :350; app_engine.cpp:853), the copy refusals for light and sound nodes (cls_util.cpp:208) |
-| 0x004eb8e0 | 17 | folded | covered by the port where it names it (src/mech3/app_mech.cpp:200) |
-| 0x004ebd50 | 38 | folded | covered by the program's overrides or ports: immediate delete (app_mission.cpp:1567), node flags (app_mech.cpp:200), the node box (cls_di.cpp:1267), stamps frozen (app_mech.cpp:212), the scene walk's callbacks (app_mech.cpp:207), the HUD window's rect (app_hud.cpp:194), the deferred-delete list (list.cpp:189), zClass's start, reset and pool flag (list.cpp:338, :350; app_engine.cpp:853), the copy refusals for light and sound nodes (cls_util.cpp:208) |
-| 0x004ed950 | 11 | folded | covered by the program's overrides or ports: immediate delete (app_mission.cpp:1567), node flags (app_mech.cpp:200), the node box (cls_di.cpp:1267), stamps frozen (app_mech.cpp:212), the scene walk's callbacks (app_mech.cpp:207), the HUD window's rect (app_hud.cpp:194), the deferred-delete list (list.cpp:189), zClass's start, reset and pool flag (list.cpp:338, :350; app_engine.cpp:853), the copy refusals for light and sound nodes (cls_util.cpp:208) |
-| 0x004ed980 | 11 | folded | ported, by docs/symbols.csv: ported inline in gmod_draw: node +0xc0 = [0x5e9e2c] (update_frame) after the static bake |
-| 0x004ed9c0 | 11 | folded | ported, by docs/symbols.csv: ported as zcls::segment_options().first_hit ([0x0060b968]) |
-| 0x004ed9d0 | 11 | folded | covered by the port where it names it (src/gamez/zclass/cls_di.h:85) |
-| 0x004ed9e0 | 15 | folded | covered by the port where it names it (src/gamez/zclass/cls_di.h:86) |
-| 0x004eda00 | 13 | folded | ported, by docs/symbols.csv: ported as zcls::segment_options().exclude ([0x0060b974]) |
-| 0x004f0020 | 249 | folded | covered: a piece of the ported ray query (0x004f0020 runs in its caller's stack frame), a world's ground value (0x004f2480, from the ported sound 0x004f3170) |
-| 0x004f0f00 | 35 | folded | covered by the port where it names it (src/gamez/zclass/cls_di.cpp:1267) |
-| 0x004f1810 | 32 | folded | covered by the port where it names it (src/gamez/zclass/cls_world.cpp:220) |
-| 0x004f22f0 | 21 | folded | covered by the port where it names it (src/gamez/zdeclient/zdec_crater.cpp:365) |
-| 0x004f2480 | 12 | folded | covered: a piece of the ported ray query (0x004f0020 runs in its caller's stack frame), a world's ground value (0x004f2480, from the ported sound 0x004f3170) |
-| 0x004f2490 | 12 | folded | covered by the port where it names it (src/mech3/game_editor_net.cpp:127) |
-| 0x004f33e0 | 24 | folded | covered by the port where it names it (src/gamez/zclass/cls_node.cpp:548) |
-| 0x004f3540 | 13 | unused: PORT (preserve) | no effect in the original (app_engine.cpp's list): a camera word nothing reads (0x004f3540), zClass's start defaults the port's initialisers already hold (0x004f8f20), a zSave registration with flag 0 (0x004f8f60) |
-| 0x004f3630 | 25 | folded | covered by the program's overrides or ports: immediate delete (app_mission.cpp:1567), node flags (app_mech.cpp:200), the node box (cls_di.cpp:1267), stamps frozen (app_mech.cpp:212), the scene walk's callbacks (app_mech.cpp:207), the HUD window's rect (app_hud.cpp:194), the deferred-delete list (list.cpp:189), zClass's start, reset and pool flag (list.cpp:338, :350; app_engine.cpp:853), the copy refusals for light and sound nodes (cls_util.cpp:208) |
-| 0x004f4d4d | 95 | folded | a piece of the ported function before it (Ghidra split it there) (0x004f4ab0) |
-| 0x004f5a00 | 31 | folded | covered by the port where it names it (src/gamez/zclass/camera.cpp:488) |
-| 0x004f6dc0 | 102 | software renderer | the camera's software scene walk (0x004f6dc0 without a device; hud.md: the software path) |
-| 0x004f7630 | 16 | folded | covered by the program's overrides or ports: immediate delete (app_mission.cpp:1567), node flags (app_mech.cpp:200), the node box (cls_di.cpp:1267), stamps frozen (app_mech.cpp:212), the scene walk's callbacks (app_mech.cpp:207), the HUD window's rect (app_hud.cpp:194), the deferred-delete list (list.cpp:189), zClass's start, reset and pool flag (list.cpp:338, :350; app_engine.cpp:853), the copy refusals for light and sound nodes (cls_util.cpp:208) |
-| 0x004f7650 | 16 | folded | covered by the program's overrides or ports: immediate delete (app_mission.cpp:1567), node flags (app_mech.cpp:200), the node box (cls_di.cpp:1267), stamps frozen (app_mech.cpp:212), the scene walk's callbacks (app_mech.cpp:207), the HUD window's rect (app_hud.cpp:194), the deferred-delete list (list.cpp:189), zClass's start, reset and pool flag (list.cpp:338, :350; app_engine.cpp:853), the copy refusals for light and sound nodes (cls_util.cpp:208) |
-| 0x004f8c30 | 9 | folded | a thunk: one call to another function |
-| 0x004f8f20 | 10 | unused: PORT (preserve) | no effect in the original (app_engine.cpp's list): a camera word nothing reads (0x004f3540), zClass's start defaults the port's initialisers already hold (0x004f8f20), a zSave registration with flag 0 (0x004f8f60) |
-| 0x004f8f40 | 9 | folded | covered by the program's overrides or ports: immediate delete (app_mission.cpp:1567), node flags (app_mech.cpp:200), the node box (cls_di.cpp:1267), stamps frozen (app_mech.cpp:212), the scene walk's callbacks (app_mech.cpp:207), the HUD window's rect (app_hud.cpp:194), the deferred-delete list (list.cpp:189), zClass's start, reset and pool flag (list.cpp:338, :350; app_engine.cpp:853), the copy refusals for light and sound nodes (cls_util.cpp:208) |
-| 0x004f8f60 | 11 | unused: PORT (preserve) | no effect in the original (app_engine.cpp's list): a camera word nothing reads (0x004f3540), zClass's start defaults the port's initialisers already hold (0x004f8f20), a zSave registration with flag 0 (0x004f8f60) |
-| 0x004f8f70 | 14 | folded | covered by the program's overrides or ports: immediate delete (app_mission.cpp:1567), node flags (app_mech.cpp:200), the node box (cls_di.cpp:1267), stamps frozen (app_mech.cpp:212), the scene walk's callbacks (app_mech.cpp:207), the HUD window's rect (app_hud.cpp:194), the deferred-delete list (list.cpp:189), zClass's start, reset and pool flag (list.cpp:338, :350; app_engine.cpp:853), the copy refusals for light and sound nodes (cls_util.cpp:208) |
-| 0x004f96b0 | 10 | folded | covered by the program's overrides or ports: immediate delete (app_mission.cpp:1567), node flags (app_mech.cpp:200), the node box (cls_di.cpp:1267), stamps frozen (app_mech.cpp:212), the scene walk's callbacks (app_mech.cpp:207), the HUD window's rect (app_hud.cpp:194), the deferred-delete list (list.cpp:189), zClass's start, reset and pool flag (list.cpp:338, :350; app_engine.cpp:853), the copy refusals for light and sound nodes (cls_util.cpp:208) |
-| 0x004f96d0 | 10 | folded | covered by the program's overrides or ports: immediate delete (app_mission.cpp:1567), node flags (app_mech.cpp:200), the node box (cls_di.cpp:1267), stamps frozen (app_mech.cpp:212), the scene walk's callbacks (app_mech.cpp:207), the HUD window's rect (app_hud.cpp:194), the deferred-delete list (list.cpp:189), zClass's start, reset and pool flag (list.cpp:338, :350; app_engine.cpp:853), the copy refusals for light and sound nodes (cls_util.cpp:208) |
-| 0x004f9820 | 10 | folded | covered by the port where it names it (src/gamez/zclass/cls_util.cpp:207) |
-| 0x004f99b0 | 10 | folded | covered by the port where it names it (src/gamez/zclass/cls_util.cpp:206) |
-| 0x004f99d0 | 10 | folded | covered by the port where it names it (src/gamez/zclass/cls_util.cpp:210) |
-| 0x004f9f60 | 24 | folded | covered by the port where it names it (src/gamez/zclass/cls_node.cpp:548) |
-| 0x004fa540 | 24 | folded | covered by the port where it names it (src/gamez/zclass/cls_node.cpp:548) |
-| 0x004fa900 | 24 | folded | covered by the port where it names it (src/gamez/zclass/cls_node.cpp:549) |
-| 0x004fc470 | 14 | folded | covered by the port where it names it (src/gamez/zclass/cls_mechlib.cpp:126) |
-| 0x004fc4d0 | 18 | unused: PORT (preserve) | mechlib's material writer at close (0x004fc990 -> 0x004fcca0 -> 0x004fc4d0): dead (mechlib.md) |
-| 0x004fc5d0 | 35 | folded | covered by the port where it names it (src/gamez/zclass/cls_mechlib.h:38) |
-| 0x004fc990 | 21 | unused: PORT (preserve) | mechlib's material writer at close (0x004fc990 -> 0x004fcca0 -> 0x004fc4d0): dead (mechlib.md) |
-| 0x004fcca0 | 39 | unused: PORT (preserve) | mechlib's material writer at close (0x004fc990 -> 0x004fcca0 -> 0x004fc4d0): dead (mechlib.md) |
-| 0x004fd1c0 | 13 | folded | covered by the port where it names it (src/mech3/menu_widgets.h:233) |
-| 0x004fd230 | 30 | folded | covered by the port where it names it (src/gamez/zclass/cls_node.cpp:550) |
-| 0x004fd440 | 24 | folded | covered by the port where it names it (src/gamez/zclass/cls_node.cpp:550) |
-| 0x004fd900 | 30 | folded | covered by the port where it names it (src/gamez/zclass/cls_node.cpp:549) |
-| 0x004fe0b0 | 9 | folded | covered by the port where it names it (src/gamez/zclass/cls_node.cpp:584) |
-| 0x004fe0f0 | 9 | folded | covered by the port where it names it (src/gamez/zclass/list.cpp:354) |
-
 ### zimage (52 not ported)
 
 | Address | Lines | Class | Why |
@@ -3476,6 +3410,63 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x00519fa0 | 52 | unused: PORT (preserve) | zFont, the bitmap fonts from fonts.zrd: loaded at start-up (0x00519e50), split into glyphs, measured by id (0x0051a0d0), freed (0x00519f70), but nothing in 1.2 draws them (app_engine.cpp:318, twod.md section 4) |
 | 0x0051a080 | 30 | unused: PORT (preserve) | zFont, the bitmap fonts from fonts.zrd: loaded at start-up (0x00519e50), split into glyphs, measured by id (0x0051a0d0), freed (0x00519f70), but nothing in 1.2 draws them (app_engine.cpp:318, twod.md section 4) |
 | 0x0051a0d0 | 51 | unused: PORT (preserve) | zFont, the bitmap fonts from fonts.zrd: loaded at start-up (0x00519e50), split into glyphs, measured by id (0x0051a0d0), freed (0x00519f70), but nothing in 1.2 draws them (app_engine.cpp:318, twod.md section 4) |
+
+### zclass (52 not ported)
+
+| Address | Lines | Class | Why |
+|---|---|---|---|
+| 0x004eb030 | 11 | folded | covered by the program's overrides or ports: immediate delete (app_mission.cpp:1567), node flags (app_mech.cpp:200), the node box (cls_di.cpp:1267), stamps frozen (app_mech.cpp:212), the scene walk's callbacks (app_mech.cpp:207), the HUD window's rect (app_hud.cpp:194), the deferred-delete list (list.cpp:189), zClass's start, reset and pool flag (list.cpp:338, :350; app_engine.cpp:853), the copy refusals for light and sound nodes (cls_util.cpp:208) |
+| 0x004eb040 | 8 | folded | returns a constant or a global |
+| 0x004eb420 | 17 | unlabelled |  |
+| 0x004eb6a0 | 17 | folded | covered by the port where it names it (src/gamez/zgeometry/zgeo_model.cpp:431) |
+| 0x004eb710 | 17 | folded | ported, by docs/symbols.csv: ported inline; node +0x24 bit 4 (the program's node_intersects) |
+| 0x004eb8a0 | 17 | folded | covered by the program's overrides or ports: immediate delete (app_mission.cpp:1567), node flags (app_mech.cpp:200), the node box (cls_di.cpp:1267), stamps frozen (app_mech.cpp:212), the scene walk's callbacks (app_mech.cpp:207), the HUD window's rect (app_hud.cpp:194), the deferred-delete list (list.cpp:189), zClass's start, reset and pool flag (list.cpp:338, :350; app_engine.cpp:853), the copy refusals for light and sound nodes (cls_util.cpp:208) |
+| 0x004eb8e0 | 17 | folded | covered by the port where it names it (src/mech3/app_mech.cpp:200) |
+| 0x004ebd50 | 38 | folded | covered by the program's overrides or ports: immediate delete (app_mission.cpp:1567), node flags (app_mech.cpp:200), the node box (cls_di.cpp:1267), stamps frozen (app_mech.cpp:212), the scene walk's callbacks (app_mech.cpp:207), the HUD window's rect (app_hud.cpp:194), the deferred-delete list (list.cpp:189), zClass's start, reset and pool flag (list.cpp:338, :350; app_engine.cpp:853), the copy refusals for light and sound nodes (cls_util.cpp:208) |
+| 0x004ed950 | 11 | folded | covered by the program's overrides or ports: immediate delete (app_mission.cpp:1567), node flags (app_mech.cpp:200), the node box (cls_di.cpp:1267), stamps frozen (app_mech.cpp:212), the scene walk's callbacks (app_mech.cpp:207), the HUD window's rect (app_hud.cpp:194), the deferred-delete list (list.cpp:189), zClass's start, reset and pool flag (list.cpp:338, :350; app_engine.cpp:853), the copy refusals for light and sound nodes (cls_util.cpp:208) |
+| 0x004ed980 | 11 | folded | ported, by docs/symbols.csv: ported inline in gmod_draw: node +0xc0 = [0x5e9e2c] (update_frame) after the static bake |
+| 0x004ed9c0 | 11 | folded | ported, by docs/symbols.csv: ported as zcls::segment_options().first_hit ([0x0060b968]) |
+| 0x004ed9d0 | 11 | folded | covered by the port where it names it (src/gamez/zclass/cls_di.h:85) |
+| 0x004ed9e0 | 15 | folded | covered by the port where it names it (src/gamez/zclass/cls_di.h:86) |
+| 0x004eda00 | 13 | folded | ported, by docs/symbols.csv: ported as zcls::segment_options().exclude ([0x0060b974]) |
+| 0x004f0020 | 249 | folded | covered: a piece of the ported ray query (0x004f0020 runs in its caller's stack frame), a world's ground value (0x004f2480, from the ported sound 0x004f3170) |
+| 0x004f0f00 | 35 | folded | covered by the port where it names it (src/gamez/zclass/cls_di.cpp:1267) |
+| 0x004f1810 | 32 | folded | covered by the port where it names it (src/gamez/zclass/cls_world.cpp:220) |
+| 0x004f22f0 | 21 | folded | covered by the port where it names it (src/gamez/zdeclient/zdec_crater.cpp:365) |
+| 0x004f2480 | 12 | folded | covered: a piece of the ported ray query (0x004f0020 runs in its caller's stack frame), a world's ground value (0x004f2480, from the ported sound 0x004f3170) |
+| 0x004f2490 | 12 | folded | covered by the port where it names it (src/mech3/game_editor_net.cpp:127) |
+| 0x004f33e0 | 24 | folded | covered by the port where it names it (src/gamez/zclass/cls_node.cpp:548) |
+| 0x004f3540 | 13 | unused: PORT (preserve) | no effect in the original (app_engine.cpp's list): a camera word nothing reads (0x004f3540), zClass's start defaults the port's initialisers already hold (0x004f8f20), a zSave registration with flag 0 (0x004f8f60) |
+| 0x004f3630 | 25 | folded | covered by the program's overrides or ports: immediate delete (app_mission.cpp:1567), node flags (app_mech.cpp:200), the node box (cls_di.cpp:1267), stamps frozen (app_mech.cpp:212), the scene walk's callbacks (app_mech.cpp:207), the HUD window's rect (app_hud.cpp:194), the deferred-delete list (list.cpp:189), zClass's start, reset and pool flag (list.cpp:338, :350; app_engine.cpp:853), the copy refusals for light and sound nodes (cls_util.cpp:208) |
+| 0x004f4d4d | 95 | folded | a piece of the ported function before it (Ghidra split it there) (0x004f4ab0) |
+| 0x004f5a00 | 31 | folded | covered by the port where it names it (src/gamez/zclass/camera.cpp:488) |
+| 0x004f6dc0 | 102 | software renderer | the camera's software scene walk (0x004f6dc0 without a device; hud.md: the software path) |
+| 0x004f7630 | 16 | folded | covered by the program's overrides or ports: immediate delete (app_mission.cpp:1567), node flags (app_mech.cpp:200), the node box (cls_di.cpp:1267), stamps frozen (app_mech.cpp:212), the scene walk's callbacks (app_mech.cpp:207), the HUD window's rect (app_hud.cpp:194), the deferred-delete list (list.cpp:189), zClass's start, reset and pool flag (list.cpp:338, :350; app_engine.cpp:853), the copy refusals for light and sound nodes (cls_util.cpp:208) |
+| 0x004f7650 | 16 | folded | covered by the program's overrides or ports: immediate delete (app_mission.cpp:1567), node flags (app_mech.cpp:200), the node box (cls_di.cpp:1267), stamps frozen (app_mech.cpp:212), the scene walk's callbacks (app_mech.cpp:207), the HUD window's rect (app_hud.cpp:194), the deferred-delete list (list.cpp:189), zClass's start, reset and pool flag (list.cpp:338, :350; app_engine.cpp:853), the copy refusals for light and sound nodes (cls_util.cpp:208) |
+| 0x004f8c30 | 9 | folded | a thunk: one call to another function |
+| 0x004f8f20 | 10 | unused: PORT (preserve) | no effect in the original (app_engine.cpp's list): a camera word nothing reads (0x004f3540), zClass's start defaults the port's initialisers already hold (0x004f8f20), a zSave registration with flag 0 (0x004f8f60) |
+| 0x004f8f40 | 9 | folded | covered by the program's overrides or ports: immediate delete (app_mission.cpp:1567), node flags (app_mech.cpp:200), the node box (cls_di.cpp:1267), stamps frozen (app_mech.cpp:212), the scene walk's callbacks (app_mech.cpp:207), the HUD window's rect (app_hud.cpp:194), the deferred-delete list (list.cpp:189), zClass's start, reset and pool flag (list.cpp:338, :350; app_engine.cpp:853), the copy refusals for light and sound nodes (cls_util.cpp:208) |
+| 0x004f8f60 | 11 | unused: PORT (preserve) | no effect in the original (app_engine.cpp's list): a camera word nothing reads (0x004f3540), zClass's start defaults the port's initialisers already hold (0x004f8f20), a zSave registration with flag 0 (0x004f8f60) |
+| 0x004f8f70 | 14 | folded | covered by the program's overrides or ports: immediate delete (app_mission.cpp:1567), node flags (app_mech.cpp:200), the node box (cls_di.cpp:1267), stamps frozen (app_mech.cpp:212), the scene walk's callbacks (app_mech.cpp:207), the HUD window's rect (app_hud.cpp:194), the deferred-delete list (list.cpp:189), zClass's start, reset and pool flag (list.cpp:338, :350; app_engine.cpp:853), the copy refusals for light and sound nodes (cls_util.cpp:208) |
+| 0x004f96b0 | 10 | folded | covered by the program's overrides or ports: immediate delete (app_mission.cpp:1567), node flags (app_mech.cpp:200), the node box (cls_di.cpp:1267), stamps frozen (app_mech.cpp:212), the scene walk's callbacks (app_mech.cpp:207), the HUD window's rect (app_hud.cpp:194), the deferred-delete list (list.cpp:189), zClass's start, reset and pool flag (list.cpp:338, :350; app_engine.cpp:853), the copy refusals for light and sound nodes (cls_util.cpp:208) |
+| 0x004f96d0 | 10 | folded | covered by the program's overrides or ports: immediate delete (app_mission.cpp:1567), node flags (app_mech.cpp:200), the node box (cls_di.cpp:1267), stamps frozen (app_mech.cpp:212), the scene walk's callbacks (app_mech.cpp:207), the HUD window's rect (app_hud.cpp:194), the deferred-delete list (list.cpp:189), zClass's start, reset and pool flag (list.cpp:338, :350; app_engine.cpp:853), the copy refusals for light and sound nodes (cls_util.cpp:208) |
+| 0x004f9820 | 10 | folded | covered by the port where it names it (src/gamez/zclass/cls_util.cpp:207) |
+| 0x004f99b0 | 10 | folded | covered by the port where it names it (src/gamez/zclass/cls_util.cpp:206) |
+| 0x004f99d0 | 10 | folded | covered by the port where it names it (src/gamez/zclass/cls_util.cpp:210) |
+| 0x004f9f60 | 24 | folded | covered by the port where it names it (src/gamez/zclass/cls_node.cpp:548) |
+| 0x004fa540 | 24 | folded | covered by the port where it names it (src/gamez/zclass/cls_node.cpp:548) |
+| 0x004fa900 | 24 | folded | covered by the port where it names it (src/gamez/zclass/cls_node.cpp:549) |
+| 0x004fc470 | 14 | folded | covered by the port where it names it (src/gamez/zclass/cls_mechlib.cpp:126) |
+| 0x004fc4d0 | 18 | unused: PORT (preserve) | mechlib's material writer at close (0x004fc990 -> 0x004fcca0 -> 0x004fc4d0): dead (mechlib.md) |
+| 0x004fc5d0 | 35 | folded | covered by the port where it names it (src/gamez/zclass/cls_mechlib.h:38) |
+| 0x004fc990 | 21 | unused: PORT (preserve) | mechlib's material writer at close (0x004fc990 -> 0x004fcca0 -> 0x004fc4d0): dead (mechlib.md) |
+| 0x004fcca0 | 39 | unused: PORT (preserve) | mechlib's material writer at close (0x004fc990 -> 0x004fcca0 -> 0x004fc4d0): dead (mechlib.md) |
+| 0x004fd1c0 | 13 | folded | covered by the port where it names it (src/mech3/menu_widgets.h:233) |
+| 0x004fd230 | 30 | folded | covered by the port where it names it (src/gamez/zclass/cls_node.cpp:550) |
+| 0x004fd440 | 24 | folded | covered by the port where it names it (src/gamez/zclass/cls_node.cpp:550) |
+| 0x004fd900 | 30 | folded | covered by the port where it names it (src/gamez/zclass/cls_node.cpp:549) |
+| 0x004fe0b0 | 9 | folded | covered by the port where it names it (src/gamez/zclass/cls_node.cpp:584) |
+| 0x004fe0f0 | 9 | folded | covered by the port where it names it (src/gamez/zclass/list.cpp:354) |
 
 ### zreader (50 not ported)
 

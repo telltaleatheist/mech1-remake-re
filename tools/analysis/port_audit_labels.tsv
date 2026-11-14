@@ -1173,33 +1173,27 @@
 0x0058a7b0	sdl	DirectPlay: the sessions, players and groups lists, the providers and connections (IDirectPlay4A), the lobby launch (0x005899b0 / 0x00589a50) and a game service's score report that does not exist (0x00589d00..0x00589e30): the port's ENet transport and its own session and player lists replace them (multiplayer-port.md)
 0x0058a7f0	sdl	DirectPlay: the sessions, players and groups lists, the providers and connections (IDirectPlay4A), the lobby launch (0x005899b0 / 0x00589a50) and a game service's score report that does not exist (0x00589d00..0x00589e30): the port's ENet transport and its own session and player lists replace them (multiplayer-port.md)
 0x0058a830	sdl	DirectPlay: the sessions, players and groups lists, the providers and connections (IDirectPlay4A), the lobby launch (0x005899b0 / 0x00589a50) and a game service's score report that does not exist (0x00589d00..0x00589e30): the port's ENet transport and its own session and player lists replace them (multiplayer-port.md)
-0x0058c590	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058d3c0	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058e440	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058e460	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058ec20	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058ec90	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058ecd0	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058ed00	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058ed40	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058eda0	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058ee10	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058ee40	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f170	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f270	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f2d0	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f2e0	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f420	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f580	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f630	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f6a0	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f740	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f770	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f780	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f790	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f7a0	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f7b0	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f8b0	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
+0x0058c590	folded	the destructor of a holder of one of the view's lists (from 0x0058e420): the port's lists are std::list
+0x0058e440	folded	the cursor element's place set (vtable 0x005cf250's +0x2c: three floats to its point): the port keeps the cursor's point as View::cursor_at
+0x0058e460	folded	the cursor element's link k (vtable 0x005cf250's +0x08: the k-th of its list, else its +0x10): the port's cursor lines (View::cursor_lines)
+0x0058ec20	folded	container code of the view's std::list<Link> (the cursor lines): cleared
+0x0058ec90	folded	container code of the view's std::vector<Link>: destroyed
+0x0058ecd0	folded	container code of the view's std::vector<Link>: its size
+0x0058ed00	folded	container code of the view's std::vector<Mark>: destroyed
+0x0058ed40	folded	container code of the view's std::list<Link>: an item inserted (0x0058f420 its copy)
+0x0058eda0	folded	container code of the view's std::list<Link>: a range erased
+0x0058ee10	folded	container code of the view's std::list<Link>: a node made
+0x0058ee40	folded	container code of the view's std::vector<Link>: insert and reserve
+0x0058f170	folded	container code of the view's std::vector<Link>: a range erased (0x0058f630 the arrows' copy)
+0x0058f270	folded	container code of the view's std::vector<Link>: a range destroyed
+0x0058f2d0	folded	container code: a Mark copied into place when not null (0x0058f580), from the vector's insert
+0x0058f2e0	folded	the Link's assignment (its arrows by 0x0059fe50): the port's Link copies as a struct
+0x0058f420	folded	the Link's copy constructor (the ahead arrow's vtable 0x005cf050 set again, the back's 0x005cf2d8): the port's Link copies as a struct
+0x0058f580	folded	the Mark's copy constructor (its circle 0x005cf150 by 0x0059fdf0): the port's Mark copies as a struct
+0x0058f630	folded	the arrow's assignment (0x0059fe50, then its fields): the port's ArrowObject copies as a struct
+0x0058f6a0	folded	the back arrow's constructor (0x0058d350, then vtable 0x005cf2d8): the port's ArrowObject(true)
+0x0058f740	folded	the arrows' left-up and right-up (+0x30, +0x34 of 0x005cf050 / 0x005cf1d0 / 0x005cf2d8): with a live link, the empty 0x004bf620: nothing
+0x0058f8b0	folded	the view's window's MFC message map (vtable 0x005cf358's): replaced by zTwoD's routing in the port
 0x0058a8c0	folded	covered: the DirectPlay error names (znet_dplay.cpp:142 names each through localize), the sessions' list clear (znet_session.cpp:248), the net view's inlined steps (znet_view.cpp:68, :151), the net object's static, ZGameApp's base InitInstance and engine start (overridden by the app's 0x00480000 / 0x00480570, game-loop.md)
 0x00587ed0	folded	covered: the DirectPlay error names (znet_dplay.cpp:142 names each through localize), the sessions' list clear (znet_session.cpp:248), the net view's inlined steps (znet_view.cpp:68, :151), the net object's static, ZGameApp's base InitInstance and engine start (overridden by the app's 0x00480000 / 0x00480570, game-loop.md)
 0x0058ce10	folded	covered: the DirectPlay error names (znet_dplay.cpp:142 names each through localize), the sessions' list clear (znet_session.cpp:248), the net view's inlined steps (znet_view.cpp:68, :151), the net object's static, ZGameApp's base InitInstance and engine start (overridden by the app's 0x00480000 / 0x00480570, game-loop.md)

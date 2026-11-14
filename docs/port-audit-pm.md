@@ -68,14 +68,14 @@ produces; the label names the compared value. Reaching a function, or running a 
 
 | Class | Functions |
 |---|---|
-| folded | 4072 |
+| folded | 4093 |
 | replaced (SDL or the platform layer) | 266 |
 | software renderer | 115 |
 | MISSING LOGIC | 88 |
 | dev dialog (MFC), its logic: PORT (preserve) | 84 |
 | unused: PORT (preserve) | 76 |
 | dev dialog (MFC), its window plumbing: replaced | 53 |
-| debug or dev tool: PORT (preserve) | 37 |
+| debug or dev tool: PORT (preserve) | 8 |
 | MISSING LOGIC (only data the shipped game lacks reaches it) | 3 |
 
 ## MISSING LOGIC
@@ -104,38 +104,9 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 ### debug or dev tool: PORT (preserve)
 
 - 1 functions, 32 decomp lines (0x004a6940): as MW3 0x004a3550: the vehicle pick of debug command 0x8a (app_key, never bound in the release): an MFC dialog (resource 0x430's list, 0x004aef00) whose chosen vehicle gets the view (its vt+0x108); with the dialog sittings
-- 1 functions, 11 decomp lines (0x004c7c80): as MW3 0x0058f2d0, whose class PM's changes keep: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-- 1 functions, 13 decomp lines (0x004c7c90): called only from 0x004c7cf0, which are debug
-- 1 functions, 20 decomp lines (0x004c7cf0): called only from 0x004c7c80, which are debug
 - 1 functions, 9 decomp lines (0x004f38c0): as MW3 0x004e2310: the valve reader's print method (a vtable slot that fprintf's a value); nothing in the game prints a reader
 - 1 functions, 9 decomp lines (0x004f7250): as MW3 0x004e53b0: the valve reader's print method (a vtable slot that fprintf's a value); nothing in the game prints a reader
 - 1 functions, 35 decomp lines (0x00511180): the node class names for PM's mechlib trace lines (0x00511640 to stderr, 'read node: %s type %s'), its only use; the port leaves the trace lines out (pm/gamez/zclass/cls_mechlib.cpp:15)
-- 1 functions, 34 decomp lines (0x005adf40): as MW3 0x0058c590, whose class PM's changes keep: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-- 1 functions, 89 decomp lines (0x005aecb0): as MW3 0x0058d3c0: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-- 1 functions, 14 decomp lines (0x005afc50): as MW3 0x0058e440: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-- 1 functions, 21 decomp lines (0x005afc70): by the slot pairing: PM vtable 0x5f1758 slot 0x8 is MW3 vtable 0x5cf250's 0x0058e460 (MW3 debug or dev tool: PORT (preserve): the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor doe), the feature compare equal (7f6e9e10)
-- 1 functions, 26 decomp lines (0x005b0300): as MW3 0x0058ec20: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-- 1 functions, 19 decomp lines (0x005b0360): as MW3 0x0058ec90: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-- 1 functions, 11 decomp lines (0x005b03a0): as MW3 0x0058ecd0: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-- 1 functions, 19 decomp lines (0x005b03d0): as MW3 0x0058ed00: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-- 1 functions, 28 decomp lines (0x005b0410): as MW3 0x0058ed40: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-- 1 functions, 24 decomp lines (0x005b0470): as MW3 0x0058eda0: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-- 1 functions, 20 decomp lines (0x005b04d0): as MW3 0x0058ee10: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-- 1 functions, 138 decomp lines (0x005b0500): as MW3 0x0058ee40, whose class PM's changes keep: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-- 1 functions, 60 decomp lines (0x005b08b0): as MW3 0x0058f170: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-- 1 functions, 11 decomp lines (0x005b09c0): as MW3 0x0058f270: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-- 1 functions, 77 decomp lines (0x005b0a30): as MW3 0x0058f420: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-- 1 functions, 37 decomp lines (0x005b0b90): as MW3 0x0058f580: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-- 1 functions, 78 decomp lines (0x005b0c60): as MW3 0x0058f2e0: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-- 1 functions, 33 decomp lines (0x005b0dc0): as MW3 0x0058f630: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-- 1 functions, 10 decomp lines (0x005b0e30): as MW3 0x0058f6a0: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-- 1 functions, 11 decomp lines (0x005b0ed0): as MW3 0x0058f740: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-- 1 functions, 11 decomp lines (0x005b0f00): as MW3 0x0058f770: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-- 1 functions, 11 decomp lines (0x005b0f10): as MW3 0x0058f780: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-- 1 functions, 11 decomp lines (0x005b0f20): as MW3 0x0058f790: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-- 1 functions, 11 decomp lines (0x005b0f30): as MW3 0x0058f7a0: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-- 1 functions, 11 decomp lines (0x005b0f40): as MW3 0x0058f7b0: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-- 1 functions, 8 decomp lines (0x005b1040): as MW3 0x0058f8b0: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
 - 1 functions, 17 decomp lines (0x005cc5b0): as MW3 0x005a98d0: the developers' loose <name>.zan override for motion scripts (motion.md:36), like the reader's loose .zrd files
 - 1 functions, 29 decomp lines (0x005cc880): as MW3 0x005a9bc0: the motion script's text side: the loose .zan reader (0x005a9e10, with 0x005aa210) behind the developers' override, and the writer (0x005a9bc0)
 - 1 functions, 168 decomp lines (0x005ccaf0): as MW3 0x005a9e10: the motion script's text side: the loose .zan reader (0x005a9e10, with 0x005aa210) behind the developers' override, and the writer (0x005a9bc0)
@@ -2476,9 +2447,9 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x004c7ad0 | 11 | folded | covered by the port where it names it (src/mech3/zai_brain.cpp:257) |
 | 0x004c7af0 | 12 | folded | read: the scalar deleting destructor (the destructor 0x004c7b10, then delete when bit 0 is set); the port deletes its objects itself, the destructor labelled on its own row |
 | 0x004c7b10 | 10 | folded | read: small pieces: a slot calling 0x004e5640 with its vt+0x18; getters (+0x08); a valve record's two ranges squared at its end (0x004e9260); destructors putting the vtable back (0x004c7a60, 0x004c7b10) |
-| 0x004c7c80 | 11 | debug or dev tool: PORT (preserve) | as MW3 0x0058f2d0, whose class PM's changes keep: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x004c7c90 | 13 | debug or dev tool: PORT (preserve) | called only from 0x004c7cf0, which are debug |
-| 0x004c7cf0 | 20 | debug or dev tool: PORT (preserve) | called only from 0x004c7c80, which are debug |
+| 0x004c7c80 | 11 | folded | read: pieces of PM's in/out (boundary) queries inside their ported functions (zainet_inout.cpp: the polygon passes 0x004c9600's loops at :62-110, the via walks 0x004ce2f0 / 0x004c7d60 / 0x004c7c00, the side tests 0x004cb2d0 / 0x004cab20): the for_each functors and their constructors (vtables 0x005ed5d8..0x005ed5e8), loops over the vias, a query record's defaults (FLT_MAX), a cross-product step, an offset along a side's normal, a vector freed, a deleter, a predicate, small copies and setters, the boundary listener's +0x18 (0x004c7dc0 at the mission's end), a static reset; with 0x004c7cf0 / 0x004c7c90: 0x004c7dc0's step for each item, its list (+0x58) and each sub's (+0x48) emptied (not the net view's: the diff paired it with MW3's 0x0058f2d0) |
+| 0x004c7c90 | 13 | folded | as 0x004c7c80: a sub's list emptied (+0x4c = +0x48) |
+| 0x004c7cf0 | 20 | folded | as 0x004c7c80: PM's in/out queries' piece, an item's list emptied and each of its 0x54-byte subs' (0x004c7c90) |
 | 0x004c7dc0 | 15 | folded | read: pieces of PM's in/out (boundary) queries inside their ported functions (zainet_inout.cpp: the polygon passes 0x004c9600's loops at :62-110, the via walks 0x004ce2f0 / 0x004c7d60 / 0x004c7c00, the side tests 0x004cb2d0 / 0x004cab20): the for_each functors and their constructors (vtables 0x005ed5d8..0x005ed5e8), loops over the vias, a query record's defaults (FLT_MAX), a cross-product step, an offset along a side's normal, a vector freed, a deleter, a predicate, small copies and setters, the boundary listener's +0x18 (0x004c7dc0 at the mission's end), a static reset |
 | 0x004c7df0 | 12 | folded | read: pieces of PM's in/out (boundary) queries inside their ported functions (zainet_inout.cpp: the polygon passes 0x004c9600's loops at :62-110, the via walks 0x004ce2f0 / 0x004c7d60 / 0x004c7c00, the side tests 0x004cb2d0 / 0x004cab20): the for_each functors and their constructors (vtables 0x005ed5d8..0x005ed5e8), loops over the vias, a query record's defaults (FLT_MAX), a cross-product step, an offset along a side's normal, a vector freed, a deleter, a predicate, small copies and setters, the boundary listener's +0x18 (0x004c7dc0 at the mission's end), a static reset |
 | 0x004c7e00 | 12 | folded | read: pieces of PM's in/out (boundary) queries inside their ported functions (zainet_inout.cpp: the polygon passes 0x004c9600's loops at :62-110, the via walks 0x004ce2f0 / 0x004c7d60 / 0x004c7c00, the side tests 0x004cb2d0 / 0x004cab20): the for_each functors and their constructors (vtables 0x005ed5d8..0x005ed5e8), loops over the vias, a query record's defaults (FLT_MAX), a cross-product step, an offset along a side's normal, a vector freed, a deleter, a predicate, small copies and setters, the boundary listener's +0x18 (0x004c7dc0 at the mission's end), a static reset |
@@ -2557,7 +2528,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x004ce780 | 9 | folded | as MW3 0x004c4170: the AI's mission boundary and region views (zainet_inout, zainet_inout_view; ai.md section 11): vector and list instances, the polygon and area constructors and destructors, the walks the port does as loops, getters, start-up templates |
 | 0x004ce7a0 | 9 | folded | follows 0x004ce7c0: read: MW3's 0x004c41b0 (the in/out view freed: the root off its parents, its tree destroyed, the holder deleted), unpaired by the diff; the port's inout_view_free (zainet_inout_view.cpp:169) |
 | 0x004ce7c0 | 30 | folded | read: MW3's 0x004c41b0 (the in/out view freed: the root off its parents, its tree destroyed, the holder deleted), unpaired by the diff; the port's inout_view_free (zainet_inout_view.cpp:169) |
-| 0x004ce8a0 | 23 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:2616) |
+| 0x004ce8a0 | 23 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:2618) |
 | 0x004ced50 | 16 | folded | inside its ported callers (0x004cedd0): a small helper their ports do their own way |
 | 0x004cefc0 | 52 | folded | read: MW3's 0x004c4730 (zainet_inout_view.cpp: the net's view objects under one root joined to the world) with MW3's helpers inlined (the next entry 0x004c5530 written as its loop over 0x004cea50, MW3's 0x004c43b0) and the world's join through its vt+4 where MW3's is vt+0 (PM's world class has a slot more in front: every call on [0x0062ca90] is one slot on from MW3's on [0x00608c84], 12 of 13) |
 | 0x004cf270 | 10 | folded | as MW3 0x004c4980: the AI's mission boundary and region views (zainet_inout, zainet_inout_view; ai.md section 11): vector and list instances, the polygon and area constructors and destructors, the walks the port does as loops, getters, start-up templates |
@@ -3941,7 +3912,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x00515e40 | 25 | folded | read: teardown frees at the list system's end (each list's nodes and the free pools released, their counts cleared; from 0x0050c340, MW3's 0x004f8ab0, and 0x0050caf0, MW3's 0x004f8fb0); the port's objects free themselves |
 | 0x00517960 | 30 | folded | covered by the port where it names it (src/pm/gamez/zclass/cls_zbd.cpp:106) |
 
-### znetwork (168 not ported)
+### znetwork (160 not ported)
 
 | Address | Lines | Class | Why |
 |---|---|---|---|
@@ -4045,19 +4016,18 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x005acc70 | 25 | folded | as MW3 0x0058b220: covered: the DirectPlay error names (znet_dplay.cpp:142 names each through localize), the sessions' list clear (znet_session.cpp:248), the net view's inlined steps (znet_view.cpp:68, :151), the net object's static, ZGameApp's base InitInstance and engine start (overridden by the app's 0x00480000 / 0x00480570, game-loop.md) |
 | 0x005acd30 | 29 | folded | covered by the port where it names it (src/gamez/znetwork/znet_object.cpp:15) |
 | 0x005acd90 | 16 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.h:13) |
-| 0x005aced0 | 12 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:528) |
-| 0x005acef0 | 11 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:507) |
+| 0x005aced0 | 12 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:552) |
+| 0x005acef0 | 11 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:531) |
 | 0x005acf10 | 126 | folded | by the slot pairing: PM vtable 0x5f1560 slot 0x4 is MW3 vtable 0x5cf048's 0x0058b550 (MW3 ported src/gamez/znetwork/znet_view.cpp:396), the feature compare equal (7f6e9e10) |
 | 0x005ad8e0 | 209 | folded | read against MW3's twins side by side (ported in gamez/zweapon and gamez/znetwork): the same steps and constants (sign forms aside), PM's projectile layout (speed +0x60c, range +0x630, +0x63c), its manager passed where MW3 used globals, its larger stack hit records: a projectile's hit (0x005a8090, MW3's 0x00586350), a thrown mine's bounce (0x005a8510, MW3's 0x00586740), the network view's marks (0x005ad8e0, MW3's 0x0058bf50) |
 | 0x005adf20 | 12 | folded | read: the scalar deleting destructor (the destructor 0x005adfe0, then delete when bit 0 is set); the port deletes its objects itself, the destructor labelled on its own row |
-| 0x005adf40 | 34 | debug or dev tool: PORT (preserve) | as MW3 0x0058c590, whose class PM's changes keep: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
+| 0x005adf40 | 34 | folded | as MW3 0x0058c590: the destructor of a holder of one of the view's lists: the port's lists are std::list |
 | 0x005adfc0 | 9 | folded | folded, by the feature compare and the order-aware compare (tools/analysis/pm_shape_compare.py: the same calls, tests and constants in order) against its MW3 twin; the only immediates that differ are error reports' line numbers (each checked to be the report's argument, 0x00406cb0 / 0x0049bfd0) |
 | 0x005adfd0 | 10 | folded | folded, by the feature compare and the order-aware compare (tools/analysis/pm_shape_compare.py: the same calls, tests and constants in order) against its MW3 twin; the only immediates that differ are error reports' line numbers (each checked to be the report's argument, 0x00406cb0 / 0x0049bfd0) |
 | 0x005adfe0 | 77 | folded | read against MW3's twins side by side: the same steps, PM's this and handles passed where MW3 used registers, arrays grown through PM's realloc 0x00596520, PM's node helpers: a light from the weapons' pool lit at a point (0x005a8820, MW3's 0x00586b20, zwep_shot.cpp:902), the network view's destructor (0x005adfe0, MW3's 0x0058c640), the network's receive loop (0x005a9850, MW3's 0x00588930, znet_session.cpp:208), and the app's main loop with its message pump, the interpreter's poll and the network's receive (0x005b1550, MW3's 0x0058fd70, zgameapp.cpp:73) |
 | 0x005ae380 | 23 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.h:53) |
 | 0x005ae730 | 65 | folded | as MW3 0x0058ce10: covered: the DirectPlay error names (znet_dplay.cpp:142 names each through localize), the sessions' list clear (znet_session.cpp:248), the net view's inlined steps (znet_view.cpp:68, :151), the net object's static, ZGameApp's base InitInstance and engine start (overridden by the app's 0x00480000 / 0x00480570, game-loop.md) |
-| 0x005aec40 | 25 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.h:112) |
-| 0x005aecb0 | 89 | debug or dev tool: PORT (preserve) | as MW3 0x0058d3c0: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
+| 0x005aec40 | 25 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.h:113) |
 | 0x005af220 | 19 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:31) |
 | 0x005af2f0 | 144 | folded | folded, by the feature compare and the order-aware compare (the same calls, tests and constants in order, constants compared by value) against its MW3 twin, ported; its flags only float constants against their negatives and immediates that are structure offsets or sizes (multiples of 4 from 0x40, PM's layouts) or error reports' line numbers |
 | 0x005af690 | 87 | folded | as MW3 0x0058de40: covered: the DirectPlay error names (znet_dplay.cpp:142 names each through localize), the sessions' list clear (znet_session.cpp:248), the net view's inlined steps (znet_view.cpp:68, :151), the net object's static, ZGameApp's base InitInstance and engine start (overridden by the app's 0x00480000 / 0x00480570, game-loop.md) |
@@ -4065,46 +4035,39 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x005afbb0 | 28 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:58) |
 | 0x005afc20 | 12 | folded | read: the scalar deleting destructor (the destructor 0x005adf40, then delete when bit 0 is set); the port deletes its objects itself, the destructor labelled on its own row |
 | 0x005afc40 | 8 | folded | as MW3 0x004d7250: covered: the AI states' constructors and destructors, the deploy listener, the brain's IControls cast (0x004d1e60, its vtable slots ported as BrainHooks), the animation root's move (zai_target), the valves' and owners' lists, the nets' begin and end (app_mission.cpp:697, app_vehicle.cpp:743; player.h's 'not ported' note is stale), saved_or_ally (app_hud.cpp:685), the entity lookup by name, the sensors' sort, list instances |
-| 0x005afc50 | 14 | debug or dev tool: PORT (preserve) | as MW3 0x0058e440: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x005afc70 | 21 | debug or dev tool: PORT (preserve) | by the slot pairing: PM vtable 0x5f1758 slot 0x8 is MW3 vtable 0x5cf250's 0x0058e460 (MW3 debug or dev tool: PORT (preserve): the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor doe), the feature compare equal (7f6e9e10) |
+| 0x005afc50 | 14 | folded | as MW3 0x0058e440: the cursor element's place set (vtable 0x005cf250's +0x2c: three floats to its point): the port keeps the cursor's point as View::cursor_at |
+| 0x005afc70 | 21 | folded | as MW3 0x0058e460 (vtable 0x5f1758's +0x08): the cursor element's link k: the port's cursor lines (View::cursor_lines) |
 | 0x005afca0 | 8 | folded | returns a constant or a global |
 | 0x005afee0 | 18 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:141) |
 | 0x005aff20 | 45 | folded | as MW3 0x0058e7b0: covered: the DirectPlay error names (znet_dplay.cpp:142 names each through localize), the sessions' list clear (znet_session.cpp:248), the net view's inlined steps (znet_view.cpp:68, :151), the net object's static, ZGameApp's base InitInstance and engine start (overridden by the app's 0x00480000 / 0x00480570, game-loop.md) |
 | 0x005affa0 | 35 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:159) |
 | 0x005b0020 | 18 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:180) |
-| 0x005b0060 | 34 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:261) |
-| 0x005b00d0 | 30 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:267) |
-| 0x005b0140 | 9 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:253) |
-| 0x005b0150 | 13 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:257) |
-| 0x005b0180 | 10 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.h:173) |
+| 0x005b0060 | 34 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:285) |
+| 0x005b00d0 | 30 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:291) |
+| 0x005b0140 | 9 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:277) |
+| 0x005b0150 | 13 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:281) |
+| 0x005b0180 | 10 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.h:175) |
 | 0x005b01a0 | 9 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:167) |
 | 0x005b01b0 | 9 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:175) |
-| 0x005b0300 | 26 | debug or dev tool: PORT (preserve) | as MW3 0x0058ec20: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x005b0360 | 19 | debug or dev tool: PORT (preserve) | as MW3 0x0058ec90: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x005b03a0 | 11 | debug or dev tool: PORT (preserve) | as MW3 0x0058ecd0: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x005b03d0 | 19 | debug or dev tool: PORT (preserve) | as MW3 0x0058ed00: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x005b0410 | 28 | debug or dev tool: PORT (preserve) | as MW3 0x0058ed40: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x005b0470 | 24 | debug or dev tool: PORT (preserve) | as MW3 0x0058eda0: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x005b04d0 | 20 | debug or dev tool: PORT (preserve) | as MW3 0x0058ee10: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x005b0500 | 138 | debug or dev tool: PORT (preserve) | as MW3 0x0058ee40, whose class PM's changes keep: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x005b08b0 | 60 | debug or dev tool: PORT (preserve) | as MW3 0x0058f170: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x005b09c0 | 11 | debug or dev tool: PORT (preserve) | as MW3 0x0058f270: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
+| 0x005b0300 | 26 | folded | as MW3 0x0058ec20: container code of the view's std::list<Link> (the cursor lines): cleared |
+| 0x005b0360 | 19 | folded | as MW3 0x0058ec90: container code of the view's std::vector<Link>: destroyed |
+| 0x005b03a0 | 11 | folded | as MW3 0x0058ecd0: container code of the view's std::vector<Link>: its size |
+| 0x005b03d0 | 19 | folded | as MW3 0x0058ed00: container code of the view's std::vector<Mark>: destroyed |
+| 0x005b0410 | 28 | folded | as MW3 0x0058ed40: container code of the view's std::list<Link>: an item inserted (0x0058f420 its copy) |
+| 0x005b0470 | 24 | folded | as MW3 0x0058eda0: container code of the view's std::list<Link>: a range erased |
+| 0x005b04d0 | 20 | folded | as MW3 0x0058ee10: container code of the view's std::list<Link>: a node made |
+| 0x005b0500 | 138 | folded | as MW3 0x0058ee40: container code of the view's std::vector<Link>: insert and reserve |
+| 0x005b08b0 | 60 | folded | as MW3 0x0058f170: container code of the view's std::vector<Link>: a range erased (0x0058f630 the arrows' copy) |
+| 0x005b09c0 | 11 | folded | as MW3 0x0058f270: container code of the view's std::vector<Link>: a range destroyed |
 | 0x005b09f0 | 16 | folded | read: a std::list node erased (the STL's erase: unlinked, freed, the count lowered, the next returned), 10 callers; the port's lists |
-| 0x005b0a30 | 77 | debug or dev tool: PORT (preserve) | as MW3 0x0058f420: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x005b0b90 | 37 | debug or dev tool: PORT (preserve) | as MW3 0x0058f580: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x005b0c60 | 78 | debug or dev tool: PORT (preserve) | as MW3 0x0058f2e0: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
+| 0x005b0a30 | 77 | folded | as MW3 0x0058f420: the Link's copy constructor (the ahead arrow's vtable 0x005cf050 set again, the back's 0x005cf2d8): the port's Link copies as a struct |
+| 0x005b0b90 | 37 | folded | as MW3 0x0058f580: the Mark's copy constructor (its circle 0x005cf150 by 0x0059fdf0): the port's Mark copies as a struct |
+| 0x005b0c60 | 78 | folded | as MW3 0x0058f2e0: the Link's assignment (its arrows by 0x0059fe50): the port's Link copies as a struct |
 | 0x005b0da0 | 12 | folded | inside its ported callers (0x005adfe0): a small helper their ports do their own way |
-| 0x005b0dc0 | 33 | debug or dev tool: PORT (preserve) | as MW3 0x0058f630: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x005b0e30 | 10 | debug or dev tool: PORT (preserve) | as MW3 0x0058f6a0: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x005b0ed0 | 11 | debug or dev tool: PORT (preserve) | as MW3 0x0058f740: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x005b0ef0 | 11 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.h:50) |
-| 0x005b0f00 | 11 | debug or dev tool: PORT (preserve) | as MW3 0x0058f770: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x005b0f10 | 11 | debug or dev tool: PORT (preserve) | as MW3 0x0058f780: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x005b0f20 | 11 | debug or dev tool: PORT (preserve) | as MW3 0x0058f790: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x005b0f30 | 11 | debug or dev tool: PORT (preserve) | as MW3 0x0058f7a0: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x005b0f40 | 11 | debug or dev tool: PORT (preserve) | as MW3 0x0058f7b0: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
-| 0x005b0f50 | 11 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.h:50) |
-| 0x005b1040 | 8 | debug or dev tool: PORT (preserve) | as MW3 0x0058f8b0: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
+| 0x005b0dc0 | 33 | folded | as MW3 0x0058f630: the arrow's assignment (0x0059fe50, then its fields): the port's ArrowObject copies as a struct |
+| 0x005b0e30 | 10 | folded | as MW3 0x0058f6a0: the back arrow's constructor (0x0058d350, then vtable 0x005cf2d8): the port's ArrowObject(true) |
+| 0x005b0ed0 | 11 | folded | as MW3 0x0058f740: the arrows' left-up and right-up (+0x30, +0x34 of 0x005cf050 / 0x005cf1d0 / 0x005cf2d8): with a live link, the empty 0x004bf620: nothing |
+| 0x005b1040 | 8 | folded | as MW3 0x0058f8b0: the view's window's MFC message map (vtable 0x005cf358's): replaced by zTwoD's routing in the port |
 | 0x005b1050 | 57 | folded | read: ZGameApp's destructor, MW3's 0x0058f8d0 with PM's addresses (the app's +0xc0 cleared, the state deque's blocks freed, then CWinApp's); the port's app frees its own (MFC's base replaced) |
 | 0x005b1180 | 12 | folded | read: the scalar deleting destructor (the destructor 0x005b1050, then delete when bit 0 is set); the port deletes its objects itself, the destructor labelled on its own row |
 | 0x005b11a0 | 18 | folded | as MW3 0x0058fa40: covered: the DirectPlay error names (znet_dplay.cpp:142 names each through localize), the sessions' list clear (znet_session.cpp:248), the net view's inlined steps (znet_view.cpp:68, :151), the net object's static, ZGameApp's base InitInstance and engine start (overridden by the app's 0x00480000 / 0x00480570, game-loop.md) |

@@ -1570,3 +1570,15 @@ grab through 0x598600 with the format from 0x5982a0 / 0x5982d0, 0x5333e0 the 24-
 Test: `test_pm_screenshot.py` against PM's exe. 120 screens in four formats grabbed and written, and 80 commands
 (counts 0, 5, 0xfff, 0x7ffffffe and -1, with zero to three names taken), all identical. Breaks caught: the count
 stepped after the write, upper-case hex.
+
+## S7a/S7b: the net view's rest (2026-11-14)
+
+MW3's port (main: the ahead arrows' hit 0x58d3c0, which the port's editor lacked; the view's other rows folded:
+container code, copies, the empty 0x58f740, the MFC message map; editor.md, The net view) crossed. PM's ahead hit
+is 0x5aecb0 on its vtable 0x5f1568 (set by 0x5adc1b, 0x5afceb, 0x5b0abe), the same test: the map gets the pair
+(0x58d3c0, 0x5aecb0) by hand (original.py). PM's other rows (0x5adf40, 0x5afc50, 0x5afc70, 0x5b0300..0x5b1040)
+fold as MW3's twins. 0x4c7c80, 0x4c7cf0 and 0x4c7c90 are not the net view's (the diff paired 0x4c7c80 with MW3's
+0x58f2d0): they are 0x4c7dc0's step over PM's in/out queries' items, each one's list and its subs' emptied, folded
+with that function's neighbours. S7b's split was the diff's, so both halves are done here.
+Test: `test_net_view.py` with MW3_EXE=pm at 53 bits: 600 runs, 576 ahead hits, every state, flag and hit the same
+(6 drawn points a pixel off, as before).
