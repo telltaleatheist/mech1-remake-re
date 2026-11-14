@@ -147,7 +147,7 @@ void Object2D::show_for(float seconds) {
 // Mech3.exe 1.2 @ 0x0059ff50
 void Object2D::hide() { flags |= kHidden; }
 
-// Mech3.exe 1.2 @ 0x005a0050
+// Mech3.exe 1.2 @ 0x005a0050, Pirate's Moon 1.0 @ 0x005c02c0
 void Object2D::set_timer(float seconds) {
   timer = seconds;
   if (0.0f <= seconds) flags |= kTimed;

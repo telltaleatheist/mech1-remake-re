@@ -5,6 +5,7 @@
 
 #include "gamez/zclass/camera.h"
 #include "gamez/zclass/cls_node.h"
+#include "gamez/zgame/zgame_table.h"
 #include "gamez/zmodel/gmod_const.h"
 #include "gamez/zmodel/gmod_matl.h"
 #include "gamez/ztwod/twod_host.h"
@@ -22,7 +23,7 @@ int32_t g_readout_on = 0;  // [0x00603f8c]
 
 DevTextHooks& dev_text_hooks() { return g_hooks; }
 
-// Mech3.exe 1.2 @ 0x0040e840
+// Mech3.exe 1.2 @ 0x0040e840, Pirate's Moon 1.0 @ 0x0040eb80
 DevText::DevText(const char* format, int32_t px, int32_t py) : FontText(format, px, py) {
   set_font(ztwod::host().font_find("mech_string"));  // 0x00517680 on 0x005e14e4
 }
@@ -31,7 +32,7 @@ namespace {
 DevText row() { return DevText(nullptr, 0, 0); }  // 0x0040e830
 }  // namespace
 
-// Mech3.exe 1.2 @ 0x0040ff40
+// Mech3.exe 1.2 @ 0x0040ff40, Pirate's Moon 1.0 @ 0x0040f7a0
 DevLines::DevLines(int32_t x, int32_t y, int32_t dy)
     : rows{row(), row(), row(), row(), row(), row(), row(), row(), row(), row(), row(), row(), row(),
            row(), row(), row(), row(), row(), row(), row(), row(), row(), row(), row(), row()} {
@@ -43,14 +44,14 @@ DevLines::DevLines(int32_t x, int32_t y, int32_t dy)
   }
 }
 
-// Mech3.exe 1.2 @ 0x0040f150
+// Mech3.exe 1.2 @ 0x0040f150, Pirate's Moon 1.0 @ 0x0040fa20
 FpsText::FpsText() : DevText("fps", 2, 12) {
   bg_rect.left = x, bg_rect.top = y;
   bg_rect.right = x + 60, bg_rect.bottom = y + 15;
   hide();
 }
 
-// Mech3.exe 1.2 @ 0x0040f1f0: the frame counted with the unscaled step; past a second, the rate. The text is put
+// Mech3.exe 1.2 @ 0x0040f1f0, Pirate's Moon 1.0 @ 0x0040fae0: the frame counted with the unscaled step; past a second, the rate. The text is put
 // in as the format (the exe's own way: no '%' can be in it).
 void FpsText::update(float dt) {
   const float n = frames - -1.0f;
@@ -76,48 +77,49 @@ void FpsText::update(float dt) {
 }
 
 DevLines& dev_lines() {
-  static DevLines lines(5, 0x5f, 12);  // 0x0040ef60
+  static DevLines lines(5, 0x5f, 12);  // 0x0040ef60 (PM 0x0040f780)
   return lines;
 }
 FpsText& fps_text() {
-  static FpsText fps;  // 0x0040f010
+  static FpsText fps;  // 0x0040f010 (PM 0x0040f8d0)
   return fps;
 }
 ztwod::Layer& dev_layer() {
-  static ztwod::Layer layer;  // 0x0040f0f0 -> 0x0040f130
+  static ztwod::Layer layer;  // 0x0040f0f0 -> 0x0040f130 (PM 0x0040f9c0 -> 0x0040fa00)
   return layer;
 }
 
-// Mech3.exe 1.2 @ 0x0040f7f0
+// Mech3.exe 1.2 @ 0x0040f7f0, Pirate's Moon 1.0 @ 0x00410110
 void dev_text_init(const int32_t* kept, const int32_t* area) {
   ztwod::LineLog& log = ztwod::line_log();
   log.set_font_all("Arial", 10, 500, 6);
   log.set_colors_all(0x996a00, 0x95c7ff);
   const ztwod::Handle font = ztwod::host().font_find("mech_string");
   for (DevText& r : dev_lines().rows) r.set_font(font);  // vt+0x90
+  if (zgame::game().dev_fps_font_pm) fps_text().set_font(font);  // PM: 0x005c1230 on [0x0061ff18]
   dev_text_reset(kept, area);
 }
 
-// Mech3.exe 1.2 @ 0x0040f870
+// Mech3.exe 1.2 @ 0x0040f870, Pirate's Moon 1.0 @ 0x00410190
 bool dev_text_reset(const int32_t* kept, const int32_t* area) {
   message_panel_place(kept, area);  // 0x0040f330: ECX and EDX passed on untouched
   message_panel_reset();                  // 0x0040f040
   return true;
 }
 
-// Mech3.exe 1.2 @ 0x0040f890
+// Mech3.exe 1.2 @ 0x0040f890, Pirate's Moon 1.0 @ 0x004101c0
 void dev_layers_on() {
   dev_layer().set_active(1);
   dev_lines().set_active(1);
 }
 
-// Mech3.exe 1.2 @ 0x0040f8b0
+// Mech3.exe 1.2 @ 0x0040f8b0, Pirate's Moon 1.0 @ 0x004101e0
 void dev_layers_off() {
   dev_layer().set_active(0);
   dev_lines().set_active(0);
 }
 
-// Mech3.exe 1.2 @ 0x0040fb50
+// Mech3.exe 1.2 @ 0x0040fb50, Pirate's Moon 1.0 @ 0x00410470
 void dev_readout(int32_t mode) {
   DevText* rows = dev_lines().rows;
   if (mode == 0) {
@@ -174,7 +176,7 @@ DevMarks& dev_marks() {
   return m;
 }
 
-// Mech3.exe 1.2 @ 0x0040fef0: every value of the table is 0 (0x005e1500..0x005e1548).
+// Mech3.exe 1.2 @ 0x0040fef0, Pirate's Moon 1.0 @ 0x00410820: every value of the table is 0 (0x005e1500..0x005e1548).
 void dev_mark(const char* text) {
   DevMarks& m = dev_marks();
   if (!m.on) return;
@@ -185,7 +187,7 @@ void dev_mark(const char* text) {
   program_briefing_progress(m.value);  // 0x004050d0
 }
 
-// Mech3.exe 1.2 @ 0x0043cb10: into one string kept between calls ([0x00605884]).
+// Mech3.exe 1.2 @ 0x0043cb10, Pirate's Moon 1.0 @ 0x0043dbf0: into one string kept between calls ([0x00605884]).
 const char* hud_zones_text(const uint8_t zones[4]) {
   static std::string s;
   s = "[ ";
@@ -199,7 +201,7 @@ const char* hud_zones_text(const uint8_t zones[4]) {
   return s.c_str();
 }
 
-// Mech3.exe 1.2 @ 0x0043cc00
+// Mech3.exe 1.2 @ 0x0043cc00, Pirate's Moon 1.0 @ 0x0043dcf0
 const char* hud_state_name(int32_t state) {
   static const char* const kNames[] = {"limp",      "stand", "stand_step", "step",    "step_walk",
                                        "walk",      "walk_trot", "trot",   "trot_run", "run",

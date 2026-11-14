@@ -68,13 +68,13 @@ produces; the label names the compared value. Reaching a function, or running a 
 
 | Class | Functions |
 |---|---|
-| folded | 4068 |
+| folded | 4070 |
 | replaced (SDL or the platform layer) | 264 |
 | software renderer | 115 |
 | MISSING LOGIC | 88 |
 | dev dialog (MFC), its logic: PORT (preserve) | 84 |
-| unused: PORT (preserve) | 79 |
-| debug or dev tool: PORT (preserve) | 77 |
+| unused: PORT (preserve) | 76 |
+| debug or dev tool: PORT (preserve) | 60 |
 | dev dialog (MFC), its window plumbing: replaced | 51 |
 | MISSING LOGIC (only data the shipped game lacks reaches it) | 3 |
 
@@ -103,16 +103,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 
 ### debug or dev tool: PORT (preserve)
 
-- 2 functions, 43 decomp lines (0x0040f780, 0x0040f7a0): as MW3 0x0040ff40, whose class PM's changes keep: the developer text lines (25 rows at [0x005fc848], Arial 10): their font and layers (0x0040f7f0, 0x0040f870, 0x0040f890, 0x0040f8b0) and the per-frame readout 0x0040fb50, which writes the lines every frame but whose layers are never on in the release (hud.md section 20; the port's notes: developer only)
-- 2 functions, 42 decomp lines (0x0040f8d0, 0x0040fa20): as MW3 0x0040f150: the developer text lines (25 rows at [0x005fc848], Arial 10): their font and layers (0x0040f7f0, 0x0040f870, 0x0040f890, 0x0040f8b0) and the per-frame readout 0x0040fb50, which writes the lines every frame but whose layers are never on in the release (hud.md section 20; the port's notes: developer only)
-- 1 functions, 24 decomp lines (0x00410110): as MW3 0x0040f7f0, whose class PM's changes keep: the developer text lines (25 rows at [0x005fc848], Arial 10): their font and layers (0x0040f7f0, 0x0040f870, 0x0040f890, 0x0040f8b0) and the per-frame readout 0x0040fb50, which writes the lines every frame but whose layers are never on in the release (hud.md section 20; the port's notes: developer only)
-- 1 functions, 10 decomp lines (0x00410190): called only from 0x00410110, which are debug
-- 1 functions, 10 decomp lines (0x004101c0): as MW3 0x0040f890: the developer text lines (25 rows at [0x005fc848], Arial 10): their font and layers (0x0040f7f0, 0x0040f870, 0x0040f890, 0x0040f8b0) and the per-frame readout 0x0040fb50, which writes the lines every frame but whose layers are never on in the release (hud.md section 20; the port's notes: developer only)
-- 1 functions, 10 decomp lines (0x004101e0): as MW3 0x0040f8b0: the developer text lines (25 rows at [0x005fc848], Arial 10): their font and layers (0x0040f7f0, 0x0040f870, 0x0040f890, 0x0040f8b0) and the per-frame readout 0x0040fb50, which writes the lines every frame but whose layers are never on in the release (hud.md section 20; the port's notes: developer only)
-- 1 functions, 108 decomp lines (0x00410470): as MW3 0x0040fb50, whose class PM's changes keep: the developer text lines (25 rows at [0x005fc848], Arial 10): their font and layers (0x0040f7f0, 0x0040f870, 0x0040f890, 0x0040f8b0) and the per-frame readout 0x0040fb50, which writes the lines every frame but whose layers are never on in the release (hud.md section 20; the port's notes: developer only)
 - 1 functions, 16 decomp lines (0x0041d8f0): as MW3 0x0041ca90: a debug key command (0x6d, case 2 of the key switch 0x0040dba0) toggling the mech's +0x634 bit 1; the release never registers 0x6d (0x0040db60 registers 0x61, 0x6c, 0x70, 0x7e)
-- 1 functions, 45 decomp lines (0x0043dbf0): as MW3 0x0043cb10: the HUD's debug overlays (docs/hud.md section 11: the mech's gait, speeds and the like into five debug texts while the debug text shows, command 0x82); hooked in the port (hud_debug, unported)
-- 1 functions, 39 decomp lines (0x0043dcf0): as MW3 0x0043cc00: the HUD's debug overlays (docs/hud.md section 11: the mech's gait, speeds and the like into five debug texts while the debug text shows, command 0x82); hooked in the port (hud_debug, unported)
 - 2 functions, 39 decomp lines (0x004832a0, 0x00483d50): as MW3 0x004810d0, whose class PM's changes keep: the debug console's overlay toggle (0x00608f74; game-loop.md: from 0x00480b20, itself never called)
 - 2 functions, 115 decomp lines (0x004a65a0, 0x004a6810): debug or dev tool: PORT (preserve): PM's app key handler's dev cases (0x0040ba30, its table over commands 0x69..0xaf, registered by 0x0040b9f0): 0x004a65a0 prints a numbered marker with the view mech's place and heading ("Marker %3d", "V: pos ..."); 0x004a6810 runs every one of the 25 slots of 0x006203f0 (vt+0x7c) and walks the entities' list for the view's; the port's app_key carries the game's three (0x69, 0x74, 0x78)
 - 1 functions, 32 decomp lines (0x004a6940): as MW3 0x004a3550: debug key commands of 0x0040dba0, never registered in the release: a position marker printed to the console (0x004a3220), the mechs listed into the developer lines (0x004a33f0, command 0x89; hud.md), a vehicle picked in a dialog (0x004a3550, its destructor 0x004a35e0)
@@ -166,11 +157,6 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 - 1 functions, 12 decomp lines (0x005b82e0): as MW3 0x00596170: the hidden GameZ Interpreter console (0x005960a0: a 2D console window that runs typed script lines through 0x00595510; its destructor and line runner; toggled by 0x004810d0, which nothing reaches: interp.md:532, discoveries.md:1532)
 - 1 functions, 14 decomp lines (0x005b8300): as MW3 0x00596190: the hidden GameZ Interpreter console (0x005960a0: a 2D console window that runs typed script lines through 0x00595510; its destructor and line runner; toggled by 0x004810d0, which nothing reaches: interp.md:532, discoveries.md:1532)
 - 1 functions, 9 decomp lines (0x005b8350): called only from 0x005b8300, which are debug
-- 1 functions, 19 decomp lines (0x005c02c0): as MW3 0x005a0050: the text console layer (Arial) behind the developer lines and the interp console: its line objects, their font, colour and position setters, the line maker (twod.md:38, 683)
-- 2 functions, 54 decomp lines (0x005c6df0, 0x005c6e80): as MW3 0x005a3cd0, whose class PM's changes keep: the text console layer (Arial) behind the developer lines and the interp console: its line objects, their font, colour and position setters, the line maker (twod.md:38, 683)
-- 1 functions, 16 decomp lines (0x005c6f90): as MW3 0x005a3de0, whose class PM's changes keep: the text console layer (Arial) behind the developer lines and the interp console: its line objects, their font, colour and position setters, the line maker (twod.md:38, 683)
-- 1 functions, 17 decomp lines (0x005c6fe0): as MW3 0x005a3e30, whose class PM's changes keep: the text console layer (Arial) behind the developer lines and the interp console: its line objects, their font, colour and position setters, the line maker (twod.md:38, 683)
-- 1 functions, 68 decomp lines (0x005c7030): as MW3 0x005a3e80, whose class PM's changes keep: the text console layer (Arial) behind the developer lines and the interp console: its line objects, their font, colour and position setters, the line maker (twod.md:38, 683)
 - 1 functions, 17 decomp lines (0x005cc5b0): as MW3 0x005a98d0: the developers' loose <name>.zan override for motion scripts (motion.md:36), like the reader's loose .zrd files
 - 1 functions, 29 decomp lines (0x005cc880): as MW3 0x005a9bc0: the motion script's text side: the loose .zan reader (0x005a9e10, with 0x005aa210) behind the developers' override, and the writer (0x005a9bc0)
 - 1 functions, 168 decomp lines (0x005ccaf0): as MW3 0x005a9e10: the motion script's text side: the loose .zan reader (0x005a9e10, with 0x005aa210) behind the developers' override, and the writer (0x005a9bc0)
@@ -233,8 +219,6 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 
 ### unused: PORT (preserve)
 
-- 1 functions, 17 decomp lines (0x00410820): as MW3 0x0040fef0: the timing marks ('Dummy Frame', 'Lets Play!'): act only with [0x005e14f0], 0 in the data (program.md, no effect)
-- 1 functions, 9 decomp lines (0x00410880): called only from 0x00410820, which are unused
 - 1 functions, 13 decomp lines (0x0041e070): as MW3 0x0041d280: read: the mech's vt+0x124 (the stopping distance now: |the controls' speed x +0x518| through vt+0x120); its one caller, the field base dock 0x00459990 (mech_fieldbase_dock.cpp:152), calls it on the base, a vehicle (0x004ad050, ported), so on a mech nothing reaches it (the calls through +0x124 in the exe: that one only)
 - 1 functions, 19 decomp lines (0x0041e0b0): as MW3 0x0041d2c0: read: the mech's vt+0x130 (a turn rate from a speed and a share, floored), vt+0x134 and vt+0x138 (it from the controls' speed or a share) and vt+0x13c (the share that turns by a rate): no call in the exe goes through +0x134, +0x138 or +0x13c, and +0x130's callers are those two and the vehicles' own (0x004ad250, 0x004ad290 on their vtable), so on a mech nothing reaches them
 - 1 functions, 9 decomp lines (0x0041e0f0): as MW3 0x0041d300: read: the mech's vt+0x130 (a turn rate from a speed and a share, floored), vt+0x134 and vt+0x138 (it from the controls' speed or a share) and vt+0x13c (the share that turns by a rate): no call in the exe goes through +0x134, +0x138 or +0x13c, and +0x130's callers are those two and the vehicles' own (0x004ad250, 0x004ad290 on their vtable), so on a mech nothing reaches them
@@ -304,7 +288,6 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 - 1 functions, 39 decomp lines (0x00591ce0): as MW3 0x00571380, whose class PM's changes keep: the Aureal A3D path: its init (CoCreateInstance), 3D placement and error names; only 0x570625 writes the selector [0x72c2cc], and only to 0 (DirectSound) when A3D fails, so A3D never runs (sound.md:38)
 - 1 functions, 45 decomp lines (0x00592cc0): as MW3 0x00571f70: the Aureal A3D path: its init (CoCreateInstance), 3D placement and error names; only 0x570625 writes the selector [0x72c2cc], and only to 0 (DirectSound) when A3D fails, so A3D never runs (sound.md:38)
 - 1 functions, 197 decomp lines (0x00595360): as MW3 0x005746b0, whose class PM's changes keep: the Aureal A3D path: its init (CoCreateInstance), 3D placement and error names; only 0x570625 writes the selector [0x72c2cc], and only to 0 (DirectSound) when A3D fails, so A3D never runs (sound.md:38)
-- 1 functions, 19 decomp lines (0x005acc40): called only from 0x00410880, which are unused
 - 1 functions, 9 decomp lines (0x005cc130): as MW3 0x005a92d0: _rmtmp at zSave's stop, unreached
 
 ## UNSURE
@@ -312,11 +295,11 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 
 ## By module
 
-### mech3ep1 (3169 not ported)
+### mech3ep1 (3157 not ported)
 
 | Address | Lines | Class | Why |
 |---|---|---|---|
-| 0x00402100 | 14 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:1166) |
+| 0x00402100 | 14 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:1168) |
 | 0x00402210 | 18 | folded | MW3's 0x00402b20 (the game editor net's vt+0x04, game_editor_net.cpp:294), read: the same two virtual calls |
 | 0x00402230 | 11 | folded | covered by the port where it names it (src/gamez/znetwork/znet_object.h:32) |
 | 0x00402250 | 8 | folded | covered by the port where it names it (src/mech3/weapon.h:396) |
@@ -379,13 +362,13 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x004060d0 | 562 | folded | MW3's 0x00406650 (a MARKERS step's reader, briefing.cpp:578), read: the same entries (texts in FONT else brief_grey, shapes by color and radius, an optional sound per entry), the keys PM reads by name where MW3's calls pass them in registers; the port reads the same keys (:589-662) |
 | 0x00406cb0 | 8 | folded | empty: does nothing |
 | 0x00406ce0 | 8 | folded | returns a constant or a global |
-| 0x00406d00 | 8 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:315) |
+| 0x00406d00 | 8 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:317) |
 | 0x00406d10 | 31 | replaced (SDL or the platform layer) | as MW3 0x00409b50, whose class PM's changes keep: GDI: a font's metrics from its handle (GetObjectA), the 2D text's Windows path; the port's text goes through ztwod::Host |
 | 0x00406e00 | 14 | folded | by the slot pairing: PM vtable 0x5decec slot 0xa8 is MW3 vtable 0x5bc030's 0x00409c40 (MW3 ported src/gamez/ztwod/twod_wintext.cpp:342), the feature compare equal (7f6e9e10) |
-| 0x00406e60 | 11 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:591) |
-| 0x00406eb0 | 9 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:703) |
-| 0x00406ec0 | 9 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:704) |
-| 0x00406ed0 | 11 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:702) |
+| 0x00406e60 | 11 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:593) |
+| 0x00406eb0 | 9 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:705) |
+| 0x00406ec0 | 9 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:706) |
+| 0x00406ed0 | 11 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:704) |
 | 0x00406f40 | 30 | folded | the briefing map's markers, read against MW3's slots (briefing.cpp:148-240): MapText::set_pos (0x00406f40, MW3's 0x00407cf0), MapCircle::update with the shrink by max(20 x dt, 1) pixels to the end radius (0x00407010, MW3's 0x00407ea0; the same 20.0 and 1.0), MapCircle::set_pos (0x00407160, MW3's 0x004080a0 with set_radius inline), MapTriangle::erase (0x00407450, MW3's 0x00408470); the destructors of two marker texts (0x00407200, 0x004073f0) |
 | 0x00407010 | 51 | folded | the briefing map's markers, read against MW3's slots (briefing.cpp:148-240): MapText::set_pos (0x00406f40, MW3's 0x00407cf0), MapCircle::update with the shrink by max(20 x dt, 1) pixels to the end radius (0x00407010, MW3's 0x00407ea0; the same 20.0 and 1.0), MapCircle::set_pos (0x00407160, MW3's 0x004080a0 with set_radius inline), MapTriangle::erase (0x00407450, MW3's 0x00408470); the destructors of two marker texts (0x00407200, 0x004073f0) |
 | 0x00407120 | 17 | folded | read: MW3's 0x00408050 (MapCircle::set_radius: the radius and its square, the label at x + r, y + r; briefing.cpp), unpaired by the diff, MW3's 0x00409d80 inlined |
@@ -528,22 +511,21 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x0040e9c0 | 31 | folded | container code inside PM's ported standalone game (pilot_games.cpp, pilot.h StandaloneGame): the mission list's sort by 0x0040d900 (0x0040d660's introsort parts), the lists' clears and frees, a vector of 8-byte entries assigned, the lineup read inside the ported load (0x0040e2b0, which names 0x0040dc70), the destructor (vtable 0x005df148 then its base's); the port uses std containers |
 | 0x0040ea50 | 9 | folded | folded, by the feature compare and the order-aware compare (tools/analysis/pm_shape_compare.py: the same calls, tests and constants in order) against its MW3 twin; the only immediates that differ are error reports' line numbers (each checked to be the report's argument, 0x00406cb0 / 0x0049bfd0) |
 | 0x0040ea60 | 47 | folded | MW3's twins by the order-aware compare and features (layout and helper instances only): 0x0040b310 (0x00408f40: PM's stack probe for its larger frame and a fld for a fmul by 1), 0x0040d810 (0x0040b720: a call MW3 left unmapped is PM's 0x0040b320), 0x0040e270 (0x0040ea60: the element 0x4b8 for 0x4b0), 0x0040f730 (0x00410050: the HudPanel destructor 0x0043b8f0), 0x00410700 (0x00410f80: equal) |
-| 0x0040eb80 | 24 | folded | covered by the port where it names it (src/mech3/game_editor.cpp:46) |
-| 0x0040ebf0 | 10 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:307) |
+| 0x0040ebf0 | 10 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:309) |
 | 0x0040ec40 | 22 | folded | by the layout-shift rule (tools/analysis/pm_layout_shift.py, docs/port-audit-pm.md method): MW3's 0x0040e3b0 with only offsets and sizes of PM's larger structures changed (0x4b0->0x4b8); calls, field counts and every other immediate and float constant as MW3's |
 | 0x0040ecb0 | 9 | folded | a thunk: one call to another function |
 | 0x0040ecd0 | 21 | folded | MW3's 0x0040e430 (the game editor opened, game_editor.cpp:118), read: the same steps; PM's key map takes Space and the left button for its own command ids 0xa3 / 0xa4 (MW3's 0x9b / 0x9c, PM's command table renumbered, tools/analysis/pm_command_map.py), its vtable slot one on |
 | 0x0040ef60 | 56 | folded | by the layout-shift rule (tools/analysis/pm_layout_shift.py, docs/port-audit-pm.md method): MW3's 0x0040e6a0 with only offsets and sizes of PM's larger structures changed (0x4b0->0x4b8); calls, field counts and every other immediate and float constant as MW3's |
 | 0x0040f0e0 | 12 | folded | by the slot pairing: PM vtable 0x5df330 slot 0x4 is MW3 vtable 0x5bbb30's 0x00404ac0 (MW3 folded: the scalar deleting destructor (the destructor, then delete)), the feature compare equal (7f6e9e10) |
 | 0x0040f100 | 14 | dev dialog (MFC), its window plumbing: replaced | as MW3 0x0040e8b0: MFC dev dialogs' plumbing: resource 0x6a (a dialog of float fields: constructor, DDX, close, DoModal), the teleport dialog's slider (OnHScroll) and destructor, a combo box's pick into the texture memory setting |
-| 0x0040f130 | 22 | folded | covered by the port where it names it (src/mech3/entity_bind.cpp:51) |
+| 0x0040f130 | 22 | folded | covered by the port where it names it (src/mech3/dev_text.cpp:88) |
 | 0x0040f1a0 | 22 | folded | covered by the port where it names it (src/mech3/veh_move.cpp:662) |
 | 0x0040f1d0 | 14 | folded | covered by the port where it names it (src/mech3/entity_bind.cpp:40) |
-| 0x0040f1f0 | 14 | folded | covered by the port where it names it (src/mech3/app_mech.cpp:560) |
+| 0x0040f1f0 | 14 | folded | covered by the port where it names it (src/mech3/dev_text.cpp:54) |
 | 0x0040f210 | 24 | folded | read (for the propagation check): MW3's 0x0040e9d0 (an entity's object: +0x40 for a kind in 0xf000, else the mech 0x00461430 when its low byte is set); the same, PM's last call a tail jump the compare does not count |
 | 0x0040f330 | 9 | folded | a thunk: one call to another function |
 | 0x0040f350 | 21 | folded | covered by the port where it names it (src/mech3/entity_bind.cpp:24) |
-| 0x0040f3a0 | 21 | folded | covered by the port where it names it (src/mech3/entity_bind.cpp:29) |
+| 0x0040f3a0 | 21 | folded | covered by the port where it names it (src/mech3/dev_text.cpp:26) |
 | 0x0040f400 | 9 | folded | a thunk: one call to another function |
 | 0x0040f420 | 9 | folded | a thunk: one call to another function |
 | 0x0040f4c0 | 21 | folded | covered by the port where it names it (src/mech3/entity_bind.cpp:57) |
@@ -557,31 +539,22 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x0040f690 | 9 | folded | a thunk: one call to another function |
 | 0x0040f6b0 | 9 | folded | a thunk: one call to another function |
 | 0x0040f6d0 | 14 | folded | covered by the port where it names it (src/mech3/entity_bind.cpp:52) |
-| 0x0040f780 | 9 | debug or dev tool: PORT (preserve) | follows 0x0040f7a0: as MW3 0x0040ff40, whose class PM's changes keep: the developer text lines (25 rows at [0x005fc848], Arial 10): their font and layers (0x0040f7f0, 0x0040f870, 0x0040f890, 0x0040f8b0) and the per-frame readout 0x0040fb50, which writes the lines every frame but whose layers are never on in the release (hud.md section 20; the port's notes: developer only) |
-| 0x0040f7a0 | 34 | debug or dev tool: PORT (preserve) | as MW3 0x0040ff40, whose class PM's changes keep: the developer text lines (25 rows at [0x005fc848], Arial 10): their font and layers (0x0040f7f0, 0x0040f870, 0x0040f890, 0x0040f8b0) and the per-frame readout 0x0040fb50, which writes the lines every frame but whose layers are never on in the release (hud.md section 20; the port's notes: developer only) |
+| 0x0040f780 | 9 | folded | a thunk: one call to another function |
 | 0x0040f840 | 9 | folded | a thunk: one call to another function |
 | 0x0040f860 | 20 | folded | a destructor body (unwind callers): an array of 0x19 texts (0x4b8 bytes each) destroyed, then the base; the port's arrays destroy themselves |
-| 0x0040f8d0 | 9 | debug or dev tool: PORT (preserve) | follows 0x0040fa20: as MW3 0x0040f150: the developer text lines (25 rows at [0x005fc848], Arial 10): their font and layers (0x0040f7f0, 0x0040f870, 0x0040f890, 0x0040f8b0) and the per-frame readout 0x0040fb50, which writes the lines every frame but whose layers are never on in the release (hud.md section 20; the port's notes: developer only) |
+| 0x0040f8d0 | 9 | folded | a thunk: one call to another function |
 | 0x0040f8e0 | 9 | folded | a thunk: one call to another function |
 | 0x0040f9c0 | 9 | folded | read: container code inside ported callers (vector copy, insert and reserve, introsort, list clear and find, uninitialised copy) and thunks whose MW3 pair is identical |
 | 0x0040f9d0 | 9 | folded | a thunk: one call to another function |
 | 0x0040fa00 | 10 | folded | as MW3 0x0040f130: covered by ported code beside them: the briefing's list helpers, vector inserts, the cameras' free, the options' getters (implemented in the program's hooks), the message panel's constructors and destructors, the HUD message, the AI steps' base vtable thunks, start-up statics |
-| 0x0040fa20 | 33 | debug or dev tool: PORT (preserve) | as MW3 0x0040f150: the developer text lines (25 rows at [0x005fc848], Arial 10): their font and layers (0x0040f7f0, 0x0040f870, 0x0040f890, 0x0040f8b0) and the per-frame readout 0x0040fb50, which writes the lines every frame but whose layers are never on in the release (hud.md section 20; the port's notes: developer only) |
 | 0x0040fac0 | 12 | folded | covered by the port where it names it (src/mech3/hud.h:62) |
-| 0x0040fae0 | 35 | folded | covered by the port where it names it (src/mech3/app_engine.cpp:994) |
 | 0x0040fd00 | 75 | folded | by the layout-shift rule (tools/analysis/pm_layout_shift.py, docs/port-audit-pm.md method): MW3's 0x0040f410 with only offsets and sizes of PM's larger structures changed (0x600->0x608); calls, field counts and every other immediate and float constant as MW3's |
 | 0x00410030 | 12 | folded | covered by the port where it names it (src/mech3/message_panel.h:18) |
 | 0x00410050 | 32 | folded | MW3's twins by the order-aware compare and features (layout and helper instances only): 0x0040b310 (0x00408f40: PM's stack probe for its larger frame and a fld for a fmul by 1), 0x0040d810 (0x0040b720: a call MW3 left unmapped is PM's 0x0040b320), 0x0040e270 (0x0040ea60: the element 0x4b8 for 0x4b0), 0x0040f730 (0x00410050: the HudPanel destructor 0x0043b8f0), 0x00410700 (0x00410f80: equal) |
-| 0x00410110 | 24 | debug or dev tool: PORT (preserve) | as MW3 0x0040f7f0, whose class PM's changes keep: the developer text lines (25 rows at [0x005fc848], Arial 10): their font and layers (0x0040f7f0, 0x0040f870, 0x0040f890, 0x0040f8b0) and the per-frame readout 0x0040fb50, which writes the lines every frame but whose layers are never on in the release (hud.md section 20; the port's notes: developer only) |
-| 0x00410190 | 10 | debug or dev tool: PORT (preserve) | called only from 0x00410110, which are debug |
 | 0x004101b0 | 8 | folded | returns a constant or a global |
-| 0x004101c0 | 10 | debug or dev tool: PORT (preserve) | as MW3 0x0040f890: the developer text lines (25 rows at [0x005fc848], Arial 10): their font and layers (0x0040f7f0, 0x0040f870, 0x0040f890, 0x0040f8b0) and the per-frame readout 0x0040fb50, which writes the lines every frame but whose layers are never on in the release (hud.md section 20; the port's notes: developer only) |
-| 0x004101e0 | 10 | debug or dev tool: PORT (preserve) | as MW3 0x0040f8b0: the developer text lines (25 rows at [0x005fc848], Arial 10): their font and layers (0x0040f7f0, 0x0040f870, 0x0040f890, 0x0040f8b0) and the per-frame readout 0x0040fb50, which writes the lines every frame but whose layers are never on in the release (hud.md section 20; the port's notes: developer only) |
 | 0x004103a0 | 13 | folded | covered by the port where it names it (src/mech3/briefing.cpp:486) |
-| 0x00410470 | 108 | debug or dev tool: PORT (preserve) | as MW3 0x0040fb50, whose class PM's changes keep: the developer text lines (25 rows at [0x005fc848], Arial 10): their font and layers (0x0040f7f0, 0x0040f870, 0x0040f890, 0x0040f8b0) and the per-frame readout 0x0040fb50, which writes the lines every frame but whose layers are never on in the release (hud.md section 20; the port's notes: developer only) |
 | 0x004107a0 | 17 | folded | as MW3 0x0040fe70: covered by ported code beside them: the briefing's list helpers, vector inserts, the cameras' free, the options' getters (implemented in the program's hooks), the message panel's constructors and destructors, the HUD message, the AI steps' base vtable thunks, start-up statics |
-| 0x00410820 | 17 | unused: PORT (preserve) | as MW3 0x0040fef0: the timing marks ('Dummy Frame', 'Lets Play!'): act only with [0x005e14f0], 0 in the data (program.md, no effect) |
-| 0x00410880 | 9 | unused: PORT (preserve) | called only from 0x00410820, which are unused |
+| 0x00410880 | 9 | folded | a CRT static initializer (from 0x00410870, the initializers' table), not the timing marks': the network objects' list [0x00627c38] made empty (0x005acc40); MW3's twin 0x00410220 is a thunk. The port's list is a C++ static (znet) |
 | 0x00410890 | 9 | folded | a thunk: one call to another function |
 | 0x004108d0 | 9 | folded | a thunk: one call to another function |
 | 0x004108e0 | 9 | folded | a thunk: one call to another function |
@@ -820,7 +793,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x004290d0 | 31 | folded | covered by the port where it names it (src/mech3/mech_pocket.cpp:59) |
 | 0x00429560 | 170 | folded | ported: src/mech3/mech_control.cpp PlayerControls::read_axes (MW3's 0x00427870) with PM's camera command ids for the hat (0x6a..0x6e, MW3's 8 lower; kHatCommand); the twist's rate 5, the mouse scales -0.26/-0.16 and the free look's 1.5 as MW3's, the look fields at +0x158..+0x164 (layout), the hat's switch a jump table |
 | 0x0042a110 | 13 | folded | ported, by docs/symbols.csv: ported: PlayerControls::set_record (IControls vt+0x88) |
-| 0x0042a140 | 11 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:557) |
+| 0x0042a140 | 11 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:559) |
 | 0x0042a1d0 | 8 | folded | covered by the port where it names it (src/mech3/mech_control.h:188) |
 | 0x0042a1e0 | 8 | folded | returns a constant or a global |
 | 0x0042a1f0 | 8 | folded | returns a constant or a global |
@@ -979,7 +952,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x004350c0 | 30 | folded | ported (read): the game's reader opened ('zbd\\%s\\reader%s.zbd' with the mission's folder and the game's key, vt+0x58 / +0x54), the pm port's reader open (app_mission.cpp:2215) |
 | 0x00435140 | 26 | folded | ported (read): the game's objectives read (the game's own block through vt+0x70, else objectives.zrd's by the key; 0x0045d620 = MW3's 0x0045c340), the pm port's game_objectives (app_mission.cpp:2219 names it) |
 | 0x004353c0 | 8 | folded | a field getter, PM's campaign game (vtable 0x005e14e0, slot +0x78): the byte at +0xac, set 0 by the constructors 0x004351b0 / 0x004354e0, MW3's +0xb0 flag (CampaignGame::b0 in the port) read where MW3 reads the field directly; the address map's 0x00432c50 is the vtable pairing off by PM's added slots |
-| 0x004353d0 | 8 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:2455) |
+| 0x004353d0 | 8 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:2461) |
 | 0x004353f0 | 12 | folded | read: the scalar deleting destructor (the destructor 0x00435410, then delete when bit 0 is set); the port deletes its objects itself, the destructor labelled on its own row |
 | 0x00435410 | 38 | folded | group A, read: the campaign game's destructor on PM's layout (its string list and members freed through PM's helpers 0x00435d10, 0x00434ab0, 0x004731b0); pilot_games.cpp:583 |
 | 0x004354e0 | 42 | folded | group A, read: imports only (the C runtime's), the logic as the shared port |
@@ -1004,7 +977,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x00437c10 | 12 | folded | read: the scalar deleting destructor (the destructor 0x00437b90, then delete when bit 0 is set); the port deletes its objects itself, the destructor labelled on its own row |
 | 0x00437c30 | 8 | folded | returns a constant or a global |
 | 0x00437c40 | 8 | folded | returns a constant or a global |
-| 0x00437c50 | 8 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:2474) |
+| 0x00437c50 | 8 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:2480) |
 | 0x00437c60 | 9 | folded | a thunk: one call to another function |
 | 0x00437c70 | 12 | folded | covered by the port where it names it (src/mech3/app_mech.h:179) |
 | 0x00437c90 | 12 | folded | covered by the port where it names it (src/mech3/app_mech.h:180) |
@@ -1079,8 +1052,6 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x0043d2b0 | 64 | folded | MW3's 0x0043c1f0 (the HUD's static by kind, Hud::raise_static, app_hud.cpp:906), read: the same four kinds' level and time raised to the larger, kind 4 all four, kind 5 a random one (rand() % 4, the compiler's two forms of the same remainder) |
 | 0x0043d710 | 55 | folded | MW3's 0x0043c6b0 (Hud::draw3d, hud.cpp:3499; the address map did not place it), read: the same Direct3D pass, the zoom and map windows' views, the marked rects and the two windows' update, statement for statement on PM's layout |
 | 0x0043d880 | 116 | folded | MW3's 0x0043c820 (the HUD's frame, Hud::update), read: the frame half the same (the screen and nav list updates, the reticle over TARGET and its aim state, the network's 0x0047c1d0); the debug overlay half (unported in both games, hud.h:711, shown only with the debug text on) has seven lines in PM, adding the mech's velM / velW and a ZONES line |
-| 0x0043dbf0 | 45 | debug or dev tool: PORT (preserve) | as MW3 0x0043cb10: the HUD's debug overlays (docs/hud.md section 11: the mech's gait, speeds and the like into five debug texts while the debug text shows, command 0x82); hooked in the port (hud_debug, unported) |
-| 0x0043dcf0 | 39 | debug or dev tool: PORT (preserve) | as MW3 0x0043cc00: the HUD's debug overlays (docs/hud.md section 11: the mech's gait, speeds and the like into five debug texts while the debug text shows, command 0x82); hooked in the port (hud_debug, unported) |
 | 0x0043e570 | 9 | folded | a thunk: one call to another function |
 | 0x0043e580 | 9 | folded | a thunk: one call to another function |
 | 0x0043e590 | 128 | folded | MW3's 0x0043d260 (HudRadar's constructor, hud.cpp:772), read: the same texts on mech_string (MW3 passes it in ECX), the three lines green, green, red, the light's green / yellow / red images, the same radii, centres and text colours; PM calls the light's select (0x0043be70) where MW3 inlined it |
@@ -2032,7 +2003,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x004a16d0 | 11 | folded | covered by the port where it names it (src/mech3/mech_control.cpp:607) |
 | 0x004a1730 | 33 | folded | ported: src/mech3/player.cpp assume_duties (MW3's 0x0049e540): the same reports and steps; the reports' line numbers PM's (0x18a for 0x186), the controls by PM's IControls base |
 | 0x004a19c0 | 262 | folded | ported: src/mech3/player.cpp (MW3's 0x0049e810, the player's mech as the mission comes up) with PM's changes marked there: the standalone game's record, its mech (0x005bfdd0), 25 mechs (0x18 for 0x12), the mission's loadout |
-| 0x004a1f50 | 11 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:631) |
+| 0x004a1f50 | 11 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:633) |
 | 0x004a1f90 | 98 | folded | by the layout-shift rule (tools/analysis/pm_layout_shift.py, docs/port-audit-pm.md method): MW3's 0x0049ecd0 with only offsets and sizes of PM's larger structures changed (0x218->0x230); calls, field counts and every other immediate and float constant as MW3's |
 | 0x004a2220 | 318 | folded | read with the order-aware compare (tools/analysis/pm_shape_compare.py): the same calls, tests and constants in the same order, apart from the compiler's test-for-compare swaps; MW3's 0x0049ef40 / 0x0049f660 / 0x0049f8a0 (veh_controls.h, veh_basic_object.cpp, player.cpp), ported; fields shifted (layout) |
 | 0x004a2990 | 46 | folded | read with the order-aware compare (tools/analysis/pm_shape_compare.py): the same calls, tests and constants in the same order, apart from the compiler's test-for-compare swaps; MW3's 0x0049ef40 / 0x0049f660 / 0x0049f8a0 (veh_controls.h, veh_basic_object.cpp, player.cpp), ported; fields shifted (layout) |
@@ -2613,7 +2584,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x004ce780 | 9 | folded | as MW3 0x004c4170: the AI's mission boundary and region views (zainet_inout, zainet_inout_view; ai.md section 11): vector and list instances, the polygon and area constructors and destructors, the walks the port does as loops, getters, start-up templates |
 | 0x004ce7a0 | 9 | folded | follows 0x004ce7c0: read: MW3's 0x004c41b0 (the in/out view freed: the root off its parents, its tree destroyed, the holder deleted), unpaired by the diff; the port's inout_view_free (zainet_inout_view.cpp:169) |
 | 0x004ce7c0 | 30 | folded | read: MW3's 0x004c41b0 (the in/out view freed: the root off its parents, its tree destroyed, the holder deleted), unpaired by the diff; the port's inout_view_free (zainet_inout_view.cpp:169) |
-| 0x004ce8a0 | 23 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:2561) |
+| 0x004ce8a0 | 23 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:2567) |
 | 0x004ced50 | 16 | folded | inside its ported callers (0x004cedd0): a small helper their ports do their own way |
 | 0x004cefc0 | 52 | folded | read: MW3's 0x004c4730 (zainet_inout_view.cpp: the net's view objects under one root joined to the world) with MW3's helpers inlined (the next entry 0x004c5530 written as its loop over 0x004cea50, MW3's 0x004c43b0) and the world's join through its vt+4 where MW3's is vt+0 (PM's world class has a slot more in front: every call on [0x0062ca90] is one slot on from MW3's on [0x00608c84], 12 of 13) |
 | 0x004cf270 | 10 | folded | as MW3 0x004c4980: the AI's mission boundary and region views (zainet_inout, zainet_inout_view; ai.md section 11): vector and list instances, the polygon and area constructors and destructors, the walks the port does as loops, getters, start-up templates |
@@ -2710,7 +2681,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x004d3050 | 9 | folded | covered by the port where it names it (src/mech3/zai_brain.h:708) |
 | 0x004d3060 | 12 | folded | covered by the port where it names it (src/mech3/mech_fieldbase.h:372) |
 | 0x004d3170 | 26 | folded | ported, by docs/symbols.csv: ported: zai_path (vtable 0x005cb178) |
-| 0x004d31d0 | 12 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:2347) |
+| 0x004d31d0 | 12 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:2353) |
 | 0x004d31f0 | 54 | folded | as MW3 0x004c7d80: covered: the firing's records, the net editor class's forwarding virtuals, vector and list instances, the region registry's helpers, the AI states' and steps' constructors and destructors, start-up statics |
 | 0x004d3580 | 54 | folded | read: MW3's 0x004c8140 (zai_path.cpp: the path's points copied over when its time +0x34 is before +0x10, then +0x10 = +0x34) with the test inverted (PM copies unless +0x10 <= +0x34: the same but for a NaN, which copies in PM) and the element's copy a call (0x004d7810) |
 | 0x004d3820 | 45 | folded | read: MW3's 0x004c84b0 (zai_brain.cpp: the brain sent on a net, its last order dropped first when it is that net's with the brain's own state) with PM's order layout (0x84-byte orders in blocks of 31, as the pm port's OrdersPm) and its net asked through vt+0x18 for vt+8; from the field base dock 0x0045b5e0, the port's brain_go_to (mech_fieldbase_dock.cpp:257..; the PM AI's orders are MW3's until wired, zai_wire_pm.h:92) |
@@ -3256,11 +3227,11 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x004f1aa0 | 11 | folded | covered by the port where it names it (src/mech3/zrdraiv.h:96) |
 | 0x004f1ad0 | 12 | folded | read: the scalar deleting destructor (the destructor 0x004efc40, then delete when bit 0 is set); the port deletes its objects itself, the destructor labelled on its own row |
 | 0x004f1b00 | 9 | folded | a thunk: one call to another function |
-| 0x004f1b30 | 9 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:1247) |
+| 0x004f1b30 | 9 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:1249) |
 | 0x004f1b40 | 14 | folded | covered by the port where it names it (src/mech3/zrdraiv.cpp:529) |
 | 0x004f1b80 | 9 | folded | a thunk: one call to another function |
 | 0x004f1ba0 | 9 | folded | a thunk: one call to another function |
-| 0x004f1bd0 | 17 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:1247) |
+| 0x004f1bd0 | 17 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:1249) |
 | 0x004f2030 | 16 | folded | as MW3 0x004e0c20: the valve reader's records, actions and lists: constructors, destructors, factories and list helpers of classes ported in zrdrvalve/zai_valve |
 | 0x004f2060 | 100 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
 | 0x004f21f0 | 59 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
@@ -3431,7 +3402,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x004f99c0 | 17 | folded | read: the same as its MW3 twin, its copies taken in another form (one-sided statements only a loop's form and a vtable pointer's place) |
 | 0x004f99f0 | 11 | folded | as MW3 0x004e7c10: the AI's support code, ported or folded: the mission listeners' slot calls (the program's overrides, app_mission.cpp:1696..1730), the radio's lines and table, the orders' deque, constructors and destructors, the lance orders' wrappers (zai_brain.cpp:1208..1230), the AI switch |
 | 0x004f9a00 | 11 | folded | as MW3 0x004e7c20: the AI's support code, ported or folded: the mission listeners' slot calls (the program's overrides, app_mission.cpp:1696..1730), the radio's lines and table, the orders' deque, constructors and destructors, the lance orders' wrappers (zai_brain.cpp:1208..1230), the AI switch |
-| 0x004f9a10 | 11 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:2243) |
+| 0x004f9a10 | 11 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:2249) |
 | 0x004f9a20 | 11 | folded | read: a thunk, one virtual call (the listener's slot +0x10), MW3's 0x004e7c00 |
 | 0x004f9a30 | 11 | folded | read: the mission listeners' walks and slot calls ([0x0062ffc4]): PM's listener vtables put MW3's events one or two slots on (+0x08 the mission load, walked by 0x004f9900 at 'CZUnload::LoadMission()', MW3's 0x004e7b40; +0x0c after the setup 0x004f9930; +0x10 PM's mission started 0x004f9960; +0x14 the world gone, walked by 0x004f9990, MW3's +0x0c 0x004e7b80 (the boundary's 0x004ce320 = MW3 0x004c3dd0, the anim owners' 0x004e4be0 = 0x004d4740); +0x18 the mission's end, MW3's +0x10); the port makes each at the same moment (app_mission.cpp:1768-1800 fn_4e7b40, ai_lists_free, fn_4e7bc0; :2234 fn_4f9930; app_states.cpp:817) |
 | 0x004f9a40 | 11 | folded | read: the mission listeners' walks and slot calls ([0x0062ffc4]): PM's listener vtables put MW3's events one or two slots on (+0x08 the mission load, walked by 0x004f9900 at 'CZUnload::LoadMission()', MW3's 0x004e7b40; +0x0c after the setup 0x004f9930; +0x10 PM's mission started 0x004f9960; +0x14 the world gone, walked by 0x004f9990, MW3's +0x0c 0x004e7b80 (the boundary's 0x004ce320 = MW3 0x004c3dd0, the anim owners' 0x004e4be0 = 0x004d4740); +0x18 the mission's end, MW3's +0x10); the port makes each at the same moment (app_mission.cpp:1768-1800 fn_4e7b40, ai_lists_free, fn_4e7bc0; :2234 fn_4f9930; app_states.cpp:817) |
@@ -4097,7 +4068,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x005aca50 | 12 | folded | read: the scalar deleting destructor (the destructor 0x005aca70, then delete when bit 0 is set); the port deletes its objects itself, the destructor labelled on its own row |
 | 0x005acb00 | 44 | folded | ported, by docs/symbols.csv: ported (the dock's net_element): the first element of that name (vt+0x24) |
 | 0x005acba0 | 21 | folded | read: MW3's 0x0058b160 (znet's object by its number: the network objects' list [0x00627c3c] walked for the one whose vt+0x18 is the id), unpaired by the diff; from the player and others (11 callers); the port's znet_find (player.h:78, zai_brain.h:48) |
-| 0x005acc40 | 19 | unused: PORT (preserve) | called only from 0x00410880, which are unused |
+| 0x005acc40 | 19 | folded | the STL's list constructor (a head node pointing at itself, count 0), for the network objects' list [0x00627c38] from its static initializer 0x00410880; the port's list is a C++ static (znet) |
 | 0x005acc70 | 25 | folded | as MW3 0x0058b220: covered: the DirectPlay error names (znet_dplay.cpp:142 names each through localize), the sessions' list clear (znet_session.cpp:248), the net view's inlined steps (znet_view.cpp:68, :151), the net object's static, ZGameApp's base InitInstance and engine start (overridden by the app's 0x00480000 / 0x00480570, game-loop.md) |
 | 0x005acd30 | 29 | folded | covered by the port where it names it (src/gamez/znetwork/znet_object.cpp:15) |
 | 0x005acd90 | 16 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.h:13) |
@@ -4170,7 +4141,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x005b1440 | 38 | folded | covered by the port where it names it (src/gamez/zgame/zgameapp.h:59) |
 | 0x005b14e0 | 25 | replaced (SDL or the platform layer) | read: a Win32 message pump (PeekMessage, then MFC's PumpMessage until the queue is empty or WM_QUIT), from the message box 0x005c9280 (MW3's 0x005a7280, twod_msgbox.cpp); the port's SDL event loop |
 
-### ztwod (139 not ported)
+### ztwod (133 not ported)
 
 | Address | Lines | Class | Why |
 |---|---|---|---|
@@ -4182,7 +4153,6 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x005bfab0 | 11 | folded | covered by the port where it names it (src/gamez/ztwod/twod_control.cpp:21) |
 | 0x005bfd50 | 15 | folded | small pieces read against MW3's: a zTwoD object's active state passed to each child (0x005bfd50, the slot pairing with MW3's 0x0059eed0, twod_dialog.cpp:121 set_active); the FMV blur's step by direction (0x0057c510: along, down or both, then the shared pass; MW3's 0x0059a070 / 0x0059a100 / 0x0059a190, fmv_script.cpp:424); a vector's insert (0x005cb6f0, MW3's 0x0049ced0, as 0x005cb4b0's label); zSave's list sort (0x005cc140, MW3's 0x005a92e0, zsave.cpp:108: std::list::sort, a stable merge) |
 | 0x005bfdc0 | 9 | folded | read: covered where PM's port names it (cls_world.h:19, cls_clutter.h:60 and 120, cls_util.cpp:222-223 the copy refusals) or container code (list erase and copy, a vector clear, a thunk, a member setter) |
-| 0x005c02c0 | 19 | debug or dev tool: PORT (preserve) | as MW3 0x005a0050: the text console layer (Arial) behind the developer lines and the interp console: its line objects, their font, colour and position setters, the line maker (twod.md:38, 683) |
 | 0x005c0320 | 11 | replaced (SDL or the platform layer) | PM's 2D drawing through Direct3D (0x005c0320: [0x008c4b70] and [0x008d3aa9] set; its lines, rects, blits, scene begin and end through the device's function table [0x008c4bd8..]; else the software 2D path): the SDL 2D host draws the 2D layer |
 | 0x005c0340 | 12 | replaced (SDL or the platform layer) | the setter of PM's 2D-through-Direct3D flag [0x008d3aa9] (returns the old one), the flag 0x005c0320 reads with [0x008c4b70]: that drawing path is replaced by SDL (0x005c0320's row), and only an unregistered debug key reaches this setter (0x0040ba30) |
 | 0x005c0360 | 55 | replaced (SDL or the platform layer) | PM's 2D drawing through Direct3D (0x005c0320: [0x008c4b70] and [0x008d3aa9] set; its lines, rects, blits, scene begin and end through the device's function table [0x008c4bd8..]; else the software 2D path): the SDL 2D host draws the 2D layer |
@@ -4194,7 +4164,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x005c0bc0 | 16 | replaced (SDL or the platform layer) | PM's 2D drawing through Direct3D (0x005c0320: [0x008c4b70] and [0x008d3aa9] set; its lines, rects, blits, scene begin and end through the device's function table [0x008c4bd8..]; else the software 2D path): the SDL 2D host draws the 2D layer |
 | 0x005c0bf0 | 40 | replaced (SDL or the platform layer) | called only from 0x005c04d0, which are sdl |
 | 0x005c0db0 | 12 | folded | read: the scalar deleting destructor (the destructor 0x005c1170, then delete when bit 0 is set); the port deletes its objects itself, the destructor labelled on its own row |
-| 0x005c1230 | 9 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:319) |
+| 0x005c1230 | 9 | folded | covered by the port where it names it (src/mech3/dev_text.cpp:99) |
 | 0x005c1d90 | 40 | folded | zTwoD's controls (ported in gamez/ztwod) against MW3's twins by the order-aware compare and features: the differences are PM's Text 0x4d4 bytes (MW3's 0x4cc, so the divide-by-size shifts sar 9 for sar 10 and the strides), list growth helpers called where MW3 inlined them, a few sign forms (fmul -2), the char-class table written as dwords for bytes (0x005c7700, MW3's 0x005a46a0: the same classes), and PM's 2D path's blits and locks (unmapped calls for MW3's zVideo 0x0057d210 / 0x005841e0 / 0x00584210 / 0x00597e50, the SDL layer's) |
 | 0x005c2280 | 32 | folded | covered by the port where it names it (src/mech3/debriefing.cpp:490) |
 | 0x005c2640 | 69 | folded | zTwoD's controls (ported in gamez/ztwod) against MW3's twins by the order-aware compare and features: the differences are PM's Text 0x4d4 bytes (MW3's 0x4cc, so the divide-by-size shifts sar 9 for sar 10 and the strides), list growth helpers called where MW3 inlined them, a few sign forms (fmul -2), the char-class table written as dwords for bytes (0x005c7700, MW3's 0x005a46a0: the same classes), and PM's 2D path's blits and locks (unmapped calls for MW3's zVideo 0x0057d210 / 0x005841e0 / 0x00584210 / 0x00597e50, the SDL layer's) |
@@ -4223,7 +4193,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x005c4760 | 225 | replaced (SDL or the platform layer) | PM's 2D drawing through Direct3D (0x005c0320: [0x008c4b70] and [0x008d3aa9] set; its lines, rects, blits, scene begin and end through the device's function table [0x008c4bd8..]; else the software 2D path): the SDL 2D host draws the 2D layer |
 | 0x005c4cb0 | 56 | replaced (SDL or the platform layer) | PM's 2D drawing through Direct3D for zTwoD's shapes (as 0x005c0320's label: the SDL 2D host draws the 2D layer): the circle and ring as midpoint points sent as a primitive list (0x005c4ed0, from Frame's draw 0x005c4e90; else the software circle 0x00584cb0), the points' list clipped to the rect (0x005c4cb0) or each jittered by a random amount within an amplitude (0x005c5460, the HUD static's shimmer on hardware), a point and a polyline's hardware branches (0x005c8ae0, 0x005c8c20), a shape's draw with its hardware and software branches (0x005c58f0) and an image's erase blit on the software path (0x005c9aa0) |
 | 0x005c4e70 | 8 | folded | returns a constant or a global |
-| 0x005c4e80 | 9 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:606) |
+| 0x005c4e80 | 9 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:608) |
 | 0x005c4e90 | 18 | replaced (SDL or the platform layer) | PM's 2D drawing through Direct3D for zTwoD's shapes (as 0x005c0320's label: the SDL 2D host draws the 2D layer): the circle and ring as midpoint points sent as a primitive list (0x005c4ed0, from Frame's draw 0x005c4e90; else the software circle 0x00584cb0), the points' list clipped to the rect (0x005c4cb0) or each jittered by a random amount within an amplitude (0x005c5460, the HUD static's shimmer on hardware), a point and a polyline's hardware branches (0x005c8ae0, 0x005c8c20), a shape's draw with its hardware and software branches (0x005c58f0) and an image's erase blit on the software path (0x005c9aa0) |
 | 0x005c4ed0 | 231 | replaced (SDL or the platform layer) | PM's 2D drawing through Direct3D for zTwoD's shapes (as 0x005c0320's label: the SDL 2D host draws the 2D layer): the circle and ring as midpoint points sent as a primitive list (0x005c4ed0, from Frame's draw 0x005c4e90; else the software circle 0x00584cb0), the points' list clipped to the rect (0x005c4cb0) or each jittered by a random amount within an amplitude (0x005c5460, the HUD static's shimmer on hardware), a point and a polyline's hardware branches (0x005c8ae0, 0x005c8c20), a shape's draw with its hardware and software branches (0x005c58f0) and an image's erase blit on the software path (0x005c9aa0) |
 | 0x005c5460 | 49 | replaced (SDL or the platform layer) | PM's 2D drawing through Direct3D for zTwoD's shapes (as 0x005c0320's label: the SDL 2D host draws the 2D layer): the circle and ring as midpoint points sent as a primitive list (0x005c4ed0, from Frame's draw 0x005c4e90; else the software circle 0x00584cb0), the points' list clipped to the rect (0x005c4cb0) or each jittered by a random amount within an amplitude (0x005c5460, the HUD static's shimmer on hardware), a point and a polyline's hardware branches (0x005c8ae0, 0x005c8c20), a shape's draw with its hardware and software branches (0x005c58f0) and an image's erase blit on the software path (0x005c9aa0) |
@@ -4247,25 +4217,20 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x005c6c10 | 14 | folded | covered by the port where it names it (src/gamez/ztwod/twod_console.cpp:75) |
 | 0x005c6c40 | 9 | folded | a thunk: one call to another function |
 | 0x005c6c50 | 9 | folded | a thunk: one call to another function |
-| 0x005c6df0 | 9 | debug or dev tool: PORT (preserve) | follows 0x005c6e80: as MW3 0x005a3cd0, whose class PM's changes keep: the text console layer (Arial) behind the developer lines and the interp console: its line objects, their font, colour and position setters, the line maker (twod.md:38, 683) |
+| 0x005c6df0 | 9 | folded | a thunk: one call to another function |
 | 0x005c6e00 | 9 | folded | a thunk: one call to another function |
 | 0x005c6e20 | 20 | folded | zTwoD pieces, read: MW3's 0x005a3080 (twod_wintext.cpp:129; 0x005c3bf0, the order-aware compare equal), a destructor body (0x005c6e20: an array of 15 texts, then the base), a rectangle intersection (0x005ca590: the overlap or none, the port's Rect intersect) and a text box's line method on PM's Text size 0x4d4 (0x005c2ce0, MW3's 0x005a2000's calls) |
-| 0x005c6e80 | 45 | debug or dev tool: PORT (preserve) | as MW3 0x005a3cd0, whose class PM's changes keep: the text console layer (Arial) behind the developer lines and the interp console: its line objects, their font, colour and position setters, the line maker (twod.md:38, 683) |
-| 0x005c6f90 | 16 | debug or dev tool: PORT (preserve) | as MW3 0x005a3de0, whose class PM's changes keep: the text console layer (Arial) behind the developer lines and the interp console: its line objects, their font, colour and position setters, the line maker (twod.md:38, 683) |
-| 0x005c6fe0 | 17 | debug or dev tool: PORT (preserve) | as MW3 0x005a3e30, whose class PM's changes keep: the text console layer (Arial) behind the developer lines and the interp console: its line objects, their font, colour and position setters, the line maker (twod.md:38, 683) |
-| 0x005c7030 | 68 | debug or dev tool: PORT (preserve) | as MW3 0x005a3e80, whose class PM's changes keep: the text console layer (Arial) behind the developer lines and the interp console: its line objects, their font, colour and position setters, the line maker (twod.md:38, 683) |
-| 0x005c7180 | 9 | folded | a thunk: one call to another function |
 | 0x005c71b0 | 9 | folded | a thunk: one call to another function |
 | 0x005c71c0 | 9 | folded | a thunk: one call to another function |
 | 0x005c7200 | 54 | folded | by the layout-shift rule (tools/analysis/pm_layout_shift.py, docs/port-audit-pm.md method): MW3's 0x005a40b0 with only offsets and sizes of PM's larger structures changed (0x118->0x418); calls, field counts and every other immediate and float constant as MW3's |
 | 0x005c7360 | 12 | folded | covered by the port where it names it (src/gamez/ztwod/twod_console.h:43) |
 | 0x005c7380 | 38 | folded | group A, read: the same logic: a callee renamed by the map (0x0051da90 = PM 0x00537420), a direct call made virtual (0x0041bd80 through vt+0x168), PM's layout (+0xe8 for +0xe4, a null check added), a destructor on PM's members |
 | 0x005c76d0 | 11 | folded | covered by the port where it names it (src/gamez/ztwod/twod_console.cpp:29) |
-| 0x005c76f0 | 12 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:532) |
+| 0x005c76f0 | 12 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:534) |
 | 0x005c7700 | 38 | folded | zTwoD's controls (ported in gamez/ztwod) against MW3's twins by the order-aware compare and features: the differences are PM's Text 0x4d4 bytes (MW3's 0x4cc, so the divide-by-size shifts sar 9 for sar 10 and the strides), list growth helpers called where MW3 inlined them, a few sign forms (fmul -2), the char-class table written as dwords for bytes (0x005c7700, MW3's 0x005a46a0: the same classes), and PM's 2D path's blits and locks (unmapped calls for MW3's zVideo 0x0057d210 / 0x005841e0 / 0x00584210 / 0x00597e50, the SDL layer's) |
-| 0x005c7860 | 8 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:554) |
+| 0x005c7860 | 8 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:556) |
 | 0x005c7a30 | 8 | folded | empty: does nothing |
-| 0x005c7fb0 | 12 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:745) |
+| 0x005c7fb0 | 12 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:747) |
 | 0x005c7fd0 | 11 | folded | folded, by the feature compare and the order-aware compare (tools/analysis/pm_shape_compare.py: the same calls, tests and constants in order) against its MW3 twin; the only immediates that differ are error reports' line numbers (each checked to be the report's argument, 0x00406cb0 / 0x0049bfd0) |
 | 0x005c8110 | 49 | folded | zTwoD's controls (ported in gamez/ztwod) against MW3's twins by the order-aware compare and features: the differences are PM's Text 0x4d4 bytes (MW3's 0x4cc, so the divide-by-size shifts sar 9 for sar 10 and the strides), list growth helpers called where MW3 inlined them, a few sign forms (fmul -2), the char-class table written as dwords for bytes (0x005c7700, MW3's 0x005a46a0: the same classes), and PM's 2D path's blits and locks (unmapped calls for MW3's zVideo 0x0057d210 / 0x005841e0 / 0x00584210 / 0x00597e50, the SDL layer's) |
 | 0x005c82b0 | 9 | folded | a thunk: one call to another function |
@@ -4273,23 +4238,23 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x005c8440 | 22 | replaced (SDL or the platform layer) | PM's 2D drawing through Direct3D (0x005c0320: [0x008c4b70] and [0x008d3aa9] set; its lines, rects, blits, scene begin and end through the device's function table [0x008c4bd8..]; else the software 2D path): the SDL 2D host draws the 2D layer |
 | 0x005c84e0 | 112 | replaced (SDL or the platform layer) | PM's 2D drawing through Direct3D (0x005c0320: [0x008c4b70] and [0x008d3aa9] set; its lines, rects, blits, scene begin and end through the device's function table [0x008c4bd8..]; else the software 2D path): the SDL 2D host draws the 2D layer |
 | 0x005c87b0 | 64 | folded | zTwoD's controls (ported in gamez/ztwod) against MW3's twins by the order-aware compare and features: the differences are PM's Text 0x4d4 bytes (MW3's 0x4cc, so the divide-by-size shifts sar 9 for sar 10 and the strides), list growth helpers called where MW3 inlined them, a few sign forms (fmul -2), the char-class table written as dwords for bytes (0x005c7700, MW3's 0x005a46a0: the same classes), and PM's 2D path's blits and locks (unmapped calls for MW3's zVideo 0x0057d210 / 0x005841e0 / 0x00584210 / 0x00597e50, the SDL layer's) |
-| 0x005c8a40 | 9 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:639) |
+| 0x005c8a40 | 9 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:641) |
 | 0x005c8a50 | 24 | folded | zTwoD's controls (ported in gamez/ztwod) against MW3's twins by the order-aware compare and features: the differences are PM's Text 0x4d4 bytes (MW3's 0x4cc, so the divide-by-size shifts sar 9 for sar 10 and the strides), list growth helpers called where MW3 inlined them, a few sign forms (fmul -2), the char-class table written as dwords for bytes (0x005c7700, MW3's 0x005a46a0: the same classes), and PM's 2D path's blits and locks (unmapped calls for MW3's zVideo 0x0057d210 / 0x005841e0 / 0x00584210 / 0x00597e50, the SDL layer's) |
 | 0x005c8ae0 | 23 | replaced (SDL or the platform layer) | PM's 2D drawing through Direct3D for zTwoD's shapes (as 0x005c0320's label: the SDL 2D host draws the 2D layer): the circle and ring as midpoint points sent as a primitive list (0x005c4ed0, from Frame's draw 0x005c4e90; else the software circle 0x00584cb0), the points' list clipped to the rect (0x005c4cb0) or each jittered by a random amount within an amplitude (0x005c5460, the HUD static's shimmer on hardware), a point and a polyline's hardware branches (0x005c8ae0, 0x005c8c20), a shape's draw with its hardware and software branches (0x005c58f0) and an image's erase blit on the software path (0x005c9aa0) |
 | 0x005c8c20 | 43 | replaced (SDL or the platform layer) | PM's 2D drawing through Direct3D for zTwoD's shapes (as 0x005c0320's label: the SDL 2D host draws the 2D layer): the circle and ring as midpoint points sent as a primitive list (0x005c4ed0, from Frame's draw 0x005c4e90; else the software circle 0x00584cb0), the points' list clipped to the rect (0x005c4cb0) or each jittered by a random amount within an amplitude (0x005c5460, the HUD static's shimmer on hardware), a point and a polyline's hardware branches (0x005c8ae0, 0x005c8c20), a shape's draw with its hardware and software branches (0x005c58f0) and an image's erase blit on the software path (0x005c9aa0) |
 | 0x005c8e50 | 10 | folded | the same as its MW3 twin (identical, or passed by the feature compare 7f6e9e10), so it is what MW3's twin is in the port |
 | 0x005c9130 | 12 | folded | read: the scalar deleting destructor (the destructor 0x005c9150, then delete when bit 0 is set); the port deletes its objects itself, the destructor labelled on its own row |
 | 0x005c9280 | 104 | folded | zTwoD's controls (ported in gamez/ztwod) against MW3's twins by the order-aware compare and features: the differences are PM's Text 0x4d4 bytes (MW3's 0x4cc, so the divide-by-size shifts sar 9 for sar 10 and the strides), list growth helpers called where MW3 inlined them, a few sign forms (fmul -2), the char-class table written as dwords for bytes (0x005c7700, MW3's 0x005a46a0: the same classes), and PM's 2D path's blits and locks (unmapped calls for MW3's zVideo 0x0057d210 / 0x005841e0 / 0x00584210 / 0x00597e50, the SDL layer's) |
-| 0x005c9570 | 10 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:865) |
+| 0x005c9570 | 10 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:867) |
 | 0x005c9590 | 10 | folded | inside its ported callers (0x0048cec0): a small helper their ports do their own way |
-| 0x005c9650 | 9 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:865) |
+| 0x005c9650 | 9 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:867) |
 | 0x005c9660 | 10 | folded | as MW3 0x005a7670: covered where named or as one function: TextBox's set-by-message-id slots (FontText's run instead, twod.h:398), the edit bar's split piece (0x005a38a0's caller), the snow update's tail (twod_weather.cpp:290), the weather object's destructor, the message box's button handlers (one per button, twod_msgbox.cpp:7), zEntity's list add and remove (app_mech.cpp:314, 840) |
 | 0x005c9680 | 10 | folded | as MW3 0x005a7690: covered where named or as one function: TextBox's set-by-message-id slots (FontText's run instead, twod.h:398), the edit bar's split piece (0x005a38a0's caller), the snow update's tail (twod_weather.cpp:290), the weather object's destructor, the message box's button handlers (one per button, twod_msgbox.cpp:7), zEntity's list add and remove (app_mech.cpp:314, 840) |
 | 0x005c96a0 | 10 | folded | as MW3 0x005a76b0: covered where named or as one function: TextBox's set-by-message-id slots (FontText's run instead, twod.h:398), the edit bar's split piece (0x005a38a0's caller), the snow update's tail (twod_weather.cpp:290), the weather object's destructor, the message box's button handlers (one per button, twod_msgbox.cpp:7), zEntity's list add and remove (app_mech.cpp:314, 840) |
 | 0x005c96c0 | 10 | folded | as MW3 0x005a76d0: covered where named or as one function: TextBox's set-by-message-id slots (FontText's run instead, twod.h:398), the edit bar's split piece (0x005a38a0's caller), the snow update's tail (twod_weather.cpp:290), the weather object's destructor, the message box's button handlers (one per button, twod_msgbox.cpp:7), zEntity's list add and remove (app_mech.cpp:314, 840) |
 | 0x005c96e0 | 10 | folded | as MW3 0x005a76f0: covered where named or as one function: TextBox's set-by-message-id slots (FontText's run instead, twod.h:398), the edit bar's split piece (0x005a38a0's caller), the snow update's tail (twod_weather.cpp:290), the weather object's destructor, the message box's button handlers (one per button, twod_msgbox.cpp:7), zEntity's list add and remove (app_mech.cpp:314, 840) |
 | 0x005c9700 | 10 | folded | as MW3 0x005a7710: covered where named or as one function: TextBox's set-by-message-id slots (FontText's run instead, twod.h:398), the edit bar's split piece (0x005a38a0's caller), the snow update's tail (twod_weather.cpp:290), the weather object's destructor, the message box's button handlers (one per button, twod_msgbox.cpp:7), zEntity's list add and remove (app_mech.cpp:314, 840) |
-| 0x005c9720 | 10 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:842) |
+| 0x005c9720 | 10 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:844) |
 | 0x005c97e0 | 12 | folded | read: the scalar deleting destructor (the destructor 0x005c9800, then delete when bit 0 is set); the port deletes its objects itself, the destructor labelled on its own row |
 | 0x005c9a60 | 12 | folded | zTwoD's controls (ported in gamez/ztwod) against MW3's twins by the order-aware compare and features: the differences are PM's Text 0x4d4 bytes (MW3's 0x4cc, so the divide-by-size shifts sar 9 for sar 10 and the strides), list growth helpers called where MW3 inlined them, a few sign forms (fmul -2), the char-class table written as dwords for bytes (0x005c7700, MW3's 0x005a46a0: the same classes), and PM's 2D path's blits and locks (unmapped calls for MW3's zVideo 0x0057d210 / 0x005841e0 / 0x00584210 / 0x00597e50, the SDL layer's) |
 | 0x005c9aa0 | 17 | replaced (SDL or the platform layer) | PM's 2D drawing through Direct3D for zTwoD's shapes (as 0x005c0320's label: the SDL 2D host draws the 2D layer): the circle and ring as midpoint points sent as a primitive list (0x005c4ed0, from Frame's draw 0x005c4e90; else the software circle 0x00584cb0), the points' list clipped to the rect (0x005c4cb0) or each jittered by a random amount within an amplitude (0x005c5460, the HUD static's shimmer on hardware), a point and a polyline's hardware branches (0x005c8ae0, 0x005c8c20), a shape's draw with its hardware and software branches (0x005c58f0) and an image's erase blit on the software path (0x005c9aa0) |
@@ -5029,9 +4994,9 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x005baec0 | 12 | folded | by the slot pairing: PM vtable 0x5f1cd4 slot 0xc is MW3 vtable 0x5cf868's 0x00599be0 (MW3 ported src/gamez/zfmv/fmv_script.cpp:272), the feature compare equal (7f6e9e10) |
 | 0x005bb070 | 28 | folded | ported, by docs/symbols.csv: ported: 0x0055a540(1) |
 | 0x005bb100 | 28 | folded | ported, by docs/symbols.csv: ported: 0x0055a540(2) |
-| 0x005bb3d0 | 37 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:651) |
+| 0x005bb3d0 | 37 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:653) |
 | 0x005bb510 | 19 | folded | covered by the port where it names it (src/gamez/ztwod/twod_shapes.cpp:184) |
-| 0x005bb540 | 37 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:651) |
+| 0x005bb540 | 37 | folded | covered by the port where it names it (src/gamez/ztwod/twod.h:653) |
 | 0x005bb680 | 19 | folded | covered by the port where it names it (src/gamez/ztwod/twod_shapes.cpp:184) |
 | 0x005bb7c0 | 12 | folded | read: the scalar deleting destructor (the destructor 0x005bb8c0, then delete when bit 0 is set); the port deletes its objects itself, the destructor labelled on its own row |
 | 0x005bba70 | 33 | folded | zTwoD's controls and the FMV script's fade (ported in gamez/ztwod, gamez/zfmv) against MW3's twins read side by side: the same logic, the differences PM's layout (list items 0x4c0 bytes for 0x4b8, fields 8 on), its key lookup 0x00578950 named where MW3's was register-passed, and the 2D blits and the fade's draw through PM's 2D layer (0x005c0450 / 0x005c0b70 / 0x0057d210 / 0x005c0510 with the surface and x passed; replaced by the SDL 2D host, as 0x005c0320's label) |

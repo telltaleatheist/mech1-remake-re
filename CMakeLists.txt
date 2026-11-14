@@ -836,6 +836,7 @@ if(MW3_BUILD_PM)
   target_sources(pmprobe PRIVATE tests/probe_pm_pocket.cpp)
   target_sources(pmprobe PRIVATE tests/probe_pm_allies.cpp)
   target_sources(pmprobe PRIVATE tests/probe_mech_net.cpp)
+  target_sources(pmprobe PRIVATE tests/probe_dev_text.cpp)  # test_pm_dev_text.py
   # The vehicle editor's save on PM's aiv.zrd, its "target" tag kept (test_pm_aiv_save_mech3ax.py)
   target_sources(pmprobe PRIVATE tests/probe_aiv_save.cpp)
   target_sources(pmprobe PRIVATE tests/probe_pm_lobby_rules.cpp)

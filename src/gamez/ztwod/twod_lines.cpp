@@ -4,7 +4,7 @@
 
 namespace ztwod {
 
-// Mech3.exe 1.2 @ 0x005a3cd0
+// Mech3.exe 1.2 @ 0x005a3cd0, Pirate's Moon 1.0 @ 0x005c6e80
 LineLog::LineLog() : lines{FontText(nullptr, 0, 0), FontText(nullptr, 0, 0), FontText(nullptr, 0, 0),
                            FontText(nullptr, 0, 0), FontText(nullptr, 0, 0), FontText(nullptr, 0, 0),
                            FontText(nullptr, 0, 0), FontText(nullptr, 0, 0), FontText(nullptr, 0, 0),
@@ -26,12 +26,12 @@ LineLog::LineLog() : lines{FontText(nullptr, 0, 0), FontText(nullptr, 0, 0), Fon
   }
 }
 
-// Mech3.exe 1.2 @ 0x005a3de0
+// Mech3.exe 1.2 @ 0x005a3de0, Pirate's Moon 1.0 @ 0x005c6f90
 void LineLog::set_font_all(const char* face, int32_t height, int32_t weight, int32_t width) {
   for (int i = kLines - 1; i >= 0; --i) lines[i].create_font(face, height, weight, width, 0, 0, 2);
 }
 
-// Mech3.exe 1.2 @ 0x005a3e30
+// Mech3.exe 1.2 @ 0x005a3e30, Pirate's Moon 1.0 @ 0x005c6fe0
 void LineLog::set_colors_all(uint32_t top, uint32_t bottom) {
   for (int i = kLines - 1; i >= 0; --i) {
     FontText& l = lines[i];
@@ -42,7 +42,7 @@ void LineLog::set_colors_all(uint32_t top, uint32_t bottom) {
   }
 }
 
-// Mech3.exe 1.2 @ 0x005a3e80
+// Mech3.exe 1.2 @ 0x005a3e80, Pirate's Moon 1.0 @ 0x005c7030
 FontText* LineLog::add(float seconds, const char* text) {
   set_active(1);
   if (!(lines[0].flags & kHidden) && std::strcmp(text, lines[0].rendered_text()) != 0) {
@@ -70,11 +70,11 @@ FontText* LineLog::add(float seconds, const char* text) {
 }
 
 LineLog& line_log() {
-  static LineLog log;  // [0x00731ac0]
+  static LineLog log;  // [0x00731ac0] (PM [0x008cf1d0], 0x005c6df0)
   return log;
 }
 
-// Mech3.exe 1.2 @ 0x005a3fd0
+// Mech3.exe 1.2 @ 0x005a3fd0, Pirate's Moon 1.0 @ 0x005c7180
 void line_log_add(const char* text, float seconds) { line_log().add(seconds, text); }
 
 }  // namespace ztwod
