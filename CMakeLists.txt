@@ -174,6 +174,7 @@ add_library(mw3core STATIC
   src/gamez/zrender/zrndr_prim2d.cpp
   src/gamez/zrender/zrndr_blit.cpp
   src/gamez/ztwod/twod_console.cpp
+  src/gamez/ztwod/twod_lines.cpp
   src/gamez/ztwod/twod_control.cpp
   src/gamez/ztwod/twod_dialog.cpp
   src/gamez/ztwod/twod_editbar.cpp
@@ -264,6 +265,7 @@ add_library(mw3core STATIC
   src/mech3/player_view.cpp
   src/mech3/hud.cpp
   src/mech3/message_panel.cpp
+  src/mech3/dev_text.cpp
   src/mech3/mech_hud.cpp
   src/mech3/app_cheats.cpp
   src/mech3/app_hud.cpp
@@ -540,6 +542,7 @@ add_library(mw3probe SHARED
   tests/probe_weapons_hit.cpp
   tests/probe_weapons_fly.cpp
   tests/probe_twod.cpp
+  tests/probe_dev_text.cpp
   tests/probe_mainmenu.cpp
   tests/probe_pocket_panel.cpp
   tests/probe_menus.cpp
@@ -836,6 +839,7 @@ if(MW3_BUILD_PM)
   target_sources(pmprobe PRIVATE tests/probe_pm_pocket.cpp)
   target_sources(pmprobe PRIVATE tests/probe_pm_allies.cpp)
   target_sources(pmprobe PRIVATE tests/probe_mech_net.cpp)
+  target_sources(pmprobe PRIVATE tests/probe_dev_text.cpp)  # test_pm_dev_text.py
   # The vehicle editor's save on PM's aiv.zrd, its "target" tag kept (test_pm_aiv_save_mech3ax.py)
   target_sources(pmprobe PRIVATE tests/probe_aiv_save.cpp)
   target_sources(pmprobe PRIVATE tests/probe_pm_lobby_rules.cpp)

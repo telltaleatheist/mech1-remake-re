@@ -78,6 +78,8 @@ class Object2D {
   virtual void after_input(Window*, bool) {}            // +0x58  0x0040baf0
   virtual int32_t hit(int32_t px, int32_t py);  // +0x5c  0x0059fd50
   virtual void show_for(float seconds);  // +0x60  0x0059ff10: < 0 shows for good
+  // 0x005a0050 (not a virtual): the timer only, timed when 0 or more, else untimed and hidden (the line log's).
+  void set_timer(float seconds);
   virtual void hide();               // +0x64  0x0059ff50
   virtual int32_t get_x() { return x; }  // +0x68  0x0040a8a0
   virtual int32_t get_y() { return y; }  // +0x6c  0x0040a890

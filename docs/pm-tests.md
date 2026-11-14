@@ -1500,3 +1500,22 @@ Of the PORT (preserve) rows, 12 had their MW3 twin ported on main. They were rea
 
 Tests: the mw3pmtests subset (interp, menu, list, pilot, lab, app, timer, view, editor, net) passes under both
 PM_AI=0 and PM_AI=1 (51 tests), and so does test_pm_menu_scroll.
+
+## S4: the developers' text (2026-11-14)
+
+MW3's port (main, `mech3/dev_text`, `ztwod/twod_lines`; hud.md section 20, twod.md The line log) crossed, with PM's
+addresses beside MW3's. Ported for preservation and not wired, except event 38's line log, which is never drawn.
+- **The same logic at PM's layout.** PM's FontText is 0x4b8 bytes (MW3's 0x4b0) with the same fields up to +0x474,
+  so the lines sit 0x4b8 apart and the frame rate's fields 8 bytes later (+0x4b8 elapsed, +0x4bc rate, +0x4c0
+  frames). The readout 0x410470, the state names 0x43dcf0 and the zones text 0x43dbf0 take their argument on the
+  stack, as do the readout's zone, pool and texture-memory calls; the log's set_active is vt+8.
+- **One difference:** PM's set-up 0x410110 also gives the frame rate (0x61ff18) mech_string after the rows
+  (`zgame::Table::dev_fps_font_pm`). Its reset 0x410190 passes the set-up's two arguments to the message panel as
+  MW3's does in ECX and EDX.
+- The scroll's FIX (A) (the line's text handed to set_text as its format) is PM's too (0x5c7030).
+- **Relabelled:** 0x410880 and 0x5acc40 are not the timing marks' but a CRT static initializer making the network
+  objects' list [0x627c38] (MW3's twin 0x410220 a thunk): folded.
+
+Test: `test_pm_dev_text.py` runs MW3's test_dev_text against PM's exe (22 state names, 26 zone lists, 465 line log
+steps, 60 readouts, 1,101 frames), all identical; the break that scrolls hidden lines and the frame rate's strict
+second are caught (884 differ). MW3's test is unchanged.

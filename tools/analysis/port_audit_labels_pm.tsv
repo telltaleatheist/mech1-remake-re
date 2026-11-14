@@ -1,9 +1,6 @@
 0x00403830	devdialog-logic	as MW3 0x00403820, whose class PM's changes keep: the editor's 'add vehicle to node' (0x00403820 -> 0x0049d350, editor.md); ours does it as meant: upgrades/editor/add_vehicle.cpp
 0x00403f30	devdialog-logic	as MW3 0x00403ec0, whose class PM's changes keep: the AI tester dialog's walk over a vehicle's nets (0x00404090 -> 0x00403ec0: their extents)
 0x00406d10	sdl	as MW3 0x00409b50, whose class PM's changes keep: GDI: a font's metrics from its handle (GetObjectA), the 2D text's Windows path; the port's text goes through ztwod::Host
-0x0040f7a0	debug	as MW3 0x0040ff40, whose class PM's changes keep: the developer text lines (25 rows at [0x005fc848], Arial 10): their font and layers (0x0040f7f0, 0x0040f870, 0x0040f890, 0x0040f8b0) and the per-frame readout 0x0040fb50, which writes the lines every frame but whose layers are never on in the release (hud.md section 20; the port's notes: developer only)
-0x00410110	debug	as MW3 0x0040f7f0, whose class PM's changes keep: the developer text lines (25 rows at [0x005fc848], Arial 10): their font and layers (0x0040f7f0, 0x0040f870, 0x0040f890, 0x0040f8b0) and the per-frame readout 0x0040fb50, which writes the lines every frame but whose layers are never on in the release (hud.md section 20; the port's notes: developer only)
-0x00410470	debug	as MW3 0x0040fb50, whose class PM's changes keep: the developer text lines (25 rows at [0x005fc848], Arial 10): their font and layers (0x0040f7f0, 0x0040f870, 0x0040f890, 0x0040f8b0) and the per-frame readout 0x0040fb50, which writes the lines every frame but whose layers are never on in the release (hud.md section 20; the port's notes: developer only)
 0x00482a60	sdl	as MW3 0x00480340, whose class PM's changes keep: Win32 and MFC frame plumbing the SDL program replaces: the single-instance check and close (FindWindow Mech3Class; startup.md), the frame window's create, OnCreate, OnSetFocus, OnNcActivate, OnSize, WindowProc, WM_CLOSE
 0x00483d50	debug	as MW3 0x004810d0, whose class PM's changes keep: the debug console's overlay toggle (0x00608f74; game-loop.md: from 0x00480b20, itself never called)
 0x004a07a0	devdialog-logic	as MW3 0x0049d350, whose class PM's changes keep: the editor's 'add vehicle to node' (0x00403820 -> 0x0049d350, editor.md); ours does it as meant: upgrades/editor/add_vehicle.cpp
@@ -83,14 +80,9 @@
 0x005b0500	debug	as MW3 0x0058ee40, whose class PM's changes keep: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
 0x005b2360	sdl	as MW3 0x00590980, whose class PM's changes keep: the MFC frame window: its class and message-map getters, constructor (frame_new) and destructor, OnPaint, OnSize (the video resize), OnCreate (the GAMEBMP icon, the mouse), OnDestroy (net, video, CD stop), the window test, and the top-level catch that names the exception in a message box; the SDL window and the port's crash box stand in
 0x005b9330	sdl	as MW3 0x00597fc0, whose class PM's changes keep: the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48)
-0x005c6e80	debug	as MW3 0x005a3cd0, whose class PM's changes keep: the text console layer (Arial) behind the developer lines and the interp console: its line objects, their font, colour and position setters, the line maker (twod.md:38, 683)
-0x005c6f90	debug	as MW3 0x005a3de0, whose class PM's changes keep: the text console layer (Arial) behind the developer lines and the interp console: its line objects, their font, colour and position setters, the line maker (twod.md:38, 683)
-0x005c6fe0	debug	as MW3 0x005a3e30, whose class PM's changes keep: the text console layer (Arial) behind the developer lines and the interp console: its line objects, their font, colour and position setters, the line maker (twod.md:38, 683)
-0x005c7030	debug	as MW3 0x005a3e80, whose class PM's changes keep: the text console layer (Arial) behind the developer lines and the interp console: its line objects, their font, colour and position setters, the line maker (twod.md:38, 683)
 0x005c9d10	folded	tested on PM's exe: Movie2D's draw is MW3's 0x005a7ca0 through PM's 2D image draw 0x005c0510 (the port's host blit, as the other 2D draws on pm); ztwod::Movie2D::draw (test_movie2d.py with MW3_EXE=pm: 2000 movies identical)
 0x0040bf90	devdialog-shell	called only from 0x0040bf30, which are devdialog-shell
-0x00410190	debug	called only from 0x00410110, which are debug
-0x00410880	unused	called only from 0x00410820, which are unused
+0x00410880	folded	a CRT static initializer (from 0x00410870, the initializers' table), not the timing marks': the network objects' list [0x00627c38] made empty (0x005acc40); MW3's twin 0x00410220 is a thunk. The port's list is a C++ static (znet)
 0x00485610	sdl	called only from 0x004855d0, which are sdl
 0x004b51a0	unused	called only from 0x004b5040, which are unused
 0x004c7cf0	debug	called only from 0x004c7c80, which are debug
@@ -111,7 +103,7 @@
 0x005a2600	sdl	called only from 0x0059b8a0, which are sdl
 0x005a2770	sdl	called only from 0x005a2600, which are sdl
 0x005ab800	sdl	called only from 0x005abe90, which are sdl
-0x005acc40	unused	called only from 0x00410880, which are unused
+0x005acc40	folded	the STL's list constructor (a head node pointing at itself, count 0), for the network objects' list [0x00627c38] from its static initializer 0x00410880; the port's list is a C++ static (znet)
 0x005b8350	debug	called only from 0x005b8300, which are debug
 0x004c7c90	debug	called only from 0x004c7cf0, which are debug
 0x005a2680	sdl	called only from 0x005a2770, which are sdl

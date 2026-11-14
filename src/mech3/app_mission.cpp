@@ -56,6 +56,8 @@
 #include "gamez/zsound/zsnd.h"
 #include "gamez/ztwod/twod_weather.h"
 #include "gamez/zutil/zutl_msg.h"
+#include "gamez/ztwod/twod_lines.h"
+#include "gamez/zeffect/zeff_anim_events.h"
 #include "gamez/zutil/zutl_path.h"
 #include "gamez/zvideo/zvid_dd.h"
 #include "gamez/zvideo/zvid_ddd3d.h"
@@ -2203,8 +2205,12 @@ struct WiredMissionHooks : MissionHooks {
     r.screen_wave = [](void*, int32_t x, int32_t y, int32_t inner, int32_t outer, int32_t amp, float wl, float ph) {
       ztwod::weather_wave(x, y, inner, outer, amp, wl, ph);
     };
-    r.message = [](void*, uint8_t*) {
-      if (GameEngine* g = engine_of_hooks()) g->unported("0x00507970", {});
+    // Event 38 (no shipped file uses it): the message to zTwoD's line log for 3 seconds (0x00507970 ->
+    // 0x005a3fd0), whose lines the original never draws (twod_lines.h).
+    r.message = [](void*, uint8_t* e) {
+      zeff::ev_message(
+          e, [](int32_t id) { return zutl::messages().get_text ? zutl::messages().get_text(id) : nullptr; },
+          [](const char* t, float seconds) { ztwod::line_log_add(t ? t : "", seconds); });
     };
   }
   void anim_load(const char*) override { zeff::anim_load(); }
