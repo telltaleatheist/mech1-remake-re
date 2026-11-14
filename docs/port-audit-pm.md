@@ -77,7 +77,6 @@ produces; the label names the compared value. Reaching a function, or running a 
 | unused: PORT (preserve) | 80 |
 | dev dialog (MFC), its window plumbing: replaced | 51 |
 | MISSING LOGIC (only data the shipped game lacks reaches it) | 3 |
-| unlabelled | 1 |
 
 ## MISSING LOGIC
 
@@ -320,7 +319,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 
 ## By module
 
-### mech3ep1 (3174 not ported)
+### mech3ep1 (3173 not ported)
 
 | Address | Lines | Class | Why |
 |---|---|---|---|
@@ -424,7 +423,6 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x00407fa0 | 9 | folded | a thunk: one call to another function |
 | 0x00408080 | 29 | folded | MW3's 0x004099c0 (the briefing's movie, app_menus.cpp:912's briefing_play_movie): fmv.zrd's entry by the game's block name (vt+0x58), its window the main one, played |
 | 0x004080e0 | 15 | folded | the Load State's leave (MW3's 0x004093e0, app_states.cpp), read: the base leave, the briefing's abort steps (0x00404c20), the briefing screen deleted and cleared |
-| 0x00408120 | 111 | unlabelled |  |
 | 0x00408360 | 11 | folded | read: a range of 0x4d4-byte elements destroyed, each by its vt+0 (the STL's destroy), from the HUD 0x0043c900 and 0x00405ca0; the port's containers do it |
 | 0x00408390 | 19 | folded | as MW3 0x00437580: covered by ported code beside them: the force feedback's release, the game classes' small virtuals (first enemy, record slots, flags; mission-start.md), list and vector instances (mechdef-*.md name 0x0046cc00, 0x00475bf0, 0x00475c20), static list initialisers, the pilot's game-type getters (0x00479460/80, 0x004794a0, used by the port), part classes' constant virtuals and their damage path, constructors and destructors, the mcbwaynet's calls (app_vehicle.cpp) |
 | 0x004083e0 | 19 | folded | list container helpers (each element deleted, by operator delete or its virtual destructor, then the node's pointer cleared; the port's std containers) |

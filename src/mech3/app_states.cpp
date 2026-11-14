@@ -1231,9 +1231,9 @@ bool LoadState::enter() {
   return true;
 }
 
-// Mech3.exe 1.2 @ 0x00409440 (briefing.cpp, built without optimisation), Pirate's Moon 1.0 @
-// 0x00408120 (its sound ranges scaled by the object detail, its block name): the movie first (started on the first pass, polled after), then the briefing
-// screen is built once, then the menu runs.
+// Mech3.exe 1.2 @ 0x00409440, Pirate's Moon 1.0 @ 0x00408120 (briefing.cpp, built without optimisation; PM: its sound
+// ranges scaled by the object detail, its block name): the movie first (started on the first pass, polled after), then
+// the briefing screen is built once, then the menu runs.
 bool LoadState::update() {
   Engine& en = e();
   if (movie_) {
