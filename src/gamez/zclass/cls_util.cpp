@@ -1,4 +1,5 @@
 #include "gamez/zclass/cls_util.h"
+#include "gamez/zgame/zgame_table.h"
 #include "pm/gamez/zmodel/gmod_const.h"
 
 #include <cstdint>
@@ -184,7 +185,7 @@ Node* copy_camera(Node* src) {
   return dst;
 }
 
-// Mech3.exe 1.2 @ 0x004f9840. The data's +4..+0x44 as they are; the second
+// Mech3.exe 1.2 @ 0x004f9840, Pirate's Moon 1.0 @ 0x0050d4e0 (PM's fades computed after the copy, 0x00515c00). The data's +4..+0x44 as they are; the second
 // range goes through the engine's square root guess (it is squared again).
 Node* copy_lod(Node* src) {
   Node* dst = lod_create();
@@ -194,6 +195,7 @@ Node* copy_lod(Node* src) {
   auto* d = static_cast<Lod*>(dst->data);
   if (lod_set_level(dst, s->get<uint32_t>(0))) return nullptr;
   std::memcpy(d->raw + 4, s->raw + 4, 0x44);
+  if (zgame::game().zcls_lod_fades) zgame::game().zcls_lod_fades(*d);  // Pirate's Moon's 0x00515c00
   if (lod_set_range2(dst, s->get<uint32_t>(0x48), approx_sqrt(s->get<float>(0x4c)))) return nullptr;
   for (int32_t i = 0; i < src->child_count(); ++i) {
     Node* c = node_copy(src->children[i]);

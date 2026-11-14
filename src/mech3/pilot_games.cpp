@@ -610,6 +610,14 @@ CampaignGame::~CampaignGame() {
   lancemates.clear();
 }
 
+// Pirate's Moon 1.0 @ 0x004356c0 (CStringList::Find: the exact name).
+bool CampaignGame::has_string(const char* name) const {
+  if (strings.empty()) return false;
+  for (const std::string& k : strings)
+    if (k == name) return true;
+  return false;
+}
+
 // Pirate's Moon 1.0 @ 0x004356f0: no operation, and the strings at the end.
 void CampaignGame::save() {
   Game::save();

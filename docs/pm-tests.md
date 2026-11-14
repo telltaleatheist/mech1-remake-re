@@ -1323,3 +1323,113 @@ ported on pm as its own (`pm::zcls::write_zbd` and the pm writers beside the pm 
 back, Pirate's Moon). `test_pm_write_zbd.py`: PM's four worlds read and written back by the exe and the port, equal
 byte for byte but for the time stamp and the exe's own heap pointers, the reports and file list equal, each file
 read back to the same world; c1 and c3 again with every 97th node not written (the remap). Breaks: see gamez.md.
+compiled the other way round. Read, not run: test_net105.py's bench uses MW3's register calls and import stubs.
+
+## PM's own data-only rows, part 1: anim events 44 and 45 (2026-11-14)
+
+PM's handler table (0x521c70) has two event types MW3 lacks: 44 (0x51e750) and 45 (0x51e890). Both move a colour
+over the event's time and write it into a range of polygons of a node's model, and optionally its children's
+(0x50cb90 -> 0x55b8f0 -> 0x55b850, which makes a polygon's colour array on first use). 44 moves the colour by a rate
+that an acceleration changes; 45 by a fixed rate. The node is the def's node ref by index, or the def's own node
+for -100 (0x51e720). No shipped anim.zbd has either event. A walk of every sequence the port's reader loads from
+c1..c4 found types 1..42 only (about 81,000 events). The run dispatches them through `zgame::Table::zeff_pm_event`
+on pm, as PM's table does; MW3's run still reports them as bad.
+
+`test_pm_color_events.py`: 600 random events on PM's exe, run 1..8 frames on node trees whose polygons have colours
+or none, at 24-bit precision. The result, the time left, the event's state and every polygon's colours are compared
+each frame: 0 differ. Breaks caught: the rate applied before the colour, the children left out, the last polygon
+left out, done one frame late. An index past the def's node list is no node here (FIX (A), fixes.md); the bench's
+zeroed memory reads as none in the exe too.
+
+
+## PM's own data-only rows, part 2: the hit pass and IF / ELSEIF (2026-11-14)
+
+**The hit pass (0x51b340).** PM's two hit handlers run it on every hit, after the damage: the collision 0x51b2c0
+and the weapon 0x51b380 (MW3's 0x502df0 and 0x502e60, otherwise the same on PM's def). When the def has its second
+sequence (+0xd4) with events, it runs it from the start on the frame's time, with the def's +0xb0 cleared. It is
+wired through `zgame::Table::zeff_pm_on_hit`. No shipped def has a second sequence: the port's reader loads none in
+c1..c4.
+
+`test_pm_hit_sequence.py`: 800 hits on PM's exe through both handlers, with sequences of colour events (44, 45),
+half of them under an IF on the health. 0 differ. Breaks caught: no pass, +0xb0 kept, the time left kept, the pass
+before the damage (seen through the health IF).
+
+**IF / ELSEIF (0x51fce0).** This is play code: every IF and ELSEIF in PM goes through it. It is wired through
+`zgame::Table::zeff_if` (pm::zeff::ev_if); MW3 keeps its own.
+- PM tests the conditions in this order: 1, 0x20, 0x40, 2, 8, 0x10 (only an index of 0 or more), 0x2000, 0x80,
+  0x100, 4, 0x200, 0x400, 0x800, 0x1000.
+- Five conditions are new:
+  - 0x2000: the node's active flag.
+  - 0x200: the node's world orientation within an angle of the block's quaternion (+0x50). It goes through
+    euler→quaternion with the angles in the order (y, x, z), PM's product 0x53f020 with its own summation order, and
+    PM's log 0x53f310, whose root is the float bit trick. The squared angle times 4 is compared with the IF's own
+    value.
+  - 0x400: the block's +0x60 within the value and +0x18.
+  - 0x800: the health at most the value.
+  - 0x1000: the health within the value and +0x18.
+- On an ELSEIF, 0x200's value and the +0x18 bounds still come from the IF's own record.
+- 0x200 and 0x400 also need the block's +0x34 / +0x38 set. Only the anim file's block can set them: they are
+  cleared at start-up (0x521e40) and nothing writes them at run time. The shipped blocks hold 0.
+- What the shipped files use: a walk of every IF and ELSEIF in c1..c4 found single flags only (1: 1,697, 2: 854,
+  4: 756, 0x20: 521, 0x40: 100). With a single flag, PM's order and MW3's agree, so PM's IF answers as MW3's on the
+  shipped missions.
+
+`test_pm_if.py`: 4000 random IF chains (ELSEIF, ELSE, ENDIF and other events between) on PM's exe at 24 bits. The
+nodes have cached world matrices; the ray down answers the same on both sides; the distance, place and orientation
+run as they are. Every condition is seen true and false, and the result, the place the sequence goes on and the
+random index all match: 0 differ. 3000 random quaternions through 0x53f020 and 0x53f310 match bit for bit. fpatan's
+angle is not rounded by the precision control, so the port keeps it in double and rounds the division and the
+products to float. Breaks caught: MW3's order (0x2000 after 0x80), 0x200 against the ELSEIF's value, the angles in
+MW3's order, the exact root, MW3's summation order in the product.
+
+## PM's own data-only rows, part 3: overrides, the library name, the LoD fades (2026-11-14)
+
+- **NodeSetOverrideAmbient / ...AmbientValue / ...Diffuse / ...DiffuseValue** (0x4fcff0, 0x4fd080, 0x4fd110,
+  0x4fd1a0). They set the node's +0x2c bit 7, bits 9..16, bit 8 and bits 17..24, and report a null node. No shipped
+  PM script names them: interp.zbd has 0 matches. Ported for preservation in pm::zcls and not wired, like the other
+  commands no script uses.
+- **The texture library's file name** (0x532150). It runs on every library's first open, so it is wired through
+  `zgame::Table::zimg_resolve_name` (pm::zimg::resolve_name).
+  - For each name it tries, PM takes the r-prefixed library if it is there, else the plain name of the same
+    variant, before going down a variant. MW3 tries r-names only.
+  - On the shipped install the two differ only for a hardware texture set of variant 1: there is no rtexture1, so
+    PM takes texture1.zbd where MW3's rule took rtexture.zbd. Variant 1 needs a card that reports 1 to 2 MB of
+    texture memory.
+- **The LoD fade values** (0x515c00). PM's LoD copy (0x50d4e0) recomputes them on every copy, so they are wired
+  through `zgame::Table::zcls_lod_fades`, after the shared copy_lod's copy, into the shared Lod's pm_tail.
+  - Each of the three fades comes from the range, its width, its switch (above 0.01) and its floor. The root of
+  +4 is the float bit trick. PM's +0x50 makes the first fade stand for all three.
+  - No shipped LoD has a switch on (743 LoDs in c1..c4), so every shipped copy computes zeros, as the port's
+    zeroed pm_tail held before. Nothing in the port reads them yet.
+
+`test_pm_node_extras.py` on PM's exe: 3000 override calls (random flags and values, null nodes); 3000 random LoDs
+(at 24 bits; 2456 with fades not all zero); 3000 library names over random file sets and the shipped install's
+(927 r-names, 1027 plain names, 902 missing). 0 differ. Breaks caught: a 9-bit value mask, the one-for-all flag
+ignored, the switch at 0, the exact root, MW3's names without the plain fallback.
+
+## PM's own data-only rows, part 4: the objective's persist (2026-11-14)
+
+How it works in PM:
+- When a visible objective completes (0x45fe35 in 0x45fcf0), done or failed, its `persist` name is added to the
+  current campaign game's string list (+0xc4, saved with the game).
+- The vehicle loader (0x4a1e17 in 0x4a19c0) makes an aiv record with p12's second value set (+0xcc bit 4) only
+  outside a campaign, or when the record's name is in that list (0x4356c0: the exact name, none while the list is
+  empty).
+
+Shipped data does not reach it:
+- No shipped PM reader archive has a `persist` key (a raw search of reader.zbd and every c*/reader*.zbd; MW3's c1
+  has two).
+- None of the 424 p12 records in PM's 45 aiv.zrd files (mech3ax's unzbd over every archive) sets bit 4; 99 set
+  bit 5.
+- So the list stays empty and no mission is gated.
+
+Ported for preservation and not wired (Owen, 2026-11-14):
+- `CampaignGame::has_string` (0x4356c0).
+- The add in `complete`, through `ObjectiveHooks::campaign_strings` (null in the game).
+- The loader's gate, through `PlayerHooks::persist_allows` (true until it is wired).
+
+`pm_objective_persist_kept_for_the_campaign` (mw3pmtests):
+- A failed visible objective's persist is kept; a hidden one's is not; outside a campaign nothing is kept.
+- The lookup takes the exact name only.
+- Break: the add left out (caught).
+- The exe's lookup is MFC's `CStringList::Find` (an import), so it was read, not run.

@@ -1,4 +1,5 @@
 #include "gamez/zimage/zimg_library.h"
+#include "gamez/zgame/zgame_table.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -122,6 +123,7 @@ bool has_texture(const char* name) {
 // Mech3.exe 1.2 @ 0x00518a30. Tries <name>.zbd for variant 0, else
 // <name><variant>.zbd and down to 0; a missing plain name also tries 8 down.
 void resolve_name(Library& lib) {
+  if (zgame::game().zimg_resolve_name) return zgame::game().zimg_resolve_name(lib);  // Pirate's Moon's 0x00532150
   if (!lib.needs_resolve) return;
   char base[120];
   std::snprintf(base, sizeof base, "%s", lib.name);
@@ -144,6 +146,8 @@ void resolve_name(Library& lib) {
   } while (!found);
   if (!found) lib.missing = true;
 }
+
+bool library_exists(const char* name) { return exists(name); }
 
 // Mech3.exe 1.2 @ 0x005187c0
 bool open(Library& lib) {

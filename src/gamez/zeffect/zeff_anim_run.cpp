@@ -105,7 +105,7 @@ int32_t dispatch(AnimDef* def, SeqDef* seq, uint8_t* e, bool* bad) {
     case 27: return ev_invalidate_animation(e);
     case 28: return ev_fog_state(e);
     case 30: return ev_loop(d, s, e);
-    case 31: return ev_if(d, s, e);
+    case 31: return zgame::game().zeff_if ? zgame::game().zeff_if(d, s, e) : ev_if(d, s, e);
     case 32: case 33: return ev_else(s);
     case 34: case 39: case 40: return 2;
     case 35: return ev_callback(d, e);
@@ -116,6 +116,10 @@ int32_t dispatch(AnimDef* def, SeqDef* seq, uint8_t* e, bool* bad) {
       return 2;
     case 41: return ev_detonate_weapon(d, e);
     case 42: return anim_puffer_state(d, e, d.at_node);
+    case 44: case 45:  // Pirate's Moon's own (0x00521c70); none in MW3
+      if (zgame::game().zeff_pm_event) return zgame::game().zeff_pm_event(d, s, e);
+      *bad = true;
+      return 0;
     default:
       *bad = true;
       return 0;
@@ -926,7 +930,7 @@ int32_t anim_stop_using(const Node* node, int32_t keep_elapsed, int32_t forget) 
   return 0;
 }
 
-// Mech3.exe 1.2 @ 0x00502df0. Damage over the threshold (+0xb4) comes off
+// Mech3.exe 1.2 @ 0x00502df0, Pirate's Moon 1.0 @ 0x0051b2c0 (cdecl; PM's first pass 0x0051b340 after the damage). Damage over the threshold (+0xb4) comes off
 // the health; at 0 or below (also with no damage done, so a def with health
 // 0 fires on any hit) the anim starts. Returns the health.
 float anim_on_collide(zwep::Handle object, float damage) {
@@ -934,6 +938,7 @@ float anim_on_collide(zwep::Handle object, float damage) {
   if (def->raw[0x99] == 1 || def->raw[0x99] == 2) {
     const float d = damage - fld(def, 0xb4);
     if (!not_above(d, 0.0f)) fld(def, 0xb0) = fld(def, 0xb0) - d;
+    if (zgame::game().zeff_pm_on_hit) zgame::game().zeff_pm_on_hit(def);  // PM's 0x0051b340
     if (not_above(fld(def, 0xb0), 0.0f)) {
       static const float kZero[3] = {};
       anim_start_at(def, nullptr, kZero, kZero, kZero);
@@ -942,7 +947,7 @@ float anim_on_collide(zwep::Handle object, float damage) {
   return fld(def, 0xb0);
 }
 
-// Mech3.exe 1.2 @ 0x00502e60. ECX def, EDX the hit (its +0x6c flag 0x400
+// Mech3.exe 1.2 @ 0x00502e60, Pirate's Moon 1.0 @ 0x0051b380 (cdecl; PM's first pass 0x0051b340 after the damage). ECX def, EDX the hit (its +0x6c flag 0x400
 // ignores it). A kill tells the weapon code (0x00583710); otherwise it gets
 // the health left as a fraction (0x00583730).
 uint32_t anim_on_weapon_hit(zwep::Handle object, zwep::WeaponDef* weapon, zwep::HitRecord*, float damage) {
@@ -951,6 +956,7 @@ uint32_t anim_on_weapon_hit(zwep::Handle object, zwep::WeaponDef* weapon, zwep::
   if (def->raw[0x99] != 0 && def->raw[0x99] != 2) return 0;
   const float d = damage - fld(def, 0xb4);
   if (!not_above(d, 0.0f)) fld(def, 0xb0) = fld(def, 0xb0) - d;
+  if (zgame::game().zeff_pm_on_hit) zgame::game().zeff_pm_on_hit(def);  // PM's 0x0051b340
   if (not_above(fld(def, 0xb0), 0.0f)) {
     static const float kZero[3] = {};
     anim_start_at(def, nullptr, kZero, kZero, kZero);

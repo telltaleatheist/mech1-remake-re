@@ -934,6 +934,9 @@ void complete(Objective& o, uint8_t done, ObjectiveHooks& h, uint8_t success) {
     if (o.salvage && success) show_items(*o.salvage, h);
     for (const NodeSalvage& e : o.node_salvage)  // 0x0045ec40: the node in the state it names
       if (e.salvage && h.node_active(e.node) == e.active) show_items(*e.salvage, h);
+    // Pirate's Moon 0x0045fe35: the persist joins the campaign's strings, done or failed (0x004356c0 reads them).
+    if (o.persist)
+      if (std::vector<std::string>* list = h.campaign_strings()) list->push_back(*o.persist);
   }
   if (o.salvage && success) {
     add_items(*h.salvage_store(), *o.salvage);

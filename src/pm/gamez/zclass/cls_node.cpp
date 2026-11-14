@@ -1,6 +1,7 @@
 #include "pm/gamez/zclass/cls_node.h"
 
 #include <cstdio>
+#include <cstring>
 
 #include "gamez/zclass/cls_data.h"
 #include "gamez/zclass/cls_node.h"
@@ -80,6 +81,73 @@ int node_set_active(Node* node, int on) {
   if (on == 1) node->set_flags(node->flags() | 4);
   else if (on == 0) node->set_flags(node->flags() & ~4u);
   return 0;
+}
+
+// Pirate's Moon 1.0 @ 0x0050cb90
+int node_set_colors(::zcls::Node* node, int children, int32_t first, int32_t last, const float* colors, int32_t count) {
+  if (!node) return 1;
+  if (node->pm_model) pm::zmod::model_set_colors(node->pm_model, first, last, colors, count);
+  if (children)
+    for (int32_t i = 0; i < node->child_count(); ++i) node_set_colors(node->children[i], children, first, last, colors, count);
+  return 0;
+}
+
+namespace {
+const char kNodeFile[] = "C:\\zipper\\branchep1\\gamez\\zClass\\Class.c";
+
+int set_bits(::zcls::Node* node, int line, uint32_t mask, uint32_t bits) {
+  if (!node) {
+    zerr::report(0x400, kNodeFile, line, "Null node pointer.");
+    return 5;
+  }
+  node->put<uint32_t>(0x2c, bits | (node->get<uint32_t>(0x2c) & ~mask));
+  return 0;
+}
+}  // namespace
+
+// Pirate's Moon 1.0 @ 0x004fcff0
+int node_set_override_ambient(::zcls::Node* node, uint32_t on) { return set_bits(node, 0x6ae, 0x80, (on & 1) << 7); }
+// Pirate's Moon 1.0 @ 0x004fd080
+int node_set_override_ambient_value(::zcls::Node* node, uint32_t value) {
+  return set_bits(node, 0x6cf, 0x1fe00, (value & 0xff) << 9);
+}
+// Pirate's Moon 1.0 @ 0x004fd110
+int node_set_override_diffuse(::zcls::Node* node, uint32_t on) { return set_bits(node, 0x6f0, 0x100, (on & 1) << 8); }
+// Pirate's Moon 1.0 @ 0x004fd1a0
+int node_set_override_diffuse_value(::zcls::Node* node, uint32_t value) {
+  return set_bits(node, 0x711, 0x1fe0000, (value & 0xff) << 17);
+}
+
+// Pirate's Moon 1.0 @ 0x00515c00. The shared Lod has PM's +0x00..+0x33 as they are and PM's +0x40.. at +0x34 (+0x50
+// is +0x44); the three fades are pm_tail.
+void lod_fades(::zcls::Lod& l) {
+  const float r2 = l.get<float>(4);
+  float root = 0.0f;
+  if (r2 > 0.0f) {  // the float bit trick's square root
+    int32_t bits;
+    std::memcpy(&bits, &r2, 4);
+    bits = (bits >> 1) + 0x1fc00000;
+    std::memcpy(&root, &bits, 4);
+  }
+  const float range = l.get<float>(8);
+  const auto fade = [&](int k) {  // k 0..2: width +0x10, switch +0x1c, floor +0x28 on
+    if (l.get<float>(0x1c + 4 * k) <= 0.01f) return 0.0f;  // [0x005e4e00]
+    const float width = l.get<float>(0x10 + 4 * k), floor = l.get<float>(0x28 + 4 * k);
+    const float start = range - width;
+    const float near = root <= start ? 1.0f : 1.0f - ((floor - 1.0f) * (start - root)) / width;
+    float far = 1.0f;
+    if (start < range) far = 1.0f - ((floor - 1.0f) * (start - range)) / width;
+    return far < near ? near : far;
+  };
+  float out[3];
+  out[0] = fade(0);
+  if (l.get<int32_t>(0x44)) {
+    out[1] = out[2] = out[0];
+  } else {
+    out[1] = fade(1);
+    out[2] = fade(2);
+  }
+  std::memcpy(l.pm_tail, out, 12);
 }
 
 }  // namespace pm::zcls

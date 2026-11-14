@@ -298,6 +298,9 @@ class CampaignGame : public Game {
   int32_t type() const override { return kCampaign; }  // 0x00499270
   const char* game_text(int32_t slot) override { return slot == 0x0c ? name() : nullptr; }
   virtual const char* name();        // vt+0x0c  0x00434900: "Op N, Mission M" (into text)
+  // Pirate's Moon 1.0 @ 0x004356c0: `name` among the campaign's strings (an objective's persist, kept from mission to
+  // mission; docs/pm-tests.md); none when the list is empty. Ported for preservation, not wired.
+  bool has_string(const char* name) const;
   const char* path();                // vt+0x14  0x00434980: its saved game (into text)
   const char* path_for(const char* pilot_name);  // 0x00434950
   bool readable();                   // vt+0x20  0x00435330: its saved game exists

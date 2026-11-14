@@ -149,5 +149,12 @@ void model_set_lighting(Model* m, uint32_t on);       // 0x00559940
 void model_set_show_backface(Model* m, uint32_t on);  // 0x0055b810: the polygons' flag 0x400
 void model_set_color(Model* m, int32_t color);        // 0x0055be00: the polygons without UVs, their first material
 void model_set_morph(Model* m, const int32_t* fixed, float v, int32_t count, int32_t min_uses);  // 0x0055b630
+// Pirate's Moon 1.0 @ 0x0055b850 (anim events 44 and 45, through 0x0055b8f0): polygon `poly`'s colours (+0x1c, made on
+// first use) from `colors`, a colour a vertex while `count` lasts, its last one for the rest. Nothing past the
+// polygons; the exe takes `poly` as it comes (0x0055b8f0 keeps it at 0 or more).
+void polygon_set_colors(Model& m, int32_t poly, const float* colors, int32_t count);
+// Pirate's Moon 1.0 @ 0x0055b8f0: polygons `first`..`last` (below 0: from the first, to the last) given colours,
+// polygon k the k-th of `count` colours, the last one for the rest; each polygon's vertices all that one.
+void model_set_colors(Model* m, int32_t first, int32_t last, const float* colors, int32_t count);
 
 }  // namespace pm::zmod

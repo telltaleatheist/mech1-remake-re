@@ -207,6 +207,8 @@ void player_setup(bool full) {
         continue;
       }
     }
+    // Pirate's Moon 0x004a1e17: a record with bit 4 only by the campaign's persist strings (0x004356c0).
+    if ((r->get<uint8_t>(0xcc) & 0x10) && !h.persist_allows(full_name)) continue;
     create_vehicle(h.reader_find(vehicles, type), r, type, full_name, suffix);
   }
   if (campaign) h.campaign_set_lancemates(campaign, mates);

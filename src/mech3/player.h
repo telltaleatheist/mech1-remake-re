@@ -21,6 +21,10 @@ class PlayerHooks : public zgame::Unported {
  public:
   // The AI nets and their list (mech3/zainetedit, 0x004d52b0 / 0x004d5300 not ported).
   virtual void nets_build_all() { unported("0x00402170", {}); }
+  // Pirate's Moon's gate (0x004a19c0 with 0x004356c0): a record with +0xcc bit 4 is made only outside a campaign
+  // or when its name is among the campaign's strings (CampaignGame::has_string). Not wired: true, as no shipped
+  // record sets the bit (docs/pm-tests.md).
+  virtual bool persist_allows(const char* name) { (void)name; return true; }
   virtual void nets_begin() { unported("0x004d52b0", {}); }    // every net's vt+0x28 -> vt+0x2c
   virtual void nets_end() { unported("0x004d5300", {}); }      // and vt+0x30
   // zClass: the player's tick object.

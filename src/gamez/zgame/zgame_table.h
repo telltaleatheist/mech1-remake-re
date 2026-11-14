@@ -11,6 +11,7 @@ struct Node;
 }
 namespace zimg {
 struct TextureEntry;
+struct Library;
 }
 namespace zeff {
 struct AnimDef;
@@ -18,6 +19,7 @@ struct SeqDef;
 }
 namespace zcls {
 struct LightOverride;
+struct Lod;
 struct Node;
 struct MechLib;
 struct Partition;
@@ -153,6 +155,18 @@ struct Table {
   // The finish's static noise (zrender zrndr_tint.cpp finish_init, static_fill; PM 0x0057a170): PM fills 40000
   // bytes of rand, MW3 0x6400.
   bool finish_noise_40000;
+  // Anim events 44 and 45 (PM's handler table 0x00521c70: 0x0051e750, 0x0051e890), a polygon colour moved; MW3 has
+  // no such events (null: a bad event, as MW3's run reports it).
+  int32_t (*zeff_pm_event)(zeff::AnimDef& def, zeff::SeqDef& seq, uint8_t* e) = nullptr;
+  // A hit on an animation (PM's 0x0051b2c0 and 0x0051b380 call 0x0051b340 after the damage): the def's second
+  // sequence run from its start. MW3 has none (null).
+  void (*zeff_pm_on_hit)(zeff::AnimDef* def) = nullptr;
+  // Events 31 IF and 33 ELSEIF's condition: PM's has five more (0x0051fce0); null: MW3's 0x00507010.
+  int32_t (*zeff_if)(zeff::AnimDef& def, zeff::SeqDef& seq, uint8_t* e) = nullptr;
+  // A texture library's file name (PM's 0x00532150 also tries the plain name of each variant); null: MW3's 0x00518a30.
+  void (*zimg_resolve_name)(zimg::Library& lib) = nullptr;
+  // A LoD copy's fade values (PM's 0x00515c00, from its copy 0x0050d4e0); MW3 has none (null).
+  void (*zcls_lod_fades)(zcls::Lod& lod) = nullptr;
 };
 
 const Table& mw3_table();

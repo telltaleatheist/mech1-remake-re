@@ -1274,4 +1274,27 @@ int write_models(std::FILE* f) {
   return result;
 }
 
+// Pirate's Moon 1.0 @ 0x0055b850
+void polygon_set_colors(Model& m, int32_t poly, const float* colors, int32_t count) {
+  if (poly >= m.count(0x10)) return;
+  Polygon& q = m.polygons[poly];
+  const int32_t n = static_cast<int32_t>(q.flags & 0x3ff);
+  if (!q.colors) q.colors = static_cast<float*>(std::calloc(n ? static_cast<size_t>(n) * 12 : 1, 1));  // malloc in the exe
+  const float* c = colors;
+  for (int32_t v = 0, k = 0; v < n; ++v) {
+    std::memcpy(q.colors + 3 * v, c, 12);
+    if (k < count - 1) ++k, c += 3;
+  }
+}
+
+// Pirate's Moon 1.0 @ 0x0055b8f0
+void model_set_colors(Model* m, int32_t first, int32_t last, const float* colors, int32_t count) {
+  if (first < 0) first = 0;
+  if (last < 0) last = m->count(0x10) - 1;
+  for (int32_t k = 0; first <= last; ++first) {
+    polygon_set_colors(*m, first, colors, 1);
+    if (k < count - 1) ++k, colors += 3;
+  }
+}
+
 }  // namespace pm::zmod

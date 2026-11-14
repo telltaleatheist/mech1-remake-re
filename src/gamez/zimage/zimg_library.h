@@ -91,6 +91,7 @@ Texture* find_in_list(int list, const char* name);  // 0x00518d60: the first lib
 // Ours: whether any library of either list names `name` (as load matches it), nothing loaded.
 bool has_texture(const char* name);
 void resolve_name(Library& lib);                                        // 0x00518a30
+bool library_exists(const char* name);  // ours: the file test resolve_name uses (the directory or the hook)
 bool open(Library& lib);                                                // 0x005187c0
 Texture* load(Library& lib, const char* name);                          // 0x00518db0
 // Ours: what the last load found wrong in a (mod's) library's entry and did about it, in the mods' one form

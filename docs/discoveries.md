@@ -4349,6 +4349,18 @@ The screen after the pilot for INSTANT ACTION, 0x00488bc0 (details:
 
 ## Pirate's Moon
 
+- **Pirate's Moon's engine has features its missions never use.** The expansion's code can do several things that
+  none of its shipped files ask for:
+  - Two new animation commands fade the colour of a model's faces over time, at a steady rate or speeding up.
+  - A second animation that plays every time an animated object is hit, even a hit too weak to hurt it.
+  - Five new tests in the animations' IF: whether an object is switched on, whether it is turned within an angle
+    of a set direction, a value between two limits, and the object's own health below or between values.
+  - Campaign objectives that unlock later missions' mechs. Finishing an objective with a `persist` name stores
+    the name with your campaign. A mech marked for it in a later mission's vehicle list (p12's second value) then
+    appears only once that name is stored.
+  The animations, the objectives and the vehicle lists of all four worlds use none of them (the IFs only test
+  chance, distance, level, the 3D card and one flag), so these are there for modders. (0x51e750, 0x51e890,
+  0x51b340, 0x51fce0, 0x45fe35, 0x4a1e17, 0x4356c0; docs/pm-tests.md.)
 - **Pirate's Moon has its own teleport spots too.** Its worlds' reader.zbd
   files hold location.zrd lists for the same hidden teleport tool:
   - c1: Start, Allied Camp, Star League, Pirate Base, RadarDish1,

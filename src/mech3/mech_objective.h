@@ -28,6 +28,9 @@ class ObjectiveHooks : public zgame::Unported {
   virtual zrdr::Node* load(const char* name);                // 0x00556740: zrdr::load
   virtual void free_tree(zrdr::Node* root);                  // 0x00556820: zrdr::free_node
   virtual const char* localize(const char* name);            // 0x00575fb0: zutl::localize
+  // Pirate's Moon: the current campaign game's strings (0x0047b6c0's +0xc4), where a completed objective's persist goes;
+  // none (null) outside a campaign. Not wired: no shipped objective has a persist (docs/pm-tests.md).
+  virtual std::vector<std::string>* campaign_strings() { return nullptr; }
   virtual const char* message(int32_t id) { unported("0x00576040", {id}); return nullptr; }
   // 0x00575fd0 into 0x40 bytes: message `id` with one string.
   virtual std::string message_with(int32_t id, const char* s) {

@@ -17,6 +17,7 @@
 #include "pm/gamez/zclass/light.h"
 #include "pm/gamez/zeffect/zeff_anim_events.h"
 #include "pm/gamez/zeffect/zeff_anim_init.h"
+#include "pm/gamez/zimage/zimg_library.h"
 #include "pm/gamez/zimage/zimg_texture.h"
 #include "pm/gamez/zreader/zrdr_main.h"
 #include "pm/gamez/zutil/zutl_zar.h"
@@ -34,7 +35,8 @@ const zgame::Table kPm = {"Pirate's Moon", "Pirate's Moon 1.0", zar::read_table,
                          // mechlib (pm-map step 1e)
                          zcls::mechlib_open, zcls::mechlib_load,
                          zimg::set_light_map, zimg::set_additive, 0x800, true, false, zcls::clutter_draw_cell, zcls::clutter_free_cell, render_setup, true, 1, true, true,
-                         zcls::light_override, zcls::light_restore, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true};
+                         zcls::light_override, zcls::light_restore, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
+                         zeff::ev_own, zeff::anim_hit_sequence, zeff::ev_if, zimg::resolve_name, zcls::lod_fades};
 }  // namespace
 
 const zgame::Table& table() { return kPm; }
