@@ -850,6 +850,7 @@ if(MW3_BUILD_PM)
   target_sources(pmprobe PRIVATE tests/probe_debug_keys.cpp)  # test_pm_debug_keys.py
   target_sources(pmprobe PRIVATE tests/probe_shot.cpp)  # test_pm_screenshot.py
   target_sources(pmprobe PRIVATE tests/probe_motion_text.cpp)  # test_motion_text.py with MW3_EXE=pm
+  target_sources(pmprobe PRIVATE tests/probe_debug_dialogs.cpp)  # test_pm_debug_dialogs.py
   # The vehicle editor's save on PM's aiv.zrd, its "target" tag kept (test_pm_aiv_save_mech3ax.py)
   target_sources(pmprobe PRIVATE tests/probe_aiv_save.cpp)
   target_sources(pmprobe PRIVATE tests/probe_pm_lobby_rules.cpp)

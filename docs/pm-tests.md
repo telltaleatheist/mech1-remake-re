@@ -1594,3 +1594,20 @@ MW3's port (main: `Script::read_text` / `read_loose` and load_motion's loose .za
 Tests: `test_motion_text.py` with MW3_EXE=pm (300 texts, 284 read whole, every key and the binary written back the
 same; the test reads the exe's pointers untranslated); `loose_zan_motion_loads_when_no_archive_has_it` and
 `pm_node_class_names_as_the_trace_has_them` in mw3pmtests, both PM_AI.
+
+## S9: the debug menu and the developers' dialogs (2026-11-14)
+
+MW3's port (main: `mech3/debug_dialogs`; editor.md, The debug menu) crossed. PM's frame menu (message map 0x5e6620)
+has the same Options handlers at 0x485b10..0x485ea0, the app's flags 4 bytes below MW3's (+0x1a8..+0x1b4, full screen
++0x1c5 for +0x1c7) and its callees cdecl where MW3's are fastcall; it has no Select Mech item (40037) and no Reset
+Options (40051). Select Mech is 0x433770 / 0x433840 over PM's 25 mechs (`kMechCount`), its OK 0x4fc4d0 (one
+function the linker shares with another dialog's); Vehicle Select 0x4a6940 / 0x4b2ec0 / 0x4b2e70, its mech test
+vt+0x48 and its switch vt+0x114 (the caller's); Camera Properties 0x409830 takes the mode on the stack. "PM's dev
+dialog in promote1" 0x4a8f70 is the Teleport dialog's Delete, byte for byte MW3's 0x404a20 (`TeleportDialog::remove`).
+PM's exe keeps no templates for Select Mech (156), Vehicle Select (143) or Camera Properties (106), so its DoModal
+fails (-1) before OnInitDialog: Select Mech gives -1, Vehicle Select calls through the unset +0x60 (the port's
+FIX (A)), Camera Properties writes the mode's own values back. No key reaches any of them.
+Tests: `test_pm_debug_dialogs.py` against PM's exe (10,829 cases identical: the 26 menu handlers on 400 states, the
+mech list, 120 vehicle lists, 300 camera dialogs at the x87's 24 bits); break: the mech list at MW3's 19 rows (9
+differ). Not AI code, so PM_AI does not apply. Left: the Game menu's mission jumps 0x485f40..0x486330 (with MW3's
+0x483100..0x4841b0), reported to the lead.

@@ -12,7 +12,7 @@
 
 namespace mech3 {
 
-// Mech3.exe 1.2 @ 0x00483170: on only with a 3D card that is the primary display driver.
+// Mech3.exe 1.2 @ 0x00483170, Pirate's Moon 1.0 @ 0x00485b20: on only with a 3D card that is the primary display driver.
 void debug_menu_fullscreen_ui(Engine& e, Mech3App& app, MenuItemUI& ui) {
   bool on = false;
   if (e.hw_card_flag()) {
@@ -23,37 +23,38 @@ void debug_menu_fullscreen_ui(Engine& e, Mech3App& app, MenuItemUI& ui) {
   ui.check(app.fullscreen());  // [0x00608e4f]
 }
 
-// Mech3.exe 1.2 @ 0x00483200
+// Mech3.exe 1.2 @ 0x00483200, Pirate's Moon 1.0 @ 0x00485ba0
 void debug_menu_joystick(Engine& e) { e.set_use_joystick(1 - (use_joystick() == 1)); }
 
-// Mech3.exe 1.2 @ 0x00483230
+// Mech3.exe 1.2 @ 0x00483230, Pirate's Moon 1.0 @ 0x00485bd0
 void debug_menu_joystick_ui(MenuItemUI& ui) { ui.check(use_joystick() == 1); }
 
-// Mech3.exe 1.2 @ 0x00483330
+// Mech3.exe 1.2 @ 0x00483330, Pirate's Moon 1.0 @ 0x00485c60 (its +0x1ae)
 void debug_menu_enable_ai_ui(Mech3App& app, MenuItemUI& ui) { ui.check(app.byte_at(0x1b2)); }  // [0x00608e3a]
 
-// Mech3.exe 1.2 @ 0x00483570
+// Mech3.exe 1.2 @ 0x00483570, Pirate's Moon 1.0 @ 0x00485e10 (its +0x1af)
 void debug_menu_third_person_ui(Mech3App& app, MenuItemUI& ui) { ui.check(app.byte_at(0x1b3)); }  // [0x00608e3b]
 
 // Mech3.exe 1.2 @ 0x00483150, 0x00483310, 0x00483550, 0x004835a0
+// Pirate's Moon 1.0 @ 0x00485b10, 0x00485c50, 0x00485e00, 0x00485e30 (its flags 4 bytes lower, full screen 2)
 void debug_menu_toggle(Mech3App& app, int32_t off) { app.byte_at(off) = app.byte_at(off) == 0; }
 
 // Mech3.exe 1.2 @ 0x004835f0
 void debug_menu_reset_options(Mech3App& app) { app.set_defaults(); }
 
-// Mech3.exe 1.2 @ 0x004835c0
+// Mech3.exe 1.2 @ 0x004835c0, Pirate's Moon 1.0 @ 0x00485e40 (its +0x1b4)
 void debug_menu_invincible_ui(Mech3App& app, MenuItemUI& ui) { ui.check(app.byte_at(0x1b8)); }
 
-// Mech3.exe 1.2 @ 0x00483600
+// Mech3.exe 1.2 @ 0x00483600, Pirate's Moon 1.0 @ 0x00485e60
 void debug_menu_play_cd_ui(MenuItemUI& ui) {
   ui.check(1);
   ui.enable(false);
 }
 
-// Mech3.exe 1.2 @ 0x00483620
+// Mech3.exe 1.2 @ 0x00483620, Pirate's Moon 1.0 @ 0x00485e80
 void debug_menu_d3d(Engine& e, Mech3App& app) { app.restore_video(e.hw_card_flag() == 0, true); }
 
-// Mech3.exe 1.2 @ 0x00483640 (the device count, 0x00579aa0)
+// Mech3.exe 1.2 @ 0x00483640, Pirate's Moon 1.0 @ 0x00485ea0 (the device count, 0x00579aa0)
 void debug_menu_d3d_ui(Engine& e, MenuItemUI& ui) {
   if (e.video_device_count() == 0) {
     ui.enable(false);
@@ -69,9 +70,10 @@ void debug_menu_d3d_ui(Engine& e, MenuItemUI& ui) {
 }
 
 // Mech3.exe 1.2 @ 0x004834a0, 0x00483500 (0x0047fc10, a thunk to 0x0040d810)
+// Pirate's Moon 1.0 @ 0x00485d50, 0x00485db0
 void debug_menu_vmode(Engine& e, int32_t mode) { e.set_vmode(mode); }
 
-// Mech3.exe 1.2 @ 0x004834b0, 0x00483510: with a 3D card, off (the 320's also unchecked); else checked in its mode.
+// Mech3.exe 1.2 @ 0x004834b0, 0x00483510; Pirate's Moon 1.0 @ 0x00485d60, 0x00485dc0: with a 3D card, off (the 320's also unchecked); else checked in its mode.
 void debug_menu_vmode_ui(Engine& e, int32_t mode, MenuItemUI& ui) {
   if (e.hw_card_flag()) {
     if (mode == 3) ui.check(0);
@@ -83,17 +85,18 @@ void debug_menu_vmode_ui(Engine& e, int32_t mode, MenuItemUI& ui) {
 }
 
 // Mech3.exe 1.2 @ 0x00483390, 0x004833a0, 0x004833b0, 0x004833c0, 0x004833d0, 0x004833e0
+// Pirate's Moon 1.0 @ 0x00485cb0, 0x00485cc0, 0x00485cd0, 0x00485ce0, 0x00485cf0, 0x00485d00
 void debug_menu_clear_byte(Mech3App& app, int32_t off) { app.byte_at(off) = 0; }
 
-// Mech3.exe 1.2 @ 0x004833f0
+// Mech3.exe 1.2 @ 0x004833f0, Pirate's Moon 1.0 @ 0x00485d10
 void debug_menu_checked_ui(MenuItemUI& ui) { ui.check(1); }
 
-// Mech3.exe 1.2 @ 0x00483400: the dword [0x00608e34] and the word [0x00608e38], the six above at once.
+// Mech3.exe 1.2 @ 0x00483400, Pirate's Moon 1.0 @ 0x00485d20: the dword [0x00608e34] and the word [0x00608e38], the six above at once.
 void debug_menu_clear_all(Mech3App& app) {
   for (int off = 0x1ac; off < 0x1b2; ++off) app.byte_at(off) = 0;
 }
 
-// Mech3.exe 1.2 @ 0x00483410
+// Mech3.exe 1.2 @ 0x00483410, Pirate's Moon 1.0 @ 0x00485d30
 void debug_menu_clear_all_ui(Engine& e, MenuItemUI& ui) { ui.text(e.message(0x274)); }
 
 // Mech3.exe 1.2 @ 0x00483430
@@ -106,15 +109,15 @@ void debug_menu_pick_mech(Mech3App& app, int32_t (*pick)()) {
 // Mech3.exe 1.2 @ 0x00483460
 void debug_menu_mech_ui(Engine& e, Mech3App& app, MenuItemUI& ui) { ui.text(e.message_format(0x276, app.mech_.c_str())); }
 
-// Mech3.exe 1.2 @ 0x00432d30
+// Mech3.exe 1.2 @ 0x00432d30, Pirate's Moon 1.0 @ 0x00433840
 std::vector<ListRow> mech_list_rows() {
   std::vector<ListRow> rows;
-  for (int32_t i = 0; i < 0x13; ++i)
+  for (int32_t i = 0; i < kMechCount; ++i)  // 0x13; Pirate's Moon's 0x19
     if (const char* n = mech_name(i)) rows.push_back({n, i});  // LB_ADDSTRING, LB_SETITEMDATA
   return rows;
 }
 
-// Mech3.exe 1.2 @ 0x00432c60 (OK: 0x00432da0)
+// Mech3.exe 1.2 @ 0x00432c60 (OK: 0x00432da0), Pirate's Moon 1.0 @ 0x00433770 (OK: 0x004fc4d0, shared)
 int32_t mech_list_pick(void (*gdi)(), int32_t (*modal)(const std::vector<ListRow>& rows, int32_t& sel),
                        void (*keys_reset)()) {
   const std::vector<ListRow> rows = mech_list_rows();
@@ -126,7 +129,7 @@ int32_t mech_list_pick(void (*gdi)(), int32_t (*modal)(const std::vector<ListRow
   return sel >= 0 && sel < static_cast<int32_t>(rows.size()) ? rows[sel].data : -1;  // LB_ERR without one
 }
 
-// Mech3.exe 1.2 @ 0x004af000
+// Mech3.exe 1.2 @ 0x004af000, Pirate's Moon 1.0 @ 0x004b2ec0 (its mech test vt+0x48)
 std::vector<VehicleRow> vehicle_list_rows(const std::vector<void*>& entities, void* (*vehicle_of)(void*),
                                           bool (*is_mech)(void*), const char* (*name)(void*)) {
   std::vector<VehicleRow> rows;
@@ -137,7 +140,8 @@ std::vector<VehicleRow> vehicle_list_rows(const std::vector<void*>& entities, vo
   return rows;
 }
 
-// Mech3.exe 1.2 @ 0x004a3550 (the close: 0x004aefb0)
+// Mech3.exe 1.2 @ 0x004a3550 (the close: 0x004aefb0), Pirate's Moon 1.0 @ 0x004a6940 (0x004b2e70; its take
+// vt+0x114)
 void* vehicle_pick(const std::vector<VehicleRow>& rows, void (*gdi)(),
                    int32_t (*modal)(const std::vector<VehicleRow>& rows, int32_t& sel)) {
   if (gdi) gdi();
@@ -181,7 +185,7 @@ void camera_apply(CameraMode& m, const CameraFields& f) {
   m.dist_factor = f.factor;
 }
 
-// Mech3.exe 1.2 @ 0x0040bb00
+// Mech3.exe 1.2 @ 0x0040bb00, Pirate's Moon 1.0 @ 0x00409830 (the mode on the stack)
 bool camera_dialog(CameraMode& m, bool (*edit)(CameraFields& f)) {
   CameraFields f = camera_fields(m);  // the dialog 0x0040bd00 (its box clear)
   if (!edit || !edit(f)) return false;  // 0x0040bea0: DoModal, IDOK

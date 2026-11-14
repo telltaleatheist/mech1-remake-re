@@ -110,6 +110,10 @@ handlers, so whatever they once switched is likely gone. The Game menu's mission
 40112, 40113, 40115 (0x004840c0, 0x00484190, 0x004841b0) are in the same map; Ghidra made no function of them and
 they are not in the audit yet.
 
+**Pirate's Moon** (pm-tests.md, S9): the same Options handlers (0x00485b10..0x00485ea0, its app's flags 4 bytes
+lower), no Select Mech item and no Reset Options; the Game menu's jumps are its own (40116..40123). Its exe keeps no
+template for Select Mech, Vehicle Select or Camera Properties, so their DoModal fails before the window exists.
+
 **Select Mech** (156, 0x00432c60; debug command 0x84 and 40037): a list of the 19 mechs' names (0x00432d30, a null
 name skipped, each row's data its number), the first selected; DoModal (0x00432df0, between the GDI flip 0x00577340
 and the keys' reset 0x0051a300); OK gives the row's number (0x00432da0), Cancel -1. The current mech's number is
