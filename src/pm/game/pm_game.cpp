@@ -30,14 +30,14 @@ void render_setup() {
 }
 
 const zgame::Table kPm = {"Pirate's Moon", "Pirate's Moon 1.0", zar::read_table, zar::write_table, zar::span,
-                         zrdr::parse_text, zcls::read_zbd, zcls::node_alloc, zmod::walk_draw, zcls::world_cell_update, zcls::world_add_child, zcls::world_remove_node, zcls::world_make_grid, zcls::node_bound_box, zcls::node_set_active,
+                         zrdr::parse_text, zcls::read_zbd, zcls::node_alloc, zmod::walk_draw, zcls::world_cell_update, zcls::world_add_child, zcls::world_remove_node, zcls::world_make_grid, zcls::node_bound_box, zcls::node_set_active, zcls::node_add_child,
                          zcls::node_model_box, zcls::node_model_header, zcls::light_create, zeff::anim_read_zbd, zeff::ev_light_state, zeff::ev_light_animation, zeff::ev_stop_animation, zeff::ev_object_motion_script,
                          // mechlib (pm-map step 1e)
                          zcls::mechlib_open, zcls::mechlib_load,
                          zimg::set_light_map, zimg::set_additive, 0x800, true, false, zcls::clutter_draw_cell, zcls::clutter_free_cell, render_setup, true, 1, true, true,
-                         zcls::light_override, zcls::light_restore, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
+                         zcls::light_override, zcls::light_restore, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
                          zeff::ev_own, zeff::anim_hit_sequence, zeff::ev_if, zimg::resolve_name, zcls::lod_fades,
-                         true, true, true};
+                         true, true, true, true, true};
 }  // namespace
 
 const zgame::Table& table() { return kPm; }

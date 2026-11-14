@@ -697,6 +697,8 @@ class Engine : public zgame::AppHooks {
     return nullptr;
   }
   virtual void hud_update() { unported("0x0040fac0", {}); }
+  // The GameZ Interpreter console on the script object (operator new 0x71c, 0x005960a0; debug command 0xa3).
+  virtual Handle interp_console_new(Handle script) { return unported("0x005960a0", {script}); }
   virtual void hud_draw() { unported("0x0040e4b0", {}); }
   virtual void shadows_reset() { unported("0x004e6900", {}); }
   virtual void ai_on() { unported("0x004ea740", {}); }  // the AI switch on (ai::ai_switch_on)

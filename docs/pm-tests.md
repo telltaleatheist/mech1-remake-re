@@ -1500,3 +1500,139 @@ Of the PORT (preserve) rows, 12 had their MW3 twin ported on main. They were rea
 
 Tests: the mw3pmtests subset (interp, menu, list, pilot, lab, app, timer, view, editor, net) passes under both
 PM_AI=0 and PM_AI=1 (51 tests), and so does test_pm_menu_scroll.
+
+## S4: the developers' text (2026-11-14)
+
+MW3's port (main, `mech3/dev_text`, `ztwod/twod_lines`; hud.md section 20, twod.md The line log) crossed, with PM's
+addresses beside MW3's. Ported for preservation and not wired, except event 38's line log, which is never drawn.
+- **The same logic at PM's layout.** PM's FontText is 0x4b8 bytes (MW3's 0x4b0) with the same fields up to +0x474,
+  so the lines sit 0x4b8 apart and the frame rate's fields 8 bytes later (+0x4b8 elapsed, +0x4bc rate, +0x4c0
+  frames). The readout 0x410470, the state names 0x43dcf0 and the zones text 0x43dbf0 take their argument on the
+  stack, as do the readout's zone, pool and texture-memory calls; the log's set_active is vt+8.
+- **One difference:** PM's set-up 0x410110 also gives the frame rate (0x61ff18) mech_string after the rows
+  (`zgame::Table::dev_fps_font_pm`). Its reset 0x410190 passes the set-up's two arguments to the message panel as
+  MW3's does in ECX and EDX.
+- The scroll's FIX (A) (the line's text handed to set_text as its format) is PM's too (0x5c7030).
+- **Relabelled:** 0x410880 and 0x5acc40 are not the timing marks' but a CRT static initializer making the network
+  objects' list [0x627c38] (MW3's twin 0x410220 a thunk): folded.
+
+Test: `test_pm_dev_text.py` runs MW3's test_dev_text against PM's exe (22 state names, 26 zone lists, 465 line log
+steps, 60 readouts, 1,101 frames), all identical; the break that scrolls hidden lines and the frame rate's strict
+second are caught (884 differ). MW3's test is unchanged.
+
+## S5: the debug keys and consoles (2026-11-14)
+
+MW3's port (main, `mech3/app_keys`, `debug_keys`, `zinterp_console`, the stealth's slots; keybindings.md, The debug
+commands) crossed. PM's key switch 0x40ba30 takes the command on the stack, and its numbers are MW3's plus 8, so the
+pm branch's `app_key` carries PM's: 0x75, 0x8a..0xab, 0xaf. What PM changed:
+- **0xaf** gives PM's 2D-through-Direct3D flag ([0x618824], 0 at start) to 0x5c0340, then flips it. MW3's 0xa4
+  (the mech lab from a mission) is gone. The flag's drawing path is replaced by SDL, so the hook stays unported.
+- **The marker** (0x9c, 0x4a65a0, PM's own) prints "Marker #  n" and "V: pos( x y z ) yaw ( 0 )". When the view's
+  target is a mech with a HUD, it also prints "C: pos(...)": the HUD reticle's aim point (+0x1d68, MW3's +0x1d48).
+  That point goes to the message panel too, and into the script object's +0xc4 (`Interp::marker`). PM's subclass of
+  the interpreter (0x410f80) adds +0xc0..+0xcc, which the audit had called equal to MW3's. No PM command reads the
+  point.
+- **The console's toggle** (0xab, 0x483d50) only asks the console closed ([0x62cfb8]). Each of the Core state's
+  three frames then deletes it before drawing, and draws the cockpit that frame (`hud`, AppGlobals::
+  debug_view_closing).
+- **PrintChildren** (0x5b2c60, from 0x5b5c42) is PM's script command for the current node's children, one "  name"
+  line each. It sits behind `zgame::Table::interp_print_children`.
+- The same as MW3's, at PM's slots: the next mech 0x4a6810 (vt+0x48, vt+0x114), the stealth's slots 0x4a7900 /
+  0x4a7930 (its keys 0x73, 0x7b, 0xaa; layer at +0x100, vt+0xe8), its readout 0x4a7ef0 (controls at +0xe8), the
+  console 0x5b8210..0x5b8300, the HUD update 0x4103e0 (the same order of developer pieces).
+- **Relabelled:** 0x5b8350 is a CRT static initializer that makes an empty std::list, not the console's: folded.
+  The vehicle-pick dialog 0x4a6940 waits for the dialog sittings, as on main.
+
+Tests:
+- `test_pm_debug_keys.py` runs against PM's exe: 300 runs of 5,385 commands of 70 kinds, 2,000 next-mech lists and
+  223 stealth readouts, all identical. Breaks caught: 0xaf flipping before it gives the flag, and 0x8f's sign.
+- In mw3pmtests (test_debug_tools.cpp): `interp_console_runs_its_lines_and_prints_the_interpreters_messages`,
+  `pm_marker_keeps_the_aim_point_in_the_script_object` and `pm_print_children_names_the_current_nodes_children`.
+  The last one's break, the indent dropped, is caught. All pass under PM_AI=0 and 1.
+
+## S6: the screenshots and the start's logs (2026-11-14)
+
+MW3's port (main: `zimg::ScreenShot`, the debug command 0x7e's `debug_screenshot`, `crt::msvc_mktemp`;
+screenshots.md) crossed. PM's screenshot object is MW3's at its own addresses (0x533380 the constructor, 0x533320 the
+grab through 0x598600 with the format from 0x5982a0 / 0x5982d0, 0x5333e0 the 24-bit, 0x5334d0 / 0x533580 the flip,
+0x5335c0 the file, 0x5333c0 the free).
+- **PM's command is its own and a player reaches it.** CMD_SNAPSHOT 0x86 is bound to Ctrl+P by default (0x411a10,
+  key 0x219), and 0x4af600 saves the screen with no dialog as mw3%08x.bmp. The number is the session's count
+  ([0x62f6d0]), stepped past the names that exist (0x596ea0) and not after the write; then the keys are reset
+  (0x533b90). The pm branch's 0x86 now runs `pm_screenshot` through the SDL host's grab and texture_free. Before
+  this it logged an unported call, so Ctrl+P in the port saved nothing; now it writes the file into the write dir
+  (FIX (A)). MW3's dialog command (0x4abbc0) stays unwired on pm.
+- **Relabelled:**
+  - the stdout/stderr redirect 0x596590 (MW3's 0x575b00) and PM's Direct3D render-state dump 0x59d3a0 as
+    replaced;
+  - the name builder 0x4af6b0 as folded into 0x4af600.
+
+Test: `test_pm_screenshot.py` against PM's exe. 120 screens in four formats grabbed and written, and 80 commands
+(counts 0, 5, 0xfff, 0x7ffffffe and -1, with zero to three names taken), all identical. Breaks caught: the count
+stepped after the write, upper-case hex.
+
+## S7a/S7b: the net view's rest (2026-11-14)
+
+MW3's port (main: the ahead arrows' hit 0x58d3c0, which the port's editor lacked; the view's other rows folded:
+container code, copies, the empty 0x58f740, the MFC message map; editor.md, The net view) crossed. PM's ahead hit
+is 0x5aecb0 on its vtable 0x5f1568 (set by 0x5adc1b, 0x5afceb, 0x5b0abe), the same test: the map gets the pair
+(0x58d3c0, 0x5aecb0) by hand (original.py). PM's other rows (0x5adf40, 0x5afc50, 0x5afc70, 0x5b0300..0x5b1040)
+fold as MW3's twins. 0x4c7c80, 0x4c7cf0 and 0x4c7c90 are not the net view's (the diff paired 0x4c7c80 with MW3's
+0x58f2d0): they are 0x4c7dc0's step over PM's in/out queries' items, each one's list and its subs' emptied, folded
+with that function's neighbours. S7b's split was the diff's, so both halves are done here.
+Test: `test_net_view.py` with MW3_EXE=pm at 53 bits: 600 runs, 576 ahead hits, every state, flag and hit the same
+(6 drawn points a pixel off, as before).
+
+## S8: the motion script's text side, the valve reader's print, mechlib's trace names (2026-11-14)
+
+MW3's port (main: `Script::read_text` / `read_loose` and load_motion's loose .zan fallback, `Script/Part::write`,
+`euler_quat`, `ValveFile::print`; motion.md, The text side) crossed. PM's twins are the same code: the reader
+0x5ccaf0, the open 0x5cc5b0, the load's fallback in 0x5cc7b0, the writer 0x5cc880 / 0x5cd300, the angles 0x5ccef0
+(PM's quaternion helpers 0x53ea70.. for MW3's 0x525130..), the valve reader's print 0x4f7250 -> 0x4f38c0. PM's own
+0x511180 names the node classes for its mechlib trace lines (0x511640, left out of the port):
+`pm::zcls::node_class_name`, ported for preservation.
+Tests: `test_motion_text.py` with MW3_EXE=pm (300 texts, 284 read whole, every key and the binary written back the
+same; the test reads the exe's pointers untranslated); `loose_zan_motion_loads_when_no_archive_has_it` and
+`pm_node_class_names_as_the_trace_has_them` in mw3pmtests, both PM_AI.
+
+## S9: the debug menu and the developers' dialogs (2026-11-14)
+
+MW3's port (main: `mech3/debug_dialogs`; editor.md, The debug menu) crossed. PM's frame menu (message map 0x5e6620)
+has the same Options handlers at 0x485b10..0x485ea0, the app's flags 4 bytes below MW3's (+0x1a8..+0x1b4, full screen
++0x1c5 for +0x1c7) and its callees cdecl where MW3's are fastcall; it has no Select Mech item (40037) and no Reset
+Options (40051). Select Mech is 0x433770 / 0x433840 over PM's 25 mechs (`kMechCount`), its OK 0x4fc4d0 (one
+function the linker shares with another dialog's); Vehicle Select 0x4a6940 / 0x4b2ec0 / 0x4b2e70, its mech test
+vt+0x48 and its switch vt+0x114 (the caller's); Camera Properties 0x409830 takes the mode on the stack. "PM's dev
+dialog in promote1" 0x4a8f70 is the Teleport dialog's Delete, byte for byte MW3's 0x404a20 (`TeleportDialog::remove`).
+PM's exe keeps no templates for Select Mech (156), Vehicle Select (143) or Camera Properties (106), so its DoModal
+fails (-1) before OnInitDialog: Select Mech gives -1, Vehicle Select calls through the unset +0x60 (the port's
+FIX (A)), Camera Properties writes the mode's own values back. No key reaches any of them.
+Tests: `test_pm_debug_dialogs.py` against PM's exe (10,829 cases identical: the 26 menu handlers on 400 states, the
+mech list, 120 vehicle lists, 300 camera dialogs at the x87's 24 bits); break: the mech list at MW3's 19 rows (9
+differ). Not AI code, so PM_AI does not apply. The Game menu's starts followed in S9b.
+
+## S9b: the debug menu's Game half, and the audit's hand-listed functions (2026-11-14)
+
+MW3's port (main: `DebugStartHooks` and the starts in `mech3/debug_dialogs`; editor.md, The Game menu) crossed.
+The same in PM: the install check 0x482b40, Start 0x485ac0, the network and Instant Action starts 0x486290 /
+0x4862b0. PM's own (`pm_debug_campaign_jump`, `pm_debug_lab_jump`): its campaign items start a mission by its number
+(0x47ad20(n), n 1..12 for 40085..40088, 40116..40123; past 10 clamped to 10), with no mechs put in the store, and
+only the first item asks the install check; the lab levels 7 and 8 (0x486130 / 0x486190, unchecked) and 6
+(0x4861f0, checked, the lab through 0x482620) use "DefaultPlayer" and always mech 5 (the Bushwacker, MW3's 3), not
+the default mech; PM's menu has no training items. Ghidra made no function of 19 of PM's frame handlers
+(tools/analysis/port_audit_extra.tsv); the audit counts them now: 16 ported, WM_KILLFOCUS, WM_MOVE and PM's own
+WM_DEVICECHANGE (0x486370: a disc arriving) labelled replaced.
+Tests: `test_pm_debug_start.py` against PM's exe (44 cases identical: every start with the install check passing and
+failing, the check itself); break: every campaign item checked (22 differ). Not AI code.
+
+## S10: the release's Add veh to node and template 152's Conform (2026-11-14)
+
+MW3's port (main: `mech3/node_vehicle_dlg`, `mech3/editor_conform`; editor.md, Add veh to node and Conform) crossed.
+PM's twins do the same: the type list 0x4a07a0 (its 25 mechs, `kMechCount`, then vehicle.zrd's names), the rows
+0x4a0b00, the team and sides 0x4a0c00 / 0x4a0cb0 / 0x4a0d00 / 0x4a0d50 / 0x4a0da0, the close 0x4a0ba0, the record
+0x4f07a0 (PM's flags at +0xec, the port's +0xcc; its "target" block between, the record's defaults), 0x4f18e0 -> the
+stub 0x4f18d0 (0), and the row's step 0x403830, whose boxes carry the caption and whose path past a yes (never
+taken) is PM's own. Conform: 0x4a0530 -> 0x404100 -> 0x403f30, its ground query cdecl and its hits 0x2c bytes
+apart. Tests: `test_pm_node_vehicle.py` against PM's exe (2,498 cases identical, as MW3's: the team and sides,
+the close, the record, every branch of the step, 400 Conform runs); node_vehicle_types_are_the_mechs_then_vehicle_zrd_records
+in mw3pmtests (25 mechs). Not AI code.

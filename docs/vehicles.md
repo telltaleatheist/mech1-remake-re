@@ -1669,7 +1669,13 @@ player's tick only while the view is on it.
 
 Ported (mech3/veh_stealth, editor.md S1): the object, its overlay (a zTwoD
 layer with the image "ret_off" and a readout of its movement mode, drawn
-while the view is on it) and its own controls (0x4a51b0, below). In the
+while the view is on it) and its own controls (0x4a51b0, below). Since S5
+(2026-11-14) also its HUD slot (vt+0xe0, 0x4a50b0: the overlay's update,
+run by 0x40fac0 while it is the view's target), the overlay's readout
+(0x4a56b0: developer lines 1 and 2, "STEALTH:  <node> using <mode>
+dynamics" and "POS x y z YAW degrees", hidden in the release; tested in
+test_debug_keys.py) and its command slot (vt+0xfc, 0x4a50e0; keybindings.md,
+The debug commands). In the
 program (app_vehicle.cpp, app_mission.cpp, app_mech.cpp), three places
 assumed nothing outlives a mission's vehicles and were made to keep it as
 the original does:

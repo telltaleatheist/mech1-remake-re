@@ -61,7 +61,7 @@ no load found as menus.
 | | Node Parameters (180) | Node Params; node slot +0x90, 0x004c7190 -> 0x004c7840 |
 | | Ai Network Editor (181) | Change Net Params, 0x004bd330 -> 0x004bf670; also the Mech AI dialog |
 | | the tree (155, untitled) | Tree View, 0x00402bf0 -> 0x004b5580 |
-| Template only | Controls (118), Graphics and Sound (119), Configure Controls (134), Multi Player Missions (136), Enter Cheat Code (138), Net Edit (140), Map Area Editor (142), New Game (146), Mech Editor (149), the untitled 152, 154, 179, Global Light Properties (160), Mech Animation Transitions (182) | nothing constructs them |
+| Template only | Controls (118), Graphics and Sound (119), Configure Controls (134), Multi Player Missions (136), Enter Cheat Code (138), Net Edit (140), Map Area Editor (142), New Game (146), Mech Editor (149), the untitled 152 (its Conform button has code, 0x0049d140, below), 154, 179, Global Light Properties (160), Mech Animation Transitions (182) | nothing constructs them |
 
 So 1 is live, 23 have working code behind no way in, and 14 are only
 templates. Everything behind 0x9a is reachable in the port through Shift+F12;
@@ -81,6 +81,66 @@ keep every other member's table entry as it stands (name, comment, time).
 Its docs put a project path in a member's name for Recoil and don't say so
 for MW3, and our lookup matches the name alone. Its MW3 map editing is
 deferred and PM is not supported; world editing is not ours to duplicate.
+
+## The debug menu (S9, 2026-11-14)
+
+Resource 147 is the frame window's menu (0x00482d10 loads it; 0x00480570 takes it off at engine start, so no player
+has seen it). Its handlers are in the frame's message map (0x005c41c0..); each item has a command and an update handler
+(MFC's `CCmdUI`: Enable, SetCheck, SetText). Ported for preservation in `mech3/debug_dialogs` and checked against the
+exe in `test_debug_dialogs.py` (12,028 cases); nothing calls them.
+
+| Item (id) | Command | Update |
+|---|---|---|
+| Video: Fullscreen (40014) | 0x00483150 flips the app's +0x1c7 | 0x00483170: on only with a 3D card whose device is "Primary Display Driver"; checked by +0x1c7 |
+| Video: Direct 3D (40071) | 0x00483620: the device pick, `restore_video(no card, pick)` 0x0047fe10 | 0x00483640: off with no devices; checked with a card; text message 0x277 with the card's name, else 0x278 |
+| Video: 320 x 240 (40069), 640 x 480 (40067) | 0x004834a0 / 0x00483500: video mode 3 / 5 (0x0047fc10) | 0x004834b0 / 0x00483510: off with a card (the 320's also unchecked; the 640's keeps its mark); checked in its mode |
+| Video: Texture LOD (40075..40079), Audio: Sound LOD (40080..40082), Control: Auto Center (40072), Other: Heat Tracking (40083) | no handler anywhere in the exe | none (MFC greys such an item) |
+| Audio: Play CD Tracks (40063) | 0x005ac5c0, a bare `ret` | 0x00483600: checked and off |
+| Control: Joystick (40016) | 0x00483200: use_joystick flipped (0x0040d070) | 0x00483230: checked when on |
+| Other: Third Person View (40055) | 0x00483550 flips +0x1b3 | 0x00483570; nothing else reads +0x1b3 |
+| Other: Enable AI (40039) | 0x00483310 flips +0x1b2 | 0x00483330; the mission start's CL (mission-start.md) |
+| Other: Invincible (40070) | 0x004835a0 flips +0x1b8 ([0x00608e40], applied at spawn; damage.md) | 0x004835c0 |
+| Reset Options (40051) | 0x004835f0: the app's defaults (0x0047fb80) | |
+| (no item) 40058..40062, 40065 | 0x00483390..0x004833e0: one of +0x1ac..+0x1b1 cleared | 0x004833f0: always checked |
+| (no item) 40066 | 0x00483400: all six cleared at once | 0x00483410: text message 0x274 |
+| (no item) 40037 | 0x00483430: Select Mech, the pick the default mech (+0x198) | 0x00483460: text message 0x276 with the mech |
+
+The six bytes +0x1ac..+0x1b1 are set to 1 by the defaults; no read of them by address was found outside these
+handlers, so whatever they once switched is likely gone. **The Game menu** (S9b, 2026-11-14; `DebugStartHooks`, test_debug_start.py: 207 cases). Every start first asks
+0x00480420 whether the install has the renderer's files (InstallOptions & 0xff with a 3D card, & 0xff00 without;
+else message 0xf42 or 0xf41 in a box) and does nothing on a no. Start (104, 0x00483100) goes to the main menu. The
+campaign jumps (40085..40104, and 40114 in no menu, which asks for campaign 4 mission 7 and gets 6 by 0x00478a40's
+clamp; 0x00483720..0x00483e20) start the
+"DefaultPlayer" pilot on that mission (0x00478a40) and put mechs in its store with message 0xf20's configuration
+(0x004836e0): the Bushwacker (3) alone for the first mission, then by operation the Owens (11), Firefly (8),
+Strider (14), Shadow Cat (13), Blackhawk (2), Orion (10) and Puma (12), up to seven; 40090 selects the
+campaign game again, and campaign 3 mission 5 also gets weapon 0x20 (tech 3). Training 1..4 (0x00483e80..0x00483f70)
+and the dev levels 7 and 8 (40073, 40074) use a pilot named "Default Player", with a space; the levels put the
+default mech (+0x198) in the lab game's slot. 40112 (0x004840c0) is the lab itself with mech 3, through 0x0047ff60.
+40113 and 40115 are Start, then the network flag on (0x0047fc40) or Instant Action reopened (0x0047fc20). Ghidra
+made no function of these or of several Options handlers; they are hand-listed for the audit in
+tools/analysis/port_audit_extra.tsv.
+
+**Pirate's Moon** (pm-tests.md, S9): the same Options handlers (0x00485b10..0x00485ea0, its app's flags 4 bytes
+lower), no Select Mech item and no Reset Options. Its Game menu is its own (pm-tests.md, S9b): the campaign by mission
+number 1..12 with no mechs added, the lab levels with mech 5 (the Bushwacker) always, no training items. Its exe keeps no
+template for Select Mech, Vehicle Select or Camera Properties, so their DoModal fails before the window exists.
+
+**Select Mech** (156, 0x00432c60; debug command 0x84 and 40037): a list of the 19 mechs' names (0x00432d30, a null
+name skipped, each row's data its number), the first selected; DoModal (0x00432df0, between the GDI flip 0x00577340
+and the keys' reset 0x0051a300); OK gives the row's number (0x00432da0), Cancel -1. The current mech's number is
+passed in and never read.
+
+**Vehicle Select** (143, 0x004a3550; debug command 0x8a): a combo of zEntity's mechs (0x004af000: vt+0x2c a vehicle,
+vt+0x40 a mech), each by its entity's name, the second selected. The row selected when the window closes is kept
+(0x004aefb0) and taken on any DoModal result but 0, so Cancel switches too; the caller then runs the entity's
+vt+0x108. With fewer than two mechs nothing is selected and the exe calls through an unset pointer (fixes.md).
+
+**Camera Properties** (106, 0x0040bb00, over the view's camera mode +0x58; debug command 0x8f): the distance, the
+offset (+0x18), its rotation (+0x08) as three angles in degrees (0x00525740 then 0x00523bc0), the catch-up, vary and
+factor rates. OK writes them back, the offset normalised when its box is ticked (0x004020d0), and the rotation rebuilt
+from the angles (0x00525340, given the first two the other way round, which is that function's order: OK with no
+change keeps the rotation; checked through the probe, 2026-11-14).
 
 ## The entry and the exit
 
@@ -211,7 +271,7 @@ object's records in memory (0x004bef80 -> 0x004dc2b0; deleted nodes through
 0x004da7e0 (slot +0x14; 0x004db8d0, a node), but nothing found calls them.
 They need a FILE*, the exe has no `_fdopen`, and every `fopen` for writing
 is something else: the controls (0x00411e60), location.zrd (0x004a37a0),
-stdout (0x00575b00, `freopen`), a zbd save (0x004fe8e0, debug path 0x592423,
+stdout and stderr (0x00575b00, `freopen` to mech3.out / mech3.err at every start; screenshots.md), a zbd save (0x004fe8e0, debug path 0x592423,
 not traced further). Pirate's Moon is the same
 (0x004c4160, stub 0x0051a4d0), and its writer 0x004ecaa0 adds `via` and
 `static_mfb`. So by this reading an edit in the release lasts until the file object goes;
@@ -438,7 +498,14 @@ AI net's nodes answer in `game_editor_net`), so it is engine code, not AI.
   start and 1.75 radii back from the end, pointing to the end) for every
   link, and against (0x0058dfd0, the same from the other end) for both-way
   ones. A head is a chevron of three points (0x0058d9a0) that the line draw
-  closes into a triangle when its node shows.
+  closes into a triangle when its node shows. The mouse hits a head inside
+  its triangle: the against pair by 0x0058d6b0, the along pair by 0x0058d3c0
+  (the same test facing the other way, its first head by the start's radius).
+  The along arrow's constructor gives it the base hit (vtable 0x005cf1d0),
+  but the link's set-up (0x0058c276), the cursor's line (0x0058e4fb) and the
+  links' copy (0x0058f49c) give it 0x005cf050, so every live link's along
+  heads can be pressed. Ported 2026-11-14 (S7a); until then the port's along
+  arrows kept the base hit and their heads could not be pressed.
 - **Colours** (0x00579370, each view sets them): circles red, green under
   the mouse, yellow picked; a link's line green under the mouse, yellow
   pressed, else blue when its ends see each other (the world's segment query
@@ -484,8 +551,8 @@ AI net's nodes answer in `game_editor_net`), so it is engine code, not AI.
 Tests: test_net_view.py (a link between two marks against the exe on
 random cameras, clips and ends in front, behind, past the far plane and off
 screen, all nine pairs of end states: the marks' steps, the cuts, the
-direction, both arrow pairs, the circles' place and hits, the back arrows'
-hits; bit for bit at 24 bits; at 53 the floats a few ulps apart and 6 of
+direction, both arrow pairs, the circles' place and hits, the back and
+ahead arrows' hits; bit for bit at 24 bits; at 53 the floats a few ulps apart and 6 of
 the 600 cases' drawn points a pixel off, none of their states, flags or
 hits); `net_view_links_and_picks` (the links' kinds and makers, the window,
 press, release with and without shift, the hand-over, shift-click);
@@ -700,6 +767,30 @@ test_aiv_add_mech3ax.py (in every MW3 reader archive with an aiv.zrd, a
 record of each type its records have added as Add vehicle adds it: 240 in 48
 archives read by mech3ax's unzbd exactly as written, after every shipped
 record, every other member the same). Breaks: the tags dropped, a wrong team.
+
+**The release's, ported** (S10, 2026-11-14; `mech3/node_vehicle_dlg`, test_node_vehicle.py: 2,498 cases against
+the exe, 7 breaks; node_vehicle_types_are_the_mechs_then_vehicle_zrd_records). Unwired: the editor runs ours.
+- The list (0x0049d350) is made once per run: the 19 mechs' names, then vehicle.zrd's record names; the combo puts
+  "None" first (0x0049d710), whose data is null, and starts on it.
+- A team is the packed number of team_number_of (5 bits a team): 0x0049d810 turns it into a mask and back, and the
+  side is Friend when the player's mech's friend mask (+0xc4) has it, Foe when its foe mask (+0xc8) does, else
+  Other. The Friend, Foe and Other buttons (0x0049d8d0, 0x0049d920, 0x0049d970) set the team to the lowest one of
+  that side (Other: the lowest in neither), -1 with none; typing a team (0x0049d9e0) sets the side again.
+- Closing (0x0049d7b0) keeps the chosen row's data and turns the yaw into radians.
+- 0x00403820 goes on for any DoModal result but 0 with a type chosen, Cancel too: the net is the editor's compiled
+  one, or built again (0x004bd340, 0x004be670), else "Could not locate the net"; the record (0x004e0540 ->
+  0x004df6a0: the net's id, x, y, z, yaw, team over the defaults) goes to 0x004671d0, which returns 0, so nothing
+  after it runs.
+
+## Conform (template 152, never opened; S10, 2026-11-14)
+
+Template 152 has a Conform button (control 1051) whose handler 0x0049d140 runs 0x00404090 on the dialog's edit
+(+0x64): each element of the edit's list, the last first, through 0x00403ec0, which asks the ground under the
+element (0x004edab0 down from FLT_MAX at its x, z) and takes the nearest surface at or below its height and the
+nearest at or above. It goes 0.5 over the one below (halfway between when the one above is nearer than 1), or, with
+none below, 0.5 over the one above; it moves (vt+0x2c, then vt+0x38, and the edit marked changed at +0x138) only
+when that is more than 0.1 off. Nothing constructs template 152, so it never runs. Ported for preservation,
+unwired (`mech3/editor_conform`, in test_node_vehicle.py: 400 random nets, 3 breaks).
 
 ## The tree view (S5 sitting 4, 2026-11-09)
 
@@ -1741,7 +1832,9 @@ Checked:
 
 ### Pirate's Moon's net view (pm, P3, 2026-11-10)
 
-No logic change. Every znet_view pair (0x5acde0..0x5b02b0) and the frame
+No logic change. The ahead arrows' hit is PM's 0x5aecb0 (vtable 0x5f1568, set
+by its link set-up 0x5adc1b, the cursor line 0x5afceb and the copy 0x5b0abe),
+as MW3's (S7, 2026-11-14). Every znet_view pair (0x5acde0..0x5b02b0) and the frame
 0x403190 differ in their code only: PM's build passes in registers or on the
 stack where MW3's passed in other registers (its clip setter 0x5bb1f0 is cdecl,
 MW3's 0x59b2f0 takes ECX and EDX), and it inlines a few calls. In the frame, the

@@ -318,7 +318,7 @@ which only log.
   That time is taken off the time left. Once the sequence's time reaches +0x68, the end values (the word after each
   rate) are set and the event ends (2); until then it gives 1.
 - 38 (0x507970): message +0x0c's text is its id's Mech3Msg string (0x576040), or the record's own name when the id
-  is 0. It is shown for 3 seconds on the 2D text layer (0x5a3fd0, not ported: the caller's).
+  is 0. It goes for 3 seconds to the line log (0x5a3fd0, twod.md, The line log), which is never drawn.
 
 `test_script_cmds.py` runs 400 events 20 and 21 against the exe at the reference runtime's 53 bits: random flags,
 values, states and times, a missing node, wrong classes. The setters' derived words (1/f² and the fovs' 1/tan) are

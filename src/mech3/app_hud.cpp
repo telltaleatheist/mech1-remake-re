@@ -1102,6 +1102,7 @@ void unwire_hud() {
 void* program_hud_node_object(void* node) { return hud_hooks().node_object(node); }
 void program_hud_update(float dt) {
   if (Mech* m = program_view_mech()) hud_handoff(*m, dt);
+  else if (void* t = program_view_target()) program_vehicle_hud(t, dt);
 }
 
 void program_hud_force_over(bool on) { g_hooks.force_over = on; }
@@ -1448,6 +1449,10 @@ void program_hud_objectives_toggle() {
 void* program_mech_hud(void* mech) {
   Mech* m = static_cast<Mech*>(mech);
   return m && m->pilot ? pilot_hud(*m->pilot) : nullptr;
+}
+const float* program_mech_aim_point(void* mech) {
+  auto* h = static_cast<Hud*>(program_mech_hud(mech));  // 0x00430e30 (MW3's 0x00430aa0)
+  return h ? h->reticle.aim_point : nullptr;
 }
 void program_hud_objectives_fill(void* hud) {
   if (hud) static_cast<Hud*>(hud)->objectives.fill();

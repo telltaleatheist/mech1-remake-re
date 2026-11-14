@@ -16,6 +16,7 @@ start, the end and the colour (565). Lists shorter than their values are not gen
 past them; the port's FIX (A) reads 0).
 """
 import ctypes
+import os
 import random
 import struct
 import sys
@@ -25,10 +26,17 @@ sys.path.insert(0, str(Path(__file__).parent))
 from calltrace import load_probe  # noqa: E402
 from original import FTOL, IAT_FTOL, Original  # noqa: E402
 from ai_world import ser  # noqa: E402
+from unicorn import UC_HOOK_CODE  # noqa: E402
 from unicorn.x86_const import UC_X86_REG_EAX  # noqa: E402
 
 U, I = ctypes.c_uint32, ctypes.c_int32
-MOVIE_VT, LINE_VT = 0x5d0e28, 0x5d06e0
+PM = os.environ.get('MW3_EXE') == 'pm'
+# MW3_EXE=pm: Pirate's Moon's movie (0x5c9b40..0x5c9d80) and line reader (0x5c8920) are MW3's, but its stream
+# keeps the rate at +0x5c (MW3's +0xec), its frame step is 0x5d0eb0, its draw goes through its 2D image draw
+# 0x5c0510 and the erase through 0x57d210 (both cdecl), and its display format's words sit elsewhere: the
+# test stubs and sets PM's own (the port's Movie2D is the same code for both, its stream its own).
+MOVIE_VT = 0x5f30f4 if PM else 0x5d0e28
+FPS = 0x5c if PM else 0xec
 
 
 def fb(x):
@@ -44,16 +52,35 @@ class Emulated:
         self.cpu = cpu = Original()
         cpu.fpu_control(0x007f)  # play precision (MW3_PRECISION=53: the reference runtime's)
         cpu.import_code(IAT_FTOL, FTOL)
-        for a, v in ((0x802738, 8), (0x80273c, 3), (0x802740, 3), (0x802744, 0xf8), (0x802748, 0xfc)):
-            cpu.u32(a, v)  # 565, as test_screen_tint.py sets it
-        cpu.stub_function(0x59aaf0, self.frame, 4)
-        cpu.stub_function(0x55b1f0, self.blit, 0xc)
+        if PM:  # r mask and shift, g mask and shift, b shift (0x5983e0)
+            for a, v in ((0xb061a8, 0xf8), (0xb0619c, 8), (0xb061ac, 0xfc), (0xb061a0, 3), (0xb061a4, 3)):
+                cpu._uc.mem_write(a, struct.pack('<I', v))
+            self.native(0x5d0eb0, self.frame, 4)
+            self.native(0x5c0510, self.blit_cdecl, 0)
+            self.native(0x57d210, self.blit_cdecl, 0)
+        else:
+            for a, v in ((0x802738, 8), (0x80273c, 3), (0x802740, 3), (0x802744, 0xf8), (0x802748, 0xfc)):
+                cpu.u32(a, v)  # 565, as test_screen_tint.py sets it
+            cpu.stub_function(0x59aaf0, self.frame, 4)
+            cpu.stub_function(0x55b1f0, self.blit, 0xc)
         self.obj, self.stream, self.bg = cpu.alloc(0x144), cpu.alloc(0x1e4), cpu.alloc(0x38)
         self.rect = cpu.alloc(0x10)
         self.calls = []
 
     def r32(self, a):
         return struct.unpack('<I', self.cpu.read(a, 4))[0]
+
+    def native(self, addr, fn, pop):
+        """A stub at one of PM's own addresses (the map left alone)."""
+        self.cpu.stubs[addr] = (fn, pop)
+        self.cpu._uc.hook_add(UC_HOOK_CODE, self.cpu._stub_hit, begin=addr, end=addr)
+
+    def blit_cdecl(self, c):
+        image, x, y, key, rect = (c.arg(i) for i in range(5))
+        which = 1 if image == self.stream else 2 if image == self.bg else 0
+        r = list(struct.unpack('<4I', c.read(rect, 16))) if rect else [0, 0, 0, 0]
+        self.calls += [2, which, x, y, key & 0xffff, int(rect != 0)] + r
+        return 0
 
     def frame(self, c):
         self.calls += [1, c.arg(0)]
@@ -75,7 +102,7 @@ class Emulated:
         cpu.write(self.stream, bytes(0x1e4))
         if st[6]:
             cpu.write(self.stream + 4, struct.pack('<hhBB', st[7], st[8], 0, st[9]))
-            cpu.u32(self.stream + 0x4c, st[10]), cpu.u32(self.stream + 0xec, st[11])
+            cpu.u32(self.stream + 0x4c, st[10]), cpu.u32(self.stream + FPS, st[11])
             cpu.u32(o + 0x34, self.stream)
         cpu.write(self.bg, bytes(0x38))
         if st[12]:

@@ -20,6 +20,8 @@ void* program_pilot_hud(void* mech_data);        // 0x00430aa0 on a MechData (nu
 // shown (+0x144c not hidden); false without a HUD.
 bool program_hud_power_state(void* mech, bool* on, bool* reticle_shown);
 void* program_mech_hud(void* mech);              // 0x00430aa0 on the mech's +0x684 (null: null)
+// PM's marker (0x004a65a0): the mech's HUD's reticle aim point (PM's +0x1d68, MW3's +0x1d48); null without a HUD.
+const float* program_mech_aim_point(void* mech);
 void program_hud_objectives_fill(void* hud);      // 0x00446ad0 on its +0x17964
 void program_hud_static(void* hud, float dt);    // 0x0043cd20 on a HUD
 void program_hud_zoom_pass(void* hud, float dt); // +0x144c vt+0x28 (0x00444230) on a HUD

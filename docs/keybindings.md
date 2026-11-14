@@ -21,7 +21,7 @@ end the run, so they are only checked as bound.
 - **The app's keys**: 0x40db60, called by the mission's load, binds X
   (CYCLE_CAM), Shift+V (VMODE_TOGGLE) and ` (MESSAGE_TOGGLE) to 0x40dba0,
   and 0x7e (no key) to 0x4abbc0. 0x40dba0's other cases (0x6d, 0x82..0xa4)
-  are debug commands no key or file can bind.
+  are debug commands no key or file can bind (The debug commands, below).
 - **The missions'**: 0x48f400 binds Exit Mission (Ctrl+Q, 0x71) and 0x72 to
   0x48f440. It only acts once the mission is won or lost.
 - **Quick Exit**: Alt+F4, command 1, no group and no CMD_ name.
@@ -74,6 +74,46 @@ like "next group". The program keeps the exe's bindings and behaviour.
   is labelled 10%.
 - **Ctrl+Q**: the missions' bind (0x51d2f0 with 0x48f440) was an unported
   hook. It is wired now.
+
+## The debug commands (0x40dba0's other cases; ported 2026-11-14, S5)
+
+No key or controls file reaches these in the release: 0x40db60 binds
+0x40dba0 to 0x61, 0x6c and 0x70 only, and the command names table has none
+of them. Ghidra made no function of the switch (a jump table, 0x40de34 by
+the bytes at 0x40dea4); the port is `app_key` (app_keys.cpp), its targets
+behind `AppKeyCalls`. Tested against the exe (`test_debug_keys.py`).
+
+| Command | What it does |
+|---|---|
+| 0x7e | a screenshot (0x4abbc0, its own registration; screenshots.md) |
+| 0x6d | the pilot's mech's +0x634 bit 1 toggled (0x41ca90); nothing reads it |
+| 0x82 | the frame rate and the developer lines (hud.md section 20) shown or hidden ([0x5f4d6c]) |
+| 0x83 | the developer readout armed or off ([0x5f4d70], 0x40fb50) |
+| 0x84 | a list of the mech's rosters (an MFC dialog, 0x432c60), the pick remade (0x4783c0) |
+| 0x86 | the timer's clamp on or off ([0x5e0c9c], 0x575af0) |
+| 0x87, 0x88 | the clamp's lowest frame rate 5 up or down from 8 ([0x5e0c98], 0x575ab0; at 0 or below it is only read back) |
+| 0x89 | the developer lines emptied and the view moved to the next mech in zEntity's list, wrapping to the first (0x4a33f0) |
+| 0x8a | a vehicle pick (an MFC dialog, 0x4a3550), the pick viewed |
+| 0x8b, 0x8c, 0x8e | the view's camera mode 0, 3, 1 (0x40ae70) |
+| 0x8f | the camera dialog (0x40bb00) |
+| 0x93 | ShowCursor with the flag; the flag then whether the count went below 0 ([0x5e0ca0]) |
+| 0x94 | "Marker # n" and the view target's place to stdout (0x4a3220) |
+| 0x95 | the teleport (0x4a37a0, editor.md) |
+| 0x97 | the software renderer's mip mapping toggled (0x557f70), "MIP Mapping Enabled / Disabled" in the message panel |
+| 0x98 | zModel's zone mode stepped 0, 1, 2 ([0x5ea1d0]): "App Zone Switching Enabled", "Camera Zone Switching Enabled", "Zone Switching Disabled" |
+| 0x9a | the game editor (0x40e430; ours on Shift+F12, editor.md S4) |
+| 0x9d | the vehicle editor (0x4b86e0) |
+| 0x9e, 0x9f | the software renderer's mip bias 0.2 up or down, not below 0 (0x535ef0 / 0x535ed0) |
+| 0xa3 | the GameZ Interpreter console on or off (0x4810d0; interp.md) |
+| 0xa4 | the mech lab from the mission (0x448830) |
+
+The software renderer's three (0x97, 0x9e, 0x9f), the two MFC lists and the
+camera dialog stay unported calls. Pirate's Moon (0x40ba30) numbers them 8
+higher, and its 0xaf toggles its 2D-through-Direct3D flag in place of MW3's
+mech lab; its marker also keeps the view mech's aim point (pm-tests.md, S5). The stealth object answers commands of
+its own while viewed (its vt+0xfc, 0x4a50e0: 0x6b its overlay on or off,
+0x73 the reticle's pick to the message panel, 0xa2 it onto the pilot's
+mech), none bound either.
 
 ## The table
 

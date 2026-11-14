@@ -21,6 +21,10 @@ void* program_stealth_controls();
 void program_vehicles_new_process();         // tests: as a new process, no stealth or vehicles
 void* program_stealth_create(void* ctl);
 void* program_stealth();
+const float* program_entity_position(void* v);  // a vehicle's or mech's place (0x005a85e0)
+// The view target's vt+0xe0 when it is not a mech (0x0040fac0): the stealth's overlay (0x004a50b0), a basic vehicle's
+// debug lines (0x004a2ef0).
+void program_vehicle_hud(void* target, float dt);
 void program_stealth_frame(float dt);  // its vt+0x34 (0x004a1040) from the player's tick
 // The view letting go of a vehicle (its vt+0x104): the stealth's turns its
 // overlay off (0x004a50d0); a mech's and others', nothing.

@@ -894,6 +894,22 @@ From the weapon code (weapons.md).
 
 ## Startup
 
+- **The game keeps two log files beside itself, emptied at every start.**
+  When MW3 opens its window it sends its text output to `mech3.out` and its
+  error output to `mech3.err` in the game's folder (in the temp folder as
+  `gamez.out` / `gamez.err` when the game's folder can't be written), each
+  starting "File started". After a crash, `mech3.err` is the place to look,
+  but it is wiped the next time the game starts (docs/screenshots.md).
+- **There is a screenshot key nobody can press.** The game has a command
+  that saves the screen as a .bmp through a Save dialog (or, inside a
+  multiplayer lobby, as `mw3_a12345.bmp` and the like), but no key is ever
+  bound to it in MW3 1.2 (docs/screenshots.md).
+- **Pirate's Moon's screenshot key is Ctrl+P.** Pirate's Moon gave the
+  command a name and a default key: Ctrl+P saves the screen with no dialog
+  as `mw300000000.bmp`, `mw300000001.bmp` and so on, numbered from 0 each
+  time the game starts and skipping names already taken
+  (docs/screenshots.md).
+
 - **The exe checks itself for stat hacks.** The very first thing the game does
   is a CRC-32 over two tables built into `Mech3.exe`: the mech roster (each
   mech's name, tonnage and class) and the BattleTech internal-structure table
@@ -1510,6 +1526,25 @@ From the network code (network-messages.md).
   EDITOR" in MW3 is most likely a name from Recoil, built alongside MW3 on the same engine
   and finished first, and not the 1996 BattleSport by Cyclone Studios (read from the
   exes' strings; the two games' overlap as a modder describes it).
+- **Two dozen developer key commands sit behind the keyboard, none bound.**
+  Beside the editor, MW3's key code still has the developers' own commands,
+  but nothing in the release binds a key to them: a frame-rate counter with
+  the mech's number readouts, a debug readout of the camera's zones and of
+  how many scene nodes, models, materials and live shots are in use, a
+  speed control for the game's lowest frame rate (five frames a second at a
+  press), camera modes, "MIP Mapping Enabled / Disabled" and a mip bias for
+  the software renderer, three zone-switching modes ("App Zone Switching
+  Enabled", "Camera Zone Switching Enabled", "Zone Switching Disabled"), a
+  key that hops the camera from mech to mech, a "Marker" that prints where
+  the camera's target stands, the teleport, the vehicle editor, the mech
+  lab from inside a mission, and a "GameZ Interpreter" console that runs
+  mission-script commands as you type them. One toggles a flag on your mech
+  that nothing ever reads (docs/keybindings.md, The debug commands).
+- **Mission animations send messages to a log nobody sees.** A mission's
+  animation can put a line of text on screen for three seconds, and the
+  game keeps the last fifteen in a scrolling log, but the log's lines are
+  never added to anything that draws, so they never appear
+  (docs/twod.md, The line log).
 - **Every mission builds that invisible camera vehicle anyway.** The
   loading screen's "Creating Stealth" step makes it in every mission, campaign,
   Instant Action and multiplayer alike, even though nothing in the release
@@ -1861,6 +1896,16 @@ From the mech definitions (mechdef-configs.md).
 ## Mechs: how a mech is built
 
 From the mech's constructor and the launch (mech-build.md).
+
+- **The game reads mech animations from plain text.** If a motion is
+  missing from `motion.zbd`, MW3 looks for a text file named after it
+  (`<name>.zan`) and reads it: frames, then for each part its rotation in
+  radians and its position, likely how the developers tried animations
+  before packing them. Shipped motions always come from the archive, so a
+  text file can only add a motion the game asks for and doesn't have.
+  The shipped data lacks one the game asks for, the Elemental's limp
+  (`elemental_limp`), so a text file of that name would give it one
+  (docs/motion.md, The text side).
 
 - **Every mech is built from two models.** Each part looks for its node in
   the full model and in the low-detail one (`mech_<name>_1`) and claims
@@ -2436,6 +2481,14 @@ file (docs/assets.md, Data versions):
   through the network, giving up on one only once it is no shorter than
   the best so far. On today's machines that takes milliseconds even in the
   biggest networks (246 points).
+- **The AI path editor's "Add veh to node" never added anything.** It asks
+  for the vehicle type, place, yaw and team, builds the record, then hands it
+  to a step left as a stub that always says no, so nothing is made or saved
+  (Cancel goes down the same path). The rebuild's editor does it properly.
+- **A hidden "Conform" button would drop the AI's path nodes onto the
+  ground.** It puts each node half a metre over the surface beneath it
+  (halfway in a gap under a metre), but the dialog that holds it is never
+  opened.
 - **There was an AI tester in the game.** A developer dialog for steering a
   unit by hand ("Direct", "Zig Zag", "Circle", "Jump", "Random Move") and
   picking its target ("player", "nearest enemy") is still in the exe behind
@@ -3754,7 +3807,18 @@ The screen after the pilot for INSTANT ACTION, 0x00488bc0 (details:
   rebuild does nothing), and on a `pilots\` file whose name is 64 characters
   or longer (the rebuild skips it).
 - **The debug menu's campaign jumps use a pilot named "DefaultPlayer"**, the
-  debug Mech Lab start one named "Default Player".
+  debug Mech Lab start one named "Default Player". Each jump also fills the
+  mech bay with what that point of the campaign should have: a Bushwacker
+  alone for the first mission, then by operation the Owens, Firefly, Strider,
+  Shadow Cat, Blackhawk, Orion and Puma. A further jump that no menu lists asks
+  for operation 4's seventh mission, which does not exist: it lands on the sixth.
+- **The hidden debug menu's Options were half wired.** The frame window's menu,
+  removed as the game starts, has Fullscreen, Direct 3D, 320 x 240 and 640 x 480,
+  Joystick, Enable AI and Invincible working; Texture LOD, Sound LOD, Auto
+  Center and Heat Tracking have no code behind them at all, Play CD Tracks is
+  always ticked and greyed, and Third Person View flips a flag nothing reads.
+  The developers' Vehicle Select box switches you to the selected mech even
+  when you press Cancel.
 - **The HUD's lists stop at sixteen:** the weapon list and the equipment
   list each have exactly sixteen lines, ten pixels apart.
 - **The radar has two sizes:** small, a radius of 50 pixels around (55, 55)

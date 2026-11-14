@@ -102,7 +102,8 @@ void node_touch_frame();                        // 0x004ed960
 Node* node_find_in_tree(Node* node, const char* name);  // 0x004f9d60
 int node_set_lighting(Node* node, int32_t on);          // 0x004f9e50: its model's and its tree's
 Node* node_find(Node* node, const char* name);          // 0x004eb0d0: itself, then the children first to last
-int node_add_child(Node* parent, Node* child);  // 0x004eb9b0
+int node_add_child(Node* parent, Node* child);  // the running game's: MW3's 0x004eb9b0
+int mw3_node_add_child(Node* parent, Node* child);  // 0x004eb9b0
 int node_unlink(Node* parent, Node* child);     // 0x004ebc30, 1 when not its child
 
 // The action callback (+0x48) and its list (+0x44, lists 0..5). A new

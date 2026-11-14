@@ -124,8 +124,10 @@ add_library(mw3core STATIC
   src/gamez/zeffect/zeff_anim_save.cpp
   src/gamez/zeffect/zeff_init.cpp
   src/gamez/zimage/zimg_library.cpp
+  src/gamez/zimage/zimg_shot.cpp
   src/gamez/zinterp/zinterp.cpp
   src/gamez/zinterp/zinterp_parse.cpp
+  src/gamez/zinterp/zinterp_console.cpp
   src/gamez/zimage/zimg_texture.cpp
   src/gamez/zmath/zmth_matrix.cpp
   src/gamez/zmath/zmth_vector.cpp
@@ -174,6 +176,7 @@ add_library(mw3core STATIC
   src/gamez/zrender/zrndr_prim2d.cpp
   src/gamez/zrender/zrndr_blit.cpp
   src/gamez/ztwod/twod_console.cpp
+  src/gamez/ztwod/twod_lines.cpp
   src/gamez/ztwod/twod_control.cpp
   src/gamez/ztwod/twod_dialog.cpp
   src/gamez/ztwod/twod_editbar.cpp
@@ -264,6 +267,11 @@ add_library(mw3core STATIC
   src/mech3/player_view.cpp
   src/mech3/hud.cpp
   src/mech3/message_panel.cpp
+  src/mech3/dev_text.cpp
+  src/mech3/debug_keys.cpp
+  src/mech3/debug_dialogs.cpp
+  src/mech3/node_vehicle_dlg.cpp
+  src/mech3/editor_conform.cpp
   src/mech3/mech_hud.cpp
   src/mech3/app_cheats.cpp
   src/mech3/app_hud.cpp
@@ -540,6 +548,10 @@ add_library(mw3probe SHARED
   tests/probe_weapons_hit.cpp
   tests/probe_weapons_fly.cpp
   tests/probe_twod.cpp
+  tests/probe_dev_text.cpp
+  tests/probe_debug_keys.cpp
+  tests/probe_shot.cpp
+  tests/probe_motion_text.cpp
   tests/probe_mainmenu.cpp
   tests/probe_pocket_panel.cpp
   tests/probe_menus.cpp
@@ -644,6 +656,8 @@ add_library(mw3probe SHARED
   tests/probe_view.cpp
   tests/probe_hud.cpp
   tests/probe_mech_data.cpp
+  tests/probe_debug_dialogs.cpp
+  tests/probe_node_vehicle.cpp
 )
 target_link_libraries(mw3probe PRIVATE mw3core)
 endif()
@@ -675,6 +689,7 @@ add_executable(mw3tests
   tests/test_data_folder.cpp
   tests/test_patch12.cpp
   tests/test_video_device.cpp
+  tests/test_debug_tools.cpp
   tests/test_resolution.cpp
   tests/test_zreader.cpp
   tests/test_controls_cfg.cpp
@@ -809,6 +824,7 @@ if(MW3_BUILD_PM)
   )
   target_include_directories(mw3pmtests PRIVATE tests)
   target_link_libraries(mw3pmtests PRIVATE pmcore mw3core)
+  target_sources(mw3pmtests PRIVATE tests/test_debug_tools.cpp)  # the console and PM's marker (S5)
   if(MW3_PM_HITS)
     file(GLOB pm_hit_sources src/mech3/zai_*_pm.cpp src/mech3/zai_wire*_pm.cpp src/mech3/zai_attackers_pm.cpp)
     set_source_files_properties(${pm_hit_sources} PROPERTIES COMPILE_OPTIONS "-finstrument-functions-after-inlining")
@@ -832,9 +848,18 @@ if(MW3_BUILD_PM)
   target_sources(pmprobe PRIVATE tests/probe_script_cmds.cpp tests/probe_pm_script_cmds.cpp)
   target_sources(pmprobe PRIVATE tests/probe_basic_controls.cpp tests/probe_basic_follow.cpp)
   target_sources(pmprobe PRIVATE tests/probe_net105.cpp)  # test_net105.py with MW3_EXE=pm
+  target_sources(pmprobe PRIVATE tests/probe_pm_add_child.cpp)  # test_pm_add_child.py
+  # Groups 1 and 2 on PM's exe (MW3_EXE=pm): the effect table, the screen wave, Movie2D and Line2D
+  target_sources(pmprobe PRIVATE tests/probe_effects.cpp tests/probe_tint.cpp tests/probe_movie2d.cpp)
   target_sources(pmprobe PRIVATE tests/probe_pm_pocket.cpp)
   target_sources(pmprobe PRIVATE tests/probe_pm_allies.cpp)
   target_sources(pmprobe PRIVATE tests/probe_mech_net.cpp)
+  target_sources(pmprobe PRIVATE tests/probe_dev_text.cpp)  # test_pm_dev_text.py
+  target_sources(pmprobe PRIVATE tests/probe_debug_keys.cpp)  # test_pm_debug_keys.py
+  target_sources(pmprobe PRIVATE tests/probe_shot.cpp)  # test_pm_screenshot.py
+  target_sources(pmprobe PRIVATE tests/probe_motion_text.cpp)  # test_motion_text.py with MW3_EXE=pm
+  target_sources(pmprobe PRIVATE tests/probe_debug_dialogs.cpp)  # test_pm_debug_dialogs.py
+  target_sources(pmprobe PRIVATE tests/probe_node_vehicle.cpp)  # test_pm_node_vehicle.py
   # The vehicle editor's save on PM's aiv.zrd, its "target" tag kept (test_pm_aiv_save_mech3ax.py)
   target_sources(pmprobe PRIVATE tests/probe_aiv_save.cpp)
   target_sources(pmprobe PRIVATE tests/probe_pm_lobby_rules.cpp)

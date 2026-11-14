@@ -131,9 +131,15 @@ class AddressMap:
         self.function_back = {int(b, 16): int(a_, 16) for a_, b in m['functions'].items()}
         # By hand, what the map can't pair: video unlock's one-instruction wrappers, the loadout's copy
         # (fastcall there, cdecl here), where a file list's rectangle is worked out, the reader's find
-        # (a one-line wrapper) and the basic controls' frame (pm-tests.md, the basic vehicle's own controls).
+        # (a one-line wrapper), the basic controls' frame (pm-tests.md, the basic vehicle's own controls) and the
+        # net view's ahead arrow's hit (vtable 0x5cf050 / 0x5f1568's +0x5c; editor.md, The net view).
+        # zEffect's table (test_effects.py): its spawn and tick (MW3's 0x50d650 / 0x50d910, PM's 0x526df0 / 0x5270e0,
+        # by the place's caller and the action it sets) and the texture cycle's reset, speed, looping and map
+        # (0x53bc10, 0x53bcf0, 0x53bcd0, 0x53bd10; by the place's and the table's calls).
         for mw, pm in ((0x576e70, 0x597ef0), (0x576ea0, 0x597f40), (0x424010, 0x425970), (0x48d06d, 0x48bc85),
-                       (0x5569e0, 0x578950), (0x401050, 0x401000)):
+                       (0x5569e0, 0x578950), (0x401050, 0x401000), (0x58d3c0, 0x5aecb0),
+                       (0x50d650, 0x526df0), (0x50d910, 0x5270e0), (0x53bc10, 0x55ba20), (0x53bcf0, 0x55bbc0),
+                       (0x53bcd0, 0x55bba0), (0x53bd10, 0x55bc10)):
             self.exact[mw] = pm
             self.function_back[pm] = mw
         self._lo = [b[0] for b in self.blocks]

@@ -119,6 +119,8 @@ extern "C" int probe_net_view(const char* plan, char* out, int cap) {
       v.push_back(static_cast<uint32_t>(b.obj.hit(x, y)));
     } else if (op == "A") {
       v.push_back(static_cast<uint32_t>(l.back.hit(std::stoi(w[0]), std::stoi(w[1]))));
+    } else if (op == "B") {  // the ahead arrow's (0x0058d3c0)
+      v.push_back(static_cast<uint32_t>(l.ahead.hit(std::stoi(w[0]), std::stoi(w[1]))));
     } else if (op == "P") {
       for (znet::Mark* k : {&a, &b}) {
         k->place();

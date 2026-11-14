@@ -105,14 +105,16 @@ struct Mark {
   void click();
 };
 
-// An arrow pair on a link (+0x14, vtable 0x005cf1d0; +0x88, 0x005cf2d8): two
-// heads, each three points joined by two lines (0x0058da30).
+// An arrow pair on a link (+0x14, vtable 0x005cf050; +0x88, 0x005cf2d8): two
+// heads, each three points joined by two lines (0x0058da30). The constructor's
+// 0x005cf1d0 (the base hit) is overwritten on every live link.
 class ArrowObject : public ztwod::Object2D {
  public:
   explicit ArrowObject(bool tested) : Object2D(0, 0), tested_hit(tested) { hide(); }  // 0x0058d350
   void draw() override {}           // +0x04 0x0049bfd0: the link draws it
   void draw_heads();                // 0x0058da30
-  int32_t hit(int32_t px, int32_t py) override;  // 0x005cf2d8's 0x0058d6b0; 0x005cf1d0's the base
+  int32_t hit(int32_t px, int32_t py) override;  // 0x005cf2d8's 0x0058d6b0; 0x005cf050's 0x0058d3c0
+  int32_t hit_ahead(int32_t px, int32_t py);     // 0x0058d3c0
   void on_enter() override;         // 0x0058f700 -> 0x0058ea10
   void on_leave() override;         // 0x0058f720 -> 0x0058ea20
   void on_press() override;         // 0x0058f6c0 -> 0x0058e920

@@ -797,6 +797,13 @@ Result letter_p(Interp& in, const char* argv0) {
     print_tree(in, in.current, 2);
     return kKnown;
   }
+  // Pirate's Moon 1.0 @ 0x005b2c60 (from 0x005b5c42): PM's own; the current node's children, one line each.
+  if (zgame::game().interp_print_children && exact(argv0, "PrintChildren")) {
+    if (!in.current) error(in, "No current node");
+    if (in.current)  // 0x005b2c60's own check
+      for (int32_t i = 0; i < in.current->child_count(); ++i) log(in, "  %s", in.current->children[i]->name());  // 0x00411170
+    return kKnown;
+  }
   if (is(argv0, "PrintUsedNodes", 0xe)) {
     call(e.list_print, 6);
     return kKnown;
