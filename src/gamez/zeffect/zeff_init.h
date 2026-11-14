@@ -30,7 +30,7 @@ class EffectHooks : public zgame::Unported {
   virtual int32_t child_count(EffectHandle n) { return static_cast<int32_t>(unported("@node+0x5c", {h(n)})); }
   virtual EffectHandle child(EffectHandle n, int32_t i) { return p(unported("@node+0x60", {h(n), i})); }
   virtual void report(const char* fmt, const char* a, const char* b) { unported("fprintf", {fmt, a, b}); }
-  virtual void report_gfx(const char* name) { unported("0x0049bfd0", {0x400, 0x11d, name}); }
+  virtual void report_gfx(int32_t line, const char* name) { unported("0x0049bfd0", {0x400, line, name}); }
   virtual void set_flag8(EffectHandle n, int32_t on) { unported("0x004eb620", {h(n), on}); }
   virtual void set_intersect(EffectHandle n, int32_t on) { unported("0x004eb6d0", {h(n), on}); }
   virtual void set_active(EffectHandle n, int32_t on) { unported("0x004eb170", {h(n), on}); }

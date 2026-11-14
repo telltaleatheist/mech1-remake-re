@@ -18,11 +18,13 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+import calltrace  # noqa: E402
 from calltrace import Emu, Trace, load_probe  # noqa: E402
 from ai_world import ser  # noqa: E402
 
 U32 = ctypes.c_uint32
 DT = 0x72c52c
+PM = bool(os.environ.get('MW3_PM_MOVED'))  # pm_moved.py: PM's exe, its node layout
 TABLE_GLOBALS = (0x73f3c0, 0x73f3c8, 0x73f3cc, 0x73f3d0, 0x73f3d4, 0x73f3d8, 0x73f3dc, 0x73f3e0, 0x73f3e4, 0x73f3e8)
 
 
@@ -65,8 +67,12 @@ class World:
         kids = self.e.world_alloc(4 * max(1, len(children)))
         for i, c in enumerate(children):
             self.e.w32(kids + 4 * i, c)
-        self.e.w32(a + 0x5c, len(children))
-        self.e.w32(a + 0x60, kids)
+        if PM:  # PM's node: the count a short at +0x56, the children at +0x5c
+            self.e.w32(a + 0x54, len(children) << 16)
+            self.e.w32(a + 0x5c, kids)
+        else:
+            self.e.w32(a + 0x5c, len(children))
+            self.e.w32(a + 0x60, kids)
         self.models[a] = model
         self.children[a] = list(children)
         return a
@@ -137,6 +143,9 @@ class Exe:
         for addr, spec in STUBS.items():
             e.stub(addr, f'{addr:#010x}', spec)
         e.stub(0x4eb420, '0x004eb420', 'c,d', None, self._node_model)
+        if os.environ.get('MW3_PM_MOVED'):  # PM's twin is cdecl (node, out); pm.asm loses sync there, so say so
+            calltrace._regs_cache[0x4ed530] = ('cd', 'stack')
+            calltrace._regs_cache[0x50d910] = ('c', 'stack')  # the tick: MW3's has no decompiled header to say ECX
         e.stub(0x4ed530, '0x004ed530', 'c,d', None, self._camera)
         e.stub(0x556740, 'load', '', None, lambda em, k, a, p: em._ret(self.tree, p))
         e.stub(0x556820, 'free_node', 'c', None, lambda em, k, a, p: em._ret(0, p))
@@ -244,8 +253,12 @@ def main():
         dt_now = [0.0]
         script2 = dict(script)
         script2['0x004f9af0'] = lambda n, a: copied[n] if n < len(copied) else 0
-        script2['@node+0x5c'] = lambda n, a: e.r32(a[0] + 0x5c)
-        script2['@node+0x60'] = lambda n, a: e.r32(e.r32(a[0] + 0x60) + 4 * a[1])
+        if PM:
+            script2['@node+0x5c'] = lambda n, a: e.r32(a[0] + 0x54) >> 16
+            script2['@node+0x60'] = lambda n, a: e.r32(e.r32(a[0] + 0x5c) + 4 * a[1])
+        else:
+            script2['@node+0x5c'] = lambda n, a: e.r32(a[0] + 0x5c)
+            script2['@node+0x60'] = lambda n, a: e.r32(e.r32(a[0] + 0x60) + 4 * a[1])
         script2['@node+0x24'] = lambda n, a: e.r32(a[0] + 0x24)
         script2['@node+0x54'] = lambda n, a: e.r32(a[0] + 0x54)
         script2['@dt'] = lambda n, a: fb(dts[0])
@@ -263,6 +276,10 @@ def main():
         probe.probe_effects_run(data, len(data), world, camera_node, (U32 * max(1, len(flat)))(*flat), len(kept))
         got = [x for x in t2.log if not x[0].startswith('@')]
         want = [x for x in want if not x[0].startswith('@')]
+        if PM:  # the action set: PM's tick (0x5270e0) by MW3's address, as the port names it (computed: pm_moved
+            # rewrites address literals)
+            pm_tick, mw3_tick = int('5270e0', 16), int('50d910', 16)
+            want = [(k, (a[0], mw3_tick)) if k == '0x004eb450' and a[1] == pm_tick else (k, a) for k, a in want]
         counts['calls'] += len(want)
         counts['reused'] += exe.reused
         counts['scales'] += sum(1 for k, _ in want if k == '0x004fbc10')

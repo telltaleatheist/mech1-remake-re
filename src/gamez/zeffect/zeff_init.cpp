@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "gamez/zeffect/zeff_anim_init.h"
+#include "gamez/zgame/zgame_table.h"
 #include "gamez/zreader/zreader.h"
 
 namespace zeff {
@@ -120,7 +121,7 @@ void EffectHooks::camera_position(EffectHandle cam, float out[3]) {
 // list's entries, each (the node's name first) "NAME", "MAPS" (its texture cycle's frames), "SPEED", "LOOPING":
 // its node found (list 6), hidden and out of the queries, its gfx found under it, the gfx a facade (mode 1) with
 // the cycle set; an entry whose node or gfx is missing reported and left at index -1. Then the textures loaded and
-// the free list made.
+// the free list made. Pirate's Moon 1.0 @ 0x00526a40: the same with its own report lines and no texture load.
 int32_t effects_init(const char* file, EffectHandle world, EffectHandle camera) {
   if (g_loaded) return 0;
   EffectHooks& h = *g_hooks;
@@ -148,7 +149,7 @@ int32_t effects_init(const char* file, EffectHandle world, EffectHandle camera) 
     }
     EffectHandle gfx = find_gfx(e.node);
     if (!gfx) {
-      h.report_gfx(e.node_name);
+      h.report_gfx(zgame::game().effect_init_pm ? 0x121 : 0x11d, e.node_name);
       continue;
     }
     h.set_flag8(e.node, 0);
@@ -165,7 +166,7 @@ int32_t effects_init(const char* file, EffectHandle world, EffectHandle camera) 
     if (zrdr::Node* loop = zrdr::find(entry, "LOOPING")) h.cycle_looping(gfx, std::strcmp(loop->list[1].s, "ON") == 0);
     for (int32_t j = 1; j <= frames; ++j) h.cycle_map(gfx, h.add_texture(maps->list[j].s));
   }
-  h.textures_load();
+  if (!zgame::game().effect_init_pm) h.textures_load();  // PM 0x00526a40 loads none here
   g_free = new std::list<Effect*>;
   g_loaded = true;
   return 0;

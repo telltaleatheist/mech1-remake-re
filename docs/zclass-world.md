@@ -240,6 +240,15 @@ reached through gwSequenceAddChild. All ported 2026-11-14 (`node_add_child`
 with every class; `test_destroy.py`'s op 16 adds under every class a world
 has and under nodes posing as 7, 8, 11 and unknown ones).
 
+Pirate's Moon's 0x4fd5e0 is the same dispatch with its own files
+(C:\zipper\branchep1\gamez\zClass\...) and lines (0x85e/0x85f, the sequence's
+0x882, an unknown class's 0x89a), and its own object3d (0x50f9c0, lines
+0x17e..0x180), animate (0x515380) and switch (0x514c50) adds; its LoD's
+0x515bb0 calls the link (0x4fd6f0, cdecl on PM). The port picks it through the
+game table (`zcls_node_add_child`, pm::zcls::node_add_child);
+`test_pm_add_child.py` compares every class, null and same-node case, with
+each report's file, line and text.
+
 ### 0x4fb7a0 `object3d_add_child(parent, child)` (ECX, EDX)
 
 Null checks (lines 0x1a2/0x1a3, parent data 0x1a4) -> 5; else tail-jumps to

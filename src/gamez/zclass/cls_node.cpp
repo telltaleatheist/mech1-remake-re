@@ -215,9 +215,12 @@ int switch_add_child(Node* parent, Node* child) {
 }
 }  // namespace
 
+// The running game's add-child (zgame::Table): Pirate's Moon's reports its own files and lines.
+int node_add_child(Node* parent, Node* child) { return zgame::game().zcls_node_add_child(parent, child); }
+
 // Mech3.exe 1.2 @ 0x004eb9b0. By the parent's class. A sequence (7) or an
 // unknown class is reported (0x0050da70) and refused, as the removal does.
-int node_add_child(Node* parent, Node* child) {
+int mw3_node_add_child(Node* parent, Node* child) {
   if (!child) return zerr::report(0x400, kClassFile, 0x78f, "Null node pointer."), 5;
   if (!parent) return zerr::report(0x400, kClassFile, 0x790, "Null node pointer."), 5;
   if (parent == child) return 1;

@@ -58,6 +58,7 @@ struct Table {
   int (*zcls_world_make_grid)(zcls::Node* world, float x, float z);     // 0x004f2560; PM 0x00505820
   int (*zcls_node_bound_box)(zcls::Node* node);           // 0x004ecc00; PM 0x004fe740
   int (*zcls_node_set_active)(zcls::Node* node, int on);  // 0x004eb170; PM 0x004fca50
+  int (*zcls_node_add_child)(zcls::Node* parent, zcls::Node* child);  // 0x004eb9b0; PM 0x004fd5e0 (its files' report lines)
   int (*zcls_node_model_box)(zcls::Node* node);          // 0x004ed220; PM 0x004fef40 (its model type)
   uint8_t* (*zcls_node_model_header)(const zcls::Node* node);  // ours: the model's header, null without one
   zcls::Node* (*zcls_light_create)();                    // 0x004fa720; PM 0x0050e470
@@ -155,6 +156,9 @@ struct Table {
   // The finish's static noise (zrender zrndr_tint.cpp finish_init, static_fill; PM 0x0057a170): PM fills 40000
   // bytes of rand, MW3 0x6400.
   bool finish_noise_40000;
+  // zEffect's table (zeff_init.cpp, 0x0050d2c0; PM 0x00526a40): PM's reports carry its file's lines (the gfx
+  // report's 0x121, MW3's 0x11d) and no texture load follows the entries (MW3's 0x005190d0).
+  bool effect_init_pm;
   // Anim events 44 and 45 (PM's handler table 0x00521c70: 0x0051e750, 0x0051e890), a polygon colour moved; MW3 has
   // no such events (null: a bad event, as MW3's run reports it).
   int32_t (*zeff_pm_event)(zeff::AnimDef& def, zeff::SeqDef& seq, uint8_t* e) = nullptr;
