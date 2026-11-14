@@ -47,7 +47,8 @@ class Exe:
         return a
 
     def cstr(self, a, n=4096):
-        return self.cpu.read(a, n).split(b'\0')[0].decode('latin-1')
+        # untranslated: on PM's exe the pointers it passes are its own (with MW3_EXE=pm the test runs there too)
+        return bytes(self.cpu._uc.mem_read(a, n)).split(b'\0')[0].decode('latin-1')
 
     def strncmp(self, c):
         a, b = self.cstr(c.arg(0))[:c.arg(2)], self.cstr(c.arg(1))[:c.arg(2)]
@@ -89,7 +90,7 @@ class Exe:
         return n
 
     def write(self, c):
-        self.out += self.cpu.read(c.arg(1), c.arg(2))
+        self.out += bytes(self.cpu._uc.mem_read(c.arg(1), c.arg(2)))  # untranslated, as cstr
         self.cpu.u32(c.arg(3), c.arg(2))
         return 1
 

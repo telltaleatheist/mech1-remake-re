@@ -141,7 +141,7 @@ static bool loose_motion(zsis::Script& s, const char* name) {
   return !direct.empty() && zsis::read_loose(s, direct.c_str());
 }
 
-// Mech3.exe 1.2 @ 0x005a9ad0. The base name goes to the script's name.
+// Mech3.exe 1.2 @ 0x005a9ad0, Pirate's Moon 1.0 @ 0x005cc7b0 (the same fallback). The base name goes to the script's name.
 bool load_motion(zsis::Script& s, const char* name) {
   const char* base = name;
   for (const char* p = name; *p; ++p)

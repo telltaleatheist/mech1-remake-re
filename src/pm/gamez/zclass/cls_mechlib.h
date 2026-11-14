@@ -38,4 +38,7 @@ void mechlib_resolve(::zcls::MechLib& lib, ::zcls::Node* node);
 // file's material refs are skipped: the resolve rebuilds them.
 void read_model(std::FILE* f, ::zcls::Node* node);
 
+// 0x00511180: a node class's name for the left-out trace lines ("gw_object3d"); "unknown" past 11.
+const char* node_class_name(int32_t cls);
+
 }  // namespace pm::zcls

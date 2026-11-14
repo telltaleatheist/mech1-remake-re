@@ -68,15 +68,15 @@ produces; the label names the compared value. Reaching a function, or running a 
 
 | Class | Functions |
 |---|---|
-| folded | 4093 |
+| folded | 4094 |
 | replaced (SDL or the platform layer) | 266 |
 | software renderer | 115 |
 | MISSING LOGIC | 88 |
 | dev dialog (MFC), its logic: PORT (preserve) | 84 |
 | unused: PORT (preserve) | 76 |
 | dev dialog (MFC), its window plumbing: replaced | 53 |
-| debug or dev tool: PORT (preserve) | 8 |
 | MISSING LOGIC (only data the shipped game lacks reaches it) | 3 |
+| debug or dev tool: PORT (preserve) | 1 |
 
 ## MISSING LOGIC
 
@@ -104,13 +104,6 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 ### debug or dev tool: PORT (preserve)
 
 - 1 functions, 32 decomp lines (0x004a6940): as MW3 0x004a3550: the vehicle pick of debug command 0x8a (app_key, never bound in the release): an MFC dialog (resource 0x430's list, 0x004aef00) whose chosen vehicle gets the view (its vt+0x108); with the dialog sittings
-- 1 functions, 9 decomp lines (0x004f38c0): as MW3 0x004e2310: the valve reader's print method (a vtable slot that fprintf's a value); nothing in the game prints a reader
-- 1 functions, 9 decomp lines (0x004f7250): as MW3 0x004e53b0: the valve reader's print method (a vtable slot that fprintf's a value); nothing in the game prints a reader
-- 1 functions, 35 decomp lines (0x00511180): the node class names for PM's mechlib trace lines (0x00511640 to stderr, 'read node: %s type %s'), its only use; the port leaves the trace lines out (pm/gamez/zclass/cls_mechlib.cpp:15)
-- 1 functions, 17 decomp lines (0x005cc5b0): as MW3 0x005a98d0: the developers' loose <name>.zan override for motion scripts (motion.md:36), like the reader's loose .zrd files
-- 1 functions, 29 decomp lines (0x005cc880): as MW3 0x005a9bc0: the motion script's text side: the loose .zan reader (0x005a9e10, with 0x005aa210) behind the developers' override, and the writer (0x005a9bc0)
-- 1 functions, 168 decomp lines (0x005ccaf0): as MW3 0x005a9e10: the motion script's text side: the loose .zan reader (0x005a9e10, with 0x005aa210) behind the developers' override, and the writer (0x005a9bc0)
-- 1 functions, 19 decomp lines (0x005ccef0): as MW3 0x005aa210: the motion script's text side: the loose .zan reader (0x005a9e10, with 0x005aa210) behind the developers' override, and the writer (0x005a9bc0)
 
 ### dev dialog (MFC), its logic: PORT (preserve)
 
@@ -245,7 +238,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 
 ## By module
 
-### mech3ep1 (3151 not ported)
+### mech3ep1 (3150 not ported)
 
 | Address | Lines | Class | Why |
 |---|---|---|---|
@@ -651,10 +644,10 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x0041f900 | 12 | folded | covered by the port where it names it (src/mech3/mech_command.cpp:265) |
 | 0x0041f920 | 9 | folded | inside its ported callers (0x004705e0, 0x00471040): a small helper their ports do their own way |
 | 0x0041f930 | 8 | folded | covered by the port where it names it (src/mech3/app_hud.cpp:253) |
-| 0x0041f940 | 27 | folded | covered by the port where it names it (src/mech3/mech_anim.cpp:578) |
+| 0x0041f940 | 27 | folded | covered by the port where it names it (src/mech3/mech_anim.cpp:589) |
 | 0x0041f980 | 21 | folded | covered by the port where it names it (src/mech3/mech_anim.h:27) |
 | 0x0041f9e0 | 21 | folded | as MW3 0x0041ed70: covered by ported code beside them: controls file and landmine helpers, getters and setters, the mech's IControls cast, the animation's members, list helpers, constructors and destructors, the force feedback's release and reset (input.md) |
-| 0x0041fa40 | 23 | folded | covered by the port where it names it (src/mech3/mech_anim.cpp:314) |
+| 0x0041fa40 | 23 | folded | covered by the port where it names it (src/mech3/mech_anim.cpp:325) |
 | 0x0041fac0 | 10 | folded | as MW3 0x0041ee50: covered by ported code beside them: controls file and landmine helpers, getters and setters, the mech's IControls cast, the animation's members, list helpers, constructors and destructors, the force feedback's release and reset (input.md) |
 | 0x0041faf0 | 15 | folded | group A, read: PM does the dropped helpers' work in place: MW3's small getters and setters (of +4, +8, +0xc, +0x10) appear inline in PM's body with the same fields; the rest as MW3's (mech_anim's gait, the briefing's shown test) |
 | 0x0041fb50 | 9 | folded | as MW3 0x0041eee0: covered by ported code beside them: controls file and landmine helpers, getters and setters, the mech's IControls cast, the animation's members, list helpers, constructors and destructors, the force feedback's release and reset (input.md) |
@@ -669,7 +662,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x00420a50 | 17 | folded | read (slot-paired, the compare differing): MW3's mech animation slots (vtables 0x005bd1f0 / 0x005bd240 / 0x005bd290 for PM's 0x005dfe48 / 0x005dfea0 / 0x005dfeec; mech_anim.cpp MechAnim::init :326, the blend's velocity, frame and sample slots :492-565, MechAction::advance :574) with MW3's small helpers written inline (the owner set and put back 0x00421510 / 0x00421520, the clamp 0x00409980, the stride and the left-forward start) and PM's layout; no other difference |
 | 0x00420aa0 | 87 | folded | read: MW3's 0x0041fd30 (mech_anim.cpp: the foot-down search over the loop) with its frame set (MW3's 0x004212c0) written inline and the tolerance test 0x00420f10 = MW3's 0x0041fef0; the same search |
 | 0x00420e40 | 42 | folded | checked by test (block trace, 2026-11-13): test_pm_mechanim runs it (the animation objects and samplers compared); the compare passes it |
-| 0x00420f10 | 15 | folded | covered by the port where it names it (src/mech3/mech_anim.cpp:378) |
+| 0x00420f10 | 15 | folded | covered by the port where it names it (src/mech3/mech_anim.cpp:389) |
 | 0x004210d0 | 23 | folded | group A, read: PM does the dropped helpers' work in place: MW3's small getters and setters (of +4, +8, +0xc, +0x10) appear inline in PM's body with the same fields; the rest as MW3's (mech_anim's gait, the briefing's shown test) |
 | 0x004211b0 | 21 | folded | group A, read: PM does the dropped helpers' work in place: MW3's small getters and setters (of +4, +8, +0xc, +0x10) appear inline in PM's body with the same fields; the rest as MW3's (mech_anim's gait, the briefing's shown test) |
 | 0x004212c0 | 11 | folded | read (slot-paired, the compare differing): MW3's mech animation slots (vtables 0x005bd1f0 / 0x005bd240 / 0x005bd290 for PM's 0x005dfe48 / 0x005dfea0 / 0x005dfeec; mech_anim.cpp MechAnim::init :326, the blend's velocity, frame and sample slots :492-565, MechAction::advance :574) with MW3's small helpers written inline (the owner set and put back 0x00421510 / 0x00421520, the clamp 0x00409980, the stride and the left-forward start) and PM's layout; no other difference |
@@ -681,7 +674,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x00421bd0 | 18 | folded | read (slot-paired, the compare differing): MW3's mech animation slots (vtables 0x005bd1f0 / 0x005bd240 / 0x005bd290 for PM's 0x005dfe48 / 0x005dfea0 / 0x005dfeec; mech_anim.cpp MechAnim::init :326, the blend's velocity, frame and sample slots :492-565, MechAction::advance :574) with MW3's small helpers written inline (the owner set and put back 0x00421510 / 0x00421520, the clamp 0x00409980, the stride and the left-forward start) and PM's layout; no other difference |
 | 0x00421ce0 | 16 | folded | read (slot-paired, the compare differing): MW3's mech animation slots (vtables 0x005bd1f0 / 0x005bd240 / 0x005bd290 for PM's 0x005dfe48 / 0x005dfea0 / 0x005dfeec; mech_anim.cpp MechAnim::init :326, the blend's velocity, frame and sample slots :492-565, MechAction::advance :574) with MW3's small helpers written inline (the owner set and put back 0x00421510 / 0x00421520, the clamp 0x00409980, the stride and the left-forward start) and PM's layout; no other difference |
 | 0x00421e00 | 40 | folded | read after the feature compare's flags: MW3's twin (0x00420d00, mech_anim.cpp; 0x00422ef0 and 0x00423010, mech_collide.cpp: the walls' segment query on the mech's points and its hits taken) with PM's layout: the segment hits are PM's 0x2c-byte records with their owner (the stack frame 0x856c for 0x7968, the record arithmetic), which the port's SegmentHit carries (cls_di.h:40) |
-| 0x00421ef0 | 22 | folded | covered by the port where it names it (src/mech3/mech_anim.cpp:639) |
+| 0x00421ef0 | 22 | folded | covered by the port where it names it (src/mech3/mech_anim.cpp:650) |
 | 0x00421f60 | 21 | folded | covered by the port where it names it (src/mech3/mech_data.cpp:566) |
 | 0x00421fc0 | 20 | folded | group A, read: PM does the dropped helpers' work in place: MW3's small getters and setters (of +4, +8, +0xc, +0x10) appear inline in PM's body with the same fields; the rest as MW3's (mech_anim's gait, the briefing's shown test) |
 | 0x00422080 | 36 | folded | read (slot-paired, the compare differing): MW3's mech animation slots (vtables 0x005bd1f0 / 0x005bd240 / 0x005bd290 for PM's 0x005dfe48 / 0x005dfea0 / 0x005dfeec; mech_anim.cpp MechAnim::init :326, the blend's velocity, frame and sample slots :492-565, MechAction::advance :574) with MW3's small helpers written inline (the owner set and put back 0x00421510 / 0x00421520, the clamp 0x00409980, the stride and the left-forward start) and PM's layout; no other difference |
@@ -3200,8 +3193,8 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x004f3630 | 117 | folded | read: PM's ValveDef kept as a record (its constructor 0x004f3630 with PM's keys zeroed, its destructor 0x004f3130 freeing them, MW3's 0x004e1d70; a cache node's copy 0x004f2fd0; a small header cleared 0x004f38b0; the valves reader's record made and kept 0x004f7d90, its destructor 0x004f7500), the port's ValveDef with PM's keys (zrdrvalve.h:113-127) and its own containers |
 | 0x004f3880 | 15 | folded | as MW3 0x004e22e0: the valve reader's records, actions and lists: constructors, destructors, factories and list helpers of classes ported in zrdrvalve/zai_valve |
 | 0x004f38b0 | 11 | folded | read: PM's ValveDef kept as a record (its constructor 0x004f3630 with PM's keys zeroed, its destructor 0x004f3130 freeing them, MW3's 0x004e1d70; a cache node's copy 0x004f2fd0; a small header cleared 0x004f38b0; the valves reader's record made and kept 0x004f7d90, its destructor 0x004f7500), the port's ValveDef with PM's keys (zrdrvalve.h:113-127) and its own containers |
-| 0x004f38c0 | 9 | debug or dev tool: PORT (preserve) | as MW3 0x004e2310: the valve reader's print method (a vtable slot that fprintf's a value); nothing in the game prints a reader |
-| 0x004f4d20 | 15 | folded | covered by the port where it names it (src/mech3/zrdrvalve.cpp:563) |
+| 0x004f38c0 | 9 | folded | covered by the port where it names it (src/mech3/zrdrvalve.cpp:122) |
+| 0x004f4d20 | 15 | folded | covered by the port where it names it (src/mech3/zrdrvalve.cpp:566) |
 | 0x004f4d60 | 15 | folded | checked by test (block trace, 2026-11-13): test_pm_ai_valves' valve builder 0x004f5f50 runs it on every shipped valves.zrd and crafted records; every call out, every valve's value and the words written on the brains and targets compared |
 | 0x004f4d90 | 14 | folded | read: MW3's 0x004e3040 (SoundAction::fire: when the valve reads the action's value, its sound played at 1.0), the same body, a slot of PM's sound action vtable; the port's SoundAction::fire (zrdrvalve.cpp:227) |
 | 0x004f4dc0 | 10 | folded | as MW3 0x004e3150: the valve reader's records, actions and lists: constructors, destructors, factories and list helpers of classes ported in zrdrvalve/zai_valve |
@@ -3245,7 +3238,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x004f59e0 | 25 | folded | as MW3 0x004e3f50: the valve reader's records, actions and lists: constructors, destructors, factories and list helpers of classes ported in zrdrvalve/zai_valve |
 | 0x004f5a40 | 9 | folded | as MW3 0x004e31f0: the valve reader's records, actions and lists: constructors, destructors, factories and list helpers of classes ported in zrdrvalve/zai_valve |
 | 0x004f5ac0 | 26 | folded | as MW3 0x004e4020: the valve reader's records, actions and lists: constructors, destructors, factories and list helpers of classes ported in zrdrvalve/zai_valve |
-| 0x004f5b20 | 21 | folded | covered by the port where it names it (src/mech3/zrdrvalve.cpp:401) |
+| 0x004f5b20 | 21 | folded | covered by the port where it names it (src/mech3/zrdrvalve.cpp:404) |
 | 0x004f5b80 | 104 | folded | checked by test (block trace, 2026-11-13): test_pm_ai_valves runs it through the valve builder 0x004f5f50 on every shipped valves.zrd and crafted records; every call out, every valve's value and the words written on the brains and targets compared |
 | 0x004f5d30 | 12 | folded | as MW3 0x004e42e0: the valve reader's records, actions and lists: constructors, destructors, factories and list helpers of classes ported in zrdrvalve/zai_valve |
 | 0x004f5d50 | 8 | folded | as MW3 0x004e4300: the valve reader's records, actions and lists: constructors, destructors, factories and list helpers of classes ported in zrdrvalve/zai_valve |
@@ -3273,7 +3266,6 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x004f7070 | 27 | folded | as MW3 0x004e51c0: the valve reader's records, actions and lists: constructors, destructors, factories and list helpers of classes ported in zrdrvalve/zai_valve |
 | 0x004f70e0 | 20 | folded | as MW3 0x004e5240: the valve reader's records, actions and lists: constructors, destructors, factories and list helpers of classes ported in zrdrvalve/zai_valve |
 | 0x004f7130 | 53 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
-| 0x004f7250 | 9 | debug or dev tool: PORT (preserve) | as MW3 0x004e53b0: the valve reader's print method (a vtable slot that fprintf's a value); nothing in the game prints a reader |
 | 0x004f7270 | 9 | folded | a thunk: one call to another function |
 | 0x004f7290 | 70 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
 | 0x004f7490 | 10 | folded | as MW3 0x004e55d0: the valve reader's records, actions and lists: constructors, destructors, factories and list helpers of classes ported in zrdrvalve/zai_valve |
@@ -3661,7 +3653,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x00579130 | 12 | folded | checked by test (block trace, 2026-11-13): test_pm_zreader calls it directly on every key of every shipped reader entry; the value read compared |
 | 0x00579150 | 12 | folded | checked by test (block trace, 2026-11-13): test_pm_zreader calls it directly on every key of every shipped reader entry; the value read compared |
 
-### zclass (246 not ported)
+### zclass (245 not ported)
 
 | Address | Lines | Class | Why |
 |---|---|---|---|
@@ -3861,7 +3853,6 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x00510b50 | 16 | folded | small helpers written out of line, MW3's inline in their callers: a node's flag bit 5 read with the null report (0x004fd310); a named node found and copied (0x00510b50: 0x00510b90 then the tree copy 0x0050d7c0); two list destructors freeing their entries (0x00511710, 0x00511940) |
 | 0x00510c40 | 13 | unused: PORT (preserve) | as MW3 0x004fc990: mechlib's material writer at close (0x004fc990 -> 0x004fcca0 -> 0x004fc4d0): dead (mechlib.md) |
 | 0x00510f40 | 33 | unused: PORT (preserve) | as MW3 0x004fcca0: mechlib's material writer at close (0x004fc990 -> 0x004fcca0 -> 0x004fc4d0): dead (mechlib.md) |
-| 0x00511180 | 35 | debug or dev tool: PORT (preserve) | the node class names for PM's mechlib trace lines (0x00511640 to stderr, 'read node: %s type %s'), its only use; the port leaves the trace lines out (pm/gamez/zclass/cls_mechlib.cpp:15) |
 | 0x00511640 | 27 | folded | covered by the port where it names it (src/pm/gamez/zclass/cls_mechlib.cpp:15) |
 | 0x005116a0 | 9 | folded | covered by the port where it names it (src/pm/gamez/zclass/cls_clutter.h:117) |
 | 0x005116e0 | 9 | folded | follows 0x0040d510: as MW3 0x0042a570: the controls screen (controls_menu, menus.md's table names each): its buttons' handlers ported in its switch, its controls' destructors (CRT callers: exception unwinds), vector and string helpers |
@@ -4853,7 +4844,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x005270e0 | 42 | MISSING LOGIC (only data the shipped game lacks reaches it) | as MW3 0x0050d6a0's class (an effect entry's node, zeff_init.cpp:24): PM's effect node's action (set on the node by 0x00526df0): while running the node grows by its rate to the size, then shrinks after its time, never below 0.01, then is freed back to the pool; PM's shipped effects.zrd has an empty EFFECTS list, as MW3's, so only a mod's effect reaches it |
 | 0x00527230 | 13 | folded | read: a setter of a global that nothing in PM reads (pm.asm: one or two writes, no read), so writing it or not changes nothing |
 
-### zentity (44 not ported)
+### zentity (43 not ported)
 
 | Address | Lines | Class | Why |
 |---|---|---|---|
@@ -4898,8 +4889,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x005cc3a0 | 9 | folded | as MW3 0x0049ccb0: covered: the screens' and states' constructors and destructors, list and vector instances (mechdef-configs.md names 0x0049da10), string copies, the missions object's queries (the program's GameEngine overrides them: app_engine.h:128 and the rest), the fade wrapper, the mission cleanup |
 | 0x005cc3e0 | 52 | folded | as MW3 0x005a96d0: zSave's list insert, load and stable sort, covered where named (zsave.cpp:86, 108, 132) and std::list's sort helpers |
 | 0x005cc4c0 | 17 | folded | as MW3 0x005a97e0: zSave's list insert, load and stable sort, covered where named (zsave.cpp:86, 108, 132) and std::list's sort helpers |
-| 0x005cc5b0 | 17 | debug or dev tool: PORT (preserve) | as MW3 0x005a98d0: the developers' loose <name>.zan override for motion scripts (motion.md:36), like the reader's loose .zrd files |
-| 0x005cc600 | 25 | folded | covered by the port where it names it (src/gamez/zsiscript/si_script.cpp:135) |
+| 0x005cc600 | 25 | folded | covered by the port where it names it (src/gamez/zsiscript/si_script.cpp:255) |
 | 0x005cc650 | 11 | folded | covered by the port where it names it (src/gamez/zsave/zsave.h:8) |
 
 ### zfmv (36 not ported)
@@ -5131,13 +5121,10 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x00527500 | 38 | folded | zGeometry's model rows against MW3's twins (zgeo_model.cpp:149, :162, :464): the same steps, PM's this passed where MW3 used registers, its polygon vertex count masked 0x3ff for 0xff (PM's layout) and its colour packed 5-6-5 through its own helpers where MW3 inlined the shifts: a random-coloured material (0x00527500, MW3's 0x0050dd20), a material from a colour (0x005275d0, MW3's 0x0050de00) and a model clipped to a box, skipping polygons whose linear buffer fails (0x00528210, MW3's 0x0050ea50) |
 | 0x005275d0 | 30 | folded | zGeometry's model rows against MW3's twins (zgeo_model.cpp:149, :162, :464): the same steps, PM's this passed where MW3 used registers, its polygon vertex count masked 0x3ff for 0xff (PM's layout) and its colour packed 5-6-5 through its own helpers where MW3 inlined the shifts: a random-coloured material (0x00527500, MW3's 0x0050dd20), a material from a colour (0x005275d0, MW3's 0x0050de00) and a model clipped to a box, skipping polygons whose linear buffer fails (0x00528210, MW3's 0x0050ea50) |
 
-### zsiscript (5 not ported)
+### zsiscript (2 not ported)
 
 | Address | Lines | Class | Why |
 |---|---|---|---|
-| 0x005cc670 | 22 | folded | covered by the port where it names it (src/mech3/mech_anim.cpp:412) |
-| 0x005cc880 | 29 | debug or dev tool: PORT (preserve) | as MW3 0x005a9bc0: the motion script's text side: the loose .zan reader (0x005a9e10, with 0x005aa210) behind the developers' override, and the writer (0x005a9bc0) |
-| 0x005ccaf0 | 168 | debug or dev tool: PORT (preserve) | as MW3 0x005a9e10: the motion script's text side: the loose .zan reader (0x005a9e10, with 0x005aa210) behind the developers' override, and the writer (0x005a9bc0) |
-| 0x005ccef0 | 19 | debug or dev tool: PORT (preserve) | as MW3 0x005aa210: the motion script's text side: the loose .zan reader (0x005a9e10, with 0x005aa210) behind the developers' override, and the writer (0x005a9bc0) |
+| 0x005cc670 | 22 | folded | covered by the port where it names it (src/mech3/mech_anim.cpp:423) |
 | 0x005cd090 | 27 | folded | checked by test: test_pm_mechanim calls every sampler and setter at random (this is zSIScript's SetLoopTime, MW3's 0x005aa3b0, si_script.cpp:84), each output and the state after it compared bit for bit |
 

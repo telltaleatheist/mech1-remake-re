@@ -16,6 +16,13 @@
 // %s type %s", "read model: ..." and "read complete") are left out.
 namespace pm::zcls {
 
+// Pirate's Moon 1.0 @ 0x00511180: the trace's class names, by class number.
+const char* node_class_name(int32_t cls) {
+  static const char* const kNames[] = {"gw_none",   "gw_camera", "gw_world", "gw_window", "gw_display", "gw_object3d",
+                                       "gw_lod",    "gw_seq",    "gw_animate", "gw_light", "gw_sound",  "gw_switch"};
+  return cls >= 0 && cls < 12 ? kNames[cls] : "unknown";
+}
+
 using ::zcls::MechLib;
 using ::zcls::Node;
 

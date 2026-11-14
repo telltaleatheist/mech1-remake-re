@@ -81,7 +81,7 @@ bool Part::read(std::FILE* f, long end) {
   return true;
 }
 
-// Mech3.exe 1.2 @ 0x005aa620
+// Mech3.exe 1.2 @ 0x005aa620, Pirate's Moon 1.0 @ 0x005cd300
 bool Part::write(std::FILE* f) const {
   zutl_zar::write_string(f, name);  // 0x005763f0
   const uint32_t n = script->frame_count + 1;
@@ -93,7 +93,7 @@ bool Part::write(std::FILE* f) const {
   return true;
 }
 
-// Mech3.exe 1.2 @ 0x005a9bc0
+// Mech3.exe 1.2 @ 0x005a9bc0, Pirate's Moon 1.0 @ 0x005cc880
 bool Script::write(std::FILE* f) const {
   const uint32_t version = kVersion;
   std::fwrite(&version, 4, 1, f);
@@ -106,7 +106,7 @@ bool Script::write(std::FILE* f) const {
   return true;
 }
 
-// Mech3.exe 1.2 @ 0x005aa210
+// Mech3.exe 1.2 @ 0x005aa210, Pirate's Moon 1.0 @ 0x005ccef0
 void euler_quat(const float angles[3], float out[4]) {
   zmth::Quat x, y, z, zy, q;
   zmth::quat_pitch(angles[0], x);
@@ -118,7 +118,7 @@ void euler_quat(const float angles[3], float out[4]) {
   out[0] = q.w, out[1] = q.x, out[2] = q.y, out[3] = q.z;
 }
 
-// Mech3.exe 1.2 @ 0x005a9e10: a first pass counts the frames and the first frame's objects; the parts are made at
+// Mech3.exe 1.2 @ 0x005a9e10, Pirate's Moon 1.0 @ 0x005ccaf0: a first pass counts the frames and the first frame's objects; the parts are made at
 // 30 frames a second (0x005aa450); a second pass fills each frame's keys, Scaling read and dropped; then each part's
 // last key is its first. FIX (A): the exe reads on for an object's three entries past the end of the file, for
 // ever; at the end the port stops. An object before any frame (the exe's index -1, before the buffers) is skipped.
@@ -192,7 +192,7 @@ bool Script::read_text(std::FILE* f) {
   return true;
 }
 
-// Mech3.exe 1.2 @ 0x005a98d0
+// Mech3.exe 1.2 @ 0x005a98d0, Pirate's Moon 1.0 @ 0x005cc5b0
 bool read_loose(Script& s, const char* path) {
   std::FILE* f = std::fopen(path, "r");
   if (!f) return false;

@@ -1582,3 +1582,15 @@ fold as MW3's twins. 0x4c7c80, 0x4c7cf0 and 0x4c7c90 are not the net view's (the
 with that function's neighbours. S7b's split was the diff's, so both halves are done here.
 Test: `test_net_view.py` with MW3_EXE=pm at 53 bits: 600 runs, 576 ahead hits, every state, flag and hit the same
 (6 drawn points a pixel off, as before).
+
+## S8: the motion script's text side, the valve reader's print, mechlib's trace names (2026-11-14)
+
+MW3's port (main: `Script::read_text` / `read_loose` and load_motion's loose .zan fallback, `Script/Part::write`,
+`euler_quat`, `ValveFile::print`; motion.md, The text side) crossed. PM's twins are the same code: the reader
+0x5ccaf0, the open 0x5cc5b0, the load's fallback in 0x5cc7b0, the writer 0x5cc880 / 0x5cd300, the angles 0x5ccef0
+(PM's quaternion helpers 0x53ea70.. for MW3's 0x525130..), the valve reader's print 0x4f7250 -> 0x4f38c0. PM's own
+0x511180 names the node classes for its mechlib trace lines (0x511640, left out of the port):
+`pm::zcls::node_class_name`, ported for preservation.
+Tests: `test_motion_text.py` with MW3_EXE=pm (300 texts, 284 read whole, every key and the binary written back the
+same; the test reads the exe's pointers untranslated); `loose_zan_motion_loads_when_no_archive_has_it` and
+`pm_node_class_names_as_the_trace_has_them` in mw3pmtests, both PM_AI.

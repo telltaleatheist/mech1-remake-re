@@ -119,7 +119,7 @@ void ValveDef::clear() {
   flags &= 0xe0;
 }
 
-// Mech3.exe 1.2 @ 0x004e53b0 -> 0x004e2310
+// Mech3.exe 1.2 @ 0x004e53b0 -> 0x004e2310, Pirate's Moon 1.0 @ 0x004f7250 -> 0x004f38c0
 void ValveFile::print(std::FILE* f, const char* name) const { std::fprintf(f, "  %s ( )\n", name); }
 
 // Mech3.exe 1.2 @ 0x004e2330. Each tag's value is a list; names are copied,

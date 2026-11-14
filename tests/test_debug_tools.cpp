@@ -99,6 +99,8 @@ TEST(pm_print_children_names_the_current_nodes_children) {
   in.current = nullptr;
   delete c;
   zint::destroy(in);
+}
+
 #include <filesystem>
 #include <fstream>
 
@@ -129,4 +131,15 @@ TEST(loose_zan_motion_loads_when_no_archive_has_it) {
   EXPECT(!mech3::load_motion(none, "motion\\no_such_motion"));
   zutl::mounts() = keep;
   fs::remove_all(wd, ec);
+}
+
+#include "pm/gamez/zclass/cls_mechlib.h"
+
+// PM's mechlib trace names (0x00511180, the strings at 0x0060e658..0x0060e6d4 and 0x00604cf0 read from the exe).
+TEST(pm_node_class_names_as_the_trace_has_them) {
+  const char* want[] = {"gw_none",    "gw_camera", "gw_world",  "gw_window", "gw_display", "gw_object3d",
+                        "gw_lod",     "gw_seq",    "gw_animate", "gw_light", "gw_sound",   "gw_switch"};
+  for (int32_t i = 0; i < 12; ++i) EXPECT(std::strcmp(pm::zcls::node_class_name(i), want[i]) == 0);
+  EXPECT(std::strcmp(pm::zcls::node_class_name(12), "unknown") == 0);
+  EXPECT(std::strcmp(pm::zcls::node_class_name(-1), "unknown") == 0);
 }

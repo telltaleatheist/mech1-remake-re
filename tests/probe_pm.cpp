@@ -3880,3 +3880,7 @@ extern "C" int probe_pm_mechlib_overrides(char* out, int cap) {
   out[s.size()] = 0;
   return static_cast<int>(s.size());
 }
+
+#include "pm/gamez/zclass/cls_mechlib.h"
+// test_motion_text.py with MW3_EXE=pm: PM's mechlib trace names (0x00511180).
+extern "C" const char* probe_pm_node_class_name(int32_t cls) { return pm::zcls::node_class_name(cls); }
