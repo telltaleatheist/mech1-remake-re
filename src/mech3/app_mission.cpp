@@ -2560,7 +2560,9 @@ void wire_mission_hooks(GameEngine* e) {
     keys.vmode_cycle = [] { g_mission_engine->vmode_toggle(); };  // 0x004ab910 (resolution.md step 3)
     keys.debug_7e = [] {  // PM 0x004af600 (MW3 0x004abbc0): the screenshot (docs/screenshots.md)
       ShotHooks h;
-      h.grab = [](int32_t buffer) { return ztwod::host().screen_grab(buffer); };
+      // The shown frame read back: the SDL host keeps buffer 2 for the message box's held frame (playtest W25,
+      // its backdrop the layer's key colour), so the front buffer the exe asks for is buffer 0 here.
+      h.grab = [](int32_t) { return ztwod::host().screen_grab(0); };
       h.free_image = [](zimg::Texture* t) { ztwod::host().texture_free(t); };
       h.lobby = [] { return g_mission_engine->network_lobby_active() != 0; };
       h.hardware = [] { return true; };  // the port draws through the GPU

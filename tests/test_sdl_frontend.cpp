@@ -9424,3 +9424,63 @@ TEST(sdl_program_valve_map_c1m1_and_c1m3) {
   fs::remove_all(dir, ec);
 }
 #endif
+
+#if defined(MW3_PM_SUITE) && !defined(_WIN32)  // posix_spawn (ours, not on Windows)
+// Pirate's Moon's Ctrl+P (CMD_SNAPSHOT 0x86, 0x004af600; docs/screenshots.md) pressed in a running mission through
+// the SDL host: mw300000000.bmp in the write dir, a 24-bit BMP of the window's 640x480 frame whose pixels are not all
+// one colour.
+TEST(sdl_pm_ctrl_p_saves_a_screenshot) {
+  if (!have_fonts()) return;
+  namespace fs = std::filesystem;
+  const std::string dir = std::string(MW3_TEST_TMP) + "/sdl_pm_ctrl_p";
+  std::error_code ec;
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir);
+  const std::string out = dir + "/run.log";
+  std::vector<std::string> args = {MW3_BIN, "--mission", "c1m1", "--frame-ms", "33", "--tap", "0x1d@760:772",
+                                   "--tap", "0x19@764:766", "--frames", "820", "--nosound", "--hidden",
+                                   "--write-dir", dir};
+  std::vector<char*> argv;
+  for (std::string& a : args) argv.push_back(a.data());
+  argv.push_back(nullptr);
+  posix_spawn_file_actions_t fa;
+  posix_spawn_file_actions_init(&fa);
+  posix_spawn_file_actions_addopen(&fa, 1, out.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+  posix_spawn_file_actions_adddup2(&fa, 1, 2);
+  pid_t pid = 0;
+  const int err = posix_spawn(&pid, MW3_BIN, &fa, nullptr, argv.data(), environ);
+  posix_spawn_file_actions_destroy(&fa);
+  EXPECT(err == 0);
+  if (err) return;
+  int status = 0;
+  bool quit = false;
+  const auto start = std::chrono::steady_clock::now();
+  while (std::chrono::steady_clock::now() - start < std::chrono::seconds(120)) {
+    if (waitpid(pid, &status, WNOHANG) == pid) {
+      quit = true;
+      break;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  }
+  if (!quit) kill(pid, SIGKILL), waitpid(pid, &status, 0);
+  EXPECT(quit && WIFEXITED(status) && WEXITSTATUS(status) == 0);
+  const std::string shot = dir + "/mw300000000.bmp";
+  std::string b;
+  if (FILE* f = std::fopen(shot.c_str(), "rb")) {
+    char buf[65536];
+    for (size_t n; (n = std::fread(buf, 1, sizeof buf, f)) > 0;) b.append(buf, n);
+    std::fclose(f);
+  }
+  auto u16 = [&](size_t o) { return static_cast<uint32_t>(static_cast<uint8_t>(b[o]) | static_cast<uint8_t>(b[o + 1]) << 8); };
+  auto u32 = [&](size_t o) { return u16(o) | u16(o + 2) << 16; };
+  const bool header = b.size() >= 0x36 && b[0] == 'B' && b[1] == 'M' && u32(10) == 0x36 && u32(14) == 0x28 && u16(28) == 24;
+  const uint32_t w = header ? u32(18) : 0, h = header ? u32(22) : 0;
+  std::set<uint32_t> colours;
+  for (size_t o = 0x36; header && o + 3 <= b.size() && colours.size() < 16; o += 3)
+    colours.insert(static_cast<uint8_t>(b[o]) | static_cast<uint8_t>(b[o + 1]) << 8 | static_cast<uint8_t>(b[o + 2]) << 16);
+  std::printf("  %s: %zu bytes, %ux%u, %zu+ colours\n", shot.c_str(), b.size(), w, h, colours.size());
+  EXPECT(header && w > 0 && h > 0 && b.size() == 0x36 + static_cast<size_t>(w) * h * 3 && u32(2) == b.size());
+  EXPECT(colours.size() > 1);
+  EXPECT(!fs::exists(dir + "/mw300000001.bmp"));  // one press, one file
+}
+#endif

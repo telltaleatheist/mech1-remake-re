@@ -46,7 +46,10 @@ write. So the next press steps past the file just written: mw300000000.bmp,
 mw300000001.bmp and so on. Then the same grab and writer at PM's addresses
 (0x533380, 0x533320, 0x5335c0; 0x5333e0 the converter) and the keys reset
 (0x533b90). The port is `pm_screenshot` (debug_keys.cpp), wired to 0x86 on
-the pm branch; the file goes into the write dir (FIX (A), as above). Test:
+the pm branch; the file goes into the write dir (FIX (A), as above). It grabs
+the shown frame through the SDL host's buffer 0 (its buffer 2 is the message
+box's held frame, playtest W25). `sdl_pm_ctrl_p_saves_a_screenshot`
+(mw3pmsdltests) presses Ctrl+P in a running c1m1 and reads the file back. Test:
 `test_pm_screenshot.py` (pm-tests.md, S6).
 
 ## The start's logs (0x575b00)
