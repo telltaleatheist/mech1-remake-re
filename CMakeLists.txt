@@ -272,6 +272,7 @@ add_library(mw3core STATIC
   src/mech3/debug_dialogs.cpp
   src/mech3/node_vehicle_dlg.cpp
   src/mech3/editor_conform.cpp
+  src/mech3/net_node_dlg.cpp
   src/mech3/mech_hud.cpp
   src/mech3/app_cheats.cpp
   src/mech3/app_hud.cpp
@@ -658,6 +659,7 @@ add_library(mw3probe SHARED
   tests/probe_mech_data.cpp
   tests/probe_debug_dialogs.cpp
   tests/probe_node_vehicle.cpp
+  tests/probe_net_links.cpp
 )
 target_link_libraries(mw3probe PRIVATE mw3core)
 endif()
@@ -860,6 +862,8 @@ if(MW3_BUILD_PM)
   target_sources(pmprobe PRIVATE tests/probe_motion_text.cpp)  # test_motion_text.py with MW3_EXE=pm
   target_sources(pmprobe PRIVATE tests/probe_debug_dialogs.cpp)  # test_pm_debug_dialogs.py
   target_sources(pmprobe PRIVATE tests/probe_node_vehicle.cpp)  # test_pm_node_vehicle.py
+  target_sources(pmprobe PRIVATE tests/probe_net_links.cpp)  # test_pm_net_links.py
+  target_sources(pmprobe PRIVATE tests/probe_pm_vehicle_editor.cpp)  # test_pm_strategies.py, test_pm_apply.py
   # The vehicle editor's save on PM's aiv.zrd, its "target" tag kept (test_pm_aiv_save_mech3ax.py)
   target_sources(pmprobe PRIVATE tests/probe_aiv_save.cpp)
   target_sources(pmprobe PRIVATE tests/probe_pm_lobby_rules.cpp)

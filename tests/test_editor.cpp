@@ -851,10 +851,12 @@ TEST(vehicle_editor_attack_retreat_p5_fire) {
   mech3::Dialog& attack = e->pages[mech3::kPageAttack];
   mech3::vehicle_editor_tab(mech3::kPageAttack);
   const mech3::DlgCombo& st = attack.at(1233).combo;
-  EXPECT(st.texts() == std::vector<std::string>({"Circle", "Direct", "Jump", "Random Move", "Zig Zag"}));
-  EXPECT(st.cur == 0 && e->pages[mech3::kPageCircle].at(1220).text == "75");
+  // Pirate's Moon's eight (0x004be2b0), sorted.
+  EXPECT(st.texts() == std::vector<std::string>({"Back", "Circle", "Direct", "Jump", "Ram", "Random Move", "Strafe",
+                                                 "Zig Zag"}));
+  EXPECT(st.cur == 1 && e->pages[mech3::kPageCircle].at(1220).text == "75");
   // Another strategy; Direct's tab shows p1's approach range.
-  attack.at(1233).combo.cur = 4;  // Zig Zag
+  attack.at(1233).combo.cur = 7;  // Zig Zag
   mech3::vehicle_editor_strategy_tab(mech3::kPageDirect);
   EXPECT(e->strategy_tab == 1 && e->pages[mech3::kPageDirect].at(1212).text == "300");
   e->pages[mech3::kPageDirect].at(1212).text = "250";
@@ -866,9 +868,9 @@ TEST(vehicle_editor_attack_retreat_p5_fire) {
   EXPECT(h.a.get<int32_t>(0x40) == 2 && h.a.get<float>(0x28) == 250.0f);
   EXPECT(e->params.get<float>(0xb8) == 1000.5f);  // the DDV runs after the field is taken
   e->message.press("OK");
-  EXPECT(attack.at(1233).combo.cur == 0);  // shown again from the settings: Circle
+  EXPECT(attack.at(1233).combo.cur == 1);  // shown again from the settings: Circle
   attack.at(1272).text = "1";
-  attack.at(1233).combo.cur = 4;
+  attack.at(1233).combo.cur = 7;
   e->form.press("Apply");
   EXPECT(h.a.get<int32_t>(0x40) == 1 && !mech3::form_shown(&e->message));
   // p1 shows Direct's change; Retreat its bits; p5's Time "set" box into the store.

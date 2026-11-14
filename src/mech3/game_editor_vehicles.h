@@ -137,5 +137,21 @@ std::vector<int32_t>*& vehicle_editor_ids();  // tests: each control a page exch
 // The editor made with its pages and lists, no vehicle loaded, not shown
 // (edit_vehicles goes on from here; the probes start here).
 VehicleEditor* vehicle_editor_create();
+void vehicle_editor_store(int32_t i);  // the Apply's store alone (0x004bb7e0), for the probes
+
+// Pirate's Moon's attack strategies as a table ([0x0062f920], made at start-up) with an index ([0x0062f960]): the
+// entries by number and by their names' place in the exe (the string pool's order, Ram first). Nothing reads either;
+// the editor's list is the map strategy_name gives (docs/editor.md, The vehicle editor). Preserved.
+struct StrategyEntry {
+  int32_t id;
+  const char* name;
+};
+struct StrategyIndex {
+  const StrategyEntry* table = nullptr;
+  const StrategyEntry* by_id[8] = {};
+  const StrategyEntry* by_name[8] = {};
+};
+const StrategyEntry* pm_strategy_table();  // 0x004c31c0
+const StrategyIndex& pm_strategy_index();  // 0x004c3280 -> 0x004c2ee0
 
 }  // namespace mech3

@@ -1636,3 +1636,27 @@ taken) is PM's own. Conform: 0x4a0530 -> 0x404100 -> 0x403f30, its ground query 
 apart. Tests: `test_pm_node_vehicle.py` against PM's exe (2,498 cases identical, as MW3's: the team and sides,
 the close, the record, every branch of the step, 400 Conform runs); node_vehicle_types_are_the_mechs_then_vehicle_zrd_records
 in mw3pmtests (25 mechs). Not AI code.
+
+## S11: the steps' link edits, the node dialog, the net file's folder; PM's strategies and Apply (2026-11-14)
+
+MW3's port (main: zai_steps' link edits, `mech3/net_node_dlg`, `NetFile::folder`; ai.md, The developer tools;
+editor.md, The node dialog) crossed. PM's twins, from its vtables (the node step's 0x5eef64, the speed step's
+0x5edcf0; pairs.json maps MW3's 0x4c93c0 to the wrong function): a node's 0x4d4000 / 0x4d4080 / 0x4d4170 / 0x4d41c0 /
+0x4d4220 / 0x4d4270 / 0x4d4300 / 0x4d4380, a step's 0x4d4650 / 0x4d4690 / 0x4d46d0 / 0x4d46f0 (not a Ghidra function,
+in port_audit_extra.tsv) / 0x4d4700, both accepting with 0x4d4720, the base's 0x5ac8f0 / 0x410b80 / 0x410bb0 and the
+answers 0x410b20 / 0x410b40 / 0x410b60; the null step 0x627c08. The dialog's 0x4eac90 / 0x4eacd0 / 0x4eade0 / 0x4eae40
+(its object's offsets MW3's) and the folder 0x4eb070 ([0x62fc6c], aiv.zrd at 0x62fc98) the same code.
+`test_pm_net_links.py` (test_net_links.py with PM's addresses): 16,916 edits in 1,500 runs, 2,000 dialog updates and
+the folder identical.
+
+PM's own (the vehicle editor, a dev tool PM's exe cannot open: it has none of the editor's dialog templates, only its
+launcher's): the attack strategies' map 0x4be2b0 has eight (Direct, Zig Zag, Circle, Jump, Random Move, Strafe, Back,
+Ram), its list fill 0x4be4e0 all of them, and Attack's exchange 0x4bf810 takes a pick below 8 (MW3's below 5); the
+strategy pages stay MW3's five. A table of the eight ([0x62f920], 0x4c31c0) with an index by number and by the name's
+address ([0x62f960], 0x4c3280 -> 0x4c2ee0 and std::sort's pieces) is made at start-up and read by nothing; preserved
+(`pm_strategy_table`, `pm_strategy_index`; the names in the exe's string order, so the address order is the exe's).
+Apply 0x4c1cb0 is MW3's store with PM's record (its compare's target block was already in `same_numbers`).
+Tests: `test_vehicle_ddx.py` with MW3_EXE=pm (the eight in Attack's list: 2,000 page passes identical);
+`test_pm_strategies.py` (the table and both orders, run from 0x4c31c0 and 0x4c3280); `test_pm_apply.py` (0x4c1cb0
+with its compares and 0x4e9e10 the exe's, the copies, cache read and edit stood in, the vlists none: 3,000 applies,
+2,058 into the cache, 2,466 onto the brain, each record, mask, name and keep word identical, at 24 bits). Not AI code.

@@ -101,6 +101,19 @@ struct Behaviour : AiElem {
   virtual const float* position() const { return nullptr; }  // +0x18
   // +0x1c 0x004104d0: its position, else the zero vector (+0x20 0x004104c0).
   virtual const float* way_point() const;
+  // The path editor's link edits (docs/ai.md, The developer tools: preserved, unwired, as the net file's nodes
+  // have theirs in zainet.h). The element asked answers through the asking step's +0x44 / +0x4c / +0x54 with
+  // itself (its +0x40 / +0x48 / +0x50; link_answer in zai_steps.cpp).
+  virtual int32_t link_index(const AiElem* e) const;  // +0x0c 0x0058ae90: the last link that is `e`, else -1
+  virtual const char* label() const { return nullptr; }               // +0x24 0x004d72a0
+  virtual bool set_pos(const float p[3]) { (void)p; return false; }   // +0x2c 0x00410510
+  virtual bool add_link(AiElem* e) { (void)e; return false; }         // +0x30 0x00410510
+  virtual bool remove_link(AiElem* e) { (void)e; return false; }      // +0x34 0x00410510
+  void relink();                                                       // +0x38 0x00410590
+  virtual bool has_link(AiElem* e);                                    // +0x3c 0x00410560
+  virtual bool set_link(AiElem* e, int32_t i) { (void)e, (void)i; return false; }     // +0x44 0x00410490
+  virtual bool clear_link(AiElem* e, int32_t i) { (void)e, (void)i; return false; }   // +0x4c 0x00410490
+  virtual bool accept_link(AiElem* e, int32_t i) { (void)e, (void)i; return false; }  // +0x54 0x00410490
   // +0xa8 0x004cd430: what a link to here weighs for the brain's pilot
   // picking from `from`, `w` measured (zai_node.cpp, docs/ai.md 17.4a).
   virtual float weight(Brain& b, const Behaviour* from, LinkWay* w);
@@ -141,6 +154,19 @@ struct Step : Behaviour {
   void attach(CompiledNet* net) override;
   const float* way_point() const override { return next->way_point(); }  // 0x004c9e50
   float weight(Brain& b, const Behaviour* from, LinkWay* w) override;   // 0x004cd470
+  // The path editor's (Behaviour's list): one link, `next`.
+  int32_t link_index(const AiElem* e) const override { return e && e == next ? 0 : -1; }  // 0x004c9e20
+  bool add_link(AiElem* e) override;                  // 0x004c9d20
+  bool remove_link(AiElem* e) override;               // 0x004c9db0
+  bool has_link(AiElem* e) override;                  // 0x004c9de0
+  bool set_link(AiElem* e, int32_t i) override;       // 0x004c9d70
+  bool clear_link(AiElem* e, int32_t i) override;     // 0x004c9dd0
+  // Mech3.exe 1.2 @ 0x004c93c0 (a node's too)
+  // Pirate's Moon 1.0 @ 0x004d4720
+  bool accept_link(AiElem* e, int32_t i) override {
+    (void)e, (void)i;
+    return true;
+  }
 
   Behaviour* next = null_step();  // +0x0c
   // While compiling the exe keeps a slot number in the same word; one that
@@ -211,6 +237,22 @@ struct NodeStep : Behaviour {
   const float* position() const override { return pos; }  // 0x004c9170
   void attach(CompiledNet* net) override;
   void set_name(const char* n) { name = n ? n : "", has_name = n != nullptr; }  // 0x004c9100
+  // The path editor's (Behaviour's list), on `links`: the exe's one vector holds the slots before attach, so
+  // these edit a compiled net's nodes.
+  int32_t link_index(const AiElem* e) const override;  // 0x004c9410
+  // Mech3.exe 1.2 @ 0x004c9140
+  // Pirate's Moon 1.0 @ 0x004d4000
+  const char* label() const override { return has_name ? name.c_str() : nullptr; }
+  bool set_pos(const float p[3]) override;             // 0x004c9480
+  bool add_link(AiElem* e) override;                   // 0x004c9180
+  bool remove_link(AiElem* e) override;                // 0x004c92b0
+  bool has_link(AiElem* e) override;                   // 0x004c9360
+  bool set_link(AiElem* e, int32_t i) override;        // 0x004c9260
+  bool clear_link(AiElem* e, int32_t i) override;      // 0x004c9310
+  bool accept_link(AiElem* e, int32_t i) override {    // 0x004c93c0, as a step's
+    (void)e, (void)i;
+    return true;
+  }
 
   std::string name;   // +0x0c  strdup'd: the record's auxname
   bool has_name = false;
