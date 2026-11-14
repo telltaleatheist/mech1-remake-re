@@ -1331,14 +1331,14 @@ void FileList::update(float dt) {
   for (size_t i = 0; i < rows.size(); ++i) rows[i]->update(dt);
   if (selected_row) selected_row->update(dt);
   if (up) {
-    up->enabled = top != 0;
+    up->enabled = keep_up || top != 0;  // PM's +0x1e0
     up->refresh();
     up->update(dt);
   }
   if (down) {
     const int32_t nrows = static_cast<int32_t>(rows.size());
     const int32_t below = top + nrows < item_count() ? top + nrows : item_count();
-    down->enabled = below < item_count();
+    down->enabled = keep_down || below < item_count();  // PM's +0x1e1
     down->refresh();
     down->update(dt);
   }

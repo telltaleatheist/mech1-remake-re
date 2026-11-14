@@ -170,6 +170,11 @@ struct Table {
   // A mech part's set-up that fails (PM 0x00465a60, 0x00467d10): the torso returns before its cockpit call, and an arm's
   // hand has its items taken off (0x0041c380) before it is dropped. MW3: false.
   bool part_setup_fail_pm = false;
+  // The developers' starts (PM): the app's defaults set no mech name (0x00482240; MW3's 0x0047fb80 "bushwacker")
+  // and the Pre Lab state takes the pilot "DefaultPlayer" (0x004832b0; MW3's 0x00480b30 "Default Player").
+  bool dev_start_pm = false;
+  // The script console's node dump says whether the node is active (PM 0x005b7310; MW3 the name only).
+  bool interp_node_active = false;
 };
 
 const Table& mw3_table();

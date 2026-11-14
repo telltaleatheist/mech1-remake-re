@@ -432,7 +432,7 @@ void delete_cancelled() {
 
 EditorForm& net_delete_form() { return g_confirm; }
 
-// Mech3.exe 1.2 @ 0x00403ae0: the first pick deleted, or else the first
+// Mech3.exe 1.2 @ 0x00403ae0, Pirate's Moon 1.0 @ 0x00403b10 (the same, reordered): the first pick deleted, or else the first
 // picked link's line; the editor made anew when it was. The exe asks first
 // with an OK/Cancel box (0x00402ec0(0x21, ...)); FIX (A): here a modal form
 // with the same question and buttons.

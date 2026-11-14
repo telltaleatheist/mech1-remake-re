@@ -324,7 +324,10 @@ class FileList : public ShellButton {
   FileList(Engine& e, int32_t id);   // 0x0048c0e0
   ~FileList() override;              // 0x0048c250 (deleting 0x0048c230)
   void set_pos(int32_t px, int32_t py) override;  // +0x0c  0x0048d2c0
-  void update(float dt) override;    // +0x24  0x0048c910
+  void update(float dt) override;    // +0x24  0x0048c910, Pirate's Moon 1.0 @ 0x0048b530
+  // Pirate's Moon 1.0 @ 0x0048b510: UP and DOWN kept enabled whatever the scroll (only the pilot screen's
+  // training case sets them, 0x004916c0 case 4, which PM's menu does not reach).
+  void keep_arrows(bool up_on, bool down_on) { keep_up = up_on, keep_down = down_on; }
   ztwod::Rect* get_rect() override { return nullptr; }  // +0x2c  0x004d72a0
   void on_left_up() override;        // +0x30  0x0048d6a0
   void on_right_up() override;       // +0x34  0x0048d750
@@ -363,6 +366,7 @@ class FileList : public ShellButton {
   FileRow* selected_row = nullptr;   // +0x178  SELECTED_FONT
   int32_t selected = -1;             // +0x17c
   int32_t top = 0;                   // +0x180  the first item shown
+  bool keep_up = false, keep_down = false;  // PM only, +0x1e0 / +0x1e1 (0 from 0x0048aaa0): the arrows kept on
   int32_t size = 8;                  // +0x184  SIZE: rows
   ztwod::Rect rect;                  // +0x188  where the rows are (hit)
   int32_t spacing_x = 0, spacing_y = 12;  // +0x198  SPACING (x for every row, y a row)

@@ -54,7 +54,7 @@ float set_max_rate(float fps) {
   return 1.0f / g_state.max_dt;
 }
 
-// Mech3.exe 1.2 @ 0x00575af0
+// Mech3.exe 1.2 @ 0x00575af0, Pirate's Moon 1.0 @ 0x00596510
 void set_clamp_enabled(int on) { g_state.clamp_enabled = on; }
 
 }  // namespace ztimer

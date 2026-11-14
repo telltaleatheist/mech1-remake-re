@@ -1,4 +1,6 @@
 #include "mech3/app.h"
+
+#include "gamez/zgame/zgame_table.h"
 #include "mech3/pilot.h"
 
 #include <cstdlib>
@@ -67,9 +69,10 @@ State* Mech3App::state(int n) {
   }
 }
 
-// Mech3.exe 1.2 @ 0x0047fb80
+// Mech3.exe 1.2 @ 0x0047fb80, Pirate's Moon 1.0 @ 0x00482240 (the same flags at its own offsets, +0x1c5 the full
+// screen; no default mech name).
 void Mech3App::set_defaults() {
-  mech_ = "bushwacker";
+  if (!zgame::game().dev_start_pm) mech_ = "bushwacker";
   std::memset(block_, 0, sizeof block_);
   byte_at(0x1b2) = 1;
   byte_at(0x1c1) = 1;

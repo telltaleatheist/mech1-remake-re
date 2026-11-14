@@ -1124,7 +1124,8 @@ bool condition(Interp& in) {
   return v;
 }
 
-// Mech3.exe 1.2 @ 0x00590e80. False when the line was its own (or skipped).
+// Mech3.exe 1.2 @ 0x00590e80, Pirate's Moon 1.0 @ 0x005b2830 (a bool variable type, 3). False when the line was its
+// own (or skipped).
 // While a block is skipped only `endif` is looked at, so an ifdef nested in
 // a skipped block is not counted and its endif closes the outer one.
 bool preprocess(Interp& in, const char* argv0) {
@@ -1196,6 +1197,8 @@ bool preprocess(Interp& in, const char* argv0) {
     *static_cast<float*>(v->value) = static_cast<float>(arg_float(in, 0.0f));
   } else if (v->type == 2) {
     log(in, "Can't modify string variables (yet!)");
+  } else if (v->type == 3) {  // Pirate's Moon's bool (0x005b2830 with 0x005b7fd0); MW3 has none
+    *static_cast<uint8_t*>(v->value) = arg_bool(in, false) ? 1 : 0;
   }
   var_print(in, v);
   return false;

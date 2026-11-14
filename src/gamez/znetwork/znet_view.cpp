@@ -331,7 +331,7 @@ void Link::set_dir(const float* a, const float* b) {
   perp[1] = dir[0];
 }
 
-// Mech3.exe 1.2 @ 0x0058ba40: both ends to the screen, then the line by
+// Mech3.exe 1.2 @ 0x0058ba40, Pirate's Moon 1.0 @ 0x005ad3d0: both ends to the screen, then the line by
 // where each one is: within the depth and the box (4), within the depth only
 // (6) or outside the depth (5, cut there in view space first, 0x0059b370).
 void Link::update() {

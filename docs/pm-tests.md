@@ -1475,3 +1475,28 @@ Both set-ups were ported with MW3's failure paths. PM's differ, and the differen
 - The result, the net number and the base init are compared: 0 differ. 11 cases take the net; in 8 the exe would
   read through null.
 - Break: the stopped-state check left out (caught).
+
+## S2: the crossings whose MW3 twin is ported (2026-11-14)
+
+Of the PORT (preserve) rows, 12 had their MW3 twin ported on main. They were read against it; all are read, not run.
+- **App defaults (0x482240, MW3's 0x47fb80).** The same flags at PM's own offsets: +0x1c5 is the full screen, used
+  as MW3's +0x1c7. PM sets no default mech name ("bushwacker").
+- **Pre Lab enter (0x4832b0, MW3's 0x480b30).** The pilot is "DefaultPlayer" (MW3: "Default Player"), select-game
+  is 0x47a560, and the level setter is the lab game's vt+0x4c, because PM's vtable 0x5e165c is a slot shorter.
+- Both of those are behind `zgame::Table::dev_start_pm`; only the developers' start reaches them.
+- **The list box's arrows (0x48b510, the update 0x48b530).** UP and DOWN are kept on while PM's +0x1e0 / +0x1e1 are
+  set (`FileList::keep_arrows`). They start at 0 (0x48aaa0), so this is MW3's behaviour until something sets them,
+  and only the pilot screen's training case does, which PM's menu doesn't reach.
+- **Identical, so only labelled:** the net debug view 0x5ad3d0 (MW3's 0x58ba40, the same constants); the timer's
+  clamp setter 0x596510 (MW3's 0x575af0); the net editor's line delete 0x403b10 (MW3's 0x403ae0 reordered; the
+  label said its "select first" report was dropped, but it is there).
+- **0x5c0340** sets PM's 2D-through-Direct3D flag, the drawing path labelled SDL-replaced (0x5c0320), so it is
+  relabelled sdl.
+- **The script console (0x5b2830, 0x5b8140, 0x5b7310).** PM's variables gain a bool type (3), set with true/false
+  (`arg_bool`, 0x5b7fd0) and printed "(bool) true/false". MW3 has no type 3, so both are unconditional. The node
+  dump's "node %s is Active / Inactive" sits behind `zgame::Table::interp_node_active`.
+- **Moved to the dialog sittings:** the vehicle editor's Attack page and its apply (0x4bf810, 0x4c1cb0). They take
+  strategies below 8 and compare and store PM's longer AI record.
+
+Tests: the mw3pmtests subset (interp, menu, list, pilot, lab, app, timer, view, editor, net) passes under both
+PM_AI=0 and PM_AI=1 (51 tests), and so does test_pm_menu_scroll.

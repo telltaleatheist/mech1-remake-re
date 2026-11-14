@@ -243,10 +243,11 @@ bool ExitState::enter() {
 // ---------------------------------------------------------------------------
 // Pre Lab
 
-// Mech3.exe 1.2 @ 0x00480b30: "Default Player" in the lab game (type 0), world 6.
+// Mech3.exe 1.2 @ 0x00480b30, Pirate's Moon 1.0 @ 0x004832b0: "Default Player" (PM: "DefaultPlayer", the debug starts'
+// pilot) in the lab game (type 0), world 6 (PM's vt+0x4c: its game vtable is a slot shorter).
 bool PreLabState::enter() {
   Engine& en = e();
-  const Handle pilot = en.pilot_get("Default Player");
+  const Handle pilot = en.pilot_get(zgame::game().dev_start_pm ? "DefaultPlayer" : "Default Player");
   en.set_pilot(pilot);
   en.pilot_select_game(pilot, 0);
   en.vcall(en.field32(en.pilot(), 0x6c), 0x50, {6});

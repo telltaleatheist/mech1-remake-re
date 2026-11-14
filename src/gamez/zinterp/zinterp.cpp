@@ -359,13 +359,16 @@ int32_t& zbd_read_failures() {
 Observer& observer() { return g_observer; }
 const Vtable& base_vtable() { return kBaseVtable; }
 
-// Mech3.exe 1.2 @ 0x005951e0
+// Mech3.exe 1.2 @ 0x005951e0, Pirate's Moon 1.0 @ 0x005b7310 (the node said active or not)
 void node_dump(Interp& in, Node* node) {
   if (!node) {
     log(in, "no node to dump");
     return;
   }
-  log(in, "node %s", node->name());
+  if (zgame::game().interp_node_active)  // Pirate's Moon 0x005b7310
+    log(in, node->flags() & 4 ? "node %s is Active" : "node %s is Inactive", node->name());
+  else
+    log(in, "node %s", node->name());
   if (node->cls() != 1) {
     log(in, "node not currently dumpable");
     return;
@@ -737,13 +740,15 @@ bool var_register(Interp& in, const char* name, int32_t type, void* value) {
   return true;
 }
 
-// Mech3.exe 1.2 @ 0x00596020. FIX (bug): for a string the exe passes the
+// Mech3.exe 1.2 @ 0x00596020, Pirate's Moon 1.0 @ 0x005b8140 (and a bool). FIX (bug): for a string the exe passes the
 // first character where the format wants the string; none is registered.
 void var_print(Interp& in, const Variable* v) {
   if (!v) return;
   if (v->type == 0) log(in, "%s = (int) %d", v->name.c_str(), *static_cast<int32_t*>(v->value));
   else if (v->type == 1) log(in, "%s = (float) %f", v->name.c_str(), static_cast<double>(*static_cast<float*>(v->value)));
   else if (v->type == 2) log(in, "%s = (char*)\"%s\"", v->name.c_str(), static_cast<const char*>(v->value));
+  else if (v->type == 3)  // Pirate's Moon's bool
+    log(in, "%s = (bool) %s", v->name.c_str(), *static_cast<const uint8_t*>(v->value) ? "true" : "false");
 }
 
 // Mech3.exe 1.2 @ 0x00596090

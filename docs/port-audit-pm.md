@@ -69,12 +69,12 @@ produces; the label names the compared value. Reaching a function, or running a 
 | Class | Functions |
 |---|---|
 | folded | 4068 |
-| replaced (SDL or the platform layer) | 263 |
+| replaced (SDL or the platform layer) | 264 |
 | software renderer | 115 |
 | MISSING LOGIC | 88 |
-| dev dialog (MFC), its logic: PORT (preserve) | 85 |
-| debug or dev tool: PORT (preserve) | 85 |
-| unused: PORT (preserve) | 80 |
+| dev dialog (MFC), its logic: PORT (preserve) | 84 |
+| unused: PORT (preserve) | 79 |
+| debug or dev tool: PORT (preserve) | 77 |
 | dev dialog (MFC), its window plumbing: replaced | 51 |
 | MISSING LOGIC (only data the shipped game lacks reaches it) | 3 |
 
@@ -113,9 +113,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 - 1 functions, 16 decomp lines (0x0041d8f0): as MW3 0x0041ca90: a debug key command (0x6d, case 2 of the key switch 0x0040dba0) toggling the mech's +0x634 bit 1; the release never registers 0x6d (0x0040db60 registers 0x61, 0x6c, 0x70, 0x7e)
 - 1 functions, 45 decomp lines (0x0043dbf0): as MW3 0x0043cb10: the HUD's debug overlays (docs/hud.md section 11: the mech's gait, speeds and the like into five debug texts while the debug text shows, command 0x82); hooked in the port (hud_debug, unported)
 - 1 functions, 39 decomp lines (0x0043dcf0): as MW3 0x0043cc00: the HUD's debug overlays (docs/hud.md section 11: the mech's gait, speeds and the like into five debug texts while the debug text shows, command 0x82); hooked in the port (hud_debug, unported)
-- 1 functions, 31 decomp lines (0x00482240): read: PM's app defaults (MW3 0x0047fb80): no default mech name where MW3 sets 'bushwacker' (app.cpp:72 keeps it), the flags at PM's layout (+0x1a8.., three 1.0 floats); the default mech is reached only by a start straight into a mission (the developers' route), so it shows nowhere in play
 - 2 functions, 39 decomp lines (0x004832a0, 0x00483d50): as MW3 0x004810d0, whose class PM's changes keep: the debug console's overlay toggle (0x00608f74; game-loop.md: from 0x00480b20, itself never called)
-- 1 functions, 11 decomp lines (0x004832b0): PM's Pre Lab State enter (vtable 0x005e6428 slot +0x0c; MW3's 0x00480b30, app_states.cpp:246, the debug menu's Mech Lab): PM takes the pilot "DefaultPlayer" (0x0047aba0, the debug starts' pilot) where MW3 takes "Default Player", resets its game (0x0047a560(0)) and sets the lab's game kind 6 by vt+0x4c where MW3 selects game 0 and world 6 by vt+0x50; the port keeps MW3's (debug menu only)
 - 2 functions, 115 decomp lines (0x004a65a0, 0x004a6810): debug or dev tool: PORT (preserve): PM's app key handler's dev cases (0x0040ba30, its table over commands 0x69..0xaf, registered by 0x0040b9f0): 0x004a65a0 prints a numbered marker with the view mech's place and heading ("Marker %3d", "V: pos ..."); 0x004a6810 runs every one of the 25 slots of 0x006203f0 (vt+0x7c) and walks the entities' list for the view's; the port's app_key carries the game's three (0x69, 0x74, 0x78)
 - 1 functions, 32 decomp lines (0x004a6940): as MW3 0x004a3550: debug key commands of 0x0040dba0, never registered in the release: a position marker printed to the console (0x004a3220), the mechs listed into the developer lines (0x004a33f0, command 0x89; hud.md), a vehicle picked in a dialog (0x004a3550, its destructor 0x004a35e0)
 - 1 functions, 20 decomp lines (0x004a69d0): as MW3 0x004a35e0: debug key commands of 0x0040dba0, never registered in the release: a position marker printed to the console (0x004a3220), the mechs listed into the developer lines (0x004a33f0, command 0x89; hud.md), a vehicle picked in a dialog (0x004a3550, its destructor 0x004a35e0)
@@ -135,10 +133,8 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 - 1 functions, 63 decomp lines (0x005334d0): as MW3 0x00519b30: the screenshot writer of the debug command 0x7e (0x004abbc0): copies the front buffer to 24-bit, flips it and saves a .bmp through a save dialog (0x00519cc0); no key reaches it
 - 1 functions, 19 decomp lines (0x00533580): as MW3 0x00519be0: the screenshot writer of the debug command 0x7e (0x004abbc0): copies the front buffer to 24-bit, flips it and saves a .bmp through a save dialog (0x00519cc0); no key reaches it
 - 1 functions, 24 decomp lines (0x005335c0): as MW3 0x00519c20: the screenshot writer of the debug command 0x7e (0x004abbc0): copies the front buffer to 24-bit, flips it and saves a .bmp through a save dialog (0x00519cc0); no key reaches it
-- 2 functions, 21 decomp lines (0x00596510, 0x005c0340): pm only, debug, unreachable in the release: setters called only from cases of the key handler 0x0040ba30 that no registered command reaches (0x0040b9f0 registers it for commands 0x69, 0x74 and 0x78 only, whose cases are 0x0040bb31, 0x0040bcaa and 0x0040bcaf): a flag the timer's frame (0x00596430, MW3's 0x00575a00) reads at [0x006141b4], toggled (0x00596510, from the case at 0x0040ba7c, beside two that step a time scale through 0x005964e0), and the 2D-through-Direct3D flag [0x008d3aa9] set, returning the old (0x005c0340, from the case at 0x0040bc1b)
 - 1 functions, 224 decomp lines (0x00596590): as MW3 0x00575b00: the developer's stdout redirect (freopen to a log; editor.md:214)
 - 1 functions, 34 decomp lines (0x0059d3a0): pm only, debug: every Direct3D render state printed (states 1..0x40, 0x80..0x87 and the texture stage states, "Render State %d = %d"), from 0x0059eef5; a debugging dump of the D3D device (no render states under SDL; port for preservation as a print of the port's own state if wanted)
-- 1 functions, 194 decomp lines (0x005ad3d0): group A, read: the network debug view (as MW3's 0x0058ba40, PM's helpers)
 - 1 functions, 34 decomp lines (0x005adf40): as MW3 0x0058c590, whose class PM's changes keep: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
 - 1 functions, 89 decomp lines (0x005aecb0): as MW3 0x0058d3c0: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
 - 1 functions, 14 decomp lines (0x005afc50): as MW3 0x0058e440: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
@@ -165,7 +161,6 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 - 1 functions, 11 decomp lines (0x005b0f30): as MW3 0x0058f7a0: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
 - 1 functions, 11 decomp lines (0x005b0f40): as MW3 0x0058f7b0: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
 - 1 functions, 8 decomp lines (0x005b1040): as MW3 0x0058f8b0: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-- 3 functions, 287 decomp lines (0x005b2830, 0x005b7310, 0x005b8140): pm only, the script interpreter's debug console (MW3's twins ported in zinterp.cpp / zinterp_parse.cpp): PM's variables gain a bool type (3): the var command sets one with true/false (0x005b2830, the preprocess and console words, MW3's 0x00590e80) and the variable print shows it as (bool) (0x005b8140, MW3's 0x00596020; PM also passes the string itself where MW3 passed its first character, the port's FIX (bug) there); no variable PM registers is a bool (only DamageScale, gravity and ceiling, floats). The node dump says whether the node is active (0x005b7310, MW3's 0x005951e0). The rest as MW3's
 - 1 functions, 16 decomp lines (0x005b2c60): the script command PrintChildren (PM only): the current node's children's names to the console ('  %s'); no shipped PM script uses it, the port's interpreter does not know it
 - 1 functions, 26 decomp lines (0x005b8210): as MW3 0x005960a0: the hidden GameZ Interpreter console (0x005960a0: a 2D console window that runs typed script lines through 0x00595510; its destructor and line runner; toggled by 0x004810d0, which nothing reaches: interp.md:532, discoveries.md:1532)
 - 1 functions, 12 decomp lines (0x005b82e0): as MW3 0x00596170: the hidden GameZ Interpreter console (0x005960a0: a 2D console window that runs typed script lines through 0x00595510; its destructor and line runner; toggled by 0x004810d0, which nothing reaches: interp.md:532, discoveries.md:1532)
@@ -184,7 +179,6 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 ### dev dialog (MFC), its logic: PORT (preserve)
 
 - 1 functions, 83 decomp lines (0x00403830): as MW3 0x00403820, whose class PM's changes keep: the editor's 'add vehicle to node' (0x00403820 -> 0x0049d350, editor.md); ours does it as meant: upgrades/editor/add_vehicle.cpp
-- 1 functions, 56 decomp lines (0x00403b10): group A, read: the net editor's line delete (as MW3's 0x00403ae0, its 'select first' report dropped)
 - 1 functions, 75 decomp lines (0x00403f30): as MW3 0x00403ec0, whose class PM's changes keep: the AI tester dialog's walk over a vehicle's nets (0x00404090 -> 0x00403ec0: their extents)
 - 2 functions, 27 decomp lines (0x00404100, 0x004a0530): as MW3 0x00404090: the AI tester dialog's walk over a vehicle's nets (0x00404090 -> 0x00403ec0: their extents)
 - 1 functions, 71 decomp lines (0x00409830): as MW3 0x0040bb00: the camera dialog (resource 0x6a: the camera's place and angles in degrees, editable; 0x0040bd00 its window): a dev tool's logic
@@ -247,7 +241,6 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 - 1 functions, 23 decomp lines (0x0041e180): as MW3 0x0041d380: read: the mech's vt+0x130 (a turn rate from a speed and a share, floored), vt+0x134 and vt+0x138 (it from the controls' speed or a share) and vt+0x13c (the share that turns by a rate): no call in the exe goes through +0x134, +0x138 or +0x13c, and +0x130's callers are those two and the vehicles' own (0x004ad250, 0x004ad290 on their vtable), so on a mech nothing reaches them
 - 1 functions, 52 decomp lines (0x0041ed00): as MW3 0x0041dd90: read: the mech's vt+0x94 (a world direction clamped into the torso's arc through 0x00465c70, the vehicles' 0x004ad7f0 counterpart): the 20 calls through +0x94 in the exe are on other classes (IControls' on_hit, the 2D widgets, the behaviours' attack test, the edit bar, a part), none on a mech; the port's aim uses vt+0x90 (Mech::clamp_aim, 0x0041dca0)
 - 1 functions, 11 decomp lines (0x00459cd0): pm only, read: the vehicles' tons (vt+0x8c, new in PM): a mech's its type's (0x00417270 -> 0x00486830, the port's max_mass), the field bases' and two other tables' (0x005ea8d0, 0x005eaeac) their controls' +0x9c4, every other vehicle's 0 (0x004a9370). Its one caller is the target's stood-on test 0x004e2e30 (a bridge's load), which only the mech's frame calls (0x0041b4c9; the port passes max_mass), so this one is never reached; to port for preservation with the vehicles' tonnage
-- 1 functions, 10 decomp lines (0x0048b510): fd0 read: the list box's arrows as MW3's 0x0048c910 plus two PM bytes that keep UP (+0x1e0) and DOWN (+0x1e1) enabled; the pm port has the arrows without them (menu_widgets.cpp:1264-1330). Only 0x0048b510 sets them, from the pilot screen's training case (0x004916c0 case 4), which PM's menu doesn't reach (pm-mech-step.md:472), so no shipped path shows it
 - 2 functions, 70 decomp lines (0x00491340, 0x004913e0): the pilot screen's games list arrows (previous / next): outside mode 4 the list's own step (0x0048be90); in mode 4 (Training) the training game's mission (vt+0x48) stepped and clamped to 1..4, then the lists filled again (0x004916c0). PM's menus never open the pilot screen in Training (its fourth button is the Standalone State), so the training branch is not reached; the step is the list's as the port's
 - 1 functions, 28 decomp lines (0x004964f0): as MW3 0x00493120: the movie base's run to the end on its own clock (0x00575d30): nothing calls it (fmv.md)
 - 1 functions, 10 decomp lines (0x004aaea0): unused: PORT (preserve): no caller and no table holds it; a wrapper calling 0x0040f1d0 and then 0x004aaa50 with its last three arguments
@@ -319,7 +312,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 
 ## By module
 
-### mech3ep1 (3173 not ported)
+### mech3ep1 (3169 not ported)
 
 | Address | Lines | Class | Why |
 |---|---|---|---|
@@ -340,7 +333,6 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x00403a70 | 20 | dev dialog (MFC), its window plumbing: replaced | as MW3 0x00403a40: MFC dialog plumbing of dev dialogs (CDialog constructors and destructors, EnableWindow): resource 0x67 and the teleport and net dialogs' destructors |
 | 0x00403ac0 | 8 | folded | empty: does nothing |
 | 0x00403ad0 | 17 | folded | covered by the port where it names it (src/mech3/game_editor_net.cpp:357) |
-| 0x00403b10 | 56 | dev dialog (MFC), its logic: PORT (preserve) | group A, read: the net editor's line delete (as MW3's 0x00403ae0, its 'select first' report dropped) |
 | 0x00403c50 | 41 | folded | as MW3 0x00403c00: covered where the port does it: src/mech3/zainetedit.cpp:107 (read: a destructor, a container insert or assign, or the work beside the function that comment names) |
 | 0x00403f30 | 75 | dev dialog (MFC), its logic: PORT (preserve) | as MW3 0x00403ec0, whose class PM's changes keep: the AI tester dialog's walk over a vehicle's nets (0x00404090 -> 0x00403ec0: their extents) |
 | 0x00404100 | 18 | dev dialog (MFC), its logic: PORT (preserve) | as MW3 0x00404090: the AI tester dialog's walk over a vehicle's nets (0x00404090 -> 0x00403ec0: their extents) |
@@ -1677,18 +1669,16 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x00482090 | 33 | folded | MW3's 0x0047fa10 (ExitInstance, app.cpp:225), read: the same shutdowns in order (window class 'Mech3Ep1Class', the script console, the CD, sound, network, input, list pool, save); PM adds the CD-autorun restore first (0x005969a0, labelled sdl) and a buffer free (0x0059aef0, labelled), and its AI targets' step is an empty function (0x00403ac0) |
 | 0x00482140 | 38 | folded | group A, read: imports only (the C runtime's), the logic as the shared port |
 | 0x00482230 | 8 | folded | returns a constant or a global |
-| 0x00482240 | 31 | debug or dev tool: PORT (preserve) | read: PM's app defaults (MW3 0x0047fb80): no default mech name where MW3 sets 'bushwacker' (app.cpp:72 keeps it), the flags at PM's layout (+0x1a8.., three 1.0 floats); the default mech is reached only by a start straight into a mission (the developers' route), so it shows nowhere in play |
 | 0x004822c0 | 9 | folded | the same as its MW3 twin (identical, or passed by the feature compare 7f6e9e10), so it is what MW3's twin is in the port |
 | 0x004824c0 | 9 | folded | the same as its MW3 twin (identical, or passed by the feature compare 7f6e9e10), so it is what MW3's twin is in the port |
 | 0x004824d0 | 48 | folded | MW3's 0x0047fe10 (restore_video, app.cpp:107), read: the same choice (software or no 3D card: the software mode; else the saved or picked device, mode at least 5, the flag +0x1c5); the device pick's arguments passed; the port's FIX (A) for the software renderer covers both |
-| 0x00482650 | 26 | folded | covered by the port where it names it (src/mech3/app.cpp:403) |
+| 0x00482650 | 26 | folded | covered by the port where it names it (src/mech3/app.cpp:406) |
 | 0x004826b0 | 36 | folded | inside its ported caller (the mission load's sound-set step at 0x00493b0f: the sets 'common', 'mech' and the world's loaded, zsnd load_set, PM's 0x005908f0): the world's name copied into the object at [0x0062ca98] +0x14c, returning 1; a strcpy the port does its own way |
 | 0x004826e0 | 173 | folded | group A, read: PM's InitInstance, covered by app.cpp's PM notes (the MechWarrior 3 EP1 settings key :191, DefaultCmdMap :192, the standalone missions :195, detail.zrd :196); the message DLL by name, which the port reads as a file |
 | 0x00482a60 | 25 | replaced (SDL or the platform layer) | as MW3 0x00480340, whose class PM's changes keep: Win32 and MFC frame plumbing the SDL program replaces: the single-instance check and close (FindWindow Mech3Class; startup.md), the frame window's create, OnCreate, OnSetFocus, OnNcActivate, OnSize, WindowProc, WM_CLOSE |
 | 0x00482ac0 | 19 | replaced (SDL or the platform layer) | as MW3 0x004803a0: Win32 and MFC frame plumbing the SDL program replaces: the single-instance check and close (FindWindow Mech3Class; startup.md), the frame window's create, OnCreate, OnSetFocus, OnNcActivate, OnSize, WindowProc, WM_CLOSE |
 | 0x00483020 | 48 | folded | MW3's 0x004808a0 (stop_game, the Exit state's, app.cpp), read: the same teardown in order (the pilots, the mechs' module, the HUD, the field bases, the missions object, the models); PM first minimises the frame window (ShowWindow 6, window plumbing the SDL layer replaces), clears the current pilot unconditionally, and its model and buffer frees are its own helpers (0x005400c0, 0x004f8970, 0x0059aef0, labelled) |
 | 0x004832a0 | 9 | debug or dev tool: PORT (preserve) | follows 0x00483d50: as MW3 0x004810d0, whose class PM's changes keep: the debug console's overlay toggle (0x00608f74; game-loop.md: from 0x00480b20, itself never called) |
-| 0x004832b0 | 11 | debug or dev tool: PORT (preserve) | PM's Pre Lab State enter (vtable 0x005e6428 slot +0x0c; MW3's 0x00480b30, app_states.cpp:246, the debug menu's Mech Lab): PM takes the pilot "DefaultPlayer" (0x0047aba0, the debug starts' pilot) where MW3 takes "Default Player", resets its game (0x0047a560(0)) and sets the lab's game kind 6 by vt+0x4c where MW3 selects game 0 and world 6 by vt+0x50; the port keeps MW3's (debug menu only) |
 | 0x00483330 | 9 | folded | folded, by the feature compare (calls, data references with strings by their text, immediates, float constants and control flow equal; tools/analysis/pm_feature_compare.py, docs/port-audit-pm.md method) against MW3's 0x0047f4c0, folded in the MW3 audit (a destructor or a small helper of its covered callers) |
 | 0x004835a0 | 9 | folded | a thunk: one call to another function |
 | 0x00483630 | 22 | folded | folded, by the feature compare (calls, data references with strings by their text, immediates, float constants and control flow equal; tools/analysis/pm_feature_compare.py, docs/port-audit-pm.md method) against MW3's 0x00480ba0, folded in the MW3 audit (a destructor or a small helper of its covered callers) |
@@ -1752,7 +1742,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x004862d0 | 9 | replaced (SDL or the platform layer) | as MW3 0x004841d0: Win32 and MFC frame plumbing the SDL program replaces: the single-instance check and close (FindWindow Mech3Class; startup.md), the frame window's create, OnCreate, OnSetFocus, OnNcActivate, OnSize, WindowProc, WM_CLOSE |
 | 0x00486300 | 11 | dev dialog (MFC), its logic: PORT (preserve) | PM's frame-window debug menu commands (MFC message-map entries, as MW3's 0x00483600.. labelled devdialog-logic): the campaign starts by mission (0x0047ad20(n), the DefaultPlayer pilot; n 2..12, the port's debug_start_campaign clamps to 1..10, pilot.cpp:462), two DefaultPlayer starts as game kinds 7 and 8 (0x00486130 / 0x00486190, MW3's 0x004788b0 / 0x00478250 path), each then the start state (0x004825a0, MW3's 0x0047fed0) and the menu closed (0x005b13e0); the check-mark updaters of two flags ([0x0062cc47], [0x0062cc4c]) and a toggle (0x00485e80). Unlike MW3's entries they don't first test that the game is idle (0x00480420) |
 | 0x00486330 | 11 | dev dialog (MFC), its logic: PORT (preserve) | PM's frame-window debug menu commands (MFC message-map entries, as MW3's 0x00483600.. labelled devdialog-logic): the campaign starts by mission (0x0047ad20(n), the DefaultPlayer pilot; n 2..12, the port's debug_start_campaign clamps to 1..10, pilot.cpp:462), two DefaultPlayer starts as game kinds 7 and 8 (0x00486130 / 0x00486190, MW3's 0x004788b0 / 0x00478250 path), each then the start state (0x004825a0, MW3's 0x0047fed0) and the menu closed (0x005b13e0); the check-mark updaters of two flags ([0x0062cc47], [0x0062cc4c]) and a toggle (0x00485e80). Unlike MW3's entries they don't first test that the game is idle (0x00480420) |
-| 0x00486360 | 9 | folded | covered by the port where it names it (src/mech3/menu_widgets.h:403) |
+| 0x00486360 | 9 | folded | covered by the port where it names it (src/mech3/menu_widgets.h:407) |
 | 0x00486690 | 39 | folded | as MW3 0x00484540: covered where the port does it: src/mech3/mech_lib.cpp:89 (read: a destructor, a container insert or assign, or the work beside the function that comment names) |
 | 0x00486730 | 25 | folded | read: MW3's 0x004845f0 (mech_names.h, a mech's number by its name, the table walked to its end) over PM's 25-mech table (its end 0x00608813 for 0x005e64eb), the port's kMechs on pm |
 | 0x004868d0 | 14 | folded | inside its ported callers (0x00479510): a small helper their ports do their own way |
@@ -1765,7 +1755,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x00487660 | 12 | folded | covered by the port where it names it (src/mech3/mech_names.cpp:411) |
 | 0x004876a0 | 12 | folded | covered by the port where it names it (src/mech3/lab_screen.cpp:587) |
 | 0x004876e0 | 9 | folded | a thunk: one call to another function |
-| 0x004876f0 | 13 | folded | covered by the port where it names it (src/mech3/app.cpp:168) |
+| 0x004876f0 | 13 | folded | covered by the port where it names it (src/mech3/app.cpp:171) |
 | 0x004879a0 | 31 | folded | MW3's 0x00438d70 (the slide button's constructor, menu_widgets.cpp SlideButton), read: the same base and members, the button's id stored (+0x150) and a byte copy of it (+0x1dc) on PM's layout |
 | 0x00487a40 | 12 | folded | read: the scalar deleting destructor (the destructor 0x00487a60, then delete when bit 0 is set); the port deletes its objects itself, the destructor labelled on its own row |
 | 0x00487c00 | 18 | folded | MW3's 0x0042a250 (SlideButton::after_bind, menu_widgets.cpp:334), read: the reach square around the image's centre by RADIUS, the ripple placed at the centre, init_ripple; the centre getters 0x00487c00 / 0x00487c30 (x + width / 2, y + height / 2, MW3's vt+0x68 / +0x6c) called directly in PM |
@@ -1810,15 +1800,14 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x0048b2f0 | 28 | folded | as MW3 0x0048e5b0: covered: the screens' and states' constructors and destructors, list and vector instances (mechdef-configs.md names 0x0049da10), string copies, the missions object's queries (the program's GameEngine overrides them: app_engine.h:128 and the rest), the fade wrapper, the mission cleanup |
 | 0x0048b370 | 28 | folded | covered by the port where it names it (src/mech3/menu_widgets.h:280) |
 | 0x0048b3f0 | 32 | folded | by the layout-shift rule (tools/analysis/pm_layout_shift.py, docs/port-audit-pm.md method): MW3's 0x0048c7f0 with only offsets and sizes of PM's larger structures changed (0x4d8->0x4e0); calls, field counts and every other immediate and float constant as MW3's |
-| 0x0048b510 | 10 | unused: PORT (preserve) | fd0 read: the list box's arrows as MW3's 0x0048c910 plus two PM bytes that keep UP (+0x1e0) and DOWN (+0x1e1) enabled; the pm port has the arrows without them (menu_widgets.cpp:1264-1330). Only 0x0048b510 sets them, from the pilot screen's training case (0x004916c0 case 4), which PM's menu doesn't reach (pm-mech-step.md:472), so no shipped path shows it |
 | 0x0048bce0 | 35 | folded | inside its ported callers (0x004916c0): a small helper their ports do their own way |
 | 0x0048bd50 | 57 | folded | checked by test (block trace, 2026-11-13): test_pm_lobby_lines' lines 0x0049bb70 run it; the two lists' lines read after and compared |
 | 0x0048bdf0 | 9 | folded | read: a widget's select, vt+0xa0 called through (a thunk) |
 | 0x0048c450 | 60 | folded | by the layout-shift rule (tools/analysis/pm_layout_shift.py, docs/port-audit-pm.md method): MW3's 0x0048d770 with only offsets and sizes of PM's larger structures changed (0x4d8->0x4e0); calls, field counts and every other immediate and float constant as MW3's |
-| 0x0048c610 | 12 | folded | covered by the port where it names it (src/mech3/menu_widgets.h:398) |
+| 0x0048c610 | 12 | folded | covered by the port where it names it (src/mech3/menu_widgets.h:402) |
 | 0x0048c860 | 103 | folded | MW3's 0x0048dbe0 / 0x0048dfe0 (the quit box's update and constructor, quit_box.cpp), read: the same calls in order, PM's vtable slots one on (+0xac / +0xa0 for MW3's +0xa4 / +0x98) and a loop as a helper (0x00475100) |
 | 0x0048cae0 | 9 | folded | covered by the port where it names it (src/mech3/menu_widgets.cpp:804) |
-| 0x0048cb40 | 9 | folded | covered by the port where it names it (src/mech3/menu_widgets.h:348) |
+| 0x0048cb40 | 9 | folded | covered by the port where it names it (src/mech3/menu_widgets.h:351) |
 | 0x0048cb50 | 13 | folded | covered by the port where it names it (src/mech3/menu_widgets.cpp:804) |
 | 0x0048cbd0 | 39 | folded | MW3's 0x0048dbe0 / 0x0048dfe0 (the quit box's update and constructor, quit_box.cpp), read: the same calls in order, PM's vtable slots one on (+0xac / +0xa0 for MW3's +0xa4 / +0x98) and a loop as a helper (0x00475100) |
 | 0x0048cd10 | 12 | folded | covered by the port where it names it (src/mech3/quit_box.h:19) |
@@ -4008,7 +3997,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x00515e40 | 25 | folded | read: teardown frees at the list system's end (each list's nodes and the free pools released, their counts cleared; from 0x0050c340, MW3's 0x004f8ab0, and 0x0050caf0, MW3's 0x004f8fb0); the port's objects free themselves |
 | 0x00517960 | 30 | folded | covered by the port where it names it (src/pm/gamez/zclass/cls_zbd.cpp:106) |
 
-### znetwork (169 not ported)
+### znetwork (168 not ported)
 
 | Address | Lines | Class | Why |
 |---|---|---|---|
@@ -4115,7 +4104,6 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x005aced0 | 12 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:528) |
 | 0x005acef0 | 11 | folded | covered by the port where it names it (src/gamez/znetwork/znet_view.cpp:507) |
 | 0x005acf10 | 126 | folded | by the slot pairing: PM vtable 0x5f1560 slot 0x4 is MW3 vtable 0x5cf048's 0x0058b550 (MW3 ported src/gamez/znetwork/znet_view.cpp:396), the feature compare equal (7f6e9e10) |
-| 0x005ad3d0 | 194 | debug or dev tool: PORT (preserve) | group A, read: the network debug view (as MW3's 0x0058ba40, PM's helpers) |
 | 0x005ad8e0 | 209 | folded | read against MW3's twins side by side (ported in gamez/zweapon and gamez/znetwork): the same steps and constants (sign forms aside), PM's projectile layout (speed +0x60c, range +0x630, +0x63c), its manager passed where MW3 used globals, its larger stack hit records: a projectile's hit (0x005a8090, MW3's 0x00586350), a thrown mine's bounce (0x005a8510, MW3's 0x00586740), the network view's marks (0x005ad8e0, MW3's 0x0058bf50) |
 | 0x005adf20 | 12 | folded | read: the scalar deleting destructor (the destructor 0x005adfe0, then delete when bit 0 is set); the port deletes its objects itself, the destructor labelled on its own row |
 | 0x005adf40 | 34 | debug or dev tool: PORT (preserve) | as MW3 0x0058c590, whose class PM's changes keep: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists) |
@@ -4196,7 +4184,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x005bfdc0 | 9 | folded | read: covered where PM's port names it (cls_world.h:19, cls_clutter.h:60 and 120, cls_util.cpp:222-223 the copy refusals) or container code (list erase and copy, a vector clear, a thunk, a member setter) |
 | 0x005c02c0 | 19 | debug or dev tool: PORT (preserve) | as MW3 0x005a0050: the text console layer (Arial) behind the developer lines and the interp console: its line objects, their font, colour and position setters, the line maker (twod.md:38, 683) |
 | 0x005c0320 | 11 | replaced (SDL or the platform layer) | PM's 2D drawing through Direct3D (0x005c0320: [0x008c4b70] and [0x008d3aa9] set; its lines, rects, blits, scene begin and end through the device's function table [0x008c4bd8..]; else the software 2D path): the SDL 2D host draws the 2D layer |
-| 0x005c0340 | 12 | debug or dev tool: PORT (preserve) | pm only, debug, unreachable in the release: setters called only from cases of the key handler 0x0040ba30 that no registered command reaches (0x0040b9f0 registers it for commands 0x69, 0x74 and 0x78 only, whose cases are 0x0040bb31, 0x0040bcaa and 0x0040bcaf): a flag the timer's frame (0x00596430, MW3's 0x00575a00) reads at [0x006141b4], toggled (0x00596510, from the case at 0x0040ba7c, beside two that step a time scale through 0x005964e0), and the 2D-through-Direct3D flag [0x008d3aa9] set, returning the old (0x005c0340, from the case at 0x0040bc1b) |
+| 0x005c0340 | 12 | replaced (SDL or the platform layer) | the setter of PM's 2D-through-Direct3D flag [0x008d3aa9] (returns the old one), the flag 0x005c0320 reads with [0x008c4b70]: that drawing path is replaced by SDL (0x005c0320's row), and only an unregistered debug key reaches this setter (0x0040ba30) |
 | 0x005c0360 | 55 | replaced (SDL or the platform layer) | PM's 2D drawing through Direct3D (0x005c0320: [0x008c4b70] and [0x008d3aa9] set; its lines, rects, blits, scene begin and end through the device's function table [0x008c4bd8..]; else the software 2D path): the SDL 2D host draws the 2D layer |
 | 0x005c0450 | 29 | replaced (SDL or the platform layer) | PM's 2D drawing through Direct3D (0x005c0320: [0x008c4b70] and [0x008d3aa9] set; its lines, rects, blits, scene begin and end through the device's function table [0x008c4bd8..]; else the software 2D path): the SDL 2D host draws the 2D layer |
 | 0x005c04d0 | 16 | replaced (SDL or the platform layer) | PM's 2D drawing through Direct3D (0x005c0320: [0x008c4b70] and [0x008d3aa9] set; its lines, rects, blits, scene begin and end through the device's function table [0x008c4bd8..]; else the software 2D path): the SDL 2D host draws the 2D layer |
@@ -4433,7 +4421,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x005a4de0 | 19 | folded | read: MW3's 0x00583400 (remove_handlers: the node's own handler table cleared from it and its children, then freed) not paired by the diff, the table also taken off PM's list of tables (0x005a4aa0) before the free; the port's zwep::remove_handlers, called from the same teardowns (app_mech.cpp:848, app_turret.cpp, app_vehicle.cpp, zai_target.cpp, zeff_anim_init.cpp:706) |
 | 0x005a5150 | 11 | folded | as MW3 0x00583730: covered by the program's overrides: the load screen's driver and mode lines (app_mission.cpp:1896), ClearScreenBuffer (app_engine.h:508), video shutdown and restore (app_engine.h:547, :549), a weapon hit's health after (zweapon.h:171) |
 
-### zsound (100 not ported)
+### zsound (99 not ported)
 
 | Address | Lines | Class | Why |
 |---|---|---|---|
@@ -4513,7 +4501,6 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x00595ba0 | 21 | replaced (SDL or the platform layer) | as MW3 0x00574f10: DirectSound buffers: made from a WAV (0x00574ff0) and released (0x00574d90, 0x00574f10); SDL audio holds the port's |
 | 0x00595c60 | 15 | replaced (SDL or the platform layer) | as MW3 0x00574ff0's class (DirectSound buffers, SDL audio holds the port's): the sound buffer made by the sound system's mode [0x0061327c] (0 through 0x00595fa0, MW3's 0x005752e0; 1 through 0x00595ca0, MW3's 0x00574ff0), from the play 0x00590d70 |
 | 0x00595ca0 | 101 | replaced (SDL or the platform layer) | as MW3 0x00574ff0: DirectSound buffers: made from a WAV (0x00574ff0) and released (0x00574d90, 0x00574f10); SDL audio holds the port's |
-| 0x00596510 | 9 | debug or dev tool: PORT (preserve) | pm only, debug, unreachable in the release: setters called only from cases of the key handler 0x0040ba30 that no registered command reaches (0x0040b9f0 registers it for commands 0x69, 0x74 and 0x78 only, whose cases are 0x0040bb31, 0x0040bcaa and 0x0040bcaf): a flag the timer's frame (0x00596430, MW3's 0x00575a00) reads at [0x006141b4], toggled (0x00596510, from the case at 0x0040ba7c, beside two that step a time scale through 0x005964e0), and the 2D-through-Direct3D flag [0x008d3aa9] set, returning the old (0x005c0340, from the case at 0x0040bc1b) |
 | 0x00596520 | 41 | folded | read: PM's realloc (the old block's _msize, a new malloc, the smaller size copied, the old freed; null in, a malloc), 64 callers growing arrays; the port's containers (zutl_zar.cpp:52 names it) |
 | 0x00596590 | 224 | debug or dev tool: PORT (preserve) | as MW3 0x00575b00: the developer's stdout redirect (freopen to a log; editor.md:214) |
 | 0x00596780 | 9 | replaced (SDL or the platform layer) | as MW3 0x00575d00: Win32 plumbing the port replaces: the MCI notify window's flag (app_engine.h:541) and its reader, the CD-ROM drive search (FIX (A) and (trap): fixes.md:56, 130), the Winsock 2 check (FIX (A), mp_connect.cpp:280), Mech3Msg.dll's LoadLibrary, FreeLibrary and FormatMessage (the port reads the DLL as a file: fixes.md:259, 281; sdl_twod_host.cpp:435) |
@@ -4864,7 +4851,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x005876d0 | 13 | software renderer | as MW3 0x00566230: the software renderer: zRender's reset and span table (0x00557b20/30), its perspective step (SetPerspectiveTextureDeltaX), the mip toggle on a debug key (0x00557f70, only software reads [0x00800814]), the span fillers and depth spans, the 8- and 16-bit polygon fills and blits, the pixel-plotted lights and flares (weapon-effects.md:61), the fog and light table picks, the span buffer's init, clear and free and its screen pick (software-path.md:28,46) |
 | 0x00587700 | 34 | folded | folded, by the feature compare and the order-aware compare (tools/analysis/pm_shape_compare.py: the same calls, tests and constants in order) against its MW3 twin; the only immediates that differ are error reports' line numbers (each checked to be the report's argument, 0x00406cb0 / 0x0049bfd0) |
 
-### zinterp (58 not ported)
+### zinterp (56 not ported)
 
 | Address | Lines | Class | Why |
 |---|---|---|---|
@@ -4876,17 +4863,15 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x005b6fc0 | 15 | folded | covered by the port where it names it (src/gamez/zinterp/zinterp.cpp:308) |
 | 0x005b6ff0 | 97 | folded | as MW3 0x00594ec0: the script log line's formatter, covered where named (zinterp.cpp:288) |
 | 0x005b70d0 | 39 | folded | covered by the port where it names it (src/gamez/zinterp/zinterp.cpp:326) |
-| 0x005b7310 | 26 | debug or dev tool: PORT (preserve) | pm only, the script interpreter's debug console (MW3's twins ported in zinterp.cpp / zinterp_parse.cpp): PM's variables gain a bool type (3): the var command sets one with true/false (0x005b2830, the preprocess and console words, MW3's 0x00590e80) and the variable print shows it as (bool) (0x005b8140, MW3's 0x00596020; PM also passes the string itself where MW3 passed its first character, the port's FIX (bug) there); no variable PM registers is a bool (only DamageScale, gravity and ceiling, floats). The node dump says whether the node is active (0x005b7310, MW3's 0x005951e0). The rest as MW3's |
 | 0x005b7380 | 9 | folded | a thunk: one call to another function |
 | 0x005b7430 | 11 | folded | inside its ported callers (0x005b2d10): a small helper their ports do their own way |
-| 0x005b7c40 | 29 | folded | covered by the port where it names it (src/gamez/zinterp/zinterp.cpp:432) |
-| 0x005b7ca0 | 28 | folded | covered by the port where it names it (src/gamez/zinterp/zinterp.cpp:433) |
+| 0x005b7c40 | 29 | folded | covered by the port where it names it (src/gamez/zinterp/zinterp.cpp:435) |
+| 0x005b7ca0 | 28 | folded | covered by the port where it names it (src/gamez/zinterp/zinterp.cpp:436) |
 | 0x005b7db0 | 65 | folded | read against MW3's twins side by side (each ported where its MW3 twin is): the same steps, PM's layouts, arrays grown through PM's realloc 0x00596520 and lookups by name through PM's reader: a texture's device release with PM's 2D surface freed (0x00531000, MW3's 0x00517cc0; the surface part replaced by SDL), a material's texture cycle set (0x00557040, MW3's 0x005375d0), a vertex found or added with the same 921.6 warning cap (0x00559af0, MW3's 0x00539ec0), the script interpreter's name registry and archive open (0x005b7db0, 0x005b80c0, 0x005b8690; MW3's 0x00595c60, 0x00595fa0, 0x00596620) and a dialog's PRIMITIVES / MOUSETRAP read (0x005bf850, MW3's 0x0059f8d0) |
 | 0x005b7ee0 | 18 | folded | covered by the port where it names it (src/gamez/zinterp/zinterp.cpp:290) |
 | 0x005b7f60 | 15 | folded | covered by the port where it names it (src/gamez/zinterp/zinterp.cpp:294) |
-| 0x005b7f80 | 13 | folded | covered by the port where it names it (src/gamez/zinterp/zinterp.cpp:434) |
+| 0x005b7f80 | 13 | folded | covered by the port where it names it (src/gamez/zinterp/zinterp.cpp:437) |
 | 0x005b80c0 | 28 | folded | read against MW3's twins side by side (each ported where its MW3 twin is): the same steps, PM's layouts, arrays grown through PM's realloc 0x00596520 and lookups by name through PM's reader: a texture's device release with PM's 2D surface freed (0x00531000, MW3's 0x00517cc0; the surface part replaced by SDL), a material's texture cycle set (0x00557040, MW3's 0x005375d0), a vertex found or added with the same 921.6 warning cap (0x00559af0, MW3's 0x00539ec0), the script interpreter's name registry and archive open (0x005b7db0, 0x005b80c0, 0x005b8690; MW3's 0x00595c60, 0x00595fa0, 0x00596620) and a dialog's PRIMITIVES / MOUSETRAP read (0x005bf850, MW3's 0x0059f8d0) |
-| 0x005b8140 | 30 | debug or dev tool: PORT (preserve) | pm only, the script interpreter's debug console (MW3's twins ported in zinterp.cpp / zinterp_parse.cpp): PM's variables gain a bool type (3): the var command sets one with true/false (0x005b2830, the preprocess and console words, MW3's 0x00590e80) and the variable print shows it as (bool) (0x005b8140, MW3's 0x00596020; PM also passes the string itself where MW3 passed its first character, the port's FIX (bug) there); no variable PM registers is a bool (only DamageScale, gravity and ceiling, floats). The node dump says whether the node is active (0x005b7310, MW3's 0x005951e0). The rest as MW3's |
 | 0x005b8210 | 26 | debug or dev tool: PORT (preserve) | as MW3 0x005960a0: the hidden GameZ Interpreter console (0x005960a0: a 2D console window that runs typed script lines through 0x00595510; its destructor and line runner; toggled by 0x004810d0, which nothing reaches: interp.md:532, discoveries.md:1532) |
 | 0x005b82c0 | 12 | folded | read: the scalar deleting destructor (the destructor 0x005b82e0, then delete when bit 0 is set); the port deletes its objects itself, the destructor labelled on its own row |
 | 0x005b82e0 | 12 | debug or dev tool: PORT (preserve) | as MW3 0x00596170: the hidden GameZ Interpreter console (0x005960a0: a 2D console window that runs typed script lines through 0x00595510; its destructor and line runner; toggled by 0x004810d0, which nothing reaches: interp.md:532, discoveries.md:1532) |
@@ -5106,7 +5091,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x00520500 | 100 | MISSING LOGIC (only data the shipped game lacks reaches it) | as MW3 0x005076c0, whose class PM's changes keep: anim event 37, the fbfx screen wave (0x005076c0 -> 0x005a6760 -> 0x005a6650 / 0x005a5400: up to four 2D waves): the port's hook only logs (app_mission.cpp:2108); no shipped anim.zbd has event 37 (anim_walk: c1..t1 have 0; 38 also 0) |
 | 0x005207b0 | 8 | folded | returns a constant or a global |
 
-### zgame (33 not ported)
+### zgame (32 not ported)
 
 | Address | Lines | Class | Why |
 |---|---|---|---|
@@ -5141,7 +5126,6 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x005b2670 | 20 | folded | as MW3 0x00590cc0: zGameApp's small helpers inside ported callers or static teardown: a buffer cursor's init (0x00590850, from 0x00590250 / 0x00590400 / 0x005905a0), its drain at exit, the registry company name 'Zipper Interactive' (zutl_reg's company), two destructors |
 | 0x005b26c0 | 12 | folded | read: the scalar deleting destructor (the destructor 0x005b26e0, then delete when bit 0 is set); the port deletes its objects itself, the destructor labelled on its own row |
 | 0x005b26e0 | 20 | folded | as MW3 0x00590d30: zGameApp's small helpers inside ported callers or static teardown: a buffer cursor's init (0x00590850, from 0x00590250 / 0x00590400 / 0x005905a0), its drain at exit, the registry company name 'Zipper Interactive' (zutl_reg's company), two destructors |
-| 0x005b2830 | 231 | debug or dev tool: PORT (preserve) | pm only, the script interpreter's debug console (MW3's twins ported in zinterp.cpp / zinterp_parse.cpp): PM's variables gain a bool type (3): the var command sets one with true/false (0x005b2830, the preprocess and console words, MW3's 0x00590e80) and the variable print shows it as (bool) (0x005b8140, MW3's 0x00596020; PM also passes the string itself where MW3 passed its first character, the port's FIX (bug) there); no variable PM registers is a bool (only DamageScale, gravity and ceiling, floats). The node dump says whether the node is active (0x005b7310, MW3's 0x005951e0). The rest as MW3's |
 | 0x005b2c60 | 16 | debug or dev tool: PORT (preserve) | the script command PrintChildren (PM only): the current node's children's names to the console ('  %s'); no shipped PM script uses it, the port's interpreter does not know it |
 
 ### zutil (31 not ported)
