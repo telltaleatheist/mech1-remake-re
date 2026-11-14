@@ -69,13 +69,13 @@ produces; the label names the compared value. Reaching a function, or running a 
 
 | Class | Functions |
 |---|---|
-| folded | 4092 |
+| folded | 4093 |
 | replaced (SDL or the platform layer) | 270 |
 | software renderer | 115 |
 | MISSING LOGIC | 88 |
 | unused: PORT (preserve) | 76 |
 | dev dialog (MFC), its window plumbing: replaced | 53 |
-| dev dialog (MFC), its logic: PORT (preserve) | 52 |
+| dev dialog (MFC), its logic: PORT (preserve) | 37 |
 | MISSING LOGIC (only data the shipped game lacks reaches it) | 3 |
 
 ## MISSING LOGIC
@@ -103,25 +103,12 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 
 ### dev dialog (MFC), its logic: PORT (preserve)
 
-- 1 functions, 83 decomp lines (0x00403830): as MW3 0x00403820, whose class PM's changes keep: the editor's 'add vehicle to node' (0x00403820 -> 0x0049d350, editor.md); ours does it as meant: upgrades/editor/add_vehicle.cpp
-- 1 functions, 75 decomp lines (0x00403f30): as MW3 0x00403ec0, whose class PM's changes keep: the AI tester dialog's walk over a vehicle's nets (0x00404090 -> 0x00403ec0: their extents)
-- 2 functions, 27 decomp lines (0x00404100, 0x004a0530): as MW3 0x00404090: the AI tester dialog's walk over a vehicle's nets (0x00404090 -> 0x00403ec0: their extents)
-- 1 functions, 131 decomp lines (0x004a07a0): as MW3 0x0049d350, whose class PM's changes keep: the editor's 'add vehicle to node' (0x00403820 -> 0x0049d350, editor.md); ours does it as meant: upgrades/editor/add_vehicle.cpp
-- 1 functions, 26 decomp lines (0x004a0b00): as MW3 0x0049d710: the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians
-- 1 functions, 19 decomp lines (0x004a0ba0): as MW3 0x0049d7b0: the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians
-- 1 functions, 26 decomp lines (0x004a0c00): as MW3 0x0049d810: the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians
-- 1 functions, 24 decomp lines (0x004a0cb0): as MW3 0x0049d8d0: the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians
-- 1 functions, 24 decomp lines (0x004a0d00): as MW3 0x0049d920: the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians
-- 1 functions, 25 decomp lines (0x004a0d50): as MW3 0x0049d970: the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians
-- 1 functions, 11 decomp lines (0x004a0da0): as MW3 0x0049d9e0: the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians
 - 1 functions, 59 decomp lines (0x004be2b0): read: the vehicle editor's strategies by number (MW3's 0x004b7d80, game_editor_vehicles.cpp:35 strategy_name: [0x0060b2f8]'s map made at start-up) with PM's more strategies (the numbers 5..7 added); the port's editor is MW3's
 - 2 functions, 188 decomp lines (0x004bf810, 0x004c1cb0): pm only, the vehicle editor (a dev tool): PM's Attack page (MW3's 0x004b92f0, game_editor_vehicles.cpp:285 attack_exchange) takes a strategy pick below 8 where MW3's takes below 5 (PM's more attack strategies), and PM's apply (MW3's 0x004bb7e0, :535) compares and puts PM's longer AI record (its new words); the port's editor is MW3's. To carry when the editor serves PM
 - 1 functions, 9 decomp lines (0x004c17d0): as MW3 0x004bb2e0: the vehicle editor's list fills (each valve, each region by name into a combo box); covered in the port by game_editor_vehicles 0x004bb300 / 0x004bb620 (valve and region lists)
 - 1 functions, 12 decomp lines (0x004c1ac0): as MW3 0x004bb5f0: the vehicle editor's list fills (each valve, each region by name into a combo box); covered in the port by game_editor_vehicles 0x004bb300 / 0x004bb620 (valve and region lists)
 - 9 functions, 342 decomp lines (0x004c2ea0, 0x004c2ec0, 0x004c2ee0, 0x004c31c0 ...): read: the vehicle editor's attack strategy names (a static table at [0x0062f920] of numbered names: Direct, Zig Zag, Circle, Random Move, Strafe..., made by 0x004c31c0 at start-up through 0x004c3280 and sorted by 0x004c2ee0, eight slots, with the STL's sort pieces 0x004c3550 / 0x004c3680 / 0x004c3750 / 0x004c37c0 and the comparisons 0x004c2ea0 / 0x004c2ec0), read only by the editor's strategy list; the port's editor is MW3's (game_editor_vehicles.cpp)
 - 7 functions, 165 decomp lines (0x004c3290, 0x004c32f0, 0x004c3320, 0x004c3380 ...): read: PM's AI tester dialog's handlers (a CWnd's UpdateData and its page's vehicle and brain asked through their slots; MFC message map entries), the debug menu's AI tester; the port's editor is MW3's (game_editor_vehicles.cpp)
-- 1 functions, 22 decomp lines (0x004c3830): as MW3 0x004bc9f0: the AI tester dialog (0x004b7d80..0x004bcb70, docs/ai.md: a developer tool over a vehicle's AI and net): its helpers' logic
-- 1 functions, 19 decomp lines (0x004c39b0): as MW3 0x004bcb70: the AI tester dialog (0x004b7d80..0x004bcb70, docs/ai.md: a developer tool over a vehicle's AI and net): its helpers' logic
 - 1 functions, 12 decomp lines (0x004d4000): as MW3 0x004c9140: read: the steps' link editing (Step's vt+0x30..+0x44, vtable 0x005cb3d0, and the node steps' vt+0x30..+0x50, vtables 0x005cbf3c, 0x005cc6fc, 0x005cc7b4): set, compare, find or count a link (+0x0c / +0x20) from a picked element's behaviour (its vt+0x60 then +0x74), the node's position set: the AI path editor's (ZAiNetEdit's editing side, to port behind --debug, docs/ai.md The developer tools). No run-time caller found: the port's AI, emulator-checked on every shipped net (compile, pilot, orders), has no such slots, and no passing PM AI test reaches the PM twins (block trace); the virtual calls through these offsets could not all be typed statically
 - 1 functions, 55 decomp lines (0x004d4080): as MW3 0x004c9180: read: the steps' link editing (Step's vt+0x30..+0x44, vtable 0x005cb3d0, and the node steps' vt+0x30..+0x50, vtables 0x005cbf3c, 0x005cc6fc, 0x005cc7b4): set, compare, find or count a link (+0x0c / +0x20) from a picked element's behaviour (its vt+0x60 then +0x74), the node's position set: the AI path editor's (ZAiNetEdit's editing side, to port behind --debug, docs/ai.md The developer tools). No run-time caller found: the port's AI, emulator-checked on every shipped net (compile, pilot, orders), has no such slots, and no passing PM AI test reaches the PM twins (block trace); the virtual calls through these offsets could not all be typed statically
 - 1 functions, 20 decomp lines (0x004d4170): as MW3 0x004c9260: read: the steps' link editing (Step's vt+0x30..+0x44, vtable 0x005cb3d0, and the node steps' vt+0x30..+0x50, vtables 0x005cbf3c, 0x005cc6fc, 0x005cc7b4): set, compare, find or count a link (+0x0c / +0x20) from a picked element's behaviour (its vt+0x60 then +0x74), the node's position set: the AI path editor's (ZAiNetEdit's editing side, to port behind --debug, docs/ai.md The developer tools). No run-time caller found: the port's AI, emulator-checked on every shipped net (compile, pilot, orders), has no such slots, and no passing PM AI test reaches the PM twins (block trace); the virtual calls through these offsets could not all be typed statically
@@ -138,7 +125,6 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 - 1 functions, 44 decomp lines (0x004eacd0): as MW3 0x004d9dc0: an AI parameters dialog (MFC): what it reads into its list (the net's records) and positions; preserve as logic
 - 1 functions, 27 decomp lines (0x004eade0): as MW3 0x004d9ed0: an AI parameters dialog (MFC): what it reads into its list (the net's records) and positions; preserve as logic
 - 1 functions, 32 decomp lines (0x004eb070): as MW3 0x004d9fc0, whose class PM's changes keep: an AI parameters dialog (MFC): what it reads into its list (the net's records) and positions; preserve as logic
-- 1 functions, 19 decomp lines (0x004f07a0): as MW3 0x004df6a0: the editor's 'add vehicle to node' record (an aiv record built on OK, editor.md); in the release its path returns 0 and nothing is made; ours does it as meant: upgrades/editor/add_vehicle
 
 ### unused: PORT (preserve)
 
@@ -218,7 +204,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 
 ## By module
 
-### mech3ep1 (3119 not ported)
+### mech3ep1 (3105 not ported)
 
 | Address | Lines | Class | Why |
 |---|---|---|---|
@@ -235,13 +221,10 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x00402f20 | 12 | folded | covered by the port where it names it (src/mech3/game_editor_net.cpp:303) |
 | 0x00403170 | 9 | folded | a thunk: one call to another function |
 | 0x00403730 | 23 | folded | covered by the port where it names it (src/upgrades/editor/node_params.h:16) |
-| 0x00403830 | 83 | dev dialog (MFC), its logic: PORT (preserve) | as MW3 0x00403820, whose class PM's changes keep: the editor's 'add vehicle to node' (0x00403820 -> 0x0049d350, editor.md); ours does it as meant: upgrades/editor/add_vehicle.cpp |
 | 0x00403a70 | 20 | dev dialog (MFC), its window plumbing: replaced | as MW3 0x00403a40: MFC dialog plumbing of dev dialogs (CDialog constructors and destructors, EnableWindow): resource 0x67 and the teleport and net dialogs' destructors |
 | 0x00403ac0 | 8 | folded | empty: does nothing |
 | 0x00403ad0 | 17 | folded | covered by the port where it names it (src/mech3/game_editor_net.cpp:357) |
 | 0x00403c50 | 41 | folded | as MW3 0x00403c00: covered where the port does it: src/mech3/zainetedit.cpp:107 (read: a destructor, a container insert or assign, or the work beside the function that comment names) |
-| 0x00403f30 | 75 | dev dialog (MFC), its logic: PORT (preserve) | as MW3 0x00403ec0, whose class PM's changes keep: the AI tester dialog's walk over a vehicle's nets (0x00404090 -> 0x00403ec0: their extents) |
-| 0x00404100 | 18 | dev dialog (MFC), its logic: PORT (preserve) | as MW3 0x00404090: the AI tester dialog's walk over a vehicle's nets (0x00404090 -> 0x00403ec0: their extents) |
 | 0x00404140 | 9 | folded | covered by the port where it names it (src/mech3/entity_bind.h:2) |
 | 0x00404160 | 9 | folded | a thunk: one call to another function |
 | 0x00404170 | 9 | folded | a thunk: one call to another function |
@@ -1866,7 +1849,6 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x004a03c0 | 12 | folded | covered by the port where it names it (src/mech3/pilot_menu.cpp:651) |
 | 0x004a03e0 | 45 | folded | PM's lobby, ported on pm (docs/pm-tests.md piece 6; mp_lobby.cpp's Pirate's Moon notes): the lobby screen's constructor with PM's controls (0x00498b70: CANCEL_ZONE, SALVAGE / OPTIONS, GAME_TYPE, SALVAGE_AWARD, ROUNDS_LIST, JETS / RADAR; mp_lobby.cpp:224-243) and destructor pieces (0x00499890, 0x00499ee0), the team screen's enter, buttons and OK (0x0049faf0 / 0x0049fd60 / 0x0049fed0, MW3's 0x0049c2c0 / 0x0049c550 / 0x0049c6c0; mp_lobby.cpp:1317, 1619), a lobby helper equal to MW3's 0x00499610 (0x0049cd50, ratio 1.000), and the Multiplayer State's resume (0x004a03e0: 6 to the salvage's return, 4 and 7 to its resume; pilot_menu.cpp:752) |
 | 0x004a04f0 | 15 | dev dialog (MFC), its window plumbing: replaced | as MW3 0x0049d100: MFC plumbing of the editor's dialogs (DDX, UpdateData, OnDestroy, DoModal, a static list) |
-| 0x004a0530 | 9 | dev dialog (MFC), its logic: PORT (preserve) | follows 0x00404100: as MW3 0x00404090: the AI tester dialog's walk over a vehicle's nets (0x00404090 -> 0x00403ec0: their extents) |
 | 0x004a0540 | 16 | dev dialog (MFC), its window plumbing: replaced | as MW3 0x0049d150: MFC plumbing of the editor's dialogs (DDX, UpdateData, OnDestroy, DoModal, a static list) |
 | 0x004a0570 | 15 | folded | as MW3 0x0049d190: covered: the screens' and states' constructors and destructors, list and vector instances (mechdef-configs.md names 0x0049da10), string copies, the missions object's queries (the program's GameEngine overrides them: app_engine.h:128 and the rest), the fade wrapper, the mission cleanup |
 | 0x004a05a0 | 15 | folded | covered by the port where it names it (src/mech3/sound_extra.cpp:32) |
@@ -1876,19 +1858,11 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x004a0660 | 38 | folded | as MW3 0x0049d290: covered: the screens' and states' constructors and destructors, list and vector instances (mechdef-configs.md names 0x0049da10), string copies, the missions object's queries (the program's GameEngine overrides them: app_engine.h:128 and the rest), the fade wrapper, the mission cleanup |
 | 0x004a0730 | 17 | dev dialog (MFC), its window plumbing: replaced | as MW3 0x0049d5d0: MFC plumbing of the editor's dialogs (DDX, UpdateData, OnDestroy, DoModal, a static list) |
 | 0x004a0750 | 9 | folded | a thunk: one call to another function |
-| 0x004a07a0 | 131 | dev dialog (MFC), its logic: PORT (preserve) | as MW3 0x0049d350, whose class PM's changes keep: the editor's 'add vehicle to node' (0x00403820 -> 0x0049d350, editor.md); ours does it as meant: upgrades/editor/add_vehicle.cpp |
 | 0x004a0a20 | 12 | folded | read: the scalar deleting destructor (the destructor 0x00403a70, then delete when bit 0 is set); the port deletes its objects itself, the destructor labelled on its own row |
 | 0x004a0a40 | 16 | dev dialog (MFC), its window plumbing: replaced | as MW3 0x0049d660: MFC plumbing of the editor's dialogs (DDX, UpdateData, OnDestroy, DoModal, a static list) |
 | 0x004a0ae0 | 8 | folded | covered by the port where it names it (src/mech3/app_states.h:116) |
 | 0x004a0af0 | 8 | folded | returns a constant or a global |
-| 0x004a0b00 | 26 | dev dialog (MFC), its logic: PORT (preserve) | as MW3 0x0049d710: the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians |
-| 0x004a0ba0 | 19 | dev dialog (MFC), its logic: PORT (preserve) | as MW3 0x0049d7b0: the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians |
-| 0x004a0c00 | 26 | dev dialog (MFC), its logic: PORT (preserve) | as MW3 0x0049d810: the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians |
 | 0x004a0c90 | 12 | dev dialog (MFC), its window plumbing: replaced | as MW3 0x0049d8b0: MFC plumbing of the editor's dialogs (DDX, UpdateData, OnDestroy, DoModal, a static list) |
-| 0x004a0cb0 | 24 | dev dialog (MFC), its logic: PORT (preserve) | as MW3 0x0049d8d0: the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians |
-| 0x004a0d00 | 24 | dev dialog (MFC), its logic: PORT (preserve) | as MW3 0x0049d920: the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians |
-| 0x004a0d50 | 25 | dev dialog (MFC), its logic: PORT (preserve) | as MW3 0x0049d970: the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians |
-| 0x004a0da0 | 11 | dev dialog (MFC), its logic: PORT (preserve) | as MW3 0x0049d9e0: the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians |
 | 0x004a0dd0 | 15 | folded | the same as its MW3 twin (identical, or passed by the feature compare 7f6e9e10), so it is what MW3's twin is in the port |
 | 0x004a0e10 | 385 | folded | ported: src/mech3/player.cpp launch (MW3's 0x0049dc80, Instant Action's line-up and waves) with PM's ia_progression waves marked there (0x004a0f3c) |
 | 0x004a1670 | 12 | folded | covered by the port where it names it (src/mech3/player.cpp:352) |
@@ -2307,10 +2281,10 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x004c36c0 | 36 | folded | covered by the port where it names it (src/mech3/zainet_inout.cpp:643) |
 | 0x004c3750 | 31 | dev dialog (MFC), its logic: PORT (preserve) | read: the vehicle editor's attack strategy names (a static table at [0x0062f920] of numbered names: Direct, Zig Zag, Circle, Random Move, Strafe..., made by 0x004c31c0 at start-up through 0x004c3280 and sorted by 0x004c2ee0, eight slots, with the STL's sort pieces 0x004c3550 / 0x004c3680 / 0x004c3750 / 0x004c37c0 and the comparisons 0x004c2ea0 / 0x004c2ec0), read only by the editor's strategy list; the port's editor is MW3's (game_editor_vehicles.cpp) |
 | 0x004c37c0 | 31 | dev dialog (MFC), its logic: PORT (preserve) | read: the vehicle editor's attack strategy names (a static table at [0x0062f920] of numbered names: Direct, Zig Zag, Circle, Random Move, Strafe..., made by 0x004c31c0 at start-up through 0x004c3280 and sorted by 0x004c2ee0, eight slots, with the STL's sort pieces 0x004c3550 / 0x004c3680 / 0x004c3750 / 0x004c37c0 and the comparisons 0x004c2ea0 / 0x004c2ec0), read only by the editor's strategy list; the port's editor is MW3's (game_editor_vehicles.cpp) |
-| 0x004c3830 | 22 | dev dialog (MFC), its logic: PORT (preserve) | as MW3 0x004bc9f0: the AI tester dialog (0x004b7d80..0x004bcb70, docs/ai.md: a developer tool over a vehicle's AI and net): its helpers' logic |
+| 0x004c3830 | 22 | folded | as MW3 0x004bc9f0: NetHeader built from a record (7 dwords, the name strdup'd): the port's NetHeader and its operator= (zrdrainet.h:29); not the AI tester's |
 | 0x004c3970 | 11 | folded | as MW3 0x004bcb30: the AI net files' classes (zrdrainet/zrdraiv): the record cache, its edit (the editor's, ported in zrdrainet.cpp 0x004dc2b0), lookups, constructors, destructors and std::map code; the editor's net writer 0x004db8d0 replaced by the port's exact one (net_save) |
-| 0x004c3990 | 9 | folded | covered by the port where it names it (src/mech3/zrdrainet.h:18) |
-| 0x004c39b0 | 19 | dev dialog (MFC), its logic: PORT (preserve) | as MW3 0x004bcb70: the AI tester dialog (0x004b7d80..0x004bcb70, docs/ai.md: a developer tool over a vehicle's AI and net): its helpers' logic |
+| 0x004c3990 | 9 | folded | as MW3 0x004bcb50: NetHeader's default (0x004bc9f0 on 0x005e8910: net 0, version 0x6a, no place or name): the port's member defaults (zrdrainet.h:19); not the AI tester's |
+| 0x004c39b0 | 19 | folded | as MW3 0x004bcb70: each element's arrange in 0x004bcba0 (its vt+0x60, then vt+0x88 the node, vt+0x8c arrange): inline in the port's CZAiNetEdit constructor (zainetedit.cpp, nd->arrange()); not the AI tester's |
 | 0x004c3db0 | 16 | folded | as MW3 0x004bcf90: covered: the firing's records, the net editor class's forwarding virtuals, vector and list instances, the region registry's helpers, the AI states' and steps' constructors and destructors, start-up statics |
 | 0x004c3dc0 | 16 | folded | as MW3 0x004bcfa0: covered: the firing's records, the net editor class's forwarding virtuals, vector and list instances, the region registry's helpers, the AI states' and steps' constructors and destructors, start-up statics |
 | 0x004c3dd0 | 16 | folded | as MW3 0x004bcfb0: covered: the firing's records, the net editor class's forwarding virtuals, vector and list instances, the region registry's helpers, the AI states' and steps' constructors and destructors, start-up statics |
@@ -3101,12 +3075,10 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x004f0720 | 9 | folded | a thunk: one call to another function |
 | 0x004f0740 | 12 | folded | covered by the port where it names it (src/mech3/zrdraiv.h:62) |
 | 0x004f0770 | 9 | folded | a thunk: one call to another function |
-| 0x004f07a0 | 19 | dev dialog (MFC), its logic: PORT (preserve) | as MW3 0x004df6a0: the editor's 'add vehicle to node' record (an aiv record built on OK, editor.md); in the release its path returns 0 and nothing is made; ours does it as meant: upgrades/editor/add_vehicle |
 | 0x004f07f0 | 10 | folded | covered by the port where it names it (src/mech3/game_editor_vehicles.cpp:590) |
 | 0x004f0810 | 11 | folded | covered by the port where it names it (src/mech3/game_editor_vehicles.cpp:554) |
 | 0x004f0830 | 486 | folded | ported, checked by test: the aiv.zrd reader (MW3's 0x004df730, zrdraiv.cpp); tests/differential/test_pm_ai_nodes.py runs 0x004f0830 on every shipped aiv.zrd and compares the records (45 files, 961 records, 0 differ, 2026-11-13) |
 | 0x004f18d0 | 8 | folded | returns a constant or a global |
-| 0x004f18e0 | 16 | folded | covered by the port where it names it (src/mech3/zai_wire_states_pm.h:103) |
 | 0x004f1a40 | 9 | folded | read: covered where the port names it (briefing.cpp:513 and 871 PM's loadouts, pilot.h:346 the standalone rows, mech_damage.cpp:225 the headlight, app_hud.cpp:534 the radar's front, mech_config.cpp:951, pilot_games.cpp:635, mech_headlight.cpp:50, mech_waynet.h:70, mission_world.cpp:249, app_vehicle.cpp:623 the stealth controls, zai_brain.cpp:239, zainet_inout.cpp:382, zai_node.cpp:146, zai_walk_pm.cpp:441, zai_drive_pm.cpp:772, zrdraiv.cpp:581, mech_build.cpp:283, app_pocket.cpp:172, zrdraiv.h:66, zai_brain.cpp:1033, pm zeff_anim_events.h:28, zsnd_3d.cpp:27, zsnd_play.cpp:203 and 221) |
 | 0x004f1a60 | 8 | folded | returns a constant or a global |
 | 0x004f1a80 | 9 | folded | a thunk: one call to another function |
