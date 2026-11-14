@@ -42,6 +42,11 @@ struct ShotHooks {
 // mw3_?NNNNN.bmp (_mktemp); the keys reset after either. The name is returned for the tests ("" none).
 std::string debug_screenshot(const ShotHooks& h);
 uint32_t current_process_id();  // ours: _getpid / getpid
+// Pirate's Moon 1.0 @ 0x004af600 (not a Ghidra function; CMD_SNAPSHOT 0x86, Ctrl+P by default): PM's own, no
+// dialog and no lobby test: the screen to mw3NNNNNNNN.bmp, NNNNNNNN the session's count in hex ([0x0062f6d0], from
+// 0), stepped past every name that exists (0x00596ea0, `exists`), then the keys reset. The name returned ("" none).
+std::string pm_screenshot(const ShotHooks& h);
+int32_t& pm_screenshot_count();  // [0x0062f6d0]
 // Mech3.exe 1.2 @ 0x00519cc0: the dialog's path written (0x00519c20), the cursor shown around it.
 bool screenshot_save_dialog(zimg::ScreenShot& shot, const ShotHooks& h, std::string* name);
 

@@ -11,7 +11,7 @@ struct AppKeyCalls {
   void (*cycle_camera)() = nullptr;    // 0x0040aed0 on the player's view [0x005f4c8c]
   void (*vmode_cycle)() = nullptr;     // 0x004ab910: the next screen mode, saved as InGameVMode
   void (*message_toggle)() = nullptr;  // 0x0040f070: the message panel
-  void (*debug_7e)() = nullptr;        // 0x004abbc0 (command 0x7e, which no key reaches)
+  void (*debug_7e)() = nullptr;        // PM 0x004af600 (CMD_SNAPSHOT 0x86, Ctrl+P); MW3 0x004abbc0 (0x7e, no key)
   // Ours: --debug-camera / debugcamera=1: Shift+F12 to command 0x9a, the
   // game editor's (docs/editor.md S4; the exe binds no key to it).
   bool debug_camera = false;

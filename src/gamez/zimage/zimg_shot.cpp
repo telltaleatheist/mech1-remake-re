@@ -14,13 +14,13 @@ void put16(uint8_t* p, uint16_t v) { std::memcpy(p, &v, 2); }
 void put32(uint8_t* p, uint32_t v) { std::memcpy(p, &v, 4); }
 }  // namespace
 
-// Mech3.exe 1.2 @ 0x005199e0
+// Mech3.exe 1.2 @ 0x005199e0, Pirate's Moon 1.0 @ 0x00533380
 ScreenShot::ScreenShot() = default;
 
-// Mech3.exe 1.2 @ 0x00519a20
+// Mech3.exe 1.2 @ 0x00519a20, Pirate's Moon 1.0 @ 0x005333c0
 void ScreenShot::free_pixels() { std::vector<uint8_t>().swap(pixels); }
 
-// Mech3.exe 1.2 @ 0x00519990
+// Mech3.exe 1.2 @ 0x00519990, Pirate's Moon 1.0 @ 0x00533320
 bool ScreenShot::grab(Texture* (*grab_screen)(int32_t buffer)) {
   Texture* image = grab_screen ? grab_screen(2) : nullptr;
   const zvid::PixelFormat& f = zvid::pixel_format();  // 0x00579260
@@ -33,7 +33,7 @@ bool ScreenShot::grab(Texture* (*grab_screen)(int32_t buffer)) {
   return ok;
 }
 
-// Mech3.exe 1.2 @ 0x00519a40: blue the low byte's bits shifted up to 8, green and red shifted down to 8 (the shift
+// Mech3.exe 1.2 @ 0x00519a40, Pirate's Moon 1.0 @ 0x005333e0: blue the low byte's bits shifted up to 8, green and red shifted down to 8 (the shift
 // counts masked to 5 bits, as x86 does).
 bool ScreenShot::convert(const Texture& image) {
   width = image.width, height = image.height;
@@ -61,7 +61,7 @@ bool ScreenShot::convert(const Texture& image) {
   return true;
 }
 
-// Mech3.exe 1.2 @ 0x00519b30
+// Mech3.exe 1.2 @ 0x00519b30, Pirate's Moon 1.0 @ 0x005334d0
 bool ScreenShot::swap_rows(int32_t a, int32_t b) {
   if (a == b) return true;
   if (a >= height || b >= height) return false;
@@ -73,13 +73,13 @@ bool ScreenShot::swap_rows(int32_t a, int32_t b) {
   return true;
 }
 
-// Mech3.exe 1.2 @ 0x00519be0
+// Mech3.exe 1.2 @ 0x00519be0, Pirate's Moon 1.0 @ 0x00533580
 bool ScreenShot::flip() {
   for (int32_t i = 0; i < height / 2; ++i) swap_rows(i, height - i - 1);
   return true;
 }
 
-// Mech3.exe 1.2 @ 0x00519c20: CreateFileA(CREATE_ALWAYS), then the 14 bytes, the 40 and the pixels. FIX (A): into
+// Mech3.exe 1.2 @ 0x00519c20, Pirate's Moon 1.0 @ 0x005335c0: CreateFileA(CREATE_ALWAYS), then the 14 bytes, the 40 and the pixels. FIX (A): into
 // the write dir (zutl::open), not beside the exe.
 bool ScreenShot::write(const char* path) {
   std::FILE* f = zutl::open(path, "wb");

@@ -2558,7 +2558,7 @@ void wire_mission_hooks(GameEngine* e) {
       if (message_panel()) message_panel_toggle();
     };
     keys.vmode_cycle = [] { g_mission_engine->vmode_toggle(); };  // 0x004ab910 (resolution.md step 3)
-    keys.debug_7e = [] {  // 0x004abbc0: the screenshot (docs/screenshots.md)
+    keys.debug_7e = [] {  // PM 0x004af600 (MW3 0x004abbc0): the screenshot (docs/screenshots.md)
       ShotHooks h;
       h.grab = [](int32_t buffer) { return ztwod::host().screen_grab(buffer); };
       h.lobby = [] { return g_mission_engine->network_lobby_active() != 0; };
@@ -2569,7 +2569,7 @@ void wire_mission_hooks(GameEngine* e) {
       h.exists = [](const char* p) { return zutl::exists(p); };
       h.process_id = current_process_id;
       h.keys_reset = [] { zin::kbd_reset(); };
-      debug_screenshot(h);
+      pm_screenshot(h);  // PM's CMD_SNAPSHOT (Ctrl+P): 0x004af600, not MW3's 0x004abbc0
     };
     // The debug commands (no key reaches them in the release; app_keys.h). FIX (A): each asks the pilot's mech
     // or the view's target only when there is one (the exe reads through null).

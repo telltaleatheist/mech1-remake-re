@@ -27,7 +27,7 @@ AppKeyState& app_key_state() {
 void register_app_keys() {
   zin::set_callback(0x69, app_key);   // CYCLE_CAM (X)
   zin::set_callback(0x78, app_key);   // MESSAGE_TOGGLE (`)
-  zin::set_callback(0x86, debug_7e);  // 0x004abbc0
+  zin::set_callback(0x86, debug_7e);  // PM 0x004af600 (MW3 0x004abbc0): CMD_SNAPSHOT, Ctrl+P by default
   zin::set_callback(0x74, app_key);   // VMODE_TOGGLE (Shift+V)
   register_cheat_key();               // ours: the cheat box on Shift+Enter (cheats.h)
   // Ours: the game editor on Shift+F12, which does something only in a

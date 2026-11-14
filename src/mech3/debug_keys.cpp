@@ -75,6 +75,33 @@ uint32_t current_process_id() {
 #endif
 }
 
+int32_t& pm_screenshot_count() {
+  static int32_t n = 0;
+  return n;
+}
+
+// Pirate's Moon 1.0 @ 0x004af600: the name made (0x004af6b0, "%s%08x%s" of "mw3" and ".bmp" into [0x0062ed40]) and
+// made again while it exists; the count is not stepped after the write, so the next press steps past this file.
+std::string pm_screenshot(const ShotHooks& h) {
+  auto name_of = [](int32_t n) {
+    char buf[64];
+    std::snprintf(buf, sizeof buf, "%s%08x%s", "mw3", static_cast<uint32_t>(n), ".bmp");
+    return std::string(buf);
+  };
+  int32_t& count = pm_screenshot_count();
+  std::string name = name_of(count);
+  while (h.exists && h.exists(name.c_str())) name = name_of(++count);
+  zimg::ScreenShot shot;  // 0x00533380
+  std::string written;
+  if (shot.grab(h.grab)) {  // 0x00533320
+    shot.write(name.c_str());  // 0x005335c0
+    written = name;
+  }
+  if (h.keys_reset) h.keys_reset();  // 0x00533b90
+  shot.free_pixels();                // 0x005333c0
+  return written;
+}
+
 // Mech3.exe 1.2 @ 0x004abbc0
 std::string debug_screenshot(const ShotHooks& h) {
   zimg::ScreenShot shot;  // 0x005199e0
