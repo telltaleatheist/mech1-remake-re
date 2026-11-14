@@ -128,3 +128,33 @@ int probe_mktemp(const char* tmpl, uint32_t pid, const char* taken, char* out, i
 }
 
 }  // extern "C"
+
+extern "C" {
+
+// PM's command (0x004af600): `count` the session's count first, `taken` the names that exist. Out: the events, '|',
+// the name, '|', the count after, '|', its bytes.
+int probe_pm_screenshot(int32_t w, int32_t h, const uint16_t* px, int32_t count, const char* taken, const char* dir,
+                        char* out, int cap) {
+  zutl::set_write_dir(dir);
+  const int32_t bits[3] = {5, 6, 5};
+  const uint32_t masks[3] = {0xf800, 0x7e0, 0x1f};
+  set_format(bits, masks);
+  g_w = w, g_h = h, g_px = px, g_events.clear();
+  g_taken.clear();
+  for (const char* p = taken; p && *p;) {
+    const char* e = std::strchr(p, '\n');
+    g_taken.insert(e ? std::string(p, e) : std::string(p));
+    p = e ? e + 1 : p + std::strlen(p);
+  }
+  mech3::pm_screenshot_count() = count;
+  mech3::ShotHooks hk;
+  hk.grab = [](int32_t b) { g_events += "grab;"; return grab(b); };
+  hk.exists = [](const char* p) { return g_taken.count(p) != 0; };
+  hk.keys_reset = [] { g_events += "keys;"; };
+  const std::string name = mech3::pm_screenshot(hk);
+  std::string o = g_events + "|" + name + "|" + std::to_string(mech3::pm_screenshot_count()) + "|";
+  if (!name.empty()) o += file_bytes(name);
+  return finish(o, out, cap);
+}
+
+}  // extern "C"

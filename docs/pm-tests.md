@@ -1549,3 +1549,24 @@ Tests:
 - In mw3pmtests (test_debug_tools.cpp): `interp_console_runs_its_lines_and_prints_the_interpreters_messages`,
   `pm_marker_keeps_the_aim_point_in_the_script_object` and `pm_print_children_names_the_current_nodes_children`.
   The last one's break, the indent dropped, is caught. All pass under PM_AI=0 and 1.
+
+## S6: the screenshots and the start's logs (2026-11-14)
+
+MW3's port (main: `zimg::ScreenShot`, the debug command 0x7e's `debug_screenshot`, `crt::msvc_mktemp`;
+screenshots.md) crossed. PM's screenshot object is MW3's at its own addresses (0x533380 the constructor, 0x533320 the
+grab through 0x598600 with the format from 0x5982a0 / 0x5982d0, 0x5333e0 the 24-bit, 0x5334d0 / 0x533580 the flip,
+0x5335c0 the file, 0x5333c0 the free).
+- **PM's command is its own and a player reaches it.** CMD_SNAPSHOT 0x86 is bound to Ctrl+P by default (0x411a10,
+  key 0x219), and 0x4af600 saves the screen with no dialog as mw3%08x.bmp. The number is the session's count
+  ([0x62f6d0]), stepped past the names that exist (0x596ea0) and not after the write; then the keys are reset
+  (0x533b90). The pm branch's 0x86 now runs `pm_screenshot` through the SDL host's grab and texture_free. Before
+  this it logged an unported call, so Ctrl+P in the port saved nothing; now it writes the file into the write dir
+  (FIX (A)). MW3's dialog command (0x4abbc0) stays unwired on pm.
+- **Relabelled:**
+  - the stdout/stderr redirect 0x596590 (MW3's 0x575b00) and PM's Direct3D render-state dump 0x59d3a0 as
+    replaced;
+  - the name builder 0x4af6b0 as folded into 0x4af600.
+
+Test: `test_pm_screenshot.py` against PM's exe. 120 screens in four formats grabbed and written, and 80 commands
+(counts 0, 5, 0xfff, 0x7ffffffe and -1, with zero to three names taken), all identical. Breaks caught: the count
+stepped after the write, upper-case hex.

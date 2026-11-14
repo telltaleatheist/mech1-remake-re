@@ -34,7 +34,20 @@ into the write dir (zutl::open), not the folder the exe runs in. Test:
 commands (lobby or not, the dialog OK or cancelled, names taken), all
 identical to the exe.
 
-Pirate's Moon has a screenshot of its own besides this one (pm-tests.md, S6).
+### Pirate's Moon: Ctrl+P
+
+Pirate's Moon names the command CMD_SNAPSHOT (0x86) and binds it by default
+to Ctrl+P (0x411a10: key 0x219), so its players can take screenshots. Its
+command (0x4af600, not a Ghidra function) is its own, with no dialog and no
+lobby test. The name is "mw3" plus the session's count as eight hex digits
+plus ".bmp" ([0x62f6d0], from 0; 0x4af6b0 into [0x62ed40]), and the count
+is stepped while that name exists (0x596ea0, `_access`), but not after the
+write. So the next press steps past the file just written: mw300000000.bmp,
+mw300000001.bmp and so on. Then the same grab and writer at PM's addresses
+(0x533380, 0x533320, 0x5335c0; 0x5333e0 the converter) and the keys reset
+(0x533b90). The port is `pm_screenshot` (debug_keys.cpp), wired to 0x86 on
+the pm branch; the file goes into the write dir (FIX (A), as above). Test:
+`test_pm_screenshot.py` (pm-tests.md, S6).
 
 ## The start's logs (0x575b00)
 

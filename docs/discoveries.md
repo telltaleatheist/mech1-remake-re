@@ -904,6 +904,11 @@ From the weapon code (weapons.md).
   that saves the screen as a .bmp through a Save dialog (or, inside a
   multiplayer lobby, as `mw3_a12345.bmp` and the like), but no key is ever
   bound to it in MW3 1.2 (docs/screenshots.md).
+- **Pirate's Moon's screenshot key is Ctrl+P.** Pirate's Moon gave the
+  command a name and a default key: Ctrl+P saves the screen with no dialog
+  as `mw300000000.bmp`, `mw300000001.bmp` and so on, numbered from 0 each
+  time the game starts and skipping names already taken
+  (docs/screenshots.md).
 
 - **The exe checks itself for stat hacks.** The very first thing the game does
   is a CRC-32 over two tables built into `Mech3.exe`: the mech roster (each
