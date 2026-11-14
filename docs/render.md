@@ -989,6 +989,40 @@ x87's 0xffc00000, the port's 0x7fc00000); 10 of 10 breaks. At 53 bits the floats
 in 3,000, with a corner exactly on a plane, takes another branch: the exe compares a cut's z still in the register
 (unrounded at 53) with its stored copy. Nothing runs these, so the port keeps the 24-bit result.
 
+### The unused zModel helpers (S19, 2026-11-14)
+
+Seven more zModel functions nothing calls, jumps to or points at (the audit's "large zModel functions"), all real
+logic, ported unwired:
+- 0x53a740 (`polygon_planar`, ECX n, EDX points): Newell's normal summed over the edges and the middle of the corners;
+  every corner within 0.005 of the plane through the middle (a NaN distance passes: fcomp's unordered).
+- 0x53a1a0 (`polygon_concave`, ECX &n, EDX points): the normal of the first three corners; only one within 0.99 of an
+  axis turns the polygon (a quarter turn about y or x, a whole turn more about x when z is negative) through the
+  matrix stack (0x5226e0); z is dropped; a corner from the fourth on on the other side of the first edge than the
+  third makes it concave, and ten lines are printed. The exe indexes the "vertex %d" lines by 3 i bytes, not floats
+  (FIX (bug): the right corner shown).
+- 0x53b050 (`model_add_light`, ECX model, EDX a light as written, then n and the points): a light record (zmod::Light,
+  0x4c bytes) added to the model's list (+0x40, count +0x20) with realloc. Type 0: one point, the first. Type 1: its
+  +0x08 halved; the first edge (of +0x0c, or n) at least two spacings (+0x10) long gets k = its length / spacing
+  points from one end to the other, after the caller's first two points are lowered by 0.1. None found, or another
+  type: nothing added. FIX (A): the record's +0x18 and +0x28 words take the light's low halves (the exe's high halves
+  are its stack); the closing edge is filled toward the first point (the exe reads the point after the last); no edge
+  past the points is walked.
+- 0x53d130 is 0x53cf10 (`project_point`, hud.md section 14) written again with its outcode set; the port's
+  project_point already is it. 0x53d360 (`project_points`, n points): the same transform, then each point projected,
+  not clamped: outcodes ORed, and one behind the near plane put across the screen's top (0x53cf10 uses the bottom).
+- 0x53de50 / 0x53df00 (`translate_below`, `untranslate_two`, ECX v): the matrix under the stack's top moved by its
+  rotation times v, and the top and that one moved back; the sum (x m0 + y m3) + z m6 stored before it moves the
+  place.
+Pirate's Moon has the same seven, cdecl (0x55a2f0, 0x559db0, 0x55ad60 with its own realloc 0x596520, 0x540a90,
+0x540ca0, 0x541830, 0x5418e0), and five of its own nothing calls (pm `gmod_unused_pm`): 0x53ee40 a turn from two
+vectors (their dot, then a x b); 0x5415b0 what a model needs drawn with, the test the draw's 0x543b10 makes inline
+(fog, lights, tint: `model_needs`, which begin_model now calls); 0x543010 four points through the top of the stack
+into the draw's arena; 0x5432b0 a node's box as six faces into that arena, hardware only, every plane asked, the
+draw after each face cut from the release, so only the last face stays (FIX (bug): one pop where the exe pops twice
+after a set-up that said 0); 0x55bc30 every polygon on one material and the material list one entry.
+`test_zmodel_unused.py` against the exe at 24 bits: 2,000 polygons through both checks (815 planar, 1,015 concave),
+2,000 lights (types 0, 1 and another), 2,000 points to the screen, 2,000 moves, all identical.
+
 ### (c) Open: a parked vehicle's edges flicker on c1m2 (playtest #22)
 
 Found while looking for #22's ground blink (tools/analysis/blinks.py on

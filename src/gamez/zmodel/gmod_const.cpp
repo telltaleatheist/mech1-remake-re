@@ -1321,4 +1321,159 @@ int write_models(std::FILE* f) {
   return result;
 }
 
+// --- the unreferenced helpers (docs/render.md, The unused zModel helpers) ---------------------------------------
+
+// Mech3.exe 1.2 @ 0x0053a740. The sums stay on the FPU between corners; a NaN distance passes (fcomp's unordered).
+// Pirate's Moon 1.0 @ 0x0055a2f0 (cdecl)
+bool polygon_planar(int32_t n, const float* p) {
+  X a = 0.0f, b = 0.0f, c = 0.0f, sx = 0.0f, sy = 0.0f, sz = 0.0f;
+  for (int32_t i = 0; i < n;) {
+    const float* u = p + 3 * i;
+    ++i;
+    const float* v = p + 3 * (i % n);
+    a = a + (X(u[1]) - v[1]) * (X(u[2]) + v[2]);
+    b = b + (X(v[0]) + u[0]) * (X(u[2]) - v[2]);
+    c = c + (X(u[0]) - v[0]) * (X(u[1]) + v[1]);
+    sx = sx + u[0], sy = sy + u[1], sz = sz + u[2];
+  }
+  float len = 0.0f;
+  if (!(a == X(0.0f) && b == X(0.0f) && c == X(0.0f))) len = sqrt(a * a + b * b + c * c).f();
+  const float inv = len == 0.0f ? 0.0f : (X(1.0f) / len).f();
+  const float ia = (X(inv) * a).f(), ib = (X(inv) * b).f(), ic = (X(inv) * c).f();
+  const float d = ((X(sx.f()) * a.f() + X(sy.f()) * b.f()) + X(sz.f()) * c.f()).f();
+  const float e = (-(X(d) / (X(static_cast<double>(n)) * len))).f();
+  for (int32_t i = 0; i < n; ++i) {
+    const float* q = p + 3 * i;
+    const X dist = ((X(ic) * q[2] + X(q[0]) * ia) + X(q[1]) * ib) + e;
+    if (abs(dist).v > 0.005) return false;  // [0x005ee3d0], a double
+  }
+  return true;
+}
+
+// Mech3.exe 1.2 @ 0x0053a1a0. Only a normal within 0.99 of an axis turns the polygon (by a quarter turn, and a
+// Pirate's Moon 1.0 @ 0x00559db0 (cdecl)
+// whole one more for a negative z); the side is measured in x and y. FIX (bug): the "vertex %d" lines show that
+// corner; the exe indexes them by 3 i bytes, not 3 i floats.
+bool polygon_concave(const int32_t* n, const float* p, std::string* report) {
+  float nrm[3];
+  zmth::poly_normal(p, p + 3, p + 6, nrm);
+  uint32_t ay = 0, ax = 0;
+  if (nrm[0] > 0.99f) ay = 0xbfc90fd8;  // -pi / 2
+  if (nrm[0] < -0.99f) ay = 0x3fc90fd8;
+  if (nrm[1] > 0.99f) ax = 0x3fc90fd8;
+  if (nrm[1] < -0.99f) ax = 0xbfc90fd8;
+  float rx, ry;
+  std::memcpy(&ry, &ay, 4), std::memcpy(&rx, &ax, 4);
+  if (nrm[2] < 0.0f) rx = rx - -6.2831855f;  // [0x005ce1a4]
+  std::vector<zmth::Vec3> t(static_cast<size_t>(*n > 0 ? *n : 0));
+  zmth::Mat34 scratch;
+  zmth::push(&scratch);
+  zmth::load_identity();
+  zmth::rotate_y(ry);
+  zmth::rotate_x(rx);
+  zmth::rotate_points_to(reinterpret_cast<const zmth::Vec3*>(p), t.data(), static_cast<uint32_t>(*n));
+  zmth::pop();
+  for (zmth::Vec3& v : t) v.z = 0.0f;
+  if (*n <= 3) return false;
+  const float ex = t[1].y - t[0].y, ey = -(t[1].x - t[0].x);  // the first edge's normal in the plane
+  // Its z (0) times the third component, which the exe never sets: 0 here.
+  const auto side = [&](const zmth::Vec3& v) { return (ex * (v.x - t[0].x) + ey * (v.y - t[0].y)) + 0.0f; };
+  const float s0 = side(t[2]);
+  for (int32_t i = 3; i < *n; ++i) {
+    const float s = side(t[static_cast<size_t>(i)]);
+    if (!((s0 > 0.0f && s < 0.0f) || (s0 < 0.0f && s > 0.0f))) continue;
+    const auto out = [&](const char* fmt, ...) {
+      char line[256];
+      va_list ap;
+      va_start(ap, fmt);
+      std::vsnprintf(line, sizeof line, fmt, ap);
+      va_end(ap);
+      if (report) *report += line;
+      else std::fputs(line, stdout);
+    };
+    const float* o = p + 3 * i;
+    out("Concave polygon: side = %f\n", double{s0});
+    out("original vertices...\n");
+    out("  vertex 0 : %f %f %f\n", double{p[0]}, double{p[1]}, double{p[2]});
+    out("  vertex 1 : %f %f %f\n", double{p[3]}, double{p[4]}, double{p[5]});
+    out("  vertex %d : %f %f %f\n", i, double{o[0]}, double{o[1]}, double{o[2]});
+    out("test vertices...\n");
+    out("  vertex 0 : %f %f %f\n", double{t[0].x}, double{t[0].y}, double{t[0].z});
+    out("  vertex 1 : %f %f %f\n", double{t[1].x}, double{t[1].y}, double{t[1].z});
+    const zmth::Vec3& w = t[static_cast<size_t>(i)];
+    out("  vertex %d : %f %f %f\n", i, double{w.x}, double{w.y}, double{w.z});
+    out("vtx_count = %d\n", *n);
+    return true;
+  }
+  return false;
+}
+
+// Mech3.exe 1.2 @ 0x0053b050. FIX (A): the record's words +0x18 and +0x28 take only the light's low halves, the
+// Pirate's Moon 1.0 @ 0x0055ad60 (cdecl)
+// exe's high halves are its stack (0 here); a closing edge (the last point to the first) is spaced toward the first
+// point, where the exe reads the point after the last; edges past the points are not walked.
+int32_t model_add_light(Model& m, const uint8_t* d, int32_t n, float* p) {
+  const auto u32 = [](const uint8_t* q) {
+    uint32_t v;
+    std::memcpy(&v, q, 4);
+    return v;
+  };
+  const auto f32 = [](const uint8_t* q) {
+    float v;
+    std::memcpy(&v, q, 4);
+    return v;
+  };
+  Light rec{};
+  uint8_t* r = rec.raw;
+  std::memcpy(r, d, 0x0c);  // type, +0x04, +0x08
+  uint32_t w14 = u32(d + 0x14) | (((static_cast<uint32_t>(d[0x28] | d[0x29] << 8) >> 1) & 0x7bef) << 16);
+  std::memcpy(r + 0x18, d + 0x18, 2);
+  std::memcpy(r + 0x1c, d + 0x1c, 12);
+  std::memcpy(r + 0x28, d + 0x28, 2);
+  std::memcpy(r + 0x30, d + 0x30, 0x1c);
+  rec.color = static_cast<uint16_t>(d[0x28] | d[0x29] << 8);
+  int32_t count = 0;
+  float* verts = nullptr;
+  const uint32_t type = u32(d);
+  if (type == 0) {
+    verts = static_cast<float*>(std::malloc(12));
+    std::memcpy(verts, p, 12);
+    count = 1;
+  } else if (type == 1 && n >= 2) {
+    int32_t edges = static_cast<int32_t>(u32(d + 0x0c));
+    if (edges == 0) edges = n;
+    const float spacing = f32(d + 0x10);
+    const float half = f32(r + 0x08) * 0.5f;  // [0x005ce1c0]
+    std::memcpy(r + 0x08, &half, 4);
+    for (int32_t i = 0; i < edges && i < n; ++i) {
+      const float* a = p + 3 * i;
+      const float* b = i < n - 1 ? a + 3 : p;
+      const float e[3] = {(X(b[0]) - a[0]).f(), (X(b[1]) - a[1]).f(), (X(b[2]) - a[2]).f()};
+      const float len = sqrt((X(e[0]) * e[0] + X(e[1]) * e[1]) + X(e[2]) * e[2]).f();
+      const int32_t k = crt::msvc_ftol((X(len) / spacing).v);
+      if (k <= 1) continue;
+      count = k;
+      verts = static_cast<float*>(std::malloc(12 * static_cast<size_t>(k)));
+      w14 &= 0xffff0000u;
+      p[1] = (X(p[1]) - 0.1f).f();  // [0x005ce1c4]: the first two points lowered, the caller's too
+      p[4] = (X(p[4]) - 0.1f).f();
+      for (int32_t j = 0; j < k; ++j) {
+        const float t = (X(static_cast<double>(j)) / X(static_cast<double>(k - 1))).f();
+        for (int c = 0; c < 3; ++c) verts[3 * j + c] = ((X(b[c]) - a[c]) * t + a[c]).f();
+      }
+      break;
+    }
+  }
+  std::memcpy(r + 0x0c, &count, 4);
+  std::memcpy(r + 0x14, &w14, 4);
+  rec.vertices = verts;
+  if (count != 0) {
+    const int32_t at = count_at(m, 0x20);
+    m.lights = static_cast<Light*>(std::realloc(m.lights, sizeof(Light) * static_cast<size_t>(at + 1)));
+    m.lights[at] = rec;
+    put_count(m, 0x20, at + 1);
+  }
+  return 0;
+}
+
 }  // namespace zmod

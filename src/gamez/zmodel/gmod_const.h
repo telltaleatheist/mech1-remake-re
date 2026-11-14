@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <cstdio>
+#include <string>
 #include <vector>
 
 #include "gamez/zmodel/gmod_matl.h"
@@ -158,6 +159,17 @@ int drop_colinear(int32_t* n, float* points, std::vector<int32_t>* kept = nullpt
 int32_t find_vertex(Model& m, const float p[3]);                     // 0x00539d80
 int32_t find_morph_vertex(Model& m, const float p[3], const float to[3]);  // 0x00539ec0
 int32_t find_normal(Model& m, const float p[3]);                     // 0x0053a070
+// The unreferenced ones (docs/render.md, The unused zModel helpers; preserved, unwired):
+// 0x0053a740 ECX n, EDX points: every point within 0.005 of the plane through their middle (Newell's normal).
+bool polygon_planar(int32_t n, const float* points);
+// 0x0053a1a0 ECX &n, EDX points: a corner from the fourth on on the other side of the first edge than the third,
+// with the polygon turned flat first when its normal lies near an axis; the diagnostics printed (to `report` when
+// given, else stdout).
+bool polygon_concave(const int32_t* n, const float* points, std::string* report = nullptr);
+// 0x0053b050 ECX model, EDX the 0x4c-byte light as written, then the points: a light added to the model's list
+// (+0x40, count +0x20): type 0 at the first point, type 1 its points spaced along the first edge long enough
+// (light +0x10 apart); none when type 1 finds none. Returns 0.
+int32_t model_add_light(Model& m, const uint8_t* light, int32_t n, float* points);
 int add_record(Model& m, int32_t n, const PolygonAdd& a);           // 0x0053c370
 int fill_record(Model& m, int32_t n, const PolygonAdd& a);          // 0x0053c500
 void flatten_uvs(Model& m, int32_t index);                           // 0x0053bdc0

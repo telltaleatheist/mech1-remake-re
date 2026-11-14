@@ -1680,3 +1680,17 @@ texture coordinates and the 9-float copy, as MW3's 0x530d90), 0x54be20 and 0x54d
 the cotangents at 0x8d43a4 / 0x8d43a8 and their inverses at 0x66f4b8 / 0x66f4bc, scaled by 0x53b850 / 0x53b890.
 `test_pm_clipfrustum.py` (test_clipfrustum.py with PM's addresses): 3,000 polygons through each, identical at 24 bits
 (NaN sign aside, the same 37 stack-leftover cases as MW3's).
+
+## S19: the unused zModel helpers (2026-11-14)
+
+MW3's port (main: gmod_const's `polygon_planar`, `polygon_concave`, `model_add_light`; gmod_screen's
+`project_points`, `translate_below`, `untranslate_two`, 0x53d130 = `project_point`; render.md, The unused zModel
+helpers) crossed: PM's twins are the same code built cdecl, the register arguments first on the stack (0x55a2f0,
+0x559db0, 0x55ad60, 0x540a90, 0x540ca0, 0x541830, 0x5418e0; the light's realloc PM's 0x596520).
+`test_pm_zmodel_unused.py` (test_zmodel_unused.py with PM's addresses): 2,000 runs of each, identical.
+PM's own five (pm `gmod_unused_pm`): 0x53ee40, 0x5415b0 (`model_needs`, which begin_model now calls instead of its
+inline copy), 0x543010, 0x5432b0, 0x55bc30. `test_pm_zmodel_unused_own.py` against PM's exe: 2,000 runs of each
+identical (fog_sphere stood in by x86 that keeps its arguments and loads the answer; 0x542a70 and 0x596520 stood in);
+the exe's second pop after a set-up that said 0 counted as the port's FIX (bug); 6 of 6 breaks. Not AI code.
+test_pm_submit.py fails on origin/pm as it was (c3 draw 301, a lit vertex's x 10.7 apart), with or without
+begin_model's change: reported to the lead.

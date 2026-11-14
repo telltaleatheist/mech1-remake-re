@@ -516,6 +516,7 @@ add_library(mw3probe SHARED
   tests/probe.cpp
   tests/probe_clip3d.cpp
   tests/probe_clipfrustum.cpp
+  tests/probe_zmodel_unused.cpp
   tests/probe_clip2d.cpp
   tests/probe_fogsort.cpp
   tests/probe_lighting.cpp
@@ -762,6 +763,7 @@ if(MW3_BUILD_PM)
     src/pm/gamez/zmodel/gmod_clip3d.cpp
     src/pm/gamez/zmodel/gmod_cull.cpp
     src/pm/gamez/zmodel/gmod_draw.cpp
+    src/pm/gamez/zmodel/gmod_unused_pm.cpp
     src/pm/gamez/zmodel/gmod_matl.cpp
     src/pm/gamez/zmodel/gmod_projected.cpp
     src/pm/gamez/zvideo/zvid_tl.cpp
@@ -867,6 +869,8 @@ if(MW3_BUILD_PM)
   target_sources(pmprobe PRIVATE tests/probe_node_vehicle.cpp)  # test_pm_node_vehicle.py
   target_sources(pmprobe PRIVATE tests/probe_net_links.cpp)  # test_pm_net_links.py
   target_sources(pmprobe PRIVATE tests/probe_clipfrustum.cpp)  # test_pm_clipfrustum.py
+  target_sources(pmprobe PRIVATE tests/probe_zmodel_unused.cpp)  # test_pm_zmodel_unused.py
+  target_sources(pmprobe PRIVATE tests/probe_pm_zmodel_unused.cpp)  # test_pm_zmodel_unused_own.py
   target_sources(pmprobe PRIVATE tests/probe_pm_vehicle_editor.cpp)  # test_pm_strategies.py, test_pm_apply.py
   target_sources(pmprobe PRIVATE tests/probe_pm_ai_tester.cpp)  # test_pm_ai_tester.py
   # The vehicle editor's save on PM's aiv.zrd, its "target" tag kept (test_pm_aiv_save_mech3ax.py)
