@@ -12,12 +12,12 @@ container code, or covered where the port names it); **replaced** (SDL or the pl
 
 | Class | Functions |
 |---|---|
-| folded | 3041 |
+| folded | 3043 |
 | replaced (SDL or the platform layer) | 225 |
 | software renderer | 113 |
 | unused: PORT (preserve) | 81 |
 | dev dialog (MFC), its window plumbing: replaced | 52 |
-| dev dialog (MFC), its logic: PORT (preserve) | 34 |
+| dev dialog (MFC), its logic: PORT (preserve) | 18 |
 | unlabelled | 2 |
 | debug or dev tool: PORT (preserve) | 1 |
 
@@ -45,14 +45,9 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 
 ### dev dialog (MFC), its logic: PORT (preserve)
 
-- 2 functions, 229 decomp lines (0x00403820, 0x0049d350): the editor's 'add vehicle to node' (0x00403820 -> 0x0049d350, editor.md); ours does it as meant: upgrades/editor/add_vehicle.cpp
-- 3 functions, 103 decomp lines (0x00403ec0, 0x00404090, 0x0049d140): the AI tester dialog's walk over a vehicle's nets (0x00404090 -> 0x00403ec0: their extents)
-- 7 functions, 160 decomp lines (0x0049d710, 0x0049d7b0, 0x0049d810, 0x0049d8d0 ...): the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians
 - 2 functions, 24 decomp lines (0x004bb2e0, 0x004bb5f0): the vehicle editor's list fills (each valve, each region by name into a combo box); covered in the port by game_editor_vehicles 0x004bb300 / 0x004bb620 (valve and region lists)
-- 3 functions, 54 decomp lines (0x004bc9f0, 0x004bcb50, 0x004bcb70): the AI tester dialog (0x004b7d80..0x004bcb70, docs/ai.md: a developer tool over a vehicle's AI and net): its helpers' logic
 - 12 functions, 305 decomp lines (0x004c9140, 0x004c9180, 0x004c9260, 0x004c92b0 ...): read: the steps' link editing (Step's vt+0x30..+0x44, vtable 0x005cb3d0, and the node steps' vt+0x30..+0x50, vtables 0x005cbf3c, 0x005cc6fc, 0x005cc7b4): set, compare, find or count a link (+0x0c / +0x20) from a picked element's behaviour (its vt+0x60 then +0x74), the node's position set: the AI path editor's (ZAiNetEdit's editing side, to port behind --debug, docs/ai.md The developer tools). No run-time caller found: the port's AI, emulator-checked on every shipped net (compile, pilot, orders), has no such slots, and no passing PM AI test reaches the PM twins (block trace); the virtual calls through these offsets could not all be typed statically
 - 4 functions, 126 decomp lines (0x004d9d80, 0x004d9dc0, 0x004d9ed0, 0x004d9fc0): an AI parameters dialog (MFC): what it reads into its list (the net's records) and positions; preserve as logic
-- 1 functions, 20 decomp lines (0x004df6a0): the editor's 'add vehicle to node' record (an aiv record built on OK, editor.md); in the release its path returns 0 and nothing is made; ours does it as meant: upgrades/editor/add_vehicle
 
 ### unused: PORT (preserve)
 
@@ -86,7 +81,7 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 
 ## By module
 
-### mech3 (2503 not ported)
+### mech3 (2489 not ported)
 
 | Address | Lines | Class | Why |
 |---|---|---|---|
@@ -107,13 +102,10 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x00402f20 | 14 | folded | covered by the port where it names it (src/mech3/game_editor_net.cpp:295) |
 | 0x00403140 | 9 | folded | a thunk: one call to another function |
 | 0x00403710 | 23 | folded | covered by the port where it names it (src/upgrades/editor/node_params.h:16) |
-| 0x00403820 | 81 | dev dialog (MFC), its logic: PORT (preserve) | the editor's 'add vehicle to node' (0x00403820 -> 0x0049d350, editor.md); ours does it as meant: upgrades/editor/add_vehicle.cpp |
 | 0x00403a40 | 21 | dev dialog (MFC), its window plumbing: replaced | MFC dialog plumbing of dev dialogs (CDialog constructors and destructors, EnableWindow): resource 0x67 and the teleport and net dialogs' destructors |
 | 0x00403a90 | 18 | folded | covered by the port where it names it (src/mech3/game_editor_net.cpp:349) |
 | 0x00403c00 | 57 | folded | covered where the port does it: src/mech3/zainetedit.cpp:107 (read: a destructor, a container insert or assign, or the work beside the function that comment names) |
 | 0x00403eb0 | 9 | folded | frees the object (a destructor's release) |
-| 0x00403ec0 | 75 | dev dialog (MFC), its logic: PORT (preserve) | the AI tester dialog's walk over a vehicle's nets (0x00404090 -> 0x00403ec0: their extents) |
-| 0x00404090 | 19 | dev dialog (MFC), its logic: PORT (preserve) | the AI tester dialog's walk over a vehicle's nets (0x00404090 -> 0x00403ec0: their extents) |
 | 0x004040d0 | 14 | folded | covered by the port where it names it (src/mech3/mech_fieldbase.h:354) |
 | 0x00404100 | 9 | folded | a thunk: one call to another function |
 | 0x00404110 | 9 | folded | a thunk: one call to another function |
@@ -1359,7 +1351,6 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x0049ce90 | 17 | folded | covered: the screens' and states' constructors and destructors, list and vector instances (mechdef-configs.md names 0x0049da10), string copies, the missions object's queries (the program's GameEngine overrides them: app_engine.h:128 and the rest), the fade wrapper, the mission cleanup |
 | 0x0049ced0 | 137 | folded | covered where the port does it: src/mech3/mp_lobby.h:38 (read: a destructor, a container insert or assign, or the work beside the function that comment names) |
 | 0x0049d100 | 16 | dev dialog (MFC), its window plumbing: replaced | MFC plumbing of the editor's dialogs (DDX, UpdateData, OnDestroy, DoModal, a static list) |
-| 0x0049d140 | 9 | dev dialog (MFC), its logic: PORT (preserve) | follows 0x00404090: the AI tester dialog's walk over a vehicle's nets (0x00404090 -> 0x00403ec0: their extents) |
 | 0x0049d150 | 17 | dev dialog (MFC), its window plumbing: replaced | MFC plumbing of the editor's dialogs (DDX, UpdateData, OnDestroy, DoModal, a static list) |
 | 0x0049d180 | 11 | folded | sets members (a setter or a small constructor) |
 | 0x0049d190 | 16 | folded | covered: the screens' and states' constructors and destructors, list and vector instances (mechdef-configs.md names 0x0049da10), string copies, the missions object's queries (the program's GameEngine overrides them: app_engine.h:128 and the rest), the fade wrapper, the mission cleanup |
@@ -1368,20 +1359,12 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x0049d210 | 19 | folded | covered: the screens' and states' constructors and destructors, list and vector instances (mechdef-configs.md names 0x0049da10), string copies, the missions object's queries (the program's GameEngine overrides them: app_engine.h:128 and the rest), the fade wrapper, the mission cleanup |
 | 0x0049d250 | 19 | folded | covered by the port where it names it (src/mech3/game_editor_vehicles.cpp:275) |
 | 0x0049d290 | 39 | folded | covered: the screens' and states' constructors and destructors, list and vector instances (mechdef-configs.md names 0x0049da10), string copies, the missions object's queries (the program's GameEngine overrides them: app_engine.h:128 and the rest), the fade wrapper, the mission cleanup |
-| 0x0049d350 | 148 | dev dialog (MFC), its logic: PORT (preserve) | the editor's 'add vehicle to node' (0x00403820 -> 0x0049d350, editor.md); ours does it as meant: upgrades/editor/add_vehicle.cpp |
 | 0x0049d5d0 | 18 | dev dialog (MFC), its window plumbing: replaced | MFC plumbing of the editor's dialogs (DDX, UpdateData, OnDestroy, DoModal, a static list) |
 | 0x0049d5f0 | 9 | folded | a thunk: one call to another function |
 | 0x0049d640 | 14 | folded | the scalar deleting destructor (the destructor, then delete) |
 | 0x0049d660 | 18 | dev dialog (MFC), its window plumbing: replaced | MFC plumbing of the editor's dialogs (DDX, UpdateData, OnDestroy, DoModal, a static list) |
 | 0x0049d700 | 8 | folded | returns a constant or a global |
-| 0x0049d710 | 27 | dev dialog (MFC), its logic: PORT (preserve) | the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians |
-| 0x0049d7b0 | 18 | dev dialog (MFC), its logic: PORT (preserve) | the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians |
-| 0x0049d810 | 27 | dev dialog (MFC), its logic: PORT (preserve) | the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians |
 | 0x0049d8b0 | 12 | dev dialog (MFC), its window plumbing: replaced | MFC plumbing of the editor's dialogs (DDX, UpdateData, OnDestroy, DoModal, a static list) |
-| 0x0049d8d0 | 25 | dev dialog (MFC), its logic: PORT (preserve) | the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians |
-| 0x0049d920 | 25 | dev dialog (MFC), its logic: PORT (preserve) | the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians |
-| 0x0049d970 | 25 | dev dialog (MFC), its logic: PORT (preserve) | the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians |
-| 0x0049d9e0 | 13 | dev dialog (MFC), its logic: PORT (preserve) | the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians |
 | 0x0049da10 | 137 | folded | covered: the screens' and states' constructors and destructors, list and vector instances (mechdef-configs.md names 0x0049da10), string copies, the missions object's queries (the program's GameEngine overrides them: app_engine.h:128 and the rest), the fade wrapper, the mission cleanup |
 | 0x0049dc40 | 15 | folded | covered: the screens' and states' constructors and destructors, list and vector instances (mechdef-configs.md names 0x0049da10), string copies, the missions object's queries (the program's GameEngine overrides them: app_engine.h:128 and the rest), the fade wrapper, the mission cleanup |
 | 0x0049e4c0 | 11 | folded | covered by the port where it names it (src/mech3/mech_control.cpp:577) |
@@ -1691,10 +1674,10 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x004bc3e0 | 9 | folded | a thunk: one call to another function |
 | 0x004bc420 | 25 | folded | the vehicle editor's logic and the AI parameters it edits, ported in game_editor_vehicles / zai_params / zrdraiv (their comments name these): the vehicle list, the valve and region lists, the params' comparisons, the vlist's appends and defaults; the firing plan's std algorithms |
 | 0x004bc960 | 32 | folded | the AI net files' classes (zrdrainet/zrdraiv): the record cache, its edit (the editor's, ported in zrdrainet.cpp 0x004dc2b0), lookups, constructors, destructors and std::map code; the editor's net writer 0x004db8d0 replaced by the port's exact one (net_save) |
-| 0x004bc9f0 | 23 | dev dialog (MFC), its logic: PORT (preserve) | the AI tester dialog (0x004b7d80..0x004bcb70, docs/ai.md: a developer tool over a vehicle's AI and net): its helpers' logic |
+| 0x004bc9f0 | 23 | folded | NetHeader built from a record (7 dwords, the name strdup'd): the port's NetHeader and its operator= (zrdrainet.h:29); not the AI tester's |
 | 0x004bcb30 | 11 | folded | the AI net files' classes (zrdrainet/zrdraiv): the record cache, its edit (the editor's, ported in zrdrainet.cpp 0x004dc2b0), lookups, constructors, destructors and std::map code; the editor's net writer 0x004db8d0 replaced by the port's exact one (net_save) |
-| 0x004bcb50 | 9 | dev dialog (MFC), its logic: PORT (preserve) | follows 0x004bc9f0: the AI tester dialog (0x004b7d80..0x004bcb70, docs/ai.md: a developer tool over a vehicle's AI and net): its helpers' logic |
-| 0x004bcb70 | 22 | dev dialog (MFC), its logic: PORT (preserve) | the AI tester dialog (0x004b7d80..0x004bcb70, docs/ai.md: a developer tool over a vehicle's AI and net): its helpers' logic |
+| 0x004bcb50 | 9 | folded | NetHeader's default (0x004bc9f0 on 0x005e8910: net 0, version 0x6a, no place or name): the port's member defaults (zrdrainet.h:19); not the AI tester's |
+| 0x004bcb70 | 22 | folded | each element's arrange in 0x004bcba0 (its vt+0x60, then vt+0x88 the node, vt+0x8c arrange): inline in the port's CZAiNetEdit constructor (zainetedit.cpp, nd->arrange()); not the AI tester's |
 | 0x004bcf80 | 14 | folded | covered by the port where it names it (src/mech3/zainetedit.h:60) |
 | 0x004bcf90 | 14 | folded | covered: the firing's records, the net editor class's forwarding virtuals, vector and list instances, the region registry's helpers, the AI states' and steps' constructors and destructors, start-up statics |
 | 0x004bcfa0 | 14 | folded | covered: the firing's records, the net editor class's forwarding virtuals, vector and list instances, the region registry's helpers, the AI states' and steps' constructors and destructors, start-up statics |
@@ -2383,13 +2366,11 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x004df620 | 9 | folded | a thunk: one call to another function |
 | 0x004df640 | 13 | folded | covered by the port where it names it (src/mech3/zrdraiv.h:62) |
 | 0x004df670 | 9 | folded | a thunk: one call to another function |
-| 0x004df6a0 | 20 | dev dialog (MFC), its logic: PORT (preserve) | the editor's 'add vehicle to node' record (an aiv record built on OK, editor.md); in the release its path returns 0 and nothing is made; ours does it as meant: upgrades/editor/add_vehicle |
 | 0x004df6f0 | 12 | folded | covered by the port where it names it (src/mech3/game_editor_vehicles.cpp:589) |
 | 0x004df710 | 11 | folded | covered by the port where it names it (src/mech3/game_editor_vehicles.cpp:553) |
 | 0x004e001a | 168 | folded | a piece of the ported function before it (Ghidra split it there) (0x004df730) |
 | 0x004e0020 | 190 | folded | covered where the port does it: src/mech3/zrdraiv.cpp:265 (read: a destructor, a container insert or assign, or the work beside the function that comment names) |
 | 0x004e0082 | 155 | folded | follows 0x004e0020: covered where the port does it: src/mech3/zrdraiv.cpp:265 (read: a destructor, a container insert or assign, or the work beside the function that comment names) |
-| 0x004e0540 | 26 | folded | covered by the port where it names it (src/upgrades/editor/add_vehicle.h:11) |
 | 0x004e06e0 | 9 | folded | a thunk: one call to another function |
 | 0x004e0700 | 8 | folded | returns a constant or a global |
 | 0x004e0720 | 9 | folded | a thunk: one call to another function |

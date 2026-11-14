@@ -1624,3 +1624,15 @@ the default mech; PM's menu has no training items. Ghidra made no function of 19
 WM_DEVICECHANGE (0x486370: a disc arriving) labelled replaced.
 Tests: `test_pm_debug_start.py` against PM's exe (44 cases identical: every start with the install check passing and
 failing, the check itself); break: every campaign item checked (22 differ). Not AI code.
+
+## S10: the release's Add veh to node and template 152's Conform (2026-11-14)
+
+MW3's port (main: `mech3/node_vehicle_dlg`, `mech3/editor_conform`; editor.md, Add veh to node and Conform) crossed.
+PM's twins do the same: the type list 0x4a07a0 (its 25 mechs, `kMechCount`, then vehicle.zrd's names), the rows
+0x4a0b00, the team and sides 0x4a0c00 / 0x4a0cb0 / 0x4a0d00 / 0x4a0d50 / 0x4a0da0, the close 0x4a0ba0, the record
+0x4f07a0 (PM's flags at +0xec, the port's +0xcc; its "target" block between, the record's defaults), 0x4f18e0 -> the
+stub 0x4f18d0 (0), and the row's step 0x403830, whose boxes carry the caption and whose path past a yes (never
+taken) is PM's own. Conform: 0x4a0530 -> 0x404100 -> 0x403f30, its ground query cdecl and its hits 0x2c bytes
+apart. Tests: `test_pm_node_vehicle.py` against PM's exe (2,498 cases identical, as MW3's: the team and sides,
+the close, the record, every branch of the step, 400 Conform runs); node_vehicle_types_are_the_mechs_then_vehicle_zrd_records
+in mw3pmtests (25 mechs). Not AI code.

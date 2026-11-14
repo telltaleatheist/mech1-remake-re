@@ -143,3 +143,42 @@ TEST(pm_node_class_names_as_the_trace_has_them) {
   EXPECT(std::strcmp(pm::zcls::node_class_name(12), "unknown") == 0);
   EXPECT(std::strcmp(pm::zcls::node_class_name(-1), "unknown") == 0);
 }
+
+#include "gamez/zreader/zreader.h"
+#include "gamez/zutil/zutl_zar.h"
+#include "mech3/mech_names.h"
+#include "mech3/node_vehicle_dlg.h"
+
+namespace {
+struct ZrdBytes {
+  std::string b;
+  ZrdBytes& u32(uint32_t v) { b.append(reinterpret_cast<const char*>(&v), 4); return *this; }
+  ZrdBytes& i(int32_t v) { return u32(1).u32(static_cast<uint32_t>(v)); }
+  ZrdBytes& s(const std::string& v) { u32(3).u32(static_cast<uint32_t>(v.size())); b += v; return *this; }
+  ZrdBytes& list(uint32_t items) { return u32(4).u32(items + 1); }
+};
+}  // namespace
+
+// The release's Add veh to node type list (0x0049d350): the 19 mechs, then vehicle.zrd's record names, made once.
+TEST(node_vehicle_types_are_the_mechs_then_vehicle_zrd_records) {
+  const std::string body = ZrdBytes().list(1).list(4).s("ttruck").i(1).s("hovertank").i(2).b;
+  zutl_zar::Entry e{};
+  e.length = static_cast<uint32_t>(body.size());
+  std::strncpy(e.name, "vehicle.zrd", sizeof e.name - 1);
+  std::string data = body;
+  data.append(reinterpret_cast<const char*>(&e), sizeof e);
+  data += ZrdBytes().u32(1).u32(1).b;
+  const std::string path = std::string(MW3_TEST_TMP) + "/test_vehicle_types.zbd";
+  std::FILE* f = std::fopen(path.c_str(), "wb");
+  std::fwrite(data.data(), 1, data.size(), f);
+  std::fclose(f);
+  zrdr::init();
+  EXPECT(zrdr::open_archive(path.c_str(), true));
+  const std::vector<std::string>& t = mech3::node_vehicle_types();
+  const size_t m = static_cast<size_t>(mech3::kMechCount);  // 19; Pirate's Moon's 25
+  EXPECT(t.size() == m + 2 && t[0] == mech3::mech_name(0) && t[m - 1] == mech3::mech_name(static_cast<int32_t>(m) - 1));
+  EXPECT(t[m] == "ttruck" && t[m + 1] == "hovertank");
+  zrdr::close_archives(true);
+  EXPECT(&mech3::node_vehicle_types() == &t && t.size() == m + 2);  // made once
+  std::remove(path.c_str());
+}

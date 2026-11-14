@@ -2481,6 +2481,14 @@ file (docs/assets.md, Data versions):
   through the network, giving up on one only once it is no shorter than
   the best so far. On today's machines that takes milliseconds even in the
   biggest networks (246 points).
+- **The AI path editor's "Add veh to node" never added anything.** It asks
+  for the vehicle type, place, yaw and team, builds the record, then hands it
+  to a step left as a stub that always says no, so nothing is made or saved
+  (Cancel goes down the same path). The rebuild's editor does it properly.
+- **A hidden "Conform" button would drop the AI's path nodes onto the
+  ground.** It puts each node half a metre over the surface beneath it
+  (halfway in a gap under a metre), but the dialog that holds it is never
+  opened.
 - **There was an AI tester in the game.** A developer dialog for steering a
   unit by hand ("Direct", "Zig Zag", "Circle", "Jump", "Random Move") and
   picking its target ("player", "nearest enemy") is still in the exe behind

@@ -471,8 +471,8 @@
 0x004b9de0	devdialog-shell	the vehicle editor's MFC plumbing (its pages' CDialog constructors, its destructor, message map); its layout is the exe's dialog resources (0xa5..0xb7). The port's editor covers the job: game_editor_vehicles (vehicle_editor_open / the page handlers)
 0x004bb2e0	devdialog-logic	the vehicle editor's list fills (each valve, each region by name into a combo box); covered in the port by game_editor_vehicles 0x004bb300 / 0x004bb620 (valve and region lists)
 0x004bb5f0	devdialog-logic	the vehicle editor's list fills (each valve, each region by name into a combo box); covered in the port by game_editor_vehicles 0x004bb300 / 0x004bb620 (valve and region lists)
-0x004bcb70	devdialog-logic	the AI tester dialog (0x004b7d80..0x004bcb70, docs/ai.md: a developer tool over a vehicle's AI and net): its helpers' logic
-0x004bc9f0	devdialog-logic	the AI tester dialog (0x004b7d80..0x004bcb70, docs/ai.md: a developer tool over a vehicle's AI and net): its helpers' logic
+0x004bcb70	folded	each element's arrange in 0x004bcba0 (its vt+0x60, then vt+0x88 the node, vt+0x8c arrange): inline in the port's CZAiNetEdit constructor (zainetedit.cpp, nd->arrange()); not the AI tester's
+0x004bc9f0	folded	NetHeader built from a record (7 dwords, the name strdup'd): the port's NetHeader and its operator= (zrdrainet.h:29); not the AI tester's
 0x004d9d80	devdialog-logic	an AI parameters dialog (MFC): what it reads into its list (the net's records) and positions; preserve as logic
 0x004d9dc0	devdialog-logic	an AI parameters dialog (MFC): what it reads into its list (the net's records) and positions; preserve as logic
 0x004d9ed0	devdialog-logic	an AI parameters dialog (MFC): what it reads into its list (the net's records) and positions; preserve as logic
@@ -596,8 +596,6 @@
 0x00401040	devdialog-shell	MFC dialog plumbing of dev dialogs (CDialog constructors and destructors, EnableWindow): resource 0x67 and the teleport and net dialogs' destructors
 0x00403a40	devdialog-shell	MFC dialog plumbing of dev dialogs (CDialog constructors and destructors, EnableWindow): resource 0x67 and the teleport and net dialogs' destructors
 0x004046d0	devdialog-shell	MFC dialog plumbing of dev dialogs (CDialog constructors and destructors, EnableWindow): resource 0x67 and the teleport and net dialogs' destructors
-0x00403ec0	devdialog-logic	the AI tester dialog's walk over a vehicle's nets (0x00404090 -> 0x00403ec0: their extents)
-0x00404090	devdialog-logic	the AI tester dialog's walk over a vehicle's nets (0x00404090 -> 0x00403ec0: their extents)
 0x004042f0	folded	covered: array and list helpers, destructors (unwind callers), the loading bar and the briefing's map (app_menus.cpp:964 overrides briefing_map_image; the hook's 'not ported yet' comment is stale), the vehicle path's entries drop (app_vehicle.h:145)
 0x00404340	folded	covered: array and list helpers, destructors (unwind callers), the loading bar and the briefing's map (app_menus.cpp:964 overrides briefing_map_image; the hook's 'not ported yet' comment is stale), the vehicle path's entries drop (app_vehicle.h:145)
 0x004050d0	folded	covered: array and list helpers, destructors (unwind callers), the loading bar and the briefing's map (app_menus.cpp:964 overrides briefing_map_image; the hook's 'not ported yet' comment is stale), the vehicle path's entries drop (app_vehicle.h:145)
@@ -789,13 +787,6 @@
 0x00493120	unused	the movie base's run to the end on its own clock (0x00575d30): nothing calls it (fmv.md)
 0x004a35e0	devdialog-shell	the vehicle pick dialog's destructor (0x004a3550's MFC plumbing: its combo box and CDialog)
 0x004a4ca0	devdialog-shell	the vehicle pick dialog's DoDataExchange (vtable 0x005c8414: the combo box 0x430 at +0x6c)
-0x0049d710	devdialog-logic	the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians
-0x0049d810	devdialog-logic	the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians
-0x0049d8d0	devdialog-logic	the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians
-0x0049d920	devdialog-logic	the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians
-0x0049d970	devdialog-logic	the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians
-0x0049d9e0	devdialog-logic	the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians
-0x0049d7b0	devdialog-logic	the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians
 0x0049d100	devdialog-shell	MFC plumbing of the editor's dialogs (DDX, UpdateData, OnDestroy, DoModal, a static list)
 0x0049d150	devdialog-shell	MFC plumbing of the editor's dialogs (DDX, UpdateData, OnDestroy, DoModal, a static list)
 0x0049d5d0	devdialog-shell	MFC plumbing of the editor's dialogs (DDX, UpdateData, OnDestroy, DoModal, a static list)
@@ -921,7 +912,6 @@
 0x004ce2a0	folded	covered: the firing's records, the net editor class's forwarding virtuals, vector and list instances, the region registry's helpers, the AI states' and steps' constructors and destructors, start-up statics
 0x004cee40	folded	covered: the firing's records, the net editor class's forwarding virtuals, vector and list instances, the region registry's helpers, the AI states' and steps' constructors and destructors, start-up statics
 0x004cfac0	folded	covered: the firing's records, the net editor class's forwarding virtuals, vector and list instances, the region registry's helpers, the AI states' and steps' constructors and destructors, start-up statics
-0x004df6a0	devdialog-logic	the editor's 'add vehicle to node' record (an aiv record built on OK, editor.md); in the release its path returns 0 and nothing is made; ours does it as meant: upgrades/editor/add_vehicle
 0x004d5530	devdialog-shell	the AI and editor dialogs' MFC base (vtable 0x005cce00: CDialog constructor, modeless Create, close with the cursor hidden, DoModal, OnInitDialog with the cursor shown)
 0x004d5570	devdialog-shell	the AI and editor dialogs' MFC base (vtable 0x005cce00: CDialog constructor, modeless Create, close with the cursor hidden, DoModal, OnInitDialog with the cursor shown)
 0x004d55a0	devdialog-shell	the AI and editor dialogs' MFC base (vtable 0x005cce00: CDialog constructor, modeless Create, close with the cursor hidden, DoModal, OnInitDialog with the cursor shown)
@@ -997,8 +987,6 @@
 0x00548e60	folded	covered: zModel's reset of its materials (module-starts.md: the port's initialisers), small helpers and list initialisers beside ported code
 0x0054b680	folded	covered: zModel's reset of its materials (module-starts.md: the port's initialisers), small helpers and list initialisers beside ported code
 0x0054b6f0	folded	covered: zModel's reset of its materials (module-starts.md: the port's initialisers), small helpers and list initialisers beside ported code
-0x00403820	devdialog-logic	the editor's 'add vehicle to node' (0x00403820 -> 0x0049d350, editor.md); ours does it as meant: upgrades/editor/add_vehicle.cpp
-0x0049d350	devdialog-logic	the editor's 'add vehicle to node' (0x00403820 -> 0x0049d350, editor.md); ours does it as meant: upgrades/editor/add_vehicle.cpp
 0x004b1170	unused	the static the AI's planner builds at 0x0060b240 (two reserved vectors): read by nothing (weapon_planner.h:7)
 0x00403c00	folded	covered where the port does it: src/mech3/zainetedit.cpp:107 (read: a destructor, a container insert or assign, or the work beside the function that comment names)
 0x00404140	folded	covered where the port does it: src/mech3/game_editor_net.cpp:29 (read: a destructor, a container insert or assign, or the work beside the function that comment names)
@@ -1612,3 +1600,4 @@
 0x00555d00	folded	read: the static constructor of an STL list's shared head (malloc(0xc), 0x00555d20, the instance count up), zreader's; the port's containers
 0x00483360	sdl	the frame's WM_KILLFOCUS (message map 0x005c41c0): Default, then the input released (0x0051b050); the SDL program has no frame window
 0x004841f0	sdl	the frame's WM_MOVE (message map 0x005c41c0): Default only; the SDL program has no frame window
+0x004bcb50	folded	NetHeader's default (0x004bc9f0 on 0x005e8910: net 0, version 0x6a, no place or name): the port's member defaults (zrdrainet.h:19); not the AI tester's

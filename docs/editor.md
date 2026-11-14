@@ -61,7 +61,7 @@ no load found as menus.
 | | Node Parameters (180) | Node Params; node slot +0x90, 0x004c7190 -> 0x004c7840 |
 | | Ai Network Editor (181) | Change Net Params, 0x004bd330 -> 0x004bf670; also the Mech AI dialog |
 | | the tree (155, untitled) | Tree View, 0x00402bf0 -> 0x004b5580 |
-| Template only | Controls (118), Graphics and Sound (119), Configure Controls (134), Multi Player Missions (136), Enter Cheat Code (138), Net Edit (140), Map Area Editor (142), New Game (146), Mech Editor (149), the untitled 152, 154, 179, Global Light Properties (160), Mech Animation Transitions (182) | nothing constructs them |
+| Template only | Controls (118), Graphics and Sound (119), Configure Controls (134), Multi Player Missions (136), Enter Cheat Code (138), Net Edit (140), Map Area Editor (142), New Game (146), Mech Editor (149), the untitled 152 (its Conform button has code, 0x0049d140, below), 154, 179, Global Light Properties (160), Mech Animation Transitions (182) | nothing constructs them |
 
 So 1 is live, 23 have working code behind no way in, and 14 are only
 templates. Everything behind 0x9a is reachable in the port through Shift+F12;
@@ -767,6 +767,30 @@ test_aiv_add_mech3ax.py (in every MW3 reader archive with an aiv.zrd, a
 record of each type its records have added as Add vehicle adds it: 240 in 48
 archives read by mech3ax's unzbd exactly as written, after every shipped
 record, every other member the same). Breaks: the tags dropped, a wrong team.
+
+**The release's, ported** (S10, 2026-11-14; `mech3/node_vehicle_dlg`, test_node_vehicle.py: 2,498 cases against
+the exe, 7 breaks; node_vehicle_types_are_the_mechs_then_vehicle_zrd_records). Unwired: the editor runs ours.
+- The list (0x0049d350) is made once per run: the 19 mechs' names, then vehicle.zrd's record names; the combo puts
+  "None" first (0x0049d710), whose data is null, and starts on it.
+- A team is the packed number of team_number_of (5 bits a team): 0x0049d810 turns it into a mask and back, and the
+  side is Friend when the player's mech's friend mask (+0xc4) has it, Foe when its foe mask (+0xc8) does, else
+  Other. The Friend, Foe and Other buttons (0x0049d8d0, 0x0049d920, 0x0049d970) set the team to the lowest one of
+  that side (Other: the lowest in neither), -1 with none; typing a team (0x0049d9e0) sets the side again.
+- Closing (0x0049d7b0) keeps the chosen row's data and turns the yaw into radians.
+- 0x00403820 goes on for any DoModal result but 0 with a type chosen, Cancel too: the net is the editor's compiled
+  one, or built again (0x004bd340, 0x004be670), else "Could not locate the net"; the record (0x004e0540 ->
+  0x004df6a0: the net's id, x, y, z, yaw, team over the defaults) goes to 0x004671d0, which returns 0, so nothing
+  after it runs.
+
+## Conform (template 152, never opened; S10, 2026-11-14)
+
+Template 152 has a Conform button (control 1051) whose handler 0x0049d140 runs 0x00404090 on the dialog's edit
+(+0x64): each element of the edit's list, the last first, through 0x00403ec0, which asks the ground under the
+element (0x004edab0 down from FLT_MAX at its x, z) and takes the nearest surface at or below its height and the
+nearest at or above. It goes 0.5 over the one below (halfway between when the one above is nearer than 1), or, with
+none below, 0.5 over the one above; it moves (vt+0x2c, then vt+0x38, and the edit marked changed at +0x138) only
+when that is more than 0.1 off. Nothing constructs template 152, so it never runs. Ported for preservation,
+unwired (`mech3/editor_conform`, in test_node_vehicle.py: 400 random nets, 3 breaks).
 
 ## The tree view (S5 sitting 4, 2026-11-09)
 
