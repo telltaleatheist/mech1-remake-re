@@ -786,7 +786,8 @@ bool Brain::drop_target(zgame::Handle entity) {
   if (on == entity) {
     r = true;
     h.select_target(v, nullptr);  // vt+0xc0(0, 0)
-    h.firing_reset(*this);        // 0x004e9590
+    if (pm_ai_on()) pm_stand_down(pm_firing(*this, v));  // Pirate's Moon 1.0 @ 0x004faa40 -> 0x004faa20 -> 0x004ba8c0
+    else h.firing_reset(*this);   // 0x004e9590
   }
   return r;
 }

@@ -1,7 +1,9 @@
 // Pirate's Moon's AI, the port's side of tests/differential/test_pm_ai_*.py.
 #include <cstdint>
 #include <cstring>
+#include <new>
 
+#include "gamez/zclass/cls_node.h"
 #include "mech3/zai_valve.h"
 #include "mech3/zainet_inout.h"
 
@@ -40,4 +42,18 @@ extern "C" void probe_pm_inout_variant(int32_t type, int32_t mission, const char
   out[6] = v.match(child);
   std::memcpy(name, v.name, sizeof v.name);
   h = ai::InOutHooks{};
+}
+
+// PM's in/out record (0x54 bytes): its constructor 0x4c7f30 or reset 0x4c8010 on `bytes` with the frame
+// counter at `frame` (test_pm_inout_record.py).
+extern "C" void probe_pm_inout_record(int reset, const uint8_t* bytes, uint32_t frame, uint8_t* out) {
+  alignas(mech3::ai::InOutRecordPm) uint8_t raw[sizeof(mech3::ai::InOutRecordPm)];
+  std::memcpy(raw, bytes, sizeof raw);
+  auto* r = reinterpret_cast<mech3::ai::InOutRecordPm*>(raw);
+  const uint32_t frame_was = zcls::frames().frame;
+  zcls::frames().frame = frame;
+  if (reset) r->reset();
+  else new (raw) mech3::ai::InOutRecordPm();
+  zcls::frames().frame = frame_was;
+  std::memcpy(out, raw, sizeof raw);
 }

@@ -204,6 +204,20 @@ struct InOutRecord {
   void reset();           // 0x004c0f70: flags +8..+0xa and both ends zero, the frame now
 };
 static_assert(sizeof(InOutRecord) == 0x3c, "new(0x3c)");
+// Pirate's Moon's record (new 0x54 bytes at +0xd8): MW3's and five words more; the
+// pull 0x004ccaf0 reads back the polygon (+0x3c) and the via (+0x4c, +0x50), which
+// the port keeps as InOutLast; this whole record is ported for preservation.
+struct InOutRecordPm : InOutRecord {
+  uint32_t poly = 0;    // +0x3c  the polygon met last (InOutLast::poly)
+  uint32_t x40 = 0;     // +0x40
+  uint32_t x44 = 0;     // +0x44
+  uint32_t x48 = 0;     // +0x48
+  uint32_t via = 0;     // +0x4c  the via chosen (InOutLast::via)
+  uint8_t at_via = 0;   // +0x50  (InOutLast::at_via)
+  InOutRecordPm();      // Pirate's Moon 1.0 @ 0x004c7f30: all of it zero, +0x24 left
+  void reset();         // Pirate's Moon 1.0 @ 0x004c8010: MW3's reset, then +0x48..+0x50 zero
+};
+static_assert(sizeof(InOutRecordPm) == 0x54, "new(0x54)");
 // Mech3.exe 1.2 @ 0x004c3bd0 (ECX the animation, EDX the AI message; from
 // 0x004d4a20): messages 0x39..0x3c test, of the current area's polygons named
 // as the animation's node, only the yellow, red, cyan or blue ones.

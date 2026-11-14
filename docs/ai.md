@@ -765,6 +765,11 @@ answer's own height). It also fills a record on the vehicle (+0xd8: new
 the normal, the vehicle's place) that nothing in the exe reads. Its
 constructor and reset are ported for preservation (`InOutRecord`,
 `test_inout_record.py`); the pull does not fill it.
+Pirate's Moon's record is 0x54 bytes (constructor 0x4c7f30, reset 0x4c8010):
+MW3's fields and five more, of which PM's pull 0x4ccaf0 reads back the
+polygon met last (+0x3c) and the via it chose (+0x4c, +0x50; the port keeps
+these as `InOutLast`). Its reset is MW3's plus +0x48..+0x50 zeroed
+(`InOutRecordPm`, `test_pm_inout_record.py`).
 The callers ported so far: the attack's return 0x4cae90 (its way point),
 the drive 0x4c8a70 (its destination), the follow 0x4d1980 (the target's
 place) and the walk 0x4cee80 (its carrot, in and out one buffer). Three

@@ -37,6 +37,16 @@ void InOutRecord::reset() {
   frame = zcls::frames().frame;
 }
 
+// Pirate's Moon 1.0 @ 0x004c7f30
+InOutRecordPm::InOutRecordPm() {}  // the members' defaults (+0x24 too: the exe leaves it, as MW3's)
+
+// Pirate's Moon 1.0 @ 0x004c8010
+void InOutRecordPm::reset() {
+  InOutRecord::reset();
+  x48 = via = 0;
+  at_via = 0;
+}
+
 namespace {
 constexpr const char* kFile = "C:\\zipper\\Mech3\\ZAiNetMechInOut.cpp";
 constexpr float kWidth = 3.0f;  // 0x005e8a18

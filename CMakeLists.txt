@@ -826,6 +826,7 @@ if(MW3_BUILD_PM)
   # zSound (pm-map step 7): the shared sound probe on PM's zSound (test_pm_sound.py)
   target_sources(pmprobe PRIVATE tests/probe_sound.cpp tests/probe_pm_sound.cpp)
   target_sources(pmprobe PRIVATE tests/probe_pm_ai.cpp)
+  target_sources(pmprobe PRIVATE tests/probe_fmv.cpp)  # test_fmv_run.py with MW3_EXE=pm
   # Today's preservation ports run on PM's exe (test_pm_script_cmds.py, test_pm_*): the shared probes
   target_sources(pmprobe PRIVATE tests/probe_script_cmds.cpp tests/probe_pm_script_cmds.cpp)
   target_sources(pmprobe PRIVATE tests/probe_basic_controls.cpp tests/probe_basic_follow.cpp)
