@@ -1670,3 +1670,17 @@ PM's own: the AI tester's handlers (editor.md, PM's AI tester; `mech3/ai_tester_
 0x5ec8e0 left: 0x4c3290, 0x4c32f0, 0x4c3320, 0x4c3380, 0x4c33e0, 0x4c3440, 0x4c34d0 and 0x4c34e0 (neither a Ghidra
 function: port_audit_extra.tsv), 0x4c34f0. `test_pm_ai_tester.py`: 3,840 runs, 23 call paths, every call out, the
 four settings words and the list flag identical; 4 of 4 breaks. Not AI code (an editor).
+
+## S19: the unused zModel helpers (2026-11-14)
+
+MW3's port (main: gmod_const's `polygon_planar`, `polygon_concave`, `model_add_light`; gmod_screen's
+`project_points`, `translate_below`, `untranslate_two`, 0x53d130 = `project_point`; render.md, The unused zModel
+helpers) crossed: PM's twins are the same code built cdecl, the register arguments first on the stack (0x55a2f0,
+0x559db0, 0x55ad60, 0x540a90, 0x540ca0, 0x541830, 0x5418e0; the light's realloc PM's 0x596520).
+`test_pm_zmodel_unused.py` (test_zmodel_unused.py with PM's addresses): 2,000 runs of each, identical.
+PM's own five (pm `gmod_unused_pm`): 0x53ee40, 0x5415b0 (`model_needs`, which begin_model now calls instead of its
+inline copy), 0x543010, 0x5432b0, 0x55bc30. `test_pm_zmodel_unused_own.py` against PM's exe: 2,000 runs of each
+identical (fog_sphere stood in by x86 that keeps its arguments and loads the answer; 0x542a70 and 0x596520 stood in);
+the exe's second pop after a set-up that said 0 counted as the port's FIX (bug); 6 of 6 breaks. Not AI code.
+test_pm_submit.py fails on origin/pm as it was (c3 draw 301, a lit vertex's x 10.7 apart), with or without
+begin_model's change: reported to the lead.

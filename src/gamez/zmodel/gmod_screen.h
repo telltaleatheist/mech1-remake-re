@@ -16,4 +16,14 @@ namespace zmod {
 // input point's address (an unset local with the identity), returned as 8.
 uint32_t project_point(const zmth::Vec3* world, zmth::Vec3* out);
 
+// The unreferenced ones beside it (docs/render.md, The unused zModel helpers; preserved, unwired):
+// 0x0053d130 is project_point as the exe wrote it again without the unset outcode (project_point is it).
+// 0x0053d360 ECX world, EDX out, n: n points through the view and projected, not clamped; the outcodes ORed (1, 2,
+// 4, 8 for left, right, top, bottom, 8 too behind the near plane, put across the screen's top).
+uint32_t project_points(const zmth::Vec3* world, zmth::Vec3* out, int32_t n);
+// 0x0053de50 ECX v: the matrix under the top moved by v in its own frame (its rotation times v added to its place).
+void translate_below(const zmth::Vec3* v);
+// 0x0053df00 ECX v: the matrix under the top and the top moved back by v, each in its own frame.
+void untranslate_two(const zmth::Vec3* v);
+
 }  // namespace zmod

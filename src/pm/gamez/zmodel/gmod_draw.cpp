@@ -1,5 +1,6 @@
 #include "pm/gamez/zvideo/zvid_tl.h"
 #include "pm/gamez/zmodel/gmod_draw.h"
+#include "pm/gamez/zmodel/gmod_unused_pm.h"
 
 #include <cmath>
 #include <cstring>
@@ -258,17 +259,7 @@ int begin_model(::zcls::Node& node, Model& m, uint32_t mask, ModelPass& pass) {
   pass.mask = mask;
   cull_state().planes = mask;
   const uint32_t flags = hdr<uint32_t>(m, 8);
-  const float* centre = reinterpret_cast<const float*>(m.header + 0x48);
-  float c[3];
-  if (zmth::matrix_stack().is_identity()) std::memcpy(c, centre, 12);
-  else transform_point(centre, zmth::matrix_stack().matrix().m, c);
-  const float radius = hdr<float>(m, 0x54);
-  uint32_t needs = 0;
-  const int32_t fog = ::zmod::fog().on;
-  if (fog != 0 && (fog == 2 || (flags & 2)) && double{::zmod::fog_sphere(c, radius)} > 0.003921569) needs = 1;
-  const ::zmod::Lighting& lit = ::zmod::lighting();
-  if ((*lit.mask & 1) && ::zmod::light_list().any && (flags & 1) && lights_reaching(c, radius) > 0) needs |= 2;
-  if (lit.tint_on) needs |= 4;
+  uint32_t needs = model_needs(m);  // the exe inline, as 0x005415b0
 
   std::vector<float>& cam = g_state.cam;
   const int32_t morphs = hdr<int32_t>(m, 0x1c);
