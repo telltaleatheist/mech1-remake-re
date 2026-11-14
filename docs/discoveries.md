@@ -894,6 +894,17 @@ From the weapon code (weapons.md).
 
 ## Startup
 
+- **The game keeps two log files beside itself, emptied at every start.**
+  When MW3 opens its window it sends its text output to `mech3.out` and its
+  error output to `mech3.err` in the game's folder (in the temp folder as
+  `gamez.out` / `gamez.err` when the game's folder can't be written), each
+  starting "File started". After a crash, `mech3.err` is the place to look,
+  but it is wiped the next time the game starts (docs/screenshots.md).
+- **There is a screenshot key nobody can press.** The game has a command
+  that saves the screen as a .bmp through a Save dialog (or, inside a
+  multiplayer lobby, as `mw3_a12345.bmp` and the like), but no key is ever
+  bound to it in MW3 1.2 (docs/screenshots.md).
+
 - **The exe checks itself for stat hacks.** The very first thing the game does
   is a CRC-32 over two tables built into `Mech3.exe`: the mech roster (each
   mech's name, tonnage and class) and the BattleTech internal-structure table

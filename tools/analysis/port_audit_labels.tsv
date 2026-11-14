@@ -852,7 +852,6 @@
 0x0049dc40	folded	covered: the screens' and states' constructors and destructors, list and vector instances (mechdef-configs.md names 0x0049da10), string copies, the missions object's queries (the program's GameEngine overrides them: app_engine.h:128 and the rest), the fade wrapper, the mission cleanup
 0x0049fe70	folded	covered: the screens' and states' constructors and destructors, list and vector instances (mechdef-configs.md names 0x0049da10), string copies, the missions object's queries (the program's GameEngine overrides them: app_engine.h:128 and the rest), the fade wrapper, the mission cleanup
 0x004a4050	folded	covered: the screens' and states' constructors and destructors, list and vector instances (mechdef-configs.md names 0x0049da10), string copies, the missions object's queries (the program's GameEngine overrides them: app_engine.h:128 and the rest), the fade wrapper, the mission cleanup
-0x004abbc0	debug	the screenshot of debug command 0x7e (registered, but no key reaches it; app_keys.h): the screen saved as mw3_XXXXXX.bmp (_mktemp), or under the lobby session's name, by the writer 0x00519c20; with the screenshot writer (S6)
 0x004af000	devdialog-logic	a vehicle-pick dev dialog (resource 0x8f, from the debug key's 0x004a3550): its list of zEntity's vehicles
 0x004aef00	devdialog-shell	the vehicle-pick dialog's MFC plumbing
 0x004aef80	devdialog-shell	the vehicle-pick dialog's MFC plumbing
@@ -1367,14 +1366,6 @@
 0x00519510	software	the software renderer's texture tables: the nth mip of a chain for 0x00563940 (module-starts.md:158) and the 32 light and fog levels of every paletted texture (software-path.md:30)
 0x005195b0	software	the software renderer's texture tables: the nth mip of a chain for 0x00563940 (module-starts.md:158) and the 32 light and fog levels of every paletted texture (software-path.md:30)
 0x00519820	sdl	the square-only device resize (D3D caps 0x20; render-drawtable.md:124): no modern device needs it
-0x00519990	debug	the screenshot writer of the debug command 0x7e (0x004abbc0): copies the front buffer to 24-bit, flips it and saves a .bmp through a save dialog (0x00519cc0); no key reaches it
-0x005199e0	debug	the screenshot writer of the debug command 0x7e (0x004abbc0): copies the front buffer to 24-bit, flips it and saves a .bmp through a save dialog (0x00519cc0); no key reaches it
-0x00519a20	debug	the screenshot writer of the debug command 0x7e (0x004abbc0): copies the front buffer to 24-bit, flips it and saves a .bmp through a save dialog (0x00519cc0); no key reaches it
-0x00519a40	debug	the screenshot writer of the debug command 0x7e (0x004abbc0): copies the front buffer to 24-bit, flips it and saves a .bmp through a save dialog (0x00519cc0); no key reaches it
-0x00519b30	debug	the screenshot writer of the debug command 0x7e (0x004abbc0): copies the front buffer to 24-bit, flips it and saves a .bmp through a save dialog (0x00519cc0); no key reaches it
-0x00519be0	debug	the screenshot writer of the debug command 0x7e (0x004abbc0): copies the front buffer to 24-bit, flips it and saves a .bmp through a save dialog (0x00519cc0); no key reaches it
-0x00519c20	debug	the screenshot writer of the debug command 0x7e (0x004abbc0): copies the front buffer to 24-bit, flips it and saves a .bmp through a save dialog (0x00519cc0); no key reaches it
-0x00519cc0	debug	the screenshot writer of the debug command 0x7e (0x004abbc0): copies the front buffer to 24-bit, flips it and saves a .bmp through a save dialog (0x00519cc0); no key reaches it
 0x00519df0	unused	zFont, the bitmap fonts from fonts.zrd: loaded at start-up (0x00519e50), split into glyphs, measured by id (0x0051a0d0), freed (0x00519f70), but nothing in 1.2 draws them (app_engine.cpp:318, twod.md section 4)
 0x00519e50	unused	zFont, the bitmap fonts from fonts.zrd: loaded at start-up (0x00519e50), split into glyphs, measured by id (0x0051a0d0), freed (0x00519f70), but nothing in 1.2 draws them (app_engine.cpp:318, twod.md section 4)
 0x00519f70	unused	zFont, the bitmap fonts from fonts.zrd: loaded at start-up (0x00519e50), split into glyphs, measured by id (0x0051a0d0), freed (0x00519f70), but nothing in 1.2 draws them (app_engine.cpp:318, twod.md section 4)
@@ -1469,7 +1460,7 @@
 0x00574d90	sdl	DirectSound buffers: made from a WAV (0x00574ff0) and released (0x00574d90, 0x00574f10); SDL audio holds the port's
 0x00574f10	sdl	DirectSound buffers: made from a WAV (0x00574ff0) and released (0x00574d90, 0x00574f10); SDL audio holds the port's
 0x00574ff0	sdl	DirectSound buffers: made from a WAV (0x00574ff0) and released (0x00574d90, 0x00574f10); SDL audio holds the port's
-0x00575b00	debug	the developer's stdout redirect (freopen to a log; editor.md:214)
+0x00575b00	sdl	stdout and stderr sent to <name>.out / <name>.err beside the exe (the frame's constructor 0x00590920 gives "mech3"; gamez.out / gamez.err in the temp folder when that fails), "File started" written to each: every start, not a developer tool. Replaced by the rebuild's own log (frontend/sdl/log_start.h, mw3.log; docs/screenshots.md)
 0x00575d00	sdl	Win32 plumbing the port replaces: the MCI notify window's flag (app_engine.h:541) and its reader, the CD-ROM drive search (FIX (A) and (trap): fixes.md:56, 130), the Winsock 2 check (FIX (A), mp_connect.cpp:280), Mech3Msg.dll's LoadLibrary, FreeLibrary and FormatMessage (the port reads the DLL as a file: fixes.md:259, 281; sdl_twod_host.cpp:435)
 0x00575d10	sdl	Win32 plumbing the port replaces: the MCI notify window's flag (app_engine.h:541) and its reader, the CD-ROM drive search (FIX (A) and (trap): fixes.md:56, 130), the Winsock 2 check (FIX (A), mp_connect.cpp:280), Mech3Msg.dll's LoadLibrary, FreeLibrary and FormatMessage (the port reads the DLL as a file: fixes.md:259, 281; sdl_twod_host.cpp:435)
 0x00575d40	sdl	Win32 plumbing the port replaces: the MCI notify window's flag (app_engine.h:541) and its reader, the CD-ROM drive search (FIX (A) and (trap): fixes.md:56, 130), the Winsock 2 check (FIX (A), mp_connect.cpp:280), Mech3Msg.dll's LoadLibrary, FreeLibrary and FormatMessage (the port reads the DLL as a file: fixes.md:259, 281; sdl_twod_host.cpp:435)

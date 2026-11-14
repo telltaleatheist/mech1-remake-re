@@ -211,7 +211,7 @@ object's records in memory (0x004bef80 -> 0x004dc2b0; deleted nodes through
 0x004da7e0 (slot +0x14; 0x004db8d0, a node), but nothing found calls them.
 They need a FILE*, the exe has no `_fdopen`, and every `fopen` for writing
 is something else: the controls (0x00411e60), location.zrd (0x004a37a0),
-stdout (0x00575b00, `freopen`), a zbd save (0x004fe8e0, debug path 0x592423,
+stdout and stderr (0x00575b00, `freopen` to mech3.out / mech3.err at every start; screenshots.md), a zbd save (0x004fe8e0, debug path 0x592423,
 not traced further). Pirate's Moon is the same
 (0x004c4160, stub 0x0051a4d0), and its writer 0x004ecaa0 adds `via` and
 `static_mfb`. So by this reading an edit in the release lasts until the file object goes;

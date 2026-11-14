@@ -124,6 +124,7 @@ add_library(mw3core STATIC
   src/gamez/zeffect/zeff_anim_save.cpp
   src/gamez/zeffect/zeff_init.cpp
   src/gamez/zimage/zimg_library.cpp
+  src/gamez/zimage/zimg_shot.cpp
   src/gamez/zinterp/zinterp.cpp
   src/gamez/zinterp/zinterp_parse.cpp
   src/gamez/zinterp/zinterp_console.cpp
@@ -546,6 +547,7 @@ add_library(mw3probe SHARED
   tests/probe_twod.cpp
   tests/probe_dev_text.cpp
   tests/probe_debug_keys.cpp
+  tests/probe_shot.cpp
   tests/probe_mainmenu.cpp
   tests/probe_pocket_panel.cpp
   tests/probe_menus.cpp

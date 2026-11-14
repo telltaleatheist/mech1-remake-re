@@ -12,12 +12,12 @@ container code, or covered where the port names it); **replaced** (SDL or the pl
 | Class | Functions |
 |---|---|
 | folded | 3023 |
-| replaced (SDL or the platform layer) | 221 |
+| replaced (SDL or the platform layer) | 222 |
 | software renderer | 113 |
 | unused: PORT (preserve) | 81 |
 | dev dialog (MFC), its logic: PORT (preserve) | 54 |
 | dev dialog (MFC), its window plumbing: replaced | 52 |
-| debug or dev tool: PORT (preserve) | 45 |
+| debug or dev tool: PORT (preserve) | 35 |
 | unlabelled | 2 |
 
 ## MISSING LOGIC
@@ -42,10 +42,7 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 
 - 1 functions, 25 decomp lines (0x0041cee0): read: the mech's vt+0xf8 (the player's view pick: the crosshair's ground point, +0x1d48 of 0x00430aa0's object, when this is the viewed mech), called only by the AI net editor's commands 0x00402d60 and 0x00403160 (game_editor_net.cpp:146, 229) through the viewed vehicle; the port's editor answers for the stealth object only (app_vehicle.cpp:475)
 - 1 functions, 32 decomp lines (0x004a3550): the vehicle pick of debug command 0x8a (app_key, never bound in the release): an MFC dialog (resource 0x430's list, 0x004aef00) whose chosen vehicle gets the view (its vt+0x108); with the dialog sittings
-- 1 functions, 121 decomp lines (0x004abbc0): the screenshot of debug command 0x7e (registered, but no key reaches it; app_keys.h): the screen saved as mw3_XXXXXX.bmp (_mktemp), or under the lobby session's name, by the writer 0x00519c20; with the screenshot writer (S6)
 - 2 functions, 18 decomp lines (0x004e2310, 0x004e53b0): the valve reader's print method (a vtable slot that fprintf's a value); nothing in the game prints a reader
-- 8 functions, 290 decomp lines (0x00519990, 0x005199e0, 0x00519a20, 0x00519a40 ...): the screenshot writer of the debug command 0x7e (0x004abbc0): copies the front buffer to 24-bit, flips it and saves a .bmp through a save dialog (0x00519cc0); no key reaches it
-- 1 functions, 225 decomp lines (0x00575b00): the developer's stdout redirect (freopen to a log; editor.md:214)
 - 27 functions, 837 decomp lines (0x0058c590, 0x0058d3c0, 0x0058e440, 0x0058e460 ...): the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
 - 1 functions, 17 decomp lines (0x005a98d0): the developers' loose <name>.zan override for motion scripts (motion.md:36), like the reader's loose .zrd files
 - 3 functions, 219 decomp lines (0x005a9bc0, 0x005a9e10, 0x005aa210): the motion script's text side: the loose .zan reader (0x005a9e10, with 0x005aa210) behind the developers' override, and the writer (0x005a9bc0)
@@ -97,7 +94,7 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 
 ## By module
 
-### mech3 (2525 not ported)
+### mech3 (2524 not ported)
 
 | Address | Lines | Class | Why |
 |---|---|---|---|
@@ -105,7 +102,7 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x00401020 | 8 | folded | returns a constant or a global |
 | 0x00401030 | 9 | dev dialog (MFC), its window plumbing: replaced | MFC dialog plumbing of dev dialogs (CDialog constructors and destructors, EnableWindow): resource 0x67 and the teleport and net dialogs' destructors |
 | 0x00401040 | 9 | dev dialog (MFC), its window plumbing: replaced | MFC dialog plumbing of dev dialogs (CDialog constructors and destructors, EnableWindow): resource 0x67 and the teleport and net dialogs' destructors |
-| 0x004020b0 | 14 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:1100) |
+| 0x004020b0 | 14 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:1101) |
 | 0x00402140 | 14 | folded | the hardware mode's triangle stripper's small helpers and its std::map / std::list code, folded into zmod::strip_model (gmod_strip.cpp): edge and record copies and compares, the UV shift, the zone compare, the map and lists as std::map / std::list in the same order |
 | 0x00402510 | 28 | folded | covered: array and list helpers, destructors (unwind callers), the loading bar and the briefing's map (app_menus.cpp:964 overrides briefing_map_image; the hook's 'not ported yet' comment is stale), the vehicle path's entries drop (app_vehicle.h:145) |
 | 0x00402590 | 9 | folded | a thunk: one call to another function |
@@ -482,7 +479,7 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x00426bf0 | 14 | folded | covered by ported code beside them: controls file and landmine helpers, getters and setters, the mech's IControls cast, the animation's members, list helpers, constructors and destructors, the force feedback's release and reset (input.md) |
 | 0x00427410 | 32 | folded | covered by the port where it names it (src/mech3/mech_pocket.cpp:59) |
 | 0x00428440 | 15 | folded | ported, by docs/symbols.csv: ported: PlayerControls::set_record (IControls vt+0x88) |
-| 0x00428470 | 13 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:511) |
+| 0x00428470 | 13 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:512) |
 | 0x00428500 | 10 | folded | covered by the port where it names it (src/mech3/mech_control.h:181) |
 | 0x00428510 | 10 | folded | returns a constant or a global |
 | 0x00428520 | 10 | folded | returns a constant or a global |
@@ -655,8 +652,8 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x00437820 | 11 | folded | covered by the port where it names it (src/mech3/pilot.h:207) |
 | 0x00437840 | 14 | folded | the scalar deleting destructor (the destructor, then delete) |
 | 0x00437860 | 8 | folded | covered by ported code beside them: the force feedback's release, the game classes' small virtuals (first enemy, record slots, flags; mission-start.md), list and vector instances (mechdef-*.md name 0x0046cc00, 0x00475bf0, 0x00475c20), static list initialisers, the pilot's game-type getters (0x00479460/80, 0x004794a0, used by the port), part classes' constant virtuals and their damage path, constructors and destructors, the mcbwaynet's calls (app_vehicle.cpp) |
-| 0x00437870 | 8 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:2317) |
-| 0x00437880 | 8 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:2317) |
+| 0x00437870 | 8 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:2318) |
+| 0x00437880 | 8 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:2318) |
 | 0x00437890 | 8 | folded | covered by the port where it names it (src/mech3/app_menus.cpp:842) |
 | 0x004378f0 | 8 | folded | covered by the port where it names it (src/mech3/app_menus.cpp:843) |
 | 0x00437910 | 8 | folded | covered by the port where it names it (src/mech3/pilot.h:369) |
@@ -881,7 +878,7 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x0045b800 | 31 | folded | ported, by docs/symbols.csv: ported as push_back: std::list node (0xc) before the head, count +1 |
 | 0x0045b860 | 35 | folded | ported, by docs/symbols.csv: ported inline: the order deque's iterator (the brain's current order) |
 | 0x0045b900 | 16 | folded | covered by the port where it names it (src/mech3/mech_fieldbase_cut.cpp:30) |
-| 0x0045b950 | 10 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:897) |
+| 0x0045b950 | 10 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:898) |
 | 0x0045b960 | 10 | folded | covered by ported code beside them: the force feedback's release, the game classes' small virtuals (first enemy, record slots, flags; mission-start.md), list and vector instances (mechdef-*.md name 0x0046cc00, 0x00475bf0, 0x00475c20), static list initialisers, the pilot's game-type getters (0x00479460/80, 0x004794a0, used by the port), part classes' constant virtuals and their damage path, constructors and destructors, the mcbwaynet's calls (app_vehicle.cpp) |
 | 0x0045b970 | 8 | folded | covered by the port where it names it (src/mech3/app_vehicle.h:138) |
 | 0x0045b990 | 8 | folded | covered by the port where it names it (src/mech3/mech_fieldbase.h:34) |
@@ -1514,7 +1511,6 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x004ab500 | 63 | folded | covered where the port does it: src/crt/msvc_sort.h:7 (read: a destructor, a container insert or assign, or the work beside the function that comment names) |
 | 0x004ab620 | 38 | folded | covered by the port where it names it (src/crt/msvc_sort.h:7) |
 | 0x004abaf0 | 25 | folded | covered by the port where it names it (src/mech3/mech_build.cpp:318) |
-| 0x004abbc0 | 121 | debug or dev tool: PORT (preserve) | the screenshot of debug command 0x7e (registered, but no key reaches it; app_keys.h): the screen saved as mw3_XXXXXX.bmp (_mktemp), or under the lobby session's name, by the writer 0x00519c20; with the screenshot writer (S6) |
 | 0x004abfe0 | 22 | replaced (SDL or the platform layer) | Win32: the exe's version info for the window title and menus (GetFileVersionInfoA; protection.md) and the OK/Cancel MessageBoxExA helper (the game's own box replaces it, W16) |
 | 0x004ac050 | 36 | folded | covered by the port where it names it (src/mech3/app_menus.cpp:1428) |
 | 0x004ac2c0 | 13 | folded | covered: the stealth's controls (app_vehicle.cpp:604), the turret's slots, the sensors' vector instances (ai.md 15), the vehicles' list instances, the controls' constant virtuals (controls.md), the weapon lists, the firing's thunks, start-up statics |
@@ -2432,7 +2428,7 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x004e07e0 | 17 | folded | covered by the port where it names it (src/mech3/zrdraiv.cpp:504) |
 | 0x004e0820 | 9 | folded | a thunk: one call to another function |
 | 0x004e0840 | 9 | folded | a thunk: one call to another function |
-| 0x004e0870 | 18 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:1177) |
+| 0x004e0870 | 18 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:1178) |
 | 0x004e0c20 | 16 | folded | the valve reader's records, actions and lists: constructors, destructors, factories and list helpers of classes ported in zrdrvalve/zai_valve |
 | 0x004e0c50 | 88 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
 | 0x004e0db0 | 59 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
@@ -3072,7 +3068,7 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x00574f10 | 23 | replaced (SDL or the platform layer) | DirectSound buffers: made from a WAV (0x00574ff0) and released (0x00574d90, 0x00574f10); SDL audio holds the port's |
 | 0x00574fd0 | 15 | folded | covered by the port where it names it (src/gamez/zsound/zsnd.h:326) |
 | 0x00574ff0 | 101 | replaced (SDL or the platform layer) | DirectSound buffers: made from a WAV (0x00574ff0) and released (0x00574d90, 0x00574f10); SDL audio holds the port's |
-| 0x00575b00 | 225 | debug or dev tool: PORT (preserve) | the developer's stdout redirect (freopen to a log; editor.md:214) |
+| 0x00575b00 | 225 | replaced (SDL or the platform layer) | stdout and stderr sent to <name>.out / <name>.err beside the exe (the frame's constructor 0x00590920 gives "mech3"; gamez.out / gamez.err in the temp folder when that fails), "File started" written to each: every start, not a developer tool. Replaced by the rebuild's own log (frontend/sdl/log_start.h, mw3.log; docs/screenshots.md) |
 | 0x00575d00 | 11 | replaced (SDL or the platform layer) | Win32 plumbing the port replaces: the MCI notify window's flag (app_engine.h:541) and its reader, the CD-ROM drive search (FIX (A) and (trap): fixes.md:56, 130), the Winsock 2 check (FIX (A), mp_connect.cpp:280), Mech3Msg.dll's LoadLibrary, FreeLibrary and FormatMessage (the port reads the DLL as a file: fixes.md:259, 281; sdl_twod_host.cpp:435) |
 | 0x00575d10 | 8 | replaced (SDL or the platform layer) | Win32 plumbing the port replaces: the MCI notify window's flag (app_engine.h:541) and its reader, the CD-ROM drive search (FIX (A) and (trap): fixes.md:56, 130), the Winsock 2 check (FIX (A), mp_connect.cpp:280), Mech3Msg.dll's LoadLibrary, FreeLibrary and FormatMessage (the port reads the DLL as a file: fixes.md:259, 281; sdl_twod_host.cpp:435) |
 | 0x00575d40 | 63 | replaced (SDL or the platform layer) | Win32 plumbing the port replaces: the MCI notify window's flag (app_engine.h:541) and its reader, the CD-ROM drive search (FIX (A) and (trap): fixes.md:56, 130), the Winsock 2 check (FIX (A), mp_connect.cpp:280), Mech3Msg.dll's LoadLibrary, FreeLibrary and FormatMessage (the port reads the DLL as a file: fixes.md:259, 281; sdl_twod_host.cpp:435) |
@@ -3303,71 +3299,6 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x005a7f90 | 25 | folded | a destructor (the exception unwinds call it; it resets the vtable) |
 | 0x005a80c0 | 9 | folded | a thunk: one call to another function |
 
-### zimage (60 not ported)
-
-| Address | Lines | Class | Why |
-|---|---|---|---|
-| 0x00517280 | 17 | folded | covered by the port where it names it (src/frontend/sdl/sdl_twod_host.h:36) |
-| 0x005172c0 | 14 | replaced (SDL or the platform layer) | zimg_winfonts: the GDI fonts by name from fonts.zrd's WINDOWS_FONTS (list, find, addref, release, teardown); the SDL text host draws its own fonts (sdl_twod_host.h:36) |
-| 0x005172e0 | 14 | replaced (SDL or the platform layer) | zimg_winfonts: the GDI fonts by name from fonts.zrd's WINDOWS_FONTS (list, find, addref, release, teardown); the SDL text host draws its own fonts (sdl_twod_host.h:36) |
-| 0x00517300 | 13 | replaced (SDL or the platform layer) | zimg_winfonts: the GDI fonts by name from fonts.zrd's WINDOWS_FONTS (list, find, addref, release, teardown); the SDL text host draws its own fonts (sdl_twod_host.h:36) |
-| 0x00517310 | 27 | replaced (SDL or the platform layer) | zimg_winfonts: the GDI fonts by name from fonts.zrd's WINDOWS_FONTS (list, find, addref, release, teardown); the SDL text host draws its own fonts (sdl_twod_host.h:36) |
-| 0x00517370 | 48 | replaced (SDL or the platform layer) | zimg_winfonts: the GDI fonts by name from fonts.zrd's WINDOWS_FONTS (list, find, addref, release, teardown); the SDL text host draws its own fonts (sdl_twod_host.h:36) |
-| 0x00517410 | 47 | replaced (SDL or the platform layer) | zimg_winfonts: the GDI fonts by name from fonts.zrd's WINDOWS_FONTS (list, find, addref, release, teardown); the SDL text host draws its own fonts (sdl_twod_host.h:36) |
-| 0x005174b0 | 61 | replaced (SDL or the platform layer) | zimg_winfonts: the GDI fonts by name from fonts.zrd's WINDOWS_FONTS (list, find, addref, release, teardown); the SDL text host draws its own fonts (sdl_twod_host.h:36) |
-| 0x005175e0 | 29 | replaced (SDL or the platform layer) | zimg_winfonts: the GDI fonts by name from fonts.zrd's WINDOWS_FONTS (list, find, addref, release, teardown); the SDL text host draws its own fonts (sdl_twod_host.h:36) |
-| 0x00517650 | 16 | replaced (SDL or the platform layer) | zimg_winfonts: the GDI fonts by name from fonts.zrd's WINDOWS_FONTS (list, find, addref, release, teardown); the SDL text host draws its own fonts (sdl_twod_host.h:36) |
-| 0x00517680 | 22 | replaced (SDL or the platform layer) | zimg_winfonts: the GDI fonts by name from fonts.zrd's WINDOWS_FONTS (list, find, addref, release, teardown); the SDL text host draws its own fonts (sdl_twod_host.h:36) |
-| 0x005176b0 | 31 | folded | covered by the port where it names it (src/gamez/zimage/zimg_texture.cpp:306) |
-| 0x00517730 | 16 | folded | covered by the port where it names it (src/gamez/zimage/zimg_texture.cpp:291) |
-| 0x00517760 | 16 | folded | covered by the port where it names it (src/frontend/sdl/sdl_twod_host.cpp:173) |
-| 0x00517790 | 13 | folded | covered by the port where it names it (src/gamez/zimage/zimg_texture.cpp:320) |
-| 0x005177a0 | 47 | folded | the texture cache by name and its teardown: g_cache (zimg_texture.cpp:296-321), a std::list freed with the program |
-| 0x00517840 | 20 | folded | covered by the port where it names it (src/gamez/zimage/zimg_texture.cpp:318) |
-| 0x005178a0 | 61 | folded | the texture cache by name and its teardown: g_cache (zimg_texture.cpp:296-321), a std::list freed with the program |
-| 0x00517be0 | 16 | folded | the texture cache by name and its teardown: g_cache (zimg_texture.cpp:296-321), a std::list freed with the program |
-| 0x00517c10 | 9 | folded | covered by the port where it names it (src/frontend/sdl/sdl_twod_host.cpp:67) |
-| 0x00517c30 | 12 | folded | covered by the port where it names it (src/gamez/zimage/zimg_library.cpp:295) |
-| 0x00517c40 | 15 | folded | covered by the port where it names it (src/gamez/zimage/zimg_library.cpp:348) |
-| 0x00517c60 | 12 | folded | covered by the port where it names it (src/gamez/zimage/zimg_library.cpp:294) |
-| 0x00517c70 | 16 | folded | covered by the port where it names it (src/gamez/zmodel/gmod_cull.cpp:350) |
-| 0x00517c90 | 15 | folded | covered by the port where it names it (src/frontend/sdl/sdl_twod_host.cpp:67) |
-| 0x00517f70 | 14 | folded | covered by the port where it names it (src/gamez/zimage/zimg_library.cpp:34) |
-| 0x00517fe0 | 9 | folded | a thunk: one call to another function |
-| 0x00517ff0 | 9 | folded | a thunk: one call to another function |
-| 0x00518020 | 9 | folded | a thunk: one call to another function |
-| 0x00518030 | 9 | folded | a thunk: one call to another function |
-| 0x005184e0 | 47 | replaced (SDL or the platform layer) | the texture table's start-up: zeroes the table and makes the Direct3D default texture record; the port's GPU textures make their own (zimg_texture.cpp:109, fixes.md puffer row) |
-| 0x005185f0 | 13 | folded | covered by the port where it names it (src/frontend/sdl/sdl_twod_host.cpp:174) |
-| 0x00518760 | 14 | folded | covered by the port where it names it (src/gamez/zimage/zimg_library.cpp:386) |
-| 0x00518790 | 11 | folded | one-line setters/lookups the port does inline: zImage's library flag (no effect, app_engine.cpp:307), the texture group (mech_lib.cpp:34, app_mission.cpp:1910), the archive file test (zimg_library.cpp:20), the extension cut (zimg_texture.cpp:94) |
-| 0x005187a0 | 11 | folded | one-line setters/lookups the port does inline: zImage's library flag (no effect, app_engine.cpp:307), the texture group (mech_lib.cpp:34, app_mission.cpp:1910), the archive file test (zimg_library.cpp:20), the extension cut (zimg_texture.cpp:94) |
-| 0x00518c50 | 9 | folded | a thunk: one call to another function |
-| 0x00518f50 | 11 | folded | one-line setters/lookups the port does inline: zImage's library flag (no effect, app_engine.cpp:307), the texture group (mech_lib.cpp:34, app_mission.cpp:1910), the archive file test (zimg_library.cpp:20), the extension cut (zimg_texture.cpp:94) |
-| 0x00518f60 | 8 | folded | returns a constant or a global |
-| 0x005190e0 | 15 | unused: PORT (preserve) | frees a chain of loaded textures; its only caller 0x005374d0 is unreached |
-| 0x00519120 | 25 | software renderer | the software renderer's texture tables: the nth mip of a chain for 0x00563940 (module-starts.md:158) and the 32 light and fog levels of every paletted texture (software-path.md:30) |
-| 0x00519150 | 121 | folded | one-line setters/lookups the port does inline: zImage's library flag (no effect, app_engine.cpp:307), the texture group (mech_lib.cpp:34, app_mission.cpp:1910), the archive file test (zimg_library.cpp:20), the extension cut (zimg_texture.cpp:94) |
-| 0x00519370 | 51 | software renderer | the software renderer's texture tables: the nth mip of a chain for 0x00563940 (module-starts.md:158) and the 32 light and fog levels of every paletted texture (software-path.md:30) |
-| 0x00519510 | 38 | software renderer | the software renderer's texture tables: the nth mip of a chain for 0x00563940 (module-starts.md:158) and the 32 light and fog levels of every paletted texture (software-path.md:30) |
-| 0x005195b0 | 75 | software renderer | the software renderer's texture tables: the nth mip of a chain for 0x00563940 (module-starts.md:158) and the 32 light and fog levels of every paletted texture (software-path.md:30) |
-| 0x005197d0 | 11 | software renderer | follows 0x00519510: the software renderer's texture tables: the nth mip of a chain for 0x00563940 (module-starts.md:158) and the 32 light and fog levels of every paletted texture (software-path.md:30) |
-| 0x00519820 | 65 | replaced (SDL or the platform layer) | the square-only device resize (D3D caps 0x20; render-drawtable.md:124): no modern device needs it |
-| 0x00519990 | 20 | debug or dev tool: PORT (preserve) | the screenshot writer of the debug command 0x7e (0x004abbc0): copies the front buffer to 24-bit, flips it and saves a .bmp through a save dialog (0x00519cc0); no key reaches it |
-| 0x005199e0 | 27 | debug or dev tool: PORT (preserve) | the screenshot writer of the debug command 0x7e (0x004abbc0): copies the front buffer to 24-bit, flips it and saves a .bmp through a save dialog (0x00519cc0); no key reaches it |
-| 0x00519a20 | 14 | debug or dev tool: PORT (preserve) | the screenshot writer of the debug command 0x7e (0x004abbc0): copies the front buffer to 24-bit, flips it and saves a .bmp through a save dialog (0x00519cc0); no key reaches it |
-| 0x00519a40 | 51 | debug or dev tool: PORT (preserve) | the screenshot writer of the debug command 0x7e (0x004abbc0): copies the front buffer to 24-bit, flips it and saves a .bmp through a save dialog (0x00519cc0); no key reaches it |
-| 0x00519b30 | 64 | debug or dev tool: PORT (preserve) | the screenshot writer of the debug command 0x7e (0x004abbc0): copies the front buffer to 24-bit, flips it and saves a .bmp through a save dialog (0x00519cc0); no key reaches it |
-| 0x00519be0 | 20 | debug or dev tool: PORT (preserve) | the screenshot writer of the debug command 0x7e (0x004abbc0): copies the front buffer to 24-bit, flips it and saves a .bmp through a save dialog (0x00519cc0); no key reaches it |
-| 0x00519c20 | 25 | debug or dev tool: PORT (preserve) | the screenshot writer of the debug command 0x7e (0x004abbc0): copies the front buffer to 24-bit, flips it and saves a .bmp through a save dialog (0x00519cc0); no key reaches it |
-| 0x00519cc0 | 69 | debug or dev tool: PORT (preserve) | the screenshot writer of the debug command 0x7e (0x004abbc0): copies the front buffer to 24-bit, flips it and saves a .bmp through a save dialog (0x00519cc0); no key reaches it |
-| 0x00519df0 | 20 | unused: PORT (preserve) | zFont, the bitmap fonts from fonts.zrd: loaded at start-up (0x00519e50), split into glyphs, measured by id (0x0051a0d0), freed (0x00519f70), but nothing in 1.2 draws them (app_engine.cpp:318, twod.md section 4) |
-| 0x00519e50 | 51 | unused: PORT (preserve) | zFont, the bitmap fonts from fonts.zrd: loaded at start-up (0x00519e50), split into glyphs, measured by id (0x0051a0d0), freed (0x00519f70), but nothing in 1.2 draws them (app_engine.cpp:318, twod.md section 4) |
-| 0x00519f70 | 20 | unused: PORT (preserve) | zFont, the bitmap fonts from fonts.zrd: loaded at start-up (0x00519e50), split into glyphs, measured by id (0x0051a0d0), freed (0x00519f70), but nothing in 1.2 draws them (app_engine.cpp:318, twod.md section 4) |
-| 0x00519fa0 | 52 | unused: PORT (preserve) | zFont, the bitmap fonts from fonts.zrd: loaded at start-up (0x00519e50), split into glyphs, measured by id (0x0051a0d0), freed (0x00519f70), but nothing in 1.2 draws them (app_engine.cpp:318, twod.md section 4) |
-| 0x0051a080 | 30 | unused: PORT (preserve) | zFont, the bitmap fonts from fonts.zrd: loaded at start-up (0x00519e50), split into glyphs, measured by id (0x0051a0d0), freed (0x00519f70), but nothing in 1.2 draws them (app_engine.cpp:318, twod.md section 4) |
-| 0x0051a0d0 | 51 | unused: PORT (preserve) | zFont, the bitmap fonts from fonts.zrd: loaded at start-up (0x00519e50), split into glyphs, measured by id (0x0051a0d0), freed (0x00519f70), but nothing in 1.2 draws them (app_engine.cpp:318, twod.md section 4) |
-
 ### zinterp (59 not ported)
 
 | Address | Lines | Class | Why |
@@ -3489,6 +3420,63 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x004fe0b0 | 9 | folded | covered by the port where it names it (src/gamez/zclass/cls_node.cpp:584) |
 | 0x004fe0f0 | 9 | folded | covered by the port where it names it (src/gamez/zclass/list.cpp:354) |
 
+### zimage (52 not ported)
+
+| Address | Lines | Class | Why |
+|---|---|---|---|
+| 0x00517280 | 17 | folded | covered by the port where it names it (src/frontend/sdl/sdl_twod_host.h:36) |
+| 0x005172c0 | 14 | replaced (SDL or the platform layer) | zimg_winfonts: the GDI fonts by name from fonts.zrd's WINDOWS_FONTS (list, find, addref, release, teardown); the SDL text host draws its own fonts (sdl_twod_host.h:36) |
+| 0x005172e0 | 14 | replaced (SDL or the platform layer) | zimg_winfonts: the GDI fonts by name from fonts.zrd's WINDOWS_FONTS (list, find, addref, release, teardown); the SDL text host draws its own fonts (sdl_twod_host.h:36) |
+| 0x00517300 | 13 | replaced (SDL or the platform layer) | zimg_winfonts: the GDI fonts by name from fonts.zrd's WINDOWS_FONTS (list, find, addref, release, teardown); the SDL text host draws its own fonts (sdl_twod_host.h:36) |
+| 0x00517310 | 27 | replaced (SDL or the platform layer) | zimg_winfonts: the GDI fonts by name from fonts.zrd's WINDOWS_FONTS (list, find, addref, release, teardown); the SDL text host draws its own fonts (sdl_twod_host.h:36) |
+| 0x00517370 | 48 | replaced (SDL or the platform layer) | zimg_winfonts: the GDI fonts by name from fonts.zrd's WINDOWS_FONTS (list, find, addref, release, teardown); the SDL text host draws its own fonts (sdl_twod_host.h:36) |
+| 0x00517410 | 47 | replaced (SDL or the platform layer) | zimg_winfonts: the GDI fonts by name from fonts.zrd's WINDOWS_FONTS (list, find, addref, release, teardown); the SDL text host draws its own fonts (sdl_twod_host.h:36) |
+| 0x005174b0 | 61 | replaced (SDL or the platform layer) | zimg_winfonts: the GDI fonts by name from fonts.zrd's WINDOWS_FONTS (list, find, addref, release, teardown); the SDL text host draws its own fonts (sdl_twod_host.h:36) |
+| 0x005175e0 | 29 | replaced (SDL or the platform layer) | zimg_winfonts: the GDI fonts by name from fonts.zrd's WINDOWS_FONTS (list, find, addref, release, teardown); the SDL text host draws its own fonts (sdl_twod_host.h:36) |
+| 0x00517650 | 16 | replaced (SDL or the platform layer) | zimg_winfonts: the GDI fonts by name from fonts.zrd's WINDOWS_FONTS (list, find, addref, release, teardown); the SDL text host draws its own fonts (sdl_twod_host.h:36) |
+| 0x00517680 | 22 | replaced (SDL or the platform layer) | zimg_winfonts: the GDI fonts by name from fonts.zrd's WINDOWS_FONTS (list, find, addref, release, teardown); the SDL text host draws its own fonts (sdl_twod_host.h:36) |
+| 0x005176b0 | 31 | folded | covered by the port where it names it (src/gamez/zimage/zimg_texture.cpp:306) |
+| 0x00517730 | 16 | folded | covered by the port where it names it (src/gamez/zimage/zimg_texture.cpp:291) |
+| 0x00517760 | 16 | folded | covered by the port where it names it (src/frontend/sdl/sdl_twod_host.cpp:173) |
+| 0x00517790 | 13 | folded | covered by the port where it names it (src/gamez/zimage/zimg_texture.cpp:320) |
+| 0x005177a0 | 47 | folded | the texture cache by name and its teardown: g_cache (zimg_texture.cpp:296-321), a std::list freed with the program |
+| 0x00517840 | 20 | folded | covered by the port where it names it (src/gamez/zimage/zimg_texture.cpp:318) |
+| 0x005178a0 | 61 | folded | the texture cache by name and its teardown: g_cache (zimg_texture.cpp:296-321), a std::list freed with the program |
+| 0x00517be0 | 16 | folded | the texture cache by name and its teardown: g_cache (zimg_texture.cpp:296-321), a std::list freed with the program |
+| 0x00517c10 | 9 | folded | covered by the port where it names it (src/frontend/sdl/sdl_twod_host.cpp:67) |
+| 0x00517c30 | 12 | folded | covered by the port where it names it (src/gamez/zimage/zimg_library.cpp:295) |
+| 0x00517c40 | 15 | folded | covered by the port where it names it (src/gamez/zimage/zimg_library.cpp:348) |
+| 0x00517c60 | 12 | folded | covered by the port where it names it (src/gamez/zimage/zimg_library.cpp:294) |
+| 0x00517c70 | 16 | folded | covered by the port where it names it (src/gamez/zmodel/gmod_cull.cpp:350) |
+| 0x00517c90 | 15 | folded | covered by the port where it names it (src/frontend/sdl/sdl_twod_host.cpp:67) |
+| 0x00517f70 | 14 | folded | covered by the port where it names it (src/gamez/zimage/zimg_library.cpp:34) |
+| 0x00517fe0 | 9 | folded | a thunk: one call to another function |
+| 0x00517ff0 | 9 | folded | a thunk: one call to another function |
+| 0x00518020 | 9 | folded | a thunk: one call to another function |
+| 0x00518030 | 9 | folded | a thunk: one call to another function |
+| 0x005184e0 | 47 | replaced (SDL or the platform layer) | the texture table's start-up: zeroes the table and makes the Direct3D default texture record; the port's GPU textures make their own (zimg_texture.cpp:109, fixes.md puffer row) |
+| 0x005185f0 | 13 | folded | covered by the port where it names it (src/frontend/sdl/sdl_twod_host.cpp:174) |
+| 0x00518760 | 14 | folded | covered by the port where it names it (src/gamez/zimage/zimg_library.cpp:386) |
+| 0x00518790 | 11 | folded | one-line setters/lookups the port does inline: zImage's library flag (no effect, app_engine.cpp:307), the texture group (mech_lib.cpp:34, app_mission.cpp:1910), the archive file test (zimg_library.cpp:20), the extension cut (zimg_texture.cpp:94) |
+| 0x005187a0 | 11 | folded | one-line setters/lookups the port does inline: zImage's library flag (no effect, app_engine.cpp:307), the texture group (mech_lib.cpp:34, app_mission.cpp:1910), the archive file test (zimg_library.cpp:20), the extension cut (zimg_texture.cpp:94) |
+| 0x00518c50 | 9 | folded | a thunk: one call to another function |
+| 0x00518f50 | 11 | folded | one-line setters/lookups the port does inline: zImage's library flag (no effect, app_engine.cpp:307), the texture group (mech_lib.cpp:34, app_mission.cpp:1910), the archive file test (zimg_library.cpp:20), the extension cut (zimg_texture.cpp:94) |
+| 0x00518f60 | 8 | folded | returns a constant or a global |
+| 0x005190e0 | 15 | unused: PORT (preserve) | frees a chain of loaded textures; its only caller 0x005374d0 is unreached |
+| 0x00519120 | 25 | software renderer | the software renderer's texture tables: the nth mip of a chain for 0x00563940 (module-starts.md:158) and the 32 light and fog levels of every paletted texture (software-path.md:30) |
+| 0x00519150 | 121 | folded | one-line setters/lookups the port does inline: zImage's library flag (no effect, app_engine.cpp:307), the texture group (mech_lib.cpp:34, app_mission.cpp:1910), the archive file test (zimg_library.cpp:20), the extension cut (zimg_texture.cpp:94) |
+| 0x00519370 | 51 | software renderer | the software renderer's texture tables: the nth mip of a chain for 0x00563940 (module-starts.md:158) and the 32 light and fog levels of every paletted texture (software-path.md:30) |
+| 0x00519510 | 38 | software renderer | the software renderer's texture tables: the nth mip of a chain for 0x00563940 (module-starts.md:158) and the 32 light and fog levels of every paletted texture (software-path.md:30) |
+| 0x005195b0 | 75 | software renderer | the software renderer's texture tables: the nth mip of a chain for 0x00563940 (module-starts.md:158) and the 32 light and fog levels of every paletted texture (software-path.md:30) |
+| 0x005197d0 | 11 | software renderer | follows 0x00519510: the software renderer's texture tables: the nth mip of a chain for 0x00563940 (module-starts.md:158) and the 32 light and fog levels of every paletted texture (software-path.md:30) |
+| 0x00519820 | 65 | replaced (SDL or the platform layer) | the square-only device resize (D3D caps 0x20; render-drawtable.md:124): no modern device needs it |
+| 0x00519df0 | 20 | unused: PORT (preserve) | zFont, the bitmap fonts from fonts.zrd: loaded at start-up (0x00519e50), split into glyphs, measured by id (0x0051a0d0), freed (0x00519f70), but nothing in 1.2 draws them (app_engine.cpp:318, twod.md section 4) |
+| 0x00519e50 | 51 | unused: PORT (preserve) | zFont, the bitmap fonts from fonts.zrd: loaded at start-up (0x00519e50), split into glyphs, measured by id (0x0051a0d0), freed (0x00519f70), but nothing in 1.2 draws them (app_engine.cpp:318, twod.md section 4) |
+| 0x00519f70 | 20 | unused: PORT (preserve) | zFont, the bitmap fonts from fonts.zrd: loaded at start-up (0x00519e50), split into glyphs, measured by id (0x0051a0d0), freed (0x00519f70), but nothing in 1.2 draws them (app_engine.cpp:318, twod.md section 4) |
+| 0x00519fa0 | 52 | unused: PORT (preserve) | zFont, the bitmap fonts from fonts.zrd: loaded at start-up (0x00519e50), split into glyphs, measured by id (0x0051a0d0), freed (0x00519f70), but nothing in 1.2 draws them (app_engine.cpp:318, twod.md section 4) |
+| 0x0051a080 | 30 | unused: PORT (preserve) | zFont, the bitmap fonts from fonts.zrd: loaded at start-up (0x00519e50), split into glyphs, measured by id (0x0051a0d0), freed (0x00519f70), but nothing in 1.2 draws them (app_engine.cpp:318, twod.md section 4) |
+| 0x0051a0d0 | 51 | unused: PORT (preserve) | zFont, the bitmap fonts from fonts.zrd: loaded at start-up (0x00519e50), split into glyphs, measured by id (0x0051a0d0), freed (0x00519f70), but nothing in 1.2 draws them (app_engine.cpp:318, twod.md section 4) |
+
 ### zreader (50 not ported)
 
 | Address | Lines | Class | Why |
@@ -3551,8 +3539,8 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x005a80d0 | 12 | folded | covered by the port where it names it (src/mech3/app_mech.cpp:510) |
 | 0x005a80f0 | 54 | folded | ported, by docs/symbols.csv: ported for the turrets (app_turret.cpp): the zone record of the ground under the node, the camera's zone onto it |
 | 0x005a8210 | 45 | folded | zEntity's list and its entries, covered where named: by name (app_vehicle.h:188), the position getters, the node's name (app_mech.cpp:831), the moved slot vt+0x1c (Mech::entity_moved, app_sensors.cpp:219, app_mech.cpp:526; the sensors' mech fallback at app_sensors.cpp:133 only logs and no port code calls it), the manager's set-up (zent_manager.h:18), add and remove (app_mission.cpp:1822-1826) |
-| 0x005a8280 | 28 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:1645) |
-| 0x005a82b8 | 17 | folded | follows 0x005a8280: covered by the port where it names it (src/mech3/app_mission.cpp:1645) |
+| 0x005a8280 | 28 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:1646) |
+| 0x005a82b8 | 17 | folded | follows 0x005a8280: covered by the port where it names it (src/mech3/app_mission.cpp:1646) |
 | 0x005a82e0 | 14 | folded | zEntity's list and its entries, covered where named: by name (app_vehicle.h:188), the position getters, the node's name (app_mech.cpp:831), the moved slot vt+0x1c (Mech::entity_moved, app_sensors.cpp:219, app_mech.cpp:526; the sensors' mech fallback at app_sensors.cpp:133 only logs and no port code calls it), the manager's set-up (zent_manager.h:18), add and remove (app_mission.cpp:1822-1826) |
 | 0x005a8310 | 19 | folded | covered by the port where it names it (src/mech3/mech_build.cpp:279) |
 | 0x005a8350 | 14 | folded | the scalar deleting destructor (the destructor, then delete) |

@@ -85,6 +85,7 @@ behind `AppKeyCalls`. Tested against the exe (`test_debug_keys.py`).
 
 | Command | What it does |
 |---|---|
+| 0x7e | a screenshot (0x4abbc0, its own registration; screenshots.md) |
 | 0x6d | the pilot's mech's +0x634 bit 1 toggled (0x41ca90); nothing reads it |
 | 0x82 | the frame rate and the developer lines (hud.md section 20) shown or hidden ([0x5f4d6c]) |
 | 0x83 | the developer readout armed or off ([0x5f4d70], 0x40fb50) |

@@ -60,6 +60,7 @@
 #include "gamez/ztwod/twod_lines.h"
 #include "gamez/zeffect/zeff_anim_events.h"
 #include "gamez/zutil/zutl_path.h"
+#include "gamez/ztwod/twod_host.h"
 #include "gamez/zvideo/zvid_dd.h"
 #include "gamez/zvideo/zvid_ddd3d.h"
 #include "gamez/zvideo/zvid_format.h"
@@ -2557,7 +2558,19 @@ void wire_mission_hooks(GameEngine* e) {
       if (message_panel()) message_panel_toggle();
     };
     keys.vmode_cycle = [] { g_mission_engine->vmode_toggle(); };  // 0x004ab910 (resolution.md step 3)
-    keys.debug_7e = [] { g_mission_engine->unported("0x004abbc0", {}); };
+    keys.debug_7e = [] {  // 0x004abbc0: the screenshot (docs/screenshots.md)
+      ShotHooks h;
+      h.grab = [](int32_t buffer) { return ztwod::host().screen_grab(buffer); };
+      h.lobby = [] { return g_mission_engine->network_lobby_active() != 0; };
+      h.hardware = [] { return true; };  // the port draws through the GPU
+      h.gdi_surface = [] { g_mission_engine->unported("0x00577340", {}); };
+      h.show_cursor = [](int32_t on) { return static_cast<int32_t>(g_mission_engine->unported("ShowCursor", {on})); };
+      h.save_dialog = []() -> const char* { return nullptr; };  // GetSaveFileNameA: no dialog in the port (unported)
+      h.exists = [](const char* p) { return zutl::exists(p); };
+      h.process_id = current_process_id;
+      h.keys_reset = [] { zin::kbd_reset(); };
+      debug_screenshot(h);
+    };
     // The debug commands (no key reaches them in the release; app_keys.h). FIX (A): each asks the pilot's mech
     // or the view's target only when there is one (the exe reads through null).
     keys.mech_debug_bit = [] {  // 0x0041ca90 on [0x0060861c] +0x14

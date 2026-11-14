@@ -41,4 +41,9 @@ int32_t msvc_atoi(const char* s);
 // so bytes 0x80..0xff become U+FF80..U+FFFF, none of which is a space.
 bool msvc_iswspace_char(char c);
 
+// _mktemp: the template's trailing six X's become the process id's last five decimal digits behind a letter, 'a'
+// first, then the next letter while `exists` says that name is taken; null (the template left half-filled) when
+// fewer than six X's end it or every letter to 'z' is taken.
+char* msvc_mktemp(char* tmpl, uint32_t pid, bool (*exists)(const char* path));
+
 }  // namespace crt
