@@ -792,6 +792,24 @@ none below, 0.5 over the one above; it moves (vt+0x2c, then vt+0x38, and the edi
 when that is more than 0.1 off. Nothing constructs template 152, so it never runs. Ported for preservation,
 unwired (`mech3/editor_conform`, in test_node_vehicle.py: 400 random nets, 3 breaks).
 
+## The node dialog (template 154, its class gone; S11, 2026-11-14)
+
+Template 154 ("Dialog") shows one element of an AI net: Net (1014, a znet object's id), Node (1015) "of" (1109,
+the net's count), Position (1011..1013, read only), two list boxes, "To" (1108) and "From" (1110), OK and Update
+(1051). Its class is not in the release: no constructor, vtable or GetMessageMap is left, only its message map
+(0x005cd368, over CDialog's: one entry, 1051 -> 0x004d9f30) and what that handler calls. Update reads the edits
+(UpdateData), finds the net by its id (0x0058b160) and its element Node (0x0058b060; a number past the end gives
+element 0's miss, the null step in a compiled net), and when both are there (0x004d9ed0): the position is the
+element's way point (vt+0x1c) and the count the net's (0x004d9d80); the list at +0xa4 (shown as To) gets the number
+in the net of each element it links to (vt+0x04, vt+0x58; links to nothing in the net are left out), the list at
++0x64 (From) the number of each element of the net that has a link to it (vt+0x0c) (0x004d9dc0); then the fields
+are shown (UpdateData(FALSE)). Which list is which control is inferred: the data exchange that tied them is gone.
+The elements an AI net holds are a compiled net's steps, a net file's nodes, a region's edges (no links, its
+point) or a 105 net's nodes; the port asks each its own way (`mech3/net_node_dlg`, unwired). FIX (A): an element
+number that finds nothing, or an empty slot in the From walk, is skipped, where the exe reads through null; FIX
+(bug): a 105 node's position is its place, where the exe's way point asks a bare `ret` (0x00409fc0) and reads the
+vtable still in the register. In test_net_links.py against the exe (2,000 updates).
+
 ## The tree view (S5 sitting 4, 2026-11-09)
 
 Tree View (0x00402c70 -> 0x00402bf0) makes, once, a modeless window of
@@ -1785,6 +1803,16 @@ Checked: `test_aiv_edit.py` and `test_vehicle_ddx.py` run on PM's exe with
 `MW3_EXE=pm` (the record's PM layout and the dialog's offsets in the tests;
 `probe_aiv_same_numbers_pm`). Breaks caught: the target block left out, word 2
 compared as a float, +0xee bit 1 left out, MW3's name compare.
+
+**The attack strategies (S11, 2026-11-14).** Not quite MW3's: PM's strategies map 0x4be2b0 has eight (Direct, Zig
+Zag, Circle, Jump, Random Move, then Strafe, Back and Ram), the list fill 0x4be4e0 puts all eight in Attack's list,
+and Attack's exchange 0x4bf810 takes a pick below 8 (MW3's 0x4b92f0 below 5); ported on pm (`strategy_name`,
+`kStrategies`). The strategy pages stay MW3's five: the new three have none. PM's exe carries none of the editor's
+dialog templates (only its launcher's, 188), so none of this could be opened in the shipped expansion. PM also makes
+a table of the eight at start-up ([0x62f920], 0x4c31c0) and an index of it by number and by the name's address
+([0x62f960], 0x4c3280 -> 0x4c2ee0 through std::sort); nothing reads either. Preserved (`pm_strategy_table`,
+`pm_strategy_index`, the names laid out in the exe's string order). The store 0x4c1cb0 is MW3's with PM's record
+(its target block compared in `same_numbers`), now checked against the exe: `test_pm_apply.py` (pm-tests.md, S11).
 
 ### Pirate's Moon's net editor (pm, P2, 2026-11-10)
 

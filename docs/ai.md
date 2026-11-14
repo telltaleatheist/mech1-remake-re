@@ -3927,6 +3927,43 @@ side), reached in the exe through the debug menu, are to be ported later
 behind a `--debug` switch, off by default, as hidden as the original's
 menu. They are not needed to play.
 
+**The steps' link edits (S11, 2026-11-14).** A compiled net's behaviours carry the same editing slots as a net
+file's nodes (zainet.h), which no caller in the release reaches. A step (0x5cb3d0 and every step class over it)
+has one link, `next` (+0x0c); a node step (0x5cc6f0 and its three subclasses) a list (+0x20). The slots, as
+`Behaviour` virtuals in zai_steps.h:
+
+| slot | base | step | node | what |
+|---|---|---|---|---|
+| +0x0c | 0x58ae90 | 0x4c9e20 | 0x4c9410 | the link to an element (by its behaviour: vt+0x60, then +0x74), -1 for none |
+| +0x24 | 0x4d72a0 | (base) | 0x4c9140 | its name, or none |
+| +0x2c | 0x410510 | (base) | 0x4c9480 | its place set |
+| +0x30 | 0x410510 | 0x4c9d20 | 0x4c9180 | link to an element: a step only while it leads nowhere; a node into its first cleared link (the null step, its own miss), else one added at the end, not when it has one |
+| +0x34 | 0x410510 | 0x4c9db0 | 0x4c92b0 | unlink: the link becomes the null step |
+| +0x38 | 0x410590 | | | each link, last first, asked to accept (nothing comes of it) |
+| +0x3c | 0x410560 | 0x4c9de0 | 0x4c9360 | whether it links there |
+| +0x44 / +0x4c / +0x54 | 0x410490 | 0x4c9d70 / 0x4c9dd0 / 0x4c93c0 | 0x4c9260 / 0x4c9310 / 0x4c93c0 | set link i, clear it, accept |
+
+Each edit asks the element at the other end (its +0x40 / +0x48 / +0x50: 0x4104f0, 0x410520, 0x410540 for every
+AI element, a net file's node's alike, its placeholder's 0x410490 refusing), which hands it back to the step's
++0x44 / +0x4c / +0x54 with itself; so a link is set by the far end's consent. A step compares the element itself
+with its link; a node compares the element's behaviour, so an element without one (a net file's node, a region's
+edge) finds a link left empty by a set to such an element. FIX (A): none asked is no (the exe calls through null
+when a node's link holds none). The exe keeps a node's slots before attach in the same vector; the port edits
+`links`, a compiled net's. The node dialog that shows these links is editor.md's, The node dialog.
+
+**The net file's folder** (vt+0x10 of the net file chain, 0x4d9fc0; the classes below keep 0x4e1c90, the loose
+file's folder): its own, else aiv.zrd's ([0x60b5e0]), strdup'd once into [0x60b5a0] and kept for every net file
+after (cleared at start-up by 0x4d9f70, freed at the end by 0x4d9f90; the exe makes and drops an aiv.zrd object
+on the stack around the call). Nothing in the release asks it. FIX (bug): the exe's destructor frees `dir`, so
+the first net file to go frees the shared folder under the others; the port does not (`dir_shared`).
+
+Checked in test_net_links.py against the exe's own vtables: 1,500 runs of up to 12 edits on worlds of nodes, speed
+steps, hold behaviours and region edges (16,916 edits, every link after each), the node dialog (2,000 updates) and
+the folder (one sequence of 7 files, once per process); `mw3tests`
+`step_link_edits_take_the_last_link_and_refuse_none_and_the_placeholder` where the exe cannot go (the base's index
+from the end with a link twice, none and the placeholder refused). 12 breaks, each caught: 10 by the exe test, 2 by
+the unit test.
+
 ## 19. The reset lists and the vehicle controls' end (item 9, 2026-10-25)
 
 **The four lists** (mech3/zai_list): objects of one small class (ctor

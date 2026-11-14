@@ -182,3 +182,36 @@ TEST(node_vehicle_types_are_the_mechs_then_vehicle_zrd_records) {
   EXPECT(&mech3::node_vehicle_types() == &t && t.size() == m + 2);  // made once
   std::remove(path.c_str());
 }
+
+#include "mech3/zai_steps.h"
+#include "mech3/zainet.h"
+
+namespace {
+// A behaviour with the base's link slots and links of its own (none of the exe's has both).
+struct LinkedBehaviour : mech3::ai::Behaviour {
+  std::vector<mech3::ai::Behaviour*> l;
+  int32_t link_count() const override { return static_cast<int32_t>(l.size()); }
+  mech3::ai::Behaviour* link(int32_t i) const override { return l[size_t(i)]; }
+};
+}  // namespace
+
+// The path editor's link edits where the exe test cannot go (ai.md, The developer tools): the base's index is the
+// last link to the element (0x0058ae90 walks from the end); a node asked to unlink none while a link holds none
+// says no and keeps it (FIX (A): the exe calls through null); a net file's placeholder refuses (0x00410490).
+TEST(step_link_edits_take_the_last_link_and_refuse_none_and_the_placeholder) {
+  using namespace mech3::ai;
+  LinkedBehaviour a;
+  Behaviour x(StepKind::Hold);
+  a.l = {&x, null_step(), &x};
+  EXPECT(a.link_index(&x) == 2 && a.link_index(null_step()) == 1 && a.link_index(nullptr) == -1);
+  const float p[3] = {1, 2, 3};
+  NodeStep n(StepKind::Node, p, nullptr, 0);
+  n.attached = true;
+  n.links = {nullptr, &x};
+  EXPECT(!n.remove_link(nullptr) && n.links[0] == nullptr);
+  NetNode placeholder(nullptr);
+  placeholder.placeholder = true;
+  EXPECT(!n.remove_link(&placeholder) && n.links[0] == nullptr && !n.has_link(&placeholder));
+  AiElem foreign;  // no behaviour: finds the empty link and answers
+  EXPECT(n.has_link(&foreign) && n.remove_link(&foreign) && n.links[0] == null_step());
+}

@@ -2489,6 +2489,17 @@ file (docs/assets.md, Data versions):
   ground.** It puts each node half a metre over the surface beneath it
   (halfway in a gap under a metre), but the dialog that holds it is never
   opened.
+- **The AI path editor once had a node inspector, and only its Update
+  button survived.** A small window showed one point of an AI network: its
+  position, which points it leads to and which lead to it. The window
+  itself was cut from the release, but the code behind its Update button is
+  still in the exe, and so is the way the editor linked points: a link
+  is made only when the point at the other end agrees.
+- **Pirate's Moon's AI editor names three new attack styles: Strafe, Back
+  and Ram.** The developers' vehicle editor in the expansion offers eight
+  attack strategies where MW3's has five, but none of the new three has a
+  settings page, and the expansion's exe doesn't contain the editor's
+  windows at all, so it could never be opened there.
 - **There was an AI tester in the game.** A developer dialog for steering a
   unit by hand ("Direct", "Zig Zag", "Circle", "Jump", "Random Move") and
   picking its target ("player", "nearest enemy") is still in the exe behind

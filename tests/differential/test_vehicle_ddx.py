@@ -70,6 +70,8 @@ COMBO_HWND = {1229: 0x1229, 1233: 0x1233}
 # The lists' items as the exe's dialogs hold them: p1's in order, Attack's sorted with each strategy's number.
 COMBO_ITEMS = {1229: [('player', 0), ('nearest enemy', 0)],
                1233: [('Circle', 2), ('Direct', 0), ('Jump', 3), ('Random Move', 4), ('Zig Zag', 1)]}
+if PM:  # Pirate's Moon's eight (0x4be2b0), sorted as CBS_SORT has them
+    COMBO_ITEMS[1233] = sorted(COMBO_ITEMS[1233] + [('Strafe', 5), ('Back', 6), ('Ram', 7)], key=lambda t: t[0].lower())
 
 
 class Ctl(ctypes.Structure):
@@ -480,7 +482,7 @@ def rand_state(rng, page):
         ctl[i] = ['', rng.randrange(-1, n), 0]
     params = rand_params(rng)
     if page == 2 and rng.random() < 0.8:
-        struct.pack_into('<i', params, 0x40, rng.randrange(-1, 6))  # the strategy's number, mostly a real one
+        struct.pack_into('<i', params, 0x40, rng.randrange(-1, 9 if PM else 6))  # the strategy's number, mostly a real one
     if page == 2 and rng.random() < 0.3:
         struct.pack_into('<f', params, 0xb8, rng.choice([-1.0, 0.0, 999.5, 1000.0, 1000.5]))
     entry = [rand_float(rng) for _ in range(5)] + [rng.randrange(256), rng.randrange(256)]
@@ -488,7 +490,8 @@ def rand_state(rng, page):
                 team_side=rng.choice([-1, 0, 1, 2, 5]), keep=[rng.choice([0, 1, 2, 3, -2]) for _ in range(5)],
                 objective=rng.choice([0, 1, 2]), shutdown=rng.choice([0, 1, 7]),
                 pilot=rng.choice([None, '', 'Dom', 'x' * 40]), p2_pilot=rng.choice(['', 'Alan', 'y' * 33]),
-                combo_cur=rng.choice([-1, 0, 1, 2, 3, 4]) if combo == 1233 else rng.choice([-1, 0, 1]), ctl=ctl)
+                combo_cur=rng.choice(range(-1, len(COMBO_ITEMS[1233]))) if combo == 1233 else rng.choice([-1, 0, 1]),
+                ctl=ctl)
 
 
 def run_port(page, save, st):

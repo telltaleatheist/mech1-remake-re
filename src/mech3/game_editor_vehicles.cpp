@@ -34,14 +34,21 @@ const char* const kStrategyTitles[] = {"Circle", "Direct", "Jump", "Zig Zag", "R
 
 // [0x0060b2f8], made at start-up (0x004b7f70 -> 0x004b7d80): the attack
 // strategies by number, Attack's list 1233.
+// Pirate's Moon 1.0 @ 0x004be2b0 ([0x0062f8f8]): three more, Strafe, Back and Ram (PM's own strategies, which
+// have no settings page: PM's exe has no editor templates, so Attack's tab keeps MW3's five).
+constexpr int32_t kStrategies = 8;
 const char* strategy_name(int32_t id) {
-  static const char* const kNames[] = {"Direct", "Zig Zag", "Circle", "Jump", "Random Move"};
-  return id >= 0 && id < 5 ? kNames[id] : nullptr;
+  static const char* const kNames[] = {"Direct", "Zig Zag", "Circle", "Jump", "Random Move", "Strafe", "Back", "Ram"};
+  return id >= 0 && id < kStrategies ? kNames[id] : nullptr;
 }
 
 void trace(uint32_t at) {
   if (g_trace) g_trace->push_back(at);
 }
+
+// The names as the exe's string pool lays them out (0x0060b710 "Ram" .. 0x0060b748 "Direct"), so that ordering
+// the entries by their names' addresses gives the exe's order.
+const char kStrategyPool[] = "Ram\0Back\0\0\0\0Strafe\0\0Random Move\0Jump\0\0\0\0Circle\0\0Zig Zag\0Direct";
 
 VehicleEditorItem* item(int32_t i) {
   VehicleEditor& e = *g_editor;
@@ -282,6 +289,7 @@ void p2_exchange(DataExchange& dx) {
 
 // Mech3.exe 1.2 @ 0x004b92f0: Attack; its own tab's page shown is exchanged
 // first, the same way.
+// Pirate's Moon 1.0 @ 0x004bf810: a pick below 8 taken.
 void attack_exchange(DataExchange& dx) {
   VehicleEditor& e = *g_editor;
   ai::AiParams& p = e.params;
@@ -299,7 +307,7 @@ void attack_exchange(DataExchange& dx) {
     if (const char* n = strategy_name(p.get<int32_t>(0x40))) c.select_string(n);
   } else {
     const int32_t d = c.data(c.cur);
-    if (d >= 0 && d < 5) p.put<int32_t>(0x40, d);
+    if (d >= 0 && d < kStrategies) p.put<int32_t>(0x40, d);
   }
 }
 
@@ -537,6 +545,7 @@ void (*const kExchange[kPages])(DataExchange&) = {
 // to play units) goes into aiv.zrd's cache when it differs from the one read
 // for the vehicle (0x004e0680), and on the brain when it differs from the
 // brain's; the five "as the brain has it" words take the brain's values then.
+// Pirate's Moon 1.0 @ 0x004c1cb0: the same with PM's record (its target block compared in same_numbers).
 void store(int32_t i) {
   VehicleEditor& e = *g_editor;
   VehicleEditorItem* it = item(i);
@@ -676,7 +685,7 @@ void make_pages() {
   p2.at(1197).radios = 3;  // Friend, Foe, Other
   Dialog& attack = e.pages[kPageAttack];
   attack.at(1233).combo.sorted = true;
-  for (int32_t id = 0; id < 5; ++id)  // 0x004b7fb0: the map in order
+  for (int32_t id = 0; id < kStrategies; ++id)  // 0x004b7fb0 (PM 0x004be4e0): the map in order
     attack.at(1233).combo.set_data(attack.at(1233).combo.add(strategy_name(id)), id);
   Dialog& valve = e.pages[kPageValve];
   valve.at(1176).combo.sorted = valve.at(1177).combo.sorted = true;
@@ -937,6 +946,10 @@ void vehicle_editor_apply() {
   store_shown(g_editor->selected);
 }
 
+void vehicle_editor_store(int32_t i) {
+  if (g_editor) store(i);
+}
+
 // Mech3.exe 1.2 @ 0x004b8d20
 void vehicle_editor_ok() {
   vehicle_editor_apply();
@@ -1073,6 +1086,32 @@ void vehicle_editor_close() {
   net_editor_slot_remove(&g_editor->shown);
   delete g_editor;
   g_editor = nullptr;
+}
+
+// Pirate's Moon 1.0 @ 0x004c31c0
+const StrategyEntry* pm_strategy_table() {
+  static const StrategyEntry t[kStrategies] = {
+      {0, kStrategyPool + 0x38}, {1, kStrategyPool + 0x30}, {2, kStrategyPool + 0x28}, {3, kStrategyPool + 0x20},
+      {4, kStrategyPool + 0x14}, {5, kStrategyPool + 0x0c}, {6, kStrategyPool + 0x04}, {7, kStrategyPool + 0x00}};
+  return t;
+}
+
+// Pirate's Moon 1.0 @ 0x004c3280
+// Pirate's Moon 1.0 @ 0x004c2ee0: both halves filled in the table's order, then sorted (std::sort: 0x004c3550,
+// 0x004c3680, 0x004c36c0, 0x004c3750, 0x004c37c0), by number (0x004c2ea0) and by the name's address (0x004c2ec0).
+const StrategyIndex& pm_strategy_index() {
+  static const StrategyIndex x = [] {
+    StrategyIndex i;
+    i.table = pm_strategy_table();
+    for (int32_t k = 0; k < kStrategies; ++k) i.by_id[k] = i.by_name[k] = &i.table[k];
+    std::sort(std::begin(i.by_id), std::end(i.by_id),
+              [](const StrategyEntry* a, const StrategyEntry* b) { return a->id < b->id; });
+    std::sort(std::begin(i.by_name), std::end(i.by_name), [](const StrategyEntry* a, const StrategyEntry* b) {
+      return reinterpret_cast<uintptr_t>(a->name) < reinterpret_cast<uintptr_t>(b->name);
+    });
+    return i;
+  }();
+  return x;
 }
 
 }  // namespace mech3

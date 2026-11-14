@@ -47,6 +47,9 @@ class NetFile : public RdrFile {
   void parse() override;                    // +0x0c 0x004da0d0
 
   const char* base_name();                  // 0x004da060: the name up to its '.', cached
+  // +0x10 0x004d9fc0 (the classes under it keep 0x004e1c90, resolve_dir): its loose file's folder, else aiv.zrd's,
+  // found once for every net file. Nothing in the release asks it (docs/ai.md, Data files); preserved.
+  const char* folder();
   // +0x18 0x004da800 -> 0x004db850: one node_XX's value into `rec`.
   NetNodeRec* read_node(NetNodeRec* rec, zrdr::Node* value, const char* key);
   NetNodeRec* node(int32_t i, const char** key);   // 0x004de730: cache first
@@ -69,6 +72,7 @@ class NetFile : public RdrFile {
   std::map<std::string, NetNodeRec*> cache; // +0xe4 (size +0xf0)
   NetHeader header;                         // +0xf4
   char* base = nullptr;                     // +0x114
+  bool dir_shared = false;                  // FIX (bug): `dir` is folder()'s shared one, not freed here
 };
 
 // The files by name, a std::map at 0x0060b5a8 that lives for the whole game.

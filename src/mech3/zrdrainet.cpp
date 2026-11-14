@@ -276,7 +276,25 @@ void NetHeader::parse(zrdr::Node* node, const char* base) {
 NetFile::NetFile(int32_t net, const char* n) : RdrFile(n, 0x80, 100, 0, 1) { header.net = net; }
 
 // Mech3.exe 1.2 @ 0x004da840. The cached records (+0xe4) are not freed here.
-NetFile::~NetFile() { std::free(base); }
+NetFile::~NetFile() {
+  std::free(base);
+  if (dir_shared) dir = nullptr;  // FIX (bug): the exe frees the shared folder with the first net file to go
+}
+
+// Mech3.exe 1.2 @ 0x004d9fc0. The exe makes an aiv.zrd object on the stack around aiv.zrd's (0x004e0490,
+// Pirate's Moon 1.0 @ 0x004eb070
+// 0x004e04f0) and asks the game's (0x0060b5e0).
+const char* NetFile::folder() {
+  resolve_dir();
+  if (!dir) {
+    static char* shared = nullptr;  // 0x0060b5a0 (0x004d9f70 clears it at start-up, 0x004d9f90 frees it at the end)
+    if (!shared)
+      if (const char* s = aiv_file().resolve_dir()) shared = strdup(s);
+    dir = shared;
+    dir_shared = shared != nullptr;
+  }
+  return dir;
+}
 
 // Mech3.exe 1.2 @ 0x004de090
 int32_t NetFile::unload() {
