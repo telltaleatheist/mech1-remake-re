@@ -3800,6 +3800,13 @@ The screen after the pilot for INSTANT ACTION, 0x00488bc0 (details:
   or longer (the rebuild skips it).
 - **The debug menu's campaign jumps use a pilot named "DefaultPlayer"**, the
   debug Mech Lab start one named "Default Player".
+- **The hidden debug menu's Options were half wired.** The frame window's menu,
+  removed as the game starts, has Fullscreen, Direct 3D, 320 x 240 and 640 x 480,
+  Joystick, Enable AI and Invincible working; Texture LOD, Sound LOD, Auto
+  Center and Heat Tracking have no code behind them at all, Play CD Tracks is
+  always ticked and greyed, and Third Person View flips a flag nothing reads.
+  The developers' Vehicle Select box switches you to the selected mech even
+  when you press Cancel.
 - **The HUD's lists stop at sixteen:** the weapon list and the equipment
   list each have exactly sixteen lines, ten pixels apart.
 - **The radar has two sizes:** small, a radius of 50 pixels around (55, 55)

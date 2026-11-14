@@ -269,6 +269,7 @@ add_library(mw3core STATIC
   src/mech3/message_panel.cpp
   src/mech3/dev_text.cpp
   src/mech3/debug_keys.cpp
+  src/mech3/debug_dialogs.cpp
   src/mech3/mech_hud.cpp
   src/mech3/app_cheats.cpp
   src/mech3/app_hud.cpp
@@ -653,6 +654,7 @@ add_library(mw3probe SHARED
   tests/probe_view.cpp
   tests/probe_hud.cpp
   tests/probe_mech_data.cpp
+  tests/probe_debug_dialogs.cpp
 )
 target_link_libraries(mw3probe PRIVATE mw3core)
 endif()

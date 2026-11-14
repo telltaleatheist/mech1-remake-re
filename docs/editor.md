@@ -82,6 +82,50 @@ Its docs put a project path in a member's name for Recoil and don't say so
 for MW3, and our lookup matches the name alone. Its MW3 map editing is
 deferred and PM is not supported; world editing is not ours to duplicate.
 
+## The debug menu (S9, 2026-11-14)
+
+Resource 147 is the frame window's menu (0x00482d10 loads it; 0x00480570 takes it off at engine start, so no player
+has seen it). Its handlers are in the frame's message map (0x005c41c0..); each item has a command and an update handler
+(MFC's `CCmdUI`: Enable, SetCheck, SetText). Ported for preservation in `mech3/debug_dialogs` and checked against the
+exe in `test_debug_dialogs.py` (12,028 cases); nothing calls them.
+
+| Item (id) | Command | Update |
+|---|---|---|
+| Video: Fullscreen (40014) | 0x00483150 flips the app's +0x1c7 | 0x00483170: on only with a 3D card whose device is "Primary Display Driver"; checked by +0x1c7 |
+| Video: Direct 3D (40071) | 0x00483620: the device pick, `restore_video(no card, pick)` 0x0047fe10 | 0x00483640: off with no devices; checked with a card; text message 0x277 with the card's name, else 0x278 |
+| Video: 320 x 240 (40069), 640 x 480 (40067) | 0x004834a0 / 0x00483500: video mode 3 / 5 (0x0047fc10) | 0x004834b0 / 0x00483510: off with a card (the 320's also unchecked; the 640's keeps its mark); checked in its mode |
+| Video: Texture LOD (40075..40079), Audio: Sound LOD (40080..40082), Control: Auto Center (40072), Other: Heat Tracking (40083) | no handler anywhere in the exe | none (MFC greys such an item) |
+| Audio: Play CD Tracks (40063) | 0x005ac5c0, a bare `ret` | 0x00483600: checked and off |
+| Control: Joystick (40016) | 0x00483200: use_joystick flipped (0x0040d070) | 0x00483230: checked when on |
+| Other: Third Person View (40055) | 0x00483550 flips +0x1b3 | 0x00483570; nothing else reads +0x1b3 |
+| Other: Enable AI (40039) | 0x00483310 flips +0x1b2 | 0x00483330; the mission start's CL (mission-start.md) |
+| Other: Invincible (40070) | 0x004835a0 flips +0x1b8 ([0x00608e40], applied at spawn; damage.md) | 0x004835c0 |
+| Reset Options (40051) | 0x004835f0: the app's defaults (0x0047fb80) | |
+| (no item) 40058..40062, 40065 | 0x00483390..0x004833e0: one of +0x1ac..+0x1b1 cleared | 0x004833f0: always checked |
+| (no item) 40066 | 0x00483400: all six cleared at once | 0x00483410: text message 0x274 |
+| (no item) 40037 | 0x00483430: Select Mech, the pick the default mech (+0x198) | 0x00483460: text message 0x276 with the mech |
+
+The six bytes +0x1ac..+0x1b1 are set to 1 by the defaults; no read of them by address was found outside these
+handlers, so whatever they once switched is likely gone. The Game menu's mission starts (40085..40108, 40114, 0x00483720..0x00484040) and the commands
+40112, 40113, 40115 (0x004840c0, 0x00484190, 0x004841b0) are in the same map; Ghidra made no function of them and
+they are not in the audit yet.
+
+**Select Mech** (156, 0x00432c60; debug command 0x84 and 40037): a list of the 19 mechs' names (0x00432d30, a null
+name skipped, each row's data its number), the first selected; DoModal (0x00432df0, between the GDI flip 0x00577340
+and the keys' reset 0x0051a300); OK gives the row's number (0x00432da0), Cancel -1. The current mech's number is
+passed in and never read.
+
+**Vehicle Select** (143, 0x004a3550; debug command 0x8a): a combo of zEntity's mechs (0x004af000: vt+0x2c a vehicle,
+vt+0x40 a mech), each by its entity's name, the second selected. The row selected when the window closes is kept
+(0x004aefb0) and taken on any DoModal result but 0, so Cancel switches too; the caller then runs the entity's
+vt+0x108. With fewer than two mechs nothing is selected and the exe calls through an unset pointer (fixes.md).
+
+**Camera Properties** (106, 0x0040bb00, over the view's camera mode +0x58; debug command 0x8f): the distance, the
+offset (+0x18), its rotation (+0x08) as three angles in degrees (0x00525740 then 0x00523bc0), the catch-up, vary and
+factor rates. OK writes them back, the offset normalised when its box is ticked (0x004020d0), and the rotation rebuilt
+from the angles (0x00525340, given the first two the other way round, which is that function's order: OK with no
+change keeps the rotation; checked through the probe, 2026-11-14).
+
 ## The entry and the exit
 
 **Command 0x9a** (0x0040dba0's switch, decoded from its byte table at
