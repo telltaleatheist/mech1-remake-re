@@ -108,4 +108,40 @@ int probe_basic_controls(uint32_t ctl, uint32_t owner, uint32_t node, int32_t ne
   return n;
 }
 
+namespace {
+int32_t g_inits = 0;
+bool g_owner_node = false;
+struct SetNetHooks : m3::BasicControlsHooks {
+  uint32_t unported(const char*, std::initializer_list<zgame::Arg>) override { return 0; }
+  void base_init(m3::BasicControls&) override { ++g_inits; }
+  bool owner_has_node(void*) override { return g_owner_node; }
+};
+}  // namespace
+
+// test_pm_basic_set_net.py: the basic controls' set-net (IControls vt+0x04: 0x004ae5e0, PM's 0x004b1ec0) with the
+// controls' +0x38 `state`, an owner (none, without or with its +4), and a net: 0 none, 1 a version-105 net whose
+// +0x18 is `x18`, 2 another net. out: the result, the controls' net number after, the base inits run.
+int probe_basic_set_net(int32_t state, int32_t owner, int32_t kind, int32_t x18, int32_t net0, int32_t* out) {
+  SetNetHooks hooks;
+  m3::set_basic_controls_hooks(&hooks);
+  g_inits = 0;
+  g_owner_node = owner == 2;
+  {
+    m3::BasicVehicle v;
+    m3::BasicControls c(nullptr, 0);
+    c.owner = owner ? &v : nullptr;
+    c.state = state;
+    c.net = net0;
+    m3::ai::Net105 v105;
+    v105.x18 = x18;
+    m3::ai::AiNet other(-1);
+    m3::ai::AiNet* n = kind == 1 ? static_cast<m3::ai::AiNet*>(&v105) : kind == 2 ? &other : nullptr;
+    out[0] = c.set_net(n) ? 1 : 0;
+    out[1] = c.net;
+    out[2] = g_inits;
+  }
+  m3::set_basic_controls_hooks(nullptr);
+  return 0;
+}
+
 }  // extern "C"

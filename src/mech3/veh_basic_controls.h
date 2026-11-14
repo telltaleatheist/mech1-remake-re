@@ -27,6 +27,7 @@ class BasicControlsHooks : public zgame::Unported {
   static Handle h(uint32_t v) { return reinterpret_cast<Handle>(static_cast<uintptr_t>(v)); }
   virtual uint32_t ref(const void* p) { return low(p); }
   virtual void base_init(BasicControls& c);                                      // 0x004ac8a0
+  virtual bool owner_has_node(void* owner) { return unported("owner+0x04", {ref(owner)}) != 0; }  // the vehicle's +4
   virtual void base_setup(BasicControls& c, zrdr::Node* def, uint32_t arg2);     // 0x004acbc0(def, arg2, 0)
   virtual Net105Record* record(int32_t id);                                      // 0x004022c0
   virtual const float* owner_position(void* owner) { return reinterpret_cast<const float*>(h(unported("0x005a85e0", {ref(owner)}))); }
@@ -87,6 +88,10 @@ struct BasicControls : VehicleControls {
   void follow(Handle target);                                    // 0x00401050
   int32_t path_goal() override;                                  // vt+0x08 0x004ae350: the node's +0x2c
   bool destroyed() override { return state == 4; }               // vt+0x1c 0x004ae6a0, Pirate's Moon 1.0 @ 0x004b1f80
+  // IControls vt+0x04, set-net (0x004ae5e0 through 0x004aea00; Pirate's Moon 1.0 @ 0x004b1ec0 through 0x004b2300): with
+  // the controls stopped (+0x38 4), an owner with its +4 and a version-105 net (its vt+0x38), the net's number
+  // (vt+0x18, its +0x18) as the controls' and the base's init (0x004ac8a0) again. 1, else 0 (nothing changed).
+  bool set_net(ai::AiNet* n);
 
   int32_t net = 0;           // +0xa04  the net's number: the constructor's second argument, then the setup's third
   Net105Record* record = nullptr;  // +0xa08

@@ -167,6 +167,9 @@ struct Table {
   void (*zimg_resolve_name)(zimg::Library& lib) = nullptr;
   // A LoD copy's fade values (PM's 0x00515c00, from its copy 0x0050d4e0); MW3 has none (null).
   void (*zcls_lod_fades)(zcls::Lod& lod) = nullptr;
+  // A mech part's set-up that fails (PM 0x00465a60, 0x00467d10): the torso returns before its cockpit call, and an arm's
+  // hand has its items taken off (0x0041c380) before it is dropped. MW3: false.
+  bool part_setup_fail_pm = false;
 };
 
 const Table& mw3_table();

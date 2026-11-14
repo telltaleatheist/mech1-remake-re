@@ -30,17 +30,17 @@ static_assert(sizeof(Net105Link) == 0x3c);
 // "none" answer gives, is [0x005e8654] (`none()`); its link methods do nothing.
 class Net105Node : public AiElem {
  public:
-  // Mech3.exe 1.2 @ 0x004ae8e0: all 0, the number -1.
+  // Mech3.exe 1.2 @ 0x004ae8e0, Pirate's Moon 1.0 @ 0x004b21d0: all 0, the number -1.
   Net105Node() = default;
   ~Net105Node() override;  // 0x004024a0's frees: each link record
 
   static Net105Node* none();  // [0x005e8654], 0x004ae920 (vt+0x10)
   bool is_none() const { return this == none(); }
   int32_t link_count() const { return 3; }  // vt+0x04 (0x0041ec30)
-  // Mech3.exe 1.2 @ 0x004ae950 (vt+0x08, through vt+0x7c)
-  // Mech3.exe 1.2 @ 0x004ae960 (vt+0x7c): link i, the null node for none or out of 0..2.
+  // Mech3.exe 1.2 @ 0x004ae950, Pirate's Moon 1.0 @ 0x004b2220 (vt+0x08, through vt+0x7c)
+  // Mech3.exe 1.2 @ 0x004ae960, Pirate's Moon 1.0 @ 0x004b2260 (vt+0x7c): link i, the null node for none or out of 0..2.
   Net105Node* link(int32_t i) const { return i < 0 || i > 2 || !links[i] ? none() : links[i]; }
-  // Mech3.exe 1.2 @ 0x004ae980 (vt+0x0c): the slot holding `to` (the last one first), -1 for the null node or none.
+  // Mech3.exe 1.2 @ 0x004ae980, Pirate's Moon 1.0 @ 0x004b2280 (vt+0x0c): the slot holding `to` (the last one first), -1 for the null node or none.
   int32_t link_index(const Net105Node* to) const {
     if (to == none()) return -1;
     for (int32_t i = 2; i >= 0; --i)

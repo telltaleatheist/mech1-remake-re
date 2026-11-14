@@ -5,6 +5,7 @@
 
 #include "gamez/zclass/class.h"
 #include "gamez/zclass/cls_node.h"
+#include "gamez/zgame/zgame_table.h"
 #include "gamez/zmath/zmth_matrix.h"
 #include "gamez/zmath/zmth_vector.h"
 #include "mech3/mech_headlight.h"
@@ -213,8 +214,10 @@ void Torso::switch_lod(int32_t lod) {
   if (headlight) headlight->reattach(static_cast<zcls::Node*>(node), nullptr);
 }
 
+// Pirate's Moon 1.0 @ 0x00465a60: the same, but a failed base set-up returns before the cockpit call (0x00465e20(0)).
 bool Torso::setup() {
   const bool ok = MechPart::setup();
+  if (!ok && zgame::game().part_setup_fail_pm) return ok;
   if (ok) {
     const MechDfn* d = dfn(*mech);
     if (d->headlight) headlight = headlight_create(static_cast<zcls::Node*>(node), d->headlight);  // Pirate's Moon 0x00465b8c
@@ -250,6 +253,7 @@ bool Hand::setup() {
 
 // Mech3.exe 1.2 @ 0x004663e0: the aim and recoil settings from the
 // definition (def +0x180..+0x1a4); a hand that cannot be set up is dropped.
+// Pirate's Moon 1.0 @ 0x00467d10: the same, the dropped hand's items taken off first.
 bool Arm::setup() {
   const bool ok = MechPart::setup();
   if (ok) {
@@ -274,6 +278,8 @@ bool Arm::setup() {
       length = std::sqrt((t.x * t.x + t.y * t.y) + t.z * t.z);
       return ok;
     }
+    // Pirate's Moon 0x00467e6e: its items taken off first (0x0041c380: MW3's 0x0041b5f0 for a hand with a node id).
+    if (zgame::game().part_setup_fail_pm && mech && hand->node && hand->id != -1) mech->on_part_destroyed(hand);
     if (damage_calls().free_part) damage_calls().free_part(hand);
     else delete hand;
     hand = nullptr;

@@ -92,7 +92,6 @@
 0x00410190	debug	called only from 0x00410110, which are debug
 0x00410880	unused	called only from 0x00410820, which are unused
 0x00485610	sdl	called only from 0x004855d0, which are sdl
-0x004b1ec0	missing-mod	called only from 0x004b2280, which are missing-mod
 0x004b51a0	unused	called only from 0x004b5040, which are unused
 0x004c7cf0	debug	called only from 0x004c7c80, which are debug
 0x00533150	software	called only from 0x00580be0, 0x00587d50, which are software
@@ -3184,10 +3183,8 @@
 0x00465210	folded	read: MW3's 0x00463b40 (mech_parts.cpp Leg::take_hit): the limp's chance (1 - h)(p - h) with p 0.35 for the player and 1 for others, p - (-1) written p + 1, the controls' vt+0x5c at +0x64 and the limp at +0x5d0 (layout)
 0x00465610	folded	ported: src/mech3/mech_parts.cpp Leg::destroy (MW3's 0x00463f70, slot +0x20 of the leg's vtable 0x005e4efc / MW3's 0x005c2978), with PM's condition on hiding the foot's node (alive, not state 10, +0x634 clear; the port names 0x00465610), then the fall (0x0041c3d0) and death (0x0041be50) as MW3's 0x0041b640 and vt+0x70
 0x004659e0	folded	ported: the torso's destructor, MW3's 0x00464250 (mech_parts.cpp Torso::release: the two death effects stopped) plus PM's headlight at +0x7c deleted (mech_parts.h ~Torso, which names 0x00465a2a); its deleting destructor 0x004659c0 the slot-0 pair of MW3's 0x00464230
-0x00465a60	missing-mod	ported otherwise: src/mech3/mech_part_update.cpp Torso::setup (MW3's 0x00464290) with PM's headlight (0x00465b8c) and fields at +0x148..+0x164 and +0x84/+0x88 (layout); one difference: when the base set-up fails PM returns before the cockpit call (0x00465e20(0)), where MW3 and the port make it either way; a failing set-up needs a part the shipped data lacks
 0x00465ea0	folded	read: MW3's 0x00464600 (the torso's orientation set, for the view mech in multiplayer through the quaternion steps); the quaternion calls in the same order with their register arguments explicit (0x0053f540, 0x0053ef90, 0x0053eec0 = MW3's 0x00525be0, 0x005255d0, 0x00525500), the fields at +0x130.. for +0x128.. (layout)
 0x00467200	folded	read: MW3's 0x00465940 (a part's world orientation into a static): the same six quaternion steps in the same order (0x0053eae0, 0x0053ef90 x3, 0x0053f260, 0x0053eec0 = MW3's 0x005251a0, 0x005255d0 x3, 0x00525900, 0x00525500), their register arguments explicit, the fields shifted (layout)
-0x00467d10	missing-mod	ported otherwise: src/mech3/mech_part_update.cpp Arm::setup (MW3's 0x004663e0); one difference: a hand whose set-up fails has its items taken off first (0x0041c380, MW3's 0x0041b5f0 with a -1 check) before it is deleted, where MW3 and the port only delete it; a failing set-up needs a part the shipped data lacks
 0x00468660	folded	ported: src/mech3/mech_parts.cpp Arm::destroy (MW3's 0x00466c50) as PM's (the port names 0x00468660): the hand, if not already destroyed, loses its items and contents and leaves the parts list but is not deleted
 0x00469060	folded	ported: src/mech3/pocket_panel.cpp (MW3's 0x004674f0, the pocket panel's constructor) with PM's font pocket_menu_grey for ia_small_grey (the port names 0x00469060); the owner and the arguments by PM's layout
 0x00469510	folded	read: MW3's 0x004679a0 (pocket_panel.cpp make_order_item): the same orders to the same two item constructors (0x0046c300 / 0x0046c290 = MW3's 0x0046a780 / 0x0046a710), each 0x4c4 bytes for 0x4bc (PM's layout), the arguments explicit

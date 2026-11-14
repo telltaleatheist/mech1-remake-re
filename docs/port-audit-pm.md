@@ -76,16 +76,13 @@ produces; the label names the compared value. Reaching a function, or running a 
 | debug or dev tool: PORT (preserve) | 85 |
 | unused: PORT (preserve) | 80 |
 | dev dialog (MFC), its window plumbing: replaced | 51 |
-| MISSING LOGIC (only data the shipped game lacks reaches it) | 6 |
+| MISSING LOGIC (only data the shipped game lacks reaches it) | 3 |
 | unlabelled | 1 |
 
 ## MISSING LOGIC
 
 - **0x0056b230, 0x0056b2d0, 0x0056b540, 0x0056b580, 0x0056b980, 0x0056d040 ...** (87 functions, 6719 decomp lines; MISSING LOGIC): PM's triangle stripper (0x00570b70 and its std::map / set code, about 1,960 instructions): a model without flag 0x80 made into strips (0x2000) under Direct3D. On world models it changes nothing for shipped data (pm-map.md, the models' form; test_pm_strips.py). But PM's mechlib post-pass 0x00510ab0 (MW3's 0x004fc8b0) runs it on every mech model in hardware mode with no vertex limit, as MW3's 0x00552540 does with 4: the same gap as MW3's stripper (docs/mechlib.md), to measure on PM's mechlib
 - **0x00570b70** (1 functions, 722 decomp lines; MISSING LOGIC): PM's triangle stripper (0x00570b70 and its std::map / set code, about 1,960 instructions; not MW3's 0x00552540 on PM's polygons: 700 features against 287, 44 of 51 kinds differ): a model of type 0 with polygons made into strips (0x2000) under Direct3D. It reaches nothing at load: mechlib's post-pass 0x00510ab0 and the world reader 0x005587e0 skip a model with 0x80, every type-0 mechlib model has it (1015 of 1017; the 2 others are facades, type 1, on which it returns at once) and so does every type-0 world model; the world's facades return at once too (test_pm_strips.py, tools/analysis/pm_strip_reach.py). Its only reach on shipped data is the crater reset's model re-read 0x00558440 (from 0x00517b30 / 0x00517ac0, ported), which passes 0x7fffffff, 4 with no 0x80 test: every ground model a crater reset reads again. The reset runs only from the craters' save restore 0x00519020, a zSave section the start-up switches off (0x0051a3e0(0) from 0x004826e0, as MW3's), so never in play: a preservation port at the end, not wired in (docs/pm-map.md, the models' form)
-- **0x00465a60** (1 functions, 56 decomp lines; MISSING LOGIC (only data the shipped game lacks reaches it)): ported otherwise: src/mech3/mech_part_update.cpp Torso::setup (MW3's 0x00464290) with PM's headlight (0x00465b8c) and fields at +0x148..+0x164 and +0x84/+0x88 (layout); one difference: when the base set-up fails PM returns before the cockpit call (0x00465e20(0)), where MW3 and the port make it either way; a failing set-up needs a part the shipped data lacks
-- **0x00467d10** (1 functions, 62 decomp lines; MISSING LOGIC (only data the shipped game lacks reaches it)): ported otherwise: src/mech3/mech_part_update.cpp Arm::setup (MW3's 0x004663e0); one difference: a hand whose set-up fails has its items taken off first (0x0041c380, MW3's 0x0041b5f0 with a -1 check) before it is deleted, where MW3 and the port only delete it; a failing set-up needs a part the shipped data lacks
-- **0x004b1ec0** (1 functions, 22 decomp lines; MISSING LOGIC (only data the shipped game lacks reaches it)): called only from 0x004b2280, which are missing-mod
 - **0x00520500** (1 functions, 100 decomp lines; MISSING LOGIC (only data the shipped game lacks reaches it)): as MW3 0x005076c0, whose class PM's changes keep: anim event 37, the fbfx screen wave (0x005076c0 -> 0x005a6760 -> 0x005a6650 / 0x005a5400: up to four 2D waves): the port's hook only logs (app_mission.cpp:2108); no shipped anim.zbd has event 37 (anim_walk: c1..t1 have 0; 38 also 0)
 - **0x005270e0** (1 functions, 42 decomp lines; MISSING LOGIC (only data the shipped game lacks reaches it)): as MW3 0x0050d6a0's class (an effect entry's node, zeff_init.cpp:24): PM's effect node's action (set on the node by 0x00526df0): while running the node grows by its rate to the size, then shrinks after its time, never below 0.01, then is freed back to the pool; PM's shipped effects.zrd has an empty EFFECTS list, as MW3's, so only a mod's effect reaches it
 - **0x005c9d10** (1 functions, 12 decomp lines; MISSING LOGIC (only data the shipped game lacks reaches it)): as MW3 0x005a7ca0, whose class PM's changes keep: Movie2D's update, draw and erase (a movie playing inside a dialog): no shipped dialog has one (twod.md:674-679)
@@ -323,7 +320,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 
 ## By module
 
-### mech3ep1 (3177 not ported)
+### mech3ep1 (3174 not ported)
 
 | Address | Lines | Class | Why |
 |---|---|---|---|
@@ -692,7 +689,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x00417ea0 | 41 | folded | read: MW3's 0x00417300 (the ammo count's per-ton figure); MW3's direct tonnage 0x00416770 is PM's vt+0x8c, 0x00417270 in both mech vtables (0x005dfaac, the network mech's 0x005e59a8), the same max_mass of the mech; the Elemental by PM's id 11 (45.0 at 0x005dfcc8), fields shifted (layout) |
 | 0x00417f50 | 216 | folded | ported, checked by test: src/mech3/mech_move.cpp jump_jets (PM's, the fuel moved into Update, Pirate's Moon 0x0041ae00); tests/differential/test_pm_jets.py runs 0x00417f50 against it and compares the mech's block and the controls after each call (20,000 calls identical, 2026-11-13) |
 | 0x00419d50 | 12 | folded | by the slot pairing, read (PM's mech vtable 0x005dfaac runs 0xc past MW3's 0x005bcef8 here): slot +0xe8 is MW3's +0xdc 0x00418f30 (mech_place.cpp Mech::set_place): MW3's direct base zero 0x00426c80 is the controls' vt+0x18, as the port's controls->zero() (the player's also the look), then the yaw's quaternion, its matrix and the reset at the point |
-| 0x00419dc0 | 11 | folded | covered by the port where it names it (src/mech3/mech_part_update.cpp:737) |
+| 0x00419dc0 | 11 | folded | covered by the port where it names it (src/mech3/mech_part_update.cpp:743) |
 | 0x0041ad30 | 9 | folded | covered by the port where it names it (src/mech3/app_weapons.cpp:248) |
 | 0x0041ade0 | 11 | folded | checked by test (block trace, 2026-11-13): test_pm_damage, test_pm_hit and test_pm_heat run it (the damage done, the parts' state, the heat frame by frame compared) |
 | 0x0041be50 | 110 | folded | read: covered where the port names it (briefing.cpp:513 and 871 PM's loadouts, pilot.h:346 the standalone rows, mech_damage.cpp:225 the headlight, app_hud.cpp:534 the radar's front, mech_config.cpp:951, pilot_games.cpp:635, mech_headlight.cpp:50, mech_waynet.h:70, mission_world.cpp:249, app_vehicle.cpp:623 the stealth controls, zai_brain.cpp:239, zainet_inout.cpp:382, zai_node.cpp:146, zai_walk_pm.cpp:441, zai_drive_pm.cpp:772, zrdraiv.cpp:581, mech_build.cpp:283, app_pocket.cpp:172, zrdraiv.h:66, zai_brain.cpp:1033, pm zeff_anim_events.h:28, zsnd_3d.cpp:27, zsnd_play.cpp:203 and 221) |
@@ -1414,7 +1411,6 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x00465610 | 65 | folded | ported: src/mech3/mech_parts.cpp Leg::destroy (MW3's 0x00463f70, slot +0x20 of the leg's vtable 0x005e4efc / MW3's 0x005c2978), with PM's condition on hiding the foot's node (alive, not state 10, +0x634 clear; the port names 0x00465610), then the fall (0x0041c3d0) and death (0x0041be50) as MW3's 0x0041b640 and vt+0x70 |
 | 0x004659c0 | 12 | folded | read: the scalar deleting destructor (the destructor 0x004659e0, then delete when bit 0 is set); the port deletes its objects itself, the destructor labelled on its own row |
 | 0x004659e0 | 32 | folded | ported: the torso's destructor, MW3's 0x00464250 (mech_parts.cpp Torso::release: the two death effects stopped) plus PM's headlight at +0x7c deleted (mech_parts.h ~Torso, which names 0x00465a2a); its deleting destructor 0x004659c0 the slot-0 pair of MW3's 0x00464230 |
-| 0x00465a60 | 56 | MISSING LOGIC (only data the shipped game lacks reaches it) | ported otherwise: src/mech3/mech_part_update.cpp Torso::setup (MW3's 0x00464290) with PM's headlight (0x00465b8c) and fields at +0x148..+0x164 and +0x84/+0x88 (layout); one difference: when the base set-up fails PM returns before the cockpit call (0x00465e20(0)), where MW3 and the port make it either way; a failing set-up needs a part the shipped data lacks |
 | 0x00465da0 | 11 | folded | covered by the port where it names it (src/mech3/app_mech.cpp:906) |
 | 0x00465dc0 | 18 | folded | covered by the port where it names it (src/mech3/mech_command.cpp:265) |
 | 0x00465df0 | 14 | folded | covered by the port where it names it (src/mech3/mech_net.cpp:52) |
@@ -1426,7 +1422,6 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x00467200 | 18 | folded | read: MW3's 0x00465940 (a part's world orientation into a static): the same six quaternion steps in the same order (0x0053eae0, 0x0053ef90 x3, 0x0053f260, 0x0053eec0 = MW3's 0x005251a0, 0x005255d0 x3, 0x00525900, 0x00525500), their register arguments explicit, the fields shifted (layout) |
 | 0x00467480 | 8 | folded | returns a constant or a global |
 | 0x00467c90 | 12 | folded | read: the scalar deleting destructor (the destructor 0x00467cb0, then delete when bit 0 is set); the port deletes its objects itself, the destructor labelled on its own row |
-| 0x00467d10 | 62 | MISSING LOGIC (only data the shipped game lacks reaches it) | ported otherwise: src/mech3/mech_part_update.cpp Arm::setup (MW3's 0x004663e0); one difference: a hand whose set-up fails has its items taken off first (0x0041c380, MW3's 0x0041b5f0 with a -1 check) before it is deleted, where MW3 and the port only delete it; a failing set-up needs a part the shipped data lacks |
 | 0x004685e0 | 27 | folded | ported, by docs/symbols.csv: ported; ZAPS_HUD kind 3 |
 | 0x00468660 | 57 | folded | ported: src/mech3/mech_parts.cpp Arm::destroy (MW3's 0x00466c50) as PM's (the port names 0x00468660): the hand, if not already destroyed, loses its items and contents and leaves the parts list but is not deleted |
 | 0x00468750 | 17 | folded | covered by the port where it names it (src/mech3/mech_build.h:183) |
@@ -1555,7 +1550,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x00476ff0 | 108 | folded | read: MW3's 0x00474f60 / 0x004752e0 (mech_skin.h: a skin list's vector set to a size; a skin by name in the table 0x00607424 for 0x005e5454); the same, container helpers by other addresses, the arguments explicit |
 | 0x004773a0 | 23 | folded | read with its caller (the mech data load 0x00430c10): the definition's skins put on the model by its first entry (MW3 0x00475780, the port's skins_apply, mech_data.cpp:371) |
 | 0x00477470 | 97 | folded | group A, read: the same logic; the element count's checks are inlined in different branches (the ctor 0x00475be0 called from three of them) |
-| 0x004777f0 | 35 | folded | covered by the port where it names it (src/mech3/mech_part_update.cpp:360) |
+| 0x004777f0 | 35 | folded | covered by the port where it names it (src/mech3/mech_part_update.cpp:366) |
 | 0x004779e0 | 29 | folded | covered by the port where it names it (src/mech3/mech_pose.cpp:228) |
 | 0x00477dd0 | 31 | folded | a destructor out of line, from the mech's destructor 0x00415940 (MW3's inline there): the two objects at +0x3c / +0x40 deleted, the one at +0x38 deleted after its node is taken out of its parent and destroyed; the port's destructors free their own |
 | 0x00477ef0 | 15 | folded | covered by the port where it names it (src/mech3/mech_skis.cpp:201) |
@@ -2194,7 +2189,6 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x004b16f0 | 11 | folded | ported, by docs/symbols.csv: ported: IControls +0x04 zeroed |
 | 0x004b17c0 | 12 | folded | covered by the port where it names it (src/mech3/mech_fieldbase.cpp:258) |
 | 0x004b17e0 | 148 | folded | as MW3 0x004aded0: covered: the stealth's controls (app_vehicle.cpp:604), the turret's slots, the sensors' vector instances (ai.md 15), the vehicles' list instances, the controls' constant virtuals (controls.md), the weapon lists, the firing's thunks, start-up statics |
-| 0x004b1ec0 | 22 | MISSING LOGIC (only data the shipped game lacks reaches it) | called only from 0x004b2280, which are missing-mod |
 | 0x004b21a0 | 9 | folded | a thunk: one call to another function |
 | 0x004b21c0 | 9 | folded | as MW3 0x004c02a0: AI steps and their states: constructors, make_state factories, destructors and one-line virtuals of the step classes ported in zai_steps/zai_brain/zai_node/zai_attack (the port's make_state switch, zai_brain.cpp:715..745) |
 | 0x004b2410 | 12 | folded | read: the scalar deleting destructor (the destructor 0x004b2430, then delete when bit 0 is set); the port deletes its objects itself, the destructor labelled on its own row |

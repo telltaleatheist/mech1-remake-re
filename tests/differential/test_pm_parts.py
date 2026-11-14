@@ -21,7 +21,8 @@ arm's (with the hand's) setups 0x463770, 0x464e70, 0x463e90, 0x467d10,
 throttle and turn, the return value and every call out must match bit for
 bit at 24-bit x87, but for a footprint's first angle (the CRT asin through
 matrix_to_euler, within 2e-6 as in test_matrix.py). A part without a node
-reads its world position as zeros (the exe reads stale stack).
+reads its world position as zeros (the exe reads stale stack). The torso's set-up also runs without its node (it
+fails; PM returns before the cockpit call).
 """
 import ctypes
 import math
@@ -187,6 +188,8 @@ class World:
         self.vstub(self.vmvt + 0x1c, lambda c: c.ecx, 0)
         s = cpu.stub_function
         s(0x4ff250, self.world_position)
+        s(0x465e20, lambda c: self.log(58), 4)
+        s(0x4b4f10, lambda c: self.log(59, c.arg(0)), 4)  # the part's weapons lost (thiscall on +0xd4)  # the torso's cockpit call (thiscall, 1 argument): logged, done
         s(0x510630, lambda c: self.data[self.nodes.index(c.arg(0))] + 0x30)
         s(0x4fefa0, self.node_to_world)
         s(0x4ff2f0, self.node_euler)
@@ -383,7 +386,8 @@ class World:
                 put(img, 0x74, 'i', self.parts[HAND0 + k - ARM0] if get(img, 0x74) else 0)
             cpu.write(p, img)
             cpu.u32(p, VTABLES[k])
-            cpu.u32(p + 4, self.mech)
+            mechless = (k == HAND0 and s['present'] >> 31 & 1) or (k == HAND1 and s['present'] >> 30 & 1)
+            cpu.u32(p + 4, 0 if mechless else self.mech)
             cpu.u32(p + 8, self.nodes[k] if s['present'] >> k & 1 else 0)
             cpu.u32(p + 0x14, self.data[k] + 0x30)
             cpu.u32(p + 0x18, self.data[k] + 0x54)
@@ -767,6 +771,10 @@ def scenario(rng, op):
     present = (1 << NPARTS) - 1
     if op < 21 and rng.random() < (0.4 if op >= 7 else 0.15):  # 21, 22: the part aim's parts have nodes
         present &= ~(1 << rng.choice([HIP, LEG0, LEG1, CALF0, FOOT1, ARM0, HAND1] if op >= 7 else range(NPARTS)))
+    if op == 9 and TORSO_RNG.random() < 0.3:  # an arm's hand without its mech: its set-up fails with a node (PM's 0x41c380)
+        present |= 1 << TORSO_RNG.choice((31, 30))
+    if op == 23 and TORSO_RNG.random() < 0.3:  # the torso's own set-up failing (its own draws: the trials stay as before): PM's 0x465a60 returns before its cockpit call
+        present &= ~(1 << TORSO)
     return {'mech': bytes(mech), 'parts': bytes(parts), 'nodes': bytes(nodes), 'present': present,
             'skis': bytes(skis), 'ctl': bytes(ctl), 'env': env, 'def': bytes(dfn)}
 
@@ -841,6 +849,9 @@ NAMES = ['hip', 'leg', 'ground', 'arm', 'kick', 'torso', 'hand', 'hip setup', 'l
          'duck', 'crouch target', 'landing dust', 'action dust', 'pitch lock', 'hold view', 'aim', 'centre',
          'torso mode', 'view state', 'target part', 'part aim', 'torso setup', 'can face', 'clamp aim',
          'faces within', 'torso aim', 'lead velocity', 'stop share', 'throttle speed']
+
+
+TORSO_RNG = random.Random(0x465a60)
 
 
 def main():

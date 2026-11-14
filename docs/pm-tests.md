@@ -1433,3 +1433,45 @@ Ported for preservation and not wired (Owen, 2026-11-14):
 - The lookup takes the exact name only.
 - Break: the add left out (caught).
 - The exe's lookup is MFC's `CStringList::Find` (an import), so it was read, not run.
+
+## The torso's and arm's set-up when it fails (0x465a60, 0x467d10; 2026-11-14)
+
+Both set-ups were ported with MW3's failure paths. PM's differ, and the difference now sits behind
+`zgame::Table::part_setup_fail_pm`:
+- **The torso** (0x465a60): when the base set-up fails (the torso has no node), PM returns before its cockpit call
+  (0x465e20(0)). MW3 makes the call either way.
+- **The arm** (0x467d10): a hand whose set-up fails has its items taken off (0x41c380) before it is dropped.
+  0x41c380 is MW3's 0x41b5f0 with a check that the hand has a node with an id. MW3 only drops the hand.
+- Shipped mechs never fail a set-up: every part has its node and its mech.
+
+`test_pm_parts.py` now makes both fail, with its own random draws so the other trials stay as they were:
+- the torso's set-up (op 23) runs without the torso's node 30% of the time;
+- the arm's set-up (op 9) has a hand without its mech pointer 30% of the time (`present` bits 31 / 30). That is
+  the one way its set-up fails while it still has a node.
+- The cockpit call (stubbed 0x465e20 on the exe side, the port's cockpit-node hook) and the weapons-lost call
+  (0x4b4f10 on +0xd4, the port's `weapons_lost`) are now logged on both sides.
+- 20000 trials, the same.
+- Breaks caught: the torso's early return left out (the port's extra cockpit call), the hand's items left on (the
+  missing weapons-lost call).
+
+## The basic controls' set-net and the v105 node's slot finder (0x4b1ec0, 0x4b2280; 2026-11-14)
+
+- **0x4b1ec0** is the basic vehicle's controls' IControls vt+0x04, set-net. PM's vtable 0x5eb120 reaches it through
+  the adjustor 0x4b2300.
+  - It is MW3's 0x4ae5e0 (through 0x4aea00). MW3's never had a function of its own in the decomp, so it was never
+    counted.
+  - What it does: with the controls stopped (+0x38 4), an owner with its +4, and a version-105 net, the net's number
+    becomes the controls' (PM +0xa1c, MW3 +0xa04) and the base's init (0x4b0230 / 0x4ac8a0) runs.
+  - The v105 net is the one whose vt+0x38 answers itself (0x4d2a70); vt+0x18 (0x40a890) is its +0x18.
+  - Ported for preservation as `BasicControls::set_net`, unwired like the rest of the basic controls.
+  - FIX (A): no net changes nothing, where the exe asks a null net its vt+0x38 (fixes.md).
+  - The owner is at the interface's +0x1c in PM (MW3: +0x10).
+- **0x4b2280** is the v105 net node's slot finder: MW3's 0x4ae980, the same code. It is already ported
+  (`Net105Node::link_index`), so its constructor 0x4b21d0 and its methods 0x4b2220, 0x4b2260 and 0x4b2280 now carry
+  PM's addresses.
+
+`test_pm_basic_set_net.py` on PM's exe:
+- 600 random cases: the state 0..5, an owner none / without / with its +4, a net none / v105 / other.
+- The result, the net number and the base init are compared: 0 differ. 11 cases take the net; in 8 the exe would
+  read through null.
+- Break: the stopped-state check left out (caught).

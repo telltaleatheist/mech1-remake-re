@@ -8,6 +8,7 @@
 #include "gamez/zmath/zmth_vector.h"
 #include "gamez/zreader/zreader.h"
 #include "mech3/veh_basic_object.h"
+#include "mech3/zainet105.h"
 #include "mech3/veh_stealth.h"
 #include "mech3/zai_x87.h"
 
@@ -515,6 +516,18 @@ void basic_link_fill(ai::Net105Link& r, const float from[3], const float to[3], 
 }
 void BasicControlsHooks::link_fill(ai::Net105Link* r, const float* to, const float* from, float width) {
   if (r) basic_link_fill(*r, from, to, width);
+}
+
+// Mech3.exe 1.2 @ 0x004ae5e0, Pirate's Moon 1.0 @ 0x004b1ec0 (the IControls thunks 0x004aea00 / 0x004b2300).
+bool BasicControls::set_net(ai::AiNet* n) {
+  BasicControlsHooks& h = basic_controls_hooks();
+  if (state != 4 || !owner || !h.owner_has_node(owner)) return false;
+  // FIX (A) (docs/fixes.md): no net is none; the exe asks a null net its vt+0x38.
+  auto* v105 = dynamic_cast<ai::Net105*>(n);  // vt+0x38: the version-105 net's own
+  if (!v105) return false;
+  net = v105->x18;  // vt+0x18 (0x0040a890)
+  h.base_init(*this);
+  return true;
 }
 
 }  // namespace mech3

@@ -246,6 +246,8 @@ void hooks() {
     return &g->dfn;
   };
   c.register_part = [](Mech&, MechPart& p) { log({36, g->part_index(&p)}); };
+  free_calls().cockpit_node = [](MechData&) -> Handle { log({58}); return nullptr; };
+  damage_calls().weapons_lost = [](Mech&, int part) { log({59, part}); };  // 0x004b4f10 on +0xd4 (PM's 0x0041c380)  // the torso's cockpit call (0x00465e20)
   c.init = [](MechPart& p) { log({37, g->part_index(&p)}); };
   c.tree_update = [](Handle n) { log({38, node_index(n)}); };
   c.foot_effect = []() -> Handle {
@@ -438,7 +440,9 @@ void probe_parts_load(const uint8_t* mech, const uint8_t* parts, const float* no
   w.hip = Hip{}, w.torso = Torso{};
   for (int k = 0; k < kParts; ++k) {
     MechPart& p = *w.part(k);
-    p.mech = &w.m;
+    // Bits 31 and 30: the left and right hand without their mech (their set-up fails with a node: PM's 0x00467d10
+    // takes the hand's items off, 0x0041c380).
+    p.mech = (k == kParts - 2 && present >> 31 & 1) || (k == kParts - 1 && present >> 30 & 1) ? nullptr : &w.m;
     const bool has = present >> k & 1;
     p.node = has ? w.nodes[k] : nullptr;
     p.id = has ? kIds[k] : -1;
