@@ -181,3 +181,43 @@ void probe_blur(uint16_t* screen, int32_t w, int32_t h, int32_t pitch_px, uint16
   std::memcpy(scratch, s.data(), sizeof(uint16_t) * static_cast<size_t>(w) * h);
 }
 }
+
+// Probe for test_fmv_run.py: an action's run to the end (0x00493120) on a scripted millisecond clock. in:
+// the clock's readings (n of them, the last repeated), the steps answered true before the false. out: the
+// start's time, then each step's time (bits of the doubles, low then high), count first.
+namespace {
+struct RunClock : zfmv::Host {
+  const uint32_t* ms = nullptr;
+  int32_t n = 0, at = 0;
+  uint32_t clock_ms() override { return ms[at < n ? at++ : n - 1]; }
+};
+struct RunAction : zfmv::Action {
+  int32_t steps = 0;
+  std::vector<double> seen;
+  bool step(double t) override {
+    seen.push_back(t);
+    return steps-- > 0;
+  }
+  void start(double t) override { seen.push_back(t); }
+  void end() override { seen.push_back(-1234.5); }
+};
+}  // namespace
+
+extern "C" int32_t probe_fmv_run(const uint32_t* ms, int32_t n, int32_t steps, uint32_t* out) {
+  RunClock clock;
+  clock.ms = ms, clock.n = n;
+  zfmv::Host* was = &zfmv::host();
+  zfmv::set_host(&clock);
+  RunAction a;
+  a.steps = steps;
+  a.run_to_end();
+  zfmv::set_host(was);
+  int32_t k = 0;
+  out[k++] = static_cast<uint32_t>(a.seen.size());
+  for (double d : a.seen) {
+    uint64_t b;
+    std::memcpy(&b, &d, 8);
+    out[k++] = static_cast<uint32_t>(b), out[k++] = static_cast<uint32_t>(b >> 32);
+  }
+  return k;
+}

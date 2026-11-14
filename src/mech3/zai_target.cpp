@@ -7,6 +7,7 @@
 #include <new>
 #include <utility>
 
+#include "gamez/zclass/object3d.h"
 #include "gamez/zmath/zmth_vector.h"
 #include "gamez/zutil/zfix.h"
 #include "gamez/zmodel/gmod_cull.h"
@@ -17,6 +18,13 @@
 #pragma STDC FP_CONTRACT OFF
 
 namespace mech3::ai {
+
+// Mech3.exe 1.2 @ 0x004d7160
+void target_tint(zcls::Node* node, bool on) {
+  static const float kGreen[3] = {0.0f, 1.0f, 0.0f};  // 0x005e8d90
+  if (on) zcls::object3d_set_blend(node, kGreen, 0.6f);
+  zcls::object3d_use_blend(node, on ? 1 : 0);
+}
 
 namespace {
 TargetHooks g_default_hooks;

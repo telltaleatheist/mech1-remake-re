@@ -6,6 +6,7 @@
 #include <cstring>
 
 #include "crt/msvc_math.h"
+#include "gamez/zgeometry/zgeo_x87.h"
 #include "gamez/zreader/zreader.h"
 #include "gamez/zutil/zfix.h"
 #include "gamez/zvideo/zvid_format.h"
@@ -113,6 +114,7 @@ void Host::cd_stop() { unported("0x00593940", {}); }
 uint32_t Host::key_state(int32_t dik) { return unported("0x0051a9b0", {dik}); }
 int32_t Host::file_stat(const char* path) { return static_cast<int32_t>(unported("_stat", {path})); }
 double Host::now() { return zgame::from_bits(unported("timeGetTime", {})); }
+uint32_t Host::clock_ms() { return unported("0x00575d30", {}); }
 void Host::avi_file_init() { unported("AVIFileInit", {}); }
 void Host::avi_file_exit() { unported("AVIFileExit", {}); }
 int32_t Host::avi_open(Handle* stream, const char* path, uint32_t type) {
@@ -295,6 +297,17 @@ double now_ms() {
   return std::chrono::duration<double, std::milli>(C::now().time_since_epoch()).count();
 }
 }  // namespace
+
+// Mech3.exe 1.2 @ 0x00493120. The clock's milliseconds x 0.001f at the x87's
+// precision, kept as a double; each step the seconds since the start.
+void Action::run_to_end() {
+  using zgeo::X;
+  const double t0 = (X(static_cast<double>(host().clock_ms())) * X(0.001f)).v;
+  start(0.0);
+  while (step((X(static_cast<double>(host().clock_ms())) * X(0.001f) - X(t0)).v)) {
+  }
+  end();
+}
 
 // FIX (A): the original then looked for the file on a CD-ROM drive (0x00575d40);
 // the movies come from the imported folder (docs/protection.md).

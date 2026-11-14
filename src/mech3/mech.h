@@ -312,6 +312,9 @@ struct Mech : Vehicle {
   // The torso's aim as the AI asks it (docs/ai.md 17.7, mech_part_update.cpp):
   bool can_face(const Vec3& dir);                // vtable +0x8c, 0x0041dc70: the torso's limits allow it
   bool clamp_aim(const Vec3& dir, Vec3* out);    // vtable +0x90, 0x0041dca0: false when clamped (out the clamped)
+  // vtable +0x94, 0x0041dd90: the same by the torso's facing limits (0x00465c70). No call reaches it on a
+  // mech (ported for preservation; docs/movement.md, The mech's unreached slots).
+  bool clamp_face(const Vec3& dir, Vec3* out);
   bool faces_within(float cosine);               // vtable +0x150, 0x0041dba0: the torso's aim cosine above it
   void set_torso_aim(const Vec3* dir);           // vtable +0x154, 0x0041dbd0: the AI's aim (null: off)
   void lead_velocity(Vec3* out) const;           // vtable +0x08, 0x0041d400 (+0x0c's): what others lead it by
@@ -360,6 +363,13 @@ struct Mech : Vehicle {
     if (x > 1.0f) return 1.0f;
     return x < 0.0f || x != x ? 0.0f : x;
   }
+  // The mech's turn and stop slots no call reaches (the vehicles' own are used; ported for preservation,
+  // docs/movement.md, The mech's unreached slots). Returned in the register, unrounded, as the exe's.
+  double stop_distance_now() const;              // vt+0x124, 0x0041d280: stopping_distance at the throttle's speed
+  double turn_time(float speed, float share) const;  // vt+0x130, 0x0041d2c0: speed / the turn rate there (min 1e-4)
+  double turn_time_at(float share, float turn) const;  // vt+0x134, 0x0041d300: turn_time at a share of top speed
+  double turn_time_now() const;                  // vt+0x138, 0x0041d320: turn_time at the controls' throttle and turn
+  double turn_share(float amount, float turn) const;  // vt+0x13c, 0x0041d380: 0..1
   void destroy_part(int id);          // 0x0041cfa0
   bool start_limp(int leg, bool fall);  // 0x0041d5f0
   void fall();                        // 0x0041b640

@@ -20,6 +20,8 @@ struct RdrHooks {
   const char* (*find_loose)(const char* name) = nullptr;
   const char* (*localize)(const char* name) = nullptr;  // 0x00575fb0; zutl::localize when null
   void* (*sound_find)(const char* name) = nullptr;      // 0x0056f6f0; zsnd::find when null
+  // zEntity's object of that name (0x005a8210 on [0x00736558]); none when null.
+  void* (*entity_find)(const char* name) = nullptr;
 };
 RdrHooks& rdr_hooks();
 
@@ -29,6 +31,12 @@ class RdrFile {
   // 0x004de9c0: name gets ".zrd" (a suffix given is dropped, with a report).
   RdrFile(const char* name, int32_t max_refs, int32_t x18, int32_t first, int32_t quiet);
   virtual ~RdrFile();                    // 0x004deb20
+  // +0x04: whether a record may take this name (the base's 0x004da730: yes).
+  // No call reaches it (ported for preservation; docs/ai.md, Data files).
+  virtual int32_t name_free(const char* name) {
+    (void)name;
+    return 1;
+  }
   RdrFile(const RdrFile&) = delete;
   RdrFile& operator=(const RdrFile&) = delete;
 
@@ -62,6 +70,9 @@ class AivFile : public RdrFile {
   AivFile() : RdrFile("aiv", 0x80, 0x64, 0, 1) {}  // 0x004df620 -> 0x004df640
   ~AivFile() override;                               // 0x004ded70
   int32_t unload() override;                         // +0x08 0x004df5f0
+  // +0x04 0x004dee50: 0 when a zEntity already has the name or the vehicle
+  // editor's cache holds a record under it, else 1.
+  int32_t name_free(const char* name) override;
   AivRecord* cached(const char* name) const;         // 0x004def10
   // 0x004defc0 (through 0x004e06e0): the vehicle editor's record for `name`
   // kept; 0 when the one kept is the same already (a null name in either is

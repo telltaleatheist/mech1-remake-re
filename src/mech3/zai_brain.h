@@ -66,6 +66,9 @@ class BrainHooks : public zgame::Unported {
     unported("attacker.ictl.vt+0x98", {attacker, victim});
   }
   virtual void allies_turn() { unported("0x004d5dc0", {}); }
+  // 0x004e95b0's: an entity's mech (vt+0x40), its controls (vt+0x140) and
+  // whether they keep to a path (IControls vt+0x70: only the AI's).
+  virtual bool entity_on_path(zgame::Handle e) { return unported("entity.vt+0x40.vt+0x140.ictl.vt+0x70", {e}) & 0xff; }
   // 0x004ea260 (the refit order, zai_repair.cpp): the repair behaviour
   // pushed when a field base is up and the dock takes the pilot.
   virtual bool refit(Brain& b);
@@ -526,12 +529,11 @@ struct Radio {
 };
 
 // 0x004c9d00 then 0x004cd770 (0x10 bytes at the brain's +0x240, vtable
-// 0x005cc290): a step of the brain's own, pointing at the null step.
-struct BrainStep {
-  uint8_t flags = 0;    // +0x04  bit 0 cleared (the rest is the heap's)
-  int32_t x08 = 0;      // +0x08
-  const void* next;     // +0x0c  0x00603fa0, the null step
-  BrainStep();
+// 0x005cc290): a step of the brain's own, pointing at the null step. Nothing
+// orders it; its state (0x004cd790) turns the vehicle in place toward the
+// next step's place, then goes on (ported for preservation; docs/ai.md 17.2).
+struct BrainStep : Step {
+  BrainStep() : Step(StepKind::BrainOwn) {}
 };
 
 // IControls +0x04 (0x004aec00 zeroes it): the last hit's game time, when the
@@ -632,6 +634,11 @@ class Brain {
   // passes over targets behind that one and stands down. PM's AI: its firing's
   // (0x004fbc00 -> 0x004bb6a0, zai_wire_firing_pm.cpp).
   void hit_an_ally(zgame::Handle victim);
+  // 0x004e95b0, the AI controls' IControls vt+0x84 (no caller reaches it;
+  // ported for preservation, docs/ai.md 12): the vehicle's target dropped and
+  // the firing stood down when the target is on `entity` (or neither has
+  // one); 0 when `entity` keeps to a path (an AI's) and is not the target.
+  bool drop_target(zgame::Handle entity);
   bool may_fire();                                 // 0x004e9070
   // The vlist triggers (docs/ai.md 17.5): 0x004e9550 -> 0x004d9290 over the
   // settings' list, the nearest enemy picked once between them and the frame.

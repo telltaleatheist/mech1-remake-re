@@ -127,6 +127,17 @@ class JumpState : public BehaviourState {
   uint8_t steering = 1;   // +0x2c
 };
 
+// The brain's own step's state (0x004cd790 -> 0x004cd7b0, vtable 0x005cc348,
+// 0x10 bytes; destructor 0x004cd800): the vehicle turned in place toward the
+// next step's place, then on to the following step (zai_brain.cpp).
+class FaceState : public BehaviourState {
+ public:
+  using BehaviourState::BehaviourState;
+  void run(float dt) override;                                  // 0x004cd810
+  Behaviour* behaviour() const override { return from; }        // 0x004c0030
+  float keep = 0;  // +0x0c  the turn kept while the place is behind
+};
+
 // The node state (0x004ced40, 0x28 bytes, vtable 0x005cc5c0; made by the
 // node's vt+0x8c 0x004c9150).
 class NodeState : public BehaviourState {

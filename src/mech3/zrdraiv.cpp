@@ -172,6 +172,14 @@ AivRecord* AivFile::cached(const char* n) const {
   return it == cache->end() ? nullptr : it->second;
 }
 
+// Mech3.exe 1.2 @ 0x004dee50 (the cache's lower bound 0x004e1a30, its key
+// compared).
+int32_t AivFile::name_free(const char* n) {
+  if (rdr_hooks().entity_find && rdr_hooks().entity_find(n)) return 0;
+  if (!cache) return 1;
+  return cache->find(n) == cache->end() ? 1 : 0;
+}
+
 // Mech3.exe 1.2 @ 0x004defc0
 int32_t AivFile::edit(const char* n, const AivRecord& r) {
   AivRecord* kept = cached(n);  // 0x004def10

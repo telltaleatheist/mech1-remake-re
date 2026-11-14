@@ -1000,6 +1000,7 @@ void probe_ao_node_net(const uint32_t* rows, int32_t n) {
         g_elems.push_back(std::make_unique<ai::SoundStep>(reinterpret_cast<void*>(uintptr_t{0x7000} + uintptr_t(i))));
         break;
       case 12: g_elems.push_back(std::make_unique<ai::Step>(ai::StepKind::Shunt)); break;
+      case 15: g_elems.push_back(std::make_unique<ai::BrainStep>()); break;  // the brain's own step (0x004cd770)
       case 13: {  // a valve union: b entries, each (valve, count) two bits of a
         ai::ValveUnion u;
         for (uint32_t k = 0; k < r[2]; ++k)
@@ -1101,7 +1102,7 @@ void probe_ao_node(int32_t op, int32_t which, uint32_t dt, uint32_t* out) {
               x->kind == ai::StepKind::WaitInterval || x->kind == ai::StepKind::WaitTime ||
               x->kind == ai::StepKind::McbWaitNode || x->kind == ai::StepKind::Sound || x->kind == ai::StepKind::Gate ||
               x->kind == ai::StepKind::Shunt || x->kind == ai::StepKind::ValveUnion ||
-              x->kind == ai::StepKind::ValveAssign || x->kind == ai::StepKind::Jump))
+              x->kind == ai::StepKind::ValveAssign || x->kind == ai::StepKind::Jump || x->kind == ai::StepKind::BrainOwn))
       o.state->run(fl(dt));
   }
   std::memset(out, 0, 4 * 64);
@@ -1127,6 +1128,7 @@ void probe_ao_node(int32_t op, int32_t which, uint32_t dt, uint32_t* out) {
   for (int k = 0; k < 4; ++k) out[40 + k] = b.params.get<uint32_t>(k < 3 ? 0x98 + 4 * k : 0x3c);
   std::memcpy(out + 44, &b.xdc, 4);
   if (auto* ws = dynamic_cast<ai::WaitState*>(cur.state.get())) std::memcpy(out + 45, &ws->start, 4);
+  if (auto* fs = dynamic_cast<ai::FaceState*>(cur.state.get())) std::memcpy(out + 45, &fs->keep, 4);
   if (auto* js = dynamic_cast<ai::JumpState*>(cur.state.get())) {
     out[46] = static_cast<uint32_t>(js->phase);
     std::memcpy(out + 47, js->until, 20);

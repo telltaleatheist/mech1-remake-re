@@ -2,9 +2,11 @@
 // world the port's loaders read (sw_load in probe_scenewalk.cpp).
 #include <cstdint>
 #include <cstring>
+#include <new>
 
 #include "gamez/zclass/camera.h"
 #include "gamez/zclass/cls_di.h"
+#include "gamez/zclass/cls_node.h"
 #include "gamez/zclass/list.h"
 #include "gamez/zerror/zerr.h"
 #include "mech3/veh_basic.h"
@@ -186,3 +188,17 @@ int32_t inout_run(int32_t have, int32_t game, int32_t op, int32_t mission, int32
 }
 
 }  // extern "C"
+
+// Probe for test_inout_record.py: the vehicle's in/out record (0x004c0ed0 made over `bytes`, or 0x004c0f70 on
+// them at frame `frame`); out its 0x3c bytes.
+extern "C" void probe_inout_record(int reset, const uint8_t* bytes, uint32_t frame, uint8_t* out) {
+  alignas(mech3::ai::InOutRecord) uint8_t raw[sizeof(mech3::ai::InOutRecord)];
+  std::memcpy(raw, bytes, sizeof raw);
+  auto* r = reinterpret_cast<mech3::ai::InOutRecord*>(raw);
+  const uint32_t frame_was = zcls::frames().frame;
+  zcls::frames().frame = frame;
+  if (reset) r->reset();
+  else new (raw) mech3::ai::InOutRecord();
+  zcls::frames().frame = frame_was;
+  std::memcpy(out, raw, sizeof raw);
+}

@@ -87,6 +87,7 @@
 #include "mech3/mech_salvage.h"
 #include "mech3/zai_node.h"
 #include "mech3/zai_target.h"
+#include "mech3/zrdraiv.h"
 #include "mech3/zai_valve.h"
 #include "mech3/zainet_region.h"
 #include "mech3/cheats.h"
@@ -29949,4 +29950,85 @@ TEST(mission_c1m1_vehicle_editor_p2_shows_the_net_and_sends_home_headless) {
   EXPECT(!picked.empty() && !net_name.empty() && shown && freed && on_net);
   EXPECT(walls_parents == 1 && walls_models > 0 && walls_polys > 0);
   EXPECT(std::fabs(after[0] - target[0]) < 2.0f && std::fabs(after[2] - target[2]) < 2.0f);
+}
+
+// AiTarget's vt+0x6c (0x004d7160, ported for preservation): on, the node blended toward green at 0.6 and the
+// blend on; off, the blend off and its colour kept.
+TEST(ai_target_tint_blends_green) {
+  zcls::Node* n = zcls::object3d_create();
+  auto* d = static_cast<zcls::Object3d*>(n->data);
+  mech3::ai::target_tint(n, true);
+  EXPECT((d->get<uint32_t>(0) & 4) && d->get<float>(8) == 0.0f && d->get<float>(0xc) == 1.0f &&
+         d->get<float>(0x10) == 0.0f && d->get<float>(0x14) == 0.6f);
+  mech3::ai::target_tint(n, false);
+  EXPECT(!(d->get<uint32_t>(0) & 4) && d->get<float>(0xc) == 1.0f && d->get<float>(0x14) == 0.6f);
+  zcls::node_destroy(n);
+}
+
+// The aiv reader's vt+0x04 (0x004dee50, ported for preservation): a name zEntity knows or the editor's cache
+// holds is taken; another is free; without a cache only zEntity's.
+TEST(aiv_name_free_by_entity_and_cache) {
+  mech3::ai::RdrHooks& h = mech3::ai::rdr_hooks();
+  const auto was = h.entity_find;
+  static int entity;
+  h.entity_find = [](const char* n) -> void* { return std::strcmp(n, "mech_a") == 0 ? &entity : nullptr; };
+  mech3::ai::AivFile f;
+  EXPECT(f.name_free("mech_a") == 0 && f.name_free("mech_b") == 1);
+  std::map<std::string, mech3::ai::AivRecord*> cache{{"mech_b", nullptr}};
+  f.cache = &cache;
+  EXPECT(f.name_free("mech_b") == 0 && f.name_free("mech_c") == 1 && f.name_free("mech_a") == 0);
+  f.cache = nullptr;
+  mech3::ai::RdrFile& base = f;
+  EXPECT(base.name_free("mech_b") == 1);
+  h.entity_find = was;
+}
+
+// The AI controls' IControls vt+0x84 (0x004e95b0, ported for preservation): the target dropped and the firing
+// stood down when it is on the entity; 0 for another AI's (its controls keep to a path) that is not the target.
+TEST(ai_drop_target_on_the_entity) {
+  struct Hooks : mech3::ai::BrainHooks {
+    mech3::ai::AiTarget target;
+    int dropped = 0, reset = 0;
+    bool entity_on_path(zgame::Handle e) override { return e == 0x700; }  // 0x700 an AI's, 0x800 another
+    mech3::ai::AiTarget* targetable(zgame::Handle) override { return &target; }
+    bool select_target(zgame::Handle, mech3::ai::Contact* c) override {
+      dropped += c == nullptr;
+      target.target = c;
+      return true;
+    }
+    void firing_reset(mech3::ai::Brain&) override { ++reset; }
+  } h;
+  struct Controls : mech3::ai::BrainControls {
+    zgame::Handle vehicle() override { return 0x100; }
+    void stop() override {}
+    void smooth(float) override {}
+    bool hit_lately() override { return false; }
+    void fire(bool) override {}
+    bool reversing() override { return false; }
+    float throttle_now() override { return 0; }
+    void set_throttle(float) override {}
+    void set_turn(float) override {}
+    void set_jump(float) override {}
+    void set_jet_forward(float) override {}
+    float turn_goal() override { return 0; }
+    void aim_started() override {}
+  } c;
+  mech3::ai::set_brain_hooks(&h);
+  {
+    mech3::ai::AiParams rec;
+    mech3::ai::Brain b(nullptr, rec);
+    b.controls = &c;
+    mech3::ai::Contact on;
+    on.seen = 0x700;
+    h.target.target = &on;
+    EXPECT(b.drop_target(0x800) && h.dropped == 0 && h.reset == 0);  // not the target, not an AI's
+    EXPECT(b.drop_target(0x700) && h.dropped == 1 && h.reset == 1 && !h.target.target);  // the target: dropped
+    h.target.target = &on;
+    on.seen = 0x900;
+    EXPECT(!b.drop_target(0x700) && h.dropped == 1);  // an AI's, not the target
+    h.target.target = nullptr;
+    EXPECT(b.drop_target(0) && h.dropped == 2 && h.reset == 2);  // no entity and no target: equal, dropped
+    b.controls = nullptr;
+  }
+  mech3::ai::set_brain_hooks(nullptr);
 }

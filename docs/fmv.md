@@ -88,7 +88,11 @@ with the game (the frame clock's FIX (B), fixes.md).
 An action's slots: +0 its vtable, +4 the next. The base's (0x005c6130):
 step false (0x00493110), start nothing (0x0040baf0), end nothing
 (0x0049bfd0), and a run-to-end (0x00493120: its own clock 0x00575d30) that
-nothing calls.
+nothing calls: started at 0, then stepped by the seconds since its start
+(the milliseconds x 0.001f, each kept as a double) until a step answers
+false, then ended. Ported for preservation (`zfmv::Action::run_to_end`,
+`Host::clock_ms`); `test_fmv_run.py`: 2000 runs on a scripted clock, every
+time identical at 24 and 53 bits.
 
 ### Images (vtable 0x005cf850)
 

@@ -641,10 +641,13 @@ void JumpState::run(float dt) {
   }
   c.set_turn(turn);
   // The forward thrust toward the speed (0x0060b430..0x0060b43c: 1, 1, 0.2, 1).
-  const float diff = h.forward_speed(v) - speed;
-  float k = (std::fabs(diff) - 1.0f) * 1.0f + 0.2f;
-  if (k > 1.0f) k = 1.0f;
-  if (diff > 0.0f) k = -k;
+  // The difference and the share stay in the register (zai_x87.h: the AI at
+  // 53 bits); the share is stored, the tests read the unrounded values.
+  const double diff = double{h.forward_speed(v)} - speed;
+  const double kx = (std::fabs(diff) - 1.0) * 1.0 + 0.2f;
+  float k = stored(kx);
+  if (kx > 1.0) k = 1.0f;
+  if (diff > 0.0) k = -k;
   c.set_jet_forward(k);
   auto before = [&](int i) { return !(h.now() >= until[i]); };  // C0: before, or unordered
   for (;;) {
@@ -734,6 +737,60 @@ void GateState::run(float dt) {
   order->set_behaviour(static_cast<const Step*>(from)->next);  // 0x004e8120: this state destroyed
 }
 
+// Mech3.exe 1.2 @ 0x004cd810: the walking states' turn toward (0x004cdd40,
+// inlined) from the vehicle's forward to the next step's place, kept while it
+// is behind. Facing it, the way finder's next step (else what follows) with
+// the order run again (+0x104); else no throttle and that turn (none while
+// the vehicle backs faster than 1).
+void FaceState::run(float dt) {
+  (void)dt;
+  BrainHooks& h = brain_hooks();
+  Brain& b = *order->owner;
+  BrainControls& c = *b.controls;
+  const zgame::Handle v = c.vehicle();
+  const Behaviour* next_step = static_cast<const Step*>(from)->next;
+  const float* to = next_step ? next_step->position() : nullptr;  // vt+0x18
+  float turn = 0.0f;
+  // FIX (A): a next step without a place (the null step it points at) has the
+  // exe measure toward a null pointer; it counts as faced.
+  if (to) {
+    float at[3];
+    h.position(v, at);  // 0x005a85e0
+    FlatWay w;
+    flat_way(at, to, &w);  // 0x004ce230
+    float fwd[3] = {0, 0, 0};
+    h.forward(v, &fwd[0], &fwd[2]);  // +0x24, +0x2c
+    float dot, cross;
+    turn = turn_toward(fwd, w.dir, &dot, &cross, keep, turn_params());
+  }
+  keep = turn;
+  if (turn == 0.0f || turn != turn) {  // fcomp 0: equal or unordered
+    Behaviour* next = h.path_next(b, from);  // +0x238, 0x004c7cb0
+    if (!next) next = static_cast<const Step*>(from)->next;
+    b.x104 = 1;
+    order->set_behaviour(next);  // 0x004e8120: this state destroyed
+    return;
+  }
+  if (!(h.forward_speed(v) >= -1.0f)) keep = 0.0f;  // +0x44: below, or unordered
+  c.set_throttle(0.0f);
+  c.set_turn(keep);
+}
+
+// Mech3.exe 1.2 @ 0x004e95b0
+bool Brain::drop_target(zgame::Handle entity) {
+  BrainHooks& h = brain_hooks();
+  bool r = !(entity && h.entity_on_path(entity));
+  const zgame::Handle v = controls->vehicle();
+  AiTarget* t = h.targetable(v);
+  const zgame::Handle on = t && t->target ? t->target->seen : 0;  // +0x6c, the contact's +0x04
+  if (on == entity) {
+    r = true;
+    h.select_target(v, nullptr);  // vt+0xc0(0, 0)
+    h.firing_reset(*this);        // 0x004e9590
+  }
+  return r;
+}
+
 BehaviourState* Behaviour::make_state(Order& o) {
   if (pm_ai_on())
     if (BehaviourState* pm = pm_make_state(*this, o)) return pm;
@@ -752,6 +809,7 @@ BehaviourState* Behaviour::make_state(Order& o) {
     case StepKind::Jump: return new JumpState(&o, this);                // 0x004cb310
     case StepKind::Sound: return new SoundState(&o, this);              // 0x004cce50
     case StepKind::Gate: return new GateState(&o, this);                // 0x004cd560
+    case StepKind::BrainOwn: return new FaceState(&o, this);            // 0x004cd790 -> 0x004cd7b0
     case StepKind::Valve: return new PassState(&o, this);   // 0x004ca1f0
     case StepKind::Shunt: return new PassState(&o, this);   // 0x004cd700 -> 0x004cd720 (vtable 0x005cc270)
     case StepKind::ValveUnion: return new PassState(&o, this);  // 0x004cdb60 -> 0x004cdbd0 (vtable 0x005cc420)
@@ -1007,7 +1065,6 @@ void Radio::load(const char* voice) {
 }
 
 // Mech3.exe 1.2 @ 0x004c9d00 over 0x004c8600, then 0x004cd770.
-BrainStep::BrainStep() : next(null_step()) {}
 
 // Mech3.exe 1.2 @ 0x004cf330 (most derived 0: the AI controls' base). The
 // net given is the vehicle's (player.cpp passes it); without one the brain

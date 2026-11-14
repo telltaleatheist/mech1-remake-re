@@ -510,6 +510,18 @@ float probe_parts_op(int op, const float* a) {
     case 24: return w.m.can_face(Vec3{a[2], a[3], a[0]}) ? 1.0f : 0.0f;  // vt+0x8c
     case 29: return w.m.stop_share(a[0] * 100.0f);  // vt+0x12c
     case 30: return w.m.throttle_speed();  // vt+0x114
+    case 31: {  // vt+0x94: the direction clamped to the torso's facing limits, logged
+      Vec3 out{};
+      const bool r = w.m.clamp_face(Vec3{a[2], a[3], a[0]}, &out);
+      log({55, bits(out.x), bits(out.y), bits(out.z)});
+      return r ? 1.0f : 0.0f;
+    }
+    // The unreached turn and stop slots, as test_parts.py's SLOT_ARGS gives their arguments.
+    case 32: return static_cast<float>(w.m.stop_distance_now());
+    case 33: return static_cast<float>(w.m.turn_time(a[3] * 30.0f, a[2]));
+    case 34: return static_cast<float>(w.m.turn_time_at(a[3], a[2]));
+    case 35: return static_cast<float>(w.m.turn_time_now());
+    case 36: return static_cast<float>(w.m.turn_share(a[3] * 100.0f, a[2]));
     case 25: {  // vt+0x90: the clamped direction logged
       Vec3 out{};
       const bool r = w.m.clamp_aim(Vec3{a[2], a[3], a[0]}, &out);

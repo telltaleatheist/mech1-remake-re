@@ -12,6 +12,16 @@ namespace ai {
 bool pm_ai_on();  // zai_wire_pm.h
 }
 
+// Mech3.exe 1.2 @ 0x004b1170 / 0x004b12e0
+PlannerScratch::PlannerScratch() {
+  pairs.reserve(17);  // 0x88 bytes
+  words.reserve(16);  // 0x40
+}
+PlannerScratch& planner_scratch() {
+  static PlannerScratch s;
+  return s;
+}
+
 namespace {
 constexpr int32_t kGroupFire = 2;  // manager +0x1c
 

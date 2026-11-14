@@ -6,6 +6,7 @@
 #include <string>
 
 #include "check.h"
+#include "mech3/weapon_planner.h"
 #include "gamez/zsave/zsave.h"
 #include "gamez/zweapon/zweapon.h"
 
@@ -48,4 +49,10 @@ TEST(weapons_save_section_only_with_the_flag) {
   zwep::set_save(0);
   h = kept;
   if (!had) zsave::shutdown();
+}
+
+// The AI planner's static (0x004b1170 at 0x0060b240, ported for preservation): two vectors reserved, empty.
+TEST(planner_scratch_reserved_and_empty) {
+  const mech3::PlannerScratch& s = mech3::planner_scratch();
+  EXPECT(s.pairs.empty() && s.pairs.capacity() >= 17 && s.words.empty() && s.words.capacity() >= 16);
 }

@@ -6,6 +6,7 @@
 #include "gamez/zclass/class.h"
 #include "gamez/zclass/cls_node.h"
 #include "gamez/zgame/zgame_table.h"
+#include "gamez/zgeometry/zgeo_x87.h"
 #include "gamez/zmath/zmth_matrix.h"
 #include "gamez/zmath/zmth_vector.h"
 #include "mech3/mech_headlight.h"
@@ -588,6 +589,64 @@ bool Mech::clamp_aim(const Vec3& dir, Vec3* out) {
   out->x = out->x * cp;
   out->z = -(cp * out->z);
   return false;
+}
+
+// Mech3.exe 1.2 @ 0x0041dd90: as clamp_aim by the torso's facing limits.
+bool Mech::clamp_face(const Vec3& dir, Vec3* out) {
+  float p, y;
+  if (torso->face_angles(dir, &p, &y)) {
+    *out = dir;
+    return true;
+  }
+  out->y = static_cast<float>(std::sin(double{p}));
+  const float cp = static_cast<float>(std::cos(double{p}));
+  out->x = static_cast<float>(std::sin(double{y}));
+  out->z = static_cast<float>(std::cos(double{y}));
+  out->x = out->x * cp;
+  out->z = -(cp * out->z);
+  return false;
+}
+
+// Mech3.exe 1.2 @ 0x0041d280: the stopping distance (vt+0x120) at the
+// controls' throttle (vt+0x1c, GetThrottle) times the top speed.
+double Mech::stop_distance_now() const {
+  using zgeo::X;
+  const float t = controls ? controls->throttle : 0.0f;
+  return stopping_distance(std::fabs((X(t) * X(max_speed)).f()));
+}
+
+// Mech3.exe 1.2 @ 0x0041d2c0: a speed over the turn rate it allows,
+// |(1 - |speed| x 0.8 / top) x rate x share|, floored at 1e-4.
+double Mech::turn_time(float speed, float share) const {
+  using zgeo::X;
+  X r = abs((X(1.0) - X(std::fabs(speed)) * X(0.8f) / X(max_speed)) * X(turn_rate) * X(share));
+  if (!(r >= X(1e-4f))) r = X(1e-4f);  // fcom: a NaN floored too
+  return (X(speed) / r).v;
+}
+
+// Mech3.exe 1.2 @ 0x0041d300: vt+0x130 at |top x share|.
+double Mech::turn_time_at(float share, float turn) const {
+  using zgeo::X;
+  return turn_time(std::fabs((X(max_speed) * X(share)).f()), turn);
+}
+
+// Mech3.exe 1.2 @ 0x0041d320: vt+0x130 at the controls' throttle (vt+0x1c)
+// and turn (vt+0x24, GetTurn).
+double Mech::turn_time_now() const {
+  using zgeo::X;
+  const float t = controls ? controls->throttle : 0.0f, turn = controls ? controls->turn : 0.0f;
+  return turn_time(std::fabs((X(max_speed) * X(t)).f()), turn);
+}
+
+// Mech3.exe 1.2 @ 0x0041d380: |(1 - |throttle| x 0.8) x rate x turn| x
+// amount / top, cut to 0..1 (a NaN to 0).
+double Mech::turn_share(float amount, float turn) const {
+  using zgeo::X;
+  const float t = controls ? controls->throttle : 0.0f;
+  const X x = abs((X(1.0) - X(std::fabs(t)) * X(0.8f)) * X(turn_rate) * X(turn)) * X(amount) / X(max_speed);
+  if (x > X(1.0)) return 1.0;
+  if (!(x >= X(0.0))) return 0.0;  // fcom: C0 below or unordered
+  return x.v;
 }
 
 // Mech3.exe 1.2 @ 0x0041dba0 (the torso's 0x00465bb0: +0x98)

@@ -3,10 +3,22 @@
 
 // The AI's weapon planner (docs/ai.md section 17.7): weapon.cpp's tail,
 // 0x004b1170..0x004b1d7f: the AI's volley pick, and the three the HUD reads
-// (the selected group's longest range, lock-on and ammo). The static
-// 0x004b1170 builds at 0x0060b240 (two reserved vectors) is read by nothing
-// and is not kept.
+// (the selected group's longest range, lock-on and ammo).
+#include <array>
+#include <cstdint>
+#include <vector>
+
 namespace mech3 {
+
+// Mech3.exe 1.2 @ 0x004b1170 (its static init 0x004b12e0, at 0x0060b240): two
+// vectors reserved, 17 eight-byte pairs and 16 words. Read by nothing (ported
+// for preservation; docs/ai.md 17.7).
+struct PlannerScratch {
+  std::vector<std::array<uint32_t, 2>> pairs;  // +0x08..+0x10
+  std::vector<uint32_t> words;                 // +0x18..+0x20
+  PlannerScratch();
+};
+PlannerScratch& planner_scratch();  // 0x0060b240
 
 // Mech3.exe 1.2 @ 0x004b1bd0: in group fire the longest of the group's
 // weapons, else the current weapon's; 0 without a group.

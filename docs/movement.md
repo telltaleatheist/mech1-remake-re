@@ -307,6 +307,31 @@ controls' (0x004aee40). Checked: `test_deaths.py` (lod 800, part_lod 300;
 BREAK=12, 13); in c1m1 the Owens at 1.4 km has no bits and the low model,
 at 30 m with the player walking 0x1c and the full model.
 
+## The mech's unreached slots (ported 2026-11-14, for preservation)
+
+The mech's vtable (0x5bcef8) has turn and stop slots its own code never
+calls: the AI's walking states and the field base dock call them through
+vehicles, whose slots are their own (0x4ad050, 0x4ad250, 0x4ad290), and no
+call goes through +0x134, +0x138 or +0x13c at all. On a mech:
+
+- vt+0x124, 0x41d280: the stopping distance (vt+0x120) at the controls'
+  throttle (GetThrottle, +0x10) times the top speed (+0x518).
+- vt+0x130, 0x41d2c0: a speed over the turn rate it allows,
+  |(1 - |speed| x 0.8 / top) x rate (+0x520) x share|, floored at 1e-4 (a
+  NaN too).
+- vt+0x134, 0x41d300: vt+0x130 at a share of the top speed; vt+0x138,
+  0x41d320: at the throttle's speed and the controls' turn (GetTurn, +0x14).
+- vt+0x13c, 0x41d380: |(1 - |throttle| x 0.8) x rate x turn| x amount /
+  top, cut to 0..1 (a NaN to 0).
+- vt+0x94, 0x41dd90: as vt+0x90's clamp (the aim limits) by the torso's
+  facing limits (0x465c70); the 20 calls through +0x94 are all on other
+  classes.
+
+Port: `Mech::stop_distance_now`, `turn_time`, `turn_time_at`,
+`turn_time_now`, `turn_share` (results in the register, as doubles) and
+`clamp_face`. `test_parts.py` runs each on its random mechs (about 450 to
+720 trials each, bit for bit at 24 bits).
+
 ## Left
 
 1. The torso's setup 0x464290 is ported (movement-ground.md). The calls the

@@ -60,7 +60,7 @@ BACKUP_RUN, DEPLOY_STATE_VT = 0x4cfad0, 0x5cc950
 # shunt's and valve union's (0x4ca2e0), the valve_assign's (0x4cdcf0) and the
 # jump's (0x4cb4b0).
 PASS_VT = (0x5cb540, 0x5cb7c8, 0x5cbc88, 0x5cb618, 0x5cb6f0, 0x5cbfe8, 0x5cc0c0, 0x5cc198, 0x5cc270, 0x5cc420,
-           0x5cc4f8, 0x5cbbb0)
+           0x5cc4f8, 0x5cbbb0, 0x5cc348)
 WAIT_VT = (0x5cb618, 0x5cb6f0)
 JUMP_STATE_VT = 0x5cbbb0
 SCAN_VT = (0x5cbbd0, 0x5cbca8, 0x5cbd60)  # scan, canleave, canleave-not
@@ -68,7 +68,8 @@ SCAN_FN = ((0x4d9c30, 0x4d9c20), (0x4d9c50, 0x4d9c40), (0x4d9c70, 0x4d9c60))  # 
 CANLEAVE_FN = {1: 0x4d9c80, 2: 0x4d9ca0}
 # Speed, valve, jump, gate, the waits, sound, shunt, valve union, valve_assign.
 STEP_VT = {1: 0x5cb488, 2: 0x5cb710, 3: 0x5cbaf8, 4: 0x5cc0e0, 8: 0x5cb560, 9: 0x5cb638, 10: 0x5cc008,
-           12: 0x5cc1b8, 13: 0x5cc368, 14: 0x5cc440}
+           12: 0x5cc1b8, 13: 0x5cc368, 14: 0x5cc440, 15: 0x5cc290}
+FACE_STATE_VT = 0x5cc348  # the brain's own step's state (0x4cd810): its kept turn at +0xc
 SOUND_BASE = 0x7000  # a sound step's fake sound: this plus its element's index
 f2i, fi = tf.f2i, ts.fi
 COVER = {
@@ -106,6 +107,8 @@ COVER = {
     0x4cb706: 'jump: coasting up', 0x4cb727: 'jump: coasted up', 0x4cb735: 'jump: phase 2',
     0x4cb79a: 'jump: gliding', 0x4cb7bd: 'jump: glided', 0x4cb7ea: 'jump: coasting down',
     0x4cb80b: 'jump: coasted down', 0x4cb838: 'jump: braking', 0x4cb85c: 'jump: braked', 0x4cb86e: 'jump: phase 5',
+    0x4cda1a: "the brain's own step: faced, on", 0x4cd9c0: "the brain's own step: turning",
+    0x4cd9d0: "the brain's own step: backing, no turn kept",
     0x4cb8e0: 'jump: still up', 0x4cb8e5: 'jump: down'}
 REACHED = set()
 
@@ -349,8 +352,8 @@ class Original(ts.Original):
             out[32:35] = [e.r32(st + 0x2c + 4 * k) for k in range(3)]
         out[35:38] = [e.r32(e.r32(v + 4) + 4) for v in self.valves]
         out[40:45] = [e.r32(b + off) for off in (0x98, 0x9c, 0xa0, 0x3c, 0xdc)]
-        if vt in WAIT_VT:
-            out[45] = e.r32(st + 0xc)  # when it began
+        if vt in WAIT_VT or vt == FACE_STATE_VT:
+            out[45] = e.r32(st + 0xc)  # when it began; the face state's kept turn
         if vt == JUMP_STATE_VT:  # the phase, its ends, the speed, the glide's jets, the turn, steering
             out[46:55] = [e.r32(st + 8 + 4 * k) for k in range(9)]
             out[55] = e.cpu.read(st + 0x2c, 1)[0]
@@ -425,6 +428,11 @@ def build_net(rng):
                 kind = rng.choice([1, 2, 3, 3, 3, 4, 7, 7, 8, 9, 10, 12, 13, 14])
                 if kind == 3 and (depth < depth_n - 1 or not 0 <= target < len(nodes)):
                     kind = 1  # a jump lands on a node (the exe steers to its next's place, 0x4cb50d)
+                # The brain's own step (0x4cd770) in place of a speed step that lands on a node (it turns toward its
+                # next's place), from a generator of its own so the cases before it stay as they were.
+                if kind == 1 and depth == depth_n - 1 and 0 <= target < len(nodes) and \
+                        random.Random(len(rows) * 7919 + k * 31 + n).random() < 0.6:
+                    kind = 15
                 if kind == 8:  # wait_interval: seconds, mostly a clock step or two, now and then NaN
                     a = 0x7fc00000 if rng.random() < 0.04 else f2i(rng.uniform(1, 30) if rng.random() < 0.3 else
                                                              rng.choice([0.5, 2.0, 2.5, 4.0, 6.0]))

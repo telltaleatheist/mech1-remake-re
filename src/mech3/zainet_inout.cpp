@@ -27,6 +27,16 @@
 
 namespace mech3::ai {
 
+// Mech3.exe 1.2 @ 0x004c0ed0
+InOutRecord::InOutRecord() {}  // the members' defaults: the zero vector, +0x24 too (the exe leaves it)
+
+// Mech3.exe 1.2 @ 0x004c0f70
+void InOutRecord::reset() {
+  flags[0] = flags[1] = flags[2] = 0;
+  for (int k = 0; k < 3; ++k) from[k] = 0.0f, to[k] = 0.0f;
+  frame = zcls::frames().frame;
+}
+
 namespace {
 constexpr const char* kFile = "C:\\zipper\\Mech3\\ZAiNetMechInOut.cpp";
 constexpr float kWidth = 3.0f;  // 0x005e8a18

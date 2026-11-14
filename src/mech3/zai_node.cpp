@@ -364,10 +364,11 @@ void deploy_mission_load() {
 DeployState::DeployState(Order* o, Behaviour* node) : NodeState(o, node) {}
 
 namespace {
-// 0x0051e0a0: the flat distance between two points.
+// 0x0051e0a0: the flat distance between two points: the differences stored,
+// the squares (x first), sum and root in the register (zai_x87.h).
 float flat_distance(const float a[3], const float b[3]) {
   const float dx = a[0] - b[0], dz = a[2] - b[2];
-  return std::sqrt(dz * dz + dx * dx);
+  return stored(std::sqrt(double{dx} * dx + double{dz} * dz));
 }
 // A deploy valve's value (its holder's vt+0x04). FIX (bug): a deploy record
 // without a valve name has none, which the exe reads (a crash); it reads 0.
@@ -462,7 +463,9 @@ void DeployState::run(float dt) {
       if (dist > step) {
         const float k = step / dist;
         const float* n2 = node->position();
-        const float p[3] = {(n2[0] - pos[0]) * k + pos[0], (n2[1] - pos[1]) * k + pos[1], (n2[2] - pos[2]) * k + pos[2]};
+        // Each word in the register until stored (zai_x87.h).
+        const float p[3] = {stored((double{n2[0]} - pos[0]) * k + pos[0]), stored((double{n2[1]} - pos[1]) * k + pos[1]),
+                            stored((double{n2[2]} - pos[2]) * k + pos[2])};
         h.place(v, p, yaw_toward(node->target_step->position(), p));
         phase = 0x29;
         return;

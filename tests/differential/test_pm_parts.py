@@ -246,6 +246,16 @@ class World:
         # 0x41dfc0 (ECX the mech), its st0 kept.
         self.tspeed = cpu.code(b'\xb8' + struct.pack('<I', 0x41dfc0) + b'\xff\xd0\xd9\x1d' +
                                struct.pack('<I', self.slot) + b'\xc3')
+        # The mech's unreached turn and stop slots (PM's vt+0x130, 0x13c..0x148; MW3's 0x124, 0x130..0x13c): a thunk per slot pushing its
+        # arguments from fargs (ECX the mech kept) and keeping its st0 as a double.
+        self.fargs, self.fslot = a(8), a(8)
+
+        def fcall(fn, n):
+            code = b''.join(b'\xff\x35' + struct.pack('<I', self.fargs + 4 * k) for k in reversed(range(n)))
+            return cpu.code(code + b'\xb8' + struct.pack('<I', fn) + b'\xff\xd0\xdd\x1d' + struct.pack('<I', self.fslot) +
+                            b'\xc3')
+        self.fcalls = {32: fcall(0x41e070, 0), 33: fcall(0x41e0b0, 2), 34: fcall(0x41e0f0, 2), 35: fcall(0x41e110, 0),
+                       36: fcall(0x41e180, 2)}
         # A thunk that pushes the ground update's 0 and keeps its st0.
         self.ground = cpu.code(b'\x6a\x00\xb8' + struct.pack('<I', 0x464060) + b'\xff\xd0\xd9\x1d' +
                                struct.pack('<I', self.slot) + b'\xc3')
@@ -539,6 +549,15 @@ class World:
             cpu.write(self.share_d, struct.pack('<f', f32(a[0] * 100.0)))
             cpu.call(self.share, ecx=self.mech)
             return struct.unpack('<f', cpu.read(self.slot, 4))[0]
+        elif op == 31:  # vt+0x94: the direction clamped to the torso's facing limits, logged
+            cpu.write(self.aim, struct.pack('<3f', a[2], a[3], a[0]) + bytes(12))
+            cpu.call(0x41ed00, ecx=self.mech, stack_args=(self.aim, self.aim + 12))
+            self.log(55, *struct.unpack('<3I', cpu.read(self.aim + 12, 12)))
+            return float(cpu.uc.reg_read(UC_X86_REG_EAX) & 0xff != 0)
+        elif op in self.fcalls:  # vt+0x124, 0x130, 0x134, 0x138, 0x13c: the double returned, as a float
+            cpu.write(self.fargs, struct.pack('<2f', *SLOT_ARGS[op](a)))
+            cpu.call(self.fcalls[op], ecx=self.mech)
+            return f32(struct.unpack('<d', cpu.read(self.fslot, 8))[0])
         elif op == 30:  # vt+0x114: the speed the smoothed throttle asks
             cpu.call(self.tspeed, ecx=self.mech)
             return struct.unpack('<f', cpu.read(self.slot, 4))[0]
@@ -844,11 +863,16 @@ def compare(what, want, wlog, got, glog):
 
 OPS = [0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 5, 5, 5, 5, 6, 7, 8, 8, 9, 9, 10, 10, 11, 12, 13, 13, 14, 14,
        15, 16, 16, 17, 17, 17, 18, 18, 18, 19, 20, 20, 20, 20, 21, 21, 21, 21, 22, 22, 23, 23, 23,
-       24, 24, 24, 25, 25, 25, 26, 26, 27, 27, 27, 28, 28, 28, 29, 29, 29, 30, 30, 30]
+       24, 24, 24, 25, 25, 25, 26, 26, 27, 27, 27, 28, 28, 28, 29, 29, 29, 30, 30, 30,
+       31, 31, 31, 32, 32, 33, 33, 33, 34, 34, 35, 35, 36, 36, 36]
+# The unreached slots' arguments from a trial's (dt, a bit, a in -5..1.5, a in -2..2).
+SLOT_ARGS = {32: lambda a: (0.0, 0.0), 33: lambda a: (f32(a[3] * 30), a[2]), 34: lambda a: (a[3], a[2]),
+             35: lambda a: (0.0, 0.0), 36: lambda a: (f32(a[3] * 100), a[2])}
 NAMES = ['hip', 'leg', 'ground', 'arm', 'kick', 'torso', 'hand', 'hip setup', 'leg setup', 'arm setup', 'crouch',
          'duck', 'crouch target', 'landing dust', 'action dust', 'pitch lock', 'hold view', 'aim', 'centre',
          'torso mode', 'view state', 'target part', 'part aim', 'torso setup', 'can face', 'clamp aim',
-         'faces within', 'torso aim', 'lead velocity', 'stop share', 'throttle speed']
+         'faces within', 'torso aim', 'lead velocity', 'stop share', 'throttle speed', 'clamp face', 'stop now',
+         'turn time', 'turn time at', 'turn time now', 'turn share']
 
 
 TORSO_RNG = random.Random(0x465a60)
@@ -870,7 +894,7 @@ def main():
         want, wlog = world.store()
         gret, got, glog = port_run(s, op, args)
         what = f'trial {n} {NAMES[op]} {args[:3]}'
-        if struct.pack('<f', wret) != struct.pack('<f', gret):
+        if struct.pack('<f', wret) != struct.pack('<f', gret) and not (wret != wret and gret != gret):  # a NaN's sign
             raise SystemExit(f'{what}: returns {wret} {gret}')
         compare(what, want, wlog, got, glog)
         counts[op] += 1

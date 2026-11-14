@@ -188,6 +188,22 @@ struct ViaNode;
 // 0x004c7d60 -> 0x004c7c00 -> 0x004c7b20: each via node of each compiled net in the registry ([0x00627c3c]), in its order.
 void for_each_via(void (*fn)(void* ctx, AiNet* net, const ViaNode* node), void* ctx);
 int32_t inout_via_count();  // ours, for the checks: the vias on the current area's polygons
+
+// The vehicle's record of each in/out query (+0xd8, new 0x3c bytes): the
+// pull 0x004c3000 fills it and nothing reads it (ported for preservation; the
+// pull's own fill is not, docs/ai.md 11).
+struct InOutRecord {
+  uint32_t frame = 0;     // +0x00  the frame counter (0x0072f338) at the reset
+  uint32_t x04 = 0;       // +0x04
+  uint8_t flags[4] = {};  // +0x08
+  float from[3] = {};     // +0x0c
+  float to[3] = {};       // +0x18
+  float normal[3] = {};   // +0x24  (the constructor leaves it)
+  float place[3] = {};    // +0x30
+  InOutRecord();          // 0x004c0ed0: all of it zero (the zero vector 0x0063d870), +0x24 left
+  void reset();           // 0x004c0f70: flags +8..+0xa and both ends zero, the frame now
+};
+static_assert(sizeof(InOutRecord) == 0x3c, "new(0x3c)");
 // Mech3.exe 1.2 @ 0x004c3bd0 (ECX the animation, EDX the AI message; from
 // 0x004d4a20): messages 0x39..0x3c test, of the current area's polygons named
 // as the animation's node, only the yellow, red, cyan or blue ones.

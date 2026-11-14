@@ -263,7 +263,7 @@ Clean boundaries for later work, each a piece with its own test:
 6. **The behaviours** (0x4c8600 family): done (17.2, 17.4a, items 3a..3i):
    the plain, node, property and mode states, the jump, the attack and the
    fight, the station keeping, the manoeuvre, the repair (0x4d08d0..
-   0x4d0ce0). The brain's own step 0x4cd7b0 is dead and not ported (17.2's
+   0x4d0ce0). The brain's own step 0x4cd7b0 is dead, ported for preservation (17.2's
    table).
 7. **The brain** 0x4e9710 / 0x4e96f0, the order stack, the gates, the vlist
    triggers, steering, the firing state machine 0x4b5b80 with the planner
@@ -762,7 +762,9 @@ pulled when the answer is not `in`, `out` then the answer with `in`'s
 height (read after the copy, so when the caller passes one buffer the
 answer's own height). It also fills a record on the vehicle (+0xd8: new
 0x3c bytes, 0x4c0ed0 / 0x4c0f70, the frame counter, both ends, the flags,
-the normal, the vehicle's place) that nothing in the exe reads; not kept.
+the normal, the vehicle's place) that nothing in the exe reads. Its
+constructor and reset are ported for preservation (`InOutRecord`,
+`test_inout_record.py`); the pull does not fill it.
 The callers ported so far: the attack's return 0x4cae90 (its way point),
 the drive 0x4c8a70 (its destination), the follow 0x4d1980 (the target's
 place) and the walk 0x4cee80 (its carrot, in and out one buffer). Three
@@ -1770,7 +1772,7 @@ brain break in for an attack, +0x08 may it fire (or reset its firing),
 | 0x4cbc50, 0x5cbc88 | scan, canleave, canleave-not | 0x4cbca0 | ported (17.4a) |
 | 0x4cbe50, 0x5cbed0 | the shared 0x60b460 (0x5cbe18), every first order | 0x4cbeb0: stop; a vehicle without +0xbc bit 4 finds the nearest node (as the default) and pushes its behaviour (0x4e88c0); with it (the player's lancemates, likely) pushes the net 0x603fb8 when the pilot's game's type is 4 (Training), else follows the player's vehicle's net (vt+0xd8, 0x4c0de0) | |
 | 0x4ccd00 / 0x4cce70 / 0x4cd640 / 0x4cd720 | mcbwait, sound, gate, shunt | 0x4ccda0 / 0x4ccec0 / 0x4cd690 / 0x4ca2e0 | ported (items 3b, 3c, below) |
-| 0x4cd7b0, 0x5cc348 | the brain's step (+0x240, 0x5cc290) | 0x4cd810 (98) | dead: the step is made by the brain's constructor (0x4cd770) and never given to an order (no other reference to +0x240, its vtable or its maker 0x4cd790); its run would turn the pilot on the spot toward the next step's place (0x4cdd40 inline) and hand on as the valve step. Not ported |
+| 0x4cd7b0, 0x5cc348 | the brain's step (+0x240, 0x5cc290) | 0x4cd810 (98) | dead: the step is made by the brain's constructor (0x4cd770) and never given to an order (no other reference to +0x240, its vtable or its maker 0x4cd790); its run would turn the pilot on the spot toward the next step's place (0x4cdd40 inline, its kept turn +0x0c; none while backing faster than 1) and hand on as the valve step. Ported for preservation (2026-11-14: `BrainStep`, `FaceState`; `test_ai_node.py` puts it in its nets in place of some speed steps; FIX (A): a next step without a place counts as faced) |
 | 0x4cdbd0 / 0x4cdca0 | valveunion, valve_assign | 0x4ca2e0 / 0x4cdcf0 | ported (item 3c, below) |
 | 0x4ced40, 0x5cc5c0 | the node steps (0x4c9150), backup (0x4cfa80), deploy (0x4d0040) | 0x4cf140 (67): steering to the node, then its links | resume 0x4c9700; ported (17.4a) |
 | 0x4d0a10, 0x5cca28 | 0x4d08d0 (0x5cc970, made by 0x4ea260, brain vt+0x3c; its copy at +0x08) | 0x4d0ce0 (157): to the dock point and down while the dock works (vehicles.md, The AI at the dock) | ported (item 4b6, zai_repair) |

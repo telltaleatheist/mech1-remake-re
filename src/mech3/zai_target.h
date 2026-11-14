@@ -12,6 +12,7 @@
 // CZAiTarget, a scored object of targets.zrd (0x004d2960) with its damage,
 // its health_below triggers and its destruction. AiTarget's own file is not
 // known; it sits after ZAiTarget.cpp, before ZRdrAiNet.cpp.
+namespace zcls { struct Node; }
 namespace zmod {
 struct ShadowCaster;
 }
@@ -46,6 +47,12 @@ enum Side : int32_t { kAlly = 0, kEnemy = 1, kNeutral = 2, kAny = 3 };
 // (each set bit's index in 5 bits, lowest first, at most six). A mask of 0
 // would loop for ever in the exe; every caller's has a bit.
 uint32_t team_number_of(uint32_t mask);
+
+// Mech3.exe 1.2 @ 0x004d7160: AiTarget's vt+0x6c on a vehicle, given its node
+// (+0x04): on, the node blended toward green at 0.6 (0x004fb8c0); the blend
+// switched on or off (0x004fb840). Never overridden and never called: the
+// target window tints through vt+0x68 (ported for preservation; docs/ai.md 15).
+void target_tint(zcls::Node* node, bool on);
 
 struct AiTarget {
   float height = 10.0f;              // +0x68  (the Mech's from its model's box)

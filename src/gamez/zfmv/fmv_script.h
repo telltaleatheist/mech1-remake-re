@@ -75,6 +75,7 @@ class Host : public zgame::Unported {
   // The C runtime and Win32.
   virtual int32_t file_stat(const char* path);  // _stat: 0 found, -1 not
   virtual double now();                         // timeGetTime() x 0.001f, seconds
+  virtual uint32_t clock_ms();                  // 0x00575d30: timeGetTime, milliseconds
 
   // Video for Windows (AVIFIL32, MSVFW32), the movie player's (fmv_stream.h).
   // Results are HRESULTs (0 succeeded) unless named otherwise.
@@ -121,6 +122,9 @@ class Action {
   // Pirate's Moon's +0x10 (0x004964e0): a key may pass over it (Script::playing_at). Not the
   // pictures (0x005bab70) nor STOPCD.
   virtual bool skippable() { return true; }
+  // 0x00493120: started at 0 and stepped by the seconds since on its own clock (0x00575d30) until done,
+  // then ended. Nothing calls it (ported for preservation; docs/fmv.md).
+  void run_to_end();
   Action* next = nullptr;                                 // +0x04
 };
 
