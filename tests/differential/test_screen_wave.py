@@ -22,6 +22,7 @@ its uninitialised x and y (no screen place and no node), x and y are left out
 negative, the host's positive: a duration of 0).
 """
 import ctypes
+import os
 import random
 import struct
 import sys
@@ -30,10 +31,27 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from calltrace import load_probe  # noqa: E402
 from original import FTOL, IAT_FTOL, Original  # noqa: E402
+from unicorn import UC_HOOK_CODE  # noqa: E402
 from unicorn.x86_const import UC_X86_REG_EAX  # noqa: E402
 
-MANAGER, LEFT, FX, BACK, DIRTY = 0x736328, 0x73f760, 0x73fb9c, 0x8027a4, 0x5f49b8
-SLOT_VT = 0x5d04a8
+PM = os.environ.get('MW3_EXE') == 'pm'
+# MW3_EXE=pm: Pirate's Moon's event 37 0x520500 is MW3's over its own def (cdecl def, seq, event; the root at
+# +0x6c, the node refs at +0xe8, 0x2c each, the node at +0x28), its calls cdecl (the distance 0x5201b0, the
+# node's point 0x4ff3c0, the projection 0x540880, the wave 0x5c6c90 -> 0x5c6b90 on the manager 0x8cefb8), and
+# its ripple's draw 0x5c58f0 is MW3's 0x5a5440 between a lock that points the 2D target at the back buffer
+# (Direct3D, [0x8c4b70]: 0x597d50 / 0x597dc0) or the 2D image (0x597e50 / 0x597ef0) under the render mutex: the
+# port's ripple draws into the frame's target and leaves the mutex out, so the locks are no-op stubs here.
+# PM's addresses are used as they are (no map); the device flag is tried both ways on PM.
+if PM:
+    A = dict(event=0x520500, distance=0x5201b0, point=0x4ff3c0, project=0x540880, ripple=0x57ad90,
+             draw=0x5c5800, manager=0x8cefb8, left=0x8d3f68, fx=0x8d439c, width=0xb0621c, height=0xb06220,
+             slot_vt=0x5f2550, root=0x6c, refs=0xe8, ref=0x2c, ref_node=0x28, hardware=0x8c4b70,
+             locks=(0x597d50, 0x597dc0, 0x597e50, 0x597ef0))
+else:
+    A = dict(event=0x5076c0, distance=0x507340, point=0x4ed650, project=0x53cf10, ripple=0x558dd0,
+             draw=0x5a5360, manager=0x736328, left=0x73f760, fx=0x73fb9c, width=0x8027a4, height=0x8027a8,
+             slot_vt=0x5d04a8, root=0x64, refs=0x118, ref=0x28, ref_node=0x24)
+MANAGER, LEFT = A['manager'], A['left']
 U, I = ctypes.c_uint32, ctypes.c_int32
 
 
@@ -47,71 +65,108 @@ class Emulated:
         cpu.fpu_control(0x007f)  # play precision (MW3_PRECISION=53: the reference runtime's)
         cpu.import_code(IAT_FTOL, FTOL)
         self.d2 = cpu.alloc(4)
-        cpu.write(0x507340, b'\xd9\x05' + struct.pack('<I', self.d2) + b'\xc3')  # fld dword [d2]; ret
-        cpu.stub_function(0x4ed650, self.world_point, 0)
-        cpu.stub_function(0x53cf10, self.project, 0)
-        cpu.stub_function(0x558dd0, self.ripple, 0x18)
+        self.raw(A['distance'], b'\xd9\x05' + struct.pack('<I', self.d2) + b'\xc3')  # fld dword [d2]; ret
+        self.stub(A['point'], self.world_point)
+        self.stub(A['project'], self.project)
+        self.stub(A['ripple'], self.ripple, 0 if PM else 0x18)
+        if PM:
+            for a in A['locks']:
+                self.stub(a, lambda c: 0)
+        self.thunks = {}
         self.ev, self.seq, self.rects = cpu.alloc(0x70), cpu.alloc(0x40), cpu.alloc(0x20)
-        self.defn, self.refs = cpu.alloc(0x13c), cpu.alloc(0x28 * 8)
-        self.node = self.refs + 0x28 * 7
+        self.defn, self.refs = cpu.alloc(0x13c), cpu.alloc(0x2c * 8)
+        self.node = self.refs + A['ref'] * 7
+
+    # PM's addresses as they are (the map left alone); MW3's through the emulator as before.
+    def raw(self, a, b):
+        self.cpu._uc.mem_write(a, b) if PM else self.cpu.write(a, b)
+
+    def w32(self, a, v):
+        self.raw(a, struct.pack('<I', v & 0xffffffff))
+
+    def r32(self, a):
+        b = bytes(self.cpu._uc.mem_read(a, 4)) if PM else self.cpu.read(a, 4)
+        return struct.unpack('<I', b)[0]
+
+    def stub(self, a, fn, pop=0):
+        if PM:
+            self.cpu.stubs[a] = (fn, pop)
+            self.cpu._uc.hook_add(UC_HOOK_CODE, self.cpu._stub_hit, begin=a, end=a)
+        else:
+            self.cpu.stub_function(a, fn, pop)
+
+    def call(self, a, ecx=0, edx=0, stack_args=()):
+        if PM:
+            if a not in self.thunks:  # mov eax, a; jmp eax
+                self.thunks[a] = self.cpu.code(b'\xb8' + struct.pack('<I', a) + b'\xff\xe0')
+            a = self.thunks[a]
+        self.cpu.call(a, ecx=ecx, edx=edx, stack_args=stack_args)
+
+    def args(self, c, n):
+        """A call's arguments: cdecl on PM; MW3's ECX, EDX, then the stack."""
+        return [c.arg(i) for i in range(n)] if PM else [c.ecx, c.edx] + [c.arg(i) for i in range(n - 2)]
 
     def world_point(self, c):
-        p = c.edx
+        _, p = self.args(c, 2)
         self.asked += [1] + list(struct.unpack('<3I', c.read(p, 12)))
         c.write(p, struct.pack('<3I', *self.moved))
         return 0
 
     def project(self, c):
-        self.asked += [2] + list(struct.unpack('<3I', c.read(c.ecx, 12)))
-        c.write(c.edx, struct.pack('<3I', self.screen[0], self.screen[1], 0))
+        src, dst = self.args(c, 2)
+        self.asked += [2] + list(struct.unpack('<3I', c.read(src, 12)))
+        c.write(dst, struct.pack('<3I', self.screen[0], self.screen[1], 0))
         return self.code
 
     def ripple(self, c):
-        rect = c.arg(5)
+        a = self.args(c, 8)
+        rect = a[7]
         r0, r1 = self.r32(MANAGER + 0x10), self.r32(MANAGER + 0x14)
-        self.draws += [c.ecx, c.edx] + [c.arg(i) for i in range(5)] + [1 if rect and rect == r0 else 2 if rect and rect == r1 else 0]
+        self.draws += a[:7] + [1 if rect and rect == r0 else 2 if rect and rect == r1 else 0]
         return 0
 
-    def r32(self, a):
-        return struct.unpack('<I', self.cpu.read(a, 4))[0]
-
-    def run(self, ev, now, state, left, has_node, d2, fx, w, h, moved, code, screen, count, slots, rects, r8):
+    def run(self, ev, now, state, left, has_node, d2, fx, w, h, moved, code, screen, count, slots, rects, r8, hw=1):
         cpu = self.cpu
         self.moved, self.code, self.screen = moved, code, screen
         self.asked, self.draws = [], []
         cpu.u32(self.d2, d2)
-        cpu.u32(FX, fx)
-        cpu.u32(BACK, w), cpu.u32(BACK + 4, h)
+        self.w32(A['fx'], fx)
+        self.w32(A['width'], w), self.w32(A['height'], h)
+        if PM:
+            self.w32(A['hardware'], hw)
         cpu.write(self.ev, ev)
         cpu.write(self.seq, bytes(0x40))
         cpu.u32(self.seq + 0x28, now)
         cpu.write(self.seq + 0x20, bytes([state]))
-        cpu.u32(LEFT, left)
+        self.w32(LEFT, left)
         cpu.write(self.defn, bytes(0x13c))
-        cpu.write(self.refs, bytes(0x28 * 8))
+        cpu.write(self.refs, bytes(0x2c * 8))
         for i in range(8):
-            cpu.u32(self.refs + 0x28 * i + 0x24, self.node if has_node else 0)
-        cpu.u32(self.defn + 0x118, self.refs)
-        cpu.u32(self.defn + 0x64, self.node)
+            cpu.u32(self.refs + A['ref'] * i + A['ref_node'], self.node if has_node else 0)
+        cpu.u32(self.defn + A['refs'], self.refs)
+        cpu.u32(self.defn + A['root'], self.node)
         cpu.write(self.rects, struct.pack('<8i', *r8))
-        cpu.u32(MANAGER + 0x10, self.rects if rects & 1 else 0)
-        cpu.u32(MANAGER + 0x14, self.rects + 16 if rects & 2 else 0)
-        cpu.u32(MANAGER + 0x18, 0)  # no 2D text target
-        cpu.u32(MANAGER + 0x1ec, count)
+        self.w32(MANAGER + 0x10, self.rects if rects & 1 else 0)
+        self.w32(MANAGER + 0x14, self.rects + 16 if rects & 2 else 0)
+        self.w32(MANAGER + 0x18, 0)  # no 2D text target
+        self.w32(MANAGER + 0x1ec, count)
         for i in range(5):
             s = MANAGER + 0x70 + 0x4c * i
-            cpu.write(s, bytes(0x4c))
-            cpu.u32(s, SLOT_VT)
-            cpu.u32(s + 0x08, MANAGER)
-            cpu.u32(s + 0x0c, slots[2 * i])
-            cpu.u32(s + 0x10, slots[2 * i + 1])
-        cpu.call(0x5076c0, ecx=self.defn, edx=self.seq, stack_args=(self.ev,))
+            self.raw(s, bytes(0x4c))
+            self.w32(s, A['slot_vt'])
+            self.w32(s + 0x08, MANAGER)
+            self.w32(s + 0x0c, slots[2 * i])
+            self.w32(s + 0x10, slots[2 * i + 1])
+        if PM:
+            self.call(A['event'], stack_args=(self.defn, self.seq, self.ev))
+        else:
+            self.call(A['event'], ecx=self.defn, edx=self.seq, stack_args=(self.ev,))
         out = [cpu.uc.reg_read(UC_X86_REG_EAX), self.r32(LEFT)] + [self.r32(self.ev + o) for o in (0x3c, 0x40, 0x44)]
         out.append(self.r32(MANAGER + 0x1ec))
         for i in range(5):
             s = MANAGER + 0x70 + 0x4c * i
             out += [self.r32(s + o) for o in (0x14, 0x18, 0x38, 0x3c, 0x40, 0x44, 0x48, 0x0c, 0x10)]
-        cpu.call(0x5a5360, ecx=MANAGER + 0x70 + 0x4c * min(count, 4))
+        self.call(A['draw'], ecx=MANAGER + 0x70 + 0x4c * min(count, 4))
         return out + [len(self.asked)] + self.asked + [len(self.draws)] + self.draws
 
 
@@ -139,7 +194,8 @@ def event(r):
 
 def mask_xy(out, flags, idx, count):
     """x and y of the slot the call went to and of its draw, where the exe's are uninitialised."""
-    if flags & 1 or (flags & 2 and idx > 0) or out[0] == 2 and flags & 1:
+    # Defined: at a node (bit 2, index above 0), a screen place (bit 1 without bit 2), or the done "to"s (bit 1).
+    if (flags & 2 and idx > 0) or (flags & 1 and not flags & 2) or (out[0] == 2 and flags & 1):
         return out
     out = list(out)
     s = 6 + 9 * min(count, 4)
@@ -158,7 +214,7 @@ def main():
     probe.probe_wave_run.argtypes = [ctypes.c_char_p, U, I, U, I, U, U, I, I, P(U), U, P(U), I, P(U), I, P(I), P(U)]
     probe.probe_wave_run.restype = I
     emu = Emulated()
-    dirty = emu.r32(DIRTY)
+    dirty = 0 if PM else emu.r32(0x5f49b8)
     runs = int(sys.argv[1]) if len(sys.argv) > 1 else 3000
     r = random.Random(37)
     seen = {'running': 0, 'done': 0, 'off screen': 0, 'world radius': 0, 'clamped': 0, 'placed at node': 0,
@@ -181,7 +237,9 @@ def main():
             slots += [r.choice([0x10, 0x10, 0x00, 0x01, 0x11, 0x1c, 0x02]), fb(r.choice([0.0, 0.5, -1.0]))]
         rects = r.randrange(4)
         r8 = [r.randrange(-50, 700) for _ in range(8)]
-        want = emu.run(ev, fb(now), state, left, has_node, d2, fx, w, h, moved, code, screen, count, slots, rects, r8)
+        hw = int(r.random() < 0.8) if PM else 1  # PM's ripple: the lock by the device
+        want = emu.run(ev, fb(now), state, left, has_node, d2, fx, w, h, moved, code, screen, count, slots, rects, r8,
+                       hw)
         buf = (U * 512)()
         n = probe.probe_wave_run(ev, fb(now), state, left, int(has_node), d2, fx, w, h, (U * 3)(*moved), code,
                                  (U * 2)(*screen), count, (U * 10)(*slots), rects, (I * 8)(*r8), buf)
