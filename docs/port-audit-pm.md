@@ -70,11 +70,11 @@ produces; the label names the compared value. Reaching a function, or running a 
 | Class | Functions |
 |---|---|
 | folded | 4092 |
-| replaced (SDL or the platform layer) | 270 |
+| replaced (SDL or the platform layer) | 273 |
 | software renderer | 115 |
 | MISSING LOGIC | 88 |
-| unused: PORT (preserve) | 54 |
 | dev dialog (MFC), its window plumbing: replaced | 51 |
+| unused: PORT (preserve) | 51 |
 | dev dialog (MFC), its logic: PORT (preserve) | 9 |
 
 ## MISSING LOGIC
@@ -151,9 +151,6 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 - 1 functions, 58 decomp lines (0x0055bcf0): as 0x0050cc10's label (the script command CreateUniqueMaterials, PM only; no shipped PM script uses it): each polygon's materials made unique per model, shared ones copied once (0x0055bcf0)
 - 1 functions, 50 decomp lines (0x00563da0): as MW3 0x00548840, whose class PM's changes keep: the puffers' wind step with a dt argument: dead code, never called (puffers.md)
 - 1 functions, 16 decomp lines (0x00579360): as MW3 0x00557490: the defines list's constructor and destructor, no caller reaches them (zreader.md:103)
-- 1 functions, 39 decomp lines (0x00591ce0): as MW3 0x00571380, whose class PM's changes keep: the Aureal A3D path: its init (CoCreateInstance), 3D placement and error names; only 0x570625 writes the selector [0x72c2cc], and only to 0 (DirectSound) when A3D fails, so A3D never runs (sound.md:38)
-- 1 functions, 45 decomp lines (0x00592cc0): as MW3 0x00571f70: the Aureal A3D path: its init (CoCreateInstance), 3D placement and error names; only 0x570625 writes the selector [0x72c2cc], and only to 0 (DirectSound) when A3D fails, so A3D never runs (sound.md:38)
-- 1 functions, 197 decomp lines (0x00595360): as MW3 0x005746b0, whose class PM's changes keep: the Aureal A3D path: its init (CoCreateInstance), 3D placement and error names; only 0x570625 writes the selector [0x72c2cc], and only to 0 (DirectSound) when A3D fails, so A3D never runs (sound.md:38)
 - 1 functions, 9 decomp lines (0x005cc130): as MW3 0x005a92d0: _rmtmp at zSave's stop, unreached
 
 ## UNSURE
@@ -4157,7 +4154,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x00591220 | 15 | folded | inside its ported callers (0x00590d70): a small helper their ports do their own way |
 | 0x00591250 | 22 | folded | covered by the port where it names it (src/gamez/zsound/zsnd_parm.cpp:160) |
 | 0x005915e0 | 25 | folded | checked by test (block trace, 2026-11-13; 0x0058ff90 and 0x005915e0 called by name): test_pm_sound runs PM's zSound on its sets, comparing every DirectSound call, error report and callback, every result and the whole state |
-| 0x00591ce0 | 39 | unused: PORT (preserve) | as MW3 0x00571380, whose class PM's changes keep: the Aureal A3D path: its init (CoCreateInstance), 3D placement and error names; only 0x570625 writes the selector [0x72c2cc], and only to 0 (DirectSound) when A3D fails, so A3D never runs (sound.md:38) |
+| 0x00591ce0 | 39 | replaced (SDL or the platform layer) | as MW3 0x00571380: the Aureal A3D path (a 1998 sound card's COM API: its init through CoCreateInstance, 3D placement and error names), replaced like DirectSound by the port's SDL audio; never run in PM either: only its 0x570625 twin writes the selector, and only to 0 when A3D fails (sound.md:38) |
 | 0x00591dd0 | 87 | folded | checked by test (block trace, 2026-11-13): test_pm_sound runs PM's zSound on its own sets (the frame 0x0058f390, the play 0x0058fc70, DirectSound's set-up 0x00591dd0, a group's load 0x005941c0), comparing every DirectSound call, error report and callback, every result and the whole state |
 | 0x00591f30 | 9 | folded | a thunk: one call to another function |
 | 0x00592040 | 12 | folded | inside its ported callers (0x00592170): a small helper their ports do their own way |
@@ -4170,7 +4167,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x005926d0 | 31 | folded | covered by the port where it names it (src/gamez/zsound/zsnd_3d.cpp:95) |
 | 0x00592720 | 76 | folded | ported, by docs/symbols.csv: ported: 2500/s, ends only on an exact landing |
 | 0x00592910 | 52 | folded | checked by test (block trace, 2026-11-13; 0x0058ff90 and 0x005915e0 called by name): test_pm_sound runs PM's zSound on its sets, comparing every DirectSound call, error report and callback, every result and the whole state |
-| 0x00592cc0 | 45 | unused: PORT (preserve) | as MW3 0x00571f70: the Aureal A3D path: its init (CoCreateInstance), 3D placement and error names; only 0x570625 writes the selector [0x72c2cc], and only to 0 (DirectSound) when A3D fails, so A3D never runs (sound.md:38) |
+| 0x00592cc0 | 45 | replaced (SDL or the platform layer) | as MW3 0x00571f70: the Aureal A3D path (a 1998 sound card's COM API: its init through CoCreateInstance, 3D placement and error names), replaced like DirectSound by the port's SDL audio; never run in the release either: only 0x570625 writes the selector [0x72c2cc], and only to 0 (DirectSound) when A3D fails (sound.md:38) |
 | 0x00592da0 | 114 | folded | as MW3 0x00572050: covered where named: the sound set's build (zsnd_init.cpp:260, 265), the archive load (zsnd_parm.cpp:63), 3D placement (zsnd_3d.cpp:138), the group chain step (zsnd_grp.cpp:170) |
 | 0x005930f0 | 16 | folded | as MW3 0x005723a0: zSound's static containers and their cleanup (vector and list heads made at start-up, the sets' pointer list freed); the port's members construct and free themselves |
 | 0x00593120 | 9 | folded | a thunk: one call to another function |
@@ -4208,7 +4205,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x00595240 | 27 | folded | covered by the port where it names it (src/gamez/zsound/zsnd_grp.cpp:247) |
 | 0x005952a0 | 9 | folded | read: covered where the port names it (briefing.cpp:513 and 871 PM's loadouts, pilot.h:346 the standalone rows, mech_damage.cpp:225 the headlight, app_hud.cpp:534 the radar's front, mech_config.cpp:951, pilot_games.cpp:635, mech_headlight.cpp:50, mech_waynet.h:70, mission_world.cpp:249, app_vehicle.cpp:623 the stealth controls, zai_brain.cpp:239, zainet_inout.cpp:382, zai_node.cpp:146, zai_walk_pm.cpp:441, zai_drive_pm.cpp:772, zrdraiv.cpp:581, mech_build.cpp:283, app_pocket.cpp:172, zrdraiv.h:66, zai_brain.cpp:1033, pm zeff_anim_events.h:28, zsnd_3d.cpp:27, zsnd_play.cpp:203 and 221) |
 | 0x00595310 | 12 | folded | covered by the port where it names it (src/gamez/zsound/zsnd_cd.cpp:32) |
-| 0x00595360 | 197 | unused: PORT (preserve) | as MW3 0x005746b0, whose class PM's changes keep: the Aureal A3D path: its init (CoCreateInstance), 3D placement and error names; only 0x570625 writes the selector [0x72c2cc], and only to 0 (DirectSound) when A3D fails, so A3D never runs (sound.md:38) |
+| 0x00595360 | 197 | replaced (SDL or the platform layer) | as MW3 0x005746b0: the Aureal A3D path (a 1998 sound card's COM API: its init through CoCreateInstance, 3D placement and error names), replaced like DirectSound by the port's SDL audio; never run in PM either: only its 0x570625 twin writes the selector, and only to 0 when A3D fails (sound.md:38) |
 | 0x00595940 | 16 | folded | as MW3 0x00574c90: zSound's static containers and their cleanup (vector and list heads made at start-up, the sets' pointer list freed); the port's members construct and free themselves |
 | 0x00595970 | 9 | folded | a thunk: one call to another function |
 | 0x005959e0 | 23 | folded | covered by the port where it names it (src/gamez/zsound/zsnd.h:355) |
