@@ -119,6 +119,9 @@ void ValveDef::clear() {
   flags &= 0xe0;
 }
 
+// Mech3.exe 1.2 @ 0x004e53b0 -> 0x004e2310
+void ValveFile::print(std::FILE* f, const char* name) const { std::fprintf(f, "  %s ( )\n", name); }
+
 // Mech3.exe 1.2 @ 0x004e2330. Each tag's value is a list; names are copied,
 // numbers kept as their words. A later tag of a pair (sound_once after
 // sound, animation_once after animation) replaces the first.

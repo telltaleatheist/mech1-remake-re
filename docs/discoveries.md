@@ -1897,6 +1897,16 @@ From the mech definitions (mechdef-configs.md).
 
 From the mech's constructor and the launch (mech-build.md).
 
+- **The game reads mech animations from plain text.** If a motion is
+  missing from `motion.zbd`, MW3 looks for a text file named after it
+  (`<name>.zan`) and reads it: frames, then for each part its rotation in
+  radians and its position, likely how the developers tried animations
+  before packing them. Shipped motions always come from the archive, so a
+  text file can only add a motion the game asks for and doesn't have.
+  The shipped data lacks one the game asks for, the Elemental's limp
+  (`elemental_limp`), so a text file of that name would give it one
+  (docs/motion.md, The text side).
+
 - **Every mech is built from two models.** Each part looks for its node in
   the full model and in the low-detail one (`mech_<name>_1`) and claims
   both, and the low-detail copy hangs under the mech just while its hit

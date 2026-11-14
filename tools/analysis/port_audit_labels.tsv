@@ -1,5 +1,3 @@
-0x004e2310	debug	the valve reader's print method (a vtable slot that fprintf's a value); nothing in the game prints a reader
-0x004e53b0	debug	the valve reader's print method (a vtable slot that fprintf's a value); nothing in the game prints a reader
 0x004e0c20	folded	the valve reader's records, actions and lists: constructors, destructors, factories and list helpers of classes ported in zrdrvalve/zai_valve
 0x004e0f20	folded	the valve reader's records, actions and lists: constructors, destructors, factories and list helpers of classes ported in zrdrvalve/zai_valve
 0x004e1c30	folded	the valve reader's records, actions and lists: constructors, destructors, factories and list helpers of classes ported in zrdrvalve/zai_valve
@@ -1569,7 +1567,6 @@
 0x005a96d0	folded	zSave's list insert, load and stable sort, covered where named (zsave.cpp:86, 108, 132) and std::list's sort helpers
 0x005a97e0	folded	zSave's list insert, load and stable sort, covered where named (zsave.cpp:86, 108, 132) and std::list's sort helpers
 0x005a92d0	unused	_rmtmp at zSave's stop, unreached
-0x005a98d0	debug	the developers' loose <name>.zan override for motion scripts (motion.md:36), like the reader's loose .zrd files
 0x00576c50	folded	zUtil and zVideo entries the port does its own way, covered where named: the CRC table's start (app_engine.cpp:314), the search paths' free (app_engine.cpp:323), the mode switch (video_set_mode, app_engine.cpp:724), the frame and lab clears (app_engine.h:196, 562)
 0x00576c60	folded	zUtil and zVideo entries the port does its own way, covered where named: the CRC table's start (app_engine.cpp:314), the search paths' free (app_engine.cpp:323), the mode switch (video_set_mode, app_engine.cpp:724), the frame and lab clears (app_engine.h:196, 562)
 0x00576c80	folded	zUtil and zVideo entries the port does its own way, covered where named: the CRC table's start (app_engine.cpp:314), the search paths' free (app_engine.cpp:323), the mode switch (video_set_mode, app_engine.cpp:724), the frame and lab clears (app_engine.h:196, 562)
@@ -1625,9 +1622,6 @@
 0x005873f0	sdl	DirectPlay's session description and player list (multiplayer-port.md:59-60): the ENet transport stands in
 0x00587450	sdl	DirectPlay's session description and player list (multiplayer-port.md:59-60): the ENet transport stands in
 0x00587140	folded	the game list's search, ours in the ENet transport (net_enet.cpp:441)
-0x005a9bc0	debug	the motion script's text side: the loose .zan reader (0x005a9e10, with 0x005aa210) behind the developers' override, and the writer (0x005a9bc0)
-0x005a9e10	debug	the motion script's text side: the loose .zan reader (0x005a9e10, with 0x005aa210) behind the developers' override, and the writer (0x005a9bc0)
-0x005aa210	debug	the motion script's text side: the loose .zan reader (0x005a9e10, with 0x005aa210) behind the developers' override, and the writer (0x005a9bc0)
 0x005a7e10	folded	zEntity's base constructor (frames, and with a parent the registration 0x005a8390 + 0x005a7f50); the port's AiTarget initialisers stand in (app_engine.cpp:312). targets.zrd's CZAiTargets are not on the port's entity list (ai.md:1537), so their vt+0x34 (0x005a8000, the step by velocity +0x30 and spin +0x58) does not run; checked harmless: both start as the zero vector [0x0063d870] (BSS), targets.zrd has no velocity or spin key (ai.md:153) and no script command sets an entity's (interp.md: only CameraSetRotate and GlobalWindStaticVelocity)
 0x00485390	folded	the equipment callout: the voice for an equipment kind (0x00485360, mech_names.cpp equip_voice_index, into 0x00608fc0) played as 0x00485370 plays one; wired as DamageCalls.equip_voice (app_weapons.cpp), test_equip_voice.py
 0x00410010	folded	read: an atexit handler (registered at 0x00410000): a static list freed once (0x0058b220), the guard bit [0x006040a4]; the port's objects free themselves

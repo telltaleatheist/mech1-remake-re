@@ -99,4 +99,34 @@ TEST(pm_print_children_names_the_current_nodes_children) {
   in.current = nullptr;
   delete c;
   zint::destroy(in);
+#include <filesystem>
+#include <fstream>
+
+#include "gamez/zsiscript/si_script.h"
+#include "gamez/zutil/zutl_path.h"
+#include "mech3/mech_anim.h"
+
+// The developers' loose motion (0x005a9ad0's end, 0x005a98d0 -> 0x005a9e10): a motion no archive has is read from
+// "<name>.zan" on the search path as text; a name with neither stays missing (docs/motion.md, The text side).
+TEST(loose_zan_motion_loads_when_no_archive_has_it) {
+  namespace fs = std::filesystem;
+  const std::string wd = std::string(MW3_TEST_TMP) + "/loose_zan";
+  std::error_code ec;
+  fs::remove_all(wd, ec);
+  fs::create_directories(wd, ec);
+  std::ofstream(wd + "/dev_wave.zan") << "Frame 0\n Object hip\n  Scaling 1 1 1\n  Rotation 0 0 0\n  Translation 1 2 3\n"
+                                         "Frame 1\n Object hip\n  Scaling 1 1 1\n  Rotation 0 1.5 0\n  Translation 4 5 6\n";
+  const zutl::Mounts keep = zutl::mounts();
+  zutl::mounts() = zutl::Mounts{};
+  zutl::set_write_dir(wd);
+  mech3::close_motions();
+  zsis::Script s;
+  EXPECT(mech3::load_motion(s, "motion\\dev_wave"));
+  EXPECT(s.frame_count == 2 && s.part_count == 1 && std::strcmp(s.parts[0]->name, "hip") == 0);
+  EXPECT(s.parts[0]->translations[3] == 4.0f && s.parts[0]->translations[6] == 1.0f);  // the loop closed on frame 0
+  mech3::script_free_parts(s);
+  zsis::Script none;
+  EXPECT(!mech3::load_motion(none, "motion\\no_such_motion"));
+  zutl::mounts() = keep;
+  fs::remove_all(wd, ec);
 }

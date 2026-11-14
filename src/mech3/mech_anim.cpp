@@ -130,6 +130,17 @@ bool motion_from_mod(zsis::Script& s, const char* name) {
 }
 }  // namespace
 
+// 0x005a9ad0's end, when the archive has no such motion (or none is open): the
+// developers' loose "<base>.zan" found on the search path (0x005762b0), else the
+// name as given, read as text (0x005a98d0; docs/motion.md, The text side).
+static bool loose_motion(zsis::Script& s, const char* name) {
+  const std::string zan = std::string(s.name) + ".zan";
+  const std::string found = zutl::find(zan.c_str());
+  if (!found.empty() && zsis::read_loose(s, found.c_str())) return true;
+  const std::string direct = zutl::find(name);  // FIX (A): the exe's fopen beside the exe, here through the mounts
+  return !direct.empty() && zsis::read_loose(s, direct.c_str());
+}
+
 // Mech3.exe 1.2 @ 0x005a9ad0. The base name goes to the script's name.
 bool load_motion(zsis::Script& s, const char* name) {
   const char* base = name;
@@ -139,7 +150,7 @@ bool load_motion(zsis::Script& s, const char* name) {
   while (base[n] && base[n] != '.' && n + 1 < sizeof s.name) ++n;
   std::memcpy(s.name, base, n);
   s.name[n] = 0;
-  if (!g_motions) return false;
+  if (!g_motions) return loose_motion(s, name);
   if (motion_from_mod(s, name)) return true;
   bool broken = false;
   if (read_from(*g_motions, s, name, &broken)) return true;
@@ -167,7 +178,7 @@ bool load_motion(zsis::Script& s, const char* name) {
                 first.empty() ? "motion.zbd" : first.c_str(), name);
     g_broken.insert(name);
   }
-  return false;
+  return loose_motion(s, name);
 }
 
 bool motion_broken(const char* name) { return name && g_broken.count(name) != 0; }

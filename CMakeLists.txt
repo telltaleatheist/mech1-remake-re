@@ -548,6 +548,7 @@ add_library(mw3probe SHARED
   tests/probe_dev_text.cpp
   tests/probe_debug_keys.cpp
   tests/probe_shot.cpp
+  tests/probe_motion_text.cpp
   tests/probe_mainmenu.cpp
   tests/probe_pocket_panel.cpp
   tests/probe_menus.cpp

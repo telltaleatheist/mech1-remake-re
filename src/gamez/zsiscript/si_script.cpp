@@ -81,6 +81,126 @@ bool Part::read(std::FILE* f, long end) {
   return true;
 }
 
+// Mech3.exe 1.2 @ 0x005aa620
+bool Part::write(std::FILE* f) const {
+  zutl_zar::write_string(f, name);  // 0x005763f0
+  const uint32_t n = script->frame_count + 1;
+  const uint32_t flags = (translations ? 8u : 0u) | (velocities ? 2u : 0u) | (rotations ? 4u : 0u);
+  std::fwrite(&flags, 4, 1, f);
+  if (translations) std::fwrite(translations, 1, n * 12, f);
+  if (velocities) std::fwrite(velocities, 1, n * 12, f);
+  if (rotations) std::fwrite(rotations, 1, n * 16, f);
+  return true;
+}
+
+// Mech3.exe 1.2 @ 0x005a9bc0
+bool Script::write(std::FILE* f) const {
+  const uint32_t version = kVersion;
+  std::fwrite(&version, 4, 1, f);
+  std::fwrite(&loop_time, 4, 1, f);
+  std::fwrite(&frame_count, 4, 1, f);
+  std::fwrite(&part_count, 4, 1, f);
+  std::fwrite(&stride, 4, 1, f);  // +0x0c, then +0x08: the order the reader takes them
+  std::fwrite(&mult, 4, 1, f);
+  for (uint32_t i = 0; i < part_count; ++i) parts[i]->write(f);
+  return true;
+}
+
+// Mech3.exe 1.2 @ 0x005aa210
+void euler_quat(const float angles[3], float out[4]) {
+  zmth::Quat x, y, z, zy, q;
+  zmth::quat_pitch(angles[0], x);
+  zmth::quat_yaw(angles[1], y);
+  zmth::quat_roll(angles[2], z);
+  zmth::quat_mul(z, y, zy);
+  zmth::quat_mul(zy, x, q);
+  zmth::quat_normalize(q, q);
+  out[0] = q.w, out[1] = q.x, out[2] = q.y, out[3] = q.z;
+}
+
+// Mech3.exe 1.2 @ 0x005a9e10: a first pass counts the frames and the first frame's objects; the parts are made at
+// 30 frames a second (0x005aa450); a second pass fills each frame's keys, Scaling read and dropped; then each part's
+// last key is its first. FIX (A): the exe reads on for an object's three entries past the end of the file, for
+// ever; at the end the port stops. An object before any frame (the exe's index -1, before the buffers) is skipped.
+bool Script::read_text(std::FILE* f) {
+  char word[256];
+  frame_count = 0;
+  part_count = 0;
+  int32_t ignored = 1;
+  for (;;) {
+    word[0] = 0;
+    if (std::fscanf(f, "%255s", word) == EOF) break;
+    if (std::strncmp(word, "Frame", 5) == 0) {
+      if (std::fscanf(f, "%d", &ignored) != 1) {}
+      ++frame_count;
+    } else if (frame_count == 1 && std::strncmp(word, "Object", 6) == 0) {
+      ++part_count;
+    }
+  }
+  std::rewind(f);
+  set_fps(30.0f);
+  parts = static_cast<Part**>(std::calloc(part_count, sizeof(Part*)));
+  for (uint32_t i = 0; i < part_count; ++i) {
+    parts[i] = new Part;  // 0x005aa500
+    parts[i]->attach(this, nullptr);  // 0x005aa5a0
+  }
+  int32_t frame = -1;
+  int32_t object = -1;
+  word[0] = 0;
+  int got = std::fscanf(f, "%255s", word);
+  while (got != EOF) {
+    if (std::strncmp(word, "Frame", 5) == 0) {
+      if (std::fscanf(f, "%d", &ignored) != 1) {}
+      ++frame;
+      object = -1;
+    } else if (std::strncmp(word, "Object", 6) == 0) {
+      ++object;
+      if (static_cast<uint32_t>(object) >= part_count) return false;
+      Part* p = parts[object];
+      if (std::fscanf(f, "%255s", word) != 1) {}
+      if (frame == 0) p->name = strdup(word);
+      bool scaling = false, translation = false, rotation = false;
+      while (!scaling || !translation || !rotation) {
+        got = std::fscanf(f, "%255s", word);
+        if (got == EOF) break;  // FIX (A): see above
+        float v[3] = {};
+        if (std::strncmp(word, "Scaling", 7) == 0) {
+          if (std::fscanf(f, "%f %f %f", &v[0], &v[1], &v[2]) != 3) {}
+          scaling = true;
+        } else if (std::strncmp(word, "Rotation", 8) == 0) {
+          if (std::fscanf(f, "%f %f %f", &v[0], &v[1], &v[2]) != 3) {}
+          float q[4];
+          euler_quat(v, q);
+          rotation = true;
+          if (frame >= 0 && static_cast<uint32_t>(frame) <= frame_count) std::memcpy(p->rotations + frame * 4, q, 16);
+        } else if (std::strncmp(word, "Translation", 11) == 0) {
+          if (std::fscanf(f, "%f %f %f", &v[0], &v[1], &v[2]) != 3) {}
+          translation = true;
+          if (frame >= 0 && static_cast<uint32_t>(frame) <= frame_count) std::memcpy(p->translations + frame * 3, v, 12);
+        }
+      }
+    }
+    if (got == EOF) break;
+    word[0] = 0;
+    got = std::fscanf(f, "%255s", word);
+  }
+  for (uint32_t i = 0; i < part_count; ++i) {
+    Part* p = parts[i];
+    std::memcpy(p->rotations + frame_count * 4, p->rotations, 16);
+    std::memcpy(p->translations + frame_count * 3, p->translations, 12);
+  }
+  return true;
+}
+
+// Mech3.exe 1.2 @ 0x005a98d0
+bool read_loose(Script& s, const char* path) {
+  std::FILE* f = std::fopen(path, "r");
+  if (!f) return false;
+  const bool ok = s.read_text(f);
+  std::fclose(f);
+  return ok;
+}
+
 // Mech3.exe 1.2 @ 0x005aa3b0
 void Script::set_loop_time(float t) {
   if (!active) return;
