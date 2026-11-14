@@ -439,6 +439,26 @@ Test: `test_movie2d.py` (2000 random movies and operations against the exe:
 every frame asked and blit, and the fields) and
 `dialog_movie_opens_found_files_only` (the open, on a fake Video for Windows).
 
+### The line log (0x005a3cd0..0x005a3fd0, [0x00731ac0])
+
+A layer of 15 FontTexts (twod_lines.cpp, `LineLog`): Arial 10, colours
+0x996a00 over 0x95c7ff, a shadow at (-1, -1), centred at x 320 from y 30
+every 18 pixels, all hidden. `add` (0x005a3e80; 0x005a3fd0 is the call on
+the static one) sets the layer active and, unless the top line is hidden or
+already holds the text, scrolls: from line 13 up to line 0, each shown line
+is hidden and its timer, text and colours go to the line below it, shown for
+good. The text then goes to line 0 with the given time (0x005a0050, a
+negative time hides at once). `set_font_all` (0x005a3de0) and
+`set_colors_all` (0x005a3e30) set every line. The mission animations' event
+38 (anim-run.md) is its one caller, shown for 3 seconds. The lines join no
+list of the layer, so the exe never draws them; the port wires event 38 to
+it as the exe does and draws nothing either. FIX (A): the scroll handed each
+line's text to set_text as its format, so a '%' in a message read the stack;
+the port copies it as written.
+Test: `test_dev_text.py` (465 steps of adds, colours and one line's colours
+set straight, every line's flags, timer, colours and text after each, the
+exe's own show, hide and set_text on fake lines).
+
 ### The HUD's primitives
 
 zRender's 2D side draws them into the locked 16-bit target (the 3D lock's
@@ -720,8 +740,9 @@ Mapped, not ported:
   and Frame's 0x005a3b30 (TARGET's 0x00440a30, hooked in the HUD). Done:
   the ripple's +0x04 0x005a5360 and zRender's 0x00558dd0, the key list
   0x00482570, both hit tests, the overlay 0x005a4590.. (weather.md: its
-  tint and five ripples, 2026-11-14). Open: the text console 0x005a3cd0..
-  and the interp debug console (developer only).
+  tint and five ripples, 2026-11-14), the text console 0x005a3cd0..0x005a3fd0
+  (2026-11-14, The line log). Open: the interp debug console (developer
+  only).
 - Weather drawing 0x005a5470..0x005a6110 (world-params.md). Done
   (twod_weather.cpp).
 - Outside zTwoD, behind Host: zImage's image cache 0x005179d0 / 0x00517b10

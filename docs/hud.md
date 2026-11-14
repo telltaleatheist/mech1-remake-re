@@ -1280,7 +1280,7 @@ writer in the exe:
 | 0x4a2ef0 | lines 1-4: a vehicle's developer readout (vehicles.md, The debug readout) | only with a vehicle as the view's target (its vt+0xe0); the player's view targets the player's mech |
 | 0x4a56b0 | the stealth object's readout (BASIC / FLY ...) | only with the stealth object as the target: not in the release (vehicles.md, The stealth object) |
 | 0x4a33f0 | all 25 cleared, then a listing of the mechs ([0x73655c]) | only from the app key handler's command 0x89 |
-| 0x40fb50 | mode 0 clears all, 1 arms ([0x603f8c] = 1), 2 (each frame, from 0x40fac0) picks a line under the cursor | modes 0 and 1 only from command 0x83; so mode 2 never acts |
+| 0x40fb50 | mode 0 clears all, 1 arms ([0x603f8c] = 1), 2 (each frame, from 0x40fac0) writes the readout into the first lines (below, The port) | modes 0 and 1 only from command 0x83; so mode 2 never acts |
 | 0x43c820 | the HUD's debug overlays (lines 6.., section 11) | only while the debug text [0x5fc378] shows: command 0x82 |
 | 0x40e4b0 | the lines drawn and hit-tested by the mouse (hover colour 0xff00) | its hit test needs [0x5fc314], set by 0x40e430 and cleared by 0x40e7d0, only from the same key handler |
 
@@ -1320,6 +1320,23 @@ program `create_snow`, `create_rain` and `weather_add` (app_mission.cpp)
 were empty, so no weather was made: c3, c4 and t1 set
 RAIN and c4b missions 4 and 6 SNOW in world.zrd. Both are ported since item
 19 (`weather.md`).
+
+**The port** (2026-11-14, `mech3/dev_text`, for preservation and not wired;
+the program draws none of it). The rows (`DevLines`, 0x0040ff40; each a
+`DevText` in mech_string, 0x0040e840), the frame rate (`FpsText`, 0x0040f150
+and its update 0x0040f1f0, reading the game through `DevTextHooks`), the
+empty layer [0x5fc338], their set-up and reset (0x0040f7f0, 0x0040f870; the mission load's ECX and
+EDX, 0x0040d750 and 0x0040d7b0, go through both untouched to the message
+panel's place 0x0040f330), the
+layers on and off (0x0040f890 / 0x0040f8b0), the readout (0x0040fb50: in
+mode 2 the camera's last zones, the node, model and material counts, the
+weapon pool and the texture memory, its kilobytes kept as doubles as the
+x87 keeps them), the timing marks 0x0040fef0 (off in the data, [0x005e14f0]
+= 0; each would put a briefing line and its progress, every table value 0)
+and the HUD frame's two debug texts (the zones "[ 3 7 ]" 0x0043cb10, the
+motion state's name 0x0043cc00). Test: `test_dev_text.py` against the exe
+(the names, 26 zone lists, 60 readouts on the exe's own set_text, show and
+hide, 1,101 frames of the frame rate in both of its formats).
 
 ## 21. The static (0x0043cd20, hud-plan item 6b)
 
