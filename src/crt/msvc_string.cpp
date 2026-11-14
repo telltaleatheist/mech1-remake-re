@@ -7,6 +7,20 @@
 
 namespace crt {
 
+char* msvc_mktemp(char* tmpl, uint32_t pid, bool (*exists)(const char* path)) {
+  char* p = tmpl + std::strlen(tmpl);
+  int n = 0;
+  while (--p >= tmpl && *p == 'X' && n < 5) {
+    *p = static_cast<char>('0' + pid % 10);
+    pid /= 10;
+    ++n;
+  }
+  if (p < tmpl || *p != 'X' || n < 5) return nullptr;
+  for (*p = 'a'; exists && exists(tmpl); ++*p)
+    if (*p == 'z') return nullptr;
+  return tmpl;
+}
+
 int msvc_stricmp(const char* a, const char* b) {
   for (;; ++a, ++b) {
     unsigned char ca = static_cast<unsigned char>(*a), cb = static_cast<unsigned char>(*b);

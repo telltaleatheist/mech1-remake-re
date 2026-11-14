@@ -1,9 +1,13 @@
 #include "mech3/veh_stealth.h"
 
 #include <cmath>
+#include <cstdio>
 
 #include "gamez/zreader/zreader.h"
+#include "crt/msvc_math.h"
 #include "gamez/zutil/ztimer.h"
+#include "mech3/dev_text.h"
+#include "mech3/message_panel.h"
 
 namespace mech3 {
 
@@ -109,10 +113,29 @@ StealthLayer::StealthLayer(Stealth* s) : owner(s) {
   set_active(1);
 }
 
-// Mech3.exe 1.2 @ 0x004a56b0: the readout, only while active.
+// Mech3.exe 1.2 @ 0x004a56b0, Pirate's Moon 1.0 @ 0x004a7ef0: while active, the developer lines' first hidden, the second "STEALTH:  <its node's
+// name> using <mode> dynamics", the third its place and yaw in degrees (hud.md section 20), then the layer's update.
+// FIX (A): the second line's text was its own format (as the line log's); without controls (the exe reads through
+// null) the mode is UNKNOWN and the yaw 0.
 void StealthLayer::update(float dt) {
-  (void)dt;
-  if (active) g_hooks->readout(*this);
+  if (!active) return;
+  DevLines& lines = dev_lines();
+  lines.rows[0].hide();
+  const VehicleControls* c = owner->controls;  // +0xe4
+  static const char* const kModes[] = {"BASIC", "FLY", "SUB", "TRACK", "HOVER", "AMPHIB"};
+  const uint32_t m = c ? static_cast<uint32_t>(c->motion.mode) : 6u;  // +0x764
+  char buf[80];
+  std::snprintf(buf, sizeof buf, "STEALTH:  %s using %s dynamics", veh_basic_hooks().node_name(owner->node),
+                m <= 5 ? kModes[m] : "UNKNOWN");
+  lines.rows[1].show_for(-1.0f);
+  lines.rows[1].set_text("%s", buf);
+  lines.rows[2].show_for(-1.0f);
+  const double yaw = c ? static_cast<double>(c->angles.y) * 57.29577951308 : 0.0;  // +0x330, kept a double
+  const int32_t z = crt::msvc_ftol(veh_basic_hooks().entity_position(*owner)[2]);
+  const int32_t y = crt::msvc_ftol(veh_basic_hooks().entity_position(*owner)[1]);
+  const int32_t x = crt::msvc_ftol(veh_basic_hooks().entity_position(*owner)[0]);
+  lines.rows[2].set_text("POS %d %d %d YAW %.2f", x, y, z, yaw);
+  ztwod::Layer::update(dt);  // 0x0059fd20
 }
 
 // Mech3.exe 1.2 @ 0x004a5690
@@ -191,6 +214,24 @@ void stealth_delete(Stealth* s) {
   s->layer = nullptr;
   h.vehicle_destroy(*s);  // 0x004ac650
   delete s;
+}
+
+// Mech3.exe 1.2 @ 0x004a50b0, Pirate's Moon 1.0 @ 0x004a7900
+void stealth_hud(Stealth& s, float dt) { s.layer->update(dt); }
+
+// Mech3.exe 1.2 @ 0x004a50e0, Pirate's Moon 1.0 @ 0x004a7930
+void stealth_command(Stealth& s, int32_t cmd, const float* pilot_mech_pos) {
+  switch (cmd) {
+    case 0x73: s.layer->set_active(s.layer->active == 0); break;
+    case 0x7b: {
+      const float* p = s.layer->pick;  // [+0xfc] + 0xd0
+      message_panel_add("%.2f %.2f %.2f", static_cast<double>(p[0]), static_cast<double>(p[1]),
+                        static_cast<double>(p[2]));
+      break;
+    }
+    case 0xaa: vehicle_place(s, pilot_mech_pos, 0.0f); break;
+    default: break;
+  }
 }
 
 }  // namespace mech3

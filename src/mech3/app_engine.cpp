@@ -5,6 +5,8 @@
 #include "gamez/zimage/zimg_library.h"
 #include "mech3/app_engine.h"
 #include "mech3/lab_filebox.h"
+#include "gamez/ztwod/twod_lines.h"
+#include "mech3/dev_text.h"
 #include "upgrades/game_boxes.h"
 #include "mech3/game_editor.h"
 #include "mech3/mods.h"
@@ -989,16 +991,18 @@ void GameEngine::camera_update() {
   if (MessagePanel* p = message_panel()) p->slide(frame_dt());
   program_hud_data(frame_dt());
 }
-// Mech3.exe 1.2 @ 0x0040fac0. Between the view target's frame and the
-// pocket commander the exe also runs the developer lines (0x0040fb50(2) and
-// their layer 0x005fc338), the frame-rate text (0x0040f1f0 on 0x005fc378)
-// and the debug text's layer 0x005fc838, and after it the interp console's
-// layer 0x00731ac0: none reachable in the release (hud.md section 20).
+// Mech3.exe 1.2 @ 0x0040fac0, Pirate's Moon 1.0 @ 0x004103e0. The developers' pieces run as in the exe but show nothing in the release: the
+// readout's mode 2 acts only once 0x83 armed it, the layers only while active, the frame rate hidden (hud.md 20).
 void GameEngine::hud_update() {
   const float dt = frame_dt();
   program_hud_update(dt);                                // [[0x005f4c8c]+0x64] vt+0xe0
+  dev_readout(2);                                        // 0x0040fb50
+  dev_layer().ztwod::Layer::update(dt);                  // 0x0059fd20 on 0x005fc338
+  fps_text().FpsText::update(dt);                        // 0x0040f1f0 on 0x005fc378
+  dev_lines().ztwod::Layer::update(dt);                  // 0x0059fd20 on 0x005fc838
   if (MessagePanel* p = message_panel()) p->update(dt);  // [0x00603d7c] vt+0x24: its text
   pocket_draw(dt);                                       // 0x0046a410
+  ztwod::line_log().ztwod::Layer::update(dt);            // 0x0059fd20 on 0x00731ac0
 }
 void GameEngine::hud_draw() {
   mods_edit_frame();  // ours: MODS's EDIT opens the editor on the mission's first frame

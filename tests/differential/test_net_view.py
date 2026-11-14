@@ -1,7 +1,8 @@
 """The net view (gamez/znetwork/znet_view, docs/editor.md, The net view) against the original x86: a link
 between two marks brought to the screen (0x58ba40 with the marks' steps 0x58b890 / 0x59b7b0 / 0x5234f0 /
 0x59b7e0, the depth cut 0x59b370, the box cut 0x59b490, the direction 0x58b990 and both arrow pairs 0x58da70 /
-0x58dfd0 -> 0x58d9a0), the circles placed (0x58ca90) and hit (0x58d0e0), the back arrows hit (0x58d6b0).
+0x58dfd0 -> 0x58d9a0), the circles placed (0x58ca90) and hit (0x58d0e0), the back arrows hit (0x58d6b0), the ahead
+arrows hit (0x58d3c0, their vtable 0x5cf050 as every live link has it).
 Random cameras, clips and ends in front of the camera, behind it, past the far plane and off the screen, in
 the exe's layouts in emulator memory (the marks 0x74 bytes, the link 0x120, the exe's own zTwoD vtables
 0x5cf150 / 0x5cf1d0 / 0x5cf2d8; each end's element a two-slot vtable of x86 stubs) and as the port's.
@@ -35,13 +36,14 @@ from calltrace import load_probe  # noqa: E402
 from original import FTOL, IAT_FTOL, Original  # noqa: E402
 
 LINK_UPDATE, PLACE, HIT, ARROW_HIT, SET_CLIP = 0x58ba40, 0x58ca90, 0x58d0e0, 0x58d6b0, 0x59b2f0
+AHEAD_HIT = 0x58d3c0  # the ahead arrow's (vtable 0x5cf050, which every live link's ahead arrow gets)
 IDENT_PTR, SLOT_PTR = 0x5eda8c, 0x5eda90
 FX, FY, CX, CY = 0x73fb9c, 0x73fba0, 0x73fb88, 0x73fb8c
 HEIGHT = 0x730804
-VT_MARK, VT_AHEAD, VT_BACK = 0x5cf150, 0x5cf1d0, 0x5cf2d8
+VT_MARK, VT_AHEAD, VT_BACK = 0x5cf150, 0x5cf050, 0x5cf2d8  # the ahead's as the link's set-up gives it (0x58c276)
 PM = os.environ.get('MW3_EXE') == 'pm'  # PM's exe by the address map (docs/editor.md, Pirate's Moon's net view)
-if PM:  # from PM's ctors (0x5ae3c0, 0x5aec80, 0x5b0b16): the map has 0x5f16e0 for the arrow's, 4 off
-    VT_MARK, VT_AHEAD, VT_BACK = 0x5f1660, 0x5f16dc, 0x5f17dc
+if PM:  # from PM's ctors (0x5ae3c0, 0x5b0b16) and its link's set-up (0x5adc1b, the ahead's): the map has 0x5f16e0 for the arrow's, 4 off
+    VT_MARK, VT_AHEAD, VT_BACK = 0x5f1660, 0x5f1568, 0x5f17dc
 HIDDEN = 0x10
 
 probe = load_probe()
@@ -194,6 +196,9 @@ class Exe:
             elif op[0] == 'A':
                 o.call(ARROW_HIT, ecx=lk + 0x88, stack_args=(op[1] & 0xffffffff, op[2] & 0xffffffff))
                 v.append(self.eax())
+            elif op[0] == 'B':
+                o.call(AHEAD_HIT, ecx=lk + 0x14, stack_args=(op[1] & 0xffffffff, op[2] & 0xffffffff))
+                v.append(self.eax())
             elif op[0] == 'P':
                 for mk in self.marks:
                     o.call(PLACE, ecx=mk + 0x2c)
@@ -252,7 +257,7 @@ def main():
     exe = Exe()
     bad = 0
     seen = set()
-    count = dict.fromkeys(['shown', 'heads', 'placed', 'circle hits', 'arrow hits'], 0)
+    count = dict.fromkeys(['shown', 'heads', 'placed', 'circle hits', 'arrow hits', 'ahead hits'], 0)
     for r in range(runs):
         cam, a, b, kind = scenario(rng)
         ops = ops_for(rng, cam)
@@ -283,10 +288,15 @@ def main():
         for i in (2, 8):
             ops2.append(('A', ctypes.c_int32(heads[i]).value - 1, ctypes.c_int32(heads[i + 1]).value))
             ops2.append(('A', ctypes.c_int32(heads[i]).value + 2, ctypes.c_int32(heads[i + 1]).value + 1))
+        ahead = e[0][30:42]  # the ahead arrow's heads (after its hidden flag and on_from / on_to)
+        for i in (2, 8):
+            for dx, dy in ((-1, 0), (2, 1), (1, -1), (-3, 2)):
+                ops2.append(('B', ctypes.c_int32(ahead[i]).value + dx, ctypes.c_int32(ahead[i + 1]).value + dy))
         p2, e2 = port(cam, a, b, kind, ops2), exe.run(cam, a, b, kind, ops2)
         count['placed'] += sum(1 for k in (0, 3) if e2[1][k] == 0)
         count['circle hits'] += sum(sum(x) for x, op in zip(e2, ops2) if op[0] == 'H')
         count['arrow hits'] += sum(sum(x) for x, op in zip(e2, ops2) if op[0] == 'A')
+        count['ahead hits'] += sum(sum(x) for x, op in zip(e2, ops2) if op[0] == 'B')
         if not same(p2, e2, ops2):
             bad += 1
             if bad <= 3:

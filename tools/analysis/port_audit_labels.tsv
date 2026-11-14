@@ -1,5 +1,3 @@
-0x004e2310	debug	the valve reader's print method (a vtable slot that fprintf's a value); nothing in the game prints a reader
-0x004e53b0	debug	the valve reader's print method (a vtable slot that fprintf's a value); nothing in the game prints a reader
 0x004e0c20	folded	the valve reader's records, actions and lists: constructors, destructors, factories and list helpers of classes ported in zrdrvalve/zai_valve
 0x004e0f20	folded	the valve reader's records, actions and lists: constructors, destructors, factories and list helpers of classes ported in zrdrvalve/zai_valve
 0x004e1c30	folded	the valve reader's records, actions and lists: constructors, destructors, factories and list helpers of classes ported in zrdrvalve/zai_valve
@@ -649,7 +647,6 @@
 0x00410560	folded	covered by ported code beside them: the briefing's list helpers, vector inserts, the cameras' free, the options' getters (implemented in the program's hooks), the message panel's constructors and destructors, the HUD message, the AI steps' base vtable thunks, start-up statics
 0x004106d0	folded	covered by ported code beside them: the briefing's list helpers, vector inserts, the cameras' free, the options' getters (implemented in the program's hooks), the message panel's constructors and destructors, the HUD message, the AI steps' base vtable thunks, start-up statics
 0x00410920	folded	covered by ported code beside them: the briefing's list helpers, vector inserts, the cameras' free, the options' getters (implemented in the program's hooks), the message panel's constructors and destructors, the HUD message, the AI steps' base vtable thunks, start-up statics
-0x0041ca90	debug	a debug key command (0x6d, case 2 of the key switch 0x0040dba0) toggling the mech's +0x634 bit 1; the release never registers 0x6d (0x0040db60 registers 0x61, 0x6c, 0x70, 0x7e)
 0x0041d220	folded	read: the mech's vt+0x128 (vtable 0x005bcef8, the network mech's 0x005c3508 too): vt+0x120 of +0x518 x share, the stopping distance at a throttle share; its two callers, the AI attack's 0x004c9880 and 0x004d13c0, are ported as vt+0x120 of vt+0x118(share) (zai_attack.cpp:693, 741), the same value (vt+0x118 is +0x518 x share, 0x0041d1c0)
 0x0041d280	unused	read: the mech's vt+0x124 (the stopping distance now: |the controls' speed x +0x518| through vt+0x120); its one caller, the field base dock 0x00459990 (mech_fieldbase_dock.cpp:152), calls it on the base, a vehicle (0x004ad050, ported), so on a mech nothing reaches it (the calls through +0x124 in the exe: that one only)
 0x0041d2c0	unused	read: the mech's vt+0x130 (a turn rate from a speed and a share, floored), vt+0x134 and vt+0x138 (it from the controls' speed or a share) and vt+0x13c (the share that turns by a rate): no call in the exe goes through +0x134, +0x138 or +0x13c, and +0x130's callers are those two and the vehicles' own (0x004ad250, 0x004ad290 on their vtable), so on a mech nothing reaches them
@@ -775,7 +772,6 @@
 0x00483620	devdialog-logic	the frame window's debug menu (editor.md: the debug menu; MFC message map entries 0x005c41..0x005c45): its commands and their check marks or enables (display driver, video modes, a mech picked from a list, the training game, input flags)
 0x00483640	devdialog-logic	the frame window's debug menu (editor.md: the debug menu; MFC message map entries 0x005c41..0x005c45): its commands and their check marks or enables (display driver, video modes, a mech picked from a list, the training game, input flags)
 0x00483260	devdialog-shell	the debug menu's About box (resource 0x67)
-0x004810d0	debug	the debug console's overlay toggle (0x00608f74; game-loop.md: from 0x00480b20, itself never called)
 0x0047dac0	folded	covered: the screens' destructors and constructors (unwind callers), the app states' constructors (their names), InitInstance's body (0x00480020, app.cpp's 0x00480000 port), RunDir (the program's data folder replaces it), the world defaults (no effect, app_engine.cpp)
 0x0047ea10	folded	covered: the screens' destructors and constructors (unwind callers), the app states' constructors (their names), InitInstance's body (0x00480020, app.cpp's 0x00480000 port), RunDir (the program's data folder replaces it), the world defaults (no effect, app_engine.cpp)
 0x0047ea90	folded	covered: the screens' destructors and constructors (unwind callers), the app states' constructors (their names), InitInstance's body (0x00480020, app.cpp's 0x00480000 port), RunDir (the program's data folder replaces it), the world defaults (no effect, app_engine.cpp)
@@ -808,12 +804,9 @@
 0x004a3fb0	unused	the turn limits' clamp (vt+0x04) for the Fixed, Narrow and Wide kinds (vtables 0x005c8310/20/30): the turret never asks clamp (turret.h:31) and the AI's track keeps its answer only for a dot product it drops (vehicles.md, zai_firing.cpp:554)
 0x004a3fe0	unused	the turn limits' clamp (vt+0x04) for the Fixed, Narrow and Wide kinds (vtables 0x005c8310/20/30): the turret never asks clamp (turret.h:31) and the AI's track keeps its answer only for a dot product it drops (vehicles.md, zai_firing.cpp:554)
 0x00493120	unused	the movie base's run to the end on its own clock (0x00575d30): nothing calls it (fmv.md)
-0x004a3220	debug	debug key commands of 0x0040dba0, never registered in the release: a position marker printed to the console (0x004a3220), the mechs listed into the developer lines (0x004a33f0, command 0x89; hud.md), a vehicle picked in a dialog (0x004a3550, its destructor 0x004a35e0)
-0x004a33f0	debug	debug key commands of 0x0040dba0, never registered in the release: a position marker printed to the console (0x004a3220), the mechs listed into the developer lines (0x004a33f0, command 0x89; hud.md), a vehicle picked in a dialog (0x004a3550, its destructor 0x004a35e0)
-0x004a3550	debug	debug key commands of 0x0040dba0, never registered in the release: a position marker printed to the console (0x004a3220), the mechs listed into the developer lines (0x004a33f0, command 0x89; hud.md), a vehicle picked in a dialog (0x004a3550, its destructor 0x004a35e0)
-0x004a35e0	debug	debug key commands of 0x0040dba0, never registered in the release: a position marker printed to the console (0x004a3220), the mechs listed into the developer lines (0x004a33f0, command 0x89; hud.md), a vehicle picked in a dialog (0x004a3550, its destructor 0x004a35e0)
-0x004a50b0	debug	the stealth object (the developers' fly camera; back burner in CLAUDE.md): a slot of its
-0x004a4ca0	debug	the stealth object (the developers' fly camera; back burner in CLAUDE.md): a slot of its
+0x004a3550	debug	the vehicle pick of debug command 0x8a (app_key, never bound in the release): an MFC dialog (resource 0x430's list, 0x004aef00) whose chosen vehicle gets the view (its vt+0x108); with the dialog sittings
+0x004a35e0	devdialog-shell	the vehicle pick dialog's destructor (0x004a3550's MFC plumbing: its combo box and CDialog)
+0x004a4ca0	devdialog-shell	the vehicle pick dialog's DoDataExchange (vtable 0x005c8414: the combo box 0x430 at +0x6c)
 0x0049d710	devdialog-logic	the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians
 0x0049d810	devdialog-logic	the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians
 0x0049d8d0	devdialog-logic	the editor's 'add vehicle to node' dialog (editor.md: a vehicle picked from a dialog, 0x0049d350 / 0x0049d8b0): its list fill, its team and target bits from the player's mech (+0xc4, +0xc8), the yaw in radians
@@ -857,8 +850,6 @@
 0x0049dc40	folded	covered: the screens' and states' constructors and destructors, list and vector instances (mechdef-configs.md names 0x0049da10), string copies, the missions object's queries (the program's GameEngine overrides them: app_engine.h:128 and the rest), the fade wrapper, the mission cleanup
 0x0049fe70	folded	covered: the screens' and states' constructors and destructors, list and vector instances (mechdef-configs.md names 0x0049da10), string copies, the missions object's queries (the program's GameEngine overrides them: app_engine.h:128 and the rest), the fade wrapper, the mission cleanup
 0x004a4050	folded	covered: the screens' and states' constructors and destructors, list and vector instances (mechdef-configs.md names 0x0049da10), string copies, the missions object's queries (the program's GameEngine overrides them: app_engine.h:128 and the rest), the fade wrapper, the mission cleanup
-0x004abbc0	debug	the debug command 0x7e (0x004abbc0, 121 lines: a console of keyboard text and the network session; registered, but no key reaches it: app_keys.h:14, hud.md) and the stealth object's key handler (0x004a50e0: the fly camera, back burner)
-0x004a50e0	debug	the debug command 0x7e (0x004abbc0, 121 lines: a console of keyboard text and the network session; registered, but no key reaches it: app_keys.h:14, hud.md) and the stealth object's key handler (0x004a50e0: the fly camera, back burner)
 0x004af000	devdialog-logic	a vehicle-pick dev dialog (resource 0x8f, from the debug key's 0x004a3550): its list of zEntity's vehicles
 0x004aef00	devdialog-shell	the vehicle-pick dialog's MFC plumbing
 0x004aef80	devdialog-shell	the vehicle-pick dialog's MFC plumbing
@@ -1180,33 +1171,27 @@
 0x0058a7b0	sdl	DirectPlay: the sessions, players and groups lists, the providers and connections (IDirectPlay4A), the lobby launch (0x005899b0 / 0x00589a50) and a game service's score report that does not exist (0x00589d00..0x00589e30): the port's ENet transport and its own session and player lists replace them (multiplayer-port.md)
 0x0058a7f0	sdl	DirectPlay: the sessions, players and groups lists, the providers and connections (IDirectPlay4A), the lobby launch (0x005899b0 / 0x00589a50) and a game service's score report that does not exist (0x00589d00..0x00589e30): the port's ENet transport and its own session and player lists replace them (multiplayer-port.md)
 0x0058a830	sdl	DirectPlay: the sessions, players and groups lists, the providers and connections (IDirectPlay4A), the lobby launch (0x005899b0 / 0x00589a50) and a game service's score report that does not exist (0x00589d00..0x00589e30): the port's ENet transport and its own session and player lists replace them (multiplayer-port.md)
-0x0058c590	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058d3c0	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058e440	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058e460	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058ec20	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058ec90	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058ecd0	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058ed00	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058ed40	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058eda0	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058ee10	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058ee40	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f170	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f270	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f2d0	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f2e0	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f420	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f580	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f630	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f6a0	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f740	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f770	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f780	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f790	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f7a0	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f7b0	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-0x0058f8b0	debug	the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
+0x0058c590	folded	the destructor of a holder of one of the view's lists (from 0x0058e420): the port's lists are std::list
+0x0058e440	folded	the cursor element's place set (vtable 0x005cf250's +0x2c: three floats to its point): the port keeps the cursor's point as View::cursor_at
+0x0058e460	folded	the cursor element's link k (vtable 0x005cf250's +0x08: the k-th of its list, else its +0x10): the port's cursor lines (View::cursor_lines)
+0x0058ec20	folded	container code of the view's std::list<Link> (the cursor lines): cleared
+0x0058ec90	folded	container code of the view's std::vector<Link>: destroyed
+0x0058ecd0	folded	container code of the view's std::vector<Link>: its size
+0x0058ed00	folded	container code of the view's std::vector<Mark>: destroyed
+0x0058ed40	folded	container code of the view's std::list<Link>: an item inserted (0x0058f420 its copy)
+0x0058eda0	folded	container code of the view's std::list<Link>: a range erased
+0x0058ee10	folded	container code of the view's std::list<Link>: a node made
+0x0058ee40	folded	container code of the view's std::vector<Link>: insert and reserve
+0x0058f170	folded	container code of the view's std::vector<Link>: a range erased (0x0058f630 the arrows' copy)
+0x0058f270	folded	container code of the view's std::vector<Link>: a range destroyed
+0x0058f2d0	folded	container code: a Mark copied into place when not null (0x0058f580), from the vector's insert
+0x0058f2e0	folded	the Link's assignment (its arrows by 0x0059fe50): the port's Link copies as a struct
+0x0058f420	folded	the Link's copy constructor (the ahead arrow's vtable 0x005cf050 set again, the back's 0x005cf2d8): the port's Link copies as a struct
+0x0058f580	folded	the Mark's copy constructor (its circle 0x005cf150 by 0x0059fdf0): the port's Mark copies as a struct
+0x0058f630	folded	the arrow's assignment (0x0059fe50, then its fields): the port's ArrowObject copies as a struct
+0x0058f6a0	folded	the back arrow's constructor (0x0058d350, then vtable 0x005cf2d8): the port's ArrowObject(true)
+0x0058f740	folded	the arrows' left-up and right-up (+0x30, +0x34 of 0x005cf050 / 0x005cf1d0 / 0x005cf2d8): with a live link, the empty 0x004bf620: nothing
+0x0058f8b0	folded	the view's window's MFC message map (vtable 0x005cf358's): replaced by zTwoD's routing in the port
 0x0058a8c0	folded	covered: the DirectPlay error names (znet_dplay.cpp:142 names each through localize), the sessions' list clear (znet_session.cpp:248), the net view's inlined steps (znet_view.cpp:68, :151), the net object's static, ZGameApp's base InitInstance and engine start (overridden by the app's 0x00480000 / 0x00480570, game-loop.md)
 0x00587ed0	folded	covered: the DirectPlay error names (znet_dplay.cpp:142 names each through localize), the sessions' list clear (znet_session.cpp:248), the net view's inlined steps (znet_view.cpp:68, :151), the net object's static, ZGameApp's base InitInstance and engine start (overridden by the app's 0x00480000 / 0x00480570, game-loop.md)
 0x0058ce10	folded	covered: the DirectPlay error names (znet_dplay.cpp:142 names each through localize), the sessions' list clear (znet_session.cpp:248), the net view's inlined steps (znet_view.cpp:68, :151), the net object's static, ZGameApp's base InitInstance and engine start (overridden by the app's 0x00480000 / 0x00480570, game-loop.md)
@@ -1373,14 +1358,6 @@
 0x00519510	software	the software renderer's texture tables: the nth mip of a chain for 0x00563940 (module-starts.md:158) and the 32 light and fog levels of every paletted texture (software-path.md:30)
 0x005195b0	software	the software renderer's texture tables: the nth mip of a chain for 0x00563940 (module-starts.md:158) and the 32 light and fog levels of every paletted texture (software-path.md:30)
 0x00519820	sdl	the square-only device resize (D3D caps 0x20; render-drawtable.md:124): no modern device needs it
-0x00519990	debug	the screenshot writer of the debug command 0x7e (0x004abbc0): copies the front buffer to 24-bit, flips it and saves a .bmp through a save dialog (0x00519cc0); no key reaches it
-0x005199e0	debug	the screenshot writer of the debug command 0x7e (0x004abbc0): copies the front buffer to 24-bit, flips it and saves a .bmp through a save dialog (0x00519cc0); no key reaches it
-0x00519a20	debug	the screenshot writer of the debug command 0x7e (0x004abbc0): copies the front buffer to 24-bit, flips it and saves a .bmp through a save dialog (0x00519cc0); no key reaches it
-0x00519a40	debug	the screenshot writer of the debug command 0x7e (0x004abbc0): copies the front buffer to 24-bit, flips it and saves a .bmp through a save dialog (0x00519cc0); no key reaches it
-0x00519b30	debug	the screenshot writer of the debug command 0x7e (0x004abbc0): copies the front buffer to 24-bit, flips it and saves a .bmp through a save dialog (0x00519cc0); no key reaches it
-0x00519be0	debug	the screenshot writer of the debug command 0x7e (0x004abbc0): copies the front buffer to 24-bit, flips it and saves a .bmp through a save dialog (0x00519cc0); no key reaches it
-0x00519c20	debug	the screenshot writer of the debug command 0x7e (0x004abbc0): copies the front buffer to 24-bit, flips it and saves a .bmp through a save dialog (0x00519cc0); no key reaches it
-0x00519cc0	debug	the screenshot writer of the debug command 0x7e (0x004abbc0): copies the front buffer to 24-bit, flips it and saves a .bmp through a save dialog (0x00519cc0); no key reaches it
 0x00519df0	unused	zFont, the bitmap fonts from fonts.zrd: loaded at start-up (0x00519e50), split into glyphs, measured by id (0x0051a0d0), freed (0x00519f70), but nothing in 1.2 draws them (app_engine.cpp:318, twod.md section 4)
 0x00519e50	unused	zFont, the bitmap fonts from fonts.zrd: loaded at start-up (0x00519e50), split into glyphs, measured by id (0x0051a0d0), freed (0x00519f70), but nothing in 1.2 draws them (app_engine.cpp:318, twod.md section 4)
 0x00519f70	unused	zFont, the bitmap fonts from fonts.zrd: loaded at start-up (0x00519e50), split into glyphs, measured by id (0x0051a0d0), freed (0x00519f70), but nothing in 1.2 draws them (app_engine.cpp:318, twod.md section 4)
@@ -1475,7 +1452,7 @@
 0x00574d90	sdl	DirectSound buffers: made from a WAV (0x00574ff0) and released (0x00574d90, 0x00574f10); SDL audio holds the port's
 0x00574f10	sdl	DirectSound buffers: made from a WAV (0x00574ff0) and released (0x00574d90, 0x00574f10); SDL audio holds the port's
 0x00574ff0	sdl	DirectSound buffers: made from a WAV (0x00574ff0) and released (0x00574d90, 0x00574f10); SDL audio holds the port's
-0x00575b00	debug	the developer's stdout redirect (freopen to a log; editor.md:214)
+0x00575b00	sdl	stdout and stderr sent to <name>.out / <name>.err beside the exe (the frame's constructor 0x00590920 gives "mech3"; gamez.out / gamez.err in the temp folder when that fails), "File started" written to each: every start, not a developer tool. Replaced by the rebuild's own log (frontend/sdl/log_start.h, mw3.log; docs/screenshots.md)
 0x00575d00	sdl	Win32 plumbing the port replaces: the MCI notify window's flag (app_engine.h:541) and its reader, the CD-ROM drive search (FIX (A) and (trap): fixes.md:56, 130), the Winsock 2 check (FIX (A), mp_connect.cpp:280), Mech3Msg.dll's LoadLibrary, FreeLibrary and FormatMessage (the port reads the DLL as a file: fixes.md:259, 281; sdl_twod_host.cpp:435)
 0x00575d10	sdl	Win32 plumbing the port replaces: the MCI notify window's flag (app_engine.h:541) and its reader, the CD-ROM drive search (FIX (A) and (trap): fixes.md:56, 130), the Winsock 2 check (FIX (A), mp_connect.cpp:280), Mech3Msg.dll's LoadLibrary, FreeLibrary and FormatMessage (the port reads the DLL as a file: fixes.md:259, 281; sdl_twod_host.cpp:435)
 0x00575d40	sdl	Win32 plumbing the port replaces: the MCI notify window's flag (app_engine.h:541) and its reader, the CD-ROM drive search (FIX (A) and (trap): fixes.md:56, 130), the Winsock 2 check (FIX (A), mp_connect.cpp:280), Mech3Msg.dll's LoadLibrary, FreeLibrary and FormatMessage (the port reads the DLL as a file: fixes.md:259, 281; sdl_twod_host.cpp:435)
@@ -1489,9 +1466,6 @@
 0x00576270	folded	zUtil's search path lists: each user keeps its own path string (zsnd_init.cpp:223, mech_fieldbase.h:295, zinterp.cpp:240) and the file finder is the platform's (zimg_library.h:75, zsnd_parm.cpp:17, FIX (A)); the default list's free has nothing to free (mission-frame.md:184)
 0x005762b0	folded	zUtil's search path lists: each user keeps its own path string (zsnd_init.cpp:223, mech_fieldbase.h:295, zinterp.cpp:240) and the file finder is the platform's (zimg_library.h:75, zsnd_parm.cpp:17, FIX (A)); the default list's free has nothing to free (mission-frame.md:184)
 0x00594ec0	folded	the script log line's formatter, covered where named (zinterp.cpp:288)
-0x005960a0	debug	the hidden GameZ Interpreter console (0x005960a0: a 2D console window that runs typed script lines through 0x00595510; its destructor and line runner; toggled by 0x004810d0, which nothing reaches: interp.md:532, discoveries.md:1532)
-0x00596170	debug	the hidden GameZ Interpreter console (0x005960a0: a 2D console window that runs typed script lines through 0x00595510; its destructor and line runner; toggled by 0x004810d0, which nothing reaches: interp.md:532, discoveries.md:1532)
-0x00596190	debug	the hidden GameZ Interpreter console (0x005960a0: a 2D console window that runs typed script lines through 0x00595510; its destructor and line runner; toggled by 0x004810d0, which nothing reaches: interp.md:532, discoveries.md:1532)
 0x005961d0	sdl	a text object's font set from a GDI font handle (GetObjectA into a LOGFONT; twod.h:319): the SDL text host keeps fonts by name
 0x00596a70	unused	list teardown helpers whose callers (0x00596930, 0x00596c60) nothing reaches
 0x00596c80	unused	list teardown helpers whose callers (0x00596930, 0x00596c60) nothing reaches
@@ -1593,7 +1567,6 @@
 0x005a96d0	folded	zSave's list insert, load and stable sort, covered where named (zsave.cpp:86, 108, 132) and std::list's sort helpers
 0x005a97e0	folded	zSave's list insert, load and stable sort, covered where named (zsave.cpp:86, 108, 132) and std::list's sort helpers
 0x005a92d0	unused	_rmtmp at zSave's stop, unreached
-0x005a98d0	debug	the developers' loose <name>.zan override for motion scripts (motion.md:36), like the reader's loose .zrd files
 0x00576c50	folded	zUtil and zVideo entries the port does its own way, covered where named: the CRC table's start (app_engine.cpp:314), the search paths' free (app_engine.cpp:323), the mode switch (video_set_mode, app_engine.cpp:724), the frame and lab clears (app_engine.h:196, 562)
 0x00576c60	folded	zUtil and zVideo entries the port does its own way, covered where named: the CRC table's start (app_engine.cpp:314), the search paths' free (app_engine.cpp:323), the mode switch (video_set_mode, app_engine.cpp:724), the frame and lab clears (app_engine.h:196, 562)
 0x00576c80	folded	zUtil and zVideo entries the port does its own way, covered where named: the CRC table's start (app_engine.cpp:314), the search paths' free (app_engine.cpp:323), the mode switch (video_set_mode, app_engine.cpp:724), the frame and lab clears (app_engine.h:196, 562)
@@ -1649,9 +1622,6 @@
 0x005873f0	sdl	DirectPlay's session description and player list (multiplayer-port.md:59-60): the ENet transport stands in
 0x00587450	sdl	DirectPlay's session description and player list (multiplayer-port.md:59-60): the ENet transport stands in
 0x00587140	folded	the game list's search, ours in the ENet transport (net_enet.cpp:441)
-0x005a9bc0	debug	the motion script's text side: the loose .zan reader (0x005a9e10, with 0x005aa210) behind the developers' override, and the writer (0x005a9bc0)
-0x005a9e10	debug	the motion script's text side: the loose .zan reader (0x005a9e10, with 0x005aa210) behind the developers' override, and the writer (0x005a9bc0)
-0x005aa210	debug	the motion script's text side: the loose .zan reader (0x005a9e10, with 0x005aa210) behind the developers' override, and the writer (0x005a9bc0)
 0x005a7e10	folded	zEntity's base constructor (frames, and with a parent the registration 0x005a8390 + 0x005a7f50); the port's AiTarget initialisers stand in (app_engine.cpp:312). targets.zrd's CZAiTargets are not on the port's entity list (ai.md:1537), so their vt+0x34 (0x005a8000, the step by velocity +0x30 and spin +0x58) does not run; checked harmless: both start as the zero vector [0x0063d870] (BSS), targets.zrd has no velocity or spin key (ai.md:153) and no script command sets an entity's (interp.md: only CameraSetRotate and GlobalWindStaticVelocity)
 0x00485390	folded	the equipment callout: the voice for an equipment kind (0x00485360, mech_names.cpp equip_voice_index, into 0x00608fc0) played as 0x00485370 plays one; wired as DamageCalls.equip_voice (app_weapons.cpp), test_equip_voice.py
 0x00410010	folded	read: an atexit handler (registered at 0x00410000): a static list freed once (0x0058b220), the guard bit [0x006040a4]; the port's objects free themselves

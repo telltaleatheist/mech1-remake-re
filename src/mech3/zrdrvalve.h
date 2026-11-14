@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <cstdio>
 #include <list>
 #include <optional>
 #include <string>
@@ -136,6 +137,9 @@ class ValveFile : public RdrFile {
  public:
   ValveFile() : RdrFile("valves", 0x80, 100, 0, 1) {}  // 0x004e1cb0 -> 0x004e5290
   ValveDef* read(int32_t i, const char** name);       // 0x004e5e30
+  // +0x14 (0x004e53b0, its first argument unread; also its base's 0x005cd5c8): "  <name> ( )" to `f`
+  // (0x004e2310). Nothing in the game prints a reader; ported for preservation.
+  void print(std::FILE* f, const char* name) const;
   ValveDef def;                                        // +0x2c
 };
 ValveFile& valve_file();

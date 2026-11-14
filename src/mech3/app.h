@@ -20,7 +20,8 @@ class State;
 struct AppGlobals {
   uint8_t class_registered = 0;  // 0x00608f6c  window class registered (ExitInstance)
   uint8_t tampered = 0;          // 0x00608f70  the exe self-check's result: never set (FIX (trap))
-  Handle debug_view = 0;         // 0x00608f74  an optional overlay drawn instead of 0x0041ab90
+  Handle debug_view = 0;         // 0x00608f74  an optional overlay drawn instead of 0x0041ab90 (PM [0x0062cfb4])
+  uint8_t debug_view_closing = 0;  // PM [0x0062cfb8]: the console's toggle asked it closed (0x00483d50)
   int32_t last_vmode = 0;        // 0x00608f78
   Handle main_hwnd = 0;          // 0x00608f80
   Handle script = 0;             // 0x006040b0  the interp script object (0x00410700)

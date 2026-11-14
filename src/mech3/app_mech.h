@@ -470,6 +470,7 @@ void* node_entity(void* node);                                    // 0x0040e920 
 struct MechControls;
 MechControls* mech_controls(void* mech);  // its +0x37c (vt+0x140's IControls)
 bool entity_is_mech(const void* o);  // a program mech (zEntity's entry answering vt+0x50 with itself); others and freed ones not
+void program_mech_debug_bit(void* m);  // 0x0041ca90 (debug command 0x6d)
 void mech_entities_forget();         // the mechs' registry emptied with zEntity's list
 // 0x004814e0 on the program's entities: each one's projected shadow kept, drawn
 // along the mission's sun (app_states' update_shadows is the handle version).

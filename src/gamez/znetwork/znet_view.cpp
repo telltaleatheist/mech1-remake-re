@@ -213,12 +213,19 @@ int32_t MarkObject::hit(int32_t px, int32_t py) {
   return static_cast<uint32_t>(r * r) >= d2 ? 1 : 0;
 }
 
+// Mech3.exe 1.2 @ 0x0058f760
 void MarkObject::on_press() { if (mark) mark->press(); }
+// Mech3.exe 1.2 @ 0x0058f770
 void MarkObject::on_release() { if (mark) mark->release(); }
+// Mech3.exe 1.2 @ 0x0058f780
 void MarkObject::on_enter() { if (mark) mark->enter(); }
+// Mech3.exe 1.2 @ 0x0058f790
 void MarkObject::on_leave() { if (mark) mark->leave(); }
+// Mech3.exe 1.2 @ 0x0058f7a0
 void MarkObject::on_left_up() { if (mark) mark->left_up(); }
+// Mech3.exe 1.2 @ 0x0058f7b0
 void MarkObject::on_right_up() { if (mark) mark->right_up(); }
+// Mech3.exe 1.2 @ 0x0058f7c0
 void MarkObject::on_click() { if (mark) mark->click(); }
 
 // ---- ArrowObject ----
@@ -233,11 +240,28 @@ void ArrowObject::draw_heads() {
   if (on_to) ztwod::host().line_list(head_to, 2, &clip, color);
 }
 
-// Mech3.exe 1.2 @ 0x0058d6b0 (the 0x005cf2d8 arrow's; the 0x005cf1d0 one keeps
-// the base 0x0059fd50): within a head's triangle behind its tip, radius / 2
-// deep, the far end's radius for the first.
+// Mech3.exe 1.2 @ 0x0058d3c0, Pirate's Moon 1.0 @ 0x005aecb0 (the ahead arrow's, vtable 0x005cf050 / PM 0x005f1568: the link's
+// set-up 0x0058c276, the cursor line 0x0058e4fb and the copy 0x0058f49c give it
+// that one, not the constructor's 0x005cf1d0): within a head's triangle ahead of
+// its tip, the first head by the near end's radius, the second by the far end's.
+int32_t ArrowObject::hit_ahead(int32_t px, int32_t py) {
+  if (flags & ztwod::kHidden) return 0;
+  const auto inside = [&](const int32_t* tip, Mark* m) {
+    const float dx = static_cast<float>(px - tip[2]), dy = static_cast<float>(py - tip[3]);
+    const float u = link->dir[0] * dx + dy * link->dir[1];
+    const float v = dx * link->perp[0] + dy * link->perp[1];
+    m->through_project();
+    return m->radius * kHeadBack < u && u < v && u < -v;
+  };
+  if (inside(head_from, link->from)) return 1;
+  return inside(head_to, link->to) ? 1 : 0;
+}
+
+// Mech3.exe 1.2 @ 0x0058d6b0 (the back arrow's, vtable 0x005cf2d8): within a
+// head's triangle behind its tip, radius / 2 deep, the far end's radius for
+// the first.
 int32_t ArrowObject::hit(int32_t px, int32_t py) {
-  if (!tested_hit) return Object2D::hit(px, py);
+  if (!tested_hit) return hit_ahead(px, py);
   if (flags & ztwod::kHidden) return 0;
   const auto inside = [&](const int32_t* tip, Mark* m) {
     const float dx = static_cast<float>(px - tip[2]), dy = static_cast<float>(py - tip[3]);

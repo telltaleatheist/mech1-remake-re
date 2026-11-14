@@ -46,6 +46,50 @@ mech_anim.cpp) set the byte in their constructors (0x5a9990, 0x5a9970,
 one-shots) after loading; playback then samples `frac(rate * t / loop)`
 (`movement.md`, The animation objects).
 
+## The text side (ported 2026-11-14, S8; `test_motion_text.py`)
+
+When the archive has no entry for a motion (or none is open), 0x5a9ad0 looks
+for `<base>.zan` on the search path (0x5762b0) and then the name as given,
+and reads it as text (0x5a98d0 opens it "r", 0x5a9e10 reads it):
+
+```
+Frame 0
+  Object hip
+    Scaling 1 1 1
+    Rotation 0 1.5 0
+    Translation 0 2.4 0
+Frame 1
+  ...
+```
+
+- A first pass counts the `Frame` words and the `Object` words of the first
+  frame; the parts are made for that many frames at 30 frames a second
+  (0x5aa450).
+- The second pass reads each frame's objects in order. The first frame's
+  object names become the parts' names. Each object reads entries until it
+  has had all three: Scaling is read and dropped, Rotation's three angles
+  (radians, x y z) become a quaternion (0x5aa210: about z, then y, then x,
+  normalised), and Translation is the key. Other words between them are
+  skipped. A frame with more objects than the first is refused.
+- Each part's last key is set to its first, so the loop closes, as in the
+  binary motions.
+
+The port is `Script::read_text` and `zsis::read_loose`. load_motion falls
+back to it as the exe does, so a loose `.zan` serves a motion name that
+motion.zbd lacks; one in motion.zbd always comes from the archive. FIX (A):
+- a file that ends inside an object's block made the exe read on for ever;
+  the port stops;
+- an object before any frame wrote before the keys in the exe; the port skips
+  it;
+- words are read at most 255 characters long;
+- the name-as-given path is found through the mounts, not beside the exe.
+
+The binary writer (0x5a9bc0, the script's vtable +8; 0x5aa620 for each part:
+its name by 0x5763f0, the flags 8 translations, 2 velocities, 4 rotations,
+then the keys) writes the form the reader takes. Nothing in the game calls
+it. Ported as `Script::write` for preservation; the test writes back every
+text it reads, against the exe.
+
 ## Playback (ported, `test_mechanim.py`)
 
 The phase (0x5abae0; 0x432a80 for looping scripts, +0x70) is `frac(rate t /

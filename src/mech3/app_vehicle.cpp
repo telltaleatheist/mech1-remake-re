@@ -2,6 +2,7 @@
 #include "mech3/zai_wire_pm.h"
 #include "mech3/app_vehicle.h"
 #include "mech3/mech_lod.h"
+#include "mech3/dev_text.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -441,11 +442,9 @@ struct WiredStealth : StealthHooks {
     return true;
   }
   void aiv_close() override { delete aiv, aiv = nullptr; }  // 0x004e04f0
-  // The overlay's readout (0x004a56b0) and its off (0x0040fb50(0)) write and
-  // clear the debug lines ([0x005fc848]), never shown in the release (hud.md
-  // section 20): nothing here.
-  void readout(StealthLayer&) override {}
-  void layer_off() override {}
+  // The overlay's off (0x0040fb50(0)) clears the debug lines ([0x005fc848]),
+  // never shown in the release (hud.md section 20).
+  void layer_off() override { dev_readout(0); }
   // Mech3.exe 1.2 @ 0x004a58d0: the reticle's point (its image's, onto the
   // render target, 0x0040d9e0) through the world from the camera's near
   // plane to its far one (0x00523930 at 1/near and 1/far, after the view's
@@ -1038,6 +1037,14 @@ void program_vehicle_hit_an_ally(void* v, void* victim) {
 // The stealth object's frame from the player's tick while the view is on it
 // (0x004a1160: vt+0x34, 0x004a5050, called straight, not through the entity
 // walk's +0x09 test).
+const float* program_entity_position(void* v) { return g_hooks.entity_position(*static_cast<Vehicle*>(v)); }
+void program_vehicle_hud(void* target, float dt) {
+  if (g_stealth && target == static_cast<Vehicle*>(g_stealth)) {
+    if (g_stealth->layer) stealth_hud(*g_stealth, dt);  // FIX (A): the exe's stealth always has its overlay
+  } else if (is_program_vehicle(target)) {
+    vehicle_debug_lines(static_cast<BasicVehicle*>(static_cast<Vehicle*>(target)));
+  }
+}
 void program_stealth_frame(float dt) {
   if (g_stealth) stealth_frame(*g_stealth, dt);
 }

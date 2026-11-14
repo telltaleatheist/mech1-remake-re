@@ -103,6 +103,12 @@ void Mech::power(int power_down) {
   power_down_pending = false;
 }
 
+// Mech3.exe 1.2 @ 0x0041ca90, Pirate's Moon 1.0 @ 0x0041d8f0 (+0x658 in PM)
+int Mech::toggle_debug_bit() {
+  x634 ^= 2u;
+  return 1;
+}
+
 // Pirate's Moon 1.0 @ 0x0041d920. New in PM: the headlight goes out with the
 // power (0x0041f8d0, 0x00465da0), and a network mech powering down stops being
 // the mission player's target.

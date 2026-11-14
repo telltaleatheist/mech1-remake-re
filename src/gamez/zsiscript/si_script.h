@@ -23,6 +23,7 @@ struct Part {               // 0x4c bytes
   Part();                                    // 0x005aa500
   bool attach(Script* s, const Part* share); // 0x005aa5a0
   bool read(std::FILE* f, long end = -1);    // 0x005aa6d0; ours: `end` the entry's (a broken copy refused)
+  bool write(std::FILE* f) const;            // 0x005aa620: its name, the flags, the keys (as read)
   void destroy();                            // 0x005aac10: the buffers, when owned
 
   void set_matrix(const float m[12], bool compose);  // 0x005aae10; null clears has_matrix
@@ -65,6 +66,13 @@ struct Script {             // vtable 0x5d0f20
   // entry's `end`, counts the bytes left cannot hold refuse the motion
   // (false, its parts freed); without one, the original's read.
   bool read(std::FILE* f, long end = -1);
+  // 0x005a9bc0, vtable +8: the version, loop time, frames and parts, stride and mult, then each part (0x005aa620);
+  // nothing in the game calls it (docs/motion.md, The text side).
+  bool write(std::FILE* f) const;
+  // 0x005a9e10: a loose .zan's text ("Frame n", then per part "Object name" and its Scaling, Rotation and
+  // Translation), the developers' override (docs/motion.md, The text side); false with more parts in a frame than
+  // the first had.
+  bool read_text(std::FILE* f);
   void share(const Script& from);  // 0x005a99f0: the same parts' buffers, frames, loop and rates
   void set_loop_time(float t);     // 0x005aa3b0
   void set_fps(float fps);         // 0x005aa450
@@ -79,5 +87,8 @@ struct Script {             // vtable 0x5d0f20
 bool make_velocities(Part* p);     // 0x005aa4c0
 bool free_velocities(Part* p);     // 0x005aa4e0
 bool swap_parts(Part** a, Part** b);  // 0x005abab0: the parts trade places, the names stay
+// 0x005aa210 (ECX the angles x y z, EDX out): about z, then y, then x (roll yaw pitch), normalised.
+void euler_quat(const float angles[3], float out[4]);
+bool read_loose(Script& s, const char* path);  // 0x005a98d0: the text read from `path` ("r"), false without it
 
 }  // namespace zsis

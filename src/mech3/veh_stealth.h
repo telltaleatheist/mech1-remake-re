@@ -104,10 +104,9 @@ class StealthHooks : public zgame::Unported {
   // The basic vehicle's constructor (0x004ac530) and destructor (0x004ac650).
   virtual void vehicle_construct(BasicVehicle& v, Handle ctl);
   virtual void vehicle_destroy(BasicVehicle& v);
-  // The overlay's: the image's texture (0x0059bb10), the readout (S4), and
-  // what turning it off calls (0x0040fb50(0), S4).
+  // The overlay's: the image's texture (0x0059bb10) and what turning it off
+  // calls (0x0040fb50(0), dev_readout).
   virtual void image_set(ztwod::Image& i, const char* name) { i.set_image(name); }
-  virtual void readout(StealthLayer& l) { unported("0x004a56b0", {ref(&l)}); }
   virtual void layer_off() { unported("0x0040fb50", {0}); }
   // The reticle's pick (0x004a58d0): the world point under it, through the
   // view's camera, kept on the image for the editors (S5 on).
@@ -140,5 +139,13 @@ void stealth_reticle(ztwod::Image& i, float mouse_x, float mouse_y);
 // the node's matrix (0x005a85c0). Unlike a basic vehicle's frame (0x004a1040)
 // it asks nothing of a path.
 void stealth_frame(Stealth& s, float dt);
+// Mech3.exe 1.2 @ 0x004a50b0, Pirate's Moon 1.0 @ 0x004a7900 (vt+0xe0, PM's vt+0xec, the view target's HUD slot
+// from 0x0040fac0 / 0x004103e0): its overlay's frame.
+void stealth_hud(Stealth& s, float dt);
+// Mech3.exe 1.2 @ 0x004a50e0, Pirate's Moon 1.0 @ 0x004a7930 (vt+0xfc, a command for the view target; none of these
+// is bound in the release; PM's numbers, MW3's plus 8): 0x73 the overlay on or off, 0x7b the reticle's pick to the
+// message panel, 0xaa the stealth onto `pilot_mech_pos` (the pilot's mech's place, 0x005cb260) by vt+0xe8 (MW3's
+// vt+0xdc) with yaw 0.
+void stealth_command(Stealth& s, int32_t cmd, const float* pilot_mech_pos);
 
 }  // namespace mech3

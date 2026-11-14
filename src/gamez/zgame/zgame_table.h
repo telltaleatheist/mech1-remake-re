@@ -182,6 +182,8 @@ struct Table {
   // The developers' text's set-up also gives the frame rate mech_string (PM 0x00410110 on [0x0061ff18]; MW3's
   // 0x0040f7f0 the rows only).
   bool dev_fps_font_pm = false;
+  // The script command PrintChildren (PM 0x005b2c60): the current node's children's names. MW3 has none.
+  bool interp_print_children = false;
 };
 
 const Table& mw3_table();

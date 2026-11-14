@@ -2532,6 +2532,7 @@ const char* mech_brain_name(void* mech) {
   return c && c->brain ? c->brain->params.pilot : nullptr;
 }
 void* mech_mission_player() { return world().mission_player; }
+void program_mech_debug_bit(void* m) { static_cast<Mech*>(m)->toggle_debug_bit(); }
 bool entity_is_mech(const void* o) { return o && mech_objects().count(o) != 0; }
 
 void mech_entities_forget() {
