@@ -940,9 +940,6 @@
 0x0053d6f0	software	the software model draw's projection and clippers, its own lighting, the span buffer's pick and hidden-surface test, the small polygon reject, palette shading (software-path.md, render-clip3d.md, render-lighting.md: the software renderer, not ported by decision)
 0x0053d750	software	the software model draw's projection and clippers, its own lighting, the span buffer's pick and hidden-surface test, the small polygon reject, palette shading (software-path.md, render-clip3d.md, render-lighting.md: the software renderer, not ported by decision)
 0x00544060	software	the software model draw's projection and clippers, its own lighting, the span buffer's pick and hidden-surface test, the small polygon reject, palette shading (software-path.md, render-clip3d.md, render-lighting.md: the software renderer, not ported by decision)
-0x00530d90	unused	large zModel functions nothing calls or tables (no static reference anywhere): clippers and matrix work beside the software path, material flag setters over a model's materials, light helpers
-0x00531d90	unused	large zModel functions nothing calls or tables (no static reference anywhere): clippers and matrix work beside the software path, material flag setters over a model's materials, light helpers
-0x005331e0	unused	large zModel functions nothing calls or tables (no static reference anywhere): clippers and matrix work beside the software path, material flag setters over a model's materials, light helpers
 0x005374b0	unused	large zModel functions nothing calls or tables (no static reference anywhere): clippers and matrix work beside the software path, material flag setters over a model's materials, light helpers
 0x005374d0	unused	large zModel functions nothing calls or tables (no static reference anywhere): clippers and matrix work beside the software path, material flag setters over a model's materials, light helpers
 0x0053a1a0	unused	large zModel functions nothing calls or tables (no static reference anywhere): clippers and matrix work beside the software path, material flag setters over a model's materials, light helpers
@@ -1576,3 +1573,4 @@
 0x00483360	sdl	the frame's WM_KILLFOCUS (message map 0x005c41c0): Default, then the input released (0x0051b050); the SDL program has no frame window
 0x004841f0	sdl	the frame's WM_MOVE (message map 0x005c41c0): Default only; the SDL program has no frame window
 0x004bcb50	folded	NetHeader's default (0x004bc9f0 on 0x005e8910: net 0, version 0x6a, no place or name): the port's member defaults (zrdrainet.h:19); not the AI tester's
+0x00534745	folded	a piece of 0x005331e0 (Ghidra split it: the function runs on to 0x00534be6), ported whole in gmod_clipfrustum.cpp

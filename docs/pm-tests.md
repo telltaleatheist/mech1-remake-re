@@ -1670,3 +1670,13 @@ PM's own: the AI tester's handlers (editor.md, PM's AI tester; `mech3/ai_tester_
 0x5ec8e0 left: 0x4c3290, 0x4c32f0, 0x4c3320, 0x4c3380, 0x4c33e0, 0x4c3440, 0x4c34d0 and 0x4c34e0 (neither a Ghidra
 function: port_audit_extra.tsv), 0x4c34f0. `test_pm_ai_tester.py`: 3,840 runs, 23 call paths, every call out, the
 four settings words and the list flag identical; 4 of 4 breaks. Not AI code (an editor).
+
+## S16-S18: the unused frustum clippers (2026-11-14)
+
+MW3's port (main: `zmod` gmod_clipfrustum; render.md, The unused frustum clippers) crossed. PM's twins are the same
+logic built cdecl, every argument on the stack (clip, positions, then the rest): 0x54eb60 (positions; like MW3's
+0x534bf0 hidden after 0x54d1c0's end, no reference anywhere; port_audit_extra.tsv), 0x54aea0 (with the near-cut-only
+texture coordinates and the 9-float copy, as MW3's 0x530d90), 0x54be20 and 0x54d1c0; the clip struct at 0x8d4b08,
+the cotangents at 0x8d43a4 / 0x8d43a8 and their inverses at 0x66f4b8 / 0x66f4bc, scaled by 0x53b850 / 0x53b890.
+`test_pm_clipfrustum.py` (test_clipfrustum.py with PM's addresses): 3,000 polygons through each, identical at 24 bits
+(NaN sign aside, the same 37 stack-leftover cases as MW3's).
