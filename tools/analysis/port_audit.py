@@ -268,7 +268,8 @@ def write_doc(o, g, rows):
     out = ['# Port audit: the original functions not ported (' + o.game + ')', '',
            'Every game function of the original (below the C runtime) that has no port of its own, labelled from its decomp,',
            'its callers and callees, the port\'s comments and the docs (tools/analysis/port_audit.py; labels with their',
-           'reasons in tools/analysis/port_audit_labels.tsv). Addresses and plain words only.', '',
+           'reasons in tools/analysis/port_audit_labels.tsv). Addresses and plain words only. Besides Ghidra\'s functions,',
+           'the ones it never made that were found by hand (message maps, vtables) are counted: tools/analysis/port_audit_extra.tsv.', '',
            'Classes: **folded** (into its callers or a ported class: getters, setters, constructors, destructors, thunks,',
            'container code, or covered where the port names it); **replaced** (SDL or the platform layer); **PORT (preserve)**',
            '(debug and dev tools, unused code: to be ported for preservation, not called by the game); **MISSING LOGIC**',
@@ -407,6 +408,8 @@ def main():
     ap.add_argument('--module')
     ap.add_argument('--doc', help='write the audit document (docs/port-audit.md) from the labels')
     ap.add_argument('--labels', help='the labels (default port_audit_labels.tsv, PM: port_audit_labels_pm.tsv)')
+    ap.add_argument('--extra', default=str(ROOT / 'tools' / 'analysis' / 'port_audit_extra.tsv'),
+                    help="functions Ghidra never made (found through a message map or a vtable), by hand")
     ap.add_argument('--mw3-labels', default=str(ROOT / 'tools' / 'analysis' / 'port_audit_labels.tsv'),
                     help="PM: the MW3 labels a same-logic pair takes")
     o = ap.parse_args()
@@ -414,6 +417,17 @@ def main():
         o.labels = str(ROOT / 'tools' / 'analysis' / ('port_audit_labels_pm.tsv' if o.game == 'pm' else 'port_audit_labels.tsv'))
     g = GAMES[o.game]
     f2f = json.load(open(g['f2f']))
+    # The hand-listed functions (port_audit_extra.tsv: game, address, the source file as func2file.json gives it,
+    # how it was found): each joins the list, its size up to the next function's start, counted in instructions.
+    extra = {}
+    if o.extra and Path(o.extra).exists():
+        for line in open(o.extra, errors='replace'):
+            if not line.strip() or line.startswith('#'):
+                continue
+            gm, a, path, *_ = line.rstrip('\n').split('\t')
+            if gm == o.game and a.lower() not in f2f:
+                f2f[f'0x{int(a, 16):x}'] = path
+                extra[int(a, 16)] = 0
     crt = crt_start(f2f, g['crt'])
     every = sorted(int(a, 16) for a in f2f)
     game = [a for a in every if a < crt]
@@ -457,6 +471,22 @@ def main():
         for x in json.load(open(A / 'pm-diff' / 'pairs.json')):
             if 'pm' in x and 'mw3' in x:
                 pairs[int(x['pm'], 16)] = x
+    if extra:
+        starts = sorted(every)
+        ins = re.compile(r'^\s*([0-9a-f]+):\s+(?:[0-9a-f]{2} )*\s*([a-z]\S*)')
+        want = {a: starts[bisect.bisect_right(starts, a)] if bisect.bisect_right(starts, a) < len(starts) else a + 0x100
+                for a in extra}
+        lo, hi = min(want), max(want.values())
+        for line in open(g['asm'], errors='replace'):
+            m = ins.match(line)
+            if not m:
+                continue
+            v = int(m.group(1), 16)
+            if v < lo or v >= hi or m.group(2) in ('nop', 'int3'):
+                continue
+            for a, end in want.items():
+                if a <= v < end:
+                    extra[a] += 1
     callers, callees, refs, data_refs = scan_asm(g['asm'], every)
     tables = scan_tables(g['exe'], set(every))
     refs_from = defaultdict(set)
@@ -498,7 +528,7 @@ def main():
         sa = m if m is not None else a
         rows.append(dict(
             addr=f'0x{a:08x}', status=status, module=module_of(path), file=path,
-            lines=decomp_lines(g['decomp'], a),
+            lines=decomp_lines(g['decomp'], a) or extra.get(a, 0),
             named_in=sorted(set(named.get(a, [])))[:6] if status in ('named', 'changed') else [],  # changed: where the pm port mentions it, to read with
             callers=[f'0x{c:08x}' for c in sorted(callers[a])],
             callees=[f'0x{c:08x}' for c in sorted(callees[a])],

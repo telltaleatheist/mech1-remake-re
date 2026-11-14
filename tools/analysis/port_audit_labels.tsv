@@ -1610,3 +1610,5 @@
 0x004c79e0	folded	read: a static float made once from a double constant ([0x0060b44c] to [0x0060b46c]), read by nothing: no effect
 0x00500670	folded	read: the static constructor of a decal container (an STL tree's head made by 0x00500cd0, the counts at [0x0060bf94..0x0060bf9c] zeroed), which zdec_init's 0x00500850 / 0x00500af0 / 0x00500c60 use; the port's container
 0x00555d00	folded	read: the static constructor of an STL list's shared head (malloc(0xc), 0x00555d20, the instance count up), zreader's; the port's containers
+0x00483360	sdl	the frame's WM_KILLFOCUS (message map 0x005c41c0): Default, then the input released (0x0051b050); the SDL program has no frame window
+0x004841f0	sdl	the frame's WM_MOVE (message map 0x005c41c0): Default only; the SDL program has no frame window

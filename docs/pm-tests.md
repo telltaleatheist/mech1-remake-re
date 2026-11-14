@@ -1609,5 +1609,18 @@ fails (-1) before OnInitDialog: Select Mech gives -1, Vehicle Select calls throu
 FIX (A)), Camera Properties writes the mode's own values back. No key reaches any of them.
 Tests: `test_pm_debug_dialogs.py` against PM's exe (10,829 cases identical: the 26 menu handlers on 400 states, the
 mech list, 120 vehicle lists, 300 camera dialogs at the x87's 24 bits); break: the mech list at MW3's 19 rows (9
-differ). Not AI code, so PM_AI does not apply. Left: the Game menu's mission jumps 0x485f40..0x486330 (with MW3's
-0x483100..0x4841b0), reported to the lead.
+differ). Not AI code, so PM_AI does not apply. The Game menu's starts followed in S9b.
+
+## S9b: the debug menu's Game half, and the audit's hand-listed functions (2026-11-14)
+
+MW3's port (main: `DebugStartHooks` and the starts in `mech3/debug_dialogs`; editor.md, The Game menu) crossed.
+The same in PM: the install check 0x482b40, Start 0x485ac0, the network and Instant Action starts 0x486290 /
+0x4862b0. PM's own (`pm_debug_campaign_jump`, `pm_debug_lab_jump`): its campaign items start a mission by its number
+(0x47ad20(n), n 1..12 for 40085..40088, 40116..40123; past 10 clamped to 10), with no mechs put in the store, and
+only the first item asks the install check; the lab levels 7 and 8 (0x486130 / 0x486190, unchecked) and 6
+(0x4861f0, checked, the lab through 0x482620) use "DefaultPlayer" and always mech 5 (the Bushwacker, MW3's 3), not
+the default mech; PM's menu has no training items. Ghidra made no function of 19 of PM's frame handlers
+(tools/analysis/port_audit_extra.tsv); the audit counts them now: 16 ported, WM_KILLFOCUS, WM_MOVE and PM's own
+WM_DEVICECHANGE (0x486370: a disc arriving) labelled replaced.
+Tests: `test_pm_debug_start.py` against PM's exe (44 cases identical: every start with the install check passing and
+failing, the check itself); break: every campaign item checked (22 differ). Not AI code.

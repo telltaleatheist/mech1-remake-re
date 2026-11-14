@@ -8,6 +8,7 @@
 #include "mech3/app_hooks.h"
 #include "mech3/mech_names.h"
 #include "mech3/options.h"
+#include "mech3/pilot.h"
 #include "mech3/player_view.h"
 
 namespace mech3 {
@@ -35,7 +36,10 @@ void debug_menu_enable_ai_ui(Mech3App& app, MenuItemUI& ui) { ui.check(app.byte_
 // Mech3.exe 1.2 @ 0x00483570, Pirate's Moon 1.0 @ 0x00485e10 (its +0x1af)
 void debug_menu_third_person_ui(Mech3App& app, MenuItemUI& ui) { ui.check(app.byte_at(0x1b3)); }  // [0x00608e3b]
 
-// Mech3.exe 1.2 @ 0x00483150, 0x00483310, 0x00483550, 0x004835a0
+// Mech3.exe 1.2 @ 0x00483150
+// Mech3.exe 1.2 @ 0x00483310
+// Mech3.exe 1.2 @ 0x00483550
+// Mech3.exe 1.2 @ 0x004835a0
 // Pirate's Moon 1.0 @ 0x00485b10, 0x00485c50, 0x00485e00, 0x00485e30 (its flags 4 bytes lower, full screen 2)
 void debug_menu_toggle(Mech3App& app, int32_t off) { app.byte_at(off) = app.byte_at(off) == 0; }
 
@@ -70,9 +74,11 @@ void debug_menu_d3d_ui(Engine& e, MenuItemUI& ui) {
 }
 
 // Mech3.exe 1.2 @ 0x004834a0, 0x00483500 (0x0047fc10, a thunk to 0x0040d810)
+// Mech3.exe 1.2 @ 0x00483500
 // Pirate's Moon 1.0 @ 0x00485d50, 0x00485db0
 void debug_menu_vmode(Engine& e, int32_t mode) { e.set_vmode(mode); }
 
+// Mech3.exe 1.2 @ 0x00483510
 // Mech3.exe 1.2 @ 0x004834b0, 0x00483510; Pirate's Moon 1.0 @ 0x00485d60, 0x00485dc0: with a 3D card, off (the 320's also unchecked); else checked in its mode.
 void debug_menu_vmode_ui(Engine& e, int32_t mode, MenuItemUI& ui) {
   if (e.hw_card_flag()) {
@@ -84,7 +90,13 @@ void debug_menu_vmode_ui(Engine& e, int32_t mode, MenuItemUI& ui) {
   ui.check(e.vmode() == mode);
 }
 
-// Mech3.exe 1.2 @ 0x00483390, 0x004833a0, 0x004833b0, 0x004833c0, 0x004833d0, 0x004833e0
+// Mech3.exe 1.2 @ 0x00483390 (+0x1ac), 0x004833a0 (+0x1ae), 0x004833b0 (+0x1b0), 0x004833c0 (+0x1ad),
+// 0x004833d0 (+0x1b1), 0x004833e0 (+0x1af)
+// Mech3.exe 1.2 @ 0x004833a0
+// Mech3.exe 1.2 @ 0x004833b0
+// Mech3.exe 1.2 @ 0x004833c0
+// Mech3.exe 1.2 @ 0x004833d0
+// Mech3.exe 1.2 @ 0x004833e0
 // Pirate's Moon 1.0 @ 0x00485cb0, 0x00485cc0, 0x00485cd0, 0x00485ce0, 0x00485cf0, 0x00485d00
 void debug_menu_clear_byte(Mech3App& app, int32_t off) { app.byte_at(off) = 0; }
 
@@ -191,6 +203,177 @@ bool camera_dialog(CameraMode& m, bool (*edit)(CameraFields& f)) {
   if (!edit || !edit(f)) return false;  // 0x0040bea0: DoModal, IDOK
   camera_apply(m, f);
   return true;
+}
+
+namespace {
+DebugStartHooks g_default_start;
+DebugStartHooks* g_start = &g_default_start;
+
+// The campaign jumps: the operation, the mission, the campaign game selected again (40090 only), mission 3-5's
+// extra weapon (40097), and the mechs put in the store (0x004836e0's list, to -1).
+struct CampaignJump {
+  int32_t item, campaign, mission;
+  bool select;
+  bool weapon;
+  std::vector<int32_t> mechs;
+};
+const std::vector<CampaignJump>& campaign_jumps() {
+  static const std::vector<CampaignJump> t = {
+      {40085, 1, 1, false, false, {3}},  // Mech3.exe 1.2 @ 0x00483720
+      {40086, 1, 2, false, false, {3, 11}},  // Mech3.exe 1.2 @ 0x00483770
+      {40087, 1, 3, false, false, {3, 11}},  // Mech3.exe 1.2 @ 0x004837c0
+      {40088, 1, 4, false, false, {3, 8, 14, 11}},  // Mech3.exe 1.2 @ 0x00483810
+      {40089, 2, 1, false, false, {3, 13, 11, 2}},  // Mech3.exe 1.2 @ 0x00483860
+      {40090, 2, 2, true, false, {3, 13, 11, 2}},  // Mech3.exe 1.2 @ 0x004838b0
+      {40091, 2, 3, false, false, {3, 13, 11, 2}},  // Mech3.exe 1.2 @ 0x00483910
+      {40092, 2, 4, false, false, {3, 13, 11, 2}},  // Mech3.exe 1.2 @ 0x00483960
+      {40093, 3, 1, false, false, {3, 13, 14, 10, 11, 2, 12}},  // Mech3.exe 1.2 @ 0x004839b0
+      {40094, 3, 2, false, false, {3, 8, 14, 10, 11, 2, 12}},  // Mech3.exe 1.2 @ 0x00483a10
+      {40095, 3, 3, false, false, {3, 8, 14, 10, 11, 2, 12}},  // Mech3.exe 1.2 @ 0x00483a70
+      {40096, 3, 4, false, false, {3, 8, 14, 10, 11, 2, 12}},  // Mech3.exe 1.2 @ 0x00483ac0
+      {40097, 3, 5, false, true, {3, 8, 14, 10, 12}},  // Mech3.exe 1.2 @ 0x00483b20
+      {40098, 3, 6, false, false, {3, 8, 14, 10, 11, 2, 12}},  // Mech3.exe 1.2 @ 0x00483b90
+      {40099, 4, 1, false, false, {3, 8, 14, 10, 11, 2, 12}},  // Mech3.exe 1.2 @ 0x00483bf0
+      {40100, 4, 2, false, false, {3, 8, 14, 10, 11, 2, 12}},  // Mech3.exe 1.2 @ 0x00483c50
+      {40101, 4, 3, false, false, {3, 8, 14, 10, 11, 2, 12}},  // Mech3.exe 1.2 @ 0x00483cb0
+      {40102, 4, 4, false, false, {3, 8, 14, 10, 11, 2, 12}},  // Mech3.exe 1.2 @ 0x00483d10
+      {40103, 4, 5, false, false, {3, 8, 14, 10, 11, 2, 12}},  // Mech3.exe 1.2 @ 0x00483d60
+      {40104, 4, 6, false, false, {3, 8, 14, 10, 11, 2, 12}},  // Mech3.exe 1.2 @ 0x00483dc0
+      {40114, 4, 7, false, false, {3, 8, 14, 10, 11, 2, 12}},  // Mech3.exe 1.2 @ 0x00483e20, in no menu
+  };
+  return t;
+}
+}  // namespace
+
+DebugStartHooks& debug_start_hooks() { return *g_start; }
+void set_debug_start_hooks(DebugStartHooks* h) { g_start = h ? h : &g_default_start; }
+
+bool DebugStartHooks::install_check() { return mech3::install_check(app().engine()); }
+Pilot* DebugStartHooks::start_campaign(int32_t c, int32_t m) { return debug_start_campaign(c, m); }
+Pilot* DebugStartHooks::create_pilot(const char* name) { return mech3::create_pilot(name); }
+void DebugStartHooks::set_pilot(Pilot* p) { current_pilot() = p; }
+void DebugStartHooks::select_game(Pilot* p, int32_t type) { p->select_game(type); }
+const char* DebugStartHooks::message(int32_t id) { return app().engine().message(id); }
+void DebugStartHooks::add_mech(Pilot* p, int32_t mech, const char* config) {
+  pilot_hooks().store_add_mech(*p->store(), mech, config);
+}
+void DebugStartHooks::add_weapon(Pilot* p, int32_t weapon, int32_t tech) { p->store()->add_weapon(weapon, tech); }
+void DebugStartHooks::set_training(Pilot* p, int32_t mission) { p->training_game()->mission = mission; }
+void DebugStartHooks::set_lab_level(Pilot* p, int32_t level) { static_cast<LabGame*>(p->current)->level = level; }
+int32_t DebugStartHooks::default_mech() { return mech_index(app().mech_.c_str()); }
+void DebugStartHooks::set_slot_mech(Pilot* p, int32_t mech) { p->current->slot.mech = mech; }
+void DebugStartHooks::post_intro(bool lobby) { app().pick_post_intro_state(lobby); }
+void DebugStartHooks::start() { app().start(app().main_window()); }
+void DebugStartHooks::restart_in_lab() { app().restart_in_lab(); }
+void DebugStartHooks::network_set(int32_t on) { app().engine().network_set(on); }
+void DebugStartHooks::reopen_instant_action(uint8_t a, uint8_t b) { app().set_reopen_instant_action(a, b); }
+
+// Mech3.exe 1.2 @ 0x00480420, Pirate's Moon 1.0 @ 0x00482b40
+bool install_check(Engine& e) {
+  const bool hw = e.hw_card_flag() != 0;
+  if (e.install_options(hw ? 0xff : 0xff00) != 0) return true;
+  const std::string caption = e.message(0x1eb);  // copied to the stack first
+  const char* text = e.message(hw ? 0xf42 : 0xf41);
+  const uint32_t hwnd = e.focus_window();
+  e.message_box_text(hwnd, text, caption.c_str(), 0x30);
+  return false;
+}
+
+// Mech3.exe 1.2 @ 0x00483100, Pirate's Moon 1.0 @ 0x00485ac0
+void debug_game_start() {
+  DebugStartHooks& h = *g_start;
+  if (!h.install_check()) return;
+  h.post_intro(false);
+  h.start();
+}
+
+// Mech3.exe 1.2 @ 0x00483720 (the rest by campaign_jumps(); their mechs through 0x004836e0)
+void debug_campaign_jump(int32_t item) {
+  const CampaignJump* j = nullptr;
+  for (const CampaignJump& c : campaign_jumps())
+    if (c.item == item) j = &c;
+  DebugStartHooks& h = *g_start;
+  if (!j || !h.install_check()) return;
+  Pilot* p = h.start_campaign(j->campaign, j->mission);
+  h.set_pilot(p);
+  if (j->select) h.select_game(p, kCampaign);
+  // Mech3.exe 1.2 @ 0x004836e0: each mech with message 0xf20's configuration
+  for (int32_t m : j->mechs) h.add_mech(p, m, h.message(0xf20));
+  if (j->weapon) h.add_weapon(p, 0x20, 3);
+  h.post_intro(true);
+  h.start();
+}
+
+// Mech3.exe 1.2 @ 0x00483e80
+// Mech3.exe 1.2 @ 0x00483ed0
+// Mech3.exe 1.2 @ 0x00483f20
+// Mech3.exe 1.2 @ 0x00483f70
+void debug_training_jump(int32_t mission) {
+  DebugStartHooks& h = *g_start;
+  if (!h.install_check()) return;
+  Pilot* p = h.create_pilot("Default Player");  // 0x005e5efc
+  h.set_pilot(p);
+  h.select_game(p, kTraining);
+  h.set_training(p, mission);
+  h.post_intro(true);
+  h.start();
+}
+
+// Mech3.exe 1.2 @ 0x00483fc0
+// Mech3.exe 1.2 @ 0x00484040
+// Mech3.exe 1.2 @ 0x004840c0
+void debug_lab_jump(int32_t level) {
+  DebugStartHooks& h = *g_start;
+  if (!h.install_check()) return;
+  Pilot* p = h.create_pilot("Default Player");
+  h.set_pilot(p);
+  h.select_game(p, kMechLab);
+  h.set_lab_level(p, level);
+  h.set_slot_mech(p, level == 6 ? 3 : h.default_mech());
+  h.post_intro(true);
+  if (level == 6) h.restart_in_lab();
+  else h.start();
+}
+
+// Mech3.exe 1.2 @ 0x00484190, Pirate's Moon 1.0 @ 0x00486290
+void debug_network_start() {
+  debug_game_start();
+  g_start->network_set(1);
+}
+
+// Mech3.exe 1.2 @ 0x004841b0, Pirate's Moon 1.0 @ 0x004862b0
+void debug_instant_action_start() {
+  debug_game_start();
+  g_start->reopen_instant_action(1, 0);
+}
+
+// Pirate's Moon 1.0 @ 0x00485f40, 0x00485f80, 0x00485fb0, 0x00485fe0, 0x00486010, 0x00486040
+// Pirate's Moon 1.0 @ 0x00486070, 0x004860a0, 0x004860d0, 0x00486100, 0x00486300, 0x00486330
+// Missions 1..12 in that order: the mission by its number (0x0047ad20, clamped to 10 there), no mechs added; only
+// the first asks the install check.
+void pm_debug_campaign_jump(int32_t mission) {
+  DebugStartHooks& h = *g_start;
+  if (mission == 1 && !h.install_check()) return;
+  Pilot* p = h.start_campaign(0, mission);
+  h.set_pilot(p);
+  h.post_intro(true);
+  h.start();
+}
+
+// Pirate's Moon 1.0 @ 0x00486130, 0x00486190, 0x004861f0
+// Levels 7, 8 and 6 (6 checked, the lab through 0x00482620): the "DefaultPlayer" pilot (no space, as the
+// campaign's), mech 5 in the slot whatever the default.
+void pm_debug_lab_jump(int32_t level) {
+  DebugStartHooks& h = *g_start;
+  if (level == 6 && !h.install_check()) return;
+  Pilot* p = h.create_pilot("DefaultPlayer");  // 0x00607aec
+  h.set_pilot(p);
+  h.select_game(p, kMechLab);
+  h.set_lab_level(p, level);
+  h.set_slot_mech(p, 5);
+  h.post_intro(true);
+  if (level == 6) h.restart_in_lab();
+  else h.start();
 }
 
 }  // namespace mech3

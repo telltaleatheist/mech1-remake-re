@@ -233,3 +233,96 @@ int32_t probe_dd_camera(const float* m, int32_t ok, const float* edit, int32_t n
 }
 
 }  // extern "C"
+
+// The Game menu's starts (S9b): every call through DebugStartHooks logged as the test logs the exe's; the pilot
+// set, the training mission and the slot's mech printed after (the exe writes those to memory).
+namespace {
+struct StartLog : mech3::DebugStartHooks {
+  std::string log, msg;
+  int32_t ok = 1, mech = 0, training = -1, slot = -1, pilot_set = 0;
+  mech3::Pilot* const P = reinterpret_cast<mech3::Pilot*>(0x100);
+  void put(const std::string& s) { log += s + ";"; }
+  bool install_check() override { put("check"); return ok != 0; }
+  mech3::Pilot* start_campaign(int32_t c, int32_t m) override {
+    put("campaign " + std::to_string(c) + " " + std::to_string(m));
+    return P;
+  }
+  mech3::Pilot* create_pilot(const char* name) override { put(std::string("create ") + name); return P; }
+  void set_pilot(mech3::Pilot* p) override { pilot_set = p == P; }
+  void select_game(mech3::Pilot*, int32_t t) override { put("select " + std::to_string(t)); }
+  const char* message(int32_t id) override { return (msg = "m" + std::to_string(id)).c_str(); }
+  void add_mech(mech3::Pilot*, int32_t m, const char* cfg) override { put("add " + std::to_string(m) + " " + cfg); }
+  void add_weapon(mech3::Pilot*, int32_t w, int32_t t) override {
+    put("weapon " + std::to_string(w) + " " + std::to_string(t));
+  }
+  void set_training(mech3::Pilot*, int32_t n) override { training = n; }
+  void set_lab_level(mech3::Pilot*, int32_t l) override { put("level " + std::to_string(l)); }
+  int32_t default_mech() override { return mech; }
+  void set_slot_mech(mech3::Pilot*, int32_t m) override { slot = m; }
+  void post_intro(bool lobby) override { put(std::string("post ") + (lobby ? "1" : "0")); }
+  void start() override { put("start"); }
+  void restart_in_lab() override { put("lab"); }
+  void network_set(int32_t on) override { put("net " + std::to_string(on)); }
+  void reopen_instant_action(uint8_t a, uint8_t b) override { put("ia " + std::to_string(a) + " " + std::to_string(b)); }
+};
+
+struct InstallEngine : mech3::Engine {
+  std::string log, text;
+  int32_t hw = 0;
+  uint32_t opts = 0;
+  uint32_t unported(const char* key, std::initializer_list<zgame::Arg>) override {
+    log += std::string("unported ") + key + ";";
+    return 0;
+  }
+  int32_t hw_card_flag() override { return hw; }
+  uint32_t install_options(uint32_t mask) override {
+    log += "opts " + std::to_string(mask) + ";";
+    return opts & mask;
+  }
+  const char* message(int32_t id) override { return (text = "m" + std::to_string(id)).c_str(); }
+  uint32_t focus_window() override {
+    log += "focus;";
+    return 0x77;
+  }
+  uint32_t message_box_text(uint32_t hwnd, const char* t, const char* caption, uint32_t type) override {
+    log += "box " + std::to_string(hwnd) + " " + t + " " + caption + " " + std::to_string(type) + ";";
+    return 1;
+  }
+};
+}  // namespace
+
+extern "C" {
+
+// kind 0 Start, 1 a campaign jump (arg its menu id), 2 training (arg 1..4), 3 the lab (arg the level), 4 the network
+// start, 5 the Instant Action start; ok: the install check's answer; mech: the default mech's number.
+int32_t probe_dd_start(int32_t kind, int32_t arg, int32_t ok, int32_t mech, char* buf, int32_t cap) {
+  StartLog h;
+  h.ok = ok, h.mech = mech;
+  mech3::set_debug_start_hooks(&h);
+  switch (kind) {
+    case 0: mech3::debug_game_start(); break;
+    case 1: mech3::debug_campaign_jump(arg); break;
+    case 2: mech3::debug_training_jump(arg); break;
+    case 3: mech3::debug_lab_jump(arg); break;
+    case 4: mech3::debug_network_start(); break;
+    case 5: mech3::debug_instant_action_start(); break;
+    case 6: mech3::pm_debug_campaign_jump(arg); break;
+    case 7: mech3::pm_debug_lab_jump(arg); break;
+    default: break;
+  }
+  mech3::set_debug_start_hooks(nullptr);
+  return out(h.log + "|pilot " + std::to_string(h.pilot_set) + "|training " + std::to_string(h.training) + "|slot " +
+                 std::to_string(h.slot),
+             buf, cap);
+}
+
+// 0x00480420 with a card or not and the InstallOptions value.
+int32_t probe_dd_install(int32_t hw, uint32_t opts, char* buf, int32_t cap) {
+  probe_app::Mute quiet;
+  InstallEngine e;
+  e.hw = hw, e.opts = opts;
+  const bool r = mech3::install_check(e);
+  return out(e.log + "|" + (r ? "1" : "0"), buf, cap);
+}
+
+}  // extern "C"

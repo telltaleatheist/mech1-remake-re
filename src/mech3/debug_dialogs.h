@@ -11,6 +11,7 @@
 namespace mech3 {
 
 class Engine;
+class Pilot;
 class Mech3App;
 class CameraMode;
 
@@ -90,5 +91,46 @@ struct CameraFields {
 CameraFields camera_fields(const CameraMode& m);
 void camera_apply(CameraMode& m, const CameraFields& f);
 bool camera_dialog(CameraMode& m, bool (*edit)(CameraFields& f));
+
+// The debug menu's Game half (editor.md, The debug menu: the Game menu), each start through these calls in the exe's
+// order. The defaults are the ported pilot, store and app; a test logs them.
+class DebugStartHooks {
+ public:
+  virtual ~DebugStartHooks() = default;
+  virtual bool install_check();                                     // 0x00480420
+  virtual Pilot* start_campaign(int32_t campaign, int32_t mission);  // 0x00478a40, "DefaultPlayer"
+  virtual Pilot* create_pilot(const char* name);                    // 0x004788b0
+  virtual void set_pilot(Pilot* p);                                 // [0x0060861c]
+  virtual void select_game(Pilot* p, int32_t type);                 // 0x00478250
+  virtual const char* message(int32_t id);                          // 0x00576040
+  virtual void add_mech(Pilot* p, int32_t mech, const char* config);  // 0x004733b0 on 0x00479430's store
+  virtual void add_weapon(Pilot* p, int32_t weapon, int32_t tech);  // the store's vt+0x10 (0x00471840)
+  virtual void set_training(Pilot* p, int32_t mission);             // 0x004794a0's +0x40
+  virtual void set_lab_level(Pilot* p, int32_t level);              // the game's vt+0x50 (0x004379e0)
+  virtual int32_t default_mech();                                   // 0x004845f0 of the app's mech (+0x198)
+  virtual void set_slot_mech(Pilot* p, int32_t mech);               // vt+0x34(0) (0x00437550), 0x005a2ba0
+  virtual void post_intro(bool lobby);                              // 0x0047fed0
+  virtual void start();                                             // 0x0058fc70
+  virtual void restart_in_lab();                                    // 0x0047ff60
+  virtual void network_set(int32_t on);                             // 0x0047fc40
+  virtual void reopen_instant_action(uint8_t a, uint8_t b);         // 0x0047fc20
+};
+DebugStartHooks& debug_start_hooks();
+void set_debug_start_hooks(DebugStartHooks* h);  // null: the defaults
+
+// 0x00480420: the install has the renderer's files (InstallOptions & 0xff with a 3D card, & 0xff00 without);
+// else message 0xf42 (or 0xf41) in a box (caption 0x1eb), false.
+bool install_check(Engine& e);
+void debug_game_start();                 // 0x00483100, 104 Start: the main menu (post_intro(false))
+void debug_campaign_jump(int32_t item);  // 0x00483720..0x00483e20, 40085..40104 and 40114 (table in the .cpp)
+void debug_training_jump(int32_t mission);  // 0x00483e80, 0x00483ed0, 0x00483f20, 0x00483f70: 1..4
+void debug_lab_jump(int32_t level);      // 0x00483fc0 (7), 0x00484040 (8), 0x004840c0 (6: mech 3, the lab)
+void debug_network_start();              // 0x00484190, 40113: Start, then the network flag on
+void debug_instant_action_start();       // 0x004841b0, 40115: Start, then Instant Action reopened
+
+// Pirate's Moon's Game menu (pm-tests.md, S9b): the campaign by mission number (40085..40088, 40116..40123: 1..12),
+// and the lab levels 7, 8 and 6 with mech 5; no training items.
+void pm_debug_campaign_jump(int32_t mission);
+void pm_debug_lab_jump(int32_t level);
 
 }  // namespace mech3

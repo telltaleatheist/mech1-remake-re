@@ -2,7 +2,8 @@
 
 Every game function of the original (below the C runtime) that has no port of its own, labelled from its decomp,
 its callers and callees, the port's comments and the docs (tools/analysis/port_audit.py; labels with their
-reasons in tools/analysis/port_audit_labels.tsv). Addresses and plain words only.
+reasons in tools/analysis/port_audit_labels.tsv). Addresses and plain words only. Besides Ghidra's functions,
+the ones it never made that were found by hand (message maps, vtables) are counted: tools/analysis/port_audit_extra.tsv.
 
 Classes: **folded** (into its callers or a ported class: getters, setters, constructors, destructors, thunks,
 container code, or covered where the port names it); **replaced** (SDL or the platform layer); **PORT (preserve)**
@@ -11,8 +12,8 @@ container code, or covered where the port names it); **replaced** (SDL or the pl
 
 | Class | Functions |
 |---|---|
-| folded | 3042 |
-| replaced (SDL or the platform layer) | 223 |
+| folded | 3041 |
+| replaced (SDL or the platform layer) | 225 |
 | software renderer | 113 |
 | unused: PORT (preserve) | 81 |
 | dev dialog (MFC), its window plumbing: replaced | 52 |
@@ -85,7 +86,7 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 
 ## By module
 
-### mech3 (2502 not ported)
+### mech3 (2503 not ported)
 
 | Address | Lines | Class | Why |
 |---|---|---|---|
@@ -652,7 +653,7 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x00437990 | 13 | folded | covered by the port where it names it (src/mech3/pilot.h:437) |
 | 0x004379b0 | 13 | folded | covered by the port where it names it (src/mech3/pilot.h:437) |
 | 0x004379d0 | 9 | folded | a thunk: one call to another function |
-| 0x004379e0 | 9 | folded | covered by the port where it names it (src/mech3/pilot.h:169) |
+| 0x004379e0 | 9 | folded | covered by the port where it names it (src/mech3/debug_dialogs.h:109) |
 | 0x00438090 | 12 | folded | covered by the port where it names it (src/mech3/menu_widgets.h:248) |
 | 0x004380e0 | 9 | folded | a thunk: one call to another function |
 | 0x00438470 | 14 | folded | the scalar deleting destructor (the destructor, then delete) |
@@ -1148,13 +1149,14 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x00483260 | 23 | dev dialog (MFC), its window plumbing: replaced | the debug menu's About box (resource 0x67) |
 | 0x004832c0 | 9 | folded | a thunk: one call to another function |
 | 0x004832e0 | 12 | replaced (SDL or the platform layer) | the frame's WM_ACTIVATE (message map 0x005c41c0..): CFrameWnd::OnActivate, then the keyboard reset (0x0051a300); the SDL program has no frame window (editor.md, The debug menu) |
+| 0x00483360 | 3 | replaced (SDL or the platform layer) | the frame's WM_KILLFOCUS (message map 0x005c41c0): Default, then the input released (0x0051b050); the SDL program has no frame window |
 | 0x00483370 | 10 | replaced (SDL or the platform layer) | Win32 and MFC frame plumbing the SDL program replaces: the single-instance check and close (FindWindow Mech3Class; startup.md), the frame window's create, OnCreate, OnSetFocus, OnNcActivate, OnSize, WindowProc, WM_CLOSE |
-| 0x00483500 | 9 | folded | a thunk: one call to another function |
 | 0x00484130 | 11 | folded | covered: the screens' destructors and constructors (unwind callers), the app states' constructors (their names), InitInstance's body (0x00480020, app.cpp's 0x00480000 port), RunDir (the program's data folder replaces it), the world defaults (no effect, app_engine.cpp) |
 | 0x00484140 | 12 | folded | covered: the screens' destructors and constructors (unwind callers), the app states' constructors (their names), InitInstance's body (0x00480020, app.cpp's 0x00480000 port), RunDir (the program's data folder replaces it), the world defaults (no effect, app_engine.cpp) |
 | 0x00484160 | 9 | replaced (SDL or the platform layer) | Win32 and MFC frame plumbing the SDL program replaces: the single-instance check and close (FindWindow Mech3Class; startup.md), the frame window's create, OnCreate, OnSetFocus, OnNcActivate, OnSize, WindowProc, WM_CLOSE |
 | 0x00484170 | 9 | replaced (SDL or the platform layer) | Win32 and MFC frame plumbing the SDL program replaces: the single-instance check and close (FindWindow Mech3Class; startup.md), the frame window's create, OnCreate, OnSetFocus, OnNcActivate, OnSize, WindowProc, WM_CLOSE |
 | 0x004841d0 | 9 | replaced (SDL or the platform layer) | Win32 and MFC frame plumbing the SDL program replaces: the single-instance check and close (FindWindow Mech3Class; startup.md), the frame window's create, OnCreate, OnSetFocus, OnNcActivate, OnSize, WindowProc, WM_CLOSE |
+| 0x004841f0 | 2 | replaced (SDL or the platform layer) | the frame's WM_MOVE (message map 0x005c41c0): Default only; the SDL program has no frame window |
 | 0x00484200 | 14 | folded | the scalar deleting destructor (the destructor, then delete) |
 | 0x00484220 | 21 | folded | a destructor (the exception unwinds call it; it resets the vtable) |
 | 0x00484540 | 42 | folded | covered where the port does it: src/mech3/mech_lib.cpp:89 (read: a destructor, a container insert or assign, or the work beside the function that comment names) |
@@ -3608,36 +3610,6 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x00590d10 | 14 | folded | the scalar deleting destructor (the destructor, then delete) |
 | 0x00590d30 | 21 | folded | zGameApp's small helpers inside ported callers or static teardown: a buffer cursor's init (0x00590850, from 0x00590250 / 0x00590400 / 0x005905a0), its drain at exit, the registry company name 'Zipper Interactive' (zutl_reg's company), two destructors |
 
-### zdeclient (25 not ported)
-
-| Address | Lines | Class | Why |
-|---|---|---|---|
-| 0x00500670 | 16 | folded | read: the static constructor of a decal container (an STL tree's head made by 0x00500cd0, the counts at [0x0060bf94..0x0060bf9c] zeroed), which zdec_init's 0x00500850 / 0x00500af0 / 0x00500c60 use; the port's container |
-| 0x005006b0 | 9 | folded | a thunk: one call to another function |
-| 0x005006f0 | 22 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
-| 0x00500cd0 | 43 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
-| 0x00500da0 | 46 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
-| 0x00500e90 | 58 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
-| 0x00500ff0 | 316 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
-| 0x00501520 | 31 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
-| 0x005015b0 | 196 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
-| 0x005018d0 | 48 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
-| 0x00501980 | 52 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
-| 0x00501a40 | 28 | folded | small helpers inside ported code: the crater set's static constructor and its STL copy and fill (craters.md:126), the effect lookups and the animation records' flags (app_mission.cpp:1248, app_engine.h:506-507), the cockpit flag (app_view.cpp:206), the key player (zeff_anim_events.cpp:627) and its split piece, the ground probe (zeff_anim_events.cpp:1109), the movie objects' destructors and the stream's rect setter, a list's vector-deleting destructor |
-| 0x00501a80 | 24 | folded | small helpers inside ported code: the crater set's static constructor and its STL copy and fill (craters.md:126), the effect lookups and the animation records' flags (app_mission.cpp:1248, app_engine.h:506-507), the cockpit flag (app_view.cpp:206), the key player (zeff_anim_events.cpp:627) and its split piece, the ground probe (zeff_anim_events.cpp:1109), the movie objects' destructors and the stream's rect setter, a list's vector-deleting destructor |
-| 0x00502d30 | 8 | folded | returns a constant or a global |
-| 0x00502da0 | 11 | folded | small helpers inside ported code: the crater set's static constructor and its STL copy and fill (craters.md:126), the effect lookups and the animation records' flags (app_mission.cpp:1248, app_engine.h:506-507), the cockpit flag (app_view.cpp:206), the key player (zeff_anim_events.cpp:627) and its split piece, the ground probe (zeff_anim_events.cpp:1109), the movie objects' destructors and the stream's rect setter, a list's vector-deleting destructor |
-| 0x00502db0 | 13 | folded | covered by the port where it names it (src/mech3/zai_target.h:236) |
-| 0x00502dd0 | 13 | folded | covered by the port where it names it (src/mech3/zai_target.h:237) |
-| 0x0050414d | 11 | folded | a piece of the ported function before it (Ghidra split it there) (0x00503d50) |
-| 0x00504d42 | 203 | folded | a piece of the ported function before it (Ghidra split it there) (0x00504520) |
-| 0x00505520 | 73 | folded | small helpers inside ported code: the crater set's static constructor and its STL copy and fill (craters.md:126), the effect lookups and the animation records' flags (app_mission.cpp:1248, app_engine.h:506-507), the cockpit flag (app_view.cpp:206), the key player (zeff_anim_events.cpp:627) and its split piece, the ground probe (zeff_anim_events.cpp:1109), the movie objects' destructors and the stream's rect setter, a list's vector-deleting destructor |
-| 0x005056b0 | 25 | folded | covered by the port where it names it (src/gamez/zeffect/zeff_anim_events.cpp:602) |
-| 0x00505710 | 116 | folded | small helpers inside ported code: the crater set's static constructor and its STL copy and fill (craters.md:126), the effect lookups and the animation records' flags (app_mission.cpp:1248, app_engine.h:506-507), the cockpit flag (app_view.cpp:206), the key player (zeff_anim_events.cpp:627) and its split piece, the ground probe (zeff_anim_events.cpp:1109), the movie objects' destructors and the stream's rect setter, a list's vector-deleting destructor |
-| 0x00507220 | 53 | folded | small helpers inside ported code: the crater set's static constructor and its STL copy and fill (craters.md:126), the effect lookups and the animation records' flags (app_mission.cpp:1248, app_engine.h:506-507), the cockpit flag (app_view.cpp:206), the key player (zeff_anim_events.cpp:627) and its split piece, the ground probe (zeff_anim_events.cpp:1109), the movie objects' destructors and the stream's rect setter, a list's vector-deleting destructor |
-| 0x005073e0 | 18 | folded | covered by the port where it names it (src/gamez/zeffect/zeff_anim_events.cpp:1175) |
-| 0x00507960 | 8 | folded | returns a constant or a global |
-
 ### zutil (25 not ported)
 
 | Address | Lines | Class | Why |
@@ -3667,6 +3639,36 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x00576ed0 | 12 | replaced (SDL or the platform layer) | DirectDraw's back buffer: lock and unlock (app_engine.h:560, app_fmv.cpp:53), their raw forms, the flip (sdl_platform.h:68), the restore, the window's style for full screen, the size clamp |
 | 0x00576ee0 | 24 | replaced (SDL or the platform layer) | DirectDraw's back buffer: lock and unlock (app_engine.h:560, app_fmv.cpp:53), their raw forms, the flip (sdl_platform.h:68), the restore, the window's style for full screen, the size clamp |
 | 0x00576f70 | 19 | replaced (SDL or the platform layer) | DirectDraw's back buffer: lock and unlock (app_engine.h:560, app_fmv.cpp:53), their raw forms, the flip (sdl_platform.h:68), the restore, the window's style for full screen, the size clamp |
+
+### zdeclient (25 not ported)
+
+| Address | Lines | Class | Why |
+|---|---|---|---|
+| 0x00500670 | 16 | folded | read: the static constructor of a decal container (an STL tree's head made by 0x00500cd0, the counts at [0x0060bf94..0x0060bf9c] zeroed), which zdec_init's 0x00500850 / 0x00500af0 / 0x00500c60 use; the port's container |
+| 0x005006b0 | 9 | folded | a thunk: one call to another function |
+| 0x005006f0 | 22 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
+| 0x00500cd0 | 43 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
+| 0x00500da0 | 46 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
+| 0x00500e90 | 58 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
+| 0x00500ff0 | 316 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
+| 0x00501520 | 31 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
+| 0x005015b0 | 196 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
+| 0x005018d0 | 48 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
+| 0x00501980 | 52 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
+| 0x00501a40 | 28 | folded | small helpers inside ported code: the crater set's static constructor and its STL copy and fill (craters.md:126), the effect lookups and the animation records' flags (app_mission.cpp:1248, app_engine.h:506-507), the cockpit flag (app_view.cpp:206), the key player (zeff_anim_events.cpp:627) and its split piece, the ground probe (zeff_anim_events.cpp:1109), the movie objects' destructors and the stream's rect setter, a list's vector-deleting destructor |
+| 0x00501a80 | 24 | folded | small helpers inside ported code: the crater set's static constructor and its STL copy and fill (craters.md:126), the effect lookups and the animation records' flags (app_mission.cpp:1248, app_engine.h:506-507), the cockpit flag (app_view.cpp:206), the key player (zeff_anim_events.cpp:627) and its split piece, the ground probe (zeff_anim_events.cpp:1109), the movie objects' destructors and the stream's rect setter, a list's vector-deleting destructor |
+| 0x00502d30 | 8 | folded | returns a constant or a global |
+| 0x00502da0 | 11 | folded | small helpers inside ported code: the crater set's static constructor and its STL copy and fill (craters.md:126), the effect lookups and the animation records' flags (app_mission.cpp:1248, app_engine.h:506-507), the cockpit flag (app_view.cpp:206), the key player (zeff_anim_events.cpp:627) and its split piece, the ground probe (zeff_anim_events.cpp:1109), the movie objects' destructors and the stream's rect setter, a list's vector-deleting destructor |
+| 0x00502db0 | 13 | folded | covered by the port where it names it (src/mech3/zai_target.h:236) |
+| 0x00502dd0 | 13 | folded | covered by the port where it names it (src/mech3/zai_target.h:237) |
+| 0x0050414d | 11 | folded | a piece of the ported function before it (Ghidra split it there) (0x00503d50) |
+| 0x00504d42 | 203 | folded | a piece of the ported function before it (Ghidra split it there) (0x00504520) |
+| 0x00505520 | 73 | folded | small helpers inside ported code: the crater set's static constructor and its STL copy and fill (craters.md:126), the effect lookups and the animation records' flags (app_mission.cpp:1248, app_engine.h:506-507), the cockpit flag (app_view.cpp:206), the key player (zeff_anim_events.cpp:627) and its split piece, the ground probe (zeff_anim_events.cpp:1109), the movie objects' destructors and the stream's rect setter, a list's vector-deleting destructor |
+| 0x005056b0 | 25 | folded | covered by the port where it names it (src/gamez/zeffect/zeff_anim_events.cpp:602) |
+| 0x00505710 | 116 | folded | small helpers inside ported code: the crater set's static constructor and its STL copy and fill (craters.md:126), the effect lookups and the animation records' flags (app_mission.cpp:1248, app_engine.h:506-507), the cockpit flag (app_view.cpp:206), the key player (zeff_anim_events.cpp:627) and its split piece, the ground probe (zeff_anim_events.cpp:1109), the movie objects' destructors and the stream's rect setter, a list's vector-deleting destructor |
+| 0x00507220 | 53 | folded | small helpers inside ported code: the crater set's static constructor and its STL copy and fill (craters.md:126), the effect lookups and the animation records' flags (app_mission.cpp:1248, app_engine.h:506-507), the cockpit flag (app_view.cpp:206), the key player (zeff_anim_events.cpp:627) and its split piece, the ground probe (zeff_anim_events.cpp:1109), the movie objects' destructors and the stream's rect setter, a list's vector-deleting destructor |
+| 0x005073e0 | 18 | folded | covered by the port where it names it (src/gamez/zeffect/zeff_anim_events.cpp:1175) |
+| 0x00507960 | 8 | folded | returns a constant or a global |
 
 ### zweapon (19 not ported)
 
@@ -3731,15 +3733,15 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x0050d260 | 13 | folded | covered by the port where it names it (src/gamez/zeffect/zeff_anim_save.cpp:281) |
 | 0x0050da50 | 16 | replaced (SDL or the platform layer) | mech3.err (0x0050da50): the port's error reports go to stderr (app_engine.cpp:562) |
 
-### zerror (1 not ported)
-
-| Address | Lines | Class | Why |
-|---|---|---|---|
-| 0x0050da70 | 9 | folded | a thunk: one call to another function |
-
 ### zsiscript (1 not ported)
 
 | Address | Lines | Class | Why |
 |---|---|---|---|
 | 0x005a9990 | 23 | folded | covered by the port where it names it (src/mech3/mech_anim.cpp:424) |
+
+### zerror (1 not ported)
+
+| Address | Lines | Class | Why |
+|---|---|---|---|
+| 0x0050da70 | 9 | folded | a thunk: one call to another function |
 

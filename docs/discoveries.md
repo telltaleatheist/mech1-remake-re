@@ -3799,7 +3799,11 @@ The screen after the pilot for INSTANT ACTION, 0x00488bc0 (details:
   rebuild does nothing), and on a `pilots\` file whose name is 64 characters
   or longer (the rebuild skips it).
 - **The debug menu's campaign jumps use a pilot named "DefaultPlayer"**, the
-  debug Mech Lab start one named "Default Player".
+  debug Mech Lab start one named "Default Player". Each jump also fills the
+  mech bay with what that point of the campaign should have: a Bushwacker
+  alone for the first mission, then by operation the Owens, Firefly, Strider,
+  Shadow Cat, Blackhawk, Orion and Puma. A further jump that no menu lists asks
+  for operation 4's seventh mission, which does not exist: it lands on the sixth.
 - **The hidden debug menu's Options were half wired.** The frame window's menu,
   removed as the game starts, has Fullscreen, Direct 3D, 320 x 240 and 640 x 480,
   Joystick, Enable AI and Invincible working; Texture LOD, Sound LOD, Auto
