@@ -56,6 +56,7 @@
 #include "gamez/zsound/zsnd.h"
 #include "gamez/ztwod/twod_weather.h"
 #include "gamez/zutil/zutl_msg.h"
+#include "gamez/zinterp/zinterp_console.h"
 #include "gamez/ztwod/twod_lines.h"
 #include "gamez/zeffect/zeff_anim_events.h"
 #include "gamez/zutil/zutl_path.h"
@@ -92,6 +93,8 @@
 #include "mech3/app_vehicle.h"
 #include "mech3/app_view.h"
 #include "mech3/player_view.h"
+#include "mech3/debug_keys.h"
+#include "mech3/game_editor_vehicles.h"
 #include "mech3/app_keys.h"
 #include "gamez/zinput/zinput.h"
 #include "mech3/player_view.h"
@@ -2555,6 +2558,38 @@ void wire_mission_hooks(GameEngine* e) {
     };
     keys.vmode_cycle = [] { g_mission_engine->vmode_toggle(); };  // 0x004ab910 (resolution.md step 3)
     keys.debug_7e = [] { g_mission_engine->unported("0x004abbc0", {}); };
+    // The debug commands (no key reaches them in the release; app_keys.h). FIX (A): each asks the pilot's mech
+    // or the view's target only when there is one (the exe reads through null).
+    keys.mech_debug_bit = [] {  // 0x0041ca90 on [0x0060861c] +0x14
+      GameEngine& en = *g_mission_engine;
+      if (void* m = en.object_of(en.pilot() ? en.field32(en.pilot(), 0x14) : 0)) program_mech_debug_bit(m);
+    };
+    keys.mech_list_dialog = [] { return static_cast<int32_t>(g_mission_engine->unported("0x00432c60", {})); };
+    keys.mech_remake = [](int32_t roster) { g_mission_engine->unported("0x004783c0", {roster}); };
+    keys.next_view_mech = [] {  // 0x004a33f0, then the mech's vt+0x108 (0x0041ce30)
+      std::vector<void*> list;
+      for (const ai::Handle h : ai::entity_list()) list.push_back(g_mission_engine->object_of(h));
+      if (void* m = next_view_mech(list, program_view_target(), [](void* e) -> void* { return entity_is_mech(e) ? e : nullptr; }))
+        program_view_attach(*static_cast<Mech*>(m));
+    };
+    keys.vehicle_dialog = [] { g_mission_engine->unported("0x004a3550", {}); };
+    keys.camera_mode = [](int32_t id) { program_view_set_camera(id); };  // 0x0040ae70
+    keys.camera_dialog = [] { g_mission_engine->unported("0x0040bb00", {}); };
+    keys.show_cursor = [](int32_t show) { return static_cast<int32_t>(g_mission_engine->unported("ShowCursor", {show})); };
+    keys.marker = [] {  // PM's 0x004a65a0 on the view's target: a mech's HUD's aim point into the script object
+      if (void* t = program_view_target())
+        if (const float* p = program_entity_position(t)) {
+          zint::Interp* in = interp();
+          debug_marker(p, entity_is_mech(t) ? program_mech_aim_point(t) : nullptr, in ? in->marker : nullptr);
+        }
+    };
+    keys.teleport = [] { g_mission_engine->unported("0x004a37a0", {}); };
+    keys.soft_mip_toggle = [] { return static_cast<int32_t>(g_mission_engine->unported("0x00557f70", {})); };
+    keys.edit_vehicles = [] { edit_vehicles(0); };  // 0x004b86e0
+    keys.soft_mip_bias = [] { return zgame::from_bits(g_mission_engine->unported("0x00535ef0", {})); };
+    keys.set_soft_mip_bias = [](float b) { g_mission_engine->unported("0x00535ed0", {zgame::bits(b)}); };
+    keys.interp_console = [] { interp_console_toggle(*g_mission_engine); };
+    keys.twod_through_3d = [](int32_t on) { g_mission_engine->unported("0x005c0340", {on}); };  // replaced by SDL
   }
   set_player_hooks(e ? &g_player_hooks : nullptr);
   g_brain_hooks.e = e;
@@ -2931,8 +2966,28 @@ void GameEngine::view_draw_node(Handle, Handle node, Handle) {
   scene_drawn_ = true;
 }
 
+namespace {
+zint::InterpConsole* g_interp_console = nullptr;  // the app's [0x00608f74] while it is the console
+}  // namespace
+Handle GameEngine::interp_console_new(Handle) {
+  zint::Interp* in = interp();  // [0x006040b0]
+  if (!in) return 0;  // FIX (A): the exe's console writes into the script object unchecked
+  g_interp_console = new zint::InterpConsole(in);
+  return handle_of(g_interp_console);
+}
+
 uint32_t GameEngine::vcall(Handle obj, uint32_t slot, std::initializer_list<Arg> args) {
   uint32_t r = 0;
+  // The interpreter console as the app's debug view: +0x00 its deleting destructor, +0x04 its draw (0x005a4410).
+  if (obj && g_interp_console && obj == handle_of(g_interp_console) && (slot == 0x00 || slot == 0x04)) {
+    if (slot == 0x04) {
+      g_interp_console->draw();
+    } else {
+      delete g_interp_console;
+      g_interp_console = nullptr;
+    }
+    return 0;
+  }
   // A mech answers vt+0x50 with itself (vehicles.md, Telling a mech).
   if (obj && slot == 0x50 && entity_is_mech(object_of(obj))) return obj;
   if (menu_vcall(obj, slot, args, &r)) return r;

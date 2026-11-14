@@ -16,6 +16,9 @@ namespace mech3 {
 
 class Mech3App;
 
+// Mech3.exe 1.2 @ 0x004810d0: the GameZ Interpreter console on or off (debug command 0xa3).
+void interp_console_toggle(Engine& en);
+
 class State : public zgame::State {
  public:
   State(const char* name, uint32_t addr) : name_(name), addr_(addr) {}

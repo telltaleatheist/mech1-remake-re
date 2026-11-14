@@ -1519,3 +1519,33 @@ addresses beside MW3's. Ported for preservation and not wired, except event 38's
 Test: `test_pm_dev_text.py` runs MW3's test_dev_text against PM's exe (22 state names, 26 zone lists, 465 line log
 steps, 60 readouts, 1,101 frames), all identical; the break that scrolls hidden lines and the frame rate's strict
 second are caught (884 differ). MW3's test is unchanged.
+
+## S5: the debug keys and consoles (2026-11-14)
+
+MW3's port (main, `mech3/app_keys`, `debug_keys`, `zinterp_console`, the stealth's slots; keybindings.md, The debug
+commands) crossed. PM's key switch 0x40ba30 takes the command on the stack, and its numbers are MW3's plus 8, so the
+pm branch's `app_key` carries PM's: 0x75, 0x8a..0xab, 0xaf. What PM changed:
+- **0xaf** gives PM's 2D-through-Direct3D flag ([0x618824], 0 at start) to 0x5c0340, then flips it. MW3's 0xa4
+  (the mech lab from a mission) is gone. The flag's drawing path is replaced by SDL, so the hook stays unported.
+- **The marker** (0x9c, 0x4a65a0, PM's own) prints "Marker #  n" and "V: pos( x y z ) yaw ( 0 )". When the view's
+  target is a mech with a HUD, it also prints "C: pos(...)": the HUD reticle's aim point (+0x1d68, MW3's +0x1d48).
+  That point goes to the message panel too, and into the script object's +0xc4 (`Interp::marker`). PM's subclass of
+  the interpreter (0x410f80) adds +0xc0..+0xcc, which the audit had called equal to MW3's. No PM command reads the
+  point.
+- **The console's toggle** (0xab, 0x483d50) only asks the console closed ([0x62cfb8]). Each of the Core state's
+  three frames then deletes it before drawing, and draws the cockpit that frame (`hud`, AppGlobals::
+  debug_view_closing).
+- **PrintChildren** (0x5b2c60, from 0x5b5c42) is PM's script command for the current node's children, one "  name"
+  line each. It sits behind `zgame::Table::interp_print_children`.
+- The same as MW3's, at PM's slots: the next mech 0x4a6810 (vt+0x48, vt+0x114), the stealth's slots 0x4a7900 /
+  0x4a7930 (its keys 0x73, 0x7b, 0xaa; layer at +0x100, vt+0xe8), its readout 0x4a7ef0 (controls at +0xe8), the
+  console 0x5b8210..0x5b8300, the HUD update 0x4103e0 (the same order of developer pieces).
+- **Relabelled:** 0x5b8350 is a CRT static initializer that makes an empty std::list, not the console's: folded.
+  The vehicle-pick dialog 0x4a6940 waits for the dialog sittings, as on main.
+
+Tests:
+- `test_pm_debug_keys.py` runs against PM's exe: 300 runs of 5,385 commands of 70 kinds, 2,000 next-mech lists and
+  223 stealth readouts, all identical. Breaks caught: 0xaf flipping before it gives the flag, and 0x8f's sign.
+- In mw3pmtests (test_debug_tools.cpp): `interp_console_runs_its_lines_and_prints_the_interpreters_messages`,
+  `pm_marker_keeps_the_aim_point_in_the_script_object` and `pm_print_children_names_the_current_nodes_children`.
+  The last one's break, the indent dropped, is caught. All pass under PM_AI=0 and 1.

@@ -108,6 +108,9 @@ struct Interp {                    // 0xbc bytes; MW3's subclass adds +0xbc
   uint32_t skip_depth = 0;         // +0xb4  open ifdef/ifndef blocks being skipped
   Node* current = nullptr;         // +0xb8
   void* mech = nullptr;            // +0xbc  MW3 subclass: the current mech
+  // PM's subclass (0x00410f80): +0xc0 0, +0xc4 a point from [0x0066f5e0] (0): the debug marker's aim point
+  // (0x004a65a0), which no PM command reads.
+  float marker[3] = {};            // +0xc4  PM
   int32_t exec_depth = 0;          // FIX (bug): lines kept until the outermost
   std::vector<char*> pending_free; //   line ends, see exec_line
 };

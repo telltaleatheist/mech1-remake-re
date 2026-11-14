@@ -1510,6 +1510,25 @@ From the network code (network-messages.md).
   EDITOR" in MW3 is most likely a name from Recoil, built alongside MW3 on the same engine
   and finished first, and not the 1996 BattleSport by Cyclone Studios (read from the
   exes' strings; the two games' overlap as a modder describes it).
+- **Two dozen developer key commands sit behind the keyboard, none bound.**
+  Beside the editor, MW3's key code still has the developers' own commands,
+  but nothing in the release binds a key to them: a frame-rate counter with
+  the mech's number readouts, a debug readout of the camera's zones and of
+  how many scene nodes, models, materials and live shots are in use, a
+  speed control for the game's lowest frame rate (five frames a second at a
+  press), camera modes, "MIP Mapping Enabled / Disabled" and a mip bias for
+  the software renderer, three zone-switching modes ("App Zone Switching
+  Enabled", "Camera Zone Switching Enabled", "Zone Switching Disabled"), a
+  key that hops the camera from mech to mech, a "Marker" that prints where
+  the camera's target stands, the teleport, the vehicle editor, the mech
+  lab from inside a mission, and a "GameZ Interpreter" console that runs
+  mission-script commands as you type them. One toggles a flag on your mech
+  that nothing ever reads (docs/keybindings.md, The debug commands).
+- **Mission animations send messages to a log nobody sees.** A mission's
+  animation can put a line of text on screen for three seconds, and the
+  game keeps the last fifteen in a scrolling log, but the log's lines are
+  never added to anything that draws, so they never appear
+  (docs/twod.md, The line log).
 - **Every mission builds that invisible camera vehicle anyway.** The
   loading screen's "Creating Stealth" step makes it in every mission, campaign,
   Instant Action and multiplayer alike, even though nothing in the release

@@ -2,7 +2,6 @@
 0x00403f30	devdialog-logic	as MW3 0x00403ec0, whose class PM's changes keep: the AI tester dialog's walk over a vehicle's nets (0x00404090 -> 0x00403ec0: their extents)
 0x00406d10	sdl	as MW3 0x00409b50, whose class PM's changes keep: GDI: a font's metrics from its handle (GetObjectA), the 2D text's Windows path; the port's text goes through ztwod::Host
 0x00482a60	sdl	as MW3 0x00480340, whose class PM's changes keep: Win32 and MFC frame plumbing the SDL program replaces: the single-instance check and close (FindWindow Mech3Class; startup.md), the frame window's create, OnCreate, OnSetFocus, OnNcActivate, OnSize, WindowProc, WM_CLOSE
-0x00483d50	debug	as MW3 0x004810d0, whose class PM's changes keep: the debug console's overlay toggle (0x00608f74; game-loop.md: from 0x00480b20, itself never called)
 0x004a07a0	devdialog-logic	as MW3 0x0049d350, whose class PM's changes keep: the editor's 'add vehicle to node' (0x00403820 -> 0x0049d350, editor.md); ours does it as meant: upgrades/editor/add_vehicle.cpp
 0x004bef80	devdialog-shell	as MW3 0x004b8a20, whose class PM's changes keep: the vehicle editor's MFC plumbing (its pages' CDialog constructors, its destructor, message map); its layout is the exe's dialog resources (0xa5..0xb7). The port's editor covers the job: game_editor_vehicles (vehicle_editor_open / the page handlers)
 0x004c7c80	debug	as MW3 0x0058f2d0, whose class PM's changes keep: the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
@@ -104,7 +103,7 @@
 0x005a2770	sdl	called only from 0x005a2600, which are sdl
 0x005ab800	sdl	called only from 0x005abe90, which are sdl
 0x005acc40	folded	the STL's list constructor (a head node pointing at itself, count 0), for the network objects' list [0x00627c38] from its static initializer 0x00410880; the port's list is a C++ static (znet)
-0x005b8350	debug	called only from 0x005b8300, which are debug
+0x005b8350	folded	a CRT static initializer (from 0x005b8340, the initializers' table), not the console's: a std::list made empty (0x005a4b90); the port's lists are C++ statics
 0x004c7c90	debug	called only from 0x004c7cf0, which are debug
 0x005a2680	sdl	called only from 0x005a2770, which are sdl
 0x005a2700	sdl	called only from 0x005a2680, which are sdl
@@ -1055,7 +1054,6 @@
 0x00578070	folded	RdrSetPath / RdrAddPath (PM split them out of the dispatcher, one setter 0x00577da0 with a clear flag in place of MW3's two): as MW3 0x005561a0 / 0x005561e0, folded there (the reader reads through the mounts); not run under a test (trace)
 0x00578090	folded	RdrSetPath / RdrAddPath (PM split them out of the dispatcher, one setter 0x00577da0 with a clear flag in place of MW3's two): as MW3 0x005561a0 / 0x005561e0, folded there (the reader reads through the mounts); not run under a test (trace)
 0x00596f50	folded	MW3's path list add 0x00576140 (folded there: each user keeps its own path, the file finder is the platform's), its loop restructured: read whole, every case (both lists nil, one nil, the same list) adds to the list and then to the global list as MW3's
-0x005b2c60	debug	the script command PrintChildren (PM only): the current node's children's names to the console ('  %s'); no shipped PM script uses it, the port's interpreter does not know it
 0x004c5ef0	folded	the same as its MW3 twin after the address map (nothing differs); not run under a test (trace)
 0x00534780	folded	the same as its MW3 twin after the address map (nothing differs); not run under a test (trace)
 0x004d3a60	folded	the same as its MW3 twin 0x004c8680: the vtable it sets is MW3 0x005cb238's twin (vtables.json); not run under a test (trace)
@@ -3342,8 +3340,6 @@
 0x004a19c0	folded	ported: src/mech3/player.cpp (MW3's 0x0049e810, the player's mech as the mission comes up) with PM's changes marked there: the standalone game's record, its mech (0x005bfdd0), 25 mechs (0x18 for 0x12), the mission's loadout
 0x004a0e10	folded	ported: src/mech3/player.cpp launch (MW3's 0x0049dc80, Instant Action's line-up and waves) with PM's ia_progression waves marked there (0x004a0f3c)
 0x004a2dc0	folded	ported: src/mech3/player.cpp create_ai_mech (MW3's 0x0049fa20): the controller, the mech, its skin 1..7, the team masks, the place, powered down by the record's flag (+0xec bit 5 in PM's layout for +0xcc); the same, the reports' line numbers PM's
-0x004a65a0	debug	debug or dev tool: PORT (preserve): PM's app key handler's dev cases (0x0040ba30, its table over commands 0x69..0xaf, registered by 0x0040b9f0): 0x004a65a0 prints a numbered marker with the view mech's place and heading ("Marker %3d", "V: pos ..."); 0x004a6810 runs every one of the 25 slots of 0x006203f0 (vt+0x7c) and walks the entities' list for the view's; the port's app_key carries the game's three (0x69, 0x74, 0x78)
-0x004a6810	debug	debug or dev tool: PORT (preserve): PM's app key handler's dev cases (0x0040ba30, its table over commands 0x69..0xaf, registered by 0x0040b9f0): 0x004a65a0 prints a numbered marker with the view mech's place and heading ("Marker %3d", "V: pos ..."); 0x004a6810 runs every one of the 25 slots of 0x006203f0 (vt+0x7c) and walks the entities' list for the view's; the port's app_key carries the game's three (0x69, 0x74, 0x78)
 0x004a6d30	folded	helpers inside the aim cone's constructor 0x004a6ec0 (checked by test_pm_firepoints there): a bound set to FLT_MAX (0x7f7fffff)
 0x004a6e20	folded	helpers inside the aim cone's constructor 0x004a6ec0 (checked by test_pm_firepoints there): a bound set to FLT_MAX (0x7f7fffff)
 0x004aa080	missing	pm only, small: MW3's 0x004a6be0 (turret.cpp Turret::frame) with the shot's zWeapon settings changed: with a firepoint node for the current weapon the weapon's fire sound is set to 0 (0x005a3680 = MW3's 0x00581f90) and, for a weapon with flag 2, the firing node set (0x005a36a0); without one the fire sound is set to -1; MW3 sets only the node (0x00581fb0, flag 2) and leaves the fire sound as the last setter left it (a salvo's rest sets -1, weapon.cpp Weapon::update); the flag tests otherwise the same (order-aware compare)

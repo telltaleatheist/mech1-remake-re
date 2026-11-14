@@ -126,6 +126,7 @@ add_library(mw3core STATIC
   src/gamez/zimage/zimg_library.cpp
   src/gamez/zinterp/zinterp.cpp
   src/gamez/zinterp/zinterp_parse.cpp
+  src/gamez/zinterp/zinterp_console.cpp
   src/gamez/zimage/zimg_texture.cpp
   src/gamez/zmath/zmth_matrix.cpp
   src/gamez/zmath/zmth_vector.cpp
@@ -266,6 +267,7 @@ add_library(mw3core STATIC
   src/mech3/hud.cpp
   src/mech3/message_panel.cpp
   src/mech3/dev_text.cpp
+  src/mech3/debug_keys.cpp
   src/mech3/mech_hud.cpp
   src/mech3/app_cheats.cpp
   src/mech3/app_hud.cpp
@@ -543,6 +545,7 @@ add_library(mw3probe SHARED
   tests/probe_weapons_fly.cpp
   tests/probe_twod.cpp
   tests/probe_dev_text.cpp
+  tests/probe_debug_keys.cpp
   tests/probe_mainmenu.cpp
   tests/probe_pocket_panel.cpp
   tests/probe_menus.cpp
@@ -678,6 +681,7 @@ add_executable(mw3tests
   tests/test_data_folder.cpp
   tests/test_patch12.cpp
   tests/test_video_device.cpp
+  tests/test_debug_tools.cpp
   tests/test_resolution.cpp
   tests/test_zreader.cpp
   tests/test_controls_cfg.cpp
@@ -812,6 +816,7 @@ if(MW3_BUILD_PM)
   )
   target_include_directories(mw3pmtests PRIVATE tests)
   target_link_libraries(mw3pmtests PRIVATE pmcore mw3core)
+  target_sources(mw3pmtests PRIVATE tests/test_debug_tools.cpp)  # the console and PM's marker (S5)
   if(MW3_PM_HITS)
     file(GLOB pm_hit_sources src/mech3/zai_*_pm.cpp src/mech3/zai_wire*_pm.cpp src/mech3/zai_attackers_pm.cpp)
     set_source_files_properties(${pm_hit_sources} PROPERTIES COMPILE_OPTIONS "-finstrument-functions-after-inlining")
@@ -837,6 +842,7 @@ if(MW3_BUILD_PM)
   target_sources(pmprobe PRIVATE tests/probe_pm_allies.cpp)
   target_sources(pmprobe PRIVATE tests/probe_mech_net.cpp)
   target_sources(pmprobe PRIVATE tests/probe_dev_text.cpp)  # test_pm_dev_text.py
+  target_sources(pmprobe PRIVATE tests/probe_debug_keys.cpp)  # test_pm_debug_keys.py
   # The vehicle editor's save on PM's aiv.zrd, its "target" tag kept (test_pm_aiv_save_mech3ax.py)
   target_sources(pmprobe PRIVATE tests/probe_aiv_save.cpp)
   target_sources(pmprobe PRIVATE tests/probe_pm_lobby_rules.cpp)

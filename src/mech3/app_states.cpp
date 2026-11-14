@@ -477,11 +477,21 @@ Handle mech_part(Engine& en, Handle veh, int off) { return en.arm_node(veh, off)
 Handle mech_torso(Engine& en, Handle veh) { return en.cockpit_node(veh); }
 // The HUD update and the overlay (0x0040fac0, 0x0040e4b0, then the debug view or
 // 0x0041ab90 on the pilot's mech).
+// PM (its three frames, at 0x00484117, 0x00484736, 0x00484cb5): a console asked closed is deleted first, the
+// cockpit drawn instead. The suspend (0x00483ef0) deletes it and leaves the flag.
 void hud(Engine& en) {
   en.hud_update();
   en.hud_draw();
-  if (Handle dv = globals().debug_view) en.vcall(dv, 0x04, {});
-  else en.mech_draw_cockpit(en.field32(en.pilot(), 0x14));
+  if (globals().debug_view_closing) {
+    if (Handle dv = globals().debug_view) en.vcall(dv, 0x00, {1});
+    globals().debug_view = 0;
+    globals().debug_view_closing = 0;
+    en.mech_draw_cockpit(en.field32(en.pilot(), 0x14));
+  } else if (Handle dv = globals().debug_view) {
+    en.vcall(dv, 0x04, {});
+  } else {
+    en.mech_draw_cockpit(en.field32(en.pilot(), 0x14));
+  }
 }
 // The static on the view target's HUD (0x0043cd20), its HUD asked twice.
 void hud_static(Engine& en, Handle veh) {
@@ -808,6 +818,17 @@ void CoreState::leave() {
     if (a().multiplayer()) a().lock_system_keys() = 0;
   }
   active_ = 0;
+}
+
+// Mech3.exe 1.2 @ 0x004810d0, Pirate's Moon 1.0 @ 0x00483d50 (0x004832a0's, on the app; debug command 0xab): the
+// GameZ Interpreter console made on the script object, or (PM) the one up asked closed: the Core state's frame
+// deletes it (hud below; MW3 deleted it here). While up it is drawn instead of the cockpit.
+void interp_console_toggle(Engine& en) {
+  if (globals().debug_view) {
+    globals().debug_view_closing = 1;
+    return;
+  }
+  globals().debug_view = en.interp_console_new(globals().script);
 }
 
 // Mech3.exe 1.2 @ 0x00481250

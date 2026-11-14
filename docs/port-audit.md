@@ -15,9 +15,9 @@ container code, or covered where the port names it); **replaced** (SDL or the pl
 | replaced (SDL or the platform layer) | 221 |
 | software renderer | 113 |
 | unused: PORT (preserve) | 81 |
-| debug or dev tool: PORT (preserve) | 56 |
 | dev dialog (MFC), its logic: PORT (preserve) | 54 |
-| dev dialog (MFC), its window plumbing: replaced | 50 |
+| dev dialog (MFC), its window plumbing: replaced | 52 |
+| debug or dev tool: PORT (preserve) | 45 |
 | unlabelled | 2 |
 
 ## MISSING LOGIC
@@ -40,17 +40,13 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 
 ### debug or dev tool: PORT (preserve)
 
-- 1 functions, 17 decomp lines (0x0041ca90): a debug key command (0x6d, case 2 of the key switch 0x0040dba0) toggling the mech's +0x634 bit 1; the release never registers 0x6d (0x0040db60 registers 0x61, 0x6c, 0x70, 0x7e)
 - 1 functions, 25 decomp lines (0x0041cee0): read: the mech's vt+0xf8 (the player's view pick: the crosshair's ground point, +0x1d48 of 0x00430aa0's object, when this is the viewed mech), called only by the AI net editor's commands 0x00402d60 and 0x00403160 (game_editor_net.cpp:146, 229) through the viewed vehicle; the port's editor answers for the stealth object only (app_vehicle.cpp:475)
-- 1 functions, 34 decomp lines (0x004810d0): the debug console's overlay toggle (0x00608f74; game-loop.md: from 0x00480b20, itself never called)
-- 4 functions, 172 decomp lines (0x004a3220, 0x004a33f0, 0x004a3550, 0x004a35e0): debug key commands of 0x0040dba0, never registered in the release: a position marker printed to the console (0x004a3220), the mechs listed into the developer lines (0x004a33f0, command 0x89; hud.md), a vehicle picked in a dialog (0x004a3550, its destructor 0x004a35e0)
-- 2 functions, 18 decomp lines (0x004a4ca0, 0x004a50b0): the stealth object (the developers' fly camera; back burner in CLAUDE.md): a slot of its
-- 2 functions, 149 decomp lines (0x004a50e0, 0x004abbc0): the debug command 0x7e (0x004abbc0, 121 lines: a console of keyboard text and the network session; registered, but no key reaches it: app_keys.h:14, hud.md) and the stealth object's key handler (0x004a50e0: the fly camera, back burner)
+- 1 functions, 32 decomp lines (0x004a3550): the vehicle pick of debug command 0x8a (app_key, never bound in the release): an MFC dialog (resource 0x430's list, 0x004aef00) whose chosen vehicle gets the view (its vt+0x108); with the dialog sittings
+- 1 functions, 121 decomp lines (0x004abbc0): the screenshot of debug command 0x7e (registered, but no key reaches it; app_keys.h): the screen saved as mw3_XXXXXX.bmp (_mktemp), or under the lobby session's name, by the writer 0x00519c20; with the screenshot writer (S6)
 - 2 functions, 18 decomp lines (0x004e2310, 0x004e53b0): the valve reader's print method (a vtable slot that fprintf's a value); nothing in the game prints a reader
 - 8 functions, 290 decomp lines (0x00519990, 0x005199e0, 0x00519a20, 0x00519a40 ...): the screenshot writer of the debug command 0x7e (0x004abbc0): copies the front buffer to 24-bit, flips it and saves a .bmp through a save dialog (0x00519cc0); no key reaches it
 - 1 functions, 225 decomp lines (0x00575b00): the developer's stdout redirect (freopen to a log; editor.md:214)
 - 27 functions, 837 decomp lines (0x0058c590, 0x0058d3c0, 0x0058e440, 0x0058e460 ...): the AI net editor's net view (znet_view.h: only the AI net editor makes one): its pieces the port's editor does not use (element and link drawing helpers, picking, its lists)
-- 3 functions, 56 decomp lines (0x005960a0, 0x00596170, 0x00596190): the hidden GameZ Interpreter console (0x005960a0: a 2D console window that runs typed script lines through 0x00595510; its destructor and line runner; toggled by 0x004810d0, which nothing reaches: interp.md:532, discoveries.md:1532)
 - 1 functions, 17 decomp lines (0x005a98d0): the developers' loose <name>.zan override for motion scripts (motion.md:36), like the reader's loose .zrd files
 - 3 functions, 219 decomp lines (0x005a9bc0, 0x005a9e10, 0x005aa210): the motion script's text side: the loose .zan reader (0x005a9e10, with 0x005aa210) behind the developers' override, and the writer (0x005a9bc0)
 
@@ -101,7 +97,7 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 
 ## By module
 
-### mech3 (2531 not ported)
+### mech3 (2525 not ported)
 
 | Address | Lines | Class | Why |
 |---|---|---|---|
@@ -109,7 +105,7 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x00401020 | 8 | folded | returns a constant or a global |
 | 0x00401030 | 9 | dev dialog (MFC), its window plumbing: replaced | MFC dialog plumbing of dev dialogs (CDialog constructors and destructors, EnableWindow): resource 0x67 and the teleport and net dialogs' destructors |
 | 0x00401040 | 9 | dev dialog (MFC), its window plumbing: replaced | MFC dialog plumbing of dev dialogs (CDialog constructors and destructors, EnableWindow): resource 0x67 and the teleport and net dialogs' destructors |
-| 0x004020b0 | 14 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:1097) |
+| 0x004020b0 | 14 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:1100) |
 | 0x00402140 | 14 | folded | the hardware mode's triangle stripper's small helpers and its std::map / std::list code, folded into zmod::strip_model (gmod_strip.cpp): edge and record copies and compares, the UV shift, the zone compare, the map and lists as std::map / std::list in the same order |
 | 0x00402510 | 28 | folded | covered: array and list helpers, destructors (unwind callers), the loading bar and the briefing's map (app_menus.cpp:964 overrides briefing_map_image; the hook's 'not ported yet' comment is stale), the vehicle path's entries drop (app_vehicle.h:145) |
 | 0x00402590 | 9 | folded | a thunk: one call to another function |
@@ -169,7 +165,7 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x004085e0 | 9 | folded | a thunk: one call to another function |
 | 0x00408630 | 14 | folded | the scalar deleting destructor (the destructor, then delete) |
 | 0x00408660 | 13 | folded | covered by the port where it names it (src/mech3/briefing.cpp:647) |
-| 0x004092e0 | 13 | folded | covered by the port where it names it (src/mech3/app_states.cpp:1270) |
+| 0x004092e0 | 13 | folded | covered by the port where it names it (src/mech3/app_states.cpp:1281) |
 | 0x004093d0 | 10 | folded | a getter of a member |
 | 0x00409830 | 10 | folded | covered by ported code beside them: the briefing's list helpers, vector inserts, the cameras' free, the options' getters (implemented in the program's hooks), the message panel's constructors and destructors, the HUD message, the AI steps' base vtable thunks, start-up statics |
 | 0x00409850 | 10 | folded | covered by ported code beside them: the briefing's list helpers, vector inserts, the cameras' free, the options' getters (implemented in the program's hooks), the message panel's constructors and destructors, the HUD message, the AI steps' base vtable thunks, start-up statics |
@@ -390,7 +386,6 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x00419e40 | 11 | folded | sets members (a setter or a small constructor) |
 | 0x0041b8d0 | 32 | folded | covered by the port where it names it (src/mech3/app_mech.cpp:634) |
 | 0x0041ca60 | 15 | folded | covered by ported code beside them: controls file and landmine helpers, getters and setters, the mech's IControls cast, the animation's members, list helpers, constructors and destructors, the force feedback's release and reset (input.md) |
-| 0x0041ca90 | 17 | debug or dev tool: PORT (preserve) | a debug key command (0x6d, case 2 of the key switch 0x0040dba0) toggling the mech's +0x634 bit 1; the release never registers 0x6d (0x0040db60 registers 0x61, 0x6c, 0x70, 0x7e) |
 | 0x0041cdf0 | 10 | folded | covered by ported code beside them: controls file and landmine helpers, getters and setters, the mech's IControls cast, the animation's members, list helpers, constructors and destructors, the force feedback's release and reset (input.md) |
 | 0x0041ce00 | 9 | folded | a thunk: one call to another function |
 | 0x0041ce10 | 9 | folded | a thunk: one call to another function |
@@ -487,7 +482,7 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x00426bf0 | 14 | folded | covered by ported code beside them: controls file and landmine helpers, getters and setters, the mech's IControls cast, the animation's members, list helpers, constructors and destructors, the force feedback's release and reset (input.md) |
 | 0x00427410 | 32 | folded | covered by the port where it names it (src/mech3/mech_pocket.cpp:59) |
 | 0x00428440 | 15 | folded | ported, by docs/symbols.csv: ported: PlayerControls::set_record (IControls vt+0x88) |
-| 0x00428470 | 13 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:508) |
+| 0x00428470 | 13 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:511) |
 | 0x00428500 | 10 | folded | covered by the port where it names it (src/mech3/mech_control.h:181) |
 | 0x00428510 | 10 | folded | returns a constant or a global |
 | 0x00428520 | 10 | folded | returns a constant or a global |
@@ -604,7 +599,7 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x004317d0 | 19 | folded | covered by the port where it names it (src/mech3/mech_data.cpp:243) |
 | 0x004319f0 | 26 | folded | covered by the port where it names it (src/mech3/mech_data.cpp:332) |
 | 0x004326d0 | 74 | folded | covered where the port does it: src/mech3/mech_data.cpp:219 (read: a destructor, a container insert or assign, or the work beside the function that comment names) |
-| 0x00432940 | 11 | folded | covered by the port where it names it (src/mech3/app_vehicle.cpp:538) |
+| 0x00432940 | 11 | folded | covered by the port where it names it (src/mech3/app_vehicle.cpp:537) |
 | 0x00432a50 | 14 | folded | the scalar deleting destructor (the destructor, then delete) |
 | 0x00432a80 | 40 | folded | covered by the port where it names it (src/gamez/zsiscript/si_script.cpp:156) |
 | 0x00432b60 | 23 | dev dialog (MFC), its window plumbing: replaced | the mech list dialog's MFC plumbing (constructor, destructor, DDX, OnOK, DoModal) |
@@ -660,8 +655,8 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x00437820 | 11 | folded | covered by the port where it names it (src/mech3/pilot.h:207) |
 | 0x00437840 | 14 | folded | the scalar deleting destructor (the destructor, then delete) |
 | 0x00437860 | 8 | folded | covered by ported code beside them: the force feedback's release, the game classes' small virtuals (first enemy, record slots, flags; mission-start.md), list and vector instances (mechdef-*.md name 0x0046cc00, 0x00475bf0, 0x00475c20), static list initialisers, the pilot's game-type getters (0x00479460/80, 0x004794a0, used by the port), part classes' constant virtuals and their damage path, constructors and destructors, the mcbwaynet's calls (app_vehicle.cpp) |
-| 0x00437870 | 8 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:2314) |
-| 0x00437880 | 8 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:2314) |
+| 0x00437870 | 8 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:2317) |
+| 0x00437880 | 8 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:2317) |
 | 0x00437890 | 8 | folded | covered by the port where it names it (src/mech3/app_menus.cpp:842) |
 | 0x004378f0 | 8 | folded | covered by the port where it names it (src/mech3/app_menus.cpp:843) |
 | 0x00437910 | 8 | folded | covered by the port where it names it (src/mech3/pilot.h:369) |
@@ -763,7 +758,7 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x004487d0 | 8 | folded | the HUD (hud/app_hud, hud.md names these): pieces' constructors and destructors (CRT callers: unwinds), setters, the static and gauge helpers, the reticle's queries, the hold, funclets |
 | 0x004487f0 | 9 | folded | a thunk: one call to another function |
 | 0x00448800 | 9 | folded | a thunk: one call to another function |
-| 0x004488b0 | 31 | folded | covered by the port where it names it (src/mech3/app_states.h:252) |
+| 0x004488b0 | 31 | folded | covered by the port where it names it (src/mech3/app_states.h:255) |
 | 0x00448910 | 14 | folded | the scalar deleting destructor (the destructor, then delete) |
 | 0x004490d0 | 25 | folded | the mech lab (lab_screen/lab_view/mech_config, whose comments and mechlab.md name these): its controls' constructors and destructors (the CRT callers are exception unwinds), the store rows' std::sort instances (name and tonnage comparators inlined), item kinds' constant getters, list helpers |
 | 0x00449140 | 14 | folded | the scalar deleting destructor (the destructor, then delete) |
@@ -886,9 +881,9 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x0045b800 | 31 | folded | ported, by docs/symbols.csv: ported as push_back: std::list node (0xc) before the head, count +1 |
 | 0x0045b860 | 35 | folded | ported, by docs/symbols.csv: ported inline: the order deque's iterator (the brain's current order) |
 | 0x0045b900 | 16 | folded | covered by the port where it names it (src/mech3/mech_fieldbase_cut.cpp:30) |
-| 0x0045b950 | 10 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:894) |
+| 0x0045b950 | 10 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:897) |
 | 0x0045b960 | 10 | folded | covered by ported code beside them: the force feedback's release, the game classes' small virtuals (first enemy, record slots, flags; mission-start.md), list and vector instances (mechdef-*.md name 0x0046cc00, 0x00475bf0, 0x00475c20), static list initialisers, the pilot's game-type getters (0x00479460/80, 0x004794a0, used by the port), part classes' constant virtuals and their damage path, constructors and destructors, the mcbwaynet's calls (app_vehicle.cpp) |
-| 0x0045b970 | 8 | folded | covered by the port where it names it (src/mech3/app_vehicle.h:134) |
+| 0x0045b970 | 8 | folded | covered by the port where it names it (src/mech3/app_vehicle.h:138) |
 | 0x0045b990 | 8 | folded | covered by the port where it names it (src/mech3/mech_fieldbase.h:34) |
 | 0x0045b9a0 | 8 | folded | covered by the port where it names it (src/mech3/mech_fieldbase.h:61) |
 | 0x0045b9b0 | 8 | folded | ported, by docs/symbols.csv: ported: DockStep::done |
@@ -1007,7 +1002,7 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x0046ef50 | 8 | folded | returns a constant or a global |
 | 0x00470008 | 33 | folded | a piece of the ported function before it (Ghidra split it there) (0x0046fff0) |
 | 0x00470640 | 9 | folded | a thunk: one call to another function |
-| 0x00470650 | 17 | folded | covered by the port where it names it (src/mech3/app_states.h:84) |
+| 0x00470650 | 17 | folded | covered by the port where it names it (src/mech3/app_states.h:87) |
 | 0x00470690 | 18 | folded | covered by ported code beside them: the force feedback's release, the game classes' small virtuals (first enemy, record slots, flags; mission-start.md), list and vector instances (mechdef-*.md name 0x0046cc00, 0x00475bf0, 0x00475c20), static list initialisers, the pilot's game-type getters (0x00479460/80, 0x004794a0, used by the port), part classes' constant virtuals and their damage path, constructors and destructors, the mcbwaynet's calls (app_vehicle.cpp) |
 | 0x004706d0 | 14 | folded | the scalar deleting destructor (the destructor, then delete) |
 | 0x004706f0 | 9 | folded | a thunk: one call to another function |
@@ -1020,7 +1015,7 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x004729d0 | 26 | folded | covered by ported code beside them: the force feedback's release, the game classes' small virtuals (first enemy, record slots, flags; mission-start.md), list and vector instances (mechdef-*.md name 0x0046cc00, 0x00475bf0, 0x00475c20), static list initialisers, the pilot's game-type getters (0x00479460/80, 0x004794a0, used by the port), part classes' constant virtuals and their damage path, constructors and destructors, the mcbwaynet's calls (app_vehicle.cpp) |
 | 0x004730d0 | 10 | folded | covered by the port where it names it (src/mech3/mech_config.h:34) |
 | 0x004731e0 | 19 | folded | covered by ported code beside them: the force feedback's release, the game classes' small virtuals (first enemy, record slots, flags; mission-start.md), list and vector instances (mechdef-*.md name 0x0046cc00, 0x00475bf0, 0x00475c20), static list initialisers, the pilot's game-type getters (0x00479460/80, 0x004794a0, used by the port), part classes' constant virtuals and their damage path, constructors and destructors, the mcbwaynet's calls (app_vehicle.cpp) |
-| 0x00473740 | 19 | folded | covered by the port where it names it (src/mech3/app_hooks.h:945) |
+| 0x00473740 | 19 | folded | covered by the port where it names it (src/mech3/app_hooks.h:947) |
 | 0x00473780 | 39 | folded | covered by the port where it names it (src/mech3/mech_salvage.cpp:149) |
 | 0x00473860 | 21 | folded | covered by the port where it names it (src/mech3/mech_salvage.cpp:148) |
 | 0x004738b0 | 19 | folded | ported, by docs/symbols.csv: ported: item_label |
@@ -1081,7 +1076,7 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x0047c8d0 | 14 | folded | the scalar deleting destructor (the destructor, then delete) |
 | 0x0047c900 | 14 | folded | the scalar deleting destructor (the destructor, then delete) |
 | 0x0047ce30 | 9 | folded | a thunk: one call to another function |
-| 0x0047ce40 | 17 | folded | covered by the port where it names it (src/mech3/app_states.h:59) |
+| 0x0047ce40 | 17 | folded | covered by the port where it names it (src/mech3/app_states.h:62) |
 | 0x0047d010 | 9 | folded | a thunk: one call to another function |
 | 0x0047d2c0 | 9 | folded | a thunk: one call to another function |
 | 0x0047d2d0 | 9 | folded | a thunk: one call to another function |
@@ -1099,7 +1094,7 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x0047f140 | 29 | folded | covered by the port where it names it (src/mech3/app_hud.cpp:699) |
 | 0x0047f1c0 | 13 | folded | covered by the port where it names it (src/mech3/salvage_screen.cpp:28) |
 | 0x0047f1e0 | 23 | folded | covered by the port where it names it (src/mech3/salvage_screen.cpp:28) |
-| 0x0047f220 | 12 | folded | covered by the port where it names it (src/mech3/app_states.h:237) |
+| 0x0047f220 | 12 | folded | covered by the port where it names it (src/mech3/app_states.h:240) |
 | 0x0047f240 | 14 | folded | the scalar deleting destructor (the destructor, then delete) |
 | 0x0047f260 | 20 | folded | covered: the screens' destructors and constructors (unwind callers), the app states' constructors (their names), InitInstance's body (0x00480020, app.cpp's 0x00480000 port), RunDir (the program's data folder replaces it), the world defaults (no effect, app_engine.cpp) |
 | 0x0047f2b0 | 28 | folded | covered: the screens' destructors and constructors (unwind callers), the app states' constructors (their names), InitInstance's body (0x00480020, app.cpp's 0x00480000 port), RunDir (the program's data folder replaces it), the world defaults (no effect, app_engine.cpp) |
@@ -1143,7 +1138,6 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x004803a0 | 19 | replaced (SDL or the platform layer) | Win32 and MFC frame plumbing the SDL program replaces: the single-instance check and close (FindWindow Mech3Class; startup.md), the frame window's create, OnCreate, OnSetFocus, OnNcActivate, OnSize, WindowProc, WM_CLOSE |
 | 0x00480b20 | 9 | folded | a thunk: one call to another function |
 | 0x00480ba0 | 23 | folded | covered: the screens' destructors and constructors (unwind callers), the app states' constructors (their names), InitInstance's body (0x00480020, app.cpp's 0x00480000 port), RunDir (the program's data folder replaces it), the world defaults (no effect, app_engine.cpp) |
-| 0x004810d0 | 34 | debug or dev tool: PORT (preserve) | the debug console's overlay toggle (0x00608f74; game-loop.md: from 0x00480b20, itself never called) |
 | 0x004822e0 | 18 | folded | covered: the screens' destructors and constructors (unwind callers), the app states' constructors (their names), InitInstance's body (0x00480020, app.cpp's 0x00480000 port), RunDir (the program's data folder replaces it), the world defaults (no effect, app_engine.cpp) |
 | 0x004824a0 | 23 | folded | covered: the screens' destructors and constructors (unwind callers), the app states' constructors (their names), InitInstance's body (0x00480020, app.cpp's 0x00480000 port), RunDir (the program's data folder replaces it), the world defaults (no effect, app_engine.cpp) |
 | 0x00482500 | 14 | folded | the scalar deleting destructor (the destructor, then delete) |
@@ -1287,7 +1281,7 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x0048ee30 | 9 | folded | a thunk: one call to another function |
 | 0x0048ee40 | 9 | folded | a thunk: one call to another function |
 | 0x0048ee70 | 12 | folded | covered: the screens' and states' constructors and destructors, list and vector instances (mechdef-configs.md names 0x0049da10), string copies, the missions object's queries (the program's GameEngine overrides them: app_engine.h:128 and the rest), the fade wrapper, the mission cleanup |
-| 0x0048f1b0 | 28 | folded | covered by the port where it names it (src/mech3/app_states.h:302) |
+| 0x0048f1b0 | 28 | folded | covered by the port where it names it (src/mech3/app_states.h:305) |
 | 0x0048f220 | 9 | folded | a thunk: one call to another function |
 | 0x0048f230 | 9 | folded | a thunk: one call to another function |
 | 0x0048f260 | 9 | folded | follows 0x0048f290: covered where the port does it: src/mech3/mech_salvage.h:10 (read: a destructor, a container insert or assign, or the work beside the function that comment names) |
@@ -1300,7 +1294,7 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x00490930 | 15 | folded | covered: the screens' and states' constructors and destructors, list and vector instances (mechdef-configs.md names 0x0049da10), string copies, the missions object's queries (the program's GameEngine overrides them: app_engine.h:128 and the rest), the fade wrapper, the mission cleanup |
 | 0x00491120 | 14 | folded | covered: the screens' and states' constructors and destructors, list and vector instances (mechdef-configs.md names 0x0049da10), string copies, the missions object's queries (the program's GameEngine overrides them: app_engine.h:128 and the rest), the fade wrapper, the mission cleanup |
 | 0x00491a60 | 9 | folded | a thunk: one call to another function |
-| 0x00491a70 | 17 | folded | covered by the port where it names it (src/mech3/app_states.h:72) |
+| 0x00491a70 | 17 | folded | covered by the port where it names it (src/mech3/app_states.h:75) |
 | 0x00491bd0 | 9 | folded | a thunk: one call to another function |
 | 0x00491d00 | 14 | folded | ported, by docs/symbols.csv: ported in the program (the missions' +0xb0, reselected) |
 | 0x00492ac0 | 14 | folded | the scalar deleting destructor (the destructor, then delete) |
@@ -1429,10 +1423,8 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x004a1020 | 9 | folded | a thunk: one call to another function |
 | 0x004a2770 | 38 | folded | covered by the port where it names it (src/mech3/veh_move.cpp:156) |
 | 0x004a2ae0 | 14 | folded | covered by the port where it names it (src/mech3/veh_controls.h:178) |
-| 0x004a3220 | 17 | debug or dev tool: PORT (preserve) | debug key commands of 0x0040dba0, never registered in the release: a position marker printed to the console (0x004a3220), the mechs listed into the developer lines (0x004a33f0, command 0x89; hud.md), a vehicle picked in a dialog (0x004a3550, its destructor 0x004a35e0) |
-| 0x004a33f0 | 102 | debug or dev tool: PORT (preserve) | debug key commands of 0x0040dba0, never registered in the release: a position marker printed to the console (0x004a3220), the mechs listed into the developer lines (0x004a33f0, command 0x89; hud.md), a vehicle picked in a dialog (0x004a3550, its destructor 0x004a35e0) |
-| 0x004a3550 | 32 | debug or dev tool: PORT (preserve) | debug key commands of 0x0040dba0, never registered in the release: a position marker printed to the console (0x004a3220), the mechs listed into the developer lines (0x004a33f0, command 0x89; hud.md), a vehicle picked in a dialog (0x004a3550, its destructor 0x004a35e0) |
-| 0x004a35e0 | 21 | debug or dev tool: PORT (preserve) | debug key commands of 0x0040dba0, never registered in the release: a position marker printed to the console (0x004a3220), the mechs listed into the developer lines (0x004a33f0, command 0x89; hud.md), a vehicle picked in a dialog (0x004a3550, its destructor 0x004a35e0) |
+| 0x004a3550 | 32 | debug or dev tool: PORT (preserve) | the vehicle pick of debug command 0x8a (app_key, never bound in the release): an MFC dialog (resource 0x430's list, 0x004aef00) whose chosen vehicle gets the view (its vt+0x108); with the dialog sittings |
+| 0x004a35e0 | 21 | dev dialog (MFC), its window plumbing: replaced | the vehicle pick dialog's destructor (0x004a3550's MFC plumbing: its combo box and CDialog) |
 | 0x004a3fb0 | 12 | unused: PORT (preserve) | the turn limits' clamp (vt+0x04) for the Fixed, Narrow and Wide kinds (vtables 0x005c8310/20/30): the turret never asks clamp (turret.h:31) and the AI's track keeps its answer only for a dot product it drops (vehicles.md, zai_firing.cpp:554) |
 | 0x004a3fe0 | 12 | unused: PORT (preserve) | the turn limits' clamp (vt+0x04) for the Fixed, Narrow and Wide kinds (vtables 0x005c8310/20/30): the turret never asks clamp (turret.h:31) and the AI's track keeps its answer only for a dot product it drops (vehicles.md, zai_firing.cpp:554) |
 | 0x004a4000 | 13 | folded | covered by the port where it names it (src/mech3/turret.cpp:95) |
@@ -1457,20 +1449,18 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x004a4af0 | 18 | folded | ported, by docs/symbols.csv: ported: a full turn on -pi/2..pi/2 in place |
 | 0x004a4c20 | 23 | folded | covered by the port where it names it (src/mech3/game_editor_net.cpp:229) |
 | 0x004a4c80 | 14 | folded | the scalar deleting destructor (the destructor, then delete) |
-| 0x004a4ca0 | 9 | debug or dev tool: PORT (preserve) | the stealth object (the developers' fly camera; back burner in CLAUDE.md): a slot of its |
+| 0x004a4ca0 | 9 | dev dialog (MFC), its window plumbing: replaced | the vehicle pick dialog's DoDataExchange (vtable 0x005c8414: the combo box 0x430 at +0x6c) |
 | 0x004a4cc0 | 8 | folded | returns a constant or a global |
 | 0x004a4cd0 | 29 | folded | covered by the port where it names it (src/mech3/game_editor_net.cpp:230) |
 | 0x004a4d90 | 21 | folded | covered by the port where it names it (src/mech3/game_editor_net.h:27) |
 | 0x004a4fa0 | 14 | folded | the scalar deleting destructor (the destructor, then delete) |
-| 0x004a50b0 | 9 | debug or dev tool: PORT (preserve) | the stealth object (the developers' fly camera; back burner in CLAUDE.md): a slot of its |
-| 0x004a50e0 | 28 | debug or dev tool: PORT (preserve) | the debug command 0x7e (0x004abbc0, 121 lines: a console of keyboard text and the network session; registered, but no key reaches it: app_keys.h:14, hud.md) and the stealth object's key handler (0x004a50e0: the fly camera, back burner) |
-| 0x004a5170 | 20 | folded | covered by the port where it names it (src/mech3/app_vehicle.cpp:474) |
+| 0x004a5170 | 20 | folded | covered by the port where it names it (src/mech3/app_vehicle.cpp:473) |
 | 0x004a51b0 | 30 | folded | covered: the stealth's controls (app_vehicle.cpp:604), the turret's slots, the sensors' vector instances (ai.md 15), the vehicles' list instances, the controls' constant virtuals (controls.md), the weapon lists, the firing's thunks, start-up statics |
 | 0x004a5260 | 8 | folded | returns a constant or a global |
 | 0x004a5270 | 8 | folded | returns a constant or a global |
-| 0x004a5640 | 23 | folded | covered by the port where it names it (src/mech3/veh_stealth.cpp:190) |
-| 0x004a5850 | 27 | folded | covered by the port where it names it (src/mech3/veh_stealth.cpp:99) |
-| 0x004a5a50 | 21 | folded | covered by the port where it names it (src/mech3/app_vehicle.cpp:403) |
+| 0x004a5640 | 23 | folded | covered by the port where it names it (src/mech3/veh_stealth.cpp:213) |
+| 0x004a5850 | 27 | folded | covered by the port where it names it (src/mech3/veh_stealth.cpp:103) |
+| 0x004a5a50 | 21 | folded | covered by the port where it names it (src/mech3/app_vehicle.cpp:402) |
 | 0x004a5b20 | 13 | folded | covered by the port where it names it (src/mech3/veh_stealth.h:22) |
 | 0x004a5b50 | 10 | folded | returns a constant or a global |
 | 0x004a5b70 | 11 | folded | covered by the port where it names it (src/mech3/mech_fieldbase.cpp:262) |
@@ -1524,7 +1514,7 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x004ab500 | 63 | folded | covered where the port does it: src/crt/msvc_sort.h:7 (read: a destructor, a container insert or assign, or the work beside the function that comment names) |
 | 0x004ab620 | 38 | folded | covered by the port where it names it (src/crt/msvc_sort.h:7) |
 | 0x004abaf0 | 25 | folded | covered by the port where it names it (src/mech3/mech_build.cpp:318) |
-| 0x004abbc0 | 121 | debug or dev tool: PORT (preserve) | the debug command 0x7e (0x004abbc0, 121 lines: a console of keyboard text and the network session; registered, but no key reaches it: app_keys.h:14, hud.md) and the stealth object's key handler (0x004a50e0: the fly camera, back burner) |
+| 0x004abbc0 | 121 | debug or dev tool: PORT (preserve) | the screenshot of debug command 0x7e (registered, but no key reaches it; app_keys.h): the screen saved as mw3_XXXXXX.bmp (_mktemp), or under the lobby session's name, by the writer 0x00519c20; with the screenshot writer (S6) |
 | 0x004abfe0 | 22 | replaced (SDL or the platform layer) | Win32: the exe's version info for the window title and menus (GetFileVersionInfoA; protection.md) and the OK/Cancel MessageBoxExA helper (the game's own box replaces it, W16) |
 | 0x004ac050 | 36 | folded | covered by the port where it names it (src/mech3/app_menus.cpp:1428) |
 | 0x004ac2c0 | 13 | folded | covered: the stealth's controls (app_vehicle.cpp:604), the turret's slots, the sensors' vector instances (ai.md 15), the vehicles' list instances, the controls' constant virtuals (controls.md), the weapon lists, the firing's thunks, start-up statics |
@@ -2442,7 +2432,7 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x004e07e0 | 17 | folded | covered by the port where it names it (src/mech3/zrdraiv.cpp:504) |
 | 0x004e0820 | 9 | folded | a thunk: one call to another function |
 | 0x004e0840 | 9 | folded | a thunk: one call to another function |
-| 0x004e0870 | 18 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:1174) |
+| 0x004e0870 | 18 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:1177) |
 | 0x004e0c20 | 16 | folded | the valve reader's records, actions and lists: constructors, destructors, factories and list helpers of classes ported in zrdrvalve/zai_valve |
 | 0x004e0c50 | 88 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
 | 0x004e0db0 | 59 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
@@ -3097,7 +3087,7 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x00576100 | 12 | folded | zUtil's search path lists: each user keeps its own path string (zsnd_init.cpp:223, mech_fieldbase.h:295, zinterp.cpp:240) and the file finder is the platform's (zimg_library.h:75, zsnd_parm.cpp:17, FIX (A)); the default list's free has nothing to free (mission-frame.md:184) |
 | 0x00576120 | 10 | folded | covered by the port where it names it (src/gamez/zreader/zreader.cpp:626) |
 | 0x00576140 | 40 | folded | zUtil's search path lists: each user keeps its own path string (zsnd_init.cpp:223, mech_fieldbase.h:295, zinterp.cpp:240) and the file finder is the platform's (zimg_library.h:75, zsnd_parm.cpp:17, FIX (A)); the default list's free has nothing to free (mission-frame.md:184) |
-| 0x00576250 | 12 | folded | covered by the port where it names it (src/mech3/app_engine.cpp:326) |
+| 0x00576250 | 12 | folded | covered by the port where it names it (src/mech3/app_engine.cpp:328) |
 | 0x00576270 | 15 | folded | zUtil's search path lists: each user keeps its own path string (zsnd_init.cpp:223, mech_fieldbase.h:295, zinterp.cpp:240) and the file finder is the platform's (zimg_library.h:75, zsnd_parm.cpp:17, FIX (A)); the default list's free has nothing to free (mission-frame.md:184) |
 | 0x005762b0 | 48 | folded | zUtil's search path lists: each user keeps its own path string (zsnd_init.cpp:223, mech_fieldbase.h:295, zinterp.cpp:240) and the file finder is the platform's (zimg_library.h:75, zsnd_parm.cpp:17, FIX (A)); the default list's free has nothing to free (mission-frame.md:184) |
 | 0x005763b0 | 17 | folded | covered by the port where it names it (src/gamez/zinterp/zinterp.cpp:240) |
@@ -3313,73 +3303,6 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x005a7f90 | 25 | folded | a destructor (the exception unwinds call it; it resets the vtable) |
 | 0x005a80c0 | 9 | folded | a thunk: one call to another function |
 
-### zinterp (62 not ported)
-
-| Address | Lines | Class | Why |
-|---|---|---|---|
-| 0x00594dc0 | 9 | folded | a thunk: one call to another function |
-| 0x00594e50 | 9 | folded | a thunk: one call to another function |
-| 0x00594e90 | 9 | folded | a thunk: one call to another function |
-| 0x00594ec0 | 98 | folded | the script log line's formatter, covered where named (zinterp.cpp:288) |
-| 0x00594f90 | 33 | folded | covered by the port where it names it (src/gamez/zinterp/zinterp.cpp:303) |
-| 0x00595449 | 22 | folded | a piece of the ported function before it (Ghidra split it there) (0x00595440) |
-| 0x00595b10 | 27 | folded | covered by the port where it names it (src/gamez/zinterp/zinterp.cpp:405) |
-| 0x00595b60 | 26 | folded | covered by the port where it names it (src/gamez/zinterp/zinterp.cpp:406) |
-| 0x00595da0 | 19 | folded | covered by the port where it names it (src/gamez/zinterp/zinterp.cpp:267) |
-| 0x00595e20 | 16 | folded | covered by the port where it names it (src/gamez/zinterp/zinterp.cpp:271) |
-| 0x00595e40 | 15 | folded | covered by the port where it names it (src/gamez/zinterp/zinterp.cpp:407) |
-| 0x005960a0 | 27 | debug or dev tool: PORT (preserve) | the hidden GameZ Interpreter console (0x005960a0: a 2D console window that runs typed script lines through 0x00595510; its destructor and line runner; toggled by 0x004810d0, which nothing reaches: interp.md:532, discoveries.md:1532) |
-| 0x00596150 | 14 | folded | the scalar deleting destructor (the destructor, then delete) |
-| 0x00596170 | 14 | debug or dev tool: PORT (preserve) | the hidden GameZ Interpreter console (0x005960a0: a 2D console window that runs typed script lines through 0x00595510; its destructor and line runner; toggled by 0x004810d0, which nothing reaches: interp.md:532, discoveries.md:1532) |
-| 0x00596190 | 15 | debug or dev tool: PORT (preserve) | the hidden GameZ Interpreter console (0x005960a0: a 2D console window that runs typed script lines through 0x00595510; its destructor and line runner; toggled by 0x004810d0, which nothing reaches: interp.md:532, discoveries.md:1532) |
-| 0x005961d0 | 31 | replaced (SDL or the platform layer) | a text object's font set from a GDI font handle (GetObjectA into a LOGFONT; twod.h:319): the SDL text host keeps fonts by name |
-| 0x00596260 | 9 | folded | a thunk: one call to another function |
-| 0x00596270 | 9 | folded | a thunk: one call to another function |
-| 0x00596900 | 9 | folded | a thunk: one call to another function |
-| 0x00596910 | 9 | folded | a thunk: one call to another function |
-| 0x00596930 | 62 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
-| 0x00596a70 | 30 | unused: PORT (preserve) | list teardown helpers whose callers (0x00596930, 0x00596c60) nothing reaches |
-| 0x00596b00 | 45 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
-| 0x00596bd0 | 22 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
-| 0x00596c50 | 9 | folded | a thunk: one call to another function |
-| 0x00596c60 | 9 | folded | a thunk: one call to another function |
-| 0x00596c80 | 56 | unused: PORT (preserve) | list teardown helpers whose callers (0x00596930, 0x00596c60) nothing reaches |
-| 0x00596e10 | 58 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
-| 0x00596f70 | 316 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
-| 0x005974a0 | 31 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
-| 0x00597530 | 48 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
-| 0x005975e0 | 49 | software renderer | SetPaletteName: the 8-bit palette file into 0x00802918 and its brightness step 0x00597680 (only the software path uses a palette; interp.md, the commands the shipped scripts never use) |
-| 0x00597680 | 92 | software renderer | SetPaletteName's palette brightness step for the 8-bit palette (0x005975e0's helper; only the software path uses a palette) |
-| 0x00597e60 | 25 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
-| 0x00597eb0 | 12 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
-| 0x00597ed0 | 12 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
-| 0x00597ef0 | 40 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
-| 0x00597f30 | 19 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
-| 0x00597f60 | 14 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
-| 0x00597fc0 | 55 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
-| 0x00598100 | 25 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
-| 0x00598150 | 11 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
-| 0x00598160 | 12 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
-| 0x00598190 | 16 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
-| 0x005981b0 | 8 | folded | returns a constant or a global |
-| 0x005981c0 | 17 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
-| 0x005981e0 | 12 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
-| 0x00598330 | 38 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
-| 0x00598360 | 35 | folded | covered by the port where it names it (src/gamez/zutil/zutl_reg.h:42) |
-| 0x005983c0 | 59 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
-| 0x005984a0 | 10 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
-| 0x005984e0 | 8 | folded | returns a constant or a global |
-| 0x00598530 | 8 | folded | returns a constant or a global |
-| 0x00598580 | 35 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
-| 0x005985d0 | 56 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
-| 0x005986c0 | 48 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
-| 0x005987d0 | 59 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
-| 0x005988c0 | 110 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
-| 0x00598ae0 | 12 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
-| 0x00598b00 | 16 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
-| 0x00598b30 | 66 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
-| 0x00598c80 | 13 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
-
 ### zimage (60 not ported)
 
 | Address | Lines | Class | Why |
@@ -3444,6 +3367,70 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x00519fa0 | 52 | unused: PORT (preserve) | zFont, the bitmap fonts from fonts.zrd: loaded at start-up (0x00519e50), split into glyphs, measured by id (0x0051a0d0), freed (0x00519f70), but nothing in 1.2 draws them (app_engine.cpp:318, twod.md section 4) |
 | 0x0051a080 | 30 | unused: PORT (preserve) | zFont, the bitmap fonts from fonts.zrd: loaded at start-up (0x00519e50), split into glyphs, measured by id (0x0051a0d0), freed (0x00519f70), but nothing in 1.2 draws them (app_engine.cpp:318, twod.md section 4) |
 | 0x0051a0d0 | 51 | unused: PORT (preserve) | zFont, the bitmap fonts from fonts.zrd: loaded at start-up (0x00519e50), split into glyphs, measured by id (0x0051a0d0), freed (0x00519f70), but nothing in 1.2 draws them (app_engine.cpp:318, twod.md section 4) |
+
+### zinterp (59 not ported)
+
+| Address | Lines | Class | Why |
+|---|---|---|---|
+| 0x00594dc0 | 9 | folded | a thunk: one call to another function |
+| 0x00594e50 | 9 | folded | a thunk: one call to another function |
+| 0x00594e90 | 9 | folded | a thunk: one call to another function |
+| 0x00594ec0 | 98 | folded | the script log line's formatter, covered where named (zinterp.cpp:288) |
+| 0x00594f90 | 33 | folded | covered by the port where it names it (src/gamez/zinterp/zinterp.cpp:303) |
+| 0x00595449 | 22 | folded | a piece of the ported function before it (Ghidra split it there) (0x00595440) |
+| 0x00595b10 | 27 | folded | covered by the port where it names it (src/gamez/zinterp/zinterp.cpp:405) |
+| 0x00595b60 | 26 | folded | covered by the port where it names it (src/gamez/zinterp/zinterp.cpp:406) |
+| 0x00595da0 | 19 | folded | covered by the port where it names it (src/gamez/zinterp/zinterp.cpp:267) |
+| 0x00595e20 | 16 | folded | covered by the port where it names it (src/gamez/zinterp/zinterp.cpp:271) |
+| 0x00595e40 | 15 | folded | covered by the port where it names it (src/gamez/zinterp/zinterp.cpp:407) |
+| 0x00596150 | 14 | folded | the scalar deleting destructor (the destructor, then delete) |
+| 0x005961d0 | 31 | replaced (SDL or the platform layer) | a text object's font set from a GDI font handle (GetObjectA into a LOGFONT; twod.h:319): the SDL text host keeps fonts by name |
+| 0x00596260 | 9 | folded | a thunk: one call to another function |
+| 0x00596270 | 9 | folded | a thunk: one call to another function |
+| 0x00596900 | 9 | folded | a thunk: one call to another function |
+| 0x00596910 | 9 | folded | a thunk: one call to another function |
+| 0x00596930 | 62 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
+| 0x00596a70 | 30 | unused: PORT (preserve) | list teardown helpers whose callers (0x00596930, 0x00596c60) nothing reaches |
+| 0x00596b00 | 45 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
+| 0x00596bd0 | 22 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
+| 0x00596c50 | 9 | folded | a thunk: one call to another function |
+| 0x00596c60 | 9 | folded | a thunk: one call to another function |
+| 0x00596c80 | 56 | unused: PORT (preserve) | list teardown helpers whose callers (0x00596930, 0x00596c60) nothing reaches |
+| 0x00596e10 | 58 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
+| 0x00596f70 | 316 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
+| 0x005974a0 | 31 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
+| 0x00597530 | 48 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
+| 0x005975e0 | 49 | software renderer | SetPaletteName: the 8-bit palette file into 0x00802918 and its brightness step 0x00597680 (only the software path uses a palette; interp.md, the commands the shipped scripts never use) |
+| 0x00597680 | 92 | software renderer | SetPaletteName's palette brightness step for the 8-bit palette (0x005975e0's helper; only the software path uses a palette) |
+| 0x00597e60 | 25 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
+| 0x00597eb0 | 12 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
+| 0x00597ed0 | 12 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
+| 0x00597ef0 | 40 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
+| 0x00597f30 | 19 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
+| 0x00597f60 | 14 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
+| 0x00597fc0 | 55 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
+| 0x00598100 | 25 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
+| 0x00598150 | 11 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
+| 0x00598160 | 12 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
+| 0x00598190 | 16 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
+| 0x005981b0 | 8 | folded | returns a constant or a global |
+| 0x005981c0 | 17 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
+| 0x005981e0 | 12 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
+| 0x00598330 | 38 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
+| 0x00598360 | 35 | folded | covered by the port where it names it (src/gamez/zutil/zutl_reg.h:42) |
+| 0x005983c0 | 59 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
+| 0x005984a0 | 10 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
+| 0x005984e0 | 8 | folded | returns a constant or a global |
+| 0x00598530 | 8 | folded | returns a constant or a global |
+| 0x00598580 | 35 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
+| 0x005985d0 | 56 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
+| 0x005986c0 | 48 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
+| 0x005987d0 | 59 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
+| 0x005988c0 | 110 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
+| 0x00598ae0 | 12 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
+| 0x00598b00 | 16 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
+| 0x00598b30 | 66 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
+| 0x00598c80 | 13 | replaced (SDL or the platform layer) | the machine probe (fixes.md:289, (A)): CPUID and its vendor, family and MMX tests, the MHz timing loops (QueryPerformanceCounter, RDTSC, the CMOS port, Intel's cpuspeed with its divide by zero: protection.md:140), GlobalMemoryStatus and the DirectDraw caps; the port fills zutl_reg's Machine itself (zutl_reg.cpp:48) |
 
 ### zclass (52 not ported)
 
@@ -3520,7 +3507,7 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x00558120 | 16 | software renderer | SetPerspectiveTextureAdaptive: the software span's perspective step (read only at 0x0055f8bc), as its siblings 0x005580d0..0x00558170 (interp.md, the commands the shipped scripts never use) |
 | 0x00558140 | 13 | folded | covered by the port where it names it (src/gamez/zinterp/zinterp.cpp:125) |
 | 0x00558170 | 17 | folded | covered by the port where it names it (src/gamez/zinterp/zinterp.cpp:126) |
-| 0x00558250 | 16 | folded | covered by the port where it names it (src/mech3/app_engine.cpp:329) |
+| 0x00558250 | 16 | folded | covered by the port where it names it (src/mech3/app_engine.cpp:331) |
 | 0x00558d40 | 23 | software renderer | the software renderer: zRender's reset and span table (0x00557b20/30), its perspective step (SetPerspectiveTextureDeltaX), the mip toggle on a debug key (0x00557f70, only software reads [0x00800814]), the span fillers and depth spans, the 8- and 16-bit polygon fills and blits, the pixel-plotted lights and flares (weapon-effects.md:61), the fog and light table picks, the span buffer's init, clear and free and its screen pick (software-path.md:28,46) |
 | 0x0055a950 | 22 | folded | covered by the port where it names it (src/gamez/ztwod/twod_weather.cpp:132) |
 | 0x0055aa20 | 262 | software renderer | the software renderer: zRender's reset and span table (0x00557b20/30), its perspective step (SetPerspectiveTextureDeltaX), the mip toggle on a debug key (0x00557f70, only software reads [0x00800814]), the span fillers and depth spans, the 8- and 16-bit polygon fills and blits, the pixel-plotted lights and flares (weapon-effects.md:61), the fog and light table picks, the span buffer's init, clear and free and its screen pick (software-path.md:28,46) |
@@ -3564,8 +3551,8 @@ Fixed 2026-11-13 (mac5/broken-five), the five rows this table had: the radar's v
 | 0x005a80d0 | 12 | folded | covered by the port where it names it (src/mech3/app_mech.cpp:510) |
 | 0x005a80f0 | 54 | folded | ported, by docs/symbols.csv: ported for the turrets (app_turret.cpp): the zone record of the ground under the node, the camera's zone onto it |
 | 0x005a8210 | 45 | folded | zEntity's list and its entries, covered where named: by name (app_vehicle.h:188), the position getters, the node's name (app_mech.cpp:831), the moved slot vt+0x1c (Mech::entity_moved, app_sensors.cpp:219, app_mech.cpp:526; the sensors' mech fallback at app_sensors.cpp:133 only logs and no port code calls it), the manager's set-up (zent_manager.h:18), add and remove (app_mission.cpp:1822-1826) |
-| 0x005a8280 | 28 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:1642) |
-| 0x005a82b8 | 17 | folded | follows 0x005a8280: covered by the port where it names it (src/mech3/app_mission.cpp:1642) |
+| 0x005a8280 | 28 | folded | covered by the port where it names it (src/mech3/app_mission.cpp:1645) |
+| 0x005a82b8 | 17 | folded | follows 0x005a8280: covered by the port where it names it (src/mech3/app_mission.cpp:1645) |
 | 0x005a82e0 | 14 | folded | zEntity's list and its entries, covered where named: by name (app_vehicle.h:188), the position getters, the node's name (app_mech.cpp:831), the moved slot vt+0x1c (Mech::entity_moved, app_sensors.cpp:219, app_mech.cpp:526; the sensors' mech fallback at app_sensors.cpp:133 only logs and no port code calls it), the manager's set-up (zent_manager.h:18), add and remove (app_mission.cpp:1822-1826) |
 | 0x005a8310 | 19 | folded | covered by the port where it names it (src/mech3/mech_build.cpp:279) |
 | 0x005a8350 | 14 | folded | the scalar deleting destructor (the destructor, then delete) |

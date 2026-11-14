@@ -533,19 +533,25 @@ More from the emulator check:
   in effect, `world/weapons/vehicles/effects/cN_mp.gw` (dead branch only).
   `cN_mp.gw` places the mobile field bases (`mfb_stationNN`). The script
   timestamps run from 1998-06-29 to 1999-04-30.
-- **Hidden debug console, "GameZ Interpreter".** 0x5960a0 builds a zTwoD text
-  window titled "GameZ Interpreter" (0x5f42ac). It sets the log callback
-  (+0x70 = 0x596130) and byte +4, and runs each typed line through
-  `exec_line` (0x596190; it likely echoes the line into the window first). It is toggled by
-  0x4810d0 (global 0x608f74) through 0x480b20, reached from action code
-  **0xa3** of the debug-key handler 0x40dba0 (case 25, jump table 0x40de34).
-  0x40db60 registers 0x40dba0 only for codes 0x61, 0x70 and 0x6c ('a', 'p',
-  'l') and registers 0x4abbc0 for 0x7e, so 0xa3 is **likely unreachable in
-  1.2** (not traced further). With the console open, a player could type any
-  command above, plus `who`, `var gravity = 10`, `var DamageScale = 0`,
-  `WorldSetGravity 5`, `echo`, `PrintTree`, `NodeDump`, `CameraSetFOV` and so
-  on. That makes it the natural home for a "GameZ cheat console" in the
-  rebuild.
+- **Hidden debug console, "GameZ Interpreter".** 0x5960a0 builds zTwoD's
+  console (twod_console) titled "GameZ Interpreter" (0x5f42ac). It sets the
+  interpreter's log callback (+0x70 = 0x596130: each message a new line of
+  the console) and its byte +4 (the node dump's prompt), and its Enter
+  (+0xd0, 0x596190) keeps the line and runs the text after the "> " through
+  `exec_line` (0x595510). The app toggles it (0x4810d0 through 0x480b20,
+  global 0x608f74: made, or the one up deleted) from debug command **0xa3**
+  of the key switch 0x40dba0, which no key or file binds in the release
+  (keybindings.md), so the shipped game never shows it. While up it is drawn
+  instead of the cockpit (0x0041ab90). With the console open, a developer
+  could type any command above, plus `who`, `var gravity = 10`,
+  `var DamageScale = 0`, `WorldSetGravity 5`, `echo`, `PrintTree`,
+  `NodeDump`, `CameraSetFOV` and so on. Ported for preservation
+  (`zint::InterpConsole`, zinterp_console.cpp; the app's toggle
+  `interp_console_toggle`; test `interp_console_runs_its_lines_and_prints_the_interpreters_messages`).
+  It is the natural home for a "GameZ cheat console" in the rebuild.
+  Pirate's Moon (0x5b8210) is the same, its toggle only asking it closed
+  for the next frame, and adds the command `PrintChildren` (0x5b2c60): the
+  current node's children's names (pm-tests.md, S5).
 - **Modding the scripts.** Because of the staleness check (0x596620), a loose
   copy of any archived script, at the same relative path (`Support\c1.gw`,
   `c1.gs`) and with a different mtime, makes the game **reject the whole
