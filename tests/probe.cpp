@@ -898,7 +898,15 @@ int probe_make_shadows(const char* path, uint8_t* out, int cap, uint32_t* stats)
 
 // test_write_zbd.py: `path` read (0x004ff520), then written back as "out.zbd" in the write folder `dir`
 // (0x004fe8e0). out: the two results, the reports (level, line) after the read.
+int probe_write_zbd_cycle0(const char* path, const char* dir, int32_t* out, int cap);
 int probe_write_zbd(const char* path, const char* dir, int32_t* out, int cap) {
+  return probe_write_zbd_cycle0(path, dir, out, -cap);
+}
+// As probe_write_zbd; with cap > 0 the first used cycled material's cycle is given no textures before the write
+// (no file has one: the reader refuses it), with cap < 0 (-cap) none is.
+int probe_write_zbd_cycle0(const char* path, const char* dir, int32_t* out, int cap) {
+  const bool empty_cycle = cap > 0;
+  cap = cap < 0 ? -cap : cap;
   zimg::textures().count = 0;
   zimg::textures().group = 3;
   zmod::materials() = zmod::MaterialTable{};
@@ -906,6 +914,14 @@ int probe_write_zbd(const char* path, const char* dir, int32_t* out, int cap) {
   zvid::set_pixel_format(5, 6, 5);
   reset_world_state(-1);
   out[0] = zcls::read_zbd(path);
+  if (empty_cycle) {
+    zmod::MaterialTable& t = zmod::materials();
+    for (int32_t i = t.used_head; i >= 0; i = t.at(i).next)
+      if (t.at(i).flags & 4) {
+        t.at(i).cycle->texture_count = 0;
+        break;
+      }
+  }
   g_reports.clear();
   zerr::set_sink(record_report);
   const zutl::Mounts saved = zutl::mounts();
@@ -999,6 +1015,17 @@ int probe_destroy_op(int op, int a, int b, int c) {
     case 13: return classes_reset();
     case 14: return node_set_model(n, b >= 0 ? zmod::model_at(b) : nullptr);
     case 15: return reread(n, b);
+    case 16: {  // test_destroy's: an object3d added under n posing as class b (-1 its own), data null with c
+      Node* o = object3d_create();
+      const int32_t cls = n->cls();
+      void* data = n->data;
+      if (b >= 0) n->put<int32_t>(0x34, b);
+      if (c) n->data = nullptr;
+      const int r = node_add_child(n, o);
+      n->put<int32_t>(0x34, cls);
+      n->data = data;
+      return idx(o) * 8 + r;
+    }
     default: return -99;
   }
 }
