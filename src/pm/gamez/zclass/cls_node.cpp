@@ -2,6 +2,7 @@
 
 #include <cstdio>
 
+#include "gamez/zclass/camera.h"
 #include "gamez/zclass/cls_data.h"
 #include "gamez/zclass/cls_node.h"
 #include "gamez/zclass/list.h"
@@ -9,6 +10,7 @@
 #include "gamez/zerror/zerr.h"
 #include "gamez/zmodel/gmod_const.h"
 #include "pm/gamez/zmodel/gmod_const.h"
+#include "pm/gamez/zclass/cls_world.h"
 #include "pm/gamez/zclass/light.h"
 
 namespace pm::zcls {
@@ -52,6 +54,43 @@ int node_model_box(Node* node) {
 }
 
 uint8_t* node_model_header(const Node* node) { return node->pm_model ? node->pm_model->header : nullptr; }
+
+namespace {
+// Pirate's Moon 1.0 @ 0x0050f9c0, 0x00515380, 0x00514c50: MW3's object3d, animate and switch adds
+// (0x004fb7a0, 0x004fd8c0, 0x004fd1e0) with PM's files and lines.
+int class_add(Node* parent, Node* child, const char* file, int line, bool data) {
+  if (!parent) return zerr::report(0x400, file, line, "Null node pointer."), 5;
+  if (!child) return zerr::report(0x400, file, line + 1, "Null node pointer."), 5;
+  if (data && !parent->data) return zerr::report(0x400, file, line + 2, "Null class data pointer"), 5;
+  return ::zcls::node_link(parent, child);
+}
+}  // namespace
+
+// Pirate's Moon 1.0 @ 0x004fd5e0
+int node_add_child(Node* parent, Node* child) {
+  if (!child) return zerr::report(0x400, kClassFile, 0x85e, "Null node pointer."), 5;
+  if (!parent) return zerr::report(0x400, kClassFile, 0x85f, "Null node pointer."), 5;
+  if (parent == child) return 1;
+  const char* fmt;
+  int line;
+  switch (parent->cls()) {
+    case 1: return ::zcls::camera_add_child(parent, child);  // 0x00506760 (camera.cpp, PM's through the table)
+    case 2: return world_add_child(parent, child);           // 0x00505ea0
+    case 3: case 4: case 9: case 10: return ::zcls::node_link(parent, child);  // 0x004fd6f0
+    case 5: return class_add(parent, child, "C:\\zipper\\branchep1\\gamez\\zClass\\Object3d.c", 0x17e, true);
+    case 6: return ::zcls::node_link(parent, child);         // 0x00515bb0
+    case 7:
+      fmt = "%s: Line %d: ERROR: Please use dedicated function gwSequenceAddChild() for node: %s\n", line = 0x882;
+      break;
+    case 8: return class_add(parent, child, "C:\\zipper\\branchep1\\gamez\\zClass\\Animate.c", 0x8d, false);
+    case 11: return class_add(parent, child, "C:\\zipper\\branchep1\\gamez\\zClass\\Switch.c", 0x80, true);
+    default: fmt = "%s: Line %d: ERROR: Unrecognized node class type for node: %s\n", line = 0x89a; break;
+  }
+  char msg[160];
+  std::snprintf(msg, sizeof msg, fmt, kClassFile, line, parent->name());
+  zerr::report(1, "C:\\zipper\\branchep1\\gamez\\zError\\zerr_old.c", 0x23, msg);  // 0x00527250(1)
+  return 1;
+}
 
 int node_set_active(Node* node, int on) {
   if (!node) return zerr::report(0x400, kClassFile, 0x4cd, "Null node pointer."), 5;

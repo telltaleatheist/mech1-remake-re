@@ -828,6 +828,9 @@ if(MW3_BUILD_PM)
   target_sources(pmprobe PRIVATE tests/probe_script_cmds.cpp tests/probe_pm_script_cmds.cpp)
   target_sources(pmprobe PRIVATE tests/probe_basic_controls.cpp tests/probe_basic_follow.cpp)
   target_sources(pmprobe PRIVATE tests/probe_net105.cpp)  # test_net105.py with MW3_EXE=pm
+  target_sources(pmprobe PRIVATE tests/probe_pm_add_child.cpp)  # test_pm_add_child.py
+  # Groups 1 and 2 on PM's exe (MW3_EXE=pm): the effect table, the screen wave, Movie2D and Line2D
+  target_sources(pmprobe PRIVATE tests/probe_effects.cpp tests/probe_tint.cpp tests/probe_movie2d.cpp)
   target_sources(pmprobe PRIVATE tests/probe_pm_pocket.cpp)
   target_sources(pmprobe PRIVATE tests/probe_pm_allies.cpp)
   target_sources(pmprobe PRIVATE tests/probe_mech_net.cpp)

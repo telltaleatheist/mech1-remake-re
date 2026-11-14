@@ -56,6 +56,7 @@ struct Table {
   int (*zcls_world_make_grid)(zcls::Node* world, float x, float z);     // 0x004f2560; PM 0x00505820
   int (*zcls_node_bound_box)(zcls::Node* node);           // 0x004ecc00; PM 0x004fe740
   int (*zcls_node_set_active)(zcls::Node* node, int on);  // 0x004eb170; PM 0x004fca50
+  int (*zcls_node_add_child)(zcls::Node* parent, zcls::Node* child);  // 0x004eb9b0; PM 0x004fd5e0 (its files' report lines)
   int (*zcls_node_model_box)(zcls::Node* node);          // 0x004ed220; PM 0x004fef40 (its model type)
   uint8_t* (*zcls_node_model_header)(const zcls::Node* node);  // ours: the model's header, null without one
   zcls::Node* (*zcls_light_create)();                    // 0x004fa720; PM 0x0050e470
