@@ -69,13 +69,13 @@ produces; the label names the compared value. Reaching a function, or running a 
 
 | Class | Functions |
 |---|---|
-| folded | 4092 |
+| folded | 4090 |
 | replaced (SDL or the platform layer) | 270 |
 | software renderer | 115 |
 | MISSING LOGIC | 88 |
 | unused: PORT (preserve) | 54 |
 | dev dialog (MFC), its window plumbing: replaced | 53 |
-| dev dialog (MFC), its logic: PORT (preserve) | 37 |
+| dev dialog (MFC), its logic: PORT (preserve) | 28 |
 
 ## MISSING LOGIC
 
@@ -101,10 +101,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 
 - 1 functions, 59 decomp lines (0x004be2b0): read: the vehicle editor's strategies by number (MW3's 0x004b7d80, game_editor_vehicles.cpp:35 strategy_name: [0x0060b2f8]'s map made at start-up) with PM's more strategies (the numbers 5..7 added); the port's editor is MW3's
 - 2 functions, 188 decomp lines (0x004bf810, 0x004c1cb0): pm only, the vehicle editor (a dev tool): PM's Attack page (MW3's 0x004b92f0, game_editor_vehicles.cpp:285 attack_exchange) takes a strategy pick below 8 where MW3's takes below 5 (PM's more attack strategies), and PM's apply (MW3's 0x004bb7e0, :535) compares and puts PM's longer AI record (its new words); the port's editor is MW3's. To carry when the editor serves PM
-- 1 functions, 9 decomp lines (0x004c17d0): as MW3 0x004bb2e0: the vehicle editor's list fills (each valve, each region by name into a combo box); covered in the port by game_editor_vehicles 0x004bb300 / 0x004bb620 (valve and region lists)
-- 1 functions, 12 decomp lines (0x004c1ac0): as MW3 0x004bb5f0: the vehicle editor's list fills (each valve, each region by name into a combo box); covered in the port by game_editor_vehicles 0x004bb300 / 0x004bb620 (valve and region lists)
 - 9 functions, 342 decomp lines (0x004c2ea0, 0x004c2ec0, 0x004c2ee0, 0x004c31c0 ...): read: the vehicle editor's attack strategy names (a static table at [0x0062f920] of numbered names: Direct, Zig Zag, Circle, Random Move, Strafe..., made by 0x004c31c0 at start-up through 0x004c3280 and sorted by 0x004c2ee0, eight slots, with the STL's sort pieces 0x004c3550 / 0x004c3680 / 0x004c3750 / 0x004c37c0 and the comparisons 0x004c2ea0 / 0x004c2ec0), read only by the editor's strategy list; the port's editor is MW3's (game_editor_vehicles.cpp)
-- 7 functions, 165 decomp lines (0x004c3290, 0x004c32f0, 0x004c3320, 0x004c3380 ...): read: PM's AI tester dialog's handlers (a CWnd's UpdateData and its page's vehicle and brain asked through their slots; MFC message map entries), the debug menu's AI tester; the port's editor is MW3's (game_editor_vehicles.cpp)
 - 1 functions, 12 decomp lines (0x004d4000): as MW3 0x004c9140: read: the steps' link editing (Step's vt+0x30..+0x44, vtable 0x005cb3d0, and the node steps' vt+0x30..+0x50, vtables 0x005cbf3c, 0x005cc6fc, 0x005cc7b4): set, compare, find or count a link (+0x0c / +0x20) from a picked element's behaviour (its vt+0x60 then +0x74), the node's position set: the AI path editor's (ZAiNetEdit's editing side, to port behind --debug, docs/ai.md The developer tools). No run-time caller found: the port's AI, emulator-checked on every shipped net (compile, pilot, orders), has no such slots, and no passing PM AI test reaches the PM twins (block trace); the virtual calls through these offsets could not all be typed statically
 - 1 functions, 55 decomp lines (0x004d4080): as MW3 0x004c9180: read: the steps' link editing (Step's vt+0x30..+0x44, vtable 0x005cb3d0, and the node steps' vt+0x30..+0x50, vtables 0x005cbf3c, 0x005cc6fc, 0x005cc7b4): set, compare, find or count a link (+0x0c / +0x20) from a picked element's behaviour (its vt+0x60 then +0x74), the node's position set: the AI path editor's (ZAiNetEdit's editing side, to port behind --debug, docs/ai.md The developer tools). No run-time caller found: the port's AI, emulator-checked on every shipped net (compile, pilot, orders), has no such slots, and no passing PM AI test reaches the PM twins (block trace); the virtual calls through these offsets could not all be typed statically
 - 1 functions, 20 decomp lines (0x004d4170): as MW3 0x004c9260: read: the steps' link editing (Step's vt+0x30..+0x44, vtable 0x005cb3d0, and the node steps' vt+0x30..+0x50, vtables 0x005cbf3c, 0x005cc6fc, 0x005cc7b4): set, compare, find or count a link (+0x0c / +0x20) from a picked element's behaviour (its vt+0x60 then +0x74), the node's position set: the AI path editor's (ZAiNetEdit's editing side, to port behind --debug, docs/ai.md The developer tools). No run-time caller found: the port's AI, emulator-checked on every shipped net (compile, pilot, orders), has no such slots, and no passing PM AI test reaches the PM twins (block trace); the virtual calls through these offsets could not all be typed statically
@@ -180,7 +177,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 
 ## By module
 
-### mech3ep1 (3083 not ported)
+### mech3ep1 (3072 not ported)
 
 | Address | Lines | Class | Why |
 |---|---|---|---|
@@ -1825,7 +1822,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x004a0750 | 9 | folded | a thunk: one call to another function |
 | 0x004a0a20 | 12 | folded | read: the scalar deleting destructor (the destructor 0x00403a70, then delete when bit 0 is set); the port deletes its objects itself, the destructor labelled on its own row |
 | 0x004a0a40 | 16 | dev dialog (MFC), its window plumbing: replaced | as MW3 0x0049d660: MFC plumbing of the editor's dialogs (DDX, UpdateData, OnDestroy, DoModal, a static list) |
-| 0x004a0ae0 | 8 | folded | covered by the port where it names it (src/mech3/app_states.h:116) |
+| 0x004a0ae0 | 8 | folded | covered by the port where it names it (src/mech3/ai_tester_pm.h:9) |
 | 0x004a0af0 | 8 | folded | returns a constant or a global |
 | 0x004a0c90 | 12 | dev dialog (MFC), its window plumbing: replaced | as MW3 0x0049d8b0: MFC plumbing of the editor's dialogs (DDX, UpdateData, OnDestroy, DoModal, a static list) |
 | 0x004a0dd0 | 15 | folded | the same as its MW3 twin (identical, or passed by the feature compare 7f6e9e10), so it is what MW3's twin is in the port |
@@ -2207,12 +2204,8 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x004c16a0 | 19 | folded | C++ library container code (a std::map, set or list instance); the port uses its own containers |
 | 0x004c16e0 | 13 | folded | as MW3 0x004bb1e0: the vehicle editor's logic and the AI parameters it edits, ported in game_editor_vehicles / zai_params / zrdraiv (their comments name these): the vehicle list, the valve and region lists, the params' comparisons, the vlist's appends and defaults; the firing plan's std algorithms |
 | 0x004c1700 | 32 | folded | as MW3 0x004bb200: the vehicle editor's logic and the AI parameters it edits, ported in game_editor_vehicles / zai_params / zrdraiv (their comments name these): the vehicle list, the valve and region lists, the params' comparisons, the vlist's appends and defaults; the firing plan's std algorithms |
-| 0x004c1780 | 16 | folded | covered by the port where it names it (src/mech3/game_editor_vehicles.cpp:887) |
-| 0x004c17d0 | 9 | dev dialog (MFC), its logic: PORT (preserve) | as MW3 0x004bb2e0: the vehicle editor's list fills (each valve, each region by name into a combo box); covered in the port by game_editor_vehicles 0x004bb300 / 0x004bb620 (valve and region lists) |
-| 0x004c17f0 | 16 | folded | read after the feature compare's flags: MW3's vehicle editor dialog function (the AI tester's pages, game_editor_vehicles.cpp) with PM's dialog layout: the only changed immediates are member offsets moved by +0x20, +0x40 or +0x80 (PM's dialog classes are larger) |
+| 0x004c1780 | 16 | folded | covered by the port where it names it (src/mech3/game_editor_vehicles.cpp:898) |
 | 0x004c1870 | 59 | folded | as MW3 0x004bb390: the vehicle editor's logic and the AI parameters it edits, ported in game_editor_vehicles / zai_params / zrdraiv (their comments name these): the vehicle list, the valve and region lists, the params' comparisons, the vlist's appends and defaults; the firing plan's std algorithms |
-| 0x004c1ac0 | 12 | dev dialog (MFC), its logic: PORT (preserve) | as MW3 0x004bb5f0: the vehicle editor's list fills (each valve, each region by name into a combo box); covered in the port by game_editor_vehicles 0x004bb300 / 0x004bb620 (valve and region lists) |
-| 0x004c1af0 | 16 | folded | read after the feature compare's flags: MW3's vehicle editor dialog function (the AI tester's pages, game_editor_vehicles.cpp) with PM's dialog layout: the only changed immediates are member offsets moved by +0x20, +0x40 or +0x80 (PM's dialog classes are larger) |
 | 0x004c1cb0 | 148 | dev dialog (MFC), its logic: PORT (preserve) | pm only, the vehicle editor (a dev tool): PM's Attack page (MW3's 0x004b92f0, game_editor_vehicles.cpp:285 attack_exchange) takes a strategy pick below 8 where MW3's takes below 5 (PM's more attack strategies), and PM's apply (MW3's 0x004bb7e0, :535) compares and puts PM's longer AI record (its new words); the port's editor is MW3's. To carry when the editor serves PM |
 | 0x004c21d0 | 14 | folded | as MW3 0x004bbd70: the vehicle editor's logic and the AI parameters it edits, ported in game_editor_vehicles / zai_params / zrdraiv (their comments name these): the vehicle list, the valve and region lists, the params' comparisons, the vlist's appends and defaults; the firing plan's std algorithms |
 | 0x004c2230 | 19 | folded | as MW3 0x004bbdd0: the vehicle editor's logic and the AI parameters it edits, ported in game_editor_vehicles / zai_params / zrdraiv (their comments name these): the vehicle list, the valve and region lists, the params' comparisons, the vlist's appends and defaults; the firing plan's std algorithms |
@@ -2231,13 +2224,6 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x004c2ee0 | 137 | dev dialog (MFC), its logic: PORT (preserve) | read: the vehicle editor's attack strategy names (a static table at [0x0062f920] of numbered names: Direct, Zig Zag, Circle, Random Move, Strafe..., made by 0x004c31c0 at start-up through 0x004c3280 and sorted by 0x004c2ee0, eight slots, with the STL's sort pieces 0x004c3550 / 0x004c3680 / 0x004c3750 / 0x004c37c0 and the comparisons 0x004c2ea0 / 0x004c2ec0), read only by the editor's strategy list; the port's editor is MW3's (game_editor_vehicles.cpp) |
 | 0x004c31c0 | 26 | dev dialog (MFC), its logic: PORT (preserve) | read: the vehicle editor's attack strategy names (a static table at [0x0062f920] of numbered names: Direct, Zig Zag, Circle, Random Move, Strafe..., made by 0x004c31c0 at start-up through 0x004c3280 and sorted by 0x004c2ee0, eight slots, with the STL's sort pieces 0x004c3550 / 0x004c3680 / 0x004c3750 / 0x004c37c0 and the comparisons 0x004c2ea0 / 0x004c2ec0), read only by the editor's strategy list; the port's editor is MW3's (game_editor_vehicles.cpp) |
 | 0x004c3280 | 9 | dev dialog (MFC), its logic: PORT (preserve) | read: the vehicle editor's attack strategy names (a static table at [0x0062f920] of numbered names: Direct, Zig Zag, Circle, Random Move, Strafe..., made by 0x004c31c0 at start-up through 0x004c3280 and sorted by 0x004c2ee0, eight slots, with the STL's sort pieces 0x004c3550 / 0x004c3680 / 0x004c3750 / 0x004c37c0 and the comparisons 0x004c2ea0 / 0x004c2ec0), read only by the editor's strategy list; the port's editor is MW3's (game_editor_vehicles.cpp) |
-| 0x004c3290 | 25 | dev dialog (MFC), its logic: PORT (preserve) | read: PM's AI tester dialog's handlers (a CWnd's UpdateData and its page's vehicle and brain asked through their slots; MFC message map entries), the debug menu's AI tester; the port's editor is MW3's (game_editor_vehicles.cpp) |
-| 0x004c32f0 | 15 | dev dialog (MFC), its logic: PORT (preserve) | read: PM's AI tester dialog's handlers (a CWnd's UpdateData and its page's vehicle and brain asked through their slots; MFC message map entries), the debug menu's AI tester; the port's editor is MW3's (game_editor_vehicles.cpp) |
-| 0x004c3320 | 23 | dev dialog (MFC), its logic: PORT (preserve) | read: PM's AI tester dialog's handlers (a CWnd's UpdateData and its page's vehicle and brain asked through their slots; MFC message map entries), the debug menu's AI tester; the port's editor is MW3's (game_editor_vehicles.cpp) |
-| 0x004c3380 | 25 | dev dialog (MFC), its logic: PORT (preserve) | read: PM's AI tester dialog's handlers (a CWnd's UpdateData and its page's vehicle and brain asked through their slots; MFC message map entries), the debug menu's AI tester; the port's editor is MW3's (game_editor_vehicles.cpp) |
-| 0x004c33e0 | 23 | dev dialog (MFC), its logic: PORT (preserve) | read: PM's AI tester dialog's handlers (a CWnd's UpdateData and its page's vehicle and brain asked through their slots; MFC message map entries), the debug menu's AI tester; the port's editor is MW3's (game_editor_vehicles.cpp) |
-| 0x004c3440 | 31 | dev dialog (MFC), its logic: PORT (preserve) | read: PM's AI tester dialog's handlers (a CWnd's UpdateData and its page's vehicle and brain asked through their slots; MFC message map entries), the debug menu's AI tester; the port's editor is MW3's (game_editor_vehicles.cpp) |
-| 0x004c34f0 | 23 | dev dialog (MFC), its logic: PORT (preserve) | read: PM's AI tester dialog's handlers (a CWnd's UpdateData and its page's vehicle and brain asked through their slots; MFC message map entries), the debug menu's AI tester; the port's editor is MW3's (game_editor_vehicles.cpp) |
 | 0x004c3550 | 75 | dev dialog (MFC), its logic: PORT (preserve) | read: the vehicle editor's attack strategy names (a static table at [0x0062f920] of numbered names: Direct, Zig Zag, Circle, Random Move, Strafe..., made by 0x004c31c0 at start-up through 0x004c3280 and sorted by 0x004c2ee0, eight slots, with the STL's sort pieces 0x004c3550 / 0x004c3680 / 0x004c3750 / 0x004c37c0 and the comparisons 0x004c2ea0 / 0x004c2ec0), read only by the editor's strategy list; the port's editor is MW3's (game_editor_vehicles.cpp) |
 | 0x004c3680 | 17 | dev dialog (MFC), its logic: PORT (preserve) | read: the vehicle editor's attack strategy names (a static table at [0x0062f920] of numbered names: Direct, Zig Zag, Circle, Random Move, Strafe..., made by 0x004c31c0 at start-up through 0x004c3280 and sorted by 0x004c2ee0, eight slots, with the STL's sort pieces 0x004c3550 / 0x004c3680 / 0x004c3750 / 0x004c37c0 and the comparisons 0x004c2ea0 / 0x004c2ec0), read only by the editor's strategy list; the port's editor is MW3's (game_editor_vehicles.cpp) |
 | 0x004c36c0 | 36 | folded | covered by the port where it names it (src/mech3/zainet_inout.cpp:663) |
@@ -2930,7 +2916,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x004e9860 | 69 | folded | as MW3 0x004d9580: the vehicle editor's logic and the AI parameters it edits, ported in game_editor_vehicles / zai_params / zrdraiv (their comments name these): the vehicle list, the valve and region lists, the params' comparisons, the vlist's appends and defaults; the firing plan's std algorithms |
 | 0x004e9950 | 106 | folded | as MW3 0x004d9680: the vehicle editor's logic and the AI parameters it edits, ported in game_editor_vehicles / zai_params / zrdraiv (their comments name these): the vehicle list, the valve and region lists, the params' comparisons, the vlist's appends and defaults; the firing plan's std algorithms |
 | 0x004e9ae0 | 32 | folded | ported, by docs/symbols.csv: ported: PlayerControls::settings (an AiParams with the defaults) |
-| 0x004e9be0 | 37 | folded | covered by the port where it names it (src/mech3/game_editor_vehicles.cpp:536) |
+| 0x004e9be0 | 37 | folded | covered by the port where it names it (src/mech3/game_editor_vehicles.cpp:547) |
 | 0x004e9e70 | 11 | folded | as MW3 0x004d9bf0: AI support code ported or folded: start-up cosines (the port's constants), the params' vlist copies, squares and destructors (zai_params), the brain's destructor chain, the listeners' constructor and destructor, the steps' states |
 | 0x004e9fc0 | 9 | folded | a thunk: one call to another function |
 | 0x004e9fd0 | 24 | folded | as MW3 0x004d9cd0: AI support code ported or folded: start-up cosines (the port's constants), the params' vlist copies, squares and destructors (zai_params), the brain's destructor chain, the listeners' constructor and destructor, the steps' states |
@@ -3030,8 +3016,8 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x004f0720 | 9 | folded | a thunk: one call to another function |
 | 0x004f0740 | 12 | folded | covered by the port where it names it (src/mech3/zrdraiv.h:70) |
 | 0x004f0770 | 9 | folded | a thunk: one call to another function |
-| 0x004f07f0 | 10 | folded | covered by the port where it names it (src/mech3/game_editor_vehicles.cpp:590) |
-| 0x004f0810 | 11 | folded | covered by the port where it names it (src/mech3/game_editor_vehicles.cpp:554) |
+| 0x004f07f0 | 10 | folded | covered by the port where it names it (src/mech3/game_editor_vehicles.cpp:601) |
+| 0x004f0810 | 11 | folded | covered by the port where it names it (src/mech3/game_editor_vehicles.cpp:565) |
 | 0x004f0830 | 486 | folded | ported, checked by test: the aiv.zrd reader (MW3's 0x004df730, zrdraiv.cpp); tests/differential/test_pm_ai_nodes.py runs 0x004f0830 on every shipped aiv.zrd and compares the records (45 files, 961 records, 0 differ, 2026-11-13) |
 | 0x004f18d0 | 8 | folded | returns a constant or a global |
 | 0x004f1a40 | 9 | folded | read: covered where the port names it (briefing.cpp:513 and 871 PM's loadouts, pilot.h:346 the standalone rows, mech_damage.cpp:225 the headlight, app_hud.cpp:534 the radar's front, mech_config.cpp:951, pilot_games.cpp:635, mech_headlight.cpp:50, mech_waynet.h:70, mission_world.cpp:249, app_vehicle.cpp:623 the stealth controls, zai_brain.cpp:239, zainet_inout.cpp:382, zai_node.cpp:146, zai_walk_pm.cpp:441, zai_drive_pm.cpp:772, zrdraiv.cpp:581, mech_build.cpp:283, app_pocket.cpp:172, zrdraiv.h:66, zai_brain.cpp:1033, pm zeff_anim_events.h:28, zsnd_3d.cpp:27, zsnd_play.cpp:203 and 221) |
@@ -3934,7 +3920,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x005b1050 | 57 | folded | read: ZGameApp's destructor, MW3's 0x0058f8d0 with PM's addresses (the app's +0xc0 cleared, the state deque's blocks freed, then CWinApp's); the port's app frees its own (MFC's base replaced) |
 | 0x005b1180 | 12 | folded | read: the scalar deleting destructor (the destructor 0x005b1050, then delete when bit 0 is set); the port deletes its objects itself, the destructor labelled on its own row |
 | 0x005b11a0 | 18 | folded | as MW3 0x0058fa40: covered: the DirectPlay error names (znet_dplay.cpp:142 names each through localize), the sessions' list clear (znet_session.cpp:248), the net view's inlined steps (znet_view.cpp:68, :151), the net object's static, ZGameApp's base InitInstance and engine start (overridden by the app's 0x00480000 / 0x00480570, game-loop.md) |
-| 0x005b1200 | 12 | folded | covered by the port where it names it (src/gamez/zgame/zgameapp.cpp:59) |
+| 0x005b1200 | 12 | folded | covered by the port where it names it (src/mech3/ai_tester_pm.h:29) |
 | 0x005b1220 | 72 | folded | as MW3 0x0058fac0: covered: the DirectPlay error names (znet_dplay.cpp:142 names each through localize), the sessions' list clear (znet_session.cpp:248), the net view's inlined steps (znet_view.cpp:68, :151), the net object's static, ZGameApp's base InitInstance and engine start (overridden by the app's 0x00480000 / 0x00480570, game-loop.md) |
 | 0x005b13d0 | 8 | folded | covered by the port where it names it (src/gamez/zgame/zgameapp.h:96) |
 | 0x005b1440 | 38 | folded | covered by the port where it names it (src/gamez/zgame/zgameapp.h:59) |

@@ -463,8 +463,6 @@
 0x004b9cd0	devdialog-shell	the vehicle editor's MFC plumbing (its pages' CDialog constructors, its destructor, message map); its layout is the exe's dialog resources (0xa5..0xb7). The port's editor covers the job: game_editor_vehicles (vehicle_editor_open / the page handlers)
 0x004b9d70	devdialog-shell	the vehicle editor's MFC plumbing (its pages' CDialog constructors, its destructor, message map); its layout is the exe's dialog resources (0xa5..0xb7). The port's editor covers the job: game_editor_vehicles (vehicle_editor_open / the page handlers)
 0x004b9de0	devdialog-shell	the vehicle editor's MFC plumbing (its pages' CDialog constructors, its destructor, message map); its layout is the exe's dialog resources (0xa5..0xb7). The port's editor covers the job: game_editor_vehicles (vehicle_editor_open / the page handlers)
-0x004bb2e0	devdialog-logic	the vehicle editor's list fills (each valve, each region by name into a combo box); covered in the port by game_editor_vehicles 0x004bb300 / 0x004bb620 (valve and region lists)
-0x004bb5f0	devdialog-logic	the vehicle editor's list fills (each valve, each region by name into a combo box); covered in the port by game_editor_vehicles 0x004bb300 / 0x004bb620 (valve and region lists)
 0x004bcb70	folded	each element's arrange in 0x004bcba0 (its vt+0x60, then vt+0x88 the node, vt+0x8c arrange): inline in the port's CZAiNetEdit constructor (zainetedit.cpp, nd->arrange()); not the AI tester's
 0x004bc9f0	folded	NetHeader built from a record (7 dwords, the name strdup'd): the port's NetHeader and its operator= (zrdrainet.h:29); not the AI tester's
 0x004d9d80	devdialog-logic	an AI parameters dialog (MFC): what it reads into its list (the net's records) and positions; preserve as logic

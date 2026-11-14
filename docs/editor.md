@@ -1654,7 +1654,8 @@ editor's +0x3f8, found by 0x004d93d0). With none, it shows the editor's own
 spare entry (+0x3fc), which nothing else reads (0x004bb360).
 
 **The valve list** (1176, sorted, typed into):
-- **Its items** are every valve by name (0x004bb300 over [0x0060b504]).
+- **Its items** are every valve by name (0x004bb300 over [0x0060b504], each through the functor 0x004bb2e0 holding the
+  combo; a valve without a name goes in as "", FIX (A): the exe hands the combo null).
 - **A pick** is CBN_SELCHANGE (0x004b9f80): the page gathered, then
   0x004bb470, then the page shown again. CBN_SELENDOK (0x004b9fa0 ->
   0x004bb390) does the same unless the item is the valve already shown.
@@ -1669,7 +1670,8 @@ spare entry (+0x3fc), which nothing else reads (0x004bb360).
   the list's pick; Win32's own matching while typing is not modelled.
 
 **The region list** (1177, sorted, typed into):
-- **Its items** are every region (0x004bb620 over [0x0060b3f4]).
+- **Its items** are every region (0x004bb620 over [0x0060b3f4], each through 0x004bb5f0: its vt+0x1c name).
+  Both fills in test_vehicle_lists.py against the exe (487 fills of random names, case-equal ones among them; 2 breaks).
 - **Read back** (0x004bb680, after the fields): the picked item's region by
   name (0x004c5d20). Else a typed name other than "0" finds the region or
   reads it from its file (0x004c5c00) and fills the list again. Else none.
@@ -1785,6 +1787,20 @@ Checked: `test_aiv_edit.py` and `test_vehicle_ddx.py` run on PM's exe with
 `MW3_EXE=pm` (the record's PM layout and the dialog's offsets in the tests;
 `probe_aiv_same_numbers_pm`). Breaks caught: the target block left out, word 2
 compared as a float, +0xee bit 1 left out, MW3's name compare.
+
+### PM's AI tester (its class gone; S11b, 2026-11-14)
+
+A developer window on one vehicle that Pirate's Moon added and then cut: no constructor, vtable or template is left,
+only its message map (0x005ec8e0, over CDialog's) and the handlers. While it is active the game is paused (WM_ACTIVATE
+0x004c3290: the app's own object told the state, the app and the keyboard deactivated, or on activation both back and
+the video restored, 0x0059b1c0). Its controls (the ids as the map has them; the meaning from what each does): Kill
+(1286, 0x004c32f0: the vehicle's vt+0x78 while it lives, unless +0xac); Power (1276, 0x004c3380: a mech powered down
+or up, Mech::power 0x0041dab0; another vehicle's vt+0x50 object told 0x32 or 0x33); the strategy list (1233: its pick's
+item data into the AI settings' +0x40, 0x004c3440, and whether it is dropped down, 0x004c34d0 / 0x004c34e0); and three
+fields put into the settings when they differ (1251 into +0x54, 1217 into +0x3c, 1300 into +0x80). The settings are the
+vehicle's controls' brain's (vt+0x14c, vt+0x58, then through the brain's virtual base vt+0x88). Ported, unwired
+(`mech3/ai_tester_pm`); FIX (A): no vehicle is nothing where the exe calls through it (1251, 1217, the strategy, 1300).
+`test_pm_ai_tester.py` against PM's exe: 3,840 handler runs, 23 paths, 4 of 4 breaks.
 
 ### Pirate's Moon's net editor (pm, P2, 2026-11-10)
 
