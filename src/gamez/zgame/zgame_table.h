@@ -154,6 +154,9 @@ struct Table {
   // The finish's static noise (zrender zrndr_tint.cpp finish_init, static_fill; PM 0x0057a170): PM fills 40000
   // bytes of rand, MW3 0x6400.
   bool finish_noise_40000;
+  // zEffect's table (zeff_init.cpp, 0x0050d2c0; PM 0x00526a40): PM's reports carry its file's lines (the gfx
+  // report's 0x121, MW3's 0x11d) and no texture load follows the entries (MW3's 0x005190d0).
+  bool effect_init_pm;
 };
 
 const Table& mw3_table();

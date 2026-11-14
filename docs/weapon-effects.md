@@ -53,6 +53,13 @@ a node and gfx but no `MAPS`, an entry without `NAME` when looked up, and a
 tick on a node with no copy, each read through 0 in the exe. Test:
 `test_effects.py` (300 made-up tables, about 23,000 calls out compared).
 
+Pirate's Moon (0x526a40, spawn 0x526df0, tick 0x5270e0, the rest by
+pm-diff's pairs) is the same table with its arguments on the stack, its
+node's child count a short at +0x56, its own report lines (its gfx report
+0x121) and no texture load after the entries (MW3's 0x5190d0): the game
+table's `effect_init_pm`. `test_effects.py` under `pm_moved.py` (MW3_EXE=pm):
+300 tables identical.
+
 ## 2. Firing
 
 zWeapon's spawn (0x585010) plays, for the def's FIRE effect: the sound at
