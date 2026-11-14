@@ -3181,8 +3181,16 @@ animations come from point 2 of "Animations a def at a time".
 - Limits new mechs meet: a weapon manager holds 16 weapons, TAG included, and its adds don't check (weapons.md,
   Latent overflow): new mechs need the check first.
 - After v1.0: a custom campaign, new mechs and weapons (done: New mechs and
-  weapons, above), loose `.zan` motions, the launcher's MODS list (built, then
-  removed 2026-11-10: the games' MODS screens).
+  weapons, above), loose `.zan` motions (done 2026-11-14, below), the
+  launcher's MODS list (built, then removed 2026-11-10: the games' MODS
+  screens).
+- Loose `.zan` motions (done 2026-11-14, the original's own path; motion.md,
+  The text side): a motion that motion.zbd lacks is read from a text file
+  `<name>.zan` found on the search path, so a mod adds one by putting
+  `<name>.zan` in its top folder (the game folder works too), e.g.
+  `elemental_limp.zan` for the Elemental's limp the shipped data lacks. A
+  motion the archive has always comes from the archive; to replace one, a mod
+  ships its own motion.zbd.
 - Existing data mods load (Owen, 2026-11-07): a file the old engine loaded isn't
   refused by a check stricter than it was. An exe patch can't apply; what it
   changed is rebuilt as data. Tested on real mods, kept out of the repo.
