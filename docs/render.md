@@ -21,6 +21,8 @@ Emulator check of the conventions: `tests/differential/explore/render_matrix.py`
   clipper recomputes its outcodes; order left, right, top, bottom, right and
   bottom exclusive; crossing points are perspective-correct for every
   attribute.
+- The unused frustum clippers (0x534bf0, 0x530d90, 0x531d90, 0x5331e0; S16-S18, 2026-11-14): `zmodel/gmod_clipfrustum`,
+  preserved and unwired; see "The unused frustum clippers" in section 6.
 - Fog maths (0x555640, 0x555a70) and the transparent queue, sort and flush
   (0x57dec0, 0x57e110): `zmodel/gmod_fogcalc`, `zvideo/zvid_ddd3d`,
   `render-fogsort.md`. The model-level fog test is a conservative bound over
@@ -957,6 +959,35 @@ Candidates for `docs/discoveries.md` (not added here): the inout areas
 invisible magenta tree and white dock helpers; hardware fog starting at
 32 m versus 500 in software; fog colour = sky band colour per world; the
 sun only darkens; fog relying on the shadow code to be switched on.
+
+### The unused frustum clippers (S16-S18, 2026-11-14)
+
+Four clippers nothing in the release calls, jumps to or points at, beside the Direct3D draw's own: a whole-frustum
+clip in camera space, positions only (0x534bf0, not a Ghidra function: it hides after 0x5331e0's end at 0x534be6),
+with the first three corners copied out (0x530d90), with texture coordinates (0x531d90), and with texture coordinates
+and colours (0x5331e0). ECX is the clip struct (the mask at +0x00: 0x10 near, 0x20 far; near +0x0c, far +0x18, read
+through [0x740304] and [0x740310] too), EDX the positions; the count pointer is the last argument. In order:
+- x and y are scaled by the projection's cotangents (0x521db0), so the side planes are x = +-z and y = +-z.
+- The near plane (mask 0x10): wholly behind it, dropped; partly, cut, every cut measured from the previous corner
+  whichever way the edge goes (t = (near - zp) / (zc - zp), each value `prev + (cur - prev) t`).
+- With `tri` given, the first three corners (as the near cut left them) are copied out and scaled back.
+- Outcodes: 0x10 behind the near plane, 0x20 beyond the far one (when the mask has it), 1 / 2 for x below -z / above
+  z, 4 / 8 for y. All sharing a bit: dropped. None: done (scaled back).
+- Each side whose bit any corner has, in the order left, right, bottom, top: a corner leaving is cut from the
+  previous corner by t, one entering from the current corner by 1 - t (t still measured from the previous: for x = -z,
+  (-xp - zp) / ((zc - zp) + (xc - xp)); for x = z, (xp - zp) / ((zc - zp) - (xc - xp))); the cut's coordinate on
+  that axis is set to exactly -z or z, and its outcode keeps only the bits later sides read.
+- The passes ping-pong between the caller's arrays and the clipper's own (64 corners, unchecked); the result is
+  copied back when it ends in its own, and scaled back. The far plane never cuts.
+Quirks, kept: 0x530d90 carries its texture coordinates through the near cut only, then copies 9 floats of them back
+(the corners' copy's count at the texture coordinates' stride) and drops them for the sides. FIX (bug): a polygon the
+near plane cut and nothing else is copied back (the exe returns the caller's arrays as they were, with the new
+count); FIX (A): 0x530d90 copies only the floats its cut made (the exe copies its stack past a three- or four-corner
+polygon). `test_clipfrustum.py` against the exe: 3,000 random polygons through each of the four (corners planted on
+the planes among them), every bit equal at 24 bits but a NaN's sign (a 0/0 cut along an edge lying in a plane: the
+x87's 0xffc00000, the port's 0x7fc00000); 10 of 10 breaks. At 53 bits the floats agree within 1e-4, and one polygon
+in 3,000, with a corner exactly on a plane, takes another branch: the exe compares a cut's z still in the register
+(unrounded at 53) with its stored copy. Nothing runs these, so the port keeps the 24-bit result.
 
 ### (c) Open: a parked vehicle's edges flicker on c1m2 (playtest #22)
 

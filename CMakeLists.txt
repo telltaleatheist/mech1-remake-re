@@ -134,6 +134,7 @@ add_library(mw3core STATIC
   src/gamez/zmodel/gmod_bake.cpp
   src/gamez/zmodel/gmod_clip2d.cpp
   src/gamez/zmodel/gmod_clip3d.cpp
+  src/gamez/zmodel/gmod_clipfrustum.cpp
   src/gamez/zmodel/gmod_const.cpp
   src/gamez/zmodel/gmod_cull.cpp
   src/gamez/zmodel/gmod_draw.cpp
@@ -513,6 +514,7 @@ if(MW3_BUILD_MW3)
 add_library(mw3probe SHARED
   tests/probe.cpp
   tests/probe_clip3d.cpp
+  tests/probe_clipfrustum.cpp
   tests/probe_clip2d.cpp
   tests/probe_fogsort.cpp
   tests/probe_lighting.cpp
@@ -863,6 +865,7 @@ if(MW3_BUILD_PM)
   target_sources(pmprobe PRIVATE tests/probe_debug_dialogs.cpp)  # test_pm_debug_dialogs.py
   target_sources(pmprobe PRIVATE tests/probe_node_vehicle.cpp)  # test_pm_node_vehicle.py
   target_sources(pmprobe PRIVATE tests/probe_net_links.cpp)  # test_pm_net_links.py
+  target_sources(pmprobe PRIVATE tests/probe_clipfrustum.cpp)  # test_pm_clipfrustum.py
   target_sources(pmprobe PRIVATE tests/probe_pm_vehicle_editor.cpp)  # test_pm_strategies.py, test_pm_apply.py
   # The vehicle editor's save on PM's aiv.zrd, its "target" tag kept (test_pm_aiv_save_mech3ax.py)
   target_sources(pmprobe PRIVATE tests/probe_aiv_save.cpp)

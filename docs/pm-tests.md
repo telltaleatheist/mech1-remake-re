@@ -1660,3 +1660,13 @@ Tests: `test_vehicle_ddx.py` with MW3_EXE=pm (the eight in Attack's list: 2,000 
 `test_pm_strategies.py` (the table and both orders, run from 0x4c31c0 and 0x4c3280); `test_pm_apply.py` (0x4c1cb0
 with its compares and 0x4e9e10 the exe's, the copies, cache read and edit stood in, the vlists none: 3,000 applies,
 2,058 into the cache, 2,466 onto the brain, each record, mask, name and keep word identical, at 24 bits). Not AI code.
+
+## S16-S18: the unused frustum clippers (2026-11-14)
+
+MW3's port (main: `zmod` gmod_clipfrustum; render.md, The unused frustum clippers) crossed. PM's twins are the same
+logic built cdecl, every argument on the stack (clip, positions, then the rest): 0x54eb60 (positions; like MW3's
+0x534bf0 hidden after 0x54d1c0's end, no reference anywhere; port_audit_extra.tsv), 0x54aea0 (with the near-cut-only
+texture coordinates and the 9-float copy, as MW3's 0x530d90), 0x54be20 and 0x54d1c0; the clip struct at 0x8d4b08,
+the cotangents at 0x8d43a4 / 0x8d43a8 and their inverses at 0x66f4b8 / 0x66f4bc, scaled by 0x53b850 / 0x53b890.
+`test_pm_clipfrustum.py` (test_clipfrustum.py with PM's addresses): 3,000 polygons through each, identical at 24 bits
+(NaN sign aside, the same 37 stack-leftover cases as MW3's).

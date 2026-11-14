@@ -74,7 +74,7 @@ produces; the label names the compared value. Reaching a function, or running a 
 | software renderer | 115 |
 | MISSING LOGIC | 88 |
 | dev dialog (MFC), its window plumbing: replaced | 51 |
-| unused: PORT (preserve) | 51 |
+| unused: PORT (preserve) | 48 |
 | dev dialog (MFC), its logic: PORT (preserve) | 9 |
 
 ## MISSING LOGIC
@@ -142,9 +142,6 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 - 1 functions, 124 decomp lines (0x00540ca0): as MW3 0x0053d360: large zModel functions nothing calls or tables (no static reference anywhere): clippers and matrix work beside the software path, material flag setters over a model's materials, light helpers
 - 1 functions, 44 decomp lines (0x00541830): as MW3 0x0053de50: large zModel functions nothing calls or tables (no static reference anywhere): clippers and matrix work beside the software path, material flag setters over a model's materials, light helpers
 - 1 functions, 65 decomp lines (0x005418e0): as MW3 0x0053df00: large zModel functions nothing calls or tables (no static reference anywhere): clippers and matrix work beside the software path, material flag setters over a model's materials, light helpers
-- 1 functions, 779 decomp lines (0x0054aea0): as MW3 0x00530d90, whose class PM's changes keep: large zModel functions nothing calls or tables (no static reference anywhere): clippers and matrix work beside the software path, material flag setters over a model's materials, light helpers
-- 1 functions, 945 decomp lines (0x0054be20): as MW3 0x00531d90, whose class PM's changes keep: large zModel functions nothing calls or tables (no static reference anywhere): clippers and matrix work beside the software path, material flag setters over a model's materials, light helpers
-- 1 functions, 1153 decomp lines (0x0054d1c0): as MW3 0x005331e0, whose class PM's changes keep: large zModel functions nothing calls or tables (no static reference anywhere): clippers and matrix work beside the software path, material flag setters over a model's materials, light helpers
 - 1 functions, 97 decomp lines (0x00559db0): as MW3 0x0053a1a0, whose class PM's changes keep: large zModel functions nothing calls or tables (no static reference anywhere): clippers and matrix work beside the software path, material flag setters over a model's materials, light helpers
 - 1 functions, 72 decomp lines (0x0055a2f0): as MW3 0x0053a740: large zModel functions nothing calls or tables (no static reference anywhere): clippers and matrix work beside the software path, material flag setters over a model's materials, light helpers
 - 1 functions, 168 decomp lines (0x0055ad60): as MW3 0x0053b050, whose class PM's changes keep: large zModel functions nothing calls or tables (no static reference anywhere): clippers and matrix work beside the software path, material flag setters over a model's materials, light helpers
@@ -3217,7 +3214,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x004fc4d0 | 15 | dev dialog (MFC), its window plumbing: replaced | as MW3 0x00432da0: the mech list dialog's MFC plumbing (constructor, destructor, DDX, OnOK, DoModal) |
 | 0x004fc650 | 30 | replaced (SDL or the platform layer) | group A, read: the fatal abort's message box and exit (PM's console mode flushes and exits at once); the port's crash box stands in |
 
-### zmodel (255 not ported)
+### zmodel (252 not ported)
 
 | Address | Lines | Class | Why |
 |---|---|---|---|
@@ -3251,9 +3248,6 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x0054a3b0 | 9 | software renderer | called only from 0x00541a40, which are software |
 | 0x0054a3d0 | 9 | software renderer | called only from 0x00541a40, which are software |
 | 0x0054a3f0 | 9 | software renderer | called only from 0x00541a40, which are software |
-| 0x0054aea0 | 779 | unused: PORT (preserve) | as MW3 0x00530d90, whose class PM's changes keep: large zModel functions nothing calls or tables (no static reference anywhere): clippers and matrix work beside the software path, material flag setters over a model's materials, light helpers |
-| 0x0054be20 | 945 | unused: PORT (preserve) | as MW3 0x00531d90, whose class PM's changes keep: large zModel functions nothing calls or tables (no static reference anywhere): clippers and matrix work beside the software path, material flag setters over a model's materials, light helpers |
-| 0x0054d1c0 | 1153 | unused: PORT (preserve) | as MW3 0x005331e0, whose class PM's changes keep: large zModel functions nothing calls or tables (no static reference anywhere): clippers and matrix work beside the software path, material flag setters over a model's materials, light helpers |
 | 0x0054fe70 | 12 | software renderer | as MW3 0x00535ed0: the software model draw's projection and clippers, its own lighting, the span buffer's pick and hidden-surface test, the small polygon reject, palette shading (software-path.md, render-clip3d.md, render-lighting.md: the software renderer, not ported by decision) |
 | 0x0054fe90 | 10 | software renderer | as MW3 0x00535ef0: the software model draw's projection and clippers, its own lighting, the span buffer's pick and hidden-surface test, the small polygon reject, palette shading (software-path.md, render-clip3d.md, render-lighting.md: the software renderer, not ported by decision) |
 | 0x005502d0 | 1161 | software renderer | called only from 0x0054a3b0, 0x0054a3d0, 0x0054a3f0, which are software |
