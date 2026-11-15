@@ -30,10 +30,12 @@ T* copy_out(Reader& r, size_t n) {
 
 }  // namespace
 
+// join: for mode 2 (try_join) a's polygon and reversed, b's, the key's two points, the stripper's argument and pass;
+// mode 3 (join_shape) the same, then first, second and same_shift.
 // spec: materials (count; each alpha, flags, has texture, has image, image flags), then polygons (count; each flags,
 // priority, the points, the normals with 0x1000, the material count and ids, has uvs and the uvs (bits), the
 // colours (bits), has scratch, zone). mode 0: merge_layers; 1: strip_intake(max_points). Returns the dump's length.
-extern "C" int probe_pm_strip(const int32_t* spec, int mode, int max_points, int32_t* out) {
+extern "C" int probe_pm_strip(const int32_t* spec, int mode, int max_points, const int32_t* join, int32_t* out) {
   namespace pz = pm::zmod;
   Reader r{spec};
   const int32_t nm = r.next();
@@ -83,10 +85,26 @@ extern "C" int probe_pm_strip(const int32_t* spec, int mode, int max_points, int
   }
   pz::strip_counts() = {};
   pz::Stripper s;
-  if (mode == 0)
+  int32_t answer[6] = {};
+  if (mode == 0) {
     pz::merge_layers(model);
-  else
+  } else if (mode == 1) {
     pz::strip_intake(s, &model, 0x7fffffff, max_points);
+  } else {
+    s.model = &model, s.arg = join[6], s.pass = join[7], s.slack = 0x7777;
+    const pz::StripEdgeUse a{join[0], join[1] != 0}, b{join[2], join[3] != 0};
+    const pz::StripEdgeKey key{join[4], join[5]};
+    int32_t first = 0x5555, second = 0x5555, strip = 0x5555, end = 0x5555;
+    bool ok;
+    if (mode == 2) {
+      ok = pz::try_join(s, a, b, key, &first, &second, &strip);
+    } else {
+      first = join[8], second = join[9];
+      ok = pz::join_shape(s, a.polygon, b.polygon, key, first, second, join[10] != 0, &strip, &end);
+    }
+    answer[0] = ok, answer[1] = first, answer[2] = second, answer[3] = strip, answer[4] = s.slack;
+    answer[5] = mode == 3 && ok && strip == 1 ? end : 0;
+  }
 
   int32_t* o = out;
   const auto put = [&](int32_t v) { *o++ = v; };
@@ -100,6 +118,8 @@ extern "C" int probe_pm_strip(const int32_t* spec, int mode, int max_points, int
       if (mats[k].get() == m) return static_cast<int32_t>(k);
     return -1;
   };
+  if (mode >= 2)
+    for (int32_t v : answer) put(v);
   put(model.count(0x10));
   for (int32_t i = 0; i < model.count(0x10); ++i) {
     const pz::Polygon& q = model.polygons[i];

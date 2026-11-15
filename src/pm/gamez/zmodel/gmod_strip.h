@@ -3,6 +3,7 @@
 #include <list>
 #include <map>
 #include <utility>
+#include <vector>
 
 #include "pm/gamez/zmodel/gmod_const.h"
 
@@ -46,6 +47,8 @@ struct Stripper {
   int32_t arg = 0;                              // [0x008c14f4], the caller's second argument
   std::map<StripEdgeKey, StripEdge> edges;      // 0x00570b70's [esp+0x50]
   std::map<int32_t, StripVertex> vertices;      // [esp+0x6c]
+  int32_t pass = 0;                             // [0x008c1500]: the growth pass, 0 to 2
+  int32_t slack = 0;                            // [0x008c14f8]: how far a join may still grow (try_join)
 };
 struct StripCounts {
   int32_t polygons = 0;  // [0x008c1504]: every polygon of every model stripped
@@ -60,5 +63,26 @@ bool edge_in_polygon(const Model& m, int32_t polygon, StripEdgeKey key, bool* re
 // coordinates and normals (and a strip, or at most `max_points` points) goes into the edge and point maps. False
 // for a model the stripper refuses.
 bool strip_intake(Stripper& s, Model* m, int32_t arg, int32_t max_points);
+
+// A polygon's corner as the join compares it (0x005735a0's 0x24-byte record).
+struct StripCorner {
+  int32_t vertex, normal;
+  std::vector<std::pair<float, float>> uvs;  // each material's at the corner
+  float color[3];
+};
+StripCorner strip_corner(const Model& m, int32_t polygon, int32_t at);  // 0x005735a0
+// 0x0056b2d0: each layer's whole-number shift from b's coordinates to a's (rounded from the difference), into
+// `shifts`; false when one is more than 0.05 off a whole number, or a clamped layer (`clamped`) needs one.
+bool uv_shifts(const std::vector<char>& clamped, const std::vector<std::pair<float, float>>& a,
+               const std::vector<std::pair<float, float>>& b, std::vector<std::pair<float, float>>& shifts);
+// 0x0056b980: how two polygons on `key` would join: as a strip at one end (*strip 1, *end 1 or 2: the end at
+// `first` or at `second`), or else as one polygon (*strip 0, when `same_shift`); false when neither.
+bool join_shape(const Stripper& s, int32_t a, int32_t b, StripEdgeKey key, int32_t first, int32_t second,
+                bool same_shift, int32_t* strip, int32_t* end);
+// 0x00573f50: whether polygon `a.polygon` may take `b.polygon` across `key` (run the other way, the same materials,
+// flags, priority and zone, the shared corners alike up to whole texture repeats); sets s.slack, and on yes shifts
+// b's coordinates onto a's and gives the corners that matched (-1 for none) and join_shape's answer.
+bool try_join(Stripper& s, const StripEdgeUse& a, const StripEdgeUse& b, StripEdgeKey key, int32_t* first,
+              int32_t* second, int32_t* strip);
 
 }  // namespace pm::zmod
