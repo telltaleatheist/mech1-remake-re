@@ -362,11 +362,14 @@ TEST(pm_wire_firing_keeps_a_record_a_vehicle) {
 }
 
 // 0x004faa40 (IControls vt+0x84, no caller): the target on the entity dropped, and PM's firing stood down
-// (0x004faa20 -> 0x004ba8c0: the plan kept, busy for the rest, the pick's hold over), not MW3's.
+// (0x004faa20 -> 0x004ba8c0: the plan kept, busy for the rest, the pick's hold over), not MW3's. Under PM_AI=0 the
+// brain is MW3's, so MW3's reset 0x004e9590 runs instead and PM's record is left (pm-tests.md, PM_AI=0).
 TEST(pm_wire_drop_target_stands_pm_firing_down) {
   struct OnPath : Fake {
+    int resets = 0;
     bool entity_on_path(Handle e) override { return e == 0x800; }
     bool select_target(Handle, Contact* c) override { self.target = c; return true; }
+    void firing_reset(Brain&) override { ++resets; }
   } f;
   Installed in(&f);
   AiParams rec;
@@ -381,7 +384,10 @@ TEST(pm_wire_drop_target_stands_pm_firing_down) {
   EXPECT(!b.drop_target(0x800) && !r.fire.busy && f.self.target == &on);  // an AI's, not the target
   on.seen = 0x800;
   EXPECT(b.drop_target(0x800) && !f.self.target);
-  EXPECT(r.fire.busy && r.fire.wait == 2.5f && r.pick.until == 0.0f);
+  if (pm_ai_on())
+    EXPECT(r.fire.busy && r.fire.wait == 2.5f && r.pick.until == 0.0f && f.resets == 0);
+  else
+    EXPECT(f.resets == 1 && !r.fire.busy && r.fire.wait == 0 && r.pick.until == 9.0f);
 }
 
 TEST(pm_wire_attack_makes_its_context_and_counts_the_order_side) {

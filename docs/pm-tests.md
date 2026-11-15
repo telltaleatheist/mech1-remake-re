@@ -1917,3 +1917,13 @@ type 0), else drawn flat untextured (or listed as type 2), one slot up to 64 cor
 shared fans would drop); the shared queue's and overlay's caps (FIX (A), fixes.md). `test_pm_device.py` runs it as a
 tenth kind against the exe's Direct3D stub, each call followed by both flushes (412 draws in the default run, 580
 queued and 271 overlay polygons drawn by the flushes): 4 of 4 breaks (point order, rhw, colour order, the alpha test).
+
+## drop_target under PM_AI=0 (2026-11-15)
+
+`pm_wire_drop_target_stands_pm_firing_down` failed under `PM_AI=0` from 65a4b704 (S12 on PM), where it came in. The
+port's `Brain::drop_target` (PM's 0x004faa40, IControls vt+0x84, which nothing calls in either game) stands PM's
+firing down (0x004faa20 -> 0x004ba8c0) only under PM's AI, and under `PM_AI=0`, MW3's AI as the comparison
+stand-in, runs MW3's reset 0x004e9590 instead, as every other PM_AI-gated piece of the brain does. That is the
+design, not a play difference; the test asserted PM's branch alone. It now checks the branch each mode takes (PM's
+stand-down and no MW3 reset under PM_AI=1; MW3's reset once and PM's record untouched under PM_AI=0), as
+`hit_an_ally`'s test does; a break taking PM's stand-down under PM_AI=0 is caught.
