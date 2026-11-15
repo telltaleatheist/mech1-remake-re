@@ -180,18 +180,8 @@ Mode 2's translation is not compared (garbage in the original).
 
 ## Not ported (same module)
 
-Billboard tops 0x51ea90 / 0x51efb0 / 0x51f390 / 0x51f750; 0x51e740 (2D
-normal with the approximate square root); 0x51e930's neighbours 0x51e970
-(unreferenced copy); unreferenced 0x51fe60 (top = diag(1,-1,-1)), 0x520200
-(scale by a vector), 0x520c60 / 0x521080 / 0x5214f0 (camera from euler and
-position, building 0x73fbc0 / 0x73fc00 directly), 0x521a90 (euler to a given
-matrix), 0x521e10 (projection as a matrix); 0x522170 / 0x522210 / 0x522460
-(direction vectors from angles), 0x522280 / 0x5223c0 (2D side tests),
-0x5224b0 (plane from 3 points), 0x522ab0 / 0x522d60 / 0x523040 / 0x5231b0
-(box corners and extents through a matrix), 0x523650 / 0x523930 (screen
-points back to world), 0x523ac0 / 0x523b40 (angles toward a point),
-0x523df0.. (single-axis vector rotations), 0x522840 (an in-place transform
-Ghidra did not make a function), and the rest of 0x524000..0x526920.
+Some of what this list once held is ported since (zmth_vector.h, zmth_matrix.h, and the routines nothing calls
+in Unused routines below); port-audit.md has what is left, function by function.
 
 ## Integration notes
 
@@ -199,3 +189,24 @@ Ghidra did not make a function), and the rest of 0x524000..0x526920.
   read `zmth::view().camera` once both land.
 - The Direct3D flag 0x72f348 is read through `zrndr::device_fog().active`,
   the existing port of that global.
+
+## Unused routines (ported for preservation, S13)
+
+The maths module carries eighteen routines nothing in the game calls (`zmth_unused.h`, `test_zmath_unused.py`:
+every one against the exe at 24 and 53 bits, bit for bit): a cross product made unit (0x51e160); the view and
+camera from a place and angles (0x520c60, 0x521080, 0x5214f0: the camera is euler's rotation with its y and z
+rows negated; the view the angles turned back, times (1, -1, -1)); the rotation of three angles (0x521a90,
+euler's words); the screen's projection from half a size and a field of view (0x521e10); a point against a
+segment and a line in the plane (0x522280, 0x5223c0); a triangle's normal and which way it faces the origin
+(0x5224b0, limits of 0.005); screen points back into a model's space (0x523650: unprojected, then by the inverse
+of below times the view); turns about x and z (0x523df0, 0x523ef0); quaternion add, negate, subtract, dot and
+squared length (0x524f80..0x5250f0); and a convex hull in the xz plane by gift wrapping (0x525fa0, a
+pseudo-angle of whole-unit offsets, ties to the nearer point).
+
+0x523ef0, the turn about z, has a typo: its new y is (x + y) cos where x sin + y cos was meant (its x is right).
+Nothing calls it, so nothing shows. Every sine and cosine these take is stored as a float (fsincos), except past
+9.22e18 where the x87's own fsin and fcos run instead; the port does not follow that branch.
+
+On the way, the inverse transform 0x522910 (`inverse_transform_points_to`, used by the mech's parts) now keeps
+its differences and sums on the x87 as the exe does, so it matches at 53 bits as well as 24 (test_parts and
+test_matrix unchanged).

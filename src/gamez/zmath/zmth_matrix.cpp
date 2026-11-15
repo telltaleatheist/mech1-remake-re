@@ -768,9 +768,11 @@ void inverse_transform_points_to(const Vec3* src, Vec3* dst, int32_t count) {
   }
   for (; count > 0; --count, ++src, ++dst) {
     const float* t = g_stack.matrix().m;
-    const float x = src->x - t[9], y = src->y - t[10], z = src->z - t[11];
-    *dst = {(x * t[0] + t[1] * y) + t[2] * z, (t[3] * x + t[5] * z) + t[4] * y,
-            (t[8] * z + t[7] * y) + t[6] * x};
+    using zgeo::X;  // the differences and sums on the x87, each word stored once (x87.py 522989 5229d3)
+    const X x = X(src->x) - t[9], y = X(src->y) - t[10], z = X(src->z) - t[11];
+    const Vec3 v = {((x * t[0] + X(t[1]) * y) + X(t[2]) * z).f(), ((X(t[3]) * x + X(t[5]) * z) + X(t[4]) * y).f(),
+                    ((X(t[8]) * z + X(t[7]) * y) + X(t[6]) * x).f()};
+    *dst = v;
   }
 }
 
