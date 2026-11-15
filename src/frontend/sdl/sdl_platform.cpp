@@ -163,7 +163,7 @@ void SdlScreen2D::upload(const uint16_t* pixels, int width, int height, int pitc
   }
   if (texture_ < 0 || tw_ != width || th_ != height) {
     if (texture_ >= 0) render_->release_texture(texture_);
-    texture_ = render_->create_texture(width, height, rgba_.data(), 1);
+    texture_ = render_->create_screen_texture(width, height, rgba_.data());
     tw_ = width, th_ = height;
   } else {
     render_->update_texture(texture_, width, height, rgba_.data());

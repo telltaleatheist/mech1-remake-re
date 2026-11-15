@@ -631,6 +631,46 @@ repo; the slot meanings fit every call's arguments]**.
   on. Dithering and the 16-bit back buffer are not reproduced (play-accurate,
   not bit-identical).
 
+### Mipmaps (ours)
+
+The original made every texture with one level (0x57b130: no MIPMAP caps, no
+mip count), with LINEAR min and mag filters, so a minified texture aliases:
+distant ground and walls shimmer as the view moves. The port's GPU path
+(`SdlRender3D`; a picture change under the rendering rule, no game logic
+touched) gives every texture `create_texture` makes its full chain of
+levels, built on the CPU at upload (`platform::mip_chain`,
+src/platform/mipmaps.cpp), samples them trilinearly with 8x anisotropy, and
+rebuilds them on a reload (`update_texture`). Screen images stay one level:
+the 2D layer's frame (`create_screen_texture`, which carries the menus, the
+HUD and every zTwoD screen) is a texel a pixel and sharp-sampled.
+
+The levels are box-filtered, each colour weighted by its alpha so the colour
+key's clear black (texture_rgba writes key texels as 0) never darkens an
+edge. Alpha by kind, measured on the full size:
+
+- Opaque: 255 throughout.
+- A hard cut-out (every alpha 0 or 255, some 0: colour keys, the fences
+  FFENCE01/02): each level keeps the same share of solid texels, the most
+  covered first, the rest clear. No fade, no thickening.
+- A soft-edged cut-out (some 0, under a quarter strictly between: the dry
+  trees' and shrubs' 4444 alpha planes): each level's alpha scaled so the
+  same share at least half (alpha-tested coverage, as Castano 2010, taken by
+  rank so ties can't thicken a branch), those solid, the rest a fringe
+  scaled as the least covered one kept is to the half, four times as steep,
+  held under it. The game blends rather than alpha-tests, so a branch's
+  texels left at half alpha showed the far trees half see-through.
+- Anything else (smoke, glass, the alpha planes with broad gradients): the
+  average.
+
+The level bias is the shader's (fog.w of the fragment uniforms;
+`set_mip_bias`), because SDL's Metal backend ignores the sampler's
+mip_lod_bias. MW3 sets none; Pirate's Moon's common.gw MipBias -1 goes
+there on `pm`. Before and after (c1, `--fly c1 --look 90 10` from the default
+place; the dry trees `--pos 420 45 1290 --look 0 10`; the fences and shrubs
+`--pos -2690 5 -1420 --look 180 6`): the far ground's speckle gone and its
+grain kept, the trees and shrubs as dark and whole as before, the fences the
+same. Tests: mw3tests `mip_chain_*`.
+
 ## 5. Lighting, fog, colour
 
 ### The per-vertex work record

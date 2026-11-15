@@ -70,6 +70,7 @@ add_library(mw3core STATIC
   src/gamez/zutil/zutl_reg.cpp
   src/platform/reg_file.cpp
   src/platform/cue_audio.cpp
+  src/platform/mipmaps.cpp
   src/mech3/data_folder.cpp
   src/mech3/data_version.cpp
   src/mech3/patch12.cpp
@@ -676,6 +677,7 @@ add_executable(mw3tests
   tests/test_child_limits.cpp
   tests/test_znet.cpp
   tests/test_cue.cpp
+  tests/test_mipmaps.cpp
   tests/test_mech.cpp
   tests/test_mech_reader.cpp
   tests/test_msvc_rand.cpp
