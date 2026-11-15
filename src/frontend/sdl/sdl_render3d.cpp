@@ -247,7 +247,8 @@ SDL_GPUSampler* SdlRender3D::sampler(uint8_t u, uint8_t v) {
   // Ours: between the levels too (trilinear), where the original's textures had one (docs/render.md, Mipmaps).
   si.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
   si.min_lod = 0.0f, si.max_lod = 1000.0f;
-  si.enable_anisotropy = true, si.max_anisotropy = 8.0f;  // and along the view at a slant (the far ground)
+  // Not original: anisotropic filtering (the original sampled LINEAR only); keeps ground seen at a slant sharp.
+  si.enable_anisotropy = true, si.max_anisotropy = 8.0f;
   si.address_mode_u = mode(u), si.address_mode_v = mode(v), si.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
   SDL_GPUSampler* s = SDL_CreateGPUSampler(dev_, &si);
   samplers_[key] = s;
