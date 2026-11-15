@@ -256,8 +256,9 @@ bool read_material(std::FILE* f, Material& m) {
   return true;
 }
 
-// Mech3.exe 1.2 @ 0x004fc4d0. FIX (A): the texture word of a resolved material is 1 (the exe writes its texture
-// entry's address, which the reader only tests for nonzero), its cycle word the file's (the exe its pointer).
+// Mech3.exe 1.2 @ 0x004fc4d0, Pirate's Moon 1.0 @ 0x00510710. FIX (A): the texture word of a resolved material is 1
+// (the exe writes its texture entry's address, which the reader only tests for nonzero), its cycle word the file's (the
+// exe its pointer).
 uint32_t write_material(const Material& m, std::FILE* f) {
   uint8_t r[0x28] = {};
   const char* name = nullptr;
@@ -280,7 +281,7 @@ uint32_t write_material(const Material& m, std::FILE* f) {
   return n;
 }
 
-// Mech3.exe 1.2 @ 0x004fcca0
+// Mech3.exe 1.2 @ 0x004fcca0, Pirate's Moon 1.0 @ 0x00510f40
 uint32_t write_materials(const MechLib& lib, std::FILE* f) {
   const auto count = static_cast<int32_t>(lib.materials.size());
   if (count == 0) return 0;
@@ -289,11 +290,11 @@ uint32_t write_materials(const MechLib& lib, std::FILE* f) {
   return n;
 }
 
-// Mech3.exe 1.2 @ 0x004fc990
+// Mech3.exe 1.2 @ 0x004fc990, Pirate's Moon 1.0 @ 0x00510c40
 bool mechlib_write_materials(MechLib& lib) {
   if (lib.materials.empty()) return false;
-  zutl_zar::add_written(lib.archive, "materials",
-                        [](std::FILE* f, void* user) { return write_materials(*static_cast<MechLib*>(user), f); }, &lib);
+  const auto write = [](std::FILE* f, void* user) { return write_materials(*static_cast<MechLib*>(user), f); };
+  zutl_zar::add_written(lib.archive, "materials", write, &lib);
   return true;
 }
 

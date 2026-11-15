@@ -16,7 +16,7 @@ FontHooks g_hooks;
 Fonts& fonts() { return g_fonts; }
 FontHooks& font_hooks() { return g_hooks; }
 
-// Mech3.exe 1.2 @ 0x00519df0
+// Mech3.exe 1.2 @ 0x00519df0, Pirate's Moon 1.0 @ 0x00533660
 Font* font(int32_t id) {
   if (id < 0 || id >= 20) {
     zerr::reportf(0x400, kFile, 0x28, "FontID out of range (%d)", id);
@@ -27,9 +27,9 @@ Font* font(int32_t id) {
   return g_fonts.slot[0];
 }
 
-// Mech3.exe 1.2 @ 0x00519e50. A name whose image is not found keeps its slot but not its block: the next font
-// is cut into the same one, and both slots show it. FIX (A): twenty slots at most; the exe fills one a name with
-// no bound, past the table into the key colour and what follows it.
+// Mech3.exe 1.2 @ 0x00519e50, Pirate's Moon 1.0 @ 0x005336c0. A name whose image is not found keeps its slot but not
+// its block: the next font is cut into the same one, and both slots show it. FIX (A): twenty slots at most; the exe
+// fills one a name with no bound, past the table into the key colour and what follows it.
 bool fonts_load(const char* file) {
   zrdr::Node* root = g_hooks.read ? g_hooks.read(file) : zrdr::load(file);
   if (!root) {
@@ -59,7 +59,7 @@ bool fonts_load(const char* file) {
   return false;
 }
 
-// Mech3.exe 1.2 @ 0x00519f70
+// Mech3.exe 1.2 @ 0x00519f70, Pirate's Moon 1.0 @ 0x005337f0
 int32_t fonts_free() {
   if (g_fonts.slot[0]) std::free(g_fonts.slot[0]);
   for (Font*& s : g_fonts.slot) s = nullptr;
@@ -67,7 +67,7 @@ int32_t fonts_free() {
   return 1;
 }
 
-// Mech3.exe 1.2 @ 0x0051a080
+// Mech3.exe 1.2 @ 0x0051a080, Pirate's Moon 1.0 @ 0x00533900
 bool font_column_clear(const Texture& t, int32_t column) {
   if (column >= t.width) return false;
   const auto* p = static_cast<const uint16_t*>(t.pixels) + column;
@@ -76,8 +76,9 @@ bool font_column_clear(const Texture& t, int32_t column) {
   return true;
 }
 
-// Mech3.exe 1.2 @ 0x00519fa0. FIX (A): the ink's scan stops at the image's width; the exe's runs on for ever
-// when a glyph touches the right edge or the image holds fewer than 95 (a column past the width is "not clear").
+// Mech3.exe 1.2 @ 0x00519fa0, Pirate's Moon 1.0 @ 0x00533820. FIX (A): the ink's scan stops at the image's width; the
+// exe's runs on for ever when a glyph touches the right edge or the image holds fewer than 95 (a column past the width
+// is "not clear").
 int32_t font_scan(Font& f) {
   const Texture& t = *f.image;
   const int32_t width = t.width;
@@ -99,7 +100,7 @@ int32_t font_scan(Font& f) {
   return found;
 }
 
-// Mech3.exe 1.2 @ 0x0051a0d0
+// Mech3.exe 1.2 @ 0x0051a0d0, Pirate's Moon 1.0 @ 0x00533960
 void text_size(const char* text, int32_t id, int32_t* width, int32_t* height) {
   const Font* f = font(id);
   if (!f) return;

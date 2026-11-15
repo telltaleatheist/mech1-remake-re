@@ -135,3 +135,85 @@ int probe_write_materials(int n, const int32_t* kind, const uint8_t* bytes, cons
 }
 
 }  // extern "C"
+
+// Pirate's Moon's own (on `pm`): CreateUniqueMaterials.
+#include <memory>
+
+#include "gamez/zclass/cls_node.h"
+#include "pm/gamez/zclass/cls_node.h"
+#include "pm/gamez/zmodel/gmod_const.h"
+
+namespace {
+std::vector<int32_t> g_events;  // copy: material id; sort: -1 - node index
+uint32_t g_next = 0;
+std::vector<uint32_t> g_null;   // material ids whose copy comes back null
+std::vector<std::unique_ptr<pm::zmod::Model>> g_models;
+}  // namespace
+
+extern "C" {
+// CreateUniqueMaterials (PM 0x0050cc10) on node 0 of a tree. spec, per node: parent (-1 root), then its model's
+// polygon count (-1 no model), then per polygon its count and material ids (1..). Materials are fake addresses
+// (id << 4); a copy is 0x10000000 + its number, or null for an id in `nulls`. out: per node, per polygon, per
+// slot, what it holds after; then the events (a copy's source id, a sort's -1 - node). Returns the out count.
+int probe_pm_unique_materials(const int32_t* spec, int n_nodes, int recursive, int per_polygon, const int32_t* nulls,
+                              int n_nulls, int32_t* out) {
+  std::vector<::zcls::Node> nodes(static_cast<size_t>(n_nodes));
+  std::vector<std::vector<::zcls::Node*>> kids(static_cast<size_t>(n_nodes));
+  g_models.clear();
+  std::vector<std::vector<std::vector<::zmod::Material*>>> mats(static_cast<size_t>(n_nodes));
+  const int32_t* p = spec;
+  for (int i = 0; i < n_nodes; ++i) {
+    std::memset(nodes[static_cast<size_t>(i)].raw, 0, sizeof nodes[0].raw);
+    const int32_t parent = *p++;
+    if (parent >= 0) kids[static_cast<size_t>(parent)].push_back(&nodes[static_cast<size_t>(i)]);
+    const int32_t polys = *p++;
+    if (polys < 0) continue;
+    auto m = std::make_unique<pm::zmod::Model>();
+    std::memcpy(m->header + 0x10, &polys, 4);
+    m->polygons = new pm::zmod::Polygon[static_cast<size_t>(polys > 0 ? polys : 1)]{};
+    mats[static_cast<size_t>(i)].resize(static_cast<size_t>(polys));
+    for (int32_t k = 0; k < polys; ++k) {
+      const int32_t c = *p++;
+      auto& v = mats[static_cast<size_t>(i)][static_cast<size_t>(k)];
+      for (int32_t j = 0; j < c; ++j) v.push_back(reinterpret_cast<::zmod::Material*>(static_cast<uintptr_t>(*p++) << 4));
+      m->polygons[k].material_count = c;
+      m->polygons[k].materials = v.data();
+    }
+    nodes[static_cast<size_t>(i)].pm_model = m.get();
+    g_models.push_back(std::move(m));
+  }
+  for (int i = 0; i < n_nodes; ++i) {
+    nodes[static_cast<size_t>(i)].put<int32_t>(0x5c, static_cast<int32_t>(kids[static_cast<size_t>(i)].size()));
+    nodes[static_cast<size_t>(i)].children = kids[static_cast<size_t>(i)].data();
+  }
+  g_events.clear(), g_next = 0;
+  g_null.assign(nulls, nulls + n_nulls);
+  static ::zcls::Node* s_first;
+  static int s_count;
+  s_first = nodes.data(), s_count = n_nodes;
+  pm::zmod::UniqueMaterialsHooks& h = pm::zmod::unique_materials_hooks();
+  const pm::zmod::UniqueMaterialsHooks saved = h;
+  h.copy = [](::zmod::Material* m) -> ::zmod::Material* {
+    const auto id = static_cast<int32_t>(reinterpret_cast<uintptr_t>(m) >> 4);
+    g_events.push_back(id);
+    for (uint32_t n : g_null)
+      if (static_cast<int32_t>(n) == id) return nullptr;
+    return reinterpret_cast<::zmod::Material*>(static_cast<uintptr_t>(0x10000000 + ++g_next));
+  };
+  h.sort = [](pm::zmod::Model& m) {
+    for (int i = 0; i < s_count; ++i)
+      if (s_first[i].pm_model == &m) g_events.push_back(-1 - i);
+  };
+  const int ret = pm::zcls::create_unique_materials(nodes.data(), recursive, per_polygon);
+  h = saved;
+  int o = 0;
+  out[o++] = ret;
+  for (int i = 0; i < n_nodes; ++i)
+    for (const auto& v : mats[static_cast<size_t>(i)])
+      for (::zmod::Material* m : v) out[o++] = static_cast<int32_t>(reinterpret_cast<uintptr_t>(m));
+  for (int32_t e : g_events) out[o++] = e;
+  for (auto& m : g_models) delete[] m->polygons;
+  g_models.clear();
+  return o;
+}
+}  // extern "C"

@@ -189,4 +189,13 @@ void lod_fades(::zcls::Lod& l) {
   std::memcpy(l.pm_tail, out, 12);
 }
 
+// Pirate's Moon 1.0 @ 0x0050cc10
+int create_unique_materials(::zcls::Node* node, int32_t recursive, int32_t per_polygon) {
+  if (!node) return 1;
+  if (node->pm_model) pm::zmod::unique_materials(*node->pm_model, per_polygon);
+  if (recursive)
+    for (int32_t i = 0; i < node->child_count(); ++i) create_unique_materials(node->children[i], recursive, per_polygon);
+  return 0;
+}
+
 }  // namespace pm::zcls

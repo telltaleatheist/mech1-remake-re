@@ -518,7 +518,7 @@ int32_t& classes_save_hooked() {
   static int32_t hooked = 1;  // 0x005ea82c
   return hooked;
 }
-// Mech3.exe 1.2 @ 0x004f8f60
+// Mech3.exe 1.2 @ 0x004f8f60, Pirate's Moon 1.0 @ 0x0050ca90
 void set_classes_save_hooked(int32_t on) { classes_save_hooked() = on; }
 
 }  // namespace zcls

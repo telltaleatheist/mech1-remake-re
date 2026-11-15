@@ -615,6 +615,7 @@ Noted but not yet ported:
 - zImage's bitmap fonts' glyph scan, 0x519fa0 (`font_scan`, twod.md, The bitmap fonts; nothing loads them): FIX (A). A column past the image's width counts as not clear, so the scan for a glyph's ink runs on for ever when a glyph touches the right edge or the image holds fewer than 95: the port stops at the width (mw3tests `font_scan_ends_at_a_glyph_touching_the_right_edge`).
 - The bitmap fonts' loader, 0x519e50 (`fonts_load`): FIX (A). The FONTS list fills a slot a name with no bound: past twenty it writes over the key colour and what follows; twenty at most here.
 - The mechlib's materials writer, 0x4fc4d0 (`write_material`, mechlib.md, Writing the materials; nothing calls it): FIX (A). A resolved material's texture word is written as 1 where the exe writes its texture entry's address (the reader only tests it for nonzero), its cycle word the file's where the exe writes its pointer.
+- Pirate's Moon's CreateUniqueMaterials, 0x55bcf0 (`pm::zmod::unique_materials`, pm-tests.md S14; no shipped script uses it): FIX (A). A polygon slot with no material is copied by 0x557290, which writes through the null; it copies to null here.
 
 ## Original bugs still to fix
 

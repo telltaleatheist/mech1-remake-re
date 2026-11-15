@@ -5,11 +5,13 @@ mechlib's materials writer: one material 0x4fc4d0, the list 0x4fcca0 and its arc
 and zar's add stubbed: the bytes compared).
 
     cmake --build build --target mw3probe && .venv/bin/python tests/differential/test_s14_misc.py [runs]
+    cmake --build build --target pmprobe && MW3_EXE=pm .venv/bin/python tests/differential/test_s14_misc.py
 
 A resolved material's texture word is the texture entry's address in the exe and 1 in the port (FIX (A): the
 reader only tests it for nonzero); compared as nonzero.
 """
 import ctypes
+import json
 import os
 import random
 import struct
@@ -18,10 +20,21 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from calltrace import load_probe  # noqa: E402
-from original import Original  # noqa: E402
+from original import ROOT, Original  # noqa: E402
 
 IAT_RAND, IAT_WRITEFILE = 0x5bb668, 0x5bb17c
 NEW, DELETE = 0x5abd26, 0x5abd1a
+# Pirate's Moon (MW3_EXE=pm): the addresses from the map (operator new and delete, the define list's count by
+# hand); the wind and zClass's setters take MW3's ECX on the stack; the mechlib's list sits at +0x24 (MW3 +0x20).
+PM = os.environ.get('MW3_EXE') == 'pm'
+if PM:
+    _map = json.load(open(ROOT / 'analysis-output' / 'pm-diff' / 'addrmap.json'))
+    _MAP = {int(k, 16): int(v, 16) for part in ('data', 'imports', 'functions') for k, v in _map[part].items()}
+    _MAP.update({NEW: 0x5ce8c6, DELETE: 0x5ce8c0, 0x72bf98: 0x8c1770})
+    A = lambda a: _MAP[a]  # noqa: E731
+else:
+    A = lambda a: a  # noqa: E731
+LIST = 0x24 if PM else 0x20
 # the wind: current (3), base (3), angle, speed, max speed, angular velocity, accel
 WIND = [0x72be28, 0x72be2c, 0x72be30, 0x72be38, 0x72be3c, 0x72be40, 0x72be44, 0x72be48, 0x72be4c, 0x72be50, 0x72be54]
 F = ctypes.c_float
@@ -42,21 +55,23 @@ class MsvcRand:
 
 def eax(cpu):
     from unicorn.x86_const import UC_X86_REG_EAX
-    return cpu.uc.reg_read(UC_X86_REG_EAX)
+    return (getattr(cpu, 'uc', None) or cpu._uc).reg_read(UC_X86_REG_EAX)
 
 
 class Emulated:
     def __init__(self):
         self.cpu = cpu = Original()
+        if PM:
+            cpu.tr = lambda a, size=1: a  # addresses given as PM's (A)
         cpu.fpu_control(0x007f)  # play precision, as the puffers' test
         self.rand = MsvcRand(1)
         self.deleted = 0
         self.files = {}
-        cpu.stub_import(IAT_RAND, lambda c: self.rand())
-        cpu.stub_import(IAT_WRITEFILE, self.write, 20)
-        cpu.stub_function(NEW, lambda c: cpu.alloc(max(c.arg(0), 4)))
-        cpu.stub_function(DELETE, self.delete)
-        cpu.stub_function(0x576890, self.add, 20)  # thiscall, five words
+        cpu.stub_import(A(IAT_RAND), lambda c: self.rand())
+        cpu.stub_import(A(IAT_WRITEFILE), self.write, 20)
+        cpu.stub_function(A(NEW), lambda c: cpu.alloc(max(c.arg(0), 4)))
+        cpu.stub_function(A(DELETE), self.delete)
+        cpu.stub_function(A(0x576890), self.add, 20)  # thiscall, five words
 
     def delete(self, c):
         self.deleted += 1
@@ -100,11 +115,11 @@ def main():
                                                            f32(rng.uniform(0, 3))]
         dt, seed, steps = f32(rng.uniform(0, 0.2)), rng.getrandbits(31), rng.randint(1, 8)
         for a, v in zip(WIND, w):
-            cpu.write(a, struct.pack('<f', v))
+            cpu.write(A(a), struct.pack('<f', v))
         emu.rand = MsvcRand(seed)
         for _ in range(steps):
-            cpu.call(0x548840, stack_args=[struct.unpack('<I', struct.pack('<f', dt))[0]])
-        want = [struct.unpack('<f', cpu.read(a, 4))[0] for a in WIND]
+            cpu.call(A(0x548840), stack_args=[struct.unpack('<I', struct.pack('<f', dt))[0]])
+        want = [struct.unpack('<f', cpu.read(A(a), 4))[0] for a in WIND]
         got = (F * 11)(*w)
         probe.probe_wind_step(got, dt, seed, steps)
         if [struct.pack('<f', v) for v in want] != [struct.pack('<f', v) for v in got]:
@@ -115,9 +130,10 @@ def main():
             st = [rng.getrandbits(31), rng.getrandbits(31), rng.getrandbits(31), rng.getrandbits(31)]
             v = rng.getrandbits(31)
             for a, x in zip((0x5ea53c, 0x5e9e2c, 0x60b94c, 0x5ea82c), st):
-                cpu.u32(a, x)
-            cpu.call((0x4f3540, 0x4f8f20, 0x4f8f60)[op], ecx=v)
-            want = [struct.unpack('<i', cpu.read(a, 4))[0] for a in (0x5ea53c, 0x5e9e2c, 0x60b94c, 0x5ea82c)]
+                cpu.u32(A(a), x)
+            fn = (0x4f3540, 0x4f8f20, 0x4f8f60)[op]
+            cpu.call(A(fn), stack_args=[v] if PM else [], ecx=0 if PM else v)
+            want = [struct.unpack('<i', cpu.read(A(a), 4))[0] for a in (0x5ea53c, 0x5e9e2c, 0x60b94c, 0x5ea82c)]
             want.append(eax(cpu) if op == 1 else 0)
             out = (ctypes.c_int32 * 5)()
             probe.probe_node_setters(op, v, (ctypes.c_int32 * 4)(*st), out)
@@ -126,11 +142,11 @@ def main():
             stats['setters'] += 1
         # the define list's start: empty after, whatever it held
         n = rng.randint(0, 5)
-        cpu.u32(0x72bf98, n)
-        cpu.call(0x557490)
-        head = struct.unpack('<I', cpu.read(0x72bf94, 4))[0]
+        cpu.u32(A(0x72bf98), n)
+        cpu.call(A(0x557490))
+        head = struct.unpack('<I', cpu.read(A(0x72bf94), 4))[0]
         links = struct.unpack('<II', cpu.read(head, 8))
-        want = struct.unpack('<I', cpu.read(0x72bf98, 4))[0]
+        want = struct.unpack('<I', cpu.read(A(0x72bf98), 4))[0]
         if links != (head, head) or want != probe.probe_defines_reset(n):
             raise SystemExit(f'run {run}: defines: exe count {want} links {links}, port {probe.probe_defines_reset(n)}')
         stats['defines'] += 1
@@ -149,7 +165,7 @@ def main():
         for off in (0x4850, 0x4854, 0x4858):
             cpu.u32(state + off, rng.getrandbits(16))
         emu.deleted = 0
-        cpu.call(0x51af90, ecx=state)
+        cpu.call(A(0x51af90), ecx=state)
         fields = struct.unpack('<5I', cpu.read(state + 0x4848, 20))
         left = probe.probe_saved_maps_free(total)
         if emu.deleted != total or any(fields) or left != 0:
@@ -176,28 +192,32 @@ def main():
                 world = cpu.alloc(0x2c)
                 cpu.write(world, bytes(r) + bytes(4))
                 if kinds[i] == 1:
-                    entry = cpu.alloc(0x28)
-                    cpu.write(entry, bytes(8) + nm.encode().ljust(20, b'\0') + bytes(12))
+                    entry = cpu.alloc(0x30)
+                    at = 0xc if PM else 8  # the entry's name: PM's at +0x0c
+                    cpu.write(entry, bytes(at) + nm.encode().ljust(20, b'\0') + bytes(0x30 - at - 20))
                     cpu.u32(world + 0x10, entry)
                 cpu.write(mat, struct.pack('<IiI', world, 1, 0))
             mats.append(mat)
         lib = cpu.alloc(0x40)
         arr = cpu.alloc(max(4 * n, 4))
         cpu.write(arr, struct.pack(f'<{n}I', *mats) if n else b'')
-        cpu.u32(lib + 0x20, arr if n else 0), cpu.u32(lib + 0x24, arr + 4 * n if n else 0)
+        cpu.u32(lib + LIST, arr if n else 0), cpu.u32(lib + LIST + 4, arr + 4 * n if n else 0)
         for entry_path in (0, 1):
             emu.files, emu.added = {}, None
             if entry_path:
                 emu.callback = None
-                cpu.call(0x4fc990, ecx=lib)
+                cpu.call(A(0x4fc990), ecx=lib)
                 ok = eax(cpu) & 0xff
                 if emu.callback:
-                    cpu.call(emu.callback[0], ecx=0x1234, edx=emu.callback[1])
+                    if PM:  # PM's thunk is cdecl (file, library)
+                        cpu.call(emu.callback[0], stack_args=[0x1234, emu.callback[1]])
+                    else:
+                        cpu.call(emu.callback[0], ecx=0x1234, edx=emu.callback[1])
                 want = emu.files.get(0x1234, b'') if ok else None
                 if ok and emu.added != 'materials':
                     raise SystemExit(f'run {run}: the entry is named {emu.added!r}')
             else:
-                cpu.call(0x4fcca0, ecx=lib, stack_args=[0x1234])
+                cpu.call(A(0x4fcca0), ecx=lib, stack_args=[0x1234])
                 want = emu.files.get(0x1234, b'')
                 if eax(cpu) != len(want):
                     raise SystemExit(f'run {run}: materials: the exe counts {eax(cpu)}, wrote {len(want)}')

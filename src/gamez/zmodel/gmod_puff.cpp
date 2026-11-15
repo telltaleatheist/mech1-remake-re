@@ -282,10 +282,10 @@ void puffer_update(Puffer& p, float dt) {
   copy3(p.prev, cur);
 }
 
-// Mech3.exe 1.2 @ 0x00548840
+// Mech3.exe 1.2 @ 0x00548840, Pirate's Moon 1.0 @ 0x00563da0 (its order: the angular velocity before dt)
 void wind_step(float dt) {
   Wind& w = g_state.wind;
-  w.angle = (rand_unit() * 2.0f - 1.0f) * dt * w.angular_velocity + w.angle;
+  w.angle = (rand_unit() * 2.0f - 1.0f) * w.angular_velocity * dt + w.angle;
   if (!(w.angle >= 0.0f))
     w.angle = w.angle - -kTwoPi;
   else if (w.angle >= kTwoPi)
@@ -310,7 +310,8 @@ void puff_tick() {
   PuffState& s = g_state;
   Wind& w = s.wind;
   const float dt = ztimer::state().dt;
-  w.angle = (rand_unit() * 2.0f - 1.0f) * dt * w.angular_velocity + w.angle;
+  // Pirate's Moon 1.0 @ 0x00564710's order: the angular velocity before dt (MW3's 0x005490e0 the other way)
+  w.angle = (rand_unit() * 2.0f - 1.0f) * w.angular_velocity * dt + w.angle;
   if (!(w.angle >= 0.0f))
     w.angle = w.angle - -kTwoPi;
   else if (w.angle >= kTwoPi)

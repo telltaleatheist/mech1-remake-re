@@ -35,7 +35,7 @@ bool same(const char* a, const char* b) { return std::strcmp(a, b) == 0; }
 
 State& state() { return g_state; }
 
-// Mech3.exe 1.2 @ 0x00557490
+// Mech3.exe 1.2 @ 0x00557490, Pirate's Moon 1.0 @ 0x00579360
 void defines_reset() { g_state.defines.clear(); }
 
 // Mech3.exe 1.2 @ 0x005564f0: malloc(count nodes), first node's type set.

@@ -1711,3 +1711,19 @@ Two PM-only changes found on the way. PM's translate 0x539f80 sums t9 and t11 in
 (at 24 bits MW3's order matches 98 of 20,000). And the draw's point transform (0x53c280's, `transform_point`
 in pm gmod_draw.cpp) keeps each word's sums on the x87 as zmath's transform_points does: test_pm_submit's
 bit-identical floats from 1,089,228 to 1,125,524 of 1,166,638.
+
+## S14 on PM (2026-11-14)
+
+S14's preservation ports cross with PM's addresses (zimg_fonts 0x533660..0x533960, the saved maps 0x5347b0, the
+define list 0x579360, _rmtmp 0x5cc130, the mechlib's materials writer 0x510710 / 0x510c40 / 0x510f40, the wind
+0x563da0, zClass's setters 0x506960 / 0x50ca50 / 0x50ca90). PM passes MW3's ECX and EDX on the stack in most of
+them (cdecl), its fetch takes a 0 after the name, its mechlib keeps the materials at +0x24 and its texture
+entry's name at +0x0c. `test_zimg_fonts.py` and `test_s14_misc.py` with MW3_EXE=pm run against PM's exe. One
+order is PM's own: the wind's angle step multiplies by the angular velocity before dt (0x563da0, and so does
+PM's puff_tick 0x564710, now in the same order on `pm`; test_pm_puffers does not reach the tick, the order is
+read from both).
+
+PM's own CreateUniqueMaterials (0x50cc10, the script command no shipped script uses; its model 0x55bcf0):
+`pm::zcls::create_unique_materials` and `pm::zmod::unique_materials`, every polygon's materials replaced by
+copies (one a material, or one a slot per polygon), the children's when recursive, then the polygons sorted
+(0x55c470). `test_pm_unique_materials.py` against PM's exe, 400 runs, breaks caught.

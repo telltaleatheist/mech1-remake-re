@@ -27,7 +27,7 @@ std::FILE* make_temp() {
   if (f) g_scratch.push_back(std::move(s));
   return f;
 }
-// Mech3.exe 1.2 @ 0x005a92d0: _rmtmp (every tmpfile() closed, which removes it)
+// Mech3.exe 1.2 @ 0x005a92d0, Pirate's Moon 1.0 @ 0x005cc130: _rmtmp (every tmpfile() closed, which removes it)
 void close_temps() {
   for (std::FILE* f : g_temps) std::fclose(f);
   g_temps.clear();

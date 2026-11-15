@@ -33,7 +33,7 @@ platform::Alert* g_alert = nullptr;
 NodePool& nodes() { return g_pool; }
 Frames& frames() { return g_frames; }
 
-// Mech3.exe 1.2 @ 0x004f8f20
+// Mech3.exe 1.2 @ 0x004f8f20, Pirate's Moon 1.0 @ 0x0050ca50
 int32_t frames_reset() {
   g_frames.update_frame = 1;
   g_frames.frozen = 0;
