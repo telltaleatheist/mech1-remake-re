@@ -514,4 +514,11 @@ Node* list_walk_prefix(const char* name, int list) {
   return list_walk_next(name, list, prefix_matches);
 }
 
+int32_t& classes_save_hooked() {
+  static int32_t hooked = 1;  // 0x005ea82c
+  return hooked;
+}
+// Mech3.exe 1.2 @ 0x004f8f60
+void set_classes_save_hooked(int32_t on) { classes_save_hooked() = on; }
+
 }  // namespace zcls

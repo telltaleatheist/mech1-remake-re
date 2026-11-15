@@ -282,6 +282,26 @@ void puffer_update(Puffer& p, float dt) {
   copy3(p.prev, cur);
 }
 
+// Mech3.exe 1.2 @ 0x00548840
+void wind_step(float dt) {
+  Wind& w = g_state.wind;
+  w.angle = (rand_unit() * 2.0f - 1.0f) * dt * w.angular_velocity + w.angle;
+  if (!(w.angle >= 0.0f))
+    w.angle = w.angle - -kTwoPi;
+  else if (w.angle >= kTwoPi)
+    w.angle = w.angle - kTwoPi;
+  w.speed = (rand_unit() * 2.0f - 1.0f) * w.accel + w.speed;
+  if (!(w.speed >= 0.0f)) {
+    w.angle = w.angle - -kPi;
+    w.speed = -w.speed;
+  }
+  if (w.speed > w.max_speed) w.speed = w.max_speed;
+  const auto c = static_cast<float>(std::cos(double{w.angle})), sn = static_cast<float>(std::sin(double{w.angle}));
+  w.current[0] = c * w.speed + w.base[0];
+  w.current[1] = w.base[1];
+  w.current[2] = sn * w.speed + w.base[2];
+}
+
 // Mech3.exe 1.2 @ 0x005490e0. The wind wanders: its direction by up to
 // angvel * dt a frame, its speed by up to `accel` a frame (not scaled by dt),
 // clamped to 0..max_speed. Particles relax toward wind * factor at

@@ -68,6 +68,16 @@ void mechlib_close(MechLib& lib);
 void mechlib_strip(Node* node);  // 0x004fc8b0
 
 bool read_material(std::FILE* f, Material& m);   // 0x004fc570
+// The materials' writer, which nothing calls (mechlib.zbd is only read; ported for preservation, docs/mechlib.md
+// Writing the materials): ECX the library, the "materials" entry added to its archive written by
+// write_materials; false (nothing added) with no materials.
+bool mechlib_write_materials(MechLib& lib);                     // 0x004fc990
+// ECX the library, the file: the count, then each material; 0 and nothing written with none. The bytes written.
+uint32_t write_materials(const MechLib& lib, std::FILE* f);     // 0x004fcca0 (through 0x004fc9d0)
+// ECX the material, the file: its 0x28 bytes, then its texture's name when it has one. One read and not resolved
+// writes the bytes it was read from (no name: the reader cleared their texture word); a resolved one writes its
+// world material (the exe's first word is that material then: its record's 0x28 bytes, its texture's name).
+uint32_t write_material(const Material& m, std::FILE* f);       // 0x004fc4d0
 Node* read_node(std::FILE* f, Node* parent);     // 0x004fce50
 const char* mechlib_type_name(int32_t type);     // 0x004fce40: the debug log's
 Node* read_tree(TreeReader& lib, std::FILE* f, Node* parent);  // 0x004fcdc0

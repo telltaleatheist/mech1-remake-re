@@ -83,6 +83,9 @@ struct State {
   std::vector<std::string> defines;               // 0x0072bf94  what #ifdef finds: nothing in the exe adds to it
 };
 State& state();
+// The define list's static start (0x00557490, a C++ static initialiser: a fresh empty list over the old one, its
+// nodes left): the list emptied. Nothing calls it again (ported for preservation).
+void defines_reset();
 
 void init();                                                  // 0x00556170
 bool open_archive(const char* path, bool make_current);      // 0x00557320

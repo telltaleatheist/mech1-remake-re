@@ -33,6 +33,13 @@ platform::Alert* g_alert = nullptr;
 NodePool& nodes() { return g_pool; }
 Frames& frames() { return g_frames; }
 
+// Mech3.exe 1.2 @ 0x004f8f20
+int32_t frames_reset() {
+  g_frames.update_frame = 1;
+  g_frames.frozen = 0;
+  return 0;
+}
+
 void set_alert(platform::Alert* alert) { g_alert = alert; }
 
 // Mech3.exe 1.2 @ 0x004eada0. FIX (A): the message box goes through the

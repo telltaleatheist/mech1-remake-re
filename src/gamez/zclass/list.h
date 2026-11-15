@@ -69,6 +69,10 @@ void free_items();                         // 0x004f7920
 // zClass's reset between missions and at shutdown (0x004f8f40 calls it):
 // every node destroyed and the pool's blocks freed.
 int classes_reset();                       // 0x004f8fb0
+// Whether zClass's start (0x004f8f70) hands its save routines to zSave: [0x005ea82c], 1 at load; the setter
+// 0x004f8f60 is called by nothing (ported for preservation; the start is the engine's classes_reset hook).
+int32_t& classes_save_hooked();
+void set_classes_save_hooked(int32_t on);  // 0x004f8f60
 // The frame's actions: each live item whose node is active (flag 4) and has
 // an action (+0x48) runs it, with purging held off; items without a node or
 // an action are marked removable. Then every flagged list is purged.

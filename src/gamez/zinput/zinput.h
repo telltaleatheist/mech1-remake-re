@@ -142,6 +142,9 @@ struct State {
   bool mouse_named[4] = {};
 };
 
+// zInput's state's destructor (0x0051af90, run at exit through 0x0051af80): the saved maps' list let go (its
+// nodes, not the maps) and its counts zeroed. The port's vector goes with the program; ported for preservation.
+void saved_maps_free();
 State& state();
 void reset_state();                    // back to the power-on globals (tests)
 void set_input(platform::Input* di);   // what DirectInputCreateA gives; null: it fails

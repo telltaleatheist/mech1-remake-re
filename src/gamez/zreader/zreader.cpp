@@ -35,6 +35,9 @@ bool same(const char* a, const char* b) { return std::strcmp(a, b) == 0; }
 
 State& state() { return g_state; }
 
+// Mech3.exe 1.2 @ 0x00557490
+void defines_reset() { g_state.defines.clear(); }
+
 // Mech3.exe 1.2 @ 0x005564f0: malloc(count nodes), first node's type set.
 Node* new_nodes(int32_t first_type, int32_t count) {
   Node* n = static_cast<Node*>(std::malloc(static_cast<size_t>(count) * sizeof(Node)));

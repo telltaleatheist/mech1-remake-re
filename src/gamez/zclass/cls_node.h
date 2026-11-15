@@ -73,6 +73,8 @@ struct Frames {
   int32_t frozen = 0;              // 0x0060b94c
 };
 Frames& frames();
+// The frame counter reset to 1 and the stamps unfrozen; 0. Nothing calls it (ported for preservation).
+int32_t frames_reset();            // 0x004f8f20
 
 Node* node_alloc();                // the running game's (zgame::Table): MW3's 0x004eacd0
 Node* mw3_node_alloc();            // 0x004eacd0

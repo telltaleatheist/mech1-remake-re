@@ -256,6 +256,47 @@ bool read_material(std::FILE* f, Material& m) {
   return true;
 }
 
+// Mech3.exe 1.2 @ 0x004fc4d0. FIX (A): the texture word of a resolved material is 1 (the exe writes its texture
+// entry's address, which the reader only tests for nonzero), its cycle word the file's (the exe its pointer).
+uint32_t write_material(const Material& m, std::FILE* f) {
+  uint8_t r[0x28] = {};
+  const char* name = nullptr;
+  if (m.resolved && m.world) {
+    const zmod::Material& w = *m.world;
+    r[0] = w.alpha, r[1] = w.flags;
+    std::memcpy(r + 2, &w.rgb, 2);
+    std::memcpy(r + 4, &w.r, 4), std::memcpy(r + 8, &w.g, 4), std::memcpy(r + 0xc, &w.b, 4);
+    const uint32_t tex = w.texture ? 1u : 0u;
+    std::memcpy(r + 0x10, &tex, 4);
+    std::memcpy(r + 0x14, w.unk_14, 12);
+    std::memcpy(r + 0x20, &w.soil, 4);
+    std::memcpy(r + 0x24, &w.file_cycle, 4);
+    if (w.texture) name = w.texture->name;
+  } else if (m.raw) {
+    std::memcpy(r, m.raw, sizeof r);
+  }
+  uint32_t n = static_cast<uint32_t>(std::fwrite(r, 1, sizeof r, f));
+  if (name) n += zutl_zar::write_string(f, name);
+  return n;
+}
+
+// Mech3.exe 1.2 @ 0x004fcca0
+uint32_t write_materials(const MechLib& lib, std::FILE* f) {
+  const auto count = static_cast<int32_t>(lib.materials.size());
+  if (count == 0) return 0;
+  uint32_t n = static_cast<uint32_t>(std::fwrite(&count, 1, 4, f));
+  for (int32_t i = 0; i < count; ++i) n += write_material(*lib.materials[static_cast<size_t>(i)], f);
+  return n;
+}
+
+// Mech3.exe 1.2 @ 0x004fc990
+bool mechlib_write_materials(MechLib& lib) {
+  if (lib.materials.empty()) return false;
+  zutl_zar::add_written(lib.archive, "materials",
+                        [](std::FILE* f, void* user) { return write_materials(*static_cast<MechLib*>(user), f); }, &lib);
+  return true;
+}
+
 // Mech3.exe 1.2 @ 0x004fcf20. The file's 0x5c bytes over a pool slot (its
 // link stays). The file's pointer fields only say whether an array follows.
 zmod::Model* read_model(std::FILE* f) {

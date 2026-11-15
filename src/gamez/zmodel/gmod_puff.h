@@ -176,6 +176,9 @@ void wind_set_random_angvel(float radians);                // 0x0054b670
 void puff_tick_reset();                                    // 0x00549410
 // The tick node's callback: the wind, every puffer, every particle.
 void puff_tick();                                          // 0x005490e0
+// The wind's step alone, dt given (0x00548840, which nothing calls: puff_tick does the same inline with the
+// frame's dt; ported for preservation as the exe has it, its speed's step not scaled to the time).
+void wind_step(float dt);
 // One puffer's emission for a frame step (ECX puffer, stack dt).
 void puffer_update(Puffer& p, float dt);                   // 0x0054a090
 // Frees every puffer and particle and the tick node.
