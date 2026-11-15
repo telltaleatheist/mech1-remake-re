@@ -167,6 +167,9 @@ void probe_dt_call(int32_t fn, const int32_t* a, uint8_t* tl, const float* work,
     case 3: zvid::draw_textured_lit(static_cast<uint32_t>(a[0]), a[1], texture_at(a[2]), a[3], as_float(a[4]), a[5]); break;
     case 4: zvid::draw_textured_vertex_lit(static_cast<uint32_t>(a[0]), a[1], texture_at(a[2]), as_float(a[3]), a[4]); break;
     case 13: zvid::draw_textured_white(a[0], texture_at(a[1]), a[2], as_float(a[3]), a[4]); break;
+    case 18:  // 0x0057c2f0: the points in work[0..192), the colours after them
+      zvid::draw_vertex_colors(work, reinterpret_cast<const uint32_t*>(work + 192), a[0], a[1], a[2], a[3]);
+      break;
     case 5: zvid::flush_transparent(); break;
     case 6: zvid::flush_overlay(); break;
     case 7: {

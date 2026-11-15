@@ -1820,3 +1820,40 @@ calls them (0x570f30 on) needs the strip output, so it moves to sitting 3 with f
   and tests, case by case;
 - the room a join leaves, [0x8c14f8], is the pass capped by the stripper's argument and by 0x42, less both counts:
   on pass 0 it is never above 0, so pass 0 makes only plain polygons, never strips.
+
+## S20b: the network mech's send 0x471210 and the state's apply 0x4705e0 (2026-11-14)
+
+The S20 sweep found 0x471210 (the network mech's vt+0x168, vtable 0x5dfc28) with no PM function: Ghidra had folded it
+into 0x471040, so the pairing never matched it with MW3's 0x46f160, and `net_send_event` carried MW3's head while dev
+1 had already put PM's packing (`state_bits`), 0x11's reason and 0x16's Total Shots in from inside its range. Run
+against the exe whole, every kind but the clock and the timer (`test_pm_net_send.py`, 3,000 sends: 0xf, 0x10, 0x12,
+0x13, 0x15, 0x16, 0x17, 0x21, every word of every send, the shots and damaged parts after, the remotes' ping
+fields), the one difference left was the state's aim: PM copies the weapons' aim point into +0x28..+0x30 (0x471503)
+where MW3 sends a turn off straight ahead and a distance. Its apply 0x4705e0 hands that point to the weapons
+(0x4b4a20): no turn rebuilt, no lag carried, nothing kept. Both ported (`net_state_message`, `net_state_apply`,
+`NetStateIn::aim[3]`), with the made-up remote pilot of `program_net_pose_step` sending a point; the MW3 aim's lag fix
+does not apply on `pm` (fixes.md). `test_pm_net_apply.py` runs the apply's active half against the exe (2,000 states:
+the velocity, controls, torso turn, aim, heading, passive radar, target, shots, parts and the flags' calls; the
+throttle compared once IControls has clamped it). Messages whose size claims less than they hold are left out: the exe
+reads past, the port stops (FIX (A)). Breaks: the turn from the throttle, the powered-down bit one higher,
+the motion state's 5-bit mask, the aim's components (send and apply), no Total Shots (`test_pm_net_shot`), a side
+torso's rear section: each caught.
+
+The network mech's vtable (0x5dfaac, 98 slots) had six slots on no list: 0x471210, 0x41f3d0 (the LOD budget, ported
+as `lod_budget` but cited from 0x41f3d5, past its first call), 0x41f450 (a thunk to 0x4b2b10), 0x4964e0 (answers 1),
+0x4e7720 and 0x4158a0 (thunks to the position and the local id); 0x471210 was the one gap. The cause was the same
+each time, a Ghidra function running on past its end (0x471040 into 0x471210, 0x41f3c0 into 0x41f3d0 and 0x41f450),
+and the sweep had read such a vtable's slots into one function as a switch table; it now counts a table only where
+code jumps through it (this exe keeps its switch tables in .text).
+
+The PM sweep (`sweep_tables.py --game pm`): 442 rows (14 message-map handlers, the rest code pointers in the data)
+and 21 bodies behind adjustor thunks, in port_audit_extra.tsv; the PM audit has 0 unlabelled. 70 needed a look,
+each against its MW3 twin found by instruction similarity (`port_audit_labels_pm.tsv`): the same instructions as an
+MW3 function ported in shared code or labelled there, MW3's with PM's field offsets, vtable slot or calling
+convention, the pocket's three IControls slots (PM's changes already in mech_pocket.cpp: the keys' copy, the key
+map's pop), the PM lobby's frame 0x49b650 (ported in mp_lobby.cpp), virtual-base destructors, the message box's
+answers, dev dialogs' MFC handlers, the quit (PostQuitMessage; SDL's own), setters. None is a gap. One preservation
+item for the list: PM's own build of the unused vertex-colour draw, 0x59d9d0 (slot [0x8c4be0], written by 0x59b1f0
+and read by nothing, as MW3's 0x57c2f0; restructured, 413 instructions to MW3's 306), relabelled from "replaced" to
+"unused: PORT (preserve)". The basic controls' on_path 0x4b1f70 and let_go 0x4b1f30 (MW3's 0x4ae690, 0x4ae650) are
+ported beside dev 1's set_net and checked against the exe in `test_pm_basic_set_net.py` (1 break).

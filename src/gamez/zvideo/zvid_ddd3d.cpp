@@ -436,6 +436,41 @@ void draw_point(const float screen[3], uint32_t color, int32_t alpha) {
   draw_primitive(1, &v, 1);
 }
 
+// Mech3.exe 1.2 @ 0x0057c2f0 ([0x0072f3b4], ECX points, EDX colours): untextured, a display-packed colour per
+// vertex, flat. Nothing calls the slot (docs/render.md, The unused vertex-colour draw): preserved, unwired. The points
+// (x, y, depth) and colours are read last to first, so the polygon's winding is reversed. FIX (A): the device calls
+// go to Render3D.
+void draw_vertex_colors(const float* xyz, const uint32_t* colors, int32_t alpha, int32_t count, int32_t,
+                        int32_t overlay) {
+  TLVertex* dst = g_flat;
+  if (alpha < 0xff) {
+    if (overlay == 0) {
+      dst = queue_transparent(g_state.primitive, count, nullptr);
+    } else {
+      OverlayPoly* p = overlay_slot(0, count, nullptr, 0x68e);
+      dst = p ? p->verts : nullptr;
+    }
+    if (!dst) return;
+  }
+  for (int32_t i = 0; i < count; ++i) {  // tu, tv are left as they were
+    const float* p = xyz + 3 * (count - 1 - i);
+    dst[i].sx = p[0];
+    dst[i].sy = p[1];
+    dst[i].sz = p[2];
+    dst[i].rhw = p[2];
+    dst[i].diffuse = unpack(colors[count - 1 - i], alpha);
+    dst[i].specular = 0xff000000u;
+  }
+  if (alpha < 0xff) return;
+  if (overlay == 0) {
+    set_texture(nullptr);
+    set_shade(1);
+    draw_primitive(g_state.primitive, g_flat, count);
+  } else if (OverlayPoly* p = overlay_slot(2, count, nullptr, 0x665)) {
+    std::memcpy(p->verts, g_flat, sizeof(TLVertex) * count);
+  }
+}
+
 // Mech3.exe 1.2 @ 0x0057c700. Untextured, lit or fogged: the material rgb
 // times the FIRST vertex's darkness for every vertex, plus the point light
 // per vertex (flag 4); fog (flag 1) in the specular alpha. A polygon with

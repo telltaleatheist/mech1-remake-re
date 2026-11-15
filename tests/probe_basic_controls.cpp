@@ -144,4 +144,19 @@ int probe_basic_set_net(int32_t state, int32_t owner, int32_t kind, int32_t x18,
   return 0;
 }
 
+// test_pm_basic_set_net.py: on a path (IControls vt+0x70: PM's 0x004b1f70) and a record let go (vt+0x64: PM's
+// 0x004b1f30) with the controls' +0x38 `state` and a record held or not; `same` lets go of the held one, else of
+// another. out: on a path, the let-go's answer, +0x38 after, whether a record is still held.
+int probe_basic_answers(int32_t state, int32_t held, int32_t same, int32_t* out) {
+  m3::BasicControls c(nullptr, 0);
+  static m3::ai::Net105 rec, other;
+  c.state = state;
+  c.record = held ? &rec : nullptr;
+  out[0] = c.on_path() ? 1 : 0;
+  out[1] = c.let_go(same ? c.record : &other) ? 1 : 0;
+  out[2] = c.state;
+  out[3] = c.record ? 1 : 0;
+  return 0;
+}
+
 }  // extern "C"

@@ -283,7 +283,7 @@ void put16(std::vector<uint8_t>& b, size_t at, uint16_t v) { std::memcpy(b.data(
 float game_time() { return g_calls.game_time ? g_calls.game_time() : 0.0f; }
 }  // namespace
 
-// The 0xf message of 0x0046f160. Its bytes that nothing writes are 0 (the
+// The 0xf message of Pirate's Moon's 0x00471210 (MW3's 0x0046f160). Its bytes that nothing writes are 0 (the
 // exe's static buffer has 0 there; a malloc'd one, whatever the heap held).
 std::vector<uint8_t> net_state_message(Mech& m) {
   const NetCalls& c = g_calls;
@@ -308,20 +308,12 @@ std::vector<uint8_t> net_state_message(Mech& m) {
   const MechControls* ctl = m.controls;
   b[0x24] = axis_byte(ctl ? ctl->throttle_target : 0.0f);  // IControls vt+0x2c
   b[0x25] = axis_byte(ctl ? ctl->turn : 0.0f);             // vt+0x24
-  // The aim: from the torso's node to the weapons' aim point, as a turn off
-  // straight ahead (0, 0, -1) and a distance.
-  float at[3] = {0, 0, 0};
-  if (c.torso_position) c.torso_position(m, at);
+  // The aim: Pirate's Moon sends the weapons' aim point as it is (0x00471503; MW3 sends a turn off straight
+  // ahead from the torso's node, and a distance), and its apply (0x004705e0) aims there (pm-tests.md).
   const auto* w = static_cast<const WeaponManager*>(m.ammo);
-  zmth::Vec3 d{(w ? w->aim.x : 0.0f) - at[0], (w ? w->aim.y : 0.0f) - at[1], (w ? w->aim.z : 0.0f) - at[2]};
-  const float range = zmth::normalize(d);  // 0x004020d0
-  const float ahead[3] = {0.0f, 0.0f, -1.0f};
-  float q[4], turn[3];
-  zmth::quat_between(ahead, &d.x, q);  // 0x00525a50
-  zmth::quat_log(q, turn);             // 0x005259c0
-  put_f(b, 0x28, turn[0]);
-  put_f(b, 0x2c, turn[1]);
-  put_f(b, 0x30, range);
+  put_f(b, 0x28, w ? w->aim.x : 0.0f);
+  put_f(b, 0x2c, w ? w->aim.y : 0.0f);
+  put_f(b, 0x30, w ? w->aim.z : 0.0f);
   // The flags (state_bits, Pirate's Moon's): 0 nothing struck last, 1 inactive, then the motion state, the first
   // action, limping, the shots, the parts, passive, powered down, MASC, the AMS on, NARCed, jumping, crouched and
   // the headlight on (docs/network-messages.md; docs/pm-map.md for PM's places).
@@ -396,7 +388,8 @@ float net_send_period(int32_t players) {
   }
 }
 
-// Mech3.exe 1.2 @ 0x0046f160
+// Pirate's Moon 1.0 @ 0x00471210 (MW3's 0x0046f160; Ghidra never made it a function, so the pairing missed it:
+// pm-tests.md). The kinds as MW3's but the state's aim (net_state_message), 0x16's Total Shots and 0x11's reason.
 int32_t net_send_event(Mech& m, int32_t kind, intptr_t arg) {
   const NetCalls& c = g_calls;
   if (c.send_event) return c.send_event(m, kind, arg);
@@ -562,10 +555,8 @@ void mech_do(NetMech& m, uint32_t fn, int32_t arg) {
 }
 }  // namespace
 
-// Mech3.exe 1.2 @ 0x0046e4d0. The controls are set through IControls
-// (vt+0x20 the throttle, +0x28 the turn, +0x34 the jump). The aim's turn
-// is carried on from the last by the latency over the gap since that
-// state, and its z dropped then (it is 0 anyway).
+// Pirate's Moon 1.0 @ 0x004705e0 (MW3's 0x0046e4d0). The controls are set through IControls
+// (vt+0x20 the throttle, +0x28 the turn, +0x34 the jump); the aim is the point sent.
 void net_state_apply(NetMech& m, const uint8_t* msg, size_t size) {
   const NetCalls& c = g_calls;
   if (size < sizeof(NetStateIn)) return;  // FIX (bug): the exe reads 0x3c bytes whatever came
@@ -582,34 +573,11 @@ void net_state_apply(NetMech& m, const uint8_t* msg, size_t size) {
     float tq[4];
     zmth::quat_two_angles(st.torso[1], st.torso[0], tq);  // 0x00525280
     if (m.torso) std::memcpy(m.torso->turn_q, tq, sizeof tq);  // 0x004646f0
-    zmth::Vec3 v{st.aim[0], st.aim[1], 0.0f};
-    zmth::Quat q;
-    zmth::quat_exp(v, q);  // 0x00525900
-    const float qn[4] = {q.w, q.x, q.y, q.z};
-    float use[4];
-    if (m.aim_q[1] == 0.0f || m.aim_q[2] == 0.0f) {
-      std::memcpy(use, qn, sizeof use);
-    } else {
-      const uint32_t now = c.now_ms ? c.now_ms() : ztimer::ticks_ms();
-      const double gap = static_cast<double>(now - m.heard);
-      // FIX (bug): the latency (seconds) in milliseconds, as the gap is; the
-      // exe adds the seconds, a correction of about 0.1%.
-      const double lag = zfix::options().fixed ? m.latency * 1000.0 : m.latency;
-      const double f = gap > 1.0 ? (lag + gap) / gap : 1.0;
-      for (int i = 0; i < 3; ++i) use[i] = static_cast<float>((qn[i] - m.aim_q[i]) * f + m.aim_q[i]);
-      use[3] = 0.0f;
-    }
-    std::memcpy(m.aim_q, qn, sizeof qn);
-    m.heard = c.now_ms ? c.now_ms() : ztimer::ticks_ms();
-    const zmth::Quat uq{use[0], use[1], use[2], use[3]};
-    const zmth::Vec3 ahead{0.0f, 0.0f, -st.range};
-    zmth::Vec3 dir;
-    zmth::quat_rotate(uq, ahead, dir);  // 0x00525840
-    float at[3] = {0, 0, 0};
-    if (c.torso_position) c.torso_position(m, at);
-    const Vec3f aim{at[0] + dir.x, at[1] + dir.y, at[2] + dir.z};
+    // Pirate's Moon aims at the point sent (0x004b4a20 on it): no turn carried on by the latency, nothing kept
+    // (MW3's 0x0046e4d0 rebuilt the aim from a turn and a distance off the torso's node; pm-tests.md).
+    const Vec3f aim{st.aim[0], st.aim[1], st.aim[2]};
     if (c.aim) c.aim(m, &aim.x);
-    else if (auto* w = static_cast<WeaponManager*>(m.ammo)) w->set_aim(&aim);  // 0x004b0bc0
+    else if (auto* w = static_cast<WeaponManager*>(m.ammo)) w->set_aim(&aim);  // 0x004b4a20
     m.heading_q[0] = static_cast<float>(std::cos(static_cast<double>(st.heading)));
     m.heading_q[1] = 0.0f;
     m.heading_q[2] = static_cast<float>(std::sin(static_cast<double>(st.heading)));

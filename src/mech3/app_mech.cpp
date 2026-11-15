@@ -1712,8 +1712,9 @@ bool program_net_pose_step(int32_t frame, NetPoseSeen* out) {
   st.type = 0xf, st.size = sizeof st;
   st.pos[0] = start[0], st.pos[1] = start[1], st.pos[2] = start[2] - walked / 3.0f;
   if (ph == 1) st.vel[2] = static_cast<int16_t>(-10 * 127), st.throttle = static_cast<int8_t>(0.6f * 127);
-  st.aim[0] = 0.1f + 0.0005f * walked, st.aim[1] = -0.05f, st.range = 200.0f;  // walking, his aim drifts up
-  st.flags = static_cast<uint32_t>(me->anim_state & 0x1f) << 2;
+  // walking, his aim drifts up: a point 200 m ahead of him, rising (PM sends the point itself)
+  st.aim[0] = st.pos[0], st.aim[1] = st.pos[1] - 10.0f + 0.1f * walked, st.aim[2] = st.pos[2] - 200.0f;
+  st.flags = static_cast<uint32_t>(me->anim_state & 0xf) << 2;  // PM's motion state: 4 bits
   b->send(1, &st, sizeof st, true, nullptr);
   znet::poll(-1);
   NetPoseSeen::Phase& p = out->phase[ph];

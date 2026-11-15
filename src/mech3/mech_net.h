@@ -38,8 +38,7 @@ struct NetStateIn {
   float torso[2] = {};          // +0x1c  the torso's two angles
   int8_t throttle = 0, turn = 0;  // +0x24  x 127
   uint8_t x26[2] = {};          // +0x26
-  float aim[2] = {};            // +0x28  the aim's turn
-  float range = 0;              // +0x30  and distance
+  float aim[3] = {};            // +0x28  the weapons' aim point (Pirate's Moon; MW3: a turn's two and a distance)
   uint32_t target = 0;          // +0x34  the target's player
   uint32_t flags = 0;           // +0x38
 };
