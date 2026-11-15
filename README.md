@@ -30,6 +30,18 @@ original.
 
 Nothing yet.
 
+**1.1.2 (2026-11-15)** (the full notes are in
+[docs/release-notes-1.1.2.md](docs/release-notes-1.1.2.md)):
+
+- **Both games are ported whole**, the developers' tools and unused code
+  included, kept as the original has them.
+- **Pirate's Moon behaves like its own** in its menus, briefings, Instant
+  Action line-ups, mission look, sensors, field bases and multiplayer; Ctrl+P
+  saves a screenshot.
+- **Distant ground and walls no longer shimmer** (mipmaps), in both games.
+- Fixes: the pause's Escape silencing the mission, a missile locked on a mech
+  that left the game, damaged model files, the mod check with a world loaded.
+
 **1.1.1 (2026-11-13)** (the full notes are in
 [docs/release-notes-1.1.1.md](docs/release-notes-1.1.1.md)):
 
