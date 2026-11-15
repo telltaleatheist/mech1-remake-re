@@ -74,7 +74,6 @@ produces; the label names the compared value. Reaching a function, or running a 
 | software renderer | 115 |
 | MISSING LOGIC | 79 |
 | dev dialog (MFC), its window plumbing: replaced | 60 |
-| unused: PORT (preserve) | 1 |
 
 ## MISSING LOGIC
 
@@ -94,10 +93,6 @@ Run evidence (2026-11-13): the PM chains (campaign kills:99 and standalone-kills
 Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x0043cf50, MW3 0x0043be70): Hud::zap_static, ported and wired for both games by MW3's BROKEN row 3 (8bf594ef, app_hud.cpp); PM's 0x0043cf50 is the same logic (its audit row, folded).
 
 ## PORT (preserve)
-
-### unused: PORT (preserve)
-
-- 1 functions, 170 decomp lines (0x0059d9d0): PM's draw table slot [0x008c4be0] (MW3's unused [0x0072f3b4] 0x0057c2f0, render.md The unused vertex-colour draw): written by 0x0059b1f0, read by nothing; untextured, a colour per vertex, PM's own build of it (S20 sweep)
 
 ## UNSURE
 
@@ -4462,7 +4457,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x005970d0 | 46 | folded | as MW3 0x005762b0: zUtil's search path lists: each user keeps its own path string (zsnd_init.cpp:223, mech_fieldbase.h:295, zinterp.cpp:240) and the file finder is the platform's (zimg_library.h:75, zsnd_parm.cpp:17, FIX (A)); the default list's free has nothing to free (mission-frame.md:184) |
 | 0x005971d0 | 16 | folded | covered by the port where it names it (src/gamez/zinterp/zinterp.cpp:263) |
 
-### zvideo (103 not ported)
+### zvideo (102 not ported)
 
 | Address | Lines | Class | Why |
 |---|---|---|---|
@@ -4528,7 +4523,6 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x0059cf60 | 9 | replaced (SDL or the platform layer) | as MW3 0x0057bb60: DirectDraw and Direct3D: the mode, surfaces, blits, back buffer locks and grabs, the device and its memory queries, the render states' set-up, the textures' system surfaces, the cursor and window calls, the DirectX version and its error names; the SDL GPU layer replaces them (render.md, fixes.md (A)) |
 | 0x0059d0f0 | 16 | replaced (SDL or the platform layer) | PM's Direct3D 6 path (zvid_ddd3d), replaced by the SDL GPU renderer: the fog colour set (render state 0x22, 0x0059d0f0), the transparent polygons queued with their limits ("Not enough MAX_TRANSPARENT_POLYS" and the rest, 0x0059d9d0 and 0x0059e0c0, set as the device's draw pointers [0x008c4be0] / [0x008c4be8]) and the queue's depth sort and flush (0x0059f260); the GPU renderer draws transparency its own way (render.md) |
 | 0x0059d3a0 | 34 | replaced (SDL or the platform layer) | PM's dump of every Direct3D render state (1..0x40, 0x80..0x87 and the texture stage states, "Render State %d = %d") from 0x0059eef5: a debugging dump of the D3D device, which the rebuild's GPU path replaces (no device states to read) |
-| 0x0059d9d0 | 170 | unused: PORT (preserve) | PM's draw table slot [0x008c4be0] (MW3's unused [0x0072f3b4] 0x0057c2f0, render.md The unused vertex-colour draw): written by 0x0059b1f0, read by nothing; untextured, a colour per vertex, PM's own build of it (S20 sweep) |
 | 0x0059e0c0 | 167 | replaced (SDL or the platform layer) | PM's Direct3D 6 path (zvid_ddd3d), replaced by the SDL GPU renderer: the fog colour set (render state 0x22, 0x0059d0f0), the transparent polygons queued with their limits ("Not enough MAX_TRANSPARENT_POLYS" and the rest, 0x0059d9d0 and 0x0059e0c0, set as the device's draw pointers [0x008c4be0] / [0x008c4be8]) and the queue's depth sort and flush (0x0059f260); the GPU renderer draws transparency its own way (render.md) |
 | 0x0059f260 | 130 | replaced (SDL or the platform layer) | PM's Direct3D 6 path (zvid_ddd3d), replaced by the SDL GPU renderer: the fog colour set (render state 0x22, 0x0059d0f0), the transparent polygons queued with their limits ("Not enough MAX_TRANSPARENT_POLYS" and the rest, 0x0059d9d0 and 0x0059e0c0, set as the device's draw pointers [0x008c4be0] / [0x008c4be8]) and the queue's depth sort and flush (0x0059f260); the GPU renderer draws transparency its own way (render.md) |
 | 0x005a0040 | 14 | folded | covered by the port where it names it (src/gamez/zvideo/zvid_ddd3d.cpp:307) |
