@@ -1855,6 +1855,19 @@ Kept as the exe does it:
   join whatever their coordinates there, each keeping its own corner (the point twice, a degenerate triangle
   between, or three times with the winding turned).
 
+**Sitting 4 (2026-11-15): the wrap-up.** The stripper's entries ported too, unwired: mechlib's post-passes 0x510ab0
+(`pm::zcls::mechlib_strip_tree`: a tree's models without 0x80 stripped, the children first) and 0x510b00
+(`mechlib_unstrip_tree`: those with it made triangles again, model_unstrip); `test_pm_strip.py` runs them on node
+trees of the join grids (some models already marked 0x80) against the exe: 300 trees, 758 models identical, 3
+breaks caught. The call sites (the world reader
+0x5587e0, the re-read 0x558440, mechlib_load) name the port and still call nothing. The audit's 90 stripper rows:
+37 ported (their `Pirate's Moon 1.0 @` comments), 53 folded (MSVC's tree and list code into std::map / std::list,
+the one-line accessors into the functions that read them); `port-audit-pm.md` has no MISSING LOGIC left. Found on
+the way: the exe's unstrip 0x5726f0 builds each new triangle's flags over the slot its realloc grew (`*p & 0xfffff803
+| 3`, then 0x800 and 0x1000 from the strip), so bits from 0x4000 up are whatever that memory held; the port's
+model_unstrip leaves them clear (a bench that reuses its heap shows the difference; the test's allocations are
+cleared for it).
+
 ## S20b: the network mech's send 0x471210 and the state's apply 0x4705e0 (2026-11-14)
 
 The S20 sweep found 0x471210 (the network mech's vt+0x168, vtable 0x5dfc28) with no PM function: Ghidra had folded it

@@ -17,9 +17,17 @@ namespace pm::zcls {
 bool mechlib_open(::zcls::MechLib& lib, const char* path);
 // Pirate's Moon 1.0 @ 0x00510b90: MW3's 0x004fc8f0 with PM's tree and
 // resolve. The renderer conversion after it (0x00510ab0 under Direct3D,
-// else 0x00510b00) is left out, as for the world's models (pm-map.md, the
-// models' form).
+// else 0x00510b00) is not called, as for the world's models (pm-map.md, the
+// models' form): the renderer draws the file's form.
 ::zcls::Node* mechlib_load(::zcls::MechLib& lib, const char* name);
+// Pirate's Moon 1.0 @ 0x00510ab0: under Direct3D a loaded tree's models
+// without flag 0x80 made into strips (pm::zmod::strip_model, with 0x7fffffff
+// and no point limit), the children first. Preserved, unwired.
+void mechlib_strip_tree(::zcls::Node* node);
+// Pirate's Moon 1.0 @ 0x00510b00: in software, its models with 0x80 made
+// triangles again (pm::zmod::model_unstrip), the children first. Preserved,
+// unwired.
+void mechlib_unstrip_tree(::zcls::Node* node);
 // Pirate's Moon 1.0 @ 0x00510fd0: each polygon's library indices become
 // world materials (no index check), then the model is sorted by material
 // (0x0055c470).

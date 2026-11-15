@@ -12,7 +12,8 @@
 // (docs/pm-map.md, gamez.zbd 41). PM's own types, not MW3's: a polygon has a
 // list of materials (UVs per material), a model a list of the materials it
 // uses. Read as the file has them; the Direct3D strip conversion PM ran next
-// (0x00570b70) is left out (pm-map.md, the models' form).
+// (0x00570b70, gmod_strip's strip_model) is ported but not called (pm-map.md,
+// the models' form).
 namespace pm::zmod {
 
 struct Polygon {                       // 0x28 bytes

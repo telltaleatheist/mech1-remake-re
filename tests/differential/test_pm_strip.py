@@ -11,7 +11,8 @@ grids of ground made to join (triangles and quads on shared corners, coordinates
 whole repeats, rows or parts of rows already strips of either parity, polygons twice, a few off), the polygons, the
 material refs, flag 0x80 and the counts [0x8c1504..0x8c151c] compared after. Then a seeded sample of the worlds'
 type-0 models (every Nth plus the biggest), their materials given images at random, through each, the whole
-stripper as the crater re-read calls it (4 points) and as the others do. 53 bits on both sides. The images' load
+stripper as the crater re-read calls it (4 points) and as the others do. And mechlib's post-passes 0x510ab0 (strip
+the models without 0x80) and 0x510b00 (unstrip those with it) on node trees of those grids. 53 bits on both sides. The images' load
 0x5329e0, malloc / realloc / free, _ftol and operator new / delete stand in on the exe's side; MSVCP's _Lockit does
 nothing.
 """
@@ -32,6 +33,7 @@ from original import Original  # noqa: E402
 
 MERGE, STRIP, INTAKE_END, TRY_JOIN, JOIN_SHAPE = 0x572df0, 0x570b70, 0x570ef7, 0x573f50, 0x56b980
 MODEL, ARG, PASS, SLACK = 0x8c14fc, 0x8c14f4, 0x8c1500, 0x8c14f8
+STRIP_TREE, UNSTRIP_TREE = 0x510ab0, 0x510b00
 LOAD_IMAGES, REALLOC, NEW, DELETE = 0x5329e0, 0x596520, 0x5ce8c6, 0x5ce8c0
 IAT_FREE, IAT_MALLOC, IAT_LOCKIT, IAT_UNLOCKIT, IAT_FTOL = 0x5de65c, 0x5de664, 0x5de4f8, 0x5de4fc, 0x5de644
 COUNT_ALL, COUNT_TAKEN = 0x8c1504, 0x8c1508
@@ -62,6 +64,7 @@ class Emulated:
 
     def sized(self, n):
         a = self.cpu.alloc(max(n, 4))
+        self.cpu.write(a, bytes((max(n, 4) + 0xf) & ~0xf))  # cleared: the heap is reused run to run
         self.sizes[a] = n
         return a
 
@@ -239,6 +242,46 @@ class Emulated:
         if self.state is None:  # refused (the exe returned before its maps)
             return dumped
         return dumped + self.state
+
+
+    def post_pass(self, tree, specs, unstrip):
+        """mechlib's post-pass 0x510ab0 (or 0x510b00) on a node tree (probe_pm_strip_tree's form)."""
+        cpu = self.cpu
+        cpu.heap_next, self.sizes, self.state = self.heap, {}, None
+        for k in range(7):
+            cpu.u32(COUNT_ALL + 4 * k, 0)
+        for nil in (EDGE_NIL, VERTEX_NIL):
+            cpu.u32(nil, 0), cpu.u32(nil + 4, 0)
+        nodes = [self.sized(0xd4) for _ in tree]
+        built, it = [], iter(specs)
+        for i, (parent, has_model, flags) in enumerate(tree):
+            cpu.write(nodes[i], bytes(0xd4))
+            if has_model:
+                model, mats = self.build(next(it).ints())
+                cpu.u32(model + 8, flags)
+                cpu.u32(nodes[i] + 0x3c, model)
+                built.append((model, mats))
+        for i in range(len(tree)):
+            kids = [nodes[j] for j, (parent, _, _) in enumerate(tree) if parent == i]
+            arr = self.sized(4 * max(len(kids), 1))
+            if kids:
+                cpu.write(arr, struct.pack(f'<{len(kids)}I', *kids))
+            cpu.write(nodes[i] + 0x56, struct.pack('<h', len(kids)))
+            cpu.u32(nodes[i] + 0x5c, arr)
+        self.whole = True
+        try:
+            cpu.call(UNSTRIP_TREE if unstrip else STRIP_TREE, stack_args=[nodes[0]])
+        finally:
+            self.whole = False
+        out = [self.i32(COUNT_ALL + 4 * k) for k in range(7)]
+        for model, mats in built:
+            ids = {m: k for k, m in enumerate(mats)}
+            polys, refs = self.p32(model + 0x34), []
+            for k in range(self.i32(model + 0x5c)):
+                mat, use, poly = struct.unpack('<IiI', cpu.read(self.p32(model + 0x60) + 12 * k, 12))
+                refs += [ids.get(mat, -1), use, (poly - polys) // 0x28 if poly else -1]
+            out += [self.i32(model + 8)] + self.dump(model, mats) + [self.i32(model + 0x5c)] + refs
+        return out
 
 
 class Spec:
@@ -523,7 +566,7 @@ def main():
     out = (ctypes.c_int32 * (1 << 22))()
     stats = dict.fromkeys(('runs', 'merged', 'shipped merged', 'taken', 'edges', 'uses', 'points', 'shipped',
                            'joins', 'shapes', 'strips', 'stripped', 'strips left', 'polygons before',
-                           'polygons after'), 0)
+                           'polygons after', 'trees', 'tree models'), 0)
 
     def check(spec, mode, max_points, what, join=(0,) * 11):
         ints = spec.ints()
@@ -571,6 +614,26 @@ def main():
     for run in range(runs):
         spec = mesh_spec(rng)
         check(spec, 4, rng.choice((0x7fffffff, 4)), f'mesh {run}', [rng.choice((0x7fffffff, 0x7fffffff, 40, 12, 6))] + [0] * 10)
+    p.probe_pm_strip_tree.argtypes = [I, ctypes.c_int, I, ctypes.c_int, I]
+    rng = random.Random(0x510ab0)
+    for run in range(runs // 2):  # mechlib's post-passes on node trees
+        tree = [(-1 if i == 0 else rng.randrange(i), int(rng.random() < 0.75), rng.choice((0, 0x80, 0x80 | 2)))
+                for i in range(rng.randint(1, 6))]
+        specs = [mesh_spec(rng) for t in tree if t[1]]
+        unstrip = rng.choice((0, 1))
+        want = emu.post_pass(tree, specs, unstrip)
+        flat_tree = [v for t in tree for v in t]
+        flat_specs = [v for sp in specs for v in sp.ints()] or [0]
+        k = p.probe_pm_strip_tree((ctypes.c_int32 * len(flat_tree))(*flat_tree), len(tree),
+                                  (ctypes.c_int32 * len(flat_specs))(*flat_specs), unstrip, out)
+        got = list(out[:k])
+        if want != got:
+            at = next((i for i, (a, b) in enumerate(zip(want, got)) if a != b), min(len(want), len(got)))
+            print(f'tree {run} unstrip {unstrip} {tree}: differ at {at} (lengths {len(want)} / {len(got)})\n'
+                  f'  exe  {want[max(0, at - 8):at + 12]}\n  port {got[max(0, at - 8):at + 12]}')
+            raise SystemExit(1)
+        stats['trees'] += 1
+        stats['tree models'] += len(specs)
     rng = random.Random(0x570b70)
     every_one = os.environ.get('STRIP_ALL') == '1'  # the whole shipped set, mechlib's too (sitting 3; slow)
     for w, slot, spec in shipped_specs(rng, every=1 if every_one else int(os.environ.get('STRIP_EVERY', '40')),

@@ -7,6 +7,7 @@
 #include "gamez/zclass/cls_data.h"
 #include "gamez/zclass/cls_node.h"
 #include "gamez/zclass/lod.h"
+#include "pm/gamez/zmodel/gmod_strip.h"
 #include "gamez/zclass/object3d.h"
 #include "gamez/zutil/zutl_zar.h"
 #include "pm/gamez/zclass/cls_zbd.h"
@@ -107,6 +108,20 @@ Node* mechlib_load(MechLib& lib, const char* name) {
   pm::zcls::mechlib_resolve(lib, root);
   if (root) lib.trees.push_back(root);
   return root;
+}
+
+void mechlib_strip_tree(Node* node) {
+  if (!node) return;
+  for (int32_t i = 0; i < node->child_count(); ++i) mechlib_strip_tree(node->children[i]);
+  pm::zmod::Model* m = node->pm_model;
+  if (m && !(m->count(8) & 0x80)) pm::zmod::strip_model(m, 0x7fffffff, 0x7fffffff);
+}
+
+void mechlib_unstrip_tree(Node* node) {
+  if (!node) return;
+  for (int32_t i = 0; i < node->child_count(); ++i) mechlib_unstrip_tree(node->children[i]);
+  pm::zmod::Model* m = node->pm_model;
+  if (m && m->count(8) & 0x80) pm::zmod::model_unstrip(m);
 }
 
 // Pirate's Moon 1.0 @ 0x00510fd0. Its second loop, over the model's refs,

@@ -26,13 +26,14 @@ namespace {
 
 uint32_t points(const Polygon& p) { return p.flags & 0x3ff; }
 
-// Where `v` first stands in the polygon's points (the count when it is not there).
+// Pirate's Moon 1.0 @ 0x00573b70: where `v` first stands in the polygon's points (the count when it is not there).
 uint32_t first_at(const Polygon& p, uint32_t v) {
   uint32_t i = 0;
   while (i < points(p) && p.vertex_indices[i] != v) ++i;
   return i;
 }
 
+// Pirate's Moon 1.0 @ 0x00574e90: the lower point first.
 StripEdgeKey edge_key(int32_t a, int32_t b) { return a <= b ? StripEdgeKey{a, b} : StripEdgeKey{b, a}; }
 
 }  // namespace
@@ -181,7 +182,7 @@ StripCorner strip_corner(const Model& m, int32_t polygon, int32_t at) {
 
 namespace {
 
-// 0x0056b230: within 2 a channel (a tolerance the colours, 0..255, all but always meet).
+// Pirate's Moon 1.0 @ 0x0056b230: within 2 a channel (a tolerance the colours, 0..255, all but always meet).
 bool colors_near(const float* a, const float* b) {
   for (int k = 0; k < 3; ++k)
     if (zgeo::abs(zgeo::X(a[k]) - b[k]).v > 2.0) return false;
@@ -194,7 +195,7 @@ float whole(zgeo::X d) {
   return static_cast<float>(static_cast<int32_t>(r.v));
 }
 
-// 0x00574560: the second corners (the point is the same): their normal, shifts and colour.
+// Pirate's Moon 1.0 @ 0x00574560: the second corners (the point is the same): their normal, shifts and colour.
 bool corners_match(const StripCorner& a, const std::vector<char>& clamped, const StripCorner& b,
                    std::vector<std::pair<float, float>>& shifts) {
   if (a.uvs.size() != b.uvs.size()) return false;
@@ -202,7 +203,7 @@ bool corners_match(const StripCorner& a, const std::vector<char>& clamped, const
   return uv_shifts(clamped, a.uvs, b.uvs, shifts) && colors_near(a.color, b.color);
 }
 
-// 0x00574620: the shifts added to each corner's coordinates, layer by layer.
+// Pirate's Moon 1.0 @ 0x00574620: the shifts added to each corner's coordinates, layer by layer.
 void add_shifts(Model& m, int32_t polygon, const std::vector<std::pair<float, float>>& shifts) {
   Polygon& p = m.polygons[polygon];
   for (uint32_t k = 0; k < points(p); ++k)
@@ -217,8 +218,8 @@ void add_shifts(Model& m, int32_t polygon, const std::vector<std::pair<float, fl
 struct End {
   int32_t lo = 0, hi = 0;
   bool rev = false;
-  int32_t to() const { return rev ? lo : hi; }
-  int32_t from() const { return rev ? hi : lo; }
+  int32_t to() const { return rev ? lo : hi; }    // Pirate's Moon 1.0 @ 0x005731c0
+  int32_t from() const { return rev ? hi : lo; }  // Pirate's Moon 1.0 @ 0x005731a0
   bool on(StripEdgeKey k) const { return k.first == lo && k.second == hi; }
 };
 End end_of(int32_t from, int32_t to) { return {std::min(from, to), std::max(from, to), to < from}; }
@@ -386,7 +387,8 @@ bool try_join(Stripper& s, const StripEdgeUse& a, const StripEdgeUse& b, StripEd
   for (int32_t j = 0; j < A.material_count; ++j)
     if (A.materials[j] != B.materials[j]) return false;
   if (A.flags & 0x400 || B.flags & 0x400 || (A.flags ^ B.flags) & 0x800) return false;
-  if (A.priority != B.priority || A.zone_set != B.zone_set) return false;  // 0x0056b540: the zone's four bytes
+  // Pirate's Moon 1.0 @ 0x0056b540: the zone's four bytes.
+  if (A.priority != B.priority || A.zone_set != B.zone_set) return false;
   const int32_t a0 = static_cast<int32_t>(first_at(A, static_cast<uint32_t>(key.first)));
   const int32_t a1 = static_cast<int32_t>(first_at(A, static_cast<uint32_t>(key.second)));
   const int32_t b0 = static_cast<int32_t>(first_at(B, static_cast<uint32_t>(key.first)));
@@ -413,7 +415,7 @@ bool try_join(Stripper& s, const StripEdgeUse& a, const StripEdgeUse& b, StripEd
   else
     *first = -1;
   *second = match2 ? key.second : -1;
-  const bool same_shift = match1 && match2 && shift1 == shift2;  // 0x00576f70
+  const bool same_shift = match1 && match2 && shift1 == shift2;  // Pirate's Moon 1.0 @ 0x00576f70
   int32_t end = 0;  // the exe's local, unset unless join_shape gives a strip
   if (!join_shape(s, a.polygon, b.polygon, key, *first, *second, same_shift, strip, &end)) return false;
   if (*strip == 0)
@@ -427,7 +429,8 @@ namespace {
 
 int32_t vx(const Model& m, int32_t p, int32_t i) { return static_cast<int32_t>(m.polygons[p].vertex_indices[i]); }
 int32_t nx(const Model& m, int32_t p) { return static_cast<int32_t>(points(m.polygons[p])); }
-bool odd(const Model& m, int32_t p) { return m.polygons[p].flags & 1; }  // 0x00573230; 0x00573210 its opposite
+// Pirate's Moon 1.0 @ 0x00573230 / 0x00573210 (its opposite, written !odd)
+bool odd(const Model& m, int32_t p) { return m.polygons[p].flags & 1; }
 
 // The polygons' array resized as the exe's realloc does (0x00596520): a new slot is cleared.
 void resize_polygons(Model& m, int32_t n) {
@@ -457,8 +460,10 @@ void remove_polygon(Model& m, int32_t at) {
   resize_polygons(m, last);
 }
 
-End first_end(const Model& m, int32_t p) { return end_of(vx(m, p, 0), vx(m, p, 1)); }  // 0x00573250
-End last_end(const Model& m, int32_t p) {                                             // 0x005732c0, unturned
+// Pirate's Moon 1.0 @ 0x00573250
+End first_end(const Model& m, int32_t p) { return end_of(vx(m, p, 0), vx(m, p, 1)); }
+// Pirate's Moon 1.0 @ 0x005732c0 (the end record, without 0x00573bf0's turn)
+End last_end(const Model& m, int32_t p) {
   return end_of(vx(m, p, nx(m, p) - 2), vx(m, p, nx(m, p) - 1));
 }
 
@@ -491,6 +496,7 @@ void after_join(Stripper& s, int32_t a, int32_t b, int32_t made) {
   if (m.polygons[at].flags & 0x2000 && n == 4) add(vx(m, at, 0), vx(m, at, 2)), add(vx(m, at, 1), vx(m, at, 3));
   add(vx(m, at, 0), vx(m, at, 1));
   add(vx(m, at, n - 2), vx(m, at, n - 1));
+  // Pirate's Moon 1.0 @ 0x00574870 / 0x00573bc0: the first point and the last one, listed where the map has them.
   for (const int32_t v : {vx(m, at, 0), vx(m, at, n - 1)}) {
     const auto it = s.vertices.find(v);
     if (it != s.vertices.end() && first_at(m.polygons[at], static_cast<uint32_t>(v)) < points(m.polygons[at]))
@@ -538,7 +544,7 @@ void make_strip(Model& m, int32_t polygon, int32_t start) {
   std::vector<StripCorner> corners;
   for (const int32_t k : order) corners.push_back(strip_corner(m, polygon, k));
   Polygon& p = m.polygons[polygon];
-  for (int32_t k = 0; k < n; ++k) {  // 0x00573aa0: point, normal, coordinates and colour; +0x20 stays
+  for (int32_t k = 0; k < n; ++k) {  // Pirate's Moon 1.0 @ 0x00573aa0: point, normal, coordinates, colour
     const StripCorner& c = corners[static_cast<size_t>(k)];
     p.vertex_indices[k] = static_cast<uint32_t>(c.vertex);
     p.normal_indices[k] = static_cast<uint32_t>(c.normal);
@@ -697,7 +703,7 @@ int32_t join_polygons(Stripper& s, int32_t a, int32_t b, StripEdgeKey key, int32
       }
     }
   }
-  // The plain joins (0x0056ff47 on); 0x005731e0 compares two ends with their sense.
+  // The plain joins (0x0056ff47 on). Pirate's Moon 1.0 @ 0x005731e0: two ends compared with their sense.
   const auto same = [](const End& x, const End& y) { return x.lo == y.lo && x.hi == y.hi && x.rev == y.rev; };
   {
     const End a2 = last_end(m, a), b1 = first_end(m, b);
@@ -761,7 +767,7 @@ int32_t join_polygons(Stripper& s, int32_t a, int32_t b, StripEdgeKey key, int32
   return app(a, b, 0);
 }
 
-// Pirate's Moon 1.0 @ 0x005746e0, with 0x0056d040
+// Pirate's Moon 1.0 @ 0x005746e0 / 0x0056d040
 bool can_join_at(Stripper& s, int32_t a, int32_t b, int32_t v) {
   if (a == b) return false;
   const Model& m = *s.model;

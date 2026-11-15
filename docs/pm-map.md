@@ -610,9 +610,15 @@ functions PM changed, and PM's new ones.
          start-up 0x4826e0 sets it to 0 (0x51a3e0(0), as MW3's 0x501f90 does
          its [0x5eba1c]). So the reset, the re-read and this call never run
          in PM's play, and the stripper reaches nothing in play: a
-         preservation port, not wired in (the lead, 2026-11-13). Not
-         measured further: the bench faults in its type-0 path after the
-         image load (0x5329e0 stubbed; an unmapped fetch).
+         preservation port, not wired in (the lead, 2026-11-13). The bench
+         fault in its type-0 path was the bench's own (operator new / delete
+         and MSVCP's _Lockit unstubbed). Ported 2026-11-14/15 (pm-tests.md,
+         PM's triangle stripper): `pm::zmod::strip_model` (gmod_strip) with
+         the post-passes `pm::zcls::mechlib_strip_tree` / `_unstrip_tree`,
+         unwired; `test_pm_strip.py` STRIP_ALL=1 compares the whole stripper
+         with the exe on all 8,366 shipped type-0 models (the c1..c4 ones
+         above and mechlib's 1,015), as the re-read calls it and with no
+         limit: identical.
        - PM's 0x570b70 is not MW3's 0x552540 on PM's polygons: the feature
          compare gives 700 features against 287, 44 of 51 kinds different
          (three times the field reads, the 0x3ff vertex mask, per-material
