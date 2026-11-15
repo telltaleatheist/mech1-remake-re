@@ -664,8 +664,10 @@ edge. Alpha by kind, measured on the full size:
 
 The level bias is the shader's (fog.w of the fragment uniforms;
 `set_mip_bias`), because SDL's Metal backend ignores the sampler's
-mip_lod_bias. MW3 sets none; Pirate's Moon's common.gw MipBias -1 goes
-there on `pm`. Before and after (c1, `--fly c1 --look 90 10` from the default
+mip_lod_bias. MW3 sets none. Pirate's Moon's common.gw `MipBias -1`
+(0x598230: clamped to -1..1, the display's dirty bit 4) goes there at the
+next scene (0x59b680's MIPMAPLODBIAS; `zvid::begin_scene`), so PM's textures
+choose one level sharper, as on its Direct3D. Before and after (c1, `--fly c1 --look 90 10` from the default
 place; the dry trees `--pos 420 45 1290 --look 0 10`; the fences and shrubs
 `--pos -2690 5 -1420 --look 180 6`): the far ground's speckle gone and its
 grain kept, the trees and shrubs as dark and whole as before, the fences the

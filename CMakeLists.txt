@@ -798,6 +798,7 @@ if(MW3_BUILD_PM)
     tests/test_child_limits.cpp  # (main's, shared) a forked test child's own memory and time caps
     tests/pm/test_pm_objectives.cpp
     tests/pm/test_pm_light_override.cpp
+    tests/pm/test_pm_mip_bias.cpp  # PM's MipBias sent to the GPU path's levels
     tests/pm/test_pm_mission_music.cpp
     tests/pm/test_pm_waypoint_arrow.cpp
     tests/pm/test_pm_lab_highlight.cpp

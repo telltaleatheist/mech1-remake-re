@@ -9,8 +9,11 @@ extern "C" {
 uint32_t probe_pm_mip_bias(uint32_t bits) {
   float f;
   std::memcpy(&f, &bits, 4);
+  zvid::display().dirty = 0;
   zvid::set_mip_bias(f);
   std::memcpy(&bits, &zvid::device_state().mip_bias, 4);
   return bits;
 }
+// The display's dirty word after the last probe_pm_mip_bias.
+uint32_t probe_pm_mip_bias_dirty() { return zvid::display().dirty; }
 }  // extern "C"
