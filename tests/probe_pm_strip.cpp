@@ -6,12 +6,16 @@
 #include <memory>
 #include <vector>
 
+#include "gamez/zclass/cls_node.h"
 #include "gamez/zimage/zimg_library.h"
 #include "gamez/zimage/zimg_texture.h"
 #include "gamez/zmodel/gmod_matl.h"
+#include "pm/gamez/zclass/cls_mechlib.h"
 #include "pm/gamez/zmodel/gmod_strip.h"
 
 namespace {
+
+namespace pz = pm::zmod;
 
 std::vector<int32_t> g_joins;
 
@@ -30,61 +34,125 @@ T* copy_out(Reader& r, size_t n) {
   return a;
 }
 
-}  // namespace
-
-// join: for mode 2 (try_join) a's polygon and reversed, b's, the key's two points, the stripper's argument and pass;
-// mode 3 (join_shape) the same, then first, second and same_shift.
-// spec: materials (count; each alpha, flags, has texture, has image, image flags), then polygons (count; each flags,
-// priority, the points, the normals with 0x1000, the material count and ids, has uvs and the uvs (bits), the
-// colours (bits), has scratch, zone). mode 0: merge_layers; 1: strip_intake(max_points). Returns the dump's length.
-extern "C" int probe_pm_strip(const int32_t* spec, int mode, int max_points, const int32_t* join, int32_t* out) {
-  namespace pz = pm::zmod;
-  Reader r{spec};
-  const int32_t nm = r.next();
+// One spec's materials and model.
+struct Built {
   std::vector<std::unique_ptr<::zmod::Material>> mats;
   std::vector<std::unique_ptr<::zimg::TextureEntry>> entries;
   std::vector<std::unique_ptr<::zimg::Texture>> images;
-  for (int32_t i = 0; i < nm; ++i) {
-    auto m = std::make_unique<::zmod::Material>();
-    m->alpha = static_cast<uint8_t>(r.next());
-    m->flags = static_cast<uint8_t>(r.next());
-    const int32_t has_texture = r.next(), has_image = r.next(), image_flags = r.next();
-    if (has_texture) {
-      auto e = std::make_unique<::zimg::TextureEntry>();
-      if (has_image) {
-        auto im = std::make_unique<::zimg::Texture>();
-        im->flags = static_cast<uint8_t>(image_flags);
-        e->image = im.get();
-        images.push_back(std::move(im));
-      }
-      m->texture = e.get();
-      entries.push_back(std::move(e));
-    }
-    mats.push_back(std::move(m));
-  }
   pz::Model model;
-  const int32_t np = r.next();
-  std::memcpy(model.header + 0x10, &np, 4);
-  model.polygons = new pz::Polygon[static_cast<size_t>(np > 0 ? np : 1)]{};
-  for (int32_t i = 0; i < np; ++i) {
-    pz::Polygon& q = model.polygons[i];
-    q.flags = static_cast<uint32_t>(r.next());
-    q.priority = r.next();
-    const size_t n = q.flags & 0x3ff;
-    q.vertex_indices = copy_out<uint32_t>(r, n);
-    if (q.flags & 0x1000) q.normal_indices = copy_out<uint32_t>(r, n);
-    q.material_count = r.next();
-    q.materials = static_cast<::zmod::Material**>(std::malloc(sizeof(void*) * (q.material_count + 1)));
-    for (int32_t j = 0; j < q.material_count; ++j) q.materials[j] = mats[static_cast<size_t>(r.next())].get();
-    if (r.next()) {
-      q.uvs = static_cast<float**>(std::malloc(sizeof(float*) * (q.material_count + 1)));
-      for (int32_t j = 0; j < q.material_count; ++j) q.uvs[j] = copy_out<float>(r, 2 * n);
-      q.file_uvs = 1;
+
+  // spec: materials (count; each alpha, flags, has texture, has image, image flags), then polygons (count; each
+  // flags, priority, the points, the normals with 0x1000, the material count and ids, has uvs and the uvs (bits),
+  // the colours (bits), has scratch, zone).
+  void read(Reader& r) {
+    const int32_t nm = r.next();
+    for (int32_t i = 0; i < nm; ++i) {
+      auto m = std::make_unique<::zmod::Material>();
+      m->alpha = static_cast<uint8_t>(r.next());
+      m->flags = static_cast<uint8_t>(r.next());
+      const int32_t has_texture = r.next(), has_image = r.next(), image_flags = r.next();
+      if (has_texture) {
+        auto e = std::make_unique<::zimg::TextureEntry>();
+        if (has_image) {
+          auto im = std::make_unique<::zimg::Texture>();
+          im->flags = static_cast<uint8_t>(image_flags);
+          e->image = im.get();
+          images.push_back(std::move(im));
+        }
+        m->texture = e.get();
+        entries.push_back(std::move(e));
+      }
+      mats.push_back(std::move(m));
     }
-    q.colors = copy_out<float>(r, 3 * n);
-    if (r.next()) q.scratch = static_cast<uint32_t*>(std::calloc(n ? n : 1, 4));
-    q.zone_set = static_cast<uint32_t>(r.next());
+    const int32_t np = r.next();
+    std::memcpy(model.header + 0x10, &np, 4);
+    model.polygons = new pz::Polygon[static_cast<size_t>(np > 0 ? np : 1)]{};
+    for (int32_t i = 0; i < np; ++i) {
+      pz::Polygon& q = model.polygons[i];
+      q.flags = static_cast<uint32_t>(r.next());
+      q.priority = r.next();
+      const size_t n = q.flags & 0x3ff;
+      q.vertex_indices = copy_out<uint32_t>(r, n);
+      if (q.flags & 0x1000) q.normal_indices = copy_out<uint32_t>(r, n);
+      q.material_count = r.next();
+      q.materials = static_cast<::zmod::Material**>(std::malloc(sizeof(void*) * (q.material_count + 1)));
+      for (int32_t j = 0; j < q.material_count; ++j) q.materials[j] = mats[static_cast<size_t>(r.next())].get();
+      if (r.next()) {
+        q.uvs = static_cast<float**>(std::malloc(sizeof(float*) * (q.material_count + 1)));
+        for (int32_t j = 0; j < q.material_count; ++j) q.uvs[j] = copy_out<float>(r, 2 * n);
+        q.file_uvs = 1;
+      }
+      q.colors = copy_out<float>(r, 3 * n);
+      if (r.next()) q.scratch = static_cast<uint32_t*>(std::calloc(n ? n : 1, 4));
+      q.zone_set = static_cast<uint32_t>(r.next());
+    }
   }
+
+  int32_t id(const ::zmod::Material* m) const {
+    for (size_t k = 0; k < mats.size(); ++k)
+      if (mats[k].get() == m) return static_cast<int32_t>(k);
+    return -1;
+  }
+
+  // The polygons as the test dumps the exe's; with `refs`, the material refs after them.
+  template <typename Put>
+  void dump(Put put, bool refs) const {
+    const auto put_bits = [&](float f) {
+      int32_t v;
+      std::memcpy(&v, &f, 4);
+      put(v);
+    };
+    put(model.count(0x10));
+    for (int32_t i = 0; i < model.count(0x10); ++i) {
+      const pz::Polygon& q = model.polygons[i];
+      const uint32_t n = q.flags & 0x3ff;
+      put(static_cast<int32_t>(q.flags)), put(q.priority), put(q.material_count), put(q.uvs ? 1 : 0);
+      put(static_cast<int32_t>(q.zone_set));
+      for (uint32_t k = 0; k < n; ++k) put(static_cast<int32_t>(q.vertex_indices[k]));
+      if (q.flags & 0x1000)
+        for (uint32_t k = 0; k < n; ++k) put(static_cast<int32_t>(q.normal_indices[k]));
+      for (int32_t j = 0; j < q.material_count; ++j) {
+        put(id(q.materials[j]));
+        if (q.uvs)
+          for (uint32_t k = 0; k < 2 * n; ++k) put_bits(q.uvs[j][k]);
+      }
+      for (uint32_t k = 0; k < 3 * n; ++k) put_bits(q.colors[k]);
+    }
+    if (!refs) return;
+    put(model.count(0x5c));
+    for (int32_t k = 0; k < model.count(0x5c); ++k)
+      put(id(model.refs[k].material)), put(model.refs[k].usage_count),
+          put(model.refs[k].polygon ? static_cast<int32_t>(model.refs[k].polygon - model.polygons) : -1);
+  }
+
+  ~Built() {
+    delete[] model.refs;
+    for (int32_t i = 0; i < model.count(0x10); ++i) {
+      pz::Polygon& q = model.polygons[i];
+      if (q.uvs)
+        for (int32_t j = 0; j < q.material_count; ++j) std::free(q.uvs[j]);
+      std::free(q.uvs), std::free(q.vertex_indices), std::free(q.normal_indices), std::free(q.materials);
+      std::free(q.colors), std::free(q.scratch);
+    }
+    delete[] model.polygons;
+  }
+};
+
+void put_counts(int32_t*& o) {
+  const pz::StripCounts& c = pz::strip_counts();
+  for (int32_t v : {c.polygons, c.taken, c.strips, c.others, c.triangles, c.degenerate, c.longest}) *o++ = v;
+}
+
+}  // namespace
+
+// join: for mode 2 (try_join) a's polygon and reversed, b's, the key's two points, the stripper's argument and pass;
+// mode 3 (join_shape) the same, then first, second and same_shift; modes 4 and 5 (strip_model; 5 its joins alone) the
+// argument. mode 0: merge_layers; 1: strip_intake(max_points). Returns the dump's length.
+extern "C" int probe_pm_strip(const int32_t* spec, int mode, int max_points, const int32_t* join, int32_t* out) {
+  Reader r{spec};
+  Built b;
+  b.read(r);
+  pz::Model& model = b.model;
   pz::strip_counts() = {};
   pz::Stripper s;
   int32_t answer[6] = {};
@@ -94,22 +162,22 @@ extern "C" int probe_pm_strip(const int32_t* spec, int mode, int max_points, con
     pz::strip_intake(s, &model, 0x7fffffff, max_points);
   } else if (mode == 4 || mode == 5) {
     g_joins.clear();
-    pz::strip_hooks().joining = mode == 5 ? +[](int kind, int32_t a, int32_t b, int32_t f, int32_t sc, int32_t st) {
-      g_joins.insert(g_joins.end(), {kind, a, b, f, sc, st});
+    pz::strip_hooks().joining = mode == 5 ? +[](int kind, int32_t a, int32_t bb, int32_t f, int32_t sc, int32_t st) {
+      g_joins.insert(g_joins.end(), {kind, a, bb, f, sc, st});
     } : nullptr;
     pz::strip_model(&model, join[0], max_points);
     pz::strip_hooks().joining = nullptr;
   } else {
     s.model = &model, s.arg = join[6], s.pass = join[7], s.slack = 0x7777;
-    const pz::StripEdgeUse a{join[0], join[1] != 0}, b{join[2], join[3] != 0};
+    const pz::StripEdgeUse a{join[0], join[1] != 0}, bu{join[2], join[3] != 0};
     const pz::StripEdgeKey key{join[4], join[5]};
     int32_t first = 0x5555, second = 0x5555, strip = 0x5555, end = 0x5555;
     bool ok;
     if (mode == 2) {
-      ok = pz::try_join(s, a, b, key, &first, &second, &strip);
+      ok = pz::try_join(s, a, bu, key, &first, &second, &strip);
     } else {
       first = join[8], second = join[9];
-      ok = pz::join_shape(s, a.polygon, b.polygon, key, first, second, join[10] != 0, &strip, &end);
+      ok = pz::join_shape(s, a.polygon, bu.polygon, key, first, second, join[10] != 0, &strip, &end);
     }
     answer[0] = ok, answer[1] = first, answer[2] = second, answer[3] = strip, answer[4] = s.slack;
     answer[5] = mode == 3 && ok && strip == 1 ? end : 0;
@@ -117,43 +185,14 @@ extern "C" int probe_pm_strip(const int32_t* spec, int mode, int max_points, con
 
   int32_t* o = out;
   const auto put = [&](int32_t v) { *o++ = v; };
-  const auto put_bits = [&](float f) {
-    int32_t v;
-    std::memcpy(&v, &f, 4);
-    put(v);
-  };
-  const auto id = [&](const ::zmod::Material* m) {
-    for (size_t k = 0; k < mats.size(); ++k)
-      if (mats[k].get() == m) return static_cast<int32_t>(k);
-    return -1;
-  };
   if (mode >= 2 && mode <= 3)
     for (int32_t v : answer) put(v);
   if (mode == 5) {
     for (int32_t v : g_joins) put(v);
     return static_cast<int>(o - out);
   }
-  if (mode == 4) {
-    const pz::StripCounts& c = pz::strip_counts();
-    put(c.polygons), put(c.taken), put(c.strips), put(c.others), put(c.triangles), put(c.degenerate), put(c.longest);
-    put(model.count(8));
-  }
-  put(model.count(0x10));
-  for (int32_t i = 0; i < model.count(0x10); ++i) {
-    const pz::Polygon& q = model.polygons[i];
-    const uint32_t n = q.flags & 0x3ff;
-    put(static_cast<int32_t>(q.flags)), put(q.priority), put(q.material_count), put(q.uvs ? 1 : 0);
-    put(static_cast<int32_t>(q.zone_set));
-    for (uint32_t k = 0; k < n; ++k) put(static_cast<int32_t>(q.vertex_indices[k]));
-    if (q.flags & 0x1000)
-      for (uint32_t k = 0; k < n; ++k) put(static_cast<int32_t>(q.normal_indices[k]));
-    for (int32_t j = 0; j < q.material_count; ++j) {
-      put(id(q.materials[j]));
-      if (q.uvs)
-        for (uint32_t k = 0; k < 2 * n; ++k) put_bits(q.uvs[j][k]);
-    }
-    for (uint32_t k = 0; k < 3 * n; ++k) put_bits(q.colors[k]);
-  }
+  if (mode == 4) put_counts(o), put(model.count(8));
+  b.dump(put, mode == 4);
   if (mode == 1) {
     put(pz::strip_counts().polygons), put(pz::strip_counts().taken);
     put(static_cast<int32_t>(s.edges.size()));
@@ -167,20 +206,38 @@ extern "C" int probe_pm_strip(const int32_t* spec, int mode, int max_points, con
       for (int32_t p : vx.polygons) put(p);
     }
   }
-  if (mode == 4) {
-    put(model.count(0x5c));
-    for (int32_t k = 0; k < model.count(0x5c); ++k)
-      put(id(model.refs[k].material)), put(model.refs[k].usage_count),
-          put(model.refs[k].polygon ? static_cast<int32_t>(model.refs[k].polygon - model.polygons) : -1);
-    delete[] model.refs;
+  return static_cast<int>(o - out);
+}
+
+// The mechlib post-passes (pm::zcls::mechlib_strip_tree 0x00510ab0, mechlib_unstrip_tree 0x00510b00) on a node tree:
+// tree is each node's parent (-1 for the root, node 0), whether it has a model and the model's flags word; the
+// specs follow one another, one a node with a model. Out: the counts, then each model's flags word and dump.
+extern "C" int probe_pm_strip_tree(const int32_t* tree, int nodes, const int32_t* specs, int unstrip, int32_t* out) {
+  std::vector<::zcls::Node> node(static_cast<size_t>(nodes));
+  std::vector<std::vector<::zcls::Node*>> kids(static_cast<size_t>(nodes));
+  std::vector<std::unique_ptr<Built>> built;
+  Reader r{specs};
+  for (int i = 0; i < nodes; ++i) {
+    const int32_t parent = tree[3 * i], has_model = tree[3 * i + 1], flags = tree[3 * i + 2];
+    if (parent >= 0) kids[static_cast<size_t>(parent)].push_back(&node[static_cast<size_t>(i)]);
+    if (!has_model) continue;
+    built.push_back(std::make_unique<Built>());
+    built.back()->read(r);
+    std::memcpy(built.back()->model.header + 8, &flags, 4);
+    node[static_cast<size_t>(i)].pm_model = &built.back()->model;
   }
-  for (int32_t i = 0; i < model.count(0x10); ++i) {
-    pz::Polygon& q = model.polygons[i];
-    if (q.uvs)
-      for (int32_t j = 0; j < q.material_count; ++j) std::free(q.uvs[j]);
-    std::free(q.uvs), std::free(q.vertex_indices), std::free(q.normal_indices), std::free(q.materials);
-    std::free(q.colors), std::free(q.scratch);
+  for (int i = 0; i < nodes; ++i) {
+    node[static_cast<size_t>(i)].put<int32_t>(0x5c, static_cast<int32_t>(kids[static_cast<size_t>(i)].size()));
+    node[static_cast<size_t>(i)].children = kids[static_cast<size_t>(i)].data();
   }
-  delete[] model.polygons;
+  pz::strip_counts() = {};
+  if (unstrip)
+    pm::zcls::mechlib_unstrip_tree(&node[0]);
+  else
+    pm::zcls::mechlib_strip_tree(&node[0]);
+  int32_t* o = out;
+  const auto put = [&](int32_t v) { *o++ = v; };
+  put_counts(o);
+  for (const auto& b : built) put(b->model.count(8)), b->dump(put, true);
   return static_cast<int>(o - out);
 }

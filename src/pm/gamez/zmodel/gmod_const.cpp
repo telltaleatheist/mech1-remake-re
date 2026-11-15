@@ -369,8 +369,9 @@ void read_model_body(std::FILE* f, Model& m, int32_t base) {
     std::free(raw);
   }
   // The exe then converts the model for the renderer: under Direct3D
-  // (0x00572ae0) one without flag 0x80 into strips (0x00570b70), in software
-  // one with it back (0x005726f0). Left out: the file's form is kept
+  // (0x00572ae0) one without flag 0x80 into strips (0x00570b70, ported
+  // unwired as strip_model, gmod_strip), in software one with it back
+  // (0x005726f0, model_unstrip). Not called: the file's form is kept
   // (docs/pm-map.md, the models' form).
 }
 }  // namespace
@@ -485,7 +486,8 @@ Model* reread_model(std::FILE* f, int32_t index, int32_t material_base) {
   std::fseek(f, static_cast<long>(offset), SEEK_SET);
   read_model_data(f, *m, material_base);  // 0x005587e0 always answers 0: the exe's clean-up after it never runs
   // Under Direct3D (0x00572ae0) the exe strips the model here (0x00570b70 with 0x7fffffff, 4; no 0x80 test), the
-  // only shipped-data reach of PM's stripper; not ported (docs/pm-map.md, the models' form).
+  // only shipped-data reach of PM's stripper; ported unwired (strip_model, gmod_strip), not called: the renderer
+  // draws the file's form (docs/pm-map.md, the models' form).
   return m;
 }
 
