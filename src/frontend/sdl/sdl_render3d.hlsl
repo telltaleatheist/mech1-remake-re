@@ -26,7 +26,7 @@ Out vs(In i) {
   o.uv = i.uv;
   return o;
 }
-// opts.x fog on, opts.y alpha modulate, opts.zw a sharp draw's frame pixels a texel
+// fog.w the textures' level bias; opts.x fog on, opts.y alpha modulate, opts.zw a sharp draw's frame pixels a texel
 cbuffer F : register(b0, space3) { float4 fog; float4 opts; };
 Texture2D<float4> t : register(t0, space2);
 SamplerState s : register(s0, space2);
@@ -43,7 +43,7 @@ float4 sample_sharp(float2 uv, float2 scale) {
   return c.a > 0.0 ? float4(c.rgb / c.a, c.a) : c;
 }
 float4 fs_tex(Out i) : SV_Target0 {
-  float4 tex = opts.z > 0.0 ? sample_sharp(i.uv, opts.zw) : t.Sample(s, i.uv);
+  float4 tex = opts.z > 0.0 ? sample_sharp(i.uv, opts.zw) : t.SampleBias(s, i.uv, fog.w);
   float4 c = float4(tex.rgb * i.diffuse.rgb, opts.y > 0.5 ? tex.a * i.diffuse.a : tex.a);
   return finish(c, i);
 }

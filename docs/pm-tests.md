@@ -1218,9 +1218,11 @@ CPU itself. Break: the flag off (the table is 25600 bytes).
 PM's script command MipBias (common.gw's `MipBias -1`, read at 0x5b4b6e) calls 0x598230, which keeps the bias
 clamped to -1..1 in [0xb06164] and sets the state's dirty bit 4 ([0xb06158]); 0x59b680 then sends it as texture
 stage state 0x2e (MIPMAPLODBIAS). The port's `zvid::set_mip_bias` clamps the same way (a NaN goes to -1, as the
-x87's unordered compare reads as below) and holds the value in `DeviceState::mip_bias`; it is not applied, as the
-GPU path makes every texture with one mip level (fixes.md). `test_pm_mip_bias.py`: 213 values (edges,
-infinities, a NaN, random) against the exe, bit for bit, the dirty bit set. Break: no upper clamp (74 differ).
+x87's unordered compare reads as below) and holds the value in `DeviceState::mip_bias` with the display's dirty
+bit 4; the next `begin_scene` (0x59b680) hands it to the GPU path's mip levels (`Render3D::set_mip_bias`; render.md,
+Mipmaps). `test_pm_mip_bias.py`: 213 values (edges, infinities, a NaN, random) against the exe, bit for bit, the
+dirty bit compared on both sides. Break: no upper clamp (74 differ). mw3pmtests
+`pm_mip_bias_goes_to_the_gpu_at_the_next_scene`: held until the scene, sent once, clamped.
 
 ## Today's preservation ports on PM, part 1: the zClass script commands (2026-11-14)
 

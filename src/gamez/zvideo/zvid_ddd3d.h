@@ -88,7 +88,7 @@ struct DeviceState {
   int32_t fog = 0;                 // 0x008093b0  FOGENABLE (28) as 0x0057bb70 last sent it
   int32_t fog_mode = 0;            // 0x008093b8  the light state FOGMODE (4)
   // PM [0x00b06164], texture stage state 0x2e (MIPMAPLODBIAS), sent by PM 0x0059b680 when [0x00b06158] bit 4 is
-  // set. Held, not applied: the GPU path's textures have one mip level (docs/fixes.md, MipBias).
+  // set: begin_scene hands it to the GPU path's levels (Render3D::set_mip_bias; docs/render.md, Mipmaps).
   float mip_bias = 0.0f;
 };
 DeviceState& device_state();
@@ -134,7 +134,7 @@ ChannelMasks& channel_masks();
 struct Display {
   int32_t fullscreen = 1;          // 0x008026e0
   int32_t clear_on = 1;            // 0x008026f0  the frame clear fills the colour too
-  uint32_t dirty = 0;              // 0x008026f8  1 fill mode, 2 dither changed
+  uint32_t dirty = 0;              // 0x008026f8  1 fill mode, 2 dither changed (PM [0x00b06158], 4 the mip bias)
   int32_t fill_mode = 0;           // 0x008026fc  0 solid, 1 wireframe
   int32_t dither = 0;              // 0x00802700
   int32_t bits_per_pixel = 16;     // 0x00802718

@@ -774,7 +774,7 @@ Rows of fixes.md that change nothing (candidates for Owen, ported as written, a 
 | Fix | Game | Why |
 |---|---|---|
 | The mech lab's Ctrl+X / Ctrl+I on Pirate's Moon | PM | none: ported as written |
-| Pirate's Moon's `MipBias -1` (common.gw), 0x00598230 | PM | Not reproduced yet: the words are read, the value goes nowhere. Candidate for Owen with the renderer's… |
+| Pirate's Moon's `MipBias -1` (common.gw), 0x00598230 | PM | Reproduced (2026-11-14): with the GPU path's mipmaps (render.md, Mipmaps) the bias reaches the textures' level choice, one level sharper, as PM's Direct3D did. |
 | Deep water, gait (MW3 0x4181c0; Pirate's Moon 0x418fc0) | PM | Pirate's Moon's own WATER switch since 2026-11-10 (Owen): its flat 60% eased in from full speed, the exe's way with it off (fixes.md, On Pirate's Moon) |
 | Plain PPC, on `pm` | PM | Not a fix on this branch: the row above is MW3's |
 | String variables, 0x596020 | MW3 | no effect (was under unsure): nothing registers a string variable, so the fix never runs |

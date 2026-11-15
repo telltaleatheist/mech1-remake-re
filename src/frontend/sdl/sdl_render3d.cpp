@@ -1,6 +1,7 @@
 #include <string>
 #include "frontend/sdl/sdl_render3d.h"
 #include "frontend/sdl/sdl_child.h"
+#include "platform/mipmaps.h"
 
 #include <algorithm>
 #include <cmath>
@@ -36,7 +37,7 @@ vertex Out vs(In in [[stage_in]], constant V& v [[buffer(0)]]) {
   o.uv = in.uv;
   return o;
 }
-// opts.x fog on, opts.y alpha modulate, opts.zw a sharp draw's frame pixels a texel
+// fog.w the textures' level bias; opts.x fog on, opts.y alpha modulate, opts.zw a sharp draw's frame pixels a texel
 struct F { float4 fog; float4 opts; };
 float4 finish(float4 c, Out in, constant F& f) {
   if (f.opts.x > 0.5) c.rgb = mix(f.fog.rgb, c.rgb, in.specular.a);
@@ -54,7 +55,7 @@ float4 sample_sharp(texture2d<float> t, sampler s, float2 uv, float2 scale) {
 }
 fragment float4 fs_tex(Out in [[stage_in]], texture2d<float> t [[texture(0)]], sampler s [[sampler(0)]],
                        constant F& f [[buffer(0)]]) {
-  float4 tex = f.opts.z > 0.0 ? sample_sharp(t, s, in.uv, f.opts.zw) : t.sample(s, in.uv);
+  float4 tex = f.opts.z > 0.0 ? sample_sharp(t, s, in.uv, f.opts.zw) : t.sample(s, in.uv, bias(f.fog.w));
   float4 c = float4(tex.rgb * in.diffuse.rgb, f.opts.y > 0.5 ? tex.a * in.diffuse.a : tex.a);
   return finish(c, in, f);
 }
@@ -243,6 +244,10 @@ SDL_GPUSampler* SdlRender3D::sampler(uint8_t u, uint8_t v) {
   auto mode = [](uint8_t m) { return m == 3 ? SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE : SDL_GPU_SAMPLERADDRESSMODE_REPEAT; };
   SDL_GPUSamplerCreateInfo si{};
   si.min_filter = si.mag_filter = SDL_GPU_FILTER_LINEAR;  // TEXTUREMAG/MIN LINEAR
+  // Ours: between the levels too (trilinear), where the original's textures had one (docs/render.md, Mipmaps).
+  si.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
+  si.min_lod = 0.0f, si.max_lod = 1000.0f;
+  si.enable_anisotropy = true, si.max_anisotropy = 8.0f;  // and along the view at a slant (the far ground)
   si.address_mode_u = mode(u), si.address_mode_v = mode(v), si.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
   SDL_GPUSampler* s = SDL_CreateGPUSampler(dev_, &si);
   samplers_[key] = s;
@@ -250,20 +255,31 @@ SDL_GPUSampler* SdlRender3D::sampler(uint8_t u, uint8_t v) {
 }
 
 int32_t SdlRender3D::create_texture(int width, int height, const uint8_t* rgba, uint8_t) {
+  return make_texture(width, height, rgba, true);
+}
+
+int32_t SdlRender3D::create_screen_texture(int width, int height, const uint8_t* rgba) {
+  return make_texture(width, height, rgba, false);
+}
+
+int32_t SdlRender3D::make_texture(int width, int height, const uint8_t* rgba, bool mips) {
+  int levels = 1;
+  for (int w = width, h = height; mips && (w > 1 || h > 1); w = std::max(1, w / 2), h = std::max(1, h / 2)) ++levels;
   SDL_GPUTextureCreateInfo ti{};
   ti.type = SDL_GPU_TEXTURETYPE_2D, ti.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
   ti.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
-  ti.width = width, ti.height = height, ti.layer_count_or_depth = 1, ti.num_levels = 1;
+  ti.width = width, ti.height = height, ti.layer_count_or_depth = 1, ti.num_levels = static_cast<Uint32>(levels);
   SDL_GPUTexture* t = SDL_CreateGPUTexture(dev_, &ti);
   if (!t) return -1;
-  upload(t, width, height, rgba);
+  upload(t, width, height, rgba, levels > 1);
   textures_.push_back(t);
+  mipped_.push_back(levels > 1);
   return static_cast<int32_t>(textures_.size() - 1);
 }
 
 void SdlRender3D::update_texture(int32_t h, int width, int height, const uint8_t* rgba) {
   if (h < 0 || h >= static_cast<int32_t>(textures_.size()) || !textures_[h]) return;
-  upload(textures_[h], width, height, rgba);
+  upload(textures_[h], width, height, rgba, mipped_[static_cast<size_t>(h)]);
 }
 
 // A staging buffer of at least `bytes`, mapped. Kept between calls (made per
@@ -279,19 +295,29 @@ void* SdlRender3D::map_staging(Staging& s, uint32_t bytes) {
   return s.buf ? SDL_MapGPUTransferBuffer(dev_, s.buf, true) : nullptr;
 }
 
-void SdlRender3D::upload(SDL_GPUTexture* t, int width, int height, const uint8_t* rgba) {
-  const auto size = static_cast<uint32_t>(width * height * 4);
-  void* to = map_staging(tex_staging_, size);
+void SdlRender3D::upload(SDL_GPUTexture* t, int width, int height, const uint8_t* rgba, bool mips) {
+  std::vector<platform::MipLevel> chain;
+  if (mips) chain = platform::mip_chain(width, height, rgba);
+  auto size = static_cast<uint32_t>(width * height * 4);
+  for (const platform::MipLevel& m : chain) size += static_cast<uint32_t>(m.rgba.size());
+  auto* to = static_cast<uint8_t*>(map_staging(tex_staging_, size));
   if (!to) return;
-  std::memcpy(to, rgba, size);
+  std::memcpy(to, rgba, static_cast<size_t>(width) * height * 4);
+  uint32_t at = static_cast<uint32_t>(width * height * 4);
+  for (const platform::MipLevel& m : chain) std::memcpy(to + at, m.rgba.data(), m.rgba.size()), at += static_cast<uint32_t>(m.rgba.size());
   SDL_GPUTransferBuffer* tb = tex_staging_.buf;
   SDL_UnmapGPUTransferBuffer(dev_, tb);
   SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(dev_);
   SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd);
-  SDL_GPUTextureTransferInfo src{tb, 0, 0, 0};
-  SDL_GPUTextureRegion dst{};
-  dst.texture = t, dst.w = width, dst.h = height, dst.d = 1;
-  SDL_UploadToGPUTexture(copy, &src, &dst, false);
+  uint32_t offset = 0;
+  for (size_t level = 0; level <= chain.size(); ++level) {
+    const int w = level ? chain[level - 1].width : width, h = level ? chain[level - 1].height : height;
+    SDL_GPUTextureTransferInfo src{tb, offset, 0, 0};
+    SDL_GPUTextureRegion dst{};
+    dst.texture = t, dst.mip_level = static_cast<Uint32>(level), dst.w = w, dst.h = h, dst.d = 1;
+    SDL_UploadToGPUTexture(copy, &src, &dst, false);
+    offset += static_cast<uint32_t>(w * h * 4);
+  }
   SDL_EndGPUCopyPass(copy);
   SDL_SubmitGPUCommandBuffer(cmd);
 }
@@ -510,7 +536,7 @@ void SdlRender3D::end_scene() {
     // A sharp draw's texel is a game pixel: the frame's pixels per game pixel.
     const float sx = r.state.sharp && vw_ > 0 ? static_cast<float>(w) / static_cast<float>(vw_) : 0.0f;
     const float sy = r.state.sharp && vh_ > 0 ? static_cast<float>(h) / static_cast<float>(vh_) : 0.0f;
-    const float fu[8] = {r.fog[0], r.fog[1], r.fog[2], 1, r.state.fog ? 1.0f : 0.0f,
+    const float fu[8] = {r.fog[0], r.fog[1], r.fog[2], mip_bias_, r.state.fog ? 1.0f : 0.0f,
                          r.state.alpha_modulate ? 1.0f : 0.0f, std::max(sx, 1.0f) * (sx > 0), std::max(sy, 1.0f) * (sy > 0)};
     SDL_PushGPUFragmentUniformData(cmd, 0, fu, sizeof fu);
     if (light_map) {

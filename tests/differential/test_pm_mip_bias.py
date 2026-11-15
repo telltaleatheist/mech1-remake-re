@@ -1,7 +1,7 @@
 """Pirate's Moon's MipBias 0x598230 (common.gw's script command) against the port's zvid::set_mip_bias
 (tests/probe_pm_mip_bias.cpp): the bias kept in [0xb06164], clamped to -1..1 ([0x5deda0] 1.0, [0x5dfa00] -1.0),
-with the state's dirty bit 4 set ([0xb06158]); the port holds it in device_state().mip_bias (not applied: the GPU
-path's textures have one mip level, fixes.md).
+with the state's dirty bit 4 set ([0xb06158], the port's display().dirty, compared); the port holds it in
+device_state().mip_bias, which the next begin_scene hands to the GPU path's levels (docs/render.md, Mipmaps).
 
     cmake --build build --target pmprobe && MW3_EXE=pm .venv/bin/python -P tests/differential/test_pm_mip_bias.py
 
@@ -24,6 +24,7 @@ SET, KEPT, DIRTY = 0x598230, 0xb06164, 0xb06158
 probe = ctypes.CDLL(str(next((ROOT / 'build').glob('libpmprobe.*'))))
 probe.probe_pm_mip_bias.argtypes = [ctypes.c_uint32]
 probe.probe_pm_mip_bias.restype = ctypes.c_uint32
+probe.probe_pm_mip_bias_dirty.restype = ctypes.c_uint32
 
 
 def bits(f):
@@ -45,10 +46,11 @@ def main():
         e = struct.unpack('<I', bytes(u.mem_read(KEPT, 4)))[0]
         dirty = struct.unpack('<I', bytes(u.mem_read(DIRTY, 4)))[0]
         p = probe.probe_pm_mip_bias(b)
-        if e != p or dirty != 4:
+        pd = probe.probe_pm_mip_bias_dirty()
+        if e != p or dirty != 4 or pd != dirty:
             bad += 1
             if bad <= 5:
-                print(f'FAIL {v!r}: exe {e:#010x} (dirty {dirty}), port {p:#010x}')
+                print(f'FAIL {v!r}: exe {e:#010x} (dirty {dirty}), port {p:#010x} (dirty {pd})')
     print(f'{len(values)} values, {bad} differ (-1 kept as {struct.unpack("<f", struct.pack("<I", probe.probe_pm_mip_bias(bits(-1.0))))[0]})')
     sys.stdout.flush()
     os._exit(1 if bad else 0)

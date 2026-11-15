@@ -343,6 +343,7 @@ void set_mip_bias(float bias) {
   if (1.0f < bias) bias = 1.0f;  // [0x005deda0], [0x005de7b0]
   else if (!(bias >= -1.0f)) bias = -1.0f;  // [0x005dfa00], [0x005deea8]; the x87's unordered reads as below: a NaN is -1
   device_state().mip_bias = bias;
+  g_display.dirty |= 4;  // [0x00b06158]: sent at the next scene
 }
 void set_render3d(platform::Render3D* render) { g_render = render; }
 platform::Render3D* render3d() { return g_render; }
@@ -902,7 +903,8 @@ void send_mix_fog() {
   if (d.send) d.send();
 }
 
-// Mech3.exe 1.2 @ 0x0057a740. FIX (A): BeginScene and the HRESULT report go.
+// Mech3.exe 1.2 @ 0x0057a740, Pirate's Moon 1.0 @ 0x0059b680 (bit 4 PM's). FIX (A): BeginScene and the HRESULT
+// report go.
 int32_t begin_scene() {
   if (g_render) g_render->begin_scene();
   Display& d = g_display;
@@ -914,6 +916,10 @@ int32_t begin_scene() {
   if (d.dirty & 2) {
     set_render_state(26, d.dither);
     d.dirty &= ~2u;
+  }
+  if (d.dirty & 4) {  // MIPMAPLODBIAS (0x2e): the GPU path's level bias (docs/render.md, Mipmaps)
+    if (g_render) g_render->set_mip_bias(device_state().mip_bias);
+    d.dirty &= ~4u;
   }
   return 0;
 }

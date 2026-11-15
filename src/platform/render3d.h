@@ -62,6 +62,13 @@ class Render3D {
   // record's 1 opaque, 4 alpha plane, 5 one-bit alpha; returns a handle.
   virtual int32_t create_texture(int width, int height, const uint8_t* rgba, uint8_t type) = 0;
   virtual void release_texture(int32_t handle) = 0;
+  // Ours: a screen image (the 2D layer's frame), a texel a pixel, so one level; else as create_texture, whose
+  // textures carry mip levels on a GPU (platform/mipmaps.h).
+  virtual int32_t create_screen_texture(int width, int height, const uint8_t* rgba) {
+    return create_texture(width, height, rgba, 1);
+  }
+  // Ours: the textures' level bias (Pirate's Moon's common.gw MipBias; 0 for MW3), negative the sharper.
+  virtual void set_mip_bias(float bias) { (void)bias; }
   // 0x0057baa0's reload: new pixels for a texture create_texture made, same size.
   virtual void update_texture(int32_t handle, int width, int height, const uint8_t* rgba) = 0;
   // What Direct3D's viewport did for a camera's window: the draws until clear_clip stay inside these game

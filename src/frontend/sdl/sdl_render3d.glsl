@@ -63,7 +63,7 @@ layout(location = 0) in vec4 diffuse;
 layout(location = 1) in vec4 specular;
 layout(location = 2) in vec2 uv;
 layout(location = 0) out vec4 colour;
-// opts.x fog on, opts.y alpha modulate, opts.zw a sharp draw's frame pixels a texel
+// fog.w the textures' level bias; opts.x fog on, opts.y alpha modulate, opts.zw a sharp draw's frame pixels a texel
 layout(set = 3, binding = 0) uniform F { vec4 fog; vec4 opts; };
 vec4 finish(vec4 c) {
   if (opts.x > 0.5) c.rgb = mix(fog.rgb, c.rgb, specular.a);
@@ -79,7 +79,7 @@ vec4 sample_sharp(vec2 at, vec2 scale) {
   return c.a > 0.0 ? vec4(c.rgb / c.a, c.a) : c;
 }
 void main() {
-  vec4 tex = opts.z > 0.0 ? sample_sharp(uv, opts.zw) : texture(t, uv);
+  vec4 tex = opts.z > 0.0 ? sample_sharp(uv, opts.zw) : texture(t, uv, fog.w);
   colour = finish(vec4(tex.rgb * diffuse.rgb, opts.y > 0.5 ? tex.a * diffuse.a : tex.a));
 }
 #else

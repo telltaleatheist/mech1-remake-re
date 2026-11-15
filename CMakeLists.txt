@@ -70,6 +70,7 @@ add_library(mw3core STATIC
   src/gamez/zutil/zutl_reg.cpp
   src/platform/reg_file.cpp
   src/platform/cue_audio.cpp
+  src/platform/mipmaps.cpp
   src/mech3/data_folder.cpp
   src/mech3/data_version.cpp
   src/mech3/patch12.cpp
@@ -677,6 +678,7 @@ add_executable(mw3tests
   tests/test_child_limits.cpp
   tests/test_znet.cpp
   tests/test_cue.cpp
+  tests/test_mipmaps.cpp
   tests/test_mech.cpp
   tests/test_mech_reader.cpp
   tests/test_msvc_rand.cpp
@@ -798,6 +800,7 @@ if(MW3_BUILD_PM)
     tests/test_child_limits.cpp  # (main's, shared) a forked test child's own memory and time caps
     tests/pm/test_pm_objectives.cpp
     tests/pm/test_pm_light_override.cpp
+    tests/pm/test_pm_mip_bias.cpp  # PM's MipBias sent to the GPU path's levels
     tests/pm/test_pm_mission_music.cpp
     tests/pm/test_pm_waypoint_arrow.cpp
     tests/pm/test_pm_lab_highlight.cpp

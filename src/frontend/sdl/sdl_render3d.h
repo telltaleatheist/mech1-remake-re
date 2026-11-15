@@ -25,6 +25,8 @@ class SdlRender3D : public platform::Render3D {
   const char* driver_name() const override;
 
   int32_t create_texture(int width, int height, const uint8_t* rgba, uint8_t type) override;
+  int32_t create_screen_texture(int width, int height, const uint8_t* rgba) override;
+  void set_mip_bias(float bias) override { mip_bias_ = bias; }
   void release_texture(int32_t handle) override;
   void update_texture(int32_t handle, int width, int height, const uint8_t* rgba) override;
   void set_viewport(int x, int y, int width, int height) override;
@@ -58,7 +60,9 @@ class SdlRender3D : public platform::Render3D {
   std::function<void(SDL_GPUCommandBuffer*, SDL_GPUTexture*, Uint32, Uint32)> overlay;
 
  private:
-  void upload(SDL_GPUTexture* t, int width, int height, const uint8_t* rgba);
+  int32_t make_texture(int width, int height, const uint8_t* rgba, bool mips);
+  // The image, and with `mips` its levels (platform/mipmaps.h), into t.
+  void upload(SDL_GPUTexture* t, int width, int height, const uint8_t* rgba, bool mips);
   struct Run {
     platform::DrawState state;
     uint32_t first, count;
@@ -87,6 +91,8 @@ class SdlRender3D : public platform::Render3D {
   std::map<uint32_t, SDL_GPUGraphicsPipeline*> pipelines_;
   std::map<uint32_t, SDL_GPUSampler*> samplers_;
   std::vector<SDL_GPUTexture*> textures_;
+  std::vector<bool> mipped_;  // each texture's: made with its levels
+  float mip_bias_ = 0.0f;     // set_mip_bias, to the shader (fog.w): Metal ignores the sampler's bias
   SDL_GPUTexture* depth_ = nullptr;
   uint32_t depth_w_ = 0, depth_h_ = 0;
   SDL_GPUBuffer* vbuf_ = nullptr;
