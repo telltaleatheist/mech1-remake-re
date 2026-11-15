@@ -1857,3 +1857,16 @@ item for the list: PM's own build of the unused vertex-colour draw, 0x59d9d0 (sl
 and read by nothing, as MW3's 0x57c2f0; restructured, 413 instructions to MW3's 306), relabelled from "replaced" to
 "unused: PORT (preserve)". The basic controls' on_path 0x4b1f70 and let_go 0x4b1f30 (MW3's 0x4ae690, 0x4ae650) are
 ported beside dev 1's set_net and checked against the exe in `test_pm_basic_set_net.py` (1 break).
+
+## PM's unused vertex-colour draw 0x59d9d0 (2026-11-14)
+
+The S20 sweep's preservation item: [0x8c4be0] in PM's draw table, written by 0x59b1f0 and read by nothing (MW3's
+[0x72f3b4] 0x57c2f0, ported on main as `zvid::draw_vertex_colors`). PM's build is its own: cdecl with five stack
+arguments (points, colours, alpha, count, overlay; MW3's priority dropped), its queue records 0x1c bytes with the fog
+sent, 3000 polygons and 12000 vertices where exactly 12000 is refused ("Toto, we ain't in Kansas any more", report
+0x800), an overlay list of 3000. Ported as `pm::zvid::vertex_colors` (zvid_tl, unwired): points and colours read last
+to first, rhw the depth, the colour unpacked with the alpha; under full alpha queued with the fog sent (or listed as
+type 0), else drawn flat untextured (or listed as type 2), one slot up to 64 corners (one or two included, which the
+shared fans would drop); the shared queue's and overlay's caps (FIX (A), fixes.md). `test_pm_device.py` runs it as a
+tenth kind against the exe's Direct3D stub, each call followed by both flushes (412 draws in the default run, 580
+queued and 271 overlay polygons drawn by the flushes): 4 of 4 breaks (point order, rhw, colour order, the alpha test).

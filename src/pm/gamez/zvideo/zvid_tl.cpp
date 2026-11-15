@@ -90,6 +90,49 @@ void flat(const pm::zmod::DeviceCall& d, const TLVertex* v) {
   draw(d, own.data(), d.count);
 }
 
+}  // namespace
+
+// Pirate's Moon 1.0 @ 0x0059d9d0 (cdecl: points, colours, alpha, count, overlay; the table's [0x008c4be0], which
+// nothing reads: MW3's 0x0057c2f0, render.md The unused vertex-colour draw). Preserved, unwired. A display-packed
+// colour per vertex, points (x, y, depth) and colours read last to first; the primitive the device's ([0x008c4c40]).
+// Under full alpha queued with the fog sent (or an overlay of type 0), else drawn flat (or an overlay of type 2).
+// FIX (A): the queue and overlay are the shared ones (their caps, not PM's 3000 polygons and 12000 vertices, where
+// exactly 12000 is refused: "Toto, we ain't in Kansas any more"), as the other PM draws'.
+void vertex_colors(const float* xyz, const uint32_t* colors, int32_t alpha, int32_t count, int32_t overlay) {
+  if (count < 1) return;
+  static std::vector<TLVertex> own;
+  own.assign(static_cast<size_t>(count), TLVertex{});
+  for (int32_t i = 0; i < count; ++i) {
+    const float* p = xyz + 3 * (count - 1 - i);
+    TLVertex& o = own[static_cast<size_t>(i)];
+    o.sx = p[0], o.sy = p[1], o.sz = p[2], o.rhw = p[2];
+    o.diffuse = ::zvid::unpack(colors[count - 1 - i], alpha);
+    o.specular = 0xff000000u;
+  }
+  pm::zmod::DeviceCall d;
+  d.count = count, d.primitive = ::zvid::device_state().primitive, d.overlay = overlay;
+  // An overlay of up to 64 corners in one slot, as the exe (one or two included); more as the shared fans.
+  const auto listed = [&](int32_t type, int line) {
+    if (count > 64) return overlay_add(type, own.data(), count, nullptr, line);
+    if (::zvid::OverlayPoly* p = ::zvid::overlay_slot(type, count, nullptr, line))
+      std::memcpy(p->verts, own.data(), sizeof(TLVertex) * static_cast<size_t>(count));
+  };
+  if (alpha < 0xff) {
+    if (overlay) listed(0, 0x880);
+    else queue(d, own.data(), nullptr, false);
+    return;
+  }
+  if (overlay) {
+    listed(2, 0x853);
+    return;
+  }
+  ::zvid::set_texture(nullptr);
+  ::zvid::set_shade(1);
+  draw(d, own.data(), count);
+}
+
+namespace {
+
 // 0x0059de30. Below full alpha it draws nothing, where MW3's 0x0057c700 queued the
 // polygon (fixes.md, candidates).
 void lit(const pm::zmod::DeviceCall& d, const TLVertex* v) {

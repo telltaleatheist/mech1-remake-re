@@ -1842,6 +1842,15 @@ int probe_pm_device_call(int kind, int count, const float* tl, int cull, int pri
   return take(out, cap);
 }
 
+// test_pm_device.py: the unused vertex-colour draw 0x0059d9d0 with the device's primitive.
+int probe_pm_vertex_colors(const float* xyz, const uint32_t* colors, int alpha, int count, int overlay, int primitive,
+                           int32_t* out, int cap) {
+  zvid::device_state().primitive = primitive;
+  pm::zvid::vertex_colors(xyz, colors, alpha, count, overlay);
+  zvid::device_state().primitive = 6;  // as the bench puts the exe's [0x008c4c40] back
+  return device_probe::take(out, cap);
+}
+
 int probe_pm_device_flush(int which, int32_t* out, int cap) {
   if (which == 0) zvid::flush_transparent();
   else if (which == 1) zvid::flush_overlay();
