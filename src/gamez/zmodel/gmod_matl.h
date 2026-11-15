@@ -96,4 +96,11 @@ int32_t soil_index(const char* name);  // 0x00535f20: a whole-word, case-blind p
 int load_soils(const char* file);      // 0x00537cb0, the LoadSoils command
 int reset_soils();                     // 0x00537270 (0x00537350 too): back to the six
 
+// The unreferenced material pair (docs/render.md, The unused zModel helpers; preserved, unwired):
+// Mech3.exe 1.2 @ 0x005374b0 (ECX the material, EDX on): its flag 2 set to on's low bit; 0 for no material, else 1.
+int32_t material_set_flag2(Material* m, int32_t on);
+// Mech3.exe 1.2 @ 0x005374d0 (ECX the material): a textured one with flag 2 has its texture's chain unloaded
+// (0x005190e0), then each of its cycle's frames'. `free_image` as zimg::chain_unload's.
+void material_unload(Material* m, void (*free_image)(void*) = nullptr);
+
 }  // namespace zmod

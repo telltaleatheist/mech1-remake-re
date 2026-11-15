@@ -1065,6 +1065,19 @@ draw after each face cut from the release, so only the last face stays (FIX (bug
 after a set-up that said 0); 0x55bc30 every polygon on one material and the material list one entry.
 `test_zmodel_unused.py` against the exe at 24 bits: 2,000 polygons through both checks (815 planar, 1,015 concave),
 2,000 lights (types 0, 1 and another), 2,000 points to the screen, 2,000 moves, all identical.
+
+S21 (2026-11-15), the last four, a material pair and its model loops, ported unwired in gmod_matl / gmod_const:
+- 0x5374b0 (`material_set_flag2`, ECX the material, EDX on): the material's flag 2 (bit 9 of its first word) set to
+  on's low bit; 0 for no material. Nothing else in the release sets or reads flag 2.
+- 0x5374d0 (`material_unload`): a textured material with flag 2 has its texture's chain unloaded (0x5190e0,
+  `zimg::chain_unload`: while an entry is loaded, its image freed by 0x5185f0, which spares the default image, and
+  the entry set to reload, state 3; then its mip), then each of its cycle's frames' chains.
+- 0x53bb90 / 0x53bbd0 (`model_set_flag2`, `model_unload_textures`, ECX the model): the two on each textured
+  polygon's material. FIX (A): a polygon without a material is skipped (the exe reads its flags through null).
+So flag 2 marks a material whose textures may be dropped and loaded again later; nothing marks any. `test_s21_preserve.py`
+(on main; MW3's exe only, Pirate's Moon's has none of the four) against the exe: 600 random sets of entries (mip chains, states 0..3), materials (cycles of 0..3 frames) and
+models through each, the images freed logged on both sides: identical; 9 breaks with the pick and pair below.
+
 ### The unused vertex-colour draw (S20, 2026-11-14)
 
 0x579f50 fills [0x72f3b4] with 0x57c2f0, but nothing in the release reads the slot (the sweep found it; so are the

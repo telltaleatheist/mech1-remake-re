@@ -538,4 +538,18 @@ int write_materials(std::FILE* f) {
   return result;
 }
 
+int32_t material_set_flag2(Material* m, int32_t on) {
+  if (!m) return 0;
+  m->flags = static_cast<uint8_t>((m->flags & ~2u) | ((on & 1) << 1));  // bit 9 of the exe's word at +0
+  return 1;
+}
+
+void material_unload(Material* m, void (*free_image)(void*)) {
+  if (!m || !(m->flags & 1) || !(m->flags & 2)) return;
+  zimg::chain_unload(m->texture, free_image);
+  if (!m->cycle) return;
+  for (uint32_t i = 0; static_cast<int32_t>(i) < static_cast<int32_t>(m->cycle->texture_count); ++i)
+    zimg::chain_unload(m->cycle->textures[i], free_image);
+}
+
 }  // namespace zmod

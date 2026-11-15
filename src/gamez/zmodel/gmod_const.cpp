@@ -1476,4 +1476,16 @@ int32_t model_add_light(Model& m, const uint8_t* d, int32_t n, float* p) {
   return 0;
 }
 
+void model_set_flag2(Model& m, int32_t on) {
+  for (int32_t i = 0; i < static_cast<int32_t>(m.count(0x10)); ++i)
+    if (m.polygons[i].material && m.polygons[i].material->flags & 1)  // FIX (A): the exe reads through a null one
+      material_set_flag2(m.polygons[i].material, on);
+}
+
+void model_unload_textures(Model& m, void (*free_image)(void*)) {
+  for (int32_t i = 0; i < static_cast<int32_t>(m.count(0x10)); ++i)
+    if (m.polygons[i].material && m.polygons[i].material->flags & 1)  // FIX (A): as model_set_flag2
+      material_unload(m.polygons[i].material, free_image);
+}
+
 }  // namespace zmod

@@ -4420,7 +4420,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x00596ec0 | 9 | folded | a thunk: one call to another function |
 | 0x00596ed0 | 18 | folded | covered by the port where it names it (src/gamez/zsound/zsnd_create.cpp:129) |
 | 0x00596f10 | 12 | folded | as MW3 0x00576100: zUtil's search path lists: each user keeps its own path string (zsnd_init.cpp:223, mech_fieldbase.h:295, zinterp.cpp:240) and the file finder is the platform's (zimg_library.h:75, zsnd_parm.cpp:17, FIX (A)); the default list's free has nothing to free (mission-frame.md:184) |
-| 0x00596f30 | 10 | folded | covered by the port where it names it (src/gamez/zreader/zreader.cpp:645) |
+| 0x00596f30 | 10 | folded | covered by the port where it names it (src/gamez/zreader/zreader.cpp:650) |
 | 0x00596f50 | 44 | folded | MW3's path list add 0x00576140 (folded there: each user keeps its own path, the file finder is the platform's), its loop restructured: read whole, every case (both lists nil, one nil, the same list) adds to the list and then to the global list as MW3's |
 | 0x00597070 | 12 | folded | covered by the port where it names it (src/mech3/app_engine.cpp:330) |
 | 0x00597090 | 18 | folded | as MW3 0x00576270: zUtil's search path lists: each user keeps its own path string (zsnd_init.cpp:223, mech_fieldbase.h:295, zinterp.cpp:240) and the file finder is the platform's (zimg_library.h:75, zsnd_parm.cpp:17, FIX (A)); the default list's free has nothing to free (mission-frame.md:184) |

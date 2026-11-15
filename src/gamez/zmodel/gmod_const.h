@@ -187,4 +187,10 @@ void snap_uvs(int32_t n, float* uv);                                 // 0x0053af
 // Strip polygons (flag 0x400) into triangles, on a model whose +0 is 0.
 void expand_strips(Model& m);                                        // 0x00553160 ECX m
 
+// Mech3.exe 1.2 @ 0x0053bb90 (ECX the model, EDX on): material_set_flag2 on each textured polygon's material
+// (unreferenced; preserved, unwired).
+void model_set_flag2(Model& m, int32_t on);
+// Mech3.exe 1.2 @ 0x0053bbd0: material_unload on each textured polygon's material (unreferenced; preserved, unwired).
+void model_unload_textures(Model& m, void (*free_image)(void*) = nullptr);
+
 }  // namespace zmod

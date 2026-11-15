@@ -86,6 +86,10 @@ State& state();
 // The define list's static start (0x00557490, a C++ static initialiser: a fresh empty list over the old one, its
 // nodes left): the list emptied. Nothing calls it again (ported for preservation).
 void defines_reset();
+// Mech3.exe 1.2 @ 0x00557450 (ECX a pair of blocks): the first and second freed, each when set. Nothing calls it and
+// its pair is not known (beside the defines list's start in the file); preserved, unwired. `free_block` stands in
+// for MSVCRT's free in tests (null: std::free).
+void free_pair(void* pair[2], void (*free_block)(void*) = nullptr);
 
 void init();                                                  // 0x00556170
 bool open_archive(const char* path, bool make_current);      // 0x00557320

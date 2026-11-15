@@ -329,6 +329,17 @@ void cache_release(Texture* image) {
   free_texture(image);  // 0x005185f0
 }
 
+void chain_unload(TextureEntry* e, void (*free_image)(void*)) {
+  for (; e && e->state == 1; e = e->mip) {
+    if (free_image)
+      free_image(e->image);
+    else if (e->image != &default_image())  // 0x005185f0 frees any other
+      free_texture(static_cast<Texture*>(e->image));
+    e->image = nullptr;
+    e->state = 3;
+  }
+}
+
 // Mech3.exe 1.2 @ 0x00518b30 (ECX the entry): a loaded one's image and
 // record freed, a waiting one forgotten; others (reload) left as they are.
 void entry_free(TextureEntry& e) {

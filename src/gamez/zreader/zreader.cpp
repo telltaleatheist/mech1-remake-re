@@ -38,6 +38,11 @@ State& state() { return g_state; }
 // Mech3.exe 1.2 @ 0x00557490, Pirate's Moon 1.0 @ 0x00579360
 void defines_reset() { g_state.defines.clear(); }
 
+void free_pair(void* pair[2], void (*free_block)(void*)) {
+  for (int i = 0; i < 2; ++i)
+    if (pair[i]) (free_block ? free_block : std::free)(pair[i]);
+}
+
 // Mech3.exe 1.2 @ 0x005564f0: malloc(count nodes), first node's type set.
 Node* new_nodes(int32_t first_type, int32_t count) {
   Node* n = static_cast<Node*>(std::malloc(static_cast<size_t>(count) * sizeof(Node)));

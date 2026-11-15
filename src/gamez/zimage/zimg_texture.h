@@ -69,6 +69,10 @@ TextureEntry* default_entry();  // 0x00518210: the entry naming default_image()
 // 0x00518b30: a loaded entry's image and device record freed, a waiting one
 // forgotten (state 0); a reloading one left.
 void entry_free(TextureEntry& e);
+// Mech3.exe 1.2 @ 0x005190e0 (ECX the entry): while an entry is loaded (state 1), its image freed (0x005185f0, not the
+// default image) and the entry set to reload (state 3), then its mip the same. Its only caller 0x005374d0 is
+// unreached: preserved, unwired. `free_image` stands in for 0x005185f0 in tests (null: the real one).
+void chain_unload(TextureEntry* e, void (*free_image)(void*) = nullptr);
 
 TextureEntry* find_texture(const char* name);  // 0x00518220: case-sensitive, in-use entries
 // 0x00518d10 (ECX name, EDX group): a free entry (not a found one) named,

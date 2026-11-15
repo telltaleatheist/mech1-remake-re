@@ -99,6 +99,10 @@ Bugs, fixed in the port (fixes.md):
 - FIX (A): stdio for ReadFile, and zutl::open (the write dir, then the
   mounts) for `_access` and the search path.
 
+0x557450 (S21, `zrdr::free_pair`, preserved, unwired): ECX a pair of malloc'd blocks, each freed when set, the
+first then the second. Nothing calls it, and which pair it frees is not known (it sits beside the defines list's
+start 0x557490, but that list is a node list, not a pair); `test_s21_preserve.py` (on main, MW3's exe only) checks the frees in order.
+
 `test_zreader_text.py` runs 0x5563d0 in the emulator (the list pool 0x555cd0
 and the defines list's constructor 0x557490 first; MSVCRT's strtol, strtod
 and isspace as stand-ins of the same grammar as `crt::msvc_strtol` /
