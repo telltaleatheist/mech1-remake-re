@@ -278,6 +278,9 @@ def main():
                 emu.w32(record, image), emu.w32(mat + 0x10, record)
                 p.probe_pm_material_alpha(i, alpha_ref, 1)
             mask = rng.choice((0, 0x3f, 0x10, 0x0f, 0x1f))
+            # The exe's model view is ours (test_pm_modeldraw's stub), made at this world's precision: the lights
+            # above leave the probe at 24 bits for the clouds' index, and zmath's sums keep doubles at 53.
+            p.probe_pm_set_fpu53(fpu53)
             emu.draw_node(i, world, mask)
             n = p.probe_pm_submit(i, (F * 12)(*world), mask, fpu53, (F * 4)(*rect), overlay, buf, len(buf))
             if alpha_ref is not None:

@@ -11,6 +11,7 @@
 #include "gamez/zimage/zimg_library.h"
 #include "crt/msvc_math.h"
 #include "gamez/zmath/zmth_matrix.h"
+#include "gamez/zgeometry/zgeo_x87.h"
 #include "gamez/zmath/zmth_vector.h"
 #include "gamez/zutil/zfix.h"
 #include "gamez/zutil/ztimer.h"
@@ -43,14 +44,14 @@ void project_point(const float cam[3], float screen[3]) {
 namespace {
 DrawState g_state;
 
-// As MW3's (gmod_draw.cpp): written out here so the sums do not fuse.
+// As 0x0053c280: each word's sums on the x87, stored once (doubles at the reference's 53 bits, as zmth's
+// transform_points; at 24 every step a float, MW3's gmod_draw.cpp).
 void transform_point(const float* v, const float* t, float* out) {
-  const float x0 = v[0] * t[0], x1 = v[0] * t[1], x2 = v[0] * t[2];
-  const float y0 = v[1] * t[3], y1 = v[1] * t[4], y2 = v[1] * t[5];
-  const float z0 = v[2] * t[6], z1 = v[2] * t[7], z2 = v[2] * t[8];
-  const float a0 = x0 + y0, a1 = x1 + y1, a2 = x2 + y2;
-  const float b0 = a0 + z0, b1 = a1 + z1, b2 = a2 + z2;
-  out[0] = b0 + t[9], out[1] = b1 + t[10], out[2] = b2 + t[11];
+  using zgeo::X;
+  const float o0 = (((X(v[0]) * t[0] + X(v[1]) * t[3]) + X(v[2]) * t[6]) + t[9]).f();
+  const float o1 = (((X(v[0]) * t[1] + X(v[1]) * t[4]) + X(v[2]) * t[7]) + t[10]).f();
+  const float o2 = (((X(v[0]) * t[2] + X(v[1]) * t[5]) + X(v[2]) * t[8]) + t[11]).f();
+  out[0] = o0, out[1] = o1, out[2] = o2;
 }
 
 float factor_of(const Model& m) {

@@ -3884,3 +3884,20 @@ extern "C" int probe_pm_mechlib_overrides(char* out, int cap) {
 #include "pm/gamez/zclass/cls_mechlib.h"
 // test_motion_text.py with MW3_EXE=pm: PM's mechlib trace names (0x00511180).
 extern "C" const char* probe_pm_node_class_name(int32_t cls) { return pm::zcls::node_class_name(cls); }
+
+// test_pm_translate.py: zmth::translate (PM 0x00539f80) on a top `t` with its identity flag, at 24 or 53 bits.
+extern "C" void probe_pm_translate(const float* t, int identity, float x, float y, float z, int fpu53, float* out,
+                                   int* flag_out) {
+  const bool keep = zfix::options().fpu53;
+  zfix::options().fpu53 = fpu53 != 0;
+  zmth::MatrixStack& st = zmth::matrix_stack();
+  const zmth::MatrixStack saved = st;
+  zmth::Mat34 m;
+  std::memcpy(m.m, t, 48);
+  st.top = 0, st.slot[0] = &m, st.identity[0] = identity;
+  zmth::translate(x, y, z);
+  std::memcpy(out, m.m, 48);
+  *flag_out = st.identity[0];
+  st = saved;
+  zfix::options().fpu53 = keep;
+}
