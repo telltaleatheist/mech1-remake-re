@@ -69,12 +69,11 @@ produces; the label names the compared value. Reaching a function, or running a 
 
 | Class | Functions |
 |---|---|
-| folded | 4089 |
+| folded | 4088 |
 | replaced (SDL or the platform layer) | 273 |
 | software renderer | 115 |
 | MISSING LOGIC | 88 |
 | dev dialog (MFC), its window plumbing: replaced | 51 |
-| unused: PORT (preserve) | 18 |
 
 ## MISSING LOGIC
 
@@ -95,27 +94,6 @@ Run evidence (2026-11-13): the PM chains (campaign kills:99 and standalone-kills
 Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x0043cf50, MW3 0x0043be70): Hud::zap_static, ported and wired for both games by MW3's BROKEN row 3 (8bf594ef, app_hud.cpp); PM's 0x0043cf50 is the same logic (its audit row, folded).
 
 ## PORT (preserve)
-
-### unused: PORT (preserve)
-
-- 1 functions, 27 decomp lines (0x00537bc0): as MW3 0x0051e160: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193)
-- 1 functions, 150 decomp lines (0x0053a730): as MW3 0x00520c60: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193)
-- 1 functions, 166 decomp lines (0x0053ab50): as MW3 0x00521080: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193)
-- 1 functions, 70 decomp lines (0x0053afc0): as MW3 0x005214f0: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193)
-- 1 functions, 62 decomp lines (0x0053b560): as MW3 0x00521a90: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193)
-- 1 functions, 87 decomp lines (0x0053b8d0): as MW3 0x00521e10: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193)
-- 1 functions, 53 decomp lines (0x0053bd40): as MW3 0x00522280: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193)
-- 1 functions, 16 decomp lines (0x0053be80): as MW3 0x005223c0: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193)
-- 1 functions, 50 decomp lines (0x0053bfa0): as MW3 0x005224b0: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193)
-- 1 functions, 115 decomp lines (0x0053d000): as MW3 0x00523650, whose class PM's changes keep: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193)
-- 1 functions, 32 decomp lines (0x0053d7c0): as MW3 0x00523df0: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193)
-- 1 functions, 31 decomp lines (0x0053d8c0): as MW3 0x00523ef0: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193)
-- 1 functions, 21 decomp lines (0x0053e8c0): as MW3 0x00524f80: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193)
-- 1 functions, 17 decomp lines (0x0053e910): as MW3 0x00524fd0: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193)
-- 1 functions, 21 decomp lines (0x0053e960): as MW3 0x00525020: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193)
-- 1 functions, 9 decomp lines (0x0053e9e0): as MW3 0x005250a0: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193)
-- 1 functions, 9 decomp lines (0x0053ea30): as MW3 0x005250f0: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193)
-- 1 functions, 144 decomp lines (0x0053f900): as MW3 0x00525fa0, whose class PM's changes keep: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193)
 
 ## UNSURE
 
@@ -3966,7 +3944,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x00598300 | 11 | replaced (SDL or the platform layer) | as MW3 0x005792a0: DirectDraw and Direct3D: the mode, surfaces, blits, back buffer locks and grabs, the device and its memory queries, the render states' set-up, the textures' system surfaces, the cursor and window calls, the DirectX version and its error names; the SDL GPU layer replaces them (render.md, fixes.md (A)) |
 | 0x00598420 | 10 | folded | inside its ported callers (0x00547dd0): a small helper their ports do their own way |
 | 0x00598470 | 24 | folded | by the layout-shift rule (tools/analysis/pm_layout_shift.py, docs/port-audit-pm.md method): MW3's 0x005793c0 with only its float constants' signs changed, each one added where MW3 subtracts its negative (fadd c for fsub -c); calls, field counts and immediates as MW3's |
-| 0x00598530 | 27 | folded | covered by the port where it names it (src/gamez/zvideo/zvid_ddd3d.cpp:984) |
+| 0x00598530 | 27 | folded | covered by the port where it names it (src/gamez/zvideo/zvid_ddd3d.cpp:990) |
 | 0x00598600 | 88 | replaced (SDL or the platform layer) | as MW3 0x00579500: DirectDraw and Direct3D: the mode, surfaces, blits, back buffer locks and grabs, the device and its memory queries, the render states' set-up, the textures' system surfaces, the cursor and window calls, the DirectX version and its error names; the SDL GPU layer replaces them (render.md, fixes.md (A)) |
 | 0x00598760 | 104 | replaced (SDL or the platform layer) | as MW3 0x00579660: DirectDraw and Direct3D: the mode, surfaces, blits, back buffer locks and grabs, the device and its memory queries, the render states' set-up, the textures' system surfaces, the cursor and window calls, the DirectX version and its error names; the SDL GPU layer replaces them (render.md, fixes.md (A)) |
 | 0x00598940 | 23 | replaced (SDL or the platform layer) | as MW3 0x00579840: DirectDraw and Direct3D: the mode, surfaces, blits, back buffer locks and grabs, the device and its memory queries, the render states' set-up, the textures' system surfaces, the cursor and window calls, the DirectX version and its error names; the SDL GPU layer replaces them (render.md, fixes.md (A)) |
@@ -3994,7 +3972,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x0059a1e0 | 32 | replaced (SDL or the platform layer) | as MW3 0x00578670, whose class PM's changes keep: DirectDraw and Direct3D: the mode, surfaces, blits, back buffer locks and grabs, the device and its memory queries, the render states' set-up, the textures' system surfaces, the cursor and window calls, the DirectX version and its error names; the SDL GPU layer replaces them (render.md, fixes.md (A)) |
 | 0x0059a260 | 20 | replaced (SDL or the platform layer) | as MW3 0x005786f0, whose class PM's changes keep: DirectDraw and Direct3D: the mode, surfaces, blits, back buffer locks and grabs, the device and its memory queries, the render states' set-up, the textures' system surfaces, the cursor and window calls, the DirectX version and its error names; the SDL GPU layer replaces them (render.md, fixes.md (A)) |
 | 0x0059a2b0 | 90 | replaced (SDL or the platform layer) | as MW3 0x00578740, whose class PM's changes keep: DirectDraw and Direct3D: the mode, surfaces, blits, back buffer locks and grabs, the device and its memory queries, the render states' set-up, the textures' system surfaces, the cursor and window calls, the DirectX version and its error names; the SDL GPU layer replaces them (render.md, fixes.md (A)) |
-| 0x0059a470 | 34 | folded | covered by the port where it names it (src/gamez/zvideo/zvid_ddd3d.cpp:1031) |
+| 0x0059a470 | 34 | folded | covered by the port where it names it (src/gamez/zvideo/zvid_ddd3d.cpp:1037) |
 | 0x0059a530 | 16 | replaced (SDL or the platform layer) | as MW3 0x00578960, whose class PM's changes keep: DirectDraw and Direct3D: the mode, surfaces, blits, back buffer locks and grabs, the device and its memory queries, the render states' set-up, the textures' system surfaces, the cursor and window calls, the DirectX version and its error names; the SDL GPU layer replaces them (render.md, fixes.md (A)) |
 | 0x0059a800 | 28 | replaced (SDL or the platform layer) | as MW3 0x00578c00, whose class PM's changes keep: DirectDraw and Direct3D: the mode, surfaces, blits, back buffer locks and grabs, the device and its memory queries, the render states' set-up, the textures' system surfaces, the cursor and window calls, the DirectX version and its error names; the SDL GPU layer replaces them (render.md, fixes.md (A)) |
 | 0x0059ab90 | 10 | replaced (SDL or the platform layer) | as MW3 0x00578f60: DirectDraw and Direct3D: the mode, surfaces, blits, back buffer locks and grabs, the device and its memory queries, the render states' set-up, the textures' system surfaces, the cursor and window calls, the DirectX version and its error names; the SDL GPU layer replaces them (render.md, fixes.md (A)) |
@@ -4166,107 +4144,6 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x005970d0 | 46 | folded | as MW3 0x005762b0: zUtil's search path lists: each user keeps its own path string (zsnd_init.cpp:223, mech_fieldbase.h:295, zinterp.cpp:240) and the file finder is the platform's (zimg_library.h:75, zsnd_parm.cpp:17, FIX (A)); the default list's free has nothing to free (mission-frame.md:184) |
 | 0x005971d0 | 16 | folded | covered by the port where it names it (src/gamez/zinterp/zinterp.cpp:263) |
 
-### zinput (96 not ported)
-
-| Address | Lines | Class | Why |
-|---|---|---|---|
-| 0x00533b90 | 92 | replaced (SDL or the platform layer) | as MW3 0x0051a300 (zIn's keyboard reset, the port's zin::kbd_reset over SDL input): the keyboard's buffered DirectInput data drained (GetDeviceData through the device's vtable +0x28) and the key states cleared; PM's buffer walk the same |
-| 0x00533de0 | 42 | replaced (SDL or the platform layer) | as MW3's twins (zin_kbd.cpp:133 and :147, zin_init.cpp:153; zIn over SDL input in the port): the keyboard's held-key ageing and its buffered DirectInput read (0x00533de0, 0x00533e60; MW3's 0x0051a550, 0x0051a5d0), the same logic on PM's globals; and DirectInput's error names for a report (0x00537780, MW3's 0x0051ddc0), PM's switch ordered differently |
-| 0x00533e60 | 191 | replaced (SDL or the platform layer) | as MW3's twins (zin_kbd.cpp:133 and :147, zin_init.cpp:153; zIn over SDL input in the port): the keyboard's held-key ageing and its buffered DirectInput read (0x00533de0, 0x00533e60; MW3's 0x0051a550, 0x0051a5d0), the same logic on PM's globals; and DirectInput's error names for a report (0x00537780, MW3's 0x0051ddc0), PM's switch ordered differently |
-| 0x00534380 | 13 | folded | read: a keyboard wait (loop until a key comes, 0x00533e60) that its only caller, the controls menu's key capture (0x0042cd30), calls with 0, which skips it; the port's capture is its own (controls_menu.cpp) |
-| 0x00534780 | 9 | folded | the same as its MW3 twin after the address map (nothing differs); not run under a test (trace) |
-| 0x00534790 | 9 | folded | a thunk: one call to another function |
-| 0x00534830 | 14 | folded | as MW3 0x0051b020: the input module's static object's constructor (zeroes its lists); the port's members start empty |
-| 0x005348b0 | 40 | folded | folded, by the feature compare and the order-aware compare (the same calls, tests and constants in order) against its MW3 twin, ported; the only immediates that differ are source line numbers passed with the source file's path to a report (the network's and sound's checks, 0x005ac130 and others) |
-| 0x005349f0 | 8 | folded | covered by the port where it names it (src/gamez/zinput/zin_init.cpp:74) |
-| 0x00534a00 | 8 | folded | covered by the port where it names it (src/gamez/zinput/zin_init.cpp:74) |
-| 0x00534a10 | 12 | folded | covered by the port where it names it (src/gamez/zinput/zin_init.cpp:91) |
-| 0x00534a30 | 12 | folded | covered by the port where it names it (src/gamez/zinput/zin_init.cpp:91) |
-| 0x00534a50 | 12 | folded | covered by the port where it names it (src/gamez/zinput/zin_init.cpp:91) |
-| 0x00534a70 | 9 | folded | covered by the port where it names it (src/gamez/zinput/zin_init.cpp:85) |
-| 0x00534a80 | 9 | folded | covered by the port where it names it (src/gamez/zinput/zin_init.cpp:84) |
-| 0x00534a90 | 9 | folded | covered by the port where it names it (src/gamez/zinput/zin_init.cpp:86) |
-| 0x00535760 | 8 | folded | covered by the port where it names it (src/gamez/zinput/zin_cmdmap.cpp:136) |
-| 0x00535780 | 8 | folded | covered by the port where it names it (src/gamez/zinput/zin_cmdmap.cpp:136) |
-| 0x005357a0 | 8 | folded | covered by the port where it names it (src/gamez/zinput/zin_cmdmap.cpp:136) |
-| 0x005357d0 | 8 | folded | covered by the port where it names it (src/gamez/zinput/zin_cmdmap.cpp:148) |
-| 0x00535800 | 8 | folded | covered by the port where it names it (src/gamez/zinput/zin_cmdmap.cpp:148) |
-| 0x00535810 | 8 | folded | covered by the port where it names it (src/gamez/zinput/zin_cmdmap.cpp:148) |
-| 0x00535c70 | 9 | folded | a thunk: one call to another function |
-| 0x00535f00 | 130 | folded | folded, by the feature compare and the order-aware compare (the same calls, tests and constants in order, constants compared by value) against its MW3 twin, ported; its flags only float constants against their negatives and immediates that are structure offsets or sizes (multiples of 4 from 0x40, PM's layouts) or error reports' line numbers |
-| 0x005369a0 | 18 | folded | covered by the port where it names it (src/gamez/zinput/zin_cmdmap.cpp:397) |
-| 0x005369d0 | 18 | folded | covered by the port where it names it (src/gamez/zinput/zin_cmdmap.cpp:396) |
-| 0x00536a00 | 18 | folded | covered by the port where it names it (src/gamez/zinput/zin_cmdmap.cpp:395) |
-| 0x00536a40 | 9 | folded | a thunk: one call to another function |
-| 0x00536a60 | 9 | folded | a thunk: one call to another function |
-| 0x00536a80 | 9 | folded | a thunk: one call to another function |
-| 0x00536aa0 | 9 | folded | a thunk: one call to another function |
-| 0x00536ac0 | 9 | folded | a thunk: one call to another function |
-| 0x00536ae0 | 9 | folded | a thunk: one call to another function |
-| 0x00536b00 | 9 | folded | a thunk: one call to another function |
-| 0x00536b20 | 9 | folded | a thunk: one call to another function |
-| 0x00536b40 | 9 | folded | a thunk: one call to another function |
-| 0x00536b60 | 9 | folded | a thunk: one call to another function |
-| 0x00536b80 | 9 | folded | a thunk: one call to another function |
-| 0x00536ba0 | 9 | folded | a thunk: one call to another function |
-| 0x00536bc0 | 9 | folded | a thunk: one call to another function |
-| 0x00536be0 | 9 | folded | a thunk: one call to another function |
-| 0x00536c00 | 11 | folded | covered by the port where it names it (src/gamez/zinput/zinput.h:227) |
-| 0x00536c30 | 9 | folded | a thunk: one call to another function |
-| 0x00536c50 | 9 | folded | a thunk: one call to another function |
-| 0x00536c70 | 9 | folded | a thunk: one call to another function |
-| 0x00536c90 | 9 | folded | a thunk: one call to another function |
-| 0x00536cb0 | 9 | folded | a thunk: one call to another function |
-| 0x00536cd0 | 9 | folded | a thunk: one call to another function |
-| 0x00537430 | 20 | replaced (SDL or the platform layer) | as MW3 0x0051daa0: DirectInput joystick properties (range and dead zone per axis); the port sets the dead zones through the platform (zin_joy.cpp:60) |
-| 0x00537480 | 22 | replaced (SDL or the platform layer) | as MW3 0x0051dae0: DirectInput joystick properties (range and dead zone per axis); the port sets the dead zones through the platform (zin_joy.cpp:60) |
-| 0x005374d0 | 22 | folded | covered by the port where it names it (src/gamez/zinput/zin_joy.cpp:47) |
-| 0x00537520 | 21 | folded | covered by the port where it names it (src/gamez/zinput/zin_joy.cpp:46) |
-| 0x00537760 | 8 | folded | returns a constant or a global |
-| 0x00537780 | 97 | replaced (SDL or the platform layer) | as MW3's twins (zin_kbd.cpp:133 and :147, zin_init.cpp:153; zIn over SDL input in the port): the keyboard's held-key ageing and its buffered DirectInput read (0x00533de0, 0x00533e60; MW3's 0x0051a550, 0x0051a5d0), the same logic on PM's globals; and DirectInput's error names for a report (0x00537780, MW3's 0x0051ddc0), PM's switch ordered differently |
-| 0x00537aa0 | 10 | folded | covered by the port where it names it (src/mech3/zai_drive_pm.cpp:231) |
-| 0x00537ae0 | 10 | folded | ported, by docs/symbols.csv: ported inline (zai_node flat_distance) |
-| 0x00537bc0 | 27 | unused: PORT (preserve) | as MW3 0x0051e160: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193) |
-| 0x00537c20 | 18 | folded | as MW3 0x0051e1c0: the 2D normalise, inline in its ported caller (0x00524247) |
-| 0x00537dd0 | 16 | folded | covered by the port where it names it (src/mech3/mech_net.cpp:707) |
-| 0x00537e60 | 22 | folded | inside its ported callers (0x004d92c0, 0x004d9a90, 0x004da1c0, 0x004dcd20): a small helper their ports do their own way |
-| 0x00538230 | 67 | replaced (SDL or the platform layer) | the CRT's user math-error hook (_matherr, installed by the CRT start-up through 0x005cf05f): prints "Math Exception: type=%d, [%s(%.8f, %.8f)]" to stderr and answers asin by recomputing it, ceil and floor with 0. MW3 has the same handler (its string pushed at 0x0051e7d9, inside code Ghidra never made a function, so no MW3 row). The port's maths never raises these through a CRT hook (the platform layer) |
-| 0x0053a730 | 150 | unused: PORT (preserve) | as MW3 0x00520c60: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193) |
-| 0x0053ab50 | 166 | unused: PORT (preserve) | as MW3 0x00521080: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193) |
-| 0x0053afc0 | 70 | unused: PORT (preserve) | as MW3 0x005214f0: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193) |
-| 0x0053b560 | 62 | unused: PORT (preserve) | as MW3 0x00521a90: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193) |
-| 0x0053b8d0 | 87 | unused: PORT (preserve) | as MW3 0x00521e10: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193) |
-| 0x0053bce0 | 31 | folded | covered by the port where it names it (src/gamez/zeffect/zeff_anim_events.cpp:393) |
-| 0x0053bd40 | 53 | unused: PORT (preserve) | as MW3 0x00522280: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193) |
-| 0x0053be80 | 16 | unused: PORT (preserve) | as MW3 0x005223c0: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193) |
-| 0x0053bf40 | 11 | folded | covered by the port where it names it (src/mech3/player_view.cpp:109) |
-| 0x0053bfa0 | 50 | unused: PORT (preserve) | as MW3 0x005224b0: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193) |
-| 0x0053c780 | 47 | folded | read: the box's eight x, z corners through a 3x4 matrix (MW3's corner transform 0x00522d60 written out), from PM's node_box_xz 0x004fdd60 (MW3's 0x004ec150; class.cpp node_box_xz, which carries PM's box +0x70 and composes the node's matrix with the stack's as PM does, then zmth::transform_box_xz) |
-| 0x0053d000 | 115 | unused: PORT (preserve) | as MW3 0x00523650, whose class PM's changes keep: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193) |
-| 0x0053d7c0 | 32 | unused: PORT (preserve) | as MW3 0x00523df0: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193) |
-| 0x0053d8c0 | 31 | unused: PORT (preserve) | as MW3 0x00523ef0: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193) |
-| 0x0053db5d | 34 | folded | a piece of the ported function before it (Ghidra split it there) (0x0053d9f0) |
-| 0x0053de0d | 33 | folded | a piece of the ported function before it (Ghidra split it there) (0x0053d9f0) |
-| 0x0053df5d | 83 | folded | a piece of the ported function before it (Ghidra split it there) (0x0053d9f0) |
-| 0x0053e2ed | 96 | folded | a piece of the ported function before it (Ghidra split it there) (0x0053d9f0) |
-| 0x0053e8c0 | 21 | unused: PORT (preserve) | as MW3 0x00524f80: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193) |
-| 0x0053e910 | 17 | unused: PORT (preserve) | as MW3 0x00524fd0: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193) |
-| 0x0053e960 | 21 | unused: PORT (preserve) | as MW3 0x00525020: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193) |
-| 0x0053e9e0 | 9 | unused: PORT (preserve) | as MW3 0x005250a0: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193) |
-| 0x0053ea30 | 9 | unused: PORT (preserve) | as MW3 0x005250f0: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193) |
-| 0x0053eae0 | 29 | folded | covered by the port where it names it (src/gamez/zmath/zmth_vector.cpp:286) |
-| 0x0053ef90 | 16 | folded | read: MW3's 0x005255d0 (the quaternion product a b: the same terms on each of the four lines, its arguments on the stack), which the address map lacks; its 21 callers (the player view's and others) are the ports of MW3's callers of 0x005255d0 (zmth_matrix.cpp:416, player_view.cpp:30) |
-| 0x0053f900 | 144 | unused: PORT (preserve) | as MW3 0x00525fa0, whose class PM's changes keep: zMath routines nothing calls: vector and quaternion add, subtract, negate and dot, single-axis rotations, a plane from three points, 2D side tests, cameras from euler angles and a position, the projection as a matrix, screen-space box extents, a point-set fit (render-matrix.md:183-193) |
-| 0x0053fe30 | 87 | folded | read after the feature compare's flag: MW3's 0x00526510 (zModel's start: the render state's defaults) with one PM value more, [0x008d4ae8] = 750 (slots a block), which the pm port has (src/pm/gamez/zmodel/gmod_const.h:61); the other defaults as MW3's (gmod_draw.h:37) |
-| 0x00540090 | 16 | folded | read: the model code's GfxFlags pointer bound to the registry's value of that name (GfxFlags_HW / GfxFlags_SW, 0x005b9070) or to a local default, from the app's settings read (0x00482ca0) and the graphics screen; the port keeps GfxFlags in its options (options.cpp) and the model code reads them through its hooks |
-| 0x005400c0 | 10 | folded | read: teardown frees at the app's end (a model table freed and its count cleared; the video's buffer freed), from the app's cleanup (0x00483020 / 0x00482090); the port's objects free themselves |
-| 0x005400e0 | 32 | folded | zModel's start and its pool's teardown (MW3's 0x00526800 and its unload, paired in test_pm_mission_load's stub list, which does not run them): the start (0x005400e0) makes the draw buffers and the pool's tables and resets the draw state (0x00556420: the current material and colour back to their defaults; pm-map.md, ported with the helpers that read them); the teardown (0x00540200) frees the pool's models and blocks, named at app_mission.cpp:1953 (the port's pool replaced whole) |
-| 0x00540200 | 56 | folded | zModel's start and its pool's teardown (MW3's 0x00526800 and its unload, paired in test_pm_mission_load's stub list, which does not run them): the start (0x005400e0) makes the draw buffers and the pool's tables and resets the draw state (0x00556420: the current material and colour back to their defaults; pm-map.md, ported with the helpers that read them); the teardown (0x00540200) frees the pool's models and blocks, named at app_mission.cpp:1953 (the port's pool replaced whole) |
-| 0x00540310 | 8 | folded | empty: does nothing |
-| 0x00540320 | 8 | folded | returns a constant or a global |
-| 0x00540330 | 11 | software renderer | as MW3 0x005269e0: the software model draw's projection and clippers, its own lighting, the span buffer's pick and hidden-surface test, the small polygon reject, palette shading (software-path.md, render-clip3d.md, render-lighting.md: the software renderer, not ported by decision) |
-| 0x00540360 | 9 | folded | covered by the port where it names it (src/gamez/zinterp/zinterp.h:328) |
-
 ### zrender (82 not ported)
 
 | Address | Lines | Class | Why |
@@ -4353,6 +4230,88 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x00590610 | 37 | folded | inside its ported callers (0x0058ff90): a small helper their ports do their own way |
 | 0x00590670 | 20 | folded | as MW3 0x0056f230: covered: a sound's play with the master volume (zsnd_play.cpp:134), the playing list's node |
 | 0x005906a0 | 17 | folded | read: a 40-byte value copied into a new std::list node (the STL's construct), from the sound play 0x0058ff90's list inserts; MW3's 0x0056eb10 does it inline, the port's list does it itself |
+
+### zinput (77 not ported)
+
+| Address | Lines | Class | Why |
+|---|---|---|---|
+| 0x00533b90 | 92 | replaced (SDL or the platform layer) | as MW3 0x0051a300 (zIn's keyboard reset, the port's zin::kbd_reset over SDL input): the keyboard's buffered DirectInput data drained (GetDeviceData through the device's vtable +0x28) and the key states cleared; PM's buffer walk the same |
+| 0x00533de0 | 42 | replaced (SDL or the platform layer) | as MW3's twins (zin_kbd.cpp:133 and :147, zin_init.cpp:153; zIn over SDL input in the port): the keyboard's held-key ageing and its buffered DirectInput read (0x00533de0, 0x00533e60; MW3's 0x0051a550, 0x0051a5d0), the same logic on PM's globals; and DirectInput's error names for a report (0x00537780, MW3's 0x0051ddc0), PM's switch ordered differently |
+| 0x00533e60 | 191 | replaced (SDL or the platform layer) | as MW3's twins (zin_kbd.cpp:133 and :147, zin_init.cpp:153; zIn over SDL input in the port): the keyboard's held-key ageing and its buffered DirectInput read (0x00533de0, 0x00533e60; MW3's 0x0051a550, 0x0051a5d0), the same logic on PM's globals; and DirectInput's error names for a report (0x00537780, MW3's 0x0051ddc0), PM's switch ordered differently |
+| 0x00534380 | 13 | folded | read: a keyboard wait (loop until a key comes, 0x00533e60) that its only caller, the controls menu's key capture (0x0042cd30), calls with 0, which skips it; the port's capture is its own (controls_menu.cpp) |
+| 0x00534780 | 9 | folded | the same as its MW3 twin after the address map (nothing differs); not run under a test (trace) |
+| 0x00534790 | 9 | folded | a thunk: one call to another function |
+| 0x00534830 | 14 | folded | as MW3 0x0051b020: the input module's static object's constructor (zeroes its lists); the port's members start empty |
+| 0x005348b0 | 40 | folded | folded, by the feature compare and the order-aware compare (the same calls, tests and constants in order) against its MW3 twin, ported; the only immediates that differ are source line numbers passed with the source file's path to a report (the network's and sound's checks, 0x005ac130 and others) |
+| 0x005349f0 | 8 | folded | covered by the port where it names it (src/gamez/zinput/zin_init.cpp:74) |
+| 0x00534a00 | 8 | folded | covered by the port where it names it (src/gamez/zinput/zin_init.cpp:74) |
+| 0x00534a10 | 12 | folded | covered by the port where it names it (src/gamez/zinput/zin_init.cpp:91) |
+| 0x00534a30 | 12 | folded | covered by the port where it names it (src/gamez/zinput/zin_init.cpp:91) |
+| 0x00534a50 | 12 | folded | covered by the port where it names it (src/gamez/zinput/zin_init.cpp:91) |
+| 0x00534a70 | 9 | folded | covered by the port where it names it (src/gamez/zinput/zin_init.cpp:85) |
+| 0x00534a80 | 9 | folded | covered by the port where it names it (src/gamez/zinput/zin_init.cpp:84) |
+| 0x00534a90 | 9 | folded | covered by the port where it names it (src/gamez/zinput/zin_init.cpp:86) |
+| 0x00535760 | 8 | folded | covered by the port where it names it (src/gamez/zinput/zin_cmdmap.cpp:136) |
+| 0x00535780 | 8 | folded | covered by the port where it names it (src/gamez/zinput/zin_cmdmap.cpp:136) |
+| 0x005357a0 | 8 | folded | covered by the port where it names it (src/gamez/zinput/zin_cmdmap.cpp:136) |
+| 0x005357d0 | 8 | folded | covered by the port where it names it (src/gamez/zinput/zin_cmdmap.cpp:148) |
+| 0x00535800 | 8 | folded | covered by the port where it names it (src/gamez/zinput/zin_cmdmap.cpp:148) |
+| 0x00535810 | 8 | folded | covered by the port where it names it (src/gamez/zinput/zin_cmdmap.cpp:148) |
+| 0x00535c70 | 9 | folded | a thunk: one call to another function |
+| 0x00535f00 | 130 | folded | folded, by the feature compare and the order-aware compare (the same calls, tests and constants in order, constants compared by value) against its MW3 twin, ported; its flags only float constants against their negatives and immediates that are structure offsets or sizes (multiples of 4 from 0x40, PM's layouts) or error reports' line numbers |
+| 0x005369a0 | 18 | folded | covered by the port where it names it (src/gamez/zinput/zin_cmdmap.cpp:397) |
+| 0x005369d0 | 18 | folded | covered by the port where it names it (src/gamez/zinput/zin_cmdmap.cpp:396) |
+| 0x00536a00 | 18 | folded | covered by the port where it names it (src/gamez/zinput/zin_cmdmap.cpp:395) |
+| 0x00536a40 | 9 | folded | a thunk: one call to another function |
+| 0x00536a60 | 9 | folded | a thunk: one call to another function |
+| 0x00536a80 | 9 | folded | a thunk: one call to another function |
+| 0x00536aa0 | 9 | folded | a thunk: one call to another function |
+| 0x00536ac0 | 9 | folded | a thunk: one call to another function |
+| 0x00536ae0 | 9 | folded | a thunk: one call to another function |
+| 0x00536b00 | 9 | folded | a thunk: one call to another function |
+| 0x00536b20 | 9 | folded | a thunk: one call to another function |
+| 0x00536b40 | 9 | folded | a thunk: one call to another function |
+| 0x00536b60 | 9 | folded | a thunk: one call to another function |
+| 0x00536b80 | 9 | folded | a thunk: one call to another function |
+| 0x00536ba0 | 9 | folded | a thunk: one call to another function |
+| 0x00536bc0 | 9 | folded | a thunk: one call to another function |
+| 0x00536be0 | 9 | folded | a thunk: one call to another function |
+| 0x00536c00 | 11 | folded | covered by the port where it names it (src/gamez/zinput/zinput.h:227) |
+| 0x00536c30 | 9 | folded | a thunk: one call to another function |
+| 0x00536c50 | 9 | folded | a thunk: one call to another function |
+| 0x00536c70 | 9 | folded | a thunk: one call to another function |
+| 0x00536c90 | 9 | folded | a thunk: one call to another function |
+| 0x00536cb0 | 9 | folded | a thunk: one call to another function |
+| 0x00536cd0 | 9 | folded | a thunk: one call to another function |
+| 0x00537430 | 20 | replaced (SDL or the platform layer) | as MW3 0x0051daa0: DirectInput joystick properties (range and dead zone per axis); the port sets the dead zones through the platform (zin_joy.cpp:60) |
+| 0x00537480 | 22 | replaced (SDL or the platform layer) | as MW3 0x0051dae0: DirectInput joystick properties (range and dead zone per axis); the port sets the dead zones through the platform (zin_joy.cpp:60) |
+| 0x005374d0 | 22 | folded | covered by the port where it names it (src/gamez/zinput/zin_joy.cpp:47) |
+| 0x00537520 | 21 | folded | covered by the port where it names it (src/gamez/zinput/zin_joy.cpp:46) |
+| 0x00537760 | 8 | folded | returns a constant or a global |
+| 0x00537780 | 97 | replaced (SDL or the platform layer) | as MW3's twins (zin_kbd.cpp:133 and :147, zin_init.cpp:153; zIn over SDL input in the port): the keyboard's held-key ageing and its buffered DirectInput read (0x00533de0, 0x00533e60; MW3's 0x0051a550, 0x0051a5d0), the same logic on PM's globals; and DirectInput's error names for a report (0x00537780, MW3's 0x0051ddc0), PM's switch ordered differently |
+| 0x00537aa0 | 10 | folded | covered by the port where it names it (src/mech3/zai_drive_pm.cpp:231) |
+| 0x00537ae0 | 10 | folded | ported, by docs/symbols.csv: ported inline (zai_node flat_distance) |
+| 0x00537dd0 | 16 | folded | covered by the port where it names it (src/mech3/mech_net.cpp:707) |
+| 0x00537e60 | 22 | folded | inside its ported callers (0x004d92c0, 0x004d9a90, 0x004da1c0, 0x004dcd20): a small helper their ports do their own way |
+| 0x00538230 | 67 | replaced (SDL or the platform layer) | the CRT's user math-error hook (_matherr, installed by the CRT start-up through 0x005cf05f): prints "Math Exception: type=%d, [%s(%.8f, %.8f)]" to stderr and answers asin by recomputing it, ceil and floor with 0. MW3 has the same handler (its string pushed at 0x0051e7d9, inside code Ghidra never made a function, so no MW3 row). The port's maths never raises these through a CRT hook (the platform layer) |
+| 0x0053bce0 | 31 | folded | covered by the port where it names it (src/gamez/zeffect/zeff_anim_events.cpp:393) |
+| 0x0053bf40 | 11 | folded | covered by the port where it names it (src/mech3/player_view.cpp:109) |
+| 0x0053c780 | 47 | folded | read: the box's eight x, z corners through a 3x4 matrix (MW3's corner transform 0x00522d60 written out), from PM's node_box_xz 0x004fdd60 (MW3's 0x004ec150; class.cpp node_box_xz, which carries PM's box +0x70 and composes the node's matrix with the stack's as PM does, then zmth::transform_box_xz) |
+| 0x0053db5d | 34 | folded | a piece of the ported function before it (Ghidra split it there) (0x0053d9f0) |
+| 0x0053de0d | 33 | folded | a piece of the ported function before it (Ghidra split it there) (0x0053d9f0) |
+| 0x0053df5d | 83 | folded | a piece of the ported function before it (Ghidra split it there) (0x0053d9f0) |
+| 0x0053e2ed | 96 | folded | a piece of the ported function before it (Ghidra split it there) (0x0053d9f0) |
+| 0x0053eae0 | 29 | folded | covered by the port where it names it (src/gamez/zmath/zmth_vector.cpp:286) |
+| 0x0053ef90 | 16 | folded | read: MW3's 0x005255d0 (the quaternion product a b: the same terms on each of the four lines, its arguments on the stack), which the address map lacks; its 21 callers (the player view's and others) are the ports of MW3's callers of 0x005255d0 (zmth_matrix.cpp:416, player_view.cpp:30) |
+| 0x0053fe30 | 87 | folded | read after the feature compare's flag: MW3's 0x00526510 (zModel's start: the render state's defaults) with one PM value more, [0x008d4ae8] = 750 (slots a block), which the pm port has (src/pm/gamez/zmodel/gmod_const.h:61); the other defaults as MW3's (gmod_draw.h:37) |
+| 0x00540090 | 16 | folded | read: the model code's GfxFlags pointer bound to the registry's value of that name (GfxFlags_HW / GfxFlags_SW, 0x005b9070) or to a local default, from the app's settings read (0x00482ca0) and the graphics screen; the port keeps GfxFlags in its options (options.cpp) and the model code reads them through its hooks |
+| 0x005400c0 | 10 | folded | read: teardown frees at the app's end (a model table freed and its count cleared; the video's buffer freed), from the app's cleanup (0x00483020 / 0x00482090); the port's objects free themselves |
+| 0x005400e0 | 32 | folded | zModel's start and its pool's teardown (MW3's 0x00526800 and its unload, paired in test_pm_mission_load's stub list, which does not run them): the start (0x005400e0) makes the draw buffers and the pool's tables and resets the draw state (0x00556420: the current material and colour back to their defaults; pm-map.md, ported with the helpers that read them); the teardown (0x00540200) frees the pool's models and blocks, named at app_mission.cpp:1953 (the port's pool replaced whole) |
+| 0x00540200 | 56 | folded | zModel's start and its pool's teardown (MW3's 0x00526800 and its unload, paired in test_pm_mission_load's stub list, which does not run them): the start (0x005400e0) makes the draw buffers and the pool's tables and resets the draw state (0x00556420: the current material and colour back to their defaults; pm-map.md, ported with the helpers that read them); the teardown (0x00540200) frees the pool's models and blocks, named at app_mission.cpp:1953 (the port's pool replaced whole) |
+| 0x00540310 | 8 | folded | empty: does nothing |
+| 0x00540320 | 8 | folded | returns a constant or a global |
+| 0x00540330 | 11 | software renderer | as MW3 0x005269e0: the software model draw's projection and clippers, its own lighting, the span buffer's pick and hidden-surface test, the small polygon reject, palette shading (software-path.md, render-clip3d.md, render-lighting.md: the software renderer, not ported by decision) |
+| 0x00540360 | 9 | folded | covered by the port where it names it (src/gamez/zinterp/zinterp.h:328) |
 
 ### zreader (58 not ported)
 
