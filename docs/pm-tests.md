@@ -1713,3 +1713,40 @@ Two PM-only changes found on the way. PM's translate 0x539f80 sums t9 and t11 in
 (at 24 bits MW3's order matches 98 of 20,000). And the draw's point transform (0x53c280's, `transform_point`
 in pm gmod_draw.cpp) keeps each word's sums on the x87 as zmath's transform_points does: test_pm_submit's
 bit-identical floats from 1,089,228 to 1,125,524 of 1,166,638.
+
+## PM's triangle stripper: the map (2026-11-14, before porting)
+
+The 88 MISSING LOGIC rows of port-audit-pm.md are one piece: PM's triangle stripper, 0x570b70 (model, 0x7fffffff,
+limit), about 6,800 decomp lines, the model it works on in [0x8c14fc] while it runs.
+
+**Callers and reach** (pm-map.md, The models' form, has the measurements): the world reader 0x5587bf and mechlib's
+post-pass 0x510af3 (a model without 0x80; every shipped type-0 model has it, the facades return at once), and the
+model re-read 0x558b75 of the crater reset (no 0x80 test, but the reset never runs in play: its zSave section is
+switched off at start-up). So it is not on PM's live draw path: a preservation port on `pm`, not wired in. The
+renderer keeps drawing the file's form (strips the file has are drawn as strips, and the GPU path takes them as
+they are), so nothing here is a picture question; the output order matters only to the stripper's own test.
+
+**What it does, by family** (the call graph read off pm.asm; the roles a first reading, each sitting confirms its
+own):
+- Entry and intake: 0x570b70 checks the model (type 0, polygons), then 0x572df0 groups the polygons by their
+  textured material and image (0x5329e0, with the grow-arrays 0x572b40 / 0x572c20), then walks every polygon with
+  vertices and UVs into its vertex and edge maps (find / insert 0x575b60 / 0x5753b0 / 0x575bc0 / 0x576390, the
+  equality tests 0x573b70 / 0x573bf0 / 0x573f30, node builders 0x574ee0..0x5750b0).
+- Adjacency and strip growth: 0x573f50 (from 0x570fa9) with 0x56b980, 0x56b2d0, 0x56b230, 0x56b540, 0x574560,
+  0x574620, 0x5751f0 and its 0x576c50 / 0x576c80 / 0x576f50, 0x576f70: picking the next triangle across a shared
+  edge.
+- Strip output: 0x56d260 (from 0x57106d) with the array grow 0x56b580, 0x573340 / 0x5735a0 / 0x5737d0 / 0x573700 /
+  0x573760 / 0x573580 / 0x573aa0 / 0x574cf0 and 0x573250 / 0x5732c0, the small accessors 0x5730e0..0x573230,
+  0x574900 / 0x574e90 / 0x576ee0; and 0x5705a0 (from 0x571b6a), which joins two polygons' vertex runs (0x573340,
+  0x5737d0). The new polygons (flag 0x2000) go back into the model.
+- The containers: MSVC 5's red-black tree for std::map / std::set (insert 0x575510 / 0x575cf0, its rebalance
+  0x576750 / 0x576ba0 / 0x576d10 / 0x576e20, the node insert 0x576440 / 0x576890, erase 0x575a40 / 0x576220 and
+  the wrappers 0x574910..0x574ca0, the recursive free 0x5763b0 / 0x576800, the lookups 0x575170 / 0x575390 /
+  0x576340 / 0x576cb0 / 0x576dd0 / 0x576f00 / 0x576f20), std::list (0x5cc3a0, 0x5b09f0, 0x404600) and the CRT's
+  0x5caa30 / 0x5caa40 / 0x5cb3e0. These become the port's std::map / std::set / std::list with the same keys and
+  comparisons: a map iterates by key, so its order is the exe's; a list's order is where the exe inserts.
+
+**Testing**: PM's own 0x570b70 in the emulator on every shipped type-0 model with polygons (the 1,015 mechlib ones
+and the worlds' 7,351) with 0x80 taken off, the strips it leaves compared bit for bit with the port's (polygon
+order, flags, vertex and normal indices, UVs). The bench that measured the reach faults after the image fetch
+(0x5329e0 stubbed): fixing it is the first step.
