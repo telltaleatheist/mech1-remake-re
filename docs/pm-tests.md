@@ -1740,3 +1740,61 @@ PM's own CreateUniqueMaterials (0x50cc10, the script command no shipped script u
 `pm::zcls::create_unique_materials` and `pm::zmod::unique_materials`, every polygon's materials replaced by
 copies (one a material, or one a slot per polygon), the children's when recursive, then the polygons sorted
 (0x55c470). `test_pm_unique_materials.py` against PM's exe, 400 runs, breaks caught.
+
+## PM's triangle stripper: the map (2026-11-14, before porting)
+
+The 88 MISSING LOGIC rows of port-audit-pm.md are one piece: PM's triangle stripper, 0x570b70 (model, 0x7fffffff,
+limit), about 6,800 decomp lines, the model it works on in [0x8c14fc] while it runs.
+
+**Callers and reach** (pm-map.md, The models' form, has the measurements): the world reader 0x5587bf and mechlib's
+post-pass 0x510af3 (a model without 0x80; every shipped type-0 model has it, the facades return at once), and the
+model re-read 0x558b75 of the crater reset (no 0x80 test, but the reset never runs in play: its zSave section is
+switched off at start-up). So it is not on PM's live draw path: a preservation port on `pm`, not wired in. The
+renderer keeps drawing the file's form (strips the file has are drawn as strips, and the GPU path takes them as
+they are), so nothing here is a picture question; the output order matters only to the stripper's own test.
+
+**What it does, by family** (the call graph read off pm.asm; the roles a first reading, each sitting confirms its
+own):
+- Entry and intake: 0x570b70 checks the model (type 0, polygons), then 0x572df0 groups the polygons by their
+  textured material and image (0x5329e0, with the grow-arrays 0x572b40 / 0x572c20), then walks every polygon with
+  vertices and UVs into its vertex and edge maps (find / insert 0x575b60 / 0x5753b0 / 0x575bc0 / 0x576390, the
+  equality tests 0x573b70 / 0x573bf0 / 0x573f30, node builders 0x574ee0..0x5750b0).
+- Adjacency and strip growth: 0x573f50 (from 0x570fa9) with 0x56b980, 0x56b2d0, 0x56b230, 0x56b540, 0x574560,
+  0x574620, 0x5751f0 and its 0x576c50 / 0x576c80 / 0x576f50, 0x576f70: picking the next triangle across a shared
+  edge.
+- Strip output: 0x56d260 (from 0x57106d) with the array grow 0x56b580, 0x573340 / 0x5735a0 / 0x5737d0 / 0x573700 /
+  0x573760 / 0x573580 / 0x573aa0 / 0x574cf0 and 0x573250 / 0x5732c0, the small accessors 0x5730e0..0x573230,
+  0x574900 / 0x574e90 / 0x576ee0; and 0x5705a0 (from 0x571b6a), which joins two polygons' vertex runs (0x573340,
+  0x5737d0). The new polygons (flag 0x2000) go back into the model.
+- The containers: MSVC 5's red-black tree for std::map / std::set (insert 0x575510 / 0x575cf0, its rebalance
+  0x576750 / 0x576ba0 / 0x576d10 / 0x576e20, the node insert 0x576440 / 0x576890, erase 0x575a40 / 0x576220 and
+  the wrappers 0x574910..0x574ca0, the recursive free 0x5763b0 / 0x576800, the lookups 0x575170 / 0x575390 /
+  0x576340 / 0x576cb0 / 0x576dd0 / 0x576f00 / 0x576f20), std::list (0x5cc3a0, 0x5b09f0, 0x404600) and the CRT's
+  0x5caa30 / 0x5caa40 / 0x5cb3e0. These become the port's std::map / std::set / std::list with the same keys and
+  comparisons: a map iterates by key, so its order is the exe's; a list's order is where the exe inserts.
+
+**Testing**: PM's own 0x570b70 in the emulator on every shipped type-0 model with polygons (the 1,015 mechlib ones
+and the worlds' 7,351) with 0x80 taken off, the strips it leaves compared bit for bit with the port's (polygon
+order, flags, vertex and normal indices, UVs). The bench that measured the reach faults after the image fetch
+(0x5329e0 stubbed): fixing it is the first step.
+
+**Sitting 1 (2026-11-14): the intake.** The bench's fault was the bench's own, not the exe's: the stripper's
+containers call operator new 0x5ce8c6 / delete 0x5ce8c0 and MSVCP's std::_Lockit (imports 0x5de4f8 / 0x5de4fc),
+which the gamez bench had not stubbed; with them PM's 0x570b70 runs to its end on every model given. Ported
+(`pm/gamez/zmodel/gmod_strip`): the entry's checks, the layer merge 0x572df0 with 0x572b40 / 0x572c20, the edge
+test 0x573bf0 with the strip edges 0x573100 / 0x573170 / 0x5732c0, and the intake into the edge map (key the
+lower point first, 0x574e90; lexical order, 0x575b60) and the point map (0x576340), whose entries' lists take
+0x573f30's (polygon, reversed) and polygon numbers. `test_pm_strip.py` runs 0x572df0 alone and 0x570b70 stopped
+at 0x570ef7, its two trees walked out of its frame: 600 made-up models (141 polygons merged) and a seeded sample
+of the four worlds' type-0 models (every 40th from a random start, plus the three biggest: 195), identical; 10 of
+10 breaks caught. The trees' nil nodes (0x8c1524 / 0x8c152c) are global and made once: a bench that reuses its
+heap clears them each run. Quirks kept:
+- the merge leaves the material refs (+0x5c / +0x60) as they were: a merged polygon's ref still counts it and a
+  moved one's ref points at its old slot (whether a later step rebuilds them is for sitting 3 to say);
+- the edge map lists a polygon each time its points run over the edge, so a polygon that meets an edge twice is
+  listed twice; the point map lists it once a corner (0x573b70 always finds the point), a repeated point twice;
+- a strip is listed only at its first and last edges (a four-point strip also at its diagonals 0-2 and 1-3, which
+  its consecutive points never form unless two points repeat), and its last edge's sense is turned on an even
+  count;
+- no shipped model in the sample has two polygons on one loop, with the images made up at random: the merge
+  changes none of them.
