@@ -414,6 +414,7 @@ void model_unstrip(Model* m) {
         { const int32_t c1 = k + 1; std::memcpy(m->header + 0x10, &c1, 4); }
         const Polygon& src = m->polygons[at];
         Polygon& t = m->polygons[k];
+        // FIX (A): the exe builds the flags over the grown slot (bits 0x4000 and up are old heap); cleared here.
         t.flags = 3u | (src.flags & 0x800) | (src.flags & 0x1000);
         t.priority = src.priority;
         const int32_t pick[3] = {a, b, c};
