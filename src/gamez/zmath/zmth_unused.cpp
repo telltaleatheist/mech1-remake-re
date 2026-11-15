@@ -19,7 +19,8 @@ using zgeo::X;
 X sin_x(float a) { return X::step(std::sin(double{a})); }
 X cos_x(float a) { return X::step(std::cos(double{a})); }
 
-// Mech3.exe 1.2 @ 0x0051e1c0 (ported inline in 0x00524247's caller): v[0..1] to unit length; 0 stays 0.
+// Mech3.exe 1.2 @ 0x0051e1c0, Pirate's Moon 1.0 @ 0x00537c20 (ported inline in 0x00524247's caller): v[0..1]
+// to unit length; 0 stays 0.
 void normalize2(float v[2]) {
   const float len = sqrt(X(v[0]) * v[0] + X(v[1]) * v[1]).f();  // stored, then 1 over it on the x87
   const X inv = len != 0.0f ? X(1.0f) / len : X(len);
@@ -57,7 +58,7 @@ void view_body(const float angles[3], const float place[3]) {
 }
 }  // namespace
 
-// Mech3.exe 1.2 @ 0x0051e160
+// Mech3.exe 1.2 @ 0x0051e160, Pirate's Moon 1.0 @ 0x00537bc0
 void cross_unit(const float a[3], const float b[3], float out[3]) {
   out[1] = (X(a[2]) * b[0] - X(a[0]) * b[2]).f();
   out[2] = (X(a[0]) * b[1] - X(a[1]) * b[0]).f();
@@ -65,13 +66,14 @@ void cross_unit(const float a[3], const float b[3], float out[3]) {
   normalize_x87(out);
 }
 
-// Mech3.exe 1.2 @ 0x00520c60
+// Mech3.exe 1.2 @ 0x00520c60, Pirate's Moon 1.0 @ 0x0053a730
 void view_from_angles(const float angles[3], const float place[3]) {
   view_body(angles, place);
   camera_from_angles(angles, place);
 }
 
-// Mech3.exe 1.2 @ 0x00521080: pushed over view().view with the top's flag, the body, popped.
+// Mech3.exe 1.2 @ 0x00521080, Pirate's Moon 1.0 @ 0x0053ab50: pushed over view().view with the top's flag, the body,
+// popped.
 void set_view_from_angles(const float angles[3], const float place[3]) {
   push_copy(&view().view);
   view_body(angles, place);
@@ -79,7 +81,8 @@ void set_view_from_angles(const float angles[3], const float place[3]) {
   camera_from_angles(angles, place);
 }
 
-// Mech3.exe 1.2 @ 0x005214f0. Every sine and cosine stored as a float (fsincos; the x87's own fsin and fcos only
+// Mech3.exe 1.2 @ 0x005214f0, Pirate's Moon 1.0 @ 0x0053afc0. Every sine and cosine stored as a float (fsincos; the
+// x87's own fsin and fcos only
 // past 9.22e18, where fsin gives up, which the port does not follow).
 void camera_from_angles(const float angles[3], const float place[3]) {
   const float sa = sin_x(angles[0]).f(), ca = cos_x(angles[0]).f();
@@ -99,7 +102,8 @@ void camera_from_angles(const float angles[3], const float place[3]) {
   m[9] = place[0], m[10] = place[1], m[11] = place[2];
 }
 
-// Mech3.exe 1.2 @ 0x00521a90: 0x00521670's words, its sines and cosines stored as floats.
+// Mech3.exe 1.2 @ 0x00521a90, Pirate's Moon 1.0 @ 0x0053b560: 0x00521670's words, its sines and cosines stored as
+// floats.
 void rotation_matrix(float out[12], float a, float b, float c) {
   const float sa = sin_x(a).f(), ca = cos_x(a).f();
   const float sb = sin_x(b).f(), cb = cos_x(b).f();
@@ -117,7 +121,7 @@ void rotation_matrix(float out[12], float a, float b, float c) {
   out[9] = out[10] = out[11] = 0.0f;
 }
 
-// Mech3.exe 1.2 @ 0x00521e10
+// Mech3.exe 1.2 @ 0x00521e10, Pirate's Moon 1.0 @ 0x0053b8d0
 void set_screen(const float half[2], const float fov[2]) {
   Projection& p = projection();
   p.inv_cot_h = X::step(std::tan(double{(X(fov[0]) * 0.5f).v})).f();
@@ -154,7 +158,7 @@ void set_screen(const float half[2], const float fov[2]) {
   st.is_identity() = 0;
 }
 
-// Mech3.exe 1.2 @ 0x00522280
+// Mech3.exe 1.2 @ 0x00522280, Pirate's Moon 1.0 @ 0x0053bd40
 float segment_side(const float a[2], const float b[2], const float p[2], int32_t* along, int32_t* beside) {
   float d[2] = {(X(b[0]) - a[0]).f(), 0.0f};
   const X dy = X(b[1]) - a[1];
@@ -173,7 +177,7 @@ float segment_side(const float a[2], const float b[2], const float p[2], int32_t
   return s1 > s3 ? s1 : s3;
 }
 
-// Mech3.exe 1.2 @ 0x005223c0
+// Mech3.exe 1.2 @ 0x005223c0, Pirate's Moon 1.0 @ 0x0053be80
 int32_t left_of(const float a[2], const float b[2], const float p[2]) {
   const float u0 = (X(p[0]) - b[0]).f(), u1 = (X(p[1]) - b[1]).f();
   const float n0 = (X(b[1]) - a[1]).f(), n1 = (-(X(b[0]) - a[0])).f();
@@ -181,7 +185,7 @@ int32_t left_of(const float a[2], const float b[2], const float p[2]) {
   return s >= 0.0f ? 1 : 0;
 }
 
-// Mech3.exe 1.2 @ 0x005224b0. The limits are the exe's doubles (-0.005, 0.005).
+// Mech3.exe 1.2 @ 0x005224b0, Pirate's Moon 1.0 @ 0x0053bfa0. The limits are the exe's doubles (-0.005, 0.005).
 int32_t triangle_normal(const float p[9], int32_t* facing, int32_t two_sided, float normal[3]) {
   const float d0 = (X(p[0]) - p[3]).f(), d1 = (X(p[1]) - p[4]).f();
   normal[0] = ((X(p[2]) - p[5]) * (X(p[7]) - p[4]) - X(d1) * (X(p[8]) - p[5])).f();
@@ -200,7 +204,7 @@ int32_t triangle_normal(const float p[9], int32_t* facing, int32_t two_sided, fl
   return 0;
 }
 
-// Mech3.exe 1.2 @ 0x00523650. 1/z stays on the x87 for x', stored for y'.
+// Mech3.exe 1.2 @ 0x00523650, Pirate's Moon 1.0 @ 0x0053d000. 1/z stays on the x87 for x', stored for y'.
 void unproject_to_model(const Vec3* screen, Vec3* out, int32_t count) {
   if (count > 128) return;
   Vec3 cam[128];
@@ -208,8 +212,9 @@ void unproject_to_model(const Vec3* screen, Vec3* out, int32_t count) {
   for (int32_t i = 0; i < count; ++i) {
     const X w = X(1.0f) / screen[i].z;
     cam[i].z = w.f();
-    cam[i].x = (((X(screen[i].x) - p.cx) * p.inv_fx) * w).f();
-    cam[i].y = (((X(screen[i].y) - p.cy) * p.inv_fy) * cam[i].z).f();
+    // Pirate's Moon's order: by 1/z before the pixel scale (MW3's 0x00523650 scales first).
+    cam[i].x = (((X(screen[i].x) - p.cx) * w) * p.inv_fx).f();
+    cam[i].y = (((X(screen[i].y) - p.cy) * cam[i].z) * p.inv_fy).f();
   }
   Mat34 m;
   push(&m);
@@ -218,7 +223,7 @@ void unproject_to_model(const Vec3* screen, Vec3* out, int32_t count) {
   pop();
 }
 
-// Mech3.exe 1.2 @ 0x00523df0
+// Mech3.exe 1.2 @ 0x00523df0, Pirate's Moon 1.0 @ 0x0053d7c0
 void rotate_x(float out[3], const float in[3], float angle) {
   const float s = sin_x(angle).f(), c = cos_x(angle).f();
   const float y = in[1], z = in[2];
@@ -227,7 +232,7 @@ void rotate_x(float out[3], const float in[3], float angle) {
   out[1] = (X(c) * y - X(s) * z).f();
 }
 
-// Mech3.exe 1.2 @ 0x00523ef0
+// Mech3.exe 1.2 @ 0x00523ef0, Pirate's Moon 1.0 @ 0x0053d8c0
 void rotate_z_typo(float out[3], const float in[3], float angle) {
   const float s = sin_x(angle).f(), c = cos_x(angle).f();
   const float x = in[0], y = in[1], z = in[2];
@@ -236,28 +241,38 @@ void rotate_z_typo(float out[3], const float in[3], float angle) {
   out[2] = z;
 }
 
-// Mech3.exe 1.2 @ 0x00524f80
+// Mech3.exe 1.2 @ 0x00524f80, Pirate's Moon 1.0 @ 0x0053e8c0
 void quat_add(const float a[4], const float b[4], float out[4]) {
   out[0] = a[0] + b[0], out[1] = a[1] + b[1], out[2] = a[2] + b[2], out[3] = a[3] + b[3];
 }
-// Mech3.exe 1.2 @ 0x00524fd0
+// Mech3.exe 1.2 @ 0x00524fd0, Pirate's Moon 1.0 @ 0x0053e910
 void quat_negate(const float a[4], float out[4]) { out[0] = -a[0], out[1] = -a[1], out[2] = -a[2], out[3] = -a[3]; }
-// Mech3.exe 1.2 @ 0x00525020
+// Mech3.exe 1.2 @ 0x00525020, Pirate's Moon 1.0 @ 0x0053e960
 void quat_sub(const float a[4], const float b[4], float out[4]) {
   out[0] = a[0] - b[0], out[1] = a[1] - b[1], out[2] = a[2] - b[2], out[3] = a[3] - b[3];
 }
-// Mech3.exe 1.2 @ 0x005250a0: the vector part's sum stored, w's product added on the x87.
+// Mech3.exe 1.2 @ 0x005250a0, Pirate's Moon 1.0 @ 0x0053e9e0: the vector part's sum stored, w's product added on the
+// x87.
 float quat_dot(const float a[4], const float b[4]) {
   const float v = ((X(a[1]) * b[1] + X(a[2]) * b[2]) + X(a[3]) * b[3]).f();
   return (X(b[0]) * a[0] + v).f();
 }
-// Mech3.exe 1.2 @ 0x005250f0
+// Mech3.exe 1.2 @ 0x005250f0, Pirate's Moon 1.0 @ 0x0053ea30
 float quat_norm_sq(const float a[4]) {
   const float v = ((X(a[1]) * a[1] + X(a[2]) * a[2]) + X(a[3]) * a[3]).f();
   return (X(a[0]) * a[0] + v).f();
 }
 
-// Mech3.exe 1.2 @ 0x00525fa0. The offsets truncated to whole units (_ftol); the pseudo-angle compared as the
+// Pirate's Moon 1.0 @ 0x0053ee40 (only in PM, and nothing calls it): ECX a, EDX b in MW3's terms (PM's are cdecl).
+void quat_from_vectors(const float a[3], const float b[3], float out[4]) {
+  out[0] = ((X(a[0]) * b[0] + X(a[1]) * b[1]) + X(a[2]) * b[2]).f();
+  out[2] = (X(a[2]) * b[0] - X(a[0]) * b[2]).f();
+  out[3] = (X(a[0]) * b[1] - X(a[1]) * b[0]).f();
+  out[1] = (X(a[1]) * b[2] - X(a[2]) * b[1]).f();
+}
+
+// Mech3.exe 1.2 @ 0x00525fa0, Pirate's Moon 1.0 @ 0x0053f900. The offsets truncated to whole units (_ftol); the pseudo-
+// angle compared as the
 // x87 holds it, stored when taken.
 int32_t hull_xz(float points[][3], int32_t count) {
   int32_t start = 0;

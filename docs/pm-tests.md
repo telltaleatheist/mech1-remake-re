@@ -1711,3 +1711,14 @@ Two PM-only changes found on the way. PM's translate 0x539f80 sums t9 and t11 in
 (at 24 bits MW3's order matches 98 of 20,000). And the draw's point transform (0x53c280's, `transform_point`
 in pm gmod_draw.cpp) keeps each word's sums on the x87 as zmath's transform_points does: test_pm_submit's
 bit-identical floats from 1,089,228 to 1,125,524 of 1,166,638.
+
+## S13 on PM: zMath's routines nothing calls (2026-11-14)
+
+PM's copies of the eighteen (0x537bc0..0x53f900; zmth_unused.h, render-matrix.md Unused routines) are cdecl:
+MW3's ECX and EDX first on the stack, then its stack arguments, except the rotation of three angles 0x53b560,
+whose output comes last. PM adds one of its own nothing calls, 0x53ee40: a vector pair's dot and cross as a
+quaternion (`quat_from_vectors`). `test_zmath_unused.py` with MW3_EXE=pm runs all nineteen against PM's exe at
+24 and 53 bits, bit for bit (2,000 runs; breaks caught). Two orders differ from MW3's and are PM's on `pm`: the
+screen points' unprojection in 0x53d000 multiplies by 1/z before the pixel scale, and the inverse transform
+0x53c3c0 (`inverse_transform_points_to`, which the mech's parts use in play) sums z's term first in every word
+(test_pm_parts unchanged).

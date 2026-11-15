@@ -56,6 +56,7 @@ int32_t probe_zmu(int op, int fpu53, float* state, const float* in, float* out, 
     case 15: out[0] = zmth::quat_dot(in, in + 4); break;
     case 16: out[0] = zmth::quat_norm_sq(in); break;
     case 17: ret = zmth::hull_xz(reinterpret_cast<float(*)[3]>(out), iout[0]); break;
+    case 18: zmth::quat_from_vectors(in, in + 3, out); break;
     default: break;
   }
   std::memcpy(state, g_below.m, 48);

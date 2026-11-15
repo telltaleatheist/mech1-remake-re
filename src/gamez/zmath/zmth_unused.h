@@ -3,7 +3,8 @@
 
 #include "gamez/zmath/zmth_matrix.h"
 
-// zMath routines nothing in the game calls, ported for preservation (docs/port-audit.md, S13): the maths module
+// zMath routines nothing in the game calls, ported for preservation (Pirate's Moon's twins: its cdecl copies)
+// (docs/port-audit.md, S13): the maths module
 // (0x51b170..0x526920, zmth_matrix.h) carries them beside the ones the engine uses. Not wired in. Their tests run
 // them against the exe (test_zmath_unused.py).
 namespace zmth {
@@ -25,7 +26,8 @@ void set_screen(const float half[2], const float fov[2]);  // 0x00521e10
 // ECX a, EDX b, stack p, along, beside: p against the segment a b in the xy plane. *along: p at or past b
 // (along a to b); *beside: p at or behind a. Returns the larger of p's distance past b and its distance off the
 // line (the left side positive).
-float segment_side(const float a[2], const float b[2], const float p[2], int32_t* along, int32_t* beside);  // 0x00522280
+float segment_side(const float a[2], const float b[2], const float p[2], int32_t* along,
+                   int32_t* beside);  // 0x00522280
 // ECX a, EDX b, stack p: whether p is on b's left of the line a b (in the xy plane), or on it.
 int32_t left_of(const float a[2], const float b[2], const float p[2]);  // 0x005223c0
 // ECX three points, EDX *facing, stack two_sided, normal: the plane's normal (p0 - p1) x (p2 - p1) and its dot
@@ -51,5 +53,7 @@ float quat_norm_sq(const float a[4]);                             // 0x005250f0
 // offsets (0..4 round the turn; a tie the nearer); the hull's points swapped to the front in order. The array
 // needs a slot past the count (the start is copied there). Returns the hull's count, or 0 when it never closes.
 int32_t hull_xz(float points[][3], int32_t count);  // 0x00525fa0
+// Pirate's Moon's own (0x0053ee40, nothing calls it): a b's dot and cross as a quaternion (w, x, y, z), unnormalised.
+void quat_from_vectors(const float a[3], const float b[3], float out[4]);
 
 }  // namespace zmth

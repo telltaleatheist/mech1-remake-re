@@ -852,6 +852,7 @@ if(MW3_BUILD_PM)
   target_sources(pmprobe PRIVATE tests/probe_sound.cpp tests/probe_pm_sound.cpp)
   target_sources(pmprobe PRIVATE tests/probe_pm_ai.cpp)
   target_sources(pmprobe PRIVATE tests/probe_fmv.cpp)  # test_fmv_run.py with MW3_EXE=pm
+  target_sources(pmprobe PRIVATE tests/probe_zmath_unused.cpp)  # test_zmath_unused.py with MW3_EXE=pm
   target_sources(pmprobe PRIVATE tests/probe_pm_pilot_arrows.cpp)
   # Today's preservation ports run on PM's exe (test_pm_script_cmds.py, test_pm_*): the shared probes
   target_sources(pmprobe PRIVATE tests/probe_script_cmds.cpp tests/probe_pm_script_cmds.cpp)
