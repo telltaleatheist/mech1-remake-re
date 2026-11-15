@@ -13,6 +13,8 @@
 
 namespace {
 
+std::vector<int32_t> g_joins;
+
 struct Reader {
   const int32_t* p;
   int32_t next() { return *p++; }
@@ -80,7 +82,7 @@ extern "C" int probe_pm_strip(const int32_t* spec, int mode, int max_points, con
       q.file_uvs = 1;
     }
     q.colors = copy_out<float>(r, 3 * n);
-    if (r.next()) q.scratch = copy_out<uint32_t>(r, 0);
+    if (r.next()) q.scratch = static_cast<uint32_t*>(std::calloc(n ? n : 1, 4));
     q.zone_set = static_cast<uint32_t>(r.next());
   }
   pz::strip_counts() = {};
@@ -90,6 +92,13 @@ extern "C" int probe_pm_strip(const int32_t* spec, int mode, int max_points, con
     pz::merge_layers(model);
   } else if (mode == 1) {
     pz::strip_intake(s, &model, 0x7fffffff, max_points);
+  } else if (mode == 4 || mode == 5) {
+    g_joins.clear();
+    pz::strip_hooks().joining = mode == 5 ? +[](int kind, int32_t a, int32_t b, int32_t f, int32_t sc, int32_t st) {
+      g_joins.insert(g_joins.end(), {kind, a, b, f, sc, st});
+    } : nullptr;
+    pz::strip_model(&model, join[0], max_points);
+    pz::strip_hooks().joining = nullptr;
   } else {
     s.model = &model, s.arg = join[6], s.pass = join[7], s.slack = 0x7777;
     const pz::StripEdgeUse a{join[0], join[1] != 0}, b{join[2], join[3] != 0};
@@ -118,8 +127,17 @@ extern "C" int probe_pm_strip(const int32_t* spec, int mode, int max_points, con
       if (mats[k].get() == m) return static_cast<int32_t>(k);
     return -1;
   };
-  if (mode >= 2)
+  if (mode >= 2 && mode <= 3)
     for (int32_t v : answer) put(v);
+  if (mode == 5) {
+    for (int32_t v : g_joins) put(v);
+    return static_cast<int>(o - out);
+  }
+  if (mode == 4) {
+    const pz::StripCounts& c = pz::strip_counts();
+    put(c.polygons), put(c.taken), put(c.strips), put(c.others), put(c.triangles), put(c.degenerate), put(c.longest);
+    put(model.count(8));
+  }
   put(model.count(0x10));
   for (int32_t i = 0; i < model.count(0x10); ++i) {
     const pz::Polygon& q = model.polygons[i];
@@ -148,6 +166,13 @@ extern "C" int probe_pm_strip(const int32_t* spec, int mode, int max_points, con
       put(vx.vertex), put(static_cast<int32_t>(vx.polygons.size()));
       for (int32_t p : vx.polygons) put(p);
     }
+  }
+  if (mode == 4) {
+    put(model.count(0x5c));
+    for (int32_t k = 0; k < model.count(0x5c); ++k)
+      put(id(model.refs[k].material)), put(model.refs[k].usage_count),
+          put(model.refs[k].polygon ? static_cast<int32_t>(model.refs[k].polygon - model.polygons) : -1);
+    delete[] model.refs;
   }
   for (int32_t i = 0; i < model.count(0x10); ++i) {
     pz::Polygon& q = model.polygons[i];

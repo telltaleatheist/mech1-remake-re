@@ -6,8 +6,9 @@ form), measured in the emulator on PM's exe.
 mechlib: every mechlib.zbd tree loaded (test_pm_mechlib's bench), then 0x570b70 run as the post-pass 0x510ab0 runs it
 (models without 0x80, model, 0x7fffffff, 0x7fffffff) and each model compared before and after.
 reread: each world's type-0 models with polygons (what the crater reset's re-read 0x558440 hands it, with 0x7fffffff,
-4 and no 0x80 test) counted, and 0x570b70 run on them; the type-0 path needs more of the renderer than this bench
-has (it faults after its image load 0x5329e0, stubbed), so crashes are counted, not compared.
+4 and no 0x80 test) counted, and 0x570b70 run on them. This bench leaves operator new / delete and MSVCP's _Lockit
+unstubbed, so the type-0 path faults on them and the faults are counted, not compared; test_pm_strip.py stubs them
+and compares the whole stripper with the port (pm-tests.md, PM's triangle stripper).
 """
 import collections
 import sys

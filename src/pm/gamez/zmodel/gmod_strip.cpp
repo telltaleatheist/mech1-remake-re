@@ -423,4 +423,479 @@ bool try_join(Stripper& s, const StripEdgeUse& a, const StripEdgeUse& b, StripEd
   return true;
 }
 
+namespace {
+
+int32_t vx(const Model& m, int32_t p, int32_t i) { return static_cast<int32_t>(m.polygons[p].vertex_indices[i]); }
+int32_t nx(const Model& m, int32_t p) { return static_cast<int32_t>(points(m.polygons[p])); }
+bool odd(const Model& m, int32_t p) { return m.polygons[p].flags & 1; }  // 0x00573230; 0x00573210 its opposite
+
+// The polygons' array resized as the exe's realloc does (0x00596520): a new slot is cleared.
+void resize_polygons(Model& m, int32_t n) {
+  Polygon* grown = new Polygon[static_cast<size_t>(n > 0 ? n : 1)]{};
+  for (int32_t q = 0; q < std::min(n, m.count(0x10)); ++q) grown[q] = m.polygons[q];
+  delete[] m.polygons;
+  m.polygons = grown;
+}
+
+void set_count(Model& m, int32_t n) { std::memcpy(m.header + 0x10, &n, 4); }
+
+// The growth loop's removal of a joined polygon (0x00571356..0x00571496): its arrays freed, the model's last moved
+// into its slot, the array shrunk.
+void remove_polygon(Model& m, int32_t at) {
+  Polygon& p = m.polygons[at];
+  std::free(p.vertex_indices), std::free(p.colors), std::free(p.scratch);
+  std::free(p.materials), p.materials = nullptr;
+  if (p.uvs) {
+    for (int32_t j = 0; j < p.material_count; ++j) std::free(p.uvs[j]);
+    std::free(p.uvs);
+  }
+  if (p.flags & 0x1000) std::free(p.normal_indices);
+  std::free(p.library_indices);
+  const int32_t last = m.count(0x10) - 1;
+  if (at != last) m.polygons[at] = m.polygons[last];
+  set_count(m, last);
+  resize_polygons(m, last);
+}
+
+End first_end(const Model& m, int32_t p) { return end_of(vx(m, p, 0), vx(m, p, 1)); }  // 0x00573250
+End last_end(const Model& m, int32_t p) {                                             // 0x005732c0, unturned
+  return end_of(vx(m, p, nx(m, p) - 2), vx(m, p, nx(m, p) - 1));
+}
+
+// After a join: every list forgets a and b, and the model's last original (count - 2, about to move into b's slot)
+// is renamed b; then a and b are removed and the new strip's ends listed where the maps have them.
+void after_join(Stripper& s, int32_t a, int32_t b, int32_t made) {
+  Model& m = *s.model;
+  const int32_t moved = m.count(0x10) - 2;
+  for (auto& [key, e] : s.edges) {
+    e.uses.remove_if([&](const StripEdgeUse& u) { return u.polygon == a; });
+    e.uses.remove_if([&](const StripEdgeUse& u) { return u.polygon == b; });
+    for (StripEdgeUse& u : e.uses) u.polygon = u.polygon == moved ? b : u.polygon;
+  }
+  for (auto& [key, vt] : s.vertices) {
+    vt.polygons.remove(a);
+    vt.polygons.remove(b);
+    for (int32_t& q : vt.polygons) q = q == moved ? b : q;
+  }
+  (void)made;  // always the last slot here; it ends in a's (b's when a was count - 2)
+  const int32_t at = a == moved ? b : a;
+  remove_polygon(m, a);
+  remove_polygon(m, b);
+  const auto add = [&](int32_t x, int32_t y) {
+    const StripEdgeKey key = edge_key(x, y);
+    const auto it = s.edges.find(key);
+    bool reversed = false;
+    if (it != s.edges.end() && edge_in_polygon(m, at, key, &reversed)) it->second.uses.push_back({at, reversed});
+  };
+  const int32_t n = nx(m, at);
+  if (m.polygons[at].flags & 0x2000 && n == 4) add(vx(m, at, 0), vx(m, at, 2)), add(vx(m, at, 1), vx(m, at, 3));
+  add(vx(m, at, 0), vx(m, at, 1));
+  add(vx(m, at, n - 2), vx(m, at, n - 1));
+  for (const int32_t v : {vx(m, at, 0), vx(m, at, n - 1)}) {
+    const auto it = s.vertices.find(v);
+    if (it != s.vertices.end() && first_at(m.polygons[at], static_cast<uint32_t>(v)) < points(m.polygons[at]))
+      it->second.polygons.push_back(at);
+  }
+}
+
+}  // namespace
+
+// Pirate's Moon 1.0 @ 0x00573340
+void corner_swap(Model& m, int32_t polygon, int32_t i, int32_t j) {
+  Polygon& p = m.polygons[polygon];
+  std::swap(p.vertex_indices[i], p.vertex_indices[j]);
+  std::swap(p.normal_indices[i], p.normal_indices[j]);
+  for (int32_t l = 0; l < p.material_count; ++l) {
+    std::swap(p.uvs[l][2 * i], p.uvs[l][2 * j]);
+    std::swap(p.uvs[l][2 * i + 1], p.uvs[l][2 * j + 1]);
+  }
+  for (int k = 0; k < 3; ++k) std::swap(p.colors[3 * i + k], p.colors[3 * j + k]);
+}
+
+// Pirate's Moon 1.0 @ 0x00573700 (and its copies written out in 0x0056d260 / 0x005705a0)
+void corners_reverse(Model& m, int32_t polygon) {
+  const int32_t n = nx(m, polygon);
+  for (int32_t i = (n >> 1) - 1; i >= 0; --i) corner_swap(m, polygon, i, n - i - 1);
+}
+
+// Pirate's Moon 1.0 @ 0x00573760 (from 0; 0x005705a0 writes one out from 1)
+void corners_pairswap(Model& m, int32_t polygon, int32_t from) {
+  for (int32_t i = from; i < nx(m, polygon) - 1; i += 2) corner_swap(m, polygon, i, i + 1);
+}
+
+// Pirate's Moon 1.0 @ 0x005737d0
+void make_strip(Model& m, int32_t polygon, int32_t start) {
+  const int32_t n = nx(m, polygon);
+  std::vector<int32_t> order{start};  // the exe's 0x40-record array on the stack (joins keep n under 0x40)
+  int32_t up = start, down = start;
+  do {
+    up = (up + 1) % n;
+    down = (down + n - 1) % n;
+    order.push_back(up);
+    if (up == down) break;
+    order.push_back(down);
+  } while (down != (up + 1) % n);
+  std::vector<StripCorner> corners;
+  for (const int32_t k : order) corners.push_back(strip_corner(m, polygon, k));
+  Polygon& p = m.polygons[polygon];
+  for (int32_t k = 0; k < n; ++k) {  // 0x00573aa0: point, normal, coordinates and colour; +0x20 stays
+    const StripCorner& c = corners[static_cast<size_t>(k)];
+    p.vertex_indices[k] = static_cast<uint32_t>(c.vertex);
+    p.normal_indices[k] = static_cast<uint32_t>(c.normal);
+    for (int32_t l = 0; l < p.material_count; ++l) p.uvs[l][2 * k] = c.uvs[l].first, p.uvs[l][2 * k + 1] = c.uvs[l].second;
+    std::memcpy(p.colors + 3 * k, c.color, 12);
+  }
+  p.flags |= 0x2000;
+}
+
+// Pirate's Moon 1.0 @ 0x0056b580
+int32_t strip_append(Model& m, int32_t x, int32_t y, int32_t k) {
+  const int32_t at = m.count(0x10);
+  resize_polygons(m, at + 1);
+  set_count(m, at + 1);
+  const Polygon& X = m.polygons[x];
+  const Polygon& Y = m.polygons[y];
+  Polygon& P = m.polygons[at];
+  const uint32_t n = (X.flags + Y.flags + static_cast<uint32_t>(k) - 2) & 0x3ff;
+  P.flags = n | (X.flags & 0x1c00) | 0x2000;
+  P.priority = X.priority;
+  P.zone_set = X.zone_set;
+  P.material_count = X.material_count;
+  P.materials = static_cast<::zmod::Material**>(std::malloc(sizeof(void*) * static_cast<size_t>(std::max(X.material_count, 1))));
+  for (int32_t j = 0; j < X.material_count; ++j) P.materials[j] = X.materials[j];
+  P.vertex_indices = static_cast<uint32_t*>(std::malloc(4 * std::max(n, 1u)));
+  P.normal_indices = static_cast<uint32_t*>(std::malloc(4 * std::max(n, 1u)));
+  P.uvs = static_cast<float**>(std::malloc(sizeof(float*) * static_cast<size_t>(std::max(P.material_count, 1))));
+  for (int32_t j = 0; j < P.material_count; ++j) P.uvs[j] = static_cast<float*>(std::malloc(8 * std::max(n, 1u)));
+  P.file_uvs = X.file_uvs;
+  P.colors = static_cast<float*>(std::malloc(12 * std::max(n, 1u)));
+  // The exe's +0x20 is malloc'd and only x's corners set; the rest is cleared here.
+  P.scratch = static_cast<uint32_t*>(std::calloc(std::max(n, 1u), 4));
+  uint32_t to = 0;
+  const auto put = [&](const Polygon& from, uint32_t i, bool scratch) {
+    P.vertex_indices[to] = from.vertex_indices[i];
+    P.normal_indices[to] = from.normal_indices[i];
+    for (int32_t j = 0; j < P.material_count; ++j)
+      P.uvs[j][2 * to] = from.uvs[j][2 * i], P.uvs[j][2 * to + 1] = from.uvs[j][2 * i + 1];
+    std::memcpy(P.colors + 3 * to, from.colors + 3 * i, 12);
+    if (scratch && from.scratch) P.scratch[to] = from.scratch[i];
+    ++to;
+  };
+  for (uint32_t i = 0; i < points(X); ++i) put(X, i, true);
+  uint32_t i = static_cast<uint32_t>(2 - k);
+  if (k == 3) put(Y, 0, false), i = 0;  // the first point twice: the turn in the winding
+  for (; i < points(Y); ++i) put(Y, i, false);
+  return at;
+}
+
+// Pirate's Moon 1.0 @ 0x0056d260. The strip cases follow join_shape's eight, read here on the strips the plain
+// polygons have just become; then the plain joins (strip 0); a join nothing else takes appends a and b as they are.
+int32_t join_polygons(Stripper& s, int32_t a, int32_t b, StripEdgeKey key, int32_t first, int32_t second,
+                      int32_t strip) {
+  Model& m = *s.model;
+  const auto plain_to_strip = [&](int32_t p) {
+    if (m.polygons[p].flags & 0x2000) return false;
+    const int32_t n = nx(m, p);
+    int32_t i = 0;
+    while (i < n && edge_key(vx(m, p, i), vx(m, p, (i + 1) % n)) != key) ++i;
+    make_strip(m, p, i < n ? i : 0);  // FIX (A): the exe starts past the end when the key is not an edge (never)
+    return true;
+  };
+  const bool ap = plain_to_strip(a), bp = plain_to_strip(b);
+  const auto quad = [&](int32_t p) {
+    return m.polygons[p].flags & 0x2000 && nx(m, p) == 4 &&
+           (edge_key(vx(m, p, 0), vx(m, p, 2)) == key || edge_key(vx(m, p, 1), vx(m, p, 3)) == key);
+  };
+  const bool aq = quad(a), bq = quad(b);
+  if (aq) corner_swap(m, a, 1, 2);
+  if (bq) corner_swap(m, b, 1, 2);
+  const auto rev = [&](int32_t p) { corners_reverse(m, p); };
+  const auto pairs = [&](int32_t p) { corners_pairswap(m, p); };
+  const auto app = [&](int32_t x, int32_t y, int32_t k) { return strip_append(m, x, y, k); };
+  const auto pick = [&](int32_t x) { return x == first || x == second; };
+  if (strip == 1) {
+    {  // a's last end on b's first
+      const End a2 = last_end(m, a), b1 = first_end(m, b);
+      if (a2.on(key) && b1.on(key) && pick(a2.to())) {
+        if (a2.to() == b1.from()) {
+          if (!aq) return app(a, b, 1);
+          if (!odd(m, b)) return rev(b), rev(a), app(b, a, 1);
+        }
+        if (a2.to() == b1.to()) {
+          if (!aq && bp) return pairs(b), app(a, b, 1);
+          if (odd(m, b) && bp) return pairs(b), rev(b), rev(a), app(b, a, 1);
+        }
+      }
+    }
+    {  // b's last on a's first
+      const End b2 = last_end(m, b), a1 = first_end(m, a);
+      if (b2.on(key) && a1.on(key) && pick(b2.to())) {
+        if (b2.to() == a1.from()) {
+          if (!bq) return app(b, a, 1);
+          if (!odd(m, a)) return rev(a), rev(b), app(a, b, 1);
+        }
+        if (b2.to() == a1.to()) {
+          if (!bq && ap) return pairs(a), app(b, a, 1);
+          if (odd(m, a) && ap) return pairs(a), rev(a), rev(b), app(a, b, 1);
+        }
+      }
+    }
+    {
+      const End a2 = last_end(m, a), b1 = first_end(m, b);
+      if (a2.on(key) && b1.on(key) && pick(a2.from())) {
+        if (a2.from() == b1.from() && !bq && ap && !odd(m, b)) return pairs(a), rev(a), rev(b), app(b, a, 1);
+        if (a2.from() == b1.to() && !bq && bp && odd(m, b) && ap)
+          return pairs(b), rev(b), pairs(a), rev(a), app(b, a, 1);
+      }
+    }
+    {
+      const End b2 = last_end(m, b), a1 = first_end(m, a);
+      if (b2.on(key) && a1.on(key) && pick(b2.from())) {
+        if (b2.from() == a1.from() && !aq && bp && !odd(m, a)) return pairs(b), rev(b), rev(a), app(a, b, 1);
+        if (b2.from() == a1.to() && !aq && ap && odd(m, a) && bp)
+          return pairs(a), rev(a), pairs(b), rev(b), app(a, b, 1);
+      }
+    }
+    {  // both last ends
+      const End a2 = last_end(m, a), b2 = last_end(m, b);
+      if (a2.on(key) && b2.on(key) && pick(a2.to())) {
+        if (a2.to() == b2.to()) {
+          if (!aq) return rev(b), app(a, b, 1);
+          if (!bq) return rev(a), app(b, a, 1);
+        } else if (a2.to() == b2.from() && !aq && bp) {
+          return pairs(b), rev(b), app(a, b, 1);
+        }
+      }
+      if (a2.on(key) && b2.on(key) && pick(a2.from()))
+        if (a2.from() == b2.to() && !bq && ap) return pairs(a), rev(a), app(b, a, 1);
+    }
+    {  // both first ends
+      const End a1 = first_end(m, a), b1 = first_end(m, b);
+      if (a1.on(key) && b1.on(key) && pick(a1.to())) {
+        if (a1.to() == b1.to()) {
+          if (ap && odd(m, a)) {
+            if (bp) return pairs(a), rev(a), pairs(b), app(a, b, 1);
+          } else if (bp && odd(m, b) && ap) {
+            return pairs(b), rev(b), pairs(a), app(b, a, 1);
+          }
+        } else if (a1.to() == b1.from()) {
+          if (ap && odd(m, a)) return pairs(a), rev(a), app(a, b, 1);
+          if (!bq && !odd(m, b) && ap) return pairs(a), rev(b), app(b, a, 1);
+        }
+      }
+      if (a1.on(key) && b1.on(key) && pick(a1.from())) {
+        if (a1.from() == b1.to()) {
+          if (!aq && !odd(m, a)) {
+            if (bp) return pairs(b), rev(a), app(a, b, 1);
+          } else if (bp && odd(m, b)) {
+            return pairs(b), rev(b), app(b, a, 1);
+          }
+        } else if (a1.from() == b1.from()) {
+          if (!aq && !odd(m, a)) return rev(a), app(a, b, 1);
+          if (!bq && !odd(m, b)) return rev(b), app(b, a, 1);
+        }
+      }
+    }
+  }
+  // The plain joins (0x0056ff47 on); 0x005731e0 compares two ends with their sense.
+  const auto same = [](const End& x, const End& y) { return x.lo == y.lo && x.hi == y.hi && x.rev == y.rev; };
+  {
+    const End a2 = last_end(m, a), b1 = first_end(m, b);
+    if (a2.on(key) && b1.on(key)) {
+      if (!aq) {
+        if (same(a2, b1)) return app(a, b, 0);
+        if (bp) return pairs(b), app(a, b, 0);
+        return app(a, b, 0);
+      }
+      if (same(a2, b1)) {
+        if (!odd(m, b)) return rev(b), rev(a), app(b, a, 0);
+        return app(a, b, 0);
+      }
+      if (odd(m, b) && bp) return pairs(b), rev(b), rev(a), app(b, a, 0);
+      return app(a, b, 0);
+    }
+  }
+  {
+    const End b2 = last_end(m, b), a1 = first_end(m, a);
+    if (b2.on(key) && a1.on(key)) {
+      if (!bq) {
+        if (same(a1, b2)) return app(b, a, 0);
+        if (ap) return pairs(a), app(b, a, 0);
+        return app(a, b, 0);
+      }
+      if (same(a1, b2)) {
+        if (!odd(m, a)) return rev(a), rev(b), app(a, b, 0);
+        return app(a, b, 0);
+      }
+      if (odd(m, a) && ap) return pairs(a), rev(a), rev(b), app(a, b, 0);
+      return app(a, b, 0);
+    }
+  }
+  {
+    const End a2 = last_end(m, a), b2 = last_end(m, b);
+    if (a2.on(key) && b2.on(key)) {
+      if (same(b2, a2)) {
+        if (!bq && ap) return rev(a), pairs(a), app(b, a, 0);
+        if (!aq && bp) return rev(b), pairs(b), app(a, b, 0);
+        return app(a, b, 0);
+      }
+      if (!aq) return rev(b), app(a, b, 0);
+      return rev(a), app(b, a, 0);
+    }
+  }
+  {
+    const End a1 = first_end(m, a), b1 = first_end(m, b);
+    if (a1.on(key) && b1.on(key)) {
+      if (same(b1, a1)) {
+        if (!aq && !odd(m, a) && bp) return rev(a), pairs(b), app(a, b, 0);
+        if (!bq && !odd(m, b) && ap) return rev(b), pairs(a), app(b, a, 0);
+        if (!aq && odd(m, a) && ap) return pairs(a), rev(a), app(a, b, 0);
+        if (!bq && odd(m, b) && bp) return pairs(b), rev(b), app(b, a, 0);
+        return app(a, b, 0);
+      }
+      if (!aq && !odd(m, a)) return rev(a), app(a, b, 0);
+      if (!bq && !odd(m, b)) return rev(b), app(b, a, 0);
+      if (!aq && ap && bp) return pairs(a), rev(a), pairs(b), app(a, b, 0);
+    }
+  }
+  return app(a, b, 0);
+}
+
+// Pirate's Moon 1.0 @ 0x005746e0, with 0x0056d040
+bool can_join_at(Stripper& s, int32_t a, int32_t b, int32_t v) {
+  if (a == b) return false;
+  const Model& m = *s.model;
+  const Polygon& A = m.polygons[a];
+  const Polygon& B = m.polygons[b];
+  const int32_t na = nx(m, a), nb = nx(m, b);
+  if (na + nb - 2 >= 0x41 || na + nb - 2 > s.arg) return false;
+  s.slack = std::min({s.pass, s.arg - na - nb + 2, 0x42 - na - nb});
+  if (A.material_count != B.material_count) return false;
+  for (int32_t j = 0; j < A.material_count; ++j)
+    if (A.materials[j] != B.materials[j]) return false;
+  if (A.flags & 0x400 || B.flags & 0x400 || (A.flags ^ B.flags) & 0x800) return false;
+  if (A.priority != B.priority || A.zone_set != B.zone_set) return false;
+  // 0x0056d040: a plain polygon has the point at its first end only.
+  const bool a_strip = A.flags & 0x2000, b_strip = B.flags & 0x2000;
+  const int32_t a_first = a_strip ? vx(m, a, 0) : v, a_last = a_strip ? vx(m, a, na - 1) : -1;
+  const int32_t b_first = b_strip ? vx(m, b, 0) : v, b_last = b_strip ? vx(m, b, nb - 1) : -1;
+  const bool a_odd = A.flags & 1, b_odd = B.flags & 1;
+  if (s.slack < 2) return false;
+  if (v == a_first && v == b_first) return !a_odd || !b_odd;
+  if (v == a_first && v == b_last) {
+    if (!b_odd || !a_strip) return true;
+  } else {
+    if (v != a_last) return false;
+    if (v == b_first) {
+      if (!a_odd || !b_strip) return true;
+    } else {
+      if (v != b_last) return false;
+      if (a_odd == b_odd) return true;
+    }
+  }
+  return s.slack > 2;
+}
+
+// Pirate's Moon 1.0 @ 0x005705a0
+int32_t join_at(Stripper& s, int32_t a, int32_t b, int32_t v) {
+  Model& m = *s.model;
+  const auto plain_to_strip = [&](int32_t p) {
+    if (m.polygons[p].flags & 0x2000) return false;
+    const int32_t n = nx(m, p);
+    int32_t i = 0;
+    while (i < n && vx(m, p, i) != v) ++i;
+    make_strip(m, p, i < n ? i : 0);  // FIX (A): as join_polygons (the point is always there)
+    return true;
+  };
+  const bool ap = plain_to_strip(a), bp = plain_to_strip(b);
+  const int32_t na = nx(m, a), nb = nx(m, b);
+  const auto app = [&](int32_t x, int32_t y, int32_t k) { return strip_append(m, x, y, k); };
+  if (vx(m, a, 0) == v && vx(m, b, 0) == v) {
+    if (!odd(m, a)) return corners_reverse(m, a), app(a, b, 2);
+    if (!odd(m, b)) return corners_reverse(m, b), app(b, a, 2);
+    return app(a, b, 0);
+  }
+  if (vx(m, a, 0) == v && vx(m, b, nb - 1) == v) {
+    if (!odd(m, b)) return app(b, a, 2);
+    if (ap) return corners_pairswap(m, a, 1), app(b, a, 2);
+    return app(b, a, 3);
+  }
+  if (vx(m, a, na - 1) == v && vx(m, b, 0) == v) {
+    if (!odd(m, a)) return app(a, b, 2);
+    if (bp) return corners_pairswap(m, b, 1), app(a, b, 2);
+    return app(a, b, 3);
+  }
+  if (vx(m, a, na - 1) == v && vx(m, b, nb - 1) == v) {
+    if (odd(m, a) == odd(m, b)) return corners_reverse(m, b), app(a, b, 2);
+    if (odd(m, a)) return corners_reverse(m, a), app(b, a, 3);
+    return corners_reverse(m, b), app(a, b, 3);
+  }
+  return app(a, b, 0);
+}
+
+// Pirate's Moon 1.0 @ 0x00570b70
+void strip_model(Model* m, int32_t arg, int32_t max_points) {
+  Stripper s;
+  if (!strip_intake(s, m, arg, max_points)) return;
+  s.pass = 0;
+  bool joined = false;
+  do {
+    joined = false;
+    for (auto it = s.edges.begin(); it != s.edges.end(); ++it) {
+      StripEdge& e = it->second;
+      for (auto u1 = e.uses.begin(); u1 != e.uses.end();) {
+        bool again = false;
+        for (auto u2 = std::next(u1); u2 != e.uses.end(); ++u2) {
+          int32_t first = 0, second = 0, strip = 0;
+          if (!try_join(s, *u1, *u2, e.key, &first, &second, &strip)) continue;
+          const int32_t a = u1->polygon, b = u2->polygon;
+          joined = true;
+          if (strip_hooks().joining) strip_hooks().joining(0, a, b, first, second, strip);
+          after_join(s, a, b, join_polygons(s, a, b, it->first, first, second, strip));
+          again = true;  // the same edge's list again from its start
+          break;
+        }
+        u1 = again ? e.uses.begin() : std::next(u1);
+      }
+    }
+    if (s.pass >= 2) {
+      for (auto it = s.vertices.begin(); it != s.vertices.end(); ++it) {
+        StripVertex& vt = it->second;
+        for (auto u1 = vt.polygons.begin(); u1 != vt.polygons.end();) {
+          bool again = false;
+          for (auto u2 = std::next(u1); u2 != vt.polygons.end(); ++u2) {
+            if (!can_join_at(s, *u1, *u2, vt.vertex)) continue;
+            const int32_t a = *u1, b = *u2;
+            joined = true;
+            if (strip_hooks().joining) strip_hooks().joining(1, a, b, it->first, 0, 0);
+            after_join(s, a, b, join_at(s, a, b, it->first));
+            again = true;
+            break;
+          }
+          u1 = again ? vt.polygons.begin() : std::next(u1);
+        }
+      }
+    }
+  } while (joined || ++s.pass < 4);
+  StripCounts& c = strip_counts();
+  for (int32_t i = 0; i < m->count(0x10); ++i) {
+    const Polygon& p = m->polygons[i];
+    if (!(p.flags & 0x2000)) {
+      ++c.others;
+      continue;
+    }
+    const int32_t t = static_cast<int32_t>(points(p)) - 2;
+    ++c.strips, c.triangles += t, c.longest = std::max(c.longest, t);
+    for (int32_t k = 1; k <= t; ++k) {
+      const uint32_t* q = p.vertex_indices;
+      if (q[k] == q[k - 1] || q[k + 1] == q[k - 1] || q[k + 1] == q[k]) ++c.degenerate;
+    }
+  }
+  uint32_t flags;
+  std::memcpy(&flags, m->header + 8, 4);
+  flags |= 0x80;
+  std::memcpy(m->header + 8, &flags, 4);
+  sort_by_material(*m);
+}
+
 }  // namespace pm::zmod

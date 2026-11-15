@@ -1821,6 +1821,40 @@ calls them (0x570f30 on) needs the strip output, so it moves to sitting 3 with f
 - the room a join leaves, [0x8c14f8], is the pass capped by the stripper's argument and by 0x42, less both counts:
   on pass 0 it is never above 0, so pass 0 makes only plain polygons, never strips.
 
+**Sitting 3 (2026-11-15): the growth and the output.** Ported: the growth loop (0x570ef7 to the end of 0x570b70),
+the join itself 0x56d260 (about 13 KB of code: the eight strip cases of 0x56b980 again, now acting, then four plain
+cases), the append 0x56b580, the corner moves 0x573340 / 0x573700 / 0x573760 and the strip from a loop 0x5737d0
+(with 0x573aa0), the end records 0x573250 / 0x5732c0 and their readers 0x5731a0 / 0x5731c0 / 0x5731e0 /
+0x573210 / 0x573230, the join at a point 0x5746e0 / 0x56d040 / 0x5705a0, the point lists' add 0x574870 and the last
+point 0x573bc0, and the counts at the end. The decompiler drops these functions' `this` and reorders 0x56d260's
+plain cases, so they were read from the asm with `tools/analysis/esp_frames.py` (each [esp + N] shown in the
+function's frame, a label's depth learned from every jump to it). `test_pm_strip.py` runs the whole of 0x570b70
+against `strip_model`: 600 grids of ground made to join and the 195-model sample (12,036 polygons to 8,184, 2,670
+strips left; 72 s), then every shipped type-0 model with polygons with STRIP_ALL=1, the four worlds' 7,351 and mechlib's 1,015, through the
+merge, the intake and the whole stripper as the crater re-read calls it (4 points) and as the other callers do:
+8,366 identical (polygons, material refs, flag 0x80, the counts; 351 s, 0.61 GB). 23 breaks caught (one, the
+rename left out, by the port's own crash on the stale index rather than a compared difference); a grid gets
+every case only with odd strips beside plain polygons and edges three polygons share, so the generator makes them
+(the pair swap of plain case 1 shows only on a quad: on a triangle the append keeps its third corner alone). How it
+runs:
+- passes 0 to 3 ([0x8c1500]); a pass runs again while it joined anything. Each pass walks the edge map in key order:
+  for each pair of an edge's polygons (the later one second) try_join, and on a join the same edge's list from its
+  start again. From pass 2 the point map likewise, with the join at a point (0x5746e0 asks no corner or texture
+  test, only the counts, materials, flags, priority, zone, and the point at ends whose parities fit).
+- a join appends the new strip (0x56b580: a's corners, then b's from its third, second or first, or its first
+  twice); every list forgets a and b and renames the model's last original polygon to b; a is removed (the new strip
+  moves into its slot), then b (the last original moves into b's); the new strip's quad diagonals, first and last
+  edges join the edge lists that exist (none is made), its first and last points the point lists that exist.
+- at the end: the counts [0x8c150c..0x8c151c] (strips, others, their triangles, the degenerate ones: a repeated point
+  among a triangle's three, the longest strip), flag 0x80, and the polygons sorted by material (0x55c470).
+Kept as the exe does it:
+- a joined polygon's +0x20 is not carried for b's corners (malloc'd, never set; the port clears it), and the corner
+  moves leave +0x20 where it was;
+- a plain polygon made a strip for a join starts at the shared edge and zigzags (start, start+1, start-1...);
+- the join at a point checks no texture coordinates or colours: two strips of one material that share an end point
+  join whatever their coordinates there, each keeping its own corner (the point twice, a degenerate triangle
+  between, or three times with the winding turned).
+
 ## S20b: the network mech's send 0x471210 and the state's apply 0x4705e0 (2026-11-14)
 
 The S20 sweep found 0x471210 (the network mech's vt+0x168, vtable 0x5dfc28) with no PM function: Ghidra had folded it

@@ -16,6 +16,8 @@ namespace pm::zmod {
 // Tests: 0x005329e0, the textures' images loaded by name (null: nothing; the port's images are loaded already).
 struct StripHooks {
   void (*load_images)() = nullptr;
+  // Tests: each join as the loop makes it (0 across an edge, 1 at a point), before the polygons are turned.
+  void (*joining)(int kind, int32_t a, int32_t b, int32_t first, int32_t second, int32_t strip) = nullptr;
 };
 StripHooks& strip_hooks();
 
@@ -53,6 +55,11 @@ struct Stripper {
 struct StripCounts {
   int32_t polygons = 0;  // [0x008c1504]: every polygon of every model stripped
   int32_t taken = 0;     // [0x008c1508]: those given to the maps
+  int32_t strips = 0;    // [0x008c150c]: strips left at the end
+  int32_t others = 0;    // [0x008c1510]: other polygons left
+  int32_t triangles = 0; // [0x008c1514]: the strips' triangles
+  int32_t degenerate = 0;  // [0x008c1518]: of those, ones with a repeated point
+  int32_t longest = 0;   // [0x008c151c]: the most triangles in one strip
 };
 StripCounts& strip_counts();
 
@@ -84,5 +91,28 @@ bool join_shape(const Stripper& s, int32_t a, int32_t b, StripEdgeKey key, int32
 // b's coordinates onto a's and gives the corners that matched (-1 for none) and join_shape's answer.
 bool try_join(Stripper& s, const StripEdgeUse& a, const StripEdgeUse& b, StripEdgeKey key, int32_t* first,
               int32_t* second, int32_t* strip);
+
+// The corner moves the joins make, on a polygon's points, normals, coordinates and colours (its +0x20 stays put).
+void corner_swap(Model& m, int32_t polygon, int32_t i, int32_t j);  // 0x00573340
+void corners_reverse(Model& m, int32_t polygon);                     // 0x00573700
+void corners_pairswap(Model& m, int32_t polygon, int32_t from = 0);  // 0x00573760: (0,1), (2,3)...
+// 0x005737d0: a polygon's loop as a strip from corner `start` (start, start+1, start-1, start+2...), flag 0x2000.
+void make_strip(Model& m, int32_t polygon, int32_t start);
+// 0x0056b580: a new strip appended, x's corners then y's from its third (k 0), second (1), first (2), or its first
+// twice (3); x's materials, priority, zone and flags. Its index.
+int32_t strip_append(Model& m, int32_t x, int32_t y, int32_t k);
+// 0x0056d260: a and b joined across `key` as try_join allowed (`strip` its answer): both turned and put in order,
+// the new strip appended (a and b are left for the caller to remove). Its index.
+int32_t join_polygons(Stripper& s, int32_t a, int32_t b, StripEdgeKey key, int32_t first, int32_t second,
+                      int32_t strip);
+// 0x005746e0 with 0x0056d040: whether two polygons may join at point `v` alone (pass 2 on): the counts, materials,
+// flags, priority and zone as try_join asks, then the point at the right ends for their parities. Sets s.slack.
+bool can_join_at(Stripper& s, int32_t a, int32_t b, int32_t v);
+// 0x005705a0: a and b joined at point `v` (a plain polygon made a strip from the point first). The new index.
+int32_t join_at(Stripper& s, int32_t a, int32_t b, int32_t v);
+// 0x00570b70: the whole stripper on a model of type 0 with polygons: the intake, then passes 0 to 3 of joins
+// across edges (and from pass 2 at points), each pass again while it joined anything; then the counts, flag 0x80
+// and the polygons sorted by material (0x0055c470).
+void strip_model(Model* m, int32_t arg, int32_t max_points);
 
 }  // namespace pm::zmod

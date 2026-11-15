@@ -1,16 +1,19 @@
 """Pirate's Moon's triangle stripper (pm::zmod, gmod_strip; docs/pm-tests.md, PM's triangle stripper) against PM's
-exe, a family at a time.
+exe.
 
     cmake --build build --target pmprobe && MW3_EXE=pm .venv/bin/python -P tests/differential/test_pm_strip.py [runs]
+    STRIP_ALL=1 ...   every shipped type-0 model with polygons, the four worlds' and mechlib's (slow)
 
-The layer merge 0x572df0 alone, then the stripper 0x570b70 stopped where its intake ends (0x570ef7) with its edge
-and point maps read out of its frame (MSVC's trees walked in order, each list from its head). Models are made at
-random to meet each rule (the same loops turned, layers past 8, solid and see-through images, strips of 4 and
-more), then a seeded sample of the shipped worlds' type-0 models (every Nth plus the biggest), their materials
-given images at random so that layers merge. Then the join test 0x573f50 and the join's shape 0x56b980 called alone on two
-polygons made to share an edge (strip ends, quad diagonals, corners alike up to whole texture repeats or a little
-off), at 53 bits on both sides. The images' load 0x5329e0, malloc / realloc / free, _ftol and operator new / delete
-stand in on the exe's side; MSVCP's _Lockit does nothing.
+Run alone in the exe and compared with the port: the layer merge 0x572df0; the stripper 0x570b70 stopped where its
+intake ends (0x570ef7), its edge and point maps read out of its frame (MSVC's trees walked in order); the join test
+0x573f50 and the join's shape 0x56b980 on two polygons made to share an edge; and the whole stripper 0x570b70 on
+grids of ground made to join (triangles and quads on shared corners, coordinates from the grid now and then moved by
+whole repeats, rows or parts of rows already strips of either parity, polygons twice, a few off), the polygons, the
+material refs, flag 0x80 and the counts [0x8c1504..0x8c151c] compared after. Then a seeded sample of the worlds'
+type-0 models (every Nth plus the biggest), their materials given images at random, through each, the whole
+stripper as the crater re-read calls it (4 points) and as the others do. 53 bits on both sides. The images' load
+0x5329e0, malloc / realloc / free, _ftol and operator new / delete stand in on the exe's side; MSVCP's _Lockit does
+nothing.
 """
 import ctypes
 import os
@@ -53,7 +56,7 @@ class Emulated:
         cpu.stub_import(IAT_LOCKIT, lambda c: 0)
         cpu.stub_import(IAT_UNLOCKIT, lambda c: 0)
         cpu.import_code(IAT_FTOL, original.FTOL)  # MSVCRT's _ftol: the x87 top cut toward zero
-        self.state = None
+        self.state, self.whole = None, False
         cpu._uc.hook_add(UC_HOOK_CODE, self.intake_end, begin=INTAKE_END, end=INTAKE_END)
         self.heap = cpu.heap_next
 
@@ -88,6 +91,8 @@ class Emulated:
         return out
 
     def intake_end(self, uc, address, size, user):
+        if self.whole:  # the whole stripper: on past the intake
+            return
         esp = uc.reg_read(UC_X86_REG_ESP)
         st = [self.i32(COUNT_ALL), self.i32(COUNT_TAKEN)]
         nodes = self.tree(self.p32(esp + 0x54), self.p32(EDGE_NIL))
@@ -156,7 +161,7 @@ class Emulated:
             if nxt():
                 rec[6] = arr([arr([nxt() for _ in range(2 * n)]) for _ in range(mc)])
             rec[7] = arr([nxt() for _ in range(3 * n)])
-            rec[8] = self.sized(4) if nxt() else 0
+            rec[8] = self.sized(4 * n) if nxt() else 0  # +0x20, one word a corner, cleared
             rec[9] = nxt()
             cpu.write(q, struct.pack('<10I', *[v & 0xffffffff for v in rec]))
         return model, mats
@@ -185,11 +190,12 @@ class Emulated:
     def run(self, spec, mode, max_points, join=None):
         cpu = self.cpu
         cpu.heap_next, self.sizes, self.state = self.heap, {}, None
-        cpu.u32(COUNT_ALL, 0), cpu.u32(COUNT_TAKEN, 0)
+        for k in range(7):  # 0x8c1504..0x8c151c: the stripper's counts
+            cpu.u32(COUNT_ALL + 4 * k, 0)
         for nil in (EDGE_NIL, VERTEX_NIL):  # the trees' shared nil nodes: made again on this run's heap
             cpu.u32(nil, 0), cpu.u32(nil + 4, 0)
         model, mats = self.build(spec)
-        if mode >= 2:
+        if 2 <= mode <= 3:
             use_a, use_b, key, outs = self.sized(8), self.sized(8), self.sized(8), self.sized(16)
             cpu.write(use_a, struct.pack('<iI', join[0], join[1]))
             cpu.write(use_b, struct.pack('<iI', join[2], join[3]))
@@ -209,6 +215,19 @@ class Emulated:
         if mode == 0:
             cpu.call(MERGE, stack_args=[model])
             return self.dump(model, mats)
+        if mode == 4:
+            self.whole = True
+            try:
+                cpu.call(STRIP, stack_args=[model, join[0], max_points])
+            finally:
+                self.whole = False
+            counts = [self.i32(COUNT_ALL + 4 * k) for k in range(7)]
+            ids = {m: k for k, m in enumerate(mats)}
+            polys, refs = self.p32(model + 0x34), []
+            for k in range(self.i32(model + 0x5c)):
+                mat, use, poly = struct.unpack('<IiI', cpu.read(self.p32(model + 0x60) + 12 * k, 12))
+                refs += [ids.get(mat, -1), use, (poly - polys) // 0x28 if poly else -1]
+            return counts + [self.i32(model + 8)] + self.dump(model, mats) + [self.i32(model + 0x5c)] + refs
         esp = original.STACK_TOP - 0x1000
         for v in reversed([original.RETURN, model, 0x7fffffff, max_points]):
             esp -= 4
@@ -366,20 +385,100 @@ def join_spec(rng):
     return s, [ia, ra, ib, rb, key[0], key[1], rng.choice((0x7fffffff, 0x7fffffff, 8, 6)), rng.choice((0, 1, 2, 2))]
 
 
-def shipped_specs(rng, every, biggest):
-    """A seeded sample of the worlds' type-0 models with polygons as specs, images made up at random."""
+def mesh_spec(rng):
+    """A patch of ground as a grid: triangles (either diagonal) and quads sharing corners, their texture
+    coordinates from the grid (now and then moved by whole repeats), a row now and then already a strip; a few
+    polygons on another material, turned, or off by a little. Made to join."""
+    s = Spec()
+    for _ in range(rng.randint(1, 3)):
+        s.mats.append([0xff, 1 | rng.choice((0, 4)), 1, 1, rng.choice((0,) * 5 + (1, 2))])
+    tiny = rng.random() < 0.15  # one odd strip and the triangle beside its last edge, nothing else
+    w, h = (rng.randint(3, 5), 2) if tiny else (rng.randint(2, 6), rng.randint(2, 5))
+    su, sv = rng.choice((0.25, 0.5, 1.0)), rng.choice((0.25, 0.5, 1.0))
+    cols = [[rng.choice((0.0, 128.0, 255.0)) for _ in range(3)] for _ in range(w * h)]
+    norms = [rng.randrange(3) if rng.random() < 0.3 else i for i in range(w * h)]
+    mats = len(s.mats)
+
+    def add(verts, strip=False):
+        if rng.random() < 0.05:
+            verts = verts[::-1]
+        n = len(verts)
+        mid = 0 if rng.random() < 0.85 else rng.randrange(mats)
+        shift = (rng.choice((0, 0, 0, 1, -1)), rng.choice((0, 0, 0, 2)))
+        uv = []
+        for v in verts:
+            x, y = v % w, v // w
+            uv += [x * su + shift[0], y * sv + shift[1]]
+        if rng.random() < 0.04:
+            uv[0] += 0.3
+        flags = n | 0x1000 | (0x2000 if strip else 0) | (0x800 if rng.random() < 0.03 else 0)
+        rec = [flags, 0] + verts + [norms[v] for v in verts] + [1, mid, 1] + [bits(f) for f in uv]
+        rec += [bits(c) for v in verts for c in cols[v]] + [1, 0]
+        s.polys.append(rec)
+
+    def cell(x, y):
+        a, b, c, d = y * w + x, y * w + x + 1, (y + 1) * w + x + 1, (y + 1) * w + x
+        r = rng.random()
+        if r < 0.25:
+            add([a, b, c, d])
+        elif r < 0.6:
+            add([a, b, c]), add([a, c, d])
+        else:
+            add([a, b, d]), add([b, c, d])
+
+    for y in range(h - 1):
+        covered = set()
+        if tiny or (rng.random() < 0.3 and w >= 2):  # part of the row as a strip already, either way, either row
+            top, bottom = (y * w, (y + 1) * w) if rng.random() < 0.5 else ((y + 1) * w, y * w)
+            k = (w - rng.randint(0, 1)) if tiny else rng.randint(2, w)
+            x0 = rng.randint(0, w - k)
+            xs = list(range(x0, x0 + k)) if rng.random() < 0.5 else list(range(x0 + k - 1, x0 - 1, -1))
+            run = [v for x in xs for v in (top + x, bottom + x)]
+            beside = None
+            if tiny and xs[0] < xs[-1] and xs[-1] < w - 1 and rng.random() < 0.5:
+                # an odd count from its second point, ending on an upright edge a quad shares, run the other way
+                run = run[1:]
+                beside = [bottom + xs[-1], top + xs[-1], top + xs[-1] + 1, bottom + xs[-1] + 1]
+            elif len(run) > 3 and (tiny or rng.random() < 0.5):  # an odd count: the last cell's other half plain
+                run = run[:-1]
+                add([top + xs[-1], bottom + xs[-2], bottom + xs[-1]])  # the shared edge run the other way
+            add(run, strip=True)
+            if beside:
+                add(beside)
+            covered = set(range(w)) if tiny else set(range(min(xs), max(xs)))
+        for x in range(w - 1):
+            if x not in covered:
+                cell(x, y)
+    for q in list(s.polys):  # now and then a polygon twice: an edge three or four polygons share
+        if rng.random() < 0.06:
+            s.polys.append(q[:])
+    rng.shuffle(s.polys)
+    return s
+
+
+def shipped_specs(rng, every, biggest, mechlib=False):
+    """A seeded sample of the worlds' type-0 models with polygons as specs (with `mechlib`, mechlib's too), images
+    made up at random; every one with `every` 1."""
     import test_pm_gamez as g
     import test_pm_strips as strips
-    bench = g.Emulated()
-    out = []
+    benches = []
     for w in g.WORLDS:
+        bench = g.Emulated()
         bench.stack([g.ZBD / w / 'gamez.zbd'], 5, 6, 5, models=True)
+        benches.append((w, bench))
+    if mechlib:
+        import test_pm_mechlib as lib
+        bench = lib.Emulated()
+        data = lib.MECHLIB.read_bytes()
+        bench.native_stub(0x5329e0, lambda c: 0)
+        bench.run(None, lib.MECHLIB, [n for n, _, _ in lib.entries(data) if n not in ('version', 'format', 'materials')])
+        benches.append(('mechlib', bench))
+    for w, bench in benches:
         typed0 = [p for p in strips.model_slots(bench) if bench.i32(p + 0x10) > 0 and bench.i32(p) == 0]
         pick = sorted(set(typed0[rng.randrange(every)::every]) |
                       set(sorted(typed0, key=lambda p: -bench.i32(p + 0x10))[:biggest]))
         for slot in pick:
-            out.append((w, slot, spec_of(bench, slot, rng)))
-    return out
+            yield w, slot, spec_of(bench, slot, rng)
 
 
 def spec_of(bench, slot, rng):
@@ -423,7 +522,8 @@ def main():
     runs = int(sys.argv[1]) if len(sys.argv) > 1 else 600
     out = (ctypes.c_int32 * (1 << 22))()
     stats = dict.fromkeys(('runs', 'merged', 'shipped merged', 'taken', 'edges', 'uses', 'points', 'shipped',
-                           'joins', 'shapes', 'strips'), 0)
+                           'joins', 'shapes', 'strips', 'stripped', 'strips left', 'polygons before',
+                           'polygons after'), 0)
 
     def check(spec, mode, max_points, what, join=(0,) * 11):
         ints = spec.ints()
@@ -436,7 +536,12 @@ def main():
                   f'  exe  {want[max(0, at - 8):at + 12]}\n  port {got[max(0, at - 8):at + 12]}')
             raise SystemExit(1)
         stats['runs'] += 1
-        if mode >= 2:
+        if mode == 4:
+            stats['stripped'] += 1
+            stats['strips left'] += want[2]
+            stats['polygons before'] += len(spec.polys)
+            stats['polygons after'] += want[8]
+        elif mode >= 2:
             stats['joins' if mode == 2 else 'shapes'] += want[0]
             stats['strips'] += want[0] and want[3] == 1
         elif mode == 0:
@@ -462,11 +567,21 @@ def main():
         check(spec, 2, 0, f'join {run}', join)
         shape = join + [rng.choice((join[4], join[5], -1, 7)), rng.choice((join[5], join[4], -1)), rng.choice((0, 1))]
         check(spec, 3, 0, f'shape {run}', shape)
+    rng = random.Random(0x56d260)
+    for run in range(runs):
+        spec = mesh_spec(rng)
+        check(spec, 4, rng.choice((0x7fffffff, 4)), f'mesh {run}', [rng.choice((0x7fffffff, 0x7fffffff, 40, 12, 6))] + [0] * 10)
     rng = random.Random(0x570b70)
-    for w, slot, spec in shipped_specs(rng, every=int(os.environ.get('STRIP_EVERY', '40')), biggest=3):
+    every_one = os.environ.get('STRIP_ALL') == '1'  # the whole shipped set, mechlib's too (sitting 3; slow)
+    for w, slot, spec in shipped_specs(rng, every=1 if every_one else int(os.environ.get('STRIP_EVERY', '40')),
+                                       biggest=0 if every_one else 3, mechlib=every_one):
         check(spec, 0, 0, f'{w} model {slot:#x}')
         check(spec, 1, 0x7fffffff, f'{w} model {slot:#x}')
+        for max_points in (4, 0x7fffffff):  # the crater re-read's, and the other callers'
+            check(spec, 4, max_points, f'{w} model {slot:#x}', [0x7fffffff] + [0] * 10)
         stats['shipped'] += 1
+        if every_one and stats['shipped'] % 500 == 0:
+            print(f'{stats["shipped"]} shipped models identical so far', flush=True)
     print(f'pm strip: identical: {stats}')
     sys.stdout.flush()
     os._exit(0)
