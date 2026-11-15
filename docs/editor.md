@@ -544,6 +544,10 @@ AI net's nodes answer in `game_editor_net`), so it is engine code, not AI.
   point through the world from the camera's near plane to its far one, the
   nearest crossing (0x004eece0), or the far end when nothing is crossed,
   kept on the stealth's overlay (the image's +0xbc) for vt+0xf8.
+- **A mech's vt+0xf8** (Pirate's Moon 0x0041dd40, MW3's 0x0041cee0 in PM's layout; S21, `Engine::view_pick`,
+  preserved, unwired): when the mech is the one the player's view is on ([0x0061874c] +0x64), its pilot HUD's
+  (0x00430e30 on its +0x6a8) pick point at +0x1d68, copied into the caller's three floats (that pointer returned)
+  or the HUD's own address; 0 otherwise. `test_pm_view_pick.py` against PM's exe: 600 picks identical, 3 breaks.
 - **Not yet** (at 3b; the record cache came with 4a, below): a moved or
   linked node was not in the save; the frame's pixel-doubled branch (0x0040d4b0: the
   projection on the half window) is not the port's (no doubling).

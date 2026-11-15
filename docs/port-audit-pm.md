@@ -69,7 +69,7 @@ produces; the label names the compared value. Reaching a function, or running a 
 
 | Class | Functions |
 |---|---|
-| folded | 4579 |
+| folded | 4578 |
 | replaced (SDL or the platform layer) | 278 |
 | software renderer | 115 |
 | dev dialog (MFC), its window plumbing: replaced | 60 |
@@ -97,7 +97,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 
 ## By module
 
-### mech3ep1 (3450 not ported)
+### mech3ep1 (3449 not ported)
 
 | Address | Lines | Class | Why |
 |---|---|---|---|
@@ -511,7 +511,6 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x0041dc60 | 8 | folded | read: covered where the port names it (briefing.cpp:513 and 871 PM's loadouts, pilot.h:346 the standalone rows, mech_damage.cpp:225 the headlight, app_hud.cpp:534 the radar's front, mech_config.cpp:951, pilot_games.cpp:635, mech_headlight.cpp:50, mech_waynet.h:70, mission_world.cpp:249, app_vehicle.cpp:623 the stealth controls, zai_brain.cpp:239, zainet_inout.cpp:382, zai_node.cpp:146, zai_walk_pm.cpp:441, zai_drive_pm.cpp:772, zrdraiv.cpp:581, mech_build.cpp:283, app_pocket.cpp:172, zrdraiv.h:66, zai_brain.cpp:1033, pm zeff_anim_events.h:28, zsnd_3d.cpp:27, zsnd_play.cpp:203 and 221) |
 | 0x0041dc70 | 9 | folded | inside its ported callers (0x004225e0, 0x00422780, 0x00422cd0): a small helper their ports do their own way |
 | 0x0041dc80 | 9 | folded | a thunk: one call to another function |
-| 0x0041dd40 | 22 | folded | by the layout-shift rule (tools/analysis/pm_layout_shift.py, docs/port-audit-pm.md method): MW3's 0x0041cee0 with only offsets and sizes of PM's larger structures changed (0x1d48->0x1d68); calls, field counts and every other immediate and float constant as MW3's |
 | 0x0041df80 | 14 | folded | by the slot pairing, read (PM's mech vtable 0x005dfaac runs 0xc past MW3's 0x005bcef8 here): slot +0x158 is MW3's +0x14c 0x0041d190 (mech_update.cpp: a second after the last hit); MW3's t - (-1) written t + 1, the time at +0xe4 for +0xe0 (layout) |
 | 0x0041dfb0 | 8 | folded | ported, by docs/symbols.csv: ported; Mech::speed_at (vt+0x118): max_speed * share |
 | 0x0041dff0 | 8 | folded | returns a constant or a global |
@@ -1461,7 +1460,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x00475270 | 15 | folded | checked by test (block trace, 2026-11-13): test_pm_pilot's read 0x0047b2f0 runs it; the file read and written back compared byte for byte |
 | 0x004752a0 | 10 | folded | a constructor out of line: its base (0x00473240) then 0x00475270 with the argument |
 | 0x004754d0 | 47 | folded | group A, read: the salvage's have-enough check gives the same answer (false as soon as one item is short); MW3 reports each shortage (CONFIG: want %d %s, only have %d) and goes on, PM stops at the first without a report: a developer message only |
-| 0x004755f0 | 19 | folded | covered by the port where it names it (src/mech3/app_hooks.h:980) |
+| 0x004755f0 | 19 | folded | covered by the port where it names it (src/mech3/app_hooks.h:986) |
 | 0x00475630 | 32 | folded | covered by the port where it names it (src/mech3/mech_salvage.cpp:148) |
 | 0x00475700 | 20 | folded | covered by the port where it names it (src/mech3/mech_salvage.cpp:147) |
 | 0x00475750 | 9 | folded | a thunk: one call to another function |
@@ -4369,7 +4368,7 @@ Fixed (checked 2026-11-14): the one row this table had, DamageCalls.zaps_hud (0x
 | 0x00593be0 | 14 | replaced (SDL or the platform layer) | as MW3 0x00572ec0: the CD music volume through the Windows mixer and aux API (sound.md:264: the music output's own volume stands in) |
 | 0x00593c00 | 37 | replaced (SDL or the platform layer) | as MW3 0x00572ee0, whose class PM's changes keep: the CD music volume through the Windows mixer and aux API (sound.md:264: the music output's own volume stands in) |
 | 0x00593cb0 | 35 | folded | folded, by the feature compare and the order-aware compare (the same calls, tests and constants in order) against its MW3 twin, ported; the only immediates that differ are source line numbers passed with the source file's path to a report (the network's and sound's checks, 0x005ac130 and others) |
-| 0x00593d60 | 8 | folded | covered by the port where it names it (src/mech3/app_hooks.h:524) |
+| 0x00593d60 | 8 | folded | covered by the port where it names it (src/mech3/app_hooks.h:530) |
 | 0x00593d80 | 40 | replaced (SDL or the platform layer) | as MW3 0x00573060: the CD music volume through the Windows mixer and aux API (sound.md:264: the music output's own volume stands in) |
 | 0x00593e60 | 18 | replaced (SDL or the platform layer) | as MW3 0x00573140, whose class PM's changes keep: the CD music volume through the Windows mixer and aux API (sound.md:264: the music output's own volume stands in) |
 | 0x00593e90 | 28 | replaced (SDL or the platform layer) | as MW3 0x00573170, whose class PM's changes keep: the CD music volume through the Windows mixer and aux API (sound.md:264: the music output's own volume stands in) |

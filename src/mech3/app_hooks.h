@@ -461,6 +461,12 @@ class Engine : public zgame::AppHooks {
   // has its cockpit refitted (0x0041cdc0). The program keeps its own list.
   virtual void screen_mode_cockpits();
   virtual void cockpit_refit(Handle mech);   // 0x0041cdc0, ported
+  // Pirate's Moon 1.0 @ 0x0041dd40 (MW3's 0x0041cee0 in PM's layout): a mech's vt+0xf8, the view's pick (the
+  // crosshair's ground point, the pilot HUD's +0x1d68; the HUD 0x00430e30 on the mech's +0x6a8) when it is the mech
+  // the view ([0x0061874c] +0x64) is on: copied into `out` (returned) when given, else the HUD's own; 0 for any
+  // other mech or no HUD. Asked only by the AI net editor's commands through the viewed vehicle; the port's editor
+  // answers for the stealth object only. Preserved, unwired.
+  virtual Handle view_pick(Handle mech, Handle out);
   virtual void hud_setup(Handle hud, Handle mech) { unported("0x0043bb80", {hud, mech}); }
   // What the controls screen calls (docs/menus.md, The controls screen): zInput's
   // key and button capture and its command map (the current map's 0x0051d2xx

@@ -358,6 +358,14 @@ void Engine::cockpit_refit(Handle mech) {
   if (hud) hud_setup(hud, mech);
 }
 
+Handle Engine::view_pick(Handle mech, Handle out) {
+  const Handle hud = mech == field32(peek32(0x61874c), 0x64) ? pilot_hud(field32(mech, 0x6a8)) : 0;
+  if (!hud) return 0;
+  if (!out) return hud + 0x1d68;
+  for (uint32_t k = 0; k < 3; ++k) set_field32(out, 4 * k, field32(hud, 0x1d68 + 4 * k));
+  return out;
+}
+
 // Mech3.exe 1.2 @ 0x004ab910: Shift+V, the next mode in the device's range
 // (3 to 5, 5 to 6, 6 to 7, the rest to its lowest; past its highest, the
 // lowest), saved as InGameVMode. FIX (B): with any_resolution 7..15 step on
