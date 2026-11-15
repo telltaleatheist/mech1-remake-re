@@ -1750,3 +1750,24 @@ own):
 and the worlds' 7,351) with 0x80 taken off, the strips it leaves compared bit for bit with the port's (polygon
 order, flags, vertex and normal indices, UVs). The bench that measured the reach faults after the image fetch
 (0x5329e0 stubbed): fixing it is the first step.
+
+**Sitting 1 (2026-11-14): the intake.** The bench's fault was the bench's own, not the exe's: the stripper's
+containers call operator new 0x5ce8c6 / delete 0x5ce8c0 and MSVCP's std::_Lockit (imports 0x5de4f8 / 0x5de4fc),
+which the gamez bench had not stubbed; with them PM's 0x570b70 runs to its end on every model given. Ported
+(`pm/gamez/zmodel/gmod_strip`): the entry's checks, the layer merge 0x572df0 with 0x572b40 / 0x572c20, the edge
+test 0x573bf0 with the strip edges 0x573100 / 0x573170 / 0x5732c0, and the intake into the edge map (key the
+lower point first, 0x574e90; lexical order, 0x575b60) and the point map (0x576340), whose entries' lists take
+0x573f30's (polygon, reversed) and polygon numbers. `test_pm_strip.py` runs 0x572df0 alone and 0x570b70 stopped
+at 0x570ef7, its two trees walked out of its frame: 600 made-up models (141 polygons merged) and a seeded sample
+of the four worlds' type-0 models (every 40th from a random start, plus the three biggest: 195), identical; 10 of
+10 breaks caught. The trees' nil nodes (0x8c1524 / 0x8c152c) are global and made once: a bench that reuses its
+heap clears them each run. Quirks kept:
+- the merge leaves the material refs (+0x5c / +0x60) as they were: a merged polygon's ref still counts it and a
+  moved one's ref points at its old slot (whether a later step rebuilds them is for sitting 3 to say);
+- the edge map lists a polygon each time its points run over the edge, so a polygon that meets an edge twice is
+  listed twice; the point map lists it once a corner (0x573b70 always finds the point), a repeated point twice;
+- a strip is listed only at its first and last edges (a four-point strip also at its diagonals 0-2 and 1-3, which
+  its consecutive points never form unless two points repeat), and its last edge's sense is turned on an even
+  count;
+- no shipped model in the sample has two polygons on one loop, with the images made up at random: the merge
+  changes none of them.
