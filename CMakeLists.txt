@@ -132,6 +132,7 @@ add_library(mw3core STATIC
   src/gamez/zimage/zimg_texture.cpp
   src/gamez/zmath/zmth_matrix.cpp
   src/gamez/zmath/zmth_vector.cpp
+  src/gamez/zmath/zmth_unused.cpp
   src/gamez/zmodel/gmod_bake.cpp
   src/gamez/zmodel/gmod_clip2d.cpp
   src/gamez/zmodel/gmod_clip3d.cpp
@@ -523,6 +524,7 @@ add_library(mw3probe SHARED
   tests/probe_lighting.cpp
   tests/probe_drawtable.cpp
   tests/probe_matrix.cpp
+  tests/probe_zmath_unused.cpp
   tests/probe_screen.cpp
   tests/probe_strips.cpp
   tests/probe_ripple.cpp
@@ -853,6 +855,7 @@ if(MW3_BUILD_PM)
   target_sources(pmprobe PRIVATE tests/probe_sound.cpp tests/probe_pm_sound.cpp)
   target_sources(pmprobe PRIVATE tests/probe_pm_ai.cpp)
   target_sources(pmprobe PRIVATE tests/probe_fmv.cpp)  # test_fmv_run.py with MW3_EXE=pm
+  target_sources(pmprobe PRIVATE tests/probe_zmath_unused.cpp)  # test_zmath_unused.py with MW3_EXE=pm
   target_sources(pmprobe PRIVATE tests/probe_pm_pilot_arrows.cpp)
   # Today's preservation ports run on PM's exe (test_pm_script_cmds.py, test_pm_*): the shared probes
   target_sources(pmprobe PRIVATE tests/probe_script_cmds.cpp tests/probe_pm_script_cmds.cpp)

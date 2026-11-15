@@ -768,9 +768,12 @@ void inverse_transform_points_to(const Vec3* src, Vec3* dst, int32_t count) {
   }
   for (; count > 0; --count, ++src, ++dst) {
     const float* t = g_stack.matrix().m;
-    const float x = src->x - t[9], y = src->y - t[10], z = src->z - t[11];
-    *dst = {(x * t[0] + t[1] * y) + t[2] * z, (t[3] * x + t[5] * z) + t[4] * y,
-            (t[8] * z + t[7] * y) + t[6] * x};
+    using zgeo::X;  // the differences and sums on the x87, each word stored once
+    const X x = X(src->x) - t[9], y = X(src->y) - t[10], z = X(src->z) - t[11];
+    // Pirate's Moon 1.0 @ 0x0053c3c0's order: z's term first in every word (MW3's 0x00522910 starts x and y from x)
+    const Vec3 v = {((z * t[2] + y * t[1]) + x * t[0]).f(), ((z * t[5] + y * t[4]) + x * t[3]).f(),
+                    ((z * t[8] + y * t[7]) + x * t[6]).f()};
+    *dst = v;
   }
 }
 
