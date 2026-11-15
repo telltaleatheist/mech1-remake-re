@@ -1771,3 +1771,25 @@ heap clears them each run. Quirks kept:
   count;
 - no shipped model in the sample has two polygons on one loop, with the images made up at random: the merge
   changes none of them.
+
+**Sitting 2 (2026-11-14): the join.** Ported: the join test 0x573f50 and what it calls, the join's shape 0x56b980
+(it decides and changes nothing), the corner record 0x5735a0, the texture-repeat shifts 0x56b2d0 with the second
+corner's test 0x574560, the colour test 0x56b230, the zone test 0x56b540, the shifts' add 0x574620 and compare
+0x576f70; the byte vector 0x5751f0 and its fill helpers 0x576c50 / 0x576c80 / 0x576f50 are a std::vector<char>.
+`test_pm_strip.py` calls 0x573f50 and 0x56b980 alone on two polygons made to share an edge (a strip's first or last
+edge, a quad strip's diagonal, b's points running it the other way mostly; the shared corners alike up to whole
+texture repeats, or a little off), with the stripper's argument and pass at random, at 53 bits on both sides:
+1,800 of each, identical (189 joins, 1,194 shapes, 1,046 of them strips); 14 of 14 breaks. The growth loop that
+calls them (0x570f30 on) needs the strip output, so it moves to sitting 3 with family C, and with 0x5746e0 /
+0x56d040 (a join onto a strip already made). What the exe does here, kept:
+- two corners match when their normal is the same, every layer's coordinates differ by whole repeats within 0.05
+  (rounded half away from zero, 0x5de818 and _ftol), a clamped layer (image flags & 3) by none, and the colours are
+  within 2.0 a channel (0x5e53a8, a double 2): on the 0..255 colours nearly any two lit alike pass;
+- b's coordinates are moved by the shifts of the corner the join keeps (both corners' when it makes one polygon,
+  which needs the two shifts equal);
+- a strip's last end here is read without 0x573bf0's turn on an even count;
+- the shape's eight strip cases (the shared edge at a's second end and b's first, and so on) are not each other's
+  mirror: which polygon's quad flag and parity each tests differs between pairs; the port keeps the exe's order
+  and tests, case by case;
+- the room a join leaves, [0x8c14f8], is the pass capped by the stripper's argument and by 0x42, less both counts:
+  on pass 0 it is never above 0, so pass 0 makes only plain polygons, never strips.

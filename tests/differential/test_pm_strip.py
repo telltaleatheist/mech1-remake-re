@@ -7,8 +7,10 @@ The layer merge 0x572df0 alone, then the stripper 0x570b70 stopped where its int
 and point maps read out of its frame (MSVC's trees walked in order, each list from its head). Models are made at
 random to meet each rule (the same loops turned, layers past 8, solid and see-through images, strips of 4 and
 more), then a seeded sample of the shipped worlds' type-0 models (every Nth plus the biggest), their materials
-given images at random so that layers merge. The images' load 0x5329e0, malloc / realloc / free and operator new /
-delete stand in on the exe's side; MSVCP's _Lockit does nothing.
+given images at random so that layers merge. Then the join test 0x573f50 and the join's shape 0x56b980 called alone on two
+polygons made to share an edge (strip ends, quad diagonals, corners alike up to whole texture repeats or a little
+off), at 53 bits on both sides. The images' load 0x5329e0, malloc / realloc / free, _ftol and operator new / delete
+stand in on the exe's side; MSVCP's _Lockit does nothing.
 """
 import ctypes
 import os
@@ -18,16 +20,17 @@ import sys
 from pathlib import Path
 
 from unicorn import UC_HOOK_CODE
-from unicorn.x86_const import UC_X86_REG_ESP, UC_X86_REG_EIP, UC_X86_REG_ECX, UC_X86_REG_EDX
+from unicorn.x86_const import UC_X86_REG_ESP, UC_X86_REG_EIP, UC_X86_REG_ECX, UC_X86_REG_EDX, UC_X86_REG_EAX
 
 sys.path.insert(0, str(Path(__file__).parent))
 import test_pm_zar  # noqa: E402
 import original  # noqa: E402
 from original import Original  # noqa: E402
 
-MERGE, STRIP, INTAKE_END = 0x572df0, 0x570b70, 0x570ef7
+MERGE, STRIP, INTAKE_END, TRY_JOIN, JOIN_SHAPE = 0x572df0, 0x570b70, 0x570ef7, 0x573f50, 0x56b980
+MODEL, ARG, PASS, SLACK = 0x8c14fc, 0x8c14f4, 0x8c1500, 0x8c14f8
 LOAD_IMAGES, REALLOC, NEW, DELETE = 0x5329e0, 0x596520, 0x5ce8c6, 0x5ce8c0
-IAT_FREE, IAT_MALLOC, IAT_LOCKIT, IAT_UNLOCKIT = 0x5de65c, 0x5de664, 0x5de4f8, 0x5de4fc
+IAT_FREE, IAT_MALLOC, IAT_LOCKIT, IAT_UNLOCKIT, IAT_FTOL = 0x5de65c, 0x5de664, 0x5de4f8, 0x5de4fc, 0x5de644
 COUNT_ALL, COUNT_TAKEN = 0x8c1504, 0x8c1508
 EDGE_NIL, VERTEX_NIL = 0x8c1524, 0x8c152c
 
@@ -49,6 +52,7 @@ class Emulated:
         cpu.stub_import(IAT_MALLOC, lambda c: self.sized(c.arg(0)))
         cpu.stub_import(IAT_LOCKIT, lambda c: 0)
         cpu.stub_import(IAT_UNLOCKIT, lambda c: 0)
+        cpu.import_code(IAT_FTOL, original.FTOL)  # MSVCRT's _ftol: the x87 top cut toward zero
         self.state = None
         cpu._uc.hook_add(UC_HOOK_CODE, self.intake_end, begin=INTAKE_END, end=INTAKE_END)
         self.heap = cpu.heap_next
@@ -178,13 +182,30 @@ class Emulated:
             out += [self.i32(cols + 4 * k) for k in range(3 * n)]
         return out
 
-    def run(self, spec, mode, max_points):
+    def run(self, spec, mode, max_points, join=None):
         cpu = self.cpu
         cpu.heap_next, self.sizes, self.state = self.heap, {}, None
         cpu.u32(COUNT_ALL, 0), cpu.u32(COUNT_TAKEN, 0)
         for nil in (EDGE_NIL, VERTEX_NIL):  # the trees' shared nil nodes: made again on this run's heap
             cpu.u32(nil, 0), cpu.u32(nil + 4, 0)
         model, mats = self.build(spec)
+        if mode >= 2:
+            use_a, use_b, key, outs = self.sized(8), self.sized(8), self.sized(8), self.sized(16)
+            cpu.write(use_a, struct.pack('<iI', join[0], join[1]))
+            cpu.write(use_b, struct.pack('<iI', join[2], join[3]))
+            cpu.write(key, struct.pack('<ii', join[4], join[5]))
+            cpu.write(outs, struct.pack('<4i', 0x5555, 0x5555, 0x5555, 0x5555))
+            cpu.u32(MODEL, model), cpu.u32(ARG, join[6]), cpu.u32(PASS, join[7]), cpu.u32(SLACK, 0x7777)
+            if mode == 2:
+                cpu.call(TRY_JOIN, ecx=use_a, stack_args=[use_b, key, outs, outs + 4, outs + 8])
+                first, second, strip, end = struct.unpack('<4i', cpu.read(outs, 16))
+            else:
+                cpu.call(JOIN_SHAPE, ecx=use_a, stack_args=[use_b, key, join[8], join[9], join[10], outs + 8, outs + 12])
+                first, second = join[8], join[9]
+                strip, end = struct.unpack('<2i', cpu.read(outs + 8, 8))
+            ok = cpu._uc.reg_read(UC_X86_REG_EAX) & 0xff
+            answer = [ok, first, second, strip, self.i32(SLACK), end if mode == 3 and ok and strip == 1 else 0]
+            return answer + self.dump(model, mats)
         if mode == 0:
             cpu.call(MERGE, stack_args=[model])
             return self.dump(model, mats)
@@ -267,6 +288,84 @@ def random_spec(rng):
     return s
 
 
+def join_spec(rng):
+    """Two polygons a and b on a shared edge (b's points run it the other way, mostly), the rest of the model at
+    random; their corners alike up to whole texture repeats more often than not. Returns the spec and the join."""
+    s = Spec()
+    for _ in range(rng.randint(1, 4)):
+        s.mats.append([0xff, 1 | rng.choice((0, 4)), 1, 1, rng.choice((0,) * 6 + (1, 2, 3))])
+    pool = rng.randint(6, 12)
+
+    def poly(n, strip, verts=None):
+        verts = verts or [rng.randrange(pool) for _ in range(n)]
+        return {'flags': len(verts) | (0x2000 if strip else 0) | 0x1000 | (0x400 if rng.random() < 0.05 else 0) |
+                (0x800 if rng.random() < 0.1 else 0),
+                'prio': rng.choice((0, 0, 0, 1)), 'verts': verts,
+                'norms': [rng.randrange(4) for _ in verts], 'mids': None,
+                'uvs': None, 'cols': [[rng.choice((0.0, 100.0, 255.0)) for _ in range(3)] for _ in verts],
+                'zone': rng.choice((0, 0, 0, 0x01000000))}
+    a = poly(rng.choice((3, 3, 4, 4, 5, 6)), rng.random() < 0.4)
+    na = len(a['verts'])
+    if a['flags'] & 0x2000 and rng.random() < 0.7:  # a strip end: its first, last or (a quad's) a diagonal
+        pairs = [(0, 1), (na - 2, na - 1)] + ([(0, 2), (1, 3)] if na == 4 else [])
+        i, j = rng.choice(pairs)
+    else:
+        i = rng.randrange(na)
+        j = (i + 1) % na
+    x, y = a['verts'][i], a['verts'][j]
+    if x == y:
+        a['verts'][j] = y = (x + 1) % pool
+    nb = rng.choice((3, 3, 4, 4, 5, 6))
+    b_strip = rng.random() < 0.4
+    rest = [rng.randrange(pool) for _ in range(nb - 2)]
+    if b_strip and rng.random() < 0.6:
+        at = rng.choice((0, nb - 2))
+        if nb == 4 and rng.random() < 0.3:  # across b's diagonal
+            vb = rest[:]
+            vb.insert(0, y), vb.insert(2, x)
+        else:
+            vb = rest[:at] + ([y, x] if rng.random() < 0.8 else [x, y]) + rest[at:]
+    else:
+        at = rng.randrange(nb - 1)
+        vb = rest[:at] + ([y, x] if rng.random() < 0.8 else [x, y]) + rest[at:]
+    b = poly(nb, b_strip, vb)
+    if rng.random() < 0.9:
+        b['flags'] = (b['flags'] & ~0xc00) | (a['flags'] & 0xc00)
+        b['prio'], b['zone'] = a['prio'], a['zone']
+    mc = rng.randint(1, len(s.mats))
+    a['mids'] = rng.sample(range(len(s.mats)), mc)
+    b['mids'] = a['mids'][:] if rng.random() < 0.93 else [rng.randrange(len(s.mats)) for _ in range(mc)]
+    a['uvs'] = [[round(rng.uniform(-3, 3), rng.choice((1, 2, 5))) for _ in range(2 * na)] for _ in range(mc)]
+    b['uvs'] = [[round(rng.uniform(-3, 3), 2) for _ in range(2 * nb)] for _ in range(len(b['mids']))]
+    for v in (x, y):  # the shared corners: a's, moved by whole repeats, now and then a little off
+        if rng.random() < 0.85:
+            ka, kb = a['verts'].index(v), b['verts'].index(v)
+            b['norms'][kb] = a['norms'][ka] if rng.random() < 0.95 else 9
+            b['cols'][kb] = [c + rng.choice((0,) * 12 + (1.5, 3)) for c in a['cols'][ka]]
+            for jj in range(mc):
+                for q in range(2):
+                    off = rng.choice((0, 0, 1, -1, 2, -3)) + rng.choice((0,) * 24 + (0.04, 0.06, -0.02, 0.5))
+                    b['uvs'][jj][2 * kb + q] = a['uvs'][jj][2 * ka + q] + off
+    others = [poly(rng.choice((3, 4)), False) for _ in range(rng.randint(0, 3))]
+    for o in others:
+        o['mids'] = [rng.randrange(len(s.mats))]
+        o['uvs'] = [[rng.uniform(-1, 1) for _ in range(2 * len(o['verts']))]]
+    order = [a, b] + others
+    rng.shuffle(order)
+    for q in order:
+        n = len(q['verts'])
+        rec = [q['flags'], q['prio']] + q['verts'] + q['norms'] + [len(q['mids'])] + q['mids'] + [1]
+        for uv in q['uvs']:
+            rec += [bits(f) for f in uv]
+        rec += [bits(c) for col in q['cols'] for c in col] + [0, q['zone']]
+        s.polys.append(rec)
+    ia, ib = order.index(a), order.index(b)
+    key = (min(x, y), max(x, y))
+    ra = rng.choice((0, 1)) if rng.random() < 0.2 else int(y < x)
+    rb = 1 - ra if rng.random() < 0.85 else ra
+    return s, [ia, ra, ib, rb, key[0], key[1], rng.choice((0x7fffffff, 0x7fffffff, 8, 6)), rng.choice((0, 1, 2, 2))]
+
+
 def shipped_specs(rng, every, biggest):
     """A seeded sample of the worlds' type-0 models with polygons as specs, images made up at random."""
     import test_pm_gamez as g
@@ -317,16 +416,19 @@ def spec_of(bench, slot, rng):
 def main():
     p = test_pm_zar.load_pm_probe()
     I = ctypes.POINTER(ctypes.c_int32)
-    p.probe_pm_strip.argtypes = [I, ctypes.c_int, ctypes.c_int, I]
+    p.probe_pm_strip.argtypes = [I, ctypes.c_int, ctypes.c_int, I, I]
+    p.probe_pm_set_fpu53(1)
     emu = Emulated()
+    emu.cpu.fpu_control(0x027f)  # the reference runtime's 53 bits (CLAUDE.md), on both sides
     runs = int(sys.argv[1]) if len(sys.argv) > 1 else 600
     out = (ctypes.c_int32 * (1 << 22))()
-    stats = dict.fromkeys(('runs', 'merged', 'shipped merged', 'taken', 'edges', 'uses', 'points', 'shipped'), 0)
+    stats = dict.fromkeys(('runs', 'merged', 'shipped merged', 'taken', 'edges', 'uses', 'points', 'shipped',
+                           'joins', 'shapes', 'strips'), 0)
 
-    def check(spec, mode, max_points, what):
+    def check(spec, mode, max_points, what, join=(0,) * 11):
         ints = spec.ints()
-        want = emu.run(ints, mode, max_points)
-        k = p.probe_pm_strip((ctypes.c_int32 * len(ints))(*ints), mode, max_points, out)
+        want = emu.run(ints, mode, max_points, join)
+        k = p.probe_pm_strip((ctypes.c_int32 * len(ints))(*ints), mode, max_points, (ctypes.c_int32 * 11)(*join), out)
         got = list(out[:k])
         if want != got:
             at = next((i for i, (a, b) in enumerate(zip(want, got)) if a != b), min(len(want), len(got)))
@@ -334,7 +436,10 @@ def main():
                   f'  exe  {want[max(0, at - 8):at + 12]}\n  port {got[max(0, at - 8):at + 12]}')
             raise SystemExit(1)
         stats['runs'] += 1
-        if mode == 0:
+        if mode >= 2:
+            stats['joins' if mode == 2 else 'shapes'] += want[0]
+            stats['strips'] += want[0] and want[3] == 1
+        elif mode == 0:
             stats['shipped merged' if 'model' in what else 'merged'] += len(spec.polys) - want[0]
         elif emu.state:
             st = emu.state
@@ -351,6 +456,12 @@ def main():
         spec = random_spec(rng)
         check(spec, 0, 0, f'run {run}')
         check(spec, 1, rng.choice((0x7fffffff, 4, 3)), f'run {run}')
+    rng = random.Random(0x573f50)
+    for run in range(runs * 3):
+        spec, join = join_spec(rng)
+        check(spec, 2, 0, f'join {run}', join)
+        shape = join + [rng.choice((join[4], join[5], -1, 7)), rng.choice((join[5], join[4], -1)), rng.choice((0, 1))]
+        check(spec, 3, 0, f'shape {run}', shape)
     rng = random.Random(0x570b70)
     for w, slot, spec in shipped_specs(rng, every=int(os.environ.get('STRIP_EVERY', '40')), biggest=3):
         check(spec, 0, 0, f'{w} model {slot:#x}')
