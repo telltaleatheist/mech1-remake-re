@@ -713,6 +713,19 @@ caret's place, colour and lines (0x00562940 recorded), set_text's cuts.
   missing `break`): drawn, then drawn again on phase 1 (the HUD's damage
   silhouette parts, hud.md section 11).
 
+## The bitmap fonts (ported for preservation, S14)
+
+zImage carries a bitmap font system nothing in the game uses (zimg_fonts.cpp, 0x519df0..0x51a0d0;
+`zimg_fonts.h`): a reader file's FONTS list names up to twenty images (fetched from ..\data\common\fonts),
+each 95 glyphs from '!' to '~' side by side on a key colour ([0x6384e0]). The loader (0x519e50) cuts each image
+into glyphs by columns (0x519fa0: a column is clear when every pixel is the key; a glyph runs from the first
+inked column to the next clear one, the next search starting halfway across the gap; a space is width / 95 - 1)
+and hands the WINDOWS_FONTS list on (0x5175e0). A text's size (0x51a0d0) is its widest line and a line's
+height a line. The 2D layer draws its text through GDI (`ztwod::Host`) instead. Quirks kept: the loader always
+answers false; a name whose image is not found keeps its slot while the next font is cut into the same block.
+Fixed (fixes.md): the scan never ends on a glyph at the right edge, and the slots have no bound past twenty.
+`test_zimg_fonts.py` checks every piece against the exe.
+
 ## 9. What is left
 
 Refreshed 2026-10-28 against the code: each item marked done (where its

@@ -24,6 +24,7 @@ helicopter, steam vent and the smoke from a mech's torn-off arm is one.
 | 0x54b630..0x54b670 | `wind_set_velocity`, `_max_speed`, `_random_accel`, `_random_angvel` | world.zrd `global_wind` |
 | 0x549410 | `puff_tick_reset` | tick node once, the wind zeroed (not its angle and speed) |
 | 0x5490e0 | `puff_tick` | the tick node's callback: wind, puffers, particles |
+| 0x548840 | `wind_step` | the wind's step alone, dt given; nothing calls it (puff_tick has it inline), ported for preservation |
 | 0x54a090 | `puffer_update` | one puffer's emission |
 | 0x5495a0 | `puff_shutdown` | frees all (called from the anim shutdown 0x50b420) |
 | 0x5496c0, 0x5489a0 | `puff_draw`, `particle_draw` | the world render's call after the scene walk |

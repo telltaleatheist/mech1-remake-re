@@ -403,6 +403,16 @@ differ:
 - mech3ax fakes a material count of 4096 when checking polygon indices; the
   exe does no check. In the file indices run 0..441 of 442.
 
+## Writing the materials (ported for preservation, S14)
+
+The library has a writer for its "materials" entry, which nothing calls (mechlib.zbd is only read):
+0x4fc990 adds the entry to the library's archive when it has materials, 0x4fcca0 writes the count and each
+material, and 0x4fc4d0 one material's 0x28 bytes and, when it has a texture, the texture's name. A material
+read and not yet resolved writes the bytes it came from (their texture word cleared by the reader, so no name
+follows); a resolved one's first word is the world material it became, so the exe writes that material's
+record and its texture's name. Ported (`mechlib_write_materials`, `write_materials`, `write_material`) with
+the texture word written as 1 rather than an address (fixes.md); `test_s14_misc.py` against the exe.
+
 ## Discoveries
 
 - `lab.flt` is never loaded: every name the exe builds starts with `mech_`
