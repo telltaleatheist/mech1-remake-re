@@ -5023,4 +5023,8 @@ The screen after the pilot for INSTANT ACTION, 0x00488bc0 (details:
   weapon list names them right, from a table of its own. (From the data and
   Mech3Msg.dll: tools/analysis/msg_name_scan.py. docs/fixes.md)
 - **The game carries a weapons section for saved games that is switched off.** The weapon code can save a count of hits that no one fired ("WeaponData") in a section of its own, but the game turns that section off at start-up before the weapons start, so no saved game has ever held it; Pirate's Moon does the same. (0x00583750, 0x004802b1.)
-
+- **Pirate's Moon changed how a multiplayer mech's aim is sent.** In MechWarrior 3 each machine sends where its
+  mech aims as a turn off straight ahead and a distance, and the others rebuild the point from it, carried on by
+  the lag. Pirate's Moon sends the aimed-at point itself, and the others aim there as it arrives. Its state message
+  also packs the mech's motion state in four bits instead of five, and adds the headlight. (From the exe:
+  0x471210 and 0x4705e0 against MW3's 0x46f160 and 0x46e4d0; docs/pm-tests.md.)

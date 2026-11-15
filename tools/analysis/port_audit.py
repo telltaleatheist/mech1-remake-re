@@ -77,6 +77,35 @@ def body_of(folder, addr):
     return []
 
 
+ATEXIT = {'mw3': 0x005ac140}  # the CRT's atexit registration the static initializers jump to (push dtor; call)
+
+
+def shape_asm(ins):
+    """For a function with no decomp (found by hand or by the sweep): the trivial shapes read off its instructions,
+    else None (unlabelled: a look is due). A body of code is never called empty for want of a decomp."""
+    if not ins:
+        return None
+    i0 = ins[0]
+    if re.match(r'^ret( 0x[0-9a-f]+)?$', i0):
+        return 'folded', 'empty: does nothing (from the disassembly)'
+    if len(ins) >= 2 and i0.startswith('call 0x') and ins[1].startswith('jmp 0x'):
+        return 'folded', ('a static initializer (from the disassembly: the constructor it calls, then its destructor '
+                          'registered with atexit); the port\'s statics construct and destroy themselves')
+    if re.match(r'^jmp 0x[0-9a-f]+$', i0):
+        return 'folded', 'a thunk: one jump to another function (from the disassembly)'
+    if i0 == 'sub ecx, dword ptr [ecx - 0x4]':
+        return 'folded', ('a virtual-base adjustor thunk (this moved by the vtordisp, then the function it jumps to; '
+                          'from the disassembly)')
+    if len(ins) >= 2 and re.match(r'^ret( 0x[0-9a-f]+)?$', ins[1]):
+        if re.match(r'^lea eax, \[ecx \+ 0x[0-9a-f]+\]$', i0):
+            return 'folded', 'a getter of a member\'s address (from the disassembly)'
+        if re.match(r'^(xor al, al|mov al, 0x[0-9a-f]+|xor eax, eax|mov eax, 0x[0-9a-f]+)$', i0):
+            return 'folded', 'returns a constant (from the disassembly)'
+        if re.match(r'^mov dword ptr \[(ecx \+ 0x[0-9a-f]+|0x[0-9a-f]+)\], 0x[0-9a-f]+$', i0):
+            return 'folded', 'sets a member or a global (from the disassembly)'
+    return None
+
+
 def shape(body):
     """A label for the trivial shapes a port folds into its callers, else None."""
     b = [t for t in body if t not in ('return;',)]
@@ -269,7 +298,8 @@ def write_doc(o, g, rows):
            'Every game function of the original (below the C runtime) that has no port of its own, labelled from its decomp,',
            'its callers and callees, the port\'s comments and the docs (tools/analysis/port_audit.py; labels with their',
            'reasons in tools/analysis/port_audit_labels.tsv). Addresses and plain words only. Besides Ghidra\'s functions,',
-           'the ones it never made that were found by hand (message maps, vtables) are counted: tools/analysis/port_audit_extra.tsv.', '',
+           'the ones it never made that were found by hand (message maps, vtables) or by the sweep of every code pointer in the data '
+           '(tools/analysis/sweep_tables.py) are counted: tools/analysis/port_audit_extra.tsv.', '',
            'Classes: **folded** (into its callers or a ported class: getters, setters, constructors, destructors, thunks,',
            'container code, or covered where the port names it); **replaced** (SDL or the platform layer); **PORT (preserve)**',
            '(debug and dev tools, unused code: to be ported for preservation, not called by the game); **MISSING LOGIC**',
@@ -471,9 +501,10 @@ def main():
         for x in json.load(open(A / 'pm-diff' / 'pairs.json')):
             if 'pm' in x and 'mw3' in x:
                 pairs[int(x['pm'], 16)] = x
+    extra_asm = defaultdict(list)  # a hand-listed function's first instructions, for one Ghidra never decompiled
     if extra:
         starts = sorted(every)
-        ins = re.compile(r'^\s*([0-9a-f]+):\s+(?:[0-9a-f]{2} )*\s*([a-z]\S*)')
+        ins = re.compile(r'^\s*([0-9a-f]+):\s+(?:[0-9a-f]{2} )*\s*([a-z]\S*)\s*([^<]*)')
         want = {a: starts[bisect.bisect_right(starts, a)] if bisect.bisect_right(starts, a) < len(starts) else a + 0x100
                 for a in extra}
         lo, hi = min(want), max(want.values())
@@ -487,6 +518,8 @@ def main():
             for a, end in want.items():
                 if a <= v < end:
                     extra[a] += 1
+                    if len(extra_asm[a]) < 12:
+                        extra_asm[a].append(f'{m.group(2)} {m.group(3).strip()}'.strip())
     callers, callees, refs, data_refs = scan_asm(g['asm'], every)
     tables = scan_tables(g['exe'], set(every))
     refs_from = defaultdict(set)
@@ -538,7 +571,8 @@ def main():
             reached=a in reach,
             ported_in=ported.get(a, '') or shared,
             shape=None if status in ('ported', 'changed') else (['folded', 'ported, by docs/symbols.csv: ' + sym[sa][:120]]
-                                             if (o.game == 'mw3' or same) and sym.get(sa, '').lower().startswith('ported') else shape(body_of(g['decomp'], a))),
+                                             if (o.game == 'mw3' or same) and sym.get(sa, '').lower().startswith('ported') else shape(body_of(g['decomp'], a)) if decomp_lines(g['decomp'], a)
+                                             else shape_asm(extra_asm.get(a, []))),
             symbols=sym.get(sa, '') if (o.game == 'mw3' or m is not None) else '',
             near='' if a in ported else near(a),
             mw3=f'0x{m:08x}' if m is not None else '',

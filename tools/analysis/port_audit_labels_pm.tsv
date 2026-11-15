@@ -3934,7 +3934,7 @@
 0x00547740	folded	PM's sphere-against-view cull in other plane orders (pm-map.md, the world class): the base test 0x00546a00 (MW3's 0x00541760, gmod_cull.cpp:91 cull_sphere) swaps the scene walk's pointer [0x00611354] to the variant that tests first the side that last rejected (left 0x00546d50, top 0x005473f0, bottom 0x00547740, right 0x005470a0); each tests the same planes with the same margins, so a sphere is drawn, rejected or kept partial alike and only the rejecting bit named can differ when two planes reject it: an early-out for speed, which the port's single order matches in what is drawn
 0x00598c90	sdl	pm only, part of the Shift+V mode cycle (0x004af210's MISSING row): whether a device supports a screen mode (0..31; 5..10 checked against the device record's mode list at [0x00b0a324] + device x 0xb0c), the DirectDraw mode table; the port asks SDL for its modes
 0x0059d0f0	sdl	PM's Direct3D 6 path (zvid_ddd3d), replaced by the SDL GPU renderer: the fog colour set (render state 0x22, 0x0059d0f0), the transparent polygons queued with their limits ("Not enough MAX_TRANSPARENT_POLYS" and the rest, 0x0059d9d0 and 0x0059e0c0, set as the device's draw pointers [0x008c4be0] / [0x008c4be8]) and the queue's depth sort and flush (0x0059f260); the GPU renderer draws transparency its own way (render.md)
-0x0059d9d0	sdl	PM's Direct3D 6 path (zvid_ddd3d), replaced by the SDL GPU renderer: the fog colour set (render state 0x22, 0x0059d0f0), the transparent polygons queued with their limits ("Not enough MAX_TRANSPARENT_POLYS" and the rest, 0x0059d9d0 and 0x0059e0c0, set as the device's draw pointers [0x008c4be0] / [0x008c4be8]) and the queue's depth sort and flush (0x0059f260); the GPU renderer draws transparency its own way (render.md)
+0x0059d9d0	unused	PM's draw table slot [0x008c4be0] (MW3's unused [0x0072f3b4] 0x0057c2f0, render.md The unused vertex-colour draw): written by 0x0059b1f0, read by nothing; untextured, a colour per vertex, PM's own build of it (S20 sweep)
 0x0059e0c0	sdl	PM's Direct3D 6 path (zvid_ddd3d), replaced by the SDL GPU renderer: the fog colour set (render state 0x22, 0x0059d0f0), the transparent polygons queued with their limits ("Not enough MAX_TRANSPARENT_POLYS" and the rest, 0x0059d9d0 and 0x0059e0c0, set as the device's draw pointers [0x008c4be0] / [0x008c4be8]) and the queue's depth sort and flush (0x0059f260); the GPU renderer draws transparency its own way (render.md)
 0x0059f260	sdl	PM's Direct3D 6 path (zvid_ddd3d), replaced by the SDL GPU renderer: the fog colour set (render state 0x22, 0x0059d0f0), the transparent polygons queued with their limits ("Not enough MAX_TRANSPARENT_POLYS" and the rest, 0x0059d9d0 and 0x0059e0c0, set as the device's draw pointers [0x008c4be0] / [0x008c4be8]) and the queue's depth sort and flush (0x0059f260); the GPU renderer draws transparency its own way (render.md)
 0x0059d3a0	sdl	PM's dump of every Direct3D render state (1..0x40, 0x80..0x87 and the texture stage states, "Render State %d = %d") from 0x0059eef5: a debugging dump of the D3D device, which the rebuild's GPU path replaces (no device states to read)
@@ -3993,3 +3993,73 @@
 0x00485c80	sdl	the frame's WM_KILLFOCUS (message map 0x005e6638), as MW3's 0x00483360: Default, then the input released (0x00534860); the SDL program has no frame window
 0x004862f0	sdl	the frame's WM_MOVE (message map 0x005e6638), as MW3's 0x004841f0: Default only
 0x00486370	sdl	the frame's WM_DEVICECHANGE (message map 0x005e6638), PM's own: on a device's arrival (0x8000, its type 1) and 0x00593d60 > 0, 0x004af9f0(1, 3); the SDL program has no frame window and no disc
+0x00406cf0	folded	a flag (+0x474 = 1), then its base's 0x005c0160 (S20 sweep)
+0x00409b60	devdialog-shell	as MW3's 0x0040be30 (the same instructions; S20 sweep): Camera Properties' OnInitDialog: CDialog's, ShowCursor(1)
+0x00409ba0	devdialog-shell	as MW3's 0x0040be90 (the same instructions; S20 sweep): Camera Properties' WM_CREATE: CDialog's OnCreate
+0x0040f0b0	folded	as MW3's 0x0040e7f0 with PM's vtable slot (+0x08 for +0x04): the game editor's, shared (game_editor.cpp; S20 sweep)
+0x00410de0	folded	as MW3's 0x00410670 (the same instructions; S20 sweep): the deleting call on an object (vt+0x00(1)), covered where zai_steps.cpp names it
+0x0041f3d0	folded	the LOD budget: 0x004b2af0 (covered, app_sensors.cpp), then lod_budget (mech_lod.cpp, cited from 0x0041f3d5 past that call; S20 sweep)
+0x0042a270	folded	a virtual-base destructor (behind its adjustor thunk, found by the S20 sweep): the destructor, the vtables reset, delete when asked; the port's classes destroy themselves
+0x0042a450	folded	a virtual-base destructor (behind its adjustor thunk, found by the S20 sweep): the destructor, the vtables reset, delete when asked; the port's classes destroy themselves
+0x004338c0	devdialog-shell	as MW3's 0x00432de0 (S20 sweep): Select Mech's OnCancel, the selection -1, then CDialog's
+0x00435070	folded	the negation of 0x0040afd0 (1 when it answers 0; S20 sweep)
+0x00454360	folded	as MW3's 0x00453000 (the same instructions; S20 sweep): the mech lab item list's right-button up, forwarded to the row under the mouse, whose +0x34 does nothing
+0x0045ae70	folded	as MW3's 0x0045b980 (the same instructions; S20 sweep): DockStep::begin (ported, symbols.csv)
+0x0045b520	folded	as MW3's 0x0045a740 (the same instructions; S20 sweep's twin search), ported there in shared code
+0x0045c0e0	folded	a global cleared ([0x00629930] = 0; S20 sweep)
+0x00463ad0	folded	as MW3's 0x00462490 with PM's fields (the torso at +0x3ac): shared, ported there (S20 sweep)
+0x00463ba0	folded	as MW3's 0x00462560 with PM's fields (the torso at +0x3ac): shared, ported there (S20 sweep)
+0x00463fc0	folded	as MW3's 0x00462980 (the same instructions; S20 sweep's twin search), ported there in shared code
+0x00464040	folded	as MW3's 0x004629f0 (the same instructions; S20 sweep's twin search), ported there in shared code
+0x004687a0	folded	as MW3's 0x004673f0 (the same instructions; S20 sweep): covered where app_weapons.cpp names it
+0x004687f0	folded	as MW3's 0x00467440 (the same instructions; S20 sweep's twin search), ported there in shared code
+0x004688c0	folded	as MW3's 0x00466c30 with PM's fields (the torso at +0x3ac): shared, ported there (S20 sweep)
+0x00468990	folded	as MW3's 0x004629f0 (the same instructions; S20 sweep's twin search), ported there in shared code
+0x004689b0	folded	as MW3's 0x00462980 (the same instructions; S20 sweep's twin search), ported there in shared code
+0x00468a20	folded	as MW3's 0x00466fc0 (the same instructions; S20 sweep's twin search), ported there in shared code
+0x0046bee0	folded	as MW3's 0x0046a360 with PM's fields: the pocket's frame, PocketControls::update (mech_pocket.cpp; S20 sweep)
+0x0046bfc0	folded	as MW3's 0x0046a440 with PM's fields and the keys' copy: PocketControls::set_owner (mech_pocket.cpp, PM's part cited 0x0046bfc0; S20 sweep)
+0x0046c740	folded	as MW3's 0x0046abb0 with PM's fields and the key map's pop: PocketControls::on_death and leave (mech_pocket.cpp, cited 0x0046c94d; S20 sweep)
+0x0046d130	folded	a virtual-base destructor (behind its adjustor thunk, found by the S20 sweep): the destructor, the vtables reset, delete when asked; the port's classes destroy themselves
+0x00471030	folded	as MW3's 0x00421d40 (the same instructions; S20 sweep's twin search), ported there in shared code
+0x004730f0	folded	a virtual-base destructor (behind its adjustor thunk, found by the S20 sweep): the destructor, the vtables reset, delete when asked; the port's classes destroy themselves
+0x00483f20	folded	a thunk: one call to 0x005999c0 (S20 sweep)
+0x00484f70	sdl	the quit: the game's stop (0x00483020) and 0x005b11e0 on the app [0x0062ca98], then PostQuitMessage(0); the SDL program quits its own way (S20 sweep)
+0x00487de0	folded	two members set (+0x1c4 = 12.0, +0x1bc = 120.0; S20 sweep)
+0x00488230	folded	as MW3's 0x00485640 (the same instructions; S20 sweep's twin search), ported there in shared code
+0x00489850	folded	a thunk: 0x00485440 on the object at [0x0062ca98] (S20 sweep)
+0x00489930	folded	as MW3's 0x0048afd0 (the same instructions; S20 sweep): a pilot screen button, covered where pilot_menu.cpp names it
+0x00489a90	folded	as MW3's 0x0048b140 (the same instructions; S20 sweep): a pilot screen button, covered where pilot_menu.cpp names it
+0x0048c430	folded	a list's right-button up forwarded to the row under the mouse (0x0048c220), whose +0x34 does nothing; as MW3's 0x00453000 (S20 sweep)
+0x0049b650	folded	the PM lobby's frame (vtable 0x005e8bc0): the rules sent, between rounds with no enemies left the match over, the lists and buttons redrawn; ported in mp_lobby.cpp (cited 0x0049b66e) with its callees (S20 sweep)
+0x0049cfc0	folded	as MW3's 0x00499880 with PM's field (+0x68c): the lobby's, shared (mp_lobby; S20 sweep)
+0x004a82e0	folded	a virtual-base destructor (behind its adjustor thunk, found by the S20 sweep): the destructor, the vtables reset, delete when asked; the port's classes destroy themselves
+0x004a8ff0	devdialog-shell	as MW3's 0x00404aa0 (the same instructions; S20 sweep): the teleport dialog's WM_DESTROY: CDialog's, ShowCursor(0)
+0x004a9000	folded	a member set (+0x64 = 1; S20 sweep)
+0x004aab30	folded	as MW3's 0x004a7600 with PM's field (+0x258): the turret's, shared (S20 sweep)
+0x004b1b40	folded	a virtual-base destructor (behind its adjustor thunk, found by the S20 sweep): the destructor, the vtables reset, delete when asked; the port's classes destroy themselves
+0x004b2130	folded	as MW3's 0x004ae850 with PM's fields: the basic controls' frame (preserved, unwired; veh_basic_controls; S20 sweep)
+0x004b22c0	folded	a virtual-base destructor (behind its adjustor thunk, found by the S20 sweep): the destructor, the vtables reset, delete when asked; the port's classes destroy themselves
+0x004beca0	devdialog-shell	an editor dialog's WM_NOTIFY (message map 0x005eb9d8): 0x004be1b0 on its two members, the result 0 (S20 sweep)
+0x004bf2f0	devdialog-shell	as MW3's 0x004b8db0 (the same instructions; S20 sweep): a vehicle editor page's OnInitDialog: CDialog's, then 1
+0x004c6600	devdialog-shell	the AI and editor dialogs' MFC base: an OnInitDialog running the base's 0x004e5950, then 1 (MW3's 0x004bf720; S20 sweep)
+0x004d4d80	folded	a global read as a float (fild; S20 sweep)
+0x004d4d90	folded	a global read as a float (fild; S20 sweep)
+0x004dea10	folded	a virtual-base destructor (behind its adjustor thunk, found by the S20 sweep): the destructor, the vtables reset, delete when asked; the port's classes destroy themselves
+0x004e3780	folded	a member cleared (+0xfc = 0; S20 sweep)
+0x004e8ea0	folded	a virtual-base destructor (behind its adjustor thunk, found by the S20 sweep): the destructor, the vtables reset, delete when asked; the port's classes destroy themselves
+0x004e90e0	folded	a virtual-base destructor (behind its adjustor thunk, found by the S20 sweep): the destructor, the vtables reset, delete when asked; the port's classes destroy themselves
+0x004f7f90	devdialog-shell	an MFC dialog's OK-like handler: two flags (+0x60 1, +0x61 0), then CDialog's (S20 sweep)
+0x004f9410	folded	a virtual-base destructor (behind its adjustor thunk, found by the S20 sweep): the destructor, the vtables reset, delete when asked; the port's classes destroy themselves
+0x004f9620	folded	a virtual-base destructor (behind its adjustor thunk, found by the S20 sweep): the destructor, the vtables reset, delete when asked; the port's classes destroy themselves
+0x005b1390	folded	as MW3's 0x0058fc30 (the same instructions; S20 sweep): the engine's stop (the app's vt+0xb0): the modules' shutdowns, covered where app_hooks.h names each
+0x005b2520	sdl	as MW3's 0x00590b70 (the same instructions; S20 sweep): the MFC frame window's WM_MOVE; the SDL window replaces it
+0x005b2d00	folded	as MW3's 0x005912f0 (the same instructions; S20 sweep): covered where zinterp.cpp names it
+0x005ba890	folded	as MW3's 0x0059a460 (the same instructions; S20 sweep's twin search), ported there in shared code
+0x005bafb0	folded	as MW3's 0x00450810 with PM's calling convention (the arguments on the stack): shared, ported there (S20 sweep)
+0x005c8100	folded	a flag (+0x678 = 1), then its base's 0x005bc840 (S20 sweep)
+0x005c95b0	folded	the message box's answers (as MW3's 0x005a75a0..; Ghidra folded them): the result and the frame count set; covered (twod.h MessageBox::answer_*)
+0x005c95d0	folded	the message box's answers (as MW3's 0x005a75a0..; Ghidra folded them): the result and the frame count set; covered (twod.h MessageBox::answer_*)
+0x005c95f0	folded	the message box's answers (as MW3's 0x005a75a0..; Ghidra folded them): the result and the frame count set; covered (twod.h MessageBox::answer_*)
+0x005c9610	folded	the message box's answers (as MW3's 0x005a75a0..; Ghidra folded them): the result and the frame count set; covered (twod.h MessageBox::answer_*)
+0x005c9630	folded	the message box's answers (as MW3's 0x005a75a0..; Ghidra folded them): the result and the frame count set; covered (twod.h MessageBox::answer_*)

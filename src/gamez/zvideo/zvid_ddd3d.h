@@ -166,6 +166,9 @@ int32_t has_caps(int32_t which);  // 0x00579b70
 // draw_buffers().tl, already projected.
 void draw_flat(uint32_t color, int32_t alpha, int32_t count, int32_t priority, int32_t overlay);  // 0x0057bf80
 void draw_point(const float screen[3], uint32_t color, int32_t alpha);  // 0x0057dba0
+// Unused ([0x0072f3b4]): ECX points (x, y, depth), EDX display-packed colours, one per vertex, both last to first.
+void draw_vertex_colors(const float* xyz, const uint32_t* colors, int32_t alpha, int32_t count, int32_t priority,
+                        int32_t overlay);  // 0x0057c2f0
 void draw_lit(uint32_t color, const float rgb[3], uint32_t flags, int32_t alpha, int32_t count,
               int32_t priority, int32_t overlay);                                       // 0x0057c700
 void draw_quad(const D3DTexture* texture, const TLVertex* verts);  // Pirate's Moon 1.0 @ 0x0059df40

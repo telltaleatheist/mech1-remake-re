@@ -92,6 +92,12 @@ struct BasicControls : VehicleControls {
   // the controls stopped (+0x38 4), an owner with its +4 and a version-105 net (its vt+0x38), the net's number
   // (vt+0x18, its +0x18) as the controls' and the base's init (0x004ac8a0) again. 1, else 0 (nothing changed).
   bool set_net(ai::AiNet* n);
+  // IControls vt+0x70 (0x004ae690 through 0x004aeaf0; Pirate's Moon 0x004b1f70 through 0x004b23d0): on a path
+  // while following a record.
+  bool on_path() override { return state == 2; }
+  // IControls vt+0x64 (0x004ae650 through 0x004aeae0; Pirate's Moon 0x004b1f30 through 0x004b23c0): the record `r`
+  // let go; following it, the controls stop (state 4) and drop it. True when they did.
+  bool let_go(const Net105Record* r);
 
   int32_t net = 0;           // +0xa04  the net's number: the constructor's second argument, then the setup's third
   Net105Record* record = nullptr;  // +0xa08

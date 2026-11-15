@@ -3,6 +3,7 @@
 +0x38 any of 0..5, an owner none, without or with its +4, a net none, a version-105 one (its vt+0x38 says so, its
 vt+0x18 its number) or another; compared, the result, the controls' net number (PM's +0xa1c) after and whether the
 base's init (0x4b0230, MW3's 0x4ac8a0) ran. With no net where the exe would ask it (FIX (A)), the port's 0 alone.
+Then on a path (vt+0x70, 0x4b1f70) and a record let go (vt+0x64, 0x4b1f30), every state, held or not.
 
     cmake --build build --target pmprobe && python3 -P tests/differential/test_pm_basic_set_net.py
 """
@@ -96,6 +97,40 @@ def main():
     if bad or not taken:
         raise SystemExit(1)
     print('ok: the basic controls\' set-net as PM\'s exe')
+    answers(p)
+
+
+def answers(p):
+    """On a path 0x4b1f70 and a record let go 0x4b1f30 (MW3's 0x4ae690, 0x4ae650): +0x38 any of 0..5, a record
+    (PM's +0xa20, 0x54 below the IControls base) held or not, the one held or another let go."""
+    p.probe_basic_answers.argtypes = [ctypes.c_int32] * 3 + [ctypes.POINTER(ctypes.c_int32)]
+    cpu = Original(exe='pm')
+    ctl = cpu.alloc(ICTL + 0x40)
+    this = ctl + ICTL
+    bad = let = 0
+    for state in range(6):
+        for held in (0, 1):
+            for same in (0, 1):
+                cpu.write(ctl, bytes(ICTL + 0x40))
+                cpu.u32(ctl + 0x38, state)
+                rec = 0x7000 if held else 0
+                cpu.u32(this - 0x54, rec)
+                cpu.call(0x4b1f70, ecx=this)
+                path = cpu._uc.reg_read(UC_X86_REG_EAX) & 0xff
+                cpu.call(0x4b1f30, ecx=this, stack_args=(rec if same else 0x7100,))
+                went = cpu._uc.reg_read(UC_X86_REG_EAX)
+                want = [path, 1 if went else 0, struct.unpack('<i', cpu.read(ctl + 0x38, 4))[0],
+                        1 if struct.unpack('<I', cpu.read(this - 0x54, 4))[0] else 0]
+                out = (ctypes.c_int32 * 4)()
+                p.probe_basic_answers(state, held, same, out)
+                let += want[1]
+                if list(out) != want:
+                    bad += 1
+                    print(f'state {state} held {held} same {same}: exe {want} port {list(out)}')
+    if bad or not let:
+        raise SystemExit(1)
+    print('ok: on a path and a record let go as PM\'s exe (24 cases, the record held and let go in '
+          f'{let})')
 
 
 if __name__ == '__main__':

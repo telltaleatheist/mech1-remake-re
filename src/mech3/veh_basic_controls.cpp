@@ -76,6 +76,14 @@ void BasicControls::init() {
   v->xe0 = v;
 }
 
+// Mech3.exe 1.2 @ 0x004ae650, Pirate's Moon 1.0 @ 0x004b1f30
+bool BasicControls::let_go(const Net105Record* r) {
+  if (state != 2 || r != record) return false;
+  state = 4;
+  record = nullptr;
+  return true;
+}
+
 // Mech3.exe 1.2 @ 0x004ae6b0, Pirate's Moon 1.0 @ 0x004b1f90: the net's number kept, the base's setup; with a record, each of its ranges left 0
 // taken from the definition ("activation", "pursuit_range"'s two, "not_pursuit_dwell", "return_range"), the
 // pursuit pair put in order.

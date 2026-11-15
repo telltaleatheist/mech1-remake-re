@@ -12,7 +12,7 @@ exactly after every call: the draws, the TL buffer the draw functions write in
 place, the state caches, the transparent queue and the overlay list (records
 and vertex bytes, stale bytes included), error reports.
 
-Draws: 0x57bf80, 0x57c700, 0x57ce20, 0x57caa0, 0x57d160, 0x57d690 on random work
+Draws: 0x57bf80, 0x57c700, 0x57ce20, 0x57caa0, 0x57d160, 0x57d690, the unused 0x57c2f0 on random work
 records, TL vertices, materials, opacities, priorities, overlay flags, texture
 types, point lights, display formats and cache states, in long sequences with
 the transparent flush 0x57e110 and the overlay flush 0x57e4c0 between them,
@@ -274,6 +274,8 @@ class Emu:
             cpu.u32(0x80270c, a[0] & 0xffffffff)
             cpu.call(0x579af0 if fn == 16 else 0x579b10)
             self.log.append(('depth', s32(struct.unpack('<I', cpu.read(0x80270c, 4))[0])))
+        elif fn == 18:
+            cpu.call(0x57c2f0, ecx=WORK, edx=WORK + 768, stack_args=(a[0], a[1], a[2], a[3]))
         elif fn == 13:
             cpu.call(0x57caa0, ecx=a[0], edx=self.tex(a[1]), stack_args=(a[2], a[3], a[4]))
         elif fn == 12:
@@ -464,7 +466,7 @@ def opacity(rng):
 
 
 def random_call(rng):
-    fn = rng.choices([0, 1, 2, 3, 4, 5, 6, 13], [5, 5, 5, 5, 5, 1, 1, 5])[0]
+    fn = rng.choices([0, 1, 2, 3, 4, 5, 6, 13, 18], [5, 5, 5, 5, 5, 1, 1, 5, 5])[0]
     count = rng.choice([1, 2, 3, 3, 4, 4, 5, 6, 8, rng.randint(1, 64), 64])
     ov = 1 if rng.random() < 0.25 else 0
     alpha = rng.choice([255, 255, 254, 0, 128, rng.randint(0, 255), 256, 300, -1])
@@ -483,6 +485,8 @@ def random_call(rng):
         return fn, [flags, count, tex, opacity(rng), ov]
     if fn == 13:
         return fn, [count, tex, pri, opacity(rng), ov]
+    if fn == 18:
+        return fn, [alpha, count, pri, ov]
     return fn, []
 
 
@@ -525,7 +529,7 @@ def check(what, want, got):
 def test_draws(rng, emu, port, sessions=300, calls=40):
     stats = {'calls': 0, 'draws': 0, 'queued': 0, 'overlay': 0, 'errors': 0, 'flushed': 0}
     names = {0: 'flat', 1: 'lit', 2: 'textured', 3: 'textured lit', 4: 'vertex lit', 5: 'flush',
-             6: 'overlay flush', 13: 'textured white'}
+             6: 'overlay flush', 13: 'textured white', 18: 'vertex colours'}
     for s in range(sessions):
         textures = [(0x1000 + i, rng.choice([1, 4, 5]), rng.choice([1, 3]), rng.choice([1, 3])) for i in range(16)]
         emu.setup(textures)
@@ -550,6 +554,10 @@ def test_draws(rng, emu, port, sessions=300, calls=40):
                 emu.fmt = fmt
             mode = 'plain' if rng.random() < 0.2 else 'lit'
             tl, work = random_tl(rng), random_work(rng, mode)
+            if fn == 18:  # 0x57c2f0's points (x, y, depth) and packed colours
+                work = b''.join(struct.pack('<3f', rng.uniform(-10, 650), rng.uniform(-10, 490), rng.random())
+                                for _ in range(64)) + struct.pack('<64I', *(rng.getrandbits(rng.choice([16, 32]))
+                                                                            for _ in range(64))) + bytes(1024)
             rgb = [rfloat(rng, COLOR) for _ in range(3)]
             c0 = emu.counts()
             want, want_tl = emu.call(fn, a, tl, work, rgb)
