@@ -130,6 +130,7 @@ add_library(mw3core STATIC
   src/gamez/zinterp/zinterp_parse.cpp
   src/gamez/zinterp/zinterp_console.cpp
   src/gamez/zimage/zimg_texture.cpp
+  src/gamez/zimage/zimg_fonts.cpp
   src/gamez/zmath/zmth_matrix.cpp
   src/gamez/zmath/zmth_vector.cpp
   src/gamez/zmath/zmth_unused.cpp
@@ -525,6 +526,8 @@ add_library(mw3probe SHARED
   tests/probe_drawtable.cpp
   tests/probe_matrix.cpp
   tests/probe_zmath_unused.cpp
+  tests/probe_zimg_fonts.cpp
+  tests/probe_s14_misc.cpp
   tests/probe_screen.cpp
   tests/probe_strips.cpp
   tests/probe_ripple.cpp
@@ -681,6 +684,7 @@ add_executable(mw3tests
   tests/test_znet.cpp
   tests/test_cue.cpp
   tests/test_mipmaps.cpp
+  tests/test_zimg_fonts.cpp
   tests/test_mech.cpp
   tests/test_mech_reader.cpp
   tests/test_msvc_rand.cpp
@@ -856,6 +860,7 @@ if(MW3_BUILD_PM)
   target_sources(pmprobe PRIVATE tests/probe_pm_ai.cpp)
   target_sources(pmprobe PRIVATE tests/probe_fmv.cpp)  # test_fmv_run.py with MW3_EXE=pm
   target_sources(pmprobe PRIVATE tests/probe_zmath_unused.cpp)  # test_zmath_unused.py with MW3_EXE=pm
+  target_sources(pmprobe PRIVATE tests/probe_zimg_fonts.cpp tests/probe_s14_misc.cpp)  # S14's tests with MW3_EXE=pm
   target_sources(pmprobe PRIVATE tests/probe_pm_pilot_arrows.cpp)
   # Today's preservation ports run on PM's exe (test_pm_script_cmds.py, test_pm_*): the shared probes
   target_sources(pmprobe PRIVATE tests/probe_script_cmds.cpp tests/probe_pm_script_cmds.cpp)

@@ -111,6 +111,16 @@ int model_add_polygon(Model* m, int32_t n, const PolygonAdd& a);
 // material's polygons one ref each, first; then one ref per other material,
 // in the order first used. One ref keeps the polygons as they are.
 void sort_by_material(Model& m);
+// Pirate's Moon 1.0 @ 0x0055bcf0 (the script command CreateUniqueMaterials' model; no shipped script uses it):
+// every polygon's materials replaced by copies (0x00557290), one copy a material shared within the model, or one
+// a slot with `per_polygon`; then the polygons sorted by material (0x0055c470). The calls out for the tests (null:
+// material_copy, sort_by_material).
+struct UniqueMaterialsHooks {
+  ::zmod::Material* (*copy)(::zmod::Material* m) = nullptr;
+  void (*sort)(Model& m) = nullptr;
+};
+UniqueMaterialsHooks& unique_materials_hooks();
+void unique_materials(Model& m, int32_t per_polygon);
 // Pirate's Moon 1.0 @ 0x005726f0: a type-0 model's strips (0x2000) made triangles in place, as the crater's clip
 // (0x00528920, 0x005290b0) asks before it reads the polygons. A strip keeps its first triangle with its first
 // material; each other triangle that is not degenerate (by index), with each material, is appended as a polygon of

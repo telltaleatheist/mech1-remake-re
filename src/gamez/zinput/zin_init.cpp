@@ -16,6 +16,9 @@ Host* g_host = &g_default_host;
 
 State& state() { return g_state; }
 
+// Mech3.exe 1.2 @ 0x0051af90, Pirate's Moon 1.0 @ 0x005347b0
+void saved_maps_free() { g_state.stack.clear(); }
+
 void reset_state() {
   g_state.~State();
   new (&g_state) State();

@@ -1483,4 +1483,11 @@ int camera_walk_zone(uint32_t* out) {
   return 0;
 }
 
+int32_t& camera_unread_word() {
+  static int32_t word = 0;  // 0x005ea53c
+  return word;
+}
+// Mech3.exe 1.2 @ 0x004f3540, Pirate's Moon 1.0 @ 0x00506960
+void camera_set_unread_word(int32_t v) { camera_unread_word() = v; }
+
 }  // namespace zcls

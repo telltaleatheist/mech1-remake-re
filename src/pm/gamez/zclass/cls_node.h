@@ -36,6 +36,10 @@ int node_set_override_diffuse_value(::zcls::Node* node, uint32_t value);
 // LoD's three fade values (PM's +0x34..+0x3c, the shared Lod's pm_tail) from its ranges (+8, +0x10..+0x18), switches
 // (+0x1c..+0x24, above 0.01) and floors (+0x28..+0x30); with PM's +0x50 set, the first for all three.
 void lod_fades(::zcls::Lod& lod);
+// Pirate's Moon 1.0 @ 0x0050cc10: the script command CreateUniqueMaterials (no shipped script uses it, and the
+// port's interpreter does not know it; ported for preservation): the node's model's materials made its own
+// (pm::zmod::unique_materials), and its children's too when `recursive`. 1 for no node, else 0.
+int create_unique_materials(::zcls::Node* node, int32_t recursive, int32_t per_polygon);
 int node_set_colors(::zcls::Node* node, int children, int32_t first, int32_t last, const float* colors, int32_t count);
 
 }  // namespace pm::zcls

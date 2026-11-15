@@ -1297,4 +1297,37 @@ void model_set_colors(Model* m, int32_t first, int32_t last, const float* colors
   }
 }
 
+UniqueMaterialsHooks& unique_materials_hooks() {
+  static UniqueMaterialsHooks hooks;
+  return hooks;
+}
+
+// Pirate's Moon 1.0 @ 0x0055bcf0. A material met again takes its first copy (unless per_polygon); one whose copy
+// came back null is copied again. FIX (A): a null material copies to null (the exe's 0x00557290 writes through it).
+void unique_materials(Model& m, int32_t per_polygon) {
+  const UniqueMaterialsHooks& h = unique_materials_hooks();
+  std::vector<std::pair<::zmod::Material*, ::zmod::Material*>> made;
+  const int32_t polys = m.count(0x10);
+  for (int32_t i = 0; i < polys; ++i) {
+    Polygon& q = m.polygons[i];
+    for (int32_t j = 0; j < q.material_count; ++j) {
+      ::zmod::Material* mat = q.materials[j];
+      ::zmod::Material* copy = nullptr;
+      if (!per_polygon)
+        for (const auto& p : made)
+          if (p.first == mat) {
+            copy = p.second;
+            break;
+          }
+      if (!copy) {
+        copy = h.copy ? h.copy(mat) : mat ? ::zmod::material_copy(*mat) : nullptr;  // 0x00557290
+        made.emplace_back(mat, copy);
+      }
+      q.materials[j] = copy;
+    }
+  }
+  if (h.sort) h.sort(m);
+  else sort_by_material(m);  // 0x0055c470
+}
+
 }  // namespace pm::zmod

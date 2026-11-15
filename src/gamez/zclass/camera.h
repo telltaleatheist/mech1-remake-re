@@ -14,6 +14,10 @@ struct Camera;
 
 Node* camera_create();                                             // 0x004f32e0
 int camera_set_world(Node* node, Node* world);                     // 0x004f3560  data +0
+// [0x005ea53c], which nothing reads (0 at load); its setter 0x004f3540 the lab view calls with HWCardFlag (the
+// engine's camera_set_5ea53c hook, left unwired: no effect). Ported for preservation.
+int32_t& camera_unread_word();
+void camera_set_unread_word(int32_t v);                            // 0x004f3540
 // The camera's zone list (+0x1e4) from `zone` (count, then up to three ids),
 // +0x1e0 set: only when it has a count and no 0xff ("all"); else as it was.
 int camera_set_zone(Node* node, const uint8_t zone[4]);            // 0x004f6c80
