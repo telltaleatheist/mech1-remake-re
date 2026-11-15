@@ -234,11 +234,11 @@ void translate(float x, float y, float z) {
   float* t = g_stack.matrix().m;
   if (g_stack.is_identity()) {
     t[9] = x, t[10] = y, t[11] = z;
-  } else {  // the x87 code's order, its sums kept: x's term last in t[9], first in t[10] and t[11]
+  } else {  // Pirate's Moon 1.0 @ 0x00539f80's order (not MW3's: x87.py by hand, the pointer steps), its sums kept
     using zgeo::X;
-    const float t9 = (((X(y) * t[3] + X(z) * t[6]) + X(x) * t[0]) + t[9]).f();
-    const float t10 = (((X(z) * t[7] + X(x) * t[1]) + X(y) * t[4]) + t[10]).f();
-    const float t11 = (((X(z) * t[8] + X(x) * t[2]) + X(y) * t[5]) + t[11]).f();
+    const float t9 = (((X(x) * t[0] + X(z) * t[6]) + X(y) * t[3]) + t[9]).f();
+    const float t10 = (((X(x) * t[1] + X(z) * t[7]) + X(y) * t[4]) + t[10]).f();
+    const float t11 = (((X(y) * t[5] + X(x) * t[2]) + X(z) * t[8]) + t[11]).f();
     t[9] = t9, t[10] = t10, t[11] = t11;
   }
   g_stack.is_identity() = 0;

@@ -1694,3 +1694,20 @@ identical (fog_sphere stood in by x86 that keeps its arguments and loads the ans
 the exe's second pop after a set-up that said 0 counted as the port's FIX (bug); 6 of 6 breaks. Not AI code.
 test_pm_submit.py fails on origin/pm as it was (c3 draw 301, a lit vertex's x 10.7 apart), with or without
 begin_model's change: reported to the lead.
+
+## test_pm_submit at 53 bits after zmath's 53-bit sums (2026-11-14)
+
+test_pm_submit failed on c3 from the merge of main's matrix53 (79ce2b90): a vertex just behind the near plane
+off by 2.3e-4. The cause was the test: the exe's model view 0x5395f0 is stubbed with ours
+(`probe_pm_model_view`, test_pm_modeldraw's stub), and it ran under whatever precision the probe was left at,
+which `probe_pm_lights` sets to 24 bits (the clouds' index) just before each draw; ours then ran at the world's
+53. While zmath summed in floats either way the two matrices agreed; with its sums kept as doubles at 53 they
+did not. The test now sets the world's precision before the exe's draw, as test_pm_projected already did.
+Checked against PM's own 0x5395f0 at 53 bits: 3,000 random matrices bit for bit with zmath's doubles (6 with
+float steps).
+
+Two PM-only changes found on the way. PM's translate 0x539f80 sums t9 and t11 in its own order, not MW3's
+0x520480 (t9 x, z, y; t11 y, x, z): `test_pm_translate.py`, 6,000 cases at each precision against the exe
+(at 24 bits MW3's order matches 98 of 20,000). And the draw's point transform (0x53c280's, `transform_point`
+in pm gmod_draw.cpp) keeps each word's sums on the x87 as zmath's transform_points does: test_pm_submit's
+bit-identical floats from 1,089,228 to 1,125,524 of 1,166,638.
