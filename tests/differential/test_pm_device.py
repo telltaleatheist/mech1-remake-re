@@ -4,7 +4,7 @@
     .venv/bin/python -P tests/differential/test_pm_device.py [steps]
 
 The exe's 0x59d450, 0x59de30, 0x59e500, 0x59e830, 0x59eb60, 0x5a0060, 0x5a0390, 0x5a0f30,
-0x5a0ea0 and its flushes 0x59f550, 0x59f9e0 run in Unicorn against a Direct3D stub that keeps
+0x5a0ea0, the unused 0x59d9d0 (each followed by both flushes) and its flushes 0x59f550, 0x59f9e0 run in Unicorn against a Direct3D stub that keeps
 the state its calls leave. Every draw is compared in order: primitive, that state, the vertex
 bytes; every fog colour sent. A strip the exe draws with CULLMODE CW is compared as the
 triangles the cull keeps, as the port hands them over. A light map's draw is the exe's two-stage
@@ -30,8 +30,10 @@ QUEUE, POOL, OVER, Q_N, Q_V, O_N = 0xb0da78, 0xb0da7c, 0xb0da80, 0xb06fc8, 0xb06
 FOG, MASKS, SHIFTS, CULL, FOG_SEND = 0x8c4c28, 0xb06190, 0xb0619c, 0x59b870, 0x59d0f0
 FLAT, LIT, TEXTURED, TEX_LIT, TEX_VERTEX, PROJECTED, SETS, INDEXED_T, INDEXED_F = 0x59d450, 0x59de30, 0x59e500, 0x59e830, 0x59eb60, 0x5a0060, 0x5a0390, 0x5a0f30, 0x5a0ea0
 FLUSH_T, FLUSH_O = 0x59f550, 0x59f9e0
+VCOL = 0x59d9d0  # the unused vertex-colour draw (cdecl: points, colours, alpha, count, overlay)
 # The port's DeviceCall kinds, in order.
 K_FLAT, K_LIT, K_TEX, K_TEX_LIT, K_TEX_V, K_SETS, K_IDX_T, K_IDX_F, K_PROJ = range(9)
+K_VCOL = 9  # the port's pm::zvid::vertex_colors (no DeviceCall kind: nothing reads its slot)
 FIELDS = ('texture', 'u', 'v', 'blend', 'multiply', 'additive', 'depth_write', 'depth_always', 'alpha_modulate', 'fog', 'flat', 'select')
 FORMAT = (8, 3, 3, 0xf800, 0x7e0, 0x1f)  # 565: shifts, masks
 
@@ -252,6 +254,34 @@ def winding_agrees(rng):
             raise SystemExit(f'the cull and the facing test disagree on {p}: cross {cross}, d {d}')
 
 
+def vertex_colors(rng, emu, p, out, cap, words, step, seen):
+    """0x59d9d0 against pm::zvid::vertex_colors: points and colours of its own (not the TL buffer), the alpha
+    over and under full, the overlay or not, a fan or a strip as the device's primitive."""
+    cpu = emu.cpu
+    count = rng.randint(1, 12)
+    alpha = rng.choice((255, 255, 254, 128, 0, rng.randrange(256), 300))
+    overlay = int(rng.random() < 0.25)
+    prim = rng.choice((6, 5, 4))
+    pts = [v for _ in range(count) for v in (rng.uniform(-10, 650), rng.uniform(-10, 490), rng.uniform(0.001, 1))]
+    cols = [rng.getrandbits(rng.choice((16, 32))) for _ in range(count)]
+    raw_p, raw_c = fbits(*pts), struct.pack(f'<{count}I', *cols)
+    a_p, a_c = cpu.alloc(len(raw_p)), cpu.alloc(len(raw_c))
+    cpu.write(a_p, raw_p), cpu.write(a_c, raw_c)
+    cpu.u32(PRIMITIVE, prim)
+    cpu.call(VCOL, stack_args=(a_p, a_c, alpha, count, overlay))
+    cpu.u32(PRIMITIVE, 6)
+    want = emu.take()
+    n = p.probe_pm_vertex_colors(ctypes.create_string_buffer(raw_p), ctypes.create_string_buffer(raw_c), alpha, count,
+                                 overlay, prim, out, cap)
+    compare(want, parse(words(n)), f'step {step} vertex colours count {count} alpha {alpha} overlay {overlay} prim {prim}')
+    for which, fn in ((0, FLUSH_T), (1, FLUSH_O)):  # what it queued or listed, drawn
+        emu.cpu.call(fn)
+        want = emu.take()
+        compare(want, parse(words(p.probe_pm_device_flush(which, out, cap))), f'step {step} vertex colours flush {which}')
+        seen[f'vertex colours flush {which}'] = seen.get(f'vertex colours flush {which}', 0) + sum(x[0] == 'draw' for x in want)
+    seen[K_VCOL] = seen.get(K_VCOL, 0) + 1
+
+
 def main():
     steps = int(sys.argv[1]) if len(sys.argv) > 1 else 4000
     p = test_pm_zar.load_pm_probe()
@@ -260,6 +290,7 @@ def main():
     p.probe_pm_set_fpu53.argtypes = [I]
     p.probe_pm_set_fpu53.restype = None
     p.probe_pm_device_flush.argtypes = [I, V, I]
+    p.probe_pm_vertex_colors.argtypes = [V, V, I, I, I, I, V, I]
     rng = random.Random(0x59e500)
     winding_agrees(rng)
     emu = Emu()
@@ -292,7 +323,10 @@ def main():
             p.probe_pm_device_fog((F * 3)(*fog))
             n = p.probe_pm_device_flush(2, out, cap)
             compare(emu.take(), parse(words(n)), f'step {step} fog')
-        kind = rng.choice((K_FLAT, K_LIT, K_TEX, K_TEX_LIT, K_TEX_V, K_SETS, K_IDX_T, K_IDX_F, K_PROJ))
+        kind = rng.choice((K_FLAT, K_LIT, K_TEX, K_TEX_LIT, K_TEX_V, K_SETS, K_IDX_T, K_IDX_F, K_PROJ, K_VCOL))
+        if kind == K_VCOL:
+            vertex_colors(rng, emu, p, out, cap, words, step, seen)
+            continue
         fade = rng.choice((1.0, 1.0, 1.0, 0.5, 0.25))
         overlay = int(rng.random() < 0.15)
         strip = kind not in (K_IDX_T, K_IDX_F, K_PROJ) and rng.random() < 0.2
