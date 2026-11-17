@@ -84,3 +84,22 @@ Tick an item when it is merged into `main`.
   - NEXT/OK and a choice's captions as MW1 buttons: our chrome, not PM's ring button in the corner.
   - This was phase 5. It moves up, because every campaign opens on it.
 
+## 11. [ ] The hub's tiles where MW1 puts them
+- **Owen (2026-11-17):** "I don't think the menu items are in the right spot. I think the bar was on the right side, the second menu option ... the contract spot is in the bottom left I think? I want to arrange everything correctly."
+- **MW1's own tables** (MW_MAIN.EXE DS:1083, 10D7 and 1101, decoded from Owen's copy; the port's MW_MAIN_081B_PLANET.c draws them). Two columns of three:
+
+  | | Left | Right |
+  |---|---|---|
+  | Top | COMPANY (the company menu, 247A) | STARPORT (travel, 5620) |
+  | Middle | MECH COMPLEX (2DA6) | BAR (692E) |
+  | Bottom | HOUSE OFFICE (contracts, 4AA2): the House's crest; empty on a world with no office | OPTIONS (6CFA) |
+
+  - **With a contract accepted,** MW1 draws only the left column: COMPANY, MECH COMPLEX, and DEPLOY (1B55, the launch) where the office was. The right column goes: no travel, Bar or options until the contract is fought.
+- **Ours today:** Mech Complex / Bar / Starport on the left, House Office / Options on the right, no Company tile, and a MAIN MENU button.
+- **Wanted:**
+  - MW1's arrangement exactly, including the contract-accepted hub.
+  - A COMPANY tile (`icon_company`) opening MW1's company screen. That is where MW1 keeps the crew grid (CREW_MENU), so YOUR LANCE moves there from the Bar, and the Bar goes back to MW1's ORDER DRINK / NEWS / RECRUIT CREW / LEAVE.
+  - The House office tile shows the world's House crest (`icon_house_<house>`).
+  - DEPLOY gets a tile of its own (a dropship launch: art to come; until then `deploy_launch` cropped).
+  - MAIN MENU moves inside OPTIONS (MW1's options hold save, load and quit).
+
