@@ -147,6 +147,8 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
     o << "pending_outcome=" << (p.outcome == Outcome::kSuccess ? 0 : p.outcome == Outcome::kFailure ? 1 : 2) << "\n";
     o << "pending_wrecks=";
     for (size_t i = 0; i < p.wrecks.size(); ++i) o << (i ? "," : "") << p.wrecks[i].kind << ":" << p.wrecks[i].condition;
+    o << "\npending_lance=";
+    for (size_t i = 0; i < p.lance.size(); ++i) o << (i ? "," : "") << p.lance[i].id << ":" << (p.lance[i].destroyed ? 1 : 0);
     o << "\npending_salvage=" << (p.salvage ? hex(bytes_of([&](std::FILE* f) { p.salvage->save(f); })) : std::string()) << "\n";
     o << "pending_launch_stores="
       << (p.launch_stores ? hex(bytes_of([&](std::FILE* f) { p.launch_stores->save(f); })) : std::string()) << "\n";
@@ -368,6 +370,18 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
           !to_int(w.substr(colon + 1), 0, 100, &cond))
         return fail("the pending mission's wrecks don't read");
       p.wrecks.push_back(Wreck{static_cast<int32_t>(kind), static_cast<int32_t>(cond)});
+    }
+    if (v4) {
+      if (!v.count("pending_lance")) return fail("the pending mission's lance is missing");
+      std::istringstream fs(v["pending_lance"]);
+      std::string f;
+      while (std::getline(fs, f, ',')) {
+        const size_t colon = f.find(':');
+        int64_t id = 0, gone = 0;
+        if (colon == std::string::npos || !to_int(f.substr(0, colon), 1, kPilotIds - 1, &id) || !to_int(f.substr(colon + 1), 0, 1, &gone))
+          return fail("the pending mission's lance doesn't read");
+        p.lance.push_back({static_cast<int32_t>(id), gone != 0});
+      }
     }
     if (!store_line("pending_salvage", true, &p.salvage) || !store_line("pending_launch_stores", false, &p.launch_stores) ||
         !loadout_line("pending_launch_loadout", &p.launch_loadout, c.mech))

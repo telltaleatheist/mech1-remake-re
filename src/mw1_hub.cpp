@@ -27,9 +27,8 @@ void HubState::show(const HubView& v) {
   s.buttons[kHubAccept - 1].there = s.buttons[kHubDecline - 1].there = !v.after_action && v.offer;
   s.buttons[kHubOk - 1].there = v.after_action;
   s.buttons[kHubReplay - 1].there = v.after_action && v.replay;
-  // The market and travel only between missions (not while AFTER ACTION waits); the Bar comes later.
-  s.buttons[kHubMarket - 1].on = s.buttons[kHubTravel - 1].on = !v.after_action;
-  s.buttons[kHubBar - 1].on = false;
+  // The market, the Bar and travel only between missions (not while AFTER ACTION waits).
+  s.buttons[kHubMarket - 1].on = s.buttons[kHubTravel - 1].on = s.buttons[kHubBar - 1].on = !v.after_action;
   Mw1State::show(s);
 }
 

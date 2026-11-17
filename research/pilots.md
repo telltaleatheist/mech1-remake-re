@@ -68,3 +68,50 @@ From mw3-re's `external/mw3-re/docs/ai.md`, `editor.md`, `campaign.md`:
 
 So a hired pilot's name and Gunnery can be set on the lancemate's AiParams at
 mission start, without touching how the AI drives.
+
+## As built (2026-11-17), and the provisional answers
+
+`src/mw1_pilots.h` holds the rules, each number at its DS offset;
+`src/mw1_bar_screen.h` holds the Bar; and the engine's
+`ProgramFlow::ally_launching` (ours, mw3-re `docs/objectives.md`) names and
+aims the lancemates in a mission. Below are the mw1 lead's provisional
+answers for Owen (2026-11-17). Each is one constant or one function, so each
+is a one-line change:
+
+| Question | Provisional answer | Where to change it |
+|---|---|---|
+| Q1. Is a pilot killed when their mech is destroyed? | Yes, always, on a counted mission (won, or failed and accepted; never on a retreat or a replayed failure). | `pilot_killed()`: one rule; an "ejected, back to the pool" chance goes there. |
+| Q2. Is the lancemate's destroyed mech lost? | Yes (VISION). The commander's never is. | `after_mission()` |
+| Q3. How are hangar mechs refitted? | PILOT the mech in the market, fit it in the briefing's lab and fly the mission, then PILOT yours back. The lancemate flies the mech left in that hangar slot meanwhile. The Bar's help line says so. | the Bar's `terms` |
+| Q4. Portraits? | None. MW1's EGA portraits aren't used. | `mw1bar.zrd` |
+| Q5. Pitches? | Read at run time from the player's `MW_MAIN.EXE` (`--mw1-game`); never in the repo. With no install there's no pitch, and the Bar still works. | `pitch()` |
+| Q6. Gunnery's aim? | The map record's aim error (`+0xb8`) × Poor 2.0, Average 1.4, Good 1.0, Excellent 0.6. | `kAimErrorFactor` |
+
+MW1's own rules, as kept:
+
+- **Hiring** is free. With a full lance HIRE is refused, and the offer is
+  used up anyway.
+- **Wages** (DS:2476) are charged as months begin. The first shortfall in a
+  single month is a warning and nothing is paid. The next shortfall, or two
+  months short at once, sends the whole lance back to the pool. A paid month
+  doesn't clear the warning.
+- **Promotion** comes after 3, 10 and 15 counted missions. Piloting is set
+  to the new Gunnery, and the wage stays as it was contracted.
+- **The lance weight** in the enemy budget counts the commander's mech and
+  every assigned lancemate's. With the same seed, the commander alone (an
+  Owens, weight 1) is offered budget 10, a Jenner, 150k. A lance of four
+  (with a Firefly, a Centurion and an Awesome, weight 7) is offered budget
+  70: a BattleMaster, a Warhammer and a Shadow Hawk, 900k.
+
+Our own choices:
+
+- **ASSIGN** gives the chosen lancemate the next free hangar mech after
+  theirs; after the last mech, none.
+- **The offer** is drawn again when a change at the Bar changes the lance
+  weight. DECLINE already gives a new offer, so this adds no new reroll.
+- **The Bar refreshes** with the market (on arrival, every 14 units, on a
+  mission's return), and once when a save from before version 4 is loaded.
+- **In a mission,** a lancemate is one of Instant Action's allies. The map's
+  ally record picks the AI behaviour, so a map with no ally record of a
+  fitting weight class flies without them. The radio voice stays the
+  record's.

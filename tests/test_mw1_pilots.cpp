@@ -70,7 +70,7 @@ TEST(mw1_pilots_records_and_wages_are_mw_main_exes) {
   mw1::set_mw1_game_dir("/nonexistent");
   EXPECT(mw1::pitch(1).empty());
   mw1::set_mw1_game_dir("");
-  EXPECT(mw1::pilot_title(id_named("J. HOLMAAS")) == "J. Holmaas" && mw1::pilot_title(1) == "Elli Gujar");
+  EXPECT(mw1::pilot_title(id_named("J. HOLMAAS")) == "J. Holmaas" && mw1::pilot_title(1) == "Elli Gujar" && mw1::pilot_title(3) == "Taris Ren");
 }
 
 TEST(mw1_pilots_recruits_by_tier_reputation_and_portraits) {

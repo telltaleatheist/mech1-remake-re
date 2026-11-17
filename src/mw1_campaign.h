@@ -196,9 +196,15 @@ struct Wreck {
 };
 // A mission back and not settled yet: what the hub's AFTER ACTION shows until OK settles it (or REPLAY plays the
 // contract again). Saved whole (mw1_save.h), so a restart shows it again: never settled twice, never lost.
+// A lancemate's mission (mw1_pilots.h): who flew, and whether their mech was destroyed.
+struct LanceFate {
+  int32_t id = 0;
+  bool destroyed = false;
+};
 struct AfterAction {
   Outcome outcome = Outcome::kSuccess;
   std::vector<Wreck> wrecks;
+  std::vector<LanceFate> lance;  // the lancemates who launched
   std::shared_ptr<mech3::Store> salvage;         // the mission's parts, the stores' on a win
   std::shared_ptr<mech3::Store> launch_stores;   // the company's stores at the contract's first launch (REPLAY)
   std::shared_ptr<mech3::Config> launch_loadout;  // and its loadout (null: stock)

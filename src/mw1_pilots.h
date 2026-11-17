@@ -26,7 +26,7 @@ inline constexpr int32_t kPilotCount = 42;
 extern const PilotRecord kPilotRecords[kPilotCount];  // ids 1..42 at [id - 1]
 const PilotRecord* pilot_record(int32_t id);           // null: no such pilot
 extern const char* const kRatingNames[4];              // "Poor", "Average", "Good", "Excellent"
-std::string pilot_title(int32_t id);                   // "Elli Gujar"
+std::string pilot_title(int32_t id);                   // "Elli Gujar" (the padding trimmed)
 
 // The pitch the pilot gives in the Bar, its lines, from the player's MW_MAIN.EXE (the --mw1-game folder); none
 // without it (VISION: content from the player's own copies; mw1 lead 2026-11-17).
@@ -73,11 +73,6 @@ void charge_wages(Company& c, int32_t months);
 // rises and Piloting is set to it, the count starting again. Excellent stays.
 inline constexpr int32_t kPromotionMissions[3] = {3, 10, 15};
 
-// A lancemate's mission: who, and whether their mech was destroyed.
-struct LanceFate {
-  int32_t id = 0;
-  bool destroyed = false;
-};
 // The rule for a pilot whose mech is destroyed (provisional, Owen's: always killed; an ejection's chance goes here).
 bool pilot_killed(const LanceFate& f);
 // After a counted mission (won, or failed and accepted; never a replay or a quit): promotions, then casualties (223F):

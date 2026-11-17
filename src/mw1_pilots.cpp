@@ -63,6 +63,7 @@ std::string pilot_title(int32_t id) {
   const PilotRecord* r = pilot_record(id);
   if (!r) return "";
   std::string s = r->name;
+  while (!s.empty() && s.back() == ' ') s.pop_back();  // the records pad with spaces ("TARIS REN ")
   bool start = true;
   for (char& ch : s) {
     ch = static_cast<char>(start ? std::toupper(static_cast<unsigned char>(ch)) : std::tolower(static_cast<unsigned char>(ch)));
