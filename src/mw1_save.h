@@ -40,6 +40,7 @@ namespace mw1 {
 
 inline constexpr int32_t kSaveVersion = 6;
 inline constexpr const char* kSaveFile = "mw1save.txt";
+inline constexpr const char* kPrevSaveFile = "mw1save.prev";  // the company NEW CAMPAIGN replaced, kept beside it
 
 // The file's text for a company and the contract (null: none on offer), and
 // a mission back and not settled yet (null: none; then the contract is the

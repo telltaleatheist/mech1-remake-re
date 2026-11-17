@@ -158,8 +158,21 @@ int main(int argc, char** argv) {
   // contract reach that structure on c2's second Instant Action map.
   const char* seed = std::getenv("MW1_SEED");
   mw1::install_game_loop(seed ? static_cast<uint32_t>(std::strtoul(seed, nullptr, 10)) : 0, std::getenv("MW1_REACH"));
-  // The company's save in the write dir (mw1_save.h); --new-company starts over (until the hub has a menu).
+  // The company's save in the write dir (mw1_save.h). MW1's main menu first (mw1_menu.h); --new-company is its NEW
+  // CAMPAIGN at once (the intro, the old save kept as mw1save.prev).
   if (!a.write_dir.empty()) mw1::set_game_loop_save((std::filesystem::path(a.write_dir) / mw1::kSaveFile).string(), a.new_company);
+  mw1::set_game_loop_start(a.new_company ? mw1::Start::kNewCampaign : mw1::Start::kMenu);
+  // The music (provisional, research/intro.md): the player's ripped tracks in mw1's write dir's music/, else
+  // Pirate's Moon's, read where PM keeps them (its write dir, beside ours) and never written: mounted for music/
+  // alone (zutl::mount_only), so nothing else of PM's player comes along.
+  if (!a.write_dir.empty()) {
+    const std::string from = mw1::music_from(a.write_dir);
+    if (from.empty()) std::printf("mw1: no music (none ripped in %s/music, nor in Pirate's Moon's)\n", a.write_dir.c_str());
+    else if (from != a.write_dir) {
+      zutl::mount_only(from, "music/");
+      std::printf("mw1: the music is Pirate's Moon's, read from %s/music\n", from.c_str());
+    }
+  }
   // MW1's own data (the hub's layout), beside the program: mounted after what is (PM's install comes in the game main).
   if (const char* base = SDL_GetBasePath()) {
     const std::filesystem::path data = std::filesystem::path(base) / "mw1data";

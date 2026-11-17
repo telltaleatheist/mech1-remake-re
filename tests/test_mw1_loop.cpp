@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <functional>
+#include <iterator>
 #include <sstream>
 #include <string>
 
@@ -43,6 +44,8 @@
 #include "mw1_missions.h"
 #include "mw1_pilots.h"
 #include "mw1_market_screen.h"
+#include "mw1_menu.h"
+#include "mw1_images.h"
 #include "mw1_travel.h"
 #include "mw1_travel_screen.h"
 #include "mw1_save.h"
@@ -169,6 +172,9 @@ struct Run {
   std::string objective_built;
   bool fell_back = false, structure_found = false, mission_ended = false, mission_lost = false;
   std::string outcome_shown;  // AFTER ACTION's first line after its title: "Success", "Failure", ...
+  // MW1's main menu (mw1_menu.h) in front: NEW CAMPAIGN, the intro skipped (Escape), then the run as ever; the hub's
+  // QUIT back at the menu ends it (the mission's return put the hub over the menu).
+  bool via_menu = false, menu_new_pressed = false, intro_seen = false, menu_after_quit = false;
 };
 int loadout_items(const mw1::Company* c) { return c && c->loadout ? static_cast<int>(c->loadout->items.size()) : -1; }
 
@@ -190,6 +196,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
   mech3::player_controls_instance() = nullptr;
   mech3::options() = mech3::Options{};
   mw1::install_game_loop(1, ending == kReach ? "portalgate" : nullptr);
+  mw1::set_game_loop_start(run && run->via_menu ? mw1::Start::kMenu : mw1::Start::kHub);
   if (run) mw1::set_game_loop_save(run->save, false);
   if (run && run->row) mw1::set_game_loop_row(*run->row);
   if (run && !run->world.empty()) mw1::set_game_loop_world(run->world, 1);
@@ -234,6 +241,25 @@ void loop_run(Ending ending, Run* run = nullptr) {
     engine.on_present = [&](int) {
       if (app.pending()) return;
       if (quit && app.current() == &mech3::states().main) back_at_main = true;
+      if (run && run->via_menu) {
+        mw1::IntroState* in = mw1::game_loop_intro();
+        if (in && app.current() == static_cast<zgame::State*>(in)) {
+          if (!in->finished()) run->intro_seen = true, in->escape();
+          return;
+        }
+        mw1::MenuState* m = mw1::game_loop_menu();
+        if (m && app.current() == static_cast<zgame::State*>(m) && m->screen()) {
+          if (++hub_frames < 10) return;
+          hub_frames = 0;
+          if (quit) {
+            run->menu_after_quit = back_at_main = true;
+          } else if (!run->menu_new_pressed) {
+            run->menu_new_pressed = true;
+            m->screen()->on_button(mw1::kMenuNew, 0, 0);
+          }
+          return;
+        }
+      }
       // The hub: once it has drawn a few frames, what it shows checked and one of its buttons pressed through the
       // screen's own handler, as a click does.
       mw1::MarketState* ms = mw1::game_loop_market();
@@ -1235,4 +1261,289 @@ TEST(mw1_loop_each_objective_won_and_a_defence_lost_headless) {
       EXPECT(outcome == k.outcome);
     });
   }
+}
+
+// ---- MW1's main menu (mw1_menu.h) ----
+namespace {
+// A run of the menu alone: the program's start (MW1's menu over PM's), `step` each frame the app shows (true: stop),
+// the message boxes answered by `box` (yes 6, no 7; PM's quit box, 1).
+struct MenuRun {
+  std::string save;
+  mw1::Start start = mw1::Start::kMenu;
+  uint32_t seed = 1;  // the company's and the contracts' rolls (a new campaign's company differs only by them)
+  std::function<bool(mech3::Mech3App&, mech3::GameEngine&)> step;
+  std::function<uint32_t(const std::string&)> box;
+  std::vector<std::string> boxes;  // each box's words, as asked
+};
+void menu_run(MenuRun& r) {
+  zgame::set_game(pm::table());
+  zutl::mounts() = zutl::Mounts{};
+  zutl::mount(MW3PM_GAME_DIR);
+  zutl::mount(MW1_DATA_DIR);
+  // MW1's image archive, as the build packs it into mw1data/zbd (a stand-in picture: the tests don't read data-src).
+  const fs::path gen = fs::path(MW3_TEST_TMP_ROOT) / "mw1_menu_gen";
+  std::error_code ec;
+  fs::create_directories(gen / "zbd", ec);
+  const std::vector<uint8_t> b = mw1::pack({mw1::letterbox(mw1::kIntroImage, 64, 36, std::vector<uint16_t>(64 * 36, 0x07E0)),
+                                            mw1::black(mw1::kBlackImage)});
+  std::ofstream(gen / "zbd" / "mw1image.zbd", std::ios::binary).write(reinterpret_cast<const char*>(b.data()), static_cast<std::streamsize>(b.size()));
+  zutl::mount(gen.string());
+  const std::string wd = std::string(MW3_TEST_TMP_ROOT) + "/mw1_menu_wd";
+  fs::remove_all(wd, ec);
+  fs::create_directories(wd, ec);
+  zutl::set_write_dir(wd.c_str());
+  mech3::reset_states();
+  if (!zsnd::state().open) zsnd::state() = zsnd::State{};
+  mech3::missions() = mech3::Missions{};
+  mech3::mech_types_forget();
+  mech3::player_controls_instance() = nullptr;
+  mech3::options() = mech3::Options{};
+  mw1::set_mw1_game_dir(MW1_DOS_GAME_DIR);  // the narration
+  mw1::install_game_loop(r.seed);
+  mw1::set_game_loop_start(r.start);
+  mw1::set_game_loop_save(r.save, false);
+  NoKeys keys;
+  Window window;
+  Alert alert;
+  Clock clock;
+  MovieClock movies;
+  Screen screen;
+  platform::SilentSoundOutput sound;
+  mech3::MountFiles files;
+  mech3::Platform p;
+  p.window = &window, p.alert = &alert, p.clock = &clock, p.movie_clock = &movies, p.screen = &screen;
+  p.sound = &sound, p.files = &files, p.input = &keys;
+  bool stop = false;
+  {
+    mech3::GameEngine engine(p, "mech3.exe -nofmv");
+    engine.quiet = true;
+    mech3::Mech3App app(&engine);
+    mech3::set_app(&app);
+    EXPECT(app.init_instance());
+    engine.on_message_box = [&](int32_t, int32_t, int32_t) -> uint32_t {
+      r.boxes.push_back(engine.last_box_text);
+      return r.box ? r.box(engine.last_box_text) : 1u;
+    };
+    engine.on_present = [&](int) {
+      if (app.pending() || stop) return;
+      stop = r.step(app, engine);
+    };
+    Pump pump;
+    pump.limit = 6000;
+    pump.stop = [&] { return stop; };
+    app.run(pump);
+    app.stop_game();
+    app.exit_instance();
+    mech3::set_app(nullptr);
+  }
+  EXPECT(stop);  // the script ran to its end
+  mw1::uninstall_game_loop();
+  mw1::set_mw1_game_dir("");
+  zrdr::close_archives(true);
+  mech3::reset_states();
+  mech3::options() = mech3::Options{};
+}
+
+template <typename S>
+bool showing(mech3::Mech3App& app, S* s) {
+  return s && app.current() == static_cast<zgame::State*>(s) && s->screen();
+}
+std::string read_file(const fs::path& f) {
+  std::ifstream in(f, std::ios::binary);
+  return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+}
+}  // namespace
+
+// NEW CAMPAIGN with no save: the menu first (CONTINUE greyed), no question, MW1's intro played to its end on its own
+// (the narration from the exe, grey then white, then the picture), the new company in the hub, saved. The hub's QUIT
+// back to the menu (CONTINUE on, the company named), OPTIONS opens PM's own options and BACK comes back, QUIT asks
+// PM's quit box and leaves.
+TEST(mw1_menu_new_campaign_plays_the_intro_then_the_hub_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  in_child([&] {
+    const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_menu_new";
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    MenuRun r;
+    r.save = (dir / mw1::kSaveFile).string();
+    int step = 0, wait = 0;
+    bool grey = false, white = false, picture = false, narration = false, options_seen = false, quit_asked = false;
+    float intro_seconds = 0;
+    std::vector<std::string> menu_first, menu_later;
+    r.step = [&](mech3::Mech3App& app, mech3::GameEngine& engine) {
+      mw1::MenuState* m = mw1::game_loop_menu();
+      mw1::IntroState* in = mw1::game_loop_intro();
+      mw1::HubState* hub = mw1::game_loop_hub();
+      if (++wait < 5) return false;
+      switch (step) {
+        case 0:  // the menu: NEW CAMPAIGN
+          if (!showing(app, m)) return false;
+          menu_first = m->screen()->shown();
+          EXPECT(m->screen()->loaded() && m->screen()->enabled(mw1::kMenuNew) && !m->screen()->enabled(mw1::kMenuContinue));
+          EXPECT(!mw1::game_loop_company());
+          m->screen()->on_button(mw1::kMenuNew, 0, 0);
+          ++step, wait = 0;
+          return false;
+        case 1:  // the intro, to its end
+          if (showing(app, in)) {
+            const std::vector<std::string> shown = in->screen()->shown();
+            narration |= shown.size() == 10;
+            if (in->phase() == mw1::IntroPhase::kGrey) grey = true;
+            if (in->phase() == mw1::IntroPhase::kWhite) white = true;
+            if (in->phase() == mw1::IntroPhase::kPicture) picture = in->screen()->panel_shown(0) && shown.empty();
+            intro_seconds = in->seconds();
+            return false;
+          }
+          if (!showing(app, hub)) return false;
+          ++step, wait = 0;
+          return false;
+        case 2:  // the hub, the new company saved; QUIT: the menu
+          EXPECT(mw1::game_loop_company() && fs::exists(r.save, ec));
+          hub->screen()->on_button(mw1::kHubQuit, 0, 0);
+          ++step, wait = 0;
+          return false;
+        case 3:  // the menu again: CONTINUE on; OPTIONS
+          if (!showing(app, m)) return false;
+          menu_later = m->screen()->shown();
+          EXPECT(m->screen()->enabled(mw1::kMenuContinue));
+          m->screen()->on_button(mw1::kMenuOptions, 0, 0);
+          ++step, wait = 0;
+          return false;
+        case 4:  // PM's options state; its BACK (Escape)
+          if (app.current() == static_cast<zgame::State*>(m) || !app.current()) return false;
+          options_seen = engine.menu_state_of(engine.peek32(0x609868)) != nullptr &&
+                         app.current() == static_cast<zgame::State*>(engine.menu_state_of(engine.peek32(0x609868)));
+          static_cast<mech3::ShellState*>(app.current())->escape();
+          ++step, wait = 0;
+          return false;
+        case 5:  // back at the menu: QUIT
+          if (!showing(app, m)) return false;
+          r.box = [&](const std::string&) -> uint32_t { return quit_asked = true, 1u; };
+          m->screen()->on_button(mw1::kMenuQuit, 0, 0);  // the box answered at once: the game leaves
+          ++step;
+          return quit_asked;
+        default: return true;
+      }
+    };
+    menu_run(r);
+    std::printf("  menu:");
+    for (const std::string& l : menu_first) std::printf(" [%s]", l.c_str());
+    std::printf("\n  later:");
+    for (const std::string& l : menu_later) std::printf(" [%s]", l.c_str());
+    std::printf("\n  intro: %.1f s, narration %d, grey %d white %d picture %d; options %d, quit asked %d\n", intro_seconds, narration, grey,
+                white, picture, options_seen, quit_asked);
+    EXPECT(step >= 6 && narration && grey && white && picture && intro_seconds > 30.0f);
+    EXPECT(r.boxes.size() == 1);  // PM's quit box alone: a first campaign isn't asked about
+    EXPECT(options_seen && quit_asked);
+    EXPECT(menu_later.size() > menu_first.size());  // the company named under CONTINUE
+  });
+}
+
+// Over a save: CONTINUE opens the hub on it; NEW CAMPAIGN asks first (No: nothing changes; Yes: the intro, skipped
+// with Escape, a new company, the old save kept as mw1save.prev); --new-company's start does it without asking.
+TEST(mw1_menu_continue_and_new_over_a_save_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  in_child([&] {
+    const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_menu_save";
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    const fs::path save = dir / mw1::kSaveFile, prev = dir / mw1::kPrevSaveFile;
+    // A company to continue: the straight start's, saved at its first offer.
+    {
+      MenuRun r;
+      r.save = save.string(), r.start = mw1::Start::kHub;
+      r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) { return showing(app, mw1::game_loop_hub()); };
+      menu_run(r);
+    }
+    const std::string first = read_file(save);
+    EXPECT(!first.empty());
+    // CONTINUE: the hub on the saved company.
+    int64_t funds = -1;
+    {
+      MenuRun r;
+      r.save = save.string();
+      int step = 0;
+      r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
+        mw1::MenuState* m = mw1::game_loop_menu();
+        if (step == 0 && showing(app, m)) {
+          EXPECT(m->screen()->enabled(mw1::kMenuContinue));
+          m->screen()->on_button(mw1::kMenuContinue, 0, 0), step = 1;
+          return false;
+        }
+        if (step == 1 && showing(app, mw1::game_loop_hub())) {
+          funds = mw1::game_loop_company() ? mw1::game_loop_company()->funds : -1;
+          return true;
+        }
+        return false;
+      };
+      menu_run(r);
+      EXPECT(r.boxes.empty() && read_file(save) == first);  // the same company, the same offer
+    }
+    // NEW CAMPAIGN over it: No, then Yes; the intro skipped.
+    bool skipped = false;
+    {
+      MenuRun r;
+      r.save = save.string(), r.seed = 2;
+      int step = 0, answers = 0;
+      r.box = [&](const std::string&) -> uint32_t { return ++answers == 1 ? 7u : 6u; };
+      r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
+        mw1::MenuState* m = mw1::game_loop_menu();
+        mw1::IntroState* in = mw1::game_loop_intro();
+        if (step == 0 && showing(app, m)) {
+          m->screen()->on_button(mw1::kMenuNew, 0, 0);  // No
+          EXPECT(answers == 1 && showing(app, m) && read_file(save) == first && !fs::exists(prev, ec));
+          m->screen()->on_button(mw1::kMenuNew, 0, 0);  // Yes
+          EXPECT(answers == 2 && fs::exists(prev, ec) && read_file(prev) == first);
+          step = 1;
+          return false;
+        }
+        if (step == 1 && showing(app, in)) {
+          EXPECT(in->phase() != mw1::IntroPhase::kDone);
+          in->escape(), skipped = true, step = 2;
+          return false;
+        }
+        return step == 2 && showing(app, mw1::game_loop_hub());
+      };
+      menu_run(r);
+      EXPECT(r.boxes.size() == 2 && r.boxes[0].find(mw1::kPrevSaveFile) != std::string::npos);
+    }
+    const std::string second = read_file(save);
+    std::printf("  continue: funds %lld; new over it: skipped %d, the save %s, .prev the old %d\n", static_cast<long long>(funds), skipped,
+                second != first ? "new" : "THE SAME", read_file(prev) == first);
+    EXPECT(funds > 0 && skipped && !second.empty() && second != first && read_file(prev) == first);
+    // --new-company: no question, the intro at once, the save kept as .prev again (the one before replaced).
+    {
+      MenuRun r;
+      r.save = save.string(), r.start = mw1::Start::kNewCampaign, r.seed = 3;
+      bool intro_first = false;
+      r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
+        mw1::IntroState* in = mw1::game_loop_intro();
+        if (showing(app, in)) {
+          intro_first = true;
+          in->escape();
+          return false;
+        }
+        return intro_first && showing(app, mw1::game_loop_hub());
+      };
+      menu_run(r);
+      EXPECT(r.boxes.empty() && intro_first && read_file(prev) == second && read_file(save) != second);
+    }
+  });
+}
+
+// A whole contract through the menu (Run::via_menu): NEW CAMPAIGN, the intro, the hub, the mission won; back from
+// it the hub stands over MW1's menu, so its QUIT lands there, not on PM's main menu.
+TEST(mw1_menu_a_mission_comes_back_to_the_hub_over_the_menu_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  in_child([&] {
+    Run run;
+    run.via_menu = true;
+    loop_run(kWon, &run);
+    std::printf("  via the menu: NEW pressed %d, intro %d, the menu after the hub's QUIT %d\n", run.menu_new_pressed, run.intro_seen,
+                run.menu_after_quit);
+    EXPECT(run.menu_new_pressed && run.intro_seen && run.menu_after_quit);
+  });
 }

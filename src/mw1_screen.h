@@ -42,6 +42,7 @@ struct TextBlock {
   int32_t x = 0, y = 0;
   const char* font = kLineFont;
   std::vector<std::string> lines;
+  int32_t gap = kLineGap;  // from one line to the next
 };
 struct ButtonState {
   bool there = true;  // shown
@@ -50,6 +51,7 @@ struct ButtonState {
 struct ScreenView {
   std::vector<TextBlock> blocks;
   std::vector<ButtonState> buttons;  // by id - 1; missing ones shown and enabled
+  std::vector<bool> panels;          // the layout's PANEL, PANEL2, ... shown; missing ones shown
 };
 
 class Mw1Screen : public mech3::MenuScreen {
@@ -65,6 +67,7 @@ class Mw1Screen : public mech3::MenuScreen {
   std::vector<std::string> shown() const;
   bool visible(int32_t id) const;
   bool enabled(int32_t id) const;
+  bool panel_shown(size_t i) const;  // the layout's i-th PANEL
   int32_t button_count() const { return static_cast<int32_t>(buttons_.size()); }
 
  private:

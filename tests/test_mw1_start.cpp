@@ -37,13 +37,13 @@ TEST(mw1_game_args_add_the_write_dir_and_the_saved_pm_install) {
   a.write_dir = "/w";
   mw1::Installs use;
   use.pm = "/pm";
-  EXPECT((mw1::game_args("mw1", a, use) == std::vector<std::string>{"mw1", "--write-dir", "/w", "--install", "/pm", "--hidden"}));
+  EXPECT((mw1::game_args("mw1", a, use) == std::vector<std::string>{"mw1", "--write-dir", "/w", "--install", "/pm", "--hidden", "-nofmv"}));
   // Given on the command line (either form): not added again.
-  a = parse({"--install", "/other", "--write-dir", "/w"});
-  EXPECT((mw1::game_args("mw1", a, use) == std::vector<std::string>{"mw1", "--install", "/other", "--write-dir", "/w"}));
+  a = parse({"--install", "/other", "--write-dir", "/w", "-nofmv"});
+  EXPECT((mw1::game_args("mw1", a, use) == std::vector<std::string>{"mw1", "--install", "/other", "--write-dir", "/w", "-nofmv"}));
   a = parse({"/bare"});
   a.write_dir = "/w";
-  EXPECT((mw1::game_args("mw1", a, use) == std::vector<std::string>{"mw1", "--write-dir", "/w", "/bare"}));
+  EXPECT((mw1::game_args("mw1", a, use) == std::vector<std::string>{"mw1", "--write-dir", "/w", "/bare", "-nofmv"}));
 }
 
 TEST(mw1_cfg_round_trip_and_the_command_line_wins) {
