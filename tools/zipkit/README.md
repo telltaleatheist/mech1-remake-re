@@ -133,4 +133,7 @@ used as the gate. PM's own readers are, in the tests.
 - the ground query every 20 m over c2 and c4b, PM's reading of the converted
   world against MW3's of its own: the same nodes, heights and normals at all
   133,356 points;
-- the run's folder rules, with the install's files unchanged.
+- the run's folder rules, with the install's files unchanged;
+- `mw3c2` mounted as a mod world (`mod.txt`: `world=`, `ia_world=`) and played
+  headless as Instant Action in wave mode (`test_pm_mission.cpp`): 600 frames,
+  the wave's enemy made, the player on the ground, no full hit list.
