@@ -561,3 +561,10 @@ between missions is MW1's, in new art.
    missions' allies)? Check MW3, and keep what it does.
 6. The Clan price: whether ×2, one in ten and the edge worlds feel right in play.
 7. Instant Action maps (surveyed, `research/maps.md`): an arctic map (none exists; build one on c4b?), and the structures each map offers for reach, attack and defend.
+8. Turrets on MW3's worlds (mw3 lead, 2026-11-17): PM's `aiTurrets.zrd`
+   (the top-level reader, which shadows a world's own) names destroy
+   animations MW3's worlds don't have (`destroy_tur_fixed`, `_mobile`;
+   MW3's are `destroy_tur_generic` and the like). So on `mw3c2`/`mw3c4b` a
+   turret dies with no animation. Nothing uses those worlds' turrets yet.
+   When MW1's missions put turrets there, MW1 supplies turret records that
+   name the MW3 anims, in its own data; zipkit stays a plain converter.
