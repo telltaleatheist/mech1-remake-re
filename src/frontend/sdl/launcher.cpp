@@ -577,7 +577,7 @@ void Launcher::find_install() {
   for (const std::string& c : o_.more_installs) tries.push_back(c);
   for (const std::string& d : tries) {
     if (!install_valid(d)) continue;
-    const mech3::setup::Result r = mech3::setup::check_install(d, o_.write_dir);
+    const mech3::setup::Result r = mech3::setup::check_install(d, o_.write_dir, true);
     if (!r.ok) continue;
     install_ = {true, r.install_dir.empty() ? d : r.install_dir, r.version, r.summary};
     std::printf("mw3: launcher: %s\n", r.summary.c_str());
