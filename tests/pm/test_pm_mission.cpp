@@ -5114,6 +5114,124 @@ TEST(program_flow_sees_kills_and_program_salvage_mech_headless) {
 #endif
 }
 
+// Ours (program_flow.h, ally_launching): on a real Instant Action launch (c2's ia1, an allied Owens and an enemy
+// Owens), the program is offered the ally alone, on its slot, before its mech is made; the pilot's name and the aim
+// error it sets are the ally's brain's. Without a program flow the record's own.
+static void program_flow_ally_run(bool with_flow) {
+  zgame::set_game(pm::table());
+  zutl::mounts() = zutl::Mounts{};
+  zutl::mount(MW3PM_GAME_DIR);
+  const std::string wd = std::string(MW3_TEST_TMP_ROOT) + "/pm_program_flow_ally";
+  std::filesystem::create_directories(wd);
+  zutl::set_write_dir(wd.c_str());
+  mech3::reset_states();
+  if (!zsnd::state().open) zsnd::state() = zsnd::State{};
+  mech3::missions() = mech3::Missions{};
+  mech3::mech_types_forget();
+  mech3::player_controls_instance() = nullptr;
+  mech3::options() = mech3::Options{};
+  struct Flow : mech3::ProgramFlow {
+    std::vector<int32_t> slots;
+    float record_error = -1.0f;
+    void ally_launching(int32_t slot, mech3::ai::AiParams& p) override {
+      slots.push_back(slot);
+      record_error = p.get<float>(0xb8);
+      mech3::set_ai_pilot_name(p, "Elli Gujar");
+      p.put<float>(0xb8, record_error * 2.0f);
+    }
+  } flow;
+  NoKeys keys;
+  Window window;
+  Alert alert;
+  FixedSeed seed(1u);
+  Clock clock;
+  MovieClock movies;
+  Screen screen;
+  platform::SilentSoundOutput sound;
+  mech3::MountFiles files;
+  mech3::Platform p;
+  p.window = &window, p.alert = &alert, p.clock = &clock, p.movie_clock = &movies, p.screen = &screen;
+  p.sound = &sound, p.files = &files, p.input = &keys;
+  {
+    mech3::GameEngine engine(p, "mech3.exe -nofmv");
+    engine.quiet = true;
+    mech3::Mech3App app(&engine);
+    mech3::set_app(&app);
+    EXPECT(app.init_instance());
+    mech3::ActionGame game(nullptr);
+    game.set_mode(0);
+    game.set_world(1, 1);  // c2, ia1 (Battle)
+    game.slot.mech = 13;
+    game.add(16, 1, nullptr, 0);  // an allied Owens, then an enemy one
+    game.add(16, 0, nullptr, 0);
+    mech3::GameEngine::Launch l;
+    l.type = 2, l.index = 1, l.number = 1;
+    l.action = &game;
+    engine.set_launch(l);
+    app.post_intro_ = &mech3::states().load;
+    int frames = 0, made = 0;
+    std::string ally_pilot = "?", enemy_pilot = "?";
+    float ally_error = -1.0f;
+    if (with_flow) mech3::set_program_flow(&flow);
+    engine.on_present = [&](int) {
+      if (app.current() != &mech3::states().core || ++frames != 30) return;
+      mech3::set_program_flow(nullptr);
+      int32_t n = 0;
+      const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+      made = n;
+      for (int32_t k = 0; k < n; ++k) {
+        auto* b = static_cast<mech3::ai::Brain*>(mech3::program_ai_mech_brain(ai[k].controls));
+        if (!b) continue;
+        const bool ally = b->params.team() == 1;
+        (ally ? ally_pilot : enemy_pilot) = b->params.pilot ? b->params.pilot : "";
+        if (ally) ally_error = b->params.get<float>(0xb8);
+      }
+    };
+    Pump pump;
+    pump.limit = 600;
+    pump.stop = [&] { return frames >= 30; };
+    app.run(pump);
+    std::printf("  ally launching (%s): %d AI mechs; offered slots %zu (first %d); the ally's pilot [%s], aim error %g "
+                "(the record's %g); the enemy's pilot [%s]\n",
+                with_flow ? "a flow" : "none", made, flow.slots.size(), flow.slots.empty() ? -1 : flow.slots[0],
+                ally_pilot.c_str(), ally_error, flow.record_error, enemy_pilot.c_str());
+    EXPECT(made == 2);
+    if (with_flow) {
+      EXPECT(flow.slots.size() == 1 && flow.slots[0] == 1);
+      EXPECT(ally_pilot == "Elli Gujar" && enemy_pilot != "Elli Gujar");
+      EXPECT(flow.record_error >= 0.0f && ally_error == flow.record_error * 2.0f);
+    } else {
+      EXPECT(flow.slots.empty() && ally_pilot != "Elli Gujar");
+    }
+    mech3::missions().cleanup(false);
+    app.stop_game();
+    app.exit_instance();
+    mech3::set_app(nullptr);
+  }
+  zrdr::close_archives(true);
+  mech3::reset_states();
+  mech3::options() = mech3::Options{};
+}
+
+TEST(program_flow_names_and_aims_an_instant_action_ally_headless) {
+  if (!std::filesystem::exists(MW3PM_GAME_DIR)) return;
+  for (bool with_flow : {true, false}) {
+#if !defined(_WIN32)
+    std::fflush(nullptr);
+    const pid_t child = check::fork_child();
+    if (child == 0) {
+      program_flow_ally_run(with_flow);
+      std::fflush(nullptr);
+      _exit(check::failures ? 1 : 0);
+    }
+    const int status = check::wait_child(child);
+    EXPECT(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+#else
+    program_flow_ally_run(with_flow);
+#endif
+  }
+}
+
 // Ours (app_hooks.h, adopt_state): a program's state made outside construct() is the engine's as construct's are:
 // found by its handle, escaped and deleted through vcall, and one left open deleted with the screens at the end.
 namespace {

@@ -3,9 +3,14 @@
 // Hit): never part of the original's logic. With none set, the default, the
 // game runs the original's states alone (docs/objectives.md, "Extensions:
 // the program's flow").
+#include <cstdint>
+
 namespace mech3 {
 
 class Engine;
+namespace ai {
+class AiParams;
+}
 
 class ProgramFlow {
  public:
@@ -28,7 +33,15 @@ class ProgramFlow {
   // 0x00404f70; or a debug start's launch with no briefing), once it has
   // launched and before the Core state: the lab's choices are final.
   virtual void mission_launched(Engine& e) {}
+  // Instant Action's launch (action_lineup, PM 0x0040b8f0's line-up): an ally of the player's about to be made,
+  // line-up slot `slot` (1.., the player's 0; allies first), on its map record's AI settings, a copy for this
+  // launch alone. The program may change them before the mech and its brain are made from them: its pilot's
+  // name (`pilot`, +0xd4, the HUD's and the radio's; set_ai_pilot_name), its aim error (+0xb8, the firing's
+  // spread before the difficulty, zai_firing 0x004b70b0). Enemies and a new wave's mechs are not offered.
+  virtual void ally_launching(int32_t slot, ai::AiParams& params) {}
 };
+// An AI settings' pilot name (`pilot`, +0xd4, malloc'd as the reader's), replaced by a copy of `name`.
+void set_ai_pilot_name(ai::AiParams& params, const char* name);
 void set_program_flow(ProgramFlow* x);  // null: none, the original
 ProgramFlow* program_flow();
 

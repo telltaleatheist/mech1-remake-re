@@ -405,6 +405,15 @@ original's.
   0x00404f70) or a debug start's launch with no briefing (`set_launch`
   with `auto_launch`), once the mission has launched and before the Core
   state: the lab's choices are final.
+- `ally_launching(slot, params)`: Instant Action's launch (`action_lineup`
+  in `player.cpp`), for each of the player's allies about to be made: its
+  line-up slot (1.., allies first) and this launch's copy of its map
+  record's AI settings. The program may change them before the mech and
+  its brain are made: the pilot's name (`+0xd4`, the HUD's and the radio's,
+  with `set_ai_pilot_name`) and the aim error (`+0xb8`, the firing's spread
+  before the difficulty, `zai_firing` 0x004b70b0). Enemies and a wave's new
+  mechs aren't offered. The radio's voice (`+0xd8`) stays the record's.
+  MW1's lancemates are named and aimed here.
 
 Beside it, also ours and for programs built on the engine:
 `program_salvage_mech(mech, store, chassis)` (`app_mech.h`) puts a mech's
@@ -428,4 +437,5 @@ Tests: `program_flow_none_is_the_original`,
 (`tests/pm/test_pm_options.cpp`),
 `program_flow_sees_kills_and_program_salvage_mech_headless` (with
 `mission_launched`, `tests/pm/test_pm_mission.cpp`),
+`program_flow_names_and_aims_an_instant_action_ally_headless`,
 `adopt_state_registers_a_program_state` (`tests/pm/test_pm_mission.cpp`).

@@ -8,6 +8,7 @@
 
 #include "gamez/zmodel/gmod_cull.h"
 #include "gamez/zutil/zfix.h"
+#include "mech3/program_flow.h"
 #include "mech3/zrdraiv.h"
 
 // The mission start's vehicles and the player's tick; docs/mission-start.md.
@@ -464,6 +465,10 @@ bool action_lineup(bool launch) {
     ai::AivRecord* r = h.aiv_read(rec, pick, &name);
     if (!r) continue;  // read before: it does not fail now
     if (!have) {
+      // Ours (program_flow.h, for MW1: Critical Hit): the program may set an ally's pilot and aim on this launch's
+      // copy of its record. Without a program flow the original's.
+      if (ally && launch)
+        if (ProgramFlow* f = program_flow()) f->ally_launching(i, *r);
       const Handle net = action_net(ally, r);
       const char* type = h.mech_name(mech);
       char text[0x50];

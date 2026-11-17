@@ -1,3 +1,5 @@
+#include <cstdlib>
+#include <cstring>
 #include "mech3/mainmenu.h"
 #include "mech3/mod_campaign.h"
 #include "mech3/mods_menu.h"
@@ -20,6 +22,7 @@
 #include "mech3/app.h"
 #include "mech3/pilot.h"
 #include "mech3/program_flow.h"
+#include "mech3/zai_params.h"
 
 namespace mech3 {
 
@@ -1549,5 +1552,14 @@ ProgramFlow* g_program_flow = nullptr;
 }
 void set_program_flow(ProgramFlow* x) { g_program_flow = x; }
 ProgramFlow* program_flow() { return g_program_flow; }
+void set_ai_pilot_name(ai::AiParams& params, const char* name) {  // ours (program_flow.h)
+  std::free(params.pilot);
+  params.pilot = nullptr;
+  if (name) {
+    const size_t n = std::strlen(name) + 1;
+    params.pilot = static_cast<char*>(std::malloc(n));
+    if (params.pilot) std::memcpy(params.pilot, name, n);
+  }
+}
 
 }  // namespace mech3
