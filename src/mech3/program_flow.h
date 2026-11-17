@@ -21,6 +21,11 @@ class ProgramFlow {
   // says it did, and none of the main menu's own reopenings follows
   // (multiplayer, Instant Action's after its end, training, credits, MODS).
   virtual bool main_entered(Engine& e) { return false; }
+  // The program has menus of its own (MW1): the main menu's screen and the
+  // multiplayer state (its three screens: the connection, the lobby, ...),
+  // never shown under it, are not built at all (MainState::enter). False
+  // (MW3, PM): the original's.
+  virtual bool own_menus() const { return false; }
   // Instant Action's end (IA Dummy, 0x0047ce80) after its tally, before the
   // mission is cleaned up: the mission's entities are all still there.
   virtual void mission_ending(Engine& e) {}

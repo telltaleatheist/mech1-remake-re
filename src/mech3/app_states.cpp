@@ -1011,6 +1011,7 @@ const struct {
 } kMenus[] = {{0x60985c, 0x48a6c0}, {0x609858, 0x488910}, {0x609864, 0x48aef0},
               {0x609874, 0x48b120}, {0x609868, 0x438be0}, {0x60986c, 0x43a640},
               {0x609870, 0x42d9d0}, {0x609860, 0x49c900}, {0x609878, 0x4295e0}, {0x62d8a4, 0x489b20}};
+constexpr uint32_t kMultiplayerStateCtor = 0x49c900;  // kMenus' multiplayer state (its three screens)
 void delete_object(Engine& en, uint32_t global) {
   if (Handle o = en.peek32(global)) en.vcall(o, 0x00, {1});
 }
@@ -1022,9 +1023,13 @@ bool MainState::enter() {
   Engine& en = e();
   if (en.take_menu_reshape()) en.set_screen_mode(en.menu_vmode());  // ours: a mode picked in the menus (menu_mode_picked)
   ShellState::enter();
-  screen_ = en.construct(0x486260, {addr()});  // new(0x12c1c)
-  en.screen_refresh(screen_);
-  for (const auto& m : kMenus) en.poke32(m.global, en.construct(m.ctor, {}));
+  // Ours (program_flow.h): a program with its own menus builds neither the main menu's screen nor the multiplayer
+  // state; the rest (options, the Action State, ...) the program may still open.
+  const bool own = program_flow() && program_flow()->own_menus();
+  screen_ = own ? 0 : en.construct(0x486260, {addr()});  // new(0x12c1c)
+  if (screen_) en.screen_refresh(screen_);
+  for (const auto& m : kMenus)
+    if (!own || m.ctor != kMultiplayerStateCtor) en.poke32(m.global, en.construct(m.ctor, {}));
   if (options_upgrades_page()) options_upgrades_state() = en.construct(kUpgradesStateCtor, {});  // ours
   if (mods_menu_page()) mods_menu_state() = en.construct(kModsStateCtor, {});  // ours
   en.twod_reset(en.peek32(0x609854));
@@ -1048,6 +1053,7 @@ bool MainState::enter() {
     mods_edit_end();
     return true;
   }
+  if (!screen_) return true;  // ours: no main menu (own_menus) and the program pushed nothing: nothing to press
   const bool back_to_multi = ap.multiplayer() || en.network_lobby_active();
   if (back_to_multi) en.vcall(screen_ + kButtonMulti, 0x30, {});
   entry_run().opened = back_to_multi && entry_run().screen == EntryRun::kMultiplayer;  // ours (upgrades/mods/entry_run.h)
@@ -1160,7 +1166,7 @@ bool MainState::update() {
   } kKeys[] = {{0x18, kButtonOptions}, {0x2e, kButtonCampaign}, {0x32, kButtonMulti}, {0x17, kButtonInstantAction},
                {0x19, kButtonTraining}, {0x10, kButtonQuit}, {0x13, kButtonCredits}};  // P: Pirate Missions (MW3's T)
   for (const auto& k : kKeys) {
-    if (en.key_state(k.key) & 1) {
+    if (s && en.key_state(k.key) & 1) {  // (ours: no keys without the screen, own_menus)
       en.vcall(s + k.button, 0x30, {});
       return r;
     }
