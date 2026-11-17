@@ -1,0 +1,166 @@
+#include "mw1_market.h"
+
+#include <cctype>
+#include <cmath>
+#include <utility>
+#include <vector>
+
+#include "mech3/mech_config.h"
+#include "mech3/mech_ids.h"
+#include "mech3/mech_names.h"
+#include "mech3/mech_reader.h"
+#include "mech3/pilot.h"
+
+namespace mw1 {
+
+namespace {
+constexpr int32_t kLightMaxTons = 35, kMediumMaxTons = 55;  // VISION's classes for PM's mechs
+constexpr int32_t kStandardConfigMessage = 0xf20;           // the dfn's standard configuration's name (Mech3Msg.dll)
+
+int32_t tons_of(int32_t mech) { return static_cast<int32_t>(std::lround(mech3::max_mass(mech))); }
+
+// The mechs the market deals in of a class and tech, in the roster's order.
+std::vector<int32_t> mechs_of(int32_t cls, bool clan) {
+  std::vector<int32_t> out;
+  for (int32_t m = 0; m < mech3::kMechCount; ++m)
+    if (sold_mech(m) && mech_class(m) == cls && clan_mech(m) == clan) out.push_back(m);
+  return out;
+}
+}  // namespace
+
+const ClanWorld kClanWorlds[kClanWorldCount] = {
+    {51, "ANYWHERE"}, {50, "WINFIELD"}, {23, "KIRCHBACH"}, {25, "ALBIERO"}, {3, "QANDAHAR"}};
+
+bool clan_world(int32_t planet_number) {
+  for (const ClanWorld& w : kClanWorlds)
+    if (w.number == planet_number) return true;
+  return false;
+}
+
+int32_t tier0_price(int32_t mech) { return kPricePerTon * tons_of(mech) - kPriceOffset; }
+bool clan_mech(int32_t mech) { return mech3::mech_tech(mech) == mech3::kClan; }
+
+// Floored to 1,000 (research/economy.md), before the Clan's doubling.
+int64_t buy_price(int32_t mech, int32_t tier) {
+  const int64_t p = static_cast<int64_t>(tier0_price(mech)) * kTierMultipliers[tier] * 100 / 1000 * 1000;
+  return clan_mech(mech) ? p * kClanPriceFactor : p;
+}
+int64_t sell_price(int32_t mech, int32_t tier) {
+  const int64_t p = static_cast<int64_t>(tier0_price(mech)) * (kTierMultipliers[tier] - 1) * 100 / 1000 * 1000;
+  return clan_mech(mech) ? p * kClanPriceFactor : p;
+}
+
+int32_t mech_class(int32_t mech) {
+  const int32_t t = tons_of(mech);
+  return t <= kLightMaxTons ? 0 : t <= kMediumMaxTons ? 1 : 2;
+}
+std::string mech_title(int32_t mech) {
+  const int32_t id = mech3::mech_name_message(mech);
+  const char* shown = id >= 0 ? mech3::pilot_hooks().message(id) : nullptr;
+  if (shown && *shown) return shown;
+  std::string s = mech3::mech_name(mech);
+  bool start = true;
+  for (char& ch : s) {
+    if (start) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+    start = ch == '-' || ch == ' ';
+  }
+  return s;
+}
+
+bool sold_mech(int32_t mech) { return mech >= 0 && mech < mech3::kMechCount && mech != mech3::kElemental; }
+
+void refresh_market(Company& c, Rng& rng) {
+  Market& m = c.market;
+  m.stock.clear();
+  const int32_t n = rng.upto(kStockMax / (c.tier + 1));
+  const bool clan_here = clan_world(c.planet_number);
+  for (int32_t i = 0; i < n; ++i) {
+    const int32_t r = rng.upto(kClassRollMax);
+    const int32_t cls = r < kLightRolls ? 0 : r < kLightRolls + kMediumRolls ? 1 : 2;
+    const bool clan = clan_here && rng.upto(kClanRollMax) == 0;
+    const std::vector<int32_t> pool = mechs_of(cls, clan);
+    if (pool.empty()) continue;
+    m.stock.push_back(pool[static_cast<size_t>(rng.upto(static_cast<int32_t>(pool.size()) - 1))]);
+  }
+  m.sold = 0, m.rolled = true;
+  m.limit = c.tier >= kDealerLimitTier ? rng.upto(kDealerLimitBase - c.tier) + 1 : -1;
+}
+
+int32_t owned_count(const Company& c) { return 1 + static_cast<int32_t>(c.hangar.size()); }
+int32_t owned_mech(const Company& c, int32_t i) {
+  return i == 0 ? c.mech : i > 0 && i < owned_count(c) ? c.hangar[static_cast<size_t>(i - 1)].mech : -1;
+}
+
+const char* deal_words(Deal d) {
+  switch (d) {
+    case Deal::kDone: return "";
+    case Deal::kNoSuch: return "Nothing selected.";
+    case Deal::kNoFunds: return "Insufficient funds.";
+    case Deal::kLastMech: return "You can't sell your last mech.";
+    case Deal::kDealerFull: return "The dealer buys no more mechs until the market changes.";
+    case Deal::kRefit: return "It lacks parts of its stock loadout: refit it first.";
+  }
+  return "";
+}
+
+const mech3::Config* stock_loadout(int32_t mech) {
+  const mech3::MechDfn* d = mech3::mech_dfn(mech);
+  if (!d || !d->configs) return nullptr;
+  if (const mech3::Config* c = d->configs->find(mech3::pilot_hooks().message(kStandardConfigMessage))) return c;
+  return d->configs->configs.empty() ? nullptr : d->configs->configs.front();
+}
+
+Deal buy(Company& c, int32_t stock_index) {
+  Market& m = c.market;
+  if (stock_index < 0 || stock_index >= static_cast<int32_t>(m.stock.size())) return Deal::kNoSuch;
+  const int32_t mech = m.stock[static_cast<size_t>(stock_index)];
+  const int64_t price = buy_price(mech, c.tier);
+  if (c.funds < price) return Deal::kNoFunds;
+  c.funds -= price;
+  m.stock.erase(m.stock.begin() + stock_index);
+  OwnedMech o;
+  o.mech = mech;
+  c.hangar.push_back(std::move(o));
+  return Deal::kDone;
+}
+
+Deal sell(Company& c, int32_t owned_index, const StockLoadout& stock) {
+  if (owned_index < 0 || owned_index >= owned_count(c)) return Deal::kNoSuch;
+  if (owned_count(c) == 1) return Deal::kLastMech;
+  if (c.market.limit >= 0 && c.market.sold >= c.market.limit) return Deal::kDealerFull;
+  const int32_t mech = owned_mech(c, owned_index);
+  const std::shared_ptr<mech3::Config>& loadout =
+      owned_index == 0 ? c.loadout : c.hangar[static_cast<size_t>(owned_index - 1)].loadout;
+  // Back to stock: its items into a copy of the stores, the stock loadout's taken out of it (all of them there,
+  // or the sale refused); a mech on its stock loadout already leaves the stores as they are.
+  if (loadout && c.stores) {
+    const mech3::Config* s = stock ? stock(mech) : nullptr;
+    if (!s) return Deal::kRefit;
+    mech3::Store after;
+    after.assign(*c.stores);
+    after.add_config(loadout.get());
+    if (!after.has_config(-1, static_cast<const mech3::Store*>(nullptr), s)) return Deal::kRefit;
+    after.remove_config(s);
+    c.stores->assign(after);
+  }
+  c.funds += sell_price(mech, c.tier);
+  c.market.stock.push_back(mech);
+  ++c.market.sold;
+  if (owned_index == 0) {
+    c.mech = c.hangar.front().mech, c.loadout = c.hangar.front().loadout;
+    c.hangar.erase(c.hangar.begin());
+  } else {
+    c.hangar.erase(c.hangar.begin() + (owned_index - 1));
+  }
+  return Deal::kDone;
+}
+
+Deal pilot(Company& c, int32_t owned_index) {
+  if (owned_index <= 0 || owned_index >= owned_count(c)) return owned_index == 0 ? Deal::kDone : Deal::kNoSuch;
+  OwnedMech& o = c.hangar[static_cast<size_t>(owned_index - 1)];
+  std::swap(c.mech, o.mech);
+  std::swap(c.loadout, o.loadout);
+  return Deal::kDone;
+}
+
+}  // namespace mw1

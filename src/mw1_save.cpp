@@ -1,5 +1,6 @@
 #include "mw1_save.h"
 
+#include <cctype>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -97,9 +98,18 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
   o << "planet_house=" << c.planet_house << "\n";
   o << "tier=" << c.tier << "\n";
   for (int h = 0; h < kHouseCount; ++h) o << "favor" << h << "=" << c.favor[h] << "\ngrievance" << h << "=" << c.grievance[h] << "\n";
-  o << "loadout="
-    << (c.loadout ? hex(bytes_of([&](std::FILE* f) { mech3::pilot_hooks().config_save(c.loadout.get(), f); })) : std::string())
-    << "\n";
+  auto loadout_hex = [](const std::shared_ptr<mech3::Config>& l) {
+    return l ? hex(bytes_of([&](std::FILE* f) { mech3::pilot_hooks().config_save(l.get(), f); })) : std::string();
+  };
+  o << "loadout=" << loadout_hex(c.loadout) << "\n";
+  // Version 2: the world's number, the hangar and the market.
+  o << "planet_number=" << c.planet_number << "\n";
+  o << "hangar_count=" << c.hangar.size() << "\n";
+  for (size_t i = 0; i < c.hangar.size(); ++i)
+    o << "hangar" << i << "=" << c.hangar[i].mech << "\nhangar" << i << "_loadout=" << loadout_hex(c.hangar[i].loadout) << "\n";
+  o << "market_stock=";
+  for (size_t i = 0; i < c.market.stock.size(); ++i) o << (i ? "," : "") << c.market.stock[i];
+  o << "\nmarket_sold=" << c.market.sold << "\nmarket_limit=" << c.market.limit << "\n";
   o << "stores=" << (c.stores ? hex(bytes_of([&](std::FILE* f) { c.stores->save(f); })) : std::string()) << "\n";
   o << "offer=" << (offer ? 1 : 0) << "\n";
   if (offer) {
@@ -164,7 +174,9 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
   };
   int64_t n = 0;
   if (!num("version", 0, 1 << 30, &n)) return fail("no version line");
-  if (n != kSaveVersion) return fail("version " + std::to_string(n) + ", this build reads version " + std::to_string(kSaveVersion));
+  if (n != kSaveVersion && n != 1)
+    return fail("version " + std::to_string(n) + ", this build reads versions 1 and " + std::to_string(kSaveVersion));
+  const bool v1 = n == 1;  // before the hangar and the market: a hangar of none, the market rolled at the next refresh
   Company c;
   const int64_t kMax = int64_t{1} << 40;
   int64_t funds = 0, mech = 0, kills = 0, house = 0, tier = 0;
@@ -188,7 +200,7 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
     *s = std::make_shared<mech3::Store>();
     return read_bytes(b, [&](std::FILE* f) { (*s)->load(f); return true; });
   };
-  auto loadout_line = [&](const char* key, std::shared_ptr<mech3::Config>* l) {
+  auto loadout_line = [&](const std::string& key, std::shared_ptr<mech3::Config>* l, int32_t for_mech) {
     std::vector<uint8_t> b;
     if (!v.count(key) || !unhex(v[key], b)) return false;
     l->reset();
@@ -199,10 +211,41 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
       return false;
     }
     l->reset(cfg);
-    return cfg->mech == c.mech;
+    return cfg->mech == for_mech;
   };
   if (!store_line("stores", false, &c.stores)) return fail("the stores don't read");
-  if (!loadout_line("loadout", &c.loadout)) return fail("the loadout doesn't read, or is for another mech");
+  if (!loadout_line("loadout", &c.loadout, c.mech)) return fail("the loadout doesn't read, or is for another mech");
+  if (!v1) {
+    int64_t pn = 0, hc = 0, sold = 0, limit = 0;
+    if (!num("planet_number", 1, 146, &pn) || !num("hangar_count", 0, 1000, &hc) || !num("market_sold", 0, 1000, &sold) ||
+        !num("market_limit", -1, 1000, &limit) || !v.count("market_stock"))
+      return fail("the world's, hangar's or market's lines are missing or out of range");
+    c.planet_number = static_cast<int32_t>(pn);
+    for (int64_t i = 0; i < hc; ++i) {
+      const std::string key = "hangar" + std::to_string(i);
+      int64_t m = 0;
+      if (!num(key.c_str(), 0, mech3::kMechCount - 1, &m)) return fail("a hangar mech is missing or out of range");
+      OwnedMech o;
+      o.mech = static_cast<int32_t>(m);
+      if (!loadout_line(key + "_loadout", &o.loadout, o.mech)) return fail("a hangar mech's loadout doesn't read");
+      c.hangar.push_back(std::move(o));
+    }
+    std::istringstream ms(v["market_stock"]);
+    std::string e;
+    while (std::getline(ms, e, ',')) {
+      int64_t m = 0;
+      if (!to_int(e, 0, mech3::kMechCount - 1, &m)) return fail("the market's stock doesn't read");
+      c.market.stock.push_back(static_cast<int32_t>(m));
+    }
+    c.market.sold = static_cast<int32_t>(sold), c.market.limit = static_cast<int32_t>(limit), c.market.rolled = true;
+  } else {
+    // Version 1 knew only the start worlds by name.
+    for (const StartPlanet& sp : kStartPlanets) {
+      std::string up = c.planet;
+      for (char& ch : up) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+      if (up == sp.name) c.planet_number = sp.number;
+    }
+  }
   int64_t has = 0;
   if (!num("offer", 0, 1, &has)) return fail("no offer line");
   Contract k;
@@ -253,7 +296,7 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
       p.wrecks.push_back(Wreck{static_cast<int32_t>(kind), static_cast<int32_t>(cond)});
     }
     if (!store_line("pending_salvage", true, &p.salvage) || !store_line("pending_launch_stores", false, &p.launch_stores) ||
-        !loadout_line("pending_launch_loadout", &p.launch_loadout))
+        !loadout_line("pending_launch_loadout", &p.launch_loadout, c.mech))
       return fail("the pending mission's stores or loadout don't read");
   }
   out = std::move(c);

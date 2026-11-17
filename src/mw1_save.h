@@ -4,7 +4,11 @@
 // and grievance, its planet) and the contract on offer, if one is. The
 // loadout and the stores are PM's own binary forms (Config, Store), in hex.
 //
-//   version=1          the format; another is refused
+//   version=2          the format: 2 adds the world's number, the hangar
+//                      (hangar<i>, hangar<i>_loadout) and the market
+//                      (market_stock, market_sold, market_limit); a version 1
+//                      file still reads (no hangar, the market rolled at the
+//                      next refresh); another is refused
 //   ...                the company's and the offer's lines
 //   check=<8 hex>      FNV-1a of every line before it, so a damaged or partial
 //                      file is refused before anything in it is read
@@ -16,14 +20,14 @@
 
 namespace mw1 {
 
-inline constexpr int32_t kSaveVersion = 1;
+inline constexpr int32_t kSaveVersion = 2;
 inline constexpr const char* kSaveFile = "mw1save.txt";
 
 // The file's text for a company and the contract (null: none on offer), and
 // a mission back and not settled yet (null: none; then the contract is the
 // accepted one, its advance paid: pending_* lines).
 std::string save_text(const Company& c, const Contract* offer, const AfterAction* pending = nullptr);
-// Read back: false, and why, when the text is not a whole version-1 save. On
+// Read back: false, and why, when the text is not a whole save of version 1 or 2. On
 // false `c`, `offer` and `pending` are left as they were. A save from before
 // the pending lines reads as none pending.
 bool load_text(const std::string& text, Company& c, Contract& offer, bool* has_offer, std::string* why,

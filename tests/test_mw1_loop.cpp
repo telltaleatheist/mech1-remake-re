@@ -35,6 +35,8 @@
 #include "mw1_campaign.h"
 #include "mw1_game.h"
 #include "mw1_hub.h"
+#include "mw1_market.h"
+#include "mw1_market_screen.h"
 #include "mw1_save.h"
 #include "mw1_worlds.h"
 #include <fstream>
@@ -116,6 +118,14 @@ struct Run {
   int64_t funds_at_replay = -1;            // in the replay's mission (the advance not paid again)
   int32_t kills_at_replay = -1, grievance_at_replay = -1;
   bool replayed = false;
+  // The market (mw1_market_screen.h) before the first ACCEPT: funds given, a Firefly and an Atlas for sale; BUY the
+  // Firefly, SELL it (back into the stock), SELL refused for the last mech, BUY it back, PILOT it, BACK; the
+  // contract then fought in it.
+  bool market = false;
+  std::vector<std::string> market_lines;  // the market's first screen, as shown
+  int64_t market_bought_for = -1, market_sold_for = -1;
+  int32_t briefing_mech = -1;
+  bool market_done = false;
 };
 int loadout_items(const mw1::Company* c) { return c && c->loadout ? static_cast<int>(c->loadout->items.size()) : -1; }
 
@@ -152,6 +162,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
   p.sound = &sound, p.files = &files, p.input = &keys;
   int64_t funds_at_offer = 0, funds_in_mission = 0;
   int32_t favor_at_offer[mw1::kHouseCount] = {}, grievance_at_offer[mw1::kHouseCount] = {};
+  int market_step = 0;
   int hubs = 0, hub_frames = 0, enemies = 0, killed = 0, items_at_offer = 0, target = -1;
   bool hub_checked = false, declined = false, quit = false, replaying = false;
   bool ended = false, back_at_main = false, reach_only = false, reached = false, briefed = false;
@@ -177,6 +188,51 @@ void loop_run(Ending ending, Run* run = nullptr) {
       if (quit && app.current() == &mech3::states().main) back_at_main = true;
       // The hub: once it has drawn a few frames, what it shows checked and one of its buttons pressed through the
       // screen's own handler, as a click does.
+      mw1::MarketState* ms = mw1::game_loop_market();
+      if (run && ms && app.current() == static_cast<zgame::State*>(ms) && ms->screen()) {
+        if (++hub_frames < 10) return;
+        hub_frames = 0;
+        mw1::Mw1Screen* sc = ms->screen();
+        mw1::Company* c = mw1::game_loop_company_for_tests();
+        const std::vector<std::string> shown = sc->shown();
+        std::printf("  market %d:", market_step);
+        for (const std::string& l : shown) std::printf(" [%s]", l.c_str());
+        std::printf("\n");
+        const int64_t funds = c->funds;
+        switch (market_step++) {
+          case 0:  // the first screen: the Firefly chosen; BUY
+            run->market_lines = shown;
+            EXPECT(sc->loaded() && sc->enabled(mw1::kMarketBuy) && !sc->enabled(mw1::kMarketSell) && !sc->enabled(mw1::kMarketPilot));
+            sc->on_button(mw1::kMarketBuy, 0, 0);
+            run->market_bought_for = funds - c->funds;
+            EXPECT(c->hangar.size() == 1 && c->hangar[0].mech == mw1::kPmFirefly && c->market.stock.size() == 1);
+            break;
+          case 1:  // the Firefly chosen in YOUR MECHS; SELL: back into the stock
+            sc->on_button(mw1::kMarketOwnDown, 0, 0);
+            sc->on_button(mw1::kMarketSell, 0, 0);
+            run->market_sold_for = c->funds - funds;
+            EXPECT(c->hangar.empty() && c->market.stock.back() == mw1::kPmFirefly);
+            break;
+          case 2:  // the last mech: SELL greyed, and the rule refuses it
+            EXPECT(!sc->enabled(mw1::kMarketSell));
+            EXPECT(mw1::sell(*c, 0) == mw1::Deal::kLastMech);
+            // BUY it back: the stock's last line.
+            sc->on_button(mw1::kMarketStockDown, 0, 0);
+            sc->on_button(mw1::kMarketBuy, 0, 0);
+            EXPECT(c->hangar.size() == 1 && c->hangar[0].mech == mw1::kPmFirefly);
+            break;
+          case 3:  // PILOT the Firefly; BACK
+            sc->on_button(mw1::kMarketOwnDown, 0, 0);
+            EXPECT(sc->enabled(mw1::kMarketPilot));
+            sc->on_button(mw1::kMarketPilot, 0, 0);
+            EXPECT(c->mech == mw1::kPmFirefly && c->hangar.size() == 1 && c->hangar[0].mech == mw1::kPmOwens);
+            run->market_done = true;
+            sc->on_button(mw1::kMarketBack, 0, 0);
+            break;
+          default: break;
+        }
+        return;
+      }
       mw1::HubState* hs = mw1::game_loop_hub();
       if (hs && app.current() == static_cast<zgame::State*>(hs) && hs->screen()) {
         if (++hub_frames < 10) return;
@@ -196,7 +252,8 @@ void loop_run(Ending ending, Run* run = nullptr) {
         std::printf("\n");
         // Always: the plaque, the company, the later screens greyed, QUIT there.
         EXPECT(sc->loaded() && c && has("HOUSE ") && c->planet != "Planet" && !c->planet.empty() && has("Stores: " + std::to_string(c->stores->count())));
-        for (int32_t id : {mw1::kHubMarket, mw1::kHubBar, mw1::kHubTravel}) EXPECT(sc->visible(id) && !sc->enabled(id));
+        for (int32_t id : {mw1::kHubBar, mw1::kHubTravel}) EXPECT(sc->visible(id) && !sc->enabled(id));
+        EXPECT(sc->visible(mw1::kHubMarket) && sc->enabled(mw1::kHubMarket) == (mw1::game_loop_pending() == nullptr));
         EXPECT(sc->visible(mw1::kHubQuit) && sc->enabled(mw1::kHubQuit));
         if (const mw1::AfterAction* pa = mw1::game_loop_pending()) {
           // AFTER ACTION: OK, and REPLAY on a failure only; the offer's buttons gone.
@@ -219,14 +276,24 @@ void loop_run(Ending ending, Run* run = nullptr) {
         }
         EXPECT(has("CONTRACT ON OFFER") && sc->visible(mw1::kHubAccept) && sc->visible(mw1::kHubDecline) && !sc->visible(mw1::kHubOk) &&
                !sc->visible(mw1::kHubReplay));
-        if (hubs == 1 && !(run && run->resume)) {
+        if (!hub_checked && run && run->market && !run->market_done) {
+          // To the market first; the offer taken after it.
+          mw1::Company* mc = mw1::game_loop_company_for_tests();
+          mc->funds = 4000000;
+          mc->market.stock = {mw1::kPmFirefly, 1};  // a Firefly and an Atlas
+          sc->on_button(mw1::kHubMarket, 0, 0);
+          return;
+        }
+        if (!hub_checked && !(run && run->resume)) {
           funds_at_offer = c->funds, items_at_offer = c->stores->count();
           for (int h = 0; h < mw1::kHouseCount; ++h) favor_at_offer[h] = c->favor[h], grievance_at_offer[h] = c->grievance[h];
           target = k ? k->target : -1;
           if (run && k) run->funds_at_offer = c->funds, run->items_at_offer = c->stores->count(), run->loadout_at_offer = loadout_items(c),
                              run->first_offer = *k;
           if (run && k) run->last_offer = *k;
-          EXPECT(has("Funds: " + std::to_string(c->funds / 1000000)));
+          std::string f = std::to_string(c->funds);
+          for (int i = static_cast<int>(f.size()) - 3; i > 0; i -= 3) f.insert(static_cast<size_t>(i), ",");
+          EXPECT(has("Funds: " + f + " C-bills"));
           hub_checked = true;
           sc->on_button(mw1::kHubAccept, 0, 0);
           return;
@@ -261,6 +328,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
           const mech3::Store* lab = p ? p->store() : nullptr;
           lab_items = lab ? lab->count() : -1, lab_full = lab ? lab->full : 1;
           pilot_name = p ? p->name : "";
+          if (run && p && p->action()) run->briefing_mech = p->action()->slot.mech;
           funds_at_briefing = c ? c->funds : 0;
           briefed = true;
           // The failed run (no salvage after) fits a laser as the lab does (GameSlot::set_config with the store,
@@ -368,7 +436,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
   EXPECT(fs::exists(fs::path(wd) / "pilots", ec));  // in mw1's own write dir
   if (ending == kAbort) {
     // ABORT: no mission, the contract not taken, nothing paid or moved; the next offer at once.
-    EXPECT(hubs == 3 && hub_checked && declined && back_at_main && enemies == 0);  // the offer, the next (DECLINE), QUIT
+    EXPECT(hubs == 3 + (run && run->market ? 1 : 0) && hub_checked && declined && back_at_main && enemies == 0);  // the offer, the next (DECLINE), QUIT
     EXPECT(c && c->funds == funds_at_offer && c->stores->count() == items_at_offer);
     if (run) EXPECT(loadout_items(c) == run->loadout_at_offer);
     else EXPECT(c && !c->loadout);
@@ -381,7 +449,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
     return;
   }
   // The offer, AFTER ACTION, the next offer (DECLINE), QUIT.
-  EXPECT(hubs == 4 && hub_checked && declined && back_at_main && enemies > 0 && killed == (ending == kReach ? 0 : enemies));
+  EXPECT(hubs == 4 + (run && run->market ? 1 : 0) && hub_checked && declined && back_at_main && enemies > 0 && killed == (ending == kReach ? 0 : enemies));
   if (ending == kReach) EXPECT(reach_only && reached);
   EXPECT(c && funds_in_mission > funds_at_offer);  // the advance, at LAUNCH
   EXPECT(c && c->loadout);                         // the briefing's loadout, the company's from LAUNCH
@@ -627,5 +695,38 @@ TEST(mw1_loop_restart_at_a_failures_after_action_then_replay_headless) {
     // The replay won and settled once: the fee and the parts.
     EXPECT(second.funds_end > first.funds_end && second.items_end > first.items_end);
     EXPECT(file_text(save).find("\npending=0\n") != std::string::npos);
+  });
+}
+
+// The market through its screen (mw1_market_screen.h) before the first contract: bought, sold back into the stock,
+// the last mech kept, bought again, piloted; the contract then fought and won in the Firefly, the hangar's Owens
+// saved with the company.
+TEST(mw1_loop_market_buy_sell_pilot_then_a_contract_in_the_bought_mech_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_loop_market";
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  in_child([&] {
+    Run run;
+    run.save = (dir / mw1::kSaveFile).string();
+    run.market = true;
+    loop_run(kWon, &run);
+    std::printf("  market: bought for %lld, sold for %lld; the briefing's mech %d\n", static_cast<long long>(run.market_bought_for),
+                static_cast<long long>(run.market_sold_for), run.briefing_mech);
+    EXPECT(run.market_done && run.market_lines.size() > 4);
+    bool for_sale = false, yours = false;
+    for (const std::string& l : run.market_lines) for_sale = for_sale || l == "FOR SALE", yours = yours || l == "YOUR MECHS";
+    EXPECT(for_sale && yours);
+    // The prices at the start world's tier, from the save's company.
+    mw1::Company saved;
+    mw1::Contract k;
+    bool has = false;
+    std::string why;
+    EXPECT(mw1::load_file(run.save, saved, k, &has, &why) == mw1::Loaded::kLoaded);
+    EXPECT(run.market_bought_for == mw1::buy_price(mw1::kPmFirefly, saved.tier) &&
+           run.market_sold_for == mw1::sell_price(mw1::kPmFirefly, saved.tier));
+    EXPECT(run.briefing_mech == mw1::kPmFirefly && saved.mech == mw1::kPmFirefly && saved.hangar.size() == 1 &&
+           saved.hangar[0].mech == mw1::kPmOwens);
   });
 }

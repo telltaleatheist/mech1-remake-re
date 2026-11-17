@@ -9,6 +9,7 @@
 #include "mech3/mech_ids.h"
 #include "mech3/mech_names.h"
 #include "mech3/pilot.h"
+#include "mw1_market.h"
 
 namespace mw1 {
 
@@ -94,7 +95,7 @@ Company new_company(Rng& rng) {
   Company c;
   // The world first, as the original draws it (081B:181A), then the cash bonus.
   const StartPlanet& p = kStartPlanets[rng.upto(kStartPlanetCount - 1)];
-  c.planet = title_case_name(p.name), c.planet_house = p.house, c.tier = p.tier;
+  c.planet = title_case_name(p.name), c.planet_house = p.house, c.tier = p.tier, c.planet_number = p.number;
   c.funds = kStartingFunds + static_cast<int64_t>(rng.upto(0xff)) * 1000;  // startupCashBonus
   c.mech = kPmOwens;
   c.stores = std::make_shared<mech3::Store>();
@@ -168,11 +169,11 @@ void accept(Company& c, Contract& k) {
 }
 
 int32_t wreck_value(const Company& c, const Wreck& w) {
-  const MechKind& m = kMechKinds[w.kind];
-  if (w.condition <= kScrapCondition) return m.tons * kScrapPerTon;
-  // MwCalculateUnitConditionPrice: (multiplier - 1) x condition x base, +500, in thousands.
-  const int64_t price = static_cast<int64_t>(kTierMultipliers[c.tier] - 1) * w.condition * m.base_price + kSaleRounding;
-  return static_cast<int32_t>(price / 1000);
+  const int32_t chassis = kMechKinds[w.kind].pm_mech;
+  if (w.condition <= kScrapCondition) return static_cast<int32_t>(std::lround(mech3::max_mass(chassis))) * kScrapPerTon;
+  // MwCalculateUnitConditionPrice's shape (the sale price by the condition, +500, in thousands), on the market's
+  // sale price for the chassis.
+  return static_cast<int32_t>((sell_price(chassis, c.tier) * w.condition / 100 + kSaleRounding) / 1000);
 }
 
 Settlement settle(Company& c, Contract& k, Outcome o, const std::vector<Wreck>& wrecks, Rng& rng) {

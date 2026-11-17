@@ -38,6 +38,12 @@ const AfterAction* game_loop_pending();
 // The hub's state, once the loop has made it (tests: its screen shows what the player sees); a press of one of
 // its buttons (mw1_hub.h's HubButton), as the screen's own.
 HubState* game_loop_hub();
+class MarketState;
+// The market's state once the hub's MARKET has made it (tests); the company to change in a test (funds, the
+// market's stock) and the market's screen shown again after such a change.
+MarketState* game_loop_market();
+Company* game_loop_company_for_tests();
+void game_loop_market_changed();
 void game_loop_press(int32_t button);
 
 }  // namespace mw1

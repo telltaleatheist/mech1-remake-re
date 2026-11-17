@@ -2,6 +2,7 @@
 
 #include <cctype>
 #include <cstdio>
+#include <cstdlib>
 #include <memory>
 #include <random>
 #include <string>
@@ -18,6 +19,8 @@
 #include "gamez/zreader/zreader.h"
 #include "mw1_campaign.h"
 #include "mw1_hub.h"
+#include "mw1_market.h"
+#include "mw1_market_screen.h"
 #include "mw1_save.h"
 
 namespace mw1 {
@@ -86,6 +89,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (hub(ge)) {
       show_hub();
       ge.push_state(hub_, 0);
+      // MW1_SCREEN=market (development: --shot pictures of a screen past the hub).
+      if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "market") press(kHubMarket);
       return true;
     }
     // No hub layout (MW1's data missing): the message boxes, as before the hub.
@@ -106,10 +111,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   bool hub(mech3::GameEngine& ge) {
     if (hub_engine_ == &ge && ge.menu_state_of(hub_) == hub_state_) return hub_ != 0;
     hub_engine_ = &ge, ge_ = &ge, hub_ = 0, hub_state_ = nullptr;
-    zrdr::Node* t = zrdr::load(kHubFile);
-    const bool there = t && zrdr::find(t, kHubDialog);
-    if (t) zrdr::free_node(t);
-    if (!there) {
+    market_ = 0, market_state_ = nullptr;
+    if (!layout_there(kHubFile, kHubDialog)) {
       std::printf("mw1: no hub layout (%s in MW1's data): the message boxes\n", kHubFile);
       return false;
     }
@@ -140,6 +143,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
                     ending_word(pending_->outcome), pending_->wrecks.size(), thousands(s.salvage).c_str(), thousands(s.fee).c_str(),
                     s.payout_percent, thousands(company_.funds).c_str(), company_.stores->count());
         pending_.reset();
+        refresh_market(company_, rng_);  // the original refreshes on every return (STARTUP 081B:378)
         new_offer();
         break;
       }
@@ -157,9 +161,80 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       case kHubQuit:
         if (ge) ge->pop_state(1);  // Pirate's Moon's main menu (MW1's own comes later)
         return;
+      case kHubMarket:
+        // The market in the hub's place (BACK brings the hub back); not while AFTER ACTION waits.
+        if (pending_ || !ge || !market(*ge)) return;
+        choice_ = MarketChoice{};
+        show_market();
+        ge->pop_state(1);
+        ge->push_state(market_, 0);
+        return;
       default: return;  // the screens that come later
     }
     show_hub();
+  }
+
+  // ---- the market (mw1_market.h, mw1_market_screen.h) ----
+
+  // The market's state on the hub's engine, made once; false when MW1's layout for it is not there.
+  bool market(mech3::GameEngine& ge) {
+    if (market_ && ge.menu_state_of(market_) == market_state_) return true;
+    if (!layout_there(kMarketFile, kMarketDialog)) {
+      std::printf("mw1: no market layout (%s in MW1's data)\n", kMarketFile);
+      return false;
+    }
+    market_ = ge.adopt_state([this](zgame::Handle h) { return market_state_ = new MarketState(h, [this](int32_t id) { press_market(id); }); });
+    return market_ != 0;
+  }
+
+  void press_market(int32_t id) {
+    std::printf("mw1: market: %s\n", market_button_name(id));
+    mech3::GameEngine* ge = ge_;
+    Deal d = Deal::kDone;
+    std::string done;
+    switch (id) {
+      case kMarketBuy: {
+        const int32_t mech = choice_.stock < static_cast<int32_t>(company_.market.stock.size()) ? company_.market.stock[choice_.stock] : -1;
+        const int64_t price = mech >= 0 ? buy_price(mech, company_.tier) : 0;
+        if ((d = buy(company_, choice_.stock)) == Deal::kDone)
+          done = "Bought: " + mech_title(mech) + " for " + thousands(price) + " C-bills.";
+        break;
+      }
+      case kMarketSell: {
+        const int32_t mech = owned_mech(company_, choice_.owned);
+        if ((d = sell(company_, choice_.owned)) == Deal::kDone)
+          done = "Sold: " + mech_title(mech) + " for " + thousands(sell_price(mech, company_.tier)) + " C-bills.";
+        break;
+      }
+      case kMarketPilot:
+        if ((d = pilot(company_, choice_.owned)) == Deal::kDone) {
+          choice_.owned = 0;
+          done = "The commander now pilots the " + mech_title(company_.mech) + ".";
+        }
+        break;
+      case kMarketStockUp: --choice_.stock; break;
+      case kMarketStockDown: ++choice_.stock; break;
+      case kMarketOwnUp: --choice_.owned; break;
+      case kMarketOwnDown: ++choice_.owned; break;
+      case kMarketBack:
+        if (!ge) return;
+        show_hub();
+        ge->pop_state(1);
+        ge->push_state(hub_, 0);
+        return;
+      default: return;
+    }
+    if (id == kMarketBuy || id == kMarketSell || id == kMarketPilot) {
+      choice_.note = d == Deal::kDone ? done : deal_words(d);
+      std::printf("mw1: market: %s\n", choice_.note.c_str());
+      if (d == Deal::kDone) save();
+    }
+    show_market();
+  }
+
+  void show_market() {
+    clamp_choice(company_, choice_);
+    if (market_state_) market_state_->show(market_view(company_, choice_));
   }
 
   void show_hub() {
@@ -167,7 +242,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     HubView v;
     v.planet = upper(company_.planet);
     v.house = "HOUSE " + upper(kHouses[company_.planet_house].name);
-    v.company = {"COMPANY", "Funds: " + thousands(company_.funds) + " C-bills", "Mech: " + title_case(mech3::mech_name(company_.mech)),
+    v.company = {"COMPANY", "Funds: " + thousands(company_.funds) + " C-bills", "Mech: " + mech_title(company_.mech) +
+                                     (company_.hangar.empty() ? "" : " (+" + std::to_string(company_.hangar.size()) + " in the hangar)"),
                  "Stores: " + std::to_string(company_.stores->count()) + " items", "Kills: " + std::to_string(company_.kills)};
     if (pending_) {
       v.title = "AFTER ACTION", v.panel = after_action_lines(), v.after_action = true;
@@ -278,6 +354,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   const Company* company() const { return company_.stores ? &company_ : nullptr; }
   const AfterAction* pending() const { return pending_.get(); }
   HubState* hub_state() const { return hub_state_; }
+  MarketState* market_state() const { return market_state_; }
+  Company* company_mut() { return company_.stores ? &company_ : nullptr; }
+  void market_changed() { show_market(); }
   void set_save(const std::string& path, bool fresh) { save_path_ = path, fresh_ = fresh; }
   void set_world(const std::string& world, int32_t ia) { world_ = world, world_ia_ = ia; }
   const Contract* contract() const { return company_.stores ? &contract_ : nullptr; }
@@ -315,6 +394,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       bool has_pending = false;
       switch (load_file(save_path_, company_, contract_, &has_offer, &why, pending.get(), &has_pending)) {
         case Loaded::kLoaded:
+          if (!company_.market.rolled) refresh_market(company_, rng_);  // a version 1 save: no market yet
           if (has_pending) pending_ = std::move(pending), launch_stores_ = pending_->launch_stores, launch_loadout_ = pending_->launch_loadout;
           std::printf("mw1: the company loaded from %s: %s C-bills, %d items in the stores, %d kills%s\n", save_path_.c_str(),
                       thousands(company_.funds).c_str(), company_.stores->count(), company_.kills,
@@ -327,7 +407,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       }
     }
     company_ = new_company(rng_);
-    std::printf("mw1: a new company, %s C-bills\n", thousands(company_.funds).c_str());
+    refresh_market(company_, rng_);
+    std::printf("mw1: a new company on %s, %s C-bills\n", company_.planet.c_str(), thousands(company_.funds).c_str());
     return false;
   }
 
@@ -387,6 +468,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   mech3::GameEngine* ge_ = nullptr;
   zgame::Handle hub_ = 0;
   HubState* hub_state_ = nullptr;
+  zgame::Handle market_ = 0;
+  MarketState* market_state_ = nullptr;
+  MarketChoice choice_;
   std::shared_ptr<mech3::Store> salvage_;  // this mission's parts, the stores' on a win
   bool deployed_ = false, launched_ = false, ended_ = false, failed_ = false, reach_set_ = false;
   std::string reach_;  // install_game_loop's structure: every contract reach-a-structure
@@ -427,6 +511,12 @@ const AfterAction* game_loop_pending() { return the_loop() ? the_loop()->pending
 HubState* game_loop_hub() { return the_loop() ? the_loop()->hub_state() : nullptr; }
 void game_loop_press(int32_t button) {
   if (the_loop()) the_loop()->press(button);
+}
+
+MarketState* game_loop_market() { return the_loop() ? the_loop()->market_state() : nullptr; }
+Company* game_loop_company_for_tests() { return the_loop() ? the_loop()->company_mut() : nullptr; }
+void game_loop_market_changed() {
+  if (the_loop()) the_loop()->market_changed();
 }
 
 const Company* game_loop_company() { return the_loop() ? the_loop()->company() : nullptr; }
