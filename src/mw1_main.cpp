@@ -152,6 +152,42 @@ int main(int argc, char** argv) {
   std::printf("mw1: MechWarrior 1: Critical Hit, write dir %s\nmw1:   Pirate's Moon %s\nmw1:   MechWarrior 3 %s\nmw1:   MechWarrior (1989) %s\n",
               a.write_dir.c_str(), use.pm.empty() ? "(not found)" : use.pm.c_str(), use.mw3.empty() ? "(not found)" : use.mw3.c_str(),
               use.mw1.empty() ? "(not found)" : use.mw1.c_str());
+  // A start without all three games (mw1.exe opened by itself, before the launcher has given them): say so and
+  // offer the launcher beside us, which finds them and starts us with them. Not for --hidden runs (tests, shots).
+  if ((use.pm.empty() || use.mw3.empty() || use.mw1.empty()) &&
+      std::find(a.rest.begin(), a.rest.end(), "--hidden") == a.rest.end()) {
+    std::string missing;
+    if (use.pm.empty()) missing += "\n  - Pirate's Moon";
+    if (use.mw3.empty()) missing += "\n  - MechWarrior 3";
+    if (use.mw1.empty()) missing += "\n  - MechWarrior (1989)";
+    std::filesystem::path launcher;
+    if (const char* base = SDL_GetBasePath()) {
+#ifdef _WIN32
+      launcher = std::filesystem::path(base) / "mw3launcher.exe";
+#else
+      launcher = std::filesystem::path(base) / "mw3launcher";
+#endif
+    }
+    std::error_code ec;
+    const bool have_launcher = !launcher.empty() && std::filesystem::exists(launcher, ec);
+    const std::string text = "MechWarrior 1: Critical Hit needs your own copies of:" + missing +
+                             (have_launcher ? "\n\nStart it from the launcher, which finds them: click MECHWARRIOR 1 there."
+                                            : "\n\nStart it from the MechWarrior 3 rebuild's launcher, which finds them.");
+    std::printf("mw1: missing installs:%s\n", missing.c_str());
+    const SDL_MessageBoxButtonData buttons[] = {{SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, have_launcher ? "Open the launcher" : "OK"},
+                                                {SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "Quit"}};
+    const SDL_MessageBoxData box{SDL_MESSAGEBOX_WARNING, nullptr, "MechWarrior 1: Critical Hit", text.c_str(),
+                                 have_launcher ? 2 : 1, buttons, nullptr};
+    int chose = 0;
+    SDL_ShowMessageBox(&box, &chose);
+    if (chose == 1 && have_launcher) {
+      const std::string exe = launcher.string();
+      const char* run[] = {exe.c_str(), nullptr};
+      if (SDL_Process* p = SDL_CreateProcess(run, false)) SDL_DestroyProcess(p);  // detached: the launcher lives on
+      else std::fprintf(stderr, "mw1: could not start %s: %s\n", exe.c_str(), SDL_GetError());
+    }
+    return 0;
+  }
   mw1::set_mw1_game_dir(use.mw1);  // the Bar's pitches, from the player's MW_MAIN.EXE (mw1_pilots.h)
   // MW1's loop over PM's game: the hub at the main menu, the contract's mission, the settlement (mw1_game.h).
   // MW1_SEED (tests) fixes the company's and the contracts' rolls; MW1_REACH=<node> (a test override) makes every

@@ -7,9 +7,12 @@ Tick an item when it is merged into `main`.
 - **Seen:** starting MW1 shows a PM-style menu.
 - **Wanted:** MW1's own title screen, using the generated `title_bg` with NEW / LOAD / QUIT in MW1's style.
 
-## 2. [ ] NEW CAMPAIGN sits on a black screen for about 30 s
+## 2. [x] NEW CAMPAIGN sits on a black screen for about 30 s
 - **Seen:** after NEW CAMPAIGN, a black screen for about 30 seconds, then the intro picture.
-- **Needed:** find what takes the time on Windows. The suspects are the first run's world conversion, loading the music, and the image archive. Fix it, and if any wait stays, show something on screen while it runs.
+- **Cause (the PC's log):** "the intro, 0 lines of narration". mw1.exe was opened by itself, not from the launcher, so it had no MechWarrior (1989) folder and no MW_MAIN.EXE to read the narration from. The intro still waited out the narration's ~25 s on an empty screen.
+- **Fixed:**
+  - With no narration, the intro goes straight to the picture.
+  - mw1.exe opened without all three games says which are missing and offers to open the launcher beside it, which finds them.
 
 ## 3. [ ] Every screen between missions must look like MW1, with our generated art
 - **Seen:** the screens are text panels on Pirate's Moon's chrome. "There's no reason why this should play like Legend of the Red Dragon."
