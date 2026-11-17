@@ -17,6 +17,7 @@
 #include "mech3/mech_config.h"
 #include "mech3/mech_salvage.h"
 #include "mech3/mech_objective.h"
+#include "gamez/zreader/zreader.h"
 #include "mech3/pilot.h"
 
 using namespace mech3;
@@ -189,4 +190,44 @@ TEST(pm_salvage_takes_the_chassis_by_its_flag) {
   m.chassis = false;
   add_salvage(b, m, c);
   EXPECT(b.count() == 0);
+}
+
+// Ours (MW1: Critical Hit): a block's `destroy_enemies 0` keeps Instant Action's "destroy the enemies"
+// group out, so a mission's own objective (reach a structure within 10 m) wins it alone; without the key, the original.
+namespace {
+struct ReadHooks : Hooks {
+  const char* message(int32_t) override { return "objectives"; }
+  int32_t game_type() override { return 2; }  // Instant Action
+};
+zrdr::Node* parse(const char* text) {
+  std::FILE* f = std::tmpfile();
+  std::fputs(text, f);
+  std::rewind(f);
+  zrdr::Node* root = zrdr::parse_text(f);
+  std::fclose(f);
+  return root;
+}
+}  // namespace
+
+TEST(objectives_destroy_enemies_off_reads) {
+  ReadHooks h;
+  zrdr::Node* root = parse(
+      "ia1 (destroy_enemies 0 primary (reach_area (radius 10 point (100 0 200))))\n"
+      "ia2 (primary (reach_area (point (1 2 3))))\n"
+      "ia3 (destroy_enemies (1) primary (reach_area (point (1 2 3))))\n");
+  EXPECT(root != nullptr);
+  Objectives a, b, c;
+  EXPECT(read_objectives(zrdr::find(root, "ia1"), a, h));
+  EXPECT(!a.destroy_enemies);
+  EXPECT(a.primary && a.primary->items.size() == 1);
+  if (a.primary && !a.primary->items.empty()) {
+    const auto* r = static_cast<const ReachAreaObjective*>(a.primary->items.front().get());
+    EXPECT(r->radius == 10.0f && r->point[0] == 100.0f && r->point[2] == 200.0f);
+  }
+  EXPECT(read_objectives(zrdr::find(root, "ia2"), b, h) && b.destroy_enemies);
+  EXPECT(read_objectives(zrdr::find(root, "ia3"), c, h) && c.destroy_enemies);
+  objectives_free(a, h);
+  EXPECT(a.destroy_enemies);  // a freed block's next read starts from the original's
+  objectives_free(b, h), objectives_free(c, h);
+  zrdr::free_node(root);
 }

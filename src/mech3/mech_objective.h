@@ -334,6 +334,10 @@ class WeaponObjective : public Objective {
 struct Objectives {
   std::optional<std::string> desc;      // +0x78 (calloc'd)
   std::unique_ptr<ObjectiveGroup> primary, secondary, final, fail;  // +0x7c..+0x88
+  // Ours (no original has it): the block's `destroy_enemies 0` keeps Instant Action's
+  // "destroy the enemies" group (0x0045c4a0) out, so the mission's own primary
+  // objectives (reach a structure, destroy one) win it alone. Default 1, the original.
+  bool destroy_enemies = true;
 };
 
 // The training game's lessons (its +0x44 object: +0x38..+0x40 the list, 0x14

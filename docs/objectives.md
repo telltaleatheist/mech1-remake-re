@@ -359,3 +359,33 @@ of the group first tries `fails`: one met ends the group as failed (0x004600d0, 
 `sound`, message 0x265 in place of 0x263, its `salvage` not won. A failed condition doesn't count toward its own group,
 and the debriefing shows it as Failed. c1m1's "Protect Rim Collective Camp" and "Avoid the Pirate Base" use them.
 
+
+## Ours: a mission without "destroy the enemies" (for MW1: Critical Hit, 2026-11-16)
+
+Instant Action always adds its own "destroy the enemies" group to the
+primary objectives at the start (0x0045c4a0, `add_enemy_objectives`), so
+every IA mission is won by killing everything, whatever its block adds.
+A block can now turn that off with a key of its own, beside `primary`:
+
+```
+ia1 (destroy_enemies 0
+     primary (reach_area (radius 10 node "<structure's node>")))
+```
+
+`destroy_enemies 0` (or `(0)`) leaves the group out; the mission is won by
+its own primary objectives alone. Without the key, or with 1, the game is
+the original's. It is read from the block itself (`find_flat`), not from a
+condition, and reset when the objectives are freed (`objectives_free`),
+so Instant Action's next wave reads it again. No shipped file has it, and
+the original's reader passes it over. `Objectives::destroy_enemies`
+(`mech_objective.h`), read in `read_objectives`, used in the mission's
+`objectives_start` (`app_mission.cpp`). Test:
+`objectives_destroy_enemies_off_reads` (`tests/pm/test_pm_objectives.cpp`).
+
+What MW1's structure objectives are made of, all existing types:
+
+| MW1 | The block |
+|---|---|
+| Reach a structure | `destroy_enemies 0`, primary `reach_area` with `node` (the building's node) and `radius 10` |
+| Attack a structure | `destroy_enemies 0`, primary `destroy_entity` naming the building (its `targets.zrd` node name) |
+| Defend a structure | the enemies' group kept (destroy them to win), fail `destroy_entity` naming the building |
