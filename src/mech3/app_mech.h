@@ -602,6 +602,13 @@ bool hud_weapon_recycling(void* hud, int32_t weapon);
 class ActionGame* mission_action_game();
 void mission_action_add(int32_t field, int32_t kills);
 bool program_mech_kill_credit(void* killer, void* victim);  // a mech killer's 0x0041b420; false: not a mech
+class Store;
+// Ours: for programs built on the engine (MW1). A mech's salvage (PM 0x00474f80, as the campaign's kill reads the
+// mech) into `into`, `chassis` deciding whether the mech itself comes too; false: not a mech, or nothing left.
+bool program_salvage_mech(void* mech, Store& into, bool chassis);
+// Ours: for programs built on the engine (MW1). A mech's parts by id (1..15, 0x0041d510) it has, and of them those
+// not destroyed (+0x48); false: not a mech.
+bool program_mech_parts_standing(void* mech, int32_t* standing, int32_t* all);
 bool program_entity_zones(const void* e, uint8_t out[4]);  // a mech's or vehicle's +0x64; false: neither
 void* wm_group_weapon(void* wm);
 void weapon_node_position(void* w, float out[3]);

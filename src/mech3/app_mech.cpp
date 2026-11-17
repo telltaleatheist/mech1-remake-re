@@ -3194,4 +3194,23 @@ void* program_ai_mech_brain(void* controls) {
   return c ? c->brain.get() : nullptr;
 }
 
+// Ours: for programs built on the engine (MW1). A mech's salvage (PM 0x00474f80 on the mech as the campaign's
+// kill reads it) put into `into`, with `chassis` in place of the mech's own flag (false: its parts, never the mech
+// itself). The campaign's own salvage path is left as it is.
+bool program_salvage_mech(void* mech, Store& into, bool chassis) {
+  if (!entity_is_mech(mech)) return false;
+  SalvageMech v = salvage_view(*static_cast<Mech*>(mech));
+  v.chassis = chassis;
+  return add_salvage(into, v, salvage_calls());
+}
+
+// Ours: for programs built on the engine (MW1) (app_mech.h).
+bool program_mech_parts_standing(void* mech, int32_t* standing, int32_t* all) {
+  if (!entity_is_mech(mech)) return false;
+  *standing = *all = 0;
+  for (int32_t id = 1; id <= 15; ++id)
+    if (const auto* p = static_cast<const MechPart*>(program_mech_part(mech, id))) ++*all, *standing += !p->destroyed;
+  return true;
+}
+
 }  // namespace mech3

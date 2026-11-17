@@ -402,6 +402,17 @@ original's.
   it (the campaign's salvage, the kill count, the points), whoever made it.
   The program decides whether the kill was its player's side.
 
+Beside it, also ours and for programs built on the engine:
+`program_salvage_mech(mech, store, chassis)` (`app_mech.h`) puts a mech's
+salvage (PM 0x00474f80, read from the mech as the campaign's kill reads it)
+into a store of the program's, with `chassis` in place of the mech's own
+flag: false gives its parts and never the mech. The campaign's own salvage
+path doesn't go through it. And `program_mech_parts_standing(mech, &standing,
+&all)`: of the mech's parts by id (1..15) those it has, and of them those not
+destroyed, for a program's own wreck value (MW1's condition).
+
 Tests: `program_flow_none_is_the_original`,
 `program_flow_sees_main_and_the_instant_action_end_headless`
-(`tests/pm/test_pm_options.cpp`).
+(`tests/pm/test_pm_options.cpp`),
+`program_flow_sees_kills_and_program_salvage_mech_headless`
+(`tests/pm/test_pm_mission.cpp`).

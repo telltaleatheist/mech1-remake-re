@@ -32,6 +32,7 @@
 #include "gamez/zclass/light.h"
 #include "gamez/zweapon/zwep_init.h"
 #include "gamez/zweapon/zweapon.h"
+#include "mech3/program_flow.h"
 #include "mech3/zainet_inout.h"
 #include "mech3/zainet_inout_view.h"
 #include "mech3/zai_repair.h"
@@ -4819,5 +4820,121 @@ TEST(pm_salvage_entered_cold_loads_the_lab_world_headless) {
   }
   const int status = check::wait_child(child);
   EXPECT(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+#endif
+}
+
+// Ours: for programs built on the engine (MW1). The program's flow is told of each mech kill after the original's
+// handling of it (mech_killed, Mech::on_kill), and program_salvage_mech gives a mech's salvage into a store of the
+// program's: with chassis false its parts and never the mech, with true the mech too. On a real Instant Action
+// mission (c2's ia1, two Owens against the Mad Cat): the player's kill of one, as the victim's Die calls it.
+static void program_flow_kill_run() {
+  zgame::set_game(pm::table());
+  zutl::mounts() = zutl::Mounts{};
+  zutl::mount(MW3PM_GAME_DIR);
+  const std::string wd = std::string(MW3_TEST_TMP_ROOT) + "/pm_program_flow_kill";
+  std::filesystem::create_directories(wd);
+  zutl::set_write_dir(wd.c_str());
+  mech3::reset_states();
+  if (!zsnd::state().open) zsnd::state() = zsnd::State{};
+  mech3::missions() = mech3::Missions{};
+  mech3::mech_types_forget();
+  mech3::player_controls_instance() = nullptr;
+  mech3::options() = mech3::Options{};
+  struct Flow : mech3::ProgramFlow {
+    int kills = 0;
+    void* victim = nullptr;
+    void* killer = nullptr;
+    void mech_killed(void* v, void* k) override { ++kills, victim = v, killer = k; }
+  } flow;
+  NoKeys keys;
+  Window window;
+  Alert alert;
+  FixedSeed seed(1u);
+  Clock clock;
+  MovieClock movies;
+  Screen screen;
+  platform::SilentSoundOutput sound;
+  mech3::MountFiles files;
+  mech3::Platform p;
+  p.window = &window, p.alert = &alert, p.clock = &clock, p.movie_clock = &movies, p.screen = &screen;
+  p.sound = &sound, p.files = &files, p.input = &keys;
+  {
+    mech3::GameEngine engine(p, "mech3.exe -nofmv");
+    engine.quiet = true;
+    mech3::Mech3App app(&engine);
+    mech3::set_app(&app);
+    EXPECT(app.init_instance());
+    mech3::ActionGame game(nullptr);
+    game.set_mode(0);
+    game.set_world(1, 1);  // c2, ia1 (Battle)
+    game.slot.mech = 13;
+    game.add(16, 0, nullptr, 0);  // two Owens, stock
+    game.add(16, 0, nullptr, 0);
+    mech3::GameEngine::Launch l;
+    l.type = 2, l.index = 1, l.number = 1;
+    l.action = &game;
+    engine.set_launch(l);
+    app.post_intro_ = &mech3::states().load;
+    int frames = 0, made = 0, none_kills = -1, parts_items = -1, parts_mechs = -1, whole_mechs = -1;
+    bool credited = false, same_victim = false, same_killer = false;
+    engine.on_present = [&](int) {
+      if (app.current() != &mech3::states().core || ++frames != 30) return;
+      int32_t n = 0;
+      const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+      made = n;
+      void* player = mech3::mech_mission_player();
+      if (n < 2 || !player) return;
+      // None set: the kill as the original's alone.
+      EXPECT(mech3::program_flow() == nullptr);
+      mech3::program_mech_kill_credit(player, ai[1].mech);
+      none_kills = flow.kills;
+      mech3::set_program_flow(&flow);
+      credited = mech3::program_mech_kill_credit(player, ai[0].mech);
+      mech3::set_program_flow(nullptr);
+      same_victim = flow.victim == ai[0].mech, same_killer = flow.killer == player;
+      mech3::Store parts(1), whole(1);
+      EXPECT(mech3::program_salvage_mech(ai[0].mech, parts, false));
+      EXPECT(mech3::program_salvage_mech(ai[1].mech, whole, true));
+      parts_items = parts.count(), whole_mechs = 0, parts_mechs = 0;
+      for (int32_t r = 0; r < mech3::kMechCount; ++r) parts_mechs += parts.has_mech(r) != nullptr, whole_mechs += whole.has_mech(r) != nullptr;
+      EXPECT(!mech3::program_salvage_mech(nullptr, parts, false));
+      // Its parts standing: a fresh mech's all of them; not a mech, false.
+      int32_t standing = -1, all = -1;
+      EXPECT(mech3::program_mech_parts_standing(ai[1].mech, &standing, &all) && all > 0 && standing == all);
+      EXPECT(!mech3::program_mech_parts_standing(nullptr, &standing, &all));
+    };
+    Pump pump;
+    pump.limit = 600;
+    pump.stop = [&] { return frames >= 30; };
+    app.run(pump);
+    std::printf("  program flow kills: %d AI mechs; none set %d seen, set %d (victim %d, killer %d); salvage without the chassis "
+                "%d items, %d mechs; with it %d mechs\n",
+                made, none_kills, flow.kills, same_victim, same_killer, parts_items, parts_mechs, whole_mechs);
+    EXPECT(made == 2 && none_kills == 0 && credited && flow.kills == 1 && same_victim && same_killer);
+    EXPECT(parts_items > 0 && parts_mechs == 0 && whole_mechs == 1);
+    mech3::missions().cleanup(false);
+    app.stop_game();
+    app.exit_instance();
+    mech3::set_app(nullptr);
+  }
+  zrdr::close_archives(true);
+  mech3::reset_states();
+  mech3::options() = mech3::Options{};
+}
+
+TEST(program_flow_sees_kills_and_program_salvage_mech_headless) {
+  if (!std::filesystem::exists(MW3PM_GAME_DIR)) return;
+#if !defined(_WIN32)
+  std::fflush(nullptr);
+  const pid_t child = check::fork_child();
+  if (child == 0) {
+    program_flow_kill_run();
+    std::fflush(nullptr);
+    _exit(check::failures ? 1 : 0);
+  }
+  const int status = check::wait_child(child);
+  EXPECT(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+#else
+  program_flow_kill_run();
 #endif
 }
