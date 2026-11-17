@@ -423,8 +423,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         story_events(kClassBarEntry);
         return;
       case kHubOffice:
-        // The House office in the hub's place (BACK brings the hub back): the offer to negotiate.
-        if (pending_ || !offered_ || !ge || !office(*ge)) return;
+        // The House office in the hub's place (BACK brings the hub back): the offer to negotiate, or why there's none.
+        // A place, as MW1's: it opens wherever the world has one (its events fire on entering).
+        if (pending_ || !contracts_here(company_) || !ge || !office(*ge)) return;
         ochoice_ = OfficeChoice{};
         show_office();
         ge->pop_state(1);
@@ -497,7 +498,13 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   }
 
   void show_office() {
-    if (office_state_) office_state_->show(office_view(company_, contract_, ochoice_, offer_lines(false, false), offered_));
+    if (!office_state_) return;
+    std::vector<std::string> closed;
+    if (!offered_) {
+      closed = refuses(company_, company_.planet_house) ? refusal_words(company_.planet_house) : terminated_words();
+      closed.push_back(refuses(company_, company_.planet_house) ? "No contracts from this House." : "No contracts here until you leave.");
+    }
+    office_state_->show(office_view(company_, contract_, ochoice_, offered_ ? offer_lines(false, false) : std::vector<std::string>{}, closed));
   }
 
   // ---- the Bar (mw1_pilots.h, mw1_bar_screen.h) ----
@@ -878,6 +885,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     HubView v;
     v.planet = upper(company_.planet);
     v.house = "HOUSE " + upper(kHouses[company_.planet_house].name);
+    v.office = contracts_here(company_);
     v.date = date_words(company_.date);
     v.company = {"COMPANY", "Funds: " + thousands(company_.funds) + " C-bills", "Mech: " + mech_title(company_.mech) +
                                      (company_.hangar.empty() ? "" : " (+" + std::to_string(company_.hangar.size()) + " in the hangar)"),

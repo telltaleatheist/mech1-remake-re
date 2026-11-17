@@ -102,8 +102,10 @@ std::vector<std::string> answer_lines(Answer a, const Company& c, const Contract
   return l;
 }
 
-ScreenView office_view(const Company& c, const Contract& k, const OfficeChoice& o, const std::vector<std::string>& offer, bool open) {
+ScreenView office_view(const Company& c, const Contract& k, const OfficeChoice& o, const std::vector<std::string>& offer,
+                       const std::vector<std::string>& closed) {
   ScreenView v;
+  const bool open = closed.empty();
   auto row = [&](const char* name, const std::string& theirs, int32_t asked, const std::string& ask_words) {
     return std::vector<std::string>{name, "  Offer: " + theirs + (asked >= 0 ? "    Ask: " + ask_words : std::string())};
   };
@@ -112,7 +114,7 @@ ScreenView office_view(const Company& c, const Contract& k, const OfficeChoice& 
   v.blocks = {{24, 14, kPlaqueFont, {upper(c.planet)}},
               {24, 32, kPlaqueSmallFont, {"HOUSE " + upper(kHouses[c.planet_house].name) + ": HOUSE OFFICE"}},
               {30, 72, kTitleFont, {"CONTRACT ON OFFER"}},
-              {30, 96, kLineFont, offer},
+              {30, 96, kLineFont, open ? offer : std::vector<std::string>{"No contract on offer."}},
               {kRowsX, 72, kTitleFont, {"TERMS"}}};
   if (open) {
     v.blocks.push_back({kRowsX, kRowY[0], kLineFont, row("Payment (C-bills)", money(k.payment), o.ask.payment, money(o.ask.payment))});
@@ -121,7 +123,7 @@ ScreenView office_view(const Company& c, const Contract& k, const OfficeChoice& 
     v.blocks.push_back({kRowsX, kRowY[2], kLineFont, row("Advance", std::to_string(k.advance_percent) + "%", o.ask.advance,
                                                          std::to_string(o.ask.advance) + "%")});
   } else {
-    v.blocks.push_back({kRowsX, kRowY[0], kLineFont, {"No contracts here until you leave."}});
+    v.blocks.push_back({kRowsX, kRowY[0], kLineFont, closed});
     v.blocks.push_back({});
     v.blocks.push_back({});
   }

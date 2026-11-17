@@ -34,7 +34,8 @@ struct HubView {
   std::vector<std::string> panel;     // its lines
   bool after_action = false;          // OK (and REPLAY when `replay`) in place of ACCEPT and DECLINE
   bool replay = false;
-  bool offer = true;                  // ACCEPT and DECLINE, and the House OFFICE to negotiate (none without an offer)
+  bool offer = true;                  // ACCEPT and DECLINE (none without an offer)
+  bool office = true;                 // the world has a House office: OFFICE opens, an offer or not (MW1's)
 };
 
 using HubScreen = Mw1Screen;

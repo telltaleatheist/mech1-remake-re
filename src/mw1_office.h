@@ -45,8 +45,10 @@ std::string accepted_words();
 std::vector<std::string> answer_lines(Answer a, const Company& c, const Contract& k);
 
 // The screen's texts and buttons (pure: the tests read it). `offer` is the contract's lines as the hub gives them,
-// without its terms; `open`: an offer to negotiate (none once the House has broken off).
-ScreenView office_view(const Company& c, const Contract& k, const OfficeChoice& o, const std::vector<std::string>& offer, bool open);
+// without its terms. `closed`: why there's no offer to negotiate (the House broke off, or refuses the company), the
+// terms' rows and SUBMIT and ACCEPT greyed; empty: an offer. The office is a place, as MW1's: it opens either way.
+ScreenView office_view(const Company& c, const Contract& k, const OfficeChoice& o, const std::vector<std::string>& offer,
+                       const std::vector<std::string>& closed = {});
 
 // The office's state: pushed in the hub's place by the loop. Escape is BACK.
 class OfficeState : public Mw1State {
