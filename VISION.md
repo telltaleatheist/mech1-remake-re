@@ -44,12 +44,14 @@ on maps built from MW1's battlefields.
 5. **MW1 is its own codebase** (Owen, 2026-11-16). This repo holds only
    MW1: its code, art, docs and research. The engine is mw3-re, pulled in as
    a submodule (`external/mw3-re`). The engine changes MW1 needs are made in
-   mw3-re as **hooks only**, so MW1 can ship on its own or inside mw3-re's
-   package. **mw3-re is a preservation project** (Owen, 2026-11-16): a record
-   of how MW3 and PM originally worked. MW1 never changes its game logic.
-   It may add extension points that do nothing unless a program sets them
-   (with none set, the original's code runs alone), and MW1's own rules live
-   in this repo, behind those hooks.
+   mw3-re on its `mw1-engine` branch, so MW1 can ship on its own or inside
+   mw3-re's package. **mw3-re's own branches stay a record of how MW3 and PM
+   originally worked** (Owen, 2026-11-16, then 11-17). On `mw1-engine` we may
+   change the engine in any way MW1 needs, but kept apart: in its own
+   branch, in MW1's own files where it can be (hooks, wrappers, new files),
+   and each change its own commit, marked as ours. MW1's rules live in this
+   repo. If MW1's engine changes grow too large to keep apart that way, MW1
+   takes the engine as its own codebase.
 
 ## The code base
 
