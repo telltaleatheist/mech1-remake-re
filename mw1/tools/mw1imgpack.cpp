@@ -66,6 +66,9 @@ int main(int argc, char** argv) {
     // The hub's scenery darkened, with faint scanlines (the mockup's); a service picture also framed as a tile in
     // its four looks (mw1_tile_<name>, _lit, _down, _off).
     if (stem.rfind("hub_", 0) == 0) mw1::chrome::darken_scene(im);
+    // The lab's panels cut from the hangar (the lab's reskin).
+    if (stem == mw1::chrome::kLabHangar)
+      for (mw1::images::Image& t : mw1::chrome::lab_panels(im)) all.push_back(std::move(t));
     if (stem.rfind("icon_", 0) == 0)
       for (mw1::images::Image& t : mw1::chrome::tiles(im, "mw1_tile_" + stem.substr(5))) all.push_back(std::move(t));
     all.push_back(std::move(im));

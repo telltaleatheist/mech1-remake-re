@@ -17,6 +17,7 @@
 #include "mech3/app.h"
 #include "mech3/pause_menu.h"
 #include "mech3/briefing.h"
+#include "mech3/lab_screen.h"
 #include "mech3/app_engine.h"
 #include "mech3/app_mech.h"
 #include "mech3/mech_names.h"
@@ -44,6 +45,7 @@
 #include "mw1_market_screen.h"
 #include "mw1_menu.h"
 #include "mw1_images.h"
+#include "mw1_lab_skin.h"
 #include "mw1_layouts.h"
 #include "mw1_missions.h"
 #include "mw1_pilots.h"
@@ -157,6 +159,12 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       if (layout_there(s.file, s.dialog))
         ztwod::set_layout(s.game_file, s.game_dialog, s.file, s.dialog, std::string(s.dialog) + kWideSuffix);
     for (const auto& [game_font, font] : kLayoutFonts) ztwod::set_layout_font(game_font, font);
+    // The lab's reskin (mw1_lab_skin.h): PM's layouts, our pictures and fonts while they are read.
+    for (const std::vector<chrome::Reskin>* t : {&chrome::lab_pictures(), &chrome::filebox_pictures()})
+      for (const chrome::Reskin& r : *t)
+        ztwod::set_layout_image(r.game, chrome::reskin_name(r.game), t == &chrome::lab_pictures() ? chrome::kLabFile : chrome::kFileBoxFile);
+    for (const char* f : kLabFonts) ztwod::set_layout_font(f, std::string("mw1_") + f, chrome::kLabFile);
+    for (const auto& [game_font, font] : kFileBoxFonts) ztwod::set_layout_font(game_font, font, chrome::kFileBoxFile);
     auto* ge = dynamic_cast<mech3::GameEngine*>(&e);
     ztwod::set_layout_wide([ge] { return ge && ge->buffer_width() > 640; });
   }
@@ -165,8 +173,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     auto& ge = static_cast<mech3::GameEngine&>(e);
     ge_ = &ge;
     // MW1_SCREEN=pause or pause_options (development: --shot pictures of the pause over a mission): the offer
-    // accepted, LAUNCH at the briefing, the pause pushed 90 frames into the mission (and its OPTIONS).
-    if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s).rfind("pause", 0) == 0 && !shot_driver_) {
+    // accepted, LAUNCH at the briefing, the pause pushed 90 frames into the mission (and its OPTIONS). MW1_SCREEN=lab
+    // or lab_files: the briefing's MECH LAB instead (and the lab's load box); lab_1, lab_3, lab_4 its pages.
+    if (const char* s = std::getenv("MW1_SCREEN");
+        s && (std::string(s).rfind("pause", 0) == 0 || std::string(s).rfind("lab", 0) == 0) && !shot_driver_) {
       shot_driver_ = true;
       auto before = ge.on_present;
       ge.on_present = [this, before, page = std::string(s)](int f) {
@@ -1410,7 +1420,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     return p ? p : mech3::create_pilot(kPilotName);
   }
 
-  // MW1_SCREEN=pause's driver, each frame shown (main_entered).
+  // MW1_SCREEN=pause's and lab's driver, each frame shown (main_entered).
   void pause_shot_frame(const std::string& page) {
     mech3::GameEngine* ge = ge_;
     mech3::Mech3App* app = mech3::app_if_any();
@@ -1422,7 +1432,15 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     last = now;
     if (now == static_cast<zgame::State*>(ge->menu_state_of(hub_)) && frames == 10 && offered_ && !deployed_) press(kHubAccept);
     if (now == &mech3::states().load)
-      if (mech3::BriefingScreen* b = mech3::briefing_screen(); b && b->loaded && frames == 20) b->on_button(mech3::BriefingScreen::kBtnLaunch, 0, 0);
+      if (mech3::BriefingScreen* b = mech3::briefing_screen(); b && b->loaded && frames == 20)
+        b->on_button(page.rfind("lab", 0) == 0 ? mech3::BriefingScreen::kBtnMechLab : mech3::BriefingScreen::kBtnLaunch, 0, 0);
+    // lab_<page> (1 weapons, 3 criticals, 4 groups) or lab_files (the load box, as its key opens it).
+    if (now == &mech3::states().lab && frames == 20 && page != "lab") {
+      static bool once = false;
+      if (page == "lab_files" && !once) once = true, ge->config_import();
+      else if (mech3::LabScreen* l = ge->lab_screen(mech3::states().lab.lab_screen_); l && page.size() == 5)
+        l->switch_page(page[4] - '0');
+    }
     if (now == &mech3::states().core && frames == 90) app->push(app->state(3), 0);
     if (now == &mech3::states().pause && frames == 10 && page == "pause_options")
       if (auto* p = dynamic_cast<mech3::PauseScreen*>(ge->screen_of(mech3::states().pause.screen_))) p->on_button(mech3::PauseScreen::kOptions, 0, 0);

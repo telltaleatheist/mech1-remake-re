@@ -98,6 +98,25 @@ images::Image check(bool on);
 images::Image cell(int32_t state);  // 0 still, 1 lit, 2 chosen
 images::Image dialog_tall();
 images::Image clear();
+
+// The lab's reskin (Pirate's Moon's dlgMechLabII.zrd, its layout kept) and its load/save box's (dlgLoadSave.zrd):
+// each of PM's pictures the layout names, ours in its place at its size (PM's layout places it;
+// ztwod::set_layout_image while that file is read). The sizes are PM's pictures'. Ours is "mw1_" and PM's name.
+struct Reskin {
+  const char* game;
+  int32_t w, h;
+};
+inline constexpr const char* kLabFile = "dlgMechLabII.zrd";
+inline constexpr const char* kFileBoxFile = "dlgLoadSave.zrd";
+inline constexpr const char* kLabHangar = "mechcomplex_hangar";  // the art (data-src/art) the lab's panels are cut from
+const std::vector<Reskin>& lab_pictures();      // the panels first (lab_panels), then the drawn pieces
+const std::vector<Reskin>& filebox_pictures();  // all drawn
+std::string reskin_name(const char* game);       // ours: "mw1_" + game
+bool is_lab_panel(const Reskin& r);
+images::Image reskin(const Reskin& r);           // a drawn piece (not a panel)
+// The lab's five panels from the hangar (its middle 640 of 854: left 220, centre 200, right 220), darkened, the
+// sides' glass boxes framed (single: one; double: two).
+std::vector<images::Image> lab_panels(const images::Image& hangar);
 void darken_scene(images::Image& im);    // the hub's scenery treatment (kSceneLight, kScanline)
 std::vector<images::Image> all();  // every piece, for the archive (the tiles come with their pictures, mw1imgpack)
 
