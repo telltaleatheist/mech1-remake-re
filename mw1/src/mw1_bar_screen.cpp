@@ -72,8 +72,9 @@ ScreenView bar_view(const Company& c, const BarChoice& b, bool story) {
     status = menu ? "Order a drink, read the news, or see who's looking for work."
              : recruits ? "HIRE takes them on at their wage; DECLINE sends them away."
                         : "ASSIGN gives the chosen lancemate the next free mech in the hangar.";
+  if (b.company) v.backdrop = kCompanyBackdrop;
   v.blocks = {at_place("PLANET", {upper(c.planet)}),
-              at_place("HOUSE", {"HOUSE " + upper(kHouses[c.planet_house].name) + " \xB7 THE BAR"}),
+              at_place("HOUSE", {"HOUSE " + upper(kHouses[c.planet_house].name) + (b.company ? " \xB7 THE COMPANY" : " \xB7 THE BAR")}),
               at_place("PLACE", {thousands(c.funds) + " C-BILLS"}),
               at_place("PLACE_SUB", {"LANCE " + std::to_string(c.lance.size()) + " OF " + std::to_string(kLanceMax) + " \xB7 WAGES " +
                                      thousands(monthly_wages(c)) + " A MONTH"}),
@@ -144,7 +145,7 @@ ScreenView bar_view(const Company& c, const BarChoice& b, bool story) {
   }
   if (lance) {
     v.panels[kBarPanelGrid] = true;
-    if (c.lance.empty()) info = {"No lancemates yet:", "RECRUIT CREW at the", "Bar's menu."};
+    if (c.lance.empty()) info = {"No lancemates yet:", "RECRUIT CREW at the", "Bar."};
     v.panels[kBarPanelInfo] = true;
   }
   v.blocks.push_back(at_place("INFO", info));
@@ -155,7 +156,7 @@ ScreenView bar_view(const Company& c, const BarChoice& b, bool story) {
   set(kBarDrink, menu, story);
   set(kBarNews, menu, story);
   set(kBarCrew, menu, true);
-  set(kBarLance, menu, true);
+  set(kBarLance, false, true);  // the hub's COMPANY now
   set(kBarBack, menu, true);
   set(kBarHire, recruits, !c.recruits.empty());
   set(kBarDecline, recruits, !c.recruits.empty());
@@ -166,6 +167,7 @@ ScreenView bar_view(const Company& c, const BarChoice& b, bool story) {
   set(kBarLanceUp, lance, b.mate > 0);
   set(kBarLanceDown, lance, b.mate + 1 < static_cast<int32_t>(c.lance.size()));
   set(kBarDone, !menu, true);
+  if (b.company) v.buttons[kBarDone - 1].words = "LEAVE";
   return v;
 }
 

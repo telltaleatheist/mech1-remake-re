@@ -21,11 +21,15 @@ namespace mw1::office_ui {
 inline constexpr const char* kOfficeFile = "mw1office.zrd";
 inline constexpr const char* kOfficeDialog = "MW1OFFICEDIALOG";
 
+// MW1's CONTRACT_OFFICE (FIXES.md item 7): REQUEST MISSION (REQUEST_MISSION_OFFER) puts an offer up, NEXT OFFER
+// (NEXT_MISSION_OFFER) another in its place, NEGOTIATE (NEGOTIATE_CONTRACT; SUBMIT in the layout) puts the asked
+// terms to the House, ACCEPT takes the offer as it stands, LEAVE (BACK) returns to the hub.
 enum OfficeButton : int32_t {
   kOfficeSubmit = 1, kOfficeAccept, kOfficeBack,
-  kOfficePayDown, kOfficePayUp, kOfficeSalvageDown, kOfficeSalvageUp, kOfficeAdvanceDown, kOfficeAdvanceUp
+  kOfficePayDown, kOfficePayUp, kOfficeSalvageDown, kOfficeSalvageUp, kOfficeAdvanceDown, kOfficeAdvanceUp,
+  kOfficeRequest, kOfficeNext
 };
-inline constexpr int32_t kOfficeButtonCount = 9;
+inline constexpr int32_t kOfficeButtonCount = 11;
 // The layout's panels by place (mw1office.zrd's): the plaques and the status line, the liaison's frame and portrait,
 // the contract's panel, the terms' terminal.
 enum OfficePanel : int32_t { kOfficePanelFrame = 3, kOfficePanelLiaison, kOfficePanelContract, kOfficePanelTerms };
@@ -47,9 +51,9 @@ std::string accepted_words();
 // The House's answer to a round, as the office says it (`k` after the round).
 std::vector<std::string> answer_lines(Answer a, const Company& c, const Contract& k);
 
-// The screen's texts and buttons (pure: the tests read it). `offer` is the contract's lines as the hub gives them,
-// without its terms. `closed`: why there's no offer to negotiate (the House broke off, or refuses the company), the
-// terms' rows and SUBMIT and ACCEPT greyed; empty: an offer. The office is a place, as MW1's: it opens either way.
+// The screen's texts and buttons (pure: the tests read it). `offer` is the contract's lines, without its terms; empty:
+// none asked for yet (REQUEST MISSION). `closed`: why there's no offer to be had (the House broke off, or refuses the
+// company), the terms' rows and every button but LEAVE greyed. The office is a place, as MW1's: it opens either way.
 ScreenView office_view(const Company& c, const Contract& k, const OfficeChoice& o, const std::vector<std::string>& offer,
                        const std::vector<std::string>& closed = {});
 

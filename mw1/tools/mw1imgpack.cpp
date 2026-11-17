@@ -66,6 +66,25 @@ int main(int argc, char** argv) {
     // The hub's scenery darkened, with faint scanlines (the mockup's); a service picture also framed as a tile in
     // its four looks (mw1_tile_<name>, _lit, _down, _off).
     if (stem.rfind("hub_", 0) == 0) mw1::chrome::darken_scene(im);
+    // DEPLOY's tile (the hub with a contract, FIXES.md item 11): the dropship's launch cut to a tile until its own art
+    // (the picture's middle square, each tile pixel the average of its square).
+    if (stem == "deploy_launch") {
+      mw1::images::Image sq;
+      sq.name = "deploy", sq.width = sq.height = mw1::kTile;
+      const int32_t side = std::min(im.width, im.height), x0 = (im.width - side) / 2, y0 = (im.height - side) / 2;
+      for (int32_t y = 0; y < mw1::kTile; ++y)
+        for (int32_t x = 0; x < mw1::kTile; ++x) {
+          int32_t r = 0, g = 0, b = 0, n = 0;
+          for (int32_t sy = y * side / mw1::kTile; sy < (y + 1) * side / mw1::kTile; ++sy)
+            for (int32_t sx = x * side / mw1::kTile; sx < (x + 1) * side / mw1::kTile; ++sx, ++n) {
+              const uint16_t px = im.pixels[static_cast<size_t>((y0 + sy) * im.width + x0 + sx)];
+              r += (px >> 11) << 3, g += ((px >> 5) & 63) << 2, b += (px & 31) << 3;
+            }
+          n = std::max(n, 1);
+          sq.pixels.push_back(mw1::images::rgb565(static_cast<uint8_t>(r / n), static_cast<uint8_t>(g / n), static_cast<uint8_t>(b / n)));
+        }
+      for (mw1::images::Image& t : mw1::chrome::tiles(sq, "mw1_tile_deploy")) all.push_back(std::move(t));
+    }
     if (stem.rfind("icon_", 0) == 0)
       for (mw1::images::Image& t : mw1::chrome::tiles(im, "mw1_tile_" + stem.substr(5))) all.push_back(std::move(t));
     all.push_back(std::move(im));

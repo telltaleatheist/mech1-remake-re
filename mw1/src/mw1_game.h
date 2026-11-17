@@ -56,6 +56,7 @@ const Contract* game_loop_contract();
 struct AfterAction;
 namespace hub {
 class HubState;
+class HubOptionsState;
 }
 using namespace hub;
 // A mission back and not settled (the hub's AFTER ACTION), else null (tests).
@@ -63,6 +64,7 @@ const AfterAction* game_loop_pending();
 // The hub's state, once the loop has made it (tests: its screen shows what the player sees); a press of one of
 // its buttons (mw1_hub.h's HubButton), as the screen's own.
 HubState* game_loop_hub();
+HubOptionsState* game_loop_hub_options();  // the hub's OPTIONS state once made (tests)
 namespace market_ui {
 class MarketState;
 }

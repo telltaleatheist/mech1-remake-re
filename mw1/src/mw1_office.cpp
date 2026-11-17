@@ -7,9 +7,10 @@
 
 namespace mw1::office_ui {
 namespace {
-const std::vector<ScreenButton> kOfficeButtons = {{"SUBMIT", "SUBMIT"},  {"ACCEPT", "ACCEPT"},   {"BACK", "BACK"},
-                                                  {"PAY_DOWN", ""},       {"PAY_UP", ""},         {"SALVAGE_DOWN", ""},
-                                                  {"SALVAGE_UP", ""},     {"ADVANCE_DOWN", ""},   {"ADVANCE_UP", ""}};
+const std::vector<ScreenButton> kOfficeButtons = {{"SUBMIT", "NEGOTIATE"},  {"ACCEPT", "ACCEPT"},   {"BACK", "LEAVE"},
+                                                  {"PAY_DOWN", ""},          {"PAY_UP", ""},         {"SALVAGE_DOWN", ""},
+                                                  {"SALVAGE_UP", ""},        {"ADVANCE_DOWN", ""},   {"ADVANCE_UP", ""},
+                                                  {"REQUEST", "REQUEST MISSION"}, {"NEXT", "NEXT OFFER"}};
 // MW1's office texts in MW_MAIN's data segment: where, and their room (the port's MW_MAIN_1090 imports).
 constexpr int32_t kTerminatedAt = 0x4C25, kTerminatedSize = 0x47;
 constexpr int32_t kRefusalAt = 0x4C87, kRefusalSize = 0x5F;
@@ -103,31 +104,33 @@ std::vector<std::string> answer_lines(Answer a, const Company& c, const Contract
 ScreenView office_view(const Company& c, const Contract& k, const OfficeChoice& o, const std::vector<std::string>& offer,
                        const std::vector<std::string>& closed) {
   ScreenView v;
-  const bool open = closed.empty();
+  const bool open = closed.empty(), up = open && !offer.empty();  // the House deals; an offer is up
   auto row = [&](const char* name, const std::string& theirs, int32_t asked, const std::string& ask_words) {
     return std::vector<std::string>{name, "  Offer: " + theirs + (asked >= 0 ? "    Ask: " + ask_words : std::string())};
   };
   std::vector<std::string> notes = o.answer;
-  if (open && notes.empty()) notes = {"Change a term with its arrows, then SUBMIT;", "ACCEPT takes the offer as it stands."};
+  if (up && notes.empty()) notes = {"Change a term with its arrows, then NEGOTIATE;", "ACCEPT takes the offer as it stands."};
+  if (open && !up && notes.empty()) notes = {"REQUEST MISSION: the House's liaison", "puts a contract on offer."};
   const std::string house = kHouses[c.planet_house].name;
   v.blocks = {at_place("PLANET", {upper(c.planet)}),
               at_place("HOUSE", {"HOUSE " + upper(house)}),
               at_place("PLACE", {"HOUSE OFFICE"}),
               at_place("PLACE_SUB", {"FUNDS " + thousands(c.funds) + " C-BILLS"}),
               at_place("STATUS_WORLD", {upper(c.planet)}),
-              at_place("STATUS", {open ? "The House's liaison will hear your terms." : "Nothing to negotiate here now."}),
+              at_place("STATUS", {up ? "The House's liaison will hear your terms." : open ? "Ask the liaison for a mission."
+                                                                                         : "Nothing to negotiate here now."}),
               at_place("C_TITLE", {"CONTRACT ON OFFER"}),
-              at_place("C_LINES", open ? offer : std::vector<std::string>{"No contract on offer."}),
+              at_place("C_LINES", up ? offer : std::vector<std::string>{"No contract on offer."}),
               at_place("NOTES", notes),
               at_place("T_TITLE", {"TERMS"})};
-  if (open) {
+  if (up) {
     v.blocks.push_back(at_place("ROW1", row("Payment (C-bills)", money(k.payment), o.ask.payment, money(o.ask.payment))));
     v.blocks.push_back(at_place("ROW2", row("Salvage", std::to_string(k.salvage_percent) + "%", o.ask.salvage,
                                             std::to_string(o.ask.salvage) + "%")));
     v.blocks.push_back(at_place("ROW3", row("Advance", std::to_string(k.advance_percent) + "%", o.ask.advance,
                                             std::to_string(o.ask.advance) + "%")));
   } else {
-    v.blocks.push_back(at_place("ROW1", closed));
+    v.blocks.push_back(at_place("ROW1", open ? std::vector<std::string>{} : closed));
     v.blocks.push_back(at_place("ROW2", {}));
     v.blocks.push_back(at_place("ROW3", {}));
   }
@@ -137,10 +140,13 @@ ScreenView office_view(const Company& c, const Contract& k, const OfficeChoice& 
   for (char ch : house) h += static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
   v.pictures[kOfficePanelLiaison] = "mw1_liaison_" + h + "_s";
   v.buttons.resize(kOfficeButtonCount);
-  v.buttons[kOfficeSubmit - 1].on = open && o.ask.any();
-  v.buttons[kOfficeAccept - 1].on = open;
+  v.buttons[kOfficeSubmit - 1].on = up && o.ask.any();
+  v.buttons[kOfficeAccept - 1].on = up;
   v.buttons[kOfficeBack - 1].on = true;
-  for (int32_t b = kOfficePayDown; b <= kOfficeAdvanceUp; ++b) v.buttons[b - 1].there = open;
+  for (int32_t b = kOfficePayDown; b <= kOfficeAdvanceUp; ++b) v.buttons[b - 1].there = up;
+  // REQUEST MISSION until an offer is up, then NEXT OFFER in its place.
+  v.buttons[kOfficeRequest - 1].there = !up, v.buttons[kOfficeRequest - 1].on = open;
+  v.buttons[kOfficeNext - 1].there = up;
   return v;
 }
 
