@@ -139,6 +139,7 @@ class UpgradesScreen : public MenuScreen {
   ztwod::Image box[6] = {ztwod::Image{0}, ztwod::Image{0}, ztwod::Image{0},
                          ztwod::Image{0}, ztwod::Image{0}, ztwod::Image{0}};  // BOX1..BOX6: each switch's box
   ztwod::Text note;                  // what off means, or that they are the host's
+  bool note_placed = false;          // the layout's NOTE placed it (a program's layout, ztwod::set_layout)
   OnOffCycle* five[5] = {&water, &mfb_regroup, &improved_ai, &artemis, &small_fixes};
 };
 

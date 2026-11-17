@@ -292,6 +292,7 @@ const std::vector<ScreenGroups>& screen_groups() {
 void GameEngine::widen_screen(MenuScreen* s, uint32_t ctor) {
   const int32_t extra = buffer_width() - 640;
   if (!s || extra <= 0 || !zfix::options().any_resolution || !zfix::options().wide_menus) return;
+  if (s->own_layout) return;  // ours: a program's layout for the wide canvas (ztwod::set_layout), placed already
   const ScreenGroups* table = nullptr;
   for (const ScreenGroups& g : screen_groups())
     if (g.ctor == ctor) table = &g;

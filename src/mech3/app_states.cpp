@@ -1026,6 +1026,7 @@ bool MainState::enter() {
   // Ours (program_flow.h): a program with its own menus builds neither the main menu's screen nor the multiplayer
   // state; the rest (options, the Action State, ...) the program may still open.
   const bool own = program_flow() && program_flow()->own_menus();
+  if (ProgramFlow* x = program_flow()) x->menus_building(en);
   screen_ = own ? 0 : en.construct(0x486260, {addr()});  // new(0x12c1c)
   if (screen_) en.screen_refresh(screen_);
   for (const auto& m : kMenus)

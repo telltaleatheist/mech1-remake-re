@@ -2,6 +2,7 @@
 #include <string>
 #include <algorithm>
 #include "frontend/sdl/sdl_twod_host.h"
+#include "gamez/ztwod/twod.h"
 
 #include "gamez/zutil/zutl_msgdll.h"
 
@@ -293,6 +294,7 @@ void SdlTwodHost::load_font_table(const char* file) {
 
 Handle SdlTwodHost::font_find(const char* name) {
   load_named_fonts();
+  name = ztwod::layout_font(name);  // ours: a program's font in a game's font's place (ztwod::set_layout_font)
   auto it = named_by_name_.find(name ? name : "");
   if (it == named_by_name_.end()) return 0;
   ++named_[it->second].refs;
