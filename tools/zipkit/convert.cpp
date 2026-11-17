@@ -136,7 +136,8 @@ bool mw3_to_pm(const Options& o, std::string* error) {
       } else if (n.rfind("reader", 0) == 0) {
         ok = retail_archive(f.string(), (to / n).string(), error);
       } else if (n == "anim.zbd") {
-        // Pirate's Moon's anim.zbd is version 50: not converted yet, so the world loads without its animations.
+        Stats st;
+        ok = convert_anim(f.string(), (to / n).string(), sources.back().crc & 0x7fffffffu, &st, error);
       } else {
         fs::copy_file(f, to / n, fs::copy_options::overwrite_existing, ec);
         if (ec) ok = false, *error = "Could not copy " + f.string() + ".";

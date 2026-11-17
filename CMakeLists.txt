@@ -1317,7 +1317,7 @@ endif()
 
 # zipkit (tools/zipkit/README.md): MechWarrior 3's files in Pirate's Moon's formats; its run
 # is a library MW1 can call, the program a thin command line over it.
-add_library(zipkitlib STATIC tools/zipkit/convert.cpp tools/zipkit/archive.cpp tools/zipkit/gamez.cpp
+add_library(zipkitlib STATIC tools/zipkit/convert.cpp tools/zipkit/archive.cpp tools/zipkit/gamez.cpp tools/zipkit/anim.cpp
             tools/zipkit/scripts.cpp)
 target_include_directories(zipkitlib PUBLIC tools/zipkit)
 target_link_libraries(zipkitlib PUBLIC mw3core)

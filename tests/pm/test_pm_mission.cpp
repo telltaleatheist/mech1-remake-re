@@ -4830,43 +4830,64 @@ TEST(pm_salvage_entered_cold_loads_the_lab_world_headless) {
 // zipkit (tools/zipkit/README.md): MW3's c2 converted, mounted as a mod world and played as Instant Action, as MW1
 // plays it: the load reaches the game, the enemies are made, 20 s run, and the player stands on the ground the
 // ground query finds under it. MW1's own run checks the picture; this one keeps a regression in our suite.
-static void zipkit_c2_run();
+struct ZipkitRun {
+  int frames = 0, made = -1, defs = 0, status3[8] = {}, status600[8] = {}, full = 0;
+  int startup = 0, startup_ran = 0;  // the defs that start themselves (activation 4), running or done at frame 3
+  float stand = 1e9f;
+};
+static ZipkitRun zipkit_c2_run();
+static void zipkit_c2_check();
 TEST(zipkit_mw3c2_plays_as_instant_action_headless) {
   if (!std::filesystem::exists(MW3PM_GAME_DIR) || !std::filesystem::exists(std::string(MW3_GAME_DIR) + "/zbd/c2/gamez.zbd")) return;
 #if !defined(_WIN32)
   std::fflush(nullptr);
   const pid_t child = check::fork_child();
   if (child == 0) {
-    zipkit_c2_run();
+    zipkit_c2_check();
     std::fflush(nullptr);
     _exit(check::failures ? 1 : 0);
   }
   const int status = check::wait_child(child);
   EXPECT(WIFEXITED(status) && WEXITSTATUS(status) == 0);
 #else
-  zipkit_c2_run();
+  zipkit_c2_check();
 #endif
 }
 
 static int g_zipkit_full = 0;
-static void zipkit_c2_run() {
+// The animations (anim.zbd 39 -> 50): all of MW3's 1,422 c2 defs read by PM's reader, none marked corrupt (a node
+// or root not found), and the 19 that start themselves running or done by frame 3.
+static void zipkit_c2_check() {
+  const ZipkitRun r = zipkit_c2_run();
+  EXPECT(r.frames == 600 && r.made > 0);
+  EXPECT(r.stand < 0.5f);
+  EXPECT(r.full == 0);
+  EXPECT(r.defs == 1422 && r.status3[5] == 0 && r.status600[5] == 0);
+  EXPECT(r.startup == 19 && r.startup_ran == r.startup);
+}
+
+static ZipkitRun zipkit_c2_run() {
   const std::string wd = std::string(MW3_TEST_TMP_ROOT) + "/zipkit_play_" + std::to_string(getpid());
   std::filesystem::remove_all(wd);
-  const std::string mod = wd + "/mods/mw3c2";
-  zipkit::Options o;
-  o.install = MW3_GAME_DIR, o.out = mod, o.worlds = {{"c2", "mw3c2"}};
-  std::string error;
-  EXPECT(zipkit::mw3_to_pm(o, &error));
-  if (!error.empty()) std::printf("  zipkit: %s\n", error.c_str());
-  { std::ofstream(mod + "/mod.txt") << "name=MW3 c2\nworld=mw3c2\nia_world=mw3c2 MW3 Coast\n"; }
-  zgame::set_game(pm::table());
+  ZipkitRun run;
+  int32_t index = -1;
+  mech3::mod_worlds().clear(), mech3::mod_ia_worlds().clear(), mech3::mod_campaigns().clear();
   zutl::mounts() = zutl::Mounts{};
   zutl::set_write_dir(wd.c_str());
-  mech3::mod_worlds().clear(), mech3::mod_ia_worlds().clear(), mech3::mod_campaigns().clear();
-  for (const std::string& line : mech3::mods_mount(wd, {"mw3c2"}, {MW3PM_GAME_DIR})) std::printf("  mount: %s\n", line.c_str());
-  zutl::mount(MW3PM_GAME_DIR);
-  const int32_t index = mech3::mission_dir_index("mw3c2");
-  EXPECT(index >= 9 && mech3::mod_ia_worlds().size() == 1);
+  {
+    const std::string mod = wd + "/mods/mw3c2";
+    zipkit::Options o;
+    o.install = MW3_GAME_DIR, o.out = mod, o.worlds = {{"c2", "mw3c2"}};
+    std::string error;
+    EXPECT(zipkit::mw3_to_pm(o, &error));
+    if (!error.empty()) std::printf("  zipkit: %s\n", error.c_str());
+    { std::ofstream(mod + "/mod.txt") << "name=MW3 c2\nworld=mw3c2\nia_world=mw3c2 MW3 Coast\n"; }
+    zgame::set_game(pm::table());
+    for (const std::string& line : mech3::mods_mount(wd, {"mw3c2"}, {MW3PM_GAME_DIR})) std::printf("  mount: %s\n", line.c_str());
+    zutl::mount(MW3PM_GAME_DIR);
+    index = mech3::mission_dir_index("mw3c2");
+    EXPECT(index >= 9 && mech3::mod_ia_worlds().size() == 1);
+  }
   mech3::reset_states();
   if (!zsnd::state().open) zsnd::state() = zsnd::State{};
   mech3::missions() = mech3::Missions{};
@@ -4905,11 +4926,26 @@ static void zipkit_c2_run() {
     l.action = &game;
     engine.set_launch(l);
     app.post_intro_ = &mech3::states().load;
-    int frames = 0, made = -1;
-    float stand = 1e9f, at[3] = {};
+    int& frames = run.frames;
+    int& made = run.made;
+    int& defs = run.defs;
+    int* status3 = run.status3;
+    int* status600 = run.status600;
+    float& stand = run.stand;
+    float at[3] = {};
     engine.on_present = [&](int) {
       if (app.current() != &mech3::states().core) return;
       if (++frames == 3) mech3::mission_ai_mechs(&made);
+      if (frames == 3 || frames == 600) {  // the animations: each def's status (5 corrupt, 2 running)
+        const ::zeff::AnimState& as = ::zeff::anim();
+        int* tally = frames == 3 ? status3 : status600;
+        for (int32_t i = 0; i < as.def_count(); ++i) {
+          const uint8_t st = as.defs[i].raw[0x98];
+          ++tally[std::min<int>(st, 7)];
+          if (frames == 3 && as.defs[i].raw[0x99] == 4) ++run.startup, run.startup_ran += st == 2 || st == 3;
+        }
+        if (frames == 3) defs = as.def_count();
+      }
       if (frames != 600) return;
       if (void* m = mech3::mech_mission_player()) {
         const float* pos = mech3::program_entity_position(m);
@@ -4925,11 +4961,14 @@ static void zipkit_c2_run() {
     pump.limit = 2000;
     pump.stop = [&] { return frames >= 600; };
     app.run(pump);
-    std::printf("  mw3c2 (world %d): %d frames in play, %d enemies, the player at %.1f %.1f %.1f, %.2f m off the "
-                "ground; %d full hit lists\n", index, frames, made, at[0], at[1], at[2], stand, g_zipkit_full);
-    EXPECT(frames == 600 && made > 0);
-    EXPECT(stand < 0.5f);
-    EXPECT(g_zipkit_full == 0);
+    run.full = g_zipkit_full;
+    std::printf("  %s (world %d): %d frames in play, %d enemies, the player at %.1f %.1f %.1f, %.2f m off the "
+                "ground; %d full hit lists\n", "mw3c2", index, frames, made, at[0], at[1], at[2], stand, g_zipkit_full);
+    std::printf("  anims: %d defs; status at frame 3:", defs);
+    for (int k = 0; k < 8; ++k) std::printf(" %d", status3[k]);
+    std::printf("; at 600:");
+    for (int k = 0; k < 8; ++k) std::printf(" %d", status600[k]);
+    std::printf("; %d of %d startup defs running or done\n", run.startup_ran, run.startup);
     mech3::missions().cleanup(false);
     app.stop_game();
     app.exit_instance();
@@ -4941,6 +4980,8 @@ static void zipkit_c2_run() {
   mech3::options() = mech3::Options{};
   mech3::mod_worlds().clear(), mech3::mod_ia_worlds().clear(), mech3::mod_campaigns().clear();
   zgame::set_game(zgame::mw3_table());
+  g_zipkit_full = 0;
+  return run;
 }
 
 // Ours: for programs built on the engine (MW1). The program's flow is told of each mech kill after the original's
