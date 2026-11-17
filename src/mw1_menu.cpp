@@ -60,7 +60,10 @@ IntroState::IntroState(zgame::Handle h, std::vector<std::string> lines, std::fun
     : Mw1State(h, "MW1 Intro State", kIntroFile, kIntroDialog, {}, 0, nullptr), lines_(std::move(lines)), done_(std::move(done)) {}
 
 bool IntroState::enter() {
-  seconds_ = start_, frames_ = 0, finished_ = false, shown_ = IntroPhase::kDone;
+  // No narration (no MW1 exe to read it from): straight to the picture, not 25 s of an empty screen.
+  const float picture = ticks(kFadeTicks + kQuietTicks + kNarrationTicks);
+  seconds_ = lines_.empty() && start_ < picture ? picture : start_;
+  frames_ = 0, finished_ = false, shown_ = IntroPhase::kDone;
   const zin::MouseInfo* m = zin::mouse_info();
   mouse_was_down_ = m && m->left;
   show_phase();
