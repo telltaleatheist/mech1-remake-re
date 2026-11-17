@@ -19,16 +19,17 @@ void HubState::show(const HubView& v) {
   ScreenView s;
   s.blocks = {{24, 14, kPlaqueFont, {v.planet}},
               {24, 32, kPlaqueSmallFont, {v.house}},
+              {24, 48, kPlaqueSmallFont, {v.date}},
               {402, 72, kLineFont, v.company},
               {150, 72, kTitleFont, {v.title}},
               {150, 96, kLineFont, v.panel}};
   s.buttons.resize(kHubButtonCount);
-  s.buttons[kHubAccept - 1].there = s.buttons[kHubDecline - 1].there = !v.after_action;
+  s.buttons[kHubAccept - 1].there = s.buttons[kHubDecline - 1].there = !v.after_action && v.offer;
   s.buttons[kHubOk - 1].there = v.after_action;
   s.buttons[kHubReplay - 1].there = v.after_action && v.replay;
-  // The market only between missions (not while AFTER ACTION waits); the Bar and travel come later.
-  s.buttons[kHubMarket - 1].on = !v.after_action;
-  s.buttons[kHubBar - 1].on = s.buttons[kHubTravel - 1].on = false;
+  // The market and travel only between missions (not while AFTER ACTION waits); the Bar comes later.
+  s.buttons[kHubMarket - 1].on = s.buttons[kHubTravel - 1].on = !v.after_action;
+  s.buttons[kHubBar - 1].on = false;
   Mw1State::show(s);
 }
 

@@ -37,6 +37,8 @@
 #include "mw1_hub.h"
 #include "mw1_market.h"
 #include "mw1_market_screen.h"
+#include "mw1_travel.h"
+#include "mw1_travel_screen.h"
 #include "mw1_save.h"
 #include "mw1_worlds.h"
 #include <fstream>
@@ -126,6 +128,13 @@ struct Run {
   int64_t market_bought_for = -1, market_sold_for = -1;
   int32_t briefing_mech = -1;
   bool market_done = false;
+  // Travel (mw1_travel_screen.h) before the first ACCEPT: the nearest world with a House office, GO; the contract
+  // then taken there.
+  bool travel = false, travel_done = false;
+  std::string travel_from, travel_to, date_before, date_after;
+  int64_t units_before = -1, units_after = -1;  // the calendar as units since year 0
+  int64_t travel_paid = -1, travel_quoted = -1;
+  std::string plaque_after;  // the hub's plaque lines after the trip
 };
 int loadout_items(const mw1::Company* c) { return c && c->loadout ? static_cast<int>(c->loadout->items.size()) : -1; }
 
@@ -233,6 +242,33 @@ void loop_run(Ending ending, Run* run = nullptr) {
         }
         return;
       }
+      mw1::TravelState* ts = mw1::game_loop_travel();
+      if (run && ts && app.current() == static_cast<zgame::State*>(ts) && ts->screen()) {
+        if (++hub_frames < 10) return;
+        hub_frames = 0;
+        mw1::Mw1Screen* sc = ts->screen();
+        mw1::Company* c = mw1::game_loop_company_for_tests();
+        const std::vector<std::string> shown = sc->shown();
+        std::printf("  travel:");
+        for (const std::string& l : shown) std::printf(" [%s]", l.c_str());
+        std::printf("\n");
+        EXPECT(sc->loaded() && sc->enabled(mw1::kTravelGo) && !sc->enabled(mw1::kTravelUp));
+        // The nearest world with an office: down the list to it, then GO.
+        const std::vector<int32_t> to = mw1::destinations(*c, -1);
+        size_t i = 0;
+        while (i < to.size() && !mw1::kPlanets[to[i]].office) ++i;
+        EXPECT(i < to.size());
+        for (size_t k = 0; k < i; ++k) sc->on_button(mw1::kTravelDown, 0, 0);
+        run->travel_to = mw1::title_case_name(mw1::kPlanets[to[i]].name);
+        run->travel_quoted = mw1::travel_cost(*c, mw1::kPlanets[to[i]]);
+        const int64_t before = c->funds;
+        run->travel_done = true;
+        sc->on_button(mw1::kTravelGo, 0, 0);
+        run->travel_paid = before - c->funds;
+        run->date_after = mw1::date_words(c->date);
+        run->units_after = (int64_t{c->date.year} * mw1::kMonthCount + c->date.month) * mw1::kUnitsPerMonth + c->date.units;
+        return;
+      }
       mw1::HubState* hs = mw1::game_loop_hub();
       if (hs && app.current() == static_cast<zgame::State*>(hs) && hs->screen()) {
         if (++hub_frames < 10) return;
@@ -252,8 +288,10 @@ void loop_run(Ending ending, Run* run = nullptr) {
         std::printf("\n");
         // Always: the plaque, the company, the later screens greyed, QUIT there.
         EXPECT(sc->loaded() && c && has("HOUSE ") && c->planet != "Planet" && !c->planet.empty() && has("Stores: " + std::to_string(c->stores->count())));
-        for (int32_t id : {mw1::kHubBar, mw1::kHubTravel}) EXPECT(sc->visible(id) && !sc->enabled(id));
-        EXPECT(sc->visible(mw1::kHubMarket) && sc->enabled(mw1::kHubMarket) == (mw1::game_loop_pending() == nullptr));
+        EXPECT(sc->visible(mw1::kHubBar) && !sc->enabled(mw1::kHubBar));
+        for (int32_t id : {mw1::kHubMarket, mw1::kHubTravel})
+          EXPECT(sc->visible(id) && sc->enabled(id) == (mw1::game_loop_pending() == nullptr));
+        EXPECT(has(mw1::date_words(c->date)));
         EXPECT(sc->visible(mw1::kHubQuit) && sc->enabled(mw1::kHubQuit));
         if (const mw1::AfterAction* pa = mw1::game_loop_pending()) {
           // AFTER ACTION: OK, and REPLAY on a failure only; the offer's buttons gone.
@@ -276,6 +314,13 @@ void loop_run(Ending ending, Run* run = nullptr) {
         }
         EXPECT(has("CONTRACT ON OFFER") && sc->visible(mw1::kHubAccept) && sc->visible(mw1::kHubDecline) && !sc->visible(mw1::kHubOk) &&
                !sc->visible(mw1::kHubReplay));
+        if (!hub_checked && run && run->travel && !run->travel_done) {
+          run->travel_from = c->planet, run->date_before = mw1::date_words(c->date);
+          run->units_before = (int64_t{c->date.year} * mw1::kMonthCount + c->date.month) * mw1::kUnitsPerMonth + c->date.units;
+          sc->on_button(mw1::kHubTravel, 0, 0);
+          return;
+        }
+        if (!hub_checked && run && run->travel && run->plaque_after.empty()) run->plaque_after = shown.size() > 2 ? shown[0] + "|" + shown[2] : "";  // the planet, the date
         if (!hub_checked && run && run->market && !run->market_done) {
           // To the market first; the offer taken after it.
           mw1::Company* mc = mw1::game_loop_company_for_tests();
@@ -436,7 +481,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
   EXPECT(fs::exists(fs::path(wd) / "pilots", ec));  // in mw1's own write dir
   if (ending == kAbort) {
     // ABORT: no mission, the contract not taken, nothing paid or moved; the next offer at once.
-    EXPECT(hubs == 3 + (run && run->market ? 1 : 0) && hub_checked && declined && back_at_main && enemies == 0);  // the offer, the next (DECLINE), QUIT
+    EXPECT(hubs == 3 + (run && run->market ? 1 : 0) + (run && run->travel ? 1 : 0) && hub_checked && declined && back_at_main && enemies == 0);  // the offer, the next (DECLINE), QUIT
     EXPECT(c && c->funds == funds_at_offer && c->stores->count() == items_at_offer);
     if (run) EXPECT(loadout_items(c) == run->loadout_at_offer);
     else EXPECT(c && !c->loadout);
@@ -449,7 +494,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
     return;
   }
   // The offer, AFTER ACTION, the next offer (DECLINE), QUIT.
-  EXPECT(hubs == 4 + (run && run->market ? 1 : 0) && hub_checked && declined && back_at_main && enemies > 0 && killed == (ending == kReach ? 0 : enemies));
+  EXPECT(hubs == 4 + (run && run->market ? 1 : 0) + (run && run->travel ? 1 : 0) && hub_checked && declined && back_at_main && enemies > 0 && killed == (ending == kReach ? 0 : enemies));
   if (ending == kReach) EXPECT(reach_only && reached);
   EXPECT(c && funds_in_mission > funds_at_offer);  // the advance, at LAUNCH
   EXPECT(c && c->loadout);                         // the briefing's loadout, the company's from LAUNCH
@@ -475,7 +520,8 @@ void loop_run(Ending ending, Run* run = nullptr) {
     EXPECT(c && c->funds > funds_in_mission && c->kills == 0 && c->stores->count() == items_at_offer);  // the fee alone
   } else if (ending == kWon) {
     EXPECT(c && c->kills == enemies);  // every wreck counted
-    EXPECT(c && c->funds > funds_in_mission);                            // the fee and the salvage
+    // The fee and the salvage; another employer than Davion may roll a reduced payout (Kurita's and Liao's 0%).
+    EXPECT(c && (employer == mw1::kDavion ? c->funds > funds_in_mission : c->funds >= funds_in_mission));
     EXPECT(c && c->stores->count() > items_at_offer);                    // the enemies' parts
   } else {
     // No fee, no salvage, no parts.
@@ -728,5 +774,38 @@ TEST(mw1_loop_market_buy_sell_pilot_then_a_contract_in_the_bought_mech_headless)
            run.market_sold_for == mw1::sell_price(mw1::kPmFirefly, saved.tier));
     EXPECT(run.briefing_mech == mw1::kPmFirefly && saved.mech == mw1::kPmFirefly && saved.hangar.size() == 1 &&
            saved.hangar[0].mech == mw1::kPmOwens);
+  });
+}
+
+// TRAVEL from the start world to the nearest with a House office, through the screen: paid as quoted, the date on,
+// the hub's plaque the new world's; the contract there won, the company saved on that world.
+TEST(mw1_loop_travel_then_a_contract_there_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_loop_travel";
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  in_child([&] {
+    Run run;
+    run.save = (dir / mw1::kSaveFile).string();
+    run.travel = true;
+    loop_run(kWon, &run);
+    std::printf("  travelled %s -> %s for %lld (quoted %lld), %s -> %s; the hub: %s\n", run.travel_from.c_str(), run.travel_to.c_str(),
+                static_cast<long long>(run.travel_paid), static_cast<long long>(run.travel_quoted), run.date_before.c_str(),
+                run.date_after.c_str(), run.plaque_after.c_str());
+    EXPECT(run.travel_done && !run.travel_to.empty() && run.travel_to != run.travel_from);
+    EXPECT(run.travel_paid == run.travel_quoted && run.travel_paid >= mw1::kHiredBase + mw1::kHiredPerDistance);
+    // The time the trip takes (from the start world, which the save no longer holds: the units passed are the
+    // jump's, at least the two ends' weights).
+    EXPECT(run.units_after > run.units_before && run.plaque_after.find(run.date_after) != std::string::npos);
+    std::string up = run.travel_to;
+    for (char& ch : up) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+    EXPECT(run.plaque_after.rfind(up, 0) == 0);
+    mw1::Company saved;
+    mw1::Contract k;
+    bool has = false;
+    std::string why;
+    EXPECT(mw1::load_file(run.save, saved, k, &has, &why) == mw1::Loaded::kLoaded);
+    EXPECT(saved.planet == run.travel_to && saved.kills == 1 && k.house == saved.planet_house);
   });
 }

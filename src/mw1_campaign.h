@@ -96,6 +96,15 @@ struct Market {
   bool rolled = false;  // stocked once (refresh_market, or a version 2 save); not saved
 };
 
+// MW1's calendar (DS:0479 sub-month units, 60 a month; DS:047B month, 0 January; DS:047D year): a new campaign's
+// 1 April 3024 (EVENT_UI 081B, calendarSubmonthUnits=1, calendarMonthIndex=3, calendarYear=0x0BD0).
+struct Date {
+  int32_t units = 1, month = 3, year = 3024;
+};
+
+// "MALLORY'S WORLD" -> "Mallory's World": a world's name as the hub shows it.
+std::string title_case_name(const char* name);
+
 struct Company {
   int64_t funds = 0;
   int32_t mech = kPmOwens;  // the commander's mech (PM id), with its stock loadout
@@ -111,6 +120,8 @@ struct Company {
   int32_t planet_number = 118;  // the record's (DS:6570 byte 0): which world, for the Clan worlds
   std::vector<OwnedMech> hangar;  // the company's other mechs
   Market market;
+  Date date;
+  int32_t market_clock = 0;  // DS:047F marketRefreshUnits: units since the market last restocked on time
 };
 
 // MW1's "Lance weight" for a PM mech, by its tonnage as MW1's own kinds are

@@ -1,0 +1,77 @@
+#pragma once
+// MW1's travel and calendar (VISION.md, "The economy and travel"; research/economy.md): the map of worlds, a
+// jump's distance, cost and time, the calendar that time runs on, and arriving at a world. No SDL and no screens.
+//
+// The rules are MW_MAIN's (081B:5912 distance, 081B:5816 the quote, 081B:5EA0 the time, 081B:5F15 the arrival,
+// ECONOMY's MwAdvanceCampaignTimeAndChargeWages); the numbers are its data segment's, each at its DS offset,
+// checked against the player's exe by test_mw1_travel.cpp.
+#include <cstdint>
+#include <string>
+
+#include "mw1_campaign.h"
+
+namespace mw1 {
+
+// A world on MW1's map: a planet record (planetRecordOffsets, DS:6570; records DS:67B6..8A16).
+struct Planet {
+  int32_t number;     // byte 0
+  const char* name;   // after the 10 bytes, as the exe has it (capitals)
+  int32_t house;      // byte 1
+  int32_t tier;       // byte 2: (code - 1) / 3
+  int32_t office;     // byte 4: 1 has its House's office (contracts), 0 not
+  int32_t x, y;       // bytes 5, 6: the map position
+  int32_t weight;     // byte 7: the travel-time weight
+};
+// The travel directory's 145 worlds (TRAVEL_PLANET_DIRECTORY_COUNT 0x91): the 146th record, a second Ander's
+// Moon at (208, 228), is outside it, and MW1 never lists it (left out, mw1 lead 2026-11-17).
+inline constexpr int32_t kPlanetCount = 145;
+extern const Planet kPlanets[kPlanetCount];
+int32_t planet_index(int32_t planet_number);  // -1: none
+const Planet& planet_here(const Company& c);    // the company's (Robinson when its number is no world's)
+
+// The distance (081B:5912): sqrt(dx^2 + (dy x 32/20)^2) / 18, at least 1, through MW1's banded square root
+// (081B:5F5C over its table at DS:4CE6, round(sqrt(10 i))). Integer, as the original's.
+inline constexpr int32_t kMapYScaleNum = 32, kMapYScaleDen = 20, kDistanceDivisor = 18;
+int32_t distance(const Planet& from, const Planet& to);
+int32_t mw1_root(uint32_t squared);  // 081B:5F5C's banded root
+
+// How the company travels (081B:5816). Only a hired transport now: the DropShip (50,000 a distance unit) waits
+// on Owen (research/economy.md, provisional).
+enum class Transport { kHired, kDropShip };
+inline constexpr int32_t kHiredBase = 20000, kHiredPerDistance = 25000;  // per mech (campaign_travel)
+inline constexpr int32_t kDropShipPerDistance = 50000;
+Transport transport(const Company& c);
+int64_t travel_cost(const Company& c, const Planet& to);
+// The time a jump takes, in MW1's units (60 a month): (distance - 1) x 14 + 2 x the weights of both ends.
+inline constexpr int32_t kDistanceTimeUnits = 14;
+int32_t travel_units(const Planet& from, const Planet& to);
+
+// The calendar (Date, mw1_campaign.h).
+inline constexpr int32_t kUnitsPerMonth = 60, kMonthCount = 12;  // CAMPAIGN_UNITS_PER_BILLING_MONTH
+inline constexpr int32_t kMarketRefreshUnits = 14;               // MARKET_REFRESH_PERIOD_UNITS
+extern const char* const kMonthNames[kMonthCount];               // DS:4AAC
+std::string date_words(const Date& d);                          // "APRIL 3024"
+// Time passes (MwAdvanceCampaignTimeAndChargeWages): the date moves; the market restocks each time its clock passes
+// 14 units. Returns the months begun (the lancemates' wages, with the Bar).
+int32_t advance_time(Company& c, int32_t units, Rng& rng);
+// A mission's time (STARTUP 350), for a contract on this world: the return's distance 1 x 14 x 2, the world's
+// weight x 6, and the deployment units (DS:8E46's commonest, provisional: research/economy.md).
+inline constexpr int32_t kMissionDistance = 1, kMissionDeploymentUnits = 28;
+int32_t mission_units(const Company& c);
+
+enum class Trip { kDone, kHere, kNoFunds, kNoSuch };
+const char* trip_words(Trip t);
+// GO: pay, the time passes, and arrive (081B:5F15): the company's world, House and tier are the new world's, its
+// market restocked. The offer is the loop's (none where there's no office).
+Trip travel(Company& c, int32_t world, Rng& rng);
+void set_planet(Company& c, int32_t planet);  // the company's planet fields from kPlanets[planet]
+// MW1 offers no contracts at a world without its House's office (provisional, research/economy.md).
+inline constexpr bool kContractsNeedAnOffice = true;
+bool contracts_here(const Company& c);
+// Stuck: no contracts here and no trip to a world with an office affordable. MW1 has no escape (a save to load);
+// the travel screen says so (mw1 lead 2026-11-17).
+bool stranded(const Company& c);
+// The cheapest trip from here to a world with an office: its cost (-1: none).
+int64_t cheapest_way_out(const Company& c);
+
+}  // namespace mw1

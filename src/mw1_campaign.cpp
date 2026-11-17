@@ -74,6 +74,8 @@ const StartPlanet kStartPlanets[kStartPlanetCount] = {
     {129, "TANCREDI IV", kDavion, 0}, {119, "KESAI IV", kDavion, 1}, {136, "GREELY", kDavion, 1},       {118, "ROBINSON", kDavion, 0}};
 
 namespace {
+}  // namespace
+
 // "MALLORY'S WORLD" -> "Mallory's World", "TANCREDI IV" -> "Tancredi IV" (Roman numerals kept).
 std::string title_case_name(const char* name) {
   std::string s = name, out;
@@ -89,7 +91,6 @@ std::string title_case_name(const char* name) {
   }
   return out;
 }
-}  // namespace
 
 Company new_company(Rng& rng) {
   Company c;

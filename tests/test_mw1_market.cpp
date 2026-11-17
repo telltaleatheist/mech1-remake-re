@@ -180,7 +180,7 @@ TEST(mw1_market_wrecks_pay_the_markets_sale_price) {
 TEST(mw1_market_saved_and_a_version_1_save_read) {
   mw1::Rng rng(5);
   mw1::Company c = mw1::new_company(rng);
-  c.planet_number = 51, c.tier = 3;
+  c.planet_number = 51, c.tier = 3, c.planet = "Anywhere", c.planet_house = mw1::kSteiner;  // a Clan world
   mw1::refresh_market(c, rng);
   c.market.stock = {kFirefly, kMadCat}, c.market.sold = 1;
   mw1::OwnedMech o;
@@ -204,7 +204,7 @@ TEST(mw1_market_saved_and_a_version_1_save_read) {
     nl = text.find('\n', at);
     const std::string line = text.substr(at, nl - at);
     if (line.rfind("check=", 0) == 0 || line.rfind("planet_number=", 0) == 0 || line.rfind("hangar", 0) == 0 ||
-        line.rfind("market_", 0) == 0)
+        line.rfind("market_", 0) == 0 || line.rfind("calendar=", 0) == 0)
       continue;
     v1 += (line.rfind("version=", 0) == 0 ? std::string("version=1") : line) + "\n";
   }

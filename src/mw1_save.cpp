@@ -1,4 +1,5 @@
 #include "mw1_save.h"
+#include "mw1_travel.h"
 
 #include <cctype>
 #include <cstdio>
@@ -110,6 +111,9 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
   o << "market_stock=";
   for (size_t i = 0; i < c.market.stock.size(); ++i) o << (i ? "," : "") << c.market.stock[i];
   o << "\nmarket_sold=" << c.market.sold << "\nmarket_limit=" << c.market.limit << "\n";
+  // Version 3: the calendar.
+  o << "calendar=" << c.date.units << "," << c.date.month << "," << c.date.year << "\n";
+  o << "market_clock=" << c.market_clock << "\n";
   o << "stores=" << (c.stores ? hex(bytes_of([&](std::FILE* f) { c.stores->save(f); })) : std::string()) << "\n";
   o << "offer=" << (offer ? 1 : 0) << "\n";
   if (offer) {
@@ -174,8 +178,9 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
   };
   int64_t n = 0;
   if (!num("version", 0, 1 << 30, &n)) return fail("no version line");
-  if (n != kSaveVersion && n != 1)
-    return fail("version " + std::to_string(n) + ", this build reads versions 1 and " + std::to_string(kSaveVersion));
+  if (n < 1 || n > kSaveVersion)
+    return fail("version " + std::to_string(n) + ", this build reads versions 1 to " + std::to_string(kSaveVersion));
+  const bool v3 = n >= 3;  // the calendar; before it, the start date
   const bool v1 = n == 1;  // before the hangar and the market: a hangar of none, the market rolled at the next refresh
   Company c;
   const int64_t kMax = int64_t{1} << 40;
@@ -246,6 +251,20 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
       if (up == sp.name) c.planet_number = sp.number;
     }
   }
+  if (v3) {
+    int64_t clock = 0;
+    std::istringstream ds(v.count("calendar") ? v["calendar"] : std::string());
+    std::string part[3];
+    int64_t f[3] = {};
+    const int64_t lo[3] = {0, 0, 0}, hi[3] = {kUnitsPerMonth - 1, kMonthCount - 1, 1 << 20};
+    for (int i = 0; i < 3; ++i)
+      if (!std::getline(ds, part[i], ',') || !to_int(part[i], lo[i], hi[i], &f[i])) return fail("the calendar doesn't read");
+    if (!num("market_clock", 0, kMarketRefreshUnits - 1, &clock)) return fail("the market's clock is missing or out of range");
+    c.date = {static_cast<int32_t>(f[0]), static_cast<int32_t>(f[1]), static_cast<int32_t>(f[2])};
+    c.market_clock = static_cast<int32_t>(clock);
+  }
+  // The world's name, House and tier are the map's, by its number.
+  if (const int32_t w = planet_index(c.planet_number); w >= 0) set_planet(c, w);
   int64_t has = 0;
   if (!num("offer", 0, 1, &has)) return fail("no offer line");
   Contract k;
