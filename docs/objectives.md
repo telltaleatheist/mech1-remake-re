@@ -397,6 +397,11 @@ original's.
   its tally and before `mission_cleanup`, so the program can read the
   mission's entities (who died, the kills) while they're still there.
 
+- `mech_killed(victim, killer)`: each mech kill (`Mech::on_kill`,
+  0x0041b420, from the victim's Die), after the original's own handling of
+  it (the campaign's salvage, the kill count, the points), whoever made it.
+  The program decides whether the kill was its player's side.
+
 Tests: `program_flow_none_is_the_original`,
 `program_flow_sees_main_and_the_instant_action_end_headless`
 (`tests/pm/test_pm_options.cpp`).

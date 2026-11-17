@@ -18,6 +18,7 @@
 #include "mech3/mech_collide.h"
 #include "mech3/mech_control.h"
 #include "mech3/mech_parts.h"
+#include "mech3/program_flow.h"
 
 namespace mech3 {
 
@@ -179,6 +180,7 @@ void Mech::on_kill(Handle victim) {
       if (k <= 3) points = kPoints[k];
     }
     x3f4[3] += static_cast<uint32_t>(points * 10);  // fild, fmul 10.0 (0x005bcd54), ftol
+    if (ProgramFlow* x = program_flow()) x->mech_killed(mech, this);  // ours (program_flow.h): none in MW3 or PM
   } else if (vehicle) {
     if (credit && c.salvage_vehicle) c.salvage_vehicle(vehicle);
     ++x3f4[1];
