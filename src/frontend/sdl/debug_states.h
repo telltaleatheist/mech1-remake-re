@@ -47,6 +47,7 @@ class DebugMissionState : public mech3::State {
   DebugMissionOptions o_;
   int frame_ = 0;
   bool loaded_ = false;
+  bool failed_ = false;  // the world did not load: quit
 };
 
 // One .zrd dialog drawn by the ported zTwoD on the SDL host: every button and

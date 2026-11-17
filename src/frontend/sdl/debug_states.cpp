@@ -35,7 +35,8 @@ bool DebugMissionState::enter() {
                                                  engine_->buffer_height());
     if (!err.empty()) {
       std::fprintf(stderr, "mw3: --mission %s: %s\n", o_.mission.c_str(), err.c_str());
-      return false;
+      failed_ = true;  // the next frame quits: a failed enter would be asked again every frame
+      return true;
     }
     loaded_ = true;
     frontend::world_sounds_on();
@@ -65,6 +66,7 @@ bool DebugMissionState::enter() {
 // codes and DIMOUSESTATE counts, as the game reads them), zSound's frame
 // (0x0056dfb0(0, 1), as the Core frame calls it), the world drawn.
 bool DebugMissionState::update() {
+  if (failed_) return true;
   const float dt = ztimer::state().dt;
   if (input_->key_down(kEscape)) return true;
   // The mouse straight from SDL: the free camera is ours, and zInput need
