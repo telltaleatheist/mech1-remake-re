@@ -9,6 +9,7 @@
 //   --install DIR      Pirate's Moon's folder (the game's own install)
 //   --mw3-install DIR  MechWarrior 3's folder (its worlds c2 and c4b)
 //   --mw1-game DIR     MechWarrior (1989)'s DOS folder (BTECH.EXE)
+//   --new-company      a new company, over the saved one (mw1save.txt)
 //   --write-dir DIR    settings and saves (default: the user's app data,
 //                      "MechWarrior 1 Critical Hit", apart from MW3's and PM's)
 //
@@ -23,6 +24,7 @@
 #include <vector>
 
 #include "mw1_game.h"
+#include "mw1_save.h"
 #include "mw1_start.h"
 #include "pm/pm_game.h"
 
@@ -82,6 +84,8 @@ int main(int argc, char** argv) {
   // reach-a-structure (the milestone's second objective).
   const char* seed = std::getenv("MW1_SEED");
   mw1::install_game_loop(seed ? static_cast<uint32_t>(std::strtoul(seed, nullptr, 10)) : 0, std::getenv("MW1_REACH"));
+  // The company's save in the write dir (mw1_save.h); --new-company starts over (until the hub has a menu).
+  if (!a.write_dir.empty()) mw1::set_game_loop_save((std::filesystem::path(a.write_dir) / mw1::kSaveFile).string(), a.new_company);
   // The rest is PM's game main, on its own write dir and PM install.
   std::vector<std::string> args = mw1::game_args(argv[0], a, use);
   std::vector<char*> raw;

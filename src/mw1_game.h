@@ -5,6 +5,7 @@
 // It sits on mw3-re's extension points for programs built on the engine
 // (mech3/program_flow.h, ObjectivesExtension in mech3/mech_objective.h).
 #include <cstdint>
+#include <string>
 
 namespace mw1 {
 
@@ -14,6 +15,10 @@ namespace mw1 {
 // contract reach-a-structure on that map instead of destroy-all (the
 // milestone's second objective, until contracts choose their own).
 void install_game_loop(uint32_t seed, const char* reach = nullptr);
+// The save (mw1_save.h): the company read from `path` at the first hub when it
+// is there (unless `new_company`: one made new, over it), and written after
+// each settlement and at each new offer. Empty: no save (tests).
+void set_game_loop_save(const std::string& path, bool new_company);
 // Taken off the engine again, and the company dropped (tests).
 void uninstall_game_loop();
 struct Company;

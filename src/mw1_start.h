@@ -24,6 +24,7 @@ struct Installs {
 struct Args {
   Installs given;                 // --install, --mw3-install, --mw1-game
   std::string write_dir;          // --write-dir, else the usual folder
+  bool new_company = false;       // --new-company: start over (mw1's own)
   std::vector<std::string> rest;  // everything else, for the game main, in order
 };
 

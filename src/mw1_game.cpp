@@ -15,6 +15,7 @@
 #include "mech3/pilot.h"
 #include "mech3/program_flow.h"
 #include "mw1_campaign.h"
+#include "mw1_save.h"
 
 namespace mw1 {
 namespace {
@@ -43,7 +44,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   // ---- ProgramFlow ----
   bool main_entered(mech3::Engine& e) override {
     auto& ge = static_cast<mech3::GameEngine&>(e);
-    if (!company_.stores) company_ = new_company(rng_), std::printf("mw1: a new company, %s C-bills\n", thousands(company_.funds).c_str());
+    bool saved_offer = false;
+    if (!company_.stores) saved_offer = start_company();
     // Back from a contract's mission, the main menu stays MW1's even when the next offer is declined: taken over,
     // Instant Action's own return (its screen reopened) does not follow (program_flow.h).
     const bool returning = deployed_;
@@ -66,8 +68,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
                                thousands(s.salvage) + " C-bills\nContract payment: " + thousands(s.fee) + " C-bills\nFunds: " +
                                thousands(company_.funds) + " C-bills");
     }
-    contract_ = generate_contract(company_, 0, rng_);
-    if (!reach_.empty()) contract_.objective = Objective::kReachStructure, contract_.ia = kReachIa, contract_.structure = reach_;
+    if (!saved_offer) contract_ = generate_contract(company_, 0, rng_);
+    if (!saved_offer && !reach_.empty()) contract_.objective = Objective::kReachStructure, contract_.ia = kReachIa, contract_.structure = reach_;
     const bool reach = contract_.objective == Objective::kReachStructure;
     std::string enemies;
     for (int32_t k : contract_.enemies) enemies += std::string(enemies.empty() ? "" : ", ") + kMechKinds[k].name;
@@ -80,6 +82,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
                               "\nPayment: " + thousands(int64_t{contract_.payment} * 1000) + " C-bills, advance " +
                               std::to_string(contract_.advance_percent) + "%, salvage " +
                               std::to_string(contract_.salvage_percent) + "%\n\nAccept and deploy?";
+    save();
     std::printf("mw1: offered: %s, %d thousand, %zu enemies\n", reach ? ("reach " + contract_.structure).c_str() : "destroy all",
                 contract_.payment, contract_.enemies.size());
     if (static_cast<int32_t>(ge.message_box_words(kBoxYesNo, "MechWarrior 1: Critical Hit", offer)) != kAnswerYes) return returning;
@@ -135,6 +138,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   }
 
   const Company* company() const { return company_.stores ? &company_ : nullptr; }
+  void set_save(const std::string& path, bool fresh) { save_path_ = path, fresh_ = fresh; }
   const Contract* contract() const { return company_.stores ? &contract_ : nullptr; }
 
   // ---- ObjectivesExtension ----
@@ -160,6 +164,36 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   bool add_enemy_group(const mech3::Objectives&) override { return !deployed_ || !reach_set_; }
 
  private:
+  // The first hub: the saved company (and its offer) when there is one, else a new company. A save that doesn't
+  // read is set aside (mw1save.bad) and said, and the game goes on with a new company. True: the offer is the saved.
+  bool start_company() {
+    bool has_offer = false;
+    if (!save_path_.empty() && !fresh_) {
+      std::string why;
+      switch (load_file(save_path_, company_, contract_, &has_offer, &why)) {
+        case Loaded::kLoaded:
+          std::printf("mw1: the company loaded from %s: %s C-bills, %d items in the stores, %d kills%s\n", save_path_.c_str(),
+                      thousands(company_.funds).c_str(), company_.stores->count(), company_.kills,
+                      has_offer ? ", its offer" : "");
+          return has_offer;
+        case Loaded::kBad:
+          std::printf("mw1: the save %s doesn't read (%s): kept as mw1save.bad; a new company\n", save_path_.c_str(), why.c_str());
+          break;
+        case Loaded::kNone: break;
+      }
+    }
+    company_ = new_company(rng_);
+    std::printf("mw1: a new company, %s C-bills\n", thousands(company_.funds).c_str());
+    return false;
+  }
+
+  // After each settlement and at each new offer (both here, at the hub); never mid-mission.
+  void save() {
+    if (save_path_.empty()) return;
+    std::string why;
+    if (!save_file(save_path_, company_, &contract_, &why)) std::printf("mw1: the company not saved: %s\n", why.c_str());
+  }
+
   static std::shared_ptr<mech3::Config> copy_config(const mech3::Config& c) {
     return std::shared_ptr<mech3::Config>(mech3::pilot_hooks().config_copy(c));
   }
@@ -206,6 +240,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   std::unique_ptr<mech3::Store> salvage_;  // this mission's parts, the stores' on a win
   bool deployed_ = false, launched_ = false, ended_ = false, failed_ = false, reach_set_ = false;
   std::string reach_;  // install_game_loop's structure: every contract reach-a-structure
+  std::string save_path_;  // mw1save.txt; empty: no save
+  bool fresh_ = false;     // --new-company: a new company over the save
 };
 
 }  // namespace
@@ -225,6 +261,10 @@ void uninstall_game_loop() {
   mech3::set_program_flow(nullptr);
   mech3::set_objectives_extension(nullptr);
   the_loop().reset();
+}
+
+void set_game_loop_save(const std::string& path, bool new_company) {
+  if (the_loop()) the_loop()->set_save(path, new_company);
 }
 
 const Company* game_loop_company() { return the_loop() ? the_loop()->company() : nullptr; }

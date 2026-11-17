@@ -33,6 +33,7 @@
 #include "mech3/program_flow.h"
 #include "mw1_campaign.h"
 #include "mw1_game.h"
+#include "mw1_save.h"
 #include "platform/silent_sound.h"
 #include "pm/pm_game.h"
 
@@ -92,7 +93,18 @@ int32_t er_medium_lasers(const std::list<mech3::ConfigItem*>& items) {
   return n;
 }
 
-void loop_run(Ending ending) {
+// A run's save and what it saw, for the restart test: the company at the first offer and at the end, its loadout's
+// item count (-1: stock), and the first and the last offer.
+struct Run {
+  std::string save;    // mw1save.txt's path; empty: none
+  bool strip = false;  // the lab takes a weapon off the Owens (a loadout of the company's own)
+  int64_t funds_at_offer = -1, funds_end = -1;
+  int items_at_offer = -1, items_end = -1, loadout_at_offer = -2, loadout_end = -2;
+  mw1::Contract first_offer, last_offer;
+};
+int loadout_items(const mw1::Company* c) { return c && c->loadout ? static_cast<int>(c->loadout->items.size()) : -1; }
+
+void loop_run(Ending ending, Run* run = nullptr) {
   zgame::set_game(pm::table());
   zutl::mounts() = zutl::Mounts{};
   zutl::mount(MW3PM_GAME_DIR);
@@ -108,6 +120,7 @@ void loop_run(Ending ending) {
   mech3::player_controls_instance() = nullptr;
   mech3::options() = mech3::Options{};
   mw1::install_game_loop(1, ending == kReach ? "portalgate" : nullptr);
+  if (run) mw1::set_game_loop_save(run->save, false);
   NoKeys keys;
   Window window;
   Alert alert;
@@ -120,6 +133,7 @@ void loop_run(Ending ending) {
   p.window = &window, p.alert = &alert, p.clock = &clock, p.movie_clock = &movies, p.screen = &screen;
   p.sound = &sound, p.files = &files, p.input = &keys;
   int64_t funds_at_offer = 0, funds_in_mission = 0;
+  int32_t favor_at_offer[mw1::kHouseCount] = {}, grievance_at_offer[mw1::kHouseCount] = {};
   int boxes = 0, enemies = 0, killed = 0, items_at_offer = 0, target = -1;
   bool ended = false, back_at_main = false, reach_only = false, reached = false, briefed = false;
   int briefing_frames = 0, lab_items = -1, lab_lasers = -1, stock_lasers = -1;
@@ -138,9 +152,14 @@ void loop_run(Ending ending) {
       if (++boxes == 1) {
         const mw1::Company* c = mw1::game_loop_company();
         funds_at_offer = c ? c->funds : 0, items_at_offer = c ? c->stores->count() : 0;
+        for (int h = 0; c && h < mw1::kHouseCount; ++h) favor_at_offer[h] = c->favor[h], grievance_at_offer[h] = c->grievance[h];
         const mw1::Contract* k = mw1::game_loop_contract();
         target = k ? k->target : -1;
+        if (run && c && k) run->funds_at_offer = c->funds, run->items_at_offer = c->stores->count(),
+                           run->loadout_at_offer = loadout_items(c), run->first_offer = *k;
       }
+      const bool offer = boxes == 1 || engine.last_box_text.rfind(mw1::game_loop_company()->planet, 0) == 0;
+      if (run && offer && mw1::game_loop_contract()) run->last_offer = *mw1::game_loop_contract();
       std::printf("  box %d: %s\n", boxes, engine.last_box_text.c_str());
       // The first offer YES; the settlement OK; the next offer (it names the planet) NO.
       if (boxes == 1) return 6u;
@@ -170,6 +189,17 @@ void loop_run(Ending ending) {
             fitted->add_weapon(5, mech3::kInnerSphere);
             g->slot.set_config(fitted, p->store(), true);
             delete fitted;
+          }
+          // The restart's first run: a weapon taken off, as the lab does (back into the store).
+          if (run && run->strip && g && g->slot.config && lab) {
+            mech3::Config* stripped = mech3::pilot_hooks().config_copy(*g->slot.config);
+            for (mech3::ConfigItem* it : stripped->items)
+              if (it->kind() == 1) {
+                stripped->remove(it, 1);
+                break;
+              }
+            g->slot.set_config(stripped, p->store(), true);
+            delete stripped;
           }
           if (ending == kAbort) b->abort();
           else b->launch();
@@ -234,8 +264,11 @@ void loop_run(Ending ending) {
   if (ending == kAbort) {
     // ABORT: no mission, the contract not taken, nothing paid or moved; the next offer at once.
     EXPECT(boxes == 2 && back_at_main && enemies == 0);
-    EXPECT(c && c->funds == funds_at_offer && c->stores->count() == items_at_offer && !c->loadout);
-    for (int h = 0; c && h < mw1::kHouseCount; ++h) EXPECT(c->favor[h] == 0 && c->grievance[h] == 0);
+    EXPECT(c && c->funds == funds_at_offer && c->stores->count() == items_at_offer);
+    if (run) EXPECT(loadout_items(c) == run->loadout_at_offer);
+    else EXPECT(c && !c->loadout);
+    if (run && c) run->funds_end = c->funds, run->items_end = c->stores->count(), run->loadout_end = loadout_items(c);
+    for (int h = 0; c && h < mw1::kHouseCount; ++h) EXPECT(c->favor[h] == favor_at_offer[h] && c->grievance[h] == grievance_at_offer[h]);
     mw1::uninstall_game_loop();
     zrdr::close_archives(true);
     mech3::reset_states();
@@ -275,6 +308,7 @@ void loop_run(Ending ending) {
     EXPECT(c && c->funds == funds_in_mission && c->stores->count() == items_at_offer);
   }
   for (int32_t r = 0; c && r < mech3::kMechCount; ++r) EXPECT(c->stores->has_mech(r) == nullptr);  // never a mech
+  if (run && c) run->funds_end = c->funds, run->items_end = c->stores->count(), run->loadout_end = loadout_items(c);
   mw1::uninstall_game_loop();
   EXPECT(mech3::program_flow() == nullptr);
   zrdr::close_archives(true);
@@ -301,4 +335,47 @@ TEST(mw1_loop_hub_briefing_mission_settlement_won_failed_quit_reach_abort_headle
     loop_run(ending);
 #endif
   }
+}
+
+// The save across a restart (mw1_save.h): a won mission with a loadout of the company's own (the lab took a weapon
+// off), the program stopped; started again on the same save, the company is as the first run left it (funds,
+// stores, the loadout) and the first offer is the one it saved. Both runs in one process, one after the other.
+TEST(mw1_loop_restart_keeps_the_company_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_loop_save";
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  auto both = [&] {
+    Run first, second;
+    first.save = second.save = (dir / mw1::kSaveFile).string();
+    first.strip = true;
+    loop_run(kWon, &first);
+    const bool saved = fs::exists(first.save, ec);
+    loop_run(kAbort, &second);
+    std::printf("  restart: saved %d; funds %lld -> %lld, stores %d -> %d, loadout %d -> %d items (stock -1); offer %d/%d "
+                "thousand -> %d\n",
+                saved, static_cast<long long>(first.funds_end), static_cast<long long>(second.funds_at_offer), first.items_end,
+                second.items_at_offer, first.loadout_end, second.loadout_at_offer, first.last_offer.payment,
+                first.last_offer.target, second.first_offer.payment);
+    EXPECT(saved && first.funds_end > first.funds_at_offer && first.loadout_end >= 0);
+    EXPECT(second.funds_at_offer == first.funds_end && second.items_at_offer == first.items_end);
+    EXPECT(second.loadout_at_offer == first.loadout_end);
+    EXPECT(second.first_offer.payment == first.last_offer.payment && second.first_offer.target == first.last_offer.target &&
+           second.first_offer.enemies == first.last_offer.enemies);
+    EXPECT(!fs::exists(dir / "mw1save.bad", ec) && !fs::exists(first.save + ".tmp", ec));
+  };
+#if !defined(_WIN32)
+  std::fflush(nullptr);
+  const pid_t child = check::fork_child();
+  if (child == 0) {
+    both();
+    std::fflush(nullptr);
+    _exit(check::failures ? 1 : 0);
+  }
+  const int status = check::wait_child(child);
+  EXPECT(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+#else
+  both();
+#endif
 }
