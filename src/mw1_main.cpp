@@ -10,22 +10,30 @@
 //   --mw3-install DIR  MechWarrior 3's folder (its worlds c2 and c4b)
 //   --mw1-game DIR     MechWarrior (1989)'s DOS folder (BTECH.EXE)
 //   --new-company      a new company, over the saved one (mw1save.txt)
+//   --mw1-worlds DIR   MW3's converted worlds (default: the write dir's worlds/)
 //   --write-dir DIR    settings and saves (default: the user's app data,
 //                      "MechWarrior 1 Critical Hit", apart from MW3's and PM's)
 //
 // Each folder given is checked and saved to mw1.cfg in the write dir, so the
 // next start without them (the launcher's or a plain one) uses them again.
+// MW3's worlds are converted into the write dir's worlds/ when they are due
+// (mw1_worlds.h), with a progress window unless --hidden, then registered.
 #include <SDL3/SDL.h>
 
+#include <algorithm>
+#include <atomic>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "mw1_game.h"
 #include "mw1_save.h"
 #include "mw1_start.h"
+#include "mw1_worlds.h"
 #include "pm/pm_game.h"
 
 int mw3_game_main(int argc, char** argv);
@@ -39,6 +47,68 @@ std::string usual_write_dir() {
   return dir;
 }
 
+}  // namespace
+
+namespace {
+// The conversion with a small window before PM's frontend: a bar, the step in its title (as mw3's first-run movie
+// import shows its own). The run in a thread, the window on this one; no window when SDL's video doesn't start.
+bool convert_in_window(const zipkit::Options& o, std::string* error) {
+  std::mutex m;
+  std::string step = "starting";
+  std::atomic<float> part{0};
+  std::atomic<bool> finished{false};
+  bool ok = false;
+  zipkit::Options run = o;
+  const int worlds = static_cast<int>(o.worlds.size());
+  int index = -1;
+  std::string last;
+  run.progress = [&](const std::string& world, const std::string& s, int done, int total) {
+    if (o.progress) o.progress(world, s, done, total);
+    if (world != last) last = world, ++index;
+    std::lock_guard<std::mutex> lock(m);
+    step = world + ": " + s;
+    part = (static_cast<float>(index) + (total > 0 ? static_cast<float>(done) / static_cast<float>(total) : 0.0f)) /
+           static_cast<float>(worlds > 0 ? worlds : 1);
+  };
+  std::thread worker([&] {
+    ok = zipkit::mw3_to_pm(run, error);
+    finished = true;
+  });
+  SDL_Window* win = nullptr;
+  SDL_Renderer* ren = nullptr;
+  const bool video = SDL_Init(SDL_INIT_VIDEO);
+  if (video) SDL_CreateWindowAndRenderer("MechWarrior 1: converting MechWarrior 3's worlds", 480, 64, 0, &win, &ren);
+  std::string shown;
+  while (!finished) {
+    SDL_Event ev;
+    while (video && SDL_PollEvent(&ev)) {
+    }
+    if (win) {
+      std::string now;
+      {
+        std::lock_guard<std::mutex> lock(m);
+        now = step;
+      }
+      if (now != shown) shown = now, SDL_SetWindowTitle(win, ("MechWarrior 1: converting MechWarrior 3's worlds (" + now + ")").c_str());
+    }
+    if (ren) {
+      SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
+      SDL_RenderClear(ren);
+      const SDL_FRect frame{16, 20, 448, 24};
+      SDL_SetRenderDrawColor(ren, 0, 160, 0, 255);
+      SDL_RenderRect(ren, &frame);
+      const SDL_FRect bar{18, 22, 444.0f * part.load(), 20};
+      SDL_RenderFillRect(ren, &bar);
+      SDL_RenderPresent(ren);
+    }
+    SDL_Delay(30);
+  }
+  worker.join();
+  if (ren) SDL_DestroyRenderer(ren);
+  if (win) SDL_DestroyWindow(win);
+  if (video) SDL_Quit();  // PM's game main starts SDL afresh
+  return ok;
+}
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -86,6 +156,23 @@ int main(int argc, char** argv) {
   mw1::install_game_loop(seed ? static_cast<uint32_t>(std::strtoul(seed, nullptr, 10)) : 0, std::getenv("MW1_REACH"));
   // The company's save in the write dir (mw1_save.h); --new-company starts over (until the hub has a menu).
   if (!a.write_dir.empty()) mw1::set_game_loop_save((std::filesystem::path(a.write_dir) / mw1::kSaveFile).string(), a.new_company);
+  // MW1_WORLD=<folder>ia<n> (checks): every contract on that world's Instant Action map, e.g. mw3c2ia1.
+  if (const char* w = std::getenv("MW1_WORLD")) {
+    const std::string s = w;
+    const size_t at = s.rfind("ia");
+    if (at != std::string::npos && at > 0) mw1::set_game_loop_world(s.substr(0, at), std::atoi(s.c_str() + at + 2));
+  }
+  // MW3's worlds (mw1_worlds.h): converted into the write dir's worlds/ when due, then registered by name.
+  const std::string worlds =
+      !a.worlds.empty() ? a.worlds : a.write_dir.empty() ? std::string() : (std::filesystem::path(a.write_dir) / mw1::kWorldsFolder).string();
+  const bool hidden = std::find(a.rest.begin(), a.rest.end(), "--hidden") != a.rest.end();
+  const zipkit::Progress said = [](const std::string& world, const std::string& step, int done, int total) {
+    std::printf("mw1:   %s: %s (%d of %d)\n", world.c_str(), step.c_str(), done + 1, total);
+    std::fflush(stdout);
+  };
+  mw1::prepare_worlds(use.mw3, worlds, said, hidden ? mw1::Convert{} : mw1::Convert(convert_in_window),
+                      [](const std::string& line) { std::printf("mw1: %s\n", line.c_str()), std::fflush(stdout); });
+  for (const std::string& w : mw1::register_worlds(worlds)) std::printf("mw1: world %s from %s\n", w.c_str(), worlds.c_str());
   // The rest is PM's game main, on its own write dir and PM install.
   std::vector<std::string> args = mw1::game_args(argv[0], a, use);
   std::vector<char*> raw;

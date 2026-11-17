@@ -19,6 +19,9 @@ void install_game_loop(uint32_t seed, const char* reach = nullptr);
 // is there (unless `new_company`: one made new, over it), and written after
 // each settlement and at each new offer. Empty: no save (tests).
 void set_game_loop_save(const std::string& path, bool new_company);
+// Every new contract on this world's Instant Action map (by folder: "mw3c2", 1), for checks until contracts pick
+// MW3's worlds (open question 7). Empty: the contracts' own.
+void set_game_loop_world(const std::string& world, int32_t ia);
 // Taken off the engine again, and the company dropped (tests).
 void uninstall_game_loop();
 struct Company;
