@@ -11,7 +11,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # The install the tests and the tools read (any MW3 data version; assets.md,
 # Data versions): -DMW3_GAME_DIR=... for another, e.g. game/mw3-1.0.
-set(MW3_GAME_DIR "${CMAKE_SOURCE_DIR}/game/mw3-1.2" CACHE PATH "The MechWarrior 3 install the tests and tools read")
+set(MW3_GAME_DIR "${PROJECT_SOURCE_DIR}/game/mw3-1.2" CACHE PATH "The MechWarrior 3 install the tests and tools read")
 
 # A build for other players (tools/windows/package.cmd): mw3 and mw3import
 # get no development copy to fall back on, only the player's own install.
@@ -23,12 +23,12 @@ option(MW3_BUILD_PM "Build Pirate's Moon (mw3pm)" ON)
 # probe and its tests are here only for reading; MW3 is built from `main`.
 option(MW3_BUILD_MW3 "Build MechWarrior 3's programs, probe and tests from this branch too" OFF)
 option(MW3_PM_HITS "The first run's first-hit log of PM's AI (tools/pm-hits), scratch builds only" OFF)
-set(MW3PM_GAME_DIR "${CMAKE_SOURCE_DIR}/game/pm" CACHE PATH "The Pirate's Moon install the PM tests and tools read")
+set(MW3PM_GAME_DIR "${PROJECT_SOURCE_DIR}/game/pm" CACHE PATH "The Pirate's Moon install the PM tests and tools read")
 # The version mw3 --version and the Windows version resource give: git's
 # describe (a tag, or the commit) and the commit count.
-execute_process(COMMAND git describe --tags --match "pm-v[0-9]*" --always --dirty WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+execute_process(COMMAND git describe --tags --match "pm-v[0-9]*" --always --dirty WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
                 OUTPUT_VARIABLE MW3_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
-execute_process(COMMAND git rev-list --count HEAD WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+execute_process(COMMAND git rev-list --count HEAD WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
                 OUTPUT_VARIABLE MW3_BUILD_NUMBER OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
 if(NOT MW3_VERSION)
   set(MW3_VERSION "unknown")
@@ -449,7 +449,7 @@ endif()
 # them, its miniupnpcstrings.h made from its template.
 set(_mw3_project_version "${PROJECT_VERSION}")
 set(PROJECT_VERSION 2.2.8)
-configure_file(third_party/miniupnpc/miniupnpcstrings.h.cmake ${CMAKE_BINARY_DIR}/miniupnpc/miniupnpcstrings.h)
+configure_file(third_party/miniupnpc/miniupnpcstrings.h.cmake ${PROJECT_BINARY_DIR}/miniupnpc/miniupnpcstrings.h)
 set(PROJECT_VERSION "${_mw3_project_version}")
 add_library(miniupnpc STATIC
   third_party/miniupnpc/src/igd_desc_parse.c third_party/miniupnpc/src/miniupnpc.c
@@ -459,7 +459,7 @@ add_library(miniupnpc STATIC
   third_party/miniupnpc/src/connecthostport.c third_party/miniupnpc/src/portlistingparse.c
   third_party/miniupnpc/src/receivedata.c third_party/miniupnpc/src/addr_is_reserved.c)
 target_include_directories(miniupnpc PUBLIC third_party/miniupnpc/include
-                           PRIVATE third_party/miniupnpc/src ${CMAKE_BINARY_DIR}/miniupnpc)
+                           PRIVATE third_party/miniupnpc/src ${PROJECT_BINARY_DIR}/miniupnpc)
 target_compile_definitions(miniupnpc PUBLIC MINIUPNP_STATICLIB)
 target_compile_options(miniupnpc PRIVATE "$<IF:$<C_COMPILER_ID:MSVC>,/w,-w>")
 if(WIN32)
@@ -479,16 +479,16 @@ endif()
 # Mac may use Homebrew's (brew install libarchive). Without it the game
 # builds and SETUP takes folders, drives, .iso and .cue only.
 find_path(LIBARCHIVE_INCLUDE archive.h
-          HINTS "${CMAKE_SOURCE_DIR}/deps/archive/include" /opt/homebrew/opt/libarchive/include /usr/local/opt/libarchive/include)
+          HINTS "${PROJECT_SOURCE_DIR}/deps/archive/include" /opt/homebrew/opt/libarchive/include /usr/local/opt/libarchive/include)
 find_library(LIBARCHIVE_LIB NAMES archive archive_static
-             HINTS "${CMAKE_SOURCE_DIR}/deps/archive/lib" /opt/homebrew/opt/libarchive/lib /usr/local/opt/libarchive/lib)
+             HINTS "${PROJECT_SOURCE_DIR}/deps/archive/lib" /opt/homebrew/opt/libarchive/lib /usr/local/opt/libarchive/lib)
 if(LIBARCHIVE_INCLUDE AND LIBARCHIVE_LIB)
   target_include_directories(mw3core PUBLIC "${LIBARCHIVE_INCLUDE}")
   target_link_libraries(mw3core PUBLIC "${LIBARCHIVE_LIB}")
   if(LIBARCHIVE_LIB MATCHES "\\.(a|lib)$")  # static: its own libraries beside it
     target_compile_definitions(mw3core PUBLIC LIBARCHIVE_STATIC)  # the tests write archives with it too
-    find_library(MW3_LZMA_LIB NAMES lzma liblzma HINTS "${CMAKE_SOURCE_DIR}/deps/archive/lib")
-    find_library(MW3_Z_LIB NAMES z zlibstatic zlib zs HINTS "${CMAKE_SOURCE_DIR}/deps/archive/lib")
+    find_library(MW3_LZMA_LIB NAMES lzma liblzma HINTS "${PROJECT_SOURCE_DIR}/deps/archive/lib")
+    find_library(MW3_Z_LIB NAMES z zlibstatic zlib zs HINTS "${PROJECT_SOURCE_DIR}/deps/archive/lib")
     target_link_libraries(mw3core PUBLIC ${MW3_LZMA_LIB} ${MW3_Z_LIB})
     if(WIN32)
       target_link_libraries(mw3core PUBLIC bcrypt)
@@ -745,8 +745,8 @@ endif()
 target_link_libraries(mw3tests PRIVATE mw3core)
 # Tests that read the player's install skip themselves when it is not there.
 target_compile_definitions(mw3tests PRIVATE MW3_GAME_DIR="${MW3_GAME_DIR}"
-                                          MW3_TEST_TMP_ROOT="${CMAKE_BINARY_DIR}"
-                                          MW3_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+                                          MW3_TEST_TMP_ROOT="${PROJECT_BINARY_DIR}"
+                                          MW3_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 add_test(NAME mw3tests COMMAND mw3tests)
 endif()
 
@@ -849,8 +849,8 @@ if(MW3_BUILD_PM)
   endif()
   target_compile_definitions(mw3pmtests PRIVATE MW3_GAME_DIR="${MW3_GAME_DIR}"
                                               MW3PM_GAME_DIR="${MW3PM_GAME_DIR}"
-                                              MW3_TEST_TMP_ROOT="${CMAKE_BINARY_DIR}"
-                                              MW3_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+                                              MW3_TEST_TMP_ROOT="${PROJECT_BINARY_DIR}"
+                                              MW3_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
   add_test(NAME mw3pmtests COMMAND mw3pmtests)
   # PM's ported functions behind a C interface, for the differential tests
   # run against PM's exe (tests/differential/test_pm_*.py).
@@ -1003,8 +1003,8 @@ if(SDL3_FOUND)
   # Windows SDK's dxc, as headers the renderer includes.
   if(WIN32)
     find_program(DXC dxc REQUIRED)
-    set(hlsl ${CMAKE_SOURCE_DIR}/src/frontend/sdl/sdl_render3d.hlsl)
-    set(dxil_dir ${CMAKE_BINARY_DIR}/dxil)
+    set(hlsl ${PROJECT_SOURCE_DIR}/src/frontend/sdl/sdl_render3d.hlsl)
+    set(dxil_dir ${PROJECT_BINARY_DIR}/dxil)
     set(dxil_headers)
     foreach(stage vs:vs_6_0 fs_tex:ps_6_0 fs_flat:ps_6_0 vs_light_map:vs_6_0 fs_light_map:ps_6_0)
       string(REPLACE ":" ";" pair ${stage})
@@ -1030,8 +1030,8 @@ if(SDL3_FOUND)
     find_program(GLSLANG glslangValidator)
   endif()
   if(GLSLANG)
-    set(glsl ${CMAKE_SOURCE_DIR}/src/frontend/sdl/sdl_render3d.glsl)
-    set(spv_dir ${CMAKE_BINARY_DIR}/spirv)
+    set(glsl ${PROJECT_SOURCE_DIR}/src/frontend/sdl/sdl_render3d.glsl)
+    set(spv_dir ${PROJECT_BINARY_DIR}/spirv)
     set(spv_headers)
     foreach(stage vs:vert:VS fs_tex:frag:FS_TEX fs_flat:frag:FS_FLAT vs_light_map:vert:VS_LIGHT_MAP fs_light_map:frag:FS_LIGHT_MAP)
       string(REPLACE ":" ";" parts ${stage})
@@ -1066,7 +1066,7 @@ if(SDL3_FOUND)
                 src/frontend/sdl/vulkan_check.cpp)
     target_link_libraries(mw3text PUBLIC mw3sdl SDL3_ttf::SDL3_ttf)
     if(NOT MW3_PACKAGE)
-      target_compile_definitions(mw3text PRIVATE MW3_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets")
+      target_compile_definitions(mw3text PRIVATE MW3_ASSETS_DIR="${PROJECT_SOURCE_DIR}/assets")
     endif()
     if(MW3_BUILD_MW3)
     add_executable(mw3
@@ -1088,16 +1088,16 @@ if(SDL3_FOUND)
     # carries it beside the exe (tools/windows/package.cmd) or in the app's
     # Resources (tools/macos/make_app.sh), and keeps no path of this machine.
     if(NOT MW3_PACKAGE)
-      target_compile_definitions(mw3 PRIVATE MW3_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets")
+      target_compile_definitions(mw3 PRIVATE MW3_ASSETS_DIR="${PROJECT_SOURCE_DIR}/assets")
       target_compile_definitions(mw3 PRIVATE MW3_GAME_DIR="${MW3_GAME_DIR}")
     endif()
     # Windows: the version resource and our placeholder icon (tools/windows).
     if(WIN32)
       set(MW3_RC_NAME "MechWarrior 3 rebuild")
       set(MW3_RC_FILE "mw3.exe")
-      set(MW3_RC_ICON "ICON_MAIN ICON \"${CMAKE_SOURCE_DIR}/tools/windows/mw3.ico\"")
-      configure_file(tools/windows/version.rc.in ${CMAKE_BINARY_DIR}/mw3.rc)
-      target_sources(mw3 PRIVATE ${CMAKE_BINARY_DIR}/mw3.rc)
+      set(MW3_RC_ICON "ICON_MAIN ICON \"${PROJECT_SOURCE_DIR}/tools/windows/mw3.ico\"")
+      configure_file(tools/windows/version.rc.in ${PROJECT_BINARY_DIR}/mw3.rc)
+      target_sources(mw3 PRIVATE ${PROJECT_BINARY_DIR}/mw3.rc)
       target_sources(mw3 PRIVATE tools/windows/utf8.manifest)
     endif()
     # A package build is a Windows GUI program: no console window beside the
@@ -1128,16 +1128,16 @@ if(SDL3_FOUND)
     target_link_libraries(mw3launcher PRIVATE mw3text mw3sdl mw3core SDL3::SDL3)
     target_compile_definitions(mw3launcher PRIVATE MW3_VERSION="${MW3_VERSION}")
     if(NOT MW3_PACKAGE)
-      target_compile_definitions(mw3launcher PRIVATE MW3_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets"
+      target_compile_definitions(mw3launcher PRIVATE MW3_ASSETS_DIR="${PROJECT_SOURCE_DIR}/assets"
                                                      MW3_GAME_DIR="${MW3_GAME_DIR}")
     endif()
     add_dependencies(mw3launcher mw3)
     if(WIN32)
       set(MW3_RC_NAME "MW3 Rebuild")
       set(MW3_RC_FILE "mw3launcher.exe")
-      set(MW3_RC_ICON "ICON_MAIN ICON \"${CMAKE_SOURCE_DIR}/tools/windows/mw3.ico\"")
-      configure_file(tools/windows/version.rc.in ${CMAKE_BINARY_DIR}/mw3launcher.rc)
-      target_sources(mw3launcher PRIVATE ${CMAKE_BINARY_DIR}/mw3launcher.rc)
+      set(MW3_RC_ICON "ICON_MAIN ICON \"${PROJECT_SOURCE_DIR}/tools/windows/mw3.ico\"")
+      configure_file(tools/windows/version.rc.in ${PROJECT_BINARY_DIR}/mw3launcher.rc)
+      target_sources(mw3launcher PRIVATE ${PROJECT_BINARY_DIR}/mw3launcher.rc)
       target_sources(mw3launcher PRIVATE tools/windows/utf8.manifest)
       # No console, in every build: it is only ever a window (its log is
       # mw3launcher.log in the write dir).
@@ -1176,9 +1176,9 @@ if(SDL3_FOUND)
       if(WIN32)
         set(MW3_RC_NAME "Pirate's Moon rebuild")
         set(MW3_RC_FILE "mw3pm.exe")
-        set(MW3_RC_ICON "ICON_MAIN ICON \"${CMAKE_SOURCE_DIR}/tools/windows/mw3.ico\"")
-        configure_file(tools/windows/version.rc.in ${CMAKE_BINARY_DIR}/mw3pm.rc)
-        target_sources(mw3pm PRIVATE ${CMAKE_BINARY_DIR}/mw3pm.rc)
+        set(MW3_RC_ICON "ICON_MAIN ICON \"${PROJECT_SOURCE_DIR}/tools/windows/mw3.ico\"")
+        configure_file(tools/windows/version.rc.in ${PROJECT_BINARY_DIR}/mw3pm.rc)
+        target_sources(mw3pm PRIVATE ${PROJECT_BINARY_DIR}/mw3pm.rc)
         target_sources(mw3pm PRIVATE tools/windows/utf8.manifest)
         if(MW3_PACKAGE)
           if(MSVC)
@@ -1195,7 +1195,7 @@ if(SDL3_FOUND)
       endif()
       if(NOT MW3_PACKAGE)
         target_compile_definitions(mw3pm PRIVATE MW3PM_GAME_DIR="${MW3PM_GAME_DIR}" MW3_GAME_DIR="${MW3PM_GAME_DIR}"
-                                                  MW3_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets")
+                                                  MW3_ASSETS_DIR="${PROJECT_SOURCE_DIR}/assets")
       endif()
     endif()
     # The Indeo helper's stand-in for the tests (tools/indeo; the real
@@ -1217,10 +1217,10 @@ if(SDL3_FOUND)
     )
     target_link_libraries(mw3sdltests PRIVATE mw3text mw3sdl mw3core SDL3::SDL3)
     target_compile_definitions(mw3sdltests PRIVATE MW3_GAME_DIR="${MW3_GAME_DIR}"
-                                                 MW3_TEST_TMP_ROOT="${CMAKE_BINARY_DIR}"
+                                                 MW3_TEST_TMP_ROOT="${PROJECT_BINARY_DIR}"
                                                  MW3_BIN="$<TARGET_FILE:mw3>"
                                                  MW3_LAUNCHER_BIN="$<TARGET_FILE:mw3launcher>"
-                                                 MW3_ASSETS_FOR_TESTS="${CMAKE_SOURCE_DIR}/assets"
+                                                 MW3_ASSETS_FOR_TESTS="${PROJECT_SOURCE_DIR}/assets"
                                                  MW3_FAKE_INDEO="$<TARGET_FILE:mw3indeo_fake>"
                                                  MW3_IMPORT_BIN="$<TARGET_FILE_DIR:mw3>/mw3import")
     add_dependencies(mw3sdltests mw3indeo_fake)
@@ -1235,7 +1235,7 @@ if(SDL3_FOUND)
                      src/frontend/sdl/sdl_restart.cpp src/frontend/sdl/win_cmdline.cpp tests/test_win_cmdline.cpp tests/test_log_start.cpp)
       target_link_libraries(mw3pmsdltests PRIVATE mw3text mw3sdl pmcore mw3core SDL3::SDL3)
       target_compile_definitions(mw3pmsdltests PRIVATE MW3_PM_SUITE=1 MW3_GAME_DIR="${MW3PM_GAME_DIR}"
-                                                       MW3_TEST_TMP_ROOT="${CMAKE_BINARY_DIR}"
+                                                       MW3_TEST_TMP_ROOT="${PROJECT_BINARY_DIR}"
                                                        MW3_BIN="$<TARGET_FILE:mw3pm>"
                                                        MW3_LAUNCHER_BIN=""
                                                        MW3_FAKE_INDEO=""
@@ -1264,7 +1264,7 @@ if(SDL3_FOUND)
     set(MW3_FFMPEG PkgConfig::FFMPEG)
   else()
     if(NOT FFMPEG_DIR)
-      file(GLOB _ffmpeg_dirs "${CMAKE_SOURCE_DIR}/deps/ffmpeg-*shared*")
+      file(GLOB _ffmpeg_dirs "${PROJECT_SOURCE_DIR}/deps/ffmpeg-*shared*")
       if(_ffmpeg_dirs)
         list(GET _ffmpeg_dirs 0 FFMPEG_DIR)
       endif()
@@ -1297,8 +1297,8 @@ if(SDL3_FOUND)
       set(MW3_RC_NAME "MechWarrior 3 rebuild: movie and music importer")
       set(MW3_RC_FILE "mw3import.exe")
       set(MW3_RC_ICON "")
-      configure_file(tools/windows/version.rc.in ${CMAKE_BINARY_DIR}/mw3import.rc)
-      target_sources(mw3import PRIVATE ${CMAKE_BINARY_DIR}/mw3import.rc)
+      configure_file(tools/windows/version.rc.in ${PROJECT_BINARY_DIR}/mw3import.rc)
+      target_sources(mw3import PRIVATE ${PROJECT_BINARY_DIR}/mw3import.rc)
     endif()
     if(MW3_FFMPEG_DLLS)  # the DLLs beside mw3import.exe, as SDL3.dll is beside mw3.exe
       add_custom_command(TARGET mw3import POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different ${MW3_FFMPEG_DLLS}
