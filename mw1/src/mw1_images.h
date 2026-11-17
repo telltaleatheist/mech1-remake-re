@@ -3,7 +3,9 @@
 // format, mw1data/zbd/mw1image.zbd, which mw1 registers beside PM's rimage.zbd (zimg_lib::new_image_library); the
 // screens then name them as they name PM's. The layout is the engine's own reader's (gamez/zimage/zimg_library.h): a
 // 0x18-byte header, an 0x28-byte entry per image (its name and offset, no palette), then each image: a 16-byte info
-// (flags kTwoBytes | kNoAlpha, as PM's opaque backdrops, the width and the height) and its pixels, 16-bit 565.
+// (flags kTwoBytes | kNoAlpha, as PM's opaque backdrops, the width and the height) and its pixels, 16-bit 565; an
+// image with an alpha plane (the chrome, mw1_chrome.h) is kTwoBytes | kFullAlpha, its 8-bit alphas after the pixels,
+// blended by the 2D blit (zrndr::blit16).
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -19,6 +21,7 @@ struct Image {
   std::string name;            // at most 31 characters
   int32_t width = 0, height = 0;
   std::vector<uint16_t> pixels;  // 565, row by row
+  std::vector<uint8_t> alpha;    // empty: opaque; else one per pixel (0 clear, 255 solid)
 };
 uint16_t rgb565(uint8_t r, uint8_t g, uint8_t b);
 // `picture` (w x h, 565) centred on a black kScreenW x kScreenH image (letterboxed or pillarboxed).
