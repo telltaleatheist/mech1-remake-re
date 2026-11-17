@@ -76,6 +76,15 @@ from MW3 (c2's Grasslands, c4b's snow) are converted to PM's formats once,
 at first run, from the player's own MW3 install into MW1's data folder,
 under their own names (`mw3c2`, `mw3c4b`). The engine only ever sees PM
 data. Nothing converted is shipped.
+**The conversion tool** (Owen, 2026-11-16): a proper tool of our own, in
+C++ like the rest, in mw3-re's `tools/` beside its importer: it reads and
+writes MW3's and PM's files and converts between them. It's built on
+mw3-re's own ported readers and writers, with mech3ax studied as a
+reference for the formats and its output used as a check. mech3ax's code
+is EUPL and isn't copied or translated. MW1's first-run conversion calls
+this tool. The measurements are in `research/converter.md` (about 1.5–2
+weeks).
+
 The player's MW3 and PM files are **never modified** (Owen, 2026-11-16):
 they must stay playable in MW3 and PM. MW1 works only on its own copies.
 
