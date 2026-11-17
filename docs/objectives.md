@@ -378,3 +378,23 @@ code runs exactly as the original's: the extension's calls are skipped.
 
 Tests: `objectives_extension_none_is_the_original`,
 `objectives_extension_sees_the_block` (`tests/pm/test_pm_objectives.cpp`).
+
+### Extensions: the program's flow
+
+Not objectives, but the same kind of hook, kept beside it: `ProgramFlow`
+(`mech3/program_flow.h`), set with `set_program_flow`, lets the program
+built on the engine run its own screens between Instant Action missions
+(MW1's planet hub). MW3 and PM set none, and with none the states run as the
+original's.
+
+- `main_entered(e)`: when the Main state enters (`MainState::enter`), at the
+  start and on each return to it. The program may push a state of its own
+  over the main menu; true says it did, and the main menu's own reopenings
+  (MODS) are left out.
+- `mission_ending(e)`: at Instant Action's end (IA Dummy, 0x0047ce80), after
+  its tally and before `mission_cleanup`, so the program can read the
+  mission's entities (who died, the kills) while they're still there.
+
+Tests: `program_flow_none_is_the_original`,
+`program_flow_sees_main_and_the_instant_action_end_headless`
+(`tests/pm/test_pm_options.cpp`).

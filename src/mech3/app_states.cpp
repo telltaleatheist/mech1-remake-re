@@ -19,6 +19,7 @@
 #include "gamez/zvideo/zvid_format.h"
 #include "mech3/app.h"
 #include "mech3/pilot.h"
+#include "mech3/program_flow.h"
 
 namespace mech3 {
 
@@ -154,6 +155,7 @@ bool IaDummyState::enter() {
     else if (g->mode == 4) ++(lost ? g->defend_losses : g->defend_wins);
   }
   if (p) p->save();  // (the exe saves the pilot unchecked)
+  if (ProgramFlow* x = program_flow()) x->mission_ending(en);  // ours: none in MW3 or PM
   en.mission_cleanup(1);
   a().set_reopen_instant_action(1, 1);
   en.replace_state(2);  // 0x00590250 with 0x00482970(2)
@@ -1070,6 +1072,7 @@ bool MainState::enter() {
   // Ours: a mission entered by MODS's EDIT is over however it ended; MODS
   // again when the editor's exit asked for it.
   mods_edit_end();
+  if (ProgramFlow* x = program_flow(); x && x->main_entered(en)) return true;  // ours: none in MW3 or PM
   if (mods_menu_reopen()) {
     mods_menu_reopen() = false;
     // Inside an entry opened for the editor (entry_run.h, kEdit) MODS is not shown: the update leaves the entry.
@@ -1532,5 +1535,12 @@ bool FadeState::step(float dt) {
   }
   return going;
 }
+
+// Ours: the program's flow (program_flow.h).
+namespace {
+ProgramFlow* g_program_flow = nullptr;
+}
+void set_program_flow(ProgramFlow* x) { g_program_flow = x; }
+ProgramFlow* program_flow() { return g_program_flow; }
 
 }  // namespace mech3
