@@ -2814,6 +2814,54 @@ TEST(pm_canyon_death_band) {
 // taken at the starbase (the dock-parking fix) and at a mobile dock, walks in on PM's repair state (0x004e0790),
 // goes down on the point and comes away repaired; with them off, at the starbase the exe's dock has let the bases
 // stop and her order is refused (as the exe). Each in a child, as the other whole-mission runs.
+// Ours (program_flow.h, mech_repaired; app_mech.h, mech_lance_structure): the same c1m1 run (the player repaired at
+// the MFB, then Epona Rhi ordered to the starbase dock) with a program flow: each field-base repair is offered with
+// the bars as they were, and the mech's reads after it show armor and structure mended. Structure's points are the
+// part's (100 / its scale).
+namespace {
+struct RepairSeen : mech3::ProgramFlow {
+  int calls = 0, mended = 0;
+  float armor_before = 0, armor_after = 0, structure_before = 0, structure_after = 0, structure_points = 0;
+  void mech_repaired(void* mech, const float armor[11], const float structure[11]) override {
+    ++calls;
+    int32_t type = -1, max[11] = {};
+    float a[11] = {}, st[11] = {}, points[11] = {};
+    mech3::mech_lance_armor(mech, &type, max, a);
+    mech3::mech_lance_structure(mech, points, st);
+    float ab = 0, aa = 0, sb = 0, sa = 0, sp = 0;
+    for (int k = 0; k < 11; ++k) ab += armor[k], aa += a[k], sb += structure[k], sa += st[k], sp += points[k];
+    if (aa > ab || sa > sb) ++mended;
+    armor_before += ab, armor_after += aa, structure_before += sb, structure_after += sa, structure_points = sp;
+  }
+};
+RepairSeen g_repair_seen;
+}  // namespace
+
+TEST(program_flow_sees_field_base_repairs_and_structure_headless) {
+#if !defined(_WIN32)
+  std::fflush(nullptr);
+  const pid_t child = check::fork_child();
+  if (child == 0) {
+    setenv("PM_REPAIR", "4733,-4200", 1);
+    setenv("PM_REPAIR_AFTER", "1", 1);
+    g_refit_done = false;
+    mech3::set_program_flow(&g_repair_seen);
+    kill_run("0,1,1", true);
+    mech3::set_program_flow(nullptr);
+    const RepairSeen& r = g_repair_seen;
+    std::printf("  field-base repairs: %d offered, %d mended; armor %.2f -> %.2f, structure %.2f -> %.2f (of 11 bars each), "
+                "the last mech's structure points %.0f\n", r.calls, r.mended, r.armor_before, r.armor_after, r.structure_before,
+                r.structure_after, r.structure_points);
+    EXPECT(r.calls >= 1 && r.mended >= 1 && r.structure_points > 0);
+    EXPECT(r.armor_after + r.structure_after > r.armor_before + r.structure_before);  // here Epona's legs: structure
+    std::fflush(nullptr);
+    _exit(check::failures ? 1 : 0);
+  }
+  const int status = check::wait_child(child);
+  EXPECT(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+#endif
+}
+
 TEST(pm_c1m1_lancemate_repairs_at_the_dock) {
 #if !defined(_WIN32)
   struct Case { const char* name; const char* at; bool bugs; };

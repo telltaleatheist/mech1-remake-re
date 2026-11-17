@@ -9,7 +9,9 @@
 
 #include "gamez/zmath/zmth_vector.h"
 #include "gamez/zutil/zfix.h"
+#include "mech3/app_mech.h"
 #include "mech3/mech_fieldbase.h"
+#include "mech3/program_flow.h"
 #include "mech3/zai_brain.h"
 #include "gamez/zutil/zfix.h"
 #include "mech3/zai_valve.h"
@@ -415,6 +417,19 @@ bool field_bases_station_repair(Handle mech, Handle station) {
   return true;
 }
 
+namespace {
+// The mech repaired (the original's call); ours (program_flow.h, for MW1: Critical Hit): the program told with the
+// bars as they were before. Without a program flow the original's alone.
+void repair(Handle mech, float dt) {
+  mech3::ProgramFlow* f = mech ? mech3::program_flow() : nullptr;
+  float armor[11] = {}, structure[11] = {}, points[11] = {};
+  int32_t type = -1, max[11] = {};
+  const bool read = f && mech3::mech_lance_armor(mech, &type, max, armor) && mech3::mech_lance_structure(mech, points, structure);
+  hk().mech_repair(mech, dt);
+  if (read) f->mech_repaired(mech, armor, structure);
+}
+}  // namespace
+
 // Mech3.exe 1.2 @ 0x0045a140
 void field_bases_station_message(Handle mech, uint32_t id) {
   FieldBaseHooks& h = hk();
@@ -429,7 +444,7 @@ void field_bases_station_done(Handle anim, Handle mech, int32_t stopped) {
   if (field_bases().refit.anim && anim == field_bases().refit.anim) return field_bases().refit.anim_ended(stopped);
   if (anim != g_repair_anim || stopped) return;
   g_repair_anim = nullptr;
-  h.mech_repair(mech, 0.0f);  // 0x004154e0(0)
+  repair(mech, 0.0f);  // 0x004154e0(0)
   h.entity_set_shutdown(mech, false);
   h.mech_power_up(mech);  // 0x0041cc30(0)
   h.view_set_camera(h.view_saved_camera());
@@ -538,7 +553,7 @@ void DockRefit::anim_ended(int32_t stopped) {
   FieldBaseHooks& h = hk();
   const Handle mech = reg->requester;
   anim = nullptr;
-  h.mech_repair(mech, 0.0f);  // 0x00415fc0
+  repair(mech, 0.0f);  // 0x00415fc0
   h.entity_set_shutdown(mech, false);
   h.mech_power_up(mech);  // 0x0041dab0(0)
   if (mech == h.view_vehicle()) h.view_set_camera(view_was);
@@ -696,7 +711,7 @@ void DockRepair::begin() {
 bool DockRepair::step(float dt) {
   timer = timer - dt;
   if (timer <= 0.0f) {
-    if (reg->requester) hk().mech_repair(reg->requester, dt);
+    if (reg->requester) repair(reg->requester, dt);
     hk().marker_clear();
     reg->park = zfix::options().mfb_regroup;  // FIX (bug), ours: the bases stay (DockParked)
     return true;

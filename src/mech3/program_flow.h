@@ -39,6 +39,10 @@ class ProgramFlow {
   // name (`pilot`, +0xd4, the HUD's and the radio's; set_ai_pilot_name), its aim error (+0xb8, the firing's
   // spread before the difficulty, zai_firing 0x004b70b0). Enemies and a new wave's mechs are not offered.
   virtual void ally_launching(int32_t slot, ai::AiParams& params) {}
+  // A field base has just repaired `mech` (its station's, the refit's, or the dock's timed repair), with each lance
+  // bar's armor and structure fractions as they were before it (mech_lance_armor's and mech_lance_structure's
+  // order); the mech's own reads give them now. Any mech, any side: the program decides whose.
+  virtual void mech_repaired(void* mech, const float armor_before[11], const float structure_before[11]) {}
 };
 // An AI settings' pilot name (`pilot`, +0xd4, malloc'd as the reader's), replaced by a copy of `name`.
 void set_ai_pilot_name(ai::AiParams& params, const char* name);

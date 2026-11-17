@@ -414,6 +414,12 @@ original's.
   before the difficulty, `zai_firing` 0x004b70b0). Enemies and a wave's new
   mechs aren't offered. The radio's voice (`+0xd8`) stays the record's.
   MW1's lancemates are named and aimed here.
+- `mech_repaired(mech, armor_before, structure_before)`: a field base has just
+  repaired a mech (the station's repair 0x0045a0f0, the refit's 0x0045bcc0, or
+  the dock's timed repair 0x0045b320), any mech on any side. It gets each
+  lance bar's armor and structure fractions as they were before the repair,
+  and the mech's own reads give them now. MW1's repair bill counts field-base
+  repairs here.
 
 Beside it, also ours and for programs built on the engine:
 `program_salvage_mech(mech, store, chassis)` (`app_mech.h`) puts a mech's
@@ -422,7 +428,10 @@ into a store of the program's, with `chassis` in place of the mech's own
 flag: false gives its parts and never the mech. The campaign's own salvage
 path doesn't go through it. And `program_mech_parts_standing(mech, &standing,
 &all)`: of the mech's parts by id (1..15) those it has, and of them those not
-destroyed, for a program's own wreck value (MW1's condition).
+destroyed, for a program's own wreck value (MW1's condition). And `mech_lance_structure(mech, points, left)`
+(`app_mech.h`): the lance bars' internal structure, each bar's points (100 /
+the part's scale) and fraction left, beside `mech_lance_armor`'s armor; a pure
+read, for MW1's repair bill.
 
 A program's own screens: `Engine::adopt_screen(screen, size)` registers a
 screen made outside `construct()` (the pilot screen, the controls' popups),
@@ -438,4 +447,5 @@ Tests: `program_flow_none_is_the_original`,
 `program_flow_sees_kills_and_program_salvage_mech_headless` (with
 `mission_launched`, `tests/pm/test_pm_mission.cpp`),
 `program_flow_names_and_aims_an_instant_action_ally_headless`,
+`program_flow_sees_field_base_repairs_and_structure_headless`,
 `adopt_state_registers_a_program_state` (`tests/pm/test_pm_mission.cpp`).
