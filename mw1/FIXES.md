@@ -58,6 +58,7 @@ Tick an item when it is merged into `main`.
   - The House office is where contracts come from: ask for a mission, see the offer, move to the next offer, negotiate the terms, ACCEPT or LEAVE. That's MW1's CONTRACT_OFFICE, REQUEST_MISSION_OFFER, NEXT_MISSION_OFFER and NEGOTIATE_CONTRACT.
   - With a contract accepted, the hub shows the current contract in its panel and offers the deployment: MW1's hub has a deployment tile.
   - A new campaign starts on the hub, after the intro, with no offer up.
+- **Owen again (Mac, 2026-11-17, shot `keep/mw1-remake/reference/owen-play-hub-offer.png`):** the hub's CONTRACT ON OFFER with ACCEPT/DECLINE "pops up as soon as I start the game. Contracts are usually accepted within a specific screen, and should be accessible there."
 
 ## 8. [ ] The mech lab in the Mech Complex, beside repair
 - **Owen:** "We need the mech lab available as an option, too. Probably in the same submenu as the repair item is in the original MW1."
@@ -65,4 +66,21 @@ Tick an item when it is merged into `main`.
 - **Wanted:**
   - MECH LAB goes on that status screen with the others. It opens PM's mech lab (in our reskin) for that mech and returns to the status screen.
   - The pre-launch screen keeps its MECH LAB above LAUNCH (item 4).
+
+## 9. [ ] The title screen's picture scrolls and tiles
+- **Owen (Mac, 2026-11-17, shot `keep/mw1-remake/reference/owen-play-title-scrolling.png`):** "The opening scene is scrolling but it doesn't really work for our images. We should make it still images instead."
+  - The shot shows `title_bg` drifting and wrapping: its right and bottom edges repeat the picture, with hard seams.
+  - "CRITICAL HIT" is drawn with broken letter spacing.
+- **Wanted:**
+  - Every picture in MW1's screens stays still and fills the screen at any shape (cover, centred): the title, the intro's pictures, the hub's scenery and the story's scenes.
+  - No drifting or panning anywhere. Check every screen for it.
+  - Fix the subtitle's spacing.
+
+## 10. [ ] The story's event panel in MW1's look
+- **Owen (shot `keep/mw1-remake/reference/owen-play-event-panel.png`):** "This uses the standard PM button style in the far corner, and it also has the text in the top left for some reason. Maybe the text should be centred with a faded/darkened background image behind it."
+- **Wanted:**
+  - The event's text centred on screen, in a framed terminal panel, over a darkened, faded scene picture: the event's own `story_*`/`char_*` art where we have it, else the world's hub scenery.
+  - The world and ARRIVAL heading on our plaque.
+  - NEXT/OK and a choice's captions as MW1 buttons: our chrome, not PM's ring button in the corner.
+  - This was phase 5. It moves up, because every campaign opens on it.
 
