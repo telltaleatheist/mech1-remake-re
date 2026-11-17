@@ -129,6 +129,15 @@ struct Wreck {
   int32_t condition = 0;   // percent left; 35 or less is scrap. Provisional (research/contracts.md): the share of
                            // the mech's parts still standing
 };
+// A mission back and not settled yet: what the hub's AFTER ACTION shows until OK settles it (or REPLAY plays the
+// contract again). Saved whole (mw1_save.h), so a restart shows it again: never settled twice, never lost.
+struct AfterAction {
+  Outcome outcome = Outcome::kSuccess;
+  std::vector<Wreck> wrecks;
+  std::shared_ptr<mech3::Store> salvage;         // the mission's parts, the stores' on a win
+  std::shared_ptr<mech3::Store> launch_stores;   // the company's stores at the contract's first launch (REPLAY)
+  std::shared_ptr<mech3::Config> launch_loadout;  // and its loadout (null: stock)
+};
 struct Settlement {
   int32_t payout_percent = 100;
   int64_t salvage = 0, fee = 0;  // C-bills paid

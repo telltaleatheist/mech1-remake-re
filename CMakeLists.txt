@@ -23,7 +23,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(MW3RE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/mw3-re")
 
 # What MW1 adds that a test can reach without SDL.
-add_library(mw1core STATIC src/mw1_start.cpp src/mw1_campaign.cpp src/mw1_game.cpp src/mw1_save.cpp src/mw1_worlds.cpp)
+add_library(mw1core STATIC src/mw1_start.cpp src/mw1_campaign.cpp src/mw1_game.cpp src/mw1_save.cpp src/mw1_worlds.cpp src/mw1_hub.cpp)
 target_include_directories(mw1core PUBLIC src ${MW3RE_DIR}/src)
 target_link_libraries(mw1core PUBLIC pmcore mw3core zipkitlib)
 
@@ -32,6 +32,7 @@ target_include_directories(mw1tests PRIVATE ${MW3RE_DIR}/tests)
 target_link_libraries(mw1tests PRIVATE mw1core pmcore mw3core)
 target_compile_definitions(mw1tests PRIVATE MW3_GAME_DIR="${MW3_GAME_DIR}" MW3PM_GAME_DIR="${MW3PM_GAME_DIR}" MW1_MW3_GAME_DIR="${MW3_GAME_DIR}"
                                             MW1_DOS_GAME_DIR="${MW1_DOS_GAME_DIR}"
+                                            MW1_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data"
                                             MW3_TEST_TMP_ROOT="${CMAKE_CURRENT_BINARY_DIR}"
                                             MW3_SOURCE_DIR="${MW3RE_DIR}")
 enable_testing()
@@ -83,4 +84,7 @@ if(TARGET mw3pm)
   # Beside mw3pm and the launcher, whose MECHWARRIOR 1 entry starts mw1 from its own folder (mw3-re
   # docs/launcher.md, MechWarrior 1); always there, so one build never leaves an old mw1 in the other place.
   set_target_properties(mw1 PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/external/mw3-re)
+  # MW1's own data (the hub's layout, data/), beside the program as mw1data/: mounted at the start (mw1_main.cpp).
+  add_custom_command(TARGET mw1 POST_BUILD
+                     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/data $<TARGET_FILE_DIR:mw1>/mw1data)
 endif()

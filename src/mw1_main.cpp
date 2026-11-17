@@ -30,6 +30,7 @@
 #include <thread>
 #include <vector>
 
+#include "gamez/zutil/zutl_path.h"
 #include "mw1_game.h"
 #include "mw1_save.h"
 #include "mw1_start.h"
@@ -156,6 +157,13 @@ int main(int argc, char** argv) {
   mw1::install_game_loop(seed ? static_cast<uint32_t>(std::strtoul(seed, nullptr, 10)) : 0, std::getenv("MW1_REACH"));
   // The company's save in the write dir (mw1_save.h); --new-company starts over (until the hub has a menu).
   if (!a.write_dir.empty()) mw1::set_game_loop_save((std::filesystem::path(a.write_dir) / mw1::kSaveFile).string(), a.new_company);
+  // MW1's own data (the hub's layout), beside the program: mounted after what is (PM's install comes in the game main).
+  if (const char* base = SDL_GetBasePath()) {
+    const std::filesystem::path data = std::filesystem::path(base) / "mw1data";
+    std::error_code ec;
+    if (std::filesystem::is_directory(data, ec)) zutl::mount(data.string());
+    else std::printf("mw1: no mw1data beside the program (%s): the hub is PM's message boxes\n", data.string().c_str());
+  }
   // MW1_WORLD=<folder>ia<n> (checks): every contract on that world's Instant Action map, e.g. mw3c2ia1.
   if (const char* w = std::getenv("MW1_WORLD")) {
     const std::string s = w;

@@ -64,16 +64,19 @@ bool names_our_worlds(const Stamp& s) {
 std::vector<std::string> install_files(const std::string& install) {
   std::vector<std::string> out;
   std::error_code ec;
-  const fs::path in = install;
+  // As zipkit names them (tools/zipkit/convert.cpp, 9b0805c7): by the letters, a linked file by its own name.
+  fs::path in = fs::path(install).lexically_normal();
+  if (!in.has_filename()) in = in.parent_path();
+  auto rel = [&](const fs::path& p) { return p.lexically_normal().lexically_relative(in).generic_string(); };
   for (const char* top : {"zbd/reader.zbd", "zbd/interp.zbd"}) {
     const std::string p = zutl::any_case(install, top);
-    if (!p.empty()) out.push_back(fs::relative(p, in, ec).generic_string());
+    if (!p.empty()) out.push_back(rel(p));
   }
   for (const World& w : kWorlds) {
     const std::string d = zutl::any_case(install, std::string("zbd/") + w.source);
     if (d.empty()) continue;
     for (const auto& e : fs::directory_iterator(d, ec))
-      if (e.is_regular_file()) out.push_back(fs::relative(e.path(), in, ec).generic_string());
+      if (e.is_regular_file()) out.push_back(rel(e.path()));
   }
   return out;
 }

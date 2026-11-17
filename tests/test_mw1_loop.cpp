@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <functional>
+#include <sstream>
 #include <string>
 
 #if !defined(_WIN32)
@@ -33,6 +34,7 @@
 #include "mech3/program_flow.h"
 #include "mw1_campaign.h"
 #include "mw1_game.h"
+#include "mw1_hub.h"
 #include "mw1_save.h"
 #include "mw1_worlds.h"
 #include <fstream>
@@ -107,6 +109,13 @@ struct Run {
   int64_t funds_at_offer = -1, funds_end = -1;
   int items_at_offer = -1, items_end = -1, loadout_at_offer = -2, loadout_end = -2;
   mw1::Contract first_offer, last_offer;
+  // The hub (mw1_hub.h): stop while AFTER ACTION shows (the program stopped there); a run that starts on such a
+  // save (`resume`: AFTER ACTION first); REPLAY at a failure's AFTER ACTION, the replay then won.
+  bool stop_at_after_action = false, resume = false, replay = false;
+  std::vector<std::string> after_action;   // the first AFTER ACTION's lines, as shown
+  int64_t funds_at_replay = -1;            // in the replay's mission (the advance not paid again)
+  int32_t kills_at_replay = -1, grievance_at_replay = -1;
+  bool replayed = false;
 };
 int loadout_items(const mw1::Company* c) { return c && c->loadout ? static_cast<int>(c->loadout->items.size()) : -1; }
 
@@ -114,6 +123,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
   zgame::set_game(pm::table());
   zutl::mounts() = zutl::Mounts{};
   zutl::mount(MW3PM_GAME_DIR);
+  zutl::mount(MW1_DATA_DIR);  // MW1's own data: the hub's layout (mw1 mounts its mw1data)
   if (run && !run->worlds.empty()) run->registered = mw1::register_worlds(run->worlds);
   const std::string wd = std::string(MW3_TEST_TMP_ROOT) + "/mw1_loop";
   std::error_code ec;
@@ -142,7 +152,8 @@ void loop_run(Ending ending, Run* run = nullptr) {
   p.sound = &sound, p.files = &files, p.input = &keys;
   int64_t funds_at_offer = 0, funds_in_mission = 0;
   int32_t favor_at_offer[mw1::kHouseCount] = {}, grievance_at_offer[mw1::kHouseCount] = {};
-  int boxes = 0, enemies = 0, killed = 0, items_at_offer = 0, target = -1;
+  int hubs = 0, hub_frames = 0, enemies = 0, killed = 0, items_at_offer = 0, target = -1;
+  bool hub_checked = false, declined = false, quit = false, replaying = false;
   bool ended = false, back_at_main = false, reach_only = false, reached = false, briefed = false;
   int briefing_frames = 0, lab_items = -1, lab_lasers = -1, stock_lasers = -1;
   uint8_t lab_full = 1;
@@ -155,28 +166,92 @@ void loop_run(Ending ending, Run* run = nullptr) {
     mech3::Mech3App app(&engine);
     mech3::set_app(&app);
     EXPECT(app.init_instance());
-    // The offer YES (6), the settlement's OK (1), the next offer NO (7).
     engine.on_message_box = [&](int32_t, int32_t, int32_t) -> uint32_t {
-      if (++boxes == 1) {
-        const mw1::Company* c = mw1::game_loop_company();
-        funds_at_offer = c ? c->funds : 0, items_at_offer = c ? c->stores->count() : 0;
-        for (int h = 0; c && h < mw1::kHouseCount; ++h) favor_at_offer[h] = c->favor[h], grievance_at_offer[h] = c->grievance[h];
-        const mw1::Contract* k = mw1::game_loop_contract();
-        target = k ? k->target : -1;
-        if (run && c && k) run->funds_at_offer = c->funds, run->items_at_offer = c->stores->count(),
-                           run->loadout_at_offer = loadout_items(c), run->first_offer = *k;
-      }
-      const bool offer = boxes == 1 || engine.last_box_text.rfind(mw1::game_loop_company()->planet, 0) == 0;
-      if (run && offer && mw1::game_loop_contract()) run->last_offer = *mw1::game_loop_contract();
-      std::printf("  box %d: %s\n", boxes, engine.last_box_text.c_str());
-      // The first offer YES; the settlement OK; the next offer (it names the planet) NO.
-      if (boxes == 1) return 6u;
-      return engine.last_box_text.rfind(mw1::game_loop_company()->planet, 0) == 0 ? 7u : 1u;
+      std::printf("  a message box (none expected with the hub): %s\n", engine.last_box_text.c_str());
+      EXPECT(false);
+      return 1u;
     };
     int frames = 0;
     engine.on_present = [&](int) {
       if (app.pending()) return;
-      if (boxes >= (ending == kAbort ? 2 : 3) && app.current() == &mech3::states().main) back_at_main = true;
+      if (quit && app.current() == &mech3::states().main) back_at_main = true;
+      // The hub: once it has drawn a few frames, what it shows checked and one of its buttons pressed through the
+      // screen's own handler, as a click does.
+      mw1::HubState* hs = mw1::game_loop_hub();
+      if (hs && app.current() == static_cast<zgame::State*>(hs) && hs->screen()) {
+        if (++hub_frames < 10) return;
+        hub_frames = 0;
+        mw1::HubScreen* sc = hs->screen();
+        const mw1::Company* c = mw1::game_loop_company();
+        const mw1::Contract* k = mw1::game_loop_contract();
+        const std::vector<std::string> shown = sc->shown();
+        auto has = [&](const std::string& t) {
+          for (const std::string& l : shown)
+            if (l.find(t) != std::string::npos) return true;
+          return false;
+        };
+        ++hubs;
+        std::printf("  hub %d:", hubs);
+        for (const std::string& l : shown) std::printf(" [%s]", l.c_str());
+        std::printf("\n");
+        // Always: the plaque, the company, the later screens greyed, QUIT there.
+        EXPECT(sc->loaded() && c && has(c->planet.empty() ? "PLANET" : "HOUSE ") && has("Stores: " + std::to_string(c->stores->count())));
+        for (int32_t id : {mw1::kHubMarket, mw1::kHubBar, mw1::kHubTravel}) EXPECT(sc->visible(id) && !sc->enabled(id));
+        EXPECT(sc->visible(mw1::kHubQuit) && sc->enabled(mw1::kHubQuit));
+        if (const mw1::AfterAction* pa = mw1::game_loop_pending()) {
+          // AFTER ACTION: OK, and REPLAY on a failure only; the offer's buttons gone.
+          const bool failed = pa->outcome == mw1::Outcome::kFailure;
+          EXPECT(has("AFTER ACTION") && sc->visible(mw1::kHubOk) && !sc->visible(mw1::kHubAccept) && !sc->visible(mw1::kHubDecline));
+          EXPECT(sc->visible(mw1::kHubReplay) == failed);
+          if (run && run->after_action.empty()) run->after_action = shown;
+          if (run && run->stop_at_after_action) {
+            back_at_main = true;  // the program stopped here
+            return;
+          }
+          if (run && run->replay && failed && !run->replayed) {
+            run->replayed = true, replaying = true;
+            briefed = false, ended = false, frames = 0, briefing_frames = 0;
+            sc->on_button(mw1::kHubReplay, 0, 0);
+            return;
+          }
+          sc->on_button(mw1::kHubOk, 0, 0);
+          return;
+        }
+        EXPECT(has("CONTRACT ON OFFER") && sc->visible(mw1::kHubAccept) && sc->visible(mw1::kHubDecline) && !sc->visible(mw1::kHubOk) &&
+               !sc->visible(mw1::kHubReplay));
+        if (hubs == 1 && !(run && run->resume)) {
+          funds_at_offer = c->funds, items_at_offer = c->stores->count();
+          for (int h = 0; h < mw1::kHouseCount; ++h) favor_at_offer[h] = c->favor[h], grievance_at_offer[h] = c->grievance[h];
+          target = k ? k->target : -1;
+          if (run && k) run->funds_at_offer = c->funds, run->items_at_offer = c->stores->count(), run->loadout_at_offer = loadout_items(c),
+                             run->first_offer = *k;
+          if (run && k) run->last_offer = *k;
+          EXPECT(has("Funds: " + std::to_string(c->funds / 1000000)));
+          hub_checked = true;
+          sc->on_button(mw1::kHubAccept, 0, 0);
+          return;
+        }
+        // The next offer: kept as the run's last, then DECLINE (another offer, nothing moved), then QUIT (PM's main
+        // menu, the hub off).
+        if (!declined) {
+          if (run && c) run->funds_end = c->funds, run->items_end = c->stores->count(), run->loadout_end = loadout_items(c);
+          const int64_t funds = c->funds;
+          const int items = c->stores->count();
+          const int32_t payment = k ? k->payment : -1;
+          const std::vector<int32_t> enemies_were = k ? k->enemies : std::vector<int32_t>{};
+          sc->on_button(mw1::kHubDecline, 0, 0);
+          const mw1::Contract* k2 = mw1::game_loop_contract();
+          EXPECT(c->funds == funds && c->stores->count() == items && k2 && !k2->accepted);
+          if (run && k2) run->last_offer = *k2;  // the one saved now
+          std::printf("  declined: %d thousand, %zu enemies -> %d thousand, %zu enemies\n", payment, enemies_were.size(),
+                      k2 ? k2->payment : -1, k2 ? k2->enemies.size() : 0);
+          declined = true;
+          return;
+        }
+        quit = true;
+        sc->on_button(mw1::kHubQuit, 0, 0);
+        return;
+      }
       // The briefing (step 2: the company pilot's Instant Action game): once loaded, LAUNCH (or ABORT).
       if (!briefed && app.current() == &mech3::states().load) {
         auto* b = dynamic_cast<mech3::BriefingScreen*>(engine.screen_of(mech3::states().load.screen_));
@@ -189,9 +264,9 @@ void loop_run(Ending ending, Run* run = nullptr) {
           funds_at_briefing = c ? c->funds : 0;
           briefed = true;
           // The failed run (no salvage after) fits a laser as the lab does (GameSlot::set_config with the store,
-          // taking): one of the copy's two ER medium lasers onto the Owens.
+          // taking): one of the copy's two ER medium lasers onto the Owens. Not at a replay's briefing.
           mech3::ActionGame* g = p ? p->action() : nullptr;
-          if (ending == kFailed && g && g->slot.config && lab) {
+          if (ending == kFailed && !replaying && g && g->slot.config && lab) {
             lab_lasers = er_medium_lasers(lab->items), stock_lasers = er_medium_lasers(g->slot.config->items);
             mech3::Config* fitted = mech3::pilot_hooks().config_copy(*g->slot.config);
             fitted->add_weapon(5, mech3::kInnerSphere);
@@ -199,7 +274,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
             delete fitted;
           }
           // The restart's first run: a weapon taken off, as the lab does (back into the store).
-          if (run && run->strip && g && g->slot.config && lab) {
+          if (run && run->strip && !replaying && g && g->slot.config && lab) {
             mech3::Config* stripped = mech3::pilot_hooks().config_copy(*g->slot.config);
             for (mech3::ConfigItem* it : stripped->items)
               if (it->kind() == 1) {
@@ -229,7 +304,15 @@ void loop_run(Ending ending, Run* run = nullptr) {
       }
       if (++frames != 30) return;
       // In the mission: the player disables every enemy, the mission is won, and Instant Action ends (IA Dummy).
-      if (const mw1::Company* c = mw1::game_loop_company()) funds_in_mission = c->funds;  // the advance paid
+      if (const mw1::Company* c = mw1::game_loop_company()) {
+        if (replaying && run) {
+          run->funds_at_replay = c->funds, run->kills_at_replay = c->kills;
+          const mw1::Contract* k = mw1::game_loop_contract();
+          run->grievance_at_replay = k && k->target < mw1::kHouseCount ? c->grievance[k->target] : -1;
+        } else {
+          funds_in_mission = c->funds;  // the advance paid
+        }
+      }
       int32_t n = 0;
       const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
       enemies = n;
@@ -249,7 +332,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
       }
       for (int32_t i = 0; i < n; ++i) killed += mech3::program_mech_kill_credit(mech3::mech_mission_player(), ai[i].mech);
       if (ending != kQuit) mech3::missions().ended = 1;
-      if (ending == kFailed) mech3::missions().aborting = 1;  // as abort_now: ended, as a failure
+      if (ending == kFailed && !replaying) mech3::missions().aborting = 1;  // as abort_now: ended, as a failure (a replay won)
       for (int i = app.depth(); i > 0; --i) app.pop(1);
       app.replace(&mech3::states().ia_dummy, 0);
       ended = true;
@@ -263,9 +346,19 @@ void loop_run(Ending ending, Run* run = nullptr) {
   }
   const mw1::Company* c = mw1::game_loop_company();
   static const char* const kSaid[] = {"won", "failed", "quit", "reach", "abort"};
-  std::printf("  mw1 loop, %s: %d boxes, %d enemies, %d disabled, funds %lld -> %lld, stores %d -> %d items, kills %d, favor %d\n",
-              kSaid[ending], boxes, enemies, killed, static_cast<long long>(funds_at_offer), c ? static_cast<long long>(c->funds) : -1LL,
+  std::printf("  mw1 loop, %s: %d hubs, %d enemies, %d disabled, funds %lld -> %lld, stores %d -> %d items, kills %d, favor %d\n",
+              kSaid[ending], hubs, enemies, killed, static_cast<long long>(funds_at_offer), c ? static_cast<long long>(c->funds) : -1LL,
               items_at_offer, c ? c->stores->count() : -1, c ? c->kills : -1, c ? c->favor[c->planet_house] : -1);
+  // A run stopped at AFTER ACTION, or started on one (the restart tests): what it left, checked by its test.
+  if (run && (run->stop_at_after_action || run->resume)) {
+    if (c) run->funds_end = c->funds, run->items_end = c->stores->count(), run->loadout_end = loadout_items(c);
+    EXPECT(back_at_main);
+    mw1::uninstall_game_loop();
+    zrdr::close_archives(true);
+    mech3::reset_states();
+    mech3::options() = mech3::Options{};
+    return;
+  }
   // The briefing: the company's pilot, its game's store the company's stores (a copy, not PM's full one), and
   // nothing taken before LAUNCH.
   std::printf("  briefing: pilot \"%s\", the lab's store %d items (full %d), funds at the briefing %lld\n", pilot_name.c_str(),
@@ -275,7 +368,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
   EXPECT(fs::exists(fs::path(wd) / "pilots", ec));  // in mw1's own write dir
   if (ending == kAbort) {
     // ABORT: no mission, the contract not taken, nothing paid or moved; the next offer at once.
-    EXPECT(boxes == 2 && back_at_main && enemies == 0);
+    EXPECT(hubs == 3 && hub_checked && declined && back_at_main && enemies == 0);  // the offer, the next (DECLINE), QUIT
     EXPECT(c && c->funds == funds_at_offer && c->stores->count() == items_at_offer);
     if (run) EXPECT(loadout_items(c) == run->loadout_at_offer);
     else EXPECT(c && !c->loadout);
@@ -287,7 +380,8 @@ void loop_run(Ending ending, Run* run = nullptr) {
     mech3::options() = mech3::Options{};
     return;
   }
-  EXPECT(boxes == 3 && back_at_main && enemies > 0 && killed == (ending == kReach ? 0 : enemies));
+  // The offer, AFTER ACTION, the next offer (DECLINE), QUIT.
+  EXPECT(hubs == 4 && hub_checked && declined && back_at_main && enemies > 0 && killed == (ending == kReach ? 0 : enemies));
   if (ending == kReach) EXPECT(reach_only && reached);
   EXPECT(c && funds_in_mission > funds_at_offer);  // the advance, at LAUNCH
   EXPECT(c && c->loadout);                         // the briefing's loadout, the company's from LAUNCH
@@ -373,6 +467,9 @@ TEST(mw1_loop_restart_keeps_the_company_headless) {
     EXPECT(saved && first.funds_end > first.funds_at_offer && first.loadout_end >= 0);
     EXPECT(second.funds_at_offer == first.funds_end && second.items_at_offer == first.items_end);
     EXPECT(second.loadout_at_offer == first.loadout_end);
+    std::printf("  offers: saved target %d, %zu enemies, advance %d; read back target %d, %zu enemies, advance %d\n",
+                first.last_offer.target, first.last_offer.enemies.size(), first.last_offer.advance_percent, second.first_offer.target,
+                second.first_offer.enemies.size(), second.first_offer.advance_percent);
     EXPECT(second.first_offer.payment == first.last_offer.payment && second.first_offer.target == first.last_offer.target &&
            second.first_offer.enemies == first.last_offer.enemies);
     EXPECT(!fs::exists(dir / "mw1save.bad", ec) && !fs::exists(first.save + ".tmp", ec));
@@ -446,4 +543,89 @@ TEST(mw1_loop_mw3_worlds_converted_or_not_headless) {
     one();
 #endif
   }
+}
+
+// The save while AFTER ACTION shows (mw1_save.h's pending block): the program stopped there, and started again on
+// the save. OK then settles the mission exactly once; a failure's REPLAY settles nothing, keeps the advance paid and
+// plays the contract again from its first launch's stores.
+namespace {
+void in_child(const std::function<void()>& f) {
+#if !defined(_WIN32)
+  std::fflush(nullptr);
+  const pid_t child = check::fork_child();
+  if (child == 0) {
+    f();
+    std::fflush(nullptr);
+    _exit(check::failures ? 1 : 0);
+  }
+  const int status = check::wait_child(child);
+  EXPECT(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+#else
+  f();
+#endif
+}
+std::string file_text(const fs::path& p) {
+  std::ifstream f(p, std::ios::binary);
+  std::ostringstream s;
+  s << f.rdbuf();
+  return s.str();
+}
+}  // namespace
+
+TEST(mw1_loop_restart_at_after_action_then_ok_settles_once_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_loop_after_ok";
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  in_child([&] {
+    const std::string save = (dir / mw1::kSaveFile).string();
+    Run first, second, third;
+    first.save = second.save = third.save = save;
+    first.stop_at_after_action = true;
+    loop_run(kWon, &first);  // won, stopped at AFTER ACTION
+    const std::string saved = file_text(save);
+    EXPECT(saved.find("\npending=1\n") != std::string::npos && saved.find("\noffer_accepted=1\n") != std::string::npos);
+    second.resume = true;
+    loop_run(kWon, &second);  // AFTER ACTION again, OK
+    third.resume = true;
+    loop_run(kWon, &third);  // the next offer: nothing pending, nothing settled again
+    std::printf("  stopped at after action: funds %lld; restarted, OK: funds %lld; again: funds %lld\n",
+                static_cast<long long>(first.funds_end), static_cast<long long>(second.funds_end),
+                static_cast<long long>(third.funds_end));
+    EXPECT(first.after_action.size() > 0 && second.after_action.size() > 0);
+    // The same mission shown again after the restart (its ending and wrecks).
+    EXPECT(first.after_action.size() > 8 && second.after_action.size() > 8 && first.after_action[8] == second.after_action[8] &&
+           first.after_action[9] == second.after_action[9]);
+    EXPECT(second.funds_end > first.funds_end && second.items_end > first.items_end);  // settled: the fee, the parts
+    EXPECT(third.funds_end == second.funds_end && third.items_end == second.items_end);  // once only
+    EXPECT(third.after_action.empty() && file_text(save).find("\npending=0\n") != std::string::npos);
+  });
+}
+
+TEST(mw1_loop_restart_at_a_failures_after_action_then_replay_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_loop_after_replay";
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  in_child([&] {
+    const std::string save = (dir / mw1::kSaveFile).string();
+    Run first, second;
+    first.save = second.save = save;
+    first.stop_at_after_action = true;
+    loop_run(kFailed, &first);  // failed (the lab fitted a laser at its briefing), stopped at AFTER ACTION
+    second.resume = true, second.replay = true;
+    loop_run(kFailed, &second);  // AFTER ACTION again: REPLAY, the replay won, OK
+    std::printf("  failed: funds %lld (the advance paid), stores %d; the replay's mission: funds %lld, kills %d; after its OK: "
+                "funds %lld, stores %d\n",
+                static_cast<long long>(first.funds_end), first.items_end, static_cast<long long>(second.funds_at_replay),
+                second.kills_at_replay, static_cast<long long>(second.funds_end), second.items_end);
+    EXPECT(second.replayed);
+    // REPLAY: nothing settled (no kills counted, no grievance yet), the advance kept and not paid again.
+    EXPECT(second.funds_at_replay == first.funds_end && second.kills_at_replay == 0 && second.grievance_at_replay == 0);
+    // The replay won and settled once: the fee and the parts.
+    EXPECT(second.funds_end > first.funds_end && second.items_end > first.items_end);
+    EXPECT(file_text(save).find("\npending=0\n") != std::string::npos);
+  });
 }

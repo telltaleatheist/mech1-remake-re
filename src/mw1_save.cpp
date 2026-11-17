@@ -87,7 +87,7 @@ bool to_int(const std::string& s, int64_t lo, int64_t hi, int64_t* out) {
 
 }  // namespace
 
-std::string save_text(const Company& c, const Contract* offer) {
+std::string save_text(const Company& c, const Contract* offer, const AfterAction* pending) {
   std::ostringstream o;
   o << "version=" << kSaveVersion << "\n";
   o << "funds=" << c.funds << "\n";
@@ -112,6 +112,21 @@ std::string save_text(const Company& c, const Contract* offer) {
     o << "offer_objective=" << (k.objective == Objective::kReachStructure ? 1 : 0) << "\n";
     o << "offer_world=" << (plain(k.world) ? k.world : std::string("c2")) << "\noffer_ia=" << k.ia << "\noffer_mode=" << k.mode << "\n";
     o << "offer_structure=" << (plain(k.structure) ? k.structure : std::string()) << "\n";
+    o << "offer_accepted=" << (k.accepted ? 1 : 0) << "\noffer_remaining=" << k.remaining << "\n";
+  }
+  o << "pending=" << (pending && offer ? 1 : 0) << "\n";
+  if (pending && offer) {
+    const AfterAction& p = *pending;
+    o << "pending_outcome=" << (p.outcome == Outcome::kSuccess ? 0 : p.outcome == Outcome::kFailure ? 1 : 2) << "\n";
+    o << "pending_wrecks=";
+    for (size_t i = 0; i < p.wrecks.size(); ++i) o << (i ? "," : "") << p.wrecks[i].kind << ":" << p.wrecks[i].condition;
+    o << "\npending_salvage=" << (p.salvage ? hex(bytes_of([&](std::FILE* f) { p.salvage->save(f); })) : std::string()) << "\n";
+    o << "pending_launch_stores="
+      << (p.launch_stores ? hex(bytes_of([&](std::FILE* f) { p.launch_stores->save(f); })) : std::string()) << "\n";
+    o << "pending_launch_loadout="
+      << (p.launch_loadout ? hex(bytes_of([&](std::FILE* f) { mech3::pilot_hooks().config_save(p.launch_loadout.get(), f); }))
+                           : std::string())
+      << "\n";
   }
   std::string body = o.str();
   char check[32];
@@ -119,7 +134,8 @@ std::string save_text(const Company& c, const Contract* offer) {
   return body + check;
 }
 
-bool load_text(const std::string& text, Company& out, Contract& offer_out, bool* has_offer, std::string* why) {
+bool load_text(const std::string& text, Company& out, Contract& offer_out, bool* has_offer, std::string* why,
+               AfterAction* pending_out, bool* has_pending) {
   auto fail = [&](const std::string& w) {
     if (why) *why = w;
     return false;
@@ -164,20 +180,29 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
       return fail("a House's favor or grievance is missing");
     c.favor[h] = static_cast<int32_t>(f), c.grievance[h] = static_cast<int32_t>(g);
   }
-  std::vector<uint8_t> b;
-  if (!v.count("stores") || !unhex(v["stores"], b) || b.empty()) return fail("no stores");
-  c.stores = std::make_shared<mech3::Store>();
-  if (!read_bytes(b, [&](std::FILE* f) { c.stores->load(f); return true; })) return fail("the stores don't read");
-  if (!v.count("loadout") || !unhex(v["loadout"], b)) return fail("no loadout line");
-  if (!b.empty()) {
+  // A store's line (PM's Store, in hex; empty: none when `may_be_empty`) and a loadout's (empty: stock).
+  auto store_line = [&](const char* key, bool may_be_empty, std::shared_ptr<mech3::Store>* s) {
+    std::vector<uint8_t> b;
+    if (!v.count(key) || !unhex(v[key], b) || (b.empty() && !may_be_empty)) return false;
+    if (b.empty()) return s->reset(), true;
+    *s = std::make_shared<mech3::Store>();
+    return read_bytes(b, [&](std::FILE* f) { (*s)->load(f); return true; });
+  };
+  auto loadout_line = [&](const char* key, std::shared_ptr<mech3::Config>* l) {
+    std::vector<uint8_t> b;
+    if (!v.count(key) || !unhex(v[key], b)) return false;
+    l->reset();
+    if (b.empty()) return true;
     mech3::Config* cfg = nullptr;
     if (!read_bytes(b, [&](std::FILE* f) { return (cfg = mech3::pilot_hooks().config_load("temp", f)) != nullptr; })) {
       delete cfg;
-      return fail("the loadout doesn't read");
+      return false;
     }
-    c.loadout.reset(cfg);
-    if (cfg->mech != c.mech) return fail("the loadout is for another mech");
-  }
+    l->reset(cfg);
+    return cfg->mech == c.mech;
+  };
+  if (!store_line("stores", false, &c.stores)) return fail("the stores don't read");
+  if (!loadout_line("loadout", &c.loadout)) return fail("the loadout doesn't read, or is for another mech");
   int64_t has = 0;
   if (!num("offer", 0, 1, &has)) return fail("no offer line");
   Contract k;
@@ -204,15 +229,43 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
     }
     if (k.enemies.empty() || k.enemies.size() > 4) return fail("the offer has no enemies, or too many");
     if (k.objective == Objective::kReachStructure && k.structure.empty()) return fail("a reach offer with no structure");
+    int64_t acc = 0, rem = 0;  // a save from before these lines: an offer, not accepted
+    if (v.count("offer_accepted") && !num("offer_accepted", 0, 1, &acc)) return fail("the contract's accepted line is wrong");
+    if (v.count("offer_remaining") && !num("offer_remaining", 0, kMax, &rem)) return fail("the contract's remaining pay is wrong");
+    k.accepted = acc != 0, k.remaining = static_cast<int32_t>(rem);
+  }
+  int64_t pend = 0;
+  if (v.count("pending") && !num("pending", 0, 1, &pend)) return fail("the pending line is wrong");
+  AfterAction p;
+  if (pend) {
+    int64_t po = 0;
+    if (!has || !k.accepted) return fail("a mission pending with no accepted contract");
+    if (!num("pending_outcome", 0, 2, &po) || !v.count("pending_wrecks")) return fail("the pending mission's lines are missing");
+    p.outcome = po == 0 ? Outcome::kSuccess : po == 1 ? Outcome::kFailure : Outcome::kRetreat;
+    std::istringstream ws(v["pending_wrecks"]);
+    std::string w;
+    while (std::getline(ws, w, ',')) {
+      const size_t colon = w.find(':');
+      int64_t kind = 0, cond = 0;
+      if (colon == std::string::npos || !to_int(w.substr(0, colon), 0, kKindCount - 1, &kind) ||
+          !to_int(w.substr(colon + 1), 0, 100, &cond))
+        return fail("the pending mission's wrecks don't read");
+      p.wrecks.push_back(Wreck{static_cast<int32_t>(kind), static_cast<int32_t>(cond)});
+    }
+    if (!store_line("pending_salvage", true, &p.salvage) || !store_line("pending_launch_stores", false, &p.launch_stores) ||
+        !loadout_line("pending_launch_loadout", &p.launch_loadout))
+      return fail("the pending mission's stores or loadout don't read");
   }
   out = std::move(c);
   if (has) offer_out = std::move(k);
   if (has_offer) *has_offer = has != 0;
+  if (pend && pending_out) *pending_out = std::move(p);
+  if (has_pending) *has_pending = pend != 0;
   return true;
 }
 
-bool save_file(const std::string& path, const Company& c, const Contract* offer, std::string* why) {
-  const std::string text = save_text(c, offer), tmp = path + ".tmp";
+bool save_file(const std::string& path, const Company& c, const Contract* offer, std::string* why, const AfterAction* pending) {
+  const std::string text = save_text(c, offer, pending), tmp = path + ".tmp";
   {
     std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
     f << text;
@@ -231,13 +284,14 @@ bool save_file(const std::string& path, const Company& c, const Contract* offer,
   return true;
 }
 
-Loaded load_file(const std::string& path, Company& c, Contract& offer, bool* has_offer, std::string* why) {
+Loaded load_file(const std::string& path, Company& c, Contract& offer, bool* has_offer, std::string* why, AfterAction* pending,
+                 bool* has_pending) {
   std::error_code ec;
   if (!fs::exists(path, ec)) return Loaded::kNone;
   std::ifstream f(path, std::ios::binary);
   std::ostringstream all;
   all << f.rdbuf();
-  if (f.bad() || !load_text(all.str(), c, offer, has_offer, why)) {
+  if (f.bad() || !load_text(all.str(), c, offer, has_offer, why, pending, has_pending)) {
     if (why && why->empty()) *why = "it doesn't read";
     const std::string bad = (fs::path(path).parent_path() / "mw1save.bad").string();
     fs::remove(bad, ec);
