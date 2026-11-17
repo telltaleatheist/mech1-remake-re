@@ -828,6 +828,7 @@ if(MW3_BUILD_PM)
     tests/test_salvage_chance.cpp  # the salvage key (main's, shared): one draw judged against a mod's odds, PM's 0x00474f40 / 0x00474f80 as MW3's
     tests/test_net_save.cpp  # the editor's net save on PM's nets
     tests/test_editor.cpp  # the editor's menus, net and vehicle editors on PM's logic
+    tests/test_zipkit.cpp  # zipkit (tools/zipkit): MW3's worlds in PM's formats, read back by PM's readers
     tests/test_teleport.cpp  # the teleport on PM's logic and c3's places
     tests/test_new_weapon.cpp  # New Weapon on PM's weapons.zrd and its version 2 reader.zbd
     tests/test_entry_archives.cpp  # archives by their changed entries, on PM's version 2 archives
@@ -840,7 +841,7 @@ if(MW3_BUILD_PM)
     tests/test_zreader.cpp
   )
   target_include_directories(mw3pmtests PRIVATE tests)
-  target_link_libraries(mw3pmtests PRIVATE pmcore mw3core)
+  target_link_libraries(mw3pmtests PRIVATE pmcore mw3core zipkitlib)
   target_sources(mw3pmtests PRIVATE tests/test_debug_tools.cpp)  # the console and PM's marker (S5)
   if(MW3_PM_HITS)
     file(GLOB pm_hit_sources src/mech3/zai_*_pm.cpp src/mech3/zai_wire*_pm.cpp src/mech3/zai_attackers_pm.cpp)
@@ -1312,4 +1313,16 @@ if(SDL3_FOUND)
   target_link_libraries(mw3soundcheck PRIVATE mw3core mw3sdl SDL3::SDL3)
   target_compile_definitions(mw3soundcheck PRIVATE MW3_GAME_DIR="${MW3_GAME_DIR}")
   endif()
+endif()
+
+# zipkit (tools/zipkit/README.md): MechWarrior 3's files in Pirate's Moon's formats; its run
+# is a library MW1 can call, the program a thin command line over it.
+add_library(zipkitlib STATIC tools/zipkit/convert.cpp tools/zipkit/archive.cpp tools/zipkit/gamez.cpp
+            tools/zipkit/scripts.cpp)
+target_include_directories(zipkitlib PUBLIC tools/zipkit)
+target_link_libraries(zipkitlib PUBLIC mw3core)
+add_executable(zipkit tools/zipkit/main.cpp)
+target_link_libraries(zipkit PRIVATE zipkitlib)
+if(WIN32)
+  target_sources(zipkit PRIVATE tools/windows/utf8.manifest)  # UTF-8 paths in fopen and the command line
 endif()
