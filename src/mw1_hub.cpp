@@ -6,7 +6,7 @@ namespace {
 // is blank).
 const std::vector<ScreenButton> kHubButtons = {{"ACCEPT", "ACCEPT"}, {"DECLINE", "DECLINE"}, {"OK", "OK"},
                                                {"REPLAY", "REPLAY"}, {"MARKET", "MARKET"},   {"BAR", "BAR"},
-                                               {"TRAVEL", "TRAVEL"}, {"QUIT", "QUIT"}};
+                                               {"TRAVEL", "TRAVEL"}, {"QUIT", "QUIT"},       {"OFFICE", "OFFICE"}};
 }  // namespace
 
 const char* hub_button_name(int32_t id) { return id >= 1 && id <= kHubButtonCount ? kHubButtons[id - 1].name : ""; }
@@ -29,6 +29,8 @@ void HubState::show(const HubView& v) {
   s.buttons[kHubReplay - 1].there = v.after_action && v.replay;
   // The market, the Bar and travel only between missions (not while AFTER ACTION waits).
   s.buttons[kHubMarket - 1].on = s.buttons[kHubTravel - 1].on = s.buttons[kHubBar - 1].on = !v.after_action;
+  // The House office: negotiating the offer (none while AFTER ACTION waits, nor without an offer).
+  s.buttons[kHubOffice - 1].on = !v.after_action && v.offer;
   Mw1State::show(s);
 }
 

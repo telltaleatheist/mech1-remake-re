@@ -147,6 +147,11 @@ struct Company {
   bool wage_warned = false;
   // The world's repair premium in percent (mw1_repairs.h; MW1's planetMarketPremiumPercent, rolled on arrival).
   int32_t repair_premium = 18;
+  // The House's patience on this world (MW1's contractNegotiationAttemptLimit, rolled on arrival: roll_patience),
+  // and the world's offers withdrawn by a negotiation it broke off, until the company leaves (MW1 cleared
+  // missionOfferCount; its contracts came back at the next refresh, which is travel's).
+  int32_t patience = 3;
+  bool withdrawn = false;
   // What happened since the hub last showed it (wages, promotions, casualties): the hub's lines, not saved.
   std::vector<std::string> notices;
 };
@@ -163,9 +168,11 @@ struct Contract {
   int32_t target = kTargetColumns;  // whom it's against: a House (below kHouseCount), else not a House
   int32_t budget = 0;          // the enemy force budget
   std::vector<int32_t> enemies;  // MW1 kinds
-  int32_t payment = 0;         // thousands: the opening offer the milestone takes
-  int32_t payment_ceiling = 0;  // thousands: negotiation's top (later)
+  int32_t payment = 0;         // thousands: the House's offer (the opening, then each counter-offer)
+  int32_t payment_ceiling = 0;  // thousands: the most the House will ever pay (never shown, as MW1)
   int32_t salvage_percent = 0, advance_percent = 0;
+  int32_t salvage_ceiling = 0, advance_ceiling = 0;  // percent: theirs (the House's base and the standing)
+  int32_t attempts = 0;        // rounds negotiated over this offer (contractNegotiationAttempts)
   int32_t remaining = 0;       // thousands: the payment less the advance, once accepted
   bool accepted = false;
   Objective objective = Objective::kDestroyAll;
@@ -191,6 +198,43 @@ void add_starting_stores(mech3::Store& s);
 // company's lance (the commander's mech and the lancemates' assigned, mw1_pilots.h's lance_weight) as MW1's lance
 // weight; the objective and map are the milestone's.
 Contract generate_contract(const Company& c, int32_t slot, Rng& rng);
+
+// The salvage and advance ceilings an offer of `house`'s opens from: the House's base (DS:4B5F, DS:4B69) shifted by
+// the standing, (favor - grievance) x 4 within +-10 (MwGenerateMissionOffer); never below 0.
+int32_t salvage_ceiling(const Company& c, int32_t house);
+int32_t advance_ceiling(const Company& c, int32_t house);
+
+// ---- Negotiation, in the House office (MwNegotiateAndAcceptContractContinuation, 081B:536A) ----
+// The House's patience on a world, rolled on arrival (MwApplyCurrentPlanetState): 0..2 plus its base
+// (houseNegotiationAttemptBase, DS:11A3). Steiner and Davion never break off (their count can't end it).
+inline constexpr int32_t kPatienceBase[kHouseCount] = {3, 0, 4, 5, 0};
+inline constexpr int32_t kPatienceRollMax = 2;  // PLANET_NEGOTIATION_RANDOM_MAX
+bool never_breaks_off(int32_t house);
+void roll_patience(Company& c, Rng& rng);
+// A House with 8 or more grievances against the company won't deal with it at all (HOUSE_GRIEVANCE_REFUSAL,
+// MwRequestMissionOfferContinuation): no contracts on its worlds.
+inline constexpr int32_t kGrievanceRefusal = 8;
+bool refuses(const Company& c, int32_t house);
+// The request's steps (MwEditContractRequestContinuation): the payment in 10 thousands up to 9,999 thousand, the
+// percents by 1 up to 100.
+inline constexpr int32_t kRequestPaymentStep = 10, kRequestPaymentMax = 9999, kRequestPercentMax = 100;
+
+// What the commander asks: a term left -1 isn't asked.
+struct Request {
+  int32_t payment = -1, salvage = -1, advance = -1;  // thousands, percent, percent
+  bool any() const { return payment >= 0 || salvage >= 0 || advance >= 0; }
+};
+enum class Answer { kAgreed, kCounter, kTerminated };
+// One round, as MW1 has it. The round counts (always, for Steiner and Davion; else up to the patience). Then term by
+// term, payment, salvage, advance: asking no more than the offer is granted (less lowers it); asking more, the House
+// concedes a roll of 0..half the room to its ceiling on top of its offer (the payment in 10 thousands): enough, and
+// it's granted; short, the offer rises to the concession and the term fails. Every asked term is rolled, but once one
+// has failed a later one isn't granted even when its roll would cover it (MW1's own, kept: research/negotiation.md Q3).
+// Every asked term granted: kAgreed, on those terms (accept() follows, as MW1's acceptance did). Else the counter-offer stands;
+// at the patience, kTerminated: the world's offers are withdrawn (c.withdrawn) until the company leaves.
+Answer negotiate(Company& c, Contract& k, const Request& r, Rng& rng);
+// The next failed round ends it: the office's hint (Q1: a line, no number).
+bool last_round(const Company& c, const Contract& k);
 
 // Accepting it (MwCreditAcceptedContractAdvanceContinuation): the advance paid.
 void accept(Company& c, Contract& k);

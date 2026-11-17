@@ -46,6 +46,7 @@
 #include "mw1_pilots.h"
 #include "mw1_market_screen.h"
 #include "mw1_menu.h"
+#include "mw1_office.h"
 #include "mw1_images.h"
 #include "mw1_travel.h"
 #include "mw1_travel_screen.h"
@@ -1558,5 +1559,168 @@ TEST(mw1_menu_a_mission_comes_back_to_the_hub_over_the_menu_headless) {
     std::printf("  via the menu: NEW pressed %d, intro %d, the menu after the hub's QUIT %d\n", run.menu_new_pressed, run.intro_seen,
                 run.menu_after_quit);
     EXPECT(run.menu_new_pressed && run.intro_seen && run.menu_after_quit);
+  });
+}
+
+// ---- The House office (mw1_office.h; mw1_campaign.h's negotiate) ----
+namespace {
+bool shows_line(const std::vector<std::string>& lines, const std::string& t) {
+  for (const std::string& l : lines)
+    if (l.find(t) != std::string::npos) return true;
+  return false;
+}
+int32_t world_of_house(int32_t house) {
+  for (int32_t i = 0; i < mw1::kPlanetCount; ++i)
+    if (mw1::kPlanets[i].house == house && mw1::kPlanets[i].office) return i;
+  return -1;
+}
+}  // namespace
+
+// From the hub's OFFICE: an ask far over the offer is countered (Davion never breaks off) and BACK shows the hub
+// the counter-offer; then an ask the House can't refuse (a lower advance) agrees, and the contract goes to the
+// briefing on the agreed terms, saved.
+TEST(mw1_office_counter_then_agreed_to_the_briefing_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  in_child([&] {
+    const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_office_agreed";
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    MenuRun r;
+    r.save = (dir / mw1::kSaveFile).string(), r.start = mw1::Start::kHub;
+    int step = 0, wait = 0;
+    int32_t opening = 0, countered = 0, advance = 0, agreed_advance = -1, agreed_payment = -1, rounds = -1;
+    bool counter_said = false, hub_shows_counter = false, briefing = false;
+    r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
+      mw1::HubState* hub = mw1::game_loop_hub();
+      mw1::OfficeState* of = mw1::game_loop_office();
+      const mw1::Contract* k = mw1::game_loop_contract();
+      if (++wait < 5) return false;
+      switch (step) {
+        case 0:
+          if (!showing(app, hub) || !k) return false;
+          EXPECT(hub->screen()->enabled(mw1::kHubOffice));
+          opening = k->payment;
+          hub->screen()->on_button(mw1::kHubOffice, 0, 0);
+          ++step, wait = 0;
+          return false;
+        case 1:
+          if (!showing(app, of)) return false;
+          EXPECT(!of->screen()->enabled(mw1::kOfficeSubmit));  // nothing asked yet
+          for (int i = 0; i < 400; ++i) of->screen()->on_button(mw1::kOfficePayUp, 0, 0);  // +4,000 thousand
+          of->screen()->on_button(mw1::kOfficeSubmit, 0, 0);
+          counter_said = shows_line(of->screen()->shown(), "counters");
+          countered = k->payment;
+          of->screen()->on_button(mw1::kOfficeBack, 0, 0);
+          ++step, wait = 0;
+          return false;
+        case 2:
+          if (!showing(app, hub)) return false;
+          hub_shows_counter = shows_line(hub->screen()->shown(), "Payment: " + std::to_string(countered) + ",000 C-bills");
+          hub->screen()->on_button(mw1::kHubOffice, 0, 0);
+          ++step, wait = 0;
+          return false;
+        case 3:
+          if (!showing(app, of)) return false;
+          advance = k->advance_percent;
+          of->screen()->on_button(mw1::kOfficeAdvanceDown, 0, 0);
+          of->screen()->on_button(mw1::kOfficeSubmit, 0, 0);
+          ++step, wait = 0;
+          return false;
+        default:
+          briefing = app.current() && app.current() != static_cast<zgame::State*>(of) && app.current() != static_cast<zgame::State*>(hub);
+          if (briefing && k) agreed_advance = k->advance_percent, agreed_payment = k->payment, rounds = k->attempts;
+          return briefing;
+      }
+    };
+    menu_run(r);
+    std::printf("  opening %d thousand, countered %d (said %d, the hub %d); advance %d%% -> agreed at %d%%, briefing %d\n", opening, countered,
+                counter_said, hub_shows_counter, advance, agreed_advance, briefing);
+    EXPECT(countered >= opening && counter_said && hub_shows_counter && briefing);
+    EXPECT(agreed_advance == advance - 1 && agreed_payment == countered && rounds == 2);
+    // Saved with its rounds.
+    mw1::Company c;
+    mw1::Contract sk;
+    bool has = false;
+    std::string why;
+    EXPECT(mw1::load_file(r.save, c, sk, &has, &why) == mw1::Loaded::kLoaded && has && sk.attempts == 2 && sk.advance_percent == advance - 1);
+  });
+}
+
+// Broken off on a world the company can't afford to leave (Kurita, patience 1, no funds): the office says MW1's
+// words and only BACK; the hub says the negotiations are over and the stuck guard's message with why, OFFICE and
+// ACCEPT gone; the travel screen says the same. Then a House that refuses (8 grievances): no offer, its words.
+TEST(mw1_office_terminated_on_a_stuck_poor_world_and_a_refusal_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  in_child([&] {
+    const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_office_terminated";
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    MenuRun r;
+    r.save = (dir / mw1::kSaveFile).string(), r.start = mw1::Start::kHub;
+    int step = 0, wait = 0;
+    bool office_over = false, hub_over = false, hub_stuck = false, travel_stuck = false, refused = false;
+    std::vector<std::string> hub_lines;
+    r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
+      mw1::HubState* hub = mw1::game_loop_hub();
+      mw1::OfficeState* of = mw1::game_loop_office();
+      mw1::TravelState* tr = mw1::game_loop_travel();
+      if (++wait < 5) return false;
+      switch (step) {
+        case 0: {
+          if (!showing(app, hub)) return false;
+          mw1::Company* c = mw1::game_loop_company_for_tests();
+          mw1::set_planet(*c, world_of_house(mw1::kKurita));
+          c->patience = 1, c->funds = 0;
+          mw1::game_loop_offer_again();
+          EXPECT(mw1::game_loop_contract() && mw1::stranded(*c) == false);
+          hub->screen()->on_button(mw1::kHubOffice, 0, 0);
+          ++step, wait = 0;
+          return false;
+        }
+        case 1:
+          if (!showing(app, of)) return false;
+          for (int i = 0; i < 900; ++i) of->screen()->on_button(mw1::kOfficePayUp, 0, 0);
+          of->screen()->on_button(mw1::kOfficeSubmit, 0, 0);
+          office_over = !of->screen()->enabled(mw1::kOfficeSubmit) && !of->screen()->enabled(mw1::kOfficeAccept) &&
+                        of->screen()->enabled(mw1::kOfficeBack) && shows_line(of->screen()->shown(), "until you leave");
+          of->screen()->on_button(mw1::kOfficeBack, 0, 0);
+          ++step, wait = 0;
+          return false;
+        case 2:
+          if (!showing(app, hub)) return false;
+          hub_lines = hub->screen()->shown();
+          hub_over = shows_line(hub_lines, "NEGOTIATIONS TERMINATED") && !hub->screen()->enabled(mw1::kHubOffice) &&
+                     !hub->screen()->visible(mw1::kHubAccept);
+          hub_stuck = shows_line(hub_lines, "You can't afford to leave, and the House has broken off negotiations.");
+          hub->screen()->on_button(mw1::kHubTravel, 0, 0);
+          ++step, wait = 0;
+          return false;
+        case 3:
+          if (!showing(app, tr)) return false;
+          travel_stuck = shows_line(tr->screen()->shown(), "broken off negotiations");
+          tr->screen()->on_button(mw1::kTravelBack, 0, 0);
+          ++step, wait = 0;
+          return false;
+        case 4: {
+          if (!showing(app, hub)) return false;
+          // A House that refuses: a world of Liao's, 8 grievances against the company.
+          mw1::Company* c = mw1::game_loop_company_for_tests();
+          mw1::set_planet(*c, world_of_house(mw1::kLiao));
+          c->withdrawn = false, c->funds = 5000000, c->grievance[mw1::kLiao] = mw1::kGrievanceRefusal;
+          mw1::game_loop_offer_again();
+          const std::vector<std::string> l = hub->screen()->shown();
+          refused = !mw1::game_loop_contract() && shows_line(l, "HOUSE OFFICE") && shows_line(l, "TRAVEL to a world whose House will deal") &&
+                    !hub->screen()->enabled(mw1::kHubOffice);
+          return true;
+        }
+        default: return true;
+      }
+    };
+    menu_run(r);
+    for (const std::string& l : hub_lines) std::printf("  [%s]\n", l.c_str());
+    std::printf("  office over %d, hub over %d, stuck said %d, travel %d, refused %d\n", office_over, hub_over, hub_stuck, travel_stuck, refused);
+    EXPECT(step >= 4 && office_over && hub_over && hub_stuck && travel_stuck && refused);
   });
 }

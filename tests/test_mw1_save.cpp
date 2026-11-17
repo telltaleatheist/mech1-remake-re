@@ -98,7 +98,7 @@ TEST(mw1_save_refuses_damaged_partial_and_other_versions) {
   EXPECT(refused("garbage\n\x01\x02", "garbage"));
   // Another version, with a good check: refused for its version.
   std::string v3 = text.substr(0, text.rfind("check="));
-  v3.replace(0, v3.find('\n'), "version=7");  // a later build's
+  v3.replace(0, v3.find('\n'), "version=" + std::to_string(mw1::kSaveVersion + 1));  // a later build's
   {
     mw1::Contract k;
     mw1::Company into;
@@ -109,8 +109,8 @@ TEST(mw1_save_refuses_damaged_partial_and_other_versions) {
     for (unsigned char ch : body) h = (h ^ ch) * 16777619u;
     char line[32];
     std::snprintf(line, sizeof line, "check=%08x\n", h);
-    EXPECT(!mw1::load_text(body + line, into, k, nullptr, &why) && why.find("version 7") != std::string::npos);
-    std::printf("  version 7: %s\n", why.c_str());
+    EXPECT(!mw1::load_text(body + line, into, k, nullptr, &why) && why.find("version " + std::to_string(mw1::kSaveVersion + 1)) != std::string::npos);
+    std::printf("  a later version: %s\n", why.c_str());
   }
 }
 

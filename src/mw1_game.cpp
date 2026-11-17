@@ -28,6 +28,7 @@
 #include "gamez/zreader/zreader.h"
 #include "gamez/zutil/zutl_path.h"
 #include "mw1_bar_screen.h"
+#include "mw1_office.h"
 #include "mw1_campaign.h"
 #include "mw1_hub.h"
 #include "mw1_market.h"
@@ -183,6 +184,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "market") press(kHubMarket);
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "travel") press(kHubTravel);
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "bar") press(kHubBar);
+      if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "office") press(kHubOffice);
       return true;
     }
     // No hub layout (MW1's data missing): the message boxes, as before the hub.
@@ -320,6 +322,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     market_ = 0, market_state_ = nullptr;
     travel_ = 0, travel_state_ = nullptr;
     bar_ = 0, bar_state_ = nullptr;
+    office_ = 0, office_state_ = nullptr;
     if (!layout_there(kHubFile, kHubDialog)) {
       std::printf("mw1: no hub layout (%s in MW1's data): the message boxes\n", kHubFile);
       return false;
@@ -408,9 +411,80 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         ge->pop_state(1);
         ge->push_state(bar_, 0);
         return;
+      case kHubOffice:
+        // The House office in the hub's place (BACK brings the hub back): the offer to negotiate.
+        if (pending_ || !offered_ || !ge || !office(*ge)) return;
+        ochoice_ = OfficeChoice{};
+        show_office();
+        ge->pop_state(1);
+        ge->push_state(office_, 0);
+        return;
       default: return;  // the screens that come later
     }
     show_hub();
+  }
+
+  // ---- the House office (mw1_campaign.h's negotiate, mw1_office.h) ----
+
+  bool office(mech3::GameEngine& ge) {
+    if (office_ && ge.menu_state_of(office_) == office_state_) return true;
+    if (!layout_there(kOfficeFile, kOfficeDialog)) {
+      std::printf("mw1: no office layout (%s in MW1's data)\n", kOfficeFile);
+      return false;
+    }
+    office_ = ge.adopt_state([this](zgame::Handle h) { return office_state_ = new OfficeState(h, [this](int32_t id) { press_office(id); }); });
+    return office_ != 0;
+  }
+
+  void press_office(int32_t id) {
+    if (id < kOfficePayDown) std::printf("mw1: office: %s\n", office_button_name(id));  // the arrows unlogged
+    mech3::GameEngine* ge = ge_;
+    switch (id) {
+      case kOfficeSubmit: {
+        if (!offered_ || pending_ || !ochoice_.ask.any()) return;
+        const Answer a = negotiate(company_, contract_, ochoice_.ask, rng_);
+        ochoice_.answer = answer_lines(a, company_, contract_);
+        ochoice_.ask = Request{};  // MW1 clears the ask after each round
+        std::printf("mw1: office: round %d (patience %d%s): %s; the offer %d thousand, salvage %d%%, advance %d%%\n", contract_.attempts,
+                    company_.patience, never_breaks_off(company_.planet_house) ? ", never breaks off" : "",
+                    a == Answer::kAgreed ? "agreed" : a == Answer::kCounter ? "a counter-offer" : "terminated", contract_.payment,
+                    contract_.salvage_percent, contract_.advance_percent);
+        if (a == Answer::kAgreed) {
+          save();
+          if (!ge) return;
+          ge->pop_state(1);  // the office off, then the main menu replaced by the briefing (as the hub's ACCEPT)
+          deploy(*ge);
+          return;
+        }
+        if (a == Answer::kTerminated) {
+          offered_ = false;  // the world's offers withdrawn until the company leaves
+          std::printf("mw1: office: negotiations terminated on %s: no contracts here until the company leaves%s\n", company_.planet.c_str(),
+                      stranded(company_) ? "; stranded" : "");
+        }
+        save();
+        break;
+      }
+      case kOfficeAccept:
+        if (!offered_ || pending_ || !ge) return;
+        ge->pop_state(1);
+        deploy(*ge);
+        return;
+      case kOfficeBack:
+        if (!ge) return;
+        show_hub();
+        ge->pop_state(1);
+        ge->push_state(hub_, 0);
+        return;
+      default:
+        if (!offered_) return;
+        step_ask(contract_, ochoice_.ask, id);
+        break;
+    }
+    show_office();
+  }
+
+  void show_office() {
+    if (office_state_) office_state_->show(office_view(company_, contract_, ochoice_, offer_lines(false, false), offered_));
   }
 
   // ---- the Bar (mw1_pilots.h, mw1_bar_screen.h) ----
@@ -626,10 +700,23 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     } else if (offered_) {
       v.title = "CONTRACT ON OFFER", v.panel = offer_lines();
     } else {
-      // No House office (MW1 offers no contracts here): travel on; stranded, said plainly.
-      v.title = "NO HOUSE OFFICE", v.offer = false;
-      v.panel = {"House " + std::string(kHouses[company_.planet_house].name) + " has no office on " + company_.planet + ":",
-                 "no contracts here. TRAVEL to a world with one."};
+      // No contracts here: no House office (MW1 offers none), the House refusing the company (8+ grievances), or a
+      // negotiation it broke off on this visit. Travel on; stranded, said plainly.
+      v.offer = false;
+      if (!contracts_here(company_)) {
+        v.title = "NO HOUSE OFFICE";
+        v.panel = {"House " + std::string(kHouses[company_.planet_house].name) + " has no office on " + company_.planet + ":",
+                   "no contracts here. TRAVEL to a world with one."};
+      } else if (refuses(company_, company_.planet_house)) {
+        v.title = "HOUSE OFFICE";
+        v.panel = refusal_words(company_.planet_house);
+        v.panel.push_back("No contracts from House " + std::string(kHouses[company_.planet_house].name) + ".");
+        v.panel.push_back("TRAVEL to a world whose House will deal with you.");
+      } else {
+        v.title = "NEGOTIATIONS TERMINATED";
+        v.panel = terminated_words();
+        v.panel.push_back("No contracts here until you leave. TRAVEL on.");
+      }
       for (const std::string& l : stranded_lines(company_)) v.panel.push_back(l);
     }
     // What happened since (wages, promotions, casualties), under the panel once.
@@ -639,7 +726,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   }
 
   // The contract on offer, line by line (with the planet and the funds first for the message box, which has no plaque).
-  std::vector<std::string> offer_lines(bool with_company = false) const {
+  std::vector<std::string> offer_lines(bool with_company = false, bool with_terms = true) const {
     const Contract& k = contract_;
     std::string enemies;
     for (int32_t e : k.enemies) enemies += std::string(enemies.empty() ? "" : ", ") + kMechKinds[e].name;
@@ -654,6 +741,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     l.push_back("Objective: " + objective_words(k));
     l.push_back("Map: " + map_words(ge_, k.world, k.ia));
     l.push_back("Enemy: " + enemies);
+    if (!with_terms) return l;
     l.push_back("Payment: " + thousands(int64_t{k.payment} * 1000) + " C-bills");
     l.push_back("Advance " + std::to_string(k.advance_percent) + "%, salvage " + std::to_string(k.salvage_percent) + "%");
     return l;
@@ -691,10 +779,14 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
 
   // A new contract on offer (the test overrides on it), saved.
   void new_offer() {
-    offered_ = contracts_here(company_);
+    offered_ = earning_here(company_);
     if (!offered_) {
       save();
-      std::printf("mw1: no House office on %s: no contracts\n", company_.planet.c_str());
+      std::printf("mw1: %s on %s: no contracts\n",
+                  !contracts_here(company_)                  ? "no House office"
+                  : refuses(company_, company_.planet_house) ? "the House refuses the company"
+                                                             : "negotiations broken off",
+                  company_.planet.c_str());
       return;
     }
     contract_ = generate_contract(company_, 0, rng_);
@@ -856,6 +948,11 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   HubState* hub_state() const { return hub_state_; }
   MarketState* market_state() const { return market_state_; }
   BarState* bar_state() const { return bar_state_; }
+  OfficeState* office_state() const { return office_state_; }
+  void offer_again() {  // tests: the offer drawn again after a change to the company, the hub shown
+    new_offer();
+    show_hub();
+  }
   TravelState* travel_state() const { return travel_state_; }
   Company* company_mut() { return company_.stores ? &company_ : nullptr; }
   void market_changed() { show_market(); }
@@ -1042,6 +1139,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   zgame::Handle bar_ = 0;
   BarState* bar_state_ = nullptr;
   BarChoice bchoice_;
+  zgame::Handle office_ = 0;
+  OfficeState* office_state_ = nullptr;
+  OfficeChoice ochoice_;
   zgame::Handle market_ = 0;
   MarketState* market_state_ = nullptr;
   MarketChoice choice_;
@@ -1107,6 +1207,10 @@ void game_loop_press(int32_t button) {
 }
 
 BarState* game_loop_bar() { return the_loop() ? the_loop()->bar_state() : nullptr; }
+OfficeState* game_loop_office() { return the_loop() ? the_loop()->office_state() : nullptr; }
+void game_loop_offer_again() {
+  if (the_loop()) the_loop()->offer_again();
+}
 MarketState* game_loop_market() { return the_loop() ? the_loop()->market_state() : nullptr; }
 TravelState* game_loop_travel() { return the_loop() ? the_loop()->travel_state() : nullptr; }
 const std::vector<AllyLaunch>& game_loop_ally_launches() {

@@ -106,6 +106,7 @@ Company new_company(Rng& rng) {
   c.stores = std::make_shared<mech3::Store>();
   add_starting_stores(*c.stores);
   roll_premium(c, rng);  // the start world's repair premium (mw1_repairs.h), after the original's draws
+  roll_patience(c, rng);  // and its House's patience (MwApplyCurrentPlanetState, after the premium)
   return c;
 }
 
@@ -152,10 +153,9 @@ Contract generate_contract(const Company& c, int32_t slot, Rng& rng) {
   int32_t opening = (ceiling >> 2) / kPaymentRounding * kPaymentRounding;
   k.payment = opening < kPaymentMin ? kPaymentMin : opening;
   // Salvage and advance: the House's base shifted by the standing; the opening a quarter.
-  const int32_t rel = standing(c, k.house);
-  const int32_t salvage_ceiling = std::max(0, rel + h.salvage_base), advance_ceiling = std::max(0, rel + h.advance_base);
-  k.salvage_percent = salvage_ceiling >> 2;
-  k.advance_percent = advance_ceiling >> 2;
+  k.salvage_ceiling = salvage_ceiling(c, k.house), k.advance_ceiling = advance_ceiling(c, k.house);
+  k.salvage_percent = k.salvage_ceiling >> 2;
+  k.advance_percent = k.advance_ceiling >> 2;
   // The target (after the pay, as MW1 rolls it): the employer's eligible columns stepped through, round again,
   // until the roll's count is met.
   int32_t steps = rng.upto(kTargetStepRollMax) + 1, column = 0;
@@ -168,6 +168,57 @@ Contract generate_contract(const Company& c, int32_t slot, Rng& rng) {
   choose_mission(k, rng);
   return k;
 }
+
+int32_t salvage_ceiling(const Company& c, int32_t house) { return std::max(0, standing(c, house) + kHouses[house].salvage_base); }
+int32_t advance_ceiling(const Company& c, int32_t house) { return std::max(0, standing(c, house) + kHouses[house].advance_base); }
+
+bool never_breaks_off(int32_t house) { return house == kSteiner || house == kDavion; }
+void roll_patience(Company& c, Rng& rng) { c.patience = rng.upto(kPatienceRollMax) + kPatienceBase[c.planet_house]; }
+bool refuses(const Company& c, int32_t house) { return house >= 0 && house < kHouseCount && c.grievance[house] >= kGrievanceRefusal; }
+
+namespace {
+// A term asked for more than the offer: the House's concession, 0..half the room to its ceiling on top of the offer
+// (an offer over its ceiling, which MW1's word arithmetic would wrap, concedes nothing).
+int32_t concession(int32_t offer, int32_t ceiling, Rng& rng) { return offer + rng.upto(std::max(0, ceiling - offer) >> 1); }
+}  // namespace
+
+Answer negotiate(Company& c, Contract& k, const Request& r, Rng& rng) {
+  const bool endless = never_breaks_off(c.planet_house);
+  if (endless || k.attempts < c.patience) ++k.attempts;
+  bool satisfied = true;
+  if (r.payment >= 0) {
+    bool short_of = false;
+    if (r.payment > k.payment) {
+      const int32_t conceded = concession(k.payment, k.payment_ceiling, rng) / kPaymentRounding * kPaymentRounding;
+      if (conceded < r.payment) k.payment = conceded, short_of = true;
+    }
+    if (short_of) satisfied = false;
+    else k.payment = r.payment, satisfied = true;
+  }
+  // The later terms, each looked at in turn: a roll short moves the offer and fails; granted only while nothing
+  // before has failed (MW1's jumps skip the grant, not the roll).
+  auto term = [&](int32_t asked, int32_t& offer, int32_t ceiling) {
+    if (asked < 0) return;  // not asked
+    if (asked > offer) {
+      const int32_t conceded = concession(offer, ceiling, rng);
+      if (conceded < asked) {
+        offer = conceded, satisfied = false;
+        return;
+      }
+    }
+    if (satisfied) offer = asked;
+  };
+  term(r.salvage, k.salvage_percent, k.salvage_ceiling);
+  term(r.advance, k.advance_percent, k.advance_ceiling);
+  if (satisfied) return Answer::kAgreed;
+  if (!endless && k.attempts >= c.patience) {
+    c.withdrawn = true;
+    return Answer::kTerminated;
+  }
+  return Answer::kCounter;
+}
+
+bool last_round(const Company& c, const Contract& k) { return !never_breaks_off(c.planet_house) && k.attempts + 1 >= c.patience; }
 
 void accept(Company& c, Contract& k) {
   const int32_t advance = k.advance_percent * k.payment / 100;

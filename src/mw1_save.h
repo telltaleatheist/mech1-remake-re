@@ -18,6 +18,12 @@
 //                      offer_category, offer_code, offer_planet,
 //                      offer_climate; offer_objective 0..3 with
 //                      offer_structure_words).
+//                      7 negotiation (mw1_campaign.h's negotiate): the
+//                      world's patience and withdrawn; the offer's
+//                      offer_salvage_ceiling, offer_advance_ceiling,
+//                      offer_attempts. Before 7: the House's patience
+//                      at its middle (base + 1), the ceilings from the
+//                      House and the standing now, no rounds yet.
 //                      Versions 1 to 4 still read (before 5: the world's
 //                      premium without its roll, a wreck's damage from its
 //                      condition, no bills);
@@ -38,7 +44,7 @@
 
 namespace mw1 {
 
-inline constexpr int32_t kSaveVersion = 6;
+inline constexpr int32_t kSaveVersion = 7;
 inline constexpr const char* kSaveFile = "mw1save.txt";
 inline constexpr const char* kPrevSaveFile = "mw1save.prev";  // the company NEW CAMPAIGN replaced, kept beside it
 
@@ -46,7 +52,7 @@ inline constexpr const char* kPrevSaveFile = "mw1save.prev";  // the company NEW
 // a mission back and not settled yet (null: none; then the contract is the
 // accepted one, its advance paid: pending_* lines).
 std::string save_text(const Company& c, const Contract* offer, const AfterAction* pending = nullptr);
-// Read back: false, and why, when the text is not a whole save of versions 1 to 6. On
+// Read back: false, and why, when the text is not a whole save of versions 1 to 7. On
 // false `c`, `offer` and `pending` are left as they were. A save from before
 // the pending lines reads as none pending.
 bool load_text(const std::string& text, Company& c, Contract& offer, bool* has_offer, std::string* why,

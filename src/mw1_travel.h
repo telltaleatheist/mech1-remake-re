@@ -73,10 +73,16 @@ void set_planet(Company& c, int32_t planet);  // the company's planet fields fro
 // MW1 offers no contracts at a world without its House's office (provisional, research/economy.md).
 inline constexpr bool kContractsNeedAnOffice = true;
 bool contracts_here(const Company& c);
-// Stuck: no contracts here and no trip to a world with an office affordable. MW1 has no escape (a save to load);
-// the travel screen says so (mw1 lead 2026-11-17).
+// Contracts to be had here: an office, whose House doesn't refuse the company (8+ grievances) and hasn't broken off
+// a negotiation on this visit (mw1_campaign.h's negotiate).
+bool earning_here(const Company& c);
+// A world whose office would deal with the company: an office, its House not refusing it.
+bool deals_with(const Company& c, const Planet& w);
+// Stuck: nothing to earn here (no office, refused, or the offers withdrawn) and no trip affordable to a world whose
+// office would deal with the company. MW1 has no escape (a save to load); the travel screen and the hub say so (mw1
+// lead 2026-11-17).
 bool stranded(const Company& c);
-// The cheapest trip from here to a world with an office: its cost (-1: none).
+// The cheapest trip from here to a world whose office would deal with the company: its cost (-1: none).
 int64_t cheapest_way_out(const Company& c);
 
 }  // namespace mw1::travel_rules
