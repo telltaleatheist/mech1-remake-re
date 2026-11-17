@@ -14,8 +14,6 @@ const std::vector<ScreenButton> kOfficeButtons = {{"SUBMIT", "SUBMIT"},  {"ACCEP
 constexpr int32_t kTerminatedAt = 0x4C25, kTerminatedSize = 0x47;
 constexpr int32_t kRefusalAt = 0x4C87, kRefusalSize = 0x5F;
 constexpr int32_t kAcceptedAt = 0x4C6C, kAcceptedSize = 0x1B;
-// The terms' rows on the right panel, and their arrows' (mw1office.zrd's).
-constexpr int32_t kRowsX = 398, kRowY[3] = {104, 164, 224};
 
 std::string thousands(int64_t v) {
   std::string s = std::to_string(v < 0 ? -v : v);
@@ -110,25 +108,34 @@ ScreenView office_view(const Company& c, const Contract& k, const OfficeChoice& 
     return std::vector<std::string>{name, "  Offer: " + theirs + (asked >= 0 ? "    Ask: " + ask_words : std::string())};
   };
   std::vector<std::string> notes = o.answer;
-  if (open && notes.empty()) notes = {"Change a term with its arrows, then SUBMIT; ACCEPT takes the offer as it stands."};
-  v.blocks = {{24, 14, kPlaqueFont, {upper(c.planet)}},
-              {24, 32, kPlaqueSmallFont, {"HOUSE " + upper(kHouses[c.planet_house].name) + ": HOUSE OFFICE"}},
-              {30, 72, kTitleFont, {"CONTRACT ON OFFER"}},
-              {30, 96, kLineFont, open ? offer : std::vector<std::string>{"No contract on offer."}},
-              {kRowsX, 72, kTitleFont, {"TERMS"}}};
+  if (open && notes.empty()) notes = {"Change a term with its arrows, then SUBMIT;", "ACCEPT takes the offer as it stands."};
+  const std::string house = kHouses[c.planet_house].name;
+  v.blocks = {at_place("PLANET", {upper(c.planet)}),
+              at_place("HOUSE", {"HOUSE " + upper(house)}),
+              at_place("PLACE", {"HOUSE OFFICE"}),
+              at_place("PLACE_SUB", {"FUNDS " + thousands(c.funds) + " C-BILLS"}),
+              at_place("STATUS_WORLD", {upper(c.planet)}),
+              at_place("STATUS", {open ? "The House's liaison will hear your terms." : "Nothing to negotiate here now."}),
+              at_place("C_TITLE", {"CONTRACT ON OFFER"}),
+              at_place("C_LINES", open ? offer : std::vector<std::string>{"No contract on offer."}),
+              at_place("NOTES", notes),
+              at_place("T_TITLE", {"TERMS"})};
   if (open) {
-    v.blocks.push_back({kRowsX, kRowY[0], kLineFont, row("Payment (C-bills)", money(k.payment), o.ask.payment, money(o.ask.payment))});
-    v.blocks.push_back({kRowsX, kRowY[1], kLineFont, row("Salvage", std::to_string(k.salvage_percent) + "%", o.ask.salvage,
-                                                         std::to_string(o.ask.salvage) + "%")});
-    v.blocks.push_back({kRowsX, kRowY[2], kLineFont, row("Advance", std::to_string(k.advance_percent) + "%", o.ask.advance,
-                                                         std::to_string(o.ask.advance) + "%")});
+    v.blocks.push_back(at_place("ROW1", row("Payment (C-bills)", money(k.payment), o.ask.payment, money(o.ask.payment))));
+    v.blocks.push_back(at_place("ROW2", row("Salvage", std::to_string(k.salvage_percent) + "%", o.ask.salvage,
+                                            std::to_string(o.ask.salvage) + "%")));
+    v.blocks.push_back(at_place("ROW3", row("Advance", std::to_string(k.advance_percent) + "%", o.ask.advance,
+                                            std::to_string(o.ask.advance) + "%")));
   } else {
-    v.blocks.push_back({kRowsX, kRowY[0], kLineFont, closed});
-    v.blocks.push_back({});
-    v.blocks.push_back({});
+    v.blocks.push_back(at_place("ROW1", closed));
+    v.blocks.push_back(at_place("ROW2", {}));
+    v.blocks.push_back(at_place("ROW3", {}));
   }
-  v.blocks.push_back({30, 356, kLineFont, {"Funds: " + thousands(c.funds) + " C-bills"}});
-  v.blocks.push_back({30, 384, kNoteFont, notes});
+  // The world's House's liaison (MW1's office: the House's own).
+  v.pictures.assign(kOfficePanelLiaison + 1, "");
+  std::string h;
+  for (char ch : house) h += static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+  v.pictures[kOfficePanelLiaison] = "mw1_liaison_" + h + "_s";
   v.buttons.resize(kOfficeButtonCount);
   v.buttons[kOfficeSubmit - 1].on = open && o.ask.any();
   v.buttons[kOfficeAccept - 1].on = open;

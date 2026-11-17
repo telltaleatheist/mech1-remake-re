@@ -5,16 +5,18 @@
 #include <vector>
 
 #include "mw1_market.h"
+#include "mw1_chrome.h"
 #include "mw1_pilots.h"
+#include "mw1_story.h"
 
 namespace mw1::bar_ui {
 namespace {
-const std::vector<ScreenButton> kBarButtons = {{"HIRE", "HIRE"},       {"DECLINE", "DECLINE"}, {"FIRE", "FIRE"},
-                                               {"ASSIGN", "ASSIGN"},   {"BACK", "BACK"},       {"RECRUIT_UP", ""},
-                                               {"RECRUIT_DOWN", ""},   {"LANCE_UP", ""},       {"LANCE_DOWN", ""},
-                                               {"DRINK", "DRINK"},     {"NEWS", "NEWS"}};
-constexpr size_t kNameWidth = 11;                                       // the records' names
-const char* const kShortRatings[4] = {"Poor", "Avg", "Good", "Exc"};  // the lists' columns
+const std::vector<ScreenButton> kBarButtons = {
+    {"HIRE", "HIRE"},       {"DECLINE", "DECLINE"}, {"FIRE", "FIRE"},   {"ASSIGN", "ASSIGN"},       {"BACK", "LEAVE"},
+    {"RECRUIT_UP", "PREV"}, {"RECRUIT_DOWN", "NEXT"}, {"LANCE_UP", "PREV"}, {"LANCE_DOWN", "NEXT"}, {"DRINK", "ORDER DRINK"},
+    {"NEWS", "NEWS"},       {"CREW", "RECRUIT CREW"}, {"LANCE", "YOUR LANCE"}, {"DONE", "DONE"}};
+const char* const kColumnPlaces[kBarColumns] = {"COL1", "COL2", "COL3", "COL4"};
+constexpr size_t kColumnChars = 14;  // a grid column's line (104 pixels of mw1_panel_line)
 
 std::string thousands(int64_t v) {
   std::string s = std::to_string(v < 0 ? -v : v);
@@ -25,20 +27,35 @@ std::string upper(std::string s) {
   for (char& c : s) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
   return s;
 }
-std::string padded(std::string s, size_t n) {
-  if (s.size() < n) s.append(n - s.size(), ' ');
-  return s;
+// An image name's part from words: lower case, the dots dropped, spaces as underscores ("J.J. Kitter": jj_kitter).
+std::string slug(const std::string& words) {
+  std::string out;
+  for (char ch : words) {
+    const unsigned char u = static_cast<unsigned char>(ch);
+    if (std::isalnum(u)) out += static_cast<char>(std::tolower(u));
+    else if (ch == ' ' && !out.empty() && out.back() != '_') out += '_';
+  }
+  while (!out.empty() && out.back() == '_') out.pop_back();
+  return out;
 }
-// "> Elli Gujar  Poor Poor    400": chosen or not, the name, Gunnery, Piloting, the wage a month.
-std::string row(bool chosen, const Company& c, int32_t id, int32_t wage_tier) {
-  std::string w = thousands(kWages[std::clamp(wage_tier, 0, 3)]);
-  if (w.size() < 6) w.insert(0, 6 - w.size(), ' ');
-  return std::string(chosen ? "> " : "  ") + padded(pilot_title(id), kNameWidth) + "  " + padded(kShortRatings[gunnery(c, id)], 5) +
-         padded(kShortRatings[piloting(c, id)], 4) + w;
+std::string column_line(std::string s) {
+  if (s.size() > kColumnChars) s.resize(kColumnChars);
+  return s;
 }
 }  // namespace
 
 const char* bar_button_name(int32_t id) { return id >= 1 && id <= kBarButtonCount ? kBarButtons[id - 1].name : ""; }
+
+std::string portrait_image(int32_t pilot, bool small) {
+  const std::string s = slug(pilot_title(pilot));
+  return s.empty() ? "" : "mw1_recruit_" + s + (small ? "_s" : "");
+}
+std::string commander_image(bool small) { return small ? "mw1_char_gideon_s" : "mw1_char_gideon"; }
+std::string mech_image(int32_t pm_mech) {
+  for (const MechKind& k : kMechKinds)
+    if (k.pm_mech == pm_mech) return "mw1_mech_" + slug(k.name) + "_s";
+  return "";
+}
 
 void clamp_choice(const Company& c, BarChoice& b) {
   const int32_t r = static_cast<int32_t>(c.recruits.size()), l = static_cast<int32_t>(c.lance.size());
@@ -48,54 +65,107 @@ void clamp_choice(const Company& c, BarChoice& b) {
 
 ScreenView bar_view(const Company& c, const BarChoice& b, bool story) {
   ScreenView v;
-  std::vector<std::string> recruits = {"  Name         Gun  Pil   Wage"}, lance = {"  You, the commander: " + mech_title(c.mech)};
-  for (size_t i = 0; i < c.recruits.size(); ++i)
-    recruits.push_back(row(static_cast<int32_t>(i) == b.recruit, c, c.recruits[i], gunnery(c, c.recruits[i])));
-  if (c.recruits.empty()) recruits = {"Nobody here is looking for work."};
-  for (size_t i = 0; i < c.lance.size(); ++i) lance.push_back(row(static_cast<int32_t>(i) == b.mate, c, c.lance[i].id, c.lance[i].wage_tier));
-  // The chosen recruit's pitch, in their own words (the player's MW_MAIN.EXE; none without it).
-  std::vector<std::string> pitch_lines;
-  if (!c.recruits.empty()) {
-    const int32_t id = c.recruits[static_cast<size_t>(b.recruit)];
-    pitch_lines.push_back(pilot_title(id) + ":");
-    for (const std::string& l : pitch(id)) pitch_lines.push_back("\"" + l + "\"");
+  const bool menu = b.page == BarPage::kMenu, recruits = b.page == BarPage::kRecruits, lance = b.page == BarPage::kLance;
+  std::string status = b.note;
+  if (status.empty() && c.wage_warned) status = "Last month's wages are unpaid: short again and the lance leaves.";
+  if (status.empty())
+    status = menu ? "Order a drink, read the news, or see who's looking for work."
+             : recruits ? "HIRE takes them on at their wage; DECLINE sends them away."
+                        : "ASSIGN gives the chosen lancemate the next free mech in the hangar.";
+  v.blocks = {at_place("PLANET", {upper(c.planet)}),
+              at_place("HOUSE", {"HOUSE " + upper(kHouses[c.planet_house].name) + " \xB7 THE BAR"}),
+              at_place("PLACE", {thousands(c.funds) + " C-BILLS"}),
+              at_place("PLACE_SUB", {"LANCE " + std::to_string(c.lance.size()) + " OF " + std::to_string(kLanceMax) + " \xB7 WAGES " +
+                                     thousands(monthly_wages(c)) + " A MONTH"}),
+              at_place("STATUS_WORLD", {upper(c.planet)}),
+              at_place("STATUS", {status}),
+              at_place("MENU_TITLE", {menu ? "THE BAR" : ""})};
+  v.panels.assign(kBarPanelCount, false);
+  v.pictures.assign(kBarPanelCount, "");
+  for (int32_t p : {kBarPanelPlaque, kBarPanelPlaque2, kBarPanelStatus}) v.panels[static_cast<size_t>(p)] = true;
+  v.panels[kBarPanelMenu] = menu;
+
+  // RECRUIT CREW: the chosen recruit, their portrait, record and own words (the player's MW_MAIN.EXE; none without it).
+  std::vector<std::string> r_title, r_lines, r_pitch;
+  if (recruits) {
+    if (c.recruits.empty()) {
+      r_title = {"RECRUITS"};
+      r_lines = {"Nobody here is looking for work."};
+    } else {
+      const int32_t id = c.recruits[static_cast<size_t>(b.recruit)];
+      r_title = {upper(pilot_title(id))};
+      r_lines = {"Recruit " + std::to_string(b.recruit + 1) + " of " + std::to_string(c.recruits.size()), "",
+                 std::string("Gunnery  ") + kRatingNames[gunnery(c, id)], std::string("Piloting ") + kRatingNames[piloting(c, id)],
+                 "Wage     " + thousands(kWages[std::clamp(gunnery(c, id), 0, 3)]) + " a month"};
+      for (const std::string& l : pitch(id)) r_pitch.push_back("\"" + l + "\"");
+      v.panels[kBarPanelFrame] = v.panels[kBarPanelPortrait] = true;
+      v.pictures[kBarPanelPortrait] = portrait_image(id, false);
+    }
+    v.panels[kBarPanelTerminal] = true;
   }
-  // The chosen lancemate: their mech, their record toward promotion.
-  std::vector<std::string> mate;
-  if (!c.lance.empty()) {
-    const Lancemate& m = c.lance[static_cast<size_t>(b.mate)];
-    const int32_t h = mech_of(c, b.mate), g = gunnery(c, m.id);
-    mate.push_back(pilot_title(m.id) + ": " + (h >= 0 ? "the " + mech_title(c.hangar[static_cast<size_t>(h)].mech) : std::string("no mech")));
-    mate.push_back("Gunnery " + std::string(kRatingNames[g]) + ", Piloting " + kRatingNames[piloting(c, m.id)]);
-    mate.push_back(g >= 3 ? std::string("At the top: Excellent")
-                          : "Missions: " + std::to_string(c.pilots[m.id].missions) + " of " + std::to_string(kPromotionMissions[g]) +
-                                " to promotion");
+  v.blocks.push_back(at_place("R_TITLE", r_title));
+  v.blocks.push_back(at_place("R_LINES", r_lines));
+  v.blocks.push_back(at_place("R_PITCH", r_pitch));
+
+  // YOUR LANCE: MW1's grid, you first, then each lancemate; the chosen one's record toward promotion beside.
+  std::vector<std::string> info;
+  for (int32_t col = 0; col < kBarColumns; ++col) {
+    std::vector<std::string> lines;
+    const size_t i = static_cast<size_t>(col);
+    if (lance && col == 0) {
+      const std::string you = commander_name();
+      lines = {column_line(you.empty() ? "YOU" : upper(you)), "Commander", "", "", column_line(mech_title(c.mech))};
+      v.pictures[kBarPanelColumnPortrait + i] = commander_image(true);
+      v.pictures[kBarPanelMech + i] = mech_image(c.mech);
+    } else if (lance && col - 1 < static_cast<int32_t>(c.lance.size())) {
+      const Lancemate& m = c.lance[static_cast<size_t>(col - 1)];
+      const int32_t h = mech_of(c, col - 1);
+      lines = {column_line(upper(pilot_title(m.id))), std::string("Gun ") + kRatingNames[gunnery(c, m.id)],
+               std::string("Pil ") + kRatingNames[piloting(c, m.id)], "Wage " + thousands(kWages[std::clamp(m.wage_tier, 0, 3)]),
+               h >= 0 ? column_line(mech_title(c.hangar[static_cast<size_t>(h)].mech)) : std::string("No mech")};
+      v.pictures[kBarPanelColumnPortrait + i] = portrait_image(m.id, true);
+      if (h >= 0) v.pictures[kBarPanelMech + i] = mech_image(c.hangar[static_cast<size_t>(h)].mech);
+      v.panels[kBarPanelMech + i] = h >= 0;
+      if (col - 1 == b.mate) {
+        const int32_t g = gunnery(c, m.id);
+        info = {upper(pilot_title(m.id)), g >= 3 ? std::string("At the top: Excellent")
+                                                 : "Missions: " + std::to_string(c.pilots[m.id].missions) + " of " +
+                                                       std::to_string(kPromotionMissions[g]),
+                g >= 3 ? std::string("") : "to promotion", "", "To refit their mech:", "PILOT it in the MARKET,",
+                "fit it in the lab and", "fly, then PILOT yours."};
+      }
+    }
+    if (lance && !lines.empty()) {
+      v.panels[kBarPanelColumnFrame + i] = v.panels[kBarPanelColumnPortrait + i] = v.panels[kBarPanelMechFrame + i] = true;
+      if (col == 0) v.panels[kBarPanelMech + i] = true;
+      v.pictures[kBarPanelColumnFrame + i] = frame_name(104, 136, col - 1 == b.mate && col > 0);
+    }
+    v.blocks.push_back(at_place(kColumnPlaces[i], lines));
   }
-  std::vector<std::string> terms = {
-      "Funds: " + thousands(c.funds) + " C-bills. Lance: " + std::to_string(c.lance.size()) + " of " + std::to_string(kLanceMax) +
-          ", wages " + thousands(monthly_wages(c)) + " a month",
-      "ASSIGN gives the chosen lancemate the next free mech in the hangar.",
-      "A lancemate flies their mech as last fitted. To refit it: PILOT it",
-      "in the MARKET, fit it in the lab and fly, then PILOT yours back."};
-  if (c.wage_warned) terms.push_back("Last month's wages are unpaid: short again and the lance leaves.");
-  v.blocks = {{24, 14, kPlaqueFont, {upper(c.planet)}},
-              {24, 32, kPlaqueSmallFont, {"HOUSE " + upper(kHouses[c.planet_house].name) + ": THE BAR"}},
-              {30, 72, kTitleFont, {"RECRUITS"}},
-              {30, 96, kLineFont, recruits},
-              {30, 244, kLineFont, pitch_lines},  // up to 5 lines (64 characters), inside the panel
-              {398, 72, kTitleFont, {"YOUR LANCE"}},
-              {398, 96, kLineFont, lance},
-              {398, 196, kLineFont, mate},
-              {30, 350, kLineFont, terms},
-              {30, 428, kNoteFont, {b.note}}};
+  if (lance) {
+    v.panels[kBarPanelGrid] = true;
+    if (c.lance.empty()) info = {"No lancemates yet:", "RECRUIT CREW at the", "Bar's menu."};
+    v.panels[kBarPanelInfo] = true;
+  }
+  v.blocks.push_back(at_place("INFO", info));
+
   v.buttons.resize(kBarButtonCount);
-  v.buttons[kBarHire - 1].on = v.buttons[kBarDecline - 1].on = !c.recruits.empty();
-  v.buttons[kBarFire - 1].on = v.buttons[kBarAssign - 1].on = !c.lance.empty();
-  v.buttons[kBarRecruitUp - 1].on = b.recruit > 0;
-  v.buttons[kBarRecruitDown - 1].on = b.recruit + 1 < static_cast<int32_t>(c.recruits.size());
-  v.buttons[kBarLanceUp - 1].on = b.mate > 0;
-  v.buttons[kBarLanceDown - 1].on = b.mate + 1 < static_cast<int32_t>(c.lance.size());
-  v.buttons[kBarDrink - 1].on = v.buttons[kBarNews - 1].on = story;
+  for (ButtonState& s : v.buttons) s.there = false;
+  auto set = [&](int32_t id, bool there, bool on) { v.buttons[static_cast<size_t>(id - 1)].there = there, v.buttons[static_cast<size_t>(id - 1)].on = on; };
+  set(kBarDrink, menu, story);
+  set(kBarNews, menu, story);
+  set(kBarCrew, menu, true);
+  set(kBarLance, menu, true);
+  set(kBarBack, menu, true);
+  set(kBarHire, recruits, !c.recruits.empty());
+  set(kBarDecline, recruits, !c.recruits.empty());
+  set(kBarRecruitUp, recruits, b.recruit > 0);
+  set(kBarRecruitDown, recruits, b.recruit + 1 < static_cast<int32_t>(c.recruits.size()));
+  set(kBarFire, lance, !c.lance.empty());
+  set(kBarAssign, lance, !c.lance.empty());
+  set(kBarLanceUp, lance, b.mate > 0);
+  set(kBarLanceDown, lance, b.mate + 1 < static_cast<int32_t>(c.lance.size()));
+  set(kBarDone, !menu, true);
   return v;
 }
 
