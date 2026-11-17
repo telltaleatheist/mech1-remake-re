@@ -229,7 +229,21 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // CONTINUE with a company to go back to: the one in play, or the save.
     std::string line;
     if (company_.stores) line = title_case_name(company_.planet.c_str()) + ", " + thousands(company_.funds) + " C-bills";
-    menu_state_->show_menu(company_.stores || save_there(), line);
+    bool can_continue = company_.stores != nullptr;
+    if (!company_.stores && save_there()) {  // the saved company, read to name it (the game loads it at CONTINUE)
+      Company saved;
+      Contract offer;
+      AfterAction after;
+      bool has_offer = false, has_after = false;
+      std::string why;
+      if (load_file(save_path_, saved, offer, &has_offer, &why, &after, &has_after) == Loaded::kLoaded) {
+        line = title_case_name(saved.planet.c_str()) + ", " + thousands(saved.funds) + " C-bills";
+        can_continue = true;
+      } else {
+        line = "The save doesn't read: a new campaign";  // CONTINUE would make a new company (start_company)
+      }
+    }
+    menu_state_->show_menu(can_continue, line);
   }
 
   void press_menu(int32_t id) {

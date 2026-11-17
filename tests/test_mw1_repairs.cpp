@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "check.h"
+#include "mw1_install.h"
 #include "mech3/pilot.h"
 #include "mw1_campaign.h"
 #include "mw1_pilots.h"
@@ -47,11 +48,12 @@ mw1::Bars whole() {
 }  // namespace
 
 TEST(mw1_repairs_body_prices_are_mw_main_exes_and_the_line) {
-  const std::vector<uint8_t> d = mw_main_data();
-  if (d.size() > 0x3CAB + mw1::kKindCount) {
-    for (int k = 0; k < mw1::kKindCount; ++k) EXPECT(d[0x3CAB + static_cast<size_t>(k)] == mw1::kBodyRepairPrices[k]);
-  } else {
-    std::printf("  no MW_MAIN.EXE: the table unchecked\n");
+  // MW1's table against the exe (skipped without the install; the line below still checked).
+  if (!mw1_test::no_mw1()) {
+    const std::vector<uint8_t> d = mw_main_data();
+    EXPECT(d.size() > 0x3CAB + mw1::kKindCount);
+    for (int k = 0; k < mw1::kKindCount && d.size() > 0x3CAB + mw1::kKindCount; ++k)
+      EXPECT(d[0x3CAB + static_cast<size_t>(k)] == mw1::kBodyRepairPrices[k]);
   }
   // The line through MW1's ten (provisional Q1), each kind's own price beside it.
   for (int k = 0; k < mw1::kKindCount; ++k) {
