@@ -111,6 +111,12 @@ if(TARGET mw3pm)
   # The travel map's backdrops are drawn from the worlds' data (src/mw1_map_image.h): mw1core.
   add_executable(mw1imgpack tools/mw1imgpack.cpp)
   target_link_libraries(mw1imgpack PRIVATE mw1core SDL3::SDL3)
+  # Windows: the SDL3 DLL beside the tool, which runs during the build.
+  if(WIN32 AND NOT CMAKE_VERSION VERSION_LESS 3.21)
+    add_custom_command(TARGET mw1imgpack POST_BUILD
+                       COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_RUNTIME_DLLS:mw1imgpack> $<TARGET_FILE_DIR:mw1imgpack>
+                       COMMAND_EXPAND_LISTS)
+  endif()
   set(mw1_image_zbd ${CMAKE_CURRENT_BINARY_DIR}/mw1gen/zbd/mw1image.zbd)
   add_custom_command(OUTPUT ${mw1_image_zbd}
                      COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/mw1gen/zbd
