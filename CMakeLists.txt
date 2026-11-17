@@ -23,14 +23,15 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(MW3RE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/mw3-re")
 
 # What MW1 adds that a test can reach without SDL.
-add_library(mw1core STATIC src/mw1_start.cpp)
+add_library(mw1core STATIC src/mw1_start.cpp src/mw1_campaign.cpp)
 target_include_directories(mw1core PUBLIC src ${MW3RE_DIR}/src)
 target_link_libraries(mw1core PUBLIC pmcore mw3core)
 
-add_executable(mw1tests ${MW3RE_DIR}/tests/main.cpp tests/test_mw1_start.cpp)
+add_executable(mw1tests ${MW3RE_DIR}/tests/main.cpp tests/test_mw1_start.cpp tests/test_mw1_campaign.cpp)
 target_include_directories(mw1tests PRIVATE ${MW3RE_DIR}/tests)
 target_link_libraries(mw1tests PRIVATE mw1core pmcore mw3core)
 target_compile_definitions(mw1tests PRIVATE MW3_GAME_DIR="${MW3_GAME_DIR}" MW3PM_GAME_DIR="${MW3PM_GAME_DIR}" MW1_MW3_GAME_DIR="${MW3_GAME_DIR}"
+                                            MW1_DOS_GAME_DIR="${MW1_DOS_GAME_DIR}"
                                             MW3_TEST_TMP_ROOT="${CMAKE_CURRENT_BINARY_DIR}"
                                             MW3_SOURCE_DIR="${MW3RE_DIR}")
 enable_testing()
