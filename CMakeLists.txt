@@ -11,6 +11,22 @@ project(mw1 LANGUAGES C CXX)
 set(MW3_GAME_DIR "${CMAKE_CURRENT_SOURCE_DIR}/game/mw3-1.2" CACHE PATH "The MechWarrior 3 install the tests and development builds read (its worlds)")
 set(MW3PM_GAME_DIR "${CMAKE_CURRENT_SOURCE_DIR}/game/pm" CACHE PATH "The Pirate's Moon install the tests and development builds read")
 set(MW1_DOS_GAME_DIR "${CMAKE_CURRENT_SOURCE_DIR}/game/mw1-dos/mwarrior/MECHWAR" CACHE PATH "The MechWarrior (1989) DOS folder the development builds read")
+# The tests' exe checks and the narration need it: without MW_MAIN.EXE there (any case), say so now, not only as
+# skipped tests at the end of a run (tests/mw1_install.h).
+file(GLOB mw1_dos_files LIST_DIRECTORIES false "${MW1_DOS_GAME_DIR}/*")
+set(mw1_dos_main FALSE)
+foreach(f IN LISTS mw1_dos_files)
+  get_filename_component(n "${f}" NAME)
+  string(TOUPPER "${n}" n)
+  if(n STREQUAL "MW_MAIN.EXE")
+    set(mw1_dos_main TRUE)
+  endif()
+endforeach()
+if(NOT mw1_dos_main)
+  message(WARNING "No MW_MAIN.EXE in MW1_DOS_GAME_DIR (${MW1_DOS_GAME_DIR}): the tests that check MW1's exe will be "
+                  "skipped, and a development mw1 has no narration, pitches or titles. Set -DMW1_DOS_GAME_DIR to the "
+                  "MechWarrior (1989) folder.")
+endif()
 set(MW3_BUILD_MW3 OFF CACHE BOOL "MechWarrior 3's own programs: not built for MW1")
 set(MW3_BUILD_PM ON CACHE BOOL "Pirate's Moon: MW1's base")
 

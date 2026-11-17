@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "check.h"
+#include "mw1_install.h"
 #include "mw1_campaign.h"
 #include "mw1_market.h"
 #include "mw1_save.h"
@@ -54,9 +55,11 @@ mw1::Company company_at(const char* name, int64_t funds) {
 }  // namespace
 
 TEST(mw1_travel_map_and_calendar_are_mw_main_exes) {
+  if (mw1_test::no_mw1()) return;
   const std::vector<uint8_t> d = mw_main_data();
   if (d.size() < 0x9000) {
-    std::printf("  no MW_MAIN.EXE in %s: skipped\n", MW1_DOS_GAME_DIR);
+    std::printf("  MW1 install at %s, but its exe doesn't read\n", MW1_DOS_GAME_DIR);
+    EXPECT(false);
     return;
   }
   for (int32_t i = 0; i < mw1::kPlanetCount; ++i) {

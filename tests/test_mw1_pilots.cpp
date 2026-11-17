@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "check.h"
+#include "mw1_install.h"
 #include "mw1_campaign.h"
 #include "mw1_pilots.h"
 #include "mw1_save.h"
@@ -48,9 +49,11 @@ int32_t id_named(const char* name) {
 }  // namespace
 
 TEST(mw1_pilots_records_and_wages_are_mw_main_exes) {
+  if (mw1_test::no_mw1()) return;
   const std::vector<uint8_t> d = mw_main_data();
   if (d.size() < 0x9C40) {
-    std::printf("  no MW_MAIN.EXE in %s: skipped\n", MW1_DOS_GAME_DIR);
+    std::printf("  MW1 install at %s, but its exe doesn't read\n", MW1_DOS_GAME_DIR);
+    EXPECT(false);
     return;
   }
   EXPECT(uword(d, 0x9121) == 0);  // id 0: no pilot

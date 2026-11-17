@@ -16,6 +16,7 @@
 #endif
 
 #include "check.h"
+#include "mw1_install.h"
 #include "gamez/zgame/zgame_table.h"
 #include "gamez/zreader/zreader.h"
 #include "gamez/zsound/zsnd.h"
@@ -1057,6 +1058,7 @@ TEST(mw1_loop_lancemates_fly_named_and_aimed_then_the_casualty_headless) {
   const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_loop_lance";
   fs::remove_all(dir, ec);
   fs::create_directories(dir, ec);
+  mw1_test::no_mw1();  // the pitch's check skipped without MW1; the rest runs
   in_child([&] {
     Run run;
     run.save = (dir / mw1::kSaveFile).string();
@@ -1064,6 +1066,7 @@ TEST(mw1_loop_lancemates_fly_named_and_aimed_then_the_casualty_headless) {
     run.world = "c2";
     mw1::set_mw1_game_dir(MW1_DOS_GAME_DIR);  // the pitches, as mw1's start gives it
     const std::vector<std::string> pitch = mw1::pitch(1);
+    EXPECT(!pitch.empty() || !mw1_test::mw1_there());  // the pitch shown when MW1 is installed (its absence counted outside)
     loop_run(kWon, &run);
     mw1::set_mw1_game_dir("");
     std::printf("  lance: %d allies in the mission;", run.allies);
@@ -1361,6 +1364,7 @@ std::string read_file(const fs::path& f) {
 TEST(mw1_menu_new_campaign_plays_the_intro_then_the_hub_headless) {
   std::error_code ec;
   if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  const bool with_mw1 = !mw1_test::no_mw1();  // the narration's check skipped without MW1; the rest runs
   in_child([&] {
     const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_menu_new";
     fs::remove_all(dir, ec);
@@ -1433,7 +1437,8 @@ TEST(mw1_menu_new_campaign_plays_the_intro_then_the_hub_headless) {
     for (const std::string& l : menu_later) std::printf(" [%s]", l.c_str());
     std::printf("\n  intro: %.1f s, narration %d, grey %d white %d picture %d; options %d, quit asked %d\n", intro_seconds, narration, grey,
                 white, picture, options_seen, quit_asked);
-    EXPECT(step >= 6 && narration && grey && white && picture && intro_seconds > 30.0f);
+    EXPECT(step >= 6 && grey && white && picture && intro_seconds > 30.0f);
+    EXPECT(narration == with_mw1);  // MW1's ten lines with its install; without it, none (black, then the picture)
     EXPECT(r.boxes.size() == 1);  // PM's quit box alone: a first campaign isn't asked about
     EXPECT(options_seen && quit_asked);
     EXPECT(menu_later.size() > menu_first.size());  // the company named under CONTINUE
@@ -1469,6 +1474,14 @@ TEST(mw1_menu_continue_and_new_over_a_save_headless) {
         mw1::MenuState* m = mw1::game_loop_menu();
         if (step == 0 && showing(app, m)) {
           EXPECT(m->screen()->enabled(mw1::kMenuContinue));
+          // The saved company named before it's loaded: its planet and funds.
+          const std::vector<std::string> shown = m->screen()->shown();
+          bool named = false;
+          for (const std::string& l : shown) named |= l.find("C-bills") != std::string::npos;
+          std::printf("  the menu over the save:");
+          for (const std::string& l : shown) std::printf(" [%s]", l.c_str());
+          std::printf("\n");
+          EXPECT(named && !mw1::game_loop_company());
           m->screen()->on_button(mw1::kMenuContinue, 0, 0), step = 1;
           return false;
         }

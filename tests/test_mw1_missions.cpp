@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "check.h"
+#include "mw1_install.h"
 #include "gamez/zreader/zreader.h"
 #include "mw1_campaign.h"
 #include "mw1_missions.h"
@@ -43,10 +44,12 @@ int32_t word(const std::vector<uint8_t>& d, size_t at) { return d[at] | d[at + 1
 }  // namespace
 
 TEST(mw1_missions_tables_are_the_exes) {
+  if (mw1_test::no_mw1()) return;
   const std::vector<uint8_t> m = segment(exe("MW_MAIN.EXE"), 0x1090 - 0x0800);
   const std::vector<uint8_t> bt = segment(exe("BTECH.EXE"), 0x2696);
   if (m.size() < 0x9000 || bt.size() < 0x1000) {
-    std::printf("  no MW_MAIN.EXE or BTECH.EXE in %s: skipped\n", MW1_DOS_GAME_DIR);
+    std::printf("  MW1 install at %s, but its exe doesn't read\n", MW1_DOS_GAME_DIR);
+    EXPECT(false);
     return;
   }
   // houseMissionTypeLimits (DS:5CBA).

@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "check.h"
+#include "mw1_install.h"
 #include "mech3/mech_ids.h"
 #include "mech3/mech_names.h"
 #include "mech3/pilot.h"
@@ -40,9 +41,11 @@ int32_t word(const std::vector<uint8_t>& d, size_t at) { return static_cast<int1
 }  // namespace
 
 TEST(mw1_campaign_tables_are_mw_main_exes) {
+  if (mw1_test::no_mw1()) return;
   const std::vector<uint8_t> d = mw_main_data();
   if (d.size() < 0x5000) {
-    std::printf("  no MW_MAIN.EXE in %s: skipped\n", MW1_DOS_GAME_DIR);
+    std::printf("  MW1 install at %s, but its exe doesn't read\n", MW1_DOS_GAME_DIR);
+    EXPECT(false);
     return;
   }
   EXPECT(static_cast<int32_t>(d[0x491] | d[0x492] << 8 | d[0x493] << 16 | d[0x494] << 24) == mw1::kStartingFunds);
@@ -214,9 +217,11 @@ TEST(mw1_new_company_starts_on_one_of_the_eight_worlds) {
 // The eight starting worlds against the exe: pool 0's planet numbers (DS:8FDA), and each one's record
 // (planetRecordOffsets, DS:6570): number, House, market tier, the name after the record's ten bytes.
 TEST(mw1_start_planets_are_mw_main_exes) {
+  if (mw1_test::no_mw1()) return;
   const std::vector<uint8_t> d = mw_main_data();
   if (d.size() < 0x9000) {
-    std::printf("  no MW_MAIN.EXE in %s: skipped\n", MW1_DOS_GAME_DIR);
+    std::printf("  MW1 install at %s, but its exe doesn't read\n", MW1_DOS_GAME_DIR);
+    EXPECT(false);
     return;
   }
   for (int i = 0; i < mw1::kStartPlanetCount; ++i) {

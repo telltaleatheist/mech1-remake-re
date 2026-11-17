@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "check.h"
+#include "mw1_install.h"
 #include "gamez/zimage/zimg_library.h"
 #include "gamez/zimage/zimg_texture.h"
 #include "mw1_images.h"
@@ -33,13 +34,15 @@ void touch(const fs::path& p) {
 }  // namespace
 
 TEST(mw1_menu_the_narration_is_the_exes) {
+  if (mw1_test::no_mw1()) return;
   mw1::set_mw1_game_dir("");
   EXPECT(mw1::intro_narration().empty());  // no MW1: no narration (the intro is the picture alone)
   mw1::set_mw1_game_dir(MW1_DOS_GAME_DIR);
   const std::vector<std::string> lines = mw1::intro_narration();
   mw1::set_mw1_game_dir("");
   if (lines.empty()) {
-    std::printf("  no MW_MAIN.EXE in %s: skipped\n", MW1_DOS_GAME_DIR);
+    std::printf("  MW1 install at %s, but its exe doesn't read\n", MW1_DOS_GAME_DIR);
+    EXPECT(false);
     return;
   }
   // Ten lines (MwDrawIntroNarrationLines), each printable and within MW1's 0x50; their words stay in the exe.
