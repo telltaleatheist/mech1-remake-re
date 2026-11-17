@@ -88,6 +88,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       pending_->outcome = ended_ && !failed_ ? Outcome::kSuccess : failed_ ? Outcome::kFailure : Outcome::kRetreat;
       pending_->wrecks = wrecks_;
       pending_->lance = fates_;
+      pending_->stayed = stayed_behind(flying_, fates_);  // the map's allied places ran out: they didn't fly
       pending_->salvage = std::move(salvage_);
       pending_->launch_stores = launch_stores_, pending_->launch_loadout = launch_loadout_;
       std::printf("mw1: back: %s, %zu wrecks: after action\n", ending_word(pending_->outcome), wrecks_.size());
@@ -235,7 +236,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     switch (id) {
       case kBarHire: {
         const Hire h = hire(company_, bchoice_.recruit);
-        bchoice_.note = h == Hire::kDone ? who + " joins the lance." : h == Hire::kFull ? std::string(hire_words(h)) + " " + who + " moves on." : hire_words(h);
+        bchoice_.note = h == Hire::kDone ? who + " joins the lance."
+                        : h == Hire::kFull ? std::string(hire_words(h)) + " " + who + " won't wait: the offer is gone."
+                                           : hire_words(h);
         if (h == Hire::kDone) bchoice_.mate = static_cast<int32_t>(company_.lance.size()) - 1;
         changed = h != Hire::kNoSuch;
         break;
@@ -465,6 +468,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
                                   "Salvage: " + thousands(s.salvage) + " C-bills",
                                   "Payment: " + thousands(s.fee) + " C-bills (" + std::to_string(s.payout_percent) + "%)",
                                   "Funds: " + thousands(c.funds) + " C-bills"};
+    for (const LanceFate& f : pending_->lance)
+      l.push_back(pilot_title(f.id) + (f.destroyed ? ": mech destroyed" : ": flew"));
+    for (int32_t id : pending_->stayed)
+      l.push_back(pilot_title(id) + " stayed behind: no place on this map (" + std::to_string(pending_->lance.size()) + " allied)");
     if (pending_->outcome == Outcome::kFailure) l.push_back(""), l.push_back("REPLAY: play it again as it was");
     return l;
   }

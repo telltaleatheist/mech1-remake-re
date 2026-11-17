@@ -205,6 +205,7 @@ struct AfterAction {
   Outcome outcome = Outcome::kSuccess;
   std::vector<Wreck> wrecks;
   std::vector<LanceFate> lance;  // the lancemates who launched
+  std::vector<int32_t> stayed;   // those deployed with a mech the map had no allied place for (never flew)
   std::shared_ptr<mech3::Store> salvage;         // the mission's parts, the stores' on a win
   std::shared_ptr<mech3::Store> launch_stores;   // the company's stores at the contract's first launch (REPLAY)
   std::shared_ptr<mech3::Config> launch_loadout;  // and its loadout (null: stock)

@@ -243,6 +243,16 @@ void charge_wages(Company& c, int32_t months) {
   c.notices.push_back("Unpaid, the lancemates have left the company.");
 }
 
+std::vector<int32_t> stayed_behind(const std::vector<int32_t>& deployed, const std::vector<LanceFate>& launched) {
+  std::vector<int32_t> out;
+  for (int32_t id : deployed) {
+    bool flew = false;
+    for (const LanceFate& f : launched) flew = flew || f.id == id;
+    if (!flew) out.push_back(id);
+  }
+  return out;
+}
+
 bool pilot_killed(const LanceFate& f) { return f.destroyed; }
 
 void after_mission(Company& c, const std::vector<LanceFate>& fates) {

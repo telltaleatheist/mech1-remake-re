@@ -73,6 +73,10 @@ void charge_wages(Company& c, int32_t months);
 // rises and Piloting is set to it, the count starting again. Excellent stays.
 inline constexpr int32_t kPromotionMissions[3] = {3, 10, 15};
 
+// Those deployed with a mech who never launched: the map's allied places (the line-up gives each ally an unused record
+// of the player's side) ran out before them. They didn't fly: no mission counted, never a casualty. Every shipped
+// Instant Action map has at least three (research/pilots.md), so only a mod's map leaves anyone behind.
+std::vector<int32_t> stayed_behind(const std::vector<int32_t>& deployed, const std::vector<LanceFate>& launched);
 // The rule for a pilot whose mech is destroyed (provisional, Owen's: always killed; an ejection's chance goes here).
 bool pilot_killed(const LanceFate& f);
 // After a counted mission (won, or failed and accepted; never a replay or a quit): promotions, then casualties (223F):

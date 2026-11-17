@@ -142,6 +142,7 @@ struct Run {
   // Lancemates (mw1_pilots.h) before the first ACCEPT: Elli Gujar (Poor) in a Firefly and J. Holmaas (Excellent) in
   // an Owens, hired and assigned; in the mission their names and aims, the enemies and Holmaas's mech destroyed.
   bool lance = false, lance_set = false;
+  int32_t lance_count = 2;  // 3: Taris Ren too, in a second Firefly
   std::vector<std::string> ally_pilots;  // the allied brains' pilots, in the mission
   std::vector<float> ally_errors;
   int32_t allies = 0;
@@ -266,16 +267,20 @@ void loop_run(Ending ending, Run* run = nullptr) {
         for (const std::string& l : run->bar_lines) std::printf(" [%s]", l.c_str());
         std::printf("\n");
         EXPECT(sc->loaded() && sc->enabled(mw1::kBarHire) && sc->enabled(mw1::kBarDecline) && !sc->enabled(mw1::kBarFire));
-        // HIRE Elli Gujar, HIRE J. Holmaas; ASSIGN Elli (the Firefly), down to Holmaas, ASSIGN (the Owens); BACK.
-        sc->on_button(mw1::kBarHire, 0, 0);
-        sc->on_button(mw1::kBarHire, 0, 0);
-        sc->on_button(mw1::kBarLanceUp, 0, 0);
-        sc->on_button(mw1::kBarAssign, 0, 0);
-        sc->on_button(mw1::kBarLanceDown, 0, 0);
-        sc->on_button(mw1::kBarAssign, 0, 0);
+        // HIRE each (Elli Gujar, J. Holmaas, Taris Ren); up to Elli, ASSIGN (the Firefly), down, ASSIGN (the Owens), ...;
+        // BACK.
+        const int32_t n = run->lance_count;
+        for (int32_t i = 0; i < n; ++i) sc->on_button(mw1::kBarHire, 0, 0);
+        for (int32_t i = 0; i < n; ++i) sc->on_button(mw1::kBarLanceUp, 0, 0);
+        for (int32_t i = 0; i < n; ++i) {
+          if (i) sc->on_button(mw1::kBarLanceDown, 0, 0);
+          sc->on_button(mw1::kBarAssign, 0, 0);
+        }
         run->bar_after = sc->shown();
-        EXPECT(c->lance.size() == 2 && c->recruits.empty() && mw1::mech_of(*c, 0) == 0 && mw1::mech_of(*c, 1) == 1 && mw1::lance_weight(*c) == 3);
+        EXPECT(static_cast<int32_t>(c->lance.size()) == n && c->recruits.empty() && mw1::mech_of(*c, 0) == 0 && mw1::mech_of(*c, 1) == 1);
+        EXPECT(mw1::lance_weight(*c) == 1 + n);  // the Owens and the light mechs, 1 each
         EXPECT(!sc->enabled(mw1::kBarHire) && sc->enabled(mw1::kBarFire) && sc->enabled(mw1::kBarAssign));
+        if (n == 3) EXPECT(mw1::mech_of(*c, 2) == 2);
         run->lance_set = true;
         sc->on_button(mw1::kBarBack, 0, 0);
         return;
@@ -376,7 +381,10 @@ void loop_run(Ending ending, Run* run = nullptr) {
           // Two recruits in the Bar and two mechs in the hangar; the Bar's buttons do the rest.
           mw1::Company* mc = mw1::game_loop_company_for_tests();
           mc->recruits = {1, 41};
-          for (int32_t m : {mw1::kPmFirefly, mw1::kPmOwens}) {
+          if (run->lance_count == 3) mc->recruits.push_back(3);
+          std::vector<int32_t> mechs = {mw1::kPmFirefly, mw1::kPmOwens};
+          if (run->lance_count == 3) mechs.push_back(mw1::kPmFirefly);
+          for (int32_t m : mechs) {
             mw1::OwnedMech o;
             o.mech = m;
             mc->hangar.push_back(o);
@@ -946,5 +954,34 @@ TEST(mw1_loop_lancemates_fly_named_and_aimed_then_the_casualty_headless) {
     EXPECT(saved.lance.size() == 1 && saved.lance[0].id == 1 && saved.pilots[1].missions == 1);
     EXPECT(saved.pilots[41].where == mw1::PilotWhere::kDead && saved.hangar.size() == 1 && saved.hangar[0].mech == mw1::kPmFirefly &&
            saved.hangar[0].pilot == 1);
+  });
+}
+
+// A full lance on a Pirate's Moon map: every shipped Instant Action map (c1..c4 ia1..4, and MW3's converted c2) has at
+// least three allied records (pirate_mate_1..3), so all three lancemates fly; AFTER ACTION lists each. (A map with
+// fewer, a mod's, leaves the rest behind: mw1_pilots_who_stayed_behind.)
+TEST(mw1_loop_a_full_lance_flies_on_a_pm_map_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_loop_lance3";
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  in_child([&] {
+    Run run;
+    run.save = (dir / mw1::kSaveFile).string();
+    run.lance = true, run.lance_count = 3;
+    run.world = "c2";
+    loop_run(kWon, &run);
+    std::printf("  lance of 3: %d allies launched;", run.allies);
+    for (const std::string& p : run.ally_pilots) std::printf(" [%s]", p.c_str());
+    std::printf("\n");
+    EXPECT(run.allies == 3 && run.launches.size() == 3);
+    auto shows = [&](const std::string& t) {
+      for (const std::string& l : run.after_action)
+        if (l == t) return true;
+      return false;
+    };
+    EXPECT(shows("Elli Gujar: flew") && shows("J. Holmaas: mech destroyed") && shows("Taris Ren: flew"));
+    for (const std::string& l : run.after_action) EXPECT(l.find("stayed behind") == std::string::npos);
   });
 }

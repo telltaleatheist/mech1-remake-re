@@ -255,3 +255,16 @@ TEST(mw1_pilots_saved_and_a_version_3_save_read) {
   EXPECT(old.lance.empty() && old.recruits.empty() && old.hangar.size() == 1 && old.hangar[0].pilot == 0);
   for (int32_t id = 1; id < mw1::kPilotIds; ++id) EXPECT(old.pilots[id].where == mw1::PilotWhere::kFree);
 }
+
+TEST(mw1_pilots_who_stayed_behind) {
+  // Three deployed, the map's two allied places taken by the first two: the third stayed behind, and the counted
+  // mission's experience and casualties are only the two who flew.
+  EXPECT(mw1::stayed_behind({1, 41, 3}, {{1, false}, {41, true}}) == std::vector<int32_t>({3}));
+  EXPECT(mw1::stayed_behind({1}, {{1, false}}).empty() && mw1::stayed_behind({}, {}).empty());
+  mw1::Company c = company();
+  c.recruits = {1, 41, 3};
+  for (int i = 0; i < 3; ++i) mw1::hire(c, 0);
+  mw1::after_mission(c, {{1, false}, {41, true}});
+  EXPECT(c.pilots[1].missions == 1 && c.pilots[3].missions == 0 && c.pilots[3].where == mw1::PilotWhere::kHired &&
+         c.pilots[41].where == mw1::PilotWhere::kDead);
+}
