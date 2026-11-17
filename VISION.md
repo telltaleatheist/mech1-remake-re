@@ -77,21 +77,15 @@ at first run, from the player's own MW3 install into MW1's data folder,
 under their own names (`mw3c2`, `mw3c4b`). The engine only ever sees PM
 data. Nothing converted is shipped.
 **The conversion tool** (Owen, 2026-11-16): a proper tool of our own, in
-C++ like the rest, in mw3-re's `tools/` beside its importer: it reads and
-writes MW3's and PM's files and converts between them. It's built on
-mw3-re's own ported, exe-derived readers and writers. It overlaps Owen's
-**zipkit** plan (2026-11-14: an MIT, clean-room replacement for mech3ax), so
-its rules apply: whoever writes it has never read mech3ax's source (EUPL),
-and it uses none of mw3-re's `*_json` readers, which cite it. mech3ax's
-output may be used as a check, by running its binary. Whether this becomes
-zipkit: Owen, 2026-11-16, via the mw3 lead: a rudimentary version scoped
-to MW1 (MW3 to PM, archives, gamez and anim, c2 and c4b), on `mw1-engine`,
-its format code apart from the conversion so it can move into zipkit (MIT,
-its own repo) later. It's written by a fresh session that has never read
-mech3ax's source, from a clean, exe-derived spec. MW1's first-run conversion calls
-this tool. It's about 1.5–2 weeks of work. Its spec is exe-derived only; the
-earlier measurements touched mech3ax and are kept privately, away from the
-implementer.
+C++ like the rest, in mw3-re's `tools/`. It reads and writes MW3's and
+PM's files and converts between them. It's the seed of Owen's **zipkit**
+(MIT, its own repo later), scoped for now to what MW1 needs: MW3 to PM
+archives, gamez and scripts for c2 and c4b. It starts static, with no anim,
+and anim follows. It's built on mw3-re's own ported readers and writers,
+with mech3ax as the reference for what it does and its output as a check.
+mech3ax's code (EUPL) isn't copied or translated. The smoke test
+(2026-11-16) played MW3's c2 in mw1 from a hand-converted gamez with no
+anim: the world draws and plays.
 
 The player's MW3 and PM files are **never modified** (Owen, 2026-11-16):
 they must stay playable in MW3 and PM. MW1 works only on its own copies.
