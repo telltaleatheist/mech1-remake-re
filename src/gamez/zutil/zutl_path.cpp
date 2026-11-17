@@ -173,6 +173,20 @@ void mount_mod(const std::string& dir) {
   g_mounts.read.push_back(dir);
   g_mounts.mods.push_back(dir);
 }
+void mount_only(const std::string& dir, const std::string& folder) {
+  g_mounts.read.push_back(dir);
+  g_mounts.only.emplace_back(dir, folder);
+}
+// Ours (mount_only): whether the read mount `dir` serves the game path `h` (host form).
+static bool mount_serves(const std::string& dir, const std::string& h) {
+  for (const auto& [d, folder] : g_mounts.only) {
+    if (d != dir) continue;
+    if (h.size() < folder.size()) return false;
+    for (size_t i = 0; i < folder.size(); ++i)
+      if (std::tolower(static_cast<unsigned char>(h[i])) != std::tolower(static_cast<unsigned char>(folder[i]))) return false;
+  }
+  return true;
+}
 bool is_mod_dir(const std::string& dir) {
   for (const std::string& m : g_mounts.mods)
     if (dir == m || (dir.size() > m.size() && dir.compare(0, m.size(), m) == 0 && dir[m.size()] == '/')) return true;
@@ -224,6 +238,7 @@ std::string find(const char* path) {
   if (!g_mounts.write.empty() && is_file(join(g_mounts.write, h))) return join(g_mounts.write, h);  // what the game wrote
   for (const std::string& dir : g_mounts.read) {
     if (!g_mounts.mods.empty() && is_mod_dir(dir) && !mod_may_serve(h)) continue;
+    if (!mount_serves(dir, h)) continue;
     const std::string p = in_mount(dir, h);
     if (!p.empty()) return p;
   }
@@ -241,6 +256,7 @@ std::vector<std::string> find_all(const char* path) {
   if (!g_mounts.write.empty() && is_file(join(g_mounts.write, h))) out.push_back(join(g_mounts.write, h));
   for (const std::string& dir : g_mounts.read) {
     if (!g_mounts.mods.empty() && is_mod_dir(dir) && !mod_may_serve(h)) continue;
+    if (!mount_serves(dir, h)) continue;
     const std::string p = in_mount(dir, h);
     if (!p.empty() && std::find(out.begin(), out.end(), p) == out.end()) out.push_back(p);
   }
@@ -283,6 +299,7 @@ std::vector<std::string> list(const char* pattern) {
   std::vector<std::string> out;
   for (const std::string& r : roots) {
     if (!g_mounts.mods.empty() && is_mod_dir(r) && !mod_may_serve(dir + "/")) continue;
+    if (r != g_mounts.write && !mount_serves(r, dir + "/")) continue;
     std::error_code ec;
     const std::string at = any_case(r, dir);  // the folder's case too, as the names'
     for (std::filesystem::directory_iterator it(at.empty() ? join(r, dir) : at, ec), end; !ec && it != end; it.increment(ec)) {

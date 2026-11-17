@@ -806,3 +806,33 @@ TEST(pm_data_version_knows_its_own_files) {
   EXPECT(none.name == "incomplete" && none.missing == 14);
   zutl::mounts() = saved;
 }
+
+// Ours (MW1: Critical Hit, zutl::mount_only): another game's write dir mounted for its music alone lends music/ and
+// nothing of the player's: not its settings, pilots or saved loadouts, found or listed.
+TEST(pm_mounts_only_a_folder_serve_that_folder_alone) {
+  const zutl::Mounts keep = zutl::mounts();
+  namespace fs = std::filesystem;
+  const fs::path d = fs::path(MW3_TEST_TMP_ROOT) / "mount_only";
+  std::error_code ec;
+  fs::remove_all(d, ec);
+  for (const char* f : {"pm/music/track02.wav", "pm/settings.reg", "pm/pilots/ace.plt", "pm/configs/a.mw3", "pm/MUSIC2/x.wav"}) {
+    fs::create_directories((d / f).parent_path(), ec);
+    std::ofstream(d / f) << "x";
+  }
+  fs::create_directories(d / "mine", ec);
+  zutl::mounts() = zutl::Mounts{};
+  zutl::set_write_dir((d / "mine").string());
+  zutl::mount_only((d / "pm").string(), "music/");
+  EXPECT(zutl::find("music\\track02.wav") == (d / "pm/music/track02.wav").string());
+  EXPECT(zutl::exists("MUSIC/track02.wav"));
+  EXPECT(zutl::find("settings.reg").empty() && zutl::find("pilots\\ace.plt").empty() && zutl::find("configs\\a.mw3").empty());
+  EXPECT(zutl::find("music2\\x.wav").empty() && zutl::find_all("settings.reg").empty());
+  EXPECT(zutl::list("pilots\\*.plt").empty() && zutl::list("configs\\*").empty());
+  EXPECT(zutl::list("music\\*.wav").size() == 1);
+  // A plain mount of the same folder serves all of it (the reason for mount_only).
+  zutl::mounts() = zutl::Mounts{};
+  zutl::mount((d / "pm").string());
+  EXPECT(!zutl::find("settings.reg").empty());
+  zutl::mounts() = keep;
+  fs::remove_all(d, ec);
+}

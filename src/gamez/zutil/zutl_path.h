@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdio>
 #include <string>
+#include <utility>
 #include <vector>
 
 // Where game files come from (docs/assets-layer.md). The original looks files
@@ -43,12 +44,18 @@ struct Mounts {
   // part finds and writes nothing (docs/assets-layer.md). Tools and tests
   // leave it off and pass host paths.
   bool confined = false;
+  // Ours (MW1: Critical Hit, mount_only): read mounts that serve only the game paths under a folder, as
+  // (mount, "music/"); another game's write dir lends its music and nothing of the player's.
+  std::vector<std::pair<std::string, std::string>> only;
 };
 Mounts& mounts();
 
 void mount(const std::string& dir);          // appended: searched after the ones before
 void mount_front(const std::string& dir);    // searched first (an override folder)
-void mount_mod(const std::string& dir);      // appended, as a mod (Mounts::mods)
+void mount_mod(const std::string& dir);
+// Ours (MW1: Critical Hit): appended, serving only the game paths under `folder` ("music/"): find, find_all, exists,
+// open and list see nothing else in it.
+void mount_only(const std::string& dir, const std::string& folder);      // appended, as a mod (Mounts::mods)
 bool is_mod_dir(const std::string& dir);     // a mod's root or a folder under one
 // Whether a mod may serve the game path (host form): not the player's own
 // files (pilots, saved loadouts, keys, mw3.cfg, the settings, the logs).
