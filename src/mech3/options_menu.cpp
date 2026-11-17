@@ -214,17 +214,21 @@ UpgradesScreen::UpgradesScreen(Engine& e, Handle s)
     for (int k = 0; k < 5; ++k) bind_button(five[k], kNames[k]);
     bind_button(&wide_menus, "WIDE_MENUS");
     bind_button(&small_list, "SMALL_LIST");
+    // Ours: a program's layout may place the note itself (a NOTE text: its place and font); none in PM's.
+    if (zrdr::Node* prims = zrdr::find(node, "PRIMITIVES"); prims && zrdr::find(prims, "NOTE")) note_placed = bind_primitive(&note, "NOTE");
     unload();
   }
   small_list.clear_items();
   for (const char* line : upgrades::small_fixes_list()) small_list.add_item(line, 0);
   small_list.layout();
-  note.set_font(ztwod::host().font_find("ia_dark_grey"));
-  note.set_pos(64, 290);
+  if (!note_placed) {
+    note.set_font(ztwod::host().font_find("ia_dark_grey"));
+    note.set_pos(64, 290);
+  }
   const bool hosts = upgrades::hosts();
   note.set_text("%s", hosts ? "In this network game the switches are the host's." : "Each switch off plays that part as the game shipped.");
   if (note.needs_render) note.render();
-  add(&note);
+  if (!note_placed) add(&note);
   set_flags_all(0);
   set_active(1);
   if (hosts)

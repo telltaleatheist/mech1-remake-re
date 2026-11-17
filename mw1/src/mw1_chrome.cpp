@@ -296,6 +296,73 @@ images::Image arrow(bool up, int32_t state) {
   return c.image(std::string(up ? "mw1_up" : "mw1_dn") + kLooks[std::clamp(state, 0, 3)]);
 }
 
+images::Image side_arrow(bool right, int32_t state) {
+  // arrow()'s look on its side: the point to the left or the right.
+  Canvas c(kSideArrowW, kSideArrowH);
+  glass(c, 2, 2, kSideArrowW - 2, kSideArrowH - 2, state == 2 ? 250 : 230);
+  thin_frame(c, 0, 0, kSideArrowW, kSideArrowH, 2, state == 1 ? Rgba{255, 170, 40, 200} : state == 3 ? Rgba{40, 40, 44, 150} : Rgba{});
+  const Rgba ink = state == 3 ? Rgba{80, 84, 88, 255} : state == 0 ? Rgba{217, 221, 224, 255} : Rgba{255, 176, 64, 255};
+  const int32_t cy = kSideArrowH / 2, left = 6, cols = kSideArrowW - 12;
+  for (int32_t col = 0; col < cols; ++col) {
+    const int32_t half = right ? cols - 1 - col : col;
+    for (int32_t y = cy - half - 1; y <= cy + half; ++y) c.set(left + col, y, ink);
+  }
+  static const char* const kLooks[4] = {"", "_lit", "_down", "_off"};
+  return c.image(std::string(right ? "mw1_rt" : "mw1_lt") + kLooks[std::clamp(state, 0, 3)]);
+}
+
+images::Image slider(bool fill) {
+  // A slider's groove (dark glass in a thin frame) or the fill drawn over it (amber, lit at the top).
+  Canvas c(kSliderW, kSliderH);
+  if (!fill) {
+    glass(c, 2, 2, kSliderW - 2, kSliderH - 2, 235);
+    thin_frame(c, 0, 0, kSliderW, kSliderH, 2);
+  } else {
+    for (int32_t y = 2; y < kSliderH - 2; ++y)
+      for (int32_t x = 2; x < kSliderW - 2; ++x) c.set(x, y, y == 2 ? Rgba{255, 214, 140, 255} : Rgba{230, 150, 40, 255});
+  }
+  return c.image(fill ? kSliderFill : kSlider);
+}
+
+images::Image check(bool on) {
+  // A check box: the button's glass and frame, an amber square inside when checked.
+  Canvas c(kCheckSize, kCheckSize);
+  glass(c, 2, 2, kCheckSize - 2, kCheckSize - 2, 235);
+  thin_frame(c, 0, 0, kCheckSize, kCheckSize, 2);
+  if (on)
+    for (int32_t y = 5; y < kCheckSize - 5; ++y)
+      for (int32_t x = 5; x < kCheckSize - 5; ++x) c.set(x, y, {255, 176, 64, 255});
+  return c.image(on ? kChecked : kCheck);
+}
+
+images::Image cell(int32_t state) {
+  // A control table's cell (a key's, the row shown): dark glass, a thin frame (its lit lip), amber when lit, an amber
+  // fill when chosen.
+  Canvas c(kCellW, kCellH);
+  glass(c, 1, 1, kCellW - 1, kCellH - 1, state == 2 ? 250 : 200);
+  if (state == 2)
+    for (int32_t y = 2; y < kCellH - 2; ++y)
+      for (int32_t x = 2; x < kCellW - 2; ++x) c.set(x, y, {90, 56, 14, 240});
+  thin_frame(c, 0, 0, kCellW, kCellH, 2, state >= 1 ? Rgba{255, 170, 40, 220} : Rgba{});
+  return c.image(kCells[std::clamp(state, 0, 2)]);
+}
+
+images::Image dialog_tall() {
+  // dialog_frame()'s look, taller (the file popup's).
+  Canvas c(kDialogW, kDialogTallH);
+  glass(c, 4, 4, kDialogW - 4, kDialogTallH - 4, 255);
+  thin_frame(c, 0, 0, kDialogW, kDialogTallH, 4);
+  for (int32_t x = 14; x < kDialogW - 14; ++x) c.set(x, kDialogRule, {200, 130, 40, 230});
+  for (int32_t x : {5, kDialogW - 6})
+    for (int32_t y : {5, kDialogTallH - 6}) rivet(c, x, y, 2);
+  return c.image(kDialogTall);
+}
+
+images::Image clear() {
+  Canvas c(4, 4);
+  return c.image(kClear);
+}
+
 std::vector<images::Image> all() {
   std::vector<images::Image> v = {plaque(), status_bar(), dialog_frame(), dim(), cursor()};
   for (int32_t s = 0; s < 3; ++s) v.push_back(tile_frame(s));
@@ -306,6 +373,12 @@ std::vector<images::Image> all() {
     for (bool lit : {false, true}) v.push_back(frame(p.w, p.h, lit));
   for (bool up : {true, false})
     for (int32_t s = 0; s < 4; ++s) v.push_back(arrow(up, s));
+  for (bool right : {false, true})
+    for (int32_t s = 0; s < 4; ++s) v.push_back(side_arrow(right, s));
+  for (bool on : {false, true}) v.push_back(slider(on)), v.push_back(check(on));
+  for (int32_t s = 0; s < 3; ++s) v.push_back(cell(s));
+  v.push_back(dialog_tall());
+  v.push_back(clear());
   return v;
 }
 

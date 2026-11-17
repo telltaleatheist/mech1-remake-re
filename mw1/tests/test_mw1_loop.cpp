@@ -19,6 +19,8 @@
 
 #include "check.h"
 #include "mw1_install.h"
+#include "mw1_layouts.h"
+#include "gamez/ztwod/twod.h"
 #include "gamez/zgame/zgame_table.h"
 #include "gamez/zreader/zreader.h"
 #include "gamez/zsound/zsnd.h"
@@ -1443,6 +1445,12 @@ TEST(mw1_menu_new_campaign_plays_the_intro_then_the_hub_headless) {
           if (!showing(app, m)) return false;
           menu_first = m->screen()->shown();
           EXPECT(engine.message_box_file() == "mw1dialog.zrd");
+          // The pause and the options on MW1's layouts (mw1_layouts.h).
+          for (const mw1::LayoutSwap& sw : mw1::kLayoutSwaps) {
+            std::string file, dialog;
+            EXPECT(ztwod::layout_for(sw.game_file, sw.game_dialog, &file, &dialog) && file == sw.file &&
+                   (dialog == sw.dialog || dialog == std::string(sw.dialog) + mw1::kWideSuffix));
+          }
           // MW1's own menus: Pirate's Moon's main menu screen and multiplayer state not built (own_menus), its options
           // state still there (the hub's OPTIONS).
           EXPECT(mech3::main_menu() == nullptr && engine.peek32(0x609860) == 0 && engine.peek32(0x609868) != 0);  // every box in MW1's look (mw1dialog.zrd), PM's own too

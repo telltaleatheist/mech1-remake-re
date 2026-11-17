@@ -13,6 +13,7 @@
 #include "check.h"
 #include "gamez/zgame/zgame_table.h"
 #include "gamez/zreader/zreader.h"
+#include "gamez/ztwod/twod.h"
 #include "gamez/zutil/zfix.h"
 #include "gamez/zutil/zutl_path.h"
 #include "mech3/app.h"
@@ -996,8 +997,10 @@ TEST(program_flow_sees_main_and_the_instant_action_end_headless) {
   struct Flow : mech3::ProgramFlow {
     bool take_return = false;
     int mains = 0, endings = 0, mains_at_ending = -1;
+    int buildings = 0, mains_at_building = -1;
     bool main_entered(mech3::Engine&) override { return ++mains, take_return && mains > 1; }
     void mission_ending(mech3::Engine&) override { ++endings, mains_at_ending = mains; }
+    void menus_building(mech3::Engine&) override { ++buildings, mains_at_building = mains; }  // before each main_entered
   };
   for (const bool take : {false, true}) {
     Flow flow;
@@ -1059,7 +1062,31 @@ TEST(program_flow_sees_main_and_the_instant_action_end_headless) {
     std::printf("  program flow (%s the return): main entered %d, mission ending %d (after main %d), Instant Action reopened %d\n",
                 take ? "taking" : "not taking", flow.mains, flow.endings, flow.mains_at_ending, ia_open);
     EXPECT(flow.mains == 2 && flow.endings == 1 && flow.mains_at_ending == 1);
+    EXPECT(flow.buildings == 2 && flow.mains_at_building == 1);
     EXPECT(ia_open == !take);
     EXPECT(built);
   }
+}
+
+// Ours (ztwod::set_layout, for MW1): a program's layouts in place of the game's, only those it sets; none set (MW3,
+// PM), every dialog its own and every font the game's.
+TEST(pm_twod_layout_swaps_only_what_a_program_sets) {
+  ztwod::clear_layouts();
+  std::string file, dialog;
+  EXPECT(!ztwod::layout_for("dlgPause.zrd", "PAUSEDIALOG", &file, &dialog));
+  EXPECT(std::string(ztwod::layout_font("ia_small_green")) == "ia_small_green");
+  ztwod::set_layout("dlgPause.zrd", "PAUSEDIALOG", "ours.zrd", "OURPAUSE", "OURPAUSE_WIDE");
+  ztwod::set_layout_font("ia_small_green", "our_green");
+  EXPECT(ztwod::layout_for("DLGPAUSE.ZRD", "PAUSEDIALOG", &file, &dialog) && file == "ours.zrd" && dialog == "OURPAUSE");
+  bool wide = true;
+  ztwod::set_layout_wide([&] { return wide; });
+  EXPECT(ztwod::layout_for("dlgPause.zrd", "PAUSEDIALOG", &file, &dialog) && dialog == "OURPAUSE_WIDE");
+  wide = false;
+  EXPECT(ztwod::layout_for("dlgPause.zrd", "PAUSEDIALOG", &file, &dialog) && dialog == "OURPAUSE");
+  EXPECT(!ztwod::layout_for("dlgPause.zrd", "OTHERDIALOG", &file, &dialog));
+  EXPECT(!ztwod::layout_for("dlgOptions.zrd", "PAUSEDIALOG", &file, &dialog));
+  // A game's font is the program's only while a swapped dialog is read (Dialog::load to unload).
+  EXPECT(std::string(ztwod::layout_font("ia_small_green")) == "ia_small_green");
+  ztwod::clear_layouts();
+  EXPECT(!ztwod::layout_for("dlgPause.zrd", "PAUSEDIALOG", &file, &dialog));
 }

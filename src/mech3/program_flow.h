@@ -26,6 +26,9 @@ class ProgramFlow {
   // never shown under it, are not built at all (MainState::enter). False
   // (MW3, PM): the original's.
   virtual bool own_menus() const { return false; }
+  // Before the menu objects are built (MainState::enter, each time): what their screens read must be there by
+  // then (MW1: its pictures, fonts and the layouts it reads in place of the game's, ztwod::set_layout).
+  virtual void menus_building(Engine& e) {}
   // Instant Action's end (IA Dummy, 0x0047ce80) after its tally, before the
   // mission is cleaned up: the mission's entities are all still there.
   virtual void mission_ending(Engine& e) {}

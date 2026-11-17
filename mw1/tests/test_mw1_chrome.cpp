@@ -23,7 +23,9 @@ uint8_t alpha_at(const mw1::images::Image& im, int32_t x, int32_t y) { return im
 TEST(mw1_chrome_pieces) {
   const std::vector<mw1::images::Image> all = mw1::chrome::all();
   EXPECT(all.size() == 5 + 3 + 4 + mw1::chrome::panel_sizes().size() + mw1::chrome::terminal_sizes().size() +
-                          2 * mw1::chrome::frame_sizes().size() + 8);
+                          2 * mw1::chrome::frame_sizes().size() + 8 + 8 + 4 + 3 + 2);
+  EXPECT(mw1::chrome::side_arrow(true, 1).name == "mw1_rt_lit" && mw1::chrome::slider(true).width == mw1::kSliderW &&
+         mw1::chrome::cell(2).name == "mw1_cell_sel" && mw1::chrome::dialog_tall().height == mw1::kDialogTallH);
   const mw1::images::Image fr = mw1::chrome::frame(104, 136, true), up = mw1::chrome::arrow(true, 0);
   EXPECT(fr.name == "mw1_frame_104x136_lit" && alpha_at(fr, 0, 60) == 255 && alpha_at(fr, 52, 68) == 0);  // its inside clear
   EXPECT(up.name == "mw1_up" && up.width == mw1::kArrowW && mw1::chrome::arrow(false, 3).name == "mw1_dn_off");

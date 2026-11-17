@@ -2,7 +2,10 @@
 // definition (0x0059f810 BindButton and 0x0059f8d0 BindPrimitive by their
 // error reports; the loader and the label readers just before them).
 // docs/twod.md, Dialogs.
+#include <cctype>
 #include <cstring>
+#include <string>
+#include <vector>
 
 #include "gamez/zerror/zerr.h"
 #include "gamez/zimage/zimg_library.h"
@@ -169,8 +172,82 @@ void Dialog::play_sounds(int32_t from) {
   if (!cd) host().cd_stop();
 }
 
+// Ours (set_layout, set_layout_font): a program's layouts and fonts in place of the game's.
+namespace {
+struct LayoutSwap {
+  std::string game_file, game_dialog, file, dialog, wide_dialog;
+  const std::string& now() const;
+};
+std::function<bool()>& layout_wide() {
+  static std::function<bool()> f;
+  return f;
+}
+const std::string& LayoutSwap::now() const { return !wide_dialog.empty() && layout_wide() && layout_wide()() ? wide_dialog : dialog; }
+std::vector<LayoutSwap>& layout_swaps() {
+  static std::vector<LayoutSwap> v;
+  return v;
+}
+std::vector<std::pair<std::string, std::string>>& layout_fonts() {
+  static std::vector<std::pair<std::string, std::string>> v;
+  return v;
+}
+bool& layout_reading() {  // a program's layout read and bound now (Dialog::load to unload)
+  static bool on = false;
+  return on;
+}
+bool same_file(const std::string& a, const char* b) {
+  const size_t n = std::strlen(b);
+  if (a.size() != n) return false;
+  for (size_t i = 0; i < n; ++i)
+    if (std::tolower(static_cast<unsigned char>(a[i])) != std::tolower(static_cast<unsigned char>(b[i]))) return false;
+  return true;
+}
+}  // namespace
+
+void set_layout(const std::string& game_file, const std::string& game_dialog, const std::string& file, const std::string& dialog,
+                const std::string& wide_dialog) {
+  for (LayoutSwap& s : layout_swaps())
+    if (same_file(s.game_file, game_file.c_str()) && s.game_dialog == game_dialog) {
+      s.file = file, s.dialog = dialog, s.wide_dialog = wide_dialog;
+      return;
+    }
+  layout_swaps().push_back({game_file, game_dialog, file, dialog, wide_dialog});
+}
+void set_layout_wide(std::function<bool()> wide) { layout_wide() = std::move(wide); }
+void set_layout_font(const std::string& game_font, const std::string& font) {
+  for (auto& f : layout_fonts())
+    if (f.first == game_font) return void(f.second = font);
+  layout_fonts().push_back({game_font, font});
+}
+const char* layout_font(const char* name) {
+  if (!name || !layout_reading()) return name;
+  for (const auto& f : layout_fonts())
+    if (f.first == name) return f.second.c_str();
+  return name;
+}
+void clear_layouts() { layout_swaps().clear(), layout_wide() = nullptr, layout_fonts().clear(), layout_reading() = false; }
+bool layout_for(const std::string& game_file, const std::string& game_dialog, std::string* file, std::string* dialog) {
+  for (const LayoutSwap& s : layout_swaps())
+    if (same_file(s.game_file, game_file.c_str()) && s.game_dialog == game_dialog) {
+      if (file) *file = s.file;
+      if (dialog) *dialog = s.now();
+      return true;
+    }
+  return false;
+}
+
 // Mech3.exe 1.2 @ 0x0059f010
 bool Dialog::load(const char* file, const char* name, bool no_draw) {
+  // Ours (set_layout): a program's own layout for this one (its wide one on a wide canvas, placed for it).
+  own_layout = false;
+  layout_reading() = false;
+  for (const LayoutSwap& s : layout_swaps())
+    if (file && name && same_file(s.game_file, file) && s.game_dialog == name) {
+      own_layout = &s.now() == &s.wide_dialog;
+      layout_reading() = true;
+      file = s.file.c_str(), name = s.now().c_str();
+      break;
+    }
   tree = zrdr::load(file);
   const bool ok = load_from(tree, name, no_draw);
   if (!ok) unload();
@@ -411,6 +488,7 @@ bool Dialog::bind_primitive(Object2D* o, const char* name) {
 
 // Mech3.exe 1.2 @ 0x0059fa10
 void Dialog::unload() {
+  layout_reading() = false;  // ours (set_layout_font)
   if (tree) zrdr::free_node(tree);
   node = nullptr;
   tree = nullptr;

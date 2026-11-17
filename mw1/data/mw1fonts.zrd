@@ -30,7 +30,15 @@ WINDOWS_FONTS (
   "mw1_term_line" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -13 tracking 1 color (130 255 165))
   ; A message box's title (centred) and its words.
   "mw1_dialog_title" (face "Saira Condensed Bold" file "fonts\SairaCondensed-Bold.ttf" height -18 tracking 3 align "center" color (255 176 64))
+  "mw1_dialog_title_left" (face "Saira Condensed Bold" file "fonts\SairaCondensed-Bold.ttf" height -18 tracking 3 color (255 176 64))
   "mw1_dialog_text" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -14 color (222 226 230))
+  ; The options' lines greyed (left-aligned), and a choice's value.
+  "mw1_line_off" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -13 color (96 100 104))
+  "mw1_value" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -13 tracking 1 color (255 176 64))
+  "mw1_value_alert" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -13 tracking 1 color (255 84 60))
+  ; A control table's key (its cell narrow): the row's and the row shown's.
+  "mw1_cell_text" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -11 color (210 214 218))
+  "mw1_cell_value" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -11 color (255 176 64))
   ; The status line: the world in grey caps, the message in amber; a note (the title screen's save) the same amber.
   "mw1_status_world" (face "Saira Condensed Bold" file "fonts\SairaCondensed-Bold.ttf" height -15 tracking 2 color (165 170 176))
   "mw1_status" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -13 tracking 1 color (255 176 64))

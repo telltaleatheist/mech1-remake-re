@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdarg>
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -818,6 +819,7 @@ class Dialog : public Window {
   Text texts[50];                    // +0x2008
   int32_t origin_x = 0, origin_y = 0;  // +0x10fe0
   int32_t mute = 1;                  // +0x10fe8  no background sounds
+  bool own_layout = false;           // ours: read from a program's layout (set_layout), placed for the canvas
 
   Dialog();                          // 0x0059ec40
   ~Dialog() override;                // 0x0059edc0
@@ -884,5 +886,21 @@ Text** read_labels(Dialog* d, zrdr::Node* value, int32_t* count, const int32_t* 
 void read_flash(zrdr::Node* value, std::vector<Text*>* labels);
 // 0x0059cd90: ECX a node whose value starts with a string; EDX an "offset" out (or null).
 const char* name_and_offset(zrdr::Node* node, int32_t* offset);
+
+// Ours (mw1): a program's own layout in place of one of the game's. A dialog loaded as (`game_file`, `game_dialog`)
+// (the file's name compared without case) reads `file`'s `dialog` instead: the same names bound (buttons,
+// primitives), the program's pictures, fonts and places. None set (MW3, PM): every dialog its own.
+// `wide_dialog`, when given, is read instead on a wide canvas (set_layout_wide says when), placed for it: the
+// dialog is marked own_layout (the engine's wide-menus regrouping leaves it alone).
+void set_layout(const std::string& game_file, const std::string& game_dialog, const std::string& file, const std::string& dialog,
+                const std::string& wide_dialog = "");
+void set_layout_wide(std::function<bool()> wide);
+// While a dialog read from a program's layout is being read and bound (load to unload), a font the game's code
+// looks up by name (its own fonts.zrd's, e.g. a cycle's value colours) is the program's in its place.
+void set_layout_font(const std::string& game_font, const std::string& font);
+const char* layout_font(const char* name);  // `name`, or the program's in its place now
+void clear_layouts();
+// The layout set for (`game_file`, `game_dialog`), if one is: its file and dialog (the one the canvas reads now).
+bool layout_for(const std::string& game_file, const std::string& game_dialog, std::string* file, std::string* dialog);
 
 }  // namespace ztwod

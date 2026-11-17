@@ -13,6 +13,10 @@
 #include <vector>
 
 #include "mech3/action_menu.h"
+#include "mech3/app_states.h"
+#include "mech3/app.h"
+#include "mech3/pause_menu.h"
+#include "mech3/briefing.h"
 #include "mech3/app_engine.h"
 #include "mech3/app_mech.h"
 #include "mech3/mech_names.h"
@@ -20,6 +24,7 @@
 #include "mech3/mech_config.h"
 #include "mech3/mission.h"
 #include "mech3/mods.h"
+#include "mech3/options_menu.h"
 #include "mech3/pilot.h"
 #include "mech3/program_flow.h"
 #include "mech3/zai_brain.h"
@@ -27,6 +32,7 @@
 #include "gamez/zimage/zimg_library.h"
 #include "gamez/zinput/zinput.h"
 #include "gamez/zreader/zreader.h"
+#include "gamez/ztwod/twod.h"
 #include "gamez/ztwod/twod_host.h"
 #include "gamez/zutil/zutl_path.h"
 #include "mw1_bar_screen.h"
@@ -38,6 +44,7 @@
 #include "mw1_market_screen.h"
 #include "mw1_menu.h"
 #include "mw1_images.h"
+#include "mw1_layouts.h"
 #include "mw1_missions.h"
 #include "mw1_pilots.h"
 #include "mw1_repairs.h"
@@ -55,6 +62,7 @@ constexpr int32_t kBoxOk = 0, kBoxYesNo = 4, kAnswerYes = 6;
 constexpr const char* kFontsFile = "mw1fonts.zrd";  // MW1's data folder
 constexpr const char* kDialogFile = "mw1dialog.zrd", *kDialogName = "MW1MESSAGEBOX";  // every message box's layout
 constexpr uint32_t kOptionsStateGlobal = 0x609868;  // PM's main menu's Options state (its OPTIONS button pushes it)  // the message box's styles and answer (Win32's)
+constexpr uint32_t kGfxOptionsStateGlobal = 0x60986c, kControlsStateGlobal = 0x609870;  // its other pages' (MW1_SCREEN)
 constexpr const char* kPilotName = "MW1 Company";  // the company's PM pilot (step 2)
 constexpr float kReachRadius = 10.0f;  // metres from the structure's node (reach_area's own default is 25)
 constexpr int32_t kReachIa = 2;        // the map with the structures (c2's ia2)
@@ -140,11 +148,32 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   // ---- ProgramFlow ----
   // MW1's own menus: Pirate's Moon's main menu screen and its multiplayer state, never shown, are not built.
   bool own_menus() const override { return true; }
+  // MW1's pictures and fonts, and the pause and the options in MW1's look (mw1_layouts.h: Pirate's Moon's screens
+  // on MW1's layouts), before Pirate's Moon builds those screens.
+  void menus_building(mech3::Engine& e) override {
+    register_images();
+    register_fonts();
+    for (const LayoutSwap& s : kLayoutSwaps)
+      if (layout_there(s.file, s.dialog))
+        ztwod::set_layout(s.game_file, s.game_dialog, s.file, s.dialog, std::string(s.dialog) + kWideSuffix);
+    for (const auto& [game_font, font] : kLayoutFonts) ztwod::set_layout_font(game_font, font);
+    auto* ge = dynamic_cast<mech3::GameEngine*>(&e);
+    ztwod::set_layout_wide([ge] { return ge && ge->buffer_width() > 640; });
+  }
+  bool shot_driver_ = false;  // MW1_SCREEN=pause's (development)
   bool main_entered(mech3::Engine& e) override {
     auto& ge = static_cast<mech3::GameEngine&>(e);
     ge_ = &ge;
-    register_images();
-    register_fonts();
+    // MW1_SCREEN=pause or pause_options (development: --shot pictures of the pause over a mission): the offer
+    // accepted, LAUNCH at the briefing, the pause pushed 90 frames into the mission (and its OPTIONS).
+    if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s).rfind("pause", 0) == 0 && !shot_driver_) {
+      shot_driver_ = true;
+      auto before = ge.on_present;
+      ge.on_present = [this, before, page = std::string(s)](int f) {
+        if (before) before(f);
+        pause_shot_frame(page);
+      };
+    }
     // Every message box in MW1's look (mw1dialog.zrd), Pirate's Moon's own boxes too (its quit question).
     if (layout_there(kDialogFile, kDialogName)) ge.set_message_box_layout(kDialogFile, kDialogName);
     // MW1's main menu over PM's (mw1_menu.h): at the start, and under the hub after a mission (the hub's QUIT comes
@@ -213,6 +242,13 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "bar_lance") press(kHubBar), press_bar(kBarLance);
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "office") press(kHubOffice);
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "news") press(kHubBar), press_bar(kBarNews);
+      // MW1_SCREEN=options, options_gfx, options_controls, options_upgrades: PM's options pages on MW1's layouts.
+      if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s).rfind("options", 0) == 0) {
+        const std::string page = s;
+        const zgame::Handle st = page == "options_gfx" ? ge.peek32(kGfxOptionsStateGlobal) : page == "options_controls" ? ge.peek32(kControlsStateGlobal)
+                                 : page == "options_upgrades" ? mech3::options_upgrades_state() : ge.peek32(kOptionsStateGlobal);
+        if (st) ge.push_state(st, 0);
+      }
       const char* sc = std::getenv("MW1_SCREEN");
       if (!sc || std::string(sc) == "hub" || std::string(sc) == "event") hub_events();
       return true;
@@ -1372,6 +1408,24 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   static mech3::Pilot* company_pilot() {
     mech3::Pilot* p = mech3::find_pilot(kPilotName);
     return p ? p : mech3::create_pilot(kPilotName);
+  }
+
+  // MW1_SCREEN=pause's driver, each frame shown (main_entered).
+  void pause_shot_frame(const std::string& page) {
+    mech3::GameEngine* ge = ge_;
+    mech3::Mech3App* app = mech3::app_if_any();
+    if (!ge || !app) return;
+    zgame::State* now = app->current();
+    static zgame::State* last = nullptr;
+    static int frames = 0;
+    frames = now == last ? frames + 1 : 0;
+    last = now;
+    if (now == static_cast<zgame::State*>(ge->menu_state_of(hub_)) && frames == 10 && offered_ && !deployed_) press(kHubAccept);
+    if (now == &mech3::states().load)
+      if (mech3::BriefingScreen* b = mech3::briefing_screen(); b && b->loaded && frames == 20) b->on_button(mech3::BriefingScreen::kBtnLaunch, 0, 0);
+    if (now == &mech3::states().core && frames == 90) app->push(app->state(3), 0);
+    if (now == &mech3::states().pause && frames == 10 && page == "pause_options")
+      if (auto* p = dynamic_cast<mech3::PauseScreen*>(ge->screen_of(mech3::states().pause.screen_))) p->on_button(mech3::PauseScreen::kOptions, 0, 0);
   }
 
   // The contract as the Action screen's LAUNCH sets a game up (action_menu.cpp): the company pilot's Instant Action
