@@ -48,6 +48,7 @@ struct LauncherOptions {
   // then stays "Coming later"). Its arguments have nothing of MW3's: it keeps
   // its own install, settings and saves (docs/launcher.md).
   std::string pm_bin;
+  std::string mw1_bin;  // MW1: MechWarrior 1: Critical Hit's program beside ours (MW3_MW1_BIN for checks)
   std::vector<std::string> pm_args;
   std::vector<std::string> game_args;
   bool hidden = false;  // --hidden: the window never shown (checks), passed on to the game

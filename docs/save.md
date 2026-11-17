@@ -148,6 +148,14 @@ A def's own setting (+0x94 0x1000 with 0x2000 off) keeps it out of
 RunningAnim and Anim, as it keeps it out of the log; [0x005ebf0c] off keeps
 all of them out.
 
+**The read logs a restored record twice** (the original's, kept; discoveries.md, Freako's question,
+2026-11-15). A record made again through 0x0050ca90 is logged by the start it calls (the loggers), and the saved
+statuses 3, 1 and 4 then copy the record into the log once more (0x0050bd50). So every read of a save leaves those
+records twice in the log, the next save writes both, and the next read doubles them: an operation played with a
+REPLAY or a reload before each mission carries 14, 42 and 98 copies in Op 1's saves after missions 2, 3 and 4
+(`--campaign-chain retry:N` with `CHAIN_RETRIES`, `CHAIN_ANIM_CENSUS=1` for what each mission holds at core frame 30).
+A candidate FIX (bug), not made: log the record only when the start did not already (the log's count unchanged). Owen, 2026-11-15: kept as the original; it costs a bigger save and some extra work, nothing breaks.
+
 **What the win's save holds**: the activations, every def's state and the
 runs going on at the win (a live c1m1 win: 123 activations, 80 runs, 1,646
 Anim entries).

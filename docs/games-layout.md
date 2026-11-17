@@ -120,16 +120,27 @@ PM model, so a PM world never silently draws nothing.
 - **Not yet**: the packages carry no `mw3pm`, and the launcher's entry is
   still greyed. Both come when PM plays.
 
-## One repo, and when PM arrives
+## Which branch builds what (Owen, 2026-11-04, replacing the shared-engine plan)
 
-- Until MW3 is tagged `v1.0` (`release.md`, "MW3 v1.0"), `main` is MW3
-  only and PM work stays on the branch `mac5/pm`.
-- Before `v1.0` the launcher moves into its own program, so MW3's final
-  layout is this one from the start. Done 2026-11-01: `mw3launcher`
-  (launcher.md, The two programs); `mw3pm`'s entry is greyed until it sits beside
-  the launcher (launcher.md, Pirate's Moon).
-- After `v1.0`, `mac5/pm` merges into `main` (after the full MW3
-  differential set passes on it, `pm-map.md`), and both games live on
-  `main` from then on. One branch per game would mean merging every
-  engine fix across by hand forever; one repo with separate folders and
-  targets keeps them apart without that.
+PM lives on the branch `pm`, which never merges into `main`: a complete copy
+of the game with PM's changes in place, as the original's `branchep1` was.
+
+| Branch | Builds | Released from |
+|---|---|---|
+| `main` | `mw3`, the launcher (`mw3launcher`), MW3's tests | a tag on `main` (`v1.x.y`) |
+| `pm` | `mw3pm`, PM's tests (`mw3pmtests`, `mw3pmsdltests`, `pmprobe`), `zipkit` | a tag on `pm` (`pm-v1.x.y`) |
+
+- The combined package (launcher, `mw3`, `mw3pm`) takes the launcher and
+  `mw3` from a tag on `main` and `mw3pm` from a tag on `pm`. The launcher
+  knows every game and starts each by its path; the games know nothing of
+  each other.
+- Fixes cross by git. MW3's fixes merge from `main` into `pm`. A bug found on
+  `pm` that MW3 also has is cherry-picked or redone on `main`. PM's
+  improvements never reach `main`.
+- MW3's targets stay in `pm`'s CMakeLists behind `-DMW3_BUILD_MW3` (OFF), so
+  `main`'s merges into `pm` stay clean and a shared-code change on `pm` can
+  be checked against MW3's tests (`pm-tests.md`, MW3's tests built from
+  `pm`). Nothing is built or released from them.
+- Another game on PM's engine (MW1: Critical Hit, its own repo) takes the
+  engine from `pm` by merging it, and its launcher entry from `main`'s
+  launcher (`launcher.md`, MechWarrior 1).

@@ -1581,6 +1581,18 @@ From the world files (gamez.md).
 - **Deleted objects are still in the files.** Free node slots keep the names of
   objects the level designers deleted without clearing; mission 1's world holds
   1,393 of them.
+- **Modders: adding objects to a world with mech3ax can crash the game.**
+  The free slots form a chain the file stores (in mech3ax, an Empty node's
+  `parent_indices` is its next free slot; the last Empty points at the end of
+  the list). New nodes appended to `nodes.json` sit right where that chain
+  goes next, and the game never checks: when it needs a fresh object (every
+  mission load needs 2,000 to 3,700 of them) it takes the new node, wipes it,
+  and follows its data offset as if it were the next free slot, which crashes
+  or corrupts memory. Every shipped world reaches it while the mission loads;
+  c2 and c4b have only 4 spare slots before it. The fix: set the last Empty's
+  `parent_indices` to the new length of the list (training's t1 has no Empty:
+  set `node_last_free` in metadata.json instead). Reusing an Empty slot for a
+  new object has the same problem. (gamez.md, Adding nodes)
 - **The engine's error messages go nowhere.** The GameZ error reporter
   (0x49bfd0) is an empty stub in the shipped game, so every engine error is
   silent; a broken node is just marked dead and loading carries on.
@@ -4300,6 +4312,27 @@ The screen after the pilot for INSTANT ACTION, 0x00488bc0 (details:
   equipment and no weapons. The lesson starts with powering up and
   walking. (docs/mission-plan.md, item 21)
 
+- **Replaying a mission, or loading a saved game, makes the next saves heavier, mission after mission.** (Asked by
+  Freako, who plays the original: crashes that get worse with an old pilot and with each replay.) The pilot file
+  (`pilots\<name>.mw3`) is not what piles up. It holds one record per mission saved (the store, salvage and
+  line-up at that point), so it grows by a few KB a mission through the campaign (a full campaign's is about 72 KB),
+  and replaying a mission does not add to it: a win on a mission already saved asks to replace that save. The game
+  never shortens the file either, so a write shorter than the last leaves the old end behind (184 bytes in one real
+  pilot); the game never reads it. What piles up is in the saved games (`pilots\games\<pilot><op><mission>.mw3`),
+  which hold the mission animations' state: a log of the animations the mission has started. A replayed mission
+  (the pause's REPLAY, or a failed mission's CONTINUE) and a reloaded campaign both read the last save back, and the
+  original's reader logs each restored animation twice: once when it restarts it, and again when it sets a finished,
+  reset or cancelled one back to that state (0x0050b970 with 0x0050bd50). The next save writes both copies, the next
+  read doubles them again, through the operation's missions; a new operation's first mission (and Op 4 Mission 4)
+  reads no save, so it starts clean. A real campaign's saves show it: Op 3's carry 1, 24, 42, 63 and 90 copied
+  records in turn, back to 1 at Op 4's start. Measured in the rebuild, which does the same: one REPLAY per mission
+  against none, Op 1 Mission 4's save is 110 KB instead of 60 KB (219 animation records instead of 121, 98 of them
+  copies), and the restarted mission begins with 49 animations running instead of 8 and 434 more objects live. One
+  REPLAY or six in a mission gives the same: it is each read of a save that adds, and every later mission carries it
+  on. In the shipped campaign this is extra work, not a crash; in a mod with many animations the copies double with
+  every reload or replay within an operation, which plausibly feeds crashes that get worse with use. Starting the
+  operation again from its first mission, or playing it through without reloading, clears it. (docs/save.md, The
+  anim registrants)
 - **MechWarrior 3 can drop a model's textures and load them back, but nothing uses it.** Each material has a spare
   flag that marks it as one whose textures may be unloaded; code exists to set that flag on every textured part of a
   model and to free those textures (animated ones' every frame too), leaving them marked to be read from disk again

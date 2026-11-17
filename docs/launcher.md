@@ -45,8 +45,10 @@ found or installed. The launcher below is its own program, `mw3launcher`
    - **Pirate's Moon**: greyed, "Coming later", while `mw3pm` is not beside
      the launcher; with it, "Ready: <folder>" or "Not found yet: click to find
      your game" (below, Pirate's Moon).
-   - **MechWarrior (1989)**: only when the MW1 port is found beside ours
-     (below).
+   - **MechWarrior 1** (MW1 fork): when `mw1` is beside ours (below,
+     MechWarrior 1), in place of the MechWarrior (1989) entry.
+   - **MechWarrior (1989)**: without `mw1`, only when the MW1 port is found
+     beside ours (below).
    - **Game files** (Owen, 2026-11-02, after the rework): the find screen
      at any time, to repick or refresh the game's files (below), and
      **Quit** (for fullscreen; Escape too).
@@ -382,6 +384,29 @@ apostrophes. Letters outside ASCII are the limit (`program.md`, The data
 folder): the code is UTF-8 throughout, but on Windows `fs::path` and `fopen` read
 narrow strings in the ANSI code page and `fs::path::string()` writes them in it.
 MY DATA FOLDER refuses such a name; the install has no such guard.
+
+## MechWarrior 1 (MW1: Critical Hit's fork, 2026-11-16)
+
+In the MW1 fork the entry starts MechWarrior 1: Critical Hit in
+place of Elthial's port: the same badge (`badge_mw1.png`) and place, the label
+MECHWARRIOR 1. Shown when `mw1` (`mw1.exe`) is beside the launcher
+(`MW3_MW1_BIN` names it, for checks). It needs three folders: the player's
+MW1 (`BTECH.EXE`, picked and kept as `mw1_game=` as before), Pirate's Moon's
+(`pm_install=`, as PIRATE'S MOON finds it) and MechWarrior 3's (the install
+MECHWARRIOR 3 uses). Its line is "Ready: <MW1
+folder>", "Click to pick your MechWarrior (1989) folder", or "Not ready:
+needs MechWarrior 3 and/or Pirate's Moon: find them in GAME FILES", greyed
+until both games are there (Owen, 2026-11-16: an icon follows what is loaded);
+then a click picks the MW1 folder or starts it. Started as `mw1 --install <PM>
+--mw3-install <MW3> --mw1-game <MW1> --no-launcher` plus this start's choices
+(`--windowed`, `--window`, `--nosound`, `--hidden`, `--no-import`), the
+launcher hidden until it exits. `mw1` keeps the three in its own `mw1.cfg`
+(MW1: Critical Hit's src/mw1_main.cpp). Without `mw1` beside the launcher
+(a plain mw3-re package) nothing changes: the entry is Elthial's port's,
+searched for and started as below.
+`sdl_program_launcher_starts_mechwarrior_1` (a stand-in `mw1`: the
+arguments given, and the line when MW3 is not known);
+`sdl_program_launcher_starts_mechwarrior_1989` (no `mw1`: the port's entry).
 
 ## MechWarrior (1989)
 
