@@ -21,6 +21,8 @@ struct Planet {
   int32_t office;     // byte 4: 1 has its House's office (contracts), 0 not
   int32_t x, y;       // bytes 5, 6: the map position
   int32_t weight;     // byte 7: the travel-time weight
+  int32_t landscape;  // byte 2: (code - 1) % 3, the battle's (081B CONTRACTS 5590): 0 desert, 1 tropical, 2 ice (DS:5CA6)
+  int32_t max_mission;  // byte 3: maximumMissionType, the highest contract category fought there (0 none)
 };
 // The travel directory's 145 worlds (TRAVEL_PLANET_DIRECTORY_COUNT 0x91): the 146th record, a second Ander's
 // Moon at (208, 228), is outside it, and MW1 never lists it (left out, mw1 lead 2026-11-17).

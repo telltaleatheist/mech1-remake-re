@@ -1,0 +1,219 @@
+#include "mw1_missions.h"
+
+#include <cctype>
+#include <cstdio>
+
+#include "gamez/zreader/zreader.h"
+#include "mw1_pilots.h"
+#include "mw1_travel.h"
+
+namespace mw1::missions {
+
+const CategoryDescriptions kDescriptions[kCategoryCount] = {
+    {0, {}},
+    // Defence (DS:8A25's first 10 entries).
+    {10, {{1, 0x8a69}, {2, 0x8a79}, {3, 0x8a91}, {4, 0x8aae}, {5, 0x8acd}, {6, 0x8ae6}, {7, 0x8b02}, {8, 0x8b1e},
+          {9, 0x8b3e}, {10, 0x8b59}}},
+    // Rescue and retrieval.
+    {4, {{11, 0x8b76}, {12, 0x8b92}, {13, 0x8ba7}, {14, 0x8bc6}}},
+    // Raid.
+    {15, {{20, 0x8c74}, {21, 0x8c8c}, {22, 0x8ca2}, {23, 0x8cc3}, {24, 0x8ce4}, {25, 0x8d05}, {26, 0x8d22}, {27, 0x8d40},
+          {30, 0x8d62}, {31, 0x8d83}, {32, 0x8da2}, {33, 0x8dc3}, {34, 0x8de4}, {35, 0x8e05}, {36, 0x8e26}}},
+    // Major campaign.
+    {5, {{15, 0x8be4}, {16, 0x8c05}, {17, 0x8c26}, {18, 0x8c3c}, {19, 0x8c59}}},
+};
+
+const uint8_t kSideZeroObjective[kMissionDefinitions] = {0, 4, 4, 4, 4, 4, 4, 4, 4, 0, 2, 3, 3, 3, 3, 3, 4, 0, 3,
+                                                        2, 1, 1, 2, 3, 3, 3, 3, 3, 3, 3, 0, 3, 3, 0, 3, 3, 3};
+
+const uint8_t kDefencePlanets[kHouseCount][kTargetColumns][kPlanetChoices] = {
+    {{255, 255, 255, 255, 255, 255, 255, 255}, {16, 17, 18, 20, 23, 26, 27, 15}, {13, 16, 13, 16, 13, 16, 13, 16},
+     {13, 16, 13, 16, 13, 16, 13, 16}, {7, 8, 9, 10, 15, 12, 13, 14}, {255, 255, 255, 255, 255, 255, 255, 255},
+     {3, 4, 5, 30, 3, 4, 5, 30}, {3, 4, 5, 30, 3, 4, 5, 30}},
+    {{43, 45, 46, 47, 49, 52, 58, 59}, {255, 255, 255, 255, 255, 255, 255, 255}, {35, 41, 44, 54, 55, 56, 58, 42},
+     {44, 58, 44, 58, 44, 58, 44, 58}, {39, 44, 58, 39, 44, 58, 39, 44}, {35, 57, 36, 35, 57, 36, 35, 57},
+     {50, 51, 50, 51, 50, 51, 50, 51}, {255, 255, 255, 255, 255, 255, 255, 255}},
+    {{66, 76, 80, 66, 76, 80, 66, 76}, {66, 74, 75, 76, 80, 85, 86, 90}, {255, 255, 255, 255, 255, 255, 255, 255},
+     {65, 66, 68, 69, 76, 81, 82, 83}, {66, 76, 80, 66, 76, 80, 66, 76}, {64, 73, 86, 64, 73, 86, 64, 73},
+     {255, 255, 255, 255, 255, 255, 255, 255}, {255, 255, 255, 255, 255, 255, 255, 255}},
+    {{99, 100, 101, 99, 100, 101, 99, 100}, {99, 100, 101, 99, 100, 101, 99, 100}, {92, 93, 96, 103, 106, 107, 110, 111},
+     {255, 255, 255, 255, 255, 255, 255, 255}, {95, 97, 102, 105, 108, 112, 113, 114}, {255, 255, 255, 255, 255, 255, 255, 255},
+     {255, 255, 255, 255, 255, 255, 255, 255}, {255, 255, 255, 255, 255, 255, 255, 255}},
+    {{119, 121, 126, 126, 129, 133, 134, 143}, {121, 133, 121, 133, 121, 133, 121, 133}, {133, 133, 133, 133, 133, 133, 133, 133},
+     {121, 123, 131, 133, 138, 139, 140, 143}, {255, 255, 255, 255, 255, 255, 255, 255}, {255, 255, 255, 255, 255, 255, 255, 255},
+     {255, 255, 255, 255, 255, 255, 255, 255}, {124, 132, 137, 124, 132, 137, 124, 132}},
+};
+
+const char* mw1_objective_name(Mw1Objective o) {
+  switch (o) {
+    case Mw1Objective::kEliminate: return "eliminate opposition";
+    case Mw1Objective::kWithdraw: return "withdraw";
+    case Mw1Objective::kOpposeWithdrawal: return "oppose withdrawal";
+    case Mw1Objective::kSpecialTarget: return "special target";
+    case Mw1Objective::kDefendSpecialTarget: return "defend special target";
+  }
+  return "";
+}
+const char* category_name(int32_t category) {
+  static const char* const kNames[kCategoryCount] = {"", "defence", "rescue/retrieval", "raid", "major campaign"};
+  return category >= 0 && category < kCategoryCount ? kNames[category] : "";
+}
+const char* climate_name(int32_t climate) {
+  static const char* const kNames[kClimateCount] = {"desert", "tropical", "ice"};
+  return climate >= 0 && climate < kClimateCount ? kNames[climate] : "";
+}
+
+Mw1Objective objective_of_code(int32_t code) {
+  return code >= 1 && code <= kMissionDefinitions ? static_cast<Mw1Objective>(kSideZeroObjective[code - 1]) : Mw1Objective::kEliminate;
+}
+bool extended_code(int32_t code) { return code == kExtendedOffensive || code == kExtendedDefensive || code == kExtendedSiege; }
+
+namespace {
+int32_t roll_description(int32_t category, Rng& rng) {
+  const CategoryDescriptions& c = kDescriptions[category];
+  // MwRandomUpTo(last x 2) >> 1: the last index is DS:8A16's (count - 1).
+  return c.d[rng.upto((c.count - 1) << 1) >> 1].code;
+}
+}  // namespace
+
+Mission roll_mission(int32_t employer, int32_t target, Rng& rng) {
+  Mission m;
+  const int32_t limit = kHouseTargets[employer][target];
+  m.category = limit > 0 ? (rng.upto((limit - 1) << 2) >> 2) + 1 : kDefence;
+  m.code = roll_description(m.category, rng);
+  // The extended battles: a raid in their place (MW1's when the company has under 2 pilots and 2 mechs).
+  if (kExtendedBattlesAsRaids && extended_code(m.code)) m.category = kRaid, m.code = roll_description(kRaid, rng);
+  m.objective = objective_of_code(m.code);
+  // The mission planet: the target House's, else the employer's choice (a defence, or a target that isn't a House).
+  if (m.category != kDefence && target < kHouseCount) {
+    for (int tries = 0; tries < 1000; ++tries) {
+      const int32_t i = rng.upto(kHousePlanetCount[target]) + kHousePlanetStart[target];
+      if (i >= kPlanetCount) continue;  // the 146th record, left out of the map (mw1_travel.h): rolled again
+      const int32_t most = kPlanets[i].max_mission;
+      if (most == 0 || m.category > most) continue;
+      m.planet = i;
+      break;
+    }
+  } else {
+    const uint8_t s = kDefencePlanets[employer][target][rng.upto(kPlanetChoices - 1)];
+    m.planet = s == kNoPlanet || s == 0 || s > kPlanetCount ? -1 : s - 1;
+  }
+  m.climate = m.planet >= 0 ? kPlanets[m.planet].landscape : kDesert;
+  return m;
+}
+
+std::string mission_title(int32_t code) {
+  const std::vector<uint8_t>& d = mw_main_data_segment();
+  for (const CategoryDescriptions& c : kDescriptions)
+    for (int32_t i = 0; i < c.count; ++i) {
+      if (c.d[i].code != code) continue;
+      const size_t at = static_cast<size_t>(c.d[i].ds);
+      if (d.size() <= at + 2 || d[at] != code) return "";  // another exe: no title
+      std::string s;
+      for (size_t j = at + 2; j < d.size() && d[j] && s.size() < 64; ++j) s += static_cast<char>(d[j]);
+      return s;
+    }
+  return "";
+}
+
+// ---- The map table ----
+
+namespace {
+std::vector<MapRow> g_rows;
+
+std::string lower(std::string s) {
+  for (char& ch : s) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+  return s;
+}
+}  // namespace
+
+std::vector<MapRow> parse_maps(const std::string& zrd_path, std::string* why) {
+  std::vector<MapRow> rows;
+  zrdr::Node* root = zrdr::load(zrd_path.c_str());
+  if (!root) {
+    if (why) *why = "no " + zrd_path;
+    return rows;
+  }
+  // The file's one list (the outer parentheses) holds the rows.
+  zrdr::Node* top = root;
+  if (top->type == zrdr::List && zrdr::list_count(top) == 2 && top->list[1].type == zrdr::List) top = &top->list[1];
+  const int32_t n = top->type == zrdr::List ? zrdr::list_count(top) : 0;
+  int32_t index = 0;
+  for (int32_t i = 1; i + 1 < n; ++i) {
+    zrdr::Node* key = &top->list[i];
+    if (key->type != zrdr::String || lower(key->s) != "map") continue;
+    zrdr::Node* m = &top->list[++i];
+    ++index;
+    MapRow r;
+    const char* world = zrdr::get_string(m, "WORLD");
+    const char* climate = zrdr::get_string(m, "CLIMATE");
+    const char* kind = zrdr::get_string(m, "KIND");
+    const char* node = zrdr::get_string(m, "NODE");
+    const char* words = zrdr::get_string(m, "WORDS");
+    int32_t ia = 0;
+    zrdr::get_int(m, "IA", &ia);
+    r.world = world ? world : "", r.ia = ia, r.node = node ? node : "", r.words = words ? words : "";
+    const std::string c = climate ? lower(climate) : "", k = kind ? lower(kind) : "";
+    r.climate = c == "desert" ? kDesert : c == "tropical" ? kTropical : c == "ice" ? kIce : -1;
+    r.kind = k == "any" ? RowKind::kAny : k == "reach" ? RowKind::kReach : k == "attack" ? RowKind::kAttack : k == "defend" ? RowKind::kDefend
+                                                                                                 : static_cast<RowKind>(-1);
+    const bool ok = !r.world.empty() && r.ia >= 1 && r.climate >= 0 && static_cast<int32_t>(r.kind) >= 0 &&
+                    (r.kind == RowKind::kAny || (!r.node.empty() && !r.words.empty()));
+    if (ok) rows.push_back(r);
+    else if (why) *why += "MAP " + std::to_string(index) + " doesn't read; ";
+  }
+  zrdr::free_node(root);
+  return rows;
+}
+
+void set_map_table(std::vector<MapRow> rows) { g_rows = std::move(rows); }
+const std::vector<MapRow>& map_table() { return g_rows; }
+
+RowKind kind_for(Mw1Objective o) {
+  switch (o) {
+    case Mw1Objective::kEliminate: return RowKind::kAny;
+    case Mw1Objective::kWithdraw: return RowKind::kReach;
+    case Mw1Objective::kSpecialTarget: return RowKind::kAttack;
+    case Mw1Objective::kOpposeWithdrawal:
+    case Mw1Objective::kDefendSpecialTarget: return RowKind::kDefend;
+  }
+  return RowKind::kAny;
+}
+Objective objective_for(RowKind k) {
+  switch (k) {
+    case RowKind::kReach: return Objective::kReachStructure;
+    case RowKind::kAttack: return Objective::kAttackStructure;
+    case RowKind::kDefend: return Objective::kDefendStructure;
+    case RowKind::kAny: break;
+  }
+  return Objective::kDestroyAll;
+}
+
+int32_t choose_row(const std::vector<MapRow>& rows, RowKind kind, int32_t climate, Rng& rng) {
+  std::vector<int32_t> here, anywhere;
+  for (int32_t i = 0; i < static_cast<int32_t>(rows.size()); ++i) {
+    if (rows[static_cast<size_t>(i)].kind != kind) continue;
+    anywhere.push_back(i);
+    if (rows[static_cast<size_t>(i)].climate == climate) here.push_back(i);
+  }
+  const std::vector<int32_t>& from = !here.empty() ? here : anywhere;
+  return from.empty() ? -1 : from[static_cast<size_t>(rng.upto(static_cast<int32_t>(from.size()) - 1))];
+}
+
+void choose_mission(Contract& k, Rng& rng) {
+  const Mission m = roll_mission(k.house, k.target, rng);
+  k.category = m.category, k.code = m.code, k.mission_planet = m.planet, k.climate = m.climate;
+  const std::vector<MapRow>& rows = map_table();
+  k.objective = Objective::kDestroyAll, k.structure.clear(), k.structure_words.clear();
+  if (rows.empty()) return;  // the milestone's map (Contract's defaults)
+  const RowKind want = kind_for(m.objective);
+  int32_t r = choose_row(rows, want, m.climate, rng);
+  if (r < 0) r = choose_row(rows, RowKind::kAny, m.climate, rng);  // none of the kind: a battle on any map
+  if (r < 0) return;
+  const MapRow& row = rows[static_cast<size_t>(r)];
+  k.world = row.world, k.ia = row.ia, k.mode = 0;
+  k.objective = objective_for(row.kind);
+  if (row.kind != RowKind::kAny) k.structure = row.node, k.structure_words = row.words;
+}
+
+}  // namespace mw1::missions

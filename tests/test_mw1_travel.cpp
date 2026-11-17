@@ -64,6 +64,7 @@ TEST(mw1_travel_map_and_calendar_are_mw_main_exes) {
     const mw1::Planet& w = mw1::kPlanets[i];
     EXPECT(d[r] == w.number && d[r + 1] == w.house && (d[r + 2] - 1) / 3 == w.tier && d[r + 4] == w.office);
     EXPECT(d[r + 5] == w.x && d[r + 6] == w.y && d[r + 7] == w.weight);
+    EXPECT((d[r + 2] - 1) % 3 == w.landscape && d[r + 3] == w.max_mission);
     EXPECT(std::string(reinterpret_cast<const char*>(&d[r + 10])) == w.name);
   }
   // The start worlds are the map's.

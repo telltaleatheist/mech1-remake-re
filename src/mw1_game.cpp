@@ -26,6 +26,7 @@
 #include "mw1_hub.h"
 #include "mw1_market.h"
 #include "mw1_market_screen.h"
+#include "mw1_missions.h"
 #include "mw1_pilots.h"
 #include "mw1_repairs.h"
 #include "mw1_travel.h"
@@ -59,6 +60,30 @@ std::string title_case(std::string s) {
   if (!s.empty()) s[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(s[0])));
   return s;
 }
+// Is `name` one of the mission's targets.zrd entities? Read as the engine reads it (the mounted archives, the
+// mission's first): at block_read the targets aren't made yet (entity_find answers none), and destroy_entity finds
+// its entity by name later, at its checks; a name it never finds counts as destroyed at once, so it's asked here.
+bool target_listed(const std::string& name) {
+  zrdr::Node* root = zrdr::load("targets.zrd");
+  if (!root) return false;
+  zrdr::Node* top = root;
+  if (top->type == zrdr::List && zrdr::list_count(top) == 2 && top->list[1].type == zrdr::List) top = &top->list[1];
+  const bool there = zrdr::find_flat(top, name.c_str(), 1) != nullptr;
+  zrdr::free_node(root);
+  return there;
+}
+
+// The contract's objective as the offer and the briefing say it.
+std::string objective_words(const Contract& k) {
+  const std::string s = k.structure_words.empty() ? k.structure : k.structure_words;
+  switch (k.objective) {
+    case Objective::kReachStructure: return "reach " + s;
+    case Objective::kAttackStructure: return "destroy " + s;
+    case Objective::kDefendStructure: return "defend " + s;  // won by destroying the enemies (Instant Action's own objective)
+    case Objective::kDestroyAll: break;
+  }
+  return "destroy all enemy mechs";
+}
 const char* ending_word(Outcome o) { return o == Outcome::kSuccess ? "Success" : o == Outcome::kFailure ? "Failure" : "Retreat"; }
 
 // A wreck's condition (provisional, research/contracts.md): the share of its parts (ids 1..15) still standing.
@@ -69,7 +94,9 @@ int32_t condition_of(void* mech) {
 
 class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
  public:
-  Loop(uint32_t seed, const char* reach) : rng_(seed ? seed : std::random_device{}()), reach_(reach ? reach : "") {}
+  Loop(uint32_t seed, const char* reach) : rng_(seed ? seed : std::random_device{}()) {
+    if (reach && *reach) row_set_ = true, row_ = {"c2", kReachIa, kDesert, RowKind::kReach, reach, std::string("the ") + reach};
+  }
 
   // ---- ProgramFlow ----
   bool main_entered(mech3::Engine& e) override {
@@ -456,7 +483,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       l = {company_.planet + ", House " + kHouses[company_.planet_house].name, "Funds: " + thousands(company_.funds) + " C-bills", ""};
     l.push_back("Employer: House " + std::string(kHouses[k.house].name));
     if (k.target < kHouseCount) l.push_back("Against: House " + std::string(kHouses[k.target].name));
-    l.push_back("Objective: " + (k.objective == Objective::kReachStructure ? "reach the " + k.structure : std::string("destroy all enemy mechs")));
+    const std::string title = mission_title(k.code);
+    if (!title.empty()) l.push_back(title_case_name(title.c_str()));
+    if (k.mission_planet >= 0) l.push_back("On " + title_case_name(kPlanets[k.mission_planet].name) + " (" + climate_name(k.climate) + ")");
+    l.push_back("Objective: " + objective_words(k));
     l.push_back("Map: " + k.world + " Instant Action " + std::to_string(k.ia));
     l.push_back("Enemy: " + enemies);
     l.push_back("Payment: " + thousands(int64_t{k.payment} * 1000) + " C-bills");
@@ -503,12 +533,19 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       return;
     }
     contract_ = generate_contract(company_, 0, rng_);
-    if (!world_.empty()) contract_.world = world_, contract_.ia = world_ia_;
-    if (!reach_.empty()) contract_.objective = Objective::kReachStructure, contract_.ia = kReachIa, contract_.structure = reach_;
+    // The test overrides: a world's battle (destroy all there), or a row of the map table whatever was rolled.
+    if (!world_.empty()) {
+      contract_.world = world_, contract_.ia = world_ia_, contract_.objective = Objective::kDestroyAll;
+      contract_.structure.clear(), contract_.structure_words.clear();
+    }
+    if (row_set_) {
+      contract_.world = row_.world, contract_.ia = row_.ia, contract_.objective = objective_for(row_.kind);
+      contract_.structure = row_.node, contract_.structure_words = row_.words;
+    }
     save();
-    std::printf("mw1: offered: %s, %d thousand, %zu enemies\n",
-                contract_.objective == Objective::kReachStructure ? ("reach " + contract_.structure).c_str() : "destroy all",
-                contract_.payment, contract_.enemies.size());
+    std::printf("mw1: offered: %s on %sia%d (MW1's %s, code %d, %s), %d thousand, %zu enemies\n", objective_words(contract_).c_str(),
+                contract_.world.c_str(), contract_.ia, category_name(contract_.category), contract_.code,
+                mw1_objective_name(objective_of_code(contract_.code)), contract_.payment, contract_.enemies.size());
   }
 
   // LAUNCH: the lab's choices become the company's (the stores and the loadout, from the briefing's copy). The
@@ -661,27 +698,66 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   void set_world(const std::string& world, int32_t ia) { world_ = world, world_ia_ = ia; }
   const Contract* contract() const { return company_.stores && (offered_ || pending_) ? &contract_ : nullptr; }
 
+  void set_row(const MapRow& r) { row_ = r, row_set_ = true; }
+  // What the mission's objectives became (tests, the map survey): "" none of ours (destroy all), else "reach",
+  // "attack" or "defend"; `objective_fell_back_` when the contract's structure wasn't on the map.
+  const std::string& objective_built() const { return objective_built_; }
+  bool objective_fell_back() const { return objective_fell_back_; }
+
   // ---- ObjectivesExtension ----
-  // Reach a structure: the mission's primary is reaching its node alone, as the data's reach_area builds one. The
-  // contract sets the goal: a map's own primary (c2's ia2: "Destroy Enemy Base") is replaced; its other groups stay.
+  // The contract sets the goal (VISION, "Combat: maps"), the map's own primary replaced:
+  //   reach: reaching the structure's node alone, as the data's reach_area builds one;
+  //   attack: destroying the structure alone (destroy_entity), the kills still salvage;
+  //   defend: Instant Action's own "destroy the enemies", the structure's destruction a fail (the first met fails
+  //   the mission, whatever comes after).
+  // A structure not on the map is never built in (destroy_entity would count it destroyed at once): the enemies to
+  // destroy instead, said. The map survey (tests) is the gate; this is the net under it.
   void block_read(zrdr::Node*, mech3::Objectives& o) override {
-    reach_set_ = false;
-    if (!deployed_ || contract_.objective != Objective::kReachStructure) return;
+    own_wins_ = false, objective_built_.clear(), objective_fell_back_ = false;
+    if (!deployed_ || contract_.objective == Objective::kDestroyAll) return;
     mech3::ObjectiveHooks& h = mech3::mission_objective_hooks();
-    const zgame::Handle node = h.node_find(contract_.structure.c_str());
-    if (!node) {  // not on this map: the enemies to destroy instead, said
-      std::printf("mw1: no %s on %sia%d: destroy all instead\n", contract_.structure.c_str(), contract_.world.c_str(), contract_.ia);
-      return;
+    const char* name = contract_.structure.c_str();
+    const std::string shown = contract_.structure_words.empty() ? contract_.structure : contract_.structure_words;
+    auto fall_back = [&] {
+      objective_fell_back_ = true;
+      std::printf("mw1: no %s on %sia%d: destroy all instead\n", name, contract_.world.c_str(), contract_.ia);
+    };
+    switch (contract_.objective) {
+      case Objective::kReachStructure: {
+        const zgame::Handle node = h.node_find(name);
+        if (!node) return fall_back();
+        float point[3];
+        h.default_point(point);
+        const std::string desc = "Reach " + shown;
+        o.primary = std::make_unique<mech3::ObjectiveGroup>(h.message(0x16d));
+        o.primary->items.push_back(std::make_unique<mech3::ReachAreaObjective>(desc.c_str(), node, point, kReachRadius));
+        own_wins_ = true, objective_built_ = "reach";
+        break;
+      }
+      case Objective::kAttackStructure: {
+        if (!target_listed(contract_.structure)) return fall_back();
+        const std::string desc = "Destroy " + shown;
+        auto d = std::make_unique<mech3::DestroyObjective>(desc.c_str(), name, h.entity_find(name));
+        o.primary = std::make_unique<mech3::ObjectiveGroup>(h.message(0x16d));
+        o.primary->items.push_back(std::move(d));
+        own_wins_ = true, objective_built_ = "attack";
+        break;
+      }
+      case Objective::kDefendStructure: {
+        if (!target_listed(contract_.structure)) return fall_back();
+        const std::string desc = "Failed to protect " + shown;
+        auto d = std::make_unique<mech3::DestroyObjective>(desc.c_str(), name, h.entity_find(name));
+        o.primary.reset();  // Instant Action's "destroy the enemies" alone (add_enemy_group)
+        if (!o.fail) o.fail = std::make_unique<mech3::ObjectiveGroup>(nullptr);
+        o.fail->items.push_back(std::move(d));
+        objective_built_ = "defend";
+        break;
+      }
+      case Objective::kDestroyAll: break;
     }
-    float point[3];
-    h.default_point(point);
-    const std::string desc = "Reach the " + contract_.structure;
-    o.primary = std::make_unique<mech3::ObjectiveGroup>(h.message(0x16d));
-    o.primary->items.push_back(std::make_unique<mech3::ReachAreaObjective>(desc.c_str(), node, point, kReachRadius));
-    reach_set_ = true;
   }
-  // Destroy all: Instant Action's own "destroy the enemies"; a reach objective wins alone.
-  bool add_enemy_group(const mech3::Objectives&) override { return !deployed_ || !reach_set_; }
+  // Destroy all and defend: Instant Action's own "destroy the enemies"; reach and attack win alone.
+  bool add_enemy_group(const mech3::Objectives&) override { return !deployed_ || !own_wins_; }
 
  private:
   // The first hub: the saved company (and its offer) when there is one, else a new company. A save that doesn't
@@ -797,8 +873,11 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   MarketState* market_state_ = nullptr;
   MarketChoice choice_;
   std::shared_ptr<mech3::Store> salvage_;  // this mission's parts, the stores' on a win
-  bool deployed_ = false, launched_ = false, ended_ = false, failed_ = false, reach_set_ = false;
-  std::string reach_;  // install_game_loop's structure: every contract reach-a-structure
+  bool deployed_ = false, launched_ = false, ended_ = false, failed_ = false, own_wins_ = false;
+  bool row_set_ = false;  // install_game_loop's reach, or set_game_loop_row's: every new contract on that row
+  MapRow row_;
+  std::string objective_built_;
+  bool objective_fell_back_ = false;
   std::string save_path_;  // mw1save.txt; empty: no save
   std::string world_;      // set_game_loop_world's: every new contract there
   int32_t world_ia_ = 1;
@@ -830,6 +909,13 @@ void set_game_loop_save(const std::string& path, bool new_company) {
 
 void set_game_loop_world(const std::string& world, int32_t ia) {
   if (the_loop()) the_loop()->set_world(world, ia);
+}
+void set_game_loop_row(const MapRow& row) {
+  if (the_loop()) the_loop()->set_row(row);
+}
+std::string game_loop_objective_built(bool* fell_back) {
+  if (fell_back) *fell_back = the_loop() && the_loop()->objective_fell_back();
+  return the_loop() ? the_loop()->objective_built() : std::string();
 }
 
 const AfterAction* game_loop_pending() { return the_loop() ? the_loop()->pending() : nullptr; }
