@@ -1,0 +1,26 @@
+; MW1: Critical Hit's travel screen (src/mw1_travel_screen.h) on MW1's screen
+; template (src/mw1_screen.h). Only names here: the images are Pirate's
+; Moon's, read from the player's install (never copied); MW1's own art takes
+; these names' places later.
+;
+; The main menu's backdrop (borrowed); PM's popup box behind the list of
+; worlds and the chosen world's panel; PM's list arrows (a line, a page);
+; the round button with MW1's words for GO, HOUSE and BACK.
+(
+SHARED_IMAGE_PATH ("..\data\common\images\dialogs\shared;..\data\common\images\dialogs\briefing")
+MW1TRAVELDIALOG (
+  IMAGE_PATH ("..\data\common\images\dialogs\briefing;..\data\common\images;..\data\common\images\dialogs\shared;..\data\common\images\dialogs\mainmenu;..\data\common\images\dialog\multiplayer;..\data\common\images\dialogs\pilotreg")
+  CURSOR (BITMAP ("cursor_circle_orange") CENTER (1))
+  PRIMITIVES (PANEL (POSITION (16 64) BITMAP ("popup_box")) PANEL2 (POSITION (384 64) BITMAP ("popup_box")))
+  BUTTONS (
+    GO (POSITION (24 440) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 454))
+    HOUSE (POSITION (264 440) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (310 454))
+    BACK (POSITION (504 440) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (550 454))
+    ; The list's arrows at its panel's right edge: a line, then a page.
+    UP (POSITION (232 92) BITMAP ("arrowupmp_normal") ACTIVATE (BITMAP ("arrowupmp_rollover")) DISABLE (BITMAP ("arrowupmp_d")))
+    DOWN (POSITION (232 300) BITMAP ("arrowdnmp_normal") ACTIVATE (BITMAP ("arrowdnmp_rollover")) DISABLE (BITMAP ("arrowdnmp_d")))
+    PAGE_UP (POSITION (232 116) BITMAP ("arrowupmp_normal") ACTIVATE (BITMAP ("arrowupmp_rollover")) DISABLE (BITMAP ("arrowupmp_d")))
+    PAGE_DOWN (POSITION (232 276) BITMAP ("arrowdnmp_normal") ACTIVATE (BITMAP ("arrowdnmp_rollover")) DISABLE (BITMAP ("arrowdnmp_d")))
+  )
+)
+)

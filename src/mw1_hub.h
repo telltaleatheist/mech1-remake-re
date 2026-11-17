@@ -28,11 +28,13 @@ const char* hub_button_name(int32_t id);  // "ACCEPT", ... ("" for no button)
 // panel, the contract on offer or a mission's AFTER ACTION.
 struct HubView {
   std::string planet, house;          // the plaque: "ROBINSON", "HOUSE DAVION"
+  std::string date;                   // under it: "APRIL 3024"
   std::vector<std::string> company;   // the company's panel's lines
   std::string title;                  // the middle panel's: "CONTRACT ON OFFER", "AFTER ACTION"
   std::vector<std::string> panel;     // its lines
   bool after_action = false;          // OK (and REPLAY when `replay`) in place of ACCEPT and DECLINE
   bool replay = false;
+  bool offer = true;                  // ACCEPT and DECLINE (none without a House office)
 };
 
 using HubScreen = Mw1Screen;

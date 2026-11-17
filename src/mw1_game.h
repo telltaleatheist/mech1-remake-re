@@ -42,6 +42,9 @@ class MarketState;
 // The market's state once the hub's MARKET has made it (tests); the company to change in a test (funds, the
 // market's stock) and the market's screen shown again after such a change.
 MarketState* game_loop_market();
+// The travel screen's state once TRAVEL has made it (tests), else null.
+class TravelState;
+TravelState* game_loop_travel();
 Company* game_loop_company_for_tests();
 void game_loop_market_changed();
 void game_loop_press(int32_t button);

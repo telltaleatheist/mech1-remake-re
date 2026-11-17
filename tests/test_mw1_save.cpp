@@ -22,7 +22,7 @@ namespace {
 // salvage of another kind.
 mw1::Company played_company(mw1::Rng& rng) {
   mw1::Company c = mw1::new_company(rng);
-  c.funds = 1234000, c.kills = 7, c.tier = 2, c.planet = "Mallory's World", c.planet_house = mw1::kMarik;
+  c.funds = 1234000, c.kills = 7, c.tier = 2, c.planet = "Mallory's World", c.planet_house = mw1::kDavion, c.planet_number = 121;
   c.favor[mw1::kDavion] = 4, c.grievance[mw1::kMarik] = 3, c.grievance[mw1::kLiao] = 2;
   c.stores->add_weapon(0x0b, mech3::kClan);  // a Clan weapon among the Inner Sphere ones
   c.stores->add_equipment(0xb, mech3::kInnerSphere, 2);
@@ -51,7 +51,7 @@ TEST(mw1_save_round_trip) {
   std::printf("  saved %zu bytes; read back: %s\n", text.size(), why.empty() ? "ok" : why.c_str());
   // Read back, written again: the same text, line for line (the stores and the loadout byte for byte).
   EXPECT(mw1::save_text(back, has ? &k : nullptr) == text);
-  EXPECT(back.funds == c.funds && back.kills == 7 && back.tier == 2 && back.planet_house == mw1::kMarik && back.mech == c.mech);
+  EXPECT(back.funds == c.funds && back.kills == 7 && back.tier == 2 && back.planet_house == mw1::kDavion && back.mech == c.mech);
   EXPECT(back.favor[mw1::kDavion] == 4 && back.grievance[mw1::kMarik] == 3 && back.grievance[mw1::kLiao] == 2);
   EXPECT(back.stores && back.stores->count() == c.stores->count() && !back.stores->full);
   EXPECT(!back.loadout);
@@ -98,7 +98,7 @@ TEST(mw1_save_refuses_damaged_partial_and_other_versions) {
   EXPECT(refused("garbage\n\x01\x02", "garbage"));
   // Another version, with a good check: refused for its version.
   std::string v3 = text.substr(0, text.rfind("check="));
-  v3.replace(0, v3.find('\n'), "version=3");  // a later build's
+  v3.replace(0, v3.find('\n'), "version=4");  // a later build's
   {
     mw1::Contract k;
     mw1::Company into;
@@ -109,8 +109,8 @@ TEST(mw1_save_refuses_damaged_partial_and_other_versions) {
     for (unsigned char ch : body) h = (h ^ ch) * 16777619u;
     char line[32];
     std::snprintf(line, sizeof line, "check=%08x\n", h);
-    EXPECT(!mw1::load_text(body + line, into, k, nullptr, &why) && why.find("version 3") != std::string::npos);
-    std::printf("  version 3: %s\n", why.c_str());
+    EXPECT(!mw1::load_text(body + line, into, k, nullptr, &why) && why.find("version 4") != std::string::npos);
+    std::printf("  version 4: %s\n", why.c_str());
   }
 }
 

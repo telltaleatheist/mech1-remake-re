@@ -109,12 +109,41 @@ a Phoenix Hawk (081B:ECONOMY `MwGenerateUnitStock`).
 - Example: Luthien (133,78) to Anywhere (69,49) is distance 4. With one mech
   that costs 120,000 each way, against 600k profit on a Locust.
 
+### Travel in MW1: Critical Hit (mw1 dev 1, 2026-11-17; `src/mw1_travel.h`)
+
+- **The map**: the travel directory's 145 records (`TRAVEL_PLANET_DIRECTORY_COUNT`
+  0x91). The 146th record, a second Ander's Moon at (208,228), is outside it,
+  so MW1 never lists it; we leave it out too (confirmed by the mw1 lead).
+  Within the directory the longest jump is distance 11 (17 only to that
+  second Ander's Moon). 81 of the 145 worlds have a House office.
+- **Distances** port 081B:5912 and its banded root (081B:5F5C) over a
+  computed table: the exe's DS:4CE6 is round(√(10·i)) except its last nine
+  entries, which no map distance reaches. The test checks every pair (21,025)
+  against the exe's own table.
+- **The calendar**: 60 units a month (a unit is about half a day), a new
+  company on 1 April 3024 (DS:0479..047D, EVENT_UI). The market restocks each
+  time its clock passes 14 units, and on arrival. Wages wait for the Bar
+  (lancemates only, DS:2476: 400, 600, 1,000, 2,000 a month by tier).
+- **Provisional, pending Owen (one constant or flag each):**
+  - *The DropShip*: left out; hired transport only (`Transport::kHired`;
+    `kDropShip` and its 50,000 a distance unit are named but not sold).
+  - *No contracts without a House office* (`kContractsNeedAnOffice`), MW1's
+    rule. Guard: the hub and the travel screen say so plainly when the
+    company can't afford any trip to a world with an office (`stranded`),
+    and the travel screen warns before a trip that would leave it so. MW1
+    has no escape of its own; with one mech (the last can't be sold) the
+    only way out is a save.
+  - *A mission's time* (`kMissionDistance` 1, `kMissionDeploymentUnits` 28):
+    the return's 1 × 14 × 2, 6 × the world's weight, and 28 deployment units
+    (DS:8E46's commonest), about a month a mission, as contracts are on the
+    company's own world. Contracts on other worlds come later.
+
 ## Still to read
 
 - Contract pay, salvage and advance terms (`MW_MAIN_081B_CONTRACTS.c`), and
   how salvage hands over whole mechs.
 - Repair prices per component (081B:3E28) and repair time.
-- Wages per pilot tier, and the calendar's units.
+- Wages per pilot tier (read: DS:2476, above).
 - The DropShip's upkeep.
 - The House standing and story effects on offers (`MW_MAIN_081B_EVENTS.c`,
   `houseMissionTypeLimits`).

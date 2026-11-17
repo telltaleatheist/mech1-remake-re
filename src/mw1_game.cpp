@@ -21,6 +21,8 @@
 #include "mw1_hub.h"
 #include "mw1_market.h"
 #include "mw1_market_screen.h"
+#include "mw1_travel.h"
+#include "mw1_travel_screen.h"
 #include "mw1_save.h"
 
 namespace mw1 {
@@ -91,6 +93,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       ge.push_state(hub_, 0);
       // MW1_SCREEN=market (development: --shot pictures of a screen past the hub).
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "market") press(kHubMarket);
+      if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "travel") press(kHubTravel);
       return true;
     }
     // No hub layout (MW1's data missing): the message boxes, as before the hub.
@@ -98,6 +101,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       ge.message_box_words(kBoxOk, "After action", join(after_action_lines(), "\n"));
       press(kHubOk);
     }
+    if (!offered_) return returning;  // no House office here
     if (static_cast<int32_t>(ge.message_box_words(kBoxYesNo, "MechWarrior 1: Critical Hit", join(offer_lines(true), "\n") + "\n\nAccept and deploy?")) !=
         kAnswerYes)
       return returning;
@@ -112,6 +116,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (hub_engine_ == &ge && ge.menu_state_of(hub_) == hub_state_) return hub_ != 0;
     hub_engine_ = &ge, ge_ = &ge, hub_ = 0, hub_state_ = nullptr;
     market_ = 0, market_state_ = nullptr;
+    travel_ = 0, travel_state_ = nullptr;
     if (!layout_there(kHubFile, kHubDialog)) {
       std::printf("mw1: no hub layout (%s in MW1's data): the message boxes\n", kHubFile);
       return false;
@@ -126,12 +131,12 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     mech3::GameEngine* ge = ge_;
     switch (id) {
       case kHubAccept:
-        if (pending_ || !ge) return;
+        if (pending_ || !offered_ || !ge) return;
         ge->pop_state(1);  // the hub off, then the main menu replaced by the briefing (deploy)
         deploy(*ge);
         return;
       case kHubDecline:
-        if (pending_) return;
+        if (pending_ || !offered_) return;
         new_offer();
         break;
       case kHubOk: {
@@ -143,7 +148,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
                     ending_word(pending_->outcome), pending_->wrecks.size(), thousands(s.salvage).c_str(), thousands(s.fee).c_str(),
                     s.payout_percent, thousands(company_.funds).c_str(), company_.stores->count());
         pending_.reset();
-        refresh_market(company_, rng_);  // the original refreshes on every return (STARTUP 081B:378)
+        // The mission's time (STARTUP 350: the return, the world's weights, the deployment), then the refresh the
+        // original makes on every return (STARTUP 081B:378).
+        advance_time(company_, mission_units(company_), rng_);
+        refresh_market(company_, rng_);
         new_offer();
         break;
       }
@@ -169,9 +177,76 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         ge->pop_state(1);
         ge->push_state(market_, 0);
         return;
+      case kHubTravel:
+        // The travel screen in the hub's place (BACK brings the hub back); not while AFTER ACTION waits.
+        if (pending_ || !ge || !travel(*ge)) return;
+        tchoice_ = TravelChoice{};
+        show_travel();
+        ge->pop_state(1);
+        ge->push_state(travel_, 0);
+        return;
       default: return;  // the screens that come later
     }
     show_hub();
+  }
+
+  // ---- travel (mw1_travel.h, mw1_travel_screen.h) ----
+
+  bool travel(mech3::GameEngine& ge) {
+    if (travel_ && ge.menu_state_of(travel_) == travel_state_) return true;
+    if (!layout_there(kTravelFile, kTravelDialog)) {
+      std::printf("mw1: no travel layout (%s in MW1's data)\n", kTravelFile);
+      return false;
+    }
+    travel_ = ge.adopt_state([this](zgame::Handle h) { return travel_state_ = new TravelState(h, [this](int32_t id) { press_travel(id); }); });
+    return travel_ != 0;
+  }
+
+  void press_travel(int32_t id) {
+    std::printf("mw1: travel: %s\n", travel_button_name(id));
+    mech3::GameEngine* ge = ge_;
+    switch (id) {
+      case kTravelGo: {
+        const int32_t w = chosen_world(company_, tchoice_);
+        const int64_t cost = w >= 0 ? travel_cost(company_, kPlanets[w]) : 0;
+        const Trip t = mw1::travel(company_, w, rng_);
+        if (t != Trip::kDone) {
+          tchoice_.note = trip_words(t);
+          std::printf("mw1: travel: %s\n", tchoice_.note.c_str());
+          break;
+        }
+        // Arrived (081B:5F15): the new world's market (travel's) and its offer, or none without an office; the hub.
+        std::printf("mw1: travelled to %s for %s C-bills: %s, funds %s\n", company_.planet.c_str(), thousands(cost).c_str(),
+                    date_words(company_.date).c_str(), thousands(company_.funds).c_str());
+        new_offer();
+        if (!ge) return;
+        show_hub();
+        ge->pop_state(1);
+        ge->push_state(hub_, 0);
+        return;
+      }
+      case kTravelHouse:
+        tchoice_.house = tchoice_.house + 1 >= kHouseCount ? -1 : tchoice_.house + 1;
+        tchoice_.at = tchoice_.top = 0;
+        break;
+      case kTravelUp: --tchoice_.at; break;
+      case kTravelDown: ++tchoice_.at; break;
+      case kTravelPageUp: tchoice_.at -= kTravelRows; break;
+      case kTravelPageDown: tchoice_.at += kTravelRows; break;
+      case kTravelBack:
+        if (!ge) return;
+        show_hub();
+        ge->pop_state(1);
+        ge->push_state(hub_, 0);
+        return;
+      default: return;
+    }
+    show_travel();
+  }
+
+  void show_travel() {
+    clamp_choice(company_, tchoice_);
+    if (travel_state_) travel_state_->show(travel_view(company_, tchoice_));
   }
 
   // ---- the market (mw1_market.h, mw1_market_screen.h) ----
@@ -242,14 +317,21 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     HubView v;
     v.planet = upper(company_.planet);
     v.house = "HOUSE " + upper(kHouses[company_.planet_house].name);
+    v.date = date_words(company_.date);
     v.company = {"COMPANY", "Funds: " + thousands(company_.funds) + " C-bills", "Mech: " + mech_title(company_.mech) +
                                      (company_.hangar.empty() ? "" : " (+" + std::to_string(company_.hangar.size()) + " in the hangar)"),
                  "Stores: " + std::to_string(company_.stores->count()) + " items", "Kills: " + std::to_string(company_.kills)};
     if (pending_) {
       v.title = "AFTER ACTION", v.panel = after_action_lines(), v.after_action = true;
       v.replay = pending_->outcome == Outcome::kFailure;
-    } else {
+    } else if (offered_) {
       v.title = "CONTRACT ON OFFER", v.panel = offer_lines();
+    } else {
+      // No House office (MW1 offers no contracts here): travel on; stranded, said plainly.
+      v.title = "NO HOUSE OFFICE", v.offer = false;
+      v.panel = {"House " + std::string(kHouses[company_.planet_house].name) + " has no office on " + company_.planet + ":",
+                 "no contracts here. TRAVEL to a world with one."};
+      for (const std::string& l : stranded_lines(company_)) v.panel.push_back(l);
     }
     hub_state_->show(v);
   }
@@ -292,6 +374,12 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
 
   // A new contract on offer (the test overrides on it), saved.
   void new_offer() {
+    offered_ = contracts_here(company_);
+    if (!offered_) {
+      save();
+      std::printf("mw1: no House office on %s: no contracts\n", company_.planet.c_str());
+      return;
+    }
     contract_ = generate_contract(company_, 0, rng_);
     if (!world_.empty()) contract_.world = world_, contract_.ia = world_ia_;
     if (!reach_.empty()) contract_.objective = Objective::kReachStructure, contract_.ia = kReachIa, contract_.structure = reach_;
@@ -355,11 +443,12 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   const AfterAction* pending() const { return pending_.get(); }
   HubState* hub_state() const { return hub_state_; }
   MarketState* market_state() const { return market_state_; }
+  TravelState* travel_state() const { return travel_state_; }
   Company* company_mut() { return company_.stores ? &company_ : nullptr; }
   void market_changed() { show_market(); }
   void set_save(const std::string& path, bool fresh) { save_path_ = path, fresh_ = fresh; }
   void set_world(const std::string& world, int32_t ia) { world_ = world, world_ia_ = ia; }
-  const Contract* contract() const { return company_.stores ? &contract_ : nullptr; }
+  const Contract* contract() const { return company_.stores && (offered_ || pending_) ? &contract_ : nullptr; }
 
   // ---- ObjectivesExtension ----
   // Reach a structure: the mission's primary is reaching its node alone, as the data's reach_area builds one. The
@@ -399,6 +488,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
           std::printf("mw1: the company loaded from %s: %s C-bills, %d items in the stores, %d kills%s\n", save_path_.c_str(),
                       thousands(company_.funds).c_str(), company_.stores->count(), company_.kills,
                       has_pending ? ", a mission's after action" : has_offer ? ", its offer" : "");
+          offered_ = has_offer || has_pending;
           return has_offer;
         case Loaded::kBad:
           std::printf("mw1: the save %s doesn't read (%s): kept as mw1save.bad; a new company\n", save_path_.c_str(), why.c_str());
@@ -416,7 +506,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   void save() {
     if (save_path_.empty()) return;
     std::string why;
-    if (!save_file(save_path_, company_, &contract_, &why, pending_.get())) std::printf("mw1: the company not saved: %s\n", why.c_str());
+    if (!save_file(save_path_, company_, offered_ || pending_ ? &contract_ : nullptr, &why, pending_.get())) std::printf("mw1: the company not saved: %s\n", why.c_str());
   }
 
   static std::shared_ptr<mech3::Config> copy_config(const mech3::Config& c) {
@@ -463,6 +553,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   std::shared_ptr<mech3::Config> launch_loadout_;  // and its loadout
   std::vector<Wreck> wrecks_;
   std::unique_ptr<AfterAction> pending_;  // a mission back, AFTER ACTION until OK (or REPLAY)
+  bool offered_ = true;                   // a contract on offer (none at a world without a House office)
+  zgame::Handle travel_ = 0;
+  TravelState* travel_state_ = nullptr;
+  TravelChoice tchoice_;
   // The hub on this engine (Engine::adopt_state): its handle and state, made once.
   mech3::GameEngine* hub_engine_ = nullptr;
   mech3::GameEngine* ge_ = nullptr;
@@ -514,6 +608,7 @@ void game_loop_press(int32_t button) {
 }
 
 MarketState* game_loop_market() { return the_loop() ? the_loop()->market_state() : nullptr; }
+TravelState* game_loop_travel() { return the_loop() ? the_loop()->travel_state() : nullptr; }
 Company* game_loop_company_for_tests() { return the_loop() ? the_loop()->company_mut() : nullptr; }
 void game_loop_market_changed() {
   if (the_loop()) the_loop()->market_changed();
