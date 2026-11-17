@@ -10,17 +10,20 @@
 #include <string>
 #include <vector>
 
+#include "mech3/action_menu.h"
 #include "mech3/app_engine.h"
 #include "mech3/app_mech.h"
 #include "mech3/mech_names.h"
 #include "mech3/mech_objective.h"
 #include "mech3/mech_config.h"
 #include "mech3/mission.h"
+#include "mech3/mods.h"
 #include "mech3/pilot.h"
 #include "mech3/program_flow.h"
 #include "mech3/zai_brain.h"
 #include "mech3/zai_params.h"
 #include "gamez/zreader/zreader.h"
+#include "gamez/zutil/zutl_path.h"
 #include "mw1_bar_screen.h"
 #include "mw1_campaign.h"
 #include "mw1_hub.h"
@@ -84,6 +87,23 @@ std::string objective_words(const Contract& k) {
   }
   return "destroy all enemy mechs";
 }
+// The map as PM's Instant Action screen names it: the world (PM's c1..c4 by their messages, 0xe33.., an MW3 world by
+// the name it was registered with) and the scenario of its archive (ia1 Battle, ia2 Attack, ia3 Defend; the
+// scenarios' table, action_menu.h). The code ("c2 Instant Action 3") when either has no words.
+std::string map_words(mech3::Engine* e, const std::string& world, int32_t ia) {
+  const std::string code = world + " Instant Action " + std::to_string(ia);
+  if (!e) return code;
+  auto said = [](const char* t) { return t && *t ? std::string(t) : std::string(); };
+  std::string name;
+  if (world.size() == 2 && world[0] == 'c' && world[1] >= '1' && world[1] <= '4') name = said(e->message(0xe33 + (world[1] - '1')));
+  for (const mech3::ModIaWorld& w : mech3::mod_ia_worlds())
+    if (name.empty() && w.folder == world && !zutl::game_text(w.name, &name)) name.clear();
+  std::string scenario;
+  for (int32_t i = 1; i < mech3::kActionScenarioCount && scenario.empty(); ++i)
+    if (mech3::kActionScenarios[i].mission == ia) scenario = said(e->message(mech3::kActionScenarios[i].name));
+  return name.empty() || scenario.empty() ? code : name + ", " + scenario;
+}
+
 const char* ending_word(Outcome o) { return o == Outcome::kSuccess ? "Success" : o == Outcome::kFailure ? "Failure" : "Retreat"; }
 
 // A wreck's condition (provisional, research/contracts.md): the share of its parts (ids 1..15) still standing.
@@ -487,7 +507,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (!title.empty()) l.push_back(title_case_name(title.c_str()));
     if (k.mission_planet >= 0) l.push_back("On " + title_case_name(kPlanets[k.mission_planet].name) + " (" + climate_name(k.climate) + ")");
     l.push_back("Objective: " + objective_words(k));
-    l.push_back("Map: " + k.world + " Instant Action " + std::to_string(k.ia));
+    l.push_back("Map: " + map_words(ge_, k.world, k.ia));
     l.push_back("Enemy: " + enemies);
     l.push_back("Payment: " + thousands(int64_t{k.payment} * 1000) + " C-bills");
     l.push_back("Advance " + std::to_string(k.advance_percent) + "%, salvage " + std::to_string(k.salvage_percent) + "%");
