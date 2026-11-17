@@ -1,7 +1,8 @@
 // MW1's loop over PM's game (src/mw1_game.h), headless on the real engine and the player's Pirate's Moon: the hub's
 // offer at the main menu (accepted), the contract's Instant Action mission on c2 with the company's Owens, every enemy
 // disabled, the mission's end, and back at the hub the settlement (the fee, the wrecks' salvage) in the company's
-// funds and the enemies' parts in its stores; the next offer declined, so PM's main menu stays.
+// funds and the enemies' parts in its stores; the next offer declined, so PM's main menu stays. Failed, or quit
+// (no mission end), no fee and no salvage: the stores and the funds as the advance left them (VISION.md, the endings).
 #include <cstdio>
 #include <filesystem>
 #include <functional>
@@ -75,7 +76,9 @@ struct Pump : platform::MessagePump {
   void post_quit() override {}
 };
 
-void loop_run() {
+enum Ending { kWon, kFailed, kQuit };
+
+void loop_run(Ending ending) {
   zgame::set_game(pm::table());
   zutl::mounts() = zutl::Mounts{};
   zutl::mount(MW3PM_GAME_DIR);
@@ -102,7 +105,7 @@ void loop_run() {
   mech3::Platform p;
   p.window = &window, p.alert = &alert, p.clock = &clock, p.movie_clock = &movies, p.screen = &screen;
   p.sound = &sound, p.files = &files, p.input = &keys;
-  int64_t funds_at_offer = 0;
+  int64_t funds_at_offer = 0, funds_in_mission = 0;
   int boxes = 0, enemies = 0, killed = 0, items_at_offer = 0;
   bool ended = false, back_at_main = false;
   {
@@ -126,11 +129,13 @@ void loop_run() {
       if (boxes >= 3 && app.current() == &mech3::states().main) back_at_main = true;
       if (ended || app.current() != &mech3::states().core || ++frames != 30) return;
       // In the mission: the player disables every enemy, the mission is won, and Instant Action ends (IA Dummy).
+      if (const mw1::Company* c = mw1::game_loop_company()) funds_in_mission = c->funds;  // the advance paid
       int32_t n = 0;
       const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
       enemies = n;
       for (int32_t i = 0; i < n; ++i) killed += mech3::program_mech_kill_credit(mech3::mech_mission_player(), ai[i].mech);
-      mech3::missions().ended = 1;
+      if (ending != kQuit) mech3::missions().ended = 1;
+      if (ending == kFailed) mech3::missions().aborting = 1;  // as abort_now: ended, as a failure
       for (int i = app.depth(); i > 0; --i) app.pop(1);
       app.replace(&mech3::states().ia_dummy, 0);
       ended = true;
@@ -143,13 +148,21 @@ void loop_run() {
     mech3::set_app(nullptr);
   }
   const mw1::Company* c = mw1::game_loop_company();
-  std::printf("  mw1 loop: %d boxes, %d enemies, %d disabled, funds %lld -> %lld, stores %d -> %d items, kills %d, favor %d\n",
-              boxes, enemies, killed, static_cast<long long>(funds_at_offer), c ? static_cast<long long>(c->funds) : -1LL,
+  static const char* const kSaid[] = {"won", "failed", "quit"};
+  std::printf("  mw1 loop, %s: %d boxes, %d enemies, %d disabled, funds %lld -> %lld, stores %d -> %d items, kills %d, favor %d\n",
+              kSaid[ending], boxes, enemies, killed, static_cast<long long>(funds_at_offer), c ? static_cast<long long>(c->funds) : -1LL,
               items_at_offer, c ? c->stores->count() : -1, c ? c->kills : -1, c ? c->favor[c->planet_house] : -1);
   EXPECT(boxes == 3 && back_at_main && enemies > 0 && killed == enemies);
-  EXPECT(c && c->kills == enemies && c->favor[c->planet_house] == 2);  // a success: every wreck counted, +2 favor
-  EXPECT(c && c->funds > funds_at_offer);                                // the advance, the fee and the salvage
-  EXPECT(c && c->stores->count() > items_at_offer);                      // the enemies' parts
+  EXPECT(c && funds_in_mission > funds_at_offer);  // the advance, at accepting
+  if (ending == kWon) {
+    EXPECT(c && c->kills == enemies && c->favor[c->planet_house] == 2);  // every wreck counted, +2 favor
+    EXPECT(c && c->funds > funds_in_mission);                            // the fee and the salvage
+    EXPECT(c && c->stores->count() > items_at_offer);                    // the enemies' parts
+  } else {
+    // No fee, no salvage, no parts; the employer: a failure no change, a quit (MW1's retreat) +1 grievance.
+    EXPECT(c && c->funds == funds_in_mission && c->stores->count() == items_at_offer);
+    EXPECT(c && c->favor[c->planet_house] == 0 && c->grievance[c->planet_house] == (ending == kQuit ? 1 : 0));
+  }
   for (int32_t r = 0; c && r < mech3::kMechCount; ++r) EXPECT(c->stores->has_mech(r) == nullptr);  // never a mech
   mw1::uninstall_game_loop();
   EXPECT(mech3::program_flow() == nullptr);
@@ -159,20 +172,22 @@ void loop_run() {
 }
 }  // namespace
 
-TEST(mw1_loop_hub_contract_mission_settlement_headless) {
+TEST(mw1_loop_hub_contract_mission_settlement_won_failed_quit_headless) {
   std::error_code ec;
   if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  for (const Ending ending : {kWon, kFailed, kQuit}) {
 #if !defined(_WIN32)
-  std::fflush(nullptr);
-  const pid_t child = check::fork_child();
-  if (child == 0) {
-    loop_run();
     std::fflush(nullptr);
-    _exit(check::failures ? 1 : 0);
-  }
-  const int status = check::wait_child(child);
-  EXPECT(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+    const pid_t child = check::fork_child();
+    if (child == 0) {
+      loop_run(ending);
+      std::fflush(nullptr);
+      _exit(check::failures ? 1 : 0);
+    }
+    const int status = check::wait_child(child);
+    EXPECT(WIFEXITED(status) && WEXITSTATUS(status) == 0);
 #else
-  loop_run();
+    loop_run(ending);
 #endif
+  }
 }

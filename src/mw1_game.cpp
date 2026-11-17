@@ -47,6 +47,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       deployed_ = false;
       const Outcome o = ended_ && !failed_ ? Outcome::kSuccess : failed_ ? Outcome::kFailure : Outcome::kRetreat;
       const Settlement s = settle(company_, contract_, o, wrecks_, rng_);
+      // The parts are kept only on a win (VISION.md, the endings): failed or quit, the mission's salvage is dropped.
+      if (o == Outcome::kSuccess && salvage_) company_.stores->add_all(*salvage_);
+      salvage_.reset();
       const char* said = o == Outcome::kSuccess ? "Success" : o == Outcome::kFailure ? "Failure" : "Retreat";
       std::printf("mw1: settled: %s, %zu wrecks, salvage %s, fee %s, payout %d%%, funds %s, %d items in the stores\n", said,
                   wrecks_.size(), thousands(s.salvage).c_str(), thousands(s.fee).c_str(), s.payout_percent,
@@ -76,9 +79,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   }
 
   // Each enemy mech the moment it dies (whoever killed it: MW1 pays for every disabled enemy): its wreck for the
-  // pay, and its parts into the stores, never the mech itself (VISION: salvage gives parts).
+  // pay, and its parts into the mission's salvage, never the mech itself (VISION: salvage gives parts), the
+  // company's only if the mission is won.
   void mech_killed(void* victim, void*) override {
-    if (!deployed_ || victim == mech3::mech_mission_player()) return;
+    if (!deployed_ || !salvage_ || victim == mech3::mech_mission_player()) return;
     mech3::LaunchedMech d;
     if (!mech3::describe_mech(victim, &d)) return;
     int32_t kind = -1;
@@ -86,7 +90,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       if (kMechKinds[k].pm_mech == d.roster) kind = k;
     if (kind < 0) return;  // not one of the contract's
     wrecks_.push_back({kind, condition_of(victim)});
-    mech3::program_salvage_mech(victim, *company_.stores, false);
+    mech3::program_salvage_mech(victim, *salvage_, false);
     std::printf("mw1: an enemy %s disabled (%d%% standing)\n", kMechKinds[kind].name, wrecks_.back().condition);
   }
 
@@ -112,6 +116,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     l.action = game_.get();
     ge.set_launch(l);
     wrecks_.clear();
+    salvage_ = std::make_unique<mech3::Store>();
     ended_ = failed_ = false, deployed_ = true;
     std::printf("mw1: deployed to %sia%d with the %s\n", contract_.world.c_str(), contract_.ia, mech3::mech_name(company_.mech));
     ge.replace_state(6);  // the Load state, then Core
@@ -122,6 +127,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   Contract contract_;
   std::unique_ptr<mech3::ActionGame> game_;
   std::vector<Wreck> wrecks_;
+  std::unique_ptr<mech3::Store> salvage_;  // this mission's parts, the stores' on a win
   bool deployed_ = false, ended_ = false, failed_ = false;
 };
 

@@ -146,5 +146,6 @@ TEST(mw1_campaign_accept_and_settle) {
   mw1::Contract f = mw1::generate_contract(c, 0, rng);
   mw1::accept(c, f);
   const int64_t f_advanced = c.funds;
-  EXPECT(mw1::settle(c, f, mw1::Outcome::kFailure, {}, rng).fee == 0 && c.funds == f_advanced && c.grievance[mw1::kDavion] == 1);
+  const mw1::Settlement u = mw1::settle(c, f, mw1::Outcome::kFailure, {{mw1::kJenner, 100}}, rng);
+  EXPECT(u.fee == 0 && u.salvage == 0 && c.funds == f_advanced && c.grievance[mw1::kDavion] == 1);
 }
