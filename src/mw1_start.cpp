@@ -17,6 +17,7 @@ Args parse(int argc, char** argv) {
     const bool more = i + 1 < argc;
     if (s == "--mw3-install" && more) a.given.mw3 = argv[++i];
     else if (s == "--mw1-game" && more) a.given.mw1 = argv[++i];
+    else if (s == "--new-company") a.new_company = true;
     else {
       // The game main's own; --install and --write-dir read here as well.
       if (s == "--install" && more) a.given.pm = argv[i + 1];
