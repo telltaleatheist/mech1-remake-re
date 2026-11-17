@@ -1849,3 +1849,88 @@ TEST(mw1_story_events_on_the_panel_headless) {
     EXPECT(!saved.story.news_heard.empty());
   });
 }
+
+// The Bar's DRINK and NEWS (mw1_story.h): on the start world a drink is a tip at its price and a unit of time (0x06,
+// then 0x0A), then the quiet text; NEWS shows the news live now, PREV and NEXT through it, BACK to the Bar.
+TEST(mw1_story_drinks_and_news_in_the_bar_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  if (mw1_test::no_mw1()) return;
+  in_child([&] {
+    const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_story_bar";
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    MenuRun r;
+    r.save = (dir / mw1::kSaveFile).string(), r.start = mw1::Start::kHub, r.story = true;
+    int step = 0, wait = 0, drinks = 0;
+    std::vector<int32_t> tips;
+    std::vector<int64_t> paid;
+    int32_t units = -1;
+    bool live = false, quiet = false, news = false, paged = false, back = false;
+    r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
+      mw1::HubState* hub = mw1::game_loop_hub();
+      mw1::BarState* bar = mw1::game_loop_bar();
+      mw1::EventState* ev = mw1::game_loop_event();
+      mw1::Company* c = mw1::game_loop_company_for_tests();
+      if (++wait < 5) return false;
+      switch (step) {
+        case 0:  // past the hub's own (the crest), into the Bar
+          if (showing(app, ev)) {
+            ev->screen()->on_button(mw1::kEventNext, 0, 0);
+            wait = 0;
+            return false;
+          }
+          if (!showing(app, hub)) return false;
+          hub->screen()->on_button(mw1::kHubBar, 0, 0);
+          ++step, wait = 0;
+          return false;
+        case 1: {  // three drinks: two tips, then nothing
+          if (showing(app, ev)) {
+            ev->screen()->on_button(mw1::kEventNext, 0, 0);
+            wait = 0;
+            return false;
+          }
+          if (!showing(app, bar)) return false;
+          live = bar->screen()->enabled(mw1::kBarDrink) && bar->screen()->enabled(mw1::kBarNews);
+          if (drinks == 3) {
+            quiet = tips.size() == 2 && c->story.seen[0x06] && c->story.seen[0x0A];
+            bar->screen()->on_button(mw1::kBarNews, 0, 0);
+            ++step, wait = 0;
+            return false;
+          }
+          const int64_t before = c->funds;
+          const int32_t u = c->date.units;
+          const uint8_t a = c->story.seen[0x06], b = c->story.seen[0x0A];
+          bar->screen()->on_button(mw1::kBarDrink, 0, 0);
+          ++drinks;
+          if (units < 0) units = c->date.units - u;
+          if (c->story.seen[0x06] != a) tips.push_back(0x06);
+          if (c->story.seen[0x0A] != b) tips.push_back(0x0A);
+          paid.push_back(before - c->funds);
+          wait = 0;
+          return false;
+        }
+        case 2:  // the news: the frame-up at least; NEXT and PREV through it, then BACK
+          if (!showing(app, ev)) return false;
+          news = ev->screen()->visible(mw1::kEventBack) && ev->screen()->visible(mw1::kEventPrev) &&
+                 !ev->screen()->visible(mw1::kEventChoice1) && shows_line(ev->screen()->shown(), "NEWS (1 OF");
+          ev->screen()->on_button(mw1::kEventNext, 0, 0);
+          ev->screen()->on_button(mw1::kEventPrev, 0, 0);
+          paged = shows_line(ev->screen()->shown(), "NEWS (1 OF");
+          ev->screen()->on_button(mw1::kEventBack, 0, 0);
+          ++step, wait = 0;
+          return false;
+        default:
+          if (!showing(app, bar)) return false;
+          back = true;
+          return true;
+      }
+    };
+    menu_run(r);
+    std::printf("  drinks: %zu tips, paid", tips.size());
+    for (int64_t p : paid) std::printf(" %lld", static_cast<long long>(p));
+    std::printf("; a unit each %d; live %d, quiet %d, news %d, paged %d, back %d\n", units, live, quiet, news, paged, back);
+    EXPECT(live && quiet && news && paged && back && units == 1);
+    EXPECT(paid.size() == 3 && paid[0] == 5 && paid[1] == 5 && paid[2] == 0);
+  });
+}

@@ -207,3 +207,111 @@ quarter), so the extended battles come late, alongside the story's end.
     had EGA art for the victory) are new art later, text panels until then.
 12. **The major campaign's window** (late contracts, the extended battles):
     MW1's dates, or available from the start?
+
+## Provisional answers (mw1 lead 2026-11-17)
+
+Each is one constant or flag.
+
+- **Q4, the commander's name:** a hook, `commander_name()` (MW1's own, DS:5CE2).
+  MW1's texts name the commander themselves, so nothing is written into them.
+- **Q7, the typos:** kept, since the words are read from the player's exe.
+- **Q8, the news:** the hub says each new story's headline under its panel
+  ("NEWS: ..."), as it says wages and promotions; the Bar's NEWS shows the
+  stories live now in full. Owen may want a screen instead.
+- **Q9, MW1's data mistakes:** kept, in one table (`kErrata`, off:
+  `kFixErrata`). Correction: there are **five swapped dates and no
+  duplicates.** Events 0x2D and 0x40 are each two records on purpose, two
+  ways to reach the same step.
+- **Q10, DRINK:** MW1's prices, which are the tips' own funds actions.
+- **Q11, the pictures:** text panels.
+- **Still open (Q1, Q5):** `kStoryDeathsRestart` is off: a death's page
+  shows and play goes on. `kDarkWingBattle` is off: ATTACK is greyed and
+  DELAY is live.
+
+## Built: steps 1-3 (2026-11-17)
+
+**Step 1, the reader and the state.** `src/mw1_story.h` holds three parts:
+
+- **The script.** It is read from the player's MW_MAIN.EXE: the list
+  (DS:6067, the new campaign's at DS:0AB8), the records (DS:6121..655C),
+  the captions (DS:5CF4) and the texts (segment 1AA5). Every record parses,
+  or the story is off.
+- **The rules,** as MW1 runs them:
+  - each condition and action, including AND/OR and the date window (MW1's
+    month and units quirks kept), the funds clamped at none, and a named
+    planet;
+  - a choice marks its event seen (except 0x72) and its branch runs at once;
+  - the House-hatred arrivals fire only on arriving;
+  - the arrest (0x75) stops after a Dark Wing win;
+  - the quiet drink (0x71) shows when a drink finds nothing.
+- **The state** (`Company::story`):
+  - the seen flags;
+  - the six story planets, rolled at the new campaign after the world's
+    state as MW1 does;
+  - whether the Dark Wing is won;
+  - the news the hub has announced, by record, so each year's birthday
+    message comes again;
+  - the arrival flag, set by travel and not saved.
+
+Save version 8 holds all of it except the arrival flag. A version 7 save
+reads with nothing seen, and the loop rolls all six planets.
+
+**Step 2, the event panel.** `src/mw1_event_screen.h` and
+`data/mw1event.zrd` show MW1's text green on black, MW1's own black
+backdrop. They show it page by page, with NEXT and then OK. A choice's
+captions go on its buttons. The panel opens over the screen the event
+fires on:
+
+- **The hub:** each time it is drawn, as MW1 does, but not while AFTER
+  ACTION waits. An arrival's events after travel. The news headlines go
+  under its panel.
+- **The Bar, the Mech Complex (MARKET) and the House office:** on entering.
+  The office opens only with an offer on the table (ours), so its one event
+  (0x08, Galedon V) needs an offer there.
+
+**Step 3, DRINK and NEWS in the Bar.** Each costs one unit of time, as MW1's
+does (MwOrderDrinkContinuation, MwOpenNewsNetContinuation). The wages come
+due if a month begins. The two buttons are greyed without the story.
+
+**Tests.**
+
+- `tests/test_mw1_story.cpp` checks:
+  - the pools and the name against the exe;
+  - the script's counts: 117 records, 203 commands, 26 choices, and the
+    86-entry list by class;
+  - every text: 144 pages, at most 44 characters a line;
+  - the rules on the chain's steps;
+  - the news's six months and the yearly birthday;
+  - the errata;
+  - the save, including version 7.
+- In `test_mw1_loop.cpp`, two headless runs:
+  - the crest, then a choice and its branch, then the Mech Complex's and
+    the office's events, all saved;
+  - the drinks (5, 5, then the quiet text), then the news with PREV, NEXT
+    and BACK.
+
+The loop tests that aren't about the story turn it off
+(`set_game_loop_story`).
+
+## Q6: what PM's launch allows for multi-stage battles (research only)
+
+How a stage could follow the last without the hub:
+
+- **The next stage needs no engine change.** The loop already launches
+  through Instant Action (`deploy`), and a mission's return reaches
+  `main_entered`. From there the loop could set the next stage's contract
+  and call `deploy` again instead of pushing the hub.
+- **The mech lab shows each time.** Instant Action's briefing (the lab and
+  LAUNCH) comes up before each stage. Skipping it, as MW1 had no screens
+  between stages, would need a way to launch from the briefing at once: a
+  small hook, or a press of its LAUNCH from our side (not tried).
+- **Carrying damage needs one engine hook ("ours").** The program can read
+  a mech's state (`program_mech_parts_standing`), and it hears field bases'
+  mending (`mech_repaired`). It has no way to set a mech's armor, structure
+  or dead weapons at its spawn. MW1's 60% recovery between stages, and
+  ammunition carried over, need a `ProgramFlow` call at spawn that lets the
+  program write them. Allies already have their launch hook
+  (`ally_launching`), but it only sets AI parameters.
+- **A hub stop between stages** (Owen's other option) needs no engine hook:
+  the stage's damage becomes a repair bill, as now. The stage count and the
+  next stage's map are ours to keep in the save.

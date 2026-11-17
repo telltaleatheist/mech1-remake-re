@@ -255,7 +255,7 @@ Ran run_event(Company& c, int32_t record, int32_t cls, Rng& rng, Shown* out) {
         case kDate: {
           const int32_t month = month_of(cmd.date), units = units_of(cmd.date);
           bool arrived = reached(now, cmd.date.year, month, units);
-          if (arrived && cls == kNews) {
+          if (arrived && cls == kClassNews) {
             // The news: six months from its date. MW1 compares the end's units with the month (its scratch word's).
             int32_t m = month + 6, y = cmd.date.year;
             if (m >= kMonthCount) ++y, m -= kMonthCount;
@@ -333,13 +333,13 @@ bool next(Company& c, Dispatch& d, Rng& rng, Shown* out) {
     const int32_t rec = s.list[d.at++];
     const Event& e = s.records[static_cast<size_t>(rec)];
     if (e.cls != d.cls) continue;
-    if (d.cls != kNews && c.story.seen[static_cast<size_t>(e.id)] == 1) continue;
+    if (d.cls != kClassNews && c.story.seen[static_cast<size_t>(e.id)] == 1) continue;
     const Ran r = run_event(c, rec, d.cls, rng, out);
     if (r == Ran::kShown) return ++d.shown, true;
     if (r == Ran::kChoice) return true;  // a choice isn't counted (MW1 leaves before its count)
   }
   d.done = true;
-  if (d.cls == kBarDrink && d.shown == 0 && s.there()) {
+  if (d.cls == kClassBarDrink && d.shown == 0 && s.there()) {
     if (out) *out = Shown{kEventQuiet, -1, {}, {}, false, -1};
     return true;
   }
@@ -354,9 +354,9 @@ std::vector<Shown> live_news(Company& c, Rng& rng) {
   std::vector<Shown> out;
   const Script& s = script();
   for (int32_t rec : s.list) {
-    if (s.records[static_cast<size_t>(rec)].cls != kNews) continue;
+    if (s.records[static_cast<size_t>(rec)].cls != kClassNews) continue;
     Shown sh;
-    if (run_event(c, rec, kNews, rng, &sh) == Ran::kShown) out.push_back(sh);
+    if (run_event(c, rec, kClassNews, rng, &sh) == Ran::kShown) out.push_back(sh);
   }
   return out;
 }

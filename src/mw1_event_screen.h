@@ -39,7 +39,8 @@ struct EventPanel {
 // The screen's texts and buttons (pure: the tests read it).
 ScreenView event_view(const EventPanel& p);
 
-// The panel's state: pushed over the screen the events fire on by the loop. Escape is NEXT (BACK in the news).
+// The panel's state: pushed over the screen the events fire on by the loop. Escape is NEXT (past the last story of the
+// news: BACK).
 class EventState : public Mw1State {
  public:
   EventState(zgame::Handle h, std::function<void(int32_t)> pressed);

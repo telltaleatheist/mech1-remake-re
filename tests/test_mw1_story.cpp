@@ -173,28 +173,28 @@ TEST(mw1_story_runs_as_mw1_does) {
   mw1::Rng rng(3);
   // The start world: the crest on the hub (0x74), once.
   mw1::Company c = on_story(mw1::kPools[0][0]);
-  std::vector<int32_t> f = fire(c, mw1::kArrival, rng);
+  std::vector<int32_t> f = fire(c, mw1::kClassArrival, rng);
   EXPECT(has(f, 0x74) && c.story.seen[0x74]);
-  EXPECT(!has(fire(c, mw1::kArrival, rng), 0x74));
+  EXPECT(!has(fire(c, mw1::kClassArrival, rng), 0x74));
   // The Bar's drinks there: a paid tip (0x06), then the next (0x0A), then nothing (the quiet text); each tip's price
   // is its own funds action.
   const int64_t funds = c.funds;
-  f = fire(c, mw1::kBarDrink, rng);
+  f = fire(c, mw1::kClassBarDrink, rng);
   EXPECT(f.size() == 1 && f[0] == 0x06 && c.funds == funds - 5);
-  f = fire(c, mw1::kBarDrink, rng);
+  f = fire(c, mw1::kClassBarDrink, rng);
   EXPECT(f.size() == 1 && f[0] == 0x0A && c.funds == funds - 10);
-  f = fire(c, mw1::kBarDrink, rng);
+  f = fire(c, mw1::kClassBarDrink, rng);
   EXPECT(f.size() == 1 && f[0] == mw1::kEventQuiet);
   // Funds never go below none.
   mw1::Company poor = on_story(30);  // Land's End: event 0x0B costs 15
   poor.funds = 7;
-  f = fire(poor, mw1::kBarDrink, rng);
+  f = fire(poor, mw1::kClassBarDrink, rng);
   EXPECT(has(f, 0x0B) && poor.funds == 0);
   // A choice: Grig's base on story planet 1 after 0x0C (0x64, YES -> 0x0E; NO -> 0x0F); its branch runs at once.
   for (int32_t pick = 0; pick < 2; ++pick) {
     mw1::Company g = on_story(mw1::kPools[1][0]);
     g.story.seen[0x0C] = 1;
-    f = fire(g, mw1::kArrival, rng, pick);
+    f = fire(g, mw1::kClassArrival, rng, pick);
     EXPECT(f.size() >= 2 && f[0] == 0x64 && f[1] == (pick ? 0x0F : 0x0E));
     EXPECT(g.story.seen[0x64] && g.story.seen[pick ? 0x0F : 0x0E] && !g.story.seen[pick ? 0x0E : 0x0F]);
   }
@@ -202,7 +202,7 @@ TEST(mw1_story_runs_as_mw1_does) {
   {
     mw1::Company g = on_story(mw1::kPools[0][0]);
     g.story.seen[0x0B] = 1;
-    mw1::Dispatch d = mw1::start(mw1::kBarEntry);
+    mw1::Dispatch d = mw1::start(mw1::kClassBarEntry);
     mw1::Shown s;
     EXPECT(mw1::next(g, d, rng, &s) && s.event == 0x0C && s.named == 1);
     std::string all;
@@ -215,7 +215,7 @@ TEST(mw1_story_runs_as_mw1_does) {
   {
     mw1::Company g = on_story(48);  // Dustball
     g.story.seen[0x0E] = 1;
-    mw1::Dispatch d = mw1::start(mw1::kArrival);
+    mw1::Dispatch d = mw1::start(mw1::kClassArrival);
     mw1::Shown s;
     bool restart = false;
     for (int32_t guard = 0; guard < 10 && mw1::next(g, d, rng, &s); ++guard) {
@@ -228,10 +228,10 @@ TEST(mw1_story_runs_as_mw1_does) {
   {
     mw1::Company g = on_story(mw1::kPools[0][0]);  // Matsuida, Kurita: 0x4F
     g.grievance[mw1::kKurita] = 10;
-    EXPECT(!has(fire(g, mw1::kArrival, rng), 0x4F));
+    EXPECT(!has(fire(g, mw1::kClassArrival, rng), 0x4F));
     g.story.arrived = true;
-    EXPECT(has(fire(g, mw1::kArrival, rng), 0x4F) && !g.story.seen[0x4F]);
-    EXPECT(has(fire(g, mw1::kArrival, rng), 0x4F));
+    EXPECT(has(fire(g, mw1::kClassArrival, rng), 0x4F) && !g.story.seen[0x4F]);
+    EXPECT(has(fire(g, mw1::kClassArrival, rng), 0x4F));
   }
   // The Dark Wing's world after the disk (0x43): ATTACK / DELAY until 19 March 3029, never marked seen; after it, too
   // late (0x73).
@@ -239,12 +239,12 @@ TEST(mw1_story_runs_as_mw1_does) {
     mw1::Company g = on_story(mw1::kPools[5][0]);
     g.story.seen[0x43] = 1;
     g.date = {0, 2, 3029};  // 1 March
-    mw1::Dispatch d = mw1::start(mw1::kArrival);
+    mw1::Dispatch d = mw1::start(mw1::kClassArrival);
     mw1::Shown s;
     EXPECT(mw1::next(g, d, rng, &s) && s.event == mw1::kEventDarkWingAttack && s.captions.size() == 2);
     EXPECT(!g.story.seen[mw1::kEventDarkWingAttack]);
     g.date = {40, 2, 3029};  // 21 March
-    f = fire(g, mw1::kArrival, rng);
+    f = fire(g, mw1::kClassArrival, rng);
     EXPECT(has(f, mw1::kEventTooLate) && !has(f, mw1::kEventDarkWingAttack));
   }
 }

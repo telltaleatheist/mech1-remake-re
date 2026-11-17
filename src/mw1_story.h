@@ -32,7 +32,7 @@ inline constexpr int32_t kPlanetFieldBytes = 0x10;     // a text's planet-name f
 inline constexpr int32_t kEventYearBase = 3000;        // EVENT_DATE_YEAR_BASE
 
 // The classes: where an event fires (eventClassHandlers).
-enum Class : int32_t { kArrival, kBarEntry, kBarDrink, kNews, kMechComplex, kOffice, kAfterBattle, kClassCount };
+enum Class : int32_t { kClassArrival, kClassBarEntry, kClassBarDrink, kClassNews, kClassMechComplex, kClassOffice, kClassAfterBattle, kClassCount };
 // The events the rules name (campaign_events.h).
 inline constexpr int32_t kEventQuiet = 0x71;            // a drink with no tip: its text only
 inline constexpr int32_t kEventDarkWingAttack = 0x72;   // ATTACK / DELAY on the Dark Wing's world; never marked seen

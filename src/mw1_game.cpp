@@ -187,6 +187,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "travel") press(kHubTravel);
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "bar") press(kHubBar);
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "office") press(kHubOffice);
+      if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "news") press(kHubBar), press_bar(kBarNews);
       const char* sc = std::getenv("MW1_SCREEN");
       if (!sc || std::string(sc) == "hub" || std::string(sc) == "event") hub_events();
       return true;
@@ -402,7 +403,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         show_market();
         ge->pop_state(1);
         ge->push_state(market_, 0);
-        story_events(kMechComplex);
+        story_events(kClassMechComplex);
         return;
       case kHubTravel:
         // The travel screen in the hub's place (BACK brings the hub back); not while AFTER ACTION waits.
@@ -419,7 +420,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         show_bar();
         ge->pop_state(1);
         ge->push_state(bar_, 0);
-        story_events(kBarEntry);
+        story_events(kClassBarEntry);
         return;
       case kHubOffice:
         // The House office in the hub's place (BACK brings the hub back): the offer to negotiate.
@@ -428,7 +429,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         show_office();
         ge->pop_state(1);
         ge->push_state(office_, 0);
-        story_events(kOffice);
+        story_events(kClassOffice);
         return;
       default: return;  // the screens that come later
     }
@@ -547,6 +548,19 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
                                  : mate + " has no mech: they stay behind.";
         break;
       }
+      case kBarDrink:
+        // MW1's drink (MwOrderDrinkContinuation): a unit of time (the wages if a month begins), then the drink's events:
+        // a tip at its price, or the quiet text.
+        if (!story_running() || event_up_) return;
+        advance_time(company_, 1, rng_);
+        story_events(kClassBarDrink);
+        return;
+      case kBarNews:
+        // MW1's NewsNet (MwOpenNewsNetContinuation): a unit of time, then the news live now, story by story.
+        if (!story_running() || event_up_) return;
+        advance_time(company_, 1, rng_);
+        open_news();
+        return;
       case kBarRecruitUp: --bchoice_.recruit; break;
       case kBarRecruitDown: ++bchoice_.recruit; break;
       case kBarLanceUp: --bchoice_.mate; break;
@@ -571,7 +585,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
 
   void show_bar() {
     clamp_choice(company_, bchoice_);
-    if (bar_state_) bar_state_->show(bar_view(company_, bchoice_));
+    if (bar_state_) bar_state_->show(bar_view(company_, bchoice_, story_running()));
   }
 
   // ---- travel (mw1_travel.h, mw1_travel_screen.h) ----
@@ -723,7 +737,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       if (!h.empty()) company_.notices.push_back("NEWS: " + h);
     }
     show_hub();
-    story_events(kArrival);
+    story_events(kClassArrival);
   }
 
   // A class's events fired in turn on the panel, each waiting for the player; none: nothing happens.
@@ -769,7 +783,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     const bool was_up = event_up_;
     if (event_up_ && ge) ge->pop_state(1);
     event_up_ = false, news_.clear();
-    if (ev_.cls == kArrival) company_.story.arrived = false;  // MW1 clears it after the hub's events
+    if (ev_.cls == kClassArrival) company_.story.arrived = false;  // MW1 clears it after the hub's events
     if (!was_up) return;
     save();
     show_hub(), show_bar(), show_market(), show_office();
@@ -807,16 +821,57 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   // The plaque's second line: where the event fires.
   static std::string place_words(int32_t cls) {
     switch (cls) {
-      case kBarEntry:
-      case kBarDrink: return "THE BAR";
-      case kNews: return "NEWS";
-      case kMechComplex: return "THE MECH COMPLEX";
-      case kOffice: return "THE HOUSE OFFICE";
+      case kClassBarEntry:
+      case kClassBarDrink: return "THE BAR";
+      case kClassNews: return "NEWS";
+      case kClassMechComplex: return "THE MECH COMPLEX";
+      case kClassOffice: return "THE HOUSE OFFICE";
       default: return "ARRIVAL";
     }
   }
 
-  void press_news(int32_t) {}
+  // The Bar's NEWS on the panel: each story live now (marked seen, as MW1's browsing marks it), PREV and NEXT through
+  // their pages, BACK to the Bar. None: a line saying so.
+  void open_news() {
+    mech3::GameEngine* ge = ge_;
+    if (!ge || !event_screen(*ge)) return;
+    news_ = live_news(company_, rng_);
+    ev_ = start(kClassNews);
+    ev_.done = true;
+    std::printf("mw1: story: the news, %zu stories\n", news_.size());
+    ev_panel_ = EventPanel{};
+    ev_panel_.planet = upper(company_.planet), ev_panel_.place = place_words(kClassNews), ev_panel_.news = true;
+    ev_panel_.stories = static_cast<int32_t>(news_.size());
+    news_story(0, false);
+    ge->push_state(event_, 0);
+    event_up_ = true;
+    show_event();
+  }
+
+  // Story `i` of the news on the panel, at its first page (its last: `at_end`).
+  void news_story(int32_t i, bool at_end) {
+    ev_panel_.story = i;
+    ev_panel_.pages = i < static_cast<int32_t>(news_.size()) ? shown_pages(company_, news_[static_cast<size_t>(i)]) : std::vector<Page>{};
+    if (ev_panel_.pages.empty()) ev_panel_.pages.push_back({{news_.empty() ? "Nothing on the news." : ""}, false});
+    ev_panel_.page = at_end ? ev_panel_.pages.size() - 1 : 0;
+  }
+
+  void press_news(int32_t id) {
+    switch (id) {
+      case kEventNext:
+        if (!ev_panel_.last_page()) ++ev_panel_.page;
+        else if (ev_panel_.story + 1 < ev_panel_.stories) news_story(ev_panel_.story + 1, false);
+        else return events_done();  // Escape at the end: back to the Bar
+        break;
+      case kEventPrev:
+        if (ev_panel_.page > 0) --ev_panel_.page;
+        else if (ev_panel_.story > 0) news_story(ev_panel_.story - 1, true);
+        break;
+      case kEventBack: return events_done();
+      default: return;
+    }
+    show_event();
+  }
 
   void show_hub() {
     if (!hub_state_) return;
