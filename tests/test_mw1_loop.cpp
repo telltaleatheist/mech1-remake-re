@@ -6,6 +6,8 @@
 #include <cstdio>
 #include <filesystem>
 #include <functional>
+#include <random>
+#include <set>
 #include <iterator>
 #include <sstream>
 #include <string>
@@ -1282,6 +1284,7 @@ struct MenuRun {
   std::function<uint32_t(const std::string&)> box;
   std::vector<std::string> boxes;  // each box's words, as asked
   bool story = false;  // MW1's story's events (mw1_story.h); off unless a test is about them
+  int limit = 6000;     // frames before the run gives up
 };
 void menu_run(MenuRun& r) {
   zgame::set_game(pm::table());
@@ -1338,7 +1341,7 @@ void menu_run(MenuRun& r) {
       stop = r.step(app, engine);
     };
     Pump pump;
-    pump.limit = 6000;
+    pump.limit = r.limit;
     pump.stop = [&] { return stop; };
     app.run(pump);
     app.stop_game();
@@ -1936,5 +1939,202 @@ TEST(mw1_story_drinks_and_news_in_the_bar_headless) {
     std::printf("; a unit each %d; live %d, quiet %d, news %d, paged %d, back %d\n", units, live, quiet, news, paged, back);
     EXPECT(live && quiet && news && paged && back && units == 1);
     EXPECT(paid.size() == 3 && paid[0] == 5 && paid[1] == 5 && paid[2] == 0);
+  });
+}
+
+// A soak: a seeded company plays 20 contracts in a row through the hub, the story on (even seeds rich, odd seeds poor). Each hub it accepts (or
+// declines, or goes to the market, the Bar, the office or travels first, at random); each mission is won or lost
+// at random; the AFTER ACTION settled. At every hub the invariants: funds never below 0; the save on disk reads back
+// and writes out byte for byte, and is the live company's; lancemates hired, alive, distinct and at most 3, each
+// hangar mech's pilot one of them and no pilot in two; stranded only with the guard's words shown. Nothing may sit
+// on one screen for long (a stuck state).
+// Seeds 12 and 13 by default (a full lance and two hangar mechs; poor, stranded once, a full lance); MW1_SOAK_SEEDS=n
+// runs seeds 0..n-1 instead (a longer search: 24 seeds clean, 2026-11-17).
+TEST(mw1_soak_twenty_contracts_through_the_hub_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  if (mw1_test::no_mw1()) return;
+  const char* more = std::getenv("MW1_SOAK_SEEDS");
+  std::vector<int> seeds = {12, 13};
+  if (more) {
+    seeds.clear();
+    for (int i = 0, n = std::max(1, std::atoi(more)); i < n; ++i) seeds.push_back(i);
+  }
+  for (int seed : seeds) in_child([&] {
+    const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_soak";
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    const std::string save = (dir / mw1::kSaveFile).string();
+    MenuRun r;
+    r.save = save, r.start = mw1::Start::kHub, r.story = true, r.seed = 17 + static_cast<uint32_t>(seed), r.limit = 40000;
+    std::mt19937 rng(20261117u + static_cast<uint32_t>(seed));
+    auto roll = [&](int n) { return static_cast<int>(rng() % static_cast<uint32_t>(n)); };
+    int wait = 0, idle = 0, mission_frames = 0, briefing_frames = 0;
+    int settled = 0, won = 0, lost = 0, hubs = 0, trips = 0, markets = 0, bars = 0, offices = 0, events = 0, stranded = 0;
+    int bad_funds = 0, bad_save = 0, bad_live = 0, bad_lance = 0, bad_guard = 0, stuck = 0;
+    bool in_mission = false, win = false, stranded_once = false;
+    size_t lance_max = 0, hangar_max = 0;
+    const void* last_state = nullptr;
+    std::string first_bad;
+    auto bad = [&](int& n, const std::string& why) {
+      if (!n++ && first_bad.empty()) first_bad = why;
+    };
+    r.step = [&](mech3::Mech3App& app, mech3::GameEngine& engine) {
+      // A stuck state: one screen for 2,000 frames.
+      if (app.current() != last_state) last_state = app.current(), idle = 0;
+      else if (++idle > 2000) {
+        ++stuck;
+        return true;
+      }
+      if (app.current() == &mech3::states().load) {  // the briefing: LAUNCH
+        auto* b = dynamic_cast<mech3::BriefingScreen*>(engine.screen_of(mech3::states().load.screen_));
+        if (b && b->loaded && ++briefing_frames == 30) briefing_frames = 0, mission_frames = 0, in_mission = true, b->launch();
+        return false;
+      }
+      if (app.current() == &mech3::states().core) {  // the mission: won (every enemy's kill credited) or lost
+        if (!in_mission || ++mission_frames != 30) return false;
+        in_mission = false;
+        win = roll(3) != 0;
+        int32_t n = 0;
+        const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+        for (int32_t i = 0; win && i < n; ++i) {
+          auto* b = static_cast<mech3::ai::Brain*>(mech3::program_ai_mech_brain(ai[i].controls));
+          if (!(b && b->params.team() == 1)) mech3::program_mech_kill_credit(mech3::mech_mission_player(), ai[i].mech);
+        }
+        mech3::missions().ended = 1;
+        if (!win) mech3::missions().aborting = 1;
+        for (int i = app.depth(); i > 0; --i) app.pop(1);
+        app.replace(&mech3::states().ia_dummy, 0);
+        return false;
+      }
+      if (++wait < 5) return false;
+      wait = 0;
+      mw1::Company* c = mw1::game_loop_company_for_tests();
+      if (mw1::EventState* ev = mw1::game_loop_event(); showing(app, ev)) {
+        ++events;
+        mw1::Mw1Screen* sc = ev->screen();
+        if (sc->visible(mw1::kEventBack) && roll(2)) return sc->on_button(mw1::kEventBack, 0, 0), false;
+        if (sc->visible(mw1::kEventNext) && sc->enabled(mw1::kEventNext)) return sc->on_button(mw1::kEventNext, 0, 0), false;
+        std::vector<int32_t> live;
+        for (int32_t id : {mw1::kEventChoice1, mw1::kEventChoice2, mw1::kEventChoice3})
+          if (sc->visible(id) && sc->enabled(id)) live.push_back(id);
+        if (!live.empty()) sc->on_button(live[static_cast<size_t>(roll(static_cast<int>(live.size())))], 0, 0);
+        else if (sc->visible(mw1::kEventBack)) sc->on_button(mw1::kEventBack, 0, 0);
+        return false;
+      }
+      if (mw1::MarketState* ms = mw1::game_loop_market(); showing(app, ms)) {
+        mw1::Mw1Screen* sc = ms->screen();
+        const int a = roll(6);
+        if (a <= 1 && sc->enabled(mw1::kMarketBuy) && c->funds > 1500000) sc->on_button(mw1::kMarketBuy, 0, 0);
+        else if (a == 2 && sc->enabled(mw1::kMarketSell) && roll(3) == 0) sc->on_button(mw1::kMarketSell, 0, 0);
+        else if (a == 3) sc->on_button(roll(2) ? mw1::kMarketStockDown : mw1::kMarketOwnDown, 0, 0);
+        else sc->on_button(mw1::kMarketBack, 0, 0);
+        return false;
+      }
+      if (mw1::BarState* bs = mw1::game_loop_bar(); showing(app, bs)) {
+        mw1::Mw1Screen* sc = bs->screen();
+        const int a = roll(7);
+        if (a == 0 && sc->enabled(mw1::kBarHire)) sc->on_button(mw1::kBarHire, 0, 0);
+        else if (a == 1 && sc->enabled(mw1::kBarAssign)) sc->on_button(mw1::kBarAssign, 0, 0);
+        else if (a == 2 && sc->enabled(mw1::kBarFire) && roll(3) == 0) sc->on_button(mw1::kBarFire, 0, 0);
+        else if (a == 3 && sc->enabled(mw1::kBarDrink)) sc->on_button(mw1::kBarDrink, 0, 0);
+        else if (a == 4 && sc->enabled(mw1::kBarNews)) sc->on_button(mw1::kBarNews, 0, 0);
+        else sc->on_button(mw1::kBarBack, 0, 0);
+        return false;
+      }
+      if (mw1::OfficeState* os = mw1::game_loop_office(); showing(app, os)) {
+        mw1::Mw1Screen* sc = os->screen();
+        const int a = roll(4);
+        if (a == 0 && sc->enabled(mw1::kOfficePayUp)) sc->on_button(mw1::kOfficePayUp, 0, 0), sc->on_button(mw1::kOfficeSubmit, 0, 0);
+        else if (a == 1 && sc->enabled(mw1::kOfficeAccept)) sc->on_button(mw1::kOfficeAccept, 0, 0);
+        else sc->on_button(mw1::kOfficeBack, 0, 0);
+        return false;
+      }
+      if (mw1::TravelState* ts = mw1::game_loop_travel(); showing(app, ts)) {
+        mw1::Mw1Screen* sc = ts->screen();
+        if (roll(3) == 0) return sc->on_button(mw1::kTravelBack, 0, 0), false;
+        for (int i = roll(4); i > 0; --i) sc->on_button(mw1::kTravelDown, 0, 0);
+        const std::string was = c->planet;
+        sc->on_button(mw1::kTravelGo, 0, 0);
+        if (c->planet != was) ++trips;
+        else sc->on_button(mw1::kTravelBack, 0, 0);
+        return false;
+      }
+      mw1::HubState* hub = mw1::game_loop_hub();
+      if (!showing(app, hub)) return false;
+      if (settled >= 20) return true;
+      // Even seeds rich (6 million: mechs bought, lancemates flying them), odd seeds poor: 40,000 C-bills at the first
+      // hub, so wages fall short.
+      if (!hubs) c->funds = seed % 2 ? 40000 : 6000000, mw1::game_loop_offer_again();
+      // And once mid-run, penniless with the House's offers withdrawn: stranded (or a trip that costs nothing).
+      if (seed % 2 && settled == 10 && !stranded_once && !mw1::game_loop_pending())
+        stranded_once = true, c->funds = 0, c->withdrawn = true, mw1::game_loop_offer_again();
+      ++hubs;
+      mw1::Mw1Screen* sc = hub->screen();
+      const std::vector<std::string> shown = sc->shown();
+      // The invariants.
+      if (c->funds < 0) bad(bad_funds, "funds " + std::to_string(c->funds));
+      {
+        const std::string text = read_file(save);
+        mw1::Company back;
+        mw1::Contract k;
+        mw1::AfterAction pa;
+        bool has_offer = false, has_pending = false;
+        std::string why;
+        if (!mw1::load_text(text, back, k, &has_offer, &why, &pa, &has_pending) ||
+            mw1::save_text(back, has_offer ? &k : nullptr, has_pending ? &pa : nullptr) != text)
+          bad(bad_save, "the save doesn't round-trip at hub " + std::to_string(hubs) + ": " + why);
+        else if (text != mw1::save_text(*c, mw1::game_loop_contract(), mw1::game_loop_pending()))
+        {
+          const std::string live = mw1::save_text(*c, mw1::game_loop_contract(), mw1::game_loop_pending());
+          std::string diff;
+          std::istringstream a(text), b(live);
+          std::string la, lb;
+          while (std::getline(a, la) && std::getline(b, lb))
+            if (la != lb && la.rfind("check=", 0) != 0) diff += " [" + la.substr(0, 60) + " | " + lb.substr(0, 60) + "]";
+          if (bad_live < 3) std::printf("  hub %d: the save vs the live:%s\n", hubs, diff.c_str());
+          bad(bad_live, "the save isn't the live company at hub " + std::to_string(hubs));
+        }
+      }
+      {
+        lance_max = std::max(lance_max, c->lance.size()), hangar_max = std::max(hangar_max, c->hangar.size());
+        std::set<int32_t> ids;
+        bool ok = c->lance.size() <= static_cast<size_t>(mw1::kLanceMax);
+        for (const mw1::Lancemate& m : c->lance)
+          ok = ok && m.id >= 1 && m.id < mw1::kPilotIds && ids.insert(m.id).second && c->pilots[m.id].where == mw1::PilotWhere::kHired;
+        std::set<int32_t> flown;
+        for (const mw1::OwnedMech& o : c->hangar)
+          if (o.pilot) ok = ok && ids.count(o.pilot) && flown.insert(o.pilot).second;
+        if (!ok) bad(bad_lance, "the lance and hangar disagree at hub " + std::to_string(hubs));
+      }
+      const bool guard = shows_line(shown, "You can't afford to leave");
+      if (mw1::stranded(*c)) {
+        ++stranded;
+        if (!guard) bad(bad_guard, "stranded without the guard's words at hub " + std::to_string(hubs));
+        c->funds += 2000000;  // a way out (MW1 has none but a save to load), so the soak goes on
+        mw1::game_loop_offer_again();
+        return false;
+      }
+      if (mw1::game_loop_pending()) {
+        ++settled, (mw1::game_loop_pending()->outcome == mw1::Outcome::kFailure ? ++lost : ++won);
+        sc->on_button(mw1::kHubOk, 0, 0);
+        return false;
+      }
+      const int a = roll(10);
+      if (a == 0 && sc->enabled(mw1::kHubMarket)) return ++markets, sc->on_button(mw1::kHubMarket, 0, 0), false;
+      if (a == 1 && sc->enabled(mw1::kHubBar)) return ++bars, sc->on_button(mw1::kHubBar, 0, 0), false;
+      if (a == 2 && sc->enabled(mw1::kHubOffice)) return ++offices, sc->on_button(mw1::kHubOffice, 0, 0), false;
+      if ((a == 3 || !sc->visible(mw1::kHubAccept)) && sc->enabled(mw1::kHubTravel)) return sc->on_button(mw1::kHubTravel, 0, 0), false;
+      if (a == 4 && sc->visible(mw1::kHubDecline)) return sc->on_button(mw1::kHubDecline, 0, 0), false;
+      if (sc->visible(mw1::kHubAccept)) sc->on_button(mw1::kHubAccept, 0, 0);
+      return false;
+    };
+    menu_run(r);
+    std::printf("  soak %d: %d settled (%d won, %d lost), %d hubs, %d trips, %d markets, %d bars, %d offices, %d event presses, "
+                "%d stranded, lance up to %zu, hangar up to %zu; bad: funds %d, save %d, live %d, lance %d, guard %d, stuck %d%s%s\n",
+                seed, settled, won, lost, hubs, trips, markets, bars, offices, events, stranded, lance_max, hangar_max, bad_funds, bad_save, bad_live, bad_lance,
+                bad_guard, stuck, first_bad.empty() ? "" : "; first: ", first_bad.c_str());
+    EXPECT(settled == 20 && won > 0 && lost > 0);
+    EXPECT(!bad_funds && !bad_save && !bad_live && !bad_lance && !bad_guard && !stuck);
   });
 }
