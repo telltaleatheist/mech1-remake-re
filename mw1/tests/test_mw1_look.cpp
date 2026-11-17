@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "check.h"
+#include "mw1_layouts.h"
 
 namespace {
 namespace fs = std::filesystem;
@@ -85,8 +86,8 @@ TEST(mw1_look_no_pirates_moon_art_in_mw1s_layouts) {
   for (const std::string& n : kNotYet)
     if (!with_pm.count(n)) std::printf("  %s is MW1's own now: take it off kNotYet\n", n.c_str());
   EXPECT(with_pm == kNotYet);
-  // The ones made over: the hub, the title, every message box, the Bar, the House office.
-  for (const char* own : {"mw1hub.zrd", "mw1menu.zrd", "mw1dialog.zrd", "mw1bar.zrd", "mw1office.zrd"}) EXPECT(!with_pm.count(own) && fs::exists(data / own));
+  // The ones made over: the hub, the title, every message box, the Bar, the House office, the pause, the options.
+  for (const char* own : {"mw1hub.zrd", "mw1menu.zrd", "mw1dialog.zrd", "mw1bar.zrd", "mw1office.zrd", "mw1pause.zrd", "mw1options.zrd"}) EXPECT(!with_pm.count(own) && fs::exists(data / own));
   // The guard sees what it guards: a Pirate's Moon picture, a cursor and a folder are found (a comment's are not).
   EXPECT(foreign("X (BUTTONS (A (BITMAP (\"circlebtn_tiny\")))) ; BITMAP (\"icon_x\")").size() == 1);
   EXPECT(foreign("CURSOR (BITMAP (\"cursor_circle_orange\") CENTER (1))").size() == 1);
@@ -106,10 +107,55 @@ TEST(mw1_look_mw1_opens_only_its_own_layouts) {
     for (std::sregex_iterator i(text.begin(), text.end(), file), e; i != e; ++i) {
       const std::string n = (*i)[1].str();
       if (n == "targets.zrd") continue;
+      if (n == "dlgPause.zrd" || n == "dlgOptions.zrd") continue;  // swapped away (mw1_layouts.h), not opened
       ++named;
       if (!fs::exists(fs::path(MW1_DATA_DIR) / n)) std::printf("  %s names %s: not MW1's\n", d.path().filename().string().c_str(), n.c_str());
       EXPECT(fs::exists(fs::path(MW1_DATA_DIR) / n));
     }
   }
   EXPECT(named >= 10);
+}
+
+TEST(mw1_look_pause_and_options_layouts_bind_pirates_moons_names) {
+  // Each of Pirate's Moon's screens MW1 shows on its own layout (mw1_layouts.h) finds there every name its code
+  // binds (pause_menu.cpp, options_menu.cpp, controls_menu.cpp): a name missing would leave that control unread.
+  struct Binds {
+    const char* dialog;
+    std::vector<const char*> names;
+  };
+  const std::vector<Binds> binds = {
+      {"MW1PAUSE", {"PAUSETEXT", "QUIT", "RESUME", "OPTIONS", "REPLAY", "EDITMISSION", "PLAYMISSION"}},
+      {"MW1GAMEOPTIONS", {"BACKGROUND", "LINES", "LINES1", "ACCEPT", "BACK", "GFX_AUDIO_OPTIONS", "CONTROLS_CFG", "UPGRADES", "DIFFICULTY",
+                          "CAMERA", "INVINCIBLE", "INFINITE_AMMO", "HEAT_MGMT", "TORSO_AUTO_RTN", "THROTTLE_CONST", "MW2JJETS",
+                          "CMD_INVERT_MOUSE_Y", "MOUSE_SENSITIVITY"}},
+      {"MW1GFXOPTIONS", {"BACKGROUND", "LINES", "LINES1", "ACCEPT", "BACK", "SHADOWS", "MUSICSLIDER", "SFXSLIDER", "SELF_SHADOWS", "LIGHTING",
+                         "VIDEO_DEVICE", "RESOLUTION", "TEXTURES", "SOUND_QUALITY", "OBJECT_DETAIL", "SPECIAL_EFFECTS"}},
+      {"MW1UPGRADES", {"BACKGROUND", "LINES", "LINES1", "BOX1", "BOX6", "ACCEPT", "BACK", "WATER", "MFB_REGROUP", "IMPROVED_AI", "ARTEMIS",
+                       "SMALL_FIXES", "WIDE_MENUS", "SMALL_LIST"}},
+      {"MW1CONTROLS", {"BACKGROUND", "LINES", "TITLE_TEXT1", "TITLE_TEXT6", "ACCEPT", "CANCEL", "CMD_RESET_TO_MOUSE_BTN", "CMD_RESET_TO_JSTICK_BTN",
+                       "CMD_ASSIGN_AXIS_BTN", "CURRENT_FILENAME", "CMD_COMMAND_BTN", "CMD_KEYA_BTN", "CMD_KEYB_BTN", "CMD_JOY_BTN",
+                       "CMD_MOUSE_BTN", "CMD_SET_BTN", "CMD_NEXT_CMD_BTN", "CMD_PREV_CMD_BTN", "CMD_EXPORT_BTN", "CMD_IMPORT_BTN",
+                       "CMD_DESCRIPTION"}},
+      {"MW1AXIS", {"ASSIGN_BOX", "MB_OK", "MB_CANCEL", "CMD_AXIS_CYCLE_BTN", "AXIS_VALUE", "INVERT_CHECKBOX", "INSTRUCTIONS"}},
+      {"MW1FILES", {"LOAD_BOX", "MB_OK", "MB_CANCEL", "EDITBAR", "FILELIST"}},
+  };
+  EXPECT(binds.size() == std::size(mw1::kLayoutSwaps));
+  for (const mw1::LayoutSwap& sw : mw1::kLayoutSwaps)
+    for (const std::string& dialog : {std::string(sw.dialog), std::string(sw.dialog) + mw1::kWideSuffix}) {
+      const std::string code = code_of(read_all(fs::path(MW1_DATA_DIR) / sw.file));
+      // The dialog's own part of the file: from its name to the next dialog's (each starts a line, no indent).
+      const size_t at = code.find("\n" + dialog + " (");
+      EXPECT(at != std::string::npos);
+      if (at == std::string::npos) continue;
+      size_t end = code.find("\nMW1", at + 1);
+      const std::string part = code.substr(at, end == std::string::npos ? std::string::npos : end - at);
+      for (const Binds& b : binds) {
+        if (b.dialog != std::string(sw.dialog)) continue;  // the wide one binds the same
+        for (const char* n : b.names) {
+          const bool found = part.find(std::string("    ") + n + " (") != std::string::npos;
+          if (!found) std::printf("  %s has no %s\n", dialog.c_str(), n);
+          EXPECT(found);
+        }
+      }
+    }
 }

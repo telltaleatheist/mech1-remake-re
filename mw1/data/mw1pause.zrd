@@ -1,0 +1,40 @@
+; MW1: Critical Hit's pause screen: ours, in place of Pirate's Moon's dlgPause.zrd (PAUSEDIALOG) (ztwod::set_layout, ours;
+; mw1_game.cpp sets them). Pirate's Moon's screens read them: the same names bound (its buttons,
+; choices, sliders, lists, texts), MW1's pictures (mw1image.zbd, src/mw1_chrome.h), fonts (mw1fonts.zrd)
+; and places. Each a 4:3 layout and a _WIDE one (854 across, read on a wide canvas); the backdrop 854 across.
+; A part a screen binds that MW1 doesn't show is mw1_clear. The ripple under a button is off (MAXRADIUS 0).
+; A control's own BITMAP, ROLLOVER, ACTIVATE and DISABLE come before its parts' (or are ()): the reader finds a key
+; in the parts too, first come first found.
+; Written by a script (not by hand); edit the script's numbers, not these.
+(
+MW1PAUSE (
+  CURSOR (BITMAP ("mw1_cursor") CENTER (1) CAPTURE (1))
+  BACKGROUND_IMAGES (("mw1_panel_232x244" 12 112))
+  PRIMITIVES (
+    PAUSETEXT (POSITION (0 0) BITMAP ("mw1_clear"))
+  )
+  BUTTONS (
+    RESUME (POSITION (44 162) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL (("RESUME" 92 7 font "mw1_label") ("PAUSED" -16 -36 font "mw1_panel_title")) RADIUS (0) MAXRADIUS (0))
+    OPTIONS (POSITION (44 202) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL ("OPTIONS" 92 7 font "mw1_label") RADIUS (0) MAXRADIUS (0))
+    REPLAY (POSITION (44 242) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL ("RESTART" 92 7 font "mw1_label") RADIUS (0) MAXRADIUS (0))
+    QUIT (POSITION (44 302) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL ("QUIT" 92 7 font "mw1_label") RADIUS (0) MAXRADIUS (0))
+    EDITMISSION (POSITION (44 372) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL ("EDIT MISSION" 92 7 font "mw1_label") RADIUS (0) MAXRADIUS (0))
+    PLAYMISSION (POSITION (44 372) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL ("PLAY MISSION" 92 7 font "mw1_label") RADIUS (0) MAXRADIUS (0))
+  )
+)
+MW1PAUSE_WIDE (
+  CURSOR (BITMAP ("mw1_cursor") CENTER (1) CAPTURE (1))
+  BACKGROUND_IMAGES (("mw1_panel_232x244" 12 112))
+  PRIMITIVES (
+    PAUSETEXT (POSITION (0 0) BITMAP ("mw1_clear"))
+  )
+  BUTTONS (
+    RESUME (POSITION (44 162) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL (("RESUME" 92 7 font "mw1_label") ("PAUSED" -16 -36 font "mw1_panel_title")) RADIUS (0) MAXRADIUS (0))
+    OPTIONS (POSITION (44 202) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL ("OPTIONS" 92 7 font "mw1_label") RADIUS (0) MAXRADIUS (0))
+    REPLAY (POSITION (44 242) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL ("RESTART" 92 7 font "mw1_label") RADIUS (0) MAXRADIUS (0))
+    QUIT (POSITION (44 302) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL ("QUIT" 92 7 font "mw1_label") RADIUS (0) MAXRADIUS (0))
+    EDITMISSION (POSITION (44 372) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL ("EDIT MISSION" 92 7 font "mw1_label") RADIUS (0) MAXRADIUS (0))
+    PLAYMISSION (POSITION (44 372) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL ("PLAY MISSION" 92 7 font "mw1_label") RADIUS (0) MAXRADIUS (0))
+  )
+)
+)

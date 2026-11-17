@@ -49,7 +49,8 @@ inline const std::vector<PanelSize>& panel_sizes() {
   return k;
 }
 inline const std::vector<PanelSize>& terminal_sizes() {
-  static const std::vector<PanelSize> k = {{232, 150}, {186, 328}, {377, 328}, {436, 172}, {637, 172}};
+  static const std::vector<PanelSize> k = {{232, 150}, {186, 328}, {377, 328}, {436, 172}, {637, 172},
+                                           {220, 22}};  // and the file popup's name
   return k;
 }
 // A picture's frame (a portrait's, a mech's): mw1_frame_<w>x<h> and its lit look (_lit, the chosen one's), its
@@ -60,8 +61,23 @@ inline const std::vector<PanelSize>& frame_sizes() {
   static const std::vector<PanelSize> k = {{248, 328}, {104, 136}};  // a portrait (240x320), a small one (96x128)
   return k;
 }
-// The up and down arrows (a list's, a term's): mw1_up and mw1_dn, each with _lit, _down and _off.
+// The up and down arrows (a list's, a term's): mw1_up and mw1_dn, each with _lit, _down and _off; the left and right
+// ones (an option's choice): mw1_lt and mw1_rt, the same four looks, kSideArrowW by kSideArrowH.
 inline constexpr int32_t kArrowW = 28, kArrowH = 22;
+inline constexpr int32_t kSideArrowW = 20, kSideArrowH = 18;
+// The options' pieces (mw1options.zrd): a slider's bar and its fill, a check box and its check, a control table's
+// cell (and lit, chosen), the file popup's taller dialog.
+inline constexpr const char* kSlider = "mw1_slider";
+inline constexpr const char* kSliderFill = "mw1_slider_fill";
+inline constexpr int32_t kSliderW = 190, kSliderH = 12;
+inline constexpr const char* kCheck = "mw1_check";
+inline constexpr const char* kChecked = "mw1_check_on";
+inline constexpr int32_t kCheckSize = 16;
+inline constexpr const char* kCells[3] = {"mw1_cell", "mw1_cell_lit", "mw1_cell_sel"};
+inline constexpr int32_t kCellW = 62, kCellH = 20;
+inline constexpr const char* kClear = "mw1_clear";  // nothing to see: a part a screen binds that MW1 doesn't show
+inline constexpr const char* kDialogTall = "mw1_dialog_tall";
+inline constexpr int32_t kDialogTallH = 300;
 
 images::Image plaque();
 images::Image tile_frame(int32_t state);  // 0 still, 1 lit, 2 pressed
@@ -76,6 +92,12 @@ images::Image dim();
 images::Image cursor();
 images::Image frame(int32_t w, int32_t h, bool lit);
 images::Image arrow(bool up, int32_t state);  // 0 still, 1 lit, 2 pressed, 3 off
+images::Image side_arrow(bool right, int32_t state);  // the same looks
+images::Image slider(bool fill);
+images::Image check(bool on);
+images::Image cell(int32_t state);  // 0 still, 1 lit, 2 chosen
+images::Image dialog_tall();
+images::Image clear();
 void darken_scene(images::Image& im);    // the hub's scenery treatment (kSceneLight, kScanline)
 std::vector<images::Image> all();  // every piece, for the archive (the tiles come with their pictures, mw1imgpack)
 
