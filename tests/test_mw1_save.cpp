@@ -97,20 +97,20 @@ TEST(mw1_save_refuses_damaged_partial_and_other_versions) {
   EXPECT(refused("", "empty"));
   EXPECT(refused("garbage\n\x01\x02", "garbage"));
   // Another version, with a good check: refused for its version.
-  std::string v2 = text.substr(0, text.rfind("check="));
-  v2.replace(0, v2.find('\n'), "version=2");
+  std::string v3 = text.substr(0, text.rfind("check="));
+  v3.replace(0, v3.find('\n'), "version=3");  // a later build's
   {
     mw1::Contract k;
     mw1::Company into;
     std::string why;
-    const std::string body = v2;
+    const std::string body = v3;
     // Recheck the body as save_text does (FNV-1a), so only the version is wrong.
     uint32_t h = 2166136261u;
     for (unsigned char ch : body) h = (h ^ ch) * 16777619u;
     char line[32];
     std::snprintf(line, sizeof line, "check=%08x\n", h);
-    EXPECT(!mw1::load_text(body + line, into, k, nullptr, &why) && why.find("version 2") != std::string::npos);
-    std::printf("  version 2: %s\n", why.c_str());
+    EXPECT(!mw1::load_text(body + line, into, k, nullptr, &why) && why.find("version 3") != std::string::npos);
+    std::printf("  version 3: %s\n", why.c_str());
   }
 }
 

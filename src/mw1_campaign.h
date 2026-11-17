@@ -83,6 +83,19 @@ class Rng {
 };
 
 
+// A mech the company owns but the commander doesn't pilot: the hangar's (mw1_market.h).
+struct OwnedMech {
+  int32_t mech = kPmOwens;
+  std::shared_ptr<mech3::Config> loadout;  // null: its stock loadout
+};
+// The market of the world the company is on (mw1_market.h): its stock (PM mech ids) and the dealer's purchases
+// since the last refresh against its limit (-1: none).
+struct Market {
+  std::vector<int32_t> stock;
+  int32_t sold = 0, limit = -1;
+  bool rolled = false;  // stocked once (refresh_market, or a version 2 save); not saved
+};
+
 struct Company {
   int64_t funds = 0;
   int32_t mech = kPmOwens;  // the commander's mech (PM id), with its stock loadout
@@ -95,6 +108,9 @@ struct Company {
   // Where the company is (new_company: one of kStartPlanets; travel comes later). tier is its market tier.
   std::string planet = "Robinson";
   int32_t planet_house = kDavion, tier = 0;
+  int32_t planet_number = 118;  // the record's (DS:6570 byte 0): which world, for the Clan worlds
+  std::vector<OwnedMech> hangar;  // the company's other mechs
+  Market market;
 };
 
 // MW1's "Lance weight" for a PM mech, by its tonnage as MW1's own kinds are
@@ -160,7 +176,8 @@ struct Settlement {
 // success, the standing, and the kills.
 Settlement settle(Company& c, Contract& k, Outcome o, const std::vector<Wreck>& wrecks, Rng& rng);
 
-// A wreck's value in thousands at the company's tier (MwCalculateUnitConditionPrice, or scrap).
+// A wreck's value in thousands at the company's tier: its PM chassis's sale price at this world (mw1_market.h's
+// sell_price, so a wreck and the market agree) by its condition (MwCalculateUnitConditionPrice's), or scrap.
 int32_t wreck_value(const Company& c, const Wreck& w);
 
 }  // namespace mw1

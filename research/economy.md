@@ -86,6 +86,13 @@ a Phoenix Hawk (081B:ECONOMY `MwGenerateUnitStock`).
 - Ammo costs `(tier+1)×18 + rand(0..7)` percent over its base (18–25% at
   tier 0, 72–79% at tier 3).
 - Fewer recruits are on offer the higher the tier (081B:6C0C).
+- **Clan worlds (ours, provisional, pending Owen; mw1 dev 1, 2026-11-17).**
+  VISION sells Clan mechs only at "a few edge worlds of Kurita and Steiner,
+  near the Clan border". The pick for now: the tier 3 Kurita and Steiner
+  worlds at the top of MW1's map (map y 60 or less): Anywhere (51) and
+  Winfield (50) for Steiner, Kirchbach (23), Albiero (25) and Qandahar (3)
+  for Kurita. One table, `kClanWorlds` in `src/mw1_market.h`. The other 12
+  tier 3 Kurita and Steiner worlds sit further down the map (y 64 to 113).
 
 ## Travel (`MwDrawPlanetTravelQuote`, `MwCalculatePlanetTravelDistance`)
 
