@@ -738,11 +738,13 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   // said, under its panel (research/story.md Q8, provisional), then its events (class 0; an arrival's after travel).
   void hub_events() {
     if (!story_running() || pending_ || event_up_) return;
-    for (const Shown& n : fresh_news(company_, rng_)) {
+    const std::vector<Shown> news = fresh_news(company_, rng_);
+    for (const Shown& n : news) {
       const std::string h = headline(company_, n);
       std::printf("mw1: story: news %#x\n", n.event);
       if (!h.empty()) company_.notices.push_back("NEWS: " + h);
     }
+    if (!news.empty()) save();  // heard (and seen): not announced again after a quit
     show_hub();
     story_events(kClassArrival);
   }
