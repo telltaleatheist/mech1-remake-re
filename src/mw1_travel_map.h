@@ -53,6 +53,9 @@ struct Search {
 int32_t type_letter(Search& s, char ch);  // the world found, -1 none
 int32_t type_backspace(Search& s);        // the world found for what's left, -1 none (nothing typed)
 int32_t find_by_name(const std::string& prefix);
+// A DirectInput key's letter on a US keyboard (letters, digits, space, apostrophe, hyphen), 0 none: the search's
+// fallback when the host has no keyboard layout to ask.
+char scan_letter(uint32_t code);
 
 // FILTER (in place of HOUSE): all; one House's worlds; those with a House office; those the company can afford to
 // reach; those whose House will deal with it. The others greyed; the House lit on the territory too.

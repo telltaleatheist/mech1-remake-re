@@ -4,6 +4,7 @@
 
 #include "gamez/zreader/zreader.h"
 #include "gamez/ztwod/twod_host.h"
+#include "gamez/zvideo/zvid_format.h"
 #include "mech3/app_hooks.h"
 
 namespace mw1::screens {
@@ -11,7 +12,38 @@ namespace {
 constexpr uint32_t kScreenSize = 0x11200;  // its block: past MenuScreen's own fields, no other screen's size
 constexpr const char* kLabelFont = "ia_small_green";
 constexpr const char* kLabelOffFont = "ia_small_grey";  // PM's greyed circle buttons' (dialog.zrd)
-constexpr const char* kPanelNames[] = {"PANEL", "PANEL2", "PANEL3", "PANEL4"};
+constexpr const char* kPanelNames[] = {"PANEL", "PANEL2", "PANEL3", "PANEL4", "PANEL5", "PANEL6", "PANEL7"};
+
+// The part of a screen that hears the mouse: no drawing of its own; the mouse's place kept at each hit test (each
+// frame, Window::update), told on hovering and on a left click.
+class Pointer : public ztwod::Object2D {
+ public:
+  Pointer(int32_t l, int32_t t, int32_t r, int32_t b, std::function<void(int32_t, int32_t, bool)>* heard) : Object2D(l, t), heard_(heard) {
+    rect_.left = l, rect_.top = t, rect_.right = r, rect_.bottom = b;
+  }
+  void draw() override {}
+  ztwod::Rect* get_rect() override { return &rect_; }
+  int32_t hit(int32_t px, int32_t py) override {
+    mx_ = px, my_ = py;
+    return Object2D::hit(px, py);
+  }
+  void on_enter() override { tell(false); }
+  void on_hover() override {
+    if (mx_ != told_x_ || my_ != told_y_) tell(false);
+  }
+  void on_left_up() override { tell(true); }
+
+ private:
+  void tell(bool click) {
+    told_x_ = mx_, told_y_ = my_;
+    if (*heard_) (*heard_)(mx_, my_, click);
+  }
+  ztwod::Rect rect_{};
+  std::function<void(int32_t, int32_t, bool)>* heard_;
+  int32_t mx_ = 0, my_ = 0, told_x_ = -1, told_y_ = -1;
+};
+
+uint32_t pixel(const Mark& m) { return zvid::pack_bytes(m.r, m.g, m.b); }
 }  // namespace
 
 bool layout_there(const char* file, const char* dialog) {
@@ -80,7 +112,63 @@ ztwod::Text* Mw1Screen::text(std::vector<std::unique_ptr<ztwod::Text>>& pool, si
   return t;
 }
 
+void Mw1Screen::set_pointer(int32_t left, int32_t top, int32_t right, int32_t bottom, std::function<void(int32_t, int32_t, bool)> heard) {
+  heard_ = std::move(heard);
+  if (!pointer_) {
+    pointer_ = std::make_unique<Pointer>(left, top, right, bottom, &heard_);
+    add(pointer_.get());
+  }
+}
+
+void Mw1Screen::point(int32_t x, int32_t y, bool click) {
+  if (heard_) heard_(x, y, click);
+}
+
 void Mw1Screen::show(const ScreenView& v) {
+  // The marks first (made before the texts on a first show, so the names draw over them).
+  marks_now_ = v.marks;
+  size_t rings = 0, lines = 0, squares = 0;
+  for (const Mark& m : v.marks) {
+    switch (m.kind) {
+      case Mark::Kind::kRing: {
+        if (rings_.size() <= rings) {
+          rings_.push_back(std::make_unique<ztwod::Frame>(0, 0, 1, 0, nullptr));
+          add(rings_.back().get());
+        }
+        ztwod::Frame* f = rings_[rings++].get();
+        f->set_pos(m.x, m.y), f->radius = m.size, f->radius_sq = m.size * m.size, f->color = pixel(m);
+        f->show_for(-1.0f), f->dirty();
+        break;
+      }
+      case Mark::Kind::kLine: {
+        if (lines_.size() <= lines) {
+          lines_.push_back(std::make_unique<ztwod::Line2D>(0, 0, 0, 0, 0));
+          add(lines_.back().get());
+        }
+        ztwod::Line2D* l = lines_[lines++].get();
+        l->set(m.x, m.y, m.x2, m.y2), l->color = pixel(m);
+        l->show_for(-1.0f), l->dirty();
+        break;
+      }
+      case Mark::Kind::kSquare: {
+        if (squares_.size() <= squares) {
+          squares_.push_back(std::make_unique<ztwod::PolyLine>());
+          add(squares_.back().get());
+        }
+        ztwod::PolyLine* q = squares_[squares++].get();
+        const int32_t d = m.size;
+        q->count = 5;
+        q->set_point(0, m.x - d, m.y - d), q->set_point(1, m.x + d, m.y - d), q->set_point(2, m.x + d, m.y + d);
+        q->set_point(3, m.x - d, m.y + d), q->set_point(4, m.x - d, m.y - d);
+        q->color = pixel(m);
+        q->show_for(-1.0f), q->dirty();
+        break;
+      }
+    }
+  }
+  for (size_t i = rings; i < rings_.size(); ++i) rings_[i]->hide();
+  for (size_t i = lines; i < lines_.size(); ++i) lines_[i]->hide();
+  for (size_t i = squares; i < squares_.size(); ++i) squares_[i]->hide();
   if (blocks_.size() < v.blocks.size()) blocks_.resize(v.blocks.size());
   for (size_t b = 0; b < blocks_.size(); ++b) {
     auto& pool = blocks_[b];
@@ -139,10 +227,24 @@ Mw1State::Mw1State(zgame::Handle h, const char* name, const char* file, const ch
                    int32_t escape_id, std::function<void(int32_t)> pressed)
     : MenuState(name, h), file_(file), dialog_(dialog), buttons_(std::move(buttons)), escape_id_(escape_id), pressed_(std::move(pressed)) {}
 
+void Mw1State::set_pointer(int32_t left, int32_t top, int32_t right, int32_t bottom, std::function<void(int32_t, int32_t, bool)> heard) {
+  pointer_rect_[0] = left, pointer_rect_[1] = top, pointer_rect_[2] = right, pointer_rect_[3] = bottom;
+  pointer_ = std::move(heard);
+  if (screen_ptr_) screen_ptr_->set_pointer(left, top, right, bottom, pointer_);
+}
+
+bool Mw1State::update() {
+  const bool r = MenuState::update();
+  if (keys_ && screen_ptr_)
+    if (const uint32_t k = e().input_frame_key()) keys_(k);
+  return r;
+}
+
 bool Mw1State::enter() {
   mech3::Engine& en = e();
   screen_ptr_ = new Mw1Screen(en, addr(), file_, dialog_, buttons_, pressed_);
   screen_ = en.adopt_screen(screen_ptr_, kScreenSize);
+  if (pointer_) screen_ptr_->set_pointer(pointer_rect_[0], pointer_rect_[1], pointer_rect_[2], pointer_rect_[3], pointer_);
   screen_ptr_->show(view_);
   ShellState::enter();
   return true;

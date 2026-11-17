@@ -93,6 +93,9 @@ TEST(mw1_travel_map_the_name_search) {
   mw1::Search t;
   mw1::type_letter(t, 't'), mw1::type_letter(t, 'h');
   EXPECT(t.typed == "th" && mw1::type_backspace(t) == mw1::find_by_name("t") && mw1::type_backspace(t) == -1 && t.typed.empty());
+  // The US keys' letters (the fallback without a keyboard layout).
+  EXPECT(mw1::scan_letter(0x14) == 'T' && mw1::scan_letter(0x1E) == 'A' && mw1::scan_letter(0x32) == 'M' && mw1::scan_letter(0x0B) == '0' &&
+         mw1::scan_letter(0x39) == ' ' && mw1::scan_letter(0x28) == '\'' && mw1::scan_letter(0xCB) == 0 && mw1::scan_letter(0x1C) == 0);
   // Every world found by its whole name (case aside).
   for (int32_t i = 0; i < mw1::kPlanetCount; ++i) {
     const int32_t f = mw1::find_by_name(mw1::kPlanets[i].name);

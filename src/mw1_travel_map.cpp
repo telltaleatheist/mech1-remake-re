@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <string>
 
 namespace mw1::travel_map {
 namespace {
@@ -77,6 +78,17 @@ int32_t find_by_name(const std::string& prefix) {
   for (int32_t i : by_name())
     if (starts_with(kPlanets[i].name, prefix)) return i;
   return -1;
+}
+
+char scan_letter(uint32_t code) {
+  static const char* const kRows[] = {"1234567890-", "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"};
+  static const uint32_t kFirst[] = {0x02, 0x10, 0x1E, 0x2C};
+  const uint32_t scan = code & 0xff;
+  if (scan == 0x39) return ' ';
+  if (scan == 0x28) return '\'';
+  for (size_t r = 0; r < 4; ++r)
+    if (scan >= kFirst[r] && scan < kFirst[r] + std::char_traits<char>::length(kRows[r])) return kRows[r][scan - kFirst[r]];
+  return 0;
 }
 
 int32_t type_letter(Search& s, char ch) {

@@ -228,21 +228,32 @@ TEST(mw1_travel_screen_view_filter_and_stranded) {
     EXPECT(mw1::distance(mw1::planet_here(c), mw1::kPlanets[all[i - 1]]) <= mw1::distance(mw1::planet_here(c), mw1::kPlanets[all[i]]));
   for (int32_t w : davion) EXPECT(mw1::kPlanets[w].house == mw1::kDavion);
   EXPECT(davion.size() == 29);  // Davion's 30 in the directory (31 with the second Ander's Moon) less Robinson
-  // The window follows the choice down the list.
+  // Nothing chosen yet: GO greyed, the panel says how; the nearest world chosen: GO; the jump's line drawn, the
+  // company's world and the chosen one ringed, every world a dot.
   mw1::TravelChoice t;
-  t.at = 20;
-  mw1::clamp_choice(c, t);
-  EXPECT(t.top == 20 - mw1::kTravelRows + 1);
-  t.at = 1000;
-  mw1::clamp_choice(c, t);
-  EXPECT(t.at == mw1::kPlanetCount - 2 && t.top == mw1::kPlanetCount - 1 - mw1::kTravelRows);
-  // The chosen world's panel: its cost and arrival; GO greyed when it costs too much.
-  t = {};
   mw1::ScreenView v = mw1::travel_view(c, t);
-  EXPECT(v.buttons[mw1::kTravelGo - 1].on && !v.buttons[mw1::kTravelUp - 1].on && v.buttons[mw1::kTravelDown - 1].on);
+  EXPECT(!v.buttons[mw1::kTravelGo - 1].on && v.buttons[mw1::kTravelFilter - 1].on && v.buttons[mw1::kTravelBack - 1].on);
+  t.world = all[0];
+  v = mw1::travel_view(c, t);
+  int32_t lines = 0, dots = 0;
+  for (const mw1::Mark& m : v.marks) lines += m.kind == mw1::Mark::Kind::kLine, dots += m.kind == mw1::Mark::Kind::kRing && m.size == 1;
+  EXPECT(v.buttons[mw1::kTravelGo - 1].on && lines == (mw1::kJumpLine ? 1 : 0) && dots == mw1::kPlanetCount);
+  EXPECT(v.panels.size() == 6 && v.panels[0] && !v.panels[1]);
+  // FILTER's one House: its backdrop; the others' dots greyed.
+  t.filter = {mw1::FilterKind::kHouse, mw1::kDavion};
+  v = mw1::travel_view(c, t);
+  EXPECT(v.panels[1 + mw1::kDavion] && !v.panels[0]);
+  // The company's own world chosen: here, no GO.
+  t = {};
+  t.world = mw1::here_index(c);
+  EXPECT(mw1::chosen_world(c, t) == -1 && !mw1::travel_view(c, t).buttons[mw1::kTravelGo - 1].on);
+  // The arrows from here (none chosen): a world that way; from the chosen one on.
+  t = {};
+  mw1::step_choice(c, t, mw1::Dir::kRight);
+  EXPECT(t.world >= 0 && mw1::on_screen(t.world).x > mw1::on_screen(mw1::here_index(c)).x);
+  t.world = all[0];
   c.funds = 44999;
   v = mw1::travel_view(c, t);
-  EXPECT(!v.buttons[mw1::kTravelGo - 1].on && mw1::stranded_lines(c).empty());  // broke at an office: contracts, not stuck
   EXPECT(mw1::days_words(72) == "36 days" && mw1::days_words(1) == "1 day");
   EXPECT(mw1::date_words(mw1::date_after(mw1::Date{50, 11, 3024}, 20)) == "JANUARY 3025");
   // Stranded: Qandahar (no office) with less than the cheapest way out, and one mech: said plainly, with no sale to
@@ -261,10 +272,9 @@ TEST(mw1_travel_screen_view_filter_and_stranded) {
   // Warned before going: a world without an office that would leave the company stuck.
   mw1::Company w = company_at("ROBINSON", 50000);
   t = {};
-  const std::vector<int32_t> to = mw1::destinations(w, -1);
-  for (size_t i = 0; i < to.size(); ++i)
-    if (!mw1::kPlanets[to[i]].office && mw1::travel_cost(w, mw1::kPlanets[to[i]]) <= w.funds) {
-      t.at = static_cast<int32_t>(i);
+  for (int32_t to : mw1::destinations(w, -1))
+    if (!mw1::kPlanets[to].office && mw1::travel_cost(w, mw1::kPlanets[to]) <= w.funds) {
+      t.world = to;
       break;
     }
   v = mw1::travel_view(w, t);
