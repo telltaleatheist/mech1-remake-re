@@ -4,7 +4,9 @@
 #include <cstdint>
 #include <utility>
 
+#include "mech3/mech_ids.h"
 #include "mech3/mech_names.h"
+#include "mech3/pilot.h"
 
 namespace mw1 {
 
@@ -52,11 +54,22 @@ int32_t standing(const Company& c, int32_t house) {
 
 int32_t lance_weight_of_tons(int32_t tons) { return tons < 40 ? 1 : tons <= 55 ? 2 : 3; }
 
-Company new_company(Rng& rng, std::vector<StoreItem> starting_stores) {
+void add_starting_stores(mech3::Store& s) {
+  for (int i = 0; i < 4; ++i) s.add_weapon(0x1f, mech3::kInnerSphere);  // MGUN
+  for (int i = 0; i < 2; ++i) s.add_weapon(5, mech3::kInnerSphere);     // ER medium laser
+  for (int i = 0; i < 4; ++i) s.add_equipment(10, mech3::kInnerSphere, 1);  // heat sinks
+  s.add_ammo(0x1f, 1000);
+  s.add_ammo(0x17, 500);
+  s.add_ammo(0x18, 1000);
+  s.add_ammo(0x15, 100);
+}
+
+Company new_company(Rng& rng) {
   Company c;
   c.funds = kStartingFunds + static_cast<int64_t>(rng.upto(0xff)) * 1000;  // startupCashBonus
   c.mech = kPmOwens;
-  c.stores = std::move(starting_stores);
+  c.stores = std::make_shared<mech3::Store>();
+  add_starting_stores(*c.stores);
   return c;
 }
 

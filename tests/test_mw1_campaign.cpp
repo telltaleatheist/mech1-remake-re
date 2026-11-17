@@ -10,7 +10,9 @@
 #include <vector>
 
 #include "check.h"
+#include "mech3/mech_ids.h"
 #include "mech3/mech_names.h"
+#include "mech3/pilot.h"
 #include "mw1_campaign.h"
 
 namespace fs = std::filesystem;
@@ -70,21 +72,23 @@ TEST(mw1_campaign_stand_ins_are_pms_nearest) {
 }
 
 TEST(mw1_campaign_new_company) {
-  std::vector<mw1::StoreItem> stores = {{1, 31, 4}};
   for (uint32_t seed : {1u, 2u, 3u}) {
     mw1::Rng rng(seed);
-    const mw1::Company c = mw1::new_company(rng, stores);
+    const mw1::Company c = mw1::new_company(rng);
     EXPECT(c.funds >= 1000000 && c.funds <= 1255000 && c.funds % 1000 == 0);
-    EXPECT(c.mech == mw1::kPmOwens && c.stores.size() == 1 && c.kills == 0);
+    EXPECT(c.mech == mw1::kPmOwens && c.kills == 0);
+    // PM's starting store less its mechs: the guns, lasers, sinks and four ammunitions, and no mech.
+    EXPECT(c.stores && c.stores->count() > 0 && !c.stores->full);
+    for (int32_t r = 0; r < mech3::kMechCount; ++r) EXPECT(c.stores->has_mech(r) == nullptr);
   }
   mw1::Rng a(7), b(7);  // a seed gives the same company
-  EXPECT(mw1::new_company(a, {}).funds == mw1::new_company(b, {}).funds);
+  EXPECT(mw1::new_company(a).funds == mw1::new_company(b).funds);
 }
 
 // research/contracts.md's examples, an Owens (35 t: a light, 1) as the lance.
 TEST(mw1_campaign_contracts_as_mw1_sizes_them) {
   mw1::Rng rng(1);
-  mw1::Company c = mw1::new_company(rng, {});
+  mw1::Company c = mw1::new_company(rng);
   c.planet_house = mw1::kDavion;
   auto classes = [](const mw1::Contract& k) {
     int l = 0, m = 0, h = 0;
@@ -120,7 +124,7 @@ TEST(mw1_campaign_contracts_as_mw1_sizes_them) {
 
 TEST(mw1_campaign_accept_and_settle) {
   mw1::Rng rng(3);
-  mw1::Company c = mw1::new_company(rng, {});
+  mw1::Company c = mw1::new_company(rng);
   c.planet_house = mw1::kDavion, c.tier = 0;
   mw1::Contract k = mw1::generate_contract(c, 0, rng);
   const int64_t start = c.funds;

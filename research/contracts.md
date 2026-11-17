@@ -88,6 +88,10 @@ negotiated in the contract, of the value of the enemy mechs you disabled,
   - **Above that**: its sale value at the current world's tier, scaled by
     condition (`(multiplier−1) × condition × base`, with +500 rounding,
     081B:REPAIR 7).
+  - **In the remake, provisional:** a wreck's condition is the share of its
+    parts (PM's part ids 1..15) still standing at the kill
+    (`program_mech_parts_standing`). MW1 rates condition from its own damage
+    model; how the two should map is open, with the repair price.
 - Your share = the total × the salvage percentage × the settlement's payout
   percentage (the House can pay out less, on a roll).
 - No salvage on a failed mission, and none at the Dark Wing base.

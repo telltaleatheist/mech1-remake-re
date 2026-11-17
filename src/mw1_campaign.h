@@ -11,9 +11,14 @@
 // research/economy.md). test_mw1_campaign.cpp checks each table against the
 // player's exe when it is there.
 #include <cstdint>
+#include <memory>
 #include <random>
 #include <string>
 #include <vector>
+
+namespace mech3 {
+class Store;
+}
 
 namespace mw1 {
 
@@ -58,16 +63,12 @@ class Rng {
   std::mt19937 g_;
 };
 
-// One line of the company's stores: a PM store item (mech3::ConfigItem's kind
-// and id) and how many.
-struct StoreItem {
-  int32_t kind = 0, id = 0, count = 0;
-};
 
 struct Company {
   int64_t funds = 0;
   int32_t mech = kPmOwens;  // the commander's mech (PM id), with its stock loadout
-  std::vector<StoreItem> stores;
+  // The stores for the mech lab and the salvage: PM's own (mech3::Store), whose items are the loadouts'.
+  std::shared_ptr<mech3::Store> stores;
   int32_t kills = 0;  // playerCombatCredit: enemy mechs disabled, all campaign long
   int32_t favor[kHouseCount] = {}, grievance[kHouseCount] = {};
   // Where the company is. The milestone has one placeholder world.
@@ -97,9 +98,13 @@ struct Contract {
   std::string structure;       // kReachStructure: the building's node
 };
 
-// A new company as MW1 makes it: the starting funds plus 0..255 x 1,000, the
-// commander's Owens (VISION: in place of MW1's Jenner), and the stores given.
-Company new_company(Rng& rng, std::vector<StoreItem> starting_stores);
+// A new company as MW1 makes it: the starting funds plus 0..255 x 1,000, and
+// as Pirate's Moon's campaign starts (VISION): the commander's Owens in place
+// of PM's Centurion, and PM's starting stores less its mechs.
+Company new_company(Rng& rng);
+// Pirate's Moon's starting store's items (CampaignGame, PM 0x004351b0) without
+// its three mechs: 4 machine guns, 2 ER medium lasers, 4 heat sinks, ammunition.
+void add_starting_stores(mech3::Store& s);
 
 // MwGenerateMissionOffer (081B:4F6E) for offer slot `slot` (0..5), with the
 // company's one mech as the lance; the objective and map are the milestone's.
@@ -111,7 +116,8 @@ void accept(Company& c, Contract& k);
 enum class Outcome { kSuccess, kFailure, kRetreat };
 struct Wreck {
   int32_t kind = 0;        // MW1 kind
-  int32_t condition = 0;   // percent left; 35 or less is scrap
+  int32_t condition = 0;   // percent left; 35 or less is scrap. Provisional (research/contracts.md): the share of
+                           // the mech's parts still standing
 };
 struct Settlement {
   int32_t payout_percent = 100;
