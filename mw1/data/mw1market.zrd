@@ -1,0 +1,28 @@
+; MW1: Critical Hit's market (src/mw1_market_screen.h) on MW1's screen
+; template (src/mw1_screen.h). Only names here: the images are Pirate's
+; Moon's, read from the player's install (never copied); MW1's own art takes
+; these names' places later.
+;
+; The main menu's backdrop (borrowed); PM's popup box (the briefing's salvage
+; list) behind the two lists; PM's list arrows (the multiplayer screens')
+; to choose in them; the round button with MW1's words for the rest, greyed
+; as PM greys it. LABEL_AT is MW1's key (the game's readers ignore it).
+(
+SHARED_IMAGE_PATH ("..\data\common\images\dialogs\shared;..\data\common\images\dialogs\briefing")
+MW1MARKETDIALOG (
+  IMAGE_PATH ("..\data\common\images\dialogs\briefing;..\data\common\images;..\data\common\images\dialogs\shared;..\data\common\images\dialogs\mainmenu;..\data\common\images\dialog\multiplayer;..\data\common\images\dialogs\pilotreg")
+  CURSOR (BITMAP ("cursor_circle_orange") CENTER (1))
+  PRIMITIVES (PANEL (POSITION (16 64) BITMAP ("popup_box")) PANEL2 (POSITION (384 64) BITMAP ("popup_box")))
+  BUTTONS (
+    BUY (POSITION (24 440) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 454))
+    SELL (POSITION (184 440) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (230 454))
+    PILOT (POSITION (344 440) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (390 454))
+    BACK (POSITION (504 440) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (550 454))
+    ; The lists' arrows, at their panels' right edges.
+    STOCK_UP (POSITION (232 92) BITMAP ("arrowupmp_normal") ACTIVATE (BITMAP ("arrowupmp_rollover")) DISABLE (BITMAP ("arrowupmp_d")))
+    STOCK_DOWN (POSITION (232 300) BITMAP ("arrowdnmp_normal") ACTIVATE (BITMAP ("arrowdnmp_rollover")) DISABLE (BITMAP ("arrowdnmp_d")))
+    OWN_UP (POSITION (600 92) BITMAP ("arrowupmp_normal") ACTIVATE (BITMAP ("arrowupmp_rollover")) DISABLE (BITMAP ("arrowupmp_d")))
+    OWN_DOWN (POSITION (600 230) BITMAP ("arrowdnmp_normal") ACTIVATE (BITMAP ("arrowdnmp_rollover")) DISABLE (BITMAP ("arrowdnmp_d")))
+  )
+)
+)

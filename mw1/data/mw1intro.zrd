@@ -1,0 +1,9 @@
+; MW1: Critical Hit's New Campaign intro (src/mw1_menu.h): MW1's narration on black, then the opening
+; picture. Both images are MW1's own (mw1image.zbd, packed at build time from data-src/, src/mw1_images.h):
+; mw1_black the backdrop, mw1_intro the picture (PANEL, shown after the narration), letterboxed on 640x480.
+(
+MW1INTRODIALOG (
+  PRIMITIVES (BACKGROUND (POSITION (0 0) BITMAP ("mw1_black")) PANEL (POSITION (0 0) BITMAP ("mw1_intro")))
+  BUTTONS ()
+)
+)

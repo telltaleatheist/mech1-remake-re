@@ -1,0 +1,36 @@
+; MW1: Critical Hit's planet hub (src/mw1_hub.h): a zTwoD dialog as MW3's
+; briefing screen is one (briefing.zrd's BRIEFINGDIALOG). Only names here:
+; the images are Pirate's Moon's, read from the player's install (never
+; copied); MW1's own art takes these names' places later.
+;
+; The backdrop is the main menu's own, as its sub-screens borrow it (the hub
+; sits over the main menu); a BACKGROUND primitive here would replace it. The
+; texts sit on PM's popup box (the briefing's salvage list), PANEL and PANEL2,
+; so they read over the busy backdrop.
+;
+; The buttons: the briefing's icons where the meaning is the same (launch for
+; ACCEPT, abort for DECLINE, replay for REPLAY), the round blank button
+; (circlebtn_tiny, as the briefing's REALLOC_OK) for the rest. Their words
+; are MW1's, drawn at LABEL_AT (MW1's key; the game's own readers ignore it).
+(
+SHARED_IMAGE_PATH ("..\data\common\images\dialogs\shared;..\data\common\images\maps;..\data\common\images\dialogs\briefing")
+MW1HUBDIALOG (
+  IMAGE_PATH ("..\data\common\images\dialogs\briefing;..\data\common\images;..\data\common\images\dialogs\shared;..\data\common\images\dialogs\win;..\data\common\images\dialogs\salvage;..\data\common\images\dialogs\pilotreg;..\data\common\images\dialogs\mainmenu")
+  PRIMITIVES (PANEL (POSITION (136 64) BITMAP ("popup_box")) PANEL2 (POSITION (388 64) BITMAP ("popup_box")))
+  CURSOR (BITMAP ("cursor_circle_orange") CENTER (1))
+  BUTTONS (
+    ; The contract on offer.
+    DECLINE (POSITION (34 417) BITMAP ("icon_abort_green") ACTIVATE (BITMAP ("icon_abort_red")) DISABLE (BITMAP ("icon_abort_grey")) LABEL_AT (34 395))
+    ACCEPT (POSITION (546 417) BITMAP ("icon_launch_green") ACTIVATE (BITMAP ("icon_launch_red")) DISABLE (BITMAP ("icon_launch_grey")) LABEL_AT (546 395))
+    ; AFTER ACTION.
+    REPLAY (POSITION (162 417) BITMAP ("icon_replay_green") ACTIVATE (BITMAP ("icon_replay_red")) DISABLE (BITMAP ("icon_replay_grey")) LABEL_AT (162 395))
+    OK (POSITION (546 425) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (592 439))
+    ; The screens that come later (greyed), and back to the main menu.
+    MARKET (POSITION (24 96) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 110))
+    BAR (POSITION (24 128) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 142))
+    TRAVEL (POSITION (24 160) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 174))
+    OFFICE (POSITION (24 192) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 206))
+    QUIT (POSITION (24 224) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 238))
+  )
+)
+)

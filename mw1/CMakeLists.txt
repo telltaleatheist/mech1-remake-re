@@ -1,0 +1,139 @@
+# MW1: Critical Hit (VISION.md, The code base): the program `mw1` and its
+# tests, on Pirate's Moon's game code the way mw3pm is. This is mw3-re's branch
+# `mw1` (pm plus MW1), added by the root CMakeLists.txt (MW3_BUILD_MW1); mw1
+# takes mw3pm's sources less its main, so a source added to mw3pm comes along
+# without an edit here.
+
+# The MechWarrior (1989) folder the development builds and the tests read: the repo's ignored game/
+# (MW3_GAME_DIR and MW3PM_GAME_DIR are the root's).
+set(MW1_DOS_GAME_DIR "${CMAKE_SOURCE_DIR}/game/mw1-dos/mwarrior/MECHWAR" CACHE PATH "The MechWarrior (1989) DOS folder the development builds read")
+# The tests' exe checks and the narration need it: without MW_MAIN.EXE there (any case), say so now, not only as
+# skipped tests at the end of a run (tests/mw1_install.h).
+file(GLOB mw1_dos_files LIST_DIRECTORIES false "${MW1_DOS_GAME_DIR}/*")
+set(mw1_dos_main FALSE)
+foreach(f IN LISTS mw1_dos_files)
+  get_filename_component(n "${f}" NAME)
+  string(TOUPPER "${n}" n)
+  if(n STREQUAL "MW_MAIN.EXE")
+    set(mw1_dos_main TRUE)
+  endif()
+endforeach()
+if(NOT mw1_dos_main)
+  message(WARNING "No MW_MAIN.EXE in MW1_DOS_GAME_DIR (${MW1_DOS_GAME_DIR}): the tests that check MW1's exe will be "
+                  "skipped, and a development mw1 has no narration, pitches or titles. Set -DMW1_DOS_GAME_DIR to the "
+                  "MechWarrior (1989) folder.")
+endif()
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(MW3RE_DIR "${CMAKE_SOURCE_DIR}")
+# MSVC and clang-cl: C++ exceptions on, as the engine does (mw3-re's build.cmd replaces CMake's default /EHsc).
+if(MSVC)
+  add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:/EHsc>")
+endif()
+
+# What MW1 adds that a test can reach without SDL.
+add_library(mw1core STATIC src/mw1_start.cpp src/mw1_campaign.cpp src/mw1_game.cpp src/mw1_save.cpp src/mw1_worlds.cpp src/mw1_hub.cpp src/mw1_market.cpp src/mw1_travel.cpp src/mw1_pilots.cpp src/mw1_repairs.cpp src/mw1_missions.cpp src/mw1_images.cpp src/mw1_menu.cpp src/mw1_screen.cpp src/mw1_market_screen.cpp src/mw1_travel_screen.cpp src/mw1_bar_screen.cpp src/mw1_office.cpp src/mw1_story.cpp src/mw1_event_screen.cpp src/mw1_travel_map.cpp src/mw1_map_image.cpp)
+target_include_directories(mw1core PUBLIC src ${MW3RE_DIR}/src)
+target_link_libraries(mw1core PUBLIC pmcore mw3core zipkitlib)
+
+add_executable(mw1tests ${MW3RE_DIR}/tests/main.cpp tests/test_mw1_start.cpp tests/test_mw1_campaign.cpp tests/test_mw1_loop.cpp tests/test_mw1_save.cpp tests/test_mw1_worlds.cpp tests/test_mw1_market.cpp tests/test_mw1_travel.cpp tests/test_mw1_pilots.cpp tests/test_mw1_repairs.cpp tests/test_mw1_missions.cpp tests/test_mw1_menu.cpp tests/test_mw1_office.cpp tests/test_mw1_story.cpp tests/test_mw1_travel_map.cpp tests/test_mw1_map_image.cpp)
+target_include_directories(mw1tests PRIVATE ${MW3RE_DIR}/tests)
+target_link_libraries(mw1tests PRIVATE mw1core pmcore mw3core)
+target_compile_definitions(mw1tests PRIVATE MW3_GAME_DIR="${MW3_GAME_DIR}" MW3PM_GAME_DIR="${MW3PM_GAME_DIR}" MW1_MW3_GAME_DIR="${MW3_GAME_DIR}"
+                                            MW1_DOS_GAME_DIR="${MW1_DOS_GAME_DIR}"
+                                            MW1_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data"
+                                            MW3_TEST_TMP_ROOT="${CMAKE_CURRENT_BINARY_DIR}"
+                                            MW3_SOURCE_DIR="${MW3RE_DIR}")
+set_target_properties(mw1tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})  # beside mw3pmtests
+enable_testing()
+add_test(NAME mw1tests COMMAND mw1tests)
+
+if(TARGET mw3pm)
+  find_package(SDL3 CONFIG REQUIRED)  # its imported target is mw3-re's directory's alone
+  # mw3pm's sources, its main left out, made absolute: they are mw3-re's paths.
+  get_target_property(mw1_from_pm mw3pm SOURCES)
+  set(mw1_sources)
+  foreach(f IN LISTS mw1_from_pm)
+    if(f MATCHES "mw3pm_main\\.cpp$|\\.rc$|\\.manifest$")
+      continue()
+    endif()
+    if(NOT IS_ABSOLUTE "${f}")
+      set(f "${MW3RE_DIR}/${f}")
+    endif()
+    list(APPEND mw1_sources "${f}")
+  endforeach()
+  add_executable(mw1 src/mw1_main.cpp ${mw1_sources})
+  target_include_directories(mw1 PRIVATE ${MW3RE_DIR}/src)
+  get_target_property(mw1_libs mw3pm LINK_LIBRARIES)
+  target_link_libraries(mw1 PRIVATE mw1core ${mw1_libs})
+  get_target_property(mw1_defs mw3pm COMPILE_DEFINITIONS)
+  target_compile_definitions(mw1 PRIVATE ${mw1_defs} MW1=1)
+  if(NOT MW3_PACKAGE)
+    target_compile_definitions(mw1 PRIVATE MW1_PM_GAME_DIR="${MW3PM_GAME_DIR}" MW1_MW3_GAME_DIR="${MW3_GAME_DIR}"
+                                           MW1_DOS_GAME_DIR="${MW1_DOS_GAME_DIR}")
+  endif()
+  if(WIN32)
+    # The version resource's numbers, MW1's own (the engine's are in its own scope): git's describe and commit count.
+    set(MW3_VERSION dev)
+    set(MW3_BUILD_NUMBER 0)
+    find_package(Git QUIET)
+    if(GIT_FOUND)
+      execute_process(COMMAND ${GIT_EXECUTABLE} describe --tags --always --dirty WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                      OUTPUT_VARIABLE mw1_describe OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET RESULT_VARIABLE mw1_git_r)
+      if(mw1_git_r EQUAL 0 AND mw1_describe)
+        set(MW3_VERSION ${mw1_describe})
+      endif()
+      execute_process(COMMAND ${GIT_EXECUTABLE} rev-list --count HEAD WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                      OUTPUT_VARIABLE mw1_count OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET RESULT_VARIABLE mw1_git_r)
+      if(mw1_git_r EQUAL 0 AND mw1_count MATCHES "^[0-9]+$")
+        math(EXPR MW3_BUILD_NUMBER "${mw1_count} % 65536")
+      endif()
+    endif()
+    set(MW3_RC_NAME "MechWarrior 1: Critical Hit")
+    set(MW3_RC_FILE "mw1.exe")
+    set(MW3_RC_ICON "ICON_MAIN ICON \"${MW3RE_DIR}/tools/windows/mw3.ico\"")
+    configure_file(${MW3RE_DIR}/tools/windows/version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/mw1.rc)
+    target_sources(mw1 PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/mw1.rc ${MW3RE_DIR}/tools/windows/utf8.manifest)
+    if(MW3_PACKAGE)
+      if(MSVC)
+        target_link_options(mw1 PRIVATE /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup)
+      else()
+        target_link_options(mw1 PRIVATE -mwindows)
+      endif()
+    endif()
+    if(NOT CMAKE_VERSION VERSION_LESS 3.21)
+      add_custom_command(TARGET mw1 POST_BUILD
+                         COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_RUNTIME_DLLS:mw1> $<TARGET_FILE_DIR:mw1>
+                         COMMAND_EXPAND_LISTS)
+    endif()
+  endif()
+  # Beside mw3pm and the launcher, whose MECHWARRIOR 1 entry starts mw1 from its own folder (docs/launcher.md,
+  # MechWarrior 1).
+  set_target_properties(mw1 PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+  # MW1's own data (the hub's layout, data/), beside the program as mw1data/: mounted at the start (mw1_main.cpp).
+  add_custom_command(TARGET mw1 POST_BUILD
+                     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/data $<TARGET_FILE_DIR:mw1>/mw1data)
+  # MW1's own images (src/mw1_images.h), packed from data-src/ at build time into PM's image format: mw1data/zbd/.
+  # The travel map's backdrops are drawn from the worlds' data (src/mw1_map_image.h): mw1core.
+  add_executable(mw1imgpack tools/mw1imgpack.cpp)
+  target_link_libraries(mw1imgpack PRIVATE mw1core SDL3::SDL3)
+  # Windows: the SDL3 DLL beside the tool, which runs during the build.
+  if(WIN32 AND NOT CMAKE_VERSION VERSION_LESS 3.21)
+    add_custom_command(TARGET mw1imgpack POST_BUILD
+                       COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_RUNTIME_DLLS:mw1imgpack> $<TARGET_FILE_DIR:mw1imgpack>
+                       COMMAND_EXPAND_LISTS)
+  endif()
+  set(mw1_image_zbd ${CMAKE_CURRENT_BINARY_DIR}/mw1gen/zbd/mw1image.zbd)
+  add_custom_command(OUTPUT ${mw1_image_zbd}
+                     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/mw1gen/zbd
+                     COMMAND mw1imgpack ${mw1_image_zbd} ${CMAKE_CURRENT_SOURCE_DIR}/data-src/intro.bmp
+                     DEPENDS mw1imgpack ${CMAKE_CURRENT_SOURCE_DIR}/data-src/intro.bmp ${CMAKE_CURRENT_SOURCE_DIR}/src/mw1_map_image.cpp
+                             ${CMAKE_CURRENT_SOURCE_DIR}/src/mw1_map_image.h ${CMAKE_CURRENT_SOURCE_DIR}/src/mw1_travel_map.cpp
+                     COMMENT "MW1's image archive")
+  add_custom_target(mw1images DEPENDS ${mw1_image_zbd})
+  add_dependencies(mw1 mw1images)
+  add_custom_command(TARGET mw1 POST_BUILD
+                     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_BINARY_DIR}/mw1gen $<TARGET_FILE_DIR:mw1>/mw1data)
+endif()

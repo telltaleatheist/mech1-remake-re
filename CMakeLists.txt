@@ -1326,3 +1326,9 @@ target_link_libraries(zipkit PRIVATE zipkitlib)
 if(WIN32)
   target_sources(zipkit PRIVATE tools/windows/utf8.manifest)  # UTF-8 paths in fopen and the command line
 endif()
+
+# MechWarrior 1: Critical Hit (mw1/README.md), this branch's game: mw1 and mw1tests on Pirate's Moon's code.
+option(MW3_BUILD_MW1 "Build MechWarrior 1: Critical Hit (mw1/)" ON)
+if(MW3_BUILD_MW1)
+  add_subdirectory(mw1 mw1-build)  # not build/mw1/: that is the program
+endif()

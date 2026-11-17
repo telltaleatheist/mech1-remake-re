@@ -1,0 +1,44 @@
+; MW1: Critical Hit's maps (src/mw1_missions.h): the Instant Action maps MW1's contracts are fought on, and the
+; structures each offers (research/maps.md). Only names here: the maps are the player's Pirate's Moon's and the
+; MW3 worlds converted at the first run (never copied).
+;
+; A row: WORLD (the world's folder), IA (its readeria<n>.zbd), CLIMATE (desert, tropical or ice: MW1's three),
+; KIND (any: a battle to destroy all; reach: get within 10 m of the NODE, a world node; attack: destroy the NODE,
+; a targets.zrd entity; defend: destroy the enemies while the NODE stands), WORDS (as the offer says it).
+;
+; Attack rows are on each map's own Attack archive (ia2), where the structure is the enemy's and they guard it;
+; defend rows on its Defend archive (ia3), where it's yours and they come for it. Every row here passes the
+; survey (tests/test_mw1_loop.cpp, mw1_loop_every_map_row_is_there_headless): a structure the engine
+; can't find would count as destroyed at once.
+;
+; PM's four worlds are desert at a stretch (c1 and c3 volcanic; research/maps.md), MW3's Grasslands (mw3c2) the
+; one green map; no Instant Action map is ice yet (research/maps.md, "Arctic").
+(
+; Battles: destroy all.
+MAP (WORLD ("c1") IA (1) CLIMATE ("desert") KIND ("any"))
+MAP (WORLD ("c2") IA (1) CLIMATE ("desert") KIND ("any"))
+MAP (WORLD ("c3") IA (1) CLIMATE ("desert") KIND ("any"))
+MAP (WORLD ("c4") IA (1) CLIMATE ("desert") KIND ("any"))
+MAP (WORLD ("mw3c2") IA (1) CLIMATE ("tropical") KIND ("any"))
+; Reach (MW1's withdraw).
+MAP (WORLD ("c2") IA (1) CLIMATE ("desert") KIND ("reach") NODE ("3twr1") WORDS ("the pump complex"))
+MAP (WORLD ("c2") IA (2) CLIMATE ("desert") KIND ("reach") NODE ("portalgate") WORDS ("the portal gate"))
+MAP (WORLD ("c3") IA (1) CLIMATE ("desert") KIND ("reach") NODE ("xslid01") WORDS ("the land bridge"))
+MAP (WORLD ("c4") IA (1) CLIMATE ("desert") KIND ("reach") NODE ("modA140") WORDS ("the support building"))
+MAP (WORLD ("mw3c2") IA (2) CLIMATE ("tropical") KIND ("reach") NODE ("iatower") WORDS ("the tower"))
+; Attack (MW1's special target).
+MAP (WORLD ("c1") IA (2) CLIMATE ("desert") KIND ("attack") NODE ("hitme_twr") WORDS ("the dome core"))
+MAP (WORLD ("c2") IA (2) CLIMATE ("desert") KIND ("attack") NODE ("portalgate") WORDS ("the portal gate"))
+MAP (WORLD ("c3") IA (2) CLIMATE ("desert") KIND ("attack") NODE ("mpbbase") WORDS ("the pirate base"))
+MAP (WORLD ("c3") IA (2) CLIMATE ("desert") KIND ("attack") NODE ("pspwrsrc01") WORDS ("the power generator"))
+MAP (WORLD ("c4") IA (2) CLIMATE ("desert") KIND ("attack") NODE ("warehouse_target40") WORDS ("the warehouse"))
+MAP (WORLD ("mw3c2") IA (2) CLIMATE ("tropical") KIND ("attack") NODE ("iatower") WORDS ("the tower"))
+; Defend (MW1's defend special target and oppose withdrawal).
+MAP (WORLD ("c1") IA (3) CLIMATE ("desert") KIND ("defend") NODE ("pship_kill") WORDS ("the pirate ship"))
+MAP (WORLD ("c2") IA (3) CLIMATE ("desert") KIND ("defend") NODE ("mp_tent_campb") WORDS ("the headquarters"))
+MAP (WORLD ("c2") IA (3) CLIMATE ("desert") KIND ("defend") NODE ("tcab05") WORDS ("the germanium transport"))
+MAP (WORLD ("c3") IA (3) CLIMATE ("desert") KIND ("defend") NODE ("mpbbase") WORDS ("the base"))
+MAP (WORLD ("c3") IA (3) CLIMATE ("desert") KIND ("defend") NODE ("pspwrsrc01") WORDS ("the power generator"))
+MAP (WORLD ("c4") IA (3) CLIMATE ("desert") KIND ("defend") NODE ("warehouse_target40") WORDS ("the warehouse"))
+MAP (WORLD ("mw3c2") IA (3) CLIMATE ("tropical") KIND ("defend") NODE ("iatower") WORDS ("the tower"))
+)
