@@ -92,6 +92,9 @@ void lamp(Canvas& c, int32_t cx, int32_t cy, int32_t r, bool on) {
 
 std::string panel_name(int32_t w, int32_t h) { return "mw1_panel_" + std::to_string(w) + "x" + std::to_string(h); }
 std::string terminal_name(int32_t w, int32_t h) { return "mw1_term_" + std::to_string(w) + "x" + std::to_string(h); }
+std::string frame_name(int32_t w, int32_t h, bool lit) {
+  return "mw1_frame_" + std::to_string(w) + "x" + std::to_string(h) + (lit ? "_lit" : "");
+}
 
 namespace {
 // A thin flat gunmetal frame `t` wide round (x0, y0)-(x1, y1): a light top edge, a dark foot, a black outline;
@@ -271,12 +274,38 @@ images::Image cursor() {
   return c.image(kCursor);
 }
 
+images::Image frame(int32_t w, int32_t h, bool lit) {
+  // A thin gunmetal frame, its inside clear (the picture shows through); amber when it is the chosen one's.
+  Canvas c(w, h);
+  thin_frame(c, 0, 0, w, h, kFrame, lit ? Rgba{255, 170, 40, 220} : Rgba{});
+  return c.image(frame_name(w, h, lit));
+}
+
+images::Image arrow(bool up, int32_t state) {
+  // A small button: dark glass in a thin frame, a solid triangle pointing up or down; amber lit, grey off.
+  Canvas c(kArrowW, kArrowH);
+  glass(c, 2, 2, kArrowW - 2, kArrowH - 2, state == 2 ? 250 : 230);
+  thin_frame(c, 0, 0, kArrowW, kArrowH, 2, state == 1 ? Rgba{255, 170, 40, 200} : state == 3 ? Rgba{40, 40, 44, 150} : Rgba{});
+  const Rgba ink = state == 3 ? Rgba{80, 84, 88, 255} : state == 0 ? Rgba{217, 221, 224, 255} : Rgba{255, 176, 64, 255};
+  const int32_t cx = kArrowW / 2, top = 6, rows = kArrowH - 12;
+  for (int32_t r = 0; r < rows; ++r) {
+    const int32_t half = up ? r : rows - 1 - r;  // up: the point at the top
+    for (int32_t x = cx - half - 1; x <= cx + half; ++x) c.set(x, top + r, ink);
+  }
+  static const char* const kLooks[4] = {"", "_lit", "_down", "_off"};
+  return c.image(std::string(up ? "mw1_up" : "mw1_dn") + kLooks[std::clamp(state, 0, 3)]);
+}
+
 std::vector<images::Image> all() {
   std::vector<images::Image> v = {plaque(), status_bar(), dialog_frame(), dim(), cursor()};
   for (int32_t s = 0; s < 3; ++s) v.push_back(tile_frame(s));
   for (int32_t s = 0; s < 4; ++s) v.push_back(button(s));
   for (const PanelSize& p : panel_sizes()) v.push_back(panel(p.w, p.h));
   for (const PanelSize& p : terminal_sizes()) v.push_back(terminal(p.w, p.h));
+  for (const PanelSize& p : frame_sizes())
+    for (bool lit : {false, true}) v.push_back(frame(p.w, p.h, lit));
+  for (bool up : {true, false})
+    for (int32_t s = 0; s < 4; ++s) v.push_back(arrow(up, s));
   return v;
 }
 

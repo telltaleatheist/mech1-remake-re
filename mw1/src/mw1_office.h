@@ -26,6 +26,9 @@ enum OfficeButton : int32_t {
   kOfficePayDown, kOfficePayUp, kOfficeSalvageDown, kOfficeSalvageUp, kOfficeAdvanceDown, kOfficeAdvanceUp
 };
 inline constexpr int32_t kOfficeButtonCount = 9;
+// The layout's panels by place (mw1office.zrd's): the plaques and the status line, the liaison's frame and portrait,
+// the contract's panel, the terms' terminal.
+enum OfficePanel : int32_t { kOfficePanelFrame = 3, kOfficePanelLiaison, kOfficePanelContract, kOfficePanelTerms };
 const char* office_button_name(int32_t id);
 
 // The commander's ask and what the House last said.

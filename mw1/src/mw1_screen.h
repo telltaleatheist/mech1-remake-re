@@ -97,6 +97,9 @@ struct ScreenView {
   std::vector<TextBlock> blocks;
   std::vector<ButtonState> buttons;  // by id - 1; missing ones shown and enabled
   std::vector<bool> panels;          // the layout's PANEL, PANEL2, ... shown; missing ones shown
+  // A PANEL's picture now, by its place among the panels (a portrait, a mech): its image's name; empty, or past
+  // the end: the layout's own.
+  std::vector<std::string> pictures;
 };
 
 class Mw1Screen : public mech3::MenuScreen {
@@ -123,6 +126,7 @@ class Mw1Screen : public mech3::MenuScreen {
   bool wide() const { return wide_; }  // laid out by <dialog>_WIDE
   std::string backdrop() const { return backdrop_; }  // for the tests: the BACKGROUND's image's name now
   std::string look(int32_t id) const;                 // and a button's look ("" the layout's)
+  std::string picture(size_t i) const { return i < pictures_.size() ? pictures_[i] : ""; }  // a PANEL's, as asked
 
  private:
   ztwod::Text* text(std::vector<std::unique_ptr<ztwod::Text>>& pool, size_t i, int32_t x, int32_t y, const char* font);
@@ -130,6 +134,7 @@ class Mw1Screen : public mech3::MenuScreen {
   std::vector<ScreenButton> names_;
   std::vector<std::string> label_fonts_, label_off_fonts_, looks_;  // by id - 1
   std::string backdrop_;
+  std::vector<std::string> pictures_;  // the panels' pictures as asked (ScreenView::pictures)
   int32_t extra_ = 0;  // the canvas's width past the layout's (640, or 853 for a _WIDE one)
   bool wide_ = false;
   struct Place {

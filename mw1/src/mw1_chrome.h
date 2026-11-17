@@ -44,13 +44,24 @@ std::string panel_name(int32_t w, int32_t h);
 std::string terminal_name(int32_t w, int32_t h);
 inline const std::vector<PanelSize>& panel_sizes() {
   // The ones the screens use (each screen's layout names its own; add one here when a layout needs it).
-  static const std::vector<PanelSize> k = {{232, 120}, {300, 200}, {400, 300}, {560, 360}, {280, 420}, {376, 214}, {456, 214}};
+  static const std::vector<PanelSize> k = {{232, 120}, {300, 200}, {400, 300}, {560, 360}, {280, 420}, {376, 214}, {456, 214},
+                                           {232, 244}, {176, 156}, {436, 370}, {637, 370}, {436, 190}, {637, 190}};
   return k;
 }
 inline const std::vector<PanelSize>& terminal_sizes() {
-  static const std::vector<PanelSize> k = {{232, 150}};
+  static const std::vector<PanelSize> k = {{232, 150}, {186, 328}, {377, 328}, {436, 172}, {637, 172}};
   return k;
 }
+// A picture's frame (a portrait's, a mech's): mw1_frame_<w>x<h> and its lit look (_lit, the chosen one's), its
+// inside clear; the picture (w - 2 kFrame by h - 2 kFrame) goes in it.
+inline constexpr int32_t kFrame = 4;
+std::string frame_name(int32_t w, int32_t h, bool lit = false);
+inline const std::vector<PanelSize>& frame_sizes() {
+  static const std::vector<PanelSize> k = {{248, 328}, {104, 136}};  // a portrait (240x320), a small one (96x128)
+  return k;
+}
+// The up and down arrows (a list's, a term's): mw1_up and mw1_dn, each with _lit, _down and _off.
+inline constexpr int32_t kArrowW = 28, kArrowH = 22;
 
 images::Image plaque();
 images::Image tile_frame(int32_t state);  // 0 still, 1 lit, 2 pressed
@@ -63,6 +74,8 @@ images::Image status_bar();
 images::Image dialog_frame();
 images::Image dim();
 images::Image cursor();
+images::Image frame(int32_t w, int32_t h, bool lit);
+images::Image arrow(bool up, int32_t state);  // 0 still, 1 lit, 2 pressed, 3 off
 void darken_scene(images::Image& im);    // the hub's scenery treatment (kSceneLight, kScanline)
 std::vector<images::Image> all();  // every piece, for the archive (the tiles come with their pictures, mw1imgpack)
 

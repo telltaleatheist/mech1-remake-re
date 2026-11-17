@@ -21,7 +21,7 @@ namespace {
 namespace fs = std::filesystem;
 
 // Restyled in FIXES.md item 3's phases 3-5; each comes off as it is.
-const std::set<std::string> kNotYet = {"mw1bar.zrd", "mw1event.zrd", "mw1market.zrd", "mw1office.zrd", "mw1travel.zrd"};
+const std::set<std::string> kNotYet = {"mw1event.zrd", "mw1market.zrd", "mw1travel.zrd"};
 
 std::string read_all(const fs::path& p) {
   std::ifstream f(p, std::ios::binary);
@@ -85,8 +85,8 @@ TEST(mw1_look_no_pirates_moon_art_in_mw1s_layouts) {
   for (const std::string& n : kNotYet)
     if (!with_pm.count(n)) std::printf("  %s is MW1's own now: take it off kNotYet\n", n.c_str());
   EXPECT(with_pm == kNotYet);
-  // The ones made over: the hub, the title, every message box.
-  for (const char* own : {"mw1hub.zrd", "mw1menu.zrd", "mw1dialog.zrd"}) EXPECT(!with_pm.count(own) && fs::exists(data / own));
+  // The ones made over: the hub, the title, every message box, the Bar, the House office.
+  for (const char* own : {"mw1hub.zrd", "mw1menu.zrd", "mw1dialog.zrd", "mw1bar.zrd", "mw1office.zrd"}) EXPECT(!with_pm.count(own) && fs::exists(data / own));
   // The guard sees what it guards: a Pirate's Moon picture, a cursor and a folder are found (a comment's are not).
   EXPECT(foreign("X (BUTTONS (A (BITMAP (\"circlebtn_tiny\")))) ; BITMAP (\"icon_x\")").size() == 1);
   EXPECT(foreign("CURSOR (BITMAP (\"cursor_circle_orange\") CENTER (1))").size() == 1);

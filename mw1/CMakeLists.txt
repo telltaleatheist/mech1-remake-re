@@ -50,7 +50,7 @@ add_library(mw1core STATIC src/mw1_start.cpp src/mw1_campaign.cpp src/mw1_game.c
 target_include_directories(mw1core PUBLIC src ${MW3RE_DIR}/src PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/mw1gen-src)
 target_link_libraries(mw1core PUBLIC pmcore mw3core zipkitlib)
 
-add_executable(mw1tests ${MW3RE_DIR}/tests/main.cpp tests/test_mw1_start.cpp tests/test_mw1_campaign.cpp tests/test_mw1_loop.cpp tests/test_mw1_save.cpp tests/test_mw1_worlds.cpp tests/test_mw1_market.cpp tests/test_mw1_travel.cpp tests/test_mw1_pilots.cpp tests/test_mw1_repairs.cpp tests/test_mw1_missions.cpp tests/test_mw1_menu.cpp tests/test_mw1_office.cpp tests/test_mw1_story.cpp tests/test_mw1_travel_map.cpp tests/test_mw1_map_image.cpp tests/test_mw1_chrome.cpp tests/test_mw1_look.cpp)
+add_executable(mw1tests ${MW3RE_DIR}/tests/main.cpp tests/test_mw1_start.cpp tests/test_mw1_campaign.cpp tests/test_mw1_loop.cpp tests/test_mw1_save.cpp tests/test_mw1_worlds.cpp tests/test_mw1_market.cpp tests/test_mw1_travel.cpp tests/test_mw1_pilots.cpp tests/test_mw1_repairs.cpp tests/test_mw1_missions.cpp tests/test_mw1_menu.cpp tests/test_mw1_office.cpp tests/test_mw1_story.cpp tests/test_mw1_travel_map.cpp tests/test_mw1_map_image.cpp tests/test_mw1_chrome.cpp tests/test_mw1_look.cpp tests/test_mw1_rooms.cpp)
 target_include_directories(mw1tests PRIVATE ${MW3RE_DIR}/tests)
 target_link_libraries(mw1tests PRIVATE mw1core pmcore mw3core)
 target_compile_definitions(mw1tests PRIVATE MW3_GAME_DIR="${MW3_GAME_DIR}" MW3PM_GAME_DIR="${MW3PM_GAME_DIR}" MW1_MW3_GAME_DIR="${MW3_GAME_DIR}"

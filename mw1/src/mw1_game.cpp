@@ -207,6 +207,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         show_travel();
       }
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "bar") press(kHubBar);
+      if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "bar_recruit") press(kHubBar), press_bar(kBarCrew);
+      if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "bar_lance") press(kHubBar), press_bar(kBarLance);
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "office") press(kHubOffice);
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "news") press(kHubBar), press_bar(kBarNews);
       const char* sc = std::getenv("MW1_SCREEN");
@@ -601,11 +603,18 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         advance_time(company_, 1, rng_);
         open_news();
         return;
+      case kBarCrew: bchoice_.page = BarPage::kRecruits, bchoice_.note.clear(); break;
+      case kBarLance: bchoice_.page = BarPage::kLance, bchoice_.note.clear(); break;
+      case kBarDone: bchoice_.page = BarPage::kMenu, bchoice_.note.clear(); break;
       case kBarRecruitUp: --bchoice_.recruit; break;
       case kBarRecruitDown: ++bchoice_.recruit; break;
       case kBarLanceUp: --bchoice_.mate; break;
       case kBarLanceDown: ++bchoice_.mate; break;
       case kBarBack:
+        if (bchoice_.page != BarPage::kMenu) {  // Escape on a page: back to the Bar's menu
+          bchoice_.page = BarPage::kMenu, bchoice_.note.clear();
+          break;
+        }
         if (!ge) return;
         show_hub();
         ge->pop_state(1);

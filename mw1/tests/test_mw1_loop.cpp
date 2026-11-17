@@ -40,6 +40,7 @@
 #include "mech3/zai_brain.h"
 #include "mech3/zai_params.h"
 #include "mw1_bar_screen.h"
+#include "mw1_chrome.h"
 #include "mw1_event_screen.h"
 #include "mw1_scenery.h"
 #include "mw1_story.h"
@@ -321,26 +322,49 @@ void loop_run(Ending ending, Run* run = nullptr) {
         hub_frames = 0;
         mw1::Mw1Screen* sc = bs->screen();
         mw1::Company* c = mw1::game_loop_company_for_tests();
+        // The Bar's menu first (MW1's): its page buttons, not the pages' own.
+        EXPECT(sc->loaded() && sc->visible(mw1::kBarCrew) && sc->visible(mw1::kBarLance) && sc->visible(mw1::kBarBack) &&
+               !sc->visible(mw1::kBarHire) && !sc->visible(mw1::kBarDone));
+        sc->on_button(mw1::kBarHire, 0, 0);  // not on the menu: nothing
+        EXPECT(c->lance.empty());
+        // RECRUIT CREW: the interview, the first recruit, then the next one, then back.
+        sc->on_button(mw1::kBarCrew, 0, 0);
         run->bar_lines = sc->shown();
+        EXPECT(sc->visible(mw1::kBarHire) && sc->enabled(mw1::kBarHire) && sc->enabled(mw1::kBarDecline) && !sc->visible(mw1::kBarFire) &&
+               !sc->visible(mw1::kBarBack) && sc->visible(mw1::kBarDone));
+        EXPECT(sc->picture(mw1::kBarPanelPortrait) == mw1::portrait_image(c->recruits[0], false) && sc->panel_shown(mw1::kBarPanelPortrait));
+        sc->on_button(mw1::kBarRecruitDown, 0, 0);
+        for (const std::string& l : sc->shown()) run->bar_lines.push_back(l);
+        sc->on_button(mw1::kBarRecruitUp, 0, 0);
         std::printf("  bar:");
         for (const std::string& l : run->bar_lines) std::printf(" [%s]", l.c_str());
         std::printf("\n");
-        EXPECT(sc->loaded() && sc->enabled(mw1::kBarHire) && sc->enabled(mw1::kBarDecline) && !sc->enabled(mw1::kBarFire));
-        // HIRE each (Elli Gujar, J. Holmaas, Taris Ren); up to Elli, ASSIGN (the Firefly), down, ASSIGN (the Owens), ...;
-        // BACK.
+        // HIRE each (the first recruit each time); YOUR LANCE: up to the first, ASSIGN (the Firefly), down, ASSIGN (the
+        // Owens), ...; DONE, then LEAVE.
         const int32_t n = run->lance_count;
         for (int32_t i = 0; i < n; ++i) sc->on_button(mw1::kBarHire, 0, 0);
+        for (const std::string& l : sc->shown()) run->bar_after.push_back(l);  // nobody left
+        sc->on_button(mw1::kBarDone, 0, 0);
+        sc->on_button(mw1::kBarLance, 0, 0);
         for (int32_t i = 0; i < n; ++i) sc->on_button(mw1::kBarLanceUp, 0, 0);
         for (int32_t i = 0; i < n; ++i) {
           if (i) sc->on_button(mw1::kBarLanceDown, 0, 0);
           sc->on_button(mw1::kBarAssign, 0, 0);
         }
-        run->bar_after = sc->shown();
+        for (const std::string& l : sc->shown()) run->bar_after.push_back(l);
         EXPECT(static_cast<int32_t>(c->lance.size()) == n && c->recruits.empty() && mw1::mech_of(*c, 0) == 0 && mw1::mech_of(*c, 1) == 1);
         EXPECT(mw1::lance_weight(*c) == 1 + n);  // the Owens and the light mechs, 1 each
-        EXPECT(!sc->enabled(mw1::kBarHire) && sc->enabled(mw1::kBarFire) && sc->enabled(mw1::kBarAssign));
+        EXPECT(!sc->visible(mw1::kBarHire) && sc->enabled(mw1::kBarFire) && sc->enabled(mw1::kBarAssign));
+        // MW1's grid: you first, then each lancemate's portrait and mech; the chosen one's (the last) frame lit.
+        EXPECT(sc->picture(mw1::kBarPanelColumnPortrait) == mw1::commander_image(true) &&
+               sc->picture(mw1::kBarPanelColumnPortrait + 2) == mw1::portrait_image(c->lance[1].id, true) &&
+               sc->picture(mw1::kBarPanelMech + 2) == mw1::mech_image(c->hangar[1].mech) &&
+               sc->picture(mw1::kBarPanelColumnFrame + static_cast<size_t>(n)) == mw1::frame_name(104, 136, true) &&
+               sc->picture(mw1::kBarPanelColumnFrame + 1) == mw1::frame_name(104, 136, n == 1));
         if (n == 3) EXPECT(mw1::mech_of(*c, 2) == 2);
         run->lance_set = true;
+        mw1::game_loop_bar()->escape();  // Escape on a page: the Bar's menu, still the Bar
+        EXPECT(sc->visible(mw1::kBarBack) && !sc->visible(mw1::kBarDone) && mw1::game_loop_bar()->screen() == sc);
         sc->on_button(mw1::kBarBack, 0, 0);
         return;
       }
@@ -1107,11 +1131,12 @@ TEST(mw1_loop_lancemates_fly_named_and_aimed_then_the_casualty_headless) {
         if (l.find(t) != std::string::npos) return true;
       return false;
     };
-    EXPECT(shows(run.bar_lines, "RECRUITS") && shows(run.bar_lines, "> Elli Gujar") && shows(run.bar_lines, "J. Holmaas") &&
-           shows(run.bar_lines, "PILOT it"));
+    EXPECT(shows(run.bar_lines, "ELLI GUJAR") && shows(run.bar_lines, "Recruit 1 of") && shows(run.bar_lines, "J. HOLMAAS") &&
+           shows(run.bar_lines, "Recruit 2 of") && shows(run.bar_lines, "Gunnery") && shows(run.bar_lines, "a month"));
     if (!pitch.empty()) EXPECT(shows(run.bar_lines, "\"" + pitch[0] + "\""));  // Elli Gujar's own words
-    EXPECT(shows(run.bar_after, "J. Holmaas: the Owens") && shows(run.bar_after, "Lance: 2 of 3, wages 2,400 a month") &&
-           shows(run.bar_after, "Nobody here"));
+    EXPECT(shows(run.bar_after, "Nobody here") && shows(run.bar_after, "J. HOLMAAS") && shows(run.bar_after, "Owens") &&
+           shows(run.bar_after, "LANCE 2 OF 3 \xB7 WAGES 2,400 A MONTH") && shows(run.bar_after, "PILOT it in the MARKET") &&
+           shows(run.bar_after, "Commander"));
     // The aims: the record's times the Gunnery's factor, and the brains' the ones set.
     for (const mw1::AllyLaunch& a : run.launches) {
       std::printf("  launched %s: the record's aim error %g, set %g\n", mw1::pilot_title(a.id).c_str(), a.record_error, a.error);
@@ -2058,13 +2083,15 @@ TEST(mw1_soak_twenty_contracts_through_the_hub_headless) {
       }
       if (mw1::BarState* bs = mw1::game_loop_bar(); showing(app, bs)) {
         mw1::Mw1Screen* sc = bs->screen();
-        const int a = roll(7);
-        if (a == 0 && sc->enabled(mw1::kBarHire)) sc->on_button(mw1::kBarHire, 0, 0);
+        const int a = roll(9);
+        if (a == 7) sc->on_button(mw1::kBarCrew, 0, 0);       // the pages (each button only where it shows)
+        else if (a == 8) sc->on_button(mw1::kBarLance, 0, 0);
+        else if (a == 0 && sc->enabled(mw1::kBarHire)) sc->on_button(mw1::kBarHire, 0, 0);
         else if (a == 1 && sc->enabled(mw1::kBarAssign)) sc->on_button(mw1::kBarAssign, 0, 0);
         else if (a == 2 && sc->enabled(mw1::kBarFire) && roll(3) == 0) sc->on_button(mw1::kBarFire, 0, 0);
         else if (a == 3 && sc->enabled(mw1::kBarDrink)) sc->on_button(mw1::kBarDrink, 0, 0);
         else if (a == 4 && sc->enabled(mw1::kBarNews)) sc->on_button(mw1::kBarNews, 0, 0);
-        else sc->on_button(mw1::kBarBack, 0, 0);
+        else sc->on_button(sc->visible(mw1::kBarDone) ? mw1::kBarDone : mw1::kBarBack, 0, 0);
         return false;
       }
       if (mw1::OfficeState* os = mw1::game_loop_office(); showing(app, os)) {

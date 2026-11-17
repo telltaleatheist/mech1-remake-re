@@ -15,7 +15,11 @@ constexpr uint32_t kScreenSize = 0x11200;  // its block: past MenuScreen's own f
 constexpr int32_t kWideCanvas = 853;       // the 16:9 canvas a _WIDE layout is placed on (480 lines)
 constexpr const char* kLabelFont = "ia_small_green";
 constexpr const char* kLabelOffFont = "ia_small_grey";  // PM's greyed circle buttons' (dialog.zrd)
-constexpr const char* kPanelNames[] = {"PANEL", "PANEL2", "PANEL3", "PANEL4", "PANEL5", "PANEL6", "PANEL7"};
+constexpr const char* kPanelNames[] = {"PANEL",   "PANEL2",  "PANEL3",  "PANEL4",  "PANEL5",  "PANEL6",
+                                       "PANEL7",  "PANEL8",  "PANEL9",  "PANEL10", "PANEL11", "PANEL12",
+                                       "PANEL13", "PANEL14", "PANEL15", "PANEL16", "PANEL17", "PANEL18",
+                                       "PANEL19", "PANEL20", "PANEL21", "PANEL22", "PANEL23", "PANEL24",
+                                       "PANEL25", "PANEL26", "PANEL27", "PANEL28"};
 
 // The part of a screen that hears the mouse: no drawing of its own; the mouse's place kept at each hit test (each
 // frame, Window::update), told on hovering and on a left click.
@@ -263,6 +267,13 @@ void Mw1Screen::show(const ScreenView& v) {
     }
     for (size_t i = ls.size(); i < pool.size(); ++i) pool[i]->hide();
   }
+  // The panels' pictures asked for (kept as asked; an image not in the archive leaves the panel empty).
+  if (pictures_.size() < panels_.size()) pictures_.resize(panels_.size());
+  for (size_t i = 0; i < panels_.size() && i < v.pictures.size(); ++i)
+    if (!v.pictures[i].empty() && v.pictures[i] != pictures_[i]) {
+      pictures_[i] = v.pictures[i];
+      panels_[i]->set_image(v.pictures[i].c_str());
+    }
   for (size_t i = 0; i < panels_.size(); ++i) {
     if (i < v.panels.size() && !v.panels[i]) panels_[i]->hide();
     else panels_[i]->show_for(-1.0f);
