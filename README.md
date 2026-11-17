@@ -28,7 +28,7 @@ own or with the MechWarrior 3 rebuild, as a third game on its launcher.
   look at the hub and the Bar (`mw1-hub.html`, made by `build.py` from
   `mw1hub.template.html` and the images here: new art from a local image
   model).
-- `src/`, `tests/`: the `mw1` program (to come).
+- `src/`, `tests/`: the `mw1` program and its tests (below, Building).
 - `external/mw3-re`: the engine, a submodule on mw3-re's `mw1-engine` branch
   (VISION.md, "The code base").
 
@@ -40,6 +40,40 @@ git clone --recurse-submodules https://github.com/telltaleatheist/mw1-critical-h
 
 In a clone without it: `git submodule update --init`. The engine's build
 notes are in `external/mw3-re/docs/building.md`.
+
+## Building
+
+The root `CMakeLists.txt` adds the engine as a subdirectory, with MW3's own
+programs off, and builds `mw1` and `mw1tests` on Pirate's Moon's game code
+(the engine's prerequisites: `external/mw3-re/docs/building.md`).
+
+```
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+ninja -C build mw1 mw1tests
+```
+
+`mw1` lands in `build/external/mw3-re/`, beside `mw3pm` and the launcher.
+Development builds and the tests read the installs in the ignored `game/`
+(`game/mw3-1.2`, `game/pm`, `game/mw1-dos/mwarrior/MECHWAR`), or the ones
+named by `-DMW3_GAME_DIR=`, `-DMW3PM_GAME_DIR=` and `-DMW1_DOS_GAME_DIR=`.
+
+`mw1` is Pirate's Moon's game main (`external/mw3-re/src/frontend/sdl/mw3_main.cpp`)
+started by `src/mw1_main.cpp`. It has its own settings and saves folder,
+SDL's app data for "MicroProse/MechWarrior 1 Critical Hit", apart from MW3's
+and PM's. It also takes the player's three installs:
+
+    mw1 [--install PM-DIR] [--mw3-install MW3-DIR] [--mw1-game MW1-DIR] [--write-dir DIR] [mw3pm's own flags]
+
+- Each folder is checked: PM's and MW3's by their `zbd/reader.zbd`'s
+  zArchive version, MW1's by `BTECH.EXE`. A good one is saved to `mw1.cfg`
+  (`install=`, `mw3_install=`, `mw1_game=`), so a later start without the
+  flags (the launcher's or a plain one) uses them again.
+- Development builds fall back to the `game/` copies above. These are never
+  saved.
+- For now it starts into Pirate's Moon's frontend as it is. MW3's worlds
+  aren't loaded yet.
+- `mw1tests` (`tests/`) covers the start: the flags, `mw1.cfg`, and the
+  install checks.
 
 ## Credits and licence
 
