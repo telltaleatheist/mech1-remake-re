@@ -142,3 +142,47 @@ TEST(mw1_save_file_missing_bad_and_atomic) {
   EXPECT(!fs::exists(path, ec) && file_text(dir / "mw1save.bad") == damaged);
   std::printf("  damaged on disk: %s\n", why.c_str());
 }
+
+// AFTER ACTION's pending block (the mission back and not settled): read back as it was, written again the same; only
+// with an accepted contract; a damaged block refused; a file from before the block, nothing pending.
+TEST(mw1_save_pending_after_action) {
+  mw1::Rng rng(12);
+  const mw1::Company c = played_company(rng);
+  mw1::Contract k = mw1::generate_contract(c, 1, rng);
+  k.accepted = true, k.remaining = 3;
+  mw1::AfterAction p;
+  p.outcome = mw1::Outcome::kFailure;
+  p.wrecks = {{1, 50}, {3, 100}};
+  p.salvage = std::make_shared<mech3::Store>();
+  p.salvage->add_ammo(0x17, 40);
+  p.launch_stores = std::make_shared<mech3::Store>();
+  p.launch_stores->assign(*c.stores);
+  const std::string text = mw1::save_text(c, &k, &p);
+  EXPECT(text.find("\npending=1\n") != std::string::npos && text.find("\noffer_accepted=1\n") != std::string::npos);
+  mw1::Company back;
+  mw1::Contract kb;
+  mw1::AfterAction pb;
+  bool has = false, has_pending = false;
+  std::string why;
+  EXPECT(mw1::load_text(text, back, kb, &has, &why, &pb, &has_pending));
+  std::printf("  pending: %zu bytes; read back: %s\n", text.size(), why.empty() ? "ok" : why.c_str());
+  EXPECT(has && has_pending && kb.accepted && kb.remaining == 3 && pb.outcome == mw1::Outcome::kFailure);
+  EXPECT(pb.wrecks.size() == 2 && pb.wrecks[1].kind == 3 && pb.salvage && pb.salvage->count() == 1);
+  EXPECT(pb.launch_stores && pb.launch_stores->count() == c.stores->count() && !pb.launch_loadout);
+  EXPECT(mw1::save_text(back, &kb, &pb) == text);
+  // Not accepted: refused.
+  {
+    mw1::Contract open = k;
+    open.accepted = false;
+    const std::string t = mw1::save_text(c, &open, &p);  // written whole (its check right), the block without a contract
+    mw1::Company b2;
+    mw1::Contract k2;
+    std::string w2;
+    EXPECT(!mw1::load_text(t, b2, k2, &has, &w2, &pb, &has_pending));
+    std::printf("  pending, not accepted: %s\n", w2.c_str());
+    EXPECT(w2.find("check") == std::string::npos);
+  }
+  // No pending block written: none read back.
+  const std::string none = mw1::save_text(c, &k);
+  EXPECT(mw1::load_text(none, back, kb, &has, &why, &pb, &has_pending) && !has_pending);
+}

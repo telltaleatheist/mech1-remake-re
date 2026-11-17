@@ -568,10 +568,11 @@ between missions is MW1's, in new art.
    turret dies with no animation. Nothing uses those worlds' turrets yet.
    When MW1's missions put turrets there, MW1 supplies turret records that
    name the MW3 anims, in its own data; zipkit stays a plain converter.
-9. REPLAY isn't reachable yet (mw1 dev 1, 2026-11-17): in PM's Instant
-   Action, Escape → REPLAY ends the mission as a failure (pause menu,
-   0x0048fa80), and the briefing's and debriefing's REPLAY only replay the
-   voice. So the endings table's "Replay: none, everything as it was" needs
-   MW1's own end screen (with the hub work). Until then such an ending
-   settles as Failed. MW1 already restores a contract's first-launch stores
-   and loadout on any later launch.
+9. ~~REPLAY isn't reachable yet~~ Solved by the hub (mw1 dev 1,
+   2026-11-17). In PM's Instant Action, Escape → REPLAY still ends the
+   mission as a failure (pause menu, 0x0048fa80). The hub's AFTER ACTION
+   panel now offers REPLAY after a failure, beside OK. REPLAY settles
+   nothing, keeps the advance paid, and plays the contract again from its
+   first launch's stores and loadout. A win or a quit offers OK only. The
+   save keeps AFTER ACTION pending until OK or REPLAY, so a restart shows
+   it again and it is settled once.

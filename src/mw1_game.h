@@ -1,6 +1,7 @@
 #pragma once
 // MW1's loop over Pirate's Moon's game (VISION.md, "The first milestone"):
-// the hub between missions (for now PM's message box), one contract, the
+// the hub between missions (mw1_hub.h; PM's message boxes when MW1's layout
+// is missing), one contract, the
 // launch into a PM Instant Action map, and the settlement when it comes back.
 // It sits on mw3-re's extension points for programs built on the engine
 // (mech3/program_flow.h, ObjectivesExtension in mech3/mech_objective.h).
@@ -30,5 +31,13 @@ struct Contract;
 const Company* game_loop_company();
 // The contract on offer, or accepted while its mission runs; null before the first hub (tests).
 const Contract* game_loop_contract();
+struct AfterAction;
+class HubState;
+// A mission back and not settled (the hub's AFTER ACTION), else null (tests).
+const AfterAction* game_loop_pending();
+// The hub's state, once the loop has made it (tests: its screen shows what the player sees); a press of one of
+// its buttons (mw1_hub.h's HubButton), as the screen's own.
+HubState* game_loop_hub();
+void game_loop_press(int32_t button);
 
 }  // namespace mw1
