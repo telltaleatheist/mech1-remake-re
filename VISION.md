@@ -44,8 +44,12 @@ on maps built from MW1's battlefields.
 5. **MW1 is its own codebase** (Owen, 2026-11-16). This repo holds only
    MW1: its code, art, docs and research. The engine is mw3-re, pulled in as
    a submodule (`external/mw3-re`). The engine changes MW1 needs are made in
-   mw3-re as general features that leave MW3 and PM playing as before, so
-   MW1 can ship on its own or inside mw3-re's package.
+   mw3-re as **hooks only**, so MW1 can ship on its own or inside mw3-re's
+   package. **mw3-re is a preservation project** (Owen, 2026-11-16): a record
+   of how MW3 and PM originally worked. MW1 never changes its game logic.
+   It may add extension points that do nothing unless a program sets them
+   (with none set, the original's code runs alone), and MW1's own rules live
+   in this repo, behind those hooks.
 
 ## The code base
 
@@ -414,7 +418,7 @@ Objectives" with nothing under it. So each contract adds one from MW1's:
   since every wreck is salvage.
 - **Structures, as MW1 does it** (Owen, 2026-11-16): MW1's contracts turn
   on buildings, so the objectives are built around them, from MW3's own
-  objective types (`external/mw3-re/docs/objectives.md`, "Ours"):
+  objective types (`external/mw3-re/docs/objectives.md`):
   - **Reach a structure**: get within 10 m of it and the mission is won
     (`reach_area` on the building's node, radius 10). The way out when the
     enemy is too much for an Owens: paid for the job, and for what you
@@ -426,9 +430,11 @@ Objectives" with nothing under it. So each contract adds one from MW1's:
     drawing their fire.
   - **Destroy all the enemy mechs**: Instant Action's own rule, and the best
     pay, since every wreck is salvage.
-- **The engine change for it is made**: a mission's objectives can say
-  `destroy_enemies 0`, so reaching or destroying the structure wins alone,
-  without Instant Action's "destroy the enemies" added on top.
+- **The hook for it is in mw3-re** (`ObjectivesExtension`,
+  `external/mw3-re/docs/objectives.md`, "Extensions"). MW1's side reads a
+  key of its own in a mission's block, `destroy_enemies 0`, and leaves
+  Instant Action's "destroy the enemies" out, so reaching or destroying the
+  structure wins alone.
 - PM's Instant Action already has Attack and Defend maps with buildings
   (`targets.zrd`: a dome core to destroy, a pirate base to defend;
   `research/maps.md`). MW3's Battle maps have none, so a building there
