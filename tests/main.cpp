@@ -36,6 +36,15 @@ std::vector<Test>& registry() {
   return tests;
 }
 int failures = 0;
+int skipped = 0;
+std::vector<std::string> skip_reasons;
+void skip(const std::string& why) {
+  ++skipped;
+  std::printf("  skipped: %s\n", why.c_str());
+  for (const std::string& r : skip_reasons)
+    if (r == why) return;
+  skip_reasons.push_back(why);
+}
 }  // namespace check
 
 #if !defined(_WIN32)
@@ -276,6 +285,12 @@ int main() {
     }
 #endif
   }
-  std::printf("%zu tests, %d failed checks\n", ran, check::failures);
+  std::string skips;
+  if (check::skipped) {
+    skips = ", " + std::to_string(check::skipped) + " skipped (";
+    for (size_t i = 0; i < check::skip_reasons.size(); ++i) skips += (i ? "; " : "") + check::skip_reasons[i];
+    skips += ")";
+  }
+  std::printf("%zu tests, %d failed checks%s\n", ran, check::failures, skips.c_str());
   return check::failures == 0 ? 0 : 1;
 }

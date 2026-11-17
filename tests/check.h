@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdio>
 #include <functional>
+#include <string>
 #include <vector>
 
 // A minimal test runner: no dependencies, so the tests build anywhere the game does.
@@ -12,6 +13,12 @@ struct Test {
 };
 std::vector<Test>& registry();
 extern int failures;
+// Ours (MW1: Critical Hit): a test that can't run here (the data it checks isn't installed) says so and is counted:
+// skip("no MW1 install at <dir>") prints "  skipped: <why>", and the run's last line ends ", N skipped (<why>)"
+// (each different reason once). Called in the test's own process, never a forked child's.
+void skip(const std::string& why);
+extern int skipped;
+extern std::vector<std::string> skip_reasons;
 
 struct Register {
   Register(const char* name, std::function<void()> fn) { registry().push_back({name, std::move(fn)}); }
