@@ -84,9 +84,14 @@ mw3-re's own ported, exe-derived readers and writers. It overlaps Owen's
 its rules apply: whoever writes it has never read mech3ax's source (EUPL),
 and it uses none of mw3-re's `*_json` readers, which cite it. mech3ax's
 output may be used as a check, by running its binary. Whether this becomes
-zipkit, and where it lives, is Owen's call. MW1's first-run conversion calls
-this tool. The measurements are in `research/converter.md` (about 1.5–2
-weeks).
+zipkit: Owen, 2026-11-16, via the mw3 lead: a rudimentary version scoped
+to MW1 (MW3 to PM, archives, gamez and anim, c2 and c4b), on `mw1-engine`,
+its format code apart from the conversion so it can move into zipkit (MIT,
+its own repo) later. It's written by a fresh session that has never read
+mech3ax's source, from a clean, exe-derived spec. MW1's first-run conversion calls
+this tool. It's about 1.5–2 weeks of work. Its spec is exe-derived only; the
+earlier measurements touched mech3ax and are kept privately, away from the
+implementer.
 
 The player's MW3 and PM files are **never modified** (Owen, 2026-11-16):
 they must stay playable in MW3 and PM. MW1 works only on its own copies.
