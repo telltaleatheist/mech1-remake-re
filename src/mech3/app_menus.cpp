@@ -337,7 +337,7 @@ void GameEngine::widen_screen(MenuScreen* s, uint32_t ctor) {
     // A rect from 0 to past its place was pulled there by a label at 0 (the
     // lab's data and lists): such an object goes by its own place.
     const bool pulled = r && left == 0 && o->get_x() - s->origin_x > 0;
-    if (auto* lp = dynamic_cast<LabPanel*>(o); lp && (lp->single || lp->image)) {
+    if (auto* lp = dynamic_cast<LabPanel*>(o); lp && !lp->own_look && (lp->single || lp->image)) {
       // A lab panel at a frame's edge: each of its looks made wider on that
       // side (the left one then stays, its art half the extra width in).
       const int32_t pw = (lp->single ? lp->single : lp->image)->width;  // (its look is chosen later: show_look)

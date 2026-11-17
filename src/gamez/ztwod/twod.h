@@ -896,9 +896,16 @@ void set_layout(const std::string& game_file, const std::string& game_dialog, co
                 const std::string& wide_dialog = "");
 void set_layout_wide(std::function<bool()> wide);
 // While a dialog read from a program's layout is being read and bound (load to unload), a font the game's code
-// looks up by name (its own fonts.zrd's, e.g. a cycle's value colours) is the program's in its place.
-void set_layout_font(const std::string& game_font, const std::string& font);
-const char* layout_font(const char* name);  // `name`, or the program's in its place now
+// looks up by name (its own fonts.zrd's, e.g. a cycle's value colours) is the program's in its place. With
+// `game_file`: while any dialog is read from that game file (the game's own layout kept: a reskin), and for that
+// file's code at any time (layout_font_in).
+void set_layout_font(const std::string& game_font, const std::string& font, const std::string& game_file = "");
+// The same for a picture (the SDL host's image_get), always for one game file: a reskin's pictures, at the game's
+// pictures' sizes (the game's layout places them).
+void set_layout_image(const std::string& game_image, const std::string& image, const std::string& game_file);
+const char* layout_font(const char* name);   // `name`, or the program's in its place now
+const char* layout_image(const char* name);  // the same for a picture
+const char* layout_font_in(const char* game_file, const char* name);  // `name` as game_file's code asks for it
 void clear_layouts();
 // The layout set for (`game_file`, `game_dialog`), if one is: its file and dialog (the one the canvas reads now).
 bool layout_for(const std::string& game_file, const std::string& game_dialog, std::string* file, std::string* dialog);

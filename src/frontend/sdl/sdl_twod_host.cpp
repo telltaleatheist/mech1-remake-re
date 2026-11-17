@@ -154,6 +154,7 @@ std::string SdlTwodHost::font_file(const std::string& face) {
 
 zimg::Texture* SdlTwodHost::image_get(const char* name) {
   if (!name || !*name) return nullptr;
+  name = ztwod::layout_image(name);  // ours: a program's picture in its place (set_layout_image), none set: itself
   auto it = images_.find(name);
   if (it != images_.end()) {
     ++it->second.refs;

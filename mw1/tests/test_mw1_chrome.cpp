@@ -1,6 +1,7 @@
 // MW1's chrome (src/mw1_chrome.h): every piece its size, with an alpha plane (a tile frame's window clear, a panel's
 // body part see-through, the plaque solid), the same pixels every build, and packed with kFullAlpha. MW1_CHROME_PREVIEW=DIR
 // writes each as a BMP (over a checkerboard) to look at.
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -23,7 +24,8 @@ uint8_t alpha_at(const mw1::images::Image& im, int32_t x, int32_t y) { return im
 TEST(mw1_chrome_pieces) {
   const std::vector<mw1::images::Image> all = mw1::chrome::all();
   EXPECT(all.size() == 5 + 3 + 4 + mw1::chrome::panel_sizes().size() + mw1::chrome::terminal_sizes().size() +
-                          2 * mw1::chrome::frame_sizes().size() + 8 + 8 + 4 + 3 + 2);
+                          2 * mw1::chrome::frame_sizes().size() + 8 + 8 + 4 + 3 + 2 +
+                          mw1::chrome::lab_pictures().size() - 6 + mw1::chrome::filebox_pictures().size());
   EXPECT(mw1::chrome::side_arrow(true, 1).name == "mw1_rt_lit" && mw1::chrome::slider(true).width == mw1::kSliderW &&
          mw1::chrome::cell(2).name == "mw1_cell_sel" && mw1::chrome::dialog_tall().height == mw1::kDialogTallH);
   const mw1::images::Image fr = mw1::chrome::frame(104, 136, true), up = mw1::chrome::arrow(true, 0);
@@ -82,4 +84,29 @@ TEST(mw1_chrome_pieces) {
       std::ofstream(std::string(dir) + "/" + im.name + ".bmp", std::ios::binary).write(bmp.data(), static_cast<std::streamsize>(bmp.size()));
     }
   }
+}
+
+TEST(mw1_chrome_lab_reskin_at_pirates_moons_sizes) {
+  // Each of the lab's and its load box's pictures (mw1_chrome.h) drawn at PM's picture's size (PM's layout places it):
+  // the six panels and backdrop cut from the hangar (opaque, as PM's), the rest drawn.
+  size_t panels = 0;
+  for (const mw1::chrome::Reskin& r : mw1::chrome::lab_pictures()) panels += mw1::chrome::is_lab_panel(r);
+  EXPECT(panels == 6);
+  mw1::images::Image hangar;
+  hangar.width = mw1::images::kWideW, hangar.height = mw1::images::kScreenH;
+  hangar.pixels.assign(static_cast<size_t>(hangar.width * hangar.height), mw1::images::rgb565(120, 100, 80));
+  const std::vector<mw1::images::Image> cut = mw1::chrome::lab_panels(hangar);
+  EXPECT(cut.size() == panels);
+  for (const std::vector<mw1::chrome::Reskin>* t : {&mw1::chrome::lab_pictures(), &mw1::chrome::filebox_pictures()})
+    for (const mw1::chrome::Reskin& r : *t) {
+      const std::string ours = mw1::chrome::reskin_name(r.game);
+      EXPECT(ours.size() <= 31);
+      if (mw1::chrome::is_lab_panel(r)) {
+        const auto it = std::find_if(cut.begin(), cut.end(), [&](const mw1::images::Image& im) { return im.name == ours; });
+        EXPECT(it != cut.end() && it->width == r.w && it->height == r.h && it->alpha.empty());
+      } else {
+        const mw1::images::Image im = mw1::chrome::reskin(r);
+        EXPECT(im.name == ours && im.width == r.w && im.height == r.h);
+      }
+    }
 }
