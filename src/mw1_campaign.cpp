@@ -1,7 +1,9 @@
 #include "mw1_campaign.h"
 
+#include <cctype>
 #include <cmath>
 #include <cstdint>
+#include <string>
 #include <utility>
 
 #include "mech3/mech_ids.h"
@@ -66,8 +68,33 @@ void add_starting_stores(mech3::Store& s) {
   s.add_ammo(0x15, 100);
 }
 
+const StartPlanet kStartPlanets[kStartPlanetCount] = {
+    {10, "MATSUIDA", kKurita, 1},   {11, "OSHIKA", kKurita, 1},  {121, "MALLORY'S WORLD", kDavion, 2}, {12, "IRURZUN", kKurita, 0},
+    {129, "TANCREDI IV", kDavion, 0}, {119, "KESAI IV", kDavion, 1}, {136, "GREELY", kDavion, 1},       {118, "ROBINSON", kDavion, 0}};
+
+namespace {
+// "MALLORY'S WORLD" -> "Mallory's World", "TANCREDI IV" -> "Tancredi IV" (Roman numerals kept).
+std::string title_case_name(const char* name) {
+  std::string s = name, out;
+  size_t i = 0;
+  while (i < s.size()) {
+    size_t j = s.find(' ', i);
+    if (j == std::string::npos) j = s.size();
+    std::string w = s.substr(i, j - i);
+    const bool roman = !w.empty() && w.find_first_not_of("IVX") == std::string::npos;
+    for (size_t k = 1; k < w.size() && !roman; ++k) w[k] = static_cast<char>(std::tolower(static_cast<unsigned char>(w[k])));
+    out += (out.empty() ? "" : " ") + w;
+    i = j + 1;
+  }
+  return out;
+}
+}  // namespace
+
 Company new_company(Rng& rng) {
   Company c;
+  // The world first, as the original draws it (081B:181A), then the cash bonus.
+  const StartPlanet& p = kStartPlanets[rng.upto(kStartPlanetCount - 1)];
+  c.planet = title_case_name(p.name), c.planet_house = p.house, c.tier = p.tier;
   c.funds = kStartingFunds + static_cast<int64_t>(rng.upto(0xff)) * 1000;  // startupCashBonus
   c.mech = kPmOwens;
   c.stores = std::make_shared<mech3::Store>();

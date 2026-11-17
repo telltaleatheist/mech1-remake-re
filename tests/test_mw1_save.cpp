@@ -22,7 +22,7 @@ namespace {
 // salvage of another kind.
 mw1::Company played_company(mw1::Rng& rng) {
   mw1::Company c = mw1::new_company(rng);
-  c.funds = 1234000, c.kills = 7, c.tier = 2, c.planet = "Planet", c.planet_house = mw1::kMarik;
+  c.funds = 1234000, c.kills = 7, c.tier = 2, c.planet = "Mallory's World", c.planet_house = mw1::kMarik;
   c.favor[mw1::kDavion] = 4, c.grievance[mw1::kMarik] = 3, c.grievance[mw1::kLiao] = 2;
   c.stores->add_weapon(0x0b, mech3::kClan);  // a Clan weapon among the Inner Sphere ones
   c.stores->add_equipment(0xb, mech3::kInnerSphere, 2);

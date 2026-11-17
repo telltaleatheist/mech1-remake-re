@@ -93,7 +93,7 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
   o << "funds=" << c.funds << "\n";
   o << "mech=" << c.mech << "\n";
   o << "kills=" << c.kills << "\n";
-  o << "planet=" << (plain(c.planet) ? c.planet : std::string("Planet")) << "\n";
+  o << "planet=" << (plain(c.planet) ? c.planet : std::string("Robinson")) << "\n";
   o << "planet_house=" << c.planet_house << "\n";
   o << "tier=" << c.tier << "\n";
   for (int h = 0; h < kHouseCount; ++h) o << "favor" << h << "=" << c.favor[h] << "\ngrievance" << h << "=" << c.grievance[h] << "\n";

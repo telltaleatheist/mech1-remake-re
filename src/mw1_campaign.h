@@ -52,6 +52,18 @@ struct HouseRules {
 extern const HouseRules kHouses[kHouseCount];
 
 inline constexpr int32_t kStartingFunds = 1000000;  // DS:0491
+
+// Where a new company starts: one of eight worlds (eventPlanetChoicePool0, DS:8FDA, picked with MwRandomUpTo(7)),
+// each a planet record (planetRecordOffsets, DS:6570): its name, House (byte 1) and market tier (byte 2,
+// (code-1)/3). The names as the exe has them, in MW1's capitals (the hub's plaque shows them so).
+struct StartPlanet {
+  int32_t number;  // the record's planet number (byte 0)
+  const char* name;
+  int32_t house;
+  int32_t tier;
+};
+inline constexpr int32_t kStartPlanetCount = 8;
+extern const StartPlanet kStartPlanets[kStartPlanetCount];
 inline constexpr int32_t kTierMultipliers[4] = {10, 12, 13, 15};  // DS:3057
 // Whom each employer sends you against (DS:5CBA, the campaign's starting houseMissionTypeLimits): per employer,
 // eight target columns, the Houses (0..4) then three that aren't (5..7); a column is eligible when not 0.
@@ -80,8 +92,8 @@ struct Company {
   std::shared_ptr<mech3::Config> loadout;
   int32_t kills = 0;  // playerCombatCredit: enemy mechs disabled, all campaign long
   int32_t favor[kHouseCount] = {}, grievance[kHouseCount] = {};
-  // Where the company is. The milestone has one placeholder world.
-  std::string planet = "Planet";
+  // Where the company is (new_company: one of kStartPlanets; travel comes later). tier is its market tier.
+  std::string planet = "Robinson";
   int32_t planet_house = kDavion, tier = 0;
 };
 

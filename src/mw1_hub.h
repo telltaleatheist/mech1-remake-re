@@ -4,8 +4,9 @@
 // .zrd's buttons and images) from MW1's own layout, mw1hub.zrd in MW1's data
 // folder. Its art is Pirate's Moon's, named there and read from the player's
 // install: the main menu's backdrop (borrowed as its sub-screens do), the
-// briefing's icons (launch, abort, replay) and the round button, with MW1's
-// own words; MW1's own art takes their names' places later.
+// popup box as the panels behind the texts, the briefing's icons (launch,
+// abort, replay) and the round button with MW1's own words (greyed as PM
+// greys it); MW1's own art takes their names' places later.
 //
 // The screen only shows what it is given (HubView) and says which button was
 // pressed; the game loop (mw1_game.cpp) decides everything.
@@ -62,6 +63,7 @@ class HubScreen : public mech3::MenuScreen {
   std::vector<std::unique_ptr<mech3::HelpButton>> buttons_;   // by id - 1
   std::vector<std::unique_ptr<ztwod::Text>> labels_;          // the buttons' words, by id - 1
   std::vector<std::unique_ptr<ztwod::Text>> plaque_, company_, title_, panel_;
+  std::vector<std::unique_ptr<ztwod::Image>> panels_;  // the layout's PANEL images, behind the texts
   int32_t label_x_[kHubButtonCount] = {}, label_y_[kHubButtonCount] = {};
 };
 

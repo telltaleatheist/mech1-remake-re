@@ -208,9 +208,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
                                                                           : "Retreat: the contract broken",
                                   "Enemy mechs disabled: " + std::to_string(pending_->wrecks.size()),
                                   "Salvage: " + thousands(s.salvage) + " C-bills",
-                                  "Contract payment: " + thousands(s.fee) + " C-bills (" + std::to_string(s.payout_percent) + "%)",
+                                  "Payment: " + thousands(s.fee) + " C-bills (" + std::to_string(s.payout_percent) + "%)",
                                   "Funds: " + thousands(c.funds) + " C-bills"};
-    if (pending_->outcome == Outcome::kFailure) l.push_back(""), l.push_back("REPLAY plays the contract again as it was.");
+    if (pending_->outcome == Outcome::kFailure) l.push_back(""), l.push_back("REPLAY: play it again as it was");
     return l;
   }
 
