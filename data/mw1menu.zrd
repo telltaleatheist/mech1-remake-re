@@ -1,0 +1,19 @@
+; MW1: Critical Hit's main menu (src/mw1_menu.h): a zTwoD dialog on MW1's screen template, as the hub
+; (mw1hub.zrd). Only names here: the images are Pirate's Moon's, read from the player's install (never
+; copied); MW1's own art takes these names' places later.
+;
+; The backdrop is PM's main menu's own, borrowed (the menu sits over PM's main menu, which stays under it
+; unseen). The buttons are the round blank button with MW1's words at LABEL_AT (MW1's key).
+(
+SHARED_IMAGE_PATH ("..\data\common\images\dialogs\shared;..\data\common\images\dialogs\mainmenu")
+MW1MENUDIALOG (
+  IMAGE_PATH ("..\data\common\images\dialogs\shared;..\data\common\images;..\data\common\images\dialogs\mainmenu")
+  CURSOR (BITMAP ("cursor_circle_orange") CENTER (1))
+  BUTTONS (
+    NEW_CAMPAIGN (POSITION (24 96) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 110))
+    CONTINUE (POSITION (24 128) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 142))
+    OPTIONS (POSITION (24 192) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 206))
+    QUIT (POSITION (24 256) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 270))
+  )
+)
+)

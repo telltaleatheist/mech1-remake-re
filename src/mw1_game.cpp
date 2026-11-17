@@ -4,6 +4,8 @@
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
+#include <filesystem>
 #include <map>
 #include <memory>
 #include <random>
@@ -22,6 +24,7 @@
 #include "mech3/program_flow.h"
 #include "mech3/zai_brain.h"
 #include "mech3/zai_params.h"
+#include "gamez/zimage/zimg_library.h"
 #include "gamez/zreader/zreader.h"
 #include "gamez/zutil/zutl_path.h"
 #include "mw1_bar_screen.h"
@@ -29,6 +32,8 @@
 #include "mw1_hub.h"
 #include "mw1_market.h"
 #include "mw1_market_screen.h"
+#include "mw1_menu.h"
+#include "mw1_images.h"
 #include "mw1_missions.h"
 #include "mw1_pilots.h"
 #include "mw1_repairs.h"
@@ -39,7 +44,8 @@
 namespace mw1 {
 namespace {
 
-constexpr int32_t kBoxOk = 0, kBoxYesNo = 4, kAnswerYes = 6;  // the message box's styles and answer (Win32's)
+constexpr int32_t kBoxOk = 0, kBoxYesNo = 4, kAnswerYes = 6;
+constexpr uint32_t kOptionsStateGlobal = 0x609868;  // PM's main menu's Options state (its OPTIONS button pushes it)  // the message box's styles and answer (Win32's)
 constexpr const char* kPilotName = "MW1 Company";  // the company's PM pilot (step 2)
 constexpr float kReachRadius = 10.0f;  // metres from the structure's node (reach_area's own default is 25)
 constexpr int32_t kReachIa = 2;        // the map with the structures (c2's ia2)
@@ -121,6 +127,31 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   // ---- ProgramFlow ----
   bool main_entered(mech3::Engine& e) override {
     auto& ge = static_cast<mech3::GameEngine&>(e);
+    ge_ = &ge;
+    register_images();
+    // MW1's main menu over PM's (mw1_menu.h): at the start, and under the hub after a mission (the hub's QUIT comes
+    // back to it). Without its layout, or for the tests' straight start, the hub as before.
+    const bool with_menu = start_ != Start::kHub && menu(ge);
+    if (with_menu) {
+      show_menu();
+      ge.push_state(menu_, 0);
+    }
+    if (!company_.stores && with_menu) {
+      const char* screen = std::getenv("MW1_SCREEN");  // development: --shot pictures of the intro
+      if (start_ == Start::kNewCampaign || (screen && std::string(screen).rfind("intro", 0) == 0)) {
+        start_ = Start::kMenu;  // once: --new-company, as NEW CAMPAIGN without its question
+        new_campaign(ge, false);
+        return true;
+      }
+      // MW1_SCREEN=hub, market, travel or bar: the hub at once, over the menu (shots); else the menu waits.
+      if (!screen || std::string(screen) == "menu") return true;
+    }
+    return enter_hub(ge);
+  }
+
+  // The hub entered: the company loaded or made when there's none, a mission's return settled into AFTER ACTION, an
+  // offer, the hub pushed (or the message boxes without its layout).
+  bool enter_hub(mech3::GameEngine& ge) {
     bool saved_offer = false;
     if (!company_.stores) saved_offer = start_company();
     // Back from a contract's mission, the main menu stays MW1's even when the next offer is declined: taken over,
@@ -165,6 +196,105 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       return returning;
     deploy(ge);
     return true;
+  }
+
+  // ---- MW1's main menu and the intro (mw1_menu.h) ----
+
+  // MW1's image archive (mw1_images.h) beside PM's, once: the intro's backdrop and picture.
+  static void register_images() {
+    for (zimg::Library* lib : zimg::library_list(1))
+      if (lib && std::strstr(lib->name, kImageLibrary)) return;
+    zimg::new_image_library(kImageLibrary, 0, false);
+  }
+
+  // The menu's state on this engine, made once; false when MW1's layout is not there.
+  bool menu(mech3::GameEngine& ge) {
+    if (menu_engine_ == &ge && ge.menu_state_of(menu_) == menu_state_) return menu_ != 0;
+    menu_engine_ = &ge, menu_ = 0, menu_state_ = nullptr, intro_ = 0, intro_state_ = nullptr;
+    if (!layout_there(kMenuFile, kMenuDialog)) {
+      std::printf("mw1: no menu layout (%s in MW1's data): the hub at the start\n", kMenuFile);
+      return false;
+    }
+    menu_ = ge.adopt_state([this](zgame::Handle h) { return menu_state_ = new MenuState(h, [this](int32_t id) { press_menu(id); }); });
+    return menu_ != 0;
+  }
+
+  bool save_there() const {
+    std::error_code ec;
+    return !save_path_.empty() && std::filesystem::is_regular_file(save_path_, ec);
+  }
+
+  void show_menu() {
+    if (!menu_state_) return;
+    // CONTINUE with a company to go back to: the one in play, or the save.
+    std::string line;
+    if (company_.stores) line = title_case_name(company_.planet.c_str()) + ", " + thousands(company_.funds) + " C-bills";
+    menu_state_->show_menu(company_.stores || save_there(), line);
+  }
+
+  void press_menu(int32_t id) {
+    std::printf("mw1: menu: %s\n", menu_button_name(id));
+    mech3::GameEngine* ge = ge_;
+    if (!ge) return;
+    switch (id) {
+      case kMenuNew: new_campaign(*ge, true); return;
+      case kMenuContinue:
+        if (company_.stores) {  // the hub's QUIT came back here: the same company, the same offer
+          show_hub();
+          ge->push_state(hub_, 0);
+          return;
+        }
+        if (save_there()) enter_hub(*ge);
+        return;
+      case kMenuOptions:  // PM's own options, the state its main menu made (its OPTIONS button's, 0x00609868)
+        if (const zgame::Handle options = ge->peek32(kOptionsStateGlobal)) ge->push_state(options, 0);
+        return;
+      case kMenuQuit: ge->confirm_quit(); return;
+      default: return;  // Escape: nothing
+    }
+  }
+
+  // NEW CAMPAIGN: over a company asks first, and keeps its save as mw1save.prev; then MW1's intro, then the new company
+  // in the hub (intro_done). `ask` false: --new-company's (the flag is the asking).
+  void new_campaign(mech3::GameEngine& ge, bool ask) {
+    const bool over = company_.stores || save_there();
+    if (ask && over &&
+        static_cast<int32_t>(ge.message_box_words(kBoxYesNo, "MechWarrior 1: Critical Hit",
+                                                  "Start a new campaign?\n\nThe company you have now is kept as " + std::string(kPrevSaveFile) +
+                                                      ".")) != kAnswerYes)
+      return;
+    if (save_there()) {
+      const std::filesystem::path prev = std::filesystem::path(save_path_).replace_filename(kPrevSaveFile);
+      std::error_code ec;
+      std::filesystem::rename(save_path_, prev, ec);
+      std::printf("mw1: the company's save kept as %s%s\n", prev.string().c_str(), ec ? " (failed)" : "");
+    }
+    company_ = Company{}, contract_ = Contract{}, pending_.reset(), offered_ = false, deployed_ = false, launched_ = false;
+    fresh_ = true;  // start_company makes one, loading nothing
+    if (layout_there(kIntroFile, kIntroDialog) && menu_engine_ == &ge) {
+      std::vector<std::string> lines = intro_narration();
+      std::printf("mw1: the intro, %zu lines of narration\n", lines.size());
+      intro_ = ge.adopt_state([this, lines](zgame::Handle h) {
+        return intro_state_ = new IntroState(h, lines, [this] { intro_done(); });
+      });
+      if (intro_) {
+        // MW1_SCREEN=intro_picture (development: a --shot of the picture without the narration's wait).
+        if (const char* sc = std::getenv("MW1_SCREEN"); sc && std::string(sc) == "intro_picture")
+          intro_state_->start_at(intro_length() - 3.0f);
+        ge.push_state(intro_, 0);
+        return;
+      }
+    }
+    intro_done();
+  }
+
+  // The intro over (or skipped): the new company, its first offer, the hub over the menu.
+  void intro_done() {
+    mech3::GameEngine* ge = ge_;
+    if (!ge) return;
+    if (intro_ && ge->menu_state_of(intro_) == intro_state_) ge->pop_state(1);
+    enter_hub(*ge);
+    fresh_ = false;
   }
 
   // ---- the hub (mw1_hub.h) ----
@@ -237,7 +367,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         deploy(*ge);
         return;
       case kHubQuit:
-        if (ge) ge->pop_state(1);  // Pirate's Moon's main menu (MW1's own comes later)
+        if (ge) ge->pop_state(1);  // MW1's menu, under the hub (Pirate's Moon's without it)
+        show_menu();
         return;
       case kHubMarket:
         // The market in the hub's place (BACK brings the hub back); not while AFTER ACTION waits.
@@ -715,6 +846,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   Company* company_mut() { return company_.stores ? &company_ : nullptr; }
   void market_changed() { show_market(); }
   void set_save(const std::string& path, bool fresh) { save_path_ = path, fresh_ = fresh; }
+  void set_start(Start s) { start_ = s; }
+  MenuState* menu_state() const { return menu_state_; }
+  IntroState* intro_state() const { return intro_state_; }
   void set_world(const std::string& world, int32_t ia) { world_ = world, world_ia_ = ia; }
   const Contract* contract() const { return company_.stores && (offered_ || pending_) ? &contract_ : nullptr; }
 
@@ -882,6 +1016,11 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   TravelState* travel_state_ = nullptr;
   TravelChoice tchoice_;
   // The hub on this engine (Engine::adopt_state): its handle and state, made once.
+  mech3::GameEngine* menu_engine_ = nullptr;
+  zgame::Handle menu_ = 0, intro_ = 0;
+  MenuState* menu_state_ = nullptr;
+  IntroState* intro_state_ = nullptr;
+  Start start_ = Start::kMenu;
   mech3::GameEngine* hub_engine_ = nullptr;
   mech3::GameEngine* ge_ = nullptr;
   zgame::Handle hub_ = 0;
@@ -925,6 +1064,15 @@ void uninstall_game_loop() {
 
 void set_game_loop_save(const std::string& path, bool new_company) {
   if (the_loop()) the_loop()->set_save(path, new_company);
+}
+
+void set_game_loop_start(Start s) {
+  if (the_loop()) the_loop()->set_start(s);
+}
+MenuState* game_loop_menu() { return the_loop() ? the_loop()->menu_state() : nullptr; }
+IntroState* game_loop_intro() { return the_loop() ? the_loop()->intro_state() : nullptr; }
+void game_loop_press_menu(int32_t button) {
+  if (the_loop()) the_loop()->press_menu(button);
 }
 
 void set_game_loop_world(const std::string& world, int32_t ia) {

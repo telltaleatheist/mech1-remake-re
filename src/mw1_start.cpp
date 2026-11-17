@@ -1,5 +1,7 @@
 #include "mw1_start.h"
 
+#include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <fstream>
 
@@ -76,6 +78,30 @@ bool is_mw1_install(const std::string& dir) {
   return false;
 }
 
+bool has_music(const std::string& dir) {
+  std::error_code ec;
+  for (const auto& e : std::filesystem::directory_iterator(std::filesystem::path(dir) / "music", ec)) {
+    std::string n = e.path().filename().string();
+    for (char& c : n) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    if (n.size() > 7 && n.rfind("track", 0) == 0 && std::isdigit(static_cast<unsigned char>(n[5])) &&
+        std::isdigit(static_cast<unsigned char>(n[6])) && n[7] == '.')
+      for (const char* ext : {".ogg", ".flac", ".wav", ".mp3"})
+        if (n.substr(7) == ext) return true;
+  }
+  return false;
+}
+
+std::string music_from(const std::string& write_dir, const std::string& pm_write_dir) {
+  if (has_music(write_dir)) return write_dir;
+  std::string pm = pm_write_dir;
+  if (pm.empty()) {
+    std::filesystem::path w(write_dir);
+    while (!w.empty() && !w.has_filename()) w = w.parent_path();  // a trailing separator
+    pm = (w.parent_path() / kPmApp).string();
+  }
+  return has_music(pm) ? pm : std::string();
+}
+
 std::vector<std::string> game_args(const std::string& argv0, const Args& a, const Installs& use) {
   std::vector<std::string> out{argv0};
   bool write_dir = false, install = false;
@@ -85,6 +111,8 @@ std::vector<std::string> game_args(const std::string& argv0, const Args& a, cons
   install |= !a.rest.empty() && !a.rest[0].empty() && a.rest[0][0] != '-';
   if (!install && !use.pm.empty()) out.push_back("--install"), out.push_back(use.pm);
   out.insert(out.end(), a.rest.begin(), a.rest.end());
+  // PM's start movies (its logos and intro) left out: MW1 starts on its own menu (mw1_menu.h).
+  if (std::find(a.rest.begin(), a.rest.end(), "-nofmv") == a.rest.end()) out.push_back("-nofmv");
   return out;
 }
 

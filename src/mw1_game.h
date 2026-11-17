@@ -21,6 +21,18 @@ void install_game_loop(uint32_t seed, const char* reach = nullptr);
 // is there (unless `new_company`: one made new, over it), and written after
 // each settlement and at each new offer. Empty: no save (tests).
 void set_game_loop_save(const std::string& path, bool new_company);
+// How the game starts (mw1_menu.h): MW1's main menu (the program's), NEW CAMPAIGN at once over the menu without its
+// question (--new-company: the intro, the old save kept as mw1save.prev), or the hub at once as before the menu (the
+// tests that don't drive the menu).
+enum class Start { kMenu, kNewCampaign, kHub };
+void set_game_loop_start(Start s);
+namespace menu {
+class MenuState;
+class IntroState;
+}  // namespace menu
+menu::MenuState* game_loop_menu();    // the menu's state once made (tests)
+menu::IntroState* game_loop_intro();  // the intro's, once made
+void game_loop_press_menu(int32_t button);  // a menu button, as pressed (tests)
 // Every new contract a battle (destroy all) on this world's Instant Action map (by folder: "mw3c2", 1): a test
 // override. Empty: the contracts' own (mw1_missions.h).
 void set_game_loop_world(const std::string& world, int32_t ia);

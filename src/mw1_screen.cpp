@@ -88,9 +88,14 @@ void Mw1Screen::show(const ScreenView& v) {
     const std::vector<std::string>& ls = b < v.blocks.size() ? v.blocks[b].lines : none;
     for (size_t i = 0; i < ls.size(); ++i) {
       const TextBlock& tb = v.blocks[b];
-      text(pool, i, tb.x, tb.y + static_cast<int32_t>(i) * kLineGap, tb.font)->set_text_plain(ls[i].c_str());
+      text(pool, i, tb.x, tb.y + static_cast<int32_t>(i) * tb.gap, tb.font)->set_text_plain(ls[i].c_str());
     }
     for (size_t i = ls.size(); i < pool.size(); ++i) pool[i]->hide();
+  }
+  for (size_t i = 0; i < panels_.size(); ++i) {
+    if (i < v.panels.size() && !v.panels[i]) panels_[i]->hide();
+    else panels_[i]->show_for(-1.0f);
+    panels_[i]->dirty();
   }
   for (size_t i = 0; i < buttons_.size(); ++i) {
     const ButtonState s = i < v.buttons.size() ? v.buttons[i] : ButtonState{};
@@ -124,6 +129,7 @@ std::vector<std::string> Mw1Screen::shown() const {
 bool Mw1Screen::visible(int32_t id) const {
   return id >= 1 && static_cast<size_t>(id) <= buttons_.size() && !(buttons_[id - 1]->flags & ztwod::kHidden);
 }
+bool Mw1Screen::panel_shown(size_t i) const { return i < panels_.size() && !(panels_[i]->flags & ztwod::kHidden); }
 bool Mw1Screen::enabled(int32_t id) const {
   return id >= 1 && static_cast<size_t>(id) <= buttons_.size() && buttons_[id - 1]->enabled != 0;
 }
