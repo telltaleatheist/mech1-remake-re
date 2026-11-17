@@ -1827,6 +1827,78 @@ TEST(sdl_host_fonts_take_gdis_sizes_and_widths) {
   h.DeleteDC(dc);
 }
 
+// Ours (mw1, for MW1's screens): a program's own fonts table, opt in. Without one the game's fonts.zrd is all there
+// is, as before; with one its entries come beside the game's (unchanged), each may name its font file, and a
+// tracking widens the text by that much between glyphs (measured and drawn alike). A table added after the fonts
+// were first looked up is read then.
+TEST(sdl_host_program_font_table_is_opt_in) {
+  if (!have_fonts()) return;
+  Mounted mnt;
+  zvid::set_pixel_format(5, 6, 5);
+  // A folder standing in for the game's fonts.zrd (found through the mounts, as the game's is), and the program's table.
+  const std::filesystem::path dir = std::filesystem::temp_directory_path() / "mw3test_program_fonts";
+  std::filesystem::create_directories(dir);
+  std::ofstream(dir / "fonts.zrd") << "(\nWINDOWS_FONTS (\n"
+                                      "  \"game_left\" (face \"Arial\" height -12 color (0 255 0))\n"
+                                      "  \"game_right\" (face \"Arial\" height -12 align \"right\" shadow \"true\" color ((255 0 0) (0 0 255)))\n"
+                                      ")\n)\n";
+  const std::string file = "impact.ttf";  // found as the game's own fonts are (the mounts)
+  const std::filesystem::path table = dir / "program_fonts.zrd";
+  std::ofstream(table) << "(\nWINDOWS_FONTS (\n"
+                          "  \"test_tracked\" (face \"Test Display\" file \"" << file << "\" height -20 tracking 3 color (255 255 255))\n"
+                          "  \"test_plain\" (face \"Test Display\" height -20 color (255 255 255))\n"
+                          "  \"test_centred\" (face \"Test Display\" height -20 align \"center\" color (255 255 255))\n"
+                          ")\n)\n";
+  zutl::mounts().read.insert(zutl::mounts().read.begin(), dir.string());
+  // The game's fonts: the same with a table or without; the table's names only with it.
+  sdlfe::SdlTwodHost plain(nullptr, nullptr, nullptr), with(nullptr, nullptr, nullptr);
+  with.add_font_table("program_fonts.zrd");
+  for (const char* n : {"game_left", "game_right"}) {
+    const zgame::Handle a = plain.font_find(n), b = with.font_find(n);
+    const ztwod::NamedFont fa = plain.font_fields(a), fb = with.font_fields(b);
+    EXPECT(a && b && fa.color_top == fb.color_top && fa.color_bottom == fb.color_bottom && fa.align == fb.align && fa.shadow == fb.shadow);
+  }
+  EXPECT(plain.font_fields(plain.font_find("game_right")).align == 2 && plain.font_fields(plain.font_find("game_right")).shadow);
+  EXPECT(plain.font_find("test_tracked") == 0 && with.font_find("test_tracked") != 0);
+  EXPECT(with.font_fields(with.font_find("test_centred")).align == 1);
+  // The face's file is the table's (Impact), and the tracking: three more pixels between each pair of glyphs.
+  const zgame::Handle dc = with.CreateCompatibleDC(0);
+  auto extent = [&](const char* name, const char* text) {
+    with.SelectObject(dc, with.font_fields(with.font_find(name)).hfont);
+    int32_t w = 0, h = 0;
+    with.GetTextExtentPoint32A(dc, text, static_cast<int32_t>(std::strlen(text)), &w, &h);
+    return w;
+  };
+  const int32_t a = extent("test_plain", "A"), b = extent("test_plain", "B"), c = extent("test_plain", "C");
+  EXPECT(a > 0 && extent("test_tracked", "ABC") == a + b + c + 2 * 3 && extent("test_tracked", "A") == a);
+  // Drawn as measured: the ink of "ABC" tracked ends three pixels further right per gap than untracked.
+  auto ink_right = [&](const char* name) {
+    zimg::Texture img{};
+    std::vector<uint16_t> px(200 * 40, 0);
+    img.width = 200, img.height = 40, img.width_again = 200, img.pixels = px.data();
+    const zgame::Handle idc = with.image_dc(&img);
+    with.SelectObject(idc, with.font_fields(with.font_find(name)).hfont);
+    with.SetTextColor(idc, 0xffffff), with.SetBkMode(idc, 1);
+    ztwod::Rect r{0, 0, 200, 40};
+    with.DrawTextA(idc, "ABC", -1, &r, 0x20 /* single line */);
+    with.DeleteDC(idc);
+    int32_t right = -1;
+    for (int32_t y = 0; y < 40; ++y)
+      for (int32_t x = 0; x < 200; ++x)
+        if (px[static_cast<size_t>(y * 200 + x)]) right = std::max(right, x);
+    return right;
+  };
+  const int32_t r_plain = ink_right("test_plain"), r_tracked = ink_right("test_tracked");
+  EXPECT(r_plain > 0 && std::abs(r_tracked - (r_plain + 6)) <= 1);
+  with.DeleteDC(dc);
+  // Added late (after the first lookup): read then.
+  sdlfe::SdlTwodHost late(nullptr, nullptr, nullptr);
+  EXPECT(late.font_find("test_tracked") == 0);
+  late.add_font_table("program_fonts.zrd");
+  EXPECT(late.font_find("test_tracked") != 0 && late.font_find("game_left") != 0);
+  std::filesystem::remove_all(dir);
+}
+
 TEST(sdl_host_word_break_wraps_in_the_box) {
   if (!have_fonts()) return;
   Mounted m;

@@ -35,6 +35,7 @@ class SdlTwodHost : public ztwod::Host {
   void image_path(const char* path) override;
   // fonts.zrd's WINDOWS_FONTS by name (zimg_winfonts.cpp 0x00517280..0x00517680).
   Handle font_find(const char* name) override;
+  void add_font_table(const char* file) override;
   ztwod::NamedFont font_fields(Handle font) override;
   void font_addref(Handle font) override;
   void font_release(Handle font) override;
@@ -110,6 +111,7 @@ class SdlTwodHost : public ztwod::Host {
     int em = 0;  // pixels
     int ascent = 0, descent = 0;  // GDI's tmAscent and tmDescent (gdi_font_size.h)
     int shift = 0;                // GDI's ascent less SDL_ttf's: the baseline's move down
+    int tracking = 0;             // ours: pixels added after each glyph but the last (a program table's "tracking")
   };
   struct Dc {
     Handle font = 0;
@@ -126,6 +128,8 @@ class SdlTwodHost : public ztwod::Host {
   TTF_Font* open_ttf(Font& f);
   std::vector<std::string> lines(const Font& f, const std::string& utf8, int wrap_width, bool wrap);
   bool load_named_fonts();
+  void load_font_table(const char* file);
+  int text_width(const Font& f, const std::string& utf8);  // its advance, with the font's tracking
 
   mech3::GameEngine* engine_;
   SdlInput* input_;
@@ -136,6 +140,8 @@ class SdlTwodHost : public ztwod::Host {
   std::map<std::string, Handle> named_by_name_;
   std::map<Handle, Named> named_;
   bool named_loaded_ = false;
+  std::vector<std::string> program_tables_;          // ours: add_font_table's, after fonts.zrd's
+  std::map<std::string, std::string> face_files_;    // ours: a table's face -> the font file it named
   struct Cached {
     zimg::Texture* image;
     int refs;
