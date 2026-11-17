@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
 
 namespace mw1::chrome {
 namespace {
@@ -363,6 +364,206 @@ images::Image clear() {
   return c.image(kClear);
 }
 
+// The lab's reskin.
+const std::vector<Reskin>& lab_pictures() {
+  static const std::vector<Reskin> k = {
+      // The panels (lab_panels): PM's left and right, single and double, the centre, and the backdrop under them
+      // (PM has none: it shows, widened, at the wide canvas's sides).
+      {"lab_background", 640, 480},
+      {"lab_panel_leftsingle", 220, 480}, {"lab_panel_leftdouble", 220, 480}, {"lab_panel_rightsingle", 220, 480},
+      {"lab_panel_rightdouble", 220, 480}, {"lab_panel_center", 200, 480},
+      // The page icons and ACCEPT, each still (green), pressed (red) and off (grey).
+      {"lab_icon1_green", 51, 58}, {"lab_icon1_red", 51, 58}, {"lab_icon1_grey", 51, 58},
+      {"lab_icon4_green", 55, 49}, {"lab_icon4_red", 55, 49}, {"lab_icon4_grey", 55, 49},
+      {"lab_icon5_green", 65, 48}, {"lab_icon5_red", 65, 48}, {"lab_icon5_grey", 65, 48},
+      {"lab_accept_green", 60, 49}, {"lab_accept_red", 60, 49}, {"lab_accept_grey", 60, 49},
+      // The glows behind the chosen icon and mech, and the variant being renamed.
+      {"lab_icon_glow", 127, 63}, {"lab_player_glow", 127, 63}, {"lab_text_glow", 207, 45},
+      // The arrows: the lists' (up, down), the armour's (left, right), the toggles'.
+      {"lab_arrowup", 28, 9}, {"lab_arrowdn", 28, 9}, {"lab_arrowupD", 28, 9}, {"lab_arrowdnD", 28, 9}, {"lab_arrow_left", 7, 13}, {"lab_arrow_right", 7, 13},
+      {"lab_togglel_green", 5, 9}, {"lab_togglel_red", 5, 9}, {"lab_toggler_green", 5, 9}, {"lab_toggler_red", 5, 9},
+  };
+  return k;
+}
+const std::vector<Reskin>& filebox_pictures() {
+  static const std::vector<Reskin> k = {
+      {"load_box", 240, 280}, {"textbox_small", 140, 21}, {"textbox_small_r", 140, 21}, {"circlebtn_tiny", 42, 42},
+      {"arrowupmp_rollover", 9, 5}, {"arrowupmp_d", 9, 5}, {"arrowdnmp_normal", 9, 5}, {"arrowdnmp_rollover", 9, 5},
+      {"arrowdnmp_d", 9, 5},
+  };
+  return k;
+}
+std::string reskin_name(const char* game) { return std::string("mw1_") + game; }
+bool is_lab_panel(const Reskin& r) {
+  return std::string(r.game).rfind("lab_panel_", 0) == 0 || std::string(r.game) == "lab_background";
+}
+
+namespace {
+bool has(const char* s, const char* part) { return std::strstr(s, part) != nullptr; }
+void fill(Canvas& c, int32_t x0, int32_t y0, int32_t x1, int32_t y1, Rgba ink) {
+  for (int32_t y = y0; y < y1; ++y)
+    for (int32_t x = x0; x < x1; ++x) c.set(x, y, ink);
+}
+// A line `t` thick from (x0, y0) to (x1, y1).
+void line(Canvas& c, double x0, double y0, double x1, double y1, double t, Rgba ink) {
+  const double dx = x1 - x0, dy = y1 - y0, l2 = dx * dx + dy * dy;
+  for (int32_t y = 0; y < c.h; ++y)
+    for (int32_t x = 0; x < c.w; ++x) {
+      const double u = std::clamp(((x - x0) * dx + (y - y0) * dy) / l2, 0.0, 1.0);
+      const double ex = x0 + u * dx - x, ey = y0 + u * dy - y;
+      if (ex * ex + ey * ey <= t * t / 4) c.set(x, y, ink);
+    }
+}
+// A solid triangle in (x0, y0)-(x1, y1) pointing `dir` (0 up, 1 down, 2 left, 3 right).
+void triangle(Canvas& c, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t dir, Rgba ink) {
+  const double w = x1 - x0, h = y1 - y0;
+  for (int32_t y = y0; y < y1; ++y)
+    for (int32_t x = x0; x < x1; ++x) {
+      const double u = (x - x0 + 0.5) / w, v = (y - y0 + 0.5) / h;  // 0..1 across, down
+      const double along = dir == 0 ? v : dir == 1 ? 1 - v : dir == 2 ? u : 1 - u;  // 0 at the point
+      const double side = dir <= 1 ? u : v;
+      if (std::abs(side - 0.5) <= along / 2 + 0.06) c.set(x, y, ink);
+    }
+}
+// A soft amber glow filling the canvas (an ellipse), at most `peak` opaque.
+images::Image glow_piece(const Reskin& r, int32_t peak) {
+  Canvas c(r.w, r.h);
+  for (int32_t y = 0; y < r.h; ++y)
+    for (int32_t x = 0; x < r.w; ++x) {
+      const double u = (x + 0.5) / r.w * 2 - 1, v = (y + 0.5) / r.h * 2 - 1, d = u * u + v * v;
+      if (d < 1) c.set(x, y, {255, 170, 40, static_cast<int32_t>(peak * (1 - d) * (1 - d))});
+    }
+  return c.image(reskin_name(r.game));
+}
+// A page icon: the button's glass in a thin frame (amber pressed, dim off) and its glyph.
+images::Image icon_piece(const Reskin& r) {
+  const int32_t state = has(r.game, "_red") ? 2 : has(r.game, "_grey") ? 3 : 0;
+  Canvas c(r.w, r.h);
+  glass(c, 2, 2, r.w - 2, r.h - 2, state == 2 ? 250 : 230);
+  thin_frame(c, 0, 0, r.w, r.h, 2, state == 2 ? Rgba{255, 170, 40, 220} : state == 3 ? Rgba{40, 40, 44, 150} : Rgba{});
+  for (int32_t x : {4, r.w - 5})
+    for (int32_t y : {4, r.h - 5}) rivet(c, x, y, 1);
+  const Rgba ink = state == 3 ? Rgba{80, 84, 88, 255} : state == 0 ? Rgba{217, 221, 224, 255} : Rgba{255, 176, 64, 255};
+  const int32_t x0 = 9, y0 = 9, w = r.w - 18, h = r.h - 18;  // the glyph's box
+  auto box = [&](double a, double b, double cc, double d) {  // fractions of the glyph's box
+    fill(c, x0 + static_cast<int32_t>(a * w), y0 + static_cast<int32_t>(b * h), x0 + static_cast<int32_t>(cc * w),
+         y0 + static_cast<int32_t>(d * h), ink);
+  };
+  if (has(r.game, "icon1")) {  // the chassis: a mech, front on
+    box(0.38, 0.0, 0.62, 0.16);                          // the cockpit
+    box(0.22, 0.2, 0.78, 0.52);                          // the torso
+    box(0.02, 0.22, 0.18, 0.62), box(0.82, 0.22, 0.98, 0.62);  // the arms
+    box(0.26, 0.56, 0.42, 1.0), box(0.58, 0.56, 0.74, 1.0);    // the legs
+  } else if (has(r.game, "icon4")) {  // the criticals: a grid of slots
+    for (int32_t col = 0; col < 3; ++col)
+      for (int32_t row = 0; row < 4; ++row)
+        box(col * 0.36, row * 0.26, col * 0.36 + 0.28, row * 0.26 + 0.18);
+  } else if (has(r.game, "icon5")) {  // the weapon groups: a bracket round three bars
+    box(0.0, 0.0, 0.08, 1.0), box(0.0, 0.0, 0.2, 0.1), box(0.0, 0.9, 0.2, 1.0);
+    for (int32_t i = 0; i < 3; ++i) box(0.28, 0.08 + i * 0.32, 1.0 - i * 0.18, 0.28 + i * 0.32);
+  } else {  // ACCEPT: a check mark
+    line(c, x0 + 0.08 * w, y0 + 0.55 * h, x0 + 0.38 * w, y0 + 0.9 * h, 5, ink);
+    line(c, x0 + 0.38 * w, y0 + 0.9 * h, x0 + 0.95 * w, y0 + 0.08 * h, 5, ink);
+  }
+  return c.image(reskin_name(r.game));
+}
+// A bare arrow (the lab's and the file list's small ones): light grey still, amber lit, grey off.
+images::Image arrow_piece(const Reskin& r) {
+  const std::string g = r.game;
+  const int32_t dir = has(r.game, "up") ? 0 : has(r.game, "dn") ? 1 : has(r.game, "left") || has(r.game, "togglel") ? 2 : 3;
+  const bool lit = has(r.game, "_red") || has(r.game, "rollover") || g == "lab_arrow_left" || g == "lab_arrow_right";
+  const bool off = (g.size() > 2 && g.compare(g.size() - 2, 2, "_d") == 0) || g.back() == 'D';
+  const Rgba ink = off ? Rgba{80, 84, 88, 255}
+                   : lit ? Rgba{255, 176, 64, 255} : Rgba{217, 221, 224, 255};
+  Canvas c(r.w, r.h);
+  if (r.w >= 20) {  // the lists' wide tab: the triangle in its middle
+    triangle(c, r.w / 2 - 6, 1, r.w / 2 + 6, r.h - 1, dir, ink);
+  } else {
+    triangle(c, 0, 0, r.w, r.h, dir, ink);
+  }
+  return c.image(reskin_name(r.game));
+}
+}  // namespace
+
+images::Image reskin(const Reskin& r) {
+  const std::string g = r.game;
+  if (has(r.game, "glow")) return glow_piece(r, g == "lab_text_glow" ? 110 : 90);
+  if (has(r.game, "icon") || has(r.game, "accept")) return icon_piece(r);
+  if (has(r.game, "arrow") || has(r.game, "toggle")) return arrow_piece(r);
+  Canvas c(r.w, r.h);
+  if (g == "load_box") {  // the load/save box: the message boxes' frame
+    glass(c, 4, 4, r.w - 4, r.h - 4, 255);
+    thin_frame(c, 0, 0, r.w, r.h, 4);
+    for (int32_t x : {5, r.w - 6})
+      for (int32_t y : {5, r.h - 6}) rivet(c, x, y, 2);
+  } else if (g.rfind("textbox_small", 0) == 0) {  // the name's bar: a recess, amber when the mouse is on it
+    glass(c, 1, 1, r.w - 1, r.h - 1, 250);
+    thin_frame(c, 0, 0, r.w, r.h, 2, g == "textbox_small_r" ? Rgba{255, 170, 40, 220} : Rgba{});
+  } else if (g == "circlebtn_tiny") {  // OK and CANCEL's: a lamp left of the word (its label at 22, 8)
+    lamp(c, 10, 14, 6, true);
+  }
+  return c.image(reskin_name(r.game));
+}
+
+std::vector<images::Image> lab_panels(const images::Image& hangar) {
+  constexpr int32_t kMid = 640, kLeft = 220, kCentre = 200;
+  const int32_t off = (hangar.width - kMid) / 2;
+  // A strip of the hangar, darkened to `keep` percent with faint scanlines.
+  auto strip = [&](int32_t from, int32_t w, int32_t keep) {
+    Canvas c(w, images::kScreenH);
+    for (int32_t y = 0; y < c.h && y < hangar.height; ++y)
+      for (int32_t x = 0; x < w; ++x) {
+        const int32_t sx = std::clamp(off + from + x, 0, hangar.width - 1);
+        const uint16_t p = hangar.pixels[static_cast<size_t>(y * hangar.width + sx)];
+        const int32_t k = keep * (y % 2 ? 88 : 100) / 100;
+        c.set(x, y, {((p >> 11) << 3) * k / 100, (((p >> 5) & 63) << 2) * k / 100, ((p & 31) << 3) * k / 100, 255});
+      }
+    return c;
+  };
+  // A glass box framed, over the strip (its rule under the title, rivets at its corners).
+  auto box = [](Canvas& c, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t rule) {
+    for (int32_t y = y0 + 2; y < y1 - 2; ++y)
+      for (int32_t x = x0 + 2; x < x1 - 2; ++x) c.over(x, y, {8, 10, 13, 205});
+    thin_frame(c, x0, y0, x1, y1, 2);
+    if (rule)
+      for (int32_t x = x0 + 8; x < x1 - 8; ++x) c.set(x, y0 + rule, {200, 130, 40, 230});
+    for (int32_t x : {x0 + 4, x1 - 5})
+      for (int32_t y : {y0 + 4, y1 - 5}) rivet(c, x, y, 1);
+  };
+  // The icons' tray across the foot.
+  auto tray = [](Canvas& c) {
+    for (int32_t y = 414; y < c.h; ++y)
+      for (int32_t x = 0; x < c.w; ++x) c.over(x, y, {8, 10, 13, 190});
+    for (int32_t x = 0; x < c.w; ++x) c.set(x, 414, {200, 130, 40, 200});
+  };
+  std::vector<images::Image> v;
+  for (bool right : {false, true})
+    for (bool two : {false, true}) {
+      Canvas c = strip(right ? kLeft + kCentre : 0, kLeft, 45);
+      // The rule under the left's titles (the right's tabs sit where it would be).
+      const int32_t rule = right ? 0 : 38;
+      if (two) {
+        box(c, 6, 6, kLeft - 6, 242, rule);
+        box(c, 6, 248, kLeft - 6, 410, 30);
+      } else {
+        box(c, 6, 6, kLeft - 6, 410, rule);
+      }
+      tray(c);
+      v.push_back(c.image(reskin_name(right ? (two ? "lab_panel_rightdouble" : "lab_panel_rightsingle")
+                                            : (two ? "lab_panel_leftdouble" : "lab_panel_leftsingle"))));
+    }
+  // The centre: the hangar brighter round the mech, a glass box under it for its parts, data, icons and messages.
+  Canvas c = strip(kLeft, kCentre, 80);
+  box(c, 6, 280, kCentre - 6, 474, 0);
+  v.push_back(c.image(reskin_name("lab_panel_center")));
+  // The backdrop: the whole middle, as the sides' (on a wide canvas the engine mirrors its edges out).
+  Canvas b = strip(0, kMid, 45);
+  tray(b);
+  v.push_back(b.image(reskin_name("lab_background")));
+  for (images::Image& im : v) im.alpha.clear();  // opaque, as PM's (the engine widens an opaque backdrop)
+  return v;
+}
+
 std::vector<images::Image> all() {
   std::vector<images::Image> v = {plaque(), status_bar(), dialog_frame(), dim(), cursor()};
   for (int32_t s = 0; s < 3; ++s) v.push_back(tile_frame(s));
@@ -378,6 +579,9 @@ std::vector<images::Image> all() {
   for (bool on : {false, true}) v.push_back(slider(on)), v.push_back(check(on));
   for (int32_t s = 0; s < 3; ++s) v.push_back(cell(s));
   v.push_back(dialog_tall());
+  for (const std::vector<Reskin>* t : {&lab_pictures(), &filebox_pictures()})
+    for (const Reskin& r : *t)
+      if (!is_lab_panel(r)) v.push_back(reskin(r));
   v.push_back(clear());
   return v;
 }

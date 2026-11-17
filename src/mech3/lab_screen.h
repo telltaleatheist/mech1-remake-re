@@ -65,6 +65,7 @@ class LabPanel : public ztwod::Image {
   zimg::Texture* single = nullptr;   // +0xbc
   zimg::Texture* twice = nullptr;    // +0xc0  "double"
   zimg::Texture* twice2 = nullptr;   // +0xc4  "double2"
+  bool own_look = false;  // ours: its looks a program's pictures (ztwod::set_layout_image), left their width wide
 };
 
 // The lab's push buttons (vtable 0x005c1630; 0x0044f260, or 0x0040a5d0 with

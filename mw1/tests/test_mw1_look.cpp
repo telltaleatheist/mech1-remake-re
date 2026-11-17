@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "check.h"
+#include "mw1_lab_skin.h"
 #include "mw1_layouts.h"
 
 namespace {
@@ -108,6 +109,7 @@ TEST(mw1_look_mw1_opens_only_its_own_layouts) {
       const std::string n = (*i)[1].str();
       if (n == "targets.zrd") continue;
       if (n == "dlgPause.zrd" || n == "dlgOptions.zrd") continue;  // swapped away (mw1_layouts.h), not opened
+      if (n == "dlgMechLabII.zrd" || n == "dlgLoadSave.zrd") continue;  // reskinned (mw1_lab_skin.h): PM's code reads them
       ++named;
       if (!fs::exists(fs::path(MW1_DATA_DIR) / n)) std::printf("  %s names %s: not MW1's\n", d.path().filename().string().c_str(), n.c_str());
       EXPECT(fs::exists(fs::path(MW1_DATA_DIR) / n));
@@ -158,4 +160,16 @@ TEST(mw1_look_pause_and_options_layouts_bind_pirates_moons_names) {
         }
       }
     }
+}
+
+TEST(mw1_look_lab_fonts_are_defined) {
+  // Each font the lab's reskin maps PM's to (mw1_lab_skin.h) is one of MW1's (mw1fonts.zrd).
+  const std::string fonts = read_all(fs::path(MW1_DATA_DIR) / "mw1fonts.zrd");
+  auto defined = [&](const std::string& f) {
+    const bool there = fonts.find("\"" + f + "\" (") != std::string::npos;
+    if (!there) std::printf("  mw1fonts.zrd has no %s\n", f.c_str());
+    return there;
+  };
+  for (const char* f : mw1::kLabFonts) EXPECT(defined(std::string("mw1_") + f));
+  for (const auto& [game, ours] : mw1::kFileBoxFonts) EXPECT(defined(ours));
 }

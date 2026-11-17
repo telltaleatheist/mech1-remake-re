@@ -4,6 +4,7 @@
 // funds and the enemies' parts in its stores; the next offer declined, so PM's main menu stays. Failed, or quit
 // (no mission end), no fee and no salvage: the stores and the funds as the advance left them (VISION.md, the endings).
 #include <cstdio>
+#include <cstring>
 #include <filesystem>
 #include <functional>
 #include <random>
@@ -1526,6 +1527,31 @@ TEST(mw1_menu_new_campaign_plays_the_intro_then_the_hub_headless) {
             std::string file, dialog;
             EXPECT(ztwod::layout_for(sw.game_file, sw.game_dialog, &file, &dialog) && file == sw.file &&
                    (dialog == sw.dialog || dialog == std::string(sw.dialog) + mw1::kWideSuffix));
+          }
+          // The lab's reskin (mw1_lab_skin.h): its fonts and pictures set for its file, and every picture PM's lab
+          // layout names (that PM has) one of ours, at PM's size (test_mw1_chrome.cpp).
+          EXPECT(std::string(ztwod::layout_font_in(mw1::chrome::kLabFile, "lab_large_redR")) == "mw1_lab_large_redR");
+          EXPECT(std::string(ztwod::layout_font_in("briefing.zrd", "lab_large_redR")) == "lab_large_redR");
+          if (zrdr::Node* lab = zrdr::load(mw1::chrome::kLabFile)) {
+            std::string js;
+            EXPECT(zrdr::to_json(*lab, &js));
+            zrdr::free_node(lab);
+            // PM's own lacks these (the engine reports them missing; nothing drawn): the mechs' slots' and an unused look.
+            static const std::set<std::string> kPmHasNot = {"lab_panel_leftdouble2", "cursor_circle_orange"};
+            std::set<std::string> ours;
+            for (const mw1::chrome::Reskin& r : mw1::chrome::lab_pictures()) ours.insert(r.game);
+            size_t named = 0;
+            for (const char* key : {"\"BITMAP\"", "\"single\"", "\"double\"", "\"double2\""})
+              for (size_t at = js.find(key); at != std::string::npos; at = js.find(key, at + 1)) {
+                const size_t q = js.find('"', js.find('[', at) + 1), e = js.find('"', q + 1);
+                if (js.find('[', at) > js.find_first_of(",]", at + std::strlen(key) + 1) || q == std::string::npos) continue;
+                const std::string name = js.substr(q + 1, e - q - 1);
+                if (kPmHasNot.count(name) || name.rfind("lab_player", 0) == 0 || name == "lab_background") continue;
+                ++named;
+                if (!ours.count(name)) std::printf("  the lab names %s, not reskinned\n", name.c_str());
+                EXPECT(ours.count(name) == 1);
+              }
+            EXPECT(named > 40);
           }
           // MW1's own menus: Pirate's Moon's main menu screen and multiplayer state not built (own_menus), its options
           // state still there (the hub's OPTIONS).
