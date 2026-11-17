@@ -145,6 +145,7 @@ int main(int argc, char** argv) {
   o.program_dir = own_dir().string();
   o.game_bin = beside("MW3_GAME_BIN", "mw3");
   o.pm_bin = beside("MW3_PM_BIN", "mw3pm");
+  o.mw1_bin = beside("MW3_MW1_BIN", "mw1");  // MW1: the remake; when there, in place of Elthial's port
   if (const char* d = std::getenv("MW3_PM_WRITE_DIR")) o.pm_write_dir = d;  // checks
   if (o.game_bin.empty()) std::printf("mw3launcher: no mw3 beside this program: MECHWARRIOR 3 cannot start\n");
   // The games get this start's choices; MW3 a named write dir too (Pirate's Moon has its own).

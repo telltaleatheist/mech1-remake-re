@@ -381,6 +381,66 @@ For typed nodes +0xd0 holds the file offset of the node's data (mech3ax
 checks it). The exe never seeks by it: it reads the data in slot order and
 only ORs in bit 24. Likely the writer stores it for tools.
 
+### Adding nodes: the free chain (2026-11-15)
+
+The shipped chain has one shape in all six files: the header's head, the
+named free nodes (mech3ax's Empty nodes) in the authoring tool's order, then
+every slot past mech3ax's list in index order to the array's end. The last
+Empty's +0xd0 (mech3ax's `parent_indices`) is the list length:
+
+| World | List | Head | Empties before the list end | Last Empty | Slots after |
+|---|---|---|---|---|---|
+| c1 | 9560 | 2724 | 1393 | 8 `g15689` | 10440 |
+| c2 | 6065 | 569 | 4 | 731 `firepoint` | 13935 |
+| c3 | 8375 | 2088 | 657 | 48 `stonehs1` | 11625 |
+| c4 | 7963 | 1279 | 604 | 95 `seg2tkt` | 12037 |
+| c4b | 2898 | 2708 | 4 | 2711 `firepoint` | 17102 |
+| t1 | 1869 | 1869 (the list end) | 0 | none | 14131 |
+
+t1's array (16,000) is not whole blocks, so the reader frees 16000..17499 at
+load (step 3 above), each onto the head: its first 1,500 allocations take
+those, then 1869.
+
+Nothing checks or rebuilds the chain. 0x4ff520 puts the header's head in
+0x5ea834 and the reader only ORs bit 24 into live slots; 0x4f8c80 (grow) runs
+only when the head is -1. The only users of 0x5ea834 are the alloc, the two
+frees, grow, the reset 0x4f8fb0, the reader and the writer. **0x4eacd0
+(alloc) takes the head without looking at it**: the next head is the slot's
++0xd0 low 24 bits, sign-extended, then it zeroes the slot's first 0xd0 bytes
+(not +0xd0), adds it to list 6 and gives it the defaults. So a node appended
+to mech3ax's list (or an Empty reused for a live node) without relinking:
+
+1. the allocation that reaches it wipes it (name `Default_node_name`, class
+   0, lists cleared) while it is still on its class lists and its parent's
+   children;
+2. its data offset becomes the head. An offset with bit 23 set (c1's
+   chem_trail.flt: 0xae2260) is negative, and the next allocation reads the
+   block table at `0x60bf38 + (head / 2500) * 4`, before the table: a stray
+   pointer, then 0xd0 bytes zeroed wherever it points. A smaller offset is a
+   slot index beyond the array (no bound check).
+
+Checked in the emulator (scratch walk: 0x4ff520 on the file, then 0x4eacd0
+until the chain ends): Freako's c1 with three nodes appended at 9560..9562
+(chem_trail.flt, a copy of a trail tree) loses chem_trail.flt on the 1,394th
+allocation and the 1,395th reads unmapped memory at head -5,365,152. The port
+does the same: c1m1 on that file dies in its load (Loading Animations).
+
+How deep play goes: the port's mission loads (zbd read to the first frame)
+take 2,100 to 3,700 nodes (c1m1 2,722, c1m4 3,200, c2m1 3,235, c3m6 3,721,
+c4m3 3,567, c4bm6 2,328, t1 1,656), so **every mission's load reaches the
+slots past the list**; the four free slots of c2 and c4b go on the fifth
+allocation. A world stays loaded through its operation, and the allocations
+add up: over op 1 of the kills chain c1 used its whole chain and grew a
+block.
+
+Workaround for modders: set the last Empty's `parent_indices` to the new list
+length (t1, with no Empty: set `node_last_free` in metadata.json to it). On
+c1 so edited (lead's c1fix.zbd) the exe's chain is 11,830 long, ends at
+0xffffff and never visits 9560..9562 (emulator, every allocation to the
+end), and the port plays c1m1 for 3,000 frames 2,647 slots deep without
+touching them. Nothing else moves the chain: a node freed later goes on the
+head, as in the shipped game.
+
 ## Writing a world back (0x4fe8e0; ported for preservation, 2026-11-14)
 
 `GameZWriteZBDFile` (the authoring build's, under `ifdef COMPILE`; the engine's entry stays null) saves the world in

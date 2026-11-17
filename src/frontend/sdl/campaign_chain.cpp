@@ -8,6 +8,8 @@
 #include "frontend/sdl/sdl_render3d.h"
 #include "gamez/zclass/class.h"
 #include "gamez/zclass/cls_node.h"
+#include "gamez/zeffect/zeff_anim_init.h"
+#include "gamez/zeffect/zeff_anim_save.h"
 #include "gamez/zclass/cls_zbd.h"
 #include "gamez/zclass/list.h"
 #include "mech3/app.h"
@@ -280,8 +282,9 @@ void CampaignChain::shoot_hostiles() {
   }
   // retry: the first try ends as the pause's REPLAY ends it (0x0048fa80),
   // 15 frames into the shooting (c1m4 is won at 94); CONTINUE briefs it again.
-  if (o_.retry && core_frames_ == 75 &&
-      std::find(failed_.begin(), failed_.end(), launched_) == failed_.end()) {
+  // CHAIN_RETRIES=N (ours, docs/discoveries.md's REPLAY finding): each mission failed N times first, not once.
+  static const long retries = std::getenv("CHAIN_RETRIES") ? std::strtol(std::getenv("CHAIN_RETRIES"), nullptr, 10) : 1;
+  if (o_.retry && core_frames_ == 75 && std::count(failed_.begin(), failed_.end(), launched_) < retries) {
     failed_.push_back(launched_), failing_ = true;
     std::printf("mw3: chain fails %s on purpose (%d kills, core frame %d): the pause's REPLAY\n", launched_.c_str(),
                 kills_, core_frames_);
@@ -682,6 +685,18 @@ void CampaignChain::frame() {
     }
   } else if (now == &st.core) {
     if (frames_in_state_ == 1) core_frames_ = 0, objectives_done_.clear();
+    if (core_frames_ == 30 && std::getenv("CHAIN_ANIM_CENSUS")) {  // ours: what the mission holds as play starts
+      const zeff::AnimState& a = zeff::anim();
+      int running = 0, copies = 0, live = 0;
+      for (int i = 1; i < a.def_count(); ++i)
+        for (const zeff::AnimDef* d = &a.defs[i]; d; d = d->instance) {
+          ++live;
+          const uint8_t st = d->raw[0x98];
+          if (st == 2 || st == 6) ++running, copies += d != &a.defs[i];
+        }
+      std::printf("mw3: chain anim census %s at core frame 30: log %d, defs and copies %d, running %d (copies %d), "
+                  "nodes %d\n", launched_.c_str(), zeff::log_count(), live, running, copies, zcls::node_live());
+    }
     if (o_.retry && core_frames_ == 30) {  // every node's flags, the first try against the retry
       std::map<int32_t, uint32_t> nodes;
       for (zcls::ListItem* it = zcls::list_head(zcls::kAllNodes); it; it = it->next)

@@ -7106,7 +7106,9 @@ TEST(sdl_program_mouse_waits_for_the_focus) {
 // script by MW3_MW1_PORT), started as its own script starts it
 // (`mechwarrior <game dir> <capture dir>`, the saves in
 // MECHWARRIOR_SAVE_DIRECTORY, both under the write dir's mw1) with the
-// folder mw3.cfg's mw1_game= keeps; the launcher waits for it.
+// folder mw3.cfg's mw1_game= keeps; the launcher waits for it. Without
+// MW1: Critical Hit's `mw1` beside the launcher (MW3_MW1_BIN empty here, as a
+// plain mw3-re package), the entry is the port's, as it always was.
 TEST(sdl_program_launcher_starts_mechwarrior_1989) {
   const std::string dir = std::string(MW3_TEST_TMP) + "/launcher_mw1";
   std::error_code ec;
@@ -7125,9 +7127,11 @@ TEST(sdl_program_launcher_starts_mechwarrior_1989) {
   }
   std::filesystem::permissions(port, std::filesystem::perms::owner_all, ec);
   setenv("MW3_MW1_PORT", port.c_str(), 1);
+  setenv("MW3_MW1_BIN", "", 1);  // no mw1 beside us, whatever this build put there
   const std::string log = dir + "/mw1.log";
   const pid_t pid = spawn_launcher({"--write-dir", dir + "/wd", "--launcher-mw1", "--window", "640x480", "--nosound", "--hidden"}, log);
   unsetenv("MW3_MW1_PORT");
+  unsetenv("MW3_MW1_BIN");
   int status = 0;
   EXPECT(pid > 0 && waitpid(pid, &status, 0) == pid && WIFEXITED(status) && WEXITSTATUS(status) == 0);
   std::ifstream f(log);
@@ -7139,8 +7143,73 @@ TEST(sdl_program_launcher_starts_mechwarrior_1989) {
               text.find("MechWarrior (1989) port at") != std::string::npos, text.find("MechWarrior (1989) started") != std::string::npos,
               text.find("MechWarrior (1989) exited (0)") != std::string::npos, args.c_str());
   EXPECT(text.find("MechWarrior (1989) port at " + port) != std::string::npos);
+  EXPECT(text.find("MechWarrior 1 at") == std::string::npos && text.find("entry MECHWARRIOR 1") == std::string::npos);
   EXPECT(text.find("MechWarrior (1989) exited (0)") != std::string::npos);
   EXPECT(args == dir + "/game|" + dir + "/wd/mw1/captures|" + dir + "/wd/mw1/saves");
+}
+#endif
+
+#if !defined(_WIN32)
+// MW1 (for MechWarrior 1: Critical Hit, 2026-11-16): the launcher's MechWarrior 1 entry starts `mw1` in place of
+// Elthial's port (docs/launcher.md, MechWarrior 1): found beside ours (here a stand-in script by MW3_MW1_BIN),
+// given the three installs (Pirate's Moon's, MW3's, the MW1 folder mw3.cfg's mw1_game= keeps); the launcher waits
+// for it. Without MW3 found its line says what it needs, it is greyed, and a press starts nothing.
+TEST(sdl_program_launcher_starts_mechwarrior_1) {
+  const std::string dir = std::string(MW3_TEST_TMP) + "/launcher_mw1";
+  const std::string mw3 = MW3_GAME_DIR, pm = (std::filesystem::path(MW3_GAME_DIR).parent_path() / "pm").string();
+  std::error_code ec;
+  if (!std::filesystem::is_regular_file(pm + "/Mech3.exe", ec)) {
+    std::printf("launcher mw1: no game/pm: skipped\n");
+    return;
+  }
+  std::filesystem::remove_all(dir, ec);
+  std::filesystem::create_directories(dir + "/wd", ec);
+  std::filesystem::create_directories(dir + "/game", ec);
+  std::ofstream(dir + "/game/BTECH.EXE") << "x";
+  const std::string mw1 = dir + "/mw1", pm_bin = dir + "/mw3pm";
+  {
+    std::ofstream sh(mw1);
+    sh << "#!/bin/sh\necho \"$*\" > \"" << dir << "/args.txt\"\nexit 0\n";
+  }
+  std::ofstream(pm_bin) << "#!/bin/sh\nexit 0\n";
+  std::filesystem::permissions(mw1, std::filesystem::perms::owner_all, ec);
+  std::filesystem::permissions(pm_bin, std::filesystem::perms::owner_all, ec);
+  setenv("MW3_PM_WRITE_DIR", (dir + "/pmwd").c_str(), 1);  // never the player's own
+  auto run = [&](bool installs, const char* name) {
+    {
+      std::ofstream cfg(dir + "/wd/mw3.cfg", std::ios::trunc);
+      cfg << "mw1_game=" << dir << "/game\n";
+      if (installs) cfg << "install=" << mw3 << "\npm_install=" << pm << "\n";
+    }
+    std::filesystem::remove(dir + "/args.txt", ec);
+    setenv("MW3_MW1_BIN", mw1.c_str(), 1);
+    setenv("MW3_PM_BIN", pm_bin.c_str(), 1);
+    setenv("MW3_FIND_INSTALL", "1", 1);  // no development copy: only what mw3.cfg names
+    const std::string log = dir + "/" + name + ".log";
+    const pid_t pid = spawn_launcher({"--write-dir", dir + "/wd", "--launcher-mw1", "--window", "640x480", "--nosound", "--hidden"}, log);
+    unsetenv("MW3_MW1_BIN"), unsetenv("MW3_PM_BIN"), unsetenv("MW3_FIND_INSTALL");
+    int status = 0;
+    EXPECT(waited(pid, &status) && WIFEXITED(status) && WEXITSTATUS(status) == 0);
+    std::ifstream f(log);
+    return std::string((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+  };
+  const std::string text = run(true, "ready");
+  std::ifstream af(dir + "/args.txt");
+  std::string args;
+  std::getline(af, args);
+  std::printf("launcher mw1: found %d, started %d, exited %d; it was given \"%s\"\n",
+              text.find("MechWarrior 1 at") != std::string::npos, text.find("MechWarrior 1 started") != std::string::npos,
+              text.find("MechWarrior 1 exited (0)") != std::string::npos, args.c_str());
+  EXPECT(text.find("MechWarrior 1 at " + mw1) != std::string::npos);
+  EXPECT(text.find("entry MECHWARRIOR 1: Ready: " + dir + "/game") != std::string::npos);
+  EXPECT(text.find("MechWarrior 1 exited (0)") != std::string::npos);
+  EXPECT(args.rfind("--install " + pm + " --mw3-install ", 0) == 0);
+  EXPECT(args.find(" --mw1-game " + dir + "/game --no-launcher") != std::string::npos);
+  // No MW3 named (Pirate's Moon may still be found on this machine): said on its line, and a press starts nothing.
+  const std::string none = run(false, "needs");
+  EXPECT(none.find("entry MECHWARRIOR 1: Not ready: needs MechWarrior 3") != std::string::npos);
+  EXPECT(none.find("MechWarrior 1 started") == std::string::npos && !std::filesystem::exists(dir + "/args.txt"));
+  unsetenv("MW3_PM_WRITE_DIR");
 }
 #endif
 
