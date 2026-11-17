@@ -1349,7 +1349,7 @@ int run(const Args& a, platform::VideoForWindows* vfw) {
         valve_dir = dir, valve_number = l.number;
       }
       l.index = -1;
-      for (int32_t i = 0; i < 9; ++i)
+      for (int32_t i = 0; i < mech3::mission_dir_count(); ++i)  // the mods' worlds too (9 on)
         if (dir == mech3::mission_dir(i)) l.index = i;
       if (l.index < 0) {
         std::fprintf(stderr, "mw3: --mission %s: not a mission (c1 c2 c3 c4 c4b t1)\n", a.mission.c_str());
