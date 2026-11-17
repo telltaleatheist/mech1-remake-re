@@ -20,7 +20,7 @@ constexpr const char* kPlaqueSmallFont = "main_red_small";
 constexpr const char* kTitleFont = "main_green";
 constexpr const char* kLineFont = "brief_green";
 constexpr const char* kLabelFont = "ia_small_green";
-constexpr const char* kLabelOffFont = "brief_grey";
+constexpr const char* kLabelOffFont = "ia_small_grey";  // PM's greyed circle buttons' (dialog.zrd)
 
 constexpr int32_t kLineGap = 16;
 
@@ -38,7 +38,17 @@ HubScreen::HubScreen(mech3::Engine& e, zgame::Handle state_handle, std::function
     return;
   }
   load_node(tree, dlg, true);  // the cursor
-  borrow_background(false);    // the main menu's backdrop, under everything (the hub sits over the main menu)
+  // The backdrop: the layout's BACKGROUND primitive when it names one, else the main menu's (borrowed as its
+  // sub-screens do; the hub sits over the main menu).
+  zrdr::Node* prims = zrdr::find(dlg, "PRIMITIVES");
+  if (prims && zrdr::find(prims, "BACKGROUND")) bind_primitive(&background, "BACKGROUND");
+  else borrow_background(false);
+  // The panels behind the texts (PANEL, PANEL2, ...: images over the backdrop, under the words).
+  for (const char* name : {"PANEL", "PANEL2", "PANEL3"})
+    if (prims && zrdr::find(prims, name)) {
+      panels_.push_back(std::make_unique<ztwod::Image>(0));
+      if (!bind_primitive(panels_.back().get(), name)) panels_.pop_back();
+    }
   bool all = true;
   for (int32_t id = 1; id <= kHubButtonCount; ++id) {
     auto b = std::make_unique<mech3::HelpButton>(e, id);
@@ -89,7 +99,7 @@ void HubScreen::show(const HubView& v) {
   // The plaque at the top left, the company down the right, the middle panel between (the mockup's places).
   text(plaque_, 0, 24, 14, kPlaqueFont)->set_text_plain(v.planet.c_str());
   text(plaque_, 1, 24, 32, kPlaqueSmallFont)->set_text_plain(v.house.c_str());
-  lines(company_, v.company, 456, 96, kLineFont);
+  lines(company_, v.company, 402, 72, kLineFont);
   text(title_, 0, 150, 72, kTitleFont)->set_text_plain(v.title.c_str());
   lines(panel_, v.panel, 150, 96, kLineFont);
   for (int32_t id = 1; id <= kHubButtonCount && static_cast<size_t>(id) <= buttons_.size(); ++id) {

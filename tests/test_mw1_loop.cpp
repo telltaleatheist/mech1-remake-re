@@ -195,7 +195,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
         for (const std::string& l : shown) std::printf(" [%s]", l.c_str());
         std::printf("\n");
         // Always: the plaque, the company, the later screens greyed, QUIT there.
-        EXPECT(sc->loaded() && c && has(c->planet.empty() ? "PLANET" : "HOUSE ") && has("Stores: " + std::to_string(c->stores->count())));
+        EXPECT(sc->loaded() && c && has("HOUSE ") && c->planet != "Planet" && !c->planet.empty() && has("Stores: " + std::to_string(c->stores->count())));
         for (int32_t id : {mw1::kHubMarket, mw1::kHubBar, mw1::kHubTravel}) EXPECT(sc->visible(id) && !sc->enabled(id));
         EXPECT(sc->visible(mw1::kHubQuit) && sc->enabled(mw1::kHubQuit));
         if (const mw1::AfterAction* pa = mw1::game_loop_pending()) {

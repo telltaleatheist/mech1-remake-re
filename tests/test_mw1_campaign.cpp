@@ -1,6 +1,7 @@
 // MW1's campaign rules for the first milestone (src/mw1_campaign.h): the
 // tables against the player's MW_MAIN.EXE, the PM stand-ins, a new company,
 // contracts as research/contracts.md works them, accepting and the settlement.
+#include <cctype>
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
@@ -177,5 +178,46 @@ TEST(mw1_campaign_targets_are_the_employers) {
     for (int i = 0; i < 400; ++i) ++seen[mw1::generate_contract(c, 0, rng).target];
     for (int t = 0; t < mw1::kTargetColumns; ++t) EXPECT((seen[t] > 0) == (mw1::kHouseTargets[h][t] != 0));
     EXPECT(seen[h] == 0);
+  }
+}
+
+// A new company starts on one of the original's eight worlds (eventPlanetChoicePool0, DS:8FDA), with that world's
+// House and market tier, each of them reachable.
+TEST(mw1_new_company_starts_on_one_of_the_eight_worlds) {
+  bool seen[mw1::kStartPlanetCount] = {};
+  for (uint32_t seed = 1; seed <= 200; ++seed) {
+    mw1::Rng rng(seed);
+    const mw1::Company c = mw1::new_company(rng);
+    int found = -1;
+    for (int i = 0; i < mw1::kStartPlanetCount; ++i) {
+      std::string upper = c.planet;
+      for (char& ch : upper) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+      if (upper == mw1::kStartPlanets[i].name) found = i;
+    }
+    EXPECT(found >= 0);
+    if (found < 0) continue;
+    seen[found] = true;
+    EXPECT(c.planet_house == mw1::kStartPlanets[found].house && c.tier == mw1::kStartPlanets[found].tier);
+  }
+  for (bool s : seen) EXPECT(s);
+  mw1::Rng rng(3);
+  const mw1::Company e = mw1::new_company(rng);
+  std::printf("  e.g. %s, House %s, tier %d\n", e.planet.c_str(), mw1::kHouses[e.planet_house].name, e.tier);
+}
+
+// The eight starting worlds against the exe: pool 0's planet numbers (DS:8FDA), and each one's record
+// (planetRecordOffsets, DS:6570): number, House, market tier, the name after the record's ten bytes.
+TEST(mw1_start_planets_are_mw_main_exes) {
+  const std::vector<uint8_t> d = mw_main_data();
+  if (d.size() < 0x9000) {
+    std::printf("  no MW_MAIN.EXE in %s: skipped\n", MW1_DOS_GAME_DIR);
+    return;
+  }
+  for (int i = 0; i < mw1::kStartPlanetCount; ++i) {
+    const mw1::StartPlanet& p = mw1::kStartPlanets[i];
+    EXPECT(d[0x8FDA + i] == p.number);
+    const size_t rec = static_cast<size_t>(static_cast<uint16_t>(word(d, 0x6570 + 2 * (p.number - 1))));
+    EXPECT(d[rec] == p.number && d[rec + 1] == p.house && (d[rec + 2] - 1) / 3 == p.tier);
+    EXPECT(std::strcmp(reinterpret_cast<const char*>(&d[rec + 10]), p.name) == 0);
   }
 }
