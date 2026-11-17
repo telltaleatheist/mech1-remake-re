@@ -47,6 +47,7 @@ struct TextBlock {
 struct ButtonState {
   bool there = true;  // shown
   bool on = true;     // enabled (else greyed: its DISABLE bitmap and grey words)
+  std::string words;  // its words now (empty: its own, ScreenButton's)
 };
 struct ScreenView {
   std::vector<TextBlock> blocks;

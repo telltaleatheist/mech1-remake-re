@@ -28,6 +28,7 @@
 #include "gamez/zreader/zreader.h"
 #include "gamez/zutil/zutl_path.h"
 #include "mw1_bar_screen.h"
+#include "mw1_event_screen.h"
 #include "mw1_office.h"
 #include "mw1_campaign.h"
 #include "mw1_hub.h"
@@ -186,6 +187,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "travel") press(kHubTravel);
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "bar") press(kHubBar);
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "office") press(kHubOffice);
+      const char* sc = std::getenv("MW1_SCREEN");
+      if (!sc || std::string(sc) == "hub" || std::string(sc) == "event") hub_events();
       return true;
     }
     // No hub layout (MW1's data missing): the message boxes, as before the hub.
@@ -259,6 +262,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         if (company_.stores) {  // the hub's QUIT came back here: the same company, the same offer
           show_hub();
           ge->push_state(hub_, 0);
+          hub_events();
           return;
         }
         if (save_there()) enter_hub(*ge);
@@ -324,6 +328,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     travel_ = 0, travel_state_ = nullptr;
     bar_ = 0, bar_state_ = nullptr;
     office_ = 0, office_state_ = nullptr;
+    event_ = 0, event_state_ = nullptr, event_up_ = false;
     if (!layout_there(kHubFile, kHubDialog)) {
       std::printf("mw1: no hub layout (%s in MW1's data): the message boxes\n", kHubFile);
       return false;
@@ -371,7 +376,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         advance_time(company_, mission_units(company_), rng_);
         refresh_world(company_, rng_);
         new_offer();
-        break;
+        show_hub();
+        hub_events();  // back at the hub (MW1's after a battle)
+        return;
       }
       case kHubReplay:
         // A failed contract played again, everything as it was at its first launch (VISION.md, the endings: REPLAY at a
@@ -395,6 +402,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         show_market();
         ge->pop_state(1);
         ge->push_state(market_, 0);
+        story_events(kMechComplex);
         return;
       case kHubTravel:
         // The travel screen in the hub's place (BACK brings the hub back); not while AFTER ACTION waits.
@@ -411,6 +419,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         show_bar();
         ge->pop_state(1);
         ge->push_state(bar_, 0);
+        story_events(kBarEntry);
         return;
       case kHubOffice:
         // The House office in the hub's place (BACK brings the hub back): the offer to negotiate.
@@ -419,6 +428,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         show_office();
         ge->pop_state(1);
         ge->push_state(office_, 0);
+        story_events(kOffice);
         return;
       default: return;  // the screens that come later
     }
@@ -475,6 +485,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         show_hub();
         ge->pop_state(1);
         ge->push_state(hub_, 0);
+        hub_events();  // MW1 runs the hub's events each time it draws it (an arrival's after travel)
         return;
       default:
         if (!offered_) return;
@@ -545,6 +556,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         show_hub();
         ge->pop_state(1);
         ge->push_state(hub_, 0);
+        hub_events();  // MW1 runs the hub's events each time it draws it (an arrival's after travel)
         return;
       default: return;
     }
@@ -595,6 +607,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         show_hub();
         ge->pop_state(1);
         ge->push_state(hub_, 0);
+        hub_events();  // MW1 runs the hub's events each time it draws it (an arrival's after travel)
         return;
       }
       case kTravelHouse:
@@ -610,6 +623,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         show_hub();
         ge->pop_state(1);
         ge->push_state(hub_, 0);
+        hub_events();  // MW1 runs the hub's events each time it draws it (an arrival's after travel)
         return;
       default: return;
     }
@@ -668,6 +682,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         show_hub();
         ge->pop_state(1);
         ge->push_state(hub_, 0);
+        hub_events();  // MW1 runs the hub's events each time it draws it (an arrival's after travel)
         return;
       default: return;
     }
@@ -683,6 +698,125 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     clamp_choice(company_, choice_);
     if (market_state_) market_state_->show(market_view(company_, choice_));
   }
+
+  // ---- the story's events (mw1_story.h, mw1_event_screen.h) ----
+
+  bool event_screen(mech3::GameEngine& ge) {
+    if (event_ && ge.menu_state_of(event_) == event_state_) return true;
+    if (!layout_there(kEventFile, kEventDialog)) {
+      std::printf("mw1: no event layout (%s in MW1's data): no story\n", kEventFile);
+      return false;
+    }
+    event_ = ge.adopt_state([this](zgame::Handle h) { return event_state_ = new EventState(h, [this](int32_t id) { press_event(id); }); });
+    return event_ != 0;
+  }
+
+  bool story_running() const { return story_on_ && script().there() && company_.stores && ge_; }
+
+  // At the hub (MW1 runs its events each time it draws it; not while AFTER ACTION waits): the news new since it last
+  // said, under its panel (research/story.md Q8, provisional), then its events (class 0; an arrival's after travel).
+  void hub_events() {
+    if (!story_running() || pending_ || event_up_) return;
+    for (const Shown& n : fresh_news(company_, rng_)) {
+      const std::string h = headline(company_, n);
+      std::printf("mw1: story: news %#x\n", n.event);
+      if (!h.empty()) company_.notices.push_back("NEWS: " + h);
+    }
+    show_hub();
+    story_events(kArrival);
+  }
+
+  // A class's events fired in turn on the panel, each waiting for the player; none: nothing happens.
+  void story_events(int32_t cls) {
+    if (!story_running() || event_up_) return;
+    ev_ = start(cls);
+    next_event();
+  }
+
+  void next_event() {
+    mech3::GameEngine* ge = ge_;
+    Shown s;
+    if (!ge || !next(company_, ev_, rng_, &s)) return events_done();
+    std::printf("mw1: story: event %#x (class %d)%s%s\n", s.event, ev_.cls, s.captions.empty() ? "" : ", a choice", s.restart ? ", a death" : "");
+    ev_shown_ = s;
+    ev_panel_ = EventPanel{};
+    ev_panel_.planet = upper(company_.planet);
+    ev_panel_.place = place_words(ev_.cls);
+    ev_panel_.pages = shown_pages(company_, s);
+    if (ev_panel_.pages.empty()) ev_panel_.pages.push_back({});
+    if (s.restart && !kStoryDeathsRestart) {
+      // MW1 restarts the campaign here (PLAY AGAIN / QUIT); until Owen decides (Q1) the page is shown and play goes on.
+      std::printf("mw1: story: MW1 would restart here; play goes on (research/story.md Q1)\n");
+    } else {
+      ev_panel_.captions = s.captions;
+      if (s.event == kEventDarkWingAttack) ev_panel_.live = {kDarkWingBattle, true};  // ATTACK waits for its battle (Q5)
+    }
+    if (!event_up_) {
+      if (!event_screen(*ge)) return events_done();
+      ge->push_state(event_, 0);
+      event_up_ = true;
+    }
+    show_event();
+  }
+
+  void show_event() {
+    if (event_state_) event_state_->show(event_view(ev_panel_));
+  }
+
+  // The class done: the panel off, the screen under it shown again (the funds may have changed), saved.
+  void events_done() {
+    mech3::GameEngine* ge = ge_;
+    const bool was_up = event_up_;
+    if (event_up_ && ge) ge->pop_state(1);
+    event_up_ = false, news_.clear();
+    if (ev_.cls == kArrival) company_.story.arrived = false;  // MW1 clears it after the hub's events
+    if (!was_up) return;
+    save();
+    show_hub(), show_bar(), show_market(), show_office();
+  }
+
+  void press_event(int32_t id) {
+    std::printf("mw1: event: %s\n", event_button_name(id));
+    if (!event_up_) return;
+    if (ev_panel_.news) return press_news(id);
+    switch (id) {
+      case kEventNext:
+        if (!ev_panel_.last_page()) {
+          ++ev_panel_.page;
+          break;
+        }
+        if (ev_panel_.choosing()) return;  // a choice to make
+        next_event();
+        return;
+      case kEventChoice1:
+      case kEventChoice2:
+      case kEventChoice3: {
+        const int32_t i = id - kEventChoice1;
+        if (!ev_panel_.choosing() || i >= static_cast<int32_t>(ev_panel_.captions.size())) return;
+        if (static_cast<size_t>(i) < ev_panel_.live.size() && !ev_panel_.live[static_cast<size_t>(i)]) return;
+        std::printf("mw1: story: chose %d of event %#x\n", i + 1, ev_shown_.event);
+        choose(ev_, ev_shown_, i);
+        next_event();
+        return;
+      }
+      default: return;
+    }
+    show_event();
+  }
+
+  // The plaque's second line: where the event fires.
+  static std::string place_words(int32_t cls) {
+    switch (cls) {
+      case kBarEntry:
+      case kBarDrink: return "THE BAR";
+      case kNews: return "NEWS";
+      case kMechComplex: return "THE MECH COMPLEX";
+      case kOffice: return "THE HOUSE OFFICE";
+      default: return "ARRIVAL";
+    }
+  }
+
+  void press_news(int32_t) {}
 
   void show_hub() {
     if (!hub_state_) return;
@@ -950,6 +1084,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   MarketState* market_state() const { return market_state_; }
   BarState* bar_state() const { return bar_state_; }
   OfficeState* office_state() const { return office_state_; }
+  EventState* event_state() const { return event_up_ ? event_state_ : nullptr; }
+  void set_story(bool on) { story_on_ = on; }
   void offer_again() {  // tests: the offer drawn again after a change to the company, the hub shown
     new_offer();
     show_hub();
@@ -1157,6 +1293,15 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   std::string world_;      // set_game_loop_world's: every new contract there
   int32_t world_ia_ = 1;
   bool fresh_ = false;     // --new-company: a new company over the save
+  // The story's events (mw1_story.h) on the event panel (mw1_event_screen.h), over the screen they fire on.
+  bool story_on_ = true;   // set_game_loop_story's (the tests that aren't about it: off)
+  zgame::Handle event_ = 0;
+  EventState* event_state_ = nullptr;
+  bool event_up_ = false;  // the panel pushed
+  Dispatch ev_;            // the class firing
+  Shown ev_shown_;         // the event on the panel
+  EventPanel ev_panel_;
+  std::vector<Shown> news_;  // the Bar's NEWS: the stories live now
 };
 
 }  // namespace
@@ -1210,6 +1355,10 @@ void game_loop_press(int32_t button) {
 
 BarState* game_loop_bar() { return the_loop() ? the_loop()->bar_state() : nullptr; }
 OfficeState* game_loop_office() { return the_loop() ? the_loop()->office_state() : nullptr; }
+EventState* game_loop_event() { return the_loop() ? the_loop()->event_state() : nullptr; }
+void set_game_loop_story(bool on) {
+  if (the_loop()) the_loop()->set_story(on);
+}
 void game_loop_offer_again() {
   if (the_loop()) the_loop()->offer_again();
 }

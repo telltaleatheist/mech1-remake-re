@@ -39,7 +39,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(MW3RE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/mw3-re")
 
 # What MW1 adds that a test can reach without SDL.
-add_library(mw1core STATIC src/mw1_start.cpp src/mw1_campaign.cpp src/mw1_game.cpp src/mw1_save.cpp src/mw1_worlds.cpp src/mw1_hub.cpp src/mw1_market.cpp src/mw1_travel.cpp src/mw1_pilots.cpp src/mw1_repairs.cpp src/mw1_missions.cpp src/mw1_images.cpp src/mw1_menu.cpp src/mw1_screen.cpp src/mw1_market_screen.cpp src/mw1_travel_screen.cpp src/mw1_bar_screen.cpp src/mw1_office.cpp src/mw1_story.cpp)
+add_library(mw1core STATIC src/mw1_start.cpp src/mw1_campaign.cpp src/mw1_game.cpp src/mw1_save.cpp src/mw1_worlds.cpp src/mw1_hub.cpp src/mw1_market.cpp src/mw1_travel.cpp src/mw1_pilots.cpp src/mw1_repairs.cpp src/mw1_missions.cpp src/mw1_images.cpp src/mw1_menu.cpp src/mw1_screen.cpp src/mw1_market_screen.cpp src/mw1_travel_screen.cpp src/mw1_bar_screen.cpp src/mw1_office.cpp src/mw1_story.cpp src/mw1_event_screen.cpp)
 target_include_directories(mw1core PUBLIC src ${MW3RE_DIR}/src)
 target_link_libraries(mw1core PUBLIC pmcore mw3core zipkitlib)
 

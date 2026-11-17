@@ -118,6 +118,11 @@ std::string commander_name();
 
 // ---- Running it ----
 
+// What waits on Owen (research/story.md): the story's deaths (Q1: MW1 restarts the campaign; until then the page is
+// shown and play goes on) and the Dark Wing's battle (Q5, step 5: until then its ATTACK is greyed, DELAY live).
+inline constexpr bool kStoryDeathsRestart = false;
+inline constexpr bool kDarkWingBattle = false;
+
 // An event to show: its text (the event's id), its choices, and what MW1 does after it.
 struct Shown {
   int32_t event = -1;
