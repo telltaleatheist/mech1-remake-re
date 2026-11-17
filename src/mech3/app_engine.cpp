@@ -469,7 +469,8 @@ uint32_t GameEngine::game_message_box(int32_t style, const char* cap, const std:
   const int32_t fast = exchange_fast_menu(0);
   int32_t r = 0;
   {
-    ztwod::MessageBox box("dlgMessage.zrd", "MESSAGEBOX", false);
+    const bool own = !box_file_.empty();  // ours: a program's own layout (set_message_box_layout)
+    ztwod::MessageBox box(own ? box_file_.c_str() : "dlgMessage.zrd", own ? box_dialog_.c_str() : "MESSAGEBOX", false);
     box_ = &box;
     // Ours: the box's words go to the log too (players' logs; W11).
     std::string one;

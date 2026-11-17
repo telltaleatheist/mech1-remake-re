@@ -472,6 +472,11 @@ class GameEngine : public Engine {
   uint32_t game_message_box(int32_t style, int32_t caption, const std::string& text);  // 0x004ac150
   uint32_t game_message_box(int32_t style, const char* caption, const std::string& text);
   void pump_events();                // FIX (A): the window's events, inside the box's loop
+  // Ours (mw1): a program's own layout for every message box, in place of the game's (dlgMessage.zrd's
+  // MESSAGEBOX, and the mission's quit box's): a reader file and its dialog, with the same names (TITLE, MESSAGE,
+  // MB_OK ... MB_USERBTN). Unset (mw3, mw3pm): the game's.
+  void set_message_box_layout(std::string file, std::string dialog) { box_file_ = std::move(file), box_dialog_ = std::move(dialog); }
+  const std::string& message_box_file() const { return box_file_; }
   ztwod::MessageBox* message_box_open() const { return box_; }  // the box being answered, or null
   class LabFileBox* file_box_ = nullptr;  // up: a window closed ends it, as box_
 
@@ -720,6 +725,7 @@ class GameEngine : public Engine {
   zutl::MessageDll dll_;
   std::string formatted_;
   ztwod::MessageBox* box_ = nullptr;  // the message box being answered (0x004ac150)
+  std::string box_file_, box_dialog_;  // ours: set_message_box_layout's
   std::vector<void*> objects_;           // handle - 0x00100000 - 1
   Launch launch_;
   Handle pilot_ = 0, game_ = 0, view_ = 0, camera_ = 0;
