@@ -152,9 +152,6 @@ struct Run {
   // repair as the engine's hook offers it (ProgramFlow::mech_repaired: the armor at half before, mended now).
   float hit_player = 0;
   bool mend_player = false;
-  // The failed run's lab fit adds a laser without room (config_valid refuses it, so the mech launches unconfigured,
-  // its parts with no armor): off where the mech's damage is read.
-  bool no_lab_fit = false;
   // The commander's mech destroyed in the mission (an idle Firefly put in the hangar first): lost, the Firefly theirs.
   bool kill_player = false, spare_set = false;
   int64_t bill_shown = -1;  // AFTER ACTION's "Repair bill: ", -1 none
@@ -200,6 +197,9 @@ void loop_run(Ending ending, Run* run = nullptr) {
   bool hub_checked = false, declined = false, quit = false, replaying = false;
   bool ended = false, back_at_main = false, reach_only = false, reached = false, briefed = false;
   int briefing_frames = 0, lab_items = -1, lab_lasers = -1, stock_lasers = -1;
+  bool fit_valid = false;
+  int lab_after = -1;          // the stores' items after that fit (the weapon taken off back in them)      // the failed run's lab fit passes config_valid (the check mech_configure makes)
+  int32_t launched_armor = -1;  // the player's mech's armor points in the mission (0: launched unconfigured)
   uint8_t lab_full = 1;
   int64_t funds_at_briefing = 0;
   std::string pilot_name;
@@ -468,14 +468,27 @@ void loop_run(Ending ending, Run* run = nullptr) {
           funds_at_briefing = c ? c->funds : 0;
           briefed = true;
           // The failed run (no salvage after) fits a laser as the lab does (GameSlot::set_config with the store,
-          // taking): one of the copy's two ER medium lasers onto the Owens. Not at a replay's briefing.
+          // taking): a weapon at least as heavy and as big taken off (back to the stores) and one of the copy's two
+          // ER medium lasers on its firepoint, a loadout the mech can launch with. Not at a replay's briefing.
           mech3::ActionGame* g = p ? p->action() : nullptr;
-          if (ending == kFailed && !replaying && g && g->slot.config && lab && !(run && run->no_lab_fit)) {
+          if (ending == kFailed && !replaying && g && g->slot.config && lab) {
             lab_lasers = er_medium_lasers(lab->items), stock_lasers = er_medium_lasers(g->slot.config->items);
             mech3::Config* fitted = mech3::pilot_hooks().config_copy(*g->slot.config);
-            fitted->add_weapon(5, mech3::kInnerSphere);
+            const float laser_tons = mech3::weapon_weight(5, mech3::kInnerSphere);
+            const int32_t laser_slots = mech3::weapon_slots(5, mech3::kInnerSphere, false);
+            for (mech3::ConfigItem* it : fitted->items)
+              if (it->kind() == 1 && it->id() != 5 && it->weight(1) >= laser_tons && it->slots() >= laser_slots) {
+                const int32_t firepoint = it->part;
+                std::printf("  the lab: weapon %d off (firepoint %d), an ER medium laser on\n", it->id(), firepoint);
+                fitted->remove(it, 1);
+                if (mech3::WeaponItem* w = fitted->add_weapon(5, mech3::kInnerSphere)) w->set_part(firepoint);
+                break;
+              }
+            fitted->recount();
+            fit_valid = fitted->validate(false);
             g->slot.set_config(fitted, p->store(), true);
             delete fitted;
+            lab_after = p->store()->count();
           }
           // The restart's first run: a weapon taken off, as the lab does (back into the store).
           if (run && run->strip && !replaying && g && g->slot.config && lab) {
@@ -497,6 +510,14 @@ void loop_run(Ending ending, Run* run = nullptr) {
       if (run && run->world_loaded.empty() && mech3::missions().current >= 0) {
         run->world_loaded = mech3::mission_dir(mech3::missions().current);
         run->gamez_from = zutl::find(("zbd/" + run->world_loaded + "/gamez.zbd").c_str());
+      }
+      if (launched_armor < 0) {
+        int32_t type = 0, armor[11] = {};
+        float left[11] = {};
+        if (mech3::mech_lance_armor(mech3::mech_mission_player(), &type, armor, left)) {
+          launched_armor = 0;
+          for (int32_t a : armor) launched_armor += a;
+        }
       }
       if (ending == kReach && frames >= 30) {  // walked there: the objective done, Instant Action's end as above
         reached = reached || mech3::missions().ended;
@@ -616,11 +637,14 @@ void loop_run(Ending ending, Run* run = nullptr) {
   if (ending == kReach) EXPECT(reach_only && reached);
   EXPECT(c && funds_in_mission > funds_at_offer);  // the advance, at LAUNCH
   EXPECT(c && (c->loadout || (run && run->kill_player)));  // the briefing's loadout (lost with the mech: the spare's stock)
-  if (ending == kFailed && c && c->loadout && !(run && run->no_lab_fit)) {
+  // Every run's mech launches configured: armor on its parts (an invalid loadout launches with none).
+  std::printf("  launched with %d armor points\n", launched_armor);
+  if (ending != kAbort) EXPECT(launched_armor > 0);
+  if (ending == kFailed && c && c->loadout && !(run && run->kill_player)) {
     // The lab's change is the company's from LAUNCH: the laser out of the stores and on the mech.
     std::printf("  the lab: ER medium lasers in the stores %d -> %d, on the Owens %d -> %d\n", lab_lasers,
                 er_medium_lasers(c->stores->items), stock_lasers, er_medium_lasers(c->loadout->items));
-    EXPECT(lab_lasers == 2 && er_medium_lasers(c->stores->items) == 1);
+    EXPECT(fit_valid && lab_lasers == 2 && er_medium_lasers(c->stores->items) == 1);
     EXPECT(er_medium_lasers(c->loadout->items) == stock_lasers + 1);
   }
   // The Houses (VISION.md, the endings): the House you fought +2 grievance every time; the employer +2 favor on
@@ -651,7 +675,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
   } else {
     // No fee, no salvage, no parts; an accepted failure's repairs billed (never below 0), a quit's none.
     if (ending == kQuit) EXPECT(bill_shown == 0);
-    EXPECT(c && c->funds == funds_in_mission - bill_shown && c->stores->count() == items_at_offer);
+    EXPECT(c && c->funds == funds_in_mission - bill_shown && c->stores->count() == (lab_after >= 0 ? lab_after : items_at_offer));
   }
   for (int32_t r = 0; c && r < mech3::kMechCount; ++r) EXPECT(c->stores->has_mech(r) == nullptr);  // never a mech
   if (run && c) run->funds_end = c->funds, run->items_end = c->stores->count(), run->loadout_end = loadout_items(c);
@@ -1037,7 +1061,7 @@ TEST(mw1_loop_repairs_billed_won_failed_and_never_on_a_quit_headless) {
     in_child([&] {
       Run run;
       run.save = (dir / mw1::kSaveFile).string();
-      run.hit_player = k.hit, run.mend_player = k.mend, run.no_lab_fit = true, run.kill_player = k.killed;
+      run.hit_player = k.hit, run.mend_player = k.mend, run.kill_player = k.killed;
       loop_run(k.ending, &run);
       std::printf("  %s: the bill shown %lld; AFTER ACTION:", k.name, static_cast<long long>(run.bill_shown));
       for (const std::string& l : run.after_action) std::printf(" [%s]", l.c_str());
