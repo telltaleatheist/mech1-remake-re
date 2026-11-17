@@ -69,6 +69,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
                                thousands(company_.funds) + " C-bills");
     }
     if (!saved_offer) contract_ = generate_contract(company_, 0, rng_);
+    if (!saved_offer && !world_.empty()) contract_.world = world_, contract_.ia = world_ia_;
     if (!saved_offer && !reach_.empty()) contract_.objective = Objective::kReachStructure, contract_.ia = kReachIa, contract_.structure = reach_;
     const bool reach = contract_.objective == Objective::kReachStructure;
     std::string enemies;
@@ -139,6 +140,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
 
   const Company* company() const { return company_.stores ? &company_ : nullptr; }
   void set_save(const std::string& path, bool fresh) { save_path_ = path, fresh_ = fresh; }
+  void set_world(const std::string& world, int32_t ia) { world_ = world, world_ia_ = ia; }
   const Contract* contract() const { return company_.stores ? &contract_ : nullptr; }
 
   // ---- ObjectivesExtension ----
@@ -241,6 +243,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   bool deployed_ = false, launched_ = false, ended_ = false, failed_ = false, reach_set_ = false;
   std::string reach_;  // install_game_loop's structure: every contract reach-a-structure
   std::string save_path_;  // mw1save.txt; empty: no save
+  std::string world_;      // set_game_loop_world's: every new contract there
+  int32_t world_ia_ = 1;
   bool fresh_ = false;     // --new-company: a new company over the save
 };
 
@@ -265,6 +269,10 @@ void uninstall_game_loop() {
 
 void set_game_loop_save(const std::string& path, bool new_company) {
   if (the_loop()) the_loop()->set_save(path, new_company);
+}
+
+void set_game_loop_world(const std::string& world, int32_t ia) {
+  if (the_loop()) the_loop()->set_world(world, ia);
 }
 
 const Company* game_loop_company() { return the_loop() ? the_loop()->company() : nullptr; }

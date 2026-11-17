@@ -18,6 +18,7 @@ Args parse(int argc, char** argv) {
     if (s == "--mw3-install" && more) a.given.mw3 = argv[++i];
     else if (s == "--mw1-game" && more) a.given.mw1 = argv[++i];
     else if (s == "--new-company") a.new_company = true;
+    else if (s == "--mw1-worlds" && more) a.worlds = argv[++i];
     else {
       // The game main's own; --install and --write-dir read here as well.
       if (s == "--install" && more) a.given.pm = argv[i + 1];

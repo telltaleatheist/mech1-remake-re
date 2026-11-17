@@ -34,6 +34,8 @@
 #include "mw1_campaign.h"
 #include "mw1_game.h"
 #include "mw1_save.h"
+#include "mw1_worlds.h"
+#include <fstream>
 #include "platform/silent_sound.h"
 #include "pm/pm_game.h"
 
@@ -98,6 +100,10 @@ int32_t er_medium_lasers(const std::list<mech3::ConfigItem*>& items) {
 struct Run {
   std::string save;    // mw1save.txt's path; empty: none
   bool strip = false;  // the lab takes a weapon off the Owens (a loadout of the company's own)
+  std::string worlds;  // MW3's converted worlds to register, as mw1's start does (mw1_worlds.h); empty: none
+  std::string world;   // every contract on this world's first Instant Action map; empty: the contracts' own
+  std::vector<std::string> registered;
+  std::string world_loaded, gamez_from;  // in the mission: the world loaded and where its gamez.zbd is read from
   int64_t funds_at_offer = -1, funds_end = -1;
   int items_at_offer = -1, items_end = -1, loadout_at_offer = -2, loadout_end = -2;
   mw1::Contract first_offer, last_offer;
@@ -108,6 +114,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
   zgame::set_game(pm::table());
   zutl::mounts() = zutl::Mounts{};
   zutl::mount(MW3PM_GAME_DIR);
+  if (run && !run->worlds.empty()) run->registered = mw1::register_worlds(run->worlds);
   const std::string wd = std::string(MW3_TEST_TMP_ROOT) + "/mw1_loop";
   std::error_code ec;
   fs::remove_all(wd, ec);
@@ -121,6 +128,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
   mech3::options() = mech3::Options{};
   mw1::install_game_loop(1, ending == kReach ? "portalgate" : nullptr);
   if (run) mw1::set_game_loop_save(run->save, false);
+  if (run && !run->world.empty()) mw1::set_game_loop_world(run->world, 1);
   NoKeys keys;
   Window window;
   Alert alert;
@@ -207,6 +215,10 @@ void loop_run(Ending ending, Run* run = nullptr) {
         return;
       }
       if (ended || app.current() != &mech3::states().core) return;
+      if (run && run->world_loaded.empty() && mech3::missions().current >= 0) {
+        run->world_loaded = mech3::mission_dir(mech3::missions().current);
+        run->gamez_from = zutl::find(("zbd/" + run->world_loaded + "/gamez.zbd").c_str());
+      }
       if (ending == kReach && frames >= 30) {  // walked there: the objective done, Instant Action's end as above
         reached = reached || mech3::missions().ended;
         if (!reached && ++reach_frames < 600) return;
@@ -378,4 +390,60 @@ TEST(mw1_loop_restart_keeps_the_company_headless) {
 #else
   both();
 #endif
+}
+
+// MW3's worlds as mw1's start leaves them (mw1_worlds.h), headless: converted and registered, a contract on mw3c2's
+// first Instant Action map (mw3c2ia1) launched and won; a conversion that failed, nothing registered and the game
+// on Pirate's Moon's worlds as before (a contract on c2 won).
+TEST(mw1_loop_mw3_worlds_converted_or_not_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec) ||
+      !fs::exists(fs::path(MW1_MW3_GAME_DIR) / "zbd" / "c2" / "gamez.zbd", ec))
+    return;
+  const fs::path root = fs::path(MW3_TEST_TMP_ROOT) / "mw1_loop_worlds";
+  fs::remove_all(root, ec);
+  auto say = [](const std::string& l) { std::printf("  %s\n", l.c_str()); };
+  // Converted from the repo's MW3.
+  const std::string good = (root / "worlds").string();
+  EXPECT(mw1::prepare_worlds(MW1_MW3_GAME_DIR, good, nullptr, nullptr, say));
+  // Failed: a stand-in MW3 whose c2 has no gamez.zbd that reads.
+  const fs::path bad_install = root / "bad-mw3";
+  fs::create_directories(bad_install / "zbd" / "c2", ec);
+  fs::create_directories(bad_install / "zbd" / "c4b", ec);
+  for (const char* f : {"zbd/reader.zbd", "zbd/interp.zbd"}) fs::create_symlink(fs::path(MW1_MW3_GAME_DIR) / f, bad_install / f, ec);
+  std::ofstream(bad_install / "zbd" / "c2" / "gamez.zbd", std::ios::binary) << "not a gamez.zbd";
+  const std::string bad = (root / "bad-worlds").string();
+  EXPECT(!mw1::prepare_worlds(bad_install.string(), bad, nullptr, nullptr, say));
+  for (const bool converted : {true, false}) {
+    auto one = [&] {
+      Run run;
+      run.worlds = converted ? good : bad;
+      run.world = converted ? "mw3c2" : "";
+      loop_run(kWon, &run);
+      std::printf("  %s: registered %zu (%s), the first contract on %sia%d, the mission on %s from %s\n",
+                  converted ? "converted" : "failed", run.registered.size(), run.registered.empty() ? "" : run.registered[0].c_str(),
+                  run.first_offer.world.c_str(), run.first_offer.ia, run.world_loaded.c_str(), run.gamez_from.c_str());
+      if (converted) {
+        EXPECT(run.registered == (std::vector<std::string>{"mw3c2", "mw3c4b"}));
+        EXPECT(run.first_offer.world == "mw3c2" && run.first_offer.ia == 1 && run.world_loaded == "mw3c2");
+        EXPECT(run.gamez_from.rfind(good, 0) == 0);  // the converted world's own, from mw1's worlds folder
+      } else {
+        EXPECT(run.registered.empty() && run.first_offer.world == "c2" && run.world_loaded == "c2");
+      }
+      EXPECT(run.funds_end > run.funds_at_offer);  // won: paid
+    };
+#if !defined(_WIN32)
+    std::fflush(nullptr);
+    const pid_t child = check::fork_child();
+    if (child == 0) {
+      one();
+      std::fflush(nullptr);
+      _exit(check::failures ? 1 : 0);
+    }
+    const int status = check::wait_child(child);
+    EXPECT(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+#else
+    one();
+#endif
+  }
 }
