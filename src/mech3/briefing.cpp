@@ -10,6 +10,7 @@
 #include "gamez/zutil/zfix.h"
 #include "gamez/zvideo/zvid_format.h"
 #include "mech3/mech_reader.h"
+#include "mech3/program_flow.h"
 
 #pragma STDC FP_CONTRACT OFF
 
@@ -554,6 +555,7 @@ void BriefingScreen::launch() {
     e.mission_cleanup(1);
     e.replace_state(2);
   } else {
+    if (ProgramFlow* x = program_flow()) x->mission_launched(e);  // ours (program_flow.h): none in MW3 or PM
     e.replace_state(5);
   }
 }

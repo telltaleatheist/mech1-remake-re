@@ -24,6 +24,10 @@ class ProgramFlow {
   // kill and the points): every mech kill, whoever made it. `victim` is the
   // dead mech (a Mech), `killer` the mech that killed it.
   virtual void mech_killed(void* victim, void* killer) {}
+  // A mission launched (the briefing's LAUNCH, BriefingScreen::launch,
+  // 0x00404f70; or a debug start's launch with no briefing), once it has
+  // launched and before the Core state: the lab's choices are final.
+  virtual void mission_launched(Engine& e) {}
 };
 void set_program_flow(ProgramFlow* x);  // null: none, the original
 ProgramFlow* program_flow();

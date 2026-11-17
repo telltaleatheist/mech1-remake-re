@@ -5007,6 +5007,12 @@ static void program_flow_kill_run() {
     void* killer = nullptr;
     void mech_killed(void* v, void* k) override { ++kills, victim = v, killer = k; }
   } flow;
+  // mission_launched: the start's auto launch, once, before any Core frame.
+  struct LaunchFlow : mech3::ProgramFlow {
+    int launched = 0, core_frames_at_launch = -1;
+    const int* core_frames = nullptr;
+    void mission_launched(mech3::Engine&) override { ++launched, core_frames_at_launch = *core_frames; }
+  } launch_flow;
   NoKeys keys;
   Window window;
   Alert alert;
@@ -5038,8 +5044,13 @@ static void program_flow_kill_run() {
     app.post_intro_ = &mech3::states().load;
     int frames = 0, made = 0, none_kills = -1, parts_items = -1, parts_mechs = -1, whole_mechs = -1;
     bool credited = false, same_victim = false, same_killer = false;
+    int launches_seen = -1;
+    launch_flow.core_frames = &frames;
+    mech3::set_program_flow(&launch_flow);
     engine.on_present = [&](int) {
       if (app.current() != &mech3::states().core || ++frames != 30) return;
+      launches_seen = launch_flow.launched;
+      mech3::set_program_flow(nullptr);
       int32_t n = 0;
       const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
       made = n;
@@ -5073,6 +5084,8 @@ static void program_flow_kill_run() {
                 made, none_kills, flow.kills, same_victim, same_killer, parts_items, parts_mechs, whole_mechs);
     EXPECT(made == 2 && none_kills == 0 && credited && flow.kills == 1 && same_victim && same_killer);
     EXPECT(parts_items > 0 && parts_mechs == 0 && whole_mechs == 1);
+    std::printf("  program flow launched: %d, at Core frame %d\n", launches_seen, launch_flow.core_frames_at_launch);
+    EXPECT(launches_seen == 1 && launch_flow.core_frames_at_launch == 0);
     mech3::missions().cleanup(false);
     app.stop_game();
     app.exit_instance();

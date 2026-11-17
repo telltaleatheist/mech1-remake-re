@@ -71,6 +71,7 @@
 #include "mech3/cheats.h"
 #include "mech3/cockpit_sound.h"
 #include "mech3/landmines.h"
+#include "mech3/program_flow.h"
 #include "mech3/load_watch.h"
 #include "mech3/entity_classes.h"
 #include "mech3/message_panel.h"
@@ -2757,6 +2758,7 @@ void GameEngine::missions_start(uint32_t list) {
                    mech_name(s.roster), s.parts, s.weapons, s.sinks, static_cast<double>(s.height),
                    static_cast<double>(s.max_speed));
     }
+    if (ProgramFlow* x = program_flow()) x->mission_launched(*this);  // ours (program_flow.h): none in MW3 or PM
     app().replace(app().state(5), 0);
   }
 }

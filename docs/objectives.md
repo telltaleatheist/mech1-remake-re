@@ -401,6 +401,10 @@ original's.
   0x0041b420, from the victim's Die), after the original's own handling of
   it (the campaign's salvage, the kill count, the points), whoever made it.
   The program decides whether the kill was its player's side.
+- `mission_launched(e)`: the briefing's LAUNCH (`BriefingScreen::launch`,
+  0x00404f70) or a debug start's launch with no briefing (`set_launch`
+  with `auto_launch`), once the mission has launched and before the Core
+  state: the lab's choices are final.
 
 Beside it, also ours and for programs built on the engine:
 `program_salvage_mech(mech, store, chassis)` (`app_mech.h`) puts a mech's
@@ -414,5 +418,5 @@ destroyed, for a program's own wreck value (MW1's condition).
 Tests: `program_flow_none_is_the_original`,
 `program_flow_sees_main_and_the_instant_action_end_headless`
 (`tests/pm/test_pm_options.cpp`),
-`program_flow_sees_kills_and_program_salvage_mech_headless`
-(`tests/pm/test_pm_mission.cpp`).
+`program_flow_sees_kills_and_program_salvage_mech_headless` (with
+`mission_launched`, `tests/pm/test_pm_mission.cpp`).
