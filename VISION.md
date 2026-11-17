@@ -79,9 +79,12 @@ data. Nothing converted is shipped.
 **The conversion tool** (Owen, 2026-11-16): a proper tool of our own, in
 C++ like the rest, in mw3-re's `tools/` beside its importer: it reads and
 writes MW3's and PM's files and converts between them. It's built on
-mw3-re's own ported readers and writers, with mech3ax studied as a
-reference for the formats and its output used as a check. mech3ax's code
-is EUPL and isn't copied or translated. MW1's first-run conversion calls
+mw3-re's own ported, exe-derived readers and writers. It overlaps Owen's
+**zipkit** plan (2026-11-14: an MIT, clean-room replacement for mech3ax), so
+its rules apply: whoever writes it has never read mech3ax's source (EUPL),
+and it uses none of mw3-re's `*_json` readers, which cite it. mech3ax's
+output may be used as a check, by running its binary. Whether this becomes
+zipkit, and where it lives, is Owen's call. MW1's first-run conversion calls
 this tool. The measurements are in `research/converter.md` (about 1.5–2
 weeks).
 
