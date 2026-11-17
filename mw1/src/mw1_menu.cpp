@@ -9,8 +9,8 @@
 
 namespace mw1::menu {
 namespace {
-const std::vector<ScreenButton> kMenuButtons = {
-    {"NEW_CAMPAIGN", "NEW CAMPAIGN"}, {"CONTINUE", "CONTINUE"}, {"OPTIONS", "OPTIONS"}, {"QUIT", "QUIT"}};
+// MW1's NEW, LOAD (the save: CONTINUE's id) and QUIT; OPTIONS (on the hub now) kept for its id, never shown.
+const std::vector<ScreenButton> kMenuButtons = {{"NEW_CAMPAIGN", "NEW"}, {"CONTINUE", "LOAD"}, {"OPTIONS", "OPTIONS"}, {"QUIT", "QUIT"}};
 
 // The narration's place and fonts (PM's fonts.zrd: Arial 16, grey then white), its lines 20 pixels apart.
 constexpr int32_t kNarrationX = 165, kNarrationY = 132, kNarrationGap = 20;
@@ -27,10 +27,11 @@ MenuState::MenuState(zgame::Handle h, std::function<void(int32_t)> pressed)
 
 void MenuState::show_menu(bool continue_on, const std::string& save_line) {
   ScreenView s;
-  s.blocks = {{24, 14, kPlaqueFont, {"MECHWARRIOR 1"}}, {24, 32, kPlaqueSmallFont, {"CRITICAL HIT"}}};
-  if (!save_line.empty()) s.blocks.push_back({70, 140, kNoteFont, {save_line}});
+  s.blocks = {at_place("TITLE", {"MECHWARRIOR"}), at_place("SUBTITLE", {"CRITICAL HIT"})};
+  if (!save_line.empty()) s.blocks.push_back(at_place("SAVE", {save_line}));
   s.buttons.resize(kMenuButtonCount);
   s.buttons[kMenuContinue - 1].on = continue_on;
+  s.buttons[kMenuOptions - 1].there = false;
   show(s);
 }
 

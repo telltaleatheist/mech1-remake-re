@@ -60,8 +60,14 @@ int main(int argc, char** argv) {
   std::sort(art.begin(), art.end());
   for (const std::filesystem::path& p : art) {
     mw1::images::Image im;
-    im.name = "mw1_" + p.stem().string();
+    const std::string stem = p.stem().string();
+    im.name = "mw1_" + stem;
     if (!load(p.string(), &im.width, &im.height, &im.pixels)) return 1;
+    // The hub's scenery darkened, with faint scanlines (the mockup's); a service picture also framed as a tile in
+    // its four looks (mw1_tile_<name>, _lit, _down, _off).
+    if (stem.rfind("hub_", 0) == 0) mw1::chrome::darken_scene(im);
+    if (stem.rfind("icon_", 0) == 0)
+      for (mw1::images::Image& t : mw1::chrome::tiles(im, "mw1_tile_" + stem.substr(5))) all.push_back(std::move(t));
     all.push_back(std::move(im));
   }
   for (mw1::images::Image& m : mw1::chrome::all()) all.push_back(std::move(m));

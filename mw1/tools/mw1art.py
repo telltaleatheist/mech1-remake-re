@@ -9,7 +9,7 @@ Each picture is cut to its use's size and shape (cover: scaled to fill, the midd
 here, so the packed pixels are exactly these (the packer adds no loss) and PNG keeps them small. No dither: the
 generated art's own grain hides 565's steps (checked on title_bg's sunset), and a dither costs a third more bytes.
 - a scene (1344x768, or a 512 square used as one): 854x480, drawn centred (the middle 640 at 4:3);
-- a service tile (icon_*): 96x96;
+- a service tile (icon_*): 100x100 (framed at pack time, mw1_chrome.h);
 - a portrait or a mech picture (768x1024): 240x320, and a small one, <name>_s, 96x128 (the crew grid's);
 - an emblem (story_darkwing_crest): 240x240.
 The intro's unused takes (intro_0_*) are left out.
@@ -25,7 +25,7 @@ import numpy as np
 from PIL import Image
 
 SCENE = (854, 480)
-TILE = (96, 96)
+TILE = (100, 100)
 PORTRAIT, PORTRAIT_SMALL = (240, 320), (96, 128)
 EMBLEM = (240, 240)
 SKIP_PREFIX = ("intro_0_",)

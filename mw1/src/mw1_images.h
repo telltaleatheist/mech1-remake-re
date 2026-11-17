@@ -16,6 +16,7 @@ inline constexpr const char* kImageLibrary = "mw1image";        // zbd/mw1image.
 inline constexpr const char* kIntroImage = "mw1_intro";         // the opening picture, letterboxed on 640x480
 inline constexpr const char* kBlackImage = "mw1_black";         // 640x480 black, the narration's backdrop
 inline constexpr int32_t kScreenW = 640, kScreenH = 480;
+inline constexpr int32_t kWideW = 854;  // the 16:9 canvas's width (480 high): the scenes' (tools/mw1art.py)
 
 struct Image {
   std::string name;            // at most 31 characters

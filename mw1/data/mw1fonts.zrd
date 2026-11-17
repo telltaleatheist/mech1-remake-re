@@ -1,0 +1,36 @@
+; MW1: Critical Hit's own fonts (fonts/README.md): added to the 2D host's
+; fonts beside the game's fonts.zrd (ztwod::Host::add_font_table, ours). Each
+; entry as fonts.zrd's (face, height, color, align, shadow), with our two
+; keys: file (the face's .ttf, under MW1's data) and tracking (pixels between
+; glyphs). Sizes for the 480-line canvas. weight stays 400: the files are the
+; weights (a heavier weight would embolden them again). A centred or right
+; font's x is the words' middle or right end.
+(
+WINDOWS_FONTS (
+  ; The plaques: the world and the date in big tracked caps; the line under in amber.
+  "mw1_plaque" (face "Saira Condensed ExtraBold" file "fonts\SairaCondensed-ExtraBold.ttf" height -26 tracking 3 align "center" color (233 236 238))
+  "mw1_plaque_sub" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -11 tracking 2 align "center" color (255 176 64))
+  ; The title screen's name and the line under it.
+  "mw1_title" (face "Saira Condensed ExtraBold" file "fonts\SairaCondensed-ExtraBold.ttf" height -54 tracking 5 shadow "true" color (240 242 244))
+  "mw1_title_43" (face "Saira Condensed ExtraBold" file "fonts\SairaCondensed-ExtraBold.ttf" height -44 tracking 4 shadow "true" color (240 242 244))  ; 4:3's, clear of the mech
+  "mw1_title_sub" (face "Saira Condensed Bold" file "fonts\SairaCondensed-Bold.ttf" height -20 tracking 9 shadow "true" color (255 176 64))
+  ; A tile's or a button's words, lit and greyed.
+  "mw1_label" (face "Saira Condensed Bold" file "fonts\SairaCondensed-Bold.ttf" height -15 tracking 2 align "center" color (217 221 224))
+  "mw1_label_off" (face "Saira Condensed Bold" file "fonts\SairaCondensed-Bold.ttf" height -15 tracking 2 align "center" color (96 100 104))
+  ; A picture tile's words, in the band at its foot (the tile 108 across: "MECH COMPLEX" fits).
+  "mw1_tile_label" (face "Saira Condensed Bold" file "fonts\SairaCondensed-Bold.ttf" height -13 tracking 1 align "center" color (217 221 224))
+  "mw1_tile_label_off" (face "Saira Condensed Bold" file "fonts\SairaCondensed-Bold.ttf" height -13 tracking 1 align "center" color (96 100 104))
+  ; A framed panel's title and lines.
+  "mw1_panel_title" (face "Saira Condensed Bold" file "fonts\SairaCondensed-Bold.ttf" height -17 tracking 3 color (255 176 64))
+  "mw1_panel_line" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -13 color (210 214 218))
+  ; The green terminal: its title, the labels dim, the values bright (x their right end), a plain bright line.
+  "mw1_term_title" (face "Saira Condensed Bold" file "fonts\SairaCondensed-Bold.ttf" height -16 tracking 3 color (110 250 150))
+  "mw1_term_dim" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -13 tracking 1 color (56 150 88))
+  "mw1_term_value" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -13 tracking 1 align "right" color (130 255 165))
+  "mw1_term_line" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -13 tracking 1 color (130 255 165))
+  ; The status line: the world in grey caps, the message in amber; a note (the title screen's save) the same amber.
+  "mw1_status_world" (face "Saira Condensed Bold" file "fonts\SairaCondensed-Bold.ttf" height -15 tracking 2 color (165 170 176))
+  "mw1_status" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -13 tracking 1 color (255 176 64))
+  "mw1_note" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -13 tracking 1 shadow "true" color (255 176 64))
+)
+)

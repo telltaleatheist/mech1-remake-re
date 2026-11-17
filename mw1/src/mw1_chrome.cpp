@@ -45,67 +45,6 @@ struct Canvas {
 
 Rgba grey(int32_t v, int32_t a = 255) { return {v, v, v + v / 16, a}; }  // gunmetal: a touch of blue
 
-// The distance in from a chamfered box's edge (corners cut `k` at 45 degrees), and which way that edge faces: lit
-// (the top, the left, the top-left cut) or not. Negative outside.
-struct Edge {
-  int32_t d;
-  bool lit;
-};
-Edge edge_of(int32_t x, int32_t y, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t k) {
-  const int32_t dl = x - x0, dt = y - y0, dr = x1 - 1 - x, db = y1 - 1 - y;
-  Edge e = {dl, true};
-  auto take = [&](int32_t d, bool lit) {
-    if (d < e.d) e = {d, lit};
-  };
-  take(dt, true), take(dr, false), take(db, false);
-  if (k > 0) {
-    // The cuts: a pixel's distance from each diagonal, in pixels (x 0.7), the top-left and bottom-right by their
-    // sides' light, the other two half and half (the top-right lit like the top, the bottom-left dark like the foot).
-    take((dl + dt - k) * 7 / 10, true), take((dr + db - k) * 7 / 10, false);
-    take((dr + dt - k) * 7 / 10, true), take((dl + db - k) * 7 / 10, false);
-  }
-  return e;
-}
-
-// A steel plate filling (x0, y0)-(x1, y1) exclusive, its corners cut `k`: a vertical gradient (light at the top), a
-// fine brushed grain, a double bevel (an outer one `bevel` wide, lit top and left; a thin reversed one inside it, so
-// the face sits proud), a black outline. Pressed: the outer bevel reversed. `tint` mixed in by its alpha (greyed off).
-void steel(Canvas& c, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t bevel, int32_t k = 0, bool pressed = false, Rgba tint = {}) {
-  const int32_t hgt = std::max(1, y1 - y0);
-  for (int32_t y = y0; y < y1; ++y)
-    for (int32_t x = x0; x < x1; ++x) {
-      const Edge e = edge_of(x, y, x0, y0, x1, y1, k);
-      if (e.d < 0) continue;  // cut away: left clear
-      int32_t v = 158 - 70 * (y - y0) / hgt;                                     // 158 at the top to 88 at the foot
-      v += ((x * 7 + y * 13) % 5 == 0) ? 7 : ((x * 3 + y) % 7 == 0 ? -6 : 0);  // grain, the same every build
-      if (e.d == 0) v = 14;                                                     // the outline
-      else if (e.d <= bevel) v = (e.lit != pressed) ? 225 - 18 * (e.d - 1) : 52 + 10 * (e.d - 1);
-      else if (e.d == bevel + 1) v = (e.lit != pressed) ? 70 : 190;           // the inner, reversed line
-      Rgba col = grey(v);
-      if (tint.a) col = {col.r + (tint.r - col.r) * tint.a / 255, col.g + (tint.g - col.g) * tint.a / 255, col.b + (tint.b - col.b) * tint.a / 255, 255};
-      c.set(x, y, col);
-    }
-}
-
-// A recess: black, with a dark rim and a 1-pixel highlight at its bottom and right (cut into the steel).
-void recess(Canvas& c, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t alpha = 255) {
-  for (int32_t y = y0; y < y1; ++y)
-    for (int32_t x = x0; x < x1; ++x) {
-      const bool rim = x == x0 || y == y0, light = x == x1 - 1 || y == y1 - 1;
-      c.set(x, y, light ? grey(175) : rim ? grey(40) : Rgba{6, 8, 10, alpha});
-    }
-}
-
-// A clear window (a tile's picture shows through), its edge a dark rim and a bright lip.
-void window(Canvas& c, int32_t x0, int32_t y0, int32_t x1, int32_t y1) {
-  for (int32_t y = y0 - 1; y <= y1; ++y)
-    for (int32_t x = x0 - 1; x <= x1; ++x) {
-      const bool inside = x >= x0 && y >= y0 && x < x1 && y < y1;
-      if (inside) c.set(x, y, {0, 0, 0, 0});
-      else c.set(x, y, (x == x1 || y == y1) ? grey(190) : grey(25));
-    }
-}
-
 // A round rivet of radius r at (cx, cy): domed, lit from the top left, a dark ring.
 void rivet(Canvas& c, int32_t cx, int32_t cy, int32_t r) {
   for (int32_t y = -r - 1; y <= r + 1; ++y)
@@ -151,64 +90,150 @@ void lamp(Canvas& c, int32_t cx, int32_t cy, int32_t r, bool on) {
 }  // namespace
 
 std::string panel_name(int32_t w, int32_t h) { return "mw1_panel_" + std::to_string(w) + "x" + std::to_string(h); }
+std::string terminal_name(int32_t w, int32_t h) { return "mw1_term_" + std::to_string(w) + "x" + std::to_string(h); }
+
+namespace {
+// A thin flat gunmetal frame `t` wide round (x0, y0)-(x1, y1): a light top edge, a dark foot, a black outline;
+// the inside left as it is.
+void thin_frame(Canvas& c, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t t, Rgba tint = {}) {
+  for (int32_t y = y0; y < y1; ++y)
+    for (int32_t x = x0; x < x1; ++x) {
+      const int32_t d = std::min({x - x0, y - y0, x1 - 1 - x, y1 - 1 - y});
+      if (d >= t) continue;
+      int32_t v = 128 - 40 * (y - y0) / std::max(1, y1 - y0);  // 128 at the top to 88 at the foot
+      if (d == 0) v = 16;                                         // the outline
+      else if (d == 1) v = (y - y0 <= 1 || x - x0 <= 1) ? 190 : 60;  // the lit lip, the shadowed one
+      else if (d == t - 1) v = 30;                                 // the inner shadow line
+      Rgba col = grey(v);
+      if (tint.a) col = {col.r + (tint.r - col.r) * tint.a / 255, col.g + (tint.g - col.g) * tint.a / 255, col.b + (tint.b - col.b) * tint.a / 255, 255};
+      c.set(x, y, col);
+    }
+}
+// Dark glass inside (x0, y0)-(x1, y1): near black, a faint lift towards the top, part see-through.
+void glass(Canvas& c, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t alpha) {
+  for (int32_t y = y0; y < y1; ++y)
+    for (int32_t x = x0; x < x1; ++x) {
+      const int32_t lift = 14 - 12 * (y - y0) / std::max(1, y1 - y0);
+      c.set(x, y, {8 + lift, 10 + lift, 13 + lift, alpha});
+    }
+}
+}  // namespace
 
 images::Image plaque() {
+  // The mockup's: dark glass in a thin gunmetal frame, a rivet at each end, half over the frame.
   Canvas c(kPlaqueW, kPlaqueH);
-  // The bar: a long plate between two end caps, the text recess along it; the caps stand taller, chamfered, each with
-  // a groove and two rivets (MW1's clamps).
-  constexpr int32_t cap = 24;
-  steel(c, cap - 4, 4, kPlaqueW - cap + 4, kPlaqueH - 4, 2, 3);
-  recess(c, kPlaqueInset + 16, 11, kPlaqueW - kPlaqueInset - 16, kPlaqueH - 11);
-  for (int32_t x0 : {0, kPlaqueW - cap}) {
-    steel(c, x0, 0, x0 + cap, kPlaqueH, 3, 6);
-    for (int32_t y = 10; y < kPlaqueH - 10; ++y) c.set(x0 + cap / 2, y, grey(40)), c.set(x0 + cap / 2 + 1, y, grey(185));
-    rivet(c, x0 + cap / 2, 8, 3), rivet(c, x0 + cap / 2, kPlaqueH - 9, 3);
-  }
-  for (int32_t x = cap + 40; x < kPlaqueW - cap - 30; x += 56) rivet(c, x, 7, 2), rivet(c, x, kPlaqueH - 8, 2);
+  glass(c, 4, 4, kPlaqueW - 4, kPlaqueH - 4, 228);
+  thin_frame(c, 0, 0, kPlaqueW, kPlaqueH, 4);
+  rivet(c, 6, kPlaqueH / 2, 3), rivet(c, kPlaqueW - 7, kPlaqueH / 2, 3);
   return c.image(kPlaque);
 }
 
 images::Image tile_frame(int32_t state) {
+  // A thin frame round the picture, a dark band inside its foot for the label (fading up into the picture). Lit:
+  // the frame amber and a glow inside; pressed: the frame darker.
   const int32_t n = kTile + 2 * kTileFrame;
   Canvas c(n, n);
-  steel(c, 0, 0, n, n, 3, 7, state == 2);
-  window(c, kTileFrame, kTileFrame, kTileFrame + kTile, kTileFrame + kTile);
-  // Corner plates on the cuts' insides: a rivet each.
-  for (int32_t x : {kTileFrame / 2 + 1, n - kTileFrame / 2 - 2})
-    for (int32_t y : {kTileFrame / 2 + 1, n - kTileFrame / 2 - 2}) rivet(c, x, y, 2);
-  if (state == 1) glow(c, kTileFrame, kTileFrame, kTileFrame + kTile, kTileFrame + kTile);
+  const Rgba amber_tint = {255, 170, 40, 200}, dark_tint = {20, 20, 22, 120};
+  thin_frame(c, 0, 0, n, n, kTileFrame, state == 1 ? amber_tint : state == 2 ? dark_tint : Rgba{});
+  for (int32_t y = 0; y < kTileBand + 10; ++y) {
+    const int32_t yy = n - kTileFrame - 1 - y;
+    const int32_t a = y < kTileBand ? 200 : 200 * (kTileBand + 10 - y) / 10;  // solid under the label, then fading
+    for (int32_t x = kTileFrame; x < n - kTileFrame; ++x) c.set(x, yy, {6, 8, 10, a});
+  }
+  if (state == 1) glow(c, kTileFrame, kTileFrame, n - kTileFrame, n - kTileFrame);
   return c.image(kTileFrames[std::clamp(state, 0, 2)]);
 }
 
+std::vector<images::Image> tiles(const images::Image& picture, const std::string& base) {
+  std::vector<images::Image> out;
+  const int32_t n = kTile + 2 * kTileFrame;
+  for (int32_t state = 0; state < 4; ++state) {
+    const images::Image f = tile_frame(state == 3 ? 0 : state);
+    images::Image im;
+    im.name = base + (state == 1 ? "_lit" : state == 2 ? "_down" : state == 3 ? "_off" : "");
+    im.width = im.height = n;
+    im.pixels.assign(static_cast<size_t>(n * n), 0);
+    for (int32_t y = 0; y < n; ++y)
+      for (int32_t x = 0; x < n; ++x) {
+        const size_t i = static_cast<size_t>(y * n + x);
+        // The picture in the window (black where it's smaller), then the frame over it by its alpha.
+        int32_t r = 0, g = 0, b = 0;
+        const int32_t px = x - kTileFrame, py = y - kTileFrame;
+        if (px >= 0 && py >= 0 && px < picture.width && py < picture.height) {
+          const uint16_t p = picture.pixels[static_cast<size_t>(py * picture.width + px)];
+          r = (p >> 11) << 3, g = ((p >> 5) & 63) << 2, b = (p & 31) << 3;
+          if (state == 3) r = g = b = (r * 30 + g * 59 + b * 11) / 100 / 3;  // off: grey and dark
+          if (state == 2) r = r * 3 / 4, g = g * 3 / 4, b = b * 3 / 4;       // pressed: a shade darker
+        }
+        const uint16_t fp = f.pixels[i];
+        const int32_t a = f.alpha[i];
+        r = (r * (255 - a) + ((fp >> 11) << 3) * a) / 255, g = (g * (255 - a) + (((fp >> 5) & 63) << 2) * a) / 255,
+        b = (b * (255 - a) + ((fp & 31) << 3) * a) / 255;
+        im.pixels[i] = images::rgb565(static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b));
+      }
+    out.push_back(std::move(im));
+  }
+  return out;
+}
+
 images::Image button(int32_t state) {
+  // Dark glass in a thin frame, a lamp at the left end: amber when lit or pressed; greyed when off.
   Canvas c(kButtonW, kButtonH);
-  const Rgba off_tint = {40, 40, 44, 150};
-  steel(c, 0, 0, kButtonW, kButtonH, 2, 5, state == 2, state == 3 ? off_tint : Rgba{});
-  // The caption's recess, and a lamp at the left end: amber when lit, dark otherwise.
-  recess(c, 22, 6, kButtonW - 10, kButtonH - 6);
-  lamp(c, 12, kButtonH / 2, 4, state == 1 || state == 2);
-  if (state == 1) glow(c, 22, 6, kButtonW - 10, kButtonH - 6);
+  const Rgba amber_tint = {255, 170, 40, 200}, off_tint = {40, 40, 44, 150};
+  glass(c, 3, 3, kButtonW - 3, kButtonH - 3, state == 2 ? 250 : 230);
+  thin_frame(c, 0, 0, kButtonW, kButtonH, 3, state == 1 ? amber_tint : state == 3 ? off_tint : Rgba{});
+  lamp(c, 13, kButtonH / 2, 4, state == 1 || state == 2);
+  if (state == 1) glow(c, 3, 3, kButtonW - 3, kButtonH - 3);
   return c.image(kButtons[std::clamp(state, 0, 3)]);
 }
 
 images::Image panel(int32_t w, int32_t h) {
+  // A steel menu panel (the Bar's menu, a contract): dark glass in a thin frame, a rivet at each corner.
   Canvas c(w, h);
-  // A steel border, its corners cut, a corner plate with a rivet at each, rivets along the sides; the body dark and
-  // 80% opaque, a thin steel trim round it.
-  steel(c, 0, 0, w, h, 3, 10);
-  recess(c, kPanelBorder, kPanelBorder, w - kPanelBorder, h - kPanelBorder, 205);
-  for (int32_t x : {9, w - 10})
-    for (int32_t y : {9, h - 10}) rivet(c, x, y, 3);
-  for (int32_t x = 64; x < w - 48; x += 64) rivet(c, x, 5, 2), rivet(c, x, h - 6, 2);
-  for (int32_t y = 64; y < h - 48; y += 64) rivet(c, 5, y, 2), rivet(c, w - 6, y, 2);
+  glass(c, 4, 4, w - 4, h - 4, 215);
+  thin_frame(c, 0, 0, w, h, 4);
+  for (int32_t x : {5, w - 6})
+    for (int32_t y : {5, h - 6}) rivet(c, x, y, 2);
   return c.image(panel_name(w, h));
 }
 
+images::Image terminal(int32_t w, int32_t h) {
+  // The mockup's green terminal: a thin green border (and a dim line inside it), the body near-black green.
+  Canvas c(w, h);
+  for (int32_t y = 0; y < h; ++y)
+    for (int32_t x = 0; x < w; ++x) {
+      const int32_t d = std::min({x, y, w - 1 - x, h - 1 - y});
+      c.set(x, y, d < 2 ? Rgba{70, 190, 105, 255} : d == 3 ? Rgba{30, 80, 45, 230} : Rgba{4, 14, 8, 214});
+    }
+  return c.image(terminal_name(w, h));
+}
+
+images::Image status_bar() {
+  // Across the screen's foot: a thin amber rule, then a dark band fading down to more solid.
+  Canvas c(images::kWideW, kStatusH);
+  for (int32_t y = 0; y < kStatusH; ++y)
+    for (int32_t x = 0; x < images::kWideW; ++x)
+      c.set(x, y, y == 0 ? Rgba{200, 130, 40, 210} : Rgba{4, 5, 7, 150 + 60 * y / kStatusH});
+  return c.image(kStatusBar);
+}
+
+void darken_scene(images::Image& im) {
+  // The hub's scenery as the mockup shows it: darker, and faint scanlines (every other line a shade darker).
+  for (int32_t y = 0; y < im.height; ++y)
+    for (int32_t x = 0; x < im.width; ++x) {
+      uint16_t& p = im.pixels[static_cast<size_t>(y * im.width + x)];
+      const int32_t k = kSceneLight * (y % 2 ? kScanline : 100) / 100;  // percent kept
+      const int32_t r = ((p >> 11) << 3) * k / 100, g = (((p >> 5) & 63) << 2) * k / 100, b = ((p & 31) << 3) * k / 100;
+      p = images::rgb565(static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b));
+    }
+}
+
 std::vector<images::Image> all() {
-  std::vector<images::Image> v = {plaque()};
+  std::vector<images::Image> v = {plaque(), status_bar()};
   for (int32_t s = 0; s < 3; ++s) v.push_back(tile_frame(s));
   for (int32_t s = 0; s < 4; ++s) v.push_back(button(s));
   for (const PanelSize& p : panel_sizes()) v.push_back(panel(p.w, p.h));
+  for (const PanelSize& p : terminal_sizes()) v.push_back(terminal(p.w, p.h));
   return v;
 }
 

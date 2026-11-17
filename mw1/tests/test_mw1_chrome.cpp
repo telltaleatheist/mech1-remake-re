@@ -22,14 +22,26 @@ uint8_t alpha_at(const mw1::images::Image& im, int32_t x, int32_t y) { return im
 
 TEST(mw1_chrome_pieces) {
   const std::vector<mw1::images::Image> all = mw1::chrome::all();
-  EXPECT(all.size() == 1 + 3 + 4 + mw1::chrome::panel_sizes().size());
+  EXPECT(all.size() == 2 + 3 + 4 + mw1::chrome::panel_sizes().size() + mw1::chrome::terminal_sizes().size());
   for (const mw1::images::Image& im : all)
     EXPECT(im.alpha.size() == im.pixels.size() && im.pixels.size() == static_cast<size_t>(im.width * im.height) && im.name.size() <= 31);
   const mw1::images::Image p = mw1::chrome::plaque();
-  EXPECT(p.width == mw1::kPlaqueW && p.height == mw1::kPlaqueH && alpha_at(p, p.width / 2, p.height / 2) == 255);
+  EXPECT(p.width == mw1::kPlaqueW && p.height == mw1::kPlaqueH && alpha_at(p, p.width / 2, p.height / 2) > 200 &&
+         alpha_at(p, p.width / 2, 0) == 255);  // dark glass in a solid frame
   const mw1::images::Image t = mw1::chrome::tile_frame(0);
   const int32_t n = mw1::kTile + 2 * mw1::kTileFrame;
-  EXPECT(t.width == n && t.height == n && alpha_at(t, n / 2, n / 2) == 0 && alpha_at(t, 2, n / 2) == 255);
+  EXPECT(t.width == n && t.height == n && alpha_at(t, n / 2, n / 2) == 0 && alpha_at(t, 1, n / 2) == 255 &&
+         alpha_at(t, n / 2, n - mw1::kTileFrame - 2) > 150);  // the picture clear, the frame solid, the label's band dark
+  // A tile's four looks from a picture: opaque, the frame's size; lit, pressed and off differ.
+  mw1::images::Image pic;
+  pic.width = pic.height = mw1::kTile;
+  pic.pixels.assign(static_cast<size_t>(mw1::kTile * mw1::kTile), mw1::images::rgb565(200, 60, 40));
+  const std::vector<mw1::images::Image> looks = mw1::chrome::tiles(pic, "mw1_tile_test");
+  EXPECT(looks.size() == 4 && looks[0].name == "mw1_tile_test" && looks[1].name == "mw1_tile_test_lit" && looks[3].name == "mw1_tile_test_off");
+  for (const mw1::images::Image& l : looks) EXPECT(l.width == n && l.alpha.empty());
+  const size_t mid = static_cast<size_t>(n / 2 * n + n / 2);
+  EXPECT(looks[0].pixels[mid] == pic.pixels[0] && looks[2].pixels[mid] != pic.pixels[0] && looks[3].pixels[mid] != pic.pixels[0]);
+  EXPECT(mw1::chrome::terminal(232, 150).name == "mw1_term_232x150" && mw1::chrome::status_bar().width == mw1::images::kWideW);
   const mw1::images::Image pn = mw1::chrome::panel(232, 120);
   EXPECT(pn.name == "mw1_panel_232x120" && alpha_at(pn, 116, 60) > 150 && alpha_at(pn, 116, 60) < 255);
   // The states differ (lit, pressed, off), and the same each build.

@@ -33,9 +33,21 @@ if(MSVC)
   add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:/EHsc>")
 endif()
 
+# The worlds' scenery (data-src/art/scenery.csv, tools/mw1art.py's: MW1's planet number and our scenery type only)
+# as a table for src/mw1_scenery.cpp, written at configure time and again when the table changes.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/data-src/art/scenery.csv)
+file(STRINGS ${CMAKE_CURRENT_SOURCE_DIR}/data-src/art/scenery.csv mw1_scenery_rows)
+set(mw1_scenery_inc "// Written by mw1/CMakeLists.txt from data-src/art/scenery.csv.\n")
+foreach(row IN LISTS mw1_scenery_rows)
+  if(row MATCHES "^([0-9]+),([a-z_]+)$")
+    string(APPEND mw1_scenery_inc "{${CMAKE_MATCH_1}, \"${CMAKE_MATCH_2}\"},\n")
+  endif()
+endforeach()
+file(CONFIGURE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/mw1gen-src/mw1_scenery.inc CONTENT "${mw1_scenery_inc}")
+
 # What MW1 adds that a test can reach without SDL.
-add_library(mw1core STATIC src/mw1_start.cpp src/mw1_campaign.cpp src/mw1_game.cpp src/mw1_save.cpp src/mw1_worlds.cpp src/mw1_hub.cpp src/mw1_market.cpp src/mw1_travel.cpp src/mw1_pilots.cpp src/mw1_repairs.cpp src/mw1_missions.cpp src/mw1_images.cpp src/mw1_menu.cpp src/mw1_screen.cpp src/mw1_market_screen.cpp src/mw1_travel_screen.cpp src/mw1_bar_screen.cpp src/mw1_office.cpp src/mw1_story.cpp src/mw1_event_screen.cpp src/mw1_travel_map.cpp src/mw1_map_image.cpp src/mw1_chrome.cpp)
-target_include_directories(mw1core PUBLIC src ${MW3RE_DIR}/src)
+add_library(mw1core STATIC src/mw1_start.cpp src/mw1_campaign.cpp src/mw1_game.cpp src/mw1_save.cpp src/mw1_worlds.cpp src/mw1_hub.cpp src/mw1_market.cpp src/mw1_travel.cpp src/mw1_pilots.cpp src/mw1_repairs.cpp src/mw1_missions.cpp src/mw1_images.cpp src/mw1_menu.cpp src/mw1_screen.cpp src/mw1_market_screen.cpp src/mw1_travel_screen.cpp src/mw1_bar_screen.cpp src/mw1_office.cpp src/mw1_story.cpp src/mw1_event_screen.cpp src/mw1_travel_map.cpp src/mw1_map_image.cpp src/mw1_chrome.cpp src/mw1_scenery.cpp)
+target_include_directories(mw1core PUBLIC src ${MW3RE_DIR}/src PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/mw1gen-src)
 target_link_libraries(mw1core PUBLIC pmcore mw3core zipkitlib)
 
 add_executable(mw1tests ${MW3RE_DIR}/tests/main.cpp tests/test_mw1_start.cpp tests/test_mw1_campaign.cpp tests/test_mw1_loop.cpp tests/test_mw1_save.cpp tests/test_mw1_worlds.cpp tests/test_mw1_market.cpp tests/test_mw1_travel.cpp tests/test_mw1_pilots.cpp tests/test_mw1_repairs.cpp tests/test_mw1_missions.cpp tests/test_mw1_menu.cpp tests/test_mw1_office.cpp tests/test_mw1_story.cpp tests/test_mw1_travel_map.cpp tests/test_mw1_map_image.cpp tests/test_mw1_chrome.cpp)
@@ -112,9 +124,10 @@ if(TARGET mw3pm)
   # Beside mw3pm and the launcher, whose MECHWARRIOR 1 entry starts mw1 from its own folder (docs/launcher.md,
   # MechWarrior 1).
   set_target_properties(mw1 PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-  # MW1's own data (the hub's layout, data/), beside the program as mw1data/: mounted at the start (mw1_main.cpp).
-  add_custom_command(TARGET mw1 POST_BUILD
-                     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/data $<TARGET_FILE_DIR:mw1>/mw1data)
+  # MW1's own data (the layouts, the fonts, data/), beside the program as mw1data/: mounted at the start
+  # (mw1_main.cpp). Copied on every build (a layout changed alone relinks nothing).
+  add_custom_target(mw1data ALL COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/data $<TARGET_FILE_DIR:mw1>/mw1data)
+  add_dependencies(mw1 mw1data)
   # MW1's own images (src/mw1_images.h), packed from data-src/ at build time into PM's image format: mw1data/zbd/.
   # The travel map's backdrops are drawn from the worlds' data (src/mw1_map_image.h): mw1core.
   add_executable(mw1imgpack tools/mw1imgpack.cpp)

@@ -41,6 +41,7 @@
 #include "mech3/zai_params.h"
 #include "mw1_bar_screen.h"
 #include "mw1_event_screen.h"
+#include "mw1_scenery.h"
 #include "mw1_story.h"
 #include "mw1_campaign.h"
 #include "mw1_game.h"
@@ -392,7 +393,25 @@ void loop_run(Ending ending, Run* run = nullptr) {
         for (const std::string& l : shown) std::printf(" [%s]", l.c_str());
         std::printf("\n");
         // Always: the plaque, the company, the later screens greyed, QUIT there.
-        EXPECT(sc->loaded() && c && has("HOUSE ") && c->planet != "Planet" && !c->planet.empty() && has("Stores: " + std::to_string(c->stores->count())));
+        // (The terminal's rows: their labels, then their values, C-BILLS, PAYROLL, STORES, KILLS.)
+        auto value_of = [&](const char* label) {
+          for (size_t i = 0; i + 4 < shown.size(); ++i)
+            if (shown[i] == "C-BILLS" && shown[i + 3] == "KILLS") {
+              const char* const kLabels[] = {"C-BILLS", "PAYROLL", "STORES", "KILLS"};
+              for (size_t j = 0; j < 4; ++j)
+                if (std::string(kLabels[j]) == label && i + 4 + j < shown.size()) return shown[i + 4 + j];
+            }
+          return std::string();
+        };
+        EXPECT(sc->loaded() && c && has("HOUSE ") && c->planet != "Planet" && !c->planet.empty() &&
+               value_of("STORES") == std::to_string(c->stores->count()));
+        // The world's scenery behind it, and its House's office tile.
+        EXPECT(sc->backdrop() == mw1::scenery_image(c->planet_number) &&
+               sc->look(mw1::kHubOffice) == "mw1_tile_house_" + [&] {
+                 std::string h = mw1::kHouses[c->planet_house].name;
+                 for (char& ch : h) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+                 return h;
+               }());
         for (int32_t id : {mw1::kHubMarket, mw1::kHubTravel, mw1::kHubBar})
           EXPECT(sc->visible(id) && sc->enabled(id) == (mw1::game_loop_pending() == nullptr));
         EXPECT(has(mw1::date_words(c->date)));
@@ -481,7 +500,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
           if (run && k) run->last_offer = *k;
           std::string f = std::to_string(c->funds);
           for (int i = static_cast<int>(f.size()) - 3; i > 0; i -= 3) f.insert(static_cast<size_t>(i), ",");
-          EXPECT(has("Funds: " + f + " C-bills"));
+          EXPECT(value_of("C-BILLS") == f);
           hub_checked = true;
           sc->on_button(mw1::kHubAccept, 0, 0);
           return;
@@ -1371,9 +1390,9 @@ std::string read_file(const fs::path& f) {
 }  // namespace
 
 // NEW CAMPAIGN with no save: the menu first (CONTINUE greyed), no question, MW1's intro played to its end on its own
-// (the narration from the exe, grey then white, then the picture), the new company in the hub, saved. The hub's QUIT
-// back to the menu (CONTINUE on, the company named), OPTIONS opens PM's own options and BACK comes back, QUIT asks
-// PM's quit box and leaves.
+// (the narration from the exe, grey then white, then the picture), the new company in the hub, saved. The hub's
+// OPTIONS opens PM's own options and BACK comes back; its MAIN MENU goes back to the title screen (LOAD on, the
+// company named), whose QUIT asks PM's quit box and leaves.
 TEST(mw1_menu_new_campaign_plays_the_intro_then_the_hub_headless) {
   std::error_code ec;
   if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
@@ -1415,26 +1434,27 @@ TEST(mw1_menu_new_campaign_plays_the_intro_then_the_hub_headless) {
           if (!showing(app, hub)) return false;
           ++step, wait = 0;
           return false;
-        case 2:  // the hub, the new company saved; QUIT: the menu
+        case 2:  // the hub, the new company saved; its OPTIONS tile
           EXPECT(mw1::game_loop_company() && fs::exists(r.save, ec));
-          hub->screen()->on_button(mw1::kHubQuit, 0, 0);
+          hub->screen()->on_button(mw1::kHubOptions, 0, 0);
           ++step, wait = 0;
           return false;
-        case 3:  // the menu again: CONTINUE on; OPTIONS
-          if (!showing(app, m)) return false;
-          menu_later = m->screen()->shown();
-          EXPECT(m->screen()->enabled(mw1::kMenuContinue));
-          m->screen()->on_button(mw1::kMenuOptions, 0, 0);
-          ++step, wait = 0;
-          return false;
-        case 4:  // PM's options state; its BACK (Escape)
-          if (app.current() == static_cast<zgame::State*>(m) || !app.current()) return false;
+        case 3:  // PM's options state over the hub; its BACK (Escape)
+          if (app.current() == static_cast<zgame::State*>(hub) || !app.current()) return false;
           options_seen = engine.menu_state_of(engine.peek32(0x609868)) != nullptr &&
                          app.current() == static_cast<zgame::State*>(engine.menu_state_of(engine.peek32(0x609868)));
           static_cast<mech3::ShellState*>(app.current())->escape();
           ++step, wait = 0;
           return false;
-        case 5:  // back at the menu: QUIT
+        case 4:  // the hub again; MAIN MENU: the title screen
+          if (!showing(app, hub)) return false;
+          hub->screen()->on_button(mw1::kHubQuit, 0, 0);
+          ++step, wait = 0;
+          return false;
+        case 5:  // the title screen again: LOAD on, OPTIONS never shown; QUIT
+          if (!showing(app, m)) return false;
+          menu_later = m->screen()->shown();
+          EXPECT(m->screen()->enabled(mw1::kMenuContinue) && !m->screen()->visible(mw1::kMenuOptions));
           if (!showing(app, m)) return false;
           r.box = [&](const std::string&) -> uint32_t { return quit_asked = true, 1u; };
           m->screen()->on_button(mw1::kMenuQuit, 0, 0);  // the box answered at once: the game leaves

@@ -1,12 +1,11 @@
 #pragma once
 // MW1's planet hub (VISION.md, the home base): the screen the company sits in
 // between missions, on MW1's screen template (mw1_screen.h) with MW1's own
-// layout, mw1hub.zrd in MW1's data folder. Its art is Pirate's Moon's, named
-// there and read from the player's install: the main menu's backdrop
-// (borrowed as its sub-screens do), the popup box as the panels behind the
-// texts, the briefing's icons (launch, abort, replay) and the round button
-// with MW1's own words (greyed as PM greys it); MW1's own art takes their
-// names' places later.
+// layout, mw1hub.zrd in MW1's data folder, and MW1's own art (FIXES.md item 3:
+// Owen's hub mockup in MW1's layout): the world's scenery, the plaques, the
+// services as picture tiles down both sides, the middle panel (the contract,
+// AFTER ACTION, the news and the messages), the company's green terminal and
+// the status line.
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -20,22 +19,26 @@ inline constexpr const char* kHubFile = "mw1hub.zrd";     // MW1's data folder
 inline constexpr const char* kHubDialog = "MW1HUBDIALOG";  // its dialog
 
 // The hub's buttons, by their ids (and their names in mw1hub.zrd's BUTTONS).
-enum HubButton : int32_t { kHubAccept = 1, kHubDecline, kHubOk, kHubReplay, kHubMarket, kHubBar, kHubTravel, kHubQuit, kHubOffice };
-inline constexpr int32_t kHubButtonCount = 9;
+enum HubButton : int32_t { kHubAccept = 1, kHubDecline, kHubOk, kHubReplay, kHubMarket, kHubBar, kHubTravel, kHubQuit, kHubOffice, kHubOptions };
+inline constexpr int32_t kHubButtonCount = 10;
 const char* hub_button_name(int32_t id);  // "ACCEPT", ... ("" for no button)
 
-// What the hub shows: the planet's plaque, the company's panel and the middle
-// panel, the contract on offer or a mission's AFTER ACTION.
+// What the hub shows: the plaques, the company's terminal, the middle panel
+// (the contract on offer or a mission's AFTER ACTION), the status line.
 struct HubView {
-  std::string planet, house;          // the plaque: "ROBINSON", "HOUSE DAVION"
-  std::string date;                   // under it: "APRIL 3024"
-  std::vector<std::string> company;   // the company's panel's lines
+  std::string scenery;                // the backdrop's picture (mw1_scenery.h's scenery_image)
+  std::string office;                 // the House office tile's look: "mw1_tile_house_davion"
+  std::string planet, house;          // the left plaque: "ROBINSON", "HOUSE DAVION"
+  std::string date, day;              // the right one: "APRIL 3024", "DAY 14 \xB7 PAYDAY IN 16"
+  std::vector<std::string> labels, values;  // the terminal's rows: "C-BILLS", "412,750"
+  std::vector<std::string> mechs, kinds;    // its mechs: "Owens", "LIGHT"
+  std::string status;                 // the status line's message
   std::string title;                  // the middle panel's: "CONTRACT ON OFFER", "AFTER ACTION"
   std::vector<std::string> panel;     // its lines
   bool after_action = false;          // OK (and REPLAY when `replay`) in place of ACCEPT and DECLINE
   bool replay = false;
   bool offer = true;                  // ACCEPT and DECLINE (none without an offer)
-  bool office = true;                 // the world has a House office: OFFICE opens, an offer or not (MW1's)
+  bool office_open = true;            // the world has a House office: OFFICE opens, an offer or not (MW1's)
 };
 
 using HubScreen = Mw1Screen;
