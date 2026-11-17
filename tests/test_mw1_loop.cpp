@@ -23,6 +23,7 @@
 #include "mech3/app_mech.h"
 #include "mech3/app_states.h"
 #include "mech3/mech_control.h"
+#include "mech3/mech_objective.h"
 #include "mech3/mission.h"
 #include "mech3/options.h"
 #include "mech3/pilot.h"
@@ -76,7 +77,8 @@ struct Pump : platform::MessagePump {
   void post_quit() override {}
 };
 
-enum Ending { kWon, kFailed, kQuit };
+// kReach: the reach-a-structure contract (c2's ia2, portalgate), won by walking there, nobody killed.
+enum Ending { kWon, kFailed, kQuit, kReach };
 
 void loop_run(Ending ending) {
   zgame::set_game(pm::table());
@@ -93,7 +95,7 @@ void loop_run(Ending ending) {
   mech3::mech_types_forget();
   mech3::player_controls_instance() = nullptr;
   mech3::options() = mech3::Options{};
-  mw1::install_game_loop(1);
+  mw1::install_game_loop(1, ending == kReach ? "portalgate" : nullptr);
   NoKeys keys;
   Window window;
   Alert alert;
@@ -107,7 +109,8 @@ void loop_run(Ending ending) {
   p.sound = &sound, p.files = &files, p.input = &keys;
   int64_t funds_at_offer = 0, funds_in_mission = 0;
   int boxes = 0, enemies = 0, killed = 0, items_at_offer = 0, target = -1;
-  bool ended = false, back_at_main = false;
+  bool ended = false, back_at_main = false, reach_only = false, reached = false;
+  int reach_frames = 0;
   {
     mech3::GameEngine engine(p, "mech3.exe -nofmv");
     engine.quiet = true;
@@ -129,12 +132,35 @@ void loop_run(Ending ending) {
     engine.on_present = [&](int) {
       if (app.pending()) return;
       if (boxes >= 3 && app.current() == &mech3::states().main) back_at_main = true;
-      if (ended || app.current() != &mech3::states().core || ++frames != 30) return;
+      if (ended || app.current() != &mech3::states().core) return;
+      if (ending == kReach && frames >= 30) {  // walked there: the objective done, Instant Action's end as above
+        reached = reached || mech3::missions().ended;
+        if (!reached && ++reach_frames < 600) return;
+        for (int i = app.depth(); i > 0; --i) app.pop(1);
+        app.replace(&mech3::states().ia_dummy, 0);
+        ended = true;
+        return;
+      }
+      if (++frames != 30) return;
       // In the mission: the player disables every enemy, the mission is won, and Instant Action ends (IA Dummy).
       if (const mw1::Company* c = mw1::game_loop_company()) funds_in_mission = c->funds;  // the advance paid
       int32_t n = 0;
       const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
       enemies = n;
+      if (ending == kReach) {
+        // The primary is the reach alone (no "destroy the enemies"): the player put at the structure's node.
+        const mech3::Objectives& o = mech3::mission_objectives();
+        const mech3::ReachAreaObjective* r = nullptr;
+        if (o.primary && o.primary->items.size() == 1) r = dynamic_cast<const mech3::ReachAreaObjective*>(o.primary->items.front().get());
+        reach_only = r != nullptr;
+        if (r) {
+          float at[3];
+          mech3::mission_objective_hooks().node_position(r->node, at);
+          std::printf("  portalgate at %.0f %.0f %.0f\n", at[0], at[1], at[2]);
+          mech3::move_mech(mech3::mech_mission_player(), at, 0.0f);
+        }
+        return;
+      }
       for (int32_t i = 0; i < n; ++i) killed += mech3::program_mech_kill_credit(mech3::mech_mission_player(), ai[i].mech);
       if (ending != kQuit) mech3::missions().ended = 1;
       if (ending == kFailed) mech3::missions().aborting = 1;  // as abort_now: ended, as a failure
@@ -150,11 +176,12 @@ void loop_run(Ending ending) {
     mech3::set_app(nullptr);
   }
   const mw1::Company* c = mw1::game_loop_company();
-  static const char* const kSaid[] = {"won", "failed", "quit"};
+  static const char* const kSaid[] = {"won", "failed", "quit", "reach"};
   std::printf("  mw1 loop, %s: %d boxes, %d enemies, %d disabled, funds %lld -> %lld, stores %d -> %d items, kills %d, favor %d\n",
               kSaid[ending], boxes, enemies, killed, static_cast<long long>(funds_at_offer), c ? static_cast<long long>(c->funds) : -1LL,
               items_at_offer, c ? c->stores->count() : -1, c ? c->kills : -1, c ? c->favor[c->planet_house] : -1);
-  EXPECT(boxes == 3 && back_at_main && enemies > 0 && killed == enemies);
+  EXPECT(boxes == 3 && back_at_main && enemies > 0 && killed == (ending == kReach ? 0 : enemies));
+  if (ending == kReach) EXPECT(reach_only && reached);
   EXPECT(c && funds_in_mission > funds_at_offer);  // the advance, at accepting
   // The Houses (VISION.md, the endings): the House you fought +2 grievance every time; the employer +2 favor on
   // a win, nothing on a failure, +1 grievance on a quit.
@@ -165,8 +192,11 @@ void loop_run(Ending ending) {
               c && target >= 0 && target < mw1::kHouseCount ? c->grievance[target] : -1);
   EXPECT(target >= 0 && target != employer);
   if (c && target < mw1::kHouseCount) EXPECT(c->grievance[target] == 2);
-  EXPECT(c && c->favor[employer] == (ending == kWon ? 2 : 0) && c->grievance[employer] == (ending == kQuit ? 1 : 0));
-  if (ending == kWon) {
+  const bool won = ending == kWon || ending == kReach;
+  EXPECT(c && c->favor[employer] == (won ? 2 : 0) && c->grievance[employer] == (ending == kQuit ? 1 : 0));
+  if (ending == kReach) {
+    EXPECT(c && c->funds > funds_in_mission && c->kills == 0 && c->stores->count() == items_at_offer);  // the fee alone
+  } else if (ending == kWon) {
     EXPECT(c && c->kills == enemies);  // every wreck counted
     EXPECT(c && c->funds > funds_in_mission);                            // the fee and the salvage
     EXPECT(c && c->stores->count() > items_at_offer);                    // the enemies' parts
@@ -183,10 +213,10 @@ void loop_run(Ending ending) {
 }
 }  // namespace
 
-TEST(mw1_loop_hub_contract_mission_settlement_won_failed_quit_headless) {
+TEST(mw1_loop_hub_contract_mission_settlement_won_failed_quit_reach_headless) {
   std::error_code ec;
   if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
-  for (const Ending ending : {kWon, kFailed, kQuit}) {
+  for (const Ending ending : {kWon, kFailed, kQuit, kReach}) {
 #if !defined(_WIN32)
     std::fflush(nullptr);
     const pid_t child = check::fork_child();

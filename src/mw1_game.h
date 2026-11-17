@@ -10,7 +10,10 @@ namespace mw1 {
 
 // Set the loop on the engine before PM's game main runs. A seed of 0 rolls
 // the company at random; another gives the same company and contracts (tests).
-void install_game_loop(uint32_t seed);
+// A structure's node (`reach`, e.g. c2 ia2's "portalgate") makes every
+// contract reach-a-structure on that map instead of destroy-all (the
+// milestone's second objective, until contracts choose their own).
+void install_game_loop(uint32_t seed, const char* reach = nullptr);
 // Taken off the engine again, and the company dropped (tests).
 void uninstall_game_loop();
 struct Company;

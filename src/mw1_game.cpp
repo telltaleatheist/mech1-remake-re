@@ -19,6 +19,8 @@ namespace mw1 {
 namespace {
 
 constexpr int32_t kBoxOk = 0, kBoxYesNo = 4, kAnswerYes = 6;  // the message box's styles and answer (Win32's)
+constexpr float kReachRadius = 10.0f;  // metres from the structure's node (reach_area's own default is 25)
+constexpr int32_t kReachIa = 2;        // the map with the structures (c2's ia2)
 
 std::string thousands(int64_t v) {
   std::string s = std::to_string(v < 0 ? -v : v);
@@ -34,7 +36,7 @@ int32_t condition_of(void* mech) {
 
 class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
  public:
-  explicit Loop(uint32_t seed) : rng_(seed ? seed : std::random_device{}()) {}
+  Loop(uint32_t seed, const char* reach) : rng_(seed ? seed : std::random_device{}()), reach_(reach ? reach : "") {}
 
   // ---- ProgramFlow ----
   bool main_entered(mech3::Engine& e) override {
@@ -60,14 +62,21 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
                                thousands(company_.funds) + " C-bills");
     }
     contract_ = generate_contract(company_, 0, rng_);
+    if (!reach_.empty()) contract_.objective = Objective::kReachStructure, contract_.ia = kReachIa, contract_.structure = reach_;
+    const bool reach = contract_.objective == Objective::kReachStructure;
     std::string enemies;
     for (int32_t k : contract_.enemies) enemies += std::string(enemies.empty() ? "" : ", ") + kMechKinds[k].name;
     const std::string offer = company_.planet + ", House " + kHouses[company_.planet_house].name + "\nFunds: " +
-                              thousands(company_.funds) + " C-bills\n\nContract: destroy all enemy mechs\nEnemy: " + enemies +
+                              thousands(company_.funds) + " C-bills\n\nContract: " +
+                              (reach ? "reach the " + contract_.structure : std::string("destroy all enemy mechs")) +
+                              (contract_.target < kHouseCount ? "\nAgainst: House " + std::string(kHouses[contract_.target].name)
+                                                               : std::string()) +
+                              "\nEnemy: " + enemies +
                               "\nPayment: " + thousands(int64_t{contract_.payment} * 1000) + " C-bills, advance " +
                               std::to_string(contract_.advance_percent) + "%, salvage " +
                               std::to_string(contract_.salvage_percent) + "%\n\nAccept and deploy?";
-    std::printf("mw1: offered: %s, %d thousand, %zu enemies\n", "destroy all", contract_.payment, contract_.enemies.size());
+    std::printf("mw1: offered: %s, %d thousand, %zu enemies\n", reach ? ("reach " + contract_.structure).c_str() : "destroy all",
+                contract_.payment, contract_.enemies.size());
     if (static_cast<int32_t>(ge.message_box_words(kBoxYesNo, "MechWarrior 1: Critical Hit", offer)) != kAnswerYes) return returning;
     accept(company_, contract_);
     deploy(ge);
@@ -98,8 +107,26 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   const Contract* contract() const { return company_.stores ? &contract_ : nullptr; }
 
   // ---- ObjectivesExtension ----
-  // Destroy all: Instant Action's own "destroy the enemies"; any other objective wins alone.
-  bool add_enemy_group(const mech3::Objectives&) override { return !deployed_ || contract_.objective == Objective::kDestroyAll; }
+  // Reach a structure: the mission's primary is reaching its node alone, as the data's reach_area builds one. The
+  // contract sets the goal: a map's own primary (c2's ia2: "Destroy Enemy Base") is replaced; its other groups stay.
+  void block_read(zrdr::Node*, mech3::Objectives& o) override {
+    reach_set_ = false;
+    if (!deployed_ || contract_.objective != Objective::kReachStructure) return;
+    mech3::ObjectiveHooks& h = mech3::mission_objective_hooks();
+    const zgame::Handle node = h.node_find(contract_.structure.c_str());
+    if (!node) {  // not on this map: the enemies to destroy instead, said
+      std::printf("mw1: no %s on %sia%d: destroy all instead\n", contract_.structure.c_str(), contract_.world.c_str(), contract_.ia);
+      return;
+    }
+    float point[3];
+    h.default_point(point);
+    const std::string desc = "Reach the " + contract_.structure;
+    o.primary = std::make_unique<mech3::ObjectiveGroup>(h.message(0x16d));
+    o.primary->items.push_back(std::make_unique<mech3::ReachAreaObjective>(desc.c_str(), node, point, kReachRadius));
+    reach_set_ = true;
+  }
+  // Destroy all: Instant Action's own "destroy the enemies"; a reach objective wins alone.
+  bool add_enemy_group(const mech3::Objectives&) override { return !deployed_ || !reach_set_; }
 
  private:
   // The contract's map (an Instant Action archive, plain Battle), the enemy force, and the company's mech, straight
@@ -129,7 +156,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   std::unique_ptr<mech3::ActionGame> game_;
   std::vector<Wreck> wrecks_;
   std::unique_ptr<mech3::Store> salvage_;  // this mission's parts, the stores' on a win
-  bool deployed_ = false, ended_ = false, failed_ = false;
+  bool deployed_ = false, ended_ = false, failed_ = false, reach_set_ = false;
+  std::string reach_;  // install_game_loop's structure: every contract reach-a-structure
 };
 
 }  // namespace
@@ -139,8 +167,8 @@ static std::unique_ptr<Loop>& the_loop() {
   return loop;
 }
 
-void install_game_loop(uint32_t seed) {
-  the_loop() = std::make_unique<Loop>(seed);
+void install_game_loop(uint32_t seed, const char* reach) {
+  the_loop() = std::make_unique<Loop>(seed, reach);
   mech3::set_program_flow(the_loop().get());
   mech3::set_objectives_extension(the_loop().get());
 }
