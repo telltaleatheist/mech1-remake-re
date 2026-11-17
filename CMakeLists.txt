@@ -39,11 +39,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(MW3RE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/mw3-re")
 
 # What MW1 adds that a test can reach without SDL.
-add_library(mw1core STATIC src/mw1_start.cpp src/mw1_campaign.cpp src/mw1_game.cpp src/mw1_save.cpp src/mw1_worlds.cpp src/mw1_hub.cpp src/mw1_market.cpp src/mw1_travel.cpp src/mw1_pilots.cpp src/mw1_repairs.cpp src/mw1_missions.cpp src/mw1_images.cpp src/mw1_menu.cpp src/mw1_screen.cpp src/mw1_market_screen.cpp src/mw1_travel_screen.cpp src/mw1_bar_screen.cpp)
+add_library(mw1core STATIC src/mw1_start.cpp src/mw1_campaign.cpp src/mw1_game.cpp src/mw1_save.cpp src/mw1_worlds.cpp src/mw1_hub.cpp src/mw1_market.cpp src/mw1_travel.cpp src/mw1_pilots.cpp src/mw1_repairs.cpp src/mw1_missions.cpp src/mw1_images.cpp src/mw1_menu.cpp src/mw1_screen.cpp src/mw1_market_screen.cpp src/mw1_travel_screen.cpp src/mw1_bar_screen.cpp src/mw1_office.cpp)
 target_include_directories(mw1core PUBLIC src ${MW3RE_DIR}/src)
 target_link_libraries(mw1core PUBLIC pmcore mw3core zipkitlib)
 
-add_executable(mw1tests ${MW3RE_DIR}/tests/main.cpp tests/test_mw1_start.cpp tests/test_mw1_campaign.cpp tests/test_mw1_loop.cpp tests/test_mw1_save.cpp tests/test_mw1_worlds.cpp tests/test_mw1_market.cpp tests/test_mw1_travel.cpp tests/test_mw1_pilots.cpp tests/test_mw1_repairs.cpp tests/test_mw1_missions.cpp tests/test_mw1_menu.cpp)
+add_executable(mw1tests ${MW3RE_DIR}/tests/main.cpp tests/test_mw1_start.cpp tests/test_mw1_campaign.cpp tests/test_mw1_loop.cpp tests/test_mw1_save.cpp tests/test_mw1_worlds.cpp tests/test_mw1_market.cpp tests/test_mw1_travel.cpp tests/test_mw1_pilots.cpp tests/test_mw1_repairs.cpp tests/test_mw1_missions.cpp tests/test_mw1_menu.cpp tests/test_mw1_office.cpp)
 target_include_directories(mw1tests PRIVATE ${MW3RE_DIR}/tests)
 target_link_libraries(mw1tests PRIVATE mw1core pmcore mw3core)
 target_compile_definitions(mw1tests PRIVATE MW3_GAME_DIR="${MW3_GAME_DIR}" MW3PM_GAME_DIR="${MW3PM_GAME_DIR}" MW1_MW3_GAME_DIR="${MW3_GAME_DIR}"

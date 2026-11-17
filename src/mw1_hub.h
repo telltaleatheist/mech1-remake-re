@@ -20,8 +20,8 @@ inline constexpr const char* kHubFile = "mw1hub.zrd";     // MW1's data folder
 inline constexpr const char* kHubDialog = "MW1HUBDIALOG";  // its dialog
 
 // The hub's buttons, by their ids (and their names in mw1hub.zrd's BUTTONS).
-enum HubButton : int32_t { kHubAccept = 1, kHubDecline, kHubOk, kHubReplay, kHubMarket, kHubBar, kHubTravel, kHubQuit };
-inline constexpr int32_t kHubButtonCount = 8;
+enum HubButton : int32_t { kHubAccept = 1, kHubDecline, kHubOk, kHubReplay, kHubMarket, kHubBar, kHubTravel, kHubQuit, kHubOffice };
+inline constexpr int32_t kHubButtonCount = 9;
 const char* hub_button_name(int32_t id);  // "ACCEPT", ... ("" for no button)
 
 // What the hub shows: the planet's plaque, the company's panel and the middle
@@ -34,7 +34,7 @@ struct HubView {
   std::vector<std::string> panel;     // its lines
   bool after_action = false;          // OK (and REPLAY when `replay`) in place of ACCEPT and DECLINE
   bool replay = false;
-  bool offer = true;                  // ACCEPT and DECLINE (none without a House office)
+  bool offer = true;                  // ACCEPT and DECLINE, and the House OFFICE to negotiate (none without an offer)
 };
 
 using HubScreen = Mw1Screen;

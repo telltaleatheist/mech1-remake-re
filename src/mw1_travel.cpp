@@ -267,6 +267,8 @@ Trip travel(Company& c, int32_t i, Rng& rng) {
   set_planet(c, i);
   advance_time(c, units, rng);
   roll_premium(c, rng);   // the world's repair premium, rolled on arrival (PLANET 081B)
+  roll_patience(c, rng);  // and its House's patience (the same arrival, after the premium)
+  c.withdrawn = false;    // a broken-off negotiation's offers stay on the world left behind
   refresh_world(c, rng);  // arrival restocks, whatever the clock did
   c.market_clock = 0;
   return Trip::kDone;
@@ -274,11 +276,15 @@ Trip travel(Company& c, int32_t i, Rng& rng) {
 
 bool contracts_here(const Company& c) { return !kContractsNeedAnOffice || planet_here(c).office != 0; }
 
+bool earning_here(const Company& c) { return contracts_here(c) && !refuses(c, c.planet_house) && !c.withdrawn; }
+
+bool deals_with(const Company& c, const Planet& w) { return (!kContractsNeedAnOffice || w.office) && !refuses(c, w.house); }
+
 int64_t cheapest_way_out(const Company& c) {
   const Planet& here = planet_here(c);
   int64_t best = -1;
   for (const Planet& w : kPlanets)
-    if (&w != &here && w.office) {
+    if (&w != &here && deals_with(c, w)) {
       const int64_t cost = travel_cost(c, w);
       if (best < 0 || cost < best) best = cost;
     }
@@ -286,7 +292,7 @@ int64_t cheapest_way_out(const Company& c) {
 }
 
 bool stranded(const Company& c) {
-  if (contracts_here(c)) return false;
+  if (earning_here(c)) return false;
   const int64_t out = cheapest_way_out(c);
   return out < 0 || c.funds < out;
 }

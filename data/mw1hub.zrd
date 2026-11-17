@@ -29,6 +29,7 @@ MW1HUBDIALOG (
     MARKET (POSITION (24 96) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 110))
     BAR (POSITION (24 128) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 142))
     TRAVEL (POSITION (24 160) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 174))
+    OFFICE (POSITION (24 192) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 206))
     QUIT (POSITION (24 224) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 238))
   )
 )

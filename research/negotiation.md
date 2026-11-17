@@ -1,4 +1,4 @@
-# Contract negotiation: the plan (2026-11-17, for the mw1 lead's review)
+# Contract negotiation (planned and built 2026-11-17)
 
 VISION.md: "Contracts pay a fee, an advance and salvage rights, negotiated in
 the House office as MW1 does it." MW1's rules are the port's
@@ -87,7 +87,46 @@ a request granted (the hub shows the contract on the new terms, the advance
 paid at the negotiated percent), terminated (the hub with no offer, the
 office greyed until travel). A --shot of the office.
 
-## Questions for Owen (VISION leaves open)
+## Built (2026-11-17)
+
+As planned, with these choices:
+
+- The rule is `negotiate()` in `src/mw1_campaign.h`; the screen `src/mw1_office.h`,
+  `data/mw1office.zrd`; the hub's OFFICE button opens it (greyed without an
+  offer, and while AFTER ACTION waits).
+- **An agreed round is the acceptance**, as MW1's: the office goes straight
+  to the briefing, as the hub's ACCEPT does (our advance is paid at the first
+  launch, as before). ACCEPT in the office takes the counter as it stands.
+- Every asked term is rolled; the quirk only stops later grants (MW1's jumps
+  skip the grant, not the roll).
+- An offer above its ceiling (only an old save could make one) concedes
+  nothing, where MW1's word arithmetic would wrap.
+- MW1's words (terminated, refused, accepted) are read from the player's exe
+  (DS:4C25, DS:4C87, DS:4C6C); ours stand in without it.
+- **The stuck guard** (`stranded`, the hub's and the travel screen's
+  message) counts a House that refuses the company like a world with no
+  office, and a broken-off negotiation like no contracts here: "You can't
+  afford to leave, and the House has broken off negotiations." The way out
+  is the cheapest trip to a world whose House office would deal with you;
+  none at all says so.
+- Save version 7: the world's patience and withdrawal, the offer's salvage
+  and advance ceilings and its rounds. A version 6 save reads with the
+  House's middle patience and the ceilings from the House and the standing.
+
+## Questions for Owen (provisional answers: mw1 lead 2026-11-17)
+
+Each is one constant or flag to change.
+
+1. **The patience:** hidden; a hint line ("The House's liaison is losing
+   patience.") after the round before the last (`last_round`).
+2. **The ceilings:** hidden, as MW1.
+3. **MW1's quirk:** kept.
+4. **Termination:** withdraws the world's offers until travel (`withdrawn`).
+5. **Salvage %:** scales the cash only; MW3's items are always taken.
+6. **The refusal at 8+ grievances** (`kGrievanceRefusal`): yes, and the
+   stuck guard counts it.
+
+## The questions as first asked
 
 1. **Show the House's patience?** MW1 hid it. Hidden keeps MW1's tension; a
    hint ("The liaison is losing patience") after the second-last round is

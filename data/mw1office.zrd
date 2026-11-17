@@ -1,0 +1,29 @@
+; MW1: Critical Hit's House office (src/mw1_office.h) on MW1's screen
+; template (src/mw1_screen.h). Only names here: the images are Pirate's
+; Moon's, read from the player's install (never copied); MW1's own art takes
+; these names' places later.
+;
+; The main menu's backdrop (borrowed); PM's popup box behind the offer and the
+; terms; PM's list arrows beside each term (up asks more, down less, as MW1's
+; keys did); the round button with MW1's words for the rest, greyed as PM
+; greys it. LABEL_AT is MW1's key.
+(
+SHARED_IMAGE_PATH ("..\data\common\images\dialogs\shared;..\data\common\images\dialogs\briefing")
+MW1OFFICEDIALOG (
+  IMAGE_PATH ("..\data\common\images\dialogs\briefing;..\data\common\images;..\data\common\images\dialogs\shared;..\data\common\images\dialogs\mainmenu;..\data\common\images\dialog\multiplayer;..\data\common\images\dialogs\pilotreg")
+  CURSOR (BITMAP ("cursor_circle_orange") CENTER (1))
+  PRIMITIVES (PANEL (POSITION (16 64) BITMAP ("popup_box")) PANEL2 (POSITION (384 64) BITMAP ("popup_box")))
+  BUTTONS (
+    SUBMIT (POSITION (24 440) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 454))
+    ACCEPT (POSITION (152 440) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (198 454))
+    BACK (POSITION (536 440) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (582 454))
+    ; Each term's arrows, at the right of its row (src/mw1_office.cpp's kRowY).
+    PAY_DOWN (POSITION (570 106) BITMAP ("arrowdnmp_normal") ACTIVATE (BITMAP ("arrowdnmp_rollover")) DISABLE (BITMAP ("arrowdnmp_d")))
+    PAY_UP (POSITION (600 106) BITMAP ("arrowupmp_normal") ACTIVATE (BITMAP ("arrowupmp_rollover")) DISABLE (BITMAP ("arrowupmp_d")))
+    SALVAGE_DOWN (POSITION (570 166) BITMAP ("arrowdnmp_normal") ACTIVATE (BITMAP ("arrowdnmp_rollover")) DISABLE (BITMAP ("arrowdnmp_d")))
+    SALVAGE_UP (POSITION (600 166) BITMAP ("arrowupmp_normal") ACTIVATE (BITMAP ("arrowupmp_rollover")) DISABLE (BITMAP ("arrowupmp_d")))
+    ADVANCE_DOWN (POSITION (570 226) BITMAP ("arrowdnmp_normal") ACTIVATE (BITMAP ("arrowdnmp_rollover")) DISABLE (BITMAP ("arrowdnmp_d")))
+    ADVANCE_UP (POSITION (600 226) BITMAP ("arrowupmp_normal") ACTIVATE (BITMAP ("arrowupmp_rollover")) DISABLE (BITMAP ("arrowupmp_d")))
+  )
+)
+)

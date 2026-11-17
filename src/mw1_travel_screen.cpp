@@ -76,8 +76,14 @@ Date date_after(const Date& d, int32_t units) {
 
 std::vector<std::string> stranded_lines(const Company& c) {
   if (!stranded(c)) return {};
-  std::vector<std::string> l = {"You can't afford to leave, and there are no contracts here.",
-                                "The cheapest trip to a world with a House office costs " + thousands(cheapest_way_out(c)) + "."};
+  // Why nothing's to be earned here: no office, a House that refuses the company, or a negotiation it broke off.
+  const std::string why = !contracts_here(c)                ? "there are no contracts here"
+                          : refuses(c, c.planet_house)      ? "House " + std::string(kHouses[c.planet_house].name) + " won't deal with you"
+                                                            : "the House has broken off negotiations";
+  const int64_t out = cheapest_way_out(c);
+  std::vector<std::string> l = {"You can't afford to leave, and " + why + "."};
+  l.push_back(out < 0 ? std::string("No world's House office will deal with you.")
+                      : "The cheapest trip to a world whose House office will deal with you costs " + thousands(out) + ".");
   l.push_back(owned_count(c) > 1 ? "Sell a mech in the market to pay for it." : "With one mech there is nothing to sell: load a save.");
   return l;
 }
@@ -101,7 +107,9 @@ ScreenView travel_view(const Company& c, const TravelChoice& t) {
     const int32_t mechs = owned_count(c);
     title = w.name;
     detail = {"House " + std::string(kHouses[w.house].name) + ", tier " + std::to_string(w.tier) + " world",
-              w.office ? std::string("House office: contracts") : std::string("No House office: no contracts")};
+              !w.office               ? std::string("No House office: no contracts")
+              : refuses(c, w.house)   ? std::string("House office: won't deal with you")
+                                      : std::string("House office: contracts")};
     if (clan_world(w.number)) detail.push_back("Clan mechs for sale");
     detail.push_back("");
     detail.push_back("Distance: " + std::to_string(distance(here, w)));
@@ -110,10 +118,11 @@ ScreenView travel_view(const Company& c, const TravelChoice& t) {
     detail.push_back("Arrives: " + date_words(date_after(c.date, units)));
     detail.push_back("  " + days_words(units) + " on the way");
     // Going somewhere with no office and no way on: say so first.
-    if (!w.office && cost <= c.funds) {
+    if (!deals_with(c, w) && cost <= c.funds) {
       Company after = c;
       after.funds -= cost;
       set_planet(after, wi);
+      after.withdrawn = false;  // a broken-off negotiation stays behind
       if (stranded(after)) detail.push_back(""), detail.push_back("You couldn't afford to leave it.");
     }
   }

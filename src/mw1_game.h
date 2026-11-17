@@ -82,6 +82,14 @@ class BarState;
 }
 using namespace bar_ui;
 BarState* game_loop_bar();  // the Bar's state once made (tests)
+namespace office_ui {
+class OfficeState;
+}
+using namespace office_ui;
+OfficeState* game_loop_office();  // the House office's state once made (tests)
+// The offer drawn again for the company as a test changed it (game_loop_company_for_tests: its world, standing,
+// patience), and the hub shown again.
+void game_loop_offer_again();
 // The lancemates the last launch offered (tests): who, the map record's aim error and the one set.
 struct AllyLaunch {
   int32_t id = 0;

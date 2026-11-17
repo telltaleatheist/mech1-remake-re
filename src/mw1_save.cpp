@@ -5,6 +5,7 @@
 #include <cctype>
 #include <cstdio>
 #include <filesystem>
+#include <algorithm>
 #include <fstream>
 #include <map>
 #include <memory>
@@ -130,6 +131,8 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
   o << "\nwage_warned=" << (c.wage_warned ? 1 : 0) << "\n";
   // Version 5: the repairs.
   o << "repair_premium=" << c.repair_premium << "\n";
+  // Version 7: negotiation.
+  o << "patience=" << c.patience << "\nwithdrawn=" << (c.withdrawn ? 1 : 0) << "\n";
   o << "stores=" << (c.stores ? hex(bytes_of([&](std::FILE* f) { c.stores->save(f); })) : std::string()) << "\n";
   o << "offer=" << (offer ? 1 : 0) << "\n";
   if (offer) {
@@ -139,6 +142,8 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
     for (size_t i = 0; i < k.enemies.size(); ++i) o << (i ? "," : "") << k.enemies[i];
     o << "\noffer_payment=" << k.payment << "\noffer_payment_ceiling=" << k.payment_ceiling << "\n";
     o << "offer_salvage=" << k.salvage_percent << "\noffer_advance=" << k.advance_percent << "\n";
+    o << "offer_salvage_ceiling=" << k.salvage_ceiling << "\noffer_advance_ceiling=" << k.advance_ceiling
+      << "\noffer_attempts=" << k.attempts << "\n";
     o << "offer_objective=" << static_cast<int32_t>(k.objective) << "\n";
     o << "offer_world=" << (plain(k.world) ? k.world : std::string("c2")) << "\noffer_ia=" << k.ia << "\noffer_mode=" << k.mode << "\n";
     o << "offer_structure=" << (plain(k.structure) ? k.structure : std::string()) << "\n";
@@ -210,6 +215,7 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
   const bool v3 = n >= 3;  // the calendar; before it, the start date
   const bool v4 = n >= 4;  // the pilots; before them, no lancemates
   const bool v5 = n >= 5;  // the repairs; before them, the premium rolled anew and no bills
+  const bool v7 = n >= 7;  // negotiation; before it, the House's middle patience and the ceilings as they'd be now
   const bool v1 = n == 1;  // before the hangar and the market: a hangar of none, the market rolled at the next refresh
   Company c;
   const int64_t kMax = int64_t{1} << 40;
@@ -338,6 +344,11 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
     if (!num("repair_premium", 0, 200, &prem)) return fail("the repair premium is missing or out of range");
     c.repair_premium = static_cast<int32_t>(prem);
   }
+  if (v7) {
+    int64_t pat = 0, wd = 0;
+    if (!num("patience", 0, 99, &pat) || !num("withdrawn", 0, 1, &wd)) return fail("the negotiation lines are missing or out of range");
+    c.patience = static_cast<int32_t>(pat), c.withdrawn = wd != 0;
+  }
   // The world's name, House and tier are the map's, by its number.
   if (const int32_t w = planet_index(c.planet_number); w >= 0) set_planet(c, w);
   int64_t has = 0;
@@ -374,6 +385,15 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
         return fail("the offer's mission lines are missing or out of range");
       k.category = static_cast<int32_t>(cat), k.code = static_cast<int32_t>(code), k.mission_planet = static_cast<int32_t>(planet);
       k.climate = static_cast<int32_t>(climate), k.structure_words = v["offer_structure_words"];
+    }
+    if (v7) {
+      int64_t sc = 0, ac = 0, at = 0;
+      if (!num("offer_salvage_ceiling", 0, 100, &sc) || !num("offer_advance_ceiling", 0, 100, &ac) || !num("offer_attempts", 0, 99, &at))
+        return fail("the offer's negotiation lines are missing or out of range");
+      k.salvage_ceiling = static_cast<int32_t>(sc), k.advance_ceiling = static_cast<int32_t>(ac), k.attempts = static_cast<int32_t>(at);
+    } else {  // before 7: the ceilings as the House and the standing make them now, never under the offer
+      k.salvage_ceiling = std::max(salvage_ceiling(c, k.house), k.salvage_percent);
+      k.advance_ceiling = std::max(advance_ceiling(c, k.house), k.advance_percent);
     }
     int64_t acc = 0, rem = 0;  // a save from before these lines: an offer, not accepted
     if (v.count("offer_accepted") && !num("offer_accepted", 0, 1, &acc)) return fail("the contract's accepted line is wrong");
@@ -446,6 +466,7 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
       return fail("the pending mission's stores or loadout don't read");
   }
   if (!v5) c.repair_premium = (c.tier + 1) * kPremiumStep;  // before version 5: the world's premium without its roll
+  if (!v7) c.patience = kPatienceBase[c.planet_house] + kPatienceRollMax / 2;  // before 7: the House's middle patience
   out = std::move(c);
   if (has) offer_out = std::move(k);
   if (has_offer) *has_offer = has != 0;
