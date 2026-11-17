@@ -23,3 +23,8 @@ Tick an item when it is merged into `main`.
 ## 4. [ ] The briefing screen, rebuilt in MW1's style
 - **Seen:** the contract goes straight into Pirate's Moon's Instant Action briefing.
 - **Wanted:** our own briefing and deployment screen in the same look: the Mercenary Contract (employer, world, mission, enemy force, pay, salvage, advance), then the launch. Uses `contract_terminal`, `briefing_holotable` and `deploy_launch`.
+- **The final screen before launch, as in MW1's original:**
+  - the buttons run down the **left side**, as in MW1, not along the bottom as in MW3;
+  - MW1's LAUNCH button is there;
+  - a **MECH LAB** button goes above LAUNCH and opens Pirate's Moon's mech lab, then returns to this screen.
+- **The rule for all of it (Owen):** completely rework MW3/PM's interface so it looks like an updated MW1. MW1's layouts win over MW3's wherever the two differ, for example buttons on the left, not the bottom.
