@@ -1,8 +1,8 @@
 #pragma once
 // The travel map's backdrop (research/travel-map.md, step 2): drawn by our code from the worlds' data (kPlanets), no
 // MW1 pixels, at build time (mw1imgpack) into MW1's image archive (mw1_images.h). A faint starfield, and each House's
-// territory: every pixel near a world takes that world's House (the nearest within kTerritoryReach), filled faintly
-// with a thin outline where it meets another House or space. One plain, and one per House with the others dimmed
+// territory: every pixel near a world takes that world's House (the nearest within kTerritoryReach; space shut in
+// by territory, too, so there are no holes), filled faintly with a thin outline where it meets another House or space. One plain, and one per House with the others dimmed
 // (FILTER's one House). The worlds themselves, the markers and the names are drawn live by the screen.
 //
 // The look is provisional, each a constant until Owen answers (research/travel-map.md, Q1 to Q3).
@@ -17,7 +17,8 @@
 namespace mw1::map_image {
 
 // Q1, the colours: MW1's own, the fills of its map (EGA indices 9, 6, 15, 12, 13 in the default palette), by House
-// in kHouses' order (Kurita, Steiner, Marik, Liao, Davion).
+// in kHouses' order: Kurita light blue, Steiner brown, Marik white, Liao light red, Davion light magenta. Or
+// BattleTech's usual: Kurita red, Steiner blue, Marik purple, Liao green, Davion gold.
 struct Rgb {
   uint8_t r, g, b;
 };

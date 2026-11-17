@@ -22,6 +22,35 @@ const std::vector<int8_t>& territories() {
         }
         if (best >= 0) m[static_cast<size_t>(y * kMapWidth + x)] = static_cast<int8_t>(kPlanets[best].house);
       }
+    // No holes: space shut in by territory (a gap between worlds' reaches, which drew as a stray outlined sliver)
+    // goes to the nearest world's House. Space is what the map's edge reaches.
+    std::vector<char> open(m.size(), 0);
+    std::vector<int32_t> todo;
+    for (int32_t y = 0; y < kMapHeight; ++y)
+      for (int32_t x = 0; x < kMapWidth; ++x)
+        if ((x == 0 || y == 0 || x == kMapWidth - 1 || y == kMapHeight - 1) && m[static_cast<size_t>(y * kMapWidth + x)] < 0)
+          open[static_cast<size_t>(y * kMapWidth + x)] = 1, todo.push_back(y * kMapWidth + x);
+    while (!todo.empty()) {
+      const int32_t c = todo.back(), x = c % kMapWidth, y = c / kMapWidth;
+      todo.pop_back();
+      const int32_t next[4][2] = {{x + 1, y}, {x - 1, y}, {x, y + 1}, {x, y - 1}};
+      for (const auto& q : next) {
+        if (q[0] < 0 || q[1] < 0 || q[0] >= kMapWidth || q[1] >= kMapHeight) continue;
+        const size_t k = static_cast<size_t>(q[1] * kMapWidth + q[0]);
+        if (!open[k] && m[k] < 0) open[k] = 1, todo.push_back(static_cast<int32_t>(k));
+      }
+    }
+    for (int32_t y = 0; y < kMapHeight; ++y)
+      for (int32_t x = 0; x < kMapWidth; ++x) {
+        const size_t k = static_cast<size_t>(y * kMapWidth + x);
+        if (m[k] >= 0 || open[k]) continue;
+        int32_t best = 0, best_d = -1;
+        for (int32_t i = 0; i < kPlanetCount; ++i) {
+          const int32_t dx = at[i].x - (kMapLeft + x), dy = at[i].y - (kMapTop + y), d = dx * dx + dy * dy;
+          if (best_d < 0 || d < best_d) best = i, best_d = d;
+        }
+        m[k] = static_cast<int8_t>(kPlanets[best].house);
+      }
     return m;
   }();
   return t;
