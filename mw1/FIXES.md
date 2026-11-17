@@ -42,3 +42,27 @@ Tick an item when it is merged into `main`.
   - Remove whatever MW1 never uses, such as the multiplayer screen PM builds in the background.
 - **How to check:** a screen-by-screen pass with shots. A test that fails if an MW1 screen loads a PM dialog file or binds a PM button.
 
+## 6. [ ] The hub's scenery by MW1's landscape
+- **Owen (Mac, 2026-11-17):** "In the original, it just showed you the background of whatever city you were in. If you're in an icy area, it shows an icy background. If you're in a tropical area it's very green."
+- **MW1:** every world has a landscape: desert (48 worlds), tropical (79) or arctic (18) (research/economy.md, the planet record's code). The hub draws that landscape's picture. MW1 also uses it behind the Bar, the company and the options screens.
+- **Ours today:** the hub picks a scene by our own "world type" classification (agri, capital, industrial ...), which ignores the climate.
+- **Wanted:**
+  - The hub's scenery follows the world's landscape. There are five settings per landscape (starport, walled city, Mech factory, frontier town, garrison), being generated now as `hub_<landscape>_<setting>` (`keep/mw1-remake/jobs.py`, section 5), with the world picking one so neighbours differ.
+  - Ander's Moon and Dustball keep their own scenes.
+  - The Bar's window view and the options backdrop follow the landscape where we have art.
+
+## 7. [ ] Contracts only through the House office, negotiated, as in MW1
+- **Owen:** "As soon as you start a new campaign, it enters into the 'take this contract' screen. I want the contract screen to be accessible in the same way it was accessible on MW1. You had to go to the menu option to take a contract, and the contracts are negotiated."
+- **Wanted:**
+  - The hub shows no offer, and has no ACCEPT/DECLINE.
+  - The House office is where contracts come from: ask for a mission, see the offer, move to the next offer, negotiate the terms, ACCEPT or LEAVE. That's MW1's CONTRACT_OFFICE, REQUEST_MISSION_OFFER, NEXT_MISSION_OFFER and NEGOTIATE_CONTRACT.
+  - With a contract accepted, the hub shows the current contract in its panel and offers the deployment: MW1's hub has a deployment tile.
+  - A new campaign starts on the hub, after the intro, with no offer up.
+
+## 8. [ ] The mech lab in the Mech Complex, beside repair
+- **Owen:** "We need the mech lab available as an option, too. Probably in the same submenu as the repair item is in the original MW1."
+- **MW1:** Mech Complex, then OWNED MECHS, then the mech's status screen: REPAIR / REPAIR ALL / RELOAD / SELL / DONE.
+- **Wanted:**
+  - MECH LAB goes on that status screen with the others. It opens PM's mech lab (in our reskin) for that mech and returns to the status screen.
+  - The pre-launch screen keeps its MECH LAB above LAUNCH (item 4).
+
