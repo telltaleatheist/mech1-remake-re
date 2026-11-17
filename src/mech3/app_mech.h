@@ -675,6 +675,9 @@ void* mech_mission_player();
 // A lance card's armor display's read (0x0047eba0, 0x0047ef10): the mech's
 // type, its loadout's armor and its parts' armor left in the bars' order.
 bool mech_lance_armor(void* mech, int32_t* type, int32_t armor[11], float left[11]);
+// Ours (for MW1: Critical Hit's repair bill): the same bars' internal structure, each part's points (100 / its
+// scale; 0 where the part has none) and the fraction left. A pure read.
+bool mech_lance_structure(void* mech, float points[11], float left[11]);
 // 0x0047ae10's won path on the ported mechs: the player's mech into `own`
 // (the campaign's +0x64), its allies' into the mission's salvage store
 // (mech_salvage.h).

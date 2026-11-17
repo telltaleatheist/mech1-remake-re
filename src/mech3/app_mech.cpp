@@ -2512,18 +2512,30 @@ void mech_lance_salvage(Store& own, bool team) {
 // Departures: a mech without a pilot (+0x684), a loadout (+0x3ec) or one of
 // the parts reads as type -1, no armor, nothing left, where the exe would
 // read through null.
+namespace {
+// A lance card's bar k: part, section (0x0047ef10's order).
+constexpr int8_t kLanceBars[11][2] = {{1, 0}, {1, 1}, {1, 2}, {1, 3}, {1, 4}, {1, 5}, {6, 0}, {2, 0}, {3, 0}, {4, 0}, {5, 0}};
+}  // namespace
 bool mech_lance_armor(void* mech, int32_t* type, int32_t armor[11], float left[11]) {
   auto* m = static_cast<Mech*>(mech);
   if (!m) return false;
   *type = m->pilot ? m->pilot->roster : -1;
   if (m->config)
     for (int i = 0; i < 11; ++i) armor[i] = m->config->armor[i];
-  // Bar k: part, section (0x0047ef10's order).
-  static const int8_t kParts[11][2] = {{1, 0}, {1, 1}, {1, 2}, {1, 3}, {1, 4}, {1, 5},
-                                       {6, 0}, {2, 0}, {3, 0}, {4, 0}, {5, 0}};
   for (int k = 0; k < 11; ++k) {
-    const MechPart* p = part_by_id(*m, kParts[k][0]);
-    left[k] = p ? p->get_armor(kParts[k][1]) : 0.0f;
+    const MechPart* p = part_by_id(*m, kLanceBars[k][0]);
+    left[k] = p ? p->get_armor(kLanceBars[k][1]) : 0.0f;
+  }
+  return true;
+}
+bool mech_lance_structure(void* mech, float points[11], float left[11]) {  // ours (app_mech.h)
+  auto* m = static_cast<Mech*>(mech);
+  if (!m) return false;
+  for (int k = 0; k < 11; ++k) {
+    const MechPart* p = part_by_id(*m, kLanceBars[k][0]);
+    const float scale = p ? p->get_internal_scale(kLanceBars[k][1]) : 0.0f;
+    points[k] = scale > 0.0f ? 100.0f / scale : 0.0f;
+    left[k] = p ? p->get_internal(kLanceBars[k][1]) : 0.0f;
   }
   return true;
 }
