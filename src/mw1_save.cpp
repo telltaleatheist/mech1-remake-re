@@ -114,6 +114,19 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
   // Version 3: the calendar.
   o << "calendar=" << c.date.units << "," << c.date.month << "," << c.date.year << "\n";
   o << "market_clock=" << c.market_clock << "\n";
+  // Version 4: the pilots.
+  o << "lance=";
+  for (size_t i = 0; i < c.lance.size(); ++i) o << (i ? "," : "") << c.lance[i].id << ":" << c.lance[i].wage_tier;
+  o << "\n";
+  for (size_t i = 0; i < c.hangar.size(); ++i) o << "hangar" << i << "_pilot=" << c.hangar[i].pilot << "\n";
+  for (int32_t id = 1; id < kPilotIds; ++id) {
+    const PilotState& p = c.pilots[id];
+    if (p.gunnery < 0 && p.piloting < 0 && p.missions == 0 && p.where == PilotWhere::kFree) continue;
+    o << "pilot" << id << "=" << p.gunnery << "," << p.piloting << "," << p.missions << "," << static_cast<int32_t>(p.where) << "\n";
+  }
+  o << "recruits=";
+  for (size_t i = 0; i < c.recruits.size(); ++i) o << (i ? "," : "") << c.recruits[i];
+  o << "\nwage_warned=" << (c.wage_warned ? 1 : 0) << "\n";
   o << "stores=" << (c.stores ? hex(bytes_of([&](std::FILE* f) { c.stores->save(f); })) : std::string()) << "\n";
   o << "offer=" << (offer ? 1 : 0) << "\n";
   if (offer) {
@@ -134,6 +147,8 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
     o << "pending_outcome=" << (p.outcome == Outcome::kSuccess ? 0 : p.outcome == Outcome::kFailure ? 1 : 2) << "\n";
     o << "pending_wrecks=";
     for (size_t i = 0; i < p.wrecks.size(); ++i) o << (i ? "," : "") << p.wrecks[i].kind << ":" << p.wrecks[i].condition;
+    o << "\npending_lance=";
+    for (size_t i = 0; i < p.lance.size(); ++i) o << (i ? "," : "") << p.lance[i].id << ":" << (p.lance[i].destroyed ? 1 : 0);
     o << "\npending_salvage=" << (p.salvage ? hex(bytes_of([&](std::FILE* f) { p.salvage->save(f); })) : std::string()) << "\n";
     o << "pending_launch_stores="
       << (p.launch_stores ? hex(bytes_of([&](std::FILE* f) { p.launch_stores->save(f); })) : std::string()) << "\n";
@@ -181,6 +196,7 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
   if (n < 1 || n > kSaveVersion)
     return fail("version " + std::to_string(n) + ", this build reads versions 1 to " + std::to_string(kSaveVersion));
   const bool v3 = n >= 3;  // the calendar; before it, the start date
+  const bool v4 = n >= 4;  // the pilots; before them, no lancemates
   const bool v1 = n == 1;  // before the hangar and the market: a hangar of none, the market rolled at the next refresh
   Company c;
   const int64_t kMax = int64_t{1} << 40;
@@ -263,6 +279,47 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
     c.date = {static_cast<int32_t>(f[0]), static_cast<int32_t>(f[1]), static_cast<int32_t>(f[2])};
     c.market_clock = static_cast<int32_t>(clock);
   }
+  if (v4) {
+    // A comma list of numbers (each lo..hi) or a's pairs "a:b".
+    auto ints = [&](const std::string& text, char sep, int64_t lo, int64_t hi, std::vector<int64_t>* out) {
+      std::istringstream is(text);
+      std::string e;
+      while (std::getline(is, e, sep)) {
+        int64_t x = 0;
+        if (!to_int(e, lo, hi, &x)) return false;
+        out->push_back(x);
+      }
+      return true;
+    };
+    if (!v.count("lance") || !v.count("recruits")) return fail("the pilots' lines are missing");
+    std::istringstream ls(v["lance"]);
+    std::string e;
+    while (std::getline(ls, e, ',')) {
+      std::vector<int64_t> pair;
+      if (!ints(e, ':', 0, kPilotIds - 1, &pair) || pair.size() != 2 || pair[0] < 1 || pair[1] > 3) return fail("the lance doesn't read");
+      c.lance.push_back({static_cast<int32_t>(pair[0]), static_cast<int32_t>(pair[1])});
+    }
+    if (c.lance.size() > 3) return fail("the lance is too big");
+    for (size_t i = 0; i < c.hangar.size(); ++i) {
+      int64_t p = 0;
+      if (!num(("hangar" + std::to_string(i) + "_pilot").c_str(), 0, kPilotIds - 1, &p)) return fail("a hangar mech's pilot is missing");
+      c.hangar[i].pilot = static_cast<int32_t>(p);
+    }
+    for (int32_t id = 1; id < kPilotIds; ++id) {
+      const std::string key = "pilot" + std::to_string(id);
+      if (!v.count(key)) continue;
+      std::vector<int64_t> f;
+      if (!ints(v[key], ',', -1, 1 << 20, &f) || f.size() != 4 || f[0] > 3 || f[1] > 3 || f[2] < 0 || f[3] < 0 || f[3] > 2)
+        return fail("a pilot's line doesn't read");
+      c.pilots[id] = {static_cast<int32_t>(f[0]), static_cast<int32_t>(f[1]), static_cast<int32_t>(f[2]), static_cast<PilotWhere>(f[3])};
+    }
+    std::vector<int64_t> rs;
+    if (!ints(v["recruits"], ',', 1, kPilotIds - 1, &rs)) return fail("the recruits don't read");
+    for (int64_t r : rs) c.recruits.push_back(static_cast<int32_t>(r));
+    int64_t warned = 0;
+    if (!num("wage_warned", 0, 1, &warned)) return fail("no wage_warned line");
+    c.wage_warned = warned != 0;
+  }
   // The world's name, House and tier are the map's, by its number.
   if (const int32_t w = planet_index(c.planet_number); w >= 0) set_planet(c, w);
   int64_t has = 0;
@@ -313,6 +370,18 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
           !to_int(w.substr(colon + 1), 0, 100, &cond))
         return fail("the pending mission's wrecks don't read");
       p.wrecks.push_back(Wreck{static_cast<int32_t>(kind), static_cast<int32_t>(cond)});
+    }
+    if (v4) {
+      if (!v.count("pending_lance")) return fail("the pending mission's lance is missing");
+      std::istringstream fs(v["pending_lance"]);
+      std::string f;
+      while (std::getline(fs, f, ',')) {
+        const size_t colon = f.find(':');
+        int64_t id = 0, gone = 0;
+        if (colon == std::string::npos || !to_int(f.substr(0, colon), 1, kPilotIds - 1, &id) || !to_int(f.substr(colon + 1), 0, 1, &gone))
+          return fail("the pending mission's lance doesn't read");
+        p.lance.push_back({static_cast<int32_t>(id), gone != 0});
+      }
     }
     if (!store_line("pending_salvage", true, &p.salvage) || !store_line("pending_launch_stores", false, &p.launch_stores) ||
         !loadout_line("pending_launch_loadout", &p.launch_loadout, c.mech))

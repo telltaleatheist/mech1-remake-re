@@ -11,7 +11,7 @@
 #include "mech3/mech_reader.h"
 #include "mech3/pilot.h"
 
-namespace mw1 {
+namespace mw1::market {
 
 namespace {
 constexpr int32_t kLightMaxTons = 35, kMediumMaxTons = 55;  // VISION's classes for PM's mechs
@@ -163,4 +163,4 @@ Deal pilot(Company& c, int32_t owned_index) {
   return Deal::kDone;
 }
 
-}  // namespace mw1
+}  // namespace mw1::market

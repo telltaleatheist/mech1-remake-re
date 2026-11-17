@@ -7,9 +7,13 @@
 //   version=3          the format: 2 adds the world's number, the hangar
 //                      (hangar<i>, hangar<i>_loadout) and the market
 //                      (market_stock, market_sold, market_limit); 3 the
-//                      calendar (calendar=units,month,year; market_clock).
-//                      Versions 1 and 2 still read (1: no hangar, the market
-//                      rolled at the next refresh; both: the start date);
+//                      calendar (calendar=units,month,year; market_clock); 4
+//                      the pilots (lance=id:wage_tier,...; hangar<i>_pilot;
+//                      pilot<id>=gunnery,piloting,missions,where for those
+//                      not as the records leave them; recruits; wage_warned).
+//                      Versions 1 to 3 still read (1: no hangar, the market
+//                      rolled at the next refresh; before 3 the start date;
+//                      before 4 no lancemates, the Bar refreshed);
 //                      another is refused. The world's name, House and tier
 //                      are re-read from the map (mw1_travel.h) by its number.
 //   ...                the company's and the offer's lines
@@ -23,14 +27,14 @@
 
 namespace mw1 {
 
-inline constexpr int32_t kSaveVersion = 3;
+inline constexpr int32_t kSaveVersion = 4;
 inline constexpr const char* kSaveFile = "mw1save.txt";
 
 // The file's text for a company and the contract (null: none on offer), and
 // a mission back and not settled yet (null: none; then the contract is the
 // accepted one, its advance paid: pending_* lines).
 std::string save_text(const Company& c, const Contract* offer, const AfterAction* pending = nullptr);
-// Read back: false, and why, when the text is not a whole save of version 1, 2 or 3. On
+// Read back: false, and why, when the text is not a whole save of versions 1 to 4. On
 // false `c`, `offer` and `pending` are left as they were. A save from before
 // the pending lines reads as none pending.
 bool load_text(const std::string& text, Company& c, Contract& offer, bool* has_offer, std::string* why,

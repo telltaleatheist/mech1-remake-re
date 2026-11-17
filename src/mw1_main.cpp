@@ -32,6 +32,7 @@
 
 #include "gamez/zutil/zutl_path.h"
 #include "mw1_game.h"
+#include "mw1_pilots.h"
 #include "mw1_save.h"
 #include "mw1_start.h"
 #include "mw1_worlds.h"
@@ -150,6 +151,7 @@ int main(int argc, char** argv) {
   std::printf("mw1: MechWarrior 1: Critical Hit, write dir %s\nmw1:   Pirate's Moon %s\nmw1:   MechWarrior 3 %s\nmw1:   MechWarrior (1989) %s\n",
               a.write_dir.c_str(), use.pm.empty() ? "(not found)" : use.pm.c_str(), use.mw3.empty() ? "(not found)" : use.mw3.c_str(),
               use.mw1.empty() ? "(not found)" : use.mw1.c_str());
+  mw1::set_mw1_game_dir(use.mw1);  // the Bar's pitches, from the player's MW_MAIN.EXE (mw1_pilots.h)
   // MW1's loop over PM's game: the hub at the main menu, the contract's mission, the settlement (mw1_game.h).
   // MW1_SEED (tests) fixes the company's and the contracts' rolls; MW1_REACH=<node> makes the contracts
   // reach-a-structure (the milestone's second objective).

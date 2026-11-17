@@ -4,8 +4,9 @@
 #include <cstdlib>
 
 #include "mw1_market.h"
+#include "mw1_pilots.h"
 
-namespace mw1 {
+namespace mw1::travel_rules {
 
 // DS:6570's records, the directory's 145 (number, name, House, tier, office, x, y, weight).
 const Planet kPlanets[kPlanetCount] = {
@@ -222,9 +223,15 @@ int32_t advance_time(Company& c, int32_t units, Rng& rng) {
   c.market_clock += units;
   if (c.market_clock >= kMarketRefreshUnits) {
     c.market_clock %= kMarketRefreshUnits;
-    refresh_market(c, rng);
+    refresh_world(c, rng);
   }
+  charge_wages(c, months);
   return months;
+}
+
+void refresh_world(Company& c, Rng& rng) {
+  refresh_market(c, rng);
+  refresh_recruits(c, rng);
 }
 
 int32_t mission_units(const Company& c) {
@@ -258,7 +265,7 @@ Trip travel(Company& c, int32_t i, Rng& rng) {
   const int32_t units = travel_units(here, to);
   set_planet(c, i);
   advance_time(c, units, rng);
-  refresh_market(c, rng);  // arrival restocks, whatever the clock did
+  refresh_world(c, rng);  // arrival restocks, whatever the clock did
   c.market_clock = 0;
   return Trip::kDone;
 }
@@ -282,4 +289,4 @@ bool stranded(const Company& c) {
   return out < 0 || c.funds < out;
 }
 
-}  // namespace mw1
+}  // namespace mw1::travel_rules

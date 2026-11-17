@@ -10,7 +10,7 @@
 
 #include "mw1_campaign.h"
 
-namespace mw1 {
+namespace mw1::travel_rules {
 
 // A world on MW1's map: a planet record (planetRecordOffsets, DS:6570; records DS:67B6..8A16).
 struct Planet {
@@ -51,9 +51,12 @@ inline constexpr int32_t kUnitsPerMonth = 60, kMonthCount = 12;  // CAMPAIGN_UNI
 inline constexpr int32_t kMarketRefreshUnits = 14;               // MARKET_REFRESH_PERIOD_UNITS
 extern const char* const kMonthNames[kMonthCount];               // DS:4AAC
 std::string date_words(const Date& d);                          // "APRIL 3024"
-// Time passes (MwAdvanceCampaignTimeAndChargeWages): the date moves; the market restocks each time its clock passes
-// 14 units. Returns the months begun (the lancemates' wages, with the Bar).
+// Time passes (MwAdvanceCampaignTimeAndChargeWages): the date moves; the market and the Bar refresh each time its
+// clock passes 14 units; the lancemates' wages for each month begun (mw1_pilots.h). Returns the months begun.
 int32_t advance_time(Company& c, int32_t units, Rng& rng);
+// What MW1 refreshes together (on arrival, on the market's clock, on a mission's return): the market's stock and the
+// Bar's recruits (MwRefreshMarketUnitStock, MwRefreshAvailablePilotRecruits).
+void refresh_world(Company& c, Rng& rng);
 // A mission's time (STARTUP 350), for a contract on this world: the return's distance 1 x 14 x 2, the world's
 // weight x 6, and the deployment units (DS:8E46's commonest, provisional: research/economy.md).
 inline constexpr int32_t kMissionDistance = 1, kMissionDeploymentUnits = 28;
@@ -74,4 +77,10 @@ bool stranded(const Company& c);
 // The cheapest trip from here to a world with an office: its cost (-1: none).
 int64_t cheapest_way_out(const Company& c);
 
+}  // namespace mw1::travel_rules
+
+// The module's own namespace keeps its names apart from the other modules' (two of the same name are a
+// compile error at a use, never a silent clash); mw1:: still names them.
+namespace mw1 {
+using namespace travel_rules;
 }  // namespace mw1

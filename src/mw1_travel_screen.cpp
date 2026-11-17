@@ -7,11 +7,11 @@
 #include "mw1_market.h"
 #include "mw1_travel.h"
 
-namespace mw1 {
+namespace mw1::travel_ui {
 namespace {
 const std::vector<ScreenButton> kTravelButtons = {{"GO", "GO"}, {"HOUSE", "HOUSE"}, {"BACK", "BACK"}, {"UP", ""},
                                                   {"DOWN", ""}, {"PAGE_UP", ""},    {"PAGE_DOWN", ""}};
-constexpr size_t kNameWidth = 16;
+constexpr size_t kNameWidth = 15;  // "Mallory's World"
 
 std::string thousands(int64_t v) {
   std::string s = std::to_string(v < 0 ? -v : v);
@@ -22,15 +22,15 @@ std::string upper(std::string s) {
   for (char& c : s) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
   return s;
 }
-// "> Tancredi IV       2    45,000": chosen or not, the name, the distance, the cost.
+// "> Tancredi IV     Dav t0  45,000": chosen or not, the name, its House and tier, the cost (which follows the
+// distance; the chosen world's panel gives it).
 std::string row(bool chosen, const Company& c, const Planet& w) {
   std::string n = title_case_name(w.name);
   if (n.size() < kNameWidth) n.append(kNameWidth - n.size(), ' ');
-  char d[8];
-  std::snprintf(d, sizeof d, "%2d ", distance(planet_here(c), w));
+  const std::string house = std::string(kHouses[w.house].name).substr(0, 3);
   std::string p = thousands(travel_cost(c, w));
   if (p.size() < 8) p.insert(0, 8 - p.size(), ' ');
-  return std::string(chosen ? "> " : "  ") + n + d + p;
+  return std::string(chosen ? "> " : "  ") + n + " " + house + " t" + std::to_string(w.tier) + p;
 }
 }  // namespace
 
@@ -140,4 +140,4 @@ ScreenView travel_view(const Company& c, const TravelChoice& t) {
 TravelState::TravelState(zgame::Handle h, std::function<void(int32_t)> pressed)
     : Mw1State(h, "MW1 Travel State", kTravelFile, kTravelDialog, kTravelButtons, kTravelBack, std::move(pressed)) {}
 
-}  // namespace mw1
+}  // namespace mw1::travel_ui

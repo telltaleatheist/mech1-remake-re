@@ -32,10 +32,14 @@
 #include "mech3/options.h"
 #include "mech3/pilot.h"
 #include "mech3/program_flow.h"
+#include "mech3/zai_brain.h"
+#include "mech3/zai_params.h"
+#include "mw1_bar_screen.h"
 #include "mw1_campaign.h"
 #include "mw1_game.h"
 #include "mw1_hub.h"
 #include "mw1_market.h"
+#include "mw1_pilots.h"
 #include "mw1_market_screen.h"
 #include "mw1_travel.h"
 #include "mw1_travel_screen.h"
@@ -135,6 +139,14 @@ struct Run {
   int64_t units_before = -1, units_after = -1;  // the calendar as units since year 0
   int64_t travel_paid = -1, travel_quoted = -1;
   std::string plaque_after;  // the hub's plaque lines after the trip
+  // Lancemates (mw1_pilots.h) before the first ACCEPT: Elli Gujar (Poor) in a Firefly and J. Holmaas (Excellent) in
+  // an Owens, hired and assigned; in the mission their names and aims, the enemies and Holmaas's mech destroyed.
+  bool lance = false, lance_set = false;
+  std::vector<std::string> ally_pilots;  // the allied brains' pilots, in the mission
+  std::vector<float> ally_errors;
+  int32_t allies = 0;
+  std::vector<mw1::AllyLaunch> launches;  // the loop's, at the launch
+  std::vector<std::string> bar_lines, bar_after;  // the Bar as first shown, and after the buttons
 };
 int loadout_items(const mw1::Company* c) { return c && c->loadout ? static_cast<int>(c->loadout->items.size()) : -1; }
 
@@ -170,6 +182,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
   p.window = &window, p.alert = &alert, p.clock = &clock, p.movie_clock = &movies, p.screen = &screen;
   p.sound = &sound, p.files = &files, p.input = &keys;
   int64_t funds_at_offer = 0, funds_in_mission = 0;
+  int64_t salvage_shown = -1, fee_shown = -1;  // the first AFTER ACTION's settlement, as rolled
   int32_t favor_at_offer[mw1::kHouseCount] = {}, grievance_at_offer[mw1::kHouseCount] = {};
   int market_step = 0;
   int hubs = 0, hub_frames = 0, enemies = 0, killed = 0, items_at_offer = 0, target = -1;
@@ -242,6 +255,31 @@ void loop_run(Ending ending, Run* run = nullptr) {
         }
         return;
       }
+      mw1::BarState* bs = mw1::game_loop_bar();
+      if (run && bs && app.current() == static_cast<zgame::State*>(bs) && bs->screen()) {
+        if (++hub_frames < 10) return;
+        hub_frames = 0;
+        mw1::Mw1Screen* sc = bs->screen();
+        mw1::Company* c = mw1::game_loop_company_for_tests();
+        run->bar_lines = sc->shown();
+        std::printf("  bar:");
+        for (const std::string& l : run->bar_lines) std::printf(" [%s]", l.c_str());
+        std::printf("\n");
+        EXPECT(sc->loaded() && sc->enabled(mw1::kBarHire) && sc->enabled(mw1::kBarDecline) && !sc->enabled(mw1::kBarFire));
+        // HIRE Elli Gujar, HIRE J. Holmaas; ASSIGN Elli (the Firefly), down to Holmaas, ASSIGN (the Owens); BACK.
+        sc->on_button(mw1::kBarHire, 0, 0);
+        sc->on_button(mw1::kBarHire, 0, 0);
+        sc->on_button(mw1::kBarLanceUp, 0, 0);
+        sc->on_button(mw1::kBarAssign, 0, 0);
+        sc->on_button(mw1::kBarLanceDown, 0, 0);
+        sc->on_button(mw1::kBarAssign, 0, 0);
+        run->bar_after = sc->shown();
+        EXPECT(c->lance.size() == 2 && c->recruits.empty() && mw1::mech_of(*c, 0) == 0 && mw1::mech_of(*c, 1) == 1 && mw1::lance_weight(*c) == 3);
+        EXPECT(!sc->enabled(mw1::kBarHire) && sc->enabled(mw1::kBarFire) && sc->enabled(mw1::kBarAssign));
+        run->lance_set = true;
+        sc->on_button(mw1::kBarBack, 0, 0);
+        return;
+      }
       mw1::TravelState* ts = mw1::game_loop_travel();
       if (run && ts && app.current() == static_cast<zgame::State*>(ts) && ts->screen()) {
         if (++hub_frames < 10) return;
@@ -288,14 +326,27 @@ void loop_run(Ending ending, Run* run = nullptr) {
         std::printf("\n");
         // Always: the plaque, the company, the later screens greyed, QUIT there.
         EXPECT(sc->loaded() && c && has("HOUSE ") && c->planet != "Planet" && !c->planet.empty() && has("Stores: " + std::to_string(c->stores->count())));
-        EXPECT(sc->visible(mw1::kHubBar) && !sc->enabled(mw1::kHubBar));
-        for (int32_t id : {mw1::kHubMarket, mw1::kHubTravel})
+        for (int32_t id : {mw1::kHubMarket, mw1::kHubTravel, mw1::kHubBar})
           EXPECT(sc->visible(id) && sc->enabled(id) == (mw1::game_loop_pending() == nullptr));
         EXPECT(has(mw1::date_words(c->date)));
         EXPECT(sc->visible(mw1::kHubQuit) && sc->enabled(mw1::kHubQuit));
         if (const mw1::AfterAction* pa = mw1::game_loop_pending()) {
           // AFTER ACTION: OK, and REPLAY on a failure only; the offer's buttons gone.
           const bool failed = pa->outcome == mw1::Outcome::kFailure;
+          // What OK will pay, as AFTER ACTION shows it ("Salvage: 169,000 C-bills", "Payment: 141,000 C-bills (100%)").
+          auto amount = [&](const char* key) -> int64_t {
+            for (const std::string& l : shown)
+              if (l.rfind(key, 0) == 0) {
+                std::string digits;
+                for (char ch : l.substr(std::string(key).size())) {
+                  if (ch == ' ' && !digits.empty()) break;
+                  if (ch >= '0' && ch <= '9') digits += ch;
+                }
+                return digits.empty() ? -1 : std::stoll(digits);
+              }
+            return -1;
+          };
+          if (salvage_shown < 0) salvage_shown = amount("Salvage: "), fee_shown = amount("Payment: ");
           EXPECT(has("AFTER ACTION") && sc->visible(mw1::kHubOk) && !sc->visible(mw1::kHubAccept) && !sc->visible(mw1::kHubDecline));
           EXPECT(sc->visible(mw1::kHubReplay) == failed);
           if (run && run->after_action.empty()) run->after_action = shown;
@@ -321,6 +372,18 @@ void loop_run(Ending ending, Run* run = nullptr) {
           return;
         }
         if (!hub_checked && run && run->travel && run->plaque_after.empty()) run->plaque_after = shown.size() > 2 ? shown[0] + "|" + shown[2] : "";  // the planet, the date
+        if (!hub_checked && run && run->lance && !run->lance_set) {
+          // Two recruits in the Bar and two mechs in the hangar; the Bar's buttons do the rest.
+          mw1::Company* mc = mw1::game_loop_company_for_tests();
+          mc->recruits = {1, 41};
+          for (int32_t m : {mw1::kPmFirefly, mw1::kPmOwens}) {
+            mw1::OwnedMech o;
+            o.mech = m;
+            mc->hangar.push_back(o);
+          }
+          sc->on_button(mw1::kHubBar, 0, 0);
+          return;
+        }
         if (!hub_checked && run && run->market && !run->market_done) {
           // To the market first; the offer taken after it.
           mw1::Company* mc = mw1::game_loop_company_for_tests();
@@ -443,7 +506,22 @@ void loop_run(Ending ending, Run* run = nullptr) {
         }
         return;
       }
-      for (int32_t i = 0; i < n; ++i) killed += mech3::program_mech_kill_credit(mech3::mech_mission_player(), ai[i].mech);
+      // The lancemates (allies, team 1): their brains' names and aims; Holmaas's mech destroyed with the enemies.
+      enemies = 0;
+      if (run) run->launches = mw1::game_loop_ally_launches();
+      for (int32_t i = 0; i < n; ++i) {
+        auto* b = static_cast<mech3::ai::Brain*>(mech3::program_ai_mech_brain(ai[i].controls));
+        const bool ally = b && b->params.team() == 1;
+        if (ally && run) {
+          ++run->allies;
+          run->ally_pilots.push_back(b->params.pilot ? b->params.pilot : "");
+          run->ally_errors.push_back(b->params.get<float>(0xb8));
+          if (run->ally_pilots.back() == "J. Holmaas") mech3::program_mech_kill_credit(mech3::mech_mission_player(), ai[i].mech);
+          continue;
+        }
+        ++enemies;
+        killed += mech3::program_mech_kill_credit(mech3::mech_mission_player(), ai[i].mech);
+      }
       if (ending != kQuit) mech3::missions().ended = 1;
       if (ending == kFailed && !replaying) mech3::missions().aborting = 1;  // as abort_now: ended, as a failure (a replay won)
       for (int i = app.depth(); i > 0; --i) app.pop(1);
@@ -481,7 +559,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
   EXPECT(fs::exists(fs::path(wd) / "pilots", ec));  // in mw1's own write dir
   if (ending == kAbort) {
     // ABORT: no mission, the contract not taken, nothing paid or moved; the next offer at once.
-    EXPECT(hubs == 3 + (run && run->market ? 1 : 0) + (run && run->travel ? 1 : 0) && hub_checked && declined && back_at_main && enemies == 0);  // the offer, the next (DECLINE), QUIT
+    EXPECT(hubs == 3 + (run && run->market ? 1 : 0) + (run && run->travel ? 1 : 0) + (run && run->lance ? 1 : 0) && hub_checked && declined && back_at_main && enemies == 0);  // the offer, the next (DECLINE), QUIT
     EXPECT(c && c->funds == funds_at_offer && c->stores->count() == items_at_offer);
     if (run) EXPECT(loadout_items(c) == run->loadout_at_offer);
     else EXPECT(c && !c->loadout);
@@ -494,7 +572,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
     return;
   }
   // The offer, AFTER ACTION, the next offer (DECLINE), QUIT.
-  EXPECT(hubs == 4 + (run && run->market ? 1 : 0) + (run && run->travel ? 1 : 0) && hub_checked && declined && back_at_main && enemies > 0 && killed == (ending == kReach ? 0 : enemies));
+  EXPECT(hubs == 4 + (run && run->market ? 1 : 0) + (run && run->travel ? 1 : 0) + (run && run->lance ? 1 : 0) && hub_checked && declined && back_at_main && enemies > 0 && killed == (ending == kReach ? 0 : enemies));
   if (ending == kReach) EXPECT(reach_only && reached);
   EXPECT(c && funds_in_mission > funds_at_offer);  // the advance, at LAUNCH
   EXPECT(c && c->loadout);                         // the briefing's loadout, the company's from LAUNCH
@@ -521,7 +599,14 @@ void loop_run(Ending ending, Run* run = nullptr) {
   } else if (ending == kWon) {
     EXPECT(c && c->kills == enemies);  // every wreck counted
     // The fee and the salvage; another employer than Davion may roll a reduced payout (Kurita's and Liao's 0%).
-    EXPECT(c && (employer == mw1::kDavion ? c->funds > funds_in_mission : c->funds >= funds_in_mission));
+    // The fee (at the payout the settlement rolled: Kurita's and Liao's can be 0%) and the salvage, exactly as AFTER
+    // ACTION showed them.
+    // With lancemates, less their wages for the mission's months (mw1_pilots.h), whole months of the survivors'.
+    const int64_t wages = c ? funds_in_mission + salvage_shown + fee_shown - c->funds : -1;
+    std::printf("  won: wages for the mission's months %lld\n", static_cast<long long>(wages));
+    EXPECT(c && salvage_shown >= 0 && fee_shown >= 0 &&
+           (c->lance.empty() ? wages == 0 : wages >= 0 && wages % mw1::monthly_wages(*c) == 0));
+    if (employer == mw1::kDavion) EXPECT(c && c->funds > funds_in_mission);  // Davion always pays in full
     EXPECT(c && c->stores->count() > items_at_offer);                    // the enemies' parts
   } else {
     // No fee, no salvage, no parts.
@@ -735,9 +820,11 @@ TEST(mw1_loop_restart_at_a_failures_after_action_then_replay_headless) {
                 "funds %lld, stores %d\n",
                 static_cast<long long>(first.funds_end), first.items_end, static_cast<long long>(second.funds_at_replay),
                 second.kills_at_replay, static_cast<long long>(second.funds_end), second.items_end);
+    std::printf("  the replay: grievance against the target %d\n", second.grievance_at_replay);
     EXPECT(second.replayed);
-    // REPLAY: nothing settled (no kills counted, no grievance yet), the advance kept and not paid again.
-    EXPECT(second.funds_at_replay == first.funds_end && second.kills_at_replay == 0 && second.grievance_at_replay == 0);
+    // REPLAY: nothing settled (no kills counted, no grievance yet: 0, or -1 when the target isn't a House), the advance
+    // kept and not paid again.
+    EXPECT(second.funds_at_replay == first.funds_end && second.kills_at_replay == 0 && second.grievance_at_replay <= 0);
     // The replay won and settled once: the fee and the parts.
     EXPECT(second.funds_end > first.funds_end && second.items_end > first.items_end);
     EXPECT(file_text(save).find("\npending=0\n") != std::string::npos);
@@ -807,5 +894,57 @@ TEST(mw1_loop_travel_then_a_contract_there_headless) {
     std::string why;
     EXPECT(mw1::load_file(run.save, saved, k, &has, &why) == mw1::Loaded::kLoaded);
     EXPECT(saved.planet == run.travel_to && saved.kills == 1 && k.house == saved.planet_house);
+  });
+}
+
+// Lancemates in a contract (mw1_pilots.h, ProgramFlow::ally_launching): two hired and assigned, flown as Instant
+// Action's allies with their names and their Gunnery's aims (Poor 2.0, Excellent 0.6 of the record's); the mission
+// won with J. Holmaas's mech destroyed: a counted mission, Elli Gujar one mission on, Holmaas killed and the Owens lost.
+TEST(mw1_loop_lancemates_fly_named_and_aimed_then_the_casualty_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_loop_lance";
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  in_child([&] {
+    Run run;
+    run.save = (dir / mw1::kSaveFile).string();
+    run.lance = true;
+    run.world = "c2";
+    mw1::set_mw1_game_dir(MW1_DOS_GAME_DIR);  // the pitches, as mw1's start gives it
+    const std::vector<std::string> pitch = mw1::pitch(1);
+    loop_run(kWon, &run);
+    mw1::set_mw1_game_dir("");
+    std::printf("  lance: %d allies in the mission;", run.allies);
+    for (size_t i = 0; i < run.ally_pilots.size(); ++i) std::printf(" [%s %g]", run.ally_pilots[i].c_str(), run.ally_errors[i]);
+    std::printf("\n");
+    EXPECT(run.lance_set && run.allies == 2 && run.launches.size() == 2);
+    auto shows = [](const std::vector<std::string>& lines, const std::string& t) {
+      for (const std::string& l : lines)
+        if (l.find(t) != std::string::npos) return true;
+      return false;
+    };
+    EXPECT(shows(run.bar_lines, "RECRUITS") && shows(run.bar_lines, "> Elli Gujar") && shows(run.bar_lines, "J. Holmaas") &&
+           shows(run.bar_lines, "PILOT it"));
+    if (!pitch.empty()) EXPECT(shows(run.bar_lines, "\"" + pitch[0] + "\""));  // Elli Gujar's own words
+    EXPECT(shows(run.bar_after, "J. Holmaas: the Owens") && shows(run.bar_after, "Lance: 2 of 3, wages 2,400 a month") &&
+           shows(run.bar_after, "Nobody here"));
+    // The aims: the record's times the Gunnery's factor, and the brains' the ones set.
+    for (const mw1::AllyLaunch& a : run.launches) {
+      std::printf("  launched %s: the record's aim error %g, set %g\n", mw1::pilot_title(a.id).c_str(), a.record_error, a.error);
+      EXPECT(a.record_error > 0 && a.error == a.record_error * (a.id == 1 ? 2.0f : 0.6f));
+      bool in_brain = false;
+      for (size_t i = 0; i < run.ally_pilots.size(); ++i)
+        in_brain = in_brain || (run.ally_pilots[i] == mw1::pilot_title(a.id) && run.ally_errors[i] == a.error);
+      EXPECT(in_brain);
+    }
+    mw1::Company saved;
+    mw1::Contract k;
+    bool has = false;
+    std::string why;
+    EXPECT(mw1::load_file(run.save, saved, k, &has, &why) == mw1::Loaded::kLoaded);
+    EXPECT(saved.lance.size() == 1 && saved.lance[0].id == 1 && saved.pilots[1].missions == 1);
+    EXPECT(saved.pilots[41].where == mw1::PilotWhere::kDead && saved.hangar.size() == 1 && saved.hangar[0].mech == mw1::kPmFirefly &&
+           saved.hangar[0].pilot == 1);
   });
 }

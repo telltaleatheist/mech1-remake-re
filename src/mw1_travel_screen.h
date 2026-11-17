@@ -11,7 +11,7 @@
 #include "mw1_campaign.h"
 #include "mw1_screen.h"
 
-namespace mw1 {
+namespace mw1::travel_ui {
 
 inline constexpr const char* kTravelFile = "mw1travel.zrd";
 inline constexpr const char* kTravelDialog = "MW1TRAVELDIALOG";
@@ -45,4 +45,10 @@ class TravelState : public Mw1State {
   TravelState(zgame::Handle h, std::function<void(int32_t)> pressed);
 };
 
+}  // namespace mw1::travel_ui
+
+// The module's own namespace keeps its names apart from the other modules' (two of the same name are a
+// compile error at a use, never a silent clash); mw1:: still names them.
+namespace mw1 {
+using namespace travel_ui;
 }  // namespace mw1

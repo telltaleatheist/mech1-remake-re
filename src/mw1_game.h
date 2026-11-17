@@ -6,6 +6,7 @@
 // It sits on mw3-re's extension points for programs built on the engine
 // (mech3/program_flow.h, ObjectivesExtension in mech3/mech_objective.h).
 #include <cstdint>
+#include <vector>
 #include <string>
 
 namespace mw1 {
@@ -32,20 +33,40 @@ const Company* game_loop_company();
 // The contract on offer, or accepted while its mission runs; null before the first hub (tests).
 const Contract* game_loop_contract();
 struct AfterAction;
+namespace hub {
 class HubState;
+}
+using namespace hub;
 // A mission back and not settled (the hub's AFTER ACTION), else null (tests).
 const AfterAction* game_loop_pending();
 // The hub's state, once the loop has made it (tests: its screen shows what the player sees); a press of one of
 // its buttons (mw1_hub.h's HubButton), as the screen's own.
 HubState* game_loop_hub();
+namespace market_ui {
 class MarketState;
+}
+using namespace market_ui;
 // The market's state once the hub's MARKET has made it (tests); the company to change in a test (funds, the
 // market's stock) and the market's screen shown again after such a change.
 MarketState* game_loop_market();
 // The travel screen's state once TRAVEL has made it (tests), else null.
+namespace travel_ui {
 class TravelState;
+}
+using namespace travel_ui;
 TravelState* game_loop_travel();
 Company* game_loop_company_for_tests();
+namespace bar_ui {
+class BarState;
+}
+using namespace bar_ui;
+BarState* game_loop_bar();  // the Bar's state once made (tests)
+// The lancemates the last launch offered (tests): who, the map record's aim error and the one set.
+struct AllyLaunch {
+  int32_t id = 0;
+  float record_error = 0, error = 0;
+};
+const std::vector<AllyLaunch>& game_loop_ally_launches();
 void game_loop_market_changed();
 void game_loop_press(int32_t button);
 
