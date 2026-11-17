@@ -78,8 +78,8 @@ under their own names (`mw3c2`, `mw3c4b`). The engine only ever sees PM
 data. Nothing converted is shipped.
 **The conversion tool** (Owen, 2026-11-16): a proper tool of our own, in
 C++ like the rest, in mw3-re's `tools/`. It reads and writes MW3's and
-PM's files and converts between them. It's the seed of Owen's **zipkit**
-(MIT, its own repo later), scoped for now to what MW1 needs: MW3 to PM
+PM's files and converts between them. It's Owen's **zipkit**, built by the
+mw3 lead's team (Owen, 2026-11-16); MW1 calls it at first run and needs: MW3 to PM
 archives, gamez and scripts for c2 and c4b. It starts static, with no anim,
 and anim follows. It's built on mw3-re's own ported readers and writers,
 with mech3ax as the reference for what it does and its output as a check.
