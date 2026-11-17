@@ -12,7 +12,9 @@ SHARED_IMAGE_PATH ("..\data\common\images\dialogs\shared;..\data\common\images\d
 MW1MARKETDIALOG (
   IMAGE_PATH ("..\data\common\images\dialogs\briefing;..\data\common\images;..\data\common\images\dialogs\shared;..\data\common\images\dialogs\mainmenu;..\data\common\images\dialog\multiplayer;..\data\common\images\dialogs\pilotreg")
   CURSOR (BITMAP ("mw1_cursor") CENTER (1))
-  PRIMITIVES (PANEL (POSITION (16 64) BITMAP ("popup_box")) PANEL2 (POSITION (384 64) BITMAP ("popup_box")))
+  ; MW1's own scene behind it (no main menu to borrow one from: MW1 builds none).
+  PRIMITIVES (BACKGROUND (POSITION (-107 0) BITMAP ("mw1_mechcomplex_dealer") ANCHOR ("CENTRE"))
+    PANEL (POSITION (16 64) BITMAP ("popup_box")) PANEL2 (POSITION (384 64) BITMAP ("popup_box")))
   BUTTONS (
     BUY (POSITION (24 440) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 454))
     SELL (POSITION (184 440) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (230 454))

@@ -1024,7 +1024,7 @@ TEST(program_flow_sees_main_and_the_instant_action_end_headless) {
     p.sound = &sound, p.files = &files;
     mech3::set_program_flow(&flow);
     int stage = 0, wait = 0;
-    bool ia_open = false;
+    bool ia_open = false, built = false;
     {
       mech3::GameEngine engine(p, "mech3.exe -nofmv");
       engine.quiet = true;
@@ -1034,6 +1034,8 @@ TEST(program_flow_sees_main_and_the_instant_action_end_headless) {
       engine.on_present = [&](int) {
         if (app.pending()) return;
         if (stage == 0 && flow.mains == 1) {  // the main menu up: Instant Action's end, as a mission's last state
+          // A program flow without own_menus (the default): the main menu's screen and the multiplayer state built.
+          built = mech3::main_menu() != nullptr && engine.peek32(0x609860) != 0;
           for (int i = app.depth(); i > 0; --i) app.pop(1);
           app.replace(&mech3::states().ia_dummy, 0);
           stage = 1;
@@ -1058,5 +1060,6 @@ TEST(program_flow_sees_main_and_the_instant_action_end_headless) {
                 take ? "taking" : "not taking", flow.mains, flow.endings, flow.mains_at_ending, ia_open);
     EXPECT(flow.mains == 2 && flow.endings == 1 && flow.mains_at_ending == 1);
     EXPECT(ia_open == !take);
+    EXPECT(built);
   }
 }
