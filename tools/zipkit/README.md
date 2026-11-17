@@ -34,14 +34,13 @@ Laid out as `zutl::mount(<out>)` serves it:
 | Output | From | How |
 |---|---|---|
 | `zbd/<new>/gamez.zbd` | `zbd/<w>/gamez.zbd` | converted, version 27 to 41 (below) |
+| `zbd/<new>/anim.zbd` | `zbd/<w>/anim.zbd` | converted, version 39 to 50 (below) |
 | `zbd/<new>/reader*.zbd` | the same | re-tailed: zArchive version 1 to 2 (below) |
 | `zbd/<new>/texture*.zbd`, `rtexture*.zbd` | the same | copied: both games read one image-library format |
 | `<new>.gs` | `<w>.gs` in `zbd/interp.zbd` | decoded to text; `set DB <w>` becomes `set DB <new>` |
 | `support/<new>.gw` | `Support\<w>.gw` in `zbd/interp.zbd` | decoded to text |
 | `zipkit.stamp` | | zipkit's version, each source's size and CRC, what it made |
 
-- `anim.zbd` (version 39 to 50) is not converted yet. Without it the world
-  loads, and its animations (doors, choppers) do not run.
 - The other scripts a `.gs` sources (`tolerances`, `common`, `compile`,
   `commonpostload`, `write`) come from PM's own `interp.zbd`. Under `USEZBD`
   only `GameZReadZBDFile %GAMEZ%` of the world block runs.
@@ -115,6 +114,38 @@ on PM's shipped worlds.
     741 untextured polygons, and what reads it is not known yet.
   - MW3's material flag 0x02 (33 in c2) is kept. PM's files never set it.
 
+### anim.zbd, version 39 to 50
+
+Converted byte to byte (`anim.cpp`): MW3's file walked as docs/anim.md has
+it, PM's written as PM's reader takes it (`pm/gamez/zeffect/zeff_anim_init.cpp`).
+Each rule was checked on both games' shipped files.
+
+- **Header and block.** PM's header adds a time stamp (the source's CRC here).
+  Its 0x6c block holds MW3's 0x44 fields where the reader's field table puts
+  them. PM's own fields are 0, as in every shipped PM file, and the script
+  count is set.
+- **Defs.** 0x13c bytes to 0x10c: MW3's +0x20..+0xc3 at +0x28, the counts
+  at +0xd8, +0x138 at +0x108. There is no node path and no second sequence. The
+  reset sequence is written only when it has events, and its pointer (+0xd0)
+  says so, as in PM's files.
+- **Object and node refs** (0x60 to 0x5c, 0x28 to 0x2c). They gain PM's flags
+  and parent. The parent is 0, as everywhere in PM's files. The local bit
+  (objects 2, nodes 1) is the def's own "local nodes only" (MW3's def flag
+  0x80000, which MW3's lookup reads). MW3's two object flag words are dropped,
+  as PM's record has no room for them.
+- **Events.** Five records changed between the games; every other one is
+  copied:
+  - 4 LIGHT_STATE (0x84 to 0x98): PM's light map, own colours and ambient
+    colour are added, and the rest moves.
+  - 12 OBJECT_MOTION_SI_SCRIPT: MW3's key frames move into the file's scripts
+    (shared when identical), and the event keeps the script's index.
+  - 25 STOP_ANIMATION: PM's two cached indices start at -1.
+  - 31 IF and 33 ELSEIF (0x18 to 0x1c): PM's upper bound is 0.
+  - 42 PUFFER_STATE (0x250 to 0x254): PM's priority is 0, inserted at +0xc0.
+
+  None of PM's new flags appear in MW3's data. IF, ELSE and the sequence walk
+  go by each event's size, so the size changes are safe.
+
 ### mech3ax
 
 mech3ax's PM reader rejects any world PM's writer writes, PM's own included.
@@ -130,10 +161,15 @@ used as the gate. PM's own readers are, in the tests.
   reader and CRC;
 - c2 and c4b converted twice (the same bytes) and read back by PM's reader,
   with the rules above checked on what it read;
+- anim.zbd on all six MW3 worlds (92,557 events): each changed event holds,
+  where PM's handler reads it, what MW3's handler read; the key frames moved
+  whole; every file walked to its last byte;
 - the ground query every 20 m over c2 and c4b, PM's reading of the converted
   world against MW3's of its own: the same nodes, heights and normals at all
   133,356 points;
 - the run's folder rules, with the install's files unchanged;
 - `mw3c2` mounted as a mod world (`mod.txt`: `world=`, `ia_world=`) and played
   headless as Instant Action in wave mode (`test_pm_mission.cpp`): 600 frames,
-  the wave's enemy made, the player on the ground, no full hit list.
+  the wave's enemy made, the player on the ground, no full hit list, all
+  1,422 animation defs read with none corrupt, and the 19 that start
+  themselves running.

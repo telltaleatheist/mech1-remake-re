@@ -256,6 +256,146 @@ TEST(zipkit_ground_the_same_in_pm) {
   zgame::set_game(was);
 }
 
+namespace {
+// A sequence blob's events, each as (type, its bytes).
+std::vector<std::pair<int, std::string>> blob_events(const std::string& b) {
+  std::vector<std::pair<int, std::string>> out;
+  for (size_t at = 0; at + 12 <= b.size();) {
+    int32_t n;
+    std::memcpy(&n, b.data() + at + 4, 4);
+    if (n < 12 || static_cast<size_t>(n) > b.size() - at) return out.push_back({-1, ""}), out;
+    out.push_back({static_cast<uint8_t>(b[at]), b.substr(at, static_cast<size_t>(n))});
+    at += static_cast<size_t>(n);
+  }
+  return out;
+}
+template <typename T>
+T at(const std::string& s, size_t off) {
+  T v{};
+  if (off + sizeof v <= s.size()) std::memcpy(&v, s.data() + off, sizeof v);
+  return v;
+}
+// Every sequence's events of an anim.zbd, in file order, and the scripts' data (PM's file), by the readers' layouts
+// (docs/anim.md for 39; pm zeff_anim_init.cpp for 50).
+struct AnimFile {
+  int defs = 0;
+  std::vector<std::string> blobs, scripts;
+  bool whole = false;
+};
+AnimFile walk_anim(const std::string& b) {
+  AnimFile a;
+  size_t o = 0;
+  const int32_t ver = at<int32_t>(b, 4);
+  const int32_t src = ver == 39 ? at<int32_t>(b, 8) : at<int32_t>(b, 12);
+  o = (ver == 39 ? 12 : 16) + static_cast<size_t>(src) * 0x54;
+  const std::string blk = b.substr(o, ver == 39 ? 0x44 : 0x6c);
+  o += blk.size();
+  a.defs = at<int16_t>(blk, 0x0a);
+  static constexpr int kSizes39[] = {0x60, 0x28, 0x2c, 0x2c, 0x2c, 0x24, 0x24, 0x30, 0x48};
+  static constexpr int kSizes50[] = {0x5c, 0x2c, 0x2c, 0x2c, 0x2c, 0x24, 0x24, 0x30, 0x48};
+  static constexpr int kCounts[] = {0x109, 0x10a, 0x10b, 0x10c, 0x10d, 0x10e, 0x10f, 0x110, 0x112};
+  const auto seq = [&](bool keep) {
+    const int32_t n = at<int32_t>(b, o + 0x3c);
+    o += 0x40;
+    if (n > 0 && keep) a.blobs.push_back(b.substr(o, static_cast<size_t>(n)));
+    if (n > 0) o += static_cast<size_t>(n);
+  };
+  for (int i = 0; i < a.defs && o < b.size(); ++i) {
+    const std::string d = b.substr(o, ver == 39 ? 0x13c : 0x10c);
+    o += d.size();
+    const int shift = ver == 39 ? 0 : -0x30;  // the counts: MW3 +0x108.., PM +0xd8..
+    if (ver == 50) o += static_cast<size_t>(std::max(0, at<int32_t>(d, 0x24))) * 0x24;
+    for (int k = 0; k < 9; ++k) o += static_cast<size_t>(static_cast<uint8_t>(d[kCounts[k] + shift])) * (ver == 39 ? kSizes39[k] : kSizes50[k]);
+    if (ver == 39 || at<uint32_t>(d, 0xd0)) seq(true);
+    if (ver == 50 && at<uint32_t>(d, 0xd4)) seq(true);
+    for (int k = 0; k < static_cast<uint8_t>(d[0x108 + shift]); ++k) seq(true);
+  }
+  if (ver == 50) {
+    const int32_t ns = at<int32_t>(blk, 0x10);
+    const size_t recs = o;
+    o += static_cast<size_t>(ns) * 0x1c;
+    for (int32_t i = 0; i < ns; ++i) {
+      const std::string r = b.substr(recs + i * 0x1c, 0x1c);
+      o += static_cast<uint8_t>(r[8]) + static_cast<uint8_t>(r[9]);
+      a.scripts.push_back(b.substr(o, static_cast<size_t>(at<int32_t>(r, 0x14))));
+      o += static_cast<size_t>(at<int32_t>(r, 0x14));
+    }
+  }
+  o += static_cast<size_t>(at<int32_t>(blk, ver == 39 ? 0x10 : 0x18)) * 0x24;
+  a.whole = o == b.size();
+  return a;
+}
+}  // namespace
+
+// anim.zbd 39 -> 50 on every world MW3 ships: the defs and sequences one for one, each event as PM's handler reads
+// it holding what MW3's read (their offsets from both handlers), PM's sizes, the key frames moved whole into the
+// file's scripts, and each file walked to its last byte. MW1's play test (test_pm_mission) reads one through PM.
+TEST(zipkit_anim_every_world) {
+  if (!have_games()) return;
+  const fs::path dir = fs::path(MW3_TEST_TMP) / "zipkit_anim";
+  fs::create_directories(dir);
+  int worlds = 0;
+  long events = 0, wrong = 0;
+  for (const auto& e : fs::directory_iterator(fs::path(MW3_GAME_DIR) / "zbd")) {
+    const fs::path src = e.path() / "anim.zbd";
+    if (!fs::exists(src)) continue;
+    zipkit::Stats st;
+    std::string error;
+    const fs::path out = dir / "anim.zbd";
+    EXPECT(zipkit::convert_anim(src.string(), out.string(), 7, &st, &error));
+    const std::string mb = bytes(src), pb = bytes(out);
+    EXPECT(at<int32_t>(pb, 4) == 50 && at<uint32_t>(pb, 8) == 7);
+    const AnimFile m = walk_anim(mb), p = walk_anim(pb);
+    EXPECT(m.whole && p.whole && m.defs == p.defs && m.blobs.size() == p.blobs.size());
+    for (size_t i = 0; i < m.blobs.size() && i < p.blobs.size(); ++i) {
+      const auto me = blob_events(m.blobs[i]), pe = blob_events(p.blobs[i]);
+      EXPECT(me.size() == pe.size());
+      for (size_t k = 0; k < me.size() && k < pe.size(); ++k, ++events) {
+        const std::string &a = me[k].second, &q = pe[k].second;
+        bool same = me[k].first == pe[k].first && me[k].first >= 0 && a.compare(0, 4, q, 0, 4) == 0 &&
+                    a.compare(8, 4, q, 8, 4) == 0;  // the type and time; the size is PM's
+        const auto eq = [&](size_t mo, size_t po, size_t n) { same = same && a.compare(mo, n, q, po, n) == 0; };
+        switch (me[k].first) {
+          case 4:  // MW3 0x00503390 -> PM 0x0051b910
+            same = same && q.size() == 0x98;
+            eq(0xc, 0xc, 0x3c), eq(0x48, 0x4c, 4), eq(0x4c, 0x54, 4), eq(0x50, 0x58, 0x2c), eq(0x7c, 0x90, 8);
+            break;
+          case 12:  // MW3 0x00505b00 -> PM 0x0051e2c0: node +0x0c; the frames the script's
+            same = same && q.size() == 0x24 && at<int32_t>(q, 0x10) >= 0 &&
+                   static_cast<size_t>(at<int32_t>(q, 0x10)) < p.scripts.size() &&
+                   p.scripts[static_cast<size_t>(at<int32_t>(q, 0x10))] == a.substr(0x24);
+            eq(0xc, 0xc, 4);
+            break;
+          case 25:  // MW3 0x00506d60 -> PM 0x0051f900: the name; the two caches -1
+            same = same && q.size() == 0x30 && at<int16_t>(q, 0x2c) == -1 && at<int16_t>(q, 0x2e) == -1;
+            eq(0xc, 0xc, 0x20);
+            break;
+          case 31:
+          case 33:  // MW3 0x00507010 -> PM 0x0051fce0: flags, node, value; PM's bound 0
+            same = same && q.size() == 0x1c && at<uint32_t>(q, 0x18) == 0;
+            eq(0xc, 0xc, 0xc);
+            break;
+          case 42:  // MW3 0x005035b0 -> PM 0x0051bbf0: PM's priority at +0xc0, 0
+            same = same && q.size() == 0x254 && at<float>(q, 0xc0) == 0.0f;
+            eq(0xc, 0xc, 0xb4), eq(0xc0, 0xc4, 0x250 - 0xc0);
+            break;
+          default:
+            same = same && a.size() == q.size();
+            eq(0xc, 0xc, a.size() - 0xc);
+        }
+        if (!same && ++wrong <= 3) std::printf("  %s: event %d of blob %zu (type %d) differs\n", e.path().filename().c_str(), static_cast<int>(k), i, me[k].first);
+      }
+    }
+    std::printf("  %s: %d defs, %zu sequences, %zu scripts\n", e.path().filename().c_str(), p.defs, p.blobs.size(), p.scripts.size());
+    ++worlds;
+  }
+  EXPECT(worlds == 6 && events > 90000 && wrong == 0);
+  std::printf("  %d worlds, %ld events, %ld differ\n", worlds, events, wrong);
+  std::string error;
+  zipkit::Stats st;
+  EXPECT(!zipkit::convert_anim((fs::path(MW3PM_GAME_DIR) / "zbd/c2/anim.zbd").string(), (dir / "x.zbd").string(), 1, &st, &error));
+}
+
 // The whole run: the layout under --out, the stamp, the progress, the install untouched; a second run replaces
 // its own output; what zipkit did not make is left alone; PM's install is refused.
 TEST(zipkit_run_rules) {
@@ -273,7 +413,7 @@ TEST(zipkit_run_rules) {
   for (const char* f : {"zbd/mw3c2/gamez.zbd", "zbd/mw3c2/reader.zbd", "zbd/mw3c2/readeria1.zbd", "zbd/mw3c2/texture.zbd",
                         "zbd/mw3c2/rtexture3.zbd", "mw3c2.gs", "support/mw3c2.gw", "zipkit.stamp"})
     EXPECT(fs::exists(out / f));
-  EXPECT(!fs::exists(out / ".zipkit-tmp") && !fs::exists(out / "zbd/mw3c2/anim.zbd"));
+  EXPECT(!fs::exists(out / ".zipkit-tmp") && bytes(out / "zbd/mw3c2/anim.zbd").substr(4, 4) == std::string("\x32\0\0\0", 4));
   const std::string gs = bytes(out / "mw3c2.gs"), stamp = bytes(out / "zipkit.stamp");
   EXPECT(gs.rfind("set DB mw3c2\r\n", 0) == 0 && gs.find("set DB c2") == std::string::npos);
   EXPECT(gs.find("GameZReadZBDFile %GAMEZ%") != std::string::npos);

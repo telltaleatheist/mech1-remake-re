@@ -9,13 +9,15 @@
 // It only reads the install it is given and only writes under `out`.
 namespace zipkit {
 
-constexpr const char* kVersion = "0.1.0";
+constexpr const char* kVersion = "0.2.0";
 
 struct Stats {
   int nodes = 0;
   int polygons = 0;
   int polygon_flags_unknown = 0;  // polygons with flag bits outside the known three
   int lights_unmapped = 0;        // lights whose flags were not MW3's sun (0x38b)
+  int anim_defs = 0;              // anim.zbd's defs
+  int anim_scripts = 0;           // its OBJECT_MOTION_SI_SCRIPT events (their frames made the file's scripts)
 };
 
 // One step of the run, for a progress line ("c2: gamez 3/7").
@@ -37,6 +39,9 @@ bool mw3_to_pm(const Options& o, std::string* error);
 // MW3's zArchive (version 1) re-tailed as PM's (version 2, with its CRC); the entries' bytes unchanged.
 bool retail_archive(const std::string& src, const std::string& dst, std::string* error);
 // MW3's gamez.zbd (27) as PM's (41), written as `name` in `out_dir`; `stamp` is the header's +0x08.
+// A world's anim.zbd, version 39 to 50 (anim.cpp). Its header's time stamp is `stamp`.
+bool convert_anim(const std::string& src, const std::string& dst, uint32_t stamp, Stats*, std::string* error);
+
 bool convert_gamez(const std::string& src, const std::string& out_dir, const std::string& name, uint32_t stamp,
                    Stats* stats, std::string* error);
 // MW3's <world>.gs and support\<world>.gw from its interp.zbd, as <out>/<new>.gs and
