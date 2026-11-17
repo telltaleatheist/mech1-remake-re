@@ -44,8 +44,12 @@ Laid out as `zutl::mount(<out>)` serves it:
 - The other scripts a `.gs` sources (`tolerances`, `common`, `compile`,
   `commonpostload`, `write`) come from PM's own `interp.zbd`. Under `USEZBD`
   only `GameZReadZBDFile %GAMEZ%` of the world block runs.
-- c2's `support\c2.gw` cycle lines give one harmless "SetCycleTextureSpeed:
-  Texture not cycled" in PM (reported in MW1's smoke test; to check).
+- c2's `support\c2.gw` cycle lines give one "SetCycleTextureSpeed: Texture
+  not cycled" in PM, and none in MW3. It's harmless. PM's speed setter
+  (`pm::zmod::cycle_set_speed`) sets every distinct material of the model,
+  where MW3's set only the first. One of c2's cycled models also has a plain
+  material, and PM reports that one. The cycled material still gets its
+  speed.
 
 Rules for the folder:
 - Everything is built in `<out>/.zipkit-tmp` and moved into place only when
