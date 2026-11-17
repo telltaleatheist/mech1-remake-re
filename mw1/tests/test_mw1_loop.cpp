@@ -39,6 +39,7 @@
 #include "mech3/program_flow.h"
 #include "mech3/zai_brain.h"
 #include "mech3/zai_params.h"
+#include "mech3/mainmenu.h"
 #include "mw1_bar_screen.h"
 #include "mw1_chrome.h"
 #include "mw1_event_screen.h"
@@ -1441,7 +1442,10 @@ TEST(mw1_menu_new_campaign_plays_the_intro_then_the_hub_headless) {
         case 0:  // the menu: NEW CAMPAIGN
           if (!showing(app, m)) return false;
           menu_first = m->screen()->shown();
-          EXPECT(engine.message_box_file() == "mw1dialog.zrd");  // every box in MW1's look (mw1dialog.zrd), PM's own too
+          EXPECT(engine.message_box_file() == "mw1dialog.zrd");
+          // MW1's own menus: Pirate's Moon's main menu screen and multiplayer state not built (own_menus), its options
+          // state still there (the hub's OPTIONS).
+          EXPECT(mech3::main_menu() == nullptr && engine.peek32(0x609860) == 0 && engine.peek32(0x609868) != 0);  // every box in MW1's look (mw1dialog.zrd), PM's own too
           EXPECT(m->screen()->loaded() && m->screen()->enabled(mw1::kMenuNew) && !m->screen()->enabled(mw1::kMenuContinue));
           EXPECT(!mw1::game_loop_company());
           m->screen()->on_button(mw1::kMenuNew, 0, 0);

@@ -138,6 +138,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   }
 
   // ---- ProgramFlow ----
+  // MW1's own menus: Pirate's Moon's main menu screen and its multiplayer state, never shown, are not built.
+  bool own_menus() const override { return true; }
   bool main_entered(mech3::Engine& e) override {
     auto& ge = static_cast<mech3::GameEngine&>(e);
     ge_ = &ge;
