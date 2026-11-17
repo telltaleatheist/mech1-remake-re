@@ -18,6 +18,7 @@
 
 namespace mech3 {
 class Store;
+struct Config;
 }
 
 namespace mw1 {
@@ -75,6 +76,8 @@ struct Company {
   int32_t mech = kPmOwens;  // the commander's mech (PM id), with its stock loadout
   // The stores for the mech lab and the salvage: PM's own (mech3::Store), whose items are the loadouts'.
   std::shared_ptr<mech3::Store> stores;
+  // The mech's loadout as the lab last left it at a launch; null: the mech's stock loadout.
+  std::shared_ptr<mech3::Config> loadout;
   int32_t kills = 0;  // playerCombatCredit: enemy mechs disabled, all campaign long
   int32_t favor[kHouseCount] = {}, grievance[kHouseCount] = {};
   // Where the company is. The milestone has one placeholder world.
