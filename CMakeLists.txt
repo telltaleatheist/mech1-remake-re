@@ -37,6 +37,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(MW3RE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/mw3-re")
+# MSVC and clang-cl: C++ exceptions on, as the engine does (mw3-re's build.cmd replaces CMake's default /EHsc).
+if(MSVC)
+  add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:/EHsc>")
+endif()
 
 # What MW1 adds that a test can reach without SDL.
 add_library(mw1core STATIC src/mw1_start.cpp src/mw1_campaign.cpp src/mw1_game.cpp src/mw1_save.cpp src/mw1_worlds.cpp src/mw1_hub.cpp src/mw1_market.cpp src/mw1_travel.cpp src/mw1_pilots.cpp src/mw1_repairs.cpp src/mw1_missions.cpp src/mw1_images.cpp src/mw1_menu.cpp src/mw1_screen.cpp src/mw1_market_screen.cpp src/mw1_travel_screen.cpp src/mw1_bar_screen.cpp src/mw1_office.cpp src/mw1_story.cpp src/mw1_event_screen.cpp src/mw1_travel_map.cpp src/mw1_map_image.cpp)
@@ -79,6 +83,22 @@ if(TARGET mw3pm)
                                            MW1_DOS_GAME_DIR="${MW1_DOS_GAME_DIR}")
   endif()
   if(WIN32)
+    # The version resource's numbers, MW1's own (the engine's are in its own scope): git's describe and commit count.
+    set(MW3_VERSION dev)
+    set(MW3_BUILD_NUMBER 0)
+    find_package(Git QUIET)
+    if(GIT_FOUND)
+      execute_process(COMMAND ${GIT_EXECUTABLE} describe --tags --always --dirty WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                      OUTPUT_VARIABLE mw1_describe OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET RESULT_VARIABLE mw1_git_r)
+      if(mw1_git_r EQUAL 0 AND mw1_describe)
+        set(MW3_VERSION ${mw1_describe})
+      endif()
+      execute_process(COMMAND ${GIT_EXECUTABLE} rev-list --count HEAD WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                      OUTPUT_VARIABLE mw1_count OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET RESULT_VARIABLE mw1_git_r)
+      if(mw1_git_r EQUAL 0 AND mw1_count MATCHES "^[0-9]+$")
+        math(EXPR MW3_BUILD_NUMBER "${mw1_count} % 65536")
+      endif()
+    endif()
     set(MW3_RC_NAME "MechWarrior 1: Critical Hit")
     set(MW3_RC_FILE "mw1.exe")
     set(MW3_RC_ICON "ICON_MAIN ICON \"${MW3RE_DIR}/tools/windows/mw3.ico\"")
@@ -107,6 +127,12 @@ if(TARGET mw3pm)
   # The travel map's backdrops are drawn from the worlds' data (src/mw1_map_image.h): mw1core.
   add_executable(mw1imgpack tools/mw1imgpack.cpp)
   target_link_libraries(mw1imgpack PRIVATE mw1core SDL3::SDL3)
+  # Windows: the SDL3 DLL beside the tool, which runs during the build.
+  if(WIN32 AND NOT CMAKE_VERSION VERSION_LESS 3.21)
+    add_custom_command(TARGET mw1imgpack POST_BUILD
+                       COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_RUNTIME_DLLS:mw1imgpack> $<TARGET_FILE_DIR:mw1imgpack>
+                       COMMAND_EXPAND_LISTS)
+  endif()
   set(mw1_image_zbd ${CMAKE_CURRENT_BINARY_DIR}/mw1gen/zbd/mw1image.zbd)
   add_custom_command(OUTPUT ${mw1_image_zbd}
                      COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/mw1gen/zbd
