@@ -315,3 +315,46 @@ How a stage could follow the last without the hub:
 - **A hub stop between stages** (Owen's other option) needs no engine hook:
   the stage's damage becomes a repair bill, as now. The stage count and the
   next stage's map are ours to keep in the save.
+
+## The story's pictures, for the art list (research, 2026-11-17)
+
+Checked against the port's event and startup code (reference only) and the
+player's install.
+
+- **The events have no pictures.** Every class draws text only: green on a
+  black panel, the news in its own page style, and the office's (text 8) a
+  little lower. A choice's buttons are captions only (their picture index is
+  0). The events fire over the screen they belong to (hub, Bar, Mech
+  Complex, office), and those already have PM's art in ours.
+- **The deaths have none either.** A story death shows its text, then MW1
+  restarts the campaign. DEATH.MUS plays for lancemates lost in battle,
+  which isn't the story.
+- **The one story picture sequence is the Dark Wing victory.**
+  1. MW1 writes its victory line (a string in MW_MAIN's data) over the
+     battle's screen.
+  2. It wipes to transition picture 0x4D from the main picture bank
+     (MW_PICS.BIN, or the Tandy or CGA bank on those machines).
+  3. It loads the F bank (MW_FPICS.BIN) and plays VICTORY.MUS.
+  4. It plays a short animation: backdrop 9 (from y 59), then pictures 1
+     to 5 in turn, then 6 with 7 and 8 alternating for 20 cycles, each
+     frame ended by the transition wipe.
+  5. It waits for a key, then shows the fixed event 0x76 (continue or
+     quit).
+
+  The pictures' content isn't decoded here.
+- **For Owen's art list (Q3, Q11):** one victory piece, still or animated,
+  to stand in for MW1's sequence. Optionally a short victory track in place
+  of VICTORY.MUS. Nothing else in the story needs new art; the panels stay
+  text.
+
+## Option: a "Story" switch on NEW CAMPAIGN (held, mw1 lead 2026-11-17)
+
+The story could be a choice at NEW CAMPAIGN: on by default, off for free
+play (contracts, the market and the Bar only). It's cheap:
+
+- the loop already has the switch (`set_game_loop_story`, used by the tests);
+- the save would keep it;
+- DRINK and NEWS already grey without the story.
+
+Whether it's worth having depends on Owen's answers to Q1 to Q3 (the deaths
+and the ending), so it isn't built.
