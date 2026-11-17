@@ -78,8 +78,14 @@ on PM's shipped worlds.
   0x100 to 0x400, normals 0x200 to 0x1000. Each polygon gets one material and
   its UVs. A type-0 model with polygons gets flag 0x80, as all 1,696 such
   models in PM's c2 have; without it PM's Direct3D path would strip the model.
-  PM's writer then sorts the polygons by material and makes the refs
-  (0x0055c470), so the draw order within a model changes.
+  The polygons keep MW3's order. PM's writer would sort them by material
+  (0x0055c470), but the ground query takes a model's first polygon under a
+  point, so a sorted model stands mechs on other faces: 43 of 133,356 points in
+  c2 and c4b did, one of them a building's side wall at 13.0 m instead of its
+  roof at 18.85 m. zipkit gives the writer its refs as runs in MW3's order
+  (`pm::zmod::write_hooks().refs`, ours; unset, the writer sorts as the exe
+  does). A material can own several runs, and a cycled material's polygon is a
+  run of its own, as the sort makes it.
 - **Nodes.**
   - The live bit PM's writer writes by (0x2000000) is set, and the model
     becomes PM's slot.
@@ -124,4 +130,7 @@ used as the gate. PM's own readers are, in the tests.
   reader and CRC;
 - c2 and c4b converted twice (the same bytes) and read back by PM's reader,
   with the rules above checked on what it read;
+- the ground query every 20 m over c2 and c4b, PM's reading of the converted
+  world against MW3's of its own: the same nodes, heights and normals at all
+  133,356 points;
 - the run's folder rules, with the install's files unchanged.

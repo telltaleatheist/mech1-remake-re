@@ -153,6 +153,12 @@ int32_t model_index(const Model* m);
 // their colours; then the material refs); a slot that had any but refs is given the offset they start at (+0x64,
 // in the pool too), and the slots are written again. The size, 0 after an error (reported).
 int write_models(std::FILE* f);
+// Ours (tools/zipkit): when set, write_models has this build each model's refs in place of the exe's sort, so a
+// converted world keeps its source's polygon order (the ground query takes a model's first polygon under a point).
+struct WriteHooks {
+  void (*refs)(Model& m) = nullptr;
+};
+WriteHooks& write_hooks();
 
 // The script commands' on PM's models (ported for preservation; the engine's entries are null).
 void model_set_facade(Model* m, uint32_t mode);       // 0x00559910

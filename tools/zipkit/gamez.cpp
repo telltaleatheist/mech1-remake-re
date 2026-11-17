@@ -64,8 +64,7 @@ uint32_t polygon_flags(uint32_t f, int* unknown) {
 }
 
 // One MW3 model into PM's slot. The polygons keep their arrays (the pools
-// live until the run ends); PM's writer sorts them by material and makes the
-// refs (pm::zmod::write_models, sort_by_material).
+// live until the run ends) and MW3's order; refs_in_order makes the refs.
 void convert_model(const ::zmod::Model& s, pm::zmod::Model& d, Stats& st) {
   std::memset(d.header, 0, sizeof d.header);
   std::memcpy(d.header, s.header, 0x5c);  // PM +0x5c (the ref count) starts 0
@@ -95,6 +94,34 @@ void convert_model(const ::zmod::Model& s, pm::zmod::Model& d, Stats& st) {
     q.zone_set = p.zone_set;
     ++st.polygons;
   }
+}
+
+// The refs as runs in MW3's polygon order, in place of PM's writer's sort by
+// material (sort_by_material, 0x0055c470): the ground query keeps a model's
+// first polygon under a point, so a reordered model can stand a mech on a
+// different face (43 points of c2 and c4b did). A material may own several
+// runs; a cycled material's polygon is a run of its own, as the sort makes it.
+void refs_in_order(pm::zmod::Model& m) {
+  const int32_t polys = m.count(0x10);
+  delete[] m.refs;
+  m.refs = nullptr;
+  int32_t refs = 0;
+  std::vector<pm::zmod::MaterialRef> out;
+  for (int32_t i = 0; i < polys; ++i) {
+    pm::zmod::Polygon& q = m.polygons[i];
+    ::zmod::Material* mat = q.material_count > 0 ? q.materials[0] : nullptr;
+    const bool cycled = mat && (mat->flags & 4);
+    if (!out.empty() && !cycled && out.back().material == mat && !(out.back().material && (out.back().material->flags & 4)))
+      ++out.back().usage_count;
+    else
+      out.push_back({mat, 1, &q});
+  }
+  refs = static_cast<int32_t>(out.size());
+  if (refs > 0) {
+    m.refs = new pm::zmod::MaterialRef[static_cast<size_t>(refs)];
+    std::copy(out.begin(), out.end(), m.refs);
+  }
+  std::memcpy(m.header + 0x5c, &refs, 4);
 }
 
 // PM's +0x70: the box flags 0x700 pick (0b011 the model's, 0b101 the
@@ -219,7 +246,9 @@ bool convert_gamez(const std::string& src, const std::string& out_dir, const std
   // PM's writer writes through the write folder.
   const zutl::Mounts saved = zutl::mounts();
   zutl::mounts().write = out_dir;
+  pm::zmod::write_hooks().refs = refs_in_order;
   const int r = pm::zcls::write_zbd(name.c_str());
+  pm::zmod::write_hooks().refs = nullptr;
   zutl::mounts() = saved;
   zerr::set_sink(nullptr);
   if (r != 0) {

@@ -13,9 +13,13 @@
 
 #include "check.h"
 #include "gamez/zclass/cls_data.h"
+#include "gamez/zclass/cls_di.h"
 #include "gamez/zclass/cls_node.h"
+#include "gamez/zclass/cls_zbd.h"
+#include "gamez/zmodel/gmod_const.h"
 #include "gamez/zclass/list.h"
 #include "gamez/zerror/zerr.h"
+#include "gamez/zgame/zgame_table.h"
 #include "gamez/zimage/zimg_texture.h"
 #include "gamez/zmodel/gmod_matl.h"
 #include "gamez/zutil/zutl_zar.h"
@@ -23,6 +27,7 @@
 #include "pm/gamez/zclass/cls_zbd.h"
 #include "pm/gamez/zmodel/gmod_const.h"
 #include "pm/gamez/zutil/zutl_zar.h"
+#include "pm/pm_game.h"
 #include "zipkit.h"
 
 namespace fs = std::filesystem;
@@ -82,6 +87,33 @@ void reset_pm_world() {
   zcls::lists() = zcls::Lists{};
   pm::zcls::zbd_state() = pm::zcls::ZbdState{};
   zvid::set_pixel_format(5, 6, 5);
+}
+
+// The ground query (cls_di, 0x004edab0) every 20 m over the world's area, straight down from 5 km: each hit's
+// node, height and normal, one line a point. What the mechs stand and walk on.
+std::vector<std::string> ground_grid() {
+  zcls::Node* world = nullptr;
+  for (int32_t i = 0; i < zcls::nodes().capacity; ++i)
+    if ((zcls::node_at(i)->link & zcls::kNodeLive) && zcls::node_at(i)->cls() == 2) world = zcls::node_at(i);
+  std::vector<std::string> out;
+  if (!world) return out;
+  auto* w = static_cast<zcls::World*>(world->data);
+  const float x0 = w->get<float>(0x34), z0 = w->get<float>(0x38), x1 = x0 + w->get<float>(0x3c), z1 = z0 + w->get<float>(0x40);
+  char line[96];
+  for (float z = std::min(z0, z1); z < std::max(z0, z1); z += 20)
+    for (float x = std::min(x0, x1); x < std::max(x0, x1); x += 20) {
+      zcls::GroundHits h{};
+      zcls::ground_point(world, x, 5000.0f, z, &h);
+      std::string s;
+      for (int k = 0; k < h.count; ++k) {
+        const zcls::GroundHit& g = h.hit[k];
+        std::snprintf(line, sizeof line, "%s %.3f %.3f %.3f %.3f;", g.node ? g.node->name() : "-", g.height, g.normal[0],
+                      g.normal[1], g.normal[2]);
+        s += line;
+      }
+      out.push_back(s);
+    }
+  return out;
 }
 
 }  // namespace
@@ -186,6 +218,42 @@ TEST(zipkit_gamez_reads_back_in_pm) {
     EXPECT(worlds == 1 && lights == 1 && entries > 500 && bad_y == 0 && bad_box == 0);
     std::printf("  %s: %d nodes, %d polygons, %d partition entries\n", world, st.nodes, st.polygons, entries);
   }
+}
+
+// The ground under every 20 m of c2 and c4b the same in PM's reading of the converted world as in MW3's of its own:
+// the same nodes, heights and normals (MW1's c4b run reported a full hit list, which this shows is not the world's).
+TEST(zipkit_ground_the_same_in_pm) {
+  if (!have_games()) return;
+  const fs::path dir = fs::path(MW3_TEST_TMP) / "zipkit_ground";
+  fs::create_directories(dir);
+  const zgame::Table& was = zgame::game();
+  for (const char* world : {"c2", "c4b"}) {
+    const std::string src = (fs::path(MW3_GAME_DIR) / "zbd" / world / "gamez.zbd").string();
+    zgame::set_game(zgame::mw3_table());
+    reset_pm_world();
+    zmod::models() = zmod::ModelPool{};
+    zerr::set_sink([](int, const char*, int, const char*) {});
+    EXPECT(zcls::read_zbd(src.c_str()) == 0);  // MW3's own world, its own models
+    const std::vector<std::string> mw3 = ground_grid();
+    zerr::set_sink(nullptr);
+    zipkit::Stats st;
+    std::string error;
+    EXPECT(zipkit::convert_gamez(src, dir.string(), "gamez.zbd", 1, &st, &error));
+    zgame::set_game(pm::table());
+    reset_pm_world();
+    zerr::set_sink([](int, const char*, int, const char*) {});
+    EXPECT(pm::zcls::read_zbd((dir / "gamez.zbd").string().c_str()) == 0);
+    const std::vector<std::string> pm = ground_grid();
+    zerr::set_sink(nullptr);
+    size_t differ = 0, hits = 0;
+    for (size_t i = 0; i < mw3.size() && i < pm.size(); ++i) {
+      if (mw3[i] != pm[i] && ++differ <= 4) std::printf("  point %zu\n    mw3 %s\n    pm  %s\n", i, mw3[i].c_str(), pm[i].c_str());
+      hits += !mw3[i].empty();
+    }
+    EXPECT(mw3.size() > 50000 && pm.size() == mw3.size() && differ == 0 && hits > mw3.size() / 2);
+    std::printf("  %s: %zu points, %zu with ground, %zu differ\n", world, mw3.size(), hits, differ);
+  }
+  zgame::set_game(was);
 }
 
 // The whole run: the layout under --out, the stamp, the progress, the install untouched; a second run replaces
