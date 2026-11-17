@@ -334,10 +334,6 @@ class WeaponObjective : public Objective {
 struct Objectives {
   std::optional<std::string> desc;      // +0x78 (calloc'd)
   std::unique_ptr<ObjectiveGroup> primary, secondary, final, fail;  // +0x7c..+0x88
-  // Ours (no original has it): the block's `destroy_enemies 0` keeps Instant Action's
-  // "destroy the enemies" group (0x0045c4a0) out, so the mission's own primary
-  // objectives (reach a structure, destroy one) win it alone. Default 1, the original.
-  bool destroy_enemies = true;
 };
 
 // The training game's lessons (its +0x44 object: +0x38..+0x40 the list, 0x14
@@ -388,6 +384,25 @@ void complete(Objective& o, uint8_t done, ObjectiveHooks& h, uint8_t success = 1
 // Mech3.exe 1.2 @ 0x0045c180: each of primary, final and fail that is done
 // is visible (the cockpit's flash of the objectives).
 uint8_t objectives_visible(const ObjectiveGroup* primary, const ObjectiveGroup* final, const ObjectiveGroup* fail);
+// An extension point (ours) for a program built on the engine (MW1: Critical
+// Hit): never part of the original's logic. With none set, the default, the
+// game runs the original's code alone; an extension only adds what its own
+// program needs (docs/objectives.md, "Extensions").
+class ObjectivesExtension {
+ public:
+  virtual ~ObjectivesExtension() = default;
+  // After a mission's block is read (objectives_load), its tree still open:
+  // the program may read keys of its own from `block` (null: no block).
+  virtual void block_read(zrdr::Node* block, Objectives& o) {}
+  // Asked before 0x0045c4a0 adds Instant Action's "destroy the enemies"
+  // group; false leaves it out.
+  virtual bool add_enemy_group(const Objectives& o) { return true; }
+  // The objectives freed (objectives_free).
+  virtual void freed(Objectives& o) {}
+};
+void set_objectives_extension(ObjectivesExtension* x);  // null: none, the original
+ObjectivesExtension* objectives_extension();
+
 // Mech3.exe 1.2 @ 0x0045c4a0: Instant Action's and multiplayer's "destroy
 // the enemies": a group of every active hostile object into primary
 // (secondary in multiplayer).

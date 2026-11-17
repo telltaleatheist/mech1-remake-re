@@ -1698,8 +1698,9 @@ struct WiredMissionHooks : MissionHooks {
     ob().sync();
   }
   void objectives_start(Handle, Handle, Handle, Handle) override {  // 0x0045c4a0
-    // Ours: a block's `destroy_enemies 0` leaves the group out (mech_objective.h).
-    if (ob().objs.destroy_enemies) add_enemy_objectives(ob().objs.primary, ob().objs.secondary, ob());
+    // Ours: an extension may leave the group out (mech_objective.h); none in MW3 or PM.
+    ObjectivesExtension* x = objectives_extension();
+    if (!x || x->add_enemy_group(ob().objs)) add_enemy_objectives(ob().objs.primary, ob().objs.secondary, ob());
     ob().sync();
   }
   Handle training(Handle, Handle, Handle, Handle, Handle) override { return launch_training() ? 1 : 0; }

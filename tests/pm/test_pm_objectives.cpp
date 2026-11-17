@@ -192,10 +192,14 @@ TEST(pm_salvage_takes_the_chassis_by_its_flag) {
   EXPECT(b.count() == 0);
 }
 
-// Ours (MW1: Critical Hit): a block's `destroy_enemies 0` keeps Instant Action's "destroy the enemies"
-// group out, so a mission's own objective (reach a structure within 10 m) wins it alone; without the key, the original.
+// Ours: the objectives extension (mech_objective.h), a hook for a program built on the engine. None set, the
+// original; one set sees each block after the original's read (and may read its own keys) and each free.
 namespace {
 struct ReadHooks : Hooks {
+  zrdr::Node* root = nullptr;
+  zrdr::Node* load(const char*) override { return root; }
+  void free_tree(zrdr::Node*) override {}
+  const char* localize(const char* s) override { return s; }
   const char* message(int32_t) override { return "objectives"; }
   int32_t game_type() override { return 2; }  // Instant Action
 };
@@ -207,27 +211,39 @@ zrdr::Node* parse(const char* text) {
   std::fclose(f);
   return root;
 }
+struct Ext : ObjectivesExtension {
+  int read = 0, freed_n = 0;
+  int32_t key = -1;
+  void block_read(zrdr::Node* block, Objectives&) override {
+    ++read;
+    if (zrdr::Node* v = zrdr::find_flat(block, "my_key", 1); v && v->type == zrdr::Int) key = v->i;
+  }
+  bool add_enemy_group(const Objectives&) override { return key != 0; }
+  void freed(Objectives&) override { ++freed_n; }
+};
 }  // namespace
 
-TEST(objectives_destroy_enemies_off_reads) {
+TEST(objectives_extension_none_is_the_original) {
+  EXPECT(objectives_extension() == nullptr);
   ReadHooks h;
-  zrdr::Node* root = parse(
-      "ia1 (destroy_enemies 0 primary (reach_area (radius 10 point (100 0 200))))\n"
-      "ia2 (primary (reach_area (point (1 2 3))))\n"
-      "ia3 (destroy_enemies (1) primary (reach_area (point (1 2 3))))\n");
-  EXPECT(root != nullptr);
-  Objectives a, b, c;
-  EXPECT(read_objectives(zrdr::find(root, "ia1"), a, h));
-  EXPECT(!a.destroy_enemies);
-  EXPECT(a.primary && a.primary->items.size() == 1);
-  if (a.primary && !a.primary->items.empty()) {
-    const auto* r = static_cast<const ReachAreaObjective*>(a.primary->items.front().get());
-    EXPECT(r->radius == 10.0f && r->point[0] == 100.0f && r->point[2] == 200.0f);
-  }
-  EXPECT(read_objectives(zrdr::find(root, "ia2"), b, h) && b.destroy_enemies);
-  EXPECT(read_objectives(zrdr::find(root, "ia3"), c, h) && c.destroy_enemies);
-  objectives_free(a, h);
-  EXPECT(a.destroy_enemies);  // a freed block's next read starts from the original's
-  objectives_free(b, h), objectives_free(c, h);
-  zrdr::free_node(root);
+  h.root = parse("ia1 (my_key 0 primary (reach_area (radius 10 point (100 0 200))))\n");
+  Objectives o;
+  EXPECT(objectives_load("objectives.zrd", "ia1", o, h));
+  EXPECT(o.primary && o.primary->items.size() == 1);
+  objectives_free(o, h);
+  zrdr::free_node(h.root);
+}
+
+TEST(objectives_extension_sees_the_block) {
+  ReadHooks h;
+  h.root = parse("ia1 (my_key 0 primary (reach_area (radius 10 point (100 0 200))))\n");
+  Ext x;
+  set_objectives_extension(&x);
+  Objectives o;
+  EXPECT(objectives_load("objectives.zrd", "ia1", o, h));
+  EXPECT(x.read == 1 && x.key == 0 && !x.add_enemy_group(o));
+  objectives_free(o, h);
+  EXPECT(x.freed_n == 1);
+  set_objectives_extension(nullptr);
+  zrdr::free_node(h.root);
 }

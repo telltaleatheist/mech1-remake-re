@@ -716,11 +716,6 @@ bool read_objectives(Node* block, Objectives& o, ObjectiveHooks& h) {
   read_group(block, "secondary", h.message(0x16e), o.secondary, h);
   read_group(block, "final", h.message(0xf03), o.final, h);
   read_group(block, "fail", h.message(0xf04), o.fail, h);
-  // Ours: `destroy_enemies 0` (or `(0)`), on the block itself, not a condition.
-  if (Node* e = zrdr::find_flat(block, "destroy_enemies", 1)) {
-    if (e->type == zrdr::List && zrdr::list_count(e) >= 2) e = &e->list[1];
-    if (e->type == zrdr::Int) o.destroy_enemies = e->i != 0;
-  }
   if (h.game_type() == 1) add_mobile_hq(h.message(0xf04), o.fail, h);
   if (o.fail) o.fail->goal_count = 1;
   int32_t n = 0;
@@ -736,6 +731,7 @@ bool objectives_load(const char* file, const char* block, Objectives& o, Objecti
   if (!root) return false;
   Node* b = zrdr::find(root, block);
   const bool ok = read_objectives(b, o, h);
+  if (ObjectivesExtension* x = objectives_extension()) x->block_read(b, o);  // ours: none in MW3 or PM
   h.free_tree(root);
   if (dir && zfix::options().small_fixes) fix_objective_data(dir, block, o, h);
   return ok;
@@ -886,8 +882,14 @@ void objectives_free(Objectives& o, ObjectiveHooks& h) {
   // The pointers are cleared either way.
   o.primary.release(), o.secondary.release(), o.final.release(), o.fail.release();
   o.desc.reset();
-  o.destroy_enemies = true;  // ours: back to the original's for the next block
+  if (ObjectivesExtension* x = objectives_extension()) x->freed(o);  // ours: none in MW3 or PM
 }
+
+namespace {
+ObjectivesExtension* g_extension = nullptr;
+}
+void set_objectives_extension(ObjectivesExtension* x) { g_extension = x; }
+ObjectivesExtension* objectives_extension() { return g_extension; }
 
 namespace {
 
