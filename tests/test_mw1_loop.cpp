@@ -28,6 +28,7 @@
 #include "mech3/mech_control.h"
 #include "mech3/mech_names.h"
 #include "mech3/mech_objective.h"
+#include "mech3/zai_target.h"
 #include "mech3/mission.h"
 #include "mech3/options.h"
 #include "mech3/pilot.h"
@@ -39,6 +40,7 @@
 #include "mw1_game.h"
 #include "mw1_hub.h"
 #include "mw1_market.h"
+#include "mw1_missions.h"
 #include "mw1_pilots.h"
 #include "mw1_market_screen.h"
 #include "mw1_travel.h"
@@ -95,7 +97,9 @@ struct Pump : platform::MessagePump {
 
 // kReach: the reach-a-structure contract (c2's ia2, portalgate), won by walking there, nobody killed.
 // kAbort: ABORT at the briefing, the company untouched.
-enum Ending { kWon, kFailed, kQuit, kReach, kAbort };
+// kObjective: the mission's own objectives decide it (mw1_missions.h): the Run's actions, then the engine's
+// checks end it (won or lost), never the test's flags.
+enum Ending { kWon, kFailed, kQuit, kReach, kAbort, kObjective };
 
 // ER medium lasers (the lab's weapon 5) among a store's or a loadout's items.
 int32_t er_medium_lasers(const std::list<mech3::ConfigItem*>& items) {
@@ -155,6 +159,16 @@ struct Run {
   // The commander's mech destroyed in the mission (an idle Firefly put in the hangar first): lost, the Firefly theirs.
   bool kill_player = false, spare_set = false;
   int64_t bill_shown = -1;  // AFTER ACTION's "Repair bill: ", -1 none
+  // MW1's objectives (mw1_missions.h, kObjective): every contract on this row of the map table; `survey`: only
+  // what the objectives were built as, then quit; else the structure destroyed (`destroy_structure`) or the enemies
+  // (`kill_enemies`) at frame 30, the enemies too once the mission has ended (`kill_after_end`), then the engine's
+  // objectives end it.
+  const mw1::MapRow* row = nullptr;
+  bool survey = false, destroy_structure = false, kill_enemies = false, kill_after_end = false;
+  int give_up = 1200;  // frames before the test stops waiting for the objectives (a quit)
+  std::string objective_built;
+  bool fell_back = false, structure_found = false, mission_ended = false, mission_lost = false;
+  std::string outcome_shown;  // AFTER ACTION's first line after its title: "Success", "Failure", ...
 };
 int loadout_items(const mw1::Company* c) { return c && c->loadout ? static_cast<int>(c->loadout->items.size()) : -1; }
 
@@ -177,6 +191,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
   mech3::options() = mech3::Options{};
   mw1::install_game_loop(1, ending == kReach ? "portalgate" : nullptr);
   if (run) mw1::set_game_loop_save(run->save, false);
+  if (run && run->row) mw1::set_game_loop_row(*run->row);
   if (run && !run->world.empty()) mw1::set_game_loop_world(run->world, 1);
   NoKeys keys;
   Window window;
@@ -519,6 +534,51 @@ void loop_run(Ending ending, Run* run = nullptr) {
           for (int32_t a : armor) launched_armor += a;
         }
       }
+      if (ending == kObjective && run) {
+        auto kill_enemies = [&] {
+          int32_t na = 0;
+          const mech3::AiMechMade* ma = mech3::mission_ai_mechs(&na);
+          for (int32_t i = 0; i < na; ++i) {
+            auto* b = static_cast<mech3::ai::Brain*>(mech3::program_ai_mech_brain(ma[i].controls));
+            if (b && b->params.team() == 1) continue;  // an ally
+            ++enemies;
+            // Destroyed for real (the head), so Instant Action's "destroy the enemies" sees it: credit alone doesn't kill.
+            mech3::mech_hit_part(ma[i].mech, 6, 10000.0f);
+            killed += mech3::program_mech_kill_credit(mech3::mech_mission_player(), ma[i].mech);
+          }
+        };
+        auto end_it = [&] {
+          for (int i = app.depth(); i > 0; --i) app.pop(1);
+          app.replace(&mech3::states().ia_dummy, 0);
+          ended = true;
+        };
+        ++frames;
+        if (frames == 30) {
+          run->objective_built = mw1::game_loop_objective_built(&run->fell_back);
+          // The engine finds the structure now (the targets made): what the objective will find at its checks.
+          if (const mw1::Contract* k = mw1::game_loop_contract(); k && (k->objective == mw1::Objective::kAttackStructure ||
+                                                                        k->objective == mw1::Objective::kDefendStructure))
+            run->structure_found = mech3::mission_objective_hooks().entity_find(k->structure.c_str()) != 0;
+          else run->structure_found = true;
+          if (run->survey) return end_it();
+          if (run->destroy_structure) {
+            const mw1::Contract* k = mw1::game_loop_contract();
+            const zgame::Handle h = k ? mech3::mission_objective_hooks().entity_find(k->structure.c_str()) : 0;
+            for (mech3::ai::CZAiTarget* t : mech3::ai::target_list())
+              if (h && t->self == h) t->destroy();
+          }
+          if (run->kill_enemies) kill_enemies();
+          return;
+        }
+        if (frames > 30 && !run->mission_ended && mech3::missions().ended) {
+          run->mission_ended = true, run->mission_lost = mech3::missions().aborting != 0;
+          std::printf("  the mission ended at frame %d: %s\n", frames, run->mission_lost ? "lost" : "won");
+          if (run->kill_after_end) kill_enemies(), reach_frames = frames;
+          else return end_it();
+        }
+        if ((run->kill_after_end && run->mission_ended && frames > reach_frames + 60) || frames > run->give_up) end_it();
+        return;
+      }
       if (ending == kReach && frames >= 30) {  // walked there: the objective done, Instant Action's end as above
         reached = reached || mech3::missions().ended;
         if (!reached && ++reach_frames < 600) return;
@@ -597,7 +657,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
     mech3::set_app(nullptr);
   }
   const mw1::Company* c = mw1::game_loop_company();
-  static const char* const kSaid[] = {"won", "failed", "quit", "reach", "abort"};
+  static const char* const kSaid[] = {"won", "failed", "quit", "reach", "abort", "objective"};
   std::printf("  mw1 loop, %s: %d hubs, %d enemies, %d disabled, funds %lld -> %lld, stores %d -> %d items, kills %d, favor %d\n",
               kSaid[ending], hubs, enemies, killed, static_cast<long long>(funds_at_offer), c ? static_cast<long long>(c->funds) : -1LL,
               items_at_offer, c ? c->stores->count() : -1, c ? c->kills : -1, c ? c->favor[c->planet_house] : -1);
@@ -1079,6 +1139,100 @@ TEST(mw1_loop_repairs_billed_won_failed_and_never_on_a_quit_headless) {
       } else {
         EXPECT(k.billed ? run.bill_shown > 0 : run.bill_shown < 0);
       }
+    });
+  }
+}
+
+namespace {
+// MW3's worlds converted as mw1's start does (into the tests' tmp, kept between runs: the stamp skips a redo).
+std::string converted_worlds() {
+  const std::string out = (fs::path(MW3_TEST_TMP_ROOT) / "mw1_loop_worlds" / "worlds").string();
+  mw1::prepare_worlds(MW1_MW3_GAME_DIR, out, nullptr, nullptr, [](const std::string&) {});
+  return out;
+}
+// AFTER ACTION's outcome: the line after its title.
+std::string outcome_of(const std::vector<std::string>& lines) {
+  for (size_t i = 0; i + 1 < lines.size(); ++i)
+    if (lines[i] == "AFTER ACTION") return lines[i + 1];
+  return "";
+}
+std::vector<mw1::MapRow> shipped_rows() {
+  zutl::mounts() = zutl::Mounts{};
+  zutl::mount(MW1_DATA_DIR);
+  std::vector<mw1::MapRow> rows = mw1::parse_maps(mw1::kMapsFile);
+  zrdr::close_archives(true);
+  return rows;
+}
+const char* kind_said(mw1::RowKind k) {
+  return k == mw1::RowKind::kReach ? "reach" : k == mw1::RowKind::kAttack ? "attack" : k == mw1::RowKind::kDefend ? "defend" : "";
+}
+}  // namespace
+
+// The map survey (mw1_missions.h, data/mw1maps.zrd), the table's gate: every row's map loaded in the engine and its
+// objective built as the row says, the structure found (a reach's world node, an attack's or a defence's entity),
+// never the fall-back. A row that fails here must leave the table: destroy_entity counts a name it can't find as
+// destroyed at once, and the loop's own check (the fall-back to destroy all) is only the net under it.
+TEST(mw1_loop_every_map_row_is_there_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  const std::vector<mw1::MapRow> rows = shipped_rows();
+  EXPECT(!rows.empty());
+  const bool have_mw3 = fs::exists(fs::path(MW1_MW3_GAME_DIR) / "zbd" / "c2" / "gamez.zbd", ec);
+  const std::string worlds = have_mw3 ? converted_worlds() : std::string();
+  for (const mw1::MapRow& r : rows) {
+    if (r.world.rfind("mw3", 0) == 0 && !have_mw3) continue;
+    in_child([&] {
+      Run run;
+      run.row = &r, run.survey = true, run.stop_at_after_action = true, run.worlds = worlds;
+      loop_run(kObjective, &run);
+      std::printf("  %-6s ia%d %-7s %-20s: built \"%s\"%s, the mission on %s\n", r.world.c_str(), r.ia, kind_said(r.kind), r.node.c_str(),
+                  run.objective_built.c_str(), run.fell_back ? " (FELL BACK)" : "", run.world_loaded.c_str());
+      EXPECT(run.world_loaded == r.world && run.objective_built == kind_said(r.kind) && !run.fell_back && run.structure_found);
+    });
+  }
+}
+
+// Each of MW1's objectives won (and a defence lost) by the mission's own objectives, headless: destroy all (every
+// enemy disabled), attack (the structure destroyed, the enemies left standing), defend (the enemies disabled, the
+// structure standing); a defence lost when the structure falls first, though the enemies die after. Reach's win is
+// mw1_loop_hub_briefing_..._headless's reach run (the same objectives' path, block_read's reach).
+TEST(mw1_loop_each_objective_won_and_a_defence_lost_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  const mw1::MapRow battle{"c2", 1, mw1::kDesert, mw1::RowKind::kAny, "", ""};
+  const mw1::MapRow attack{"c2", 2, mw1::kDesert, mw1::RowKind::kAttack, "portalgate", "the portal gate"};
+  const mw1::MapRow defend{"c2", 3, mw1::kDesert, mw1::RowKind::kDefend, "mp_tent_campb", "the headquarters"};
+  struct Case {
+    const char* name;
+    const mw1::MapRow* row;
+    bool destroy, kill, kill_after;
+    const char* outcome;
+  };
+  const Case cases[] = {{"destroy all, won", &battle, false, true, false, "Success"},
+                        {"attack, won", &attack, true, false, false, "Success"},
+                        {"defend, won", &defend, false, true, false, "Success"},
+                        {"defend, lost (the structure first, the enemies after)", &defend, true, false, true, "Failure"},
+                        // Nothing done: an attack isn't won by itself (the structure found, not counted destroyed).
+                        {"attack, nothing done", &attack, false, false, false, ""}};
+  for (const Case& k : cases) {
+    in_child([&] {
+      Run run;
+      run.row = k.row, run.stop_at_after_action = true;
+      run.destroy_structure = k.destroy, run.kill_enemies = k.kill, run.kill_after_end = k.kill_after;
+      if (!*k.outcome) run.give_up = 400;
+      loop_run(kObjective, &run);
+      const std::string outcome = outcome_of(run.after_action);
+      std::printf("  %s: built \"%s\", structure %s, the mission %s, AFTER ACTION \"%s\"\n", k.name, run.objective_built.c_str(),
+                  k.destroy ? (run.structure_found ? "destroyed" : "NOT FOUND") : "standing",
+                  run.mission_ended ? (run.mission_lost ? "lost" : "won") : "not ended", outcome.c_str());
+      EXPECT(run.objective_built == kind_said(k.row->kind) && !run.fell_back);
+      if (k.destroy) EXPECT(run.structure_found);
+      if (!*k.outcome) {
+        EXPECT(!run.mission_ended && run.structure_found && outcome.rfind("Retreat", 0) == 0);
+        return;
+      }
+      EXPECT(run.mission_ended && run.mission_lost == (std::string(k.outcome) == "Failure"));
+      EXPECT(outcome == k.outcome);
     });
   }
 }

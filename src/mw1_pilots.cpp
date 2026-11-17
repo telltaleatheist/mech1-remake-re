@@ -76,8 +76,9 @@ namespace {
 std::string g_mw1_dir;
 std::vector<uint8_t> g_ds;  // MW_MAIN.EXE's data segment 0x1090, read once
 bool g_ds_read = false;
+}  // namespace
 
-const std::vector<uint8_t>& data_segment() {
+const std::vector<uint8_t>& mw_main_data_segment() {
   if (g_ds_read) return g_ds;
   g_ds_read = true;
   std::error_code ec;
@@ -95,6 +96,9 @@ const std::vector<uint8_t>& data_segment() {
   if (at < b.size()) g_ds.assign(b.begin() + static_cast<long>(at), b.end());
   return g_ds;
 }
+
+namespace {
+const std::vector<uint8_t>& data_segment() { return mw_main_data_segment(); }
 constexpr size_t kPilotDirectory = 0x9121, kRecordsStart = 0x9177, kRecordsEnd = 0x9C39, kRecordBytes = 14;
 }  // namespace
 

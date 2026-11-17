@@ -32,6 +32,7 @@
 
 #include "gamez/zutil/zutl_path.h"
 #include "mw1_game.h"
+#include "mw1_missions.h"
 #include "mw1_pilots.h"
 #include "mw1_save.h"
 #include "mw1_start.h"
@@ -153,8 +154,8 @@ int main(int argc, char** argv) {
               use.mw1.empty() ? "(not found)" : use.mw1.c_str());
   mw1::set_mw1_game_dir(use.mw1);  // the Bar's pitches, from the player's MW_MAIN.EXE (mw1_pilots.h)
   // MW1's loop over PM's game: the hub at the main menu, the contract's mission, the settlement (mw1_game.h).
-  // MW1_SEED (tests) fixes the company's and the contracts' rolls; MW1_REACH=<node> makes the contracts
-  // reach-a-structure (the milestone's second objective).
+  // MW1_SEED (tests) fixes the company's and the contracts' rolls; MW1_REACH=<node> (a test override) makes every
+  // contract reach that structure on c2's second Instant Action map.
   const char* seed = std::getenv("MW1_SEED");
   mw1::install_game_loop(seed ? static_cast<uint32_t>(std::strtoul(seed, nullptr, 10)) : 0, std::getenv("MW1_REACH"));
   // The company's save in the write dir (mw1_save.h); --new-company starts over (until the hub has a menu).
@@ -166,7 +167,14 @@ int main(int argc, char** argv) {
     if (std::filesystem::is_directory(data, ec)) zutl::mount(data.string());
     else std::printf("mw1: no mw1data beside the program (%s): the hub is PM's message boxes\n", data.string().c_str());
   }
-  // MW1_WORLD=<folder>ia<n> (checks): every contract on that world's Instant Action map, e.g. mw3c2ia1.
+  // MW1's map table (mw1_missions.h): the maps and structures the contracts choose from; none, the milestone's map.
+  {
+    std::string why;
+    mw1::set_map_table(mw1::parse_maps(mw1::kMapsFile, &why));
+    std::printf("mw1: %zu maps in %s%s%s\n", mw1::map_table().size(), mw1::kMapsFile, why.empty() ? "" : ": ", why.c_str());
+  }
+  // MW1_WORLD=<folder>ia<n> (a test override): every contract a battle on that world's Instant Action map, e.g.
+  // mw3c2ia1. Without it the contracts choose their map and objective (mw1_missions.h, data/mw1maps.zrd).
   if (const char* w = std::getenv("MW1_WORLD")) {
     const std::string s = w;
     const size_t at = s.rfind("ia");

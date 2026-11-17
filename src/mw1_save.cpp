@@ -139,9 +139,13 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
     for (size_t i = 0; i < k.enemies.size(); ++i) o << (i ? "," : "") << k.enemies[i];
     o << "\noffer_payment=" << k.payment << "\noffer_payment_ceiling=" << k.payment_ceiling << "\n";
     o << "offer_salvage=" << k.salvage_percent << "\noffer_advance=" << k.advance_percent << "\n";
-    o << "offer_objective=" << (k.objective == Objective::kReachStructure ? 1 : 0) << "\n";
+    o << "offer_objective=" << static_cast<int32_t>(k.objective) << "\n";
     o << "offer_world=" << (plain(k.world) ? k.world : std::string("c2")) << "\noffer_ia=" << k.ia << "\noffer_mode=" << k.mode << "\n";
     o << "offer_structure=" << (plain(k.structure) ? k.structure : std::string()) << "\n";
+    // Version 6: MW1's mission (mw1_missions.h) and the structure as the offer says it.
+    o << "offer_structure_words=" << (plain(k.structure_words) ? k.structure_words : std::string()) << "\n";
+    o << "offer_category=" << k.category << "\noffer_code=" << k.code << "\noffer_planet=" << k.mission_planet
+      << "\noffer_climate=" << k.climate << "\n";
     o << "offer_accepted=" << (k.accepted ? 1 : 0) << "\noffer_remaining=" << k.remaining << "\n";
   }
   o << "pending=" << (pending && offer ? 1 : 0) << "\n";
@@ -343,14 +347,14 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
     int64_t kh = 0, kt = 0, kb = 0, kp = 0, kc = 0, ks = 0, ka = 0, ko = 0, ki = 0, km = 0;
     if (!num("offer_house", 0, kHouseCount - 1, &kh) || !num("offer_target", 0, kTargetColumns - 1, &kt) ||
         !num("offer_budget", 0, kMax, &kb) || !num("offer_payment", 0, kMax, &kp) || !num("offer_payment_ceiling", 0, kMax, &kc) ||
-        !num("offer_salvage", 0, 100, &ks) || !num("offer_advance", 0, 100, &ka) || !num("offer_objective", 0, 1, &ko) ||
+        !num("offer_salvage", 0, 100, &ks) || !num("offer_advance", 0, 100, &ka) || !num("offer_objective", 0, 3, &ko) ||
         !num("offer_ia", 1, 99, &ki) || !num("offer_mode", 0, 9, &km) || !v.count("offer_world") || v["offer_world"].empty() ||
         !v.count("offer_enemies"))
       return fail("the offer's lines are missing or out of range");
     k.house = static_cast<int32_t>(kh), k.target = static_cast<int32_t>(kt), k.budget = static_cast<int32_t>(kb);
     k.payment = static_cast<int32_t>(kp), k.payment_ceiling = static_cast<int32_t>(kc);
     k.salvage_percent = static_cast<int32_t>(ks), k.advance_percent = static_cast<int32_t>(ka);
-    k.objective = ko ? Objective::kReachStructure : Objective::kDestroyAll;
+    k.objective = static_cast<Objective>(ko);
     k.world = v["offer_world"], k.ia = static_cast<int32_t>(ki), k.mode = static_cast<int32_t>(km);
     k.structure = v["offer_structure"];
     std::istringstream es(v["offer_enemies"]);
@@ -361,7 +365,16 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
       k.enemies.push_back(static_cast<int32_t>(kind));
     }
     if (k.enemies.empty() || k.enemies.size() > 4) return fail("the offer has no enemies, or too many");
-    if (k.objective == Objective::kReachStructure && k.structure.empty()) return fail("a reach offer with no structure");
+    if (k.objective != Objective::kDestroyAll && k.structure.empty()) return fail("a structure's offer with no structure");
+    // Version 6's mission; before it, none rolled (a raid with no code, no planet).
+    if (n >= 6) {
+      int64_t cat = 0, code = 0, planet = 0, climate = 0;
+      if (!num("offer_category", 1, 4, &cat) || !num("offer_code", 0, 36, &code) || !num("offer_planet", -1, kPlanetCount - 1, &planet) ||
+          !num("offer_climate", 0, 2, &climate) || !v.count("offer_structure_words"))
+        return fail("the offer's mission lines are missing or out of range");
+      k.category = static_cast<int32_t>(cat), k.code = static_cast<int32_t>(code), k.mission_planet = static_cast<int32_t>(planet);
+      k.climate = static_cast<int32_t>(climate), k.structure_words = v["offer_structure_words"];
+    }
     int64_t acc = 0, rem = 0;  // a save from before these lines: an offer, not accepted
     if (v.count("offer_accepted") && !num("offer_accepted", 0, 1, &acc)) return fail("the contract's accepted line is wrong");
     if (v.count("offer_remaining") && !num("offer_remaining", 0, kMax, &rem)) return fail("the contract's remaining pay is wrong");

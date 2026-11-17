@@ -12,6 +12,7 @@
 #include "mech3/pilot.h"
 #include "mw1_market.h"
 #include "mw1_pilots.h"
+#include "mw1_missions.h"
 #include "mw1_repairs.h"
 
 namespace mw1 {
@@ -163,6 +164,8 @@ Contract generate_contract(const Company& c, int32_t slot, Rng& rng) {
     column = (column + 1) % kTargetColumns;
   }
   k.target = column;
+  // What it asks and where: MW1's category, description and mission planet, and the map for them.
+  choose_mission(k, rng);
   return k;
 }
 

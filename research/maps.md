@@ -422,3 +422,70 @@ They could pass as desert at a stretch, or serve as extra variety.
    scripted missions with their own objectives and nav points. If one
    looks right for a contract, its objectives would have to move into a
    reachable ia1..ia3 block, or the scenario table would need a new row.
+
+## The structure table (built 2026-11-17)
+
+The maps and structures MW1's contracts choose from are data,
+`data/mw1maps.zrd` (`src/mw1_missions.h`): 23 rows, every one passed by the
+headless survey `mw1_loop_every_map_row_is_there_headless`
+(`tests/test_mw1_loop.cpp`). The survey loads each row's map, builds its
+objective as a contract would, and checks the structure is found; it is the
+table's gate.
+
+- **Battles (destroy all):** c1..c4 and mw3c2, ia1.
+- **Reach (MW1's withdraw):** c2 ia1 `3twr1` (the pump complex), c2 ia2
+  `portalgate`, c3 ia1 `xslid01` (a land bridge), c4 ia1 `modA140` (a
+  support building), mw3c2 ia2 `iatower`.
+- **Attack (special target), on each map's Attack archive (ia2), where the
+  structure is the enemy's:** c1 `hitme_twr` (the dome core), c2
+  `portalgate`, c3 `mpbbase` and `pspwrsrc01`, c4 `warehouse_target40`,
+  mw3c2 `iatower`.
+- **Defend (defend special target, oppose withdrawal), on each map's Defend
+  archive (ia3), where it's yours:** c1 `pship_kill`, c2 `mp_tent_campb` and
+  `tcab05`, c3 `mpbbase` and `pspwrsrc01`, c4 `warehouse_target40`, mw3c2
+  `iatower`.
+
+PM's four worlds stand in for desert (c1 and c3 volcanic, at a stretch);
+mw3c2 is the one tropical map.
+
+**Why a gate.** `destroy_entity` finds its entity by name at its checks, and
+a name it never finds counts as destroyed at once: a typo would win an
+attack, or lose a defence, the moment it starts. At `block_read` the targets
+aren't made yet (`entity_find` answers none there), so MW1 asks the mission's
+`targets.zrd` instead, as the engine reads it; a structure not listed falls
+back to destroy all, said in the log. That check is the net; the survey is
+the gate.
+
+## An arctic map (finding for Owen, 2026-11-17)
+
+MW3's c4b, converted as `mw3c4b`, has no Instant Action archives
+(`readeria*`), only its campaign missions' `readerm4..m6`. Tried headless (a
+throwaway test, not kept): each of the three copied in as `readeria1..3`
+in a scratch copy of the converted worlds, then a destroy-all contract on
+each. **All three load and play as Instant Action battles with no engine
+change**: the contract's enemy is spawned, killed, and the mission is won
+(AFTER ACTION "Success").
+
+What's missing for a real arctic battlefield:
+- **The snow.** `reader.zbd`'s `world.zrd` has blocks `m4`, `m5`, `m6` only
+  (m4 and m6: SNOW weather, a blue-grey fog, ambient 2 and 10; m5: the lava
+  room, red fog, ambient 40). An Instant Action mission reads block `ia<n>`,
+  so as copied there is no snow and no fog. An `ia1` block with m4's (or
+  m6's) settings would give it.
+- **The layout is a campaign mission's.** Its `aiv.zrd` holds the player,
+  Dominic Paine and the other lancemates, three field bases and scripted
+  enemies with `vlist` orders tied to the mission's regions
+  (`reg_inside_c4bm5` and so on), and its `valves.zrd` drives the story.
+  Instant Action places the contract's enemies on its records by weight
+  class; the rest of the script (valves, regions) comes along, and nothing
+  here checked what it does over a full battle.
+- **m5 is the lava room**: not a snow map.
+- **No objectives block** `ia<n>` in `objectives.zrd`: MW1's objectives
+  replace the primary anyway, but there is no boundary fail.
+
+**So:** usable as is for a test, not for play. For play, MW1 would make its
+own Instant Action archive for `mw3c4b` at conversion time, in MW1's worlds
+folder (never MW3's or PM's files; zipkit stays a plain converter): m4's or
+m6's layout as `readeria1.zbd`, with the valves that drive the story left
+out, plus an `ia1` block in a `world.zrd` of MW1's for the snow. That is a
+build; it waits for Owen's say.

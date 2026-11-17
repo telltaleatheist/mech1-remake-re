@@ -155,7 +155,8 @@ struct Company {
 // classed: under 40 t light (1), up to 55 t medium (2), heavier heavy (3).
 int32_t lance_weight_of_tons(int32_t tons);
 
-enum class Objective { kDestroyAll, kReachStructure };
+// What the contract asks (mw1_missions.h): destroy all, or reach, attack or defend a structure (saved as 0..3).
+enum class Objective { kDestroyAll, kReachStructure, kAttackStructure, kDefendStructure };
 
 struct Contract {
   int32_t house = kDavion;     // the employer (the planet's House)
@@ -171,7 +172,11 @@ struct Contract {
   // The map: a PM world, its Instant Action archive and the mode (0 Battle).
   std::string world = "c2";
   int32_t ia = 1, mode = 0;
-  std::string structure;       // kReachStructure: the building's node
+  std::string structure;       // reach, attack, defend: the structure's node (reach) or entity (attack, defend)
+  std::string structure_words;  // as the offer says it: "the portal gate"
+  // MW1's mission (mw1_missions.h): its category, its scenario code (the title, the objective), the mission planet
+  // (an index into the travel map, -1 none) and that planet's landscape.
+  int32_t category = 3, code = 0, mission_planet = -1, climate = 0;
 };
 
 // A new company as MW1 makes it: the starting funds plus 0..255 x 1,000, and

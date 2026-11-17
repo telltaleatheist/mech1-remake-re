@@ -31,6 +31,9 @@ std::string pilot_title(int32_t id);                   // "Elli Gujar" (the padd
 // The pitch the pilot gives in the Bar, its lines, from the player's MW_MAIN.EXE (the --mw1-game folder); none
 // without it (VISION: content from the player's own copies; mw1 lead 2026-11-17).
 void set_mw1_game_dir(const std::string& dir);
+// The player's MW_MAIN.EXE's data segment (0x1090), read once from that folder; empty without it. Shared with the
+// contracts' titles (mw1_missions.h).
+const std::vector<uint8_t>& mw_main_data_segment();
 std::vector<std::string> pitch(int32_t id);
 
 int32_t gunnery(const Company& c, int32_t id);   // the record's, or the promoted

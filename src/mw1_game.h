@@ -14,16 +14,25 @@ namespace mw1 {
 // Set the loop on the engine before PM's game main runs. A seed of 0 rolls
 // the company at random; another gives the same company and contracts (tests).
 // A structure's node (`reach`, e.g. c2 ia2's "portalgate") makes every
-// contract reach-a-structure on that map instead of destroy-all (the
-// milestone's second objective, until contracts choose their own).
+// contract reach-a-structure on that map (a test override: contracts choose
+// their own objective and map, mw1_missions.h).
 void install_game_loop(uint32_t seed, const char* reach = nullptr);
 // The save (mw1_save.h): the company read from `path` at the first hub when it
 // is there (unless `new_company`: one made new, over it), and written after
 // each settlement and at each new offer. Empty: no save (tests).
 void set_game_loop_save(const std::string& path, bool new_company);
-// Every new contract on this world's Instant Action map (by folder: "mw3c2", 1), for checks until contracts pick
-// MW3's worlds (open question 7). Empty: the contracts' own.
+// Every new contract a battle (destroy all) on this world's Instant Action map (by folder: "mw3c2", 1): a test
+// override. Empty: the contracts' own (mw1_missions.h).
 void set_game_loop_world(const std::string& world, int32_t ia);
+// Every new contract on this row of the map table (mw1_missions.h), whatever was rolled (tests: the map survey,
+// each objective's win).
+namespace missions {
+struct MapRow;
+}
+void set_game_loop_row(const missions::MapRow& row);
+// What the mission's objectives were built as: "" (destroy all), "reach", "attack" or "defend"; `fell_back` when
+// the contract's structure wasn't on the map (tests).
+std::string game_loop_objective_built(bool* fell_back = nullptr);
 // Taken off the engine again, and the company dropped (tests).
 void uninstall_game_loop();
 struct Company;

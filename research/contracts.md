@@ -130,3 +130,98 @@ negotiated in the contract, of the value of the enemy mechs you disabled,
   Favor minus grievance, ×4, capped, shifts the salvage and advance on offer.
 - The advance is paid when the contract is accepted and kept on a failure or
   a retreat: only the cancellation's code takes it back.
+
+## What a contract asks and where (MW1's chain; built 2026-11-17)
+
+Read from `MW_MAIN.EXE` and `BTECH.EXE`, every table checked by
+`tests/test_mw1_missions.cpp`; the code is `src/mw1_missions.h`. We add no
+weights of our own: the mix of objectives is MW1's.
+
+1. **The category.** houseMissionTypeLimits (DS:5CBA) holds, per employer ×
+   target column, the *highest* category on offer, not just yes or no. MW1
+   rolls `(rand((limit − 1) × 4) >> 2) + 1`: 1 defence, 2 rescue/retrieval,
+   3 raid, 4 major campaign. The world's tier plays no part.
+2. **The description.** A uniform pick from the category's list (DS:8A16 the
+   last index, DS:8A1B the lists, DS:8A25 the entries). A record (DS:8A69..)
+   starts with the scenario code, then a byte, then the title the offer shows,
+   read at run time from the player's exe.
+3. **The objective.** BTECH fights mission definition `code − 1`
+   (BTECH_0810_IMPORT; the save's byte 7 carries the code across), whose
+   objective is `combatMissionSideZeroRules` (BTECH DS:092C).
+4. **The mission planet.** For a non-defence contract against a House: a
+   random planet of that House's range (DS:655C start, DS:6566 count, both ends
+   included) whose byte 3 (maximumMissionType) takes the category. For a
+   defence or a target that isn't a House: one of the employer's eight choices
+   for that column (DS:8E9A, a planet index + 1). The battle's landscape is
+   that planet's `(byte 2 − 1) % 3`: desert, tropical, ice (DS:5CA6..). The
+   company doesn't go there (travel to contracts stays a later item); the
+   offer names it and its climate picks the map.
+   - Davion's range runs to index 145, the 146th record (a second Ander's
+     Moon, left out of our map): we roll again there.
+
+**MW1's objectives → ours** (VISION): eliminate → destroy all; withdraw →
+reach a structure; special target → attack a structure (destroying it wins
+alone; the kills still pay salvage); defend special target and oppose
+withdrawal → defend a structure (Instant Action's "destroy the enemies"
+wins; the structure falling first is a failure, whatever dies after).
+
+### Each description's objective, as MW1 pairs them
+
+| Category | Code | Objective | Title |
+|---|---:|---|---|
+| defence | 1 | eliminate | GARRISON DUTY |
+| defence | 2–8 | defend special target | GENERAL SECURITY DUTY; DEFENSE OF A WATER FACTORY, WEAPONS FACTORY, FUEL DUMP, FIELD COM UNIT, SUPPLY DEPOT, LANDING FACILITIES |
+| defence | 9 | defend special target | SUPPRESSION OF REBELLION |
+| defence | 10 | eliminate | TEMPORARY RELIEF OF FORCES |
+| rescue/retrieval | 11 | oppose withdrawal | RESCUE OF A KIDNAP VICTIM |
+| rescue/retrieval | 12–14 | special target | RESCUE OF HOSTAGES; RETRIEVAL OF STOLEN PROPERTY, CAPTURED MECHS |
+| raid | 20 | oppose withdrawal | A RECONNAISSANCE RAID |
+| raid | 21, 22 | withdraw | A DIVERSIONARY RAID; CONTAINMENT OF SECURITY FORCES |
+| raid | 23 | oppose withdrawal | DESTRUCTION OF A WATER FACTORY |
+| raid | 24–27 | special target | DISABLING OF A WEAPONS FACTORY; DESTRUCTION OF A FUEL DUMP, AN AMMO DUMP; DISABLING OF A FIELD COM CENTER |
+| raid | 30 | special target | ELIMINATION OF GARRISON FORCES |
+| raid | 31 | eliminate | DESTROYING STOLEN PROTOTYPES |
+| raid | 32, 33 | special target | DESTRUCTION OF MECH FACILITIES; ELIMINATION OF SECURITY FORCES |
+| raid | 34 | eliminate | DESTRUCTION OF PORT FACILITIES |
+| raid | 35, 36 | special target | CAPTURE OF AMMO AND MECH PARTS; PARTICIPATING IN HOSTAGE RAID |
+| major campaign | 15, 16 | special target | AN EXTENDED OFFENSIVE / DEFENSIVE CAMPAIGN |
+| major campaign | 17 | defend special target | A PLANETARY ASSUALT (sic) |
+| major campaign | 18 | eliminate | AN EXTENDED SIEGE CAMPAIGN |
+| major campaign | 19 | special target | RELIEF OF ENGAGED FORCES |
+
+**Oddities, for Owen** (the pairing is confirmed against the port's offer
+screen, which prints the title at the record's +2, and BTECH's import, which
+fights `code − 1`; so these are MW1's own, kept as they are, mw1 lead
+2026-11-17):
+- DESTRUCTION OF A WATER FACTORY (23) is oppose withdrawal, so a defence for
+  us, not an attack.
+- ELIMINATION OF GARRISON FORCES (30) and ELIMINATION OF SECURITY FORCES (33)
+  are special target (attack a structure), not eliminate.
+- DESTRUCTION OF PORT FACILITIES (34) and DESTROYING STOLEN PROTOTYPES (31)
+  are eliminate, not special target.
+- A RECONNAISSANCE RAID (20) is oppose withdrawal; CONTAINMENT OF SECURITY
+  FORCES (22) is withdraw.
+- SUPPRESSION OF REBELLION (9) is defend special target.
+- A PLANETARY ASSUALT (17) is defend special target, and the exe spells it so.
+
+Rolled over every employer and target (the unit test, 200 each), MW1's mix
+comes out about: defend special target 51%, special target 27%, eliminate
+11%, oppose withdrawal 9%, withdraw 2%. So with oppose withdrawal, about
+three contracts in five are defences.
+
+### Provisional answers (mw1 lead, 2026-11-17), for Owen
+
+| Question | Provisional answer | Where |
+|---|---|---|
+| Q1. The major campaign | Codes 17 and 19 play as one ordinary battle; the extended battles (15, 16, 18) fall back to a raid, as MW1 does for a company of under 2 pilots and 2 mechs, until the story milestone. | `kExtendedBattlesAsRaids` |
+| Q2. The battle's climate | MW1's mission planet: its landscape picks the map, and the offer names it. | `roll_mission` |
+| Q3. A defence's win | All the enemies destroyed, per VISION; no time limit. | `Loop::block_read` |
+| Q4. The titles against the codes | Follow the code; the oddities above are MW1's. | `kSideZeroObjective` |
+
+MW1's story roll (`majorCampaignMissionRollThreshold`, the calendar's
+windows from 3028) isn't made: it belongs to the story milestone.
+
+**The map's climate, in play:** 79 of the 145 worlds are tropical, 48 desert
+and 18 ice. Grasslands (`mw3c2`) is the only tropical map, so it hosts most
+tropical contracts; ice falls back to any map until there's an arctic one
+(`research/maps.md`, "An arctic map").
