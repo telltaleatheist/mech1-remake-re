@@ -22,6 +22,7 @@ Tick an item when it is merged into `main`.
   - **Crew:** MW1's grid. Portraits across the top (`recruit_*`, MW1's 42). NAME / GUNNERY / PILOTING / WAGE / MECH rows, then each pilot's mech picture underneath (`mech_*`), with DONE.
   - **Mech Complex, dealer, repair, ammo** (`mechcomplex_*`, `mech_*`), **House office and liaisons** (`office_liaison`, `liaison_<house>`), **NewsNet**, **company**, **travel sequence**, **story scenes** (`story_*`, `char_*`), **after action**, **endings**: one screen each, per CATALOG.md's 25.
   - **Chrome:** the plaques, frames and buttons are drawn by hand, sharp and in MW3's style, not generated.
+  - **Done so far:** the title screen and the hub, after Owen's mockup. Owen played it on the Mac (2026-11-17): "significantly better".
 
 ## 4. [ ] The briefing screen, rebuilt in MW1's style
 - **Seen:** the contract goes straight into Pirate's Moon's Instant Action briefing.
@@ -31,3 +32,13 @@ Tick an item when it is merged into `main`.
   - MW1's LAUNCH button is there;
   - a **MECH LAB** button goes above LAUNCH and opens Pirate's Moon's mech lab, then returns to this screen.
 - **The rule for all of it (Owen):** completely rework MW3/PM's interface so it looks like an updated MW1. MW1's layouts win over MW3's wherever the two differ, for example buttons on the left, not the bottom.
+
+## 5. [ ] No Pirate's Moon or MW3 dialogs, buttons or art left anywhere in MW1
+- **Seen (Owen, Mac, 2026-11-17):** after the new hub, PM's own dialogs, buttons and art still show. For example: PM's message boxes (the quit confirm: "Are you sure you want to quit?"), its buttons and frames, and its menus and screens around the mission.
+- **Wanted:** "remove all the mw3/pm assets and dialogs and buttons and stuff. switch it to mw1 style dialogs."
+  - Every message box, confirm, notice and error goes through one MW1-style dialog: our chrome, our fonts, buttons in MW1's look.
+  - No PM image, frame, button or font anywhere a player sees in MW1, apart from the 3D battle itself.
+  - The screens MW1 borrows from PM keep their logic but get MW1's look: the mech lab (reached from the launch screen), the options and settings, load and save, and the pause and in-mission menus.
+  - Remove whatever MW1 never uses, such as the multiplayer screen PM builds in the background.
+- **How to check:** a screen-by-screen pass with shots. A test that fails if an MW1 screen loads a PM dialog file or binds a PM button.
+
