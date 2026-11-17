@@ -133,6 +133,15 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
   o << "repair_premium=" << c.repair_premium << "\n";
   // Version 7: negotiation.
   o << "patience=" << c.patience << "\nwithdrawn=" << (c.withdrawn ? 1 : 0) << "\n";
+  // Version 8: the story.
+  o << "story_seen=";
+  for (int32_t id = 0, n = 0; id < kEventIds; ++id)
+    if (c.story.seen[static_cast<size_t>(id)]) o << (n++ ? "," : "") << id;
+  o << "\nstory_planets=";
+  for (int32_t i = 0; i < kStoryPlanets; ++i) o << (i ? "," : "") << c.story.planets[i];
+  o << "\nstory_dark_wing=" << (c.story.dark_wing_won ? 1 : 0) << "\nstory_news=";
+  for (size_t i = 0; i < c.story.news_heard.size(); ++i) o << (i ? "," : "") << c.story.news_heard[i];
+  o << "\n";
   o << "stores=" << (c.stores ? hex(bytes_of([&](std::FILE* f) { c.stores->save(f); })) : std::string()) << "\n";
   o << "offer=" << (offer ? 1 : 0) << "\n";
   if (offer) {
@@ -215,6 +224,7 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
   const bool v3 = n >= 3;  // the calendar; before it, the start date
   const bool v4 = n >= 4;  // the pilots; before them, no lancemates
   const bool v5 = n >= 5;  // the repairs; before them, the premium rolled anew and no bills
+  const bool v8 = n >= 8;  // the story; before it, the story planets rolled at the load and nothing seen
   const bool v7 = n >= 7;  // negotiation; before it, the House's middle patience and the ceilings as they'd be now
   const bool v1 = n == 1;  // before the hangar and the market: a hangar of none, the market rolled at the next refresh
   Company c;
@@ -348,6 +358,29 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
     int64_t pat = 0, wd = 0;
     if (!num("patience", 0, 99, &pat) || !num("withdrawn", 0, 1, &wd)) return fail("the negotiation lines are missing or out of range");
     c.patience = static_cast<int32_t>(pat), c.withdrawn = wd != 0;
+  }
+  if (v8) {
+    // A list of numbers in range, comma-separated (empty: none).
+    auto list = [&](const char* key, int64_t lo, int64_t hi, std::vector<int64_t>* out) {
+      if (!v.count(key)) return false;
+      std::istringstream ss(v[key]);
+      std::string f;
+      while (std::getline(ss, f, ',')) {
+        int64_t x = 0;
+        if (!to_int(f, lo, hi, &x)) return false;
+        out->push_back(x);
+      }
+      return true;
+    };
+    std::vector<int64_t> seen, planets, news;
+    int64_t won = 0;
+    if (!list("story_seen", 0, kEventIds - 1, &seen) || !list("story_planets", 0, 255, &planets) || planets.size() != kStoryPlanets ||
+        !num("story_dark_wing", 0, 1, &won) || !list("story_news", 0, 0xFFFF, &news))
+      return fail("the story's lines are missing or out of range");
+    for (int64_t id : seen) c.story.seen[static_cast<size_t>(id)] = 1;
+    for (int32_t i = 0; i < kStoryPlanets; ++i) c.story.planets[i] = static_cast<int32_t>(planets[static_cast<size_t>(i)]);
+    c.story.dark_wing_won = won != 0;
+    for (int64_t at : news) c.story.news_heard.push_back(static_cast<int32_t>(at));
   }
   // The world's name, House and tier are the map's, by its number.
   if (const int32_t w = planet_index(c.planet_number); w >= 0) set_planet(c, w);

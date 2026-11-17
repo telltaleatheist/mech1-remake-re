@@ -269,6 +269,7 @@ Trip travel(Company& c, int32_t i, Rng& rng) {
   roll_premium(c, rng);   // the world's repair premium, rolled on arrival (PLANET 081B)
   roll_patience(c, rng);  // and its House's patience (the same arrival, after the premium)
   c.withdrawn = false;    // a broken-off negotiation's offers stay on the world left behind
+  c.story.arrived = true;  // the hub's next events are an arrival's (planetArrivalEventsPending, mw1_story.h)
   refresh_world(c, rng);  // arrival restocks, whatever the clock did
   c.market_clock = 0;
   return Trip::kDone;

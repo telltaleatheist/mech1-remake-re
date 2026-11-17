@@ -18,6 +18,9 @@ MW1BARDIALOG (
     FIRE (POSITION (280 440) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (326 454))
     ASSIGN (POSITION (408 440) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (454 454))
     BACK (POSITION (536 440) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (582 454))
+    ; MW1's drink (a tip, at the tip's price: the story's, src/mw1_story.h) and the news, between the panels.
+    DRINK (POSITION (272 96) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (318 110))
+    NEWS (POSITION (272 128) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (318 142))
     ; The lists' arrows, at their panels' right edges.
     RECRUIT_UP (POSITION (232 92) BITMAP ("arrowupmp_normal") ACTIVATE (BITMAP ("arrowupmp_rollover")) DISABLE (BITMAP ("arrowupmp_d")))
     RECRUIT_DOWN (POSITION (232 230) BITMAP ("arrowdnmp_normal") ACTIVATE (BITMAP ("arrowdnmp_rollover")) DISABLE (BITMAP ("arrowdnmp_d")))

@@ -76,6 +76,7 @@ namespace {
 std::string g_mw1_dir;
 std::vector<uint8_t> g_ds;  // MW_MAIN.EXE's data segment 0x1090, read once
 bool g_ds_read = false;
+uint32_t g_generation = 0;
 }  // namespace
 
 const std::vector<uint8_t>& mw_main_data_segment() {
@@ -102,7 +103,8 @@ const std::vector<uint8_t>& data_segment() { return mw_main_data_segment(); }
 constexpr size_t kPilotDirectory = 0x9121, kRecordsStart = 0x9177, kRecordsEnd = 0x9C39, kRecordBytes = 14;
 }  // namespace
 
-void set_mw1_game_dir(const std::string& dir) { g_mw1_dir = dir, g_ds.clear(), g_ds_read = false; }
+void set_mw1_game_dir(const std::string& dir) { g_mw1_dir = dir, g_ds.clear(), g_ds_read = false, ++g_generation; }
+uint32_t mw1_game_dir_generation() { return g_generation; }
 
 std::vector<std::string> pitch(int32_t id) {
   const std::vector<uint8_t>& d = data_segment();

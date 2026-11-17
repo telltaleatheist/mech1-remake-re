@@ -87,6 +87,13 @@ class OfficeState;
 }
 using namespace office_ui;
 OfficeState* game_loop_office();  // the House office's state once made (tests)
+namespace event_ui {
+class EventState;
+}
+using namespace event_ui;
+EventState* game_loop_event();  // the event panel's state once made (tests)
+// MW1's story (mw1_story.h) on or off: on in the game; the loop tests that aren't about it turn it off.
+void set_game_loop_story(bool on);
 // The offer drawn again for the company as a test changed it (game_loop_company_for_tests: its world, standing,
 // patience), and the hub shown again.
 void game_loop_offer_again();

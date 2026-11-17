@@ -11,7 +11,8 @@ namespace mw1::bar_ui {
 namespace {
 const std::vector<ScreenButton> kBarButtons = {{"HIRE", "HIRE"},       {"DECLINE", "DECLINE"}, {"FIRE", "FIRE"},
                                                {"ASSIGN", "ASSIGN"},   {"BACK", "BACK"},       {"RECRUIT_UP", ""},
-                                               {"RECRUIT_DOWN", ""},   {"LANCE_UP", ""},       {"LANCE_DOWN", ""}};
+                                               {"RECRUIT_DOWN", ""},   {"LANCE_UP", ""},       {"LANCE_DOWN", ""},
+                                               {"DRINK", "DRINK"},     {"NEWS", "NEWS"}};
 constexpr size_t kNameWidth = 11;                                       // the records' names
 const char* const kShortRatings[4] = {"Poor", "Avg", "Good", "Exc"};  // the lists' columns
 
@@ -45,7 +46,7 @@ void clamp_choice(const Company& c, BarChoice& b) {
   b.mate = l == 0 ? 0 : std::clamp(b.mate, 0, l - 1);
 }
 
-ScreenView bar_view(const Company& c, const BarChoice& b) {
+ScreenView bar_view(const Company& c, const BarChoice& b, bool story) {
   ScreenView v;
   std::vector<std::string> recruits = {"  Name         Gun  Pil   Wage"}, lance = {"  You, the commander: " + mech_title(c.mech)};
   for (size_t i = 0; i < c.recruits.size(); ++i)
@@ -94,6 +95,7 @@ ScreenView bar_view(const Company& c, const BarChoice& b) {
   v.buttons[kBarRecruitDown - 1].on = b.recruit + 1 < static_cast<int32_t>(c.recruits.size());
   v.buttons[kBarLanceUp - 1].on = b.mate > 0;
   v.buttons[kBarLanceDown - 1].on = b.mate + 1 < static_cast<int32_t>(c.lance.size());
+  v.buttons[kBarDrink - 1].on = v.buttons[kBarNews - 1].on = story;
   return v;
 }
 

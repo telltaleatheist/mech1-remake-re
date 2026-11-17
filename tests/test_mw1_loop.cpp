@@ -38,6 +38,8 @@
 #include "mech3/zai_brain.h"
 #include "mech3/zai_params.h"
 #include "mw1_bar_screen.h"
+#include "mw1_event_screen.h"
+#include "mw1_story.h"
 #include "mw1_campaign.h"
 #include "mw1_game.h"
 #include "mw1_hub.h"
@@ -199,6 +201,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
   mech3::options() = mech3::Options{};
   mw1::install_game_loop(1, ending == kReach ? "portalgate" : nullptr);
   mw1::set_game_loop_start(run && run->via_menu ? mw1::Start::kMenu : mw1::Start::kHub);
+  mw1::set_game_loop_story(false);  // MW1's story (test_mw1_story's own runs)
   if (run) mw1::set_game_loop_save(run->save, false);
   if (run && run->row) mw1::set_game_loop_row(*run->row);
   if (run && !run->world.empty()) mw1::set_game_loop_world(run->world, 1);
@@ -1278,6 +1281,7 @@ struct MenuRun {
   std::function<bool(mech3::Mech3App&, mech3::GameEngine&)> step;
   std::function<uint32_t(const std::string&)> box;
   std::vector<std::string> boxes;  // each box's words, as asked
+  bool story = false;  // MW1's story's events (mw1_story.h); off unless a test is about them
 };
 void menu_run(MenuRun& r) {
   zgame::set_game(pm::table());
@@ -1305,6 +1309,7 @@ void menu_run(MenuRun& r) {
   mw1::set_mw1_game_dir(MW1_DOS_GAME_DIR);  // the narration
   mw1::install_game_loop(r.seed);
   mw1::set_game_loop_start(r.start);
+  mw1::set_game_loop_story(r.story);
   mw1::set_game_loop_save(r.save, false);
   NoKeys keys;
   Window window;
@@ -1722,5 +1727,210 @@ TEST(mw1_office_terminated_on_a_stuck_poor_world_and_a_refusal_headless) {
     for (const std::string& l : hub_lines) std::printf("  [%s]\n", l.c_str());
     std::printf("  office over %d, hub over %d, stuck said %d, travel %d, refused %d\n", office_over, hub_over, hub_stuck, travel_stuck, refused);
     EXPECT(step >= 4 && office_over && hub_over && hub_stuck && travel_stuck && refused);
+  });
+}
+
+// MW1's story on the event panel (mw1_story.h, mw1_event_screen.h): the start world's crest over the hub at the first
+// arrival with the frame-up's news under the hub's panel; a choice's captions on the panel's buttons, its branch at
+// once; the Mech Complex's and the House office's events over their screens; all saved.
+TEST(mw1_story_events_on_the_panel_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  if (mw1_test::no_mw1()) return;
+  in_child([&] {
+    const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_story_events";
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    MenuRun r;
+    r.save = (dir / mw1::kSaveFile).string(), r.start = mw1::Start::kHub, r.story = true;
+    int step = 0, wait = 0;
+    bool crest = false, crest_named = false, news = false, choice = false, branch = false, mech_complex = false, office = false;
+    bool back_on_market = false, back_on_office = false;
+    std::string choice_words;
+    r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
+      mw1::HubState* hub = mw1::game_loop_hub();
+      mw1::EventState* ev = mw1::game_loop_event();
+      mw1::Company* c = mw1::game_loop_company_for_tests();
+      if (++wait < 5) return false;
+      switch (step) {
+        case 0:  // the crest (0x74) over the hub, at once
+          if (!showing(app, ev) || !c) return false;
+          crest = c->story.seen[0x74] != 0;
+          crest_named = shows_line(ev->screen()->shown(), "ARRIVAL") && ev->screen()->visible(mw1::kEventNext) &&
+                        !ev->screen()->visible(mw1::kEventChoice1);
+          ev->screen()->on_button(mw1::kEventNext, 0, 0);
+          ++step, wait = 0;
+          return false;
+        case 1:  // the hub, the frame-up's news under its panel; then Grig's base set up on this world (0x64)
+          if (!showing(app, hub)) return false;
+          news = shows_line(hub->screen()->shown(), "NEWS: ");
+          c->story.seen[0x0C] = 1, c->story.planets[1] = c->planet_number;
+          hub->screen()->on_button(mw1::kHubBar, 0, 0);
+          ++step, wait = 0;
+          return false;
+        case 2:
+          if (!showing(app, mw1::game_loop_bar())) return false;
+          mw1::game_loop_bar()->screen()->on_button(mw1::kBarBack, 0, 0);
+          ++step, wait = 0;
+          return false;
+        case 3:  // back at the hub: 0x64's choice, its captions on the buttons, NEXT gone
+          if (!showing(app, ev)) return false;
+          if (ev->screen()->visible(mw1::kEventNext)) {
+            ev->screen()->on_button(mw1::kEventNext, 0, 0);  // its first pages
+            wait = 0;
+            return false;
+          }
+          choice = ev->screen()->visible(mw1::kEventChoice1) && ev->screen()->visible(mw1::kEventChoice2) &&
+                   !ev->screen()->visible(mw1::kEventChoice3);
+          choice_words = std::to_string(ev->screen()->shown().size()) + " lines shown";  // MW1's words stay unprinted
+          ev->screen()->on_button(mw1::kEventChoice1, 0, 0);
+          ++step, wait = 0;
+          return false;
+        case 4:  // its branch (0x0E), then the hub
+          if (showing(app, ev)) {
+            branch = c->story.seen[0x0E] != 0;
+            ev->screen()->on_button(mw1::kEventNext, 0, 0);
+            wait = 0;
+            return false;
+          }
+          if (!showing(app, hub)) return false;
+          // The Mech Complex's 0x26 here: story planet 2 this world, after 0x25.
+          c->story.seen[0x25] = 1, c->story.planets[2] = c->planet_number;
+          hub->screen()->on_button(mw1::kHubMarket, 0, 0);
+          ++step, wait = 0;
+          return false;
+        case 5:
+          if (showing(app, ev)) {
+            mech_complex = shows_line(ev->screen()->shown(), "THE MECH COMPLEX") && c->story.seen[0x26];
+            ev->screen()->on_button(mw1::kEventNext, 0, 0);
+            wait = 0;
+            return false;
+          }
+          if (!showing(app, mw1::game_loop_market())) return false;
+          back_on_market = mech_complex;
+          mw1::game_loop_market()->screen()->on_button(mw1::kMarketBack, 0, 0);
+          ++step, wait = 0;
+          return false;
+        case 6:  // the House office's 0x08 on Galedon V, with an offer there
+          if (showing(app, ev)) {  // the hub's own on this world first (0x27's ambush: RUN)
+            ev->screen()->on_button(ev->screen()->visible(mw1::kEventNext) ? mw1::kEventNext : mw1::kEventChoice2, 0, 0);
+            wait = 0;
+            return false;
+          }
+          if (!showing(app, hub)) return false;
+          mw1::set_planet(*c, mw1::planet_index(6));
+          mw1::game_loop_offer_again();
+          mw1::game_loop_hub()->screen()->on_button(mw1::kHubOffice, 0, 0);
+          ++step, wait = 0;
+          return false;
+        default:
+          if (showing(app, ev)) {
+            office = shows_line(ev->screen()->shown(), "THE HOUSE OFFICE") && c->story.seen[0x08];
+            ev->screen()->on_button(mw1::kEventNext, 0, 0);
+            wait = 0;
+            return false;
+          }
+          if (!showing(app, mw1::game_loop_office())) return false;
+          back_on_office = office;
+          return true;
+      }
+    };
+    menu_run(r);
+    std::printf("  crest %d (panel %d), news %d, choice %d %s, branch %d, Mech Complex %d, office %d\n", crest, crest_named, news, choice,
+                choice_words.c_str(), branch, back_on_market, back_on_office);
+    EXPECT(crest && crest_named && news && choice && branch && back_on_market && back_on_office);
+    // Saved: the events seen.
+    mw1::Company saved;
+    mw1::Contract k;
+    bool has = false;
+    std::string why;
+    EXPECT(mw1::load_file(r.save, saved, k, &has, &why) == mw1::Loaded::kLoaded);
+    EXPECT(saved.story.seen[0x74] && saved.story.seen[0x64] && saved.story.seen[0x0E] && saved.story.seen[0x26] && saved.story.seen[0x08]);
+    EXPECT(!saved.story.news_heard.empty());
+  });
+}
+
+// The Bar's DRINK and NEWS (mw1_story.h): on the start world a drink is a tip at its price and a unit of time (0x06,
+// then 0x0A), then the quiet text; NEWS shows the news live now, PREV and NEXT through it, BACK to the Bar.
+TEST(mw1_story_drinks_and_news_in_the_bar_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  if (mw1_test::no_mw1()) return;
+  in_child([&] {
+    const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_story_bar";
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    MenuRun r;
+    r.save = (dir / mw1::kSaveFile).string(), r.start = mw1::Start::kHub, r.story = true;
+    int step = 0, wait = 0, drinks = 0;
+    std::vector<int32_t> tips;
+    std::vector<int64_t> paid;
+    int32_t units = -1;
+    bool live = false, quiet = false, news = false, paged = false, back = false;
+    r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
+      mw1::HubState* hub = mw1::game_loop_hub();
+      mw1::BarState* bar = mw1::game_loop_bar();
+      mw1::EventState* ev = mw1::game_loop_event();
+      mw1::Company* c = mw1::game_loop_company_for_tests();
+      if (++wait < 5) return false;
+      switch (step) {
+        case 0:  // past the hub's own (the crest), into the Bar
+          if (showing(app, ev)) {
+            ev->screen()->on_button(mw1::kEventNext, 0, 0);
+            wait = 0;
+            return false;
+          }
+          if (!showing(app, hub)) return false;
+          hub->screen()->on_button(mw1::kHubBar, 0, 0);
+          ++step, wait = 0;
+          return false;
+        case 1: {  // three drinks: two tips, then nothing
+          if (showing(app, ev)) {
+            ev->screen()->on_button(mw1::kEventNext, 0, 0);
+            wait = 0;
+            return false;
+          }
+          if (!showing(app, bar)) return false;
+          live = bar->screen()->enabled(mw1::kBarDrink) && bar->screen()->enabled(mw1::kBarNews);
+          if (drinks == 3) {
+            quiet = tips.size() == 2 && c->story.seen[0x06] && c->story.seen[0x0A];
+            bar->screen()->on_button(mw1::kBarNews, 0, 0);
+            ++step, wait = 0;
+            return false;
+          }
+          const int64_t before = c->funds;
+          const int32_t u = c->date.units;
+          const uint8_t a = c->story.seen[0x06], b = c->story.seen[0x0A];
+          bar->screen()->on_button(mw1::kBarDrink, 0, 0);
+          ++drinks;
+          if (units < 0) units = c->date.units - u;
+          if (c->story.seen[0x06] != a) tips.push_back(0x06);
+          if (c->story.seen[0x0A] != b) tips.push_back(0x0A);
+          paid.push_back(before - c->funds);
+          wait = 0;
+          return false;
+        }
+        case 2:  // the news: the frame-up at least; NEXT and PREV through it, then BACK
+          if (!showing(app, ev)) return false;
+          news = ev->screen()->visible(mw1::kEventBack) && ev->screen()->visible(mw1::kEventPrev) &&
+                 !ev->screen()->visible(mw1::kEventChoice1) && shows_line(ev->screen()->shown(), "NEWS (1 OF");
+          ev->screen()->on_button(mw1::kEventNext, 0, 0);
+          ev->screen()->on_button(mw1::kEventPrev, 0, 0);
+          paged = shows_line(ev->screen()->shown(), "NEWS (1 OF");
+          ev->screen()->on_button(mw1::kEventBack, 0, 0);
+          ++step, wait = 0;
+          return false;
+        default:
+          if (!showing(app, bar)) return false;
+          back = true;
+          return true;
+      }
+    };
+    menu_run(r);
+    std::printf("  drinks: %zu tips, paid", tips.size());
+    for (int64_t p : paid) std::printf(" %lld", static_cast<long long>(p));
+    std::printf("; a unit each %d; live %d, quiet %d, news %d, paged %d, back %d\n", units, live, quiet, news, paged, back);
+    EXPECT(live && quiet && news && paged && back && units == 1);
+    EXPECT(paid.size() == 3 && paid[0] == 5 && paid[1] == 5 && paid[2] == 0);
   });
 }

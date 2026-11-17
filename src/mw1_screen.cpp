@@ -103,6 +103,7 @@ void Mw1Screen::show(const ScreenView& v) {
     ztwod::Text* l = labels_[i].get();
     b->enable(s.on ? 1 : 0);
     l->set_font(ztwod::host().font_find(s.on ? kLabelFont : kLabelOffFont));
+    l->set_text_plain(s.words.empty() ? names_[i].words : s.words.c_str());
     if (s.there) b->show_for(-1.0f), l->show_for(-1.0f);
     else b->hide(), l->hide();
     b->dirty(), l->dirty();
