@@ -17,10 +17,12 @@
 #include <SDL3/SDL.h>
 
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <string>
 #include <vector>
 
+#include "mw1_game.h"
 #include "mw1_start.h"
 #include "pm/pm_game.h"
 
@@ -75,6 +77,10 @@ int main(int argc, char** argv) {
   std::printf("mw1: MechWarrior 1: Critical Hit, write dir %s\nmw1:   Pirate's Moon %s\nmw1:   MechWarrior 3 %s\nmw1:   MechWarrior (1989) %s\n",
               a.write_dir.c_str(), use.pm.empty() ? "(not found)" : use.pm.c_str(), use.mw3.empty() ? "(not found)" : use.mw3.c_str(),
               use.mw1.empty() ? "(not found)" : use.mw1.c_str());
+  // MW1's loop over PM's game: the hub at the main menu, the contract's mission, the settlement (mw1_game.h).
+  // MW1_SEED (tests) fixes the company's and the contracts' rolls.
+  const char* seed = std::getenv("MW1_SEED");
+  mw1::install_game_loop(seed ? static_cast<uint32_t>(std::strtoul(seed, nullptr, 10)) : 0);
   // The rest is PM's game main, on its own write dir and PM install.
   std::vector<std::string> args = mw1::game_args(argv[0], a, use);
   std::vector<char*> raw;
