@@ -87,6 +87,23 @@ class Rng {
 struct OwnedMech {
   int32_t mech = kPmOwens;
   std::shared_ptr<mech3::Config> loadout;  // null: its stock loadout
+  int32_t pilot = 0;  // the lancemate assigned to it (a pilot id, mw1_pilots.h), 0 none
+};
+
+// MW1's 42 hireable pilots as the campaign leaves them (mw1_pilots.h; ids 1..42, 0 unused): their ratings once
+// changed by promotion (-1: the record's), their missions toward the next (pilotExperienceCounts), and where they
+// are (MW1's pilotUnavailableFlags, and killed).
+inline constexpr int32_t kPilotIds = 43;
+enum class PilotWhere : int32_t { kFree, kHired, kDead };
+struct PilotState {
+  int32_t gunnery = -1, piloting = -1, missions = 0;
+  PilotWhere where = PilotWhere::kFree;
+};
+// A lancemate (roster slots 1..3): the pilot, and the wage tier contracted at hiring (rosterPayTiers, never raised
+// by a promotion). Their mech is the hangar mech whose `pilot` is theirs.
+struct Lancemate {
+  int32_t id = 0;
+  int32_t wage_tier = 0;
 };
 // The market of the world the company is on (mw1_market.h): its stock (PM mech ids) and the dealer's purchases
 // since the last refresh against its limit (-1: none).
@@ -122,6 +139,14 @@ struct Company {
   Market market;
   Date date;
   int32_t market_clock = 0;  // DS:047F marketRefreshUnits: units since the market last restocked on time
+  // The pilots (mw1_pilots.h): the lancemates, everyone's state, the Bar's recruits on offer, and MW1's unpaid
+  // wages warning (unpaidPilotWageMarker: set, the next shortfall sends the lance away).
+  std::vector<Lancemate> lance;
+  PilotState pilots[kPilotIds];
+  std::vector<int32_t> recruits;
+  bool wage_warned = false;
+  // What happened since the hub last showed it (wages, promotions, casualties): the hub's lines, not saved.
+  std::vector<std::string> notices;
 };
 
 // MW1's "Lance weight" for a PM mech, by its tonnage as MW1's own kinds are
@@ -156,7 +181,8 @@ Company new_company(Rng& rng);
 void add_starting_stores(mech3::Store& s);
 
 // MwGenerateMissionOffer (081B:4F6E) for offer slot `slot` (0..5), with the
-// company's one mech as the lance; the objective and map are the milestone's.
+// company's lance (the commander's mech and the lancemates' assigned, mw1_pilots.h's lance_weight) as MW1's lance
+// weight; the objective and map are the milestone's.
 Contract generate_contract(const Company& c, int32_t slot, Rng& rng);
 
 // Accepting it (MwCreditAcceptedContractAdvanceContinuation): the advance paid.

@@ -10,6 +10,7 @@
 #include "mech3/mech_names.h"
 #include "mech3/pilot.h"
 #include "mw1_market.h"
+#include "mw1_pilots.h"
 
 namespace mw1 {
 
@@ -109,7 +110,7 @@ Contract generate_contract(const Company& c, int32_t slot, Rng& rng) {
   k.house = c.planet_house;
   const HouseRules& h = kHouses[k.house];
   // The force budget: (record band + the lance's weight) x 10, the offer slot's x1.5 or x0.5.
-  const int32_t weight = c.mech >= 0 ? lance_weight_of_tons(static_cast<int32_t>(std::lround(mech3::max_mass(c.mech)))) : 0;
+  const int32_t weight = lance_weight(c);  // the commander's mech and the lancemates' assigned ones (mw1_pilots.h)
   const int32_t base = (band(c.kills) + weight) * kBudgetScale;
   k.budget = base;
   if (slot == 1 || slot == 4) k.budget += base >> 1;

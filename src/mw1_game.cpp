@@ -21,6 +21,7 @@
 #include "mw1_hub.h"
 #include "mw1_market.h"
 #include "mw1_market_screen.h"
+#include "mw1_pilots.h"
 #include "mw1_travel.h"
 #include "mw1_travel_screen.h"
 #include "mw1_save.h"
@@ -151,7 +152,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         // The mission's time (STARTUP 350: the return, the world's weights, the deployment), then the refresh the
         // original makes on every return (STARTUP 081B:378).
         advance_time(company_, mission_units(company_), rng_);
-        refresh_market(company_, rng_);
+        refresh_world(company_, rng_);
         new_offer();
         break;
       }
@@ -483,7 +484,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       bool has_pending = false;
       switch (load_file(save_path_, company_, contract_, &has_offer, &why, pending.get(), &has_pending)) {
         case Loaded::kLoaded:
-          if (!company_.market.rolled) refresh_market(company_, rng_);  // a version 1 save: no market yet
+          if (!company_.market.rolled) refresh_world(company_, rng_);  // a version 1 save: no market yet
           if (has_pending) pending_ = std::move(pending), launch_stores_ = pending_->launch_stores, launch_loadout_ = pending_->launch_loadout;
           std::printf("mw1: the company loaded from %s: %s C-bills, %d items in the stores, %d kills%s\n", save_path_.c_str(),
                       thousands(company_.funds).c_str(), company_.stores->count(), company_.kills,
@@ -497,7 +498,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       }
     }
     company_ = new_company(rng_);
-    refresh_market(company_, rng_);
+    refresh_world(company_, rng_);
     std::printf("mw1: a new company on %s, %s C-bills\n", company_.planet.c_str(), thousands(company_.funds).c_str());
     return false;
   }
