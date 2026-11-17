@@ -29,11 +29,11 @@ House) at (0xEF,0x21).
 
   | House | Fill (EGA index) | Worlds whose surroundings are that fill |
   |---|---|---|
-  | Kurita | 9 | 30 of 30 |
-  | Davion | 6 | 28 of 30 |
-  | Steiner | 15 | 29 of 30 |
-  | Liao | 12 | 25 of 25 |
-  | Marik | 13 | 26 of 30 |
+  | Kurita | 9 (light blue) | 30 of 30 |
+  | Steiner | 6 (brown) | 28 of 30 |
+  | Marik | 15 (white) | 29 of 30 |
+  | Liao | 12 (light red) | 25 of 25 |
+  | Davion | 13 (light magenta) | 26 of 30 |
 
   The few exceptions are worlds on a border, where the box around them
   takes in the neighbour's colour.
@@ -155,8 +155,9 @@ propose type-ahead: it's cheaper, and it needs no new widget.
 ### Questions for Owen (look and feel)
 
 1. **Colours:** MW1's House colours, or BattleTech's usual ones?
-   - MW1's: Kurita light blue, Davion brown, Steiner white, Liao light red,
-     Marik magenta (EGA indices, before any palette change MW1 made).
+   - MW1's: Kurita light blue, Steiner brown, Marik white, Liao light red,
+     Davion light magenta (EGA indices, before any palette change MW1 made;
+     each House's fill checked against its capital's square on MW1's picture).
    - BattleTech's: Kurita red, Davion gold, Steiner blue, Liao green,
      Marik purple.
 2. **The territories:** filled blobs as MW1's, outlines only, or no
