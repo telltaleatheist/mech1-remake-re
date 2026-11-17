@@ -51,6 +51,16 @@ Laid out as `zutl::mount(<out>)` serves it:
   material, and PM reports that one. The cycled material still gets its
   speed.
 
+- The turrets' table (`aiTurrets.zrd`) is the game's own, in the top-level
+  `zbd\reader.zbd`, which is searched before a world's archive, so a
+  converted world runs PM's table. PM's turrets name destroy animations
+  (`destroy_tur_fixed`, `destroy_tur_mobile`) that MW3's worlds don't have;
+  theirs are `destroy_tur_generic`, `destroy_tur_gauss1` and so on. On
+  `mw3c4b`, `tur_ult01..04` die without their animation. A game that puts
+  turrets on a converted world names the world's own animations in its
+  turret records (MW1, 2026-11-17: its own data, later). zipkit stays a plain
+  converter.
+
 Rules for the folder:
 - Everything is built in `<out>/.zipkit-tmp` and moved into place only when
   every step has succeeded, so a failed run never leaves half a world.
