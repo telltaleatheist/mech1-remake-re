@@ -16,12 +16,13 @@
 namespace mw1::travel_map {
 
 // The worlds' span on MW1's picture (x 13..215, y 49..179) and where it lands on ours: the whole map at once (no
-// zoom, research/travel-map.md Q6), x scaled 2.1, y 2.52 (2.1 x 1.2).
+// zoom, research/travel-map.md Q6), x scaled 1.9, y 2.28 (1.9 x 1.2), inside a margin so the territories around the
+// outer worlds aren't cut: the map area 16..462 x 64..423, left of the detail panel and above the buttons.
 inline constexpr int32_t kMw1Left = 13, kMw1Top = 49;
-inline constexpr int32_t kMapLeft = 24, kMapTop = 72;      // the screen's map area: 24..450 x 72..402
-inline constexpr int32_t kScaleXNum = 21, kScaleXDen = 10;
-inline constexpr int32_t kScaleYNum = 252, kScaleYDen = 100;
-inline constexpr int32_t kMapWidth = 430, kMapHeight = 334;
+inline constexpr int32_t kMapLeft = 16, kMapTop = 64, kMapMargin = 30;  // the margin: the territories' reach
+inline constexpr int32_t kScaleXNum = 19, kScaleXDen = 10;
+inline constexpr int32_t kScaleYNum = 228, kScaleYDen = 100;
+inline constexpr int32_t kMapWidth = 446, kMapHeight = 359;
 
 struct Point {
   int32_t x = 0, y = 0;

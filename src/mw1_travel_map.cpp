@@ -29,7 +29,8 @@ const std::vector<int32_t>& by_name() {
 }  // namespace
 
 Point on_screen(const Planet& p) {
-  return {kMapLeft + (p.x - kMw1Left) * kScaleXNum / kScaleXDen, kMapTop + (p.y - kMw1Top) * kScaleYNum / kScaleYDen};
+  return {kMapLeft + kMapMargin + (p.x - kMw1Left) * kScaleXNum / kScaleXDen,
+          kMapTop + kMapMargin + (p.y - kMw1Top) * kScaleYNum / kScaleYDen};
 }
 Point on_screen(int32_t world) { return world >= 0 && world < kPlanetCount ? on_screen(kPlanets[world]) : Point{}; }
 
