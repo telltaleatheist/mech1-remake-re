@@ -1,5 +1,6 @@
 // mw1imgpack OUT.zbd INTRO.bmp: MW1's image archive (src/mw1_images.h) from its sources in data-src/, at build time:
-// the opening picture letterboxed on 640x480 (mw1_intro) and the narration's black (mw1_black).
+// the opening picture letterboxed on 640x480 (mw1_intro), the narration's black (mw1_black), and the travel map's
+// backdrops drawn from the worlds' data (src/mw1_map_image.h: mw1_map and one per House).
 #include <SDL3/SDL.h>
 
 #include <cstdio>
@@ -8,6 +9,7 @@
 #include <vector>
 
 #include "mw1_images.h"
+#include "mw1_map_image.h"
 
 int main(int argc, char** argv) {
   if (argc != 3) {
@@ -32,7 +34,9 @@ int main(int argc, char** argv) {
     return 1;
   }
   std::string why;
-  const std::vector<uint8_t> b = mw1::pack({mw1::letterbox(mw1::kIntroImage, w, h, px), mw1::black(mw1::kBlackImage)}, &why);
+  std::vector<mw1::images::Image> all = {mw1::letterbox(mw1::kIntroImage, w, h, px), mw1::black(mw1::kBlackImage)};
+  for (mw1::images::Image& m : mw1::backdrops()) all.push_back(std::move(m));
+  const std::vector<uint8_t> b = mw1::pack(all, &why);
   if (b.empty()) {
     std::fprintf(stderr, "mw1imgpack: %s\n", why.c_str());
     return 1;

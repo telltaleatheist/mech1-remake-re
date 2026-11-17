@@ -353,13 +353,17 @@ void loop_run(Ending ending, Run* run = nullptr) {
         std::printf("  travel:");
         for (const std::string& l : shown) std::printf(" [%s]", l.c_str());
         std::printf("\n");
-        EXPECT(sc->loaded() && sc->enabled(mw1::kTravelGo) && !sc->enabled(mw1::kTravelUp));
-        // The nearest world with an office: down the list to it, then GO.
+        EXPECT(sc->loaded() && !sc->enabled(mw1::kTravelGo));  // nothing chosen yet
+        // The nearest world with an office: clicked on the map, then GO.
         const std::vector<int32_t> to = mw1::destinations(*c, -1);
         size_t i = 0;
         while (i < to.size() && !mw1::kPlanets[to[i]].office) ++i;
         EXPECT(i < to.size());
-        for (size_t k = 0; k < i; ++k) sc->on_button(mw1::kTravelDown, 0, 0);
+        const mw1::Point p = mw1::on_screen(to[i]);
+        sc->point(p.x + 1, p.y, false);  // the mouse over it: named
+        EXPECT(mw1::world_at(p.x + 1, p.y) == to[i]);
+        sc->point(p.x + 1, p.y, true);
+        EXPECT(sc->enabled(mw1::kTravelGo));
         run->travel_to = mw1::title_case_name(mw1::kPlanets[to[i]].name);
         run->travel_quoted = mw1::travel_cost(*c, mw1::kPlanets[to[i]]);
         const int64_t before = c->funds;
@@ -2053,7 +2057,11 @@ TEST(mw1_soak_twenty_contracts_through_the_hub_headless) {
       if (mw1::TravelState* ts = mw1::game_loop_travel(); showing(app, ts)) {
         mw1::Mw1Screen* sc = ts->screen();
         if (roll(3) == 0) return sc->on_button(mw1::kTravelBack, 0, 0), false;
-        for (int i = roll(4); i > 0; --i) sc->on_button(mw1::kTravelDown, 0, 0);
+        if (roll(4) == 0) sc->on_button(mw1::kTravelFilter, 0, 0);
+        // A world near here, clicked on the map.
+        const std::vector<int32_t> near = mw1::destinations(*c, -1);
+        const mw1::Point p = mw1::on_screen(near[static_cast<size_t>(roll(6))]);
+        sc->point(p.x, p.y, true);
         const std::string was = c->planet;
         sc->on_button(mw1::kTravelGo, 0, 0);
         if (c->planet != was) ++trips;
@@ -2136,5 +2144,60 @@ TEST(mw1_soak_twenty_contracts_through_the_hub_headless) {
                 bad_guard, stuck, first_bad.empty() ? "" : "; first: ", first_bad.c_str());
     EXPECT(settled == 20 && won > 0 && lost > 0);
     EXPECT(!bad_funds && !bad_save && !bad_live && !bad_lance && !bad_guard && !stuck);
+  });
+}
+
+// The travel map by the keys (mw1_travel_map.h): a name typed finds the world (MW1's search), the arrows step from
+// it to the nearest world that way, Enter is GO: the company arrives there. The mouse's way is the travel run's
+// (loop_run, travel), and FILTER's in the soak.
+TEST(mw1_travel_map_a_trip_by_the_keys_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  in_child([&] {
+    MenuRun r;
+    r.start = mw1::Start::kHub;
+    int step = 0, wait = 0;
+    int32_t typed = -1, stepped = -1;
+    std::string arrived;
+    bool named = false, go_lit = false;
+    r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
+      if (++wait < 5) return false;
+      wait = 0;
+      mw1::HubState* hub = mw1::game_loop_hub();
+      mw1::TravelState* tr = mw1::game_loop_travel();
+      mw1::Company* c = mw1::game_loop_company_for_tests();
+      switch (step) {
+        case 0:
+          if (!showing(app, hub)) return false;
+          c->funds = 5000000;
+          hub->screen()->on_button(mw1::kHubTravel, 0, 0);
+          ++step;
+          return false;
+        case 1: {
+          if (!showing(app, tr)) return false;
+          // "THA" (DirectInput's T, H, A): the first world by name that starts so.
+          for (uint32_t code : {0x14u, 0x23u, 0x1Eu}) tr->key(code);
+          typed = mw1::find_by_name("THA");
+          named = shows_line(tr->screen()->shown(), "Find: THA");
+          // The arrow left (0xCB): the nearest world that way from it.
+          tr->key(0xCB);
+          stepped = mw1::step(typed, mw1::Dir::kLeft);
+          go_lit = tr->screen()->enabled(mw1::kTravelGo);
+          tr->key(0x1C);  // Enter: GO
+          ++step;
+          return false;
+        }
+        default:
+          if (!showing(app, hub)) return false;
+          arrived = c->planet;
+          return true;
+      }
+    };
+    menu_run(r);
+    const std::string want = stepped >= 0 ? mw1::title_case_name(mw1::kPlanets[stepped].name) : "";
+    std::printf("  typed THA: %s; left of it: %s; arrived at %s\n", typed >= 0 ? mw1::kPlanets[typed].name : "none", want.c_str(),
+                arrived.c_str());
+    EXPECT(typed >= 0 && std::string(mw1::kPlanets[typed].name).rfind("THA", 0) == 0 && named);
+    EXPECT(stepped >= 0 && go_lit && arrived == want);
   });
 }

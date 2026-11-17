@@ -25,6 +25,7 @@
 #include "mech3/zai_brain.h"
 #include "mech3/zai_params.h"
 #include "gamez/zimage/zimg_library.h"
+#include "gamez/zinput/zinput.h"
 #include "gamez/zreader/zreader.h"
 #include "gamez/zutil/zutl_path.h"
 #include "mw1_bar_screen.h"
@@ -40,6 +41,7 @@
 #include "mw1_pilots.h"
 #include "mw1_repairs.h"
 #include "mw1_travel.h"
+#include "mw1_travel_map.h"
 #include "mw1_travel_screen.h"
 #include "mw1_save.h"
 #include "mw1_story.h"
@@ -185,6 +187,14 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       // MW1_SCREEN=market (development: --shot pictures of a screen past the hub).
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "market") press(kHubMarket);
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "travel") press(kHubTravel);
+      // MW1_SCREEN=travel_pick: the map with a world chosen (MW1_TRAVEL_TO, a name; else the farthest of the first few).
+      if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "travel_pick") {
+        press(kHubTravel);
+        const char* to = std::getenv("MW1_TRAVEL_TO");
+        const std::vector<int32_t> near = destinations(company_, -1);
+        tchoice_.world = to ? find_by_name(to) : near.size() > 6 ? near[6] : -1;
+        show_travel();
+      }
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "bar") press(kHubBar);
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "office") press(kHubOffice);
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "news") press(kHubBar), press_bar(kBarNews);
@@ -604,7 +614,55 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       return false;
     }
     travel_ = ge.adopt_state([this](zgame::Handle h) { return travel_state_ = new TravelState(h, [this](int32_t id) { press_travel(id); }); });
+    if (travel_state_) {
+      // The map hears the mouse (a world chosen by a click, named under the mouse) and the keys (the arrows, a name
+      // typed, Enter).
+      travel_state_->set_pointer(kMapLeft, kMapTop, kMapLeft + kMapWidth - 1, kMapTop + kMapHeight - 1,
+                                 [this](int32_t x, int32_t y, bool click) { travel_point(x, y, click); });
+      travel_state_->set_keys([this](uint32_t k) { travel_key(k); });
+    }
     return travel_ != 0;
+  }
+
+  // The mouse on the map: a click chooses the world there; a move names the world under it.
+  void travel_point(int32_t x, int32_t y, bool click) {
+    const int32_t w = world_at(x, y);
+    if (click) {
+      if (w < 0) return;
+      tchoice_.world = w, tchoice_.search = Search{}, tchoice_.note.clear();
+    } else {
+      if (w == tchoice_.hover) return;
+      tchoice_.hover = w;
+    }
+    show_travel();
+  }
+
+  // The keys on the map (DirectInput codes): the arrows step to the nearest world that way; Enter is GO; letters
+  // find a world by name, Backspace takes the last off.
+  void travel_key(uint32_t code) {
+    constexpr uint32_t kUp = 0xC8, kDown = 0xD0, kLeft = 0xCB, kRight = 0xCD, kEnter = 0x1C, kPadEnter = 0x9C, kBackspace = 0x0E;
+    switch (code) {
+      case kUp: step_choice(company_, tchoice_, Dir::kUp); break;
+      case kDown: step_choice(company_, tchoice_, Dir::kDown); break;
+      case kLeft: step_choice(company_, tchoice_, Dir::kLeft); break;
+      case kRight: step_choice(company_, tchoice_, Dir::kRight); break;
+      case kEnter:
+      case kPadEnter: return press_travel(kTravelGo);
+      case kBackspace:
+        if (const int32_t w = type_backspace(tchoice_.search); w >= 0) tchoice_.world = w;
+        break;
+      default: {
+        // The host's keyboard layout's letter; without one (a host with no layout, the tests'), the US key's.
+        uint32_t ch = zin::key_char(code);
+        if (ch < 0x20 || ch > 0x7e) ch = static_cast<uint8_t>(scan_letter(code));
+        if (!ch) return;
+        if (const int32_t w = type_letter(tchoice_.search, static_cast<char>(ch)); w >= 0) tchoice_.world = w;
+        break;
+      }
+    }
+    if (code != kBackspace && (code == kUp || code == kDown || code == kLeft || code == kRight)) tchoice_.search = Search{};
+    tchoice_.note.clear();
+    show_travel();
   }
 
   void press_travel(int32_t id) {
@@ -631,14 +689,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         hub_events();  // MW1 runs the hub's events each time it draws it (an arrival's after travel)
         return;
       }
-      case kTravelHouse:
-        tchoice_.house = tchoice_.house + 1 >= kHouseCount ? -1 : tchoice_.house + 1;
-        tchoice_.at = tchoice_.top = 0;
-        break;
-      case kTravelUp: --tchoice_.at; break;
-      case kTravelDown: ++tchoice_.at; break;
-      case kTravelPageUp: tchoice_.at -= kTravelRows; break;
-      case kTravelPageDown: tchoice_.at += kTravelRows; break;
+      case kTravelFilter: tchoice_.filter = next_filter(tchoice_.filter); break;
       case kTravelBack:
         if (!ge) return;
         show_hub();
@@ -652,7 +703,6 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   }
 
   void show_travel() {
-    clamp_choice(company_, tchoice_);
     if (travel_state_) travel_state_->show(travel_view(company_, tchoice_));
   }
 

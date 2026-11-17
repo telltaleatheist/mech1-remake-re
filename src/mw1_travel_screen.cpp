@@ -4,14 +4,16 @@
 #include <cctype>
 #include <cstdio>
 
+#include "mw1_map_image.h"
 #include "mw1_market.h"
 #include "mw1_travel.h"
 
 namespace mw1::travel_ui {
 namespace {
-const std::vector<ScreenButton> kTravelButtons = {{"GO", "GO"}, {"HOUSE", "HOUSE"}, {"BACK", "BACK"}, {"UP", ""},
-                                                  {"DOWN", ""}, {"PAGE_UP", ""},    {"PAGE_DOWN", ""}};
-constexpr size_t kNameWidth = 15;  // "Mallory's World"
+const std::vector<ScreenButton> kTravelButtons = {{"GO", "GO"}, {"FILTER", "FILTER"}, {"BACK", "BACK"}};
+constexpr int32_t kPanelX = 474;             // the right column, beside the map
+constexpr size_t kPanelColumns = 26;         // its lines' width in brief_green
+constexpr size_t kNoteColumns = 72;          // the note's, across the map's foot
 
 std::string thousands(int64_t v) {
   std::string s = std::to_string(v < 0 ? -v : v);
@@ -22,15 +24,28 @@ std::string upper(std::string s) {
   for (char& c : s) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
   return s;
 }
-// "> Tancredi IV     Dav t0  45,000": chosen or not, the name, its House and tier, the cost (which follows the
-// distance; the chosen world's panel gives it).
-std::string row(bool chosen, const Company& c, const Planet& w) {
-  std::string n = title_case_name(w.name);
-  if (n.size() < kNameWidth) n.append(kNameWidth - n.size(), ' ');
-  const std::string house = std::string(kHouses[w.house].name).substr(0, 3);
-  std::string p = thousands(travel_cost(c, w));
-  if (p.size() < 8) p.insert(0, 8 - p.size(), ' ');
-  return std::string(chosen ? "> " : "  ") + n + " " + house + " t" + std::to_string(w.tier) + p;
+// Words wrapped to `width` columns.
+std::vector<std::string> wrap(const std::string& text, size_t width) {
+  std::vector<std::string> out;
+  std::string line, word;
+  auto flush_word = [&] {
+    if (word.empty()) return;
+    if (!line.empty() && line.size() + 1 + word.size() > width) out.push_back(line), line.clear();
+    line += (line.empty() ? "" : " ") + word;
+    word.clear();
+  };
+  for (char ch : text) {
+    if (ch == ' ') flush_word();
+    else word += ch;
+  }
+  flush_word();
+  if (!line.empty()) out.push_back(line);
+  return out;
+}
+Mark ring(Point p, int32_t r, map_image::Rgb c) {
+  Mark m;
+  m.kind = Mark::Kind::kRing, m.x = p.x, m.y = p.y, m.size = r, m.r = c.r, m.g = c.g, m.b = c.b;
+  return m;
 }
 }  // namespace
 
@@ -48,17 +63,15 @@ std::vector<int32_t> destinations(const Company& c, int32_t house) {
   return out;
 }
 
-void clamp_choice(const Company& c, TravelChoice& t) {
-  const int32_t n = static_cast<int32_t>(destinations(c, t.house).size());
-  t.at = n == 0 ? 0 : std::clamp(t.at, 0, n - 1);
-  if (t.at < t.top) t.top = t.at;
-  if (t.at >= t.top + kTravelRows) t.top = t.at - kTravelRows + 1;
-  t.top = std::clamp(t.top, 0, std::max(0, n - kTravelRows));
-}
+int32_t here_index(const Company& c) { return planet_index(planet_here(c).number); }
 
 int32_t chosen_world(const Company& c, const TravelChoice& t) {
-  const std::vector<int32_t> l = destinations(c, t.house);
-  return t.at >= 0 && t.at < static_cast<int32_t>(l.size()) ? l[static_cast<size_t>(t.at)] : -1;
+  return t.world >= 0 && t.world < kPlanetCount && t.world != here_index(c) ? t.world : -1;
+}
+
+void step_choice(const Company& c, TravelChoice& t, Dir d) {
+  const int32_t from = t.world >= 0 ? t.world : here_index(c);
+  if (const int32_t to = step(from, d); to >= 0) t.world = to;
 }
 
 std::string days_words(int32_t units) {
@@ -90,33 +103,73 @@ std::vector<std::string> stranded_lines(const Company& c) {
 
 ScreenView travel_view(const Company& c, const TravelChoice& t) {
   ScreenView v;
-  const std::vector<int32_t> list = destinations(c, t.house);
-  std::vector<std::string> rows;
-  for (int32_t i = t.top; i < static_cast<int32_t>(list.size()) && i < t.top + kTravelRows; ++i)
-    rows.push_back(row(i == t.at, c, kPlanets[list[static_cast<size_t>(i)]]));
-  const std::string filter = t.house < 0 ? "ALL HOUSES" : "HOUSE " + upper(kHouses[t.house].name);
-  // The chosen world.
-  std::string title;
+  const int32_t here = here_index(c), wi = chosen_world(c, t);
+  // The map: the backdrop for the filter (the House's own lit), every world a dot in its House's colour (a ring
+  // round one with a House office, a square at a capital), greyed when the filter leaves it out; the company's world
+  // and the chosen one ringed, the jump's line between them; the world under the mouse ringed faintly.
+  v.panels.assign(6, false);
+  v.panels[t.filter.kind == FilterKind::kHouse ? static_cast<size_t>(1 + t.filter.house) : 0] = true;
+  const map_image::Rgb grey = {80, 80, 80}, white = {255, 255, 255}, yellow = {255, 255, 85}, faint = {170, 170, 170};
+  if (kJumpLine && wi >= 0) {
+    const Point a = on_screen(here), b = on_screen(wi);
+    Mark l;
+    l.kind = Mark::Kind::kLine, l.x = a.x, l.y = a.y, l.x2 = b.x, l.y2 = b.y;
+    v.marks.push_back(l);  // MW1's route, white
+  }
+  for (int32_t i = 0; i < kPlanetCount; ++i) {
+    const map_image::Rgb col = lit(c, t.filter, i) ? map_image::kHouseColours[kPlanets[i].house] : grey;
+    const Point p = on_screen(i);
+    v.marks.push_back(ring(p, 1, col));
+    if (kPlanets[i].office) v.marks.push_back(ring(p, 3, col));
+    if (capital(i)) {
+      Mark q = ring(p, 5, col);
+      q.kind = Mark::Kind::kSquare;
+      v.marks.push_back(q);
+    }
+  }
+  if (t.hover >= 0 && t.hover != wi && t.hover != here) v.marks.push_back(ring(on_screen(t.hover), 7, faint));
+  v.marks.push_back(ring(on_screen(here), 7, yellow));
+  if (wi >= 0) v.marks.push_back(ring(on_screen(wi), 8, white)), v.marks.push_back(ring(on_screen(wi), 9, white));
+  // The names: here, the chosen world, the one under the mouse, and the capitals.
+  std::vector<int32_t> named = {here};
+  if (wi >= 0) named.push_back(wi);
+  if (t.hover >= 0) named.push_back(t.hover);
+  if (kCapitalNames)
+    for (int32_t i = 0; i < kPlanetCount; ++i)
+      if (capital(i)) named.push_back(i);
+  std::vector<int32_t> seen;
+  for (int32_t i : named) {
+    if (std::find(seen.begin(), seen.end(), i) != seen.end()) continue;
+    seen.push_back(i);
+    const Point p = on_screen(i);
+    const std::string n = title_case_name(kPlanets[i].name);
+    // Right of the world, or left of it near the map's right edge.
+    const int32_t w = static_cast<int32_t>(n.size()) * 6;
+    const int32_t x = p.x + 13 + w > kMapLeft + kMapWidth ? p.x - 13 - w : p.x + 13;  // clear of the rings
+    v.blocks.push_back({x, p.y - 7, i == wi || i == here ? kNoteFont : kLineFont, {n}});
+  }
+  // The right column: the filter, the funds and date, the chosen world, the search.
+  std::string title = "CHOOSE A WORLD";
   std::vector<std::string> detail;
-  const int32_t wi = chosen_world(c, t);
   if (wi >= 0) {
     const Planet& w = kPlanets[wi];
-    const Planet& here = planet_here(c);
+    const Planet& from = planet_here(c);
     const int64_t cost = travel_cost(c, w);
-    const int32_t units = travel_units(here, w);
+    const int32_t units = travel_units(from, w);
     const int32_t mechs = owned_count(c);
-    title = w.name;
-    detail = {"House " + std::string(kHouses[w.house].name) + ", tier " + std::to_string(w.tier) + " world",
-              !w.office               ? std::string("No House office: no contracts")
-              : refuses(c, w.house)   ? std::string("House office: won't deal with you")
-                                      : std::string("House office: contracts")};
+    title = upper(title_case_name(w.name));
+    detail = {"House " + std::string(kHouses[w.house].name) + ", tier " + std::to_string(w.tier),
+              !w.office             ? std::string("No House office")
+              : refuses(c, w.house) ? std::string("Office: won't deal with you")
+                                    : std::string("Office: contracts")};
     if (clan_world(w.number)) detail.push_back("Clan mechs for sale");
     detail.push_back("");
-    detail.push_back("Distance: " + std::to_string(distance(here, w)));
-    detail.push_back("Cost: " + thousands(cost) + " C-bills");
-    detail.push_back("  " + std::to_string(mechs) + (mechs == 1 ? " mech" : " mechs") + " on a hired transport");
-    detail.push_back("Arrives: " + date_words(date_after(c.date, units)));
+    detail.push_back("Distance " + std::to_string(distance(from, w)));
+    detail.push_back("Cost " + thousands(cost) + " C-bills");
+    detail.push_back("  " + std::to_string(mechs) + (mechs == 1 ? " mech" : " mechs") + ", hired transport");
+    detail.push_back("Arrives " + date_words(date_after(c.date, units)));
     detail.push_back("  " + days_words(units) + " on the way");
+    if (cost > c.funds) detail.push_back(""), detail.push_back("You can't afford it.");
     // Going somewhere with no office and no way on: say so first.
     if (!deals_with(c, w) && cost <= c.funds) {
       Company after = c;
@@ -125,24 +178,28 @@ ScreenView travel_view(const Company& c, const TravelChoice& t) {
       after.withdrawn = false;  // a broken-off negotiation stays behind
       if (stranded(after)) detail.push_back(""), detail.push_back("You couldn't afford to leave it.");
     }
+  } else if (t.world == here) {
+    title = upper(c.planet);
+    detail = {"You are here."};
+  } else {
+    detail = wrap("Click a world, or use the arrows. Type a name to find it. Enter is GO.", kPanelColumns);
   }
-  std::vector<std::string> terms = {"Funds: " + thousands(c.funds) + " C-bills", "Today: " + date_words(c.date)};
-  std::vector<std::string> note = stranded_lines(c);
-  if (!t.note.empty()) note.insert(note.begin(), t.note);
-  v.blocks = {{24, 14, kPlaqueFont, {upper(c.planet)}},
-              {24, 32, kPlaqueSmallFont, {"HOUSE " + upper(kHouses[c.planet_house].name) + ": STARPORT"}},
-              {30, 72, kTitleFont, {filter}},
-              {30, 96, kLineFont, rows},
-              {398, 72, kTitleFont, {title}},
-              {398, 96, kLineFont, detail},
-              {30, 356, kLineFont, terms},
-              {30, 392, kNoteFont, note}};
+  if (!t.search.typed.empty()) detail.push_back(""), detail.push_back("Find: " + upper(t.search.typed));
+  std::vector<std::string> note;
+  std::vector<std::string> said = stranded_lines(c);
+  if (!t.note.empty()) said.insert(said.begin(), t.note);
+  for (const std::string& l : said)
+    for (const std::string& w : wrap(l, kNoteColumns)) note.push_back(w);
+  v.blocks.push_back({24, 14, kPlaqueFont, {upper(c.planet)}});
+  v.blocks.push_back({24, 32, kPlaqueSmallFont, {"HOUSE " + upper(kHouses[c.planet_house].name) + ": STARPORT"}});
+  v.blocks.push_back({kPanelX, 64, kPlaqueSmallFont, {"MAP: " + filter_words(t.filter)}});
+  v.blocks.push_back({kPanelX, 84, kLineFont, {"Funds " + thousands(c.funds) + " C-bills", "Today " + date_words(c.date)}});
+  v.blocks.push_back({kPanelX, 128, kTitleFont, {title}});
+  v.blocks.push_back({kPanelX, 152, kLineFont, detail});
+  v.blocks.push_back({24, 432 - 16 * static_cast<int32_t>(note.size()), kNoteFont, note});
   v.buttons.resize(kTravelButtonCount);
-  const int32_t n = static_cast<int32_t>(list.size());
   v.buttons[kTravelGo - 1].on = wi >= 0 && travel_cost(c, kPlanets[wi]) <= c.funds;
-  v.buttons[kTravelHouse - 1].on = v.buttons[kTravelBack - 1].on = true;
-  v.buttons[kTravelUp - 1].on = v.buttons[kTravelPageUp - 1].on = t.at > 0;
-  v.buttons[kTravelDown - 1].on = v.buttons[kTravelPageDown - 1].on = t.at + 1 < n;
+  v.buttons[kTravelFilter - 1].on = v.buttons[kTravelBack - 1].on = true;
   return v;
 }
 

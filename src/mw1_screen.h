@@ -49,7 +49,17 @@ struct ButtonState {
   bool on = true;     // enabled (else greyed: its DISABLE bitmap and grey words)
   std::string words;  // its words now (empty: its own, ScreenButton's)
 };
+// A shape drawn over the panels and under the texts (the travel map's worlds and markers): a ring (a circle's
+// outline, `size` its radius; radius 1 reads as a dot), a line to (x2, y2), or a square's outline `size` from its
+// centre. Its colour as red, green, blue.
+struct Mark {
+  enum class Kind { kRing, kLine, kSquare };
+  Kind kind = Kind::kRing;
+  int32_t x = 0, y = 0, x2 = 0, y2 = 0, size = 1;
+  uint8_t r = 255, g = 255, b = 255;
+};
 struct ScreenView {
+  std::vector<Mark> marks;
   std::vector<TextBlock> blocks;
   std::vector<ButtonState> buttons;  // by id - 1; missing ones shown and enabled
   std::vector<bool> panels;          // the layout's PANEL, PANEL2, ... shown; missing ones shown
@@ -70,6 +80,11 @@ class Mw1Screen : public mech3::MenuScreen {
   bool enabled(int32_t id) const;
   bool panel_shown(size_t i) const;  // the layout's i-th PANEL
   int32_t button_count() const { return static_cast<int32_t>(buttons_.size()); }
+  // A part of the screen that hears the mouse (the travel map): `heard` with the mouse's place on each move over it
+  // (click false) and on a left click there (true). point() is the same from a test.
+  void set_pointer(int32_t left, int32_t top, int32_t right, int32_t bottom, std::function<void(int32_t, int32_t, bool)> heard);
+  void point(int32_t x, int32_t y, bool click);
+  const std::vector<Mark>& marks() const { return marks_now_; }  // for the tests: the shapes shown now
 
  private:
   ztwod::Text* text(std::vector<std::unique_ptr<ztwod::Text>>& pool, size_t i, int32_t x, int32_t y, const char* font);
@@ -80,6 +95,12 @@ class Mw1Screen : public mech3::MenuScreen {
   std::vector<std::unique_ptr<ztwod::Text>> labels_;          // the buttons' words, by id - 1
   std::vector<std::vector<std::unique_ptr<ztwod::Text>>> blocks_;
   std::vector<std::unique_ptr<ztwod::Image>> panels_;         // the layout's PANEL images, behind the texts
+  std::vector<std::unique_ptr<ztwod::Frame>> rings_;           // the marks, by kind, reused show to show
+  std::vector<std::unique_ptr<ztwod::Line2D>> lines_;
+  std::vector<std::unique_ptr<ztwod::PolyLine>> squares_;
+  std::vector<Mark> marks_now_;
+  std::unique_ptr<ztwod::Object2D> pointer_;
+  std::function<void(int32_t, int32_t, bool)> heard_;
 };
 
 // A screen's state: pushed by the loop, its screen made on entering
@@ -94,6 +115,14 @@ class Mw1State : public mech3::MenuState {
   void escape() override;
   void show(const ScreenView& v);  // now, and on each entering
   Mw1Screen* screen() { return screen_ptr_; }
+  // The mouse over a part of the screen (Mw1Screen::set_pointer), set on each entering; and the keys: each frame's
+  // first plain key (its DirectInput code) to `keys`, Escape aside (escape_id's button).
+  void set_pointer(int32_t left, int32_t top, int32_t right, int32_t bottom, std::function<void(int32_t, int32_t, bool)> heard);
+  void set_keys(std::function<void(uint32_t)> keys) { keys_ = std::move(keys); }
+  void key(uint32_t code) {  // a key as pressed (tests)
+    if (keys_) keys_(code);
+  }
+  bool update() override;
 
  private:
   const char* file_;
@@ -103,6 +132,9 @@ class Mw1State : public mech3::MenuState {
   std::function<void(int32_t)> pressed_;
   ScreenView view_;
   Mw1Screen* screen_ptr_ = nullptr;
+  int32_t pointer_rect_[4] = {};
+  std::function<void(int32_t, int32_t, bool)> pointer_;
+  std::function<void(uint32_t)> keys_;
 };
 
 // True when MW1's data has `file` with `dialog` in it (the loop falls back to message boxes when not).
