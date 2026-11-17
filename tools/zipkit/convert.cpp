@@ -94,7 +94,10 @@ bool mw3_to_pm(const Options& o, std::string* error) {
   std::vector<Source> sources;
   const auto read_source = [&](const std::string& path) {
     Source s;
-    s.rel = fs::relative(path, in, ec).generic_string();
+    // By the letters, not the disk: a linked file keeps its name inside the install, not its target's.
+    fs::path base = in.lexically_normal();
+    if (!base.has_filename()) base = base.parent_path();
+    s.rel = fs::path(path).lexically_normal().lexically_relative(base).generic_string();
     if (!file_crc(path, &s.size, &s.crc)) return *error = "Could not read " + path + ".", false;
     sources.push_back(s);
     return true;

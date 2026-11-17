@@ -425,6 +425,21 @@ TEST(zipkit_run_rules) {
   const std::string world = bytes(out / "zbd/mw3c2/gamez.zbd");
   EXPECT(zipkit::mw3_to_pm(o, &error));
   EXPECT(bytes(out / "zbd/mw3c2/gamez.zbd") == world && bytes(out / "zipkit.stamp") == stamp);
+  // A linked install (its zbd a link elsewhere, the folder given with a slash): the stamp names the files inside it.
+  {
+    const fs::path linked = fs::path(MW3_TEST_TMP) / "zipkit_linked", lout = fs::path(MW3_TEST_TMP) / "zipkit_linked_out";
+    fs::remove_all(linked), fs::remove_all(lout);
+    fs::create_directories(linked);
+    fs::create_directory_symlink(fs::absolute(fs::path(MW3_GAME_DIR) / "zbd"), linked / "zbd");
+    zipkit::Options l = o;
+    l.install = linked.string() + "/", l.out = lout.string(), l.progress = nullptr;
+    EXPECT(zipkit::mw3_to_pm(l, &error));
+    const std::string ls = bytes(lout / "zipkit.stamp");
+    std::printf("zipkit linked install: %s\n", ls.substr(0, ls.find('\n', ls.find("source ")) ).c_str() + ls.find("source "));
+    EXPECT(ls.find("source zbd/reader.zbd ") != std::string::npos && ls.find("source zbd/c2/gamez.zbd ") != std::string::npos);
+    EXPECT(ls.find("..") == std::string::npos);
+    fs::remove_all(linked), fs::remove_all(lout);
+  }
   // A folder it did not make is left alone, and the run says so.
   fs::remove_all(out / "zbd/mw3c2");
   fs::create_directories(out / "zbd/mw3c2");
