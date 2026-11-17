@@ -2,9 +2,10 @@
 // MW1's main menu and the New Campaign intro (VISION.md, "Starting the game"), on MW1's screen template
 // (mw1_screen.h) with MW1's own layouts, mw1menu.zrd and mw1intro.zrd in MW1's data folder.
 //
-// The menu sits where the hub sat, over PM's main menu (ProgramFlow::main_entered), which stays under it unseen: the
-// state a mission's end comes back to, and the maker of the Options state MW1's OPTIONS pushes. NEW CAMPAIGN plays
-// the intro, then a new company in the hub; CONTINUE opens the hub on the save; QUIT is PM's own quit.
+// The menu (the title screen, FIXES.md item 3: title_bg, MW1's NEW / LOAD / QUIT down the left) sits where the hub
+// sat, over PM's main menu (ProgramFlow::main_entered), which stays under it unseen: the state a mission's end comes
+// back to, and the maker of the Options state the hub's OPTIONS pushes. NEW plays the intro, then a new company in
+// the hub; LOAD (kMenuContinue) opens the hub on the save; QUIT is PM's own quit. kMenuOptions stays, never shown.
 //
 // The intro is MW1's (the port's MW_MAIN_081B_STARTUP.c, the campaign's entry): the narration on black, fading in,
 // held while the opening music plays, then the opening picture; any key or a click skips it. MW1's narration is read

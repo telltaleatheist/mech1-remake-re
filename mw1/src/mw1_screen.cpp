@@ -1,15 +1,18 @@
 #include "mw1_screen.h"
 
+#include <algorithm>
 #include <cstdio>
 
 #include "gamez/zreader/zreader.h"
 #include "gamez/ztwod/twod_host.h"
 #include "gamez/zvideo/zvid_format.h"
+#include "mech3/app_engine.h"
 #include "mech3/app_hooks.h"
 
 namespace mw1::screens {
 namespace {
 constexpr uint32_t kScreenSize = 0x11200;  // its block: past MenuScreen's own fields, no other screen's size
+constexpr int32_t kWideCanvas = 853;       // the 16:9 canvas a _WIDE layout is placed on (480 lines)
 constexpr const char* kLabelFont = "ia_small_green";
 constexpr const char* kLabelOffFont = "ia_small_grey";  // PM's greyed circle buttons' (dialog.zrd)
 constexpr const char* kPanelNames[] = {"PANEL", "PANEL2", "PANEL3", "PANEL4", "PANEL5", "PANEL6", "PANEL7"};
@@ -44,7 +47,27 @@ class Pointer : public ztwod::Object2D {
 };
 
 uint32_t pixel(const Mark& m) { return zvid::pack_bytes(m.r, m.g, m.b); }
+
+// A key's string, written bare (KEY "x") or listed (KEY ("x")); null when not there.
+const char* string_of(zrdr::Node* entry, const char* key) {
+  zrdr::Node* n = entry ? zrdr::find(entry, key) : nullptr;
+  if (!n) return nullptr;
+  if (n->type == zrdr::String) return n->s;
+  if (n->type == zrdr::List && zrdr::list_count(n) > 1 && n->list[1].type == zrdr::String) return n->list[1].s;
+  return nullptr;
+}
+Anchor anchor_of(zrdr::Node* entry) {
+  const char* a = string_of(entry, "ANCHOR");
+  if (!a) return Anchor::kLayout;
+  const std::string s = a;
+  return s == "RIGHT" ? Anchor::kRight : (s == "CENTRE" || s == "CENTER") ? Anchor::kCentre : Anchor::kLeft;
+}
 }  // namespace
+
+int32_t Mw1Screen::shift(Anchor a) const {
+  if (a == Anchor::kLayout) a = wide_ ? Anchor::kLeft : Anchor::kCentre;
+  return a == Anchor::kRight ? extra_ : a == Anchor::kCentre ? extra_ / 2 : 0;
+}
 
 bool layout_there(const char* file, const char* dialog) {
   zrdr::Node* t = zrdr::load(file);
@@ -57,22 +80,50 @@ Mw1Screen::Mw1Screen(mech3::Engine& e, zgame::Handle state_handle, const char* f
                      std::vector<ScreenButton> buttons, std::function<void(int32_t)> pressed)
     : MenuScreen(e, state_handle), names_(std::move(buttons)), pressed_(std::move(pressed)) {
   tree = zrdr::load(file);
-  zrdr::Node* dlg = tree ? zrdr::find(tree, dialog) : nullptr;
+  // The wide canvas's layout when there's one and the canvas is wide; the anchors then from its width.
+  int32_t canvas = 640;
+  if (auto* ge = dynamic_cast<mech3::GameEngine*>(&e)) canvas = ge->buffer_width();
+  zrdr::Node* dlg = nullptr;
+  if (tree && canvas > 640) dlg = zrdr::find(tree, (std::string(dialog) + "_WIDE").c_str());
+  wide_ = dlg != nullptr;
+  if (!dlg && tree) dlg = zrdr::find(tree, dialog);
+  extra_ = std::max(0, canvas - (wide_ ? kWideCanvas : 640));
+  // The layout's pieces are read at the dialog's origin (the engine centres a 640 layout on a wider canvas,
+  // ztwod::dialog_origin): a _WIDE layout's from the canvas's left; each then moved by its anchor, less that.
+  if (wide_) origin_x = 0;
+  const int32_t from = origin_x;
   if (!dlg) {
     std::printf("mw1: the layout %s (%s) is not in MW1's data\n", file, dialog);
     if (tree) unload();
     return;
   }
   load_node(tree, dlg, true);  // the cursor
+  if (zrdr::Node* texts = zrdr::find(dlg, "TEXTS"); texts && texts->type == zrdr::List)
+    for (int32_t i = 1; i + 1 < zrdr::list_count(texts); i += 2) {
+      zrdr::Node& name = texts->list[i];
+      zrdr::Node& props = texts->list[i + 1];
+      if (name.type != zrdr::String || props.type != zrdr::List) continue;
+      Place p;
+      int32_t at[2] = {0, 0};
+      zrdr::get_ivec2(&props, "POSITION", at);
+      p.x = at[0] + shift(anchor_of(&props)), p.y = at[1];
+      if (const char* f = string_of(&props, "FONT")) p.font = f;
+      if (zrdr::Node* g = zrdr::find(&props, "GAP")) p.gap = g->type == zrdr::List && zrdr::list_count(g) > 1 ? g->list[1].i : g->i;
+      places_.emplace_back(name.s, p);
+    }
   // The backdrop: the layout's BACKGROUND primitive when it names one, else the main menu's (borrowed as its
   // sub-screens do; MW1's screens sit over the main menu). Then the panels behind the texts.
   zrdr::Node* prims = zrdr::find(dlg, "PRIMITIVES");
-  if (prims && zrdr::find(prims, "BACKGROUND")) bind_primitive(&background, "BACKGROUND");
-  else borrow_background(false);
+  if (zrdr::Node* bg = prims ? zrdr::find(prims, "BACKGROUND") : nullptr) {
+    if (bind_primitive(&background, "BACKGROUND")) background.set_pos(background.x + shift(anchor_of(bg)) - from, background.y);
+  } else {
+    borrow_background(false);
+  }
   for (const char* name : kPanelNames)
-    if (prims && zrdr::find(prims, name)) {
+    if (zrdr::Node* pn = prims ? zrdr::find(prims, name) : nullptr) {
       panels_.push_back(std::make_unique<ztwod::Image>(0));
       if (!bind_primitive(panels_.back().get(), name)) panels_.pop_back();
+      else panels_.back()->set_pos(panels_.back()->x + shift(anchor_of(pn)) - from, panels_.back()->y);
     }
   bool all = true;
   zrdr::Node* entries = zrdr::find(dlg, "BUTTONS");
@@ -84,12 +135,24 @@ Mw1Screen::Mw1Screen(mech3::Engine& e, zgame::Handle state_handle, const char* f
       std::printf("mw1: the layout %s has no button %s\n", file, names_[i].name);
       all = false;
     }
-    // The words: at LABEL_AT in the button's entry (MW1's key), else just above it.
-    int32_t at[2] = {b->x, b->y - 12};
-    if (zrdr::Node* entry = entries ? zrdr::find(entries, names_[i].name) : nullptr) zrdr::get_ivec2(entry, "LABEL_AT", at);
+    // The words: at LABEL_AT in the button's entry (MW1's key), else just above it; in its LABEL_FONT. Both moved
+    // with the button by its ANCHOR.
+    int32_t at[2] = {b->x - from, b->y - 12};  // (in the layout's places, as LABEL_AT is)
+    zrdr::Node* entry = entries ? zrdr::find(entries, names_[i].name) : nullptr;
+    if (entry) zrdr::get_ivec2(entry, "LABEL_AT", at);
+    const char* f = string_of(entry, "LABEL_FONT");
+    const char* off = string_of(entry, "LABEL_OFF_FONT");
+    label_fonts_.push_back(f ? f : kLabelFont);
+    label_off_fonts_.push_back(off ? off : f ? f : kLabelOffFont);
+    looks_.emplace_back();
+    const int32_t dx = shift(anchor_of(entry));
+    if (dx != from) b->set_pos(b->get_x() + dx - from, b->get_y());
+    at[0] += dx;
     buttons_.push_back(std::move(b));
-    text(labels_, i, at[0], at[1], kLabelFont)->set_text_plain(names_[i].words);
+    text(labels_, i, at[0], at[1], label_fonts_.back().c_str())->set_text_plain(names_[i].words);
   }
+  // Every piece placed: the engine's widening (GameEngine::widen_screen, at adopt_screen) leaves them be.
+  for (ztwod::Object2D* o = head; o; o = o->next) widened.push_back(o);
   dirty_all();
   set_flags_all(0);
   set_active(1);
@@ -114,8 +177,12 @@ ztwod::Text* Mw1Screen::text(std::vector<std::unique_ptr<ztwod::Text>>& pool, si
 
 void Mw1Screen::set_pointer(int32_t left, int32_t top, int32_t right, int32_t bottom, std::function<void(int32_t, int32_t, bool)> heard) {
   heard_ = std::move(heard);
+  const int32_t dx = shift(Anchor::kLayout);  // the mouse area moves with the layout; its places told as the layout's
+  on_canvas_ = [this, dx](int32_t x, int32_t y, bool click) {
+    if (heard_) heard_(x - dx, y, click);
+  };
   if (!pointer_) {
-    pointer_ = std::make_unique<Pointer>(left, top, right, bottom, &heard_);
+    pointer_ = std::make_unique<Pointer>(left + dx, top, right + dx, bottom, &on_canvas_);
     add(pointer_.get());
   }
 }
@@ -128,7 +195,9 @@ void Mw1Screen::show(const ScreenView& v) {
   // The marks first (made before the texts on a first show, so the names draw over them).
   marks_now_ = v.marks;
   size_t rings = 0, lines = 0, squares = 0;
-  for (const Mark& m : v.marks) {
+  const int32_t mdx = shift(Anchor::kLayout);  // the marks move with the layout
+  for (Mark m : v.marks) {
+    m.x += mdx, m.x2 += mdx;
     switch (m.kind) {
       case Mark::Kind::kRing: {
         if (rings_.size() <= rings) {
@@ -176,7 +245,21 @@ void Mw1Screen::show(const ScreenView& v) {
     const std::vector<std::string>& ls = b < v.blocks.size() ? v.blocks[b].lines : none;
     for (size_t i = 0; i < ls.size(); ++i) {
       const TextBlock& tb = v.blocks[b];
-      text(pool, i, tb.x, tb.y + static_cast<int32_t>(i) * tb.gap, tb.font)->set_text_plain(ls[i].c_str());
+      int32_t x = tb.x + shift(tb.anchor), y = tb.y, gap = tb.gap;
+      const char* font = tb.font;
+      if (tb.at) {
+        const Place* p = nullptr;
+        for (const auto& [n, pl] : places_)
+          if (n == tb.at) p = &pl;
+        if (!p) {
+          std::printf("mw1: the layout has no text place %s\n", tb.at);
+          break;
+        }
+        x = p->x, y = p->y;
+        if (!p->font.empty()) font = p->font.c_str();
+        if (p->gap >= 0) gap = p->gap;
+      }
+      text(pool, i, x, y + static_cast<int32_t>(i) * gap, font)->set_text_plain(ls[i].c_str());
     }
     for (size_t i = ls.size(); i < pool.size(); ++i) pool[i]->hide();
   }
@@ -185,18 +268,47 @@ void Mw1Screen::show(const ScreenView& v) {
     else panels_[i]->show_for(-1.0f);
     panels_[i]->dirty();
   }
+  // The backdrop asked for (kept as asked: without MW1's archive, as in the tests, the layout's stays shown).
+  if (!v.backdrop.empty() && v.backdrop != backdrop_) {
+    backdrop_ = v.backdrop;
+    if (ztwod::host().image_get(v.backdrop.c_str())) {  // (the lookup's reference kept: the screen's, as a layout's)
+      background.set_image(v.backdrop.c_str());
+      background.dirty();
+    }
+  }
   for (size_t i = 0; i < buttons_.size(); ++i) {
     const ButtonState s = i < v.buttons.size() ? v.buttons[i] : ButtonState{};
     mech3::HelpButton* b = buttons_[i].get();
     ztwod::Text* l = labels_[i].get();
+    if (!s.look.empty()) set_look(i, s.look);
     b->enable(s.on ? 1 : 0);
-    l->set_font(ztwod::host().font_find(s.on ? kLabelFont : kLabelOffFont));
+    l->set_font(ztwod::host().font_find(s.on ? label_fonts_[i].c_str() : label_off_fonts_[i].c_str()));
     l->set_text_plain(s.words.empty() ? names_[i].words : s.words.c_str());
     if (s.there) b->show_for(-1.0f), l->show_for(-1.0f);
     else b->hide(), l->hide();
     b->dirty(), l->dirty();
   }
   dirty_all();
+}
+
+// A button's four images swapped for <look>'s (the hub's House office: the world's House's picture). The old ones
+// stay in the image cache (they're the archive's, read once).
+void Mw1Screen::set_look(size_t i, const std::string& look) {
+  if (looks_[i] == look) return;
+  looks_[i] = look;  // as asked (without MW1's archive the layout's images stay)
+  ztwod::Host& h = ztwod::host();
+  zimg::Texture* normal = h.image_get(look.c_str());
+  if (!normal) return;
+  mech3::HelpButton* b = buttons_[i].get();
+  b->img_normal = normal;
+  b->img_rollover = h.image_get((look + "_lit").c_str());
+  b->img_activate = h.image_get((look + "_down").c_str());
+  b->img_disabled = h.image_get((look + "_off").c_str());
+  b->refresh();
+}
+
+std::string Mw1Screen::look(int32_t id) const {
+  return id >= 1 && static_cast<size_t>(id) <= looks_.size() ? looks_[static_cast<size_t>(id - 1)] : std::string{};
 }
 
 void Mw1Screen::on_button(int32_t id, int32_t, int32_t) {

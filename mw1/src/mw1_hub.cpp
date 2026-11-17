@@ -2,11 +2,11 @@
 
 namespace mw1::hub {
 namespace {
-// The buttons, by id: their names in the layout and their words (the briefing's icons carry none; the round button
-// is blank).
-const std::vector<ScreenButton> kHubButtons = {{"ACCEPT", "ACCEPT"}, {"DECLINE", "DECLINE"}, {"OK", "OK"},
-                                               {"REPLAY", "REPLAY"}, {"MARKET", "MARKET"},   {"BAR", "BAR"},
-                                               {"TRAVEL", "TRAVEL"}, {"QUIT", "QUIT"},       {"OFFICE", "OFFICE"}};
+// The buttons, by id: their names in the layout and their words.
+const std::vector<ScreenButton> kHubButtons = {{"ACCEPT", "ACCEPT"},     {"DECLINE", "DECLINE"},     {"OK", "OK"},
+                                               {"REPLAY", "REPLAY"},     {"MARKET", "MECH COMPLEX"}, {"BAR", "BAR"},
+                                               {"TRAVEL", "STARPORT"},   {"QUIT", "MAIN MENU"},      {"OFFICE", "HOUSE OFFICE"},
+                                               {"OPTIONS", "OPTIONS"}};
 }  // namespace
 
 const char* hub_button_name(int32_t id) { return id >= 1 && id <= kHubButtonCount ? kHubButtons[id - 1].name : ""; }
@@ -15,14 +15,16 @@ HubState::HubState(zgame::Handle h, std::function<void(int32_t)> pressed)
     : Mw1State(h, "MW1 Hub State", kHubFile, kHubDialog, kHubButtons, kHubQuit, std::move(pressed)) {}
 
 void HubState::show(const HubView& v) {
-  // The plaque at the top left, the company on the right panel, the contract or AFTER ACTION on the middle one.
+  // Every text at its place in the layout (mw1hub.zrd's TEXTS).
   ScreenView s;
-  s.blocks = {{24, 14, kPlaqueFont, {v.planet}},
-              {24, 32, kPlaqueSmallFont, {v.house}},
-              {24, 48, kPlaqueSmallFont, {v.date}},
-              {402, 72, kLineFont, v.company},
-              {150, 72, kTitleFont, {v.title}},
-              {150, 96, kLineFont, v.panel}};
+  s.backdrop = v.scenery;
+  s.blocks = {at_place("PLANET", {v.planet}),         at_place("HOUSE", {v.house}),
+              at_place("DATE", {v.date}),             at_place("DAY", {v.day}),
+              at_place("PANEL_TITLE", {v.title}),     at_place("PANEL_LINES", v.panel),
+              at_place("TERM_TITLE", {"COMPANY"}),    at_place("TERM_LABELS", v.labels),
+              at_place("TERM_VALUES", v.values),      at_place("TERM_MECHS", v.mechs),
+              at_place("TERM_PILOTS", v.kinds),       at_place("STATUS_WORLD", {v.planet}),
+              at_place("STATUS", {v.status})};
   s.buttons.resize(kHubButtonCount);
   s.buttons[kHubAccept - 1].there = s.buttons[kHubDecline - 1].there = !v.after_action && v.offer;
   s.buttons[kHubOk - 1].there = v.after_action;
@@ -30,7 +32,8 @@ void HubState::show(const HubView& v) {
   // The market, the Bar and travel only between missions (not while AFTER ACTION waits).
   s.buttons[kHubMarket - 1].on = s.buttons[kHubTravel - 1].on = s.buttons[kHubBar - 1].on = !v.after_action;
   // The House office: a place, as MW1's, wherever the world has one (not while AFTER ACTION waits); an offer or not.
-  s.buttons[kHubOffice - 1].on = !v.after_action && v.office;
+  s.buttons[kHubOffice - 1].on = !v.after_action && v.office_open;
+  s.buttons[kHubOffice - 1].look = v.office;
   Mw1State::show(s);
 }
 

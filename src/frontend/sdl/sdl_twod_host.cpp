@@ -232,12 +232,26 @@ void SdlTwodHost::image_path(const char* path) {
 }
 
 // The fonts.zrd WINDOWS_FONTS entries: face, height, color (r g b) or two of
-// them, shadow "true", align "right" / "center", weight.
+// them, shadow "true", align "right" / "center", weight. Then the program's
+// own tables (ours, add_font_table), whose entries may also give "file" (the
+// font file for the face, found as the game's are) and "tracking" (pixels).
 bool SdlTwodHost::load_named_fonts() {
   if (named_loaded_) return true;
   named_loaded_ = true;
-  zrdr::Node* top = zrdr::load("fonts.zrd");
-  if (!top) return false;
+  load_font_table("fonts.zrd");
+  for (const std::string& t : program_tables_) load_font_table(t.c_str());
+  return true;
+}
+
+void SdlTwodHost::add_font_table(const char* file) {
+  if (!file || !*file) return;
+  program_tables_.push_back(file);
+  if (named_loaded_) load_font_table(file);  // fonts already looked up: this one now
+}
+
+void SdlTwodHost::load_font_table(const char* file) {
+  zrdr::Node* top = zrdr::load(file);
+  if (!top) return;
   zrdr::Node* list = zrdr::find(top, "WINDOWS_FONTS");
   if (list && list->type == zrdr::List) {
     for (int32_t i = 1; i + 1 < zrdr::list_count(list); i += 2) {
@@ -245,9 +259,11 @@ bool SdlTwodHost::load_named_fonts() {
       zrdr::Node& props = list->list[i + 1];
       if (name.type != zrdr::String || props.type != zrdr::List) continue;
       const char* face = zrdr::get_string(&props, "face");
-      int32_t height = -10, weight = 400;
+      int32_t height = -10, weight = 400, tracking = 0;
       zrdr::get_int(&props, "height", &height);
       zrdr::get_int(&props, "weight", &weight);
+      zrdr::get_int(&props, "tracking", &tracking);
+      if (const char* f = zrdr::get_string(&props, "file"); f && face) face_files_[face] = f;
       ztwod::NamedFont nf;
       auto colorref = [](zrdr::Node* c) -> uint32_t {
         if (!c || c->type != zrdr::List || zrdr::list_count(c) < 4) return 0xffffff;
@@ -262,17 +278,17 @@ bool SdlTwodHost::load_named_fonts() {
           nf.color_top = nf.color_bottom = colorref(c);
         }
       }
-      if (const char* s = zrdr::get_string(&props, "shadow")) nf.shadow = std::strcmp(s, "true") == 0;
+      if (const char* sh = zrdr::get_string(&props, "shadow")) nf.shadow = std::strcmp(sh, "true") == 0;
       if (const char* a = zrdr::get_string(&props, "align"))
         nf.align = std::strcmp(a, "right") == 0 ? 2 : std::strcmp(a, "center") == 0 ? 1 : 0;
       nf.hfont = CreateFontA(height, 0, 0, 0, weight, 0, 0, 0, 0, 0, 0, 1, 0, face ? face : "Arial");
+      if (Font* made = font(nf.hfont)) made->tracking = tracking;
       const Handle h = next_++;
       named_[h] = {nf, 0};
       named_by_name_[name.s] = h;
     }
   }
   zrdr::free_node(top);
-  return true;
 }
 
 Handle SdlTwodHost::font_find(const char* name) {
@@ -469,7 +485,8 @@ SdlTwodHost::Dc* SdlTwodHost::dc(Handle h) {
 // (ascent + descent), 0 a default of 12 pixels.
 TTF_Font* SdlTwodHost::open_ttf(Font& f) {
   if (f.ttf || !ttf_ok_) return f.ttf;
-  const std::string file = font_file(f.face), path = font_path(file);
+  const auto own = face_files_.find(f.face);  // ours: a program table named this face's file
+  const std::string file = own != face_files_.end() ? own->second : font_file(f.face), path = font_path(file);
   if (path.empty()) {
     std::fprintf(stderr, "mw3: font %s (%s) not found in the game folder or the system's: its text will be blank\n",
                  f.face.c_str(), file.c_str());
@@ -552,15 +569,32 @@ Handle SdlTwodHost::SelectObject(Handle d, Handle object) {
 }
 void SdlTwodHost::DeleteDC(Handle d) { dcs_.erase(d); }
 
+int SdlTwodHost::text_width(const Font& f, const std::string& s) {
+  int w = 0, h = 0;
+  if (s.empty() || !f.ttf) return 0;
+  if (!f.tracking) {
+    TTF_GetStringSize(f.ttf, s.c_str(), s.size(), &w, &h);
+    return w;
+  }
+  // Tracked: as DrawTextA places them, a glyph at a time (UTF-8: a glyph per first byte), the tracking between.
+  int glyphs = 0;
+  for (size_t k = 0; k < s.size();) {
+    size_t n = 1;
+    while (k + n < s.size() && (static_cast<unsigned char>(s[k + n]) & 0xc0) == 0x80) ++n;
+    int gw = 0;
+    TTF_GetStringSize(f.ttf, s.c_str() + k, n, &gw, &h);
+    w += gw, ++glyphs, k += n;
+  }
+  return w + f.tracking * (glyphs - 1);
+}
+
 int32_t SdlTwodHost::GetTextExtentPoint32A(Handle d, const char* text, int32_t length, int32_t* cx, int32_t* cy) {
   *cx = *cy = 0;
   Dc* x = dc(d);
   Font* f = x ? font(x->font) : nullptr;
   if (!f || !f->ttf || !text) return 0;
   const std::string s = utf8(text, length);
-  int w = 0, h = 0;
-  if (!s.empty()) TTF_GetStringSize(f->ttf, s.c_str(), s.size(), &w, &h);
-  *cx = w;
+  *cx = text_width(*f, s);
   *cy = f->ascent + f->descent;
   return 1;
 }
@@ -613,11 +647,7 @@ int32_t SdlTwodHost::DrawTextA(Handle d, const char* text, int32_t length, ztwod
   const int total = lh * static_cast<int>(ls.size());
   if (format & kCalcRect) {
     int widest = 0;
-    for (const std::string& l : ls) {
-      int w = 0, h = 0;
-      if (!l.empty()) TTF_GetStringSize(f->ttf, l.c_str(), l.size(), &w, &h);
-      if (w > widest) widest = w;
-    }
+    for (const std::string& l : ls) widest = std::max(widest, text_width(*f, l));
     if (!(format & kWordBreak) || widest > box_w) rect->right = rect->left + widest;
     rect->bottom = rect->top + total;
     return total;
@@ -636,8 +666,7 @@ int32_t SdlTwodHost::DrawTextA(Handle d, const char* text, int32_t length, ztwod
   }
   for (size_t i = 0; i < ls.size(); ++i) {
     const std::string& l = ls[i];
-    int w = 0, h = 0;
-    if (!l.empty()) TTF_GetStringSize(f->ttf, l.c_str(), l.size(), &w, &h);
+    const int w = text_width(*f, l);
     int x0 = rect->left;
     if (format & kCenter) x0 = rect->left + (box_w - w) / 2;
     else if (format & kRight) x0 = rect->right - w;
@@ -651,13 +680,30 @@ int32_t SdlTwodHost::DrawTextA(Handle d, const char* text, int32_t length, ztwod
       for (int yy = 0; yy < lh; ++yy)
         for (int xx = 0; xx < w; ++xx) put(x0 + xx, ly + yy, bg);
     if (l.empty()) continue;
-    SDL_Surface* surf = TTF_RenderText_Solid(f->ttf, l.c_str(), l.size(), SDL_Color{255, 255, 255, 255});
-    if (!surf) continue;
-    const auto* p = static_cast<const uint8_t*>(surf->pixels);
-    for (int yy = 0; yy < surf->h; ++yy)
-      for (int xx = 0; xx < surf->w; ++xx)
-        if (p[yy * surf->pitch + xx]) put(x0 + xx, ly + yy + f->shift, fg);
-    SDL_DestroySurface(surf);
+    auto blit = [&](const char* t, size_t n, int at) {
+      SDL_Surface* surf = TTF_RenderText_Solid(f->ttf, t, n, SDL_Color{255, 255, 255, 255});
+      if (!surf) return;
+      const auto* p = static_cast<const uint8_t*>(surf->pixels);
+      for (int yy = 0; yy < surf->h; ++yy)
+        for (int xx = 0; xx < surf->w; ++xx)
+          if (p[yy * surf->pitch + xx]) put(at + xx, ly + yy + f->shift, fg);
+      SDL_DestroySurface(surf);
+    };
+    if (!f->tracking) {
+      blit(l.c_str(), l.size(), x0);
+      continue;
+    }
+    // Ours: tracked, a glyph at a time, each at the pen, the pen moved by its advance and the tracking.
+    int pen = x0;
+    for (size_t k = 0; k < l.size();) {
+      size_t n = 1;
+      while (k + n < l.size() && (static_cast<unsigned char>(l[k + n]) & 0xc0) == 0x80) ++n;
+      blit(l.c_str() + k, n, pen);
+      int gw = 0, gh = 0;
+      TTF_GetStringSize(f->ttf, l.c_str() + k, n, &gw, &gh);
+      pen += gw + f->tracking;
+      k += n;
+    }
   }
   return total;
 }

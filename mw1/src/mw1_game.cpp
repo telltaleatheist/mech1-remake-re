@@ -27,6 +27,7 @@
 #include "gamez/zimage/zimg_library.h"
 #include "gamez/zinput/zinput.h"
 #include "gamez/zreader/zreader.h"
+#include "gamez/ztwod/twod_host.h"
 #include "gamez/zutil/zutl_path.h"
 #include "mw1_bar_screen.h"
 #include "mw1_event_screen.h"
@@ -40,6 +41,7 @@
 #include "mw1_missions.h"
 #include "mw1_pilots.h"
 #include "mw1_repairs.h"
+#include "mw1_scenery.h"
 #include "mw1_travel.h"
 #include "mw1_travel_map.h"
 #include "mw1_travel_screen.h"
@@ -50,6 +52,7 @@ namespace mw1 {
 namespace {
 
 constexpr int32_t kBoxOk = 0, kBoxYesNo = 4, kAnswerYes = 6;
+constexpr const char* kFontsFile = "mw1fonts.zrd";  // MW1's data folder
 constexpr uint32_t kOptionsStateGlobal = 0x609868;  // PM's main menu's Options state (its OPTIONS button pushes it)  // the message box's styles and answer (Win32's)
 constexpr const char* kPilotName = "MW1 Company";  // the company's PM pilot (step 2)
 constexpr float kReachRadius = 10.0f;  // metres from the structure's node (reach_area's own default is 25)
@@ -63,6 +66,10 @@ std::string thousands(int64_t v) {
 
 std::string upper(std::string s) {
   for (char& c : s) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+  return s;
+}
+std::string lower(std::string s) {
+  for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
   return s;
 }
 std::string join(const std::vector<std::string>& l, const char* sep) {
@@ -134,6 +141,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     auto& ge = static_cast<mech3::GameEngine&>(e);
     ge_ = &ge;
     register_images();
+    register_fonts();
     // MW1's main menu over PM's (mw1_menu.h): at the start, and under the hub after a mission (the hub's QUIT comes
     // back to it). Without its layout, or for the tests' straight start, the hub as before.
     const bool with_menu = start_ != Start::kHub && menu(ge);
@@ -218,6 +226,14 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   // ---- MW1's main menu and the intro (mw1_menu.h) ----
 
   // MW1's image archive (mw1_images.h) beside PM's, once: the intro's backdrop and picture.
+  // MW1's fonts (data/mw1fonts.zrd) beside the game's, once on each 2D host.
+  static void register_fonts() {
+    static ztwod::Host* added = nullptr;
+    if (added == &ztwod::host()) return;
+    added = &ztwod::host();
+    ztwod::host().add_font_table(kFontsFile);
+  }
+
   static void register_images() {
     for (zimg::Library* lib : zimg::library_list(1))
       if (lib && std::strstr(lib->name, kImageLibrary)) return;
@@ -401,6 +417,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         launch_stores_ = pending_->launch_stores, launch_loadout_ = pending_->launch_loadout;
         ge->pop_state(1);
         deploy(*ge);
+        return;
+      case kHubOptions:  // PM's own options over the hub (its BACK comes back), the state PM's main menu made
+        if (ge)
+          if (const zgame::Handle options = ge->peek32(kOptionsStateGlobal)) ge->push_state(options, 0);
         return;
       case kHubQuit:
         if (ge) ge->pop_state(1);  // MW1's menu, under the hub (Pirate's Moon's without it)
@@ -935,15 +955,28 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   void show_hub() {
     if (!hub_state_) return;
     HubView v;
+    v.scenery = scenery_image(company_.planet_number);
+    v.office = "mw1_tile_house_" + lower(kHouses[company_.planet_house].name);
     v.planet = upper(company_.planet);
     v.house = "HOUSE " + upper(kHouses[company_.planet_house].name);
-    v.office = contracts_here(company_);
+    v.office_open = contracts_here(company_);
     v.date = date_words(company_.date);
-    v.company = {"COMPANY", "Funds: " + thousands(company_.funds) + " C-bills", "Mech: " + mech_title(company_.mech) +
-                                     (company_.hangar.empty() ? "" : " (+" + std::to_string(company_.hangar.size()) + " in the hangar)"),
-                 "Stores: " + std::to_string(company_.stores->count()) + " items", "Kills: " + std::to_string(company_.kills),
-                 "Lance: " + std::to_string(company_.lance.size()) + " of " + std::to_string(kLanceMax) +
-                     (company_.lance.empty() ? "" : " (wages " + thousands(monthly_wages(company_)) + " a month)")};
+    // The day of the month (a month is MW1's 60 units: two to a day) and the wages' day, the month's turn.
+    const int32_t day = company_.date.units / 2 + 1, days = kUnitsPerMonth / 2;
+    v.day = "DAY " + std::to_string(day) + " \xB7 PAYDAY IN " + std::to_string(days - day + 1);
+    v.labels = {"C-BILLS", "PAYROLL", "STORES", "KILLS"};
+    v.values = {thousands(company_.funds), company_.lance.empty() ? "NONE" : "-" + thousands(monthly_wages(company_)) + "/MO",
+                std::to_string(company_.stores->count()), std::to_string(company_.kills)};
+    // The company's mechs, the commander's first, with their class; past three, how many more.
+    auto kind = [](int32_t m) { return std::string(mech_class(m) == 0 ? "LIGHT" : mech_class(m) == 1 ? "MEDIUM" : "HEAVY"); };
+    v.mechs = {upper(mech_title(company_.mech))}, v.kinds = {kind(company_.mech)};
+    for (const OwnedMech& m : company_.hangar) {
+      if (v.mechs.size() == 3) {
+        v.mechs.back() = "+" + std::to_string(company_.hangar.size() - 1) + " MORE", v.kinds.back() = "";
+        break;
+      }
+      v.mechs.push_back(upper(mech_title(m.mech))), v.kinds.push_back(kind(m.mech));
+    }
     if (pending_) {
       v.title = "AFTER ACTION", v.panel = after_action_lines(), v.after_action = true;
       v.replay = pending_->outcome == Outcome::kFailure;
@@ -969,6 +1002,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       }
       for (const std::string& l : stranded_lines(company_)) v.panel.push_back(l);
     }
+    // The status line: what to do now (ours).
+    v.status = pending_ ? "The mission's back: OK settles it." : offered_ ? "A contract is on offer: ACCEPT or DECLINE." : "Pick a service.";
     // What happened since (wages, promotions, casualties), under the panel once.
     if (!company_.notices.empty()) v.panel.push_back("");
     for (const std::string& n : company_.notices) v.panel.push_back(n);

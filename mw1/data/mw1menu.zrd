@@ -1,19 +1,49 @@
-; MW1: Critical Hit's main menu (src/mw1_menu.h): a zTwoD dialog on MW1's screen template, as the hub
-; (mw1hub.zrd). Only names here: the images are Pirate's Moon's, read from the player's install (never
-; copied); MW1's own art takes these names' places later.
+; MW1: Critical Hit's title screen (src/mw1_menu.h), on MW1's screen template
+; (src/mw1_screen.h; ANCHOR, LABEL_AT, LABEL_FONT, LABEL_OFF_FONT, TEXTS and
+; the _WIDE layout are ours): our title picture (title_bg), the name over its
+; sky, and MW1's buttons down the left: NEW, LOAD (the save), QUIT; the save
+; named under them. All MW1's own art (mw1image.zbd) but the cursor, Pirate's
+; Moon's, read from the player's install.
 ;
-; The backdrop is PM's main menu's own, borrowed (the menu sits over PM's main menu, which stays under it
-; unseen). The buttons are the round blank button with MW1's words at LABEL_AT (MW1's key).
+; MW1MENUDIALOG is 4:3's (640); MW1MENUDIALOG_WIDE the 16:9 canvas's (853).
 (
-SHARED_IMAGE_PATH ("..\data\common\images\dialogs\shared;..\data\common\images\dialogs\mainmenu")
+SHARED_IMAGE_PATH ("..\data\common\images\dialogs\shared")
 MW1MENUDIALOG (
-  IMAGE_PATH ("..\data\common\images\dialogs\shared;..\data\common\images;..\data\common\images\dialogs\mainmenu")
+  IMAGE_PATH ("..\data\common\images\dialogs\shared;..\data\common\images")
   CURSOR (BITMAP ("cursor_circle_orange") CENTER (1))
+  PRIMITIVES (
+    BACKGROUND (POSITION (-107 0) BITMAP ("mw1_title_bg") ANCHOR ("CENTRE"))
+  )
   BUTTONS (
-    NEW_CAMPAIGN (POSITION (24 96) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 110))
-    CONTINUE (POSITION (24 128) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 142))
-    OPTIONS (POSITION (24 192) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 206))
-    QUIT (POSITION (24 256) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 270))
+    NEW_CAMPAIGN (POSITION (40 300) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (132 306) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    CONTINUE (POSITION (40 338) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (132 344) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    ; On the hub now (its OPTIONS tile): kept for its id, never shown here.
+    OPTIONS (POSITION (40 376) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (132 382) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    QUIT (POSITION (40 376) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (132 382) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+  )
+  TEXTS (
+    TITLE (POSITION (38 34) FONT ("mw1_title_43"))
+    SUBTITLE (POSITION (42 96) FONT ("mw1_title_sub"))
+    SAVE (POSITION (42 416) FONT ("mw1_note"))
+  )
+)
+MW1MENUDIALOG_WIDE (
+  IMAGE_PATH ("..\data\common\images\dialogs\shared;..\data\common\images")
+  CURSOR (BITMAP ("cursor_circle_orange") CENTER (1))
+  PRIMITIVES (
+    BACKGROUND (POSITION (0 0) BITMAP ("mw1_title_bg") ANCHOR ("CENTRE"))
+  )
+  BUTTONS (
+    NEW_CAMPAIGN (POSITION (48 300) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (140 306) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    CONTINUE (POSITION (48 338) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (140 344) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    ; On the hub now (its OPTIONS tile): kept for its id, never shown here.
+    OPTIONS (POSITION (48 376) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (140 382) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    QUIT (POSITION (48 376) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (140 382) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+  )
+  TEXTS (
+    TITLE (POSITION (46 34) FONT ("mw1_title"))
+    SUBTITLE (POSITION (50 96) FONT ("mw1_title_sub"))
+    SAVE (POSITION (50 416) FONT ("mw1_note"))
   )
 )
 )

@@ -10,6 +10,26 @@
 //
 // The screen only shows what it is given (ScreenView) and says which button
 // was pressed; the game loop (mw1_game.cpp) decides everything.
+//
+// MW1's own art (FIXES.md item 3; mw1image.zbd, its images found by name from
+// any layout) adds our keys to a layout, which the game's own readers ignore:
+// - ANCHOR ("LEFT" | "CENTRE" | "RIGHT") on the BACKGROUND, a PANEL, a
+//   button or a text place: the canvas is 640 wide at 4:3 and wider at 16:9,
+//   and a piece keeps its place from that side (the centre: half the extra
+//   width). The template places every piece itself (the engine's widening,
+//   GameEngine::widen_screen, leaves them be): without an ANCHOR, a 4:3
+//   layout's pieces are centred on a wider canvas, its texts, marks and mouse
+//   area with them, as the engine centres its own menus; a _WIDE layout's
+//   stay where it puts them. MW1's scenes are 854 wide, drawn centred
+//   (BACKGROUND at -107 on 4:3, ANCHOR "CENTRE").
+// - LABEL_AT (x y), LABEL_FONT and LABEL_OFF_FONT on a button: its words' place
+//   and fonts (a centred font: x is the words' middle).
+// - TEXTS: the screen's text places by name, each a POSITION, and a FONT, a
+//   GAP (from one line to the next) and an ANCHOR when it has them; a block
+//   names its place (TextBlock::at), so the layout places the words too.
+// - <dialog>_WIDE: the same screen laid out for the wide canvas (853, 16:9),
+//   taken in place of <dialog> when the canvas is wider than 4:3's; its places
+//   are the wide canvas's (anchored from 853 on a wider one still).
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -37,17 +57,30 @@ inline constexpr const char* kLineFont = "brief_green";
 inline constexpr const char* kNoteFont = "brief_yellow";
 inline constexpr int32_t kLineGap = 16;
 
+// Where a piece keeps its place from on a wider canvas (a layout's ANCHOR, a block's anchor). kLayout: the
+// layout's own way, a 4:3 layout centred (as the engine centres its own menus' pieces), a _WIDE one from the left.
+enum class Anchor { kLayout, kLeft, kCentre, kRight };
+
 // Lines of text at a place, in a font, one under another.
 struct TextBlock {
   int32_t x = 0, y = 0;
   const char* font = kLineFont;
   std::vector<std::string> lines;
   int32_t gap = kLineGap;  // from one line to the next
+  const char* at = nullptr;  // a place in the layout's TEXTS: its POSITION, FONT, GAP and ANCHOR in place of these
+  Anchor anchor = Anchor::kLayout;
 };
+// Lines at a layout's text place (TEXTS).
+inline TextBlock at_place(const char* place, std::vector<std::string> lines) {
+  TextBlock b;
+  b.at = place, b.lines = std::move(lines);
+  return b;
+}
 struct ButtonState {
   bool there = true;  // shown
   bool on = true;     // enabled (else greyed: its DISABLE bitmap and grey words)
   std::string words;  // its words now (empty: its own, ScreenButton's)
+  std::string look;   // its images now: <look>, _lit, _down, _off (a picture tile's, mw1_chrome.h); empty: the layout's
 };
 // A shape drawn over the panels and under the texts (the travel map's worlds and markers): a ring (a circle's
 // outline, `size` its radius; radius 1 reads as a dot), a line to (x2, y2), or a square's outline `size` from its
@@ -59,6 +92,7 @@ struct Mark {
   uint8_t r = 255, g = 255, b = 255;
 };
 struct ScreenView {
+  std::string backdrop;  // the BACKGROUND's image now, by name (the hub's scenery); empty: the layout's
   std::vector<Mark> marks;
   std::vector<TextBlock> blocks;
   std::vector<ButtonState> buttons;  // by id - 1; missing ones shown and enabled
@@ -85,10 +119,24 @@ class Mw1Screen : public mech3::MenuScreen {
   void set_pointer(int32_t left, int32_t top, int32_t right, int32_t bottom, std::function<void(int32_t, int32_t, bool)> heard);
   void point(int32_t x, int32_t y, bool click);
   const std::vector<Mark>& marks() const { return marks_now_; }  // for the tests: the shapes shown now
+  int32_t shift(Anchor a) const;  // how far a piece moves right from its layout's place on this canvas
+  bool wide() const { return wide_; }  // laid out by <dialog>_WIDE
+  std::string backdrop() const { return backdrop_; }  // for the tests: the BACKGROUND's image's name now
+  std::string look(int32_t id) const;                 // and a button's look ("" the layout's)
 
  private:
   ztwod::Text* text(std::vector<std::unique_ptr<ztwod::Text>>& pool, size_t i, int32_t x, int32_t y, const char* font);
+  void set_look(size_t i, const std::string& look);
   std::vector<ScreenButton> names_;
+  std::vector<std::string> label_fonts_, label_off_fonts_, looks_;  // by id - 1
+  std::string backdrop_;
+  int32_t extra_ = 0;  // the canvas's width past the layout's (640, or 853 for a _WIDE one)
+  bool wide_ = false;
+  struct Place {
+    int32_t x = 0, y = 0, gap = -1;
+    std::string font;
+  };
+  std::vector<std::pair<std::string, Place>> places_;  // TEXTS, anchored
   std::function<void(int32_t)> pressed_;
   bool loaded_ = false;
   std::vector<std::unique_ptr<mech3::HelpButton>> buttons_;   // by id - 1
@@ -100,7 +148,8 @@ class Mw1Screen : public mech3::MenuScreen {
   std::vector<std::unique_ptr<ztwod::PolyLine>> squares_;
   std::vector<Mark> marks_now_;
   std::unique_ptr<ztwod::Object2D> pointer_;
-  std::function<void(int32_t, int32_t, bool)> heard_;
+  std::function<void(int32_t, int32_t, bool)> heard_;     // in the layout's places (point())
+  std::function<void(int32_t, int32_t, bool)> on_canvas_;  // the pointer's: the canvas's places, made the layout's
 };
 
 // A screen's state: pushed by the loop, its screen made on entering

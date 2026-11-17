@@ -1,36 +1,104 @@
-; MW1: Critical Hit's planet hub (src/mw1_hub.h): a zTwoD dialog as MW3's
-; briefing screen is one (briefing.zrd's BRIEFINGDIALOG). Only names here:
-; the images are Pirate's Moon's, read from the player's install (never
-; copied); MW1's own art takes these names' places later.
+; MW1: Critical Hit's planet hub (src/mw1_hub.h), on MW1's screen template
+; (src/mw1_screen.h, whose keys ANCHOR, LABEL_AT, LABEL_FONT, LABEL_OFF_FONT,
+; TEXTS and the _WIDE layout are ours; the game's own readers ignore them).
+; The look is Owen's hub mockup's (mockups/mw1-hub.html), in MW1's layout:
+; - the world's scenery full-bleed (the BACKGROUND; the hub names the world's,
+;   mw1_scenery.h), drawn centred;
+; - two plaques across the top: the world and its House, the date;
+; - the services as picture tiles down the left (the mech complex, the Bar,
+;   the starport) and the right (the world's House office, the options);
+; - the middle panel: the contract on offer, AFTER ACTION, the news and the
+;   messages, its buttons under it;
+; - the company on the green terminal at the lower right;
+; - the status line along the foot: the world, and what to do.
+; All MW1's own art (mw1image.zbd: data-src/art, src/mw1_chrome.h) but the
+; cursor, Pirate's Moon's, read from the player's install.
 ;
-; The backdrop is the main menu's own, as its sub-screens borrow it (the hub
-; sits over the main menu); a BACKGROUND primitive here would replace it. The
-; texts sit on PM's popup box (the briefing's salvage list), PANEL and PANEL2,
-; so they read over the busy backdrop.
-;
-; The buttons: the briefing's icons where the meaning is the same (launch for
-; ACCEPT, abort for DECLINE, replay for REPLAY), the round blank button
-; (circlebtn_tiny, as the briefing's REALLOC_OK) for the rest. Their words
-; are MW1's, drawn at LABEL_AT (MW1's key; the game's own readers ignore it).
+; MW1HUBDIALOG is 4:3's (640); MW1HUBDIALOG_WIDE the 16:9 canvas's (853).
 (
-SHARED_IMAGE_PATH ("..\data\common\images\dialogs\shared;..\data\common\images\maps;..\data\common\images\dialogs\briefing")
+SHARED_IMAGE_PATH ("..\data\common\images\dialogs\shared")
 MW1HUBDIALOG (
-  IMAGE_PATH ("..\data\common\images\dialogs\briefing;..\data\common\images;..\data\common\images\dialogs\shared;..\data\common\images\dialogs\win;..\data\common\images\dialogs\salvage;..\data\common\images\dialogs\pilotreg;..\data\common\images\dialogs\mainmenu")
-  PRIMITIVES (PANEL (POSITION (136 64) BITMAP ("popup_box")) PANEL2 (POSITION (388 64) BITMAP ("popup_box")))
+  IMAGE_PATH ("..\data\common\images\dialogs\shared;..\data\common\images")
   CURSOR (BITMAP ("cursor_circle_orange") CENTER (1))
+  PRIMITIVES (
+    BACKGROUND (POSITION (-107 0) BITMAP ("mw1_hub_industrial") ANCHOR ("CENTRE"))
+    PANEL (POSITION (12 8) BITMAP ("mw1_plaque"))
+    PANEL2 (POSITION (328 8) BITMAP ("mw1_plaque"))
+    PANEL3 (POSITION (132 76) BITMAP ("mw1_panel_376x214"))
+    PANEL4 (POSITION (396 298) BITMAP ("mw1_term_232x150"))
+    PANEL5 (POSITION (-107 454) BITMAP ("mw1_statusbar") ANCHOR ("CENTRE"))
+  )
   BUTTONS (
-    ; The contract on offer.
-    DECLINE (POSITION (34 417) BITMAP ("icon_abort_green") ACTIVATE (BITMAP ("icon_abort_red")) DISABLE (BITMAP ("icon_abort_grey")) LABEL_AT (34 395))
-    ACCEPT (POSITION (546 417) BITMAP ("icon_launch_green") ACTIVATE (BITMAP ("icon_launch_red")) DISABLE (BITMAP ("icon_launch_grey")) LABEL_AT (546 395))
-    ; AFTER ACTION.
-    REPLAY (POSITION (162 417) BITMAP ("icon_replay_green") ACTIVATE (BITMAP ("icon_replay_red")) DISABLE (BITMAP ("icon_replay_grey")) LABEL_AT (162 395))
-    OK (POSITION (546 425) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (592 439))
-    ; The screens that come later (greyed), and back to the main menu.
-    MARKET (POSITION (24 96) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 110))
-    BAR (POSITION (24 128) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 142))
-    TRAVEL (POSITION (24 160) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 174))
-    OFFICE (POSITION (24 192) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 206))
-    QUIT (POSITION (24 224) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 238))
+    ; The contract on offer and AFTER ACTION, under the middle panel (each pair in one place: never both).
+    ACCEPT (POSITION (132 298) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (224 304) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    DECLINE (POSITION (132 334) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (224 340) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    OK (POSITION (132 298) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (224 304) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    REPLAY (POSITION (132 334) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (224 340) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    ; The services: picture tiles down the left (MW1's), the House office (the world's House's picture) and
+    ; the options down the right; the main menu under the left ones.
+    MARKET (POSITION (12 76) BITMAP ("mw1_tile_mech_complex") ROLLOVER (BITMAP ("mw1_tile_mech_complex_lit")) ACTIVATE (BITMAP ("mw1_tile_mech_complex_down")) DISABLE (BITMAP ("mw1_tile_mech_complex_off")) LABEL_AT (66 163) LABEL_FONT ("mw1_tile_label") LABEL_OFF_FONT ("mw1_tile_label_off"))
+    BAR (POSITION (12 186) BITMAP ("mw1_tile_bar") ROLLOVER (BITMAP ("mw1_tile_bar_lit")) ACTIVATE (BITMAP ("mw1_tile_bar_down")) DISABLE (BITMAP ("mw1_tile_bar_off")) LABEL_AT (66 273) LABEL_FONT ("mw1_tile_label") LABEL_OFF_FONT ("mw1_tile_label_off"))
+    TRAVEL (POSITION (12 296) BITMAP ("mw1_tile_starport") ROLLOVER (BITMAP ("mw1_tile_starport_lit")) ACTIVATE (BITMAP ("mw1_tile_starport_down")) DISABLE (BITMAP ("mw1_tile_starport_off")) LABEL_AT (66 383) LABEL_FONT ("mw1_tile_label") LABEL_OFF_FONT ("mw1_tile_label_off"))
+    QUIT (POSITION (12 414) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 420) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    OFFICE (POSITION (520 76) BITMAP ("mw1_tile_house_kurita") ROLLOVER (BITMAP ("mw1_tile_house_kurita_lit")) ACTIVATE (BITMAP ("mw1_tile_house_kurita_down")) DISABLE (BITMAP ("mw1_tile_house_kurita_off")) LABEL_AT (574 163) LABEL_FONT ("mw1_tile_label") LABEL_OFF_FONT ("mw1_tile_label_off"))
+    OPTIONS (POSITION (520 186) BITMAP ("mw1_tile_options") ROLLOVER (BITMAP ("mw1_tile_options_lit")) ACTIVATE (BITMAP ("mw1_tile_options_down")) DISABLE (BITMAP ("mw1_tile_options_off")) LABEL_AT (574 273) LABEL_FONT ("mw1_tile_label") LABEL_OFF_FONT ("mw1_tile_label_off"))
+  )
+  TEXTS (
+    PLANET (POSITION (162 15) FONT ("mw1_plaque"))
+    HOUSE (POSITION (162 47) FONT ("mw1_plaque_sub"))
+    DATE (POSITION (478 15) FONT ("mw1_plaque"))
+    DAY (POSITION (478 47) FONT ("mw1_plaque_sub"))
+    PANEL_TITLE (POSITION (146 84) FONT ("mw1_panel_title"))
+    PANEL_LINES (POSITION (146 107) FONT ("mw1_panel_line") GAP (15))
+    TERM_TITLE (POSITION (408 305) FONT ("mw1_term_title"))
+    TERM_LABELS (POSITION (408 328) FONT ("mw1_term_dim") GAP (15))
+    TERM_VALUES (POSITION (616 328) FONT ("mw1_term_value") GAP (15))
+    TERM_MECHS (POSITION (408 396) FONT ("mw1_term_line") GAP (15))
+    TERM_PILOTS (POSITION (616 396) FONT ("mw1_term_value") GAP (15))
+    STATUS_WORLD (POSITION (16 460) FONT ("mw1_status_world"))
+    STATUS (POSITION (132 461) FONT ("mw1_status"))
+  )
+)
+MW1HUBDIALOG_WIDE (
+  IMAGE_PATH ("..\data\common\images\dialogs\shared;..\data\common\images")
+  CURSOR (BITMAP ("cursor_circle_orange") CENTER (1))
+  PRIMITIVES (
+    BACKGROUND (POSITION (0 0) BITMAP ("mw1_hub_industrial") ANCHOR ("CENTRE"))
+    PANEL (POSITION (16 8) BITMAP ("mw1_plaque"))
+    PANEL2 (POSITION (537 8) BITMAP ("mw1_plaque") ANCHOR ("RIGHT"))
+    PANEL3 (POSITION (140 76) BITMAP ("mw1_panel_456x214") ANCHOR ("CENTRE"))
+    PANEL4 (POSITION (605 298) BITMAP ("mw1_term_232x150") ANCHOR ("RIGHT"))
+    PANEL5 (POSITION (0 454) BITMAP ("mw1_statusbar") ANCHOR ("CENTRE"))
+  )
+  BUTTONS (
+    ; The contract on offer and AFTER ACTION, under the middle panel (each pair in one place: never both).
+    ACCEPT (POSITION (140 298) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (232 304) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    DECLINE (POSITION (320 298) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (412 304) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    OK (POSITION (140 298) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (232 304) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    REPLAY (POSITION (320 298) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (412 304) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    ; The services: picture tiles down the left (MW1's), the House office (the world's House's picture) and
+    ; the options down the right; the main menu under the left ones.
+    MARKET (POSITION (16 76) BITMAP ("mw1_tile_mech_complex") ROLLOVER (BITMAP ("mw1_tile_mech_complex_lit")) ACTIVATE (BITMAP ("mw1_tile_mech_complex_down")) DISABLE (BITMAP ("mw1_tile_mech_complex_off")) LABEL_AT (70 163) LABEL_FONT ("mw1_tile_label") LABEL_OFF_FONT ("mw1_tile_label_off"))
+    BAR (POSITION (16 186) BITMAP ("mw1_tile_bar") ROLLOVER (BITMAP ("mw1_tile_bar_lit")) ACTIVATE (BITMAP ("mw1_tile_bar_down")) DISABLE (BITMAP ("mw1_tile_bar_off")) LABEL_AT (70 273) LABEL_FONT ("mw1_tile_label") LABEL_OFF_FONT ("mw1_tile_label_off"))
+    TRAVEL (POSITION (16 296) BITMAP ("mw1_tile_starport") ROLLOVER (BITMAP ("mw1_tile_starport_lit")) ACTIVATE (BITMAP ("mw1_tile_starport_down")) DISABLE (BITMAP ("mw1_tile_starport_off")) LABEL_AT (70 383) LABEL_FONT ("mw1_tile_label") LABEL_OFF_FONT ("mw1_tile_label_off"))
+    QUIT (POSITION (16 414) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 420) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    OFFICE (POSITION (729 76) BITMAP ("mw1_tile_house_kurita") ROLLOVER (BITMAP ("mw1_tile_house_kurita_lit")) ACTIVATE (BITMAP ("mw1_tile_house_kurita_down")) DISABLE (BITMAP ("mw1_tile_house_kurita_off")) LABEL_AT (783 163) LABEL_FONT ("mw1_tile_label") LABEL_OFF_FONT ("mw1_tile_label_off") ANCHOR ("RIGHT"))
+    OPTIONS (POSITION (729 186) BITMAP ("mw1_tile_options") ROLLOVER (BITMAP ("mw1_tile_options_lit")) ACTIVATE (BITMAP ("mw1_tile_options_down")) DISABLE (BITMAP ("mw1_tile_options_off")) LABEL_AT (783 273) LABEL_FONT ("mw1_tile_label") LABEL_OFF_FONT ("mw1_tile_label_off") ANCHOR ("RIGHT"))
+  )
+  TEXTS (
+    PLANET (POSITION (166 15) FONT ("mw1_plaque"))
+    HOUSE (POSITION (166 47) FONT ("mw1_plaque_sub"))
+    DATE (POSITION (687 15) FONT ("mw1_plaque") ANCHOR ("RIGHT"))
+    DAY (POSITION (687 47) FONT ("mw1_plaque_sub") ANCHOR ("RIGHT"))
+    PANEL_TITLE (POSITION (154 84) FONT ("mw1_panel_title") ANCHOR ("CENTRE"))
+    PANEL_LINES (POSITION (154 107) FONT ("mw1_panel_line") GAP (15) ANCHOR ("CENTRE"))
+    TERM_TITLE (POSITION (617 305) FONT ("mw1_term_title") ANCHOR ("RIGHT"))
+    TERM_LABELS (POSITION (617 328) FONT ("mw1_term_dim") GAP (15) ANCHOR ("RIGHT"))
+    TERM_VALUES (POSITION (825 328) FONT ("mw1_term_value") GAP (15) ANCHOR ("RIGHT"))
+    TERM_MECHS (POSITION (617 396) FONT ("mw1_term_line") GAP (15) ANCHOR ("RIGHT"))
+    TERM_PILOTS (POSITION (825 396) FONT ("mw1_term_value") GAP (15) ANCHOR ("RIGHT"))
+    STATUS_WORLD (POSITION (20 460) FONT ("mw1_status_world"))
+    STATUS (POSITION (136 461) FONT ("mw1_status"))
   )
 )
 )

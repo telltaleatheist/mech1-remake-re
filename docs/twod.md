@@ -601,6 +601,17 @@ smaller sizes than the win metrics), so a cell is the same height.
 menus' heights: cells equal; widths within 1.2% (Arial), 10.8% on a short
 string (Impact), the same (Lucida Console).
 
+Ours, for MechWarrior 1 (branch `mw1`): a program may add its own fonts
+table, `ztwod::Host::add_font_table(file)`, a reader file with a
+WINDOWS_FONTS list as fonts.zrd's, read after the game's (or at once, when
+the fonts were looked up already). Its entries may also say `file` (the
+face's .ttf, found as the game's are, and used for that face in place of
+`font_file`'s) and `tracking` (pixels between glyphs: GetTextExtentPoint32
+counts it and DrawText places such a font's glyphs one at a time, so a
+centred or right-aligned text stays where it's measured). Without a table
+nothing changes (`sdl_host_program_font_table_is_opt_in`); mw3 and mw3pm
+add none.
+
 Before this the host scaled a cell height by FreeType's line height and
 kerned: Arial 12 came out at size 10 (the lab's and the briefing's small
 texts about a tenth wider) and the salvage screen's tonnage values ran

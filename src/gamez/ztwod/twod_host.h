@@ -58,6 +58,10 @@ class Host : public zgame::Unported {
   virtual zimg::Texture* image_release(zimg::Texture* image);         // 0x00517b10: returns 0
   virtual void image_path(const char* path);                          // 0x00516f50
   virtual Handle font_find(const char* name);                         // 0x00517680: + a reference
+  // Ours: a program's own fonts table beside the game's fonts.zrd (a reader file with a WINDOWS_FONTS list, its
+  // entries as fonts.zrd's, which may also name their font file and a tracking). Nothing unless a program adds one;
+  // the default host has none.
+  virtual void add_font_table(const char*) {}
   virtual NamedFont font_fields(Handle font);                         // its fields
   virtual void font_addref(Handle font);                              // 0x005172e0
   virtual void font_release(Handle font);                             // 0x00517300
