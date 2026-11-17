@@ -1416,6 +1416,7 @@ TEST(mw1_menu_new_campaign_plays_the_intro_then_the_hub_headless) {
         case 0:  // the menu: NEW CAMPAIGN
           if (!showing(app, m)) return false;
           menu_first = m->screen()->shown();
+          EXPECT(engine.message_box_file() == "mw1dialog.zrd");  // every box in MW1's look (mw1dialog.zrd), PM's own too
           EXPECT(m->screen()->loaded() && m->screen()->enabled(mw1::kMenuNew) && !m->screen()->enabled(mw1::kMenuContinue));
           EXPECT(!mw1::game_loop_company());
           m->screen()->on_button(mw1::kMenuNew, 0, 0);

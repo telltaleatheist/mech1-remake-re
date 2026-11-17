@@ -1,0 +1,32 @@
+; MW1: Critical Hit's message box: every box a player sees in MW1 (confirms,
+; notices, errors, Pirate's Moon's own quit question among them) in MW1's
+; look, in place of Pirate's Moon's dlgMessage.zrd (GameEngine::
+; set_message_box_layout, ours; mw1_game.cpp sets it). zTwoD's message box
+; reads it (twod_msgbox.cpp): TITLE and MESSAGE, the eight MB_ buttons (a
+; box's style shows its own: OK; OK, CANCEL; YES, NO; ...), its pictures in
+; BACKGROUND_IMAGES. A 4:3 layout, centred on a wider canvas by the engine.
+; All MW1's own art (mw1image.zbd, src/mw1_chrome.h) and fonts (mw1fonts.zrd).
+;
+; The buttons sit in two places: the answer that goes on (OK, YES, ABORT,
+; RETRY) at the left, the one that holds back (CANCEL, NO, IGNORE) at the
+; right. (Abort/Retry/Ignore would put two on the left: no box MW1 opens is.)
+(
+MW1MESSAGEBOX (
+  CURSOR (BITMAP ("mw1_cursor") CENTER (1))
+  BACKGROUND_IMAGES (("mw1_dim" -107 0) ("mw1_dialog" 110 140))
+  PRIMITIVES (
+    TITLE (POSITION (320 149) FONT ("mw1_dialog_title"))
+    MESSAGE (POSITION (134 192) WORDWRAP (372 96) FONT ("mw1_dialog_text"))
+  )
+  BUTTONS (
+    MB_OK (POSITION (134 296) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) LABEL ("OK" 92 6 font "mw1_label"))
+    MB_CANCEL (POSITION (338 296) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) LABEL ("CANCEL" 92 6 font "mw1_label"))
+    MB_YES (POSITION (134 296) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) LABEL ("YES" 92 6 font "mw1_label"))
+    MB_NO (POSITION (338 296) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) LABEL ("NO" 92 6 font "mw1_label"))
+    MB_ABORT (POSITION (134 296) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) LABEL ("ABORT" 92 6 font "mw1_label"))
+    MB_RETRY (POSITION (134 296) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) LABEL ("RETRY" 92 6 font "mw1_label"))
+    MB_IGNORE (POSITION (338 296) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) LABEL ("IGNORE" 92 6 font "mw1_label"))
+    MB_USERBTN (POSITION (338 296) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) LABEL ("OK" 92 6 font "mw1_label"))
+  )
+)
+)

@@ -48,6 +48,11 @@ class HubState : public Mw1State {
  public:
   HubState(zgame::Handle h, std::function<void(int32_t)> pressed);
   void show(const HubView& v);  // now, and on each entering
+  // Development (MW1_SCREEN=quit): Pirate's Moon's quit question over the hub once it has drawn (--shot the box).
+  bool update() override;
+
+ private:
+  int32_t frames_ = 0;
 };
 
 }  // namespace mw1::hub
