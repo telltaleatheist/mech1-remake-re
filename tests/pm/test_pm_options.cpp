@@ -1090,3 +1090,35 @@ TEST(pm_twod_layout_swaps_only_what_a_program_sets) {
   ztwod::clear_layouts();
   EXPECT(!ztwod::layout_for("dlgPause.zrd", "PAUSEDIALOG", &file, &dialog));
 }
+
+TEST(pm_twod_reskin_names_only_in_their_file) {
+  // A program's pictures and fonts for one game file (a reskin, the game's layout kept): only while a dialog is read
+  // from that file (Dialog::load to unload), or as that file's code asks (layout_font_in).
+  ztwod::clear_layouts();
+  ztwod::set_layout_image("load_box", "our_box", "dlgLoadSave.zrd");
+  ztwod::set_layout_font("ia_small_amber", "our_amber", "dlgLoadSave.zrd");
+  EXPECT(std::string(ztwod::layout_image("load_box")) == "load_box" && std::string(ztwod::layout_font("ia_small_amber")) == "ia_small_amber");
+  EXPECT(std::string(ztwod::layout_font_in("DLGLOADSAVE.ZRD", "ia_small_amber")) == "our_amber");
+  EXPECT(std::string(ztwod::layout_font_in("dlgPause.zrd", "ia_small_amber")) == "ia_small_amber");
+  std::error_code ec;
+  const fs::path reader = fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd";
+  if (fs::exists(reader, ec)) {
+    zgame::set_game(pm::table());
+    zrdr::init();
+    zrdr::close_archives(true);
+    EXPECT(zrdr::open_archive(fs::canonical(reader, ec).string().c_str(), true));
+    ztwod::Dialog d;
+    const bool read = d.load("dlgLoadSave.zrd", "LOADSAVE_DIALOG", true);
+    EXPECT(read);
+    EXPECT(std::string(ztwod::layout_image("load_box")) == "our_box" && std::string(ztwod::layout_font("ia_small_amber")) == "our_amber");
+    EXPECT(std::string(ztwod::layout_image("textbox_small")) == "textbox_small" && !d.own_layout);
+    d.unload();
+    EXPECT(std::string(ztwod::layout_image("load_box")) == "load_box");
+    EXPECT(d.load("dlgPause.zrd", "PAUSEDIALOG", true));  // another file: the game's
+    EXPECT(std::string(ztwod::layout_image("load_box")) == "load_box" && std::string(ztwod::layout_font("ia_small_amber")) == "ia_small_amber");
+    d.unload();
+    zrdr::close_archives(true);
+  }
+  ztwod::clear_layouts();
+  EXPECT(std::string(ztwod::layout_font_in("dlgLoadSave.zrd", "ia_small_amber")) == "ia_small_amber");
+}

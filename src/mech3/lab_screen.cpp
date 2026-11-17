@@ -7,11 +7,13 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdarg>
+#include <cstring>
 #include <iterator>
 #include <string>
 
 #include "gamez/zreader/zreader.h"
 #include "gamez/zutil/zfix.h"
+#include "gamez/ztwod/twod.h"
 #include "gamez/ztwod/twod_host.h"
 #include "gamez/zimage/zimg_library.h"
 #include "gamez/zvideo/zvid_format.h"
@@ -36,6 +38,7 @@ bool lab_weapon_is_missile(int32_t w) {
 }
 
 namespace {
+constexpr const char* kLabFile = "dlgMechLabII.zrd";  // the lab's layout
 int32_t g_none = -1;  // the tabs' and mech buttons' id until bound
 
 // Mech3.exe 1.2 @ 0x00484670: a mech's name from Mech3Msg.dll, "notmech"
@@ -143,6 +146,9 @@ bool LabPanel::read(zrdr::Node* node, ztwod::Dialog* dialog) {
   if (const char* s = zrdr::get_string(node, "double")) twice = ztwod::host().image_get(s);
   if (const char* s = zrdr::get_string(node, "single")) single = ztwod::host().image_get(s);
   if (const char* s = zrdr::get_string(node, "double2")) twice2 = ztwod::host().image_get(s);
+  // Ours: a program's pictures in place of these (a reskin) are drawn for the wide canvas as they are.
+  for (const char* key : {"single", "double"})
+    if (const char* s = zrdr::get_string(node, key); s && std::strcmp(ztwod::layout_image(s), s) != 0) own_look = true;
   return ok;
 }
 
@@ -346,11 +352,12 @@ void LabChassisList::layout() {
     if (chosen) t->set_text(b);
     else t->set_text("%s", b);
   };
-  const Handle green = ztwod::host().font_find("lab_large_greenR");
+  // Ours: a program's font in their place (ztwod::set_layout_font for the lab's file), none set: these.
+  const Handle green = ztwod::host().font_find(ztwod::layout_font_in(kLabFile, "lab_large_greenR"));
   for (FileRow* r : rows)
     if (!(r->flags & ztwod::kHidden)) tons(r, green, false);
   if (!selected_row || selected < top) return;
-  const Handle red = ztwod::host().font_find("lab_large_redR");
+  const Handle red = ztwod::host().font_find(ztwod::layout_font_in(kLabFile, "lab_large_redR"));
   const uint32_t i = static_cast<uint32_t>(selected - top);
   if (i >= rows.size()) return;
   FileRow* r = rows[i];
@@ -2295,7 +2302,7 @@ LabScreen::LabScreen(Engine& e, int32_t slots)
   chassis_data = new LabChassisData(e);  // new(0x188)
   mech_data = new LabMechData(e);        // new(0x5ac)
   armor_titles = new LabArmorTitles(e);  // new(0x31e0), made inline
-  if (load("dlgMechLabII.zrd", "LABMENU", true)) {
+  if (load(kLabFile, "LABMENU", true)) {
     bind_primitive(&temp_background, "TEMP_BACKGROUND");
     bind_primitive(&panel_left, "PANEL_LEFT");
     bind_primitive(&panel_right, "PANEL_RIGHT");
