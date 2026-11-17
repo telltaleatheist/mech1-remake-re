@@ -34,6 +34,8 @@ void set_mw1_game_dir(const std::string& dir);
 // The player's MW_MAIN.EXE's data segment (0x1090), read once from that folder; empty without it. Shared with the
 // contracts' titles (mw1_missions.h).
 const std::vector<uint8_t>& mw_main_data_segment();
+// Changes each time set_mw1_game_dir does: what is read from the exe and kept (mw1_story.h) is read again.
+uint32_t mw1_game_dir_generation();
 std::vector<std::string> pitch(int32_t id);
 
 int32_t gunnery(const Company& c, int32_t id);   // the record's, or the promoted

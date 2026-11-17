@@ -10,6 +10,7 @@
 // port's MW_MAIN_081B_{ECONOMY,CONTRACTS,STARTUP,REPAIR}.c (research/contracts.md,
 // research/economy.md). test_mw1_campaign.cpp checks each table against the
 // player's exe when it is there.
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <random>
@@ -119,6 +120,20 @@ struct Date {
   int32_t units = 1, month = 3, year = 3024;
 };
 
+// MW1's story as the company has it (mw1_story.h): the events seen (eventSeenFlags, 0x8C of them), the six story
+// planets rolled at the new campaign (campaignEventPlanetSelectors: planet numbers, 0 before they are rolled), the Dark
+// Wing beaten (darkWingBaseVictoryRecorded), and an arrival the hub hasn't run its events for yet
+// (planetArrivalEventsPending: the House-hatred arrivals fire only then; not saved); and the news stories the hub
+// has announced (their records' DS offsets: a yearly story is a new record each year).
+inline constexpr int32_t kEventIds = 0x8C, kStoryPlanets = 6;
+struct Story {
+  std::array<uint8_t, kEventIds> seen{};
+  int32_t planets[kStoryPlanets] = {};
+  bool dark_wing_won = false;
+  std::vector<int32_t> news_heard;
+  bool arrived = false;
+};
+
 // "MALLORY'S WORLD" -> "Mallory's World": a world's name as the hub shows it.
 std::string title_case_name(const char* name);
 
@@ -154,6 +169,7 @@ struct Company {
   bool withdrawn = false;
   // What happened since the hub last showed it (wages, promotions, casualties): the hub's lines, not saved.
   std::vector<std::string> notices;
+  Story story;
 };
 
 // MW1's "Lance weight" for a PM mech, by its tonnage as MW1's own kinds are

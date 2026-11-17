@@ -41,6 +41,7 @@
 #include "mw1_travel.h"
 #include "mw1_travel_screen.h"
 #include "mw1_save.h"
+#include "mw1_story.h"
 
 namespace mw1 {
 namespace {
@@ -1037,6 +1038,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         case Loaded::kLoaded:
           if (!company_.market.rolled) refresh_world(company_, rng_);  // a version 1 save: no market yet
           else if (company_.recruits.empty()) refresh_recruits(company_, rng_);  // before version 4: no Bar yet
+          if (!company_.story.planets[0]) roll_story_planets_for_old_save(company_, rng_);  // before version 8: no story yet
           if (has_pending) pending_ = std::move(pending), launch_stores_ = pending_->launch_stores, launch_loadout_ = pending_->launch_loadout;
           std::printf("mw1: the company loaded from %s: %s C-bills, %d items in the stores, %d kills%s\n", save_path_.c_str(),
                       thousands(company_.funds).c_str(), company_.stores->count(), company_.kills,

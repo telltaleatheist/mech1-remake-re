@@ -14,6 +14,7 @@
 #include "mw1_pilots.h"
 #include "mw1_missions.h"
 #include "mw1_repairs.h"
+#include "mw1_story.h"
 
 namespace mw1 {
 
@@ -107,6 +108,7 @@ Company new_company(Rng& rng) {
   add_starting_stores(*c.stores);
   roll_premium(c, rng);  // the start world's repair premium (mw1_repairs.h), after the original's draws
   roll_patience(c, rng);  // and its House's patience (MwApplyCurrentPlanetState, after the premium)
+  roll_story_planets(c, rng);  // then the story's planets (mw1_story.h), as MW1 rolls them after the world's state
   return c;
 }
 

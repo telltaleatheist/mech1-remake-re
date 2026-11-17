@@ -1,0 +1,377 @@
+// MW1's story (mw1_story.h): the event script read from the player's MW_MAIN.EXE, and run as MW1 runs it.
+#include "mw1_story.h"
+
+#include <algorithm>
+#include <map>
+
+#include "mw1_pilots.h"
+#include "mw1_travel.h"
+
+namespace mw1::story_rules {
+
+const Erratum kErrata[kErrataCount] = {
+    // The news list runs in date order; these five, read month/day, fall out of it (two can't be dates at all).
+    {0x5E, {28, 1, 3027}, {1, 28, 3027}},
+    {0x5F, {10, 2, 3027}, {2, 10, 3027}},
+    {0x60, {31, 3, 3027}, {3, 31, 3027}},
+    {0x61, {30, 4, 3027}, {4, 30, 3027}},
+    {0x62, {6, 8, 3027}, {8, 6, 3027}},
+};
+
+namespace {
+
+const std::vector<uint8_t>& ds() { return mw_main_data_segment(); }
+
+// The texts' segment, within what mw_main_data_segment read (it runs from segment 0x1090 to the exe's end).
+constexpr size_t kTextAt = static_cast<size_t>(kTextSegment - kDataSegment) * 16;
+
+uint16_t word(const std::vector<uint8_t>& d, size_t at) { return static_cast<uint16_t>(d[at] | d[at + 1] << 8); }
+
+// The records' parser: one record at `at` and every record its branches reach.
+struct Reader {
+  const std::vector<uint8_t>& d;
+  Script& s;
+  std::map<size_t, int32_t> index;  // DS offset -> record
+  std::map<size_t, std::string> captions;
+  bool ok = true;
+
+  std::string caption(size_t at) {
+    auto it = captions.find(at);
+    if (it == captions.end()) return ok = false, std::string();
+    return it->second;
+  }
+  Date3 date(size_t at) { return {d[at], d[at + 1], kEventYearBase + d[at + 2]}; }
+
+  int32_t record(size_t at) {
+    if (auto it = index.find(at); it != index.end()) return it->second;
+    if (at < kRecordsStart || at >= kRecordsEnd) return ok = false, -1;
+    const int32_t r = static_cast<int32_t>(s.records.size());
+    index[at] = r;
+    s.records.push_back({d[at], d[at + 1], at, {}});
+    if (d[at] >= kEventIds || d[at + 1] >= kClassCount) return ok = false, r;
+    std::vector<Command> script;
+    std::vector<std::pair<size_t, std::vector<size_t>>> branch_at;  // command -> its branches' offsets
+    size_t p = at + 2;
+    bool action = false;
+    while (ok && p < kRecordsEnd && d[p] != 0xFF) {
+      Command c;
+      c.action = action, c.op = d[p++];
+      auto signed_byte = [&](size_t q) { return static_cast<int32_t>(static_cast<int8_t>(d[q])); };
+      if (c.op == kChoices) {
+        const int32_t n = d[p];
+        if (n < 2 || n > 3) return ok = false, r;
+        std::vector<size_t> to;
+        for (int32_t i = 0; i < n; ++i) c.captions.push_back(caption(word(d, p + 1 + 2 * static_cast<size_t>(i))));
+        for (int32_t i = 0; i < n; ++i) to.push_back(word(d, p + 1 + 2 * static_cast<size_t>(n + i)));
+        branch_at.push_back({script.size(), to});
+        p += static_cast<size_t>(n) * 4 + 1;
+      } else if (!action) {
+        switch (c.op) {
+          case kRandom: c.value = d[p++]; break;
+          case kDate: c.date = date(p), p += 3; break;
+          case kOnPlanet:
+          case kOffPlanet: c.value = signed_byte(p++); break;
+          case kSeen: c.value = d[p++]; break;
+          case kStanding: c.value = d[p], c.threshold = signed_byte(p + 1) * 2, p += 2; break;
+          case kNothing:
+          case kCommanderLost: break;
+          default: return ok = false, r;
+        }
+      } else {
+        switch (c.op) {
+          case 0: case 3: case 7: case kRestart: case kUseAnd: case kUseOr: break;
+          case kDateWindow: c.date = date(p), c.end = date(p + 3), p += 6; break;
+          case kFunds: c.funds = static_cast<int32_t>(d[p] | d[p + 1] << 8 | d[p + 2] << 16 | static_cast<uint32_t>(d[p + 3]) << 24), p += 4; break;
+          case kNamePlanet: c.value = ~signed_byte(p++); break;
+          default: return ok = false, r;
+        }
+      }
+      if ((c.op == kOnPlanet || c.op == kOffPlanet) && !action && c.value < 0 && ~c.value >= kStoryPlanets) return ok = false, r;
+      if (c.op == kNamePlanet && action && (c.value < 0 || c.value >= kStoryPlanets)) return ok = false, r;
+      script.push_back(std::move(c));
+      action = !action;
+    }
+    if (p >= kRecordsEnd) return ok = false, r;
+    for (auto& [cmd, to] : branch_at)
+      for (size_t b : to) script[cmd].branches.push_back(b ? record(b) : -1);
+    s.records[static_cast<size_t>(r)].script = std::move(script);
+    return r;
+  }
+};
+
+Script read_script() {
+  Script s;
+  const std::vector<uint8_t>& d = ds();
+  if (d.size() < kTextAt + kTextEnd || d.size() < 0x9000) return s;
+  Reader rd{d, s};
+  size_t c = kCaptions;
+  for (int32_t i = 0; i < kCaptionCount; ++i) {
+    const size_t at = c++;  // the colour byte
+    std::string t;
+    while (c < kEventListDirectory && d[c]) t += static_cast<char>(d[c++]);
+    rd.captions[at] = t;
+    ++c;
+  }
+  const size_t which = word(d, kNewCampaignList);
+  if (which >= static_cast<size_t>(kEventListCount)) return Script{};
+  for (size_t e = word(d, kEventListDirectory + 2 * which); rd.ok && e && e + 1 < kRecordsStart && word(d, e); e += 2)
+    s.list.push_back(rd.record(word(d, e)));
+  s.fixed = rd.record(kFixedEvent);
+  if (!rd.ok || s.list.empty()) return Script{};
+  if (kFixErrata) fix_errata(s);
+  return s;
+}
+
+// The planet a selector names: a planet number, or (negative) a story planet's.
+int32_t planet_of(const Company& c, int32_t selector) { return selector >= 0 ? selector : c.story.planets[~selector]; }
+
+// MW1's dates against the calendar (081B:643D..662B), each comparison as it has it.
+int32_t month_of(const Date3& d) { return static_cast<uint8_t>(d.month - 1); }
+int32_t units_of(const Date3& d) { return static_cast<uint8_t>(static_cast<uint8_t>(d.day - 1) << 1); }
+bool reached(const Date& now, int32_t year, int32_t month, int32_t units) {
+  return year < now.year || (year == now.year && (month < now.month || (month == now.month && units <= now.units)));
+}
+
+std::string planet_name(const Company& c, int32_t story_planet) {
+  if (story_planet < 0 || story_planet >= kStoryPlanets) return "";
+  const int32_t w = planet_index(c.story.planets[story_planet]);
+  return w >= 0 ? kPlanets[w].name : "";
+}
+
+}  // namespace
+
+void fix_errata(Script& s) {
+  for (Event& e : s.records)
+    for (Command& c : e.script)
+      for (const Erratum& x : kErrata)
+        if (e.id == x.event && !c.action && c.op == kDate && c.date.month == x.as_mw1.month && c.date.day == x.as_mw1.day &&
+            c.date.year == x.as_mw1.year)
+          c.date = x.fixed;
+}
+
+const Script& script() {
+  static Script s;
+  static uint32_t generation = ~0u;
+  if (generation != mw1_game_dir_generation()) generation = mw1_game_dir_generation(), s = read_script();
+  return s;
+}
+
+void roll_story_planets(Company& c, Rng& rng) {
+  c.story.planets[0] = c.planet_number;
+  for (int32_t i = 1; i < kStoryPlanets; ++i) c.story.planets[i] = kPools[i][rng.upto(kPoolSize[i] - 1)];
+}
+
+void roll_story_planets_for_old_save(Company& c, Rng& rng) {
+  for (int32_t i = 0; i < kStoryPlanets; ++i) c.story.planets[i] = kPools[i][rng.upto(kPoolSize[i] - 1)];
+}
+
+std::vector<Page> text_pages(int32_t id) {
+  const std::vector<uint8_t>& d = ds();
+  std::vector<Page> pages;
+  if (id < 0 || id >= kTextCount || d.size() < kTextAt + kTextEnd) return pages;
+  size_t p = word(d, kTextAt + 2 * static_cast<size_t>(id));
+  if (p < kTextStart || p >= kTextEnd) return pages;
+  for (int32_t n = 0; n < 32 && p + 2 < kTextEnd; ++n) {
+    Page pg;
+    if (d[kTextAt + p] == 0xFF) pg.choices = true, ++p;
+    p += 2;  // the page's format and row count
+    pg.lines.emplace_back();
+    for (; p < kTextEnd && d[kTextAt + p]; ++p) {
+      if (d[kTextAt + p] == '\r') {
+        pg.lines.emplace_back();
+      } else if (d[kTextAt + p] == 0xFF) {
+        // A planet's field: 0xFF, then 15 bytes (the story planet's number and blanks) MW1 writes the name over.
+        pg.lines.back() += '\xff';
+        for (int32_t k = 1; k < kPlanetFieldBytes && p + 1 < kTextEnd && d[kTextAt + p + 1] && d[kTextAt + p + 1] != '\r'; ++k) ++p;
+      } else {
+        pg.lines.back() += static_cast<char>(d[kTextAt + p]);
+      }
+    }
+    pages.push_back(std::move(pg));
+    if (pages.back().choices || ++p >= kTextEnd || !d[kTextAt + p]) break;  // nothing after a choice's page
+  }
+  return pages;
+}
+
+std::string commander_name() {
+  const std::vector<uint8_t>& d = ds();
+  std::string s;
+  for (size_t i = kCommanderName; i < d.size() && i < kCommanderName + 0x12 && d[i]; ++i) s += static_cast<char>(d[i]);
+  return s;
+}
+
+std::vector<Page> shown_pages(const Company& c, const Shown& s) {
+  std::vector<Page> pages = text_pages(s.event);
+  const std::string name = planet_name(c, s.named);
+  for (Page& pg : pages) {
+    for (std::string& l : pg.lines)  // the field (text_pages' 0xFF): the name MW1 writes into it, none if unnamed
+      for (size_t at; (at = l.find('\xff')) != std::string::npos;) l.replace(at, 1, name);
+    if (pg.choices) {
+      // The captions' lines (MW1 draws its buttons over the page's last rows), then the blank above them.
+      for (size_t i = 0; i < s.captions.size() && !pg.lines.empty(); ++i) pg.lines.pop_back();
+      while (!pg.lines.empty() && pg.lines.back().find_first_not_of(' ') == std::string::npos) pg.lines.pop_back();
+    }
+  }
+  return pages;
+}
+
+std::string headline(const Company& c, const Shown& s) {
+  const std::vector<Page> pages = shown_pages(c, s);
+  if (pages.empty()) return "";
+  auto blank = [](const std::string& l) { return l.find_first_not_of(' ') == std::string::npos; };
+  const std::vector<std::string>& ls = pages[0].lines;
+  for (size_t i = 1; i < ls.size(); ++i)
+    if (blank(ls[i]) && !blank(ls[i - 1])) {
+      std::string h = ls[i - 1];
+      h.erase(0, h.find_first_not_of(' '));
+      while (!h.empty() && h.back() == ' ') h.pop_back();
+      return h;
+    }
+  for (const std::string& l : ls)
+    if (!blank(l)) return l.substr(l.find_first_not_of(' '));
+  return "";
+}
+
+Ran run_event(Company& c, int32_t record, int32_t cls, Rng& rng, Shown* out) {
+  const Script& s = script();
+  if (record < 0 || record >= static_cast<int32_t>(s.records.size())) return Ran::kNot;
+  const Event& e = s.records[static_cast<size_t>(record)];
+  bool result = false, with_and = false;
+  Shown sh;
+  sh.event = e.id, sh.record = record;
+  auto combine = [&](bool b) { result = with_and ? (result && b) : (result || b); };
+  const Date& now = c.date;
+  for (const Command& cmd : e.script) {
+    if (cmd.op == kChoices) {
+      if (!result) continue;
+      sh.captions = cmd.captions, sh.branches = cmd.branches;
+      if (e.id != kEventDarkWingAttack) c.story.seen[static_cast<size_t>(e.id)] = 1;
+      if (out) *out = sh;
+      return Ran::kChoice;
+    }
+    if (!cmd.action) {
+      switch (cmd.op) {
+        case kRandom: combine(rng.upto(100) < cmd.value); break;
+        case kDate: {
+          const int32_t month = month_of(cmd.date), units = units_of(cmd.date);
+          bool arrived = reached(now, cmd.date.year, month, units);
+          if (arrived && cls == kNews) {
+            // The news: six months from its date. MW1 compares the end's units with the month (its scratch word's).
+            int32_t m = month + 6, y = cmd.date.year;
+            if (m >= kMonthCount) ++y, m -= kMonthCount;
+            const int32_t u = month;
+            arrived = y > now.year || (y == now.year && (m > now.month || (m == now.month && u >= now.units)));
+          }
+          combine(arrived);
+          break;
+        }
+        case kOnPlanet: combine(planet_of(c, cmd.value) == c.planet_number); break;
+        case kOffPlanet: combine(planet_of(c, cmd.value) != c.planet_number); break;
+        case kSeen: combine(c.story.seen[static_cast<size_t>(cmd.value)] != 0); break;
+        case kStanding: {
+          const int32_t house = cmd.value - 1;
+          combine(house == c.planet_house && house >= 0 && house < kHouseCount && c.favor[house] - c.grievance[house] < cmd.threshold);
+          break;
+        }
+        case kCommanderLost: combine(false); break;  // after a battle (class 6): not run yet (research/story.md, step 4)
+        default: break;
+      }
+    } else {
+      switch (cmd.op) {
+        case kRestart:
+          if (result) sh.restart = true;
+          break;
+        case kDateWindow: {
+          bool in = false;
+          if (result && reached(now, cmd.date.year, month_of(cmd.date), units_of(cmd.date))) {
+            // The end, as MW1 tests it: a later month still compares the units.
+            const int32_t m = month_of(cmd.end), u = units_of(cmd.end), y = cmd.end.year;
+            in = y > now.year || (y == now.year && m >= now.month && u >= now.units);
+          }
+          result = in;
+          break;
+        }
+        case kFunds:
+          if (result) c.funds = std::max<int64_t>(0, c.funds + cmd.funds);  // never below none (MW1's clamp)
+          break;
+        case kUseAnd: with_and = true; break;
+        case kUseOr: with_and = false; break;
+        case kNamePlanet:
+          if (result) sh.named = cmd.value;
+          break;
+        default: break;
+      }
+    }
+  }
+  if (!result) return Ran::kNot;
+  if (e.id == kEventPortArrest && c.story.dark_wing_won) return Ran::kNot;
+  if (e.id >= kFirstHatredArrival && e.id <= kLastHatredArrival) {
+    if (!c.story.arrived) return Ran::kNot;
+  } else {
+    c.story.seen[static_cast<size_t>(e.id)] = 1;
+  }
+  if (out) *out = sh;
+  return Ran::kShown;
+}
+
+Dispatch start(int32_t cls) {
+  Dispatch d;
+  d.cls = cls;
+  return d;
+}
+
+bool next(Company& c, Dispatch& d, Rng& rng, Shown* out) {
+  if (d.done) return false;
+  const Script& s = script();
+  if (d.branch >= 0) {
+    const int32_t b = d.branch;
+    d.branch = -1;
+    const Ran r = run_event(c, b, d.cls, rng, out);
+    if (r != Ran::kNot) return ++d.shown, true;
+  }
+  while (d.at < s.list.size()) {
+    const int32_t rec = s.list[d.at++];
+    const Event& e = s.records[static_cast<size_t>(rec)];
+    if (e.cls != d.cls) continue;
+    if (d.cls != kNews && c.story.seen[static_cast<size_t>(e.id)] == 1) continue;
+    const Ran r = run_event(c, rec, d.cls, rng, out);
+    if (r == Ran::kShown) return ++d.shown, true;
+    if (r == Ran::kChoice) return true;  // a choice isn't counted (MW1 leaves before its count)
+  }
+  d.done = true;
+  if (d.cls == kBarDrink && d.shown == 0 && s.there()) {
+    if (out) *out = Shown{kEventQuiet, -1, {}, {}, false, -1};
+    return true;
+  }
+  return false;
+}
+
+void choose(Dispatch& d, const Shown& s, int32_t i) {
+  d.branch = i >= 0 && i < static_cast<int32_t>(s.branches.size()) ? s.branches[static_cast<size_t>(i)] : -1;
+}
+
+std::vector<Shown> live_news(Company& c, Rng& rng) {
+  std::vector<Shown> out;
+  const Script& s = script();
+  for (int32_t rec : s.list) {
+    if (s.records[static_cast<size_t>(rec)].cls != kNews) continue;
+    Shown sh;
+    if (run_event(c, rec, kNews, rng, &sh) == Ran::kShown) out.push_back(sh);
+  }
+  return out;
+}
+
+std::vector<Shown> fresh_news(Company& c, Rng& rng) {
+  const Script& s = script();
+  std::vector<Shown> out;
+  for (const Shown& sh : live_news(c, rng)) {
+    const int32_t at = static_cast<int32_t>(s.records[static_cast<size_t>(sh.record)].at);
+    std::vector<int32_t>& heard = c.story.news_heard;
+    if (std::find(heard.begin(), heard.end(), at) != heard.end()) continue;
+    heard.push_back(at);
+    out.push_back(sh);
+  }
+  return out;
+}
+
+}  // namespace mw1::story_rules
