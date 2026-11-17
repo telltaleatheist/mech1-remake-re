@@ -1037,6 +1037,14 @@ bool MainState::enter() {
     en.message_box_words(0, "First start", notes);
   }
   Mech3App& ap = a();
+  // Ours (program_flow.h; none in MW3 or PM): a program built on the engine may put a state of its own over the
+  // main menu; then none of the main menu's reopenings below happens (multiplayer, Instant Action's after its
+  // end, training, credits, MODS), and Instant Action's flag is spent. A MODS EDIT mission's end is still closed.
+  if (ProgramFlow* x = program_flow(); x && x->main_entered(en)) {
+    ap.set_reopen_instant_action(0, ap.instant_action_arg());
+    mods_edit_end();
+    return true;
+  }
   const bool back_to_multi = ap.multiplayer() || en.network_lobby_active();
   if (back_to_multi) en.vcall(screen_ + kButtonMulti, 0x30, {});
   entry_run().opened = back_to_multi && entry_run().screen == EntryRun::kMultiplayer;  // ours (upgrades/mods/entry_run.h)
@@ -1072,7 +1080,6 @@ bool MainState::enter() {
   // Ours: a mission entered by MODS's EDIT is over however it ended; MODS
   // again when the editor's exit asked for it.
   mods_edit_end();
-  if (ProgramFlow* x = program_flow(); x && x->main_entered(en)) return true;  // ours: none in MW3 or PM
   if (mods_menu_reopen()) {
     mods_menu_reopen() = false;
     // Inside an entry opened for the editor (entry_run.h, kEdit) MODS is not shown: the update leaves the entry.

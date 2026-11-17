@@ -988,62 +988,75 @@ TEST(pm_game_options_leave_with_a_pop_of_7_headless) {
 TEST(program_flow_none_is_the_original) { EXPECT(mech3::program_flow() == nullptr); }
 
 // Set: told when the Main state enters (the start, then the return), and at Instant Action's end before the
-// mission is cleaned up (IA Dummy, whose replace_state(2) is the return).
+// mission is cleaned up (IA Dummy, whose replace_state(2) is the return). A flow that takes the return over keeps
+// the main menu from reopening Instant Action's screen (IA Dummy's flag); one that doesn't, leaves it as it was.
 TEST(program_flow_sees_main_and_the_instant_action_end_headless) {
   std::error_code ec;
   if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
   struct Flow : mech3::ProgramFlow {
+    bool take_return = false;
     int mains = 0, endings = 0, mains_at_ending = -1;
-    bool main_entered(mech3::Engine&) override { return ++mains, false; }
+    bool main_entered(mech3::Engine&) override { return ++mains, take_return && mains > 1; }
     void mission_ending(mech3::Engine&) override { ++endings, mains_at_ending = mains; }
-  } flow;
-  MountsBack back;
-  zgame::set_game(pm::table());
-  const std::string wd = std::string(MW3_TEST_TMP_ROOT) + "/pm_program_flow";
-  fs::remove_all(wd, ec);
-  fs::create_directories(wd, ec);
-  zutl::mounts() = zutl::Mounts{};
-  zutl::set_write_dir(wd.c_str());
-  zutl::mount(MW3PM_GAME_DIR);
-  mech3::reset_states();
-  mech3::options() = mech3::Options{};
-  Window window;
-  Alert alert;
-  Clock clock;
-  MovieClock movies;
-  Screen screen;
-  platform::SilentSoundOutput sound;
-  mech3::MountFiles files;
-  mech3::Platform p;
-  p.window = &window, p.alert = &alert, p.clock = &clock, p.movie_clock = &movies, p.screen = &screen;
-  p.sound = &sound, p.files = &files;
-  mech3::set_program_flow(&flow);
-  int stage = 0;
-  {
-    mech3::GameEngine engine(p, "mech3.exe -nofmv");
-    engine.quiet = true;
-    mech3::Mech3App app(&engine);
-    mech3::set_app(&app);
-    EXPECT(app.init_instance());
-    engine.on_present = [&](int) {
-      if (app.pending()) return;
-      if (stage == 0 && flow.mains == 1) {  // the main menu up: Instant Action's end, as a mission's last state
-        for (int i = app.depth(); i > 0; --i) app.pop(1);
-        app.replace(&mech3::states().ia_dummy, 0);
-        stage = 1;
-      }
-    };
-    Pump pump;
-    pump.limit = 2000;
-    pump.stop = [&] { return stage == 1 && flow.mains == 2; };
-    app.run(pump);
-    app.stop_game();
-    app.exit_instance();
-    mech3::set_app(nullptr);
+  };
+  for (const bool take : {false, true}) {
+    Flow flow;
+    flow.take_return = take;
+    MountsBack back;
+    zgame::set_game(pm::table());
+    const std::string wd = std::string(MW3_TEST_TMP_ROOT) + "/pm_program_flow";
+    fs::remove_all(wd, ec);
+    fs::create_directories(wd, ec);
+    zutl::mounts() = zutl::Mounts{};
+    zutl::set_write_dir(wd.c_str());
+    zutl::mount(MW3PM_GAME_DIR);
+    mech3::reset_states();
+    mech3::options() = mech3::Options{};
+    Window window;
+    Alert alert;
+    Clock clock;
+    MovieClock movies;
+    Screen screen;
+    platform::SilentSoundOutput sound;
+    mech3::MountFiles files;
+    mech3::Platform p;
+    p.window = &window, p.alert = &alert, p.clock = &clock, p.movie_clock = &movies, p.screen = &screen;
+    p.sound = &sound, p.files = &files;
+    mech3::set_program_flow(&flow);
+    int stage = 0, wait = 0;
+    bool ia_open = false;
+    {
+      mech3::GameEngine engine(p, "mech3.exe -nofmv");
+      engine.quiet = true;
+      mech3::Mech3App app(&engine);
+      mech3::set_app(&app);
+      EXPECT(app.init_instance());
+      engine.on_present = [&](int) {
+        if (app.pending()) return;
+        if (stage == 0 && flow.mains == 1) {  // the main menu up: Instant Action's end, as a mission's last state
+          for (int i = app.depth(); i > 0; --i) app.pop(1);
+          app.replace(&mech3::states().ia_dummy, 0);
+          stage = 1;
+        } else if (stage == 1 && flow.mains == 2) {
+          for (int i = 0; i <= app.depth(); ++i)
+            if (auto* g = dynamic_cast<mech3::GameMenuState*>(app.stack(i)); g && g->kind == mech3::GameMenuState::kAction) ia_open = true;
+          if (ia_open || ++wait > 30) stage = 2;
+        }
+      };
+      Pump pump;
+      pump.limit = 2000;
+      pump.stop = [&] { return stage == 2; };
+      app.run(pump);
+      app.stop_game();
+      app.exit_instance();
+      mech3::set_app(nullptr);
+    }
+    mech3::set_program_flow(nullptr);
+    zrdr::close_archives(true);
+    mech3::reset_states();
+    std::printf("  program flow (%s the return): main entered %d, mission ending %d (after main %d), Instant Action reopened %d\n",
+                take ? "taking" : "not taking", flow.mains, flow.endings, flow.mains_at_ending, ia_open);
+    EXPECT(flow.mains == 2 && flow.endings == 1 && flow.mains_at_ending == 1);
+    EXPECT(ia_open == !take);
   }
-  mech3::set_program_flow(nullptr);
-  zrdr::close_archives(true);
-  mech3::reset_states();
-  std::printf("  program flow: main entered %d, mission ending %d (after main %d)\n", flow.mains, flow.endings, flow.mains_at_ending);
-  EXPECT(flow.mains == 2 && flow.endings == 1 && flow.mains_at_ending == 1);
 }

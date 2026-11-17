@@ -389,8 +389,10 @@ original's.
 
 - `main_entered(e)`: when the Main state enters (`MainState::enter`), at the
   start and on each return to it. The program may push a state of its own
-  over the main menu; true says it did, and the main menu's own reopenings
-  (MODS) are left out.
+  over the main menu; true says it did, and none of the main menu's own
+  reopenings follows (multiplayer, Instant Action's screen after its end,
+  training, credits, MODS). It's asked before them, so a program's hub comes
+  back after a mission in place of Instant Action's screen.
 - `mission_ending(e)`: at Instant Action's end (IA Dummy, 0x0047ce80), after
   its tally and before `mission_cleanup`, so the program can read the
   mission's entities (who died, the kills) while they're still there.

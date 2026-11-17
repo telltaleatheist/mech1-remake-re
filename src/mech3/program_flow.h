@@ -13,7 +13,8 @@ class ProgramFlow {
   // The Main state entered (the main menu built, MainState::enter): at the
   // start and on every return to it (a mission's end replaces the states with
   // it). The program may push a state of its own over it (app().push); true
-  // says it did, and the main menu's own reopenings (MODS) are left out.
+  // says it did, and none of the main menu's own reopenings follows
+  // (multiplayer, Instant Action's after its end, training, credits, MODS).
   virtual bool main_entered(Engine& e) { return false; }
   // Instant Action's end (IA Dummy, 0x0047ce80) after its tally, before the
   // mission is cleaned up: the mission's entities are all still there.
