@@ -11,6 +11,12 @@
 //                      the pilots (lance=id:wage_tier,...; hangar<i>_pilot;
 //                      pilot<id>=gunnery,piloting,missions,where for those
 //                      not as the records leave them; recruits; wage_warned).
+//                      5 the repairs (repair_premium; a wreck's
+//                      kind:condition:damage; pending_bills=who:mech:damage:
+//                      destroyed,...).
+//                      Versions 1 to 4 still read (before 5: the world's
+//                      premium without its roll, a wreck's damage from its
+//                      condition, no bills);
 //                      Versions 1 to 3 still read (1: no hangar, the market
 //                      rolled at the next refresh; before 3 the start date;
 //                      before 4 no lancemates, the Bar refreshed);
@@ -27,14 +33,14 @@
 
 namespace mw1 {
 
-inline constexpr int32_t kSaveVersion = 4;
+inline constexpr int32_t kSaveVersion = 5;
 inline constexpr const char* kSaveFile = "mw1save.txt";
 
 // The file's text for a company and the contract (null: none on offer), and
 // a mission back and not settled yet (null: none; then the contract is the
 // accepted one, its advance paid: pending_* lines).
 std::string save_text(const Company& c, const Contract* offer, const AfterAction* pending = nullptr);
-// Read back: false, and why, when the text is not a whole save of versions 1 to 4. On
+// Read back: false, and why, when the text is not a whole save of versions 1 to 5. On
 // false `c`, `offer` and `pending` are left as they were. A save from before
 // the pending lines reads as none pending.
 bool load_text(const std::string& text, Company& c, Contract& offer, bool* has_offer, std::string* why,

@@ -1,5 +1,6 @@
 #include "mw1_save.h"
 #include "mw1_travel.h"
+#include "mw1_repairs.h"
 
 #include <cctype>
 #include <cstdio>
@@ -127,6 +128,8 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
   o << "recruits=";
   for (size_t i = 0; i < c.recruits.size(); ++i) o << (i ? "," : "") << c.recruits[i];
   o << "\nwage_warned=" << (c.wage_warned ? 1 : 0) << "\n";
+  // Version 5: the repairs.
+  o << "repair_premium=" << c.repair_premium << "\n";
   o << "stores=" << (c.stores ? hex(bytes_of([&](std::FILE* f) { c.stores->save(f); })) : std::string()) << "\n";
   o << "offer=" << (offer ? 1 : 0) << "\n";
   if (offer) {
@@ -146,7 +149,10 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
     const AfterAction& p = *pending;
     o << "pending_outcome=" << (p.outcome == Outcome::kSuccess ? 0 : p.outcome == Outcome::kFailure ? 1 : 2) << "\n";
     o << "pending_wrecks=";
-    for (size_t i = 0; i < p.wrecks.size(); ++i) o << (i ? "," : "") << p.wrecks[i].kind << ":" << p.wrecks[i].condition;
+    for (size_t i = 0; i < p.wrecks.size(); ++i) o << (i ? "," : "") << p.wrecks[i].kind << ":" << p.wrecks[i].condition << ":" << p.wrecks[i].damage;
+    o << "\npending_bills=";
+    for (size_t i = 0; i < p.bills.size(); ++i)
+      o << (i ? "," : "") << p.bills[i].who << ":" << p.bills[i].mech << ":" << p.bills[i].damage << ":" << (p.bills[i].destroyed ? 1 : 0);
     o << "\npending_lance=";
     for (size_t i = 0; i < p.lance.size(); ++i) o << (i ? "," : "") << p.lance[i].id << ":" << (p.lance[i].destroyed ? 1 : 0);
     o << "\npending_stayed=";
@@ -199,6 +205,7 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
     return fail("version " + std::to_string(n) + ", this build reads versions 1 to " + std::to_string(kSaveVersion));
   const bool v3 = n >= 3;  // the calendar; before it, the start date
   const bool v4 = n >= 4;  // the pilots; before them, no lancemates
+  const bool v5 = n >= 5;  // the repairs; before them, the premium rolled anew and no bills
   const bool v1 = n == 1;  // before the hangar and the market: a hangar of none, the market rolled at the next refresh
   Company c;
   const int64_t kMax = int64_t{1} << 40;
@@ -322,6 +329,11 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
     if (!num("wage_warned", 0, 1, &warned)) return fail("no wage_warned line");
     c.wage_warned = warned != 0;
   }
+  if (v5) {
+    int64_t prem = 0;
+    if (!num("repair_premium", 0, 200, &prem)) return fail("the repair premium is missing or out of range");
+    c.repair_premium = static_cast<int32_t>(prem);
+  }
   // The world's name, House and tier are the map's, by its number.
   if (const int32_t w = planet_index(c.planet_number); w >= 0) set_planet(c, w);
   int64_t has = 0;
@@ -365,13 +377,38 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
     p.outcome = po == 0 ? Outcome::kSuccess : po == 1 ? Outcome::kFailure : Outcome::kRetreat;
     std::istringstream ws(v["pending_wrecks"]);
     std::string w;
+    // A colon list of numbers, each lo..hi in turn.
+    auto fields = [&](const std::string& text, std::vector<std::pair<int64_t, int64_t>> range, std::vector<int64_t>* out) {
+      std::istringstream is(text);
+      std::string e;
+      size_t i = 0;
+      while (std::getline(is, e, ':')) {
+        int64_t x = 0;
+        if (i >= range.size() || !to_int(e, range[i].first, range[i].second, &x)) return false;
+        out->push_back(x), ++i;
+      }
+      return i == range.size();
+    };
     while (std::getline(ws, w, ',')) {
-      const size_t colon = w.find(':');
-      int64_t kind = 0, cond = 0;
-      if (colon == std::string::npos || !to_int(w.substr(0, colon), 0, kKindCount - 1, &kind) ||
-          !to_int(w.substr(colon + 1), 0, 100, &cond))
+      std::vector<int64_t> f;
+      // Before version 5 kind:condition, the damage taken as the parts lost (the old pay's shape).
+      if (!fields(w, v5 ? std::vector<std::pair<int64_t, int64_t>>{{0, kKindCount - 1}, {0, 100}, {0, kWhole}}
+                        : std::vector<std::pair<int64_t, int64_t>>{{0, kKindCount - 1}, {0, 100}},
+                  &f))
         return fail("the pending mission's wrecks don't read");
-      p.wrecks.push_back(Wreck{static_cast<int32_t>(kind), static_cast<int32_t>(cond)});
+      p.wrecks.push_back(Wreck{static_cast<int32_t>(f[0]), static_cast<int32_t>(f[1]),
+                               v5 ? static_cast<int32_t>(f[2]) : static_cast<int32_t>((100 - f[1]) * kWhole / 100)});
+    }
+    if (v5) {
+      if (!v.count("pending_bills")) return fail("the pending mission's bills are missing");
+      std::istringstream bs(v["pending_bills"]);
+      std::string b;
+      while (std::getline(bs, b, ',')) {
+        std::vector<int64_t> f;
+        if (!fields(b, {{0, kPilotIds - 1}, {0, mech3::kMechCount - 1}, {0, kWhole}, {0, 1}}, &f))
+          return fail("the pending mission's bills don't read");
+        p.bills.push_back({static_cast<int32_t>(f[0]), static_cast<int32_t>(f[1]), static_cast<int32_t>(f[2]), f[3] != 0});
+      }
     }
     if (v4) {
       if (!v.count("pending_lance")) return fail("the pending mission's lance is missing");
@@ -395,6 +432,7 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
         !loadout_line("pending_launch_loadout", &p.launch_loadout, c.mech))
       return fail("the pending mission's stores or loadout don't read");
   }
+  if (!v5) c.repair_premium = (c.tier + 1) * kPremiumStep;  // before version 5: the world's premium without its roll
   out = std::move(c);
   if (has) offer_out = std::move(k);
   if (has_offer) *has_offer = has != 0;

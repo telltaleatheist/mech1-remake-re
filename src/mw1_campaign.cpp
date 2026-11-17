@@ -1,6 +1,7 @@
 #include "mw1_campaign.h"
 
 #include <cctype>
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <string>
@@ -11,6 +12,7 @@
 #include "mech3/pilot.h"
 #include "mw1_market.h"
 #include "mw1_pilots.h"
+#include "mw1_repairs.h"
 
 namespace mw1 {
 
@@ -41,7 +43,7 @@ constexpr int32_t kRelationshipLimit = 10;
 constexpr int32_t kTargetStepRollMax = 10;  // MISSION_TARGET_STEP_ROLL_MAXIMUM
 constexpr int32_t kTargetGrievance = 2;     // the House you fought, at every ending
 // The settlement's (STARTUP).
-constexpr int32_t kScrapCondition = 35, kScrapPerTon = 10, kSaleRounding = 500;
+constexpr int32_t kScrapPerTon = 10, kSaleRounding = 500;  // thousands a ton (research/contracts.md); C-bills
 
 // BtechPrepareEnemyMech: a class's kinds, picked at random within it.
 const int32_t kLights[] = {kLocust, kJenner};
@@ -102,6 +104,7 @@ Company new_company(Rng& rng) {
   c.mech = kPmOwens;
   c.stores = std::make_shared<mech3::Store>();
   add_starting_stores(*c.stores);
+  roll_premium(c, rng);  // the start world's repair premium (mw1_repairs.h), after the original's draws
   return c;
 }
 
@@ -172,10 +175,12 @@ void accept(Company& c, Contract& k) {
 
 int32_t wreck_value(const Company& c, const Wreck& w) {
   const int32_t chassis = kMechKinds[w.kind].pm_mech;
-  if (w.condition <= kScrapCondition) return static_cast<int32_t>(std::lround(mech3::max_mass(chassis))) * kScrapPerTon;
-  // MwCalculateUnitConditionPrice's shape (the sale price by the condition, +500, in thousands), on the market's
-  // sale price for the chassis.
-  return static_cast<int32_t>((sell_price(chassis, c.tier) * w.condition / 100 + kSaleRounding) / 1000);
+  // VISION ("Wrecks pay what they're worth, less their repairs"): the chassis's sale price at this world less its
+  // repairs by the one rule (mw1_repairs.h), +500 and in thousands as MwCalculateUnitConditionPrice rounds; never
+  // below the scrap value, tons x 10,000 (provisional Q4).
+  const int32_t scrap = static_cast<int32_t>(std::lround(mech3::max_mass(chassis))) * kScrapPerTon;
+  const int64_t worth = sell_price(chassis, c.tier) - wreck_repairs(c, chassis, w.damage);
+  return std::max(scrap, static_cast<int32_t>((worth + kSaleRounding) / 1000));
 }
 
 Settlement settle(Company& c, Contract& k, Outcome o, const std::vector<Wreck>& wrecks, Rng& rng) {

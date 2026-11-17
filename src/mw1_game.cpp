@@ -4,6 +4,7 @@
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
+#include <map>
 #include <memory>
 #include <random>
 #include <string>
@@ -26,6 +27,7 @@
 #include "mw1_market.h"
 #include "mw1_market_screen.h"
 #include "mw1_pilots.h"
+#include "mw1_repairs.h"
 #include "mw1_travel.h"
 #include "mw1_travel_screen.h"
 #include "mw1_save.h"
@@ -88,6 +90,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       pending_->outcome = ended_ && !failed_ ? Outcome::kSuccess : failed_ ? Outcome::kFailure : Outcome::kRetreat;
       pending_->wrecks = wrecks_;
       pending_->lance = fates_;
+      for (const MechBill& b : bills_) pending_->bills.push_back({b.who, b.mech, b.damage, b.destroyed});
       pending_->stayed = stayed_behind(flying_, fates_);  // the map's allied places ran out: they didn't fly
       pending_->salvage = std::move(salvage_);
       pending_->launch_stores = launch_stores_, pending_->launch_loadout = launch_loadout_;
@@ -156,7 +159,14 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         if (pending_->outcome == Outcome::kSuccess && pending_->salvage) company_.stores->add_all(*pending_->salvage);
         // A counted mission (won, or failed and accepted; a retreat isn't, nor a replayed failure): the lancemates'
         // experience, then their casualties (mw1_pilots.h).
-        if (pending_->outcome != Outcome::kRetreat) after_mission(company_, pending_->lance);
+        // Then the repairs (mw1_repairs.h): the bill, the commander's loss.
+        if (pending_->outcome != Outcome::kRetreat) {
+          after_mission(company_, pending_->lance);
+          const Repairs r = settle_repairs(company_, as_bills(pending_->bills));
+          for (const std::string& l : r.lines) company_.notices.push_back(l);
+          std::printf("mw1: repairs: billed %s, paid %s, forgiven %s\n", thousands(r.billed).c_str(), thousands(r.paid).c_str(),
+                      thousands(r.forgiven).c_str());
+        }
         std::printf("mw1: settled: %s, %zu wrecks, salvage %s, fee %s, payout %d%%, funds %s, %d items in the stores\n",
                     ending_word(pending_->outcome), pending_->wrecks.size(), thousands(s.salvage).c_str(), thousands(s.fee).c_str(),
                     s.payout_percent, thousands(company_.funds).c_str(), company_.stores->count());
@@ -461,13 +471,21 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     Contract k = contract_;
     Rng r = rng_;
     const Settlement s = settle(c, k, pending_->outcome, pending_->wrecks, r);
+    // The repairs as OK will settle them (a counted mission: won, or failed and accepted).
+    Repairs rep;
+    if (pending_->outcome != Outcome::kRetreat) {
+      after_mission(c, pending_->lance);
+      rep = settle_repairs(c, as_bills(pending_->bills));
+    }
     std::vector<std::string> l = {pending_->outcome == Outcome::kSuccess   ? "Success"
                                   : pending_->outcome == Outcome::kFailure ? "Failure"
                                                                           : "Retreat: the contract broken",
                                   "Enemy mechs disabled: " + std::to_string(pending_->wrecks.size()),
                                   "Salvage: " + thousands(s.salvage) + " C-bills",
                                   "Payment: " + thousands(s.fee) + " C-bills (" + std::to_string(s.payout_percent) + "%)",
-                                  "Funds: " + thousands(c.funds) + " C-bills"};
+                                  };
+    for (const std::string& x : rep.lines) l.push_back(x);
+    l.push_back("Funds: " + thousands(c.funds) + " C-bills");
     for (const LanceFate& f : pending_->lance)
       l.push_back(pilot_title(f.id) + (f.destroyed ? ": mech destroyed" : ": flew"));
     for (int32_t id : pending_->stayed)
@@ -525,12 +543,14 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
 
   void mission_ending(mech3::Engine& e) override {
     ended_ = e.mission_ended(), failed_ = e.mission_failed();
+    if (deployed_) collect_bills();
   }
 
   // Each enemy mech the moment it dies (whoever killed it: MW1 pays for every disabled enemy): its wreck for the
   // pay, and its parts into the mission's salvage, never the mech itself (VISION: salvage gives parts), the
   // company's only if the mission is won.
   void mech_killed(void* victim, void*) override {
+    if (deployed_ && victim == mech3::mech_mission_player()) commander_destroyed_ = true;
     if (!deployed_ || !salvage_ || victim == mech3::mech_mission_player()) return;
     if (const int32_t id = lancemate_of(victim)) {
       for (LanceFate& f : fates_)
@@ -544,7 +564,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     for (int32_t k : contract_.enemies)
       if (kMechKinds[k].pm_mech == d.roster) kind = k;
     if (kind < 0) return;  // not one of the contract's
-    wrecks_.push_back({kind, condition_of(victim)});
+    wrecks_.push_back({kind, condition_of(victim), damage_of(bars_of(victim))});
     mech3::program_salvage_mech(victim, *salvage_, false);
     std::printf("mw1: an enemy %s disabled (%d%% standing)\n", kMechKinds[kind].name, wrecks_.back().condition);
   }
@@ -562,6 +582,56 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     for (const LanceFate& f : fates_) known = known || f.id == id;
     if (!known) fates_.push_back({id, false});
     std::printf("mw1: lancemate %s launched in slot %d, aim error %g\n", pilot_title(id).c_str(), slot, error);
+  }
+
+  // ---- repairs (mw1_repairs.h) ----
+
+  static Bars bars_of(void* mech) {
+    Bars b;
+    int32_t type = -1, armor[11] = {};
+    if (!mech || !mech3::mech_lance_armor(mech, &type, armor, b.armor_left)) return b;
+    for (int k = 0; k < 11; ++k) b.armor_points[k] = static_cast<float>(armor[k]);
+    mech3::mech_lance_structure(mech, b.structure_points, b.structure_left);  // none read: armor alone
+    return b;
+  }
+  // Whose a mission mech is: 0 the commander's, a lancemate's pilot id, -1 none of the company's.
+  int32_t whose(void* mech) const {
+    if (mech && mech == mech3::mech_mission_player()) return 0;
+    const int32_t id = lancemate_of(mech);
+    return id ? id : -1;
+  }
+  // A field base mended one of the company's mechs: on its bill (VISION: the same rate as the end's).
+  void mech_repaired(void* mech, const float armor[11], const float structure[11]) override {
+    if (!deployed_) return;
+    const int32_t who = whose(mech);
+    if (who < 0) return;
+    const int32_t m = mended(bars_of(mech), armor, structure);
+    mended_[who] += m;
+    std::printf("mw1: a field base mended %s (%d of %d)\n", who ? pilot_title(who).c_str() : "the commander", m, kWhole);
+  }
+  // The mission's end: each company mech's damage (with what field bases mended) and whether it was destroyed.
+  void collect_bills() {
+    bills_.clear();
+    void* player = mech3::mech_mission_player();
+    bills_.push_back({0, company_.mech, std::min(kWhole, damage_of(bars_of(player)) + mended_[0]), commander_destroyed_});
+    int32_t n = 0;
+    const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+    for (const LanceFate& f : fates_) {
+      void* m = nullptr;
+      for (int32_t k = 0; k < n && !m; ++k)
+        if (lancemate_of(ai[k].mech) == f.id) m = ai[k].mech;
+      int32_t mech = -1;
+      for (size_t i = 0; i < company_.lance.size(); ++i)
+        if (company_.lance[i].id == f.id)
+          if (const int32_t h = mech_of(company_, static_cast<int32_t>(i)); h >= 0) mech = company_.hangar[static_cast<size_t>(h)].mech;
+      if (mech < 0) continue;
+      bills_.push_back({f.id, mech, std::min(kWhole, (m ? damage_of(bars_of(m)) : 0) + mended_[f.id]), f.destroyed});
+    }
+  }
+  static std::vector<MechBill> as_bills(const std::vector<AfterAction::Bill>& v) {
+    std::vector<MechBill> out;
+    for (const AfterAction::Bill& b : v) out.push_back({b.who, b.mech, b.damage, b.destroyed});
+    return out;
   }
 
   // The lancemate flying an AI mech: its brain's pilot is the name ally_launching gave.
@@ -678,6 +748,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // The lancemates with a mech, as allies first (line-up slots 1..), their mechs' saved loadouts; then the enemy.
     // Instant Action's line-up offers them (ally_launching) during the launch, before mission_launched.
     flying_.clear(), fates_.clear(), launches_.clear();
+    bills_.clear(), mended_.clear(), commander_destroyed_ = false;
     for (size_t i = 0; i < company_.lance.size(); ++i)
       if (const int32_t h = mech_of(company_, static_cast<int32_t>(i)); h >= 0) {
         const OwnedMech& o = company_.hangar[static_cast<size_t>(h)];
@@ -705,7 +776,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   std::vector<Wreck> wrecks_;
   std::vector<int32_t> flying_;    // the lancemates deployed, by ally slot (1..)
   std::vector<LanceFate> fates_;
-  std::vector<AllyLaunch> launches_;  // tests: game_loop_ally_launches   // those who launched this mission, and whether their mech was destroyed
+  std::vector<AllyLaunch> launches_;  // tests: game_loop_ally_launches
+  std::vector<MechBill> bills_;       // this mission's company mechs (collect_bills)
+  std::map<int32_t, int32_t> mended_;  // what field bases mended, by whose (0 the commander)
+  bool commander_destroyed_ = false;   // those who launched this mission, and whether their mech was destroyed
   std::unique_ptr<AfterAction> pending_;  // a mission back, AFTER ACTION until OK (or REPLAY)
   bool offered_ = true;                   // a contract on offer (none at a world without a House office)
   zgame::Handle travel_ = 0;
