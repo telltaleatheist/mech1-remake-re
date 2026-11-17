@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 
 namespace mw1::chrome {
 namespace {
@@ -228,8 +229,50 @@ void darken_scene(images::Image& im) {
     }
 }
 
+images::Image dialog_frame() {
+  // Every message box's (mw1dialog.zrd): dark glass in a thin frame, a rivet at each corner, an amber rule under
+  // the title's band.
+  Canvas c(kDialogW, kDialogH);
+  glass(c, 4, 4, kDialogW - 4, kDialogH - 4, 255);  // solid: a box is the one thing to read
+  thin_frame(c, 0, 0, kDialogW, kDialogH, 4);
+  for (int32_t x = 14; x < kDialogW - 14; ++x) c.set(x, kDialogRule, {200, 130, 40, 230});
+  for (int32_t x : {5, kDialogW - 6})
+    for (int32_t y : {5, kDialogH - 6}) rivet(c, x, y, 2);
+  return c.image(kDialog);
+}
+
+images::Image dim() {
+  // Over the screen behind a box: black, part see-through.
+  Canvas c(images::kWideW, images::kScreenH);
+  for (Rgba& p : c.px) p = {0, 0, 0, kDimAlpha};
+  return c.image(kDim);
+}
+
+images::Image cursor() {
+  // MW1's pointer (every layout's CURSOR, centred on the mouse): an amber ring, four ticks pointing in, a dot, each
+  // with a dark edge so it reads on a light scene.
+  const int32_t n = kCursorSize, c0 = n / 2;
+  Canvas c(n, n);
+  const Rgba amber = {255, 176, 64, 255}, edge = {20, 12, 4, 200};
+  auto mark = [&](int32_t x, int32_t y) {
+    for (int32_t dy = -1; dy <= 1; ++dy)
+      for (int32_t dx = -1; dx <= 1; ++dx)
+        if (c.in(x + dx, y + dy) && c.at(x + dx, y + dy).a == 0) c.set(x + dx, y + dy, edge);
+    c.set(x, y, amber);
+  };
+  for (int32_t y = 0; y < n; ++y)
+    for (int32_t x = 0; x < n; ++x) {
+      const int32_t dx = x - c0, dy = y - c0, d2 = dx * dx + dy * dy;
+      if (d2 >= 7 * 7 && d2 <= 8 * 8) mark(x, y);                             // the ring
+      if ((dx == 0 && std::abs(dy) >= 10 && std::abs(dy) <= 14) || (dy == 0 && std::abs(dx) >= 10 && std::abs(dx) <= 14))
+        mark(x, y);                                                            // the ticks
+      if (d2 <= 1) mark(x, y);                                                 // the dot
+    }
+  return c.image(kCursor);
+}
+
 std::vector<images::Image> all() {
-  std::vector<images::Image> v = {plaque(), status_bar()};
+  std::vector<images::Image> v = {plaque(), status_bar(), dialog_frame(), dim(), cursor()};
   for (int32_t s = 0; s < 3; ++s) v.push_back(tile_frame(s));
   for (int32_t s = 0; s < 4; ++s) v.push_back(button(s));
   for (const PanelSize& p : panel_sizes()) v.push_back(panel(p.w, p.h));

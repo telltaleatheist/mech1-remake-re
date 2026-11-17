@@ -585,6 +585,7 @@ ShellState* shell_state_at(Handle state) {
 Handle GameEngine::message_box_new(const char* file, const char* name) {
   const Handle h = alloc_block(0x12688);
   delete quit_box_;
+  if (!box_file_.empty()) file = box_file_.c_str(), name = box_dialog_.c_str();  // ours: set_message_box_layout's
   quit_box_ = new QuitBox(*this, file, name);
   quit_box_at_ = h;
   return h;

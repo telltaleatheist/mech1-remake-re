@@ -28,6 +28,9 @@ WINDOWS_FONTS (
   "mw1_term_dim" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -13 tracking 1 color (56 150 88))
   "mw1_term_value" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -13 tracking 1 align "right" color (130 255 165))
   "mw1_term_line" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -13 tracking 1 color (130 255 165))
+  ; A message box's title (centred) and its words.
+  "mw1_dialog_title" (face "Saira Condensed Bold" file "fonts\SairaCondensed-Bold.ttf" height -18 tracking 3 align "center" color (255 176 64))
+  "mw1_dialog_text" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -14 color (222 226 230))
   ; The status line: the world in grey caps, the message in amber; a note (the title screen's save) the same amber.
   "mw1_status_world" (face "Saira Condensed Bold" file "fonts\SairaCondensed-Bold.ttf" height -15 tracking 2 color (165 170 176))
   "mw1_status" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -13 tracking 1 color (255 176 64))

@@ -53,6 +53,7 @@ namespace {
 
 constexpr int32_t kBoxOk = 0, kBoxYesNo = 4, kAnswerYes = 6;
 constexpr const char* kFontsFile = "mw1fonts.zrd";  // MW1's data folder
+constexpr const char* kDialogFile = "mw1dialog.zrd", *kDialogName = "MW1MESSAGEBOX";  // every message box's layout
 constexpr uint32_t kOptionsStateGlobal = 0x609868;  // PM's main menu's Options state (its OPTIONS button pushes it)  // the message box's styles and answer (Win32's)
 constexpr const char* kPilotName = "MW1 Company";  // the company's PM pilot (step 2)
 constexpr float kReachRadius = 10.0f;  // metres from the structure's node (reach_area's own default is 25)
@@ -142,6 +143,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     ge_ = &ge;
     register_images();
     register_fonts();
+    // Every message box in MW1's look (mw1dialog.zrd), Pirate's Moon's own boxes too (its quit question).
+    if (layout_there(kDialogFile, kDialogName)) ge.set_message_box_layout(kDialogFile, kDialogName);
     // MW1's main menu over PM's (mw1_menu.h): at the start, and under the hub after a mission (the hub's QUIT comes
     // back to it). Without its layout, or for the tests' straight start, the hub as before.
     const bool with_menu = start_ != Start::kHub && menu(ge);

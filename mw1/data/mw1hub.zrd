@@ -11,15 +11,13 @@
 ;   messages, its buttons under it;
 ; - the company on the green terminal at the lower right;
 ; - the status line along the foot: the world, and what to do.
-; All MW1's own art (mw1image.zbd: data-src/art, src/mw1_chrome.h) but the
-; cursor, Pirate's Moon's, read from the player's install.
+; All MW1's own art (mw1image.zbd: data-src/art, src/mw1_chrome.h), the
+; cursor too: nothing of Pirate's Moon's (FIXES.md item 5; tests/test_mw1_look.cpp).
 ;
 ; MW1HUBDIALOG is 4:3's (640); MW1HUBDIALOG_WIDE the 16:9 canvas's (853).
 (
-SHARED_IMAGE_PATH ("..\data\common\images\dialogs\shared")
 MW1HUBDIALOG (
-  IMAGE_PATH ("..\data\common\images\dialogs\shared;..\data\common\images")
-  CURSOR (BITMAP ("cursor_circle_orange") CENTER (1))
+  CURSOR (BITMAP ("mw1_cursor") CENTER (1))
   PRIMITIVES (
     BACKGROUND (POSITION (-107 0) BITMAP ("mw1_hub_industrial") ANCHOR ("CENTRE"))
     PANEL (POSITION (12 8) BITMAP ("mw1_plaque"))
@@ -60,8 +58,7 @@ MW1HUBDIALOG (
   )
 )
 MW1HUBDIALOG_WIDE (
-  IMAGE_PATH ("..\data\common\images\dialogs\shared;..\data\common\images")
-  CURSOR (BITMAP ("cursor_circle_orange") CENTER (1))
+  CURSOR (BITMAP ("mw1_cursor") CENTER (1))
   PRIMITIVES (
     BACKGROUND (POSITION (0 0) BITMAP ("mw1_hub_industrial") ANCHOR ("CENTRE"))
     PANEL (POSITION (16 8) BITMAP ("mw1_plaque"))

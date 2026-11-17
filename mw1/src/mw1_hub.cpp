@@ -1,5 +1,10 @@
 #include "mw1_hub.h"
 
+#include <cstdlib>
+#include <string>
+
+#include "mech3/app_hooks.h"
+
 namespace mw1::hub {
 namespace {
 // The buttons, by id: their names in the layout and their words.
@@ -35,6 +40,13 @@ void HubState::show(const HubView& v) {
   s.buttons[kHubOffice - 1].on = !v.after_action && v.office_open;
   s.buttons[kHubOffice - 1].look = v.office;
   Mw1State::show(s);
+}
+
+bool HubState::update() {
+  const bool r = Mw1State::update();
+  if (++frames_ == 20)
+    if (const char* sc = std::getenv("MW1_SCREEN"); sc && std::string(sc) == "quit") e().confirm_quit();
+  return r;
 }
 
 }  // namespace mw1::hub

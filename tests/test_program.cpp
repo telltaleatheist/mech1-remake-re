@@ -20474,6 +20474,7 @@ TEST(playtest_delete_pilot_through_the_games_message_box_headless) {
       engine.on_present = [&](int) {
         if (ztwod::MessageBox* box = engine.message_box_open()) {  // inside the box's own loop
           asked = true;
+          EXPECT(engine.message_box_file().empty());  // the game's own box (dlgMessage.zrd): no program's layout
           if (++box_frames == 3) box->buttons[yes ? 0 : 1].on_left_up();  // OK or CANCEL
           return;
         }
