@@ -14,6 +14,7 @@
 #include "mech3/mech_names.h"
 #include "mech3/pilot.h"
 #include "mw1_campaign.h"
+#include "mw1_repairs.h"
 #include "mw1_market.h"
 #include "mw1_save.h"
 
@@ -172,9 +173,11 @@ TEST(mw1_market_wrecks_pay_the_markets_sale_price) {
     c.tier = tier;
     EXPECT(mw1::wreck_value(c, {mw1::kJenner, 100}) == (mw1::sell_price(kOwens, tier) + 500) / 1000);
   }
-  c.tier = 0;
-  EXPECT(mw1::wreck_value(c, {mw1::kJenner, 50}) == (2772000 / 2 + 500) / 1000);
-  EXPECT(mw1::wreck_value(c, {mw1::kLocust, 20}) == 300);  // scrap: the Firefly's 30 t x 10
+  c.tier = 0, c.repair_premium = 18;
+  EXPECT(mw1::wreck_value(c, {mw1::kJenner, 50, 5000}) == (2772000 - 31169 + 500) / 1000);  // less half its repairs
+  // Never below scrap (the Firefly's 30 t x 10): only a repair dearer than the sale, here a 10,000% premium.
+  c.repair_premium = 10000;
+  EXPECT(mw1::wreck_value(c, {mw1::kLocust, 0, mw1::kWhole}) == 300);
 }
 
 TEST(mw1_market_saved_and_a_version_1_save_read) {

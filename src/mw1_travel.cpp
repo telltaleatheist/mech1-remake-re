@@ -5,6 +5,7 @@
 
 #include "mw1_market.h"
 #include "mw1_pilots.h"
+#include "mw1_repairs.h"
 
 namespace mw1::travel_rules {
 
@@ -265,6 +266,7 @@ Trip travel(Company& c, int32_t i, Rng& rng) {
   const int32_t units = travel_units(here, to);
   set_planet(c, i);
   advance_time(c, units, rng);
+  roll_premium(c, rng);   // the world's repair premium, rolled on arrival (PLANET 081B)
   refresh_world(c, rng);  // arrival restocks, whatever the clock did
   c.market_clock = 0;
   return Trip::kDone;

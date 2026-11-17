@@ -15,6 +15,7 @@
 #include "mech3/mech_names.h"
 #include "mech3/pilot.h"
 #include "mw1_campaign.h"
+#include "mw1_repairs.h"
 
 namespace fs = std::filesystem;
 
@@ -133,13 +134,16 @@ TEST(mw1_campaign_accept_and_settle) {
   const int64_t start = c.funds;
   mw1::accept(c, k);  // 6% of 150 thousand: 9 thousand now, 141 left
   EXPECT(c.funds == start + 9000 && k.remaining == 141 && k.accepted);
-  // A whole Jenner at tier 0 is its PM chassis's (the Owens's) sale price there: (10-1) x 100 x (95 x 35 - 245) =
-  // 2,772 thousand (MW1's own Jenner price gave 2,865); scrap at 35% or less, the chassis's 35 t x 10.
-  EXPECT(mw1::wreck_value(c, {mw1::kJenner, 100}) == 2772 && mw1::wreck_value(c, {mw1::kJenner, 35}) == 350);
-  // Success (Davion always pays 100%): 5% of the wrecks, and the fee's remainder; +2 favor, the kills counted. The
-  // Locust's scrap is its chassis's (the Firefly's 30 t: 300, was 200 for MW1's 20 t).
-  const mw1::Settlement s = mw1::settle(c, k, mw1::Outcome::kSuccess, {{mw1::kJenner, 100}, {mw1::kLocust, 20}}, rng);
-  EXPECT(s.payout_percent == 100 && s.salvage == (2772 + 300) * 5 / 100 * 1000 && s.fee == 141000);
+  // A wreck pays its PM chassis's sale price there less its repairs (mw1_repairs.h). An undamaged Jenner (the Owens)
+  // at tier 0: (10-1) x 100 x (95 x 35 - 245) = 2,772 thousand. Half its repairs at an 18% premium: (172 x 35 - 150)
+  // x 9 x 1.18 / 2 = 31,169 off: 2,741.
+  c.repair_premium = 18;
+  EXPECT(mw1::wreck_value(c, {mw1::kJenner, 100, 0}) == 2772 && mw1::wreck_value(c, {mw1::kJenner, 50, 5000}) == 2741);
+  // Success (Davion always pays 100%): 5% of the wrecks, and the fee's remainder; +2 favor, the kills counted. A
+  // Locust (the Firefly, 30 t) wholly to repair: 2,344,000 - 53,206 = 2,291 thousand.
+  const mw1::Settlement s =
+      mw1::settle(c, k, mw1::Outcome::kSuccess, {{mw1::kJenner, 100, 0}, {mw1::kLocust, 0, mw1::kWhole}}, rng);
+  EXPECT(s.payout_percent == 100 && s.salvage == (2772 + 2291) * 5 / 100 * 1000 && s.fee == 141000);
   EXPECT(c.funds == start + 9000 + s.salvage + s.fee && c.favor[mw1::kDavion] == 2 && c.kills == 2 && !k.accepted);
   // A retreat pays nothing and costs a grievance; a failure pays nothing either way.
   const int64_t before = c.funds;

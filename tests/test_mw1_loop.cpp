@@ -148,6 +148,16 @@ struct Run {
   int32_t allies = 0;
   std::vector<mw1::AllyLaunch> launches;  // the loop's, at the launch
   std::vector<std::string> bar_lines, bar_after;  // the Bar as first shown, and after the buttons
+  // Repairs (mw1_repairs.h): in the mission, a hit on the player's mech (that much on part 2), and a field base's
+  // repair as the engine's hook offers it (ProgramFlow::mech_repaired: the armor at half before, mended now).
+  float hit_player = 0;
+  bool mend_player = false;
+  // The failed run's lab fit adds a laser without room (config_valid refuses it, so the mech launches unconfigured,
+  // its parts with no armor): off where the mech's damage is read.
+  bool no_lab_fit = false;
+  // The commander's mech destroyed in the mission (an idle Firefly put in the hangar first): lost, the Firefly theirs.
+  bool kill_player = false, spare_set = false;
+  int64_t bill_shown = -1;  // AFTER ACTION's "Repair bill: ", -1 none
 };
 int loadout_items(const mw1::Company* c) { return c && c->loadout ? static_cast<int>(c->loadout->items.size()) : -1; }
 
@@ -183,7 +193,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
   p.window = &window, p.alert = &alert, p.clock = &clock, p.movie_clock = &movies, p.screen = &screen;
   p.sound = &sound, p.files = &files, p.input = &keys;
   int64_t funds_at_offer = 0, funds_in_mission = 0;
-  int64_t salvage_shown = -1, fee_shown = -1;  // the first AFTER ACTION's settlement, as rolled
+  int64_t salvage_shown = -1, fee_shown = -1, bill_shown = 0;  // the first AFTER ACTION's settlement, as rolled
   int32_t favor_at_offer[mw1::kHouseCount] = {}, grievance_at_offer[mw1::kHouseCount] = {};
   int market_step = 0;
   int hubs = 0, hub_frames = 0, enemies = 0, killed = 0, items_at_offer = 0, target = -1;
@@ -351,7 +361,11 @@ void loop_run(Ending ending, Run* run = nullptr) {
               }
             return -1;
           };
-          if (salvage_shown < 0) salvage_shown = amount("Salvage: "), fee_shown = amount("Payment: ");
+          if (salvage_shown < 0) {
+            salvage_shown = amount("Salvage: "), fee_shown = amount("Payment: ");
+            bill_shown = std::max<int64_t>(0, amount("Repair bill: "));
+            if (run) run->bill_shown = amount("Repair bill: ");
+          }
           EXPECT(has("AFTER ACTION") && sc->visible(mw1::kHubOk) && !sc->visible(mw1::kHubAccept) && !sc->visible(mw1::kHubDecline));
           EXPECT(sc->visible(mw1::kHubReplay) == failed);
           if (run && run->after_action.empty()) run->after_action = shown;
@@ -377,6 +391,12 @@ void loop_run(Ending ending, Run* run = nullptr) {
           return;
         }
         if (!hub_checked && run && run->travel && run->plaque_after.empty()) run->plaque_after = shown.size() > 2 ? shown[0] + "|" + shown[2] : "";  // the planet, the date
+        if (!hub_checked && run && run->kill_player && !run->spare_set) {
+          mw1::OwnedMech o;
+          o.mech = mw1::kPmFirefly;
+          mw1::game_loop_company_for_tests()->hangar.push_back(o);
+          run->spare_set = true;
+        }
         if (!hub_checked && run && run->lance && !run->lance_set) {
           // Two recruits in the Bar and two mechs in the hangar; the Bar's buttons do the rest.
           mw1::Company* mc = mw1::game_loop_company_for_tests();
@@ -450,7 +470,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
           // The failed run (no salvage after) fits a laser as the lab does (GameSlot::set_config with the store,
           // taking): one of the copy's two ER medium lasers onto the Owens. Not at a replay's briefing.
           mech3::ActionGame* g = p ? p->action() : nullptr;
-          if (ending == kFailed && !replaying && g && g->slot.config && lab) {
+          if (ending == kFailed && !replaying && g && g->slot.config && lab && !(run && run->no_lab_fit)) {
             lab_lasers = er_medium_lasers(lab->items), stock_lasers = er_medium_lasers(g->slot.config->items);
             mech3::Config* fitted = mech3::pilot_hooks().config_copy(*g->slot.config);
             fitted->add_weapon(5, mech3::kInnerSphere);
@@ -513,6 +533,18 @@ void loop_run(Ending ending, Run* run = nullptr) {
           mech3::move_mech(mech3::mech_mission_player(), at, 0.0f);
         }
         return;
+      }
+      // Repairs: the player's mech hit, or a field base's repair offered as the engine's hook does.
+      if (run && run->hit_player > 0) mech3::mech_hit_part(mech3::mech_mission_player(), 2, run->hit_player);
+      if (run && run->kill_player) {
+        int32_t n2 = 0;
+        const mech3::AiMechMade* ai2 = mech3::mission_ai_mechs(&n2);
+        if (n2 > 0) mech3::program_mech_kill_credit(ai2[0].mech, mech3::mech_mission_player());
+      }
+      if (run && run->mend_player) {
+        float armor[11], structure[11];
+        for (int b = 0; b < 11; ++b) armor[b] = 0.5f, structure[b] = 1.0f;
+        mech3::program_flow()->mech_repaired(mech3::mech_mission_player(), armor, structure);
       }
       // The lancemates (allies, team 1): their brains' names and aims; Holmaas's mech destroyed with the enemies.
       enemies = 0;
@@ -583,8 +615,8 @@ void loop_run(Ending ending, Run* run = nullptr) {
   EXPECT(hubs == 4 + (run && run->market ? 1 : 0) + (run && run->travel ? 1 : 0) + (run && run->lance ? 1 : 0) && hub_checked && declined && back_at_main && enemies > 0 && killed == (ending == kReach ? 0 : enemies));
   if (ending == kReach) EXPECT(reach_only && reached);
   EXPECT(c && funds_in_mission > funds_at_offer);  // the advance, at LAUNCH
-  EXPECT(c && c->loadout);                         // the briefing's loadout, the company's from LAUNCH
-  if (ending == kFailed && c && c->loadout) {
+  EXPECT(c && (c->loadout || (run && run->kill_player)));  // the briefing's loadout (lost with the mech: the spare's stock)
+  if (ending == kFailed && c && c->loadout && !(run && run->no_lab_fit)) {
     // The lab's change is the company's from LAUNCH: the laser out of the stores and on the mech.
     std::printf("  the lab: ER medium lasers in the stores %d -> %d, on the Owens %d -> %d\n", lab_lasers,
                 er_medium_lasers(c->stores->items), stock_lasers, er_medium_lasers(c->loadout->items));
@@ -610,15 +642,16 @@ void loop_run(Ending ending, Run* run = nullptr) {
     // The fee (at the payout the settlement rolled: Kurita's and Liao's can be 0%) and the salvage, exactly as AFTER
     // ACTION showed them.
     // With lancemates, less their wages for the mission's months (mw1_pilots.h), whole months of the survivors'.
-    const int64_t wages = c ? funds_in_mission + salvage_shown + fee_shown - c->funds : -1;
+    const int64_t wages = c ? funds_in_mission + salvage_shown + fee_shown - bill_shown - c->funds : -1;
     std::printf("  won: wages for the mission's months %lld\n", static_cast<long long>(wages));
     EXPECT(c && salvage_shown >= 0 && fee_shown >= 0 &&
            (c->lance.empty() ? wages == 0 : wages >= 0 && wages % mw1::monthly_wages(*c) == 0));
     if (employer == mw1::kDavion) EXPECT(c && c->funds > funds_in_mission);  // Davion always pays in full
     EXPECT(c && c->stores->count() > items_at_offer);                    // the enemies' parts
   } else {
-    // No fee, no salvage, no parts.
-    EXPECT(c && c->funds == funds_in_mission && c->stores->count() == items_at_offer);
+    // No fee, no salvage, no parts; an accepted failure's repairs billed (never below 0), a quit's none.
+    if (ending == kQuit) EXPECT(bill_shown == 0);
+    EXPECT(c && c->funds == funds_in_mission - bill_shown && c->stores->count() == items_at_offer);
   }
   for (int32_t r = 0; c && r < mech3::kMechCount; ++r) EXPECT(c->stores->has_mech(r) == nullptr);  // never a mech
   if (run && c) run->funds_end = c->funds, run->items_end = c->stores->count(), run->loadout_end = loadout_items(c);
@@ -984,4 +1017,44 @@ TEST(mw1_loop_a_full_lance_flies_on_a_pm_map_headless) {
     EXPECT(shows("Elli Gujar: flew") && shows("J. Holmaas: mech destroyed") && shows("Taris Ren: flew"));
     for (const std::string& l : run.after_action) EXPECT(l.find("stayed behind") == std::string::npos);
   });
+}
+
+// Repairs (mw1_repairs.h) through the loop: the player's mech hit in a won mission, the bill shown on AFTER ACTION
+// and taken from the fee and salvage; a field base's repair (the engine's hook, ProgramFlow::mech_repaired) billed on
+// an accepted failure, and dropped on a quit.
+TEST(mw1_loop_repairs_billed_won_failed_and_never_on_a_quit_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_loop_repairs";
+  struct Case { const char* name; Ending ending; float hit; bool mend; bool billed; bool killed; };
+  const Case cases[] = {{"won, hit", kWon, 40.0f, false, true, false},
+                        {"failed and accepted, a field base", kFailed, 0, true, true, false},
+                        {"quit, a field base", kQuit, 0, true, false, false},
+                        {"failed and accepted, the commander's mech destroyed", kFailed, 0, false, false, true}};
+  for (const Case& k : cases) {
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    in_child([&] {
+      Run run;
+      run.save = (dir / mw1::kSaveFile).string();
+      run.hit_player = k.hit, run.mend_player = k.mend, run.no_lab_fit = true, run.kill_player = k.killed;
+      loop_run(k.ending, &run);
+      std::printf("  %s: the bill shown %lld; AFTER ACTION:", k.name, static_cast<long long>(run.bill_shown));
+      for (const std::string& l : run.after_action) std::printf(" [%s]", l.c_str());
+      std::printf("\n");
+      if (k.killed) {
+        // Lost, not billed; the commander in the Firefly, saved so.
+        bool said = false;
+        for (const std::string& l : run.after_action) said = said || l == "Lost: your Owens. You take the Firefly.";
+        mw1::Company saved;
+        mw1::Contract kk;
+        bool has = false;
+        std::string why;
+        EXPECT(said && mw1::load_file(run.save, saved, kk, &has, &why) == mw1::Loaded::kLoaded);
+        EXPECT(saved.mech == mw1::kPmFirefly && saved.hangar.empty());
+      } else {
+        EXPECT(k.billed ? run.bill_shown > 0 : run.bill_shown < 0);
+      }
+    });
+  }
 }

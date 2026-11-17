@@ -145,6 +145,8 @@ struct Company {
   PilotState pilots[kPilotIds];
   std::vector<int32_t> recruits;
   bool wage_warned = false;
+  // The world's repair premium in percent (mw1_repairs.h; MW1's planetMarketPremiumPercent, rolled on arrival).
+  int32_t repair_premium = 18;
   // What happened since the hub last showed it (wages, promotions, casualties): the hub's lines, not saved.
   std::vector<std::string> notices;
 };
@@ -191,8 +193,8 @@ void accept(Company& c, Contract& k);
 enum class Outcome { kSuccess, kFailure, kRetreat };
 struct Wreck {
   int32_t kind = 0;        // MW1 kind
-  int32_t condition = 0;   // percent left; 35 or less is scrap. Provisional (research/contracts.md): the share of
-                           // the mech's parts still standing
+  int32_t condition = 0;   // percent of its parts still standing (the log's; before save version 5 the pay's)
+  int32_t damage = 0;      // its repairs, in ten-thousandths of a full one (mw1_repairs.h), read as it died
 };
 // A mission back and not settled yet: what the hub's AFTER ACTION shows until OK settles it (or REPLAY plays the
 // contract again). Saved whole (mw1_save.h), so a restart shows it again: never settled twice, never lost.
@@ -206,6 +208,13 @@ struct AfterAction {
   std::vector<Wreck> wrecks;
   std::vector<LanceFate> lance;  // the lancemates who launched
   std::vector<int32_t> stayed;   // those deployed with a mech the map had no allied place for (never flew)
+  // The company's mechs come back (mw1_repairs.h's MechBill: who, the mech, its damage with field bases' mending,
+  // destroyed), billed when the mission counts.
+  struct Bill {
+    int32_t who = 0, mech = -1, damage = 0;
+    bool destroyed = false;
+  };
+  std::vector<Bill> bills;
   std::shared_ptr<mech3::Store> salvage;         // the mission's parts, the stores' on a win
   std::shared_ptr<mech3::Store> launch_stores;   // the company's stores at the contract's first launch (REPLAY)
   std::shared_ptr<mech3::Config> launch_loadout;  // and its loadout (null: stock)
