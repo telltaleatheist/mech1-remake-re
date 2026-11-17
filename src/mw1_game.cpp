@@ -10,6 +10,7 @@
 #include "mech3/app_mech.h"
 #include "mech3/mech_names.h"
 #include "mech3/mech_objective.h"
+#include "mech3/mech_config.h"
 #include "mech3/mission.h"
 #include "mech3/pilot.h"
 #include "mech3/program_flow.h"
@@ -19,6 +20,7 @@ namespace mw1 {
 namespace {
 
 constexpr int32_t kBoxOk = 0, kBoxYesNo = 4, kAnswerYes = 6;  // the message box's styles and answer (Win32's)
+constexpr const char* kPilotName = "MW1 Company";  // the company's PM pilot (step 2)
 constexpr float kReachRadius = 10.0f;  // metres from the structure's node (reach_area's own default is 25)
 constexpr int32_t kReachIa = 2;        // the map with the structures (c2's ia2)
 
@@ -45,8 +47,11 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // Back from a contract's mission, the main menu stays MW1's even when the next offer is declined: taken over,
     // Instant Action's own return (its screen reopened) does not follow (program_flow.h).
     const bool returning = deployed_;
-    if (deployed_) {
+    if (deployed_ && !launched_) {  // ABORT at the briefing: the company as it was, the contract not taken
       deployed_ = false;
+      std::printf("mw1: aborted at the briefing: nothing changed\n");
+    } else if (deployed_) {
+      deployed_ = false, launched_ = false;
       const Outcome o = ended_ && !failed_ ? Outcome::kSuccess : failed_ ? Outcome::kFailure : Outcome::kRetreat;
       const Settlement s = settle(company_, contract_, o, wrecks_, rng_);
       // The parts are kept only on a win (VISION.md, the endings): failed or quit, the mission's salvage is dropped.
@@ -78,9 +83,35 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     std::printf("mw1: offered: %s, %d thousand, %zu enemies\n", reach ? ("reach " + contract_.structure).c_str() : "destroy all",
                 contract_.payment, contract_.enemies.size());
     if (static_cast<int32_t>(ge.message_box_words(kBoxYesNo, "MechWarrior 1: Critical Hit", offer)) != kAnswerYes) return returning;
-    accept(company_, contract_);
     deploy(ge);
     return true;
+  }
+
+  // LAUNCH: the lab's choices become the company's (the stores and the loadout, from the briefing's copy). The
+  // contract is accepted and its advance paid at its first launch only; a later launch of the same contract (a
+  // replay; none reaches here yet, an IA REPLAY ends the mission as a failure) puts back what the first launch
+  // left. Each launch starts the mission's salvage and wrecks afresh.
+  void mission_launched(mech3::Engine&) override {
+    mech3::Pilot* p = mech3::current_pilot();
+    mech3::ActionGame* g = p ? p->action() : nullptr;
+    if (!deployed_ || !g) return;
+    if (!launched_) {
+      accept(company_, contract_);
+      company_.stores->assign(g->store);
+      company_.loadout = g->slot.config ? copy_config(*g->slot.config) : nullptr;
+      launch_stores_ = std::make_shared<mech3::Store>();
+      launch_stores_->assign(*company_.stores);
+      launch_loadout_ = company_.loadout;
+      launched_ = true;
+    } else {
+      company_.stores->assign(*launch_stores_);
+      company_.loadout = launch_loadout_;
+    }
+    wrecks_.clear();
+    salvage_ = std::make_unique<mech3::Store>();
+    ended_ = failed_ = false;
+    std::printf("mw1: launched: %d items in the stores, the loadout %s\n", company_.stores->count(),
+                company_.loadout ? "the lab's" : "stock");
   }
 
   void mission_ending(mech3::Engine& e) override {
@@ -129,34 +160,51 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   bool add_enemy_group(const mech3::Objectives&) override { return !deployed_ || !reach_set_; }
 
  private:
-  // The contract's map (an Instant Action archive, plain Battle), the enemy force, and the company's mech, straight
-  // into the drop (the briefing and the lab come with the hidden pilot, step 2).
+  static std::shared_ptr<mech3::Config> copy_config(const mech3::Config& c) {
+    return std::shared_ptr<mech3::Config>(mech3::pilot_hooks().config_copy(c));
+  }
+
+  // The company's own PM pilot (step 2), in mw1's write dir and never PM's; made once, the player never picks it.
+  static mech3::Pilot* company_pilot() {
+    mech3::Pilot* p = mech3::find_pilot(kPilotName);
+    return p ? p : mech3::create_pilot(kPilotName);
+  }
+
+  // The contract as the Action screen's LAUNCH sets a game up (action_menu.cpp): the company pilot's Instant Action
+  // game, its map and mode, the enemy force, the company's mech and loadout, and as its store a copy of the
+  // company's stores, which only LAUNCH writes back. Then the Load state: the briefing, its MECHLAB, its LAUNCH.
   void deploy(mech3::GameEngine& ge) {
+    mech3::Pilot* p = company_pilot();
+    mech3::current_pilot() = p;
+    p->select_game(mech3::kInstantAction);
+    mech3::ActionGame* g = p->action();
     const int32_t world = mech3::mission_dir_index(contract_.world.c_str());
-    game_ = std::make_unique<mech3::ActionGame>(nullptr);
-    game_->set_mode(contract_.mode);
-    game_->set_world(world, contract_.ia);
-    game_->slot.mech = company_.mech;
-    for (int32_t k : contract_.enemies) game_->add(kMechKinds[k].pm_mech, 0, nullptr, 0);
-    mech3::GameEngine::Launch l;
-    l.type = 2, l.index = world, l.number = contract_.ia, l.op = world + 1;
-    l.mech = company_.mech;
-    l.action = game_.get();
-    ge.set_launch(l);
-    wrecks_.clear();
-    salvage_ = std::make_unique<mech3::Store>();
-    ended_ = failed_ = false, deployed_ = true;
-    std::printf("mw1: deployed to %sia%d with the %s\n", contract_.world.c_str(), contract_.ia, mech3::mech_name(company_.mech));
-    ge.replace_state(6);  // the Load state, then Core
+    while (g->count > 0) g->remove(0);
+    g->set_mode(contract_.mode);
+    g->field_bases = 0;
+    if (g->slot.mech != company_.mech) g->slot.set_config(nullptr), g->slot.mech = company_.mech;
+    g->slot.set_config(company_.loadout.get());  // a copy; null: the stock loadout
+    for (int32_t k : contract_.enemies) g->add(kMechKinds[k].pm_mech, 0, nullptr, 0);
+    g->x6c = 1, g->x70 = 0;
+    g->set_world(world, contract_.ia);
+    g->store.clear();
+    g->store.full = 0;
+    g->store.add_all(*company_.stores);
+    p->save();
+    deployed_ = true, launched_ = false;
+    std::printf("mw1: deployed to %sia%d with the %s: the briefing\n", contract_.world.c_str(), contract_.ia,
+                mech3::mech_name(company_.mech));
+    ge.replace_state(6);  // the Load state: the briefing, then LAUNCH
   }
 
   Rng rng_;
   Company company_;
   Contract contract_;
-  std::unique_ptr<mech3::ActionGame> game_;
+  std::shared_ptr<mech3::Store> launch_stores_;   // the company's stores at the contract's first launch
+  std::shared_ptr<mech3::Config> launch_loadout_;  // and its loadout
   std::vector<Wreck> wrecks_;
   std::unique_ptr<mech3::Store> salvage_;  // this mission's parts, the stores' on a win
-  bool deployed_ = false, ended_ = false, failed_ = false, reach_set_ = false;
+  bool deployed_ = false, launched_ = false, ended_ = false, failed_ = false, reach_set_ = false;
   std::string reach_;  // install_game_loop's structure: every contract reach-a-structure
 };
 

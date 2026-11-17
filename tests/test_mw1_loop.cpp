@@ -22,7 +22,10 @@
 #include "mech3/app_engine.h"
 #include "mech3/app_mech.h"
 #include "mech3/app_states.h"
+#include "mech3/briefing.h"
+#include "mech3/mech_config.h"
 #include "mech3/mech_control.h"
+#include "mech3/mech_names.h"
 #include "mech3/mech_objective.h"
 #include "mech3/mission.h"
 #include "mech3/options.h"
@@ -78,7 +81,16 @@ struct Pump : platform::MessagePump {
 };
 
 // kReach: the reach-a-structure contract (c2's ia2, portalgate), won by walking there, nobody killed.
-enum Ending { kWon, kFailed, kQuit, kReach };
+// kAbort: ABORT at the briefing, the company untouched.
+enum Ending { kWon, kFailed, kQuit, kReach, kAbort };
+
+// ER medium lasers (the lab's weapon 5) among a store's or a loadout's items.
+int32_t er_medium_lasers(const std::list<mech3::ConfigItem*>& items) {
+  int32_t n = 0;
+  for (const mech3::ConfigItem* it : items)
+    if (it->kind() == 1 && it->id() == 5) n += it->count;
+  return n;
+}
 
 void loop_run(Ending ending) {
   zgame::set_game(pm::table());
@@ -109,7 +121,11 @@ void loop_run(Ending ending) {
   p.sound = &sound, p.files = &files, p.input = &keys;
   int64_t funds_at_offer = 0, funds_in_mission = 0;
   int boxes = 0, enemies = 0, killed = 0, items_at_offer = 0, target = -1;
-  bool ended = false, back_at_main = false, reach_only = false, reached = false;
+  bool ended = false, back_at_main = false, reach_only = false, reached = false, briefed = false;
+  int briefing_frames = 0, lab_items = -1, lab_lasers = -1, stock_lasers = -1;
+  uint8_t lab_full = 1;
+  int64_t funds_at_briefing = 0;
+  std::string pilot_name;
   int reach_frames = 0;
   {
     mech3::GameEngine engine(p, "mech3.exe -nofmv");
@@ -126,12 +142,40 @@ void loop_run(Ending ending) {
         target = k ? k->target : -1;
       }
       std::printf("  box %d: %s\n", boxes, engine.last_box_text.c_str());
-      return boxes == 1 ? 6u : boxes == 2 ? 1u : 7u;
+      // The first offer YES; the settlement OK; the next offer (it names the planet) NO.
+      if (boxes == 1) return 6u;
+      return engine.last_box_text.rfind(mw1::game_loop_company()->planet, 0) == 0 ? 7u : 1u;
     };
     int frames = 0;
     engine.on_present = [&](int) {
       if (app.pending()) return;
-      if (boxes >= 3 && app.current() == &mech3::states().main) back_at_main = true;
+      if (boxes >= (ending == kAbort ? 2 : 3) && app.current() == &mech3::states().main) back_at_main = true;
+      // The briefing (step 2: the company pilot's Instant Action game): once loaded, LAUNCH (or ABORT).
+      if (!briefed && app.current() == &mech3::states().load) {
+        auto* b = dynamic_cast<mech3::BriefingScreen*>(engine.screen_of(mech3::states().load.screen_));
+        if (b && b->loaded && ++briefing_frames == 30) {
+          const mw1::Company* c = mw1::game_loop_company();
+          mech3::Pilot* p = mech3::current_pilot();
+          const mech3::Store* lab = p ? p->store() : nullptr;
+          lab_items = lab ? lab->count() : -1, lab_full = lab ? lab->full : 1;
+          pilot_name = p ? p->name : "";
+          funds_at_briefing = c ? c->funds : 0;
+          briefed = true;
+          // The failed run (no salvage after) fits a laser as the lab does (GameSlot::set_config with the store,
+          // taking): one of the copy's two ER medium lasers onto the Owens.
+          mech3::ActionGame* g = p ? p->action() : nullptr;
+          if (ending == kFailed && g && g->slot.config && lab) {
+            lab_lasers = er_medium_lasers(lab->items), stock_lasers = er_medium_lasers(g->slot.config->items);
+            mech3::Config* fitted = mech3::pilot_hooks().config_copy(*g->slot.config);
+            fitted->add_weapon(5, mech3::kInnerSphere);
+            g->slot.set_config(fitted, p->store(), true);
+            delete fitted;
+          }
+          if (ending == kAbort) b->abort();
+          else b->launch();
+        }
+        return;
+      }
       if (ended || app.current() != &mech3::states().core) return;
       if (ending == kReach && frames >= 30) {  // walked there: the objective done, Instant Action's end as above
         reached = reached || mech3::missions().ended;
@@ -176,13 +220,39 @@ void loop_run(Ending ending) {
     mech3::set_app(nullptr);
   }
   const mw1::Company* c = mw1::game_loop_company();
-  static const char* const kSaid[] = {"won", "failed", "quit", "reach"};
+  static const char* const kSaid[] = {"won", "failed", "quit", "reach", "abort"};
   std::printf("  mw1 loop, %s: %d boxes, %d enemies, %d disabled, funds %lld -> %lld, stores %d -> %d items, kills %d, favor %d\n",
               kSaid[ending], boxes, enemies, killed, static_cast<long long>(funds_at_offer), c ? static_cast<long long>(c->funds) : -1LL,
               items_at_offer, c ? c->stores->count() : -1, c ? c->kills : -1, c ? c->favor[c->planet_house] : -1);
+  // The briefing: the company's pilot, its game's store the company's stores (a copy, not PM's full one), and
+  // nothing taken before LAUNCH.
+  std::printf("  briefing: pilot \"%s\", the lab's store %d items (full %d), funds at the briefing %lld\n", pilot_name.c_str(),
+              lab_items, lab_full, static_cast<long long>(funds_at_briefing));
+  EXPECT(briefed && pilot_name == "MW1 Company" && lab_items == items_at_offer && lab_full == 0);
+  EXPECT(funds_at_briefing == funds_at_offer);
+  EXPECT(fs::exists(fs::path(wd) / "pilots", ec));  // in mw1's own write dir
+  if (ending == kAbort) {
+    // ABORT: no mission, the contract not taken, nothing paid or moved; the next offer at once.
+    EXPECT(boxes == 2 && back_at_main && enemies == 0);
+    EXPECT(c && c->funds == funds_at_offer && c->stores->count() == items_at_offer && !c->loadout);
+    for (int h = 0; c && h < mw1::kHouseCount; ++h) EXPECT(c->favor[h] == 0 && c->grievance[h] == 0);
+    mw1::uninstall_game_loop();
+    zrdr::close_archives(true);
+    mech3::reset_states();
+    mech3::options() = mech3::Options{};
+    return;
+  }
   EXPECT(boxes == 3 && back_at_main && enemies > 0 && killed == (ending == kReach ? 0 : enemies));
   if (ending == kReach) EXPECT(reach_only && reached);
-  EXPECT(c && funds_in_mission > funds_at_offer);  // the advance, at accepting
+  EXPECT(c && funds_in_mission > funds_at_offer);  // the advance, at LAUNCH
+  EXPECT(c && c->loadout);                         // the briefing's loadout, the company's from LAUNCH
+  if (ending == kFailed && c && c->loadout) {
+    // The lab's change is the company's from LAUNCH: the laser out of the stores and on the mech.
+    std::printf("  the lab: ER medium lasers in the stores %d -> %d, on the Owens %d -> %d\n", lab_lasers,
+                er_medium_lasers(c->stores->items), stock_lasers, er_medium_lasers(c->loadout->items));
+    EXPECT(lab_lasers == 2 && er_medium_lasers(c->stores->items) == 1);
+    EXPECT(er_medium_lasers(c->loadout->items) == stock_lasers + 1);
+  }
   // The Houses (VISION.md, the endings): the House you fought +2 grievance every time; the employer +2 favor on
   // a win, nothing on a failure, +1 grievance on a quit.
   const int32_t employer = c ? c->planet_house : 0;
@@ -213,10 +283,10 @@ void loop_run(Ending ending) {
 }
 }  // namespace
 
-TEST(mw1_loop_hub_contract_mission_settlement_won_failed_quit_reach_headless) {
+TEST(mw1_loop_hub_briefing_mission_settlement_won_failed_quit_reach_abort_headless) {
   std::error_code ec;
   if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
-  for (const Ending ending : {kWon, kFailed, kQuit, kReach}) {
+  for (const Ending ending : {kWon, kFailed, kQuit, kReach, kAbort}) {
 #if !defined(_WIN32)
     std::fflush(nullptr);
     const pid_t child = check::fork_child();
