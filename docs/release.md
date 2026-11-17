@@ -185,6 +185,13 @@ MechWarrior 3 and Pirate's Moon (Owen, 2026-11-09), plus each game alone, all on
 one GitHub release. The launcher's updater takes only the combined package's
 name (launcher.md, Updates).
 
+MechWarrior 1: Critical Hit joins the combined package (Owen, 2026-11-17): built
+from the branch `mw1`, `mw1` and its `mw1data/` go beside the launcher, whose
+MECHWARRIOR 1 entry starts it (launcher.md, MechWarrior 1). One launcher, three
+games. MW3 alone and PM alone never carry it. On Windows `combined.cmd` takes
+the mw1 ref third (below); the Mac's and Linux's `combined.sh` do not carry it
+yet.
+
 | Platform | Combined (the updater's) | MechWarrior 3 alone | Pirate's Moon alone |
 |---|---|---|---|
 | Windows | `MW3-Rebuild-Setup-<v>.exe`, `MW3-Rebuild-<v>-win64.zip` | `MW3-alone-Setup-<v>.exe`, `MW3-alone-<v>-win64.zip` | `PM-Rebuild-Setup-<pm v>.exe`, `mw3pm-<pm v>-win64.zip` |
@@ -193,7 +200,7 @@ name (launcher.md, Updates).
 
 The combined and MW3-alone Windows installers share 1.0's AppId, so either
 upgrades an existing install in place (MW3 alone removes a combined install's
-`mw3pm.exe`); PM alone has its own. The Mac apps are "MechWarrior 3.app"
+`mw3pm.exe`, and MW1's `mw1.exe` and `mw1data\`); PM alone has its own. The Mac apps are "MechWarrior 3.app"
 (combined and MW3 alone, one bundle id, replacing 1.0's) and "Pirate's
 Moon.app".
 
@@ -216,7 +223,8 @@ Moon.app".
       `tools/package/combined.sh mac v1.1.0 pm-v1.0.2 --deps` on the Mac,
       `tools/package/combined.sh linux v1.1.0 pm-v1.0.2 PREFIX TOOLS` in WSL
       (PREFIX: `build-deps/linux/prefix`, the one with FFmpeg),
-      `tools\package\combined.cmd v1.1.0 pm-v1.0.2` on the PC. Each makes the
+      `tools\package\combined.cmd v1.1.0 pm-v1.0.2 <mw1 ref>` on the PC (the third
+      ref builds MW1 into the combined package; without it, none). Each makes the
       three packages in `build-pkg/dist/<platform>/` with their SHA256SUMS and
       runs the platform's own checks (section 3) on each.
 - [ ] No version ends in `-dirty`, and the combined package's file names carry
