@@ -103,3 +103,14 @@ Tick an item when it is merged into `main`.
   - DEPLOY gets a tile of its own (a dropship launch: art to come; until then `deploy_launch` cropped).
   - MAIN MENU moves inside OPTIONS (MW1's options hold save, load and quit).
 
+## 12. [ ] Blocky, low-resolution text and pictures
+- **Owen (2026-11-17):** "The text looks like it's really low resolution. Chunky and blocky ... hard to read. I get the impression it's not the font itself, it's something else."
+- **Cause:**
+  - It isn't the fonts (Saira Condensed and Share Tech Mono are sharp). PM's 2D layer draws every menu on a canvas 480 pixels high (854×480 at 16:9), and the window scales that canvas up: about 2.3× in Owen's 2000×1125 window, 4.5× at 4K.
+  - So the glyphs are rasterised at 480-line size and magnified, and so are the pictures (packed at 854×480 from 1344×768 sources).
+  - Phase 1 noted this limit and deferred a high-resolution 2D path until Owen found it soft. He has.
+- **Wanted:**
+  - MW1's 2D drawn at the window's own resolution. Layouts stay in canvas coordinates; text is rasterised at the scaled size; pictures are packed at a higher resolution (at least the 1344×768 sources, scaled down per window) and drawn at device pixels.
+  - An "ours" engine path, opt-in, with MW3 and PM unchanged.
+  - The image archive's size needs a plan (compressed pixels, or PNGs kept as PNGs) before the art is repacked at a higher resolution.
+
