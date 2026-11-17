@@ -111,7 +111,18 @@ Our own choices:
   weight. DECLINE already gives a new offer, so this adds no new reroll.
 - **The Bar refreshes** with the market (on arrival, every 14 units, on a
   mission's return), and once when a save from before version 4 is loaded.
-- **In a mission,** a lancemate is one of Instant Action's allies. The map's
-  ally record picks the AI behaviour, so a map with no ally record of a
-  fitting weight class flies without them. The radio voice stays the
+- **In a mission,** a lancemate is one of Instant Action's allies, and the
+  map's ally record picks the AI behaviour. The radio voice stays the
   record's.
+- **Allied places.** The line-up (`action_lineup`) gives each ally an unused
+  record of the player's side. It tries the same weight class first, then up
+  to three classes off, so weight never shuts a lancemate out; only the
+  number of records does. Surveyed on 2026-11-17, every shipped Instant
+  Action map has at least three allied records, the lance's maximum:
+  - c1..c4 ia1..3, c3 ia4 and c4 ia4: `pirate_mate_1..3`;
+  - c1 ia4: 7; c2 ia4: 11;
+  - MW3's converted c2 ia1..3: Dominic Paine, Epona Rhi, Alan Mattila.
+  So the offer's lance weight counts every assigned lancemate. Only a mod's
+  map with fewer records leaves anyone behind. Such a lancemate didn't fly
+  (`stayed_behind`), so they earn no mission and can't be a casualty, and
+  AFTER ACTION says "X stayed behind: no place on this map".
