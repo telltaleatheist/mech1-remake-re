@@ -1653,8 +1653,8 @@ TEST(mw1_office_counter_then_agreed_to_the_briefing_headless) {
 }
 
 // Broken off on a world the company can't afford to leave (Kurita, patience 1, no funds): the office says MW1's
-// words and only BACK; the hub says the negotiations are over and the stuck guard's message with why, OFFICE and
-// ACCEPT gone; the travel screen says the same. Then a House that refuses (8 grievances): no offer, its words.
+// words and only BACK; the hub says the negotiations are over and the stuck guard's message with why, ACCEPT gone
+// (OFFICE still opens: a place, as MW1's); the travel screen says the same. Then a House that refuses (8 grievances): no offer, its words.
 TEST(mw1_office_terminated_on_a_stuck_poor_world_and_a_refusal_headless) {
   std::error_code ec;
   if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
@@ -1696,7 +1696,7 @@ TEST(mw1_office_terminated_on_a_stuck_poor_world_and_a_refusal_headless) {
         case 2:
           if (!showing(app, hub)) return false;
           hub_lines = hub->screen()->shown();
-          hub_over = shows_line(hub_lines, "NEGOTIATIONS TERMINATED") && !hub->screen()->enabled(mw1::kHubOffice) &&
+          hub_over = shows_line(hub_lines, "NEGOTIATIONS TERMINATED") && hub->screen()->enabled(mw1::kHubOffice) &&
                      !hub->screen()->visible(mw1::kHubAccept);
           hub_stuck = shows_line(hub_lines, "You can't afford to leave, and the House has broken off negotiations.");
           hub->screen()->on_button(mw1::kHubTravel, 0, 0);
@@ -1717,7 +1717,7 @@ TEST(mw1_office_terminated_on_a_stuck_poor_world_and_a_refusal_headless) {
           mw1::game_loop_offer_again();
           const std::vector<std::string> l = hub->screen()->shown();
           refused = !mw1::game_loop_contract() && shows_line(l, "HOUSE OFFICE") && shows_line(l, "TRAVEL to a world whose House will deal") &&
-                    !hub->screen()->enabled(mw1::kHubOffice);
+                    hub->screen()->enabled(mw1::kHubOffice);  // the office still opens (MW1's): its events, the refusal
           return true;
         }
         default: return true;
@@ -1745,7 +1745,7 @@ TEST(mw1_story_events_on_the_panel_headless) {
     r.save = (dir / mw1::kSaveFile).string(), r.start = mw1::Start::kHub, r.story = true;
     int step = 0, wait = 0;
     bool crest = false, crest_named = false, news = false, choice = false, branch = false, mech_complex = false, office = false;
-    bool back_on_market = false, back_on_office = false;
+    bool back_on_market = false, back_on_office = false, no_offer = false;
     std::string choice_words;
     r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
       mw1::HubState* hub = mw1::game_loop_hub();
@@ -1811,7 +1811,7 @@ TEST(mw1_story_events_on_the_panel_headless) {
           mw1::game_loop_market()->screen()->on_button(mw1::kMarketBack, 0, 0);
           ++step, wait = 0;
           return false;
-        case 6:  // the House office's 0x08 on Galedon V, with an offer there
+        case 6:  // the House office's 0x08 on Galedon V, with no offer there (the office is a place, as MW1's)
           if (showing(app, ev)) {  // the hub's own on this world first (0x27's ambush: RUN)
             ev->screen()->on_button(ev->screen()->visible(mw1::kEventNext) ? mw1::kEventNext : mw1::kEventChoice2, 0, 0);
             wait = 0;
@@ -1819,7 +1819,9 @@ TEST(mw1_story_events_on_the_panel_headless) {
           }
           if (!showing(app, hub)) return false;
           mw1::set_planet(*c, mw1::planet_index(6));
+          c->withdrawn = true;  // the world's offers withdrawn: none to negotiate
           mw1::game_loop_offer_again();
+          no_offer = !mw1::game_loop_contract() && mw1::game_loop_hub()->screen()->enabled(mw1::kHubOffice);
           mw1::game_loop_hub()->screen()->on_button(mw1::kHubOffice, 0, 0);
           ++step, wait = 0;
           return false;
@@ -1831,14 +1833,16 @@ TEST(mw1_story_events_on_the_panel_headless) {
             return false;
           }
           if (!showing(app, mw1::game_loop_office())) return false;
-          back_on_office = office;
+          back_on_office = office && shows_line(mw1::game_loop_office()->screen()->shown(), "No contract on offer.") &&
+                           !mw1::game_loop_office()->screen()->enabled(mw1::kOfficeAccept) &&
+                           !mw1::game_loop_office()->screen()->enabled(mw1::kOfficeSubmit);
           return true;
       }
     };
     menu_run(r);
     std::printf("  crest %d (panel %d), news %d, choice %d %s, branch %d, Mech Complex %d, office %d\n", crest, crest_named, news, choice,
                 choice_words.c_str(), branch, back_on_market, back_on_office);
-    EXPECT(crest && crest_named && news && choice && branch && back_on_market && back_on_office);
+    EXPECT(crest && crest_named && news && choice && branch && back_on_market && back_on_office && no_offer);
     // Saved: the events seen.
     mw1::Company saved;
     mw1::Contract k;

@@ -29,8 +29,8 @@ void HubState::show(const HubView& v) {
   s.buttons[kHubReplay - 1].there = v.after_action && v.replay;
   // The market, the Bar and travel only between missions (not while AFTER ACTION waits).
   s.buttons[kHubMarket - 1].on = s.buttons[kHubTravel - 1].on = s.buttons[kHubBar - 1].on = !v.after_action;
-  // The House office: negotiating the offer (none while AFTER ACTION waits, nor without an offer).
-  s.buttons[kHubOffice - 1].on = !v.after_action && v.offer;
+  // The House office: a place, as MW1's, wherever the world has one (not while AFTER ACTION waits); an offer or not.
+  s.buttons[kHubOffice - 1].on = !v.after_action && v.office;
   Mw1State::show(s);
 }
 

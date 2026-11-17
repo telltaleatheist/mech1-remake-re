@@ -201,12 +201,12 @@ TEST(mw1_office_the_screen_asks_only_what_was_touched) {
   mw1::Contract k = offer(mw1::kLiao);
   mw1::OfficeChoice o;
   const std::vector<std::string> lines = {"Employer: House Liao"};
-  mw1::ScreenView v = mw1::office_view(c, k, o, lines, true);
+  mw1::ScreenView v = mw1::office_view(c, k, o, lines);
   EXPECT(!v.buttons[mw1::kOfficeSubmit - 1].on && v.buttons[mw1::kOfficeAccept - 1].on && v.buttons[mw1::kOfficePayUp - 1].there);
   mw1::step_ask(k, o.ask, mw1::kOfficePayUp);
   mw1::step_ask(k, o.ask, mw1::kOfficeAdvanceDown);
   EXPECT(o.ask.payment == 110 && o.ask.advance == 5 && o.ask.salvage < 0);
-  v = mw1::office_view(c, k, o, lines, true);
+  v = mw1::office_view(c, k, o, lines);
   EXPECT(v.buttons[mw1::kOfficeSubmit - 1].on);
   // MW1's limits: the payment 0..9,999 thousand in 10s, the percents 0..100.
   o.ask.payment = 9990, o.ask.salvage = 100;
@@ -216,10 +216,14 @@ TEST(mw1_office_the_screen_asks_only_what_was_touched) {
   o.ask.payment = 0;
   mw1::step_ask(k, o.ask, mw1::kOfficePayDown);
   EXPECT(o.ask.payment == 0);
-  // Broken off: only BACK.
-  v = mw1::office_view(c, k, o, lines, false);
+  // Broken off (or refused, or nothing on offer): only BACK, the offer's lines gone, why in the terms' place.
+  v = mw1::office_view(c, k, o, lines, {"Broken off.", "No contracts here until you leave."});
   EXPECT(!v.buttons[mw1::kOfficeSubmit - 1].on && !v.buttons[mw1::kOfficeAccept - 1].on && v.buttons[mw1::kOfficeBack - 1].on &&
          !v.buttons[mw1::kOfficePayUp - 1].there);
+  bool none = false, why = false, employer = false;
+  for (const mw1::TextBlock& b : v.blocks)
+    for (const std::string& l : b.lines) none |= l == "No contract on offer.", why |= l == "Broken off.", employer |= l == lines[0];
+  EXPECT(none && why && !employer);
 }
 
 TEST(mw1_office_saved_and_a_version_6_save_read) {

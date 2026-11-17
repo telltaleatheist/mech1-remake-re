@@ -143,3 +143,9 @@ Each is one constant or flag to change.
    always (VISION's "taking items never reduces the cash").
 6. **Grievance refusal** (8+ against the House): the office shows MW1's
    refusal and offers nothing. Not in ours yet; confirm it's wanted.
+
+**Later (mw1 lead 2026-11-17):** the office is a place, as MW1's. It opens
+wherever the world has a House office, with or without an offer. Without
+one, it says "No contract on offer.", shows why in the terms' place (MW1's
+broken-off or refusal words), and greys SUBMIT, ACCEPT and the terms'
+arrows. Its story events (0x08 on Galedon V) fire either way.
