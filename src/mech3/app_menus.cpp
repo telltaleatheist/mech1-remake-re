@@ -89,6 +89,16 @@ Handle GameEngine::adopt_screen(MenuScreen* screen, uint32_t size) {
   return h;
 }
 
+// Ours (app_hooks.h): a program's state, on a block of construct's states' size.
+Handle GameEngine::adopt_state(const std::function<MenuState*(Handle)>& make) {
+  if (!make) return 0;
+  const Handle h = alloc_block(0x10);
+  MenuState* st = make(h);
+  if (!st) return 0;
+  menu_states_[h] = st;
+  return h;
+}
+
 namespace {
 // Ours (16:9 menus, wide_menus with any_resolution; resolution.md section
 // 12): a menu screen on a canvas wider than its 640 frame. A full-width

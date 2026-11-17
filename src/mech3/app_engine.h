@@ -338,6 +338,7 @@ class GameEngine : public Engine {
   MenuState* menu_state_of(Handle h) const;
   MenuState* popup_state_of(Handle h) const;  // the controls screen's popups (+0x16760, +0x1677c)
   Handle adopt_screen(MenuScreen* screen, uint32_t size) override;
+  Handle adopt_state(const std::function<MenuState*(Handle)>& make) override;  // ours (app_hooks.h)
   Handle state_screen(Handle state) override;
   Handle joy_state() override;                 // 0x0051dce0: zin::joy_state
   float source_value(int32_t src, Handle joy) override;  // 0x0042fea0: mech3::source_value

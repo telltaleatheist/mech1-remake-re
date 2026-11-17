@@ -33,6 +33,7 @@
 #include "gamez/zweapon/zwep_init.h"
 #include "gamez/zweapon/zweapon.h"
 #include "mech3/program_flow.h"
+#include "mech3/menu_states.h"
 #include "mech3/zainet_inout.h"
 #include "mech3/zainet_inout_view.h"
 #include "mech3/zai_repair.h"
@@ -5111,4 +5112,50 @@ TEST(program_flow_sees_kills_and_program_salvage_mech_headless) {
 #else
   program_flow_kill_run();
 #endif
+}
+
+// Ours (app_hooks.h, adopt_state): a program's state made outside construct() is the engine's as construct's are:
+// found by its handle, escaped and deleted through vcall, and one left open deleted with the screens at the end.
+namespace {
+struct AdoptedState : mech3::MenuState {
+  AdoptedState(zgame::Handle h, int* escapes, int* gone) : MenuState("Adopted State", h), escapes(escapes), gone(gone) {}
+  ~AdoptedState() override { ++*gone; }
+  void escape() override { ++*escapes; }
+  int* escapes;
+  int* gone;
+};
+}  // namespace
+
+TEST(adopt_state_registers_a_program_state) {
+  zgame::set_game(pm::table());
+  Window window;
+  Alert alert;
+  Clock clock;
+  MovieClock movies;
+  Screen screen;
+  platform::SilentSoundOutput sound;
+  mech3::MountFiles files;
+  mech3::Platform p;
+  p.window = &window, p.alert = &alert, p.clock = &clock, p.movie_clock = &movies, p.screen = &screen;
+  p.sound = &sound, p.files = &files;
+  int escapes = 0, gone = 0;
+  {
+    mech3::GameEngine engine(p, "mech3.exe -nofmv");
+    engine.quiet = true;
+    const size_t before = engine.menu_objects();
+    AdoptedState* made = nullptr;
+    const zgame::Handle h = engine.adopt_state([&](zgame::Handle at) { return made = new AdoptedState(at, &escapes, &gone); });
+    EXPECT(h != 0 && made && made->addr() == h && engine.menu_state_of(h) == made && engine.menu_objects() == before + 1);
+    EXPECT(engine.adopt_state([](zgame::Handle) -> mech3::MenuState* { return nullptr; }) == 0 &&
+           engine.menu_objects() == before + 1);
+    engine.vcall(h, 0x28, {});  // the state's escape
+    EXPECT(escapes == 1);
+    engine.vcall(h, 0x00, {1});  // its deleting destructor
+    EXPECT(gone == 1 && engine.menu_state_of(h) == nullptr && engine.menu_objects() == before);
+    const zgame::Handle k = engine.adopt_state([&](zgame::Handle at) { return new AdoptedState(at, &escapes, &gone); });
+    EXPECT(k != 0 && k != h);
+    engine.delete_screens();  // the engine's end: the menu objects still open
+    EXPECT(gone == 2 && engine.menu_state_of(k) == nullptr);
+  }
+  EXPECT(gone == 2 && escapes == 1);
 }

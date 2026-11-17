@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -27,6 +28,7 @@ using zgame::Arg;
 using zgame::Handle;
 
 class MenuScreen;
+class MenuState;
 class Pilot;
 
 class Engine : public zgame::AppHooks {
@@ -520,6 +522,14 @@ class Engine : public zgame::AppHooks {
   // handle (the program registers it as construct's screens; 0 elsewhere).
   virtual Handle adopt_screen(MenuScreen* screen, uint32_t size) {
     (void)screen, (void)size;
+    return 0;
+  }
+  // Ours (for a program over the engine: MW1: Critical Hit's hub, docs/objectives.md, Program flow): a
+  // state made outside construct(), registered as construct's are, so push_state, replace_state_at,
+  // its deleting destructor (vt+0x00) and the screens' teardown treat it as theirs. `make` builds it
+  // on the handle it is given. Its handle; 0 elsewhere, or when `make` returns null.
+  virtual Handle adopt_state(const std::function<MenuState*(Handle)>& make) {
+    (void)make;
     return 0;
   }
 

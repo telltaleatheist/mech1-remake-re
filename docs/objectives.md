@@ -415,8 +415,17 @@ path doesn't go through it. And `program_mech_parts_standing(mech, &standing,
 &all)`: of the mech's parts by id (1..15) those it has, and of them those not
 destroyed, for a program's own wreck value (MW1's condition).
 
+A program's own screens: `Engine::adopt_screen(screen, size)` registers a
+screen made outside `construct()` (the pilot screen, the controls' popups),
+and `Engine::adopt_state(make)` (`app_hooks.h`) does the same for a state:
+`make` builds the `MenuState` on the handle it's given, and the engine then
+treats it as one of `construct()`'s (`menu_state_of`, `push_state`,
+`replace_state_at`, its escape and deleting destructor through `vcall`, and
+`delete_screens` at the end). MW1's hub is one.
+
 Tests: `program_flow_none_is_the_original`,
 `program_flow_sees_main_and_the_instant_action_end_headless`
 (`tests/pm/test_pm_options.cpp`),
 `program_flow_sees_kills_and_program_salvage_mech_headless` (with
-`mission_launched`, `tests/pm/test_pm_mission.cpp`).
+`mission_launched`, `tests/pm/test_pm_mission.cpp`),
+`adopt_state_registers_a_program_state` (`tests/pm/test_pm_mission.cpp`).
