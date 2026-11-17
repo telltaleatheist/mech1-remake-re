@@ -52,6 +52,12 @@ extern const HouseRules kHouses[kHouseCount];
 
 inline constexpr int32_t kStartingFunds = 1000000;  // DS:0491
 inline constexpr int32_t kTierMultipliers[4] = {10, 12, 13, 15};  // DS:3057
+// Whom each employer sends you against (DS:5CBA, the campaign's starting houseMissionTypeLimits): per employer,
+// eight target columns, the Houses (0..4) then three that aren't (5..7); a column is eligible when not 0.
+inline constexpr int32_t kTargetColumns = 8;
+inline constexpr uint8_t kHouseTargets[kHouseCount][kTargetColumns] = {
+    {0, 4, 2, 2, 4, 0, 2, 2}, {4, 0, 4, 3, 0, 2, 2, 0}, {2, 4, 0, 2, 3, 2, 0, 0}, {2, 3, 2, 0, 4, 0, 0, 0},
+    {4, 0, 3, 4, 0, 0, 0, 1}};
 
 // MW1's random rolls: 0..max, both ends included (MwRandomUpTo). Seeded for the tests.
 class Rng {
@@ -84,6 +90,7 @@ enum class Objective { kDestroyAll, kReachStructure };
 
 struct Contract {
   int32_t house = kDavion;     // the employer (the planet's House)
+  int32_t target = kTargetColumns;  // whom it's against: a House (below kHouseCount), else not a House
   int32_t budget = 0;          // the enemy force budget
   std::vector<int32_t> enemies;  // MW1 kinds
   int32_t payment = 0;         // thousands: the opening offer the milestone takes

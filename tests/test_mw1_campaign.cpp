@@ -45,6 +45,8 @@ TEST(mw1_campaign_tables_are_mw_main_exes) {
   }
   EXPECT(static_cast<int32_t>(d[0x491] | d[0x492] << 8 | d[0x493] << 16 | d[0x494] << 24) == mw1::kStartingFunds);
   for (int i = 0; i < 4; ++i) EXPECT(d[0x3057 + i] == mw1::kTierMultipliers[i]);
+  for (int h = 0; h < mw1::kHouseCount; ++h)
+    for (int t = 0; t < mw1::kTargetColumns; ++t) EXPECT(d[0x5CBA + h * mw1::kTargetColumns + t] == mw1::kHouseTargets[h][t]);
   for (int k = 0; k < mw1::kKindCount; ++k) {
     EXPECT(word(d, 0x122B + 2 * k) == mw1::kMechKinds[k].tons);
     EXPECT(d[0x4B55 + k] == mw1::kMechKinds[k].weight);
@@ -148,4 +150,32 @@ TEST(mw1_campaign_accept_and_settle) {
   const int64_t f_advanced = c.funds;
   const mw1::Settlement u = mw1::settle(c, f, mw1::Outcome::kFailure, {{mw1::kJenner, 100}}, rng);
   EXPECT(u.fee == 0 && u.salvage == 0 && c.funds == f_advanced && c.grievance[mw1::kDavion] == 1);
+  // The House you fought: +2 grievance at every ending, a target that isn't a House none.
+  for (const mw1::Outcome o : {mw1::Outcome::kSuccess, mw1::Outcome::kFailure, mw1::Outcome::kRetreat})
+    for (const int32_t target : {int32_t{mw1::kMarik}, int32_t{mw1::kTargetColumns - 1}}) {
+      mw1::Contract g = mw1::generate_contract(c, 0, rng);
+      g.target = target;
+      mw1::accept(c, g);
+      int32_t was[mw1::kHouseCount];
+      for (int h = 0; h < mw1::kHouseCount; ++h) was[h] = c.grievance[h];
+      mw1::settle(c, g, o, {}, rng);
+      for (int h = 0; h < mw1::kHouseCount; ++h) {
+        const int32_t want = was[h] + (h == target ? 2 : 0) + (h == mw1::kDavion && o == mw1::Outcome::kRetreat ? 1 : 0);
+        EXPECT(c.grievance[h] == want);
+      }
+    }
+}
+
+// Whom a contract is against, as MW1 rolls it: only the employer's eligible columns (Davion's: Kurita, Marik,
+// Liao and the one that isn't a House), never itself, each of them in time.
+TEST(mw1_campaign_targets_are_the_employers) {
+  mw1::Rng rng(5);
+  mw1::Company c = mw1::new_company(rng);
+  for (int h = 0; h < mw1::kHouseCount; ++h) {
+    c.planet_house = h;
+    int seen[mw1::kTargetColumns] = {};
+    for (int i = 0; i < 400; ++i) ++seen[mw1::generate_contract(c, 0, rng).target];
+    for (int t = 0; t < mw1::kTargetColumns; ++t) EXPECT((seen[t] > 0) == (mw1::kHouseTargets[h][t] != 0));
+    EXPECT(seen[h] == 0);
+  }
 }

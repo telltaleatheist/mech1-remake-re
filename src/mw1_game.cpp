@@ -95,6 +95,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   }
 
   const Company* company() const { return company_.stores ? &company_ : nullptr; }
+  const Contract* contract() const { return company_.stores ? &contract_ : nullptr; }
 
   // ---- ObjectivesExtension ----
   // Destroy all: Instant Action's own "destroy the enemies"; any other objective wins alone.
@@ -151,5 +152,6 @@ void uninstall_game_loop() {
 }
 
 const Company* game_loop_company() { return the_loop() ? the_loop()->company() : nullptr; }
+const Contract* game_loop_contract() { return the_loop() ? the_loop()->contract() : nullptr; }
 
 }  // namespace mw1

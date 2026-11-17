@@ -14,7 +14,10 @@ void install_game_loop(uint32_t seed);
 // Taken off the engine again, and the company dropped (tests).
 void uninstall_game_loop();
 struct Company;
+struct Contract;
 // The loop's company, null before the first hub (tests).
 const Company* game_loop_company();
+// The contract on offer, or accepted while its mission runs; null before the first hub (tests).
+const Contract* game_loop_contract();
 
 }  // namespace mw1

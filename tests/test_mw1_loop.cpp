@@ -106,7 +106,7 @@ void loop_run(Ending ending) {
   p.window = &window, p.alert = &alert, p.clock = &clock, p.movie_clock = &movies, p.screen = &screen;
   p.sound = &sound, p.files = &files, p.input = &keys;
   int64_t funds_at_offer = 0, funds_in_mission = 0;
-  int boxes = 0, enemies = 0, killed = 0, items_at_offer = 0;
+  int boxes = 0, enemies = 0, killed = 0, items_at_offer = 0, target = -1;
   bool ended = false, back_at_main = false;
   {
     mech3::GameEngine engine(p, "mech3.exe -nofmv");
@@ -119,6 +119,8 @@ void loop_run(Ending ending) {
       if (++boxes == 1) {
         const mw1::Company* c = mw1::game_loop_company();
         funds_at_offer = c ? c->funds : 0, items_at_offer = c ? c->stores->count() : 0;
+        const mw1::Contract* k = mw1::game_loop_contract();
+        target = k ? k->target : -1;
       }
       std::printf("  box %d: %s\n", boxes, engine.last_box_text.c_str());
       return boxes == 1 ? 6u : boxes == 2 ? 1u : 7u;
@@ -154,14 +156,23 @@ void loop_run(Ending ending) {
               items_at_offer, c ? c->stores->count() : -1, c ? c->kills : -1, c ? c->favor[c->planet_house] : -1);
   EXPECT(boxes == 3 && back_at_main && enemies > 0 && killed == enemies);
   EXPECT(c && funds_in_mission > funds_at_offer);  // the advance, at accepting
+  // The Houses (VISION.md, the endings): the House you fought +2 grievance every time; the employer +2 favor on
+  // a win, nothing on a failure, +1 grievance on a quit.
+  const int32_t employer = c ? c->planet_house : 0;
+  std::printf("  employer %s favor %d grievance %d; against %s, grievance %d\n", mw1::kHouses[employer].name,
+              c ? c->favor[employer] : -1, c ? c->grievance[employer] : -1,
+              target >= 0 && target < mw1::kHouseCount ? mw1::kHouses[target].name : "not a House",
+              c && target >= 0 && target < mw1::kHouseCount ? c->grievance[target] : -1);
+  EXPECT(target >= 0 && target != employer);
+  if (c && target < mw1::kHouseCount) EXPECT(c->grievance[target] == 2);
+  EXPECT(c && c->favor[employer] == (ending == kWon ? 2 : 0) && c->grievance[employer] == (ending == kQuit ? 1 : 0));
   if (ending == kWon) {
-    EXPECT(c && c->kills == enemies && c->favor[c->planet_house] == 2);  // every wreck counted, +2 favor
+    EXPECT(c && c->kills == enemies);  // every wreck counted
     EXPECT(c && c->funds > funds_in_mission);                            // the fee and the salvage
     EXPECT(c && c->stores->count() > items_at_offer);                    // the enemies' parts
   } else {
-    // No fee, no salvage, no parts; the employer: a failure no change, a quit (MW1's retreat) +1 grievance.
+    // No fee, no salvage, no parts.
     EXPECT(c && c->funds == funds_in_mission && c->stores->count() == items_at_offer);
-    EXPECT(c && c->favor[c->planet_house] == 0 && c->grievance[c->planet_house] == (ending == kQuit ? 1 : 0));
   }
   for (int32_t r = 0; c && r < mech3::kMechCount; ++r) EXPECT(c->stores->has_mech(r) == nullptr);  // never a mech
   mw1::uninstall_game_loop();
