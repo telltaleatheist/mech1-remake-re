@@ -78,9 +78,10 @@ int main(int argc, char** argv) {
               a.write_dir.c_str(), use.pm.empty() ? "(not found)" : use.pm.c_str(), use.mw3.empty() ? "(not found)" : use.mw3.c_str(),
               use.mw1.empty() ? "(not found)" : use.mw1.c_str());
   // MW1's loop over PM's game: the hub at the main menu, the contract's mission, the settlement (mw1_game.h).
-  // MW1_SEED (tests) fixes the company's and the contracts' rolls.
+  // MW1_SEED (tests) fixes the company's and the contracts' rolls; MW1_REACH=<node> makes the contracts
+  // reach-a-structure (the milestone's second objective).
   const char* seed = std::getenv("MW1_SEED");
-  mw1::install_game_loop(seed ? static_cast<uint32_t>(std::strtoul(seed, nullptr, 10)) : 0);
+  mw1::install_game_loop(seed ? static_cast<uint32_t>(std::strtoul(seed, nullptr, 10)) : 0, std::getenv("MW1_REACH"));
   // The rest is PM's game main, on its own write dir and PM install.
   std::vector<std::string> args = mw1::game_args(argv[0], a, use);
   std::vector<char*> raw;

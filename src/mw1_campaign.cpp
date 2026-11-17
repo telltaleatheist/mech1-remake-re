@@ -34,6 +34,8 @@ constexpr int32_t kBudgetScale = 10, kHeavyCost = 25, kMediumCost = 15, kLightCo
 constexpr int32_t kMixRollMax = 10, kMixFirst = 5, kMixSecond = 8;
 constexpr int32_t kPaymentRollMax = 9, kPaymentMin = 100, kPaymentMax = 9990, kPaymentRounding = 10;
 constexpr int32_t kRelationshipLimit = 10;
+constexpr int32_t kTargetStepRollMax = 10;  // MISSION_TARGET_STEP_ROLL_MAXIMUM
+constexpr int32_t kTargetGrievance = 2;     // the House you fought, at every ending
 // The settlement's (STARTUP).
 constexpr int32_t kScrapCondition = 35, kScrapPerTon = 10, kSaleRounding = 500;
 
@@ -120,6 +122,14 @@ Contract generate_contract(const Company& c, int32_t slot, Rng& rng) {
   const int32_t salvage_ceiling = std::max(0, rel + h.salvage_base), advance_ceiling = std::max(0, rel + h.advance_base);
   k.salvage_percent = salvage_ceiling >> 2;
   k.advance_percent = advance_ceiling >> 2;
+  // The target (after the pay, as MW1 rolls it): the employer's eligible columns stepped through, round again,
+  // until the roll's count is met.
+  int32_t steps = rng.upto(kTargetStepRollMax) + 1, column = 0;
+  for (;;) {
+    if (kHouseTargets[k.house][column] != 0 && --steps == 0) break;
+    column = (column + 1) % kTargetColumns;
+  }
+  k.target = column;
   return k;
 }
 
@@ -150,10 +160,11 @@ Settlement settle(Company& c, Contract& k, Outcome o, const std::vector<Wreck>& 
   }
   if (o == Outcome::kSuccess) s.fee = static_cast<int64_t>(k.remaining) * s.payout_percent / 100 * 1000;
   c.funds += s.salvage + s.fee;
-  // The standing (research/contracts.md): success +2 favor, retreat +1 grievance with the employer. The target
-  // House (+2 grievance) comes with the Houses' contracts, after the milestone.
+  // The standing (research/contracts.md): success +2 favor, retreat +1 grievance with the employer, nothing on a
+  // failure; the House you fought +2 grievance every time.
   if (o == Outcome::kSuccess) c.favor[k.house] += 2;
   else if (o == Outcome::kRetreat) c.grievance[k.house] += 1;
+  if (k.target < kHouseCount) c.grievance[k.target] += kTargetGrievance;  // whatever the ending
   c.kills += static_cast<int32_t>(wrecks.size());
   k.accepted = false;
   return s;
