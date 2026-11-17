@@ -15,7 +15,7 @@ namespace mech3 {
 struct Config;
 }
 
-namespace mw1 {
+namespace mw1::market {
 
 // A mech's price at a tier 0 world, in thousands: VISION's straight line
 // through MW1's own prices (DS:305F, 75 to 100 per ton): 95 x tons - 245.
@@ -76,4 +76,10 @@ Deal sell(Company& c, int32_t owned_index, const StockLoadout& stock = stock_loa
 // PILOT: the commander takes owned mech i (its loadout with it); the one piloted goes to the hangar.
 Deal pilot(Company& c, int32_t owned_index);
 
+}  // namespace mw1::market
+
+// The module's own namespace keeps its names apart from the other modules' (two of the same name are a
+// compile error at a use, never a silent clash); mw1:: still names them.
+namespace mw1 {
+using namespace market;
 }  // namespace mw1

@@ -1,6 +1,6 @@
 #include "mw1_hub.h"
 
-namespace mw1 {
+namespace mw1::hub {
 namespace {
 // The buttons, by id: their names in the layout and their words (the briefing's icons carry none; the round button
 // is blank).
@@ -33,4 +33,4 @@ void HubState::show(const HubView& v) {
   Mw1State::show(s);
 }
 
-}  // namespace mw1
+}  // namespace mw1::hub

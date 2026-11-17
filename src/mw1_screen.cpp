@@ -6,7 +6,7 @@
 #include "gamez/ztwod/twod_host.h"
 #include "mech3/app_hooks.h"
 
-namespace mw1 {
+namespace mw1::screens {
 namespace {
 constexpr uint32_t kScreenSize = 0x11200;  // its block: past MenuScreen's own fields, no other screen's size
 constexpr const char* kLabelFont = "ia_small_green";
@@ -156,4 +156,4 @@ void Mw1State::show(const ScreenView& v) {
   if (screen_ptr_) screen_ptr_->show(view_);
 }
 
-}  // namespace mw1
+}  // namespace mw1::screens

@@ -13,7 +13,7 @@
 
 #include "zipkit.h"
 
-namespace mw1 {
+namespace mw1::worlds {
 
 // MW3's worlds as MW1 knows them: MW3's folder, the converted world's folder
 // and Instant Action's name ("" when it has no Instant Action maps). A world
@@ -55,4 +55,10 @@ bool prepare_worlds(const std::string& install, const std::string& dir, const zi
 // in MODS. The folders registered, in order.
 std::vector<std::string> register_worlds(const std::string& dir);
 
+}  // namespace mw1::worlds
+
+// The module's own namespace keeps its names apart from the other modules' (two of the same name are a
+// compile error at a use, never a silent clash); mw1:: still names them.
+namespace mw1 {
+using namespace worlds;
 }  // namespace mw1

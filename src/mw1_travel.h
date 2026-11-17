@@ -10,7 +10,7 @@
 
 #include "mw1_campaign.h"
 
-namespace mw1 {
+namespace mw1::travel_rules {
 
 // A world on MW1's map: a planet record (planetRecordOffsets, DS:6570; records DS:67B6..8A16).
 struct Planet {
@@ -74,4 +74,10 @@ bool stranded(const Company& c);
 // The cheapest trip from here to a world with an office: its cost (-1: none).
 int64_t cheapest_way_out(const Company& c);
 
+}  // namespace mw1::travel_rules
+
+// The module's own namespace keeps its names apart from the other modules' (two of the same name are a
+// compile error at a use, never a silent clash); mw1:: still names them.
+namespace mw1 {
+using namespace travel_rules;
 }  // namespace mw1

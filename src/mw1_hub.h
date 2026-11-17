@@ -14,7 +14,7 @@
 
 #include "mw1_screen.h"
 
-namespace mw1 {
+namespace mw1::hub {
 
 inline constexpr const char* kHubFile = "mw1hub.zrd";     // MW1's data folder
 inline constexpr const char* kHubDialog = "MW1HUBDIALOG";  // its dialog
@@ -46,4 +46,10 @@ class HubState : public Mw1State {
   void show(const HubView& v);  // now, and on each entering
 };
 
+}  // namespace mw1::hub
+
+// The module's own namespace keeps its names apart from the other modules' (two of the same name are a
+// compile error at a use, never a silent clash); mw1:: still names them.
+namespace mw1 {
+using namespace hub;
 }  // namespace mw1

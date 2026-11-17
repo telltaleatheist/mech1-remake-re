@@ -14,7 +14,7 @@
 
 namespace fs = std::filesystem;
 
-namespace mw1 {
+namespace mw1::worlds {
 namespace {
 
 constexpr const char* kStamp = "zipkit.stamp";  // zipkit's own (tools/zipkit/convert.cpp)
@@ -174,4 +174,4 @@ std::vector<std::string> register_worlds(const std::string& dir) {
   return done;
 }
 
-}  // namespace mw1
+}  // namespace mw1::worlds

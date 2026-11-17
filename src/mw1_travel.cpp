@@ -5,7 +5,7 @@
 
 #include "mw1_market.h"
 
-namespace mw1 {
+namespace mw1::travel_rules {
 
 // DS:6570's records, the directory's 145 (number, name, House, tier, office, x, y, weight).
 const Planet kPlanets[kPlanetCount] = {
@@ -282,4 +282,4 @@ bool stranded(const Company& c) {
   return out < 0 || c.funds < out;
 }
 
-}  // namespace mw1
+}  // namespace mw1::travel_rules

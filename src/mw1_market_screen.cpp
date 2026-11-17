@@ -7,7 +7,7 @@
 #include "mech3/mech_names.h"
 #include "mw1_market.h"
 
-namespace mw1 {
+namespace mw1::market_ui {
 namespace {
 const std::vector<ScreenButton> kMarketButtons = {
     {"BUY", "BUY"},         {"SELL", "SELL"},        {"PILOT", "PILOT"},   {"BACK", "BACK"},
@@ -87,4 +87,4 @@ ScreenView market_view(const Company& c, const MarketChoice& m) {
 MarketState::MarketState(zgame::Handle h, std::function<void(int32_t)> pressed)
     : Mw1State(h, "MW1 Market State", kMarketFile, kMarketDialog, kMarketButtons, kMarketBack, std::move(pressed)) {}
 
-}  // namespace mw1
+}  // namespace mw1::market_ui

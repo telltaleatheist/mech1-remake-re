@@ -170,6 +170,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
   p.window = &window, p.alert = &alert, p.clock = &clock, p.movie_clock = &movies, p.screen = &screen;
   p.sound = &sound, p.files = &files, p.input = &keys;
   int64_t funds_at_offer = 0, funds_in_mission = 0;
+  int64_t salvage_shown = -1, fee_shown = -1;  // the first AFTER ACTION's settlement, as rolled
   int32_t favor_at_offer[mw1::kHouseCount] = {}, grievance_at_offer[mw1::kHouseCount] = {};
   int market_step = 0;
   int hubs = 0, hub_frames = 0, enemies = 0, killed = 0, items_at_offer = 0, target = -1;
@@ -296,6 +297,20 @@ void loop_run(Ending ending, Run* run = nullptr) {
         if (const mw1::AfterAction* pa = mw1::game_loop_pending()) {
           // AFTER ACTION: OK, and REPLAY on a failure only; the offer's buttons gone.
           const bool failed = pa->outcome == mw1::Outcome::kFailure;
+          // What OK will pay, as AFTER ACTION shows it ("Salvage: 169,000 C-bills", "Payment: 141,000 C-bills (100%)").
+          auto amount = [&](const char* key) -> int64_t {
+            for (const std::string& l : shown)
+              if (l.rfind(key, 0) == 0) {
+                std::string digits;
+                for (char ch : l.substr(std::string(key).size())) {
+                  if (ch == ' ' && !digits.empty()) break;
+                  if (ch >= '0' && ch <= '9') digits += ch;
+                }
+                return digits.empty() ? -1 : std::stoll(digits);
+              }
+            return -1;
+          };
+          if (salvage_shown < 0) salvage_shown = amount("Salvage: "), fee_shown = amount("Payment: ");
           EXPECT(has("AFTER ACTION") && sc->visible(mw1::kHubOk) && !sc->visible(mw1::kHubAccept) && !sc->visible(mw1::kHubDecline));
           EXPECT(sc->visible(mw1::kHubReplay) == failed);
           if (run && run->after_action.empty()) run->after_action = shown;
@@ -521,7 +536,10 @@ void loop_run(Ending ending, Run* run = nullptr) {
   } else if (ending == kWon) {
     EXPECT(c && c->kills == enemies);  // every wreck counted
     // The fee and the salvage; another employer than Davion may roll a reduced payout (Kurita's and Liao's 0%).
-    EXPECT(c && (employer == mw1::kDavion ? c->funds > funds_in_mission : c->funds >= funds_in_mission));
+    // The fee (at the payout the settlement rolled: Kurita's and Liao's can be 0%) and the salvage, exactly as AFTER
+    // ACTION showed them.
+    EXPECT(c && salvage_shown >= 0 && fee_shown >= 0 && c->funds == funds_in_mission + salvage_shown + fee_shown);
+    if (employer == mw1::kDavion) EXPECT(c && c->funds > funds_in_mission);  // Davion always pays in full
     EXPECT(c && c->stores->count() > items_at_offer);                    // the enemies' parts
   } else {
     // No fee, no salvage, no parts.

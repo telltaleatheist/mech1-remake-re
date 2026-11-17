@@ -21,7 +21,7 @@
 #include "mech3/menu_states.h"
 #include "mech3/menu_widgets.h"
 
-namespace mw1 {
+namespace mw1::screens {
 
 // A button: its name in the layout's BUTTONS (its id is its place in the list, from 1) and its words.
 struct ScreenButton {
@@ -104,4 +104,10 @@ class Mw1State : public mech3::MenuState {
 // True when MW1's data has `file` with `dialog` in it (the loop falls back to message boxes when not).
 bool layout_there(const char* file, const char* dialog);
 
+}  // namespace mw1::screens
+
+// The module's own namespace keeps its names apart from the other modules' (two of the same name are a
+// compile error at a use, never a silent clash); mw1:: still names them.
+namespace mw1 {
+using namespace screens;
 }  // namespace mw1
