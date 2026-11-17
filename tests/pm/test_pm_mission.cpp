@@ -108,6 +108,10 @@
 #include "gamez/zutil/zutl_msgdll.h"
 #include "gamez/zclass/cls_di.h"
 #include "gamez/zmodel/gmod_cull.h"
+#include "mech3/mods.h"
+#include "mech3/mod_campaign.h"
+#include "gamez/zerror/zerr.h"
+#include "zipkit.h"
 
 namespace {
 struct Window : platform::Window {
@@ -4821,6 +4825,122 @@ TEST(pm_salvage_entered_cold_loads_the_lab_world_headless) {
   const int status = check::wait_child(child);
   EXPECT(WIFEXITED(status) && WEXITSTATUS(status) == 0);
 #endif
+}
+
+// zipkit (tools/zipkit/README.md): MW3's c2 converted, mounted as a mod world and played as Instant Action, as MW1
+// plays it: the load reaches the game, the enemies are made, 20 s run, and the player stands on the ground the
+// ground query finds under it. MW1's own run checks the picture; this one keeps a regression in our suite.
+static void zipkit_c2_run();
+TEST(zipkit_mw3c2_plays_as_instant_action_headless) {
+  if (!std::filesystem::exists(MW3PM_GAME_DIR) || !std::filesystem::exists(std::string(MW3_GAME_DIR) + "/zbd/c2/gamez.zbd")) return;
+#if !defined(_WIN32)
+  std::fflush(nullptr);
+  const pid_t child = check::fork_child();
+  if (child == 0) {
+    zipkit_c2_run();
+    std::fflush(nullptr);
+    _exit(check::failures ? 1 : 0);
+  }
+  const int status = check::wait_child(child);
+  EXPECT(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+#else
+  zipkit_c2_run();
+#endif
+}
+
+static int g_zipkit_full = 0;
+static void zipkit_c2_run() {
+  const std::string wd = std::string(MW3_TEST_TMP_ROOT) + "/zipkit_play_" + std::to_string(getpid());
+  std::filesystem::remove_all(wd);
+  const std::string mod = wd + "/mods/mw3c2";
+  zipkit::Options o;
+  o.install = MW3_GAME_DIR, o.out = mod, o.worlds = {{"c2", "mw3c2"}};
+  std::string error;
+  EXPECT(zipkit::mw3_to_pm(o, &error));
+  if (!error.empty()) std::printf("  zipkit: %s\n", error.c_str());
+  { std::ofstream(mod + "/mod.txt") << "name=MW3 c2\nworld=mw3c2\nia_world=mw3c2 MW3 Coast\n"; }
+  zgame::set_game(pm::table());
+  zutl::mounts() = zutl::Mounts{};
+  zutl::set_write_dir(wd.c_str());
+  mech3::mod_worlds().clear(), mech3::mod_ia_worlds().clear(), mech3::mod_campaigns().clear();
+  for (const std::string& line : mech3::mods_mount(wd, {"mw3c2"}, {MW3PM_GAME_DIR})) std::printf("  mount: %s\n", line.c_str());
+  zutl::mount(MW3PM_GAME_DIR);
+  const int32_t index = mech3::mission_dir_index("mw3c2");
+  EXPECT(index >= 9 && mech3::mod_ia_worlds().size() == 1);
+  mech3::reset_states();
+  if (!zsnd::state().open) zsnd::state() = zsnd::State{};
+  mech3::missions() = mech3::Missions{};
+  mech3::mech_types_forget();
+  mech3::player_controls_instance() = nullptr;
+  mech3::options() = mech3::Options{};
+  NoKeys keys;
+  Window window;
+  Alert alert;
+  FixedSeed seed(1u);
+  Clock clock;
+  MovieClock movies;
+  Screen screen;
+  platform::SilentSoundOutput sound;
+  mech3::MountFiles files;
+  mech3::Platform p;
+  p.window = &window, p.alert = &alert, p.clock = &clock, p.movie_clock = &movies, p.screen = &screen;
+  p.sound = &sound, p.files = &files, p.input = &keys;
+  zerr::set_sink([](int, const char*, int, const char* m) {
+    if (std::strstr(m, "intersections array is full")) ++g_zipkit_full;
+  });
+  {
+    mech3::GameEngine engine(p, "mech3.exe -nofmv");
+    engine.quiet = true;
+    mech3::Mech3App app(&engine);
+    mech3::set_app(&app);
+    EXPECT(app.init_instance());
+    mech3::ActionGame game(nullptr);
+    game.set_world(index, 1);
+    game.set_mode(2);  // waves: ia_progression.zrd's "default" block, for a world it does not name
+    EXPECT(!game.progression.empty() && !game.progression[0].empty());
+    game.x6c = 1;
+    game.slot.mech = 13, game.slot.skin = 2;
+    mech3::GameEngine::Launch l;
+    l.type = 2, l.index = index, l.number = 1;
+    l.action = &game;
+    engine.set_launch(l);
+    app.post_intro_ = &mech3::states().load;
+    int frames = 0, made = -1;
+    float stand = 1e9f, at[3] = {};
+    engine.on_present = [&](int) {
+      if (app.current() != &mech3::states().core) return;
+      if (++frames == 3) mech3::mission_ai_mechs(&made);
+      if (frames != 600) return;
+      if (void* m = mech3::mech_mission_player()) {
+        const float* pos = mech3::program_entity_position(m);
+        std::memcpy(at, pos, sizeof at);
+        zcls::Node* world = nullptr;
+        for (zcls::ListItem* i = zcls::list_head(zcls::kWorlds); i && !world; i = i->next) world = i->node;
+        zcls::GroundHits h{};
+        if (world) zcls::ground_point(world, at[0], at[1] + 2.0f, at[2], &h);
+        for (int k = 0; k < h.count; ++k) stand = std::min(stand, std::fabs(h.hit[k].height - at[1]));
+      }
+    };
+    Pump pump;
+    pump.limit = 2000;
+    pump.stop = [&] { return frames >= 600; };
+    app.run(pump);
+    std::printf("  mw3c2 (world %d): %d frames in play, %d enemies, the player at %.1f %.1f %.1f, %.2f m off the "
+                "ground; %d full hit lists\n", index, frames, made, at[0], at[1], at[2], stand, g_zipkit_full);
+    EXPECT(frames == 600 && made > 0);
+    EXPECT(stand < 0.5f);
+    EXPECT(g_zipkit_full == 0);
+    mech3::missions().cleanup(false);
+    app.stop_game();
+    app.exit_instance();
+    mech3::set_app(nullptr);
+  }
+  zerr::set_sink(nullptr);
+  zrdr::close_archives(true);
+  mech3::reset_states();
+  mech3::options() = mech3::Options{};
+  mech3::mod_worlds().clear(), mech3::mod_ia_worlds().clear(), mech3::mod_campaigns().clear();
+  zgame::set_game(zgame::mw3_table());
 }
 
 // Ours: for programs built on the engine (MW1). The program's flow is told of each mech kill after the original's

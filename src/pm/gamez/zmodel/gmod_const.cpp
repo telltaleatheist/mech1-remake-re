@@ -1137,6 +1137,11 @@ bool put_n(std::FILE* f, const T* data, size_t size, int32_t n) {  // fwrite's c
 // FIX (bug) (docs/fixes.md): the exe turns each material ref's material into its row in the model itself before
 // writing the refs, so the world it saved draws its refs' materials from those numbers afterwards; here the
 // rows go to the file only.
+WriteHooks& write_hooks() {
+  static WriteHooks h;
+  return h;
+}
+
 int write_models(std::FILE* f) {
   ModelPool& p = g_pool;
   if (std::fwrite(&p.capacity, 4, 1, f) != 1) zerr::report(0x200, kFile, 0x11e, "Error writing model3d buffer.");
@@ -1145,7 +1150,10 @@ int write_models(std::FILE* f) {
   if (p.capacity == 0) return 0;
   int32_t result = p.capacity;
   const long slots_at = std::ftell(f);
-  for (int32_t i = 0; i < p.capacity; ++i) sort_by_material(p.at(i));  // 0x0055c470
+  for (int32_t i = 0; i < p.capacity; ++i) {
+    if (write_hooks().refs) write_hooks().refs(p.at(i));  // ours: zipkit's order kept
+    else sort_by_material(p.at(i));                       // 0x0055c470
+  }
   const auto write_slots = [&](int line) {
     std::vector<uint8_t> raw(static_cast<size_t>(p.block) * 0x68);
     bool ok = true;

@@ -1,5 +1,7 @@
 #include "frontend/debug_world.h"
 
+#include "gamez/zgame/zgame_table.h"
+
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -119,6 +121,9 @@ std::string world_load(const std::string& mission, const std::string& variant, p
   zvid::channel_masks() = {0xf800, 0x07e0, 0x001f};
   zrndr::device_fog().active = 1;  // the Direct3D path
   const std::string path = "zbd\\" + mission + "\\gamez.zbd";
+  // Ours: this viewer draws MechWarrior 3's world types; Pirate's Moon has its own (mw3pm --fly, pm_debug_world).
+  if (&zgame::game() != &zgame::mw3_table())
+    return std::string("this viewer reads MechWarrior 3's worlds only, not ") + zgame::game().name + "'s (mw3pm --fly draws them)";
   if (zcls::read_zbd(path.c_str()) != 0) return "could not read " + path;
   if (!camera_node()) return "no camera in " + path;
   // The world files keep a 320x200 window; the game resizes it to the display
