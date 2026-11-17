@@ -1,0 +1,4 @@
+[submodule "external/mw3-re"]
+	path = external/mw3-re
+	url = https://github.com/telltaleatheist/mw3-re.git
+	branch = mw1-engine

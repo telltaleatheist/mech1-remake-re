@@ -1,0 +1,301 @@
+<title>MW1 Planet Hub Mockup</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;700;800&family=Share+Tech+Mono&display=swap">
+<style>
+/* Layout: one 16:9 stage, scaled to fit; plaques on top, service bay down the left, company readout on the right. */
+:root {
+  color-scheme: dark;
+  --void: #07090b;
+  --steel-hi: #9aa3a8;
+  --steel: #4b5257;
+  --steel-lo: #1c2023;
+  --amber: #ffb43a;
+  --amber-dim: #8a5a12;
+  --phosphor: #7dff9a;
+  --phosphor-dim: #2f7a43;
+  --alert: #ff4a32;
+  --display: "Saira Condensed", "Arial Narrow", sans-serif;
+  --mono: "Share Tech Mono", ui-monospace, Menlo, monospace;
+}
+html, body { height: 100%; }
+body {
+  background: var(--void); color: var(--steel-hi);
+  font-family: var(--display);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 16px;
+  box-sizing: border-box;
+  display: grid; place-items: center;
+}
+.stage {
+  position: relative; width: 100%; max-width: 1280px; aspect-ratio: 16 / 9;
+  background: var(--void) url("{{BG}}") center / cover no-repeat;
+  overflow: hidden; container-type: inline-size;
+  box-shadow: 0 0 0 1px var(--steel-lo), 0 20px 60px rgba(0,0,0,.7);
+}
+/* scanline + vignette, the CRT-era sheen MW3's menus carry */
+.stage::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse at 60% 45%, transparent 55%, rgba(0,0,0,.55) 100%),
+    repeating-linear-gradient(to bottom, rgba(255,255,255,.025) 0 1px, transparent 1px 3px);
+}
+.shade { position: absolute; inset: 0 auto 0 0; width: 34%;
+  background: linear-gradient(to right, rgba(5,7,9,.82), rgba(5,7,9,.35) 70%, transparent); }
+
+/* riveted steel plaque */
+.plaque {
+  position: absolute; top: 3.2cqw; height: 6.2cqw;
+  display: grid; place-items: center;
+  font: 800 3cqw/1 var(--display); letter-spacing: .14em; color: #e9ecee;
+  text-shadow: 0 0 .6cqw rgba(255,180,58,.35);
+  background:
+    linear-gradient(#0b0d0f, #0b0d0f) padding-box,
+    linear-gradient(180deg, var(--steel-hi), var(--steel) 35%, var(--steel-lo) 65%, var(--steel)) border-box;
+  border: .55cqw solid transparent; border-radius: .4cqw;
+  box-shadow: inset 0 0 1.2cqw rgba(0,0,0,.9), 0 .5cqw 1.2cqw rgba(0,0,0,.6);
+}
+.plaque::before, .plaque::after {
+  content: ""; position: absolute; top: 50%; width: .9cqw; height: .9cqw; margin-top: -.45cqw;
+  border-radius: 50%; background: radial-gradient(circle at 35% 35%, #d7dde0, #3a4045 70%);
+}
+.plaque::before { left: -.38cqw; } .plaque::after { right: -.38cqw; }
+.plaque.world { left: 4%; width: 40%; }
+.plaque.date { right: 4%; width: 40%; }
+.plaque small { display: block; font: 400 1.05cqw/1 var(--mono); letter-spacing: .2em; color: var(--amber); text-shadow: none; margin-top: .5cqw; text-align: center; }
+
+/* the service bay */
+.bay { position: absolute; left: 3%; top: 13.5cqw; bottom: 4.5cqw; width: 23%;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1.1cqw; align-content: start; }
+.svc {
+  all: unset; cursor: pointer; position: relative; aspect-ratio: 1;
+  background: #000 center / cover no-repeat;
+  border: .35cqw solid var(--steel);
+  outline: .18cqw solid #000; box-shadow: 0 .4cqw 1cqw rgba(0,0,0,.7), inset 0 0 1.4cqw rgba(0,0,0,.8);
+  transition: border-color .12s, transform .12s, filter .12s;
+  filter: saturate(.8) brightness(.85);
+}
+.svc span {
+  position: absolute; left: 0; right: 0; bottom: 0; padding: .35cqw 0 .3cqw;
+  font: 700 1.15cqw/1 var(--display); letter-spacing: .16em; text-align: center; color: #d9dde0;
+  background: linear-gradient(transparent, rgba(0,0,0,.92) 45%);
+}
+.svc:hover, .svc:focus-visible, .svc[aria-pressed="true"] {
+  border-color: var(--amber); filter: none; transform: translateY(-.15cqw);
+  box-shadow: 0 0 1.4cqw rgba(255,180,58,.45), inset 0 0 1.4cqw rgba(0,0,0,.6);
+}
+.svc:hover span, .svc:focus-visible span, .svc[aria-pressed="true"] span { color: var(--amber); }
+
+/* right readout: company status, MW3 HUD green */
+.readout {
+  position: absolute; right: 3%; top: 13.5cqw; width: 23%;
+  font: 400 1.25cqw/1.55 var(--mono); color: var(--phosphor);
+  background: rgba(3,12,6,.72); border: .18cqw solid var(--phosphor-dim);
+  padding: 1cqw 1.2cqw; box-shadow: 0 0 1.6cqw rgba(0,0,0,.6);
+}
+.readout h2 { margin: 0 0 .6cqw; font: 700 1.3cqw/1 var(--display); letter-spacing: .2em; color: var(--phosphor); }
+.readout dl { margin: 0; display: grid; grid-template-columns: auto 1fr; column-gap: 1cqw; }
+.readout dt { color: var(--phosphor-dim); }
+.readout dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.readout .warn { color: var(--amber); }
+.lance { margin-top: .8cqw; border-top: .12cqw solid var(--phosphor-dim); padding-top: .6cqw; }
+.lance div { display: flex; justify-content: space-between; gap: 1cqw; }
+.bar-meter { display: inline-block; width: 5cqw; height: .7cqw; background: var(--phosphor-dim); vertical-align: middle; position: relative; }
+.bar-meter i { position: absolute; inset: 0 auto 0 0; background: var(--phosphor); }
+.bar-meter.low i { background: var(--amber); }
+
+/* bottom ticker: what the hovered service does */
+.ticker {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 3.6cqw;
+  display: flex; align-items: center; gap: 1.4cqw; padding: 0 3%;
+  font: 400 1.25cqw/1 var(--mono); color: var(--amber);
+  background: linear-gradient(rgba(0,0,0,.2), rgba(0,0,0,.85));
+  border-top: .12cqw solid var(--amber-dim);
+}
+.ticker b { font: 700 1.3cqw/1 var(--display); letter-spacing: .18em; color: #fff; }
+
+/* a service's sub-menu, shown on click */
+.panel {
+  position: absolute; right: 30%; top: 50%; transform: translateY(-40%);
+  width: 26%; padding: 1.4cqw 1.6cqw 1.6cqw;
+  background: linear-gradient(180deg, rgba(28,32,35,.96), rgba(10,12,14,.96));
+  border: .4cqw solid var(--steel); outline: .15cqw solid #000;
+  box-shadow: 0 1cqw 3cqw rgba(0,0,0,.8), inset 0 0 0 .15cqw rgba(255,255,255,.05);
+}
+.panel h3 { margin: 0 0 1cqw; font: 800 2cqw/1 var(--display); letter-spacing: .2em; color: var(--alert); text-align: center; }
+.panel button {
+  all: unset; display: block; cursor: pointer; text-align: center;
+  font: 700 1.6cqw/1 var(--display); letter-spacing: .14em; color: var(--steel-hi);
+  padding: .7cqw 0; border-top: .1cqw solid rgba(255,255,255,.06);
+}
+.panel button:hover, .panel button:focus-visible { color: var(--amber); text-shadow: 0 0 .8cqw rgba(255,180,58,.5); }
+/* the bar: its own screen */
+.scene { position: absolute; inset: 0; background: #000 center / cover no-repeat; }
+.scene[hidden] { display: none; }
+.barmenu { right: 4%; left: auto; top: auto; bottom: 7cqw; transform: none; width: 24%; }
+.barmenu h3 { color: var(--alert); }
+.recruits {
+  position: absolute; left: 3%; right: 3%; top: 4cqw; bottom: 6cqw;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 2cqw; align-content: center;
+  background: rgba(4,6,8,.78); padding: 2cqw;
+  border: .4cqw solid var(--steel); outline: .15cqw solid #000;
+}
+.recruits h3 { grid-column: 1 / -1; margin: 0; font: 800 2.2cqw/1 var(--display); letter-spacing: .2em; color: var(--alert); text-align: center; }
+.card { display: grid; grid-template-rows: auto auto auto 1fr auto; gap: .6cqw; min-width: 0;
+  background: linear-gradient(180deg, rgba(28,32,35,.95), rgba(10,12,14,.95));
+  border: .3cqw solid var(--steel); padding: 1cqw; }
+.card img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; display: block; border: .15cqw solid #000; }
+.card h4 { margin: 0; font: 800 1.8cqw/1 var(--display); letter-spacing: .12em; color: #e9ecee; }
+.card .callsign { font: 400 1.15cqw/1 var(--mono); color: var(--amber); }
+.card dl { margin: 0; display: grid; grid-template-columns: auto 1fr auto; gap: .35cqw .8cqw; align-items: center;
+  font: 400 1.15cqw/1 var(--mono); color: var(--phosphor); }
+.card dt { color: var(--phosphor-dim); }
+.card dd { margin: 0; }
+.card dd.n { text-align: right; font-variant-numeric: tabular-nums; }
+.pips { display: flex; gap: .25cqw; }
+.pips i { width: .9cqw; height: .9cqw; background: var(--phosphor-dim); }
+.pips i.on { background: var(--phosphor); }
+.hire { all: unset; cursor: pointer; text-align: center; padding: .7cqw 0;
+  font: 800 1.5cqw/1 var(--display); letter-spacing: .2em; color: var(--steel-hi);
+  border: .2cqw solid var(--steel); background: #0b0d0f; }
+.hire:hover, .hire:focus-visible { color: var(--amber); border-color: var(--amber); }
+.hire[disabled] { color: var(--phosphor); border-color: var(--phosphor-dim); cursor: default; }
+.back { all: unset; cursor: pointer; position: absolute; right: 3%; bottom: 1.2cqw; z-index: 2;
+  font: 800 1.4cqw/1 var(--display); letter-spacing: .2em; color: var(--steel-hi); }
+.back:hover, .back:focus-visible { color: var(--amber); }
+.note { max-width: 1280px; margin: 12px auto 0; font: 400 13px/1.5 var(--mono); color: var(--steel); text-align: center; }
+@media (prefers-reduced-motion: reduce) { .svc { transition: none; } }
+</style>
+
+<main>
+<div class="stage" id="stage">
+  <div class="shade"></div>
+  <div class="plaque world">KESAI IV<small>HOUSE KURITA · DRACONIS COMBINE</small></div>
+  <div class="plaque date">FEBRUARY, 3025<small>DAY 14 · PAYDAY IN 16</small></div>
+
+  <nav class="bay" aria-label="Services">
+    <button class="svc" data-svc="contract" style="background-image:url('{{ICON_contract}}')"><span>CONTRACTS</span></button>
+    <button class="svc" data-svc="mech" style="background-image:url('{{ICON_mech}}')"><span>MECH COMPLEX</span></button>
+    <button class="svc" data-svc="bar" style="background-image:url('{{ICON_bar}}')"><span>BAR</span></button>
+    <button class="svc" data-svc="crew" style="background-image:url('{{ICON_crew}}')"><span>COMPANY</span></button>
+    <button class="svc" data-svc="starport" style="background-image:url('{{ICON_starport}}')"><span>STARPORT</span></button>
+    <button class="svc" data-svc="comstar" style="background-image:url('{{ICON_comstar}}')"><span>COMSTAR</span></button>
+  </nav>
+
+  <aside class="readout" aria-label="Company status">
+    <h2>CRESCENT HAWKS</h2>
+    <dl>
+      <dt>C-BILLS</dt><dd>412,750</dd>
+      <dt>PAYROLL</dt><dd class="warn">-38,400/MO</dd>
+      <dt>RATING</dt><dd>GREEN</dd>
+      <dt>CONTRACT</dt><dd>NONE</dd>
+    </dl>
+    <div class="lance">
+      <div><span>JENNER</span><span class="bar-meter low"><i style="width:46%"></i></span></div>
+      <div><span>SHADOW HAWK</span><span class="bar-meter"><i style="width:92%"></i></span></div>
+      <div><span>RIFLEMAN</span><span class="bar-meter"><i style="width:100%"></i></span></div>
+    </div>
+  </aside>
+
+  <div class="panel" id="panel" hidden>
+    <h3 id="panel-title">BAR</h3>
+    <div id="panel-items"></div>
+  </div>
+
+  <section class="scene" id="bar" hidden style="background-image:url('{{BAR}}')" aria-label="The bar">
+    <div class="panel barmenu" id="barmenu">
+      <h3>BAR</h3>
+      <button type="button" id="drink">ORDER DRINK</button>
+      <button type="button" id="recruit">RECRUIT CREW</button>
+      <button type="button" id="leave">LEAVE</button>
+    </div>
+    <div class="recruits" id="recruits" hidden>
+      <h3>MECHWARRIORS FOR HIRE</h3>
+      <!-- cards built by script -->
+      <button class="back" type="button" id="recruits-done">DONE</button>
+    </div>
+  </section>
+
+  <div class="ticker" aria-live="polite"><b id="tk-name">KESAI IV</b><span id="tk-text">Pick a service. The dropship lifts in 3 days.</span></div>
+</div>
+<p class="note">Mockup only: MechWarrior (1989)'s planet hub redrawn at MW3 quality. Art made with the local image generator; nothing taken from either game.</p>
+</main>
+
+<script>
+const S = {
+  contract: ["CONTRACTS", "House Kurita's liaison: garrison, raid and escort work. Negotiate pay, salvage and advance.", ["VIEW CONTRACTS", "NEGOTIATE", "CURRENT CONTRACT", "LEAVE"]],
+  mech: ["MECH COMPLEX", "Repair and rearm your lance, buy and sell BattleMechs at Kesai prices.", ["REPAIR", "REARM", "BUY MECH", "SELL MECH", "LEAVE"]],
+  bar: ["BAR", "Rumours, drinks and MechWarriors looking for work.", ["ORDER DRINK", "RECRUIT CREW", "LEAVE"]],
+  crew: ["COMPANY", "Assign pilots to mechs, check skills, wages and the company ledger.", ["ASSIGN PILOTS", "PILOT RECORDS", "LEDGER", "SAVE GAME", "LEAVE"]],
+  starport: ["STARPORT", "Book passage to another world. Travel costs C-bills and days.", ["STAR MAP", "BOOK PASSAGE", "LEAVE"]],
+  comstar: ["COMSTAR", "Send and receive messages across the Inner Sphere. News of the Successor Wars.", ["MESSAGES", "NEWS", "LEAVE"]],
+};
+const panel = document.getElementById("panel"), title = document.getElementById("panel-title"), items = document.getElementById("panel-items");
+const tkName = document.getElementById("tk-name"), tkText = document.getElementById("tk-text");
+const btns = document.querySelectorAll(".svc");
+function tick(k) { const s = S[k]; tkName.textContent = s ? s[0] : "KESAI IV"; tkText.textContent = s ? s[1] : "Pick a service. The dropship lifts in 3 days."; }
+function close() { panel.hidden = true; btns.forEach(b => b.setAttribute("aria-pressed", "false")); }
+btns.forEach(b => {
+  const k = b.dataset.svc;
+  b.addEventListener("mouseenter", () => tick(k));
+  b.addEventListener("focus", () => tick(k));
+  b.addEventListener("mouseleave", () => { if (panel.hidden) tick(null); });
+  b.addEventListener("click", () => {
+    if (k === "bar") return;  // the bar opens its own screen (below)
+    btns.forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+    title.textContent = S[k][0];
+    items.replaceChildren(...S[k][2].map(t => { const e = document.createElement("button"); e.type = "button"; e.textContent = t; if (t === "LEAVE") e.addEventListener("click", close); return e; }));
+    panel.hidden = false; tick(k);
+  });
+});
+// The bar is its own screen, as in MW1.
+const bar = document.getElementById("bar"), barmenu = document.getElementById("barmenu"), recruits = document.getElementById("recruits");
+const RUMOURS = [
+  "\"Kurita's paying double for garrison work on Oshika. Nobody comes back to collect.\"",
+  "\"Saw a Rifleman sold for parts at the starport. Pilot drank the money right here.\"",
+  "\"Davion scouts in the hills last week. Didn't stop for a drink.\"",
+];
+let rumour = 0;
+const PILOTS = [
+  { img: "{{P1}}", name: "GRIMM HALVORSEN", call: "\"ANVIL\" · 52 · VETERAN", gun: 5, pil: 4, wage: "6,200" },
+  { img: "{{P2}}", name: "KIRA SATO", call: "\"NEEDLE\" · 26 · REGULAR", gun: 4, pil: 5, wage: "4,800" },
+  { img: "{{P3}}", name: "DANNY MCRAE", call: "\"SPARKS\" · 18 · GREEN", gun: 2, pil: 2, wage: "1,500" },
+];
+const pips = n => '<span class="pips">' + [1,2,3,4,5,6].map(i => `<i class="${i <= n ? "on" : ""}"></i>`).join("") + "</span>";
+recruits.querySelector("h3").insertAdjacentHTML("afterend", PILOTS.map((p, i) => `
+  <article class="card">
+    <img src="${p.img}" alt="Portrait of ${p.name}">
+    <h4>${p.name}</h4>
+    <div class="callsign">${p.call}</div>
+    <dl>
+      <dt>GUNNERY</dt><dd>${pips(p.gun)}</dd><dd class="n">${p.gun}</dd>
+      <dt>PILOTING</dt><dd>${pips(p.pil)}</dd><dd class="n">${p.pil}</dd>
+      <dt>WAGE</dt><dd></dd><dd class="n">${p.wage}/MO</dd>
+    </dl>
+    <button class="hire" type="button" data-i="${i}">HIRE</button>
+  </article>`).join(""));
+recruits.querySelectorAll(".hire").forEach(b => b.addEventListener("click", () => {
+  b.textContent = "HIRED"; b.disabled = true;
+  tkName.textContent = "BAR"; tkText.textContent = PILOTS[b.dataset.i].name + " joins the company.";
+}));
+function showBar(on) {
+  bar.hidden = !on; recruits.hidden = true; barmenu.hidden = false; close();
+  tkName.textContent = on ? "BAR" : "KESAI IV";
+  tkText.textContent = on ? "The bartender sets down a glass before you ask." : "Pick a service. The dropship lifts in 3 days.";
+}
+document.querySelector('.svc[data-svc="bar"]').addEventListener("click", () => showBar(true));
+document.getElementById("leave").addEventListener("click", () => showBar(false));
+document.getElementById("drink").addEventListener("click", () => {
+  tkName.textContent = "BARTENDER"; tkText.textContent = RUMOURS[rumour++ % RUMOURS.length] + "  -10 C-BILLS";
+});
+document.getElementById("recruit").addEventListener("click", () => { recruits.hidden = false; barmenu.hidden = true;
+  tkName.textContent = "RECRUIT CREW"; tkText.textContent = "Three MechWarriors looking for work. Wages are paid monthly."; });
+document.getElementById("recruits-done").addEventListener("click", () => { recruits.hidden = true; barmenu.hidden = false; });
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  if (!recruits.hidden) { recruits.hidden = true; barmenu.hidden = false; }
+  else if (!bar.hidden) showBar(false);
+  else close();
+});
+</script>
