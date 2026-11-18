@@ -51,6 +51,8 @@ struct DrawState {
   bool color_select = false;       // COLOROP SELECTARG1: the texture's colour alone (shadow passes)
   uint8_t texcoord = 0;            // TEXCOORDINDEX: which UV set of a draw_multi vertex
   bool sharp = false;              // ours: the 2D layer, a texel a game pixel, premultiplied, scaled sharp
+  bool premultiplied = false;      // ours (MW1's 2D at the frame's resolution): with blend, SRCBLEND ONE (the texels
+                                   // and the diffuse's colour premultiplied)
 };
 
 class Render3D {
@@ -58,6 +60,12 @@ class Render3D {
   virtual ~Render3D() = default;
   // What the load screen names as the video driver (ours; 0x005799f0 named the DirectDraw driver).
   virtual const char* driver_name() const { return "Default"; }
+  // Ours (MW1's 2D at the frame's resolution): the frame's own size in pixels, which the game's viewport is stretched
+  // over. False when the backend has none.
+  virtual bool frame_size(int* width, int* height) const {
+    (void)width, (void)height;
+    return false;
+  }
   // 0x0057b130's surfaces: RGBA8, width * height * 4 bytes. `type` is the
   // record's 1 opaque, 4 alpha plane, 5 one-bit alpha; returns a handle.
   virtual int32_t create_texture(int width, int height, const uint8_t* rgba, uint8_t type) = 0;

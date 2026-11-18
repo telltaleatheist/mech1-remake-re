@@ -94,13 +94,15 @@ fragment float4 fs_light_map(OutMap in [[stage_in]], texture2d<float> t [[textur
 )";
 
 uint32_t key_of(const platform::DrawState& s, bool textured) {
-  return textured | s.blend << 1 | s.multiply << 2 | s.depth_write << 3 | s.depth_always << 4 | s.wireframe << 5 | s.additive << 6;
+  return textured | s.blend << 1 | s.multiply << 2 | s.depth_write << 3 | s.depth_always << 4 | s.wireframe << 5 | s.additive << 6 |
+         s.premultiplied << 8;  // 7: a light map's (pipeline())
 }
 
 bool same(const platform::DrawState& a, const platform::DrawState& b) {
   return a.texture == b.texture && a.address_u == b.address_u && a.address_v == b.address_v && a.blend == b.blend &&
          a.multiply == b.multiply && a.additive == b.additive && a.depth_write == b.depth_write && a.depth_always == b.depth_always &&
-         a.alpha_modulate == b.alpha_modulate && a.fog == b.fog && a.wireframe == b.wireframe && a.sharp == b.sharp;
+         a.alpha_modulate == b.alpha_modulate && a.fog == b.fog && a.wireframe == b.wireframe && a.sharp == b.sharp &&
+         a.premultiplied == b.premultiplied;
 }
 
 #if defined(MW3_HAVE_DXIL)
@@ -208,7 +210,7 @@ SDL_GPUGraphicsPipeline* SdlRender3D::pipeline(const platform::DrawState& s, boo
       ct.blend_state.src_color_blendfactor = SDL_GPU_BLENDFACTOR_ZERO;
       ct.blend_state.dst_color_blendfactor = SDL_GPU_BLENDFACTOR_SRC_COLOR;
     } else {           // SRCALPHA, INVSRCALPHA
-      ct.blend_state.src_color_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA;
+      ct.blend_state.src_color_blendfactor = s.premultiplied ? SDL_GPU_BLENDFACTOR_ONE : SDL_GPU_BLENDFACTOR_SRC_ALPHA;
       ct.blend_state.dst_color_blendfactor = s.additive ? SDL_GPU_BLENDFACTOR_ONE : SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
     }
     ct.blend_state.src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
