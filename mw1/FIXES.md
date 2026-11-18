@@ -565,6 +565,18 @@ Tick an item when it is merged into `main`.
 - **Wanted:** the horizon as MW3 draws it. Compare a shot of the same spot in MW3's own program (the mw3 build), then fix it in the converter or in MW1's world setup. MW3's and PM's files are never modified.
 - **Done means:** before and after shots of Grasslands, Big Lake, Rolling Hills and Gorge, and the cause named.
 
+## 50. [ ] The office's liaison portrait: as wide as the buttons, its bottom on the terms box's bottom
+- **Owen (2026-11-18):** the portrait at the bottom left of the office (negotiation) screen leaves room unfilled.
+- **Wanted:**
+  - the portrait as wide as the buttons above it (NEXT OFFER through LEAVE), left and right edges lined up with theirs;
+  - its bottom edge on the bottom of the TERMS box;
+  - its top a button gap under LEAVE.
+  - The picture keeps its proportions: cropped from the top or the sides, never stretched. Faces stay in frame.
+- **The same at 16:9 and 4:3.**
+- **Done means:**
+  - shots at 1080p and 4:3, with every liaison (each House);
+  - a fit check: the edges line up within 1 px.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.
