@@ -243,7 +243,7 @@ Tick an item when it is merged into `main`.
   - The mech line (OWENS LIGHT) leaves the hub too.
   - The accepted contract's summary goes on the status line.
 
-## 21. [ ] Travel: every world findable, and each world's trade facts on the map
+## 21. [x] Travel: every world findable, and each world's trade facts on the map *(done: mw1-travel-readout)*
 - **Owen (2026-11-17):** "Doesn't look like our map has every single planet available for travel. Does travel work? ... Can we make sure they have every single planet and every planet matches the attributes in the original? High mech sale price or cheaper prices, different contracts, etc. That's how a lot of people won this game originally. They travel, sell the Jenner, travel back, buy a Shadow Hawk ..."
 - **Today:**
   - All 145 of MW1's travel worlds are on the map (research/economy.md, mw1_travel.h). Each has MW1's own tier, House, office flag, position and travel weight, read from MW_MAIN.EXE.
