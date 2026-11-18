@@ -256,3 +256,20 @@ Tick an item when it is merged into `main`.
   - **A test that the arbitrage loop works end to end:** buy at tier 0, travel to a tier 3 world, sell for a profit, travel back. Check with the dealer limit and the travel cost.
   - **Check the contracts per world:** the planet record's byte 3 (the biggest mission category there), against how mw1_missions picks a category. Use it if MW1 does.
 
+### Owen on item 17 again (2026-11-17, `owen-play-lab-2.png`)
+- "The mech lab is still poorly positioned. The box that contains data about run speed is too low and is being overlapped by other stuff. And the font is really poor quality. It looks all pixelated. Why is that? It's also overlapping the dividers/lines."
+- Item 17 moves to the front.
+
+## 22. [ ] Our cursor everywhere
+- **Owen (2026-11-17):** "It's using the MW3 cursor now. I liked our other one."
+- **The shots:** our amber crosshair on the hub and company screens; PM's small ring on the lab (`owen-play-lab-2.png`, left edge) and on PM screens.
+- **Wanted:** our crosshair on every screen in MW1, including PM's own (lab, settings, load box) and over the loading screen. One guard test.
+
+## 23. [ ] The Company screen shows PM's mech icons, not generated pictures
+- **Owen (`owen-play-company.png`):** "You know the icon that exists at the top of this, where I pick the mech for the individual? We should use those mech icons in the company screen instead of the generated images."
+- **That's** the lab's mech-slot icon: PM's line-art icon for each chassis, the yellow wireframe at the top of the lab.
+- **Wanted:**
+  - Each mech on the Company screen is drawn with its chassis' PM icon, in our amber, read from the player's PM install at run time.
+  - It replaces the AI mech art (`mech_*`) there.
+  - The same icon may serve the Mech Complex rows until item 14's renders exist. Item 14 then decides per screen.
+
