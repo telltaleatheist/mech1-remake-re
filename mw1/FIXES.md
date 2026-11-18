@@ -475,6 +475,20 @@ Tick an item when it is merged into `main`.
   - **The plan:** an authored IA map. It's our own layout data in the repo (start, enemy records, nav points, the ia block's snow, fog and light, objectives, targets), laid on the snow terrain of the player's converted MW3 c4b. It isn't reconstructed by script from the campaign missions, and none of MW3's files are shipped.
   - **For MW1 first.** Listing it in MW3's and PM's own Instant Action is the mw3 lead's call; MW3's and PM's files are never modified (VISION).
 
+## 45. [ ] Every kind of contract is winnable: reach, attack, defend, withdraw, oppose withdrawal
+- **Owen (2026-11-18):** are the reach missions winnable now? Check every kind other than destroy-all.
+- **Today:**
+  - 43's survey proves each structure row's nav point sits on its node;
+  - the loop tests win one reach row (c2 ia2, the portal gate);
+  - nothing plays every row to a win.
+- **Wanted:** a headless test that plays every structure row in mw1maps.zrd to a win, the way a player would:
+  - **reach:** drive there along the ground;
+  - **attack:** destroy the target by damage;
+  - **defend:** kill the enemies with the structure standing.
+  - It also checks the losing cases (a destroyed defended structure, the enemies killed but the target untouched).
+- **The risk:** kReachRadius is 10 m from the node. A node inside a building or on a roof may be out of a mech's reach. Measure the closest approach per row.
+- **Done means:** a table with one line per row (won, how, time, closest approach). Every row is won, or dropped with its reason.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.
