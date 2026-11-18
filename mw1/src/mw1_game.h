@@ -121,6 +121,7 @@ struct LoadingSeen {
   int32_t loads = 0, briefing_frames = 0;
   bool briefing_script = false;
   std::vector<std::string> lines;
+  std::string scene;  // its backdrop's picture (mw1image.zbd's name)
 };
 LoadingSeen game_loop_loading_seen();
 void set_game_loop_hold_launch(bool on);

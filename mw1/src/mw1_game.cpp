@@ -1517,8 +1517,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (!loading_ && layout_there(kLoadFile, kLoadDialog)) {
       loading_ = std::make_unique<screens::Mw1Screen>(e, mech3::states().load.addr(), kLoadFile, kLoadDialog,
                                                      std::vector<screens::ScreenButton>{}, nullptr);
-      loading_->show(loading_view(loading_panel()));
-      ++seen_.loads, seen_.lines = loading_->shown();
+      const LoadingPanel panel = loading_panel();
+      loading_->show(loading_view(panel));
+      ++seen_.loads, seen_.lines = loading_->shown(), seen_.scene = panel.scene;
       std::printf("mw1: loading %sia%d: %s\n", contract_.world.c_str(), contract_.ia, objective_words(contract_).c_str());
     }
     if (loading_) loading_->update(dt);

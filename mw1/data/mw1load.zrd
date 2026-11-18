@@ -2,7 +2,8 @@
 ; template (src/mw1_screen.h), FIXES.md item 18: DEPLOY goes straight into the
 ; mission, Pirate's Moon's briefing never shown; this is up while the mission
 ; loads.
-; - the battle world's scenery full-bleed and dimmed (the screen names it);
+; - the battle world's scenery full-bleed and dimmed, by its climate (the screen
+;   names it: mw1_scenery.h's scenery_image);
 ; - the world and the employer on the plaque at the top;
 ; - the contract on the green terminal in the middle: its title, objective,
 ;   map and enemy (the office's offer lines);
@@ -14,7 +15,7 @@
 (
 MW1LOADDIALOG (
   PRIMITIVES (
-    BACKGROUND (POSITION (-107 0) BITMAP ("mw1_hub_industrial") ANCHOR ("CENTRE"))
+    BACKGROUND (POSITION (-107 0) BITMAP ("mw1_hub_desert_starport") ANCHOR ("CENTRE"))
     PANEL (POSITION (-107 0) BITMAP ("mw1_dim") ANCHOR ("CENTRE"))
     PANEL2 (POSITION (170 16) BITMAP ("mw1_plaque") ANCHOR ("CENTRE"))
     PANEL3 (POSITION (102 150) BITMAP ("mw1_term_436x172") ANCHOR ("CENTRE"))
