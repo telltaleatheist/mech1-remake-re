@@ -110,7 +110,29 @@ Texture* find_in_list(int list, const char* name) {
   return nullptr;
 }
 
+namespace {
+ImageProvider g_provider;  // ours: set_image_provider
+}  // namespace
+
+void set_image_provider(const ImageProvider& p) { g_provider = p; }
+
+Texture* provided_image(const char* name) { return g_provider.fetch ? g_provider.fetch(name) : nullptr; }
+
+Texture* new_texture_565(int16_t w, int16_t h, const uint16_t* pixels) {
+  if (w <= 0 || h <= 0 || !pixels) return nullptr;
+  auto* t = static_cast<Texture*>(std::calloc(1, sizeof(Texture)));
+  t->width = w, t->height = h, t->width_again = w;
+  t->pixel_count = static_cast<int32_t>(w) * h;
+  t->flags = kTwoBytes | kNoAlpha;
+  const size_t bytes = static_cast<size_t>(t->pixel_count) * 2;
+  t->pixels = std::malloc(bytes);
+  std::memcpy(t->pixels, pixels, bytes);
+  t->flags |= kPixelsOwned;
+  return t;
+}
+
 bool has_texture(const char* name) {
+  if (g_provider.has && g_provider.has(name)) return true;
   for (int list = 0; list < 2; ++list)
     for (Library* lib : g_libraries[list]) {
       if (!lib || !open(*lib) || !lib->entries) continue;

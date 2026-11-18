@@ -90,6 +90,17 @@ void free_all(int list);                     // 0x005186b0: closed, their entrie
 Texture* find_in_list(int list, const char* name);  // 0x00518d60: the first library that has it
 // Ours: whether any library of either list names `name` (as load matches it), nothing loaded.
 bool has_texture(const char* name);
+// Ours (MW1's pictures made from their sources at load, mw1/research/hires-2d.md B2): images no library holds,
+// asked by name after both lists. `fetch` returns a new texture (new_texture_565) or null; `has` answers has_texture
+// without making one. Opt-in: only MW1's program sets it, so MW3 and PM never ask.
+struct ImageProvider {
+  Texture* (*fetch)(const char* name) = nullptr;
+  bool (*has)(const char* name) = nullptr;
+};
+void set_image_provider(const ImageProvider& p);  // {} to clear
+Texture* provided_image(const char* name);         // the provider's texture, else null (fetch_image's last try)
+// Ours: an opaque 16-bit texture of w x h 565 pixels (copied), owned as read_texture's are (free_texture frees it).
+Texture* new_texture_565(int16_t w, int16_t h, const uint16_t* pixels);
 void resolve_name(Library& lib);                                        // 0x00518a30
 bool library_exists(const char* name);  // ours: the file test resolve_name uses (the directory or the hook)
 bool open(Library& lib);                                                // 0x005187c0
