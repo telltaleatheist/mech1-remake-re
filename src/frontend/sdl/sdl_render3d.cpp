@@ -658,6 +658,7 @@ void SdlRender3D::present() {
       SDL_DestroySurface(sf);
     }
     capture_path_ = nullptr;
+    if (on_capture_written) on_capture_written();
     return;
   }
   SDL_GPUTexture* sc = nullptr;

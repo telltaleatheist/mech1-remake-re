@@ -201,9 +201,38 @@ void SdlScreen2D::draw_layer(int width, int height, bool blend) {
   render_->end_scene();
 }
 
+void SdlScreen2D::arm_canvas(const std::string& path) {
+  canvas_path_ = path, canvas_armed_ = true;
+  canvas_.clear();
+}
+bool SdlScreen2D::write_canvas() {
+  if (canvas_path_.empty()) return false;
+  canvas_armed_ = false;
+  FILE* f = std::fopen(canvas_path_.c_str(), "wb");
+  const bool ok = f && std::fwrite(canvas_.data(), 1, canvas_.size(), f) == canvas_.size();
+  if (f) std::fclose(f);
+  std::printf("mw3: wrote the canvas %s (%zu bytes)%s\n", canvas_path_.c_str(), canvas_.size(), ok ? "" : ", FAILED");
+  canvas_path_.clear(), canvas_.clear();
+  return ok;
+}
+void SdlScreen2D::keep_canvas(const uint16_t* pixels, int width, int height, int pitch, bool keyed, uint16_t key,
+                              const uint8_t* alpha) {
+  if (!canvas_armed_) return;
+  auto put32 = [&](uint32_t v) {
+    for (int k = 0; k < 4; ++k) canvas_.push_back(static_cast<uint8_t>(v >> (8 * k)));
+  };
+  put32(static_cast<uint32_t>(width)), put32(static_cast<uint32_t>(height)), put32(keyed ? 1u : 0u), put32(key);
+  for (int y = 0; y < height; ++y) {
+    const auto* row = reinterpret_cast<const uint8_t*>(pixels) + static_cast<size_t>(y) * pitch;
+    canvas_.insert(canvas_.end(), row, row + static_cast<size_t>(width) * 2);
+  }
+  if (alpha) canvas_.insert(canvas_.end(), alpha, alpha + static_cast<size_t>(width) * height);
+}
+
 void SdlScreen2D::present_16(const uint16_t* pixels, int width, int height, int pitch, bool rgb565) {
   if (!render_ || width <= 0 || height <= 0) return;
   ++frames;
+  keep_canvas(pixels, width, height, pitch, false, 0, nullptr);
   upload(pixels, width, height, pitch, rgb565, false, 0);
   // FIX (B), playtest W22: the 3D's viewport back after the layer. On a canvas
   // (16:9 past mode 10) the menus' 853x480 left on it made the mission after
@@ -225,6 +254,7 @@ void SdlScreen2D::overlay_16(const uint16_t* pixels, int width, int height, int 
   // A frame's locks often draw nothing (performance.md); the conversion,
   // upload and draw of the whole layer are skipped.
   if (layer_empty(pixels, width, height, pitch, key)) return;
+  keep_canvas(pixels, width, height, pitch, true, key, alpha);
   upload(pixels, width, height, pitch, rgb565, true, key, alpha, colour);
   int vx, vy, vw, vh;
   render_->viewport(&vx, &vy, &vw, &vh);
