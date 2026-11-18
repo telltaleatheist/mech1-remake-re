@@ -411,6 +411,7 @@ Tick an item when it is merged into `main`.
   - **If there's a limit** (Owen: "maybe there should be"): two lists like MW3's salvage screen. On the right, what the mission brought in; on the left, the keep list. Click to move items between them.
   - **The lead's suggestion for Owen:** the limit is the contract's negotiated salvage term. Its percent of the salvage's value is what you may keep, so the term negotiated in the office means something on this screen.
   - **Until Owen decides:** collect everything, scrollable.
+  - **Owen (2026-11-18): no tonnage limit** on the stores.
 - **Done means:** shots of a win, a retreat and a lost mission at 1080p and 4:3, plus a long salvage list scrolled.
 
 ## 39. [x] The lab's 'MECH LOAD-OUT and AVAILABLE SUPPLIES lists sit off-centre in their boxes
@@ -557,6 +558,12 @@ Tick an item when it is merged into `main`.
   - a headless battle with 4 friends against 12;
   - frame time measured at 1080p with 16 'Mechs;
   - MW3's and PM's own IA unchanged (their suites).
+
+## 49. [ ] A flat white band at the horizon on converted MW3 worlds
+- **Seen (2026-11-18, dev 2's 46 shots: Gorge, Big Lake, also Grasslands):** a band of flat white about a tenth of the screen tall, between the sky and the ground, all round the horizon. MW3 itself shows haze or distant terrain there.
+- **Likely cause:** something the conversion or our sky lacks, such as the sky dome's lower part, the horizon's fog colour, or a far-plane clear colour. It must be found before the arctic map (44), which is a converted MW3 world too.
+- **Wanted:** the horizon as MW3 draws it. Compare a shot of the same spot in MW3's own program (the mw3 build), then fix it in the converter or in MW1's world setup. MW3's and PM's files are never modified.
+- **Done means:** before and after shots of Grasslands, Big Lake, Rolling Hills and Gorge, and the cause named.
 
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
