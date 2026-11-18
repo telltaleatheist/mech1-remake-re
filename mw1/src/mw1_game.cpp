@@ -1402,8 +1402,24 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   // The contract on offer, line by line (with the planet and the funds first for the message box, which has no plaque).
   std::vector<std::string> offer_lines(bool with_company = false, bool with_terms = true) const {
     const Contract& k = contract_;
+    // The enemy as the player meets it (FIXES.md item 20): MW1's count by weight class, then the Pirate's Moon mechs
+    // that stand in for MW1's kinds, by name (MW1's own kind names stay in the logs).
     std::string enemies;
-    for (int32_t e : k.enemies) enemies += std::string(enemies.empty() ? "" : ", ") + kMechKinds[e].name;
+    for (int32_t w = 3; w >= 1; --w) {
+      int32_t n = 0;
+      for (int32_t e : k.enemies) n += kMechKinds[e].weight == w;
+      if (n) enemies += std::string(enemies.empty() ? "" : ", ") + std::to_string(n) + (w == 3 ? " Heavy" : w == 2 ? " Medium" : " Light");
+    }
+    std::vector<std::pair<std::string, int32_t>> named;
+    for (int32_t e : k.enemies) {
+      const std::string t = mech_title(kMechKinds[e].pm_mech);
+      auto it = std::find_if(named.begin(), named.end(), [&](const auto& p) { return p.first == t; });
+      if (it == named.end()) named.push_back({t, 1});
+      else ++it->second;
+    }
+    std::string names;
+    for (const auto& [t, n] : named) names += std::string(names.empty() ? "" : ", ") + (n > 1 ? std::to_string(n) + " " : "") + t;
+    if (!names.empty()) enemies += " (" + names + ")";
     std::vector<std::string> l;
     if (with_company)
       l = {company_.planet + ", House " + kHouses[company_.planet_house].name, "Funds: " + thousands(company_.funds) + " C-bills", ""};
