@@ -112,3 +112,24 @@ TEST(mw1_chrome_lab_reskin_at_pirates_moons_sizes) {
       }
     }
 }
+
+// FIXES.md item 17 (Owen): every frame of the lab's panels ends above the icons' tray line (the centre's ran down
+// through it, round the page icon), and the selection bar spans its row's dark panel, no more (it poked out of the
+// load-out's frame on the left). lab_panels and bar_piece draw from these; mw1labfit checks the lab as shown.
+TEST(mw1_chrome_lab_frames_above_the_tray_and_the_bar_in_its_row) {
+  using mw1::chrome::LabBox;
+  for (const LabBox& b : {mw1::chrome::kLabSideUpper, mw1::chrome::kLabSideLower, mw1::chrome::kLabSideWhole, mw1::chrome::kLabCentreBox}) {
+    EXPECT(b.y1 <= mw1::chrome::kLabTrayY - 2);  // the frame's last row (y1 - 1) clear of the line
+    EXPECT(b.x0 < b.x1 && b.y0 < b.y1);
+  }
+  EXPECT(mw1::chrome::kLabCentreBox.x0 > mw1::chrome::kLabSideWhole.x1 + 6 && mw1::chrome::kLabCentreBox.x1 < 420 + mw1::chrome::kLabSideWhole.x0 - 6);
+  // The bar from PM's OFFSET -17: from the row's x to its panel's end (172), inside a side panel's frame from either
+  // list column (10 and 453 in PM's layout).
+  constexpr int32_t kOffset = -17;
+  for (int32_t row_x : {10, 453}) {
+    const int32_t left = row_x + kOffset + mw1::chrome::kBarLeft, right = row_x + kOffset + mw1::chrome::kBarRight;
+    const int32_t panel_x = row_x < 220 ? 0 : 420;
+    EXPECT(left == row_x - mw1::chrome::kBarEdge && right == row_x + 172);
+    EXPECT(left >= panel_x + mw1::chrome::kLabSideWhole.x0 + 2 && right <= panel_x + mw1::chrome::kLabSideWhole.x1 - 2);
+  }
+}

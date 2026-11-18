@@ -169,6 +169,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         ztwod::set_layout_image(r.game, chrome::reskin_name(r.game), t == &chrome::lab_pictures() ? chrome::kLabFile : chrome::kFileBoxFile);
     for (const char* f : kLabFonts) ztwod::set_layout_font(f, std::string("mw1_") + f, chrome::kLabFile);
     for (const auto& [game_font, font] : kFileBoxFonts) ztwod::set_layout_font(game_font, font, chrome::kFileBoxFile);
+    for (const char* f : kPmCursorFiles) ztwod::set_layout_image(kPmCursor, chrome::kCursor, f);  // FIXES.md item 22
     auto* ge = dynamic_cast<mech3::GameEngine*>(&e);
     mech3::set_menus_still(true);  // FIXES.md item 9: PM's own screens' backgrounds held still too
     ztwod::set_layout_wide([ge] { return ge && ge->buffer_width() > 640; });
@@ -186,6 +187,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         if (before) before(f);
         if (deployed_ && launched_ && !ending_latched_ && ge_ && ge_->mission_ended()) latch_ending(*ge_);
         lab_look_frame();
+        briefing_cursor_frame();
       };
     }
     // MW1_SCREEN=pause or pause_options (development: --shot pictures of the pause over a mission): the offer
@@ -1007,6 +1009,17 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     ge.pilot_chosen(p);  // the lab's pilot is the engine's current one ([0x0060861c])
     ge.mech_lab_open(ge.store_handle(&g->store), 0);
   }
+  // FIXES.md item 22: PM's briefing reads its layout's node itself (BriefingScreen's load_node, not Dialog::load), so
+  // set_layout_image's swap for briefing.zrd never applies to it: its pointer made ours once it has loaded.
+  void briefing_cursor_frame() {
+    mech3::Mech3App* app = mech3::app_if_any();
+    if (!app || app->current() != &mech3::states().load) return;
+    mech3::BriefingScreen* b = mech3::briefing_screen();
+    if (!b || !b->loaded || b->cursor != &b->cursor_obj) return;
+    zimg::Texture* ours = ztwod::host().image_get(chrome::kCursor);
+    if (ours && b->cursor_obj.image != ours) b->cursor_obj.set_cursor_image(ours);
+  }
+
   // The lab's places that PM's layout leaves crossing our frames in our type (FIXES.md item 17; the guard is
   // MW1_SCREEN=lab_fit, mw1_lab_fit.h). Once per lab screen (its ammunition tab's label the mark), then each frame
   // the engine's right-hand arrows past their values.
@@ -1062,16 +1075,23 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     shift_labels(et, 0, -kEngineUp);
     et.set_pos(et.x, et.y - kEngineUp);
     // MECH DATA's values and its internal structure's choice kDataLeft further left: the right arrow sat on the
-    // centre panel's frame.
+    // centre panel's frame. And all of it kDataUp higher: the centre's box ends above the tray now (Owen).
     if (mech3::LabMechData* md = ls.mech_data) {
       md->width -= kDataLeft;
-      md->set_pos(md->x, md->y);
+      shift_labels(*md, 0, -kDataUp);
+      md->set_pos(md->x, md->y - kDataUp);
       ztwod::Text* value = nullptr;  // the choice's label (offset 170), the rightmost
       for (ztwod::Text* t : md->endo.labels)
         if (!value || t->x > value->x) value = t;
       if (value) value->x -= kDataLeft, value->dirty();
       md->endo.next_dx -= kDataLeft;
-      md->endo.next.set_pos(md->endo.next.x - kDataLeft, md->endo.next.y);
+      // CycleButton::set_pos moves its first label and the arrows; the rest of its labels by hand.
+      ztwod::Text* first = md->endo.labels.empty() ? nullptr : md->endo.labels[0];
+      md->endo.set_pos(md->endo.x, md->endo.y - kDataUp);
+      std::vector<ztwod::Text*> moved{first};
+      for (auto* v : {&md->endo.labels, &md->endo.rollover_labels, &md->endo.activate_labels, &md->endo.disable_labels})
+        for (ztwod::Text* l : *v)
+          if (std::find(moved.begin(), moved.end(), l) == moved.end()) moved.push_back(l), l->y -= kDataUp, l->dirty();
     }
   }
   // A control's labels, every look's, moved once each.
@@ -1085,7 +1105,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       cb->text->x += dx, cb->text->y += dy, cb->text->dirty();
   }
   static constexpr const char* kAmmoTab = "Ammo";
-  static constexpr int32_t kTabGap = 8, kListUp = 12, kEngineUp = 9, kEngineValueW = 112, kDataLeft = 6, kArrowGap = 3;
+  static constexpr int32_t kTabGap = 8, kListUp = 12, kEngineUp = 9, kEngineValueW = 112, kDataLeft = 6, kDataUp = 8, kArrowGap = 3;
 
   // The lab's PILOT line on its screen (mw1_lab_pilot.h), once the lab from MECH LAB is up.
   void lab_frame() {

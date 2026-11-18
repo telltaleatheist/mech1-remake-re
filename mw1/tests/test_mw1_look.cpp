@@ -7,6 +7,8 @@
 // The screens still in Pirate's Moon's art are listed (kNotYet), the list checked both ways: a screen made over
 // comes off it (the test says so), a new reference anywhere else fails.
 #include <algorithm>
+#include <cstdio>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <regex>
@@ -16,6 +18,8 @@
 #include <vector>
 
 #include "check.h"
+#include "gamez/zreader/zreader.h"
+#include "gamez/zutil/zutl_zar.h"
 #include "mw1_lab_skin.h"
 #include "mw1_layouts.h"
 
@@ -110,6 +114,8 @@ TEST(mw1_look_mw1_opens_only_its_own_layouts) {
       if (n == "targets.zrd") continue;
       if (n == "dlgPause.zrd" || n == "dlgOptions.zrd") continue;  // swapped away (mw1_layouts.h), not opened
       if (n == "dlgMechLabII.zrd" || n == "dlgLoadSave.zrd") continue;  // reskinned (mw1_lab_skin.h): PM's code reads them
+      if (std::find(std::begin(mw1::kPmCursorFiles), std::end(mw1::kPmCursorFiles), n) != std::end(mw1::kPmCursorFiles))
+        continue;  // only their pointer mapped to MW1's (item 22), as PM's code reads them
       ++named;
       if (!fs::exists(fs::path(MW1_DATA_DIR) / n)) std::printf("  %s names %s: not MW1's\n", d.path().filename().string().c_str(), n.c_str());
       EXPECT(fs::exists(fs::path(MW1_DATA_DIR) / n));
@@ -172,4 +178,72 @@ TEST(mw1_look_lab_fonts_are_defined) {
   };
   for (const char* f : mw1::kLabFonts) EXPECT(defined(std::string("mw1_") + f));
   for (const auto& [game, ours] : mw1::kFileBoxFonts) EXPECT(defined(ours));
+}
+
+// FIXES.md item 22: MW1's pointer on Pirate's Moon's own screens too. Every CURSOR in Pirate's Moon's layouts
+// (its reader.zbd, read here, never changed) names kPmCursor, and the files that have one are exactly
+// kPmCursorFiles (each mapped to MW1's pointer while it is read): a new one fails until it is listed. (The loop test
+// sees MW1's pointer on the briefing and the lab as they show.)
+namespace {
+// Each CURSOR's BITMAP name under the node (any depth).
+void cursors_in(const zrdr::Node& n, std::vector<std::string>& out) {
+  if (n.type != zrdr::List) return;
+  const int32_t count = n.list[0].i;
+  for (int32_t i = 1; i < count; ++i) {
+    const zrdr::Node& item = n.list[i];
+    if (item.type == zrdr::String && std::string(item.s) == "CURSOR" && i + 1 < count && n.list[i + 1].type == zrdr::List) {
+      const zrdr::Node& cu = n.list[i + 1];
+      std::string name = "?";
+      for (int32_t k = 1; k + 1 < cu.list[0].i; ++k)
+        if (cu.list[k].type == zrdr::String && std::string(cu.list[k].s) == "BITMAP" && cu.list[k + 1].type == zrdr::List &&
+            cu.list[k + 1].list[0].i > 1 && cu.list[k + 1].list[1].type == zrdr::String)
+          name = cu.list[k + 1].list[1].s;
+      out.push_back(name);
+    }
+    cursors_in(item, out);
+  }
+}
+}  // namespace
+
+TEST(mw1_look_pm_cursor_is_mw1s_on_every_pm_layout) {
+  const fs::path zbd = fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd";
+  std::error_code ec;
+  if (!fs::exists(zbd, ec)) return;
+  const std::string data = read_all(zbd);
+  EXPECT(data.size() > 12);
+  if (data.size() <= 12) return;
+  uint32_t count = 0;
+  std::memcpy(&count, data.data() + data.size() - 8, 4);  // version, count, then PM's checksum
+  const size_t table = data.size() - 12 - static_cast<size_t>(count) * sizeof(zutl_zar::Entry);
+  std::set<std::string> with;
+  int cursors = 0;
+  std::FILE* f = std::fopen(zbd.string().c_str(), "rb");
+  EXPECT(f != nullptr);
+  if (!f) return;
+  for (uint32_t i = 0; i < count; ++i) {
+    zutl_zar::Entry e{};
+    std::memcpy(&e, data.data() + table + i * sizeof e, sizeof e);
+    const std::string name(e.name, strnlen(e.name, sizeof e.name));
+    if (name.size() < 4 || name.compare(name.size() - 4, 4, ".zrd") != 0) continue;
+    std::fseek(f, static_cast<long>(e.start), SEEK_SET);
+    zrdr::Node root{};
+    zrdr::read_node(f, &root);
+    std::vector<std::string> found;
+    cursors_in(root, found);
+    zrdr::free_contents(&root);
+    for (const std::string& c : found) {
+      ++cursors;
+      if (c != mw1::kPmCursor) std::printf("  %s: a CURSOR of %s, not %s\n", name.c_str(), c.c_str(), mw1::kPmCursor);
+      EXPECT(c == mw1::kPmCursor);
+    }
+    if (!found.empty()) with.insert(name);
+  }
+  std::fclose(f);
+  std::set<std::string> listed(std::begin(mw1::kPmCursorFiles), std::end(mw1::kPmCursorFiles));
+  for (const std::string& n : with)
+    if (!listed.count(n)) std::printf("  %s has a CURSOR and is not in kPmCursorFiles\n", n.c_str());
+  for (const std::string& n : listed)
+    if (!with.count(n)) std::printf("  %s is in kPmCursorFiles and has no CURSOR\n", n.c_str());
+  std::printf("  PM's layouts: %d cursors in %zu files\n", cursors, with.size());
+  EXPECT(cursors > 0 && with == listed);
 }

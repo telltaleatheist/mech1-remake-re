@@ -20,4 +20,13 @@ inline constexpr std::pair<const char*, const char*> kFileBoxFonts[] = {
     {"ia_small_amber", "mw1_lab_small_red"}, {"main_red_small", "mw1_lab_small_title"}, {"ia_dark_grey", "mw1_lab_small_grey"},
 };
 
+// FIXES.md item 22: PM's pointer is ours (mw1_chrome.h's kCursor) on PM's own screens too while MW1 runs. Every
+// CURSOR of PM's layouts names this picture, centred; these are the files that have one (ztwod::set_layout_image
+// for each, while it is read).
+inline constexpr const char* kPmCursor = "cursor_circle_orange";
+inline constexpr const char* kPmCursorFiles[] = {
+    "briefing.zrd", "dialog.zrd",    "dlgCredits.zrd", "dlgLoadSave.zrd", "dlgMechLabII.zrd", "dlgMessage.zrd",
+    "dlgOptions.zrd", "dlgPause.zrd", "dlgSalvage.zrd", "dlgWeapon.zrd", "dlgWin.zrd",
+};
+
 }  // namespace mw1

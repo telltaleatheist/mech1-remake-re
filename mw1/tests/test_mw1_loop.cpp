@@ -35,6 +35,7 @@
 #include "mech3/app_states.h"
 #include "mech3/briefing.h"
 #include "mech3/debriefing.h"
+#include "mech3/lab_screen.h"
 #include "mech3/mech_config.h"
 #include "mech3/mech_control.h"
 #include "mech3/mech_names.h"
@@ -116,6 +117,7 @@ struct MouseHost : ztwod::Host {
       }
       return m;
     }();
+    name = ztwod::layout_image(name);  // as the SDL host: a program's picture in the game's's place (set_layout_image)
     auto it = name ? sizes.find(name) : sizes.end();
     return it == sizes.end() ? nullptr : &it->second;
   }
@@ -187,6 +189,9 @@ struct Run {
   int32_t lab_mech = -1, lab_stores = -1;
   std::string lab_pilot, lab_pilot_after;  // its PILOT line as the lab opened, after the arrow
   int32_t briefing_mech = -1;
+  // FIXES.md item 22: the pointer's picture's width on PM's screens as they show (the briefing, the lab), by screen
+  // (MouseHost serves only MW1's pictures: PM's ring would be none, -1).
+  std::map<std::string, int32_t> pm_cursor;
   bool market_done = false;
   // Travel (mw1_travel_screen.h) before the first ACCEPT: the nearest world with a House office, GO; the contract
   // then taken there.
@@ -301,6 +306,14 @@ void loop_run(Ending ending, Run* run = nullptr) {
     int frames = 0;
     engine.on_present = [&](int) {
       if (app.pending()) return;
+      if (run) {  // PM's screens' pointers (item 22)
+        auto seen = [&](const char* name, ztwod::Dialog* d) {
+          if (d && d->cursor == &d->cursor_obj) run->pm_cursor[name] = d->cursor_obj.image ? d->cursor_obj.image->width : -1;
+        };
+        if (app.current() == &mech3::states().lab) seen("lab", engine.lab_screen(mech3::states().lab.lab_screen_));
+        if (app.current() == &mech3::states().load)
+          if (mech3::BriefingScreen* b = mech3::briefing_screen(); b && b->loaded) seen("briefing", b);
+      }
       if (quit && app.current() == &mech3::states().main) back_at_main = true;
       if (run && run->pm_end && run->pm_end_stage == 1 && app.current() == &mech3::states().end_win) {
         auto* d = dynamic_cast<mech3::DebriefScreen*>(engine.screen_of(mech3::states().end_win.screen_));
@@ -1339,6 +1352,10 @@ TEST(mw1_loop_market_buy_sell_pilot_then_a_contract_in_the_bought_mech_headless)
                 static_cast<long long>(run.market_sold_for), run.briefing_mech);
     std::printf("  hub hover: said %d, gone %d; messages read %d\n", run.hover_said, run.hover_gone, run.messages_read);
     EXPECT(run.hover_said && run.hover_gone && run.messages_read >= 1);
+    std::printf("  PM's screens' pointer: briefing %d, lab %d wide (ours %d)\n", run.pm_cursor.count("briefing") ? run.pm_cursor["briefing"] : 0,
+                run.pm_cursor.count("lab") ? run.pm_cursor["lab"] : 0, mw1::chrome::kCursorSize);
+    EXPECT(run.pm_cursor.count("briefing") && run.pm_cursor["briefing"] == mw1::chrome::kCursorSize);
+    EXPECT(run.pm_cursor.count("lab") && run.pm_cursor["lab"] == mw1::chrome::kCursorSize);
     EXPECT(run.market_done && run.market_lines.size() > 4);
     bool for_sale = false, yours = false;
     for (const std::string& l : run.market_lines) for_sale = for_sale || l == "FOR SALE", yours = yours || l == "YOUR MECHS";
