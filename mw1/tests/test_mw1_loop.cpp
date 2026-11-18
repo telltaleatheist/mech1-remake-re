@@ -2379,6 +2379,8 @@ TEST(mw1_story_events_on_the_panel_headless) {
           crest = c->story.seen[0x74] != 0;
           crest_named = shows_line(ev->screen()->shown(), "ARRIVAL") && ev->screen()->visible(mw1::kEventNext) &&
                         !ev->screen()->visible(mw1::kEventChoice1);
+          // Over the hub (FIXES.md item 34): the world's scenery behind, the panel in the hub's free side.
+          crest_named = crest_named && ev->side() == mw1::kHubSide && ev->screen()->backdrop() == mw1::scenery_image(c->planet_number);
           ev->screen()->on_button(mw1::kEventNext, 0, 0);
           ++step, wait = 0;
           return false;
@@ -2422,7 +2424,8 @@ TEST(mw1_story_events_on_the_panel_headless) {
           return false;
         case 5:
           if (showing(app, ev)) {
-            mech_complex = shows_line(ev->screen()->shown(), "THE MECH COMPLEX") && c->story.seen[0x26];
+            mech_complex = shows_line(ev->screen()->shown(), "THE MECH COMPLEX") && c->story.seen[0x26] &&
+                           ev->side() == mw1::kMarketSide && ev->screen()->backdrop() == mw1::kMarketScene;
             ev->screen()->on_button(mw1::kEventNext, 0, 0);
             wait = 0;
             return false;
@@ -2448,7 +2451,8 @@ TEST(mw1_story_events_on_the_panel_headless) {
           return false;
         default:
           if (showing(app, ev)) {
-            office = shows_line(ev->screen()->shown(), "THE HOUSE OFFICE") && c->story.seen[0x08];
+            office = shows_line(ev->screen()->shown(), "THE HOUSE OFFICE") && c->story.seen[0x08] &&
+                     ev->side() == mw1::kOfficeSide && ev->screen()->backdrop() == mw1::kOfficeScene;
             ev->screen()->on_button(mw1::kEventNext, 0, 0);
             wait = 0;
             return false;
@@ -2491,7 +2495,7 @@ TEST(mw1_story_drinks_and_news_in_the_bar_headless) {
     std::vector<int32_t> tips;
     std::vector<int64_t> paid;
     int32_t units = -1;
-    bool live = false, quiet = false, news = false, paged = false, back = false;
+    bool live = false, quiet = false, news = false, paged = false, back = false, over_bar = true;
     r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
       mw1::HubState* hub = mw1::game_loop_hub();
       mw1::BarState* bar = mw1::game_loop_bar();
@@ -2511,6 +2515,8 @@ TEST(mw1_story_drinks_and_news_in_the_bar_headless) {
           return false;
         case 1: {  // three drinks: two tips, then nothing
           if (showing(app, ev)) {
+            // Over the Bar (FIXES.md item 34): its picture behind, undimmed, the panel in its left side.
+            over_bar = over_bar && ev->side() == mw1::Side::kLeft && ev->screen()->backdrop() == mw1::kBarScene;
             ev->screen()->on_button(mw1::kEventNext, 0, 0);
             wait = 0;
             return false;
@@ -2537,6 +2543,7 @@ TEST(mw1_story_drinks_and_news_in_the_bar_headless) {
         }
         case 2:  // the news: the frame-up at least; NEXT and PREV through it, then BACK
           if (!showing(app, ev)) return false;
+          over_bar = over_bar && ev->side() == mw1::Side::kLeft && ev->screen()->backdrop() == mw1::kBarScene;
           news = ev->screen()->visible(mw1::kEventBack) && ev->screen()->visible(mw1::kEventPrev) &&
                  !ev->screen()->visible(mw1::kEventChoice1) && shows_line(ev->screen()->shown(), "NEWS (1 OF");
           ev->screen()->on_button(mw1::kEventNext, 0, 0);
@@ -2554,8 +2561,9 @@ TEST(mw1_story_drinks_and_news_in_the_bar_headless) {
     menu_run(r);
     std::printf("  drinks: %zu tips, paid", tips.size());
     for (int64_t p : paid) std::printf(" %lld", static_cast<long long>(p));
-    std::printf("; a unit each %d; live %d, quiet %d, news %d, paged %d, back %d\n", units, live, quiet, news, paged, back);
-    EXPECT(live && quiet && news && paged && back && units == 1);
+    std::printf("; a unit each %d; live %d, quiet %d, news %d, paged %d, back %d, over the Bar %d\n", units, live, quiet, news, paged,
+                back, over_bar);
+    EXPECT(live && quiet && news && paged && back && units == 1 && over_bar);
     EXPECT(paid.size() == 3 && paid[0] == 5 && paid[1] == 5 && paid[2] == 0);
   });
 }

@@ -14,6 +14,10 @@ std::string event_art(int32_t event) {
   }
 }
 
+const char* event_dialog(Side s) {
+  return s == Side::kLeft ? kEventLeftDialog : s == Side::kRight ? kEventRightDialog : kEventDialog;
+}
+
 const char* event_button_name(int32_t id) { return id >= 1 && id <= kEventButtonCount ? kEventButtons[static_cast<size_t>(id) - 1].name : ""; }
 
 ScreenView event_view(const EventPanel& p) {
@@ -47,7 +51,7 @@ ScreenView event_view(const EventPanel& p) {
   return v;
 }
 
-EventState::EventState(zgame::Handle h, std::function<void(int32_t)> pressed)
-    : Mw1State(h, "MW1 Event State", kEventFile, kEventDialog, kEventButtons, kEventNext, std::move(pressed)) {}
+EventState::EventState(zgame::Handle h, Side side, std::function<void(int32_t)> pressed)
+    : Mw1State(h, "MW1 Event State", kEventFile, event_dialog(side), kEventButtons, kEventNext, std::move(pressed)), side_(side) {}
 
 }  // namespace mw1::event_ui
