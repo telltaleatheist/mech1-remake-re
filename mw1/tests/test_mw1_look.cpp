@@ -126,7 +126,7 @@ TEST(mw1_look_mw1_opens_only_its_own_layouts) {
 
 TEST(mw1_look_pause_and_options_layouts_bind_pirates_moons_names) {
   // Each of Pirate's Moon's screens MW1 shows on its own layout (mw1_layouts.h) finds there every name its code
-  // binds (pause_menu.cpp, options_menu.cpp, controls_menu.cpp): a name missing would leave that control unread.
+  // binds (pause_menu.cpp, options_menu.cpp, controls_menu.cpp, lab_filebox.cpp): a name missing would leave that control unread.
   struct Binds {
     const char* dialog;
     std::vector<const char*> names;
@@ -146,6 +146,7 @@ TEST(mw1_look_pause_and_options_layouts_bind_pirates_moons_names) {
                        "CMD_DESCRIPTION"}},
       {"MW1AXIS", {"ASSIGN_BOX", "MB_OK", "MB_CANCEL", "CMD_AXIS_CYCLE_BTN", "AXIS_VALUE", "INVERT_CHECKBOX", "INSTRUCTIONS"}},
       {"MW1FILES", {"LOAD_BOX", "MB_OK", "MB_CANCEL", "EDITBAR", "FILELIST"}},
+      {"MW1LOADSAVE", {"LOAD_BOX", "BTN_ACCEPT", "BTN_CANCEL", "EDITBAR", "FILELIST"}},  // lab_filebox.cpp
   };
   EXPECT(binds.size() == std::size(mw1::kLayoutSwaps));
   for (const mw1::LayoutSwap& sw : mw1::kLayoutSwaps)

@@ -13,7 +13,7 @@ struct FitBox { int32_t left, top, right, bottom; const char* name; };
 
 // The lab's panels in its 640x480 layout (mw1_chrome.cpp's lab frames, inside their edges).
 std::vector<FitBox> lab_fit_panels();
-// The load box's inside (dlgLoadSave's LOAD_BOX, 240x280 at 200, 82, inside its frame).
+// The load box's inside (MW1LOADSAVE's LOAD_BOX, MW1's tall dialog, in the layout read now, inside its frame).
 std::vector<FitBox> load_box_panels();
 
 struct FitText { std::string text; int32_t left, top, right, bottom; const char* panel; bool fits; };
