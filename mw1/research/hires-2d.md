@@ -118,8 +118,10 @@ the cursor's save. So a draw list held only by the screen would lose text and pi
 
 **For B1, from this.** The command lists live on `zimg::Texture` (an ours side table in the SDL host keyed by the
 texture, so `zimg::Texture`'s layout, which mirrors the exe's, doesn't change). The host's `blit`, `screen_grab`,
-`screen_grab_rect`, the DC's `DrawTextA` and `texture_free` are the only places that touch them. Nothing in
-`gamez/ztwod` or `mech3` changes.
+`screen_grab_rect`, the DC's `DrawTextA` and `texture_free` touch them. Every image draw in ztwod and mech3 goes
+through `host().blit` (14 callers, none calling `zrndr::blit16` directly), so the host's override sees them all.
+The one draw outside the host is the fade's still (`GameEngine::image_draw`), which needs a small ours hook in
+`app_engine.cpp`. Nothing else in `gamez/ztwod` or `mech3` changes.
 
 ### B1. The engine path: a high-resolution draw list over the canvas
 
