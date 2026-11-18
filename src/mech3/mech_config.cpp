@@ -111,6 +111,7 @@ ConfigItem* Config::add_item(ConfigItem* item, int32_t n) {
   }
   if (!made) return nullptr;
   made->group = item->group;
+  made->join = item->join;  // ours (item 40)
   items.push_back(made);
   return made;
 }

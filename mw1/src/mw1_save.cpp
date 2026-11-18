@@ -104,12 +104,22 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
   auto loadout_hex = [](const std::shared_ptr<mech3::Config>& l) {
     return l ? hex(bytes_of([&](std::FILE* f) { mech3::pilot_hooks().config_save(l.get(), f); })) : std::string();
   };
-  o << "loadout=" << loadout_hex(c.loadout) << "\n";
+  // FIXES.md item 40: each loadout's weapons' group order (ConfigItem::join, not in PM's save), its weapons' in
+  // its item order, on the line after it; a loadout without one (an older save) lists its groups in PM's order.
+  auto joins = [](const std::string& key, const std::shared_ptr<mech3::Config>& l) {
+    std::string out;
+    if (l)
+      for (const mech3::ConfigItem* it : l->items)
+        if (it->kind() == 1) out += (out.empty() ? "" : ",") + std::to_string(it->join);
+    return key + "_joins=" + out + "\n";
+  };
+  o << "loadout=" << loadout_hex(c.loadout) << "\n" << joins("loadout", c.loadout);
   // Version 2: the world's number, the hangar and the market.
   o << "planet_number=" << c.planet_number << "\n";
   o << "hangar_count=" << c.hangar.size() << "\n";
   for (size_t i = 0; i < c.hangar.size(); ++i)
-    o << "hangar" << i << "=" << c.hangar[i].mech << "\nhangar" << i << "_loadout=" << loadout_hex(c.hangar[i].loadout) << "\n";
+    o << "hangar" << i << "=" << c.hangar[i].mech << "\nhangar" << i << "_loadout=" << loadout_hex(c.hangar[i].loadout) << "\n"
+      << joins("hangar" + std::to_string(i) + "_loadout", c.hangar[i].loadout);
   o << "market_stock=";
   for (size_t i = 0; i < c.market.stock.size(); ++i) o << (i ? "," : "") << c.market.stock[i];
   o << "\nmarket_sold=" << c.market.sold << "\nmarket_limit=" << c.market.limit << "\n";
@@ -188,6 +198,7 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
       << (p.launch_loadout ? hex(bytes_of([&](std::FILE* f) { mech3::pilot_hooks().config_save(p.launch_loadout.get(), f); }))
                            : std::string())
       << "\n";
+    o << joins("pending_launch_loadout", p.launch_loadout);
   }
   std::string body = o.str();
   char check[32];
@@ -267,6 +278,19 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
       return false;
     }
     l->reset(cfg);
+    // Its weapons' group order (item 40), when the line is there and fits; else PM's (every join 0).
+    if (v.count(key + "_joins") && !v[key + "_joins"].empty()) {
+      std::vector<int32_t> j;
+      std::istringstream js(v[key + "_joins"]);
+      std::string n;
+      int64_t x = 0;
+      while (std::getline(js, n, ','))
+        if (to_int(n, 0, 1 << 30, &x)) j.push_back(static_cast<int32_t>(x));
+        else return false;
+      size_t k = 0;
+      for (mech3::ConfigItem* it : cfg->items)
+        if (it->kind() == 1 && k < j.size()) it->join = j[k++];
+    }
     return cfg->mech == for_mech;
   };
   if (!store_line("stores", false, &c.stores)) return fail("the stores don't read");

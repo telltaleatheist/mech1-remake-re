@@ -1180,6 +1180,12 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     centre_lab_list(ls.assigned, chrome::kLabSideWhole.x0, chrome::kLabSideWhole.x1, layout_left, {});
     centre_lab_list(u, 420 + chrome::kLabSideWhole.x0, 420 + chrome::kLabSideWhole.x1, layout_left,
                     {&u.sort_item, &u.sort_qty, &u.sort_mass, &u.sort_crit});
+    // FIXES.md item 40: WEAPON GROUPING's and UNGROUPED WEAPONS' rows inside their panels the same way (PM's tags
+    // and the groups' bar ran over the left panel's frame), the tags the rows' width; and a weapon put in a group
+    // goes after the group's others (the engine's join_order, ours: PM lists a group in the loadout's order).
+    centre_weapon_list(ls.grouped, chrome::kLabSideWhole.x0, layout_left);
+    centre_weapon_list(ls.ungrouped, 420 + chrome::kLabSideWhole.x0, layout_left);
+    ls.ungrouped.join_order = true;
     // The supply tabs: PM's at fixed x, and "Armor" ran past the right panel's frame. "Ammo" for "Ammunition", and
     // the four laid left to right from the first, kTabGap apart (each tab is its labels: Control::hit).
     for (auto* v : {&u.ammo.labels, &u.ammo.rollover_labels, &u.ammo.activate_labels, &u.ammo.disable_labels})
@@ -1202,6 +1208,23 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       l->layout();
     }
     u.long_size[1] -= kListUp, u.short_size[1] -= kListUp;
+    // FIXES.md item 40 (Owen's gap, item 39's review): 'MECH LOAD-OUT's header and rows a row higher, into the band
+    // under its title's rule (where the supplies have their tabs), its down arrow where it was: a row more shown.
+    {
+      mech3::LabAssignedList& a = ls.assigned;
+      const int32_t up = a.spacing[1] + 0xd;  // a row (LabItemList::layout's step)
+      std::vector<ztwod::Text*> moved;
+      for (auto* v : {&a.labels, &a.rollover_labels, &a.activate_labels, &a.disable_labels})
+        for (ztwod::Text* t : *v)
+          if (t->y < a.get_y() && t->y >= a.get_y() - kLabHeaderAbove && std::find(moved.begin(), moved.end(), t) == moved.end())
+            moved.push_back(t), t->y -= up, t->dirty();
+      const int32_t down_y = a.down ? a.down->get_y() : 0;
+      a.size[1] += up;
+      a.set_rows(a.size);
+      a.set_pos(a.get_x(), a.get_y() - up);
+      if (a.down) a.down->set_pos(a.down->get_x(), down_y);
+      a.layout();
+    }
     // ENGINE SELECTION's last row ran past the right lower panel: the table kEngineUp higher, its values
     // kEngineValueW from its labels (PM's 130) for room for the arrows inside the frame.
     mech3::LabEngineTable& et = ls.engine_table;
@@ -1294,6 +1317,23 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     l.layout();
   }
   static constexpr int32_t kLabHeaderAbove = 16, kLabMarginSlack = 3;
+  // FIXES.md item 40: a weapon list's rows (their tags kTagLeft left of the row's text) kLabListMargin inside its
+  // panel's frame (x0, the frame's outer left in the 640 layout), the tags kLabListRowW wide, the click area across
+  // them; its own labels (the title) moved with the rows.
+  static constexpr int32_t kTagLeft = 3;
+  static void centre_weapon_list(mech3::LabWeaponList& l, int32_t x0, int32_t layout_left) {
+    const int32_t old_left = l.get_x() + l.offset_x + l.spacing_x - kTagLeft;
+    const int32_t want = layout_left + x0 + chrome::kLabFrame + chrome::kLabListMargin, dx = want - old_left;
+    l.tag_width = chrome::kLabListRowW;
+    l.set_pos(l.get_x() + dx, l.get_y());
+    for (mech3::FileListArrow* a : {l.up, l.down})
+      if (a) a->set_pos(a->get_x() + dx, a->get_y());
+    l.rect.left += dx, l.rect.right = std::max(l.rect.right + dx, want + chrome::kLabListRowW);
+    if (l.bar_image)
+      if (zimg::Texture* t = ztwod::host().image_get(chrome::reskin_name(chrome::kLabWideBar).c_str())) l.bar_image->set_image(t);
+    shift_labels(l, dx, 0);
+    l.layout();
+  }
   // A control's labels, every look's, moved once each.
   static void shift_labels(ztwod::Control& c, int32_t dx, int32_t dy) {
     std::vector<ztwod::Text*> moved;
@@ -2447,8 +2487,21 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       if (page == "lab_files" && !once) once = true, ge->config_import();
       else if (mech3::LabScreen* l = ge->lab_screen(mech3::states().lab.lab_screen_); l && page.size() >= 5) {
         l->switch_page(page[4] - '0');
-        if (page.size() == 6)  // lab_3e, lab_3a: the criticals page's equipment (ENGINE SELECTION) or armour tab
+        if (page.size() == 6 && page[4] == '3')  // lab_3e, lab_3a: the criticals page's equipment (ENGINE SELECTION) or armour tab
           l->unassigned.set_tab(3, page[5] == 'a'), l->unassigned.refill();
+        // lab_4u (FIXES.md item 40): the groups page with weapons moved: the first and third out of their groups (the
+        // ungrouped list), the fourth into the first group.
+        if (page == "lab_4u") {
+          const mech3::LabState& lab = mech3::states().lab;
+          int32_t k = 0;
+          for (mech3::Handle it : ge->lab_config_items(ge->lab_slot_cfg(ge->lab_slot(lab.pilot_, lab.slot_))))
+            if (ge->lab_item_kind(it) == 1) {
+              if (k == 0 || k == 2) ge->lab_set_item_group(it, -1);
+              if (k == 3) ge->lab_set_item_group(it, 0);
+              ++k;
+            }
+          l->refresh_groups();
+        }
       }
     }
     // MW1_LAB_HOVER=0..3 (development: --shot pictures of a tray button's hover label, FIXES.md item 37): that

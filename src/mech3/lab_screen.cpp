@@ -18,6 +18,7 @@
 #include "gamez/zimage/zimg_library.h"
 #include "gamez/zvideo/zvid_format.h"
 #include "mech3/app_states.h"
+#include "mech3/mech_config.h"
 #include "mech3/mech_ids.h"
 #include "mech3/pilot.h"
 #include "mech3/mech_names.h"
@@ -1365,6 +1366,13 @@ void LabWeaponList::select(int32_t index) {
     return;
   }
   play_sound(1, 1.0f);  // 0x0048d3b0
+  if (join_order && group != -1)  // ours (item 40, opt-in): after the group's others (ConfigItem::join)
+    if (Config* c = en.lab_config_of(en.lab_slot_cfg(en.lab_slot(states().lab.pilot_, states().lab.slot_))))
+      if (auto* joined = const_cast<ConfigItem*>(en.item_of(it))) {
+        int32_t last = 0;
+        for (const ConfigItem* i : c->items) last = std::max(last, i->join);
+        joined->join = last + 1;
+      }
   en.lab_set_item_group(it, group);
   s->refresh_groups();
 }
@@ -1400,7 +1408,7 @@ void LabWeaponList::layout() {
 // group's in STATIC_FONT, 5 lower after the first, the selected row's text
 // and BAR on it.
 void LabWeaponList::lay_rows() {
-  constexpr int32_t kTagW = 172, kTagH = 12;  // [0x005e42b8], [0x005e42bc]
+  constexpr int32_t kTagH = 12;  // [0x005e42bc] (the width [0x005e42b8], tag_width: ours, PM's kTagW)
   int32_t y = get_y() + offset_y;
   if (rows.empty()) return;
   Engine& en = e_;
@@ -1421,10 +1429,11 @@ void LabWeaponList::lay_rows() {
       if (!tag) {
         tag = new LabLocationTag;
         row->attached = tag;
-        tag->set_size(kTagW, kTagH);
+        tag->set_size(tag_width, kTagH);
         tag->set_color(zvid::pack_bytes(0x19, 0x19, 0x19));  // 0x0043aae0
         tag->set_opacity(1.0f);
       }
+      if (tag->image && tag->image->width != tag_width) tag->set_size(tag_width, kTagH);  // (tag_width changed)
       tag->show_for(-1.0f);
       tag->set_pos(row->get_x() - 3, row->get_y());
       tag->text.set_font(font_normal);
@@ -1468,8 +1477,15 @@ void LabScreen::refresh_groups() {
     if (e.lab_item_kind(it) == 1 && e.lab_item_group(it) == -1) ungrouped.add_weapon(it);
   for (int32_t g = 0; g < 5; ++g) {
     grouped.add_group(g);
+    std::vector<Handle> in;
     for (Handle it : items)
-      if (e.lab_item_kind(it) == 1 && e.lab_item_group(it) == g) grouped.add_weapon(it);
+      if (e.lab_item_kind(it) == 1 && e.lab_item_group(it) == g) in.push_back(it);
+    if (ungrouped.join_order)  // ours (item 40, opt-in): in the order they joined, else the loadout's (PM's)
+      std::stable_sort(in.begin(), in.end(), [&](Handle a, Handle b) {
+        const ConfigItem *x = e.item_of(a), *y = e.item_of(b);
+        return (x ? x->join : 0) < (y ? y->join : 0);
+      });
+    for (Handle it : in) grouped.add_weapon(it);
   }
   grouped.select_group(chosen);
 }
