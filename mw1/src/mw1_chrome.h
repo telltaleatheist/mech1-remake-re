@@ -163,7 +163,10 @@ inline constexpr int32_t kLabTrayY = 414;
 // The tray's four buttons (FIXES.md item 29): the chassis, criticals and groups pages' icons and ACCEPT (LabScreen's
 // tabs 0, 3, 4, 6), one size, kLabTabY down the layout, spread evenly across the panels' span (kLabTabSpan0..1, each
 // in its quarter's middle); mw1_game.cpp places them, mw1_lab_fit.h checks them.
-inline constexpr int32_t kLabTabW = 60, kLabTabH = 52, kLabTabY = kLabTrayY + (480 - kLabTrayY - kLabTabH) / 2;
+// Each button's HELP label (its hover words, PM's layout's) centred above it, kLabHelpY down, kLabHelpH high: between
+// the tray's line and the button, clear of both (FIXES.md item 37; the buttons 48 high, not item 29's 52, for its room).
+inline constexpr int32_t kLabHelpY = kLabTrayY + 2, kLabHelpH = 11;
+inline constexpr int32_t kLabTabW = 60, kLabTabH = 48, kLabTabY = kLabHelpY + kLabHelpH + 2;
 inline constexpr int32_t kLabTabSpan0 = 6, kLabTabSpan1 = 634;
 inline constexpr int32_t kLabTabPages[4] = {0, 3, 4, 6};
 inline constexpr int32_t lab_tab_x(int32_t i) {

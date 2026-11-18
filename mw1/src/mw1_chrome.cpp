@@ -520,9 +520,21 @@ void fill(Canvas& c, int32_t x0, int32_t y0, int32_t x1, int32_t y1, Rgba ink) {
   for (int32_t y = y0; y < y1; ++y)
     for (int32_t x = x0; x < x1; ++x) c.set(x, y, ink);
 }
-// A line `t` thick from (x0, y0) to (x1, y1).
+// A line `t` thick from (x0, y0) to (x1, y1). At a scale above 1 (B2b, the 2D's) drawn per device pixel with its
+// edge smoothed (FIXES.md item 37: ACCEPT's check was the canvas's steps magnified); at 1 as it always was.
 void line(Canvas& c, double x0, double y0, double x1, double y1, double t, Rgba ink) {
   const double dx = x1 - x0, dy = y1 - y0, l2 = dx * dx + dy * dy;
+  if (c.s > 1) {
+    for (int32_t j = 0; j < c.h * c.s; ++j)
+      for (int32_t i = 0; i < c.w * c.s; ++i) {
+        const double x = (i + 0.5) / c.s - 0.5, y = (j + 0.5) / c.s - 0.5;  // a device pixel's middle, in canvas pixels
+        const double u = std::clamp(((x - x0) * dx + (y - y0) * dy) / l2, 0.0, 1.0);
+        const double ex = x0 + u * dx - x, ey = y0 + u * dy - y;
+        const double cover = std::clamp((t / 2 - std::sqrt(ex * ex + ey * ey)) * c.s + 0.5, 0.0, 1.0);
+        if (cover > 0) c.over_d(i, j, {ink.r, ink.g, ink.b, static_cast<int32_t>(ink.a * cover + 0.5)});
+      }
+    return;
+  }
   for (int32_t y = 0; y < c.h; ++y)
     for (int32_t x = 0; x < c.w; ++x) {
       const double u = std::clamp(((x - x0) * dx + (y - y0) * dy) / l2, 0.0, 1.0);
