@@ -232,6 +232,7 @@ struct Run {
   bool kill_player = false, spare_set = false;
   int64_t bill_shown = -1;  // AFTER ACTION's "Repair bill: ", -1 none
   int32_t messages_read = 0;  // the hub's MESSAGES panels dismissed with OK
+  int32_t message_pages = 0;  // the pages before their last (NEXT), FIXES.md item 42
   int32_t hover_step = 0;     // the hub's OK hovered by the mouse (the market run), then left
   bool hover_said = false, hover_gone = false;
   // MW1's objectives (mw1_missions.h, kObjective): every contract on this row of the map table; `survey`: only
@@ -866,8 +867,9 @@ void loop_run(Ending ending, Run* run = nullptr) {
           if (run && run->market && run->hover_step < 3) {
             zin::MouseInfo* mi = zin::mouse_info();
             if (run->hover_step == 0) {
-              mi->x = (sc->wide() ? 343 + sc->shift(mw1::Anchor::kCentre) : 236 + sc->shift(mw1::Anchor::kLayout)) + 84;
-              mi->y = 302 + 15, mi->left = 0, run->hover_step = 1;
+              // OK at the box's foot (mw1hub.zrd, FIXES.md item 42).
+              mi->x = (sc->wide() ? 430 + sc->shift(mw1::Anchor::kCentre) : 324 + sc->shift(mw1::Anchor::kLayout)) + 84;
+              mi->y = 406 + 15, mi->left = 0, run->hover_step = 1;
               return;
             }
             if (run->hover_step == 1) {
@@ -879,9 +881,22 @@ void loop_run(Ending ending, Run* run = nullptr) {
           }
           ++messages_hubs;
           if (run) ++run->messages_read;
-          sc->on_button(mw1::kHubOk, 0, 0);
-          bool still = false;
-          for (const std::string& l : sc->shown()) still = still || l.find("MESSAGES") != std::string::npos;
+          // The market run, its first messages: made longer than the box (made-up lines), so OK pages (item 42).
+          const bool padded = run && run->market && run->messages_read == 1;
+          if (padded)
+            for (int k = 1; k <= 9; ++k) mw1::game_loop_company_for_tests()->notices.push_back("Test line " + std::to_string(k));
+          // More than the box's six lines: "MESSAGES  1/N", OK reading NEXT, each page after it; OK on the last clears.
+          bool still = true;
+          for (int presses = 0; still && presses < 12; ++presses) {
+            bool paged = false;
+            for (const std::string& l : sc->shown()) paged = paged || (l.find("MESSAGES  ") != std::string::npos && l.find('/') != std::string::npos);
+            sc->on_button(mw1::kHubOk, 0, 0);
+            still = false;
+            for (const std::string& l : sc->shown()) still = still || l.find("MESSAGES") != std::string::npos;
+            // A page was left: it said so (but the padded lines came after the box was drawn: not yet on it).
+            if (still) EXPECT((paged || (padded && presses == 0)) && sc->visible(mw1::kHubOk));
+            if (still && run) ++run->message_pages;
+          }
           EXPECT(!still && !sc->visible(mw1::kHubOk));
           return;
         }
@@ -1542,8 +1557,8 @@ TEST(mw1_loop_market_buy_sell_pilot_then_a_contract_in_the_bought_mech_headless)
     ztwod::set_host(nullptr);
     std::printf("  market: bought for %lld, sold for %lld; the briefing's mech %d\n", static_cast<long long>(run.market_bought_for),
                 static_cast<long long>(run.market_sold_for), run.briefing_mech);
-    std::printf("  hub hover: said %d, gone %d; messages read %d\n", run.hover_said, run.hover_gone, run.messages_read);
-    EXPECT(run.hover_said && run.hover_gone && run.messages_read >= 1);
+    std::printf("  hub hover: said %d, gone %d; messages read %d, paged %d\n", run.hover_said, run.hover_gone, run.messages_read, run.message_pages);
+    EXPECT(run.hover_said && run.hover_gone && run.messages_read >= 1 && run.message_pages >= 1);
     std::printf("  PM's screens' pointer: lab %d wide (ours %d); the briefing never shown\n",
                 run.pm_cursor.count("lab") ? run.pm_cursor["lab"] : 0, mw1::chrome::kCursorSize);
     EXPECT(run.pm_cursor.count("lab") && run.pm_cursor["lab"] == mw1::chrome::kCursorSize);
@@ -2380,11 +2395,16 @@ TEST(mw1_story_events_on_the_panel_headless) {
           crest_named = shows_line(ev->screen()->shown(), "ARRIVAL") && ev->screen()->visible(mw1::kEventNext) &&
                         !ev->screen()->visible(mw1::kEventChoice1);
           // Over the hub (FIXES.md item 34): the world's scenery behind, the panel in the hub's free side.
-          crest_named = crest_named && ev->side() == mw1::kHubSide && ev->screen()->backdrop() == mw1::scenery_image(c->planet_number);
+          crest_named = crest_named && ev->side() == mw1::Side::kBottom && ev->screen()->backdrop() == mw1::scenery_image(c->planet_number);
           ev->screen()->on_button(mw1::kEventNext, 0, 0);
           ++step, wait = 0;
           return false;
         case 1:  // the hub, the frame-up's news under its panel; then Grig's base set up on this world (0x64)
+          if (showing(app, ev) && ev->screen()->visible(mw1::kEventNext)) {  // the crest's later parts (the box: item 42)
+            ev->screen()->on_button(mw1::kEventNext, 0, 0);
+            wait = 0;
+            return false;
+          }
           if (!showing(app, hub)) return false;
           news = shows_line(hub->screen()->shown(), "NEWS: ");
           c->story.seen[0x0C] = 1, c->story.planets[1] = c->planet_number;
@@ -2425,7 +2445,7 @@ TEST(mw1_story_events_on_the_panel_headless) {
         case 5:
           if (showing(app, ev)) {
             mech_complex = shows_line(ev->screen()->shown(), "THE MECH COMPLEX") && c->story.seen[0x26] &&
-                           ev->side() == mw1::kMarketSide && ev->screen()->backdrop() == mw1::kMarketScene;
+                           ev->side() == mw1::Side::kBottom && ev->screen()->backdrop() == mw1::kMarketScene;
             ev->screen()->on_button(mw1::kEventNext, 0, 0);
             wait = 0;
             return false;
@@ -2452,7 +2472,7 @@ TEST(mw1_story_events_on_the_panel_headless) {
         default:
           if (showing(app, ev)) {
             office = shows_line(ev->screen()->shown(), "THE HOUSE OFFICE") && c->story.seen[0x08] &&
-                     ev->side() == mw1::kOfficeSide && ev->screen()->backdrop() == mw1::kOfficeScene;
+                     ev->side() == mw1::Side::kBottom && ev->screen()->backdrop() == mw1::kOfficeScene;
             ev->screen()->on_button(mw1::kEventNext, 0, 0);
             wait = 0;
             return false;
@@ -2516,7 +2536,7 @@ TEST(mw1_story_drinks_and_news_in_the_bar_headless) {
         case 1: {  // three drinks: two tips, then nothing
           if (showing(app, ev)) {
             // Over the Bar (FIXES.md item 34): its picture behind, undimmed, the panel in its left side.
-            over_bar = over_bar && ev->side() == mw1::Side::kLeft && ev->screen()->backdrop() == mw1::kBarScene;
+            over_bar = over_bar && ev->side() == mw1::Side::kBottom && ev->screen()->backdrop() == mw1::kBarScene;
             ev->screen()->on_button(mw1::kEventNext, 0, 0);
             wait = 0;
             return false;
@@ -2543,7 +2563,7 @@ TEST(mw1_story_drinks_and_news_in_the_bar_headless) {
         }
         case 2:  // the news: the frame-up at least; NEXT and PREV through it, then BACK
           if (!showing(app, ev)) return false;
-          over_bar = over_bar && ev->side() == mw1::Side::kLeft && ev->screen()->backdrop() == mw1::kBarScene;
+          over_bar = over_bar && ev->side() == mw1::Side::kBottom && ev->screen()->backdrop() == mw1::kBarScene;
           news = ev->screen()->visible(mw1::kEventBack) && ev->screen()->visible(mw1::kEventPrev) &&
                  !ev->screen()->visible(mw1::kEventChoice1) && shows_line(ev->screen()->shown(), "NEWS (1 OF");
           ev->screen()->on_button(mw1::kEventNext, 0, 0);

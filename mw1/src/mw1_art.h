@@ -51,7 +51,10 @@ bool decode(const uint8_t* bytes, size_t size, int32_t* w, int32_t* h, std::vect
 // when the picture is smaller), then rounded to 565's nearest levels. Deterministic: the same bytes, the same image.
 images::Image canvas_image(const std::string& name, const uint8_t* rgba, int32_t sw, int32_t sh, int32_t w, int32_t h);
 // The hub's scenery treatment (chrome::darken_scene) on the source-size picture: its scanlines a canvas line apart.
-bool darkened(const std::string& name);  // the images that have it: the hub's scenery (mw1_hub_*)
+// Off since FIXES.md item 42 (Owen: no darkened screen where text is shown; the hub's scenery holds its messages' box,
+// the loading and results screens' terminals): the scenery shows as painted. True brings the old look back.
+inline constexpr bool kDarkenHubScenery = false;
+bool darkened(const std::string& name);  // the images that have it: the hub's scenery (mw1_hub_*), with kDarkenHubScenery
 void darken_rgba(uint8_t* rgba, int32_t w, int32_t h, int32_t canvas_h);
 
 // The archive at run time (mw1art.zbd read whole; the decoded pictures cached).

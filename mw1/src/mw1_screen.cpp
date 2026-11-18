@@ -377,7 +377,7 @@ void Mw1Screen::show(const ScreenView& v) {
           std::printf("mw1: the layout has no text place %s\n", tb.at);
           break;
         }
-        x = p->x, y = p->y;
+        x = p->x, y = p->y + tb.dy;
         if (!p->font.empty()) font = p->font.c_str();
         if (p->gap >= 0) gap = p->gap;
         if (std::strcmp(tb.at, "STATUS") == 0 && status_world_right >= 0) x = std::max(x, status_world_right + kStatusGap);

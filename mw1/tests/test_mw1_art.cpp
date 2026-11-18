@@ -115,9 +115,10 @@ TEST(mw1_art_canvas_copy) {
            (r.w == 240 && r.h == 240));
 }
 
-// The hub's scenery: darkened at both sizes, its scanlines a canvas line apart on the source.
+// The hub's scenery: darkened at both sizes when kDarkenHubScenery (off since FIXES.md item 42), its scanlines a canvas
+// line apart on the source.
 TEST(mw1_art_hub_darkened) {
-  EXPECT(mw1::art::darkened("mw1_hub_arctic_frontier") && !mw1::art::darkened("mw1_bar_scene"));
+  EXPECT(mw1::art::darkened("mw1_hub_arctic_frontier") == mw1::art::kDarkenHubScenery && !mw1::art::darkened("mw1_bar_scene"));
   std::vector<uint8_t> px(4 * 8 * 4, 200);  // 4 wide, 8 tall: two source rows a canvas line (canvas 4 tall)
   mw1::art::darken_rgba(px.data(), 4, 8, 4);
   const int32_t lit = 200 * mw1::chrome::kSceneLight / 100, dark = 200 * (mw1::chrome::kSceneLight * mw1::chrome::kScanline / 100) / 100;
@@ -166,20 +167,21 @@ TEST(mw1_art_store) {
   EXPECT(t && t->width == 854 && t->height == 480 && (t->flags & zimg::kNoAlpha));
   zimg::Texture* s = zimg::fetch_image(images[2].name.c_str());
   EXPECT(s && s->width == 96 && s->height == 128);
-  // The scene's copy is darkened as the packer did it (chrome::darken_scene on the plain copy).
+  // The scene's copy as painted (item 42); with kDarkenHubScenery, darkened as the packer did it (chrome::darken_scene).
   int32_t w = 0, h = 0;
   std::vector<uint8_t> rgba;
   EXPECT(mw1::art::decode(files[0].data(), files[0].size(), &w, &h, &rgba));
   mw1::images::Image want = mw1::art::canvas_image(images[0].name, rgba.data(), w, h, 854, 480);
-  mw1::chrome::darken_scene(want);
+  if (mw1::art::kDarkenHubScenery) mw1::chrome::darken_scene(want);
   EXPECT(t && std::memcmp(t->pixels, want.pixels.data(), want.pixels.size() * 2) == 0);
   zimg::free_texture(t), zimg::free_texture(s);
   EXPECT(st.decoded_count() == 2);  // the scene, the small portrait: decoded when their copies were made
 
-  // The source-size pictures: the scene darkened, its canvas size; the portrait's two names one file, each its size.
+  // The source-size pictures: the scene (darkened with kDarkenHubScenery), its canvas size; the portrait's two names one file, each its size.
   const platform::HiresImage* hs = hi ? hi->find(images[0].name.c_str()) : nullptr;
   EXPECT(hs && hs->w == w && hs->h == h && hs->canvas_w == 854 && hs->canvas_h == 480 && hs->serial != 0 && hs->rgba);
-  if (hs) EXPECT(hs->rgba[0] <= rgba[0] && (rgba[0] < 8 || hs->rgba[0] < rgba[0]));
+  if (hs && mw1::art::kDarkenHubScenery) EXPECT(hs->rgba[0] <= rgba[0] && (rgba[0] < 8 || hs->rgba[0] < rgba[0]));
+  if (hs && !mw1::art::kDarkenHubScenery) EXPECT(std::memcmp(hs->rgba, rgba.data(), rgba.size()) == 0);  // as painted
   const platform::HiresImage* hp = hi ? hi->find(images[1].name.c_str()) : nullptr;
   const platform::HiresImage* hq = hi ? hi->find(images[2].name.c_str()) : nullptr;
   EXPECT(hp && hq && hp->w == hq->w && hp->canvas_w == 240 && hq->canvas_w == 96 && hp->serial != hq->serial);

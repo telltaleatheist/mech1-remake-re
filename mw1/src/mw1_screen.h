@@ -83,7 +83,14 @@ struct TextBlock {
   int32_t gap = kLineGap;  // from one line to the next
   const char* at = nullptr;  // a place in the layout's TEXTS: its POSITION, FONT, GAP and ANCHOR in place of these
   Anchor anchor = Anchor::kLayout;
+  int32_t dy = 0;  // with `at`: this far below the place (a box sized to its text, its top lower for fewer lines)
 };
+// Lines at a layout's text place, `dy` below it.
+inline TextBlock at_place_down(const char* place, std::vector<std::string> lines, int32_t dy) {
+  TextBlock b;
+  b.at = place, b.lines = std::move(lines), b.dy = dy;
+  return b;
+}
 // Lines at a layout's text place (TEXTS).
 inline TextBlock at_place(const char* place, std::vector<std::string> lines) {
   TextBlock b;

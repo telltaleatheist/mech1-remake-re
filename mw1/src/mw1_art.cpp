@@ -175,7 +175,7 @@ images::Image canvas_image(const std::string& name, const uint8_t* rgba, int32_t
   return out;
 }
 
-bool darkened(const std::string& name) { return name.rfind("mw1_hub_", 0) == 0; }
+bool darkened(const std::string& name) { return kDarkenHubScenery && name.rfind("mw1_hub_", 0) == 0; }
 
 void darken_rgba(uint8_t* rgba, int32_t w, int32_t h, int32_t canvas_h) {
   // chrome::darken_scene's light, its scanline on every other canvas line (a canvas line is h / canvas_h rows here).
