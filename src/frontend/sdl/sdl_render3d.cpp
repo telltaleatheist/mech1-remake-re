@@ -637,6 +637,7 @@ void SdlRender3D::drop_frame() {
 }
 
 void SdlRender3D::present() {
+  if (on_present) on_present();
   if (!frame_) return;
   SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(dev_);
   if (capture_path_ && !display_held_) {  // a held frame is not shown: the next one shown is the shot

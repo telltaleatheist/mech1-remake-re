@@ -84,6 +84,9 @@ class SdlScreen2D : public platform::Screen2D {
   // free of any GPU's scaling, for the tests' identity checks.
   void arm_canvas(const std::string& path);
   bool write_canvas();
+  // Ours (MW1's 2D at the frame's resolution, opt-in): after the layer is drawn, before the frame is shown, the
+  // layer's 16-bit pixels (pitch in bytes), rgb565, and whether keyed over the 3D and its key.
+  std::function<void(const uint16_t*, int, int, int, bool, bool, uint16_t)> after_layer;
 
  private:
   void keep_canvas(const uint16_t* pixels, int width, int height, int pitch, bool keyed, uint16_t key, const uint8_t* alpha);

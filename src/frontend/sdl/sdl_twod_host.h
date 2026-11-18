@@ -1,11 +1,13 @@
 #pragma once
 #include <map>
+#include <memory>
 #include <set>
 #include <unordered_map>
 #include <string>
 #include <vector>
 
 #include "gamez/ztwod/twod_host.h"
+#include "frontend/sdl/hires_draw.h"
 #include "platform/hires_lists.h"
 
 typedef struct TTF_Font TTF_Font;
@@ -53,6 +55,10 @@ class SdlTwodHost : public ztwod::Host {
   // carries; the pixels are blitted as ever.
   void blit(zimg::Texture* image, int32_t x, int32_t y, int32_t flags, const ztwod::Rect* src) override;
   const platform::hires::Lists& hires_lists() const { return hires_; }
+  // Ours (MW1's FIXES 12, B1 piece 4): the recorded draws drawn at the frame's resolution through `render` (the
+  // program wires hires_draw() to the screen's layer and the renderer's present).
+  void attach_hires_draw(platform::Render3D* render) { hires_draw_ = std::make_unique<HiresDraw>(render, &hires_); }
+  HiresDraw* hires_draw() const { return hires_draw_.get(); }
   Handle image_dc(zimg::Texture* image) override;
   void image_dc_release(zimg::Texture* image, Handle dc) override;
   int32_t video_mode() override;
@@ -158,6 +164,7 @@ class SdlTwodHost : public ztwod::Host {
   std::set<zimg::Texture*> freed_;   // freed through image_release, until the address is reused
   // Ours (MW1's FIXES 12): the recorded draws, kept with their pixels, and each cached image's name.
   platform::hires::Lists hires_;
+  std::unique_ptr<HiresDraw> hires_draw_;
   std::unordered_map<const zimg::Texture*, std::string> names_;
   int hires_blits_ = 0;  // MW1_HIRES_DEBUG's report
   size_t hires_most_ = 0;
