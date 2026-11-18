@@ -469,6 +469,8 @@ bool action_lineup(bool launch) {
       // copy of its record. Without a program flow the original's.
       if (ally && launch)
         if (ProgramFlow* f = program_flow()) f->ally_launching(i, *r);
+      if (!ally && launch)  // ours (program_flow.h): an enemy's too
+        if (ProgramFlow* f = program_flow()) f->enemy_launching(i, *r);
       const Handle net = action_net(ally, r);
       const char* type = h.mech_name(mech);
       char text[0x50];
