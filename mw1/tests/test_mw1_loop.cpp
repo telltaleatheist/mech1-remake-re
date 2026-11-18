@@ -1607,7 +1607,7 @@ TEST(mw1_loop_travel_then_a_contract_there_headless) {
 
 // Lancemates in a contract (mw1_pilots.h, ProgramFlow::ally_launching): two hired and assigned, flown as Instant
 // Action's allies with their names and their Gunnery's aims (Poor 2.0, Excellent 0.6 of the record's); the mission
-// won with J. Holmaas's mech destroyed: a counted mission, Elli Gujar one mission on, Holmaas killed and the Owens lost.
+// won with J. Holmaas's mech destroyed: a counted mission, Elli Gujar one mission on, Holmaas killed or missing and the Owens lost.
 TEST(mw1_loop_lancemates_fly_named_and_aimed_then_the_casualty_headless) {
   std::error_code ec;
   if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
@@ -1655,7 +1655,9 @@ TEST(mw1_loop_lancemates_fly_named_and_aimed_then_the_casualty_headless) {
     std::string why;
     EXPECT(mw1::load_file(run.save, saved, k, &has, &why) == mw1::Loaded::kLoaded);
     EXPECT(saved.lance.size() == 1 && saved.lance[0].id == 1 && saved.pilots[1].missions == 1);
-    EXPECT(saved.pilots[41].where == mw1::PilotWhere::kDead && saved.hangar.size() == 1 && saved.hangar[0].mech == mw1::kPmFirefly &&
+    // Holmaas KILLED or MISSING (FIXES.md item 32, the loop's roll): gone from the lance either way, the Firefly lost.
+    std::printf("  J. Holmaas %s\n", saved.pilots[41].where == mw1::PilotWhere::kDead ? "killed" : "missing");
+    EXPECT((saved.pilots[41].where == mw1::PilotWhere::kDead || saved.pilots[41].where == mw1::PilotWhere::kFree) && saved.hangar.size() == 1 && saved.hangar[0].mech == mw1::kPmFirefly &&
            saved.hangar[0].pilot == 1);
   });
 }
@@ -1684,7 +1686,7 @@ TEST(mw1_loop_a_full_lance_flies_on_a_pm_map_headless) {
         if (l == t) return true;
       return false;
     };
-    EXPECT(shows("Elli Gujar: came back") && shows("J. Holmaas: mech destroyed") && shows("Taris Ren: came back"));
+    EXPECT(shows("Elli Gujar: came back") && (shows("J. Holmaas: KILLED") || shows("J. Holmaas: MISSING")) && shows("Taris Ren: came back"));
     for (const std::string& l : run.after_action) EXPECT(l.find("stayed behind") == std::string::npos);
   });
 }
