@@ -83,3 +83,45 @@ TEST(mw1_results_the_message_is_the_exes) {
   }
   EXPECT(docked[2].size() == 2 && docked[2][1].find("ABANDONED") != std::string::npos);
 }
+
+namespace {
+std::vector<std::string> place(const mw1::ScreenView& v, const char* at) {
+  for (const mw1::TextBlock& t : v.blocks)
+    if (t.at && std::string(t.at) == at) return t.lines;
+  return {};
+}
+}  // namespace
+
+// The salvage, all of it, a list its arrows scroll (item 38); DETAILS puts your mech and the kills in the panel.
+TEST(mw1_results_the_list_scrolls_and_details) {
+  mw1::ResultsPanel p;
+  for (int i = 0; i < 20; ++i) p.salvage.push_back({"part " + std::to_string(i), i});
+  p.salvage[3].words = std::string(80, 'x');  // longer than the panel: cut
+  p.kills = {{"Jenner by you 120,000", 0}};
+  p.mech_title = "YOUR OWENS";
+  p.mech = {"head", "torso"};
+  p.pay = {"Fee: 1"};
+  mw1::ResultsChoice c;
+  mw1::ScreenView v = mw1::results_view(p, c, false);
+  EXPECT(place(v, "LIST").size() == mw1::kListRows && place(v, "LIST")[0] == "part 0");
+  EXPECT(place(v, "LIST_TITLE") == std::vector<std::string>{"SALVAGE TO STORES (1-6 of 20)"});
+  EXPECT(place(v, "LIST")[3].size() == mw1::kResultsNarrow.status && place(v, "LIST")[3].substr(40) == "...");
+  EXPECT(v.buttons[mw1::kResultsListUp - 1].there && !v.buttons[mw1::kResultsListUp - 1].on);
+  EXPECT(v.buttons[mw1::kResultsListDown - 1].on);
+  c.top = 99;  // scrolled past the end: kept to the last page
+  mw1::clamp_choice(p, c);
+  EXPECT(c.top == 20 - mw1::kListRows);
+  v = mw1::results_view(p, c, true);
+  EXPECT(place(v, "LIST").back() == "part 19" && !v.buttons[mw1::kResultsListDown - 1].on);
+  EXPECT(place(v, "LIST")[3 - 3].size() < 62);
+  // DETAILS: the mech's table in PAYMENT's place, the kills in the list's; no arrows for one row.
+  c.details = true, c.top = 0;
+  v = mw1::results_view(p, c, false);
+  EXPECT(place(v, "PAY_TITLE") == std::vector<std::string>{"YOUR OWENS"} && place(v, "PAY") == p.mech);
+  EXPECT(place(v, "LIST_TITLE") == std::vector<std::string>{p.kills_title} && place(v, "LIST")[0] == p.kills[0].words);
+  EXPECT(place(v, "CREW").empty() && !v.buttons[mw1::kResultsListUp - 1].there);
+  EXPECT(v.buttons[mw1::kResultsDetails - 1].words == "SUMMARY");
+  // A short list: no arrows.
+  p.salvage.resize(3);
+  EXPECT(!mw1::results_view(p, {}, false).buttons[mw1::kResultsListDown - 1].there);
+}

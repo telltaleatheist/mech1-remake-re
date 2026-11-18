@@ -74,9 +74,10 @@ inline const std::vector<PanelSize>& panel_sizes() {
   return k;
 }
 inline const std::vector<PanelSize>& terminal_sizes() {
+  // The screens' terminals; the file popup's name (220x22); a message's side panel (item 34, 392x300); AFTER ACTION's
+  // status and message at 16:9 and 4:3 (item 38).
   static const std::vector<PanelSize> k = {{232, 150}, {436, 300}, {637, 300}, {186, 328}, {377, 328}, {436, 172}, {637, 172},
-                                           {220, 22}, {304, 168}, {392, 300}};  // and the results screen's four  // and the file popup's name
-                                                                                // and a message's side panel (item 34)
+                                           {220, 22},  {304, 168}, {392, 300}, {569, 324}, {408, 324}, {721, 96},  {508, 96}};
   return k;
 }
 // A picture's frame (a portrait's, a mech's): mw1_frame_<w>x<h> and its lit look (_lit, the chosen one's), its
@@ -84,7 +85,9 @@ inline const std::vector<PanelSize>& terminal_sizes() {
 inline constexpr int32_t kFrame = 4;
 std::string frame_name(int32_t w, int32_t h, bool lit = false);
 inline const std::vector<PanelSize>& frame_sizes() {
-  static const std::vector<PanelSize> k = {{248, 328}, {104, 136}, {168, 136}};  // a portrait (240x320), a small one (96x128), the market's mech (160x128)
+  // A portrait (240x320), a small one (96x128), the market's mech (160x128), AFTER ACTION's picture (item 38: 240x210
+  // at 16:9, 192x168 at 4:3).
+  static const std::vector<PanelSize> k = {{248, 328}, {104, 136}, {168, 136}, {248, 218}, {200, 176}};
   return k;
 }
 // The up and down arrows (a list's, a term's): mw1_up and mw1_dn, each with _lit, _down and _off; the left and right

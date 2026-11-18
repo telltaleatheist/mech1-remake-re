@@ -4,6 +4,7 @@
 #include <cstring>
 #include <cstdio>
 
+#include "gamez/zinput/zinput.h"
 #include "gamez/zreader/zreader.h"
 #include "gamez/ztwod/twod_host.h"
 #include "gamez/zvideo/zvid_format.h"
@@ -517,11 +518,19 @@ bool Mw1State::update() {
   const bool r = MenuState::update();
   if (keys_ && screen_ptr_)
     if (const uint32_t k = e().input_frame_key()) keys_(k);
+  // The wheel: its position (zin's, unclamped) against last frame's.
+  if (const zin::MouseInfo* m = wheel_ && screen_ptr_ ? zin::mouse_info() : nullptr) {
+    const int32_t was = wheel_at_;
+    wheel_at_ = m->z;
+    if (wheel_read_ && m->z != was) wheel_(m->z > was ? 1 : -1);
+    wheel_read_ = true;
+  }
   return r;
 }
 
 bool Mw1State::enter() {
   mech3::Engine& en = e();
+  wheel_read_ = false;
   screen_ptr_ = new Mw1Screen(en, addr(), file_, dialog_, buttons_, pressed_);
   screen_ = en.adopt_screen(screen_ptr_, kScreenSize);
   if (pointer_) screen_ptr_->set_pointer(pointer_rect_[0], pointer_rect_[1], pointer_rect_[2], pointer_rect_[3], pointer_);

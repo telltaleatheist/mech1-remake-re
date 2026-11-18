@@ -13,7 +13,7 @@ are JPEG at quality 90, the tiles' pictures and the emblem PNG (hard edges).
 - a portrait or a mech picture (768x1024): 240x320, and a small one, <name>_s, 96x128 (the crew grid's), one file;
 - an emblem (story_darkwing_crest): 240x240.
 - a results picture (FIXES.md item 31, Owen's picks from KEEP_DIR/assets: ENDINGS): kept whole (8:7), shown 192x168
-  beside the 16:9 results, and <name>_l, 288x252, on the 4:3 AFTER ACTION page; one file.
+  at 4:3, and <name>_l, 240x210, at 16:9 (item 38); one file.
 art.csv lists each canvas image: its name, its file and its canvas size.
 The intro's unused takes (intro_0_*), the mechs' pictures and the hub's first scenes (SKIP) are left out.
 
@@ -30,7 +30,7 @@ SCENE = (854, 480)
 TILE = (100, 100)
 PORTRAIT, PORTRAIT_SMALL = (240, 320), (96, 128)
 EMBLEM = (240, 240)
-ENDING, ENDING_LARGE = (192, 168), (288, 252)
+ENDING, ENDING_LARGE = (192, 168), (240, 210)
 # The results screen's pictures (FIXES.md item 31): Owen's picks (2026-11-18), from KEEP_DIR/assets.
 ENDINGS = {"end_win": "end_win_22.png", "end_retreat": "end_retreat_22.png", "end_lost": "end_lost_11.png"}
 SKIP_PREFIX = ("intro_0_", "mech_")  # the mechs show as PM's icons (FIXES.md items 23, 27)

@@ -294,6 +294,17 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       pending_->stayed = stayed_behind(flying_, fates_);  // the map's allied places ran out: they didn't fly
       pending_->salvage = std::move(salvage_);
       pending_->launch_stores = launch_stores_, pending_->launch_loadout = launch_loadout_;
+      // MW1_RESULTS=retreat or lost (development: --shot pictures of AFTER ACTION's other endings, item 38): the
+      // mission withdrawn from, or failed with the commander's mech destroyed.
+      if (const char* r = std::getenv("MW1_RESULTS")) {
+        const std::string w = r;
+        if (w == "retreat") pending_->outcome = Outcome::kRetreat;
+        if (w == "lost") {
+          pending_->outcome = Outcome::kFailure;
+          for (auto& b : pending_->bills)
+            if (b.who == 0) b.destroyed = true;
+        }
+      }
       std::printf("mw1: back: %s, %zu wrecks: after action\n", ending_word(pending_->outcome), wrecks_.size());
       save();
     }
@@ -1279,14 +1290,22 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       return false;
     }
     results_ = ge.adopt_state([this](zgame::Handle h) { return results_state_ = new ResultsState(h, [this](int32_t id) { press_results(id); }); });
+    if (results_state_) {
+      results_state_->set_keys([this](uint32_t k) { results_key(k); });
+      results_state_->set_wheel([this](int32_t d) { results_move(-d); });
+    }
     return results_ != 0;
   }
 
   void show_results() {
     if (!results_state_ || !pending_) return;
-    const ResultsPanel p = results_panel();
-    results_state_->show(results_view(p));
-    seen_results_ = p;
+    seen_results_ = results_panel();
+    rchoice_ = ResultsChoice{};
+    // MW1_RESULTS_SCROLL=N, MW1_RESULTS_DETAILS=1 (development: --shot pictures of the list scrolled, DETAILS).
+    if (const char* n = std::getenv("MW1_RESULTS_SCROLL")) rchoice_.top = std::atoi(n);
+    if (std::getenv("MW1_RESULTS_DETAILS")) rchoice_.details = true;
+    clamp_choice(seen_results_, rchoice_);
+    show_results_view();
   }
 
   // Who disabled a wreck, as the results say it.
@@ -1311,70 +1330,98 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       after_mission(c, a.lance);
       rep = settle_repairs(c, as_bills(a.bills));
     }
+    const bool success = a.outcome == Outcome::kSuccess;
     p.planet = upper(company_.planet);
     p.employer = "HOUSE " + upper(kHouses[contract_.house].name);
-    p.outcome = a.outcome == Outcome::kSuccess ? "VICTORY" : a.outcome == Outcome::kFailure ? "DEFEAT" : "RETREAT";
+    p.outcome = success ? "VICTORY" : a.outcome == Outcome::kFailure ? "DEFEAT" : "RETREAT";
     p.scene = scenery_image(company_.planet_number);
     p.replay = a.outcome == Outcome::kFailure;
-    // RESULTS: the objective, the time, the enemies and by whom, the lance.
-    // (A terminal holds about 35 letters: mw1screenfit's results page checks each line inside its own.)
+    p.house = company_.planet_house;
+    // The picture (item 31): someone lost is a lancemate KILLED or MISSING, or the commander's mech destroyed.
+    bool lost = false, destroyed = false;
+    for (const auto& b : a.bills)
+      if (b.who == 0) destroyed = b.destroyed;
+    for (const LanceFate& f : a.lance) lost = lost || f.destroyed;
+    p.ending = ending_of(a.outcome, lost || destroyed);
+    // Under the picture: the world and the employer, the objective, how it went and how long it took.
     std::string objective = objective_words(contract_);
     if (!objective.empty()) objective[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(objective[0])));
-    p.results.push_back(objective);
-    p.results.push_back(std::string(a.outcome == Outcome::kSuccess   ? "Accomplished"
-                                     : a.outcome == Outcome::kFailure ? "Failed"
-                                                                      : "Withdrew") +
-                        " in " + time_words(a.seconds));
-    // The lancemates before the wrecks: a long list of wrecks is the one cut short.
-    // A downed lancemate KILLED or MISSING (FIXES.md item 32) on a counted mission; a retreat counts no casualties.
-    for (const LanceFate& f : a.lance)
-      p.results.push_back(pilot_title(f.id) + (!f.destroyed                        ? ": came back"
-                                               : a.outcome == Outcome::kRetreat ? ": mech destroyed"
-                                               : pilot_missing(f)               ? ": MISSING"
-                                                                                : ": KILLED"));
-    for (int32_t id : a.stayed) p.results.push_back(pilot_title(id) + ": stayed behind");
-    // Each wreck: its kind, who disabled it, its value (the salvage share's base).
-    int64_t value = 0;
-    p.results.push_back("Enemy mechs destroyed: " + std::to_string(a.wrecks.size()));
+    p.where.push_back(title_case_name(company_.planet.c_str()) + ", for House " + kHouses[contract_.house].name);
+    if (!objective.empty()) p.where.push_back(objective);
+    p.where.push_back(std::string(success ? "Accomplished" : a.outcome == Outcome::kFailure ? "Failed" : "Withdrew") + " in " +
+                      time_words(a.seconds));
+    // PAYMENT: the fee (any deduction), the salvage share, the repair bill, the total and the funds.
+    const bool docked = s.payout_percent < 100 && success;
+    p.pay.push_back("Fee: " + thousands(s.fee) +
+                    (!docked ? "" : s.payout_percent ? " (" + std::to_string(s.payout_percent) + "% paid)" : " (withheld)"));
+    p.pay.push_back("Salvage share: " + thousands(s.salvage));
+    for (const std::string& l : rep.lines)
+      if (l.rfind("Repair bill", 0) == 0) p.pay.push_back(l);
+    const int64_t total = c.funds - before;
+    p.pay.push_back("Total: " + std::string(total < 0 ? "-" : "+") + thousands(total < 0 ? -total : total) + "   Funds: " +
+                    thousands(c.funds));
+    // CREW STATUS: each mech that flew, who flew it, what's left of it (MW1's "JENNER 93 %"); a lancemate's fate.
+    for (const auto& b : a.bills) {
+      std::string l = mech_title(b.mech) + " (" + (b.who == 0 ? std::string("you") : pilot_title(b.who)) + "): ";
+      if (b.destroyed) {
+        l += "destroyed";
+        for (const LanceFate& f : a.lance)
+          if (f.id == b.who && f.destroyed) l += pilot_killed(f) ? ", KILLED" : ", MISSING";
+      } else {
+        l += std::to_string(std::clamp(100 - (b.damage * 100 + kWhole / 2) / kWhole, 0, 100)) + "%";
+      }
+      p.crew.push_back(l);
+    }
+    if (a.bills.empty())  // a mission saved before the bills: the fates alone
+      for (const LanceFate& f : a.lance)
+        p.crew.push_back(pilot_title(f.id) + (!f.destroyed ? ": came back" : pilot_killed(f) ? ": KILLED" : ": MISSING"));
+    for (int32_t id : a.stayed) p.crew.push_back(pilot_title(id) + ": stayed behind");
+    // SALVAGE TO STORES: every part kept on a win, each row its item's place (a keep list's, later: item 38).
+    if (success && a.salvage && a.salvage->count()) {
+      const mech3::MessageText msg = [](int32_t id) { return mech3::pilot_hooks().message(id); };
+      int32_t i = 0;
+      for (const mech3::ConfigItem* it : a.salvage->items)
+        p.salvage.push_back({std::to_string(it->count) + " x " + mech3::item_name(*it, msg) + (it->kind() == 2 ? " ammo" : ""), i++});
+    } else {
+      p.salvage.push_back({success ? "Nothing salvaged" : "None: the field was lost"});
+    }
+    // DETAILS: each wreck, who disabled it, its value (the salvage share's base); your mech by location.
+    p.kills_title = "ENEMY MECHS DESTROYED: " + std::to_string(a.wrecks.size());
     for (size_t i = 0; i < a.wrecks.size(); ++i) {
       const std::string by = killer_words(i);
       const int64_t v = int64_t{wreck_value(company_, a.wrecks[i])} * 1000;
-      value += v;
-      p.results.push_back("  " + mech_title(kMechKinds[a.wrecks[i].kind].pm_mech) + (by.empty() ? "" : " by " + by) + " " + thousands(v));
+      p.kills.push_back({mech_title(kMechKinds[a.wrecks[i].kind].pm_mech) + (by.empty() ? "" : " by " + by) + " " + thousands(v),
+                         static_cast<int32_t>(i)});
     }
-    // PAY: the fee (any deduction), the salvage share of the wrecks' value, the repairs, the total and the funds.
-    const bool docked = s.payout_percent < 100 && a.outcome == Outcome::kSuccess;
-    p.pay.push_back("Fee: " + thousands(s.fee) +
-                    (!docked ? "" : s.payout_percent ? " (" + std::to_string(s.payout_percent) + "% paid)" : " (withheld)"));
-    if (a.outcome == Outcome::kSuccess && contract_.salvage_percent && value)
-      p.pay.push_back("Salvage: " + std::to_string(contract_.salvage_percent) + "% of " + thousands(value));
-    p.pay.push_back("Salvage share: " + thousands(s.salvage));
-    // The bill's lines (the rest, a mech lost, is YOUR MECH's and the hub's messages after CONTINUE): each mech's
-    // repairs only when more than one was billed (one's is the bill itself), then the bill.
-    const auto each = std::count_if(rep.lines.begin(), rep.lines.end(), [](const std::string& l) { return l.rfind("Repairs:", 0) == 0; });
-    for (const std::string& l : rep.lines)
-      if (l.rfind("Repair bill", 0) == 0 || (each > 1 && l.rfind("Repairs:", 0) == 0)) p.pay.push_back(l);
-    const int64_t total = c.funds - before;
-    p.pay.push_back("Total: " + std::string(total < 0 ? "-" : "+") + thousands(total < 0 ? -total : total) + " C-bills");
-    p.pay.push_back("Funds: " + thousands(c.funds) + " C-bills");
-    // SALVAGE TO STORES: the parts kept on a win.
-    if (a.outcome == Outcome::kSuccess && a.salvage && a.salvage->count()) {
-      const mech3::MessageText msg = [](int32_t id) { return mech3::pilot_hooks().message(id); };
-      for (const mech3::ConfigItem* it : a.salvage->items)
-        p.salvage.push_back(std::to_string(it->count) + " x " + mech3::item_name(*it, msg) + (it->kind() == 2 ? " ammo" : ""));
-    } else {
-      p.salvage.push_back(a.outcome == Outcome::kSuccess ? "Nothing salvaged" : "None: the field was lost");
-    }
-    // YOUR MECH: by location.
-    bool destroyed = false;
-    for (const auto& b : a.bills)
-      if (b.who == 0) destroyed = b.destroyed;
+    if (p.kills.empty()) p.kills.push_back({"None"});
     p.mech_title = "YOUR " + upper(mech_title(company_.mech));
     p.mech = mech_lines(a.armor_left, a.structure_left, destroyed);
+    // The message (item 31): the exe's outcome line, and the deduction's after a win paid short (MW1's
+    // MwRandomUpTo(2) of the three, from the settlement's draws on).
+    p.message = outcome_message(company_.planet_house, a.outcome, false, deduction_of(a.outcome, s.payout_percent, r.upto(2)));
     return p;
   }
 
+  // The results' buttons other than CONTINUE and REPLAY, and the keys and wheel: DETAILS, the list's scroll.
+  void results_move(int32_t by) {
+    rchoice_.top += by;
+    clamp_choice(seen_results_, rchoice_);
+    show_results_view();
+  }
+  void results_key(uint32_t code) {
+    constexpr uint32_t kUp = 0xC8, kDown = 0xD0, kPageUp = 0xC9, kPageDown = 0xD1;
+    if (code == kUp) results_move(-1);
+    else if (code == kDown) results_move(1);
+    else if (code == kPageUp) results_move(-kListRows);
+    else if (code == kPageDown) results_move(kListRows);
+  }
+  void show_results_view() {
+    if (results_state_) results_state_->show(results_view(seen_results_, rchoice_, ge_ && ge_->buffer_width() > 640));
+  }
+
   void press_results(int32_t id) {
+    if (id == kResultsDetails) return void((rchoice_.details = !rchoice_.details, rchoice_.top = 0, show_results_view()));
+    if (id == kResultsListUp || id == kResultsListDown) return results_move(id == kResultsListUp ? -1 : 1);
     std::printf("mw1: results: %s\n", id == kResultsReplay ? "REPLAY" : "CONTINUE");
     mech3::GameEngine* ge = ge_;
     if (!results_up_ || !pending_ || !ge) return;
@@ -2443,17 +2490,21 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (++frames < 40) return;
     const int32_t w = ge_->buffer_width(), h = ge_->buffer_height();
     int texts = 0, outside = 0;
-    // The results and loading screens' texts each inside its own piece (their layouts' 640 x 480, centred): the
-    // plaque, the outcome's band or LOADING's, the terminals, the buttons; the others inside the canvas.
+    // The results and loading screens' texts each inside its own piece (their layouts' 640 x 480, centred; the
+    // results' wide layout's from the left): the plaque, the picture's column, the status terminal (clear of the
+    // list's arrows), the message's band (clear of the crest), the buttons; the others inside the canvas.
     const bool boxed = p == "results" || p == "loading";
+    const bool wide_results = p == "results" && sc->wide();
     const std::vector<FitBox> boxes =
-        p == "results" ? std::vector<FitBox>{{170, 6, 470, 66, "plaque"},       {0, 66, 640, 100, "outcome"},
-                                             {16, 106, 312, 266, "results"},    {328, 106, 624, 266, "pay"},
-                                             {16, 278, 312, 438, "salvage"},    {328, 278, 624, 438, "mech"},
-                                             {52, 446, 220, 476, "replay"},     {236, 446, 404, 476, "continue"}}
+        wide_results ? std::vector<FitBox>{{12, 226, 260, 340, "column"},     {272, 12, 803, 336, "status"},
+                                           {12, 344, 733, 440, "message"},    {150, 446, 318, 476, "replay"},
+                                           {342, 446, 510, 476, "continue"},  {534, 446, 702, 476, "details"}}
+        : p == "results" ? std::vector<FitBox>{{12, 186, 212, 340, "column"},   {220, 12, 590, 336, "status"},
+                                               {12, 344, 520, 440, "message"},  {52, 446, 220, 476, "replay"},
+                                               {236, 446, 404, 476, "continue"}, {420, 446, 588, 476, "details"}}
         : p == "loading" ? std::vector<FitBox>{{170, 16, 470, 76, "plaque"}, {48, 154, 476, 318, "terminal"}, {0, 360, 640, 400, "loading"}}
                          : std::vector<FitBox>{{0, 0, w, h, "canvas"}};
-    const std::vector<FitText> fits = fit_texts(*sc, boxed ? (w - 640) / 2 : 0, 0, boxes);
+    const std::vector<FitText> fits = fit_texts(*sc, boxed && !wide_results ? (w - 640) / 2 : 0, 0, boxes);
     for (const FitText& f : fits) {
       ++texts;
       if (f.fits) continue;
@@ -2665,7 +2716,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   zgame::Handle results_ = 0;
   ResultsState* results_state_ = nullptr;
   bool results_up_ = false;  // the results screen pushed (FIXES.md item 19)
-  ResultsPanel seen_results_;  // tests: the last shown
+  ResultsPanel seen_results_;  // the shown (the tests read it)
+  ResultsChoice rchoice_;      // DETAILS shown, the list's scroll
   std::vector<int32_t> killers_;  // by wreck: who disabled it (AfterAction's killers)
   std::vector<int32_t> armor_left_, structure_left_;  // the commander's mech as the mission ended
   int32_t seconds_ = -1;  // the mission's time

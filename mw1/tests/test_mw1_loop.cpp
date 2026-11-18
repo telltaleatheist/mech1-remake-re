@@ -80,6 +80,14 @@
 namespace fs = std::filesystem;
 
 namespace {
+// A line on a results screen now (after a button changed it).
+bool on_screen_now(mw1::Mw1Screen* sc, const std::string& t) {
+  const std::vector<std::string> l = sc->shown();
+  return std::find(l.begin(), l.end(), t) != l.end();
+}
+}  // namespace
+
+namespace {
 struct Window : platform::Window {
   uint32_t create(const std::string&, int, int) override { return 0x1234; }
   void set_title(const std::string&) override {}
@@ -734,10 +742,20 @@ void loop_run(Ending ending, Run* run = nullptr) {
         EXPECT(sc->visible(mw1::kResultsReplay) == failed);
         EXPECT(sc->backdrop() == mw1::scenery_image(c->planet_number));
         auto on_screen = [&](const std::string& t) { return std::find(shown.begin(), shown.end(), t) != shown.end(); };
-        EXPECT(on_screen(rp->outcome) && on_screen("RESULTS") && on_screen("PAY") && on_screen("SALVAGE TO STORES") &&
-               on_screen(rp->mech_title));
+        EXPECT(on_screen(rp->outcome) && on_screen("PAYMENT") && on_screen("CREW STATUS"));
+        EXPECT(std::any_of(shown.begin(), shown.end(), [](const std::string& l) { return l.rfind("SALVAGE TO STORES", 0) == 0; }));
+        // DETAILS (item 38): your mech by location and the kills in the same panel, then back.
+        sc->on_button(mw1::kResultsDetails, 0, 0);
+        EXPECT(on_screen_now(sc, rp->mech_title) && on_screen_now(sc, rp->kills_title) && !on_screen_now(sc, "PAYMENT"));
+        sc->on_button(mw1::kResultsDetails, 0, 0);
+        EXPECT(on_screen_now(sc, "PAYMENT"));
         std::vector<std::string> all = {rp->outcome};
-        for (const std::vector<std::string>* v : {&rp->results, &rp->pay, &rp->salvage, &rp->mech}) all.insert(all.end(), v->begin(), v->end());
+        for (const std::vector<std::string>* v : {&rp->where, &rp->pay, &rp->crew, &rp->mech}) all.insert(all.end(), v->begin(), v->end());
+        for (const std::vector<mw1::ListRow>* v : {&rp->salvage, &rp->kills})
+          for (const mw1::ListRow& r : *v) all.push_back(r.words);
+        std::vector<std::string> mission = rp->where;  // its ending, time, lance and wrecks
+        mission.insert(mission.end(), rp->crew.begin(), rp->crew.end());
+        for (const mw1::ListRow& r : rp->kills) mission.push_back(r.words);
         // What CONTINUE will pay ("Salvage share: 169,000", "Fee: 141,000 (90% paid)", "Repair bill: ...").
         auto amount = [&](const char* key) -> int64_t {
           for (const std::string& l : all)
@@ -756,7 +774,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
           bill_shown = std::max<int64_t>(0, amount("Repair bill: "));
           if (run) run->bill_shown = amount("Repair bill: ");
         }
-        if (run && run->after_action.empty()) run->after_action = all, run->results_lines = rp->results;
+        if (run && run->after_action.empty()) run->after_action = all, run->results_lines = mission;
         if (run && run->stop_at_after_action) {
           back_at_main = true;  // the program stopped here
           return;
@@ -1681,12 +1699,15 @@ TEST(mw1_loop_a_full_lance_flies_on_a_pm_map_headless) {
     for (const std::string& p : run.ally_pilots) std::printf(" [%s]", p.c_str());
     std::printf("\n");
     EXPECT(run.allies == 3 && run.launches.size() == 3);
-    auto shows = [&](const std::string& t) {
+    // CREW STATUS (item 38): "<mech> (<pilot>): <condition>%", or "destroyed" and the pilot's fate.
+    auto shows = [&](const std::string& who, const std::string& end) {
       for (const std::string& l : run.after_action)
-        if (l == t) return true;
+        if (l.find(" (" + who + "): ") != std::string::npos && l.size() >= end.size() && l.compare(l.size() - end.size(), end.size(), end) == 0)
+          return true;
       return false;
     };
-    EXPECT(shows("Elli Gujar: came back") && (shows("J. Holmaas: KILLED") || shows("J. Holmaas: MISSING")) && shows("Taris Ren: came back"));
+    EXPECT(shows("Elli Gujar", "%") && (shows("J. Holmaas", "destroyed, KILLED") || shows("J. Holmaas", "destroyed, MISSING")) &&
+           shows("Taris Ren", "%"));
     for (const std::string& l : run.after_action) EXPECT(l.find("stayed behind") == std::string::npos);
   });
 }
