@@ -192,3 +192,11 @@ Tick an item when it is merged into `main`.
   - If PM's layout can't hold this, the lab gets its own layout (set_layout) with PM's controls bound, as options did.
   - Guard test: every text object's measured width fits its panel.
 
+## 18. [ ] DEPLOY goes straight into the mission
+- **Owen (2026-11-17, `keep/mw1-remake/reference/owen-play-deploy-briefing.png`):** "When I hit deploy it takes me to this screen. This is a PM screen I believe, with the background removed. Instead, it should skip this page and just bring me to the game itself."
+- **The shot:** PM's briefing (BriefingScreen) with its backdrop missing. It shows PM's page icons, PM's LOADING lettering, a PM mech, and "MechWarrior 3 Pirate's Moon 1.0.11.5".
+- **Wanted:**
+  - DEPLOY launches the mission directly. PM's briefing is never shown in MW1.
+  - While the mission loads, show an MW1 loading screen: the mission's map or the world's climate scene dimmed, our plaque with the contract's world, employer and objective, and LOADING in our type. No PM version text or PM art.
+- **Supersedes item 4's pre-launch screen.** The lab is now reached from the Mech Complex (items 8/13), so there's no MECH LAB above LAUNCH. The briefing's facts (objective, enemy, map) show on the loading screen and in the hub's contract readout.
+
