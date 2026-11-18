@@ -17,11 +17,25 @@ foreach(shape 43 wide)
     endif()
     file(WRITE "${wd}/settings.reg" "Windows Registry Editor Version 5.00\n\n"
                "[HKEY_CURRENT_USER\\SOFTWARE\\MicroProse\\MechWarrior 3 EP1\\1.0]\n\"InGameVMode\"=dword:0000000${mode}\n")
-    execute_process(COMMAND ${CMAKE_COMMAND} -E env MW1_FIT=1 MW1_SCREEN=${page} "${MW1_BIN}" --write-dir "${wd}" --nosound
-                            --hidden ${args}
-                    RESULT_VARIABLE r OUTPUT_VARIABLE out ERROR_VARIABLE err TIMEOUT 120)
-    string(REGEX MATCHALL "mw1 screen fit: [^\n]*OUTSIDE" bad "${out}")
-    string(REGEX MATCH "mw1 screen fit: done at [^\n]*" done "${out}")
+    # A run that ends 0 with no report is the timing flake (seen under load, a few pages at a time, never the same
+    # twice): that one run again, once. An OUTSIDE, a crash or a timeout is never retried.
+    foreach(attempt 1 2)
+      execute_process(COMMAND ${CMAKE_COMMAND} -E env MW1_FIT=1 MW1_SCREEN=${page} "${MW1_BIN}" --write-dir "${wd}" --nosound
+                              --hidden ${args}
+                      RESULT_VARIABLE r OUTPUT_VARIABLE out ERROR_VARIABLE err TIMEOUT 120)
+      string(REGEX MATCHALL "mw1 screen fit: [^\n]*OUTSIDE" bad "${out}")
+      string(REGEX MATCH "mw1 screen fit: done at [^\n]*" done "${out}")
+      if(done OR NOT r EQUAL 0)
+        break()
+      endif()
+      if(attempt EQUAL 1)
+        message("${shape} ${page}: exit 0 with no report (the timing flake): once more")
+        file(REMOVE_RECURSE "${wd}")
+        file(MAKE_DIRECTORY "${wd}")
+        file(WRITE "${wd}/settings.reg" "Windows Registry Editor Version 5.00\n\n"
+                   "[HKEY_CURRENT_USER\\SOFTWARE\\MicroProse\\MechWarrior 3 EP1\\1.0]\n\"InGameVMode\"=dword:0000000${mode}\n")
+      endif()
+    endforeach()
     foreach(line IN LISTS bad)
       message("${shape}: ${line}")
     endforeach()
