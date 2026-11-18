@@ -413,7 +413,7 @@ Tick an item when it is merged into `main`.
   - **Until Owen decides:** collect everything, scrollable.
 - **Done means:** shots of a win, a retreat and a lost mission at 1080p and 4:3, plus a long salvage list scrolled.
 
-## 39. [ ] The lab's 'MECH LOAD-OUT and AVAILABLE SUPPLIES lists sit off-centre in their boxes
+## 39. [x] The lab's 'MECH LOAD-OUT and AVAILABLE SUPPLIES lists sit off-centre in their boxes
 - **Owen (2026-11-18):**
   - in LOAD-OUT, the rows end well short of the box's right edge, leaving a wide empty strip, and the header sits high with a gap under it;
   - in AVAILABLE SUPPLIES, the list and the tabs start far right of the box's left edge.
