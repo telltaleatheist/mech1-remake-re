@@ -213,6 +213,23 @@ cursor and every coordinate stay in canvas pixels. Only the drawing of text and 
 Each needs either the command list replayed into a grab or a tint drawn over the list too. List them all before
 building.
 
+### B1 as built (pieces 2 to 4, 2026-11-18)
+
+- **What's under what (piece 3):** each draw on the screen keeps the canvas in its rect before its blit and after.
+  At a pixel the draws chain while each one's "before" is the last one's "after" and the canvas still holds the top
+  one's "after"; the chain's draws show, from its base up. An unrecorded write (a line, a ripple, a blur, a clear)
+  breaks the chain where it wrote, so nothing needs a hook. This replaces the stamped generation mask above. The
+  snapshots are capped at 24 MB a screen (real screens use 1.5 to 3.9 MB), past which the screen falls back to the
+  canvas.
+- **The draw (piece 4):** over the canvas's layer, a canvas-sized "under" texture (each chain base's "before",
+  sharp, so the canvas's own copy of a draw is covered; for text, an OPAQUE background is kept and a glyph's cell is
+  filled from the background beside it), then each draw as quads clipped to where it shows: pictures from
+  HiresImages, lines from TextRaster at the canvas's pen. A draw that can't be drawn takes itself and the draws over
+  it out at its pixels, and the canvas shows.
+- **Known gap, accepted for now (the lead, 2026-11-18):** on a keyed overlay over the 3D (a mission's HUD), where a
+  draw's "before" is the layer's key, the under texture is clear there, so the canvas's blocky glyph is not covered
+  and shows round the smooth one. MW1's goal is the menus, which are drawn whole (present_16), not keyed.
+
 ### B2. The pictures at high resolution
 
 **Sources** (in keep, `mw1-remake/assets/mw3`, 157 PNGs, 213 MB with the unused takes):
