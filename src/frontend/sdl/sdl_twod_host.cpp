@@ -2,6 +2,7 @@
 #include <string>
 #include <algorithm>
 #include "frontend/sdl/sdl_twod_host.h"
+#include "platform/hires_2d.h"
 #include "gamez/ztwod/twod.h"
 
 #include "gamez/zutil/zutl_msgdll.h"
@@ -169,6 +170,7 @@ zimg::Texture* SdlTwodHost::image_get(const char* name) {
     return nullptr;
   }
   images_[name] = {t, 1};
+  names_[t] = name;
   return made(t);
 }
 
@@ -201,7 +203,33 @@ void SdlTwodHost::free_image(zimg::Texture* image) {
 }
 zimg::Texture* SdlTwodHost::made(zimg::Texture* image) {
   freed_.erase(image);  // the address may come back for a new image
+  if (image) hires_.clear(image->pixels);  // and so may its pixels': nothing recorded in them yet
   return image;
+}
+
+// Ours (MW1's FIXES 12, research/hires-2d.md B0 rule 3): the blit's recorded draws, then its pixels as ever. Every
+// image draw of zTwoD's and the program's comes here (the 2D target is the only destination).
+void SdlTwodHost::blit(zimg::Texture* image, int32_t x, int32_t y, int32_t flags, const ztwod::Rect* src) {
+  const zrndr::Target2D& t = zrndr::target2d();
+  if (platform::hires_2d() && image && image->pixels && t.base) {
+    const bool opaque = !(image->flags & zimg::kAlpha) && !image->alpha;
+    auto n = names_.find(image);
+    platform::hires::Rect part;
+    if (src) part = {src->left, src->top, src->right, src->bottom};
+    hires_.blit(image->pixels, image->width, image->height, src ? &part : nullptr, t.base, static_cast<int32_t>(t.width),
+                static_cast<int32_t>(t.height), x, y, opaque, n == names_.end() ? std::string() : n->second);
+    // MW1_HIRES_DEBUG: each new most the screen's list has held, and a fall back, to see the lists stay bounded.
+    if (platform::hires_2d_debug()) {
+      ++hires_blits_;
+      const size_t now = hires_.size(t.base);
+      if (now > hires_most_ || (hires_.fallen(t.base) && !hires_said_fallen_)) {
+        hires_most_ = std::max(hires_most_, now), hires_said_fallen_ = hires_.fallen(t.base);
+        std::printf("mw3: hires: blit %d, the screen's draws %zu (the most yet)%s, %zu owners\n", hires_blits_, now,
+                    hires_said_fallen_ ? ", fallen back to the canvas" : "", hires_.owners());
+      }
+    }
+  }
+  ztwod::Host::blit(image, x, y, flags, src);
 }
 
 // 0x00516f50 (zImage's texture directory, "zbd" for the shell): FIX (A), each
@@ -335,6 +363,13 @@ zimg::Texture* SdlTwodHost::screen_grab(int32_t buffer) {
     held_grab_ = img;
     return made(img);
   }
+  // Ours (MW1's FIXES 12, B0 rule 4): a grab takes the screen's recorded draws with it.
+  auto grabbed = [&](zimg::Texture* img) {
+    const zrndr::Target2D& t = zrndr::target2d();
+    if (platform::hires_2d() && img && t.base)
+      hires_.grab(t.base, platform::hires::Rect{0, 0, static_cast<int32_t>(t.width), static_cast<int32_t>(t.height)}, img->pixels);
+    return img;
+  };
   std::vector<uint16_t> shown;
   if (engine_ && engine_->shown_frame(&shown)) {
     const zrndr::Target2D& t = zrndr::target2d();
@@ -342,7 +377,7 @@ zimg::Texture* SdlTwodHost::screen_grab(int32_t buffer) {
     if (w > 0 && h > 0 && shown.size() == static_cast<size_t>(w) * h) {
       zimg::Texture* img = new_image(w, h);
       std::memcpy(img->pixels, shown.data(), shown.size() * 2);
-      return made(img);
+      return grabbed(made(img));
     }
   }
   const zrndr::Target2D& t = zrndr::target2d();
@@ -350,10 +385,14 @@ zimg::Texture* SdlTwodHost::screen_grab(int32_t buffer) {
   zimg::Texture* img = new_image(static_cast<int>(t.width), static_cast<int>(t.height));
   for (uint32_t y = 0; y < t.height; ++y)
     std::memcpy(static_cast<uint16_t*>(img->pixels) + y * t.width, t.base + y * t.pitch, t.width * 2);
-  return made(img);
+  return grabbed(made(img));
 }
 
 void SdlTwodHost::texture_free(zimg::Texture* t) {
+  if (t) {
+    hires_.clear(t->pixels);
+    names_.erase(t);
+  }
   if (t && t == held_grab_) {  // the box gone: the kept frame let go
     held_grab_ = nullptr;
     if (engine_) engine_->drop_held();
@@ -378,10 +417,13 @@ zimg::Texture* SdlTwodHost::screen_grab_rect(int32_t, ztwod::Rect* r, zimg::Text
     std::memcpy(static_cast<uint16_t*>(img->pixels) + y * img->width, t.base + (c.top + y) * t.pitch + c.left * 2,
                 static_cast<size_t>(w) * 2);
   *r = c;
-  return made(img);
+  made(img);
+  if (platform::hires_2d()) hires_.grab(t.base, platform::hires::Rect{c.left, c.top, c.right, c.bottom}, img->pixels);
+  return img;
 }
 
 Handle SdlTwodHost::image_dc(zimg::Texture* image) {
+  if (image) hires_.clear(image->pixels);  // ours: drawn afresh (the text's image, cleared before its DC opens)
   const Handle h = CreateCompatibleDC(0);
   dcs_[h].image = image;
   return h;
@@ -515,6 +557,7 @@ TTF_Font* SdlTwodHost::open_ttf(Font& f) {
   const GdiSize size = gdi_font_size(it->second, f.height);
   f.ttf = TTF_OpenFont(path.c_str(), static_cast<float>(size.ppem));
   if (!f.ttf) return nullptr;
+  f.path = path;
   f.em = size.ppem;
   f.ascent = size.ascent;
   f.descent = size.descent;
@@ -674,6 +717,19 @@ int32_t SdlTwodHost::DrawTextA(Handle d, const char* text, int32_t length, ztwod
     if (format & kCenter) x0 = rect->left + (box_w - w) / 2;
     else if (format & kRight) x0 = rect->right - w;
     const int ly = y0 + static_cast<int>(i) * lh;
+    // Ours (MW1's FIXES 12, B0 rule 2): the line recorded on its image, clipped as its pixels are.
+    if (platform::hires_2d() && !l.empty()) {
+      platform::hires::Command c;
+      c.rect = platform::hires::intersect(
+          platform::hires::intersect(platform::hires::Rect{x0, ly, x0 + w, ly + lh},
+                                     platform::hires::Rect{rect->left, rect->top, rect->right, rect->bottom}),
+          platform::hires::Rect{0, 0, img->width, img->height});
+      c.x = x0, c.y = ly;
+      c.text = l;
+      c.font = {f->path, f->em, f->weight, f->italic != 0, f->tracking, f->shift};
+      c.colour = x->text;
+      hires_.text(img->pixels, std::move(c));
+    }
     auto put = [&](int px_, int py_, uint16_t c) {
       if (px_ < rect->left || px_ >= rect->right || py_ < rect->top || py_ >= rect->bottom) return;  // clipped
       if (px_ < 0 || py_ < 0 || px_ >= img->width || py_ >= img->height) return;

@@ -72,6 +72,7 @@ add_library(mw3core STATIC
   src/platform/cue_audio.cpp
   src/platform/mipmaps.cpp
   src/platform/hires_images.cpp
+  src/platform/hires_lists.cpp  # ours: MW1's high-resolution 2D, the recorded draws (FIXES 12)
   src/mech3/data_folder.cpp
   src/mech3/data_version.cpp
   src/mech3/patch12.cpp
@@ -786,6 +787,7 @@ if(MW3_BUILD_PM)
   add_executable(mw3pmtests
     tests/pm/test_pm_lobby.cpp
     tests/test_help_button.cpp  # HelpButton's blink, and set_buttons_steady (ours)
+    tests/test_hires_lists.cpp  # ours: MW1's high-resolution 2D, the recorded draws kept with the pixels
     tests/pm/test_pm_net.cpp
     tests/pm/test_pm_wire.cpp
     tests/pm/test_pm_wire_walk.cpp

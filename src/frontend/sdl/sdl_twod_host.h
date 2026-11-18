@@ -1,10 +1,12 @@
 #pragma once
 #include <map>
 #include <set>
+#include <unordered_map>
 #include <string>
 #include <vector>
 
 #include "gamez/ztwod/twod_host.h"
+#include "platform/hires_lists.h"
 
 typedef struct TTF_Font TTF_Font;
 
@@ -47,6 +49,10 @@ class SdlTwodHost : public ztwod::Host {
   zimg::Texture* held_grab_ = nullptr;  // the message box's backdrop over a kept frame (W25)
   zimg::Texture* image_new(int32_t w, int32_t h) override;
   zimg::Texture* screen_grab_rect(int32_t buffer, ztwod::Rect* r, zimg::Texture* into) override;
+  // Ours (MW1's FIXES 12): with platform::hires_2d() on, each blit tells the recorded draws (hires_lists()) what it
+  // carries; the pixels are blitted as ever.
+  void blit(zimg::Texture* image, int32_t x, int32_t y, int32_t flags, const ztwod::Rect* src) override;
+  const platform::hires::Lists& hires_lists() const { return hires_; }
   Handle image_dc(zimg::Texture* image) override;
   void image_dc_release(zimg::Texture* image, Handle dc) override;
   int32_t video_mode() override;
@@ -112,6 +118,7 @@ class SdlTwodHost : public ztwod::Host {
     int ascent = 0, descent = 0;  // GDI's tmAscent and tmDescent (gdi_font_size.h)
     int shift = 0;                // GDI's ascent less SDL_ttf's: the baseline's move down
     int tracking = 0;             // ours: pixels added after each glyph but the last (a program table's "tracking")
+    std::string path;             // ours: the .ttf opened (the recorded draws' font, MW1's FIXES 12)
   };
   struct Dc {
     Handle font = 0;
@@ -149,6 +156,12 @@ class SdlTwodHost : public ztwod::Host {
   std::map<std::string, Cached> images_;
   std::set<std::string> missing_;  // the names already reported
   std::set<zimg::Texture*> freed_;   // freed through image_release, until the address is reused
+  // Ours (MW1's FIXES 12): the recorded draws, kept with their pixels, and each cached image's name.
+  platform::hires::Lists hires_;
+  std::unordered_map<const zimg::Texture*, std::string> names_;
+  int hires_blits_ = 0;  // MW1_HIRES_DEBUG's report
+  size_t hires_most_ = 0;
+  bool hires_said_fallen_ = false;
   void free_image(zimg::Texture* image);
   zimg::Texture* made(zimg::Texture* image);
   uint32_t buttons_ = 0;
