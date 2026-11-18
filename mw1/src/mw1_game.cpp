@@ -1174,12 +1174,18 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   void lab_look_once(mech3::LabScreen& ls) {
     place_lab_tabs(ls);
     mech3::LabUnassignedList& u = ls.unassigned;
+    // FIXES.md item 39: 'MECH LOAD-OUT's and AVAILABLE SUPPLIES' rows across their panels, kLabListMargin in from
+    // each side (PM's 172-wide rows sat at one side), their columns spread with them; the headers over the columns.
+    const int32_t layout_left = ge_->buffer_width() / 2 - 320;
+    centre_lab_list(ls.assigned, chrome::kLabSideWhole.x0, chrome::kLabSideWhole.x1, layout_left, {});
+    centre_lab_list(u, 420 + chrome::kLabSideWhole.x0, 420 + chrome::kLabSideWhole.x1, layout_left,
+                    {&u.sort_item, &u.sort_qty, &u.sort_mass, &u.sort_crit});
     // The supply tabs: PM's at fixed x, and "Armor" ran past the right panel's frame. "Ammo" for "Ammunition", and
     // the four laid left to right from the first, kTabGap apart (each tab is its labels: Control::hit).
     for (auto* v : {&u.ammo.labels, &u.ammo.rollover_labels, &u.ammo.activate_labels, &u.ammo.disable_labels})
       for (ztwod::Text* t : *v) t->set_text_plain(kAmmoTab);
     if (u.ammo.text) u.ammo.text->set_text_plain(kAmmoTab);  // the checked look's
-    int32_t x = u.weapon.labels[0]->x;
+    int32_t x = lab_list_left(u);  // from the list's left (item 39)
     for (mech3::LabSelect* t : {&u.weapon, &u.ammo, &u.equip, &u.armor}) {
       ztwod::Text* first = t->labels[0];
       if (first->needs_render) first->render();
@@ -1243,6 +1249,51 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       }
     }
   }
+  // FIXES.md item 39: a lab list's rows inside its panel (x0..x1, the frame's outer edges, in the 640 layout) with
+  // kLabListMargin each side: its row width (the engine's, ours: LabItemList::row_width, its columns in proportion),
+  // its rows moved there, its arrows kept where they were from the rows' right end (inside the panel), its click
+  // area across the rows; its header (its own labels on the row above, else the given buttons') over the columns, its
+  // titles (its labels higher up) moved with the rows' left.
+  static int32_t lab_list_left(mech3::LabItemList& l) { return l.get_x() + l.offset[0] + l.spacing[0]; }
+  static void centre_lab_list(mech3::LabItemList& l, int32_t x0, int32_t x1, int32_t layout_left,
+                              const std::vector<ztwod::Control*>& header_buttons) {
+    const int32_t inner_l = layout_left + x0 + chrome::kLabFrame, inner_r = layout_left + x1 - chrome::kLabFrame;
+    const int32_t old_x = lab_list_left(l), old_w = l.row_width;
+    const int32_t want = inner_l + chrome::kLabListMargin, w = inner_r - inner_l - 2 * chrome::kLabListMargin;
+    auto col = [&](int32_t at) { return want + (at - old_x) * w / old_w; };  // a place on the old row, on the new
+    std::vector<std::pair<mech3::LabListArrow*, int32_t>> arrows;  // each arrow from the rows' right end
+    for (mech3::LabListArrow* a : {l.up, l.down})
+      if (a) arrows.push_back({a, a->get_x() - (old_x + old_w)});
+    l.row_width = w;
+    const int32_t dx = want - old_x;
+    l.set_pos(l.get_x() + dx, l.get_y());
+    for (auto& [a, from_end] : arrows) {
+      const int32_t ax = std::min(want + w + from_end, inner_r - (a->image ? a->image->width : 0));
+      a->set_pos(ax, a->get_y());
+    }
+    l.rect.left = want, l.rect.right = want + w;
+    // The bar to the row's end (chrome::kLabWideBar: the panel's width less the margins, kLabListRowW).
+    if (l.bar_image && w == chrome::kLabListRowW)
+      if (zimg::Texture* t = ztwod::host().image_get(chrome::reskin_name(chrome::kLabWideBar).c_str())) l.bar_image->set_image(t);
+    // The header: the list's own labels on the row above it, or the buttons' (each moved with its click area).
+    std::vector<ztwod::Text*> moved;
+    for (auto* v : {&l.labels, &l.rollover_labels, &l.activate_labels, &l.disable_labels})
+      for (ztwod::Text* t : *v)
+        if (t->y < l.get_y() && std::find(moved.begin(), moved.end(), t) == moved.end()) {
+          moved.push_back(t);
+          if (t->y >= l.get_y() - kLabHeaderAbove) t->x = col(t->x);  // the header's: over its column
+          else t->x += dx;                                           // the title's, with the rows' left
+          t->dirty();
+        }
+    for (ztwod::Control* b : header_buttons) {
+      if (b->labels.empty()) continue;
+      const int32_t d = col(b->labels[0]->x) - b->labels[0]->x;
+      shift_labels(*b, d, 0);
+      b->bounds.left += d, b->bounds.right += d, b->x += d;
+    }
+    l.layout();
+  }
+  static constexpr int32_t kLabHeaderAbove = 16, kLabMarginSlack = 3;
   // A control's labels, every look's, moved once each.
   static void shift_labels(ztwod::Control& c, int32_t dx, int32_t dy) {
     std::vector<ztwod::Text*> moved;
@@ -2786,8 +2837,29 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       }
     }
     if (labels.size() != tray.size()) wrong.push_back(std::to_string(labels.size()) + " labels for " + std::to_string(tray.size()) + " buttons");
+    // FIXES.md item 39: 'MECH LOAD-OUT's and AVAILABLE SUPPLIES' rows centred in their panels (their left and right
+    // margins within kLabMarginSlack of each other, neither on the frame), the supply tabs from the rows' left.
+    int32_t margins = 0;
+    if (l->page == kLabCriticalsPage) {
+      const int32_t left = ge.buffer_width() / 2 - 320;
+      struct ListIn { mech3::LabItemList* list; int32_t x0, x1; const char* name; };
+      for (const ListIn& in : {ListIn{&l->assigned, chrome::kLabSideWhole.x0, chrome::kLabSideWhole.x1, "'MECH LOAD-OUT"},
+                               ListIn{&l->unassigned, 420 + chrome::kLabSideWhole.x0, 420 + chrome::kLabSideWhole.x1, "AVAILABLE SUPPLIES"}}) {
+        if (in.list->flags & ztwod::kHidden) continue;
+        const int32_t rows_l = lab_list_left(*in.list) - left, rows_r = rows_l + in.list->row_width;
+        const int32_t ml = rows_l - (in.x0 + chrome::kLabFrame), mr = (in.x1 - chrome::kLabFrame) - rows_r;
+        std::printf("mw1 lab fit: %s %s rows %d..%d, margins %d and %d\n", kSteps[step].name, in.name, rows_l, rows_r, ml, mr);
+        ++margins;
+        if (std::abs(ml - mr) > kLabMarginSlack || ml < 2 || mr < 2) wrong.push_back(std::string(in.name) + "'s rows aren't centred in their panel");
+      }
+      mech3::LabUnassignedList& u = l->unassigned;
+      if (!(u.flags & ztwod::kHidden) && !u.weapon.labels.empty()) {
+        ++margins;
+        if (std::abs(u.weapon.labels[0]->x - lab_list_left(u)) > 1) wrong.push_back("the supply tabs don't start at the rows' left");
+      }
+    }
     for (const std::string& w : wrong) std::printf("mw1 lab fit: %s the tray: %s: OUTSIDE\n", kSteps[step].name, w.c_str());
-    texts += static_cast<int>(tray.size() + labels.size()), outside += static_cast<int>(wrong.size());
+    texts += static_cast<int>(tray.size() + labels.size()) + margins, outside += static_cast<int>(wrong.size());
     if (++step < kStepCount) {
       if (l->page != kSteps[step].page) l->switch_page(kSteps[step].page);
       if (kSteps[step].tab) l->unassigned.set_tab(kSteps[step].tab, kSteps[step].armor), l->unassigned.refill();
@@ -2902,6 +2974,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   LabFunds lab_funds_;  // the funds on the lab's pages (FIXES.md item 41)
   // The PILOT line's place on the lab's screen: from the canvas's right edge, and down.
   static constexpr int32_t kLabChassisPage = 0;  // LabScreen::page: the chassis page (ICON_CHASSIS)
+  static constexpr int32_t kLabCriticalsPage = 3;  // the criticals page: LOAD-OUT and the supplies (ICON_CRITICALS)
   std::shared_ptr<mech3::Store> salvage_;  // this mission's parts, the stores' on a win
   bool deployed_ = false, launched_ = false, ended_ = false, failed_ = false, own_wins_ = false;
   bool ending_latched_ = false, ending_hook_ = false;  // the outcome taken this launch; the per-frame watch put on

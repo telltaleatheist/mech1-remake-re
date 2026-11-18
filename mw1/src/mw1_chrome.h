@@ -190,6 +190,13 @@ inline constexpr LabBox kLabCentreBox = {226, 280, 414, 410};  // in the 640 lay
 // left of the row's text (2 in from the row's x: a side panel's frame inside is 2 left of PM's columns at 10 and 453),
 // then to the end of the row's dark panel (172 from the row's x), 20 high.
 inline constexpr int32_t kBarEdge = 2, kBarLeft = 17 - kBarEdge, kBarRight = 17 + 172, kBarTop = 13, kBarBottom = 33;
+// FIXES.md item 39: 'MECH LOAD-OUT's and AVAILABLE SUPPLIES' rows across their panels: a side panel's inside
+// (kLabSideWhole less its kLabFrame-thick frame) less kLabListMargin each side; and their selection bar
+// (lab_text_glow_wide, ours: no PM layout names it), lab_text_glow's look to the end of a row that wide.
+inline constexpr int32_t kLabFrame = 2, kLabListMargin = 6;
+inline constexpr int32_t kLabListRowW = kLabSideWhole.x1 - kLabSideWhole.x0 - 2 * kLabFrame - 2 * kLabListMargin;  // 192
+inline constexpr const char* kLabWideBar = "lab_text_glow_wide";
+inline constexpr int32_t kLabWideBarW = 207 + kLabListRowW - 172;
 void darken_scene(images::Image& im);    // the hub's scenery treatment (kSceneLight, kScanline)
 std::vector<images::Image> all();  // every piece, for the archive (the tiles come with their pictures, mw1imgpack)
 // Ours (research/hires-2d.md B2b): the pieces drawn again at scale s (2 and up) for the 2D at the window's

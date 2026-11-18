@@ -139,6 +139,12 @@ class LabItemList : public ShellButton {
   Handle store = 0;                  // +0x220  what refill lists
   Handle x224 = 0;                   // +0x224
   bool (*filter)(Engine& e, Handle item) = nullptr;  // +0x228  (thiscall on the item) none: all
+  // Ours (MW1's FIXES.md item 39, opt-in): a row's width, PM's 0xac. Its columns keep their places in it in proportion
+  // (the count at its right edge, the mass at 0x93 of 0xac, the store's count at 0x7a, a part's line to 0x89), as
+  // do its dark panel and its click. Mech3 and Pirate's Moon never change it.
+  int32_t row_width = kRowWidth;
+  static constexpr int32_t kRowWidth = 0xac;
+  int32_t column(int32_t pm) const { return pm * row_width / kRowWidth; }  // PM's column at this width
 };
 
 // 0x0048c0b0 on any flashing text (FileRow::flash's body).
