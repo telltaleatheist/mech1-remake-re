@@ -1186,7 +1186,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     }
   }
   // FIXES.md item 29: the tray's four buttons (one picture size, mw1_chrome.h) at even places along it, not PM's (its
-  // icons of four sizes, the groups one over the centre's frame); the chosen page's glow centred on its button.
+  // icons of four sizes, the groups one over the centre's frame); the chosen page's glow centred on its button; item
+  // 37: each one's hover label centred above it.
   void place_lab_tabs(mech3::LabScreen& ls) {
     const int32_t left = ge_->buffer_width() / 2 - 320;  // PM's 640 layout, centred
     for (int32_t i = 0; i < 4; ++i) {
@@ -1196,6 +1197,13 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       t->glow[0] = (kLabTabW - 127) / 2, t->glow[1] = (kLabTabH - 63) / 2;  // lab_icon_glow's 127x63
       if (t->selected) ls.lab_tab_glow(*t, true, &ls.icon_glow);
       t->dirty();
+      // FIXES.md item 37: its HELP label centred above it, under the tray's line (PM's layout placed it for PM's icons).
+      for (ztwod::Text* x : t->help) {
+        if (x->needs_render) x->render();
+        const int32_t middle = left + lab_tab_x(i) + kLabTabW / 2;
+        x->set_pos(x->align == 1 ? middle : x->align == 2 ? middle + x->width / 2 : middle - x->width / 2, kLabHelpY);
+        x->dirty();
+      }
     }
   }
   // A control's labels, every look's, moved once each.
@@ -2182,6 +2190,13 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
           l->unassigned.set_tab(3, page[5] == 'a'), l->unassigned.refill();
       }
     }
+    // MW1_LAB_HOVER=0..3 (development: --shot pictures of a tray button's hover label, FIXES.md item 37): that
+    // button's HELP labels shown, the others' hidden, each frame from the 25th.
+    if (const char* h = std::getenv("MW1_LAB_HOVER"); h && lab && now == &mech3::states().lab && frames >= 25)
+      if (mech3::LabScreen* l = ge->lab_screen(mech3::states().lab.lab_screen_))
+        for (int32_t i = 0; i < 4; ++i)
+          if (mech3::HelpButton* t = l->tab(kLabTabPages[i]))
+            for (ztwod::Text* x : t->help) i == std::atoi(h) ? x->show_for(-1.0f) : x->hide();
     if (page == "results" && now == &mech3::states().core && frames == 600) {
       int32_t n = 0;
       const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
@@ -2529,8 +2544,35 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       }
     std::vector<std::string> wrong = tray_problems(tray, kLabTrayY);
     if (tray.size() != 4) wrong.push_back(std::to_string(tray.size()) + " of the 4 buttons shown");
+    // FIXES.md item 37: each button's hover label (shown or not) centred over its own button, under the tray's line,
+    // clear of the button, inside the layout, over no other label.
+    std::vector<FitBox> labels;
+    for (int32_t i = 0; i < 4; ++i) {
+      mech3::HelpButton* t = l->tab(kLabTabPages[i]);
+      if (!t || (t->flags & ztwod::kHidden) || !t->image) continue;
+      const int32_t bx = t->get_x() - (ge.buffer_width() / 2 - 320), by = t->get_y(), middle = bx + t->image->width / 2;
+      for (ztwod::Text* x : t->help) {
+        if (!x->text[0]) continue;
+        if (x->needs_render) x->render();
+        int32_t lx = x->x - (ge.buffer_width() / 2 - 320);
+        if (x->align == 1) lx -= x->width / 2;
+        else if (x->align == 2) lx -= x->width;
+        const FitBox b{lx, x->y, lx + x->width, x->y + x->text_height(), kTabNames[i]};
+        std::printf("mw1 lab fit: %s the %s label \"%s\" %d..%d x %d..%d\n", kSteps[step].name, kTabNames[i], x->text, b.left,
+                    b.right, b.top, b.bottom);
+        const std::string n = std::string("the ") + kTabNames[i] + " label";
+        if (std::abs((b.left + b.right) / 2 - middle) > 1) wrong.push_back(n + " isn't centred over its button");
+        if (b.top <= kLabTrayY) wrong.push_back(n + " is on or above the tray's line");
+        if (b.bottom > by) wrong.push_back(n + " overlaps its button");
+        if (b.left < 0 || b.right > 640) wrong.push_back(n + " is outside the layout");
+        for (const FitBox& o : labels)
+          if (b.left < o.right && o.left < b.right && b.top < o.bottom && o.top < b.bottom) wrong.push_back(n + " overlaps another's");
+        labels.push_back(b);
+      }
+    }
+    if (labels.size() != tray.size()) wrong.push_back(std::to_string(labels.size()) + " labels for " + std::to_string(tray.size()) + " buttons");
     for (const std::string& w : wrong) std::printf("mw1 lab fit: %s the tray: %s: OUTSIDE\n", kSteps[step].name, w.c_str());
-    texts += static_cast<int>(tray.size()), outside += static_cast<int>(wrong.size());
+    texts += static_cast<int>(tray.size() + labels.size()), outside += static_cast<int>(wrong.size());
     if (++step < kStepCount) {
       if (l->page != kSteps[step].page) l->switch_page(kSteps[step].page);
       if (kSteps[step].tab) l->unassigned.set_tab(kSteps[step].tab, kSteps[step].armor), l->unassigned.refill();
