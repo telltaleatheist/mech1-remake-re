@@ -126,8 +126,9 @@ int32_t HiresDraw::picture_texture(const Command& c, float* u_scale, float* v_sc
     rgba_[i + 3] = static_cast<uint8_t>(a);
   }
   p.texture = render_->create_texture(im->w, im->h, rgba_.data(), 4);
-  if (p.texture < 0) pictures_.erase(im->serial);
-  return p.texture;
+  const int32_t t = p.texture;
+  if (t < 0) pictures_.erase(im->serial);  // p is gone with it
+  return t;
 }
 
 bool HiresDraw::upload_atlas() {
@@ -137,6 +138,8 @@ bool HiresDraw::upload_atlas() {
   const bool changed = text_.take_dirty(&dirty);
   if (!a || w <= 0 || h <= 0) return false;
   if (!changed && atlas_tex_ >= 0 && w == atlas_w_ && h == atlas_h_) return true;
+  // The whole atlas each time it changed (new glyphs: rarely, once a screen's text is made). Render3D updates only
+  // whole textures; a part's upload (take_dirty's rect) wants an update_texture_rect there, not yet worth it.
   rgba_.resize(static_cast<size_t>(w) * h * 4);
   for (size_t i = 0, n = static_cast<size_t>(w) * h; i < n; ++i)  // white, premultiplied by its coverage
     rgba_[4 * i] = rgba_[4 * i + 1] = rgba_[4 * i + 2] = rgba_[4 * i + 3] = a[i];
@@ -173,18 +176,30 @@ void HiresDraw::draw(const uint16_t* pixels, int width, int height, int pitch, b
   auto& glyphs = glyphs_;
   for (size_t i = 0; i < n; ++i)
     if (l[i].kind == Kind::kPicture) ok[i] = (tex[i] = picture_texture(l[i], &us[i], &vs[i])) >= 0;
-  for (int pass = 0; pass < 2; ++pass) {
+  // The lines against one atlas. A line that can't be made (even alone) fails by itself, and is left out when the
+  // frame's lines are laid out again after an atlas clear. When they still don't fit together, the text is the
+  // canvas's, and stays so (no layout, no atlas churn) until the list or the scale changes.
+  uint64_t sig = 1469598103934665603ull;
+  for (size_t i = 0; i < n; ++i) sig = (sig ^ l[i].seq) * 1099511628211ull;
+  sig ^= static_cast<uint64_t>(n) << 48;
+  const bool overflowed = sig == overflow_sig_ && sx_ == overflow_sx_ && sy_ == overflow_sy_;
+  bad_.assign(n, 0);
+  for (int pass = 0; pass < 2 && !overflowed; ++pass) {
     const uint64_t serial = text_.atlas_serial();
     for (size_t i = 0; i < n; ++i)
-      if (l[i].kind == Kind::kText) {
+      if (l[i].kind == Kind::kText && !bad_[i]) {
         glyphs[i].clear();
         ok[i] = text_.layout(l[i].font, l[i].text, static_cast<float>(l[i].x), static_cast<float>(l[i].y), sx_, sy_,
                              &glyphs[i]);
+        if (!ok[i]) bad_[i] = 1;
       }
     if (text_.atlas_serial() == serial) break;
-    if (pass == 1)  // the frame's lines don't fit one atlas: they stay the canvas's
+    if (pass == 1) {  // they don't fit one atlas together: the canvas's, remembered
       for (size_t i = 0; i < n; ++i)
-        if (l[i].kind == Kind::kText) ok[i] = false;
+        if (l[i].kind == Kind::kText) ok[i] = 0;
+      overflow_sig_ = sig, overflow_sx_ = sx_, overflow_sy_ = sy_;
+      ++stats_.overflowed;
+    }
   }
   const bool atlas = upload_atlas();
   for (size_t i = 0; i < n; ++i)
@@ -278,6 +293,15 @@ void HiresDraw::draw(const uint16_t* pixels, int width, int height, int pitch, b
       render_->draw(platform::Primitive::kTriangles, v.data(), static_cast<int>(v.size()), state(tex[i]));
       ++stats_.pictures;
     } else {
+      if (c.box) {  // OPAQUE: its cells in their colour first, over whatever is under it
+        const uint32_t bk = diffuse(c.box_colour & 0xff, c.box_colour >> 8 & 0xff, c.box_colour >> 16 & 0xff);
+        for (const Rect& r : rects)
+          quad(&v, static_cast<float>(r.l), static_cast<float>(r.t), static_cast<float>(r.r), static_cast<float>(r.b), 0,
+               0, 0, 0, bk);
+        platform::DrawState solid = state(-1);
+        render_->draw(platform::Primitive::kTriangles, v.data(), static_cast<int>(v.size()), solid);
+        v.clear();
+      }
       const uint32_t colour = diffuse(c.colour & 0xff, c.colour >> 8 & 0xff, c.colour >> 16 & 0xff);
       const float aw = static_cast<float>(atlas_w_), ah = static_cast<float>(atlas_h_);
       for (const platform::hires::GlyphQuad& g : glyphs[i])

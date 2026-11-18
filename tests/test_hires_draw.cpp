@@ -108,7 +108,9 @@ const Drawn* premultiplied(const Recorder& r, size_t k) {
   return nullptr;
 }
 // The bounding box of a draw's vertices (canvas pixels).
-Rect box(const Drawn& d) {
+Rect box_of(const Drawn& d);
+Rect box(const Drawn& d) { return box_of(d); }
+Rect box_of(const Drawn& d) {
   float l = 1e9f, t = 1e9f, r = -1e9f, b = -1e9f;
   for (const auto& v : d.v) l = std::min(l, v.sx), t = std::min(t, v.sy), r = std::max(r, v.sx), b = std::max(b, v.sy);
   return Rect{static_cast<int32_t>(l), static_cast<int32_t>(t), static_cast<int32_t>(r + 0.999f), static_cast<int32_t>(b + 0.999f)};
@@ -258,4 +260,123 @@ TEST(hires_draw_text_on_canvas_chrome_its_before_under) {
     EXPECT(stem == bg);  // the glyph's cell: the background beside it, not the blocky glyph
     EXPECT(out == 0);    // no draw there: the canvas's own layer shows
   }
+}
+
+TEST(hires_draw_a_texture_that_cant_be_made) {
+  // The renderer can't make the picture's texture: the canvas shows there (and nothing is used after it's gone).
+  struct Failing : Recorder {
+    int32_t create_texture(int, int, const uint8_t*, uint8_t) override { return -1; }
+  } r;
+  Images im;
+  add_pic(im);
+  platform::set_hires_images(&im);
+  Lists l;
+  Canvas c(64, 32);
+  blit(l, c, &pic_owner, 64, 32, 0, 0, true, "pic", [&] { c.fill({0, 0, 64, 32}, 0x1234); });
+  sdlfe::HiresDraw d(&r, &l);
+  d.draw(c.px.data(), c.w, c.h, c.w * 2, true, false, 0);
+  d.draw(c.px.data(), c.w, c.h, c.w * 2, true, false, 0);  // and again, asked afresh
+  platform::set_hires_images(nullptr);
+  EXPECT(d.stats().failed == 1 && d.stats().pictures == 0 && r.draws.empty());
+}
+
+TEST(hires_draw_an_opaque_line_keeps_its_box_over_a_picture) {
+  // An OPAQUE line (a highlighted row) over a recorded picture: its cells in its background colour, over the
+  // picture and under its glyphs.
+  const std::string font = (fs::path(__FILE__).parent_path().parent_path() / "mw1" / "data" / "fonts" /
+                            "ShareTechMono-Regular.ttf").string();
+  Recorder r;
+  Images im;
+  add_pic(im);
+  platform::set_hires_images(&im);
+  Lists l;
+  Canvas c(64, 32);
+  blit(l, c, &pic_owner, 64, 32, 0, 0, true, "pic", [&] { c.fill({0, 0, 64, 32}, 0x1234); });
+  l.clear(&text_owner);
+  Command t;
+  t.rect = Rect{0, 0, 40, 12};
+  t.text = "ROW";
+  t.font = FontKey{font, 12, 400, false, 0, 0};
+  t.colour = 0x00ffffff;
+  t.box = true, t.box_colour = 0x00800000;  // navy
+  l.text(&text_owner, t);
+  blit(l, c, &text_owner, 40, 12, 8, 10, true, "", [&] {
+    c.fill({8, 10, 48, 22}, 0x0010);
+    c.fill({12, 12, 14, 20}, 0xffff);
+  });
+  sdlfe::HiresDraw d(&r, &l);
+  d.draw(c.px.data(), c.w, c.h, c.w * 2, true, false, 0);
+  platform::set_hires_images(nullptr);
+  EXPECT(d.stats().pictures == 1 && d.stats().lines == 1 && d.stats().failed == 0);
+  // The draws in order: the picture, the box (no texture, navy, the line's cells), the glyphs.
+  size_t pic = 99, box = 99, glyphs = 99;
+  for (size_t i = 0; i < r.draws.size(); ++i) {
+    const Drawn& dd = r.draws[i];
+    if (dd.state.sharp) continue;
+    if (dd.texture < 0) box = i;
+    else if (r.sizes[dd.texture] == std::make_pair(256, 128)) pic = i;
+    else glyphs = i;
+  }
+  EXPECT(pic < box && box < glyphs && glyphs < r.draws.size());
+  if (box < r.draws.size()) {
+    const Drawn& b = r.draws[box];
+    EXPECT((b.v[0].diffuse & 0x00ffffffu) == 0x00000080u);  // ARGB: navy's blue
+    EXPECT(box_of(b) == (Rect{8, 10, 48, 22}));
+  }
+}
+
+TEST(hires_draw_a_line_too_big_fails_alone) {
+  // A line whose glyphs can't be held even by an empty atlas: it is the canvas's; the other line is drawn.
+  const std::string font = (fs::path(__FILE__).parent_path().parent_path() / "mw1" / "data" / "fonts" /
+                            "ShareTechMono-Regular.ttf").string();
+  Recorder r;
+  Lists l;
+  Canvas c(64, 32);
+  c.fill({0, 0, 64, 32}, 0x2104);
+  auto line = [&](int* owner, const char* text, int em, int y) {
+    l.clear(owner);
+    Command t;
+    t.rect = Rect{0, 0, 64, 12};
+    t.text = text;
+    t.font = FontKey{font, em, 400, false, 0, 0};
+    t.colour = 0x00ffffff;
+    l.text(owner, t);
+    blit(l, c, owner, 64, 12, 0, y, false, "", [&] { c.fill({2, y + 2, 4, y + 8}, 0xffff); });
+  };
+  static int small_owner, huge_owner;
+  line(&small_owner, "OK", 12, 0);
+  line(&huge_owner, "W", 2400, 16);  // 2400 x 4: its ink past 4096
+  sdlfe::HiresDraw d(&r, &l);
+  d.draw(c.px.data(), c.w, c.h, c.w * 2, true, false, 0);
+  EXPECT(d.stats().lines == 1 && d.stats().failed == 1 && d.stats().overflowed == 0);
+}
+
+TEST(hires_draw_lines_that_overflow_the_atlas_stay_the_canvas_s) {
+  // More big glyphs than one atlas holds: the lines are the canvas's, and the next frame (the same list, the same
+  // scale) doesn't try again.
+  const std::string font = (fs::path(__FILE__).parent_path().parent_path() / "mw1" / "data" / "fonts" /
+                            "ShareTechMono-Regular.ttf").string();
+  Recorder r;
+  Lists l;
+  Canvas c(64, 32);
+  c.fill({0, 0, 64, 32}, 0x2104);
+  static int owners[4];
+  const char* texts[4] = {"ABCDEFGHIJKLMNOP", "QRSTUVWXYZabcdef", "ghijklmnopqrstuv", "wxyz0123456789#%"};
+  for (int k = 0; k < 4; ++k) {
+    l.clear(&owners[k]);
+    Command t;
+    t.rect = Rect{0, 0, 64, 8};
+    t.text = texts[k];
+    t.font = FontKey{font, 420, 400, false, 0, 0};
+    t.colour = 0x00ffffff;
+    l.text(&owners[k], t);
+    blit(l, c, &owners[k], 64, 8, 0, 8 * k, false, "", [&] { c.fill({1, 8 * k + 1, 3, 8 * k + 6}, 0xffff); });
+  }
+  sdlfe::HiresDraw d(&r, &l);
+  d.draw(c.px.data(), c.w, c.h, c.w * 2, true, false, 0);
+  std::printf("  first frame: %d lines, %d left to the canvas, overflowed %d\n", d.stats().lines, d.stats().failed,
+              d.stats().overflowed);
+  EXPECT(d.stats().overflowed == 1 && d.stats().lines == 0 && d.stats().failed == 4);
+  d.draw(c.px.data(), c.w, c.h, c.w * 2, true, false, 0);
+  EXPECT(d.stats().overflowed == 0 && d.stats().lines == 0 && d.stats().failed == 4);  // remembered: not tried
 }

@@ -40,6 +40,7 @@ class HiresDraw {
     int lines = 0;        // drawn from the atlas
     int failed = 0;       // left to the canvas (no source, no glyphs)
     long under = 0;       // pixels under a chain (its base's "before")
+    int overflowed = 0;   // the frame's lines didn't fit one atlas (left to the canvas until the list changes)
     double ms = 0;        // draw()'s own time
   };
   const Stats& stats() const { return stats_; }
@@ -66,7 +67,9 @@ class HiresDraw {
   std::vector<int32_t> tex_;
   std::vector<float> us_, vs_;
   std::vector<std::vector<platform::hires::GlyphQuad>> glyphs_;
-  std::vector<uint8_t> ok_;
+  std::vector<uint8_t> ok_, bad_;
+  uint64_t overflow_sig_ = 0;  // the list (its draws' seqs) and scale whose lines didn't fit one atlas
+  float overflow_sx_ = 0, overflow_sy_ = 0;
   std::vector<platform::hires::Rect> rects_, open_, next_;
   std::vector<platform::TLVertex> verts_;
   Stats stats_;

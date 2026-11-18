@@ -734,6 +734,7 @@ int32_t SdlTwodHost::DrawTextA(Handle d, const char* text, int32_t length, ztwod
       c.text = l;
       c.font = {f->path, f->em, f->weight, f->italic != 0, f->tracking, f->shift};
       c.colour = x->text;
+      c.box = x->bk_mode == 2, c.box_colour = x->bk;
       hires_.text(img->pixels, std::move(c));
     }
     auto put = [&](int px_, int py_, uint16_t c) {
