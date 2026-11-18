@@ -41,10 +41,10 @@ MW1BARDIALOG (
     PANEL19 (POSITION (300 306) BITMAP ("mw1_frame_104x136"))
     PANEL20 (POSITION (406 306) BITMAP ("mw1_frame_104x136"))
     PANEL21 (POSITION (512 306) BITMAP ("mw1_frame_104x136"))
-    PANEL22 (POSITION (198 310) BITMAP ("mw1_mech_jenner_s"))
-    PANEL23 (POSITION (304 310) BITMAP ("mw1_mech_jenner_s"))
-    PANEL24 (POSITION (410 310) BITMAP ("mw1_mech_jenner_s"))
-    PANEL25 (POSITION (516 310) BITMAP ("mw1_mech_jenner_s"))
+    PANEL22 (POSITION (198 310) BITMAP ("mw1_icon_owens"))
+    PANEL23 (POSITION (304 310) BITMAP ("mw1_icon_owens"))
+    PANEL24 (POSITION (410 310) BITMAP ("mw1_icon_owens"))
+    PANEL25 (POSITION (516 310) BITMAP ("mw1_icon_owens"))
   )
   BUTTONS (
     ; The pages' buttons down the left (MW1's way); the menu's in its panel. Their ids are mw1_bar_screen.h's.
@@ -106,10 +106,10 @@ MW1BARDIALOG_WIDE (
     PANEL19 (POSITION (391 306) BITMAP ("mw1_frame_104x136"))
     PANEL20 (POSITION (541 306) BITMAP ("mw1_frame_104x136"))
     PANEL21 (POSITION (691 306) BITMAP ("mw1_frame_104x136"))
-    PANEL22 (POSITION (245 310) BITMAP ("mw1_mech_jenner_s"))
-    PANEL23 (POSITION (395 310) BITMAP ("mw1_mech_jenner_s"))
-    PANEL24 (POSITION (545 310) BITMAP ("mw1_mech_jenner_s"))
-    PANEL25 (POSITION (695 310) BITMAP ("mw1_mech_jenner_s"))
+    PANEL22 (POSITION (245 310) BITMAP ("mw1_icon_owens"))
+    PANEL23 (POSITION (395 310) BITMAP ("mw1_icon_owens"))
+    PANEL24 (POSITION (545 310) BITMAP ("mw1_icon_owens"))
+    PANEL25 (POSITION (695 310) BITMAP ("mw1_icon_owens"))
   )
   BUTTONS (
     ; The pages' buttons down the left (MW1's way); the menu's in its panel. Their ids are mw1_bar_screen.h's.

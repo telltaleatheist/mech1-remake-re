@@ -57,15 +57,18 @@ int32_t find_by_name(const std::string& prefix);
 // fallback when the host has no keyboard layout to ask.
 char scan_letter(uint32_t code);
 
-// FILTER (in place of HOUSE): all; one House's worlds; those with a House office; those the company can afford to
-// reach; those whose House will deal with it. The others greyed; the House lit on the territory too.
-enum class FilterKind { kAll, kHouse, kOffices, kAffordable, kDeals };
+// FILTER (in place of HOUSE): all; one House's worlds; those with a House office; one tier's (FIXES.md item 21:
+// tier 3 where mechs sell highest, down to tier 0 where they cost least); those the company can afford to reach;
+// those whose House will deal with it. The others greyed; the House lit on the territory too.
+enum class FilterKind { kAll, kHouse, kOffices, kTier, kAffordable, kDeals };
 struct Filter {
   FilterKind kind = FilterKind::kAll;
   int32_t house = 0;  // kHouse's
+  int32_t tier = 0;   // kTier's
 };
-Filter next_filter(const Filter& f);  // all, each House in turn, offices, affordable, will deal, all again
-std::string filter_words(const Filter& f);  // "ALL WORLDS", "HOUSE KURITA", ...
+// All, each House in turn, offices, tiers 3 to 0, affordable, will deal, all again.
+Filter next_filter(const Filter& f);
+std::string filter_words(const Filter& f);  // "ALL WORLDS", "HOUSE KURITA", "TIER 3: SELL HIGH", ...
 bool lit(const Company& c, const Filter& f, int32_t world);
 
 }  // namespace mw1::travel_map

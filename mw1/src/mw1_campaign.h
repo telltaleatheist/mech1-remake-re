@@ -65,7 +65,8 @@ struct StartPlanet {
 };
 inline constexpr int32_t kStartPlanetCount = 8;
 extern const StartPlanet kStartPlanets[kStartPlanetCount];
-inline constexpr int32_t kTierMultipliers[4] = {10, 12, 13, 15};  // DS:3057
+inline constexpr int32_t kTierCount = 4;  // a world's tier, 0 to 3: mechs dearer to buy and to sell from tier to tier
+inline constexpr int32_t kTierMultipliers[kTierCount] = {10, 12, 13, 15};  // DS:3057
 // Whom each employer sends you against (DS:5CBA, the campaign's starting houseMissionTypeLimits): per employer,
 // eight target columns, the Houses (0..4) then three that aren't (5..7); a column is eligible when not 0.
 inline constexpr int32_t kTargetColumns = 8;

@@ -107,12 +107,18 @@ TEST(mw1_travel_map_the_filters) {
   mw1::Rng rng(5);
   mw1::Company c = mw1::new_company(rng);
   c.funds = 100000;  // a new company's million reaches every world; this much, only the near ones
-  // The cycle: all, each House, offices, affordable, will deal, all.
+  // The cycle: all, each House, offices, tiers 3 to 0 (FIXES.md item 21), affordable, will deal, all.
   mw1::Filter f;
   std::vector<std::string> words;
-  for (int i = 0; i < 9; ++i) words.push_back(mw1::filter_words(f)), f = mw1::next_filter(f);
-  EXPECT(f.kind == mw1::FilterKind::kAll && words.size() == 9 && words[0] == "ALL WORLDS" && words[1] == "HOUSE KURITA" &&
-         words[5] == "HOUSE DAVION" && words[6] == "HOUSE OFFICES" && words[7] == "AFFORDABLE" && words[8] == "WILL DEAL WITH YOU");
+  for (int i = 0; i < 13; ++i) words.push_back(mw1::filter_words(f)), f = mw1::next_filter(f);
+  EXPECT(f.kind == mw1::FilterKind::kAll && words.size() == 13 && words[0] == "ALL WORLDS" && words[1] == "HOUSE KURITA" &&
+         words[5] == "HOUSE DAVION" && words[6] == "HOUSE OFFICES" && words[7] == "TIER 3: SELL HIGH" && words[8] == "TIER 2" &&
+         words[9] == "TIER 1" && words[10] == "TIER 0: BUY CHEAP" && words[11] == "AFFORDABLE" && words[12] == "WILL DEAL WITH YOU");
+  // Every world in exactly one tier.
+  int32_t by_tier = 0;
+  for (int32_t t = 0; t < mw1::kTierCount; ++t)
+    for (int32_t i = 0; i < mw1::kPlanetCount; ++i) by_tier += mw1::lit(c, {mw1::FilterKind::kTier, 0, t}, i);
+  EXPECT(by_tier == mw1::kPlanetCount);
   int32_t lit_all = 0, lit_house = 0, lit_office = 0, lit_afford = 0, lit_deal = 0;
   for (int32_t i = 0; i < mw1::kPlanetCount; ++i) {
     lit_all += mw1::lit(c, {mw1::FilterKind::kAll, 0}, i);

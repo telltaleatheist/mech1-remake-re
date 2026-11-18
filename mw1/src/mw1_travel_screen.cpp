@@ -6,6 +6,7 @@
 
 #include "mw1_map_image.h"
 #include "mw1_market.h"
+#include "mw1_missions.h"
 #include "mw1_travel.h"
 
 namespace mw1::travel_ui {
@@ -101,6 +102,23 @@ std::vector<std::string> stranded_lines(const Company& c) {
   return l;
 }
 
+std::vector<std::string> world_lines(const Company& c, int32_t world) {
+  if (world < 0 || world >= kPlanetCount) return {};
+  const Planet& w = kPlanets[world];
+  std::vector<std::string> l = {"House " + std::string(kHouses[w.house].name) + ", tier " + std::to_string(w.tier),
+                                !w.office             ? std::string("No House office")
+                                : refuses(c, w.house) ? std::string("Office: won't deal with you")
+                                                      : std::string("Office: contracts")};
+  static const char* const kBattle[] = {"", "defence", "rescue", "raid", "campaign"};  // category_name's, short
+  if (w.max_mission > 0 && w.max_mission < kCategoryCount) l.push_back("Battles up to " + std::string(kBattle[w.max_mission]));
+  l.push_back("You sell mechs at " + std::to_string(sell_percent(w.tier)) + "%");
+  l.push_back("You buy mechs at " + std::to_string(buy_percent(w.tier)) + "%");
+  const int32_t most = dealer_most(w.tier);
+  l.push_back(most < 0 ? std::string("Dealer buys any number") : "Dealer buys 1-" + std::to_string(most) + " mechs");
+  if (clan_world(w.number)) l.push_back("Clan mechs for sale");
+  return l;
+}
+
 ScreenView travel_view(const Company& c, const TravelChoice& t) {
   ScreenView v;
   const int32_t here = here_index(c), wi = chosen_world(c, t);
@@ -119,17 +137,23 @@ ScreenView travel_view(const Company& c, const TravelChoice& t) {
   for (int32_t i = 0; i < kPlanetCount; ++i) {
     const map_image::Rgb col = lit(c, t.filter, i) ? map_image::kHouseColours[kPlanets[i].house] : grey;
     const Point p = on_screen(i);
-    v.marks.push_back(ring(p, 1, col));
-    if (kPlanets[i].office) v.marks.push_back(ring(p, 3, col));
+    // The dot (FIXES.md item 21's bigger dots): a filled disc 5 pixels across, the ring round a filled 3x3 square
+    // (its outline and its middle pixel).
+    v.marks.push_back(ring(p, 2, col));
+    Mark sq = ring(p, 1, col), mid = ring(p, 0, col);
+    sq.kind = Mark::Kind::kSquare;
+    mid.kind = Mark::Kind::kLine, mid.x2 = p.x, mid.y2 = p.y;
+    v.marks.push_back(sq), v.marks.push_back(mid);
+    if (kPlanets[i].office) v.marks.push_back(ring(p, 4, col));
     if (capital(i)) {
-      Mark q = ring(p, 5, col);
+      Mark q = ring(p, 6, col);
       q.kind = Mark::Kind::kSquare;
       v.marks.push_back(q);
     }
   }
-  if (t.hover >= 0 && t.hover != wi && t.hover != here) v.marks.push_back(ring(on_screen(t.hover), 7, faint));
-  v.marks.push_back(ring(on_screen(here), 7, yellow));
-  if (wi >= 0) v.marks.push_back(ring(on_screen(wi), 8, white)), v.marks.push_back(ring(on_screen(wi), 9, white));
+  if (t.hover >= 0 && t.hover != wi && t.hover != here) v.marks.push_back(ring(on_screen(t.hover), 8, faint));
+  v.marks.push_back(ring(on_screen(here), 8, yellow));
+  if (wi >= 0) v.marks.push_back(ring(on_screen(wi), 9, white)), v.marks.push_back(ring(on_screen(wi), 10, white));
   // The names: here, the chosen world, the one under the mouse, and the capitals.
   std::vector<int32_t> named = {here};
   if (wi >= 0) named.push_back(wi);
@@ -145,24 +169,22 @@ ScreenView travel_view(const Company& c, const TravelChoice& t) {
     const std::string n = title_case_name(kPlanets[i].name);
     // Right of the world, or left of it near the map's right edge.
     const int32_t w = static_cast<int32_t>(n.size()) * 6;
-    const int32_t x = p.x + 13 + w > kMapLeft + kMapWidth ? p.x - 13 - w : p.x + 13;  // clear of the rings
+    const int32_t x = p.x + 14 + w > kMapLeft + kMapWidth ? p.x - 14 - w : p.x + 14;  // clear of the rings
     v.blocks.push_back({x, p.y - 7, i == wi || i == here ? kNoteFont : kLineFont, {n}});
   }
   // The right column: the filter, the funds and date, the chosen world, the search.
   std::string title = "CHOOSE A WORLD";
   std::vector<std::string> detail;
-  if (wi >= 0) {
-    const Planet& w = kPlanets[wi];
+  // The readout (FIXES.md item 21): the world under the mouse, else the chosen one.
+  const int32_t shown = t.hover >= 0 && t.hover != here ? t.hover : wi;
+  if (shown >= 0) {
+    const Planet& w = kPlanets[shown];
     const Planet& from = planet_here(c);
     const int64_t cost = travel_cost(c, w);
     const int32_t units = travel_units(from, w);
     const int32_t mechs = owned_count(c);
     title = upper(title_case_name(w.name));
-    detail = {"House " + std::string(kHouses[w.house].name) + ", tier " + std::to_string(w.tier),
-              !w.office             ? std::string("No House office")
-              : refuses(c, w.house) ? std::string("Office: won't deal with you")
-                                    : std::string("Office: contracts")};
-    if (clan_world(w.number)) detail.push_back("Clan mechs for sale");
+    detail = world_lines(c, shown);
     detail.push_back("");
     detail.push_back("Distance " + std::to_string(distance(from, w)));
     detail.push_back("Cost " + thousands(cost) + " C-bills");
@@ -170,17 +192,19 @@ ScreenView travel_view(const Company& c, const TravelChoice& t) {
     detail.push_back("Arrives " + date_words(date_after(c.date, units)));
     detail.push_back("  " + days_words(units) + " on the way");
     if (cost > c.funds) detail.push_back(""), detail.push_back("You can't afford it.");
+    if (shown != wi) detail.push_back(""), detail.push_back("Click to choose it.");
     // Going somewhere with no office and no way on: say so first.
     if (!deals_with(c, w) && cost <= c.funds) {
       Company after = c;
       after.funds -= cost;
-      set_planet(after, wi);
+      set_planet(after, shown);
       after.withdrawn = false;  // a broken-off negotiation stays behind
       if (stranded(after)) detail.push_back(""), detail.push_back("You couldn't afford to leave it.");
     }
-  } else if (t.world == here) {
+  } else if (t.world == here || t.hover == here) {
     title = upper(c.planet);
-    detail = {"You are here."};
+    detail = world_lines(c, here);
+    detail.push_back(""), detail.push_back("You are here.");
   } else {
     detail = wrap("Click a world, or use the arrows. Type a name to find it. Enter is GO.", kPanelColumns);
   }

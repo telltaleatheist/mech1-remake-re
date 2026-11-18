@@ -50,6 +50,10 @@ Date date_after(const Date& d, int32_t units);
 // The stranded lines (mw1_travel.h's stranded): what the company can do; empty when it isn't.
 std::vector<std::string> stranded_lines(const Company& c);
 
+// A world's facts for the readout (FIXES.md item 21): its House and tier, its office, the biggest battle fought
+// there (the record's byte 3), what mechs sell and cost there, the dealer's limit, Clan mechs.
+std::vector<std::string> world_lines(const Company& c, int32_t world);
+
 ScreenView travel_view(const Company& c, const TravelChoice& t);
 
 class TravelState : public Mw1State {
