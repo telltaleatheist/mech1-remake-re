@@ -103,8 +103,29 @@ bool read_index(const std::vector<uint8_t>& b, std::vector<Entry>* entries) {
   return true;
 }
 
+namespace {
+constexpr char kRaw[8] = {'M', 'W', '1', 'R', 'G', 'B', 'A', '1'};
+}  // namespace
+
+std::vector<uint8_t> encode_raw(int32_t w, int32_t h, const std::vector<uint8_t>& rgba) {
+  if (w <= 0 || h <= 0 || rgba.size() != static_cast<size_t>(w) * h * 4) return {};
+  std::vector<uint8_t> b(16);
+  std::memcpy(b.data(), kRaw, 8);
+  put32(b, 8, static_cast<uint32_t>(w)), put32(b, 12, static_cast<uint32_t>(h));
+  b.insert(b.end(), rgba.begin(), rgba.end());
+  return b;
+}
+
 bool decode(const uint8_t* bytes, size_t size, int32_t* w, int32_t* h, std::vector<uint8_t>* rgba) {
   if (!bytes || size == 0 || size > 0x7fffffff) return false;
+  if (size >= 16 && std::memcmp(bytes, kRaw, 8) == 0) {
+    const std::vector<uint8_t> head(bytes, bytes + 16);
+    const uint32_t rw = get32(head, 8), rh = get32(head, 12);
+    if (rw == 0 || rh == 0 || rw > 0x4000 || rh > 0x4000 || size - 16 != static_cast<size_t>(rw) * rh * 4) return false;
+    rgba->assign(bytes + 16, bytes + size);
+    *w = static_cast<int32_t>(rw), *h = static_cast<int32_t>(rh);
+    return true;
+  }
   int x = 0, y = 0, n = 0;
   unsigned char* px = stbi_load_from_memory(bytes, static_cast<int>(size), &x, &y, &n, 4);
   if (!px) return false;
@@ -178,10 +199,11 @@ struct Decoded {
 
 namespace {
 int32_t g_scale = 1;  // the last scale set, kept across a reopen (the host sets it only when it changes)
+std::vector<std::string> g_added;  // add's archives, read again after an open (which starts the store afresh)
 }  // namespace
 
 struct Store::Impl {
-  std::vector<uint8_t> bytes;
+  std::vector<std::vector<uint8_t>> archives;  // open's, then add's
   std::map<std::string, Entry> by_name;
   // By the image's name (a darkened scene is its own picture; a portrait and its small one share the file's bytes but
   // are kept apart, so each has its canvas size).
@@ -209,6 +231,7 @@ struct Store::Impl {
 
   std::shared_ptr<Decoded> decode_entry(const Entry& e) const {
     auto d = std::make_shared<Decoded>();
+    const std::vector<uint8_t>& bytes = archives[static_cast<size_t>(e.archive)];
     if (!decode(bytes.data() + e.offset, e.size, &d->w, &d->h, &d->rgba)) return nullptr;
     if (darkened(e.name)) {
       d->shown = d->rgba;
@@ -288,16 +311,24 @@ void Store::close() {
   impl_ = nullptr;
 }
 
+namespace {
+std::vector<uint8_t> read_all(std::FILE* f) {
+  std::vector<uint8_t> b;
+  char buf[1 << 16];
+  for (size_t n; (n = std::fread(buf, 1, sizeof buf, f)) > 0;) b.insert(b.end(), buf, buf + n);
+  std::fclose(f);
+  return b;
+}
+}  // namespace
+
 bool Store::open(const std::string& path) {
   close();
   std::FILE* f = zutl::open(path.c_str(), "rb");  // through the mounts, as the image libraries are read
   if (!f) return false;
   auto impl = std::make_unique<Impl>();
-  char buf[1 << 16];
-  for (size_t n; (n = std::fread(buf, 1, sizeof buf, f)) > 0;) impl->bytes.insert(impl->bytes.end(), buf, buf + n);
-  std::fclose(f);
+  impl->archives.push_back(read_all(f));
   std::vector<Entry> entries;
-  if (!read_index(impl->bytes, &entries)) {
+  if (!read_index(impl->archives[0], &entries)) {
     std::fprintf(stderr, "mw1: %s is not MW1's art archive (version %u)\n", path.c_str(), kArtVersion);
     return false;
   }
@@ -323,6 +354,26 @@ bool Store::open(const std::string& path) {
   }
   impl->scale = g_scale;
   impl_ = impl.release();
+  const std::vector<std::string> added = g_added;
+  for (const std::string& a : added) Store::add(a);
+  return true;
+}
+
+bool Store::add(const std::string& path) {
+  if (std::find(g_added.begin(), g_added.end(), path) == g_added.end()) g_added.push_back(path);
+  std::FILE* f = path.empty() ? nullptr : std::fopen(path.c_str(), "rb");  // the write dir's, as it is
+  if (!f) return false;
+  std::vector<uint8_t> bytes = read_all(f);
+  std::vector<Entry> entries;
+  if (!read_index(bytes, &entries)) return false;
+  if (!impl_) impl_ = new Impl, impl_->scale = g_scale;
+  const int32_t at = static_cast<int32_t>(impl_->archives.size());
+  impl_->archives.push_back(std::move(bytes));
+  for (Entry& e : entries) {
+    e.archive = at;
+    impl_->slots.erase(e.name);  // a picture made again: its old decode goes
+    impl_->by_name[e.name] = std::move(e);
+  }
   return true;
 }
 

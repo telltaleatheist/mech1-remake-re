@@ -25,6 +25,7 @@ inline constexpr uint32_t kArtVersion = 1;
 struct Entry {
   std::string name;  // the canvas image's: "mw1_" and art.csv's name
   uint32_t offset = 0, size = 0;
+  int32_t archive = 0;  // the store's: which of its archives (open's 0, then add's)
   int32_t canvas_w = 0, canvas_h = 0;
 };
 // One canvas image to pack: its name and size, and which of the files it is cut from.
@@ -40,7 +41,10 @@ std::vector<uint8_t> pack(const std::vector<Packed>& images, const std::vector<s
 // The entries of an archive's bytes; false when they aren't one (or an entry's bytes lie outside them).
 bool read_index(const std::vector<uint8_t>& bytes, std::vector<Entry>* entries);
 
-// A JPEG or PNG file's pixels as RGBA bytes (alpha 255 for an opaque picture); false when it doesn't decode.
+// A picture as raw RGBA bytes behind a 16-byte head ("MW1RGBA1", then its width and height, each u32): what the
+// game makes at run time (the 4x mech renders), with no encoder.
+std::vector<uint8_t> encode_raw(int32_t w, int32_t h, const std::vector<uint8_t>& rgba);
+// A JPEG, PNG or raw file's pixels as RGBA bytes (alpha 255 for an opaque picture); false when it doesn't decode.
 bool decode(const uint8_t* bytes, size_t size, int32_t* w, int32_t* h, std::vector<uint8_t>* rgba);
 
 // The canvas copy: the whole picture resized to w x h (each canvas pixel the area under it, or the bilinear sample
@@ -56,6 +60,8 @@ class Store {
   static Store& get();
   // Reads the archive at `path`; false (and nothing served) when it isn't there or isn't one.
   bool open(const std::string& path);
+  // Another archive's pictures served beside them (its names over any the same); false when it can't be read.
+  bool add(const std::string& path);
   bool has(const std::string& name) const;
   // The canvas copy as an engine texture (zimg::new_texture_565), or null.
   void* canvas_texture(const char* name);  // zimg::Texture*

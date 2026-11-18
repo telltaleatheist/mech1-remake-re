@@ -10,6 +10,7 @@
 #include <tuple>
 
 #include "mech3/mech_names.h"
+#include "mw1_art.h"
 #include "mw1_campaign.h"
 
 namespace mw1 {
@@ -56,23 +57,22 @@ std::vector<int32_t> render_mechs() {
   return v;
 }
 
-images::Image graded_render(const std::string& name, const uint32_t* argb, int32_t w, int32_t h, int32_t out_w,
-                            int32_t out_h) {
-  images::Image out;
-  if (!argb || w <= 0 || h <= 0 || out_w <= 0 || out_h <= 0) return out;
+namespace {
+// The grade, each out pixel handed to `put(x, y, r, g, b)` (0..1); false when the frame shows nothing.
+template <typename Put>
+bool grade(const uint32_t* argb, int32_t w, int32_t h, int32_t out_w, int32_t out_h, Put put) {
+  if (!argb || w <= 0 || h <= 0 || out_w <= 0 || out_h <= 0) return false;
   int32_t x0 = w, y0 = h, x1 = -1, y1 = -1;
   for (int32_t y = 0; y < h; ++y)
     for (int32_t x = 0; x < w; ++x)
       if (lit(argb[static_cast<size_t>(y) * w + x])) x0 = std::min(x0, x), x1 = std::max(x1, x), y0 = std::min(y0, y), y1 = std::max(y1, y);
-  if (x1 < 0) return out;
+  if (x1 < 0) return false;
   // The crop: the bounds with the margin, widened to the picture's shape round their middle.
   const float cx = (x0 + x1 + 1) / 2.0f, cy = (y0 + y1 + 1) / 2.0f;
   const float need_w = (x1 - x0 + 1) * kMargin, need_h = (y1 - y0 + 1) * kMargin;
   const float s = std::max(need_w / out_w, need_h / out_h);  // frame pixels per picture pixel
   const float left = cx - out_w * s / 2, top = cy - out_h * s / 2;
   const float reach = std::max(out_w, out_h) * s;              // the vignette's scale
-  out.name = name, out.width = out_w, out.height = out_h;
-  out.pixels.resize(static_cast<size_t>(out_w) * out_h);
   for (int32_t oy = 0; oy < out_h; ++oy)
     for (int32_t ox = 0; ox < out_w; ++ox) {
       // The frame's pixels under this one (at least one), each toned or the backdrop, averaged.
@@ -94,8 +94,34 @@ images::Image graded_render(const std::string& name, const uint32_t* argb, int32
           }
           r += c.r, g += c.g, b += c.b;
         }
-      out.pixels[static_cast<size_t>(oy) * out_w + ox] = images::rgb565(byte(r / n), byte(g / n), byte(b / n));
+      put(ox, oy, r / n, g / n, b / n);
     }
+  return true;
+}
+}  // namespace
+
+images::Image graded_render(const std::string& name, const uint32_t* argb, int32_t w, int32_t h, int32_t out_w,
+                            int32_t out_h) {
+  images::Image out;
+  std::vector<uint16_t> px(static_cast<size_t>(std::max(0, out_w)) * std::max(0, out_h));
+  if (!grade(argb, w, h, out_w, out_h, [&](int32_t x, int32_t y, float r, float g, float b) {
+        px[static_cast<size_t>(y) * out_w + x] = images::rgb565(byte(r), byte(g), byte(b));
+      }))
+    return out;
+  out.name = name, out.width = out_w, out.height = out_h, out.pixels = std::move(px);
+  return out;
+}
+
+HiRender graded_render_hi(const std::string& name, const uint32_t* argb, int32_t w, int32_t h, int32_t out_w,
+                          int32_t out_h) {
+  HiRender out;
+  std::vector<uint8_t> px(static_cast<size_t>(std::max(0, out_w)) * std::max(0, out_h) * 4);
+  if (!grade(argb, w, h, out_w, out_h, [&](int32_t x, int32_t y, float r, float g, float b) {
+        uint8_t* q = &px[(static_cast<size_t>(y) * out_w + x) * 4];
+        q[0] = byte(r), q[1] = byte(g), q[2] = byte(b), q[3] = 255;
+      }))
+    return out;
+  out.name = name, out.w = out_w, out.h = out_h, out.rgba = std::move(px);
   return out;
 }
 
@@ -125,6 +151,19 @@ std::vector<images::Image> renders_from_frame(int32_t pm_mech, const uint32_t* a
   return v;
 }
 
+std::vector<HiRender> renders_hi_from_frame(int32_t pm_mech, const uint32_t* argb, int32_t w, int32_t h) {
+  std::vector<HiRender> v;
+  if (!frame_mech_alone(argb, w, h)) return v;
+  for (const auto& [use, ow, oh] : {std::tuple{RenderUse::kSlot, kRenderSlotW, kRenderSlotH},
+                                    std::tuple{RenderUse::kPanel, kRenderPanelW, kRenderPanelH}}) {
+    HiRender i = graded_render_hi(render_image(pm_mech, use), argb, w, h, ow * kRenderHiScale, oh * kRenderHiScale);
+    if (i.name.empty()) return {};
+    i.canvas_w = ow, i.canvas_h = oh;
+    v.push_back(std::move(i));
+  }
+  return v;
+}
+
 std::string render_stamp(const std::vector<int32_t>& mechs) {
   std::string s = std::string(kRenderLibrary) + " " + std::to_string(kRenderVersion) + "\n";
   for (int32_t m : mechs) s += lower(mech3::mech_name(m)) + "\n";
@@ -134,34 +173,47 @@ std::string render_stamp(const std::vector<int32_t>& mechs) {
 namespace {
 namespace fs = std::filesystem;
 fs::path library_file(const std::string& dir) { return fs::path(dir) / (std::string(kRenderLibrary) + ".zbd"); }
+fs::path hi_file(const std::string& dir) { return fs::path(dir) / (std::string(kRenderHiLibrary) + ".zbd"); }
 fs::path stamp_file(const std::string& dir) { return fs::path(dir) / (std::string(kRenderLibrary) + ".txt"); }
 }  // namespace
 
 bool renders_current(const std::string& write_dir, const std::vector<int32_t>& mechs) {
   if (write_dir.empty()) return false;
   std::error_code ec;
-  if (!fs::exists(library_file(write_dir), ec)) return false;
+  if (!fs::exists(library_file(write_dir), ec) || !fs::exists(hi_file(write_dir), ec)) return false;
   std::ifstream in(stamp_file(write_dir), std::ios::binary);
   const std::string had((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
   return had == render_stamp(mechs);
 }
 
-bool write_renders(const std::string& write_dir, const std::vector<images::Image>& made, const std::vector<int32_t>& mechs) {
-  if (write_dir.empty() || made.empty()) return false;  // never beside the program
+bool write_renders(const std::string& write_dir, const std::vector<images::Image>& made, const std::vector<HiRender>& hi,
+                   const std::vector<int32_t>& mechs) {
+  if (write_dir.empty() || made.empty() || hi.empty()) return false;  // never beside the program
   std::string why;
   const std::vector<uint8_t> bytes = images::pack(made, &why);
   if (!why.empty()) return false;
+  // The 4x set in the art archive's format (mw1_art.h), each picture raw RGBA.
+  std::vector<art::Packed> packed;
+  std::vector<std::vector<uint8_t>> files;
+  for (const HiRender& r : hi) {
+    packed.push_back({r.name, static_cast<int32_t>(files.size()), r.canvas_w, r.canvas_h});
+    files.push_back(art::encode_raw(r.w, r.h, r.rgba));
+  }
+  const std::vector<uint8_t> hi_bytes = art::pack(packed, files, &why);
+  if (hi_bytes.empty()) return false;
   std::error_code ec;
   fs::remove(stamp_file(write_dir), ec);  // a stale stamp never vouches for a half-written archive
-  {
-    std::ofstream out(library_file(write_dir), std::ios::binary | std::ios::trunc);
-    out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+  for (const auto& [path, b] : {std::pair{library_file(write_dir), &bytes}, std::pair{hi_file(write_dir), &hi_bytes}}) {
+    std::ofstream out(path, std::ios::binary | std::ios::trunc);
+    out.write(reinterpret_cast<const char*>(b->data()), static_cast<std::streamsize>(b->size()));
     if (!out) return false;
   }
   std::ofstream stamp(stamp_file(write_dir), std::ios::binary | std::ios::trunc);
   stamp << render_stamp(mechs);
   return static_cast<bool>(stamp);
 }
+
+std::string hi_renders_path(const std::string& write_dir) { return write_dir.empty() ? "" : hi_file(write_dir).string(); }
 
 bool renders_ready() { return ready; }
 void set_renders_ready(bool on) { ready = on; }

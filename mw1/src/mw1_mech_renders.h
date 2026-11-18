@@ -18,7 +18,13 @@ namespace mw1 {
 inline constexpr const char* kRenderLibrary = "mw1renders";
 // Raised whenever the camera, the grade or a size changes: every player's pictures are made again.
 // 2: FIXES 14's first runs stamped the lab's 2D as the pictures (the pool the world conversion left up); made again.
-inline constexpr int32_t kRenderVersion = 2;
+// 3: FIXES 12 B2b, the 4x set (kRenderHiLibrary) beside the canvas's.
+inline constexpr int32_t kRenderVersion = 3;
+// The 2D's set at the window's resolution (research/hires-2d.md B2b): each picture graded again at kRenderHiScale
+// times its place's size, RGBA, in mw1_art.h's archive format beside the canvas's archive, under the same stamp; the
+// 2D finds it by the canvas picture's name (art::Store::add).
+inline constexpr const char* kRenderHiLibrary = "mw1renders_hi";
+inline constexpr int32_t kRenderHiScale = 4;
 // The lab's camera moved for the pass (its own plus this): lower and further back, a tall mech's feet in frame.
 inline constexpr float kRenderCamera[3] = {0.0f, -0.5f, -2.5f};
 
@@ -46,13 +52,23 @@ inline constexpr float kRenderBorder = 0.04f, kRenderBorderBlack = 0.97f, kRende
 bool frame_mech_alone(const uint32_t* argb, int32_t w, int32_t h);
 // Every use's picture of `pm_mech` from its frame (empty when the frame shows nothing, or not the mech alone).
 std::vector<images::Image> renders_from_frame(int32_t pm_mech, const uint32_t* argb, int32_t w, int32_t h);
+// The same at kRenderHiScale, RGBA (no 565): the grade's own values.
+struct HiRender {
+  std::string name;
+  int32_t w = 0, h = 0, canvas_w = 0, canvas_h = 0;
+  std::vector<uint8_t> rgba;
+};
+HiRender graded_render_hi(const std::string& name, const uint32_t* argb, int32_t w, int32_t h, int32_t out_w, int32_t out_h);
+std::vector<HiRender> renders_hi_from_frame(int32_t pm_mech, const uint32_t* argb, int32_t w, int32_t h);
 
 // The stamp the pictures are made under: the version, then each mech's name.
 std::string render_stamp(const std::vector<int32_t>& mechs);
-// True when `write_dir` holds the archive with this stamp beside it.
+// True when `write_dir` holds both archives with this stamp beside them.
 bool renders_current(const std::string& write_dir, const std::vector<int32_t>& mechs);
-// The archive and its stamp written under `write_dir`; false on a failure (nothing half kept: the stamp goes last).
-bool write_renders(const std::string& write_dir, const std::vector<images::Image>& made, const std::vector<int32_t>& mechs);
+// Both archives and their stamp written under `write_dir`; false on a failure (nothing half kept: the stamp goes last).
+bool write_renders(const std::string& write_dir, const std::vector<images::Image>& made, const std::vector<HiRender>& hi,
+                   const std::vector<int32_t>& mechs);
+std::string hi_renders_path(const std::string& write_dir);  // the 4x archive's (for art::Store::add)
 
 // Whether the archive is registered this run (the screens show the renders, else the amber icons).
 bool renders_ready();
