@@ -145,3 +145,14 @@ Tick an item when it is merged into `main`.
   - The same on keyboard focus.
   - One rule for every MW1 button.
 
+## 16. [ ] The hub's centre panel: a message you dismiss, then the whole scene
+- **Owen (2026-11-17, `keep/mw1-remake/reference/owen-play-hub-panel.png`):** "In the original, sometimes messages pop up, but there's a dismiss button that makes it go away so you can see the whole background image."
+- **MW1:** the hub shows its notifications (MwShowPendingNotifications, on entry) in a box with a button. Once you've dismissed them, the hub is the landscape and its tiles.
+- **Ours today:** the big centre panel is always there. It shows the hovered tile's description (HOUSE OFFICE: ...), and it covers the scenery.
+- **Wanted:**
+  - The centre panel appears only when there's something to say: arrival notices, payday, news, a contract's state change. It has an OK button (our framed button), and it's gone once dismissed.
+  - With no message, the hub is the scene and the tiles.
+  - A tile's description on hover goes to the bottom status line, which already says "Pick a service".
+  - The COMPANY readout stays (Owen's mockup has it), unless he says otherwise.
+  - With a contract accepted, its summary shows in that readout or on the status line, not in a permanent centre panel.
+
