@@ -2020,7 +2020,9 @@ TEST(mw1_loop_every_map_row_is_there_headless) {
 // - attack (special target): the structure worn down by hits: won; the enemies alone disabled: not won;
 // - defend (defend special target, oppose withdrawal): the enemies disabled, the structure standing: won; the
 //   structure worn down: lost.
-// MW1_ROWS=<node> plays only the rows on that node (a row's work, by hand).
+// MW1_ROWS=<node> plays only the rows on that node (a row's work, by hand). By default one row of each kind (about
+// two minutes: c2's battle, the pump complex, the portal gate attacked, the headquarters defended); MW1_ALL_ROWS=1
+// plays every row, with each reach once more with its enemy alive (about half an hour: before a map table change).
 TEST(mw1_loop_every_row_is_won_as_a_player_would_headless) {
   std::error_code ec;
   if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
@@ -2028,6 +2030,11 @@ TEST(mw1_loop_every_row_is_won_as_a_player_would_headless) {
   const bool have_mw3 = fs::exists(fs::path(MW1_MW3_GAME_DIR) / "zbd" / "c2" / "gamez.zbd", ec);
   const std::string worlds = have_mw3 ? converted_worlds() : std::string();
   const char* only = std::getenv("MW1_ROWS");
+  const bool all = std::getenv("MW1_ALL_ROWS") != nullptr;
+  auto quick = [](const mw1::MapRow& r) {
+    return r.world == "c2" && ((r.kind == mw1::RowKind::kAny && r.ia == 1) || r.node == "3twr1" ||
+                               (r.kind == mw1::RowKind::kAttack && r.node == "portalgate") || r.node == "mp_tent_campb");
+  };
   struct Play {
     const char* how;
     int play;
@@ -2038,6 +2045,7 @@ TEST(mw1_loop_every_row_is_won_as_a_player_would_headless) {
   for (const mw1::MapRow& r : rows) {
     if (r.world.rfind("mw3", 0) == 0 && !have_mw3) continue;
     if (only && r.node != only) continue;
+    if (!only && !all && !quick(r)) continue;
     std::vector<Play> plays;
     switch (r.kind) {
       case mw1::RowKind::kAny: plays = {{"enemies disabled", 0, true, 1200, "won"}}; break;
@@ -2046,6 +2054,7 @@ TEST(mw1_loop_every_row_is_won_as_a_player_would_headless) {
                  // The lead's question (is a one-enemy reach fair?): the enemy alive, the nav followed; recorded, not
                  // a condition.
                  {"enemy alive, driven there", 1, false, 40000, "any"}};
+        if (!all && !only) plays.pop_back();  // the enemy-alive run: MW1_ALL_ROWS's
         if (std::getenv("MW1_MEASURE")) plays = {{"measured from 8 bearings", 4, true, 4300, "any"}};
         break;
       case mw1::RowKind::kAttack:
