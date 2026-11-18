@@ -1118,6 +1118,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   std::array<zimg::Texture*, kLabSlots> slot_ours_{};
 
   void lab_look_once(mech3::LabScreen& ls) {
+    place_lab_tabs(ls);
     mech3::LabUnassignedList& u = ls.unassigned;
     // The supply tabs: PM's at fixed x, and "Armor" ran past the right panel's frame. "Ammo" for "Ammunition", and
     // the four laid left to right from the first, kTabGap apart (each tab is its labels: Control::hit).
@@ -1165,6 +1166,19 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       for (auto* v : {&md->endo.labels, &md->endo.rollover_labels, &md->endo.activate_labels, &md->endo.disable_labels})
         for (ztwod::Text* l : *v)
           if (std::find(moved.begin(), moved.end(), l) == moved.end()) moved.push_back(l), l->y -= kDataUp, l->dirty();
+    }
+  }
+  // FIXES.md item 29: the tray's four buttons (one picture size, mw1_chrome.h) at even places along it, not PM's (its
+  // icons of four sizes, the groups one over the centre's frame); the chosen page's glow centred on its button.
+  void place_lab_tabs(mech3::LabScreen& ls) {
+    const int32_t left = ge_->buffer_width() / 2 - 320;  // PM's 640 layout, centred
+    for (int32_t i = 0; i < 4; ++i) {
+      mech3::HelpButton* t = ls.tab(kLabTabPages[i]);
+      if (!t) continue;
+      t->set_pos(left + lab_tab_x(i), kLabTabY);
+      t->glow[0] = (kLabTabW - 127) / 2, t->glow[1] = (kLabTabH - 63) / 2;  // lab_icon_glow's 127x63
+      if (t->selected) ls.lab_tab_glow(*t, true, &ls.icon_glow);
+      t->dirty();
     }
   }
   // A control's labels, every look's, moved once each.
@@ -2429,6 +2443,20 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
                                   {3, 3, true, "criticals, armor"}, {4, 0, false, "groups"}};
     constexpr int kStepCount = static_cast<int>(sizeof kSteps / sizeof kSteps[0]);
     report(kSteps[step].name, *l, ge.buffer_width() / 2 - 320, 0, lab_fit_panels());
+    // FIXES.md item 29: the tray's buttons, each shown one's hit area (its picture), the same size, apart, in the tray.
+    std::vector<FitBox> tray;
+    static const char* const kTabNames[4] = {"chassis", "criticals", "groups", "ACCEPT"};
+    for (int32_t i = 0; i < 4; ++i)
+      if (mech3::HelpButton* t = l->tab(kLabTabPages[i]); t && !(t->flags & ztwod::kHidden) && t->image) {
+        const int32_t x = t->get_x() - (ge.buffer_width() / 2 - 320), y = t->get_y();
+        tray.push_back({x, y, x + t->image->width, y + t->image->height, kTabNames[i]});
+        std::printf("mw1 lab fit: %s the %s button %d..%d x %d..%d\n", kSteps[step].name, kTabNames[i], x, x + t->image->width, y,
+                    y + t->image->height);
+      }
+    std::vector<std::string> wrong = tray_problems(tray, kLabTrayY);
+    if (tray.size() != 4) wrong.push_back(std::to_string(tray.size()) + " of the 4 buttons shown");
+    for (const std::string& w : wrong) std::printf("mw1 lab fit: %s the tray: %s: OUTSIDE\n", kSteps[step].name, w.c_str());
+    texts += static_cast<int>(tray.size()), outside += static_cast<int>(wrong.size());
     if (++step < kStepCount) {
       if (l->page != kSteps[step].page) l->switch_page(kSteps[step].page);
       if (kSteps[step].tab) l->unassigned.set_tab(kSteps[step].tab, kSteps[step].armor), l->unassigned.refill();

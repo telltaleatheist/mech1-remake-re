@@ -454,11 +454,12 @@ const std::vector<Reskin>& lab_pictures() {
       {"lab_background", 640, 480},
       {"lab_panel_leftsingle", 220, 480}, {"lab_panel_leftdouble", 220, 480}, {"lab_panel_rightsingle", 220, 480},
       {"lab_panel_rightdouble", 220, 480}, {"lab_panel_center", 200, 480},
-      // The page icons and ACCEPT, each still (green), pressed (red) and off (grey).
-      {"lab_icon1_green", 51, 58}, {"lab_icon1_red", 51, 58}, {"lab_icon1_grey", 51, 58},
-      {"lab_icon4_green", 55, 49}, {"lab_icon4_red", 55, 49}, {"lab_icon4_grey", 55, 49},
-      {"lab_icon5_green", 65, 48}, {"lab_icon5_red", 65, 48}, {"lab_icon5_grey", 65, 48},
-      {"lab_accept_green", 60, 49}, {"lab_accept_red", 60, 49}, {"lab_accept_grey", 60, 49},
+      // The page icons and ACCEPT, each still (green), pressed (red) and off (grey); one size (FIXES.md item 29: PM's
+      // were 51x58, 55x49, 65x48 and 60x49), the button's hit area (Control::hit: its picture's).
+      {"lab_icon1_green", kLabTabW, kLabTabH}, {"lab_icon1_red", kLabTabW, kLabTabH}, {"lab_icon1_grey", kLabTabW, kLabTabH},
+      {"lab_icon4_green", kLabTabW, kLabTabH}, {"lab_icon4_red", kLabTabW, kLabTabH}, {"lab_icon4_grey", kLabTabW, kLabTabH},
+      {"lab_icon5_green", kLabTabW, kLabTabH}, {"lab_icon5_red", kLabTabW, kLabTabH}, {"lab_icon5_grey", kLabTabW, kLabTabH},
+      {"lab_accept_green", kLabTabW, kLabTabH}, {"lab_accept_red", kLabTabW, kLabTabH}, {"lab_accept_grey", kLabTabW, kLabTabH},
       // The glows behind the chosen icon and mech, and the variant being renamed.
       {"lab_icon_glow", 127, 63}, {"lab_player_glow", 127, 63}, {"lab_text_glow", 207, 45},
       // The arrows: the lists' (up, down), the armour's (left, right), the toggles'.
@@ -536,7 +537,8 @@ images::Image icon_piece(const Reskin& r) {
   for (int32_t x : {4, r.w - 5})
     for (int32_t y : {4, r.h - 5}) rivet(c, x, y, 1);
   const Rgba ink = state == 3 ? Rgba{80, 84, 88, 255} : state == 0 ? Rgba{217, 221, 224, 255} : Rgba{255, 176, 64, 255};
-  const int32_t x0 = 9, y0 = 9, w = r.w - 18, h = r.h - 18;  // the glyph's box
+  // The glyph's box: square, centred (the same on every icon, item 29).
+  const int32_t w = std::min(r.w, r.h) - 18, h = w, x0 = (r.w - w) / 2, y0 = (r.h - h) / 2;
   auto box = [&](double a, double b, double cc, double d) {  // fractions of the glyph's box
     fill(c, x0 + static_cast<int32_t>(a * w), y0 + static_cast<int32_t>(b * h), x0 + static_cast<int32_t>(cc * w),
          y0 + static_cast<int32_t>(d * h), ink);

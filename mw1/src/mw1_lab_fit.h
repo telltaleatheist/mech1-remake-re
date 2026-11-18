@@ -23,4 +23,9 @@ struct FitText { std::string text; int32_t left, top, right, bottom; const char*
 // the panel its middle is in (none: it does not), and a text and an arrow do not overlap.
 std::vector<FitText> fit_texts(ztwod::Layer& layer, int32_t ox, int32_t oy, const std::vector<FitBox>& panels);
 
+// FIXES.md item 29: the tray's buttons (each its picture's rect, the hit area, in the 640x480 layout): what is wrong
+// with them, one line each; none when all are the same size, none overlaps another, each inside the tray (from
+// tray_top to the foot, inside the layout's width).
+std::vector<std::string> tray_problems(const std::vector<FitBox>& buttons, int32_t tray_top);
+
 }  // namespace mw1
