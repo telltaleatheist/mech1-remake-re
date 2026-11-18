@@ -235,13 +235,14 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // mission won 600 frames in (every enemy the commander's, the left arm hit), by PM's Exit Mission: the results.
     if (const char* s = std::getenv("MW1_SCREEN");
         s && (std::string(s).rfind("pause", 0) == 0 || std::string(s).rfind("lab", 0) == 0 || std::string(s) == "loading" ||
-              std::string(s) == "results") &&
+              std::string(s) == "results" || std::string(s).rfind("walk_", 0) == 0) &&
         !shot_driver_) {
       hold_for_shot_ = std::string(s) == "loading";
       shot_driver_ = true;
       auto before = ge.on_present;
       ge.on_present = [this, before, page = std::string(s)](int f) {
         if (before) before(f);
+        if (page == "results" || page.rfind("walk_", 0) == 0) name_state(f);
         pause_shot_frame(page);
       };
     }
@@ -294,6 +295,17 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       pending_->stayed = stayed_behind(flying_, fates_);  // the map's allied places ran out: they didn't fly
       pending_->salvage = std::move(salvage_);
       pending_->launch_stores = launch_stores_, pending_->launch_loadout = launch_loadout_;
+      // MW1_RESULTS=retreat or lost (development: --shot pictures of AFTER ACTION's other endings, item 38): the
+      // mission withdrawn from, or failed with the commander's mech destroyed.
+      if (const char* r = std::getenv("MW1_RESULTS")) {
+        const std::string w = r;
+        if (w == "retreat") pending_->outcome = Outcome::kRetreat;
+        if (w == "lost") {
+          pending_->outcome = Outcome::kFailure;
+          for (auto& b : pending_->bills)
+            if (b.who == 0) b.destroyed = true;
+        }
+      }
       std::printf("mw1: back: %s, %zu wrecks: after action\n", ending_word(pending_->outcome), wrecks_.size());
       save();
     }
@@ -516,12 +528,26 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   void intro_done() {
     mech3::GameEngine* ge = ge_;
     if (!ge) return;
-    if (intro_ && ge->menu_state_of(intro_) == intro_state_) ge->pop_state(1);
+    // Popped with 0 (FIXES.md item 35): the menu under it not redrawn and shown for a frame before the hub.
+    if (intro_ && ge->menu_state_of(intro_) == intro_state_) ge->pop_state(0);
     enter_hub(*ge);
     fresh_ = false;
   }
 
   // ---- the hub (mw1_hub.h) ----
+
+  // One MW1 screen to the next in one step (FIXES.md item 35): the app's Replace (0x00590250), the screen up leaving
+  // and `next` entering, never the state under them (MW1's menu) resumed between: a pop then a push showed the menu
+  // for a frame at every change. Pirate's Moon's way (pop, push) when `next` isn't a menu state.
+  void swap_to(mech3::GameEngine& ge, zgame::Handle next) {
+    mech3::MenuState* st = ge.menu_state_of(next);
+    if (mech3::Mech3App* app = mech3::app_if_any(); st && app) {
+      app->replace(st, 0);
+      return;
+    }
+    ge.pop_state(1);
+    ge.push_state(next, 0);
+  }
 
   // The hub's state on this engine, made once (Engine::adopt_state); false when MW1's layout is not there.
   bool hub(mech3::GameEngine& ge) {
@@ -561,7 +587,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       case kHubDeploy:
         // The contract taken at the office: the briefing (the hub off, then the main menu replaced by it).
         if (pending_ || !contract_.accepted || !ge) return;
-        ge->pop_state(1);
+        ge->pop_state(0);  // the menu under it not redrawn (FIXES.md item 35): Load replaces it at once
         deploy(*ge);
         return;
       case kHubCompany:
@@ -570,8 +596,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         bchoice_ = BarChoice{};
         bchoice_.page = BarPage::kLance, bchoice_.company = true;
         show_bar();
-        ge->pop_state(1);
-        ge->push_state(bar_, 0);
+        swap_to(*ge, bar_);
         return;
       case kHubOk: {
         if (!pending_) {  // the messages read (cleared above): the scenery again
@@ -585,23 +610,21 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       }
       case kHubReplay:
         if (!pending_ || pending_->outcome != Outcome::kFailure || !ge) return;
-        ge->pop_state(1);
+        ge->pop_state(0);  // as DEPLOY's
         replay(*ge);
         return;
       case kHubOptions:
         // MW1's OPTIONS in the hub's place: SETTINGS (PM's options), MAIN MENU, BACK (Escape at the hub too).
         if (pending_ || !ge || !hub_options(*ge)) return;
         hub_options_state_->show(scenery_image(company_.planet_number), upper(company_.planet));
-        ge->pop_state(1);
-        ge->push_state(hub_options_, 0);
+        swap_to(*ge, hub_options_);
         return;
       case kHubMarket:
         // The market in the hub's place (BACK brings the hub back); not while AFTER ACTION waits.
         if (pending_ || !ge || !market(*ge)) return;
         choice_ = MarketChoice{};
         show_market();
-        ge->pop_state(1);
-        ge->push_state(market_, 0);
+        swap_to(*ge, market_);
         story_events(kClassMechComplex);
         return;
       case kHubTravel:
@@ -609,16 +632,14 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         if (pending_ || !ge || !travel(*ge)) return;
         tchoice_ = TravelChoice{};
         show_travel();
-        ge->pop_state(1);
-        ge->push_state(travel_, 0);
+        swap_to(*ge, travel_);
         return;
       case kHubBar:
         // The Bar in the hub's place (BACK brings the hub back); not while AFTER ACTION waits.
         if (pending_ || !ge || !bar(*ge)) return;
         bchoice_ = BarChoice{};
         show_bar();
-        ge->pop_state(1);
-        ge->push_state(bar_, 0);
+        swap_to(*ge, bar_);
         story_events(kClassBarEntry);
         return;
       case kHubOffice:
@@ -627,8 +648,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         if (pending_ || contract_.accepted || !contracts_here(company_) || !ge || !office(*ge)) return;
         ochoice_ = OfficeChoice{};
         show_office();
-        ge->pop_state(1);
-        ge->push_state(office_, 0);
+        swap_to(*ge, office_);
         story_events(kClassOffice);
         return;
       default: return;  // the screens that come later
@@ -723,8 +743,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     mech3::GameEngine* ge = ge_;
     if (!ge) return;
     show_hub();
-    ge->pop_state(1);
-    ge->push_state(hub_, 0);
+    swap_to(*ge, hub_);
     hub_events();
   }
 
@@ -843,8 +862,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         }
         if (!ge) return;
         show_hub();
-        ge->pop_state(1);
-        ge->push_state(hub_, 0);
+        swap_to(*ge, hub_);
         hub_events();  // MW1 runs the hub's events each time it draws it (an arrival's after travel)
         return;
       default: return;
@@ -942,8 +960,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         clear_contract();
         if (!ge) return;
         show_hub();
-        ge->pop_state(1);
-        ge->push_state(hub_, 0);
+        swap_to(*ge, hub_);
         hub_events();  // MW1 runs the hub's events each time it draws it (an arrival's after travel)
         return;
       }
@@ -951,8 +968,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       case kTravelBack:
         if (!ge) return;
         show_hub();
-        ge->pop_state(1);
-        ge->push_state(hub_, 0);
+        swap_to(*ge, hub_);
         hub_events();  // MW1 runs the hub's events each time it draws it (an arrival's after travel)
         return;
       default: return;
@@ -1014,8 +1030,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       case kMarketBack:
         if (!ge) return;
         show_hub();
-        ge->pop_state(1);
-        ge->push_state(hub_, 0);
+        swap_to(*ge, hub_);
         hub_events();  // MW1 runs the hub's events each time it draws it (an arrival's after travel)
         return;
       default: return;
@@ -1201,7 +1216,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     }
   }
   // FIXES.md item 29: the tray's four buttons (one picture size, mw1_chrome.h) at even places along it, not PM's (its
-  // icons of four sizes, the groups one over the centre's frame); the chosen page's glow centred on its button.
+  // icons of four sizes, the groups one over the centre's frame); the chosen page's glow centred on its button; item
+  // 37: each one's hover label centred above it.
   void place_lab_tabs(mech3::LabScreen& ls) {
     const int32_t left = ge_->buffer_width() / 2 - 320;  // PM's 640 layout, centred
     for (int32_t i = 0; i < 4; ++i) {
@@ -1211,6 +1227,13 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       t->glow[0] = (kLabTabW - 127) / 2, t->glow[1] = (kLabTabH - 63) / 2;  // lab_icon_glow's 127x63
       if (t->selected) ls.lab_tab_glow(*t, true, &ls.icon_glow);
       t->dirty();
+      // FIXES.md item 37: its HELP label centred above it, under the tray's line (PM's layout placed it for PM's icons).
+      for (ztwod::Text* x : t->help) {
+        if (x->needs_render) x->render();
+        const int32_t middle = left + lab_tab_x(i) + kLabTabW / 2;
+        x->set_pos(x->align == 1 ? middle : x->align == 2 ? middle + x->width / 2 : middle - x->width / 2, kLabHelpY);
+        x->dirty();
+      }
     }
   }
   // A control's labels, every look's, moved once each.
@@ -1294,14 +1317,22 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       return false;
     }
     results_ = ge.adopt_state([this](zgame::Handle h) { return results_state_ = new ResultsState(h, [this](int32_t id) { press_results(id); }); });
+    if (results_state_) {
+      results_state_->set_keys([this](uint32_t k) { results_key(k); });
+      results_state_->set_wheel([this](int32_t d) { results_move(-d); });
+    }
     return results_ != 0;
   }
 
   void show_results() {
     if (!results_state_ || !pending_) return;
-    const ResultsPanel p = results_panel();
-    results_state_->show(results_view(p));
-    seen_results_ = p;
+    seen_results_ = results_panel();
+    rchoice_ = ResultsChoice{};
+    // MW1_RESULTS_SCROLL=N, MW1_RESULTS_DETAILS=1 (development: --shot pictures of the list scrolled, DETAILS).
+    if (const char* n = std::getenv("MW1_RESULTS_SCROLL")) rchoice_.top = std::atoi(n);
+    if (std::getenv("MW1_RESULTS_DETAILS")) rchoice_.details = true;
+    clamp_choice(seen_results_, rchoice_);
+    show_results_view();
   }
 
   // Who disabled a wreck, as the results say it.
@@ -1326,78 +1357,106 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       after_mission(c, a.lance);
       rep = settle_repairs(c, as_bills(a.bills));
     }
+    const bool success = a.outcome == Outcome::kSuccess;
     p.planet = upper(company_.planet);
     p.employer = "HOUSE " + upper(kHouses[contract_.house].name);
-    p.outcome = a.outcome == Outcome::kSuccess ? "VICTORY" : a.outcome == Outcome::kFailure ? "DEFEAT" : "RETREAT";
+    p.outcome = success ? "VICTORY" : a.outcome == Outcome::kFailure ? "DEFEAT" : "RETREAT";
     p.scene = scenery_image(company_.planet_number);
     p.replay = a.outcome == Outcome::kFailure;
-    // RESULTS: the objective, the time, the enemies and by whom, the lance.
-    // (A terminal holds about 35 letters: mw1screenfit's results page checks each line inside its own.)
+    p.house = company_.planet_house;
+    // The picture (item 31): someone lost is a lancemate KILLED or MISSING, or the commander's mech destroyed.
+    bool lost = false, destroyed = false;
+    for (const auto& b : a.bills)
+      if (b.who == 0) destroyed = b.destroyed;
+    for (const LanceFate& f : a.lance) lost = lost || f.destroyed;
+    p.ending = ending_of(a.outcome, lost || destroyed);
+    // Under the picture: the world and the employer, the objective, how it went and how long it took.
     std::string objective = objective_words(contract_);
     if (!objective.empty()) objective[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(objective[0])));
-    p.results.push_back(objective);
-    p.results.push_back(std::string(a.outcome == Outcome::kSuccess   ? "Accomplished"
-                                     : a.outcome == Outcome::kFailure ? "Failed"
-                                                                      : "Withdrew") +
-                        " in " + time_words(a.seconds));
-    // The lancemates before the wrecks: a long list of wrecks is the one cut short.
-    // A downed lancemate KILLED or MISSING (FIXES.md item 32) on a counted mission; a retreat counts no casualties.
-    for (const LanceFate& f : a.lance)
-      p.results.push_back(pilot_title(f.id) + (!f.destroyed                        ? ": came back"
-                                               : a.outcome == Outcome::kRetreat ? ": mech destroyed"
-                                               : pilot_missing(f)               ? ": MISSING"
-                                                                                : ": KILLED"));
-    for (int32_t id : a.stayed) p.results.push_back(pilot_title(id) + ": stayed behind");
-    // Each wreck: its kind, who disabled it, its value (the salvage share's base).
-    int64_t value = 0;
-    p.results.push_back("Enemy mechs destroyed: " + std::to_string(a.wrecks.size()));
+    p.where.push_back(title_case_name(company_.planet.c_str()) + ", for House " + kHouses[contract_.house].name);
+    if (!objective.empty()) p.where.push_back(objective);
+    p.where.push_back(std::string(success ? "Accomplished" : a.outcome == Outcome::kFailure ? "Failed" : "Withdrew") + " in " +
+                      time_words(a.seconds));
+    // PAYMENT: the fee (any deduction), the salvage share, the repair bill, the total and the funds.
+    const bool docked = s.payout_percent < 100 && success;
+    p.pay.push_back("Fee: " + thousands(s.fee) +
+                    (!docked ? "" : s.payout_percent ? " (" + std::to_string(s.payout_percent) + "% paid)" : " (withheld)"));
+    p.pay.push_back("Salvage share: " + thousands(s.salvage));
+    for (const std::string& l : rep.lines)
+      if (l.rfind("Repair bill", 0) == 0) p.pay.push_back(l);
+    const int64_t total = c.funds - before;
+    p.pay.push_back("Total: " + std::string(total < 0 ? "-" : "+") + thousands(total < 0 ? -total : total) + "   Funds: " +
+                    thousands(c.funds));
+    // CREW STATUS: each mech that flew, who flew it, what's left of it (MW1's "JENNER 93 %"); a lancemate's fate.
+    for (const auto& b : a.bills) {
+      std::string l = mech_title(b.mech) + " (" + (b.who == 0 ? std::string("you") : pilot_title(b.who)) + "): ";
+      if (b.destroyed) {
+        l += "destroyed";
+        for (const LanceFate& f : a.lance)
+          if (f.id == b.who && f.destroyed) l += pilot_killed(f) ? ", KILLED" : ", MISSING";
+      } else {
+        l += std::to_string(std::clamp(100 - (b.damage * 100 + kWhole / 2) / kWhole, 0, 100)) + "%";
+      }
+      p.crew.push_back(l);
+    }
+    if (a.bills.empty())  // a mission saved before the bills: the fates alone
+      for (const LanceFate& f : a.lance)
+        p.crew.push_back(pilot_title(f.id) + (!f.destroyed ? ": came back" : pilot_killed(f) ? ": KILLED" : ": MISSING"));
+    for (int32_t id : a.stayed) p.crew.push_back(pilot_title(id) + ": stayed behind");
+    // SALVAGE TO STORES: every part kept on a win, each row its item's place (a keep list's, later: item 38).
+    if (success && a.salvage && a.salvage->count()) {
+      const mech3::MessageText msg = [](int32_t id) { return mech3::pilot_hooks().message(id); };
+      int32_t i = 0;
+      for (const mech3::ConfigItem* it : a.salvage->items)
+        p.salvage.push_back({std::to_string(it->count) + " x " + mech3::item_name(*it, msg) + (it->kind() == 2 ? " ammo" : ""), i++});
+    } else {
+      p.salvage.push_back({success ? "Nothing salvaged" : "None: the field was lost"});
+    }
+    // DETAILS: each wreck, who disabled it, its value (the salvage share's base); your mech by location.
+    p.kills_title = "ENEMY MECHS DESTROYED: " + std::to_string(a.wrecks.size());
     for (size_t i = 0; i < a.wrecks.size(); ++i) {
       const std::string by = killer_words(i);
       const int64_t v = int64_t{wreck_value(company_, a.wrecks[i])} * 1000;
-      value += v;
-      p.results.push_back("  " + mech_title(kMechKinds[a.wrecks[i].kind].pm_mech) + (by.empty() ? "" : " by " + by) + " " + thousands(v));
+      p.kills.push_back({mech_title(kMechKinds[a.wrecks[i].kind].pm_mech) + (by.empty() ? "" : " by " + by) + " " + thousands(v),
+                         static_cast<int32_t>(i)});
     }
-    // PAY: the fee (any deduction), the salvage share of the wrecks' value, the repairs, the total and the funds.
-    const bool docked = s.payout_percent < 100 && a.outcome == Outcome::kSuccess;
-    p.pay.push_back("Fee: " + thousands(s.fee) +
-                    (!docked ? "" : s.payout_percent ? " (" + std::to_string(s.payout_percent) + "% paid)" : " (withheld)"));
-    if (a.outcome == Outcome::kSuccess && contract_.salvage_percent && value)
-      p.pay.push_back("Salvage: " + std::to_string(contract_.salvage_percent) + "% of " + thousands(value));
-    p.pay.push_back("Salvage share: " + thousands(s.salvage));
-    // The bill's lines (the rest, a mech lost, is YOUR MECH's and the hub's messages after CONTINUE): each mech's
-    // repairs only when more than one was billed (one's is the bill itself), then the bill.
-    const auto each = std::count_if(rep.lines.begin(), rep.lines.end(), [](const std::string& l) { return l.rfind("Repairs:", 0) == 0; });
-    for (const std::string& l : rep.lines)
-      if (l.rfind("Repair bill", 0) == 0 || (each > 1 && l.rfind("Repairs:", 0) == 0)) p.pay.push_back(l);
-    const int64_t total = c.funds - before;
-    p.pay.push_back("Total: " + std::string(total < 0 ? "-" : "+") + thousands(total < 0 ? -total : total) + " C-bills");
-    p.pay.push_back("Funds: " + thousands(c.funds) + " C-bills");
-    // SALVAGE TO STORES: the parts kept on a win.
-    if (a.outcome == Outcome::kSuccess && a.salvage && a.salvage->count()) {
-      const mech3::MessageText msg = [](int32_t id) { return mech3::pilot_hooks().message(id); };
-      for (const mech3::ConfigItem* it : a.salvage->items)
-        p.salvage.push_back(std::to_string(it->count) + " x " + mech3::item_name(*it, msg) + (it->kind() == 2 ? " ammo" : ""));
-    } else {
-      p.salvage.push_back(a.outcome == Outcome::kSuccess ? "Nothing salvaged" : "None: the field was lost");
-    }
-    // YOUR MECH: by location.
-    bool destroyed = false;
-    for (const auto& b : a.bills)
-      if (b.who == 0) destroyed = b.destroyed;
+    if (p.kills.empty()) p.kills.push_back({"None"});
     p.mech_title = "YOUR " + upper(mech_title(company_.mech));
     p.mech = mech_lines(a.armor_left, a.structure_left, destroyed);
+    // The message (item 31): the exe's outcome line, and the deduction's after a win paid short (MW1's
+    // MwRandomUpTo(2) of the three, from the settlement's draws on).
+    p.message = outcome_message(company_.planet_house, a.outcome, false, deduction_of(a.outcome, s.payout_percent, r.upto(2)));
     return p;
   }
 
+  // The results' buttons other than CONTINUE and REPLAY, and the keys and wheel: DETAILS, the list's scroll.
+  void results_move(int32_t by) {
+    rchoice_.top += by;
+    clamp_choice(seen_results_, rchoice_);
+    show_results_view();
+  }
+  void results_key(uint32_t code) {
+    constexpr uint32_t kUp = 0xC8, kDown = 0xD0, kPageUp = 0xC9, kPageDown = 0xD1;
+    if (code == kUp) results_move(-1);
+    else if (code == kDown) results_move(1);
+    else if (code == kPageUp) results_move(-kListRows);
+    else if (code == kPageDown) results_move(kListRows);
+  }
+  void show_results_view() {
+    if (results_state_) results_state_->show(results_view(seen_results_, rchoice_, ge_ && ge_->buffer_width() > 640));
+  }
+
   void press_results(int32_t id) {
+    if (id == kResultsDetails) return void((rchoice_.details = !rchoice_.details, rchoice_.top = 0, show_results_view()));
+    if (id == kResultsListUp || id == kResultsListDown) return results_move(id == kResultsListUp ? -1 : 1);
     std::printf("mw1: results: %s\n", id == kResultsReplay ? "REPLAY" : "CONTINUE");
     mech3::GameEngine* ge = ge_;
     if (!results_up_ || !pending_ || !ge) return;
     if (id == kResultsReplay) {
       if (pending_->outcome != Outcome::kFailure) return;
-      ge->pop_state(1);  // the results
+      ge->pop_state(0);  // the results, the hub under it not redrawn (FIXES.md item 35)
       results_up_ = false;
-      ge->pop_state(1);  // the hub
+      ge->pop_state(0);  // the hub, nor the menu
       replay(*ge);
       return;
     }
@@ -1430,8 +1489,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     const Side side = ev_panel_.side;
     if (event_up_ && event_side_ == side) return true;
     if (!event_screen(ge, side)) return false;
-    if (event_up_) ge.pop_state(1);
-    ge.push_state(events_[static_cast<size_t>(side)], 0);
+    if (event_up_) swap_to(ge, events_[static_cast<size_t>(side)]);  // one side's for the other, in one step (item 35)
+    else ge.push_state(events_[static_cast<size_t>(side)], 0);
     event_state_ = event_states_[static_cast<size_t>(side)], event_side_ = side, event_up_ = true;
     return true;
   }
@@ -2180,11 +2239,45 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   }
 
   // MW1_SCREEN=pause's and lab's driver, each frame shown (main_entered).
+  // MW1_SCREEN=walk_bar, walk_office_lab (FIXES.md item 35's captures, with --shot-series): the hub's screens one
+  // after another, a step every kWalkStep frames from the hub's first: walk_bar the Bar and back; walk_office_lab
+  // the office (an offer asked for, ACCEPT, back at the hub), the Mech Complex and its MECH LAB. Each frame's state
+  // named on a change (name_state; MW1_SCREEN=results too: a mission's return).
+  static constexpr int kWalkStep = 30;
+  // The state each frame presented (`f`, the engine's count) shows, named when it changes.
+  static void name_state(int f) {
+    static zgame::State* last = nullptr;
+    mech3::Mech3App* app = mech3::app_if_any();
+    zgame::State* now = app ? app->current() : nullptr;
+    if (now == last) return;
+    last = now;
+    auto* st = dynamic_cast<const mech3::State*>(now);
+    std::printf("mw1: frame %d: %s\n", f, st ? st->name() : "none");
+  }
+  void walk_frame(const std::string& page, mech3::GameEngine& ge, zgame::State* now) {
+    static int frame = 0, start = -1;
+    ++frame;
+    if (start < 0 && now == static_cast<zgame::State*>(ge.menu_state_of(hub_))) start = frame;
+    if (start < 0 || (frame - start) % kWalkStep != 0) return;
+    const int step = (frame - start) / kWalkStep;
+    if (page == "walk_bar") {
+      if (step == 1) press(kHubBar);
+      if (step == 2) press_bar(kBarBack);
+    } else if (page == "walk_office_lab") {
+      if (step == 1) press(kHubOffice);
+      if (step == 2) press_office(kOfficeRequest);
+      if (step == 3) press_office(kOfficeAccept);  // back to the hub
+      if (step == 4) press(kHubMarket);
+      if (step == 5) press_market(kMarketLab);
+    }
+  }
+
   void pause_shot_frame(const std::string& page) {
     mech3::GameEngine* ge = ge_;
     mech3::Mech3App* app = mech3::app_if_any();
     if (!ge || !app) return;
     zgame::State* now = app->current();
+    if (page.rfind("walk_", 0) == 0) return walk_frame(page, *ge, now);
     static zgame::State* last = nullptr;
     static int frames = 0;
     frames = now == last ? frames + 1 : 0;
@@ -2213,6 +2306,13 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
           l->unassigned.set_tab(3, page[5] == 'a'), l->unassigned.refill();
       }
     }
+    // MW1_LAB_HOVER=0..3 (development: --shot pictures of a tray button's hover label, FIXES.md item 37): that
+    // button's HELP labels shown, the others' hidden, each frame from the 25th.
+    if (const char* h = std::getenv("MW1_LAB_HOVER"); h && lab && now == &mech3::states().lab && frames >= 25)
+      if (mech3::LabScreen* l = ge->lab_screen(mech3::states().lab.lab_screen_))
+        for (int32_t i = 0; i < 4; ++i)
+          if (mech3::HelpButton* t = l->tab(kLabTabPages[i]))
+            for (ztwod::Text* x : t->help) i == std::atoi(h) ? x->show_for(-1.0f) : x->hide();
     if (page == "results" && now == &mech3::states().core && frames == 600) {
       int32_t n = 0;
       const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
@@ -2474,18 +2574,22 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (++frames < 40) return;
     const int32_t w = ge_->buffer_width(), h = ge_->buffer_height();
     int texts = 0, outside = 0;
-    // The results and loading screens' texts each inside its own piece (their layouts' 640 x 480, centred): the
-    // plaque, the outcome's band, the terminals (LOADING in the loading one's, at the foot: FIXES.md item 42), the
-    // buttons; the others inside the canvas.
+    // The results and loading screens' texts each inside its own piece (their layouts' 640 x 480, centred; the
+    // results' wide layout's from the left): the plaque, the picture's column, the status terminal (clear of the
+    // list's arrows), the message's band (clear of the crest), the buttons; the loading terminal at the foot, LOADING in it (FIXES.md
+    // item 42); the others inside the canvas.
     const bool boxed = p == "results" || p == "loading";
+    const bool wide_results = p == "results" && sc->wide();
     const std::vector<FitBox> boxes =
-        p == "results" ? std::vector<FitBox>{{170, 6, 470, 66, "plaque"},       {0, 66, 640, 100, "outcome"},
-                                             {16, 106, 312, 266, "results"},    {328, 106, 624, 266, "pay"},
-                                             {16, 278, 312, 438, "salvage"},    {328, 278, 624, 438, "mech"},
-                                             {52, 446, 220, 476, "replay"},     {236, 446, 404, 476, "continue"}}
+        wide_results ? std::vector<FitBox>{{12, 226, 260, 340, "column"},     {272, 12, 803, 336, "status"},
+                                           {12, 344, 733, 440, "message"},    {150, 446, 318, 476, "replay"},
+                                           {342, 446, 510, 476, "continue"},  {534, 446, 702, 476, "details"}}
+        : p == "results" ? std::vector<FitBox>{{12, 186, 212, 340, "column"},   {220, 12, 590, 336, "status"},
+                                               {12, 344, 520, 440, "message"},  {52, 446, 220, 476, "replay"},
+                                               {236, 446, 404, 476, "continue"}, {420, 446, 588, 476, "details"}}
         : p == "loading" ? std::vector<FitBox>{{170, 16, 470, 76, "plaque"}, {48, 300, 476, 464, "terminal"}}
                          : std::vector<FitBox>{{0, 0, w, h, "canvas"}};
-    const std::vector<FitText> fits = fit_texts(*sc, boxed ? (w - 640) / 2 : 0, 0, boxes);
+    const std::vector<FitText> fits = fit_texts(*sc, boxed && !wide_results ? (w - 640) / 2 : 0, 0, boxes);
     for (const FitText& f : fits) {
       ++texts;
       if (f.fits) continue;
@@ -2561,8 +2665,35 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       }
     std::vector<std::string> wrong = tray_problems(tray, kLabTrayY);
     if (tray.size() != 4) wrong.push_back(std::to_string(tray.size()) + " of the 4 buttons shown");
+    // FIXES.md item 37: each button's hover label (shown or not) centred over its own button, under the tray's line,
+    // clear of the button, inside the layout, over no other label.
+    std::vector<FitBox> labels;
+    for (int32_t i = 0; i < 4; ++i) {
+      mech3::HelpButton* t = l->tab(kLabTabPages[i]);
+      if (!t || (t->flags & ztwod::kHidden) || !t->image) continue;
+      const int32_t bx = t->get_x() - (ge.buffer_width() / 2 - 320), by = t->get_y(), middle = bx + t->image->width / 2;
+      for (ztwod::Text* x : t->help) {
+        if (!x->text[0]) continue;
+        if (x->needs_render) x->render();
+        int32_t lx = x->x - (ge.buffer_width() / 2 - 320);
+        if (x->align == 1) lx -= x->width / 2;
+        else if (x->align == 2) lx -= x->width;
+        const FitBox b{lx, x->y, lx + x->width, x->y + x->text_height(), kTabNames[i]};
+        std::printf("mw1 lab fit: %s the %s label \"%s\" %d..%d x %d..%d\n", kSteps[step].name, kTabNames[i], x->text, b.left,
+                    b.right, b.top, b.bottom);
+        const std::string n = std::string("the ") + kTabNames[i] + " label";
+        if (std::abs((b.left + b.right) / 2 - middle) > 1) wrong.push_back(n + " isn't centred over its button");
+        if (b.top <= kLabTrayY) wrong.push_back(n + " is on or above the tray's line");
+        if (b.bottom > by) wrong.push_back(n + " overlaps its button");
+        if (b.left < 0 || b.right > 640) wrong.push_back(n + " is outside the layout");
+        for (const FitBox& o : labels)
+          if (b.left < o.right && o.left < b.right && b.top < o.bottom && o.top < b.bottom) wrong.push_back(n + " overlaps another's");
+        labels.push_back(b);
+      }
+    }
+    if (labels.size() != tray.size()) wrong.push_back(std::to_string(labels.size()) + " labels for " + std::to_string(tray.size()) + " buttons");
     for (const std::string& w : wrong) std::printf("mw1 lab fit: %s the tray: %s: OUTSIDE\n", kSteps[step].name, w.c_str());
-    texts += static_cast<int>(tray.size()), outside += static_cast<int>(wrong.size());
+    texts += static_cast<int>(tray.size() + labels.size()), outside += static_cast<int>(wrong.size());
     if (++step < kStepCount) {
       if (l->page != kSteps[step].page) l->switch_page(kSteps[step].page);
       if (kSteps[step].tab) l->unassigned.set_tab(kSteps[step].tab, kSteps[step].armor), l->unassigned.refill();
@@ -2697,7 +2828,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   zgame::Handle results_ = 0;
   ResultsState* results_state_ = nullptr;
   bool results_up_ = false;  // the results screen pushed (FIXES.md item 19)
-  ResultsPanel seen_results_;  // tests: the last shown
+  ResultsPanel seen_results_;  // the shown (the tests read it)
+  ResultsChoice rchoice_;      // DETAILS shown, the list's scroll
   std::vector<int32_t> killers_;  // by wreck: who disabled it (AfterAction's killers)
   std::vector<int32_t> armor_left_, structure_left_;  // the commander's mech as the mission ended
   int32_t seconds_ = -1;  // the mission's time

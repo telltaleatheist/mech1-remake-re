@@ -313,7 +313,7 @@ Tick an item when it is merged into `main`.
 - **Where:** SdlInput::capture puts the window in relative mouse mode (src/frontend/sdl/sdl_input.cpp), and `want` decides when (focused, acquired, mission, window, released).
 - **Wanted:** in MW1, the pointer leaves the window freely, as in MW3. Find which input decides it differently for MW1 (the menus at least; in missions, match whatever MW3 does) and make MW1 behave like MW3. Opt-in if it touches the engine; MW3 and PM unchanged.
 
-## 31. [ ] The results screen's picture: victory with a big gun, defeat kicking rocks *(with 38: the screen laid out like MW1's)*
+## 31. [x] The results screen's picture: victory with a big gun, defeat kicking rocks *(with 38: the screen laid out like MW1's)*
 - **Owen (2026-11-18):** "can we use pc crucible to generate an image for end-of-game that looks like the original? if you were victorious you got a shot of yourself with a big gun ... if you failed youre kicking rocks" (MW1's two debrief pictures, beside CREW STATUS, MECH STATUS, SALVAGE and PAYMENT, with a line of text below).
 - **What MW1 shows (the port's after-action code, read as reference; the pictures decoded read-only from Owen's MW_PICS.BIN, `outbox/2026-11-18/mw1-original-debrief-pictures.png`):**
   - **Three pictures, 149×127:**
@@ -373,18 +373,18 @@ Tick an item when it is merged into `main`.
 - **What stays as it is:** the travel and story pages that have their own picture (`event_art`).
 - **Done means:** shots of the Bar's drink, news and an event at 1080p and 4:3.
 
-## 35. [ ] The main menu (NEW / LOAD / EXIT, the mech behind) flashes between screens
+## 35. [x] The main menu (NEW / LOAD / EXIT, the mech behind) flashes between screens
 - **Owen (2026-11-18):** the main menu shows for a moment at every screen change, which is jarring.
 - **Wanted:** a screen change goes straight from one MW1 screen to the next, never showing the main menu under it.
   - Likely cause: the menu stack, since MW1's menu lies under the hub (mw1_game.cpp, "MW1's main menu over PM's ... under the hub").
 - **Done means:** a frame-by-frame capture of each change (hub to Bar, Bar to hub, hub to office, the office to the lab, a mission's return), with no menu frame in any of them.
 
-## 36. [ ] An arrow clicked again does nothing until the other arrow is clicked
+## 36. [x] An arrow clicked again does nothing until the other arrow is clicked
 - **Owen (2026-11-18):** in the office's TERMS, clicking an arrow once works, and holding it repeats. A second click on the same arrow does nothing until the other arrow has been clicked.
 - **Wanted:** every click steps once, and holding repeats. This applies to every arrow pair: the office's terms, the lab's, and anywhere else PM's spinner arrows are used.
 - **Done means:** a test that clicks the same arrow three times and sees three steps.
 
-## 37. [ ] The lab's bottom buttons: their hover labels sit in the wrong places
+## 37. [x] The lab's bottom buttons: their hover labels sit in the wrong places
 - **Owen (2026-11-18):** each button's label shows away from its button:
   - "Select Chassis" lies over the orange line;
   - "Customize" sits to the right of its button;
@@ -399,7 +399,7 @@ Tick an item when it is merged into `main`.
   - shots of each label shown at 1080p and 4:3;
   - a fit check: each label over its own button, inside the screen, overlapping nothing.
 
-## 38. [ ] AFTER ACTION laid out like MW1's, with a scrollable salvage list (and a salvage limit?)
+## 38. [x] AFTER ACTION laid out like MW1's, with a scrollable salvage list (and a salvage limit?)
 - **Owen (2026-11-18):** today's four green terminals (RESULTS, PAY, SALVAGE TO STORES, YOUR <MECH>) should follow MW1's arrangement:
   - **Top left:** the picture (item 31).
   - **Top right:** the status:
@@ -454,6 +454,23 @@ Tick an item when it is merged into `main`.
   - List them in the branch's note.
 - **Keep:** pages that are their own art (event_art), and real dialogs that need an answer (the quit question). Those may keep the dim. List those too, each with its reason.
 - **Done means:** a shot of each screen found, at 1080p and 4:3.
+
+## 43. [ ] A "reach" contract has no nav point: the player can't find the place
+- **Owen (2026-11-18, Rasalhague):** the contract "reach the pump complex" on c2ia1 (Road to Madre) gave no nav point and no marked place. He couldn't tell where to go.
+- **Cause:** our ReachAreaObjective (mw1_game.cpp, kReachStructure) checks the structure's node (`3twr1`), but nothing puts a nav point there. c2ia1's only nav is Start.
+- **Wanted:** every "reach" objective has its place as a nav point, named for it (e.g. "Pump complex"), selectable and on the map like MW3's and PM's. The same goes for any objective whose place isn't otherwise shown, such as a defended structure.
+- **Done means:** a test that every reach row in mw1maps.zrd gives a nav point at its node, and a shot of the nav display in that mission.
+
+## 44. [ ] An ice world's contract plays on a desert map
+- **Owen (2026-11-18):** Rasalhague (the north of Kurita's blue region) sent him to Road to Madre, a desert, though he took it for an arctic world.
+- **Cause:** no Instant Action map is arctic (research/maps.md, "An arctic map"). A contract in the ice climate falls back to its kind anywhere, which here is the desert.
+- **To check:** that Rasalhague's battles really are ice in MW1's data.
+- **The choices, for Owen:**
+  - (a) Build arctic IA maps from MW3's c4b snow missions (m4/m6). They load and play as IA today; they need an ia block with m4's snow, fog and light, and the campaign script stripped.
+  - (b) Until then, put ice contracts on the coldest-looking map instead of the desert.
+  - (c) Show the real climate in the offer, so it's no surprise.
+- **The lead's pick:** (a), with (c) at once.
+- **Owen (2026-11-18): (a), real arctic maps from MW3's snow missions.** Show the climate in the offer (c) meanwhile.
 
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:

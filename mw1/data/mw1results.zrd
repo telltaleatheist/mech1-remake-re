@@ -1,45 +1,82 @@
-; MW1: Critical Hit's results screen (src/mw1_results.h) on MW1's screen
-; template (src/mw1_screen.h), FIXES.md item 19: a mission ends here, never
-; on Pirate's Moon's debriefing.
-; - the world's scenery full-bleed and clear, no dim (FIXES.md item 42; the
-;   screen names it);
-; - the world and the employer on the plaque at the top, the outcome
-;   (VICTORY, DEFEAT, RETREAT) under it;
-; - four green terminals: RESULTS and PAY above, SALVAGE TO STORES and YOUR
-;   MECH below, each a title and up to eight lines;
-; - CONTINUE in the middle at the foot (back to the hub, the mission
-;   settled), REPLAY left of it on a failure.
-; All MW1's own art (mw1image.zbd): nothing of Pirate's Moon's
-; (tests/test_mw1_look.cpp). A 4:3 layout, each piece anchored to the
-; canvas's middle (the 16:9 canvas shows the scene's full width).
+; MW1: Critical Hit's results screen, AFTER ACTION (src/mw1_results.h), on MW1's
+; screen template (src/mw1_screen.h), FIXES.md items 19, 31 and 38: a mission
+; ends here, never on Pirate's Moon's debriefing. MW1's own arrangement (Owen,
+; item 38), over the world's scenery dimmed (the screen names it):
+; - top left, the picture (the screen names it, by the outcome), framed; the
+;   outcome and where under it;
+; - top right, the status terminal: PAYMENT, CREW STATUS, then SALVAGE TO
+;   STORES, a list its arrows scroll (DETAILS: your mech by location, then the
+;   enemy mechs destroyed in the list's place);
+; - along the bottom, the outcome's message from the player's exe, and the
+;   House's crest at the right (the screen names it);
+; - CONTINUE, REPLAY (a failure) and DETAILS at the foot.
+; All MW1's own art (mw1image.zbd, mw1art.zbd): nothing of Pirate's Moon's
+; (tests/test_mw1_look.cpp). The 4:3 layout anchored to the canvas's middle;
+; _WIDE the 16:9 canvas's (853), from its left. Each text keeps inside its
+; piece (mw1screenfit's results page).
 (
 MW1RESULTSDIALOG (
   CURSOR (BITMAP ("mw1_cursor") CENTER (1))
   PRIMITIVES (
     BACKGROUND (POSITION (-107 0) BITMAP ("mw1_hub_desert_starport") ANCHOR ("CENTRE"))
-    PANEL (POSITION (-107 0) BITMAP ("mw1_clear") ANCHOR ("CENTRE"))
-    PANEL2 (POSITION (170 6) BITMAP ("mw1_plaque") ANCHOR ("CENTRE"))
-    PANEL3 (POSITION (12 102) BITMAP ("mw1_term_304x168") ANCHOR ("CENTRE"))
-    PANEL4 (POSITION (324 102) BITMAP ("mw1_term_304x168") ANCHOR ("CENTRE"))
-    PANEL5 (POSITION (12 274) BITMAP ("mw1_term_304x168") ANCHOR ("CENTRE"))
-    PANEL6 (POSITION (324 274) BITMAP ("mw1_term_304x168") ANCHOR ("CENTRE"))
+    PANEL (POSITION (-107 0) BITMAP ("mw1_dim") ANCHOR ("CENTRE"))
+    PANEL2 (POSITION (12 12) BITMAP ("mw1_frame_200x176") ANCHOR ("CENTRE"))
+    PANEL3 (POSITION (16 16) BITMAP ("mw1_end_win") ANCHOR ("CENTRE"))
+    PANEL4 (POSITION (220 12) BITMAP ("mw1_term_408x324") ANCHOR ("CENTRE"))
+    PANEL5 (POSITION (12 344) BITMAP ("mw1_term_508x96") ANCHOR ("CENTRE"))
+    PANEL6 (POSITION (528 342) BITMAP ("mw1_icon_house_davion") ANCHOR ("CENTRE"))
   )
   BUTTONS (
+    ; Their ids are mw1_results.h's, in this order.
     CONTINUE (POSITION (236 446) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (320 452) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
     REPLAY (POSITION (52 446) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (136 452) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    DETAILS (POSITION (420 446) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (504 452) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    ; The list's arrows, inside the status panel's right edge beside the list.
+    LIST_UP (POSITION (592 210) BITMAP ("mw1_up") ROLLOVER (BITMAP ("mw1_up_lit")) ACTIVATE (BITMAP ("mw1_up_down")) DISABLE (BITMAP ("mw1_up_off")) ANCHOR ("CENTRE"))
+    LIST_DOWN (POSITION (592 298) BITMAP ("mw1_dn") ROLLOVER (BITMAP ("mw1_dn_lit")) ACTIVATE (BITMAP ("mw1_dn_down")) DISABLE (BITMAP ("mw1_dn_off")) ANCHOR ("CENTRE"))
   )
   TEXTS (
-    PLANET (POSITION (320 13) FONT ("mw1_plaque") ANCHOR ("CENTRE"))
-    PLACE (POSITION (320 45) FONT ("mw1_plaque_sub") ANCHOR ("CENTRE"))
-    OUTCOME (POSITION (320 70) FONT ("mw1_outcome") ANCHOR ("CENTRE"))
-    RESULTS_TITLE (POSITION (26 110) FONT ("mw1_term_title") ANCHOR ("CENTRE"))
-    RESULTS (POSITION (26 134) FONT ("mw1_term_line") GAP (15) ANCHOR ("CENTRE"))
-    PAY_TITLE (POSITION (338 110) FONT ("mw1_term_title") ANCHOR ("CENTRE"))
-    PAY (POSITION (338 134) FONT ("mw1_term_line") GAP (15) ANCHOR ("CENTRE"))
-    SALVAGE_TITLE (POSITION (26 282) FONT ("mw1_term_title") ANCHOR ("CENTRE"))
-    SALVAGE (POSITION (26 306) FONT ("mw1_term_line") GAP (15) ANCHOR ("CENTRE"))
-    MECH_TITLE (POSITION (338 282) FONT ("mw1_term_title") ANCHOR ("CENTRE"))
-    MECH (POSITION (338 306) FONT ("mw1_term_line") GAP (15) ANCHOR ("CENTRE"))
+    OUTCOME (POSITION (112 194) FONT ("mw1_outcome") ANCHOR ("CENTRE"))
+    WHERE (POSITION (16 222) FONT ("mw1_term_line") GAP (15) ANCHOR ("CENTRE"))
+    PAY_TITLE (POSITION (234 20) FONT ("mw1_term_title") ANCHOR ("CENTRE"))
+    PAY (POSITION (234 44) FONT ("mw1_term_line") GAP (15) ANCHOR ("CENTRE"))
+    CREW_TITLE (POSITION (234 110) FONT ("mw1_term_title") ANCHOR ("CENTRE"))
+    CREW (POSITION (234 134) FONT ("mw1_term_line") GAP (15) ANCHOR ("CENTRE"))
+    LIST_TITLE (POSITION (234 214) FONT ("mw1_term_title") ANCHOR ("CENTRE"))
+    LIST (POSITION (234 238) FONT ("mw1_term_line") GAP (15) ANCHOR ("CENTRE"))
+    MESSAGE (POSITION (26 351) FONT ("mw1_term_line") GAP (14) ANCHOR ("CENTRE"))
+  )
+)
+MW1RESULTSDIALOG_WIDE (
+  CURSOR (BITMAP ("mw1_cursor") CENTER (1))
+  PRIMITIVES (
+    BACKGROUND (POSITION (0 0) BITMAP ("mw1_hub_desert_starport") ANCHOR ("CENTRE"))
+    PANEL (POSITION (0 0) BITMAP ("mw1_dim") ANCHOR ("CENTRE"))
+    PANEL2 (POSITION (12 12) BITMAP ("mw1_frame_248x218"))
+    PANEL3 (POSITION (16 16) BITMAP ("mw1_end_win_l"))
+    PANEL4 (POSITION (272 12) BITMAP ("mw1_term_569x324"))
+    PANEL5 (POSITION (12 344) BITMAP ("mw1_term_721x96"))
+    PANEL6 (POSITION (741 342) BITMAP ("mw1_icon_house_davion"))
+  )
+  BUTTONS (
+    ; Their ids are mw1_results.h's, in this order.
+    CONTINUE (POSITION (342 446) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (426 452) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    REPLAY (POSITION (150 446) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (234 452) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    DETAILS (POSITION (534 446) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (618 452) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    ; The list's arrows, inside the status panel's right edge beside the list.
+    LIST_UP (POSITION (805 210) BITMAP ("mw1_up") ROLLOVER (BITMAP ("mw1_up_lit")) ACTIVATE (BITMAP ("mw1_up_down")) DISABLE (BITMAP ("mw1_up_off")))
+    LIST_DOWN (POSITION (805 298) BITMAP ("mw1_dn") ROLLOVER (BITMAP ("mw1_dn_lit")) ACTIVATE (BITMAP ("mw1_dn_down")) DISABLE (BITMAP ("mw1_dn_off")))
+  )
+  TEXTS (
+    OUTCOME (POSITION (136 234) FONT ("mw1_outcome"))
+    WHERE (POSITION (16 262) FONT ("mw1_term_line") GAP (15))
+    PAY_TITLE (POSITION (286 20) FONT ("mw1_term_title"))
+    PAY (POSITION (286 44) FONT ("mw1_term_line") GAP (15))
+    CREW_TITLE (POSITION (286 110) FONT ("mw1_term_title"))
+    CREW (POSITION (286 134) FONT ("mw1_term_line") GAP (15))
+    LIST_TITLE (POSITION (286 214) FONT ("mw1_term_title"))
+    LIST (POSITION (286 238) FONT ("mw1_term_line") GAP (15))
+    MESSAGE (POSITION (26 351) FONT ("mw1_term_line") GAP (14))
   )
 )
 )

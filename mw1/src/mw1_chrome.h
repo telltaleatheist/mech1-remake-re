@@ -85,8 +85,10 @@ inline const std::vector<PanelSize>& panel_sizes() {
   return k;
 }
 inline const std::vector<PanelSize>& terminal_sizes() {
+  // The screens' terminals; the file popup's name (220x22); AFTER ACTION's
+  // status and message at 16:9 and 4:3 (item 38).
   static const std::vector<PanelSize> k = {{232, 150}, {436, 300}, {637, 300}, {186, 328}, {377, 328}, {436, 172}, {637, 172},
-                                           {220, 22}, {304, 168}};  // and the results screen's four  // and the file popup's name
+                                           {220, 22},  {304, 168}, {569, 324}, {408, 324}, {721, 96},  {508, 96}};
   return k;
 }
 // A picture's frame (a portrait's, a mech's): mw1_frame_<w>x<h> and its lit look (_lit, the chosen one's), its
@@ -94,7 +96,9 @@ inline const std::vector<PanelSize>& terminal_sizes() {
 inline constexpr int32_t kFrame = 4;
 std::string frame_name(int32_t w, int32_t h, bool lit = false);
 inline const std::vector<PanelSize>& frame_sizes() {
-  static const std::vector<PanelSize> k = {{248, 328}, {104, 136}, {168, 136}};  // a portrait (240x320), a small one (96x128), the market's mech (160x128)
+  // A portrait (240x320), a small one (96x128), the market's mech (160x128), AFTER ACTION's picture (item 38: 240x210
+  // at 16:9, 192x168 at 4:3).
+  static const std::vector<PanelSize> k = {{248, 328}, {104, 136}, {168, 136}, {248, 218}, {200, 176}};
   return k;
 }
 // The up and down arrows (a list's, a term's): mw1_up and mw1_dn, each with _lit, _down and _off; the left and right
@@ -171,7 +175,10 @@ inline constexpr int32_t kLabTrayY = 414;
 // The tray's four buttons (FIXES.md item 29): the chassis, criticals and groups pages' icons and ACCEPT (LabScreen's
 // tabs 0, 3, 4, 6), one size, kLabTabY down the layout, spread evenly across the panels' span (kLabTabSpan0..1, each
 // in its quarter's middle); mw1_game.cpp places them, mw1_lab_fit.h checks them.
-inline constexpr int32_t kLabTabW = 60, kLabTabH = 52, kLabTabY = kLabTrayY + (480 - kLabTrayY - kLabTabH) / 2;
+// Each button's HELP label (its hover words, PM's layout's) centred above it, kLabHelpY down, kLabHelpH high: between
+// the tray's line and the button, clear of both (FIXES.md item 37; the buttons 48 high, not item 29's 52, for its room).
+inline constexpr int32_t kLabHelpY = kLabTrayY + 2, kLabHelpH = 11;
+inline constexpr int32_t kLabTabW = 60, kLabTabH = 48, kLabTabY = kLabHelpY + kLabHelpH + 2;
 inline constexpr int32_t kLabTabSpan0 = 6, kLabTabSpan1 = 634;
 inline constexpr int32_t kLabTabPages[4] = {0, 3, 4, 6};
 inline constexpr int32_t lab_tab_x(int32_t i) {

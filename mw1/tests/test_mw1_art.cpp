@@ -109,10 +109,11 @@ TEST(mw1_art_canvas_copy) {
     EXPECT(a.width == r.w && a.height == r.h && a.pixels == b.pixels);
   }
   std::printf("  %zu canvas images in art.csv\n", rows.size());
-  // Today's sizes: scenes 854x480, portraits 240x320 and 96x128, tiles' pictures 100x100, the emblem 240x240.
+  // Today's sizes: scenes 854x480, portraits 240x320 and 96x128, tiles' pictures 100x100, the emblem 240x240, the
+  // results' pictures 192x168 and 240x210 (items 31 and 38).
   for (const Row& r : rows)
     EXPECT((r.w == 854 && r.h == 480) || (r.w == 240 && r.h == 320) || (r.w == 96 && r.h == 128) || (r.w == 100 && r.h == 100) ||
-           (r.w == 240 && r.h == 240));
+           (r.w == 240 && r.h == 240) || (r.w == 192 && r.h == 168) || (r.w == 240 && r.h == 210));
 }
 
 // The hub's scenery: darkened at both sizes when kDarkenHubScenery (off since FIXES.md item 42), its scanlines a canvas

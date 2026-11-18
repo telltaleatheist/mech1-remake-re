@@ -205,6 +205,8 @@ class Mw1State : public mech3::MenuState {
   // first plain key (its DirectInput code) to `keys`, Escape aside (escape_id's button).
   void set_pointer(int32_t left, int32_t top, int32_t right, int32_t bottom, std::function<void(int32_t, int32_t, bool)> heard);
   void set_keys(std::function<void(uint32_t)> keys) { keys_ = std::move(keys); }
+  // The mouse wheel turned (each frame it moved: +1 up, -1 down; FIXES.md item 38, the results' list).
+  void set_wheel(std::function<void(int32_t)> wheel) { wheel_ = std::move(wheel); }
   void set_hover(std::function<void(int32_t)> hover) {  // the buttons' hover (Mw1Screen::set_hover), set on each entering
     hover_ = hover;
     if (screen_ptr_) screen_ptr_->set_hover(std::move(hover));
@@ -225,6 +227,9 @@ class Mw1State : public mech3::MenuState {
   int32_t pointer_rect_[4] = {};
   std::function<void(int32_t, int32_t, bool)> pointer_;
   std::function<void(uint32_t)> keys_;
+  std::function<void(int32_t)> wheel_;
+  int32_t wheel_at_ = 0;  // the wheel's position last frame
+  bool wheel_read_ = false;
   std::function<void(int32_t)> hover_;
 };
 

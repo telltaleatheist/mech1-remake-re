@@ -80,6 +80,14 @@
 namespace fs = std::filesystem;
 
 namespace {
+// A line on a results screen now (after a button changed it).
+bool on_screen_now(mw1::Mw1Screen* sc, const std::string& t) {
+  const std::vector<std::string> l = sc->shown();
+  return std::find(l.begin(), l.end(), t) != l.end();
+}
+}  // namespace
+
+namespace {
 struct Window : platform::Window {
   uint32_t create(const std::string&, int, int) override { return 0x1234; }
   void set_title(const std::string&) override {}
@@ -207,6 +215,10 @@ struct Run {
   int hold_phase = 0, hold_frames = 0;
   float hold_time = 0.0f;
   int32_t ask_held = -1, ask_released = -1, ask_offer = -1;
+  // FIXES.md item 36: then PAY_UP clicked three times, the mouse still on it (each a press, a release and a frame
+  // idle): the ask after each.
+  int clicks = 0;
+  std::vector<int32_t> ask_clicked;
   bool market_done = false;
   // Travel (mw1_travel_screen.h) before the first ACCEPT: the nearest world with a House office, GO; the contract
   // then taken there.
@@ -604,7 +616,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
       // another REQUESTED, NEXT OFFER (another, nothing moved), LEAVE.
       mw1::OfficeState* os = mw1::game_loop_office();
       // FIXES.md item 24: PAY_UP pressed and held (the first offer, the market run), then released.
-      if (run && run->hold_phase > 0 && run->hold_phase < 5 && os && app.current() == static_cast<zgame::State*>(os) && os->screen()) {
+      if (run && run->hold_phase > 0 && run->hold_phase < 8 && os && app.current() == static_cast<zgame::State*>(os) && os->screen()) {
         zin::MouseInfo* mi = zin::mouse_info();
         const mw1::Request* ask = mw1::game_loop_office_ask();
         const int32_t asked = ask ? ask->payment : -1;
@@ -622,7 +634,19 @@ void loop_run(Ending ending, Run* run = nullptr) {
             break;
           case 4:  // released: nothing more for a while
             mi->left = 0;
-            if (++run->hold_frames >= 30) run->ask_released = asked, run->hold_phase = 5, mi->x = mi->y = 0;
+            if (++run->hold_frames >= 30) run->ask_released = asked, run->hold_phase = 5;
+            break;
+          case 5:  // item 36: clicked again where it is, three times
+            mi->left = zin::kPressed, run->hold_phase = 6;
+            break;
+          case 6:
+            mi->left = zin::kReleased, run->hold_phase = 7;
+            break;
+          case 7:
+            mi->left = 0;
+            run->ask_clicked.push_back(asked);
+            if (++run->clicks < 3) run->hold_phase = 5;
+            else run->hold_phase = 8, mi->x = mi->y = 0;
             break;
         }
         return;
@@ -735,10 +759,20 @@ void loop_run(Ending ending, Run* run = nullptr) {
         EXPECT(sc->visible(mw1::kResultsReplay) == failed);
         EXPECT(sc->backdrop() == mw1::scenery_image(c->planet_number));
         auto on_screen = [&](const std::string& t) { return std::find(shown.begin(), shown.end(), t) != shown.end(); };
-        EXPECT(on_screen(rp->outcome) && on_screen("RESULTS") && on_screen("PAY") && on_screen("SALVAGE TO STORES") &&
-               on_screen(rp->mech_title));
+        EXPECT(on_screen(rp->outcome) && on_screen("PAYMENT") && on_screen("CREW STATUS"));
+        EXPECT(std::any_of(shown.begin(), shown.end(), [](const std::string& l) { return l.rfind("SALVAGE TO STORES", 0) == 0; }));
+        // DETAILS (item 38): your mech by location and the kills in the same panel, then back.
+        sc->on_button(mw1::kResultsDetails, 0, 0);
+        EXPECT(on_screen_now(sc, rp->mech_title) && on_screen_now(sc, rp->kills_title) && !on_screen_now(sc, "PAYMENT"));
+        sc->on_button(mw1::kResultsDetails, 0, 0);
+        EXPECT(on_screen_now(sc, "PAYMENT"));
         std::vector<std::string> all = {rp->outcome};
-        for (const std::vector<std::string>* v : {&rp->results, &rp->pay, &rp->salvage, &rp->mech}) all.insert(all.end(), v->begin(), v->end());
+        for (const std::vector<std::string>* v : {&rp->where, &rp->pay, &rp->crew, &rp->mech}) all.insert(all.end(), v->begin(), v->end());
+        for (const std::vector<mw1::ListRow>* v : {&rp->salvage, &rp->kills})
+          for (const mw1::ListRow& r : *v) all.push_back(r.words);
+        std::vector<std::string> mission = rp->where;  // its ending, time, lance and wrecks
+        mission.insert(mission.end(), rp->crew.begin(), rp->crew.end());
+        for (const mw1::ListRow& r : rp->kills) mission.push_back(r.words);
         // What CONTINUE will pay ("Salvage share: 169,000", "Fee: 141,000 (90% paid)", "Repair bill: ...").
         auto amount = [&](const char* key) -> int64_t {
           for (const std::string& l : all)
@@ -757,7 +791,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
           bill_shown = std::max<int64_t>(0, amount("Repair bill: "));
           if (run) run->bill_shown = amount("Repair bill: ");
         }
-        if (run && run->after_action.empty()) run->after_action = all, run->results_lines = rp->results;
+        if (run && run->after_action.empty()) run->after_action = all, run->results_lines = mission;
         if (run && run->stop_at_after_action) {
           back_at_main = true;  // the program stopped here
           return;
@@ -1569,7 +1603,14 @@ TEST(mw1_loop_market_buy_sell_pilot_then_a_contract_in_the_bought_mech_headless)
     EXPECT(run.page_after == 0 && run.slot_w == 41 && run.slot_amber);  // item 26
     // Item 24: PAY_UP held a second steps the ask on (more than one step), and stops when let go.
     std::printf("  PAY_UP held 1 s: %d thousand offered, asked %d, %d after the release\n", run.ask_offer, run.ask_held, run.ask_released);
-    EXPECT(run.hold_phase == 5 && run.ask_held > run.ask_offer + mw1::kRequestPaymentStep && run.ask_released == run.ask_held);
+    EXPECT(run.hold_phase == 8 && run.ask_held > run.ask_offer + mw1::kRequestPaymentStep && run.ask_released == run.ask_held);
+    // Item 36: the same arrow clicked three times, three steps (it once did nothing until the other arrow was used).
+    std::printf("  PAY_UP clicked three times after: asked");
+    for (int32_t a : run.ask_clicked) std::printf(" %d", a);
+    std::printf("\n");
+    EXPECT(run.ask_clicked.size() == 3);
+    for (size_t i = 0; i < run.ask_clicked.size(); ++i)
+      EXPECT(run.ask_clicked[i] == run.ask_released + static_cast<int32_t>(i + 1) * mw1::kRequestPaymentStep);
     EXPECT(run.market_done && run.market_lines.size() > 4);
     bool for_sale = false, yours = false;
     for (const std::string& l : run.market_lines) for_sale = for_sale || l == "FOR SALE", yours = yours || l.rfind("YOUR MECHS", 0) == 0;
@@ -1696,12 +1737,15 @@ TEST(mw1_loop_a_full_lance_flies_on_a_pm_map_headless) {
     for (const std::string& p : run.ally_pilots) std::printf(" [%s]", p.c_str());
     std::printf("\n");
     EXPECT(run.allies == 3 && run.launches.size() == 3);
-    auto shows = [&](const std::string& t) {
+    // CREW STATUS (item 38): "<mech> (<pilot>): <condition>%", or "destroyed" and the pilot's fate.
+    auto shows = [&](const std::string& who, const std::string& end) {
       for (const std::string& l : run.after_action)
-        if (l == t) return true;
+        if (l.find(" (" + who + "): ") != std::string::npos && l.size() >= end.size() && l.compare(l.size() - end.size(), end.size(), end) == 0)
+          return true;
       return false;
     };
-    EXPECT(shows("Elli Gujar: came back") && (shows("J. Holmaas: KILLED") || shows("J. Holmaas: MISSING")) && shows("Taris Ren: came back"));
+    EXPECT(shows("Elli Gujar", "%") && (shows("J. Holmaas", "destroyed, KILLED") || shows("J. Holmaas", "destroyed, MISSING")) &&
+           shows("Taris Ren", "%"));
     for (const std::string& l : run.after_action) EXPECT(l.find("stayed behind") == std::string::npos);
   });
 }
@@ -2866,5 +2910,56 @@ TEST(mw1_travel_map_a_trip_by_the_keys_headless) {
                 arrived.c_str());
     EXPECT(typed >= 0 && std::string(mw1::kPlanets[typed].name).rfind("THA", 0) == 0 && named);
     EXPECT(stepped >= 0 && go_lit && arrived == want);
+  });
+}
+
+// FIXES.md item 35 (Owen: the main menu flashed at every screen change): one MW1 screen to the next in one step. The
+// app names each state it moves to (App::on_state_change); going from the hub to each of its screens and back, only
+// those screens are ever named, never the state the hub sits on (a pop, then a push, resumed and redrew it a frame).
+TEST(mw1_loop_screens_change_in_one_step_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  in_child([&] {
+    const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_one_step";
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    MenuRun r;
+    r.save = (dir / mw1::kSaveFile).string(), r.start = mw1::Start::kHub;
+    int step = 0, wait = 0;
+    std::vector<std::string> seen;
+    r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
+      mw1::HubState* hub = mw1::game_loop_hub();
+      if (++wait < 5) return false;
+      if (step == 0) {
+        if (!showing(app, hub)) return false;
+        app.on_state_change = [&](const zgame::State* s) {
+          auto* st = dynamic_cast<const mech3::State*>(s);
+          seen.push_back(st ? st->name() : "none");
+        };
+      }
+      // Each of the hub's screens, then its way back: the Bar (BACK), the Mech Complex (BACK), the travel map (BACK),
+      // the office (its BACK).
+      static const int32_t kGo[] = {mw1::kHubBar, mw1::kHubMarket, mw1::kHubTravel, mw1::kHubOffice};
+      if (step >= 8) return true;
+      if (step % 2 == 0) {
+        if (!showing(app, hub)) return false;
+        hub->screen()->on_button(kGo[step / 2], 0, 0);
+      } else {
+        auto* st = app.current() != static_cast<zgame::State*>(hub) ? dynamic_cast<mw1::Mw1State*>(app.current()) : nullptr;
+        mw1::Mw1Screen* sc = st ? st->screen() : nullptr;
+        if (!sc) return false;
+        const int32_t back = step == 1 ? mw1::kBarBack : step == 3 ? mw1::kMarketBack : step == 5 ? mw1::kTravelBack : mw1::kOfficeBack;
+        sc->on_button(back, 0, 0);
+      }
+      ++step, wait = 0;
+      return false;
+    };
+    menu_run(r);
+    std::printf("  the states moved to:");
+    for (const std::string& s : seen) std::printf(" %s;", s.c_str());
+    std::printf("\n");
+    const std::vector<std::string> want = {"MW1 Bar State",    "MW1 Hub State", "MW1 Market State", "MW1 Hub State",
+                                           "MW1 Travel State", "MW1 Hub State", "MW1 Office State", "MW1 Hub State"};
+    EXPECT(step == 8 && seen == want);
   });
 }
