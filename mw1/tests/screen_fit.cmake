@@ -2,7 +2,7 @@
 # (854x480), each on a new write dir. 40 frames into the page's MW1 screen every text must be inside the canvas (a
 # status line past the edge at 4:3 was the case); each outside is printed by place and length, never its words.
 # cmake -DMW1_BIN=<mw1> -DDIR=<scratch dir> -P screen_fit.cmake
-set(pages hub hub_options market travel travel_pick company bar bar_recruit office office_offer news results)
+set(pages hub hub_options market travel travel_pick company bar bar_recruit office office_offer news results loading)
 set(failed)
 foreach(shape 43 wide)
   foreach(page IN LISTS pages)

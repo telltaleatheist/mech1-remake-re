@@ -2,7 +2,8 @@
 // MW1's loading screen (FIXES.md item 18), its layout mw1load.zrd in MW1's data folder: DEPLOY goes straight into
 // the mission, Pirate's Moon's briefing never shown (mech3/program_flow.h's skip_briefing). While the mission loads:
 // the battle world's scenery dimmed, the world and the employer on the plaque, the contract (its title, objective,
-// map and enemy) on the green terminal, LOADING under it. No buttons and no pointer.
+// map and enemy) on the green terminal, the main enemy's picture framed beside it, LOADING under it. No buttons and
+// no pointer.
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -21,7 +22,10 @@ struct LoadingPanel {
   std::string scene;     // the backdrop (mw1image.zbd's name)
   std::string title;     // the contract's title on the terminal (its mission's, else CONTRACT)
   std::vector<std::string> lines;  // the contract's facts, as the office's offer says them
+  std::string enemy;     // the main enemy's picture (its render, else its amber icon); empty: none, the frame hidden
 };
+// The layout's panels (PANEL, PANEL2, ...): the enemy's frame and picture.
+enum LoadingPanelId : int32_t { kLoadDim, kLoadPlaque, kLoadTerminal, kLoadEnemyFrame, kLoadEnemy, kLoadPanelCount };
 
 // The screen's texts (pure: the tests read it).
 ScreenView loading_view(const LoadingPanel& p);
