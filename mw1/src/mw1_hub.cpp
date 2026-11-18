@@ -8,16 +8,20 @@
 namespace mw1::hub {
 namespace {
 // The buttons, by id: their names in the layout and their words.
-const std::vector<ScreenButton> kHubButtons = {{"ACCEPT", "ACCEPT"},     {"DECLINE", "DECLINE"},     {"OK", "OK"},
-                                               {"REPLAY", "REPLAY"},     {"MARKET", "MECH COMPLEX"}, {"BAR", "BAR"},
-                                               {"TRAVEL", "STARPORT"},   {"QUIT", "MAIN MENU"},      {"OFFICE", "HOUSE OFFICE"},
-                                               {"OPTIONS", "OPTIONS"}};
+const std::vector<ScreenButton> kHubButtons = {{"OK", "OK"},           {"REPLAY", "REPLAY"},   {"MARKET", "MECH COMPLEX"},
+                                               {"BAR", "BAR"},         {"TRAVEL", "STARPORT"}, {"OFFICE", "HOUSE OFFICE"},
+                                               {"OPTIONS", "OPTIONS"}, {"COMPANY", "COMPANY"}, {"DEPLOY", "DEPLOY"}};
+const std::vector<ScreenButton> kHubOptionsButtons = {{"SETTINGS", "SETTINGS"}, {"MAIN_MENU", "MAIN MENU"}, {"BACK", "BACK"}};
 }  // namespace
 
 const char* hub_button_name(int32_t id) { return id >= 1 && id <= kHubButtonCount ? kHubButtons[id - 1].name : ""; }
+const char* hub_options_button_name(int32_t id) {
+  return id >= 1 && id <= kHubOptionsButtonCount ? kHubOptionsButtons[id - 1].name : "";
+}
 
+// Escape: OPTIONS (where the main menu is now).
 HubState::HubState(zgame::Handle h, std::function<void(int32_t)> pressed)
-    : Mw1State(h, "MW1 Hub State", kHubFile, kHubDialog, kHubButtons, kHubQuit, std::move(pressed)) {}
+    : Mw1State(h, "MW1 Hub State", kHubFile, kHubDialog, kHubButtons, kHubOptions, std::move(pressed)) {}
 
 void HubState::show(const HubView& v) {
   // Every text at its place in the layout (mw1hub.zrd's TEXTS).
@@ -26,19 +30,38 @@ void HubState::show(const HubView& v) {
   s.blocks = {at_place("PLANET", {v.planet}),         at_place("HOUSE", {v.house}),
               at_place("DATE", {v.date}),             at_place("DAY", {v.day}),
               at_place("PANEL_TITLE", {v.title}),     at_place("PANEL_LINES", v.panel),
-              at_place("TERM_TITLE", {"COMPANY"}),    at_place("TERM_LABELS", v.labels),
-              at_place("TERM_VALUES", v.values),      at_place("TERM_MECHS", v.mechs),
-              at_place("TERM_PILOTS", v.kinds),       at_place("STATUS_WORLD", {v.planet}),
-              at_place("STATUS", {v.status})};
+              at_place("STATUS_WORLD", {v.planet}),   at_place("STATUS", {v.status})};
+  // The company's terminal under the panel; AFTER ACTION's OK and REPLAY in its place while they wait.
+  const bool term = !v.after_action;
+  s.blocks.push_back(at_place("TERM_TITLE", term ? std::vector<std::string>{"COMPANY"} : std::vector<std::string>{}));
+  for (const auto& [place, lines] : {std::pair<const char*, const std::vector<std::string>*>{"TERM_LABELS", &v.labels}, {"TERM_VALUES", &v.values},
+                                     {"TERM_MECHS", &v.mechs}, {"TERM_PILOTS", &v.kinds}})
+    s.blocks.push_back(at_place(place, term ? *lines : std::vector<std::string>{}));
+  s.panels = {true, true, true, term, true};  // PANEL..PANEL5: the plaques, the middle panel, the terminal, the status line
   s.buttons.resize(kHubButtonCount);
-  s.buttons[kHubAccept - 1].there = s.buttons[kHubDecline - 1].there = !v.after_action && v.offer;
-  s.buttons[kHubOk - 1].there = v.after_action;
-  s.buttons[kHubReplay - 1].there = v.after_action && v.replay;
-  // The market, the Bar and travel only between missions (not while AFTER ACTION waits).
-  s.buttons[kHubMarket - 1].on = s.buttons[kHubTravel - 1].on = s.buttons[kHubBar - 1].on = !v.after_action;
-  // The House office: a place, as MW1's, wherever the world has one (not while AFTER ACTION waits); an offer or not.
-  s.buttons[kHubOffice - 1].on = !v.after_action && v.office_open;
-  s.buttons[kHubOffice - 1].look = v.office;
+  auto b = [&](int32_t id) -> ButtonState& { return s.buttons[static_cast<size_t>(id - 1)]; };
+  b(kHubOk).there = v.after_action;
+  b(kHubReplay).there = v.after_action && v.replay;
+  // MW1's two columns (DS:1083): COMPANY, MECH COMPLEX, HOUSE OFFICE; STARPORT, BAR, OPTIONS. The office's slot is
+  // empty on a world with none (DS:1101). A contract accepted (DS:10D7): COMPANY, MECH COMPLEX, DEPLOY; no right column.
+  b(kHubOffice).there = !v.contract && v.office_open;
+  b(kHubOffice).look = v.office;
+  b(kHubDeploy).there = v.contract;
+  b(kHubTravel).there = b(kHubBar).there = b(kHubOptions).there = !v.contract;
+  // Nothing but OK (and REPLAY) while AFTER ACTION waits.
+  for (int32_t id : {kHubMarket, kHubBar, kHubTravel, kHubOffice, kHubCompany, kHubDeploy, kHubOptions}) b(id).on = !v.after_action;
+  Mw1State::show(s);
+}
+
+HubOptionsState::HubOptionsState(zgame::Handle h, std::function<void(int32_t)> pressed)
+    : Mw1State(h, "MW1 Hub Options State", kHubFile, kHubOptionsDialog, kHubOptionsButtons, kHubOptBack, std::move(pressed)) {}
+
+void HubOptionsState::show(const std::string& scenery, const std::string& planet) {
+  ScreenView s;
+  s.backdrop = scenery;
+  s.blocks = {at_place("TITLE", {"OPTIONS"}), at_place("STATUS_WORLD", {planet}),
+              at_place("STATUS", {"SETTINGS: the game's options. MAIN MENU: the campaign is saved."})};
+  s.buttons.resize(kHubOptionsButtonCount);
   Mw1State::show(s);
 }
 

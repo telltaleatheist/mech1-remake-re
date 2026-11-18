@@ -49,7 +49,7 @@ TEST(mw1_rooms_the_bars_pages_show_their_own_pieces) {
   mw1::BarChoice b;
   auto there = [](const mw1::ScreenView& v, int32_t id) { return v.buttons[static_cast<size_t>(id - 1)].there; };
   mw1::ScreenView v = mw1::bar_view(c, b, true);
-  EXPECT(there(v, mw1::kBarDrink) && there(v, mw1::kBarCrew) && there(v, mw1::kBarLance) && there(v, mw1::kBarBack) &&
+  EXPECT(there(v, mw1::kBarDrink) && there(v, mw1::kBarCrew) && !there(v, mw1::kBarLance) && there(v, mw1::kBarBack) &&
          !there(v, mw1::kBarHire) && !there(v, mw1::kBarFire) && !there(v, mw1::kBarDone));
   EXPECT(v.panels[mw1::kBarPanelMenu] && !v.panels[mw1::kBarPanelPortrait] && !v.panels[mw1::kBarPanelGrid]);
   EXPECT(place(v, "MENU_TITLE") && place(v, "MENU_TITLE")->lines == std::vector<std::string>{"THE BAR"});

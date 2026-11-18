@@ -160,7 +160,7 @@ struct Run {
   std::string plaque_after;  // the hub's plaque lines after the trip
   // Lancemates (mw1_pilots.h) before the first ACCEPT: Elli Gujar (Poor) in a Firefly and J. Holmaas (Excellent) in
   // an Owens, hired and assigned; in the mission their names and aims, the enemies and Holmaas's mech destroyed.
-  bool lance = false, lance_set = false;
+  bool lance = false, lance_hired = false, lance_set = false;  // hired at the Bar, then assigned in the COMPANY
   int32_t lance_count = 2;  // 3: Taris Ren too, in a second Firefly
   std::vector<std::string> ally_pilots;  // the allied brains' pilots, in the mission
   std::vector<float> ally_errors;
@@ -185,7 +185,7 @@ struct Run {
   bool fell_back = false, structure_found = false, mission_ended = false, mission_lost = false;
   std::string outcome_shown;  // AFTER ACTION's first line after its title: "Success", "Failure", ...
   // MW1's main menu (mw1_menu.h) in front: NEW CAMPAIGN, the intro skipped (Escape), then the run as ever; the hub's
-  // QUIT back at the menu ends it (the mission's return put the hub over the menu).
+  // OPTIONS' MAIN MENU back at the menu ends it (the mission's return put the hub over the menu).
   bool via_menu = false, menu_new_pressed = false, intro_seen = false, menu_after_quit = false;
 };
 int loadout_items(const mw1::Company* c) { return c && c->loadout ? static_cast<int>(c->loadout->items.size()) : -1; }
@@ -229,7 +229,8 @@ void loop_run(Ending ending, Run* run = nullptr) {
   int32_t favor_at_offer[mw1::kHouseCount] = {}, grievance_at_offer[mw1::kHouseCount] = {};
   int market_step = 0;
   int hubs = 0, hub_frames = 0, enemies = 0, killed = 0, items_at_offer = 0, target = -1;
-  bool hub_checked = false, declined = false, quit = false, replaying = false;
+  bool hub_checked = false, declined = false, quit = false, replaying = false, deployed = false;
+  int64_t advance_paid = -1;  // at the office's ACCEPT
   bool ended = false, back_at_main = false, reach_only = false, reached = false, briefed = false;
   int briefing_frames = 0, lab_items = -1, lab_lasers = -1, stock_lasers = -1;
   bool fit_valid = false;
@@ -326,30 +327,40 @@ void loop_run(Ending ending, Run* run = nullptr) {
         hub_frames = 0;
         mw1::Mw1Screen* sc = bs->screen();
         mw1::Company* c = mw1::game_loop_company_for_tests();
-        // The Bar's menu first (MW1's): its page buttons, not the pages' own.
-        EXPECT(sc->loaded() && sc->visible(mw1::kBarCrew) && sc->visible(mw1::kBarLance) && sc->visible(mw1::kBarBack) &&
-               !sc->visible(mw1::kBarHire) && !sc->visible(mw1::kBarDone));
-        sc->on_button(mw1::kBarHire, 0, 0);  // not on the menu: nothing
-        EXPECT(c->lance.empty());
-        // RECRUIT CREW: the interview, the first recruit, then the next one, then back.
-        sc->on_button(mw1::kBarCrew, 0, 0);
-        run->bar_lines = sc->shown();
-        EXPECT(sc->visible(mw1::kBarHire) && sc->enabled(mw1::kBarHire) && sc->enabled(mw1::kBarDecline) && !sc->visible(mw1::kBarFire) &&
-               !sc->visible(mw1::kBarBack) && sc->visible(mw1::kBarDone));
-        EXPECT(sc->picture(mw1::kBarPanelPortrait) == mw1::portrait_image(c->recruits[0], false) && sc->panel_shown(mw1::kBarPanelPortrait));
-        sc->on_button(mw1::kBarRecruitDown, 0, 0);
-        for (const std::string& l : sc->shown()) run->bar_lines.push_back(l);
-        sc->on_button(mw1::kBarRecruitUp, 0, 0);
-        std::printf("  bar:");
-        for (const std::string& l : run->bar_lines) std::printf(" [%s]", l.c_str());
-        std::printf("\n");
-        // HIRE each (the first recruit each time); YOUR LANCE: up to the first, ASSIGN (the Firefly), down, ASSIGN (the
-        // Owens), ...; DONE, then LEAVE.
         const int32_t n = run->lance_count;
-        for (int32_t i = 0; i < n; ++i) sc->on_button(mw1::kBarHire, 0, 0);
-        for (const std::string& l : sc->shown()) run->bar_after.push_back(l);  // nobody left
-        sc->on_button(mw1::kBarDone, 0, 0);
-        sc->on_button(mw1::kBarLance, 0, 0);
+        if (sc->visible(mw1::kBarCrew)) {
+          // The Bar's menu first (MW1's): its page buttons, not the pages' own; YOUR LANCE not there (the hub's COMPANY).
+          EXPECT(sc->loaded() && !sc->visible(mw1::kBarLance) && sc->visible(mw1::kBarBack) && !sc->visible(mw1::kBarHire) &&
+                 !sc->visible(mw1::kBarDone) && !sc->visible(mw1::kBarAssign));
+          sc->on_button(mw1::kBarHire, 0, 0);  // not on the menu: nothing
+          sc->on_button(mw1::kBarLance, 0, 0);
+          EXPECT(c->lance.empty() && sc->visible(mw1::kBarCrew));
+          // RECRUIT CREW: the interview, the first recruit, then the next one, then back.
+          sc->on_button(mw1::kBarCrew, 0, 0);
+          run->bar_lines = sc->shown();
+          EXPECT(sc->visible(mw1::kBarHire) && sc->enabled(mw1::kBarHire) && sc->enabled(mw1::kBarDecline) && !sc->visible(mw1::kBarFire) &&
+                 !sc->visible(mw1::kBarBack) && sc->visible(mw1::kBarDone));
+          EXPECT(sc->picture(mw1::kBarPanelPortrait) == mw1::portrait_image(c->recruits[0], false) && sc->panel_shown(mw1::kBarPanelPortrait));
+          sc->on_button(mw1::kBarRecruitDown, 0, 0);
+          for (const std::string& l : sc->shown()) run->bar_lines.push_back(l);
+          sc->on_button(mw1::kBarRecruitUp, 0, 0);
+          std::printf("  bar:");
+          for (const std::string& l : run->bar_lines) std::printf(" [%s]", l.c_str());
+          std::printf("\n");
+          // HIRE each (the first recruit each time); then LEAVE: the lance assigned in the hub's COMPANY.
+          for (int32_t i = 0; i < n; ++i) sc->on_button(mw1::kBarHire, 0, 0);
+          for (const std::string& l : sc->shown()) run->bar_after.push_back(l);  // nobody left
+          EXPECT(static_cast<int32_t>(c->lance.size()) == n && c->recruits.empty());
+          run->lance_hired = true;
+          mw1::game_loop_bar()->escape();  // Escape on a page: the Bar's menu, still the Bar
+          EXPECT(sc->visible(mw1::kBarBack) && !sc->visible(mw1::kBarDone) && mw1::game_loop_bar()->screen() == sc);
+          sc->on_button(mw1::kBarBack, 0, 0);
+          return;
+        }
+        // The hub's COMPANY (MW1's CREW_MENU): the grid alone, no Bar menu; up to the first, ASSIGN (the Firefly),
+        // down, ASSIGN (the Owens), ...; LEAVE back to the hub.
+        EXPECT(sc->loaded() && sc->visible(mw1::kBarAssign) && sc->visible(mw1::kBarDone) && !sc->visible(mw1::kBarBack) &&
+               !sc->visible(mw1::kBarHire));
         for (int32_t i = 0; i < n; ++i) sc->on_button(mw1::kBarLanceUp, 0, 0);
         for (int32_t i = 0; i < n; ++i) {
           if (i) sc->on_button(mw1::kBarLanceDown, 0, 0);
@@ -367,9 +378,68 @@ void loop_run(Ending ending, Run* run = nullptr) {
                sc->picture(mw1::kBarPanelColumnFrame + 1) == mw1::frame_name(104, 136, n == 1));
         if (n == 3) EXPECT(mw1::mech_of(*c, 2) == 2);
         run->lance_set = true;
-        mw1::game_loop_bar()->escape();  // Escape on a page: the Bar's menu, still the Bar
-        EXPECT(sc->visible(mw1::kBarBack) && !sc->visible(mw1::kBarDone) && mw1::game_loop_bar()->screen() == sc);
-        sc->on_button(mw1::kBarBack, 0, 0);
+        sc->on_button(mw1::kBarDone, 0, 0);  // LEAVE: the hub
+        return;
+      }
+      // The hub's OPTIONS (MW1's): MAIN MENU, once the run is over.
+      mw1::HubOptionsState* hos = mw1::game_loop_hub_options();
+      if (hos && app.current() == static_cast<zgame::State*>(hos) && hos->screen()) {
+        if (++hub_frames < 10) return;
+        hub_frames = 0;
+        mw1::Mw1Screen* sc = hos->screen();
+        EXPECT(quit && sc->loaded() && sc->visible(mw1::kHubOptSettings) && sc->visible(mw1::kHubOptMainMenu) && sc->visible(mw1::kHubOptBack));
+        sc->on_button(mw1::kHubOptMainMenu, 0, 0);
+        return;
+      }
+      // The House office: the first offer REQUESTED (or the saved one up) and ACCEPTED, the advance paid there; later
+      // another REQUESTED, NEXT OFFER (another, nothing moved), LEAVE.
+      mw1::OfficeState* os = mw1::game_loop_office();
+      if (os && app.current() == static_cast<zgame::State*>(os) && os->screen()) {
+        if (++hub_frames < 10) return;
+        hub_frames = 0;
+        mw1::Mw1Screen* sc = os->screen();
+        const mw1::Company* c = mw1::game_loop_company();
+        EXPECT(sc->loaded() && c && sc->visible(mw1::kOfficeBack));
+        if (!mw1::game_loop_contract()) {
+          // Nothing on offer: REQUEST MISSION, not NEXT OFFER, nothing to ACCEPT.
+          EXPECT(sc->visible(mw1::kOfficeRequest) && sc->enabled(mw1::kOfficeRequest) && !sc->visible(mw1::kOfficeNext) &&
+                 !sc->enabled(mw1::kOfficeAccept));
+          sc->on_button(mw1::kOfficeNext, 0, 0);  // not there: nothing
+          EXPECT(!mw1::game_loop_contract());
+          sc->on_button(mw1::kOfficeRequest, 0, 0);
+        }
+        const mw1::Contract* k = mw1::game_loop_contract();
+        EXPECT(k && !k->accepted && sc->visible(mw1::kOfficeNext) && !sc->visible(mw1::kOfficeRequest) && sc->enabled(mw1::kOfficeAccept));
+        if (!hub_checked && !(run && run->resume)) {
+          funds_at_offer = c->funds, items_at_offer = c->stores->count();
+          for (int h = 0; h < mw1::kHouseCount; ++h) favor_at_offer[h] = c->favor[h], grievance_at_offer[h] = c->grievance[h];
+          target = k ? k->target : -1;
+          if (run && k) run->funds_at_offer = c->funds, run->items_at_offer = c->stores->count(), run->loadout_at_offer = loadout_items(c),
+                             run->first_offer = *k, run->last_offer = *k;
+          const int64_t advance = k ? int64_t{k->payment} * 1000 * k->advance_percent / 100 : -1;
+          hub_checked = true;
+          sc->on_button(mw1::kOfficeAccept, 0, 0);
+          k = mw1::game_loop_contract();
+          advance_paid = c->funds - funds_at_offer;
+          std::printf("  office: accepted %d thousand, advance %d%%: paid %lld (about %lld)\n", k ? k->payment : -1,
+                      k ? k->advance_percent : -1, static_cast<long long>(advance_paid), static_cast<long long>(advance));
+          EXPECT(k && k->accepted && advance_paid >= 0 && c->stores->count() == items_at_offer);
+          return;
+        }
+        // The next offer: NEXT OFFER (another, nothing moved), kept as the run's last; then LEAVE.
+        const int64_t funds = c->funds;
+        const int items = c->stores->count();
+        const int32_t payment = k ? k->payment : -1;
+        const size_t enemies_were = k ? k->enemies.size() : 0;
+        sc->on_button(mw1::kOfficeNext, 0, 0);
+        const mw1::Contract* k2 = mw1::game_loop_contract();
+        EXPECT(c->funds == funds && c->stores->count() == items && k2 && !k2->accepted);
+        if (run && k2) run->last_offer = *k2;  // the one saved now
+        std::printf("  next offer: %d thousand, %zu enemies -> %d thousand, %zu enemies\n", payment, enemies_were, k2 ? k2->payment : -1,
+                    k2 ? k2->enemies.size() : 0);
+        declined = true;
+        sc->on_button(mw1::kOfficeBack, 0, 0);
+        EXPECT(mw1::game_loop_contract() && !mw1::game_loop_contract()->accepted);  // LEAVE: still on offer
         return;
       }
       mw1::TravelState* ts = mw1::game_loop_travel();
@@ -432,7 +502,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
           return std::string();
         };
         EXPECT(sc->loaded() && c && has("HOUSE ") && c->planet != "Planet" && !c->planet.empty() &&
-               value_of("STORES") == std::to_string(c->stores->count()));
+               (mw1::game_loop_pending() ? value_of("STORES").empty() : value_of("STORES") == std::to_string(c->stores->count())));  // the terminal off at AFTER ACTION
         // The world's scenery behind it, and its House's office tile.
         EXPECT(sc->backdrop() == mw1::scenery_image(c->planet_number) &&
                sc->look(mw1::kHubOffice) == "mw1_tile_house_" + [&] {
@@ -440,10 +510,16 @@ void loop_run(Ending ending, Run* run = nullptr) {
                  for (char& ch : h) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
                  return h;
                }());
-        for (int32_t id : {mw1::kHubMarket, mw1::kHubTravel, mw1::kHubBar})
-          EXPECT(sc->visible(id) && sc->enabled(id) == (mw1::game_loop_pending() == nullptr));
+        // MW1's tiles: COMPANY, MECH COMPLEX and the HOUSE OFFICE down the left, STARPORT, BAR and OPTIONS down the right;
+        // with a contract taken, the left alone, DEPLOY in the office's place. All greyed while AFTER ACTION shows.
+        const bool taken = k && k->accepted && !mw1::game_loop_pending();
+        const bool on = mw1::game_loop_pending() == nullptr;
+        for (int32_t id : {mw1::kHubCompany, mw1::kHubMarket}) EXPECT(sc->visible(id) && sc->enabled(id) == on);
+        for (int32_t id : {mw1::kHubTravel, mw1::kHubBar, mw1::kHubOptions})
+          EXPECT(sc->visible(id) == !taken && (taken || sc->enabled(id) == on));
+        EXPECT(!taken || !sc->visible(mw1::kHubOffice));
+        EXPECT(sc->visible(mw1::kHubDeploy) == taken && (!taken || sc->enabled(mw1::kHubDeploy)));
         EXPECT(has(mw1::date_words(c->date)));
-        EXPECT(sc->visible(mw1::kHubQuit) && sc->enabled(mw1::kHubQuit));
         if (const mw1::AfterAction* pa = mw1::game_loop_pending()) {
           // AFTER ACTION: OK, and REPLAY on a failure only; the offer's buttons gone.
           const bool failed = pa->outcome == mw1::Outcome::kFailure;
@@ -465,7 +541,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
             bill_shown = std::max<int64_t>(0, amount("Repair bill: "));
             if (run) run->bill_shown = amount("Repair bill: ");
           }
-          EXPECT(has("AFTER ACTION") && sc->visible(mw1::kHubOk) && !sc->visible(mw1::kHubAccept) && !sc->visible(mw1::kHubDecline));
+          EXPECT(has("AFTER ACTION") && sc->visible(mw1::kHubOk) && !sc->visible(mw1::kHubDeploy));
           EXPECT(sc->visible(mw1::kHubReplay) == failed);
           if (run && run->after_action.empty()) run->after_action = shown;
           if (run && run->stop_at_after_action) {
@@ -481,8 +557,13 @@ void loop_run(Ending ending, Run* run = nullptr) {
           sc->on_button(mw1::kHubOk, 0, 0);
           return;
         }
-        EXPECT(has("CONTRACT ON OFFER") && sc->visible(mw1::kHubAccept) && sc->visible(mw1::kHubDecline) && !sc->visible(mw1::kHubOk) &&
-               !sc->visible(mw1::kHubReplay));
+        EXPECT(has(taken ? "CONTRACT" : "HOUSE OFFICE") && !sc->visible(mw1::kHubOk) && !sc->visible(mw1::kHubReplay));
+        if (taken && !deployed) {
+          // The contract taken at the office: DEPLOY, the briefing.
+          deployed = true;
+          sc->on_button(mw1::kHubDeploy, 0, 0);
+          return;
+        }
         if (!hub_checked && run && run->travel && !run->travel_done) {
           run->travel_from = c->planet, run->date_before = mw1::date_words(c->date);
           run->units_before = (int64_t{c->date.year} * mw1::kMonthCount + c->date.month) * mw1::kUnitsPerMonth + c->date.units;
@@ -496,8 +577,12 @@ void loop_run(Ending ending, Run* run = nullptr) {
           mw1::game_loop_company_for_tests()->hangar.push_back(o);
           run->spare_set = true;
         }
+        if (!hub_checked && run && run->lance && run->lance_hired && !run->lance_set) {
+          sc->on_button(mw1::kHubCompany, 0, 0);  // the lance assigned in the COMPANY
+          return;
+        }
         if (!hub_checked && run && run->lance && !run->lance_set) {
-          // Two recruits in the Bar and two mechs in the hangar; the Bar's buttons do the rest.
+          // Two recruits in the Bar and two mechs in the hangar; the Bar's and the COMPANY's buttons do the rest.
           mw1::Company* mc = mw1::game_loop_company_for_tests();
           mc->recruits = {1, 41};
           if (run->lance_count == 3) mc->recruits.push_back(3);
@@ -520,38 +605,26 @@ void loop_run(Ending ending, Run* run = nullptr) {
           return;
         }
         if (!hub_checked && !(run && run->resume)) {
-          funds_at_offer = c->funds, items_at_offer = c->stores->count();
-          for (int h = 0; h < mw1::kHouseCount; ++h) favor_at_offer[h] = c->favor[h], grievance_at_offer[h] = c->grievance[h];
-          target = k ? k->target : -1;
-          if (run && k) run->funds_at_offer = c->funds, run->items_at_offer = c->stores->count(), run->loadout_at_offer = loadout_items(c),
-                             run->first_offer = *k;
-          if (run && k) run->last_offer = *k;
           std::string f = std::to_string(c->funds);
           for (int i = static_cast<int>(f.size()) - 3; i > 0; i -= 3) f.insert(static_cast<size_t>(i), ",");
           EXPECT(value_of("C-BILLS") == f);
-          hub_checked = true;
-          sc->on_button(mw1::kHubAccept, 0, 0);
+          EXPECT(!k || (run && run->save.size()));  // a new campaign: nothing on offer until the office is asked
+          sc->on_button(mw1::kHubOffice, 0, 0);  // the office takes it from here (REQUEST MISSION, ACCEPT)
           return;
         }
-        // The next offer: kept as the run's last, then DECLINE (another offer, nothing moved), then QUIT (PM's main
-        // menu, the hub off).
+        // The run over: another offer at the office (NEXT OFFER, LEAVE), then OPTIONS' MAIN MENU (PM's main menu, the
+        // hub off). After an ABORT the contract is still taken (no office, no OPTIONS tile): OPTIONS by Escape.
         if (!declined) {
           if (run && c) run->funds_end = c->funds, run->items_end = c->stores->count(), run->loadout_end = loadout_items(c);
-          const int64_t funds = c->funds;
-          const int items = c->stores->count();
-          const int32_t payment = k ? k->payment : -1;
-          const std::vector<int32_t> enemies_were = k ? k->enemies : std::vector<int32_t>{};
-          sc->on_button(mw1::kHubDecline, 0, 0);
-          const mw1::Contract* k2 = mw1::game_loop_contract();
-          EXPECT(c->funds == funds && c->stores->count() == items && k2 && !k2->accepted);
-          if (run && k2) run->last_offer = *k2;  // the one saved now
-          std::printf("  declined: %d thousand, %zu enemies -> %d thousand, %zu enemies\n", payment, enemies_were.size(),
-                      k2 ? k2->payment : -1, k2 ? k2->enemies.size() : 0);
+          if (!taken) {
+            sc->on_button(mw1::kHubOffice, 0, 0);
+            return;
+          }
           declined = true;
-          return;
         }
         quit = true;
-        sc->on_button(mw1::kHubQuit, 0, 0);
+        if (taken) hs->escape();
+        else sc->on_button(mw1::kHubOptions, 0, 0);
         return;
       }
       // The briefing (step 2: the company pilot's Instant Action game): once loaded, LAUNCH (or ABORT).
@@ -759,13 +832,15 @@ void loop_run(Ending ending, Run* run = nullptr) {
   // nothing taken before LAUNCH.
   std::printf("  briefing: pilot \"%s\", the lab's store %d items (full %d), funds at the briefing %lld\n", pilot_name.c_str(),
               lab_items, lab_full, static_cast<long long>(funds_at_briefing));
+  const int extra_hubs = (run && run->market ? 1 : 0) + (run && run->travel ? 1 : 0) + (run && run->lance ? 2 : 0);
   EXPECT(briefed && pilot_name == "MW1 Company" && lab_items == items_at_offer && lab_full == 0);
-  EXPECT(funds_at_briefing == funds_at_offer);
+  EXPECT(funds_at_briefing == funds_at_offer + advance_paid);  // the advance paid at the office's ACCEPT
   EXPECT(fs::exists(fs::path(wd) / "pilots", ec));  // in mw1's own write dir
   if (ending == kAbort) {
-    // ABORT: no mission, the contract not taken, nothing paid or moved; the next offer at once.
-    EXPECT(hubs == 3 + (run && run->market ? 1 : 0) + (run && run->travel ? 1 : 0) + (run && run->lance ? 1 : 0) && hub_checked && declined && back_at_main && enemies == 0);  // the offer, the next (DECLINE), QUIT
-    EXPECT(c && c->funds == funds_at_offer && c->stores->count() == items_at_offer);
+    // ABORT: no mission, the contract still taken (its advance kept), nothing else paid or moved; DEPLOY again.
+    EXPECT(hubs == 3 + extra_hubs && hub_checked && declined && back_at_main && enemies == 0);  // the office, the contract, back
+    EXPECT(c && c->funds == funds_at_offer + advance_paid && c->stores->count() == items_at_offer);
+    EXPECT(mw1::game_loop_contract() && mw1::game_loop_contract()->accepted);
     if (run) EXPECT(loadout_items(c) == run->loadout_at_offer);
     else EXPECT(c && !c->loadout);
     if (run && c) run->funds_end = c->funds, run->items_end = c->stores->count(), run->loadout_end = loadout_items(c);
@@ -776,10 +851,10 @@ void loop_run(Ending ending, Run* run = nullptr) {
     mech3::options() = mech3::Options{};
     return;
   }
-  // The offer, AFTER ACTION, the next offer (DECLINE), QUIT.
-  EXPECT(hubs == 4 + (run && run->market ? 1 : 0) + (run && run->travel ? 1 : 0) + (run && run->lance ? 1 : 0) && hub_checked && declined && back_at_main && enemies > 0 && killed == (ending == kReach ? 0 : enemies));
+  // The office, the contract (DEPLOY), AFTER ACTION, the office again (NEXT OFFER), MAIN MENU.
+  EXPECT(hubs == 5 + extra_hubs && hub_checked && declined && back_at_main && enemies > 0 && killed == (ending == kReach ? 0 : enemies));
   if (ending == kReach) EXPECT(reach_only && reached);
-  EXPECT(c && funds_in_mission > funds_at_offer);  // the advance, at LAUNCH
+  EXPECT(c && funds_in_mission >= funds_at_offer + advance_paid);  // the advance, at the office's ACCEPT
   EXPECT(c && (c->loadout || (run && run->kill_player)));  // the briefing's loadout (lost with the mech: the spare's stock)
   // Every run's mech launches configured: armor on its parts (an invalid loadout launches with none).
   std::printf("  launched with %d armor points\n", launched_armor);
@@ -1440,6 +1515,7 @@ TEST(mw1_menu_new_campaign_plays_the_intro_then_the_hub_headless) {
       mw1::MenuState* m = mw1::game_loop_menu();
       mw1::IntroState* in = mw1::game_loop_intro();
       mw1::HubState* hub = mw1::game_loop_hub();
+      mw1::HubOptionsState* hub_options = mw1::game_loop_hub_options();
       if (++wait < 5) return false;
       switch (step) {
         case 0:  // the menu: NEW CAMPAIGN
@@ -1498,24 +1574,40 @@ TEST(mw1_menu_new_campaign_plays_the_intro_then_the_hub_headless) {
           if (!showing(app, hub)) return false;
           ++step, wait = 0;
           return false;
-        case 2:  // the hub, the new company saved; its OPTIONS tile
-          EXPECT(mw1::game_loop_company() && fs::exists(r.save, ec));
+        case 2:  // the hub, the new company saved, nothing on offer; its OPTIONS tile
+          EXPECT(mw1::game_loop_company() && fs::exists(r.save, ec) && !mw1::game_loop_contract());
           hub->screen()->on_button(mw1::kHubOptions, 0, 0);
           ++step, wait = 0;
           return false;
-        case 3:  // PM's options state over the hub; its BACK (Escape)
-          if (app.current() == static_cast<zgame::State*>(hub) || !app.current()) return false;
+        case 3:  // MW1's OPTIONS in the hub's place: SETTINGS
+          if (!showing(app, hub_options)) return false;
+          hub_options->screen()->on_button(mw1::kHubOptSettings, 0, 0);
+          ++step, wait = 0;
+          return false;
+        case 4:  // PM's options state over them; its BACK (Escape)
+          if (app.current() == static_cast<zgame::State*>(hub_options) || !app.current()) return false;
           options_seen = engine.menu_state_of(engine.peek32(0x609868)) != nullptr &&
                          app.current() == static_cast<zgame::State*>(engine.menu_state_of(engine.peek32(0x609868)));
           static_cast<mech3::ShellState*>(app.current())->escape();
           ++step, wait = 0;
           return false;
-        case 4:  // the hub again; MAIN MENU: the title screen
-          if (!showing(app, hub)) return false;
-          hub->screen()->on_button(mw1::kHubQuit, 0, 0);
+        case 5:  // MW1's OPTIONS again; BACK: the hub, then Escape there: OPTIONS again; MAIN MENU: the title screen
+          if (!showing(app, hub_options)) return false;
+          hub_options->screen()->on_button(mw1::kHubOptBack, 0, 0);
+          EXPECT(app.pending() || showing(app, hub));
           ++step, wait = 0;
           return false;
-        case 5:  // the title screen again: LOAD on, OPTIONS never shown; QUIT
+        case 6:
+          if (!showing(app, hub)) return false;
+          hub->escape();
+          ++step, wait = 0;
+          return false;
+        case 7:
+          if (!showing(app, hub_options)) return false;
+          hub_options->screen()->on_button(mw1::kHubOptMainMenu, 0, 0);
+          ++step, wait = 0;
+          return false;
+        case 8:  // the title screen again: LOAD on, OPTIONS never shown; QUIT
           if (!showing(app, m)) return false;
           menu_later = m->screen()->shown();
           EXPECT(m->screen()->enabled(mw1::kMenuContinue) && !m->screen()->visible(mw1::kMenuOptions));
@@ -1534,7 +1626,7 @@ TEST(mw1_menu_new_campaign_plays_the_intro_then_the_hub_headless) {
     for (const std::string& l : menu_later) std::printf(" [%s]", l.c_str());
     std::printf("\n  intro: %.1f s, narration %d, grey %d white %d picture %d; options %d, quit asked %d\n", intro_seconds, narration, grey,
                 white, picture, options_seen, quit_asked);
-    EXPECT(step >= 6 && grey && white && picture && intro_seconds > 30.0f);
+    EXPECT(step >= 9 && grey && white && picture && intro_seconds > 30.0f);
     EXPECT(narration == with_mw1);  // MW1's ten lines with its install; without it, none (black, then the picture)
     EXPECT(r.boxes.size() == 1);  // PM's quit box alone: a first campaign isn't asked about
     EXPECT(options_seen && quit_asked);
@@ -1552,7 +1644,7 @@ TEST(mw1_menu_continue_and_new_over_a_save_headless) {
     fs::remove_all(dir, ec);
     fs::create_directories(dir, ec);
     const fs::path save = dir / mw1::kSaveFile, prev = dir / mw1::kPrevSaveFile;
-    // A company to continue: the straight start's, saved at its first offer.
+    // A company to continue: the straight start's, saved at once.
     {
       MenuRun r;
       r.save = save.string(), r.start = mw1::Start::kHub;
@@ -1644,7 +1736,7 @@ TEST(mw1_menu_continue_and_new_over_a_save_headless) {
 }
 
 // A whole contract through the menu (Run::via_menu): NEW CAMPAIGN, the intro, the hub, the mission won; back from
-// it the hub stands over MW1's menu, so its QUIT lands there, not on PM's main menu.
+// it the hub stands over MW1's menu, so its OPTIONS' MAIN MENU lands there, not on PM's main menu.
 TEST(mw1_menu_a_mission_comes_back_to_the_hub_over_the_menu_headless) {
   std::error_code ec;
   if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
@@ -1672,9 +1764,9 @@ int32_t world_of_house(int32_t house) {
 }
 }  // namespace
 
-// From the hub's OFFICE: an ask far over the offer is countered (Davion never breaks off) and BACK shows the hub
-// the counter-offer; then an ask the House can't refuse (a lower advance) agrees, and the contract goes to the
-// briefing on the agreed terms, saved.
+// From the hub's OFFICE: REQUEST MISSION, an ask far over the offer is countered (Davion never breaks off), LEAVE
+// and back: the counter-offer still up; then an ask the House can't refuse (a lower advance) agrees, the hub shows
+// the CONTRACT on the agreed terms, saved, and its DEPLOY goes to the briefing.
 TEST(mw1_office_counter_then_agreed_to_the_briefing_headless) {
   std::error_code ec;
   if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
@@ -1694,14 +1786,17 @@ TEST(mw1_office_counter_then_agreed_to_the_briefing_headless) {
       if (++wait < 5) return false;
       switch (step) {
         case 0:
-          if (!showing(app, hub) || !k) return false;
-          EXPECT(hub->screen()->enabled(mw1::kHubOffice));
-          opening = k->payment;
+          if (!showing(app, hub) || k) return false;  // nothing on offer at a new campaign's hub
+          EXPECT(hub->screen()->enabled(mw1::kHubOffice) && !hub->screen()->visible(mw1::kHubDeploy));
           hub->screen()->on_button(mw1::kHubOffice, 0, 0);
           ++step, wait = 0;
           return false;
         case 1:
           if (!showing(app, of)) return false;
+          of->screen()->on_button(mw1::kOfficeRequest, 0, 0);
+          k = mw1::game_loop_contract();
+          if (!k) return true;
+          opening = k->payment;
           EXPECT(!of->screen()->enabled(mw1::kOfficeSubmit));  // nothing asked yet
           for (int i = 0; i < 400; ++i) of->screen()->on_button(mw1::kOfficePayUp, 0, 0);  // +4,000 thousand
           of->screen()->on_button(mw1::kOfficeSubmit, 0, 0);
@@ -1712,15 +1807,24 @@ TEST(mw1_office_counter_then_agreed_to_the_briefing_headless) {
           return false;
         case 2:
           if (!showing(app, hub)) return false;
-          hub_shows_counter = shows_line(hub->screen()->shown(), "Payment: " + std::to_string(countered) + ",000 C-bills");
+          EXPECT(k && !k->accepted && !hub->screen()->visible(mw1::kHubDeploy));
           hub->screen()->on_button(mw1::kHubOffice, 0, 0);
           ++step, wait = 0;
           return false;
         case 3:
           if (!showing(app, of)) return false;
-          advance = k->advance_percent;
+          hub_shows_counter = k && k->payment == countered && !of->screen()->visible(mw1::kOfficeRequest) &&
+                              of->screen()->visible(mw1::kOfficeNext);
+          advance = k ? k->advance_percent : 0;
           of->screen()->on_button(mw1::kOfficeAdvanceDown, 0, 0);
           of->screen()->on_button(mw1::kOfficeSubmit, 0, 0);
+          ++step, wait = 0;
+          return false;
+        case 4:  // agreed: the hub's CONTRACT on its terms, DEPLOY
+          if (!showing(app, hub)) return false;
+          EXPECT(k && k->accepted && hub->screen()->visible(mw1::kHubDeploy) &&
+                 shows_line(hub->screen()->shown(), "Payment: " + std::to_string(countered) + ",000 C-bills"));
+          hub->screen()->on_button(mw1::kHubDeploy, 0, 0);
           ++step, wait = 0;
           return false;
         default:
@@ -1730,7 +1834,7 @@ TEST(mw1_office_counter_then_agreed_to_the_briefing_headless) {
       }
     };
     menu_run(r);
-    std::printf("  opening %d thousand, countered %d (said %d, the hub %d); advance %d%% -> agreed at %d%%, briefing %d\n", opening, countered,
+    std::printf("  opening %d thousand, countered %d (said %d, kept %d); advance %d%% -> agreed at %d%%, briefing %d\n", opening, countered,
                 counter_said, hub_shows_counter, advance, agreed_advance, briefing);
     EXPECT(countered >= opening && counter_said && hub_shows_counter && briefing);
     EXPECT(agreed_advance == advance - 1 && agreed_payment == countered && rounds == 2);
@@ -1788,7 +1892,7 @@ TEST(mw1_office_terminated_on_a_stuck_poor_world_and_a_refusal_headless) {
           if (!showing(app, hub)) return false;
           hub_lines = hub->screen()->shown();
           hub_over = shows_line(hub_lines, "NEGOTIATIONS TERMINATED") && hub->screen()->enabled(mw1::kHubOffice) &&
-                     !hub->screen()->visible(mw1::kHubAccept);
+                     !hub->screen()->visible(mw1::kHubDeploy) && !mw1::game_loop_contract();
           hub_stuck = shows_line(hub_lines, "You can't afford to leave, and the House has broken off negotiations.");
           hub->screen()->on_button(mw1::kHubTravel, 0, 0);
           ++step, wait = 0;
@@ -2135,8 +2239,10 @@ TEST(mw1_soak_twenty_contracts_through_the_hub_headless) {
       if (mw1::OfficeState* os = mw1::game_loop_office(); showing(app, os)) {
         mw1::Mw1Screen* sc = os->screen();
         const int a = roll(4);
-        if (a == 0 && sc->enabled(mw1::kOfficePayUp)) sc->on_button(mw1::kOfficePayUp, 0, 0), sc->on_button(mw1::kOfficeSubmit, 0, 0);
+        if (sc->visible(mw1::kOfficeRequest) && sc->enabled(mw1::kOfficeRequest) && roll(4)) sc->on_button(mw1::kOfficeRequest, 0, 0);
+        else if (a == 0 && sc->enabled(mw1::kOfficePayUp)) sc->on_button(mw1::kOfficePayUp, 0, 0), sc->on_button(mw1::kOfficeSubmit, 0, 0);
         else if (a == 1 && sc->enabled(mw1::kOfficeAccept)) sc->on_button(mw1::kOfficeAccept, 0, 0);
+        else if (a == 2 && sc->visible(mw1::kOfficeNext)) sc->on_button(mw1::kOfficeNext, 0, 0);
         else sc->on_button(mw1::kOfficeBack, 0, 0);
         return false;
       }
@@ -2217,10 +2323,12 @@ TEST(mw1_soak_twenty_contracts_through_the_hub_headless) {
       const int a = roll(10);
       if (a == 0 && sc->enabled(mw1::kHubMarket)) return ++markets, sc->on_button(mw1::kHubMarket, 0, 0), false;
       if (a == 1 && sc->enabled(mw1::kHubBar)) return ++bars, sc->on_button(mw1::kHubBar, 0, 0), false;
-      if (a == 2 && sc->enabled(mw1::kHubOffice)) return ++offices, sc->on_button(mw1::kHubOffice, 0, 0), false;
-      if ((a == 3 || !sc->visible(mw1::kHubAccept)) && sc->enabled(mw1::kHubTravel)) return sc->on_button(mw1::kHubTravel, 0, 0), false;
-      if (a == 4 && sc->visible(mw1::kHubDecline)) return sc->on_button(mw1::kHubDecline, 0, 0), false;
-      if (sc->visible(mw1::kHubAccept)) sc->on_button(mw1::kHubAccept, 0, 0);
+      if (a == 2 && sc->enabled(mw1::kHubCompany)) return ++bars, sc->on_button(mw1::kHubCompany, 0, 0), false;
+      // A contract taken: DEPLOY. Else the office for one (REQUEST MISSION, NEXT OFFER, NEGOTIATE, ACCEPT), or a trip.
+      if (sc->visible(mw1::kHubDeploy) && sc->enabled(mw1::kHubDeploy)) return sc->on_button(mw1::kHubDeploy, 0, 0), false;
+      const bool office = sc->visible(mw1::kHubOffice) && sc->enabled(mw1::kHubOffice) && mw1::earning_here(*c);
+      if ((a == 3 || !office) && sc->enabled(mw1::kHubTravel)) return sc->on_button(mw1::kHubTravel, 0, 0), false;
+      if (office) return ++offices, sc->on_button(mw1::kHubOffice, 0, 0), false;
       return false;
     };
     menu_run(r);

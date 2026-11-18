@@ -2,11 +2,12 @@
 // MW1's Bar (the hub's BAR; mw1_pilots.h's rules) on MW1's screen template (mw1_screen.h), its layout mw1bar.zrd in
 // MW1's data folder: the bar scene, in three pages (FIXES.md item 3; CATALOG's 13, 15 and 5):
 // - the Bar: MW1's menu, ORDER DRINK (MW1's: a unit of time, and the Bar's tips at their prices), NEWS (the news live
-//   now), RECRUIT CREW, YOUR LANCE and LEAVE; DRINK and NEWS show MW1's story on the event panel
+//   now), RECRUIT CREW and LEAVE; DRINK and NEWS show MW1's story on the event panel
 //   (mw1_event_screen.h);
 // - RECRUIT CREW, the interview: one recruit at a time, their portrait, record and pitch; HIRE, DECLINE, PREV, NEXT;
-// - YOUR LANCE, MW1's crew grid: you and the lancemates side by side, each one's portrait, record and mech's picture,
-//   the chosen one's frame lit; FIRE, ASSIGN, PREV, NEXT.
+// - YOUR LANCE, MW1's crew grid (CREW_MENU): you and the lancemates side by side, each one's portrait, record and
+//   mech's picture, the chosen one's frame lit; FIRE, ASSIGN, PREV, NEXT. It is the hub's COMPANY now (FIXES.md item
+//   11: MW1 keeps it there, not at the Bar): the grid alone over the company's barracks, its LEAVE back to the hub.
 // A page's DONE (and Escape) goes back to the Bar's menu; the menu's LEAVE (BACK, and Escape there) to the hub.
 #include <cstdint>
 #include <functional>
@@ -27,6 +28,8 @@ enum BarButton : int32_t {
 inline constexpr int32_t kBarButtonCount = 14;
 
 enum class BarPage : int32_t { kMenu, kRecruits, kLance };
+
+inline constexpr const char* kCompanyBackdrop = "mw1_company_barracks";
 
 // The layout's panels by place (mw1bar.zrd's PANEL..PANEL25): the plaques and the status line, the menu, the
 // lance's notes, the interview's frame, portrait and terminal, the grid's panel, then a column's frame, portrait,
@@ -51,6 +54,7 @@ struct BarChoice {
   BarPage page = BarPage::kMenu;
   int32_t recruit = 0, mate = 0;
   std::string note;
+  bool company = false;  // the hub's COMPANY: the crew grid alone (page kLance)
 };
 void clamp_choice(const Company& c, BarChoice& b);
 
