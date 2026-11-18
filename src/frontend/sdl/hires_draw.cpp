@@ -205,7 +205,9 @@ void HiresDraw::draw(const uint16_t* pixels, int width, int height, int pitch, b
   for (size_t i = 0; i < n; ++i)
     if (l[i].kind == Kind::kText && !atlas) ok[i] = false;
 
-  // The fail-safe: a draw not drawn here takes itself and every draw over it out where it shows; the canvas shows.
+  // The fail-safe: a draw not drawn here (no source, no glyphs) is the canvas's where it shows: its chain starts
+  // again at it, from the canvas as the draw left it (its "after"), and the draws over it are drawn as ever. What
+  // was under it is the canvas's there too; never a hole.
   for (size_t i = 0; i < n; ++i) {
     if (ok[i]) continue;
     ++stats_.failed;
@@ -214,7 +216,7 @@ void HiresDraw::draw(const uint16_t* pixels, int width, int height, int pitch, b
     for (int32_t y = r.t; y < r.b; ++y)
       for (int32_t x = r.l; x < r.r; ++x) {
         uint16_t& b = base_[static_cast<size_t>(y) * width + x];
-        if (b && b <= id) b = 0;
+        if (b && b <= id) b = id;
       }
   }
 
@@ -229,8 +231,8 @@ void HiresDraw::draw(const uint16_t* pixels, int width, int height, int pitch, b
       const int32_t cw = c.rect.r - c.rect.l;
       const size_t row = static_cast<size_t>(y - c.rect.t) * cw;
       const size_t k = row + (x - c.rect.l);
-      uint16_t v = c.before[k];
-      if (c.kind == Kind::kText && c.after[k] != c.before[k]) {
+      uint16_t v = ok[b - 1] ? c.before[k] : c.after[k];  // a failed base: the canvas as it left it
+      if (ok[b - 1] && c.kind == Kind::kText && c.after[k] != c.before[k]) {
         // The text's blit changed it: its background (an OPAQUE line) stays, its glyph is the background beside it,
         // else what was under it.
         const uint16_t glyph = canvas_colour(c.colour, rgb565);

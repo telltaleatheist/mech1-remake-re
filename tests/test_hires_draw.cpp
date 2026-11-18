@@ -144,7 +144,7 @@ TEST(hires_draw_a_picture_from_its_source) {
 }
 
 TEST(hires_draw_no_source_leaves_the_canvas) {
-  // The fail-safe: no picture behind the name. Nothing drawn here, nothing put under: the canvas's layer shows.
+  // The fail-safe: no picture behind the name. It isn't drawn here; under its place the canvas as it left it.
   Recorder r;
   Images im;  // empty
   platform::set_hires_images(&im);
@@ -154,8 +154,52 @@ TEST(hires_draw_no_source_leaves_the_canvas) {
   sdlfe::HiresDraw d(&r, &l);
   d.draw(c.px.data(), c.w, c.h, c.w * 2, true, false, 0);
   platform::set_hires_images(nullptr);
-  EXPECT(d.stats().failed == 1 && d.stats().pictures == 0 && d.stats().under == 0);
-  EXPECT(r.draws.empty());
+  EXPECT(d.stats().failed == 1 && d.stats().pictures == 0 && d.stats().under == 64 * 32);
+  EXPECT(r.draws.size() == 1 && r.draws[0].state.sharp);  // the canvas's own picture of it, nothing else
+  if (r.draws.size() == 1) {
+    uint32_t px;
+    std::memcpy(&px, &r.textures[r.draws[0].texture][(static_cast<size_t>(5) * 64 + 5) * 4], 4);
+    EXPECT(px == sdlfe::SdlScreen2D::rgba(0x1234, true));
+  }
+}
+
+TEST(hires_draw_a_failed_draw_keeps_the_draws_over_it) {
+  // A translucent dim with no source between the backdrop and the text (the story pages' mw1_dim): there the canvas
+  // as the dim left it, and the text over it still drawn at the frame's resolution.
+  const std::string font = (fs::path(__FILE__).parent_path().parent_path() / "mw1" / "data" / "fonts" /
+                            "ShareTechMono-Regular.ttf").string();
+  Recorder r;
+  Images im;
+  add_pic(im);
+  platform::set_hires_images(&im);
+  Lists l;
+  Canvas c(64, 32);
+  static int dim_owner;
+  blit(l, c, &pic_owner, 64, 32, 0, 0, true, "pic", [&] { c.fill({0, 0, 64, 32}, 0x1234); });
+  blit(l, c, &dim_owner, 64, 32, 0, 0, false, "mw1_dim", [&] { c.fill({0, 0, 64, 32}, 0x0912); });
+  l.clear(&text_owner);
+  Command t;
+  t.rect = Rect{0, 0, 40, 12};
+  t.text = "STORY";
+  t.font = FontKey{font, 12, 400, false, 0, 0};
+  t.colour = 0x00ffffff;
+  l.text(&text_owner, t);
+  blit(l, c, &text_owner, 40, 12, 8, 10, false, "", [&] { c.fill({10, 12, 12, 20}, 0xffff); });
+  sdlfe::HiresDraw d(&r, &l);
+  d.draw(c.px.data(), c.w, c.h, c.w * 2, true, false, 0);
+  platform::set_hires_images(nullptr);
+  EXPECT(d.stats().failed == 1 && d.stats().pictures == 0 && d.stats().lines == 1);
+  const Drawn* under = nullptr;
+  for (const Drawn& dd : r.draws)
+    if (dd.state.sharp) under = &dd;
+  EXPECT(under != nullptr);
+  if (under) {
+    uint32_t px;
+    std::memcpy(&px, &r.textures[under->texture][(static_cast<size_t>(5) * 64 + 50) * 4], 4);
+    EXPECT(px == sdlfe::SdlScreen2D::rgba(0x0912, true));  // the dimmed backdrop, as the canvas has it
+    std::memcpy(&px, &r.textures[under->texture][(static_cast<size_t>(15) * 64 + 11) * 4], 4);
+    EXPECT(px == sdlfe::SdlScreen2D::rgba(0x0912, true));  // under the text's glyph: the dim, not the glyph
+  }
 }
 
 TEST(hires_draw_text_over_a_picture_and_an_unrecorded_write) {
@@ -277,7 +321,8 @@ TEST(hires_draw_a_texture_that_cant_be_made) {
   d.draw(c.px.data(), c.w, c.h, c.w * 2, true, false, 0);
   d.draw(c.px.data(), c.w, c.h, c.w * 2, true, false, 0);  // and again, asked afresh
   platform::set_hires_images(nullptr);
-  EXPECT(d.stats().failed == 1 && d.stats().pictures == 0 && r.draws.empty());
+  EXPECT(d.stats().failed == 1 && d.stats().pictures == 0);
+  for (const Drawn& dd : r.draws) EXPECT(dd.state.sharp);  // only the canvas's picture of it
 }
 
 TEST(hires_draw_an_opaque_line_keeps_its_box_over_a_picture) {
