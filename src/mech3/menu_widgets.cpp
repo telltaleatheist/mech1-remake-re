@@ -55,8 +55,14 @@ ScrollImage::ScrollImage(Engine& e) : Image(0), e_(e) {
   const int32_t h = e_.display_height();
   const int32_t w = e_.display_width();
   view = Rect{0, 0, w, h - 1};
-  moving = e_.fast_menu() ? 0 : 1;
+  moving = e_.fast_menu() || menus_still() ? 0 : 1;  // ours: menus_still (set_menus_still)
 }
+
+namespace {
+bool g_menus_still = false;
+}
+void set_menus_still(bool on) { g_menus_still = on; }
+bool menus_still() { return g_menus_still; }
 
 // Mech3.exe 1.2 @ 0x0040a490, Pirate's Moon 1.0 @ 0x00488880 (the same: [0x00609588]'s 4 pieces)
 void ScrollImage::draw() {

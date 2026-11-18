@@ -18,6 +18,10 @@ namespace mech3 {
 // The background of the menus, Pirate's Moon's (vtable 0x005e6ea8, 0x144 bytes; MW3's 0x005bc1b0):
 // unless FastMenu, the image scrolls by (step_x, step_y) pixels a second and wraps, drawn as up to
 // four pieces cut at its edges. MW3's moved a pixel a frame.
+// Ours: a program's menus hold every ScrollImage still (none pans or wraps), MW3's and PM's own runs unchanged.
+void set_menus_still(bool on);
+bool menus_still();
+
 class ScrollImage : public ztwod::Image {
  public:
   explicit ScrollImage(Engine& e);   // Pirate's Moon 0x00488470 (MW3's inline in 0x0040a110)
