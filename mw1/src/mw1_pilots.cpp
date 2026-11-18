@@ -291,7 +291,12 @@ std::vector<int32_t> stayed_behind(const std::vector<int32_t>& deployed, const s
   return out;
 }
 
-bool pilot_killed(const LanceFate& f) { return f.destroyed; }
+void roll_missing(std::vector<LanceFate>& fates, Rng& rng) {
+  for (LanceFate& f : fates) f.missing = f.destroyed && rng.upto(99) < kMissingPercent;
+}
+
+bool pilot_killed(const LanceFate& f) { return f.destroyed && !f.missing; }
+bool pilot_missing(const LanceFate& f) { return f.destroyed && f.missing; }
 
 void after_mission(Company& c, const std::vector<LanceFate>& fates) {
   for (const LanceFate& f : fates) {
@@ -304,8 +309,8 @@ void after_mission(Company& c, const std::vector<LanceFate>& fates) {
       p.gunnery = p.piloting = g + 1, p.missions = 0;
       c.notices.push_back(pilot_title(f.id) + " is promoted: Gunnery " + kRatingNames[g + 1] + ".");
     }
-    if (!pilot_killed(f)) continue;
-    // Killed: gone for good; the mech they flew lost with them.
+    if (!f.destroyed) continue;
+    // Killed, gone for good, or missing, back in the pool (ratings and record kept): the mech they flew lost either way.
     for (size_t h = 0; h < c.hangar.size(); ++h)
       if (c.hangar[h].pilot == f.id) {
         c.notices.push_back("Lost: the " + mech_title(c.hangar[h].mech) + ".");
@@ -314,8 +319,13 @@ void after_mission(Company& c, const std::vector<LanceFate>& fates) {
       }
     for (size_t i = 0; i < c.lance.size(); ++i)
       if (c.lance[i].id == f.id) c.lance.erase(c.lance.begin() + static_cast<long>(i));
-    p.where = PilotWhere::kDead;
-    c.notices.push_back(pilot_title(f.id) + " was killed.");
+    if (pilot_missing(f)) {
+      p.where = PilotWhere::kFree;
+      c.notices.push_back(pilot_title(f.id) + " is missing in action.");
+    } else {
+      p.where = PilotWhere::kDead;
+      c.notices.push_back(pilot_title(f.id) + " was killed.");
+    }
   }
 }
 

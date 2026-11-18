@@ -289,6 +289,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       pending_->killers = killers_, pending_->seconds = seconds_;
       pending_->armor_left = armor_left_, pending_->structure_left = structure_left_;
       pending_->lance = fates_;
+      roll_missing(pending_->lance, rng_);  // FIXES.md item 32: each downed lancemate KILLED or MISSING, once
       for (const MechBill& b : bills_) pending_->bills.push_back({b.who, b.mech, b.damage, b.destroyed});
       pending_->stayed = stayed_behind(flying_, fates_);  // the map's allied places ran out: they didn't fly
       pending_->salvage = std::move(salvage_);
@@ -1319,7 +1320,12 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
                                                                       : "Withdrew") +
                         " in " + time_words(a.seconds));
     // The lancemates before the wrecks: a long list of wrecks is the one cut short.
-    for (const LanceFate& f : a.lance) p.results.push_back(pilot_title(f.id) + (f.destroyed ? ": mech destroyed" : ": came back"));
+    // A downed lancemate KILLED or MISSING (FIXES.md item 32) on a counted mission; a retreat counts no casualties.
+    for (const LanceFate& f : a.lance)
+      p.results.push_back(pilot_title(f.id) + (!f.destroyed                        ? ": came back"
+                                               : a.outcome == Outcome::kRetreat ? ": mech destroyed"
+                                               : pilot_missing(f)               ? ": MISSING"
+                                                                                : ": KILLED"));
     for (int32_t id : a.stayed) p.results.push_back(pilot_title(id) + ": stayed behind");
     // Each wreck: its kind, who disabled it, its value (the salvage share's base).
     int64_t value = 0;
@@ -1431,9 +1437,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (ev_panel_.scene.empty()) ev_panel_.scene = scenery_image(company_.planet_number);  // the world's own
     ev_panel_.pages = shown_pages(company_, s);
     if (ev_panel_.pages.empty()) ev_panel_.pages.push_back({});
-    if (s.restart && !kStoryDeathsRestart) {
-      // MW1 restarts the campaign here (PLAY AGAIN / QUIT); until Owen decides (Q1) the page is shown and play goes on.
-      std::printf("mw1: story: MW1 would restart here; play goes on (research/story.md Q1)\n");
+    if (s.restart) {
+      // MW1 restarts the campaign here (PLAY AGAIN / QUIT); ours never does (FIXES.md item 33, Owen: "you cant die in
+      // this one"): the page is shown and play goes on.
+      std::printf("mw1: story: MW1 would restart here; play goes on (FIXES.md item 33)\n");
     } else {
       ev_panel_.captions = s.captions;
       if (s.event == kEventDarkWingAttack) ev_panel_.live = {kDarkWingBattle, true};  // ATTACK waits for its battle (Q5)
@@ -1716,7 +1723,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     for (const std::string& x : rep.lines) l.push_back(x);
     l.push_back("Funds: " + thousands(c.funds) + " C-bills");
     for (const LanceFate& f : pending_->lance)
-      l.push_back(pilot_title(f.id) + (f.destroyed ? ": mech destroyed" : ": flew"));
+      l.push_back(pilot_title(f.id) + (!f.destroyed                                ? ": flew"
+                                       : pending_->outcome == Outcome::kRetreat ? ": mech destroyed"
+                                       : pilot_missing(f)                       ? ": MISSING"
+                                                                                : ": KILLED"));
     for (int32_t id : pending_->stayed)
       l.push_back(pilot_title(id) + " stayed behind: no place on this map (" + std::to_string(pending_->lance.size()) + " allied)");
     if (pending_->outcome == Outcome::kFailure) l.push_back(""), l.push_back("REPLAY: play it again as it was");

@@ -172,7 +172,7 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
     for (size_t i = 0; i < p.bills.size(); ++i)
       o << (i ? "," : "") << p.bills[i].who << ":" << p.bills[i].mech << ":" << p.bills[i].damage << ":" << (p.bills[i].destroyed ? 1 : 0);
     o << "\npending_lance=";
-    for (size_t i = 0; i < p.lance.size(); ++i) o << (i ? "," : "") << p.lance[i].id << ":" << (p.lance[i].destroyed ? 1 : 0);
+    for (size_t i = 0; i < p.lance.size(); ++i) o << (i ? "," : "") << p.lance[i].id << ":" << (p.lance[i].destroyed ? 1 : 0) << ":" << (p.lance[i].missing ? 1 : 0);
     o << "\npending_stayed=";
     for (size_t i = 0; i < p.stayed.size(); ++i) o << (i ? "," : "") << p.stayed[i];
     o << "\npending_seconds=" << p.seconds << "\npending_killers=";
@@ -487,11 +487,14 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
       std::istringstream fs(v["pending_lance"]);
       std::string f;
       while (std::getline(fs, f, ',')) {
-        const size_t colon = f.find(':');
-        int64_t id = 0, gone = 0;
-        if (colon == std::string::npos || !to_int(f.substr(0, colon), 1, kPilotIds - 1, &id) || !to_int(f.substr(colon + 1), 0, 1, &gone))
+        // id:destroyed, then :missing (FIXES.md item 32; absent in older saves: not missing, killed as before).
+        const size_t colon = f.find(':'), colon2 = colon == std::string::npos ? colon : f.find(':', colon + 1);
+        int64_t id = 0, gone = 0, missing = 0;
+        if (colon == std::string::npos || !to_int(f.substr(0, colon), 1, kPilotIds - 1, &id) ||
+            !to_int(f.substr(colon + 1, colon2 == std::string::npos ? std::string::npos : colon2 - colon - 1), 0, 1, &gone) ||
+            (colon2 != std::string::npos && !to_int(f.substr(colon2 + 1), 0, 1, &missing)))
           return fail("the pending mission's lance doesn't read");
-        p.lance.push_back({static_cast<int32_t>(id), gone != 0});
+        p.lance.push_back({static_cast<int32_t>(id), gone != 0, gone != 0 && missing != 0});
       }
       std::istringstream ss(v.count("pending_stayed") ? v["pending_stayed"] : std::string());  // absent: none (early v4)
       while (std::getline(ss, f, ',')) {
