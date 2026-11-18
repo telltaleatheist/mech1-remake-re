@@ -2,7 +2,8 @@
 ; template (src/mw1_screen.h; ANCHOR, LABEL_AT, LABEL_FONT, LABEL_OFF_FONT, TEXTS
 ; and the _WIDE layout are ours). FIXES.md items 8 and 13, Owen's shape: one
 ; page, MW1's buttons down the left (BUY, SELL, REPAIR, RELOAD, MECH LAB,
-; BACK), FOR SALE's terminal over YOUR MECHS', each list with its arrows.
+; BACK), FOR SALE's terminal over YOUR MECHS', each list with its arrows; under the
+; buttons the chosen mech's render (FIXES.md item 14, PANEL6 and 7).
 ; All MW1's own art (mw1image.zbd): nothing of Pirate's Moon's.
 ;
 ; MW1MARKETDIALOG is 4:3's (640); MW1MARKETDIALOG_WIDE the 16:9 canvas's (853).
@@ -16,6 +17,8 @@ MW1MARKETDIALOG (
     PANEL3 (POSITION (-107 454) BITMAP ("mw1_statusbar") ANCHOR ("CENTRE"))
     PANEL4 (POSITION (188 76) BITMAP ("mw1_term_436x172"))
     PANEL5 (POSITION (188 256) BITMAP ("mw1_term_436x172"))
+    PANEL6 (POSITION (12 308) BITMAP ("mw1_frame_168x136"))
+    PANEL7 (POSITION (16 312) BITMAP ("mw1_clear"))
   )
   BUTTONS (
     ; Down the left, MW1's way (their ids are mw1_market_screen.h's, in this order).
@@ -55,6 +58,8 @@ MW1MARKETDIALOG_WIDE (
     PANEL3 (POSITION (0 454) BITMAP ("mw1_statusbar") ANCHOR ("CENTRE"))
     PANEL4 (POSITION (200 76) BITMAP ("mw1_term_637x172"))
     PANEL5 (POSITION (200 256) BITMAP ("mw1_term_637x172"))
+    PANEL6 (POSITION (16 308) BITMAP ("mw1_frame_168x136"))
+    PANEL7 (POSITION (20 312) BITMAP ("mw1_clear"))
   )
   BUTTONS (
     ; Down the left, MW1's way (their ids are mw1_market_screen.h's, in this order).

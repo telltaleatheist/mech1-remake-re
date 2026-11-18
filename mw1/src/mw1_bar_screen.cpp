@@ -6,6 +6,7 @@
 
 #include "mw1_market.h"
 #include "mw1_mech_icons.h"
+#include "mw1_mech_renders.h"
 #include "mw1_chrome.h"
 #include "mw1_pilots.h"
 #include "mw1_story.h"
@@ -52,9 +53,10 @@ std::string portrait_image(int32_t pilot, bool small) {
   return s.empty() ? "" : "mw1_recruit_" + s + (small ? "_s" : "");
 }
 std::string commander_image(bool small) { return small ? "mw1_char_gideon_s" : "mw1_char_gideon"; }
-std::string mech_image(int32_t pm_mech) {  // FIXES.md item 23: PM's lab icon in amber (mw1_mech_icons.h)
+// FIXES.md item 14: its render (mw1_mech_renders.h) once made; till then (item 23) PM's lab icon in amber.
+std::string mech_image(int32_t pm_mech) {
   for (const MechKind& k : kMechKinds)
-    if (k.pm_mech == pm_mech) return mech_icon_image(pm_mech);
+    if (k.pm_mech == pm_mech) return renders_ready() ? render_image(pm_mech, RenderUse::kSlot) : mech_icon_image(pm_mech);
   return "";
 }
 

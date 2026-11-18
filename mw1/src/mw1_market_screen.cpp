@@ -7,6 +7,7 @@
 
 #include "mech3/mech_names.h"
 #include "mw1_market.h"
+#include "mw1_mech_renders.h"
 #include "mw1_pilots.h"
 
 namespace mw1::market_ui {
@@ -93,6 +94,12 @@ ScreenView market_view(const Company& c, const MarketChoice& m) {
               at_place("STATUS_WORLD", {upper(c.planet)}),
               at_place("STATUS", {m.note.empty() ? "BUY takes from FOR SALE; the rest act on YOUR MECHS." : m.note})};
   v.panels.assign(kMarketPanelCount, true);
+  // FIXES.md item 14: the chosen mech's render under the buttons (none till the renders are made).
+  const int32_t shown = m.own_shown || c.market.stock.empty() ? owned_mech(c, m.owned)
+                                                              : c.market.stock[static_cast<size_t>(m.stock)];
+  v.pictures.assign(kMarketPanelCount, "");
+  if (renders_ready() && shown >= 0) v.pictures[kMarketPanelMech] = render_image(shown, RenderUse::kPanel);
+  v.panels[kMarketPanelMechFrame] = v.panels[kMarketPanelMech] = renders_ready() && shown >= 0;
 
   // FOR SALE: the stock at the buying price.
   std::vector<std::string> stock;
