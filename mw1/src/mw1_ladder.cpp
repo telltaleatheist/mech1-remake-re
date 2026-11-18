@@ -25,11 +25,13 @@ int32_t rung_tons(const std::vector<int32_t>& force) {
 }
 
 // Surveyed 2026-11-18 (mw1_loop_the_dark_wing_fits_these_maps_headless): every map of the table made all of rung 6's
-// eight. A map not here (a new row) isn't the Dark Wing's until the survey says so.
+// eight, item 46's MW3 worlds (mw3c1, mw3c3, mw3c4) too. A map not here (a new row) isn't the Dark Wing's until the
+// survey says so.
 const std::vector<MapPlaces> kMapPlaces = {
-    {"c1", 1, 8},    {"c1", 2, 8},    {"c1", 3, 8},    {"c2", 1, 8},    {"c2", 2, 8},
-    {"c2", 3, 8},    {"c3", 1, 8},    {"c3", 2, 8},    {"c3", 3, 8},    {"c4", 1, 8},
-    {"c4", 2, 8},    {"c4", 3, 8},    {"mw3c2", 1, 8}, {"mw3c2", 2, 8}, {"mw3c2", 3, 8},
+    {"c1", 1, 8},    {"c1", 2, 8},    {"c1", 3, 8},    {"c2", 1, 8},    {"c2", 2, 8},    {"c2", 3, 8},
+    {"c3", 1, 8},    {"c3", 2, 8},    {"c3", 3, 8},    {"c4", 1, 8},    {"c4", 2, 8},    {"c4", 3, 8},
+    {"mw3c1", 1, 8}, {"mw3c1", 2, 8}, {"mw3c1", 3, 8}, {"mw3c2", 1, 8}, {"mw3c2", 2, 8}, {"mw3c2", 3, 8},
+    {"mw3c3", 1, 8}, {"mw3c3", 2, 8}, {"mw3c3", 3, 8}, {"mw3c4", 1, 8}, {"mw3c4", 2, 8}, {"mw3c4", 3, 8},
 };
 
 bool map_holds(const std::string& world, int32_t ia, int32_t n) {
@@ -54,11 +56,15 @@ Contract story_battle(const Company& c, int32_t r, Rng& rng) {
   k.objective = Objective::kDestroyAll;
   k.mission_planet = planet_index(c.planet_number);
   k.climate = planet_here(c).landscape;
-  // The map: a destroy-all row of the climate that holds the force, else any that does, else the milestone's.
+  // The map: a destroy-all row that holds the force, from the world's pool as a contract's (item 46, never the map
+  // last drawn), else of the climate, else any that does, else the milestone's.
   std::vector<MapRow> fits;
   for (const MapRow& m : map_table())
     if (m.kind == RowKind::kAny && map_holds(m.world, m.ia, static_cast<int32_t>(k.enemies.size()))) fits.push_back(m);
-  const int32_t row = choose_row(fits, RowKind::kAny, k.climate, rng);
+  int32_t row = -1;
+  if (const MapPool* pool = pool_for(map_pools(), k.mission_planet, k.climate))
+    row = choose_pool_row(fits, *pool, RowKind::kAny, c.last_map_world, c.last_map_ia, rng);
+  if (row < 0) row = choose_row(fits, RowKind::kAny, k.climate, rng);
   if (row >= 0) k.world = fits[static_cast<size_t>(row)].world, k.ia = fits[static_cast<size_t>(row)].ia;
   k.accepted = true;
   return k;
