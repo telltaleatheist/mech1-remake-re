@@ -195,6 +195,11 @@ struct Run {
   // (MouseHost serves only MW1's pictures: PM's ring would be none, -1).
   std::map<std::string, int32_t> pm_cursor;
   int32_t icon_w = -1;  // item 23: the Owens' amber icon as the game finds it (made at the start), its width
+  // FIXES.md item 24: PAY_UP held with zin's mouse at the first offer (the market run): the ask before, after the
+  // hold (kHoldSeconds of the game's time), and a while after the release.
+  int hold_phase = 0, hold_frames = 0;
+  float hold_time = 0.0f;
+  int32_t ask_held = -1, ask_released = -1, ask_offer = -1;
   bool market_done = false;
   // Travel (mw1_travel_screen.h) before the first ACCEPT: the nearest world with a House office, GO; the contract
   // then taken there.
@@ -551,6 +556,30 @@ void loop_run(Ending ending, Run* run = nullptr) {
       // The House office: the first offer REQUESTED (or the saved one up) and ACCEPTED, the advance paid there; later
       // another REQUESTED, NEXT OFFER (another, nothing moved), LEAVE.
       mw1::OfficeState* os = mw1::game_loop_office();
+      // FIXES.md item 24: PAY_UP pressed and held (the first offer, the market run), then released.
+      if (run && run->hold_phase > 0 && run->hold_phase < 5 && os && app.current() == static_cast<zgame::State*>(os) && os->screen()) {
+        zin::MouseInfo* mi = zin::mouse_info();
+        const mw1::Request* ask = mw1::game_loop_office_ask();
+        const int32_t asked = ask ? ask->payment : -1;
+        switch (run->hold_phase) {
+          case 1:  // onto it
+            mi->left = 0, run->hold_phase = 2;
+            break;
+          case 2:  // pressed
+            mi->left = zin::kPressed, run->hold_phase = 3, run->hold_time = 0.0f, run->hold_frames = 0;
+            break;
+          case 3:  // held for a second of the game's time
+            mi->left = zin::kHeld;
+            run->hold_time += engine.frame_dt(), ++run->hold_frames;
+            if (run->hold_time >= 1.0f) run->ask_held = asked, mi->left = zin::kReleased, run->hold_phase = 4, run->hold_frames = 0;
+            break;
+          case 4:  // released: nothing more for a while
+            mi->left = 0;
+            if (++run->hold_frames >= 30) run->ask_released = asked, run->hold_phase = 5, mi->x = mi->y = 0;
+            break;
+        }
+        return;
+      }
       if (os && app.current() == static_cast<zgame::State*>(os) && os->screen()) {
         if (++hub_frames < 10) return;
         hub_frames = 0;
@@ -571,6 +600,14 @@ void loop_run(Ending ending, Run* run = nullptr) {
           funds_at_offer = c->funds, items_at_offer = c->stores->count();
           for (int h = 0; h < mw1::kHouseCount; ++h) favor_at_offer[h] = c->favor[h], grievance_at_offer[h] = c->grievance[h];
           target = k ? k->target : -1;
+          if (run && run->market && run->hold_phase == 0 && k) {  // item 24 first
+            int32_t x = 0, y = 0;
+            EXPECT(sc->button_middle(mw1::kOfficePayUp, &x, &y));
+            zin::MouseInfo* mi = zin::mouse_info();
+            mi->x = x, mi->y = y, mi->left = 0;
+            run->ask_offer = k->payment, run->hold_phase = 1;
+            return;
+          }
           if (run && k) run->funds_at_offer = c->funds, run->items_at_offer = c->stores->count(), run->loadout_at_offer = loadout_items(c),
                              run->first_offer = *k, run->last_offer = *k;
           const int64_t advance = k ? int64_t{k->payment} * 1000 * k->advance_percent / 100 : -1;
@@ -1363,6 +1400,9 @@ TEST(mw1_loop_market_buy_sell_pilot_then_a_contract_in_the_bought_mech_headless)
     EXPECT(run.pm_cursor.count("lab") && run.pm_cursor["lab"] == mw1::chrome::kCursorSize);
     std::printf("  the Company's mech icon: %d wide (the slot %d)\n", run.icon_w, mw1::kIconSlotW);
     EXPECT(run.icon_w == mw1::kIconSlotW);
+    // Item 24: PAY_UP held a second steps the ask on (more than one step), and stops when let go.
+    std::printf("  PAY_UP held 1 s: %d thousand offered, asked %d, %d after the release\n", run.ask_offer, run.ask_held, run.ask_released);
+    EXPECT(run.hold_phase == 5 && run.ask_held > run.ask_offer + mw1::kRequestPaymentStep && run.ask_released == run.ask_held);
     EXPECT(run.market_done && run.market_lines.size() > 4);
     bool for_sale = false, yours = false;
     for (const std::string& l : run.market_lines) for_sale = for_sale || l == "FOR SALE", yours = yours || l == "YOUR MECHS";

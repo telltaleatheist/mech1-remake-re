@@ -18,7 +18,8 @@ namespace {
 // It tells the screen's hover hook (Mw1Screen::set_hover) when the mouse comes onto it (enabled) and goes off it.
 class Mw1Button : public mech3::HelpButton {
  public:
-  Mw1Button(mech3::Engine& e, int32_t id, std::function<void(int32_t)>* hover) : HelpButton(e, id), hover_(hover) {}
+  Mw1Button(mech3::Engine& e, int32_t id, std::function<void(int32_t)>* hover, bool repeat)
+      : HelpButton(e, id), hover_(hover), repeat_(repeat) {}
   void on_enter() override {
     HelpButton::on_enter();
     blinking = 0, hovered_ = true;
@@ -27,7 +28,7 @@ class Mw1Button : public mech3::HelpButton {
   }
   void on_leave() override {
     const bool was = hovered_;
-    hovered_ = false, pressed_for_ = 0.0f;
+    hovered_ = false, pressed_for_ = 0.0f, held_ = -1.0f;  // a held repeat stops off the button
     HelpButton::on_leave();
     if (was && hover_ && *hover_) (*hover_)(0);
   }
@@ -36,11 +37,30 @@ class Mw1Button : public mech3::HelpButton {
   // place (its DONE), shown only a moment before the release reached it.
   void on_left_up() override {
     if (!(mouse & ztwod::kPressed)) return;
+    if (repeat_) {  // it acted on the press
+      held_ = -1.0f;
+      return;
+    }
     HelpButton::on_left_up();
     if (enabled) pressed_for_ = kPressedLook;
   }
+  // A repeat button: once on the press (a press begun on it, as the window marks it), then while held there.
+  void on_press() override {
+    HelpButton::on_press();
+    if (!repeat_ || !enabled) return;
+    held_ = 0.0f, next_ = kRepeatDelay;
+    act();
+  }
   void update(float dt) override {
     blinking = 0;
+    if (held_ >= 0.0f) {
+      if (!hovered_ || !enabled || !(ztwod::host().mouse().left & 3)) {
+        held_ = -1.0f;
+      } else if ((held_ += dt) >= next_) {
+        next_ += held_ >= kRepeatFastAfter ? kRepeatFast : kRepeatEvery;
+        act();
+      }
+    }
     if (pressed_for_ > 0.0f && (pressed_for_ -= dt) <= 0.0f) pressed_for_ = 0.0f;
     if (hovered_ && enabled && !selected && pressed_for_ <= 0.0f) lit();
     HelpButton::update(dt);
@@ -48,12 +68,19 @@ class Mw1Button : public mech3::HelpButton {
 
  private:
   static constexpr float kPressedLook = 0.12f;
+  void act() {
+    pressed_for_ = kPressedLook;
+    if (img_activate) set_image(img_activate), dirty();
+    notify(1, 0);  // ShellButton's press: the screen's on_button
+  }
   void lit() {
     if (img_rollover && image != img_rollover) set_image(img_rollover), dirty();
   }
   std::function<void(int32_t)>* hover_;
   bool hovered_ = false;
   float pressed_for_ = 0.0f;
+  bool repeat_ = false;
+  float held_ = -1.0f, next_ = 0.0f;  // held: seconds since the press (-1: not held), next: the next step's time
 };
 }  // namespace
 namespace {
@@ -183,7 +210,7 @@ Mw1Screen::Mw1Screen(mech3::Engine& e, zgame::Handle state_handle, const char* f
   zrdr::Node* entries = zrdr::find(dlg, "BUTTONS");
   for (size_t i = 0; i < names_.size(); ++i) {
     const int32_t id = static_cast<int32_t>(i) + 1;
-    std::unique_ptr<mech3::HelpButton> b = std::make_unique<Mw1Button>(e, id, &hover_);
+    std::unique_ptr<mech3::HelpButton> b = std::make_unique<Mw1Button>(e, id, &hover_, names_[i].repeat);
     b->id = id;
     if (!ztwod::bind_button(this, dlg, b.get(), names_[i].name)) {
       std::printf("mw1: the layout %s has no button %s\n", file, names_[i].name);
@@ -366,6 +393,14 @@ void Mw1Screen::set_look(size_t i, const std::string& look) {
   b->img_activate = h.image_get((look + "_down").c_str());
   b->img_disabled = h.image_get((look + "_off").c_str());
   b->refresh();
+}
+
+bool Mw1Screen::button_middle(int32_t id, int32_t* x, int32_t* y) const {
+  if (id < 1 || static_cast<size_t>(id) > buttons_.size()) return false;
+  const ztwod::Rect* r = buttons_[static_cast<size_t>(id - 1)]->get_rect();
+  if (!r) return false;
+  *x = (r->left + r->right) / 2, *y = (r->top + r->bottom) / 2;
+  return true;
 }
 
 std::string Mw1Screen::look(int32_t id) const {

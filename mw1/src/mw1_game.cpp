@@ -1675,6 +1675,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   MenuState* menu_state() const { return menu_state_; }
   IntroState* intro_state() const { return intro_state_; }
   void set_world(const std::string& world, int32_t ia) { world_ = world, world_ia_ = ia; }
+  const Request* office_ask() const { return &ochoice_.ask; }
   const Contract* contract() const { return company_.stores && (offered_ || contract_.accepted || pending_) ? &contract_ : nullptr; }
 
   void set_row(const MapRow& r) { row_ = r, row_set_ = true; }
@@ -2044,6 +2045,7 @@ void game_loop_market_changed() {
 }
 
 const Company* game_loop_company() { return the_loop() ? the_loop()->company() : nullptr; }
+const Request* game_loop_office_ask() { return the_loop() ? the_loop()->office_ask() : nullptr; }
 const Contract* game_loop_contract() { return the_loop() ? the_loop()->contract() : nullptr; }
 
 }  // namespace mw1
