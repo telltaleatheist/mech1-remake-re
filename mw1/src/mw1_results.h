@@ -68,6 +68,10 @@ Deduction deduction_of(Outcome o, int32_t payout_percent, int32_t pick);
 // `garrison`: a deployment resolved without combat (MW1's deploymentResolvedWithoutCombat; MW1: Critical Hit has
 // none yet, so it is false today).
 std::vector<std::string> outcome_message(int32_t house, Outcome o, bool garrison, Deduction d);
+// The Dark Wing's (research/story.md, the story battles): MW1's attack-failed line (DS:1BBC) as the results' message
+// of a lost or withdrawn attack; and its victory text (DS:1A37), shown on the event panel after a win. "" without it.
+std::string dark_wing_failed();
+std::string dark_wing_victory();
 // Paragraphs as lines of at most `width` letters, broken at spaces (a word longer than the width alone on its line).
 std::vector<std::string> wrap(const std::vector<std::string>& paragraphs, size_t width);
 

@@ -109,11 +109,16 @@ PLAY AGAIN or QUIT. MW1 restarts the whole campaign.
 Dark Wing's world, no contract and no pay. BTECH plays it as a "special
 assault": stage profile 8, two stages (MW1's codes 5 then 17, a defence and
 a planetary assault), back to back. The text says the Dark Wing is a
-Warhammer and four BattleMasters; the port's launch sets no force of its own
-(it inherits the last contract's counts): **to confirm**. Won: the victory
-text and animation, then CONTINUE / QUIT. Lost: a line saying the attack was
-crushed, the company escapes, and ATTACK is offered again on the next visit
-(until the date).
+Warhammer and four BattleMasters; the game fields **three BattleMasters and a
+Warhammer** (BTECH's import, special-assault mode: BtechPrepareEnemyMech three
+times BattleMaster and once Warhammer, at most four enemies a battle), never the
+contract's counts, with the best pilots there are (gunnery and piloting target
+numbers 0; the default is 4). Won: no after-action and no settlement, the
+victory recorded (0x72 and the arrest 0x75 seen), the victory text (DS:1A37)
+and animation, then 0x76's CONTINUE / QUIT. Lost: the usual after-action with no
+pay, no deduction and no standing, the time SPECIAL_ASSAULT_DEPLOYMENT_UNITS
+(0x1C) on, and the attack-failed line (DS:1BBC) as its outcome; ATTACK is asked
+again (until the date).
 
 **The extended battles** (major campaign contracts, codes 15, 16, 18; ours
 fall back to a raid today, contracts.md Q1): with 2+ pilots and 2+ mechs the
@@ -226,8 +231,8 @@ Each is one constant or flag.
 - **Q11, the pictures:** text panels.
 - **Q1, answered (Owen 2026-11-18):** you can't die in this one. A death's
   page shows and play goes on (FIXES.md item 33: the switch is gone).
-- **Still open (Q5):** `kDarkWingBattle` is off: ATTACK is greyed and
-  DELAY is live.
+- **Q5, answered (the lead and Owen, 2026-11-18; FIXES.md 47):** built as step 5,
+  one stage (below).
 
 ## Built: steps 1-3 (2026-11-17)
 
@@ -359,3 +364,24 @@ play (contracts, the market and the Bar only). It's cheap:
 
 Whether it's worth having depends on Owen's answers to Q1 to Q3 (the deaths
 and the ending), so it isn't built.
+
+## Built: step 5, the Dark Wing (2026-11-18)
+
+- **The ladder** (`src/mw1_ladder.h`, FIXES.md 47): one table, six rungs, each a
+  force and its pilots' aim. Rung 6 is the Dark Wing: Owen's force, MW1's text's
+  Warhammer and four BattleMasters plus three Marauder escorts (635 t by MW1's
+  tonnage), aim x0.4. Up to 8: 7 with a full lance (Instant Action's line-up has
+  ten slots beside the player's; the escorts are trimmed first, logged).
+- **ATTACK** (0x72's first caption) launches it on the company's world: destroy
+  all, on a map of the world's climate whose enemy places hold the force (every
+  table map made all eight, `kMapPlaces`), no office, no pay.
+- **Ours:** 0x72 is asked on an arrival only, not each time the hub is drawn; and
+  no deadline (Owen): 0x72 whatever the date, 0x73 never.
+- **The enemy's aim:** the engine's `ProgramFlow::enemy_launching` (ours, opt-in).
+- **Won:** the results (no fee, no REPLAY, the salvage kept), CONTINUE, then MW1's
+  victory text on the panel over its picture; the name cleared (won, 0x72 and 0x75
+  seen); no time passes (MW1's).
+- **Lost:** the results with MW1's attack-failed line, no REPLAY, 0x1C units on;
+  asked again on the next arrival.
+- **Tests:** `mw1_story_the_dark_wing_won_and_lost_headless`,
+  `mw1_ladder_rungs_and_the_dark_wing_force`, `mw1_loop_the_dark_wing_fits_these_maps_headless`.

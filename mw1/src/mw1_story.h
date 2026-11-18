@@ -118,9 +118,15 @@ std::string commander_name();
 
 // ---- Running it ----
 
-// What waits on Owen (research/story.md): the Dark Wing's battle (Q5, step 5: until then its ATTACK is greyed, DELAY
-// live). The story's deaths never restart the campaign (FIXES.md item 33, Q1 answered): the page shows, play goes on.
-inline constexpr bool kDarkWingBattle = false;
+// The Dark Wing's battle (research/story.md Q5, step 5; mw1_ladder.h's rung 6): ATTACK launches it. The story's deaths
+// never restart the campaign (FIXES.md item 33, Q1 answered): the page shows, play goes on.
+inline constexpr bool kDarkWingBattle = true;
+// Ours (the lead, 2026-11-18): ATTACK / DELAY (0x72) asked on arriving at the Dark Wing's world, not each time the hub
+// is drawn (MW1's), so a loss or DELAY doesn't put it straight back: travel away and come back.
+inline constexpr bool kDarkWingOnArrival = true;
+// Ours (Owen, FIXES.md 47): no deadline. MW1's 20 March 3029 is dropped: 0x72 asked whatever the date (its window's
+// start kept), 0x73 (too late) never fires. The news keeps its dates.
+inline constexpr bool kNoDeadline = true;
 
 // An event to show: its text (the event's id), its choices, and what MW1 does after it.
 struct Shown {

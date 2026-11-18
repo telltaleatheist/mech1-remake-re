@@ -1,6 +1,7 @@
 // MW1's campaign rules for the first milestone (src/mw1_campaign.h): the
 // tables against the player's MW_MAIN.EXE, the PM stand-ins, a new company,
 // contracts as research/contracts.md works them, accepting and the settlement.
+#include <algorithm>
 #include <cctype>
 #include <cstdint>
 #include <cstring>
@@ -295,6 +296,39 @@ TEST(mw1_loading_view_enemy_picture) {
   p.enemy.clear();
   v = mw1::loading_view(p);
   EXPECT(!v.panels[mw1::kLoadEnemyFrame] && !v.panels[mw1::kLoadEnemy] && v.panels[mw1::kLoadTerminal]);
+}
+
+// The loading terminal's lines fit it (the lead, 2026-11-18: a long map name ran past its edge): a long line wrapped at
+// a space within kLoadColumns letters (a highlight's marks not counted), the rest indented, a highlight open at the
+// break closed and opened again; a word too long cut; at most kLoadLines, the last "..." when cut short. Made-up lines.
+TEST(mw1_loading_terminal_lines_fit) {
+  auto letters = [](const std::string& l) { return mw1::plain_line(l).size(); };
+  auto balanced = [](const std::string& l) { return std::count(l.begin(), l.end(), mw1::kHighlight) % 2 == 0; };
+  // Short lines as they are.
+  const std::vector<std::string> short_ = {"Objective: " + mw1::highlighted("destroy all enemy mechs"), "", "Map: Test"};
+  EXPECT(mw1::terminal_lines(short_) == short_);
+  // A long line with a long highlight across the break.
+  const std::string lng = "Map: " + mw1::highlighted("Alpha Bravo Charlie Delta Echo Foxtrot Golf Hotel India") + " (desert)";
+  const std::vector<std::string> w = mw1::terminal_lines({lng});
+  EXPECT(w.size() == 2);
+  bool fit = true, bal = true;
+  for (const std::string& l : w) fit = fit && letters(l) <= mw1::kLoadColumns, bal = bal && balanced(l);
+  EXPECT(fit && bal);
+  EXPECT(w.size() == 2 && w[1].rfind("  ", 0) == 0 && w[1][2] == mw1::kHighlight);  // indented, the highlight reopened
+  std::string joined;
+  for (const std::string& l : w) joined += (joined.empty() ? "" : " ") + mw1::plain_line(l).substr(joined.empty() ? 0 : 2);
+  EXPECT(joined == mw1::plain_line(lng));  // nothing lost at the break
+  // A word longer than a line: cut.
+  const std::vector<std::string> cut = mw1::terminal_lines({std::string(70, 'W')});
+  EXPECT(cut.size() == 1 && letters(cut[0]) == mw1::kLoadColumns);
+  // Too many lines: kLoadLines, the last ending "...".
+  const std::vector<std::string> many = mw1::terminal_lines(std::vector<std::string>(12, "Line"));
+  EXPECT(many.size() == mw1::kLoadLines && many.back().size() >= 3 && many.back().substr(many.back().size() - 3) == "...");
+  // The view shows them fit.
+  mw1::LoadingPanel p;
+  p.lines = {lng};
+  const mw1::ScreenView v = mw1::loading_view(p);
+  EXPECT(v.blocks.size() == 5 && v.blocks[3].lines == w);
 }
 
 // FIXES.md item 20: a line's highlighted spans (mw1_screen.h), marked and taken out again whole.

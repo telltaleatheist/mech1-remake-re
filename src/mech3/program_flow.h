@@ -61,6 +61,9 @@ class ProgramFlow {
   // name (`pilot`, +0xd4, the HUD's and the radio's; set_ai_pilot_name), its aim error (+0xb8, the firing's
   // spread before the difficulty, zai_firing 0x004b70b0). Enemies and a new wave's mechs are not offered.
   virtual void ally_launching(int32_t slot, ai::AiParams& params) {}
+  // Ours (MW1's FIXES.md item 47, a story battle's elite pilots): the same for an enemy of the launch (not a new
+  // wave's), its line-up slot `slot`. Nothing by default (MW3, PM): the map record's settings as they are.
+  virtual void enemy_launching(int32_t slot, ai::AiParams& params) {}
   // A field base has just repaired `mech` (its station's, the refit's, or the dock's timed repair), with each lance
   // bar's armor and structure fractions as they were before it (mech_lance_armor's and mech_lance_structure's
   // order); the mech's own reads give them now. Any mech, any side: the program decides whose.

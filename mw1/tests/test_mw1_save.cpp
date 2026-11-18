@@ -42,6 +42,7 @@ TEST(mw1_save_round_trip) {
   const mw1::Company c = played_company(rng);
   mw1::Contract offer = mw1::generate_contract(c, 1, rng);
   offer.objective = mw1::Objective::kReachStructure, offer.structure = "portalgate", offer.ia = 2;
+  offer.rung = 6;  // FIXES.md item 47: a story battle's (a restart at its AFTER ACTION knows it)
   const std::string text = mw1::save_text(c, &offer);
   mw1::Company back;
   mw1::Contract k;
@@ -56,7 +57,7 @@ TEST(mw1_save_round_trip) {
   EXPECT(back.stores && back.stores->count() == c.stores->count() && !back.stores->full);
   EXPECT(!back.loadout);
   EXPECT(has && k.payment == offer.payment && k.target == offer.target && k.enemies == offer.enemies &&
-         k.objective == mw1::Objective::kReachStructure && k.structure == "portalgate" && k.ia == 2);
+         k.objective == mw1::Objective::kReachStructure && k.structure == "portalgate" && k.ia == 2 && k.rung == 6);
   // No offer: none read back.
   mw1::Company plain = mw1::new_company(rng);
   mw1::Company plain_back;

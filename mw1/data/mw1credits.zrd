@@ -1,0 +1,10 @@
+; MW1: Critical Hit's credits after the Dark Wing's defeat (src/mw1_menu.h, FIXES.md item 47): MW1's own credits
+; rolling up over our art. The BACKGROUND is set to the victory's picture (mw1_black without it), under mw1_dim; the
+; lines are placed by the state, in mw1_credit_head and mw1_credit (mw1fonts.zrd). Filling the 854x480 canvas,
+; centred (4:3 shows its middle 640).
+(
+MW1CREDITSDIALOG (
+  PRIMITIVES (BACKGROUND (POSITION (-107 0) BITMAP ("mw1_black") ANCHOR ("CENTRE")) PANEL (POSITION (-107 0) BITMAP ("mw1_dim") ANCHOR ("CENTRE")))
+  BUTTONS ()
+)
+)

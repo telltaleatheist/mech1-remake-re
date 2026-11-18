@@ -2,7 +2,7 @@
 # (854x480), each on a new write dir. 40 frames into the page's MW1 screen every text must be inside the canvas (a
 # status line past the edge at 4:3 was the case); each outside is printed by place and length, never its words.
 # cmake -DMW1_BIN=<mw1> -DDIR=<scratch dir> -P screen_fit.cmake
-set(pages hub hub_options market market_dealer travel travel_pick company bar bar_note_long bar_recruit bar_drink office office_offer news event results loading)
+set(pages hub hub_options market market_dealer travel travel_pick company bar bar_note_long bar_recruit bar_drink office office_offer news event results loading loading_long)
 set(failed)
 foreach(shape 43 wide)
   foreach(page IN LISTS pages)
@@ -17,8 +17,9 @@ foreach(shape 43 wide)
     endif()
     file(WRITE "${wd}/settings.reg" "Windows Registry Editor Version 5.00\n\n"
                "[HKEY_CURRENT_USER\\SOFTWARE\\MicroProse\\MechWarrior 3 EP1\\1.0]\n\"InGameVMode\"=dword:0000000${mode}\n")
-    # A run that ends 0 with no report is the timing flake (seen under load, a few pages at a time, never the same
-    # twice): that one run again, once. An OUTSIDE, a crash or a timeout is never retried.
+    # A run that ends 0 with no report was the timing flake (under load, a few pages at a time, never the same twice):
+    # the program's _Exit beat the run log's thread to the report (end_fit_run, mw1_game.cpp, quits instead now).
+    # Kept as a guard: that one run again, once. An OUTSIDE, a crash or a timeout is never retried.
     foreach(attempt 1 2)
       execute_process(COMMAND ${CMAKE_COMMAND} -E env MW1_FIT=1 MW1_SCREEN=${page} "${MW1_BIN}" --write-dir "${wd}" --nosound
                               --hidden ${args}
