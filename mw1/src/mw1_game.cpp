@@ -182,6 +182,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     for (const char* f : kPmCursorFiles) ztwod::set_layout_image(kPmCursor, chrome::kCursor, f);  // FIXES.md item 22
     auto* ge = dynamic_cast<mech3::GameEngine*>(&e);
     mech3::set_menus_still(true);  // FIXES.md item 9: PM's own screens' backgrounds held still too
+    mech3::set_buttons_steady(true);  // FIXES.md item 25: PM's own HelpButtons hold their lamp, as ours (item 15)
     ztwod::set_layout_wide([ge] { return ge && ge->buffer_width() > 640; });
   }
   bool shot_driver_ = false;  // MW1_SCREEN=pause's (development)
