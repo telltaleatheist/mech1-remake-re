@@ -45,6 +45,9 @@ void set_game_loop_row(const missions::MapRow& row);
 // What the mission's objectives were built as: "" (destroy all), "reach", "attack" or "defend"; `fell_back` when
 // the contract's structure wasn't on the map (tests).
 std::string game_loop_objective_built(bool* fell_back = nullptr);
+// FIXES.md item 45 (tests): where the contract's structure is in the mission (its node's place, or its parts' middle
+// for a group); false without one.
+bool game_loop_structure_point(float out[3]);
 // Taken off the engine again, and the company dropped (tests).
 void uninstall_game_loop();
 struct Company;

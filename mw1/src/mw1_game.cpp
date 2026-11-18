@@ -13,6 +13,9 @@
 #include <string>
 #include <vector>
 
+#include "gamez/zclass/class.h"
+#include "gamez/zclass/cls_node.h"
+#include <functional>
 #include "mech3/app_vehicle.h"
 #include "mech3/action_menu.h"
 #include "mech3/app_states.h"
@@ -85,7 +88,7 @@ constexpr uint32_t kOptionsStateGlobal = 0x609868;  // PM's main menu's Options 
 constexpr uint32_t kGfxOptionsStateGlobal = 0x60986c, kControlsStateGlobal = 0x609870;  // its other pages' (MW1_SCREEN)
 constexpr const char* kPilotName = "MW1 Company";  // the company's PM pilot (step 2)
 constexpr float kNavNear = 1.0f;  // item 43: only a map's own point on the structure serves as its (a near "Able" says nothing)
-constexpr float kReachRadius = 10.0f;  // metres from the structure's node (reach_area's own default is 25)
+constexpr float kReachRadius = 40.0f;  // metres from the structure's point: FIXES.md item 45, the worst row's closest stand (mw3c2's tower, 33 m) and a margin
 constexpr int32_t kReachIa = 2;        // the map with the structures (c2's ia2)
 
 std::string thousands(int64_t v) {
@@ -1976,7 +1979,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // FIXES.md item 43: the objective's nav point the selected one, so the HUD's nav and its arrow lead there.
     if (nav_point_) {
       float at[3];
-      mech3::mission_objective_hooks().node_position(nav_node_, at);
+      structure_point(mech3::mission_objective_hooks(), nav_node_, at);
       mech3::program_nav_move(nav_point_, at);
       std::printf("mw1: the objective's nav point selected: %s\n", mech3::program_nav_select(nav_point_) ? "yes" : "no");
     }
@@ -2227,11 +2230,41 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   // the map's own on it (kNavNear) serves instead. At the launch it is put where the node is then (a vehicle's is
   // placed after the objectives are read) and selected, so the arrow leads there from the start. 0 without the node
   // or the mission's waynet.
+  // FIXES.md item 45: where a structure is. Its node's place; a node that is only a group (no place of its own: the
+  // world's origin, as c3's land bridge xslid01) is where its parts are, their middle (each part with a place, two
+  // levels down).
+  void structure_point(mech3::ObjectiveHooks& h, zgame::Handle node, float out[3]) const {
+    h.node_position(node, out);
+    if (out[0] != 0.0f || out[1] != 0.0f || out[2] != 0.0f || !ge_) return;
+    auto* n = static_cast<zcls::Node*>(ge_->object_of(node));
+    float sum[3] = {};
+    int32_t parts = 0;
+    std::function<void(zcls::Node*, int)> visit = [&](zcls::Node* c, int depth) {
+      if (!c || depth > 2) return;
+      float w[3] = {};
+      if (depth > 0 && c->data && c->cls() == 5) zcls::node_world_position(c, w);
+      if (w[0] != 0.0f || w[1] != 0.0f || w[2] != 0.0f) {
+        for (int i = 0; i < 3; ++i) sum[i] += w[i];
+        ++parts;
+      }
+      for (int32_t i = 0; i < c->child_count(); ++i) visit(c->children[i], depth + 1);
+    };
+    visit(n, 0);
+    if (parts)
+      for (int i = 0; i < 3; ++i) out[i] = sum[i] / static_cast<float>(parts);
+  }
+  bool structure_point_now(float out[3]) const {
+    mech3::ObjectiveHooks& h = mech3::mission_objective_hooks();
+    const zgame::Handle node = contract_.structure.empty() ? 0 : h.node_find(contract_.structure.c_str());
+    if (!node) return false;
+    structure_point(h, node, out);
+    return true;
+  }
   zgame::Handle place_nav(mech3::ObjectiveHooks& h, zgame::Handle node) {
     nav_label_.clear(), nav_point_ = nullptr, nav_node_ = 0;
     if (!node) return 0;
     float at[3];
-    h.node_position(node, at);
+    structure_point(h, node, at);
     std::string label = contract_.structure_words.empty() ? contract_.structure : contract_.structure_words;
     if (label.rfind("the ", 0) == 0) label = label.substr(4);
     if (!label.empty()) label[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(label[0])));
@@ -2947,6 +2980,9 @@ void set_game_loop_world(const std::string& world, int32_t ia) {
 }
 void set_game_loop_row(const MapRow& row) {
   if (the_loop()) the_loop()->set_row(row);
+}
+bool game_loop_structure_point(float out[3]) {
+  return the_loop() && the_loop()->structure_point_now(out);
 }
 std::string game_loop_objective_built(bool* fell_back) {
   if (fell_back) *fell_back = the_loop() && the_loop()->objective_fell_back();

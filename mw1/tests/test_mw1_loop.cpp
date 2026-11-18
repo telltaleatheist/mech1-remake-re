@@ -23,6 +23,8 @@
 #include "mw1_layouts.h"
 #include "gamez/ztwod/twod.h"
 #include "gamez/zgame/zgame_table.h"
+#include "gamez/zclass/class.h"
+#include "gamez/zclass/cls_node.h"
 #include "gamez/zinput/zinput.h"
 #include "gamez/zimage/zimg_library.h"
 #include <map>
@@ -151,6 +153,15 @@ struct NoKeys : platform::Input {
   int32_t mouse_state(platform::MouseState*) override { return kNotAcquired; }
   int32_t joystick_state(platform::JoyState*) override { return kNotAcquired; }
 };
+// FIXES.md item 45: the turn keys a drive holds (+1 TURN LEFT, -1 TURN RIGHT, 0 neither), through the controls'
+// zInput hook as the keyboard's state; every other command is zInput's own.
+int g_turn_key = 0;
+uint32_t drive_command(int cmd) {
+  if (cmd == 2) return g_turn_key > 0 ? 3u : 0u;   // the controls' kTurnLeft
+  if (cmd == 3) return g_turn_key < 0 ? 3u : 0u;   // kTurnRight
+  return zin::command(cmd);
+}
+
 struct Pump : platform::MessagePump {
   int passes = 0, limit = 3000;
   std::function<bool()> stop;
@@ -263,6 +274,19 @@ struct Run {
   std::string nav_label;
   float nav_off = -1;
   int32_t nav_watched = 0;
+  // FIXES.md item 45: the row played as a player would, from frame 30. 1: the player's mech driven to the structure's
+  // node by its own controls (throttle and turn, never moved); 2: the structure worn down by hits (CZAiTarget's
+  // on_hit, a weapon's way in); 3: the enemies disabled by hits (kill_enemies). The closest the mech came to the
+  // node (3D, as the reach checks it, and on the ground plane), the frame the mission ended, the player's end.
+  int play = 0;
+  float closest = 1e9f, closest_ground = 1e9f;
+  int ended_frame = -1;
+  bool player_down = false;
+  int turn_sign = 0;  // the turn key (+1 left) that raises the heading (atan2(x, z)): found at the start
+  float yaw0 = 0, check_ground = 1e9f;
+  int best_frame = 0, escape = 0, escapes = 0, round_to = 0, round_frame = 0;
+  float round_best = 1e9f;
+  float ended_time = -1;  // the mission's clock (missions().time) when it ended
   // PM's own way out of a won mission (Owen's, 2026-11-17): its end screen; then (item 19) MW1's results, never PM's
   // debriefing. Were the debriefing reached, its CONTINUE and the next round's briefing's EXIT (stages 2 and 3).
   bool pm_end = false;
@@ -1124,12 +1148,25 @@ void loop_run(Ending ending, Run* run = nullptr) {
           if (const mw1::Contract* k = mw1::game_loop_contract(); k && !k->structure.empty()) {
             mech3::ObjectiveHooks& h = mech3::mission_objective_hooks();
             const mech3::NavSummary n = mech3::program_nav_summary(mech3::program_mission_waynet());
-            if (const zgame::Handle node = h.node_find(k->structure.c_str()); node && n.current >= 0 && n.current < 8) {
-              float at[3];
-              h.node_position(node, at);
+            if (float at[3]; mw1::game_loop_structure_point(at) && n.current >= 0 && n.current < 8) {
               const float dx = n.pos[n.current][0] - at[0], dz = n.pos[n.current][2] - at[2];
               run->nav_label = n.labels[n.current], run->nav_off = std::sqrt(dx * dx + dz * dz), run->nav_watched = n.watched;
             }
+          }
+          if (const char* probe = std::getenv("MW1_NODE_PROBE")) {  // FIXES.md item 45: a node's tree, by hand
+            const zgame::Handle hn = mech3::mission_objective_hooks().node_find(probe);
+            std::function<void(zcls::Node*, int)> show = [&](zcls::Node* n, int depth) {
+              if (!n || depth > 3) return;
+              float w[3] = {};
+              if (n->data && n->cls() == 5) zcls::node_world_position(n, w);
+              std::printf("  node %*s%s cls %d flags %08x children %d parents %d world %.0f %.0f %.0f\n", depth * 2, "", n->name(),
+                          n->cls(), n->flags(), n->child_count(), n->parent_count(), w[0], w[1], w[2]);
+              for (int32_t i = 0; i < n->child_count() && i < 6; ++i) show(n->children[i], depth + 1);
+            };
+            auto* ge = dynamic_cast<mech3::GameEngine*>(&app.engine());
+            auto* n = ge ? static_cast<zcls::Node*>(ge->object_of(hn)) : nullptr;
+            if (n && n->parent_count() > 0) std::printf("  node parent: %s\n", n->parents[0]->name());
+            show(n, 0);
           }
           if (run->survey) return end_it();
           if (run->destroy_structure) {
@@ -1141,8 +1178,109 @@ void loop_run(Ending ending, Run* run = nullptr) {
           if (run->kill_enemies) kill_enemies();
           return;
         }
+        if (frames > 30 && run->play && !run->mission_ended) {
+          void* me = mech3::mech_mission_player();
+          const mw1::Contract* k = mw1::game_loop_contract();
+          mech3::ObjectiveHooks& h = mech3::mission_objective_hooks();
+          if (me && mech3::mech_health(me) <= 0.0f) run->player_down = true;
+          if (run->play == 4 && me && k && frames >= 70) {
+            // The measure (not a win): the mech set down 150 m out on each of eight bearings, driven straight in for
+            // 500 frames; the closest any came.
+            float at[3] = {}, pos[3] = {}, fwd[3] = {};
+            mw1::game_loop_structure_point(at);
+            const int attempt = (frames - 70) / 500, step = (frames - 70) % 500;
+            if (attempt >= 8) {
+              g_turn_key = 0, mech3::mech_hold_throttle(me, 0.0f);
+            } else {
+              mech3::controls_calls().command = drive_command;
+              if (step == 0) {
+                const float b = static_cast<float>(attempt) * 0.785398f;
+                const float from[3] = {at[0] + 150.0f * std::sin(b), at[1] + 20.0f, at[2] + 150.0f * std::cos(b)};
+                mech3::move_mech(me, from, b + 3.14159f);
+              }
+              mech3::mech_world_position(me, pos);
+              mech3::mech_forward(me, fwd);
+              const float dx = at[0] - pos[0], dy = at[1] - pos[1], dz = at[2] - pos[2];
+              static float bearing_best = 1e9f;
+              if (step == 0) bearing_best = 1e9f;
+              if (step > 60) {  // landed
+                run->closest = std::min(run->closest, std::sqrt(dx * dx + dy * dy + dz * dz));
+                run->closest_ground = std::min(run->closest_ground, std::sqrt(dx * dx + dz * dz));
+                bearing_best = std::min(bearing_best, std::sqrt(dx * dx + dy * dy + dz * dz));
+              }
+              if (step == 499 && std::getenv("MW1_DRIVE_LOG"))
+                std::printf("  measure: bearing %d (%d deg), closest %.0f m\n", attempt, attempt * 45, bearing_best);
+              float err = std::atan2(dx, dz) - std::atan2(fwd[0], fwd[2]);
+              err = std::atan2(std::sin(err), std::cos(err));
+              g_turn_key = std::fabs(err) < 0.06f ? 0 : (err > 0 ? 1 : -1);  // TURN LEFT raises the heading (found by play 1)
+              mech3::mech_hold_throttle(me, std::sqrt(dx * dx + dz * dz) < 30.0f ? 0.3f : 0.8f);
+            }
+          }
+          if (run->play == 1 && me && k && !run->player_down) {
+            // The way: the selected nav point (the HUD's arrow), as the player follows it.
+            float at[3] = {}, pos[3] = {}, fwd[3] = {};
+            const mech3::NavSummary nav = mech3::program_nav_summary(mech3::program_mission_waynet());
+            if (nav.current >= 0 && nav.current < 8) at[0] = nav.pos[nav.current][0], at[1] = nav.pos[nav.current][1], at[2] = nav.pos[nav.current][2];
+            mech3::mech_world_position(me, pos);
+            mech3::mech_forward(me, fwd);
+            const float dx = at[0] - pos[0], dy = at[1] - pos[1], dz = at[2] - pos[2];
+            const float ground = std::sqrt(dx * dx + dz * dz), d3 = std::sqrt(dx * dx + dy * dy + dz * dz);
+            run->closest = std::min(run->closest, d3);
+            run->closest_ground = std::min(run->closest_ground, ground);
+            if (ground < run->check_ground - 2.0f) run->check_ground = ground, run->best_frame = frames;
+            mech3::controls_calls().command = drive_command;
+            const float yaw = std::atan2(fwd[0], fwd[2]);
+            if (frames < 70) {  // which way TURN LEFT turns: held, the heading watched
+              if (frames == 31) run->yaw0 = yaw;
+              mech3::mech_hold_throttle(me, 0.0f), g_turn_key = 1;
+              if (frames == 69) {
+                float d = yaw - run->yaw0;
+                d = std::atan2(std::sin(d), std::cos(d));
+                run->turn_sign = d > 0 ? 1 : -1, run->best_frame = frames, g_turn_key = 0;
+              }
+            } else if (run->escape > 0) {
+              // Stuck: back off, then round to a point 150 m out from the node on another bearing (45 degrees one
+              // way, then the other, then 90, 135 and 180: circling it as a player would), then in from there.
+              --run->escape;
+              // The eight bearings' points (180 m out), the nearest to the mech's own bearing first.
+              static const int kRound[] = {1, -1, 2, -2, 3, -3, 4};
+              const bool back = run->escape > 600 - 60;
+              const int own = static_cast<int>(std::lround(std::atan2(-dx, -dz) / 0.785398f));
+              if (run->escape == 600 - 1) run->round_to = own + kRound[(run->escapes - 1) % 7];
+              const float b = static_cast<float>(run->round_to) * 0.785398f;
+              const float wx = at[0] + 180.0f * std::sin(b) - pos[0], wz = at[2] + 180.0f * std::cos(b) - pos[2];
+              const float wd = std::sqrt(wx * wx + wz * wz);
+              if (wd < run->round_best - 2.0f) run->round_best = wd, run->round_frame = frames;
+              if (!back && frames - run->round_frame > 240) run->escape = 1;  // no way there: the next
+              float err = std::atan2(wx, wz) - yaw;
+              err = std::atan2(std::sin(err), std::cos(err));
+              g_turn_key = back || std::fabs(err) < 0.06f ? 0 : (err > 0 ? run->turn_sign : -run->turn_sign);
+              mech3::mech_hold_throttle(me, back ? -0.6f : std::fabs(err) > 1.2f ? 0.2f : 1.0f);
+              if (!back && std::sqrt(wx * wx + wz * wz) < 20.0f) run->escape = 0;  // there: in from here
+              if (!run->escape) run->best_frame = frames, run->check_ground = ground;
+            } else {
+              float err = std::atan2(dx, dz) - yaw;
+              err = std::atan2(std::sin(err), std::cos(err));
+              g_turn_key = std::fabs(err) < 0.06f ? 0 : (err > 0 ? run->turn_sign : -run->turn_sign);
+              const float throttle = std::fabs(err) > 1.2f ? 0.2f : ground < 40.0f ? 0.5f : 1.0f;
+              mech3::mech_hold_throttle(me, throttle);
+              if (frames - run->best_frame > 300)  // no 2 m nearer in 300 frames
+                run->escape = 600, ++run->escapes, run->round_best = 1e9f, run->round_frame = frames;
+            }
+            if (std::getenv("MW1_DRIVE_LOG") && frames % (std::getenv("MW1_DRIVE_EVERY") ? std::atoi(std::getenv("MW1_DRIVE_EVERY")) : 250) == 0)
+              std::printf("  drive %d: at %.0f %.0f %.0f, %.0f m (3D %.0f), yaw %.2f, sign %d, escape %d, speed %.1f, health %.2f, t %.0f\n", frames,
+                          pos[0], pos[1], pos[2], ground, d3, yaw, run->turn_sign * g_turn_key, run->escape, mech3::mech_throttle_speed(me), mech3::mech_health(me),
+                          mech3::missions().time);
+          }
+          if (run->play == 2 && k && frames % 5 == 0) {
+            const zgame::Handle e = h.entity_find(k->structure.c_str());
+            for (mech3::ai::CZAiTarget* t : mech3::ai::target_list())
+              if (e && t->self == e && !t->destroyed && t->desc.health > 0.0f) t->on_hit(0, 0, t->desc.max_health * 0.05f);
+          }
+        }
         if (frames > 30 && !run->mission_ended && mech3::missions().ended) {
-          run->mission_ended = true, run->mission_lost = mech3::missions().aborting != 0;
+          run->mission_ended = true, run->mission_lost = mech3::missions().aborting != 0, run->ended_frame = frames;
+          run->ended_time = mech3::missions().time;
           std::printf("  the mission ended at frame %d: %s\n", frames, run->mission_lost ? "lost" : "won");
           if (run->kill_after_end) kill_enemies(), reach_frames = frames;
           else return end_it();
@@ -1228,7 +1366,9 @@ void loop_run(Ending ending, Run* run = nullptr) {
     };
     Pump pump;
     pump.stop = [&] { return back_at_main; };
+    if (run && run->play) pump.limit = std::max(pump.limit, run->give_up + 3000);  // FIXES.md item 45: a long drive
     app.run(pump);
+    mech3::controls_calls().command = nullptr;  // the drive's keys let go
     app.stop_game();
     app.exit_instance();
     mech3::set_app(nullptr);
@@ -1870,6 +2010,67 @@ TEST(mw1_loop_every_map_row_is_there_headless) {
         EXPECT(run.nav_label == want);
       }
     });
+  }
+}
+
+// FIXES.md item 45: every row of the map table played to its end as a player would, headless, one line each.
+// - a battle (destroy all): the enemies disabled by hits: won;
+// - reach (MW1's withdraw): the player's mech driven to the structure by its own throttle and turn (never moved):
+//   won, with the closest it came;
+// - attack (special target): the structure worn down by hits: won; the enemies alone disabled: not won;
+// - defend (defend special target, oppose withdrawal): the enemies disabled, the structure standing: won; the
+//   structure worn down: lost.
+// MW1_ROWS=<node> plays only the rows on that node (a row's work, by hand).
+TEST(mw1_loop_every_row_is_won_as_a_player_would_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  const std::vector<mw1::MapRow> rows = shipped_rows();
+  const bool have_mw3 = fs::exists(fs::path(MW1_MW3_GAME_DIR) / "zbd" / "c2" / "gamez.zbd", ec);
+  const std::string worlds = have_mw3 ? converted_worlds() : std::string();
+  const char* only = std::getenv("MW1_ROWS");
+  struct Play {
+    const char* how;
+    int play;
+    bool kill;
+    int give_up;
+    const char* want;  // "won", "lost", "not ended"
+  };
+  for (const mw1::MapRow& r : rows) {
+    if (r.world.rfind("mw3", 0) == 0 && !have_mw3) continue;
+    if (only && r.node != only) continue;
+    std::vector<Play> plays;
+    switch (r.kind) {
+      case mw1::RowKind::kAny: plays = {{"enemies disabled", 0, true, 1200, "won"}}; break;
+      case mw1::RowKind::kReach:
+        plays = {{"enemies disabled, driven there", 1, true, 40000, "won"},
+                 // The lead's question (is a one-enemy reach fair?): the enemy alive, the nav followed; recorded, not
+                 // a condition.
+                 {"enemy alive, driven there", 1, false, 40000, "any"}};
+        if (std::getenv("MW1_MEASURE")) plays = {{"measured from 8 bearings", 4, true, 4300, "any"}};
+        break;
+      case mw1::RowKind::kAttack:
+        plays = {{"structure hit down", 2, false, 3000, "won"}, {"enemies alone disabled", 0, true, 600, "not ended"}};
+        break;
+      case mw1::RowKind::kDefend:
+        plays = {{"enemies disabled", 0, true, 1200, "won"}, {"structure hit down", 2, false, 3000, "lost"}};
+        break;
+    }
+    for (const Play& pl : plays)
+      in_child([&] {
+        Run run;
+        run.row = &r, run.worlds = worlds, run.stop_at_after_action = true;
+        run.play = pl.play, run.kill_enemies = pl.kill, run.give_up = pl.give_up;
+        loop_run(kObjective, &run);
+        const std::string got = run.mission_ended ? (run.mission_lost ? "lost" : "won") : "not ended";
+        std::string closest;
+        if (pl.play == 1 || pl.play == 4)
+          closest = " closest " + std::to_string(static_cast<int>(run.closest + 0.5f)) + " m (ground " +
+                    std::to_string(static_cast<int>(run.closest_ground + 0.5f)) + " m)" + (run.player_down ? ", the player down" : "");
+        std::printf("  ROW %-6s ia%d %-7s %-20s %-24s: %-9s at %5.0f s (frame %d)%s\n", r.world.c_str(), r.ia,
+                    kind_said(r.kind), r.node.c_str(), pl.how, got.c_str(), run.ended_time, run.ended_frame, closest.c_str());
+        EXPECT(run.objective_built == kind_said(r.kind) && !run.fell_back);
+        if (std::string(pl.want) != "any") EXPECT(got == pl.want);
+      });
   }
 }
 
