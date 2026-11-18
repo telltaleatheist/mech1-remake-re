@@ -104,7 +104,7 @@ if(TARGET mw3pm)
                                       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/hires_off.cmake)
     add_test(NAME mw1hiressmooth COMMAND ${CMAKE_COMMAND} -DMW1_BIN=$<TARGET_FILE:mw1> -DCHECK_BIN=$<TARGET_FILE:mw1hirescheck>
                                          -DDIR=${CMAKE_CURRENT_BINARY_DIR}/mw1hiressmooth
-                                         -DEXPECT=blocky  # until the high-resolution draw lands (B1's fourth piece)
+                                         -DEXPECT=smooth  # B1's fourth piece; MW1_HIRES=0 still blocky
                                          -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/hires_smooth.cmake)
   endif()
   if(WIN32)

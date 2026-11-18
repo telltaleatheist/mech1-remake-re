@@ -111,7 +111,10 @@ void Lists::layers(const void* screen, const uint16_t* canvas, int32_t w, int32_
   auto it = lists_.find(screen);
   if (it == lists_.end() || !canvas) return;
   const std::vector<Command>& l = it->second;
-  std::vector<uint16_t> top(n, 0), last(n, 0);  // each pixel's top draw (1 + index) and the canvas it left there
+  // Each pixel's top draw (1 + index) and the canvas it left there; kept, no allocation a frame.
+  std::vector<uint16_t>& top = top_;
+  std::vector<uint16_t>& last = last_;
+  top.assign(n, 0), last.assign(n, 0);
   for (size_t i = 0; i < l.size() && i < 0xffff; ++i) {
     const Command& c = l[i];
     const int32_t cw = c.rect.r - c.rect.l;

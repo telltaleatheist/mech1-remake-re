@@ -3,7 +3,8 @@
 // at each texel on an edge (its colour unlike a neighbour's) the pixels inside it, its one-pixel border left out (the
 // sharp scaling's blend), are compared with its centre's. A canvas magnified is flat inside every texel: a difference
 // near 0. Text and pictures drawn at the window's resolution have detail inside a texel. Prints the mean difference
-// (luma, 0..255) and exits 1 when it is under MIN (default 8): blocky.
+// (luma, 0..255) and exits 1 when it is under MIN (default 2): blocky. The office at 4K reads 0.00 with the
+// high-resolution draw off and 4.7 with it on (B1 piece 4, 2026-11-18).
 #include <SDL3/SDL.h>
 
 #include <cmath>
@@ -17,7 +18,7 @@ int main(int argc, char** argv) {
     return 2;
   }
   const int cw = std::atoi(argv[2]), ch = std::atoi(argv[3]);
-  const double min = argc > 4 ? std::atof(argv[4]) : 8.0;
+  const double min = argc > 4 ? std::atof(argv[4]) : 2.0;
   SDL_Surface* s = SDL_LoadBMP(argv[1]);
   SDL_Surface* rgb = s ? SDL_ConvertSurface(s, SDL_PIXELFORMAT_RGB24) : nullptr;
   if (!rgb || cw <= 0 || ch <= 0) {

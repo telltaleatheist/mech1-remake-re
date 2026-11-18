@@ -242,6 +242,7 @@ void SdlScreen2D::present_16(const uint16_t* pixels, int width, int height, int 
   render_->set_viewport(0, 0, width, height);
   render_->clear(true, 0, 0, 0);
   draw_layer(width, height, false);
+  if (after_layer) after_layer(pixels, width, height, pitch, rgb565, false, 0);
   render_->present();
   render_->set_viewport(vx, vy, vw, vh);
 }
@@ -260,6 +261,7 @@ void SdlScreen2D::overlay_16(const uint16_t* pixels, int width, int height, int 
   render_->viewport(&vx, &vy, &vw, &vh);
   render_->set_viewport(0, 0, width, height);
   draw_layer(width, height, true);
+  if (after_layer) after_layer(pixels, width, height, pitch, rgb565, true, key);
   render_->set_viewport(vx, vy, vw, vh);
 }
 

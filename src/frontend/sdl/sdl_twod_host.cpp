@@ -85,6 +85,7 @@ SdlTwodHost::SdlTwodHost(mech3::GameEngine* engine, SdlInput* input, platform::W
 }
 
 SdlTwodHost::~SdlTwodHost() {
+  hires_draw_.reset();  // its glyph fonts closed while SDL_ttf is up (TTF_Quit below)
   for (auto& [h, f] : fonts_)
     if (f.ttf) TTF_CloseFont(f.ttf);
   if (ttf_ok_) TTF_Quit();
@@ -734,6 +735,7 @@ int32_t SdlTwodHost::DrawTextA(Handle d, const char* text, int32_t length, ztwod
       c.text = l;
       c.font = {f->path, f->em, f->weight, f->italic != 0, f->tracking, f->shift};
       c.colour = x->text;
+      c.box = x->bk_mode == 2, c.box_colour = x->bk;
       hires_.text(img->pixels, std::move(c));
     }
     auto put = [&](int px_, int py_, uint16_t c) {

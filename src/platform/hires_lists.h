@@ -58,6 +58,8 @@ struct Command {
   std::string text;       // text: the line (UTF-8)
   FontKey font;
   uint32_t colour = 0;    // text: GDI's 0x00bbggrr
+  bool box = false;       // text: OPAQUE, its cells (rect) filled with box_colour first
+  uint32_t box_colour = 0;  // GDI's 0x00bbggrr
   std::string name;       // picture: the image's name (image_get's)
   bool alpha = false;     // picture: the image blends (a key or an alpha plane)
   uint64_t seq = 0;       // the order it was drawn in, over all owners
@@ -103,6 +105,7 @@ class Lists {
   uint64_t seq_ = 0;
   std::unordered_map<const void*, std::vector<Command>> lists_;
   std::unordered_set<const void*> fallen_;
+  mutable std::vector<uint16_t> top_, last_;  // layers()'s, kept from frame to frame
 };
 
 }  // namespace platform::hires

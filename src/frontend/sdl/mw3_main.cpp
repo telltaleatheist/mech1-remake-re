@@ -152,6 +152,7 @@ extern "C" const char mw3_version_tag[] = "MW3-PROGRAM-VERSION:" MW3_VERSION;
 #include "gamez/zclass/list.h"
 #include "mech3/app_sensors.h"
 #include "mech3/turret.h"
+#include "platform/hires_2d.h"
 #include "platform/pointer_hands_off.h"
 #include "platform/reg_file.h"
 #include "platform/silent_sound.h"
@@ -1284,6 +1285,13 @@ int run(const Args& a, platform::VideoForWindows* vfw) {
     engine.may_ask = !a.hidden && a.frames == 0 && a.shot.empty() && a.chain.empty() && a.modes.empty();
     sdlfe::SdlTwodHost host(&engine, &input, &window);
     ztwod::set_host(&host);
+    if (platform::hires_2d()) {  // ours, MW1's only (FIXES 12, B1 piece 4): the 2D's draws at the frame's resolution
+      host.attach_hires_draw(window.render());
+      screen.after_layer = [&host](const uint16_t* px, int w, int h, int pitch, bool rgb565, bool keyed, uint16_t key) {
+        host.hires_draw()->draw(px, w, h, pitch, rgb565, keyed, key);
+      };
+      window.render()->on_present = [&host] { host.hires_draw()->end_frame(); };
+    }
     mech3::reset_states();
     mech3::Mech3App app(&engine);
     mech3::set_app(&app);
@@ -2192,6 +2200,8 @@ int run(const Args& a, platform::VideoForWindows* vfw) {
       std::fprintf(stderr, "mw3: %zu original functions reached are not ported (--verbose lists them and %zu known)\n",
                    gaps, engine.unported_counts().size() - gaps);
     }
+    screen.after_layer = nullptr;
+    window.render()->on_present = nullptr;
     ztwod::set_host(nullptr);
     mech3::set_app(nullptr);
     input.in_mission = nullptr;  // the app is gone

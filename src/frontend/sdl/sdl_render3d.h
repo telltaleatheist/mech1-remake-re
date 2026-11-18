@@ -26,6 +26,11 @@ class SdlRender3D : public platform::Render3D {
 
   int32_t create_texture(int width, int height, const uint8_t* rgba, uint8_t type) override;
   int32_t create_screen_texture(int width, int height, const uint8_t* rgba) override;
+  bool frame_size(int* width, int* height) const override {
+    if (fit_.w < 1 || fit_.h < 1) return false;  // as ensure_frame sizes the frame
+    *width = static_cast<int>(fit_.w), *height = static_cast<int>(fit_.h);
+    return true;
+  }
   void set_mip_bias(float bias) override { mip_bias_ = bias; }
   void release_texture(int32_t handle) override;
   void update_texture(int32_t handle, int width, int height, const uint8_t* rgba) override;
@@ -58,6 +63,8 @@ class SdlRender3D : public platform::Render3D {
   }
   // Ours (--shot-canvas): told when a capture is asked for and when its BMP is written.
   std::function<void()> on_capture_armed, on_capture_written;
+  // Ours (MW1's 2D at the frame's resolution): at each present, the frame's draws all made (HiresDraw::end_frame).
+  std::function<void()> on_present;
   // Draws what is collected so far (outside a scene), so a 2D layer goes on top.
   void flush() {
     if (!runs_.empty()) end_scene();
