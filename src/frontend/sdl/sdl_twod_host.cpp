@@ -226,7 +226,8 @@ void SdlTwodHost::blit(zimg::Texture* image, int32_t x, int32_t y, int32_t flags
       const size_t now = hires_.size(t.base);
       if (now > hires_most_ || (hires_.fallen(t.base) && !hires_said_fallen_)) {
         hires_most_ = std::max(hires_most_, now), hires_said_fallen_ = hires_.fallen(t.base);
-        std::printf("mw3: hires: blit %d, the screen's draws %zu (the most yet)%s, %zu owners\n", hires_blits_, now,
+        std::printf("mw3: hires: blit %d, the screen's draws %zu (the most yet), their snapshots %zu KB%s, %zu owners\n",
+                    hires_blits_, now, hires_.snapshot_bytes(t.base) >> 10,
                     hires_said_fallen_ ? ", fallen back to the canvas" : "", hires_.owners());
       }
     }

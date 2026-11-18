@@ -90,6 +90,18 @@ void Lists::snapshot(const void* screen, size_t count, const uint16_t* canvas, i
       std::copy(canvas + static_cast<size_t>(y) * pitch_px + c.rect.l, canvas + static_cast<size_t>(y) * pitch_px + c.rect.r,
                 to.begin() + static_cast<size_t>(y - c.rect.t) * w);
   }
+  if (snapshot_bytes(screen) > snapshot_cap_) {  // the safe failure, as past the draws' cap
+    lists_.erase(screen);
+    fallen_.insert(screen);
+  }
+}
+
+size_t Lists::snapshot_bytes(const void* owner) const {
+  auto it = lists_.find(owner);
+  if (it == lists_.end()) return 0;
+  size_t n = 0;
+  for (const Command& c : it->second) n += (c.before.size() + c.after.size()) * sizeof(uint16_t);
+  return n;
 }
 
 void Lists::layers(const void* screen, const uint16_t* canvas, int32_t w, int32_t h, int32_t pitch_px,

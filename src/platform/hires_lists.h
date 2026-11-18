@@ -66,7 +66,9 @@ struct Command {
 
 class Lists {
  public:
-  explicit Lists(size_t cap = 512) : cap_(cap) {}
+  // At most `cap` draws an owner, and the screen's snapshots at most `snapshot_cap` bytes (a full-screen backdrop's
+  // two are 1.6 MB at 853x480): past either, the canvas alone until drawn afresh.
+  explicit Lists(size_t cap = 512, size_t snapshot_cap = 24u << 20) : cap_(cap), snapshot_cap_(snapshot_cap) {}
 
   void clear(const void* owner);  // drawn afresh, or freed: nothing recorded, no longer fallen
   // A text line drawn into `owner`, its rect already clipped to the owner and the DC's rect.
@@ -92,11 +94,12 @@ class Lists {
   size_t size(const void* owner) const;
   bool fallen(const void* owner) const;
   size_t owners() const { return lists_.size(); }
+  size_t snapshot_bytes(const void* owner) const;  // its draws' before and after, in bytes
   size_t cap() const { return cap_; }
 
  private:
   void append(const void* owner, Command c);
-  size_t cap_;
+  size_t cap_, snapshot_cap_;
   uint64_t seq_ = 0;
   std::unordered_map<const void*, std::vector<Command>> lists_;
   std::unordered_set<const void*> fallen_;

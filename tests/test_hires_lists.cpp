@@ -203,6 +203,32 @@ TEST(hires_layers_an_unrecorded_write_under_a_text) {
   EXPECT(c.at(b, 30, 5) == 0);  // on the line, out of the text's box: the canvas
   EXPECT(c.at(b, 10, 8) == 1);  // off the line, in the text's box: the picture, then the text
   EXPECT(c.at(b, 2, 2) == 1);   // a glyph pixel over the picture
+  // The text's "before" is the canvas under it, the line in it: what goes under the text where its chain starts.
+  const auto* s = l.of(&screen_px);
+  EXPECT(s && s->size() == 2);
+  if (s && s->size() == 2) {
+    const Command& t = (*s)[1];
+    const size_t at_line = static_cast<size_t>(5 - t.rect.t) * (t.rect.r - t.rect.l) + (10 - t.rect.l);
+    const size_t off_line = static_cast<size_t>(8 - t.rect.t) * (t.rect.r - t.rect.l) + (10 - t.rect.l);
+    EXPECT(t.before.size() == 200 && t.before[at_line] == 0x5555 && t.before[off_line] == 0x1111);
+    EXPECT(t.after[at_line] == 0x5555);  // the text's keyed blit left the line where it has no glyph
+  }
+}
+
+TEST(hires_snapshots_past_their_cap_fall_back) {
+  // Large blending draws, none covering the screen whole (each keeps its before and after): past the snapshots' cap
+  // the screen falls back to the canvas alone; an opaque cover over all of it starts again.
+  Lists l(512, 4u << 20);  // 4 MB
+  Canvas c(853, 480);
+  size_t most = 0;
+  for (int i = 0; i < 6; ++i) {
+    draw(l, c, &other_px, 800, 400, i, i, false, "mw1_dim", [&] { c.fill({i, i, 800 + i, 400 + i}, static_cast<uint16_t>(i)); });
+    most = std::max(most, l.snapshot_bytes(&screen_px));
+  }
+  std::printf("  the snapshots reached %zu bytes, then fell back: %s\n", most, l.fallen(&screen_px) ? "yes" : "no");
+  EXPECT(l.fallen(&screen_px) && l.size(&screen_px) == 0 && l.snapshot_bytes(&screen_px) == 0 && most <= (4u << 20));
+  draw(l, c, &bg_px, 853, 480, 0, 0, true, "pic", [&] { c.fill({0, 0, 853, 480}, 7); });
+  EXPECT(!l.fallen(&screen_px) && l.size(&screen_px) == 1 && l.snapshot_bytes(&screen_px) == 853u * 480u * 4u);
 }
 
 TEST(hires_layers_a_later_draw_over_an_earlier_one) {
