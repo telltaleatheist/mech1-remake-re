@@ -200,3 +200,22 @@ Tick an item when it is merged into `main`.
   - While the mission loads, show an MW1 loading screen: the mission's map or the world's climate scene dimmed, our plaque with the contract's world, employer and objective, and LOADING in our type. No PM version text or PM art.
 - **Supersedes item 4's pre-launch screen.** The lab is now reached from the Mech Complex (items 8/13), so there's no MECH LAB above LAUNCH. The briefing's facts (objective, enemy, map) show on the loading screen and in the hub's contract readout.
 
+## 19. [ ] After a mission: MW1's own results screen, with the salvage
+- **Owen (2026-11-17, `keep/mw1-remake/reference/owen-play-debrief.png`):** "When I win, I was expecting it to show the salvage I got. Also, we should redesign this screen."
+- **The shot:** PM's Instant Action debrief, with three green PM columns ('MECH STATUS / MISSION RESULTS / SALVAGE FOUND), PM's icons, and PM's score ("Mission Total 300"). SALVAGE FOUND is empty because our salvage is collected by mw1 (program_salvage_mech into the mission's own store), not by PM's salvage.
+- **Wanted:**
+  - PM's debrief is skipped in MW1, as its briefing is (item 18). The mission ends on MW1's own results screen, in our look over the dimmed climate scene, with our plaque (world, employer, VICTORY / DEFEAT / RETREAT).
+  - **Results:**
+    - the objective and its outcome;
+    - the enemy mechs destroyed (by whom);
+    - the time;
+    - lancemates' fates.
+  - **Pay:**
+    - the fee (with any deduction);
+    - salvage cash: "x% of wrecks' value", with each wreck's value listed;
+    - the total, and the new funds.
+  - **Salvage to stores:** every weapon, ammo, armour and equipment item added to the stores, with quantities (none on a loss).
+  - **Your mech's state:** a damage readout per location.
+  - Our framed buttons: CONTINUE back to the hub.
+  - It replaces the hub's AFTER ACTION panel; the hub then shows a short message (item 16) if anything is left to say.
+
