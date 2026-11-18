@@ -62,6 +62,65 @@ guards and the look tests). There is no data change and no archive change.
 
 ## Option B: the real fix (text and pictures at device pixels)
 
+### B0. The canvas read-backs (mapped 2026-11-18)
+
+**Owen's pick (2026-11-18):** option B with no stopgap. PM's widget art stays canvas-sharp. Pictures are JPEG q90
+(scenes, portraits) and PNG (alpha or hard edges).
+
+**What B0 found.** ztwod text never draws straight onto the screen. A text object (`twod_wintext.cpp`, around line
+476) renders into its own off-screen 16-bit image through `image_dc`, and that image is then blitted. On top of that,
+the screen's pixels are copied and drawn back in many places: baked backgrounds, erase backgrounds, modal backdrops,
+the cursor's save. So a draw list held only by the screen would lose text and pictures at every copy.
+
+**The rule that covers it: the recorded draws travel with the pixels.**
+1. Every `zimg::Texture` may carry a command list, in its own pixel coordinates. The screen (the canvas target) is
+   one such texture.
+2. Text drawn into an image through its DC appends a text command to that image's list. The canvas raster is still
+   written as today.
+3. `blit(image, x, y, flags, src)` appends the image's own commands to the target's list, offset by (x, y) and
+   clipped to `src`. When the image is named and has a high-resolution source (`HiresImages::find`), it also appends a
+   picture command. The 565 pixels are still blitted as today.
+4. `screen_grab` and `screen_grab_rect` copy into the grab the screen's commands that are still showing in the rect
+   (not hidden by the generation mask), clipped and offset. A grab drawn back, whole or as a slice, brings them back.
+5. The generation mask (B1) hides a command wherever the canvas was written after it by a draw that doesn't record:
+   PM's widget art, fills, the ripple, the blur. There the canvas, written as before, shows.
+6. **Drawn twice.** The canvas keeps every pixel it has today, so with the flag off nothing changes, and anything
+   that reads the canvas (blur, alpha blends, the shown-frame read-back) reads what it reads now. A command adds
+   detail over the canvas; it never stands in for it.
+7. **Alpha blends** (`cover_blend` in `zrndr_blit.cpp` reads the destination): a translucent blit (MW1's `mw1_dim`,
+   chrome edges) over a recorded picture would stamp the mask and hide the picture under the dim. So a blit whose
+   image has alpha is itself recorded, drawn at canvas resolution with a linear filter (a flat dim or a frame edge
+   doesn't show its scale), and stamps the mask only where its alpha is full.
+8. **Retained.** The canvas persists between frames and ztwod redraws only what changed, so the screen's list persists
+   too. A command is dropped once the mask hides all of it; the list is cleared when the screen is cleared or a
+   dialog is unloaded.
+
+**The sites** (`src/` unless `mw1/` is given):
+
+| Site | What it reads | On MW1's screens? | Handled by |
+| --- | --- | --- | --- |
+| `gamez/ztwod/twod_dialog.cpp:314` `behind = screen_grab(1)` | the screen before a dialog's static parts | no: `Mw1Screen` loads with `no_draw`; PM's dialogs (the message box, the lab's) do | rule 4; `restore_behind` is a blit, rule 3 |
+| `twod_dialog.cpp:462` `static_bg = screen_grab(1)` | the dialog's static parts, drawn once | through PM screens MW1 shows | rule 4 |
+| `twod_control.cpp:273`, `twod_dialog.cpp:528` | each control's erase background, a slice of `static_bg` | yes, wherever `static_bg` is | rule 3 (a slice is a clipped blit) |
+| `mech3/menu_widgets.cpp:183` `MenuScreen::bake` | the screen with its controls, baked as the still | yes: MW1's options, controls and upgrades pages run PM's code (`options_menu.cpp:81/205/421`, `controls_menu.cpp:418`) | rule 4 |
+| `menu_widgets.cpp:189` `borrow_background` | the main menu's background image | MW1 layouts without a BACKGROUND | rule 3 (it's a named image or a grab) |
+| `mech3/lab_filebox.cpp:81` `screen_grab(2)` | the lab behind the load box | yes | over the lab's 3D frame: the held GPU frame (`hold_shown_frame`), which has the list in it if the list is drawn into the frame (B1 draws it there); otherwise rule 4 |
+| `controls_menu.cpp:317`, `:369` `screen_grab(2)` | the controls page behind its axis and load popups | yes | rule 4 |
+| `gamez/ztwod/twod_msgbox.cpp:31` `screen_grab(2)` | the screen behind a message box | yes, PM's questions | rule 4 |
+| `gamez/ztwod/twod_object.cpp:494` `Cursor::grab_at` | the pixels under the cursor, restored when it moves | yes | rule 4, and its restore is rule 3 |
+| `mech3/app_engine.cpp:961` `GameEngine::image_draw` | a fade's still drawn back over the buffer, scaled when its size differs | the menus' fades | rule 3; the carried commands scale with the still |
+| `mech3/pause_menu.cpp:34` `screen_grab(1)`; `app_mission.cpp:2570` `screen_grab(0)` | the mission's shown frame | over a mission only: PM's HUD, nothing recorded | nothing to do |
+| `gamez/ztwod/twod_object.cpp:597` `Ripple::draw_in_rect` | the canvas in a ring | no: no RIPPLE in MW1's layouts (PM's main-menu slide buttons) | rule 5: it stamps the mask and the canvas shows |
+| `gamez/zrender/zrndr_blur.*` (`app_fmv.cpp:90`) | the canvas, averaged | FMV BLUR actions and the pause, not MW1's screens | rule 5 |
+| `zrndr::tint` (`app_engine.cpp:981`, `twod_weather.cpp:114`) | nothing; the GPU tints the frame with a quad (`tint_quad_on_frame`) | fades and flashes | the list is drawn straight after the layer, into the same target, so a tint over the layer is over the list too. B1 test: a fade darkens recorded text |
+| `frontend/sdl/launcher.cpp:1344` `zrndr::ripple` | the launcher's own canvas | the launcher, not the game | out of scope |
+| `mw1/src/mw1_mech_renders.cpp` | the 3D frame, captured for the renders | no 2D involved | nothing to do |
+
+**For B1, from this.** The command lists live on `zimg::Texture` (an ours side table in the SDL host keyed by the
+texture, so `zimg::Texture`'s layout, which mirrors the exe's, doesn't change). The host's `blit`, `screen_grab`,
+`screen_grab_rect`, the DC's `DrawTextA` and `texture_free` are the only places that touch them. Nothing in
+`gamez/ztwod` or `mech3` changes.
+
 ### B1. The engine path: a high-resolution draw list over the canvas
 
 This is an "ours" path, opt-in by a host flag (`hires_2d`) that only MW1's program sets (`mw1_main.cpp`). Layouts, hit tests, the
