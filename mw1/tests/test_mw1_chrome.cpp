@@ -193,3 +193,55 @@ TEST(mw1_chrome_box_pages) {
   EXPECT(mw1::chrome::box_height(1) < mw1::chrome::box_height(6) && mw1::chrome::box_height(6) <= mw1::chrome::kBoxCanvasH);
   EXPECT(mw1::chrome::kBoxCanvasH * 100 / 480 <= 36);
 }
+
+// MW1's lines rewrapped to the box (FIXES.md item 42, the lead: a short tip on one page): lines MW1 broke for its 44
+// letters joined and wrapped to the box's columns, 4:3's and 16:9's; headings, blank lines and indented lines kept.
+// (Made-up words.)
+TEST(mw1_chrome_box_rewrap) {
+  auto words_of = [](const std::vector<std::string>& ls) {
+    std::vector<std::string> w;
+    for (const std::string& l : ls) {
+      size_t a = 0;
+      while ((a = l.find_first_not_of(' ', a)) != std::string::npos) {
+        const size_t b = l.find(' ', a) == std::string::npos ? l.size() : l.find(' ', a);
+        w.push_back(l.substr(a, b - a)), a = b;
+      }
+    }
+    return w;
+  };
+  // A paragraph as MW1 wraps it: each line as full as 44 letters allow.
+  const std::string text = "Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore "
+                           "et dolore magna aliqua ut enim ad minim veniam quis nostrud exercitation ullamco laboris";
+  std::vector<std::string> mw1;
+  std::string line;
+  for (const std::string& w : words_of({text})) {
+    if (!line.empty() && line.size() + 1 + w.size() > mw1::kMw1Columns) mw1.push_back(line), line.clear();
+    line += (line.empty() ? "" : " ") + w;
+  }
+  mw1.push_back(line);
+  std::vector<std::string> page = {"HEADING ONE", "Short line two"};
+  page.push_back("");
+  page.insert(page.end(), mw1.begin(), mw1.end());
+  page.push_back("");
+  page.push_back("  an indented row");
+  for (size_t cols : {mw1::kBoxColumns, mw1::kBoxWideColumns}) {
+    const std::vector<std::string> out = mw1::rewrapped(page, cols);
+    EXPECT(words_of(out) == words_of(page));  // every word, in order
+    for (const std::string& l : out) EXPECT(l.size() <= cols);
+    EXPECT(out.size() >= 6 && out[0] == "HEADING ONE" && out[1] == "Short line two" && out[2].empty());
+    EXPECT(out.back() == "  an indented row" && out[out.size() - 2].empty());
+    const size_t body = out.size() - 5;  // the paragraph's lines
+    EXPECT(body < mw1.size() && body <= (text.size() + cols - 1) / cols + 1);  // fewer lines, about as few as fit
+    std::printf("  %zu letters a line: the paragraph's %zu lines in %zu\n", cols, mw1.size(), body);
+  }
+  // The box: the paragraph on one page at 16:9 where MW1's lines took two.
+  const std::vector<mw1::Page> wide = mw1::boxed_pages({mw1::Page{mw1, false}}, mw1::kBoxWideColumns);
+  EXPECT(mw1.size() > static_cast<size_t>(mw1::chrome::kBoxLinesMax) / 2 && wide.size() == 1 && wide[0].lines.size() < mw1.size());
+  // A sentence MW1 broke a word or two short (34 letters and more, no full stop): joined; a headline's lines kept.
+  const std::string early = "Mercs and more mercs, all of them asking who";  // 44: made 35 below
+  const std::vector<std::string> tip = {early.substr(0, 35), "pays the most these days.", "", "SHORT HEADLINE", "ANOTHER ONE"};
+  const std::vector<std::string> tip_out = mw1::rewrapped(tip, mw1::kBoxColumns);
+  EXPECT(tip_out.size() == 4 && tip_out[0] == early.substr(0, 35) + " pays the most these days." && tip_out[2] == "SHORT HEADLINE");
+  // Lines already short stay as they are.
+  EXPECT(mw1::rewrapped({"one", "two", "three"}, mw1::kBoxColumns) == (std::vector<std::string>{"one", "two", "three"}));
+}

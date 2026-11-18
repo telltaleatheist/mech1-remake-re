@@ -20,11 +20,60 @@ std::string event_art(int32_t event) {
 
 const char* event_dialog(Side s) { return s == Side::kBottom ? kEventBottomDialog : kEventDialog; }
 
-std::vector<Page> boxed_pages(const std::vector<Page>& pages) {
+std::vector<std::string> rewrapped(const std::vector<std::string>& lines, size_t columns) {
+  auto blank = [](const std::string& l) { return l.find_first_not_of(' ') == std::string::npos; };
+  auto trimmed = [](std::string l) {
+    while (!l.empty() && l.back() == ' ') l.pop_back();
+    return l;
+  };
+  auto first_word = [](const std::string& l) {
+    const size_t a = l.find_first_not_of(' ');
+    return a == std::string::npos ? size_t{0} : l.find(' ', a) == std::string::npos ? l.size() - a : l.find(' ', a) - a;
+  };
+  // MW1's paragraphs: a line joined to the next where MW1 broke it inside a sentence (rewrapped's rule).
+  std::vector<std::string> paras;
+  for (size_t i = 0; i < lines.size(); ++i) {
+    std::string l = trimmed(lines[i]);
+    while (i + 1 < lines.size() && !blank(l)) {
+      const std::string next = trimmed(lines[i + 1]);
+      const std::string mw1_line = trimmed(lines[i]);
+      const bool full = mw1_line.size() + 1 + first_word(next) > kMw1Columns;
+      const bool mid_sentence = mw1_line.size() >= kMw1SoftColumns && std::string(".!?:").find(mw1_line.back()) == std::string::npos;
+      if (blank(next) || next[0] == ' ' || !(full || mid_sentence)) break;
+      l += " " + next;
+      ++i;
+    }
+    paras.push_back(l);
+  }
+  // Each paragraph wrapped to the box's columns, its leading spaces kept on its first line.
+  std::vector<std::string> out;
+  for (const std::string& p : paras) {
+    if (blank(p) || p.size() <= columns) {
+      out.push_back(p);
+      continue;
+    }
+    std::string line;
+    size_t at = 0;
+    while (at < p.size() && p[at] == ' ') line += ' ', ++at;
+    const size_t indent = line.size();
+    while (at < p.size()) {
+      const size_t end = p.find(' ', at) == std::string::npos ? p.size() : p.find(' ', at);
+      const std::string word = p.substr(at, end - at);
+      at = end + 1;
+      if (word.empty()) continue;
+      if (line.size() > indent && line.size() + 1 + word.size() > columns) out.push_back(line), line.clear();
+      line += (line.size() > indent ? " " : "") + word;
+    }
+    out.push_back(line);
+  }
+  return out;
+}
+
+std::vector<Page> boxed_pages(const std::vector<Page>& pages, size_t columns) {
   auto blank = [](const std::string& l) { return l.find_first_not_of(' ') == std::string::npos; };
   std::vector<Page> out;
   for (const Page& p : pages) {
-    std::vector<std::string> ls = p.lines;
+    std::vector<std::string> ls = rewrapped(p.lines, columns);
     while (!ls.empty() && blank(ls.back())) ls.pop_back();
     while (!ls.empty() && blank(ls.front())) ls.erase(ls.begin());
     // As few parts as fit, the lines shared evenly between them (seven: four and three, not six and one).
@@ -61,7 +110,7 @@ ScreenView event_view(const EventPanel& p) {
     // The box sized to the lines (one at the least), its texts moved down from the six-line box's places.
     const int32_t n = std::clamp(static_cast<int32_t>(lines.size()), 1, chrome::kBoxLinesMax);
     const int32_t dy = (chrome::kBoxLinesMax - n) * chrome::kBoxLineGap;
-    v.pictures = {chrome::box_name(kBoxWidth, n)};
+    v.pictures = {chrome::box_name(p.wide ? kBoxWideWidth : kBoxWidth, n)};
     v.blocks = {at_place_down("TITLE", {p.planet + " \xB7 " + where}, dy), at_place_down("LINES", lines, dy)};
     if (p.pages.size() > 1)
       v.blocks.push_back(at_place_down("PAGE", {std::to_string(p.page + 1) + "/" + std::to_string(p.pages.size())}, dy));

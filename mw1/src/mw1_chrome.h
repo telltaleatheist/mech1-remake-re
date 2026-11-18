@@ -76,7 +76,7 @@ inline constexpr int32_t kBoxLineGap = 15;
 inline constexpr int32_t kBoxChromeH = 82;           // its frame, the title row and the buttons' row around the lines
 inline constexpr int32_t kBoxCanvasH = kBoxChromeH + kBoxLinesMax * kBoxLineGap;  // 172
 inline constexpr int32_t box_height(int32_t lines) { return kBoxChromeH + lines * kBoxLineGap; }
-inline constexpr int32_t kBoxWidths[] = {560, 376};  // a message's; the hub's (between its tiles)
+inline constexpr int32_t kBoxWidths[] = {560, 376, 760};  // a message's; the hub's (between its tiles); a message's at 16:9
 std::string box_name(int32_t w, int32_t lines);
 inline const std::vector<PanelSize>& panel_sizes() {
   // The ones the screens use (each screen's layout names its own; add one here when a layout needs it).

@@ -26,7 +26,14 @@ inline constexpr const char* kEventDialog = "MW1EVENTDIALOG";
 enum class Side : int32_t { kFull, kBottom };
 inline constexpr int32_t kSides = 2;
 inline constexpr const char* kEventBottomDialog = "MW1EVENTBOTTOM";
-inline constexpr int32_t kBoxWidth = 560;  // the box's (mw1_box_560_<lines>)
+inline constexpr int32_t kBoxWidth = 560;      // the box's (mw1_box_560_<lines>)
+inline constexpr int32_t kBoxWideWidth = 760;  // at 16:9 (MW1EVENTBOTTOM_WIDE, mw1_box_760_<lines>)
+// The letters a line of the box holds ("mw1_term_line", 8 pixels a letter, from 16 in to 16 from the box's right,
+// a few spare), at 4:3 and at 16:9; and MW1's own lines' (its texts wrap at 44: mw1_story_every_text_reads).
+inline constexpr size_t kBoxColumns = 64, kBoxWideColumns = 88, kMw1Columns = 44;
+// A line at least this long not ending a sentence is MW1's break inside one too (its texts break some lines a word or
+// two short: a tip's); shorter lines (a headline's, a list's) keep their breaks.
+inline constexpr size_t kMw1SoftColumns = 34;
 const char* event_dialog(Side s);
 
 // The screens a message fires over: each one's picture (its layout's BACKGROUND; the hub's is the world's scenery,
@@ -45,6 +52,7 @@ struct EventPanel {
   std::string planet, place;
   std::string scene;  // the backdrop: the event's art, else the picture of the screen it fires over (mw1image.zbd names)
   Side side = Side::kFull;
+  bool wide = false;  // the 16:9 layout's box (kBottom; MW1EVENTBOTTOM_WIDE is taken on a canvas wider than 640)
   std::vector<Page> pages;
   size_t page = 0;
   std::vector<std::string> captions;
@@ -60,7 +68,13 @@ ScreenView event_view(const EventPanel& p);
 
 // MW1's pages for the box (kBottom): each cut into as few pages as hold kBoxLinesMax lines at the most, the lines
 // shared evenly, none starting or ending blank; a choice's page's last part the one with the choice. A page with no lines stays one (empty) page.
-std::vector<Page> boxed_pages(const std::vector<Page>& pages);
+// Each page's lines first rewrapped to the box's width (rewrapped).
+std::vector<Page> boxed_pages(const std::vector<Page>& pages, size_t columns = kBoxColumns);
+// MW1's lines rewrapped to `columns` letters: a line MW1 broke only for its width (the next line's first word
+// wouldn't have fitted on it within kMw1Columns, or it's kMw1SoftColumns long and doesn't end a sentence) joined to
+// the next; a blank line, a short line (a heading, a list's) and an indented one kept where they are. A word longer
+// than a line stays whole.
+std::vector<std::string> rewrapped(const std::vector<std::string>& lines, size_t columns);
 
 // An event's own scene behind its text (FIXES.md item 10), by event id: "" none (the world's scenery then). The ones
 // with a full scene (854x480); the rest, the first arrival's crest among them (an emblem, not a scene), wait on Owen's

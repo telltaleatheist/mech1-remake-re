@@ -1520,9 +1520,12 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     }
   }
 
-  // MW1's pages on the panel: as they are on a full page, cut to the box's lines on a screen's foot (boxed_pages).
+  // MW1's pages on the panel: as they are on a full page; on a screen's foot rewrapped to the box's width, 16:9's
+  // (MW1EVENTBOTTOM_WIDE, on a canvas wider than 640) or 4:3's, and cut to its lines (boxed_pages).
   void set_pages(std::vector<Page> pages) {
-    ev_panel_.pages = ev_panel_.side == Side::kBottom ? boxed_pages(pages) : std::move(pages);
+    ev_panel_.wide = ge_ && ge_->buffer_width() > 640;
+    ev_panel_.pages = ev_panel_.side == Side::kBottom ? boxed_pages(pages, ev_panel_.wide ? kBoxWideColumns : kBoxColumns)
+                                                      : std::move(pages);
     if (ev_panel_.pages.empty()) ev_panel_.pages.push_back({});
   }
 
