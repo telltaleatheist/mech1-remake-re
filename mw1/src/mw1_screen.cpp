@@ -244,6 +244,31 @@ Mw1Screen::Mw1Screen(mech3::Engine& e, zgame::Handle state_handle, const char* f
 
 Mw1Screen::~Mw1Screen() = default;
 
+// The status bar's words inside the layout (FIXES 3+5: a note built of names could run past 4:3's edge): too long
+// after the world's name, the name gives up its room (the plaque names the world) and the words start where it
+// was; still too long, they are cut, "..." at the end.
+void Mw1Screen::fit_status(ztwod::Text* t, int32_t y, size_t world_block, int32_t world_x) {
+  const int32_t limit = (wide_ ? kWideCanvas : 640) - kStatusMargin;
+  auto right = [&] {
+    ztwod::Rect r{};
+    t->rect_at(&r);
+    return r.right - 3;  // FontText's box is 3 wider than its letters
+  };
+  if (right() <= limit) return;
+  if (world_block < blocks_.size() && !blocks_[world_block].empty()) {
+    blocks_[world_block][0]->hide();
+    shown_lines_[world_block].clear();
+    t->set_pos(world_x, y);
+    if (right() <= limit) return;
+  }
+  std::string words = t->text;
+  while (words.size() > 4 && right() > limit) {
+    words.pop_back();
+    while (!words.empty() && words.back() == ' ') words.pop_back();
+    t->set_text_plain((words + "...").c_str());
+  }
+}
+
 std::string highlighted(const std::string& s) { return kHighlight + s + kHighlight; }
 std::string plain_line(const std::string& s) {
   std::string out;
@@ -332,7 +357,8 @@ void Mw1Screen::show(const ScreenView& v) {
   spans_.resize(blocks_.size()), shown_lines_.assign(blocks_.size(), {});
   // The status bar: its words start after the world's name, however long the name (FIXES 3+5: a long name ran over
   // them); STATUS_WORLD comes before STATUS in every view.
-  int32_t status_world_right = -1;
+  int32_t status_world_right = -1, status_world_x = 0;
+  size_t status_world_block = 0;
   for (size_t b = 0; b < blocks_.size(); ++b) {
     auto& pool = blocks_[b];
     size_t spans = 0;
@@ -363,8 +389,9 @@ void Mw1Screen::show(const ScreenView& v) {
         if (tb.at && std::strcmp(tb.at, "STATUS_WORLD") == 0 && i == 0 && !ls[i].empty()) {
           ztwod::Rect r{};
           t->rect_at(&r);
-          status_world_right = r.right;
+          status_world_right = r.right, status_world_x = x, status_world_block = b;
         }
+        if (tb.at && std::strcmp(tb.at, "STATUS") == 0 && i == 0) fit_status(t, line_y, status_world_right >= 0 ? status_world_block : blocks_.size(), status_world_x);
         continue;
       }
       // Highlighted spans: the line's first part in its own Text, each further part after it in the block's spans.

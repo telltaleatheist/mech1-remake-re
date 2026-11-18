@@ -323,6 +323,13 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         show_travel();
       }
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "bar") press(kHubBar);
+      // bar_note_long (mw1screenfit's case): the bar with a note longer than any the game makes, the status bar's
+      // last resort (the world's name gives way, then the words are cut).
+      if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "bar_note_long") {
+        press(kHubBar);
+        bchoice_.note = std::string(140, 'W');
+        show_bar();
+      }
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "bar_recruit") press(kHubBar), press_bar(kBarCrew);
       if (const char* s = std::getenv("MW1_SCREEN"); s && (std::string(s) == "bar_lance" || std::string(s) == "company")) press(kHubCompany);
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "office") press(kHubOffice);
