@@ -131,6 +131,13 @@ class Render3D {
   virtual bool hold_frame() { return false; }
   virtual bool restore_frame() { return false; }
   virtual void drop_frame() {}
+  // Ours (MW1's mech renders, opt-in): while held, present() finishes each
+  // frame (read_back reads it) without showing it; the window keeps the last
+  // frame shown. False when the backend cannot (nothing changes then).
+  virtual bool hold_display(bool on) {
+    (void)on;
+    return false;
+  }
 };
 
 }  // namespace platform

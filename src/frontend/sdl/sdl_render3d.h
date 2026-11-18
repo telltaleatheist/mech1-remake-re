@@ -46,8 +46,12 @@ class SdlRender3D : public platform::Render3D {
   bool hold_frame() override;
   bool restore_frame() override;
   void drop_frame() override;
+  bool hold_display(bool on) override {
+    display_held_ = on;
+    return true;
+  }
 
-  // Saves the next presented frame as a BMP instead of showing it.
+  // Saves the next presented frame as a BMP instead of showing it (the next one shown, past a held display).
   void capture_next(const char* bmp_path) { capture_path_ = bmp_path; }
   // Draws what is collected so far (outside a scene), so a 2D layer goes on top.
   void flush() {
@@ -121,6 +125,7 @@ class SdlRender3D : public platform::Render3D {
   float clear_rgb_[3] = {0, 0, 0};
   float fog_rgb_[3] = {0, 0, 0};
   const char* capture_path_ = nullptr;
+  bool display_held_ = false;  // hold_display: frames finished, not shown
   const FrameShape* shape_ = nullptr;  // the frame's shape in the window (null: the whole window)
   FitRect fit_;                        // where the back buffer goes in the window's pixels
 };
