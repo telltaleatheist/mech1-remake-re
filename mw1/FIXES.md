@@ -194,7 +194,7 @@ Tick an item when it is merged into `main`.
   - If PM's layout can't hold this, the lab gets its own layout (set_layout) with PM's controls bound, as options did.
   - Guard test: every text object's measured width fits its panel.
 
-## 18. [ ] DEPLOY goes straight into the mission
+## 18. [x] DEPLOY goes straight into the mission *(done: mw1-deploy-direct-2)*
 - **Owen (2026-11-17, `keep/mw1-remake/reference/owen-play-deploy-briefing.png`):** "When I hit deploy it takes me to this screen. This is a PM screen I believe, with the background removed. Instead, it should skip this page and just bring me to the game itself."
 - **Owen again (2026-11-17, `owen-play-deploy-briefing-2.png`):** "this page is still coming up too."
 - **The shot:** PM's briefing (BriefingScreen) with its backdrop missing. It shows PM's page icons, PM's LOADING lettering, a PM mech, and "MechWarrior 3 Pirate's Moon 1.0.11.5".
