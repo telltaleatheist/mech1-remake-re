@@ -394,8 +394,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     const size_t at = path.rfind(kImageLibrary);
     if (at == std::string::npos) return;
     path.replace(at, std::strlen(kImageLibrary), art::kArtLibrary);
-    const char* hires = std::getenv("MW1_HIRES");  // "0": nothing high-res (research/hires-2d.md)
-    if (!art::install(path, !(hires && std::strcmp(hires, "0") == 0))) std::printf("mw1: no art archive (%s): the screens lack their pictures\n", path.c_str());
+    if (!art::install(path, true)) std::printf("mw1: no art archive (%s): the screens lack their pictures\n", path.c_str());
   }
 
   // The menu's state on this engine, made once; false when MW1's layout is not there.

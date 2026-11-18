@@ -126,8 +126,8 @@ The one draw outside the host is the fade's still (`GameEngine::image_draw`), wh
 ### The interface between B1 and B2 (agreed by both devs, 2026-11-18)
 
 B2 is built on mw1-hires-pictures, and B1 draws from it. There are two engine "ours" hooks, both opt-in: only MW1's
-program sets them, so MW3 and PM see neither. With `MW1_HIRES=0` (B1's `platform::hires_2d()` off) MW1 sets no
-`HiresImages`, so nothing is high-res and only the canvas copies draw.
+program sets them, so MW3 and PM see neither. With `MW1_HIRES=0` (B1's `platform::hires_2d()` off) MW1's
+`find` returns null, so nothing is high-res and only the canvas copies draw.
 
 **The pictures B1 draws: `src/platform/hires_images.h`.**
 - `platform::HiresImages` is set by MW1 (`mw1::art::install`) and is null otherwise.

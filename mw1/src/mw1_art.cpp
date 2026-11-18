@@ -12,6 +12,7 @@
 #include "gamez/zimage/zimg_library.h"
 #include "gamez/zutil/zutl_path.h"
 #include "mw1_chrome.h"
+#include "platform/hires_2d.h"
 #include "platform/hires_images.h"
 
 #include "stb/stb_image.h"  // third_party/stb: compiled in mw1_stb_image.cpp, JPEG and PNG only
@@ -306,6 +307,7 @@ namespace {
 class Hires : public platform::HiresImages {
  public:
   const platform::HiresImage* find(const char* name) override {
+    if (!platform::hires_2d()) return nullptr;  // MW1_HIRES=0: nothing high-res, whenever the flag is set
     const Store::Picture* p = Store::get().picture(name);
     if (!p) return nullptr;
     platform::HiresImage& h = found_[name];

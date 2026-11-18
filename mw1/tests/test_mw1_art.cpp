@@ -17,6 +17,7 @@
 #include "gamez/zutil/zutl_path.h"
 #include "mw1_art.h"
 #include "mw1_chrome.h"
+#include "platform/hires_2d.h"
 #include "platform/hires_images.h"
 
 namespace {
@@ -152,6 +153,10 @@ TEST(mw1_art_store) {
   EXPECT(mw1::art::install((dir / "mw1art.zbd").string(), true));
   platform::HiresImages* hi = platform::hires_images();
   EXPECT(hi != nullptr);
+  const bool was_hires = platform::hires_2d();
+  platform::set_hires_2d(false);
+  EXPECT(hi && hi->find(images[0].name.c_str()) == nullptr);  // the flag off: nothing high-res
+  platform::set_hires_2d(true);
   mw1::art::Store& st = mw1::art::Store::get();
   EXPECT(st.decoded_count() == 0);
 
@@ -199,6 +204,7 @@ TEST(mw1_art_store) {
 
   zimg::set_image_provider({});
   platform::set_hires_images(nullptr);
+  platform::set_hires_2d(was_hires);
   st.close();
   fs::remove_all(dir, ec);
 }

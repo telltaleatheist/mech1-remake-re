@@ -86,7 +86,8 @@ class Store {
 
 // The provider and the 2D's source-size pictures installed (zimg::set_image_provider, platform::set_hires_images)
 // from the archive at `path`; false when it can't be read (the screens then lack their art, as when mw1image.zbd is
-// missing). `hires` off: the canvas copies only.
+// missing). `hires` off: the canvas copies only; on, the pictures are found only while platform::hires_2d() is
+// (MW1_HIRES=0 turns it off).
 bool install(const std::string& path, bool hires);
 
 }  // namespace mw1::art
