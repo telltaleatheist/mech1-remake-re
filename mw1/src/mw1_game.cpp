@@ -195,6 +195,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         ztwod::set_layout_image(r.game, chrome::reskin_name(r.game), t == &chrome::lab_pictures() ? chrome::kLabFile : chrome::kFileBoxFile);
     for (const char* f : kLabFonts) ztwod::set_layout_font(f, std::string("mw1_") + f, chrome::kLabFile);
     for (const auto& [game_font, font] : kFileBoxFonts) ztwod::set_layout_font(game_font, font, chrome::kFileBoxFile);
+    // The load box's NO is MW1's CANCEL (Owen, FIXES 3+5): its BTN_CANCEL's label, on that box only (PM's yes/no
+    // questions keep their NO).
+    ztwod::set_layout_label("MSG_NO", "CANCEL", chrome::kFileBoxFile);
     for (const char* f : kPmCursorFiles) ztwod::set_layout_image(kPmCursor, chrome::kCursor, f);  // FIXES.md item 22
     auto* ge = dynamic_cast<mech3::GameEngine*>(&e);
     mech3::set_menus_still(true);  // FIXES.md item 9: PM's own screens' backgrounds held still too
@@ -1285,7 +1288,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       const std::string by = killer_words(i);
       const int64_t v = int64_t{wreck_value(company_, a.wrecks[i])} * 1000;
       value += v;
-      p.results.push_back("  " + mech_title(kMechKinds[a.wrecks[i].kind].pm_mech) + (by.empty() ? "" : " (" + by + ")") + " " + thousands(v));
+      p.results.push_back("  " + mech_title(kMechKinds[a.wrecks[i].kind].pm_mech) + (by.empty() ? "" : " by " + by) + " " + thousands(v));
     }
     // PAY: the fee (any deduction), the salvage share of the wrecks' value, the repairs, the total and the funds.
     const bool docked = s.payout_percent < 100 && a.outcome == Outcome::kSuccess;
@@ -1294,9 +1297,11 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (a.outcome == Outcome::kSuccess && contract_.salvage_percent && value)
       p.pay.push_back("Salvage: " + std::to_string(contract_.salvage_percent) + "% of " + thousands(value));
     p.pay.push_back("Salvage share: " + thousands(s.salvage));
-    // The bill's lines (the rest, a mech lost, is YOUR MECH's and the hub's messages after CONTINUE).
+    // The bill's lines (the rest, a mech lost, is YOUR MECH's and the hub's messages after CONTINUE): each mech's
+    // repairs only when more than one was billed (one's is the bill itself), then the bill.
+    const auto each = std::count_if(rep.lines.begin(), rep.lines.end(), [](const std::string& l) { return l.rfind("Repairs:", 0) == 0; });
     for (const std::string& l : rep.lines)
-      if (l.rfind("Repair", 0) == 0) p.pay.push_back(l);
+      if (l.rfind("Repair bill", 0) == 0 || (each > 1 && l.rfind("Repairs:", 0) == 0)) p.pay.push_back(l);
     const int64_t total = c.funds - before;
     p.pay.push_back("Total: " + std::string(total < 0 ? "-" : "+") + thousands(total < 0 ? -total : total) + " C-bills");
     p.pay.push_back("Funds: " + thousands(c.funds) + " C-bills");

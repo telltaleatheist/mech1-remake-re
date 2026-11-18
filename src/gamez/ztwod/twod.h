@@ -903,6 +903,10 @@ void set_layout_font(const std::string& game_font, const std::string& font, cons
 // The same for a picture (the SDL host's image_get), always for one game file: a reskin's pictures, at the game's
 // pictures' sizes (the game's layout places them).
 void set_layout_image(const std::string& game_image, const std::string& image, const std::string& game_file);
+// The same for a LABEL's message key, always for one game file: the program's words in place of the message (the
+// game's message table not read for it), e.g. a reskin's CANCEL for the game's NO on one dialog only.
+void set_layout_label(const std::string& game_key, const std::string& text, const std::string& game_file);
+const char* layout_label(const char* key);   // the program's words for `key` now, else null
 const char* layout_font(const char* name);   // `name`, or the program's in its place now
 const char* layout_image(const char* name);  // the same for a picture
 const char* layout_font_in(const char* game_file, const char* name);  // `name` as game_file's code asks for it
