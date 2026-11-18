@@ -13,7 +13,7 @@
 namespace mw1::images {
 
 inline constexpr const char* kImageLibrary = "mw1image";        // zbd/mw1image.zbd in MW1's data
-inline constexpr const char* kIntroImage = "mw1_intro";         // the opening picture, letterboxed on 640x480
+inline constexpr const char* kIntroImage = "mw1_intro";         // the opening picture, filling the wide canvas (cover)
 inline constexpr const char* kBlackImage = "mw1_black";         // 640x480 black, the narration's backdrop
 inline constexpr int32_t kScreenW = 640, kScreenH = 480;
 inline constexpr int32_t kWideW = 854;  // the 16:9 canvas's width (480 high): the scenes' (tools/mw1art.py)
@@ -28,6 +28,9 @@ uint16_t rgb565(uint8_t r, uint8_t g, uint8_t b);
 // `picture` (w x h, 565) centred on a black kScreenW x kScreenH image (letterboxed or pillarboxed).
 Image letterbox(const std::string& name, int32_t w, int32_t h, const std::vector<uint16_t>& picture);
 Image black(const std::string& name);
+// `picture` (w x h, 565) scaled to fill out_w x out_h, centred, its overflow cut (FIXES.md item 9: every picture fills
+// the screen at any shape); each pixel the bilinear sample of the picture.
+Image cover(const std::string& name, int32_t w, int32_t h, const std::vector<uint16_t>& picture, int32_t out_w, int32_t out_h);
 // The archive's bytes; "" in `why` and the bytes, or why not (a name too long, a size that doesn't fit).
 std::vector<uint8_t> pack(const std::vector<Image>& images, std::string* why = nullptr);
 
