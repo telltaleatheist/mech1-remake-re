@@ -224,7 +224,7 @@ Tick an item when it is merged into `main`.
   - Our framed buttons: CONTINUE back to the hub.
   - It replaces the hub's AFTER ACTION panel; the hub then shows a short message (item 16) if anything is left to say.
 
-## 20. [ ] Offers name the mechs you'll actually fight, by weight class, highlighted *(names and weight classes done, b3cd78b1; the highlight colour still to do)*
+## 20. [x] Offers name the mechs you'll actually fight, by weight class, highlighted *(names: b3cd78b1; highlight: mw1-offer-highlight; colour for Owen to confirm, see 28)*
 - **Owen (2026-11-17, `keep/mw1-remake/reference/owen-play-offer.png`):** "This shows a 'Jenner' as the enemy. We aren't using MW1 mechs, we're using exclusively MW3 mechs right now. And in the original, it shows the enemies/objectives/etc highlighted in a brighter colour so you can easily scan through and see what you're taking on. Can we light up the number of mechs, or the types of mechs? Like I think the original said '2 heavy' or '2 medium'."
 - **Cause:** contracts are drawn from MW1's mech kinds (kMechKinds), and each spawns as its PM stand-in (Jenner → Owens, research/contracts.md). The text shows MW1's name, so Owen fought an "Owens" that the offer called a Jenner.
 - **Wanted:**
@@ -306,6 +306,8 @@ Tick an item when it is merged into `main`.
 - The morning list's open story questions (`outbox/2026-11-17/mw1-morning-decisions.md`): the deaths, the deadline, the ending, the commander's name, the Dark Wing battle, multi-stage battles, the major campaign's dates.
 - The travel map's seven look-and-feel questions, which will be folded into item 21's readout.
 - An arctic Instant Action layout built from MW3's snow world (m4/m6) at conversion time?
+- Item 20's highlight colour: MW1's bright amber (built), or white? Should the hub's status-line contract readout be highlighted too?
+- Item 19's results screen: the shot is in `outbox/2026-11-17/results-screen/`; anything to change?
 
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
