@@ -343,7 +343,7 @@ Tick an item when it is merged into `main`.
 - Dev 2 shortened three Bar hints to fit 4:3 ("Order a drink, read the news, or find pilots for hire.", etc.). Is the wording OK?
 - Item 19's results screen: the shot is in `outbox/2026-11-17/results-screen/`; anything to change?
 
-## 32. [ ] Missing in action: a downed lancemate can come back to the hiring pool
+## 32. [x] Missing in action: a downed lancemate can come back to the hiring pool *(mw1-missing-pilots)*
 - **Owen (2026-11-18):** yes, add MW1's MISSING.
 - **MW1:**
   - The after-action roster has KILLED and MISSING.
@@ -372,6 +372,17 @@ Tick an item when it is merged into `main`.
 - **Where the text goes:** each screen names its free side.
 - **What stays as it is:** the travel and story pages that have their own picture (`event_art`).
 - **Done means:** shots of the Bar's drink, news and an event at 1080p and 4:3.
+
+## 35. [ ] The main menu (NEW / LOAD / EXIT, the mech behind) flashes between screens
+- **Owen (2026-11-18):** the main menu shows for a moment at every screen change, which is jarring.
+- **Wanted:** a screen change goes straight from one MW1 screen to the next, never showing the main menu under it.
+  - Likely cause: the menu stack, since MW1's menu lies under the hub (mw1_game.cpp, "MW1's main menu over PM's ... under the hub").
+- **Done means:** a frame-by-frame capture of each change (hub to Bar, Bar to hub, hub to office, the office to the lab, a mission's return), with no menu frame in any of them.
+
+## 36. [ ] An arrow clicked again does nothing until the other arrow is clicked
+- **Owen (2026-11-18):** in the office's TERMS, clicking an arrow once works, and holding it repeats. A second click on the same arrow does nothing until the other arrow has been clicked.
+- **Wanted:** every click steps once, and holding repeats. This applies to every arrow pair: the office's terms, the lab's, and anywhere else PM's spinner arrows are used.
+- **Done means:** a test that clicks the same arrow three times and sees three steps.
 
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
