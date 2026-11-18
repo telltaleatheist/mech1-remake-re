@@ -119,6 +119,7 @@ Tick an item when it is merged into `main`.
   - An "ours" engine path, opt-in, with MW3 and PM unchanged.
   - The image archive's size needs a plan (compressed pixels, or PNGs kept as PNGs) before the art is repacked at a higher resolution.
 - **Step 1 (2026-11-18, dev 2):** shots at 1080p and 4K in `outbox/2026-11-17/hires-step1/`. They confirm a nearest-neighbour upscale of the 480-line canvas (4.5× at 4K), while the 3D is drawn at full resolution. A possible stopgap is a linear filter on the canvas blit (softer, not sharper). For Owen: stopgap first, or straight to the real path?
+- **Owen (2026-11-18): "Real fix"** (option B in `research/hires-2d.md`, no stopgap). Pictures: JPEG q90 for scenes and portraits, PNG for alpha and hard edges (the plan's recommendation). PM's widget art stays canvas-sharp. Split: dev 2 takes B0, B1, B3 and B4 (the engine and text); dev 1 takes B2 (the pictures).
 
 ## 13. [x] The Mech Complex's market: lists and buttons don't work; PM's look *(done: mw1-mech-complex)*
 - **Owen (2026-11-17, `keep/mw1-remake/reference/owen-play-market.png`):** "These buttons/lists don't seem to be working. Also, can we make the buttons, colours, and general style closer to the other MW1 style we've established?"
@@ -311,7 +312,6 @@ Tick an item when it is merged into `main`.
 - zipkit should free its own node pool (MW1 frees it after the conversion today, mw1_worlds.cpp); move the fix into zipkit?
 - For the mw3 lead, not MW1: on 16:9 the engine's widening shifts a centred dialog's list arrows by the 107 px margin once too often (PM's own load box shows it). MW1 works round it in MW1LOADSAVE_WIDE.
 - The lab's remaining PM wordings: the variant names ("Alternate A (incomplete)"), the Rename, Save and Delete links, "'Mech Name", and the SKINS cycle's camo names (GUNMETAL). Keep them, or use MW1 words?
-- Item 12: a linear-filter stopgap now, or wait for the real high-resolution 2D path?
 - Dev 2 shortened three Bar hints to fit 4:3 ("Order a drink, read the news, or find pilots for hire.", etc.). Is the wording OK?
 - Item 19's results screen: the shot is in `outbox/2026-11-17/results-screen/`; anything to change?
 
