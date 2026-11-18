@@ -29,9 +29,11 @@ void set_game_loop_start(Start s);
 namespace menu {
 class MenuState;
 class IntroState;
+class CreditsState;
 }  // namespace menu
 menu::MenuState* game_loop_menu();    // the menu's state once made (tests)
 menu::IntroState* game_loop_intro();  // the intro's, once made
+menu::CreditsState* game_loop_credits();  // the credits', while they roll
 void game_loop_press_menu(int32_t button);  // a menu button, as pressed (tests)
 // Every new contract a battle (destroy all) on this world's Instant Action map (by folder: "mw3c2", 1): a test
 // override. Empty: the contracts' own (mw1_missions.h).

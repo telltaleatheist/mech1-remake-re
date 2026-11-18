@@ -2787,6 +2787,8 @@ struct DarkWingRun {
   bool asked = false, attack_live = false, launched = false, results = false, no_fee = false, replay = true, message = false;
   bool victory_panel = false, won = false, arrest_seen = false, saved_won = false, asked_again = false, asked_late = false;
   bool not_redrawn = true, too_late = false;
+  bool credits = false, credits_shown = false, credits_over = false;  // won: the credits after the panel, then the hub
+  size_t credit_lines = 0;
   int32_t rung = 0, enemies = 0, made = 0, aims = 0, units_on = -1;
   std::string world, climate, map_climate;
   float aim = 0;
@@ -2883,14 +2885,23 @@ void dark_wing_run(DarkWingRun& d) {
         ++step, wait = 0;
         return false;
       }
-      case 5:  // won: the victory's pages, then the hub; lost: the hub at once
+      case 5:  // won: the victory's pages, the credits (rolling a while, then skipped), then the hub; lost: the hub at once
         if (showing(app, ev)) {
           d.victory_panel = d.victory_panel || shows_line(ev->screen()->shown(), "VICTORY");
           ev->screen()->on_button(mw1::kEventNext, 0, 0);
           wait = 0;
           return false;
         }
+        if (mw1::CreditsState* cs = mw1::game_loop_credits(); cs && showing(app, cs)) {
+          d.credits = true, d.credit_lines = cs->lines();
+          if (cs->lines_shown() > 0) d.credits_shown = true;
+          if (wait < 120) return false;  // two seconds' roll: lines up from the window's foot
+          cs->escape();
+          wait = 0;
+          return false;
+        }
         if (!showing(app, hub)) return false;
+        d.credits_over = d.credits && !mw1::game_loop_credits();
         d.won = c->story.dark_wing_won, d.arrest_seen = c->story.seen[mw1::kEventPortArrest] != 0, d.funds_after = c->funds;
         d.units_on = units(c->date) - date_at_launch;
         {
@@ -2948,10 +2959,11 @@ TEST(mw1_story_the_dark_wing_won_and_lost_headless) {
       mw1::set_map_table({});
       std::printf("  %s: asked %d (ATTACK live %d); rung %d, %d enemies (%d made, %d aims, the first x%.2f) on %s, the world %s, "
                   "the map %s; results %d (no fee %d, REPLAY %d, a message %d); victory panel %d; won %d (arrest seen %d, saved %d); "
+                  "credits %d (%zu lines, shown %d, over %d); "
                   "funds %lld -> %lld; %d units on; the hub again asks %d; the next arrival in 3030 asks %d (too late %d)\n",
                   win ? "won" : "lost", d.asked, d.attack_live, d.rung, d.enemies, d.made, d.aims, d.aim, d.world.c_str(), d.climate.c_str(),
                   d.map_climate.c_str(), d.results, d.no_fee, d.replay, d.message, d.victory_panel, d.won, d.arrest_seen, d.saved_won,
-                  static_cast<long long>(d.funds_before), static_cast<long long>(d.funds_after), d.units_on, !d.not_redrawn,
+                  d.credits, d.credit_lines, d.credits_shown, d.credits_over, static_cast<long long>(d.funds_before), static_cast<long long>(d.funds_after), d.units_on, !d.not_redrawn,
                   d.asked_late, d.too_late);
       EXPECT(d.asked && d.attack_live && d.launched && d.rung == mw1::kDarkWingRung);
       EXPECT(d.enemies == mw1::kRungMechs && d.made == d.enemies && d.aims == d.enemies);  // the commander alone: all 8
@@ -2960,8 +2972,9 @@ TEST(mw1_story_the_dark_wing_won_and_lost_headless) {
       EXPECT(!d.too_late);
       if (win) {
         EXPECT(d.victory_panel && d.won && d.arrest_seen && d.saved_won && d.units_on == 0 && d.not_redrawn && !d.asked_late);
+        EXPECT(d.credits && d.credit_lines > 0 && d.credits_shown && d.credits_over);  // then play goes on: no QUIT
       } else {
-        EXPECT(!d.victory_panel && !d.won && d.message && d.not_redrawn && d.asked_late);
+        EXPECT(!d.victory_panel && !d.won && d.message && d.not_redrawn && d.asked_late && !d.credits);
         EXPECT(d.units_on >= 0x1C);  // SPECIAL_ASSAULT_DEPLOYMENT_UNITS (and a month's turn's wages)
       }
     });

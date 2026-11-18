@@ -39,6 +39,9 @@ WINDOWS_FONTS (
   ; A message box's title (centred) and its words.
   "mw1_dialog_title" (face "Saira Condensed Bold" file "fonts\SairaCondensed-Bold.ttf" height -18 tracking 3 align "center" color (255 176 64))
   "mw1_dialog_title_left" (face "Saira Condensed Bold" file "fonts\SairaCondensed-Bold.ttf" height -18 tracking 3 color (255 176 64))
+  ; The credits (FIXES.md item 47): a role in the plaques' amber, the names bright under it, centred on their column.
+  "mw1_credit_head" (face "Saira Condensed Bold" file "fonts\SairaCondensed-Bold.ttf" height -17 tracking 3 align "center" shadow "true" color (255 176 64))
+  "mw1_credit" (face "Saira Condensed Bold" file "fonts\SairaCondensed-Bold.ttf" height -19 tracking 2 align "center" shadow "true" color (233 236 238))
   "mw1_dialog_text" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -14 color (222 226 230))
   ; The options' lines greyed (left-aligned), and a choice's value.
   "mw1_line_off" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -13 color (96 100 104))

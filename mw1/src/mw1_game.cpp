@@ -370,6 +370,11 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "hub_contract")
         press(kHubOffice), press_office(kOfficeRequest), press_office(kOfficeAccept);
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "hub_options") press(kHubOptions);
+      // credits: the credits over the hub, MW1_CREDITS_AT seconds in (default 12: MW1's first panels up).
+      if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "credits" && !pending_) {
+        const char* at = std::getenv("MW1_CREDITS_AT");
+        play_credits(at ? static_cast<float>(std::atof(at)) : 12.0f);
+      }
       // hub_long, hub_long_next: the hub's messages longer than its box (made-up lines): the box at its tallest, page
       // 1 of 2; and after OK (NEXT), page 2 (FIXES.md item 42). hub_long_short: two lines, the box sized to them.
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s).rfind("hub_long", 0) == 0 && !pending_) {
@@ -1708,6 +1713,37 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (!was_up) return;
     save();
     show_hub(), show_bar(), show_market(), show_office();
+    if (credits_next_) credits_next_ = false, play_credits();  // the victory's panel read: the credits (item 47)
+  }
+
+  // FIXES.md item 47: after the Dark Wing's victory, the credits (mw1_menu.h's CreditsState: MW1's, then ours) over
+  // the victory's picture; then the hub, play going on. None without their layout or MW1's exe. `at`: seconds in
+  // (development shots).
+  void play_credits(float at = 0.0f) {
+    mech3::GameEngine* ge = ge_;
+    if (!ge || credits_up_ || !layout_there(kCreditsFile, kCreditsDialog)) return;
+    std::vector<CreditPanel> roll = credits_roll();
+    if (roll.empty()) {
+      std::printf("mw1: no credits (MW1's exe doesn't read): play goes on\n");
+      return;
+    }
+    const size_t ours = extra_credits().size();
+    credits_ = ge->adopt_state([this, roll](zgame::Handle h) {
+      return credits_state_ = new CreditsState(h, roll, kVictoryScene, [this] { credits_done(); });
+    });
+    if (!credits_) return;
+    credits_state_->start_at(at);
+    const std::vector<CreditLine> lines = credits_layout(roll);
+    std::printf("mw1: the credits, %zu panels (%zu ours), %zu lines, %.0f s\n", roll.size(), ours, lines.size(), credits_length(lines));
+    credits_up_ = true;
+    ge->push_state(credits_, 0);
+  }
+  void credits_done() {
+    if (!credits_up_) return;
+    credits_up_ = false;
+    if (ge_ && ge_->menu_state_of(credits_) == credits_state_) ge_->pop_state(1);
+    std::printf("mw1: the credits over: play goes on\n");
+    show_hub();
   }
 
   void press_event(int32_t id) {
@@ -1783,7 +1819,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     }
     if (!pg.lines.empty()) pages.push_back(pg);
     set_pages(pages);
-    if (raise_event(*ge_)) show_event();
+    if (raise_event(*ge_)) credits_next_ = true, show_event();
   }
   static constexpr const char* kVictoryScene = "mw1_story_honor_restored";
   static constexpr size_t kVictoryPageLines = 12;
@@ -2334,6 +2370,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   void set_start(Start s) { start_ = s; }
   MenuState* menu_state() const { return menu_state_; }
   IntroState* intro_state() const { return intro_state_; }
+  CreditsState* credits_state() const { return credits_up_ ? credits_state_ : nullptr; }
   void set_world(const std::string& world, int32_t ia) { world_ = world, world_ia_ = ia; }
   const Request* office_ask() const { return &ochoice_.ask; }
   const Contract* contract() const { return company_.stores && (offered_ || contract_.accepted || pending_) ? &contract_ : nullptr; }
@@ -3184,6 +3221,7 @@ void set_game_loop_start(Start s) {
 }
 MenuState* game_loop_menu() { return the_loop() ? the_loop()->menu_state() : nullptr; }
 IntroState* game_loop_intro() { return the_loop() ? the_loop()->intro_state() : nullptr; }
+CreditsState* game_loop_credits() { return the_loop() ? the_loop()->credits_state() : nullptr; }
 void game_loop_press_menu(int32_t button) {
   if (the_loop()) the_loop()->press_menu(button);
 }

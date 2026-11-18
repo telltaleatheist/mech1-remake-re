@@ -57,6 +57,51 @@ TEST(mw1_menu_the_narration_is_the_exes) {
   std::printf("  %zu lines, %zu characters\n", lines.size(), chars);
 }
 
+// FIXES.md item 47: the credits after the Dark Wing are MW1's own, the intro's seven panels of two texts read from the
+// exe; laid out on their columns, one panel under another, rolling within MW1's minute or two. Their words stay in the
+// exe: counts only.
+TEST(mw1_menu_the_credits_are_the_exes) {
+  if (mw1_test::no_mw1()) return;
+  mw1::set_mw1_game_dir("");
+  EXPECT(mw1::mw1_credits().empty() && mw1::credits_roll().empty());  // no MW1: no credits (play goes on)
+  mw1::set_mw1_game_dir(MW1_DOS_GAME_DIR);
+  const std::vector<mw1::CreditPanel> roll = mw1::mw1_credits();
+  const std::vector<mw1::CreditPanel> all = mw1::credits_roll();
+  mw1::set_mw1_game_dir("");
+  EXPECT(roll.size() == static_cast<size_t>(mw1::kCreditPanels));
+  EXPECT(all.size() == roll.size() + mw1::extra_credits().size());
+  // Each text's lines (0x0D-split, blanks kept): MW1's as surveyed.
+  const size_t want[] = {3, 3, 5, 5, 9, 7, 3, 3, 7, 3, 3, 3, 11, 3};
+  size_t t = 0, lines = 0, chars = 0;
+  for (const mw1::CreditPanel& p : roll) {
+    EXPECT(p.texts.size() == 2);
+    for (const mw1::CreditText& x : p.texts) {
+      EXPECT(t < 14 && x.lines.size() == want[t]);
+      EXPECT(x.x < 320 && x.y < 200 && !x.lines.front().empty());
+      for (const std::string& l : x.lines) {
+        for (char c : l) EXPECT(c >= 0x20 && c < 0x7f);
+        chars += l.size(), lines += !l.empty();
+      }
+      ++t;
+    }
+  }
+  const std::vector<mw1::CreditLine> laid = mw1::credits_layout(roll);
+  EXPECT(laid.size() == lines);
+  int32_t heads = 0, last_y = -1;
+  bool columns = true, below = true;
+  for (const mw1::CreditLine& l : laid) {
+    heads += l.head;
+    columns = columns && (l.x == mw1::kCreditLeftX || l.x == mw1::kCreditRightX || l.x == mw1::kCreditMiddleX);
+    below = below && l.y >= 0;
+    last_y = std::max(last_y, l.y);
+  }
+  EXPECT(heads == 12 && columns && below);  // the last panel (the notice) unheaded
+  const float secs = mw1::credits_length(laid);
+  EXPECT(secs > 30.0f && secs < 120.0f);
+  std::printf("  %zu panels, %zu texts, %zu lines (%d headings), %zu characters; laid out %d pixels tall, %.0f s\n", roll.size(), t,
+              lines, heads, chars, mw1::credits_height(laid), secs);
+}
+
 TEST(mw1_menu_the_intro_keeps_mw1s_times) {
   // 4 ticks' fade, 0x24 + 0x19E white, 0x6C the picture: about 31 s at 18.2 ticks a second.
   const float t = 1.0f / mw1::kTicksPerSecond;

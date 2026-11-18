@@ -75,6 +75,80 @@ class IntroState : public Mw1State {
   int32_t frames_ = 0;
 };
 
+// ---- The credits (FIXES.md item 47, after the Dark Wing's defeat) ----
+// MW1's credits roll up slowly over our art, then play goes on at the hub. Any key or a click skips them.
+inline constexpr const char* kCreditsFile = "mw1credits.zrd";
+inline constexpr const char* kCreditsDialog = "MW1CREDITSDIALOG";
+
+// MW1's credits: the intro's seven panels, two texts each (its left and right), at MW_MAIN's DS. A text is its x and
+// y words (MW1's 320x200 screen) and its words, NUL-ended within 0x80, lines split at 0x0D (two in a row: a blank
+// line). Read from the player's exe (mw_main_data_segment); none without it, or when a record doesn't read as one.
+inline constexpr int32_t kCreditPanels = 7;
+inline constexpr uint16_t kCreditTexts[kCreditPanels][2] = {
+    {0x1C33, 0x1C57}, {0x1C80, 0x1CA9}, {0x1CCF, 0x1D1F}, {0x1D53, 0x1D6F},
+    {0x1D8E, 0x1DD8}, {0x1DF7, 0x1E18}, {0x1E40, 0x1EB8},
+};
+struct CreditText {
+  int32_t x = 0, y = 0;  // MW1's screen's
+  std::vector<std::string> lines;
+};
+struct CreditPanel {
+  std::vector<CreditText> texts;
+  bool headed = true;  // each text's first line a role (MW1's last panel, its trademark notice, isn't)
+};
+std::vector<CreditPanel> mw1_credits();
+// The hook for our own credits, rolled after MW1's (a text's x picks its column as MW1's do: under 160 the left,
+// else the right; a line wider than a column centred across). None yet.
+std::vector<CreditPanel> extra_credits();
+std::vector<CreditPanel> credits_roll();  // MW1's, then ours
+
+// The roll laid out top-down from 0 in the layout's 640x480: each column's lines centred on it, a headed panel's
+// texts' first lines in the heading font (MW1's role over its names), a blank line half a line, the panels one under
+// another, a text kept its place against its panel's other (MW1's y offsets, doubled).
+inline constexpr int32_t kCreditLeftX = 170, kCreditRightX = 470, kCreditMiddleX = 320, kCreditColumnChars = 24;
+inline constexpr int32_t kCreditGap = 22, kCreditPanelGap = 72;
+inline constexpr int32_t kCreditsTop = 24, kCreditsBottom = 456;  // the window lines show in
+inline constexpr float kCreditsSpeed = 30.0f;                     // pixels a second, up
+inline constexpr const char* kCreditHeadFont = "mw1_credit_head";
+inline constexpr const char* kCreditFont = "mw1_credit";
+struct CreditLine {
+  int32_t x = 0, y = 0;
+  bool head = false;
+  std::string text;
+};
+std::vector<CreditLine> credits_layout(const std::vector<CreditPanel>& roll);
+int32_t credits_height(const std::vector<CreditLine>& lines);  // to the last line's foot
+// Seconds to roll them all past the window's top.
+float credits_length(const std::vector<CreditLine>& lines);
+
+// The credits' state over our `art` (an image's name; empty or missing: black). `done` is heard once: at the end,
+// or at a skip (Escape, any key, a click).
+class CreditsState : public Mw1State {
+ public:
+  CreditsState(zgame::Handle h, std::vector<CreditPanel> roll, std::string art, std::function<void()> done);
+  bool enter() override;
+  bool update() override;
+  void escape() override { finish(); }
+  float seconds() const { return seconds_; }
+  bool finished() const { return finished_; }
+  size_t lines() const { return lines_.size(); }
+  size_t lines_shown() const { return shown_count_; }  // in the window now
+  void start_at(float seconds) { start_ = seconds; }   // development: entered this far in (shots)
+
+ private:
+  void show_roll();
+  void finish();
+  std::vector<CreditLine> lines_;
+  std::string art_;
+  std::function<void()> done_;
+  float seconds_ = 0.0f, start_ = 0.0f, length_ = 0.0f;
+  int32_t shown_at_ = -1;
+  size_t shown_count_ = 0;
+  bool finished_ = false;
+  bool mouse_was_down_ = true;
+  int32_t frames_ = 0;
+};
+
 }  // namespace mw1::menu
 
 // The module's own namespace keeps its names apart from the other modules' (two of the same name are a
