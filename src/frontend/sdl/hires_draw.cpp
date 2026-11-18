@@ -26,7 +26,7 @@ uint16_t canvas_colour(uint32_t c, bool rgb565) {
 }
 // A diffuse (ARGB) for a premultiplied draw: the colour, tinted when debugging.
 uint32_t diffuse(uint32_t r, uint32_t g, uint32_t b) {
-  if (platform::hires_2d_debug()) r = r * 7 / 16, b = b * 7 / 16, g = 128 + g / 2;
+  if (platform::hires_2d_debug()) r = 128 + r / 2, g = g * 5 / 16, b = 128 + b / 2;  // magenta: plain on MW1's green
   return 0xff000000u | r << 16 | g << 8 | b;
 }
 

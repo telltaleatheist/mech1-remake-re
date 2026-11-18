@@ -85,6 +85,7 @@ SdlTwodHost::SdlTwodHost(mech3::GameEngine* engine, SdlInput* input, platform::W
 }
 
 SdlTwodHost::~SdlTwodHost() {
+  hires_draw_.reset();  // its glyph fonts closed while SDL_ttf is up (TTF_Quit below)
   for (auto& [h, f] : fonts_)
     if (f.ttf) TTF_CloseFont(f.ttf);
   if (ttf_ok_) TTF_Quit();

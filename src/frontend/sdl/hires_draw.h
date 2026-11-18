@@ -12,7 +12,7 @@
 //    where the text filled one (OPAQUE), the colour of the cell beside a glyph.
 // 3. Each draw at its pixels: a picture from its source (HiresImages), a line from the glyph atlas (TextRaster) at the
 //    canvas's own pen.
-// MW1_HIRES_DEBUG=1 tints what is drawn here green; what is left the canvas's is untinted.
+// MW1_HIRES_DEBUG=1 tints what is drawn here magenta; what is left the canvas's is untinted.
 #include <cstdint>
 #include <unordered_map>
 #include <vector>
