@@ -201,6 +201,8 @@ struct Contract {
   // MW1's mission (mw1_missions.h): its category, its scenario code (the title, the objective), the mission planet
   // (an index into the travel map, -1 none) and that planet's landscape.
   int32_t category = 3, code = 0, mission_planet = -1, climate = 0;
+  // FIXES.md item 47 (mw1_ladder.h): a story battle's rung, 1..6 (6 the Dark Wing); 0 a House's contract.
+  int32_t rung = 0;
 };
 
 // A new company as MW1 makes it: the starting funds plus 0..255 x 1,000, and

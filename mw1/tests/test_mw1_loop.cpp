@@ -69,6 +69,7 @@
 #include "mw1_results.h"
 #include "mw1_market_screen.h"
 #include "mw1_lab_pilot.h"
+#include "mw1_ladder.h"
 #include "mw1_menu.h"
 #include "mw1_office.h"
 #include "mw1_images.h"
@@ -273,6 +274,8 @@ struct Run {
   // objectives end it.
   const mw1::MapRow* row = nullptr;
   bool survey = false, destroy_structure = false, kill_enemies = false, kill_after_end = false;
+  std::vector<int32_t> force;  // every contract's force (MW1 kinds; empty: its own); `enemies_made` at frame 30
+  int32_t enemies_made = -1;  // the enemies the mission made
   int give_up = 1200;  // frames before the test stops waiting for the objectives (a quit)
   std::string objective_built;
   bool fell_back = false, structure_found = false, mission_ended = false, mission_lost = false;
@@ -342,6 +345,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
   if (run) run->load_held = held;
   if (run) mw1::set_game_loop_save(run->save, false);
   if (run && run->row) mw1::set_game_loop_row(*run->row);
+  if (run && !run->force.empty()) mw1::set_game_loop_enemies(run->force);
   if (run && !run->world.empty()) mw1::set_game_loop_world(run->world, 1);
   NoKeys keys;
   Window window;
@@ -1209,6 +1213,15 @@ void loop_run(Ending ending, Run* run = nullptr) {
             auto* n = ge ? static_cast<zcls::Node*>(ge->object_of(hn)) : nullptr;
             if (n && n->parent_count() > 0) std::printf("  node parent: %s\n", n->parents[0]->name());
             show(n, 0);
+          }
+          {
+            int32_t na = 0;
+            const mech3::AiMechMade* ma = mech3::mission_ai_mechs(&na);
+            run->enemies_made = 0;
+            for (int32_t i = 0; i < na; ++i) {
+              auto* b = static_cast<mech3::ai::Brain*>(mech3::program_ai_mech_brain(ma[i].controls));
+              if (b && b->params.team() != 1) ++run->enemies_made;
+            }
           }
           if (run->survey) return end_it();
           if (run->destroy_structure) {
@@ -2085,6 +2098,33 @@ TEST(mw1_loop_every_map_row_is_there_headless) {
   }
 }
 
+// FIXES.md item 47: the ladder's last rung, eight enemies (mw1_ladder.h), on each Instant Action map of the table: how
+// many the map's enemy places made (the line-up gives each enemy an unused record of the enemies' side, its weight
+// class or up to three off). The maps that make all eight are the Dark Wing's (kDarkWingMaps).
+TEST(mw1_loop_the_dark_wing_fits_these_maps_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  const std::vector<mw1::MapRow> rows = shipped_rows();
+  const bool have_mw3 = fs::exists(fs::path(MW1_MW3_GAME_DIR) / "zbd" / "c2" / "gamez.zbd", ec);
+  const std::string worlds = have_mw3 ? converted_worlds() : std::string();
+  std::set<std::pair<std::string, int32_t>> done;
+  for (const mw1::MapRow& r : rows) {
+    if (r.world.rfind("mw3", 0) == 0 && !have_mw3) continue;
+    if (!done.insert({r.world, r.ia}).second) continue;
+    mw1::MapRow battle{r.world, r.ia, r.climate, mw1::RowKind::kAny, "", ""};
+    in_child([&] {
+      Run run;
+      run.row = &battle, run.survey = true, run.stop_at_after_action = true, run.worlds = worlds;
+      run.force = mw1::rung_force(mw1::kDarkWingRung, 0);
+      loop_run(kObjective, &run);
+      const bool fits = mw1::map_holds(r.world, r.ia, mw1::kRungMechs);
+      std::printf("  %-6s ia%d %-8s: %d of %zu enemies made; the table says %s\n", r.world.c_str(), r.ia, mw1::climate_name(r.climate),
+                  run.enemies_made, run.force.size(), fits ? "fits" : "doesn't fit");
+      EXPECT(fits == (run.enemies_made == static_cast<int32_t>(run.force.size())));
+    });
+  }
+}
+
 // FIXES.md item 45: every row of the map table played to its end as a player would, headless, one line each.
 // - a battle (destroy all): the enemies disabled by hits: won;
 // - reach (MW1's withdraw): the player's mech driven to the structure by its own throttle and turn (never moved):
@@ -2724,6 +2764,199 @@ TEST(mw1_office_terminated_on_a_stuck_poor_world_and_a_refusal_headless) {
     std::printf("  office over %d, hub over %d, stuck said %d, travel %d, refused %d\n", office_over, hub_over, hub_stuck, travel_stuck, refused);
     EXPECT(step >= 4 && office_over && hub_over && hub_stuck && travel_stuck && refused);
   });
+}
+
+// FIXES.md item 47 and the story's step 5 (mw1_ladder.h): the Dark Wing's battle, headless, won and lost. On its world
+// after the disk (0x43), an arrival asks ATTACK / DELAY (0x72, ATTACK live); ATTACK launches rung 6 on a map of the
+// world's climate that holds it, its enemies' aim the rung's; no pay. Won: the results (no fee, no REPLAY), CONTINUE,
+// the victory text on the panel, the name cleared (won, 0x72 and the arrest 0x75 seen, saved), 0x72 not asked again.
+// Lost: MW1's attack-failed line, no REPLAY, the date on by SPECIAL_ASSAULT_DEPLOYMENT_UNITS; the hub drawn again
+// doesn't ask; the next arrival does, whatever the date (no deadline). MW1's words are never printed.
+namespace {
+struct DarkWingRun {
+  bool win = true;
+  bool asked = false, attack_live = false, launched = false, results = false, no_fee = false, replay = true, message = false;
+  bool victory_panel = false, won = false, arrest_seen = false, saved_won = false, asked_again = false, asked_late = false;
+  bool not_redrawn = true, too_late = false;
+  int32_t rung = 0, enemies = 0, made = 0, aims = 0, units_on = -1;
+  std::string world, climate, map_climate;
+  float aim = 0;
+  int64_t funds_before = -1, funds_after = -1;
+};
+void dark_wing_run(DarkWingRun& d) {
+  std::error_code ec;
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / (d.win ? "mw1_dark_wing_won" : "mw1_dark_wing_lost");
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  MenuRun r;
+  r.save = (dir / mw1::kSaveFile).string(), r.start = mw1::Start::kHub, r.story = true, r.limit = 30000;
+  int step = 0, wait = 0, frames = 0;
+  int32_t date_at_launch = 0;
+  auto units = [](const mw1::Date& t) { return (t.year * mw1::kMonthCount + t.month) * mw1::kUnitsPerMonth + t.units; };
+  auto revisit = [](mw1::HubState* hub) { hub->screen()->on_button(mw1::kHubBar, 0, 0); };
+  r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
+    mw1::HubState* hub = mw1::game_loop_hub();
+    mw1::EventState* ev = mw1::game_loop_event();
+    mw1::Company* c = mw1::game_loop_company_for_tests();
+    if (++wait < 5) return false;
+    switch (step) {
+      case 0:  // the new campaign's own events read through; then the trail done to the disk, on the Dark Wing's world
+        if (showing(app, ev)) {
+          ev->screen()->on_button(ev->screen()->visible(mw1::kEventNext) ? mw1::kEventNext : mw1::kEventChoice1, 0, 0);
+          wait = 0;
+          return false;
+        }
+        if (!showing(app, hub) || !c) return false;
+        for (size_t id = 0; id < c->story.seen.size(); ++id)
+          if (static_cast<int32_t>(id) != mw1::kEventDarkWingAttack && static_cast<int32_t>(id) != mw1::kEventTooLate) c->story.seen[id] = 1;
+        c->story.planets[5] = c->planet_number;
+        c->story.arrived = true;
+        d.funds_before = c->funds;
+        revisit(hub);
+        ++step, wait = 0;
+        return false;
+      case 1:
+        if (!showing(app, mw1::game_loop_bar())) return false;
+        mw1::game_loop_bar()->screen()->on_button(mw1::kBarBack, 0, 0);
+        ++step, wait = 0;
+        return false;
+      case 2:  // 0x72: its pages, then ATTACK (live) and DELAY
+        if (!showing(app, ev)) return false;
+        if (ev->screen()->visible(mw1::kEventNext)) {
+          ev->screen()->on_button(mw1::kEventNext, 0, 0);
+          wait = 0;
+          return false;
+        }
+        d.asked = true;
+        d.attack_live = ev->screen()->visible(mw1::kEventChoice1) && ev->screen()->enabled(mw1::kEventChoice1) &&
+                        ev->screen()->visible(mw1::kEventChoice2);
+        date_at_launch = units(c->date);
+        ev->screen()->on_button(mw1::kEventChoice1, 0, 0);
+        ++step, wait = 0, frames = 0;
+        return false;
+      case 3: {  // the mission: its force counted, its enemies' aim; then ended (won: the enemies destroyed first)
+        int32_t na = 0;
+        const mech3::AiMechMade* ma = mech3::mission_ai_mechs(&na);
+        if (app.current() != &mech3::states().core || na == 0) return false;
+        if (++frames < 30) return false;
+        d.launched = true;
+        if (const mw1::Contract* k = mw1::game_loop_contract()) {
+          d.rung = k->rung, d.enemies = static_cast<int32_t>(k->enemies.size()), d.world = k->world + " ia" + std::to_string(k->ia);
+          d.climate = mw1::climate_name(k->climate);
+          d.map_climate = mw1::climate_name(mw1::map_climate(mw1::map_table(), k->world, k->ia));
+        }
+        const std::vector<float>& aims = mw1::game_loop_enemy_aims();
+        d.aims = static_cast<int32_t>(aims.size()), d.aim = aims.empty() ? 0 : aims[0];
+        for (int32_t i = 0; i < na; ++i) {
+          auto* b = static_cast<mech3::ai::Brain*>(mech3::program_ai_mech_brain(ma[i].controls));
+          if (b && b->params.team() == 1) continue;
+          ++d.made;
+          if (d.win) {
+            mech3::mech_hit_part(ma[i].mech, 6, 10000.0f);
+            mech3::program_mech_kill_credit(mech3::mech_mission_player(), ma[i].mech);
+          }
+        }
+        mech3::missions().ended = 1;
+        if (!d.win) mech3::missions().aborting = 1;
+        for (int i = app.depth(); i > 0; --i) app.pop(1);
+        app.replace(&mech3::states().ia_dummy, 0);
+        ++step, wait = 0;
+        return false;
+      }
+      case 4: {  // the results
+        mw1::ResultsState* rs = mw1::game_loop_results();
+        if (!showing(app, rs)) return false;
+        if (const mw1::ResultsPanel* p = mw1::game_loop_results_shown()) {
+          d.results = true, d.replay = p->replay, d.message = !p->message.empty();
+          d.no_fee = !p->pay.empty() && p->pay[0] == "No fee: not a contract";
+        }
+        rs->screen()->on_button(mw1::kResultsContinue, 0, 0);
+        ++step, wait = 0;
+        return false;
+      }
+      case 5:  // won: the victory's pages, then the hub; lost: the hub at once
+        if (showing(app, ev)) {
+          d.victory_panel = d.victory_panel || shows_line(ev->screen()->shown(), "VICTORY");
+          ev->screen()->on_button(mw1::kEventNext, 0, 0);
+          wait = 0;
+          return false;
+        }
+        if (!showing(app, hub)) return false;
+        d.won = c->story.dark_wing_won, d.arrest_seen = c->story.seen[mw1::kEventPortArrest] != 0, d.funds_after = c->funds;
+        d.units_on = units(c->date) - date_at_launch;
+        {
+          mw1::Company saved;
+          mw1::Contract k;
+          bool has = false;
+          std::string why;
+          d.saved_won = mw1::load_file(r.save, saved, k, &has, &why) == mw1::Loaded::kLoaded && saved.story.dark_wing_won;
+        }
+        revisit(hub);  // the hub drawn again (not an arrival): not asked
+        ++step, wait = 0;
+        return false;
+      case 6:
+        if (showing(app, ev)) d.not_redrawn = false;
+        if (!showing(app, mw1::game_loop_bar())) return false;
+        // The next arrival (as travel's), after MW1's deadline.
+        c->story.arrived = true, c->date = {0, 6, 3030};
+        mw1::game_loop_bar()->screen()->on_button(mw1::kBarBack, 0, 0);
+        ++step, wait = 0;
+        return false;
+      case 7:
+        if (wait < 20) return false;
+        if (showing(app, ev)) {
+          if (ev->screen()->visible(mw1::kEventNext)) {
+            ev->screen()->on_button(mw1::kEventNext, 0, 0);
+            wait = 10;
+            return false;
+          }
+          d.asked_late = ev->screen()->visible(mw1::kEventChoice1);
+          d.too_late = c->story.seen[mw1::kEventTooLate] != 0;
+          return true;
+        }
+        d.too_late = c->story.seen[mw1::kEventTooLate] != 0;
+        return showing(app, hub);
+      default: return true;
+    }
+  };
+  menu_run(r);
+}
+}  // namespace
+
+TEST(mw1_story_the_dark_wing_won_and_lost_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  if (mw1_test::no_mw1()) return;
+  for (const bool win : {true, false}) {
+    in_child([&] {
+      DarkWingRun d;
+      d.win = win;
+      std::vector<mw1::MapRow> rows;  // the shipped table, PM's maps (MW3's worlds aren't registered here)
+      for (const mw1::MapRow& m : shipped_rows())
+        if (m.world.rfind("mw3", 0) != 0) rows.push_back(m);
+      mw1::set_map_table(rows);
+      dark_wing_run(d);
+      mw1::set_map_table({});
+      std::printf("  %s: asked %d (ATTACK live %d); rung %d, %d enemies (%d made, %d aims, the first x%.2f) on %s, the world %s, "
+                  "the map %s; results %d (no fee %d, REPLAY %d, a message %d); victory panel %d; won %d (arrest seen %d, saved %d); "
+                  "funds %lld -> %lld; %d units on; the hub again asks %d; the next arrival in 3030 asks %d (too late %d)\n",
+                  win ? "won" : "lost", d.asked, d.attack_live, d.rung, d.enemies, d.made, d.aims, d.aim, d.world.c_str(), d.climate.c_str(),
+                  d.map_climate.c_str(), d.results, d.no_fee, d.replay, d.message, d.victory_panel, d.won, d.arrest_seen, d.saved_won,
+                  static_cast<long long>(d.funds_before), static_cast<long long>(d.funds_after), d.units_on, !d.not_redrawn,
+                  d.asked_late, d.too_late);
+      EXPECT(d.asked && d.attack_live && d.launched && d.rung == mw1::kDarkWingRung);
+      EXPECT(d.enemies == mw1::kRungMechs && d.made == d.enemies && d.aims == d.enemies);  // the commander alone: all 8
+      EXPECT(d.climate == d.map_climate);
+      EXPECT(d.results && d.no_fee && !d.replay && d.funds_after <= d.funds_before);
+      EXPECT(!d.too_late);
+      if (win) {
+        EXPECT(d.victory_panel && d.won && d.arrest_seen && d.saved_won && d.units_on == 0 && d.not_redrawn && !d.asked_late);
+      } else {
+        EXPECT(!d.victory_panel && !d.won && d.message && d.not_redrawn && d.asked_late);
+        EXPECT(d.units_on >= 0x1C);  // SPECIAL_ASSAULT_DEPLOYMENT_UNITS (and a month's turn's wages)
+      }
+    });
+  }
 }
 
 // MW1's story on the event panel (mw1_story.h, mw1_event_screen.h): the start world's crest over the hub at the first

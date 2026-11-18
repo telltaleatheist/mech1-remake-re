@@ -15,6 +15,8 @@
 #include "mw1_pilots.h"
 #include "mw1_save.h"
 #include "mw1_story.h"
+#include "mw1_ladder.h"
+#include "mw1_missions.h"
 #include "mw1_travel.h"
 
 namespace {
@@ -233,19 +235,24 @@ TEST(mw1_story_runs_as_mw1_does) {
     EXPECT(has(fire(g, mw1::kClassArrival, rng), 0x4F) && !g.story.seen[0x4F]);
     EXPECT(has(fire(g, mw1::kClassArrival, rng), 0x4F));
   }
-  // The Dark Wing's world after the disk (0x43): ATTACK / DELAY until 19 March 3029, never marked seen; after it, too
-  // late (0x73).
+  // The Dark Wing's world after the disk (0x43): ATTACK / DELAY on arriving (ours: not each time the hub is drawn),
+  // never marked seen; no deadline (ours, Owen): after 19 March 3029 still asked, never too late (0x73).
   {
     mw1::Company g = on_story(mw1::kPools[5][0]);
     g.story.seen[0x43] = 1;
     g.date = {0, 2, 3029};  // 1 March
+    EXPECT(!has(fire(g, mw1::kClassArrival, rng), mw1::kEventDarkWingAttack));  // the hub drawn again: not asked
+    g.story.arrived = true;
     mw1::Dispatch d = mw1::start(mw1::kClassArrival);
     mw1::Shown s;
     EXPECT(mw1::next(g, d, rng, &s) && s.event == mw1::kEventDarkWingAttack && s.captions.size() == 2);
     EXPECT(!g.story.seen[mw1::kEventDarkWingAttack]);
     g.date = {40, 2, 3029};  // 21 March
     f = fire(g, mw1::kClassArrival, rng);
-    EXPECT(has(f, mw1::kEventTooLate) && !has(f, mw1::kEventDarkWingAttack));
+    EXPECT(has(f, mw1::kEventDarkWingAttack) && !has(f, mw1::kEventTooLate));
+    g.date = {0, 0, 3035};
+    f = fire(g, mw1::kClassArrival, rng);
+    EXPECT(has(f, mw1::kEventDarkWingAttack) && !has(f, mw1::kEventTooLate) && !g.story.seen[mw1::kEventTooLate]);
   }
 }
 
@@ -351,4 +358,37 @@ TEST(mw1_story_saves_and_reads_back) {
   std::snprintf(check, sizeof check, "check=%08x\n", h);
   why.clear();
   EXPECT(!mw1::load_text(bad + check, old, k, &has, &why) && why.find("story") != std::string::npos);
+}
+
+// FIXES.md item 47 (mw1_ladder.h): the ladder in one table: six rungs, their forces rising; rung 6 the Dark Wing's
+// eight (the Warhammer and four BattleMasters, three escorts, 635 t by MW1's tonnage), up to 8: 7 with a full lance,
+// the escorts trimmed and never its core; a story battle a destroy-all with no pay on a map that holds it.
+TEST(mw1_ladder_rungs_and_the_dark_wing_force) {
+  int32_t last = 0;
+  for (int32_t r = 1; r <= mw1::kRungs; ++r) {
+    const std::vector<int32_t> f = mw1::rung_force(r, 0);
+    std::printf("  rung %d: %zu mechs, %d t, aim x%.1f\n", r, f.size(), mw1::rung_tons(f), mw1::rung(r).aim);
+    EXPECT(mw1::rung_tons(f) > last && static_cast<int32_t>(f.size()) <= mw1::kRungMechs);
+    last = mw1::rung_tons(f);
+  }
+  const std::vector<int32_t> dw = mw1::rung_force(mw1::kDarkWingRung, 0);
+  int32_t battlemasters = 0;
+  for (int32_t k : dw) battlemasters += k == mw1::kBattleMaster;
+  EXPECT(dw.size() == 8 && dw[0] == mw1::kWarhammer && battlemasters == 4 && mw1::rung_tons(dw) == 635);
+  EXPECT(mw1::rung_force(mw1::kDarkWingRung, 2).size() == 8);
+  const std::vector<int32_t> full = mw1::rung_force(mw1::kDarkWingRung, 3);
+  EXPECT(full.size() == 7 && std::equal(full.begin(), full.end(), dw.begin()));
+  EXPECT(mw1::rung_force(mw1::kDarkWingRung, 9).size() == 5);  // never below its core
+  // As a contract: the world's House, no House against, nothing paid, a map of the climate that holds it.
+  mw1::Rng rng(3);
+  mw1::Company c = mw1::new_company(rng);
+  mw1::set_map_table({{"c1", 1, mw1::kDesert, mw1::RowKind::kAny, "", ""}, {"mw3c2", 1, mw1::kTropical, mw1::RowKind::kAny, "", ""},
+                      {"zz", 1, mw1::kDesert, mw1::RowKind::kAny, "", ""}});
+  for (int32_t i = 0; i < 20; ++i) {
+    const mw1::Contract k = mw1::story_battle(c, mw1::kDarkWingRung, rng);
+    EXPECT(k.rung == 6 && k.accepted && k.payment == 0 && k.remaining == 0 && k.target >= mw1::kHouseCount && k.enemies.size() == 8);
+    EXPECT(k.objective == mw1::Objective::kDestroyAll && k.world != "zz");  // "zz": not surveyed, never the Dark Wing's
+    EXPECT(k.climate != mw1::kDesert || k.world == "c1");
+  }
+  mw1::set_map_table({});
 }

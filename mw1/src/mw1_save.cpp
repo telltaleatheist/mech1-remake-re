@@ -1,6 +1,7 @@
 #include "mw1_save.h"
 #include "mw1_travel.h"
 #include "mw1_repairs.h"
+#include "mw1_ladder.h"
 
 #include <cctype>
 #include <cstdio>
@@ -171,6 +172,7 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
     o << "offer_category=" << k.category << "\noffer_code=" << k.code << "\noffer_planet=" << k.mission_planet
       << "\noffer_climate=" << k.climate << "\n";
     o << "offer_accepted=" << (k.accepted ? 1 : 0) << "\noffer_remaining=" << k.remaining << "\n";
+    o << "offer_rung=" << k.rung << "\n";  // FIXES.md item 47: a story battle's (0 none); older saves without it: 0
   }
   o << "pending=" << (pending && offer ? 1 : 0) << "\n";
   if (pending && offer) {
@@ -461,6 +463,9 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
     int64_t acc = 0, rem = 0;  // a save from before these lines: an offer, not accepted
     if (v.count("offer_accepted") && !num("offer_accepted", 0, 1, &acc)) return fail("the contract's accepted line is wrong");
     if (v.count("offer_remaining") && !num("offer_remaining", 0, kMax, &rem)) return fail("the contract's remaining pay is wrong");
+    int64_t rung = 0;
+    if (v.count("offer_rung") && !num("offer_rung", 0, kRungs, &rung)) return fail("the story battle's rung is wrong");
+    k.rung = static_cast<int32_t>(rung);
     k.accepted = acc != 0, k.remaining = static_cast<int32_t>(rem);
   }
   int64_t pend = 0;

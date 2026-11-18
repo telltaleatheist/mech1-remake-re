@@ -42,6 +42,8 @@ namespace missions {
 struct MapRow;
 }
 void set_game_loop_row(const missions::MapRow& row);
+// Every new contract's force these MW1 kinds (tests: the ladder's map survey); empty: the contracts' own.
+void set_game_loop_enemies(const std::vector<int32_t>& kinds);
 // What the mission's objectives were built as: "" (destroy all), "reach", "attack" or "defend"; `fell_back` when
 // the contract's structure wasn't on the map (tests).
 std::string game_loop_objective_built(bool* fell_back = nullptr);
@@ -125,6 +127,8 @@ struct AllyLaunch {
   float record_error = 0, error = 0;
 };
 const std::vector<AllyLaunch>& game_loop_ally_launches();
+// A story battle's enemies' aim errors as they launched (FIXES.md item 47, tests).
+const std::vector<float>& game_loop_enemy_aims();
 void game_loop_market_changed();
 // MW1's loading screen (mw1_loading.h, FIXES.md item 18), as the tests see it: how many loads it has been up for, its
 // lines the last time (the screen's texts), and at the launches, the frames PM's briefing drew and whether its script

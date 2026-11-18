@@ -77,6 +77,7 @@
 #include "mw1_travel_screen.h"
 #include "mw1_save.h"
 #include "mw1_story.h"
+#include "mw1_ladder.h"
 
 namespace mw1 {
 namespace {
@@ -1465,7 +1466,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     p.employer = "HOUSE " + upper(kHouses[contract_.house].name);
     p.outcome = success ? "VICTORY" : a.outcome == Outcome::kFailure ? "DEFEAT" : "RETREAT";
     p.scene = scenery_image(company_.planet_number);
-    p.replay = a.outcome == Outcome::kFailure;
+    p.replay = a.outcome == Outcome::kFailure && !contract_.rung;  // a story battle: again on the next arrival
     p.house = company_.planet_house;
     // The picture (item 31): someone lost is a lancemate KILLED or MISSING, or the commander's mech destroyed.
     bool lost = false, destroyed = false;
@@ -1476,15 +1477,23 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // Under the picture: the world and the employer, the objective, how it went and how long it took.
     std::string objective = objective_words(contract_);
     if (!objective.empty()) objective[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(objective[0])));
-    p.where.push_back(title_case_name(company_.planet.c_str()) + ", for House " + kHouses[contract_.house].name);
+    if (contract_.rung) p.employer = "THE STORY";
+    p.where.push_back(title_case_name(company_.planet.c_str()) +
+                      (contract_.rung == kDarkWingRung ? std::string(", against the Dark Wing")
+                       : contract_.rung              ? std::string(", on the trail")
+                                                     : ", for House " + std::string(kHouses[contract_.house].name)));
     if (!objective.empty()) p.where.push_back(objective);
     p.where.push_back(std::string(success ? "Accomplished" : a.outcome == Outcome::kFailure ? "Failed" : "Withdrew") + " in " +
                       time_words(a.seconds));
     // PAYMENT: the fee (any deduction), the salvage share, the repair bill, the total and the funds.
     const bool docked = s.payout_percent < 100 && success;
-    p.pay.push_back("Fee: " + thousands(s.fee) +
-                    (!docked ? "" : s.payout_percent ? " (" + std::to_string(s.payout_percent) + "% paid)" : " (withheld)"));
-    p.pay.push_back("Salvage share: " + thousands(s.salvage));
+    if (contract_.rung) {
+      p.pay.push_back("No fee: not a contract");
+    } else {
+      p.pay.push_back("Fee: " + thousands(s.fee) +
+                      (!docked ? "" : s.payout_percent ? " (" + std::to_string(s.payout_percent) + "% paid)" : " (withheld)"));
+      p.pay.push_back("Salvage share: " + thousands(s.salvage));
+    }
     for (const std::string& l : rep.lines)
       if (l.rfind("Repair bill", 0) == 0) p.pay.push_back(l);
     const int64_t total = c.funds - before;
@@ -1528,7 +1537,12 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     p.mech = mech_lines(a.armor_left, a.structure_left, destroyed);
     // The message (item 31): the exe's outcome line, and the deduction's after a win paid short (MW1's
     // MwRandomUpTo(2) of the three, from the settlement's draws on).
-    p.message = outcome_message(company_.planet_house, a.outcome, false, deduction_of(a.outcome, s.payout_percent, r.upto(2)));
+    if (contract_.rung == kDarkWingRung) {  // MW1's: lost, its attack-failed line; won, the victory text after CONTINUE
+      const std::string failed = dark_wing_failed();
+      if (!success && !failed.empty()) p.message.push_back(failed);
+    } else {
+      p.message = outcome_message(company_.planet_house, a.outcome, false, deduction_of(a.outcome, s.payout_percent, r.upto(2)));
+    }
     return p;
   }
 
@@ -1716,6 +1730,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         if (!ev_panel_.choosing() || i >= static_cast<int32_t>(ev_panel_.captions.size())) return;
         if (static_cast<size_t>(i) < ev_panel_.live.size() && !ev_panel_.live[static_cast<size_t>(i)]) return;
         std::printf("mw1: story: chose %d of event %#x\n", i + 1, ev_shown_.event);
+        if (ev_shown_.event == kEventDarkWingAttack && i == kAttackChoice && kDarkWingBattle) {
+          events_done();
+          return attack(kDarkWingRung);
+        }
         choose(ev_, ev_shown_, i);
         next_event();
         return;
@@ -1724,6 +1742,51 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     }
     show_event();
   }
+
+  // FIXES.md item 47 (mw1_ladder.h): a story battle launched, its rung's force on a map of the world's climate that
+  // holds it; no office, no pay. 0x72's ATTACK (MW1's MwPrepareEventSpecialCombatContinuation, ATTACK the first
+  // caption): the Dark Wing's, rung 6.
+  static constexpr int32_t kAttackChoice = 0;
+  void attack(int32_t r) {
+    if (!ge_ || pending_) return;
+    if (contract_.accepted) std::printf("mw1: story battle over a taken contract (%s): it gives way\n", objective_words(contract_).c_str());
+    contract_ = story_battle(company_, r, rng_);
+    offered_ = false;
+    std::printf("mw1: story battle %d: %zu enemies (%d t, aim x%g) on %sia%d (%s)\n", contract_.rung, contract_.enemies.size(),
+                rung_tons(contract_.enemies), rung(contract_.rung).aim, contract_.world.c_str(), contract_.ia,
+                climate_name(contract_.climate));
+    save();
+    press(kHubDeploy);
+  }
+  // After the Dark Wing's defeat (MW1's darkWingVictory): the name cleared (won, 0x72 and the arrest 0x75 seen), its
+  // victory text from the exe on the panel over its picture, then the hub (MW1's CONTINUE; its QUIT dropped: play
+  // goes on, as item 33).
+  void dark_wing_won() {
+    company_.story.dark_wing_won = true;
+    company_.story.seen[static_cast<size_t>(kEventDarkWingAttack)] = 1;
+    company_.story.seen[static_cast<size_t>(kEventPortArrest)] = 1;
+    save();
+    std::printf("mw1: story: the Dark Wing defeated: the name cleared\n");
+    const std::string text = dark_wing_victory();
+    if (!ge_ || !story_running() || event_up_ || text.empty()) return;
+    ev_ = start(kClassArrival);
+    ev_.done = true;
+    ev_shown_ = Shown{};
+    ev_panel_ = EventPanel{};
+    ev_panel_.planet = upper(company_.planet), ev_panel_.place = "VICTORY";
+    ev_panel_.scene = kVictoryScene;
+    std::vector<Page> pages;
+    Page pg;
+    for (const std::string& l : wrap({text}, kMw1Columns)) {
+      if (pg.lines.size() == kVictoryPageLines) pages.push_back(pg), pg = Page{};
+      pg.lines.push_back(l);
+    }
+    if (!pg.lines.empty()) pages.push_back(pg);
+    set_pages(pages);
+    if (raise_event(*ge_)) show_event();
+  }
+  static constexpr const char* kVictoryScene = "mw1_story_honor_restored";
+  static constexpr size_t kVictoryPageLines = 12;
 
   // The plaque's second line: where the event fires.
   static std::string place_words(int32_t cls) {
@@ -1799,13 +1862,20 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     std::printf("mw1: settled: %s, %zu wrecks, salvage %s, fee %s, payout %d%%, funds %s, %d items in the stores\n",
                 ending_word(pending_->outcome), pending_->wrecks.size(), thousands(s.salvage).c_str(), thousands(s.fee).c_str(),
                 s.payout_percent, thousands(company_.funds).c_str(), company_.stores->count());
+    const bool story_won = contract_.rung == kDarkWingRung && pending_->outcome == Outcome::kSuccess;
+    const int32_t rung_fought = contract_.rung;
     pending_.reset();
     // The mission's time (STARTUP 350: the return, the world's weights, the deployment), then the refresh the
-    // original makes on every return (STARTUP 081B:378).
-    advance_time(company_, mission_units(company_), rng_);
-    refresh_world(company_, rng_);
+    // original makes on every return (STARTUP 081B:378). A story battle (MW1's Dark Wing): won, none (MW1 goes
+    // straight to its victory); else SPECIAL_ASSAULT_DEPLOYMENT_UNITS, then the refresh.
+    if (!story_won) {
+      advance_time(company_, rung_fought ? kStoryBattleUnits : mission_units(company_), rng_);
+      refresh_world(company_, rng_);
+    }
     clear_contract();  // fought: the next from the office
+    if (story_won) dark_wing_won();
   }
+  static constexpr int32_t kStoryBattleUnits = 0x1C;  // SPECIAL_ASSAULT_DEPLOYMENT_UNITS
 
   // A failed contract played again, everything as it was at its first launch (VISION.md, the endings: REPLAY on a
   // failed mission's results); its advance stays paid, nothing is settled. The failure stays pending until the replay
@@ -1998,6 +2068,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       contract_.world = world_, contract_.ia = world_ia_, contract_.objective = Objective::kDestroyAll;
       contract_.structure.clear(), contract_.structure_words.clear();
     }
+    if (!enemies_.empty()) contract_.enemies = enemies_;  // a test's force (the ladder's map survey)
     if (row_set_) {
       contract_.world = row_.world, contract_.ia = row_.ia, contract_.objective = objective_for(row_.kind);
       contract_.structure = row_.node, contract_.structure_words = row_.words;
@@ -2146,6 +2217,14 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
 
   // Instant Action's launch offers each ally (program_flow.h): slot 1.. in deploy()'s order, flying_'s. The lancemate's
   // name and their Gunnery's aim (kAimErrorFactor on the record's aim error); they launched.
+  // FIXES.md item 47: a story battle's enemies aim as its rung says (mw1_ladder.h); a contract's as their records.
+  void enemy_launching(int32_t slot, mech3::ai::AiParams& params) override {
+    if (!deployed_ || !contract_.rung) return;
+    const float error = params.get<float>(0xb8) * rung(contract_.rung).aim;
+    std::printf("mw1: story battle %d: enemy in slot %d, aim error %g\n", contract_.rung, slot, error);
+    enemy_aims_.push_back(error);
+    params.put<float>(0xb8, error);
+  }
   void ally_launching(int32_t slot, mech3::ai::AiParams& params) override {
     if (!deployed_ || slot < 1 || slot > static_cast<int32_t>(flying_.size())) return;
     const int32_t id = flying_[static_cast<size_t>(slot - 1)];
@@ -2225,6 +2304,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
 
   const Company* company() const { return company_.stores ? &company_ : nullptr; }
   const std::vector<AllyLaunch>& launches() const { return launches_; }
+  const std::vector<float>& enemy_aims() const { return enemy_aims_; }
   const AfterAction* pending() const { return pending_.get(); }
   HubState* hub_state() const { return hub_state_; }
   MarketState* market_state() const { return market_state_; }
@@ -2255,6 +2335,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   const Contract* contract() const { return company_.stores && (offered_ || contract_.accepted || pending_) ? &contract_ : nullptr; }
 
   void set_row(const MapRow& r) { row_ = r, row_set_ = true; }
+  void set_enemies(const std::vector<int32_t>& k) { enemies_ = k; }
   // What the mission's objectives became (tests, the map survey): "" none of ours (destroy all), else "reach",
   // "attack" or "defend"; `objective_fell_back_` when the contract's structure wasn't on the map.
   const std::string& objective_built() const { return objective_built_; }
@@ -2938,7 +3019,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     g->slot.set_config(company_.loadout.get());  // a copy; null: the stock loadout
     // The lancemates with a mech, as allies first (line-up slots 1..), their mechs' saved loadouts; then the enemy.
     // Instant Action's line-up offers them (ally_launching) during the launch, before mission_launched.
-    flying_.clear(), fates_.clear(), launches_.clear();
+    flying_.clear(), fates_.clear(), launches_.clear(), enemy_aims_.clear();
     bills_.clear(), mended_.clear(), commander_destroyed_ = false;
     for (size_t i = 0; i < company_.lance.size(); ++i)
       if (const int32_t h = mech_of(company_, static_cast<int32_t>(i)); h >= 0) {
@@ -2968,6 +3049,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   std::vector<int32_t> flying_;    // the lancemates deployed, by ally slot (1..)
   std::vector<LanceFate> fates_;
   std::vector<AllyLaunch> launches_;  // tests: game_loop_ally_launches
+  std::vector<float> enemy_aims_;     // a story battle's enemies' aim errors as launched (tests)
   std::vector<MechBill> bills_;       // this mission's company mechs (collect_bills)
   std::map<int32_t, int32_t> mended_;  // what field bases mended, by whose (0 the commander)
   bool commander_destroyed_ = false;   // those who launched this mission, and whether their mech was destroyed
@@ -3036,6 +3118,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   std::string nav_label_;  // item 43: the objective's nav point's label (tests), "" none
   bool row_set_ = false;  // install_game_loop's reach, or set_game_loop_row's: every new contract on that row
   MapRow row_;
+  std::vector<int32_t> enemies_;  // set_game_loop_enemies': every new contract's force (empty: its own)
   std::string objective_built_;
   bool objective_fell_back_ = false;
   std::string save_path_;  // mw1save.txt; empty: no save
@@ -3107,6 +3190,9 @@ void set_game_loop_world(const std::string& world, int32_t ia) {
 void set_game_loop_row(const MapRow& row) {
   if (the_loop()) the_loop()->set_row(row);
 }
+void set_game_loop_enemies(const std::vector<int32_t>& kinds) {
+  if (the_loop()) the_loop()->set_enemies(kinds);
+}
 bool game_loop_structure_point(float out[3]) {
   return the_loop() && the_loop()->structure_point_now(out);
 }
@@ -3144,6 +3230,10 @@ TravelState* game_loop_travel() { return the_loop() ? the_loop()->travel_state()
 const std::vector<AllyLaunch>& game_loop_ally_launches() {
   static const std::vector<AllyLaunch> none;
   return the_loop() ? the_loop()->launches() : none;
+}
+const std::vector<float>& game_loop_enemy_aims() {
+  static const std::vector<float> none;
+  return the_loop() ? the_loop()->enemy_aims() : none;
 }
 Company* game_loop_company_for_tests() { return the_loop() ? the_loop()->company_mut() : nullptr; }
 void game_loop_market_changed() {

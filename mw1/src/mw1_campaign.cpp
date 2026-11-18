@@ -242,6 +242,11 @@ int32_t wreck_value(const Company& c, const Wreck& w) {
 Settlement settle(Company& c, Contract& k, Outcome o, const std::vector<Wreck>& wrecks, Rng& rng) {
   Settlement s;
   const HouseRules& h = kHouses[c.planet_house];
+  if (k.rung) {  // a story battle (FIXES.md 47, mw1_ladder.h): no pay, no deduction roll (MW1's Dark Wing), no standing
+    c.kills += static_cast<int32_t>(wrecks.size());
+    k.accepted = false;
+    return s;
+  }
   if (rng.upto(100) <= h.deduction_roll) s.payout_percent = h.reduced_payout;
   if (o == Outcome::kSuccess && k.salvage_percent) {
     int64_t total = 0;  // every wreck counts (the original's overwrite fixed, Owen 2026-11-16)

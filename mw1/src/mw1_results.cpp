@@ -127,6 +127,7 @@ struct ExeText {
 constexpr ExeText kGarrison{0x140D, 0x56};
 constexpr ExeText kKuritaFailure{0x149B, 0x8D}, kLiaoFailure{0x1528, 0x73}, kGeneralFailure{0x159B, 0x91};
 constexpr ExeText kKuritaSuccess{0x1674, 0x62}, kLiaoSuccess{0x16D6, 0x6C}, kGeneralSuccess{0x1742, 0x44};
+constexpr ExeText kDarkWingVictory{0x1A37, 0x185}, kDarkWingFailed{0x1BBC, 0x49};
 constexpr ExeText kSupply{0x178C, 0xA8}, kPerformance{0x1834, 0xAC}, kTransport{0x18E0, 0x98}, kNoPay{0x19A2, 0x95};
 
 // The text there as one paragraph (its lines joined with spaces, blank ones dropped); empty when it isn't text (no
@@ -190,6 +191,9 @@ std::vector<std::string> outcome_message(int32_t house, Outcome o, bool garrison
   }
   return p;
 }
+
+std::string dark_wing_failed() { return exe_text(kDarkWingFailed); }
+std::string dark_wing_victory() { return exe_text(kDarkWingVictory); }
 
 std::vector<std::string> wrap(const std::vector<std::string>& paragraphs, size_t width) {
   std::vector<std::string> lines;

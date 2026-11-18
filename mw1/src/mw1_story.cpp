@@ -236,6 +236,7 @@ Ran run_event(Company& c, int32_t record, int32_t cls, Rng& rng, Shown* out) {
   const Script& s = script();
   if (record < 0 || record >= static_cast<int32_t>(s.records.size())) return Ran::kNot;
   const Event& e = s.records[static_cast<size_t>(record)];
+  if (kNoDeadline && e.id == kEventTooLate) return Ran::kNot;  // ours: never too late
   bool result = false, with_and = false;
   Shown sh;
   sh.event = e.id, sh.record = record;
@@ -244,6 +245,7 @@ Ran run_event(Company& c, int32_t record, int32_t cls, Rng& rng, Shown* out) {
   for (const Command& cmd : e.script) {
     if (cmd.op == kChoices) {
       if (!result) continue;
+      if (e.id == kEventDarkWingAttack && kDarkWingOnArrival && !c.story.arrived) return Ran::kNot;
       sh.captions = cmd.captions, sh.branches = cmd.branches;
       if (e.id != kEventDarkWingAttack) c.story.seen[static_cast<size_t>(e.id)] = 1;
       if (out) *out = sh;
@@ -287,6 +289,7 @@ Ran run_event(Company& c, int32_t record, int32_t cls, Rng& rng, Shown* out) {
             // The end, as MW1 tests it: a later month still compares the units.
             const int32_t m = month_of(cmd.end), u = units_of(cmd.end), y = cmd.end.year;
             in = y > now.year || (y == now.year && m >= now.month && u >= now.units);
+            if (kNoDeadline && e.id == kEventDarkWingAttack) in = true;  // ours: no end
           }
           result = in;
           break;
