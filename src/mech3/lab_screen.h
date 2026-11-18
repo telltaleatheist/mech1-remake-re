@@ -286,6 +286,14 @@ class LabWeaponList : public FileList {
 
   bool grouped;
   Handle font_static = 0;            // +0x200  STATIC_FONT (the groups' rows)
+  // Ours (MW1's FIXES.md item 40), PM's by default: the weapons' location tags' width (PM's 172, [0x005e42b8]), and
+  // for the ungrouped list `join_order`: a weapon put in a group numbered after the loadout's others
+  // (ConfigItem::join), and refresh_groups lists each group in that order, the order the player put them there. PM
+  // lists a group's weapons in the loadout's own order and has no way to reorder them. The loadout's item order
+  // (which weapons are added in, the criticals listed in) is never changed.
+  static constexpr int32_t kTagW = 172;
+  int32_t tag_width = kTagW;
+  bool join_order = false;
 };
 
 // A row of a data table (vtable 0x005c18b8), 0x960 bytes: a label and its value.

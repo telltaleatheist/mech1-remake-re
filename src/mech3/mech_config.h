@@ -18,6 +18,10 @@ struct ConfigItem {                // the shared head of every item
   int32_t group = 0;               // +0x08
   int32_t part = -1;               // +0x0c  a part id, or a firepoint index for weapons
   uint8_t b10 = 0;                 // +0x10
+  // Ours (MW1's FIXES.md item 40): when it joined its weapon group, numbered across the loadout (0: never, PM's);
+  // only the lab's opt-in LabWeaponList::join_order sets and reads it. Copied with the item (add_item), never in
+  // PM's save (save/load): MW1 keeps it on its own line.
+  int32_t join = 0;
   virtual ~ConfigItem() = default;
   virtual double weight(int32_t n) const = 0; // vt+0x00, n = -1 for the item's count; x87 st0
   void set_part(int32_t p) { part = p; }       // vt+0x04, 0x00409f50
