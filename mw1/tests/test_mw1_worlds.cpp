@@ -16,14 +16,15 @@ namespace fs = std::filesystem;
 
 namespace {
 
-// MW3's files a conversion reads (zbd/reader.zbd, zbd/interp.zbd, zbd/c2, zbd/c4b) as links in `dir`; `copy` a
+// MW3's files a conversion reads (zbd/reader.zbd, zbd/interp.zbd, each kWorlds world's folder) as links in `dir`; `copy` a
 // file (install-relative) to copy instead, so a test may change it; `broken` c4b's gamez.zbd made garbage.
 std::string stand_in_install(const fs::path& dir, const std::string& copy = "", bool broken = false) {
   std::error_code ec;
   fs::remove_all(dir, ec);
   const fs::path from = MW1_MW3_GAME_DIR;
   std::vector<std::string> files = {"zbd/reader.zbd", "zbd/interp.zbd"};
-  for (const char* w : {"c2", "c4b"})
+  for (const mw1::World& world : mw1::kWorlds)  // every world mw1 converts (item 46: c1, c2, c3, c4, c4b)
+    for (const char* w = world.source; w; w = nullptr)
     for (const auto& e : fs::directory_iterator(from / "zbd" / w, ec))
       if (e.is_regular_file()) files.push_back(std::string("zbd/") + w + "/" + e.path().filename().string());
   for (const std::string& f : files) {

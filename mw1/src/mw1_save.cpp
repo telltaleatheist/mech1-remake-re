@@ -133,6 +133,8 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
   o << "repair_premium=" << c.repair_premium << "\n";
   // Version 7: negotiation.
   o << "patience=" << c.patience << "\nwithdrawn=" << (c.withdrawn ? 1 : 0) << "\n";
+  // FIXES.md item 46 (any version; a save without it: none): the map last drawn.
+  if (!c.last_map_world.empty()) o << "last_map=" << c.last_map_world << ":" << c.last_map_ia << "\n";
   // Version 8: the story.
   o << "story_seen=";
   for (int32_t id = 0, n = 0; id < kEventIds; ++id)
@@ -242,6 +244,11 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
   c.funds = funds, c.mech = static_cast<int32_t>(mech), c.kills = static_cast<int32_t>(kills);
   c.planet_house = static_cast<int32_t>(house), c.tier = static_cast<int32_t>(tier);
   if (v.count("planet")) c.planet = v["planet"];
+  if (v.count("last_map")) {  // item 46: "world:ia"
+    const std::string& m = v["last_map"];
+    const size_t colon = m.rfind(':');
+    if (colon != std::string::npos && colon > 0) c.last_map_world = m.substr(0, colon), c.last_map_ia = std::atoi(m.c_str() + colon + 1);
+  }
   for (int h = 0; h < kHouseCount; ++h) {
     int64_t f = 0, g = 0;
     if (!num(("favor" + std::to_string(h)).c_str(), -kMax, kMax, &f) || !num(("grievance" + std::to_string(h)).c_str(), -kMax, kMax, &g))

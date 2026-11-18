@@ -109,12 +109,31 @@ Objective objective_for(RowKind k);
 // (the climate's first); -1 when the table has none of the kind (the contract is then a destroy-all).
 int32_t choose_row(const std::vector<MapRow>& rows, RowKind kind, int32_t climate, Rng& rng);
 
+// FIXES.md item 46: where a world's battles are drawn from (mw1maps.zrd's POOL rows): about kMostlyPercent of the
+// time from MOSTLY's maps, else from SOMETIMES'; never any other map. A pool is a climate's, or a planet's (by its
+// travel-map name: Ander's Moon's), which comes first.
+inline constexpr int32_t kMostlyPercent = 75;
+struct MapPool {
+  int32_t climate = -1;           // the climate's pool, or -1
+  std::string planet;             // the planet's ("ANDER'S MOON"), or ""
+  std::vector<std::string> mostly, sometimes;  // worlds (folders: "c1", "mw3c2")
+};
+std::vector<MapPool> parse_pools(const std::string& zrd_path, std::string* why = nullptr);
+void set_map_pools(std::vector<MapPool> pools);
+const std::vector<MapPool>& map_pools();
+// The pool for a mission on `planet` (an index into the travel map's records, -1 none) in `climate`; null: none.
+const MapPool* pool_for(const std::vector<MapPool>& pools, int32_t planet, int32_t climate);
+// A row of `kind` from the pool: MOSTLY's rows kMostlyPercent of the time, else SOMETIMES'; the other part when the
+// drawn one has none of the kind; never the map (world, ia) last drawn; -1 when neither part has one.
+int32_t choose_pool_row(const std::vector<MapRow>& rows, const MapPool& pool, RowKind kind, const std::string& last_world,
+                        int32_t last_ia, Rng& rng);
+
 // FIXES.md item 44 (c): the climate of the map `world` Instant Action `ia` as the table has it (its first row on that
 // map); -1 when no row is on it.
 int32_t map_climate(const std::vector<MapRow>& rows, const std::string& world, int32_t ia);
 
 // Sets the contract's mission and map: the rolls, the row, the contract's objective, world, archive and structure.
-void choose_mission(Contract& k, Rng& rng);
+void choose_mission(Contract& k, Rng& rng, const std::string& last_world = "", int32_t last_ia = 0);
 
 }  // namespace mw1::missions
 

@@ -1,6 +1,7 @@
 // MW1's missions (src/mw1_missions.h): the category, description, objective and mission planet tables against the
 // player's MW_MAIN.EXE and BTECH.EXE; the rolls MW1's chain makes; the map table (data/mw1maps.zrd) read; a row
 // chosen by the battle's climate; a contract given its mission and map.
+#include <algorithm>
 #include <cctype>
 #include <cstdio>
 #include <filesystem>
@@ -139,6 +140,10 @@ TEST(mw1_missions_the_map_table_reads_and_a_row_is_chosen) {
     EXPECT(d >= 0 && rows[static_cast<size_t>(d)].kind == mw1::RowKind::kDefend);
   }
   EXPECT(mw1::choose_row({}, mw1::RowKind::kReach, mw1::kDesert, rng) == -1);
+  // FIXES.md item 46: the pools read (the three climates' and Ander's Moon's), each world in them a table world.
+  const std::vector<mw1::MapPool> pools = mw1::parse_pools(mw1::kMapsFile, &why);
+  std::printf("  %zu pools%s%s\n", pools.size(), why.empty() ? "" : ": ", why.c_str());
+  EXPECT(pools.size() == 4 && why.empty());
   // FIXES.md item 44 (c): a map's climate, as the offer says it; none for a map not in the table.
   EXPECT(mw1::map_climate(rows, "c2", 1) == mw1::kDesert && mw1::map_climate(rows, "mw3c2", 1) == mw1::kTropical);
   EXPECT(mw1::map_climate(rows, "c9", 1) == -1 && mw1::map_climate(rows, "c2", 7) == -1);
@@ -163,4 +168,72 @@ TEST(mw1_missions_the_map_table_reads_and_a_row_is_chosen) {
   const mw1::Contract k = mw1::generate_contract(c, 0, rng);
   EXPECT(k.world == "c2" && k.ia == 1 && k.objective == mw1::Objective::kDestroyAll && k.code > 0);
   zrdr::close_archives(true);
+}
+
+// FIXES.md item 46: 10,000 draws from each pool (the four kinds mixed, each falling back to a battle as the
+// contract does), with the shares said: MOSTLY's about kMostlyPercent (all SOMETIMES' while MOSTLY has no map, the
+// ice's until item 44), never a world outside the pool, never the same map twice running. Then 10,000 contracts
+// as the game makes them (the last map carried as the company keeps it): each on its planet's pool.
+TEST(mw1_missions_maps_drawn_by_the_planets_pool) {
+  zutl::mounts() = zutl::Mounts{};
+  zutl::mount(MW1_DATA_DIR);
+  const std::vector<mw1::MapRow> rows = mw1::parse_maps(mw1::kMapsFile);
+  const std::vector<mw1::MapPool> pools = mw1::parse_pools(mw1::kMapsFile);
+  zrdr::close_archives(true);
+  EXPECT(pools.size() == 4);
+  auto has = [](const std::vector<std::string>& l, const std::string& w) { return std::find(l.begin(), l.end(), w) != l.end(); };
+  mw1::Rng rng(46);
+  for (const mw1::MapPool& p : pools) {
+    std::map<std::string, int> worlds;
+    int mostly = 0, sometimes = 0, outside = 0, repeats = 0, none = 0;
+    std::string last_world;
+    int32_t last_ia = 0;
+    bool mostly_has_maps = false;
+    for (const mw1::MapRow& r : rows) mostly_has_maps = mostly_has_maps || has(p.mostly, r.world);
+    for (int i = 0; i < 10000; ++i) {
+      const auto kind = static_cast<mw1::RowKind>(rng.upto(3));
+      int32_t at = mw1::choose_pool_row(rows, p, kind, last_world, last_ia, rng);
+      if (at < 0) at = mw1::choose_pool_row(rows, p, mw1::RowKind::kAny, last_world, last_ia, rng);
+      if (at < 0) {
+        ++none;
+        continue;
+      }
+      const mw1::MapRow& r = rows[static_cast<size_t>(at)];
+      ++worlds[r.world];
+      if (has(p.mostly, r.world)) ++mostly;
+      else if (has(p.sometimes, r.world)) ++sometimes;
+      else ++outside;
+      repeats += r.world == last_world && r.ia == last_ia;
+      last_world = r.world, last_ia = r.ia;
+    }
+    std::string said;
+    for (const auto& [w, n] : worlds) said += " " + w + " " + std::to_string(n / 100) + "%";
+    std::printf("  %-12s: mostly %d.%d%%, sometimes %d.%d%%, outside %d, repeats %d, none %d;%s\n",
+                p.planet.empty() ? mw1::climate_name(p.climate) : p.planet.c_str(), mostly / 100, mostly / 10 % 10, sometimes / 100,
+                sometimes / 10 % 10, outside, repeats, none, said.c_str());
+    EXPECT(outside == 0 && repeats == 0 && none == 0);
+    if (mostly_has_maps && !p.sometimes.empty()) EXPECT(mostly >= 7000 && mostly <= 8000);
+    if (!mostly_has_maps) EXPECT(mostly == 0);
+  }
+  // As the game draws them: the planet rolled, its pool, the last map carried.
+  mw1::set_map_table(rows);
+  mw1::set_map_pools(pools);
+  mw1::Company c;
+  c.funds = 1000000;
+  int off_pool = 0, repeats = 0, no_pool = 0;
+  std::map<int32_t, int> by_climate;
+  for (int i = 0; i < 10000; ++i) {
+    const mw1::Contract k = mw1::generate_contract(c, 0, rng);
+    const mw1::MapPool* p = mw1::pool_for(pools, k.mission_planet, k.climate);
+    if (!p) ++no_pool;
+    else if (!has(p->mostly, k.world) && !has(p->sometimes, k.world)) ++off_pool;
+    repeats += k.world == c.last_map_world && k.ia == c.last_map_ia;
+    ++by_climate[k.climate];
+    c.last_map_world = k.world, c.last_map_ia = k.ia;
+  }
+  std::printf("  10000 contracts: %d desert, %d tropical, %d ice; off their pool %d, repeats %d, no pool %d\n", by_climate[mw1::kDesert],
+              by_climate[mw1::kTropical], by_climate[mw1::kIce], off_pool, repeats, no_pool);
+  EXPECT(off_pool == 0 && repeats == 0 && no_pool == 0);
+  mw1::set_map_table({});
+  mw1::set_map_pools({});
 }

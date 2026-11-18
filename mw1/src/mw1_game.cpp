@@ -1896,7 +1896,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     std::string map = "Map: " + highlighted(map_words(ge_, k.world, k.ia));
     if (const int32_t c = map_climate(map_table(), k.world, k.ia); c >= 0) {
       map += " (" + highlighted(climate_name(c));
-      if (k.mission_planet >= 0 && c != k.climate) map += std::string(", no ") + climate_name(k.climate) + " map yet";
+      // Item 46: a map of another climate is the planet's pool's choice; said only while the table has no map of
+      // the planet's own climate at all (the ice's until item 44).
+      const bool none_of_it = std::none_of(map_table().begin(), map_table().end(), [&](const MapRow& r) { return r.climate == k.climate; });
+      if (k.mission_planet >= 0 && c != k.climate && none_of_it) map += std::string(", no ") + climate_name(k.climate) + " map yet";
       map += ")";
     }
     l.push_back(map);
@@ -1966,6 +1969,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         if (row_.words == "the " + row_.node && r.kind == RowKind::kReach && r.node == row_.node)
           contract_.world = r.world, contract_.ia = r.ia, contract_.structure_words = r.words;
     }
+    company_.last_map_world = contract_.world, company_.last_map_ia = contract_.ia;  // item 46: not drawn next time
     save();
     std::printf("mw1: offered: %s on %sia%d (MW1's %s, code %d, %s), %d thousand, %zu enemies; climate %s, the map's %s\n",
                 objective_words(contract_).c_str(), contract_.world.c_str(), contract_.ia, category_name(contract_.category),
