@@ -222,16 +222,46 @@ TEST(mw1_market_saved_and_a_version_1_save_read) {
   EXPECT(old.hangar.empty() && old.market.stock.empty() && !old.market.rolled && old.funds == c.funds);
 }
 
-// The lists' rows by the mouse (FIXES.md item 13): each list's rows from its first at y 96, kLineGap apart; the arrows
-// beside them and the gap between them are no row.
+// The lists' rows by the mouse (FIXES.md item 13): FOR SALE's terminal over YOUR MECHS', each's rows from 52 under
+// its top, 15 apart, in either layout; the arrows' column, the titles and the buttons down the left are no row.
 TEST(mw1_market_rows_by_the_mouse) {
   bool own = true;
   int32_t row = -1;
-  EXPECT(mw1::market_row_at(40, 96, &own, &row) && !own && row == 0);
-  EXPECT(mw1::market_row_at(40, 96 + 3 * mw1::kLineGap + 5, &own, &row) && !own && row == 3);
-  EXPECT(mw1::market_row_at(420, 96 + mw1::kLineGap, &own, &row) && own && row == 1);
-  EXPECT(!mw1::market_row_at(240, 100, &own, &row));  // FOR SALE's arrows
-  EXPECT(!mw1::market_row_at(605, 100, &own, &row));  // YOUR MECHS'
-  EXPECT(!mw1::market_row_at(320, 100, &own, &row));  // between the lists
-  EXPECT(!mw1::market_row_at(40, 80, &own, &row));    // the title over a list
+  const int32_t stock = mw1::kMarketListTop[0] + mw1::kMarketRowsFrom, owned = mw1::kMarketListTop[1] + mw1::kMarketRowsFrom;
+  const int32_t gap = mw1::kMarketRowGap;
+  EXPECT(mw1::market_row_at(210, stock, false, &own, &row) && !own && row == 0);
+  EXPECT(mw1::market_row_at(210, stock + 3 * gap + 5, false, &own, &row) && !own && row == 3);
+  EXPECT(mw1::market_row_at(210, owned + gap, false, &own, &row) && own && row == 1);
+  EXPECT(mw1::market_row_at(700, owned, true, &own, &row) && own && row == 0);  // the wide terminals are wider
+  EXPECT(!mw1::market_row_at(700, owned, false, &own, &row));                    // past 4:3's
+  EXPECT(!mw1::market_row_at(600, stock, false, &own, &row));                    // 4:3's arrows
+  EXPECT(!mw1::market_row_at(815, stock, true, &own, &row));                     // the wide ones'
+  EXPECT(!mw1::market_row_at(100, stock, false, &own, &row));                    // the buttons down the left
+  EXPECT(!mw1::market_row_at(210, mw1::kMarketListTop[1] + 12, false, &own, &row));  // YOUR MECHS' title
+  EXPECT(!mw1::market_row_at(210, stock + mw1::kMarketRows * gap, false, &own, &row));  // under FOR SALE's last row
+}
+
+// The Mech Complex's one page (Owen's shape): the buttons down the left, REPAIR and RELOAD greyed; the lists
+// scrolled to keep the chosen row in view, kMarketRows of them shown.
+TEST(mw1_market_complex_page) {
+  mw1::Company c;
+  c.planet = "Test";
+  c.funds = 5000000;
+  for (int i = 0; i < 12; ++i) c.market.stock.push_back(i % 2 ? mw1::kPmOwens : mw1::kPmFirefly);
+  mw1::MarketChoice m;
+  auto on = [](const mw1::ScreenView& v, int32_t id) { return v.buttons[static_cast<size_t>(id - 1)].on; };
+  mw1::clamp_choice(c, m);
+  mw1::ScreenView v = mw1::market_view(c, m);
+  EXPECT(on(v, mw1::kMarketBuy) && !on(v, mw1::kMarketSell) && !on(v, mw1::kMarketRepair) && !on(v, mw1::kMarketReload));
+  EXPECT(on(v, mw1::kMarketLab) && on(v, mw1::kMarketBack) && !on(v, mw1::kMarketStockUp) && on(v, mw1::kMarketStockDown));
+  EXPECT(v.panels[mw1::kMarketPanelStock] && v.panels[mw1::kMarketPanelOwned]);
+  m.stock = 11;
+  mw1::clamp_choice(c, m);
+  EXPECT(m.stock_top == 12 - mw1::kMarketRows);  // scrolled to the last
+  m.stock = 2;
+  mw1::clamp_choice(c, m);
+  EXPECT(m.stock_top == 2);  // and back up as far as the chosen one
+  m.stock = 20, m.owned = 5;
+  mw1::clamp_choice(c, m);
+  EXPECT(m.stock == 11 && m.owned == 0 && m.owned_top == 0);
 }

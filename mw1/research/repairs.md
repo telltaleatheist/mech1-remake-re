@@ -77,3 +77,16 @@ the sale price less repairs, and repairs are small. So a wreck now pays
 close to its full sale price, before the salvage percentage (5–25%). If
 wrecks pay too much, VISION scales the sum down: the salvage percentage, or
 a factor beside it.
+
+## The Mech Complex's REPAIR and RELOAD (provisional, 2026-11-17)
+
+MW1's Mech Complex repairs and rearms mechs (its status screen's REPAIR,
+REPAIR ALL and RELOAD). In the remake every mech leaves for a contract
+repaired and armed and the repairs are billed at the debriefing (VISION.md,
+"Every mission starts fresh"), so between missions there is nothing for them
+to do.
+
+**Provisional answer:** the Mech Complex keeps REPAIR and RELOAD down its
+left (Owen's list, FIXES.md items 8 and 13), greyed. MECH LAB beside them
+takes the place of MW1's refits. If VISION ever brings back damage carried
+between missions, they are the buttons that would work it.

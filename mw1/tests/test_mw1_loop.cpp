@@ -23,6 +23,9 @@
 #include "mw1_layouts.h"
 #include "gamez/ztwod/twod.h"
 #include "gamez/zgame/zgame_table.h"
+#include "gamez/zinput/zinput.h"
+#include "gamez/zimage/zimg_library.h"
+#include <map>
 #include "gamez/zreader/zreader.h"
 #include "gamez/zsound/zsnd.h"
 #include "gamez/zutil/zutl_path.h"
@@ -55,6 +58,7 @@
 #include "mw1_missions.h"
 #include "mw1_pilots.h"
 #include "mw1_market_screen.h"
+#include "mw1_lab_pilot.h"
 #include "mw1_menu.h"
 #include "mw1_office.h"
 #include "mw1_images.h"
@@ -85,6 +89,35 @@ struct Clock : platform::Clock {
 struct MovieClock : platform::Clock {
   uint32_t now = 0;
   uint32_t ticks_ms() override { return now += 1000; }
+};
+// The 2D layer's mouse as the game's own host reads it (SdlTwodHost::mouse: zin's state), for the tests that click
+// with it; the default host's is unported (no mouse).
+// MW1's chrome (its buttons and arrows, mw1_chrome.h's pieces as the archive packs them) is there, so the clicks hit
+// what the game's would.
+struct MouseHost : ztwod::Host {
+  ztwod::MouseState mouse() override {
+    ztwod::MouseState m{};
+    std::memcpy(&m, zin::mouse_info(), sizeof m);
+    return m;
+  }
+  zimg::Texture* image_get(const char* name) override {
+    static std::vector<mw1::images::Image> pieces = mw1::chrome::all();
+    static std::map<std::string, zimg::Texture> sizes = [] {
+      std::map<std::string, zimg::Texture> m;
+      for (mw1::images::Image& i : pieces) {
+        zimg::Texture t{};
+        t.width = static_cast<int16_t>(i.width), t.height = static_cast<int16_t>(i.height);
+        t.pixel_count = i.width * i.height, t.width_again = i.width, t.mip_scale = 1.0f;
+        t.pixels = i.pixels.data();
+        t.alpha = i.alpha.empty() ? nullptr : i.alpha.data();
+        t.flags = i.alpha.empty() ? zimg::kNoAlpha : zimg::kFullAlpha;
+        m[i.name] = t;
+      }
+      return m;
+    }();
+    auto it = name ? sizes.find(name) : sizes.end();
+    return it == sizes.end() ? nullptr : &it->second;
+  }
 };
 struct Screen : platform::Screen2D {
   void present_16(const uint16_t*, int, int, int, bool) override {}
@@ -148,7 +181,10 @@ struct Run {
   // contract then fought in it.
   bool market = false;
   std::vector<std::string> market_lines;  // the market's first screen, as shown
-  int64_t market_bought_for = -1, market_sold_for = -1;
+  int64_t market_bought_for = -1, market_sold_for = -1, market_funds = 0;
+  bool lab_done = false;  // the Mech Complex's MECH LAB opened, refitted and closed
+  int32_t lab_mech = -1, lab_stores = -1;
+  std::string lab_pilot, lab_pilot_after;  // its PILOT line as the lab opened, after the arrow
   int32_t briefing_mech = -1;
   bool market_done = false;
   // Travel (mw1_travel_screen.h) before the first ACCEPT: the nearest world with a House office, GO; the contract
@@ -227,7 +263,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
   int64_t funds_at_offer = 0, funds_in_mission = 0;
   int64_t salvage_shown = -1, fee_shown = -1, bill_shown = 0;  // the first AFTER ACTION's settlement, as rolled
   int32_t favor_at_offer[mw1::kHouseCount] = {}, grievance_at_offer[mw1::kHouseCount] = {};
-  int market_step = 0;
+  int market_step = 0, click_phase = 0, click_x = 0, click_y = 0;  // the market's clicks (zin's mouse)
   int hubs = 0, hub_frames = 0, enemies = 0, killed = 0, items_at_offer = 0, target = -1;
   bool hub_checked = false, declined = false, quit = false, replaying = false, deployed = false;
   int64_t advance_paid = -1;  // at the office's ACCEPT
@@ -276,51 +312,124 @@ void loop_run(Ending ending, Run* run = nullptr) {
       }
       // The hub: once it has drawn a few frames, what it shows checked and one of its buttons pressed through the
       // screen's own handler, as a click does.
+      // zin's mouse clicks (the Mech Complex's and its lab's): moved there, pressed, released, over four frames.
+      if (run && run->market && click_phase > 0) {
+        zin::MouseInfo* mi = zin::mouse_info();
+        mi->x = click_x, mi->y = click_y;
+        mi->left = click_phase == 2 ? zin::kPressed : click_phase == 3 ? zin::kReleased : 0;
+        click_phase = click_phase == 4 ? 0 : click_phase + 1;
+        return;
+      }
+      // The Mech Complex's MECH LAB (FIXES.md item 8): Pirate's Moon's lab over it, on the bought Firefly. A weapon
+      // taken off as the lab does (GameSlot::set_config with the store, taking: it goes to the stores); its PILOT
+      // line's right arrow clicked (nobody, then you); ACCEPT.
+      if (run && run->market && !run->lab_done && app.current() == &mech3::states().lab) {
+        if (++hub_frames < 20) return;
+        hub_frames = 0;
+        const mw1::PilotChooser* who = mw1::game_loop_lab_pilot();
+        if (run->lab_pilot.empty()) {
+          run->lab_pilot = who ? who->shown() : "?";
+          mech3::Pilot* p = mech3::current_pilot();
+          mech3::ActionGame* g = p ? p->action() : nullptr;
+          run->lab_mech = g ? g->slot.mech : -1;
+          if (g && g->slot.config && p->store()) {
+            mech3::Config* fitted = mech3::pilot_hooks().config_copy(*g->slot.config);
+            for (mech3::ConfigItem* it : fitted->items)
+              if (it->kind() == 1) {
+                fitted->remove(it, 1);
+                break;
+              }
+            fitted->recount();
+            g->slot.set_config(fitted, p->store(), true);
+            delete fitted;
+          }
+          // The right arrow's middle (mw1_lab_pilot.h; the line 172 from the 640 canvas's right edge, 196 down).
+          click_x = 640 - 172 + mw1::kRightArrowX + mw1::chrome::kSideArrowW / 2;
+          click_y = 196 + mw1::kRow + mw1::chrome::kSideArrowH / 2, click_phase = 1;
+          return;
+        }
+        run->lab_pilot_after = who ? who->shown() : "?";
+        run->lab_done = true;
+        mech3::states().lab.accept();
+        return;
+      }
       mw1::MarketState* ms = mw1::game_loop_market();
       if (run && ms && app.current() == static_cast<zgame::State*>(ms) && ms->screen()) {
+        // The Mech Complex by the mouse (FIXES.md items 8 and 13): each click is zin's mouse moved there, pressed and
+        // released (above), so the screen's own hit areas (the buttons, the arrows, the lists' rows) are what's
+        // tested. Then each click's result checked at the next step.
+        mw1::Mw1Screen* sc = ms->screen();
         if (++hub_frames < 10) return;
         hub_frames = 0;
-        mw1::Mw1Screen* sc = ms->screen();
         mw1::Company* c = mw1::game_loop_company_for_tests();
         const std::vector<std::string> shown = sc->shown();
         std::printf("  market %d:", market_step);
         for (const std::string& l : shown) std::printf(" [%s]", l.c_str());
         std::printf("\n");
+        const int32_t dx = sc->shift(mw1::Anchor::kLayout), left = sc->wide() ? 16 : 12, list = sc->wide() ? 216 : 204;
+        const int32_t arrow = (sc->wide() ? 200 + 637 : 188 + 436) - 34 + 14;
+        auto click = [&](int32_t x, int32_t y) { click_x = x + dx, click_y = y, click_phase = 1; };
+        auto button = [&](int32_t k) { click(left + 84, 84 + 38 * k + 15); };  // the k-th down the left
+        auto row = [&](bool own, int32_t r) {
+          click(list + 30, mw1::kMarketListTop[own ? 1 : 0] + mw1::kMarketRowsFrom + r * mw1::kMarketRowGap + 5);
+        };
+        auto has = [&](const char* line) {
+          for (const std::string& l : shown)
+            if (l.find(line) != std::string::npos) return true;
+          return false;
+        };
         const int64_t funds = c->funds;
         switch (market_step++) {
-          case 0:  // the first screen: the Firefly chosen; BUY
+          case 0:  // the one page: FOR SALE's second row (the Atlas)
             run->market_lines = shown;
-            EXPECT(sc->loaded() && sc->enabled(mw1::kMarketBuy) && !sc->enabled(mw1::kMarketSell) && !sc->enabled(mw1::kMarketPilot));
-            sc->on_button(mw1::kMarketBuy, 0, 0);
-            run->market_bought_for = funds - c->funds;
+            EXPECT(sc->loaded() && sc->enabled(mw1::kMarketBuy) && !sc->enabled(mw1::kMarketSell) && !sc->enabled(mw1::kMarketRepair) &&
+                   !sc->enabled(mw1::kMarketReload) && sc->enabled(mw1::kMarketLab) && !sc->enabled(mw1::kMarketStockUp));
+            row(false, 1);
+            break;
+          case 1:  // scrolled back up by its arrow
+            EXPECT(sc->enabled(mw1::kMarketStockUp) && !sc->enabled(mw1::kMarketStockDown));
+            click(arrow, 104 + 11);
+            break;
+          case 2:  // the Firefly chosen: BUY
+            EXPECT(!sc->enabled(mw1::kMarketStockUp) && sc->enabled(mw1::kMarketStockDown));
+            run->market_funds = funds;
+            button(0);
+            break;
+          case 3:  // bought, chosen in YOUR MECHS: YOUR MECHS' up arrow
+            run->market_bought_for = run->market_funds - funds;
             EXPECT(c->hangar.size() == 1 && c->hangar[0].mech == mw1::kPmFirefly && c->market.stock.size() == 1);
+            EXPECT(sc->enabled(mw1::kMarketOwnUp) && sc->enabled(mw1::kMarketSell));
+            click(arrow, 284 + 11);
             break;
-          case 1:  // the Firefly chosen in YOUR MECHS by the mouse (its second row clicked); SELL: back into the stock
-            sc->point(410, 96 + mw1::kLineGap + 4, true);
-            EXPECT(sc->enabled(mw1::kMarketPilot));  // the second mech chosen: PILOT live
-            sc->on_button(mw1::kMarketSell, 0, 0);
-            run->market_sold_for = c->funds - funds;
-            EXPECT(c->hangar.empty() && c->market.stock.back() == mw1::kPmFirefly);
+          case 4:  // yours chosen; the Firefly's row clicked
+            EXPECT(!sc->enabled(mw1::kMarketOwnUp));
+            row(true, 1);
             break;
-          case 2:  // the last mech: SELL greyed, and the rule refuses it
-            EXPECT(!sc->enabled(mw1::kMarketSell));
-            EXPECT(mw1::sell(*c, 0) == mw1::Deal::kLastMech);
-            // BUY it back: the stock's last line, clicked (a click past the list's end, or on its arrow, changes nothing).
-            sc->point(60, 96 + static_cast<int32_t>(c->market.stock.size() + 2) * mw1::kLineGap, true);
-            sc->point(240, 96 + 4, true);
-            EXPECT(sc->enabled(mw1::kMarketStockUp) == false);
-            sc->point(60, 96 + static_cast<int32_t>(c->market.stock.size() - 1) * mw1::kLineGap + 4, true);
-            EXPECT(!sc->enabled(mw1::kMarketStockDown) && sc->enabled(mw1::kMarketStockUp));
-            sc->on_button(mw1::kMarketBuy, 0, 0);
-            EXPECT(c->hangar.size() == 1 && c->hangar[0].mech == mw1::kPmFirefly);
+          case 5:  // SELL it
+            EXPECT(sc->enabled(mw1::kMarketOwnUp));
+            run->market_funds = funds;
+            button(1);
             break;
-          case 3:  // PILOT the Firefly; BACK
-            sc->on_button(mw1::kMarketOwnDown, 0, 0);
-            EXPECT(sc->enabled(mw1::kMarketPilot));
-            sc->on_button(mw1::kMarketPilot, 0, 0);
-            EXPECT(c->mech == mw1::kPmFirefly && c->hangar.size() == 1 && c->hangar[0].mech == mw1::kPmOwens);
+          case 6:  // sold, back in the stock: its row, FOR SALE's last
+            run->market_sold_for = funds - run->market_funds;
+            EXPECT(c->hangar.empty() && c->market.stock.back() == mw1::kPmFirefly && !sc->enabled(mw1::kMarketSell));
+            row(false, static_cast<int32_t>(c->market.stock.size()) - 1);
+            break;
+          case 7:  // BUY it back
+            EXPECT(!sc->enabled(mw1::kMarketStockDown));
+            button(0);
+            break;
+          case 8:  // MECH LAB on it (chosen in YOUR MECHS)
+            EXPECT(c->hangar.size() == 1 && c->hangar[0].mech == mw1::kPmFirefly && sc->enabled(mw1::kMarketOwnUp));
+            run->lab_stores = c->stores->count();
+            button(4);
+            break;
+          case 9:  // back from the lab: you pilot the Firefly, with its loadout; the weapon in the stores. BACK
+            EXPECT(run->lab_done && run->lab_mech == mw1::kPmFirefly && run->lab_pilot == "nobody (spare)" && run->lab_pilot_after == "YOU");
+            EXPECT(has("piloted by you") && c->mech == mw1::kPmFirefly && c->hangar.size() == 1 && c->hangar[0].mech == mw1::kPmOwens);
+            EXPECT(c->loadout != nullptr && c->stores->count() == run->lab_stores + 1);
             run->market_done = true;
-            sc->on_button(mw1::kMarketBack, 0, 0);
+            button(5);
             break;
           default: break;
         }
@@ -1135,7 +1244,10 @@ TEST(mw1_loop_market_buy_sell_pilot_then_a_contract_in_the_bought_mech_headless)
     Run run;
     run.save = (dir / mw1::kSaveFile).string();
     run.market = true;
+    MouseHost mouse;  // the Mech Complex is clicked with zin's mouse
+    ztwod::set_host(&mouse);
     loop_run(kWon, &run);
+    ztwod::set_host(nullptr);
     std::printf("  market: bought for %lld, sold for %lld; the briefing's mech %d\n", static_cast<long long>(run.market_bought_for),
                 static_cast<long long>(run.market_sold_for), run.briefing_mech);
     EXPECT(run.market_done && run.market_lines.size() > 4);
@@ -2227,7 +2339,7 @@ TEST(mw1_soak_twenty_contracts_through_the_hub_headless) {
         if (a <= 1 && sc->enabled(mw1::kMarketBuy) && c->funds > 1500000) sc->on_button(mw1::kMarketBuy, 0, 0);
         else if (a == 2 && sc->enabled(mw1::kMarketSell) && roll(3) == 0) sc->on_button(mw1::kMarketSell, 0, 0);
         else if (a == 3) sc->on_button(roll(2) ? mw1::kMarketStockDown : mw1::kMarketOwnDown, 0, 0);
-        else sc->on_button(mw1::kMarketBack, 0, 0);
+        else ms->escape();
         return false;
       }
       if (mw1::BarState* bs = mw1::game_loop_bar(); showing(app, bs)) {

@@ -217,6 +217,38 @@ bool assign(Company& c, int32_t i) {
   return true;  // past the last: none
 }
 
+std::vector<int32_t> pilot_choices(const Company& c, int32_t owned) {
+  if (owned == 0) return {kCommander};
+  if (owned < 0 || owned > static_cast<int32_t>(c.hangar.size())) return {};
+  std::vector<int32_t> out = {kNobody, kCommander};
+  for (const Lancemate& m : c.lance) out.push_back(m.id);
+  return out;
+}
+
+int32_t pilot_now(const Company& c, int32_t owned) {
+  if (owned == 0) return kCommander;
+  if (owned < 0 || owned > static_cast<int32_t>(c.hangar.size())) return kNobody;
+  const int32_t id = c.hangar[static_cast<size_t>(owned - 1)].pilot;
+  return id ? id : kNobody;
+}
+
+bool set_pilot(Company& c, int32_t owned, int32_t who) {
+  const std::vector<int32_t> can = pilot_choices(c, owned);
+  if (std::find(can.begin(), can.end(), who) == can.end()) return false;
+  if (owned == 0 || who == pilot_now(c, owned)) return true;
+  OwnedMech& o = c.hangar[static_cast<size_t>(owned - 1)];
+  if (who == kCommander) {
+    std::swap(c.mech, o.mech);
+    std::swap(c.loadout, o.loadout);
+  } else if (who == kNobody) {
+    o.pilot = 0;
+  } else {
+    unassign(c, who);
+    o.pilot = who;
+  }
+  return true;
+}
+
 int32_t lance_weight(const Company& c) {
   auto of = [](int32_t mech) { return lance_weight_of_tons(static_cast<int32_t>(std::lround(mech3::max_mass(mech)))); };
   int32_t w = c.mech >= 0 ? of(c.mech) : 0;

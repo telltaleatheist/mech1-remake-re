@@ -1,18 +1,24 @@
 #include "mw1_market_screen.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cstdio>
 #include <vector>
 
 #include "mech3/mech_names.h"
 #include "mw1_market.h"
+#include "mw1_pilots.h"
 
 namespace mw1::market_ui {
 namespace {
 const std::vector<ScreenButton> kMarketButtons = {
-    {"BUY", "BUY"},         {"SELL", "SELL"},        {"PILOT", "PILOT"},   {"BACK", "BACK"},
-    {"STOCK_UP", ""},       {"STOCK_DOWN", ""},      {"OWN_UP", ""},       {"OWN_DOWN", ""}};
+    {"BUY", "BUY"},       {"SELL", "SELL"},           {"REPAIR", "REPAIR"}, {"RELOAD", "RELOAD"},
+    {"LAB", "MECH LAB"},  {"BACK", "BACK"},           {"STOCK_UP", ""},     {"STOCK_DOWN", ""},
+    {"OWN_UP", ""},       {"OWN_DOWN", ""}};
 constexpr size_t kNameWidth = 14;  // the lists' columns (the line font is fixed-width)
+constexpr size_t kWhoWidth = 11;
+// The lists' terminals (the layouts' PANEL4 and PANEL5): left and right, the arrows' column inside the right edge.
+constexpr int32_t kListLeft[2] = {188, 200}, kListRight[2] = {188 + 436, 200 + 637}, kArrowColumn = 40;
 
 std::string thousands(int64_t v) {
   std::string s = std::to_string(v < 0 ? -v : v);
@@ -23,38 +29,55 @@ std::string upper(std::string s) {
   for (char& c : s) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
   return s;
 }
+std::string padded(std::string s, size_t w) {
+  if (s.size() > w) s.resize(w);
+  s.append(w - s.size(), ' ');
+  return s;
+}
+std::string tons(int32_t mech) {
+  char t[8];
+  std::snprintf(t, sizeof t, "%3dt ", static_cast<int>(tier0_price(mech) + kPriceOffset) / kPricePerTon);
+  return t;
+}
 // A Clan mech starred.
 std::string listed(int32_t mech) { return clan_mech(mech) ? mech_title(mech) + "*" : mech_title(mech); }
-// "> Owens          35t  3,080,000": chosen or not, the name, the tons, a price.
-std::string row(bool chosen, int32_t mech, int64_t price) {
-  std::string n = listed(mech);
-  if (n.size() < kNameWidth) n.append(kNameWidth - n.size(), ' ');
-  char tons[8];
-  std::snprintf(tons, sizeof tons, "%3dt ", static_cast<int>(tier0_price(mech) + kPriceOffset) / kPricePerTon);
+std::string price_column(int64_t price) {
   std::string p = thousands(price);
   if (p.size() < 10) p.insert(0, 10 - p.size(), ' ');
-  return std::string(chosen ? "> " : "  ") + n + tons + p;
+  return p;
+}
+// Who pilots owned mech i: you (0), the lancemate assigned to it, or nobody (a spare).
+std::string pilot_of(const Company& c, int32_t i) {
+  if (i == 0) return "YOU";
+  const OwnedMech& o = c.hangar[static_cast<size_t>(i - 1)];
+  return o.pilot ? pilot_title(o.pilot) : "spare";
+}
+// The first row shown, moved only as far as keeps `chosen` in view.
+int32_t scrolled(int32_t top, int32_t chosen, int32_t count) {
+  top = std::min(top, chosen);
+  top = std::max(top, chosen - (kMarketRows - 1));
+  return std::clamp(top, 0, std::max(0, count - kMarketRows));
 }
 }  // namespace
 
 const char* market_button_name(int32_t id) { return id >= 1 && id <= kMarketButtonCount ? kMarketButtons[id - 1].name : ""; }
 
 void clamp_choice(const Company& c, MarketChoice& m) {
-  const int32_t stock = static_cast<int32_t>(c.market.stock.size());
-  m.stock = stock == 0 ? 0 : m.stock < 0 ? 0 : m.stock >= stock ? stock - 1 : m.stock;
-  const int32_t owned = owned_count(c);
-  m.owned = m.owned < 0 ? 0 : m.owned >= owned ? owned - 1 : m.owned;
+  const int32_t stock = static_cast<int32_t>(c.market.stock.size()), owned = owned_count(c);
+  m.stock = stock == 0 ? 0 : std::clamp(m.stock, 0, stock - 1);
+  m.owned = std::clamp(m.owned, 0, owned - 1);
+  m.stock_top = scrolled(m.stock_top, m.stock, stock);
+  m.owned_top = scrolled(m.owned_top, m.owned, owned);
 }
 
-namespace {
-constexpr int32_t kListX[2] = {30, 398}, kListW = 200, kListTop = 96;  // the lists' first rows (market_view's blocks), clear of the arrows
-}  // namespace
-
-bool market_row_at(int32_t x, int32_t y, bool* own, int32_t* row) {
-  for (int32_t l = 0; l < 2; ++l) {
-    if (x < kListX[l] - 6 || x >= kListX[l] + kListW || y < kListTop - 2) continue;
-    if (own) *own = l == 1;
-    if (row) *row = (y - kListTop + 2) / kLineGap;
+bool market_row_at(int32_t x, int32_t y, bool wide, bool* own, int32_t* row) {
+  const int32_t l = wide ? 1 : 0;
+  if (x < kListLeft[l] || x >= kListRight[l] - kArrowColumn) return false;
+  for (int32_t list = 0; list < 2; ++list) {
+    const int32_t first = kMarketListTop[list] + kMarketRowsFrom - 3;
+    if (y < first || y >= first + kMarketRows * kMarketRowGap) continue;
+    if (own) *own = list == 1;
+    if (row) *row = (y - first) / kMarketRowGap;
     return true;
   }
   return false;
@@ -62,43 +85,59 @@ bool market_row_at(int32_t x, int32_t y, bool* own, int32_t* row) {
 
 ScreenView market_view(const Company& c, const MarketChoice& m) {
   ScreenView v;
-  std::vector<std::string> stock, owned;
-  for (size_t i = 0; i < c.market.stock.size(); ++i)
-    stock.push_back(row(static_cast<int32_t>(i) == m.stock, c.market.stock[i], buy_price(c.market.stock[i], c.tier)));
-  if (stock.empty()) stock.push_back("Nothing for sale here.");
-  for (int32_t i = 0; i < owned_count(c); ++i) owned.push_back(row(i == m.owned, owned_mech(c, i), sell_price(owned_mech(c, i), c.tier)));
+  v.blocks = {at_place("PLANET", {upper(c.planet)}),
+              at_place("HOUSE", {"HOUSE " + upper(kHouses[c.planet_house].name) + " \xB7 THE MECH COMPLEX"}),
+              at_place("PLACE", {thousands(c.funds) + " C-BILLS"}),
+              at_place("PLACE_SUB", {"TIER " + std::to_string(c.tier) + " WORLD \xB7 SELLING AT " +
+                                     std::to_string((kTierMultipliers[c.tier] - 1) * 10) + "%"}),
+              at_place("STATUS_WORLD", {upper(c.planet)}),
+              at_place("STATUS", {m.note.empty() ? "BUY takes a mech FOR SALE; the rest act on YOUR MECHS' chosen one." : m.note})};
+  v.panels.assign(kMarketPanelCount, true);
+
+  // FOR SALE: the stock at the buying price.
+  std::vector<std::string> stock;
   bool any_clan = false;
+  for (int32_t i = m.stock_top; i < static_cast<int32_t>(c.market.stock.size()) && i < m.stock_top + kMarketRows; ++i) {
+    const int32_t mech = c.market.stock[static_cast<size_t>(i)];
+    stock.push_back(std::string(i == m.stock ? "> " : "  ") + padded(listed(mech), kNameWidth) + tons(mech) +
+                    price_column(buy_price(mech, c.tier)));
+  }
   for (int32_t mech : c.market.stock) any_clan = any_clan || clan_mech(mech);
-  // The world's terms under the lists: the funds, the tier's prices, the dealer's limit.
-  const int32_t mult = kTierMultipliers[c.tier];
-  std::vector<std::string> terms = {
-      "Funds: " + thousands(c.funds) + " C-bills",
-      "Tier " + std::to_string(c.tier) + " world: buying at " + std::to_string(mult * 10) + "%, selling at " +
-          std::to_string((mult - 1) * 10) + "% of the base price",
-      c.market.limit < 0 ? std::string("The dealer buys any number of mechs.")
-                         : "The dealer buys " + std::to_string(c.market.limit - c.market.sold) + " more mechs until the market changes."};
-  if (any_clan) terms.push_back("* Clan: twice the price.");
-  v.blocks = {{24, 14, kPlaqueFont, {upper(c.planet)}},
-              {24, 32, kPlaqueSmallFont, {"HOUSE " + upper(kHouses[c.planet_house].name) + ": MARKET"}},
-              {30, 72, kTitleFont, {"FOR SALE"}},
-              {30, 96, kLineFont, stock},
-              {398, 72, kTitleFont, {"YOUR MECHS"}},
-              {398, 96, kLineFont, owned},
-              {398, 260, kLineFont, {"Piloted: " + mech_title(c.mech)}},
-              {30, 360, kLineFont, terms},
-              {30, 428, kNoteFont, {m.note}}};
+  if (stock.empty()) stock.push_back("  Nothing for sale here.");
+  std::string limit = c.market.limit < 0 ? "" : " \xB7 the dealer buys " + std::to_string(c.market.limit - c.market.sold) + " more";
+  v.blocks.push_back(at_place("S_TITLE", {"FOR SALE"}));
+  v.blocks.push_back(at_place("S_HEAD", {"  " + padded("MECH", kNameWidth) + "TONS      PRICE" + (any_clan ? "   * Clan: twice" : "")}));
+  v.blocks.push_back(at_place("S_ROWS", stock));
+
+  // YOUR MECHS: who pilots each, its value.
+  std::vector<std::string> owned;
+  for (int32_t i = m.owned_top; i < owned_count(c) && i < m.owned_top + kMarketRows; ++i) {
+    const int32_t mech = owned_mech(c, i);
+    owned.push_back(std::string(i == m.owned ? "> " : "  ") + padded(listed(mech), kNameWidth) + tons(mech) +
+                    padded(pilot_of(c, i), kWhoWidth) + price_column(sell_price(mech, c.tier)));
+  }
+  v.blocks.push_back(at_place("O_TITLE", {"YOUR MECHS"}));
+  v.blocks.push_back(at_place("O_HEAD", {"  " + padded("MECH", kNameWidth) + "TONS " + padded("PILOT", kWhoWidth) + "     VALUE" + limit}));
+  v.blocks.push_back(at_place("O_ROWS", owned));
+
   v.buttons.resize(kMarketButtonCount);
-  v.buttons[kMarketBuy - 1].on = !c.market.stock.empty();
-  v.buttons[kMarketSell - 1].on = owned_count(c) > 1;
-  v.buttons[kMarketPilot - 1].on = m.owned != 0;
-  v.buttons[kMarketStockUp - 1].on = m.stock > 0;
-  v.buttons[kMarketStockDown - 1].on = m.stock + 1 < static_cast<int32_t>(c.market.stock.size());
-  v.buttons[kMarketOwnUp - 1].on = m.owned > 0;
-  v.buttons[kMarketOwnDown - 1].on = m.owned + 1 < owned_count(c);
+  auto on = [&](int32_t id, bool b) { v.buttons[static_cast<size_t>(id - 1)].on = b; };
+  on(kMarketBuy, !c.market.stock.empty());
+  on(kMarketSell, owned_count(c) > 1);
+  on(kMarketRepair, false), on(kMarketReload, false);  // VISION.md: nothing to mend between missions
+  on(kMarketStockUp, m.stock > 0);
+  on(kMarketStockDown, m.stock + 1 < static_cast<int32_t>(c.market.stock.size()));
+  on(kMarketOwnUp, m.owned > 0);
+  on(kMarketOwnDown, m.owned + 1 < owned_count(c));
   return v;
 }
 
 MarketState::MarketState(zgame::Handle h, std::function<void(int32_t)> pressed)
     : Mw1State(h, "MW1 Market State", kMarketFile, kMarketDialog, kMarketButtons, kMarketBack, std::move(pressed)) {}
+
+void MarketState::resume(uint32_t arg) {
+  if (resumed_) resumed_();
+  Mw1State::resume(arg);
+}
 
 }  // namespace mw1::market_ui
