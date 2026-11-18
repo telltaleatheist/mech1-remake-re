@@ -38,6 +38,17 @@ bool axis_slots_from_usages(const std::vector<uint16_t>& usages, int sdl_axes, i
 bool axis_slots_from_text(const std::string& text, int sdl_axes, int slots[8]);
 // The slots as joystick_axes= writes them (for the log).
 std::string axis_slots_text(const int slots[8], int sdl_axes);
+// The mouse's hold as SdlInput::refresh decides it (docs/input.md, the mouse in a window), from its parts: `want`
+// the mouse held (SDL's relative mode, the system's pointer kept in the window), `absolute` zInput's mouse put where
+// the pointer is (the menus in a window, the editor). Ours, MW1's FIXES.md item 30: `menus_free`
+// (platform::menus_free_pointer) gives the menus a window's rules fullscreen too; a mission's are unchanged.
+struct MouseInputs {
+  bool acquired = false, exclusive = false, focused = false, windowed = false, mission = false, released = false;
+  bool editor_free = false, menus_free = false;
+};
+struct MouseHold { bool want = false, absolute = false; };
+MouseHold decide_mouse(const MouseInputs& m);
+
 // Which attached device a start opens, with no joystick= in mw3.cfg: a
 // gamepad, else one with 2 axes and 4 buttons or more, else any.
 int joystick_rank(bool gamepad, int axes, int buttons);
@@ -115,6 +126,13 @@ class SdlInput : public platform::Input {
   // The focus as the system and SDL have it, for the log's lines.
   std::function<std::string()> focus_report;
   std::function<uint64_t()> now_ns;  // tests: the clock (unset: SDL's)
+  // Ours, MW1's FIXES 30 (platform::menus_free_pointer only): a mission's hold lets the pointer go where it was taken
+  // (SDL on the Mac had moved it to the window's centre), unless the focus went (it is the player's elsewhere then);
+  // and it is taken where it is (SDL_HINT_MOUSE_RELATIVE_MODE_CENTER 0). Tests: where the pointer is and the move
+  // (unset: SDL's global ones, never in a run no player is at).
+  std::function<bool(float*, float*)> pointer_at;
+  std::function<void(float, float)> move_pointer;
+  bool pointer_absolute() const { return absolute_; }  // zInput's mouse at the pointer (the menus free), last refresh
   // Held with no motion seen since it was taken, a mouse button press lets
   // the mouse go and takes it again, the game none the wiser: what cures a
   // stuck one by hand (the quit box, Alt+Tab). A key press does so only after
@@ -170,6 +188,8 @@ class SdlInput : public platform::Input {
   int heals_ = 0, heals_total_ = 0;
   void release_chord(SDL_Scancode s, bool down);
   bool win_ = false, mission_ = false, absolute_ = false, free_ = false;
+  bool held_from_ = false;  // where the hold took the pointer (MW1's FIXES 30)
+  float held_x_ = 0, held_y_ = 0;
   bool released_ = false;
   bool cursor_hidden_ = false;
   void note_mouse_state(bool want);
