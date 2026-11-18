@@ -327,6 +327,7 @@ Tick an item when it is merged into `main`.
     - a failure, worded per House;
     - then, on a win paid short: the supply-overrun or "disappointment" deduction, or the breach of contract (no pay);
     - the "abandoned by the House transports" line.
+- **Owen's picks (2026-11-18):** the win is end_win_22, the retreat end_retreat_22 and the lost end_lost_11 (keep/mw1-remake/assets; prompts in endings.py, "you" worded from char_gideon).
 - **Art:** the lead is making victory and defeat candidates on Crucible (qwen-image-2.1, the mw3 style, the commander as char_gideon) for Owen to pick from.
 - **Then:** the results screen gets a picture panel (victory picture on a win; defeat picture on a loss or retreat), kept at source size for item 12. If MW1's exe holds the debrief lines ("A very boring and uneventful tour of garrison duty..."), read them from the player's exe as the pitches are, under the picture.
 
