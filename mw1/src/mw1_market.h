@@ -27,6 +27,10 @@ bool clan_mech(int32_t mech);                   // PM's table's tech (the Clint 
 // base is the tier 0 price in thousands; C-bills, floored to 1,000; a Clan mech's doubled.
 int64_t buy_price(int32_t mech, int32_t tier);
 int64_t sell_price(int32_t mech, int32_t tier);
+// The same as a share of the tier 0 price, for the travel map's readout (FIXES.md item 21): buying 100/120/130/150%,
+// selling 90/110/120/140%.
+int32_t buy_percent(int32_t tier);
+int32_t sell_percent(int32_t tier);
 
 // MW1's classes for PM's mechs (VISION, "Combat: mechs"): 0 light (35 t and under), 1 medium (40 to 55 t), 2 heavy
 // (60 t and over: MW1's heavy takes in assault). PM's roster less the Elemental.
@@ -53,6 +57,8 @@ bool clan_world(int32_t planet_number);
 inline constexpr int32_t kStockMax = 12, kClassRollMax = 9, kLightRolls = 6, kMediumRolls = 3, kClanRollMax = 9;
 inline constexpr int32_t kDealerLimitTier = 2, kDealerLimitBase = 4;
 void refresh_market(Company& c, Rng& rng);
+// The most mechs a dealer at this tier buys between refreshes (the limit's top): -1 no limit (tiers 0 and 1).
+int32_t dealer_most(int32_t tier);
 
 // The company's mechs, 0 the one the commander pilots (Company::mech), then the hangar's.
 int32_t owned_count(const Company& c);

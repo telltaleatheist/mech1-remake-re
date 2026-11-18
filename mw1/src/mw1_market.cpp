@@ -1,5 +1,7 @@
 #include "mw1_market.h"
 
+#include <algorithm>
+
 #include <cctype>
 #include <cmath>
 #include <utility>
@@ -49,6 +51,10 @@ int64_t sell_price(int32_t mech, int32_t tier) {
   const int64_t p = static_cast<int64_t>(tier0_price(mech)) * (kTierMultipliers[tier] - 1) * 100 / 1000 * 1000;
   return clan_mech(mech) ? p * kClanPriceFactor : p;
 }
+
+int32_t buy_percent(int32_t tier) { return kTierMultipliers[std::clamp(tier, 0, 3)] * 10; }
+int32_t sell_percent(int32_t tier) { return (kTierMultipliers[std::clamp(tier, 0, 3)] - 1) * 10; }
+int32_t dealer_most(int32_t tier) { return tier >= kDealerLimitTier ? kDealerLimitBase - tier + 1 : -1; }
 
 int32_t mech_class(int32_t mech) {
   const int32_t t = tons_of(mech);

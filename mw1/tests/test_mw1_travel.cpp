@@ -1,7 +1,9 @@
 // MW1's travel and calendar (src/mw1_travel.h): the map against the player's MW_MAIN.EXE, the distances against
 // the exe's own square-root table for every pair, a jump's cost and time, the calendar, arriving, the worlds without
 // an office and the company stranded at one.
+#include <algorithm>
 #include <cctype>
+#include <memory>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -10,6 +12,8 @@
 #include <vector>
 
 #include "check.h"
+#include "mech3/mech_config.h"
+#include "mech3/pilot.h"
 #include "mw1_install.h"
 #include "mw1_campaign.h"
 #include "mw1_market.h"
@@ -236,7 +240,7 @@ TEST(mw1_travel_screen_view_filter_and_stranded) {
   t.world = all[0];
   v = mw1::travel_view(c, t);
   int32_t lines = 0, dots = 0;
-  for (const mw1::Mark& m : v.marks) lines += m.kind == mw1::Mark::Kind::kLine, dots += m.kind == mw1::Mark::Kind::kRing && m.size == 1;
+  for (const mw1::Mark& m : v.marks) lines += m.kind == mw1::Mark::Kind::kLine && (m.x != m.x2 || m.y != m.y2), dots += m.kind == mw1::Mark::Kind::kRing && m.size == 2;
   EXPECT(v.buttons[mw1::kTravelGo - 1].on && lines == (mw1::kJumpLine ? 1 : 0) && dots == mw1::kPlanetCount);
   EXPECT(v.panels.size() == 6 && v.panels[0] && !v.panels[1]);
   // FILTER's one House: its backdrop; the others' dots greyed.
@@ -282,4 +286,79 @@ TEST(mw1_travel_screen_view_filter_and_stranded) {
   for (const mw1::TextBlock& b : v.blocks)
     for (const std::string& line : b.lines) warned = warned || line == "You couldn't afford to leave it.";
   EXPECT(warned);
+}
+
+// FIXES.md item 21: the trade MW1's players won by. Buy a mech at a tier 0 world, travel to a tier 3 one, sell it
+// there for more than it cost and the trip, within the dealer's limit, and travel back.
+TEST(mw1_travel_the_trade_loop_buy_low_sell_high) {
+  // The nearest tier 0 / tier 3 pair (tier 3 dealers buy 1-2 mechs between refreshes).
+  int32_t low = -1, high = -1, best = 1 << 30;
+  for (int32_t a = 0; a < mw1::kPlanetCount; ++a)
+    for (int32_t b = 0; b < mw1::kPlanetCount; ++b)
+      if (mw1::kPlanets[a].tier == 0 && mw1::kPlanets[b].tier == 3 && mw1::distance(mw1::kPlanets[a], mw1::kPlanets[b]) < best)
+        low = a, high = b, best = mw1::distance(mw1::kPlanets[a], mw1::kPlanets[b]);
+  EXPECT(low >= 0 && high >= 0);
+  if (low < 0 || high < 0) return;
+  mw1::Rng rng(21);
+  mw1::Company c;
+  c.stores = std::make_shared<mech3::Store>();
+  c.mech = mw1::kPmOwens, c.funds = 20000000;
+  mw1::set_planet(c, low);
+  const mw1::StockLoadout none = [](int32_t) -> const mech3::Config* { return nullptr; };
+  // Buy two at tier 0 (100% of the tier 0 price).
+  const int32_t shadow = mw1::kPmOwens;  // any Inner Sphere mech; the Owens has the price line's tonnage
+  c.market.stock = {shadow, shadow}, c.market.limit = -1, c.market.sold = 0;
+  const int64_t start = c.funds;
+  EXPECT(mw1::buy(c, 0) == mw1::Deal::kDone && mw1::buy(c, 0) == mw1::Deal::kDone && c.hangar.size() == 2);
+  const int64_t paid = start - c.funds;
+  EXPECT(paid == 2 * mw1::buy_price(shadow, 0) && mw1::buy_percent(0) == 100);
+  // There: the trip paid for three mechs; the dealer's limit rolled on arrival (1 or 2 at tier 3).
+  const int64_t there_cost = mw1::travel_cost(c, mw1::kPlanets[high]);
+  EXPECT(mw1::travel(c, high, rng) == mw1::Trip::kDone && c.tier == 3);
+  EXPECT(c.market.limit >= 1 && c.market.limit <= mw1::dealer_most(3) && mw1::dealer_most(3) == 2 && mw1::dealer_most(1) == -1);
+  // Sell to the limit (140%), then refused.
+  int64_t got = 0;
+  int32_t sold = 0;
+  while (true) {
+    const int64_t before = c.funds;
+    const mw1::Deal d = mw1::sell(c, 1, none);
+    if (d != mw1::Deal::kDone) {
+      EXPECT(d == mw1::Deal::kDealerFull);
+      break;
+    }
+    got += c.funds - before, ++sold;
+  }
+  EXPECT(sold == c.market.limit && got == sold * mw1::sell_price(shadow, 3) && mw1::sell_percent(3) == 140);
+  // Back: the profit on what sold beats both trips.
+  const int64_t back_cost = mw1::travel_cost(c, mw1::kPlanets[low]);
+  EXPECT(mw1::travel(c, low, rng) == mw1::Trip::kDone && c.tier == 0);
+  const int64_t margin = got - sold * mw1::buy_price(shadow, 0);
+  std::printf("  trade: %s (tier 0) -> %s (tier 3), distance %d: bought 2 for %lld, sold %d for %lld, trips %lld + %lld\n",
+              mw1::kPlanets[low].name, mw1::kPlanets[high].name, best, static_cast<long long>(paid), sold,
+              static_cast<long long>(got), static_cast<long long>(there_cost), static_cast<long long>(back_cost));
+  EXPECT(margin > there_cost + back_cost);
+}
+
+// The readout's facts for a world (FIXES.md item 21), and the world under the mouse shown in the chosen one's place.
+TEST(mw1_travel_screen_world_readout) {
+  mw1::Company c = company_at("ROBINSON", 1000000);
+  int32_t t3 = -1;
+  for (int32_t i = 0; i < mw1::kPlanetCount && t3 < 0; ++i)
+    if (mw1::kPlanets[i].tier == 3 && mw1::kPlanets[i].max_mission > 0) t3 = i;
+  const std::vector<std::string> l = mw1::world_lines(c, t3);
+  auto has = [&](const std::vector<std::string>& v, const std::string& s) { return std::find(v.begin(), v.end(), s) != v.end(); };
+  for (const std::string& s : l) std::printf("  %s: %s\n", mw1::kPlanets[t3].name, s.c_str());
+  EXPECT(has(l, "You sell mechs at 140%") && has(l, "You buy mechs at 150%") && has(l, "Dealer buys 1-2 mechs"));
+  EXPECT(l.size() >= 6 && l[2].rfind("Battles up to ", 0) == 0);
+  for (const std::string& s : l) EXPECT(s.size() <= 26);  // the panel's width
+  mw1::TravelChoice t;
+  t.world = mw1::destinations(c, -1)[0], t.hover = t3;
+  const mw1::ScreenView v = mw1::travel_view(c, t);
+  bool title = false, hint = false;
+  for (const mw1::TextBlock& b : v.blocks)
+    for (const std::string& s : b.lines) {
+      title = title || s.find("You sell mechs at 140%") != std::string::npos;
+      hint = hint || s == "Click to choose it.";
+    }
+  EXPECT(title && hint && v.buttons[mw1::kTravelGo - 1].on);  // GO still the chosen one's
 }
