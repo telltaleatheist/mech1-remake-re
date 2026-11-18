@@ -16,7 +16,7 @@ Tick an item when it is merged into `main`.
   - With no narration, the intro goes straight to the picture.
   - mw1.exe opened without all three games says which are missing and offers to open the launcher beside it, which finds them.
 
-## 3. [ ] Every screen between missions must look like MW1, with our generated art
+## 3. [x] Every screen between missions must look like MW1, with our generated art *(swept 2026-11-18: mw1-sweep-status, -overlap, -screens, -status-fit, -loadbox-style, -dev1; PM wordings left for Owen in 28)*
 - **Seen:** the screens are text panels on Pirate's Moon's chrome. "There's no reason why this should play like Legend of the Red Dragon."
 - **Wanted:** MW1's layouts (Owen's reference shots), rebuilt with the art generated for this. The art is in `/Volumes/Callisto/claude-files/keep/mw1-remake/assets/mw3/` (142 images, catalogued in `CATALOG.md` there). `mockups/` has the hub and Bar mockup.
   - **Hub:** full-screen world scenery picked by the world's type (`hub_*`, 13 types plus Ander's Moon and Dustball). Riveted plaques across the top with the world's name and the date. Picture tiles down both sides for the services (`icon_*`: House office, starport/travel, Mech Complex, Bar, company, options), clicked to enter.
@@ -35,7 +35,7 @@ Tick an item when it is merged into `main`.
   - a **MECH LAB** button goes above LAUNCH and opens Pirate's Moon's mech lab, then returns to this screen.
 - **The rule for all of it (Owen):** completely rework MW3/PM's interface so it looks like an updated MW1. MW1's layouts win over MW3's wherever the two differ, for example buttons on the left, not the bottom.
 
-## 5. [ ] No Pirate's Moon or MW3 dialogs, buttons or art left anywhere in MW1
+## 5. [x] No Pirate's Moon or MW3 dialogs, buttons or art left anywhere in MW1 *(swept 2026-11-18: mw1-sweep-status, -overlap, -screens, -status-fit, -loadbox-style, -dev1; PM wordings left for Owen in 28)*
 - **Seen (Owen, Mac, 2026-11-17):** after the new hub, PM's own dialogs, buttons and art still show. For example: PM's message boxes (the quit confirm: "Are you sure you want to quit?"), its buttons and frames, and its menus and screens around the mission.
 - **Wanted:** "remove all the mw3/pm assets and dialogs and buttons and stuff. switch it to mw1 style dialogs."
   - Every message box, confirm, notice and error goes through one MW1-style dialog: our chrome, our fonts, buttons in MW1's look.
@@ -118,6 +118,7 @@ Tick an item when it is merged into `main`.
   - MW1's 2D drawn at the window's own resolution. Layouts stay in canvas coordinates; text is rasterised at the scaled size; pictures are packed at a higher resolution (at least the 1344×768 sources, scaled down per window) and drawn at device pixels.
   - An "ours" engine path, opt-in, with MW3 and PM unchanged.
   - The image archive's size needs a plan (compressed pixels, or PNGs kept as PNGs) before the art is repacked at a higher resolution.
+- **Step 1 (2026-11-18, dev 2):** shots at 1080p and 4K in `outbox/2026-11-17/hires-step1/`. They confirm a nearest-neighbour upscale of the 480-line canvas (4.5× at 4K), while the 3D is drawn at full resolution. A possible stopgap is a linear filter on the canvas blit (softer, not sharper). For Owen: stopgap first, or straight to the real path?
 
 ## 13. [x] The Mech Complex's market: lists and buttons don't work; PM's look *(done: mw1-mech-complex)*
 - **Owen (2026-11-17, `keep/mw1-remake/reference/owen-play-market.png`):** "These buttons/lists don't seem to be working. Also, can we make the buttons, colours, and general style closer to the other MW1 style we've established?"
@@ -309,6 +310,9 @@ Tick an item when it is merged into `main`.
 - Item 20's highlight colour: MW1's bright amber (built), or white? Should the hub's status-line contract readout be highlighted too?
 - zipkit should free its own node pool (MW1 frees it after the conversion today, mw1_worlds.cpp); move the fix into zipkit?
 - For the mw3 lead, not MW1: on 16:9 the engine's widening shifts a centred dialog's list arrows by the 107 px margin once too often (PM's own load box shows it). MW1 works round it in MW1LOADSAVE_WIDE.
+- The lab's remaining PM wordings: the variant names ("Alternate A (incomplete)"), the Rename, Save and Delete links, "'Mech Name", and the SKINS cycle's camo names (GUNMETAL). Keep them, or use MW1 words?
+- Item 12: a linear-filter stopgap now, or wait for the real high-resolution 2D path?
+- Dev 2 shortened three Bar hints to fit 4:3 ("Order a drink, read the news, or find pilots for hire.", etc.). Is the wording OK?
 - Item 19's results screen: the shot is in `outbox/2026-11-17/results-screen/`; anything to change?
 
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
