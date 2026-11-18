@@ -411,6 +411,7 @@ Tick an item when it is merged into `main`.
   - **If there's a limit** (Owen: "maybe there should be"): two lists like MW3's salvage screen. On the right, what the mission brought in; on the left, the keep list. Click to move items between them.
   - **The lead's suggestion for Owen:** the limit is the contract's negotiated salvage term. Its percent of the salvage's value is what you may keep, so the term negotiated in the office means something on this screen.
   - **Until Owen decides:** collect everything, scrollable.
+  - **Owen (2026-11-18): no tonnage limit** on the stores.
 - **Done means:** shots of a win, a retreat and a lost mission at 1080p and 4:3, plus a long salvage list scrolled.
 
 ## 39. [x] The lab's 'MECH LOAD-OUT and AVAILABLE SUPPLIES lists sit off-centre in their boxes
@@ -489,7 +490,7 @@ Tick an item when it is merged into `main`.
 - **The risk:** kReachRadius is 10 m from the node. A node inside a building or on a roof may be out of a mech's reach. Measure the closest approach per row.
 - **Done means:** a table with one line per row (won, how, time, closest approach). Every row is won, or dropped with its reason.
 
-## 46. [ ] Map variety: every IA map in play, weighted by the planet's climate
+## 46. [x] Map variety: every IA map in play, weighted by the planet's climate
 - **Owen (2026-11-18):** a player will fly 30–50 missions, and the terrain mustn't get boring. Use every IA terrain we have, but favour the planet's environment: a cold world mostly arctic and never desert, the moon mostly Pirate's Moon. Grasslands is jungle enough.
 - **Today:** mw1maps.zrd has PM c1–c4 and MW3 c2 only, 15 maps. MW3's Big Lake (c1), Rolling Hills (c3) and Gorge (c4), with three IA maps each, are missing.
 - **The pools (agreed with Owen):**
@@ -513,6 +514,56 @@ Tick an item when it is merged into `main`.
   - survey the new MW3 maps' rows (45's win test and 43's nav check);
   - the offer's climate word (44 c) shows the map's own climate.
 - **Done means:** a test that draws 10,000 offers per climate and reports the shares, with never a forbidden pairing and never a repeat; plus the new rows passing 45.
+
+## 47. [ ] The story made overt and hard: a journal that points to the spot, and a battle at every step
+- **Owen (2026-11-18):** give the player something to do and something to look for. A journal that says how to do the next thing in the story and points right to the spot. Every step in the chain very hard, so even knowing what to do, the player has to build up a powerful army first. The final battle very hard, with a set number of mechs.
+- **The journal (a STORY button on the hub, a page like the news):**
+  - **Chapters:** every story step seen so far, in order, with MW1's own text read from the exe as now.
+  - **The current lead:** our own short line saying where and what, e.g. "Go to the House office on Galedon V" or "Ask about the Stone Arrow in the Bar on Mosiro". It names the planet and the place (Bar, Mech Complex, office, arrival).
+  - **The strength:** for a step with a battle, the expected force, e.g. "Expect 4 heavy 'Mechs, about 260 tons. Bring a full lance."
+- **The star map:** the lead's planet is marked (a story marker), and travel can pick it straight from the journal (GO THERE).
+- **Battles at the steps (ours; MW1's steps are text choices):** each FIGHT and each confrontation in the chain becomes a battle with its own fixed force. A loss means retreat and try again on the next arrival, never a death (33). The trail waits there until it's won.
+  - **The ladder** (provisional numbers; one table so they're easy to tune):
+
+    | Step | Battle | Expected force |
+    |---|---|---|
+    | 1 | Grig's men on Land's End (after the Bar's meeting) | 2 mediums |
+    | 2 | Brown on Dustball (17, FIGHT) | 3 mediums and heavies, about 180 t |
+    | 3 | The ambush on ref2 (27, FIGHT) | 4 heavies, about 260 t |
+    | 4 | Kearney's address (2F..35, FIGHT) | 4 heavies and assaults, about 300 t |
+    | 5 | The Matabushi raid on Albiero (40) | 6 'Mechs, about 400 t, veterans |
+    | 6 | The Dark Wing (72, ATTACK) | 8 'Mechs: the Warhammer and four BattleMasters (as MW1's text says) plus 3 escorts, about 650 t, elite pilots |
+
+  - The enemy pilots' skill rises with the step.
+  - The pay for a story battle is none, but the salvage is kept (the reason to fight it).
+- **The old deaths (33):** each of MW1's seven death choices becomes a setback: a lost lancemate, a fine, or the step's battle at its hardest. The trail goes on.
+- **After the final battle (Owen 2026-11-18):** the credits play (MW1's own credits, read from the exe as the other texts, over our art), then play goes on. Extra content after the win is to be decided later. Nothing ever stops the player from playing on.
+- **No deadline (Owen 2026-11-18):** it takes as long as it takes, and the player can play on indefinitely. MW1's 20 Mar 3029 limit is dropped: 0x73 (too late) never fires, and ATTACK stays offered until won. The news still runs by date.
+- **Done means:**
+  - a headless walk of the whole chain through the journal's leads (each lead's planet and place correct, each battle launched with its force);
+  - shots of the journal, the map marker and a step battle's offer;
+  - the ladder in one table.
+
+## 48. [ ] Lift the 10-'Mech limit in a battle (MW1's line-up)
+- **Owen (2026-11-18):** there's no reason to keep a battle capped at 10 'Mechs. We may not want many more in play, but the cap shouldn't be the engine's.
+- **Today:**
+  - PM's ActionGame line-up holds 10 (lineup[10], add() refuses past 9; pilot_games.cpp:1012), the player included.
+  - The IA maps have 8 enemy records each.
+  - So a full lance (4) meets at most 6 to 7 enemies, and the Dark Wing loses an escort (dev 1's (b)).
+- **Wanted (engine, ours, opt-in for MW1; MW3 and PM untouched):**
+  - the line-up's size raised to 16 for MW1, every offset use of PM's struct checked first;
+  - more enemy places than a map's 8 records: a spawn spread beside the existing records (clear ground, not inside each other), the same way 44's authored map lays its own;
+  - the Dark Wing back to 8 against a full lance.
+- **Done means:**
+  - a headless battle with 4 friends against 12;
+  - frame time measured at 1080p with 16 'Mechs;
+  - MW3's and PM's own IA unchanged (their suites).
+
+## 49. [ ] A flat white band at the horizon on converted MW3 worlds
+- **Seen (2026-11-18, dev 2's 46 shots: Gorge, Big Lake, also Grasslands):** a band of flat white about a tenth of the screen tall, between the sky and the ground, all round the horizon. MW3 itself shows haze or distant terrain there.
+- **Likely cause:** something the conversion or our sky lacks, such as the sky dome's lower part, the horizon's fog colour, or a far-plane clear colour. It must be found before the arctic map (44), which is a converted MW3 world too.
+- **Wanted:** the horizon as MW3 draws it. Compare a shot of the same spot in MW3's own program (the mw3 build), then fix it in the converter or in MW1's world setup. MW3's and PM's files are never modified.
+- **Done means:** before and after shots of Grasslands, Big Lake, Rolling Hills and Gorge, and the cause named.
 
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:

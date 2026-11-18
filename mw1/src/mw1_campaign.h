@@ -168,6 +168,9 @@ struct Company {
   // missionOfferCount; its contracts came back at the next refresh, which is travel's).
   int32_t patience = 3;
   bool withdrawn = false;
+  // FIXES.md item 46: the map the last offer was drawn on (its world and archive; "" none), never drawn twice running.
+  std::string last_map_world;
+  int32_t last_map_ia = 0;
   // What happened since the hub last showed it (wages, promotions, casualties): the hub's lines, not saved.
   std::vector<std::string> notices;
   Story story;

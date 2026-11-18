@@ -294,7 +294,7 @@ struct Run {
   bool player_down = false;
   int turn_sign = 0;  // the turn key (+1 left) that raises the heading (atan2(x, z)): found at the start
   float yaw0 = 0, check_ground = 1e9f;
-  int best_frame = 0, escape = 0, escapes = 0, round_to = 0, round_frame = 0;
+  int best_frame = 0, escape = 0, escapes = 0, round_to = 0, round_frame = 0, tried = 0;
   float round_best = 1e9f;
   float ended_time = -1;  // the mission's clock (missions().time) when it ended
   // PM's own way out of a won mission (Owen's, 2026-11-17): its end screen; then (item 19) MW1's results, never PM's
@@ -1297,11 +1297,20 @@ void loop_run(Ending ending, Run* run = nullptr) {
               // Stuck: back off, then round to a point 150 m out from the node on another bearing (45 degrees one
               // way, then the other, then 90, 135 and 180: circling it as a player would), then in from there.
               --run->escape;
-              // The eight bearings' points (180 m out), the nearest to the mech's own bearing first.
+              // The eight bearings' points (180 m out): the nearest to the mech's own not yet tried (all tried: afresh).
               static const int kRound[] = {1, -1, 2, -2, 3, -3, 4};
               const bool back = run->escape > 600 - 60;
               const int own = static_cast<int>(std::lround(std::atan2(-dx, -dz) / 0.785398f));
-              if (run->escape == 600 - 1) run->round_to = own + kRound[(run->escapes - 1) % 7];
+              if (run->escape == 600 - 1) {
+                if ((run->tried & 0xff) == 0xff) run->tried = 0;
+                run->tried |= 1 << ((own % 8 + 8) % 8);
+                for (int r : kRound)
+                  if (!(run->tried & (1 << (((own + r) % 8 + 8) % 8)))) {
+                    run->round_to = own + r;
+                    break;
+                  }
+                run->tried |= 1 << ((run->round_to % 8 + 8) % 8);
+              }
               const float b = static_cast<float>(run->round_to) * 0.785398f;
               const float wx = at[0] + 180.0f * std::sin(b) - pos[0], wz = at[2] + 180.0f * std::cos(b) - pos[2];
               const float wd = std::sqrt(wx * wx + wz * wz);
@@ -1623,7 +1632,7 @@ TEST(mw1_loop_mw3_worlds_converted_or_not_headless) {
                   converted ? "converted" : "failed", run.registered.size(), run.registered.empty() ? "" : run.registered[0].c_str(),
                   run.first_offer.world.c_str(), run.first_offer.ia, run.world_loaded.c_str(), run.gamez_from.c_str());
       if (converted) {
-        EXPECT(run.registered == (std::vector<std::string>{"mw3c2", "mw3c4b"}));
+        EXPECT(run.registered == (std::vector<std::string>{"mw3c1", "mw3c2", "mw3c3", "mw3c4", "mw3c4b"}));
         EXPECT(run.first_offer.world == "mw3c2" && run.first_offer.ia == 1 && run.world_loaded == "mw3c2");
         EXPECT(run.gamez_from.rfind(good, 0) == 0);  // the converted world's own, from mw1's worlds folder
       } else {

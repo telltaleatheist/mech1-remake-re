@@ -223,6 +223,7 @@ int main(int argc, char** argv) {
   {
     std::string why;
     mw1::set_map_table(mw1::parse_maps(mw1::kMapsFile, &why));
+    mw1::set_map_pools(mw1::parse_pools(mw1::kMapsFile, &why));  // item 46
     std::printf("mw1: %zu maps in %s%s%s\n", mw1::map_table().size(), mw1::kMapsFile, why.empty() ? "" : ": ", why.c_str());
   }
   // MW1_WORLD=<folder>ia<n> (a test override): every contract a battle on that world's Instant Action map, e.g.
