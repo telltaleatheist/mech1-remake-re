@@ -127,8 +127,8 @@ Tick an item when it is merged into `main`.
   - Rebuild the screen in our look: the plaque title, framed terminal panels (the hub's COMPANY panel), and NEW/LOAD buttons down the left as in MW1.
   - Rebuild it as MW1's Mech Complex flow, which is item 8's: the root menu, OWNED MECHS, the mech's status screen (REPAIR / REPAIR ALL / RELOAD / SELL / MECH LAB / DONE), and the purchase list.
 
-## 14. [ ] Mech pictures rendered from the game's own models *(merged in mw1-mech-renders; reopened: see the bug below)*
-- **Bug (2026-11-18, dev 2):** the first-run pass wrote archives holding a capture of the lab's 2D screen, not mechs, and stamped them current. Fix the read-back and guard the stamp (dev 2, overnight).
+## 14. [x] Mech pictures rendered from the game's own models *(done: mw1-mech-renders, mw1-render-cover, mw1-render-pass)*
+- **Bug (2026-11-18, dev 2):** the first-run pass wrote archives holding a capture of the lab's 2D screen, not mechs, and stamped them current. Fixed (mw1-render-pass): zipkit's conversion left its nodes in the pool, so the lab skipped loading its world and models on a first run; the pool is now freed, renders are v2, and a capture sanity guard checks each picture.
 - **Owen's pick (2026-11-17, from `outbox/2026-11-17/mech-renders/`):** the amber-toned grade, front view.
 - **Owen (2026-11-17):** "Is there any way we could take the mech vertices and create a snapshot of them from the front to use as the images instead of the AI-generated images? The AI-generated images aren't very accurate."
 - **Wanted:**
@@ -307,6 +307,7 @@ Tick an item when it is merged into `main`.
 - The travel map's seven look-and-feel questions, which will be folded into item 21's readout.
 - An arctic Instant Action layout built from MW3's snow world (m4/m6) at conversion time?
 - Item 20's highlight colour: MW1's bright amber (built), or white? Should the hub's status-line contract readout be highlighted too?
+- zipkit should free its own node pool (MW1 frees it after the conversion today, mw1_worlds.cpp); move the fix into zipkit?
 - Item 19's results screen: the shot is in `outbox/2026-11-17/results-screen/`; anything to change?
 
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
