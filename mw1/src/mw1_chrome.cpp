@@ -181,15 +181,17 @@ std::vector<images::Image> tiles(const images::Image& picture, const std::string
   return out;
 }
 
-images::Image button(int32_t state) {
+images::Image button(int32_t state) { return button(state, kButtonW, kButtonH, kButtons[std::clamp(state, 0, 3)]); }
+
+images::Image button(int32_t state, int32_t w, int32_t h, const std::string& name) {
   // Dark glass in a thin frame, a lamp at the left end: amber when lit or pressed; greyed when off.
-  Canvas c(kButtonW, kButtonH);
+  Canvas c(w, h);
   const Rgba amber_tint = {255, 170, 40, 200}, off_tint = {40, 40, 44, 150};
-  glass(c, 3, 3, kButtonW - 3, kButtonH - 3, state == 2 ? 250 : 230);
-  thin_frame(c, 0, 0, kButtonW, kButtonH, 3, state == 1 ? amber_tint : state == 3 ? off_tint : Rgba{});
-  lamp(c, 13, kButtonH / 2, 4, state == 1 || state == 2);
-  if (state == 1) glow(c, 3, 3, kButtonW - 3, kButtonH - 3);
-  return c.image(kButtons[std::clamp(state, 0, 3)]);
+  glass(c, 3, 3, w - 3, h - 3, state == 2 ? 250 : 230);
+  thin_frame(c, 0, 0, w, h, 3, state == 1 ? amber_tint : state == 3 ? off_tint : Rgba{});
+  lamp(c, 13, h / 2, 4, state == 1 || state == 2);
+  if (state == 1) glow(c, 3, 3, w - 3, h - 3);
+  return c.image(name);
 }
 
 images::Image panel(int32_t w, int32_t h) {
@@ -387,7 +389,7 @@ const std::vector<Reskin>& lab_pictures() {
 }
 const std::vector<Reskin>& filebox_pictures() {
   static const std::vector<Reskin> k = {
-      {"load_box", 240, 280}, {"textbox_small", 140, 21}, {"textbox_small_r", 140, 21}, {"circlebtn_tiny", 42, 42},
+      {"load_box", 240, 280}, {"textbox_small", 140, 21}, {"textbox_small_r", 140, 21}, {"circlebtn_tiny", 84, 30},
       {"arrowupmp_rollover", 9, 5}, {"arrowupmp_d", 9, 5}, {"arrowdnmp_normal", 9, 5}, {"arrowdnmp_rollover", 9, 5},
       {"arrowdnmp_d", 9, 5},
   };
@@ -499,8 +501,8 @@ images::Image reskin(const Reskin& r) {
   } else if (g.rfind("textbox_small", 0) == 0) {  // the name's bar: a recess, amber when the mouse is on it
     glass(c, 1, 1, r.w - 1, r.h - 1, 250);
     thin_frame(c, 0, 0, r.w, r.h, 2, g == "textbox_small_r" ? Rgba{255, 170, 40, 220} : Rgba{});
-  } else if (g == "circlebtn_tiny") {  // OK and CANCEL's: a lamp left of the word (its label at 22, 8)
-    lamp(c, 10, 14, 6, true);
+  } else if (g == "circlebtn_tiny") {  // OK and NO: MW1's framed button (FIXES.md item 10), PM's label at 22, 8 in it
+    return button(0, r.w, r.h, reskin_name(r.game));
   }
   return c.image(reskin_name(r.game));
 }
@@ -568,6 +570,7 @@ std::vector<images::Image> all() {
   std::vector<images::Image> v = {plaque(), status_bar(), dialog_frame(), dim(), cursor()};
   for (int32_t s = 0; s < 3; ++s) v.push_back(tile_frame(s));
   for (int32_t s = 0; s < 4; ++s) v.push_back(button(s));
+  for (int32_t s = 0; s < 4; ++s) v.push_back(button(s, kButtonSmallW, kButtonH, kButtonsSmall[s]));
   for (const PanelSize& p : panel_sizes()) v.push_back(panel(p.w, p.h));
   for (const PanelSize& p : terminal_sizes()) v.push_back(terminal(p.w, p.h));
   for (const PanelSize& p : frame_sizes())

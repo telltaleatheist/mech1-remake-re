@@ -52,6 +52,8 @@ int main(int argc, char** argv) {
   }
   std::string why;
   std::vector<mw1::images::Image> all = {mw1::cover(mw1::kIntroImage, w, h, px, mw1::kWideW, mw1::kScreenH), mw1::black(mw1::kBlackImage)};
+  // The black backdrop the wide canvas across (centred, 4:3 shows its middle): nothing of the screen under it shows.
+  all[1].width = mw1::kWideW, all[1].pixels.assign(static_cast<size_t>(mw1::kWideW) * mw1::kScreenH, 0);
   for (mw1::images::Image& m : mw1::backdrops()) all.push_back(std::move(m));
   // The art, in name order (the same archive every build).
   std::vector<std::filesystem::path> art;

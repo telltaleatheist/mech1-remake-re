@@ -144,6 +144,9 @@ if(TARGET mw3pm)
   add_custom_command(OUTPUT ${mw1_image_zbd}
                      COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/mw1gen/zbd
                      COMMAND mw1imgpack ${mw1_image_zbd} ${CMAKE_CURRENT_SOURCE_DIR}/data-src/intro.bmp ${CMAKE_CURRENT_SOURCE_DIR}/data-src/art
+                     # Beside the program at once: a repack alone (the art or the chrome changed, the program not
+                     # relinked) reached mw1data/ only at the program's next link before.
+                     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_BINARY_DIR}/mw1gen $<TARGET_FILE_DIR:mw1>/mw1data
                      DEPENDS mw1imgpack ${CMAKE_CURRENT_SOURCE_DIR}/data-src/intro.bmp ${CMAKE_CURRENT_SOURCE_DIR}/src/mw1_map_image.cpp
                              ${CMAKE_CURRENT_SOURCE_DIR}/src/mw1_map_image.h ${CMAKE_CURRENT_SOURCE_DIR}/src/mw1_travel_map.cpp
                              ${CMAKE_CURRENT_SOURCE_DIR}/src/mw1_chrome.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/mw1_chrome.h ${mw1_art}

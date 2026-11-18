@@ -7,12 +7,10 @@
 ; drawn over it by the screen. The round buttons are Pirate's Moon's, read
 ; from the player's install (never copied). LABEL_AT is MW1's key.
 (
-SHARED_IMAGE_PATH ("..\data\common\images\dialogs\shared;..\data\common\images\dialogs\briefing")
 MW1TRAVELDIALOG (
-  IMAGE_PATH ("..\data\common\images\dialogs\briefing;..\data\common\images;..\data\common\images\dialogs\shared;..\data\common\images\dialogs\mainmenu")
   CURSOR (BITMAP ("mw1_cursor") CENTER (1))
   PRIMITIVES (
-    BACKGROUND (POSITION (0 0) BITMAP ("mw1_black"))
+    BACKGROUND (POSITION (-107 0) BITMAP ("mw1_black") ANCHOR ("CENTRE"))
     PANEL (POSITION (16 64) BITMAP ("mw1_map"))
     PANEL2 (POSITION (16 64) BITMAP ("mw1_map_kurita"))
     PANEL3 (POSITION (16 64) BITMAP ("mw1_map_steiner"))
@@ -21,9 +19,9 @@ MW1TRAVELDIALOG (
     PANEL6 (POSITION (16 64) BITMAP ("mw1_map_davion"))
   )
   BUTTONS (
-    GO (POSITION (24 440) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 454))
-    FILTER (POSITION (264 440) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (310 454))
-    BACK (POSITION (504 440) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (550 454))
+    GO (POSITION (24 436) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (116 442) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    FILTER (POSITION (236 436) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (328 442) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    BACK (POSITION (448 436) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (540 442) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
   )
 )
 )

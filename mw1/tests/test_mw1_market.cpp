@@ -9,6 +9,7 @@
 #include <string>
 
 #include "check.h"
+#include "mw1_market_screen.h"
 #include "mech3/mech_config.h"
 #include "mech3/mech_ids.h"
 #include "mech3/mech_names.h"
@@ -219,4 +220,18 @@ TEST(mw1_market_saved_and_a_version_1_save_read) {
   EXPECT(mw1::load_text(v1 + check, old, k, &has, &why));
   std::printf("  version 1: %s\n", why.empty() ? "read" : why.c_str());
   EXPECT(old.hangar.empty() && old.market.stock.empty() && !old.market.rolled && old.funds == c.funds);
+}
+
+// The lists' rows by the mouse (FIXES.md item 13): each list's rows from its first at y 96, kLineGap apart; the arrows
+// beside them and the gap between them are no row.
+TEST(mw1_market_rows_by_the_mouse) {
+  bool own = true;
+  int32_t row = -1;
+  EXPECT(mw1::market_row_at(40, 96, &own, &row) && !own && row == 0);
+  EXPECT(mw1::market_row_at(40, 96 + 3 * mw1::kLineGap + 5, &own, &row) && !own && row == 3);
+  EXPECT(mw1::market_row_at(420, 96 + mw1::kLineGap, &own, &row) && own && row == 1);
+  EXPECT(!mw1::market_row_at(240, 100, &own, &row));  // FOR SALE's arrows
+  EXPECT(!mw1::market_row_at(605, 100, &own, &row));  // YOUR MECHS'
+  EXPECT(!mw1::market_row_at(320, 100, &own, &row));  // between the lists
+  EXPECT(!mw1::market_row_at(40, 80, &own, &row));    // the title over a list
 }

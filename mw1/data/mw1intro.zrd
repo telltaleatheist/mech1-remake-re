@@ -4,7 +4,7 @@
 ; centred (4:3 shows its middle 640; FIXES.md item 9).
 (
 MW1INTRODIALOG (
-  PRIMITIVES (BACKGROUND (POSITION (0 0) BITMAP ("mw1_black")) PANEL (POSITION (-107 0) BITMAP ("mw1_intro") ANCHOR ("CENTRE")))
+  PRIMITIVES (BACKGROUND (POSITION (-107 0) BITMAP ("mw1_black") ANCHOR ("CENTRE")) PANEL (POSITION (-107 0) BITMAP ("mw1_intro") ANCHOR ("CENTRE")))
   BUTTONS ()
 )
 )

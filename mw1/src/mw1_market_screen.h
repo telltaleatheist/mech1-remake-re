@@ -31,6 +31,11 @@ struct MarketChoice {
 // The choices kept inside the lists as they change.
 void clamp_choice(const Company& c, MarketChoice& m);
 
+// The lists' rows by the mouse (a click chooses one): the row of FOR SALE (own false) or YOUR MECHS (own true) at
+// (x, y) in the layout's place, false off both lists. The whole area the lists hear is kMarketListArea.
+inline constexpr int32_t kMarketListArea[4] = {24, 92, 600, 300};  // left, top, right, bottom
+bool market_row_at(int32_t x, int32_t y, bool* own, int32_t* row);
+
 // The screen's texts and buttons for the company's market (pure: the tests read it).
 ScreenView market_view(const Company& c, const MarketChoice& m);
 

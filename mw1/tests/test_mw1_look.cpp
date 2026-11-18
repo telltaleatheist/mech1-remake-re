@@ -23,7 +23,7 @@ namespace {
 namespace fs = std::filesystem;
 
 // Restyled in FIXES.md item 3's phases 3-5; each comes off as it is.
-const std::set<std::string> kNotYet = {"mw1event.zrd", "mw1market.zrd", "mw1travel.zrd"};
+const std::set<std::string> kNotYet = {};  // none since FIXES.md item 10: every MW1 screen in its own art
 
 std::string read_all(const fs::path& p) {
   std::ifstream f(p, std::ios::binary);
