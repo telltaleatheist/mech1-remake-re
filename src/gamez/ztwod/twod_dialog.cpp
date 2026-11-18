@@ -61,7 +61,9 @@ Text** read_labels(Dialog* d, zrdr::Node* value, int32_t* count, const int32_t* 
   Text* t = new Text();
   t->flags = ((t->flags >> 4) & 1) << 4 | kManaged;
   if (l[1].type == zrdr::String) {
-    t->set_text(host().message(l[1].s));  // the message is the format (as written)
+    // Ours (set_layout_label): the program's words for this key on this file, else the message.
+    const char* ours = layout_label(l[1].s);
+    t->set_text(ours ? ours : host().message(l[1].s));  // the message is the format (as written)
   } else {
     t->set_text("");
   }
@@ -194,6 +196,10 @@ std::vector<LayoutName>& layout_fonts() {
   static std::vector<LayoutName> v;
   return v;
 }
+std::vector<LayoutName>& layout_labels() {
+  static std::vector<LayoutName> v;
+  return v;
+}
 std::vector<LayoutName>& layout_images() {
   static std::vector<LayoutName> v;
   return v;
@@ -251,9 +257,16 @@ void set_layout_image(const std::string& game_image, const std::string& image, c
 }
 const char* layout_font(const char* name) { return name_now(layout_fonts(), name, nullptr); }
 const char* layout_image(const char* name) { return name_now(layout_images(), name, nullptr); }
+void set_layout_label(const std::string& game_key, const std::string& text, const std::string& game_file) {
+  set_name(layout_labels(), game_key, text, game_file);
+}
+const char* layout_label(const char* key) {
+  const char* w = name_now(layout_labels(), key, nullptr);
+  return w != key ? w : nullptr;
+}
 const char* layout_font_in(const char* game_file, const char* name) { return game_file ? name_now(layout_fonts(), name, game_file) : name; }
 void clear_layouts() {
-  layout_swaps().clear(), layout_wide() = nullptr, layout_fonts().clear(), layout_images().clear();
+  layout_swaps().clear(), layout_wide() = nullptr, layout_fonts().clear(), layout_images().clear(), layout_labels().clear();
   layout_reading() = false, reading_file().clear();
 }
 bool layout_for(const std::string& game_file, const std::string& game_dialog, std::string* file, std::string* dialog) {
