@@ -4,6 +4,8 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
+#include <map>
 
 namespace mw1::chrome {
 namespace {
@@ -12,6 +14,11 @@ struct Rgba {
   int32_t r = 0, g = 0, b = 0, a = 0;
 };
 
+// B2b: the scale a piece is drawn at when its canvas isn't given one (piece_at sets it), and where image() hands the
+// piece over at a scale above 1.
+int32_t g_piece_scale = 1;
+Drawn* g_capture = nullptr;
+
 // A canvas of RGBA, then the archive's 565 and alpha.
 struct Canvas {
   // w x h canvas pixels, each s x s device pixels (s 1: the archive's pieces; above 1, research/hires-2d.md B2b: the
@@ -19,7 +26,8 @@ struct Canvas {
   // device pixel, for what is drawn finer (a rivet's circle, the hangar's detail).
   int32_t w, h, s;
   std::vector<Rgba> px;
-  Canvas(int32_t w_, int32_t h_, int32_t s_ = 1) : w(w_), h(h_), s(std::max(1, s_)), px(static_cast<size_t>(w_ * s * h_ * s)) {}
+  Canvas(int32_t w_, int32_t h_, int32_t s_ = 0)
+      : w(w_), h(h_), s(std::max(1, s_ > 0 ? s_ : g_piece_scale)), px(static_cast<size_t>(w_ * s * h_ * s)) {}
   int32_t dw() const { return w * s; }
   int32_t dh() const { return h * s; }
   Rgba& at_d(int32_t x, int32_t y) { return px[static_cast<size_t>(y) * dw() + x]; }
@@ -48,8 +56,13 @@ struct Canvas {
     for (int32_t j = 0; j < s; ++j)
       for (int32_t i = 0; i < s; ++i) over_d(x * s + i, y * s + j, c);
   }
-  images::Image image(const std::string& name) const {  // at s 1
+  images::Image image(const std::string& name) const {  // at s 1; above, handed to piece_at (the image named only)
     images::Image im;
+    if (s > 1) {
+      if (g_capture) *g_capture = drawn(name, false);
+      im.name = name;
+      return im;
+    }
     im.name = name, im.width = w, im.height = h;
     im.pixels.resize(px.size()), im.alpha.resize(px.size());
     for (size_t i = 0; i < px.size(); ++i) {
@@ -121,17 +134,22 @@ void glow(Canvas& c, int32_t x0, int32_t y0, int32_t x1, int32_t y1) {
 
 // A round lamp at (cx, cy): amber and bright when on, a dark lens when off, a steel ring round it.
 void lamp(Canvas& c, int32_t cx, int32_t cy, int32_t r, bool on) {
-  for (int32_t y = -r - 1; y <= r + 1; ++y)
-    for (int32_t x = -r - 1; x <= r + 1; ++x) {
-      const double d = std::sqrt(static_cast<double>(x * x + y * y));
-      if (d > r + 0.5) continue;
-      if (d > r - 0.5) {
-        c.set(cx + x, cy + y, grey(30));
+  // In device pixels, as rivet (at s 1 exactly the canvas's).
+  const int32_t s = c.s;
+  const double ccx = (cx + 0.5) * s - 0.5, ccy = (cy + 0.5) * s - 0.5, rr = static_cast<double>(r) * s;
+  const int32_t reach = (r + 1) * s;
+  for (int32_t y = -reach; y <= reach; ++y)
+    for (int32_t x = -reach; x <= reach; ++x) {
+      const int32_t px = static_cast<int32_t>(std::lround(ccx)) + x, py = static_cast<int32_t>(std::lround(ccy)) + y;
+      const double dx = px - ccx, dy = py - ccy, d = std::sqrt(dx * dx + dy * dy);
+      if (d > rr + 0.5 * s) continue;
+      if (d > rr - 0.5 * s) {
+        c.set_d(px, py, grey(30));
         continue;
       }
-      const double l = std::clamp(1.0 - d / r * 0.6 - (x + y) * 0.08, 0.2, 1.0);
-      c.set(cx + x, cy + y, on ? Rgba{255, static_cast<int32_t>(120 + 100 * l), static_cast<int32_t>(20 + 60 * l), 255}
-                               : Rgba{static_cast<int32_t>(50 * l), static_cast<int32_t>(35 * l), 10, 255});
+      const double l = std::clamp(1.0 - d / rr * 0.6 - (dx + dy) / s * 0.08, 0.2, 1.0);
+      c.set_d(px, py, on ? Rgba{255, static_cast<int32_t>(120 + 100 * l), static_cast<int32_t>(20 + 60 * l), 255}
+                         : Rgba{static_cast<int32_t>(50 * l), static_cast<int32_t>(35 * l), 10, 255});
     }
 }
 
@@ -197,7 +215,7 @@ Canvas tile_frame_canvas(int32_t state, int32_t scale) {
 }
 }  // namespace
 
-images::Image tile_frame(int32_t state) { return tile_frame_canvas(state, 1).image(kTileFrames[std::clamp(state, 0, 2)]); }
+images::Image tile_frame(int32_t state) { return tile_frame_canvas(state, 0).image(kTileFrames[std::clamp(state, 0, 2)]); }
 
 std::vector<images::Image> tiles(const images::Image& picture, const std::string& base) {
   std::vector<images::Image> out;
@@ -742,28 +760,77 @@ std::vector<Drawn> tiles_at(const uint8_t* rgba, int32_t sw, int32_t sh, int32_t
   return out;
 }
 
-std::vector<images::Image> all() {
-  std::vector<images::Image> v = {plaque(), plaque(kPlaqueNarrowW, kPlaqueNarrow), plaque(kStripW, kStrip), status_bar(), dialog_frame(), dim(), cursor()};
-  for (int32_t s = 0; s < 3; ++s) v.push_back(tile_frame(s));
-  for (int32_t s = 0; s < 4; ++s) v.push_back(button(s));
-  for (const PanelSize& p : panel_sizes()) v.push_back(panel(p.w, p.h));
-  for (const PanelSize& p : terminal_sizes()) v.push_back(terminal(p.w, p.h));
+namespace {
+using Maker = std::function<images::Image()>;
+// Every piece of the archive, in all()'s order, each made when called (at piece_at's scale, else 1).
+std::vector<Maker> makers() {
+  std::vector<Maker> v = {[] { return plaque(); }, [] { return plaque(kPlaqueNarrowW, kPlaqueNarrow); },
+                         [] { return plaque(kStripW, kStrip); }, status_bar, dialog_frame, dim, cursor};
+  for (int32_t s = 0; s < 3; ++s) v.push_back([=] { return tile_frame(s); });
+  for (int32_t s = 0; s < 4; ++s) v.push_back([=] { return button(s); });
+  for (const PanelSize& p : panel_sizes()) v.push_back([=] { return panel(p.w, p.h); });
+  for (const PanelSize& p : terminal_sizes()) v.push_back([=] { return terminal(p.w, p.h); });
   for (const PanelSize& p : frame_sizes())
-    for (bool lit : {false, true}) v.push_back(frame(p.w, p.h, lit));
+    for (bool lit : {false, true}) v.push_back([=] { return frame(p.w, p.h, lit); });
   for (bool up : {true, false})
-    for (int32_t s = 0; s < 4; ++s) v.push_back(arrow(up, s));
+    for (int32_t s = 0; s < 4; ++s) v.push_back([=] { return arrow(up, s); });
   for (bool right : {false, true})
-    for (int32_t s = 0; s < 4; ++s) v.push_back(side_arrow(right, s));
-  for (bool on : {false, true}) v.push_back(slider(on)), v.push_back(check(on));
-  for (int32_t s = 0; s < 3; ++s) v.push_back(cell(s));
-  v.push_back(dialog_tall());
-  for (bool lit : {false, true}) v.push_back(progress_cell(lit));
-  v.push_back(plaque(kPlaqueCoverW, kPlaqueCover));
+    for (int32_t s = 0; s < 4; ++s) v.push_back([=] { return side_arrow(right, s); });
+  for (bool on : {false, true}) v.push_back([=] { return slider(on); }), v.push_back([=] { return check(on); });
+  for (int32_t s = 0; s < 3; ++s) v.push_back([=] { return cell(s); });
+  v.push_back([=] { return dialog_tall(); });
+  for (bool lit : {false, true}) v.push_back([=] { return progress_cell(lit); });
+  v.push_back([=] { return plaque(kPlaqueCoverW, kPlaqueCover); });
   for (const std::vector<Reskin>* t : {&lab_pictures(), &filebox_pictures()})
     for (const Reskin& r : *t)
-      if (!is_lab_panel(r)) v.push_back(reskin(r));
-  v.push_back(clear());
+      if (!is_lab_panel(r)) v.push_back([=] { return reskin(r); });
+  v.push_back([=] { return clear(); });
   return v;
+}
+}  // namespace
+
+std::vector<images::Image> all() {
+  std::vector<images::Image> v;
+  for (const Maker& m : makers()) v.push_back(m());
+  return v;
+}
+
+namespace {
+// The pieces drawn at scale for the 2D (B2b): every piece but those with nothing to gain (the dim, a flat
+// see-through black; the cursor, drawn by the host; the clear placeholder), by name to its maker.
+const std::map<std::string, size_t>& drawn_index() {
+  static const std::map<std::string, size_t> index = [] {
+    std::map<std::string, size_t> m;
+    const std::vector<Maker> v = makers();
+    for (size_t i = 0; i < v.size(); ++i) {
+      const std::string n = v[i]().name;
+      if (n != kDim && n != kCursor && n != kClear) m.emplace(n, i);
+    }
+    return m;
+  }();
+  return index;
+}
+}  // namespace
+
+std::vector<std::string> chrome_names() {
+  std::vector<std::string> v;
+  for (const auto& [n, i] : drawn_index()) v.push_back(n);
+  return v;
+}
+
+bool chrome_at(const std::string& name, int32_t s, Drawn* out) {
+  const auto it = drawn_index().find(name);
+  if (it == drawn_index().end() || s < 2 || !out) return false;
+  const Maker m = makers()[it->second];
+  Drawn d;
+  const int32_t was = g_piece_scale;
+  Drawn* was_capture = g_capture;
+  g_piece_scale = s, g_capture = &d;
+  m();
+  g_piece_scale = was, g_capture = was_capture;
+  if (d.rgba.empty() || d.name != name) return false;
+  *out = std::move(d);
+  return true;
 }
 
 }  // namespace mw1::chrome

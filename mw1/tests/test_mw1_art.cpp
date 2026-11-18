@@ -286,6 +286,8 @@ TEST(mw1_art_drawn_by_frame_scale) {
   EXPECT(hi->find("mw1_tile_bar") == nullptr && hi->find("mw1_lab_background") == nullptr);  // scale 1: the canvas's
   hi->set_frame_scale(2.25f);  // 1080p
   EXPECT(st.scale() == 3);
+  const platform::HiresImage* pl = hi->find(mw1::chrome::kPlaque);  // the chrome too, with its alpha
+  EXPECT(pl && pl->w == mw1::chrome::kPlaqueW * 3 && pl->canvas_h == mw1::chrome::kPlaqueH && pl->rgba && pl->rgba[3] == 255);
   const platform::HiresImage* t = hi->find("mw1_tile_bar_down");
   EXPECT(t && t->w == 108 * 3 && t->h == 108 * 3 && t->canvas_w == 108 && t->rgba && t->rgba[3] == 255);
   const uint64_t first = t ? t->serial : 0;
@@ -307,4 +309,48 @@ TEST(mw1_art_drawn_by_frame_scale) {
   platform::set_hires_2d(was_hires);
   st.close();
   fs::remove_all(dir, ec);
+}
+
+// B2b 3: the chrome drawn at a scale: the same names as the archive's (but the dim, the cursor and the clear), each
+// (canvas size x S), its alpha 0 or 255 where the canvas's is clear or solid, its lines S wide where the canvas's are.
+TEST(mw1_art_chrome_at_scale) {
+  const std::vector<std::string> names = mw1::chrome::chrome_names();
+  auto has = [&](const std::string& n) { return std::find(names.begin(), names.end(), n) != names.end(); };
+  EXPECT(has(mw1::chrome::kPlaque) && has(mw1::chrome::kButtons[1]) && has(mw1::chrome::kDialog) && has(mw1::chrome::kStatusBar));
+  EXPECT(!has(mw1::chrome::kDim) && !has(mw1::chrome::kCursor) && !has(mw1::chrome::kClear));
+  std::printf("  %zu chrome pieces at scale\n", names.size());
+  mw1::chrome::Drawn d;
+  EXPECT(!mw1::chrome::chrome_at(mw1::chrome::kPlaque, 1, &d) && !mw1::chrome::chrome_at("mw1_nothing", 3, &d));
+  const std::vector<mw1::images::Image> all = mw1::chrome::all();
+  int32_t checked = 0;
+  for (const mw1::images::Image& c : all) {
+    if (!has(c.name)) continue;
+    const int32_t s = checked % 2 ? 3 : 5;
+    if (!mw1::chrome::chrome_at(c.name, s, &d)) {
+      std::printf("  %s not drawn at %d\n", c.name.c_str(), s);
+      EXPECT(false);
+      continue;
+    }
+    ++checked;
+    EXPECT(d.name == c.name && d.canvas_w == c.width && d.canvas_h == c.height && d.s == s);
+    EXPECT(d.rgba.size() == static_cast<size_t>(c.width * s) * c.height * s * 4);
+    // Where the canvas piece is clear or solid, so is the centre of its block (rivets and lamps aside: they're
+    // round at scale, so their blocks' centres may differ; a few pixels of each piece at most).
+    int32_t off = 0;
+    for (int32_t y = 0; y < c.height; ++y)
+      for (int32_t x = 0; x < c.width; ++x) {
+        const uint8_t ca = c.alpha.empty() ? 255 : c.alpha[static_cast<size_t>(y * c.width + x)];
+        if (ca != 0 && ca != 255) continue;
+        const uint8_t da = d.rgba[(static_cast<size_t>(y * s + s / 2) * c.width * s + x * s + s / 2) * 4 + 3];
+        if ((ca == 0) != (da == 0)) ++off;
+      }
+    if (off > 24) std::printf("  %s: %d blocks' alpha off\n", c.name.c_str(), off);
+    EXPECT(off <= 24);
+  }
+  EXPECT(checked == static_cast<int32_t>(names.size()));
+  // The alpha's edges as the canvas blit's: none between 1 and 3 or 0xfc and 0xfe.
+  EXPECT(mw1::chrome::chrome_at(mw1::chrome::kDialog, 3, &d));
+  bool edges = true;
+  for (size_t k = 3; k < d.rgba.size(); k += 4) edges = edges && !(d.rgba[k] >= 1 && d.rgba[k] <= 3) && !(d.rgba[k] >= 0xfc && d.rgba[k] < 255);
+  EXPECT(edges);
 }
