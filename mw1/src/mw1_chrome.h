@@ -156,6 +156,15 @@ std::vector<Drawn> lab_panels_at(const uint8_t* rgba, int32_t sw, int32_t sh, in
 // mech, and the icons' tray line across the foot, which every frame stays above (FIXES.md item 17).
 struct LabBox { int32_t x0, y0, x1, y1; };
 inline constexpr int32_t kLabTrayY = 414;
+// The tray's four buttons (FIXES.md item 29): the chassis, criticals and groups pages' icons and ACCEPT (LabScreen's
+// tabs 0, 3, 4, 6), one size, kLabTabY down the layout, spread evenly across the panels' span (kLabTabSpan0..1, each
+// in its quarter's middle); mw1_game.cpp places them, mw1_lab_fit.h checks them.
+inline constexpr int32_t kLabTabW = 60, kLabTabH = 52, kLabTabY = kLabTrayY + (480 - kLabTrayY - kLabTabH) / 2;
+inline constexpr int32_t kLabTabSpan0 = 6, kLabTabSpan1 = 634;
+inline constexpr int32_t kLabTabPages[4] = {0, 3, 4, 6};
+inline constexpr int32_t lab_tab_x(int32_t i) {
+  return kLabTabSpan0 + (kLabTabSpan1 - kLabTabSpan0) * (2 * i + 1) / 8 - kLabTabW / 2;
+}
 inline constexpr LabBox kLabSideUpper = {6, 6, 214, 242}, kLabSideLower = {6, 248, 214, 410}, kLabSideWhole = {6, 6, 214, 410};
 inline constexpr LabBox kLabCentreBox = {226, 280, 414, 410};  // in the 640 layout (the centre panel's image at 220)
 // The selection bar (lab_text_glow, 207x45, PM's OFFSET -17, -15 from the row): its solid edge kBarEdge wide just

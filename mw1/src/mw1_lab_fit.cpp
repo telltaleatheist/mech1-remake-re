@@ -134,4 +134,20 @@ std::vector<FitText> fit_texts(ztwod::Layer& layer, int32_t ox, int32_t oy, cons
   return out;
 }
 
+std::vector<std::string> tray_problems(const std::vector<FitBox>& b, int32_t tray_top) {
+  std::vector<std::string> out;
+  auto name = [](const FitBox& x) { return std::string(x.name ? x.name : "a button"); };
+  for (size_t i = 0; i < b.size(); ++i) {
+    const FitBox& x = b[i];
+    if (x.right - x.left != b[0].right - b[0].left || x.bottom - x.top != b[0].bottom - b[0].top)
+      out.push_back(name(x) + " is " + std::to_string(x.right - x.left) + "x" + std::to_string(x.bottom - x.top) + ", " + name(b[0]) + " " +
+                    std::to_string(b[0].right - b[0].left) + "x" + std::to_string(b[0].bottom - b[0].top));
+    if (x.left < 0 || x.right > 640 || x.top < tray_top || x.bottom > 480) out.push_back(name(x) + " is outside the tray");
+    for (size_t j = i + 1; j < b.size(); ++j)
+      if (x.left < b[j].right && b[j].left < x.right && x.top < b[j].bottom && b[j].top < x.bottom)
+        out.push_back(name(x) + " overlaps " + name(b[j]));
+  }
+  return out;
+}
+
 }  // namespace mw1
