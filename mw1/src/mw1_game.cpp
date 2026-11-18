@@ -18,6 +18,7 @@
 #include "mech3/pause_menu.h"
 #include "mech3/briefing.h"
 #include "mech3/lab_screen.h"
+#include "mech3/menu_widgets.h"
 #include "mech3/app_engine.h"
 #include "mech3/app_mech.h"
 #include "mech3/mech_names.h"
@@ -167,6 +168,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     for (const char* f : kLabFonts) ztwod::set_layout_font(f, std::string("mw1_") + f, chrome::kLabFile);
     for (const auto& [game_font, font] : kFileBoxFonts) ztwod::set_layout_font(game_font, font, chrome::kFileBoxFile);
     auto* ge = dynamic_cast<mech3::GameEngine*>(&e);
+    mech3::set_menus_still(true);  // FIXES.md item 9: PM's own screens' backgrounds held still too
     ztwod::set_layout_wide([ge] { return ge && ge->buffer_width() > 640; });
   }
   bool shot_driver_ = false;  // MW1_SCREEN=pause's (development)
