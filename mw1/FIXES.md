@@ -427,7 +427,7 @@ Tick an item when it is merged into `main`.
 - **Wanted:** the order the player gives is kept, and the group's list shows it. Check whether PM's grouping screen allows reordering and MW1 lost it, or whether PM never had it, and say which.
 - **Done means:** shots before and after, and a test that a chosen order survives a save and reload.
 
-## 41. [ ] The Mech Complex shows the company's funds
+## 41. [x] The Mech Complex shows the company's funds
 - **Owen (2026-11-18):** in the mech-buying area he can't see how much money he has, so he can't tell what he can afford.
 - **Wanted:**
   - funds shown on every Mech Complex page (buying, selling, the hangar, the stores), the way the Bar's plaque shows "1,231,995 C-BILLS";
@@ -435,7 +435,7 @@ Tick an item when it is merged into `main`.
   - a price the company can't afford shown dimmed, or in the warning colour.
 - **Done means:** shots at 1080p and 4:3, and a test that the shown funds change with a purchase.
 
-## 42. [ ] Unobtrusive messages: a small box at the bottom, the artwork clear, nowhere a darkened screen
+## 42. [x] Unobtrusive messages: a small box at the bottom, the artwork clear, nowhere a darkened screen
 - **Owen (2026-11-18, the arrival at Rasalhague on a build from before 34):**
   - find every screen that hides its picture behind a darkened filter;
   - instead, put a small message box at the bottom of the screen, so the artwork can be seen while reading.
@@ -455,7 +455,7 @@ Tick an item when it is merged into `main`.
 - **Keep:** pages that are their own art (event_art), and real dialogs that need an answer (the quit question). Those may keep the dim. List those too, each with its reason.
 - **Done means:** a shot of each screen found, at 1080p and 4:3.
 
-## 43. [ ] A "reach" contract has no nav point: the player can't find the place
+## 43. [x] A "reach" contract has no nav point: the player can't find the place
 - **Owen (2026-11-18, Rasalhague):** the contract "reach the pump complex" on c2ia1 (Road to Madre) gave no nav point and no marked place. He couldn't tell where to go.
 - **Cause:** our ReachAreaObjective (mw1_game.cpp, kReachStructure) checks the structure's node (`3twr1`), but nothing puts a nav point there. c2ia1's only nav is Start.
 - **Wanted:** every "reach" objective has its place as a nav point, named for it (e.g. "Pump complex"), selectable and on the map like MW3's and PM's. The same goes for any objective whose place isn't otherwise shown, such as a defended structure.
@@ -471,6 +471,9 @@ Tick an item when it is merged into `main`.
   - (c) Show the real climate in the offer, so it's no surprise.
 - **The lead's pick:** (a), with (c) at once.
 - **Owen (2026-11-18): (a), real arctic maps from MW3's snow missions.** Show the climate in the offer (c) meanwhile.
+- **Owen, refined (2026-11-18):** "a proper arctic instant action map for mw3 and/or pm rebuild ... the same as road to madre or any other once it's authored and shipped with the main games".
+  - **The plan:** an authored IA map. It's our own layout data in the repo (start, enemy records, nav points, the ia block's snow, fog and light, objectives, targets), laid on the snow terrain of the player's converted MW3 c4b. It isn't reconstructed by script from the campaign missions, and none of MW3's files are shipped.
+  - **For MW1 first.** Listing it in MW3's and PM's own Instant Action is the mw3 lead's call; MW3's and PM's files are never modified (VISION).
 
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
