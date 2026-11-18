@@ -144,6 +144,10 @@ if(TARGET mw3pm)
   set(mw1_image_zbd ${CMAKE_CURRENT_BINARY_DIR}/mw1gen/zbd/mw1image.zbd)
   # The screens' art (tools/mw1art.py's output; a picture added or removed is seen at the next configure).
   file(GLOB mw1_art CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/data-src/art/*.png)
+  # The art's list, rewritten only when it changes (a picture added or removed; the glob above reconfigures): the pack
+  # depends on it, so a removed picture repacks too (the remaining inputs alone are older than the pack).
+  list(JOIN mw1_art "\n" mw1_art_lines)
+  file(CONFIGURE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/mw1gen-art-list.txt CONTENT "${mw1_art_lines}\n" @ONLY)
   add_custom_command(OUTPUT ${mw1_image_zbd}
                      COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/mw1gen/zbd
                      COMMAND mw1imgpack ${mw1_image_zbd} ${CMAKE_CURRENT_SOURCE_DIR}/data-src/intro.bmp ${CMAKE_CURRENT_SOURCE_DIR}/data-src/art
@@ -153,6 +157,7 @@ if(TARGET mw3pm)
                      DEPENDS mw1imgpack ${CMAKE_CURRENT_SOURCE_DIR}/data-src/intro.bmp ${CMAKE_CURRENT_SOURCE_DIR}/src/mw1_map_image.cpp
                              ${CMAKE_CURRENT_SOURCE_DIR}/src/mw1_map_image.h ${CMAKE_CURRENT_SOURCE_DIR}/src/mw1_travel_map.cpp
                              ${CMAKE_CURRENT_SOURCE_DIR}/src/mw1_chrome.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/mw1_chrome.h ${mw1_art}
+                             ${CMAKE_CURRENT_BINARY_DIR}/mw1gen-art-list.txt
                      COMMENT "MW1's image archive")
   add_custom_target(mw1images DEPENDS ${mw1_image_zbd})
   add_dependencies(mw1 mw1images)
