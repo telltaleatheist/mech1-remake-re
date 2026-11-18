@@ -20,6 +20,12 @@ inline constexpr std::pair<const char*, const char*> kFileBoxFonts[] = {
     {"ia_small_amber", "mw1_lab_small_red"}, {"main_red_small", "mw1_lab_small_title"}, {"ia_dark_grey", "mw1_lab_small_grey"},
 };
 
+// The lab's labels in MW1's words (ztwod::set_layout_label, on the lab's file only): each PM message key, ours.
+inline constexpr std::pair<const char*, const char*> kLabLabels[] = {
+    {"MSG_LAB_MHQ_STOCKPILE", "YOUR MECHS"},
+    {"MSG_LAB_AVAIL_CHASSIS", "Available Chassis"},
+};
+
 // FIXES.md item 22: PM's pointer is ours (mw1_chrome.h's kCursor) on PM's own screens too while MW1 runs. Every
 // CURSOR of PM's layouts names this picture, centred; these are the files that have one (ztwod::set_layout_image
 // for each, while it is read).
