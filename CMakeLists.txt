@@ -1069,7 +1069,8 @@ if(SDL3_FOUND)
     add_library(mw3text STATIC src/frontend/sdl/sdl_twod_host.cpp src/frontend/sdl/font_search.cpp
                 src/frontend/sdl/gdi_font_size.cpp
                 src/frontend/sdl/text_fit.cpp src/frontend/sdl/launcher_notes.cpp src/frontend/sdl/movie_import.cpp
-                src/frontend/sdl/vulkan_check.cpp)
+                src/frontend/sdl/vulkan_check.cpp
+                src/platform/hires_text.cpp)  # ours: MW1's high-resolution 2D, the text at the frame's scale (FIXES 12; SDL_ttf, so here, not mw3core)
     target_link_libraries(mw3text PUBLIC mw3sdl SDL3_ttf::SDL3_ttf)
     if(NOT MW3_PACKAGE)
       target_compile_definitions(mw3text PRIVATE MW3_ASSETS_DIR="${PROJECT_SOURCE_DIR}/assets")
@@ -1237,7 +1238,7 @@ if(SDL3_FOUND)
     # PM's platform tests (input, window, render, text, net), in the same files. MW3_PM_SUITE
     # leaves out those that read MW3's data or start MW3's programs; a PM version comes with its feature.
     if(MW3_BUILD_PM AND NOT MW3_BUILD_MW3)
-      add_executable(mw3pmsdltests tests/main.cpp tests/test_sdl_frontend.cpp tests/test_sdl_new_world.cpp src/frontend/sdl/sdl_update.cpp tests/test_net_enet.cpp tests/test_net_upnp.cpp
+      add_executable(mw3pmsdltests tests/main.cpp tests/test_hires_text.cpp tests/test_sdl_frontend.cpp tests/test_sdl_new_world.cpp src/frontend/sdl/sdl_update.cpp tests/test_net_enet.cpp tests/test_net_upnp.cpp
                      src/frontend/sdl/sdl_restart.cpp src/frontend/sdl/win_cmdline.cpp tests/test_win_cmdline.cpp tests/test_log_start.cpp)
       target_link_libraries(mw3pmsdltests PRIVATE mw3text mw3sdl pmcore mw3core SDL3::SDL3)
       target_compile_definitions(mw3pmsdltests PRIVATE MW3_PM_SUITE=1 MW3_GAME_DIR="${MW3PM_GAME_DIR}"
