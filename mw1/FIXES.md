@@ -284,7 +284,7 @@ Tick an item when it is merged into `main`.
   - The repeating stops when the button is released or the pointer leaves it.
   - It's an opt-in flag on our framed button, used by the list scroll arrows too.
 
-## 25. [ ] PM's own buttons still blink (the rest of item 15)
+## 25. [x] PM's own buttons still blink (the rest of item 15) *(done: mw1-steady-buttons)*
 - **From the review of item 15:** our framed buttons are steady, but PM's HelpButtons on PM's screens shown in MW1 still blink: the lab's page icons, the load box's OK/NO, and settings.
 - **Wanted:** an opt-in engine switch (like set_menus_still), so that while MW1 runs a HelpButton's lamp is steady when hovered and never blinks. MW3 and PM keep theirs.
 
