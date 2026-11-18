@@ -489,6 +489,31 @@ Tick an item when it is merged into `main`.
 - **The risk:** kReachRadius is 10 m from the node. A node inside a building or on a roof may be out of a mech's reach. Measure the closest approach per row.
 - **Done means:** a table with one line per row (won, how, time, closest approach). Every row is won, or dropped with its reason.
 
+## 46. [ ] Map variety: every IA map in play, weighted by the planet's climate
+- **Owen (2026-11-18):** a player will fly 30–50 missions, and the terrain mustn't get boring. Use every IA terrain we have, but favour the planet's environment: a cold world mostly arctic and never desert, the moon mostly Pirate's Moon. Grasslands is jungle enough.
+- **Today:** mw1maps.zrd has PM c1–c4 and MW3 c2 only, 15 maps. MW3's Big Lake (c1), Rolling Hills (c3) and Gorge (c4), with three IA maps each, are missing.
+- **The pools (agreed with Owen):**
+  - **Desert world:**
+    - about 75% from PM c1–c4, MW3 Big Lake and MW3 Gorge;
+    - the rest from any other map but arctic;
+    - never arctic.
+  - **Tropical world:**
+    - about 75% from MW3 Grasslands, MW3 Rolling Hills and Big Lake;
+    - the rest from any other map but arctic;
+    - never arctic.
+  - **Ice world:**
+    - about 75% arctic (44);
+    - the rest from Grasslands, Rolling Hills and Gorge;
+    - never a desert map.
+    - Until 44, all from those three.
+  - **Ander's Moon:** PM's worlds.
+  - **Everywhere:** never the same map twice in a row (kept in the save).
+  - **Structure contracts (reach, attack, defend):** they use the pool's rows of their kind, then the "sometimes" maps, then any map.
+- **Also:**
+  - survey the new MW3 maps' rows (45's win test and 43's nav check);
+  - the offer's climate word (44 c) shows the map's own climate.
+- **Done means:** a test that draws 10,000 offers per climate and reports the shares, with never a forbidden pairing and never a repeat; plus the new rows passing 45.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.
