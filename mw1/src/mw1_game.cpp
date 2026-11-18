@@ -195,6 +195,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         ztwod::set_layout_image(r.game, chrome::reskin_name(r.game), t == &chrome::lab_pictures() ? chrome::kLabFile : chrome::kFileBoxFile);
     for (const char* f : kLabFonts) ztwod::set_layout_font(f, std::string("mw1_") + f, chrome::kLabFile);
     for (const auto& [game_font, font] : kFileBoxFonts) ztwod::set_layout_font(game_font, font, chrome::kFileBoxFile);
+    // The lab's own words where Pirate's Moon's aren't MW1's (FIXES 3+5): its chassis list is the company's mechs
+    // (the Mech Complex's YOUR MECHS), not MW3's mobile field base; PM's "Avaliable" spelt right.
+    for (const auto& [key, words] : kLabLabels) ztwod::set_layout_label(key, words, chrome::kLabFile);
     for (const char* f : kPmCursorFiles) ztwod::set_layout_image(kPmCursor, chrome::kCursor, f);  // FIXES.md item 22
     auto* ge = dynamic_cast<mech3::GameEngine*>(&e);
     mech3::set_menus_still(true);  // FIXES.md item 9: PM's own screens' backgrounds held still too
