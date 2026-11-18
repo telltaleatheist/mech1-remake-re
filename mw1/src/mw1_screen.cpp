@@ -1,6 +1,7 @@
 #include "mw1_screen.h"
 
 #include <algorithm>
+#include <cstring>
 #include <cstdio>
 
 #include "gamez/zreader/zreader.h"
@@ -329,6 +330,9 @@ void Mw1Screen::show(const ScreenView& v) {
   for (size_t i = squares; i < squares_.size(); ++i) squares_[i]->hide();
   if (blocks_.size() < v.blocks.size()) blocks_.resize(v.blocks.size());
   spans_.resize(blocks_.size()), shown_lines_.assign(blocks_.size(), {});
+  // The status bar: its words start after the world's name, however long the name (FIXES 3+5: a long name ran over
+  // them); STATUS_WORLD comes before STATUS in every view.
+  int32_t status_world_right = -1;
   for (size_t b = 0; b < blocks_.size(); ++b) {
     auto& pool = blocks_[b];
     size_t spans = 0;
@@ -350,10 +354,17 @@ void Mw1Screen::show(const ScreenView& v) {
         x = p->x, y = p->y;
         if (!p->font.empty()) font = p->font.c_str();
         if (p->gap >= 0) gap = p->gap;
+        if (std::strcmp(tb.at, "STATUS") == 0 && status_world_right >= 0) x = std::max(x, status_world_right + kStatusGap);
       }
       const int32_t line_y = y + static_cast<int32_t>(i) * gap;
       if (ls[i].find(kHighlight) == std::string::npos) {
-        text(pool, i, x, line_y, font)->set_text_plain(ls[i].c_str());
+        ztwod::Text* t = text(pool, i, x, line_y, font);
+        t->set_text_plain(ls[i].c_str());
+        if (tb.at && std::strcmp(tb.at, "STATUS_WORLD") == 0 && i == 0 && !ls[i].empty()) {
+          ztwod::Rect r{};
+          t->rect_at(&r);
+          status_world_right = r.right;
+        }
         continue;
       }
       // Highlighted spans: the line's first part in its own Text, each further part after it in the block's spans.

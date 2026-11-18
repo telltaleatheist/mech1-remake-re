@@ -26,7 +26,7 @@ foreach(shape 43 wide)
       message("${shape}: ${line}")
     endforeach()
     message("${shape} ${page}: ${done}")
-    if(NOT r EQUAL 0 OR NOT done MATCHES " 0 outside$")
+    if(NOT r EQUAL 0 OR NOT done MATCHES " 0 outside, 0 overlapping$")
       # Why, for a failure that doesn't come back (FIXES 3+5's flake): the exit (a number, or the timeout's words),
       # whether the report came, and the run's last lines (MW1's words never: the engine's and the loop's own).
       if(NOT done)

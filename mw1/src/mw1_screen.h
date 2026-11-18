@@ -68,6 +68,7 @@ enum class Anchor { kLayout, kLeft, kCentre, kRight };
 // A line's highlighted spans (FIXES.md item 20, the key facts in a brighter colour): each kHighlight toggles one on or
 // off; a span is drawn in the line's font's highlight (its name with kHighlightSuffix, when the fonts have it; else
 // the line's own). Left-aligned lines only. shown() gives the line without them.
+inline constexpr int32_t kStatusGap = 14;  // the status bar: from the world's name to its words
 inline constexpr char kHighlight = '\x02';
 inline constexpr const char* kHighlightSuffix = "_hi";
 std::string highlighted(const std::string& s);  // s between two kHighlight
