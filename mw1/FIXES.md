@@ -361,6 +361,18 @@ Tick an item when it is merged into `main`.
 - MW1 restarts the campaign on a story death. Ours never does.
 - `kStoryDeathsRestart` stays off for good, and story.md's Q1 is answered. A dev can drop the switch when next in that code, but there's no behaviour change.
 
+## 34. [ ] A message over a screen keeps that screen's picture, the text in its free side
+- **Owen (2026-11-18):** ORDER DRINK at Greely's Bar showed the tip full-screen, over the world's dimmed scenery (the snow), instead of over the Bar.
+- **Wanted:** like the original, the message sits to one side with the screen's own picture still visible.
+  - **At the Bar:** in the left area, the bartender's picture behind it, not dimmed.
+- **Applies to every message that fires over a screen with its own art:**
+  - the Bar's drinks, news and tips;
+  - events over the hub, the Bar, the Mech Complex and the office (research/story.md: MW1's events fire over the screen they belong to);
+  - the office's notes.
+- **Where the text goes:** each screen names its free side.
+- **What stays as it is:** the travel and story pages that have their own picture (`event_art`).
+- **Done means:** shots of the Bar's drink, news and an event at 1080p and 4:3.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.
