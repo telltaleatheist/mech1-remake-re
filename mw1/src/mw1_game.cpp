@@ -43,6 +43,7 @@
 #include "mw1_hub.h"
 #include "mw1_market.h"
 #include "mw1_market_screen.h"
+#include "mw1_lab_pilot.h"
 #include "mw1_menu.h"
 #include "mw1_images.h"
 #include "mw1_lab_skin.h"
@@ -236,7 +237,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       show_hub();
       ge.push_state(hub_, 0);
       // MW1_SCREEN=market (development: --shot pictures of a screen past the hub).
-      if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "market") press(kHubMarket);
+      if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s).rfind("market", 0) == 0) {
+        press(kHubMarket);
+        if (std::string(s) == "market_lab") press_market(kMarketLab);  // the lab on the commander's mech, its PILOT line
+      }
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "travel") press(kHubTravel);
       // MW1_SCREEN=travel_pick: the map with a world chosen (MW1_TRAVEL_TO, a name; else the farthest of the first few).
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "travel_pick") {
@@ -856,9 +860,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (travel_state_) travel_state_->show(travel_view(company_, tchoice_));
   }
 
-  // ---- the market (mw1_market.h, mw1_market_screen.h) ----
+  // ---- the Mech Complex (mw1_market.h, mw1_market_screen.h) ----
 
-  // The market's state on the hub's engine, made once; false when MW1's layout for it is not there.
+  // The Mech Complex's state on the hub's engine, made once; false when MW1's layout for it is not there.
   bool market(mech3::GameEngine& ge) {
     if (market_ && ge.menu_state_of(market_) == market_state_) return true;
     if (!layout_there(kMarketFile, kMarketDialog)) {
@@ -866,10 +870,11 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       return false;
     }
     market_ = ge.adopt_state([this](zgame::Handle h) { return market_state_ = new MarketState(h, [this](int32_t id) { press_market(id); }); });
-    // The lists hear the mouse: a click on a row chooses it (FIXES.md item 13: only the arrows did before).
-    if (market_state_)
+    if (market_state_) {
       market_state_->set_pointer(kMarketListArea[0], kMarketListArea[1], kMarketListArea[2], kMarketListArea[3],
                                  [this](int32_t x, int32_t y, bool click) { market_point(x, y, click); });
+      market_state_->set_resumed([this] { lab_closed(); });
+    }
     return market_ != 0;
   }
 
@@ -878,30 +883,30 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     mech3::GameEngine* ge = ge_;
     Deal d = Deal::kDone;
     std::string done;
+    MarketChoice& m = choice_;
     switch (id) {
       case kMarketBuy: {
-        const int32_t mech = choice_.stock < static_cast<int32_t>(company_.market.stock.size()) ? company_.market.stock[choice_.stock] : -1;
+        const int32_t mech = m.stock < static_cast<int32_t>(company_.market.stock.size()) ? company_.market.stock[m.stock] : -1;
         const int64_t price = mech >= 0 ? buy_price(mech, company_.tier) : 0;
-        if ((d = buy(company_, choice_.stock)) == Deal::kDone)
+        if ((d = buy(company_, m.stock)) == Deal::kDone) {
           done = "Bought: " + mech_title(mech) + " for " + thousands(price) + " C-bills.";
+          m.owned = owned_count(company_) - 1;  // the new one chosen in YOUR MECHS (the hangar's last)
+        }
         break;
       }
       case kMarketSell: {
-        const int32_t mech = owned_mech(company_, choice_.owned);
-        if ((d = sell(company_, choice_.owned)) == Deal::kDone)
+        const int32_t mech = owned_mech(company_, m.owned);
+        if ((d = sell(company_, m.owned)) == Deal::kDone)
           done = "Sold: " + mech_title(mech) + " for " + thousands(sell_price(mech, company_.tier)) + " C-bills.";
         break;
       }
-      case kMarketPilot:
-        if ((d = pilot(company_, choice_.owned)) == Deal::kDone) {
-          choice_.owned = 0;
-          done = "The commander now pilots the " + mech_title(company_.mech) + ".";
-        }
-        break;
-      case kMarketStockUp: --choice_.stock; break;
-      case kMarketStockDown: ++choice_.stock; break;
-      case kMarketOwnUp: --choice_.owned; break;
-      case kMarketOwnDown: ++choice_.owned; break;
+      case kMarketLab:
+        if (ge) open_lab(*ge);
+        return;
+      case kMarketStockUp: --m.stock; break;
+      case kMarketStockDown: ++m.stock; break;
+      case kMarketOwnUp: --m.owned; break;
+      case kMarketOwnDown: ++m.owned; break;
       case kMarketBack:
         if (!ge) return;
         show_hub();
@@ -911,18 +916,21 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         return;
       default: return;
     }
-    if (id == kMarketBuy || id == kMarketSell || id == kMarketPilot) {
-      choice_.note = d == Deal::kDone ? done : deal_words(d);
-      std::printf("mw1: market: %s\n", choice_.note.c_str());
+    if (id == kMarketBuy || id == kMarketSell) {
+      m.note = d == Deal::kDone ? done : deal_words(d);
+      std::printf("mw1: market: %s\n", m.note.c_str());
       if (d == Deal::kDone) save();
     }
     show_market();
   }
 
+  // A click on a list's row chooses it: FOR SALE's or YOUR MECHS', as scrolled.
   void market_point(int32_t x, int32_t y, bool click) {
     bool own = false;
     int32_t row = 0;
-    if (!click || !market_row_at(x, y, &own, &row)) return;
+    const bool wide = market_state_ && market_state_->screen() && market_state_->screen()->wide();
+    if (!click || !market_row_at(x, y, wide, &own, &row)) return;
+    row += own ? choice_.owned_top : choice_.stock_top;
     const int32_t count = own ? owned_count(company_) : static_cast<int32_t>(company_.market.stock.size());
     if (row < 0 || row >= count) return;
     (own ? choice_.owned : choice_.stock) = row;
@@ -933,6 +941,91 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   void show_market() {
     clamp_choice(company_, choice_);
     if (market_state_) market_state_->show(market_view(company_, choice_));
+  }
+
+  // MECH LAB (FIXES.md item 8): Pirate's Moon's lab on the chosen mech, as the briefing's MECHLAB opens it, with a
+  // copy of the company's stores. The company pilot's Instant Action slot carries the mech and its loadout; when the
+  // lab's ACCEPT brings the Mech Complex back (lab_closed), the slot's loadout and the store become the company's.
+  void open_lab(mech3::GameEngine& ge) {
+    const int32_t i = choice_.owned, mech = owned_mech(company_, i);
+    if (mech < 0) return;
+    mech3::Pilot* p = company_pilot();
+    mech3::current_pilot() = p;
+    p->select_game(mech3::kInstantAction);
+    mech3::ActionGame* g = p->action();
+    while (g->count > 0) g->remove(0);
+    g->slot.set_config(nullptr), g->slot.mech = mech;
+    // A copy of its loadout; on its stock one (null), the stock loadout itself: the lab edits a whole mech, where a
+    // slot with none shows it bare.
+    const mech3::Config* loadout = owned_loadout(i) ? owned_loadout(i).get() : stock_loadout(mech);
+    g->slot.set_config(loadout);
+    g->store.clear();
+    g->store.full = 0;
+    g->store.add_all(*company_.stores);
+    p->save();
+    lab_owned_ = i, lab_who_ = pilot_now(company_, i);
+    if (!lab_hook_) {  // the lab's PILOT line, put on its screen once it is up (each frame shown, until it is)
+      lab_hook_ = true;
+      auto before = ge.on_present;
+      ge.on_present = [this, before](int f) {
+        if (before) before(f);
+        lab_frame();
+      };
+    }
+    std::printf("mw1: market: the mech lab on the %s\n", mech3::mech_name(mech));
+    ge.pilot_chosen(p);  // the lab's pilot is the engine's current one ([0x0060861c])
+    ge.mech_lab_open(ge.store_handle(&g->store), 0);
+  }
+  // The lab's PILOT line on its screen (mw1_lab_pilot.h), once the lab from MECH LAB is up.
+  void lab_frame() {
+    mech3::Mech3App* app = mech3::app_if_any();
+    if (lab_owned_ < 0 || lab_pilot_.attached() || !ge_ || !app || app->current() != &mech3::states().lab) return;
+    mech3::LabScreen* ls = ge_->lab_screen(mech3::states().lab.lab_screen_);
+    if (!ls) return;
+    // In the lab's right-hand panel (MOBILE HQ STOCKPILE), under its list: one chassis here, the one in the lab.
+    // The panel keeps to the right edge on a wider canvas.
+    lab_pilot_.attach(ls, ge_->buffer_width() - kLabPilotFromRight, kLabPilotY, [this](int32_t by) { lab_pilot_step(by); });
+    show_lab_pilot();
+  }
+  void lab_pilot_step(int32_t by) {
+    const std::vector<int32_t> can = pilot_choices(company_, lab_owned_);
+    if (can.empty()) return;
+    const auto at = std::find(can.begin(), can.end(), lab_who_);
+    const int32_t n = static_cast<int32_t>(can.size()), i = at == can.end() ? 0 : static_cast<int32_t>(at - can.begin());
+    lab_who_ = can[static_cast<size_t>(((i + by) % n + n) % n)];
+    show_lab_pilot();
+  }
+  void show_lab_pilot() {
+    const std::string name = lab_who_ == kNobody ? "nobody (spare)" : lab_who_ == kCommander ? "YOU" : pilot_title(lab_who_);
+    lab_pilot_.show(name, pilot_choices(company_, lab_owned_).size() > 1);
+  }
+
+  void lab_closed() {
+    if (lab_owned_ < 0) return;
+    const int32_t i = lab_owned_;
+    lab_owned_ = -1;
+    lab_pilot_.forget();  // its screen gone with the lab
+    mech3::Pilot* p = mech3::current_pilot();
+    mech3::ActionGame* g = p ? p->action() : nullptr;
+    if (!g || g->slot.mech != owned_mech(company_, i)) return;
+    company_.stores->assign(g->store);
+    // ACCEPT lets the lab's slots go, their mechs back into its store as items; the company's mechs are its hangar's,
+    // never the stores' (VISION.md).
+    for (int32_t r = 0; r < mech3::kMechCount; ++r)
+      while (company_.stores->has_mech(r)) company_.stores->remove_mech(r);
+    owned_loadout(i) = g->slot.config ? copy_config(*g->slot.config) : nullptr;
+    const int32_t mech = g->slot.mech;
+    const bool moved = lab_who_ != pilot_now(company_, i);
+    set_pilot(company_, i, lab_who_);
+    if (moved && lab_who_ == kCommander) choice_.owned = 0;  // the commander's now: owned 0
+    choice_.note = "The " + mech_title(mech) + " out of the mech lab" +
+                   (lab_who_ == kNobody ? ", a spare." : ", piloted by " + (lab_who_ == kCommander ? std::string("you") : pilot_title(lab_who_)) + ".");
+    std::printf("mw1: market: back from the mech lab: %d items in the stores\n", company_.stores->count());
+    save();
+    show_market();
+  }
+  std::shared_ptr<mech3::Config>& owned_loadout(int32_t i) {
+    return i == 0 ? company_.loadout : company_.hangar[static_cast<size_t>(i - 1)].loadout;
   }
 
   // ---- the story's events (mw1_story.h, mw1_event_screen.h) ----
@@ -1384,6 +1477,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   const AfterAction* pending() const { return pending_.get(); }
   HubState* hub_state() const { return hub_state_; }
   MarketState* market_state() const { return market_state_; }
+  const PilotChooser* lab_pilot() const { return lab_pilot_.attached() ? &lab_pilot_ : nullptr; }
   BarState* bar_state() const { return bar_state_; }
   OfficeState* office_state() const { return office_state_; }
   HubOptionsState* hub_options_state() const { return hub_options_state_; }
@@ -1620,6 +1714,12 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   zgame::Handle market_ = 0;
   MarketState* market_state_ = nullptr;
   MarketChoice choice_;
+  int32_t lab_owned_ = -1;  // the owned mech in the Mech Complex's MECH LAB (-1 none open)
+  int32_t lab_who_ = kNobody;  // its pilot as chosen in the lab (mw1_pilots.h)
+  bool lab_hook_ = false;
+  PilotChooser lab_pilot_;
+  // The PILOT line's place on the lab's screen: from the canvas's right edge, and down.
+  static constexpr int32_t kLabPilotFromRight = 172, kLabPilotY = 196;
   std::shared_ptr<mech3::Store> salvage_;  // this mission's parts, the stores' on a win
   bool deployed_ = false, launched_ = false, ended_ = false, failed_ = false, own_wins_ = false;
   bool row_set_ = false;  // install_game_loop's reach, or set_game_loop_row's: every new contract on that row
@@ -1701,6 +1801,7 @@ void game_loop_offer_again() {
   if (the_loop()) the_loop()->offer_again();
 }
 MarketState* game_loop_market() { return the_loop() ? the_loop()->market_state() : nullptr; }
+const PilotChooser* game_loop_lab_pilot() { return the_loop() ? the_loop()->lab_pilot() : nullptr; }
 TravelState* game_loop_travel() { return the_loop() ? the_loop()->travel_state() : nullptr; }
 const std::vector<AllyLaunch>& game_loop_ally_launches() {
   static const std::vector<AllyLaunch> none;

@@ -570,7 +570,6 @@ std::vector<images::Image> all() {
   std::vector<images::Image> v = {plaque(), status_bar(), dialog_frame(), dim(), cursor()};
   for (int32_t s = 0; s < 3; ++s) v.push_back(tile_frame(s));
   for (int32_t s = 0; s < 4; ++s) v.push_back(button(s));
-  for (int32_t s = 0; s < 4; ++s) v.push_back(button(s, kButtonSmallW, kButtonH, kButtonsSmall[s]));
   for (const PanelSize& p : panel_sizes()) v.push_back(panel(p.w, p.h));
   for (const PanelSize& p : terminal_sizes()) v.push_back(terminal(p.w, p.h));
   for (const PanelSize& p : frame_sizes())

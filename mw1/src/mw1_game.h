@@ -72,6 +72,11 @@ using namespace market_ui;
 // The market's state once the hub's MARKET has made it (tests); the company to change in a test (funds, the
 // market's stock) and the market's screen shown again after such a change.
 MarketState* game_loop_market();
+// The mech lab's PILOT line while the Mech Complex's MECH LAB is open (tests), else null.
+namespace lab_pilot {
+class PilotChooser;
+}
+const lab_pilot::PilotChooser* game_loop_lab_pilot();
 // The travel screen's state once TRAVEL has made it (tests), else null.
 namespace travel_ui {
 class TravelState;

@@ -66,6 +66,15 @@ bool fire(Company& c, int32_t lancemate);
 // ASSIGN lancemate i (MW1's crew menu): to the next hangar mech nobody pilots, after theirs; past the last, none.
 bool assign(Company& c, int32_t lancemate);
 int32_t mech_of(const Company& c, int32_t lancemate);  // the hangar index of their mech, -1 none
+// The mech lab's PILOT (FIXES.md item 8: Owen's, the market's PILOT moved there), by owned mech (mw1_market.h's
+// owned_mech: 0 the commander's, then the hangar's). Who can drive it: the commander's mech only you (you move by
+// choosing YOU on another mech); a hangar mech nobody (-1, a spare), you (0) or a lancemate (their id). Who does now.
+// The choice made: YOU swaps the commander's mech for it (the lancemate on it, if any, takes the old one); a
+// lancemate leaves the mech they had (a spare after) and whoever had this one is unassigned.
+inline constexpr int32_t kNobody = -1, kCommander = 0;
+std::vector<int32_t> pilot_choices(const Company& c, int32_t owned);
+int32_t pilot_now(const Company& c, int32_t owned);
+bool set_pilot(Company& c, int32_t owned, int32_t who);
 int32_t lance_weight(const Company& c);                // MW1's lance weight: the commander's mech and the assigned ones
 
 // Wages (DS:2476, by the wage tier) a month. Charged as the calendar's months begin (advance_time): the company

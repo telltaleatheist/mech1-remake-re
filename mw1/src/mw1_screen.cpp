@@ -11,6 +11,47 @@
 
 namespace mw1::screens {
 namespace {
+// MW1's button (FIXES.md item 15): Pirate's Moon's HelpButton without its blink. PM's swaps its normal and pressed
+// images every 0.05 s while the mouse is over it, so MW1's frame flashed amber once and went dark while its dot
+// blinked. Here the lit look (frame amber, dot lit) holds as long as the mouse is over it, a click shows the pressed
+// look for a moment, and a screen shown again under the mouse (a click's result) keeps it lit.
+class Mw1Button : public mech3::HelpButton {
+ public:
+  using HelpButton::HelpButton;
+  void on_enter() override {
+    HelpButton::on_enter();
+    blinking = 0, hovered_ = true;
+    lit();
+  }
+  void on_leave() override {
+    hovered_ = false, pressed_for_ = 0.0f;
+    HelpButton::on_leave();
+  }
+  // Only a release after a press on this button. The window hands a release to every object under the mouse in
+  // the same pass, so a press that changes the page (PURCHASE MECHS) would also press the page's new button at that
+  // place (its DONE), shown only a moment before the release reached it.
+  void on_left_up() override {
+    if (!(mouse & ztwod::kPressed)) return;
+    HelpButton::on_left_up();
+    if (enabled) pressed_for_ = kPressedLook;
+  }
+  void update(float dt) override {
+    blinking = 0;
+    if (pressed_for_ > 0.0f && (pressed_for_ -= dt) <= 0.0f) pressed_for_ = 0.0f;
+    if (hovered_ && enabled && !selected && pressed_for_ <= 0.0f) lit();
+    HelpButton::update(dt);
+  }
+
+ private:
+  static constexpr float kPressedLook = 0.12f;
+  void lit() {
+    if (img_rollover && image != img_rollover) set_image(img_rollover), dirty();
+  }
+  bool hovered_ = false;
+  float pressed_for_ = 0.0f;
+};
+}  // namespace
+namespace {
 constexpr uint32_t kScreenSize = 0x11200;  // its block: past MenuScreen's own fields, no other screen's size
 constexpr int32_t kWideCanvas = 853;       // the 16:9 canvas a _WIDE layout is placed on (480 lines)
 constexpr const char* kLabelFont = "ia_small_green";
@@ -137,7 +178,7 @@ Mw1Screen::Mw1Screen(mech3::Engine& e, zgame::Handle state_handle, const char* f
   zrdr::Node* entries = zrdr::find(dlg, "BUTTONS");
   for (size_t i = 0; i < names_.size(); ++i) {
     const int32_t id = static_cast<int32_t>(i) + 1;
-    auto b = std::make_unique<mech3::HelpButton>(e, id);
+    std::unique_ptr<mech3::HelpButton> b = std::make_unique<Mw1Button>(e, id);
     b->id = id;
     if (!ztwod::bind_button(this, dlg, b.get(), names_[i].name)) {
       std::printf("mw1: the layout %s has no button %s\n", file, names_[i].name);
