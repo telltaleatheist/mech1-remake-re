@@ -119,7 +119,8 @@ TEST(hires_text_on_the_canvas_pen) {
         TTF_GetGlyphMetrics(bf, static_cast<Uint32>(static_cast<unsigned char>(text[k])), &minx, &maxx, &miny, &maxy, &adv);
         const float want = (pen_x + static_cast<float>(line.pens[k])) * s + static_cast<float>(minx);
         worst = std::max(worst, std::abs(q[at].x - want));
-        EXPECT(std::abs(q[at].x - want) <= 1.0f);
+        EXPECT(std::abs(q[at].x - want) <= 0.5f);  // the pen snapped to a whole frame pixel: half a pixel at most
+        EXPECT(q[at].x == std::floor(q[at].x) && q[at].y == std::floor(q[at].y));  // whole frame pixels
         ++at;
       }
       TTF_CloseFont(bf);
@@ -131,7 +132,9 @@ TEST(hires_text_on_the_canvas_pen) {
       std::printf("  %s at %.2f: ink %.1f..%.1f, the canvas's %.1f..%.1f; the furthest glyph %.1f from its pen and bearing\n", c.what,
                   static_cast<double>(s), static_cast<double>(left), static_cast<double>(right), static_cast<double>(want_l),
                   static_cast<double>(want_r), static_cast<double>(worst));
-      EXPECT(std::abs(left - want_l) <= s + 1.0f && std::abs(right - want_r) <= s + 1.0f);
+      // (Plus the half frame pixel the snap may move a glyph: impact's last glyph is about 1.2 canvas pixels wider
+      // big than in the canvas's mono hinting, 5.5 frame pixels at 4.5 before the snap.)
+      EXPECT(std::abs(left - want_l) <= s + 1.5f && std::abs(right - want_r) <= s + 1.5f);
       // The line's ink between the canvas line's top and its foot, times the scale.
       const float lh = static_cast<float>(TTF_GetFontHeight(cf));
       for (const GlyphQuad& g : q) EXPECT(g.y >= (top_y + c.key.shift - 1.0f) * s && g.y + g.h <= (top_y + c.key.shift + lh + 1.0f) * s);

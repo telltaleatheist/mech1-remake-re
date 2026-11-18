@@ -209,7 +209,9 @@ bool TextRaster::layout(const FontKey& f, const std::string& utf8, float pen_x, 
       p += static_cast<float>(pw + f.tracking);
     }
   }
-  const float baseline = (top_y + static_cast<float>(f.shift + TTF_GetFontAscent(canvas))) * sy;
+  // Snapped to whole frame pixels (the pen below too): the atlas's coverage lands texel on pixel, never resampled
+  // half a pixel off (soft); each glyph within half a frame pixel of the canvas pen's place.
+  const float baseline = std::round((top_y + static_cast<float>(f.shift + TTF_GetFontAscent(canvas))) * sy);
   const float big_top = baseline - static_cast<float>(TTF_GetFontAscent(big));
   // Twice at most: a full atlas is cleared once and the line placed from the start.
   for (int attempt = 0; attempt < 2; ++attempt) {
@@ -222,7 +224,7 @@ bool TextRaster::layout(const FontKey& f, const std::string& utf8, float pen_x, 
         continue;
       }
       if (g->aw == 0) continue;  // no ink
-      q.push_back({pen[i] * sx + static_cast<float>(g->ox), big_top + static_cast<float>(g->oy), static_cast<float>(g->aw),
+      q.push_back({std::round(pen[i] * sx) + static_cast<float>(g->ox), big_top + static_cast<float>(g->oy), static_cast<float>(g->aw),
                    static_cast<float>(g->ah), g->ax, g->ay, g->aw, g->ah});
     }
     if (failed) return false;

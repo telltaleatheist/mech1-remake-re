@@ -32,6 +32,7 @@
 #include <vector>
 
 #include "platform/hires_2d.h"
+#include "platform/menu_pointer.h"
 #include "gamez/zutil/zutl_path.h"
 #include "mw1_game.h"
 #include "mw1_missions.h"
@@ -247,6 +248,9 @@ int main(int argc, char** argv) {
   const char* hires = std::getenv("MW1_HIRES");
   platform::set_hires_2d(!(hires && std::strcmp(hires, "0") == 0));
   std::printf("mw1: high-resolution 2D %s\n", platform::hires_2d() ? "on" : "off (MW1_HIRES=0)");
+  // FIXES.md item 30 (Owen): the menus leave the mouse free fullscreen too (to a second screen), as MW3's do in a
+  // window; a mission holds it.
+  platform::set_menus_free_pointer(true);
   // The rest is PM's game main, on its own write dir and PM install.
   std::vector<std::string> args = mw1::game_args(argv[0], a, use);
   std::vector<char*> raw;
