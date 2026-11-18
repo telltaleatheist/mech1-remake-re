@@ -83,7 +83,7 @@ void HubOptionsState::show(const std::string& scenery, const std::string& planet
   ScreenView s;
   s.backdrop = scenery;
   s.blocks = {at_place("TITLE", {"OPTIONS"}), at_place("STATUS_WORLD", {planet}),
-              at_place("STATUS", {"SETTINGS: the game's options. MAIN MENU: the campaign is saved."})};
+              at_place("STATUS", {"SETTINGS: the game's options. MAIN MENU: saves and leaves."})};
   s.buttons.resize(kHubOptionsButtonCount);
   Mw1State::show(s);
 }

@@ -38,6 +38,7 @@
 #include "mech3/lab_screen.h"
 #include "mech3/menu_widgets.h"
 #include "gamez/zimage/zimg_texture.h"
+#include "mw1_lab_fit.h"
 #include "mw1_mech_icons.h"
 #include "mech3/mech_config.h"
 #include "mech3/mech_control.h"
@@ -2527,6 +2528,7 @@ TEST(mw1_soak_twenty_contracts_through_the_hub_headless) {
     bool in_mission = false, win = false, stranded_once = false;
     size_t lance_max = 0, hangar_max = 0;
     const void* last_state = nullptr;
+    std::set<size_t> status_long;  // FIXES 3+5's sweep: the lengths of status texts past the 4:3 room
     std::string first_bad;
     auto bad = [&](int& n, const std::string& why) {
       if (!n++ && first_bad.empty()) first_bad = why;
@@ -2560,6 +2562,15 @@ TEST(mw1_soak_twenty_contracts_through_the_hub_headless) {
       if (++wait < 5) return false;
       wait = 0;
       mw1::Company* c = mw1::game_loop_company_for_tests();
+      // Each shown screen's status line (its band, 448 down, past the planet's name) within its letters.
+      for (mw1::Mw1Screen* sc : {showing(app, mw1::game_loop_market()) ? mw1::game_loop_market()->screen() : nullptr,
+                                 showing(app, mw1::game_loop_bar()) ? mw1::game_loop_bar()->screen() : nullptr,
+                                 showing(app, mw1::game_loop_office()) ? mw1::game_loop_office()->screen() : nullptr,
+                                 showing(app, mw1::game_loop_travel()) ? mw1::game_loop_travel()->screen() : nullptr,
+                                 static_cast<mw1::Mw1Screen*>(showing(app, mw1::game_loop_hub()) ? mw1::game_loop_hub()->screen() : nullptr)})
+        if (sc)
+          for (const mw1::FitText& t : mw1::fit_texts(*sc, 0, 0, {}))
+            if (t.top >= 448 && t.left >= 100 && t.text.size() > mw1::chrome::kStatusLetters) status_long.insert(t.text.size());
       if (mw1::EventState* ev = mw1::game_loop_event(); showing(app, ev)) {
         ++events;
         mw1::Mw1Screen* sc = ev->screen();
@@ -2697,6 +2708,8 @@ TEST(mw1_soak_twenty_contracts_through_the_hub_headless) {
                 bad_guard, stuck, first_bad.empty() ? "" : "; first: ", first_bad.c_str());
     EXPECT(settled == 20 && won > 0 && lost > 0);
     EXPECT(!bad_funds && !bad_save && !bad_live && !bad_lance && !bad_guard && !stuck);
+    for (size_t n : status_long) std::printf("  a status line of %zu letters (the room: %zu)\n", n, mw1::chrome::kStatusLetters);
+    EXPECT(status_long.empty());
   });
 }
 

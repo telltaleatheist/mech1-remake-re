@@ -88,6 +88,9 @@ if(TARGET mw3pm)
     # The lab's text fit (FIXES.md item 17): every lab text inside its panel, its four pages and load box, both shapes.
     add_test(NAME mw1labfit COMMAND ${CMAKE_COMMAND} -DMW1_BIN=$<TARGET_FILE:mw1> -DDIR=${CMAKE_CURRENT_BINARY_DIR}/mw1labfit
                                     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/lab_fit.cmake)
+    # MW1's own screens' text fit (FIXES.md items 3 and 5): every text inside the canvas, both shapes.
+    add_test(NAME mw1screenfit COMMAND ${CMAKE_COMMAND} -DMW1_BIN=$<TARGET_FILE:mw1> -DDIR=${CMAKE_CURRENT_BINARY_DIR}/mw1screenfit
+                                       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/screen_fit.cmake)
   endif()
   if(WIN32)
     # The version resource's numbers, MW1's own (the engine's are in its own scope): git's describe and commit count.

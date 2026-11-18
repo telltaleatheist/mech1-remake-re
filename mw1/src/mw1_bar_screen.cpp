@@ -68,11 +68,11 @@ ScreenView bar_view(const Company& c, const BarChoice& b, bool story) {
   ScreenView v;
   const bool menu = b.page == BarPage::kMenu, recruits = b.page == BarPage::kRecruits, lance = b.page == BarPage::kLance;
   std::string status = b.note;
-  if (status.empty() && c.wage_warned) status = "Last month's wages are unpaid: short again and the lance leaves.";
+  if (status.empty() && c.wage_warned) status = "Wages unpaid last month: short again and the lance leaves.";
   if (status.empty())
     status = menu ? "Order a drink, read the news, or see who's looking for work."
              : recruits ? "HIRE takes them on at their wage; DECLINE sends them away."
-                        : "ASSIGN gives the chosen lancemate the next free mech in the hangar.";
+                        : "ASSIGN gives the chosen lancemate the next free mech.";
   if (b.company) v.backdrop = kCompanyBackdrop;
   v.blocks = {at_place("PLANET", {upper(c.planet)}),
               at_place("HOUSE", {"HOUSE " + upper(kHouses[c.planet_house].name) + (b.company ? " \xB7 THE COMPANY" : " \xB7 THE BAR")}),
