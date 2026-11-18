@@ -222,6 +222,13 @@ struct Run {
   int clicks = 0;
   std::vector<int32_t> ask_clicked;
   bool market_done = false;
+  // FIXES.md item 40, in the market's lab: every weapon ungrouped, then put in WEAPON GROUP 2 by the ungrouped list
+  // (LabWeaponList::select, as a click does), the last row each time (the loadout's order reversed). The weapons
+  // (id, firepoint) in the order chosen, as the grouping page then lists group 2, and the loadout's weapons before
+  // and after (its item order never changed).
+  int group_step = 0;
+  bool join_order = false;
+  std::vector<std::pair<int32_t, int32_t>> group_chosen, group_listed, weapons_before, weapons_after;
   // Travel (mw1_travel_screen.h) before the first ACCEPT: the nearest world with a House office, GO; the contract
   // then taken there.
   bool travel = false, travel_done = false;
@@ -459,6 +466,41 @@ void loop_run(Ending ending, Run* run = nullptr) {
           // The right arrow's middle (mw1_lab_pilot.h: the row kPilotFromRight from the 640 canvas's right edge).
           click_x = 640 - mw1::kPilotFromRight + mw1::kRightArrowX + mw1::chrome::kSideArrowW / 2;
           click_y = mw1::kPilotY + mw1::kArrowDy + mw1::chrome::kSideArrowH / 2, click_phase = 1;
+          return;
+        }
+        // Item 40: the grouping page; a group's weapons in the order the player put them there.
+        if (mech3::LabScreen* ls = engine.lab_screen(mech3::states().lab.lab_screen_); ls && run->group_step < 2) {
+          if (run->group_step++ == 0) {
+            ls->switch_page(4);
+            return;
+          }
+          const mech3::LabState& lab = mech3::states().lab;
+          const mech3::Handle cfg = engine.lab_slot_cfg(engine.lab_slot(lab.pilot_, lab.slot_));
+          auto weapon = [&](mech3::Handle h) {
+            const mech3::ConfigItem* it = engine.item_of(h);
+            return std::make_pair(it ? it->id() : -1, it ? it->part : -1);
+          };
+          auto weapons = [&] {
+            std::vector<std::pair<int32_t, int32_t>> out;
+            for (mech3::Handle h : engine.lab_config_items(cfg))
+              if (engine.lab_item_kind(h) == 1) out.push_back(weapon(h));
+            return out;
+          };
+          run->weapons_before = weapons();
+          run->join_order = ls->ungrouped.join_order;
+          for (mech3::Handle h : engine.lab_config_items(cfg))
+            if (engine.lab_item_kind(h) == 1) engine.lab_set_item_group(h, -1);
+          ls->refresh_groups();
+          ls->grouped.select_group(1);
+          while (ls->ungrouped.item_count() > 0) {
+            const int32_t last = ls->ungrouped.item_count() - 1;
+            run->group_chosen.push_back(weapon(ls->ungrouped.weapon_at(last)));
+            ls->ungrouped.select(last);
+          }
+          for (int32_t i = 0, g = -1; i < ls->grouped.item_count(); ++i)
+            if (ls->grouped.group_of(i) != -1) g = ls->grouped.group_of(i);
+            else if (g == 1) run->group_listed.push_back(weapon(ls->grouped.weapon_at(i)));
+          run->weapons_after = weapons();
           return;
         }
         // Item 26: the empty weapons page asked for: the chassis page in its place; the first slot's icon amber.
@@ -1650,6 +1692,36 @@ TEST(mw1_loop_market_buy_sell_pilot_then_a_contract_in_the_bought_mech_headless)
            run.market_sold_for == mw1::sell_price(mw1::kPmFirefly, saved.tier));
     EXPECT(run.briefing_mech == mw1::kPmFirefly && saved.mech == mw1::kPmFirefly && saved.hangar.size() == 1 &&
            saved.hangar[0].mech == mw1::kPmOwens);
+    // FIXES.md item 40: the group's order as chosen, listed so, and read back so from the save (a mission later);
+    // the loadout's weapons in their own order throughout (which they are added to the mech in, the criticals
+    // listed in). Read back and written again, the same text.
+    auto pairs = [](const std::vector<std::pair<int32_t, int32_t>>& v) {
+      std::string o;
+      for (const auto& [id, part] : v) o += " " + std::to_string(id) + "@" + std::to_string(part);
+      return o;
+    };
+    std::vector<std::pair<int32_t, int32_t>> read_back, saved_weapons;
+    if (saved.loadout) {
+      std::vector<const mech3::ConfigItem*> in;
+      for (const mech3::ConfigItem* it : saved.loadout->items)
+        if (it->kind() == 1) {
+          saved_weapons.push_back({it->id(), it->part});
+          if (it->group == 1) in.push_back(it);
+        }
+      std::stable_sort(in.begin(), in.end(), [](const mech3::ConfigItem* a, const mech3::ConfigItem* b) { return a->join < b->join; });
+      for (const mech3::ConfigItem* it : in) read_back.push_back({it->id(), it->part});
+    }
+    std::printf("  groups: join order %d; loadout%s; chosen%s; listed%s; saved, read back%s\n", run.join_order,
+                pairs(run.weapons_before).c_str(), pairs(run.group_chosen).c_str(), pairs(run.group_listed).c_str(), pairs(read_back).c_str());
+    EXPECT(run.join_order && run.group_chosen.size() >= 2 && run.group_chosen != run.weapons_before);
+    EXPECT(run.group_listed == run.group_chosen && read_back == run.group_chosen);
+    EXPECT(run.weapons_after == run.weapons_before && saved_weapons == run.weapons_before);
+    {
+      std::ifstream f(run.save, std::ios::binary);
+      std::ostringstream text;
+      text << f.rdbuf();
+      EXPECT(mw1::save_text(saved, has ? &k : nullptr) == text.str());
+    }
   });
 }
 
