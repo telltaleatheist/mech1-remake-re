@@ -39,6 +39,10 @@ class Mw1Button : public mech3::HelpButton {
   void on_left_up() override {
     if (!(mouse & ztwod::kPressed)) return;
     if (repeat_) {  // it acted on the press
+      // FIXES.md item 36: the press over. The window marks a press (kPressed) and calls on_press only while unmarked,
+      // and unmarks it only when the mouse leaves (PM's buttons act on the release and never needed it again): kept,
+      // a second click here did nothing until the mouse had been off it (the other arrow clicked).
+      mouse &= ~ztwod::kPressed;
       held_ = -1.0f;
       return;
     }
