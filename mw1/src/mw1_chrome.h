@@ -61,7 +61,7 @@ inline const std::vector<PanelSize>& panel_sizes() {
 }
 inline const std::vector<PanelSize>& terminal_sizes() {
   static const std::vector<PanelSize> k = {{232, 150}, {436, 300}, {637, 300}, {186, 328}, {377, 328}, {436, 172}, {637, 172},
-                                           {220, 22}};  // and the file popup's name
+                                           {220, 22}, {304, 168}};  // and the results screen's four  // and the file popup's name
   return k;
 }
 // A picture's frame (a portrait's, a mech's): mw1_frame_<w>x<h> and its lit look (_lit, the chosen one's), its

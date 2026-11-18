@@ -16,6 +16,8 @@ WINDOWS_FONTS (
   ; The title screen's name and the line under it.
   "mw1_title" (face "Saira Condensed ExtraBold" file "fonts\SairaCondensed-ExtraBold.ttf" height -54 tracking 5 shadow "true" color (240 242 244))
   "mw1_title_43" (face "Saira Condensed ExtraBold" file "fonts\SairaCondensed-ExtraBold.ttf" height -44 tracking 4 shadow "true" color (240 242 244))  ; 4:3's, clear of the mech
+  ; The results screen's outcome (VICTORY, DEFEAT, RETREAT) under its plaque, centred.
+  "mw1_outcome" (face "Saira Condensed ExtraBold" file "fonts\SairaCondensed-ExtraBold.ttf" height -24 tracking 6 align "center" shadow "true" color (255 176 64))
   "mw1_title_sub" (face "Saira Condensed Bold" file "fonts\SairaCondensed-Bold.ttf" height -22 tracking 4 shadow "true" color (255 176 64))
   ; A tile's or a button's words, lit and greyed.
   "mw1_label" (face "Saira Condensed Bold" file "fonts\SairaCondensed-Bold.ttf" height -15 tracking 2 align "center" color (217 221 224))

@@ -67,6 +67,14 @@ const AfterAction* game_loop_pending();
 // its buttons (mw1_hub.h's HubButton), as the screen's own.
 HubState* game_loop_hub();
 HubOptionsState* game_loop_hub_options();  // the hub's OPTIONS state once made (tests)
+// The results screen's state once made (FIXES.md item 19; tests: its screen shows what the player sees), and the last
+// panel it showed.
+namespace results {
+class ResultsState;
+struct ResultsPanel;
+}
+results::ResultsState* game_loop_results();
+const results::ResultsPanel* game_loop_results_shown();
 namespace market_ui {
 class MarketState;
 }

@@ -157,6 +157,9 @@ TEST(mw1_save_pending_after_action) {
   p.salvage->add_ammo(0x17, 40);
   p.launch_stores = std::make_shared<mech3::Store>();
   p.launch_stores->assign(*c.stores);
+  // Version 9's, for the results screen (FIXES.md item 19): the time, who disabled each wreck, the mech by location.
+  p.seconds = 725, p.killers = {0, -1};
+  p.armor_left = {100, 40, 0, 75, 100, -1}, p.structure_left = {100, 90, 20, 100, 100, -1};
   const std::string text = mw1::save_text(c, &k, &p);
   EXPECT(text.find("\npending=1\n") != std::string::npos && text.find("\noffer_accepted=1\n") != std::string::npos);
   mw1::Company back;
@@ -169,7 +172,29 @@ TEST(mw1_save_pending_after_action) {
   EXPECT(has && has_pending && kb.accepted && kb.remaining == 3 && pb.outcome == mw1::Outcome::kFailure);
   EXPECT(pb.wrecks.size() == 2 && pb.wrecks[1].kind == 3 && pb.salvage && pb.salvage->count() == 1);
   EXPECT(pb.launch_stores && pb.launch_stores->count() == c.stores->count() && !pb.launch_loadout);
+  EXPECT(pb.seconds == 725 && pb.killers == p.killers && pb.armor_left == p.armor_left && pb.structure_left == p.structure_left);
   EXPECT(mw1::save_text(back, &kb, &pb) == text);
+  // Before version 9 (the lines absent): unknown, the screen says so. A killer past the wrecks: refused.
+  {
+    auto without = [](std::string t, const std::string& key) {
+      const size_t at = t.find("\n" + key + "=");
+      if (at != std::string::npos) t.erase(at + 1, t.find('\n', at + 1) - at);
+      const size_t ck = t.find("check=");
+      char check[32];
+      uint32_t h = 2166136261u;
+      for (unsigned char ch : t.substr(0, ck)) h = (h ^ ch) * 16777619u;
+      std::snprintf(check, sizeof check, "check=%08x\n", h);
+      return t.substr(0, ck) + check;
+    };
+    std::string old = without(without(without(text, "pending_seconds"), "pending_killers"), "pending_mech");
+    mw1::AfterAction po;
+    EXPECT(mw1::load_text(old, back, kb, &has, &why, &po, &has_pending) && has_pending);
+    EXPECT(po.seconds == -1 && po.killers.empty() && po.armor_left.empty() && po.structure_left.empty());
+    mw1::AfterAction pk = p;
+    pk.killers = {0, 1, 2};
+    EXPECT(!mw1::load_text(mw1::save_text(c, &k, &pk), back, kb, &has, &why, &po, &has_pending));
+    std::printf("  three killers for two wrecks: %s\n", why.c_str());
+  }
   // Not accepted: refused.
   {
     mw1::Contract open = k;

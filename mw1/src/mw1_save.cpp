@@ -175,6 +175,12 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
     for (size_t i = 0; i < p.lance.size(); ++i) o << (i ? "," : "") << p.lance[i].id << ":" << (p.lance[i].destroyed ? 1 : 0);
     o << "\npending_stayed=";
     for (size_t i = 0; i < p.stayed.size(); ++i) o << (i ? "," : "") << p.stayed[i];
+    o << "\npending_seconds=" << p.seconds << "\npending_killers=";
+    for (size_t i = 0; i < p.killers.size(); ++i) o << (i ? "," : "") << p.killers[i];
+    o << "\npending_mech=";
+    if (p.armor_left.size() == kMechLocations && p.structure_left.size() == kMechLocations)
+      for (size_t i = 0; i < p.armor_left.size() * 2; ++i)
+        o << (i ? ":" : "") << (i < p.armor_left.size() ? p.armor_left[i] : p.structure_left[i - p.armor_left.size()]);
     o << "\npending_salvage=" << (p.salvage ? hex(bytes_of([&](std::FILE* f) { p.salvage->save(f); })) : std::string()) << "\n";
     o << "pending_launch_stores="
       << (p.launch_stores ? hex(bytes_of([&](std::FILE* f) { p.launch_stores->save(f); })) : std::string()) << "\n";
@@ -492,6 +498,29 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
         int64_t id = 0;
         if (!to_int(f, 1, kPilotIds - 1, &id)) return fail("the pending mission's stayed-behind don't read");
         p.stayed.push_back(static_cast<int32_t>(id));
+      }
+    }
+    // Version 9's results (absent before: unknown).
+    if (v.count("pending_seconds")) {
+      int64_t sec = 0;
+      if (!num("pending_seconds", -1, 1 << 24, &sec)) return fail("the pending mission's time is wrong");
+      p.seconds = static_cast<int32_t>(sec);
+    }
+    {
+      std::istringstream ks(v.count("pending_killers") ? v["pending_killers"] : std::string());
+      std::string f;
+      while (std::getline(ks, f, ',')) {
+        int64_t id = 0;
+        if (!to_int(f, -1, kPilotIds - 1, &id)) return fail("the pending mission's killers don't read");
+        p.killers.push_back(static_cast<int32_t>(id));
+      }
+      if (p.killers.size() > p.wrecks.size()) return fail("the pending mission's killers don't match its wrecks");
+      std::vector<std::pair<int64_t, int64_t>> range(2 * kMechLocations, {-1, 100});
+      std::vector<int64_t> m;
+      if (v.count("pending_mech") && !v["pending_mech"].empty()) {
+        if (!fields(v["pending_mech"], range, &m)) return fail("the pending mission's mech doesn't read");
+        for (size_t i = 0; i < kMechLocations; ++i)
+          p.armor_left.push_back(static_cast<int32_t>(m[i])), p.structure_left.push_back(static_cast<int32_t>(m[i + kMechLocations]));
       }
     }
     if (!store_line("pending_salvage", true, &p.salvage) || !store_line("pending_launch_stores", false, &p.launch_stores) ||

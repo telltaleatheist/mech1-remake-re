@@ -29,6 +29,10 @@
 //                      story_news (the news announced, by record). Before
 //                      8: the story planets rolled at the load (all six),
 //                      nothing seen.
+//                      9 the results screen's (FIXES.md item 19):
+//                      pending_seconds, pending_killers (by wreck),
+//                      pending_mech (armour then structure left by
+//                      location, percent); absent: unknown.
 //                      Versions 1 to 4 still read (before 5: the world's
 //                      premium without its roll, a wreck's damage from its
 //                      condition, no bills);
@@ -49,7 +53,7 @@
 
 namespace mw1 {
 
-inline constexpr int32_t kSaveVersion = 8;
+inline constexpr int32_t kSaveVersion = 9;
 inline constexpr const char* kSaveFile = "mw1save.txt";
 inline constexpr const char* kPrevSaveFile = "mw1save.prev";  // the company NEW CAMPAIGN replaced, kept beside it
 
