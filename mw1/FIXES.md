@@ -128,6 +128,7 @@ Tick an item when it is merged into `main`.
   - Rebuild it as MW1's Mech Complex flow, which is item 8's: the root menu, OWNED MECHS, the mech's status screen (REPAIR / REPAIR ALL / RELOAD / SELL / MECH LAB / DONE), and the purchase list.
 
 ## 14. [ ] Mech pictures rendered from the game's own models
+- **Owen's pick (2026-11-17, from `outbox/2026-11-17/mech-renders/`):** the amber-toned grade, front view.
 - **Owen (2026-11-17):** "Is there any way we could take the mech vertices and create a snapshot of them from the front to use as the images instead of the AI-generated images? The AI-generated images aren't very accurate."
 - **Wanted:**
   - Every picture of a specific mech (market rows, the Mech Complex, the crew grid, the hangar tile if it shows one mech, briefing enemies) is a render of that mech's own model by our engine. The renderer is the one the mech lab draws its mech with.
