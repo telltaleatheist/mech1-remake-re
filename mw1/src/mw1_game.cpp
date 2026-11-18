@@ -351,6 +351,11 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         press(kHubOffice), press_office(kOfficeRequest), press_office(kOfficeAccept);
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "hub_options") press(kHubOptions);
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "news") press(kHubBar), press_bar(kBarNews);
+      // bar_drink: ORDER DRINK at the Bar, its tip (or the quiet text) over the Bar (FIXES.md item 34);
+      // message_market, message_office: a message (the quiet text) over the Mech Complex, the office.
+      if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "bar_drink") press(kHubBar), press_bar(kBarDrink);
+      if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "message_market") press(kHubMarket), message_over(kClassMechComplex);
+      if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "message_office") press(kHubOffice), message_over(kClassOffice);
       // MW1_SCREEN=options, options_gfx, options_controls, options_upgrades: PM's options pages on MW1's layouts.
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s).rfind("options", 0) == 0) {
         const std::string page = s;
@@ -519,7 +524,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     bar_ = 0, bar_state_ = nullptr;
     office_ = 0, office_state_ = nullptr;
     hub_options_ = 0, hub_options_state_ = nullptr;
-    event_ = 0, event_state_ = nullptr, event_up_ = false;
+    for (int32_t i = 0; i < kSides; ++i) events_[i] = 0, event_states_[i] = nullptr;
+    event_state_ = nullptr, event_up_ = false;
     results_ = 0, results_state_ = nullptr, results_up_ = false;
     if (!layout_there(kHubFile, kHubDialog)) {
       std::printf("mw1: no hub layout (%s in MW1's data): the message boxes\n", kHubFile);
@@ -1390,14 +1396,55 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
 
   // ---- the story's events (mw1_story.h, mw1_event_screen.h) ----
 
-  bool event_screen(mech3::GameEngine& ge) {
-    if (event_ && ge.menu_state_of(event_) == event_state_) return true;
-    if (!layout_there(kEventFile, kEventDialog)) {
-      std::printf("mw1: no event layout (%s in MW1's data): no story\n", kEventFile);
+  // The panel's state for a side (Side), made once; false when its layout is not there.
+  bool event_screen(mech3::GameEngine& ge, Side side) {
+    const auto i = static_cast<size_t>(side);
+    if (events_[i] && ge.menu_state_of(events_[i]) == event_states_[i]) return true;
+    if (!layout_there(kEventFile, event_dialog(side))) {
+      std::printf("mw1: no event layout (%s %s in MW1's data): no story\n", kEventFile, event_dialog(side));
       return false;
     }
-    event_ = ge.adopt_state([this](zgame::Handle h) { return event_state_ = new EventState(h, [this](int32_t id) { press_event(id); }); });
-    return event_ != 0;
+    events_[i] = ge.adopt_state([this, side, i](zgame::Handle h) {
+      return event_states_[i] = new EventState(h, side, [this](int32_t id) { press_event(id); });
+    });
+    return events_[i] != 0;
+  }
+
+  // The panel up on ev_panel_.side's state (pushed, or the other side's swapped for it); false when it can't be.
+  bool raise_event(mech3::GameEngine& ge) {
+    const Side side = ev_panel_.side;
+    if (event_up_ && event_side_ == side) return true;
+    if (!event_screen(ge, side)) return false;
+    if (event_up_) ge.pop_state(1);
+    ge.push_state(events_[static_cast<size_t>(side)], 0);
+    event_state_ = event_states_[static_cast<size_t>(side)], event_side_ = side, event_up_ = true;
+    return true;
+  }
+
+  // For the shots (MW1_SCREEN=message_*): the quiet text as a class's message over its screen; OK ends it.
+  void message_over(int32_t cls) {
+    if (!ge_ || !story_running() || event_up_) return;
+    ev_ = start(cls);
+    ev_.done = true;
+    ev_shown_ = Shown{};
+    ev_panel_ = EventPanel{};
+    ev_panel_.planet = upper(company_.planet), ev_panel_.place = place_words(cls);
+    place_over(cls, ev_panel_);
+    ev_panel_.pages = text_pages(kEventQuiet);
+    if (ev_panel_.pages.empty()) ev_panel_.pages.push_back({});
+    if (raise_event(*ge_)) show_event();
+  }
+
+  // The screen a class's messages fire over (FIXES.md item 34): its picture behind the panel and its free side.
+  void place_over(int32_t cls, EventPanel& p) const {
+    switch (cls) {
+      case kClassBarEntry:
+      case kClassBarDrink:
+      case kClassNews: p.scene = kBarScene, p.side = kBarSide; return;
+      case kClassMechComplex: p.scene = kMarketScene, p.side = kMarketSide; return;
+      case kClassOffice: p.scene = kOfficeScene, p.side = kOfficeSide; return;
+      default: p.scene = scenery_image(company_.planet_number), p.side = kHubSide; return;  // the hub's
+    }
   }
 
   bool story_running() const { return story_on_ && script().there() && company_.stores && ge_; }
@@ -1433,8 +1480,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     ev_panel_ = EventPanel{};
     ev_panel_.planet = upper(company_.planet);
     ev_panel_.place = place_words(ev_.cls);
-    ev_panel_.scene = event_art(s.event);
-    if (ev_panel_.scene.empty()) ev_panel_.scene = scenery_image(company_.planet_number);  // the world's own
+    ev_panel_.scene = event_art(s.event);  // its own art: a full page, the art dimmed behind
+    if (ev_panel_.scene.empty()) place_over(ev_.cls, ev_panel_);  // else over its screen's picture, in its free side
     ev_panel_.pages = shown_pages(company_, s);
     if (ev_panel_.pages.empty()) ev_panel_.pages.push_back({});
     if (s.restart) {
@@ -1445,11 +1492,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       ev_panel_.captions = s.captions;
       if (s.event == kEventDarkWingAttack) ev_panel_.live = {kDarkWingBattle, true};  // ATTACK waits for its battle (Q5)
     }
-    if (!event_up_) {
-      if (!event_screen(*ge)) return events_done();
-      ge->push_state(event_, 0);
-      event_up_ = true;
-    }
+    if (!raise_event(*ge)) return events_done();
     show_event();
   }
 
@@ -1462,7 +1505,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     mech3::GameEngine* ge = ge_;
     const bool was_up = event_up_;
     if (event_up_ && ge) ge->pop_state(1);
-    event_up_ = false, news_.clear();
+    event_up_ = false, event_state_ = nullptr, news_.clear();
     if (ev_.cls == kClassArrival) company_.story.arrived = false;  // MW1 clears it after the hub's events
     if (!was_up) return;
     save();
@@ -1514,18 +1557,17 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   // their pages, BACK to the Bar. None: a line saying so.
   void open_news() {
     mech3::GameEngine* ge = ge_;
-    if (!ge || !event_screen(*ge)) return;
+    if (!ge) return;
     news_ = live_news(company_, rng_);
     ev_ = start(kClassNews);
     ev_.done = true;
     std::printf("mw1: story: the news, %zu stories\n", news_.size());
     ev_panel_ = EventPanel{};
     ev_panel_.planet = upper(company_.planet), ev_panel_.place = place_words(kClassNews), ev_panel_.news = true;
-    ev_panel_.scene = scenery_image(company_.planet_number);
+    place_over(kClassNews, ev_panel_);  // the Bar's
     ev_panel_.stories = static_cast<int32_t>(news_.size());
     news_story(0, false);
-    ge->push_state(event_, 0);
-    event_up_ = true;
+    if (!raise_event(*ge)) return;
     show_event();
   }
 
@@ -2388,7 +2430,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     Mw1Screen* sc = p == "results"     ? on(game_loop_results())
                     : p == "loading"     ? (app->current() == &mech3::states().load ? loading_.get() : nullptr)
                     : p == "hub_options" ? on(game_loop_hub_options())
-                    : p == "news" || (p.rfind("hub", 0) == 0 && on(game_loop_event())) ? on(game_loop_event())
+                    : p == "news" || p == "bar_drink" || p == "event" || (p.rfind("hub", 0) == 0 && on(game_loop_event()))
+                        ? on(game_loop_event())
                     : p.rfind("hub", 0) == 0                ? on(game_loop_hub())
                     : p.rfind("market", 0) == 0             ? on(game_loop_market())
                     : p.rfind("travel", 0) == 0             ? on(game_loop_travel())
@@ -2614,8 +2657,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   bool fresh_ = false;     // --new-company: a new company over the save
   // The story's events (mw1_story.h) on the event panel (mw1_event_screen.h), over the screen they fire on.
   bool story_on_ = true;   // set_game_loop_story's (the tests that aren't about it: off)
-  zgame::Handle event_ = 0;
-  EventState* event_state_ = nullptr;
+  zgame::Handle events_[kSides] = {};       // by Side
+  EventState* event_states_[kSides] = {};
+  EventState* event_state_ = nullptr;  // the one up
+  Side event_side_ = Side::kFull;
   bool event_up_ = false;  // the panel pushed
   zgame::Handle results_ = 0;
   ResultsState* results_state_ = nullptr;

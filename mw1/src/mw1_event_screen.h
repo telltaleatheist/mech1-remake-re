@@ -1,9 +1,11 @@
 #pragma once
 // MW1's event panel (mw1_story.h's events) on MW1's screen template (mw1_screen.h), its layout mw1event.zrd in MW1's
-// data folder: a full screen of its own (FIXES.md item 10), the event's scene dimmed behind it, the world and the
-// place on the plaque, the event's text page by page on the green terminal; a choice's captions on MW1's buttons
-// (MW1's words, from the player's exe); NEXT for the next page or OK. The Bar's NEWS shows the news live now on it,
-// story by story, with PREV, NEXT and BACK.
+// data folder: the world and the place on the plaque, the event's text page by page on the green terminal; a
+// choice's captions on MW1's buttons (MW1's words, from the player's exe); NEXT for the next page or OK. The Bar's
+// NEWS shows the news live now on it, story by story, with PREV, NEXT and BACK.
+// Where (FIXES.md item 34, Owen: as MW1's): over the screen it fires on, that screen's own picture behind it,
+// undimmed, the panel in the screen's free side (Side); an event with its own art (event_art) a full page of its own
+// (FIXES.md item 10), that art dimmed behind it.
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -18,6 +20,25 @@ namespace mw1::event_ui {
 inline constexpr const char* kEventFile = "mw1event.zrd";
 inline constexpr const char* kEventDialog = "MW1EVENTDIALOG";
 
+// Where the panel sits: a full page (kFull, kEventDialog), or in a screen's free side over its picture
+// (kEventLeftDialog, kEventRightDialog).
+enum class Side : int32_t { kFull, kLeft, kRight };
+inline constexpr int32_t kSides = 3;
+inline constexpr const char* kEventLeftDialog = "MW1EVENTLEFT";
+inline constexpr const char* kEventRightDialog = "MW1EVENTRIGHT";
+const char* event_dialog(Side s);
+
+// The screens a message fires over: each one's picture (its layout's BACKGROUND; the hub's is the world's scenery,
+// scenery_image) and its free side, where the picture has nothing that matters (the Bar's window, left of the
+// bartender, Owen's).
+inline constexpr Side kHubSide = Side::kRight;     // the scenery's buildings; its mech left of the middle
+inline constexpr Side kBarSide = Side::kLeft;      // the window, the bartender right of it
+inline constexpr Side kMarketSide = Side::kLeft;   // the hangar's wall, the mech right of the middle
+inline constexpr Side kOfficeSide = Side::kRight;
+inline constexpr const char* kBarScene = "mw1_bar_scene";
+inline constexpr const char* kMarketScene = "mw1_mechcomplex_hangar";
+inline constexpr const char* kOfficeScene = "mw1_office_liaison";
+
 enum EventButton : int32_t { kEventChoice1 = 1, kEventChoice2, kEventChoice3, kEventNext, kEventPrev, kEventBack };
 inline constexpr int32_t kEventButtonCount = 6;
 const char* event_button_name(int32_t id);
@@ -26,7 +47,8 @@ const char* event_button_name(int32_t id);
 // greyed), and for the news which story of how many.
 struct EventPanel {
   std::string planet, place;
-  std::string scene;  // the backdrop: the event's art, else the world's scenery (mw1image.zbd names)
+  std::string scene;  // the backdrop: the event's art, else the picture of the screen it fires over (mw1image.zbd names)
+  Side side = Side::kFull;
   std::vector<Page> pages;
   size_t page = 0;
   std::vector<std::string> captions;
@@ -49,7 +71,11 @@ std::string event_art(int32_t event);
 // news: BACK).
 class EventState : public Mw1State {
  public:
-  EventState(zgame::Handle h, std::function<void(int32_t)> pressed);
+  EventState(zgame::Handle h, Side side, std::function<void(int32_t)> pressed);
+  Side side() const { return side_; }
+
+ private:
+  Side side_;
 };
 
 }  // namespace mw1::event_ui
