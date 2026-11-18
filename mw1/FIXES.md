@@ -542,6 +542,21 @@ Tick an item when it is merged into `main`.
   - shots of the journal, the map marker and a step battle's offer;
   - the ladder in one table.
 
+## 48. [ ] Lift the 10-'Mech limit in a battle (MW1's line-up)
+- **Owen (2026-11-18):** there's no reason to keep a battle capped at 10 'Mechs. We may not want many more in play, but the cap shouldn't be the engine's.
+- **Today:**
+  - PM's ActionGame line-up holds 10 (lineup[10], add() refuses past 9; pilot_games.cpp:1012), the player included.
+  - The IA maps have 8 enemy records each.
+  - So a full lance (4) meets at most 6 to 7 enemies, and the Dark Wing loses an escort (dev 1's (b)).
+- **Wanted (engine, ours, opt-in for MW1; MW3 and PM untouched):**
+  - the line-up's size raised to 16 for MW1, every offset use of PM's struct checked first;
+  - more enemy places than a map's 8 records: a spawn spread beside the existing records (clear ground, not inside each other), the same way 44's authored map lays its own;
+  - the Dark Wing back to 8 against a full lance.
+- **Done means:**
+  - a headless battle with 4 friends against 12;
+  - frame time measured at 1080p with 16 'Mechs;
+  - MW3's and PM's own IA unchanged (their suites).
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.
