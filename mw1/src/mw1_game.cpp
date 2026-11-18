@@ -20,6 +20,10 @@
 #include "mech3/briefing.h"
 #include "mech3/lab_screen.h"
 #include "mech3/lab_filebox.h"
+#include "mech3/lab_view.h"
+#include "mech3/options.h"
+#include "gamez/zclass/object3d.h"
+#include "gamez/zclass/window.h"
 #include "mech3/menu_widgets.h"
 #include "mech3/app_engine.h"
 #include "mech3/app_mech.h"
@@ -1838,6 +1842,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       if (mech3::BriefingScreen* b = mech3::briefing_screen(); b && b->loaded && frames == 20)
         b->on_button(page.rfind("lab", 0) == 0 ? mech3::BriefingScreen::kBtnMechLab : mech3::BriefingScreen::kBtnLaunch, 0, 0);
     if (page == "lab_fit") return lab_fit_frame(*ge);
+    if (page == "lab_render") return lab_render_frame(*ge, now);
     // lab_<page> (1 weapons, 3 criticals, 4 groups; lab_3e and lab_3a its supply tabs) or lab_files (the load box).
     if (now == &mech3::states().lab && frames == 20 && page != "lab") {
       static bool once = false;
@@ -1851,6 +1856,40 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (now == &mech3::states().core && frames == 90) app->push(app->state(3), 0);
     if (now == &mech3::states().pause && frames == 10 && page == "pause_options")
       if (auto* p = dynamic_cast<mech3::PauseScreen*>(ge->screen_of(mech3::states().pause.screen_))) p->on_button(mech3::PauseScreen::kOptions, 0, 0);
+  }
+
+  // MW1_SCREEN=lab_render (development, FIXES 14's test renders): the lab's 3D view grown to a square over the
+  // screen, showing MW1_RENDER_MECH (a PM name, any case; else the lab's own) held at MW1_RENDER_YAW degrees (0 the
+  // lab's start), the camera moved by MW1_RENDER_CAM ("x,y,z" added to the lab's).
+  void lab_render_frame(mech3::GameEngine& ge, zgame::State* now) {
+    if (now != &mech3::states().lab) return;
+    mech3::LabState& ls = mech3::states().lab;
+    static bool chosen = false, moved = false;
+    if (!chosen) {
+      chosen = true;
+      if (const char* n = std::getenv("MW1_RENDER_MECH"); n && mech3::mech_index(n) >= 0) ls.mech_ = mech3::mech_index(n);
+    }
+    if (!moved) {
+      moved = true;
+      if (const char* c = std::getenv("MW1_RENDER_CAM")) {
+        float d[3] = {};
+        if (std::sscanf(c, "%f,%f,%f", &d[0], &d[1], &d[2]) == 3)
+          for (int i = 0; i < 3; ++i) ls.cam_pos_[i] += d[i];
+      }
+    }
+    mech3::LabView* v = ge.lab_view();
+    zcls::Node* node = ls.model_ ? ge.lab_model_node(ls.model_) : nullptr;
+    if (!v || !node) return;
+    if (mech3::LabScreen* l = ge.lab_screen(ls.lab_screen_))  // the backdrop dark: the screen's 2D hidden
+      for (ztwod::Object2D* o = l->head; o; o = o->next)
+        if (!(o->flags & ztwod::kHidden)) o->hide();
+    if (mech3::LabScreen* l = ge.lab_screen(ls.lab_screen_)) l->set_cursor(nullptr);  // and the pointer off
+    const mech3::Rect& r = mech3::render();
+    const int32_t side = std::min(r.w, r.h);
+    zcls::window_set_size(v->window, side, side);
+    zcls::window_set_origin(v->window, r.x + (r.w - side) / 2, r.y + (r.h - side) / 2);
+    const char* y = std::getenv("MW1_RENDER_YAW");
+    zcls::object3d_set_rotation(node, 0.0f, (y ? std::strtof(y, nullptr) : 0.0f) * 0.017453292f, 0.0f);
   }
 
   // MW1_SCREEN=lab_fit (the lab's text guard, mw1_lab_fit.h): the lab's pages 0 (chassis), 1, 3 (each supply tab)
