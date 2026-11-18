@@ -125,3 +125,23 @@ Tick an item when it is merged into `main`.
   - Rebuild the screen in our look: the plaque title, framed terminal panels (the hub's COMPANY panel), and NEW/LOAD buttons down the left as in MW1.
   - Rebuild it as MW1's Mech Complex flow, which is item 8's: the root menu, OWNED MECHS, the mech's status screen (REPAIR / REPAIR ALL / RELOAD / SELL / MECH LAB / DONE), and the purchase list.
 
+## 14. [ ] Mech pictures rendered from the game's own models
+- **Owen (2026-11-17):** "Is there any way we could take the mech vertices and create a snapshot of them from the front to use as the images instead of the AI-generated images? The AI-generated images aren't very accurate."
+- **Wanted:**
+  - Every picture of a specific mech (market rows, the Mech Complex, the crew grid, the hangar tile if it shows one mech, briefing enemies) is a render of that mech's own model by our engine. The renderer is the one the mech lab draws its mech with.
+  - The camera is from the front (a slight three-quarter if it reads better), on a dark backdrop, in MW1's grade.
+- **Constraint:**
+  - The models are MW3's and PM's, from the player's install, so the renders can't go in the public repo. Make them at first run (or at build time from the install), like zipkit's conversions, into the write dir's cache.
+  - AI art stays for scenes only.
+- **Size:**
+  - One picture per chassis and per skin the market shows.
+  - Rendered at the item 12 resolution.
+
+## 15. [ ] A button's hover: the frame flashes once, the dot keeps blinking
+- **Owen:** "When I hover over the buttons, the border blinks yellow for a split second and then it goes off, but the dot next to it blinks yellow consistently. Is that intended?"
+- **Not intended.** It's PM's button states (a one-frame highlight, then the blinking lamp) showing through our chrome.
+- **Wanted:**
+  - On hover, the frame lights amber and stays lit while the pointer is on it. The dot is lit steadily, with no blinking.
+  - The same on keyboard focus.
+  - One rule for every MW1 button.
+
