@@ -240,10 +240,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // box); lab_3, lab_4 its pages (lab_1, empty, falls back to the chassis: item 26). MW1_SCREEN=results: the
     // mission won 600 frames in (every enemy the commander's, the left arm hit), by PM's Exit Mission: the results.
     if (const char* s = std::getenv("MW1_SCREEN");
-        s && (std::string(s).rfind("pause", 0) == 0 || std::string(s).rfind("lab", 0) == 0 || std::string(s) == "loading" ||
+        s && (std::string(s).rfind("pause", 0) == 0 || std::string(s).rfind("lab", 0) == 0 || std::string(s).rfind("loading", 0) == 0 ||
               std::string(s) == "results" || std::string(s).rfind("walk_", 0) == 0) &&
         !shot_driver_) {
-      hold_for_shot_ = std::string(s) == "loading";
+      hold_for_shot_ = std::string(s).rfind("loading", 0) == 0;
       shot_driver_ = true;
       auto before = ge.on_present;
       ge.on_present = [this, before, page = std::string(s)](int f) {
@@ -2004,8 +2004,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   }
 
   // The contract on offer, line by line (with the planet and the funds first for the message box, which has no plaque).
-  std::vector<std::string> offer_lines(bool with_company = false, bool with_terms = true) const {
-    const Contract& k = contract_;
+  std::vector<std::string> offer_lines(bool with_company = false, bool with_terms = true, const Contract* of = nullptr) const {
+    const Contract& k = of ? *of : contract_;
     // The enemy as the player meets it (FIXES.md item 20): MW1's count by weight class, then the Pirate's Moon mechs
     // that stand in for MW1's kinds, by name (MW1's own kind names stay in the logs).
     // The key facts highlighted (item 20's colour, mw1_screen.h): the employer, the target, the objective, the map,
@@ -2149,7 +2149,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   // The loading screen's facts: the battle's world (else the company's) and its scenery, the employer, the contract
   // as the office's offer said it (less what the plaque and the title say).
   LoadingPanel loading_panel() const {
-    const Contract& k = contract_;
+    const char* screen = std::getenv("MW1_SCREEN");
+    const Contract k = screen && std::string(screen) == "loading_long" ? longest_contract() : contract_;
     LoadingPanel p;
     const int32_t number = k.mission_planet >= 0 ? kPlanets[k.mission_planet].number : company_.planet_number;
     p.planet = upper(k.mission_planet >= 0 ? title_case_name(kPlanets[k.mission_planet].name) : company_.planet);
@@ -2158,7 +2159,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     const std::string title = mission_title(k.code);
     p.title = title.empty() ? "CONTRACT" : upper(title);
     const std::string title_line = title.empty() ? "" : title_case_name(title.c_str());
-    for (const std::string& l : offer_lines(false, false))
+    for (const std::string& l : offer_lines(false, false, &k))
       if (l.rfind("Employer: ", 0) != 0 && l != title_line) p.lines.push_back(l);
     // The main enemy beside the terminal: the heaviest kind's PM mech (the first of the heaviest), its render once
     // the first run has made them, else its amber icon (both the Company screen's 96x128 slot).
@@ -2170,6 +2171,33 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       p.enemy = renders_ready() ? render_image(pm, RenderUse::kSlot) : mech_icon_image(pm);
     }
     return p;
+  }
+
+  // MW1_SCREEN=loading_long (mw1screenfit's fixed case for the loading terminal, the lead 2026-11-18): the taken
+  // contract made the longest the terminal can be asked to say: the longest-named world, against the longest-named
+  // other House, one of every kind, on the table's row whose map or objective line is the longest.
+  Contract longest_contract() const {
+    Contract k = contract_;
+    for (int32_t i = 0; i < kPlanetCount; ++i)
+      if (k.mission_planet < 0 || std::strlen(kPlanets[i].name) > std::strlen(kPlanets[k.mission_planet].name))
+        k.mission_planet = i, k.climate = kPlanets[i].landscape;
+    k.target = kHouseCount;
+    for (int32_t h = 0; h < kHouseCount; ++h)
+      if (h != k.house && (k.target == kHouseCount || std::strlen(kHouses[h].name) > std::strlen(kHouses[k.target].name))) k.target = h;
+    k.enemies.clear();
+    for (int32_t e = 0; e < kKindCount; ++e) k.enemies.push_back(e);
+    size_t longest = 0;
+    Contract best = k;
+    for (const MapRow& r : map_table()) {
+      Contract t = k;
+      t.world = r.world, t.ia = r.ia, t.objective = objective_for(r.kind);
+      t.structure = r.kind == RowKind::kAny ? "" : r.node, t.structure_words = r.kind == RowKind::kAny ? "" : r.words;
+      for (const std::string& l : offer_lines(false, false, &t))  // the row's own lines (the rest are the same for each)
+        if ((l.rfind("Map: ", 0) == 0 || l.rfind("Objective: ", 0) == 0) && plain_line(l).size() > longest)
+          longest = plain_line(l).size(), best = t;
+    }
+    std::printf("mw1: loading_long: %s ia%d, its map or objective line %zu letters\n", best.world.c_str(), best.ia, longest);
+    return best;
   }
 
   // The launch: the lab's choices become the company's (the stores and the loadout, from the briefing's copy). The
@@ -2868,18 +2896,30 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     pending_accept_ = &l;
   }
 
+  // A fit check's end (screen_fit_frame, lab_fit_frame): the program quits as closing its window does. Never _Exit:
+  // stdout reaches the console and mw3.log through the run log's pipe and thread (sdlfe::RunLog), and an _Exit under
+  // load ended the program before the thread had passed the report on ("exit 0 with no report", FIXES 3+5's flake,
+  // the lead 2026-11-18); a quit lets the run log pass the last lines first. The report decides, not the exit (0).
+  static void end_fit_run() {
+    std::fflush(nullptr);
+    mech3::Mech3App* app = mech3::app_if_any();
+    if (app && app->message_pump()) app->message_pump()->post_quit();
+    else std::_Exit(0);
+  }
+
   // MW1_FIT=1 with MW1_SCREEN=<page> (FIXES 3+5's guard, tests/screen_fit.cmake): 40 frames into the MW1 screen the
   // page shows, each text of it inside the canvas (and clear of its arrows, mw1_lab_fit.h); printed by place and length
-  // (MW1's words never), then the program ends, 0 when every one is.
+  // (MW1's words never), then the program ends (end_fit_run).
   void screen_fit_frame() {
+    static bool reported = false;
     mech3::Mech3App* app = mech3::app_if_any();
     const char* page = std::getenv("MW1_SCREEN");
-    if (!ge_ || !app || !page) return;
+    if (reported || !ge_ || !app || !page) return;
     const std::string p = page;
     auto on = [&](auto* st) { return st && app->current() == static_cast<zgame::State*>(st) ? st->screen() : nullptr; };
     // A new company's hub opens on its story's first event, the news on the event panel: those count as the page's.
     Mw1Screen* sc = p == "results"     ? on(game_loop_results())
-                    : p == "loading"     ? (app->current() == &mech3::states().load ? loading_.get() : nullptr)
+                    : p.rfind("loading", 0) == 0 ? (app->current() == &mech3::states().load ? loading_.get() : nullptr)
                     : p == "hub_options" ? on(game_loop_hub_options())
                     : p == "news" || p == "bar_drink" || p == "event" || (p.rfind("hub", 0) == 0 && on(game_loop_event()))
                         ? on(game_loop_event())
@@ -2898,7 +2938,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // results' wide layout's from the left): the plaque, the picture's column, the status terminal (clear of the
     // list's arrows), the message's band (clear of the crest), the buttons; the loading terminal at the foot, LOADING in it (FIXES.md
     // item 42); the others inside the canvas.
-    const bool boxed = p == "results" || p == "loading";
+    const bool boxed = p == "results" || p.rfind("loading", 0) == 0;
     const bool wide_results = p == "results" && sc->wide();
     const std::vector<FitBox> boxes =
         wide_results ? std::vector<FitBox>{{12, 226, 260, 340, "column"},     {272, 12, 803, 336, "status"},
@@ -2907,7 +2947,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         : p == "results" ? std::vector<FitBox>{{12, 186, 212, 340, "column"},   {220, 12, 590, 336, "status"},
                                                {12, 344, 520, 440, "message"},  {52, 446, 220, 476, "replay"},
                                                {236, 446, 404, 476, "continue"}, {420, 446, 588, 476, "details"}}
-        : p == "loading" ? std::vector<FitBox>{{170, 16, 470, 76, "plaque"}, {48, 300, 476, 464, "terminal"}}
+        : p.rfind("loading", 0) == 0 ? std::vector<FitBox>{{170, 16, 470, 76, "plaque"}, {48, 300, 476, 464, "terminal"}}
                          : std::vector<FitBox>{{0, 0, w, h, "canvas"}};
     const std::vector<FitText> fits = fit_texts(*sc, boxed && !wide_results ? (w - 640) / 2 : 0, 0, boxes);
     for (const FitText& f : fits) {
@@ -2932,13 +2972,13 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       }
     std::printf("mw1 screen fit: done at %dx%d on %s, %d texts, %d outside, %d overlapping\n", w, h, page, texts, outside,
                 overlaps);
-    std::fflush(nullptr);
-    std::_Exit(outside || overlaps ? 1 : 0);
+    reported = true;
+    end_fit_run();
   }
 
   // MW1_SCREEN=lab_fit (the lab's text guard, mw1_lab_fit.h): the lab's pages 0 (chassis), 1, 3 (each supply tab)
   // and 4, then its load box, each 20 frames after it shows; each text printed with whether it fits its panel; then the program
-  // ends, 0 when every text fits.
+  // ends (end_fit_run).
   void lab_fit_frame(mech3::GameEngine& ge) {
     mech3::Mech3App* app = mech3::app_if_any();
     static int step = 0, wait = 0, texts = 0, outside = 0;
@@ -2957,10 +2997,11 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       box.answer(false);
       return;
     }
+    if (step == 101) return;  // reported: the quit on its way
     if (step == 100) {
       std::printf("mw1 lab fit: done at %dx%d, %d texts, %d outside\n", ge.buffer_width(), ge.buffer_height(), texts, outside);
-      std::fflush(nullptr);
-      std::_Exit(outside ? 1 : 0);
+      step = 101;
+      return end_fit_run();
     }
     if (!app || app->current() != &mech3::states().lab) return;
     mech3::LabScreen* l = ge.lab_screen(mech3::states().lab.lab_screen_);
@@ -3104,6 +3145,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   zgame::Handle menu_ = 0, intro_ = 0;
   MenuState* menu_state_ = nullptr;
   IntroState* intro_state_ = nullptr;
+  zgame::Handle credits_ = 0;
+  CreditsState* credits_state_ = nullptr;
+  bool credits_next_ = false;  // the victory's panel up: the credits when it's read
+  bool credits_up_ = false;
   Start start_ = Start::kMenu;
   mech3::GameEngine* hub_engine_ = nullptr;
   mech3::GameEngine* ge_ = nullptr;
