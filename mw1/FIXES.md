@@ -196,6 +196,7 @@ Tick an item when it is merged into `main`.
 
 ## 18. [ ] DEPLOY goes straight into the mission
 - **Owen (2026-11-17, `keep/mw1-remake/reference/owen-play-deploy-briefing.png`):** "When I hit deploy it takes me to this screen. This is a PM screen I believe, with the background removed. Instead, it should skip this page and just bring me to the game itself."
+- **Owen again (2026-11-17, `owen-play-deploy-briefing-2.png`):** "this page is still coming up too."
 - **The shot:** PM's briefing (BriefingScreen) with its backdrop missing. It shows PM's page icons, PM's LOADING lettering, a PM mech, and "MechWarrior 3 Pirate's Moon 1.0.11.5".
 - **Wanted:**
   - DEPLOY launches the mission directly. PM's briefing is never shown in MW1.
@@ -283,14 +284,40 @@ Tick an item when it is merged into `main`.
   - The repeating stops when the button is released or the pointer leaves it.
   - It's an opt-in flag on our framed button, used by the list scroll arrows too.
 
-## Order (open items, the lead's, 2026-11-17)
-1. 23: the Company screen's mech icons (PM's line-art chassis icons, in place of the AI pictures). Owen asked again.
-2. 24: hold an arrow to keep stepping.
-3. 18 + 19 + 20's highlight: DEPLOY straight in; MW1's results screen with the salvage; the offer's key facts highlighted.
-4. 21: the travel map's world readout, and the trade loop.
-5. 6: the hub's scenery by landscape (the 15 scenes are made).
-6. The HelpButton blink on PM's screens (15's rest).
-7. 12: high-resolution 2D (the jagged text).
-8. 14: mech pictures rendered from the models (a test render for Owen first).
-9. 3 and 5: sweep every screen for anything still PM's.
+## 25. [ ] PM's own buttons still blink (the rest of item 15)
+- **From the review of item 15:** our framed buttons are steady, but PM's HelpButtons on PM's screens shown in MW1 still blink: the lab's page icons, the load box's OK/NO, and settings.
+- **Wanted:** an opt-in engine switch (like set_menus_still), so that while MW1 runs a HelpButton's lamp is steady when hovered and never blinks. MW3 and PM keep theirs.
 
+## 26. [ ] The mech lab's leftovers
+- **From the lab reskin's review (mw1-lab-reskin):**
+  - The mech-slot icons at the top are still PM's look: PM's lab_player* pictures don't exist, so they're drawn from elsewhere.
+  - Page 1 (weapons) is empty, as in PM, which has no ICON_WEAPONS. Either hide its page icon or give it content.
+  - On criticals, the armour toggles' arrows sit beside "Internal Structure", as in PM's layout.
+- **Wanted:** the slot icons in our amber; no empty page reachable; the armour toggles placed with their own rows. mw1labfit still passes.
+
+## 27. [ ] Every mech picture: the PM line-art icon until item 14's renders
+- **Owen (2026-11-17):** "including the company -> mech images," together with item 23.
+- **Wanted:** wherever MW1 shows a picture of a specific mech (the Company screen first, then the Mech Complex rows if they get pictures, and the briefing/results screens), use PM's line-art chassis icon in our amber, not the AI `mech_*` pictures. Item 14 may later replace them with renders, screen by screen, once Owen has seen a test render.
+
+## 28. [ ] Decisions waiting for Owen (not bugs; asked in chat)
+- Salvage parts on a lost or abandoned mission: kept or dropped? Today: dropped (VISION's endings).
+- The morning list's open story questions (`outbox/2026-11-17/mw1-morning-decisions.md`): the deaths, the deadline, the ending, the commander's name, the Dark Wing battle, multi-stage battles, the major campaign's dates.
+- The travel map's seven look-and-feel questions, which will be folded into item 21's readout.
+- An arctic Instant Action layout built from MW3's snow world (m4/m6) at conversion time?
+
+## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
+**mw1 dev 1** (the hub, the lab, the market, travel), in order:
+1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.
+2. 24: hold an arrow to keep stepping.
+3. 21: the travel map's world readout, and the trade loop.
+4. 6: the hub's scenery by landscape (the scenes are made), and the Bar and options backdrops.
+5. 25: PM's blinking buttons.
+6. 26: the lab's leftovers.
+7. 14: mech renders (a test render to Owen first).
+
+**mw1 dev 2** (a mission's start and end, then the engine):
+1. 18: DEPLOY straight in, with an MW1 loading screen. Owen hits PM's briefing every mission.
+2. 19: MW1's results screen, with the salvage.
+3. 20's rest: the offer's key facts highlighted.
+4. 12: high-resolution 2D (the jagged text). The approved plan is in the lead's notes to dev 1. Step 1 shots to the lead before step 2.
+5. 3 + 5: sweep every screen for anything still PM's.
