@@ -71,6 +71,7 @@ add_library(mw3core STATIC
   src/platform/reg_file.cpp
   src/platform/cue_audio.cpp
   src/platform/mipmaps.cpp
+  src/platform/hires_images.cpp
   src/mech3/data_folder.cpp
   src/mech3/data_version.cpp
   src/mech3/patch12.cpp

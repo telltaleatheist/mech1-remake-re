@@ -178,6 +178,7 @@ Texture* fetch_image(const char* name) {
     g_load.list = (g_load.list + 1) % 2;
     t = find_in_list(g_load.list, name);
   }
+  if (!t) t = provided_image(name);  // ours: none unless a program set one (set_image_provider)
   return t;
 }
 

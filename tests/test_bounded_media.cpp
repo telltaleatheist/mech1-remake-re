@@ -717,3 +717,24 @@ TEST(bounded_gamez_texture_directory_mips) {
   zimg::textures().count = 0;
 }
 #endif
+
+// Ours (mw1/research/hires-2d.md B2): a program's image provider, asked after both lists for a name no library holds;
+// none set (MW3, PM), nothing changes.
+TEST(zimg_image_provider_after_the_libraries) {
+  static const uint16_t px[6] = {1, 2, 3, 4, 5, 6};
+  const char* kName = "ours_provided_3x2";
+  EXPECT(zimg::fetch_image(kName) == nullptr && !zimg::has_texture(kName));
+  zimg::ImageProvider p;
+  p.fetch = [](const char* n) { return std::strcmp(n, "ours_provided_3x2") == 0 ? zimg::new_texture_565(3, 2, px) : nullptr; };
+  p.has = [](const char* n) { return std::strcmp(n, "ours_provided_3x2") == 0; };
+  zimg::set_image_provider(p);
+  EXPECT(zimg::has_texture(kName) && !zimg::has_texture("ours_not_provided"));
+  zimg::Texture* t = zimg::fetch_image(kName);
+  EXPECT(t && t->width == 3 && t->height == 2 && t->pixel_count == 6 && t->width_again == 3);
+  EXPECT(t && (t->flags & zimg::kTwoBytes) && (t->flags & zimg::kNoAlpha) && (t->flags & zimg::kPixelsOwned) && !t->alpha);
+  EXPECT(t && std::memcmp(t->pixels, px, sizeof px) == 0 && t->pixels != px);
+  EXPECT(zimg::fetch_image("ours_not_provided") == nullptr);
+  zimg::free_texture(t);
+  zimg::set_image_provider({});
+  EXPECT(zimg::fetch_image(kName) == nullptr && !zimg::has_texture(kName));
+}
