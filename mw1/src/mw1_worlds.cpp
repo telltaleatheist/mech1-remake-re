@@ -8,6 +8,7 @@
 #include <map>
 #include <sstream>
 
+#include "gamez/zclass/list.h"
 #include "gamez/zutil/zutl_path.h"
 #include "mech3/mission.h"
 #include "mech3/mods.h"
@@ -143,6 +144,11 @@ bool prepare_worlds(const std::string& install, const std::string& dir, const zi
   } catch (const std::exception& e) {
     ok = false, error = e.what();
   }
+  // zipkit reads MW3's worlds with the engine's own loaders: what it loaded stays in zClass's node pool. Freed here,
+  // before the game starts: a pool left up reads as a world loaded (GameEngine::world_up), so the mech lab skipped
+  // loading its own world, its models' library (zbd\mechlib.zbd) and its 3D with it: no mech in the lab on a first
+  // run, and FIXES 14's render pass read back the lab's 2D (the bad mw1renders.zbd stamped on first runs).
+  zcls::classes_reset();
   if (ok) ok = worlds_whole(dir) || (error = "the conversion left a world incomplete", false);
   if (!ok) {
     // Nothing half-made kept: zipkit's temp folder (its marker in it) goes; what was in place stays.

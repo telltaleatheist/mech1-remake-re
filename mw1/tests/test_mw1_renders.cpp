@@ -119,3 +119,22 @@ TEST(mw1_renders_market_picture) {
   EXPECT(v.pictures[mw1::kMarketPanelMech] == mw1::render_image(mw1::kPmOwens, mw1::RenderUse::kPanel));
   mw1::set_renders_ready(was);
 }
+
+// The capture's sanity check (FIXES 14's bad first runs: the lab's 2D read back as the mech): the mech alone on
+// black passes; a frame lit edge to edge, or with its border lit, does not.
+TEST(mw1_render_frame_mech_alone) {
+  const int32_t w = 200, h = 200;
+  std::vector<uint32_t> f(static_cast<size_t>(w) * h, 0xff000000u);
+  for (int32_t y = 40; y < 170; ++y)
+    for (int32_t x = 70; x < 130; ++x) f[static_cast<size_t>(y) * w + x] = 0xffc08040u;
+  EXPECT(mw1::frame_mech_alone(f.data(), w, h));
+  EXPECT(!mw1::renders_from_frame(mw1::render_mechs().front(), f.data(), w, h).empty());
+  std::vector<uint32_t> lab(f.size(), 0xff303840u);  // the lab's panels, lit everywhere
+  EXPECT(!mw1::frame_mech_alone(lab.data(), w, h));
+  EXPECT(mw1::renders_from_frame(mw1::render_mechs().front(), lab.data(), w, h).empty());
+  std::vector<uint32_t> edge = f;  // the mech, and a bar along the top
+  for (int32_t x = 0; x < w; ++x)
+    for (int32_t y = 0; y < 6; ++y) edge[static_cast<size_t>(y) * w + x] = 0xff808080u;
+  EXPECT(!mw1::frame_mech_alone(edge.data(), w, h));
+  EXPECT(!mw1::frame_mech_alone(nullptr, w, h));
+}

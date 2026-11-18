@@ -2277,7 +2277,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       int32_t w = 0, h = 0;
       if (ge.platform_parts().render->read_back(&px, &w, &h)) {
         std::vector<images::Image> made = renders_from_frame(mech, px.data(), w, h);
-        if (made.empty()) std::printf("mw1: the %s's frame was empty: no render of it\n", mech3::mech_name(mech));
+        if (made.empty())
+          std::printf("mw1: the %s's frame was %s: no render of it\n", mech3::mech_name(mech),
+                      frame_mech_alone(px.data(), w, h) ? "empty" : "not the mech alone on black");
         for (images::Image& i : made) pass_.made.push_back(std::move(i));
       }
       ++pass_.at, pass_.step = PassStep::kCover;
@@ -2287,12 +2289,16 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   // screen it opened over comes back; render_pass_frame lets the display go once the lab has gone).
   void finish_pass(mech3::GameEngine& ge, mech3::LabScreen& l) {
     const std::string dir = zutl::mounts().write;
-    if (!pass_.made.empty() && write_renders(dir, pass_.made, pass_.mechs)) {
+    // Every mech's pictures, or nothing written: no stamp, so the next start tries again (the amber icons till then).
+    const bool whole = pass_.made.size() == pass_.mechs.size() * 2;
+    if (whole && write_renders(dir, pass_.made, pass_.mechs)) {
       if (!renders_ready()) zimg::new_image_library(kRenderLibrary, 0, false);
       set_renders_ready(true);
       std::printf("mw1: %zu mech pictures made into %s.zbd\n", pass_.made.size(), kRenderLibrary);
     } else {
-      std::printf("mw1: the mech pictures could not be written: the amber icons stay\n");
+      std::printf(whole ? "mw1: the mech pictures could not be written: the amber icons stay\n"
+                        : "mw1: %zu of %zu mech pictures made: none kept, the next start tries again\n",
+                  pass_.made.size(), pass_.mechs.size() * 2);
     }
     (void)ge;
     pending_accept_ = &l;
