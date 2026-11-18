@@ -295,12 +295,14 @@ In order (all four are built: 1 and 2 on mw1-hires-drawn, 4 on mw1-hires-renders
 The amber mech icons (`mw1icons`) stay at canvas size. Their only source is PM's own small icons, and the renders
 replace them wherever the renders are ready.
 
-**Known limit: the renders' detail is the first run's window.** The pass reads the frame back at the window's
-size, so a player whose first run is in a small window gets 4x pictures graded from a small mech (at 1280x720 the
-mech is about 1:1 in the 640x512 panel; a 4K screen enlarges that panel to 576 rows), and keeps them until the next
-`kRenderVersion`. To do (the lead, 2026-11-18): render the pass at a fixed size that covers 4K, whatever the window
-(the stage already sizes the lab's 3D window; offscreen if the engine allows), or put the window's height in the stamp
-and render again when a later window is much bigger.
+**The renders' detail follows the window (was a known limit).** The pass reads the frame back at the window's size,
+so a first run in a small window grades the 4x pictures from a small mech (at 1280x720 the mech is about 1:1 in the
+640x512 panel; a 4K screen enlarges that panel to 576 rows). The renderer has no offscreen target, so the stamp
+(`mw1renders.txt`) now ends with the frame's height they were made in (`frame N`). At a later start, once the frame
+is known, they are made again behind the same cover when that frame is `kRenderFrameGrowth` (1.25x) taller and the
+old one was under `kRenderFrameEnough` (1080 rows). A stamp without the line (made before it) is made again once.
+Checked with hidden runs on a fresh write dir: 720 rows made them ("frame 720"); 1080 made them again ("frame 1080");
+1080 again left them. The canvas set's library is closed for the rewrite; the same mechs give the same table.
 
 **How they are drawn.** `mw1_chrome`'s `Canvas` and its helpers (`thin_frame`, `glass`, `rivet`, `glow`, the boxes and
 the tray) take a scale S:
