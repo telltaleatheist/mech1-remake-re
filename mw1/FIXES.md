@@ -420,7 +420,7 @@ Tick an item when it is merged into `main`.
 - **Wanted:** each list centred in its box with even margins, its columns spread to the box's width. The same at 16:9 and 4:3.
 - **Done means:** shots and a fit check (equal left and right margins within a few pixels).
 
-## 40. [ ] WEAPON GROUPING: something overlaps; and a group's weapons can't be reordered
+## 40. [x] WEAPON GROUPING: something overlaps; and a group's weapons can't be reordered
 - **Owen (2026-11-18):**
   - "some kind of weird overlapping thing going on in weapons grouping". A screenshot has been asked for; until then, shoot the screen at 1080p and 4:3 and find it.
   - Weapons always go into a group in the same fixed order. He wanted the ER weapons at the end of a group and couldn't put them there.
@@ -475,7 +475,7 @@ Tick an item when it is merged into `main`.
   - **The plan:** an authored IA map. It's our own layout data in the repo (start, enemy records, nav points, the ia block's snow, fog and light, objectives, targets), laid on the snow terrain of the player's converted MW3 c4b. It isn't reconstructed by script from the campaign missions, and none of MW3's files are shipped.
   - **For MW1 first.** Listing it in MW3's and PM's own Instant Action is the mw3 lead's call; MW3's and PM's files are never modified (VISION).
 
-## 45. [ ] Every kind of contract is winnable: reach, attack, defend, withdraw, oppose withdrawal
+## 45. [x] Every kind of contract is winnable: reach, attack, defend, withdraw, oppose withdrawal
 - **Owen (2026-11-18):** are the reach missions winnable now? Check every kind other than destroy-all.
 - **Today:**
   - 43's survey proves each structure row's nav point sits on its node;
