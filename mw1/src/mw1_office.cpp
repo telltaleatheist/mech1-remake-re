@@ -106,7 +106,8 @@ ScreenView office_view(const Company& c, const Contract& k, const OfficeChoice& 
   ScreenView v;
   const bool open = closed.empty(), up = open && !offer.empty();  // the House deals; an offer is up
   auto row = [&](const char* name, const std::string& theirs, int32_t asked, const std::string& ask_words) {
-    return std::vector<std::string>{name, "  Offer: " + theirs + (asked >= 0 ? "    Ask: " + ask_words : std::string())};
+    // The House's offer highlighted (FIXES.md item 20: the pay among the key facts).
+    return std::vector<std::string>{name, "  Offer: " + highlighted(theirs) + (asked >= 0 ? "    Ask: " + ask_words : std::string())};
   };
   std::vector<std::string> notes = o.answer;
   if (up && notes.empty()) notes = {"Change a term with its arrows, then NEGOTIATE;", "ACCEPT takes the offer as it stands."};

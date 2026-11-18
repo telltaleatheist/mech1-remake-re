@@ -32,6 +32,9 @@ WINDOWS_FONTS (
   "mw1_term_title" (face "Saira Condensed Bold" file "fonts\SairaCondensed-Bold.ttf" height -16 tracking 3 color (110 250 150))
   "mw1_term_dim" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -13 tracking 1 color (56 150 88))
   "mw1_term_value" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -13 tracking 1 align "right" color (130 255 165))
+  ; FIXES.md item 20: a line's highlighted spans (mw1_screen.h's kHighlight), the key facts in MW1's bright amber.
+  "mw1_term_line_hi" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -13 tracking 1 color (255 196 90))
+  "mw1_panel_line_hi" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -13 color (255 196 90))
   "mw1_term_line" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -13 tracking 1 color (130 255 165))
   ; A message box's title (centred) and its words.
   "mw1_dialog_title" (face "Saira Condensed Bold" file "fonts\SairaCondensed-Bold.ttf" height -18 tracking 3 align "center" color (255 176 64))

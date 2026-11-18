@@ -65,6 +65,14 @@ inline constexpr int32_t kLineGap = 16;
 // layout's own way, a 4:3 layout centred (as the engine centres its own menus' pieces), a _WIDE one from the left.
 enum class Anchor { kLayout, kLeft, kCentre, kRight };
 
+// A line's highlighted spans (FIXES.md item 20, the key facts in a brighter colour): each kHighlight toggles one on or
+// off; a span is drawn in the line's font's highlight (its name with kHighlightSuffix, when the fonts have it; else
+// the line's own). Left-aligned lines only. shown() gives the line without them.
+inline constexpr char kHighlight = '\x02';
+inline constexpr const char* kHighlightSuffix = "_hi";
+std::string highlighted(const std::string& s);  // s between two kHighlight
+std::string plain_line(const std::string& s);   // s without its kHighlight marks
+
 // Lines of text at a place, in a font, one under another.
 struct TextBlock {
   int32_t x = 0, y = 0;
@@ -159,6 +167,8 @@ class Mw1Screen : public mech3::MenuScreen {
   std::vector<std::unique_ptr<mech3::HelpButton>> buttons_;   // by id - 1
   std::vector<std::unique_ptr<ztwod::Text>> labels_;          // the buttons' words, by id - 1
   std::vector<std::vector<std::unique_ptr<ztwod::Text>>> blocks_;
+  std::vector<std::vector<std::unique_ptr<ztwod::Text>>> spans_;  // by block: a line's spans after its first
+  std::vector<std::vector<std::string>> shown_lines_;              // by block: the lines as shown, plain
   std::vector<std::unique_ptr<ztwod::Image>> panels_;         // the layout's PANEL images, behind the texts
   std::vector<std::unique_ptr<ztwod::Frame>> rings_;           // the marks, by kind, reused show to show
   std::vector<std::unique_ptr<ztwod::Line2D>> lines_;
