@@ -125,6 +125,17 @@ images::Image reskin(const Reskin& r);           // a drawn piece (not a panel)
 // The lab's five panels from the hangar (its middle 640 of 854: left 220, centre 200, right 220), darkened, the
 // sides' glass boxes framed (single: one; double: two).
 std::vector<images::Image> lab_panels(const images::Image& hangar);
+// The lab's frames in its 640x480 layout (lab_panels draws them, 2 thick; mw1_lab_fit.h checks against their
+// insides): the side panels' boxes (the upper and lower of a doubled panel, or the whole), the centre's box under the
+// mech, and the icons' tray line across the foot, which every frame stays above (FIXES.md item 17).
+struct LabBox { int32_t x0, y0, x1, y1; };
+inline constexpr int32_t kLabTrayY = 414;
+inline constexpr LabBox kLabSideUpper = {6, 6, 214, 242}, kLabSideLower = {6, 248, 214, 410}, kLabSideWhole = {6, 6, 214, 410};
+inline constexpr LabBox kLabCentreBox = {226, 280, 414, 410};  // in the 640 layout (the centre panel's image at 220)
+// The selection bar (lab_text_glow, 207x45, PM's OFFSET -17, -15 from the row): its solid edge kBarEdge wide just
+// left of the row's text (2 in from the row's x: a side panel's frame inside is 2 left of PM's columns at 10 and 453),
+// then to the end of the row's dark panel (172 from the row's x), 20 high.
+inline constexpr int32_t kBarEdge = 2, kBarLeft = 17 - kBarEdge, kBarRight = 17 + 172, kBarTop = 13, kBarBottom = 33;
 void darken_scene(images::Image& im);    // the hub's scenery treatment (kSceneLight, kScanline)
 std::vector<images::Image> all();  // every piece, for the archive (the tiles come with their pictures, mw1imgpack)
 

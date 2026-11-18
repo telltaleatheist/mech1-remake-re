@@ -443,10 +443,10 @@ images::Image glow_piece(const Reskin& r, int32_t peak) {
 // 15 above the row's words (its large font, 16 high), so the bar spans the row and its left edge is solid amber.
 images::Image bar_piece(const Reskin& r) {
   Canvas c(r.w, r.h);
-  const int32_t top = 13, bottom = 33, left = 12, right = r.w - 16;  // inside the right panels at 453 (PM's lists)
+  const int32_t top = kBarTop, bottom = kBarBottom, left = kBarLeft, right = std::min(kBarRight, r.w);  // the row's span
   for (int32_t y = top; y < bottom; ++y)
-    for (int32_t x = left; x < right; ++x) c.set(x, y, x < left + 3 ? Rgba{255, 176, 64, 235} : Rgba{255, 150, 30, 64});
-  for (int32_t x = left + 3; x < right; ++x) c.set(x, top, {255, 176, 64, 120}), c.set(x, bottom - 1, {255, 176, 64, 120});
+    for (int32_t x = left; x < right; ++x) c.set(x, y, x < left + kBarEdge ? Rgba{255, 176, 64, 235} : Rgba{255, 150, 30, 64});
+  for (int32_t x = left + kBarEdge; x < right; ++x) c.set(x, top, {255, 176, 64, 120}), c.set(x, bottom - 1, {255, 176, 64, 120});
   return c.image(reskin_name(r.game));
 }
 // A page icon: the button's glass in a thin frame (amber pressed, dim off) and its glyph.
@@ -549,9 +549,9 @@ std::vector<images::Image> lab_panels(const images::Image& hangar) {
   };
   // The icons' tray across the foot.
   auto tray = [](Canvas& c) {
-    for (int32_t y = 414; y < c.h; ++y)
+    for (int32_t y = kLabTrayY; y < c.h; ++y)
       for (int32_t x = 0; x < c.w; ++x) c.over(x, y, {8, 10, 13, 190});
-    for (int32_t x = 0; x < c.w; ++x) c.set(x, 414, {200, 130, 40, 200});
+    for (int32_t x = 0; x < c.w; ++x) c.set(x, kLabTrayY, {200, 130, 40, 200});
   };
   std::vector<images::Image> v;
   for (bool right : {false, true})
@@ -560,18 +560,21 @@ std::vector<images::Image> lab_panels(const images::Image& hangar) {
       // The rule under the left's titles (the right's tabs sit where it would be).
       const int32_t rule = right ? 0 : 38;
       if (two) {
-        box(c, 6, 6, kLeft - 6, 242, rule);
-        box(c, 6, 248, kLeft - 6, 410, 23);  // at 271: the lower lists' first rows start at 275 (PM's layout)
+        box(c, kLabSideUpper.x0, kLabSideUpper.y0, kLabSideUpper.x1, kLabSideUpper.y1, rule);
+        // the rule at 271: the lower lists' first rows start at 275 (PM's layout)
+        box(c, kLabSideLower.x0, kLabSideLower.y0, kLabSideLower.x1, kLabSideLower.y1, 23);
       } else {
-        box(c, 6, 6, kLeft - 6, 410, rule);
+        box(c, kLabSideWhole.x0, kLabSideWhole.y0, kLabSideWhole.x1, kLabSideWhole.y1, rule);
       }
       tray(c);
       v.push_back(c.image(reskin_name(right ? (two ? "lab_panel_rightdouble" : "lab_panel_rightsingle")
                                             : (two ? "lab_panel_leftdouble" : "lab_panel_leftsingle"))));
     }
   // The centre: the hangar brighter round the mech, a glass box under it for its parts, data, icons and messages.
+  // Above the tray as the sides' (Owen, item 17: it ran down through the tray round the page icon).
   Canvas c = strip(kLeft, kCentre, 80);
-  box(c, 6, 280, kCentre - 6, 474, 0);
+  box(c, kLabCentreBox.x0 - kLeft, kLabCentreBox.y0, kLabCentreBox.x1 - kLeft, kLabCentreBox.y1, 0);
+  tray(c);
   v.push_back(c.image(reskin_name("lab_panel_center")));
   // The backdrop: the whole middle, as the sides' (on a wide canvas the engine mirrors its edges out).
   Canvas b = strip(0, kMid, 45);
