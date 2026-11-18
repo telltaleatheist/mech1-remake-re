@@ -28,6 +28,7 @@ inline constexpr int32_t kTile = 100;                           // a picture til
 inline constexpr int32_t kTileFrame = 4;                        // the frame's width round it
 inline constexpr int32_t kTileBand = 20;                        // the dark band inside its foot, for the label
 inline constexpr const char* kTileFrames[3] = {"mw1_tile", "mw1_tile_lit", "mw1_tile_down"};  // still, hover, pressed
+inline constexpr int32_t kTinyButtonW = 58;  // the load box's OK and NO, framed (in PM's 84 wide circlebtn_tiny)
 inline constexpr int32_t kButtonW = 168, kButtonH = 30;         // a button (MECH LAB, LAUNCH, NEW, ...)
 inline constexpr const char* kButtons[4] = {"mw1_button", "mw1_button_lit", "mw1_button_down", "mw1_button_off"};
 inline constexpr const char* kDialog = "mw1_dialog";            // every message box's frame (mw1dialog.zrd)
@@ -90,7 +91,7 @@ images::Image tile_frame(int32_t state);  // 0 still, 1 lit, 2 pressed
 // A picture tile's four looks, its picture (kTile square) in the frame: `base`, `base`_lit, `base`_down, `base`_off.
 std::vector<images::Image> tiles(const images::Image& picture, const std::string& base);
 images::Image button(int32_t state);
-images::Image button(int32_t state, int32_t w, int32_t h, const std::string& name);  // any size, any name      // 0 still, 1 lit, 2 pressed, 3 off
+images::Image button(int32_t state, int32_t w, int32_t h, const std::string& name, int32_t drawn = 0);  // any size, any name      // 0 still, 1 lit, 2 pressed, 3 off
 images::Image panel(int32_t w, int32_t h);
 images::Image terminal(int32_t w, int32_t h);
 images::Image status_bar();

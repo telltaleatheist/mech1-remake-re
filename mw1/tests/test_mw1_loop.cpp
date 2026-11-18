@@ -368,9 +368,9 @@ void loop_run(Ending ending, Run* run = nullptr) {
             g->slot.set_config(fitted, p->store(), true);
             delete fitted;
           }
-          // The right arrow's middle (mw1_lab_pilot.h; the line 172 from the 640 canvas's right edge, 196 down).
-          click_x = 640 - 172 + mw1::kRightArrowX + mw1::chrome::kSideArrowW / 2;
-          click_y = 196 + mw1::kRow + mw1::chrome::kSideArrowH / 2, click_phase = 1;
+          // The right arrow's middle (mw1_lab_pilot.h: the row kPilotFromRight from the 640 canvas's right edge).
+          click_x = 640 - mw1::kPilotFromRight + mw1::kRightArrowX + mw1::chrome::kSideArrowW / 2;
+          click_y = mw1::kPilotY + mw1::kArrowDy + mw1::chrome::kSideArrowH / 2, click_phase = 1;
           return;
         }
         run->lab_pilot_after = who ? who->shown() : "?";
@@ -450,7 +450,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
             button(4);
             break;
           case 9:  // back from the lab: you pilot the Firefly, with its loadout; the weapon in the stores. BACK
-            EXPECT(run->lab_done && run->lab_mech == mw1::kPmFirefly && run->lab_pilot == "nobody (spare)" && run->lab_pilot_after == "YOU");
+            EXPECT(run->lab_done && run->lab_mech == mw1::kPmFirefly && run->lab_pilot == "spare" && run->lab_pilot_after == "YOU");
             EXPECT(has("piloted by you") && c->mech == mw1::kPmFirefly && c->hangar.size() == 1 && c->hangar[0].mech == mw1::kPmOwens);
             EXPECT(c->loadout != nullptr && c->stores->count() == run->lab_stores + 1);
             run->market_done = true;

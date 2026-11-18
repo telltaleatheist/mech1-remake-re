@@ -183,14 +183,16 @@ std::vector<images::Image> tiles(const images::Image& picture, const std::string
 
 images::Image button(int32_t state) { return button(state, kButtonW, kButtonH, kButtons[std::clamp(state, 0, 3)]); }
 
-images::Image button(int32_t state, int32_t w, int32_t h, const std::string& name) {
-  // Dark glass in a thin frame, a lamp at the left end: amber when lit or pressed; greyed when off.
+images::Image button(int32_t state, int32_t w, int32_t h, const std::string& name, int32_t drawn) {
+  // Dark glass in a thin frame, a lamp at the left end: amber when lit or pressed; greyed when off. `drawn` wide
+  // from the left (0: all of it), the rest clear.
   Canvas c(w, h);
+  const int32_t dw = drawn > 0 ? std::min(drawn, w) : w;
   const Rgba amber_tint = {255, 170, 40, 200}, off_tint = {40, 40, 44, 150};
-  glass(c, 3, 3, w - 3, h - 3, state == 2 ? 250 : 230);
-  thin_frame(c, 0, 0, w, h, 3, state == 1 ? amber_tint : state == 3 ? off_tint : Rgba{});
+  glass(c, 3, 3, dw - 3, h - 3, state == 2 ? 250 : 230);
+  thin_frame(c, 0, 0, dw, h, 3, state == 1 ? amber_tint : state == 3 ? off_tint : Rgba{});
   lamp(c, 13, h / 2, 4, state == 1 || state == 2);
-  if (state == 1) glow(c, 3, 3, w - 3, h - 3);
+  if (state == 1) glow(c, 3, 3, dw - 3, h - 3);
   return c.image(name);
 }
 
@@ -437,6 +439,16 @@ images::Image glow_piece(const Reskin& r, int32_t peak) {
     }
   return c.image(reskin_name(r.game));
 }
+// The chosen row's mark in the lab's lists (FIXES.md item 17: our amber bar, not a glow): PM places it 17 left of and
+// 15 above the row's words (its large font, 16 high), so the bar spans the row and its left edge is solid amber.
+images::Image bar_piece(const Reskin& r) {
+  Canvas c(r.w, r.h);
+  const int32_t top = 13, bottom = 33, left = 12, right = r.w - 16;  // inside the right panels at 453 (PM's lists)
+  for (int32_t y = top; y < bottom; ++y)
+    for (int32_t x = left; x < right; ++x) c.set(x, y, x < left + 3 ? Rgba{255, 176, 64, 235} : Rgba{255, 150, 30, 64});
+  for (int32_t x = left + 3; x < right; ++x) c.set(x, top, {255, 176, 64, 120}), c.set(x, bottom - 1, {255, 176, 64, 120});
+  return c.image(reskin_name(r.game));
+}
 // A page icon: the button's glass in a thin frame (amber pressed, dim off) and its glyph.
 images::Image icon_piece(const Reskin& r) {
   const int32_t state = has(r.game, "_red") ? 2 : has(r.game, "_grey") ? 3 : 0;
@@ -489,7 +501,8 @@ images::Image arrow_piece(const Reskin& r) {
 
 images::Image reskin(const Reskin& r) {
   const std::string g = r.game;
-  if (has(r.game, "glow")) return glow_piece(r, g == "lab_text_glow" ? 110 : 90);
+  if (g == "lab_text_glow") return bar_piece(r);
+  if (has(r.game, "glow")) return glow_piece(r, 90);
   if (has(r.game, "icon") || has(r.game, "accept")) return icon_piece(r);
   if (has(r.game, "arrow") || has(r.game, "toggle")) return arrow_piece(r);
   Canvas c(r.w, r.h);
@@ -502,7 +515,9 @@ images::Image reskin(const Reskin& r) {
     glass(c, 1, 1, r.w - 1, r.h - 1, 250);
     thin_frame(c, 0, 0, r.w, r.h, 2, g == "textbox_small_r" ? Rgba{255, 170, 40, 220} : Rgba{});
   } else if (g == "circlebtn_tiny") {  // OK and NO: MW1's framed button (FIXES.md item 10), PM's label at 22, 8 in it
-    return button(0, r.w, r.h, reskin_name(r.game));
+    // PM's image is a small circle in 84 clear: NO sits at 372 in the box's 200..440 (item 17), so the frame is
+    // kTinyButtonW of it.
+    return button(0, r.w, r.h, reskin_name(r.game), kTinyButtonW);
   }
   return c.image(reskin_name(r.game));
 }
@@ -546,7 +561,7 @@ std::vector<images::Image> lab_panels(const images::Image& hangar) {
       const int32_t rule = right ? 0 : 38;
       if (two) {
         box(c, 6, 6, kLeft - 6, 242, rule);
-        box(c, 6, 248, kLeft - 6, 410, 30);
+        box(c, 6, 248, kLeft - 6, 410, 23);  // at 271: the lower lists' first rows start at 275 (PM's layout)
       } else {
         box(c, 6, 6, kLeft - 6, 410, rule);
       }
