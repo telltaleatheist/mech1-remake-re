@@ -186,7 +186,11 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (current && !renders_ready()) zimg::new_image_library(kRenderLibrary, 0, false);
     if (current) art::Store::get().add(hi_renders_path(zutl::mounts().write));  // the 2D's 4x set (B2b)
     set_renders_ready(current);
-    renders_wanted_ = !current && !zutl::mounts().write.empty() && !std::getenv("MW1_SCREEN");
+    // Current ones are looked at again once the frame is known (render_pass_frame): a bigger window than they were
+    // made in makes them again, behind the same cover (renders_outgrown).
+    renders_wanted_ = !zutl::mounts().write.empty() && !std::getenv("MW1_SCREEN");
+    renders_made_height_ = current ? renders_frame_height(zutl::mounts().write) : 0;
+    renders_current_ = current;
     for (const LayoutSwap& s : kLayoutSwaps)
       if (layout_there(s.file, s.dialog))
         ztwod::set_layout(s.game_file, s.game_dialog, s.file, s.dialog, std::string(s.dialog) + kWideSuffix);
@@ -2252,6 +2256,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       std::vector<uint32_t> probe;
       int32_t pw = 0, ph = 0;
       if (!r3 || !r3->read_back(&probe, &pw, &ph)) return void(renders_wanted_ = false);
+      if (renders_current_ && !renders_outgrown(renders_made_height_, ph)) return void(renders_wanted_ = false);
+      if (renders_current_)
+        std::printf("mw1: the mech pictures were made in a %d-row frame, this one is %d: made again\n", renders_made_height_, ph);
+      pass_frame_height_ = ph;
       pass_ = RenderPass{};
       pass_.on = true, pass_.mechs = render_mechs();
       std::printf("mw1: rendering %zu mech pictures from the install's models (FIXES.md item 14)\n", pass_.mechs.size());
@@ -2336,7 +2344,14 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     const std::string dir = zutl::mounts().write;
     // Every mech's pictures, or nothing written: no stamp, so the next start tries again (the amber icons till then).
     const bool whole = pass_.made.size() == pass_.mechs.size() * 2 && pass_.hi.size() == pass_.made.size();
-    if (whole && write_renders(dir, pass_.made, pass_.hi, pass_.mechs)) {
+    // Made again over current ones (a bigger frame): the archive's library holds its file open; closed for the write
+    // (the same mechs, so the same table: its kept index still holds, and its next load opens the new file).
+    if (whole && renders_ready())
+      for (zimg::Library* lib : zimg::library_list(1))
+        if (std::strncmp(lib->name, kRenderLibrary, std::strlen(kRenderLibrary)) == 0 && lib->name[std::strlen(kRenderLibrary)] == '.')
+          zimg::close(*lib);
+    if (whole && write_renders(dir, pass_.made, pass_.hi, pass_.mechs, pass_frame_height_)) {
+      renders_current_ = true, renders_made_height_ = pass_frame_height_;
       if (!renders_ready()) zimg::new_image_library(kRenderLibrary, 0, false);
       art::Store::get().add(hi_renders_path(dir));
       set_renders_ready(true);
@@ -2565,6 +2580,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   std::vector<std::unique_ptr<ztwod::Image>> cover_cells_;
   mech3::LabScreen* pending_accept_ = nullptr;
   bool renders_wanted_ = false;
+  bool renders_current_ = false;      // the archive current at the start (its stamp)
+  int32_t renders_made_height_ = 0;   // the frame it was made in (0: unknown)
+  int32_t pass_frame_height_ = 0;     // this pass's frame
   std::vector<ztwod::Object2D*> stage_hidden_;
   ztwod::Object2D* stage_cursor_ = nullptr;
   mech3::LabScreen* stage_screen_ = nullptr;  // the owned mech in the Mech Complex's MECH LAB (-1 none open)

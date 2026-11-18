@@ -103,6 +103,13 @@ TEST(mw1_renders_stamp) {
   EXPECT(mw1::write_renders(dir.string(), made, hi, mechs) && mw1::renders_current(dir.string(), mechs));
   fs::remove(dir / (std::string(mw1::kRenderHiLibrary) + ".zbd"), ec);
   EXPECT(!mw1::renders_current(dir.string(), mechs));  // nor without the 4x set
+  // The frame they were made in: in the stamp, still current; made again once a frame is enough bigger.
+  EXPECT(mw1::renders_frame_height(dir.string()) == 0);
+  EXPECT(mw1::write_renders(dir.string(), made, hi, mechs, 600) && mw1::renders_current(dir.string(), mechs));
+  EXPECT(mw1::renders_frame_height(dir.string()) == 600);
+  EXPECT(!mw1::renders_outgrown(600, 720) && mw1::renders_outgrown(600, 750) && mw1::renders_outgrown(600, 2160));
+  EXPECT(!mw1::renders_outgrown(1080, 2160) && !mw1::renders_outgrown(1200, 2160));  // enough from 1080 rows
+  EXPECT(mw1::renders_outgrown(0, 720) && !mw1::renders_outgrown(0, 0));  // an older stamp: made again once
   fs::remove_all(dir, ec);
 }
 

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -183,11 +184,27 @@ bool renders_current(const std::string& write_dir, const std::vector<int32_t>& m
   if (!fs::exists(library_file(write_dir), ec) || !fs::exists(hi_file(write_dir), ec)) return false;
   std::ifstream in(stamp_file(write_dir), std::ios::binary);
   const std::string had((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-  return had == render_stamp(mechs);
+  const std::string want = render_stamp(mechs);
+  if (had.compare(0, want.size(), want) != 0) return false;
+  const std::string rest = had.substr(want.size());  // nothing, or the frame's line
+  return rest.empty() || (rest.rfind("frame ", 0) == 0 && rest.find('\n') == rest.size() - 1);
+}
+
+int32_t renders_frame_height(const std::string& write_dir) {
+  if (write_dir.empty()) return 0;
+  std::ifstream in(stamp_file(write_dir), std::ios::binary);
+  for (std::string line; std::getline(in, line);)
+    if (line.rfind("frame ", 0) == 0) return std::max(0, std::atoi(line.c_str() + 6));
+  return 0;
+}
+
+bool renders_outgrown(int32_t made_height, int32_t frame_height) {
+  if (made_height <= 0) return frame_height > 0;  // a stamp from before the line: made again once, now it's known
+  return made_height < kRenderFrameEnough && frame_height >= made_height * kRenderFrameGrowth;
 }
 
 bool write_renders(const std::string& write_dir, const std::vector<images::Image>& made, const std::vector<HiRender>& hi,
-                   const std::vector<int32_t>& mechs) {
+                   const std::vector<int32_t>& mechs, int32_t frame_height) {
   if (write_dir.empty() || made.empty() || hi.empty()) return false;  // never beside the program
   std::string why;
   const std::vector<uint8_t> bytes = images::pack(made, &why);
@@ -210,6 +227,7 @@ bool write_renders(const std::string& write_dir, const std::vector<images::Image
   }
   std::ofstream stamp(stamp_file(write_dir), std::ios::binary | std::ios::trunc);
   stamp << render_stamp(mechs);
+  if (frame_height > 0) stamp << "frame " << frame_height << "\n";
   return static_cast<bool>(stamp);
 }
 

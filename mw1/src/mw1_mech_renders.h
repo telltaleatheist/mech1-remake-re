@@ -63,11 +63,19 @@ std::vector<HiRender> renders_hi_from_frame(int32_t pm_mech, const uint32_t* arg
 
 // The stamp the pictures are made under: the version, then each mech's name.
 std::string render_stamp(const std::vector<int32_t>& mechs);
-// True when `write_dir` holds both archives with this stamp beside them.
+// True when `write_dir` holds both archives with this stamp beside them (whatever frame they were made in).
 bool renders_current(const std::string& write_dir, const std::vector<int32_t>& mechs);
+// The frame's height the pictures were graded from (the stamp's "frame" line), 0 when it doesn't say. The 4x set's
+// detail is that frame's: the pass runs again when a later frame is enough bigger (renders_outgrown).
+int32_t renders_frame_height(const std::string& write_dir);
+// From kRenderFrameEnough rows the 4x set has its detail (the mech about 1:1 in the 640x512 panel at 720 rows, with a
+// margin); below it, a frame kRenderFrameGrowth times taller makes the pictures again.
+inline constexpr int32_t kRenderFrameEnough = 1080;
+inline constexpr float kRenderFrameGrowth = 1.25f;
+bool renders_outgrown(int32_t made_height, int32_t frame_height);
 // Both archives and their stamp written under `write_dir`; false on a failure (nothing half kept: the stamp goes last).
 bool write_renders(const std::string& write_dir, const std::vector<images::Image>& made, const std::vector<HiRender>& hi,
-                   const std::vector<int32_t>& mechs);
+                   const std::vector<int32_t>& mechs, int32_t frame_height = 0);
 std::string hi_renders_path(const std::string& write_dir);  // the 4x archive's (for art::Store::add)
 
 // Whether the archive is registered this run (the screens show the renders, else the amber icons).
