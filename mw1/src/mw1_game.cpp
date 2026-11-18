@@ -1081,6 +1081,12 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // weapons, equipment and mission-data pages (1, 2, 5) have nothing on them: the chassis in their place.
     if (ls->page == 1 || ls->page == 2 || ls->page == 5) ls->switch_page(0);
     lab_slot_icons(*ls);
+    // The chosen page's tray button lit (its ACTIVATE look): LabScreen::refresh, on every page switch and every
+    // loadout change, gives the criticals and groups buttons their still look again (Control::refresh), and only the
+    // pointer leaving one lit it again (HelpButton::set_blink).
+    for (int32_t p : kLabTabPages)
+      if (mech3::HelpButton* t = ls->tab(p); t && t->selected && !t->blinking && t->img_activate && t->image != t->img_activate)
+        t->set_image(t->img_activate), t->dirty();
     // ENGINE SELECTION's rating and type: refresh puts the right arrow 50 past the value's start ("Extra Light" ran
     // into it); kArrowGap past its end when it is longer.
     mech3::LabEngineTable& et = ls->engine_table;
