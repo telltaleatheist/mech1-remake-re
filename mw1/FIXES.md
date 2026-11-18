@@ -514,6 +514,35 @@ Tick an item when it is merged into `main`.
   - the offer's climate word (44 c) shows the map's own climate.
 - **Done means:** a test that draws 10,000 offers per climate and reports the shares, with never a forbidden pairing and never a repeat; plus the new rows passing 45.
 
+## 47. [ ] The story made overt and hard: a journal that points to the spot, and a battle at every step
+- **Owen (2026-11-18):** give the player something to do and something to look for. A journal that says how to do the next thing in the story and points right to the spot. Every step in the chain very hard, so even knowing what to do, the player has to build up a powerful army first. The final battle very hard, with a set number of mechs.
+- **The journal (a STORY button on the hub, a page like the news):**
+  - **Chapters:** every story step seen so far, in order, with MW1's own text read from the exe as now.
+  - **The current lead:** our own short line saying where and what, e.g. "Go to the House office on Galedon V" or "Ask about the Stone Arrow in the Bar on Mosiro". It names the planet and the place (Bar, Mech Complex, office, arrival).
+  - **The strength:** for a step with a battle, the expected force, e.g. "Expect 4 heavy 'Mechs, about 260 tons. Bring a full lance."
+  - **The deadline:** "The council meets in 3 years 4 months" (20 Mar 3029), also on the hub's status line.
+- **The star map:** the lead's planet is marked (a story marker), and travel can pick it straight from the journal (GO THERE).
+- **Battles at the steps (ours; MW1's steps are text choices):** each FIGHT and each confrontation in the chain becomes a battle with its own fixed force. A loss means retreat and try again on the next arrival, never a death (33). The trail waits there until it's won.
+  - **The ladder** (provisional numbers; one table so they're easy to tune):
+
+    | Step | Battle | Expected force |
+    |---|---|---|
+    | 1 | Grig's men on Land's End (after the Bar's meeting) | 2 mediums |
+    | 2 | Brown on Dustball (17, FIGHT) | 3 mediums and heavies, about 180 t |
+    | 3 | The ambush on ref2 (27, FIGHT) | 4 heavies, about 260 t |
+    | 4 | Kearney's address (2F..35, FIGHT) | 4 heavies and assaults, about 300 t |
+    | 5 | The Matabushi raid on Albiero (40) | 6 'Mechs, about 400 t, veterans |
+    | 6 | The Dark Wing (72, ATTACK) | 8 'Mechs: the Warhammer and four BattleMasters (as MW1's text says) plus 3 escorts, about 650 t, elite pilots |
+
+  - The enemy pilots' skill rises with the step.
+  - The pay for a story battle is none, but the salvage is kept (the reason to fight it).
+- **The old deaths (33):** each of MW1's seven death choices becomes a setback: a lost lancemate, a fine, or the step's battle at its hardest. The trail goes on.
+- **Too late (20 Mar 3029):** Jarris is Duke, the journal says so, and play goes on as a mercenary.
+- **Done means:**
+  - a headless walk of the whole chain through the journal's leads (each lead's planet and place correct, each battle launched with its force);
+  - shots of the journal, the map marker and a step battle's offer;
+  - the ladder in one table.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.
