@@ -167,7 +167,7 @@ Contract generate_contract(const Company& c, int32_t slot, Rng& rng) {
   }
   k.target = column;
   // What it asks and where: MW1's category, description and mission planet, and the map for them.
-  choose_mission(k, rng);
+  choose_mission(k, rng, c.last_map_world, c.last_map_ia);  // item 46: never the map last drawn
   return k;
 }
 

@@ -1,5 +1,6 @@
 #include "mw1_missions.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cstdio>
 
@@ -166,6 +167,78 @@ std::vector<MapRow> parse_maps(const std::string& zrd_path, std::string* why) {
   return rows;
 }
 
+std::vector<MapPool> parse_pools(const std::string& zrd_path, std::string* why) {
+  std::vector<MapPool> pools;
+  zrdr::Node* root = zrdr::load(zrd_path.c_str());
+  if (!root) return pools;
+  zrdr::Node* top = root;
+  if (top->type == zrdr::List && zrdr::list_count(top) == 2 && top->list[1].type == zrdr::List) top = &top->list[1];
+  const int32_t n = top->type == zrdr::List ? zrdr::list_count(top) : 0;
+  auto words = [](zrdr::Node* m, const char* key) {
+    std::vector<std::string> out;
+    zrdr::Node* l = zrdr::find_flat(m, key, 1);
+    if (!l || l->type != zrdr::List) return out;  // the value after the key
+    for (int32_t i = 1; i < zrdr::list_count(l); ++i)
+      if (l->list[i].type == zrdr::String) out.push_back(l->list[i].s);
+    return out;
+  };
+  int32_t index = 0;
+  for (int32_t i = 1; i + 1 < n; ++i) {
+    zrdr::Node* key = &top->list[i];
+    if (key->type != zrdr::String || lower(key->s) != "pool") continue;
+    zrdr::Node* m = &top->list[++i];
+    ++index;
+    MapPool p;
+    const char* climate = zrdr::get_string(m, "CLIMATE");
+    const char* planet = zrdr::get_string(m, "PLANET");
+    const std::string c = climate ? lower(climate) : "";
+    p.climate = c == "desert" ? kDesert : c == "tropical" ? kTropical : c == "ice" ? kIce : -1;
+    p.planet = planet ? planet : "";
+    p.mostly = words(m, "MOSTLY"), p.sometimes = words(m, "SOMETIMES");
+    if ((p.climate >= 0) != p.planet.empty() || (p.mostly.empty() && p.sometimes.empty())) {
+      if (why) *why += "POOL " + std::to_string(index) + " doesn't read; ";
+      continue;
+    }
+    pools.push_back(p);
+  }
+  zrdr::free_node(root);
+  return pools;
+}
+
+namespace {
+std::vector<MapPool> g_pools;
+}  // namespace
+void set_map_pools(std::vector<MapPool> pools) { g_pools = std::move(pools); }
+const std::vector<MapPool>& map_pools() { return g_pools; }
+
+const MapPool* pool_for(const std::vector<MapPool>& pools, int32_t planet, int32_t climate) {
+  if (planet >= 0)
+    for (const MapPool& p : pools)
+      if (!p.planet.empty() && p.planet == kPlanets[planet].name) return &p;
+  for (const MapPool& p : pools)
+    if (p.planet.empty() && p.climate == climate) return &p;
+  return nullptr;
+}
+
+int32_t choose_pool_row(const std::vector<MapRow>& rows, const MapPool& pool, RowKind kind, const std::string& last_world,
+                        int32_t last_ia, Rng& rng) {
+  auto from = [&](const std::vector<std::string>& worlds) {
+    std::vector<int32_t> out;
+    for (int32_t i = 0; i < static_cast<int32_t>(rows.size()); ++i) {
+      const MapRow& r = rows[static_cast<size_t>(i)];
+      if (r.kind != kind || (r.world == last_world && r.ia == last_ia)) continue;
+      if (std::find(worlds.begin(), worlds.end(), r.world) != worlds.end()) out.push_back(i);
+    }
+    return out;
+  };
+  const bool mostly = rng.upto(99) < kMostlyPercent;
+  for (const std::vector<std::string>* part : {mostly ? &pool.mostly : &pool.sometimes, mostly ? &pool.sometimes : &pool.mostly}) {
+    const std::vector<int32_t> c = from(*part);
+    if (!c.empty()) return c[static_cast<size_t>(rng.upto(static_cast<int32_t>(c.size()) - 1))];
+  }
+  return -1;
+}
+
 void set_map_table(std::vector<MapRow> rows) { g_rows = std::move(rows); }
 const std::vector<MapRow>& map_table() { return g_rows; }
 
@@ -206,15 +279,22 @@ int32_t map_climate(const std::vector<MapRow>& rows, const std::string& world, i
   return -1;
 }
 
-void choose_mission(Contract& k, Rng& rng) {
+void choose_mission(Contract& k, Rng& rng, const std::string& last_world, int32_t last_ia) {
   const Mission m = roll_mission(k.house, k.target, rng);
   k.category = m.category, k.code = m.code, k.mission_planet = m.planet, k.climate = m.climate;
   const std::vector<MapRow>& rows = map_table();
   k.objective = Objective::kDestroyAll, k.structure.clear(), k.structure_words.clear();
   if (rows.empty()) return;  // the milestone's map (Contract's defaults)
   const RowKind want = kind_for(m.objective);
-  int32_t r = choose_row(rows, want, m.climate, rng);
-  if (r < 0) r = choose_row(rows, RowKind::kAny, m.climate, rng);  // none of the kind: a battle on any map
+  int32_t r = -1;
+  if (const MapPool* pool = pool_for(map_pools(), m.planet, m.climate)) {
+    // Item 46: the planet's pool (none of the kind there: a battle from it).
+    r = choose_pool_row(rows, *pool, want, last_world, last_ia, rng);
+    if (r < 0) r = choose_pool_row(rows, *pool, RowKind::kAny, last_world, last_ia, rng);
+  } else {
+    r = choose_row(rows, want, m.climate, rng);
+    if (r < 0) r = choose_row(rows, RowKind::kAny, m.climate, rng);  // none of the kind: a battle on any map
+  }
   if (r < 0) return;
   const MapRow& row = rows[static_cast<size_t>(r)];
   k.world = row.world, k.ia = row.ia, k.mode = 0;
