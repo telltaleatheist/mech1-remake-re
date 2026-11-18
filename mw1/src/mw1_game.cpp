@@ -47,12 +47,9 @@
 #include "mw1_bar_screen.h"
 #include "mw1_lab_fit.h"
 #include "mw1_mech_icons.h"
-<<<<<<< HEAD
 #include "mw1_loading.h"
-=======
 #include "mw1_mech_renders.h"
 #include "platform/render3d.h"
->>>>>>> origin/mw1-mech-renders
 #include "mw1_event_screen.h"
 #include "mw1_office.h"
 #include "mw1_campaign.h"
