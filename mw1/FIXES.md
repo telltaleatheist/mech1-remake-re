@@ -489,7 +489,7 @@ Tick an item when it is merged into `main`.
 - **The risk:** kReachRadius is 10 m from the node. A node inside a building or on a roof may be out of a mech's reach. Measure the closest approach per row.
 - **Done means:** a table with one line per row (won, how, time, closest approach). Every row is won, or dropped with its reason.
 
-## 46. [ ] Map variety: every IA map in play, weighted by the planet's climate
+## 46. [x] Map variety: every IA map in play, weighted by the planet's climate
 - **Owen (2026-11-18):** a player will fly 30–50 missions, and the terrain mustn't get boring. Use every IA terrain we have, but favour the planet's environment: a cold world mostly arctic and never desert, the moon mostly Pirate's Moon. Grasslands is jungle enough.
 - **Today:** mw1maps.zrd has PM c1–c4 and MW3 c2 only, 15 maps. MW3's Big Lake (c1), Rolling Hills (c3) and Gorge (c4), with three IA maps each, are missing.
 - **The pools (agreed with Owen):**
@@ -536,6 +536,7 @@ Tick an item when it is merged into `main`.
   - The enemy pilots' skill rises with the step.
   - The pay for a story battle is none, but the salvage is kept (the reason to fight it).
 - **The old deaths (33):** each of MW1's seven death choices becomes a setback: a lost lancemate, a fine, or the step's battle at its hardest. The trail goes on.
+- **After the final battle (Owen 2026-11-18):** the credits play (MW1's own credits, read from the exe as the other texts, over our art), then play goes on. Extra content after the win is to be decided later. Nothing ever stops the player from playing on.
 - **No deadline (Owen 2026-11-18):** it takes as long as it takes, and the player can play on indefinitely. MW1's 20 Mar 3029 limit is dropped: 0x73 (too late) never fires, and ATTACK stays offered until won. The news still runs by date.
 - **Done means:**
   - a headless walk of the whole chain through the journal's leads (each lead's planet and place correct, each battle launched with its force);
