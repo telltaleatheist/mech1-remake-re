@@ -69,6 +69,7 @@ enum class Anchor { kLayout, kLeft, kCentre, kRight };
 // off; a span is drawn in the line's font's highlight (its name with kHighlightSuffix, when the fonts have it; else
 // the line's own). Left-aligned lines only. shown() gives the line without them.
 inline constexpr int32_t kStatusGap = 14;  // the status bar: from the world's name to its words
+inline constexpr int32_t kStatusMargin = 8;  // the status bar's words end this far inside the layout's right
 inline constexpr char kHighlight = '\x02';
 inline constexpr const char* kHighlightSuffix = "_hi";
 std::string highlighted(const std::string& s);  // s between two kHighlight
@@ -169,7 +170,8 @@ class Mw1Screen : public mech3::MenuScreen {
   std::vector<std::unique_ptr<ztwod::Text>> labels_;          // the buttons' words, by id - 1
   std::vector<std::vector<std::unique_ptr<ztwod::Text>>> blocks_;
   std::vector<std::vector<std::unique_ptr<ztwod::Text>>> spans_;  // by block: a line's spans after its first
-  std::vector<std::vector<std::string>> shown_lines_;              // by block: the lines as shown, plain
+  std::vector<std::vector<std::string>> shown_lines_;
+  void fit_status(ztwod::Text* t, int32_t y, size_t world_block, int32_t world_x);              // by block: the lines as shown, plain
   std::vector<std::unique_ptr<ztwod::Image>> panels_;         // the layout's PANEL images, behind the texts
   std::vector<std::unique_ptr<ztwod::Frame>> rings_;           // the marks, by kind, reused show to show
   std::vector<std::unique_ptr<ztwod::Line2D>> lines_;
