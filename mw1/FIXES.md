@@ -156,3 +156,10 @@ Tick an item when it is merged into `main`.
   - The COMPANY readout stays (Owen's mockup has it), unless he says otherwise.
   - With a contract accepted, its summary shows in that readout or on the status line, not in a permanent centre panel.
 
+### Owen on items 8 and 13 (2026-11-17)
+- "I was expecting entrance through the Mech Complex. We might not need the right-side menu in the Mech Complex. We can assign the pilots to their corresponding mechs in the mech lab. I guess the list on the right can show the mechs we currently own, that would be fine."
+- **So:**
+  - The Mech Complex is where the mech lab is entered.
+  - Its right-hand list is YOUR MECHS (the owned mechs). There's no separate right-side menu.
+  - Assigning pilots to mechs (today's PILOT) moves into the mech lab.
+
