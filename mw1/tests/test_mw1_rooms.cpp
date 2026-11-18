@@ -120,3 +120,18 @@ TEST(mw1_rooms_scenery_by_landscape) {
   EXPECT(missing == 0 && wrong == 0 && same == 0);
   for (int32_t n : by_setting) EXPECT(n > 0);
 }
+
+// FIXES.md item 26: the lab's slot looks at PM's icon's own size: lit amber, dim amber, grey off.
+TEST(mw1_rooms_slot_icons) {
+  std::vector<uint16_t> px(41 * 50, 0);
+  px[5 * 41 + 7] = 0xffe0;  // full yellow
+  zimg::Texture t{};
+  t.width = 41, t.height = 50, t.flags = zimg::kTwoBytes, t.pixels = px.data();
+  const mw1::images::Image lit = mw1::slot_icon("a", t, mw1::SlotLook::kLit), dim = mw1::slot_icon("b", t, mw1::SlotLook::kDim),
+                           off = mw1::slot_icon("c", t, mw1::SlotLook::kOff);
+  const size_t at = 5 * 41 + 7;
+  EXPECT(lit.width == 41 && lit.height == 50 && lit.alpha[at] == 255 && lit.alpha[0] == 0);
+  EXPECT(lit.pixels[at] == mw1::images::rgb565(255, 176, 64) && dim.pixels[at] != lit.pixels[at] && off.pixels[at] == mw1::images::rgb565(110, 110, 110));
+  EXPECT(mw1::slot_icon_image(mw1::kPmOwens, mw1::SlotLook::kLit) == "mw1_slot_owens_lit" &&
+         mw1::slot_icon_image(mw1::kPmOwens, mw1::SlotLook::kDim) == "mw1_slot_owens");
+}

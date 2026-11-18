@@ -197,6 +197,8 @@ struct Run {
   std::map<std::string, int32_t> pm_cursor;
   int32_t icon_w = -1;  // item 23: the Owens' amber icon as the game finds it (made at the start), its width
   bool steady = false;  // item 25: PM's HelpButtons held steady while MW1 runs (mech3::buttons_steady)
+  int32_t page_after = -2, slot_w = -1;  // item 26: the lab's page after the weapons page was asked for; the slot icon
+  bool slot_amber = false;
   // FIXES.md item 24: PAY_UP held with zin's mouse at the first offer (the market run): the ask before, after the
   // hold (kHoldSeconds of the game's time), and a while after the release.
   int hold_phase = 0, hold_frames = 0;
@@ -317,6 +319,18 @@ void loop_run(Ending ending, Run* run = nullptr) {
     engine.on_present = [&](int) {
       if (app.pending()) return;
       if (run) run->steady = run->steady || mech3::buttons_steady();  // item 25
+      if (run && run->slot_w < 0)  // item 26: the lab's slot looks, made at the start with the icons
+        if (zimg::Texture* t = zimg::fetch_image(mw1::slot_icon_image(mw1::kPmOwens, mw1::SlotLook::kLit).c_str())) {
+          const auto* px = static_cast<const uint16_t*>(t->pixels);
+          int32_t lit = 0, amber = 0;
+          for (int32_t i = 0; i < t->width * t->height; ++i)
+            if (px[i]) {  // amber's hue: red over green over blue (565 to 8 bits)
+              const int32_t r = (px[i] >> 11) << 3, g = ((px[i] >> 5) & 63) << 2, b = (px[i] & 31) << 3;
+              ++lit, amber += r > g && g >= b;
+            }
+          run->slot_w = t->width, run->slot_amber = lit > 0 && amber == lit;
+          zimg::free_texture(t);
+        }
       if (run && run->icon_w < 0)  // item 23
         if (zimg::Texture* t = zimg::fetch_image(mw1::mech_icon_image(mw1::kPmOwens).c_str())) run->icon_w = t->width, zimg::free_texture(t);
       if (run) {  // PM's screens' pointers (item 22)
@@ -398,6 +412,14 @@ void loop_run(Ending ending, Run* run = nullptr) {
           click_x = 640 - mw1::kPilotFromRight + mw1::kRightArrowX + mw1::chrome::kSideArrowW / 2;
           click_y = mw1::kPilotY + mw1::kArrowDy + mw1::chrome::kSideArrowH / 2, click_phase = 1;
           return;
+        }
+        // Item 26: the empty weapons page asked for: the chassis page in its place; the first slot's icon amber.
+        if (mech3::LabScreen* ls = engine.lab_screen(mech3::states().lab.lab_screen_)) {
+          if (run->page_after < -1) {
+            ls->switch_page(1), run->page_after = -1;
+            return;
+          }
+          run->page_after = ls->page;
         }
         run->lab_pilot_after = who ? who->shown() : "?";
         run->lab_done = true;
@@ -1404,6 +1426,8 @@ TEST(mw1_loop_market_buy_sell_pilot_then_a_contract_in_the_bought_mech_headless)
     std::printf("  the Company's mech icon: %d wide (the slot %d)\n", run.icon_w, mw1::kIconSlotW);
     EXPECT(run.icon_w == mw1::kIconSlotW);
     EXPECT(run.steady);  // item 25
+    std::printf("  lab: page 1 asked, page %d shown; slot icon %d wide, amber %d\n", run.page_after, run.slot_w, run.slot_amber);
+    EXPECT(run.page_after == 0 && run.slot_w == 41 && run.slot_amber);  // item 26
     // Item 24: PAY_UP held a second steps the ask on (more than one step), and stops when let go.
     std::printf("  PAY_UP held 1 s: %d thousand offered, asked %d, %d after the release\n", run.ask_offer, run.ask_held, run.ask_released);
     EXPECT(run.hold_phase == 5 && run.ask_held > run.ask_offer + mw1::kRequestPaymentStep && run.ask_released == run.ask_held);

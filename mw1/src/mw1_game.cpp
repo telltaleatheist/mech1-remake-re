@@ -1,6 +1,7 @@
 #include "mw1_game.h"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
@@ -203,7 +204,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     }
     // MW1_SCREEN=pause or pause_options (development: --shot pictures of the pause over a mission): the offer
     // accepted, LAUNCH at the briefing, the pause pushed 90 frames into the mission (and its OPTIONS). MW1_SCREEN=lab
-    // or lab_files: the briefing's MECH LAB instead (and the lab's load box); lab_1, lab_3, lab_4 its pages.
+    // or lab_files: the briefing's MECH LAB instead (and the lab's load box); lab_3, lab_4 its pages (lab_1, empty, falls back to the chassis: item 26).
     if (const char* s = std::getenv("MW1_SCREEN");
         s && (std::string(s).rfind("pause", 0) == 0 || std::string(s).rfind("lab", 0) == 0) && !shot_driver_) {
       shot_driver_ = true;
@@ -1042,6 +1043,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     mech3::LabUnassignedList& u = ls->unassigned;
     if (u.weapon.labels.empty() || u.ammo.labels.empty() || u.equip.labels.empty() || u.armor.labels.empty()) return;
     if (std::strcmp(u.ammo.labels[0]->text, kAmmoTab) != 0) lab_look_once(*ls);
+    // FIXES.md item 26: no empty page. PM's layout has tabs for the chassis, criticals, groups and ACCEPT only; its
+    // weapons, equipment and mission-data pages (1, 2, 5) have nothing on them: the chassis in their place.
+    if (ls->page == 1 || ls->page == 2 || ls->page == 5) ls->switch_page(0);
+    lab_slot_icons(*ls);
     // ENGINE SELECTION's rating and type: refresh puts the right arrow 50 past the value's start ("Extra Light" ran
     // into it); kArrowGap past its end when it is longer.
     mech3::LabEngineTable& et = ls->engine_table;
@@ -1055,6 +1060,29 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       beside(et.rows[2]->value, et.type_right);
     }
   }
+  // FIXES.md item 26: the lab's mech slots in MW1's amber (mw1_mech_icons.h): PM's MechButton takes its mech's icons
+  // when the slot's mech changes (set_mech); ours in their place each time, the lit look for the chosen slot.
+  void lab_slot_icons(mech3::LabScreen& ls) {
+    if (slot_screen_ != &ls) slot_screen_ = &ls, slot_ours_.fill(nullptr);
+    ztwod::Host& h = ztwod::host();
+    for (int32_t i = 0; i < kLabSlots; ++i) {
+      mech3::MechButton& b = ls.mechs[i];
+      if (b.mech < 0 || b.mech >= mech3::mech_count() || !b.img_normal || b.img_normal == slot_ours_[static_cast<size_t>(i)]) continue;
+      zimg::Texture* dim = h.image_get(slot_icon_image(b.mech, SlotLook::kDim).c_str());
+      if (!dim) continue;  // no amber icons (no PM icons at the start): PM's stay
+      h.image_release(b.img_normal), h.image_release(b.img_activate), h.image_release(b.img_disabled);
+      b.img_normal = dim;
+      b.img_activate = h.image_get(slot_icon_image(b.mech, SlotLook::kLit).c_str());
+      b.img_disabled = h.image_get(slot_icon_image(b.mech, SlotLook::kOff).c_str());
+      b.set_image(b.selected ? b.img_activate : b.enabled ? b.img_normal : b.img_disabled);
+      b.dirty();
+      slot_ours_[static_cast<size_t>(i)] = dim;
+    }
+  }
+  static constexpr int32_t kLabSlots = 12;
+  const mech3::LabScreen* slot_screen_ = nullptr;
+  std::array<zimg::Texture*, kLabSlots> slot_ours_{};
+
   void lab_look_once(mech3::LabScreen& ls) {
     mech3::LabUnassignedList& u = ls.unassigned;
     // The supply tabs: PM's at fixed x, and "Armor" ran past the right panel's frame. "Ammo" for "Ammunition", and
@@ -1857,7 +1885,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     wait = 0;
     // The pages, the criticals page with each supply tab: weapons, equipment (its ENGINE SELECTION table), armour.
     struct Step { int32_t page, tab; bool armor; const char* name; };
-    static const Step kSteps[] = {{0, 0, false, "chassis"}, {1, 0, false, "page 1"}, {3, 1, false, "criticals, weapons"},
+    static const Step kSteps[] = {{0, 0, false, "chassis"}, {3, 1, false, "criticals, weapons"},  // page 1 has no tab (item 26)
                                   {3, 2, false, "criticals, ammo"}, {3, 3, false, "criticals, equipment"},
                                   {3, 3, true, "criticals, armor"}, {4, 0, false, "groups"}};
     constexpr int kStepCount = static_cast<int>(sizeof kSteps / sizeof kSteps[0]);
