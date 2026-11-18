@@ -317,14 +317,14 @@ TEST(mw1_art_chrome_at_scale) {
   const std::vector<std::string> names = mw1::chrome::chrome_names();
   auto has = [&](const std::string& n) { return std::find(names.begin(), names.end(), n) != names.end(); };
   EXPECT(has(mw1::chrome::kPlaque) && has(mw1::chrome::kButtons[1]) && has(mw1::chrome::kDialog) && has(mw1::chrome::kStatusBar));
-  EXPECT(!has(mw1::chrome::kDim) && !has(mw1::chrome::kCursor) && !has(mw1::chrome::kClear));
+  EXPECT(has(mw1::chrome::kDim) && has(mw1::chrome::kCursor) && !has(mw1::chrome::kClear));
   std::printf("  %zu chrome pieces at scale\n", names.size());
   mw1::chrome::Drawn d;
   EXPECT(!mw1::chrome::chrome_at(mw1::chrome::kPlaque, 1, &d) && !mw1::chrome::chrome_at("mw1_nothing", 3, &d));
   const std::vector<mw1::images::Image> all = mw1::chrome::all();
   int32_t checked = 0;
   for (const mw1::images::Image& c : all) {
-    if (!has(c.name)) continue;
+    if (!has(c.name) || c.name == mw1::chrome::kDim) continue;  // the dim: below
     const int32_t s = checked % 2 ? 3 : 5;
     if (!mw1::chrome::chrome_at(c.name, s, &d)) {
       std::printf("  %s not drawn at %d\n", c.name.c_str(), s);
@@ -344,10 +344,32 @@ TEST(mw1_art_chrome_at_scale) {
         const uint8_t da = d.rgba[(static_cast<size_t>(y * s + s / 2) * c.width * s + x * s + s / 2) * 4 + 3];
         if ((ca == 0) != (da == 0)) ++off;
       }
-    if (off > 24) std::printf("  %s: %d blocks' alpha off\n", c.name.c_str(), off);
-    EXPECT(off <= 24);
+    // The cursor is all round, drawn smooth at scale (its ring a band, not the canvas's pixel staircase): about 32
+    // of its 961 blocks' centres differ, at the ring's and its edge's rims.
+    const int32_t most = c.name == mw1::chrome::kCursor ? 48 : 24;
+    if (off > most) std::printf("  %s: %d blocks' alpha off\n", c.name.c_str(), off);
+    EXPECT(off <= most);
   }
-  EXPECT(checked == static_cast<int32_t>(names.size()));
+  EXPECT(checked == static_cast<int32_t>(names.size()) - 1);
+  // The dim (piece 4's): at its canvas size whatever the scale, flat black at kDimAlpha.
+  EXPECT(mw1::chrome::chrome_at(mw1::chrome::kDim, 5, &d) && d.s == 1 && d.canvas_w == mw1::images::kWideW &&
+         d.canvas_h == mw1::images::kScreenH && d.rgba.size() == static_cast<size_t>(d.canvas_w) * d.canvas_h * 4);
+  bool flat = !d.rgba.empty();
+  for (size_t k = 0; k < d.rgba.size(); k += 4)
+    flat = flat && d.rgba[k] == 0 && d.rgba[k + 1] == 0 && d.rgba[k + 2] == 0 && d.rgba[k + 3] == mw1::chrome::kDimAlpha;
+  EXPECT(flat);
+  // The cursor smooth at scale: its corners clear (straight alpha, 0 off the marks), amber on the ring, and partial
+  // coverage at the marks' edges (not s x s blocks).
+  EXPECT(mw1::chrome::chrome_at(mw1::chrome::kCursor, 4, &d) && d.s == 4);
+  const int32_t cw = d.canvas_w * 4;
+  auto px = [&](int32_t x, int32_t y) { return &d.rgba[(static_cast<size_t>(y) * cw + x) * 4]; };
+  const int32_t mid = (mw1::chrome::kCursorSize / 2) * 4 + 2;  // the centre pixel's middle, in device pixels
+  EXPECT(px(0, 0)[3] == 0 && px(cw - 1, cw - 1)[3] == 0);
+  EXPECT(px(mid + 30, mid)[3] == 255 && px(mid + 30, mid)[0] == 255);  // 7.5 canvas pixels out: on the ring
+  int32_t partial = 0;
+  for (size_t k = 3; k < d.rgba.size(); k += 4) partial += d.rgba[k] > 0 && d.rgba[k] < 200;
+  std::printf("  the cursor at 4: %d partly covered pixels\n", partial);
+  EXPECT(partial > 50);
   // The alpha's edges as the canvas blit's: none between 1 and 3 or 0xfc and 0xfe.
   EXPECT(mw1::chrome::chrome_at(mw1::chrome::kDialog, 3, &d));
   bool edges = true;

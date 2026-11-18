@@ -174,7 +174,8 @@ inline constexpr int32_t kBarEdge = 2, kBarLeft = 17 - kBarEdge, kBarRight = 17 
 void darken_scene(images::Image& im);    // the hub's scenery treatment (kSceneLight, kScanline)
 std::vector<images::Image> all();  // every piece, for the archive (the tiles come with their pictures, mw1imgpack)
 // Ours (research/hires-2d.md B2b): the pieces drawn again at scale s (2 and up) for the 2D at the window's
-// resolution, by their archive names (all but the dim, the cursor and the clear placeholder); RGBA, straight alpha.
+// resolution, by their archive names (all but the clear placeholder); RGBA, straight alpha. The dim (flat black)
+// comes at s 1 (its canvas size) whatever the scale.
 std::vector<std::string> chrome_names();
 bool chrome_at(const std::string& name, int32_t s, Drawn* out);
 
