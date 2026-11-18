@@ -1933,44 +1933,88 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   }
 
   // ---- FIXES.md item 14: the mech renders (mw1_mech_renders.h) ----
-  // The lab made a render stage, each frame: its 2D hidden (each one remembered, shown again by render_unstage), its
-  // pointer off, the camera moved by kRenderCamera (once a lab), the 3D window a square in the render's middle (black
-  // round the mech: the lab clears to black), and the shown mech held at `yaw` degrees (0 the front).
-  void render_stage(mech3::GameEngine& ge, float yaw) {
+  // The lab made a render stage, each frame: its 2D hidden (the cover's apart), its pointer off, the camera moved by
+  // kRenderCamera (once a lab), the 3D window a square in the render's middle (black round the mech: the lab clears
+  // to black), and the shown mech held at `yaw` degrees (0 the front).
+  void render_stage(mech3::GameEngine& ge, float yaw) { stage_2d(ge), stage_3d(ge, yaw); }
+  void stage_2d(mech3::GameEngine& ge) {
     mech3::LabState& ls = mech3::states().lab;
     mech3::LabScreen* l = ge.lab_screen(ls.lab_screen_);
-    if (l) {
-      for (ztwod::Object2D* o = l->head; o; o = o->next)
-        if (!(o->flags & ztwod::kHidden)) o->hide(), stage_hidden_.push_back(o);
-      if (l->cursor) stage_cursor_ = l->cursor, l->set_cursor(nullptr);
-      if (stage_screen_ != l) {  // a lab just opened: its camera from the constants
-        stage_screen_ = l;
-        for (int i = 0; i < 3; ++i) ls.cam_pos_[i] += kRenderCamera[i];
-      }
+    if (!l) return;
+    for (ztwod::Object2D* o = l->head; o; o = o->next)
+      if (!(o->flags & ztwod::kHidden) && !is_cover(o)) o->hide(), stage_hidden_.push_back(o);
+    if (l->cursor) stage_cursor_ = l->cursor, l->set_cursor(nullptr);
+    if (stage_screen_ != l) {  // a lab just opened: its camera from the constants
+      stage_screen_ = l;
+      for (int i = 0; i < 3; ++i) ls.cam_pos_[i] += kRenderCamera[i];
     }
+  }
+  // True when the stage is set (a view and its mech): only then is the frame the pass reads back the mech alone.
+  bool stage_3d(mech3::GameEngine& ge, float yaw) {
+    mech3::LabState& ls = mech3::states().lab;
     mech3::LabView* v = ge.lab_view();
     zcls::Node* node = ls.model_ ? ge.lab_model_node(ls.model_) : nullptr;
-    if (!v || !node) return;
+    if (!v || !node) return false;
     const mech3::Rect& r = mech3::render();
     const int32_t side = std::min(r.w, r.h);
     zcls::window_set_size(v->window, side, side);
     zcls::window_set_origin(v->window, r.x + (r.w - side) / 2, r.y + (r.h - side) / 2);
     zcls::object3d_set_rotation(node, 0.0f, yaw * 0.017453292f, 0.0f);
+    return true;
   }
-  // The lab as it was: what render_stage hid shown again, its pointer back.
-  void render_unstage(mech3::GameEngine& ge) {
-    for (ztwod::Object2D* o : stage_hidden_) o->show_for(-1.0f);
-    stage_hidden_.clear();
-    mech3::LabScreen* l = ge.lab_screen(mech3::states().lab.lab_screen_);
-    if (l && stage_cursor_) l->set_cursor(stage_cursor_);
-    stage_cursor_ = nullptr, stage_screen_ = nullptr;
+  bool is_cover(const ztwod::Object2D* o) const {
+    if (o == cover_plaque_.get() || o == cover_text_.get()) return o != nullptr;
+    for (const auto& c : cover_cells_)
+      if (o == c.get()) return true;
+    return false;
   }
-
   // The pass (once a run, when the archive is missing or its stamp differs, and the renderer reads frames back):
-  // settled on MW1's menu or hub, the lab opened over it on the first mech; each mech shown kRenderSettle frames held
-  // at the front, the frame read back and made its pictures; then the archive written and registered, the lab put
-  // back as it was and ACCEPTed (the screen it opened over shows again). No pictures: the amber icons stay.
+  // settled on MW1's menu or hub, the lab opened over it on the first mech. The player sees only the cover (a black
+  // screen, the plaque PREPARING THE MECH BAY and a cell lit per mech done): each mech is shown in frames the display
+  // holds back (Render3D::hold_display), held at the front kRenderSettle frames, read back and made its pictures, then
+  // one cover frame shows the progress. At the end the archive is written and registered and the lab ACCEPTed under a
+  // held display, so the screen it opened over comes back straight from the cover. No pictures: the amber icons stay.
   static constexpr int32_t kRenderSettle = 4, kRenderGiveUp = 120;
+  enum class PassStep { kCover, kRender, kLeaving };
+  void hold_display(bool on) {
+    if (platform::Render3D* r3 = ge_ ? ge_->platform_parts().render : nullptr) r3->hold_display(on);
+  }
+  // The cover's pieces in the lab's 2D layer, made once a lab (they outlive it: deleted once it has gone).
+  void show_cover(mech3::GameEngine& ge, mech3::LabScreen& l, bool shown) {
+    const int32_t n = static_cast<int32_t>(pass_.mechs.size());
+    if (!cover_text_) {
+      const int32_t w = ge.buffer_width(), x0 = (w - kPlaqueCoverW) / 2, y0 = 190;
+      cover_plaque_ = std::make_unique<ztwod::Image>(0);
+      cover_plaque_->set_image(kPlaqueCover);
+      cover_plaque_->set_pos(x0, y0);
+      l.add(cover_plaque_.get());
+      cover_text_ = std::make_unique<ztwod::Text>();
+      cover_text_->set_pos(w / 2, y0 + 15);
+      cover_text_->set_font(ztwod::host().font_find("mw1_plaque"));
+      cover_text_->set_text_plain("PREPARING THE MECH BAY");
+      l.add(cover_text_.get());
+      const int32_t bar = n * kProgressCellW + (n - 1) * kProgressGap;
+      for (int32_t i = 0; i < n; ++i) {
+        cover_cells_.push_back(std::make_unique<ztwod::Image>(0));
+        cover_cells_.back()->set_pos((w - bar) / 2 + i * (kProgressCellW + kProgressGap), y0 + kPlaqueH + 16);
+        l.add(cover_cells_.back().get());
+      }
+    }
+    std::vector<ztwod::Object2D*> all = {cover_plaque_.get(), cover_text_.get()};
+    for (size_t i = 0; i < cover_cells_.size(); ++i) {
+      cover_cells_[i]->set_image(kProgressCell[i < pass_.at ? 1 : 0]);
+      all.push_back(cover_cells_[i].get());
+    }
+    for (ztwod::Object2D* o : all) {
+      if (shown) o->show_for(-1.0f);
+      else o->hide();
+      o->dirty();
+    }
+  }
+  void drop_cover() {
+    cover_cells_.clear(), cover_text_.reset(), cover_plaque_.reset();
+    stage_hidden_.clear(), stage_cursor_ = nullptr, stage_screen_ = nullptr;
+  }
   void render_pass_frame() {
     mech3::Mech3App* app = mech3::app_if_any();
     if (!renders_wanted_ || !ge_ || !app) return;
@@ -1997,6 +2041,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       g->slot.set_config(stock_loadout(pass_.mechs.front()));
       g->store.clear();
       g->store.full = 0;
+      hold_display(true);  // the lab's own first frames never show
       ge.pilot_chosen(p);
       ge.mech_lab_open(ge.store_handle(&g->store), 0);
       return;
@@ -2004,21 +2049,49 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (app->current() != lab) {
       if (!pass_.opened && ++pass_.idle < kRenderGiveUp) return;
       if (!pass_.opened) std::printf("mw1: the mech lab never opened: no mech renders this run\n");
+      hold_display(false);
+      drop_cover();
       renders_wanted_ = false, pass_.on = false;
       return;
     }
     pass_.opened = true;
     mech3::LabState& ls = mech3::states().lab;
-    if (pass_.at >= pass_.mechs.size()) return;  // done: ACCEPT asked, the lab leaving
+    mech3::LabScreen* l = ge.lab_screen(ls.lab_screen_);
+    mech3::LabView* v = ge.lab_view();
+    if (!l || !v) return;
+    if (pass_.step == PassStep::kLeaving) {  // the cover's last frame shown: held from here, ACCEPT
+      if (pending_accept_ == l) hold_display(true), pending_accept_ = nullptr, l->switch_page(6);
+      return;
+    }
+    stage_2d(ge);
+    if (pass_.step == PassStep::kCover) {  // the next frame the cover alone, shown
+      show_cover(ge, *l, true);
+      zcls::window_set_size(v->window, 0, 0);
+      hold_display(false);
+      if (pass_.at >= pass_.mechs.size()) {
+        pass_.step = PassStep::kLeaving;
+        finish_pass(ge, *l);
+      } else {
+        pass_.step = PassStep::kRender, pass_.wait = 0, pass_.idle = 0;
+      }
+      return;
+    }
+    // kRender: the mech alone in held frames, till it has shown kRenderSettle of them.
     const int32_t mech = pass_.mechs[pass_.at];
-    if (pass_.wait == 0) ls.mech_ = mech;
-    render_stage(ge, 0.0f);
+    if (pass_.wait == 0) {
+      hold_display(true);
+      show_cover(ge, *l, false);
+      ls.mech_ = mech;
+    }
+    // Read back only frames drawn on a set stage, its 2D hidden from the frame before (stage_2d runs each frame):
+    // FIXES 14's first pass read the lab's whole screen when the stage was not set.
+    const bool staged = stage_3d(ge, 0.0f) && !stage_hidden_.empty() && !l->cursor;
     const int32_t entry = ls.model_index(mech);
-    const bool shown = entry >= 0 && static_cast<size_t>(entry) < ls.models_.size() && ls.model_ == ls.models_[static_cast<size_t>(entry)];
+    const bool shown = staged && entry >= 0 && static_cast<size_t>(entry) < ls.models_.size() && ls.model_ == ls.models_[static_cast<size_t>(entry)];
     pass_.wait = shown ? pass_.wait + 1 : std::max(pass_.wait, 1);
     if (!shown && ++pass_.idle > kRenderGiveUp) {
       std::printf("mw1: the %s never showed in the lab: no render of it\n", mech3::mech_name(mech));
-      pass_.idle = 0, pass_.wait = 0, ++pass_.at;
+      ++pass_.at, pass_.step = PassStep::kCover;
     } else if (shown && pass_.wait > kRenderSettle) {
       std::vector<uint32_t> px;
       int32_t w = 0, h = 0;
@@ -2027,9 +2100,12 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         if (made.empty()) std::printf("mw1: the %s's frame was empty: no render of it\n", mech3::mech_name(mech));
         for (images::Image& i : made) pass_.made.push_back(std::move(i));
       }
-      pass_.idle = 0, pass_.wait = 0, ++pass_.at;
+      ++pass_.at, pass_.step = PassStep::kCover;
     }
-    if (pass_.at < pass_.mechs.size()) return;
+  }
+  // The archive written and registered; the lab ACCEPTed with the display held from the cover's last frame (the
+  // screen it opened over comes back; render_pass_frame lets the display go once the lab has gone).
+  void finish_pass(mech3::GameEngine& ge, mech3::LabScreen& l) {
     const std::string dir = zutl::mounts().write;
     if (!pass_.made.empty() && write_renders(dir, pass_.made, pass_.mechs)) {
       if (!renders_ready()) zimg::new_image_library(kRenderLibrary, 0, false);
@@ -2038,8 +2114,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     } else {
       std::printf("mw1: the mech pictures could not be written: the amber icons stay\n");
     }
-    render_unstage(ge);
-    if (mech3::LabScreen* l = ge.lab_screen(ls.lab_screen_)) l->switch_page(6);  // ACCEPT: back to where it opened
+    (void)ge;
+    pending_accept_ = &l;
   }
 
   // MW1_FIT=1 with MW1_SCREEN=<page> (FIXES 3+5's guard, tests/screen_fit.cmake): 40 frames into the MW1 screen the
@@ -2205,9 +2281,14 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     size_t at = 0;
     int32_t wait = 0, idle = 0;
     bool on = false, opened = false;
+    PassStep step = PassStep::kCover;
     std::vector<images::Image> made;
   };
   RenderPass pass_;
+  std::unique_ptr<ztwod::Image> cover_plaque_;
+  std::unique_ptr<ztwod::Text> cover_text_;
+  std::vector<std::unique_ptr<ztwod::Image>> cover_cells_;
+  mech3::LabScreen* pending_accept_ = nullptr;
   bool renders_wanted_ = false;
   std::vector<ztwod::Object2D*> stage_hidden_;
   ztwod::Object2D* stage_cursor_ = nullptr;
