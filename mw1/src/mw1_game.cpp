@@ -1827,9 +1827,18 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (k.target < kHouseCount) l.push_back("Against: " + highlighted("House " + std::string(kHouses[k.target].name)));
     const std::string title = mission_title(k.code);
     if (!title.empty()) l.push_back(title_case_name(title.c_str()));
-    if (k.mission_planet >= 0) l.push_back("On " + title_case_name(kPlanets[k.mission_planet].name) + " (" + climate_name(k.climate) + ")");
+    if (k.mission_planet >= 0)
+      l.push_back("On " + title_case_name(kPlanets[k.mission_planet].name) + " (" + highlighted(climate_name(k.climate)) + ")");
     l.push_back("Objective: " + highlighted(objective_words(k)));
-    l.push_back("Map: " + highlighted(map_words(ge_, k.world, k.ia)));
+    // FIXES.md item 44 (c): the map's own climate, so a battle on another climate's map is no surprise ("desert, no
+    // ice map yet" on an ice world while the table has none for it).
+    std::string map = "Map: " + highlighted(map_words(ge_, k.world, k.ia));
+    if (const int32_t c = map_climate(map_table(), k.world, k.ia); c >= 0) {
+      map += " (" + highlighted(climate_name(c));
+      if (k.mission_planet >= 0 && c != k.climate) map += std::string(", no ") + climate_name(k.climate) + " map yet";
+      map += ")";
+    }
+    l.push_back(map);
     l.push_back("Enemy: " + enemies);
     if (!with_terms) return l;
     l.push_back("Payment: " + highlighted(thousands(int64_t{k.payment} * 1000)) + " C-bills");
@@ -1897,9 +1906,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
           contract_.world = r.world, contract_.ia = r.ia, contract_.structure_words = r.words;
     }
     save();
-    std::printf("mw1: offered: %s on %sia%d (MW1's %s, code %d, %s), %d thousand, %zu enemies\n", objective_words(contract_).c_str(),
-                contract_.world.c_str(), contract_.ia, category_name(contract_.category), contract_.code,
-                mw1_objective_name(objective_of_code(contract_.code)), contract_.payment, contract_.enemies.size());
+    std::printf("mw1: offered: %s on %sia%d (MW1's %s, code %d, %s), %d thousand, %zu enemies; climate %s, the map's %s\n",
+                objective_words(contract_).c_str(), contract_.world.c_str(), contract_.ia, category_name(contract_.category),
+                contract_.code, mw1_objective_name(objective_of_code(contract_.code)), contract_.payment, contract_.enemies.size(),
+                climate_name(contract_.climate), climate_name(map_climate(map_table(), contract_.world, contract_.ia)));
   }
 
   // FIXES.md item 18: DEPLOY goes straight into the mission. PM's briefing (the Load state's screen) is built and

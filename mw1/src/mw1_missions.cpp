@@ -200,6 +200,12 @@ int32_t choose_row(const std::vector<MapRow>& rows, RowKind kind, int32_t climat
   return from.empty() ? -1 : from[static_cast<size_t>(rng.upto(static_cast<int32_t>(from.size()) - 1))];
 }
 
+int32_t map_climate(const std::vector<MapRow>& rows, const std::string& world, int32_t ia) {
+  for (const MapRow& r : rows)
+    if (r.world == world && r.ia == ia) return r.climate;
+  return -1;
+}
+
 void choose_mission(Contract& k, Rng& rng) {
   const Mission m = roll_mission(k.house, k.target, rng);
   k.category = m.category, k.code = m.code, k.mission_planet = m.planet, k.climate = m.climate;
