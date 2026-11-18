@@ -82,6 +82,8 @@ void wire_fmv(GameEngine* e);            // zFMV's host (app_fmv.cpp)
 // (0x004050d0) and lines (0x00405120); none open, nothing (app_menus.cpp).
 void program_briefing_progress(float f);
 void program_briefing_line(const char* s);
+// Ours (program_flow.h's skip_debriefing): an Instant Action mission's way out skips the debriefing.
+bool program_skips_debriefing(Engine& e);
 void program_mech_chat_draw(void* mech);  // app_mech.h: 0x0041ab90's chat panel
 uint32_t program_slot_count();  // the chosen pilot's campaign's slot count (0x00435180), 0 without one
 

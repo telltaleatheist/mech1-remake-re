@@ -28,6 +28,7 @@
 #include "mech3/mech_objective.h"
 #include "mech3/app_states.h"
 #include "mech3/briefing.h"
+#include "mech3/program_flow.h"
 #include "mech3/debriefing.h"
 #include "mech3/lab_screen.h"
 #include "mech3/mech_reader.h"
@@ -1003,6 +1004,10 @@ void GameEngine::briefing_pick_map(const char* name) {
   missions().xbc = m ? handle_of(m) : 0;
 }
 
+bool program_skips_debriefing(Engine& e) {
+  ProgramFlow* x = program_flow();
+  return x && x->skip_debriefing() && e.game_kind() == kInstantAction;
+}
 void program_briefing_progress(float f) {
   if (BriefingScreen* b = briefing_screen()) b->progress(f);
 }

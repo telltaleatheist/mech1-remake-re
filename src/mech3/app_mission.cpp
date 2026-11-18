@@ -1842,9 +1842,11 @@ struct WiredMissionHooks : MissionHooks {
     if (auto* d = static_cast<zeff::AnimDef*>(e->object_of(a))) zeff::anim_start(d, nullptr, 0, 0, 0);
   }
   // 0x0048ef00 of the end screen: the debriefing's Win State (the missions
-  // object's +0xd0), or training's TR Dummy State, after a 2 s fade.
+  // object's +0xd0), or training's TR Dummy State, after a 2 s fade. Ours: a program that skips Instant Action's
+  // debriefing (program_flow.h) gets IA Dummy in the Win State's place.
   void fade_out(Handle seq) override {
-    if (seq == 0x6099a0) fade_replace(&states().end_win, 0, 1, 2, kFadeSeconds, 0, 0, 0);
+    if (seq == 0x6099a0 && program_skips_debriefing(*e)) fade_replace(&states().ia_dummy, 0, 1, 2, kFadeSeconds, 0, 0, 0);
+    else if (seq == 0x6099a0) fade_replace(&states().end_win, 0, 1, 2, kFadeSeconds, 0, 0, 0);
     else if (seq == states().tr_dummy.addr()) fade_replace(&states().tr_dummy, 0, 1, 2, kFadeSeconds, 0, 0, 0);
     else MissionHooks::fade_out(seq);
   }

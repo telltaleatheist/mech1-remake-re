@@ -424,6 +424,14 @@ original's.
   then each frame after. Once `loaded`, its answer is the briefing's LAUNCH
   (`kLaunch`), its ABORT (`kAbort`), or nothing yet (`kWait`). MW1 launches
   at once.
+- `skip_debriefing()`: a program that never shows Instant Action's
+  debriefing (MW1). An Instant Action mission's way out to the debriefing
+  (the end screen's fade, 0x0048ef00's `fade_out(0x6099a0)`, and the pause
+  menu's QUIT, `fade_to_state(0x6099a0)`) goes to IA Dummy instead of the
+  Win State: `mission_ending`, the cleanup, the main menu, as the
+  debriefing's own way out does. A campaign's debriefing stays the
+  original's. MW1 shows its own results screen from the main menu's
+  `main_entered`.
 - `mech_repaired(mech, armor_before, structure_before)`: a field base has just
   repaired a mech (the station's repair 0x0045a0f0, the refit's 0x0045bcc0, or
   the dock's timed repair 0x0045b320), any mech on any side. It gets each
@@ -458,5 +466,5 @@ Tests: `program_flow_none_is_the_original`,
 `mission_launched`, `tests/pm/test_pm_mission.cpp`),
 `program_flow_names_and_aims_an_instant_action_ally_headless`,
 `program_flow_sees_field_base_repairs_and_structure_headless`,
-`program_flow_skips_the_briefing_headless`,
+`program_flow_skips_the_briefing_and_the_debriefing_headless`,
 `adopt_state_registers_a_program_state` (`tests/pm/test_pm_mission.cpp`).

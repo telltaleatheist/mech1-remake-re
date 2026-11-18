@@ -51,6 +51,10 @@ class ProgramFlow {
   // screen. The first comes as the load starts (its picture stays up while the mission loads), `loaded` false; once
   // `loaded`, kLaunch is the briefing's LAUNCH and kAbort its ABORT (back to the main menu, the mission unloaded).
   virtual LoadingNext loading_frame(Engine& e, float dt, bool loaded) { return loaded ? LoadingNext::kLaunch : LoadingNext::kWait; }
+  // Instant Action's debriefing never shown (MW1): the mission's way out (the end screen's fade, the pause's QUIT) goes
+  // to Instant Action's end (IA Dummy, mission_ending, the main menu) where it went to the debriefing's Win State. A
+  // campaign's debriefing is the original's. False (MW3, PM): the original's debriefing.
+  virtual bool skip_debriefing() const { return false; }
   // Instant Action's launch (action_lineup, PM 0x0040b8f0's line-up): an ally of the player's about to be made,
   // line-up slot `slot` (1.., the player's 0; allies first), on its map record's AI settings, a copy for this
   // launch alone. The program may change them before the mech and its brain are made from them: its pilot's
