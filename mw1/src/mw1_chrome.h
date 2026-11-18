@@ -67,6 +67,17 @@ struct PanelSize {
 };
 std::string panel_name(int32_t w, int32_t h);
 std::string terminal_name(int32_t w, int32_t h);
+// A message's box at the screen's foot (FIXES.md item 42, Owen: unobtrusive, the picture above it clear): the
+// terminal's look, sized to its text, a title row, 1..kBoxLinesMax lines and a row of buttons inside it. Each is
+// drawn at the foot of a kBoxCanvasH high picture, clear above it, so every size shares one place in a layout and a
+// box grows upward with its lines (mw1_box_<w>_<lines>).
+inline constexpr int32_t kBoxLinesMax = 6;           // then it pages: about a third of the 480-line canvas
+inline constexpr int32_t kBoxLineGap = 15;
+inline constexpr int32_t kBoxChromeH = 82;           // its frame, the title row and the buttons' row around the lines
+inline constexpr int32_t kBoxCanvasH = kBoxChromeH + kBoxLinesMax * kBoxLineGap;  // 172
+inline constexpr int32_t box_height(int32_t lines) { return kBoxChromeH + lines * kBoxLineGap; }
+inline constexpr int32_t kBoxWidths[] = {560, 376, 760};  // a message's; the hub's (between its tiles); a message's at 16:9
+std::string box_name(int32_t w, int32_t lines);
 inline const std::vector<PanelSize>& panel_sizes() {
   // The ones the screens use (each screen's layout names its own; add one here when a layout needs it).
   static const std::vector<PanelSize> k = {{232, 120}, {300, 200}, {400, 300}, {560, 360}, {280, 420}, {376, 214}, {456, 214},
@@ -74,10 +85,10 @@ inline const std::vector<PanelSize>& panel_sizes() {
   return k;
 }
 inline const std::vector<PanelSize>& terminal_sizes() {
-  // The screens' terminals; the file popup's name (220x22); a message's side panel (item 34, 392x300); AFTER ACTION's
+  // The screens' terminals; the file popup's name (220x22); AFTER ACTION's
   // status and message at 16:9 and 4:3 (item 38).
   static const std::vector<PanelSize> k = {{232, 150}, {436, 300}, {637, 300}, {186, 328}, {377, 328}, {436, 172}, {637, 172},
-                                           {220, 22},  {304, 168}, {392, 300}, {569, 324}, {408, 324}, {721, 96},  {508, 96}};
+                                           {220, 22},  {304, 168}, {569, 324}, {408, 324}, {721, 96},  {508, 96}};
   return k;
 }
 // A picture's frame (a portrait's, a mech's): mw1_frame_<w>x<h> and its lit look (_lit, the chosen one's), its
@@ -121,6 +132,7 @@ images::Image button(int32_t state);
 images::Image button(int32_t state, int32_t w, int32_t h, const std::string& name, int32_t drawn = 0);  // any size, any name      // 0 still, 1 lit, 2 pressed, 3 off
 images::Image panel(int32_t w, int32_t h);
 images::Image terminal(int32_t w, int32_t h);
+images::Image box(int32_t w, int32_t lines);
 images::Image status_bar();
 images::Image dialog_frame();
 images::Image dim();

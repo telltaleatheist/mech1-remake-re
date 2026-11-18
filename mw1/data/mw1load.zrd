@@ -2,15 +2,15 @@
 ; template (src/mw1_screen.h), FIXES.md item 18: DEPLOY goes straight into the
 ; mission, Pirate's Moon's briefing never shown; this is up while the mission
 ; loads.
-; - the battle world's scenery full-bleed and dimmed, by its climate (the screen
-;   names it: mw1_scenery.h's scenery_image);
+; - the battle world's scenery full-bleed and clear (no dim: FIXES.md item 42),
+;   by its climate (the screen names it: mw1_scenery.h's scenery_image);
 ; - the world and the employer on the plaque at the top;
-; - the contract on the green terminal in the middle: its title, objective,
-;   map and enemy (the office's offer lines);
+; - the contract on the green terminal at the foot (item 42): its title,
+;   objective, map and enemy (the office's offer lines), LOADING at the right
+;   of its title row;
 ; - the main enemy (the heaviest kind's PM mech) beside it, framed: its render,
 ;   else its amber icon (the Company screen's 96x128 slot in its 104x136 frame;
 ;   the screen hides the frame with no enemy);
-; - LOADING in our type under it.
 ; No buttons and no pointer: nothing to press while the mission loads. All
 ; MW1's own art (mw1image.zbd): nothing of Pirate's Moon's
 ; (tests/test_mw1_look.cpp). A 4:3 layout, each piece anchored to the
@@ -19,20 +19,20 @@
 MW1LOADDIALOG (
   PRIMITIVES (
     BACKGROUND (POSITION (-107 0) BITMAP ("mw1_hub_desert_starport") ANCHOR ("CENTRE"))
-    PANEL (POSITION (-107 0) BITMAP ("mw1_dim") ANCHOR ("CENTRE"))
+    PANEL (POSITION (-107 0) BITMAP ("mw1_clear") ANCHOR ("CENTRE"))
     PANEL2 (POSITION (170 16) BITMAP ("mw1_plaque") ANCHOR ("CENTRE"))
-    PANEL3 (POSITION (44 150) BITMAP ("mw1_term_436x172") ANCHOR ("CENTRE"))
-    PANEL4 (POSITION (492 168) BITMAP ("mw1_frame_104x136") ANCHOR ("CENTRE"))
-    PANEL5 (POSITION (496 172) BITMAP ("mw1_clear") ANCHOR ("CENTRE"))
+    PANEL3 (POSITION (44 296) BITMAP ("mw1_term_436x172") ANCHOR ("CENTRE"))
+    PANEL4 (POSITION (492 314) BITMAP ("mw1_frame_104x136") ANCHOR ("CENTRE"))
+    PANEL5 (POSITION (496 318) BITMAP ("mw1_clear") ANCHOR ("CENTRE"))
   )
   BUTTONS (
   )
   TEXTS (
     PLANET (POSITION (320 23) FONT ("mw1_plaque") ANCHOR ("CENTRE"))
     PLACE (POSITION (320 55) FONT ("mw1_plaque_sub") ANCHOR ("CENTRE"))
-    TITLE (POSITION (64 160) FONT ("mw1_term_title") ANCHOR ("CENTRE"))
-    LINES (POSITION (64 186) FONT ("mw1_term_line") GAP (16) ANCHOR ("CENTRE"))
-    LOADING (POSITION (320 372) FONT ("mw1_plaque") ANCHOR ("CENTRE"))
+    TITLE (POSITION (64 306) FONT ("mw1_term_title") ANCHOR ("CENTRE"))
+    LINES (POSITION (64 332) FONT ("mw1_term_line") GAP (16) ANCHOR ("CENTRE"))
+    LOADING (POSITION (464 308) FONT ("mw1_term_value") ANCHOR ("CENTRE"))
   )
 )
 )

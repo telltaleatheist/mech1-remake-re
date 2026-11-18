@@ -157,6 +157,7 @@ void lamp(Canvas& c, int32_t cx, int32_t cy, int32_t r, bool on) {
 
 std::string panel_name(int32_t w, int32_t h) { return "mw1_panel_" + std::to_string(w) + "x" + std::to_string(h); }
 std::string terminal_name(int32_t w, int32_t h) { return "mw1_term_" + std::to_string(w) + "x" + std::to_string(h); }
+std::string box_name(int32_t w, int32_t lines) { return "mw1_box_" + std::to_string(w) + "_" + std::to_string(lines); }
 std::string frame_name(int32_t w, int32_t h, bool lit) {
   return "mw1_frame_" + std::to_string(w) + "x" + std::to_string(h) + (lit ? "_lit" : "");
 }
@@ -283,6 +284,18 @@ images::Image terminal(int32_t w, int32_t h) {
       c.set(x, y, d < 2 ? Rgba{70, 190, 105, 255} : d == 3 ? Rgba{30, 80, 45, 230} : Rgba{4, 14, 8, 214});
     }
   return c.image(terminal_name(w, h));
+}
+
+images::Image box(int32_t w, int32_t lines) {
+  // The terminal's look (terminal()), box_height(lines) high at the picture's foot; the rows above it clear.
+  Canvas c(w, kBoxCanvasH);
+  const int32_t h = box_height(lines), top = kBoxCanvasH - h;
+  for (int32_t y = 0; y < h; ++y)
+    for (int32_t x = 0; x < w; ++x) {
+      const int32_t d = std::min({x, y, w - 1 - x, h - 1 - y});
+      c.set(x, top + y, d < 2 ? Rgba{70, 190, 105, 255} : d == 3 ? Rgba{30, 80, 45, 230} : Rgba{4, 14, 8, 214});
+    }
+  return c.image(box_name(w, lines));
 }
 
 images::Image status_bar() {
@@ -817,6 +830,8 @@ std::vector<Maker> makers() {
   for (int32_t s = 0; s < 4; ++s) v.push_back([=] { return button(s); });
   for (const PanelSize& p : panel_sizes()) v.push_back([=] { return panel(p.w, p.h); });
   for (const PanelSize& p : terminal_sizes()) v.push_back([=] { return terminal(p.w, p.h); });
+  for (int32_t w : kBoxWidths)
+    for (int32_t n = 1; n <= kBoxLinesMax; ++n) v.push_back([=] { return box(w, n); });
   for (const PanelSize& p : frame_sizes())
     for (bool lit : {false, true}) v.push_back([=] { return frame(p.w, p.h, lit); });
   for (bool up : {true, false})

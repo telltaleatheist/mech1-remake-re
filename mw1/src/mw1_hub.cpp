@@ -1,9 +1,11 @@
 #include "mw1_hub.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <string>
 
 #include "mech3/app_hooks.h"
+#include "mw1_chrome.h"
 
 namespace mw1::hub {
 namespace {
@@ -38,6 +40,11 @@ std::vector<std::string> wrapped(const std::vector<std::string>& lines) {
 }
 }  // namespace
 
+size_t hub_pages(const std::vector<std::string>& panel) {
+  const size_t n = wrapped(panel).size(), most = static_cast<size_t>(chrome::kBoxLinesMax);
+  return std::max<size_t>(1, (n + most - 1) / most);
+}
+
 const char* hub_button_name(int32_t id) { return id >= 1 && id <= kHubButtonCount ? kHubButtons[id - 1].name : ""; }
 const char* hub_options_button_name(int32_t id) {
   return id >= 1 && id <= kHubOptionsButtonCount ? kHubOptionsButtons[id - 1].name : "";
@@ -51,10 +58,19 @@ void HubState::show(const HubView& v) {
   // Every text at its place in the layout (mw1hub.zrd's TEXTS).
   ScreenView s;
   s.backdrop = v.scenery;
+  // The box at the foot (FIXES.md item 42): this page's lines, the box sized to them, the texts moved down to its top.
+  const std::vector<std::string> all = wrapped(v.panel);
+  const size_t most = static_cast<size_t>(chrome::kBoxLinesMax), pages = hub_pages(v.panel), page = std::min(v.page, pages - 1);
+  const std::vector<std::string> lines(all.begin() + static_cast<long>(std::min(all.size(), page * most)),
+                                       all.begin() + static_cast<long>(std::min(all.size(), (page + 1) * most)));
+  const int32_t n = std::clamp(static_cast<int32_t>(lines.size()), 1, chrome::kBoxLinesMax);
+  const int32_t dy = (chrome::kBoxLinesMax - n) * chrome::kBoxLineGap;
+  const std::string title = pages > 1 ? v.title + "  " + std::to_string(page + 1) + "/" + std::to_string(pages) : v.title;
   s.blocks = {at_place("PLANET", {v.planet}),         at_place("HOUSE", {v.house}),
               at_place("DATE", {v.date}),             at_place("DAY", {v.day}),
-              at_place("PANEL_TITLE", {v.title}),     at_place("PANEL_LINES", wrapped(v.panel)),
+              at_place_down("PANEL_TITLE", {title}, dy), at_place_down("PANEL_LINES", lines, dy),
               at_place("STATUS_WORLD", {v.planet}),   at_place("STATUS", {v.status})};
+  s.pictures = {"", "", chrome::box_name(kHubBoxWidth, n)};  // PANEL3, after the plaques
   // The company's strip between the plaques (C-BILLS, PAYROLL, KILLS: Owen on item 16); the middle panel only with
   // something to say, OK (and AFTER ACTION's REPLAY) under it.
   s.blocks.push_back(at_place("STRIP_LABELS", v.labels));
@@ -64,6 +80,7 @@ void HubState::show(const HubView& v) {
   s.buttons.resize(kHubButtonCount);
   auto b = [&](int32_t id) -> ButtonState& { return s.buttons[static_cast<size_t>(id - 1)]; };
   b(kHubOk).there = box;
+  if (page + 1 < pages) b(kHubOk).words = "NEXT";  // more to read: OK on the last page
   b(kHubReplay).there = v.after_action && v.replay;
   // MW1's two columns (DS:1083): COMPANY, MECH COMPLEX, HOUSE OFFICE; STARPORT, BAR, OPTIONS. The office's slot is
   // empty on a world with none (DS:1101). A contract accepted (DS:10D7): COMPANY, MECH COMPLEX, DEPLOY; no right column.

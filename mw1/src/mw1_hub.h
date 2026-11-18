@@ -49,7 +49,11 @@ struct HubView {
   bool replay = false;
   bool contract = false;              // a contract accepted: DEPLOY in the office's place, the right column gone
   bool office_open = true;            // the world has a House office: its tile (empty on a world with none, MW1's)
+  size_t page = 0;                    // the box's page (FIXES.md item 42: kBoxLinesMax lines a page, OK the next)
 };
+inline constexpr int32_t kHubBoxWidth = 376;  // the box between the tile columns, at 4:3 and 16:9 (mw1_box_376_<n>)
+// The box's pages for the panel's lines (wrapped as shown): one at the least.
+size_t hub_pages(const std::vector<std::string>& panel);
 
 // The hub's OPTIONS (MW1's options hold the game's own: ours, PM's settings and the main menu).
 inline constexpr const char* kHubOptionsDialog = "MW1HUBOPTIONS";  // in mw1hub.zrd

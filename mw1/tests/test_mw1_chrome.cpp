@@ -2,6 +2,7 @@
 // body part see-through, the plaque solid), the same pixels every build, and packed with kFullAlpha. MW1_CHROME_PREVIEW=DIR
 // writes each as a BMP (over a checkerboard) to look at.
 #include <algorithm>
+#include <iterator>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -9,6 +10,8 @@
 
 #include "check.h"
 #include "mw1_chrome.h"
+#include "mw1_event_screen.h"
+#include "mw1_hub.h"
 #include "mw1_images.h"
 
 namespace {
@@ -24,6 +27,7 @@ uint8_t alpha_at(const mw1::images::Image& im, int32_t x, int32_t y) { return im
 TEST(mw1_chrome_pieces) {
   const std::vector<mw1::images::Image> all = mw1::chrome::all();
   EXPECT(all.size() == 7 + 3 + 4 + mw1::chrome::panel_sizes().size() + mw1::chrome::terminal_sizes().size() +
+                          std::size(mw1::chrome::kBoxWidths) * mw1::chrome::kBoxLinesMax +
                           2 * mw1::chrome::frame_sizes().size() + 8 + 8 + 4 + 3 + 2 + 3 /* the render cover's */ +
                           mw1::chrome::lab_pictures().size() - 6 + mw1::chrome::filebox_pictures().size());
   // The render pass's cover (FIXES.md item 14): its plaque, and a progress bar of 8 cells as wide as a plaque.
@@ -37,6 +41,12 @@ TEST(mw1_chrome_pieces) {
   const mw1::images::Image box = mw1::chrome::dialog_frame(), dark = mw1::chrome::dim();
   EXPECT(box.width == mw1::kDialogW && alpha_at(box, 0, box.height / 2) == 255 && alpha_at(box, box.width / 2, box.height / 2) > 200);
   EXPECT(dark.width == mw1::images::kWideW && alpha_at(dark, 10, 10) == mw1::kDimAlpha);
+  // A message's box (FIXES.md item 42): at the picture's foot, sized to its lines, clear above.
+  const mw1::images::Image b2 = mw1::chrome::box(560, 2);
+  EXPECT(b2.name == "mw1_box_560_2" && b2.width == 560 && b2.height == mw1::chrome::kBoxCanvasH);
+  const int32_t top2 = mw1::chrome::kBoxCanvasH - mw1::chrome::box_height(2);
+  EXPECT(alpha_at(b2, 100, top2 - 1) == 0 && alpha_at(b2, 100, top2) == 255 && alpha_at(b2, 100, top2 + 20) == 214);
+  EXPECT(mw1::chrome::kBoxCanvasH <= 480 * 4 / 10);  // about a third of the canvas at the most
   for (const mw1::images::Image& im : all)
     EXPECT(im.alpha.size() == im.pixels.size() && im.pixels.size() == static_cast<size_t>(im.width * im.height) && im.name.size() <= 31);
   const mw1::images::Image p = mw1::chrome::plaque();
@@ -135,4 +145,103 @@ TEST(mw1_chrome_lab_frames_above_the_tray_and_the_bar_in_its_row) {
     EXPECT(left == row_x - mw1::chrome::kBarEdge && right == row_x + 172);
     EXPECT(left >= panel_x + mw1::chrome::kLabSideWhole.x0 + 2 && right <= panel_x + mw1::chrome::kLabSideWhole.x1 - 2);
   }
+}
+
+// The messages' box (FIXES.md item 42): an event's page split into as few parts as fit the box's six lines, shared
+// evenly, never starting or ending blank, the choice on the last part; the hub's messages paged six at a time.
+// (Made-up lines: MW1's text is never in a test.)
+TEST(mw1_chrome_box_pages) {
+  using mw1::Page;
+  auto lines = [](size_t n) {
+    std::vector<std::string> v;
+    for (size_t k = 1; k <= n; ++k) v.push_back("line " + std::to_string(k));
+    return v;
+  };
+  const size_t most = static_cast<size_t>(mw1::chrome::kBoxLinesMax);
+  // Up to six: one part, as it was (blanks at either end trimmed).
+  std::vector<std::string> six = lines(6);
+  six.insert(six.begin(), " "), six.push_back("");
+  std::vector<Page> out = mw1::boxed_pages({Page{six, true}});
+  EXPECT(out.size() == 1 && out[0].lines == lines(6) && out[0].choices);
+  // Seven: four and three, not six and one; the choice on the last part only.
+  out = mw1::boxed_pages({Page{lines(7), true}});
+  EXPECT(out.size() == 2 && out[0].lines.size() == 4 && out[1].lines.size() == 3 && !out[0].choices && out[1].choices);
+  EXPECT(out.size() == 2 && out[0].lines.front() == "line 1" && out[1].lines.back() == "line 7");
+  // Thirteen: three parts, none over six, every line kept in order.
+  out = mw1::boxed_pages({Page{lines(13), false}});
+  std::vector<std::string> back;
+  for (const Page& p : out) {
+    EXPECT(!p.lines.empty() && p.lines.size() <= most && !p.lines.front().empty() && !p.lines.back().empty());
+    back.insert(back.end(), p.lines.begin(), p.lines.end());
+  }
+  EXPECT(out.size() == 3 && back == lines(13));
+  // A blank line where a part would start: skipped, not shown at the box's top.
+  std::vector<std::string> gap = lines(4);
+  gap.push_back("");
+  for (const std::string& l : lines(4)) gap.push_back("more " + l);
+  out = mw1::boxed_pages({Page{gap, false}});
+  for (const Page& p : out) EXPECT(!p.lines.empty() && !p.lines.front().empty());
+  // Nothing but blanks: one empty page (its buttons still shown). Two pages: each split on its own.
+  out = mw1::boxed_pages({Page{{"", " "}, true}});
+  EXPECT(out.size() == 1 && out[0].lines.empty() && out[0].choices);
+  out = mw1::boxed_pages({Page{lines(2), false}, Page{lines(8), true}});
+  EXPECT(out.size() == 3 && out[0].lines.size() == 2 && !out[0].choices && out[2].choices);
+
+  // The hub: six lines a page, at least one page.
+  EXPECT(mw1::hub_pages({}) == 1 && mw1::hub_pages(lines(6)) == 1 && mw1::hub_pages(lines(7)) == 2 && mw1::hub_pages(lines(13)) == 3);
+  // The box's heights: one line the smallest, six the canvas's, never over a third of the 480 canvas's height and a bit.
+  EXPECT(mw1::chrome::box_height(1) < mw1::chrome::box_height(6) && mw1::chrome::box_height(6) <= mw1::chrome::kBoxCanvasH);
+  EXPECT(mw1::chrome::kBoxCanvasH * 100 / 480 <= 36);
+}
+
+// MW1's lines rewrapped to the box (FIXES.md item 42, the lead: a short tip on one page): lines MW1 broke for its 44
+// letters joined and wrapped to the box's columns, 4:3's and 16:9's; headings, blank lines and indented lines kept.
+// (Made-up words.)
+TEST(mw1_chrome_box_rewrap) {
+  auto words_of = [](const std::vector<std::string>& ls) {
+    std::vector<std::string> w;
+    for (const std::string& l : ls) {
+      size_t a = 0;
+      while ((a = l.find_first_not_of(' ', a)) != std::string::npos) {
+        const size_t b = l.find(' ', a) == std::string::npos ? l.size() : l.find(' ', a);
+        w.push_back(l.substr(a, b - a)), a = b;
+      }
+    }
+    return w;
+  };
+  // A paragraph as MW1 wraps it: each line as full as 44 letters allow.
+  const std::string text = "Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore "
+                           "et dolore magna aliqua ut enim ad minim veniam quis nostrud exercitation ullamco laboris";
+  std::vector<std::string> mw1;
+  std::string line;
+  for (const std::string& w : words_of({text})) {
+    if (!line.empty() && line.size() + 1 + w.size() > mw1::kMw1Columns) mw1.push_back(line), line.clear();
+    line += (line.empty() ? "" : " ") + w;
+  }
+  mw1.push_back(line);
+  std::vector<std::string> page = {"HEADING ONE", "Short line two"};
+  page.push_back("");
+  page.insert(page.end(), mw1.begin(), mw1.end());
+  page.push_back("");
+  page.push_back("  an indented row");
+  for (size_t cols : {mw1::kBoxColumns, mw1::kBoxWideColumns}) {
+    const std::vector<std::string> out = mw1::rewrapped(page, cols);
+    EXPECT(words_of(out) == words_of(page));  // every word, in order
+    for (const std::string& l : out) EXPECT(l.size() <= cols);
+    EXPECT(out.size() >= 6 && out[0] == "HEADING ONE" && out[1] == "Short line two" && out[2].empty());
+    EXPECT(out.back() == "  an indented row" && out[out.size() - 2].empty());
+    const size_t body = out.size() - 5;  // the paragraph's lines
+    EXPECT(body < mw1.size() && body <= (text.size() + cols - 1) / cols + 1);  // fewer lines, about as few as fit
+    std::printf("  %zu letters a line: the paragraph's %zu lines in %zu\n", cols, mw1.size(), body);
+  }
+  // The box: the paragraph on one page at 16:9 where MW1's lines took two.
+  const std::vector<mw1::Page> wide = mw1::boxed_pages({mw1::Page{mw1, false}}, mw1::kBoxWideColumns);
+  EXPECT(mw1.size() > static_cast<size_t>(mw1::chrome::kBoxLinesMax) / 2 && wide.size() == 1 && wide[0].lines.size() < mw1.size());
+  // A sentence MW1 broke a word or two short (34 letters and more, no full stop): joined; a headline's lines kept.
+  const std::string early = "Mercs and more mercs, all of them asking who";  // 44: made 35 below
+  const std::vector<std::string> tip = {early.substr(0, 35), "pays the most these days.", "", "SHORT HEADLINE", "ANOTHER ONE"};
+  const std::vector<std::string> tip_out = mw1::rewrapped(tip, mw1::kBoxColumns);
+  EXPECT(tip_out.size() == 4 && tip_out[0] == early.substr(0, 35) + " pays the most these days." && tip_out[2] == "SHORT HEADLINE");
+  // Lines already short stay as they are.
+  EXPECT(mw1::rewrapped({"one", "two", "three"}, mw1::kBoxColumns) == (std::vector<std::string>{"one", "two", "three"}));
 }

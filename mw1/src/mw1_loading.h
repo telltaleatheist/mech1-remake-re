@@ -25,7 +25,7 @@ struct LoadingPanel {
   std::string enemy;     // the main enemy's picture (its render, else its amber icon); empty: none, the frame hidden
 };
 // The layout's panels (PANEL, PANEL2, ...): the enemy's frame and picture.
-enum LoadingPanelId : int32_t { kLoadDim, kLoadPlaque, kLoadTerminal, kLoadEnemyFrame, kLoadEnemy, kLoadPanelCount };
+enum LoadingPanelId : int32_t { kLoadClear, kLoadPlaque, kLoadTerminal, kLoadEnemyFrame, kLoadEnemy, kLoadPanelCount };
 
 // The screen's texts (pure: the tests read it).
 ScreenView loading_view(const LoadingPanel& p);

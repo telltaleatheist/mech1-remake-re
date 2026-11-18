@@ -362,6 +362,14 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "hub_contract")
         press(kHubOffice), press_office(kOfficeRequest), press_office(kOfficeAccept);
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "hub_options") press(kHubOptions);
+      // hub_long, hub_long_next: the hub's messages longer than its box (made-up lines): the box at its tallest, page
+      // 1 of 2; and after OK (NEXT), page 2 (FIXES.md item 42). hub_long_short: two lines, the box sized to them.
+      if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s).rfind("hub_long", 0) == 0 && !pending_) {
+        const int count = std::string(s) == "hub_long_short" ? 2 : 9;
+        for (int k = 1; k <= count; ++k) company_.notices.push_back("Test message line " + std::to_string(k) + ".");
+        show_hub();
+        if (std::string(s) == "hub_long_next") press(kHubOk);
+      }
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "news") press(kHubBar), press_bar(kBarNews);
       // bar_drink: ORDER DRINK at the Bar, its tip (or the quiet text) over the Bar (FIXES.md item 34);
       // message_market, message_office: a message (the quiet text) over the Mech Complex, the office.
@@ -566,6 +574,13 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   void press(int32_t id) {
     std::printf("mw1: hub: %s\n", hub_button_name(id));
     mech3::GameEngine* ge = ge_;
+    // The box's next page first (FIXES.md item 42: six lines a page): OK is NEXT until the last.
+    if (id == kHubOk && hub_page_ + 1 < hub_pages(hub_view_panel())) {
+      ++hub_page_;
+      show_hub();
+      return;
+    }
+    hub_page_ = 0;
     company_.notices.clear();  // the hub's last news, shown once
     hub_hover_ = 0;            // left (or the button gone): the status line's own words again
     switch (id) {
@@ -1489,21 +1504,29 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     ev_panel_ = EventPanel{};
     ev_panel_.planet = upper(company_.planet), ev_panel_.place = place_words(cls);
     place_over(cls, ev_panel_);
-    ev_panel_.pages = text_pages(kEventQuiet);
-    if (ev_panel_.pages.empty()) ev_panel_.pages.push_back({});
+    set_pages(text_pages(kEventQuiet));
     if (raise_event(*ge_)) show_event();
   }
 
-  // The screen a class's messages fire over (FIXES.md item 34): its picture behind the panel and its free side.
+  // The screen a class's messages fire over (FIXES.md items 34, 42): its picture behind, the box at its foot.
   void place_over(int32_t cls, EventPanel& p) const {
     switch (cls) {
       case kClassBarEntry:
       case kClassBarDrink:
-      case kClassNews: p.scene = kBarScene, p.side = kBarSide; return;
-      case kClassMechComplex: p.scene = kMarketScene, p.side = kMarketSide; return;
-      case kClassOffice: p.scene = kOfficeScene, p.side = kOfficeSide; return;
-      default: p.scene = scenery_image(company_.planet_number), p.side = kHubSide; return;  // the hub's
+      case kClassNews: p.scene = kBarScene, p.side = Side::kBottom; return;
+      case kClassMechComplex: p.scene = kMarketScene, p.side = Side::kBottom; return;
+      case kClassOffice: p.scene = kOfficeScene, p.side = Side::kBottom; return;
+      default: p.scene = scenery_image(company_.planet_number), p.side = Side::kBottom; return;  // the hub's
     }
+  }
+
+  // MW1's pages on the panel: as they are on a full page; on a screen's foot rewrapped to the box's width, 16:9's
+  // (MW1EVENTBOTTOM_WIDE, on a canvas wider than 640) or 4:3's, and cut to its lines (boxed_pages).
+  void set_pages(std::vector<Page> pages) {
+    ev_panel_.wide = ge_ && ge_->buffer_width() > 640;
+    ev_panel_.pages = ev_panel_.side == Side::kBottom ? boxed_pages(pages, ev_panel_.wide ? kBoxWideColumns : kBoxColumns)
+                                                      : std::move(pages);
+    if (ev_panel_.pages.empty()) ev_panel_.pages.push_back({});
   }
 
   bool story_running() const { return story_on_ && script().there() && company_.stores && ge_; }
@@ -1540,9 +1563,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     ev_panel_.planet = upper(company_.planet);
     ev_panel_.place = place_words(ev_.cls);
     ev_panel_.scene = event_art(s.event);  // its own art: a full page, the art dimmed behind
-    if (ev_panel_.scene.empty()) place_over(ev_.cls, ev_panel_);  // else over its screen's picture, in its free side
-    ev_panel_.pages = shown_pages(company_, s);
-    if (ev_panel_.pages.empty()) ev_panel_.pages.push_back({});
+    if (ev_panel_.scene.empty()) place_over(ev_.cls, ev_panel_);  // else over its screen's picture, at its foot
+    set_pages(shown_pages(company_, s));
     if (s.restart) {
       // MW1 restarts the campaign here (PLAY AGAIN / QUIT); ours never does (FIXES.md item 33, Owen: "you cant die in
       // this one"): the page is shown and play goes on.
@@ -1633,8 +1655,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   // Story `i` of the news on the panel, at its first page (its last: `at_end`).
   void news_story(int32_t i, bool at_end) {
     ev_panel_.story = i;
-    ev_panel_.pages = i < static_cast<int32_t>(news_.size()) ? shown_pages(company_, news_[static_cast<size_t>(i)]) : std::vector<Page>{};
-    if (ev_panel_.pages.empty()) ev_panel_.pages.push_back({{news_.empty() ? "Nothing on the news." : ""}, false});
+    if (i < static_cast<int32_t>(news_.size())) set_pages(shown_pages(company_, news_[static_cast<size_t>(i)]));
+    else set_pages({{{news_.empty() ? "Nothing on the news." : ""}, false}});
     ev_panel_.page = at_end ? ev_panel_.pages.size() - 1 : 0;
   }
 
@@ -1707,19 +1729,31 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     v.labels = {"C-BILLS", "PAYROLL", "KILLS"};
     v.values = {thousands(company_.funds), company_.lance.empty() ? "NONE" : "-" + thousands(monthly_wages(company_)) + "/MO",
                 std::to_string(company_.kills)};
-    // The middle panel only with something to say (FIXES.md item 16, MW1's notifications box): AFTER ACTION, or the
+    // The box only with something to say (FIXES.md items 16, 42, MW1's notifications box): AFTER ACTION, or the
     // company's messages since (payday, promotions, casualties, the news, a contract taken), until OK.
+    v.panel = hub_view_panel();
     if (pending_ && !results_up_) {  // without the results screen's layout: the old AFTER ACTION panel
-      v.title = "AFTER ACTION", v.panel = after_action_lines(), v.after_action = true;
+      v.title = "AFTER ACTION", v.after_action = true;
       v.replay = pending_->outcome == Outcome::kFailure;
-      if (!company_.notices.empty()) v.panel.push_back("");
-      for (const std::string& n : company_.notices) v.panel.push_back(n);
     } else if (!company_.notices.empty()) {
-      v.title = "MESSAGES", v.panel = company_.notices, v.message = true;
+      v.title = "MESSAGES", v.message = true;
     }
+    if (hub_page_ >= hub_pages(v.panel)) hub_page_ = 0;
+    v.page = hub_page_;
     v.contract = contract_.accepted && !pending_;
     v.status = pending_ ? "The mission's back: OK settles it." : hub_hover_ ? tile_words(hub_hover_) : hub_status();
     hub_state_->show(v);
+  }
+
+  // The hub's box's lines: AFTER ACTION's and the messages after it, or the messages; none: no box.
+  std::vector<std::string> hub_view_panel() const {
+    std::vector<std::string> p;
+    if (pending_ && !results_up_) {
+      p = after_action_lines();
+      if (!company_.notices.empty()) p.push_back("");
+    }
+    for (const std::string& n : company_.notices) p.push_back(n);
+    return p;
   }
 
   // The status line with nothing hovered: the contract taken, or why there's none here, or what to do. One line of
@@ -2545,7 +2579,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     int texts = 0, outside = 0;
     // The results and loading screens' texts each inside its own piece (their layouts' 640 x 480, centred; the
     // results' wide layout's from the left): the plaque, the picture's column, the status terminal (clear of the
-    // list's arrows), the message's band (clear of the crest), the buttons; the others inside the canvas.
+    // list's arrows), the message's band (clear of the crest), the buttons; the loading terminal at the foot, LOADING in it (FIXES.md
+    // item 42); the others inside the canvas.
     const bool boxed = p == "results" || p == "loading";
     const bool wide_results = p == "results" && sc->wide();
     const std::vector<FitBox> boxes =
@@ -2555,7 +2590,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         : p == "results" ? std::vector<FitBox>{{12, 186, 212, 340, "column"},   {220, 12, 590, 336, "status"},
                                                {12, 344, 520, 440, "message"},  {52, 446, 220, 476, "replay"},
                                                {236, 446, 404, 476, "continue"}, {420, 446, 588, 476, "details"}}
-        : p == "loading" ? std::vector<FitBox>{{170, 16, 470, 76, "plaque"}, {48, 154, 476, 318, "terminal"}, {0, 360, 640, 400, "loading"}}
+        : p == "loading" ? std::vector<FitBox>{{170, 16, 470, 76, "plaque"}, {48, 300, 476, 464, "terminal"}}
                          : std::vector<FitBox>{{0, 0, w, h, "canvas"}};
     const std::vector<FitText> fits = fit_texts(*sc, boxed && !wide_results ? (w - 640) / 2 : 0, 0, boxes);
     for (const FitText& f : fits) {
@@ -2804,6 +2839,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   Dispatch ev_;            // the class firing
   Shown ev_shown_;         // the event on the panel
   EventPanel ev_panel_;
+  size_t hub_page_ = 0;  // the hub's box's page (FIXES.md item 42)
   std::vector<Shown> news_;  // the Bar's NEWS: the stories live now
   // MW1's loading screen (mw1_loading.h) while a deployed mission loads, PM's briefing skipped (FIXES.md item 18).
   std::unique_ptr<screens::Mw1Screen> loading_;

@@ -1,14 +1,8 @@
-; The side panels (FIXES.md item 34, Owen: like MW1's, a message over a screen keeps that screen's picture): the
-; screen's own picture behind, undimmed (the screen names it), and the message in its free side, MW1EVENTLEFT or
-; MW1EVENTRIGHT (mw1_event_screen.h's Side; each screen's side there): the plaque over a 392 wide terminal (MW1's
-; widest line, 44 characters, with its margins), the buttons under it two across (a third choice, BACK, under the
-; right one). The pages with their own art (event_art) keep the full page above. 4:3 and _WIDE (853), each from its
-; side.
 ; MW1: Critical Hit's event panel (src/mw1_event_screen.h) on MW1's screen
 ; template (src/mw1_screen.h): MW1's story texts, read from the player's
-; MW_MAIN.EXE, a full screen of its own (FIXES.md item 10):
-; - the event's scene full-bleed and dimmed (the screen names it: the event's
-;   own art, else the world's hub scenery; mw1_story.h's event_art);
+; MW_MAIN.EXE. MW1EVENTDIALOG, a full screen of its own (FIXES.md item 10),
+; only for an event whose page is its own art (event_art; item 42 keeps it):
+; - the event's art full-bleed and dimmed (the screen names it);
 ; - the world and the place (ARRIVAL, THE BAR, ...) on the plaque at the top;
 ; - the text on the green terminal in the middle, the page's count at its
 ;   top right;
@@ -43,92 +37,54 @@ MW1EVENTDIALOG (
     LINES (POSITION (124 104) FONT ("mw1_term_line") GAP (15) ANCHOR ("CENTRE"))
   )
 )
-MW1EVENTLEFT (
+; A message at the foot of the screen it fires over (FIXES.md item 42, Owen: unobtrusive, the artwork above it
+; clear and undimmed; revises item 34's side panels): MW1EVENTBOTTOM, the screen's own picture full-bleed behind
+; (the screen names it), a box sized to its text (mw1_box_560_<lines>, its picture's foot at the canvas's foot less
+; 10, so it grows upward; the screen names the size), the world and the place on its title row, the page's count at
+; its right, up to six lines (then pages), the buttons in a row inside its foot: a choice's captions across; NEXT or
+; OK right; the news's PREV left, BACK in the middle, NEXT right. A 4:3 layout (16:9's below). The
+; texts' places are the six-line box's; the screen moves them down for fewer lines.
+MW1EVENTBOTTOM (
   CURSOR (BITMAP ("mw1_cursor") CENTER (1))
   PRIMITIVES (
     BACKGROUND (POSITION (-107 0) BITMAP ("mw1_bar_scene") ANCHOR ("CENTRE"))
-    PANEL (POSITION (12 8) BITMAP ("mw1_plaque") ANCHOR ("LEFT"))
-    PANEL2 (POSITION (12 76) BITMAP ("mw1_term_392x300") ANCHOR ("LEFT"))
+    PANEL (POSITION (40 298) BITMAP ("mw1_box_560_6"))
   )
   BUTTONS (
-    CHOICE1 (POSITION (12 386) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 392) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("LEFT"))
-    CHOICE2 (POSITION (236 386) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (328 392) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("LEFT"))
-    CHOICE3 (POSITION (12 422) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 428) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("LEFT"))
-    NEXT (POSITION (236 386) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (328 392) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("LEFT"))
-    PREV (POSITION (12 386) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 392) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("LEFT"))
-    BACK (POSITION (236 422) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (328 428) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("LEFT"))
+    CHOICE1 (POSITION (56 430) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (148 436) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    CHOICE2 (POSITION (236 430) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (328 436) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    CHOICE3 (POSITION (416 430) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (508 436) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    NEXT (POSITION (416 430) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (508 436) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    PREV (POSITION (56 430) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (148 436) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    BACK (POSITION (236 430) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (328 436) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
   )
   TEXTS (
-    PLANET (POSITION (162 15) FONT ("mw1_plaque") ANCHOR ("LEFT"))
-    PLACE (POSITION (162 47) FONT ("mw1_plaque_sub") ANCHOR ("LEFT"))
-    PAGE (POSITION (380 84) FONT ("mw1_term_value") ANCHOR ("LEFT"))
-    LINES (POSITION (34 98) FONT ("mw1_term_line") GAP (15) ANCHOR ("LEFT"))
+    TITLE (POSITION (56 308) FONT ("mw1_term_title"))
+    PAGE (POSITION (584 310) FONT ("mw1_term_value"))
+    LINES (POSITION (56 332) FONT ("mw1_term_line") GAP (15))
   )
 )
-MW1EVENTLEFT_WIDE (
+; MW1EVENTBOTTOM_WIDE: the same on the 16:9 canvas (853), the box 760 wide
+; (mw1_box_760_<lines>) across its middle, the text rewrapped to it (boxed_pages'
+; columns), the buttons spread along its foot.
+MW1EVENTBOTTOM_WIDE (
   CURSOR (BITMAP ("mw1_cursor") CENTER (1))
   PRIMITIVES (
     BACKGROUND (POSITION (0 0) BITMAP ("mw1_bar_scene") ANCHOR ("CENTRE"))
-    PANEL (POSITION (16 8) BITMAP ("mw1_plaque") ANCHOR ("LEFT"))
-    PANEL2 (POSITION (16 76) BITMAP ("mw1_term_392x300") ANCHOR ("LEFT"))
+    PANEL (POSITION (46 298) BITMAP ("mw1_box_760_6") ANCHOR ("CENTRE"))
   )
   BUTTONS (
-    CHOICE1 (POSITION (16 386) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 392) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("LEFT"))
-    CHOICE2 (POSITION (240 386) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (332 392) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("LEFT"))
-    CHOICE3 (POSITION (16 422) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 428) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("LEFT"))
-    NEXT (POSITION (240 386) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (332 392) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("LEFT"))
-    PREV (POSITION (16 386) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 392) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("LEFT"))
-    BACK (POSITION (240 422) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (332 428) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("LEFT"))
+    CHOICE1 (POSITION (62 430) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (154 436) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    CHOICE2 (POSITION (342 430) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (434 436) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    CHOICE3 (POSITION (622 430) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (714 436) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    NEXT (POSITION (622 430) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (714 436) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    PREV (POSITION (62 430) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (154 436) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    BACK (POSITION (342 430) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (434 436) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
   )
   TEXTS (
-    PLANET (POSITION (166 15) FONT ("mw1_plaque") ANCHOR ("LEFT"))
-    PLACE (POSITION (166 47) FONT ("mw1_plaque_sub") ANCHOR ("LEFT"))
-    PAGE (POSITION (384 84) FONT ("mw1_term_value") ANCHOR ("LEFT"))
-    LINES (POSITION (38 98) FONT ("mw1_term_line") GAP (15) ANCHOR ("LEFT"))
-  )
-)
-MW1EVENTRIGHT (
-  CURSOR (BITMAP ("mw1_cursor") CENTER (1))
-  PRIMITIVES (
-    BACKGROUND (POSITION (-107 0) BITMAP ("mw1_bar_scene") ANCHOR ("CENTRE"))
-    PANEL (POSITION (328 8) BITMAP ("mw1_plaque") ANCHOR ("RIGHT"))
-    PANEL2 (POSITION (236 76) BITMAP ("mw1_term_392x300") ANCHOR ("RIGHT"))
-  )
-  BUTTONS (
-    CHOICE1 (POSITION (236 386) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (328 392) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("RIGHT"))
-    CHOICE2 (POSITION (460 386) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (552 392) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("RIGHT"))
-    CHOICE3 (POSITION (236 422) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (328 428) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("RIGHT"))
-    NEXT (POSITION (460 386) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (552 392) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("RIGHT"))
-    PREV (POSITION (236 386) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (328 392) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("RIGHT"))
-    BACK (POSITION (460 422) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (552 428) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("RIGHT"))
-  )
-  TEXTS (
-    PLANET (POSITION (478 15) FONT ("mw1_plaque") ANCHOR ("RIGHT"))
-    PLACE (POSITION (478 47) FONT ("mw1_plaque_sub") ANCHOR ("RIGHT"))
-    PAGE (POSITION (604 84) FONT ("mw1_term_value") ANCHOR ("RIGHT"))
-    LINES (POSITION (258 98) FONT ("mw1_term_line") GAP (15) ANCHOR ("RIGHT"))
-  )
-)
-MW1EVENTRIGHT_WIDE (
-  CURSOR (BITMAP ("mw1_cursor") CENTER (1))
-  PRIMITIVES (
-    BACKGROUND (POSITION (0 0) BITMAP ("mw1_bar_scene") ANCHOR ("CENTRE"))
-    PANEL (POSITION (537 8) BITMAP ("mw1_plaque") ANCHOR ("RIGHT"))
-    PANEL2 (POSITION (445 76) BITMAP ("mw1_term_392x300") ANCHOR ("RIGHT"))
-  )
-  BUTTONS (
-    CHOICE1 (POSITION (445 386) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (537 392) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("RIGHT"))
-    CHOICE2 (POSITION (669 386) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (761 392) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("RIGHT"))
-    CHOICE3 (POSITION (445 422) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (537 428) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("RIGHT"))
-    NEXT (POSITION (669 386) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (761 392) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("RIGHT"))
-    PREV (POSITION (445 386) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (537 392) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("RIGHT"))
-    BACK (POSITION (669 422) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (761 428) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("RIGHT"))
-  )
-  TEXTS (
-    PLANET (POSITION (687 15) FONT ("mw1_plaque") ANCHOR ("RIGHT"))
-    PLACE (POSITION (687 47) FONT ("mw1_plaque_sub") ANCHOR ("RIGHT"))
-    PAGE (POSITION (813 84) FONT ("mw1_term_value") ANCHOR ("RIGHT"))
-    LINES (POSITION (467 98) FONT ("mw1_term_line") GAP (15) ANCHOR ("RIGHT"))
+    TITLE (POSITION (62 308) FONT ("mw1_term_title") ANCHOR ("CENTRE"))
+    PAGE (POSITION (790 310) FONT ("mw1_term_value") ANCHOR ("CENTRE"))
+    LINES (POSITION (62 332) FONT ("mw1_term_line") GAP (15) ANCHOR ("CENTRE"))
   )
 )
 )
