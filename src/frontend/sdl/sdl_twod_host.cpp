@@ -211,13 +211,15 @@ zimg::Texture* SdlTwodHost::made(zimg::Texture* image) {
 // image draw of zTwoD's and the program's comes here (the 2D target is the only destination).
 void SdlTwodHost::blit(zimg::Texture* image, int32_t x, int32_t y, int32_t flags, const ztwod::Rect* src) {
   const zrndr::Target2D& t = zrndr::target2d();
+  size_t added = 0;
   if (platform::hires_2d() && image && image->pixels && t.base) {
     const bool opaque = !(image->flags & zimg::kAlpha) && !image->alpha;
     auto n = names_.find(image);
     platform::hires::Rect part;
     if (src) part = {src->left, src->top, src->right, src->bottom};
-    hires_.blit(image->pixels, image->width, image->height, src ? &part : nullptr, t.base, static_cast<int32_t>(t.width),
-                static_cast<int32_t>(t.height), x, y, opaque, n == names_.end() ? std::string() : n->second);
+    added = hires_.blit(image->pixels, image->width, image->height, src ? &part : nullptr, t.base,
+                        static_cast<int32_t>(t.width), static_cast<int32_t>(t.height), x, y, opaque,
+                        n == names_.end() ? std::string() : n->second);
     // MW1_HIRES_DEBUG: each new most the screen's list has held, and a fall back, to see the lists stay bounded.
     if (platform::hires_2d_debug()) {
       ++hires_blits_;
@@ -228,8 +230,11 @@ void SdlTwodHost::blit(zimg::Texture* image, int32_t x, int32_t y, int32_t flags
                     hires_said_fallen_ ? ", fallen back to the canvas" : "", hires_.owners());
       }
     }
+    // B1 piece 3: the canvas under the draws it added, before its pixels and after (they show while it stays).
+    if (added) hires_.snapshot(t.base, added, reinterpret_cast<const uint16_t*>(t.base), static_cast<int32_t>(t.pitch / 2), false);
   }
   ztwod::Host::blit(image, x, y, flags, src);
+  if (added) hires_.snapshot(t.base, added, reinterpret_cast<const uint16_t*>(t.base), static_cast<int32_t>(t.pitch / 2), true);
 }
 
 // 0x00516f50 (zImage's texture directory, "zbd" for the shell): FIX (A), each

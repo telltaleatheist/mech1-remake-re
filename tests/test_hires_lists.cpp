@@ -143,3 +143,96 @@ TEST(hires_static_bg_redrawn_1000_frames_stays_flat) {
   EXPECT(first == baked + 3 + 3 && most == first && !l.fallen(&screen_px));
   EXPECT(l.owners() <= 4);
 }
+
+namespace {
+// A small canvas for the layers' map: w x h pixels, pitch w.
+struct Canvas {
+  int32_t w, h;
+  std::vector<uint16_t> px;
+  Canvas(int32_t w_, int32_t h_) : w(w_), h(h_), px(static_cast<size_t>(w_) * h_, 0) {}
+  void fill(Rect r, uint16_t v) {
+    for (int32_t y = r.t; y < r.b; ++y)
+      for (int32_t x = r.l; x < r.r; ++x) px[static_cast<size_t>(y) * w + x] = v;
+  }
+  uint16_t at(const std::vector<uint16_t>& m, int32_t x, int32_t y) const { return m[static_cast<size_t>(y) * w + x]; }
+};
+// As the host's blit: the draws listed, the canvas kept before, the pixels drawn (`paint`), the canvas kept after.
+template <typename Paint>
+void draw(Lists& l, Canvas& c, const void* src, int32_t sw, int32_t sh, int32_t x, int32_t y, bool opaque,
+          const std::string& name, Paint paint) {
+  const size_t added = l.blit(src, sw, sh, nullptr, &screen_px, c.w, c.h, x, y, opaque, name);
+  l.snapshot(&screen_px, added, c.px.data(), c.w, false);
+  paint();
+  l.snapshot(&screen_px, added, c.px.data(), c.w, true);
+}
+}  // namespace
+
+TEST(hires_layers_a_text_over_a_picture_both_show) {
+  Lists l;
+  Canvas c(64, 32);
+  draw(l, c, &bg_px, 64, 32, 0, 0, true, "mw1_hub_ice", [&] { c.fill({0, 0, 64, 32}, 0x1111); });
+  l.clear(&text_px);
+  l.text(&text_px, line({0, 0, 20, 8}, "TEXT"));
+  // A keyed text: only its glyph pixels written (two of them here), the rest of its box the picture's still.
+  draw(l, c, &text_px, 20, 8, 10, 10, false, "", [&] { c.fill({12, 12, 14, 14}, 0x2222); });
+  std::vector<uint16_t> b;
+  l.layers(&screen_px, c.px.data(), c.w, c.h, c.w, &b);
+  EXPECT(c.at(b, 0, 0) == 1 && c.at(b, 63, 31) == 1);  // the picture alone
+  EXPECT(c.at(b, 12, 12) == 1 && c.at(b, 20, 15) == 1);  // the picture, then the text over it: no canvas between
+  // Something unrecorded written later (a line, a ripple, the engine's clear): there the canvas shows.
+  c.fill({12, 12, 13, 13}, 0x3333);
+  c.fill({40, 5, 42, 7}, 0x4444);
+  l.layers(&screen_px, c.px.data(), c.w, c.h, c.w, &b);
+  EXPECT(c.at(b, 12, 12) == 0 && c.at(b, 40, 5) == 0 && c.at(b, 41, 6) == 0);
+  EXPECT(c.at(b, 13, 13) == 1 && c.at(b, 45, 5) == 1);  // the rest as it was
+}
+
+TEST(hires_layers_an_unrecorded_write_under_a_text) {
+  // The picture, then something unrecorded (a panel's line), then a text over both: under the text the line
+  // must show, so the chain starts at the text there (its "before", the canvas's line, drawn under it).
+  Lists l;
+  Canvas c(40, 20);
+  draw(l, c, &bg_px, 40, 20, 0, 0, true, "pic", [&] { c.fill({0, 0, 40, 20}, 0x1111); });
+  c.fill({0, 5, 40, 6}, 0x5555);  // the line
+  l.clear(&text_px);
+  l.text(&text_px, line({0, 0, 20, 10}, "OVER"));
+  draw(l, c, &text_px, 20, 10, 0, 0, false, "", [&] { c.fill({2, 2, 4, 4}, 0x2222); });
+  std::vector<uint16_t> b;
+  l.layers(&screen_px, c.px.data(), c.w, c.h, c.w, &b);
+  EXPECT(c.at(b, 10, 5) == 2);  // on the line, in the text's box: the text's chain, the picture not under it
+  EXPECT(c.at(b, 30, 5) == 0);  // on the line, out of the text's box: the canvas
+  EXPECT(c.at(b, 10, 8) == 1);  // off the line, in the text's box: the picture, then the text
+  EXPECT(c.at(b, 2, 2) == 1);   // a glyph pixel over the picture
+}
+
+TEST(hires_layers_a_later_draw_over_an_earlier_one) {
+  Lists l;
+  Canvas c(40, 20);
+  l.clear(&text_px);
+  l.text(&text_px, line({0, 0, 20, 10}, "FIRST"));
+  draw(l, c, &text_px, 20, 10, 0, 0, false, "", [&] { c.fill({0, 0, 20, 10}, 0x1010); });
+  l.clear(&other_px);
+  l.text(&other_px, line({0, 0, 20, 10}, "SECOND"));
+  draw(l, c, &other_px, 20, 10, 10, 0, false, "", [&] { c.fill({10, 0, 30, 10}, 0x2020); });
+  std::vector<uint16_t> b;
+  l.layers(&screen_px, c.px.data(), c.w, c.h, c.w, &b);
+  EXPECT(c.at(b, 5, 5) == 1);   // the first alone
+  EXPECT(c.at(b, 15, 5) == 1);  // both, the first under
+  EXPECT(c.at(b, 25, 5) == 2);  // the second alone
+}
+
+TEST(hires_layers_no_snapshot_shows_nowhere) {
+  // The fail-safe: a draw whose canvas wasn't kept (or a grab's copy not drawn back) shows nowhere; the canvas does.
+  Lists l;
+  Canvas c(16, 16);
+  l.text(&screen_px, line({0, 0, 16, 16}, "NO SNAPSHOT"));
+  std::vector<uint16_t> b;
+  l.layers(&screen_px, c.px.data(), c.w, c.h, c.w, &b);
+  bool none = true;
+  for (uint16_t v : b) none = none && v == 0;
+  EXPECT(none);
+  // A grab's copies carry no snapshots: drawn back, they take new ones there.
+  draw(l, c, &bg_px, 16, 16, 0, 0, true, "pic", [&] { c.fill({0, 0, 16, 16}, 0x1234); });
+  l.grab(&screen_px, Rect{0, 0, 16, 16}, &grab_px);
+  EXPECT(l.of(&grab_px) && l.of(&grab_px)->size() == 1 && (*l.of(&grab_px))[0].after.empty());
+}
