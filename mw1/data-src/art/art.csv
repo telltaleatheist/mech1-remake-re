@@ -29,6 +29,12 @@ contract_terminal,contract_terminal.jpg,854,480
 death_gameover,death_gameover.jpg,854,480
 debrief_salvage,debrief_salvage.jpg,854,480
 deploy_launch,deploy_launch.jpg,854,480
+end_lost,end_lost.jpg,192,168
+end_lost_l,end_lost.jpg,288,252
+end_retreat,end_retreat.jpg,192,168
+end_retreat_l,end_retreat.jpg,288,252
+end_win,end_win.jpg,192,168
+end_win_l,end_win.jpg,288,252
 hub_anders_moon,hub_anders_moon.jpg,854,480
 hub_arctic_base,hub_arctic_base.jpg,854,480
 hub_arctic_city,hub_arctic_city.jpg,854,480
