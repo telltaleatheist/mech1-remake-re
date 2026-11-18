@@ -80,7 +80,7 @@ struct Canvas {
       for (int32_t x = r.l; x < r.r; ++x) px[static_cast<size_t>(y) * w + x] = v;
   }
 };
-int screen_owner, text_owner, pic_owner;
+int text_owner, pic_owner;
 
 // As the host's blit: listed, the canvas kept before, the pixels drawn, kept after.
 template <typename Paint>
@@ -101,11 +101,6 @@ void add_pic(Images& im) {
   im.by_name["pic"] = p;
 }
 
-const Drawn* drawn_with(const Recorder& r, int32_t texture) {
-  for (const Drawn& d : r.draws)
-    if (d.texture == texture) return &d;
-  return nullptr;
-}
 const Drawn* premultiplied(const Recorder& r, size_t k) {
   size_t seen = 0;
   for (const Drawn& d : r.draws)

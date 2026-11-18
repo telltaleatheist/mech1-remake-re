@@ -61,7 +61,6 @@ class HiresDraw {
   float sx_ = 0, sy_ = 0, art_scale_ = 0;
   std::unordered_map<uint64_t, Picture> pictures_;  // by HiresImage::serial
   int32_t atlas_tex_ = -1, atlas_w_ = 0, atlas_h_ = 0;
-  uint64_t atlas_serial_ = ~0ull;
   int32_t under_tex_ = -1, under_w_ = 0, under_h_ = 0;
   std::vector<uint16_t> base_;
   std::vector<uint8_t> rgba_;
