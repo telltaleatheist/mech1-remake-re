@@ -2,16 +2,17 @@
 """mw1art.py KEEP_DIR OUT_DIR: MW1's screen art for the repo (data-src/art/), from our generated art.
 
 KEEP_DIR is the remake's keep folder (assets/mw3/*.png, ours from Crucible, nothing of MW1's or MW3's, and
-planets.csv). Run by hand when the art changes; the build packs OUT_DIR into mw1image.zbd (tools/mw1imgpack.cpp).
+planets.csv). Run by hand when the art changes; the build copies OUT_DIR's files into mw1art.zbd (tools/mw1imgpack.cpp).
 
-The 2D canvas is 480 lines (854 at 16:9, 640 at 4:3; mw3-re docs/resolution.md, sections 9 and 12), in 16-bit 565.
-Each picture is cut to its use's size and shape (cover: scaled to fill, the middle kept) and rounded to 565's levels
-here, so the packed pixels are exactly these (the packer adds no loss) and PNG keeps them small. No dither: the
-generated art's own grain hides 565's steps (checked on title_bg's sunset), and a dither costs a third more bytes.
-- a scene (1344x768, or a 512 square used as one): 854x480, drawn centred (the middle 640 at 4:3);
-- a service tile (icon_*): 100x100 (framed at pack time, mw1_chrome.h);
-- a portrait or a mech picture (768x1024): 240x320, and a small one, <name>_s, 96x128 (the crew grid's);
+Each picture is kept at its source's size (research/hires-2d.md B2), cut only to its use's shape (the middle kept), so
+the 2D can draw it at the window's resolution; its canvas-size 565 copy (the 480-line canvas: mw3-re
+docs/resolution.md, sections 9 and 12) is made from the same file when it loads (src/mw1_art.h). Scenes and portraits
+are JPEG at quality 90, the tiles' pictures and the emblem PNG (hard edges).
+- a scene (1344x768, or a 512 square used as one): cut to the canvas's 854:480, shown 854x480 (the middle 640 at 4:3);
+- a service tile's picture (icon_*): 100x100 (framed at pack time, mw1_chrome.h);
+- a portrait or a mech picture (768x1024): 240x320, and a small one, <name>_s, 96x128 (the crew grid's), one file;
 - an emblem (story_darkwing_crest): 240x240.
+art.csv lists each canvas image: its name, its file and its canvas size.
 The intro's unused takes (intro_0_*), the mechs' pictures and the hub's first scenes (SKIP) are left out.
 
 scenery.csv: each world's scenery (hub_<type>), by MW1's planet number: our classification only (MW1's descriptions,
@@ -21,7 +22,6 @@ import csv
 import os
 import sys
 
-import numpy as np
 from PIL import Image
 
 SCENE = (854, 480)
@@ -37,23 +37,15 @@ PORTRAIT_PREFIX = ("recruit_", "char_", "liaison_")
 PORTRAITS = {"bartender_portrait", "office_liaison_portrait"}
 
 
-def cover(im, size):
-    """Scaled to fill `size`, the middle kept."""
+def cut(im, size):
+    """The largest middle of `im` in `size`'s shape (no resampling)."""
     w, h = im.size
-    s = max(size[0] / w, size[1] / h)
-    sw, sh = max(size[0], round(w * s)), max(size[1], round(h * s))
-    im = im.resize((sw, sh), Image.LANCZOS)
-    x, y = (sw - size[0]) // 2, (sh - size[1]) // 2
-    return im.crop((x, y, x + size[0], y + size[1]))
-
-
-def to_565(im):
-    """Rounded to 565's levels (5, 6, 5 bits), as 8-bit values the packer's conversion keeps exactly."""
-    a = np.asarray(im.convert("RGB"), np.float32)
-    step = np.array([8, 4, 8], np.float32)
-    top = np.array([248, 252, 248], np.float32)
-    q = np.clip(np.floor(a / step + 0.5) * step, 0, top)
-    return Image.fromarray(q.astype(np.uint8), "RGB")
+    if w * size[1] > h * size[0]:
+        cw, ch = round(h * size[0] / size[1]), h
+    else:
+        cw, ch = w, round(w * size[1] / size[0])
+    x, y = (w - cw) // 2, (h - ch) // 2
+    return im.crop((x, y, x + cw, y + ch))
 
 
 def kind(name, size):
@@ -72,7 +64,10 @@ def main():
     keep, out = sys.argv[1], sys.argv[2]
     src = os.path.join(keep, "assets", "mw3")
     os.makedirs(out, exist_ok=True)
-    made = []
+    for f in os.listdir(out):  # the art is remade whole: a picture removed goes
+        if f.endswith((".png", ".jpg")):
+            os.remove(os.path.join(out, f))
+    made, rows = [], []
     for f in sorted(os.listdir(src)):
         if not f.endswith(".png"):
             continue
@@ -83,10 +78,20 @@ def main():
         k = kind(name, im.size)
         sizes = {"scene": [("", SCENE)], "tile": [("", TILE)], "emblem": [("", EMBLEM)],
                  "portrait": [("", PORTRAIT), ("_s", PORTRAIT_SMALL)]}[k]
+        im = cut(im, sizes[0][1])
+        if k in ("scene", "portrait"):
+            file = name + ".jpg"
+            im.save(os.path.join(out, file), quality=90, optimize=True)
+        else:
+            file = name + ".png"
+            im.save(os.path.join(out, file), optimize=True)
+        made.append(os.path.join(out, file))
         for suffix, size in sizes:
-            path = os.path.join(out, name + suffix + ".png")
-            to_565(cover(im, size)).save(path, optimize=True)
-            made.append(path)
+            rows.append([name + suffix, file, size[0], size[1]])
+    with open(os.path.join(out, "art.csv"), "w", newline="") as o:
+        w = csv.writer(o, lineterminator="\n")
+        w.writerow(["image", "file", "w", "h"])
+        w.writerows(rows)
     # The worlds' scenery: number and type only.
     with open(os.path.join(keep, "planets.csv"), newline="") as f, open(os.path.join(out, "scenery.csv"), "w", newline="") as o:
         w = csv.writer(o, lineterminator="\n")

@@ -1,6 +1,7 @@
 // The Bar's and the House office's looks (FIXES.md item 3, phase 3): every picture they name is in MW1's art
 // (data-src/art, packed as mw1_<name>), and the Bar's pages each show their own pieces.
 #include <filesystem>
+#include <fstream>
 #include <string>
 
 #include "check.h"
@@ -19,7 +20,12 @@ namespace fs = std::filesystem;
 // The art for an archive name (mw1_<name>), or the chrome's (drawn in code, not in data-src/art).
 bool art_there(const std::string& image) {
   if (image.rfind("mw1_", 0) != 0) return false;
-  return fs::exists(fs::path(MW1_DATA_DIR) / ".." / "data-src" / "art" / (image.substr(4) + ".png"));
+  // art.csv (tools/mw1art.py) lists each canvas image the art makes, a small portrait with its large one's file.
+  std::ifstream csv(fs::path(MW1_DATA_DIR) / ".." / "data-src" / "art" / "art.csv");
+  const std::string want = image.substr(4) + ",";
+  for (std::string line; std::getline(csv, line);)
+    if (line.rfind(want, 0) == 0) return true;
+  return false;
 }
 const mw1::TextBlock* place(const mw1::ScreenView& v, const char* at) {
   for (const mw1::TextBlock& b : v.blocks)

@@ -46,11 +46,13 @@ endforeach()
 file(CONFIGURE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/mw1gen-src/mw1_scenery.inc CONTENT "${mw1_scenery_inc}")
 
 # What MW1 adds that a test can reach without SDL.
-add_library(mw1core STATIC src/mw1_start.cpp src/mw1_campaign.cpp src/mw1_game.cpp src/mw1_save.cpp src/mw1_worlds.cpp src/mw1_hub.cpp src/mw1_market.cpp src/mw1_travel.cpp src/mw1_pilots.cpp src/mw1_repairs.cpp src/mw1_missions.cpp src/mw1_images.cpp src/mw1_menu.cpp src/mw1_screen.cpp src/mw1_market_screen.cpp src/mw1_lab_pilot.cpp src/mw1_lab_fit.cpp src/mw1_mech_icons.cpp src/mw1_mech_renders.cpp src/mw1_travel_screen.cpp src/mw1_bar_screen.cpp src/mw1_office.cpp src/mw1_story.cpp src/mw1_event_screen.cpp src/mw1_loading.cpp src/mw1_results.cpp src/mw1_travel_map.cpp src/mw1_map_image.cpp src/mw1_chrome.cpp src/mw1_scenery.cpp)
-target_include_directories(mw1core PUBLIC src ${MW3RE_DIR}/src PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/mw1gen-src)
+add_library(mw1core STATIC src/mw1_start.cpp src/mw1_campaign.cpp src/mw1_game.cpp src/mw1_save.cpp src/mw1_worlds.cpp src/mw1_hub.cpp src/mw1_market.cpp src/mw1_travel.cpp src/mw1_pilots.cpp src/mw1_repairs.cpp src/mw1_missions.cpp src/mw1_images.cpp src/mw1_menu.cpp src/mw1_screen.cpp src/mw1_market_screen.cpp src/mw1_lab_pilot.cpp src/mw1_lab_fit.cpp src/mw1_mech_icons.cpp src/mw1_mech_renders.cpp src/mw1_travel_screen.cpp src/mw1_bar_screen.cpp src/mw1_office.cpp src/mw1_story.cpp src/mw1_event_screen.cpp src/mw1_loading.cpp src/mw1_results.cpp src/mw1_travel_map.cpp src/mw1_map_image.cpp src/mw1_chrome.cpp src/mw1_scenery.cpp src/mw1_art.cpp src/mw1_stb_image.cpp)
+target_include_directories(mw1core PUBLIC src ${MW3RE_DIR}/src PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/mw1gen-src third_party)
+# stb_image (third_party/stb): as written, its warnings not ours.
+set_source_files_properties(src/mw1_stb_image.cpp PROPERTIES COMPILE_OPTIONS "$<IF:$<CXX_COMPILER_ID:MSVC>,/w,-w>")
 target_link_libraries(mw1core PUBLIC pmcore mw3core zipkitlib)
 
-add_executable(mw1tests ${MW3RE_DIR}/tests/main.cpp tests/test_mw1_start.cpp tests/test_mw1_campaign.cpp tests/test_mw1_loop.cpp tests/test_mw1_save.cpp tests/test_mw1_worlds.cpp tests/test_mw1_market.cpp tests/test_mw1_travel.cpp tests/test_mw1_pilots.cpp tests/test_mw1_repairs.cpp tests/test_mw1_missions.cpp tests/test_mw1_menu.cpp tests/test_mw1_office.cpp tests/test_mw1_story.cpp tests/test_mw1_travel_map.cpp tests/test_mw1_map_image.cpp tests/test_mw1_chrome.cpp tests/test_mw1_look.cpp tests/test_mw1_rooms.cpp tests/test_mw1_renders.cpp)
+add_executable(mw1tests ${MW3RE_DIR}/tests/main.cpp tests/test_mw1_start.cpp tests/test_mw1_campaign.cpp tests/test_mw1_loop.cpp tests/test_mw1_save.cpp tests/test_mw1_worlds.cpp tests/test_mw1_market.cpp tests/test_mw1_travel.cpp tests/test_mw1_pilots.cpp tests/test_mw1_repairs.cpp tests/test_mw1_missions.cpp tests/test_mw1_menu.cpp tests/test_mw1_office.cpp tests/test_mw1_story.cpp tests/test_mw1_travel_map.cpp tests/test_mw1_map_image.cpp tests/test_mw1_chrome.cpp tests/test_mw1_look.cpp tests/test_mw1_rooms.cpp tests/test_mw1_renders.cpp tests/test_mw1_art.cpp)
 target_include_directories(mw1tests PRIVATE ${MW3RE_DIR}/tests)
 target_link_libraries(mw1tests PRIVATE mw1core pmcore mw3core)
 target_compile_definitions(mw1tests PRIVATE MW3_GAME_DIR="${MW3_GAME_DIR}" MW3PM_GAME_DIR="${MW3PM_GAME_DIR}" MW1_MW3_GAME_DIR="${MW3_GAME_DIR}"
@@ -158,24 +160,27 @@ if(TARGET mw3pm)
                        COMMAND_EXPAND_LISTS)
   endif()
   set(mw1_image_zbd ${CMAKE_CURRENT_BINARY_DIR}/mw1gen/zbd/mw1image.zbd)
-  # The screens' art (tools/mw1art.py's output; a picture added or removed is seen at the next configure).
-  file(GLOB mw1_art CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/data-src/art/*.png)
+  set(mw1_art_zbd ${CMAKE_CURRENT_BINARY_DIR}/mw1gen/zbd/mw1art.zbd)
+  # The screens' art (tools/mw1art.py's output, src/mw1_art.h; a picture added or removed is seen at the next
+  # configure).
+  file(GLOB mw1_art CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/data-src/art/*.png ${CMAKE_CURRENT_SOURCE_DIR}/data-src/art/*.jpg
+       ${CMAKE_CURRENT_SOURCE_DIR}/data-src/art/art.csv)
   # The art's list, rewritten only when it changes (a picture added or removed; the glob above reconfigures): the pack
   # depends on it, so a removed picture repacks too (the remaining inputs alone are older than the pack).
   list(JOIN mw1_art "\n" mw1_art_lines)
   file(CONFIGURE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/mw1gen-art-list.txt CONTENT "${mw1_art_lines}\n" @ONLY)
-  add_custom_command(OUTPUT ${mw1_image_zbd}
+  add_custom_command(OUTPUT ${mw1_image_zbd} ${mw1_art_zbd}
                      COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/mw1gen/zbd
-                     COMMAND mw1imgpack ${mw1_image_zbd} ${CMAKE_CURRENT_SOURCE_DIR}/data-src/intro.bmp ${CMAKE_CURRENT_SOURCE_DIR}/data-src/art
+                     COMMAND mw1imgpack ${mw1_image_zbd} ${mw1_art_zbd} ${CMAKE_CURRENT_SOURCE_DIR}/data-src/intro.bmp ${CMAKE_CURRENT_SOURCE_DIR}/data-src/art
                      # Beside the program at once: a repack alone (the art or the chrome changed, the program not
                      # relinked) reached mw1data/ only at the program's next link before.
                      COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_BINARY_DIR}/mw1gen $<TARGET_FILE_DIR:mw1>/mw1data
                      DEPENDS mw1imgpack ${CMAKE_CURRENT_SOURCE_DIR}/data-src/intro.bmp ${CMAKE_CURRENT_SOURCE_DIR}/src/mw1_map_image.cpp
                              ${CMAKE_CURRENT_SOURCE_DIR}/src/mw1_map_image.h ${CMAKE_CURRENT_SOURCE_DIR}/src/mw1_travel_map.cpp
                              ${CMAKE_CURRENT_SOURCE_DIR}/src/mw1_chrome.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/mw1_chrome.h ${mw1_art}
-                             ${CMAKE_CURRENT_BINARY_DIR}/mw1gen-art-list.txt
-                     COMMENT "MW1's image archive")
-  add_custom_target(mw1images DEPENDS ${mw1_image_zbd})
+                             ${CMAKE_CURRENT_SOURCE_DIR}/src/mw1_art.cpp ${CMAKE_CURRENT_BINARY_DIR}/mw1gen-art-list.txt
+                     COMMENT "MW1's image archives")
+  add_custom_target(mw1images DEPENDS ${mw1_image_zbd} ${mw1_art_zbd})
   add_dependencies(mw1 mw1images)
   add_custom_command(TARGET mw1 POST_BUILD
                      COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_BINARY_DIR}/mw1gen $<TARGET_FILE_DIR:mw1>/mw1data)
