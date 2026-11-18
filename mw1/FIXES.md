@@ -315,6 +315,18 @@ Tick an item when it is merged into `main`.
 
 ## 31. [ ] The results screen's picture: victory with a big gun, defeat kicking rocks
 - **Owen (2026-11-18):** "can we use pc crucible to generate an image for end-of-game that looks like the original? if you were victorious you got a shot of yourself with a big gun ... if you failed youre kicking rocks" (MW1's two debrief pictures, beside CREW STATUS, MECH STATUS, SALVAGE and PAYMENT, with a line of text below).
+- **What MW1 shows (the port's after-action code, read as reference; the pictures decoded read-only from Owen's MW_PICS.BIN, `outbox/2026-11-18/mw1-original-debrief-pictures.png`):**
+  - **Three pictures, 149×127:**
+    - 0x4C, a win, and also an uneventful garrison tour: the commander standing with a big gun beside his mech;
+    - 0x4E, a failed mission with the whole crew alive (a retreat): kicking a rock;
+    - 0x48, a failed mission with someone killed or missing: the commander slumped, hurt, in a wrecked, burning cockpit, framed in a circle.
+  - **The current world's House crest** in the box under them, which we already have as icon_house_*.
+  - **The message under them:**
+    - an uneventful garrison tour;
+    - a win, worded per House;
+    - a failure, worded per House;
+    - then, on a win paid short: the supply-overrun or "disappointment" deduction, or the breach of contract (no pay);
+    - the "abandoned by the House transports" line.
 - **Art:** the lead is making victory and defeat candidates on Crucible (qwen-image-2.1, the mw3 style, the commander as char_gideon) for Owen to pick from.
 - **Then:** the results screen gets a picture panel (victory picture on a win; defeat picture on a loss or retreat), kept at source size for item 12. If MW1's exe holds the debrief lines ("A very boring and uneventful tour of garrison duty..."), read them from the player's exe as the pitches are, under the picture.
 
