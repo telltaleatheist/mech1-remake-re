@@ -15,17 +15,21 @@ namespace {
 // images every 0.05 s while the mouse is over it, so MW1's frame flashed amber once and went dark while its dot
 // blinked. Here the lit look (frame amber, dot lit) holds as long as the mouse is over it, a click shows the pressed
 // look for a moment, and a screen shown again under the mouse (a click's result) keeps it lit.
+// It tells the screen's hover hook (Mw1Screen::set_hover) when the mouse comes onto it (enabled) and goes off it.
 class Mw1Button : public mech3::HelpButton {
  public:
-  using HelpButton::HelpButton;
+  Mw1Button(mech3::Engine& e, int32_t id, std::function<void(int32_t)>* hover) : HelpButton(e, id), hover_(hover) {}
   void on_enter() override {
     HelpButton::on_enter();
     blinking = 0, hovered_ = true;
     lit();
+    if (enabled && hover_ && *hover_) (*hover_)(id);
   }
   void on_leave() override {
+    const bool was = hovered_;
     hovered_ = false, pressed_for_ = 0.0f;
     HelpButton::on_leave();
+    if (was && hover_ && *hover_) (*hover_)(0);
   }
   // Only a release after a press on this button. The window hands a release to every object under the mouse in
   // the same pass, so a press that changes the page (PURCHASE MECHS) would also press the page's new button at that
@@ -47,6 +51,7 @@ class Mw1Button : public mech3::HelpButton {
   void lit() {
     if (img_rollover && image != img_rollover) set_image(img_rollover), dirty();
   }
+  std::function<void(int32_t)>* hover_;
   bool hovered_ = false;
   float pressed_for_ = 0.0f;
 };
@@ -178,7 +183,7 @@ Mw1Screen::Mw1Screen(mech3::Engine& e, zgame::Handle state_handle, const char* f
   zrdr::Node* entries = zrdr::find(dlg, "BUTTONS");
   for (size_t i = 0; i < names_.size(); ++i) {
     const int32_t id = static_cast<int32_t>(i) + 1;
-    std::unique_ptr<mech3::HelpButton> b = std::make_unique<Mw1Button>(e, id);
+    std::unique_ptr<mech3::HelpButton> b = std::make_unique<Mw1Button>(e, id, &hover_);
     b->id = id;
     if (!ztwod::bind_button(this, dlg, b.get(), names_[i].name)) {
       std::printf("mw1: the layout %s has no button %s\n", file, names_[i].name);
@@ -413,6 +418,7 @@ bool Mw1State::enter() {
   screen_ptr_ = new Mw1Screen(en, addr(), file_, dialog_, buttons_, pressed_);
   screen_ = en.adopt_screen(screen_ptr_, kScreenSize);
   if (pointer_) screen_ptr_->set_pointer(pointer_rect_[0], pointer_rect_[1], pointer_rect_[2], pointer_rect_[3], pointer_);
+  if (hover_) screen_ptr_->set_hover(hover_);
   screen_ptr_->show(view_);
   ShellState::enter();
   return true;

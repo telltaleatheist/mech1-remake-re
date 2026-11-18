@@ -12,6 +12,30 @@ const std::vector<ScreenButton> kHubButtons = {{"OK", "OK"},           {"REPLAY"
                                                {"BAR", "BAR"},         {"TRAVEL", "STARPORT"}, {"OFFICE", "HOUSE OFFICE"},
                                                {"OPTIONS", "OPTIONS"}, {"COMPANY", "COMPANY"}, {"DEPLOY", "DEPLOY"}};
 const std::vector<ScreenButton> kHubOptionsButtons = {{"SETTINGS", "SETTINGS"}, {"MAIN_MENU", "MAIN MENU"}, {"BACK", "BACK"}};
+// The middle panel's lines wrapped at its words to kHubPanelColumns (4:3's panel, the narrower; a blank line kept).
+std::vector<std::string> wrapped(const std::vector<std::string>& lines) {
+  std::vector<std::string> out;
+  for (const std::string& text : lines) {
+    if (text.size() <= static_cast<size_t>(kHubPanelColumns)) {
+      out.push_back(text);
+      continue;
+    }
+    std::string line, word;
+    auto flush = [&] {
+      if (word.empty()) return;
+      if (!line.empty() && line.size() + 1 + word.size() > static_cast<size_t>(kHubPanelColumns)) out.push_back(line), line = "  ";
+      line += (line.empty() || line == "  " ? "" : " ") + word;
+      word.clear();
+    };
+    for (char ch : text) {
+      if (ch == ' ') flush();
+      else word += ch;
+    }
+    flush();
+    if (!line.empty()) out.push_back(line);
+  }
+  return out;
+}
 }  // namespace
 
 const char* hub_button_name(int32_t id) { return id >= 1 && id <= kHubButtonCount ? kHubButtons[id - 1].name : ""; }
@@ -29,18 +53,17 @@ void HubState::show(const HubView& v) {
   s.backdrop = v.scenery;
   s.blocks = {at_place("PLANET", {v.planet}),         at_place("HOUSE", {v.house}),
               at_place("DATE", {v.date}),             at_place("DAY", {v.day}),
-              at_place("PANEL_TITLE", {v.title}),     at_place("PANEL_LINES", v.panel),
+              at_place("PANEL_TITLE", {v.title}),     at_place("PANEL_LINES", wrapped(v.panel)),
               at_place("STATUS_WORLD", {v.planet}),   at_place("STATUS", {v.status})};
-  // The company's terminal under the panel; AFTER ACTION's OK and REPLAY in its place while they wait.
-  const bool term = !v.after_action;
-  s.blocks.push_back(at_place("TERM_TITLE", term ? std::vector<std::string>{"COMPANY"} : std::vector<std::string>{}));
-  for (const auto& [place, lines] : {std::pair<const char*, const std::vector<std::string>*>{"TERM_LABELS", &v.labels}, {"TERM_VALUES", &v.values},
-                                     {"TERM_MECHS", &v.mechs}, {"TERM_PILOTS", &v.kinds}})
-    s.blocks.push_back(at_place(place, term ? *lines : std::vector<std::string>{}));
-  s.panels = {true, true, true, term, true};  // PANEL..PANEL5: the plaques, the middle panel, the terminal, the status line
+  // The company's strip between the plaques (C-BILLS, PAYROLL, KILLS: Owen on item 16); the middle panel only with
+  // something to say, OK (and AFTER ACTION's REPLAY) under it.
+  s.blocks.push_back(at_place("STRIP_LABELS", v.labels));
+  s.blocks.push_back(at_place("STRIP_VALUES", v.values));
+  const bool box = v.after_action || v.message;
+  s.panels = {true, true, box, true, true};  // PANEL..PANEL5: the plaques, the middle panel, the strip, the status line
   s.buttons.resize(kHubButtonCount);
   auto b = [&](int32_t id) -> ButtonState& { return s.buttons[static_cast<size_t>(id - 1)]; };
-  b(kHubOk).there = v.after_action;
+  b(kHubOk).there = box;
   b(kHubReplay).there = v.after_action && v.replay;
   // MW1's two columns (DS:1083): COMPANY, MECH COMPLEX, HOUSE OFFICE; STARPORT, BAR, OPTIONS. The office's slot is
   // empty on a world with none (DS:1101). A contract accepted (DS:10D7): COMPANY, MECH COMPLEX, DEPLOY; no right column.

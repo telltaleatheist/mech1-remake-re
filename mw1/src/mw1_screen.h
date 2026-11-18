@@ -121,6 +121,12 @@ class Mw1Screen : public mech3::MenuScreen {
   // (click false) and on a left click there (true). point() is the same from a test.
   void set_pointer(int32_t left, int32_t top, int32_t right, int32_t bottom, std::function<void(int32_t, int32_t, bool)> heard);
   void point(int32_t x, int32_t y, bool click);
+  // `hover` hears a button's id as the mouse comes onto it (enabled), 0 as it goes off; hover_on() is the same from a
+  // test.
+  void set_hover(std::function<void(int32_t)> hover) { hover_ = std::move(hover); }
+  void hover_on(int32_t id) {
+    if (hover_) hover_(id);
+  }
   const std::vector<Mark>& marks() const { return marks_now_; }  // for the tests: the shapes shown now
   int32_t shift(Anchor a) const;  // how far a piece moves right from its layout's place on this canvas
   bool wide() const { return wide_; }  // laid out by <dialog>_WIDE
@@ -143,6 +149,7 @@ class Mw1Screen : public mech3::MenuScreen {
   };
   std::vector<std::pair<std::string, Place>> places_;  // TEXTS, anchored
   std::function<void(int32_t)> pressed_;
+  std::function<void(int32_t)> hover_;  // the buttons hold its address (set_hover)
   bool loaded_ = false;
   std::vector<std::unique_ptr<mech3::HelpButton>> buttons_;   // by id - 1
   std::vector<std::unique_ptr<ztwod::Text>> labels_;          // the buttons' words, by id - 1
@@ -173,6 +180,10 @@ class Mw1State : public mech3::MenuState {
   // first plain key (its DirectInput code) to `keys`, Escape aside (escape_id's button).
   void set_pointer(int32_t left, int32_t top, int32_t right, int32_t bottom, std::function<void(int32_t, int32_t, bool)> heard);
   void set_keys(std::function<void(uint32_t)> keys) { keys_ = std::move(keys); }
+  void set_hover(std::function<void(int32_t)> hover) {  // the buttons' hover (Mw1Screen::set_hover), set on each entering
+    hover_ = hover;
+    if (screen_ptr_) screen_ptr_->set_hover(std::move(hover));
+  }
   void key(uint32_t code) {  // a key as pressed (tests)
     if (keys_) keys_(code);
   }
@@ -189,6 +200,7 @@ class Mw1State : public mech3::MenuState {
   int32_t pointer_rect_[4] = {};
   std::function<void(int32_t, int32_t, bool)> pointer_;
   std::function<void(uint32_t)> keys_;
+  std::function<void(int32_t)> hover_;
 };
 
 // True when MW1's data has `file` with `dialog` in it (the loop falls back to message boxes when not).

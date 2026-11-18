@@ -23,7 +23,7 @@ uint8_t alpha_at(const mw1::images::Image& im, int32_t x, int32_t y) { return im
 
 TEST(mw1_chrome_pieces) {
   const std::vector<mw1::images::Image> all = mw1::chrome::all();
-  EXPECT(all.size() == 5 + 3 + 4 + mw1::chrome::panel_sizes().size() + mw1::chrome::terminal_sizes().size() +
+  EXPECT(all.size() == 7 + 3 + 4 + mw1::chrome::panel_sizes().size() + mw1::chrome::terminal_sizes().size() +
                           2 * mw1::chrome::frame_sizes().size() + 8 + 8 + 4 + 3 + 2 +
                           mw1::chrome::lab_pictures().size() - 6 + mw1::chrome::filebox_pictures().size());
   EXPECT(mw1::chrome::side_arrow(true, 1).name == "mw1_rt_lit" && mw1::chrome::slider(true).width == mw1::kSliderW &&
@@ -39,6 +39,8 @@ TEST(mw1_chrome_pieces) {
   const mw1::images::Image p = mw1::chrome::plaque();
   EXPECT(p.width == mw1::kPlaqueW && p.height == mw1::kPlaqueH && alpha_at(p, p.width / 2, p.height / 2) > 200 &&
          alpha_at(p, p.width / 2, 0) == 255);  // dark glass in a solid frame
+  EXPECT(mw1::chrome::plaque(mw1::kStripW, mw1::kStrip).width == mw1::kStripW &&
+         mw1::chrome::plaque(mw1::kPlaqueNarrowW, mw1::kPlaqueNarrow).name == "mw1_plaque_narrow");  // the hub's (item 16)
   const mw1::images::Image t = mw1::chrome::tile_frame(0);
   const int32_t n = mw1::kTile + 2 * mw1::kTileFrame;
   EXPECT(t.width == n && t.height == n && alpha_at(t, n / 2, n / 2) == 0 && alpha_at(t, 1, n / 2) == 255 &&

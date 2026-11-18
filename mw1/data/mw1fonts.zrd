@@ -10,6 +10,9 @@ WINDOWS_FONTS (
   ; The plaques: the world and the date in big tracked caps; the line under in amber.
   "mw1_plaque" (face "Saira Condensed ExtraBold" file "fonts\SairaCondensed-ExtraBold.ttf" height -26 tracking 3 align "center" color (233 236 238))
   "mw1_plaque_sub" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -11 tracking 2 align "center" color (255 176 64))
+  ; The hub's company strip between the plaques: the labels in the plaques' amber, the values bright (x their right end).
+  "mw1_strip_label" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -11 tracking 2 color (255 176 64))
+  "mw1_strip_value" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -13 tracking 1 align "right" color (233 236 238))
   ; The title screen's name and the line under it.
   "mw1_title" (face "Saira Condensed ExtraBold" file "fonts\SairaCondensed-ExtraBold.ttf" height -54 tracking 5 shadow "true" color (240 242 244))
   "mw1_title_43" (face "Saira Condensed ExtraBold" file "fonts\SairaCondensed-ExtraBold.ttf" height -44 tracking 4 shadow "true" color (240 242 244))  ; 4:3's, clear of the mech
