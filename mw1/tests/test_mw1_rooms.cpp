@@ -6,6 +6,8 @@
 #include "check.h"
 #include "gamez/zimage/zimg_library.h"
 #include "mw1_mech_icons.h"
+#include "mw1_scenery.h"
+#include "mw1_travel.h"
 #include "mw1_bar_screen.h"
 #include "mw1_campaign.h"
 #include "mw1_chrome.h"
@@ -88,4 +90,33 @@ TEST(mw1_rooms_mech_icon_in_amber) {
   zimg::Texture pal = t;
   pal.palette_count = 4;
   EXPECT(mw1::amber_icon("x", pal).name.empty());  // only 16-bit pictures
+}
+
+// FIXES.md item 6: the hub's scenery by MW1's landscape. Every world's picture is there and shows its landscape (one
+// of five settings); Dustball and Ander's Moon their own; worlds near each other on one landscape differ.
+TEST(mw1_rooms_scenery_by_landscape) {
+  int32_t missing = 0, wrong = 0, same = 0, near_pairs = 0;
+  int32_t by_setting[mw1::kSettingCount] = {};
+  for (int32_t i = 0; i < mw1::kPlanetCount; ++i) {
+    const mw1::Planet& w = mw1::kPlanets[i];
+    const std::string t = mw1::scenery_type(w.number);
+    if (!art_there(mw1::scenery_image(w.number))) ++missing, std::printf("  %s: no %s\n", w.name, t.c_str());
+    if (w.number == mw1::kDustball || w.number == mw1::kAndersMoon) {
+      wrong += t != (w.number == mw1::kDustball ? "dustball" : "anders_moon");
+      continue;
+    }
+    wrong += t.rfind(std::string(mw1::kLandscapeWords[w.landscape]) + "_", 0) != 0;
+    for (int32_t s = 0; s < mw1::kSettingCount; ++s) by_setting[s] += t.substr(t.find('_') + 1) == mw1::kSettings[s];
+    for (int32_t j = i + 1; j < mw1::kPlanetCount; ++j) {
+      const mw1::Planet& v = mw1::kPlanets[j];
+      if (v.landscape != w.landscape || !mw1::near_worlds(i, j) || v.number == mw1::kDustball || v.number == mw1::kAndersMoon)
+        continue;
+      ++near_pairs, same += mw1::scenery_type(v.number) == t;
+      if (mw1::scenery_type(v.number) == t) std::printf("  alike: %s and %s (%s)\n", w.name, v.name, t.c_str());
+    }
+  }
+  std::printf("  scenery: %d near pairs, %d alike; settings %d/%d/%d/%d/%d\n", near_pairs, same, by_setting[0], by_setting[1],
+              by_setting[2], by_setting[3], by_setting[4]);
+  EXPECT(missing == 0 && wrong == 0 && same == 0);
+  for (int32_t n : by_setting) EXPECT(n > 0);
 }
