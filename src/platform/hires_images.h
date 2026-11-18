@@ -20,6 +20,10 @@ class HiresImages {
   // The source behind canvas image `name`, or null (it draws from the canvas). The pointer and its pixels stay valid
   // until the next end_frame(). The main thread only. A source not yet decoded is decoded here (a few ms) and logged.
   virtual const HiresImage* find(const char* name) = 0;
+  // The canvas-to-frame scale (the frame's height over the canvas's: 2.25 at 1080p, 4.5 at 4K), called by the host
+  // once a frame before its first find(), only when it changes. Pieces drawn rather than decoded are made at
+  // ceil(art_scale); on a change the old ones are dropped at once (research/hires-2d.md B2b).
+  virtual void set_frame_scale(float art_scale) { (void)art_scale; }
   // Called by the host once after each present, after the frame's pictures are uploaded: entries no longer wanted may
   // be dropped from here on.
   virtual void end_frame() {}
