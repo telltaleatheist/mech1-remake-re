@@ -215,6 +215,10 @@ struct Run {
   int hold_phase = 0, hold_frames = 0;
   float hold_time = 0.0f;
   int32_t ask_held = -1, ask_released = -1, ask_offer = -1;
+  // FIXES.md item 36: then PAY_UP clicked three times, the mouse still on it (each a press, a release and a frame
+  // idle): the ask after each.
+  int clicks = 0;
+  std::vector<int32_t> ask_clicked;
   bool market_done = false;
   // Travel (mw1_travel_screen.h) before the first ACCEPT: the nearest world with a House office, GO; the contract
   // then taken there.
@@ -611,7 +615,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
       // another REQUESTED, NEXT OFFER (another, nothing moved), LEAVE.
       mw1::OfficeState* os = mw1::game_loop_office();
       // FIXES.md item 24: PAY_UP pressed and held (the first offer, the market run), then released.
-      if (run && run->hold_phase > 0 && run->hold_phase < 5 && os && app.current() == static_cast<zgame::State*>(os) && os->screen()) {
+      if (run && run->hold_phase > 0 && run->hold_phase < 8 && os && app.current() == static_cast<zgame::State*>(os) && os->screen()) {
         zin::MouseInfo* mi = zin::mouse_info();
         const mw1::Request* ask = mw1::game_loop_office_ask();
         const int32_t asked = ask ? ask->payment : -1;
@@ -629,7 +633,19 @@ void loop_run(Ending ending, Run* run = nullptr) {
             break;
           case 4:  // released: nothing more for a while
             mi->left = 0;
-            if (++run->hold_frames >= 30) run->ask_released = asked, run->hold_phase = 5, mi->x = mi->y = 0;
+            if (++run->hold_frames >= 30) run->ask_released = asked, run->hold_phase = 5;
+            break;
+          case 5:  // item 36: clicked again where it is, three times
+            mi->left = zin::kPressed, run->hold_phase = 6;
+            break;
+          case 6:
+            mi->left = zin::kReleased, run->hold_phase = 7;
+            break;
+          case 7:
+            mi->left = 0;
+            run->ask_clicked.push_back(asked);
+            if (++run->clicks < 3) run->hold_phase = 5;
+            else run->hold_phase = 8, mi->x = mi->y = 0;
             break;
         }
         return;
@@ -1572,7 +1588,14 @@ TEST(mw1_loop_market_buy_sell_pilot_then_a_contract_in_the_bought_mech_headless)
     EXPECT(run.page_after == 0 && run.slot_w == 41 && run.slot_amber);  // item 26
     // Item 24: PAY_UP held a second steps the ask on (more than one step), and stops when let go.
     std::printf("  PAY_UP held 1 s: %d thousand offered, asked %d, %d after the release\n", run.ask_offer, run.ask_held, run.ask_released);
-    EXPECT(run.hold_phase == 5 && run.ask_held > run.ask_offer + mw1::kRequestPaymentStep && run.ask_released == run.ask_held);
+    EXPECT(run.hold_phase == 8 && run.ask_held > run.ask_offer + mw1::kRequestPaymentStep && run.ask_released == run.ask_held);
+    // Item 36: the same arrow clicked three times, three steps (it once did nothing until the other arrow was used).
+    std::printf("  PAY_UP clicked three times after: asked");
+    for (int32_t a : run.ask_clicked) std::printf(" %d", a);
+    std::printf("\n");
+    EXPECT(run.ask_clicked.size() == 3);
+    for (size_t i = 0; i < run.ask_clicked.size(); ++i)
+      EXPECT(run.ask_clicked[i] == run.ask_released + static_cast<int32_t>(i + 1) * mw1::kRequestPaymentStep);
     EXPECT(run.market_done && run.market_lines.size() > 4);
     bool for_sale = false, yours = false;
     for (const std::string& l : run.market_lines) for_sale = for_sale || l == "FOR SALE", yours = yours || l.rfind("YOUR MECHS", 0) == 0;
