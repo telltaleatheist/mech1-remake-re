@@ -3,7 +3,7 @@
 ; the map's images are ours, drawn at build time from the worlds' data
 ; (src/mw1_map_image.h, mw1image.zbd): PANEL the whole map, PANEL2..PANEL6
 ; each House's lit (FILTER's one House), one shown at a time, at the map area
-; (src/mw1_travel_map.h: 16, 64). The worlds, the markers and the names are
+; (src/mw1_travel_map.h: 16, 64); PANEL7..PANEL9 the plaques and the status line. The worlds, the markers and the names are
 ; drawn over it by the screen. The round buttons are Pirate's Moon's, read
 ; from the player's install (never copied). LABEL_AT is MW1's key.
 (
@@ -17,11 +17,24 @@ MW1TRAVELDIALOG (
     PANEL4 (POSITION (16 64) BITMAP ("mw1_map_marik"))
     PANEL5 (POSITION (16 64) BITMAP ("mw1_map_liao"))
     PANEL6 (POSITION (16 64) BITMAP ("mw1_map_davion"))
+    ; The header's plaques (the world; the funds and the date) and the status line, as the other screens'.
+    PANEL7 (POSITION (12 4) BITMAP ("mw1_plaque"))
+    PANEL8 (POSITION (328 4) BITMAP ("mw1_plaque"))
+    PANEL9 (POSITION (-107 454) BITMAP ("mw1_statusbar") ANCHOR ("CENTRE"))
   )
   BUTTONS (
-    GO (POSITION (24 436) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (116 442) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
-    FILTER (POSITION (236 436) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (328 442) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
-    BACK (POSITION (448 436) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (540 442) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    ; Down the right column's foot, under the chosen world's lines (the status line has the bottom).
+    GO (POSITION (466 348) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (558 354) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    FILTER (POSITION (466 384) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (558 390) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    BACK (POSITION (466 420) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (558 426) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+  )
+  TEXTS (
+    PLANET (POSITION (162 11) FONT ("mw1_plaque"))
+    HOUSE (POSITION (162 43) FONT ("mw1_plaque_sub"))
+    PLACE (POSITION (478 11) FONT ("mw1_plaque"))
+    PLACE_SUB (POSITION (478 43) FONT ("mw1_plaque_sub"))
+    STATUS_WORLD (POSITION (16 460) FONT ("mw1_status_world"))
+    STATUS (POSITION (132 461) FONT ("mw1_status"))
   )
 )
 )

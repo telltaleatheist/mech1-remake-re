@@ -20,6 +20,8 @@ inline constexpr const char* kTravelFile = "mw1travel.zrd";
 inline constexpr const char* kTravelDialog = "MW1TRAVELDIALOG";
 
 enum TravelButton : int32_t { kTravelGo = 1, kTravelFilter, kTravelBack };
+// The layout's panels: the map (0) and each House's lit (1..5), then the two plaques and the status line.
+inline constexpr size_t kTravelPanelPlaques = 6, kTravelPanelCount = 9;
 inline constexpr int32_t kTravelButtonCount = 3;
 const char* travel_button_name(int32_t id);
 

@@ -12,7 +12,7 @@ generated art's own grain hides 565's steps (checked on title_bg's sunset), and 
 - a service tile (icon_*): 100x100 (framed at pack time, mw1_chrome.h);
 - a portrait or a mech picture (768x1024): 240x320, and a small one, <name>_s, 96x128 (the crew grid's);
 - an emblem (story_darkwing_crest): 240x240.
-The intro's unused takes (intro_0_*) are left out.
+The intro's unused takes (intro_0_*), the mechs' pictures and the hub's first scenes (SKIP) are left out.
 
 scenery.csv: each world's scenery (hub_<type>), by MW1's planet number: our classification only (MW1's descriptions,
 which it was read from, stay out of the repo).
@@ -28,7 +28,10 @@ SCENE = (854, 480)
 TILE = (100, 100)
 PORTRAIT, PORTRAIT_SMALL = (240, 320), (96, 128)
 EMBLEM = (240, 240)
-SKIP_PREFIX = ("intro_0_",)
+SKIP_PREFIX = ("intro_0_", "mech_")  # the mechs show as PM's icons (FIXES.md items 23, 27)
+# The hub's first scenes, by our world type: replaced by hub_<landscape>_<setting> (FIXES.md item 6).
+SKIP = {"hub_" + t for t in ("agri", "capital", "culture", "frontier", "ice", "industrial", "jungle", "military", "mining",
+                             "ocean", "pleasure", "temperate", "trade")}
 EMBLEMS = {"story_darkwing_crest"}
 PORTRAIT_PREFIX = ("recruit_", "char_", "liaison_")
 PORTRAITS = {"bartender_portrait", "office_liaison_portrait"}
@@ -74,7 +77,7 @@ def main():
         if not f.endswith(".png"):
             continue
         name = f[:-4]
-        if name.startswith(SKIP_PREFIX):
+        if name.startswith(SKIP_PREFIX) or name in SKIP:
             continue
         im = Image.open(os.path.join(src, f)).convert("RGB")
         k = kind(name, im.size)
