@@ -258,7 +258,7 @@ choice at about 5x the repo size. That trade-off is Owen's.
 
 B2 left some pieces at canvas size. These are drawn in code or cut from the art at pack time, not decoded. B2b makes
 them at the window's scale and serves them through the same `HiresImages::find(name)`. B1 draws them like any picture.
-In order (1 and 2 are built, on mw1-hires-drawn):
+In order (all four are built: 1 and 2 on mw1-hires-drawn, 4 on mw1-hires-renders, 3 on mw1-hires-chrome):
 
 1. **The lab's panels** (`mw1_lab_panel_*`, `mw1_lab_background`): strips of the hangar, darkened, with scanlines,
    and glass boxes over them. At scale they sample the hangar's source picture (in `mw1art.zbd`), not its canvas copy.
@@ -269,11 +269,21 @@ In order (1 and 2 are built, on mw1-hires-drawn):
 3. **The mech renders** at 4x (`kRenderVersion` 3). The pass grades the frame it reads back at 384x512 and 640x512 as
    well as the canvas sizes. The canvas set stays in `mw1renders.zbd`; the 4x set is beside it in the write dir,
    under the same stamp. Every player's set is made again once, behind the existing cover.
-4. **The chrome at scale**: the plaques, buttons and dialog frame first, then the panels, terminals, frames, arrows
-   and cells. These have alpha.
+4. **The chrome at scale**: every piece `chrome::all()` packs except the dim (a flat see-through black), the cursor
+   (drawn by the host) and the clear placeholder, 101 pieces in all (`chrome::chrome_names`, `chrome_at`): the
+   plaques, buttons, the dialog frames, panels, terminals, frames, arrows, cells and the lab's and load box's drawn
+   pieces. Each piece is made through the same maker that packs it, at a scale (`all()` is the makers at 1), so
+   the names and the look can't drift. These have alpha.
 
 The amber mech icons (`mw1icons`) stay at canvas size. Their only source is PM's own small icons, and the renders
 replace them wherever the renders are ready.
+
+**Known limit: the renders' detail is the first run's window.** The pass reads the frame back at the window's
+size, so a player whose first run is in a small window gets 4x pictures graded from a small mech (at 1280x720 the
+mech is about 1:1 in the 640x512 panel; a 4K screen enlarges that panel to 576 rows), and keeps them until the next
+`kRenderVersion`. To do (the lead, 2026-11-18): render the pass at a fixed size that covers 4K, whatever the window
+(the stage already sizes the lab's 3D window; offscreen if the engine allows), or put the window's height in the stamp
+and render again when a later window is much bigger.
 
 **How they are drawn.** `mw1_chrome`'s `Canvas` and its helpers (`thin_frame`, `glass`, `rivet`, `glow`, the boxes and
 the tray) take a scale S:

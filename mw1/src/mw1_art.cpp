@@ -216,7 +216,7 @@ struct Store::Impl {
   };
   std::map<std::string, Slot> slots;
   // B2b: the drawn pieces, each made from a source image (its name in by_name) with its group.
-  enum class Kind { kTiles, kDeployTile, kLabPanels };
+  enum class Kind { kTiles, kDeployTile, kLabPanels, kChrome };
   struct Recipe { Kind kind; std::string source, base; };
   std::map<std::string, Recipe> recipes;  // by the piece's name
   struct Made {
@@ -271,11 +271,17 @@ struct Store::Impl {
     }
     auto r = recipes.find(name);
     if (r == recipes.end() || scale < 2) return nullptr;
-    Slot* src = slot(r->second.source, true);
-    if (!src || !src->done) return nullptr;
-    const Decoded& d = *src->done;
     std::vector<chrome::Drawn> group;
+    if (r->second.kind == Kind::kChrome) {  // drawn in code, no source
+      chrome::Drawn one;
+      if (chrome::chrome_at(name, scale, &one)) group.push_back(std::move(one));
+    }
+    Slot* src = r->second.kind == Kind::kChrome ? nullptr : slot(r->second.source, true);
+    if (r->second.kind != Kind::kChrome && (!src || !src->done)) return nullptr;
+    static const Decoded kNone;
+    const Decoded& d = src ? *src->done : kNone;
     switch (r->second.kind) {
+      case Kind::kChrome: break;
       case Kind::kTiles: group = chrome::tiles_at(d.rgba.data(), d.w, d.h, 0, 0, d.w, d.h, r->second.base, scale); break;
       case Kind::kDeployTile: {  // the launch's middle square, as the packer cut it
         const int32_t side = std::min(d.w, d.h);
@@ -352,6 +358,9 @@ bool Store::open(const std::string& path) {
       panels.push_back(chrome::reskin_name(p));
     add(Kind::kLabPanels, hangar, "", panels);
   }
+  // The chrome drawn in code (mw1_chrome.h's chrome_names: the plaques, buttons, frames, panels, the dialog...).
+  for (const std::string& n : chrome::chrome_names())
+    if (!impl->recipes.count(n)) add(Kind::kChrome, "", n, {n});
   impl->scale = g_scale;
   impl_ = impl.release();
   const std::vector<std::string> added = g_added;
