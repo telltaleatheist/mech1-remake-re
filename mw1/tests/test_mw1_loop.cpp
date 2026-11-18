@@ -34,6 +34,7 @@
 #include "mech3/app_mech.h"
 #include "mech3/app_states.h"
 #include "mech3/briefing.h"
+#include "mech3/debriefing.h"
 #include "mech3/mech_config.h"
 #include "mech3/mech_control.h"
 #include "mech3/mech_names.h"
@@ -219,6 +220,12 @@ struct Run {
   int give_up = 1200;  // frames before the test stops waiting for the objectives (a quit)
   std::string objective_built;
   bool fell_back = false, structure_found = false, mission_ended = false, mission_lost = false;
+  // PM's own way out of a won mission (Owen's, 2026-11-17): its end screen, the debriefing's CONTINUE, the next
+  // round's briefing (the mission loaded again, its end flag cleared), that briefing's EXIT; then the hub.
+  bool pm_end = false;
+  int pm_end_stage = 0;  // 1 the end screen asked for, 2 CONTINUE pressed, 3 EXIT pressed
+  bool pm_debriefed = false, pm_briefing_again = false, pm_end_cleared = false;
+  std::string date_first, date_end;  // the calendar at the first hub, at the end
   std::string outcome_shown;  // AFTER ACTION's first line after its title: "Success", "Failure", ...
   // MW1's main menu (mw1_menu.h) in front: NEW CAMPAIGN, the intro skipped (Escape), then the run as ever; the hub's
   // OPTIONS' MAIN MENU back at the menu ends it (the mission's return put the hub over the menu).
@@ -291,6 +298,20 @@ void loop_run(Ending ending, Run* run = nullptr) {
     engine.on_present = [&](int) {
       if (app.pending()) return;
       if (quit && app.current() == &mech3::states().main) back_at_main = true;
+      if (run && run->pm_end && run->pm_end_stage == 1 && app.current() == &mech3::states().end_win) {
+        auto* d = dynamic_cast<mech3::DebriefScreen*>(engine.screen_of(mech3::states().end_win.screen_));
+        if (!d) return;
+        run->pm_debriefed = true, run->pm_end_stage = 2;
+        d->on_button(mech3::DebriefScreen::kContinue, 0, 0);
+        return;
+      }
+      if (run && run->pm_end && run->pm_end_stage == 2 && app.current() == &mech3::states().load) {
+        auto* b = dynamic_cast<mech3::BriefingScreen*>(engine.screen_of(mech3::states().load.screen_));
+        if (!b || !b->loaded) return;
+        run->pm_briefing_again = true, run->pm_end_cleared = !mech3::missions().ended, run->pm_end_stage = 3;
+        b->abort();  // EXIT: Instant Action's end (IA Dummy), then the hub
+        return;
+      }
       if (run && run->via_menu) {
         mw1::IntroState* in = mw1::game_loop_intro();
         if (in && app.current() == static_cast<zgame::State*>(in)) {
@@ -601,6 +622,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
           return false;
         };
         ++hubs;
+        if (run && c && run->date_first.empty()) run->date_first = mw1::date_words(c->date);
         std::printf("  hub %d:", hubs);
         for (const std::string& l : shown) std::printf(" [%s]", l.c_str());
         std::printf("\n");
@@ -918,6 +940,12 @@ void loop_run(Ending ending, Run* run = nullptr) {
       }
       if (ending != kQuit) mech3::missions().ended = 1;
       if (ending == kFailed && !replaying) mech3::missions().aborting = 1;  // as abort_now: ended, as a failure (a replay won)
+      if (run && run->pm_end) {  // PM's Exit Mission: its end screen and debriefing (above), not IA Dummy at once
+        run->pm_end_stage = 1;
+        mech3::missions().on_command(0x79);
+        ended = true;
+        return;
+      }
       for (int i = app.depth(); i > 0; --i) app.pop(1);
       app.replace(&mech3::states().ia_dummy, 0);
       ended = true;
@@ -1014,6 +1042,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
   }
   for (int32_t r = 0; c && r < mech3::kMechCount; ++r) EXPECT(c->stores->has_mech(r) == nullptr);  // never a mech
   if (run && c) run->funds_end = c->funds, run->items_end = c->stores->count(), run->loadout_end = loadout_items(c);
+  if (run && c) run->date_end = mw1::date_words(c->date);
   mw1::uninstall_game_loop();
   EXPECT(mech3::program_flow() == nullptr);
   zrdr::close_archives(true);
@@ -1199,6 +1228,31 @@ TEST(mw1_loop_restart_at_after_action_then_ok_settles_once_headless) {
     EXPECT(second.funds_end > first.funds_end && second.items_end > first.items_end);  // settled: the fee, the parts
     EXPECT(third.funds_end == second.funds_end && third.items_end == second.items_end);  // once only
     EXPECT(third.after_action.empty() && file_text(save).find("\npending=0\n") != std::string::npos);
+  });
+}
+
+// Owen's win settled as a Retreat (2026-11-17): won, then PM's own way out (its end screen, the debriefing's CONTINUE,
+// the next round's briefing with the mission loaded again and its end flag cleared, EXIT). The win is latched the
+// frame it happens: settled as a Success, the fee and the salvage paid, the calendar on.
+TEST(mw1_loop_a_win_through_pms_debriefing_and_briefing_settles_won_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  in_child([&] {
+    Run run;
+    run.pm_end = true;
+    loop_run(kWon, &run);
+    const std::string outcome = run.after_action.empty() ? "" : run.after_action[run.after_action.size() > 8 ? 8 : 0];
+    bool won = false, retreat = false;
+    for (const std::string& l : run.after_action) won = won || l == "Success", retreat = retreat || l.rfind("Retreat", 0) == 0;
+    std::printf("  PM's way out: debriefed %d, briefing again %d (end flag cleared %d), stage %d; after action: success %d, "
+                "retreat %d; funds %lld -> %lld, items %d; date %s -> %s\n",
+                run.pm_debriefed, run.pm_briefing_again, run.pm_end_cleared, run.pm_end_stage, won, retreat,
+                static_cast<long long>(run.funds_at_offer), static_cast<long long>(run.funds_end), run.items_end,
+                run.date_first.c_str(), run.date_end.c_str());
+    EXPECT(run.pm_debriefed && run.pm_briefing_again && run.pm_end_cleared && run.pm_end_stage == 3);
+    EXPECT(won && !retreat);
+    EXPECT(run.funds_end > run.funds_at_offer);  // the fee and the salvage paid
+    EXPECT(!run.date_first.empty() && run.date_end != run.date_first);  // the mission's time passed
   });
 }
 

@@ -173,6 +173,16 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   bool main_entered(mech3::Engine& e) override {
     auto& ge = static_cast<mech3::GameEngine&>(e);
     ge_ = &ge;
+    // The mission's end heard the frame it happens (latch_ending), after each frame shown. Put on here, as the main
+    // state is entered, never from inside a frame's own on_present (replacing the function that is running frees it).
+    if (!ending_hook_) {
+      ending_hook_ = true;
+      auto before = ge.on_present;
+      ge.on_present = [this, before](int f) {
+        if (before) before(f);
+        if (deployed_ && launched_ && !ending_latched_ && ge_ && ge_->mission_ended()) latch_ending(*ge_);
+      };
+    }
     // MW1_SCREEN=pause or pause_options (development: --shot pictures of the pause over a mission): the offer
     // accepted, LAUNCH at the briefing, the pause pushed 90 frames into the mission (and its OPTIONS). MW1_SCREEN=lab
     // or lab_files: the briefing's MECH LAB instead (and the lab's load box); lab_1, lab_3, lab_4 its pages.
@@ -1360,14 +1370,25 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     }
     wrecks_.clear();
     salvage_ = std::make_shared<mech3::Store>();
-    ended_ = failed_ = false;
+    ended_ = failed_ = ending_latched_ = false;
     std::printf("mw1: launched: %d items in the stores, the loadout %s\n", company_.stores->count(),
                 company_.loadout ? "the lab's" : "stock");
   }
 
+  // Instant Action's end (IA Dummy). Heard only when the mission is left without its own end (the pause screen's
+  // QUIT): a mission that ended was latched the frame it did. PM's own way out of an ended mission (its debriefing's
+  // CONTINUE, the next round's briefing, its EXIT) reaches IA Dummy only after the briefing has loaded the mission
+  // again, its end flag cleared: sampled there, a win was a Retreat (Owen's win on mw3c2ia3, 2026-11-17).
   void mission_ending(mech3::Engine& e) override {
+    if (!ending_latched_) latch_ending(e);
+  }
+  // The mission's outcome (and the lance's damage, for the repair bills) taken once per launch, never again until
+  // the next launch.
+  void latch_ending(mech3::Engine& e) {
+    ending_latched_ = true;
     ended_ = e.mission_ended(), failed_ = e.mission_failed();
     if (deployed_) collect_bills();
+    std::printf("mw1: the mission's end: %s\n", ended_ ? (failed_ ? "failed" : "won") : "left before its end");
   }
 
   // Each enemy mech the moment it dies (whoever killed it: MW1 pays for every disabled enemy): its wreck for the
@@ -1722,6 +1743,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   static constexpr int32_t kLabPilotFromRight = 172, kLabPilotY = 196;
   std::shared_ptr<mech3::Store> salvage_;  // this mission's parts, the stores' on a win
   bool deployed_ = false, launched_ = false, ended_ = false, failed_ = false, own_wins_ = false;
+  bool ending_latched_ = false, ending_hook_ = false;  // the outcome taken this launch; the per-frame watch put on
   bool row_set_ = false;  // install_game_loop's reach, or set_game_loop_row's: every new contract on that row
   MapRow row_;
   std::string objective_built_;
