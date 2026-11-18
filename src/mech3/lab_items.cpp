@@ -54,11 +54,11 @@ void LabItemRow::set_pos(int32_t px, int32_t py) {
   x = px;
   y = py;
   panel.set_pos(px, py);
-  count.set_pos(px + 0xac, py);
-  mass.set_pos(px + 0x93, py);
-  qty.set_pos(px + 0x7a, py);
+  count.set_pos(px + list->column(0xac), py);  // (ours: list->column is PM's offset at PM's row width)
+  mass.set_pos(px + list->column(0x93), py);
+  qty.set_pos(px + list->column(0x7a), py);
   if (needs_render) render();
-  line.set(width + 2 + px, py + 6, px + 0x89, py + 6);
+  line.set(width + 2 + px, py + 6, px + list->column(0x89), py + 6);
 }
 
 // Mech3.exe 1.2 @ 0x00451a50 with 0x004516a0: the item's name (an empty one
@@ -74,7 +74,7 @@ void LabItemRow::fill(int32_t i, const LabItem* item) {
   height = 0xd;
   if (it->text) {
     panel.show_for(-1.0f);
-    panel.set_size(0xac, height);
+    panel.set_size(list->column(0xac), height);
     panel.set_color(zvid::pack_bytes(0x19, 0x19, 0x19));
     count.show_for(-1.0f);
     count.set_text("%02d", n);
@@ -117,7 +117,7 @@ int32_t LabItemRow::hit(int32_t px, int32_t py) {
   if (flags & ztwod::kHidden) return 0;
   ztwod::Rect r{};
   rect_at(&r);  // vt+0x74
-  return px >= r.left && px <= r.left + 0xac && py >= r.top && py <= r.bottom ? 1 : 0;
+  return px >= r.left && px <= r.left + list->column(0xac) && py >= r.top && py <= r.bottom ? 1 : 0;
 }
 
 // ---- the arrows ----
@@ -427,7 +427,7 @@ void LabItemRow::show_slots(int32_t used, int32_t total) {
   panel.hide();
   const int32_t px = get_x(), py = get_y();
   if (needs_render) render();
-  line.set(width + px + 2, py + 6, px + 0x89, py + 6);
+  line.set(width + px + 2, py + 6, px + list->column(0x89), py + 6);
 }
 
 // Mech3.exe 1.2 @ 0x00452c80
