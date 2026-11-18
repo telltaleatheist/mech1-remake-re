@@ -1,0 +1,32 @@
+; MW1: Critical Hit's loading screen (src/mw1_loading.h) on MW1's screen
+; template (src/mw1_screen.h), FIXES.md item 18: DEPLOY goes straight into the
+; mission, Pirate's Moon's briefing never shown; this is up while the mission
+; loads.
+; - the battle world's scenery full-bleed and dimmed (the screen names it);
+; - the world and the employer on the plaque at the top;
+; - the contract on the green terminal in the middle: its title, objective,
+;   map and enemy (the office's offer lines);
+; - LOADING in our type under it.
+; No buttons and no pointer: nothing to press while the mission loads. All
+; MW1's own art (mw1image.zbd): nothing of Pirate's Moon's
+; (tests/test_mw1_look.cpp). A 4:3 layout, each piece anchored to the
+; canvas's middle (the 16:9 canvas shows the scene's full width).
+(
+MW1LOADDIALOG (
+  PRIMITIVES (
+    BACKGROUND (POSITION (-107 0) BITMAP ("mw1_hub_industrial") ANCHOR ("CENTRE"))
+    PANEL (POSITION (-107 0) BITMAP ("mw1_dim") ANCHOR ("CENTRE"))
+    PANEL2 (POSITION (170 16) BITMAP ("mw1_plaque") ANCHOR ("CENTRE"))
+    PANEL3 (POSITION (102 150) BITMAP ("mw1_term_436x172") ANCHOR ("CENTRE"))
+  )
+  BUTTONS (
+  )
+  TEXTS (
+    PLANET (POSITION (320 23) FONT ("mw1_plaque") ANCHOR ("CENTRE"))
+    PLACE (POSITION (320 55) FONT ("mw1_plaque_sub") ANCHOR ("CENTRE"))
+    TITLE (POSITION (122 160) FONT ("mw1_term_title") ANCHOR ("CENTRE"))
+    LINES (POSITION (122 186) FONT ("mw1_term_line") GAP (16) ANCHOR ("CENTRE"))
+    LOADING (POSITION (320 372) FONT ("mw1_plaque") ANCHOR ("CENTRE"))
+  )
+)
+)

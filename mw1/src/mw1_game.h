@@ -113,6 +113,17 @@ struct AllyLaunch {
 };
 const std::vector<AllyLaunch>& game_loop_ally_launches();
 void game_loop_market_changed();
+// MW1's loading screen (mw1_loading.h, FIXES.md item 18), as the tests see it: how many loads it has been up for, its
+// lines the last time (the screen's texts), and at the launches, the frames PM's briefing drew and whether its script
+// played (none, never). Held (tests): once loaded the Load state waits, PM's briefing still unseen, for the test to
+// launch or abort it itself (BriefingScreen::launch, abort), as the lab fit and ABORT were made at the briefing before.
+struct LoadingSeen {
+  int32_t loads = 0, briefing_frames = 0;
+  bool briefing_script = false;
+  std::vector<std::string> lines;
+};
+LoadingSeen game_loop_loading_seen();
+void set_game_loop_hold_launch(bool on);
 void game_loop_press(int32_t button);
 
 }  // namespace mw1

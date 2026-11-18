@@ -246,6 +246,13 @@ struct Run {
   // MW1's main menu (mw1_menu.h) in front: NEW CAMPAIGN, the intro skipped (Escape), then the run as ever; the hub's
   // OPTIONS' MAIN MENU back at the menu ends it (the mission's return put the hub over the menu).
   bool via_menu = false, menu_new_pressed = false, intro_seen = false, menu_after_quit = false;
+  // FIXES.md item 18: DEPLOY goes straight in. The frames PM's briefing drew (none), whether its script played, and
+  // MW1's loading screen as it showed (its lines) and how many loads it was up for.
+  int32_t briefing_drawn = 0;
+  bool briefing_script = false;
+  std::vector<std::string> loading_lines;
+  int32_t loadings = 0;
+  bool load_held = false;  // the test launched (or aborted) the load itself (a lab fit, a strip, ABORT, PM's next round)
 };
 int loadout_items(const mw1::Company* c) { return c && c->loadout ? static_cast<int>(c->loadout->items.size()) : -1; }
 
@@ -269,6 +276,11 @@ void loop_run(Ending ending, Run* run = nullptr) {
   mw1::install_game_loop(1, ending == kReach ? "portalgate" : nullptr);
   mw1::set_game_loop_start(run && run->via_menu ? mw1::Start::kMenu : mw1::Start::kHub);
   mw1::set_game_loop_story(false);  // MW1's story (test_mw1_story's own runs)
+  // The runs that change the launch (the failed run's lab fit, the restart's strip, ABORT, PM's next round) hold it
+  // once loaded and launch or abort it themselves; the rest go straight in, as the player does (FIXES.md item 18).
+  const bool held = ending == kFailed || ending == kAbort || (run && (run->strip || run->pm_end));
+  mw1::set_game_loop_hold_launch(held);
+  if (run) run->load_held = held;
   if (run) mw1::set_game_loop_save(run->save, false);
   if (run && run->row) mw1::set_game_loop_row(*run->row);
   if (run && !run->world.empty()) mw1::set_game_loop_world(run->world, 1);
@@ -323,6 +335,10 @@ void loop_run(Ending ending, Run* run = nullptr) {
         if (app.current() == &mech3::states().lab) seen("lab", engine.lab_screen(mech3::states().lab.lab_screen_));
         if (app.current() == &mech3::states().load)
           if (mech3::BriefingScreen* b = mech3::briefing_screen(); b && b->loaded) seen("briefing", b);
+        // PM's briefing never drawn, its script never started; MW1's loading screen up instead (item 18).
+        const mw1::LoadingSeen ls = mw1::game_loop_loading_seen();
+        run->briefing_drawn = ls.briefing_frames, run->briefing_script = ls.briefing_script, run->loadings = ls.loads;
+        if (run->loading_lines.empty()) run->loading_lines = ls.lines;
       }
       if (quit && app.current() == &mech3::states().main) back_at_main = true;
       if (run && run->pm_end && run->pm_end_stage == 1 && app.current() == &mech3::states().end_win) {
@@ -787,6 +803,17 @@ void loop_run(Ending ending, Run* run = nullptr) {
           // The contract taken at the office: DEPLOY, the briefing.
           deployed = true;
           sc->on_button(mw1::kHubDeploy, 0, 0);
+          // Not held, the load goes on to the mission by itself (no frame of it reaches here): the game as DEPLOY
+          // set it up, as the briefing had it.
+          if (!held) {
+            mech3::Pilot* p = mech3::current_pilot();
+            const mech3::Store* lab = p ? p->store() : nullptr;
+            lab_items = lab ? lab->count() : -1, lab_full = lab ? lab->full : 1;
+            pilot_name = p ? p->name : "";
+            if (run && p && p->action()) run->briefing_mech = p->action()->slot.mech;
+            funds_at_briefing = c ? c->funds : 0;
+            briefed = true;
+          }
           return;
         }
         if (!hub_checked && run && run->travel && !run->travel_done) {
@@ -852,7 +879,8 @@ void loop_run(Ending ending, Run* run = nullptr) {
         else sc->on_button(mw1::kHubOptions, 0, 0);
         return;
       }
-      // The briefing (step 2: the company pilot's Instant Action game): once loaded, LAUNCH (or ABORT).
+      // The load (step 2: the company pilot's Instant Action game), PM's briefing unseen: what it was given; then
+      // the mission by itself, or, held, LAUNCH (or ABORT) once loaded, the lab's changes made first.
       if (!briefed && app.current() == &mech3::states().load) {
         auto* b = dynamic_cast<mech3::BriefingScreen*>(engine.screen_of(mech3::states().load.screen_));
         if (b && b->loaded && ++briefing_frames == 30) {
@@ -1066,6 +1094,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
   // The market run's hover over a tile (item 16) adds two hub visits; each MESSAGES panel read, one.
   const int extra_hubs = messages_hubs + (run && run->market ? 3 : 0) + (run && run->travel ? 1 : 0) + (run && run->lance ? 2 : 0);
   EXPECT(briefed && pilot_name == "MW1 Company" && lab_items == items_at_offer && lab_full == 0);
+  if (run) EXPECT(run->briefing_drawn == 0 && !run->briefing_script);  // PM's briefing never seen (item 18), held or not
   EXPECT(funds_at_briefing == funds_at_offer + advance_paid);  // the advance paid at the office's ACCEPT
   EXPECT(fs::exists(fs::path(wd) / "pilots", ec));  // in mw1's own write dir
   if (ending == kAbort) {
@@ -1319,6 +1348,33 @@ TEST(mw1_loop_restart_at_after_action_then_ok_settles_once_headless) {
   });
 }
 
+// FIXES.md item 18 (Owen, 2026-11-17: "it should skip this page and just bring me to the game itself"): DEPLOY goes
+// straight into the mission. PM's briefing (the Load state's screen) loads it but never draws a frame or starts its
+// script; MW1's loading screen is up instead (the world, the employer, the contract, LOADING), and the mission
+// launches by itself once loaded: won, settled, back at the hub.
+TEST(mw1_loop_deploy_goes_straight_in_never_through_pms_briefing_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  in_child([&] {
+    Run run;
+    loop_run(kWon, &run);
+    std::printf("  held %d; PM's briefing drew %d frames, its script played %d; MW1's loading screen up for %d loads:\n",
+                run.load_held, run.briefing_drawn, run.briefing_script, run.loadings);
+    for (const std::string& l : run.loading_lines) std::printf("    %s\n", l.c_str());
+    EXPECT(!run.load_held && run.briefing_drawn == 0 && !run.briefing_script && run.loadings == 1);
+    auto has = [&](const std::string& start) {
+      for (const std::string& l : run.loading_lines)
+        if (l.rfind(start, 0) == 0) return true;
+      return false;
+    };
+    EXPECT(run.loading_lines.size() >= 6 && has("HOUSE ") && has("Objective: ") && has("Map: ") && has("Enemy: ") && has("LOADING"));
+    EXPECT(!has("Employer: "));  // on the plaque
+    bool won = false;
+    for (const std::string& l : run.after_action) won = won || l == "Success";
+    EXPECT(won);
+  });
+}
+
 // Owen's win settled as a Retreat (2026-11-17): won, then PM's own way out (its end screen, the debriefing's CONTINUE,
 // the next round's briefing with the mission loaded again and its end flag cleared, EXIT). The win is latched the
 // frame it happens: settled as a Success, the fee and the salvage paid, the calendar on.
@@ -1394,9 +1450,8 @@ TEST(mw1_loop_market_buy_sell_pilot_then_a_contract_in_the_bought_mech_headless)
                 static_cast<long long>(run.market_sold_for), run.briefing_mech);
     std::printf("  hub hover: said %d, gone %d; messages read %d\n", run.hover_said, run.hover_gone, run.messages_read);
     EXPECT(run.hover_said && run.hover_gone && run.messages_read >= 1);
-    std::printf("  PM's screens' pointer: briefing %d, lab %d wide (ours %d)\n", run.pm_cursor.count("briefing") ? run.pm_cursor["briefing"] : 0,
+    std::printf("  PM's screens' pointer: lab %d wide (ours %d); the briefing never shown\n",
                 run.pm_cursor.count("lab") ? run.pm_cursor["lab"] : 0, mw1::chrome::kCursorSize);
-    EXPECT(run.pm_cursor.count("briefing") && run.pm_cursor["briefing"] == mw1::chrome::kCursorSize);
     EXPECT(run.pm_cursor.count("lab") && run.pm_cursor["lab"] == mw1::chrome::kCursorSize);
     std::printf("  the Company's mech icon: %d wide (the slot %d)\n", run.icon_w, mw1::kIconSlotW);
     EXPECT(run.icon_w == mw1::kIconSlotW);
@@ -2433,7 +2488,7 @@ TEST(mw1_soak_twenty_contracts_through_the_hub_headless) {
     r.save = save, r.start = mw1::Start::kHub, r.story = true, r.seed = 17 + static_cast<uint32_t>(seed), r.limit = 40000;
     std::mt19937 rng(20261117u + static_cast<uint32_t>(seed));
     auto roll = [&](int n) { return static_cast<int>(rng() % static_cast<uint32_t>(n)); };
-    int wait = 0, idle = 0, mission_frames = 0, briefing_frames = 0;
+    int wait = 0, idle = 0, mission_frames = 0, loads_seen = 0;
     int settled = 0, won = 0, lost = 0, hubs = 0, trips = 0, markets = 0, bars = 0, offices = 0, events = 0, stranded = 0;
     int bad_funds = 0, bad_save = 0, bad_live = 0, bad_lance = 0, bad_guard = 0, stuck = 0;
     bool in_mission = false, win = false, stranded_once = false;
@@ -2450,11 +2505,9 @@ TEST(mw1_soak_twenty_contracts_through_the_hub_headless) {
         ++stuck;
         return true;
       }
-      if (app.current() == &mech3::states().load) {  // the briefing: LAUNCH
-        auto* b = dynamic_cast<mech3::BriefingScreen*>(engine.screen_of(mech3::states().load.screen_));
-        if (b && b->loaded && ++briefing_frames == 30) briefing_frames = 0, mission_frames = 0, in_mission = true, b->launch();
-        return false;
-      }
+      // DEPLOY's load goes on into the mission by itself (FIXES.md item 18): each new load is a mission to play.
+      if (const int32_t n = mw1::game_loop_loading_seen().loads; n > loads_seen) loads_seen = n, mission_frames = 0, in_mission = true;
+      if (app.current() == &mech3::states().load) return false;
       if (app.current() == &mech3::states().core) {  // the mission: won (every enemy's kill credited) or lost
         if (!in_mission || ++mission_frames != 30) return false;
         in_mission = false;
