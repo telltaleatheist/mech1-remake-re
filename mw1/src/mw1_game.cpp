@@ -345,7 +345,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (!contract_.accepted) {
       if (!offered_) new_offer();
       if (!offered_) return returning;  // no House office here
-      if (static_cast<int32_t>(ge.message_box_words(kBoxYesNo, "MechWarrior 1: Critical Hit", join(offer_lines(true), "\n") + "\n\nAccept and deploy?")) !=
+      if (static_cast<int32_t>(ge.message_box_words(kBoxYesNo, "MechWarrior 1: Critical Hit", plain_line(join(offer_lines(true), "\n")) + "\n\nAccept and deploy?")) !=
           kAnswerYes)
         return returning;
       take_contract();
@@ -1604,6 +1604,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     const Contract& k = contract_;
     // The enemy as the player meets it (FIXES.md item 20): MW1's count by weight class, then the Pirate's Moon mechs
     // that stand in for MW1's kinds, by name (MW1's own kind names stay in the logs).
+    // The key facts highlighted (item 20's colour, mw1_screen.h): the employer, the target, the objective, the map,
+    // the enemy's count and class, the pay. A message box gets the lines plain.
     std::string enemies;
     for (int32_t w = 3; w >= 1; --w) {
       int32_t n = 0;
@@ -1619,20 +1621,21 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     }
     std::string names;
     for (const auto& [t, n] : named) names += std::string(names.empty() ? "" : ", ") + (n > 1 ? std::to_string(n) + " " : "") + t;
+    enemies = highlighted(enemies);
     if (!names.empty()) enemies += " (" + names + ")";
     std::vector<std::string> l;
     if (with_company)
       l = {company_.planet + ", House " + kHouses[company_.planet_house].name, "Funds: " + thousands(company_.funds) + " C-bills", ""};
-    l.push_back("Employer: House " + std::string(kHouses[k.house].name));
-    if (k.target < kHouseCount) l.push_back("Against: House " + std::string(kHouses[k.target].name));
+    l.push_back("Employer: " + highlighted("House " + std::string(kHouses[k.house].name)));
+    if (k.target < kHouseCount) l.push_back("Against: " + highlighted("House " + std::string(kHouses[k.target].name)));
     const std::string title = mission_title(k.code);
     if (!title.empty()) l.push_back(title_case_name(title.c_str()));
     if (k.mission_planet >= 0) l.push_back("On " + title_case_name(kPlanets[k.mission_planet].name) + " (" + climate_name(k.climate) + ")");
-    l.push_back("Objective: " + objective_words(k));
-    l.push_back("Map: " + map_words(ge_, k.world, k.ia));
+    l.push_back("Objective: " + highlighted(objective_words(k)));
+    l.push_back("Map: " + highlighted(map_words(ge_, k.world, k.ia)));
     l.push_back("Enemy: " + enemies);
     if (!with_terms) return l;
-    l.push_back("Payment: " + thousands(int64_t{k.payment} * 1000) + " C-bills");
+    l.push_back("Payment: " + highlighted(thousands(int64_t{k.payment} * 1000)) + " C-bills");
     l.push_back("Advance " + std::to_string(k.advance_percent) + "%, salvage " + std::to_string(k.salvage_percent) + "%");
     return l;
   }

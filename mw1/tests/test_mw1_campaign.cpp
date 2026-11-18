@@ -17,6 +17,7 @@
 #include "mech3/pilot.h"
 #include "mw1_campaign.h"
 #include "mw1_repairs.h"
+#include "mw1_screen.h"
 #include "mw1_results.h"
 #include "mw1_loading.h"
 
@@ -289,4 +290,11 @@ TEST(mw1_loading_view_enemy_picture) {
   p.enemy.clear();
   v = mw1::loading_view(p);
   EXPECT(!v.panels[mw1::kLoadEnemyFrame] && !v.panels[mw1::kLoadEnemy] && v.panels[mw1::kLoadTerminal]);
+}
+
+// FIXES.md item 20: a line's highlighted spans (mw1_screen.h), marked and taken out again whole.
+TEST(mw1_highlight_marks) {
+  const std::string l = "Employer: " + mw1::highlighted("House Davion") + ", " + mw1::highlighted("2 Heavy");
+  EXPECT(l.find(mw1::kHighlight) != std::string::npos && mw1::plain_line(l) == "Employer: House Davion, 2 Heavy");
+  EXPECT(mw1::plain_line("no marks") == "no marks");
 }

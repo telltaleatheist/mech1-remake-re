@@ -243,6 +243,14 @@ Mw1Screen::Mw1Screen(mech3::Engine& e, zgame::Handle state_handle, const char* f
 
 Mw1Screen::~Mw1Screen() = default;
 
+std::string highlighted(const std::string& s) { return kHighlight + s + kHighlight; }
+std::string plain_line(const std::string& s) {
+  std::string out;
+  for (char ch : s)
+    if (ch != kHighlight) out += ch;
+  return out;
+}
+
 ztwod::Text* Mw1Screen::text(std::vector<std::unique_ptr<ztwod::Text>>& pool, size_t i, int32_t x, int32_t y, const char* font) {
   while (pool.size() <= i) {
     pool.push_back(std::make_unique<ztwod::Text>());
@@ -320,10 +328,13 @@ void Mw1Screen::show(const ScreenView& v) {
   for (size_t i = lines; i < lines_.size(); ++i) lines_[i]->hide();
   for (size_t i = squares; i < squares_.size(); ++i) squares_[i]->hide();
   if (blocks_.size() < v.blocks.size()) blocks_.resize(v.blocks.size());
+  spans_.resize(blocks_.size()), shown_lines_.assign(blocks_.size(), {});
   for (size_t b = 0; b < blocks_.size(); ++b) {
     auto& pool = blocks_[b];
+    size_t spans = 0;
     const std::vector<std::string> none;
     const std::vector<std::string>& ls = b < v.blocks.size() ? v.blocks[b].lines : none;
+    for (const std::string& l : ls) shown_lines_[b].push_back(plain_line(l));
     for (size_t i = 0; i < ls.size(); ++i) {
       const TextBlock& tb = v.blocks[b];
       int32_t x = tb.x + shift(tb.anchor), y = tb.y, gap = tb.gap;
@@ -340,9 +351,30 @@ void Mw1Screen::show(const ScreenView& v) {
         if (!p->font.empty()) font = p->font.c_str();
         if (p->gap >= 0) gap = p->gap;
       }
-      text(pool, i, x, y + static_cast<int32_t>(i) * gap, font)->set_text_plain(ls[i].c_str());
+      const int32_t line_y = y + static_cast<int32_t>(i) * gap;
+      if (ls[i].find(kHighlight) == std::string::npos) {
+        text(pool, i, x, line_y, font)->set_text_plain(ls[i].c_str());
+        continue;
+      }
+      // Highlighted spans: the line's first part in its own Text, each further part after it in the block's spans.
+      const std::string hi_name = std::string(font) + kHighlightSuffix;
+      const char* hi = ztwod::host().font_find(hi_name.c_str()) ? hi_name.c_str() : font;
+      std::vector<std::string> parts(1);
+      for (char ch : ls[i])
+        if (ch == kHighlight) parts.emplace_back();
+        else parts.back() += ch;
+      int32_t at = x;
+      for (size_t k = 0; k < parts.size(); ++k) {
+        ztwod::Text* t = k == 0 ? text(pool, i, at, line_y, font) : text(spans_[b], spans++, at, line_y, k % 2 ? hi : font);
+        t->set_text_plain(parts[k].c_str());
+        // Its advance: the Text measured now (rect_at renders it; FontText::render's width is the text's and 3 more).
+        ztwod::Rect r{};
+        t->rect_at(&r);
+        at += std::max(0, r.right - r.left - 3);
+      }
     }
     for (size_t i = ls.size(); i < pool.size(); ++i) pool[i]->hide();
+    for (size_t i = spans; i < spans_[b].size(); ++i) spans_[b][i]->hide();
   }
   // The panels' pictures asked for (kept as asked; an image not in the archive leaves the panel empty).
   if (pictures_.size() < panels_.size()) pictures_.resize(panels_.size());
@@ -418,7 +450,9 @@ std::vector<std::string> Mw1Screen::shown() const {
     for (const auto& t : pool)
       if (!(t->flags & ztwod::kHidden) && t->text[0]) out.emplace_back(t->text);
   };
-  for (const auto& pool : blocks_) add(pool);
+  for (const auto& lines : shown_lines_)  // the blocks' lines whole (their highlighted spans joined)
+    for (const std::string& l : lines)
+      if (!l.empty()) out.push_back(l);
   add(labels_);
   return out;
 }
