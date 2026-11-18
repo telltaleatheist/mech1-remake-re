@@ -313,7 +313,7 @@ Tick an item when it is merged into `main`.
 - **Where:** SdlInput::capture puts the window in relative mouse mode (src/frontend/sdl/sdl_input.cpp), and `want` decides when (focused, acquired, mission, window, released).
 - **Wanted:** in MW1, the pointer leaves the window freely, as in MW3. Find which input decides it differently for MW1 (the menus at least; in missions, match whatever MW3 does) and make MW1 behave like MW3. Opt-in if it touches the engine; MW3 and PM unchanged.
 
-## 31. [ ] The results screen's picture: victory with a big gun, defeat kicking rocks
+## 31. [ ] The results screen's picture: victory with a big gun, defeat kicking rocks *(with 38: the screen laid out like MW1's)*
 - **Owen (2026-11-18):** "can we use pc crucible to generate an image for end-of-game that looks like the original? if you were victorious you got a shot of yourself with a big gun ... if you failed youre kicking rocks" (MW1's two debrief pictures, beside CREW STATUS, MECH STATUS, SALVAGE and PAYMENT, with a line of text below).
 - **What MW1 shows (the port's after-action code, read as reference; the pictures decoded read-only from Owen's MW_PICS.BIN, `outbox/2026-11-18/mw1-original-debrief-pictures.png`):**
   - **Three pictures, 149×127:**
@@ -343,7 +343,7 @@ Tick an item when it is merged into `main`.
 - Dev 2 shortened three Bar hints to fit 4:3 ("Order a drink, read the news, or find pilots for hire.", etc.). Is the wording OK?
 - Item 19's results screen: the shot is in `outbox/2026-11-17/results-screen/`; anything to change?
 
-## 32. [ ] Missing in action: a downed lancemate can come back to the hiring pool
+## 32. [x] Missing in action: a downed lancemate can come back to the hiring pool *(mw1-missing-pilots)*
 - **Owen (2026-11-18):** yes, add MW1's MISSING.
 - **MW1:**
   - The after-action roster has KILLED and MISSING.
@@ -360,6 +360,72 @@ Tick an item when it is merged into `main`.
 ## 33. [x] The commander can't die: no campaign restart *(Owen 2026-11-18: "you cant die in this one. that was a weird mechanic")*
 - MW1 restarts the campaign on a story death. Ours never does.
 - `kStoryDeathsRestart` stays off for good, and story.md's Q1 is answered. A dev can drop the switch when next in that code, but there's no behaviour change.
+
+## 34. [x] A message over a screen keeps that screen's picture, the text in its free side *(mw1-message-in-place)*
+- **Owen (2026-11-18):** ORDER DRINK at Greely's Bar showed the tip full-screen, over the world's dimmed scenery (the snow), instead of over the Bar.
+- **Wanted:** like the original, the message sits to one side with the screen's own picture still visible.
+  - **At the Bar:** in the left area, the bartender's picture behind it, not dimmed.
+- **Applies to every message that fires over a screen with its own art:**
+  - the Bar's drinks, news and tips;
+  - events over the hub, the Bar, the Mech Complex and the office (research/story.md: MW1's events fire over the screen they belong to);
+  - the office's notes.
+- **Where the text goes:** each screen names its free side.
+- **What stays as it is:** the travel and story pages that have their own picture (`event_art`).
+- **Done means:** shots of the Bar's drink, news and an event at 1080p and 4:3.
+
+## 35. [ ] The main menu (NEW / LOAD / EXIT, the mech behind) flashes between screens
+- **Owen (2026-11-18):** the main menu shows for a moment at every screen change, which is jarring.
+- **Wanted:** a screen change goes straight from one MW1 screen to the next, never showing the main menu under it.
+  - Likely cause: the menu stack, since MW1's menu lies under the hub (mw1_game.cpp, "MW1's main menu over PM's ... under the hub").
+- **Done means:** a frame-by-frame capture of each change (hub to Bar, Bar to hub, hub to office, the office to the lab, a mission's return), with no menu frame in any of them.
+
+## 36. [ ] An arrow clicked again does nothing until the other arrow is clicked
+- **Owen (2026-11-18):** in the office's TERMS, clicking an arrow once works, and holding it repeats. A second click on the same arrow does nothing until the other arrow has been clicked.
+- **Wanted:** every click steps once, and holding repeats. This applies to every arrow pair: the office's terms, the lab's, and anywhere else PM's spinner arrows are used.
+- **Done means:** a test that clicks the same arrow three times and sees three steps.
+
+## 37. [ ] The lab's bottom buttons: their hover labels sit in the wrong places
+- **Owen (2026-11-18):** each button's label shows away from its button:
+  - "Select Chassis" lies over the orange line;
+  - "Customize" sits to the right of its button;
+  - "Weapon Grouping" overlaps the top of its button;
+  - "Accept" sits over the button's corner.
+- **Likely cause:** item 29 resized and moved the buttons, but the labels still use PM's old positions.
+- **Wanted:**
+  - each label in the same place relative to its own button: centred above it, clear of the line and of the button;
+  - the same at 16:9 and 4:3.
+- **Also seen in the same shots:** ACCEPT's check mark is drawn blocky (pixel steps). It should be smooth like the other icons, at the window's resolution (item 12).
+- **Done means:**
+  - shots of each label shown at 1080p and 4:3;
+  - a fit check: each label over its own button, inside the screen, overlapping nothing.
+
+## 38. [ ] AFTER ACTION laid out like MW1's, with a scrollable salvage list (and a salvage limit?)
+- **Owen (2026-11-18):** today's four green terminals (RESULTS, PAY, SALVAGE TO STORES, YOUR <MECH>) should follow MW1's arrangement:
+  - **Top left:** the picture (item 31).
+  - **Top right:** the status:
+    - the flat payment near the top;
+    - the total mech damage;
+    - under them, the full salvage list, scrollable (today it isn't, and a long list is cut).
+  - **Along the bottom:** the outcome message (31's lines from the exe), with the House crest at the bottom right.
+- **Salvage choice:** today everything is collected, with no clicks.
+  - **If there's a limit** (Owen: "maybe there should be"): two lists like MW3's salvage screen. On the right, what the mission brought in; on the left, the keep list. Click to move items between them.
+  - **The lead's suggestion for Owen:** the limit is the contract's negotiated salvage term. Its percent of the salvage's value is what you may keep, so the term negotiated in the office means something on this screen.
+  - **Until Owen decides:** collect everything, scrollable.
+- **Done means:** shots of a win, a retreat and a lost mission at 1080p and 4:3, plus a long salvage list scrolled.
+
+## 39. [ ] The lab's 'MECH LOAD-OUT and AVAILABLE SUPPLIES lists sit off-centre in their boxes
+- **Owen (2026-11-18):**
+  - in LOAD-OUT, the rows end well short of the box's right edge, leaving a wide empty strip, and the header sits high with a gap under it;
+  - in AVAILABLE SUPPLIES, the list and the tabs start far right of the box's left edge.
+- **Wanted:** each list centred in its box with even margins, its columns spread to the box's width. The same at 16:9 and 4:3.
+- **Done means:** shots and a fit check (equal left and right margins within a few pixels).
+
+## 40. [ ] WEAPON GROUPING: something overlaps; and a group's weapons can't be reordered
+- **Owen (2026-11-18):**
+  - "some kind of weird overlapping thing going on in weapons grouping". A screenshot has been asked for; until then, shoot the screen at 1080p and 4:3 and find it.
+  - Weapons always go into a group in the same fixed order. He wanted the ER weapons at the end of a group and couldn't put them there.
+- **Wanted:** the order the player gives is kept, and the group's list shows it. Check whether PM's grouping screen allows reordering and MW1 lost it, or whether PM never had it, and say which.
+- **Done means:** shots before and after, and a test that a chosen order survives a save and reload.
 
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:

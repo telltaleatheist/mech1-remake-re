@@ -91,11 +91,17 @@ inline constexpr int32_t kPromotionMissions[3] = {3, 10, 15};
 // of the player's side) ran out before them. They didn't fly: no mission counted, never a casualty. Every shipped
 // Instant Action map has at least three (research/pilots.md), so only a mod's map leaves anyone behind.
 std::vector<int32_t> stayed_behind(const std::vector<int32_t>& deployed, const std::vector<LanceFate>& launched);
-// The rule for a pilot whose mech is destroyed (provisional, Owen's: always killed; an ejection's chance goes here).
+// A pilot whose mech is destroyed (FIXES.md item 32, Owen: MW1's MISSING): MISSING by kMissingPercent in 100, else
+// KILLED. Ours: an even chance (MW1's own odds aren't known). Rolled once as the mission ends (roll_missing, into each
+// fate), so AFTER ACTION, its settlement and a save and reload all agree.
+inline constexpr int32_t kMissingPercent = 50;
+void roll_missing(std::vector<LanceFate>& fates, Rng& rng);
 bool pilot_killed(const LanceFate& f);
+bool pilot_missing(const LanceFate& f);
 // After a counted mission (won, or failed and accepted; never a replay or a quit): promotions, then casualties (223F):
-// a killed pilot gone for good, their destroyed mech lost (VISION; never the commander's). The hub's lines in
-// c.notices.
+// a killed pilot gone for good; a missing one out of the lance and back in the hiring pool with their ratings and
+// record (a Bar may offer them again); either way their destroyed mech lost (VISION; never the commander's). The
+// hub's lines in c.notices.
 void after_mission(Company& c, const std::vector<LanceFate>& fates);
 
 // The aim (VISION, "Gunnery is their aim"; open question 3, provisional): the map record's aim error (+0xb8) times

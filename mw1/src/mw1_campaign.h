@@ -268,6 +268,7 @@ struct Wreck {
 struct LanceFate {
   int32_t id = 0;
   bool destroyed = false;
+  bool missing = false;  // destroyed, and its pilot MISSING, not KILLED (FIXES.md item 32; rolled as the mission ends)
 };
 // A mech's locations as the results screen reads them (FIXES.md item 19): head, torso, left arm, right arm, left leg,
 // right leg.

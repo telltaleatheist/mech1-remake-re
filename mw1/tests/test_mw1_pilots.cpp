@@ -3,6 +3,8 @@
 // assigning; wages, the warning and the lance leaving; promotion; the casualties' rule and their mechs; the lance's
 // weight in the offer.
 #include <cctype>
+#include <cstdlib>
+#include <memory>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -12,6 +14,7 @@
 #include <vector>
 
 #include "check.h"
+#include "mech3/pilot.h"
 #include "mw1_install.h"
 #include "mw1_campaign.h"
 #include "mw1_pilots.h"
@@ -188,6 +191,120 @@ TEST(mw1_pilots_promotion_and_casualties) {
   mw1::after_mission(c, {{poor, false}, {ace, true}});
   EXPECT(c.lance.size() == 1 && c.lance[0].id == poor && c.hangar.empty() && c.pilots[ace].where == mw1::PilotWhere::kDead);
   for (const std::string& n : c.notices) std::printf("  %s\n", n.c_str());
+}
+
+// FIXES.md item 32: a downed lancemate MISSING by kMissingPercent in 100, else KILLED. Missing: out of the lance, back
+// in the hiring pool with their ratings and record (a Bar may offer them again); the mech lost either way.
+TEST(mw1_pilots_missing_in_action) {
+  mw1::Company c = company();
+  c.recruits = {1, 41, 3};
+  for (int i = 0; i < 3; ++i) mw1::hire(c, 0);
+  // Rated at the commander's reputation, so a Bar may offer them; a mission into their record.
+  c.pilots[41].gunnery = c.pilots[41].piloting = mw1::reputation(c), c.pilots[41].missions = 1;
+  mw1::OwnedMech m;
+  m.mech = mw1::kPmFirefly, m.pilot = 41;
+  c.hangar = {m};
+  EXPECT(mw1::pilot_missing({41, true, true}) && !mw1::pilot_killed({41, true, true}));
+  EXPECT(!mw1::pilot_missing({41, false, false}) && !mw1::pilot_killed({41, false, false}));
+  // Their ratings and record as if they'd come back: the mission counted, then out of the lance.
+  mw1::Company twin = c;
+  mw1::after_mission(twin, {{1, false}, {41, false}, {3, false}});
+  mw1::after_mission(c, {{1, false}, {41, true, true}, {3, false}});
+  EXPECT(c.lance.size() == 2 && c.lance[0].id == 1 && c.lance[1].id == 3 && c.hangar.empty());
+  EXPECT(c.pilots[41].where == mw1::PilotWhere::kFree && c.pilots[41].gunnery == twin.pilots[41].gunnery &&
+         c.pilots[41].piloting == twin.pilots[41].piloting && c.pilots[41].missions == twin.pilots[41].missions &&
+         c.pilots[41].missions == 2);
+  bool said = false;
+  for (const std::string& n : c.notices) said = said || n.find("missing in action") != std::string::npos;
+  EXPECT(said);
+  // Back in the pool: a later Bar's recruits may be them (refresh_recruits draws from the free pilots).
+  bool offered = false;
+  mw1::Rng rng(5);
+  for (int k = 0; k < 200 && !offered; ++k) {
+    mw1::refresh_recruits(c, rng);
+    for (int32_t id : c.recruits) offered = offered || id == 41;
+  }
+  EXPECT(offered);
+
+  // The roll: never for a mech that came back; about kMissingPercent in 100 of the downed; the same seed the same.
+  mw1::Rng r(77);
+  int32_t missing = 0, n = 4000;
+  for (int32_t i = 0; i < n; ++i) {
+    std::vector<mw1::LanceFate> f = {{1, false}, {41, true}};
+    mw1::roll_missing(f, r);
+    EXPECT(!f[0].missing);
+    missing += f[1].missing ? 1 : 0;
+  }
+  std::printf("  missing %d of %d downed (kMissingPercent %d)\n", missing, n, mw1::kMissingPercent);
+  EXPECT(std::abs(missing * 100 - mw1::kMissingPercent * n) <= 5 * n);  // within 5 points
+  mw1::Rng a(3), b(3);
+  std::vector<mw1::LanceFate> fa(8, {41, true}), fb = fa;
+  mw1::roll_missing(fa, a), mw1::roll_missing(fb, b);
+  for (size_t i = 0; i < fa.size(); ++i) EXPECT(fa[i].missing == fb[i].missing);
+}
+
+// The pending mission's lance saved id:destroyed:missing; an older save's id:destroyed still reads (killed, as then).
+TEST(mw1_pilots_missing_saved_and_an_older_lance_read) {
+  mw1::Rng rng(9);
+  mw1::Company c = mw1::new_company(rng);
+  mw1::Contract k = mw1::generate_contract(c, 0, rng);
+  mw1::accept(c, k);
+  mw1::AfterAction p;
+  p.outcome = mw1::Outcome::kSuccess;
+  p.lance = {{1, false, false}, {41, true, true}, {3, true, false}};
+  p.salvage = std::make_shared<mech3::Store>();
+  p.launch_stores = std::make_shared<mech3::Store>();
+  p.launch_stores->assign(*c.stores);
+  const std::string text = mw1::save_text(c, &k, &p);
+  mw1::Company back;
+  mw1::Contract kb;
+  mw1::AfterAction pb;
+  bool has = false, pend = false;
+  std::string why;
+  EXPECT(mw1::load_text(text, back, kb, &has, &why, &pb, &pend));
+  EXPECT(pend && pb.lance.size() == 3 && !pb.lance[0].destroyed && !pb.lance[0].missing);
+  EXPECT(pb.lance[1].id == 41 && pb.lance[1].destroyed && pb.lance[1].missing);
+  EXPECT(pb.lance[2].id == 3 && pb.lance[2].destroyed && !pb.lance[2].missing);
+  EXPECT(mw1::save_text(back, &kb, &pb) == text);
+  // The older lance: each fate id:destroyed, no third field.
+  std::string old;
+  for (size_t at = 0, nl; at < text.size(); at = nl + 1) {
+    nl = text.find('\n', at);
+    std::string line = text.substr(at, nl - at);
+    if (line.rfind("check=", 0) == 0) continue;
+    if (line.rfind("pending_lance=", 0) == 0) {
+      std::string two = "pending_lance=";
+      for (size_t f = 14, comma; f < line.size(); f = comma + 1) {
+        comma = line.find(',', f);
+        if (comma == std::string::npos) comma = line.size();
+        const std::string fate = line.substr(f, comma - f);
+        two += (f > 14 ? "," : "") + fate.substr(0, fate.rfind(':'));
+      }
+      EXPECT(two != line);
+      line = two;
+    }
+    old += line + "\n";
+  }
+  uint32_t h = 2166136261u;
+  for (unsigned char ch : old) h = (h ^ ch) * 16777619u;
+  char check[32];
+  std::snprintf(check, sizeof check, "check=%08x\n", h);
+  mw1::AfterAction po;
+  pend = false;
+  EXPECT(mw1::load_text(old + check, back, kb, &has, &why, &po, &pend));
+  std::printf("  %s\n", why.c_str());
+  EXPECT(pend && po.lance.size() == 3 && po.lance[1].destroyed && !po.lance[1].missing && po.lance[2].destroyed);
+  // A bad third field is refused.
+  std::string bad = text.substr(0, text.find("check="));
+  const size_t at = bad.find("41:1:1");
+  EXPECT(at != std::string::npos);
+  if (at != std::string::npos) {
+    bad.replace(at, 6, "41:1:7");
+    h = 2166136261u;
+    for (unsigned char ch : bad) h = (h ^ ch) * 16777619u;
+    std::snprintf(check, sizeof check, "check=%08x\n", h);
+    EXPECT(!mw1::load_text(bad + check, back, kb, &has, &why, &po, &pend));
+  }
 }
 
 TEST(mw1_pilots_lance_weight_makes_the_offer_harder) {
