@@ -268,7 +268,7 @@ Tick an item when it is merged into `main`.
 - **The shots:** our amber crosshair on the hub and company screens; PM's small ring on the lab (`owen-play-lab-2.png`, left edge) and on PM screens.
 - **Wanted:** our crosshair on every screen in MW1, including PM's own (lab, settings, load box) and over the loading screen. One guard test.
 
-## 23. [ ] The Company screen shows PM's mech icons, not generated pictures
+## 23. [x] The Company screen shows PM's mech icons, not generated pictures *(done: mw1-company-icons)*
 - **Owen (`owen-play-company.png`):** "You know the icon that exists at the top of this, where I pick the mech for the individual? We should use those mech icons in the company screen instead of the generated images."
 - **That's** the lab's mech-slot icon: PM's line-art icon for each chassis, the yellow wireframe at the top of the lab.
 - **Wanted:**
@@ -277,7 +277,7 @@ Tick an item when it is merged into `main`.
   - The same icon may serve the Mech Complex rows until item 14's renders exist. Item 14 then decides per screen.
 
 
-## 24. [ ] Hold an arrow to keep stepping
+## 24. [x] Hold an arrow to keep stepping *(done: mw1-hold-repeat)*
 - **Owen (2026-11-17):** "On the negotiation page, I can hold the arrow down and it'll go up or down as I hold."
 - **Wanted:**
   - The office's term arrows (pay, salvage, advance) repeat while held: one step on the press, then repeating after about 0.4 s, and faster after 2 s.
@@ -295,7 +295,7 @@ Tick an item when it is merged into `main`.
   - On criticals, the armour toggles' arrows sit beside "Internal Structure", as in PM's layout.
 - **Wanted:** the slot icons in our amber; no empty page reachable; the armour toggles placed with their own rows. mw1labfit still passes.
 
-## 27. [ ] Every mech picture: the PM line-art icon until item 14's renders
+## 27. [x] Every mech picture: the PM line-art icon until item 14's renders *(done: mw1-company-icons)*
 - **Owen (2026-11-17):** "including the company -> mech images," together with item 23.
 - **Wanted:** wherever MW1 shows a picture of a specific mech (the Company screen first, then the Mech Complex rows if they get pictures, and the briefing/results screens), use PM's line-art chassis icon in our amber, not the AI `mech_*` pictures. Item 14 may later replace them with renders, screen by screen, once Owen has seen a test render.
 
