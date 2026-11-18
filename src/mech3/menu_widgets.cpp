@@ -63,6 +63,11 @@ bool g_menus_still = false;
 }
 void set_menus_still(bool on) { g_menus_still = on; }
 bool menus_still() { return g_menus_still; }
+namespace {
+bool g_buttons_steady = false;
+}
+void set_buttons_steady(bool on) { g_buttons_steady = on; }
+bool buttons_steady() { return g_buttons_steady; }
 
 // Mech3.exe 1.2 @ 0x0040a490, Pirate's Moon 1.0 @ 0x00488880 (the same: [0x00609588]'s 4 pieces)
 void ScrollImage::draw() {
@@ -453,6 +458,11 @@ void HelpButton::set_blink(bool on) {
 // Mech3.exe 1.2 @ 0x0044af20: the time between swaps is in seconds already.
 void HelpButton::blink(float dt) {
   if (!blinking) return;
+  if (buttons_steady()) {  // ours (set_buttons_steady): lit, held
+    zimg::Texture* lit = img_rollover ? img_rollover : img_activate;
+    if (lit && image != lit) set_image(lit), dirty();
+    return;
+  }
   timer -= dt;
   if (timer > 0.0f) return;
   timer = period;

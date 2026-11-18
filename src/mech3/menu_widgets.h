@@ -21,6 +21,10 @@ namespace mech3 {
 // Ours: a program's menus hold every ScrollImage still (none pans or wraps), MW3's and PM's own runs unchanged.
 void set_menus_still(bool on);
 bool menus_still();
+// Ours: a program's HelpButtons hold their lamp lit while the mouse is over them (the rollover image, else the
+// activate one) instead of blinking it every `period`; MW3's and PM's own runs blink as they did.
+void set_buttons_steady(bool on);
+bool buttons_steady();
 
 class ScrollImage : public ztwod::Image {
  public:

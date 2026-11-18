@@ -36,6 +36,7 @@
 #include "mech3/briefing.h"
 #include "mech3/debriefing.h"
 #include "mech3/lab_screen.h"
+#include "mech3/menu_widgets.h"
 #include "gamez/zimage/zimg_texture.h"
 #include "mw1_mech_icons.h"
 #include "mech3/mech_config.h"
@@ -195,6 +196,7 @@ struct Run {
   // (MouseHost serves only MW1's pictures: PM's ring would be none, -1).
   std::map<std::string, int32_t> pm_cursor;
   int32_t icon_w = -1;  // item 23: the Owens' amber icon as the game finds it (made at the start), its width
+  bool steady = false;  // item 25: PM's HelpButtons held steady while MW1 runs (mech3::buttons_steady)
   // FIXES.md item 24: PAY_UP held with zin's mouse at the first offer (the market run): the ask before, after the
   // hold (kHoldSeconds of the game's time), and a while after the release.
   int hold_phase = 0, hold_frames = 0;
@@ -314,6 +316,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
     int frames = 0;
     engine.on_present = [&](int) {
       if (app.pending()) return;
+      if (run) run->steady = run->steady || mech3::buttons_steady();  // item 25
       if (run && run->icon_w < 0)  // item 23
         if (zimg::Texture* t = zimg::fetch_image(mw1::mech_icon_image(mw1::kPmOwens).c_str())) run->icon_w = t->width, zimg::free_texture(t);
       if (run) {  // PM's screens' pointers (item 22)
@@ -1400,6 +1403,7 @@ TEST(mw1_loop_market_buy_sell_pilot_then_a_contract_in_the_bought_mech_headless)
     EXPECT(run.pm_cursor.count("lab") && run.pm_cursor["lab"] == mw1::chrome::kCursorSize);
     std::printf("  the Company's mech icon: %d wide (the slot %d)\n", run.icon_w, mw1::kIconSlotW);
     EXPECT(run.icon_w == mw1::kIconSlotW);
+    EXPECT(run.steady);  // item 25
     // Item 24: PAY_UP held a second steps the ask on (more than one step), and stops when let go.
     std::printf("  PAY_UP held 1 s: %d thousand offered, asked %d, %d after the release\n", run.ask_offer, run.ask_held, run.ask_released);
     EXPECT(run.hold_phase == 5 && run.ask_held > run.ask_offer + mw1::kRequestPaymentStep && run.ask_released == run.ask_held);

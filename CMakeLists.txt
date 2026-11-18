@@ -693,6 +693,7 @@ add_executable(mw3tests
   tests/test_app.cpp
   tests/test_mainmenu.cpp
   tests/test_menus.cpp
+  tests/test_help_button.cpp
   tests/test_zsnd_cd.cpp
   tests/test_zrndr_span.cpp
   tests/test_fixes.cpp
@@ -783,6 +784,7 @@ if(MW3_BUILD_PM)
   add_library(pmcore ALIAS mw3core)
   add_executable(mw3pmtests
     tests/pm/test_pm_lobby.cpp
+    tests/test_help_button.cpp  # HelpButton's blink, and set_buttons_steady (ours)
     tests/pm/test_pm_net.cpp
     tests/pm/test_pm_wire.cpp
     tests/pm/test_pm_wire_walk.cpp
