@@ -2848,3 +2848,54 @@ TEST(mw1_travel_map_a_trip_by_the_keys_headless) {
     EXPECT(stepped >= 0 && go_lit && arrived == want);
   });
 }
+
+// FIXES.md item 35 (Owen: the main menu flashed at every screen change): one MW1 screen to the next in one step. The
+// app names each state it moves to (App::on_state_change); going from the hub to each of its screens and back, only
+// those screens are ever named, never the state the hub sits on (a pop, then a push, resumed and redrew it a frame).
+TEST(mw1_loop_screens_change_in_one_step_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  in_child([&] {
+    const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_one_step";
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    MenuRun r;
+    r.save = (dir / mw1::kSaveFile).string(), r.start = mw1::Start::kHub;
+    int step = 0, wait = 0;
+    std::vector<std::string> seen;
+    r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
+      mw1::HubState* hub = mw1::game_loop_hub();
+      if (++wait < 5) return false;
+      if (step == 0) {
+        if (!showing(app, hub)) return false;
+        app.on_state_change = [&](const zgame::State* s) {
+          auto* st = dynamic_cast<const mech3::State*>(s);
+          seen.push_back(st ? st->name() : "none");
+        };
+      }
+      // Each of the hub's screens, then its way back: the Bar (BACK), the Mech Complex (BACK), the travel map (BACK),
+      // the office (its BACK).
+      static const int32_t kGo[] = {mw1::kHubBar, mw1::kHubMarket, mw1::kHubTravel, mw1::kHubOffice};
+      if (step >= 8) return true;
+      if (step % 2 == 0) {
+        if (!showing(app, hub)) return false;
+        hub->screen()->on_button(kGo[step / 2], 0, 0);
+      } else {
+        auto* st = app.current() != static_cast<zgame::State*>(hub) ? dynamic_cast<mw1::Mw1State*>(app.current()) : nullptr;
+        mw1::Mw1Screen* sc = st ? st->screen() : nullptr;
+        if (!sc) return false;
+        const int32_t back = step == 1 ? mw1::kBarBack : step == 3 ? mw1::kMarketBack : step == 5 ? mw1::kTravelBack : mw1::kOfficeBack;
+        sc->on_button(back, 0, 0);
+      }
+      ++step, wait = 0;
+      return false;
+    };
+    menu_run(r);
+    std::printf("  the states moved to:");
+    for (const std::string& s : seen) std::printf(" %s;", s.c_str());
+    std::printf("\n");
+    const std::vector<std::string> want = {"MW1 Bar State",    "MW1 Hub State", "MW1 Market State", "MW1 Hub State",
+                                           "MW1 Travel State", "MW1 Hub State", "MW1 Office State", "MW1 Hub State"};
+    EXPECT(step == 8 && seen == want);
+  });
+}
