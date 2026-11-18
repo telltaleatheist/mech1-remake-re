@@ -12,6 +12,7 @@
 #include "mech3/mech_names.h"
 #include "mw1_campaign.h"
 #include "mw1_market.h"
+#include "mw1_art.h"
 #include "mw1_market_screen.h"
 #include "mw1_mech_renders.h"
 
@@ -77,12 +78,17 @@ TEST(mw1_renders_stamp) {
   fs::remove_all(dir, ec);
   fs::create_directories(dir, ec);
   EXPECT(!mw1::renders_current(dir.string(), mechs));
-  EXPECT(!mw1::write_renders("", {}, mechs));  // never beside the program
+  EXPECT(!mw1::write_renders("", {}, {}, mechs));  // never beside the program
   const std::vector<uint32_t> f = frame();
   std::vector<mw1::images::Image> made;
-  for (int32_t m : mechs)
+  std::vector<mw1::HiRender> hi;
+  for (int32_t m : mechs) {
     for (mw1::images::Image& i : mw1::renders_from_frame(m, f.data(), 400, 300)) made.push_back(std::move(i));
-  EXPECT(mw1::write_renders(dir.string(), made, mechs));
+    for (mw1::HiRender& i : mw1::renders_hi_from_frame(m, f.data(), 400, 300)) hi.push_back(std::move(i));
+  }
+  EXPECT(hi.size() == made.size());
+  EXPECT(!mw1::write_renders(dir.string(), made, {}, mechs));  // never one set without the other
+  EXPECT(mw1::write_renders(dir.string(), made, hi, mechs));
   EXPECT(mw1::renders_current(dir.string(), mechs));
   EXPECT(!mw1::renders_current(dir.string(), {mechs.front()}));  // another set of mechs: made again
   {
@@ -91,9 +97,48 @@ TEST(mw1_renders_stamp) {
   }
   EXPECT(!mw1::renders_current(dir.string(), mechs));  // an older version: made again
   fs::remove(dir / (std::string(mw1::kRenderLibrary) + ".zbd"), ec);
-  EXPECT(mw1::write_renders(dir.string(), made, mechs) && mw1::renders_current(dir.string(), mechs));
+  EXPECT(mw1::write_renders(dir.string(), made, hi, mechs) && mw1::renders_current(dir.string(), mechs));
   fs::remove(dir / (std::string(mw1::kRenderLibrary) + ".zbd"), ec);
   EXPECT(!mw1::renders_current(dir.string(), mechs));  // the stamp alone vouches for nothing
+  EXPECT(mw1::write_renders(dir.string(), made, hi, mechs) && mw1::renders_current(dir.string(), mechs));
+  fs::remove(dir / (std::string(mw1::kRenderHiLibrary) + ".zbd"), ec);
+  EXPECT(!mw1::renders_current(dir.string(), mechs));  // nor without the 4x set
+  fs::remove_all(dir, ec);
+}
+
+// The 4x set: each picture at kRenderHiScale times its place's size, the grade's own values (the canvas's, before
+// 565), served to the 2D by the canvas picture's name from the archive beside the canvas's.
+TEST(mw1_renders_hi_set) {
+  const std::vector<uint32_t> f = frame();
+  const std::vector<mw1::HiRender> v = mw1::renders_hi_from_frame(mw1::kPmOwens, f.data(), 400, 300);
+  EXPECT(v.size() == 2 && v[0].name == "mw1_rnd_owens_slot" && v[1].name == "mw1_rnd_owens_panel");
+  if (v.size() != 2) return;
+  EXPECT(v[0].w == mw1::kRenderSlotW * 4 && v[0].h == mw1::kRenderSlotH * 4 && v[0].canvas_w == mw1::kRenderSlotW);
+  EXPECT(v[1].w == mw1::kRenderPanelW * 4 && v[1].canvas_h == mw1::kRenderPanelH && v[1].rgba.size() == static_cast<size_t>(v[1].w * v[1].h * 4));
+  // The middle the canvas picture's colour (within 565's step), in amber.
+  const mw1::images::Image c = mw1::graded_render("t", f.data(), 400, 300, mw1::kRenderSlotW, mw1::kRenderSlotH);
+  const uint16_t p = c.pixels[64 * 96 + 48];
+  const uint8_t* q = &v[0].rgba[(static_cast<size_t>(64 * 4 + 2) * v[0].w + 48 * 4 + 2) * 4];
+  EXPECT(std::abs(q[0] - ((p >> 11) << 3)) <= 12 && std::abs(q[1] - (((p >> 5) & 63) << 2)) <= 12 && q[3] == 255);
+  EXPECT(q[0] > q[1] && q[1] > q[2]);
+  const std::vector<uint32_t> black(400 * 300, 0xff000000u);
+  EXPECT(mw1::renders_hi_from_frame(mw1::kPmOwens, black.data(), 400, 300).empty());
+
+  // Written beside the canvas's and found by the store under the canvas picture's name.
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_renders_hi";
+  std::error_code ec;
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  const std::vector<int32_t> mechs = {mw1::kPmOwens};
+  EXPECT(mw1::write_renders(dir.string(), mw1::renders_from_frame(mw1::kPmOwens, f.data(), 400, 300), v, mechs));
+  mw1::art::Store& st = mw1::art::Store::get();
+  st.close();
+  EXPECT(st.add(mw1::hi_renders_path(dir.string())));
+  EXPECT(st.has("mw1_rnd_owens_panel"));
+  const mw1::art::Store::Picture* pic = st.picture("mw1_rnd_owens_panel");
+  EXPECT(pic && pic->w == mw1::kRenderPanelW * 4 && pic->canvas_w == mw1::kRenderPanelW && pic->rgba &&
+         std::equal(pic->rgba, pic->rgba + v[1].rgba.size(), v[1].rgba.begin()));
+  st.close();
   fs::remove_all(dir, ec);
 }
 

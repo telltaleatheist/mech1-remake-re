@@ -184,6 +184,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // for development shots and checks: MW1_SCREEN's pages keep the icons).
     const bool current = renders_current(zutl::mounts().write, render_mechs());
     if (current && !renders_ready()) zimg::new_image_library(kRenderLibrary, 0, false);
+    if (current) art::Store::get().add(hi_renders_path(zutl::mounts().write));  // the 2D's 4x set (B2b)
     set_renders_ready(current);
     renders_wanted_ = !current && !zutl::mounts().write.empty() && !std::getenv("MW1_SCREEN");
     for (const LayoutSwap& s : kLayoutSwaps)
@@ -2303,6 +2304,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
           std::printf("mw1: the %s's frame was %s: no render of it\n", mech3::mech_name(mech),
                       frame_mech_alone(px.data(), w, h) ? "empty" : "not the mech alone on black");
         for (images::Image& i : made) pass_.made.push_back(std::move(i));
+        if (!made.empty())
+          for (HiRender& i : renders_hi_from_frame(mech, px.data(), w, h)) pass_.hi.push_back(std::move(i));
       }
       ++pass_.at, pass_.step = PassStep::kCover;
     }
@@ -2312,9 +2315,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   void finish_pass(mech3::GameEngine& ge, mech3::LabScreen& l) {
     const std::string dir = zutl::mounts().write;
     // Every mech's pictures, or nothing written: no stamp, so the next start tries again (the amber icons till then).
-    const bool whole = pass_.made.size() == pass_.mechs.size() * 2;
-    if (whole && write_renders(dir, pass_.made, pass_.mechs)) {
+    const bool whole = pass_.made.size() == pass_.mechs.size() * 2 && pass_.hi.size() == pass_.made.size();
+    if (whole && write_renders(dir, pass_.made, pass_.hi, pass_.mechs)) {
       if (!renders_ready()) zimg::new_image_library(kRenderLibrary, 0, false);
+      art::Store::get().add(hi_renders_path(dir));
       set_renders_ready(true);
       std::printf("mw1: %zu mech pictures made into %s.zbd\n", pass_.made.size(), kRenderLibrary);
     } else {
@@ -2519,6 +2523,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     bool on = false, opened = false;
     PassStep step = PassStep::kCover;
     std::vector<images::Image> made;
+    std::vector<HiRender> hi;  // the 4x set (research/hires-2d.md B2b)
   };
   RenderPass pass_;
   std::unique_ptr<ztwod::Image> cover_plaque_;
