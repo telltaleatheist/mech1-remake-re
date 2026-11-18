@@ -49,10 +49,12 @@ std::string game_loop_objective_built(bool* fell_back = nullptr);
 void uninstall_game_loop();
 struct Company;
 struct Contract;
+struct Request;
 // The loop's company, null before the first hub (tests).
 const Company* game_loop_company();
 // The contract on offer, or accepted while its mission runs; null before the first hub (tests).
 const Contract* game_loop_contract();
+const Request* game_loop_office_ask();  // the office's terms asked so far (tests)
 struct AfterAction;
 namespace hub {
 class HubState;

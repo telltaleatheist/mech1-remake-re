@@ -43,11 +43,15 @@
 
 namespace mw1::screens {
 
-// A button: its name in the layout's BUTTONS (its id is its place in the list, from 1) and its words.
+// A button: its name in the layout's BUTTONS (its id is its place in the list, from 1) and its words. A repeat button
+// (FIXES.md item 24: the office's term arrows, the lists' arrows) acts on the press, and again while it is held down
+// on it: after kRepeatDelay, every kRepeatEvery, every kRepeatFast once held kRepeatFastAfter.
 struct ScreenButton {
   const char* name;
   const char* words;
+  bool repeat = false;
 };
+inline constexpr float kRepeatDelay = 0.4f, kRepeatEvery = 0.08f, kRepeatFast = 0.04f, kRepeatFastAfter = 2.0f;
 
 // The fonts (PM's fonts.zrd, by name).
 inline constexpr const char* kPlaqueFont = "main_red";
@@ -117,6 +121,7 @@ class Mw1Screen : public mech3::MenuScreen {
   bool enabled(int32_t id) const;
   bool panel_shown(size_t i) const;  // the layout's i-th PANEL
   int32_t button_count() const { return static_cast<int32_t>(buttons_.size()); }
+  bool button_middle(int32_t id, int32_t* x, int32_t* y) const;  // for the tests: where to click it (false: not there)
   // A part of the screen that hears the mouse (the travel map): `heard` with the mouse's place on each move over it
   // (click false) and on a left click there (true). point() is the same from a test.
   void set_pointer(int32_t left, int32_t top, int32_t right, int32_t bottom, std::function<void(int32_t, int32_t, bool)> heard);

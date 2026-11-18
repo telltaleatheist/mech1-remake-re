@@ -8,8 +8,8 @@
 namespace mw1::office_ui {
 namespace {
 const std::vector<ScreenButton> kOfficeButtons = {{"SUBMIT", "NEGOTIATE"},  {"ACCEPT", "ACCEPT"},   {"BACK", "LEAVE"},
-                                                  {"PAY_DOWN", ""},          {"PAY_UP", ""},         {"SALVAGE_DOWN", ""},
-                                                  {"SALVAGE_UP", ""},        {"ADVANCE_DOWN", ""},   {"ADVANCE_UP", ""},
+                                                  {"PAY_DOWN", "", true},          {"PAY_UP", "", true},         {"SALVAGE_DOWN", "", true},
+                                                  {"SALVAGE_UP", "", true},        {"ADVANCE_DOWN", "", true},   {"ADVANCE_UP", "", true},
                                                   {"REQUEST", "REQUEST MISSION"}, {"NEXT", "NEXT OFFER"}};
 // MW1's office texts in MW_MAIN's data segment: where, and their room (the port's MW_MAIN_1090 imports).
 constexpr int32_t kTerminatedAt = 0x4C25, kTerminatedSize = 0x47;

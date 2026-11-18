@@ -13,8 +13,8 @@ namespace mw1::market_ui {
 namespace {
 const std::vector<ScreenButton> kMarketButtons = {
     {"BUY", "BUY"},       {"SELL", "SELL"},           {"REPAIR", "REPAIR"}, {"RELOAD", "RELOAD"},
-    {"LAB", "MECH LAB"},  {"BACK", "BACK"},           {"STOCK_UP", ""},     {"STOCK_DOWN", ""},
-    {"OWN_UP", ""},       {"OWN_DOWN", ""}};
+    {"LAB", "MECH LAB"},  {"BACK", "BACK"},           {"STOCK_UP", "", true},     {"STOCK_DOWN", "", true},
+    {"OWN_UP", "", true},       {"OWN_DOWN", "", true}};
 constexpr size_t kNameWidth = 14;  // the lists' columns (the line font is fixed-width)
 constexpr size_t kWhoWidth = 11;
 // The lists' terminals (the layouts' PANEL4 and PANEL5): left and right, the arrows' column inside the right edge.

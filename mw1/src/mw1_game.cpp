@@ -33,6 +33,7 @@
 #include "mech3/zai_brain.h"
 #include "mech3/zai_params.h"
 #include "gamez/zimage/zimg_library.h"
+#include "gamez/zimage/zimg_texture.h"
 #include "gamez/zinput/zinput.h"
 #include "gamez/zreader/zreader.h"
 #include "gamez/ztwod/twod.h"
@@ -40,6 +41,7 @@
 #include "gamez/zutil/zutl_path.h"
 #include "mw1_bar_screen.h"
 #include "mw1_lab_fit.h"
+#include "mw1_mech_icons.h"
 #include "mw1_event_screen.h"
 #include "mw1_office.h"
 #include "mw1_campaign.h"
@@ -159,6 +161,14 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   void menus_building(mech3::Engine& e) override {
     register_images();
     register_fonts();
+    // FIXES.md item 23: the Company screen's mech pictures, PM's lab icons in amber (mw1_mech_icons.h).
+    if (const int32_t n = make_mech_icons(zutl::mounts().write); n > 0) {
+      bool there = false;
+      for (zimg::Library* lib : zimg::library_list(1)) there = there || (lib && std::strstr(lib->name, kIconLibrary));
+      if (!there) zimg::new_image_library(kIconLibrary, 0, false);
+    } else {
+      std::printf("mw1: no mech icons from Pirate's Moon's pictures: the Company screen's mech slots stay empty\n");
+    }
     for (const LayoutSwap& s : kLayoutSwaps)
       if (layout_there(s.file, s.dialog))
         ztwod::set_layout(s.game_file, s.game_dialog, s.file, s.dialog, std::string(s.dialog) + kWideSuffix);
@@ -1665,6 +1675,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   MenuState* menu_state() const { return menu_state_; }
   IntroState* intro_state() const { return intro_state_; }
   void set_world(const std::string& world, int32_t ia) { world_ = world, world_ia_ = ia; }
+  const Request* office_ask() const { return &ochoice_.ask; }
   const Contract* contract() const { return company_.stores && (offered_ || contract_.accepted || pending_) ? &contract_ : nullptr; }
 
   void set_row(const MapRow& r) { row_ = r, row_set_ = true; }
@@ -2034,6 +2045,7 @@ void game_loop_market_changed() {
 }
 
 const Company* game_loop_company() { return the_loop() ? the_loop()->company() : nullptr; }
+const Request* game_loop_office_ask() { return the_loop() ? the_loop()->office_ask() : nullptr; }
 const Contract* game_loop_contract() { return the_loop() ? the_loop()->contract() : nullptr; }
 
 }  // namespace mw1

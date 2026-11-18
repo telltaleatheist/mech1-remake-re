@@ -4,6 +4,8 @@
 #include <string>
 
 #include "check.h"
+#include "gamez/zimage/zimg_library.h"
+#include "mw1_mech_icons.h"
 #include "mw1_bar_screen.h"
 #include "mw1_campaign.h"
 #include "mw1_chrome.h"
@@ -31,8 +33,9 @@ TEST(mw1_rooms_every_portrait_and_mech_picture_is_mw1s_art) {
       if (!art_there(mw1::portrait_image(id, small))) ++missing, std::printf("  pilot %d: no portrait (%s)\n", id, small ? "small" : "large");
   EXPECT(missing == 0);
   EXPECT(art_there(mw1::commander_image(true)) && art_there(mw1::commander_image(false)));
-  for (const mw1::MechKind& k : mw1::kMechKinds) EXPECT(art_there(mw1::mech_image(k.pm_mech)));
-  EXPECT(mw1::mech_image(mw1::kPmOwens) == "mw1_mech_jenner_s");  // the catalog's stand-in
+  // The mechs' pictures are PM's lab icons in amber, made at the start (FIXES.md item 23, mw1_mech_icons.h).
+  for (const mw1::MechKind& k : mw1::kMechKinds) EXPECT(mw1::mech_image(k.pm_mech) == mw1::mech_icon_image(k.pm_mech));
+  EXPECT(mw1::mech_image(mw1::kPmOwens) == "mw1_icon_owens");
   EXPECT(mw1::mech_image(-1).empty());
   EXPECT(art_there("mw1_bar_scene") && art_there("mw1_office_liaison"));
   for (const mw1::HouseRules& h : mw1::kHouses) {
@@ -65,4 +68,24 @@ TEST(mw1_rooms_the_bars_pages_show_their_own_pieces) {
   EXPECT(there(v, mw1::kBarFire) && !v.buttons[mw1::kBarFire - 1].on && v.panels[mw1::kBarPanelGrid] && v.panels[mw1::kBarPanelColumnFrame] &&
          !v.panels[mw1::kBarPanelColumnFrame + 1] && v.pictures[mw1::kBarPanelColumnPortrait] == mw1::commander_image(true));
   EXPECT(place(v, "COL1")->lines.size() == 5 && place(v, "COL2")->lines.empty() && !place(v, "INFO")->lines.empty());
+}
+
+// FIXES.md item 23: PM's icon (41x50, 565, black clear) in MW1's amber, each pixel doubled, centred in the slot.
+TEST(mw1_rooms_mech_icon_in_amber) {
+  std::vector<uint16_t> px(41 * 50, 0);
+  px[0] = 0xffe0;            // yellow, full
+  px[40 + 49 * 41] = 0x7be0;  // the far corner, half
+  zimg::Texture t{};
+  t.width = 41, t.height = 50, t.flags = zimg::kTwoBytes, t.pixels = px.data();
+  const mw1::images::Image i = mw1::amber_icon("mw1_icon_test", t);
+  EXPECT(i.width == mw1::kIconSlotW && i.height == mw1::kIconSlotH && i.alpha.size() == i.pixels.size());
+  const int32_t ox = (mw1::kIconSlotW - 82) / 2, oy = (mw1::kIconSlotH - 100) / 2;
+  auto at = [&](int32_t x, int32_t y) { return static_cast<size_t>(y * i.width + x); };
+  EXPECT(i.alpha[at(ox, oy)] == 255 && i.alpha[at(ox + 1, oy + 1)] == 255 && i.alpha[at(ox + 2, oy)] == 0);  // doubled
+  EXPECT(i.pixels[at(ox, oy)] == mw1::images::rgb565(255, 176, 64));  // amber
+  EXPECT(i.alpha[at(ox + 81, oy + 99)] == 255 && i.pixels[at(ox + 81, oy + 99)] != i.pixels[at(ox, oy)]);  // dimmer
+  EXPECT(i.alpha[at(0, 0)] == 0 && i.alpha[at(ox + 3, oy + 3)] == 0);  // black and the margin clear
+  zimg::Texture pal = t;
+  pal.palette_count = 4;
+  EXPECT(mw1::amber_icon("x", pal).name.empty());  // only 16-bit pictures
 }
