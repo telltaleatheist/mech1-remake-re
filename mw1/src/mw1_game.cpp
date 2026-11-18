@@ -18,6 +18,7 @@
 #include "mech3/pause_menu.h"
 #include "mech3/briefing.h"
 #include "mech3/lab_screen.h"
+#include "mech3/lab_filebox.h"
 #include "mech3/menu_widgets.h"
 #include "mech3/app_engine.h"
 #include "mech3/app_mech.h"
@@ -38,6 +39,7 @@
 #include "gamez/ztwod/twod_host.h"
 #include "gamez/zutil/zutl_path.h"
 #include "mw1_bar_screen.h"
+#include "mw1_lab_fit.h"
 #include "mw1_event_screen.h"
 #include "mw1_office.h"
 #include "mw1_campaign.h"
@@ -183,6 +185,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       ge.on_present = [this, before](int f) {
         if (before) before(f);
         if (deployed_ && launched_ && !ending_latched_ && ge_ && ge_->mission_ended()) latch_ending(*ge_);
+        lab_look_frame();
       };
     }
     // MW1_SCREEN=pause or pause_options (development: --shot pictures of the pause over a mission): the offer
@@ -1004,16 +1007,102 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     ge.pilot_chosen(p);  // the lab's pilot is the engine's current one ([0x0060861c])
     ge.mech_lab_open(ge.store_handle(&g->store), 0);
   }
+  // The lab's places that PM's layout leaves crossing our frames in our type (FIXES.md item 17; the guard is
+  // MW1_SCREEN=lab_fit, mw1_lab_fit.h). Once per lab screen (its ammunition tab's label the mark), then each frame
+  // the engine's right-hand arrows past their values.
+  void lab_look_frame() {
+    mech3::Mech3App* app = mech3::app_if_any();
+    if (!ge_ || !app || app->current() != &mech3::states().lab) return;
+    mech3::LabScreen* ls = ge_->lab_screen(mech3::states().lab.lab_screen_);
+    if (!ls) return;
+    mech3::LabUnassignedList& u = ls->unassigned;
+    if (u.weapon.labels.empty() || u.ammo.labels.empty() || u.equip.labels.empty() || u.armor.labels.empty()) return;
+    if (std::strcmp(u.ammo.labels[0]->text, kAmmoTab) != 0) lab_look_once(*ls);
+    // ENGINE SELECTION's rating and type: refresh puts the right arrow 50 past the value's start ("Extra Light" ran
+    // into it); kArrowGap past its end when it is longer.
+    mech3::LabEngineTable& et = ls->engine_table;
+    if (!(et.flags & ztwod::kHidden) && et.rows.size() >= 3) {
+      auto beside = [](ztwod::FontText& v, mech3::LabButton& right) {
+        if (v.needs_render) v.render();
+        const int32_t want = std::max(v.x + 50, v.x + v.width + kArrowGap);
+        if (right.x != want) right.set_pos(want, right.y);
+      };
+      beside(et.rows[0]->value, et.faster);
+      beside(et.rows[2]->value, et.type_right);
+    }
+  }
+  void lab_look_once(mech3::LabScreen& ls) {
+    mech3::LabUnassignedList& u = ls.unassigned;
+    // The supply tabs: PM's at fixed x, and "Armor" ran past the right panel's frame. "Ammo" for "Ammunition", and
+    // the four laid left to right from the first, kTabGap apart (each tab is its labels: Control::hit).
+    for (auto* v : {&u.ammo.labels, &u.ammo.rollover_labels, &u.ammo.activate_labels, &u.ammo.disable_labels})
+      for (ztwod::Text* t : *v) t->set_text_plain(kAmmoTab);
+    if (u.ammo.text) u.ammo.text->set_text_plain(kAmmoTab);  // the checked look's
+    int32_t x = u.weapon.labels[0]->x;
+    for (mech3::LabSelect* t : {&u.weapon, &u.ammo, &u.equip, &u.armor}) {
+      ztwod::Text* first = t->labels[0];
+      if (first->needs_render) first->render();
+      shift_labels(*t, x - first->x, 0);
+      t->bounds.left += x - first->x, t->bounds.right += x - first->x;
+      t->x += x - first->x;
+      x += first->width + kTabGap;
+    }
+    // The lists' down arrows sat on the bottom tray, below the panels' frames: the lists kListUp shorter (their
+    // last row's room) and the arrows with them; the supplies' short size (its equipment tab's) too.
+    for (mech3::LabItemList* l : {static_cast<mech3::LabItemList*>(&ls.assigned), static_cast<mech3::LabItemList*>(&u)}) {
+      l->size[1] -= kListUp;
+      if (l->down) l->down->set_pos(l->down->get_x(), l->down->get_y() - kListUp);
+      l->layout();
+    }
+    u.long_size[1] -= kListUp, u.short_size[1] -= kListUp;
+    // ENGINE SELECTION's last row ran past the right lower panel: the table kEngineUp higher, its values
+    // kEngineValueW from its labels (PM's 130) for room for the arrows inside the frame.
+    mech3::LabEngineTable& et = ls.engine_table;
+    et.width = kEngineValueW;
+    shift_labels(et, 0, -kEngineUp);
+    et.set_pos(et.x, et.y - kEngineUp);
+    // MECH DATA's values and its internal structure's choice kDataLeft further left: the right arrow sat on the
+    // centre panel's frame.
+    if (mech3::LabMechData* md = ls.mech_data) {
+      md->width -= kDataLeft;
+      md->set_pos(md->x, md->y);
+      ztwod::Text* value = nullptr;  // the choice's label (offset 170), the rightmost
+      for (ztwod::Text* t : md->endo.labels)
+        if (!value || t->x > value->x) value = t;
+      if (value) value->x -= kDataLeft, value->dirty();
+      md->endo.next_dx -= kDataLeft;
+      md->endo.next.set_pos(md->endo.next.x - kDataLeft, md->endo.next.y);
+    }
+  }
+  // A control's labels, every look's, moved once each.
+  static void shift_labels(ztwod::Control& c, int32_t dx, int32_t dy) {
+    std::vector<ztwod::Text*> moved;
+    for (auto* v : {&c.labels, &c.rollover_labels, &c.activate_labels, &c.disable_labels})
+      for (ztwod::Text* l : *v)
+        if (std::find(moved.begin(), moved.end(), l) == moved.end()) moved.push_back(l), l->x += dx, l->y += dy, l->dirty();
+    if (auto* cb = dynamic_cast<ztwod::CheckButton*>(&c); cb && cb->text &&
+        std::find(moved.begin(), moved.end(), cb->text) == moved.end())
+      cb->text->x += dx, cb->text->y += dy, cb->text->dirty();
+  }
+  static constexpr const char* kAmmoTab = "Ammo";
+  static constexpr int32_t kTabGap = 8, kListUp = 12, kEngineUp = 9, kEngineValueW = 112, kDataLeft = 6, kArrowGap = 3;
+
   // The lab's PILOT line on its screen (mw1_lab_pilot.h), once the lab from MECH LAB is up.
   void lab_frame() {
     mech3::Mech3App* app = mech3::app_if_any();
-    if (lab_owned_ < 0 || lab_pilot_.attached() || !ge_ || !app || app->current() != &mech3::states().lab) return;
+    if (lab_owned_ < 0 || !ge_ || !app || app->current() != &mech3::states().lab) return;
     mech3::LabScreen* ls = ge_->lab_screen(mech3::states().lab.lab_screen_);
     if (!ls) return;
-    // In the lab's right-hand panel (MOBILE HQ STOCKPILE), under its list: one chassis here, the one in the lab.
-    // The panel keeps to the right edge on a wider canvas.
-    lab_pilot_.attach(ls, ge_->buffer_width() - kLabPilotFromRight, kLabPilotY, [this](int32_t by) { lab_pilot_step(by); });
+    if (lab_pilot_.attached()) {  // the chassis page's only (FIXES.md item 17): hidden on the others
+      lab_pilot_.visible(ls->page == kLabChassisPage);
+      return;
+    }
+    // A row in the lab's right-hand panel (MOBILE HQ STOCKPILE), under its list: one chassis here, the one in the
+    // lab. The lab is PM's 640 layout centred on a wider canvas: the panel's right edge is the layout's.
+    const int32_t layout_right = ge_->buffer_width() / 2 + 320;
+    lab_pilot_.attach(ls, layout_right - kPilotFromRight, kPilotY, [this](int32_t by) { lab_pilot_step(by); });
     show_lab_pilot();
+    lab_pilot_.visible(ls->page == kLabChassisPage);
   }
   void lab_pilot_step(int32_t by) {
     const std::vector<int32_t> can = pilot_choices(company_, lab_owned_);
@@ -1024,7 +1113,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     show_lab_pilot();
   }
   void show_lab_pilot() {
-    const std::string name = lab_who_ == kNobody ? "nobody (spare)" : lab_who_ == kCommander ? "YOU" : pilot_title(lab_who_);
+    const std::string name = lab_who_ == kNobody ? "spare" : lab_who_ == kCommander ? "YOU" : pilot_title(lab_who_);
     lab_pilot_.show(name, pilot_choices(company_, lab_owned_).size() > 1);
   }
 
@@ -1672,16 +1761,65 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (now == &mech3::states().load)
       if (mech3::BriefingScreen* b = mech3::briefing_screen(); b && b->loaded && frames == 20)
         b->on_button(page.rfind("lab", 0) == 0 ? mech3::BriefingScreen::kBtnMechLab : mech3::BriefingScreen::kBtnLaunch, 0, 0);
-    // lab_<page> (1 weapons, 3 criticals, 4 groups) or lab_files (the load box, as its key opens it).
+    if (page == "lab_fit") return lab_fit_frame(*ge);
+    // lab_<page> (1 weapons, 3 criticals, 4 groups; lab_3e and lab_3a its supply tabs) or lab_files (the load box).
     if (now == &mech3::states().lab && frames == 20 && page != "lab") {
       static bool once = false;
       if (page == "lab_files" && !once) once = true, ge->config_import();
-      else if (mech3::LabScreen* l = ge->lab_screen(mech3::states().lab.lab_screen_); l && page.size() == 5)
+      else if (mech3::LabScreen* l = ge->lab_screen(mech3::states().lab.lab_screen_); l && page.size() >= 5) {
         l->switch_page(page[4] - '0');
+        if (page.size() == 6)  // lab_3e, lab_3a: the criticals page's equipment (ENGINE SELECTION) or armour tab
+          l->unassigned.set_tab(3, page[5] == 'a'), l->unassigned.refill();
+      }
     }
     if (now == &mech3::states().core && frames == 90) app->push(app->state(3), 0);
     if (now == &mech3::states().pause && frames == 10 && page == "pause_options")
       if (auto* p = dynamic_cast<mech3::PauseScreen*>(ge->screen_of(mech3::states().pause.screen_))) p->on_button(mech3::PauseScreen::kOptions, 0, 0);
+  }
+
+  // MW1_SCREEN=lab_fit (the lab's text guard, mw1_lab_fit.h): the lab's pages 0 (chassis), 1, 3 (each supply tab)
+  // and 4, then its load box, each 20 frames after it shows; each text printed with whether it fits its panel; then the program
+  // ends, 0 when every text fits.
+  void lab_fit_frame(mech3::GameEngine& ge) {
+    mech3::Mech3App* app = mech3::app_if_any();
+    static int step = 0, wait = 0, texts = 0, outside = 0;
+    auto report = [&](const char* where, ztwod::Layer& layer, int32_t ox, int32_t oy, const std::vector<FitBox>& panels) {
+      for (const FitText& f : fit_texts(layer, ox, oy, panels)) {
+        ++texts, outside += f.fits ? 0 : 1;
+        std::printf("mw1 lab fit: %s \"%s\" %d..%d x %d..%d in %s: %s\n", where, f.text.c_str(), f.left, f.right, f.top,
+                    f.bottom, f.panel ? f.panel : "none", f.fits ? "fits" : "OUTSIDE");
+      }
+    };
+    if (ge.file_box_) {  // the load box's own frames (LabFileBox::run)
+      if (++wait < 20) return;
+      mech3::LabFileBox& box = *ge.file_box_;
+      report("load box", box, ge.buffer_width() / 2 - 320, 0, load_box_panels());
+      wait = 0, step = 100;
+      box.answer(false);
+      return;
+    }
+    if (step == 100) {
+      std::printf("mw1 lab fit: done at %dx%d, %d texts, %d outside\n", ge.buffer_width(), ge.buffer_height(), texts, outside);
+      std::fflush(nullptr);
+      std::_Exit(outside ? 1 : 0);
+    }
+    if (!app || app->current() != &mech3::states().lab) return;
+    mech3::LabScreen* l = ge.lab_screen(mech3::states().lab.lab_screen_);
+    if (!l || ++wait < 20) return;
+    wait = 0;
+    // The pages, the criticals page with each supply tab: weapons, equipment (its ENGINE SELECTION table), armour.
+    struct Step { int32_t page, tab; bool armor; const char* name; };
+    static const Step kSteps[] = {{0, 0, false, "chassis"}, {1, 0, false, "page 1"}, {3, 1, false, "criticals, weapons"},
+                                  {3, 2, false, "criticals, ammo"}, {3, 3, false, "criticals, equipment"},
+                                  {3, 3, true, "criticals, armor"}, {4, 0, false, "groups"}};
+    constexpr int kStepCount = static_cast<int>(sizeof kSteps / sizeof kSteps[0]);
+    report(kSteps[step].name, *l, ge.buffer_width() / 2 - 320, 0, lab_fit_panels());
+    if (++step < kStepCount) {
+      if (l->page != kSteps[step].page) l->switch_page(kSteps[step].page);
+      if (kSteps[step].tab) l->unassigned.set_tab(kSteps[step].tab, kSteps[step].armor), l->unassigned.refill();
+    } else {
+      ge.config_import();  // its frames run inside; then the end
+    }
   }
 
   // The contract as the Action screen's LAUNCH sets a game up (action_menu.cpp): the company pilot's Instant Action
@@ -1765,7 +1903,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   bool lab_hook_ = false;
   PilotChooser lab_pilot_;
   // The PILOT line's place on the lab's screen: from the canvas's right edge, and down.
-  static constexpr int32_t kLabPilotFromRight = 172, kLabPilotY = 196;
+  static constexpr int32_t kLabChassisPage = 0;  // LabScreen::page: the chassis page (ICON_CHASSIS)
   std::shared_ptr<mech3::Store> salvage_;  // this mission's parts, the stores' on a win
   bool deployed_ = false, launched_ = false, ended_ = false, failed_ = false, own_wins_ = false;
   bool ending_latched_ = false, ending_hook_ = false;  // the outcome taken this launch; the per-frame watch put on

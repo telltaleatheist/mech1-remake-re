@@ -16,6 +16,7 @@ class PilotChooser::Arrow : public ztwod::Control {
     img_activate = h.image_get((n + "_down").c_str());
     img_disabled = h.image_get((n + "_off").c_str());
     set_image(img_normal);
+    flags &= ~ztwod::kManaged;  // drawn every frame: the lab repaints its screen each frame (its mech turning)
   }
   void on_left_up() override {
     if (!(mouse & ztwod::kPressed) || !enabled) return;
@@ -41,12 +42,12 @@ void PilotChooser::attach(ztwod::Layer* window, int32_t x, int32_t y, std::funct
   title_->set_text_plain("PILOT");
   title_->set_pos(x, y);
   left_ = std::make_unique<Arrow>(false, &step_);
-  left_->set_pos(x, y + kRow);
+  left_->set_pos(x + kLeftArrowX, y + kArrowDy);
   name_ = std::make_unique<ztwod::Text>();
   name_->set_font(h.font_find("mw1_panel_line"));
-  name_->set_pos(x + chrome::kSideArrowW + 8, y + kRow + 2);
+  name_->set_pos(x + kLeftArrowX + chrome::kSideArrowW + 6, y + kArrowDy + 2);
   right_ = std::make_unique<Arrow>(true, &step_);
-  right_->set_pos(x + kRightArrowX, y + kRow);
+  right_->set_pos(x + kRightArrowX, y + kArrowDy);
   for (ztwod::Object2D* o : {static_cast<ztwod::Object2D*>(title_.get()), static_cast<ztwod::Object2D*>(left_.get()),
                              static_cast<ztwod::Object2D*>(name_.get()), static_cast<ztwod::Object2D*>(right_.get())}) {
     window_->add(o);
@@ -59,8 +60,23 @@ void PilotChooser::show(const std::string& name, bool can_step) {
   if (!window_) return;
   name_->set_text_plain(name.c_str());
   name_->dirty();
-  for (Arrow* a : {left_.get(), right_.get()}) {  // no choice (your own mech): no arrows
-    if (can_step) a->show_for(-1.0f), a->enable(1), a->refresh();
+  for (Arrow* a : {left_.get(), right_.get()}) {  // no choice (your own mech): greyed
+    a->show_for(-1.0f), a->enable(can_step ? 1 : 0), a->refresh();
+    a->dirty();
+  }
+  can_step_ = can_step;
+}
+
+void PilotChooser::visible(bool on) {
+  if (!window_ || on == visible_) return;
+  visible_ = on;
+  for (ztwod::Object2D* o : {static_cast<ztwod::Object2D*>(title_.get()), static_cast<ztwod::Object2D*>(name_.get())}) {
+    if (on) o->show_for(-1.0f);
+    else o->hide();
+    o->dirty();
+  }
+  for (Arrow* a : {left_.get(), right_.get()}) {
+    if (on) a->show_for(-1.0f), a->enable(can_step_ ? 1 : 0), a->refresh();
     else a->hide();
     a->dirty();
   }
@@ -75,7 +91,7 @@ void PilotChooser::detach() {
 }
 
 void PilotChooser::forget() {
-  window_ = nullptr;
+  window_ = nullptr, visible_ = true;
   title_.reset(), name_.reset(), left_.reset(), right_.reset();
 }
 

@@ -15,8 +15,15 @@
 
 namespace mw1::lab_pilot {
 
-// The line's pieces from its place: "PILOT", and under it (kRow down) the left arrow, the name, the right arrow.
-inline constexpr int32_t kRow = 20, kRightArrowX = 146, kChooserW = 166;
+// One row (FIXES.md item 17, Owen: a defined row, not words floating in the stockpile's space): "PILOT" at the
+// row's left, then the left arrow, the name, the right arrow at its right end, kChooserW across. The arrows are
+// always there, greyed when there's no choice (your own mech).
+inline constexpr int32_t kChooserW = 196, kLeftArrowX = 64, kRightArrowX = kChooserW - 20;
+inline constexpr int32_t kArrowDy = 1;  // the arrows' top below the row's (the title's 18-high line)
+// Its place on the lab screen: in the right-hand panel (MOBILE HQ STOCKPILE, 220 wide at the 640 layout's right edge,
+// the layout centred on a wider canvas)
+// under its list, near the foot of its upper box (6..242).
+inline constexpr int32_t kPilotFromRight = 210, kPilotY = 214;
 
 class PilotChooser {
  public:
@@ -24,7 +31,8 @@ class PilotChooser {
   ~PilotChooser();
   // On `window`, from (x, y) (the window's own places); `step` hears -1 (the left arrow) or +1.
   void attach(ztwod::Layer* window, int32_t x, int32_t y, std::function<void(int32_t)> step);
-  void show(const std::string& name, bool can_step);  // the name shown, the arrows there or not
+  void show(const std::string& name, bool can_step);  // the name shown, the arrows live or greyed
+  void visible(bool on);  // the row shown (the chassis page) or hidden (the lab's other pages)
   void detach();  // off the window (still there), and gone
   void forget();  // gone, the window already deleted
   bool attached() const { return window_ != nullptr; }
@@ -39,6 +47,7 @@ class PilotChooser {
   std::function<void(int32_t)> step_;
   std::unique_ptr<ztwod::Text> title_, name_;
   std::unique_ptr<Arrow> left_, right_;
+  bool can_step_ = false, visible_ = true;
 };
 
 }  // namespace mw1::lab_pilot

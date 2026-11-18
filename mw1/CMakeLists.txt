@@ -46,7 +46,7 @@ endforeach()
 file(CONFIGURE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/mw1gen-src/mw1_scenery.inc CONTENT "${mw1_scenery_inc}")
 
 # What MW1 adds that a test can reach without SDL.
-add_library(mw1core STATIC src/mw1_start.cpp src/mw1_campaign.cpp src/mw1_game.cpp src/mw1_save.cpp src/mw1_worlds.cpp src/mw1_hub.cpp src/mw1_market.cpp src/mw1_travel.cpp src/mw1_pilots.cpp src/mw1_repairs.cpp src/mw1_missions.cpp src/mw1_images.cpp src/mw1_menu.cpp src/mw1_screen.cpp src/mw1_market_screen.cpp src/mw1_lab_pilot.cpp src/mw1_travel_screen.cpp src/mw1_bar_screen.cpp src/mw1_office.cpp src/mw1_story.cpp src/mw1_event_screen.cpp src/mw1_travel_map.cpp src/mw1_map_image.cpp src/mw1_chrome.cpp src/mw1_scenery.cpp)
+add_library(mw1core STATIC src/mw1_start.cpp src/mw1_campaign.cpp src/mw1_game.cpp src/mw1_save.cpp src/mw1_worlds.cpp src/mw1_hub.cpp src/mw1_market.cpp src/mw1_travel.cpp src/mw1_pilots.cpp src/mw1_repairs.cpp src/mw1_missions.cpp src/mw1_images.cpp src/mw1_menu.cpp src/mw1_screen.cpp src/mw1_market_screen.cpp src/mw1_lab_pilot.cpp src/mw1_lab_fit.cpp src/mw1_travel_screen.cpp src/mw1_bar_screen.cpp src/mw1_office.cpp src/mw1_story.cpp src/mw1_event_screen.cpp src/mw1_travel_map.cpp src/mw1_map_image.cpp src/mw1_chrome.cpp src/mw1_scenery.cpp)
 target_include_directories(mw1core PUBLIC src ${MW3RE_DIR}/src PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/mw1gen-src)
 target_link_libraries(mw1core PUBLIC pmcore mw3core zipkitlib)
 
@@ -85,6 +85,9 @@ if(TARGET mw3pm)
   if(NOT MW3_PACKAGE)
     target_compile_definitions(mw1 PRIVATE MW1_PM_GAME_DIR="${MW3PM_GAME_DIR}" MW1_MW3_GAME_DIR="${MW3_GAME_DIR}"
                                            MW1_DOS_GAME_DIR="${MW1_DOS_GAME_DIR}")
+    # The lab's text fit (FIXES.md item 17): every lab text inside its panel, its four pages and load box, both shapes.
+    add_test(NAME mw1labfit COMMAND ${CMAKE_COMMAND} -DMW1_BIN=$<TARGET_FILE:mw1> -DDIR=${CMAKE_CURRENT_BINARY_DIR}/mw1labfit
+                                    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/lab_fit.cmake)
   endif()
   if(WIN32)
     # The version resource's numbers, MW1's own (the engine's are in its own scope): git's describe and commit count.
