@@ -99,8 +99,23 @@ images::Image graded_render(const std::string& name, const uint32_t* argb, int32
   return out;
 }
 
+bool frame_mech_alone(const uint32_t* argb, int32_t w, int32_t h) {
+  if (!argb || w <= 0 || h <= 0) return false;
+  const int32_t bx = std::max(1, static_cast<int32_t>(w * kRenderBorder)), by = std::max(1, static_cast<int32_t>(h * kRenderBorder));
+  int64_t band = 0, band_lit = 0, all_lit = 0;
+  for (int32_t y = 0; y < h; ++y)
+    for (int32_t x = 0; x < w; ++x) {
+      const bool l = lit(argb[static_cast<size_t>(y) * w + x]);
+      all_lit += l;
+      if (x < bx || x >= w - bx || y < by || y >= h - by) ++band, band_lit += l;
+    }
+  return band_lit <= static_cast<int64_t>(band * (1.0f - kRenderBorderBlack)) &&
+         all_lit < static_cast<int64_t>(static_cast<float>(w) * h * kRenderLitMost);
+}
+
 std::vector<images::Image> renders_from_frame(int32_t pm_mech, const uint32_t* argb, int32_t w, int32_t h) {
   std::vector<images::Image> v;
+  if (!frame_mech_alone(argb, w, h)) return v;
   for (const auto& [use, ow, oh] : {std::tuple{RenderUse::kSlot, kRenderSlotW, kRenderSlotH},
                                     std::tuple{RenderUse::kPanel, kRenderPanelW, kRenderPanelH}}) {
     images::Image i = graded_render(render_image(pm_mech, use), argb, w, h, ow, oh);
