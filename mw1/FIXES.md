@@ -219,3 +219,13 @@ Tick an item when it is merged into `main`.
   - Our framed buttons: CONTINUE back to the hub.
   - It replaces the hub's AFTER ACTION panel; the hub then shows a short message (item 16) if anything is left to say.
 
+## 20. [ ] Offers name the mechs you'll actually fight, by weight class, highlighted
+- **Owen (2026-11-17, `keep/mw1-remake/reference/owen-play-offer.png`):** "This shows a 'Jenner' as the enemy. We aren't using MW1 mechs, we're using exclusively MW3 mechs right now. And in the original, it shows the enemies/objectives/etc highlighted in a brighter colour so you can easily scan through and see what you're taking on. Can we light up the number of mechs, or the types of mechs? Like I think the original said '2 heavy' or '2 medium'."
+- **Cause:** contracts are drawn from MW1's mech kinds (kMechKinds), and each spawns as its PM stand-in (Jenner → Owens, research/contracts.md). The text shows MW1's name, so Owen fought an "Owens" that the offer called a Jenner.
+- **Wanted:**
+  - Every player-facing mention of an enemy mech (offers, the hub's contract readout, the loading screen, the results screen) uses the PM mech's name.
+  - MW1's own kind names stay internal: logs, tests, research.
+  - The offer's enemy line reads by weight class and count, as MW1's does: e.g. "Enemy: 2 Heavy, 1 Medium", with the mechs' names after it (Avatar, Bushwacker, ...).
+  - The key facts are drawn in a brighter highlight colour (white or bright amber) against the green-grey: the employer, the target, the objective, the map, the enemy count and class, and the pay.
+  - Check MW1's own offer text in research/ for its exact wording of the class line.
+
