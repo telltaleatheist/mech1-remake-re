@@ -111,7 +111,10 @@ ScreenView market_view(const Company& c, const MarketChoice& m) {
   }
   for (int32_t mech : c.market.stock) any_clan = any_clan || clan_mech(mech);
   if (stock.empty()) stock.push_back("  Nothing for sale here.");
-  std::string limit = c.market.limit < 0 ? "" : " \xB7 the dealer buys " + std::to_string(c.market.limit - c.market.sold) + " more";
+  // The dealer's limit on the YOUR MECHS title (the column header has no room for it: past the 4:3 canvas, the
+  // mw1screenfit flake of FIXES 3+5, only when the market rolled a limit).
+  const std::string limit =
+      c.market.limit < 0 ? "" : " \xB7 DEALER BUYS " + std::to_string(c.market.limit - c.market.sold) + " MORE";
   v.blocks.push_back(at_place("S_TITLE", {"FOR SALE"}));
   v.blocks.push_back(at_place("S_HEAD", {"  " + padded("MECH", kNameWidth) + "TONS      PRICE" + (any_clan ? "   * Clan: twice" : "")}));
   v.blocks.push_back(at_place("S_ROWS", stock));
@@ -123,8 +126,8 @@ ScreenView market_view(const Company& c, const MarketChoice& m) {
     owned.push_back(std::string(i == m.owned ? "> " : "  ") + padded(listed(mech), kNameWidth) + tons(mech) +
                     padded(pilot_of(c, i), kWhoWidth) + price_column(sell_price(mech, c.tier)));
   }
-  v.blocks.push_back(at_place("O_TITLE", {"YOUR MECHS"}));
-  v.blocks.push_back(at_place("O_HEAD", {"  " + padded("MECH", kNameWidth) + "TONS " + padded("PILOT", kWhoWidth) + "     VALUE" + limit}));
+  v.blocks.push_back(at_place("O_TITLE", {"YOUR MECHS" + limit}));
+  v.blocks.push_back(at_place("O_HEAD", {"  " + padded("MECH", kNameWidth) + "TONS " + padded("PILOT", kWhoWidth) + "     VALUE"}));
   v.blocks.push_back(at_place("O_ROWS", owned));
 
   v.buttons.resize(kMarketButtonCount);

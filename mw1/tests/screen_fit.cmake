@@ -2,7 +2,7 @@
 # (854x480), each on a new write dir. 40 frames into the page's MW1 screen every text must be inside the canvas (a
 # status line past the edge at 4:3 was the case); each outside is printed by place and length, never its words.
 # cmake -DMW1_BIN=<mw1> -DDIR=<scratch dir> -P screen_fit.cmake
-set(pages hub hub_options market travel travel_pick company bar bar_recruit office office_offer news results loading)
+set(pages hub hub_options market market_dealer travel travel_pick company bar bar_recruit office office_offer news results loading)
 set(failed)
 foreach(shape 43 wide)
   foreach(page IN LISTS pages)
@@ -27,7 +27,14 @@ foreach(shape 43 wide)
     endforeach()
     message("${shape} ${page}: ${done}")
     if(NOT r EQUAL 0 OR NOT done MATCHES " 0 outside$")
-      list(APPEND failed "${shape} ${page}")
+      # Why, for a failure that doesn't come back (FIXES 3+5's flake): the exit (a number, or the timeout's words),
+      # whether the report came, and the run's last lines (MW1's words never: the engine's and the loop's own).
+      if(NOT done)
+        set(done "no report")
+      endif()
+      string(REGEX REPLACE ".*((\n[^\n]*){12})$" "\\1" tail "${out}${err}")
+      message("${shape} ${page}: FAILED, exit '${r}', ${done}; the run's last lines:${tail}")
+      list(APPEND failed "${shape} ${page} (exit ${r})")
     endif()
   endforeach()
 endforeach()
