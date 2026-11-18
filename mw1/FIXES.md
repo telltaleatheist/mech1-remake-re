@@ -163,3 +163,32 @@ Tick an item when it is merged into `main`.
   - Its right-hand list is YOUR MECHS (the owned mechs). There's no separate right-side menu.
   - Assigning pilots to mechs (today's PILOT) moves into the mech lab.
 
+## 17. [ ] The mech lab: readable, separated, nothing overlapping
+- **Owen (2026-11-17, `keep/mw1-remake/reference/owen-play-lab.png` and `owen-play-lab-criticals.png`):** "I actually really like that a lot. But we have to do something about the font. Is the problem the resolution? It's really hard to read. We need more separators and we need to clean it up to make it easier to see what's happening. And some things are poorly positioned. Overlapping text and lines." On the criticals page: "the right side is coming out of the boxes."
+- **Two causes:**
+  1. **The resolution (item 12).**
+  2. **Our font mapping.** PM's lab fonts were mapped to Saira Condensed, which at the lab's small heights crowds and breaks apart ("Inter nal St ruct ure"). The mapped fonts' widths also differ from PM's, so text sized for PM's fonts overruns PM's boxes.
+- **In the shots:**
+  - **Chassis page:**
+    - LOAD-OUT's first row crosses its rule.
+    - 'MECH DATA runs to the panel's edge and covers the page icon.
+    - There's a stray ring in SKINS.
+    - Amber glow blobs sit behind the chosen rows.
+    - PILOT/YOU floats in empty space.
+  - **Criticals page:**
+    - AVAILABLE SUPPLIES' tabs (Weapons Ammunition Equipment Armor) run past the panel's right edge.
+    - ENGINE SELECTION's rows (Rating, Manufacturer, Type, Tonnage, Critical Points) spill below its panel.
+    - Engine's values and arrows overlap (a ring over Rating's arrow).
+    - The location list (Head ... Right Leg) is crammed.
+    - PILOT/YOU shows here too, over the supplies list's space.
+    - The load-out's down arrow sits outside its panel.
+- **Wanted:**
+  - Data rows in a wider face (Share Tech Mono, like the COMPANY readout); titles in Saira, uncramped.
+  - A rule under each title, row separators, right-aligned value columns.
+  - **Everything inside its box** at 16:9 and 4:3 on every lab page (chassis, weapons, criticals, groups) and the load box.
+  - Our amber bar for chosen rows.
+  - PILOT on the chassis page only, as a defined row.
+  - No stray icons.
+  - If PM's layout can't hold this, the lab gets its own layout (set_layout) with PM's controls bound, as options did.
+  - Guard test: every text object's measured width fits its panel.
+
