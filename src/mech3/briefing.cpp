@@ -385,6 +385,21 @@ BriefingScreen::~BriefingScreen() {
 // frame; with zfix's per_second, 0.15 a second (0.005 at 30 fps).
 void BriefingScreen::update(float dt) {
   Engine& e = engine();
+  // Ours (program_flow.h): a program's skipped briefing. Nothing of it drawn and no keys heard; the buttons' state
+  // and the lance's loadouts at the load's end as ever (set_loaded), then the program's loading screen and its word.
+  if (ProgramFlow* x = program_flow(); x && x->skip_briefing()) {
+    if (going) return;  // launched or aborted: the state changes before the next frame
+    const bool first = !drawn_first;  // the frame drawn as the load starts (draw_first): the load not begun yet
+    drawn_first = 1;
+    if (!first) set_loaded(e.missions_loaded());
+    const ProgramFlow::LoadingNext next = x->loading_frame(e, dt, !first && loaded);
+    if (first || !loaded || next == ProgramFlow::LoadingNext::kWait) return;
+    going = 1;
+    if (next == ProgramFlow::LoadingNext::kAbort) abort();
+    else launch();
+    return;
+  }
+  ++frames_drawn;
   script.step(dt);
   set_loaded(e.missions_loaded());
   float v = bar.value;

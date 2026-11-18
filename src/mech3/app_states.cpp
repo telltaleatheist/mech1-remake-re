@@ -1316,14 +1316,16 @@ bool LoadState::update() {
     en.format("brief_%s%s", {dir, block}, name, sizeof name);
   }
   en.sounds_nop(en.app_sounds(), 0);  // an empty function, called with a stray argument
-  if (en.app_flag_1c3() == 0) en.voice_start(name);
+  // Ours (program_flow.h): a program's skipped briefing plays neither its voice nor its script.
+  const bool skipped = program_flow() && program_flow()->skip_briefing();
+  if (en.app_flag_1c3() == 0 && !skipped) en.voice_start(name);
   en.sounds_load(en.app_sounds(), "briefing sounds", 1);
   screen_ = en.construct(0x405230, {name});  // new(0x12e6c)
   en.poke32(0x5f4c80, screen_);
   en.sounds_load(en.app_sounds(), "briefing menu", 1);
   en.briefing_init(screen_);
   en.screen_refresh(screen_);
-  en.briefing_script_start(screen_);
+  if (!skipped) en.briefing_script_start(screen_);
   en.missions_start(0x6098d0);
   en.briefing_start(screen_);
   build_ = 0;

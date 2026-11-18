@@ -5280,6 +5280,136 @@ TEST(program_flow_names_and_aims_an_instant_action_ally_headless) {
   }
 }
 
+// Ours (program_flow.h, skip_briefing and loading_frame): an Instant Action game (c2's ia1) through the Load state
+// with no debug auto-launch. A program that skips the briefing: the briefing built and the mission loaded, but no
+// frame of it drawn and its script never started; the program's loading_frame each frame instead, the first before
+// the load (not loaded), and its kLaunch launches (the Core state) or its kAbort goes back to the main menu. None
+// set: the original's briefing, drawn, waiting for its LAUNCH.
+enum class SkipRun { kNone, kLaunch, kAbort };
+static void program_flow_skip_run(SkipRun how) {
+  zgame::set_game(pm::table());
+  zutl::mounts() = zutl::Mounts{};
+  zutl::mount(MW3PM_GAME_DIR);
+  const std::string wd = std::string(MW3_TEST_TMP_ROOT) + "/pm_program_flow_skip";
+  std::filesystem::create_directories(wd);
+  zutl::set_write_dir(wd.c_str());
+  mech3::reset_states();
+  if (!zsnd::state().open) zsnd::state() = zsnd::State{};
+  mech3::missions() = mech3::Missions{};
+  mech3::mech_types_forget();
+  mech3::player_controls_instance() = nullptr;
+  mech3::options() = mech3::Options{};
+  struct Flow : mech3::ProgramFlow {
+    LoadingNext answer = LoadingNext::kLaunch;
+    int32_t frames = 0, frames_loaded = 0, drawn_at_launch = -1, launched = 0;
+    bool first_loaded = true, script_at_launch = true;
+    bool skip_briefing() const override { return true; }
+    LoadingNext loading_frame(mech3::Engine&, float, bool loaded) override {
+      if (frames++ == 0) first_loaded = loaded;
+      frames_loaded += loaded;
+      return answer;
+    }
+    void mission_launched(mech3::Engine&) override {
+      ++launched;
+      if (const mech3::BriefingScreen* b = mech3::briefing_screen()) drawn_at_launch = b->frames_drawn, script_at_launch = b->script.playing;
+    }
+  } flow;
+  flow.answer = how == SkipRun::kAbort ? mech3::ProgramFlow::LoadingNext::kAbort : mech3::ProgramFlow::LoadingNext::kLaunch;
+  NoKeys keys;
+  Window window;
+  Alert alert;
+  FixedSeed seed(1u);
+  Clock clock;
+  MovieClock movies;
+  Screen screen;
+  platform::SilentSoundOutput sound;
+  mech3::MountFiles files;
+  mech3::Platform p;
+  p.window = &window, p.alert = &alert, p.clock = &clock, p.movie_clock = &movies, p.screen = &screen;
+  p.sound = &sound, p.files = &files, p.input = &keys;
+  {
+    mech3::GameEngine engine(p, "mech3.exe -nofmv");
+    engine.quiet = true;
+    mech3::Mech3App app(&engine);
+    mech3::set_app(&app);
+    EXPECT(app.init_instance());
+    int core = 0, main = 0, load_frames = 0, drawn = 0;
+    bool load_seen = false, started = false;  // the main menu counted only after the load (it comes first)
+    if (how != SkipRun::kNone) mech3::set_program_flow(&flow);
+    engine.on_present = [&](int) {
+      if (app.pending()) return;
+      // From the main menu, as Instant Action's LAUNCH (and MW1's DEPLOY) set a game up: the pilot's Instant Action
+      // game on c2's ia1 (Battle), an enemy Owens; then the Load state.
+      if (!started && app.current() == &mech3::states().main) {
+        started = true;
+        mech3::Pilot* pilot = mech3::create_pilot("Skip");
+        EXPECT(pilot != nullptr);
+        if (!pilot) return;
+        mech3::current_pilot() = pilot;
+        pilot->select_game(mech3::kInstantAction);
+        mech3::ActionGame* g = pilot->action();
+        g->set_mode(0);
+        g->slot.mech = 13;
+        g->add(16, 0, nullptr, 0);
+        g->set_world(1, 1);
+        pilot->save();
+        engine.replace_state(6);
+        return;
+      }
+      if (app.current() == &mech3::states().core) ++core;
+      if (app.current() == &mech3::states().main && load_seen) ++main;
+      if (app.current() != &mech3::states().load) return;
+      load_seen = true;
+      mech3::BriefingScreen* b = mech3::briefing_screen();
+      if (!b || !b->loaded) return;
+      drawn = b->frames_drawn;
+      if (how == SkipRun::kNone && ++load_frames == 10) b->launch();  // the original's: LAUNCH pressed
+    };
+    Pump pump;
+    pump.limit = 600;
+    pump.stop = [&] { return core >= 10 || main >= 10; };
+    app.run(pump);
+    mech3::set_program_flow(nullptr);
+    std::printf("  skip briefing (%s): Core %d frames, main %d; loading frames %d (%d loaded, the first loaded %d); "
+                "launched %d, the briefing drawn %d at the launch (script %d); none's briefing drawn %d\n",
+                how == SkipRun::kNone ? "none" : how == SkipRun::kLaunch ? "launch" : "abort", core, main, flow.frames,
+                flow.frames_loaded, flow.first_loaded, flow.launched, flow.drawn_at_launch, flow.script_at_launch, drawn);
+    if (how == SkipRun::kNone) {
+      EXPECT(core >= 10 && flow.frames == 0 && drawn > 0);
+    } else {
+      EXPECT(flow.frames >= 2 && !flow.first_loaded && flow.frames_loaded >= 1);
+      if (how == SkipRun::kLaunch) EXPECT(core >= 10 && flow.launched == 1 && flow.drawn_at_launch == 0 && !flow.script_at_launch);
+      else EXPECT(main >= 10 && core == 0 && flow.launched == 0);
+    }
+    mech3::missions().cleanup(false);
+    app.stop_game();
+    app.exit_instance();
+    mech3::set_app(nullptr);
+  }
+  zrdr::close_archives(true);
+  mech3::reset_states();
+  mech3::options() = mech3::Options{};
+}
+
+TEST(program_flow_skips_the_briefing_headless) {
+  if (!std::filesystem::exists(MW3PM_GAME_DIR)) return;
+  for (SkipRun how : {SkipRun::kLaunch, SkipRun::kAbort, SkipRun::kNone}) {
+#if !defined(_WIN32)
+    std::fflush(nullptr);
+    const pid_t child = check::fork_child();
+    if (child == 0) {
+      program_flow_skip_run(how);
+      std::fflush(nullptr);
+      _exit(check::failures ? 1 : 0);
+    }
+    const int status = check::wait_child(child);
+    EXPECT(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+#else
+    program_flow_skip_run(how);
+#endif
+  }
+}
+
 // Ours (app_hooks.h, adopt_state): a program's state made outside construct() is the engine's as construct's are:
 // found by its handle, escaped and deleted through vcall, and one left open deleted with the screens at the end.
 namespace {
