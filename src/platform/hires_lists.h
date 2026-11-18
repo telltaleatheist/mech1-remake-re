@@ -103,6 +103,7 @@ class Lists {
   uint64_t seq_ = 0;
   std::unordered_map<const void*, std::vector<Command>> lists_;
   std::unordered_set<const void*> fallen_;
+  mutable std::vector<uint16_t> top_, last_;  // layers()'s, kept from frame to frame
 };
 
 }  // namespace platform::hires

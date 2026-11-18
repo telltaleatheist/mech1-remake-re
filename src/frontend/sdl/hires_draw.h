@@ -19,10 +19,7 @@
 
 #include "platform/hires_lists.h"
 #include "platform/hires_text.h"
-
-namespace platform {
-class Render3D;
-}
+#include "platform/render3d.h"
 
 namespace sdlfe {
 
@@ -43,6 +40,7 @@ class HiresDraw {
     int lines = 0;        // drawn from the atlas
     int failed = 0;       // left to the canvas (no source, no glyphs)
     long under = 0;       // pixels under a chain (its base's "before")
+    double ms = 0;        // draw()'s own time
   };
   const Stats& stats() const { return stats_; }
 
@@ -63,8 +61,16 @@ class HiresDraw {
   int32_t atlas_tex_ = -1, atlas_w_ = 0, atlas_h_ = 0;
   int32_t under_tex_ = -1, under_w_ = 0, under_h_ = 0;
   std::vector<uint16_t> base_;
-  std::vector<uint8_t> rgba_;
+  std::vector<uint8_t> rgba_, under_rgba_, under_shown_;  // under_shown_: the under texture as last uploaded
+  // The frame's working sets, kept from frame to frame (no allocation a frame once grown).
+  std::vector<int32_t> tex_;
+  std::vector<float> us_, vs_;
+  std::vector<std::vector<platform::hires::GlyphQuad>> glyphs_;
+  std::vector<uint8_t> ok_;
+  std::vector<platform::hires::Rect> rects_, open_, next_;
+  std::vector<platform::TLVertex> verts_;
   Stats stats_;
+  std::vector<double> times_;  // MW1_HIRES_DEBUG: draw()'s times, reported each 600 frames
 };
 
 }  // namespace sdlfe

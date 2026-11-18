@@ -1,6 +1,8 @@
 #include "frontend/sdl/hires_draw.h"
 
 #include <algorithm>
+#include <chrono>
+#include <cstdio>
 
 #include "frontend/sdl/sdl_platform.h"
 #include "platform/hires_2d.h"
@@ -56,9 +58,10 @@ void clipped(std::vector<platform::TLVertex>* out, const Rect& r, float x0, floa
 
 // The pixels of rect `r` where base is 1..top (canvas width w), as rects: each row's runs, a run the same as the
 // row above's grown down.
-void shown(const std::vector<uint16_t>& base, int32_t w, const Rect& r, uint16_t top, std::vector<Rect>* out) {
+void shown(const std::vector<uint16_t>& base, int32_t w, const Rect& r, uint16_t top, std::vector<Rect>* out,
+           std::vector<Rect>& open, std::vector<Rect>& next) {
   out->clear();
-  std::vector<Rect> open, next;
+  open.clear();
   for (int32_t y = r.t; y <= r.b; ++y) {
     next.clear();
     if (y < r.b) {
@@ -148,6 +151,7 @@ bool HiresDraw::upload_atlas() {
 }
 
 void HiresDraw::draw(const uint16_t* pixels, int width, int height, int pitch, bool rgb565, bool keyed, uint16_t key) {
+  const auto start = std::chrono::steady_clock::now();
   stats_ = Stats{};
   const std::vector<Command>* list = lists_ ? lists_->of(pixels) : nullptr;
   int fw = 0, fh = 0;
@@ -160,10 +164,13 @@ void HiresDraw::draw(const uint16_t* pixels, int width, int height, int pitch, b
   lists_->layers(pixels, pixels, width, height, pitch_px, &base_);
 
   // Each draw's means: a picture's texture, a line's glyphs (all the lines laid out against one atlas).
-  std::vector<int32_t> tex(n, -1);
-  std::vector<float> us(n, 0), vs(n, 0);
-  std::vector<std::vector<platform::hires::GlyphQuad>> glyphs(n);
-  std::vector<bool> ok(n, false);
+  std::vector<int32_t>& tex = tex_;
+  std::vector<float>& us = us_;
+  std::vector<float>& vs = vs_;
+  std::vector<uint8_t>& ok = ok_;
+  tex.assign(n, -1), us.assign(n, 0), vs.assign(n, 0), ok.assign(n, 0);
+  if (glyphs_.size() < n) glyphs_.resize(n);  // the inner vectors keep their room
+  auto& glyphs = glyphs_;
   for (size_t i = 0; i < n; ++i)
     if (l[i].kind == Kind::kPicture) ok[i] = (tex[i] = picture_texture(l[i], &us[i], &vs[i])) >= 0;
   for (int pass = 0; pass < 2; ++pass) {
@@ -197,8 +204,8 @@ void HiresDraw::draw(const uint16_t* pixels, int width, int height, int pitch, b
   }
 
   // Under each chain its base's "before": the canvas's own copy of the draws covered.
-  rgba_.assign(static_cast<size_t>(width) * height * 4, 0);
-  auto* under = reinterpret_cast<uint32_t*>(rgba_.data());
+  under_rgba_.assign(static_cast<size_t>(width) * height * 4, 0);
+  auto* under = reinterpret_cast<uint32_t*>(under_rgba_.data());
   for (int32_t y = 0; y < height; ++y)
     for (int32_t x = 0; x < width; ++x) {
       const uint16_t b = base_[static_cast<size_t>(y) * width + x];
@@ -236,10 +243,12 @@ void HiresDraw::draw(const uint16_t* pixels, int width, int height, int pitch, b
     }
   if (under_tex_ < 0 || under_w_ != width || under_h_ != height) {
     if (under_tex_ >= 0) render_->release_texture(under_tex_);
-    under_tex_ = render_->create_screen_texture(width, height, rgba_.data());
+    under_tex_ = render_->create_screen_texture(width, height, under_rgba_.data());
     under_w_ = width, under_h_ = height;
-  } else {
-    render_->update_texture(under_tex_, width, height, rgba_.data());
+    under_shown_ = under_rgba_;
+  } else if (under_rgba_ != under_shown_) {  // uploaded only when it changed (a still screen: never again)
+    render_->update_texture(under_tex_, width, height, under_rgba_.data());
+    under_shown_ = under_rgba_;
   }
 
   render_->begin_scene();
@@ -248,16 +257,17 @@ void HiresDraw::draw(const uint16_t* pixels, int width, int height, int pitch, b
     s.texture = under_tex_, s.address_u = s.address_v = 3;
     s.depth_write = false, s.depth_always = true, s.blend = true, s.sharp = true;
     const float w = static_cast<float>(width), h = static_cast<float>(height);
-    std::vector<platform::TLVertex> v;
-    quad(&v, 0, 0, w, h, 0, 0, 1, 1, 0xffffffffu);
-    if (stats_.under) render_->draw(platform::Primitive::kTriangles, v.data(), static_cast<int>(v.size()), s);
+    verts_.clear();
+    quad(&verts_, 0, 0, w, h, 0, 0, 1, 1, 0xffffffffu);
+    if (stats_.under) render_->draw(platform::Primitive::kTriangles, verts_.data(), static_cast<int>(verts_.size()), s);
   }
-  std::vector<Rect> rects;
-  std::vector<platform::TLVertex> v;
+  std::vector<Rect>& rects = rects_;
+  std::vector<platform::TLVertex>& v = verts_;
   for (size_t i = 0; i < n; ++i) {
     if (!ok[i]) continue;
     const Command& c = l[i];
-    shown(base_, width, platform::hires::intersect(c.rect, Rect{0, 0, width, height}), static_cast<uint16_t>(i + 1), &rects);
+    shown(base_, width, platform::hires::intersect(c.rect, Rect{0, 0, width, height}), static_cast<uint16_t>(i + 1), &rects, open_,
+          next_);
     if (rects.empty()) continue;
     v.clear();
     if (c.kind == Kind::kPicture) {
@@ -279,6 +289,17 @@ void HiresDraw::draw(const uint16_t* pixels, int width, int height, int pitch, b
     }
   }
   render_->end_scene();
+  stats_.ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+  if (platform::hires_2d_debug()) {
+    times_.push_back(stats_.ms);
+    if (times_.size() == 600) {
+      std::sort(times_.begin(), times_.end());
+      std::printf("mw3: hires: draw over 600 frames at %dx%d: median %.3f ms, worst %.3f ms (%d draws, %d pictures, %d "
+                  "lines, %d left to the canvas)\n",
+                  fw, fh, times_[300], times_.back(), stats_.draws, stats_.pictures, stats_.lines, stats_.failed);
+      times_.clear();
+    }
+  }
 }
 
 void HiresDraw::end_frame() {
