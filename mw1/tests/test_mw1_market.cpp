@@ -265,3 +265,45 @@ TEST(mw1_market_complex_page) {
   mw1::clamp_choice(c, m);
   EXPECT(m.stock == 11 && m.owned == 0 && m.owned_top == 0);
 }
+
+// The funds on the Mech Complex (FIXES.md item 41, Owen: he couldn't see what he could afford): on the plaque, the
+// sum after a purchase and after a sale the moment the page is drawn again; a price over the funds dimmed (its row in
+// S_ROWS_DIM, a blank in S_ROWS), an affordable one not.
+TEST(mw1_market_funds_shown_and_unaffordable_dimmed) {
+  mw1::Company c = company_with_stores();
+  c.planet = "Test", c.mech = kOwens, c.tier = 0;
+  c.market.stock = {kFirefly, kAtlas};
+  c.funds = 3000000;  // the Firefly (2,605,000) affordable, the Atlas not
+  mw1::MarketChoice m;
+  mw1::clamp_choice(c, m);
+  auto block = [](const mw1::ScreenView& v, const char* at) -> const std::vector<std::string>* {
+    for (const mw1::TextBlock& b : v.blocks)
+      if (b.at && std::string(b.at) == at) return &b.lines;
+    return nullptr;
+  };
+  auto plaque = [&](const mw1::ScreenView& v) { return block(v, "PLACE") ? block(v, "PLACE")->front() : std::string(); };
+  mw1::ScreenView v = mw1::market_view(c, m);
+  EXPECT(plaque(v) == "3,000,000 C-BILLS");
+  const std::vector<std::string>* rows = block(v, "S_ROWS");
+  const std::vector<std::string>* dim = block(v, "S_ROWS_DIM");
+  EXPECT(rows && dim && rows->size() == 2 && dim->size() == 2);
+  if (rows && dim && rows->size() == 2 && dim->size() == 2) {
+    EXPECT(!(*rows)[0].empty() && (*dim)[0].empty());  // the Firefly: affordable
+    EXPECT((*rows)[1].empty() && !(*dim)[1].empty());  // the Atlas: dimmed
+  }
+  // Bought: the plaque says what's left at once; now nothing is affordable, both rows dimmed.
+  EXPECT(mw1::buy(c, 0) == mw1::Deal::kDone);
+  mw1::clamp_choice(c, m);
+  v = mw1::market_view(c, m);
+  EXPECT(plaque(v) == "395,000 C-BILLS");
+  dim = block(v, "S_ROWS_DIM");
+  EXPECT(dim && dim->size() == 1 && !(*dim)[0].empty());
+  // Sold: the funds up again.
+  EXPECT(mw1::sell(c, 1) == mw1::Deal::kDone);
+  v = mw1::market_view(c, m);
+  EXPECT(plaque(v) == "2,739,000 C-BILLS");
+  // Rich: nothing dimmed, no dim block.
+  c.funds = 100000000;
+  v = mw1::market_view(c, m);
+  EXPECT(block(v, "S_ROWS_DIM") == nullptr);
+}

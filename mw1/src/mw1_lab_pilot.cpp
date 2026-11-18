@@ -95,4 +95,45 @@ void PilotChooser::forget() {
   title_.reset(), name_.reset(), left_.reset(), right_.reset();
 }
 
+LabFunds::LabFunds() = default;
+LabFunds::~LabFunds() = default;
+
+void LabFunds::attach(ztwod::Layer* window, int32_t x, int32_t y) {
+  if (window_) detach();
+  if (!window) return;
+  window_ = window;
+  ztwod::Host& h = ztwod::host();
+  title_ = std::make_unique<ztwod::Text>();
+  title_->set_font(h.font_find("mw1_lab_small_title"));
+  title_->set_text_plain("FUNDS");
+  title_->set_pos(x, y);
+  sum_ = std::make_unique<ztwod::Text>();
+  sum_->set_font(h.font_find("mw1_lab_small_green"));
+  sum_->set_pos(x, y + kFundsLineDy);
+  for (ztwod::Text* t : {title_.get(), sum_.get()}) {
+    t->flags &= ~ztwod::kManaged;  // drawn every frame: the lab repaints its screen each frame
+    window_->add(t);
+    t->show_for(-1.0f);
+    t->dirty();
+  }
+}
+
+void LabFunds::show(const std::string& sum) {
+  if (!window_) return;
+  sum_->set_text_plain(sum.c_str());
+  sum_->dirty();
+}
+
+void LabFunds::detach() {
+  if (window_)
+    for (ztwod::Text* t : {title_.get(), sum_.get()})
+      if (t) window_->remove(t);
+  forget();
+}
+
+void LabFunds::forget() {
+  window_ = nullptr;
+  title_.reset(), sum_.reset();
+}
+
 }  // namespace mw1::lab_pilot

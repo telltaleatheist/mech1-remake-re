@@ -3,7 +3,9 @@
 ; and the _WIDE layout are ours). FIXES.md items 8 and 13, Owen's shape: one
 ; page, MW1's buttons down the left (BUY, SELL, REPAIR, RELOAD, MECH LAB,
 ; BACK), FOR SALE's terminal over YOUR MECHS', each list with its arrows; under the
-; buttons the chosen mech's render (FIXES.md item 14, PANEL6 and 7).
+; buttons the chosen mech's render (FIXES.md item 14, PANEL6 and 7). The funds
+; on the right plaque (PLACE); FOR SALE's rows the company can't afford in
+; S_ROWS_DIM's darker green, at S_ROWS's place (FIXES.md item 41).
 ; All MW1's own art (mw1image.zbd): nothing of Pirate's Moon's.
 ;
 ; MW1MARKETDIALOG is 4:3's (640); MW1MARKETDIALOG_WIDE the 16:9 canvas's (853).
@@ -44,6 +46,7 @@ MW1MARKETDIALOG (
     S_TITLE (POSITION (204 86) FONT ("mw1_term_title"))
     S_HEAD (POSITION (204 108) FONT ("mw1_term_dim"))
     S_ROWS (POSITION (204 128) FONT ("mw1_term_line") GAP (15))
+    S_ROWS_DIM (POSITION (204 128) FONT ("mw1_term_dim") GAP (15))
     O_TITLE (POSITION (204 266) FONT ("mw1_term_title"))
     O_HEAD (POSITION (204 288) FONT ("mw1_term_dim"))
     O_ROWS (POSITION (204 308) FONT ("mw1_term_line") GAP (15))
@@ -85,6 +88,7 @@ MW1MARKETDIALOG_WIDE (
     S_TITLE (POSITION (216 86) FONT ("mw1_term_title"))
     S_HEAD (POSITION (216 108) FONT ("mw1_term_dim"))
     S_ROWS (POSITION (216 128) FONT ("mw1_term_line") GAP (15))
+    S_ROWS_DIM (POSITION (216 128) FONT ("mw1_term_dim") GAP (15))
     O_TITLE (POSITION (216 266) FONT ("mw1_term_title"))
     O_HEAD (POSITION (216 288) FONT ("mw1_term_dim"))
     O_ROWS (POSITION (216 308) FONT ("mw1_term_line") GAP (15))

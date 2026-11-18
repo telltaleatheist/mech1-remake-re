@@ -50,6 +50,26 @@ class PilotChooser {
   bool can_step_ = false, visible_ = true;
 };
 
+// The company's funds on every lab page (FIXES.md item 41, Owen: the Mech Complex shows what he has): "FUNDS" and
+// the sum ("1,029,000 C-BILLS") in the top of the lab's middle column, right of the chassis's icon (the layout's
+// kFundsX, kFundsY), a piece on the lab's window as the PILOT row is.
+inline constexpr int32_t kFundsX = 270, kFundsY = 10, kFundsLineDy = 18;
+class LabFunds {
+ public:
+  LabFunds();
+  ~LabFunds();
+  void attach(ztwod::Layer* window, int32_t x, int32_t y);  // the window's own places
+  void show(const std::string& sum);
+  void detach();
+  void forget();
+  bool attached() const { return window_ != nullptr; }
+  std::string shown() const { return sum_ ? sum_->text : ""; }  // tests
+
+ private:
+  ztwod::Layer* window_ = nullptr;
+  std::unique_ptr<ztwod::Text> title_, sum_;
+};
+
 }  // namespace mw1::lab_pilot
 
 namespace mw1 {
