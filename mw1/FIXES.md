@@ -240,3 +240,19 @@ Tick an item when it is merged into `main`.
   - The mech line (OWENS LIGHT) leaves the hub too.
   - The accepted contract's summary goes on the status line.
 
+## 21. [ ] Travel: every world findable, and each world's trade facts on the map
+- **Owen (2026-11-17):** "Doesn't look like our map has every single planet available for travel. Does travel work? ... Can we make sure they have every single planet and every planet matches the attributes in the original? High mech sale price or cheaper prices, different contracts, etc. That's how a lot of people won this game originally. They travel, sell the Jenner, travel back, buy a Shadow Hawk ..."
+- **Today:**
+  - All 145 of MW1's travel worlds are on the map (research/economy.md, mw1_travel.h). Each has MW1's own tier, House, office flag, position and travel weight, read from MW_MAIN.EXE.
+  - MW1's trade rules are ported:
+    - sale 90/110/120/140% by tier;
+    - stock size and damage by tier;
+    - the dealer's 1–3 / 1–2 buying limit at tiers 2 and 3;
+    - ammo mark-ups.
+  - But only the five capitals are labelled. The other worlds are small dots, and the office-less ones are tinier, so the map looks sparse and you can't tell a rich world from an edge world without visiting it.
+- **Wanted:**
+  - **Hover or select any world** for a readout: its name, House, office (contracts) or none, "Mechs sell at 140% (tier 3)" / "buys at 100%", the dealer's limit, the distance, and the trip's cost and time.
+  - **Bigger, clearer dots,** and a filter (FILTER exists) that can show by tier: where to sell high, where to buy cheap.
+  - **A test that the arbitrage loop works end to end:** buy at tier 0, travel to a tier 3 world, sell for a profit, travel back. Check with the dealer limit and the travel cost.
+  - **Check the contracts per world:** the planet record's byte 3 (the biggest mission category there), against how mw1_missions picks a category. Use it if MW1 does.
+
