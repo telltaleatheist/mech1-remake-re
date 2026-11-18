@@ -24,12 +24,14 @@
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
 
+#include "platform/hires_2d.h"
 #include "gamez/zutil/zutl_path.h"
 #include "mw1_game.h"
 #include "mw1_missions.h"
@@ -240,6 +242,11 @@ int main(int argc, char** argv) {
   mw1::prepare_worlds(use.mw3, worlds, said, hidden ? mw1::Convert{} : mw1::Convert(convert_in_window),
                       [](const std::string& line) { std::printf("mw1: %s\n", line.c_str()), std::fflush(stdout); });
   for (const std::string& w : mw1::register_worlds(worlds)) std::printf("mw1: world %s from %s\n", w.c_str(), worlds.c_str());
+  // The 2D's text and pictures at the window's resolution (FIXES.md item 12, research/hires-2d.md): MW1's alone.
+  // MW1_HIRES=0 (a test override) keeps the canvas only, as PM's and MW3's programs draw.
+  const char* hires = std::getenv("MW1_HIRES");
+  platform::set_hires_2d(!(hires && std::strcmp(hires, "0") == 0));
+  std::printf("mw1: high-resolution 2D %s\n", platform::hires_2d() ? "on" : "off (MW1_HIRES=0)");
   // The rest is PM's game main, on its own write dir and PM install.
   std::vector<std::string> args = mw1::game_args(argv[0], a, use);
   std::vector<char*> raw;

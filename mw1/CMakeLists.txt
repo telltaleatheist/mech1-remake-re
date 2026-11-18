@@ -91,6 +91,19 @@ if(TARGET mw3pm)
     # MW1's own screens' text fit (FIXES.md items 3 and 5): every text inside the canvas, both shapes.
     add_test(NAME mw1screenfit COMMAND ${CMAKE_COMMAND} -DMW1_BIN=$<TARGET_FILE:mw1> -DDIR=${CMAKE_CURRENT_BINARY_DIR}/mw1screenfit
                                        -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/screen_fit.cmake)
+    # The high-resolution 2D (FIXES.md item 12, research/hires-2d.md B3 and B4). Off, every frame byte-identical to
+    # the recorded one (PM's options, MW1 with MW1_HIRES=0); on, MW1's 2D at 4K has detail inside the canvas's texels.
+    add_executable(mw1hirescheck tools/mw1hirescheck.cpp)
+    target_link_libraries(mw1hirescheck PRIVATE SDL3::SDL3)
+    add_test(NAME mw1hiresoff COMMAND ${CMAKE_COMMAND} -DPM_BIN=$<TARGET_FILE:mw3pm> -DMW1_BIN=$<TARGET_FILE:mw1>
+                                      -DDIR=${CMAKE_CURRENT_BINARY_DIR}/mw1hiresoff
+                                      -DGOLDEN=${CMAKE_CURRENT_SOURCE_DIR}/tests/hires_golden.txt
+                                      -DPLATFORM=${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}
+                                      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/hires_off.cmake)
+    add_test(NAME mw1hiressmooth COMMAND ${CMAKE_COMMAND} -DMW1_BIN=$<TARGET_FILE:mw1> -DCHECK_BIN=$<TARGET_FILE:mw1hirescheck>
+                                         -DDIR=${CMAKE_CURRENT_BINARY_DIR}/mw1hiressmooth
+                                         -DEXPECT=blocky  # until the high-resolution draw lands (B1's fourth piece)
+                                         -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/hires_smooth.cmake)
   endif()
   if(WIN32)
     # The version resource's numbers, MW1's own (the engine's are in its own scope): git's describe and commit count.
