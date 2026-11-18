@@ -1259,11 +1259,14 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     p.scene = scenery_image(company_.planet_number);
     p.replay = a.outcome == Outcome::kFailure;
     // RESULTS: the objective, the time, the enemies and by whom, the lance.
-    p.results.push_back("Objective: " + objective_words(contract_));
+    // (A terminal holds about 35 letters: mw1screenfit's results page checks each line inside its own.)
+    std::string objective = objective_words(contract_);
+    if (!objective.empty()) objective[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(objective[0])));
+    p.results.push_back(objective);
     p.results.push_back(std::string(a.outcome == Outcome::kSuccess   ? "Accomplished"
                                      : a.outcome == Outcome::kFailure ? "Failed"
-                                                                      : "Withdrew: the contract broken") +
-                        ", time " + time_words(a.seconds));
+                                                                      : "Withdrew") +
+                        " in " + time_words(a.seconds));
     // The lancemates before the wrecks: a long list of wrecks is the one cut short.
     for (const LanceFate& f : a.lance) p.results.push_back(pilot_title(f.id) + (f.destroyed ? ": mech destroyed" : ": came back"));
     for (int32_t id : a.stayed) p.results.push_back(pilot_title(id) + ": stayed behind");
@@ -1274,7 +1277,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       const std::string by = killer_words(i);
       const int64_t v = int64_t{wreck_value(company_, a.wrecks[i])} * 1000;
       value += v;
-      p.results.push_back("  " + mech_title(kMechKinds[a.wrecks[i].kind].pm_mech) + (by.empty() ? "" : " (" + by + ")") + ", " + thousands(v));
+      p.results.push_back("  " + mech_title(kMechKinds[a.wrecks[i].kind].pm_mech) + (by.empty() ? "" : " (" + by + ")") + " " + thousands(v));
     }
     // PAY: the fee (any deduction), the salvage share of the wrecks' value, the repairs, the total and the funds.
     const bool docked = s.payout_percent < 100 && a.outcome == Outcome::kSuccess;
@@ -1283,7 +1286,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (a.outcome == Outcome::kSuccess && contract_.salvage_percent && value)
       p.pay.push_back("Salvage: " + std::to_string(contract_.salvage_percent) + "% of " + thousands(value));
     p.pay.push_back("Salvage share: " + thousands(s.salvage));
-    for (const std::string& l : rep.lines) p.pay.push_back(l);
+    // The bill's lines (the rest, a mech lost, is YOUR MECH's and the hub's messages after CONTINUE).
+    for (const std::string& l : rep.lines)
+      if (l.rfind("Repair", 0) == 0) p.pay.push_back(l);
     const int64_t total = c.funds - before;
     p.pay.push_back("Total: " + std::string(total < 0 ? "-" : "+") + thousands(total < 0 ? -total : total) + " C-bills");
     p.pay.push_back("Funds: " + thousands(c.funds) + " C-bills");
@@ -2207,7 +2212,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     const std::string p = page;
     auto on = [&](auto* st) { return st && app->current() == static_cast<zgame::State*>(st) ? st->screen() : nullptr; };
     // A new company's hub opens on its story's first event, the news on the event panel: those count as the page's.
-    Mw1Screen* sc = p == "hub_options" ? on(game_loop_hub_options())
+    Mw1Screen* sc = p == "results"     ? on(game_loop_results())
+                    : p == "hub_options" ? on(game_loop_hub_options())
                     : p == "news" || (p.rfind("hub", 0) == 0 && on(game_loop_event())) ? on(game_loop_event())
                     : p.rfind("hub", 0) == 0                ? on(game_loop_hub())
                     : p.rfind("market", 0) == 0             ? on(game_loop_market())
@@ -2220,7 +2226,16 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (++frames < 40) return;
     const int32_t w = ge_->buffer_width(), h = ge_->buffer_height();
     int texts = 0, outside = 0;
-    for (const FitText& f : fit_texts(*sc, 0, 0, {{0, 0, w, h, "canvas"}})) {
+    // The results screen's texts each inside its own piece (its layout's 640 x 480, centred): the plaque, the outcome's
+    // band, the four terminals, the buttons; the others inside the canvas.
+    const bool results = p == "results";
+    const std::vector<FitBox> boxes =
+        results ? std::vector<FitBox>{{170, 6, 470, 66, "plaque"},       {0, 66, 640, 100, "outcome"},
+                                      {16, 106, 312, 266, "results"},    {328, 106, 624, 266, "pay"},
+                                      {16, 278, 312, 438, "salvage"},    {328, 278, 624, 438, "mech"},
+                                      {52, 446, 220, 476, "replay"},     {236, 446, 404, 476, "continue"}}
+                : std::vector<FitBox>{{0, 0, w, h, "canvas"}};
+    for (const FitText& f : fit_texts(*sc, results ? (w - 640) / 2 : 0, 0, boxes)) {
       ++texts;
       if (f.fits) continue;
       ++outside;

@@ -1712,7 +1712,7 @@ TEST(mw1_loop_repairs_billed_won_failed_and_never_on_a_quit_headless) {
       if (k.killed) {
         // Lost, not billed; the commander in the Firefly, saved so.
         bool said = false;
-        for (const std::string& l : run.after_action) said = said || l == "Lost: your Owens. You take the Firefly.";
+        for (const std::string& l : run.after_action) said = said || l == "Destroyed in the battle";  // YOUR MECH's
         mw1::Company saved;
         mw1::Contract kk;
         bool has = false;
