@@ -1557,7 +1557,7 @@ TEST(mw1_loop_market_buy_sell_pilot_then_a_contract_in_the_bought_mech_headless)
     EXPECT(run.hold_phase == 5 && run.ask_held > run.ask_offer + mw1::kRequestPaymentStep && run.ask_released == run.ask_held);
     EXPECT(run.market_done && run.market_lines.size() > 4);
     bool for_sale = false, yours = false;
-    for (const std::string& l : run.market_lines) for_sale = for_sale || l == "FOR SALE", yours = yours || l == "YOUR MECHS";
+    for (const std::string& l : run.market_lines) for_sale = for_sale || l == "FOR SALE", yours = yours || l.rfind("YOUR MECHS", 0) == 0;
     EXPECT(for_sale && yours);
     // The prices at the start world's tier, from the save's company.
     mw1::Company saved;

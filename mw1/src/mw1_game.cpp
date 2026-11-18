@@ -301,6 +301,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s).rfind("market", 0) == 0) {
         press(kHubMarket);
         if (std::string(s) == "market_lab") press_market(kMarketLab);  // the lab on the commander's mech, its PILOT line
+        if (std::string(s) == "market_dealer") {  // the dealer's limit up (a later tier's roll; mw1screenfit's case)
+          company_.market.limit = company_.market.sold + kDealerLimitBase, show_market();
+        }
       }
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "travel") press(kHubTravel);
       // MW1_SCREEN=travel_pick: the map with a world chosen (MW1_TRAVEL_TO, a name; else the farthest of the first few).
