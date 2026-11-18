@@ -1459,7 +1459,7 @@ TEST(mw1_loop_deploy_goes_straight_in_never_through_pms_briefing_headless) {
     // The battle world's scenery by its climate (item 6's scenery_image): one of our pictures.
     std::printf("  the scene: %s\n", run.loading_scene.c_str());
     EXPECT(run.loading_scene.rfind("mw1_hub_", 0) == 0 &&
-           fs::exists(fs::path(MW1_DATA_DIR) / ".." / "data-src" / "art" / (run.loading_scene.substr(4) + ".png"), ec));
+           fs::exists(fs::path(MW1_DATA_DIR) / ".." / "data-src" / "art" / (run.loading_scene.substr(4) + ".jpg"), ec));
     // The main enemy beside the terminal: headless, the renders aren't made, so its amber icon (mw1icons).
     std::printf("  the enemy: %s\n", run.loading_enemy.c_str());
     EXPECT(run.loading_enemy.rfind("mw1_icon_", 0) == 0);

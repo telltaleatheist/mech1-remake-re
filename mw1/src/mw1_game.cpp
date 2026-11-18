@@ -44,6 +44,7 @@
 #include "gamez/ztwod/twod.h"
 #include "gamez/ztwod/twod_host.h"
 #include "gamez/zutil/zutl_path.h"
+#include "mw1_art.h"
 #include "mw1_bar_screen.h"
 #include "mw1_lab_fit.h"
 #include "mw1_mech_icons.h"
@@ -386,7 +387,15 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   static void register_images() {
     for (zimg::Library* lib : zimg::library_list(1))
       if (lib && std::strstr(lib->name, kImageLibrary)) return;
-    zimg::new_image_library(kImageLibrary, 0, false);
+    zimg::Library* lib = zimg::new_image_library(kImageLibrary, 0, false);
+    // The screens' art beside it (mw1_art.h): mw1art.zbd where mw1image.zbd resolved to.
+    if (!lib || !zimg::open(*lib)) return;
+    std::string path = std::string(zimg::state().dir) + lib->name;
+    const size_t at = path.rfind(kImageLibrary);
+    if (at == std::string::npos) return;
+    path.replace(at, std::strlen(kImageLibrary), art::kArtLibrary);
+    const char* hires = std::getenv("MW1_HIRES");  // "0": nothing high-res (research/hires-2d.md)
+    if (!art::install(path, !(hires && std::strcmp(hires, "0") == 0))) std::printf("mw1: no art archive (%s): the screens lack their pictures\n", path.c_str());
   }
 
   // The menu's state on this engine, made once; false when MW1's layout is not there.
@@ -1730,6 +1739,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       const LoadingPanel panel = loading_panel();
       loading_->show(loading_view(panel));
       ++seen_.loads, seen_.lines = loading_->shown(), seen_.scene = panel.scene, seen_.enemy = panel.enemy;
+      // Behind it, the pictures the mission comes back to: the results' and the hub's backdrop (mw1_art.h).
+      art::Store::get().preload({scenery_image(company_.planet_number)});
       std::printf("mw1: loading %sia%d: %s\n", contract_.world.c_str(), contract_.ia, objective_words(contract_).c_str());
     }
     if (loading_) loading_->update(dt);
