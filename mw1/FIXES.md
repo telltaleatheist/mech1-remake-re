@@ -520,7 +520,6 @@ Tick an item when it is merged into `main`.
   - **Chapters:** every story step seen so far, in order, with MW1's own text read from the exe as now.
   - **The current lead:** our own short line saying where and what, e.g. "Go to the House office on Galedon V" or "Ask about the Stone Arrow in the Bar on Mosiro". It names the planet and the place (Bar, Mech Complex, office, arrival).
   - **The strength:** for a step with a battle, the expected force, e.g. "Expect 4 heavy 'Mechs, about 260 tons. Bring a full lance."
-  - **The deadline:** "The council meets in 3 years 4 months" (20 Mar 3029), also on the hub's status line.
 - **The star map:** the lead's planet is marked (a story marker), and travel can pick it straight from the journal (GO THERE).
 - **Battles at the steps (ours; MW1's steps are text choices):** each FIGHT and each confrontation in the chain becomes a battle with its own fixed force. A loss means retreat and try again on the next arrival, never a death (33). The trail waits there until it's won.
   - **The ladder** (provisional numbers; one table so they're easy to tune):
@@ -537,7 +536,7 @@ Tick an item when it is merged into `main`.
   - The enemy pilots' skill rises with the step.
   - The pay for a story battle is none, but the salvage is kept (the reason to fight it).
 - **The old deaths (33):** each of MW1's seven death choices becomes a setback: a lost lancemate, a fine, or the step's battle at its hardest. The trail goes on.
-- **Too late (20 Mar 3029):** Jarris is Duke, the journal says so, and play goes on as a mercenary.
+- **No deadline (Owen 2026-11-18):** it takes as long as it takes, and the player can play on indefinitely. MW1's 20 Mar 3029 limit is dropped: 0x73 (too late) never fires, and ATTACK stays offered until won. The news still runs by date.
 - **Done means:**
   - a headless walk of the whole chain through the journal's leads (each lead's planet and place correct, each battle launched with its force);
   - shots of the journal, the map marker and a step battle's offer;
