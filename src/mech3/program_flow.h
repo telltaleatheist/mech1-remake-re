@@ -41,6 +41,16 @@ class ProgramFlow {
   // 0x00404f70; or a debug start's launch with no briefing), once it has
   // launched and before the Core state: the lab's choices are final.
   virtual void mission_launched(Engine& e) {}
+  // The briefing never shown (MW1): the Load state still builds it and loads the mission behind it, but none of it
+  // is drawn, and its voice and its script never start; the program's loading_frame draws instead and says when to
+  // go on. False (MW3, PM): the original's briefing.
+  virtual bool skip_briefing() const { return false; }
+  // What a skipped briefing does next.
+  enum class LoadingNext { kWait, kLaunch, kAbort };
+  // With skip_briefing, each frame of the Load state's screen, the video locked: the program draws its own loading
+  // screen. The first comes as the load starts (its picture stays up while the mission loads), `loaded` false; once
+  // `loaded`, kLaunch is the briefing's LAUNCH and kAbort its ABORT (back to the main menu, the mission unloaded).
+  virtual LoadingNext loading_frame(Engine& e, float dt, bool loaded) { return loaded ? LoadingNext::kLaunch : LoadingNext::kWait; }
   // Instant Action's launch (action_lineup, PM 0x0040b8f0's line-up): an ally of the player's about to be made,
   // line-up slot `slot` (1.., the player's 0; allies first), on its map record's AI settings, a copy for this
   // launch alone. The program may change them before the mech and its brain are made from them: its pilot's

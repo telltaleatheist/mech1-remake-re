@@ -43,6 +43,7 @@
 #include "mw1_bar_screen.h"
 #include "mw1_lab_fit.h"
 #include "mw1_mech_icons.h"
+#include "mw1_loading.h"
 #include "mw1_event_screen.h"
 #include "mw1_office.h"
 #include "mw1_campaign.h"
@@ -203,10 +204,13 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       };
     }
     // MW1_SCREEN=pause or pause_options (development: --shot pictures of the pause over a mission): the offer
-    // accepted, LAUNCH at the briefing, the pause pushed 90 frames into the mission (and its OPTIONS). MW1_SCREEN=lab
-    // or lab_files: the briefing's MECH LAB instead (and the lab's load box); lab_3, lab_4 its pages (lab_1, empty, falls back to the chassis: item 26).
+    // accepted, DEPLOY, the pause pushed 90 frames into the mission (and its OPTIONS). MW1_SCREEN=loading: DEPLOY's
+    // loading screen, held there. MW1_SCREEN=lab or lab_files: the Mech Complex's MECH LAB instead (and the lab's load
+    // box); lab_3, lab_4 its pages (lab_1, empty, falls back to the chassis: item 26).
     if (const char* s = std::getenv("MW1_SCREEN");
-        s && (std::string(s).rfind("pause", 0) == 0 || std::string(s).rfind("lab", 0) == 0) && !shot_driver_) {
+        s && (std::string(s).rfind("pause", 0) == 0 || std::string(s).rfind("lab", 0) == 0 || std::string(s) == "loading") &&
+        !shot_driver_) {
+      hold_for_shot_ = std::string(s) == "loading";
       shot_driver_ = true;
       auto before = ge.on_present;
       ge.on_present = [this, before, page = std::string(s)](int f) {
@@ -244,9 +248,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // Back from a contract's mission, the main menu stays MW1's even when the next offer is declined: taken over,
     // Instant Action's own return (its screen reopened) does not follow (program_flow.h).
     const bool returning = deployed_;
+    loading_.reset();  // a load aborted (or PM's next round's): its loading screen gone
     if (deployed_ && !launched_) {  // ABORT at the briefing: the company as it was, the contract still taken (a replay's failure still pending)
       deployed_ = false;
-      std::printf("mw1: aborted at the briefing: nothing changed\n");
+      std::printf("mw1: aborted before the launch: nothing changed\n");
     } else if (deployed_) {
       // Back from the mission: AFTER ACTION, not settled until its OK (or REPLAY plays it again); saved now, so a
       // restart shows it again and it is settled once.
@@ -1534,11 +1539,49 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
                 mw1_objective_name(objective_of_code(contract_.code)), contract_.payment, contract_.enemies.size());
   }
 
-  // LAUNCH: the lab's choices become the company's (the stores and the loadout, from the briefing's copy). The
+  // FIXES.md item 18: DEPLOY goes straight into the mission. PM's briefing (the Load state's screen) is built and
+  // loads the mission, but never drawn; MW1's loading screen is up instead, and the mission launches once loaded.
+  bool skip_briefing() const override { return true; }
+  LoadingNext loading_frame(mech3::Engine& e, float dt, bool loaded) override {
+    if (!loading_ && layout_there(kLoadFile, kLoadDialog)) {
+      loading_ = std::make_unique<screens::Mw1Screen>(e, mech3::states().load.addr(), kLoadFile, kLoadDialog,
+                                                     std::vector<screens::ScreenButton>{}, nullptr);
+      const LoadingPanel panel = loading_panel();
+      loading_->show(loading_view(panel));
+      ++seen_.loads, seen_.lines = loading_->shown(), seen_.scene = panel.scene;
+      std::printf("mw1: loading %sia%d: %s\n", contract_.world.c_str(), contract_.ia, objective_words(contract_).c_str());
+    }
+    if (loading_) loading_->update(dt);
+    if (!loaded || hold_launch_ || hold_for_shot_) return LoadingNext::kWait;
+    // A load MW1 didn't ask for (PM's own next round, its debriefing's CONTINUE): never played, back to the hub.
+    if (!deployed_ || launched_) return LoadingNext::kAbort;
+    return LoadingNext::kLaunch;
+  }
+  // The loading screen's facts: the battle's world (else the company's) and its scenery, the employer, the contract
+  // as the office's offer said it (less what the plaque and the title say).
+  LoadingPanel loading_panel() const {
+    const Contract& k = contract_;
+    LoadingPanel p;
+    const int32_t number = k.mission_planet >= 0 ? kPlanets[k.mission_planet].number : company_.planet_number;
+    p.planet = upper(k.mission_planet >= 0 ? title_case_name(kPlanets[k.mission_planet].name) : company_.planet);
+    p.employer = "HOUSE " + upper(kHouses[k.house].name);
+    p.scene = scenery_image(number);
+    const std::string title = mission_title(k.code);
+    p.title = title.empty() ? "CONTRACT" : upper(title);
+    const std::string title_line = title.empty() ? "" : title_case_name(title.c_str());
+    for (const std::string& l : offer_lines(false, false))
+      if (l.rfind("Employer: ", 0) != 0 && l != title_line) p.lines.push_back(l);
+    return p;
+  }
+
+  // The launch: the lab's choices become the company's (the stores and the loadout, from the briefing's copy). The
   // contract is accepted and its advance paid at its first launch only; a later launch of the same contract (a
   // replay; none reaches here yet, an IA REPLAY ends the mission as a failure) puts back what the first launch
   // left. Each launch starts the mission's salvage and wrecks afresh.
   void mission_launched(mech3::Engine&) override {
+    loading_.reset();  // the loading screen's job done
+    if (const mech3::BriefingScreen* b = mech3::briefing_screen())  // launched from it: still there (tests)
+      seen_.briefing_frames += b->frames_drawn, seen_.briefing_script = seen_.briefing_script || b->script.playing;
     mech3::Pilot* p = mech3::current_pilot();
     mech3::ActionGame* g = p ? p->action() : nullptr;
     if (!deployed_ || !g) return;
@@ -1691,6 +1734,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   OfficeState* office_state() const { return office_state_; }
   HubOptionsState* hub_options_state() const { return hub_options_state_; }
   EventState* event_state() const { return event_up_ ? event_state_ : nullptr; }
+  const LoadingSeen& loading_seen() const { return seen_; }
+  void set_hold_launch(bool on) { hold_launch_ = on; }
   void set_story(bool on) { story_on_ = on; }
   void offer_again() {  // tests: the offer drawn again after a change to the company, the hub shown
     new_offer();
@@ -1829,14 +1874,18 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     static int frames = 0;
     frames = now == last ? frames + 1 : 0;
     last = now;
-    // The office's offer taken (MW1's way: the office, REQUEST, ACCEPT), then the hub's DEPLOY.
-    if (now == static_cast<zgame::State*>(ge->menu_state_of(hub_)) && frames == 10 && !deployed_ && !pending_) {
+    const bool lab = page.rfind("lab", 0) == 0;
+    // The lab's pages: the Mech Complex's MECH LAB on the commander's mech (the briefing's is never shown).
+    if (lab && now == static_cast<zgame::State*>(ge->menu_state_of(hub_)) && frames == 10 && lab_owned_ < 0) {
+      static bool once = false;
+      if (!once) once = true, press(kHubMarket), press_market(kMarketLab);
+    }
+    // The office's offer taken (MW1's way: the office, REQUEST, ACCEPT), then the hub's DEPLOY: the loading screen,
+    // then the mission.
+    if (!lab && now == static_cast<zgame::State*>(ge->menu_state_of(hub_)) && frames == 10 && !deployed_ && !pending_) {
       if (!contract_.accepted && earning_here(company_)) new_offer(), take_contract();
       if (contract_.accepted) press(kHubDeploy);
     }
-    if (now == &mech3::states().load)
-      if (mech3::BriefingScreen* b = mech3::briefing_screen(); b && b->loaded && frames == 20)
-        b->on_button(page.rfind("lab", 0) == 0 ? mech3::BriefingScreen::kBtnMechLab : mech3::BriefingScreen::kBtnLaunch, 0, 0);
     if (page == "lab_fit") return lab_fit_frame(*ge);
     // lab_<page> (1 weapons, 3 criticals, 4 groups; lab_3e and lab_3a its supply tabs) or lab_files (the load box).
     if (now == &mech3::states().lab && frames == 20 && page != "lab") {
@@ -1900,7 +1949,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
 
   // The contract as the Action screen's LAUNCH sets a game up (action_menu.cpp): the company pilot's Instant Action
   // game, its map and mode, the enemy force, the company's mech and loadout, and as its store a copy of the
-  // company's stores, which only LAUNCH writes back. Then the Load state: the briefing, its MECHLAB, its LAUNCH.
+  // company's stores, which only the launch writes back. Then the Load state: PM's briefing built but never shown
+  // (FIXES.md item 18), MW1's loading screen while the mission loads, then the launch.
   void deploy(mech3::GameEngine& ge) {
     mech3::Pilot* p = company_pilot();
     mech3::current_pilot() = p;
@@ -1930,9 +1980,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     g->store.add_all(*company_.stores);
     p->save();
     deployed_ = true, launched_ = false;
-    std::printf("mw1: deployed to %sia%d with the %s: the briefing\n", contract_.world.c_str(), contract_.ia,
+    std::printf("mw1: deployed to %sia%d with the %s: loading\n", contract_.world.c_str(), contract_.ia,
                 mech3::mech_name(company_.mech));
-    ge.replace_state(6);  // the Load state: the briefing, then LAUNCH
+    ge.replace_state(6);  // the Load state: the mission loaded behind MW1's loading screen, then launched
   }
 
   Rng rng_;
@@ -2000,6 +2050,11 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   Shown ev_shown_;         // the event on the panel
   EventPanel ev_panel_;
   std::vector<Shown> news_;  // the Bar's NEWS: the stories live now
+  // MW1's loading screen (mw1_loading.h) while a deployed mission loads, PM's briefing skipped (FIXES.md item 18).
+  std::unique_ptr<screens::Mw1Screen> loading_;
+  LoadingSeen seen_;  // tests
+  bool hold_launch_ = false;   // tests: the Load state waits once loaded, the test launching or aborting it
+  bool hold_for_shot_ = false;  // MW1_SCREEN=loading (development: --shot the loading screen)
 };
 
 }  // namespace
@@ -2055,6 +2110,10 @@ void game_loop_press(int32_t button) {
 BarState* game_loop_bar() { return the_loop() ? the_loop()->bar_state() : nullptr; }
 OfficeState* game_loop_office() { return the_loop() ? the_loop()->office_state() : nullptr; }
 EventState* game_loop_event() { return the_loop() ? the_loop()->event_state() : nullptr; }
+LoadingSeen game_loop_loading_seen() { return the_loop() ? the_loop()->loading_seen() : LoadingSeen{}; }
+void set_game_loop_hold_launch(bool on) {
+  if (the_loop()) the_loop()->set_hold_launch(on);
+}
 void set_game_loop_story(bool on) {
   if (the_loop()) the_loop()->set_story(on);
 }

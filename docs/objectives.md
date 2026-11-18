@@ -414,6 +414,16 @@ original's.
   before the difficulty, `zai_firing` 0x004b70b0). Enemies and a wave's new
   mechs aren't offered. The radio's voice (`+0xd8`) stays the record's.
   MW1's lancemates are named and aimed here.
+- `skip_briefing()` and `loading_frame(e, dt, loaded)`: a program that never
+  shows the briefing (MW1). The Load state still builds `BriefingScreen` and
+  loads the mission behind it (its buttons' state and the lance's loadouts at
+  the load's end, as ever), but plays neither its voice nor its script and
+  draws nothing of it (`frames_drawn` stays 0). Each of its frames calls
+  `loading_frame` instead, the video locked, for the program's own loading
+  screen: once as the load starts (that picture stays up through the load),
+  then each frame after. Once `loaded`, its answer is the briefing's LAUNCH
+  (`kLaunch`), its ABORT (`kAbort`), or nothing yet (`kWait`). MW1 launches
+  at once.
 - `mech_repaired(mech, armor_before, structure_before)`: a field base has just
   repaired a mech (the station's repair 0x0045a0f0, the refit's 0x0045bcc0, or
   the dock's timed repair 0x0045b320), any mech on any side. It gets each
@@ -448,4 +458,5 @@ Tests: `program_flow_none_is_the_original`,
 `mission_launched`, `tests/pm/test_pm_mission.cpp`),
 `program_flow_names_and_aims_an_instant_action_ally_headless`,
 `program_flow_sees_field_base_repairs_and_structure_headless`,
+`program_flow_skips_the_briefing_headless`,
 `adopt_state_registers_a_program_state` (`tests/pm/test_pm_mission.cpp`).
