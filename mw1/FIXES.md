@@ -83,6 +83,9 @@ Tick an item when it is merged into `main`.
   - The world and ARRIVAL heading on our plaque.
   - NEXT/OK and a choice's captions as MW1 buttons: our chrome, not PM's ring button in the corner.
   - This was phase 5. It moves up, because every campaign opens on it.
+- **Owen again (2026-11-17, `owen-play-event-panel-2.png`):** on entering the game it's still "a 4:3 black screen ... with the same misplaced text in the top left and the same PM button in the bottom right." It's drawn as a 4:3 box over the title, with the title showing at both sides. "Buttons should match the intro style that we've established, not the PM style. We should be using the same NEW/LOAD button style."
+  - The panel fills the screen at 16:9 (no 4:3 box, no title showing through).
+  - **Every button in MW1 is the title's NEW/LOAD button** (`mw1_chrome`'s framed button): OK, NEXT, a choice's captions, the load box's OK/NO, and any other place PM's ring or dot buttons still show.
 
 ## 11. [ ] The hub's tiles where MW1 puts them
 - **Owen (2026-11-17):** "I don't think the menu items are in the right spot. I think the bar was on the right side, the second menu option ... the contract spot is in the bottom left I think? I want to arrange everything correctly."
