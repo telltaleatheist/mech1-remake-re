@@ -162,15 +162,35 @@ ScreenView travel_view(const Company& c, const TravelChoice& t) {
     for (int32_t i = 0; i < kPlanetCount; ++i)
       if (capital(i)) named.push_back(i);
   std::vector<int32_t> seen;
+  struct Box { int32_t l, t, r, b; };
+  std::vector<Box> placed;  // the names so far: a later one goes where it crosses none (two near worlds' names
+                            // crossed: mw1screenfit's text-over-text check, FIXES 3+5)
   for (int32_t i : named) {
     if (std::find(seen.begin(), seen.end(), i) != seen.end()) continue;
     seen.push_back(i);
     const Point p = on_screen(i);
     const std::string n = title_case_name(kPlanets[i].name);
-    // Right of the world, or left of it near the map's right edge.
-    const int32_t w = static_cast<int32_t>(n.size()) * 6;
-    const int32_t x = p.x + 14 + w > kMapLeft + kMapWidth ? p.x - 14 - w : p.x + 14;  // clear of the rings
-    v.blocks.push_back({x, p.y - 7, i == wi || i == here ? kNoteFont : kLineFont, {n}});
+    // Right of the world (clear of its rings), else left of it, else above, else below; right or left first by
+    // the map's right edge. A name's box: 7 a letter (the note font's), 14 high.
+    const int32_t w = static_cast<int32_t>(n.size()) * 7, h = 14;
+    const bool near_right = p.x + 14 + w > kMapLeft + kMapWidth;
+    const Box right{p.x + 14, p.y - 7, p.x + 14 + w, p.y - 7 + h}, left{p.x - 14 - w, p.y - 7, p.x - 14, p.y - 7 + h};
+    const int32_t mid = std::max(kMapLeft, std::min(p.x - w / 2, kMapLeft + kMapWidth - w));
+    const Box above{mid, p.y - 13 - h, mid + w, p.y - 13}, below{mid, p.y + 12, mid + w, p.y + 12 + h};
+    const Box tries[4] = {near_right ? left : right, near_right ? right : left, above, below};
+    auto clear = [&](const Box& c) {
+      for (const Box& o : placed)
+        if (c.l < o.r && o.l < c.r && c.t < o.b && o.t < c.b) return false;
+      return true;
+    };
+    Box at = tries[0];
+    for (const Box& c : tries)
+      if (clear(c)) {
+        at = c;
+        break;
+      }
+    placed.push_back(at);
+    v.blocks.push_back({at.l, at.t, i == wi || i == here ? kNoteFont : kLineFont, {n}});
   }
   // The right column: the filter, the funds and date, the chosen world, the search.
   std::string title = "CHOOSE A WORLD";  // nothing chosen or under the mouse
