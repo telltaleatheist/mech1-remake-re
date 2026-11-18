@@ -235,13 +235,14 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // mission won 600 frames in (every enemy the commander's, the left arm hit), by PM's Exit Mission: the results.
     if (const char* s = std::getenv("MW1_SCREEN");
         s && (std::string(s).rfind("pause", 0) == 0 || std::string(s).rfind("lab", 0) == 0 || std::string(s) == "loading" ||
-              std::string(s) == "results") &&
+              std::string(s) == "results" || std::string(s).rfind("walk_", 0) == 0) &&
         !shot_driver_) {
       hold_for_shot_ = std::string(s) == "loading";
       shot_driver_ = true;
       auto before = ge.on_present;
       ge.on_present = [this, before, page = std::string(s)](int f) {
         if (before) before(f);
+        if (page == "results" || page.rfind("walk_", 0) == 0) name_state(f);
         pause_shot_frame(page);
       };
     }
@@ -519,12 +520,26 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   void intro_done() {
     mech3::GameEngine* ge = ge_;
     if (!ge) return;
-    if (intro_ && ge->menu_state_of(intro_) == intro_state_) ge->pop_state(1);
+    // Popped with 0 (FIXES.md item 35): the menu under it not redrawn and shown for a frame before the hub.
+    if (intro_ && ge->menu_state_of(intro_) == intro_state_) ge->pop_state(0);
     enter_hub(*ge);
     fresh_ = false;
   }
 
   // ---- the hub (mw1_hub.h) ----
+
+  // One MW1 screen to the next in one step (FIXES.md item 35): the app's Replace (0x00590250), the screen up leaving
+  // and `next` entering, never the state under them (MW1's menu) resumed between: a pop then a push showed the menu
+  // for a frame at every change. Pirate's Moon's way (pop, push) when `next` isn't a menu state.
+  void swap_to(mech3::GameEngine& ge, zgame::Handle next) {
+    mech3::MenuState* st = ge.menu_state_of(next);
+    if (mech3::Mech3App* app = mech3::app_if_any(); st && app) {
+      app->replace(st, 0);
+      return;
+    }
+    ge.pop_state(1);
+    ge.push_state(next, 0);
+  }
 
   // The hub's state on this engine, made once (Engine::adopt_state); false when MW1's layout is not there.
   bool hub(mech3::GameEngine& ge) {
@@ -557,7 +572,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       case kHubDeploy:
         // The contract taken at the office: the briefing (the hub off, then the main menu replaced by it).
         if (pending_ || !contract_.accepted || !ge) return;
-        ge->pop_state(1);
+        ge->pop_state(0);  // the menu under it not redrawn (FIXES.md item 35): Load replaces it at once
         deploy(*ge);
         return;
       case kHubCompany:
@@ -566,8 +581,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         bchoice_ = BarChoice{};
         bchoice_.page = BarPage::kLance, bchoice_.company = true;
         show_bar();
-        ge->pop_state(1);
-        ge->push_state(bar_, 0);
+        swap_to(*ge, bar_);
         return;
       case kHubOk: {
         if (!pending_) {  // the messages read (cleared above): the scenery again
@@ -581,23 +595,21 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       }
       case kHubReplay:
         if (!pending_ || pending_->outcome != Outcome::kFailure || !ge) return;
-        ge->pop_state(1);
+        ge->pop_state(0);  // as DEPLOY's
         replay(*ge);
         return;
       case kHubOptions:
         // MW1's OPTIONS in the hub's place: SETTINGS (PM's options), MAIN MENU, BACK (Escape at the hub too).
         if (pending_ || !ge || !hub_options(*ge)) return;
         hub_options_state_->show(scenery_image(company_.planet_number), upper(company_.planet));
-        ge->pop_state(1);
-        ge->push_state(hub_options_, 0);
+        swap_to(*ge, hub_options_);
         return;
       case kHubMarket:
         // The market in the hub's place (BACK brings the hub back); not while AFTER ACTION waits.
         if (pending_ || !ge || !market(*ge)) return;
         choice_ = MarketChoice{};
         show_market();
-        ge->pop_state(1);
-        ge->push_state(market_, 0);
+        swap_to(*ge, market_);
         story_events(kClassMechComplex);
         return;
       case kHubTravel:
@@ -605,16 +617,14 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         if (pending_ || !ge || !travel(*ge)) return;
         tchoice_ = TravelChoice{};
         show_travel();
-        ge->pop_state(1);
-        ge->push_state(travel_, 0);
+        swap_to(*ge, travel_);
         return;
       case kHubBar:
         // The Bar in the hub's place (BACK brings the hub back); not while AFTER ACTION waits.
         if (pending_ || !ge || !bar(*ge)) return;
         bchoice_ = BarChoice{};
         show_bar();
-        ge->pop_state(1);
-        ge->push_state(bar_, 0);
+        swap_to(*ge, bar_);
         story_events(kClassBarEntry);
         return;
       case kHubOffice:
@@ -623,8 +633,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         if (pending_ || contract_.accepted || !contracts_here(company_) || !ge || !office(*ge)) return;
         ochoice_ = OfficeChoice{};
         show_office();
-        ge->pop_state(1);
-        ge->push_state(office_, 0);
+        swap_to(*ge, office_);
         story_events(kClassOffice);
         return;
       default: return;  // the screens that come later
@@ -719,8 +728,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     mech3::GameEngine* ge = ge_;
     if (!ge) return;
     show_hub();
-    ge->pop_state(1);
-    ge->push_state(hub_, 0);
+    swap_to(*ge, hub_);
     hub_events();
   }
 
@@ -839,8 +847,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         }
         if (!ge) return;
         show_hub();
-        ge->pop_state(1);
-        ge->push_state(hub_, 0);
+        swap_to(*ge, hub_);
         hub_events();  // MW1 runs the hub's events each time it draws it (an arrival's after travel)
         return;
       default: return;
@@ -938,8 +945,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         clear_contract();
         if (!ge) return;
         show_hub();
-        ge->pop_state(1);
-        ge->push_state(hub_, 0);
+        swap_to(*ge, hub_);
         hub_events();  // MW1 runs the hub's events each time it draws it (an arrival's after travel)
         return;
       }
@@ -947,8 +953,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       case kTravelBack:
         if (!ge) return;
         show_hub();
-        ge->pop_state(1);
-        ge->push_state(hub_, 0);
+        swap_to(*ge, hub_);
         hub_events();  // MW1 runs the hub's events each time it draws it (an arrival's after travel)
         return;
       default: return;
@@ -1010,8 +1015,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       case kMarketBack:
         if (!ge) return;
         show_hub();
-        ge->pop_state(1);
-        ge->push_state(hub_, 0);
+        swap_to(*ge, hub_);
         hub_events();  // MW1 runs the hub's events each time it draws it (an arrival's after travel)
         return;
       default: return;
@@ -1427,9 +1431,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (!results_up_ || !pending_ || !ge) return;
     if (id == kResultsReplay) {
       if (pending_->outcome != Outcome::kFailure) return;
-      ge->pop_state(1);  // the results
+      ge->pop_state(0);  // the results, the hub under it not redrawn (FIXES.md item 35)
       results_up_ = false;
-      ge->pop_state(1);  // the hub
+      ge->pop_state(0);  // the hub, nor the menu
       replay(*ge);
       return;
     }
@@ -1462,8 +1466,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     const Side side = ev_panel_.side;
     if (event_up_ && event_side_ == side) return true;
     if (!event_screen(ge, side)) return false;
-    if (event_up_) ge.pop_state(1);
-    ge.push_state(events_[static_cast<size_t>(side)], 0);
+    if (event_up_) swap_to(ge, events_[static_cast<size_t>(side)]);  // one side's for the other, in one step (item 35)
+    else ge.push_state(events_[static_cast<size_t>(side)], 0);
     event_state_ = event_states_[static_cast<size_t>(side)], event_side_ = side, event_up_ = true;
     return true;
   }
@@ -2196,11 +2200,45 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   }
 
   // MW1_SCREEN=pause's and lab's driver, each frame shown (main_entered).
+  // MW1_SCREEN=walk_bar, walk_office_lab (FIXES.md item 35's captures, with --shot-series): the hub's screens one
+  // after another, a step every kWalkStep frames from the hub's first: walk_bar the Bar and back; walk_office_lab
+  // the office (an offer asked for, ACCEPT, back at the hub), the Mech Complex and its MECH LAB. Each frame's state
+  // named on a change (name_state; MW1_SCREEN=results too: a mission's return).
+  static constexpr int kWalkStep = 30;
+  // The state each frame presented (`f`, the engine's count) shows, named when it changes.
+  static void name_state(int f) {
+    static zgame::State* last = nullptr;
+    mech3::Mech3App* app = mech3::app_if_any();
+    zgame::State* now = app ? app->current() : nullptr;
+    if (now == last) return;
+    last = now;
+    auto* st = dynamic_cast<const mech3::State*>(now);
+    std::printf("mw1: frame %d: %s\n", f, st ? st->name() : "none");
+  }
+  void walk_frame(const std::string& page, mech3::GameEngine& ge, zgame::State* now) {
+    static int frame = 0, start = -1;
+    ++frame;
+    if (start < 0 && now == static_cast<zgame::State*>(ge.menu_state_of(hub_))) start = frame;
+    if (start < 0 || (frame - start) % kWalkStep != 0) return;
+    const int step = (frame - start) / kWalkStep;
+    if (page == "walk_bar") {
+      if (step == 1) press(kHubBar);
+      if (step == 2) press_bar(kBarBack);
+    } else if (page == "walk_office_lab") {
+      if (step == 1) press(kHubOffice);
+      if (step == 2) press_office(kOfficeRequest);
+      if (step == 3) press_office(kOfficeAccept);  // back to the hub
+      if (step == 4) press(kHubMarket);
+      if (step == 5) press_market(kMarketLab);
+    }
+  }
+
   void pause_shot_frame(const std::string& page) {
     mech3::GameEngine* ge = ge_;
     mech3::Mech3App* app = mech3::app_if_any();
     if (!ge || !app) return;
     zgame::State* now = app->current();
+    if (page.rfind("walk_", 0) == 0) return walk_frame(page, *ge, now);
     static zgame::State* last = nullptr;
     static int frames = 0;
     frames = now == last ? frames + 1 : 0;
