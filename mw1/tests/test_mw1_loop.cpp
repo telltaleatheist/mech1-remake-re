@@ -36,6 +36,8 @@
 #include "mech3/briefing.h"
 #include "mech3/debriefing.h"
 #include "mech3/lab_screen.h"
+#include "gamez/zimage/zimg_texture.h"
+#include "mw1_mech_icons.h"
 #include "mech3/mech_config.h"
 #include "mech3/mech_control.h"
 #include "mech3/mech_names.h"
@@ -192,6 +194,7 @@ struct Run {
   // FIXES.md item 22: the pointer's picture's width on PM's screens as they show (the briefing, the lab), by screen
   // (MouseHost serves only MW1's pictures: PM's ring would be none, -1).
   std::map<std::string, int32_t> pm_cursor;
+  int32_t icon_w = -1;  // item 23: the Owens' amber icon as the game finds it (made at the start), its width
   bool market_done = false;
   // Travel (mw1_travel_screen.h) before the first ACCEPT: the nearest world with a House office, GO; the contract
   // then taken there.
@@ -306,6 +309,8 @@ void loop_run(Ending ending, Run* run = nullptr) {
     int frames = 0;
     engine.on_present = [&](int) {
       if (app.pending()) return;
+      if (run && run->icon_w < 0)  // item 23
+        if (zimg::Texture* t = zimg::fetch_image(mw1::mech_icon_image(mw1::kPmOwens).c_str())) run->icon_w = t->width, zimg::free_texture(t);
       if (run) {  // PM's screens' pointers (item 22)
         auto seen = [&](const char* name, ztwod::Dialog* d) {
           if (d && d->cursor == &d->cursor_obj) run->pm_cursor[name] = d->cursor_obj.image ? d->cursor_obj.image->width : -1;
@@ -1356,6 +1361,8 @@ TEST(mw1_loop_market_buy_sell_pilot_then_a_contract_in_the_bought_mech_headless)
                 run.pm_cursor.count("lab") ? run.pm_cursor["lab"] : 0, mw1::chrome::kCursorSize);
     EXPECT(run.pm_cursor.count("briefing") && run.pm_cursor["briefing"] == mw1::chrome::kCursorSize);
     EXPECT(run.pm_cursor.count("lab") && run.pm_cursor["lab"] == mw1::chrome::kCursorSize);
+    std::printf("  the Company's mech icon: %d wide (the slot %d)\n", run.icon_w, mw1::kIconSlotW);
+    EXPECT(run.icon_w == mw1::kIconSlotW);
     EXPECT(run.market_done && run.market_lines.size() > 4);
     bool for_sale = false, yours = false;
     for (const std::string& l : run.market_lines) for_sale = for_sale || l == "FOR SALE", yours = yours || l == "YOUR MECHS";
