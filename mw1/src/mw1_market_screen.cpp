@@ -89,7 +89,7 @@ ScreenView market_view(const Company& c, const MarketChoice& m) {
               at_place("HOUSE", {"HOUSE " + upper(kHouses[c.planet_house].name) + " \xB7 THE MECH COMPLEX"}),
               at_place("PLACE", {thousands(c.funds) + " C-BILLS"}),
               at_place("PLACE_SUB", {"TIER " + std::to_string(c.tier) + " WORLD \xB7 SELLING AT " +
-                                     std::to_string((kTierMultipliers[c.tier] - 1) * 10) + "%"}),
+                                     std::to_string(sell_percent(c.tier)) + "%"}),
               at_place("STATUS_WORLD", {upper(c.planet)}),
               at_place("STATUS", {m.note.empty() ? "BUY takes a mech FOR SALE; the rest act on YOUR MECHS' chosen one." : m.note})};
   v.panels.assign(kMarketPanelCount, true);

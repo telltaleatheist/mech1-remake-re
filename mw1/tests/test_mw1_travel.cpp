@@ -242,7 +242,8 @@ TEST(mw1_travel_screen_view_filter_and_stranded) {
   int32_t lines = 0, dots = 0;
   for (const mw1::Mark& m : v.marks) lines += m.kind == mw1::Mark::Kind::kLine && (m.x != m.x2 || m.y != m.y2), dots += m.kind == mw1::Mark::Kind::kRing && m.size == 2;
   EXPECT(v.buttons[mw1::kTravelGo - 1].on && lines == (mw1::kJumpLine ? 1 : 0) && dots == mw1::kPlanetCount);
-  EXPECT(v.panels.size() == 6 && v.panels[0] && !v.panels[1]);
+  EXPECT(v.panels.size() == mw1::kTravelPanelCount && v.panels[0] && !v.panels[1]);
+  EXPECT(v.panels[mw1::kTravelPanelPlaques] && v.panels[mw1::kTravelPanelPlaques + 1] && v.panels[mw1::kTravelPanelPlaques + 2]);  // the plaques, the status line
   // FILTER's one House: its backdrop; the others' dots greyed.
   t.filter = {mw1::FilterKind::kHouse, mw1::kDavion};
   v = mw1::travel_view(c, t);

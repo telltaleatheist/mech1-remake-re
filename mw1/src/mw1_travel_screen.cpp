@@ -12,8 +12,7 @@
 namespace mw1::travel_ui {
 namespace {
 const std::vector<ScreenButton> kTravelButtons = {{"GO", "GO"}, {"FILTER", "FILTER"}, {"BACK", "BACK"}};
-constexpr int32_t kPanelX = 474;             // the right column, beside the map
-constexpr size_t kPanelColumns = 26;         // its lines' width in brief_green
+constexpr int32_t kPanelX = 470;             // the right column, beside the map
 constexpr size_t kNoteColumns = 72;          // the note's, across the map's foot
 
 std::string thousands(int64_t v) {
@@ -125,8 +124,9 @@ ScreenView travel_view(const Company& c, const TravelChoice& t) {
   // The map: the backdrop for the filter (the House's own lit), every world a dot in its House's colour (a ring
   // round one with a House office, a square at a capital), greyed when the filter leaves it out; the company's world
   // and the chosen one ringed, the jump's line between them; the world under the mouse ringed faintly.
-  v.panels.assign(6, false);
+  v.panels.assign(kTravelPanelCount, false);
   v.panels[t.filter.kind == FilterKind::kHouse ? static_cast<size_t>(1 + t.filter.house) : 0] = true;
+  v.panels[kTravelPanelPlaques] = v.panels[kTravelPanelPlaques + 1] = v.panels[kTravelPanelPlaques + 2] = true;
   const map_image::Rgb grey = {80, 80, 80}, white = {255, 255, 255}, yellow = {255, 255, 85}, faint = {170, 170, 170};
   if (kJumpLine && wi >= 0) {
     const Point a = on_screen(here), b = on_screen(wi);
@@ -173,7 +173,7 @@ ScreenView travel_view(const Company& c, const TravelChoice& t) {
     v.blocks.push_back({x, p.y - 7, i == wi || i == here ? kNoteFont : kLineFont, {n}});
   }
   // The right column: the filter, the funds and date, the chosen world, the search.
-  std::string title = "CHOOSE A WORLD";
+  std::string title = "CHOOSE A WORLD";  // nothing chosen or under the mouse
   std::vector<std::string> detail;
   // The readout (FIXES.md item 21): the world under the mouse, else the chosen one.
   const int32_t shown = t.hover >= 0 && t.hover != here ? t.hover : wi;
@@ -187,12 +187,11 @@ ScreenView travel_view(const Company& c, const TravelChoice& t) {
     detail = world_lines(c, shown);
     detail.push_back("");
     detail.push_back("Distance " + std::to_string(distance(from, w)));
-    detail.push_back("Cost " + thousands(cost) + " C-bills");
-    detail.push_back("  " + std::to_string(mechs) + (mechs == 1 ? " mech" : " mechs") + ", hired transport");
+    detail.push_back("Cost " + thousands(cost) + " for " + std::to_string(mechs) + (mechs == 1 ? " mech" : " mechs"));
     detail.push_back("Arrives " + date_words(date_after(c.date, units)));
     detail.push_back("  " + days_words(units) + " on the way");
     if (cost > c.funds) detail.push_back(""), detail.push_back("You can't afford it.");
-    if (shown != wi) detail.push_back(""), detail.push_back("Click to choose it.");
+    if (shown != wi) detail.push_back("Click to choose it.");
     // Going somewhere with no office and no way on: say so first.
     if (!deals_with(c, w) && cost <= c.funds) {
       Company after = c;
@@ -205,22 +204,22 @@ ScreenView travel_view(const Company& c, const TravelChoice& t) {
     title = upper(c.planet);
     detail = world_lines(c, here);
     detail.push_back(""), detail.push_back("You are here.");
-  } else {
-    detail = wrap("Click a world, or use the arrows. Type a name to find it. Enter is GO.", kPanelColumns);
   }
   if (!t.search.typed.empty()) detail.push_back(""), detail.push_back("Find: " + upper(t.search.typed));
+  // The stranded lines over the map's foot; the last GO's line, else how to choose, on the status line.
   std::vector<std::string> note;
-  std::vector<std::string> said = stranded_lines(c);
-  if (!t.note.empty()) said.insert(said.begin(), t.note);
-  for (const std::string& l : said)
+  for (const std::string& l : stranded_lines(c))
     for (const std::string& w : wrap(l, kNoteColumns)) note.push_back(w);
-  v.blocks.push_back({24, 14, kPlaqueFont, {upper(c.planet)}});
-  v.blocks.push_back({24, 32, kPlaqueSmallFont, {"HOUSE " + upper(kHouses[c.planet_house].name) + ": STARPORT"}});
-  v.blocks.push_back({kPanelX, 64, kPlaqueSmallFont, {"MAP: " + filter_words(t.filter)}});
-  v.blocks.push_back({kPanelX, 84, kLineFont, {"Funds " + thousands(c.funds) + " C-bills", "Today " + date_words(c.date)}});
-  v.blocks.push_back({kPanelX, 128, kTitleFont, {title}});
-  v.blocks.push_back({kPanelX, 152, kLineFont, detail});
-  v.blocks.push_back({24, 432 - 16 * static_cast<int32_t>(note.size()), kNoteFont, note});
+  v.blocks.push_back(at_place("PLANET", {upper(c.planet)}));
+  v.blocks.push_back(at_place("HOUSE", {"HOUSE " + upper(kHouses[c.planet_house].name) + " \xB7 STARPORT"}));
+  v.blocks.push_back(at_place("PLACE", {thousands(c.funds) + " C-BILLS"}));
+  v.blocks.push_back(at_place("PLACE_SUB", {date_words(c.date)}));
+  v.blocks.push_back(at_place("STATUS_WORLD", {upper(c.planet)}));
+  v.blocks.push_back(at_place("STATUS", {!t.note.empty() ? t.note : "Click a world or use the arrows. Type a name to find it."}));
+  v.blocks.push_back({kPanelX, 72, kPlaqueSmallFont, {"MAP: " + filter_words(t.filter)}});
+  v.blocks.push_back({kPanelX, 94, kTitleFont, {title}});
+  v.blocks.push_back({kPanelX, 118, kLineFont, detail});
+  v.blocks.push_back({24, 420 - 16 * static_cast<int32_t>(note.size()), kNoteFont, note});
   v.buttons.resize(kTravelButtonCount);
   v.buttons[kTravelGo - 1].on = wi >= 0 && travel_cost(c, kPlanets[wi]) <= c.funds;
   v.buttons[kTravelFilter - 1].on = v.buttons[kTravelBack - 1].on = true;
