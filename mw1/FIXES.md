@@ -308,6 +308,11 @@ Tick an item when it is merged into `main`.
 - **Cause:** MW1's lab icons keep PM's four sizes: lab_icon1 (chassis) 51x58, lab_icon4 (criticals/customize) 55x49, lab_icon5 (groups) 65x48, lab_accept 60x49. They sit at PM's positions in dlgMechLabII.
 - **Wanted:** all four the same framed size and shape, evenly spaced along the bottom bar, with none overlapping, at both shapes. mw1labfit checks that they are equal and don't overlap.
 
+## 30. [ ] Don't hold the mouse: let it leave the window
+- **Owen (2026-11-18, playing):** "lets make it so it doesnt hold the mouse. if i scroll the mouse out of the window (because i have 2 screens), or if i move it outside the viewport, it will move outside the viewport. mw3 works that way and its fine"
+- **Where:** SdlInput::capture puts the window in relative mouse mode (src/frontend/sdl/sdl_input.cpp), and `want` decides when (focused, acquired, mission, window, released).
+- **Wanted:** in MW1, the pointer leaves the window freely, as in MW3. Find which input decides it differently for MW1 (the menus at least; in missions, match whatever MW3 does) and make MW1 behave like MW3. Opt-in if it touches the engine; MW3 and PM unchanged.
+
 ## 28. [ ] Decisions waiting for Owen (not bugs; asked in chat)
 - Salvage parts on a lost or abandoned mission: kept or dropped? Today: dropped (VISION's endings).
 - The morning list's open story questions (`outbox/2026-11-17/mw1-morning-decisions.md`): the deaths, the deadline, the ending, the commander's name, the Dark Wing battle, multi-stage battles, the major campaign's dates.
