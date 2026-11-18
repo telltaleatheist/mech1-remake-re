@@ -290,6 +290,11 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (hub(ge)) {
       // A mission back (or a restart with one pending): MW1's results screen over the hub (FIXES.md item 19), until
       // CONTINUE settles it; the hub under it without AFTER ACTION.
+      // MW1_FIT (the screens' text guard) or MW1_LONG_NAME (its shots): the company on the longest-named world, every
+      // page's worst case for the plaques and the status bar (the name only: the world itself stays).
+      if (std::getenv("MW1_FIT") || std::getenv("MW1_LONG_NAME"))
+        for (const Planet& pl : kPlanets)
+          if (std::strlen(pl.name) > company_.planet.size()) company_.planet = pl.name;
       results_up_ = pending_ && results_screen(ge);
       show_hub();
       ge.push_state(hub_, 0);
@@ -2252,15 +2257,31 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
                                              {52, 446, 220, 476, "replay"},     {236, 446, 404, 476, "continue"}}
         : p == "loading" ? std::vector<FitBox>{{170, 16, 470, 76, "plaque"}, {48, 154, 476, 318, "terminal"}, {0, 360, 640, 400, "loading"}}
                          : std::vector<FitBox>{{0, 0, w, h, "canvas"}};
-    for (const FitText& f : fit_texts(*sc, boxed ? (w - 640) / 2 : 0, 0, boxes)) {
+    const std::vector<FitText> fits = fit_texts(*sc, boxed ? (w - 640) / 2 : 0, 0, boxes);
+    for (const FitText& f : fits) {
       ++texts;
       if (f.fits) continue;
       ++outside;
       std::printf("mw1 screen fit: %s, %zu letters at %d..%d x %d..%d: OUTSIDE\n", page, f.text.size(), f.left, f.right, f.top, f.bottom);
     }
-    std::printf("mw1 screen fit: done at %dx%d on %s, %d texts, %d outside\n", w, h, page, texts, outside);
+    // Text over text (FIXES 3+5: the status bar's world over its words): two texts' boxes crossing by more than
+    // kSlack each way (a text's box is 3 wider than its letters, and a block's lines may touch by a pixel or two).
+    constexpr int32_t kSlack = 3;
+    int overlaps = 0;
+    for (size_t i = 0; i < fits.size(); ++i)
+      for (size_t j = i + 1; j < fits.size(); ++j) {
+        const FitText &a = fits[i], &b = fits[j];
+        const int32_t dx = std::min(a.right, b.right) - std::max(a.left, b.left);
+        const int32_t dy = std::min(a.bottom, b.bottom) - std::max(a.top, b.top);
+        if (dx <= kSlack || dy <= kSlack) continue;
+        ++overlaps;
+        std::printf("mw1 screen fit: %s, %zu letters at %d..%d x %d..%d over %zu letters at %d..%d x %d..%d: OVERLAP\n",
+                    page, a.text.size(), a.left, a.right, a.top, a.bottom, b.text.size(), b.left, b.right, b.top, b.bottom);
+      }
+    std::printf("mw1 screen fit: done at %dx%d on %s, %d texts, %d outside, %d overlapping\n", w, h, page, texts, outside,
+                overlaps);
     std::fflush(nullptr);
-    std::_Exit(outside ? 1 : 0);
+    std::_Exit(outside || overlaps ? 1 : 0);
   }
 
   // MW1_SCREEN=lab_fit (the lab's text guard, mw1_lab_fit.h): the lab's pages 0 (chassis), 1, 3 (each supply tab)
