@@ -1706,7 +1706,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
                                                      std::vector<screens::ScreenButton>{}, nullptr);
       const LoadingPanel panel = loading_panel();
       loading_->show(loading_view(panel));
-      ++seen_.loads, seen_.lines = loading_->shown(), seen_.scene = panel.scene;
+      ++seen_.loads, seen_.lines = loading_->shown(), seen_.scene = panel.scene, seen_.enemy = panel.enemy;
       std::printf("mw1: loading %sia%d: %s\n", contract_.world.c_str(), contract_.ia, objective_words(contract_).c_str());
     }
     if (loading_) loading_->update(dt);
@@ -1729,6 +1729,15 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     const std::string title_line = title.empty() ? "" : title_case_name(title.c_str());
     for (const std::string& l : offer_lines(false, false))
       if (l.rfind("Employer: ", 0) != 0 && l != title_line) p.lines.push_back(l);
+    // The main enemy beside the terminal: the heaviest kind's PM mech (the first of the heaviest), its render once
+    // the first run has made them, else its amber icon (both the Company screen's 96x128 slot).
+    int32_t main = -1;
+    for (int32_t e : k.enemies)
+      if (e >= 0 && e < kKindCount && (main < 0 || kMechKinds[e].tons > kMechKinds[main].tons)) main = e;
+    if (main >= 0) {
+      const int32_t pm = kMechKinds[main].pm_mech;
+      p.enemy = renders_ready() ? render_image(pm, RenderUse::kSlot) : mech_icon_image(pm);
+    }
     return p;
   }
 
@@ -2213,6 +2222,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     auto on = [&](auto* st) { return st && app->current() == static_cast<zgame::State*>(st) ? st->screen() : nullptr; };
     // A new company's hub opens on its story's first event, the news on the event panel: those count as the page's.
     Mw1Screen* sc = p == "results"     ? on(game_loop_results())
+                    : p == "loading"     ? (app->current() == &mech3::states().load ? loading_.get() : nullptr)
                     : p == "hub_options" ? on(game_loop_hub_options())
                     : p == "news" || (p.rfind("hub", 0) == 0 && on(game_loop_event())) ? on(game_loop_event())
                     : p.rfind("hub", 0) == 0                ? on(game_loop_hub())
@@ -2226,16 +2236,17 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (++frames < 40) return;
     const int32_t w = ge_->buffer_width(), h = ge_->buffer_height();
     int texts = 0, outside = 0;
-    // The results screen's texts each inside its own piece (its layout's 640 x 480, centred): the plaque, the outcome's
-    // band, the four terminals, the buttons; the others inside the canvas.
-    const bool results = p == "results";
+    // The results and loading screens' texts each inside its own piece (their layouts' 640 x 480, centred): the
+    // plaque, the outcome's band or LOADING's, the terminals, the buttons; the others inside the canvas.
+    const bool boxed = p == "results" || p == "loading";
     const std::vector<FitBox> boxes =
-        results ? std::vector<FitBox>{{170, 6, 470, 66, "plaque"},       {0, 66, 640, 100, "outcome"},
-                                      {16, 106, 312, 266, "results"},    {328, 106, 624, 266, "pay"},
-                                      {16, 278, 312, 438, "salvage"},    {328, 278, 624, 438, "mech"},
-                                      {52, 446, 220, 476, "replay"},     {236, 446, 404, 476, "continue"}}
-                : std::vector<FitBox>{{0, 0, w, h, "canvas"}};
-    for (const FitText& f : fit_texts(*sc, results ? (w - 640) / 2 : 0, 0, boxes)) {
+        p == "results" ? std::vector<FitBox>{{170, 6, 470, 66, "plaque"},       {0, 66, 640, 100, "outcome"},
+                                             {16, 106, 312, 266, "results"},    {328, 106, 624, 266, "pay"},
+                                             {16, 278, 312, 438, "salvage"},    {328, 278, 624, 438, "mech"},
+                                             {52, 446, 220, 476, "replay"},     {236, 446, 404, 476, "continue"}}
+        : p == "loading" ? std::vector<FitBox>{{170, 16, 470, 76, "plaque"}, {48, 154, 476, 318, "terminal"}, {0, 360, 640, 400, "loading"}}
+                         : std::vector<FitBox>{{0, 0, w, h, "canvas"}};
+    for (const FitText& f : fit_texts(*sc, boxed ? (w - 640) / 2 : 0, 0, boxes)) {
       ++texts;
       if (f.fits) continue;
       ++outside;

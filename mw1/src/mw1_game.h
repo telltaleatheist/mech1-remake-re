@@ -130,6 +130,7 @@ struct LoadingSeen {
   bool briefing_script = false;
   std::vector<std::string> lines;
   std::string scene;  // its backdrop's picture (mw1image.zbd's name)
+  std::string enemy;  // the main enemy's picture shown beside the terminal (empty: none)
 };
 LoadingSeen game_loop_loading_seen();
 void set_game_loop_hold_launch(bool on);

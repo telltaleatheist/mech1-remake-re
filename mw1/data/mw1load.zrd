@@ -7,6 +7,9 @@
 ; - the world and the employer on the plaque at the top;
 ; - the contract on the green terminal in the middle: its title, objective,
 ;   map and enemy (the office's offer lines);
+; - the main enemy (the heaviest kind's PM mech) beside it, framed: its render,
+;   else its amber icon (the Company screen's 96x128 slot in its 104x136 frame;
+;   the screen hides the frame with no enemy);
 ; - LOADING in our type under it.
 ; No buttons and no pointer: nothing to press while the mission loads. All
 ; MW1's own art (mw1image.zbd): nothing of Pirate's Moon's
@@ -18,15 +21,17 @@ MW1LOADDIALOG (
     BACKGROUND (POSITION (-107 0) BITMAP ("mw1_hub_desert_starport") ANCHOR ("CENTRE"))
     PANEL (POSITION (-107 0) BITMAP ("mw1_dim") ANCHOR ("CENTRE"))
     PANEL2 (POSITION (170 16) BITMAP ("mw1_plaque") ANCHOR ("CENTRE"))
-    PANEL3 (POSITION (102 150) BITMAP ("mw1_term_436x172") ANCHOR ("CENTRE"))
+    PANEL3 (POSITION (44 150) BITMAP ("mw1_term_436x172") ANCHOR ("CENTRE"))
+    PANEL4 (POSITION (492 168) BITMAP ("mw1_frame_104x136") ANCHOR ("CENTRE"))
+    PANEL5 (POSITION (496 172) BITMAP ("mw1_clear") ANCHOR ("CENTRE"))
   )
   BUTTONS (
   )
   TEXTS (
     PLANET (POSITION (320 23) FONT ("mw1_plaque") ANCHOR ("CENTRE"))
     PLACE (POSITION (320 55) FONT ("mw1_plaque_sub") ANCHOR ("CENTRE"))
-    TITLE (POSITION (122 160) FONT ("mw1_term_title") ANCHOR ("CENTRE"))
-    LINES (POSITION (122 186) FONT ("mw1_term_line") GAP (16) ANCHOR ("CENTRE"))
+    TITLE (POSITION (64 160) FONT ("mw1_term_title") ANCHOR ("CENTRE"))
+    LINES (POSITION (64 186) FONT ("mw1_term_line") GAP (16) ANCHOR ("CENTRE"))
     LOADING (POSITION (320 372) FONT ("mw1_plaque") ANCHOR ("CENTRE"))
   )
 )

@@ -18,6 +18,7 @@
 #include "mw1_campaign.h"
 #include "mw1_repairs.h"
 #include "mw1_results.h"
+#include "mw1_loading.h"
 
 namespace fs = std::filesystem;
 
@@ -274,4 +275,18 @@ TEST(mw1_results_lines_and_view) {
   EXPECT(outcome && cut_shown);
   p.replay = false;
   EXPECT(!mw1::results_view(p).buttons[mw1::kResultsReplay - 1].there);
+}
+
+// The loading screen's main enemy (FIXES.md item 18's screen, the lead's addition): framed beside the terminal when
+// there is one, the frame and picture hidden without.
+TEST(mw1_loading_view_enemy_picture) {
+  mw1::LoadingPanel p;
+  p.planet = "SOL", p.employer = "HOUSE DAVION", p.scene = "mw1_hub_desert_city", p.title = "CONTRACT";
+  p.enemy = "mw1_icon_avatar";
+  mw1::ScreenView v = mw1::loading_view(p);
+  EXPECT(v.panels.size() == mw1::kLoadPanelCount && v.panels[mw1::kLoadEnemyFrame] && v.panels[mw1::kLoadEnemy] &&
+         v.pictures[mw1::kLoadEnemy] == "mw1_icon_avatar" && v.panels[mw1::kLoadTerminal]);
+  p.enemy.clear();
+  v = mw1::loading_view(p);
+  EXPECT(!v.panels[mw1::kLoadEnemyFrame] && !v.panels[mw1::kLoadEnemy] && v.panels[mw1::kLoadTerminal]);
 }

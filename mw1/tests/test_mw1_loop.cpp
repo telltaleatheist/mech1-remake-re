@@ -258,7 +258,7 @@ struct Run {
   int32_t briefing_drawn = 0;
   bool briefing_script = false;
   std::vector<std::string> loading_lines;
-  std::string loading_scene;
+  std::string loading_scene, loading_enemy;
   int32_t loadings = 0;
   bool load_held = false;  // the test launched (or aborted) the load itself (a lab fit, a strip, ABORT, PM's next round)
 };
@@ -360,7 +360,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
         // PM's briefing never drawn, its script never started; MW1's loading screen up instead (item 18).
         const mw1::LoadingSeen ls = mw1::game_loop_loading_seen();
         run->briefing_drawn = ls.briefing_frames, run->briefing_script = ls.briefing_script, run->loadings = ls.loads;
-        if (run->loading_lines.empty()) run->loading_lines = ls.lines, run->loading_scene = ls.scene;
+        if (run->loading_lines.empty()) run->loading_lines = ls.lines, run->loading_scene = ls.scene, run->loading_enemy = ls.enemy;
       }
       if (quit && app.current() == &mech3::states().main) back_at_main = true;
       if (run && run->pm_end && run->pm_end_stage == 1 && app.current() == &mech3::states().end_win) {
@@ -1460,6 +1460,9 @@ TEST(mw1_loop_deploy_goes_straight_in_never_through_pms_briefing_headless) {
     std::printf("  the scene: %s\n", run.loading_scene.c_str());
     EXPECT(run.loading_scene.rfind("mw1_hub_", 0) == 0 &&
            fs::exists(fs::path(MW1_DATA_DIR) / ".." / "data-src" / "art" / (run.loading_scene.substr(4) + ".png"), ec));
+    // The main enemy beside the terminal: headless, the renders aren't made, so its amber icon (mw1icons).
+    std::printf("  the enemy: %s\n", run.loading_enemy.c_str());
+    EXPECT(run.loading_enemy.rfind("mw1_icon_", 0) == 0);
     bool won = false;
     for (const std::string& l : run.after_action) won = won || l == "VICTORY";
     EXPECT(won);
