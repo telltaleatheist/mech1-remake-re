@@ -435,6 +435,26 @@ Tick an item when it is merged into `main`.
   - a price the company can't afford shown dimmed, or in the warning colour.
 - **Done means:** shots at 1080p and 4:3, and a test that the shown funds change with a purchase.
 
+## 42. [ ] Unobtrusive messages: a small box at the bottom, the artwork clear, nowhere a darkened screen
+- **Owen (2026-11-18, the arrival at Rasalhague on a build from before 34):**
+  - find every screen that hides its picture behind a darkened filter;
+  - instead, put a small message box at the bottom of the screen, so the artwork can be seen while reading.
+- **This revises 34:**
+  - no side panel the height of the screen;
+  - a box at the bottom, sized to its text: a few lines, the full width or less, the buttons inside it or beside it;
+  - the picture behind undimmed.
+- **Long texts:** the box grows upward only as far as the text needs (it pages beyond about a third of the screen). There is no full-screen terminal.
+- **Find them all:**
+  - the arrival and the other events;
+  - the Bar's drinks and news;
+  - the office's notes;
+  - the story pages over scenery;
+  - the travel messages;
+  - every place a dim (mw1_dim) or a darkened backdrop is used to hold text.
+  - List them in the branch's note.
+- **Keep:** pages that are their own art (event_art), and real dialogs that need an answer (the quit question). Those may keep the dim. List those too, each with its reason.
+- **Done means:** a shot of each screen found, at 1080p and 4:3.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.
