@@ -266,6 +266,11 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "bar_recruit") press(kHubBar), press_bar(kBarCrew);
       if (const char* s = std::getenv("MW1_SCREEN"); s && (std::string(s) == "bar_lance" || std::string(s) == "company")) press(kHubCompany);
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "office") press(kHubOffice);
+      // hub_clear: the messages read (OK), the scenery and the tiles alone; hub_contract_read: a contract taken at the
+      // office, its message read, the status line saying it (item 16).
+      if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "hub_clear" && !pending_) press(kHubOk);
+      if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "hub_contract_read" && !pending_)
+        press(kHubOffice), press_office(kOfficeRequest), press_office(kOfficeAccept), press(kHubOk);
       // office_offer: the office with an offer up; hub_contract: one accepted, the hub's DEPLOY; hub_options: OPTIONS.
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "office_offer") press(kHubOffice), press_office(kOfficeRequest);
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "hub_contract")
@@ -439,6 +444,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       return false;
     }
     hub_ = ge.adopt_state([this](zgame::Handle h) { return hub_state_ = new HubState(h, [this](int32_t id) { press(id); }); });
+    if (hub_state_) hub_state_->set_hover([this](int32_t id) { hub_hovered(id); });
     return hub_ != 0;
   }
 
@@ -447,6 +453,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     std::printf("mw1: hub: %s\n", hub_button_name(id));
     mech3::GameEngine* ge = ge_;
     company_.notices.clear();  // the hub's last news, shown once
+    hub_hover_ = 0;            // left (or the button gone): the status line's own words again
     switch (id) {
       case kHubDeploy:
         // The contract taken at the office: the briefing (the hub off, then the main menu replaced by it).
@@ -464,7 +471,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         ge->push_state(bar_, 0);
         return;
       case kHubOk: {
-        if (!pending_) return;
+        if (!pending_) {  // the messages read (cleared above): the scenery again
+          show_hub();
+          return;
+        }
         const Settlement s = settle(company_, contract_, pending_->outcome, pending_->wrecks, rng_);
         // The parts are kept only on a win (VISION.md, the endings): failed or quit, the mission's salvage is dropped.
         if (pending_->outcome == Outcome::kSuccess && pending_->salvage) company_.stores->add_all(*pending_->salvage);
@@ -616,6 +626,12 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   void take_contract() {
     accept(company_, contract_);
     offered_ = false;
+    // Said at the hub once (item 16: a contract's state change is a message).
+    company_.notices.push_back("Contract accepted with House " + std::string(kHouses[contract_.house].name) + ": " +
+                               objective_words(contract_) + ".");
+    company_.notices.push_back("Payment " + thousands(int64_t{contract_.payment} * 1000) + " C-bills, " +
+                               std::to_string(contract_.advance_percent) + "% paid in advance.");
+    company_.notices.push_back("DEPLOY from the hub when the lance is ready.");
     std::printf("mw1: office: contract accepted: %s on %sia%d, %d thousand, %d%% advance; funds %s\n", objective_words(contract_).c_str(),
                 contract_.world.c_str(), contract_.ia, contract_.payment, contract_.advance_percent, thousands(company_.funds).c_str());
     save();
@@ -1217,55 +1233,61 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // The day of the month (a month is MW1's 60 units: two to a day) and the wages' day, the month's turn.
     const int32_t day = company_.date.units / 2 + 1, days = kUnitsPerMonth / 2;
     v.day = "DAY " + std::to_string(day) + " \xB7 PAYDAY IN " + std::to_string(days - day + 1);
-    v.labels = {"C-BILLS", "PAYROLL", "STORES", "KILLS"};
+    // The company's strip (Owen on item 16: the stores and the mechs are the COMPANY's and the Mech Complex's).
+    v.labels = {"C-BILLS", "PAYROLL", "KILLS"};
     v.values = {thousands(company_.funds), company_.lance.empty() ? "NONE" : "-" + thousands(monthly_wages(company_)) + "/MO",
-                std::to_string(company_.stores->count()), std::to_string(company_.kills)};
-    // The company's mechs, the commander's first, with their class; past three, how many more.
-    auto kind = [](int32_t m) { return std::string(mech_class(m) == 0 ? "LIGHT" : mech_class(m) == 1 ? "MEDIUM" : "HEAVY"); };
-    v.mechs = {upper(mech_title(company_.mech))}, v.kinds = {kind(company_.mech)};
-    for (const OwnedMech& m : company_.hangar) {
-      if (v.mechs.size() == 3) {
-        v.mechs.back() = "+" + std::to_string(company_.hangar.size() - 1) + " MORE", v.kinds.back() = "";
-        break;
-      }
-      v.mechs.push_back(upper(mech_title(m.mech))), v.kinds.push_back(kind(m.mech));
-    }
+                std::to_string(company_.kills)};
+    // The middle panel only with something to say (FIXES.md item 16, MW1's notifications box): AFTER ACTION, or the
+    // company's messages since (payday, promotions, casualties, the news, a contract taken), until OK.
     if (pending_) {
       v.title = "AFTER ACTION", v.panel = after_action_lines(), v.after_action = true;
       v.replay = pending_->outcome == Outcome::kFailure;
-    } else if (contract_.accepted) {
-      // The contract taken at the office (MW1's contract hub, DS:10D7): DEPLOY when the lance is ready.
-      v.title = "CONTRACT", v.panel = offer_lines(), v.contract = true;
-    } else if (earning_here(company_)) {
-      v.title = "HOUSE OFFICE";
-      v.panel = {"House " + std::string(kHouses[company_.planet_house].name) + "'s liaison has work for", "a mercenary company.", "",
-                 "HOUSE OFFICE: ask for a mission,", "negotiate its terms, accept it."};
-      for (const std::string& l : stranded_lines(company_)) v.panel.push_back(l);
-    } else {
-      // No contracts here: no House office (MW1 offers none), the House refusing the company (8+ grievances), or a
-      // negotiation it broke off on this visit. Travel on; stranded, said plainly.
-      if (!contracts_here(company_)) {
-        v.title = "NO HOUSE OFFICE";
-        v.panel = {"House " + std::string(kHouses[company_.planet_house].name) + " has no office on " + company_.planet + ":",
-                   "no contracts here. TRAVEL to a world with one."};
-      } else if (refuses(company_, company_.planet_house)) {
-        v.title = "HOUSE OFFICE";
-        v.panel = refusal_words(company_.planet_house);
-        v.panel.push_back("No contracts from House " + std::string(kHouses[company_.planet_house].name) + ".");
-        v.panel.push_back("TRAVEL to a world whose House will deal with you.");
-      } else {
-        v.title = "NEGOTIATIONS TERMINATED";
-        v.panel = terminated_words();
-        v.panel.push_back("No contracts here until you leave. TRAVEL on.");
-      }
-      for (const std::string& l : stranded_lines(company_)) v.panel.push_back(l);
+      if (!company_.notices.empty()) v.panel.push_back("");
+      for (const std::string& n : company_.notices) v.panel.push_back(n);
+    } else if (!company_.notices.empty()) {
+      v.title = "MESSAGES", v.panel = company_.notices, v.message = true;
     }
-    // The status line: what to do now (ours).
-    v.status = pending_ ? "The mission's back: OK settles it." : contract_.accepted ? "Contract accepted: DEPLOY when the lance is ready." : "Pick a service.";
-    // What happened since (wages, promotions, casualties), under the panel once.
-    if (!company_.notices.empty()) v.panel.push_back("");
-    for (const std::string& n : company_.notices) v.panel.push_back(n);
+    v.contract = contract_.accepted && !pending_;
+    v.status = pending_ ? "The mission's back: OK settles it." : hub_hover_ ? tile_words(hub_hover_) : hub_status();
     hub_state_->show(v);
+  }
+
+  // The status line with nothing hovered: the contract taken, or why there's none here, or what to do. One line of
+  // the status font: about 56 characters fit 4:3's.
+  std::string hub_status() const {
+    const std::string house = kHouses[company_.planet_house].name;
+    if (contract_.accepted)
+      return "Contract: " + objective_words(contract_) + " for " + kHouses[contract_.house].name + ". DEPLOY.";
+    // Stranded (nothing to earn, no fare out): its own words, why and what to do (the STARPORT has the rest).
+    const std::vector<std::string> stranded = stranded_lines(company_);
+    if (!stranded.empty()) return "Stranded: no fare out, no contracts. See the STARPORT.";
+    return !contracts_here(company_) ? "No House office here: TRAVEL to a world with one."
+           : refuses(company_, company_.planet_house) ? "House " + house + " won't deal with you: TRAVEL on."
+           : !earning_here(company_) ? "Negotiations here are over: TRAVEL on."
+                                     : "Pick a service.";
+  }
+  // A tile's words on the status line while the mouse is over it (MW1's hub says them as the cursor moves).
+  std::string tile_words(int32_t id) const {
+    const std::string house = kHouses[company_.planet_house].name;
+    switch (id) {
+      case kHubCompany: return "COMPANY: your lance, its pilots and their mechs.";
+      case kHubMarket: return "MECH COMPLEX: buy, sell and refit mechs.";
+      case kHubOffice:
+        return earning_here(company_) ? "HOUSE OFFICE: ask House " + house + " for a contract."
+                                      : "HOUSE OFFICE: House " + house + " has nothing for you.";
+      case kHubDeploy: return "DEPLOY: to the contract's battle.";
+      case kHubTravel: return "STARPORT: travel to another world.";
+      case kHubBar: return "BAR: a drink, the news, pilots looking for work.";
+      case kHubOptions: return "OPTIONS: the game's settings and the main menu.";
+      case kHubOk: return pending_ ? "OK settles the mission." : "OK clears the messages.";
+      case kHubReplay: return "REPLAY: fight the mission again.";
+      default: return hub_status();
+    }
+  }
+  void hub_hovered(int32_t id) {
+    if (id == hub_hover_) return;
+    hub_hover_ = id;
+    show_hub();
   }
 
   // The contract on offer, line by line (with the planet and the funds first for the message box, which has no plaque).
@@ -1726,6 +1748,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   mech3::GameEngine* ge_ = nullptr;
   zgame::Handle hub_ = 0;
   HubState* hub_state_ = nullptr;
+  int32_t hub_hover_ = 0;  // the hub's button under the mouse (its words on the status line), 0 none
   zgame::Handle bar_ = 0;
   BarState* bar_state_ = nullptr;
   BarChoice bchoice_;

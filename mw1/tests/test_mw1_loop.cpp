@@ -211,6 +211,9 @@ struct Run {
   // The commander's mech destroyed in the mission (an idle Firefly put in the hangar first): lost, the Firefly theirs.
   bool kill_player = false, spare_set = false;
   int64_t bill_shown = -1;  // AFTER ACTION's "Repair bill: ", -1 none
+  int32_t messages_read = 0;  // the hub's MESSAGES panels dismissed with OK
+  int32_t hover_step = 0;     // the hub's OK hovered by the mouse (the market run), then left
+  bool hover_said = false, hover_gone = false;
   // MW1's objectives (mw1_missions.h, kObjective): every contract on this row of the map table; `survey`: only
   // what the objectives were built as, then quit; else the structure destroyed (`destroy_structure`) or the enemies
   // (`kill_enemies`) at frame 30, the enemies too once the mission has ended (`kill_after_end`), then the engine's
@@ -271,6 +274,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
   int64_t salvage_shown = -1, fee_shown = -1, bill_shown = 0;  // the first AFTER ACTION's settlement, as rolled
   int32_t favor_at_offer[mw1::kHouseCount] = {}, grievance_at_offer[mw1::kHouseCount] = {};
   int market_step = 0, click_phase = 0, click_x = 0, click_y = 0;  // the market's clicks (zin's mouse)
+  int messages_hubs = 0;  // hub visits that read MESSAGES and pressed OK (item 16)
   int hubs = 0, hub_frames = 0, enemies = 0, killed = 0, items_at_offer = 0, target = -1;
   bool hub_checked = false, declined = false, quit = false, replaying = false, deployed = false;
   int64_t advance_paid = -1;  // at the office's ACCEPT
@@ -627,18 +631,20 @@ void loop_run(Ending ending, Run* run = nullptr) {
         for (const std::string& l : shown) std::printf(" [%s]", l.c_str());
         std::printf("\n");
         // Always: the plaque, the company, the later screens greyed, QUIT there.
-        // (The terminal's rows: their labels, then their values, C-BILLS, PAYROLL, STORES, KILLS.)
+        // (The company strip between the plaques, always there: its labels, then its values, C-BILLS, PAYROLL, KILLS;
+        // no stores or mechs on the hub: Owen on item 16.)
         auto value_of = [&](const char* label) {
-          for (size_t i = 0; i + 4 < shown.size(); ++i)
-            if (shown[i] == "C-BILLS" && shown[i + 3] == "KILLS") {
-              const char* const kLabels[] = {"C-BILLS", "PAYROLL", "STORES", "KILLS"};
-              for (size_t j = 0; j < 4; ++j)
-                if (std::string(kLabels[j]) == label && i + 4 + j < shown.size()) return shown[i + 4 + j];
+          for (size_t i = 0; i + 3 < shown.size(); ++i)
+            if (shown[i] == "C-BILLS" && shown[i + 2] == "KILLS") {
+              const char* const kLabels[] = {"C-BILLS", "PAYROLL", "KILLS"};
+              for (size_t j = 0; j < 3; ++j)
+                if (std::string(kLabels[j]) == label && i + 3 + j < shown.size()) return shown[i + 3 + j];
             }
           return std::string();
         };
         EXPECT(sc->loaded() && c && has("HOUSE ") && c->planet != "Planet" && !c->planet.empty() &&
-               (mw1::game_loop_pending() ? value_of("STORES").empty() : value_of("STORES") == std::to_string(c->stores->count())));  // the terminal off at AFTER ACTION
+               value_of("KILLS") == std::to_string(c->kills) &&
+               std::find(shown.begin(), shown.end(), "STORES") == shown.end());
         // Still (FIXES.md item 9): PM's menu background pans and wraps; MW1's is drawn whole where its layout puts it.
         EXPECT(!sc->background.moving && !sc->background.src);
         // The world's scenery behind it, and its House's office tile.
@@ -695,7 +701,33 @@ void loop_run(Ending ending, Run* run = nullptr) {
           sc->on_button(mw1::kHubOk, 0, 0);
           return;
         }
-        EXPECT(has(taken ? "CONTRACT" : "HOUSE OFFICE") && !sc->visible(mw1::kHubOk) && !sc->visible(mw1::kHubReplay));
+        // Messages (payday, the news, a contract taken: FIXES.md item 16) in the middle panel until OK; then the scene.
+        if (has("MESSAGES")) {
+          EXPECT(sc->visible(mw1::kHubOk) && !sc->visible(mw1::kHubReplay));
+          // The market run (zin's mouse): first the mouse over OK, its words on the status line; then off it.
+          if (run && run->market && run->hover_step < 3) {
+            zin::MouseInfo* mi = zin::mouse_info();
+            if (run->hover_step == 0) {
+              mi->x = (sc->wide() ? 343 + sc->shift(mw1::Anchor::kCentre) : 236 + sc->shift(mw1::Anchor::kLayout)) + 84;
+              mi->y = 302 + 15, mi->left = 0, run->hover_step = 1;
+              return;
+            }
+            if (run->hover_step == 1) {
+              run->hover_said = has("OK clears the messages");
+              mi->x = 0, mi->y = 0, run->hover_step = 2;
+              return;
+            }
+            run->hover_gone = !has("OK clears the messages"), run->hover_step = 3;
+          }
+          ++messages_hubs;
+          if (run) ++run->messages_read;
+          sc->on_button(mw1::kHubOk, 0, 0);
+          bool still = false;
+          for (const std::string& l : sc->shown()) still = still || l.find("MESSAGES") != std::string::npos;
+          EXPECT(!still && !sc->visible(mw1::kHubOk));
+          return;
+        }
+        EXPECT(!sc->visible(mw1::kHubOk) && !sc->visible(mw1::kHubReplay) && (!taken || has("Contract: ")));
         if (taken && !deployed) {
           // The contract taken at the office: DEPLOY, the briefing.
           deployed = true;
@@ -976,7 +1008,8 @@ void loop_run(Ending ending, Run* run = nullptr) {
   // nothing taken before LAUNCH.
   std::printf("  briefing: pilot \"%s\", the lab's store %d items (full %d), funds at the briefing %lld\n", pilot_name.c_str(),
               lab_items, lab_full, static_cast<long long>(funds_at_briefing));
-  const int extra_hubs = (run && run->market ? 1 : 0) + (run && run->travel ? 1 : 0) + (run && run->lance ? 2 : 0);
+  // The market run's hover over a tile (item 16) adds two hub visits; each MESSAGES panel read, one.
+  const int extra_hubs = messages_hubs + (run && run->market ? 3 : 0) + (run && run->travel ? 1 : 0) + (run && run->lance ? 2 : 0);
   EXPECT(briefed && pilot_name == "MW1 Company" && lab_items == items_at_offer && lab_full == 0);
   EXPECT(funds_at_briefing == funds_at_offer + advance_paid);  // the advance paid at the office's ACCEPT
   EXPECT(fs::exists(fs::path(wd) / "pilots", ec));  // in mw1's own write dir
@@ -1304,6 +1337,8 @@ TEST(mw1_loop_market_buy_sell_pilot_then_a_contract_in_the_bought_mech_headless)
     ztwod::set_host(nullptr);
     std::printf("  market: bought for %lld, sold for %lld; the briefing's mech %d\n", static_cast<long long>(run.market_bought_for),
                 static_cast<long long>(run.market_sold_for), run.briefing_mech);
+    std::printf("  hub hover: said %d, gone %d; messages read %d\n", run.hover_said, run.hover_gone, run.messages_read);
+    EXPECT(run.hover_said && run.hover_gone && run.messages_read >= 1);
     EXPECT(run.market_done && run.market_lines.size() > 4);
     bool for_sale = false, yours = false;
     for (const std::string& l : run.market_lines) for_sale = for_sale || l == "FOR SALE", yours = yours || l == "YOUR MECHS";
@@ -1993,10 +2028,10 @@ TEST(mw1_office_counter_then_agreed_to_the_briefing_headless) {
           of->screen()->on_button(mw1::kOfficeSubmit, 0, 0);
           ++step, wait = 0;
           return false;
-        case 4:  // agreed: the hub's CONTRACT on its terms, DEPLOY
+        case 4:  // agreed: the hub's message of the contract on its terms, DEPLOY
           if (!showing(app, hub)) return false;
           EXPECT(k && k->accepted && hub->screen()->visible(mw1::kHubDeploy) &&
-                 shows_line(hub->screen()->shown(), "Payment: " + std::to_string(countered) + ",000 C-bills"));
+                 shows_line(hub->screen()->shown(), std::to_string(countered) + ",000 C-bills"));
           hub->screen()->on_button(mw1::kHubDeploy, 0, 0);
           ++step, wait = 0;
           return false;
@@ -2064,9 +2099,9 @@ TEST(mw1_office_terminated_on_a_stuck_poor_world_and_a_refusal_headless) {
         case 2:
           if (!showing(app, hub)) return false;
           hub_lines = hub->screen()->shown();
-          hub_over = shows_line(hub_lines, "NEGOTIATIONS TERMINATED") && hub->screen()->enabled(mw1::kHubOffice) &&
+          hub_over = shows_line(hub_lines, "Stranded") && hub->screen()->enabled(mw1::kHubOffice) &&
                      !hub->screen()->visible(mw1::kHubDeploy) && !mw1::game_loop_contract();
-          hub_stuck = shows_line(hub_lines, "You can't afford to leave, and the House has broken off negotiations.");
+          hub_stuck = shows_line(hub_lines, "Stranded: no fare out") && shows_line(hub_lines, "See the STARPORT");
           hub->screen()->on_button(mw1::kHubTravel, 0, 0);
           ++step, wait = 0;
           return false;
@@ -2084,7 +2119,7 @@ TEST(mw1_office_terminated_on_a_stuck_poor_world_and_a_refusal_headless) {
           c->withdrawn = false, c->funds = 5000000, c->grievance[mw1::kLiao] = mw1::kGrievanceRefusal;
           mw1::game_loop_offer_again();
           const std::vector<std::string> l = hub->screen()->shown();
-          refused = !mw1::game_loop_contract() && shows_line(l, "HOUSE OFFICE") && shows_line(l, "TRAVEL to a world whose House will deal") &&
+          refused = !mw1::game_loop_contract() && shows_line(l, "won't deal with you") &&
                     hub->screen()->enabled(mw1::kHubOffice);  // the office still opens (MW1's): its events, the refusal
           return true;
         }
@@ -2480,7 +2515,8 @@ TEST(mw1_soak_twenty_contracts_through_the_hub_headless) {
           if (o.pilot) ok = ok && ids.count(o.pilot) && flown.insert(o.pilot).second;
         if (!ok) bad(bad_lance, "the lance and hangar disagree at hub " + std::to_string(hubs));
       }
-      const bool guard = shows_line(shown, "You can't afford to leave");
+      // The status line's (item 16), unless AFTER ACTION's own line is there (settling may pay the way out).
+      const bool guard = shows_line(shown, "Stranded: no fare out") || mw1::game_loop_pending();
       if (mw1::stranded(*c)) {
         ++stranded;
         if (!guard) bad(bad_guard, "stranded without the guard's words at hub " + std::to_string(hubs));

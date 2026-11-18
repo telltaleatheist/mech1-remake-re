@@ -4,9 +4,11 @@
 // layout, mw1hub.zrd in MW1's data folder, and MW1's own art (FIXES.md item 3:
 // Owen's hub mockup in MW1's layout): the world's scenery, the plaques, the
 // services as picture tiles down both sides where MW1's hub tables put them
-// (FIXES.md item 11, MW_MAIN.EXE DS:1083 and 10D7), the middle panel (the
-// contract taken, AFTER ACTION, the news and the messages), the company's green
-// terminal and the status line. Contracts come from the House office only
+// (FIXES.md item 11, MW_MAIN.EXE DS:1083 and 10D7), the middle panel only for
+// AFTER ACTION and messages, dismissed with OK (item 16), the company's strip
+// between the plaques (C-BILLS, PAYROLL, KILLS; Owen on item 16: MW1's hub had
+// no company box) and the status line (what to do, a tile's description on
+// hover, the contract taken). Contracts come from the House office only
 // (item 7): the hub shows the one accepted and its DEPLOY.
 #include <cstdint>
 #include <functional>
@@ -25,20 +27,24 @@ inline constexpr const char* kHubDialog = "MW1HUBDIALOG";  // its dialog
 // office's place and the right column gone (DS:10D7).
 enum HubButton : int32_t { kHubOk = 1, kHubReplay, kHubMarket, kHubBar, kHubTravel, kHubOffice, kHubOptions, kHubCompany, kHubDeploy };
 inline constexpr int32_t kHubButtonCount = 9;
+// The middle panel's width in its line font's columns (4:3's 376: 48 fit); a longer line wraps there, indented.
+inline constexpr int32_t kHubPanelColumns = 48;
 const char* hub_button_name(int32_t id);  // "ACCEPT", ... ("" for no button)
 
-// What the hub shows: the plaques, the company's terminal, the middle panel
-// (the contract on offer or a mission's AFTER ACTION), the status line.
+// What the hub shows: the plaques, the company's strip, the middle panel (AFTER
+// ACTION or the messages), the status line.
 struct HubView {
   std::string scenery;                // the backdrop's picture (mw1_scenery.h's scenery_image)
   std::string office;                 // the House office tile's look: "mw1_tile_house_davion"
   std::string planet, house;          // the left plaque: "ROBINSON", "HOUSE DAVION"
   std::string date, day;              // the right one: "APRIL 3024", "DAY 14 \xB7 PAYDAY IN 16"
-  std::vector<std::string> labels, values;  // the terminal's rows: "C-BILLS", "412,750"
-  std::vector<std::string> mechs, kinds;    // its mechs: "Owens", "LIGHT"
-  std::string status;                 // the status line's message
-  std::string title;                  // the middle panel's: "CONTRACT", "AFTER ACTION"
+  std::vector<std::string> labels, values;  // the company strip's rows: "C-BILLS", "412,750"
+  std::string status;                 // the status line: what to do, a hovered tile's description, the contract
+  // The middle panel (FIXES.md item 16, MW1's notifications box): there only for something to say, AFTER ACTION or
+  // `message`, its OK under it; otherwise the hub is the scenery and the tiles.
+  std::string title;                  // its title: "AFTER ACTION", "MESSAGES"
   std::vector<std::string> panel;     // its lines
+  bool message = false;               // messages (the company's notices): OK dismisses them
   bool after_action = false;          // OK (and REPLAY when `replay`) under the panel, the services off
   bool replay = false;
   bool contract = false;              // a contract accepted: DEPLOY in the office's place, the right column gone

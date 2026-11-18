@@ -124,13 +124,13 @@ void glass(Canvas& c, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t al
 }
 }  // namespace
 
-images::Image plaque() {
+images::Image plaque(int32_t w, const char* name) {
   // The mockup's: dark glass in a thin gunmetal frame, a rivet at each end, half over the frame.
-  Canvas c(kPlaqueW, kPlaqueH);
-  glass(c, 4, 4, kPlaqueW - 4, kPlaqueH - 4, 228);
-  thin_frame(c, 0, 0, kPlaqueW, kPlaqueH, 4);
-  rivet(c, 6, kPlaqueH / 2, 3), rivet(c, kPlaqueW - 7, kPlaqueH / 2, 3);
-  return c.image(kPlaque);
+  Canvas c(w, kPlaqueH);
+  glass(c, 4, 4, w - 4, kPlaqueH - 4, 228);
+  thin_frame(c, 0, 0, w, kPlaqueH, 4);
+  rivet(c, 6, kPlaqueH / 2, 3), rivet(c, w - 7, kPlaqueH / 2, 3);
+  return c.image(name);
 }
 
 images::Image tile_frame(int32_t state) {
@@ -567,7 +567,7 @@ std::vector<images::Image> lab_panels(const images::Image& hangar) {
 }
 
 std::vector<images::Image> all() {
-  std::vector<images::Image> v = {plaque(), status_bar(), dialog_frame(), dim(), cursor()};
+  std::vector<images::Image> v = {plaque(), plaque(kPlaqueNarrowW, kPlaqueNarrow), plaque(kStripW, kStrip), status_bar(), dialog_frame(), dim(), cursor()};
   for (int32_t s = 0; s < 3; ++s) v.push_back(tile_frame(s));
   for (int32_t s = 0; s < 4; ++s) v.push_back(button(s));
   for (const PanelSize& p : panel_sizes()) v.push_back(panel(p.w, p.h));

@@ -18,6 +18,12 @@ namespace mw1::chrome {
 // The pieces, by name in the archive. The look follows Owen's hub mockup (mockups/mw1-hub.html): flat, thin frames.
 inline constexpr const char* kPlaque = "mw1_plaque";            // the hub's world and date plaques
 inline constexpr int32_t kPlaqueW = 300, kPlaqueH = 60;  // two side by side on 4:3's 640
+// The hub's (FIXES.md item 16, Owen): on 4:3's 640 the world's and the date's plaques narrower, the company's strip
+// (C-BILLS, PAYROLL, KILLS) between them; the wide canvas keeps kPlaqueW's, the strip in the gap.
+inline constexpr const char* kPlaqueNarrow = "mw1_plaque_narrow";
+inline constexpr int32_t kPlaqueNarrowW = 208;
+inline constexpr const char* kStrip = "mw1_strip";
+inline constexpr int32_t kStripW = 192;
 inline constexpr int32_t kTile = 100;                           // a picture tile's picture (data-src/art/icon_*)
 inline constexpr int32_t kTileFrame = 4;                        // the frame's width round it
 inline constexpr int32_t kTileBand = 20;                        // the dark band inside its foot, for the label
@@ -79,7 +85,7 @@ inline constexpr const char* kClear = "mw1_clear";  // nothing to see: a part a 
 inline constexpr const char* kDialogTall = "mw1_dialog_tall";
 inline constexpr int32_t kDialogTallH = 300;
 
-images::Image plaque();
+images::Image plaque(int32_t w = kPlaqueW, const char* name = kPlaque);  // kPlaqueH high
 images::Image tile_frame(int32_t state);  // 0 still, 1 lit, 2 pressed
 // A picture tile's four looks, its picture (kTile square) in the frame: `base`, `base`_lit, `base`_down, `base`_off.
 std::vector<images::Image> tiles(const images::Image& picture, const std::string& base);
