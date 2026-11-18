@@ -101,13 +101,16 @@ ScreenView market_view(const Company& c, const MarketChoice& m) {
   if (renders_ready() && shown >= 0) v.pictures[kMarketPanelMech] = render_image(shown, RenderUse::kPanel);
   v.panels[kMarketPanelMechFrame] = v.panels[kMarketPanelMech] = renders_ready() && shown >= 0;
 
-  // FOR SALE: the stock at the buying price.
-  std::vector<std::string> stock;
+  // FOR SALE: the stock at the buying price; a price over the funds dimmed (FIXES.md item 41, Owen: what he can
+  // afford at a glance): its row in S_ROWS_DIM's darker green, a blank line in its place in S_ROWS (and the other way).
+  std::vector<std::string> stock, stock_dim;
   bool any_clan = false;
   for (int32_t i = m.stock_top; i < static_cast<int32_t>(c.market.stock.size()) && i < m.stock_top + kMarketRows; ++i) {
     const int32_t mech = c.market.stock[static_cast<size_t>(i)];
-    stock.push_back(std::string(i == m.stock ? "> " : "  ") + padded(listed(mech), kNameWidth) + tons(mech) +
-                    price_column(buy_price(mech, c.tier)));
+    const std::string row = std::string(i == m.stock ? "> " : "  ") + padded(listed(mech), kNameWidth) + tons(mech) +
+                            price_column(buy_price(mech, c.tier));
+    const bool afford = buy_price(mech, c.tier) <= c.funds;
+    stock.push_back(afford ? row : ""), stock_dim.push_back(afford ? "" : row);
   }
   for (int32_t mech : c.market.stock) any_clan = any_clan || clan_mech(mech);
   if (stock.empty()) stock.push_back("  Nothing for sale here.");
@@ -118,6 +121,8 @@ ScreenView market_view(const Company& c, const MarketChoice& m) {
   v.blocks.push_back(at_place("S_TITLE", {"FOR SALE"}));
   v.blocks.push_back(at_place("S_HEAD", {"  " + padded("MECH", kNameWidth) + "TONS      PRICE" + (any_clan ? "   * Clan: twice" : "")}));
   v.blocks.push_back(at_place("S_ROWS", stock));
+  if (std::any_of(stock_dim.begin(), stock_dim.end(), [](const std::string& l) { return !l.empty(); }))
+    v.blocks.push_back(at_place("S_ROWS_DIM", stock_dim));
 
   // YOUR MECHS: who pilots each, its value.
   std::vector<std::string> owned;

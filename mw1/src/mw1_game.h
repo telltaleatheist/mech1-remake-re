@@ -85,8 +85,10 @@ MarketState* game_loop_market();
 // The mech lab's PILOT line while the Mech Complex's MECH LAB is open (tests), else null.
 namespace lab_pilot {
 class PilotChooser;
+class LabFunds;
 }
 const lab_pilot::PilotChooser* game_loop_lab_pilot();
+const lab_pilot::LabFunds* game_loop_lab_funds();  // the lab's funds once up (tests: FIXES.md item 41)
 // The travel screen's state once TRAVEL has made it (tests), else null.
 namespace travel_ui {
 class TravelState;

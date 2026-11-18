@@ -331,6 +331,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         if (std::string(s) == "market_dealer") {  // the dealer's limit up (a later tier's roll; mw1screenfit's case)
           company_.market.limit = company_.market.sold + kDealerLimitBase, show_market();
         }
+        // market_mixed: funds for the cheapest only (3,000,000 on the start world's stock), the rest dimmed (item 41).
+        if (std::string(s) == "market_mixed") company_.funds = 3000000, show_market();
       }
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "travel") press(kHubTravel);
       // MW1_SCREEN=travel_pick: the map with a world chosen (MW1_TRAVEL_TO, a name; else the farthest of the first few).
@@ -1234,12 +1236,16 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   static constexpr const char* kAmmoTab = "Ammo";
   static constexpr int32_t kTabGap = 8, kListUp = 12, kEngineUp = 9, kEngineValueW = 112, kDataLeft = 6, kDataUp = 8, kArrowGap = 3;
 
-  // The lab's PILOT line on its screen (mw1_lab_pilot.h), once the lab from MECH LAB is up.
+  // The lab's PILOT line and its funds on its screen (mw1_lab_pilot.h), once the lab from MECH LAB is up.
   void lab_frame() {
     mech3::Mech3App* app = mech3::app_if_any();
     if (lab_owned_ < 0 || !ge_ || !app || app->current() != &mech3::states().lab) return;
     mech3::LabScreen* ls = ge_->lab_screen(mech3::states().lab.lab_screen_);
     if (!ls) return;
+    if (!lab_funds_.attached()) {  // every page's (FIXES.md item 41); the lab spends nothing, so set once
+      lab_funds_.attach(ls, ge_->buffer_width() / 2 - 320 + kFundsX, kFundsY);
+      lab_funds_.show(thousands(company_.funds) + " C-BILLS");
+    }
     if (lab_pilot_.attached()) {  // the chassis page's only (FIXES.md item 17): hidden on the others
       lab_pilot_.visible(ls->page == kLabChassisPage);
       return;
@@ -1269,6 +1275,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     const int32_t i = lab_owned_;
     lab_owned_ = -1;
     lab_pilot_.forget();  // its screen gone with the lab
+    lab_funds_.forget();
     mech3::Pilot* p = mech3::current_pilot();
     mech3::ActionGame* g = p ? p->action() : nullptr;
     if (!g || g->slot.mech != owned_mech(company_, i)) return;
@@ -2071,6 +2078,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   HubState* hub_state() const { return hub_state_; }
   MarketState* market_state() const { return market_state_; }
   const PilotChooser* lab_pilot() const { return lab_pilot_.attached() ? &lab_pilot_ : nullptr; }
+  const LabFunds* lab_funds() const { return lab_funds_.attached() ? &lab_funds_ : nullptr; }
   BarState* bar_state() const { return bar_state_; }
   OfficeState* office_state() const { return office_state_; }
   HubOptionsState* hub_options_state() const { return hub_options_state_; }
@@ -2773,6 +2781,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   int32_t lab_who_ = kNobody;  // its pilot as chosen in the lab (mw1_pilots.h)
   bool lab_hook_ = false;
   PilotChooser lab_pilot_;
+  LabFunds lab_funds_;  // the funds on the lab's pages (FIXES.md item 41)
   // The PILOT line's place on the lab's screen: from the canvas's right edge, and down.
   static constexpr int32_t kLabChassisPage = 0;  // LabScreen::page: the chassis page (ICON_CHASSIS)
   std::shared_ptr<mech3::Store> salvage_;  // this mission's parts, the stores' on a win
@@ -2879,6 +2888,7 @@ void game_loop_offer_again() {
 }
 MarketState* game_loop_market() { return the_loop() ? the_loop()->market_state() : nullptr; }
 const PilotChooser* game_loop_lab_pilot() { return the_loop() ? the_loop()->lab_pilot() : nullptr; }
+const LabFunds* game_loop_lab_funds() { return the_loop() ? the_loop()->lab_funds() : nullptr; }
 TravelState* game_loop_travel() { return the_loop() ? the_loop()->travel_state() : nullptr; }
 const std::vector<AllyLaunch>& game_loop_ally_launches() {
   static const std::vector<AllyLaunch> none;

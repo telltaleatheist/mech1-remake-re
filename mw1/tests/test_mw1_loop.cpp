@@ -202,6 +202,7 @@ struct Run {
   bool lab_done = false;  // the Mech Complex's MECH LAB opened, refitted and closed
   int32_t lab_mech = -1, lab_stores = -1;
   std::string lab_pilot, lab_pilot_after;  // its PILOT line as the lab opened, after the arrow
+  std::string lab_funds, lab_funds_want;   // the lab's funds as shown, and the company's then (FIXES.md item 41)
   int32_t briefing_mech = -1;
   // FIXES.md item 22: the pointer's picture's width on PM's screens as they show (the briefing, the lab), by screen
   // (MouseHost serves only MW1's pictures: PM's ring would be none, -1).
@@ -427,6 +428,13 @@ void loop_run(Ending ending, Run* run = nullptr) {
         const mw1::PilotChooser* who = mw1::game_loop_lab_pilot();
         if (run->lab_pilot.empty()) {
           run->lab_pilot = who ? who->shown() : "?";
+          const mw1::LabFunds* funds = mw1::game_loop_lab_funds();
+          run->lab_funds = funds ? funds->shown() : "?";
+          if (const mw1::Company* co = mw1::game_loop_company()) {
+            std::string d = std::to_string(co->funds), grouped;  // "1,029,000"
+            for (size_t k = 0; k < d.size(); ++k) grouped += (k && (d.size() - k) % 3 == 0 ? "," : "") + d.substr(k, 1);
+            run->lab_funds_want = grouped + " C-BILLS";
+          }
           mech3::Pilot* p = mech3::current_pilot();
           mech3::ActionGame* g = p ? p->action() : nullptr;
           run->lab_mech = g ? g->slot.mech : -1;
@@ -532,6 +540,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
             break;
           case 9:  // back from the lab: you pilot the Firefly, with its loadout; the weapon in the stores. BACK
             EXPECT(run->lab_done && run->lab_mech == mw1::kPmFirefly && run->lab_pilot == "spare" && run->lab_pilot_after == "YOU");
+            EXPECT(!run->lab_funds_want.empty() && run->lab_funds == run->lab_funds_want);  // after the Firefly's price
             EXPECT(has("piloted by you") && c->mech == mw1::kPmFirefly && c->hangar.size() == 1 && c->hangar[0].mech == mw1::kPmOwens);
             EXPECT(c->loadout != nullptr && c->stores->count() == run->lab_stores + 1);
             run->market_done = true;
