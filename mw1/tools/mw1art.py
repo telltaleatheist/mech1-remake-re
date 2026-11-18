@@ -30,7 +30,7 @@ PORTRAIT, PORTRAIT_SMALL = (240, 320), (96, 128)
 EMBLEM = (240, 240)
 SKIP_PREFIX = ("intro_0_",)
 EMBLEMS = {"story_darkwing_crest"}
-PORTRAIT_PREFIX = ("recruit_", "char_", "liaison_", "mech_")
+PORTRAIT_PREFIX = ("recruit_", "char_", "liaison_")
 PORTRAITS = {"bartender_portrait", "office_liaison_portrait"}
 
 
