@@ -508,6 +508,7 @@ const std::vector<Reskin>& lab_pictures() {
       {"lab_accept_green", kLabTabW, kLabTabH}, {"lab_accept_red", kLabTabW, kLabTabH}, {"lab_accept_grey", kLabTabW, kLabTabH},
       // The glows behind the chosen icon and mech, and the variant being renamed.
       {"lab_icon_glow", 127, 63}, {"lab_player_glow", 127, 63}, {"lab_text_glow", 207, 45},
+      {kLabWideBar, kLabWideBarW, 45},  // ours (item 39): the centred lists' bar, given to them by the game
       // The arrows: the lists' (up, down), the armour's (left, right), the toggles'.
       {"lab_arrowup", 28, 9}, {"lab_arrowdn", 28, 9}, {"lab_arrowupD", 28, 9}, {"lab_arrowdnD", 28, 9}, {"lab_arrow_left", 7, 13}, {"lab_arrow_right", 7, 13},
       {"lab_togglel_green", 5, 9}, {"lab_togglel_red", 5, 9}, {"lab_toggler_green", 5, 9}, {"lab_toggler_red", 5, 9},
@@ -580,7 +581,8 @@ images::Image glow_piece(const Reskin& r, int32_t peak) {
 // 15 above the row's words (its large font, 16 high), so the bar spans the row and its left edge is solid amber.
 images::Image bar_piece(const Reskin& r) {
   Canvas c(r.w, r.h);
-  const int32_t top = kBarTop, bottom = kBarBottom, left = kBarLeft, right = std::min(kBarRight, r.w);  // the row's span
+  // The row's span (the wide bar's: its rows kLabListRowW long, item 39).
+  const int32_t top = kBarTop, bottom = kBarBottom, left = kBarLeft, right = std::min(kBarRight + r.w - 207, r.w);
   for (int32_t y = top; y < bottom; ++y)
     for (int32_t x = left; x < right; ++x) c.set(x, y, x < left + kBarEdge ? Rgba{255, 176, 64, 235} : Rgba{255, 150, 30, 64});
   for (int32_t x = left + kBarEdge; x < right; ++x) c.set(x, top, {255, 176, 64, 120}), c.set(x, bottom - 1, {255, 176, 64, 120});
@@ -639,7 +641,7 @@ images::Image arrow_piece(const Reskin& r) {
 
 images::Image reskin(const Reskin& r) {
   const std::string g = r.game;
-  if (g == "lab_text_glow") return bar_piece(r);
+  if (g == "lab_text_glow" || g == kLabWideBar) return bar_piece(r);
   if (has(r.game, "glow")) return glow_piece(r, 90);
   if (has(r.game, "icon") || has(r.game, "accept")) return icon_piece(r);
   if (has(r.game, "arrow") || has(r.game, "toggle")) return arrow_piece(r);
