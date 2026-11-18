@@ -44,7 +44,7 @@ Tick an item when it is merged into `main`.
   - Remove whatever MW1 never uses, such as the multiplayer screen PM builds in the background.
 - **How to check:** a screen-by-screen pass with shots. A test that fails if an MW1 screen loads a PM dialog file or binds a PM button.
 
-## 6. [ ] The hub's scenery by MW1's landscape
+## 6. [x] The hub's scenery by MW1's landscape *(done: mw1-hub-landscape; the Bar has no landscape art yet)*
 - **Owen (Mac, 2026-11-17):** "In the original, it just showed you the background of whatever city you were in. If you're in an icy area, it shows an icy background. If you're in a tropical area it's very green."
 - **MW1:** every world has a landscape: desert (48 worlds), tropical (79) or arctic (18) (research/economy.md, the planet record's code). The hub draws that landscape's picture. MW1 also uses it behind the Bar, the company and the options screens.
 - **Ours today:** the hub picks a scene by our own "world type" classification (agri, capital, industrial ...), which ignores the climate.
