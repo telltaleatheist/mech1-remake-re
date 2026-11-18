@@ -67,6 +67,11 @@ class Store {
     int32_t canvas_w = 0, canvas_h = 0;
   };
   const Picture* picture(const char* name);
+  // The pieces drawn at the window's scale (B2b: the framed tiles, the lab's panels), made from their sources at
+  // `scale` (none below 2: the canvas's own draw); a new scale drops the old pieces at once.
+  void set_scale(int32_t scale);
+  int32_t scale() const;
+  bool drawn_piece(const std::string& name) const;  // whether `name` is one
   // The images a screen about to open will show, decoded on worker threads now (behind the loading screen) and kept
   // until first asked for.
   void preload(const std::vector<std::string>& names);

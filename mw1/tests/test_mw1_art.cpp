@@ -208,3 +208,103 @@ TEST(mw1_art_store) {
   st.close();
   fs::remove_all(dir, ec);
 }
+
+// B2b: the framed tiles and the lab's panels drawn at a scale from their sources: each piece's size, its look, and its
+// frame where the canvas's is (a 1-pixel line S pixels wide).
+TEST(mw1_art_drawn_tiles_and_panels) {
+  const std::vector<uint8_t> bytes = file_bytes(art_dir() / "icon_bar.png");
+  int32_t w = 0, h = 0;
+  std::vector<uint8_t> rgba;
+  EXPECT(mw1::art::decode(bytes.data(), bytes.size(), &w, &h, &rgba));
+  if (rgba.empty()) return;
+  const int32_t n = mw1::chrome::kTile + 2 * mw1::chrome::kTileFrame;
+  const std::vector<mw1::chrome::Drawn> t = mw1::chrome::tiles_at(rgba.data(), w, h, 0, 0, w, h, "mw1_tile_bar", 3);
+  EXPECT(t.size() == 4 && t[0].name == "mw1_tile_bar" && t[1].name == "mw1_tile_bar_lit" && t[3].name == "mw1_tile_bar_off");
+  // The canvas tiles, as packed, for the frame's colours.
+  const mw1::images::Image pic = mw1::art::canvas_image("p", rgba.data(), w, h, mw1::chrome::kTile, mw1::chrome::kTile);
+  const std::vector<mw1::images::Image> canvas = mw1::chrome::tiles(pic, "mw1_tile_bar");
+  for (size_t i = 0; i < t.size() && i < canvas.size(); ++i) {
+    const mw1::chrome::Drawn& d = t[i];
+    EXPECT(d.canvas_w == n && d.canvas_h == n && d.s == 3 && d.rgba.size() == static_cast<size_t>(n * 3 * n * 3 * 4));
+    bool opaque = true;
+    for (size_t k = 3; k < d.rgba.size(); k += 4) opaque = opaque && d.rgba[k] == 255;
+    EXPECT(opaque);
+    // The outline (canvas pixel 0) and the lit lip (canvas pixel 1) on the top edge, each a 3x3 block of the canvas's
+    // colour (within 565's step).
+    for (int32_t cx : {10, 50})
+      for (int32_t cy : {0, 1}) {
+        const uint16_t p = canvas[i].pixels[static_cast<size_t>(cy * n + cx)];
+        const int32_t want[3] = {(p >> 11) << 3, ((p >> 5) & 63) << 2, (p & 31) << 3};
+        for (int32_t j = 0; j < 3; ++j)
+          for (int32_t k = 0; k < 3; ++k) {
+            const uint8_t* q = &d.rgba[(static_cast<size_t>(cy * 3 + j) * n * 3 + cx * 3 + k) * 4];
+            EXPECT(std::abs(q[0] - want[0]) <= 8 && std::abs(q[1] - want[1]) <= 8 && std::abs(q[2] - want[2]) <= 8);
+          }
+      }
+  }
+  // The lab's panels at 2: the six by name, their canvas sizes, the scanlines a canvas line (2 rows) apart.
+  const std::vector<uint8_t> hb = file_bytes(art_dir() / (std::string(mw1::chrome::kLabHangar) + ".jpg"));
+  std::vector<uint8_t> hangar;
+  EXPECT(mw1::art::decode(hb.data(), hb.size(), &w, &h, &hangar));
+  const std::vector<mw1::chrome::Drawn> p = mw1::chrome::lab_panels_at(hangar.data(), w, h, 2);
+  EXPECT(p.size() == 6 && p[5].name == "mw1_lab_background" && p[5].canvas_w == 640 && p[0].canvas_w == 220 && p[4].canvas_w == 200);
+  if (p.size() == 6) {
+    // The background's left column, rows 0..39: the even canvas lines (device rows 0, 1, 4, 5...) brighter on the whole.
+    const mw1::chrome::Drawn& b = p[5];
+    int64_t even = 0, odd = 0;
+    for (int32_t y = 0; y < 160; ++y)
+      for (int32_t x = 0; x < 200; ++x) {
+        const uint8_t* q = &b.rgba[(static_cast<size_t>(y) * b.canvas_w * 2 + x) * 4];
+        ((y / 2) % 2 ? odd : even) += q[0] + q[1] + q[2];
+      }
+    std::printf("  the background's even lines %lld, odd %lld\n", static_cast<long long>(even), static_cast<long long>(odd));
+    EXPECT(odd < even && odd > even * 80 / 100);
+  }
+}
+
+// B2b in the store: no drawn piece below scale 2 (the canvas draws them), made at ceil(the frame's scale), a new scale
+// the old pieces dropped and new serials.
+TEST(mw1_art_drawn_by_frame_scale) {
+  const std::vector<std::vector<uint8_t>> files = {file_bytes(art_dir() / "icon_bar.png"),
+                                                   file_bytes(art_dir() / (std::string(mw1::chrome::kLabHangar) + ".jpg"))};
+  const std::vector<mw1::art::Packed> images = {{"mw1_icon_bar", 0, 100, 100},
+                                                {std::string("mw1_") + mw1::chrome::kLabHangar, 1, 854, 480}};
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_art_drawn";
+  std::error_code ec;
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  const std::vector<uint8_t> b = mw1::art::pack(images, files);
+  std::ofstream(dir / "mw1art.zbd", std::ios::binary).write(reinterpret_cast<const char*>(b.data()), static_cast<std::streamsize>(b.size()));
+  const bool was_hires = platform::hires_2d();
+  platform::set_hires_2d(true);
+  EXPECT(mw1::art::install((dir / "mw1art.zbd").string(), true));
+  platform::HiresImages* hi = platform::hires_images();
+  mw1::art::Store& st = mw1::art::Store::get();
+  if (!hi) return;
+  hi->set_frame_scale(1.0f);
+  EXPECT(st.drawn_piece("mw1_tile_bar_lit") && st.drawn_piece("mw1_lab_panel_center") && !st.drawn_piece("mw1_tile_deploy"));
+  EXPECT(hi->find("mw1_tile_bar") == nullptr && hi->find("mw1_lab_background") == nullptr);  // scale 1: the canvas's
+  hi->set_frame_scale(2.25f);  // 1080p
+  EXPECT(st.scale() == 3);
+  const platform::HiresImage* t = hi->find("mw1_tile_bar_down");
+  EXPECT(t && t->w == 108 * 3 && t->h == 108 * 3 && t->canvas_w == 108 && t->rgba && t->rgba[3] == 255);
+  const uint64_t first = t ? t->serial : 0;
+  const platform::HiresImage* l = hi->find("mw1_lab_panel_leftdouble");
+  EXPECT(l && l->w == 220 * 3 && l->h == 480 * 3 && l->canvas_w == 220 && l->canvas_h == 480);
+  hi->end_frame();
+  hi->set_frame_scale(2.25f);  // the same: kept
+  t = hi->find("mw1_tile_bar_down");
+  EXPECT(t && t->serial == first);
+  hi->set_frame_scale(4.5f);  // 4K: made again at 5, new serials
+  EXPECT(st.scale() == 5);
+  t = hi->find("mw1_tile_bar_down");
+  EXPECT(t && t->w == 108 * 5 && t->serial > first);
+  hi->end_frame();
+  hi->set_frame_scale(1.0f);
+  EXPECT(hi->find("mw1_tile_bar_down") == nullptr);
+  zimg::set_image_provider({});
+  platform::set_hires_images(nullptr);
+  platform::set_hires_2d(was_hires);
+  st.close();
+  fs::remove_all(dir, ec);
+}

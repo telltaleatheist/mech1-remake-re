@@ -16,6 +16,14 @@
 
 namespace mw1::chrome {
 
+// Ours (research/hires-2d.md B2b): a piece drawn at scale s for the 2D at the window's resolution: (canvas_w * s) x
+// (canvas_h * s) RGBA bytes, straight alpha (0..3 as 0, 0xfc and up as 255, as the canvas blit's edges).
+struct Drawn {
+  std::string name;
+  int32_t canvas_w = 0, canvas_h = 0, s = 1;
+  std::vector<uint8_t> rgba;
+};
+
 // The pieces, by name in the archive. The look follows Owen's hub mockup (mockups/mw1-hub.html): flat, thin frames.
 inline constexpr const char* kPlaque = "mw1_plaque";            // the hub's world and date plaques
 inline constexpr int32_t kPlaqueW = 300, kPlaqueH = 60;  // two side by side on 4:3's 640
@@ -101,6 +109,10 @@ images::Image progress_cell(bool lit);
 images::Image tile_frame(int32_t state);  // 0 still, 1 lit, 2 pressed
 // A picture tile's four looks, its picture (kTile square) in the frame: `base`, `base`_lit, `base`_down, `base`_off.
 std::vector<images::Image> tiles(const images::Image& picture, const std::string& base);
+// Ours (B2b): the four looks at scale s, the picture from (x0, y0) side_w x side_h of a source picture (RGBA, sw x sh);
+// the same names as tiles'; opaque.
+std::vector<Drawn> tiles_at(const uint8_t* rgba, int32_t sw, int32_t sh, int32_t x0, int32_t y0, int32_t side_w,
+                            int32_t side_h, const std::string& base, int32_t s);
 images::Image button(int32_t state);
 images::Image button(int32_t state, int32_t w, int32_t h, const std::string& name, int32_t drawn = 0);  // any size, any name      // 0 still, 1 lit, 2 pressed, 3 off
 images::Image panel(int32_t w, int32_t h);
@@ -136,6 +148,9 @@ images::Image reskin(const Reskin& r);           // a drawn piece (not a panel)
 // The lab's five panels from the hangar (its middle 640 of 854: left 220, centre 200, right 220), darkened, the
 // sides' glass boxes framed (single: one; double: two).
 std::vector<images::Image> lab_panels(const images::Image& hangar);
+// Ours (research/hires-2d.md B2b): the lab's panels at scale s from the hangar's source picture (RGBA, sw x sh, the
+// whole of what its canvas copy shows), the same names; opaque.
+std::vector<Drawn> lab_panels_at(const uint8_t* rgba, int32_t sw, int32_t sh, int32_t s);
 // The lab's frames in its 640x480 layout (lab_panels draws them, 2 thick; mw1_lab_fit.h checks against their
 // insides): the side panels' boxes (the upper and lower of a doubled panel, or the whole), the centre's box under the
 // mech, and the icons' tray line across the foot, which every frame stays above (FIXES.md item 17).
