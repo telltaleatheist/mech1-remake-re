@@ -384,6 +384,21 @@ Tick an item when it is merged into `main`.
 - **Wanted:** every click steps once, and holding repeats. This applies to every arrow pair: the office's terms, the lab's, and anywhere else PM's spinner arrows are used.
 - **Done means:** a test that clicks the same arrow three times and sees three steps.
 
+## 37. [ ] The lab's bottom buttons: their hover labels sit in the wrong places
+- **Owen (2026-11-18):** each button's label shows away from its button:
+  - "Select Chassis" lies over the orange line;
+  - "Customize" sits to the right of its button;
+  - "Weapon Grouping" overlaps the top of its button;
+  - "Accept" sits over the button's corner.
+- **Likely cause:** item 29 resized and moved the buttons, but the labels still use PM's old positions.
+- **Wanted:**
+  - each label in the same place relative to its own button: centred above it, clear of the line and of the button;
+  - the same at 16:9 and 4:3.
+- **Also seen in the same shots:** ACCEPT's check mark is drawn blocky (pixel steps). It should be smooth like the other icons, at the window's resolution (item 12).
+- **Done means:**
+  - shots of each label shown at 1080p and 4:3;
+  - a fit check: each label over its own button, inside the screen, overlapping nothing.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.
