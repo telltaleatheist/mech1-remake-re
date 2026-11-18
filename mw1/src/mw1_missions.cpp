@@ -231,10 +231,21 @@ int32_t choose_pool_row(const std::vector<MapRow>& rows, const MapPool& pool, Ro
     }
     return out;
   };
+  // Even per world (the lead, 2026-11-18): a world of the part that has a row of the kind first, then one of its
+  // rows; a world with more structure rows is no likelier than one with fewer.
   const bool mostly = rng.upto(99) < kMostlyPercent;
   for (const std::vector<std::string>* part : {mostly ? &pool.mostly : &pool.sometimes, mostly ? &pool.sometimes : &pool.mostly}) {
     const std::vector<int32_t> c = from(*part);
-    if (!c.empty()) return c[static_cast<size_t>(rng.upto(static_cast<int32_t>(c.size()) - 1))];
+    if (c.empty()) continue;
+    std::vector<std::string> worlds;
+    for (int32_t i : c)
+      if (std::find(worlds.begin(), worlds.end(), rows[static_cast<size_t>(i)].world) == worlds.end())
+        worlds.push_back(rows[static_cast<size_t>(i)].world);
+    const std::string& w = worlds[static_cast<size_t>(rng.upto(static_cast<int32_t>(worlds.size()) - 1))];
+    std::vector<int32_t> its;
+    for (int32_t i : c)
+      if (rows[static_cast<size_t>(i)].world == w) its.push_back(i);
+    return its[static_cast<size_t>(rng.upto(static_cast<int32_t>(its.size()) - 1))];
   }
   return -1;
 }
