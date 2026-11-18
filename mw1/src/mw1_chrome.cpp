@@ -319,6 +319,14 @@ images::Image dialog_frame() {
 
 images::Image dim() {
   // Over the screen behind a box: black, part see-through.
+  if (g_piece_scale > 1) {  // B2b (dev 2's piece 4): flat, so the canvas's size at 1 serves any scale (1.6 MB, not S² that)
+    Canvas c(images::kWideW, images::kScreenH, 1);
+    for (Rgba& p : c.px) p = {0, 0, 0, kDimAlpha};
+    if (g_capture) *g_capture = c.drawn(kDim, false);
+    images::Image im;
+    im.name = kDim;
+    return im;
+  }
   Canvas c(images::kWideW, images::kScreenH);
   for (Rgba& p : c.px) p = {0, 0, 0, kDimAlpha};
   return c.image(kDim);
@@ -330,6 +338,31 @@ images::Image cursor() {
   const int32_t n = kCursorSize, c0 = n / 2;
   Canvas c(n, n);
   const Rgba amber = {255, 176, 64, 255}, edge = {20, 12, 4, 200};
+  if (c.s > 1) {  // B2b: the same marks in device pixels, smooth (each pixel 4 x 4 samples), not s x s blocks
+    // In canvas units from the centre pixel's centre: the ring's pixels (centres 7 to 8 out) span 6.5 to 8.5, a
+    // tick's a pixel wide and 9.5 to 14.5 out, the dot a plus; the dark edge the same grown a pixel.
+    auto inside = [](double u, double v, double g) {
+      const double d = std::sqrt(u * u + v * v), au = std::abs(u), av = std::abs(v);
+      return (d >= 6.5 - g && d <= 8.5 + g) || (au <= 0.5 + g && av >= 9.5 - g && av <= 14.5 + g) ||
+             (av <= 0.5 + g && au >= 9.5 - g && au <= 14.5 + g) || (au <= 0.5 + g && av <= 1.5 + g) || (av <= 0.5 + g && au <= 1.5 + g);
+    };
+    const int32_t s = c.s;
+    for (int32_t y = 0; y < c.dh(); ++y)
+      for (int32_t x = 0; x < c.dw(); ++x) {
+        int32_t on = 0, rim = 0;
+        for (int32_t j = 0; j < 4; ++j)
+          for (int32_t i = 0; i < 4; ++i) {
+            const double u = (x + (i + 0.5) / 4) / s - (c0 + 0.5), v = (y + (j + 0.5) / 4) / s - (c0 + 0.5);
+            if (inside(u, v, 0)) ++on;
+            else if (inside(u, v, 1)) ++rim;
+          }
+        if (!on && !rim) continue;
+        const int32_t a = (on * amber.a + rim * edge.a) / 16;
+        auto mix = [&](int32_t p, int32_t q) { return (p * on * amber.a + q * rim * edge.a) / (on * amber.a + rim * edge.a); };
+        c.set_d(x, y, {mix(amber.r, edge.r), mix(amber.g, edge.g), mix(amber.b, edge.b), a});
+      }
+    return c.image(kCursor);
+  }
   auto mark = [&](int32_t x, int32_t y) {
     for (int32_t dy = -1; dy <= 1; ++dy)
       for (int32_t dx = -1; dx <= 1; ++dx)
@@ -798,15 +831,15 @@ std::vector<images::Image> all() {
 }
 
 namespace {
-// The pieces drawn at scale for the 2D (B2b): every piece but those with nothing to gain (the dim, a flat
-// see-through black; the cursor, drawn by the host; the clear placeholder), by name to its maker.
+// The pieces drawn at scale for the 2D (B2b): every piece but the clear placeholder, by name to its maker. The dim
+// (flat) comes at the canvas's size whatever the scale; the cursor smooth (piece 4 draws both: dev 2).
 const std::map<std::string, size_t>& drawn_index() {
   static const std::map<std::string, size_t> index = [] {
     std::map<std::string, size_t> m;
     const std::vector<Maker> v = makers();
     for (size_t i = 0; i < v.size(); ++i) {
       const std::string n = v[i]().name;
-      if (n != kDim && n != kCursor && n != kClear) m.emplace(n, i);
+      if (n != kClear) m.emplace(n, i);
     }
     return m;
   }();
