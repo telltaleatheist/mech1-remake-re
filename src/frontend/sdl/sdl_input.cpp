@@ -1,5 +1,7 @@
 #include "frontend/sdl/sdl_input.h"
 
+#include "platform/pointer_hands_off.h"
+
 #include "gamez/zutil/zutl_reg.h"
 
 #include <algorithm>
@@ -378,7 +380,8 @@ void SdlInput::capture(bool on) {
   }
   captured_ = on;
   if (on) SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_SYSTEM_SCALE, "1");  // the system's speed and acceleration (sdl_input.h)
-  if (window) SDL_SetWindowRelativeMouseMode(window, on);
+  // A run no player is at never holds the system's pointer (pointer_hands_off.h); relative mode let go if it was on.
+  if (window && (!platform::pointer_hands_off() || !on)) SDL_SetWindowRelativeMouseMode(window, on);
 }
 
 uint64_t SdlInput::clock() const { return now_ns ? now_ns() : SDL_GetTicksNS(); }
@@ -421,7 +424,7 @@ void SdlInput::heal(const char* by, bool key) {
   std::printf("mw3: mouse: held %llu ms with no motion yet: let go and taken again at a %s press (%d)%s\n",
               static_cast<unsigned long long>((now - captured_ns_) / 1000000), by, heals_, focus_report ? (" (" + focus_report() + ")").c_str() : "");
   if (nudge_focus) nudge_focus();
-  if (window) SDL_SetWindowRelativeMouseMode(window, false), SDL_SetWindowRelativeMouseMode(window, true);
+  if (window && !platform::pointer_hands_off()) SDL_SetWindowRelativeMouseMode(window, false), SDL_SetWindowRelativeMouseMode(window, true);
 }
 
 // FIX (A) (docs/input.md, The mouse's speed): a desktop pixel of motion
@@ -856,6 +859,7 @@ void SdlZinHost::screen_to_client(int32_t* x, int32_t* y) {
 // In a window the player's cursor is never moved (sdl_input.h).
 void SdlZinHost::set_cursor_pos(int32_t x, int32_t y) {
   if (input_ && input_->pointer_is_free()) return;  // the game editor's pointer is the player's too
+  if (platform::pointer_hands_off()) return;  // a run no player is at (pointer_hands_off.h)
   if (input_ && input_->window && !input_->in_window() && !SDL_GetWindowRelativeMouseMode(input_->window))
     SDL_WarpMouseInWindow(input_->window, static_cast<float>(x), static_cast<float>(y));
 }
