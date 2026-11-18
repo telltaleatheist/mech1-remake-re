@@ -288,7 +288,7 @@ Tick an item when it is merged into `main`.
 - **From the review of item 15:** our framed buttons are steady, but PM's HelpButtons on PM's screens shown in MW1 still blink: the lab's page icons, the load box's OK/NO, and settings.
 - **Wanted:** an opt-in engine switch (like set_menus_still), so that while MW1 runs a HelpButton's lamp is steady when hovered and never blinks. MW3 and PM keep theirs.
 
-## 26. [ ] The mech lab's leftovers
+## 26. [x] The mech lab's leftovers *(done: mw1-lab-leftovers)*
 - **From the lab reskin's review (mw1-lab-reskin):**
   - The mech-slot icons at the top are still PM's look: PM's lab_player* pictures don't exist, so they're drawn from elsewhere.
   - Page 1 (weapons) is empty, as in PM, which has no ICON_WEAPONS. Either hide its page icon or give it content.
