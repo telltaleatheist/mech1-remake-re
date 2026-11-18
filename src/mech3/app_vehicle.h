@@ -107,6 +107,14 @@ struct NavSummary {
 };
 NavSummary program_nav_summary(void* waynet);
 void* program_nav_find(const char* name);       // the objectives' "nav" (0x0045c8f0)
+// Ours (MW1: Critical Hit's FIXES.md item 43): a nav point added to the mission's waynet at `pos`, labelled `label`
+// (what the HUD and the map show), the net's to free; or, with one of the mission's own points within `near` metres
+// (on the ground plane), that one. Null without a mission waynet. Opt-in: only a program that asks (MW1's objectives).
+void* program_nav_add(const char* label, const float pos[3], float near);
+// Ours (the same item): that point made the mission waynet's selected one (the HUD's nav, its arrow); false when it
+// isn't one of its points.
+bool program_nav_select(void* point);
+void program_nav_move(void* point, const float pos[3]);  // ours (the same item): a point put at `pos`
 const char* program_nav_name(void* p);  // a nav point's +0x28 ("" for none)
 void program_nav_watch(void* point, int32_t on);  // and its watch (0x0047a270)
 void program_waypoint_arrow(int32_t active);

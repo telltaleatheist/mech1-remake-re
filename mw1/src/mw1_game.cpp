@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 
+#include "mech3/app_vehicle.h"
 #include "mech3/action_menu.h"
 #include "mech3/app_states.h"
 #include "mech3/app.h"
@@ -83,6 +84,7 @@ constexpr const char* kDialogFile = "mw1dialog.zrd", *kDialogName = "MW1MESSAGEB
 constexpr uint32_t kOptionsStateGlobal = 0x609868;  // PM's main menu's Options state (its OPTIONS button pushes it)  // the message box's styles and answer (Win32's)
 constexpr uint32_t kGfxOptionsStateGlobal = 0x60986c, kControlsStateGlobal = 0x609870;  // its other pages' (MW1_SCREEN)
 constexpr const char* kPilotName = "MW1 Company";  // the company's PM pilot (step 2)
+constexpr float kNavNear = 1.0f;  // item 43: only a map's own point on the structure serves as its (a near "Able" says nothing)
 constexpr float kReachRadius = 10.0f;  // metres from the structure's node (reach_area's own default is 25)
 constexpr int32_t kReachIa = 2;        // the map with the structures (c2's ia2)
 
@@ -1889,6 +1891,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (row_set_) {
       contract_.world = row_.world, contract_.ia = row_.ia, contract_.objective = objective_for(row_.kind);
       contract_.structure = row_.node, contract_.structure_words = row_.words;
+      // MW1_REACH's row: the map table's own (its world, archive and words) when it has a reach row on that node.
+      for (const MapRow& r : map_table())
+        if (row_.words == "the " + row_.node && r.kind == RowKind::kReach && r.node == row_.node)
+          contract_.world = r.world, contract_.ia = r.ia, contract_.structure_words = r.words;
     }
     save();
     std::printf("mw1: offered: %s on %sia%d (MW1's %s, code %d, %s), %d thousand, %zu enemies\n", objective_words(contract_).c_str(),
@@ -1950,6 +1956,13 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   // left. Each launch starts the mission's salvage and wrecks afresh.
   void mission_launched(mech3::Engine&) override {
     loading_.reset();  // the loading screen's job done
+    // FIXES.md item 43: the objective's nav point the selected one, so the HUD's nav and its arrow lead there.
+    if (nav_point_) {
+      float at[3];
+      mech3::mission_objective_hooks().node_position(nav_node_, at);
+      mech3::program_nav_move(nav_point_, at);
+      std::printf("mw1: the objective's nav point selected: %s\n", mech3::program_nav_select(nav_point_) ? "yes" : "no");
+    }
     if (const mech3::BriefingScreen* b = mech3::briefing_screen())  // launched from it: still there (tests)
       seen_.briefing_frames += b->frames_drawn, seen_.briefing_script = seen_.briefing_script || b->script.playing;
     mech3::Pilot* p = mech3::current_pilot();
@@ -2144,7 +2157,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   // A structure not on the map is never built in (destroy_entity would count it destroyed at once): the enemies to
   // destroy instead, said. The map survey (tests) is the gate; this is the net under it.
   void block_read(zrdr::Node*, mech3::Objectives& o) override {
-    own_wins_ = false, objective_built_.clear(), objective_fell_back_ = false;
+    own_wins_ = false, objective_built_.clear(), objective_fell_back_ = false, nav_point_ = nullptr, nav_label_.clear();
     if (!deployed_ || contract_.objective == Objective::kDestroyAll) return;
     mech3::ObjectiveHooks& h = mech3::mission_objective_hooks();
     const char* name = contract_.structure.c_str();
@@ -2160,8 +2173,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         float point[3];
         h.default_point(point);
         const std::string desc = "Reach " + shown;
+        auto r = std::make_unique<mech3::ReachAreaObjective>(desc.c_str(), node, point, kReachRadius);
+        r->nav = place_nav(h, node);  // item 43: its place a nav point (the check then reads the point, at the node)
         o.primary = std::make_unique<mech3::ObjectiveGroup>(h.message(0x16d));
-        o.primary->items.push_back(std::make_unique<mech3::ReachAreaObjective>(desc.c_str(), node, point, kReachRadius));
+        o.primary->items.push_back(std::move(r));
         own_wins_ = true, objective_built_ = "reach";
         break;
       }
@@ -2169,6 +2184,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         if (!target_listed(contract_.structure)) return fall_back();
         const std::string desc = "Destroy " + shown;
         auto d = std::make_unique<mech3::DestroyObjective>(desc.c_str(), name, h.entity_find(name));
+        d->nav = place_nav(h, h.node_find(name));
         o.primary = std::make_unique<mech3::ObjectiveGroup>(h.message(0x16d));
         o.primary->items.push_back(std::move(d));
         own_wins_ = true, objective_built_ = "attack";
@@ -2178,6 +2194,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         if (!target_listed(contract_.structure)) return fall_back();
         const std::string desc = "Failed to protect " + shown;
         auto d = std::make_unique<mech3::DestroyObjective>(desc.c_str(), name, h.entity_find(name));
+        d->nav = place_nav(h, h.node_find(name));
         o.primary.reset();  // Instant Action's "destroy the enemies" alone (add_enemy_group)
         if (!o.fail) o.fail = std::make_unique<mech3::ObjectiveGroup>(nullptr);
         o.fail->items.push_back(std::move(d));
@@ -2186,6 +2203,29 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       }
       case Objective::kDestroyAll: break;
     }
+  }
+  // FIXES.md item 43: the contract's place as a nav point, as MW3's objectives name theirs ("nav"), watched (on the
+  // map, the HUD's list, the arrow): at the structure's node, labelled with its words ("Pump complex"); a point of
+  // the map's own on it (kNavNear) serves instead. At the launch it is put where the node is then (a vehicle's is
+  // placed after the objectives are read) and selected, so the arrow leads there from the start. 0 without the node
+  // or the mission's waynet.
+  zgame::Handle place_nav(mech3::ObjectiveHooks& h, zgame::Handle node) {
+    nav_label_.clear(), nav_point_ = nullptr, nav_node_ = 0;
+    if (!node) return 0;
+    float at[3];
+    h.node_position(node, at);
+    std::string label = contract_.structure_words.empty() ? contract_.structure : contract_.structure_words;
+    if (label.rfind("the ", 0) == 0) label = label.substr(4);
+    if (!label.empty()) label[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(label[0])));
+    void* p = mech3::program_nav_add(label.c_str(), at, kNavNear);
+    if (!p) return 0;
+    const zgame::Handle nav = ge_ ? ge_->handle_of(p) : 0;
+    if (!nav) return 0;
+    h.nav_show(nav, 1);
+    nav_point_ = p, nav_node_ = node;
+    nav_label_ = mech3::program_waypoint_name(p) ? mech3::program_waypoint_name(p) : label;
+    std::printf("mw1: the objective's nav point: %s at %.0f, %.0f\n", nav_label_.c_str(), at[0], at[2]);
+    return nav;
   }
   // Destroy all and defend: Instant Action's own "destroy the enemies"; reach and attack win alone.
   bool add_enemy_group(const mech3::Objectives&) override { return !deployed_ || !own_wins_; }
@@ -2813,6 +2853,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   std::shared_ptr<mech3::Store> salvage_;  // this mission's parts, the stores' on a win
   bool deployed_ = false, launched_ = false, ended_ = false, failed_ = false, own_wins_ = false;
   bool ending_latched_ = false, ending_hook_ = false;  // the outcome taken this launch; the per-frame watch put on
+  void* nav_point_ = nullptr;
+  zgame::Handle nav_node_ = 0;  // and its structure's node  // item 43: the objective's nav point (the mission's waynet's), null none
+  std::string nav_label_;  // item 43: the objective's nav point's label (tests), "" none
   bool row_set_ = false;  // install_game_loop's reach, or set_game_loop_row's: every new contract on that row
   MapRow row_;
   std::string objective_built_;

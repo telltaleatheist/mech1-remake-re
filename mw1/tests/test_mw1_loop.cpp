@@ -29,6 +29,7 @@
 #include "gamez/zreader/zreader.h"
 #include "gamez/zsound/zsnd.h"
 #include "gamez/zutil/zutl_path.h"
+#include "mech3/app_vehicle.h"
 #include "mech3/app.h"
 #include "mech3/app_engine.h"
 #include "mech3/app_mech.h"
@@ -256,6 +257,11 @@ struct Run {
   int give_up = 1200;  // frames before the test stops waiting for the objectives (a quit)
   std::string objective_built;
   bool fell_back = false, structure_found = false, mission_ended = false, mission_lost = false;
+  // FIXES.md item 43: the mission waynet's selected point, its label and how far (ground plane) from the structure's
+  // node; whether the objective's point is watched; -1 none.
+  std::string nav_label;
+  float nav_off = -1;
+  int32_t nav_watched = 0;
   // PM's own way out of a won mission (Owen's, 2026-11-17): its end screen; then (item 19) MW1's results, never PM's
   // debriefing. Were the debriefing reached, its CONTINUE and the next round's briefing's EXIT (stages 2 and 3).
   bool pm_end = false;
@@ -1106,6 +1112,16 @@ void loop_run(Ending ending, Run* run = nullptr) {
                                                                         k->objective == mw1::Objective::kDefendStructure))
             run->structure_found = mech3::mission_objective_hooks().entity_find(k->structure.c_str()) != 0;
           else run->structure_found = true;
+          if (const mw1::Contract* k = mw1::game_loop_contract(); k && !k->structure.empty()) {
+            mech3::ObjectiveHooks& h = mech3::mission_objective_hooks();
+            const mech3::NavSummary n = mech3::program_nav_summary(mech3::program_mission_waynet());
+            if (const zgame::Handle node = h.node_find(k->structure.c_str()); node && n.current >= 0 && n.current < 8) {
+              float at[3];
+              h.node_position(node, at);
+              const float dx = n.pos[n.current][0] - at[0], dz = n.pos[n.current][2] - at[2];
+              run->nav_label = n.labels[n.current], run->nav_off = std::sqrt(dx * dx + dz * dz), run->nav_watched = n.watched;
+            }
+          }
           if (run->survey) return end_it();
           if (run->destroy_structure) {
             const mw1::Contract* k = mw1::game_loop_contract();
@@ -1832,9 +1848,18 @@ TEST(mw1_loop_every_map_row_is_there_headless) {
       Run run;
       run.row = &r, run.survey = true, run.stop_at_after_action = true, run.worlds = worlds;
       loop_run(kObjective, &run);
-      std::printf("  %-6s ia%d %-7s %-20s: built \"%s\"%s, the mission on %s\n", r.world.c_str(), r.ia, kind_said(r.kind), r.node.c_str(),
-                  run.objective_built.c_str(), run.fell_back ? " (FELL BACK)" : "", run.world_loaded.c_str());
+      std::printf("  %-6s ia%d %-7s %-20s: built \"%s\"%s, the mission on %s; nav \"%s\" %.0f m off, %d watched\n", r.world.c_str(),
+                  r.ia, kind_said(r.kind), r.node.c_str(), run.objective_built.c_str(), run.fell_back ? " (FELL BACK)" : "",
+                  run.world_loaded.c_str(), run.nav_label.c_str(), run.nav_off, run.nav_watched);
       EXPECT(run.world_loaded == r.world && run.objective_built == kind_said(r.kind) && !run.fell_back && run.structure_found);
+      // FIXES.md item 43: a structure's row (reach, attack, defend) has its place as the selected nav point, at its
+      // node as the mission starts, labelled with its words ("the pump complex": "Pump complex"), watched.
+      if (r.kind != mw1::RowKind::kAny) {
+        std::string want = r.words.rfind("the ", 0) == 0 ? r.words.substr(4) : r.words;
+        if (!want.empty()) want[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(want[0])));
+        EXPECT(run.nav_off >= 0 && run.nav_off < 1.0f && run.nav_watched >= 1);
+        EXPECT(run.nav_label == want);
+      }
     });
   }
 }

@@ -963,6 +963,29 @@ void* program_nav_find(const char* name) {  // 0x00479be0 on [0x00609980]
   return w ? w->find(name) : nullptr;
 }
 const char* program_nav_name(void* p) { return p ? static_cast<WaynetPoint*>(p)->name.c_str() : ""; }
+void* program_nav_add(const char* label, const float pos[3], float near) {
+  auto* w = static_cast<Waynet*>(program_mission_waynet());
+  if (!w || !label) return nullptr;
+  for (int32_t i = 0; i < w->count(); ++i)
+    if (WaynetPoint* p = as_point(w->elem(i)); p && !p->mfb) {
+      const float dx = p->pos[0] - pos[0], dz = p->pos[2] - pos[2];
+      if (dx * dx + dz * dz <= near * near) return p;
+    }
+  if (WaynetPoint* p = w->find(label)) return p;
+  // A plain point (not a dock's), shown, no links, no autonext; its name its label.
+  auto* p = new WaynetPoint(label, label, pos, nullptr, 0, 0, 1, 0, 0, 0);
+  w->add(p);
+  return p;
+}
+void program_nav_move(void* point, const float pos[3]) {
+  if (point) static_cast<WaynetPoint*>(point)->set_position(pos);
+}
+bool program_nav_select(void* point) {
+  auto* w = static_cast<Waynet*>(program_mission_waynet());
+  if (!w || !point) return false;
+  const int32_t i = w->index_of(static_cast<znet::Element*>(static_cast<WaynetPoint*>(point)));
+  return i >= 0 && w->select(i);
+}
 void program_nav_watch(void* p, int32_t on) {  // 0x0047a270 on [0x00609980]
   if (auto* w = static_cast<Waynet*>(program_mission_waynet())) w->note(static_cast<WaynetPoint*>(p), on != 0);
 }
