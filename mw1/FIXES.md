@@ -229,3 +229,14 @@ Tick an item when it is merged into `main`.
   - The key facts are drawn in a brighter highlight colour (white or bright amber) against the green-grey: the employer, the target, the objective, the map, the enemy count and class, and the pay.
   - Check MW1's own offer text in research/ for its exact wording of the class line.
 
+### Owen on item 16 (2026-11-17)
+- "Still can't get rid of the big message here on the main page." Item 16 isn't merged yet.
+- "And the green box that records my kills, I don't think we need all that info. Where did that fit in the original? Maybe we keep C-bills, payroll, and kills at the top, between the GREELY and MAY 3024 boxes, so it's out of the way."
+  - MW1's hub had no such box. Its hub is the landscape, the two plaques (world, date) and the six tiles. The company's figures were on the Company screen.
+- **So:**
+  - The green COMPANY box goes.
+  - C-BILLS, PAYROLL and KILLS go in one slim strip between the two top plaques.
+  - STORES (the count of parts in the company's stores) leaves the hub. The parts list lives in the Mech Complex and the lab.
+  - The mech line (OWENS LIGHT) leaves the hub too.
+  - The accepted contract's summary goes on the status line.
+
