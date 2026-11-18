@@ -8,23 +8,21 @@
 ; to choose in them; the round button with MW1's words for the rest, greyed
 ; as PM greys it. LABEL_AT is MW1's key (the game's readers ignore it).
 (
-SHARED_IMAGE_PATH ("..\data\common\images\dialogs\shared;..\data\common\images\dialogs\briefing")
 MW1MARKETDIALOG (
-  IMAGE_PATH ("..\data\common\images\dialogs\briefing;..\data\common\images;..\data\common\images\dialogs\shared;..\data\common\images\dialogs\mainmenu;..\data\common\images\dialog\multiplayer;..\data\common\images\dialogs\pilotreg")
   CURSOR (BITMAP ("mw1_cursor") CENTER (1))
   ; MW1's own scene behind it (no main menu to borrow one from: MW1 builds none).
   PRIMITIVES (BACKGROUND (POSITION (-107 0) BITMAP ("mw1_mechcomplex_dealer") ANCHOR ("CENTRE"))
-    PANEL (POSITION (16 64) BITMAP ("popup_box")) PANEL2 (POSITION (384 64) BITMAP ("popup_box")))
+    PANEL (POSITION (16 64) BITMAP ("mw1_panel_232x244")) PANEL2 (POSITION (384 64) BITMAP ("mw1_panel_232x244")))
   BUTTONS (
-    BUY (POSITION (24 440) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 454))
-    SELL (POSITION (184 440) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (230 454))
-    PILOT (POSITION (344 440) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (390 454))
-    BACK (POSITION (504 440) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (550 454))
+    BUY (POSITION (24 436) BITMAP ("mw1_button_s") ROLLOVER (BITMAP ("mw1_button_s_lit")) ACTIVATE (BITMAP ("mw1_button_s_down")) DISABLE (BITMAP ("mw1_button_s_off")) LABEL_AT (90 442) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    SELL (POSITION (176 436) BITMAP ("mw1_button_s") ROLLOVER (BITMAP ("mw1_button_s_lit")) ACTIVATE (BITMAP ("mw1_button_s_down")) DISABLE (BITMAP ("mw1_button_s_off")) LABEL_AT (242 442) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    PILOT (POSITION (328 436) BITMAP ("mw1_button_s") ROLLOVER (BITMAP ("mw1_button_s_lit")) ACTIVATE (BITMAP ("mw1_button_s_down")) DISABLE (BITMAP ("mw1_button_s_off")) LABEL_AT (394 442) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    BACK (POSITION (480 436) BITMAP ("mw1_button_s") ROLLOVER (BITMAP ("mw1_button_s_lit")) ACTIVATE (BITMAP ("mw1_button_s_down")) DISABLE (BITMAP ("mw1_button_s_off")) LABEL_AT (546 442) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
     ; The lists' arrows, at their panels' right edges.
-    STOCK_UP (POSITION (232 92) BITMAP ("arrowupmp_normal") ACTIVATE (BITMAP ("arrowupmp_rollover")) DISABLE (BITMAP ("arrowupmp_d")))
-    STOCK_DOWN (POSITION (232 300) BITMAP ("arrowdnmp_normal") ACTIVATE (BITMAP ("arrowdnmp_rollover")) DISABLE (BITMAP ("arrowdnmp_d")))
-    OWN_UP (POSITION (600 92) BITMAP ("arrowupmp_normal") ACTIVATE (BITMAP ("arrowupmp_rollover")) DISABLE (BITMAP ("arrowupmp_d")))
-    OWN_DOWN (POSITION (600 230) BITMAP ("arrowdnmp_normal") ACTIVATE (BITMAP ("arrowdnmp_rollover")) DISABLE (BITMAP ("arrowdnmp_d")))
+    STOCK_UP (POSITION (232 92) BITMAP ("mw1_up") ROLLOVER (BITMAP ("mw1_up_lit")) ACTIVATE (BITMAP ("mw1_up_down")) DISABLE (BITMAP ("mw1_up_off")))
+    STOCK_DOWN (POSITION (232 300) BITMAP ("mw1_dn") ROLLOVER (BITMAP ("mw1_dn_lit")) ACTIVATE (BITMAP ("mw1_dn_down")) DISABLE (BITMAP ("mw1_dn_off")))
+    OWN_UP (POSITION (600 92) BITMAP ("mw1_up") ROLLOVER (BITMAP ("mw1_up_lit")) ACTIVATE (BITMAP ("mw1_up_down")) DISABLE (BITMAP ("mw1_up_off")))
+    OWN_DOWN (POSITION (600 230) BITMAP ("mw1_dn") ROLLOVER (BITMAP ("mw1_dn_lit")) ACTIVATE (BITMAP ("mw1_dn_down")) DISABLE (BITMAP ("mw1_dn_off")))
   )
 )
 )

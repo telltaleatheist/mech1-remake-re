@@ -866,6 +866,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       return false;
     }
     market_ = ge.adopt_state([this](zgame::Handle h) { return market_state_ = new MarketState(h, [this](int32_t id) { press_market(id); }); });
+    // The lists hear the mouse: a click on a row chooses it (FIXES.md item 13: only the arrows did before).
+    if (market_state_)
+      market_state_->set_pointer(kMarketListArea[0], kMarketListArea[1], kMarketListArea[2], kMarketListArea[3],
+                                 [this](int32_t x, int32_t y, bool click) { market_point(x, y, click); });
     return market_ != 0;
   }
 
@@ -912,6 +916,17 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       std::printf("mw1: market: %s\n", choice_.note.c_str());
       if (d == Deal::kDone) save();
     }
+    show_market();
+  }
+
+  void market_point(int32_t x, int32_t y, bool click) {
+    bool own = false;
+    int32_t row = 0;
+    if (!click || !market_row_at(x, y, &own, &row)) return;
+    const int32_t count = own ? owned_count(company_) : static_cast<int32_t>(company_.market.stock.size());
+    if (row < 0 || row >= count) return;
+    (own ? choice_.owned : choice_.stock) = row;
+    choice_.note.clear();
     show_market();
   }
 
@@ -965,6 +980,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     ev_panel_ = EventPanel{};
     ev_panel_.planet = upper(company_.planet);
     ev_panel_.place = place_words(ev_.cls);
+    ev_panel_.scene = event_art(s.event);
+    if (ev_panel_.scene.empty()) ev_panel_.scene = scenery_image(company_.planet_number);  // the world's own
     ev_panel_.pages = shown_pages(company_, s);
     if (ev_panel_.pages.empty()) ev_panel_.pages.push_back({});
     if (s.restart && !kStoryDeathsRestart) {
@@ -1050,6 +1067,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     std::printf("mw1: story: the news, %zu stories\n", news_.size());
     ev_panel_ = EventPanel{};
     ev_panel_.planet = upper(company_.planet), ev_panel_.place = place_words(kClassNews), ev_panel_.news = true;
+    ev_panel_.scene = scenery_image(company_.planet_number);
     ev_panel_.stories = static_cast<int32_t>(news_.size());
     news_story(0, false);
     ge->push_state(event_, 0);

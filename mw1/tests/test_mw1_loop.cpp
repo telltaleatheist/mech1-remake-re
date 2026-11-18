@@ -295,8 +295,9 @@ void loop_run(Ending ending, Run* run = nullptr) {
             run->market_bought_for = funds - c->funds;
             EXPECT(c->hangar.size() == 1 && c->hangar[0].mech == mw1::kPmFirefly && c->market.stock.size() == 1);
             break;
-          case 1:  // the Firefly chosen in YOUR MECHS; SELL: back into the stock
-            sc->on_button(mw1::kMarketOwnDown, 0, 0);
+          case 1:  // the Firefly chosen in YOUR MECHS by the mouse (its second row clicked); SELL: back into the stock
+            sc->point(410, 96 + mw1::kLineGap + 4, true);
+            EXPECT(sc->enabled(mw1::kMarketPilot));  // the second mech chosen: PILOT live
             sc->on_button(mw1::kMarketSell, 0, 0);
             run->market_sold_for = c->funds - funds;
             EXPECT(c->hangar.empty() && c->market.stock.back() == mw1::kPmFirefly);
@@ -304,8 +305,12 @@ void loop_run(Ending ending, Run* run = nullptr) {
           case 2:  // the last mech: SELL greyed, and the rule refuses it
             EXPECT(!sc->enabled(mw1::kMarketSell));
             EXPECT(mw1::sell(*c, 0) == mw1::Deal::kLastMech);
-            // BUY it back: the stock's last line.
-            sc->on_button(mw1::kMarketStockDown, 0, 0);
+            // BUY it back: the stock's last line, clicked (a click past the list's end, or on its arrow, changes nothing).
+            sc->point(60, 96 + static_cast<int32_t>(c->market.stock.size() + 2) * mw1::kLineGap, true);
+            sc->point(240, 96 + 4, true);
+            EXPECT(sc->enabled(mw1::kMarketStockUp) == false);
+            sc->point(60, 96 + static_cast<int32_t>(c->market.stock.size() - 1) * mw1::kLineGap + 4, true);
+            EXPECT(!sc->enabled(mw1::kMarketStockDown) && sc->enabled(mw1::kMarketStockUp));
             sc->on_button(mw1::kMarketBuy, 0, 0);
             EXPECT(c->hangar.size() == 1 && c->hangar[0].mech == mw1::kPmFirefly);
             break;

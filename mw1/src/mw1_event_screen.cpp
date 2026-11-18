@@ -4,8 +4,15 @@ namespace mw1::event_ui {
 namespace {
 const std::vector<ScreenButton> kEventButtons = {{"CHOICE1", ""}, {"CHOICE2", ""}, {"CHOICE3", ""},
                                                  {"NEXT", "NEXT"}, {"PREV", "PREV"}, {"BACK", "BACK"}};
-constexpr int32_t kTextX = 48, kTextY = 72;  // MW1's text, its 44 columns well inside the screen
 }  // namespace
+
+std::string event_art(int32_t event) {
+  switch (event) {
+    case kEventDarkWingAttack: return "mw1_story_darkwing_base";
+    case kEventPortArrest: return "mw1_story_arrested";
+    default: return "";
+  }
+}
 
 const char* event_button_name(int32_t id) { return id >= 1 && id <= kEventButtonCount ? kEventButtons[static_cast<size_t>(id) - 1].name : ""; }
 
@@ -15,8 +22,9 @@ ScreenView event_view(const EventPanel& p) {
   if (p.news && p.stories > 0) where += " (" + std::to_string(p.story + 1) + " OF " + std::to_string(p.stories) + ")";
   const std::vector<std::string> none;
   const std::vector<std::string>& lines = p.page < p.pages.size() ? p.pages[p.page].lines : none;
-  v.blocks = {{24, 14, kPlaqueFont, {p.planet}}, {24, 32, kPlaqueSmallFont, {where}}, {kTextX, kTextY, kLineFont, lines}};
-  if (p.pages.size() > 1) v.blocks.push_back({560, 32, kPlaqueSmallFont, {std::to_string(p.page + 1) + "/" + std::to_string(p.pages.size())}});
+  v.backdrop = p.scene;
+  v.blocks = {at_place("PLANET", {p.planet}), at_place("PLACE", {where}), at_place("LINES", lines)};
+  if (p.pages.size() > 1) v.blocks.push_back(at_place("PAGE", {std::to_string(p.page + 1) + "/" + std::to_string(p.pages.size())}));
   v.buttons.assign(kEventButtonCount, ButtonState{});
   for (int32_t i = 0; i < 3; ++i) {
     ButtonState& b = v.buttons[static_cast<size_t>(i)];

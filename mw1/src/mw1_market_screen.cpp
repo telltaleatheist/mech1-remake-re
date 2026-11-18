@@ -46,6 +46,20 @@ void clamp_choice(const Company& c, MarketChoice& m) {
   m.owned = m.owned < 0 ? 0 : m.owned >= owned ? owned - 1 : m.owned;
 }
 
+namespace {
+constexpr int32_t kListX[2] = {30, 398}, kListW = 200, kListTop = 96;  // the lists' first rows (market_view's blocks), clear of the arrows
+}  // namespace
+
+bool market_row_at(int32_t x, int32_t y, bool* own, int32_t* row) {
+  for (int32_t l = 0; l < 2; ++l) {
+    if (x < kListX[l] - 6 || x >= kListX[l] + kListW || y < kListTop - 2) continue;
+    if (own) *own = l == 1;
+    if (row) *row = (y - kListTop + 2) / kLineGap;
+    return true;
+  }
+  return false;
+}
+
 ScreenView market_view(const Company& c, const MarketChoice& m) {
   ScreenView v;
   std::vector<std::string> stock, owned;

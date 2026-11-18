@@ -1,25 +1,40 @@
 ; MW1: Critical Hit's event panel (src/mw1_event_screen.h) on MW1's screen
 ; template (src/mw1_screen.h): MW1's story texts, read from the player's
-; MW_MAIN.EXE, green on black as MW1 showed them, over the screen they fire
-; on. The backdrop is MW1's own black (mw1image.zbd); the buttons are Pirate's
-; Moon's, read from the player's install (never copied). A choice's buttons
-; carry MW1's captions (the screen gives their words); NEXT says NEXT or OK.
-; LABEL_AT is MW1's key.
+; MW_MAIN.EXE, a full screen of its own (FIXES.md item 10):
+; - the event's scene full-bleed and dimmed (the screen names it: the event's
+;   own art, else the world's hub scenery; mw1_story.h's event_art);
+; - the world and the place (ARRIVAL, THE BAR, ...) on the plaque at the top;
+; - the text on the green terminal in the middle, the page's count at its
+;   top right;
+; - MW1's framed buttons under it: a choice's captions (up to three across),
+;   else NEXT or OK in the middle; the news's PREV, NEXT and BACK.
+; All MW1's own art (mw1image.zbd): nothing of Pirate's Moon's
+; (tests/test_mw1_look.cpp). A 4:3 layout, each piece anchored to the
+; canvas's middle (the 16:9 canvas shows the scene's full width).
 (
-SHARED_IMAGE_PATH ("..\data\common\images\dialogs\shared;..\data\common\images\dialogs\briefing")
 MW1EVENTDIALOG (
-  IMAGE_PATH ("..\data\common\images\dialogs\briefing;..\data\common\images;..\data\common\images\dialogs\shared;..\data\common\images\dialogs\mainmenu")
   CURSOR (BITMAP ("mw1_cursor") CENTER (1))
-  PRIMITIVES (BACKGROUND (POSITION (0 0) BITMAP ("mw1_black")))
+  PRIMITIVES (
+    BACKGROUND (POSITION (-107 0) BITMAP ("mw1_hub_industrial") ANCHOR ("CENTRE"))
+    PANEL (POSITION (-107 0) BITMAP ("mw1_dim") ANCHOR ("CENTRE"))
+    PANEL2 (POSITION (170 16) BITMAP ("mw1_plaque") ANCHOR ("CENTRE"))
+    PANEL3 (POSITION (102 82) BITMAP ("mw1_term_436x300") ANCHOR ("CENTRE"))
+  )
   BUTTONS (
     ; The choices: up to three, MW1's captions.
-    CHOICE1 (POSITION (24 440) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 454))
-    CHOICE2 (POSITION (216 440) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (262 454))
-    CHOICE3 (POSITION (408 440) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (454 454))
-    ; The next page (or OK); the news's previous story and BACK.
-    NEXT (POSITION (536 440) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (582 454))
-    PREV (POSITION (24 440) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (70 454))
-    BACK (POSITION (280 440) BITMAP ("circlebtn_tiny") DISABLE (BITMAP ("circlebtn_tiny_grey")) LABEL_AT (326 454))
+    CHOICE1 (POSITION (52 398) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (144 404) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    CHOICE2 (POSITION (236 398) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (328 404) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    CHOICE3 (POSITION (420 398) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (512 404) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    ; The next page (or OK) in the middle; the news's previous story left of it, BACK right.
+    NEXT (POSITION (236 398) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (328 404) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    PREV (POSITION (52 398) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (144 404) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    BACK (POSITION (420 398) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (512 404) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+  )
+  TEXTS (
+    PLANET (POSITION (320 23) FONT ("mw1_plaque") ANCHOR ("CENTRE"))
+    PLACE (POSITION (320 55) FONT ("mw1_plaque_sub") ANCHOR ("CENTRE"))
+    PAGE (POSITION (522 90) FONT ("mw1_term_value") ANCHOR ("CENTRE"))
+    LINES (POSITION (124 104) FONT ("mw1_term_line") GAP (15) ANCHOR ("CENTRE"))
   )
 )
 )

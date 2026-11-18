@@ -24,6 +24,9 @@ inline constexpr int32_t kTileBand = 20;                        // the dark band
 inline constexpr const char* kTileFrames[3] = {"mw1_tile", "mw1_tile_lit", "mw1_tile_down"};  // still, hover, pressed
 inline constexpr int32_t kButtonW = 168, kButtonH = 30;         // a button (MECH LAB, LAUNCH, NEW, ...)
 inline constexpr const char* kButtons[4] = {"mw1_button", "mw1_button_lit", "mw1_button_down", "mw1_button_off"};
+// The same button narrower, for a row of four across 4:3 (the market's BUY, SELL, PILOT, BACK).
+inline constexpr int32_t kButtonSmallW = 120;
+inline constexpr const char* kButtonsSmall[4] = {"mw1_button_s", "mw1_button_s_lit", "mw1_button_s_down", "mw1_button_s_off"};
 inline constexpr const char* kDialog = "mw1_dialog";            // every message box's frame (mw1dialog.zrd)
 inline constexpr int32_t kDialogW = 420, kDialogH = 200, kDialogRule = 38;  // the rule under the title
 inline constexpr const char* kCursor = "mw1_cursor";            // MW1's mouse pointer (every layout's CURSOR)
@@ -49,7 +52,7 @@ inline const std::vector<PanelSize>& panel_sizes() {
   return k;
 }
 inline const std::vector<PanelSize>& terminal_sizes() {
-  static const std::vector<PanelSize> k = {{232, 150}, {186, 328}, {377, 328}, {436, 172}, {637, 172},
+  static const std::vector<PanelSize> k = {{232, 150}, {436, 300}, {186, 328}, {377, 328}, {436, 172}, {637, 172},
                                            {220, 22}};  // and the file popup's name
   return k;
 }
@@ -83,7 +86,8 @@ images::Image plaque();
 images::Image tile_frame(int32_t state);  // 0 still, 1 lit, 2 pressed
 // A picture tile's four looks, its picture (kTile square) in the frame: `base`, `base`_lit, `base`_down, `base`_off.
 std::vector<images::Image> tiles(const images::Image& picture, const std::string& base);
-images::Image button(int32_t state);      // 0 still, 1 lit, 2 pressed, 3 off
+images::Image button(int32_t state);
+images::Image button(int32_t state, int32_t w, int32_t h, const std::string& name);  // any size, any name      // 0 still, 1 lit, 2 pressed, 3 off
 images::Image panel(int32_t w, int32_t h);
 images::Image terminal(int32_t w, int32_t h);
 images::Image status_bar();
