@@ -342,6 +342,24 @@ Tick an item when it is merged into `main`.
 - Dev 2 shortened three Bar hints to fit 4:3 ("Order a drink, read the news, or find pilots for hire.", etc.). Is the wording OK?
 - Item 19's results screen: the shot is in `outbox/2026-11-17/results-screen/`; anything to change?
 
+## 32. [ ] Missing in action: a downed lancemate can come back to the hiring pool
+- **Owen (2026-11-18):** yes, add MW1's MISSING.
+- **MW1:**
+  - The after-action roster has KILLED and MISSING.
+  - A MISSING pilot leaves the lance, but their unavailable flag is cleared (`PILOT_STATUS_RELEASE_AVAILABILITY`), so they can turn up in a Bar again.
+- **Ours today:** `pilot_killed()` (mw1_pilots.cpp) kills every pilot whose mech is destroyed on a counted mission.
+- **To do:**
+  - A destroyed mech's pilot is MISSING by a fixed chance (one constant), otherwise KILLED.
+  - Missing goes back to the recruit pool, keeping their skills and record.
+  - AFTER ACTION shows MISSING.
+  - The mech is lost either way.
+  - Old saves still load.
+  - Tests.
+
+## 33. [x] The commander can't die: no campaign restart *(Owen 2026-11-18: "you cant die in this one. that was a weird mechanic")*
+- MW1 restarts the campaign on a story death. Ours never does.
+- `kStoryDeathsRestart` stays off for good, and story.md's Q1 is answered. A dev can drop the switch when next in that code, but there's no behaviour change.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.

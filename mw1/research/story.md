@@ -224,8 +224,9 @@ Each is one constant or flag.
   ways to reach the same step.
 - **Q10, DRINK:** MW1's prices, which are the tips' own funds actions.
 - **Q11, the pictures:** text panels.
-- **Still open (Q1, Q5):** `kStoryDeathsRestart` is off: a death's page
-  shows and play goes on. `kDarkWingBattle` is off: ATTACK is greyed and
+- **Q1, answered (Owen 2026-11-18):** you can't die in this one. A death's
+  page shows and play goes on (`kStoryDeathsRestart` stays off).
+- **Still open (Q5):** `kDarkWingBattle` is off: ATTACK is greyed and
   DELAY is live.
 
 ## Built: steps 1-3 (2026-11-17)
