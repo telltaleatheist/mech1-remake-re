@@ -123,6 +123,55 @@ through `host().blit` (14 callers, none calling `zrndr::blit16` directly), so th
 The one draw outside the host is the fade's still (`GameEngine::image_draw`), which needs a small ours hook in
 `app_engine.cpp`. Nothing else in `gamez/ztwod` or `mech3` changes.
 
+### The interface between B1 and B2 (agreed by both devs, 2026-11-18)
+
+B2 is built on mw1-hires-pictures, and B1 draws from it. There are two engine "ours" hooks, both opt-in: only MW1's
+program sets them, so MW3 and PM see neither. With `MW1_HIRES=0` (B1's `platform::hires_2d()` off) MW1 sets no
+`HiresImages`, so nothing is high-res and only the canvas copies draw.
+
+**The pictures B1 draws: `src/platform/hires_images.h`.**
+- `platform::HiresImages` is set by MW1 (`mw1::art::install`) and is null otherwise.
+- `find(name)` returns the source-size picture behind a canvas image: its size, its pixels and the canvas image's
+  size. The pixels are RGBA8 bytes (`SDL_PIXELFORMAT_RGBA32`) with straight alpha; B1 premultiplies them on upload.
+  It returns null when the image has none, and the image then draws from the canvas as today.
+- **The key is the canvas image's name**, the one `SdlTwodHost::image_get` fetched it under (after `layout_image`'s
+  remap). B1 keeps a reverse map from `Texture*` to that name, filled in `image_get`. Grabs and text images have no
+  name, so they get no picture command.
+- Each decode has a `serial` that is never reused. B1 keys its GPU texture on it, uploads on first sight, and drops
+  textures not drawn for a while.
+- The pointer from `find` is valid until `end_frame()`. The host calls `end_frame()` once after each present, after
+  the frame's uploads; B1 never keeps the pointer past that frame.
+- `find` runs on the main thread only. A miss (a picture not yet decoded) is decoded there synchronously, a few ms,
+  and logged.
+- A canvas source rect maps to the source per axis, in floats: x times `w / canvas_w`, y times `h / canvas_h`. The
+  canvas copy is the whole source resized, so the mapping is exact. Scenes differ by under 0.1% between the axes.
+
+**The canvas copy B2 makes: `zimg::set_image_provider` (`src/gamez/zimage/zimg_library.h`).**
+- `fetch_image` asks the provider last, after both library lists, so `image_get` and its cache see the copy like
+  any packed image. `has_texture` asks it too.
+- The copy is the same size as the old packed image (854x480, 240x320, 96x128, 100x100, 240x240), so layouts, the
+  fit guards and the look tests don't move. It is deterministic: area average (bilinear when enlarging), then 565's
+  nearest level, as `mw1art.py` rounded.
+- It is not bit-identical to the old packed copy, because the source is now JPEG and the resample is C++ rather
+  than PIL's Lanczos. No test depended on those exact pixels.
+- The canvas copy stays drawn under the picture, as B0's fallback.
+
+**What has a source in the first cut:**
+- the scenes, with the hub's darkened at both sizes (the scanlines a canvas line apart on the source);
+- the portraits and their small `_s` copies (one file, two canvas images);
+- the service tiles' pictures (`mw1_icon_*`);
+- the emblem.
+
+What has none yet: the framed tiles (`mw1_tile_*`), DEPLOY's tile, the lab's panels cut from the hangar, the chrome,
+the mech icons and the renders. These are still made at canvas size (the tiles and panels are cut from the canvas
+copies at pack time, into `mw1image.zbd`).
+
+**Caching.**
+- A screen's pictures are decoded when its canvas copies are first fetched, as it opens, and kept while it draws
+  them.
+- A picture not asked for in 180 frames is dropped.
+- `mw1::art::Store::preload(names)` decodes the next screen's pictures on worker threads behind the loading screen.
+
 ### B1. The engine path: a high-resolution draw list over the canvas
 
 This is an "ours" path, opt-in by a host flag (`hires_2d`) that only MW1's program sets (`mw1_main.cpp`). Layouts, hit tests, the
