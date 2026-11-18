@@ -204,6 +204,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         if (deployed_ && launched_ && !ending_latched_ && ge_ && ge_->mission_ended()) latch_ending(*ge_);
         lab_look_frame();
         briefing_cursor_frame();
+        if (std::getenv("MW1_FIT")) screen_fit_frame();
       };
     }
     // MW1_SCREEN=pause or pause_options (development: --shot pictures of the pause over a mission): the offer
@@ -1890,6 +1891,40 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     zcls::window_set_origin(v->window, r.x + (r.w - side) / 2, r.y + (r.h - side) / 2);
     const char* y = std::getenv("MW1_RENDER_YAW");
     zcls::object3d_set_rotation(node, 0.0f, (y ? std::strtof(y, nullptr) : 0.0f) * 0.017453292f, 0.0f);
+  }
+
+  // MW1_FIT=1 with MW1_SCREEN=<page> (FIXES 3+5's guard, tests/screen_fit.cmake): 40 frames into the MW1 screen the
+  // page shows, each text of it inside the canvas (and clear of its arrows, mw1_lab_fit.h); printed by place and length
+  // (MW1's words never), then the program ends, 0 when every one is.
+  void screen_fit_frame() {
+    mech3::Mech3App* app = mech3::app_if_any();
+    const char* page = std::getenv("MW1_SCREEN");
+    if (!ge_ || !app || !page) return;
+    const std::string p = page;
+    auto on = [&](auto* st) { return st && app->current() == static_cast<zgame::State*>(st) ? st->screen() : nullptr; };
+    // A new company's hub opens on its story's first event, the news on the event panel: those count as the page's.
+    Mw1Screen* sc = p == "hub_options" ? on(game_loop_hub_options())
+                    : p == "news" || (p.rfind("hub", 0) == 0 && on(game_loop_event())) ? on(game_loop_event())
+                    : p.rfind("hub", 0) == 0                ? on(game_loop_hub())
+                    : p.rfind("market", 0) == 0             ? on(game_loop_market())
+                    : p.rfind("travel", 0) == 0             ? on(game_loop_travel())
+                    : p.rfind("office", 0) == 0             ? on(game_loop_office())
+                    : p.rfind("bar", 0) == 0 || p == "company" ? on(game_loop_bar())
+                                                                              : nullptr;
+    static int frames = 0;
+    if (!sc) return void(frames = 0);
+    if (++frames < 40) return;
+    const int32_t w = ge_->buffer_width(), h = ge_->buffer_height();
+    int texts = 0, outside = 0;
+    for (const FitText& f : fit_texts(*sc, 0, 0, {{0, 0, w, h, "canvas"}})) {
+      ++texts;
+      if (f.fits) continue;
+      ++outside;
+      std::printf("mw1 screen fit: %s, %zu letters at %d..%d x %d..%d: OUTSIDE\n", page, f.text.size(), f.left, f.right, f.top, f.bottom);
+    }
+    std::printf("mw1 screen fit: done at %dx%d on %s, %d texts, %d outside\n", w, h, page, texts, outside);
+    std::fflush(nullptr);
+    std::_Exit(outside ? 1 : 0);
   }
 
   // MW1_SCREEN=lab_fit (the lab's text guard, mw1_lab_fit.h): the lab's pages 0 (chassis), 1, 3 (each supply tab)

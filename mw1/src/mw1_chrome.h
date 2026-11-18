@@ -7,6 +7,7 @@
 //
 // The look: Owen's hub mockup's (mockups/mw1-hub.html): flat thin gunmetal frames (a lit top lip, a black outline)
 // round dark glass, a rivet at each end of a plaque, MW1's amber for a lit (hovered) edge, the terminal's green.
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -39,6 +40,9 @@ inline constexpr const char* kDim = "mw1_dim";                  // the screen di
 inline constexpr int32_t kDimAlpha = 150;
 inline constexpr const char* kStatusBar = "mw1_statusbar";      // the status line's band, the wide canvas across
 inline constexpr int32_t kStatusH = 26;
+// The status line's room at 4:3 (FIXES 3+5's sweep): "mw1_status" is Share Tech Mono at 13, 8 pixels a letter, from 132
+// to the 640 canvas's edge less a margin; every status text keeps to this many letters (the soak test checks them all).
+inline constexpr size_t kStatusLetters = 62;
 // The hub's scenery darkened (percent kept) and its scanlines (every other line, percent of that kept).
 inline constexpr int32_t kSceneLight = 74, kScanline = 86;
 

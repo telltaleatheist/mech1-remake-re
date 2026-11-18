@@ -91,7 +91,7 @@ ScreenView market_view(const Company& c, const MarketChoice& m) {
               at_place("PLACE_SUB", {"TIER " + std::to_string(c.tier) + " WORLD \xB7 SELLING AT " +
                                      std::to_string(sell_percent(c.tier)) + "%"}),
               at_place("STATUS_WORLD", {upper(c.planet)}),
-              at_place("STATUS", {m.note.empty() ? "BUY takes a mech FOR SALE; the rest act on YOUR MECHS' chosen one." : m.note})};
+              at_place("STATUS", {m.note.empty() ? "BUY takes from FOR SALE; the rest act on YOUR MECHS." : m.note})};
   v.panels.assign(kMarketPanelCount, true);
 
   // FOR SALE: the stock at the buying price.
