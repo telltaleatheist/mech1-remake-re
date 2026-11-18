@@ -47,7 +47,12 @@
 #include "mw1_bar_screen.h"
 #include "mw1_lab_fit.h"
 #include "mw1_mech_icons.h"
+<<<<<<< HEAD
 #include "mw1_loading.h"
+=======
+#include "mw1_mech_renders.h"
+#include "platform/render3d.h"
+>>>>>>> origin/mw1-mech-renders
 #include "mw1_event_screen.h"
 #include "mw1_office.h"
 #include "mw1_campaign.h"
@@ -175,6 +180,12 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     } else {
       std::printf("mw1: no mech icons from Pirate's Moon's pictures: the Company screen's mech slots stay empty\n");
     }
+    // FIXES.md item 14: the mech renders, registered when made under this stamp; else made by the pass this run (not
+    // for development shots and checks: MW1_SCREEN's pages keep the icons).
+    const bool current = renders_current(zutl::mounts().write, render_mechs());
+    if (current && !renders_ready()) zimg::new_image_library(kRenderLibrary, 0, false);
+    set_renders_ready(current);
+    renders_wanted_ = !current && !zutl::mounts().write.empty() && !std::getenv("MW1_SCREEN");
     for (const LayoutSwap& s : kLayoutSwaps)
       if (layout_there(s.file, s.dialog))
         ztwod::set_layout(s.game_file, s.game_dialog, s.file, s.dialog, std::string(s.dialog) + kWideSuffix);
@@ -206,6 +217,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         lab_look_frame();
         briefing_cursor_frame();
         if (std::getenv("MW1_FIT")) screen_fit_frame();
+        render_pass_frame();
       };
     }
     // MW1_SCREEN=pause or pause_options (development: --shot pictures of the pause over a mission): the offer
@@ -958,10 +970,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       case kMarketLab:
         if (ge) open_lab(*ge);
         return;
-      case kMarketStockUp: --m.stock; break;
-      case kMarketStockDown: ++m.stock; break;
-      case kMarketOwnUp: --m.owned; break;
-      case kMarketOwnDown: ++m.owned; break;
+      case kMarketStockUp: --m.stock, m.own_shown = false; break;
+      case kMarketStockDown: ++m.stock, m.own_shown = false; break;
+      case kMarketOwnUp: --m.owned, m.own_shown = true; break;
+      case kMarketOwnDown: ++m.owned, m.own_shown = true; break;
       case kMarketBack:
         if (!ge) return;
         show_hub();
@@ -989,6 +1001,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     const int32_t count = own ? owned_count(company_) : static_cast<int32_t>(company_.market.stock.size());
     if (row < 0 || row >= count) return;
     (own ? choice_.owned : choice_.stock) = row;
+    choice_.own_shown = own;
     choice_.note.clear();
     show_market();
   }
@@ -1908,38 +1921,128 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       if (auto* p = dynamic_cast<mech3::PauseScreen*>(ge->screen_of(mech3::states().pause.screen_))) p->on_button(mech3::PauseScreen::kOptions, 0, 0);
   }
 
-  // MW1_SCREEN=lab_render (development, FIXES 14's test renders): the lab's 3D view grown to a square over the
-  // screen, showing MW1_RENDER_MECH (a PM name, any case; else the lab's own) held at MW1_RENDER_YAW degrees (0 the
-  // lab's start), the camera moved by MW1_RENDER_CAM ("x,y,z" added to the lab's).
+  // MW1_SCREEN=lab_render (development, FIXES 14's test renders): the pass's stage (render_stage) showing
+  // MW1_RENDER_MECH (a PM name, any case; else the lab's own) at MW1_RENDER_YAW degrees (0 the front).
   void lab_render_frame(mech3::GameEngine& ge, zgame::State* now) {
     if (now != &mech3::states().lab) return;
-    mech3::LabState& ls = mech3::states().lab;
-    static bool chosen = false, moved = false;
+    static bool chosen = false;
     if (!chosen) {
       chosen = true;
-      if (const char* n = std::getenv("MW1_RENDER_MECH"); n && mech3::mech_index(n) >= 0) ls.mech_ = mech3::mech_index(n);
+      if (const char* n = std::getenv("MW1_RENDER_MECH"); n && mech3::mech_index(n) >= 0)
+        mech3::states().lab.mech_ = mech3::mech_index(n);
     }
-    if (!moved) {
-      moved = true;
-      if (const char* c = std::getenv("MW1_RENDER_CAM")) {
-        float d[3] = {};
-        if (std::sscanf(c, "%f,%f,%f", &d[0], &d[1], &d[2]) == 3)
-          for (int i = 0; i < 3; ++i) ls.cam_pos_[i] += d[i];
+    const char* y = std::getenv("MW1_RENDER_YAW");
+    render_stage(ge, y ? std::strtof(y, nullptr) : 0.0f);
+  }
+
+  // ---- FIXES.md item 14: the mech renders (mw1_mech_renders.h) ----
+  // The lab made a render stage, each frame: its 2D hidden (each one remembered, shown again by render_unstage), its
+  // pointer off, the camera moved by kRenderCamera (once a lab), the 3D window a square in the render's middle (black
+  // round the mech: the lab clears to black), and the shown mech held at `yaw` degrees (0 the front).
+  void render_stage(mech3::GameEngine& ge, float yaw) {
+    mech3::LabState& ls = mech3::states().lab;
+    mech3::LabScreen* l = ge.lab_screen(ls.lab_screen_);
+    if (l) {
+      for (ztwod::Object2D* o = l->head; o; o = o->next)
+        if (!(o->flags & ztwod::kHidden)) o->hide(), stage_hidden_.push_back(o);
+      if (l->cursor) stage_cursor_ = l->cursor, l->set_cursor(nullptr);
+      if (stage_screen_ != l) {  // a lab just opened: its camera from the constants
+        stage_screen_ = l;
+        for (int i = 0; i < 3; ++i) ls.cam_pos_[i] += kRenderCamera[i];
       }
     }
     mech3::LabView* v = ge.lab_view();
     zcls::Node* node = ls.model_ ? ge.lab_model_node(ls.model_) : nullptr;
     if (!v || !node) return;
-    if (mech3::LabScreen* l = ge.lab_screen(ls.lab_screen_))  // the backdrop dark: the screen's 2D hidden
-      for (ztwod::Object2D* o = l->head; o; o = o->next)
-        if (!(o->flags & ztwod::kHidden)) o->hide();
-    if (mech3::LabScreen* l = ge.lab_screen(ls.lab_screen_)) l->set_cursor(nullptr);  // and the pointer off
     const mech3::Rect& r = mech3::render();
     const int32_t side = std::min(r.w, r.h);
     zcls::window_set_size(v->window, side, side);
     zcls::window_set_origin(v->window, r.x + (r.w - side) / 2, r.y + (r.h - side) / 2);
-    const char* y = std::getenv("MW1_RENDER_YAW");
-    zcls::object3d_set_rotation(node, 0.0f, (y ? std::strtof(y, nullptr) : 0.0f) * 0.017453292f, 0.0f);
+    zcls::object3d_set_rotation(node, 0.0f, yaw * 0.017453292f, 0.0f);
+  }
+  // The lab as it was: what render_stage hid shown again, its pointer back.
+  void render_unstage(mech3::GameEngine& ge) {
+    for (ztwod::Object2D* o : stage_hidden_) o->show_for(-1.0f);
+    stage_hidden_.clear();
+    mech3::LabScreen* l = ge.lab_screen(mech3::states().lab.lab_screen_);
+    if (l && stage_cursor_) l->set_cursor(stage_cursor_);
+    stage_cursor_ = nullptr, stage_screen_ = nullptr;
+  }
+
+  // The pass (once a run, when the archive is missing or its stamp differs, and the renderer reads frames back):
+  // settled on MW1's menu or hub, the lab opened over it on the first mech; each mech shown kRenderSettle frames held
+  // at the front, the frame read back and made its pictures; then the archive written and registered, the lab put
+  // back as it was and ACCEPTed (the screen it opened over shows again). No pictures: the amber icons stay.
+  static constexpr int32_t kRenderSettle = 4, kRenderGiveUp = 120;
+  void render_pass_frame() {
+    mech3::Mech3App* app = mech3::app_if_any();
+    if (!renders_wanted_ || !ge_ || !app) return;
+    mech3::GameEngine& ge = *ge_;
+    zgame::State* lab = &mech3::states().lab;
+    if (!pass_.on) {
+      const bool home = (menu_state_ && app->current() == static_cast<zgame::State*>(menu_state_)) ||
+                        (hub_state_ && app->current() == static_cast<zgame::State*>(hub_state_));
+      pass_.wait = home && !pending_ ? pass_.wait + 1 : 0;
+      if (pass_.wait < 10) return;
+      platform::Render3D* r3 = ge.platform_parts().render;
+      std::vector<uint32_t> probe;
+      int32_t pw = 0, ph = 0;
+      if (!r3 || !r3->read_back(&probe, &pw, &ph)) return void(renders_wanted_ = false);
+      pass_ = RenderPass{};
+      pass_.on = true, pass_.mechs = render_mechs();
+      std::printf("mw1: rendering %zu mech pictures from the install's models (FIXES.md item 14)\n", pass_.mechs.size());
+      mech3::Pilot* p = company_pilot();
+      mech3::current_pilot() = p;
+      p->select_game(mech3::kInstantAction);
+      mech3::ActionGame* g = p->action();
+      while (g->count > 0) g->remove(0);
+      g->slot.set_config(nullptr), g->slot.mech = pass_.mechs.front();
+      g->slot.set_config(stock_loadout(pass_.mechs.front()));
+      g->store.clear();
+      g->store.full = 0;
+      ge.pilot_chosen(p);
+      ge.mech_lab_open(ge.store_handle(&g->store), 0);
+      return;
+    }
+    if (app->current() != lab) {
+      if (!pass_.opened && ++pass_.idle < kRenderGiveUp) return;
+      if (!pass_.opened) std::printf("mw1: the mech lab never opened: no mech renders this run\n");
+      renders_wanted_ = false, pass_.on = false;
+      return;
+    }
+    pass_.opened = true;
+    mech3::LabState& ls = mech3::states().lab;
+    if (pass_.at >= pass_.mechs.size()) return;  // done: ACCEPT asked, the lab leaving
+    const int32_t mech = pass_.mechs[pass_.at];
+    if (pass_.wait == 0) ls.mech_ = mech;
+    render_stage(ge, 0.0f);
+    const int32_t entry = ls.model_index(mech);
+    const bool shown = entry >= 0 && static_cast<size_t>(entry) < ls.models_.size() && ls.model_ == ls.models_[static_cast<size_t>(entry)];
+    pass_.wait = shown ? pass_.wait + 1 : std::max(pass_.wait, 1);
+    if (!shown && ++pass_.idle > kRenderGiveUp) {
+      std::printf("mw1: the %s never showed in the lab: no render of it\n", mech3::mech_name(mech));
+      pass_.idle = 0, pass_.wait = 0, ++pass_.at;
+    } else if (shown && pass_.wait > kRenderSettle) {
+      std::vector<uint32_t> px;
+      int32_t w = 0, h = 0;
+      if (ge.platform_parts().render->read_back(&px, &w, &h)) {
+        std::vector<images::Image> made = renders_from_frame(mech, px.data(), w, h);
+        if (made.empty()) std::printf("mw1: the %s's frame was empty: no render of it\n", mech3::mech_name(mech));
+        for (images::Image& i : made) pass_.made.push_back(std::move(i));
+      }
+      pass_.idle = 0, pass_.wait = 0, ++pass_.at;
+    }
+    if (pass_.at < pass_.mechs.size()) return;
+    const std::string dir = zutl::mounts().write;
+    if (!pass_.made.empty() && write_renders(dir, pass_.made, pass_.mechs)) {
+      if (!renders_ready()) zimg::new_image_library(kRenderLibrary, 0, false);
+      set_renders_ready(true);
+      std::printf("mw1: %zu mech pictures made into %s.zbd\n", pass_.made.size(), kRenderLibrary);
+    } else {
+      std::printf("mw1: the mech pictures could not be written: the amber icons stay\n");
+    }
+    render_unstage(ge);
+    if (mech3::LabScreen* l = ge.lab_screen(ls.lab_screen_)) l->switch_page(6);  // ACCEPT: back to where it opened
   }
 
   // MW1_FIT=1 with MW1_SCREEN=<page> (FIXES 3+5's guard, tests/screen_fit.cmake): 40 frames into the MW1 screen the
@@ -2098,7 +2201,20 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   zgame::Handle market_ = 0;
   MarketState* market_state_ = nullptr;
   MarketChoice choice_;
-  int32_t lab_owned_ = -1;  // the owned mech in the Mech Complex's MECH LAB (-1 none open)
+  int32_t lab_owned_ = -1;
+  // FIXES.md item 14's render pass and its stage (render_pass_frame, render_stage).
+  struct RenderPass {
+    std::vector<int32_t> mechs;
+    size_t at = 0;
+    int32_t wait = 0, idle = 0;
+    bool on = false, opened = false;
+    std::vector<images::Image> made;
+  };
+  RenderPass pass_;
+  bool renders_wanted_ = false;
+  std::vector<ztwod::Object2D*> stage_hidden_;
+  ztwod::Object2D* stage_cursor_ = nullptr;
+  mech3::LabScreen* stage_screen_ = nullptr;  // the owned mech in the Mech Complex's MECH LAB (-1 none open)
   int32_t lab_who_ = kNobody;  // its pilot as chosen in the lab (mw1_pilots.h)
   bool lab_hook_ = false;
   PilotChooser lab_pilot_;

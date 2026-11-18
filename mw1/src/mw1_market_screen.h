@@ -27,7 +27,8 @@ inline constexpr int32_t kMarketButtonCount = kMarketOwnDown;
 const char* market_button_name(int32_t id);
 
 // The layout's PANELs in order: the two plaques, the status bar, the two lists' terminals.
-enum MarketPanel : int32_t { kMarketPanelPlaque, kMarketPanelPlaque2, kMarketPanelStatusBar, kMarketPanelStock, kMarketPanelOwned, kMarketPanelCount };
+enum MarketPanel : int32_t { kMarketPanelPlaque, kMarketPanelPlaque2, kMarketPanelStatusBar, kMarketPanelStock, kMarketPanelOwned,
+                             kMarketPanelMechFrame, kMarketPanelMech, kMarketPanelCount };  // item 14: the chosen mech
 
 // The lists: each shows kMarketRows rows from its first shown (`*_top`), scrolled to keep the chosen one in view.
 inline constexpr int32_t kMarketRows = 8;
@@ -38,6 +39,7 @@ struct MarketChoice {
   int32_t stock = 0, owned = 0;
   int32_t stock_top = 0, owned_top = 0;
   std::string note;
+  bool own_shown = false;  // the picture's (item 14): YOUR MECHS' chosen one, else FOR SALE's
 };
 // The choices kept inside the lists as they change, each list scrolled to show its chosen row.
 void clamp_choice(const Company& c, MarketChoice& m);

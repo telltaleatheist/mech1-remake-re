@@ -69,7 +69,7 @@ inline const std::vector<PanelSize>& terminal_sizes() {
 inline constexpr int32_t kFrame = 4;
 std::string frame_name(int32_t w, int32_t h, bool lit = false);
 inline const std::vector<PanelSize>& frame_sizes() {
-  static const std::vector<PanelSize> k = {{248, 328}, {104, 136}};  // a portrait (240x320), a small one (96x128)
+  static const std::vector<PanelSize> k = {{248, 328}, {104, 136}, {168, 136}};  // a portrait (240x320), a small one (96x128), the market's mech (160x128)
   return k;
 }
 // The up and down arrows (a list's, a term's): mw1_up and mw1_dn, each with _lit, _down and _off; the left and right
