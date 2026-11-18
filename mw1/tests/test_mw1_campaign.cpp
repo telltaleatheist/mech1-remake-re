@@ -17,6 +17,7 @@
 #include "mech3/pilot.h"
 #include "mw1_campaign.h"
 #include "mw1_repairs.h"
+#include "mw1_results.h"
 
 namespace fs = std::filesystem;
 
@@ -231,4 +232,46 @@ TEST(mw1_start_planets_are_mw_main_exes) {
     EXPECT(d[rec] == p.number && d[rec + 1] == p.house && (d[rec + 2] - 1) / 3 == p.tier);
     EXPECT(std::strcmp(reinterpret_cast<const char*>(&d[rec + 10]), p.name) == 0);
   }
+}
+
+// MW1's results screen (FIXES.md item 19, mw1_results.h): its terminals' lines cut to fit, the time, the mech by
+// location from PM's lance bars, and the view's texts and REPLAY.
+TEST(mw1_results_lines_and_view) {
+  std::vector<std::string> ten;
+  for (int i = 0; i < 10; ++i) ten.push_back("line " + std::to_string(i));
+  const std::vector<std::string> cut = mw1::fit_lines(ten);
+  EXPECT(cut.size() == mw1::kTerminalLines && cut[6] == "line 6" && cut.back() == "... and 3 more");
+  EXPECT(mw1::fit_lines({"a", "b"}).size() == 2);
+  EXPECT(mw1::time_words(725) == "12:05" && mw1::time_words(59) == "0:59" && mw1::time_words(-1) == "unknown");
+  // The torso's six bars together (by their points), the head, an arm gone, a leg without structure points.
+  mw1::Bars b;
+  for (int k = 0; k < 11; ++k) b.armor_points[k] = 10, b.armor_left[k] = 1, b.structure_points[k] = 5, b.structure_left[k] = 1;
+  b.armor_points[0] = 30, b.armor_left[0] = 0.5f;  // the front torso: 30 of 80 points at half
+  b.armor_left[7] = 0, b.structure_left[7] = 0;     // the left arm gone
+  b.structure_points[10] = 0;                       // the right leg: no structure read
+  std::vector<int32_t> armor, structure;
+  mw1::location_left(b, &armor, &structure);
+  std::printf("  armour by location:");
+  for (int32_t v : armor) std::printf(" %d", v);
+  std::printf("; structure:");
+  for (int32_t v : structure) std::printf(" %d", v);
+  std::printf("\n");
+  EXPECT(armor.size() == mw1::kMechLocations && structure.size() == mw1::kMechLocations);
+  EXPECT(armor[0] == 100 && armor[1] == 81 && armor[2] == 0 && armor[3] == 100 && structure[2] == 0 && structure[5] == -1);
+  const std::vector<std::string> lines = mw1::mech_lines(armor, structure, false);
+  for (const std::string& l : lines) std::printf("  [%s]\n", l.c_str());
+  EXPECT(lines.size() == 7 && lines[3].rfind("Left arm", 0) == 0 && lines[3].find("0%") != std::string::npos);
+  EXPECT(mw1::mech_lines({}, {}, true) == std::vector<std::string>{"Destroyed in the battle"});
+  EXPECT(mw1::mech_lines({}, {}, false) == std::vector<std::string>{"Its damage wasn't read"});
+  mw1::ResultsPanel p;
+  p.planet = "SOL", p.employer = "HOUSE DAVION", p.outcome = "DEFEAT", p.scene = "mw1_hub_desert_city", p.replay = true;
+  p.results = ten;
+  const mw1::ScreenView v = mw1::results_view(p);
+  EXPECT(v.backdrop == "mw1_hub_desert_city" && v.buttons.size() == 2 && v.buttons[mw1::kResultsReplay - 1].there);
+  bool outcome = false, cut_shown = false;
+  for (const mw1::TextBlock& t : v.blocks)
+    for (const std::string& l : t.lines) outcome = outcome || l == "DEFEAT", cut_shown = cut_shown || l == "... and 3 more";
+  EXPECT(outcome && cut_shown);
+  p.replay = false;
+  EXPECT(!mw1::results_view(p).buttons[mw1::kResultsReplay - 1].there);
 }

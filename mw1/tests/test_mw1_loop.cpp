@@ -63,6 +63,7 @@
 #include "mw1_market.h"
 #include "mw1_missions.h"
 #include "mw1_pilots.h"
+#include "mw1_results.h"
 #include "mw1_market_screen.h"
 #include "mw1_lab_pilot.h"
 #include "mw1_menu.h"
@@ -179,7 +180,8 @@ struct Run {
   // The hub (mw1_hub.h): stop while AFTER ACTION shows (the program stopped there); a run that starts on such a
   // save (`resume`: AFTER ACTION first); REPLAY at a failure's AFTER ACTION, the replay then won.
   bool stop_at_after_action = false, resume = false, replay = false;
-  std::vector<std::string> after_action;   // the first AFTER ACTION's lines, as shown
+  std::vector<std::string> after_action;   // the first results screen's lines (its outcome, then its terminals' in full)
+  std::vector<std::string> results_lines;  // and its RESULTS terminal's
   int64_t funds_at_replay = -1;            // in the replay's mission (the advance not paid again)
   int32_t kills_at_replay = -1, grievance_at_replay = -1;
   bool replayed = false;
@@ -241,8 +243,8 @@ struct Run {
   int give_up = 1200;  // frames before the test stops waiting for the objectives (a quit)
   std::string objective_built;
   bool fell_back = false, structure_found = false, mission_ended = false, mission_lost = false;
-  // PM's own way out of a won mission (Owen's, 2026-11-17): its end screen, the debriefing's CONTINUE, the next
-  // round's briefing (the mission loaded again, its end flag cleared), that briefing's EXIT; then the hub.
+  // PM's own way out of a won mission (Owen's, 2026-11-17): its end screen; then (item 19) MW1's results, never PM's
+  // debriefing. Were the debriefing reached, its CONTINUE and the next round's briefing's EXIT (stages 2 and 3).
   bool pm_end = false;
   int pm_end_stage = 0;  // 1 the end screen asked for, 2 CONTINUE pressed, 3 EXIT pressed
   bool pm_debriefed = false, pm_briefing_again = false, pm_end_cleared = false;
@@ -302,6 +304,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
   p.window = &window, p.alert = &alert, p.clock = &clock, p.movie_clock = &movies, p.screen = &screen;
   p.sound = &sound, p.files = &files, p.input = &keys;
   int64_t funds_at_offer = 0, funds_in_mission = 0;
+  int results_screens = 0;  // the results screen's frames handled
   int64_t salvage_shown = -1, fee_shown = -1, bill_shown = 0;  // the first AFTER ACTION's settlement, as rolled
   int32_t favor_at_offer[mw1::kHouseCount] = {}, grievance_at_offer[mw1::kHouseCount] = {};
   int market_step = 0, click_phase = 0, click_x = 0, click_y = 0;  // the market's clicks (zin's mouse)
@@ -710,6 +713,63 @@ void loop_run(Ending ending, Run* run = nullptr) {
         run->units_after = (int64_t{c->date.year} * mw1::kMonthCount + c->date.month) * mw1::kUnitsPerMonth + c->date.units;
         return;
       }
+      // MW1's results screen (FIXES.md item 19): a mission back ends here, over the hub; CONTINUE settles it (REPLAY
+      // on a failure). What it shows is the run's after_action: the outcome, then its four terminals' lines in full.
+      if (mw1::results::ResultsState* rs = mw1::game_loop_results();
+          rs && app.current() == static_cast<zgame::State*>(rs) && rs->screen()) {
+        if (++hub_frames < 10) return;
+        hub_frames = 0;
+        auto* sc = rs->screen();
+        const mw1::AfterAction* pa = mw1::game_loop_pending();
+        const mw1::ResultsPanel* rp = mw1::game_loop_results_shown();
+        const mw1::Company* c = mw1::game_loop_company();
+        const std::vector<std::string> shown = sc->shown();
+        std::printf("  results:");
+        for (const std::string& l : shown) std::printf(" [%s]", l.c_str());
+        std::printf("\n");
+        EXPECT(pa && rp && c && sc->loaded() && sc->visible(mw1::kResultsContinue));
+        if (!pa || !rp || !c) return;
+        ++results_screens;
+        const bool failed = pa->outcome == mw1::Outcome::kFailure;
+        EXPECT(sc->visible(mw1::kResultsReplay) == failed);
+        EXPECT(sc->backdrop() == mw1::scenery_image(c->planet_number));
+        auto on_screen = [&](const std::string& t) { return std::find(shown.begin(), shown.end(), t) != shown.end(); };
+        EXPECT(on_screen(rp->outcome) && on_screen("RESULTS") && on_screen("PAY") && on_screen("SALVAGE TO STORES") &&
+               on_screen(rp->mech_title));
+        std::vector<std::string> all = {rp->outcome};
+        for (const std::vector<std::string>* v : {&rp->results, &rp->pay, &rp->salvage, &rp->mech}) all.insert(all.end(), v->begin(), v->end());
+        // What CONTINUE will pay ("Salvage share: 169,000", "Fee: 141,000 (90% paid)", "Repair bill: ...").
+        auto amount = [&](const char* key) -> int64_t {
+          for (const std::string& l : all)
+            if (l.rfind(key, 0) == 0) {
+              std::string digits;
+              for (char ch : l.substr(std::string(key).size())) {
+                if (ch == ' ' && !digits.empty()) break;
+                if (ch >= '0' && ch <= '9') digits += ch;
+              }
+              return digits.empty() ? -1 : std::stoll(digits);
+            }
+          return -1;
+        };
+        if (salvage_shown < 0) {
+          salvage_shown = amount("Salvage share: "), fee_shown = amount("Fee: ");
+          bill_shown = std::max<int64_t>(0, amount("Repair bill: "));
+          if (run) run->bill_shown = amount("Repair bill: ");
+        }
+        if (run && run->after_action.empty()) run->after_action = all, run->results_lines = rp->results;
+        if (run && run->stop_at_after_action) {
+          back_at_main = true;  // the program stopped here
+          return;
+        }
+        if (run && run->replay && failed && !run->replayed) {
+          run->replayed = true, replaying = true;
+          briefed = false, ended = false, frames = 0, briefing_frames = 0;
+          sc->on_button(mw1::kResultsReplay, 0, 0);
+          return;
+        }
+        sc->on_button(mw1::kResultsContinue, 0, 0);
+        return;
+      }
       mw1::HubState* hs = mw1::game_loop_hub();
       if (hs && app.current() == static_cast<zgame::State*>(hs) && hs->screen()) {
         if (++hub_frames < 10) return;
@@ -1082,7 +1142,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
       }
       if (ending != kQuit) mech3::missions().ended = 1;
       if (ending == kFailed && !replaying) mech3::missions().aborting = 1;  // as abort_now: ended, as a failure (a replay won)
-      if (run && run->pm_end) {  // PM's Exit Mission: its end screen and debriefing (above), not IA Dummy at once
+      if (run && run->pm_end) {  // PM's Exit Mission: its end screen (and its fade), not IA Dummy at once
         run->pm_end_stage = 1;
         mech3::missions().on_command(0x79);
         ended = true;
@@ -1139,8 +1199,9 @@ void loop_run(Ending ending, Run* run = nullptr) {
     mech3::options() = mech3::Options{};
     return;
   }
-  // The office, the contract (DEPLOY), AFTER ACTION, the office again (NEXT OFFER), MAIN MENU.
-  EXPECT(hubs == 5 + extra_hubs && hub_checked && declined && back_at_main && enemies > 0 && killed == (ending == kReach ? 0 : enemies));
+  // The office, the contract (DEPLOY), the results (item 19: MW1's results screen in AFTER ACTION's place), the office
+  // again (NEXT OFFER), MAIN MENU.
+  EXPECT(hubs + results_screens == 5 + extra_hubs && results_screens == 1 + (run && run->replayed ? 1 : 0) && hub_checked && declined && back_at_main && enemies > 0 && killed == (ending == kReach ? 0 : enemies));
   if (ending == kReach) EXPECT(reach_only && reached);
   EXPECT(c && funds_in_mission >= funds_at_offer + advance_paid);  // the advance, at the office's ACCEPT
   EXPECT(c && (c->loadout || (run && run->kill_player)));  // the briefing's loadout (lost with the mech: the spare's stock)
@@ -1366,9 +1427,8 @@ TEST(mw1_loop_restart_at_after_action_then_ok_settles_once_headless) {
                 static_cast<long long>(first.funds_end), static_cast<long long>(second.funds_end),
                 static_cast<long long>(third.funds_end));
     EXPECT(first.after_action.size() > 0 && second.after_action.size() > 0);
-    // The same mission shown again after the restart (its ending and wrecks).
-    EXPECT(first.after_action.size() > 8 && second.after_action.size() > 8 && first.after_action[8] == second.after_action[8] &&
-           first.after_action[9] == second.after_action[9]);
+    // The same mission shown again after the restart (its ending, time, lance and wrecks).
+    EXPECT(!first.results_lines.empty() && first.results_lines == second.results_lines && first.after_action[0] == second.after_action[0]);
     EXPECT(second.funds_end > first.funds_end && second.items_end > first.items_end);  // settled: the fee, the parts
     EXPECT(third.funds_end == second.funds_end && third.items_end == second.items_end);  // once only
     EXPECT(third.after_action.empty() && file_text(save).find("\npending=0\n") != std::string::npos);
@@ -1401,30 +1461,30 @@ TEST(mw1_loop_deploy_goes_straight_in_never_through_pms_briefing_headless) {
     EXPECT(run.loading_scene.rfind("mw1_hub_", 0) == 0 &&
            fs::exists(fs::path(MW1_DATA_DIR) / ".." / "data-src" / "art" / (run.loading_scene.substr(4) + ".png"), ec));
     bool won = false;
-    for (const std::string& l : run.after_action) won = won || l == "Success";
+    for (const std::string& l : run.after_action) won = won || l == "VICTORY";
     EXPECT(won);
   });
 }
 
-// Owen's win settled as a Retreat (2026-11-17): won, then PM's own way out (its end screen, the debriefing's CONTINUE,
-// the next round's briefing with the mission loaded again and its end flag cleared, EXIT). The win is latched the
-// frame it happens: settled as a Success, the fee and the salvage paid, the calendar on.
-TEST(mw1_loop_a_win_through_pms_debriefing_and_briefing_settles_won_headless) {
+// Owen's win settled as a Retreat (2026-11-17): won, then PM's own way out (its end screen's Exit Mission). The win is
+// latched the frame it happens: settled as a Success, the fee and the salvage paid, the calendar on. Since FIXES.md
+// item 19 that way out never reaches PM's debriefing (ProgramFlow::skip_debriefing): the end screen's fade goes to
+// Instant Action's end, then MW1's results screen (VICTORY).
+TEST(mw1_loop_a_win_through_pms_end_screen_settles_won_never_debriefed_headless) {
   std::error_code ec;
   if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
   in_child([&] {
     Run run;
     run.pm_end = true;
     loop_run(kWon, &run);
-    const std::string outcome = run.after_action.empty() ? "" : run.after_action[run.after_action.size() > 8 ? 8 : 0];
     bool won = false, retreat = false;
-    for (const std::string& l : run.after_action) won = won || l == "Success", retreat = retreat || l.rfind("Retreat", 0) == 0;
-    std::printf("  PM's way out: debriefed %d, briefing again %d (end flag cleared %d), stage %d; after action: success %d, "
-                "retreat %d; funds %lld -> %lld, items %d; date %s -> %s\n",
-                run.pm_debriefed, run.pm_briefing_again, run.pm_end_cleared, run.pm_end_stage, won, retreat,
+    for (const std::string& l : run.after_action) won = won || l == "VICTORY", retreat = retreat || l == "RETREAT";
+    std::printf("  PM's way out: debriefed %d, briefing again %d, stage %d; results: victory %d, retreat %d; funds %lld -> "
+                "%lld, items %d; date %s -> %s\n",
+                run.pm_debriefed, run.pm_briefing_again, run.pm_end_stage, won, retreat,
                 static_cast<long long>(run.funds_at_offer), static_cast<long long>(run.funds_end), run.items_end,
                 run.date_first.c_str(), run.date_end.c_str());
-    EXPECT(run.pm_debriefed && run.pm_briefing_again && run.pm_end_cleared && run.pm_end_stage == 3);
+    EXPECT(run.pm_end_stage == 1 && !run.pm_debriefed && !run.pm_briefing_again);  // the end screen, then never PM's
     EXPECT(won && !retreat);
     EXPECT(run.funds_end > run.funds_at_offer);  // the fee and the salvage paid
     EXPECT(!run.date_first.empty() && run.date_end != run.date_first);  // the mission's time passed
@@ -1621,7 +1681,7 @@ TEST(mw1_loop_a_full_lance_flies_on_a_pm_map_headless) {
         if (l == t) return true;
       return false;
     };
-    EXPECT(shows("Elli Gujar: flew") && shows("J. Holmaas: mech destroyed") && shows("Taris Ren: flew"));
+    EXPECT(shows("Elli Gujar: came back") && shows("J. Holmaas: mech destroyed") && shows("Taris Ren: came back"));
     for (const std::string& l : run.after_action) EXPECT(l.find("stayed behind") == std::string::npos);
   });
 }
@@ -1652,7 +1712,7 @@ TEST(mw1_loop_repairs_billed_won_failed_and_never_on_a_quit_headless) {
       if (k.killed) {
         // Lost, not billed; the commander in the Firefly, saved so.
         bool said = false;
-        for (const std::string& l : run.after_action) said = said || l == "Lost: your Owens. You take the Firefly.";
+        for (const std::string& l : run.after_action) said = said || l == "Destroyed in the battle";  // YOUR MECH's
         mw1::Company saved;
         mw1::Contract kk;
         bool has = false;
@@ -1674,10 +1734,10 @@ std::string converted_worlds() {
   return out;
 }
 // AFTER ACTION's outcome: the line after its title.
+// The results screen's outcome (a run's after_action[0]) in AFTER ACTION's old words: Success, Failure, Retreat.
 std::string outcome_of(const std::vector<std::string>& lines) {
-  for (size_t i = 0; i + 1 < lines.size(); ++i)
-    if (lines[i] == "AFTER ACTION") return lines[i + 1];
-  return "";
+  if (lines.empty()) return "";
+  return lines[0] == "VICTORY" ? "Success" : lines[0] == "DEFEAT" ? "Failure" : lines[0] == "RETREAT" ? "Retreat" : "";
 }
 std::vector<mw1::MapRow> shipped_rows() {
   zutl::mounts() = zutl::Mounts{};
@@ -2627,6 +2687,14 @@ TEST(mw1_soak_twenty_contracts_through_the_hub_headless) {
         sc->on_button(mw1::kTravelGo, 0, 0);
         if (c->planet != was) ++trips;
         else sc->on_button(mw1::kTravelBack, 0, 0);
+        return false;
+      }
+      // A mission back: MW1's results screen (FIXES.md item 19), CONTINUE settles it.
+      if (mw1::results::ResultsState* rs = mw1::game_loop_results(); showing(app, rs)) {
+        if (const mw1::AfterAction* p = mw1::game_loop_pending()) {
+          ++settled, (p->outcome == mw1::Outcome::kFailure ? ++lost : ++won);
+          rs->screen()->on_button(mw1::kResultsContinue, 0, 0);
+        }
         return false;
       }
       mw1::HubState* hub = mw1::game_loop_hub();

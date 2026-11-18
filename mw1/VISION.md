@@ -573,4 +573,5 @@ between missions is MW1's, in new art.
    nothing, keeps the advance paid, and plays the contract again from its
    first launch's stores and loadout. A win or a quit offers OK only. The
    save keeps AFTER ACTION pending until OK or REPLAY, so a restart shows
-   it again and it is settled once.
+   it again and it is settled once. Since FIXES.md item 19 (2026-11-17)
+   that panel is MW1's results screen, with CONTINUE in OK's place.

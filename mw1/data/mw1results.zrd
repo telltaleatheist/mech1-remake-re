@@ -1,0 +1,44 @@
+; MW1: Critical Hit's results screen (src/mw1_results.h) on MW1's screen
+; template (src/mw1_screen.h), FIXES.md item 19: a mission ends here, never
+; on Pirate's Moon's debriefing.
+; - the world's scenery full-bleed and dimmed (the screen names it);
+; - the world and the employer on the plaque at the top, the outcome
+;   (VICTORY, DEFEAT, RETREAT) under it;
+; - four green terminals: RESULTS and PAY above, SALVAGE TO STORES and YOUR
+;   MECH below, each a title and up to eight lines;
+; - CONTINUE in the middle at the foot (back to the hub, the mission
+;   settled), REPLAY left of it on a failure.
+; All MW1's own art (mw1image.zbd): nothing of Pirate's Moon's
+; (tests/test_mw1_look.cpp). A 4:3 layout, each piece anchored to the
+; canvas's middle (the 16:9 canvas shows the scene's full width).
+(
+MW1RESULTSDIALOG (
+  CURSOR (BITMAP ("mw1_cursor") CENTER (1))
+  PRIMITIVES (
+    BACKGROUND (POSITION (-107 0) BITMAP ("mw1_hub_desert_starport") ANCHOR ("CENTRE"))
+    PANEL (POSITION (-107 0) BITMAP ("mw1_dim") ANCHOR ("CENTRE"))
+    PANEL2 (POSITION (170 6) BITMAP ("mw1_plaque") ANCHOR ("CENTRE"))
+    PANEL3 (POSITION (12 102) BITMAP ("mw1_term_304x168") ANCHOR ("CENTRE"))
+    PANEL4 (POSITION (324 102) BITMAP ("mw1_term_304x168") ANCHOR ("CENTRE"))
+    PANEL5 (POSITION (12 274) BITMAP ("mw1_term_304x168") ANCHOR ("CENTRE"))
+    PANEL6 (POSITION (324 274) BITMAP ("mw1_term_304x168") ANCHOR ("CENTRE"))
+  )
+  BUTTONS (
+    CONTINUE (POSITION (236 446) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (320 452) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    REPLAY (POSITION (52 446) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (136 452) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+  )
+  TEXTS (
+    PLANET (POSITION (320 13) FONT ("mw1_plaque") ANCHOR ("CENTRE"))
+    PLACE (POSITION (320 45) FONT ("mw1_plaque_sub") ANCHOR ("CENTRE"))
+    OUTCOME (POSITION (320 70) FONT ("mw1_outcome") ANCHOR ("CENTRE"))
+    RESULTS_TITLE (POSITION (26 110) FONT ("mw1_term_title") ANCHOR ("CENTRE"))
+    RESULTS (POSITION (26 134) FONT ("mw1_term_line") GAP (15) ANCHOR ("CENTRE"))
+    PAY_TITLE (POSITION (338 110) FONT ("mw1_term_title") ANCHOR ("CENTRE"))
+    PAY (POSITION (338 134) FONT ("mw1_term_line") GAP (15) ANCHOR ("CENTRE"))
+    SALVAGE_TITLE (POSITION (26 282) FONT ("mw1_term_title") ANCHOR ("CENTRE"))
+    SALVAGE (POSITION (26 306) FONT ("mw1_term_line") GAP (15) ANCHOR ("CENTRE"))
+    MECH_TITLE (POSITION (338 282) FONT ("mw1_term_title") ANCHOR ("CENTRE"))
+    MECH (POSITION (338 306) FONT ("mw1_term_line") GAP (15) ANCHOR ("CENTRE"))
+  )
+)
+)

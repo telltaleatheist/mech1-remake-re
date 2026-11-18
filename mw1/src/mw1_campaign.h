@@ -269,6 +269,9 @@ struct LanceFate {
   int32_t id = 0;
   bool destroyed = false;
 };
+// A mech's locations as the results screen reads them (FIXES.md item 19): head, torso, left arm, right arm, left leg,
+// right leg.
+inline constexpr int32_t kMechLocations = 6;
 struct AfterAction {
   Outcome outcome = Outcome::kSuccess;
   std::vector<Wreck> wrecks;
@@ -284,6 +287,13 @@ struct AfterAction {
   std::shared_ptr<mech3::Store> salvage;         // the mission's parts, the stores' on a win
   std::shared_ptr<mech3::Store> launch_stores;   // the company's stores at the contract's first launch (REPLAY)
   std::shared_ptr<mech3::Config> launch_loadout;  // and its loadout (null: stock)
+  // For the results screen (FIXES.md item 19), read as the mission ended: its time in seconds (-1 unknown); who
+  // disabled each wreck, in the wrecks' order (0 the commander, a lancemate's pilot id, -1 anyone else; missing:
+  // unknown); the commander's mech by location (kMechLocations: armour and structure left, percent;
+  // empty: unknown).
+  int32_t seconds = -1;
+  std::vector<int32_t> killers;
+  std::vector<int32_t> armor_left, structure_left;
 };
 struct Settlement {
   int32_t payout_percent = 100;

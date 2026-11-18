@@ -5280,12 +5280,14 @@ TEST(program_flow_names_and_aims_an_instant_action_ally_headless) {
   }
 }
 
-// Ours (program_flow.h, skip_briefing and loading_frame): an Instant Action game (c2's ia1) through the Load state
+// Ours (program_flow.h, skip_briefing, loading_frame and skip_debriefing): an Instant Action game (c2's ia1) through the Load state
 // with no debug auto-launch. A program that skips the briefing: the briefing built and the mission loaded, but no
 // frame of it drawn and its script never started; the program's loading_frame each frame instead, the first before
 // the load (not loaded), and its kLaunch launches (the Core state) or its kAbort goes back to the main menu. None
 // set: the original's briefing, drawn, waiting for its LAUNCH.
-enum class SkipRun { kNone, kLaunch, kAbort };
+// kEnd / kEndDebriefed: launched, then the mission's end screen asked for (Exit Mission), with skip_debriefing on
+// (Instant Action's end, never the Win State) or off (PM's debriefing, as ever).
+enum class SkipRun { kNone, kLaunch, kAbort, kEnd, kEndDebriefed };
 static void program_flow_skip_run(SkipRun how) {
   zgame::set_game(pm::table());
   zutl::mounts() = zutl::Mounts{};
@@ -5302,8 +5304,11 @@ static void program_flow_skip_run(SkipRun how) {
   struct Flow : mech3::ProgramFlow {
     LoadingNext answer = LoadingNext::kLaunch;
     int32_t frames = 0, frames_loaded = 0, drawn_at_launch = -1, launched = 0;
-    bool first_loaded = true, script_at_launch = true;
+    bool first_loaded = true, script_at_launch = true, debrief_skip = false;
     bool skip_briefing() const override { return true; }
+    bool skip_debriefing() const override { return debrief_skip; }
+    int32_t endings = 0;  // IA Dummy's (Instant Action's end)
+    void mission_ending(mech3::Engine&) override { ++endings; }
     LoadingNext loading_frame(mech3::Engine&, float, bool loaded) override {
       if (frames++ == 0) first_loaded = loaded;
       frames_loaded += loaded;
@@ -5314,6 +5319,8 @@ static void program_flow_skip_run(SkipRun how) {
       if (const mech3::BriefingScreen* b = mech3::briefing_screen()) drawn_at_launch = b->frames_drawn, script_at_launch = b->script.playing;
     }
   } flow;
+  const bool end = how == SkipRun::kEnd || how == SkipRun::kEndDebriefed;
+  flow.debrief_skip = how == SkipRun::kEnd;
   flow.answer = how == SkipRun::kAbort ? mech3::ProgramFlow::LoadingNext::kAbort : mech3::ProgramFlow::LoadingNext::kLaunch;
   NoKeys keys;
   Window window;
@@ -5333,8 +5340,8 @@ static void program_flow_skip_run(SkipRun how) {
     mech3::Mech3App app(&engine);
     mech3::set_app(&app);
     EXPECT(app.init_instance());
-    int core = 0, main = 0, load_frames = 0, drawn = 0;
-    bool load_seen = false, started = false;  // the main menu counted only after the load (it comes first)
+    int core = 0, main = 0, load_frames = 0, drawn = 0, win = 0;
+    bool load_seen = false, started = false, asked_end = false;  // the main menu counted only after the load (it comes first)
     if (how != SkipRun::kNone) mech3::set_program_flow(&flow);
     engine.on_present = [&](int) {
       if (app.pending()) return;
@@ -5358,6 +5365,13 @@ static void program_flow_skip_run(SkipRun how) {
       }
       if (app.current() == &mech3::states().core) ++core;
       if (app.current() == &mech3::states().main && load_seen) ++main;
+      if (app.current() == &mech3::states().end_win) ++win;
+      if (end && core >= 10 && !asked_end) {  // the mission over: its end screen (PM's Exit Mission)
+        asked_end = true;
+        mech3::missions().ended = 1;
+        mech3::missions().on_command(0x79);
+        return;
+      }
       if (app.current() != &mech3::states().load) return;
       load_seen = true;
       mech3::BriefingScreen* b = mech3::briefing_screen();
@@ -5367,14 +5381,23 @@ static void program_flow_skip_run(SkipRun how) {
     };
     Pump pump;
     pump.limit = 600;
-    pump.stop = [&] { return core >= 10 || main >= 10; };
+    int after_end = 0;  // frames past Instant Action's end (its screen reopened over the main menu)
+    pump.stop = [&] { return end ? ((flow.endings && ++after_end >= 10) || win >= 10) : (core >= 10 || main >= 10); };
+    if (end) pump.limit = 2400;
     app.run(pump);
     mech3::set_program_flow(nullptr);
     std::printf("  skip briefing (%s): Core %d frames, main %d; loading frames %d (%d loaded, the first loaded %d); "
                 "launched %d, the briefing drawn %d at the launch (script %d); none's briefing drawn %d\n",
-                how == SkipRun::kNone ? "none" : how == SkipRun::kLaunch ? "launch" : "abort", core, main, flow.frames,
+                how == SkipRun::kNone ? "none" : how == SkipRun::kLaunch ? "launch" : how == SkipRun::kAbort ? "abort" : "end", core, main, flow.frames,
                 flow.frames_loaded, flow.first_loaded, flow.launched, flow.drawn_at_launch, flow.script_at_launch, drawn);
-    if (how == SkipRun::kNone) {
+    if (end)
+      std::printf("  the end (skip debriefing %d): the Win State %d frames, Instant Action's end %d\n", flow.debrief_skip, win,
+                  flow.endings);
+    if (how == SkipRun::kEnd) {
+      EXPECT(asked_end && flow.launched == 1 && win == 0 && flow.endings == 1);
+    } else if (how == SkipRun::kEndDebriefed) {
+      EXPECT(asked_end && flow.launched == 1 && win >= 10 && flow.endings == 0);
+    } else if (how == SkipRun::kNone) {
       EXPECT(core >= 10 && flow.frames == 0 && drawn > 0);
     } else {
       EXPECT(flow.frames >= 2 && !flow.first_loaded && flow.frames_loaded >= 1);
@@ -5391,9 +5414,9 @@ static void program_flow_skip_run(SkipRun how) {
   mech3::options() = mech3::Options{};
 }
 
-TEST(program_flow_skips_the_briefing_headless) {
+TEST(program_flow_skips_the_briefing_and_the_debriefing_headless) {
   if (!std::filesystem::exists(MW3PM_GAME_DIR)) return;
-  for (SkipRun how : {SkipRun::kLaunch, SkipRun::kAbort, SkipRun::kNone}) {
+  for (SkipRun how : {SkipRun::kLaunch, SkipRun::kAbort, SkipRun::kNone, SkipRun::kEnd, SkipRun::kEndDebriefed}) {
 #if !defined(_WIN32)
     std::fflush(nullptr);
     const pid_t child = check::fork_child();

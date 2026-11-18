@@ -50,6 +50,8 @@
 #include "mw1_loading.h"
 #include "mw1_mech_renders.h"
 #include "platform/render3d.h"
+#include "mw1_results.h"
+#include "mech3/mech_salvage.h"
 #include "mw1_event_screen.h"
 #include "mw1_office.h"
 #include "mw1_campaign.h"
@@ -220,9 +222,11 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // MW1_SCREEN=pause or pause_options (development: --shot pictures of the pause over a mission): the offer
     // accepted, DEPLOY, the pause pushed 90 frames into the mission (and its OPTIONS). MW1_SCREEN=loading: DEPLOY's
     // loading screen, held there. MW1_SCREEN=lab or lab_files: the Mech Complex's MECH LAB instead (and the lab's load
-    // box); lab_3, lab_4 its pages (lab_1, empty, falls back to the chassis: item 26).
+    // box); lab_3, lab_4 its pages (lab_1, empty, falls back to the chassis: item 26). MW1_SCREEN=results: the
+    // mission won 600 frames in (every enemy the commander's, the left arm hit), by PM's Exit Mission: the results.
     if (const char* s = std::getenv("MW1_SCREEN");
-        s && (std::string(s).rfind("pause", 0) == 0 || std::string(s).rfind("lab", 0) == 0 || std::string(s) == "loading") &&
+        s && (std::string(s).rfind("pause", 0) == 0 || std::string(s).rfind("lab", 0) == 0 || std::string(s) == "loading" ||
+              std::string(s) == "results") &&
         !shot_driver_) {
       hold_for_shot_ = std::string(s) == "loading";
       shot_driver_ = true;
@@ -273,6 +277,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       pending_ = std::make_unique<AfterAction>();
       pending_->outcome = ended_ && !failed_ ? Outcome::kSuccess : failed_ ? Outcome::kFailure : Outcome::kRetreat;
       pending_->wrecks = wrecks_;
+      pending_->killers = killers_, pending_->seconds = seconds_;
+      pending_->armor_left = armor_left_, pending_->structure_left = structure_left_;
       pending_->lance = fates_;
       for (const MechBill& b : bills_) pending_->bills.push_back({b.who, b.mech, b.damage, b.destroyed});
       pending_->stayed = stayed_behind(flying_, fates_);  // the map's allied places ran out: they didn't fly
@@ -282,8 +288,15 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       save();
     }
     if (hub(ge)) {
+      // A mission back (or a restart with one pending): MW1's results screen over the hub (FIXES.md item 19), until
+      // CONTINUE settles it; the hub under it without AFTER ACTION.
+      results_up_ = pending_ && results_screen(ge);
       show_hub();
       ge.push_state(hub_, 0);
+      if (results_up_) {
+        show_results();
+        ge.push_state(results_, 0);
+      }
       // MW1_SCREEN=market (development: --shot pictures of a screen past the hub).
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s).rfind("market", 0) == 0) {
         press(kHubMarket);
@@ -475,6 +488,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     office_ = 0, office_state_ = nullptr;
     hub_options_ = 0, hub_options_state_ = nullptr;
     event_ = 0, event_state_ = nullptr, event_up_ = false;
+    results_ = 0, results_state_ = nullptr, results_up_ = false;
     if (!layout_there(kHubFile, kHubDialog)) {
       std::printf("mw1: no hub layout (%s in MW1's data): the message boxes\n", kHubFile);
       return false;
@@ -511,42 +525,15 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
           show_hub();
           return;
         }
-        const Settlement s = settle(company_, contract_, pending_->outcome, pending_->wrecks, rng_);
-        // The parts are kept only on a win (VISION.md, the endings): failed or quit, the mission's salvage is dropped.
-        if (pending_->outcome == Outcome::kSuccess && pending_->salvage) company_.stores->add_all(*pending_->salvage);
-        // A counted mission (won, or failed and accepted; a retreat isn't, nor a replayed failure): the lancemates'
-        // experience, then their casualties (mw1_pilots.h).
-        // Then the repairs (mw1_repairs.h): the bill, the commander's loss.
-        if (pending_->outcome != Outcome::kRetreat) {
-          after_mission(company_, pending_->lance);
-          const Repairs r = settle_repairs(company_, as_bills(pending_->bills));
-          for (const std::string& l : r.lines) company_.notices.push_back(l);
-          std::printf("mw1: repairs: billed %s, paid %s, forgiven %s\n", thousands(r.billed).c_str(), thousands(r.paid).c_str(),
-                      thousands(r.forgiven).c_str());
-        }
-        std::printf("mw1: settled: %s, %zu wrecks, salvage %s, fee %s, payout %d%%, funds %s, %d items in the stores\n",
-                    ending_word(pending_->outcome), pending_->wrecks.size(), thousands(s.salvage).c_str(), thousands(s.fee).c_str(),
-                    s.payout_percent, thousands(company_.funds).c_str(), company_.stores->count());
-        pending_.reset();
-        // The mission's time (STARTUP 350: the return, the world's weights, the deployment), then the refresh the
-        // original makes on every return (STARTUP 081B:378).
-        advance_time(company_, mission_units(company_), rng_);
-        refresh_world(company_, rng_);
-        clear_contract();  // fought: the next from the office
+        settle_pending();
         show_hub();
         hub_events();  // back at the hub (MW1's after a battle)
         return;
       }
       case kHubReplay:
-        // A failed contract played again, everything as it was at its first launch (VISION.md, the endings: REPLAY at a
-        // failed debriefing); its advance stays paid, nothing is settled. The failure stays pending until the replay
-        // launches (an ABORT at its briefing brings AFTER ACTION back).
         if (!pending_ || pending_->outcome != Outcome::kFailure || !ge) return;
-        if (pending_->launch_stores) company_.stores->assign(*pending_->launch_stores);
-        company_.loadout = pending_->launch_loadout;
-        launch_stores_ = pending_->launch_stores, launch_loadout_ = pending_->launch_loadout;
         ge->pop_state(1);
-        deploy(*ge);
+        replay(*ge);
         return;
       case kHubOptions:
         // MW1's OPTIONS in the hub's place: SETTINGS (PM's options), MAIN MENU, BACK (Escape at the hub too).
@@ -1224,6 +1211,124 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     return i == 0 ? company_.loadout : company_.hangar[static_cast<size_t>(i - 1)].loadout;
   }
 
+  // ---- the results screen (mw1_results.h, FIXES.md item 19) ----
+
+  bool results_screen(mech3::GameEngine& ge) {
+    if (results_ && ge.menu_state_of(results_) == results_state_) return true;
+    results_ = 0, results_state_ = nullptr;
+    if (!layout_there(kResultsFile, kResultsDialog)) {
+      std::printf("mw1: no results layout (%s in MW1's data): AFTER ACTION at the hub\n", kResultsFile);
+      return false;
+    }
+    results_ = ge.adopt_state([this](zgame::Handle h) { return results_state_ = new ResultsState(h, [this](int32_t id) { press_results(id); }); });
+    return results_ != 0;
+  }
+
+  void show_results() {
+    if (!results_state_ || !pending_) return;
+    const ResultsPanel p = results_panel();
+    results_state_->show(results_view(p));
+    seen_results_ = p;
+  }
+
+  // Who disabled a wreck, as the results say it.
+  std::string killer_words(size_t wreck) const {
+    if (!pending_ || wreck >= pending_->killers.size()) return "";
+    const int32_t who = pending_->killers[wreck];
+    return who == 0 ? "you" : who > 0 ? pilot_title(who) : "";
+  }
+
+  // The results as CONTINUE will settle them: the settlement made on copies (after_action_lines' way).
+  ResultsPanel results_panel() const {
+    ResultsPanel p;
+    if (!pending_) return p;
+    const AfterAction& a = *pending_;
+    Company c = company_;
+    Contract k = contract_;
+    Rng r = rng_;
+    const int64_t before = c.funds;
+    const Settlement s = settle(c, k, a.outcome, a.wrecks, r);
+    Repairs rep;
+    if (a.outcome != Outcome::kRetreat) {
+      after_mission(c, a.lance);
+      rep = settle_repairs(c, as_bills(a.bills));
+    }
+    p.planet = upper(company_.planet);
+    p.employer = "HOUSE " + upper(kHouses[contract_.house].name);
+    p.outcome = a.outcome == Outcome::kSuccess ? "VICTORY" : a.outcome == Outcome::kFailure ? "DEFEAT" : "RETREAT";
+    p.scene = scenery_image(company_.planet_number);
+    p.replay = a.outcome == Outcome::kFailure;
+    // RESULTS: the objective, the time, the enemies and by whom, the lance.
+    // (A terminal holds about 35 letters: mw1screenfit's results page checks each line inside its own.)
+    std::string objective = objective_words(contract_);
+    if (!objective.empty()) objective[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(objective[0])));
+    p.results.push_back(objective);
+    p.results.push_back(std::string(a.outcome == Outcome::kSuccess   ? "Accomplished"
+                                     : a.outcome == Outcome::kFailure ? "Failed"
+                                                                      : "Withdrew") +
+                        " in " + time_words(a.seconds));
+    // The lancemates before the wrecks: a long list of wrecks is the one cut short.
+    for (const LanceFate& f : a.lance) p.results.push_back(pilot_title(f.id) + (f.destroyed ? ": mech destroyed" : ": came back"));
+    for (int32_t id : a.stayed) p.results.push_back(pilot_title(id) + ": stayed behind");
+    // Each wreck: its kind, who disabled it, its value (the salvage share's base).
+    int64_t value = 0;
+    p.results.push_back("Enemy mechs destroyed: " + std::to_string(a.wrecks.size()));
+    for (size_t i = 0; i < a.wrecks.size(); ++i) {
+      const std::string by = killer_words(i);
+      const int64_t v = int64_t{wreck_value(company_, a.wrecks[i])} * 1000;
+      value += v;
+      p.results.push_back("  " + mech_title(kMechKinds[a.wrecks[i].kind].pm_mech) + (by.empty() ? "" : " (" + by + ")") + " " + thousands(v));
+    }
+    // PAY: the fee (any deduction), the salvage share of the wrecks' value, the repairs, the total and the funds.
+    const bool docked = s.payout_percent < 100 && a.outcome == Outcome::kSuccess;
+    p.pay.push_back("Fee: " + thousands(s.fee) +
+                    (!docked ? "" : s.payout_percent ? " (" + std::to_string(s.payout_percent) + "% paid)" : " (withheld)"));
+    if (a.outcome == Outcome::kSuccess && contract_.salvage_percent && value)
+      p.pay.push_back("Salvage: " + std::to_string(contract_.salvage_percent) + "% of " + thousands(value));
+    p.pay.push_back("Salvage share: " + thousands(s.salvage));
+    // The bill's lines (the rest, a mech lost, is YOUR MECH's and the hub's messages after CONTINUE).
+    for (const std::string& l : rep.lines)
+      if (l.rfind("Repair", 0) == 0) p.pay.push_back(l);
+    const int64_t total = c.funds - before;
+    p.pay.push_back("Total: " + std::string(total < 0 ? "-" : "+") + thousands(total < 0 ? -total : total) + " C-bills");
+    p.pay.push_back("Funds: " + thousands(c.funds) + " C-bills");
+    // SALVAGE TO STORES: the parts kept on a win.
+    if (a.outcome == Outcome::kSuccess && a.salvage && a.salvage->count()) {
+      const mech3::MessageText msg = [](int32_t id) { return mech3::pilot_hooks().message(id); };
+      for (const mech3::ConfigItem* it : a.salvage->items)
+        p.salvage.push_back(std::to_string(it->count) + " x " + mech3::item_name(*it, msg) + (it->kind() == 2 ? " ammo" : ""));
+    } else {
+      p.salvage.push_back(a.outcome == Outcome::kSuccess ? "Nothing salvaged" : "None: the field was lost");
+    }
+    // YOUR MECH: by location.
+    bool destroyed = false;
+    for (const auto& b : a.bills)
+      if (b.who == 0) destroyed = b.destroyed;
+    p.mech_title = "YOUR " + upper(mech_title(company_.mech));
+    p.mech = mech_lines(a.armor_left, a.structure_left, destroyed);
+    return p;
+  }
+
+  void press_results(int32_t id) {
+    std::printf("mw1: results: %s\n", id == kResultsReplay ? "REPLAY" : "CONTINUE");
+    mech3::GameEngine* ge = ge_;
+    if (!results_up_ || !pending_ || !ge) return;
+    if (id == kResultsReplay) {
+      if (pending_->outcome != Outcome::kFailure) return;
+      ge->pop_state(1);  // the results
+      results_up_ = false;
+      ge->pop_state(1);  // the hub
+      replay(*ge);
+      return;
+    }
+    ge->pop_state(1);
+    results_up_ = false;
+    company_.notices.clear();
+    settle_pending();
+    show_hub();
+    hub_events();  // back at the hub (MW1's after a battle)
+  }
+
   // ---- the story's events (mw1_story.h, mw1_event_screen.h) ----
 
   bool event_screen(mech3::GameEngine& ge) {
@@ -1389,6 +1494,42 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     show_event();
   }
 
+  // The pending mission settled (CONTINUE on the results screen; OK at the hub without its layout): the pay, the
+  // salvage on a win, the experience, casualties and repairs on a counted mission, the time and the world moved on.
+  void settle_pending() {
+    const Settlement s = settle(company_, contract_, pending_->outcome, pending_->wrecks, rng_);
+    // The parts are kept only on a win (VISION.md, the endings): failed or quit, the mission's salvage is dropped.
+    if (pending_->outcome == Outcome::kSuccess && pending_->salvage) company_.stores->add_all(*pending_->salvage);
+    // A counted mission (won, or failed and accepted; a retreat isn't, nor a replayed failure): the lancemates'
+    // experience, then their casualties (mw1_pilots.h).
+    // Then the repairs (mw1_repairs.h): the bill, the commander's loss.
+    if (pending_->outcome != Outcome::kRetreat) {
+      after_mission(company_, pending_->lance);
+      const Repairs r = settle_repairs(company_, as_bills(pending_->bills));
+      for (const std::string& l : r.lines) company_.notices.push_back(l);
+      std::printf("mw1: repairs: billed %s, paid %s, forgiven %s\n", thousands(r.billed).c_str(), thousands(r.paid).c_str(),
+                  thousands(r.forgiven).c_str());
+    }
+    std::printf("mw1: settled: %s, %zu wrecks, salvage %s, fee %s, payout %d%%, funds %s, %d items in the stores\n",
+                ending_word(pending_->outcome), pending_->wrecks.size(), thousands(s.salvage).c_str(), thousands(s.fee).c_str(),
+                s.payout_percent, thousands(company_.funds).c_str(), company_.stores->count());
+    pending_.reset();
+    // The mission's time (STARTUP 350: the return, the world's weights, the deployment), then the refresh the
+    // original makes on every return (STARTUP 081B:378).
+    advance_time(company_, mission_units(company_), rng_);
+    refresh_world(company_, rng_);
+    clear_contract();  // fought: the next from the office
+  }
+
+  // A failed contract played again, everything as it was at its first launch (VISION.md, the endings: REPLAY on a
+  // failed mission's results); its advance stays paid, nothing is settled. The failure stays pending until the replay
+  // launches (an ABORT on its way in brings the results back).
+  void replay(mech3::GameEngine& ge) {
+    if (pending_->launch_stores) company_.stores->assign(*pending_->launch_stores);
+    company_.loadout = pending_->launch_loadout;
+    launch_stores_ = pending_->launch_stores, launch_loadout_ = pending_->launch_loadout;
+    deploy(ge);
+  }
   void show_hub() {
     if (!hub_state_) return;
     HubView v;
@@ -1407,7 +1548,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
                 std::to_string(company_.kills)};
     // The middle panel only with something to say (FIXES.md item 16, MW1's notifications box): AFTER ACTION, or the
     // company's messages since (payday, promotions, casualties, the news, a contract taken), until OK.
-    if (pending_) {
+    if (pending_ && !results_up_) {  // without the results screen's layout: the old AFTER ACTION panel
       v.title = "AFTER ACTION", v.panel = after_action_lines(), v.after_action = true;
       v.replay = pending_->outcome == Outcome::kFailure;
       if (!company_.notices.empty()) v.panel.push_back("");
@@ -1557,6 +1698,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   // FIXES.md item 18: DEPLOY goes straight into the mission. PM's briefing (the Load state's screen) is built and
   // loads the mission, but never drawn; MW1's loading screen is up instead, and the mission launches once loaded.
   bool skip_briefing() const override { return true; }
+  // FIXES.md item 19: PM's debriefing never shown either; the mission ends on MW1's results screen (enter_hub).
+  bool skip_debriefing() const override { return true; }
   LoadingNext loading_frame(mech3::Engine& e, float dt, bool loaded) override {
     if (!loading_ && layout_there(kLoadFile, kLoadDialog)) {
       loading_ = std::make_unique<screens::Mw1Screen>(e, mech3::states().load.addr(), kLoadFile, kLoadDialog,
@@ -1614,7 +1757,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       launched_ = true;
       pending_.reset();  // the failure replayed: not settled, not shown again
     }
-    wrecks_.clear();
+    wrecks_.clear(), killers_.clear(), armor_left_.clear(), structure_left_.clear(), seconds_ = -1;
     salvage_ = std::make_shared<mech3::Store>();
     ended_ = failed_ = ending_latched_ = false;
     std::printf("mw1: launched: %d items in the stores, the loadout %s\n", company_.stores->count(),
@@ -1634,13 +1777,17 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     ending_latched_ = true;
     ended_ = e.mission_ended(), failed_ = e.mission_failed();
     if (deployed_) collect_bills();
+    // The results screen's (FIXES.md item 19): the mission's time, the commander's mech by location.
+    seconds_ = static_cast<int32_t>(mech3::missions().time);
+    if (void* player = mech3::mech_mission_player()) location_left(bars_of(player), &armor_left_, &structure_left_);
+    else armor_left_.clear(), structure_left_.clear();
     std::printf("mw1: the mission's end: %s\n", ended_ ? (failed_ ? "failed" : "won") : "left before its end");
   }
 
   // Each enemy mech the moment it dies (whoever killed it: MW1 pays for every disabled enemy): its wreck for the
   // pay, and its parts into the mission's salvage, never the mech itself (VISION: salvage gives parts), the
   // company's only if the mission is won.
-  void mech_killed(void* victim, void*) override {
+  void mech_killed(void* victim, void* killer) override {
     if (deployed_ && victim == mech3::mech_mission_player()) commander_destroyed_ = true;
     if (!deployed_ || !salvage_ || victim == mech3::mech_mission_player()) return;
     if (const int32_t id = lancemate_of(victim)) {
@@ -1656,6 +1803,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       if (kMechKinds[k].pm_mech == d.roster) kind = k;
     if (kind < 0) return;  // not one of the contract's
     wrecks_.push_back({kind, condition_of(victim), damage_of(bars_of(victim))});
+    killers_.push_back(whose(killer));  // the results' "by whom" (FIXES.md item 19)
     mech3::program_salvage_mech(victim, *salvage_, false);
     std::printf("mw1: an enemy %s disabled (%d%% standing)\n", kMechKinds[kind].name, wrecks_.back().condition);
   }
@@ -1750,6 +1898,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   HubOptionsState* hub_options_state() const { return hub_options_state_; }
   EventState* event_state() const { return event_up_ ? event_state_ : nullptr; }
   const LoadingSeen& loading_seen() const { return seen_; }
+  ResultsState* results_state() const { return results_state_; }
+  const ResultsPanel& results_shown() const { return seen_results_; }
   void set_hold_launch(bool on) { hold_launch_ = on; }
   void set_story(bool on) { story_on_ = on; }
   void offer_again() {  // tests: the offer drawn again after a change to the company, the hub shown
@@ -1913,6 +2063,16 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
           l->unassigned.set_tab(3, page[5] == 'a'), l->unassigned.refill();
       }
     }
+    if (page == "results" && now == &mech3::states().core && frames == 600) {
+      int32_t n = 0;
+      const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+      for (int32_t i = 0; i < n; ++i) mech3::program_mech_kill_credit(mech3::mech_mission_player(), ai[i].mech);
+      mech3::mech_hit_part(mech3::mech_mission_player(), 2, 40.0f);
+      mech3::missions().ended = 1;
+      mech3::missions().on_command(0x79);  // Exit Mission: the end screen, then (skip_debriefing) the results
+      return;
+    }
+    if (page == "results") return;
     if (now == &mech3::states().core && frames == 90) app->push(app->state(3), 0);
     if (now == &mech3::states().pause && frames == 10 && page == "pause_options")
       if (auto* p = dynamic_cast<mech3::PauseScreen*>(ge->screen_of(mech3::states().pause.screen_))) p->on_button(mech3::PauseScreen::kOptions, 0, 0);
@@ -2052,7 +2212,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     const std::string p = page;
     auto on = [&](auto* st) { return st && app->current() == static_cast<zgame::State*>(st) ? st->screen() : nullptr; };
     // A new company's hub opens on its story's first event, the news on the event panel: those count as the page's.
-    Mw1Screen* sc = p == "hub_options" ? on(game_loop_hub_options())
+    Mw1Screen* sc = p == "results"     ? on(game_loop_results())
+                    : p == "hub_options" ? on(game_loop_hub_options())
                     : p == "news" || (p.rfind("hub", 0) == 0 && on(game_loop_event())) ? on(game_loop_event())
                     : p.rfind("hub", 0) == 0                ? on(game_loop_hub())
                     : p.rfind("market", 0) == 0             ? on(game_loop_market())
@@ -2065,7 +2226,16 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (++frames < 40) return;
     const int32_t w = ge_->buffer_width(), h = ge_->buffer_height();
     int texts = 0, outside = 0;
-    for (const FitText& f : fit_texts(*sc, 0, 0, {{0, 0, w, h, "canvas"}})) {
+    // The results screen's texts each inside its own piece (its layout's 640 x 480, centred): the plaque, the outcome's
+    // band, the four terminals, the buttons; the others inside the canvas.
+    const bool results = p == "results";
+    const std::vector<FitBox> boxes =
+        results ? std::vector<FitBox>{{170, 6, 470, 66, "plaque"},       {0, 66, 640, 100, "outcome"},
+                                      {16, 106, 312, 266, "results"},    {328, 106, 624, 266, "pay"},
+                                      {16, 278, 312, 438, "salvage"},    {328, 278, 624, 438, "mech"},
+                                      {52, 446, 220, 476, "replay"},     {236, 446, 404, 476, "continue"}}
+                : std::vector<FitBox>{{0, 0, w, h, "canvas"}};
+    for (const FitText& f : fit_texts(*sc, results ? (w - 640) / 2 : 0, 0, boxes)) {
       ++texts;
       if (f.fits) continue;
       ++outside;
@@ -2233,6 +2403,13 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   zgame::Handle event_ = 0;
   EventState* event_state_ = nullptr;
   bool event_up_ = false;  // the panel pushed
+  zgame::Handle results_ = 0;
+  ResultsState* results_state_ = nullptr;
+  bool results_up_ = false;  // the results screen pushed (FIXES.md item 19)
+  ResultsPanel seen_results_;  // tests: the last shown
+  std::vector<int32_t> killers_;  // by wreck: who disabled it (AfterAction's killers)
+  std::vector<int32_t> armor_left_, structure_left_;  // the commander's mech as the mission ended
+  int32_t seconds_ = -1;  // the mission's time
   Dispatch ev_;            // the class firing
   Shown ev_shown_;         // the event on the panel
   EventPanel ev_panel_;
@@ -2289,6 +2466,8 @@ std::string game_loop_objective_built(bool* fell_back) {
 
 const AfterAction* game_loop_pending() { return the_loop() ? the_loop()->pending() : nullptr; }
 HubState* game_loop_hub() { return the_loop() ? the_loop()->hub_state() : nullptr; }
+ResultsState* game_loop_results() { return the_loop() ? the_loop()->results_state() : nullptr; }
+const ResultsPanel* game_loop_results_shown() { return the_loop() ? &the_loop()->results_shown() : nullptr; }
 HubOptionsState* game_loop_hub_options() { return the_loop() ? the_loop()->hub_options_state() : nullptr; }
 void game_loop_press(int32_t button) {
   if (the_loop()) the_loop()->press(button);

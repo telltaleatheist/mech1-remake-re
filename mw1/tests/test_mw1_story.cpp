@@ -319,7 +319,7 @@ TEST(mw1_story_saves_and_reads_back) {
   c.story.news_heard = {0x6400, 0x6410};
   c.story.dark_wing_won = true;
   const std::string text = mw1::save_text(c, nullptr);
-  EXPECT(text.find("version=8") != std::string::npos);
+  EXPECT(text.find("version=" + std::to_string(mw1::kSaveVersion) + "\n") != std::string::npos);
   mw1::Company back;
   mw1::Contract k;
   bool has = false;
