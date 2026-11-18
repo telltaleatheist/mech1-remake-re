@@ -308,6 +308,7 @@ Tick an item when it is merged into `main`.
 - An arctic Instant Action layout built from MW3's snow world (m4/m6) at conversion time?
 - Item 20's highlight colour: MW1's bright amber (built), or white? Should the hub's status-line contract readout be highlighted too?
 - zipkit should free its own node pool (MW1 frees it after the conversion today, mw1_worlds.cpp); move the fix into zipkit?
+- For the mw3 lead, not MW1: on 16:9 the engine's widening shifts a centred dialog's list arrows by the 107 px margin once too often (PM's own load box shows it). MW1 works round it in MW1LOADSAVE_WIDE.
 - Item 19's results screen: the shot is in `outbox/2026-11-17/results-screen/`; anything to change?
 
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
