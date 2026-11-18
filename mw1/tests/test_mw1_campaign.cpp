@@ -267,15 +267,20 @@ TEST(mw1_results_lines_and_view) {
   EXPECT(mw1::mech_lines({}, {}, false) == std::vector<std::string>{"Its damage wasn't read"});
   mw1::ResultsPanel p;
   p.planet = "SOL", p.employer = "HOUSE DAVION", p.outcome = "DEFEAT", p.scene = "mw1_hub_desert_city", p.replay = true;
-  p.results = ten;
-  const mw1::ScreenView v = mw1::results_view(p);
-  EXPECT(v.backdrop == "mw1_hub_desert_city" && v.buttons.size() == 2 && v.buttons[mw1::kResultsReplay - 1].there);
+  p.crew = ten;
+  p.ending = mw1::Ending::kLost, p.house = mw1::kDavion;
+  const mw1::ScreenView v = mw1::results_view(p, {}, false);
+  EXPECT(v.backdrop == "mw1_hub_desert_city" && v.buttons.size() == mw1::kResultsButtonCount &&
+         v.buttons[mw1::kResultsReplay - 1].there);
   bool outcome = false, cut_shown = false;
   for (const mw1::TextBlock& t : v.blocks)
-    for (const std::string& l : t.lines) outcome = outcome || l == "DEFEAT", cut_shown = cut_shown || l == "... and 3 more";
-  EXPECT(outcome && cut_shown);
+    for (const std::string& l : t.lines) outcome = outcome || l == "DEFEAT", cut_shown = cut_shown || l == "... and 6 more";
+  EXPECT(outcome && cut_shown);  // CREW STATUS cut to its five lines
+  EXPECT(v.pictures.size() > mw1::kResultsCrest && v.pictures[mw1::kResultsPicture] == "mw1_end_lost" &&
+         v.pictures[mw1::kResultsCrest] == "mw1_icon_house_davion");
+  EXPECT(mw1::results_view(p, {}, true).pictures[mw1::kResultsPicture] == "mw1_end_lost_l");  // 16:9's larger
   p.replay = false;
-  EXPECT(!mw1::results_view(p).buttons[mw1::kResultsReplay - 1].there);
+  EXPECT(!mw1::results_view(p, {}, false).buttons[mw1::kResultsReplay - 1].there);
 }
 
 // The loading screen's main enemy (FIXES.md item 18's screen, the lead's addition): framed beside the terminal when
