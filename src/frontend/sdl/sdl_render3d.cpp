@@ -637,7 +637,7 @@ void SdlRender3D::drop_frame() {
 void SdlRender3D::present() {
   if (!frame_) return;
   SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(dev_);
-  if (capture_path_) {
+  if (capture_path_ && !display_held_) {  // a held frame is not shown: the next one shown is the shot
     SDL_SubmitGPUCommandBuffer(cmd);
     std::vector<uint32_t> px;
     int w = 0, h = 0;
@@ -663,7 +663,7 @@ void SdlRender3D::present() {
   SDL_GPUTexture* sc = nullptr;
   Uint32 w = 0, h = 0;
   const bool hidden = (SDL_GetWindowFlags(window_) & SDL_WINDOW_HIDDEN) != 0;
-  if (!hidden && SDL_WaitAndAcquireGPUSwapchainTexture(cmd, window_, &sc, &w, &h) && sc) {
+  if (!hidden && !display_held_ && SDL_WaitAndAcquireGPUSwapchainTexture(cmd, window_, &sc, &w, &h) && sc) {
     SDL_GPUBlitInfo bi{};
     bi.source.texture = frame_, bi.source.w = frame_w_, bi.source.h = frame_h_;
     bi.destination.texture = sc, bi.destination.w = w, bi.destination.h = h;

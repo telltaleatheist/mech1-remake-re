@@ -1555,6 +1555,48 @@ TEST(sdl_render_keeps_a_shown_frame) {
   EXPECT(!r->restore_frame());
 }
 
+// Ours (MW1's mech renders): a held display still finishes each frame, read back
+// as drawn, and lets go when asked; a backend without it says so.
+TEST(sdl_render_holds_the_display) {
+  struct None : platform::Render3D {
+    int32_t create_texture(int, int, const uint8_t*, uint8_t) override { return 0; }
+    void release_texture(int32_t) override {}
+    void update_texture(int32_t, int, int, const uint8_t*) override {}
+    void set_viewport(int, int, int, int) override {}
+    void clear(bool, uint8_t, uint8_t, uint8_t) override {}
+    void begin_scene() override {}
+    void end_scene() override {}
+    void draw(platform::Primitive, const platform::TLVertex*, int, const platform::DrawState&) override {}
+    void set_fog_color(uint8_t, uint8_t, uint8_t) override {}
+    void present() override {}
+  } none;
+  EXPECT(!none.hold_display(true));
+  if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) return;
+  sdlfe::SdlWindow w;
+  EXPECT(w.init(true));
+  w.create("mw3 hold display test", 640, 480);
+  w.frame_size(640, 480, 640, 480);
+  sdlfe::SdlRender3D* r = w.render();
+  auto frame = [&](uint8_t red) {
+    r->set_viewport(0, 0, 640, 480);
+    r->clear(true, red, 40, 200);
+    r->begin_scene();
+    r->end_scene();
+    r->present();
+  };
+  frame(10);
+  std::vector<uint32_t> a, b;
+  int aw = 0, ah = 0, bw = 0, bh = 0;
+  if (!r->read_back(&a, &aw, &ah)) return;  // no GPU on this runner
+  EXPECT(r->hold_display(true));
+  frame(250);
+  EXPECT(r->read_back(&b, &bw, &bh) && bw == aw && bh == ah && b != a);
+  EXPECT(((b[0] >> 16) & 255) >= 245);  // the held frame is the one drawn
+  EXPECT(r->hold_display(false));
+  frame(10);
+  EXPECT(r->read_back(&b, &bw, &bh) && b == a);
+}
+
 // A mission's colour clear is off (start_mission): a new back buffer, at the first frame or after
 // a size change, still starts a defined black where no draw reaches. Metal's undefined memory
 // happened to be magenta; anything but the defined colour fails here.

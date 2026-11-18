@@ -36,6 +36,12 @@ inline constexpr const char* kDialog = "mw1_dialog";            // every message
 inline constexpr int32_t kDialogW = 420, kDialogH = 200, kDialogRule = 38;  // the rule under the title
 inline constexpr const char* kCursor = "mw1_cursor";            // MW1's mouse pointer (every layout's CURSOR)
 inline constexpr int32_t kCursorSize = 31;
+// The first run's cover over the mech render pass (FIXES.md item 14): a bar of cells under a plaque, one lit per mech
+// done (mw1_progress, _lit).
+inline constexpr const char* kPlaqueCover = "mw1_plaque_cover";  // its plaque, wide enough for its words
+inline constexpr int32_t kPlaqueCoverW = 400;
+inline constexpr const char* kProgressCell[2] = {"mw1_progress", "mw1_progress_lit"};
+inline constexpr int32_t kProgressCellW = 34, kProgressCellH = 10, kProgressGap = 4;  // 8 across kPlaqueW
 inline constexpr const char* kDim = "mw1_dim";                  // the screen dimmed behind a box
 inline constexpr int32_t kDimAlpha = 150;
 inline constexpr const char* kStatusBar = "mw1_statusbar";      // the status line's band, the wide canvas across
@@ -91,6 +97,7 @@ inline constexpr const char* kDialogTall = "mw1_dialog_tall";
 inline constexpr int32_t kDialogTallH = 300;
 
 images::Image plaque(int32_t w = kPlaqueW, const char* name = kPlaque);  // kPlaqueH high
+images::Image progress_cell(bool lit);
 images::Image tile_frame(int32_t state);  // 0 still, 1 lit, 2 pressed
 // A picture tile's four looks, its picture (kTile square) in the frame: `base`, `base`_lit, `base`_down, `base`_off.
 std::vector<images::Image> tiles(const images::Image& picture, const std::string& base);

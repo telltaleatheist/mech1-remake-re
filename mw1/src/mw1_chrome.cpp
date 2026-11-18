@@ -352,6 +352,16 @@ images::Image cell(int32_t state) {
   return c.image(kCells[std::clamp(state, 0, 2)]);
 }
 
+images::Image progress_cell(bool lit) {
+  // A cell of the cover's progress bar: dark glass with a thin frame; lit, an amber fill.
+  Canvas c(kProgressCellW, kProgressCellH);
+  glass(c, 1, 1, kProgressCellW - 1, kProgressCellH - 1, 230);
+  for (int32_t y = 2; lit && y < kProgressCellH - 2; ++y)
+    for (int32_t x = 2; x < kProgressCellW - 2; ++x) c.set(x, y, {255, 176, 64, 255});
+  thin_frame(c, 0, 0, kProgressCellW, kProgressCellH, 1, lit ? Rgba{255, 170, 40, 220} : Rgba{});
+  return c.image(kProgressCell[lit ? 1 : 0]);
+}
+
 images::Image dialog_tall() {
   // dialog_frame()'s look, taller (the file popup's).
   Canvas c(kDialogW, kDialogTallH);
@@ -599,6 +609,8 @@ std::vector<images::Image> all() {
   for (bool on : {false, true}) v.push_back(slider(on)), v.push_back(check(on));
   for (int32_t s = 0; s < 3; ++s) v.push_back(cell(s));
   v.push_back(dialog_tall());
+  for (bool lit : {false, true}) v.push_back(progress_cell(lit));
+  v.push_back(plaque(kPlaqueCoverW, kPlaqueCover));
   for (const std::vector<Reskin>* t : {&lab_pictures(), &filebox_pictures()})
     for (const Reskin& r : *t)
       if (!is_lab_panel(r)) v.push_back(reskin(r));
