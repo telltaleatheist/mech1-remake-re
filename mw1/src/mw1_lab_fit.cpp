@@ -22,7 +22,12 @@ std::vector<FitBox> lab_fit_panels() {
           inside(c, 0, "centre box")};
 }
 
-std::vector<FitBox> load_box_panels() { return {{204, 86, 436, 358, "load box"}}; }
+// MW1LOADSAVE's box (mw1options.zrd): mw1_dialog_tall at 110, 90 (its _WIDE the same: the engine centres the box
+// over the lab), inside its 4-pixel frame.
+std::vector<FitBox> load_box_panels() {
+  constexpr int32_t x = 110, y = 90;
+  return {{x + 4, y + 4, x + chrome::kDialogW - 4, y + chrome::kDialogTallH - 4, "load box"}};
+}
 
 namespace {
 
