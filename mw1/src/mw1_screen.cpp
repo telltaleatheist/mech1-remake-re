@@ -123,6 +123,10 @@ Mw1Screen::Mw1Screen(mech3::Engine& e, zgame::Handle state_handle, const char* f
   } else {
     borrow_background(false);
   }
+  // Held still (FIXES.md item 9): PM's menu background (ScrollImage) pans and wraps unless FastMenu; MW1's pictures
+  // never move, each drawn whole where its layout puts it.
+  background.moving = 0;
+  background.src = prims && zrdr::find(prims, "BACKGROUND") ? nullptr : &background.view;  // a borrowed one: its view
   for (const char* name : kPanelNames)
     if (zrdr::Node* pn = prims ? zrdr::find(prims, name) : nullptr) {
       panels_.push_back(std::make_unique<ztwod::Image>(0));

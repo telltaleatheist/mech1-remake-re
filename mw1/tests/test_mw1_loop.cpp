@@ -503,6 +503,8 @@ void loop_run(Ending ending, Run* run = nullptr) {
         };
         EXPECT(sc->loaded() && c && has("HOUSE ") && c->planet != "Planet" && !c->planet.empty() &&
                (mw1::game_loop_pending() ? value_of("STORES").empty() : value_of("STORES") == std::to_string(c->stores->count())));  // the terminal off at AFTER ACTION
+        // Still (FIXES.md item 9): PM's menu background pans and wraps; MW1's is drawn whole where its layout puts it.
+        EXPECT(!sc->background.moving && !sc->background.src);
         // The world's scenery behind it, and its House's office tile.
         EXPECT(sc->backdrop() == mw1::scenery_image(c->planet_number) &&
                sc->look(mw1::kHubOffice) == "mw1_tile_house_" + [&] {

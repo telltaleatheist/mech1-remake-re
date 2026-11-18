@@ -1,5 +1,5 @@
 // mw1imgpack OUT.zbd INTRO.bmp ART_DIR: MW1's image archive (src/mw1_images.h) from its sources in data-src/, at build
-// time: the opening picture letterboxed on 640x480 (mw1_intro), the narration's black (mw1_black), the travel map's
+// time: the opening picture filling the 854x480 canvas (mw1_intro), the narration's black (mw1_black), the travel map's
 // backdrops drawn from the worlds' data (src/mw1_map_image.h: mw1_map and one per House), the screens' art (ART_DIR's
 // PNGs, tools/mw1art.py's, already at their sizes and in 565's levels: each as mw1_<its name>), and the chrome drawn
 // in code (src/mw1_chrome.h), with alpha.
@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
     return 1;
   }
   std::string why;
-  std::vector<mw1::images::Image> all = {mw1::letterbox(mw1::kIntroImage, w, h, px), mw1::black(mw1::kBlackImage)};
+  std::vector<mw1::images::Image> all = {mw1::cover(mw1::kIntroImage, w, h, px, mw1::kWideW, mw1::kScreenH), mw1::black(mw1::kBlackImage)};
   for (mw1::images::Image& m : mw1::backdrops()) all.push_back(std::move(m));
   // The art, in name order (the same archive every build).
   std::vector<std::filesystem::path> art;

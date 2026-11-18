@@ -1,6 +1,7 @@
 // MW1's main menu and intro (src/mw1_menu.h): the narration read from the player's MW_MAIN.EXE, the intro's times;
 // MW1's image archive (src/mw1_images.h) read back through the engine's own reader; where the music comes from
 // (mw1_start.h). The menu and the intro in play: test_mw1_loop.cpp.
+#include <algorithm>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -76,9 +77,17 @@ TEST(mw1_menu_the_image_archive_reads_back_through_the_engine) {
   EXPECT(pic.width == 640 && pic.height == 480);
   EXPECT(pic.pixels[239 * 640 + 318] == red && pic.pixels[240 * 640 + 321] == red);
   EXPECT(pic.pixels[238 * 640 + 318] == 0 && pic.pixels[239 * 640 + 317] == 0 && pic.pixels[0] == 0);
-  // The intro's own size: 640x366 sits 57 lines down.
-  const mw1::Image intro = mw1::letterbox(mw1::kIntroImage, 640, 366, std::vector<uint16_t>(640 * 366, red));
-  EXPECT(intro.pixels[56 * 640] == 0 && intro.pixels[57 * 640] == red && intro.pixels[422 * 640] == red && intro.pixels[423 * 640] == 0);
+  // The intro's own size, 640x366, filling the wide canvas (FIXES.md item 9): no black anywhere; a picture red on
+  // its left half and green on its right comes out split down the middle, its overflow cut evenly.
+  const mw1::Image intro = mw1::cover(mw1::kIntroImage, 640, 366, std::vector<uint16_t>(640 * 366, red), mw1::kWideW, 480);
+  EXPECT(intro.width == 854 && intro.height == 480 &&
+         std::all_of(intro.pixels.begin(), intro.pixels.end(), [&](uint16_t p) { return p == red; }));
+  std::vector<uint16_t> halves(640 * 366, red);
+  for (size_t y = 0; y < 366; ++y)
+    for (size_t x = 320; x < 640; ++x) halves[y * 640 + x] = 0x07E0;
+  const mw1::Image split = mw1::cover("split", 640, 366, halves, mw1::kWideW, 480);
+  EXPECT(split.pixels[240 * 854 + 400] == red && split.pixels[240 * 854 + 454] == 0x07E0 && split.pixels[0] == red &&
+         split.pixels[479 * 854 + 853] == 0x07E0);
   std::string why;
   EXPECT(mw1::pack({mw1::Image{std::string(32, 'x'), 1, 1, {0}}}, &why).empty() && !why.empty());
   EXPECT(mw1::pack({mw1::Image{"bad", 2, 2, {0}}}, &why).empty() && !why.empty());
