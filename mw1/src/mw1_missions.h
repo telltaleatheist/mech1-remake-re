@@ -109,6 +109,10 @@ Objective objective_for(RowKind k);
 // (the climate's first); -1 when the table has none of the kind (the contract is then a destroy-all).
 int32_t choose_row(const std::vector<MapRow>& rows, RowKind kind, int32_t climate, Rng& rng);
 
+// FIXES.md item 44 (c): the climate of the map `world` Instant Action `ia` as the table has it (its first row on that
+// map); -1 when no row is on it.
+int32_t map_climate(const std::vector<MapRow>& rows, const std::string& world, int32_t ia);
+
 // Sets the contract's mission and map: the rolls, the row, the contract's objective, world, archive and structure.
 void choose_mission(Contract& k, Rng& rng);
 

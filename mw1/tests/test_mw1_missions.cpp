@@ -139,6 +139,9 @@ TEST(mw1_missions_the_map_table_reads_and_a_row_is_chosen) {
     EXPECT(d >= 0 && rows[static_cast<size_t>(d)].kind == mw1::RowKind::kDefend);
   }
   EXPECT(mw1::choose_row({}, mw1::RowKind::kReach, mw1::kDesert, rng) == -1);
+  // FIXES.md item 44 (c): a map's climate, as the offer says it; none for a map not in the table.
+  EXPECT(mw1::map_climate(rows, "c2", 1) == mw1::kDesert && mw1::map_climate(rows, "mw3c2", 1) == mw1::kTropical);
+  EXPECT(mw1::map_climate(rows, "c9", 1) == -1 && mw1::map_climate(rows, "c2", 7) == -1);
   // A contract given its mission and the map for it.
   mw1::set_map_table(rows);
   mw1::Company c;
