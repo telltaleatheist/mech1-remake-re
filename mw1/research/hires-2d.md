@@ -254,6 +254,57 @@ choice at about 5x the repo size. That trade-off is Owen's.
   next one behind the loading screen where it's known.
 - GPU memory: a scene is 4 MB as RGBA8, so a screen's set is under 20 MB.
 
+### B2b. The drawn pieces at the window's scale (agreed by both devs and the lead, 2026-11-18)
+
+B2 left some pieces at canvas size. These are drawn in code or cut from the art at pack time, not decoded. B2b makes
+them at the window's scale and serves them through the same `HiresImages::find(name)`. B1 draws them like any picture.
+In order (1 and 2 are built, on mw1-hires-drawn):
+
+1. **The lab's panels** (`mw1_lab_panel_*`, `mw1_lab_background`): strips of the hangar, darkened, with scanlines,
+   and glass boxes over them. At scale they sample the hangar's source picture (in `mw1art.zbd`), not its canvas copy.
+   The scanlines sit a canvas line apart, and the boxes are drawn at the scale. They are opaque.
+2. **The framed tiles** (`mw1_tile_*` and their `_lit`, `_down` and `_off` looks, DEPLOY's included): the tile's
+   source picture is scaled into the window (DEPLOY's is the launch scene's middle square), the looks' tints are
+   applied, and the frame is drawn at the scale. They are opaque.
+3. **The mech renders** at 4x (`kRenderVersion` 3). The pass grades the frame it reads back at 384x512 and 640x512 as
+   well as the canvas sizes. The canvas set stays in `mw1renders.zbd`; the 4x set is beside it in the write dir,
+   under the same stamp. Every player's set is made again once, behind the existing cover.
+4. **The chrome at scale**: the plaques, buttons and dialog frame first, then the panels, terminals, frames, arrows
+   and cells. These have alpha.
+
+The amber mech icons (`mw1icons`) stay at canvas size. Their only source is PM's own small icons, and the renders
+replace them wherever the renders are ready.
+
+**How they are drawn.** `mw1_chrome`'s `Canvas` and its helpers (`thin_frame`, `glass`, `rivet`, `glow`, the boxes and
+the tray) take a scale S:
+- The coordinates stay in canvas pixels, and each device pixel is drawn from where it falls in canvas units.
+- A line one canvas pixel wide is S device pixels wide, with crisp edges.
+- Rivets are true circles of radius r·S, and gradients are smooth.
+- At S = 1 every piece is pixel-identical to today's. The canvas set is still packed at S = 1, so the layouts, the
+  fit guards and the `mw1hiresoff` goldens don't move.
+
+**The scale: `HiresImages::set_frame_scale(float art_scale)`.**
+- B1 calls it on the draw side (`SdlScreen2D`, where the list is drawn), once per frame before that frame's first
+  `find`, and only when the value changes.
+- The value is the frame's height over the canvas's: 2.25 at 1080p, 3 at 1440p, 4.5 at 4K. The horizontal scale
+  differs by under 0.1%.
+- The store draws the pieces at S = ceil(art_scale): 3 at 1080p (2.25) and at 1440p, 5 at 4K. Below 2, `find`
+  returns null for them and the canvas draws them.
+- **On a change, the old pieces are dropped at once.** The store never keeps two scales. The new pieces have new
+  serials, and B1 drops the old serials' textures at once on the change too, so nothing at the old scale is kept on
+  either side.
+- Decoded pictures (B2's scenes and portraits) don't depend on the scale and keep their serials.
+- Until the first call the store assumes S = 1, so the canvas draws these pieces, as it does today.
+
+**Alpha** (point 4; the lab's panels and the tiles are opaque).
+- B1 draws a picture's RGBA over what's under it: premultiplied on upload, blended ONE, ONE_MINUS_SRC_ALPHA.
+- B1 uses only the picture's alpha channel; it doesn't re-derive the canvas blit's mode. So that the edges match the
+  canvas's exactly:
+  - a keyed image's key pixels come as alpha 0;
+  - for an alpha plane (`kFullAlpha`), 0 to 3 come as 0, 0xfc and above as 255, and anything between blends.
+- If `find` returns null or an upload fails, B1 draws nothing for that command and the canvas shows there. It never
+  leaves a hole.
+
 ### B3. MW3 and PM
 
 Nothing changes for either:

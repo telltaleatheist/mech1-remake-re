@@ -14,24 +14,41 @@ struct Rgba {
 
 // A canvas of RGBA, then the archive's 565 and alpha.
 struct Canvas {
-  int32_t w, h;
+  // w x h canvas pixels, each s x s device pixels (s 1: the archive's pieces; above 1, research/hires-2d.md B2b: the
+  // 2D's at the window's scale). set and over take canvas pixels and fill the device block; set_d and over_d take one
+  // device pixel, for what is drawn finer (a rivet's circle, the hangar's detail).
+  int32_t w, h, s;
   std::vector<Rgba> px;
-  Canvas(int32_t w_, int32_t h_) : w(w_), h(h_), px(static_cast<size_t>(w_ * h_)) {}
-  Rgba& at(int32_t x, int32_t y) { return px[static_cast<size_t>(y * w + x)]; }
+  Canvas(int32_t w_, int32_t h_, int32_t s_ = 1) : w(w_), h(h_), s(std::max(1, s_)), px(static_cast<size_t>(w_ * s * h_ * s)) {}
+  int32_t dw() const { return w * s; }
+  int32_t dh() const { return h * s; }
+  Rgba& at_d(int32_t x, int32_t y) { return px[static_cast<size_t>(y) * dw() + x]; }
+  Rgba& at(int32_t x, int32_t y) { return at_d(x * s, y * s); }
   bool in(int32_t x, int32_t y) const { return x >= 0 && y >= 0 && x < w && y < h; }
+  bool in_d(int32_t x, int32_t y) const { return x >= 0 && y >= 0 && x < dw() && y < dh(); }
+  void set_d(int32_t x, int32_t y, Rgba c) {
+    if (in_d(x, y)) at_d(x, y) = c;
+  }
   void set(int32_t x, int32_t y, Rgba c) {
-    if (in(x, y)) at(x, y) = c;
+    if (!in(x, y)) return;
+    for (int32_t j = 0; j < s; ++j)
+      for (int32_t i = 0; i < s; ++i) at_d(x * s + i, y * s + j) = c;
   }
   // `c` over what's there, by its alpha.
-  void over(int32_t x, int32_t y, Rgba c) {
-    if (!in(x, y)) return;
-    Rgba& d = at(x, y);
+  void over_d(int32_t x, int32_t y, Rgba c) {
+    if (!in_d(x, y)) return;
+    Rgba& d = at_d(x, y);
     const int32_t a = c.a, ia = 255 - a, oa = a + d.a * ia / 255;
     if (oa == 0) return;
     d.r = (c.r * a + d.r * d.a * ia / 255) / oa, d.g = (c.g * a + d.g * d.a * ia / 255) / oa,
     d.b = (c.b * a + d.b * d.a * ia / 255) / oa, d.a = oa;
   }
-  images::Image image(const std::string& name) const {
+  void over(int32_t x, int32_t y, Rgba c) {
+    if (!in(x, y)) return;
+    for (int32_t j = 0; j < s; ++j)
+      for (int32_t i = 0; i < s; ++i) over_d(x * s + i, y * s + j, c);
+  }
+  images::Image image(const std::string& name) const {  // at s 1
     images::Image im;
     im.name = name, im.width = w, im.height = h;
     im.pixels.resize(px.size()), im.alpha.resize(px.size());
@@ -43,25 +60,54 @@ struct Canvas {
     }
     return im;
   }
+  // The device pixels as RGBA bytes, straight alpha (B2b); `opaque`: alpha 255 throughout.
+  Drawn drawn(const std::string& name, bool opaque) const {
+    Drawn d;
+    d.name = name, d.canvas_w = w, d.canvas_h = h, d.s = s;
+    d.rgba.resize(px.size() * 4);
+    auto cl = [](int32_t v) { return static_cast<uint8_t>(std::clamp(v, 0, 255)); };
+    for (size_t i = 0; i < px.size(); ++i) {
+      const Rgba& c = px[i];
+      d.rgba[i * 4] = cl(c.r), d.rgba[i * 4 + 1] = cl(c.g), d.rgba[i * 4 + 2] = cl(c.b);
+      // B1's edges as the canvas blit's (kFullAlpha): 0..3 clear, 0xfc and up solid.
+      const int32_t a = opaque ? 255 : c.a;
+      d.rgba[i * 4 + 3] = a <= 3 ? 0 : a >= 0xfc ? 255 : cl(a);
+    }
+    return d;
+  }
 };
 
 Rgba grey(int32_t v, int32_t a = 255) { return {v, v, v + v / 16, a}; }  // gunmetal: a touch of blue
 
 // A round rivet of radius r at (cx, cy): domed, lit from the top left, a dark ring.
 void rivet(Canvas& c, int32_t cx, int32_t cy, int32_t r) {
-  for (int32_t y = -r - 1; y <= r + 1; ++y)
-    for (int32_t x = -r - 1; x <= r + 1; ++x) {
-      const double d = std::sqrt(static_cast<double>(x * x + y * y));
-      if (d > r + 0.5) continue;
-      if (d > r - 0.5) {
-        c.set(cx + x, cy + y, grey(30));
+  // In device pixels: the centre of canvas pixel (cx, cy), radius r canvas pixels (at s 1, exactly the canvas's).
+  const int32_t s = c.s;
+  const double ccx = (cx + 0.5) * s - 0.5, ccy = (cy + 0.5) * s - 0.5, rr = static_cast<double>(r) * s;
+  const int32_t reach = (r + 1) * s;
+  for (int32_t y = -reach; y <= reach; ++y)
+    for (int32_t x = -reach; x <= reach; ++x) {
+      const int32_t px = static_cast<int32_t>(std::lround(ccx)) + x, py = static_cast<int32_t>(std::lround(ccy)) + y;
+      const double dx = px - ccx, dy = py - ccy, d = std::sqrt(dx * dx + dy * dy);
+      if (d > rr + 0.5 * s) continue;
+      if (d > rr - 0.5 * s) {
+        c.set_d(px, py, grey(30));
         continue;
       }
       // The dome's light: brighter towards the top left.
-      const double l = std::clamp(0.55 - 0.45 * (x + y) / (1.4 * r), 0.0, 1.0);
-      c.set(cx + x, cy + y, grey(static_cast<int32_t>(70 + 170 * l)));
+      const double l = std::clamp(0.55 - 0.45 * (dx + dy) / (1.4 * rr), 0.0, 1.0);
+      c.set_d(px, py, grey(static_cast<int32_t>(70 + 170 * l)));
     }
-  c.set(cx - r / 2, cy - r / 2, grey(250));  // the glint
+  // The glint: one canvas pixel up and left of the middle (at s 1, as it always was); above, a small bright disc there.
+  if (s == 1) {
+    c.set(cx - r / 2, cy - r / 2, grey(250));
+    return;
+  }
+  const double gx = ccx - (r / 2) * s - (r < 2 ? 0.25 * rr : 0.0), gy = ccy - (r / 2) * s - (r < 2 ? 0.25 * rr : 0.0);
+  const double gr = std::max(0.75, 0.3 * rr);
+  for (int32_t y = static_cast<int32_t>(gy - gr) - 1; y <= gy + gr + 1; ++y)
+    for (int32_t x = static_cast<int32_t>(gx - gr) - 1; x <= gx + gr + 1; ++x)
+      if (std::hypot(x - gx, y - gy) <= gr) c.set_d(x, y, grey(250));
 }
 
 // MW1's amber, lit round the inside of a window or recess (the mouse on it): a solid line, fading out over 3 pixels.
@@ -133,11 +179,12 @@ images::Image plaque(int32_t w, const char* name) {
   return c.image(name);
 }
 
-images::Image tile_frame(int32_t state) {
+namespace {
+Canvas tile_frame_canvas(int32_t state, int32_t scale) {
   // A thin frame round the picture, a dark band inside its foot for the label (fading up into the picture). Lit:
   // the frame amber and a glow inside; pressed: the frame darker.
   const int32_t n = kTile + 2 * kTileFrame;
-  Canvas c(n, n);
+  Canvas c(n, n, scale);
   const Rgba amber_tint = {255, 170, 40, 200}, dark_tint = {20, 20, 22, 120};
   thin_frame(c, 0, 0, n, n, kTileFrame, state == 1 ? amber_tint : state == 2 ? dark_tint : Rgba{});
   for (int32_t y = 0; y < kTileBand + 10; ++y) {
@@ -146,8 +193,11 @@ images::Image tile_frame(int32_t state) {
     for (int32_t x = kTileFrame; x < n - kTileFrame; ++x) c.set(x, yy, {6, 8, 10, a});
   }
   if (state == 1) glow(c, kTileFrame, kTileFrame, n - kTileFrame, n - kTileFrame);
-  return c.image(kTileFrames[std::clamp(state, 0, 2)]);
+  return c;
 }
+}  // namespace
+
+images::Image tile_frame(int32_t state) { return tile_frame_canvas(state, 1).image(kTileFrames[std::clamp(state, 0, 2)]); }
 
 std::vector<images::Image> tiles(const images::Image& picture, const std::string& base) {
   std::vector<images::Image> out;
@@ -532,18 +582,23 @@ images::Image reskin(const Reskin& r) {
   return c.image(reskin_name(r.game));
 }
 
-std::vector<images::Image> lab_panels(const images::Image& hangar) {
+namespace {
+// The hangar's colour over (u0, v0)-(u1, v1), in its canvas copy's pixels (854 x 480).
+using HangarSample = Rgba (*)(const void* ctx, double u0, double v0, double u1, double v1);
+std::vector<std::pair<std::string, Canvas>> lab_panel_canvases(HangarSample sample, const void* ctx, int32_t hangar_w,
+                                                               int32_t scale) {
   constexpr int32_t kMid = 640, kLeft = 220, kCentre = 200;
-  const int32_t off = (hangar.width - kMid) / 2;
+  const int32_t off = (hangar_w - kMid) / 2;
   // A strip of the hangar, darkened to `keep` percent with faint scanlines.
   auto strip = [&](int32_t from, int32_t w, int32_t keep) {
-    Canvas c(w, images::kScreenH);
-    for (int32_t y = 0; y < c.h && y < hangar.height; ++y)
-      for (int32_t x = 0; x < w; ++x) {
-        const int32_t sx = std::clamp(off + from + x, 0, hangar.width - 1);
-        const uint16_t p = hangar.pixels[static_cast<size_t>(y * hangar.width + sx)];
-        const int32_t k = keep * (y % 2 ? 88 : 100) / 100;
-        c.set(x, y, {((p >> 11) << 3) * k / 100, (((p >> 5) & 63) << 2) * k / 100, ((p & 31) << 3) * k / 100, 255});
+    Canvas c(w, images::kScreenH, scale);
+    const double step = 1.0 / c.s;
+    for (int32_t y = 0; y < c.dh(); ++y)
+      for (int32_t x = 0; x < c.dw(); ++x) {
+        const double u = off + from + x * step, v = y * step;
+        const Rgba p = sample(ctx, u, v, u + step, v + step);
+        const int32_t k = keep * ((y / c.s) % 2 ? 88 : 100) / 100;  // the scanlines a canvas line apart
+        c.set_d(x, y, {p.r * k / 100, p.g * k / 100, p.b * k / 100, 255});
       }
     return c;
   };
@@ -563,7 +618,7 @@ std::vector<images::Image> lab_panels(const images::Image& hangar) {
       for (int32_t x = 0; x < c.w; ++x) c.over(x, y, {8, 10, 13, 190});
     for (int32_t x = 0; x < c.w; ++x) c.set(x, kLabTrayY, {200, 130, 40, 200});
   };
-  std::vector<images::Image> v;
+  std::vector<std::pair<std::string, Canvas>> v;
   for (bool right : {false, true})
     for (bool two : {false, true}) {
       Canvas c = strip(right ? kLeft + kCentre : 0, kLeft, 45);
@@ -577,21 +632,114 @@ std::vector<images::Image> lab_panels(const images::Image& hangar) {
         box(c, kLabSideWhole.x0, kLabSideWhole.y0, kLabSideWhole.x1, kLabSideWhole.y1, rule);
       }
       tray(c);
-      v.push_back(c.image(reskin_name(right ? (two ? "lab_panel_rightdouble" : "lab_panel_rightsingle")
-                                            : (two ? "lab_panel_leftdouble" : "lab_panel_leftsingle"))));
+      v.emplace_back(reskin_name(right ? (two ? "lab_panel_rightdouble" : "lab_panel_rightsingle")
+                                       : (two ? "lab_panel_leftdouble" : "lab_panel_leftsingle")),
+                     std::move(c));
     }
   // The centre: the hangar brighter round the mech, a glass box under it for its parts, data, icons and messages.
   // Above the tray as the sides' (Owen, item 17: it ran down through the tray round the page icon).
   Canvas c = strip(kLeft, kCentre, 80);
   box(c, kLabCentreBox.x0 - kLeft, kLabCentreBox.y0, kLabCentreBox.x1 - kLeft, kLabCentreBox.y1, 0);
   tray(c);
-  v.push_back(c.image(reskin_name("lab_panel_center")));
+  v.emplace_back(reskin_name("lab_panel_center"), std::move(c));
   // The backdrop: the whole middle, as the sides' (on a wide canvas the engine mirrors its edges out).
   Canvas b = strip(0, kMid, 45);
   tray(b);
-  v.push_back(b.image(reskin_name("lab_background")));
-  for (images::Image& im : v) im.alpha.clear();  // opaque, as PM's (the engine widens an opaque backdrop)
+  v.emplace_back(reskin_name("lab_background"), std::move(b));
   return v;
+}
+
+// The source-size picture's colour over (x0, y0)-(x1, y1) of its own pixels, partial pixels weighed by cover.
+struct Source {
+  const uint8_t* rgba;
+  int32_t w, h;
+};
+Rgba source_area(const Source& src, double x0, double y0, double x1, double y1) {
+  x0 = std::clamp(x0, 0.0, static_cast<double>(src.w)), x1 = std::clamp(x1, 0.0, static_cast<double>(src.w));
+  y0 = std::clamp(y0, 0.0, static_cast<double>(src.h)), y1 = std::clamp(y1, 0.0, static_cast<double>(src.h));
+  if (x1 - x0 < 1e-9 || y1 - y0 < 1e-9) {  // under a pixel at the edge: the nearest one
+    const int32_t x = std::clamp(static_cast<int32_t>(x0), 0, src.w - 1), y = std::clamp(static_cast<int32_t>(y0), 0, src.h - 1);
+    const uint8_t* p = src.rgba + (static_cast<size_t>(y) * src.w + x) * 4;
+    return {p[0], p[1], p[2], 255};
+  }
+  double sum[3] = {0, 0, 0}, area = 0;
+  for (int32_t y = static_cast<int32_t>(y0); y < y1; ++y) {
+    const double wy = std::min<double>(y + 1, y1) - std::max<double>(y, y0);
+    for (int32_t x = static_cast<int32_t>(x0); x < x1; ++x) {
+      const double wgt = wy * (std::min<double>(x + 1, x1) - std::max<double>(x, x0));
+      const uint8_t* p = src.rgba + (static_cast<size_t>(y) * src.w + x) * 4;
+      for (int k = 0; k < 3; ++k) sum[k] += wgt * p[k];
+      area += wgt;
+    }
+  }
+  return {static_cast<int32_t>(std::lround(sum[0] / area)), static_cast<int32_t>(std::lround(sum[1] / area)),
+          static_cast<int32_t>(std::lround(sum[2] / area)), 255};
+}
+}  // namespace
+
+std::vector<images::Image> lab_panels(const images::Image& hangar) {
+  // The canvas copy's own pixels (at scale 1 each sample is one pixel).
+  const HangarSample at = [](const void* ctx, double u0, double v0, double, double) {
+    const images::Image& h = *static_cast<const images::Image*>(ctx);
+    const int32_t x = std::clamp(static_cast<int32_t>(u0), 0, h.width - 1), y = std::clamp(static_cast<int32_t>(v0), 0, h.height - 1);
+    const uint16_t p = h.pixels[static_cast<size_t>(y * h.width + x)];
+    return Rgba{(p >> 11) << 3, ((p >> 5) & 63) << 2, (p & 31) << 3, 255};
+  };
+  std::vector<images::Image> v;
+  for (auto& [name, c] : lab_panel_canvases(at, &hangar, hangar.width, 1)) {
+    v.push_back(c.image(name));
+    v.back().alpha.clear();  // opaque, as PM's (the engine widens an opaque backdrop)
+  }
+  return v;
+}
+
+std::vector<Drawn> lab_panels_at(const uint8_t* rgba, int32_t sw, int32_t sh, int32_t s) {
+  // The hangar's canvas copy is the whole source at 854 x 480: a canvas pixel is sw / 854 by sh / 480 of it.
+  struct Ctx { Source src; double fx, fy; } ctx{{rgba, sw, sh}, static_cast<double>(sw) / images::kWideW,
+                                               static_cast<double>(sh) / images::kScreenH};
+  const HangarSample area = [](const void* p, double u0, double v0, double u1, double v1) {
+    const Ctx& c = *static_cast<const Ctx*>(p);
+    return source_area(c.src, u0 * c.fx, v0 * c.fy, u1 * c.fx, v1 * c.fy);
+  };
+  std::vector<Drawn> v;
+  if (!rgba || sw <= 0 || sh <= 0) return v;
+  for (auto& [name, c] : lab_panel_canvases(area, &ctx, images::kWideW, s)) v.push_back(c.drawn(name, true));
+  return v;
+}
+
+std::vector<Drawn> tiles_at(const uint8_t* rgba, int32_t sw, int32_t sh, int32_t x0, int32_t y0, int32_t side_w,
+                            int32_t side_h, const std::string& base, int32_t s) {
+  std::vector<Drawn> out;
+  if (!rgba || sw <= 0 || sh <= 0 || side_w <= 0 || side_h <= 0) return out;
+  const Source src{rgba, sw, sh};
+  const int32_t n = kTile + 2 * kTileFrame;
+  // The picture once (its window's device pixels), then each look's tint and frame over it, as tiles() does.
+  const int32_t pw = kTile * std::max(1, s);
+  std::vector<Rgba> pic(static_cast<size_t>(pw) * pw);
+  const double fx = static_cast<double>(side_w) / pw, fy = static_cast<double>(side_h) / pw;
+  for (int32_t y = 0; y < pw; ++y)
+    for (int32_t x = 0; x < pw; ++x)
+      pic[static_cast<size_t>(y) * pw + x] = source_area(src, x0 + x * fx, y0 + y * fy, x0 + (x + 1) * fx, y0 + (y + 1) * fy);
+  for (int32_t state = 0; state < 4; ++state) {
+    const Canvas f = tile_frame_canvas(state == 3 ? 0 : state, s);
+    Canvas c(n, n, s);
+    const int32_t inset = kTileFrame * c.s;
+    for (int32_t y = 0; y < c.dh(); ++y)
+      for (int32_t x = 0; x < c.dw(); ++x) {
+        Rgba p;
+        const int32_t px = x - inset, py = y - inset;
+        if (px >= 0 && py >= 0 && px < pw && py < pw) {
+          p = pic[static_cast<size_t>(py) * pw + px];
+          if (state == 3) p.r = p.g = p.b = (p.r * 30 + p.g * 59 + p.b * 11) / 100 / 3;  // off: grey and dark
+          if (state == 2) p.r = p.r * 3 / 4, p.g = p.g * 3 / 4, p.b = p.b * 3 / 4;       // pressed: a shade darker
+        }
+        const Rgba& fr = f.px[static_cast<size_t>(y) * c.dw() + x];
+        const int32_t a = fr.a;
+        c.set_d(x, y, {(p.r * (255 - a) + fr.r * a) / 255, (p.g * (255 - a) + fr.g * a) / 255, (p.b * (255 - a) + fr.b * a) / 255, 255});
+      }
+    out.push_back(c.drawn(base + (state == 1 ? "_lit" : state == 2 ? "_down" : state == 3 ? "_off" : ""), true));
+  }
+  return out;
 }
 
 std::vector<images::Image> all() {

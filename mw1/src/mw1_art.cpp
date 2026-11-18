@@ -176,6 +176,10 @@ struct Decoded {
   uint64_t serial = 0;
 };
 
+namespace {
+int32_t g_scale = 1;  // the last scale set, kept across a reopen (the host sets it only when it changes)
+}  // namespace
+
 struct Store::Impl {
   std::vector<uint8_t> bytes;
   std::map<std::string, Entry> by_name;
@@ -189,6 +193,17 @@ struct Store::Impl {
     bool preloaded = false;  // kept until it is first asked for (a mission may be long)
   };
   std::map<std::string, Slot> slots;
+  // B2b: the drawn pieces, each made from a source image (its name in by_name) with its group.
+  enum class Kind { kTiles, kDeployTile, kLabPanels };
+  struct Recipe { Kind kind; std::string source, base; };
+  std::map<std::string, Recipe> recipes;  // by the piece's name
+  struct Made {
+    chrome::Drawn drawn;
+    Picture picture;
+    int64_t used = 0;
+  };
+  std::map<std::string, Made> made;
+  int32_t scale = 1;  // set from g_scale at open
   int64_t frame = 0;
   uint64_t next_serial = 1;
 
@@ -223,6 +238,39 @@ struct Store::Impl {
     }
     return &s;
   }
+
+  // The group `name` belongs to, made at the current scale (its source decoded if it isn't).
+  const Picture* drawn(const std::string& name) {
+    auto m = made.find(name);
+    if (m != made.end()) {
+      m->second.used = frame;
+      return &m->second.picture;
+    }
+    auto r = recipes.find(name);
+    if (r == recipes.end() || scale < 2) return nullptr;
+    Slot* src = slot(r->second.source, true);
+    if (!src || !src->done) return nullptr;
+    const Decoded& d = *src->done;
+    std::vector<chrome::Drawn> group;
+    switch (r->second.kind) {
+      case Kind::kTiles: group = chrome::tiles_at(d.rgba.data(), d.w, d.h, 0, 0, d.w, d.h, r->second.base, scale); break;
+      case Kind::kDeployTile: {  // the launch's middle square, as the packer cut it
+        const int32_t side = std::min(d.w, d.h);
+        group = chrome::tiles_at(d.rgba.data(), d.w, d.h, (d.w - side) / 2, (d.h - side) / 2, side, side, r->second.base, scale);
+        break;
+      }
+      case Kind::kLabPanels: group = chrome::lab_panels_at(d.rgba.data(), d.w, d.h, scale); break;
+    }
+    for (chrome::Drawn& g : group) {
+      Made& mm = made[g.name];
+      mm.drawn = std::move(g);
+      const chrome::Drawn& dd = mm.drawn;
+      mm.picture = {dd.canvas_w * dd.s, dd.canvas_h * dd.s, dd.rgba.data(), next_serial++, dd.canvas_w, dd.canvas_h};
+      mm.used = frame;
+    }
+    m = made.find(name);
+    return m == made.end() ? nullptr : &m->second.picture;
+  }
 };
 
 Store& Store::get() {
@@ -254,6 +302,26 @@ bool Store::open(const std::string& path) {
     return false;
   }
   for (Entry& e : entries) impl->by_name.emplace(e.name, std::move(e));
+  // B2b's drawn pieces: each service picture's tile (mw1_icon_<x> -> mw1_tile_<x>), DEPLOY's, the lab's panels.
+  using Kind = Impl::Kind;
+  auto add = [&](Kind k, const std::string& source, const std::string& base, const std::vector<std::string>& names) {
+    for (const std::string& n : names) impl->recipes[n] = {k, source, base};
+  };
+  auto looks = [](const std::string& base) {
+    return std::vector<std::string>{base, base + "_lit", base + "_down", base + "_off"};
+  };
+  for (const auto& [name, e] : impl->by_name)
+    if (name.rfind("mw1_icon_", 0) == 0) add(Kind::kTiles, name, "mw1_tile_" + name.substr(9), looks("mw1_tile_" + name.substr(9)));
+  if (impl->by_name.count("mw1_deploy_launch")) add(Kind::kDeployTile, "mw1_deploy_launch", "mw1_tile_deploy", looks("mw1_tile_deploy"));
+  const std::string hangar = std::string("mw1_") + chrome::kLabHangar;
+  if (impl->by_name.count(hangar)) {
+    std::vector<std::string> panels;
+    for (const char* p : {"lab_panel_leftsingle", "lab_panel_leftdouble", "lab_panel_rightsingle", "lab_panel_rightdouble",
+                          "lab_panel_center", "lab_background"})
+      panels.push_back(chrome::reskin_name(p));
+    add(Kind::kLabPanels, hangar, "", panels);
+  }
+  impl->scale = g_scale;
   impl_ = impl.release();
   return true;
 }
@@ -274,6 +342,7 @@ void* Store::canvas_texture(const char* name) {
 
 const Store::Picture* Store::picture(const char* name) {
   if (!impl_ || !name) return nullptr;
+  if (impl_->recipes.count(name)) return impl_->drawn(name);
   Impl::Slot* s = impl_->slot(name, true, true);
   return s && s->done ? &s->picture : nullptr;
 }
@@ -287,12 +356,29 @@ void Store::preload(const std::vector<std::string>& names) {
 void Store::end_frame() {
   if (!impl_) return;
   ++impl_->frame;
+  for (auto it = impl_->made.begin(); it != impl_->made.end();)
+    if (impl_->frame - it->second.used > kKeepFrames)
+      it = impl_->made.erase(it);
+    else
+      ++it;
   for (auto it = impl_->slots.begin(); it != impl_->slots.end();)
     if (impl_->frame - it->second.used > kKeepFrames && !it->second.preloaded && !it->second.pending.valid())
       it = impl_->slots.erase(it);
     else
       ++it;
 }
+
+void Store::set_scale(int32_t scale) {
+  scale = std::max(1, scale);
+  g_scale = scale;
+  if (!impl_ || scale == impl_->scale) return;
+  impl_->scale = scale;
+  impl_->made.clear();  // never two scales kept
+}
+
+int32_t Store::scale() const { return impl_ ? impl_->scale : g_scale; }
+
+bool Store::drawn_piece(const std::string& name) const { return impl_ && impl_->recipes.count(name); }
 
 size_t Store::decoded_count() const {
   if (!impl_) return 0;
@@ -313,6 +399,9 @@ class Hires : public platform::HiresImages {
     platform::HiresImage& h = found_[name];
     h = {p->w, p->h, p->rgba, p->serial, p->canvas_w, p->canvas_h};
     return &h;
+  }
+  void set_frame_scale(float art_scale) override {
+    Store::get().set_scale(static_cast<int32_t>(std::ceil(art_scale - 1e-4f)));
   }
   void end_frame() override {
     found_.clear();
