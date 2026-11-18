@@ -38,6 +38,17 @@ bool axis_slots_from_usages(const std::vector<uint16_t>& usages, int sdl_axes, i
 bool axis_slots_from_text(const std::string& text, int sdl_axes, int slots[8]);
 // The slots as joystick_axes= writes them (for the log).
 std::string axis_slots_text(const int slots[8], int sdl_axes);
+// The mouse's hold as SdlInput::refresh decides it (docs/input.md, the mouse in a window), from its parts: `want`
+// the mouse held (SDL's relative mode, the system's pointer kept in the window), `absolute` zInput's mouse put where
+// the pointer is (the menus in a window, the editor). Ours, MW1's FIXES.md item 30: `menus_free`
+// (platform::menus_free_pointer) gives the menus a window's rules fullscreen too; a mission's are unchanged.
+struct MouseInputs {
+  bool acquired = false, exclusive = false, focused = false, windowed = false, mission = false, released = false;
+  bool editor_free = false, menus_free = false;
+};
+struct MouseHold { bool want = false, absolute = false; };
+MouseHold decide_mouse(const MouseInputs& m);
+
 // Which attached device a start opens, with no joystick= in mw3.cfg: a
 // gamepad, else one with 2 axes and 4 buttons or more, else any.
 int joystick_rank(bool gamepad, int axes, int buttons);

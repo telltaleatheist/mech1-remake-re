@@ -1,5 +1,6 @@
 #include "frontend/sdl/sdl_input.h"
 
+#include "platform/menu_pointer.h"
 #include "platform/pointer_hands_off.h"
 
 #include "gamez/zutil/zutl_reg.h"
@@ -441,6 +442,15 @@ float SdlInput::motion_scale() const {
   return shape ? sdlfe::mickey_scale(static_cast<float>(w), static_cast<float>(h), *shape) : 640.0f / static_cast<float>(w);
 }
 
+MouseHold decide_mouse(const MouseInputs& m) {
+  // The menus as in a window: in one, or fullscreen with menus_free (MW1's, item 30).
+  const bool menus_free = !m.mission && (m.windowed || m.menus_free);
+  MouseHold h;
+  h.absolute = menus_free || m.editor_free;
+  h.want = m.acquired && m.exclusive && m.focused && !m.editor_free && !menus_free && !(m.windowed && m.mission && m.released);
+  return h;
+}
+
 // An exclusive mouse (DISCL_EXCLUSIVE) held while the window has the focus;
 // in a window only in a mission and not let go (sdl_input.h).
 void SdlInput::refresh() {
@@ -465,10 +475,14 @@ void SdlInput::refresh() {
       }
   }
   const bool free = mission_ && pointer_free && pointer_free();
-  const bool absolute = (win_ && !mission_) || free;
+  MouseInputs in;
+  in.acquired = acquired_[kMouse], in.exclusive = (coop_[kMouse] & 1) != 0, in.focused = focused_, in.windowed = win_;
+  in.mission = mission_, in.released = released_, in.editor_free = free, in.menus_free = platform::menus_free_pointer();
+  const MouseHold hold = decide_mouse(in);
+  const bool absolute = hold.absolute;
   if (absolute && !absolute_) cursor_moved_ = false;
   absolute_ = absolute;
-  const bool want = acquired_[kMouse] && (coop_[kMouse] & 1) && focused_ && !free && !(win_ && (!mission_ || released_));
+  const bool want = hold.want;
   // Playtest W19: SDL's own state, not only ours; a relative mode refused or
   // dropped (a fullscreen switch, the focus) is asked for again, else the
   // system's cursor showed at the centre the game puts it each frame.

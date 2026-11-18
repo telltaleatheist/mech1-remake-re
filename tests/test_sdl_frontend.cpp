@@ -9667,3 +9667,34 @@ TEST(sdl_pm_ctrl_p_saves_a_screenshot) {
   EXPECT(!fs::exists(dir + "/mw300000001.bmp"));  // one press, one file
 }
 #endif
+
+// Ours, MW1's FIXES.md item 30: the mouse's hold (sdlfe::decide_mouse). MW3's and PM's rules unchanged: a window's
+// menus free, a window's mission held until let go, fullscreen held everywhere; MW1's menus_free frees the menus
+// fullscreen too and holds its missions as before.
+TEST(sdl_mouse_hold_decision) {
+  using sdlfe::MouseInputs;
+  auto at = [](bool windowed, bool mission, bool menus_free, bool released = false, bool editor = false) {
+    MouseInputs m;
+    m.acquired = m.exclusive = m.focused = true;
+    m.windowed = windowed, m.mission = mission, m.menus_free = menus_free, m.released = released, m.editor_free = editor;
+    return sdlfe::decide_mouse(m);
+  };
+  // MW3 and PM (menus_free off).
+  EXPECT(at(false, false, false).want && !at(false, false, false).absolute);  // fullscreen menus: held
+  EXPECT(at(false, true, false).want && !at(false, true, false).absolute);    // fullscreen mission: held
+  EXPECT(!at(true, false, false).want && at(true, false, false).absolute);    // window menus: free
+  EXPECT(at(true, true, false).want);                                           // window mission: held
+  EXPECT(!at(true, true, false, true).want);                                    // ... let go
+  EXPECT(!at(false, true, false, false, true).want && at(false, true, false, false, true).absolute);  // the editor
+  // MW1 (menus_free on): the menus free fullscreen and in a window; the missions as MW3's.
+  EXPECT(!at(false, false, true).want && at(false, false, true).absolute);
+  EXPECT(!at(true, false, true).want && at(true, false, true).absolute);
+  EXPECT(at(false, true, true).want && !at(false, true, true).absolute);
+  EXPECT(at(true, true, true).want && !at(true, true, true, true).want);
+  // Never held without the focus, the device acquired or exclusive.
+  MouseInputs m;
+  m.acquired = m.exclusive = true;
+  EXPECT(!sdlfe::decide_mouse(m).want);
+  m.focused = true, m.exclusive = false;
+  EXPECT(!sdlfe::decide_mouse(m).want);
+}
