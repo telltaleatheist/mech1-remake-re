@@ -273,3 +273,10 @@ Tick an item when it is merged into `main`.
   - It replaces the AI mech art (`mech_*`) there.
   - The same icon may serve the Mech Complex rows until item 14's renders exist. Item 14 then decides per screen.
 
+
+## 24. [ ] Hold an arrow to keep stepping
+- **Owen (2026-11-17):** "On the negotiation page, I can hold the arrow down and it'll go up or down as I hold."
+- **Wanted:**
+  - The office's term arrows (pay, salvage, advance) repeat while held: one step on the press, then repeating after about 0.4 s, and faster after 2 s.
+  - The repeating stops when the button is released or the pointer leaves it.
+  - It's an opt-in flag on our framed button, used by the list scroll arrows too.
