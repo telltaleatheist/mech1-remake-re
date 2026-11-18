@@ -375,14 +375,31 @@ void SdlInput::note_mouse_state(bool want) {
 }
 
 void SdlInput::capture(bool on) {
+  const bool menus_free = platform::menus_free_pointer();
   if (on && !captured_) {  // W4: when it was taken and how the focus stood, for a stuck one's log
     captured_ns_ = clock(), motion_seen_ = false, quiet_said_ = false, heals_ = 0;
     if (focus_report) std::printf("mw3: mouse: taken (%s)\n", focus_report().c_str());
+    // MW1's FIXES 30: where the pointer was, to let it go there.
+    held_from_ = false;
+    if (menus_free) {
+      if (pointer_at) held_from_ = pointer_at(&held_x_, &held_y_);
+      else if (!platform::pointer_hands_off()) SDL_GetGlobalMouseState(&held_x_, &held_y_), held_from_ = true;
+    }
   }
+  const bool was = captured_;
   captured_ = on;
   if (on) SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_SYSTEM_SCALE, "1");  // the system's speed and acceleration (sdl_input.h)
+  if (on && menus_free) SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_CENTER, "0");  // taken where it is, not centred
   // A run no player is at never holds the system's pointer (pointer_hands_off.h); relative mode let go if it was on.
   if (window && (!platform::pointer_hands_off() || !on)) SDL_SetWindowRelativeMouseMode(window, on);
+  // Let go with the window still in front (out of a mission, the pause): the pointer where the hold took it.
+  if (!on && was && held_from_) {
+    held_from_ = false;
+    if (focused_) {
+      if (move_pointer) move_pointer(held_x_, held_y_);
+      else if (!platform::pointer_hands_off()) SDL_WarpMouseGlobal(held_x_, held_y_);
+    }
+  }
 }
 
 uint64_t SdlInput::clock() const { return now_ns ? now_ns() : SDL_GetTicksNS(); }
@@ -874,6 +891,7 @@ void SdlZinHost::screen_to_client(int32_t* x, int32_t* y) {
 void SdlZinHost::set_cursor_pos(int32_t x, int32_t y) {
   if (input_ && input_->pointer_is_free()) return;  // the game editor's pointer is the player's too
   if (platform::pointer_hands_off()) return;  // a run no player is at (pointer_hands_off.h)
+  if (input_ && input_->pointer_absolute()) return;  // the menus free (MW1's FIXES 30): the pointer is the player's
   if (input_ && input_->window && !input_->in_window() && !SDL_GetWindowRelativeMouseMode(input_->window))
     SDL_WarpMouseInWindow(input_->window, static_cast<float>(x), static_cast<float>(y));
 }

@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "check.h"
+#include "platform/menu_pointer.h"
 #include "mech3/source_map.h"
 #include "mech3/patch_import.h"
 #include "frontend/sdl/sdl_update.h"
@@ -9697,4 +9698,57 @@ TEST(sdl_mouse_hold_decision) {
   EXPECT(!sdlfe::decide_mouse(m).want);
   m.focused = true, m.exclusive = false;
   EXPECT(!sdlfe::decide_mouse(m).want);
+}
+
+// Ours, MW1's FIXES 30 (Owen: the pointer warped to the main screen's centre): with the menus free, the menus never
+// hold the mouse nor move the pointer; a mission holds it and, left with the window in front, lets the pointer go
+// where it was taken, not where SDL put it (the window's centre); left by the focus going, it is not moved at all.
+// Off (MW3, PM): never moved.
+TEST(sdl_mouse_let_go_where_it_was_taken) {
+  bool mission = false, focus = true;
+  float px = 700, py = 300;  // the system's pointer
+  int moves = 0;
+  auto make = [&](sdlfe::SdlInput& in) {
+    in.has_focus = [&] { return focus; };
+    in.in_mission = [&] { return mission; };
+    in.pointer_at = [&](float* x, float* y) { return *x = px, *y = py, true; };
+    in.move_pointer = [&](float x, float y) { px = x, py = y, ++moves; };
+    in.set_cooperative_level(platform::Input::kMouse, 1);
+    return in.open(platform::Input::kMouse);
+  };
+  platform::MouseState s;
+  platform::set_menus_free_pointer(true);
+  {
+    sdlfe::SdlInput in;
+    EXPECT(make(in) && in.acquire(platform::Input::kMouse) == 0);
+    EXPECT(in.mouse_state(&s) == 0 && !in.captured() && in.pointer_absolute() && moves == 0);  // the menus: free
+    mission = true;
+    EXPECT(in.mouse_state(&s) == 0 && in.captured() && !in.pointer_absolute());  // held, taken at (700, 300)
+    px = 960, py = 540;  // SDL moved it to the centre while held
+    mission = false;
+    EXPECT(in.mouse_state(&s) == 0 && !in.captured());
+    std::printf("  out of the mission: the pointer at %.0f, %.0f after %d move\n", static_cast<double>(px), static_cast<double>(py), moves);
+    EXPECT(moves == 1 && px == 700 && py == 300);  // where it was taken, not the centre
+    // Held again, then the focus goes (a click on the other screen): the pointer is the player's, never moved.
+    mission = true;
+    EXPECT(in.mouse_state(&s) == 0 && in.captured());
+    px = 2500, py = 100, focus = false;
+    in.mouse_state(&s);
+    EXPECT(!in.captured() && moves == 1 && px == 2500);
+    // Back in front in the menus: not held, not moved.
+    focus = true, mission = false;
+    in.acquire(platform::Input::kMouse);
+    EXPECT(in.mouse_state(&s) == 0 && !in.captured() && moves == 1);
+  }
+  platform::set_menus_free_pointer(false);
+  {  // MW3's and PM's rules: fullscreen menus hold it, and nothing is ever moved back
+    sdlfe::SdlInput in;
+    mission = false, focus = true, moves = 0, px = 700;
+    EXPECT(make(in) && in.acquire(platform::Input::kMouse) == 0 && in.captured() && !in.pointer_absolute());
+    mission = true;
+    in.mouse_state(&s);
+    mission = false;
+    in.mouse_state(&s);
+    EXPECT(in.captured() && moves == 0);
+  }
 }
