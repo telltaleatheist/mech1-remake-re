@@ -427,6 +427,14 @@ Tick an item when it is merged into `main`.
 - **Wanted:** the order the player gives is kept, and the group's list shows it. Check whether PM's grouping screen allows reordering and MW1 lost it, or whether PM never had it, and say which.
 - **Done means:** shots before and after, and a test that a chosen order survives a save and reload.
 
+## 41. [ ] The Mech Complex shows the company's funds
+- **Owen (2026-11-18):** in the mech-buying area he can't see how much money he has, so he can't tell what he can afford.
+- **Wanted:**
+  - funds shown on every Mech Complex page (buying, selling, the hangar, the stores), the way the Bar's plaque shows "1,231,995 C-BILLS";
+  - updated the moment something is bought or sold;
+  - a price the company can't afford shown dimmed, or in the warning colour.
+- **Done means:** shots at 1080p and 4:3, and a test that the shown funds change with a purchase.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.
