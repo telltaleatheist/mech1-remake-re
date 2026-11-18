@@ -3,7 +3,9 @@
 Owen's list from playing the Windows build. One line each, then what it needs.
 Tick an item when it is merged into `main`.
 
-## 1. [ ] The main menu is Pirate's Moon's
+**How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
+
+## 1. [x] The main menu is Pirate's Moon's *(done: title screen ours)*
 - **Seen:** starting MW1 shows a PM-style menu.
 - **Wanted:** MW1's own title screen, using the generated `title_bg` with NEW / LOAD / QUIT in MW1's style.
 
@@ -24,7 +26,7 @@ Tick an item when it is merged into `main`.
   - **Chrome:** the plaques, frames and buttons are drawn by hand, sharp and in MW3's style, not generated.
   - **Done so far:** the title screen and the hub, after Owen's mockup. Owen played it on the Mac (2026-11-17): "significantly better".
 
-## 4. [ ] The briefing screen, rebuilt in MW1's style
+## 4. [-] The briefing screen, rebuilt in MW1's style *(superseded by 18: no pre-launch screen)*
 - **Seen:** the contract goes straight into Pirate's Moon's Instant Action briefing.
 - **Wanted:** our own briefing and deployment screen in the same look: the Mercenary Contract (employer, world, mission, enemy force, pay, salvage, advance), then the launch. Uses `contract_terminal`, `briefing_holotable` and `deploy_launch`.
 - **The final screen before launch, as in MW1's original:**
@@ -51,7 +53,7 @@ Tick an item when it is merged into `main`.
   - Ander's Moon and Dustball keep their own scenes.
   - The Bar's window view and the options backdrop follow the landscape where we have art.
 
-## 7. [ ] Contracts only through the House office, negotiated, as in MW1
+## 7. [x] Contracts only through the House office, negotiated, as in MW1 *(done: mw1-hub-office)*
 - **Owen:** "As soon as you start a new campaign, it enters into the 'take this contract' screen. I want the contract screen to be accessible in the same way it was accessible on MW1. You had to go to the menu option to take a contract, and the contracts are negotiated."
 - **Wanted:**
   - The hub shows no offer, and has no ACCEPT/DECLINE.
@@ -60,14 +62,14 @@ Tick an item when it is merged into `main`.
   - A new campaign starts on the hub, after the intro, with no offer up.
 - **Owen again (Mac, 2026-11-17, shot `keep/mw1-remake/reference/owen-play-hub-offer.png`):** the hub's CONTRACT ON OFFER with ACCEPT/DECLINE "pops up as soon as I start the game. Contracts are usually accepted within a specific screen, and should be accessible there."
 
-## 8. [ ] The mech lab in the Mech Complex, beside repair
+## 8. [x] The mech lab in the Mech Complex, beside repair *(done: mw1-mech-complex)*
 - **Owen:** "We need the mech lab available as an option, too. Probably in the same submenu as the repair item is in the original MW1."
 - **MW1:** Mech Complex, then OWNED MECHS, then the mech's status screen: REPAIR / REPAIR ALL / RELOAD / SELL / DONE.
 - **Wanted:**
   - MECH LAB goes on that status screen with the others. It opens PM's mech lab (in our reskin) for that mech and returns to the status screen.
   - The pre-launch screen keeps its MECH LAB above LAUNCH (item 4).
 
-## 9. [ ] The title screen's picture scrolls and tiles
+## 9. [x] The title screen's picture scrolls and tiles *(done: mw1-still-pictures + set_menus_still)*
 - **Owen (Mac, 2026-11-17, shot `keep/mw1-remake/reference/owen-play-title-scrolling.png`):** "The opening scene is scrolling but it doesn't really work for our images. We should make it still images instead."
   - The shot shows `title_bg` drifting and wrapping: its right and bottom edges repeat the picture, with hard seams.
   - "CRITICAL HIT" is drawn with broken letter spacing.
@@ -76,7 +78,7 @@ Tick an item when it is merged into `main`.
   - No drifting or panning anywhere. Check every screen for it.
   - Fix the subtitle's spacing.
 
-## 10. [ ] The story's event panel in MW1's look
+## 10. [x] The story's event panel in MW1's look *(done: mw1-event-panel)*
 - **Owen (shot `keep/mw1-remake/reference/owen-play-event-panel.png`):** "This uses the standard PM button style in the far corner, and it also has the text in the top left for some reason. Maybe the text should be centred with a faded/darkened background image behind it."
 - **Wanted:**
   - The event's text centred on screen, in a framed terminal panel, over a darkened, faded scene picture: the event's own `story_*`/`char_*` art where we have it, else the world's hub scenery.
@@ -87,7 +89,7 @@ Tick an item when it is merged into `main`.
   - The panel fills the screen at 16:9 (no 4:3 box, no title showing through).
   - **Every button in MW1 is the title's NEW/LOAD button** (`mw1_chrome`'s framed button): OK, NEXT, a choice's captions, the load box's OK/NO, and any other place PM's ring or dot buttons still show.
 
-## 11. [ ] The hub's tiles where MW1 puts them
+## 11. [x] The hub's tiles where MW1 puts them *(done: mw1-hub-office)*
 - **Owen (2026-11-17):** "I don't think the menu items are in the right spot. I think the bar was on the right side, the second menu option ... the contract spot is in the bottom left I think? I want to arrange everything correctly."
 - **MW1's own tables** (MW_MAIN.EXE DS:1083, 10D7 and 1101, decoded from Owen's copy; the port's MW_MAIN_081B_PLANET.c draws them). Two columns of three:
 
@@ -117,7 +119,7 @@ Tick an item when it is merged into `main`.
   - An "ours" engine path, opt-in, with MW3 and PM unchanged.
   - The image archive's size needs a plan (compressed pixels, or PNGs kept as PNGs) before the art is repacked at a higher resolution.
 
-## 13. [ ] The Mech Complex's market: lists and buttons don't work; PM's look
+## 13. [x] The Mech Complex's market: lists and buttons don't work; PM's look *(done: mw1-mech-complex)*
 - **Owen (2026-11-17, `keep/mw1-remake/reference/owen-play-market.png`):** "These buttons/lists don't seem to be working. Also, can we make the buttons, colours, and general style closer to the other MW1 style we've established?"
 - **The shot:** the House market (FOR SALE / YOUR MECHS) has PM's ring buttons along the bottom (BUY / SELL / PILOT / BACK), olive list boxes and PM's terminal font, with the title at the top left.
 - **Wanted:**
@@ -137,7 +139,7 @@ Tick an item when it is merged into `main`.
   - One picture per chassis and per skin the market shows.
   - Rendered at the item 12 resolution.
 
-## 15. [ ] A button's hover: the frame flashes once, the dot keeps blinking
+## 15. [x] A button's hover: the frame flashes once, the dot keeps blinking *(done: mw1-mech-complex)*
 - **Owen:** "When I hover over the buttons, the border blinks yellow for a split second and then it goes off, but the dot next to it blinks yellow consistently. Is that intended?"
 - **Not intended.** It's PM's button states (a one-frame highlight, then the blinking lamp) showing through our chrome.
 - **Wanted:**
@@ -145,7 +147,7 @@ Tick an item when it is merged into `main`.
   - The same on keyboard focus.
   - One rule for every MW1 button.
 
-## 16. [ ] The hub's centre panel: a message you dismiss, then the whole scene
+## 16. [x] The hub's centre panel: a message you dismiss, then the whole scene *(done: mw1-hub-messages)*
 - **Owen (2026-11-17, `keep/mw1-remake/reference/owen-play-hub-panel.png`):** "In the original, sometimes messages pop up, but there's a dismiss button that makes it go away so you can see the whole background image."
 - **MW1:** the hub shows its notifications (MwShowPendingNotifications, on entry) in a box with a button. Once you've dismissed them, the hub is the landscape and its tiles.
 - **Ours today:** the big centre panel is always there. It shows the hovered tile's description (HOUSE OFFICE: ...), and it covers the scenery.
@@ -163,7 +165,7 @@ Tick an item when it is merged into `main`.
   - Its right-hand list is YOUR MECHS (the owned mechs). There's no separate right-side menu.
   - Assigning pilots to mechs (today's PILOT) moves into the mech lab.
 
-## 17. [ ] The mech lab: readable, separated, nothing overlapping
+## 17. [x] The mech lab: readable, separated, nothing overlapping *(done: mw1-lab-legible + mw1-lab-17b)*
 - **Owen (2026-11-17, `keep/mw1-remake/reference/owen-play-lab.png` and `owen-play-lab-criticals.png`):** "I actually really like that a lot. But we have to do something about the font. Is the problem the resolution? It's really hard to read. We need more separators and we need to clean it up to make it easier to see what's happening. And some things are poorly positioned. Overlapping text and lines." On the criticals page: "the right side is coming out of the boxes."
 - **Two causes:**
   1. **The resolution (item 12).**
@@ -219,7 +221,7 @@ Tick an item when it is merged into `main`.
   - Our framed buttons: CONTINUE back to the hub.
   - It replaces the hub's AFTER ACTION panel; the hub then shows a short message (item 16) if anything is left to say.
 
-## 20. [ ] Offers name the mechs you'll actually fight, by weight class, highlighted
+## 20. [ ] Offers name the mechs you'll actually fight, by weight class, highlighted *(names and weight classes done, b3cd78b1; the highlight colour still to do)*
 - **Owen (2026-11-17, `keep/mw1-remake/reference/owen-play-offer.png`):** "This shows a 'Jenner' as the enemy. We aren't using MW1 mechs, we're using exclusively MW3 mechs right now. And in the original, it shows the enemies/objectives/etc highlighted in a brighter colour so you can easily scan through and see what you're taking on. Can we light up the number of mechs, or the types of mechs? Like I think the original said '2 heavy' or '2 medium'."
 - **Cause:** contracts are drawn from MW1's mech kinds (kMechKinds), and each spawns as its PM stand-in (Jenner → Owens, research/contracts.md). The text shows MW1's name, so Owen fought an "Owens" that the offer called a Jenner.
 - **Wanted:**
@@ -260,7 +262,7 @@ Tick an item when it is merged into `main`.
 - "The mech lab is still poorly positioned. The box that contains data about run speed is too low and is being overlapped by other stuff. And the font is really poor quality. It looks all pixelated. Why is that? It's also overlapping the dividers/lines."
 - Item 17 moves to the front.
 
-## 22. [ ] Our cursor everywhere
+## 22. [x] Our cursor everywhere *(done: mw1-lab-17b)*
 - **Owen (2026-11-17):** "It's using the MW3 cursor now. I liked our other one."
 - **The shots:** our amber crosshair on the hub and company screens; PM's small ring on the lab (`owen-play-lab-2.png`, left edge) and on PM screens.
 - **Wanted:** our crosshair on every screen in MW1, including PM's own (lab, settings, load box) and over the loading screen. One guard test.
@@ -280,3 +282,15 @@ Tick an item when it is merged into `main`.
   - The office's term arrows (pay, salvage, advance) repeat while held: one step on the press, then repeating after about 0.4 s, and faster after 2 s.
   - The repeating stops when the button is released or the pointer leaves it.
   - It's an opt-in flag on our framed button, used by the list scroll arrows too.
+
+## Order (open items, the lead's, 2026-11-17)
+1. 23: the Company screen's mech icons (PM's line-art chassis icons, in place of the AI pictures). Owen asked again.
+2. 24: hold an arrow to keep stepping.
+3. 18 + 19 + 20's highlight: DEPLOY straight in; MW1's results screen with the salvage; the offer's key facts highlighted.
+4. 21: the travel map's world readout, and the trade loop.
+5. 6: the hub's scenery by landscape (the 15 scenes are made).
+6. The HelpButton blink on PM's screens (15's rest).
+7. 12: high-resolution 2D (the jagged text).
+8. 14: mech pictures rendered from the models (a test render for Owen first).
+9. 3 and 5: sweep every screen for anything still PM's.
+
