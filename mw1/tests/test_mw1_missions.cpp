@@ -2,6 +2,7 @@
 // player's MW_MAIN.EXE and BTECH.EXE; the rolls MW1's chain makes; the map table (data/mw1maps.zrd) read; a row
 // chosen by the battle's climate; a contract given its mission and map.
 #include <algorithm>
+#include <cstdlib>
 #include <cctype>
 #include <cstdio>
 #include <filesystem>
@@ -184,7 +185,7 @@ TEST(mw1_missions_maps_drawn_by_the_planets_pool) {
   auto has = [](const std::vector<std::string>& l, const std::string& w) { return std::find(l.begin(), l.end(), w) != l.end(); };
   mw1::Rng rng(46);
   for (const mw1::MapPool& p : pools) {
-    std::map<std::string, int> worlds;
+    std::map<std::string, int> worlds, by_kind[4];
     int mostly = 0, sometimes = 0, outside = 0, repeats = 0, none = 0;
     std::string last_world;
     int32_t last_ia = 0;
@@ -200,6 +201,7 @@ TEST(mw1_missions_maps_drawn_by_the_planets_pool) {
       }
       const mw1::MapRow& r = rows[static_cast<size_t>(at)];
       ++worlds[r.world];
+      ++by_kind[static_cast<int>(r.kind)][r.world];
       if (has(p.mostly, r.world)) ++mostly;
       else if (has(p.sometimes, r.world)) ++sometimes;
       else ++outside;
@@ -214,6 +216,19 @@ TEST(mw1_missions_maps_drawn_by_the_planets_pool) {
     EXPECT(outside == 0 && repeats == 0 && none == 0);
     if (mostly_has_maps && !p.sometimes.empty()) EXPECT(mostly >= 7000 && mostly <= 8000);
     if (!mostly_has_maps) EXPECT(mostly == 0);
+    // Even per world within a part, kind by kind: among the part's worlds with a row of the kind, each drawn as often
+    // (a world without one, c1 for a reach, isn't drawn for it).
+    for (int kd = 0; kd < 4; ++kd)
+      for (const std::vector<std::string>* part : {&p.mostly, &p.sometimes}) {
+        std::vector<int> n;
+        for (const std::string& w : *part)
+          if (std::any_of(rows.begin(), rows.end(), [&](const mw1::MapRow& r) { return r.world == w && static_cast<int>(r.kind) == kd; }))
+            n.push_back(by_kind[kd][w]);
+        if (n.size() < 2) continue;
+        const int lo = *std::min_element(n.begin(), n.end()), hi = *std::max_element(n.begin(), n.end());
+        if (hi > 200) EXPECT(lo * 10 >= hi * 8);  // within 20% of each other
+        if (hi > 200 && lo * 10 < hi * 8) std::printf("    uneven: kind %d, %d to %d\n", kd, lo, hi);
+      }
   }
   // As the game draws them: the planet rolled, its pool, the last map carried.
   mw1::set_map_table(rows);
