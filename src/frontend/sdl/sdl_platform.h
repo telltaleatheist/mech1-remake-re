@@ -3,6 +3,7 @@
 
 #include <functional>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "frontend/sdl/sdl_fit.h"
@@ -78,8 +79,17 @@ class SdlScreen2D : public platform::Screen2D {
   void overlay_16(const uint16_t* pixels, int width, int height, int pitch, bool rgb565, uint16_t key,
                   const uint8_t* alpha, const uint16_t* colour) override;
   int frames = 0;  // frames shown
+  // Ours (--shot-canvas, MW1's FIXES 12): every 16-bit layer of the next frame, as given before the GPU (its size,
+  // key and pixels, row by row, and the cover's alpha), kept and written to `path` by write_canvas: what the 2D drew,
+  // free of any GPU's scaling, for the tests' identity checks.
+  void arm_canvas(const std::string& path);
+  bool write_canvas();
 
  private:
+  void keep_canvas(const uint16_t* pixels, int width, int height, int pitch, bool keyed, uint16_t key, const uint8_t* alpha);
+  std::string canvas_path_;
+  bool canvas_armed_ = false;
+  std::vector<uint8_t> canvas_;
   void upload(const uint16_t* pixels, int width, int height, int pitch, bool rgb565, bool keyed, uint16_t key,
               const uint8_t* alpha = nullptr, const uint16_t* colour = nullptr);
   void draw_layer(int width, int height, bool blend);

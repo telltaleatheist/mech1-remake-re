@@ -52,7 +52,12 @@ class SdlRender3D : public platform::Render3D {
   }
 
   // Saves the next presented frame as a BMP instead of showing it (the next one shown, past a held display).
-  void capture_next(const char* bmp_path) { capture_path_ = bmp_path; }
+  void capture_next(const char* bmp_path) {
+    capture_path_ = bmp_path;
+    if (on_capture_armed) on_capture_armed();
+  }
+  // Ours (--shot-canvas): told when a capture is asked for and when its BMP is written.
+  std::function<void()> on_capture_armed, on_capture_written;
   // Draws what is collected so far (outside a scene), so a 2D layer goes on top.
   void flush() {
     if (!runs_.empty()) end_scene();

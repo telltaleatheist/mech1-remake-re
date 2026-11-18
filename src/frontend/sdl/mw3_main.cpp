@@ -28,6 +28,7 @@
 //                        the movies are the importer's (mw3import), in the write dir
 //   --shot FILE.bmp      save frame N (--shot-frame N, default 30) and quit; hides the window
 //     --shot-any         count every frame shown (the fade's too), not only the 3D scene's
+//     --shot-canvas FILE the shot frame's 16-bit 2D layers too, before the GPU, raw (ours, MW1's FIXES 12)
 //   --frames N           quit after N frames shown (a debug start's; from the menus each flip counts,
 //                        a movie's at its own rate: the intro's 15 a second); also keeps the window
 //                        out of fullscreen
@@ -300,13 +301,14 @@ struct Args {
   std::string net_upnp;
   bool net_soak = false;
   bool shot_any = false;
+  std::string shot_canvas;  // --shot-canvas FILE (ours, MW1's FIXES 12): the shot frame's 16-bit layers, before the GPU
 };
 
 void usage() {
   std::printf(
       "mw3 [install-dir] [--install DIR | --install-from DISC|ISO|CUE [--install-to DIR]] [--assets DIR]... [--write-dir DIR] [--version]\n"
       "    [--mission NAME [--valve-map DIR] | --fly NAME [--variant BLOCK]] [--pos X Y Z] [--look YAW PITCH] [--vehicle-ahead M [--vehicle-hold]] [--turret-ahead M] [--node-ahead NAME M] [--mech-ahead M] [--dialog FILE NAME]\n"
-      "    [--shot FILE.bmp [--shot-frame N] [--shot-any] [--shot-series K]] [--fire N [--fire-group 1..5]] [--objectives N] [--hurt F@N] [--win N] [--lose N] [--lab-mech N]\n"
+      "    [--shot FILE.bmp [--shot-frame N] [--shot-any] [--shot-series K] [--shot-canvas FILE]] [--fire N [--fire-group 1..5]] [--objectives N] [--hurt F@N] [--win N] [--lose N] [--lab-mech N]\n"
       "    [--windowed] [--original] [--import | --no-import] [--no-launcher] [--debug-camera] [--wide-menus | --no-wide-menus] [--mod NAME]... [--no-mods] [--mods] [--entry ID [--entry-play | --entry-ia | --entry-mission WORLD N [--edit]]] [--entry-pilot NAME] [--open-mods [--mods-entry ID] | --open-ia] [--check-mod DIR] [--mod-report DIR] [--build-anim DIR] [--make-starter mech|weapon|translation|mission|salvage] [--reference FILE] [--editor-guide FILE] [--pick PATH] [--save-pick PATH] [--patch ZIP|DIR] [--vfw-helper EXE | --no-vfw-helper] [--briefing c1m2] [--click N[:M]] [--click-at X,Y@N]... [--mouse-at X,Y@N[c]]... [--then ...] [--click-players X,Y@N/P]... [--click-sessions X,Y@N/S]... [--click-return X,Y@N]... [--walk] [--tap DIK@N[:M]]... [--frames N] [--frame-ms N] [--frame-times N] [--seed N] [--window WxH] [--nosound] [--hidden] [--verbose]\n"
       "    [-nofmv] [-seasick] [-cdN]\n"
       "See docs/program.md.\n");
@@ -363,6 +365,7 @@ bool parse(int argc, char** argv, Args& a) {
     else if (s == "--shot" && next(1)) a.shot = argv[++i];
     else if (s == "--shot-frame" && next(1)) a.shot_frame = std::atoi(argv[++i]);
     else if (s == "--shot-any") a.shot_any = true;
+    else if (s == "--shot-canvas" && next(1)) a.shot_canvas = argv[++i];
     else if (s == "--shot-series" && next(1)) a.shot_series = std::atoi(argv[++i]);
     else if (s == "--frame-times" && next(1)) a.frame_times = std::atoi(argv[++i]);
     else if (s == "--fire" && next(1)) a.fire = std::atoi(argv[++i]);
@@ -1182,6 +1185,11 @@ int run(const Args& a, platform::VideoForWindows* vfw) {
   const bool stepped = !a.movie.empty() && a.nosound;
   sdlfe::SdlAlert alert(window.sdl(), a.hidden);
   sdlfe::SdlScreen2D screen(window.render());
+  // --shot-canvas (ours): whichever start takes the shot, the frame it captures has its 16-bit layers kept too.
+  if (!a.shot_canvas.empty()) {
+    window.render()->on_capture_armed = [&screen, &a] { screen.arm_canvas(a.shot_canvas); };
+    window.render()->on_capture_written = [&screen] { screen.write_canvas(); };
+  }
   std::unique_ptr<platform::SoundOutput> sound;
   if (a.nosound) {
     auto silent = std::make_unique<platform::SilentSoundOutput>();
