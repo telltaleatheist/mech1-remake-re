@@ -1215,3 +1215,28 @@ and "In Progress" looked uneven.
   outbox/2026-11-19/mw1-hires-advance/.
 - **"Destroy the tower  OP: Tower":** that's PM's and MW3's own line (Mech3.exe 0x0045e080): the objective's text,
   two spaces, then its nav point's name as "OP: <name>". It reads as the originals do.
+
+## 97. [x] A defence's enemy stood at its post all mission *(done: mw1-defend-guard)*
+Owen, defending the tower on mw3c1ia3 (4 enemies): three came; the fourth never moved, but fought when he came near.
+- **Cause:** the map's Enemy_08 is MW3's Instant Action guard, in its aiv record:
+  - Its net (`net_06`) is three nodes that end 56 m from where it starts, with no link on.
+  - Its pilot starts at mode 0 (PM's `may_engage` wants 1).
+  - It engages within 850 m. The company starts about 870 to 930 m off.
+  - Its break-offs (`+0xcc` bits 0 and 1: the leash from where a fight began, and the fight's time) send it back to
+    its post.
+  In MW3 it waits until the player comes. A defence, though, is won only by destroying every enemy, so one left at
+  its post a kilometre away stood all mission.
+- **Fix (mw1_game.cpp, `enemy_launching`):** in a defence only, every enemy starts at mode 1, engages from 3 km at least
+  (`kDefenceEngage`), and has no leash or time break-off, so each one comes for the company. Other contracts keep the
+  map's own pilots. The log says each enemy it changed.
+- **Ruled out first:** the lancemates, and the Awesome's gait warning (PM's own report: run's bounds 3 to 3). Only
+  assault chassis report it (awesome, atlas, annihilator, and MW3's own daishi and supernova): each has no run
+  above its trot. Of the market's nine chassis only the Awesome reports it, and it walks under orders as the
+  others do (a new lance-orders test).
+- **Tests:**
+  - `mw1_loop_defend_every_enemy_comes_headless`: Owen's mission and force (Shadow Hawk, Warhammer, two Marauders)
+    with the player standing at his start. Every enemy must close 300 m on him in 2400 frames. Unfixed, the guard
+    closes 56 m (and the slower Enemy_06 217 m). With mode 1 alone the guard closes about 230 m before the leash
+    takes it back. Fixed, all four close 470 to 690 m.
+  - `mw1_loop_lance_orders_an_awesome_walks_headless`: the third lancemate in an Awesome walks at its target. The
+    harness takes the lance's mechs (`lance_mechs`).
