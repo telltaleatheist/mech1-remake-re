@@ -2521,8 +2521,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       const Repairs& r = m.r;
       // The log keeps the repairs (not a hub message: FIXES.md item 57; AFTER ACTION and DETAILS say them).
       if (r.sum.repairs > 0 || r.billed > 0)
-        log_add(company_, LogKind::kRepairs, true, static_cast<int32_t>(std::min<int64_t>(r.forgiven / 1000, INT32_MAX)), 0, 0, 0,
-                r.sum.repairs, r.billed);
+        log_add(company_, LogKind::kRepairs, true, static_cast<int32_t>(std::min<int64_t>(r.forgiven / 1000, INT32_MAX)),
+                static_cast<int32_t>(std::min<int64_t>(r.forgiven, INT32_MAX)), 0, 0, r.sum.repairs, r.billed);
       std::printf("mw1: repairs: %s, %s from the wrecks (%s), %s left; billed %s, paid %s, forgiven %s\n",
                   thousands(r.sum.repairs).c_str(), thousands(r.sum.covered).c_str(), thousands(r.sum.pool).c_str(),
                   thousands(r.sum.left).c_str(), thousands(r.billed).c_str(), thousands(r.paid).c_str(), thousands(r.forgiven).c_str());

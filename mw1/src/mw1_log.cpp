@@ -100,8 +100,11 @@ std::vector<std::string> log_lines(const Company& c, const LogEntry& e) {
       return {"A mission."};
     case LogKind::kRepairs:
       if (e.m <= 0) return {"Repairs: " + thousands(e.n) + " C-bills, paid from salvage."};
+    {
+      const int64_t forgiven = e.b > 0 ? e.b : int64_t{e.a} * 1000;  // exact; an older save's, in thousands (FIXES 81)
       return {"Repairs: " + thousands(e.n) + " C-bills; billed " + thousands(e.m) +
-              (e.a > 0 ? " (" + thousands(int64_t{e.a} * 1000) + " forgiven)" : std::string()) + "."};
+              (forgiven > 0 ? " (" + thousands(forgiven) + " forgiven)" : std::string()) + "."};
+    }
     case LogKind::kWagesPaid: return {"Wages paid: " + thousands(e.n) + " C-bills."};  // item 73: commas, as the rest
     case LogKind::kWagesUnpaid: return {"The lancemates weren't paid this month. Next time they leave."};
     case LogKind::kLanceLeft: return {"Unpaid, the lancemates have left the company."};
