@@ -211,12 +211,21 @@ void HiresDraw::draw(const uint16_t* pixels, int width, int height, int pitch, b
   for (size_t i = 0; i < n; ++i) {
     if (ok[i]) continue;
     ++stats_.failed;
-    const Rect r = platform::hires::intersect(l[i].rect, Rect{0, 0, width, height});
+    const Command& c = l[i];
+    const Rect r = platform::hires::intersect(c.rect, Rect{0, 0, width, height});
     const uint16_t id = static_cast<uint16_t>(i + 1);
+    const int32_t cw = c.rect.r - c.rect.l;
+    // mw1 (engine, ours), FIXES 12: a see-through draw is the canvas's only where it changed the canvas. Where its
+    // blit left a pixel as it was (its clear part) the chain under it goes on, so what's under it (a scene's picture)
+    // is drawn at its own resolution, not the canvas's copy of it.
+    const bool see_through = c.kind == Kind::kPicture && c.alpha;
     for (int32_t y = r.t; y < r.b; ++y)
       for (int32_t x = r.l; x < r.r; ++x) {
         uint16_t& b = base_[static_cast<size_t>(y) * width + x];
-        if (b && b <= id) b = id;
+        if (!b || b > id) continue;
+        const size_t k = static_cast<size_t>(y - c.rect.t) * cw + (x - c.rect.l);
+        if (see_through && c.after[k] == c.before[k]) continue;
+        b = id;
       }
   }
 

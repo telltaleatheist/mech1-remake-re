@@ -202,6 +202,40 @@ TEST(hires_draw_a_failed_draw_keeps_the_draws_over_it) {
   }
 }
 
+TEST(hires_draw_a_failed_see_through_picture_keeps_what_is_under_it) {
+  // A see-through picture with no source over the backdrop (the loading screen's enemy outline, FIXES 12): the canvas
+  // only where its blit changed the canvas; through its clear part the backdrop's chain goes on, drawn from its source.
+  Recorder r;
+  Images im;
+  add_pic(im);
+  platform::set_hires_images(&im);
+  Lists l;
+  Canvas c(64, 32);
+  static int icon_owner;
+  blit(l, c, &pic_owner, 64, 32, 0, 0, true, "pic", [&] { c.fill({0, 0, 64, 32}, 0x1234); });
+  blit(l, c, &icon_owner, 16, 16, 8, 8, false, "icon", [&] { c.fill({10, 10, 14, 14}, 0xfd20); });
+  sdlfe::HiresDraw d(&r, &l);
+  d.draw(c.px.data(), c.w, c.h, c.w * 2, true, false, 0);
+  platform::set_hires_images(nullptr);
+  EXPECT(d.stats().failed == 1 && d.stats().pictures == 1);
+  const Drawn* under = nullptr;
+  for (const Drawn& dd : r.draws)
+    if (dd.state.sharp) under = &dd;
+  EXPECT(under != nullptr);
+  if (under) {
+    auto at = [&](int32_t x, int32_t y) {
+      uint32_t px;
+      std::memcpy(&px, &r.textures[under->texture][(static_cast<size_t>(y) * 64 + x) * 4], 4);
+      return px;
+    };
+    EXPECT(at(11, 11) == sdlfe::SdlScreen2D::rgba(0xfd20, true));  // what it drew: the canvas's
+    EXPECT(at(20, 20) != sdlfe::SdlScreen2D::rgba(0x1234, true));  // its clear part: not the canvas's backdrop
+    EXPECT(at(20, 20) == at(40, 4));                                 // but as beside it: under the backdrop's picture
+  }
+  const Drawn* p = premultiplied(r, 0);
+  EXPECT(p && box(*p) == (Rect{0, 0, 64, 32}));  // the backdrop drawn at its pixels over all of it
+}
+
 TEST(hires_draw_text_over_a_picture_and_an_unrecorded_write) {
   const std::string font = (fs::path(__FILE__).parent_path().parent_path() / "mw1" / "data" / "fonts" /
                             "ShareTechMono-Regular.ttf").string();
