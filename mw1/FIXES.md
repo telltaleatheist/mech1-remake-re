@@ -607,6 +607,19 @@ Tick an item when it is merged into `main`.
 - **With 12:** the fade must look right on the high-resolution 2D path. Draw it as a tint quad over the frame (research/hires-2d.md: the tint path), not by reading pixels. This folds in 12's parked fade.
 - **Done means:** a frame capture of hub → Bar → hub and hub → lab at 1080p, showing the ramp, no flash, and the half-second timing.
 
+## 53. [ ] A cap on 'Mechs owned
+- **Owen (2026-11-18):** "lets see if we can find an actual limit. if not, lets set the limit to 100 i suppose? or 255? i have to assume people are really going to try to break it, so we shouldnt leave it open ended."
+- **Today:** the hangar (Company::hangar) has no limit.
+- **First:** find MW1's own limit in the original exe: the save's company 'Mech table, or a check in the Mech Complex's BUY. Report it with the address.
+- **Then:**
+  - If MW1 has a limit, use it (raise it if it's tiny; ask Owen).
+  - If not, the cap is 100 'Mechs owned, the piloted one included (Owen's first figure).
+  - BUY is refused at the cap with a short message, and salvage never adds a 'Mech past it.
+  - The hangar's list scrolls to the cap.
+  - Saves past the cap still load.
+- **Also:** check the stores (no tonnage limit, Owen) for a count overflow. Clamp each item's quantity at a sane maximum (e.g. 9,999) and fit the lab's Qty column to it.
+- **Done means:** the exe's answer with its address; a test buying to the cap; a shot of the full hangar list.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.
