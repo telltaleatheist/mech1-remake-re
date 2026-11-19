@@ -1,7 +1,7 @@
 #pragma once
 // MW1's Mech Complex (the hub's MECH COMPLEX; mw1_market.h's rules) on MW1's screen template (mw1_screen.h), its
 // layout mw1market.zrd in MW1's data folder. Owen's shape (FIXES.md items 8 and 13): one page, MW1's buttons down
-// the left (BUY, SELL, MECH LAB, BACK, evenly spaced over the column) and two lists, FOR SALE (the world's stock, the buying
+// the left (BUY, SELL, MECH LAB, BACK, stacked at the column's top) and two lists, FOR SALE (the world's stock, the buying
 // prices) over YOUR MECHS (the company's, who pilots each, the selling prices). BUY takes FOR SALE's chosen mech;
 // SELL and MECH LAB act on YOUR MECHS' chosen one. MECH LAB is the lab's way in: Pirate's Moon's lab on that mech,
 // its pilot chosen there (mw1_lab_pilot.h), back here after. No REPAIR or RELOAD (FIXES.md item 59): every mission
@@ -24,8 +24,9 @@ enum MarketButton : int32_t {
   kMarketStockUp, kMarketStockDown, kMarketOwnUp, kMarketOwnDown  // the lists' arrows
 };
 inline constexpr int32_t kMarketButtonCount = kMarketOwnDown;
-// The left column's buttons' tops (both layouts'): evenly spaced from the lists' first row to BACK over the panel.
-inline constexpr int32_t kMarketButtonTop[4] = {84, 147, 211, 274};
+// The left column's buttons' tops (both layouts'): stacked from the top, the Bar's 38 apart (FIXES.md item 71, Owen:
+// "stack them up against the top").
+inline constexpr int32_t kMarketButtonTop[4] = {84, 122, 160, 198};
 const char* market_button_name(int32_t id);
 
 // The layout's PANELs in order: the two plaques, the status bar, the two lists' terminals.

@@ -806,6 +806,10 @@ Tick an item when it is merged into `main`.
 - **Wanted:** every lab warning shows in full where it can be read: in clear space (e.g. above the button row, or in a panel's own status line), above everything, at 1080p, 4K and 4:3. labfit should check that the warning line isn't covered by a button.
 - **Done means:** shots of the crits and the tonnage warnings, and a labfit case that fails on the current layout.
 
+## 71. [x] The Mech Complex buttons stacked at the top
+- **Owen (2026-11-19):** "lets stack the buttons closer together so they dont look as spread out. stack them up against the top".
+- **Done (lead):** BUY, SELL, MECH LAB and BACK now sit at y 84, 122, 160 and 198 in both layouts (the Bar's 38 apart; was 84/147/211/274). The live 'Mech panel stays at the column's foot. kMarketButtonTop follows.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.
