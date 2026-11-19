@@ -582,7 +582,7 @@ Tick an item when it is merged into `main`.
   - shots at 1080p and 4:3, with every liaison (each House);
   - a fit check: the edges line up within 1 px.
 
-## 51. [ ] Salvage pays from what's left after your repairs; parts are always yours
+## 51. [x] Salvage pays from what's left after your repairs; parts are always yours
 - **Owen (2026-11-18), answering 28's salvage questions:**
   - **Lost or retreated:** you lose all salvage (cash and parts). That's today's rule; keep it.
   - **Parts:** every weapon, ammo, armour and equipment item salvaged on a win is yours to keep, with no limit (no tonnage limit, no pick list). So 38's "salvage limit" is not wanted.
@@ -597,7 +597,7 @@ Tick an item when it is merged into `main`.
 - **Story battles** pay no fee, but the salvage rule is the same (Dark Wing included).
 - **Done means:** a test with Owen's numbers (3,000,000 / 2,000,000 / 10% → 100,000, repaired, nothing billed); a test with repairs over the pool; and shots of the PAYMENT block.
 
-## 52. [ ] Fade to black and back between screens
+## 52. [x] Fade to black and back between screens
 - **Owen (2026-11-18):** "when we switch screens, it jumps from one thing to another. can we have it fade to black and fade back in to the new screen ... maybe half a second fade in/out."
 - **Wanted:** every change between MW1's own screens fades out to black and then in to the new screen. That covers the hub, Bar, Mech Complex, office, lab, starport, travel, the STORY page, AFTER ACTION, the loading screen and the main menu.
   - About half a second in all: 0.25 s out and 0.25 s in. The timing is one constant, so it can be tuned.
@@ -607,7 +607,7 @@ Tick an item when it is merged into `main`.
 - **With 12:** the fade must look right on the high-resolution 2D path. Draw it as a tint quad over the frame (research/hires-2d.md: the tint path), not by reading pixels. This folds in 12's parked fade.
 - **Done means:** a frame capture of hub → Bar → hub and hub → lab at 1080p, showing the ramp, no flash, and the half-second timing.
 
-## 53. [ ] A cap on 'Mechs owned
+## 53. [x] A cap on 'Mechs owned
 - **Owen (2026-11-18):** "lets see if we can find an actual limit. if not, lets set the limit to 100 i suppose? or 255? i have to assume people are really going to try to break it, so we shouldnt leave it open ended."
 - **Today:** the hangar (Company::hangar) has no limit.
 - **First:** find MW1's own limit in the original exe: the save's company 'Mech table, or a check in the Mech Complex's BUY. Report it with the address.
