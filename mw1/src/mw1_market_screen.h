@@ -45,6 +45,10 @@ struct MarketChoice {
 };
 // The choices kept inside the lists as they change, each list scrolled to show its chosen row.
 void clamp_choice(const Company& c, MarketChoice& m);
+// A deal done (FIXES.md item 58, Owen 2026-11-18: the panel kept the FOR SALE row's 'Mech after BUY): YOUR MECHS'
+// row chosen and shown, the bought one (the hangar's last) after BUY, the row in the sold one's place after SELL;
+// then clamped. The panel's 'Mech (market_shown_mech) is that row's.
+void deal_choice(const Company& c, MarketChoice& m, bool bought);
 
 // The lists' rows by the mouse (a click chooses one): the shown row at (x, y) in the layout's places (the wide
 // layout's when `wide`), of YOUR MECHS (`own`) or FOR SALE; false off both (their titles, their arrows). The part of

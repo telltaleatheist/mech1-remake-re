@@ -1265,14 +1265,16 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         const int64_t price = mech >= 0 ? buy_price(mech, company_.tier) : 0;
         if ((d = buy(company_, m.stock)) == Deal::kDone) {
           done = "Bought: " + mech_title(mech) + " for " + thousands(price) + " C-bills.";
-          m.owned = owned_count(company_) - 1;  // the new one chosen in YOUR MECHS (the hangar's last)
+          deal_choice(company_, m, true);  // the new one chosen and shown in YOUR MECHS (FIXES.md item 58)
         }
         break;
       }
       case kMarketSell: {
         const int32_t mech = owned_mech(company_, m.owned);
-        if ((d = sell(company_, m.owned)) == Deal::kDone)
+        if ((d = sell(company_, m.owned)) == Deal::kDone) {
           done = "Sold: " + mech_title(mech) + " for " + thousands(sell_price(mech, company_.tier)) + " C-bills.";
+          deal_choice(company_, m, false);  // YOUR MECHS' row in its place, shown (FIXES.md item 58)
+        }
         break;
       }
       case kMarketLab:
@@ -2728,6 +2730,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   const AfterAction* pending() const { return pending_.get(); }
   HubState* hub_state() const { return hub_state_; }
   MarketState* market_state() const { return market_state_; }
+  const MarketChoice* market_choice() const { return &choice_; }
+  int32_t market_panel_mech() const { return market_shown_mech(company_, choice_); }
   const PilotChooser* lab_pilot() const { return lab_pilot_.attached() ? &lab_pilot_ : nullptr; }
   const LabFunds* lab_funds() const { return lab_funds_.attached() ? &lab_funds_ : nullptr; }
   BarState* bar_state() const { return bar_state_; }
@@ -3703,6 +3707,8 @@ void game_loop_offer_again() {
   if (the_loop()) the_loop()->offer_again();
 }
 MarketState* game_loop_market() { return the_loop() ? the_loop()->market_state() : nullptr; }
+const MarketChoice* game_loop_market_choice() { return the_loop() ? the_loop()->market_choice() : nullptr; }
+int32_t game_loop_market_panel_mech() { return the_loop() ? the_loop()->market_panel_mech() : -1; }
 const PilotChooser* game_loop_lab_pilot() { return the_loop() ? the_loop()->lab_pilot() : nullptr; }
 const LabFunds* game_loop_lab_funds() { return the_loop() ? the_loop()->lab_funds() : nullptr; }
 TravelState* game_loop_travel() { return the_loop() ? the_loop()->travel_state() : nullptr; }

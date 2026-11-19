@@ -88,11 +88,15 @@ results::ResultsState* game_loop_results();
 const results::ResultsPanel* game_loop_results_shown();
 namespace market_ui {
 class MarketState;
+struct MarketChoice;
 }
 using namespace market_ui;
 // The market's state once the hub's MARKET has made it (tests); the company to change in a test (funds, the
 // market's stock) and the market's screen shown again after such a change.
 MarketState* game_loop_market();
+// FIXES.md item 58 (tests): the Mech Complex's chosen rows, and the 'Mech its live panel draws (-1 none).
+const MarketChoice* game_loop_market_choice();
+int32_t game_loop_market_panel_mech();
 // The mech lab's PILOT line while the Mech Complex's MECH LAB is open (tests), else null.
 namespace lab_pilot {
 class PilotChooser;

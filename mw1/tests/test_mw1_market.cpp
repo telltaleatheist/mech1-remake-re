@@ -389,3 +389,26 @@ TEST(mw1_market_rows_show_their_outlines) {
   EXPECT(stock == mw1::kMarketRows && owned == 1 && lit == 2);
   EXPECT(mw1::row_icon_image(kOwens, true) != mw1::row_icon_image(kOwens, false));
 }
+
+// FIXES.md item 58 (Owen 2026-11-18): the live panel's 'Mech follows the chosen row. FOR SALE's Atlas chosen, BUY the
+// Firefly by index: YOUR MECHS' new last row chosen and shown, the panel's the Firefly (it kept the FOR SALE row's).
+// SELL it: the row in its place (the commander's), shown.
+TEST(mw1_market_panel_follows_buy_and_sell) {
+  mw1::Company c = company_with_stores();
+  c.mech = kOwens, c.tier = 0, c.funds = 10000000;
+  c.market.stock = {kFirefly, kAtlas};
+  mw1::MarketChoice m;
+  mw1::clamp_choice(c, m);
+  EXPECT(mw1::market_shown_mech(c, m) == kFirefly);  // the first entry: FOR SALE's first
+  m.stock = 1;
+  EXPECT(mw1::market_shown_mech(c, m) == kAtlas);
+  EXPECT(mw1::buy(c, 0) == mw1::Deal::kDone);
+  mw1::deal_choice(c, m, true);
+  EXPECT(m.own_shown && mw1::owned_mech(c, m.owned) == kFirefly && mw1::market_shown_mech(c, m) == kFirefly);
+  m.own_shown = false;  // FOR SALE chosen again, then SELL (YOUR MECHS' Firefly)
+  EXPECT(mw1::sell(c, m.owned) == mw1::Deal::kDone);
+  mw1::deal_choice(c, m, false);
+  EXPECT(m.own_shown && m.owned == 0 && mw1::market_shown_mech(c, m) == kOwens);
+  // Every deal leaves the panel on YOUR MECHS' chosen row.
+  EXPECT(mw1::market_shown_mech(c, m) == mw1::owned_mech(c, m.owned));
+}

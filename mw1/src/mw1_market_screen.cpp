@@ -72,6 +72,12 @@ void clamp_choice(const Company& c, MarketChoice& m) {
   m.owned_top = scrolled(m.owned_top, m.owned, owned);
 }
 
+void deal_choice(const Company& c, MarketChoice& m, bool bought) {
+  if (bought) m.owned = owned_count(c) - 1;
+  m.own_shown = true;
+  clamp_choice(c, m);
+}
+
 bool market_row_at(int32_t x, int32_t y, bool wide, bool* own, int32_t* row) {
   const int32_t l = wide ? 1 : 0;
   if (x < kListLeft[l] || x >= kListRight[l] - kArrowColumn) return false;
@@ -93,7 +99,7 @@ void set_market_live(bool on) { g_market_live = on; }
 bool market_live() { return g_market_live; }
 
 int32_t market_shown_mech(const Company& c, const MarketChoice& m) {
-  if (m.own_shown || c.market.stock.empty()) return owned_mech(c, m.owned);
+  if ((m.own_shown && owned_count(c) > 0) || c.market.stock.empty()) return owned_mech(c, m.owned);
   return c.market.stock[static_cast<size_t>(m.stock)];
 }
 
