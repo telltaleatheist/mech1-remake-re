@@ -5320,7 +5320,7 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
         // Money but nothing heavier here: the nearest richer market not yet looked at (a tier 2 or 3 world).
         if (c->funds > 6000000 && markets_no_better.count(here) && sc->enabled(mw1::kHubTravel))
           for (int32_t w : mw1::destinations(*c, -1))
-            if (mw1::kPlanets[w].tier >= 2 && !markets_no_better.count(w) && mw1::kPlanets[w].number != mw1::kAndersMoon)  // its guards
+            if (mw1::kPlanets[w].tier >= 2 && !markets_no_better.count(w) && mw1::kPlanets[w].number != mw1::story_rules::kAndersMoon)  // its guards
               return markets_no_better.insert(w), travel_to = w, sc->on_button(mw1::kHubTravel, 0, 0), false;
         if (mw1::earning_here(*c) && sc->visible(mw1::kHubOffice) && sc->enabled(mw1::kHubOffice)) return sc->on_button(mw1::kHubOffice, 0, 0), false;
         // No contracts here: the nearest world that has them.
