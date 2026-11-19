@@ -3487,6 +3487,77 @@ TEST(mw1_story_events_on_the_panel_headless) {
   });
 }
 
+// FIXES.md item 80: a press while a screen change is still queued is ignored, fade or not. The soak's case: travel's
+// GO and BACK in one frame, GO's arrival raising a story panel over the hub. BACK's hub used to replace the panel
+// (the hub twice on the stack, the panel lost while the game thought it up); now the trip runs as if BACK weren't
+// pressed: the panel over the hub, each state once on the stack.
+TEST(mw1_a_press_while_a_screen_change_is_queued_is_ignored_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  if (mw1_test::no_mw1()) return;
+  in_child([&] {
+    const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_press_queued";
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    MenuRun r;
+    r.save = (dir / mw1::kSaveFile).string(), r.start = mw1::Start::kHub, r.story = true;
+    int step = 0, wait = 0, to = -1, queued_at_back = 0;
+    bool went = false, panel = false, once = true, arrived = false;
+    r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
+      mw1::HubState* hub = mw1::game_loop_hub();
+      mw1::EventState* ev = mw1::game_loop_event();
+      mw1::TravelState* tr = mw1::game_loop_travel();
+      mw1::Company* c = mw1::game_loop_company_for_tests();
+      if (app.pending() || ++wait < 5) return false;
+      switch (step) {
+        case 0:  // the start's own panels (the crest) answered first
+          if (showing(app, ev)) {
+            ev->screen()->on_button(ev->screen()->visible(mw1::kEventNext) ? mw1::kEventNext : mw1::kEventChoice1, 0, 0);
+            wait = 0;
+            return false;
+          }
+          if (!showing(app, hub) || !c) return false;
+          {
+            const std::vector<int32_t> near = mw1::destinations(*c, -1);
+            if (near.empty()) return true;
+            to = near[0];
+          }
+          // Grig's base (0x64) set up on the world travelled to: its panel on arrival (as the story test's step 1).
+          c->funds = 5000000, c->story.seen[0x0C] = 1, c->story.planets[1] = mw1::kPlanets[to].number, c->story.rung_won = 1;
+          hub->screen()->on_button(mw1::kHubTravel, 0, 0);
+          ++step, wait = 0;
+          return false;
+        case 1: {
+          if (!showing(app, tr)) return false;
+          const mw1::Point p = mw1::on_screen(to);
+          tr->screen()->point(p.x, p.y, true);
+          const size_t entries = c->log.size();
+          tr->screen()->on_button(mw1::kTravelGo, 0, 0);
+          went = c->log.size() != entries;
+          queued_at_back = app.pending();
+          tr->screen()->on_button(mw1::kTravelBack, 0, 0);  // the same frame: ignored
+          ++step, wait = 0;
+          return false;
+        }
+        case 2: {
+          if (mw1::movie::MovieState* mv = mw1::game_loop_movie(); mv && app.current() == static_cast<zgame::State*>(mv)) return false;  // its clip
+          arrived = c->planet_number == mw1::kPlanets[to].number;
+          panel = showing(app, ev);
+          for (int i = 0; i < app.depth(); ++i)
+            for (int j = i + 1; j < app.depth(); ++j)
+              if (app.stack(i) == app.stack(j)) once = false;
+          std::printf("  went %d, %d queued at BACK, arrived %d, panel %d, depth %d, each once %d\n", went, queued_at_back,
+                      arrived, panel, app.depth(), once);
+          return true;
+        }
+        default: return true;
+      }
+    };
+    menu_run(r);
+    EXPECT(step == 2 && went && queued_at_back > 0 && arrived && panel && once);
+  });
+}
+
 // The Bar's DRINK and NEWS (mw1_story.h): on the start world a drink is a tip at its price and a unit of time (0x06,
 // then 0x0A), then the quiet text; NEWS shows the news live now, PREV and NEXT through it, BACK to the Bar.
 TEST(mw1_story_drinks_and_news_in_the_bar_headless) {
@@ -3858,18 +3929,21 @@ const char* kind_name(mw1::LogKind k) {
 // - the save: on disk, read back and written out byte for byte, and the live company's (at each hub);
 // - the screen: every text inside its room, none over another, none on a terminal's border (MW1_FIT's check);
 // - nothing stuck on one screen.
-// Seeds 4 and 9 by default, 3 legs of 5 settlements; MW1_SOAK_LONG=n plays seeds 0..n-1, 6 legs of 8 (the search).
+// Seeds 4 and 9 by default, 3 legs of 5 settlements; MW1_SOAK_LONG=n plays seeds 0..n-1, 6 legs of 8 (the search),
+// from MW1_SOAK_FROM=k on (k..k+n-1).
 TEST(mw1_soak_a_campaign_through_every_service_and_restarts_headless) {
   std::error_code ec;
   if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
   if (mw1_test::no_mw1()) return;
   const char* longer = std::getenv("MW1_SOAK_LONG");
   const char* one = std::getenv("MW1_SOAK_SEED");  // with MW1_SOAK_LONG: that seed alone
+  const char* from = std::getenv("MW1_SOAK_FROM");  // with MW1_SOAK_LONG: the first seed
   std::vector<int> seeds = {4, 9};
   int legs = 3, per_leg = 5;
   if (longer) {
     seeds.clear();
-    for (int i = 0, n = std::max(1, std::atoi(longer)); i < n; ++i) seeds.push_back(i);
+    const int first = from ? std::atoi(from) : 0;
+    for (int i = 0, n = std::max(1, std::atoi(longer)); i < n; ++i) seeds.push_back(first + i);
     if (one) seeds = {std::atoi(one)};
     legs = 6, per_leg = 8;
   }
@@ -4095,11 +4169,11 @@ TEST(mw1_soak_a_campaign_through_every_service_and_restarts_headless) {
           const mw1::LogEntry* top = c->log.empty() ? nullptr : &c->log.front();
           const mw1::LogEntry before = top ? *top : mw1::LogEntry{};
           sc->on_button(mw1::kTravelGo, 0, 0);
-          // Gone (the log's trip; a setback may turn the company back to where it left, so not by the world's name):
-          // the screen changes on their way, nothing more pressed here. Else BACK.
+          // Gone (the log's trip; a setback may turn the company back to where it left, so not by the world's name).
+          // BACK either way, the same frame: after a trip it's ignored, its screen change still queued (FIXES.md item 80).
           const bool went = c->log.size() != entries || (top && !same_entry(c->log.front(), before));
           if (went) ++trips;
-          else sc->on_button(mw1::kTravelBack, 0, 0);
+          sc->on_button(mw1::kTravelBack, 0, 0);
           return false;
         }
         if (mw1::results::ResultsState* rs = mw1::game_loop_results(); showing(app, rs)) {

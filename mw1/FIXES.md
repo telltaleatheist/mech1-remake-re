@@ -964,6 +964,16 @@ Tick an item when it is merged into `main`.
   - **A lancemate hired, or a mech bought, isn't put on anything:** only the lab's lance assigns them, and a lancemate without a mech doesn't fly. The soak assigns through the lab's apply.
   - **With the screen fade off, a press on a screen being replaced still acts.** The soak pressed travel's BACK in the frame after GO, and the queued swap replaced the arrival's event panel. The fade (on by default) ignores presses during a change, so play can't do this; a guard could ignore presses while a change is pending.
 
+## 80. [x] A press while a screen change is queued is ignored, fade or not *(done: mw1-press-guard)*
+79's soak found it: with the fade off, travel's BACK pressed in the frame after GO acted. GO's swap to the hub and the
+arrival's event panel were already queued in the app, and BACK's hub replaced the panel: the panel was gone while the
+game still thought it up. The fade (on by default) ignored such presses, so play couldn't do it, but nothing else did.
+- Every press (`as_player`) is now ignored while the app has a screen change queued, as during a fade.
+- `mw1_a_press_while_a_screen_change_is_queued_is_ignored_headless`: GO, then BACK in the same frame, to a world whose
+  arrival raises a story panel. The trip runs and the panel stays up over the hub, each state once on the stack. It
+  fails without the guard (the panel lost).
+- The soak now presses BACK after every GO, trip or not, so it keeps exercising the guard.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.

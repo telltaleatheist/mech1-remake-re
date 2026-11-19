@@ -794,6 +794,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   }
   void as_player(const std::function<void()>& press) {
     if (queuing_ || fade::current().busy()) return;  // during a fade: ignored
+    // A screen change still queued in the app (fade or not): ignored, so a
+    // second press can't replace what the first one pushed (FIXES 80).
+    if (mech3::Mech3App* app = mech3::app_if_any(); app && app->pending()) return;
     queuing_ = true;
     press();
     queuing_ = false;
