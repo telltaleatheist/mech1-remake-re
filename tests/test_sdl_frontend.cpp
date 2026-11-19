@@ -7264,6 +7264,7 @@ TEST(sdl_program_launcher_starts_mechwarrior_1) {
   {
     std::ofstream sh(mw1);
     sh << "#!/bin/sh\necho \"$*\" > \"" << dir << "/args.txt\"\nexit 0\n";
+    sh << "MW3-PROGRAM" << "-VERSION:mw1-v1.0.0" << '\0';  // its version as a build holds it, read by the launcher
   }
   std::ofstream(pm_bin) << "#!/bin/sh\nexit 0\n";
   std::filesystem::permissions(mw1, std::filesystem::perms::owner_all, ec);
@@ -7295,7 +7296,8 @@ TEST(sdl_program_launcher_starts_mechwarrior_1) {
               text.find("MechWarrior 1 at") != std::string::npos, text.find("MechWarrior 1 started") != std::string::npos,
               text.find("MechWarrior 1 exited (0)") != std::string::npos, args.c_str());
   EXPECT(text.find("MechWarrior 1 at " + mw1) != std::string::npos);
-  EXPECT(text.find("entry MECHWARRIOR 1: Ready: " + dir + "/game") != std::string::npos);
+  EXPECT(text.find("entry MECHWARRIOR 1: Ready, mw1-v1.0.0: " + dir + "/game") != std::string::npos);
+  EXPECT(text.find(", MechWarrior 1 mw1-v1.0.0\n") != std::string::npos);
   EXPECT(text.find("MechWarrior 1 exited (0)") != std::string::npos);
   EXPECT(args.rfind("--install " + pm + " --mw3-install ", 0) == 0);
   EXPECT(args.find(" --mw1-game " + dir + "/game --no-launcher") != std::string::npos);
