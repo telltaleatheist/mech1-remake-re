@@ -4083,7 +4083,10 @@ float ground_distance(void* a, void* b) {
 
 // One run: `count` lancemates hired and assigned, the save loaded again first when `reload` (a second run on the save the
 // first left, its lancemates now from the file). In the mission, W round the lance: each lancemate the recipient; then for
-// each, W to it, E, ATTACK: the order reaches its brain alone; it then walks toward the enemy.
+// each in turn, W to it, E, ATTACK: the order reaches its brain alone. All ordered, 450 frames on each has walked at the
+// mech its E picked (with two enemies E may pick either: measured to the first listed, one walking at the other ended
+// farther from it, FIXES 72's flake). The hold is short so the lance can't win the fight before the loop ends the
+// mission (held 600 frames a lancemate, the three won it under the hook and the loop's end never ran).
 void lance_orders_run(const char* name, int32_t count, bool reload) {
   std::error_code ec;
   if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
@@ -4107,16 +4110,31 @@ void lance_orders_run(const char* name, int32_t count, bool reload) {
     std::set<std::string> recipients;      // each lancemate the recipient after a W
     std::vector<std::string> mates;        // the lancemates in the mission
     std::map<std::string, int32_t> reached;  // lancemate: attack orders its brain had
-    int32_t strays = 0, steps_left = 0, w_presses = 0;
-    std::string ordering;                  // the lancemate the attack is for
-    void* enemy = nullptr;
-    // To the enemy at the order, and then the nearest it came: checked each 300 frames from 600 until it has closed
-    // 30 m, up to 1800 (one may path round the ground first: 148 m walked and farther at 600 frames, seen in a full run).
-    std::map<std::string, float> start_gap, end_gap;
-    std::map<std::string, int32_t> took;  // frames to close
-    int32_t ordered_at = 0;
-    size_t next_mate = 0;
+    std::map<std::string, void*> aimed;      // lancemate: the mech its E picked (the attack's)
+    std::map<std::string, float> start_gap, end_gap;  // to that mech at the order, and 300 frames on (-1: gone)
+    // The lancemate's own walk toward it: along the line from where it stood to where the mech stood at the order (the
+    // gap alone mixes in the mech's own walk, toward or away).
+    std::map<std::string, std::array<float, 3>> from, toward;
+    std::map<std::string, float> walked_at, moved;
+    int32_t strays = 0, w_presses = 0, enemies = 0, ordered_at = -1;
+    constexpr int32_t kWalkFrames = 450;
+    bool ended_under_us = false;
+    auto mech_of = [](const std::string& pilot) -> void* {
+      int32_t n = 0;
+      const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+      for (int32_t k = 0; k < n; ++k)
+        if (pilot_of(ai[k].mech) == pilot) return ai[k].mech;
+      return nullptr;
+    };
+    auto listed = [](void* m) {
+      int32_t n = 0;
+      const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+      for (int32_t k = 0; k < n; ++k)
+        if (ai[k].mech == m) return true;
+      return false;
+    };
     run.in_mission = [&](int32_t f) {
+      if (f > 1 && mech3::missions().ended) return ended_under_us = true, false;  // the loop must end it, not the lance
       void* me = mech3::mech_mission_player();
       mech3::ai::AiTarget* at = me ? mech3::mech_ai_target(me) : nullptr;
       if (!at) return f < 600;
@@ -4126,7 +4144,7 @@ void lance_orders_run(const char* name, int32_t count, bool reload) {
         for (int32_t i = 0; i < n; ++i) {
           const mech3::ai::Brain* b = brain_of(ai[i].mech);
           if (b && b->params.team() == 1) mates.push_back(b->params.pilot ? b->params.pilot : "");
-          else if (!enemy) enemy = ai[i].mech;
+          else ++enemies;
         }
         return true;
       }
@@ -4139,59 +4157,67 @@ void lance_orders_run(const char* name, int32_t count, bool reload) {
         if (!target.empty() && saved == target) recipients.insert(saved);
         return true;
       }
-      // Then each lancemate in turn: W until it's the recipient, E, ATTACK; 600 frames to walk.
-      if (next_mate < mates.size() && ordering.empty() && f % 10 == 0) {
-        for (int32_t tries = 0; tries < 8 && pilot_of(contact_mech(at->saved_target)) != mates[next_mate]; ++tries)
-          mech3::mech_command(me, 0x47);
-        mech3::mech_command(me, 0x48);  // E
-        const size_t before = trace.given.size();
-        mech3::mech_command(me, 0x58);  // ATTACK (CMD_DIRECT_ATTACKT): order 10 on the target
-        for (size_t i = before; i < trace.given.size(); ++i) {
-          const auto& [b, order] = trace.given[i];
-          std::string who;
-          int32_t n = 0;
-          const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
-          for (int32_t k = 0; k < n; ++k)
-            if (brain_of(ai[k].mech) == b) who = pilot_of(ai[k].mech);
-          if (who == mates[next_mate] && order == 10) ++reached[who];
-          else ++strays;
+      // Then, in one frame, each lancemate in turn: W until it's the recipient, E, ATTACK.
+      if (ordered_at < 0) {
+        for (const std::string& mate : mates) {
+          for (int32_t tries = 0; tries < 8 && pilot_of(contact_mech(at->saved_target)) != mate; ++tries)
+            mech3::mech_command(me, 0x47);
+          mech3::mech_command(me, 0x48);  // E
+          aimed[mate] = contact_mech(at->target);
+          const size_t before = trace.given.size();
+          mech3::mech_command(me, 0x58);  // ATTACK (CMD_DIRECT_ATTACKT): order 10 on the target
+          for (size_t i = before; i < trace.given.size(); ++i) {
+            const auto& [b, order] = trace.given[i];
+            std::string who;
+            int32_t n = 0;
+            const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+            for (int32_t k = 0; k < n; ++k)
+              if (brain_of(ai[k].mech) == b) who = pilot_of(ai[k].mech);
+            if (who == mate && order == 10) ++reached[who];
+            else ++strays;
+          }
+          if (void* m = mech_of(mate); m && aimed[mate]) {
+            start_gap[mate] = ground_distance(m, aimed[mate]);
+            mech3::mech_world_position(m, from[mate].data());
+            mech3::mech_world_position(aimed[mate], toward[mate].data());
+          }
         }
-        ordering = mates[next_mate], ordered_at = f;
-        int32_t n = 0;
-        const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
-        for (int32_t k = 0; k < n; ++k)
-          if (pilot_of(ai[k].mech) == ordering) start_gap[ordering] = ground_distance(ai[k].mech, enemy);
+        ordered_at = f;
         return true;
       }
-      if (!ordering.empty() && f - ordered_at >= 600 && (f - ordered_at) % 300 == 0) {
-        int32_t n = 0;
-        const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
-        bool there = false;
-        for (int32_t k = 0; k < n; ++k)
-          if (pilot_of(ai[k].mech) == ordering) {
-            const float g = ground_distance(ai[k].mech, enemy);
-            end_gap[ordering] = end_gap.count(ordering) ? std::min(end_gap[ordering], g) : g;
-            there = true;
-          }
-        const bool closed = !there || end_gap[ordering] < start_gap[ordering] - 30;  // gone: destroyed on the way
-        if (closed || f - ordered_at >= 1800) took[ordering] = f - ordered_at, ordering.clear(), ++next_mate;
+      if (f - ordered_at < kWalkFrames) return true;
+      for (const std::string& mate : mates) {
+        void* m = mech_of(mate);
+        end_gap[mate] = m && aimed[mate] && listed(aimed[mate]) ? ground_distance(m, aimed[mate]) : -1;
+        float now[3];
+        if (m && from.count(mate) && mech3::mech_world_position(m, now)) {
+          const std::array<float, 3>& a = from[mate];
+          const std::array<float, 3>& t = toward[mate];
+          const float dx = t[0] - a[0], dz = t[2] - a[2], len = std::hypot(dx, dz);
+          walked_at[mate] = len > 0 ? ((now[0] - a[0]) * dx + (now[2] - a[2]) * dz) / len : 0;
+          moved[mate] = std::hypot(now[0] - a[0], now[2] - a[2]);
+        }
       }
-      return next_mate < mates.size() || !ordering.empty() || steps_left-- > 0;
+      return false;  // the loop ends the mission now
     };
     loop_run(kWon, &run);
     mech3::lance_calls().order = nullptr;
     g_trace = nullptr;
-    std::printf("  %zu lancemates; %zu were the recipient after W; strays %d\n", mates.size(), recipients.size(), strays);
+    std::printf("  %zu lancemates, %d enemies; %zu were the recipient after W; strays %d\n", mates.size(), enemies,
+                recipients.size(), strays);
+    if (ended_under_us) std::printf("  the mission ended under the orders' hold (the lance won it first)\n");
+    EXPECT(!ended_under_us);
     EXPECT(static_cast<int32_t>(mates.size()) == count);
     EXPECT(recipients.size() == mates.size());
     EXPECT(strays == 0);
     for (const std::string& m : mates) {
       const float a = start_gap.count(m) ? start_gap[m] : -1, b = end_gap.count(m) ? end_gap[m] : -1;
-      std::printf("  lancemate %zu: attack orders %d, to the enemy %.0f m, then %.0f m (%d frames)\n",
-                  static_cast<size_t>(std::find(mates.begin(), mates.end(), m) - mates.begin()) + 1, reached[m], a, b,
-                  took.count(m) ? took[m] : -1);
-      EXPECT(reached[m] == 1);
-      EXPECT(a > 0 && (b < 0 || b < a - 30));  // walked at it (or destroyed on the way: gone from the list)
+      const float w = walked_at.count(m) ? walked_at[m] : -1, d = moved.count(m) ? moved[m] : -1;
+      std::printf("  lancemate %zu: attack orders %d, to the mech E picked %.0f m, %d frames on %.0f m; walked %.0f m "
+                  "toward it (moved %.0f m)\n",
+                  static_cast<size_t>(std::find(mates.begin(), mates.end(), m) - mates.begin()) + 1, reached[m], a, kWalkFrames, b, w, d);
+      EXPECT(reached[m] == 1 && aimed[m] != nullptr);
+      EXPECT(a > 0 && w >= 30 && w >= 0.8f * d);  // walked at it: 63 m the least seen in 450 frames, all of it toward
     }
   });
 }
