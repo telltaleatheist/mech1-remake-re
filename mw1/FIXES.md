@@ -889,6 +889,22 @@ Tick an item when it is merged into `main`.
 - **Found in 75 (dev 1); the lead: a plain fix.** A story battle has no message since 75, and play without the exe never had one. Either way an empty bordered box sat along the bottom.
 - **Done:** results_view hides the message panel when there's no message. Everything else keeps its place, and the crest shows as before (a contract's, still without the exe). test_mw1_results `no_message_no_box` checks it at both shapes. Shots of a story battle and a run without the exe (a folder with only BTECH.EXE given as --mw1-game) at 1080p and 4:3.
 
+## 77. [x] The look without MW1's exe *(done: mw1-no-exe-look, no code change)*
+- **Asked (the lead, after 76):** dev 1 saw the results panel's text "in another font" without the exe. Find the cause. Every screen should look the same without the exe, apart from the text read from it.
+- **Cause: none, it was my contact sheet.** The panel's font is ours, Share Tech Mono (mw1fonts.zrd, mw1/data/fonts), in both runs. The sheet had scaled a 4:3 shot and a 16:9 shot to the same cell, so their text looked different. Full-size crops are identical.
+- **Sweep:** 15 screens (hub, options, market, travel, company, Bar, recruit, drink, office, offer, news, event, results, loading, lab) at 1080p and 4:3, MW1_SEED=7, with the exe and with an MW1 folder holding no MW_MAIN.EXE. Each pair was pixel-diffed (`outbox/2026-11-19/mw1-no-exe-sweep-77/`, diff.txt). The options screen and the lab are identical. Every other change is text read from the exe, or a feature that needs the exe:
+  - **Text read from the exe:**
+    - the market banner's landscape and population;
+    - the travel readout's facts;
+    - the office's offer title and the loading screen's mission title ("CONTRACT" without the exe);
+    - the results message;
+    - the Bar's pitches;
+    - the Company page's commander name ("YOU" without the exe).
+  - **Features that need the exe (for the lead):**
+    - the Bar's ORDER DRINK and NEWS are greyed out, since their texts are MW1's;
+    - the hub has no STORY button, since the story is MW1's script.
+    The look is otherwise unchanged; whether those should explain themselves (a hint naming MW1's install) is a design call.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.
