@@ -1057,6 +1057,23 @@ From dev 1's review of 83 (the lead's list).
     every time.
   - With left and below swapped, it fails.
 
+## 89. [x] The radar's lines at the window's scale *(done: mw1-fix89-radar-lines)*
+The 4K sweep (item 12) left the mission radar's ring, sweep cone and boundaries blocky: the canvas drew them as
+lines, and the high-resolution draw had only text and pictures. Per the lead and the mw3 lead, hires is MW1's path,
+so this is an "mw1 (engine, ours)" change, used only with hires on.
+- The SDL 2D host records its lines, line lists and circles as a third kind of draw (`Kind::kLine`), with the
+  canvas under each kept as for a picture. The canvas still gets its pixels.
+- The draw makes each one's texture at the frame's scale (`platform/hires_lines.h`): a canvas pixel wide, its edges
+  blended over a frame pixel, round ends, in the canvas's own colour, in the canvas's order. Over the 3D, the
+  canvas's copy is dropped under it, as for text.
+- Dashed and noisy lines (a damaged radar's static) stay the canvas's. The cockpit dashboard is a 3D texture, left
+  alone.
+- Other 2D lines get the same treatment: the lab's section rules and its text caret are now smooth too. A full 4K
+  sweep of every MW1_SCREEN page shows no other change, and nothing new left to the canvas.
+- Test (mw3pmsdltests hires): `hires_draw_the_radar_s_lines_recorded_and_drawn_smooth` draws a ring, a cone side and
+  a boundary through the host and checks three recorded lines, drawn anti-aliased in their colour over the key. With
+  the host's recording off, it fails.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.
