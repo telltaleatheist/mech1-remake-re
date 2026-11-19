@@ -2,6 +2,7 @@
 // renderer that reads frames back, which the tests have not; these check what it does with a frame, the archive's
 // stamp, and where the screens show the pictures.
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -9,6 +10,7 @@
 #include <vector>
 
 #include "check.h"
+#include "mech3/model_view.h"
 #include "mech3/mech_names.h"
 #include "mw1_campaign.h"
 #include "mw1_market.h"
@@ -189,4 +191,57 @@ TEST(mw1_render_frame_mech_alone) {
     for (int32_t y = 0; y < 6; ++y) edge[static_cast<size_t>(y) * w + x] = 0xff808080u;
   EXPECT(!mw1::frame_mech_alone(edge.data(), w, h));
   EXPECT(!mw1::frame_mech_alone(nullptr, w, h));
+}
+
+// The live 'Mech's framing (FIXES.md item 12, Owen 2026-11-18: about 85% of the panel's height; mech3/model_view.h):
+// a 'Mech's shape (a tall body, its feet reaching out toward the camera, so the near points look bigger) framed in
+// the Mech Complex's panel: its picture kFill of the height and centred, as seen through the camera's lens; a long
+// low shape in the same rect is held to kFill of the width instead.
+TEST(mw1_live_mech_framed_to_its_points) {
+  using mech3::ModelView;
+  auto picture = [](const std::vector<float>& pts, const double cam[3], double* top, double* bottom, double* left,
+                    double* right) {
+    *top = *right = -1e9, *bottom = *left = 1e9;
+    for (size_t k = 0; k + 2 < pts.size(); k += 3) {
+      const double depth = pts[k + 2] - cam[2];
+      const double x = (pts[k] - cam[0]) / depth, y = (pts[k + 1] - cam[1]) / depth;
+      *top = std::max(*top, y), *bottom = std::min(*bottom, y), *left = std::min(*left, x), *right = std::max(*right, x);
+    }
+  };
+  const double tv = std::tan(ModelView::kFovV * 3.141592653589793 / 360.0);
+  const int32_t w = 160, h = 128;  // the panel (kRenderPanelW x kRenderPanelH): any scale frames alike
+  std::vector<float> mech;
+  for (float x : {-2.0f, 2.0f})
+    for (float y : {3.0f, 10.0f})
+      for (float z : {-1.5f, 1.5f}) mech.insert(mech.end(), {x, y, z});  // the body
+  for (float x : {-1.5f, 1.5f}) mech.insert(mech.end(), {x, 0.0f, -3.0f}), mech.insert(mech.end(), {x, 0.0f, 1.0f});  // feet
+  double cam[3], top, bottom, left, right;
+  ModelView::frame_points(mech.data(), mech.size() / 3, w, h, cam);
+  picture(mech, cam, &top, &bottom, &left, &right);
+  EXPECT(std::fabs((top - bottom) / (2 * tv) - ModelView::kFill) < 0.005);  // 85% of the height, as seen
+  EXPECT(std::fabs(top + bottom) < 0.005 * tv && std::fabs(left + right) < 0.005 * tv);  // centred both ways
+  EXPECT(cam[2] < -3.0);  // in front of its nearest point
+  // A long low shape: the width is what fills.
+  const std::vector<float> lying = {-12, 0, -1, 12, 0, -1, -12, 2, 1, 12, 2, 1};
+  ModelView::frame_points(lying.data(), lying.size() / 3, w, h, cam);
+  picture(lying, cam, &top, &bottom, &left, &right);
+  EXPECT(std::fabs((right - left) / (2 * tv * w / h) - ModelView::kFill) < 0.005 && (top - bottom) / (2 * tv) < ModelView::kFill);
+}
+
+// The Mech Complex's panel with the live 'Mech: see-through at the panel's size and shown (with or without the stored
+// renders); without it (no 3D), no see-through panel.
+TEST(mw1_market_panel_see_through_when_live) {
+  mw1::Company c;
+  c.planet = "Test";
+  c.market.stock = {mw1::kPmFirefly};
+  mw1::MarketChoice m;
+  mw1::clamp_choice(c, m);
+  mw1::set_market_live(true);
+  mw1::ScreenView v = mw1::market_view(c, m);
+  EXPECT(v.see_through.size() == 1 && v.see_through[0].panel == mw1::kMarketPanelMech &&
+         v.see_through[0].w == mw1::kRenderPanelW && v.see_through[0].h == mw1::kRenderPanelH);
+  EXPECT(v.panels[mw1::kMarketPanelMech] && v.panels[mw1::kMarketPanelMechFrame]);
+  mw1::set_market_live(false);
+  v = mw1::market_view(c, m);
+  EXPECT(v.see_through.empty());
 }

@@ -802,6 +802,9 @@ void GameEngine::video_lock() {
   t.pitch = static_cast<uint32_t>(width_ * 2);
   t.format = 6;
   zrndr::set_finish_target(buffer_.data(), width_, height_, width_ * 2);  // 0x00558290, as 0x00576de0 sets it
+  // Ours (set_box_blends_over_frame): the box's layer over the held frame records its blends, as lock_back's does.
+  if (held_ && box_blends_ && cover_alpha_.size() == buffer_.size())
+    zrndr::layer_cover() = {cover_alpha_.data(), cover_colour_.data(), kLayerKey};
 }
 void GameEngine::video_clear(Handle) { std::fill(buffer_.begin(), buffer_.end(), uint16_t{0}); }
 // 0x00576ea0: the back buffer to the screen, and zClass's frame counted
@@ -818,7 +821,9 @@ void GameEngine::video_flip(int32_t, int32_t, int32_t, int32_t) {
   // or the lab's held frame was dropped and the box shown over the key's
   // magenta.
   if (held_ && !scene_drawn_ && (!layer_drawn_ || layer_blank_) && p_.render && p_.screen && p_.render->restore_frame()) {
-    p_.screen->overlay_16(buffer_.data(), width_, height_, width_ * 2, true, kLayerKey, nullptr, nullptr);
+    const bool blends = box_blends_ && cover_alpha_.size() == buffer_.size();  // ours: set_box_blends_over_frame
+    p_.screen->overlay_16(buffer_.data(), width_, height_, width_ * 2, true, kLayerKey,
+                          blends ? cover_alpha_.data() : nullptr, blends ? cover_colour_.data() : nullptr);
     p_.render->present();
     ++frames_presented;
     if (on_present) on_present(frames_presented);
@@ -944,11 +949,13 @@ bool GameEngine::hold_shown_frame() {
   held_ = true;
   std::fill(buffer_.begin(), buffer_.end(), kLayerKey);
   buffer_is_screen_ = true;  // no read-back into it at the next lock: it is the box's layer
+  if (box_blends_) cover_alpha_.assign(buffer_.size(), 0), cover_colour_.resize(buffer_.size());  // ours
   return true;
 }
 void GameEngine::drop_held() {
   if (!held_) return;
   held_ = false;
+  if (box_blends_) zrndr::layer_cover() = {};
   if (p_.render) p_.render->drop_frame();
 }
 bool GameEngine::shown_frame(std::vector<uint16_t>* out) {

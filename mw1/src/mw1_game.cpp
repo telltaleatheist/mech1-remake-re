@@ -36,6 +36,7 @@
 #include "mech3/mech_objective.h"
 #include "mech3/mech_config.h"
 #include "mech3/mission.h"
+#include "mech3/model_view.h"
 #include "mech3/mods.h"
 #include "mech3/options_menu.h"
 #include "mech3/pilot.h"
@@ -281,6 +282,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     }
     // Every message box in MW1's look (mw1dialog.zrd), Pirate's Moon's own boxes too (its quit question).
     if (layout_there(kDialogFile, kDialogName)) ge.set_message_box_layout(kDialogFile, kDialogName);
+    ge.set_box_blends_over_frame(true);  // the box's dim over a 3D frame (the Mech Complex's live 'Mech, the lab)
     // MW1's main menu over PM's (mw1_menu.h): at the start, and under the hub after a mission (the hub's QUIT comes
     // back to it). Without its layout, or for the tests' straight start, the hub as before.
     const bool with_menu = start_ != Start::kHub && menu(ge);
@@ -502,6 +504,17 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "bar_drink") press(kHubBar), press_bar(kBarDrink);
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "message_market") press(kHubMarket), message_over(kClassMechComplex);
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "message_office") press(kHubOffice), message_over(kClassOffice);
+      // market_box: the game's own box (the quit question) over the Mech Complex's live 'Mech (FIXES.md item 12: what is
+      // drawn after the panel covers the 3D), raised once the market has drawn a while.
+      if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "market_box") {
+        press(kHubMarket);
+        auto before = ge.on_present;
+        ge.on_present = [&ge, before, start = -1, raised = false](int f) mutable {
+          if (before) before(f);
+          if (start < 0) start = f;
+          if (!raised && f - start >= 60) raised = true, ge.confirm_quit();
+        };
+      }
       // MW1_SCREEN=options, options_gfx, options_controls, options_upgrades: PM's options pages on MW1's layouts.
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s).rfind("options", 0) == 0) {
         const std::string page = s;
@@ -1207,8 +1220,34 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       market_state_->set_pointer(kMarketListArea[0], kMarketListArea[1], kMarketListArea[2], kMarketListArea[3],
                                  [this](int32_t x, int32_t y, bool click) { market_point(x, y, click); });
       market_state_->set_resumed([this] { lab_closed(); });
+      // FIXES.md item 12 (Owen 2026-11-18): the chosen 'Mech live in gunmetal in its panel, where the engine draws 3D.
+      set_market_live(ge.video_mode() != 0);
+      if (market_live())
+        market_state_->set_live([this](mech3::GameEngine& en, screens::Mw1Screen& s) { draw_market_mech(en, s); },
+                                [this] { close_model_view(); });
     }
     return market_ != 0;
+  }
+
+  // The Mech Complex's live 'Mech (mech3/model_view.h): the frame cleared, then the chosen 'Mech in the see-through
+  // panel's rect at the frame's resolution, framed to its box, at yaw 0 (kMarketMechTurn: turning, when set).
+  void draw_market_mech(mech3::GameEngine& en, screens::Mw1Screen& s) {
+    model_view_.begin_frame(en);
+    const int32_t mech = market_shown_mech(company_, choice_);
+    int32_t x = 0, y = 0, w = 0, h = 0;
+    if (mech < 0 || !s.see_through_at(kMarketPanelMech, &x, &y, &w, &h)) return;
+    if (!model_view_.is_open() && !model_view_.open(en)) {  // no 3D after all: the stored render
+      set_market_live(false);
+      show_market();
+      return;
+    }
+    if (!model_view_.prepare(en, mech, "gunmetal")) return;
+    mech3::canvas_to_render(&x, &y, &w, &h);
+    market_turn_ += kMarketMechTurn * en.frame_dt();
+    model_view_.draw(en, mech, x, y, w, h, market_turn_, kMarketMechTurn != 0.0f);
+  }
+  void close_model_view() {
+    if (ge_ && model_view_.is_open()) model_view_.close(*ge_);
   }
 
   void press_market(int32_t id) {
@@ -3487,6 +3526,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   OfficeChoice ochoice_;
   zgame::Handle market_ = 0;
   MarketState* market_state_ = nullptr;
+  mech3::ModelView model_view_;  // the Mech Complex's live 'Mech, open while the market is shown
+  float market_turn_ = 0.0f;
   MarketChoice choice_;
   int32_t lab_owned_ = -1;
   // FIXES.md item 14's render pass and its stage (render_pass_frame, render_stage).

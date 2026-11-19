@@ -41,6 +41,10 @@
 #include "mech3/menu_states.h"
 #include "mech3/menu_widgets.h"
 
+namespace mech3 {
+class GameEngine;
+}
+
 namespace mw1::screens {
 
 // A button: its name in the layout's BUTTONS (its id is its place in the list, from 1) and its words. A repeat button
@@ -130,6 +134,26 @@ struct ScreenView {
     std::string image;
   };
   std::vector<InlinePicture> inline_pictures;
+  // A PANEL left see-through, w x h canvas pixels at its place, for a live 3D view under the 2D (FIXES.md item 12,
+  // the Mech Complex's 'Mech in gunmetal; mech3/model_view.h): in the panel's place among the screen's draws, so
+  // what is drawn after it (the pointer, a box) covers the 3D. Drawn so only while its state draws the 3D
+  // (Mw1State::set_live); else the panel shows its picture.
+  struct SeeThrough {
+    size_t panel = 0;
+    int32_t w = 0, h = 0;
+  };
+  std::vector<SeeThrough> see_through;
+};
+
+// A layout's PANEL: its picture, or, while a live 3D view is drawn under the screen (Mw1State::set_live), its
+// see_w x see_h rect written the layer's key (GameEngine::kLayerKey) in its place among the draws. The write is no
+// blit: the high-resolution 2D's chains break there (research/hires-2d.md, B1 piece 3), so the backdrop under it
+// isn't drawn over the 3D, and what is drawn after it is.
+class PanelImage : public ztwod::Image {
+ public:
+  PanelImage() : ztwod::Image(0) {}
+  void draw() override;
+  int32_t see_w = 0, see_h = 0;  // 0: a picture panel
 };
 
 class Mw1Screen : public mech3::MenuScreen {
@@ -146,6 +170,8 @@ class Mw1Screen : public mech3::MenuScreen {
   bool visible(int32_t id) const;
   bool enabled(int32_t id) const;
   bool panel_shown(size_t i) const;  // the layout's i-th PANEL
+  // A see-through panel's canvas rect now (ScreenView::see_through): false when it isn't one, or isn't shown.
+  bool see_through_at(size_t i, int32_t* x, int32_t* y, int32_t* w, int32_t* h) const;
   int32_t button_count() const { return static_cast<int32_t>(buttons_.size()); }
   bool button_middle(int32_t id, int32_t* x, int32_t* y) const;  // for the tests: where to click it (false: not there)
   // A part of the screen that hears the mouse (the travel map): `heard` with the mouse's place on each move over it
@@ -190,7 +216,7 @@ class Mw1Screen : public mech3::MenuScreen {
   std::vector<std::vector<std::unique_ptr<ztwod::Text>>> spans_;  // by block: a line's spans after its first
   std::vector<std::vector<std::string>> shown_lines_;
   void fit_status(ztwod::Text* t, int32_t y, size_t world_block, int32_t world_x);              // by block: the lines as shown, plain
-  std::vector<std::unique_ptr<ztwod::Image>> panels_;         // the layout's PANEL images, behind the texts
+  std::vector<std::unique_ptr<PanelImage>> panels_;           // the layout's PANEL images, behind the texts
   // The marks, each a picture (mw1_marks.h: drawn at the window's resolution too, FIXES.md item 12), reused show to
   // show; the image each holds now, by its name.
   std::vector<std::unique_ptr<ztwod::Image>> marks_;
@@ -231,10 +257,20 @@ class Mw1State : public mech3::MenuState {
   }
   bool update() override;
   void resume(uint32_t arg) override;
+  // A live 3D view under this screen's see-through panels (ScreenView::see_through): `draw` puts the 3D into them
+  // each frame, before the 2D is laid over it (the layer keyed). Unset, or with no 3D renderer: the menu's frame.
+  // `gone`: the state left or covered (another state over it: the lab), its 3D's nodes to be let go.
+  using Live = std::function<void(mech3::GameEngine&, Mw1Screen&)>;
+  void set_live(Live draw, std::function<void()> gone) { live_ = std::move(draw), live_gone_ = std::move(gone); }
+  void suspend(uint32_t arg) override;
 
  private:
   bool fading_frame();  // a frame while the fade between screens runs (FIXES.md item 52)
   void draw_faded(bool step_dt);  // the screen drawn under the fade's black, and shown
+  bool live_on();                 // this frame drawn with the live 3D (set_live)
+  void draw_live(float dt, double fade_alpha);  // the 3D, the 2D keyed over it, the fade's black, shown
+  Live live_;
+  std::function<void()> live_gone_;
   const char* file_;
   const char* dialog_;
   std::vector<ScreenButton> buttons_;

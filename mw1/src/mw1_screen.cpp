@@ -8,6 +8,7 @@
 #include "gamez/zreader/zreader.h"
 #include "gamez/ztwod/twod_host.h"
 #include "gamez/zvideo/zvid_format.h"
+#include "mech3/app.h"
 #include "mech3/app_engine.h"
 #include "mech3/app_hooks.h"
 #include "gamez/zclass/cls_node.h"
@@ -214,7 +215,7 @@ Mw1Screen::Mw1Screen(mech3::Engine& e, zgame::Handle state_handle, const char* f
   background.src = prims && zrdr::find(prims, "BACKGROUND") ? nullptr : &background.view;  // a borrowed one: its view
   for (const char* name : kPanelNames)
     if (zrdr::Node* pn = prims ? zrdr::find(prims, name) : nullptr) {
-      panels_.push_back(std::make_unique<ztwod::Image>(0));
+      panels_.push_back(std::make_unique<PanelImage>());
       if (!bind_primitive(panels_.back().get(), name)) panels_.pop_back();
       else panels_.back()->set_pos(panels_.back()->x + shift(anchor_of(pn)) - from, panels_.back()->y);
     }
@@ -449,6 +450,9 @@ void Mw1Screen::show(const ScreenView& v) {
       pictures_[i] = v.pictures[i];
       panels_[i]->set_image(v.pictures[i].c_str());
     }
+  for (const auto& p : panels_) p->see_w = p->see_h = 0;
+  for (const ScreenView::SeeThrough& st : v.see_through)
+    if (st.panel < panels_.size()) panels_[st.panel]->see_w = st.w, panels_[st.panel]->see_h = st.h;
   for (size_t i = 0; i < panels_.size(); ++i) {
     if (i < v.panels.size() && !v.panels[i]) panels_[i]->hide();
     else panels_[i]->show_for(-1.0f);
@@ -532,6 +536,29 @@ bool Mw1Screen::inline_at(size_t i, int32_t* x, int32_t* y) const {
   return true;
 }
 bool Mw1Screen::panel_shown(size_t i) const { return i < panels_.size() && !(panels_[i]->flags & ztwod::kHidden); }
+
+bool Mw1Screen::see_through_at(size_t i, int32_t* x, int32_t* y, int32_t* w, int32_t* h) const {
+  if (!panel_shown(i) || panels_[i]->see_w <= 0 || panels_[i]->see_h <= 0) return false;
+  *x = panels_[i]->x, *y = panels_[i]->y, *w = panels_[i]->see_w, *h = panels_[i]->see_h;
+  return true;
+}
+
+namespace {
+bool g_live_drawing = false;  // a live frame's 2D being drawn (Mw1State::draw_live): see-through panels are holes
+}  // namespace
+
+void PanelImage::draw() {
+  if (!g_live_drawing || see_w <= 0 || see_h <= 0) return ztwod::Image::draw();
+  zrndr::Target2D& t = zrndr::target2d();
+  if (!t.base || !t.width || !t.height) return;
+  const int32_t x0 = std::max(0, x), y0 = std::max(0, y);
+  const int32_t x1 = std::min<int32_t>(static_cast<int32_t>(t.width), x + see_w);
+  const int32_t y1 = std::min<int32_t>(static_cast<int32_t>(t.height), y + see_h);
+  for (int32_t yy = y0; yy < y1; ++yy) {
+    auto* row = reinterpret_cast<uint16_t*>(t.base + static_cast<size_t>(yy) * t.pitch);
+    std::fill(row + x0, row + std::max(x0, x1), mech3::GameEngine::kLayerKey);
+  }
+}
 bool Mw1Screen::enabled(int32_t id) const {
   return id >= 1 && static_cast<size_t>(id) <= buttons_.size() && buttons_[id - 1]->enabled != 0;
 }
@@ -652,6 +679,7 @@ void Mw1State::draw_faded(bool step_dt) {
   const double alpha = fade::current().alpha();
   const float dt = step_dt ? en.frame_dt() : 0.0f;
   g_drawn_frame = static_cast<uint32_t>(zcls::frames().frame);
+  if (live_on()) return draw_live(dt, alpha);
   if (en.video_mode() != 0) {
     en.video_begin_3d();
     if (screen_) en.vcall(screen_, 0x00, {zgame::bits(dt)});
@@ -674,12 +702,51 @@ void Mw1State::draw_faded(bool step_dt) {
   }
 }
 
+bool Mw1State::live_on() {
+  return live_ && screen_ && screen_ptr_ && e().video_mode() != 0 && dynamic_cast<mech3::GameEngine*>(&e());
+}
+
+// The Mech Lab's frame turned over (LabState's draws 2D then 3D, the 3D over all): the target set and cleared, the
+// 3D into the see-through panels, the 2D laid over it keyed (the panels' rects the key, so the 3D shows there and
+// under nothing drawn after them), then the fade's black over both, and shown.
+void Mw1State::draw_live(float dt, double fade_alpha) {
+  auto& en = static_cast<mech3::GameEngine&>(e());
+  live_(en, *screen_ptr_);
+  en.video_begin_3d();
+  en.render_flush(en.video_screen_rect());
+  g_live_drawing = true;
+  en.vcall(screen_, 0x00, {zgame::bits(dt)});
+  g_live_drawing = false;
+  en.video_end_3d();
+  if (fade_alpha > 0.0) {
+    fade_tint(en, fade_alpha);
+    en.video_begin_scene();
+    en.video_draw_3d();
+    en.video_end_scene();
+  }
+  en.video_flip(0, 0, 1, 0);
+}
+
 bool Mw1State::update() {
   if (fade::current().busy()) {
     fading_frame();
     return false;
   }
-  const bool r = MenuState::update();
+  bool r = false;
+  if (live_on()) {  // ShellState::update's frame with the live 3D under it
+    mech3::Engine& en = e();
+    en.input_poll(0);
+    if (!a().fullscreen() && (a().input_mode_ & 0xc) == 8) {
+      int32_t x = 0, y = 0;
+      en.cursor_pos(&x, &y);
+      en.mouse_set_pos(x, y);
+    }
+    en.sound_update(0, 0);
+    if (en.key_state(1) == 1) escape();
+    if (live_on()) draw_live(en.frame_dt(), 0.0);
+  } else {
+    r = MenuState::update();
+  }
   if (keys_ && screen_ptr_)
     if (const uint32_t k = e().input_frame_key()) keys_(k);
   // The wheel: its position (zin's, unclamped) against last frame's.
@@ -711,7 +778,13 @@ bool Mw1State::enter() {
   return true;
 }
 
+void Mw1State::suspend(uint32_t arg) {
+  if (live_gone_) live_gone_();
+  MenuState::suspend(arg);
+}
+
 void Mw1State::leave() {
+  if (live_gone_) live_gone_();
   e().shell_clear(addr());  // the screen deleted (its deleting destructor through vcall)
   screen_ptr_ = nullptr;
   ShellState::leave();

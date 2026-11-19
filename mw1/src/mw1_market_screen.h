@@ -56,6 +56,14 @@ bool market_row_at(int32_t x, int32_t y, bool wide, bool* own, int32_t* row);
 
 // The screen's texts and buttons for the company's Mech Complex (pure: the tests read it).
 ScreenView market_view(const Company& c, const MarketChoice& m);
+// The 'Mech the panel shows: the chosen row's (YOUR MECHS' when it was the last chosen); -1 none.
+int32_t market_shown_mech(const Company& c, const MarketChoice& m);
+// The panel's 'Mech drawn live in gunmetal (FIXES.md item 12, Owen 2026-11-18; mech3/model_view.h): set by the
+// program while its 3D view is up. Off (no 3D: headless, the software renderer), the stored render when there is one.
+void set_market_live(bool on);
+bool market_live();
+// Ready, off: the live 'Mech turns (degrees a second; Owen chose it still, the turning kept as an option).
+inline constexpr float kMarketMechTurn = 0.0f;
 
 // The Mech Complex's state: pushed in the hub's place by the loop. `resumed` hears it come back to the top (the
 // mech lab closed over it).
