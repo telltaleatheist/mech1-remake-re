@@ -136,6 +136,17 @@ Tick an item when it is merged into `main`.
   - **Chrome lines and PM's list arrows / scrollbars:** no longer left at canvas size. They're drawn at window scale too, from geometry or redrawn art. This reverses the earlier "PM's widget art stays canvas-sharp".
   - **Framed tiles, DEPLOY's tile, the lab panels:** from their full-size source pictures (dev 1, B2).
   - **The mission HUD's keyed-overlay gap:** to be scoped. It's shared with PM's engine, so plan it with the mw3 lead.
+  - **The 4K sweep (dev 2, 2026-11-19):** every MW1_SCREEN page and a mission at 3840x2160, hidden, read for "draws
+    left to the canvas" and looked at in crops.
+    - Fixed: PM's own 'Mech icons as PM's screens show them (the lab's chassis at its top, `icon_<Mech>_<colour>`) are
+      now drawn from their mech outlines, in the icon's own colour. At 4K they look the same (PM's pixel art traced
+      edge for edge), but the log no longer lists them.
+    - Fixed: mw1_clear (a part MW1 doesn't show) and mw1_black (the travel map's and the narration's backdrop) are
+      drawn flat at any scale, so the log lists only real gaps. Every menu page now logs none.
+    - Left: the mission radar's circle, sweep cone and boundary lines are drawn into the canvas as lines. The
+      high-resolution draw has only text and pictures, so they stay blocky at 4K, and the log can't see them. That is
+      this keyed-overlay gap, for the mw3 lead. Text, contacts, bars, the compass and the damage display are already
+      sharp. The cockpit's dashboard is a 3D texture, not 2D.
 
 ## 13. [x] The Mech Complex's market: lists and buttons don't work; PM's look *(done: mw1-mech-complex)*
 - **Owen (2026-11-17, `keep/mw1-remake/reference/owen-play-market.png`):** "These buttons/lists don't seem to be working. Also, can we make the buttons, colours, and general style closer to the other MW1 style we've established?"

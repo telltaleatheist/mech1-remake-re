@@ -62,5 +62,10 @@ inline constexpr int32_t kRowIconW = 12, kRowIconH = 15;
 inline constexpr double kRowLineMin = 1.2;
 std::string row_icon_image(int32_t pm_mech, bool lit);  // "mw1_row_<mech>", _lit
 const IconOutline* icon_outline(const std::string& name);
+// FIXES.md item 12 (the 4K sweep, 2026-11-19): PM's own icons by PM's names ("icon_<Mech>_<colour>", kPmIconColours),
+// which PM's screens show as they are (the lab's chassis at its top): their outlines in the icon's own colour (its
+// brightest lit pixel's), placed as the icon (scale 1, the icon's size), read from PM's libraries on first ask. Null
+// when `name` isn't one of PM's mech icons or PM's has no lines.
+const IconOutline* pm_icon_outline(const std::string& name);
 
 }  // namespace mw1
