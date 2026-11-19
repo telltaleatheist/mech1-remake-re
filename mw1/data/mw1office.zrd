@@ -4,7 +4,8 @@
 ; office scene, the House's liaison (named per view, the world's House) under
 ; REQUEST MISSION (NEXT OFFER once one is up), NEGOTIATE (SUBMIT), ACCEPT and LEAVE (BACK) down the left
 ; (MW1's CONTRACT_OFFICE: REQUEST_MISSION_OFFER, NEXT_MISSION_OFFER, NEGOTIATE_CONTRACT); the contract on offer on the panel,
-; the three terms on the terminal, each with MW1's arrows (up asks more, down
+; the three terms on the terminal (FIXES.md item 50: the liaison's frame as wide as the buttons, edges lined up, a
+; button gap under LEAVE, its foot on the terminal's; the portrait 4 inside it, cut to fit, never stretched), each with MW1's arrows (up asks more, down
 ; less, as MW1's keys did). The plaques: the world and its House; the place
 ; and the company's funds. All MW1's own art (mw1image.zbd): nothing of
 ; Pirate's Moon's (FIXES.md item 5; tests/test_mw1_look.cpp).
@@ -18,8 +19,8 @@ MW1OFFICEDIALOG (
     PANEL (POSITION (12 8) BITMAP ("mw1_plaque"))
     PANEL2 (POSITION (328 8) BITMAP ("mw1_plaque"))
     PANEL3 (POSITION (-107 454) BITMAP ("mw1_statusbar") ANCHOR ("CENTRE"))
-    PANEL4 (POSITION (44 236) BITMAP ("mw1_frame_104x136"))
-    PANEL5 (POSITION (48 240) BITMAP ("mw1_liaison_davion_s"))
+    PANEL4 (POSITION (12 236) BITMAP ("mw1_frame_168x210"))
+    PANEL5 (POSITION (16 240) BITMAP ("mw1_liaison_davion_office"))
     PANEL6 (POSITION (188 76) BITMAP ("mw1_panel_436x190"))
     PANEL7 (POSITION (188 274) BITMAP ("mw1_term_436x172"))
   )
@@ -59,8 +60,8 @@ MW1OFFICEDIALOG_WIDE (
     PANEL (POSITION (16 8) BITMAP ("mw1_plaque"))
     PANEL2 (POSITION (537 8) BITMAP ("mw1_plaque") ANCHOR ("RIGHT"))
     PANEL3 (POSITION (0 454) BITMAP ("mw1_statusbar") ANCHOR ("CENTRE"))
-    PANEL4 (POSITION (48 236) BITMAP ("mw1_frame_104x136"))
-    PANEL5 (POSITION (52 240) BITMAP ("mw1_liaison_davion_s"))
+    PANEL4 (POSITION (16 236) BITMAP ("mw1_frame_168x210"))
+    PANEL5 (POSITION (20 240) BITMAP ("mw1_liaison_davion_office"))
     PANEL6 (POSITION (200 76) BITMAP ("mw1_panel_637x190"))
     PANEL7 (POSITION (200 274) BITMAP ("mw1_term_637x172"))
   )

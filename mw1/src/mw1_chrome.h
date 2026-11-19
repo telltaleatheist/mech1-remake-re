@@ -97,8 +97,8 @@ inline constexpr int32_t kFrame = 4;
 std::string frame_name(int32_t w, int32_t h, bool lit = false);
 inline const std::vector<PanelSize>& frame_sizes() {
   // A portrait (240x320), a small one (96x128), the market's mech (160x128), AFTER ACTION's picture (item 38: 240x210
-  // at 16:9, 192x168 at 4:3).
-  static const std::vector<PanelSize> k = {{248, 328}, {104, 136}, {168, 136}, {248, 218}, {200, 176}};
+  // at 16:9, 192x168 at 4:3), the office's liaison (item 50: 160x202).
+  static const std::vector<PanelSize> k = {{248, 328}, {104, 136}, {168, 136}, {248, 218}, {200, 176}, {168, 210}};
   return k;
 }
 // The up and down arrows (a list's, a term's): mw1_up and mw1_dn, each with _lit, _down and _off; the left and right
