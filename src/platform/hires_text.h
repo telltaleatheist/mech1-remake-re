@@ -8,12 +8,14 @@
 // - the pen on the canvas font (opened at the key's em, MONO hinting, no kerning, its style): tracking 0, each glyph
 //   at the width of the line's bytes before it measured as one string (the whole-line draw's own positions);
 //   tracked, glyph by glyph, each glyph's own width and the tracking after it;
-// - each glyph's quad at its pen times sx (rounded to a whole frame pixel) plus where the big glyph's ink starts in
-//   its render (its left bearing);
+// - the line from its canvas pen times sx to the canvas line's end times sx, and each glyph between at the big font's
+//   own advances (its pen in the big font's line, stretched evenly to those ends; MW1's FIXES.md item 94: the canvas
+//   pen's whole-pixel advances times the scale spaced letters unevenly), rounded to a whole frame pixel, plus where
+//   the big glyph's ink starts in its render (its left bearing);
 // - the baseline: (top_y + shift + the canvas font's ascent) times sy, rounded; a glyph's ink below it as the big
 //   font has it. So every quad's x and y are whole frame pixels (the draw samples the atlas texel on pixel);
 // - the big font: em times sy (a float size), LIGHT hinting, no kerning, the same bold and italic, rendered Blended,
-//   its coverage kept. The big font's advances are never used.
+//   its coverage kept; its advances place the glyphs within the line.
 #include <cstdint>
 #include <memory>
 #include <string>
