@@ -838,7 +838,7 @@ Tick an item when it is merged into `main`.
   - Find out whether this is MW1's lance setup (e.g. the squad's member list or slot numbers built wrong for MW1's lancemates) or PM's own recipient logic. Compare with PM's Instant Action with two lancemates.
 - **Done means:** the cause and the fix, with a test where lancemates move and fire, and where W on each lancemate in turn makes it the recipient and an attack order reaches it. If PM's engine is at fault, it goes to the mw3 lead.
 
-## 73. [ ] The log's polish: cut headlines and the money format
+## 73. [x] The log's polish: cut headlines and the money format
 - **Lead's review of 62/63/67 (the LOG shot):**
   - A headline taken from inside a shared-title story stops mid-sentence: "JUSTIN ALLARD NOW JUSTIN XIANG SEEKS", "ALLARD TRIAL ENDS IN CONFUSION PRINCE". When the line doesn't end a sentence, end it with "…" so it reads as cut on purpose.
   - Money: "Wages paid: 2400 C-bills." has no thousands comma, while the other lines do. Every amount in the log and the hub box goes through the same thousands().
