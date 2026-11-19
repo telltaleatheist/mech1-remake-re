@@ -675,7 +675,7 @@ Tick an item when it is merged into `main`.
   - the fit checks (mw1screenfit, 50's line-up test, updated);
   - the office golden re-recorded (off and on identical).
 
-## 57. [ ] The repair line belongs on the mission summary, not a hub message
+## 57. [x] The repair line belongs on the mission summary, not a hub message
 - **Owen (2026-11-18, in play):** a MESSAGES box on the hub after a mission said "Repairs: the Owens 4,963, from the wrecks". He asked "is this right? also, this should probably appear on the mission summary screen".
 - **Right:** yes. The Owens's repairs (4,963) were paid from the wrecks' worth (51), so nothing was billed. But the wording is unclear, and a box after the fact is the wrong place for it.
 - **Wanted:**
