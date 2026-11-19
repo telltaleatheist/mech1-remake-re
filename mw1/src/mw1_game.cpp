@@ -1158,7 +1158,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         if (h == Hire::kDone) {
           bchoice_.mate = static_cast<int32_t>(company_.lance.size()) - 1;
           log_add(company_, LogKind::kHired, true, company_.lance.back().id);
-          bchoice_.note += seated_words(seat_lancemates(company_));  // FIXES.md item 85: a spare taken
+          bchoice_.note = seated_words(seat_lancemates(company_), true, bchoice_.note);  // FIXES.md items 85, 92
         }
         changed = h != Hire::kNoSuch;
         break;
@@ -1408,7 +1408,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
           log_add(company_, LogKind::kBought, true, mech, 0, 0, 0, price);
           // FIXES.md item 85: a lancemate without a mech takes it; the lance's weight changed, the offer redrawn.
           const int32_t weight = lance_weight(company_);
-          done += seated_words(seat_lancemates(company_));
+          done = seated_words(seat_lancemates(company_), false, done);  // FIXES.md item 92: the price on the funds
           if (lance_weight(company_) != weight && offered_ && !pending_ && !contract_.accepted) new_offer();
           deal_choice(company_, m, true);  // the new one chosen and shown in YOUR MECHS (FIXES.md item 58)
         }
@@ -1446,15 +1446,12 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     show_market();
   }
 
-  // FIXES.md item 85: who took which spare, logged (quiet: the status line says it) and as the status line's words.
-  std::string seated_words(const std::vector<Seated>& seated) {
-    std::string words;
-    for (const Seated& s : seated) {
-      const int32_t mech = company_.hangar[static_cast<size_t>(s.hangar)].mech;
-      log_add(company_, LogKind::kSeated, true, s.pilot, mech);
-      words += " " + pilot_title(s.pilot) + " takes the " + mech_title(mech) + ".";
-    }
-    return words;
+  // FIXES.md items 85, 92: who took which spare, logged (quiet: the status line says it); the status line's note
+  // (seated_note: the Mech Lab to change it), or `otherwise` when nobody was seated.
+  std::string seated_words(const std::vector<Seated>& seated, bool hired, const std::string& otherwise) {
+    for (const Seated& s : seated)
+      log_add(company_, LogKind::kSeated, true, s.pilot, company_.hangar[static_cast<size_t>(s.hangar)].mech);
+    return seated.empty() ? otherwise : seated_note(company_, seated, hired);
   }
 
   // BUY's and SELL's question in the game's box (FIXES.md item 60): true on YES. Without an engine (no box), yes.

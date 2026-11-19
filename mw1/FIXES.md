@@ -1154,3 +1154,20 @@ at a mech 370 m away and walked 6 m in 450 frames; the other two walked as alway
   - The test picks the engine's seed itself (time()), prints it, and `MW1_TEST_SEED=<n>` replays it.
   - Each lancemate's walk is kept every 50 frames: how far toward its mech, how far moved, speed, health and the gap.
     It is printed for any lancemate that didn't walk at its mech, so the next stall tells what it was.
+
+## 92. [x] The seat's status line points at the Mech Lab *(done: mw1-seat-lab)*
+Owen, on 85: assignments belong to the Mech Lab's slots along the top, as in MW3. So the seat may only fill a blank
+slot the lab would show, never move anyone, and the status line should say where to change it.
+- **The seat, checked against the lab:** the lab's top row is you, then one slot per lancemate with their mech, or the
+  empty frame without one (`lance_slots`). `seat_lancemates` only gives a lancemate who has no mech a hangar mech no
+  one pilots (a spare, from the lab's store). It already met the rule: no change.
+- **The note:** `seated_note` replaces the hire's "X joins the lance." and the buy's "Bought: ..." when someone was
+  seated. A hire says "X joins in the Firefly", a buy "X takes the Firefly", and both end with Owen's
+  "(change it in the Mech Lab)." when that fits the status line at 4:3 (`kStatusLetters`, 62). Otherwise they end
+  with "; see the Mech Lab.". Several seated at once (only when lancemates had none before) is "N lancemates take
+  spare 'Mechs; see the Mech Lab.". The price stays on the funds above. The log still records each seat.
+- **Tests:**
+  - The loop's Bar check builds the note for every pilot in every mech the market sells, with PM's titles, hired
+    and bought (2016 notes). None is over the limit, every one names the Mech Lab, and 1911 are in Owen's words.
+  - Its hire check now looks for " joins in the " and the lab.
+  - The pilots test covers the forms.

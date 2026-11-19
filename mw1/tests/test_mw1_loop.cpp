@@ -731,12 +731,36 @@ void loop_run(Ending ending, Run* run = nullptr) {
           for (int32_t i = 0; i < n; ++i) sc->on_button(mw1::kBarHire, 0, 0);
           for (const std::string& l : sc->shown()) run->bar_after.push_back(l);  // nobody left
           EXPECT(static_cast<int32_t>(c->lance.size()) == n && c->recruits.empty());
-          // FIXES.md item 85: each hire took a spare in turn, the status line and the log saying so (not printed).
+          // FIXES.md items 85, 92: each hire took a spare in turn, the status line and the log saying so (not printed),
+          // the line pointing at the Mech Lab.
           if (spares >= static_cast<size_t>(n)) {
             bool said = false;
-            for (const std::string& l : sc->shown()) said = said || l.find(" takes the ") != std::string::npos;
+            for (const std::string& l : sc->shown())
+              said = said || (l.find(" joins in the ") != std::string::npos && l.find("Mech Lab") != std::string::npos);
             EXPECT(said && !c->log.empty() && c->log[0].kind == mw1::LogKind::kSeated && c->log[0].a == c->lance.back().id);
             for (int32_t i = 0; i < n; ++i) EXPECT(mw1::mech_of(*c, i) == i);
+          }
+          // FIXES.md item 92: every pilot in every mech the market sells, PM's titles: the seat's note fits the status
+          // line at 4:3 and points at the Mech Lab, hired or bought. Counts only (the names are MW1's and PM's).
+          {
+            int32_t notes = 0, owens_words = 0, over = 0, no_lab = 0;
+            size_t longest = 0;
+            mw1::Company one;
+            one.hangar.resize(1);
+            for (int32_t id = 1; id <= mw1::kPilotCount; ++id)
+              for (int32_t m = 0; m < mech3::kMechCount; ++m)
+                if (mw1::sold_mech(m))
+                  for (const bool hired : {true, false}) {
+                    one.hangar[0].mech = m;
+                    const std::string note = mw1::seated_note(one, {{id, 0}}, hired);
+                    ++notes, longest = std::max(longest, note.size());
+                    owens_words += note.find("(change it in the Mech Lab)") != std::string::npos;
+                    over += note.size() > mw1::kStatusLetters;
+                    no_lab += note.find("Mech Lab") == std::string::npos;
+                  }
+            std::printf("  seat notes: %d, the longest %zu letters, %d in Owen's words; %d over, %d without the lab\n", notes,
+                        longest, owens_words, over, no_lab);
+            EXPECT(notes > 0 && over == 0 && no_lab == 0);
           }
           run->lance_hired = true;
           mw1::game_loop_bar()->escape();  // Escape on a page: the Bar's menu, still the Bar
