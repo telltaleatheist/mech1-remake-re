@@ -66,6 +66,7 @@
 #include "mw1_market_screen.h"
 #include "mw1_lab_pilot.h"
 #include "mw1_menu.h"
+#include "mw1_movie.h"
 #include "mw1_images.h"
 #include "mw1_lab_skin.h"
 #include "mw1_layouts.h"
@@ -436,10 +437,11 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       // FIXES.md item 52's captures: the player's presses at set frames (as a click: faded), the hub's first at
       // MW1_FADE_AT (default 60), the next 40 frames on. fade_bar: BAR, then the Bar's BACK; fade_lab: MECH COMPLEX,
       // then MECH LAB (on the commander's mech); fade_story: STORY (the trail at MW1_STORY_STEP, default 7), then GO
-      // THERE; fade_deploy: the office's offer taken, then DEPLOY (the loading screen).
+      // THERE; fade_deploy: the office's offer taken, then DEPLOY (the loading screen); fade_launch (item 54): TRAVEL,
+      // then GO to a near world (the DropShip's launch, MW1_MOVIE=1 under --hidden, then the hub).
       if (const char* s = std::getenv("MW1_SCREEN");
           s && (std::string(s) == "fade_bar" || std::string(s) == "fade_lab" || std::string(s) == "fade_story" ||
-                std::string(s) == "fade_deploy")) {
+                std::string(s) == "fade_deploy" || std::string(s) == "fade_launch")) {
         const std::string page = s;
         const int at = std::getenv("MW1_FADE_AT") ? std::atoi(std::getenv("MW1_FADE_AT")) : 60;
         if (page == "fade_story") {
@@ -451,7 +453,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         // so its fade-in is seen (FIXES.md item 12, the fade over the high-resolution draw).
         if (page == "fade_deploy") hold_for_shot_ = true;
         auto before = ge.on_present;
-        ge.on_present = [this, before, page, at, start = -1](int f) mutable {
+        ge.on_present = [this, before, page, at, start = -1, went = false](int f) mutable {
           if (before) before(f);
           if (start < 0) start = f;
           const int n = f - start;
@@ -459,10 +461,23 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
             std::printf("mw1: fade capture: frame %d, the first press (%s)\n", f, page.c_str());
             if (page == "fade_deploy" && !contract_.accepted && earning_here(company_)) new_offer(), take_contract();
             as_player([&] {
-              press(page == "fade_lab" ? kHubMarket : page == "fade_story" ? kHubStory : page == "fade_deploy" ? kHubDeploy : kHubBar);
+              press(page == "fade_lab"      ? kHubMarket
+                    : page == "fade_story"  ? kHubStory
+                    : page == "fade_deploy" ? kHubDeploy
+                    : page == "fade_launch" ? kHubTravel
+                                            : kHubBar);
             });
           }
-          if (n == at + 40 && page != "fade_deploy") {
+          // fade_launch: GO once the map is up and still (a --hidden run's frames are quicker than the fade's 60 a second).
+          if (page == "fade_launch" && n >= at + 40 && !went && travel_state_ && ge_ && mech3::app_if_any() &&
+              mech3::app_if_any()->current() == static_cast<zgame::State*>(travel_state_) && !fade::current().busy()) {
+            went = true;
+            std::printf("mw1: fade capture: frame %d, the second press (%s)\n", f, page.c_str());
+            const std::vector<int32_t> near = destinations(company_, -1);
+            if (!near.empty()) tchoice_.world = near[0], company_.funds = std::max<int64_t>(company_.funds, 5000000);
+            as_player([&] { press_travel(kTravelGo); });
+          }
+          if (n == at + 40 && page != "fade_deploy" && page != "fade_launch") {
             std::printf("mw1: fade capture: frame %d, the second press (%s)\n", f, page.c_str());
             as_player([&] {
               if (page == "fade_lab") press_market(kMarketLab);
@@ -684,6 +699,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     hub_engine_ = &ge, ge_ = &ge, hub_ = 0, hub_state_ = nullptr;
     market_ = 0, market_state_ = nullptr;
     travel_ = 0, travel_state_ = nullptr;
+    movie_ = 0, movie_state_ = nullptr;
     bar_ = 0, bar_state_ = nullptr;
     office_ = 0, office_state_ = nullptr;
     hub_options_ = 0, hub_options_state_ = nullptr;
@@ -1118,7 +1134,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
                     date_words(company_.date).c_str(), thousands(company_.funds).c_str());
         clear_contract();
         if (!ge) return;
-        screen_change([this] { back_to_hub(); });
+        screen_change([this] { launch_movie(); });  // the DropShip launches (FIXES.md item 54), then the hub
         return;
       }
       case kTravelFilter: tchoice_.filter = next_filter(tchoice_.filter); break;
@@ -1133,6 +1149,38 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
 
   void show_travel() {
     if (travel_state_) travel_state_->show(travel_view(company_, tchoice_));
+  }
+
+  // ---- the DropShip's launch (mw1_movie.h, FIXES.md item 54) ----
+
+  // MW1's MwPlayHiredTransportAnimation (MW_MAIN 081B:6095) on a paid trip: our clip in the travel screen's place,
+  // then the hub. Straight to the hub when it doesn't play (headless, --hidden, MW1_MOVIE=0, the file missing).
+  void launch_movie() {
+    mech3::GameEngine* ge = ge_;
+    if (!ge) return;
+    const std::string path = movie::clip_path(movie::kLaunchClip);
+    std::error_code ec;
+    const bool there = !path.empty() && std::filesystem::is_regular_file(path, ec);
+    if (!there || !movie::wanted(ge->platform_parts().render != nullptr)) {
+      std::printf("mw1: movie %s: %s\n", movie::kLaunchClip, there ? "not played" : "not there");
+      back_to_hub();
+      return;
+    }
+    if (!movie_ || ge->menu_state_of(movie_) != movie_state_)
+      movie_ = ge->adopt_state([this, path](zgame::Handle h) {
+        return movie_state_ = new movie::MovieState(h, path, [this] { movie_done(); });
+      });
+    if (!movie_) {
+      back_to_hub();
+      return;
+    }
+    swap_to(*ge, movie_);
+  }
+
+  // The clip over (played or skipped): the hub, faded in from it (item 52); at once with the fades off.
+  void movie_done() {
+    if (fade::enabled() && ge_ && fade::current().start([this] { back_to_hub(); })) return;
+    back_to_hub();
   }
 
   // ---- the Mech Complex (mw1_market.h, mw1_market_screen.h) ----
@@ -2651,6 +2699,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   MenuState* menu_state() const { return menu_state_; }
   IntroState* intro_state() const { return intro_state_; }
   CreditsState* credits_state() const { return credits_up_ ? credits_state_ : nullptr; }
+  movie::MovieState* movie_state() const { return movie_state_; }
   void set_world(const std::string& world, int32_t ia) { world_ = world, world_ia_ = ia; }
   const Request* office_ask() const { return &ochoice_.ask; }
   const Contract* contract() const { return company_.stores && (offered_ || contract_.accepted || pending_) ? &contract_ : nullptr; }
@@ -3399,6 +3448,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   bool offered_ = false;                  // a contract on offer at the House office (not yet accepted)
   zgame::Handle travel_ = 0;
   TravelState* travel_state_ = nullptr;
+  zgame::Handle movie_ = 0;  // the DropShip's launch (FIXES.md item 54)
+  movie::MovieState* movie_state_ = nullptr;
   TravelChoice tchoice_;
   // The hub on this engine (Engine::adopt_state): its handle and state, made once.
   mech3::GameEngine* menu_engine_ = nullptr;
@@ -3530,6 +3581,7 @@ void set_game_loop_start(Start s) {
 MenuState* game_loop_menu() { return the_loop() ? the_loop()->menu_state() : nullptr; }
 IntroState* game_loop_intro() { return the_loop() ? the_loop()->intro_state() : nullptr; }
 CreditsState* game_loop_credits() { return the_loop() ? the_loop()->credits_state() : nullptr; }
+movie::MovieState* game_loop_movie() { return the_loop() ? the_loop()->movie_state() : nullptr; }
 void game_loop_press_menu(int32_t button) {
   if (the_loop()) the_loop()->press_menu(button);
 }

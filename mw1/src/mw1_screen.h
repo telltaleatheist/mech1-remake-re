@@ -242,6 +242,11 @@ void fade_present(mech3::Engine& en);
 // The same inside a frame that isn't an MW1 state's, drawn in a lock (the loading screen in PM's Load state): the
 // black over what was drawn so far.
 void fade_over_layer(mech3::Engine& en);
+// FIXES.md item 54: for a state that draws its own frames (the movie, mw1_movie.h). fade_frame steps the fade once
+// this frame and gives its black's alpha (0: no fade); -1 when the change was just made on this frame (the next screen
+// is up: draw nothing more). fade_black lays that black over this frame's scene (then video_draw_3d draws it).
+float fade_frame(mech3::Engine& en);
+void fade_black(mech3::Engine& en, float alpha);
 
 // True when MW1's data has `file` with `dialog` in it (the loop falls back to message boxes when not).
 bool layout_there(const char* file, const char* dialog);

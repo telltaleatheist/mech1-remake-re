@@ -34,6 +34,10 @@ class CreditsState;
 menu::MenuState* game_loop_menu();    // the menu's state once made (tests)
 menu::IntroState* game_loop_intro();  // the intro's, once made
 menu::CreditsState* game_loop_credits();  // the credits', while they roll
+namespace movie {
+class MovieState;
+}  // namespace movie
+movie::MovieState* game_loop_movie();  // the DropShip's launch (FIXES.md item 54), once made
 void game_loop_press_menu(int32_t button);  // a menu button, as pressed (tests)
 // Every new contract a battle (destroy all) on this world's Instant Action map (by folder: "mw3c2", 1): a test
 // override. Empty: the contracts' own (mw1_missions.h).
