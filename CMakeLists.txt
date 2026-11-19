@@ -1240,7 +1240,7 @@ if(SDL3_FOUND)
     # PM's platform tests (input, window, render, text, net), in the same files. MW3_PM_SUITE
     # leaves out those that read MW3's data or start MW3's programs; a PM version comes with its feature.
     if(MW3_BUILD_PM AND NOT MW3_BUILD_MW3)
-      add_executable(mw3pmsdltests tests/main.cpp tests/test_hires_draw.cpp tests/test_hires_text.cpp tests/test_sdl_frontend.cpp tests/test_sdl_new_world.cpp src/frontend/sdl/sdl_update.cpp tests/test_net_enet.cpp tests/test_net_upnp.cpp
+      add_executable(mw3pmsdltests tests/main.cpp tests/test_hires_draw.cpp tests/test_hires_readbacks.cpp tests/test_hires_text.cpp tests/test_sdl_frontend.cpp tests/test_sdl_new_world.cpp src/frontend/sdl/sdl_update.cpp tests/test_net_enet.cpp tests/test_net_upnp.cpp
                      src/frontend/sdl/sdl_restart.cpp src/frontend/sdl/win_cmdline.cpp tests/test_win_cmdline.cpp tests/test_log_start.cpp)
       target_link_libraries(mw3pmsdltests PRIVATE mw3text mw3sdl pmcore mw3core SDL3::SDL3)
       target_compile_definitions(mw3pmsdltests PRIVATE MW3_PM_SUITE=1 MW3_GAME_DIR="${MW3PM_GAME_DIR}"

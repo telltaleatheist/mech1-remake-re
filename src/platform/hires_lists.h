@@ -63,6 +63,7 @@ struct Command {
   std::string name;       // picture: the image's name (image_get's)
   bool alpha = false;     // picture: the image blends (a key or an alpha plane)
   uint64_t seq = 0;       // the order it was drawn in, over all owners
+  uint64_t origin = 0;    // the draw it copies (its first seq): a grab's copies and a blit's keep it
   std::vector<uint16_t> before, after;  // on the screen: the canvas's pixels in rect before its blit and after
 };
 

@@ -27,6 +27,9 @@
 #include "check.h"
 #include "gamez/zvideo/zvid_dd.h"
 #include "platform/hires_2d.h"
+#include "frontend/sdl/hires_draw.h"
+#include "platform/hires_images.h"
+#include "platform/hires_lists.h"
 #include "platform/menu_pointer.h"
 #include "mech3/source_map.h"
 #include "mech3/patch_import.h"
@@ -1276,6 +1279,65 @@ TEST(sdl_layer_scales_sharp) {
   const uint32_t first = f[450 * 960 + 450];
   std::printf("layer at 1.5x: the lone texel's first pixel %08x\n", first);
   EXPECT((first & 0xff) >= 0xf8 && (first >> 8 & 0xff) >= 0xf8 && (first >> 16 & 0xff) >= 0xf8);
+}
+
+// MW1's FIXES.md item 12 (research/hires-2d.md B4): a picture drawn at the frame's resolution keeps its source's
+// detail. A fixture (not art): a 64x64 canvas image whose source is 5 times it, with a line one source pixel wide; on a
+// 256x192 canvas in a 1280x960 frame (5x) the line is one frame pixel wide, not the canvas pixel's five.
+TEST(sdl_hires_picture_keeps_its_source_detail) {
+  if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) return;
+  struct Fixture : platform::HiresImages {
+    std::vector<uint8_t> px;
+    platform::HiresImage im;
+    Fixture() : px(320u * 320u * 4u) {
+      for (int32_t y = 0; y < 320; ++y)
+        for (int32_t x = 0; x < 320; ++x) {
+          uint8_t* q = &px[(static_cast<size_t>(y) * 320 + x) * 4];
+          const uint8_t v = x == 160 ? 255 : 32;
+          q[0] = q[1] = q[2] = v, q[3] = 255;
+        }
+      im.w = im.h = 320, im.rgba = px.data(), im.serial = 0x5eed, im.canvas_w = im.canvas_h = 64;
+    }
+    const platform::HiresImage* find(const char* name) override { return std::string(name) == "fixture" ? &im : nullptr; }
+    void set_frame_scale(float) override {}
+  } fixture;
+  sdlfe::SdlWindow w;
+  EXPECT(w.init(true));
+  platform::hires::Lists lists;
+  std::vector<uint16_t> canvas(256 * 192, 0);
+  static int fixture_owner;
+  const size_t added = lists.blit(&fixture_owner, 64, 64, nullptr, canvas.data(), 256, 192, 64, 64, true, "fixture");
+  lists.snapshot(canvas.data(), added, canvas.data(), 256, false);
+  for (int32_t y = 64; y < 128; ++y)
+    for (int32_t x = 64; x < 128; ++x) canvas[y * 256 + x] = x == 96 ? 0xffff : 0x2104;  // the canvas's copy
+  lists.snapshot(canvas.data(), added, canvas.data(), 256, true);
+  // The line's width along a row through the picture's middle: pixels at least half lit.
+  auto width = [&](bool hires) {
+    w.create("mw1 hires source test", 1280, 960);
+    w.frame_size(1280, 960, 256, 192);
+    sdlfe::SdlScreen2D screen(w.render());
+    sdlfe::HiresDraw draw(w.render(), &lists);
+    platform::set_hires_images(&fixture);
+    if (hires)
+      screen.after_layer = [&](const uint16_t* p, int cw, int ch, int pitch, bool rgb565, bool keyed, uint16_t key) {
+        draw.draw(p, cw, ch, pitch, rgb565, keyed, key);
+      };
+    w.render()->set_viewport(0, 0, 1280, 960);
+    screen.present_16(canvas.data(), 256, 192, 256 * 2, true);
+    platform::set_hires_images(nullptr);
+    std::vector<uint32_t> f;
+    int rw = 0, rh = 0;
+    if (!w.render()->read_back(&f, &rw, &rh) || rw != 1280 || rh != 960) return -1;
+    int n = 0;
+    for (int32_t x = 320; x < 640; ++x) n += (f[480 * 1280 + x] & 0xff) >= 144;
+    return n;
+  };
+  const int canvas_w = width(false);
+  if (canvas_w < 0) return;  // no hidden window of that size (a headless runner)
+  const int hires_w = width(true);
+  std::printf("a source pixel's line at 5x: %d frame pixels from the canvas, %d drawn from the source\n", canvas_w, hires_w);
+  EXPECT(canvas_w == 5);
+  EXPECT(hires_w >= 1 && hires_w <= 2);
 }
 
 // Playtest W22: the menus' whole-screen layer (present_16, the pause screen)

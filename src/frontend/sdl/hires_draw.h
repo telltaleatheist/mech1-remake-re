@@ -16,6 +16,7 @@
 #include <chrono>
 #include <cstdint>
 #include <unordered_map>
+#include <string>
 #include <vector>
 
 #include "platform/hires_lists.h"
@@ -53,6 +54,8 @@ class HiresDraw {
   const Stats& stats() const { return stats_; }
 
  private:
+  bool short_before_ = false;  // the last frame had draws left to the canvas (said once)
+  std::string short_what_, short_said_;  // which (the first few), for that line; the last said
   struct Picture {
     int32_t texture = -1;
     int unseen = 0;  // frames since last drawn

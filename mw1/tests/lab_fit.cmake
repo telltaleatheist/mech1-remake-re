@@ -1,16 +1,46 @@
-# The lab's text fit (FIXES.md item 17): mw1 with MW1_SCREEN=lab_fit at 4:3 (640x480) and 16:9 (853x480), each on a
+# The lab's text fit (FIXES.md item 17): mw1 with MW1_SCREEN=lab_fit at 4:3 (640x480) and 16:9 (853x480, and in a
+# 1920x1080 window, item 12: none of its 2D left to the canvas), each on a
 # new write dir. It shows the lab's chassis, weapons, criticals and groups pages and its load box, prints each text
 # with whether it fits its panel (mw1_lab_fit.h), and ends 0 only when every one does.
 # cmake -DMW1_BIN=<mw1> -DDIR=<scratch dir> -P lab_fit.cmake
-foreach(shape 43 wide)
+# FIXES.md item 12 (B4): at 1080p every text and picture drawn at the window's resolution. The draws still left to
+# the canvas, known and named: flat fills (nothing to lose magnified), the lab's
+# pressed 'Mech icon (icon_*_red, PM's), and a mission's HUD (hud_*, PM's: their sources are next, FIXES 12; the
+# results page's first frames are the mission's). Any other (a text, a picture not listed) fails.
+# The HUD's toggler (src/mech3/hud.cpp) is PM's lab_toggle[lr]_* by its own name: the lab draws MW1's reskin
+# (mw1_lab_toggle*, a source of its own), so the bare name is only ever the HUD's; its source comes with hud_*'s.
+set(hires_known "^(mw1_clear|mw1_black|icon_[a-z0-9_]+_red|hud_[a-z0-9_]+|lab_toggle[lr]_(green|red))$")
+function(hires_short out_text result)
+  set(bad "")
+  string(REGEX MATCHALL "mw3: hires: [^\n]*left to the canvas[^\n]*" lines "${out_text}")
+  foreach(line IN LISTS lines)
+    string(REGEX REPLACE "^[^:]*:[^:]*:[^:]*: ?" "" items "${line}")
+    string(REGEX MATCHALL "(text|picture [^ ]+) \\(" kinds "${items}")
+    foreach(k IN LISTS kinds)
+      string(REGEX REPLACE " \\($" "" k "${k}")
+      string(REGEX REPLACE "^picture " "" name "${k}")
+      if(k MATCHES "^text" OR NOT name MATCHES "${hires_known}")
+        list(APPEND bad "${k}")
+      endif()
+    endforeach()
+    if(line MATCHES ", [1-9][0-9]* lines past the atlas")
+      list(APPEND bad "lines past the atlas")
+    endif()
+  endforeach()
+  set(${result} "${bad}" PARENT_SCOPE)
+endfunction()
+foreach(shape 43 wide wide1080)
   set(wd "${DIR}/${shape}")
   file(REMOVE_RECURSE "${wd}")
   file(MAKE_DIRECTORY "${wd}")
   set(args)
   set(mode 5)  # InGameVMode: 640x480
-  if(shape STREQUAL "wide")
+  if(shape MATCHES "^wide")
     set(mode b)  # 854x480
     set(args --wide-menus)
+      if(shape STREQUAL "wide1080")  # FIXES.md item 12 (B4): at a real window, the text drawn at its resolution
+        list(APPEND args --window 1920x1080)
+      endif()
   endif()
   file(WRITE "${wd}/settings.reg" "Windows Registry Editor Version 5.00\n\n"
              "[HKEY_CURRENT_USER\\SOFTWARE\\MicroProse\\MechWarrior 3 EP1\\1.0]\n\"InGameVMode\"=dword:0000000${mode}\n")
@@ -29,6 +59,10 @@ foreach(shape 43 wide)
     endif()
     string(REGEX REPLACE ".*((\n[^\n]*){12})$" "\\1" tail "${out}${err}")
     message(FATAL_ERROR "${shape}: the lab's texts do not all fit (exit '${r}', ${done}); the run's last lines:${tail}")
+  endif()
+  hires_short("${out}" short)
+  if(shape STREQUAL "wide1080" AND (short OR NOT out MATCHES "high-resolution 2D on"))
+    message(FATAL_ERROR "${shape}: the lab's 2D not all drawn at the window's resolution: ${short}")
   endif()
 endforeach()
 file(REMOVE_RECURSE "${DIR}")

@@ -5,14 +5,104 @@
 // near 0. Text and pictures drawn at the window's resolution have detail inside a texel. Prints the mean difference
 // (luma, 0..255) and exits 1 when it is under MIN (default 2): blocky. The office at 4K reads 0.00 with the
 // high-resolution draw off and 4.7 with it on (B1 piece 4, 2026-11-18).
+//
+// mw1hirescheck --same A.bmp B.bmp CANVAS_W CANVAS_H L T R B [MAX]: does shot A show nothing over what reference B
+// shows flat in canvas rect [L, R) x [T, B)? B4's draw order (research/hires-2d.md): the lab's load box with the
+// high-resolution draw on (A) against off (B, the canvas, right by construction). Only the texels where B is flat
+// (every texel within 2 of it within 12 levels of luma: the box's plain fill, its own words and edges and their
+// halo left out, as those are drawn finer in A by design) count; in each, A must hold that fill too: its mean within
+// 24 of B's and no pixel more than 48 from it (a lab word drawn over the box is a stroke inside the texel). Prints
+// the count of flat texels and of those that differ, and exits 1 when more than MAX (default 0) differ, 2 when it
+// can't tell (no shot, or under 1000 flat texels).
 #include <SDL3/SDL.h>
 
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <algorithm>
+#include <cstring>
 #include <vector>
 
+namespace {
+// A BMP's luma, w x h; empty when it can't be read.
+std::vector<float> luma(const char* path, int* w, int* h) {
+  std::vector<float> l;
+  SDL_Surface* s = SDL_LoadBMP(path);
+  SDL_Surface* rgb = s ? SDL_ConvertSurface(s, SDL_PIXELFORMAT_RGB24) : nullptr;
+  if (s) SDL_DestroySurface(s);
+  if (!rgb) return l;
+  *w = rgb->w, *h = rgb->h;
+  l.resize(static_cast<size_t>(*w) * *h);
+  for (int y = 0; y < *h; ++y) {
+    const auto* row = static_cast<const uint8_t*>(rgb->pixels) + static_cast<size_t>(y) * rgb->pitch;
+    for (int x = 0; x < *w; ++x)
+      l[static_cast<size_t>(y) * *w + x] = 0.299f * row[3 * x] + 0.587f * row[3 * x + 1] + 0.114f * row[3 * x + 2];
+  }
+  SDL_DestroySurface(rgb);
+  return l;
+}
+
+int same(int argc, char** argv) {
+  if (argc < 10) {
+    std::fprintf(stderr, "usage: mw1hirescheck --same A.bmp B.bmp CANVAS_W CANVAS_H L T R B [MAX]\n");
+    return 2;
+  }
+  int aw = 0, ah = 0, bw = 0, bh = 0;
+  const std::vector<float> a = luma(argv[2], &aw, &ah), b = luma(argv[3], &bw, &bh);
+  const int cw = std::atoi(argv[4]), ch = std::atoi(argv[5]);
+  const int L = std::atoi(argv[6]), T = std::atoi(argv[7]), R = std::atoi(argv[8]), B = std::atoi(argv[9]);
+  const long max = argc > 10 ? std::atol(argv[10]) : 0;
+  if (a.empty() || b.empty() || aw != bw || ah != bh || cw <= 0 || ch <= 0 || L < 0 || T < 0 || R > cw || B > ch || L >= R || T >= B) {
+    std::fprintf(stderr, "mw1hirescheck: the shots can't be read, differ in size, or the rect is off the canvas\n");
+    return 2;
+  }
+  const double sx = static_cast<double>(aw) / cw, sy = static_cast<double>(ah) / ch;
+  // Each texel's pixels in a shot: their mean, and (for A) the farthest any is from a given level.
+  auto box = [&](int i, int j, int* x0, int* x1, int* y0, int* y1) {
+    *x0 = static_cast<int>(std::ceil(i * sx)), *x1 = std::min(aw, static_cast<int>(std::ceil((i + 1) * sx)));
+    *y0 = static_cast<int>(std::ceil(j * sy)), *y1 = std::min(ah, static_cast<int>(std::ceil((j + 1) * sy)));
+  };
+  auto mean = [&](const std::vector<float>& l, int i, int j) {
+    int x0, x1, y0, y1;
+    box(i, j, &x0, &x1, &y0, &y1);
+    double s = 0;
+    long n = 0;
+    for (int y = y0; y < y1; ++y)
+      for (int x = x0; x < x1; ++x) s += l[static_cast<size_t>(y) * aw + x], ++n;
+    return n ? s / n : -1.0;
+  };
+  std::vector<double> bm(static_cast<size_t>(cw) * ch, -1);
+  for (int j = 0; j < ch; ++j)
+    for (int i = 0; i < cw; ++i) bm[static_cast<size_t>(j) * cw + i] = mean(b, i, j);
+  long flat = 0, differ = 0;
+  for (int j = T; j < B; ++j)
+    for (int i = L; i < R; ++i) {
+      const double m = bm[static_cast<size_t>(j) * cw + i];
+      bool level = m >= 0;
+      for (int dj = -2; level && dj <= 2; ++dj)
+        for (int di = -2; level && di <= 2; ++di) {
+          const int x = i + di, y = j + dj;
+          if (x < 0 || y < 0 || x >= cw || y >= ch) continue;
+          level = std::fabs(bm[static_cast<size_t>(y) * cw + x] - m) <= 12;
+        }
+      if (!level) continue;
+      ++flat;
+      int x0, x1, y0, y1;
+      box(i, j, &x0, &x1, &y0, &y1);
+      double far = 0;
+      for (int y = y0; y < y1; ++y)
+        for (int x = x0; x < x1; ++x) far = std::max(far, std::fabs(a[static_cast<size_t>(y) * aw + x] - m));
+      if (std::fabs(mean(a, i, j) - m) > 24 || far > 48) ++differ;
+    }
+  std::printf("mw1hirescheck: %ld of %ld flat texels in the rect differ (at most %ld wanted): %s\n", differ, flat, max,
+              flat < 1000 ? "too few to tell" : differ <= max ? "nothing drawn over" : "something drawn over");
+  if (flat < 1000) return 2;
+  return differ <= max ? 0 : 1;
+}
+}  // namespace
+
 int main(int argc, char** argv) {
+  if (argc > 1 && std::strcmp(argv[1], "--same") == 0) return same(argc, argv);
   if (argc < 4) {
     std::fprintf(stderr, "usage: mw1hirescheck FRAME.bmp CANVAS_W CANVAS_H [MIN]\n");
     return 2;

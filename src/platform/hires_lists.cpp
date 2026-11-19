@@ -28,6 +28,7 @@ void Lists::append(const void* owner, Command c) {
     return;
   }
   c.seq = ++seq_;
+  if (!c.origin) c.origin = c.seq;
   l.push_back(std::move(c));
 }
 
@@ -69,6 +70,15 @@ size_t Lists::blit(const void* src, int32_t w, int32_t h, const Rect* part, cons
       c.rect = intersect(Rect{c.rect.l + dx, c.rect.t + dy, c.rect.r + dx, c.rect.b + dy}, landed);
       if (c.rect.empty()) continue;
       c.x += dx, c.y += dy;
+      // A grab put back where it was taken (the cursor's save, a popup's): the draw it copies still on the screen, in
+      // place and over this part, shows again by its own chain as the pixels come back; another copy would only add
+      // to the list, every move (the cursor's ran it past its cap in under 100 moves). B4's read-backs.
+      const auto there = lists_.find(dst);
+      if (there != lists_.end() &&
+          std::any_of(there->second.begin(), there->second.end(), [&](const Command& e) {
+            return e.origin == c.origin && e.x == c.x && e.y == c.y && !e.after.empty() && contains(e.rect, c.rect);
+          }))
+        continue;
       c.before.clear(), c.after.clear();
       append(dst, std::move(c));
     }

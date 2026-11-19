@@ -108,6 +108,10 @@ if(TARGET mw3pm)
                                          -DDIR=${CMAKE_CURRENT_BINARY_DIR}/mw1hiressmooth
                                          -DEXPECT=smooth  # B1's fourth piece; MW1_HIRES=0 still blocky
                                          -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/hires_smooth.cmake)
+    # FIXES.md item 12 (B4): the load box over the lab, nothing of the lab's drawn over it at 4K.
+    add_test(NAME mw1hiresorder COMMAND ${CMAKE_COMMAND} -DMW1_BIN=$<TARGET_FILE:mw1> -DCHECK_BIN=$<TARGET_FILE:mw1hirescheck>
+                                        -DDIR=${CMAKE_CURRENT_BINARY_DIR}/mw1hiresorder
+                                        -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/hires_order.cmake)
   endif()
   if(WIN32)
     # The version resource's numbers, MW1's own (the engine's are in its own scope): git's describe and commit count.
