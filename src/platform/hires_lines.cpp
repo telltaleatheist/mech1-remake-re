@@ -12,9 +12,52 @@ uint32_t canvas_rgb(uint16_t p, bool rgb565) {
   return r << 16 | g << 8 | b;
 }
 
+namespace {
+// FIXES 90: a filled polygon's coverage of each frame pixel: four rows a pixel, each row's spans exact across.
+void fill_coverage(const Command& c, float sx, float sy, int32_t W, int32_t H, std::vector<float>* cov) {
+  const size_t n = c.poly.size() / 2;
+  std::vector<float> xs(n), ys(n), cross;
+  for (size_t i = 0; i < n; ++i)
+    xs[i] = (static_cast<float>(c.x - c.rect.l) + c.poly[2 * i]) * sx, ys[i] = (static_cast<float>(c.y - c.rect.t) + c.poly[2 * i + 1]) * sy;
+  for (int32_t y = 0; y < H; ++y)
+    for (int k = 0; k < 4; ++k) {
+      const float yy = static_cast<float>(y) + (static_cast<float>(k) + 0.5f) / 4.0f;
+      cross.clear();
+      for (size_t i = 0, j = n - 1; i < n; j = i++)
+        if ((ys[i] <= yy) != (ys[j] <= yy)) cross.push_back(xs[i] + (yy - ys[i]) * (xs[j] - xs[i]) / (ys[j] - ys[i]));
+      std::sort(cross.begin(), cross.end());
+      for (size_t p = 0; p + 1 < cross.size(); p += 2) {
+        const float a = std::max(0.0f, cross[p]), b = std::min(static_cast<float>(W), cross[p + 1]);
+        for (int32_t x = static_cast<int32_t>(std::floor(a)); x < W && static_cast<float>(x) < b; ++x) {
+          const float o = std::min(b, static_cast<float>(x + 1)) - std::max(a, static_cast<float>(x));
+          if (o > 0) (*cov)[static_cast<size_t>(y) * W + x] += o / 4.0f;
+        }
+      }
+    }
+}
+}  // namespace
+
 std::vector<uint8_t> line_rgba(const Command& c, float sx, float sy, uint32_t rgb, int32_t* w, int32_t* h) {
   *w = *h = 0;
-  if (c.kind != Kind::kLine || c.pts.size() < 2 || c.rect.empty() || sx <= 0 || sy <= 0) return {};
+  if (c.kind != Kind::kLine || c.rect.empty() || sx <= 0 || sy <= 0) return {};
+  if (!c.poly.empty()) {  // FIXES 90: a filled polygon
+    if (c.poly.size() < 6) return {};
+    const int32_t W = static_cast<int32_t>(std::ceil((c.rect.r - c.rect.l) * sx));
+    const int32_t H = static_cast<int32_t>(std::ceil((c.rect.b - c.rect.t) * sy));
+    if (W <= 0 || H <= 0) return {};
+    *w = W, *h = H;
+    std::vector<float> cov(static_cast<size_t>(W) * H, 0.0f);
+    fill_coverage(c, sx, sy, W, H, &cov);
+    std::vector<uint8_t> out(cov.size() * 4, 0);
+    const uint32_t r = rgb >> 16 & 0xff, g = rgb >> 8 & 0xff, b = rgb & 0xff;
+    for (size_t i = 0; i < cov.size(); ++i) {
+      const uint32_t A = static_cast<uint32_t>(std::clamp(cov[i], 0.0f, 1.0f) * 255.0f + 0.5f);
+      out[4 * i] = static_cast<uint8_t>(r * A / 255), out[4 * i + 1] = static_cast<uint8_t>(g * A / 255);
+      out[4 * i + 2] = static_cast<uint8_t>(b * A / 255), out[4 * i + 3] = static_cast<uint8_t>(A);
+    }
+    return out;
+  }
+  if (c.pts.size() < 2) return {};
   const int32_t W = static_cast<int32_t>(std::ceil((c.rect.r - c.rect.l) * sx));
   const int32_t H = static_cast<int32_t>(std::ceil((c.rect.b - c.rect.t) * sy));
   if (W <= 0 || H <= 0) return {};
@@ -43,7 +86,7 @@ std::vector<uint8_t> line_rgba(const Command& c, float sx, float sy, uint32_t rg
         put(x, y, std::fabs(along - along / k));
       }
   } else {
-    for (size_t i = 0; i + 3 < c.pts.size() || (i == 0 && c.pts.size() == 2); i += 2) {
+    for (size_t i = 0; i + 3 < c.pts.size() || (i == 0 && c.pts.size() == 2); i += c.segments ? 4 : 2) {
       const float ax = fx(c.pts[i]), ay = fy(c.pts[i + 1]);
       const float bx = c.pts.size() > i + 3 ? fx(c.pts[i + 2]) : ax, by = c.pts.size() > i + 3 ? fy(c.pts[i + 3]) : ay;
       const int32_t x0 = std::max(0, static_cast<int32_t>(std::floor(std::min(ax, bx) - reach)));

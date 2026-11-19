@@ -243,10 +243,20 @@ void SdlTwodHost::blit(zimg::Texture* image, int32_t x, int32_t y, int32_t flags
 // within the clip (inclusive, as zrndr's) and the target.
 size_t SdlTwodHost::line_begin(platform::hires::Command c, const ztwod::Rect* clip) {
   const zrndr::Target2D& t = zrndr::target2d();
-  if (!platform::hires_2d() || !t.base || c.pts.size() < 2) return 0;
-  int32_t l = c.pts[0], tp = c.pts[1], r = l, b = tp;
-  for (size_t i = 0; i + 1 < c.pts.size(); i += 2)
-    l = std::min(l, c.pts[i]), r = std::max(r, c.pts[i]), tp = std::min(tp, c.pts[i + 1]), b = std::max(b, c.pts[i + 1]);
+  if (!platform::hires_2d() || !t.base || (c.pts.size() < 2 && c.poly.size() < 6)) return 0;
+  int32_t l = 0, tp = 0, r = 0, b = 0;
+  if (!c.poly.empty()) {  // FIXES 90: a polygon's pixels lie within its vertices' floor and ceiling
+    float fl = c.poly[0], ft = c.poly[1], fr = fl, fb = ft;
+    for (size_t i = 0; i + 1 < c.poly.size(); i += 2)
+      fl = std::min(fl, c.poly[i]), fr = std::max(fr, c.poly[i]), ft = std::min(ft, c.poly[i + 1]), fb = std::max(fb, c.poly[i + 1]);
+    if (!(fl > -1e6f && fr < 1e6f && ft > -1e6f && fb < 1e6f)) return 0;  // NaN or wild: the canvas's alone
+    l = static_cast<int32_t>(std::floor(fl)), tp = static_cast<int32_t>(std::floor(ft));
+    r = static_cast<int32_t>(std::ceil(fr)) - 1, b = static_cast<int32_t>(std::ceil(fb)) - 1;
+  } else {
+    l = c.pts[0], tp = c.pts[1], r = l, b = tp;
+    for (size_t i = 0; i + 1 < c.pts.size(); i += 2)
+      l = std::min(l, c.pts[i]), r = std::max(r, c.pts[i]), tp = std::min(tp, c.pts[i + 1]), b = std::max(b, c.pts[i + 1]);
+  }
   if (c.radius > 0) l -= c.radius, r += c.radius, tp -= c.radius, b += c.radius;
   platform::hires::Rect rect{l - 1, tp - 1, r + 2, b + 2};
   if (clip) rect = platform::hires::intersect(rect, {clip->left, clip->top, clip->right + 1, clip->bottom + 1});
@@ -274,6 +284,36 @@ void SdlTwodHost::line_list(const int32_t* points, int32_t count, const ztwod::R
   c.colour = pixel & 0xffff;
   const size_t added = line_begin(std::move(c), clip);
   ztwod::Host::line_list(points, count, clip, pixel);
+  line_end(added);
+}
+// FIXES 90: a dashed line's lit runs as zrndr's line16_dashed lights them (runs of (major + 1) / dash + 1 pixels,
+// on then off from the start), each its own segment from its first pixel to its last.
+void SdlTwodHost::line_dashed(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t pixel, int32_t dash) {
+  platform::hires::Command c;
+  c.segments = true, c.colour = pixel & 0xffff;
+  const int32_t major = std::max(std::abs(x1 - x0), std::abs(y1 - y0));
+  if (dash > 0) {
+    const int32_t run = (major + 1) / dash + 1;
+    auto at = [&](int32_t i, int32_t a, int32_t b) {
+      return major ? a + static_cast<int32_t>(std::lround(static_cast<double>(b - a) * i / major)) : a;
+    };
+    for (int32_t s0 = 0; s0 <= major; s0 += 2 * run) {
+      const int32_t s1 = std::min(major, s0 + run - 1);
+      c.pts.insert(c.pts.end(), {at(s0, x0, x1), at(s0, y0, y1), at(s1, x0, x1), at(s1, y0, y1)});
+    }
+  }
+  const size_t added = line_begin(std::move(c), nullptr);
+  ztwod::Host::line_dashed(x0, y0, x1, y1, pixel, dash);
+  line_end(added);
+}
+// FIXES 90: the polygon's vertices (x, y every 12 bytes), filled at pixel centres as zrndr's fill.
+void SdlTwodHost::polygon(const float* vertices, int32_t count, uint32_t color, int32_t winding) {
+  platform::hires::Command c;
+  if (vertices && count >= 3)
+    for (int32_t i = 0; i < count; ++i) c.poly.push_back(vertices[3 * i]), c.poly.push_back(vertices[3 * i + 1]);
+  c.colour = color & 0xffff;
+  const size_t added = line_begin(std::move(c), nullptr);
+  ztwod::Host::polygon(vertices, count, color, winding);
   line_end(added);
 }
 void SdlTwodHost::circle(int32_t cx, int32_t cy, int32_t r, uint32_t pixel, const ztwod::Rect* clip) {

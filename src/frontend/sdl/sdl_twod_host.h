@@ -56,10 +56,13 @@ class SdlTwodHost : public ztwod::Host {
   void blit(zimg::Texture* image, int32_t x, int32_t y, int32_t flags, const ztwod::Rect* src) override;
   // mw1 (engine, ours), FIXES 89: with platform::hires_2d() on, the 2D's lines and circles are recorded too (kLine),
   // their pixels as ever; the high-resolution draw draws them again anti-aliased. Dashed and noisy ones stay the
-  // canvas's.
+  // canvas's (FIXES 90: noisy ones only).
   void line(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t pixel) override;
   void line_list(const int32_t* points, int32_t count, const ztwod::Rect* clip, uint32_t pixel) override;
   void circle(int32_t cx, int32_t cy, int32_t r, uint32_t pixel, const ztwod::Rect* clip) override;
+  // FIXES 90: and dashed lines (their lit runs) and filled polygons.
+  void line_dashed(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t pixel, int32_t dash) override;
+  void polygon(const float* vertices, int32_t count, uint32_t color, int32_t winding) override;
   const platform::hires::Lists& hires_lists() const { return hires_; }
   // Ours (MW1's FIXES 12, B1 piece 4): the recorded draws drawn at the frame's resolution through `render` (the
   // program wires hires_draw() to the screen's layer and the renderer's present).

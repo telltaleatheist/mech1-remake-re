@@ -50,7 +50,7 @@ struct FontKey {
 };
 
 // kLine: mw1 (engine, ours), FIXES 89: a 2D line, line list or circle the canvas drew (the mission radar's), drawn
-// again anti-aliased at the frame's scale (hires_lines.h).
+// again anti-aliased at the frame's scale (hires_lines.h); FIXES 90: a dashed line, a filled polygon too.
 enum class Kind : uint8_t { kText, kPicture, kLine };
 
 struct Command {
@@ -68,6 +68,8 @@ struct Command {
   // centre with its radius (> 0). Its colour the canvas's own pixel (16 bits, the canvas's format).
   std::vector<int32_t> pts;
   int32_t radius = 0;
+  bool segments = false;  // FIXES 90: pts in fours, each its own segment (a dashed line's lit runs)
+  std::vector<float> poly;  // FIXES 90: a filled polygon's vertices (x, y pairs, canvas pixels from (x, y)), not pts
   uint64_t seq = 0;       // the order it was drawn in, over all owners
   uint64_t origin = 0;    // the draw it copies (its first seq): a grab's copies and a blit's keep it
   std::vector<uint16_t> before, after;  // on the screen: the canvas's pixels in rect before its blit and after
