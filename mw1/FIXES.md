@@ -867,6 +867,16 @@ Tick an item when it is merged into `main`.
 - **Found in 64 (dev 1):** typing a world's name added a blank line and "Find: <typed>" under the readout. On the longest readouts (a world under the mouse with an office, battles, Clan mechs and a two-line description) that made 16 lines, two more than fit above GO.
 - **Done:** what's typed goes on the status line ("Find: THA"), over the last GO's line, and the readout gains nothing. test_mw1_travel checks every world under the mouse, affordable or not, typed or not: at most 14 readout lines, and the status line says what's typed. test_mw1_loop's typed-name walk still finds "Find: THA" on the screen.
 
+## 75. [ ] AFTER ACTION: Owen's answers from the results review (28)
+- **Owen (2026-11-19), on dev 1's four questions:**
+  1. **A retreat:** "Bill repairs, keep losses". With no salvage, the repairs come out of funds. A 'Mech that went down is lost, and its pilot is KILLED or MISSING as on a loss. settle_mission must stop skipping retreats for the fates and the bill.
+  2. **A story battle's salvage:** "Keep full value". No change.
+  3. **A story battle's crest and message:** "No crest or House message". No House hired you.
+  4. **A win with a lancemate KILLED:** "Keep victory picture", as MW1 does.
+- **Done means:**
+  - tests: a retreat with a downed lancemate bills repairs from funds and settles the fates; a story battle has no crest and no House message;
+  - shots of both at 1080p and 4:3 (dev 1).
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.
