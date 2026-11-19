@@ -49,13 +49,11 @@ its timer's ticks (18.2 a second):
 Any key, a click or Escape skips to the company, as MW1's "any key" did.
 Without MW1's exe there's no narration: black, then the picture.
 
-**The picture's format.** `data-src/intro.bmp` (640x366, made from the
-mockup, `data-src/README.md`) is packed at build time by `mw1imgpack` into
-`mw1data/zbd/mw1image.zbd`, in Pirate's Moon's image-archive format (the
-layout the engine's own reader reads, `gamez/zimage/zimg_library.h`: 16-bit
-565, flags kTwoBytes | kNoAlpha like PM's opaque backdrops). mw1 registers
-that archive beside PM's `rimage.zbd`, so its layouts name `mw1_intro` and
-`mw1_black` as PM's name theirs. No engine change.
+**The picture's format.** Since FIXES.md item 83, `mockups/intro.jpg` cut
+to the canvas's 854:480 at its own size (`data-src/art/intro.jpg`, art.csv's
+`intro`), packed into `mw1art.zbd` like the other scenes, so the 2D draws it
+at the window's resolution. Its layout names `mw1_intro` as before. (It was
+`data-src/intro.bmp`, 640x366, in `mw1image.zbd`.)
 
 ## The music (provisional, for Owen)
 

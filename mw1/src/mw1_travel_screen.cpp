@@ -181,14 +181,15 @@ ScreenView travel_view(const Company& c, const TravelChoice& t) {
     seen.push_back(i);
     const Point p = on_screen(i);
     const std::string n = title_case_name(kPlanets[i].name) + (i == t.story && i != here ? " \xB7 STORY" : "");
-    // Right of the world (clear of its rings), else left of it, else above, else below; right or left first by
-    // the map's right edge. A name's box: 7 a letter (the note font's), 14 high.
+    // Above the world, centred and clear of its rings (FIXES.md item 83, the lead: the names above the markers, off
+    // the dots beside them); else right of it, else left, else below; right or left first by the map's right edge.
+    // A name's box: 7 a letter (the note font's), 14 high.
     const int32_t w = static_cast<int32_t>(n.size()) * 7, h = 14;
     const bool near_right = p.x + 14 + w > kMapLeft + kMapWidth;
     const Box right{p.x + 14, p.y - 7, p.x + 14 + w, p.y - 7 + h}, left{p.x - 14 - w, p.y - 7, p.x - 14, p.y - 7 + h};
     const int32_t mid = std::max(kMapLeft, std::min(p.x - w / 2, kMapLeft + kMapWidth - w));
     const Box above{mid, p.y - 13 - h, mid + w, p.y - 13}, below{mid, p.y + 12, mid + w, p.y + 12 + h};
-    const Box tries[4] = {near_right ? left : right, near_right ? right : left, above, below};
+    const Box tries[4] = {above, near_right ? left : right, near_right ? right : left, below};
     auto clear = [&](const Box& c) {
       for (const Box& o : placed)
         if (c.l < o.r && o.l < c.r && c.t < o.b && o.t < c.b) return false;

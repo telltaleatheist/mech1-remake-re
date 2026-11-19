@@ -33,6 +33,8 @@
 
 #include "platform/hires_2d.h"
 #include "platform/menu_pointer.h"
+#include "platform/pause_hud.h"
+#include "platform/mode_labels.h"
 #include "gamez/zutil/zutl_path.h"
 #include "mw1_game.h"
 #include "mw1_missions.h"
@@ -254,6 +256,10 @@ int main(int argc, char** argv) {
   // FIXES.md item 30 (Owen): the menus leave the mouse free fullscreen too (to a second screen), as MW3's do in a
   // window; a mission holds it.
   platform::set_menus_free_pointer(true);
+  // FIXES.md item 83 (the lead): the pause's grab without the HUD's marker line (platform/pause_hud.h).
+  platform::set_pause_hides_hud_marker(true);
+  // FIXES.md item 83 (the lead): RESOLUTION's modes all "W x H", their own sizes (platform/mode_labels.h).
+  platform::set_uniform_mode_labels(true);
   // The rest is PM's game main, on its own write dir and PM install.
   std::vector<std::string> args = mw1::game_args(argv[0], a, use);
   std::vector<char*> raw;

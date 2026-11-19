@@ -982,6 +982,25 @@ so the log's money didn't add up to the funds.
   entry (no `b`) still reads that way.
 - The soak's ledger counts a repair as billed less forgiven. The log test checks both kinds of entry.
 
+## 83. [x] The screen sweep's fixes *(done: mw1-fix83-sweep)*
+From the 2026-11-19 screen sweep (the lead's calls). Item 1 (the menu title over the mech's head) is Owen's call.
+- **The pause (2):** the PAUSED panel is see-through over a grab of the mission's last frame, and the HUD's marker
+  line ("OP: <name> [62m]", the radar's) read across its title. Now Escape draws that frame once more, the world
+  not moved, with the line left out. The grab doesn't have it, and the line's own state comes back for the next
+  frame. The panel is as it was. This is an engine opt-in (`platform/pause_hud.h`, CoreState's Direct3D frame),
+  MW1's alone. `mw1pausegrab` checks both shapes; with the opt-in off it fails.
+- **RESOLUTION (3):** PM's list (`ResolutionCycle::rebuild`, src/mech3/options_menu.cpp) names modes 3..10 by
+  PM's messages ("640 x 480") and FIX (B)'s 11..16 "1280x720". MW1 names them all "W x H", from the mode's own
+  size (`platform/mode_labels.h`, an opt-in). The lead's call: the mode's size, not the window's. Every mode of a
+  shape renders the 3D at the window's pixels, so the window's size would label several items the same.
+- **The travel map (4):** a world's name goes above it, centred and clear of its rings, off the dots beside it.
+  It goes right, left or below only where another name already has the place.
+- **The intro's picture (6):** it is art now, like the other scenes: `mockups/intro.jpg` cut to 854:480 at its
+  own size (1344x755, `data-src/art/intro.jpg`, art.csv's `intro`), so the 2D draws it at the window's
+  resolution. `intro.bmp` (640x366, in mw1image.zbd) is gone.
+- **The shot driver:** `hub_contract` and `hub_contract_read` take a contract (REQUEST, ACCEPT, OK) before
+  their shot; the pause page presses Escape as a player does.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.

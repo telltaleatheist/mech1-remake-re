@@ -421,3 +421,27 @@ TEST(mw1_travel_screen_world_readout) {
   EXPECT(most > 0 && most <= 14);
   mw1::set_mw1_game_dir("");
 }
+
+// FIXES.md item 83 (the lead's sweep, 4): a world's name goes above it, centred and clear of its rings, off the dots
+// beside it; elsewhere (right, left, below) only where another name has the place. Each capital's name, the company's
+// world's, and here every one is above (none of them crowd another's place on this map).
+TEST(mw1_travel_screen_names_above_their_worlds) {
+  mw1::Company c = company_at("ROBINSON", 1000000);
+  mw1::TravelChoice t;
+  const mw1::ScreenView v = mw1::travel_view(c, t);
+  int32_t names = 0, above = 0;
+  for (int32_t i = 0; i < mw1::kPlanetCount; ++i) {
+    if (i != mw1::here_index(c) && !(mw1::kCapitalNames && mw1::capital(i))) continue;
+    const std::string n = mw1::title_case_name(mw1::kPlanets[i].name);
+    const mw1::Point p = mw1::on_screen(i);
+    for (const mw1::TextBlock& b : v.blocks)
+      if (!b.at && b.lines.size() == 1 && b.lines[0] == n) {
+        ++names;
+        const int32_t w = static_cast<int32_t>(n.size()) * 7;
+        const int32_t mid = std::max(mw1::kMapLeft, std::min(p.x - w / 2, mw1::kMapLeft + mw1::kMapWidth - w));
+        above += b.y == p.y - 27 && b.x == mid;
+      }
+  }
+  std::printf("  %d names, %d above their worlds\n", names, above);
+  EXPECT(names >= 2 && above == names);
+}
