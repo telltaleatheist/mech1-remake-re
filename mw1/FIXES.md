@@ -1305,3 +1305,38 @@ left), so it looked cut off and off-centre.
   a device pixel. The old side arrow fails it 8 times. The geometry pieces' golden hash moved on purpose.
 - **Shots:** outbox/2026-11-19/mw1-fix101-arrows/ (hub_options, options_gfx, office_offer, lab_files at 43, 1080, 4k,
   and a 4K crop of the hub's arrows).
+
+## 98. [x] Losses rare, and a narrow win still a win *(done: mw1-rare-losses)*
+Owen lost all three lancemates and their 'Mechs in one mission (about 15 million C-bills). He wants losses much rarer,
+as in MW1, and a narrow win never empty-handed.
+- **The rolls (`crew::roll_losses`, once as the mission ends):**
+  - On a win, every company 'Mech that went down (the commander's too) is recovered, its repair billed as usual
+    (the whole repair). It's lost for good by `kMechLostPercent` (10).
+  - On a loss or a retreat, a downed 'Mech is lost, as before (FIXES.md item 75).
+  - A downed lancemate is KILLED by `kKilledPercent` (5) and MISSING by `kMissingPercent` (5, was 50) on any
+    ending. Otherwise they come back and stay in the lance. One whose 'Mech was lost stays without one (the lab's
+    blank slot). A killed or missing pilot's recovered 'Mech becomes a spare.
+  - `loss_rates()` (or `MW1_LOSS_RATES=mech,killed,missing`) lets the tests pin a case and a soak tune them.
+- **The floor (`settle_mission`):** a House contract won nets at least `kWinFloorPercent` (25) of its payment. The
+  net is the advance + the fee + the salvage pay - the repairs paid - the 'Mechs lost at their value
+  (`buy_price` at the company's tier). The House covers the shortfall, never more than the costs. Losses and
+  retreats have no floor.
+- **AFTER ACTION:**
+  - PAYMENT: "Repairs 1,649,385; the House covers 884,385", or "Lost 3,696,000; House covers ..." for a lost
+    'Mech alone, with a shorter wording for 4:3.
+  - CREW STATUS: "Firefly (J. Holmaas): recovered (repairs 73,962)", "... destroyed beyond repair, KILLED", each
+    the fullest wording that fits 4:3.
+  - DETAILS: each repair marked "recovered", a lost lancemate's 'Mech "Lost: the Awesome (Tank Smith), destroyed
+    beyond repair.", the House's part, and each downed lancemate's fate.
+  - The log adds "Recovered: ..." and "The House covered ...". A lost 'Mech's line now says "destroyed beyond repair".
+- **Saves:** the pending mission's bills gain ":lost" and its lance ":killed:mech_lost". Older saves read as before
+  (a downed 'Mech lost, its pilot killed unless missing).
+- **Tests:**
+  - The rolls' rates on each ending, over 4000 rolls.
+  - Downed lancemates coming back, with their 'Mech recovered, lost, or left as a spare.
+  - The save, and an older save.
+  - A narrow win (every 'Mech down, repairs at four times today's price) netting exactly the floor, with the House's
+    PAYMENT line fitting 4:3. A lost Awesome on a win, still at the floor. A clean win netting more. A loss with
+    no floor.
+  - The loop: a casualty pinned (KILLED or MISSING, the 'Mech lost, AFTER ACTION's House and "beyond repair"
+    lines), and the full lance's downed lancemate recovered and back.

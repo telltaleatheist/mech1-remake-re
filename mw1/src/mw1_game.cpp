@@ -395,8 +395,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       pending_->killers = killers_, pending_->seconds = seconds_;
       pending_->armor_left = armor_left_, pending_->structure_left = structure_left_;
       pending_->lance = fates_;
-      roll_missing(pending_->lance, rng_);  // FIXES.md item 32: each downed lancemate KILLED or MISSING, once
       for (const MechBill& b : bills_) pending_->bills.push_back({b.who, b.mech, b.damage, b.destroyed});
+      // FIXES 98: the downed mechs recovered or lost, the downed lancemates back, KILLED or MISSING: once.
+      roll_losses(pending_->outcome, pending_->lance, pending_->bills, rng_);
       pending_->stayed = stayed_behind(flying_, fates_);  // the map's allied places ran out: they didn't fly
       pending_->salvage = std::move(salvage_);
       pending_->launch_stores = launch_stores_, pending_->launch_loadout = launch_loadout_;
@@ -415,12 +416,14 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
           if (w == "loss" || w == "lost") pending_->outcome = Outcome::kFailure;
           if (w == "lost" || w == "mechlost")
             for (auto& b : pending_->bills)
-              if (b.who == 0) b.destroyed = true;
-          if ((w == "killed" || w == "missing") && !pending_->lance.empty()) {
+              if (b.who == 0) b.destroyed = b.lost = true, b.damage = kWhole;
+          // FIXES 98: recovered (the first lancemate's mech down and back, its pilot too) or wrecked (theirs lost,
+          // they're back); killed and missing as before (their mech lost too).
+          if ((w == "killed" || w == "missing" || w == "recovered" || w == "wrecked") && !pending_->lance.empty()) {
             LanceFate& f = pending_->lance[0];
-            f.destroyed = true, f.missing = w == "missing";
+            f.destroyed = true, f.killed = w == "killed", f.missing = w == "missing", f.mech_lost = w != "recovered";
             for (auto& b : pending_->bills)
-              if (b.who == f.id) b.destroyed = true;
+              if (b.who == f.id) b.destroyed = true, b.lost = f.mech_lost, b.damage = kWhole;
           }
           if (w == "story") contract_.rung = 1;
           if (w == "darkwing") contract_.rung = kDarkWingRung;
@@ -1997,11 +2000,26 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // promotion (FIXES.md item 57: the mission's, here, not a hub message).
     std::vector<std::string> promoted;
     for (const auto& b : a.bills) {
-      std::string l = mech_title(b.mech) + " (" + (b.who == 0 ? std::string("you") : pilot_title(b.who)) + "): ";
+      const std::string who = b.who == 0 ? std::string("you") : pilot_title(b.who);
+      std::string l = mech_title(b.mech) + " (" + who + "): ";
       if (b.destroyed) {
-        l += "destroyed";
+        // FIXES 98: recovered (its repairs) or destroyed beyond repair, and the pilot's fate; the fullest that fits 4:3.
+        std::string fate;
         for (const LanceFate& f : a.lance)
-          if (f.id == b.who && f.destroyed) l += pilot_killed(f) ? ", KILLED" : ", MISSING";
+          if (f.id == b.who && f.destroyed) fate = pilot_killed(f) ? ", KILLED" : pilot_missing(f) ? ", MISSING" : "";
+        int64_t repairs = 0;
+        for (const MechRepair& r : rep.mechs)
+          if (r.who == b.who && r.mech == b.mech) repairs = r.amount;
+        const std::vector<std::string> said = b.lost ? std::vector<std::string>{"destroyed beyond repair", "beyond repair"}
+                                                     : std::vector<std::string>{"recovered (repairs " + thousands(repairs) + ")", "recovered"};
+        std::vector<std::string> choices;
+        for (const std::string& s2 : said) choices.push_back(l + s2 + fate), choices.push_back((b.who ? who : "You") + ": " + s2 + fate);
+        l = choices.back();
+        for (const std::string& c2 : choices)
+          if (c2.size() <= kResultsNarrow.status) {
+            l = c2;
+            break;
+          }
       } else {
         l += std::to_string(std::clamp(100 - (b.damage * 100 + kWhole / 2) / kWhole, 0, 100)) + "%";
         // Promoted by this mission (after_mission's, on the copy): on the line when it fits 4:3's, else its own.
@@ -2020,7 +2038,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
                        (rep.took_from ? ", " + pilot_title(rep.took_from) + " stays" : ""));
     if (a.bills.empty())  // a mission saved before the bills: the fates alone
       for (const LanceFate& f : a.lance)
-        p.crew.push_back(pilot_title(f.id) + (!f.destroyed ? ": came back" : pilot_killed(f) ? ": KILLED" : ": MISSING"));
+        p.crew.push_back(pilot_title(f.id) + (!f.destroyed ? ": came back" : pilot_killed(f) ? ": KILLED" : pilot_missing(f) ? ": MISSING" : ": downed, came back"));
     for (int32_t id : a.stayed) p.crew.push_back(pilot_title(id) + ": stayed behind");
     // SALVAGE TO STORES: every part kept on a win, each row its item's place (a keep list's, later: item 38).
     if (success && a.salvage && a.salvage->count()) {
@@ -2046,6 +2064,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       if (success) p.kills.push_back({"Wrecks' worth: " + thousands(sum.pool) + " C-bills"});
       for (size_t i = 0; i < rep.lines.size(); ++i) p.kills.push_back({rep.lines[i], -1, i < rep.narrow.size() ? rep.narrow[i] : ""});
     }
+    // FIXES 98: each downed lancemate's fate.
+    for (const LanceFate& f : a.lance)
+      if (f.destroyed)
+        p.kills.push_back({pilot_title(f.id) + (pilot_killed(f) ? ": KILLED" : pilot_missing(f) ? ": MISSING" : ": downed, came back")});
     p.mech_title = "YOUR " + upper(mech_title(company_.mech));
     p.mech = mech_lines(a.armor_left, a.structure_left, destroyed);
     // The message (item 31): the exe's outcome line, and the deduction's after a win paid short (MW1's
@@ -2794,7 +2816,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     for (const std::string& x : rep.lines) l.push_back(x);
     l.push_back("Funds: " + thousands(c.funds) + " C-bills");
     for (const LanceFate& f : pending_->lance)
-      l.push_back(pilot_title(f.id) + (!f.destroyed ? ": flew" : pilot_missing(f) ? ": MISSING" : ": KILLED") +
+      l.push_back(pilot_title(f.id) + (!f.destroyed      ? ": flew"
+                                       : pilot_missing(f) ? ": MISSING"
+                                       : pilot_killed(f)  ? ": KILLED"
+                                                          : ": downed, came back") +
                 (!f.destroyed && gunnery(c, f.id) > gunnery(company_, f.id) ? ", promoted" : ""));
     for (int32_t id : pending_->stayed)
       l.push_back(pilot_title(id) + " stayed behind: no place on this map (" + std::to_string(pending_->lance.size()) + " allied)");
@@ -3066,7 +3091,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   void collect_bills() {
     bills_.clear();
     void* player = mech3::mech_mission_player();
-    bills_.push_back({0, company_.mech, std::min(kWhole, damage_of(bars_of(player)) + mended_[0]), commander_destroyed_});
+    // FIXES 98: a downed mech (recovered after a win) needs the whole repair.
+    bills_.push_back({0, company_.mech, commander_destroyed_ ? kWhole : std::min(kWhole, damage_of(bars_of(player)) + mended_[0]),
+                      commander_destroyed_});
     int32_t n = 0;
     const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
     for (const LanceFate& f : fates_) {
@@ -3078,7 +3105,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         if (company_.lance[i].id == f.id)
           if (const int32_t h = mech_of(company_, static_cast<int32_t>(i)); h >= 0) mech = company_.hangar[static_cast<size_t>(h)].mech;
       if (mech < 0) continue;
-      bills_.push_back({f.id, mech, std::min(kWhole, (m ? damage_of(bars_of(m)) : 0) + mended_[f.id]), f.destroyed});
+      bills_.push_back({f.id, mech, f.destroyed ? kWhole : std::min(kWhole, (m ? damage_of(bars_of(m)) : 0) + mended_[f.id]), f.destroyed});
     }
   }
   // The lancemate flying an AI mech: its brain's pilot is the name ally_launching gave.

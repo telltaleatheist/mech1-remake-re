@@ -103,17 +103,25 @@ inline constexpr int32_t kPromotionMissions[3] = {3, 10, 15};
 // of the player's side) ran out before them. They didn't fly: no mission counted, never a casualty. Every shipped
 // Instant Action map has at least three (research/pilots.md), so only a mod's map leaves anyone behind.
 std::vector<int32_t> stayed_behind(const std::vector<int32_t>& deployed, const std::vector<LanceFate>& launched);
-// A pilot whose mech is destroyed (FIXES.md item 32, Owen: MW1's MISSING): MISSING by kMissingPercent in 100, else
-// KILLED. Ours: an even chance (MW1's own odds aren't known). Rolled once as the mission ends (roll_missing, into each
-// fate), so AFTER ACTION, its settlement and a save and reload all agree.
-inline constexpr int32_t kMissingPercent = 50;
-void roll_missing(std::vector<LanceFate>& fates, Rng& rng);
+// The losses (FIXES 98, Owen: rare, as in MW1; FIXES.md item 32's MISSING kept, rarer). As the mission ends, once
+// (so AFTER ACTION, its settlement and a save and reload all agree):
+// - each company mech that went down (`bills`, the commander's too): on a win recovered, its repairs billed as usual,
+//   unless lost for good by kMechLostPercent in 100; on a loss or a retreat lost (FIXES.md item 75);
+// - each downed lancemate (`fates`): KILLED by kKilledPercent in 100, MISSING by kMissingPercent, else back.
+inline constexpr int32_t kMechLostPercent = 10, kKilledPercent = 5, kMissingPercent = 5;
+// The rates roll_losses uses: the constants, unless a test or a soak sets them (MW1_LOSS_RATES=mech,killed,missing).
+struct LossRates {
+  int32_t mech_lost = kMechLostPercent, killed = kKilledPercent, missing = kMissingPercent;
+};
+LossRates& loss_rates();
+void roll_losses(Outcome o, std::vector<LanceFate>& fates, std::vector<AfterAction::Bill>& bills, Rng& rng);
 bool pilot_killed(const LanceFate& f);
 bool pilot_missing(const LanceFate& f);
 // After a settled mission (won, lost or withdrawn from, FIXES.md item 75; never a replay): promotions, then casualties (223F):
 // a killed pilot gone for good; a missing one out of the lance and back in the hiring pool with their ratings and
-// record (a Bar may offer them again); either way their destroyed mech lost (VISION; never the commander's). The
-// entries in the log (mw1_log.h), for the hub.
+// record (a Bar may offer them again); a downed one who came back stays. A lost mech leaves the hangar (its pilot,
+// if back, stays without one: the lab's blank slot); a recovered one stays (a spare when its pilot is gone). The
+// commander's mech is settle_repairs'. The entries in the log (mw1_log.h), for the hub.
 void after_mission(Company& c, const std::vector<LanceFate>& fates);
 
 // The aim (VISION, "Gunnery is their aim"; open question 3, provisional): the map record's aim error (+0xb8) times
