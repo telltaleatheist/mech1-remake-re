@@ -650,6 +650,15 @@ Tick an item when it is merged into `main`.
 - **Later, if Owen wants:** a clip for the owned DropShip and the Dark Wing victory (the same player); the Mech Complex idle loop and the intro's background (needs loop + rectangle).
 - **Done means:** GO → movie → hub with and without the file; skip by key and click; a 1080p capture of the fade in and out.
 
+## 55. [ ] The launch video: a pause before it, and its sound replaying at the end
+- **Owen (2026-11-18, in play):**
+  - "put a slight pause before the video plays showing the dropship taking off. it felt very sudden."
+  - "it played the dropship sound for a split second after loading the new screen when the dropship animation was complete. like it was starting it over."
+- **Wanted:**
+  - the first frame held still and silent (about 1 s, one constant) before the motion and sound start;
+  - the sound stopped for good at the clip's end and on a skip, never heard on the next screen.
+- **Done means:** the cause of the replay named; a test that no sound is playing after the movie ends or is skipped; a windowed check with sound on.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.
