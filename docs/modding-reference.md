@@ -105,7 +105,7 @@ A reader file: `KEY value` pairs and `( ... )` lists. Keys match exactly, case i
 | `LOCK_ON_LEAD` | a weapon | list: min max | none | min <= max | Leads a locked target between these ranges. |
 | `MINE` | a weapon | flag 0/1 | 0 | - | Lies where it lands. |
 | `MULTI_TARGET` | a weapon | flag 0/1 | 0 | - | Can take several targets. |
-| `QUICKSAND` | a weapon | a block | none | - | A crater that sinks mechs (the CRATER keys). |
+| `QUICKSAND` | a weapon | a block | none | - | Not used in MW3 (Recoil's, on the same engine): a quicksand pit (the CRATER keys), only a picture; it neither slows nor sinks a mech (craters.md 3). |
 | `RANGE` | a weapon | float (m) | 500 | - | How far it reaches. |
 | `RANGE_MINIMUM` | a weapon | list: two floats | none | - | The closest it can hit, and a second distance. |
 | `RELATIVE_SPEED` | a weapon | flag 0/1 | 0 | - | Shots add the firer's speed. |
@@ -500,7 +500,7 @@ One record per vehicle type by name (`apc`, `owens`, `mobilehq`, `stealth`, ...;
 | `rates` | <vehicle>/common_mode | list: two floats | 10 30 | - | Its acceleration rates. |
 | `friction` | <vehicle>/common_mode | list: three floats | 10000 10 0 | - | Its friction. |
 | `stopping` | <vehicle>/common_mode | float | 8 | - | How fast it stops. |
-| `quicksand_slowdown` | <vehicle>/common_mode | float | 0.9 | - | Its speed in quicksand. |
+| `quicksand_slowdown` | <vehicle>/common_mode | float | 0.9 | - | Its speed in quicksand (Recoil's; never used in MW3). |
 | `lava_slowdown` | <vehicle>/common_mode | float | 0.8 | - | Its speed on lava. |
 | `turns` | <vehicle>/common_mode | list: two floats | 0.6 2 | - | How it turns. |
 | `turn_damping` | <vehicle>/common_mode | float | 30 | - | How its turning damps. |

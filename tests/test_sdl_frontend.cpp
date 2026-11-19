@@ -1628,6 +1628,43 @@ TEST(sdl_render_new_frame_is_defined_with_the_colour_clear_off) {
   r->drop_frame();
 }
 
+// An opaque draw whose diffuse alpha is 0 (Pirate's Moon's untextured batches, 0x005984e0
+// packs the material's colour with no alpha: harmless on the exe's 16-bit target) shows its colour in the window,
+// so a shot (--shot, "the window as shown") is opaque there too. It was saved with the frame's alpha 0: viewers laid
+// it over white, the "white band" at the horizon of MW3's worlds converted for PM (their horizon's fog-coloured ring; MW1, 2026-11-18).
+TEST(sdl_render_shot_is_opaque_where_a_draw_left_alpha_0) {
+  if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) return;
+  sdlfe::SdlWindow w;
+  EXPECT(w.init(true));
+  w.create("mw3 shot alpha test", 640, 480);
+  sdlfe::SdlRender3D* r = w.render();
+  r->set_viewport(0, 0, 640, 480);
+  r->clear(true, 20, 40, 60);
+  r->begin_scene();
+  const auto v = [](float x, float y) {
+    platform::TLVertex t{};
+    t.sx = x, t.sy = y, t.sz = 0.5f, t.rhw = 1.0f, t.diffuse = 0x00767f77u, t.specular = 0xff000000u;
+    return t;
+  };
+  platform::DrawState s;  // opaque, untextured: indexed_flat's (0x005a0ea0)
+  const platform::TLVertex band[4] = {v(0, 200), v(640, 200), v(640, 280), v(0, 280)};
+  r->draw(platform::Primitive::kFan, band, 4, s);
+  r->end_scene();
+  const std::string bmp = std::string(MW3_TEST_TMP_ROOT) + "/sdl_shot_alpha.bmp";
+  std::remove(bmp.c_str());
+  r->capture_next(bmp.c_str());
+  r->present();
+  SDL_Surface* got = SDL_LoadBMP(bmp.c_str());
+  if (!got) return;  // no GPU on this runner
+  Uint8 cr = 0, cg = 0, cb = 0, ca = 0, kr = 0, kg = 0, kb = 0, ka = 0;
+  SDL_ReadSurfacePixel(got, got->w / 2, got->h / 2, &cr, &cg, &cb, &ca);  // the band
+  SDL_ReadSurfacePixel(got, got->w / 2, got->h / 8, &kr, &kg, &kb, &ka);  // the clear
+  std::printf("band %d %d %d alpha %d, clear %d %d %d alpha %d\n", cr, cg, cb, ca, kr, kg, kb, ka);
+  EXPECT(cr == 0x76 && cg == 0x7f && cb == 0x77);  // its colour, as the window shows it
+  EXPECT(ca == 255 && ka == 255);                   // and opaque in the file
+  SDL_DestroySurface(got);
+}
+
 TEST(sdl_layer_rgba_table_matches_the_bits) {
   int bad = 0;
   for (int f = 0; f < 2; ++f)

@@ -642,6 +642,9 @@ void SdlRender3D::present() {
     std::vector<uint32_t> px;
     int w = 0, h = 0;
     if (read_back(&px, &w, &h)) {
+      // Opaque, as the window shows it: the frame's alpha is no colour. An opaque draw can leave its diffuse
+      // alpha there (Pirate's Moon's untextured batches pack none, 0x005984e0); saved, viewers laid it over white.
+      for (uint32_t& p : px) p |= 0xff000000u;
       // The window as shown: the back buffer at its place, black round it.
       int pw = 0, ph = 0;
       SDL_GetWindowSizeInPixels(window_, &pw, &ph);
