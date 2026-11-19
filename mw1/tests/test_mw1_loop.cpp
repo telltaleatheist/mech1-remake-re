@@ -692,7 +692,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
           // RECRUIT CREW: the interview, the first recruit, then the next one, then back.
           sc->on_button(mw1::kBarCrew, 0, 0);
           run->bar_lines = sc->shown();
-          EXPECT(sc->visible(mw1::kBarHire) && sc->enabled(mw1::kBarHire) && sc->enabled(mw1::kBarDecline) && !sc->visible(mw1::kBarFire) &&
+          EXPECT(sc->visible(mw1::kBarHire) && sc->enabled(mw1::kBarHire) && !sc->visible(mw1::kBarFire) &&
                  !sc->visible(mw1::kBarBack) && sc->visible(mw1::kBarDone));
           EXPECT(sc->picture(mw1::kBarPanelPortrait) == mw1::portrait_image(c->recruits[0], false) && sc->panel_shown(mw1::kBarPanelPortrait));
           sc->on_button(mw1::kBarRecruitDown, 0, 0);

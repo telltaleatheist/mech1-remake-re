@@ -779,6 +779,29 @@ Tick an item when it is merged into `main`.
   - The log (63) uses the same headline.
 - **Done means:** a test over the whole script: no two live news stories give the same hub line, or they're collapsed with a count.
 
+## 68. [x] The Bar's hiring page: HIRE, PREV, NEXT, DONE (no DECLINE)
+- **Owen (2026-11-18):** "hire, decline, prev, next, done probably arent all necessary on the bar hiring page. can we reduce it to next/prev/hire/done".
+- **Done (lead):**
+  - DECLINE is gone: the button, its id, the game's case and the pilots rule decline(); recruits now just stay on offer.
+  - The column reads HIRE, PREV, NEXT, then DONE set apart at its old place (DONE is shared with YOUR LANCE's column).
+  - The hint is "HIRE pays their wage; PREV and NEXT show the rest."
+  - mw1tests 181/0; mw1labfit, screenfit, hiresoff and smooth 4/4.
+
+## 69. [ ] The lab's top row: the lance's slots, not FUNDS
+- **Owen (2026-11-18, in play):** "i just hired two lancemates. but they arent showing in the mech lab. i dont think we need the \"funds\"/c-bills at the top, where the lancemates are normally listed. lets do it the way mw3 does - put blank slots at the top if i have pilots with no mechs, and no slots at all if there arent any pilots".
+- **Wanted:** the top row is PM's or MW3's lance strip, done as MW3 does it:
+  - one slot per pilot (you, then each lancemate), showing the mech outline of their assigned 'Mech;
+  - a blank slot for a pilot with no 'Mech;
+  - no slots for pilots you don't have.
+  - Clicking a slot picks that pilot's 'Mech, as in MW3; check how a blank slot behaves there.
+  - FUNDS goes. If money must show somewhere in the lab, ask me first.
+- **Done means:** shots with you alone, with two lancemates and one 'Mech (two blank slots), and with a full lance, at 1080p and 4:3; tests.
+
+## 70. [ ] The lab's warnings are hidden behind the bottom buttons
+- **Owen (2026-11-18, in play):** "the warning \"need [x] crits, only have [y]\" or the tonnage warning are both behind the buttons now. cant see the warnings". The shot shows "Not enough criticals free (need 14, have 10)" drawn across the third and fourth of the bottom icon buttons.
+- **Wanted:** every lab warning shows in full where it can be read: in clear space (e.g. above the button row, or in a panel's own status line), above everything, at 1080p, 4K and 4:3. labfit should check that the warning line isn't covered by a button.
+- **Done means:** shots of the crits and the tonnage warnings, and a labfit case that fails on the current layout.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.

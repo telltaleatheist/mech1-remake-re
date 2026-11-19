@@ -14,7 +14,7 @@
 namespace mw1::bar_ui {
 namespace {
 const std::vector<ScreenButton> kBarButtons = {
-    {"HIRE", "HIRE"},       {"DECLINE", "DECLINE"}, {"FIRE", "FIRE"},   {"ASSIGN", "ASSIGN"},       {"BACK", "LEAVE"},
+    {"HIRE", "HIRE"},       {"FIRE", "FIRE"},   {"ASSIGN", "ASSIGN"},       {"BACK", "LEAVE"},
     {"RECRUIT_UP", "PREV"}, {"RECRUIT_DOWN", "NEXT"}, {"LANCE_UP", "PREV"}, {"LANCE_DOWN", "NEXT"}, {"DRINK", "ORDER DRINK"},
     {"NEWS", "NEWS"},       {"CREW", "RECRUIT CREW"}, {"LANCE", "YOUR LANCE"}, {"DONE", "DONE"}};
 const char* const kColumnPlaces[kBarColumns] = {"COL1", "COL2", "COL3", "COL4"};
@@ -70,7 +70,7 @@ ScreenView bar_view(const Company& c, const BarChoice& b, bool story) {
   if (status.empty() && c.wage_warned) status = "Wages unpaid: miss another month and the lance leaves.";
   if (status.empty())
     status = menu ? "Order a drink, read the news, or find pilots for hire."
-             : recruits ? "HIRE pays their wage; DECLINE sends them away."
+             : recruits ? "HIRE pays their wage; PREV and NEXT show the rest."
                         : "ASSIGN gives the chosen lancemate the next free mech.";
   if (b.company) v.backdrop = kCompanyBackdrop;
   v.blocks = {at_place("PLANET", {upper(c.planet)}),
@@ -159,7 +159,6 @@ ScreenView bar_view(const Company& c, const BarChoice& b, bool story) {
   set(kBarLance, false, true);  // the hub's COMPANY now
   set(kBarBack, menu, true);
   set(kBarHire, recruits, !c.recruits.empty());
-  set(kBarDecline, recruits, !c.recruits.empty());
   set(kBarRecruitUp, recruits, b.recruit > 0);
   set(kBarRecruitDown, recruits, b.recruit + 1 < static_cast<int32_t>(c.recruits.size()));
   set(kBarFire, lance, !c.lance.empty());

@@ -175,12 +175,6 @@ Hire hire(Company& c, int32_t i) {
   return Hire::kDone;
 }
 
-bool decline(Company& c, int32_t i) {
-  if (i < 0 || i >= static_cast<int32_t>(c.recruits.size())) return false;
-  c.recruits.erase(c.recruits.begin() + i);
-  return true;
-}
-
 namespace {
 void unassign(Company& c, int32_t id) {
   for (OwnedMech& o : c.hangar)

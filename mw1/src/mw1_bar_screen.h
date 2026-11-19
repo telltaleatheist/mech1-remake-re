@@ -4,7 +4,7 @@
 // - the Bar: MW1's menu, ORDER DRINK (MW1's: a unit of time, and the Bar's tips at their prices), NEWS (the news live
 //   now), RECRUIT CREW and LEAVE; DRINK and NEWS show MW1's story on the event panel
 //   (mw1_event_screen.h);
-// - RECRUIT CREW, the interview: one recruit at a time, their portrait, record and pitch; HIRE, DECLINE, PREV, NEXT;
+// - RECRUIT CREW, the interview: one recruit at a time, their portrait, record and pitch; HIRE, PREV, NEXT, DONE (no DECLINE: FIXES.md item 68);
 // - YOUR LANCE, MW1's crew grid (CREW_MENU): you and the lancemates side by side, each one's portrait, record and
 //   mech's picture, the chosen one's frame lit; FIRE, ASSIGN, PREV, NEXT. It is the hub's COMPANY now (FIXES.md item
 //   11: MW1 keeps it there, not at the Bar): the grid alone over the company's barracks, its LEAVE back to the hub.
@@ -22,10 +22,10 @@ inline constexpr const char* kBarFile = "mw1bar.zrd";
 inline constexpr const char* kBarDialog = "MW1BARDIALOG";
 
 enum BarButton : int32_t {
-  kBarHire = 1, kBarDecline, kBarFire, kBarAssign, kBarBack, kBarRecruitUp, kBarRecruitDown, kBarLanceUp, kBarLanceDown, kBarDrink, kBarNews,
+  kBarHire = 1, kBarFire, kBarAssign, kBarBack, kBarRecruitUp, kBarRecruitDown, kBarLanceUp, kBarLanceDown, kBarDrink, kBarNews,
   kBarCrew, kBarLance, kBarDone  // RECRUIT CREW and YOUR LANCE open their pages, DONE closes them
 };
-inline constexpr int32_t kBarButtonCount = 14;
+inline constexpr int32_t kBarButtonCount = 13;
 
 enum class BarPage : int32_t { kMenu, kRecruits, kLance };
 

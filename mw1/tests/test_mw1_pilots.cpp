@@ -112,7 +112,7 @@ TEST(mw1_pilots_recruits_by_tier_reputation_and_portraits) {
   }
 }
 
-TEST(mw1_pilots_hire_decline_fire_assign) {
+TEST(mw1_pilots_hire_fire_assign) {
   mw1::Company c = company();
   c.recruits = {1, 3, 5, 7, 9};
   EXPECT(mw1::hire(c, 9) == mw1::Hire::kNoSuch);
@@ -121,7 +121,6 @@ TEST(mw1_pilots_hire_decline_fire_assign) {
   EXPECT(mw1::hire(c, 0) == mw1::Hire::kDone && mw1::hire(c, 0) == mw1::Hire::kDone && c.lance.size() == 3);
   // Full: refused, the offer used all the same.
   EXPECT(mw1::hire(c, 0) == mw1::Hire::kFull && c.lance.size() == 3 && c.recruits.size() == 1 && c.pilots[7].where == mw1::PilotWhere::kFree);
-  EXPECT(mw1::decline(c, 0) && c.recruits.empty() && !mw1::decline(c, 0));
   // ASSIGN: through the hangar's free mechs, then none.
   mw1::OwnedMech a, b;
   a.mech = mw1::kPmFirefly, b.mech = mw1::kPmCenturion;

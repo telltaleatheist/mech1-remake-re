@@ -59,8 +59,6 @@ const char* hire_words(Hire h);
 // HIRE recruit i (6B69): into the lance at their Gunnery's wage, the offer used; a full lance refuses and the offer
 // is used all the same (MW1's). No fee.
 Hire hire(Company& c, int32_t recruit);
-// DECLINE recruit i (6BFA): the offer gone.
-bool decline(Company& c, int32_t recruit);
 // FIRE lancemate i (29E3): back to the pool, their mech free.
 bool fire(Company& c, int32_t lancemate);
 // ASSIGN lancemate i (MW1's crew menu): to the next hangar mech nobody pilots, after theirs; past the last, none.

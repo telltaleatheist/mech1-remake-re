@@ -1032,10 +1032,6 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         changed = h != Hire::kNoSuch;
         break;
       }
-      case kBarDecline:
-        changed = decline(company_, bchoice_.recruit);
-        bchoice_.note = changed ? who + " moves on." : "Nobody chosen.";
-        break;
       case kBarFire:
         changed = fire(company_, bchoice_.mate);
         bchoice_.note = changed ? mate + " leaves the company." : "Nobody chosen.";
