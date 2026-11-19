@@ -211,9 +211,17 @@ const uint8_t* HiresDraw::prepare(const uint16_t* pixels, int width, int height,
   // The fail-safe: a draw not drawn here (no source, no glyphs) is the canvas's where it shows: its chain starts
   // again at it, from the canvas as the draw left it (its "after"), and the draws over it are drawn as ever. What
   // was under it is the canvas's there too; never a hole.
+  short_what_.clear();
   for (size_t i = 0; i < n; ++i) {
     if (ok[i]) continue;
     ++stats_.failed;
+    if (stats_.failed <= 6) {  // for the log: a picture by its image's name, a text by its place only (never words)
+      char what[96];
+      const Rect& q = l[i].rect;
+      std::snprintf(what, sizeof what, " %s %s(%d,%d %dx%d)", l[i].kind == Kind::kText ? "text" : "picture",
+                    l[i].kind == Kind::kText ? "" : (l[i].name + " ").c_str(), q.l, q.t, q.r - q.l, q.b - q.t);
+      short_what_ += what;
+    }
     const Command& c = l[i];
     const Rect r = platform::hires::intersect(c.rect, Rect{0, 0, width, height});
     const uint16_t id = static_cast<uint16_t>(i + 1);
@@ -353,6 +361,13 @@ void HiresDraw::draw(const uint16_t* pixels, int width, int height, int pitch, b
   }
   render_->end_scene();
   stats_.ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+  // FIXES 12 (B4): a frame with draws left to the canvas (no source, no glyphs, the atlas overflowed) says which, once
+  // for each change of them: the fit guards at 1080p fail on any not known, and a player's log shows it.
+  const bool short_now = stats_.failed > 0 || stats_.overflowed > 0;
+  if (short_now && (!short_before_ || short_what_ != short_said_))
+    std::printf("mw3: hires: %d draws left to the canvas, %d lines past the atlas (of %d draws):%s\n", stats_.failed,
+                stats_.overflowed, stats_.draws, short_what_.c_str());
+  short_before_ = short_now, short_said_ = short_what_;
   if (platform::hires_2d_debug()) {
     times_.push_back(stats_.ms);
     if (times_.size() == 600) {
