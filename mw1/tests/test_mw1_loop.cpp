@@ -919,6 +919,14 @@ void loop_run(Ending ending, Run* run = nullptr) {
         EXPECT(pay.size() >= 3 && (pay[0].rfind("Fee: ", 0) == 0 || pay[0].rfind("No fee", 0) == 0) &&
                pay[1].rfind("Salvage: ", 0) == 0 && pay.back().rfind("Total: ", 0) == 0);
         EXPECT(pay.size() == 3 + !rp->repairs.empty());
+        // FIXES 28's review: no "Fee: 0" on a loss or a retreat; a retreat settles no fates, so no KILLED or MISSING and
+        // not the someone-lost picture; its salvage list says it withdrew, not lost.
+        if (pa->outcome != mw1::Outcome::kSuccess) EXPECT(pay[0] == (failed ? "Fee: none (lost)" : "Fee: none (withdrew)") || pay[0].rfind("No fee", 0) == 0);
+        if (pa->outcome == mw1::Outcome::kRetreat) {
+          for (const std::string& l : rp->crew) EXPECT(l.find("KILLED") == std::string::npos && l.find("MISSING") == std::string::npos);
+          EXPECT(rp->ending == mw1::Ending::kRetreat || rp->ending == mw1::Ending::kLost);
+          EXPECT(!rp->salvage.empty() && rp->salvage[0].words == "None: you withdrew");
+        }
         for (const std::vector<std::string>* v : {&rp->where, &pay, &rp->crew, &rp->mech}) all.insert(all.end(), v->begin(), v->end());
         for (const std::vector<mw1::ListRow>* v : {&rp->salvage, &rp->kills})
           for (const mw1::ListRow& r : *v) all.push_back(r.words);
@@ -929,6 +937,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
         auto amount = [&](const char* key) -> int64_t {
           for (const std::string& l : all)
             if (l.rfind(key, 0) == 0) {
+              if (l.compare(std::string(key).size(), 5, "none ") == 0) return 0;  // "Fee: none (lost)" (FIXES 28)
               std::string digits;
               for (char ch : l.substr(std::string(key).size())) {
                 if (ch == ' ' && !digits.empty()) break;
@@ -943,10 +952,10 @@ void loop_run(Ending ending, Run* run = nullptr) {
         auto salvage_pay = [&]() -> int64_t {
           for (const std::string& l : rp->pay)
             if (l.rfind("Salvage: ", 0) == 0) {
-              const size_t eq = l.rfind(" = ");
-              if (eq == std::string::npos) return 0;
+              const size_t eq = l.rfind(" = "), all = l.rfind("all of ");  // "Salvage: all of 9,804,683" (FIXES 28)
+              if (eq == std::string::npos && all == std::string::npos) return 0;
               std::string digits;
-              for (char ch : l.substr(eq + 3)) {
+              for (char ch : l.substr(eq != std::string::npos ? eq + 3 : all + 7)) {
                 if (ch == ' ' && !digits.empty()) break;
                 if (ch >= '0' && ch <= '9') digits += ch;
               }
