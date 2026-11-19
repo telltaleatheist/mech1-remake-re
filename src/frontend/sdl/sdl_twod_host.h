@@ -54,11 +54,23 @@ class SdlTwodHost : public ztwod::Host {
   // Ours (MW1's FIXES 12): with platform::hires_2d() on, each blit tells the recorded draws (hires_lists()) what it
   // carries; the pixels are blitted as ever.
   void blit(zimg::Texture* image, int32_t x, int32_t y, int32_t flags, const ztwod::Rect* src) override;
+  // mw1 (engine, ours), FIXES 89: with platform::hires_2d() on, the 2D's lines and circles are recorded too (kLine),
+  // their pixels as ever; the high-resolution draw draws them again anti-aliased. Dashed and noisy ones stay the
+  // canvas's.
+  void line(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t pixel) override;
+  void line_list(const int32_t* points, int32_t count, const ztwod::Rect* clip, uint32_t pixel) override;
+  void circle(int32_t cx, int32_t cy, int32_t r, uint32_t pixel, const ztwod::Rect* clip) override;
   const platform::hires::Lists& hires_lists() const { return hires_; }
   // Ours (MW1's FIXES 12, B1 piece 4): the recorded draws drawn at the frame's resolution through `render` (the
   // program wires hires_draw() to the screen's layer and the renderer's present).
   void attach_hires_draw(platform::Render3D* render) { hires_draw_ = std::make_unique<HiresDraw>(render, &hires_); }
   HiresDraw* hires_draw() const { return hires_draw_.get(); }
+ private:
+  // FIXES 89: `c` (a kLine, its points set) recorded with its rect, the canvas under it snapshotted; the count added.
+  size_t line_begin(platform::hires::Command c, const ztwod::Rect* clip);
+  void line_end(size_t added);
+
+ public:
   platform::hires::Lists& hires_lists() { return hires_; }
   Handle image_dc(zimg::Texture* image) override;
   void image_dc_release(zimg::Texture* image, Handle dc) override;

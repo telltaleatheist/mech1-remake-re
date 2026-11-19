@@ -73,6 +73,7 @@ add_library(mw3core STATIC
   src/platform/mipmaps.cpp
   src/platform/hires_images.cpp
   src/platform/hires_lists.cpp  # ours: MW1's high-resolution 2D, the recorded draws (FIXES 12)
+  src/platform/hires_lines.cpp  # ours: mw1 (engine, ours), FIXES 89: its recorded lines drawn anti-aliased
   src/mech3/data_folder.cpp
   src/mech3/data_version.cpp
   src/mech3/patch12.cpp

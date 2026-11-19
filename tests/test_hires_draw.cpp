@@ -10,6 +10,10 @@
 
 #include "check.h"
 #include "frontend/sdl/hires_draw.h"
+#include "frontend/sdl/sdl_twod_host.h"
+#include "gamez/zrender/zrndr_blit.h"
+#include "gamez/ztwod/twod_host.h"
+#include "platform/hires_2d.h"
 #include "frontend/sdl/sdl_platform.h"
 #include "platform/hires_images.h"
 #include "platform/hires_lists.h"
@@ -490,4 +494,67 @@ TEST(hires_draw_lines_that_overflow_the_atlas_stay_the_canvas_s) {
   EXPECT(d.stats().overflowed == 1 && d.stats().lines == 0 && d.stats().failed == 4);
   d.draw(c.px.data(), c.w, c.h, c.w * 2, true, false, 0);
   EXPECT(d.stats().overflowed == 0 && d.stats().lines == 0 && d.stats().failed == 4);  // remembered: not tried
+}
+
+// mw1 (engine, ours), MW1's FIXES.md item 89: with the high-resolution 2D on, the SDL host records the 2D's lines,
+// line lists and circles (the mission radar's ring, cone and boundaries) as lines, the canvas under each kept, and
+// draws them again anti-aliased at the frame's scale over the key (the 3D); the canvas still gets its pixels. Off,
+// nothing is recorded. Fails when the lines go back to the canvas alone (nothing recorded, or left to the canvas).
+TEST(hires_draw_the_radar_s_lines_recorded_and_drawn_smooth) {
+  constexpr uint16_t kKey = 0xF81F, kGreen = 0x07E0;
+  Canvas c(128, 96);
+  c.fill({0, 0, 128, 96}, kKey);
+  zrndr::Target2D& t = zrndr::target2d();
+  const zrndr::Target2D was_target = t;
+  t.base = reinterpret_cast<uint8_t*>(c.px.data()), t.width = 128, t.height = 96, t.pitch = 256, t.format = 6;
+  const bool was = platform::hires_2d();
+  sdlfe::SdlTwodHost h(nullptr, nullptr, nullptr);
+  const ztwod::Rect clip{20, 10, 100, 86};  // the radar's square (inclusive, as zrndr's)
+  const int32_t pts[] = {60, 48, 80, 30, 95, 40};
+  auto draw_radar = [&](bool on) {
+    platform::set_hires_2d(on);
+    h.hires_lists().clear(c.px.data());
+    c.fill({0, 0, 128, 96}, kKey);
+    h.circle(60, 48, 30, kGreen, &clip);      // the ring
+    h.line(60, 48, 40, 26, kGreen);           // the cone's side
+    h.line_list(pts, 2, &clip, kGreen);       // a boundary
+  };
+  draw_radar(false);
+  const size_t off = h.hires_lists().size(c.px.data());
+  const bool drawn_off = c.px[48 * 128 + 90] == kGreen && c.px[48 * 128 + 30] == kGreen;
+  draw_radar(true);
+  const std::vector<Command>* cs = h.hires_lists().of(c.px.data());
+  int lines = 0, whole = 0;
+  if (cs)
+    for (const Command& k : *cs) {
+      lines += k.kind == platform::hires::Kind::kLine;
+      const size_t area = static_cast<size_t>(k.rect.r - k.rect.l) * (k.rect.b - k.rect.t);
+      whole += k.before.size() == area && k.after.size() == area && k.before != k.after;
+    }
+  const bool drawn_on = c.px[48 * 128 + 90] == kGreen && c.px[48 * 128 + 30] == kGreen;  // the canvas as ever
+  Recorder r;
+  r.fw = 128 * 9 / 2, r.fh = 96 * 9 / 2;  // 4.5x: 4K's scale over the 853x480 canvas
+  sdlfe::HiresDraw d(&r, &h.hires_lists());
+  const uint8_t* mask = d.prepare(c.px.data(), c.w, c.h, c.w * 2, true, true, kKey);
+  const bool unkeyed = mask && mask[48 * 128 + 90];  // the canvas's ring pixel dropped from the layer
+  d.draw(c.px.data(), c.w, c.h, c.w * 2, true, true, kKey);
+  // The ring's texture: the rect at 4.5x, its edge blended (alpha between none and whole), green.
+  int soft = 0, solid = 0, other_colour = 0;
+  for (const Drawn& dr : r.draws) {
+    if (!dr.state.premultiplied) continue;
+    const std::vector<uint8_t>& tx = r.textures[dr.texture];
+    for (size_t i = 0; i + 3 < tx.size(); i += 4) {
+      soft += tx[i + 3] > 0 && tx[i + 3] < 255, solid += tx[i + 3] == 255;
+      other_colour += tx[i + 3] == 255 && (tx[i] != 0 || tx[i + 1] != 255 || tx[i + 2] != 0);
+    }
+  }
+  platform::set_hires_2d(was);
+  h.hires_lists().clear(c.px.data());
+  t = was_target;
+  std::printf("  off: %zu recorded; on: %d lines (%d with their snapshots), %d stroked, %d left to the canvas; "
+              "texels %d solid, %d blended\n", off, lines, whole, d.stats().strokes, d.stats().failed, solid, soft);
+  EXPECT(off == 0 && drawn_off && drawn_on);
+  EXPECT(lines == 3 && whole == 3);
+  EXPECT(d.stats().strokes == 3 && d.stats().failed == 0 && unkeyed);
+  EXPECT(solid > 0 && soft > solid / 4 && other_colour == 0);  // anti-aliased, in the canvas's own green
 }

@@ -8,6 +8,7 @@
 #include "gamez/zvideo/zvid_ddd3d.h"
 #include "platform/hires_2d.h"
 #include "platform/hires_images.h"
+#include "platform/hires_lines.h"
 #include "platform/render3d.h"
 
 namespace sdlfe {
@@ -95,6 +96,7 @@ void shown(const std::vector<uint16_t>& base, int32_t w, const Rect& r, uint16_t
 HiresDraw::~HiresDraw() {
   if (!render_) return;
   for (auto& [serial, p] : pictures_) render_->release_texture(p.texture);
+  for (auto& [key, lt] : line_textures_) render_->release_texture(lt.texture);
   if (atlas_tex_ >= 0) render_->release_texture(atlas_tex_);
   if (under_tex_ >= 0) render_->release_texture(under_tex_);
 }
@@ -130,6 +132,26 @@ int32_t HiresDraw::picture_texture(const Command& c, float* u_scale, float* v_sc
   const int32_t t = p.texture;
   if (t < 0) pictures_.erase(im->serial);  // p is gone with it
   return t;
+}
+
+int32_t HiresDraw::line_texture(const Command& c, bool rgb565, float* u_scale, float* v_scale) {
+  uint64_t key = 1469598103934665603ull;
+  auto mix = [&](uint64_t v) { key = (key ^ v) * 1099511628211ull; };
+  for (int32_t p : c.pts) mix(static_cast<uint32_t>(p));
+  for (int32_t v : {c.radius, c.x, c.y, c.rect.l, c.rect.t, c.rect.r, c.rect.b}) mix(static_cast<uint32_t>(v));
+  mix(c.colour), mix(rgb565), mix(static_cast<uint64_t>(sx_ * 4096)), mix(static_cast<uint64_t>(sy_ * 4096) << 1);
+  LineTexture& lt = line_textures_[key];
+  lt.unseen = 0;
+  if (lt.texture < 0) {
+    const std::vector<uint8_t> rgba = platform::hires::line_rgba(
+        c, sx_, sy_, platform::hires::canvas_rgb(static_cast<uint16_t>(c.colour), rgb565), &lt.w, &lt.h);
+    if (rgba.empty() || (lt.texture = render_->create_texture(lt.w, lt.h, rgba.data(), 4)) < 0) {
+      line_textures_.erase(key);
+      return -1;
+    }
+  }
+  *u_scale = sx_ / static_cast<float>(lt.w), *v_scale = sy_ / static_cast<float>(lt.h);
+  return lt.texture;
 }
 
 bool HiresDraw::upload_atlas() {
@@ -180,6 +202,7 @@ const uint8_t* HiresDraw::prepare(const uint16_t* pixels, int width, int height,
   auto& glyphs = glyphs_;
   for (size_t i = 0; i < n; ++i)
     if (l[i].kind == Kind::kPicture) ok[i] = (tex[i] = picture_texture(l[i], &us[i], &vs[i])) >= 0;
+    else if (l[i].kind == Kind::kLine) ok[i] = (tex[i] = line_texture(l[i], rgb565, &us[i], &vs[i])) >= 0;
   // The lines against one atlas. A line that can't be made (even alone) fails by itself, and is left out when the
   // frame's lines are laid out again after an atlas clear. When they still don't fit together, the text is the
   // canvas's, and stays so (no layout, no atlas churn) until the list or the scale changes.
@@ -219,7 +242,8 @@ const uint8_t* HiresDraw::prepare(const uint16_t* pixels, int width, int height,
     if (stats_.failed <= 6) {  // for the log: a picture by its image's name, a text by its place only (never words)
       char what[96];
       const Rect& q = l[i].rect;
-      std::snprintf(what, sizeof what, " %s %s(%d,%d %dx%d)", l[i].kind == Kind::kText ? "text" : "picture",
+      std::snprintf(what, sizeof what, " %s %s(%d,%d %dx%d)",
+                    l[i].kind == Kind::kText ? "text" : l[i].kind == Kind::kLine ? "line" : "picture",
                     l[i].kind == Kind::kText ? "" : (l[i].name + " ").c_str(), q.l, q.t, q.r - q.l, q.b - q.t);
       short_what_ += what;
     }
@@ -230,7 +254,7 @@ const uint8_t* HiresDraw::prepare(const uint16_t* pixels, int width, int height,
     // mw1 (engine, ours), FIXES 12: a see-through draw is the canvas's only where it changed the canvas. Where its
     // blit left a pixel as it was (its clear part) the chain under it goes on, so what's under it (a scene's picture)
     // is drawn at its own resolution, not the canvas's copy of it.
-    const bool see_through = c.kind == Kind::kPicture && c.alpha;
+    const bool see_through = (c.kind == Kind::kPicture && c.alpha) || c.kind == Kind::kLine;  // FIXES 89: a line too
     for (int32_t y = r.t; y < r.b; ++y)
       for (int32_t x = r.l; x < r.r; ++x) {
         uint16_t& b = base_[static_cast<size_t>(y) * width + x];
@@ -333,7 +357,14 @@ void HiresDraw::draw(const uint16_t* pixels, int width, int height, int pitch, b
           next_);
     if (rects.empty()) continue;
     v.clear();
-    if (c.kind == Kind::kPicture) {
+    if (c.kind == Kind::kLine) {  // FIXES 89: its texture covers its rect
+      const uint32_t white = diffuse(255, 255, 255);
+      for (const Rect& r : rects)
+        quad(&v, static_cast<float>(r.l), static_cast<float>(r.t), static_cast<float>(r.r), static_cast<float>(r.b),
+             (r.l - c.rect.l) * us[i], (r.t - c.rect.t) * vs[i], (r.r - c.rect.l) * us[i], (r.b - c.rect.t) * vs[i], white);
+      render_->draw(platform::Primitive::kTriangles, v.data(), static_cast<int>(v.size()), state(tex[i]));
+      ++stats_.strokes;
+    } else if (c.kind == Kind::kPicture) {
       const uint32_t white = diffuse(255, 255, 255);
       for (const Rect& r : rects)
         quad(&v, static_cast<float>(r.l), static_cast<float>(r.t), static_cast<float>(r.r), static_cast<float>(r.b),
@@ -383,6 +414,14 @@ void HiresDraw::draw(const uint16_t* pixels, int width, int height, int pitch, b
 
 void HiresDraw::end_frame() {
   if (platform::HiresImages* images = platform::hires_images()) images->end_frame();
+  for (auto it = line_textures_.begin(); it != line_textures_.end();) {  // FIXES 89: a moving line's old ones
+    if (++it->second.unseen > 2) {
+      render_->release_texture(it->second.texture);
+      it = line_textures_.erase(it);
+    } else {
+      ++it;
+    }
+  }
   for (auto it = pictures_.begin(); it != pictures_.end();) {
     if (++it->second.unseen > kUnseenFrames) {
       render_->release_texture(it->second.texture);
