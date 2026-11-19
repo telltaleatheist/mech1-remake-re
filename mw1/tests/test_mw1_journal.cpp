@@ -164,9 +164,20 @@ TEST(mw1_journal_a_battle_waits_until_won) {
   EXPECT(l.step == 5 && l.rung == 1 && l.planet == J::planet_named("LAND'S END") && l.place == J::Place::kBar && !l.strength.empty());
   c.story.seen[0x0C] = 1;  // its FIGHT lost: seen (dev 1 clears it to fire again; either way the battle waits)
   EXPECT(J::current_lead(c).step == 5);
+  // Lost (or RUN): the event waits to fire again (mw1_story.h's steps_wait), no setback event of its own: the lead
+  // says so, and where to try again.
+  c.story.seen[0x0C] = mw1::kSeenWaiting;
+  l = J::current_lead(c);
+  EXPECT(l.step == 5 && l.retry && l.line.find("haven't beaten Grig's men") != std::string::npos &&
+         l.line.find("the Bar on Land's End") != std::string::npos);
   c.story.rung_won = 1;
   l = J::current_lead(c);
-  EXPECT(l.step == 6 && l.rung == 0 && l.strength.empty());
+  EXPECT(l.step == 6 && l.rung == 0 && l.strength.empty() && !l.retry);
+  // Brown's (rung 2) lost the same way.
+  for (int32_t id : {0x0C, 0x0E}) c.story.seen[static_cast<size_t>(id)] = 1;
+  c.story.seen[0x17] = mw1::kSeenWaiting;
+  l = J::current_lead(c);
+  EXPECT(l.step == 7 && l.retry && l.line.find("haven't beaten Brown's men") != std::string::npos);
 }
 
 TEST(mw1_journal_setbacks_say_try_again_there) {

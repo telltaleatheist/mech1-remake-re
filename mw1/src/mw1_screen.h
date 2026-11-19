@@ -215,8 +215,11 @@ class Mw1State : public mech3::MenuState {
     if (keys_) keys_(code);
   }
   bool update() override;
+  void resume(uint32_t arg) override;
 
  private:
+  bool fading_frame();  // a frame while the fade between screens runs (FIXES.md item 52)
+  void draw_faded(bool step_dt);  // the screen drawn under the fade's black, and shown
   const char* file_;
   const char* dialog_;
   std::vector<ScreenButton> buttons_;
@@ -232,6 +235,13 @@ class Mw1State : public mech3::MenuState {
   bool wheel_read_ = false;
   std::function<void(int32_t)> hover_;
 };
+
+// FIXES.md item 52: after each frame shown (Engine::on_present), the fade between screens on a screen that isn't
+// MW1's (Pirate's Moon's lab, its options): stepped, and its black left for the next frame's scene.
+void fade_present(mech3::Engine& en);
+// The same inside a frame that isn't an MW1 state's, drawn in a lock (the loading screen in PM's Load state): the
+// black over what was drawn so far.
+void fade_over_layer(mech3::Engine& en);
 
 // True when MW1's data has `file` with `dialog` in it (the loop falls back to message boxes when not).
 bool layout_there(const char* file, const char* dialog);

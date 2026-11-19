@@ -10,6 +10,11 @@
 #include "gamez/zvideo/zvid_format.h"
 #include "mech3/app_engine.h"
 #include "mech3/app_hooks.h"
+#include "gamez/zclass/cls_node.h"
+#include "mw1_fade.h"
+#include "gamez/zrender/zrndr_tint.h"
+#include "gamez/zrender/zrndr_blit.h"
+#include "gamez/zvideo/zvid_ddd3d.h"
 
 namespace mw1::screens {
 namespace {
@@ -515,10 +520,125 @@ Mw1State::Mw1State(zgame::Handle h, const char* name, const char* file, const ch
 void Mw1State::set_pointer(int32_t left, int32_t top, int32_t right, int32_t bottom, std::function<void(int32_t, int32_t, bool)> heard) {
   pointer_rect_[0] = left, pointer_rect_[1] = top, pointer_rect_[2] = right, pointer_rect_[3] = bottom;
   pointer_ = std::move(heard);
-  if (screen_ptr_) screen_ptr_->set_pointer(left, top, right, bottom, pointer_);
+  if (screen_ptr_)
+    screen_ptr_->set_pointer(left, top, right, bottom, [p = pointer_](int32_t x, int32_t y, bool down) {
+      if (!fade::current().busy()) p(x, y, down);
+    });
+}
+
+// FIXES.md item 52: the fade's clock, stepped once a frame whichever MW1 screen draws it (two may in a frame: the
+// one leaving and the one entering). The change it runs may swap this state for another: then nothing more is drawn
+// by this one (its screen is gone), and the next frame is the new screen's, black.
+namespace {
+uint32_t g_fade_frame = ~0u;
+uint32_t g_drawn_frame = ~0u;  // the last frame an MW1 screen drew while fading
+// The black over the frame: the canvas's whole rect, on the frame's renderer (see fading_frame).
+void fade_tint(mech3::Engine& en, double alpha) {
+  auto* ge = dynamic_cast<mech3::GameEngine*>(&en);
+  if (ge && !zvid::render3d()) zvid::set_render3d(ge->platform_parts().render);
+  const int32_t rect[4] = {0, 0, (ge ? ge->buffer_width() : 640) - 1, ge ? ge->buffer_height() : 480};
+  zrndr::tint(0, rect, alpha, true);
+}
+bool fade_step(float dt) {
+  fade::Fade& f = fade::current();
+  const uint32_t now = static_cast<uint32_t>(zcls::frames().frame);
+  if (now == g_fade_frame) return false;
+  g_fade_frame = now;
+  const fade::Fade::Phase was = f.phase();
+  f.step(dt);
+  return was == fade::Fade::Phase::kOut && f.phase() != fade::Fade::Phase::kOut;  // changed: the screen may be gone
+}
+}  // namespace
+
+void fade_present(mech3::Engine& en) {
+  fade::Fade& f = fade::current();
+  if (!f.busy()) return;
+  const uint32_t now = static_cast<uint32_t>(zcls::frames().frame);  // counted at the flip: this frame's + 1
+  if (now == g_drawn_frame + 1) return;  // an MW1 screen drew it
+  if (now - 1 != g_fade_frame) {
+    g_fade_frame = now - 1;
+    f.step(en.frame_dt());
+  }
+  if (f.busy()) fade_tint(en, f.alpha());  // for the next frame's scene, if the screen draws one (PM's lab does)
+}
+
+void fade_over_layer(mech3::Engine& en) {
+  fade::Fade& f = fade::current();
+  if (!f.busy()) return;
+  // PM's Load state's frame is the 16-bit buffer shown as it is (GameEngine::video_flip's present_16: no layer laid
+  // over a scene, so no tint quad): the black blended into the locked buffer's pixels (RGB565), by the fade's alpha.
+  zrndr::Target2D& t = zrndr::target2d();
+  if (!t.base || !t.width || !t.height) return;
+  const uint32_t keep = static_cast<uint32_t>((1.0f - f.alpha()) * 256.0f + 0.5f);
+  for (uint32_t y = 0; y < t.height; ++y) {
+    auto* row = reinterpret_cast<uint16_t*>(t.base + static_cast<size_t>(y) * t.pitch);
+    for (uint32_t x = 0; x < t.width; ++x) {
+      const uint32_t p = row[x];
+      const uint32_t r = ((p >> 11) & 31) * keep >> 8, g = ((p >> 5) & 63) * keep >> 8, b = (p & 31) * keep >> 8;
+      row[x] = static_cast<uint16_t>(r << 11 | g << 5 | b);
+    }
+  }
+  (void)en;
+}
+
+bool Mw1State::fading_frame() {
+  mech3::Engine& en = e();
+  if (fade_step(en.frame_dt())) {
+    fade_tint(en, 1.0);  // the change made: the next screen's first frame black, MW1's or not (PM's lab)
+    return true;
+  }
+  // Input ignored: polled, never read.
+  en.input_poll(0);
+  en.sound_update(0, 0);
+  draw_faded(true);
+  return true;
+}
+
+// FIXES.md item 52: a screen come back to under the fade (the journal's event popped for GO THERE's starport, the
+// hub between): ShellState's resume draws it and shows it at once, unfaded; this draws it under the black.
+void Mw1State::resume(uint32_t arg) {
+  if (!fade::current().busy() || !screen_ || arg != 1) return MenuState::resume(arg);
+  mech3::Engine& en = e();
+  refresh_target();
+  en.vcall(screen_, 0x04, {1});
+  en.screen_refresh(screen_);
+  draw_faded(false);
+}
+
+// The live screen as PM's fade draws its still (0x0048f0b0): the layer laid over the frame, the black tint quad
+// over both (the high-res list too, drawn with the layer), then shown.
+void Mw1State::draw_faded(bool step_dt) {
+  mech3::Engine& en = e();
+  const double alpha = fade::current().alpha();
+  const float dt = step_dt ? en.frame_dt() : 0.0f;
+  g_drawn_frame = static_cast<uint32_t>(zcls::frames().frame);
+  if (en.video_mode() != 0) {
+    en.video_begin_3d();
+    if (screen_) en.vcall(screen_, 0x00, {zgame::bits(dt)});
+    en.video_end_3d();
+    // The canvas's whole rect, given (without one the tint takes the 2D target's size, none on MW1's screens), on
+    // the frame's renderer: a mission's setup gives it to zvid (app_mission's texture setup); before the first
+    // mission the menus have none, and the quad would go nowhere. The same renderer, given here.
+    fade_tint(en, alpha);
+    en.video_begin_scene();
+    en.video_draw_3d();
+    en.video_end_scene();
+    en.video_flip(0, 0, 0, 0);
+  } else {
+    en.video_lock();
+    if (screen_) en.vcall(screen_, 0x00, {zgame::bits(dt)});
+    en.screen_tint(0, 0, alpha);
+    en.render_finish();
+    en.video_unlock();
+    en.video_flip(0, 0, 1, 1);
+  }
 }
 
 bool Mw1State::update() {
+  if (fade::current().busy()) {
+    fading_frame();
+    return false;
+  }
   const bool r = MenuState::update();
   if (keys_ && screen_ptr_)
     if (const uint32_t k = e().input_frame_key()) keys_(k);
@@ -535,9 +655,16 @@ bool Mw1State::update() {
 bool Mw1State::enter() {
   mech3::Engine& en = e();
   wheel_read_ = false;
-  screen_ptr_ = new Mw1Screen(en, addr(), file_, dialog_, buttons_, pressed_);
+  // FIXES.md item 52: the buttons and the pointer deaf while the fade between screens runs.
+  auto pressed = [p = pressed_](int32_t id) {
+    if (!fade::current().busy() && p) p(id);
+  };
+  screen_ptr_ = new Mw1Screen(en, addr(), file_, dialog_, buttons_, pressed);
   screen_ = en.adopt_screen(screen_ptr_, kScreenSize);
-  if (pointer_) screen_ptr_->set_pointer(pointer_rect_[0], pointer_rect_[1], pointer_rect_[2], pointer_rect_[3], pointer_);
+  if (pointer_)
+    screen_ptr_->set_pointer(pointer_rect_[0], pointer_rect_[1], pointer_rect_[2], pointer_rect_[3], [p = pointer_](int32_t x, int32_t y, bool down) {
+      if (!fade::current().busy()) p(x, y, down);
+    });
   if (hover_) screen_ptr_->set_hover(hover_);
   screen_ptr_->show(view_);
   ShellState::enter();

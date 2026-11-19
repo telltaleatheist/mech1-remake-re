@@ -116,6 +116,8 @@ the cursor's save. So a draw list held only by the screen would lose text and pi
 | `frontend/sdl/launcher.cpp:1344` `zrndr::ripple` | the launcher's own canvas | the launcher, not the game | out of scope |
 | `mw1/src/mw1_mech_renders.cpp` | the 3D frame, captured for the renders | no 2D involved | nothing to do |
 
+**The tint quad before the first mission (found by item 52, 2026-11-18).** zvid has no 3D renderer until a mission's texture setup calls `zvid::set_render3d` (`app_mission.cpp:2045`), so on the menus a tint quad is silently dropped. MW1's fade gives zvid the engine's renderer itself (`mw1_screen.cpp`'s `fade_tint`); any menu fade or flash through the quad needs the same, or the engine setting it at startup. PM's Load state is different again: it presents the 16-bit buffer raw (`present_16`), with no quad, so the fade darkens that buffer's pixels instead (`fade_over_layer`).
+
 **For B1, from this.** The command lists live on `zimg::Texture` (an ours side table in the SDL host keyed by the
 texture, so `zimg::Texture`'s layout, which mirrors the exe's, doesn't change). The host's `blit`, `screen_grab`,
 `screen_grab_rect`, the DC's `DrawTextA` and `texture_free` touch them. Every image draw in ztwod and mech3 goes
