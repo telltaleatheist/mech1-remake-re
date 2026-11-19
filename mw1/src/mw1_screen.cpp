@@ -267,7 +267,8 @@ Mw1Screen::~Mw1Screen() = default;
 // after the world's name, the name gives up its room (the plaque names the world) and the words start where it
 // was; still too long, they are cut, "..." at the end.
 void Mw1Screen::fit_status(ztwod::Text* t, int32_t y, size_t world_block, int32_t world_x) {
-  const int32_t limit = (wide_ ? kWideCanvas : 640) - kStatusMargin;
+  // The layout's right: a 640 layout centred on a wider canvas (no _WIDE one: the starport's) ends at its origin + 640.
+  const int32_t limit = (wide_ ? kWideCanvas : 640) + shift(Anchor::kLayout) - kStatusMargin;
   auto right = [&] {
     ztwod::Rect r{};
     t->rect_at(&r);
@@ -277,6 +278,7 @@ void Mw1Screen::fit_status(ztwod::Text* t, int32_t y, size_t world_block, int32_
   if (world_block < blocks_.size() && !blocks_[world_block].empty()) {
     blocks_[world_block][0]->hide();
     shown_lines_[world_block].clear();
+    if (std::getenv("MW1_FIT")) std::printf("mw1 screen fit: the status line hides the world's name to fit\n");
     t->set_pos(world_x, y);
     if (right() <= limit) return;
   }
