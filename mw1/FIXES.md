@@ -974,6 +974,14 @@ game still thought it up. The fade (on by default) ignored such presses, so play
   fails without the guard (the panel lost).
 - The soak now presses BACK after every GO, trip or not, so it keeps exercising the guard.
 
+## 81. [x] The log's forgiven repairs, exact *(done: mw1-repairs-forgiven)*
+Found by the long soak (seed 17): a repair bill larger than the funds is paid down to 0 and the rest forgiven, but the
+log kept the forgiven part in thousands, rounded down. 72,377 billed with 61,000 in the bank read "(11,000 forgiven)",
+so the log's money didn't add up to the funds.
+- The repairs entry keeps the forgiven amount exactly in `b`. `a` still keeps it in thousands, and an older save's
+  entry (no `b`) still reads that way.
+- The soak's ledger counts a repair as billed less forgiven. The log test checks both kinds of entry.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.

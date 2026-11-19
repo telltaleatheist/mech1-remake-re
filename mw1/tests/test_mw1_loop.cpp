@@ -3894,7 +3894,7 @@ int64_t logged_money(const mw1::LogEntry& e) {
   switch (e.kind) {
     case mw1::LogKind::kContract: return int64_t{e.d * static_cast<int32_t>(e.n) / 100} * 1000;  // the advance (accept's)
     case mw1::LogKind::kResult: return e.n + e.m;
-    case mw1::LogKind::kRepairs: return -e.m;
+    case mw1::LogKind::kRepairs: return -(e.m - (e.b > 0 ? e.b : int64_t{e.a} * 1000));  // billed, less forgiven
     case mw1::LogKind::kWagesPaid: return -e.n;
     case mw1::LogKind::kBought: return -e.n;
     case mw1::LogKind::kSold: return e.n;

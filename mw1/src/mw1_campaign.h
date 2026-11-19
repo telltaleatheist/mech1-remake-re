@@ -148,7 +148,7 @@ enum class LogKind : int32_t {
   kStory,         // a: event, b: record (a story event seen)
   kContract,      // a: House, b: objective (Objective), c: map row (-1 none), d: advance percent; n: payment (thousands)
   kResult,        // a: outcome (Outcome); n: fee, m: salvage pay (C-bills)
-  kRepairs,       // n: the repairs' whole cost, m: billed past the wrecks; a: forgiven (thousands, rounded down)
+  kRepairs,       // n: the repairs' whole cost, m: billed past the wrecks; b: forgiven (FIXES 81; a: in thousands, rounded down, older saves')
   kWagesPaid,     // n: C-bills
   kWagesUnpaid,   // the lancemates warned
   kLanceLeft,     // unpaid, the lancemates gone

@@ -68,6 +68,11 @@ TEST(mw1_log_a_contract_says_three_lines_and_repairs_stay_quiet) {
   }
   EXPECT(c.log[0].kind == mw1::LogKind::kRepairs && c.log[0].heard);
   EXPECT(mw1::log_lines(c, c.log[0]) == std::vector<std::string>{"Repairs: 90,000 C-bills; billed 20,000."});
+  // FIXES 81: the part forgiven (more than the funds), exact; an older save's in thousands.
+  mw1::log_add(c, mw1::LogKind::kRepairs, false, 11, 11377, 0, 0, 90000, 72377);
+  EXPECT(mw1::log_lines(c, c.log[0]) == std::vector<std::string>{"Repairs: 90,000 C-bills; billed 72,377 (11,377 forgiven)."});
+  mw1::log_add(c, mw1::LogKind::kRepairs, false, 11, 0, 0, 0, 90000, 72377);
+  EXPECT(mw1::log_lines(c, c.log[0]) == std::vector<std::string>{"Repairs: 90,000 C-bills; billed 72,377 (11,000 forgiven)."});
 }
 
 // The cap: 200 entries; past it the oldest goes, but never a news story not yet read (the oldest of the rest).
