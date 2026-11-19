@@ -1840,13 +1840,12 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     p.outcome = success ? "VICTORY" : a.outcome == Outcome::kFailure ? "DEFEAT" : "RETREAT";
     p.scene = scenery_image(company_.planet_number);
     p.replay = a.outcome == Outcome::kFailure && !contract_.rung;  // a story battle: again on the next arrival
-    p.house = company_.planet_house;
+    p.house = contract_.rung ? -1 : company_.planet_house;  // FIXES.md item 75: no House hired you for a story battle
     // The picture (item 31): someone lost is a lancemate KILLED or MISSING, or the commander's mech destroyed.
     bool lost = false, destroyed = false;
     for (const auto& b : a.bills)
       if (b.who == 0) destroyed = b.destroyed;
-    const bool counted = a.outcome != Outcome::kRetreat;  // a retreat settles no fates (settle_mission): nobody lost
-    for (const LanceFate& f : a.lance) lost = lost || (counted && f.destroyed);
+    for (const LanceFate& f : a.lance) lost = lost || f.destroyed;
     p.ending = ending_of(a.outcome, lost || destroyed);
     // Under the picture: the world and the employer, the objective, how it went and how long it took.
     std::string objective = objective_words(contract_);
@@ -1891,7 +1890,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       if (b.destroyed) {
         l += "destroyed";
         for (const LanceFate& f : a.lance)
-          if (f.id == b.who && f.destroyed && counted) l += pilot_killed(f) ? ", KILLED" : ", MISSING";
+          if (f.id == b.who && f.destroyed) l += pilot_killed(f) ? ", KILLED" : ", MISSING";
       } else {
         l += std::to_string(std::clamp(100 - (b.damage * 100 + kWhole / 2) / kWhole, 0, 100)) + "%";
         // Promoted by this mission (after_mission's, on the copy): on the line when it fits 4:3's, else its own.
@@ -1910,7 +1909,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
                        (rep.took_from ? ", " + pilot_title(rep.took_from) + " stays" : ""));
     if (a.bills.empty())  // a mission saved before the bills: the fates alone
       for (const LanceFate& f : a.lance)
-        p.crew.push_back(pilot_title(f.id) + (!f.destroyed || !counted ? ": came back" : pilot_killed(f) ? ": KILLED" : ": MISSING"));
+        p.crew.push_back(pilot_title(f.id) + (!f.destroyed ? ": came back" : pilot_killed(f) ? ": KILLED" : ": MISSING"));
     for (int32_t id : a.stayed) p.crew.push_back(pilot_title(id) + ": stayed behind");
     // SALVAGE TO STORES: every part kept on a win, each row its item's place (a keep list's, later: item 38).
     if (success && a.salvage && a.salvage->count()) {
@@ -1943,7 +1942,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (contract_.rung == kDarkWingRung) {  // MW1's: lost, its attack-failed line; won, the victory text after CONTINUE
       const std::string failed = dark_wing_failed();
       if (!success && !failed.empty()) p.message.push_back(failed);
-    } else {
+    } else if (!contract_.rung) {  // a story battle (item 75): no House's message, no House hired you
       p.message = outcome_message(company_.planet_house, a.outcome, false, deduction_of(a.outcome, s.payout_percent, r.upto(2)));
     }
     return p;
@@ -2465,7 +2464,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   }
 
   // The pending mission settled (CONTINUE on the results screen; OK at the hub without its layout): the pay, the
-  // salvage on a win, the experience, casualties and repairs on a counted mission, the time and the world moved on.
+  // salvage on a win, the experience, casualties and repairs on every ending (FIXES.md item 75), the time and the world moved on.
   void settle_pending() {
     // The fee, the fates, the repairs from the wrecks' worth, then the salvage on what's left (FIXES.md item 51).
     // The fates (promotions, losses, the killed and missing) and the repairs are the mission's result, shown on AFTER
@@ -2476,10 +2475,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // The parts are kept only on a win (VISION.md, the endings): failed or quit, the mission's salvage is dropped.
     if (pending_->outcome == Outcome::kSuccess && pending_->salvage) company_.stores->add_all(*pending_->salvage);
     clamp_stores(*company_.stores);  // FIXES.md item 53
-    // A counted mission (won, or failed and accepted; a retreat isn't, nor a replayed failure): the lancemates'
-    // experience, then their casualties (mw1_pilots.h).
-    // Then the repairs (mw1_repairs.h): the bill, the commander's loss.
-    if (pending_->outcome != Outcome::kRetreat) {
+    // Every ending counts (FIXES.md item 75; a replayed failure never reaches here): the lancemates' experience, then
+    // their casualties (mw1_pilots.h), then the repairs (mw1_repairs.h): the bill, the commander's loss.
+    {
       const Repairs& r = m.r;
       // The log keeps the repairs (not a hub message: FIXES.md item 57; AFTER ACTION and DETAILS say them).
       if (r.sum.repairs > 0 || r.billed > 0)
@@ -2666,7 +2664,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     Company c = company_;
     Contract k = contract_;
     Rng r = rng_;
-    // The repairs as OK will settle them (a counted mission: won, or failed and accepted), from the wrecks first.
+    // The repairs as OK will settle them (every ending, item 75), from the wrecks first.
     const MissionSettled m = settle_mission(c, k, *pending_, r);
     const Settlement& s = m.s;
     const Repairs& rep = m.r;
@@ -2680,10 +2678,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     for (const std::string& x : rep.lines) l.push_back(x);
     l.push_back("Funds: " + thousands(c.funds) + " C-bills");
     for (const LanceFate& f : pending_->lance)
-      l.push_back(pilot_title(f.id) + (!f.destroyed                                ? ": flew"
-                                       : pending_->outcome == Outcome::kRetreat ? ": mech destroyed"
-                                       : pilot_missing(f)                       ? ": MISSING"
-                                                                                : ": KILLED") +
+      l.push_back(pilot_title(f.id) + (!f.destroyed ? ": flew" : pilot_missing(f) ? ": MISSING" : ": KILLED") +
                 (!f.destroyed && gunnery(c, f.id) > gunnery(company_, f.id) ? ", promoted" : ""));
     for (int32_t id : pending_->stayed)
       l.push_back(pilot_title(id) + " stayed behind: no place on this map (" + std::to_string(pending_->lance.size()) + " allied)");

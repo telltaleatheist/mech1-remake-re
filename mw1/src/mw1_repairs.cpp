@@ -154,14 +154,12 @@ MissionSettled settle_mission(Company& c, Contract& k, const AfterAction& a, Rng
   m.s = settle(c, k, a.outcome, a.wrecks, rng);
   if (a.outcome == Outcome::kSuccess && pay_override().pool >= 0) m.s.pool = pay_override().pool;  // shots only
   if (pay_override().term >= 0) m.term = pay_override().term;
-  if (a.outcome != Outcome::kRetreat) {  // a counted mission: the fates, then the repairs from the pool
-    after_mission(c, a.lance);
-    std::vector<MechBill> bills;
-    for (const AfterAction::Bill& b : a.bills) bills.push_back({b.who, b.mech, b.damage, b.destroyed});
-    m.r = settle_repairs(c, bills, m.s.pool, m.term, m.s.payout_percent);
-  } else {
-    m.r.sum = salvage_after_repairs(m.s.pool, {}, m.term, m.s.payout_percent);  // a retreat: no pool (not a win)
-  }
+  // Every ending counts (FIXES.md item 75, Owen: a retreat too): the fates, then the repairs from the pool (none but
+  // a win's: a loss's or a retreat's repairs come out of funds).
+  after_mission(c, a.lance);
+  std::vector<MechBill> bills;
+  for (const AfterAction::Bill& b : a.bills) bills.push_back({b.who, b.mech, b.damage, b.destroyed});
+  m.r = settle_repairs(c, bills, m.s.pool, m.term, m.s.payout_percent);
   m.s.salvage = m.r.sum.pay;
   c.funds += m.s.salvage;
   return m;
