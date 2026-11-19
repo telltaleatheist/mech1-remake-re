@@ -33,7 +33,7 @@ std::vector<uint32_t> frame() {
 }
 }  // namespace
 
-// The picture: the mech cropped round its middle with the margin, in amber, on the dark warm backdrop.
+// The picture: the mech cropped round its middle with the margin, in its own colours (gunmetal, not amber), on black.
 TEST(mw1_renders_graded_frame) {
   const std::vector<uint32_t> f = frame();
   const mw1::images::Image i = mw1::graded_render("t", f.data(), 400, 300, 96, 128);
@@ -49,31 +49,29 @@ TEST(mw1_renders_graded_frame) {
   std::printf("  mech in the picture: %d..%d x %d..%d\n", x0, x1, y0, y1);
   EXPECT(y1 - y0 + 1 >= 106 && y1 - y0 + 1 <= 116);
   EXPECT(std::abs((x0 + x1) - 95) <= 2 && std::abs((y0 + y1) - 127) <= 2);
-  // The mech's middle in amber (red over green over blue); the corner the backdrop's dark floor.
-  const Rgb mid = rgb(i.pixels[64 * 96 + 48]), corner = rgb(i.pixels[0]);
-  EXPECT(mid.r > mid.g && mid.g > mid.b && mid.r > 100);
-  EXPECT(corner.r <= 12 && corner.g <= 12 && corner.b <= 12);
-  // The vignette: warmer near the mech than at the corner.
-  const Rgb near = rgb(i.pixels[64 * 96 + 8]);
-  EXPECT(near.r > corner.r);
+  // The mech's middle its own grey (0x90, within 565's step: no tone); the corner and beside the mech black.
+  const Rgb mid = rgb(i.pixels[64 * 96 + 48]), corner = rgb(i.pixels[0]), near = rgb(i.pixels[64 * 96 + 8]);
+  EXPECT(std::abs(mid.r - 0x90) <= 8 && std::abs(mid.g - 0x90) <= 4 && std::abs(mid.b - 0x90) <= 8);
+  EXPECT(corner.r == 0 && corner.g == 0 && corner.b == 0 && near.r == 0 && near.g == 0 && near.b == 0);
   // A frame with nothing in it: no picture.
   const std::vector<uint32_t> black(400 * 300, 0xff000000u);
   EXPECT(mw1::graded_render("t", black.data(), 400, 300, 96, 128).name.empty());
   EXPECT(mw1::renders_from_frame(mw1::kPmOwens, black.data(), 400, 300).empty());
-  // Every use's picture, by its name.
+  // The slot's picture alone (the Mech Complex draws its 'Mech live), by its name.
   const std::vector<mw1::images::Image> v = mw1::renders_from_frame(mw1::kPmOwens, f.data(), 400, 300);
-  EXPECT(v.size() == 2 && v[0].name == "mw1_rnd_owens_slot" && v[1].name == "mw1_rnd_owens_panel");
-  EXPECT(v[0].width == mw1::kRenderSlotW && v[1].width == mw1::kRenderPanelW && v[1].height == mw1::kRenderPanelH);
-  for (const auto& im : v) EXPECT(im.name.size() <= 31);
+  EXPECT(v.size() == 1 && v[0].name == "mw1_rnd_owens_slot");
+  EXPECT(v.size() == 1 && v[0].width == mw1::kRenderSlotW && v[0].height == mw1::kRenderSlotH);
 }
 
-// Every mech MW1 uses, once each; the archive current only under its own stamp.
+// Every chassis the market sells (24: PM's roster but the Elemental), once each, so every kind's stand-in; the archive
+// current only under its own stamp.
 TEST(mw1_renders_stamp) {
   const std::vector<int32_t> mechs = mw1::render_mechs();
-  EXPECT(!mechs.empty() && std::find(mechs.begin(), mechs.end(), mw1::kPmOwens) != mechs.end());
+  EXPECT(mechs.size() == 24);
+  for (int32_t m = 0; m < mech3::kMechCount; ++m)
+    EXPECT(std::count(mechs.begin(), mechs.end(), m) == (mw1::sold_mech(m) ? 1 : 0));
   for (const mw1::MechKind& k : mw1::kMechKinds) EXPECT(std::count(mechs.begin(), mechs.end(), k.pm_mech) == 1);
-  for (int32_t m : mechs)
-    for (auto use : {mw1::RenderUse::kSlot, mw1::RenderUse::kPanel}) EXPECT(mw1::render_image(m, use).size() <= 31);
+  for (int32_t m : mechs) EXPECT(mw1::render_image(m).size() <= 31);
 
   const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_renders";
   std::error_code ec;
@@ -120,16 +118,16 @@ TEST(mw1_renders_stamp) {
 TEST(mw1_renders_hi_set) {
   const std::vector<uint32_t> f = frame();
   const std::vector<mw1::HiRender> v = mw1::renders_hi_from_frame(mw1::kPmOwens, f.data(), 400, 300);
-  EXPECT(v.size() == 2 && v[0].name == "mw1_rnd_owens_slot" && v[1].name == "mw1_rnd_owens_panel");
-  if (v.size() != 2) return;
+  EXPECT(v.size() == 1 && v[0].name == "mw1_rnd_owens_slot");
+  if (v.size() != 1) return;
   EXPECT(v[0].w == mw1::kRenderSlotW * 4 && v[0].h == mw1::kRenderSlotH * 4 && v[0].canvas_w == mw1::kRenderSlotW);
-  EXPECT(v[1].w == mw1::kRenderPanelW * 4 && v[1].canvas_h == mw1::kRenderPanelH && v[1].rgba.size() == static_cast<size_t>(v[1].w * v[1].h * 4));
-  // The middle the canvas picture's colour (within 565's step), in amber.
+  EXPECT(v[0].canvas_h == mw1::kRenderSlotH && v[0].rgba.size() == static_cast<size_t>(v[0].w * v[0].h * 4));
+  // The middle the canvas picture's colour (within 565's step), the mech's own grey.
   const mw1::images::Image c = mw1::graded_render("t", f.data(), 400, 300, mw1::kRenderSlotW, mw1::kRenderSlotH);
   const uint16_t p = c.pixels[64 * 96 + 48];
   const uint8_t* q = &v[0].rgba[(static_cast<size_t>(64 * 4 + 2) * v[0].w + 48 * 4 + 2) * 4];
   EXPECT(std::abs(q[0] - ((p >> 11) << 3)) <= 12 && std::abs(q[1] - (((p >> 5) & 63) << 2)) <= 12 && q[3] == 255);
-  EXPECT(q[0] > q[1] && q[1] > q[2]);
+  EXPECT(q[0] == 0x90 && q[1] == 0x90 && q[2] == 0x90);
   const std::vector<uint32_t> black(400 * 300, 0xff000000u);
   EXPECT(mw1::renders_hi_from_frame(mw1::kPmOwens, black.data(), 400, 300).empty());
 
@@ -143,16 +141,16 @@ TEST(mw1_renders_hi_set) {
   mw1::art::Store& st = mw1::art::Store::get();
   st.close();
   EXPECT(st.add(mw1::hi_renders_path(dir.string())));
-  EXPECT(st.has("mw1_rnd_owens_panel"));
-  const mw1::art::Store::Picture* pic = st.picture("mw1_rnd_owens_panel");
-  EXPECT(pic && pic->w == mw1::kRenderPanelW * 4 && pic->canvas_w == mw1::kRenderPanelW && pic->rgba &&
-         std::equal(pic->rgba, pic->rgba + v[1].rgba.size(), v[1].rgba.begin()));
+  EXPECT(st.has("mw1_rnd_owens_slot"));
+  const mw1::art::Store::Picture* pic = st.picture("mw1_rnd_owens_slot");
+  EXPECT(pic && pic->w == mw1::kRenderSlotW * 4 && pic->canvas_w == mw1::kRenderSlotW && pic->rgba &&
+         std::equal(pic->rgba, pic->rgba + v[0].rgba.size(), v[0].rgba.begin()));
   st.close();
   fs::remove_all(dir, ec);
 }
 
-// The Mech Complex's picture: FOR SALE's chosen mech, or YOUR MECHS' once that list was the one used; nothing (frame
-// and picture hidden) until the renders are made.
+// The Mech Complex's panel: no stored picture (the renders are the slot's only); hidden without the live 'Mech, the
+// renders made or not.
 TEST(mw1_renders_market_picture) {
   mw1::Company c;
   c.planet = "Test";
@@ -160,18 +158,19 @@ TEST(mw1_renders_market_picture) {
   c.market.stock = {mw1::kPmFirefly, mw1::kPmOwens};
   mw1::MarketChoice m;
   mw1::clamp_choice(c, m);
-  const bool was = mw1::renders_ready();
-  mw1::set_renders_ready(false);
-  mw1::ScreenView v = mw1::market_view(c, m);
-  EXPECT(!v.panels[mw1::kMarketPanelMech] && !v.panels[mw1::kMarketPanelMechFrame]);
-  mw1::set_renders_ready(true);
-  v = mw1::market_view(c, m);
-  EXPECT(v.panels[mw1::kMarketPanelMech] && v.panels[mw1::kMarketPanelMechFrame]);
-  EXPECT(v.pictures[mw1::kMarketPanelMech] == mw1::render_image(mw1::kPmFirefly, mw1::RenderUse::kPanel));
-  m.own_shown = true;
-  v = mw1::market_view(c, m);
-  EXPECT(v.pictures[mw1::kMarketPanelMech] == mw1::render_image(mw1::kPmOwens, mw1::RenderUse::kPanel));
+  const bool was = mw1::renders_ready(), live = mw1::market_live();
+  mw1::set_market_live(false);
+  for (bool ready : {false, true}) {
+    mw1::set_renders_ready(ready);
+    const mw1::ScreenView v = mw1::market_view(c, m);
+    EXPECT(!v.panels[mw1::kMarketPanelMech] && !v.panels[mw1::kMarketPanelMechFrame]);
+    EXPECT(v.pictures[mw1::kMarketPanelMech].empty());
+  }
+  mw1::set_market_live(true);
+  const mw1::ScreenView v = mw1::market_view(c, m);
+  EXPECT(v.panels[mw1::kMarketPanelMech] && v.pictures[mw1::kMarketPanelMech].empty());
   mw1::set_renders_ready(was);
+  mw1::set_market_live(live);
 }
 
 // The capture's sanity check (FIXES 14's bad first runs: the lab's 2D read back as the mech): the mech alone on
@@ -228,8 +227,8 @@ TEST(mw1_live_mech_framed_to_its_points) {
   EXPECT(std::fabs((right - left) / (2 * tv * w / h) - ModelView::kFill) < 0.005 && (top - bottom) / (2 * tv) < ModelView::kFill);
 }
 
-// The Mech Complex's panel with the live 'Mech: see-through at the panel's size and shown (with or without the stored
-// renders); without it (no 3D), no see-through panel.
+// The Mech Complex's panel with the live 'Mech: see-through at the panel's size and shown; without it (no 3D), no
+// see-through panel.
 TEST(mw1_market_panel_see_through_when_live) {
   mw1::Company c;
   c.planet = "Test";

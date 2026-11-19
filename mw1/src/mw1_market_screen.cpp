@@ -107,14 +107,12 @@ ScreenView market_view(const Company& c, const MarketChoice& m) {
               at_place("STATUS_WORLD", {upper(c.planet)}),
               at_place("STATUS", {m.note.empty() ? "BUY takes from FOR SALE; the rest act on YOUR MECHS." : m.note})};
   v.panels.assign(kMarketPanelCount, true);
-  // FIXES.md item 14: the chosen mech's render under the buttons (none till the renders are made).
-  // Live (FIXES.md item 12): the panel left see-through, the 'Mech drawn under it in 3D; its stored render kept as the
-  // picture for a frame drawn without the 3D (the frame a state over it shows when it comes back).
+  // FIXES.md item 12: the chosen 'Mech under the buttons, drawn live in 3D (the panel left see-through); none without
+  // the 3D (no stored picture of it: the renders are the loading screen's slot pictures only).
   const int32_t shown = market_shown_mech(c, m);
   v.pictures.assign(kMarketPanelCount, "");
-  if (renders_ready() && shown >= 0) v.pictures[kMarketPanelMech] = render_image(shown, RenderUse::kPanel);
   if (market_live() && shown >= 0) v.see_through.push_back({kMarketPanelMech, kRenderPanelW, kRenderPanelH});
-  v.panels[kMarketPanelMechFrame] = v.panels[kMarketPanelMech] = (market_live() || renders_ready()) && shown >= 0;
+  v.panels[kMarketPanelMechFrame] = v.panels[kMarketPanelMech] = market_live() && shown >= 0;
 
   // FOR SALE: the stock at the buying price; a price over the funds dimmed (FIXES.md item 41, Owen: what he can
   // afford at a glance): its row in S_ROWS_DIM's darker green, a blank line in its place in S_ROWS (and the other way).

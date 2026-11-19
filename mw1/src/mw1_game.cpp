@@ -13,6 +13,7 @@
 #include <random>
 #include <string>
 #include <vector>
+#include <strings.h>
 
 #include "gamez/zclass/class.h"
 #include "gamez/zclass/cls_node.h"
@@ -26,6 +27,8 @@
 #include "mech3/lab_screen.h"
 #include "mech3/lab_filebox.h"
 #include "mech3/lab_view.h"
+#include "mech3/mech_reader.h"
+#include "mech3/mech_skin.h"
 #include "mech3/options.h"
 #include "gamez/zclass/object3d.h"
 #include "gamez/zclass/window.h"
@@ -2514,14 +2517,14 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     const std::string title_line = title.empty() ? "" : title_case_name(title.c_str());
     for (const std::string& l : offer_lines(false, false, &k))
       if (l.rfind("Employer: ", 0) != 0 && l != title_line) p.lines.push_back(l);
-    // The main enemy beside the terminal: the heaviest kind's PM mech (the first of the heaviest), its render once
-    // the first run has made them, else its amber icon (both the Company screen's 96x128 slot).
+    // The main enemy beside the terminal: the heaviest kind's PM mech (the first of the heaviest), its gunmetal render
+    // once the first run has made them, else its amber icon (both the Company screen's 96x128 slot).
     int32_t main = -1;
     for (int32_t e : k.enemies)
       if (e >= 0 && e < kKindCount && (main < 0 || kMechKinds[e].tons > kMechKinds[main].tons)) main = e;
     if (main >= 0) {
       const int32_t pm = kMechKinds[main].pm_mech;
-      p.enemy = renders_ready() ? render_image(pm, RenderUse::kSlot) : mech_icon_image(pm);
+      p.enemy = renders_ready() ? render_image(pm) : mech_icon_image(pm);
     }
     return p;
   }
@@ -3207,7 +3210,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // FIXES 14's first pass read the lab's whole screen when the stage was not set.
     const bool staged = stage_3d(ge, 0.0f) && !stage_hidden_.empty() && !l->cursor;
     const int32_t entry = ls.model_index(mech);
-    const bool shown = staged && entry >= 0 && static_cast<size_t>(entry) < ls.models_.size() && ls.model_ == ls.models_[static_cast<size_t>(entry)];
+    bool shown = staged && entry >= 0 && static_cast<size_t>(entry) < ls.models_.size() && ls.model_ == ls.models_[static_cast<size_t>(entry)];
+    // In gunmetal (Owen 2026-11-18), whatever camo the lab showed it in: changed on its first shown frame, the settle
+    // frames after it.
+    if (shown && pass_.wait == 1) shown = !show_render_skin(ge, ls, mech);
     pass_.wait = shown ? pass_.wait + 1 : std::max(pass_.wait, 1);
     if (!shown && ++pass_.idle > kRenderGiveUp) {
       std::printf("mw1: the %s never showed in the lab: no render of it\n", mech3::mech_name(mech));
@@ -3227,12 +3233,32 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       ++pass_.at, pass_.step = PassStep::kCover;
     }
   }
+  // The shown chassis changed to kRenderSkin when it is in another (lab_model_skin, the camo picker's own change):
+  // true when it changed (its frame not yet drawn in it). A chassis with no camo of that name stays in its own.
+  bool show_render_skin(mech3::GameEngine& ge, mech3::LabState& ls, int32_t mech) {
+    mech3::MechDfn* d = mech3::mech_dfn(mech);
+    mech3::LabView* v = ge.lab_view();
+    if (!d || !d->skins || !v || !ls.model_) return false;
+    const std::vector<mech3::Skin*>& skins = d->skins->skins;
+    for (size_t i = 0; i < skins.size(); ++i)
+      if (skins[i] && skins[i]->name && strcasecmp(skins[i]->name, kRenderSkin) == 0) {
+        const int32_t want = static_cast<int32_t>(i);
+        mech3::LabModel& m = v->models[ls.model_];
+        if (m.shown == want) return false;
+        ge.lab_model_skin(ls.model_, want);
+        if (m.shown == want) return true;
+        std::printf("mw1: the %s's %s camo could not be put on: rendered in its own\n", mech3::mech_name(mech), kRenderSkin);
+        return false;
+      }
+    std::printf("mw1: the %s has no %s camo: rendered in its own\n", mech3::mech_name(mech), kRenderSkin);
+    return false;
+  }
   // The archive written and registered; the lab ACCEPTed with the display held from the cover's last frame (the
   // screen it opened over comes back; render_pass_frame lets the display go once the lab has gone).
   void finish_pass(mech3::GameEngine& ge, mech3::LabScreen& l) {
     const std::string dir = zutl::mounts().write;
     // Every mech's pictures, or nothing written: no stamp, so the next start tries again (the amber icons till then).
-    const bool whole = pass_.made.size() == pass_.mechs.size() * 2 && pass_.hi.size() == pass_.made.size();
+    const bool whole = pass_.made.size() == pass_.mechs.size() && pass_.hi.size() == pass_.made.size();
     // Made again over current ones (a bigger frame): the archive's library holds its file open; closed for the write
     // (the same mechs, so the same table: its kept index still holds, and its next load opens the new file).
     if (whole && renders_ready())
@@ -3248,7 +3274,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     } else {
       std::printf(whole ? "mw1: the mech pictures could not be written: the amber icons stay\n"
                         : "mw1: %zu of %zu mech pictures made: none kept, the next start tries again\n",
-                  pass_.made.size(), pass_.mechs.size() * 2);
+                  pass_.made.size(), pass_.mechs.size());
     }
     (void)ge;
     pending_accept_ = &l;
