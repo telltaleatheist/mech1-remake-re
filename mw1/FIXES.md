@@ -1101,3 +1101,21 @@ so this is an "mw1 (engine, ours)" change, used only with hires on.
 3. 20's rest: the offer's key facts highlighted.
 4. 12: high-resolution 2D (the jagged text). The approved plan is in the lead's notes to dev 1. Step 1 shots to the lead before step 2.
 5. 3 + 5: sweep every screen for anything still PM's.
+
+## 91. [x] The lance-orders test, made solid *(done: mw1-lance-flake)*
+`mw1_loop_lance_orders_reach_each_of_three_headless` failed 1 in 3 for the lead at 87's merge. Lancemate 1 was ordered
+at a mech 370 m away and walked 6 m in 450 frames; the other two walked as always.
+- **What was found:** the engine seeds its rand from time(). Given the seed, a run is the same to the metre: the
+  same seed in 6 processes at once and under `ctest -j4` gave the same walks.
+  - About 640 pinned seeds (each in its own folders), 5 full suites, 8 `ctest -j4`, ASan and UBSan over the full
+    suite (clean), and malloc scribbling never showed one lancemate standing.
+  - The lead's log is line for line a passing run's (same layout; the other two walked 173 and 107 m to 136 and
+    231 m, as in seed 1). Only lancemate 1 differs, and the world's random draws didn't change with it. So it's
+    not the seed, and not in anything the seed drives. It stays open.
+- **A second flake the sweep found:** at seed 146 the enemies kill the player standing still before the 450
+  frames, and the mission ends under the test (`!ended_under_us`, every walk -1). 1 seed in 300.
+- **The test now:**
+  - The player and the enemies are invincible while the lance walks, released before the loop ends the mission.
+  - The test picks the engine's seed itself (time()), prints it, and `MW1_TEST_SEED=<n>` replays it.
+  - Each lancemate's walk is kept every 50 frames: how far toward its mech, how far moved, speed, health and the gap.
+    It is printed for any lancemate that didn't walk at its mech, so the next stall tells what it was.

@@ -5,7 +5,9 @@
 // (no mission end), no fee and no salvage: the stores and the funds as the advance left them (VISION.md, the endings).
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <filesystem>
 #include <functional>
 #include <random>
@@ -21,6 +23,7 @@
 #endif
 
 #include "check.h"
+#include "crt/msvc_rand.h"
 #include "mw1_install.h"
 #include "mw1_log.h"
 #include "mw1_layouts.h"
@@ -4642,6 +4645,11 @@ void lance_orders_run(const char* name, int32_t count, bool reload) {
   fs::remove_all(dir, ec);
   fs::create_directories(dir, ec);
   in_child([&] {
+    // The engine's srand(time()), the test's own: a new one each run, printed, so a failure replays with
+    // MW1_TEST_SEED=<it> (the run is the same for the same seed).
+    const char* replay = std::getenv("MW1_TEST_SEED");
+    const auto seed = static_cast<uint32_t>(replay ? std::strtoul(replay, nullptr, 10) : std::time(nullptr));
+    crt::rand_fixed_seed() = seed;
     if (reload) {
       Run first;
       first.save = (dir / mw1::kSaveFile).string();
@@ -4664,6 +4672,7 @@ void lance_orders_run(const char* name, int32_t count, bool reload) {
     // gap alone mixes in the mech's own walk, toward or away).
     std::map<std::string, std::array<float, 3>> from, toward;
     std::map<std::string, float> walked_at, moved;
+    std::map<std::string, std::vector<std::string>> walk_trace;  // each 50 frames from the order
     int32_t strays = 0, w_presses = 0, enemies = 0, ordered_at = -1;
     constexpr int32_t kWalkFrames = 450;
     bool ended_under_us = false;
@@ -4733,7 +4742,34 @@ void lance_orders_run(const char* name, int32_t count, bool reload) {
         ordered_at = f;
         return true;
       }
-      if (f - ordered_at < kWalkFrames) return true;
+      // No one can fall while the lance walks: on a near layout the enemies kill the player standing still, or
+      // the lance wins, before the frames are up (the mission's end isn't theirs to make here). Let go before the
+      // loop ends it.
+      const bool walking = f - ordered_at < kWalkFrames;
+      mech3::program_mech_set_invincible(me, walking);
+      int32_t n = 0;
+      const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+      for (int32_t i = 0; i < n; ++i)
+        if (const mech3::ai::Brain* b = brain_of(ai[i].mech); b && b->params.team() != 1)
+          mech3::program_mech_set_invincible(ai[i].mech, walking);
+      // Each lancemate every 50 frames, printed only if one didn't walk at its mech.
+      if ((f - ordered_at) % 50 == 0)
+        for (const std::string& mate : mates) {
+          void* m = mech_of(mate);
+          float now[3] = {};
+          const bool has = m && mech3::mech_world_position(m, now);
+          const std::array<float, 3>& a = from[mate];
+          const std::array<float, 3>& t = toward[mate];
+          const float dx = t[0] - a[0], dz = t[2] - a[2], len = std::hypot(dx, dz);
+          char line[200];
+          std::snprintf(line, sizeof line, "f+%d: health %.2f, toward %.0f m (moved %.0f), speed %.1f, active %d, gap %.0f m",
+                        f - ordered_at, m ? mech3::mech_health(m) : -1.f,
+                        has && len > 0 ? ((now[0] - a[0]) * dx + (now[2] - a[2]) * dz) / len : -1.f,
+                        has ? std::hypot(now[0] - a[0], now[2] - a[2]) : -1.f, m ? mech3::mech_forward_speed(m) : -1.f,
+                        m ? mech3::mech_active(m) : -1, m && aimed[mate] && listed(aimed[mate]) ? ground_distance(m, aimed[mate]) : -1.f);
+          walk_trace[mate].push_back(line);
+        }
+      if (walking) return true;
       for (const std::string& mate : mates) {
         void* m = mech_of(mate);
         end_gap[mate] = m && aimed[mate] && listed(aimed[mate]) ? ground_distance(m, aimed[mate]) : -1;
@@ -4751,8 +4787,8 @@ void lance_orders_run(const char* name, int32_t count, bool reload) {
     loop_run(kWon, &run);
     mech3::lance_calls().order = nullptr;
     g_trace = nullptr;
-    std::printf("  %zu lancemates, %d enemies; %zu were the recipient after W; strays %d\n", mates.size(), enemies,
-                recipients.size(), strays);
+    std::printf("  seed %u (MW1_TEST_SEED replays it); %zu lancemates, %d enemies; %zu were the recipient after W; strays %d\n",
+                seed, mates.size(), enemies, recipients.size(), strays);
     if (ended_under_us) std::printf("  the mission ended under the orders' hold (the lance won it first)\n");
     EXPECT(!ended_under_us);
     EXPECT(static_cast<int32_t>(mates.size()) == count);
@@ -4765,7 +4801,10 @@ void lance_orders_run(const char* name, int32_t count, bool reload) {
                   "toward it (moved %.0f m)\n",
                   static_cast<size_t>(std::find(mates.begin(), mates.end(), m) - mates.begin()) + 1, reached[m], a, kWalkFrames, b, w, d);
       EXPECT(reached[m] == 1 && aimed[m] != nullptr);
-      EXPECT(a > 0 && w >= 30 && w >= 0.8f * d);  // walked at it: 63 m the least seen in 450 frames, all of it toward
+      const bool walked = a > 0 && w >= 30 && w >= 0.8f * d;  // walked at it: 41 m the least seen in 450 frames, all of it toward
+      if (!walked)
+        for (const std::string& l : walk_trace[m]) std::printf("    %s %s\n", m.c_str(), l.c_str());
+      EXPECT(walked);
     }
   });
 }
