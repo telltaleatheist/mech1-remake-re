@@ -77,6 +77,7 @@
 #include "mw1_travel_screen.h"
 #include "mw1_save.h"
 #include "mw1_story.h"
+#include "mw1_journal.h"
 #include "mw1_ladder.h"
 
 namespace mw1 {
@@ -384,6 +385,21 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         if (std::string(s) == "hub_long_next") press(kHubOk);
       }
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "news") press(kHubBar), press_bar(kBarNews);
+      // FIXES.md item 47: journal (the STORY page on its lead), journal_chapter (PREV: the last chapter's last page),
+      // travel_story (GO THERE: the starport, the lead's world chosen and marked), hub_story (the hub with STORY); the
+      // trail taken up to MW1_STORY_STEP (default 7: Brown on Dustball, a battle pending).
+      if (const char* s = std::getenv("MW1_SCREEN"); s && !pending_ &&
+          (std::string(s).rfind("journal", 0) == 0 || std::string(s) == "travel_story" || std::string(s) == "hub_story")) {
+        const char* at = std::getenv("MW1_STORY_STEP");
+        journal::seed_for_shots(company_, at ? std::atoi(at) : 7);
+        if (std::string(s) == "hub_story") press(kHubOk);
+        else {
+          press(kHubOk);
+          press(kHubStory);
+          if (std::string(s) == "journal_chapter") press_event(kEventPrev);
+          if (std::string(s) == "travel_story") press_event(kEventChoice2);
+        }
+      }
       // bar_drink: ORDER DRINK at the Bar, its tip (or the quiet text) over the Bar (FIXES.md item 34);
       // message_market, message_office: a message (the quiet text) over the Mech Complex, the office.
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "bar_drink") press(kHubBar), press_bar(kBarDrink);
@@ -644,8 +660,13 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         // The travel screen in the hub's place (BACK brings the hub back); not while AFTER ACTION waits.
         if (pending_ || !ge || !travel(*ge)) return;
         tchoice_ = TravelChoice{};
+        tchoice_.story = story_lead_world();
         show_travel();
         swap_to(*ge, travel_);
+        return;
+      case kHubStory:
+        if (pending_ || !ge) return;
+        open_journal();
         return;
       case kHubBar:
         // The Bar in the hub's place (BACK brings the hub back); not while AFTER ACTION waits.
@@ -1750,6 +1771,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     std::printf("mw1: event: %s\n", event_button_name(id));
     if (!event_up_) return;
     if (ev_panel_.news) return press_news(id);
+    if (ev_panel_.journal) return press_journal(id);
     switch (id) {
       case kEventNext:
         if (!ev_panel_.last_page()) {
@@ -1834,6 +1856,61 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       case kClassOffice: return "THE HOUSE OFFICE";
       default: return "ARRIVAL";
     }
+  }
+
+  // FIXES.md item 47: the journal's lead's world for the travel map's marker (-1: none, or no story running).
+  int32_t story_lead_world() const {
+    if (!story_running() || !company_.story.seen[0x74]) return -1;
+    return journal::current_lead(company_).planet;
+  }
+
+  // FIXES.md item 47: STORY, the journal on the event panel's full page over the world's scenery: the chapters, then
+  // the lead (where it opens); PREV and NEXT, BACK to the hub; GO THERE on the lead's page opens the STARPORT with the
+  // lead's world chosen (the player still presses GO). Off with a contract taken (no STARPORT then).
+  void open_journal() {
+    mech3::GameEngine* ge = ge_;
+    if (!ge || !story_running() || event_up_) return;
+    const journal::Lead lead = journal::current_lead(company_);
+    ev_ = start(kClassNews);
+    ev_.done = true;
+    ev_shown_ = Shown{};
+    ev_panel_ = EventPanel{};
+    ev_panel_.planet = "STORY", ev_panel_.journal = true;
+    ev_panel_.scene = scenery_image(company_.planet_number), ev_panel_.side = Side::kFull;
+    std::vector<Page> pages;
+    for (journal::JournalPage& j : journal::journal_pages(company_))
+      pages.push_back(std::move(j.page)), ev_panel_.titles.push_back(std::move(j.title));
+    set_pages(std::move(pages));
+    ev_panel_.page = ev_panel_.pages.size() - 1;
+    if (lead.planet >= 0) ev_panel_.captions = {"GO THERE"}, ev_panel_.live = {journal::can_go_there(company_, lead) && !contract_.accepted};
+    std::printf("mw1: story: the journal, step %d (%s), %zu pages\n", lead.step, lead.line.c_str(), ev_panel_.pages.size());
+    if (!raise_event(*ge)) return;
+    show_event();
+  }
+
+  void press_journal(int32_t id) {
+    switch (id) {
+      case kEventNext:
+        if (!ev_panel_.last_page()) ++ev_panel_.page;
+        else return events_done();  // Escape on the lead's page: back to the hub
+        break;
+      case kEventPrev:
+        if (ev_panel_.page > 0) --ev_panel_.page;
+        break;
+      case kEventBack: return events_done();
+      case kEventChoice2: {
+        if (ev_panel_.live.empty() || !ev_panel_.live[0]) return;
+        const int32_t to = journal::current_lead(company_).planet;
+        events_done();
+        press(kHubTravel);
+        tchoice_.world = to;
+        std::printf("mw1: story: GO THERE: the starport, %s chosen\n", to >= 0 ? kPlanets[to].name : "none");
+        show_travel();
+        return;
+      }
+      default: return;
+    }
+    show_event();
   }
 
   // The Bar's NEWS on the panel: each story live now (marked seen, as MW1's browsing marks it), PREV and NEXT through
@@ -1930,6 +2007,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     v.planet = upper(company_.planet);
     v.house = "HOUSE " + upper(kHouses[company_.planet_house].name);
     v.office_open = contracts_here(company_);
+    v.story = story_running() && company_.story.seen[0x74];  // FIXES.md item 47: STORY once the crest is seen
     v.date = date_words(company_.date);
     // The day of the month (a month is MW1's 60 units: two to a day) and the wages' day, the month's turn.
     const int32_t day = company_.date.units / 2 + 1, days = kUnitsPerMonth / 2;
@@ -1992,6 +2070,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       case kHubTravel: return "STARPORT: travel to another world.";
       case kHubBar: return "BAR: a drink, the news, pilots looking for work.";
       case kHubOptions: return "OPTIONS: the game's settings and the main menu.";
+      case kHubStory: return "STORY: the trail so far, and where it leads next.";
       case kHubOk: return pending_ ? "OK settles the mission." : "OK clears the messages.";
       case kHubReplay: return "REPLAY: fight the mission again.";
       default: return hub_status();

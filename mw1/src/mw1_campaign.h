@@ -131,6 +131,9 @@ struct Story {
   std::array<uint8_t, kEventIds> seen{};
   int32_t planets[kStoryPlanets] = {};
   bool dark_wing_won = false;
+  // FIXES.md item 47: the highest rung of the ladder won (mw1_ladder.h; the rungs are won in order, 0 none). Dev 1's
+  // step battles write it; the journal (mw1_journal.h) reads it.
+  int32_t rung_won = 0;
   std::vector<int32_t> news_heard;
   bool arrived = false;
 };

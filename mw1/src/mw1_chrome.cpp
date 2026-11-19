@@ -830,6 +830,7 @@ std::vector<Maker> makers() {
                          [] { return plaque(kStripW, kStrip); }, status_bar, dialog_frame, dim, cursor};
   for (int32_t s = 0; s < 3; ++s) v.push_back([=] { return tile_frame(s); });
   for (int32_t s = 0; s < 4; ++s) v.push_back([=] { return button(s); });
+  for (int32_t s = 0; s < 4; ++s) v.push_back([=] { return button(s, kTileButtonW, kButtonH, kTileButtons[s]); });
   for (const PanelSize& p : panel_sizes()) v.push_back([=] { return panel(p.w, p.h); });
   for (const PanelSize& p : terminal_sizes()) v.push_back([=] { return terminal(p.w, p.h); });
   for (int32_t w : kBoxWidths)

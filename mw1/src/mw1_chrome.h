@@ -40,6 +40,9 @@ inline constexpr const char* kTileFrames[3] = {"mw1_tile", "mw1_tile_lit", "mw1_
 inline constexpr int32_t kTinyButtonW = 58;  // the load box's OK and NO, framed (in PM's 84 wide circlebtn_tiny)
 inline constexpr int32_t kButtonW = 168, kButtonH = 30;         // a button (MECH LAB, LAUNCH, NEW, ...)
 inline constexpr const char* kButtons[4] = {"mw1_button", "mw1_button_lit", "mw1_button_down", "mw1_button_off"};
+// A button a tile wide (the hub's STORY under its right column, FIXES.md item 47).
+inline constexpr int32_t kTileButtonW = kTile + 2 * kTileFrame;
+inline constexpr const char* kTileButtons[4] = {"mw1_button_tile", "mw1_button_tile_lit", "mw1_button_tile_down", "mw1_button_tile_off"};
 inline constexpr const char* kDialog = "mw1_dialog";            // every message box's frame (mw1dialog.zrd)
 inline constexpr int32_t kDialogW = 420, kDialogH = 200, kDialogRule = 38;  // the rule under the title
 inline constexpr const char* kCursor = "mw1_cursor";            // MW1's mouse pointer (every layout's CURSOR)

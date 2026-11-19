@@ -155,6 +155,8 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
   o << "\nstory_dark_wing=" << (c.story.dark_wing_won ? 1 : 0) << "\nstory_news=";
   for (size_t i = 0; i < c.story.news_heard.size(); ++i) o << (i ? "," : "") << c.story.news_heard[i];
   o << "\n";
+  // FIXES.md item 47 (any version 8; a save without it: none won, or the Dark Wing's rung when it was won).
+  o << "story_rung=" << c.story.rung_won << "\n";
   o << "stores=" << (c.stores ? hex(bytes_of([&](std::FILE* f) { c.stores->save(f); })) : std::string()) << "\n";
   o << "offer=" << (offer ? 1 : 0) << "\n";
   if (offer) {
@@ -420,6 +422,9 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
     for (int32_t i = 0; i < kStoryPlanets; ++i) c.story.planets[i] = static_cast<int32_t>(planets[static_cast<size_t>(i)]);
     c.story.dark_wing_won = won != 0;
     for (int64_t at : news) c.story.news_heard.push_back(static_cast<int32_t>(at));
+    int64_t rung = c.story.dark_wing_won ? kDarkWingRung : 0;
+    if (v.count("story_rung") && !num("story_rung", 0, kRungs, &rung)) return fail("the story's rung is out of range");
+    c.story.rung_won = static_cast<int32_t>(rung);
   }
   // The world's name, House and tier are the map's, by its number.
   if (const int32_t w = planet_index(c.planet_number); w >= 0) set_planet(c, w);

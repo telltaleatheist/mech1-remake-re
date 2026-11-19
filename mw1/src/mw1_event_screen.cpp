@@ -103,6 +103,7 @@ ScreenView event_view(const EventPanel& p) {
   ScreenView v;
   std::string where = p.place;
   if (p.news && p.stories > 0) where += " (" + std::to_string(p.story + 1) + " OF " + std::to_string(p.stories) + ")";
+  if (p.journal && p.page < p.titles.size()) where = p.titles[p.page];
   const std::vector<std::string> none;
   const std::vector<std::string>& lines = p.page < p.pages.size() ? p.pages[p.page].lines : none;
   v.backdrop = p.scene;
@@ -121,14 +122,20 @@ ScreenView event_view(const EventPanel& p) {
   v.buttons.assign(kEventButtonCount, ButtonState{});
   for (int32_t i = 0; i < 3; ++i) {
     ButtonState& b = v.buttons[static_cast<size_t>(i)];
-    const bool there = !p.news && p.choosing() && i < static_cast<int32_t>(p.captions.size());
+    const bool there = !p.news && !p.journal && p.choosing() && i < static_cast<int32_t>(p.captions.size());
     b.there = there;
     if (!there) continue;
     b.words = p.captions[static_cast<size_t>(i)];
     b.on = static_cast<size_t>(i) >= p.live.size() || p.live[static_cast<size_t>(i)];
   }
   ButtonState& next = v.buttons[kEventNext - 1];
-  if (p.news) {
+  if (p.journal) {
+    next.there = !p.last_page();
+    v.buttons[kEventPrev - 1].on = p.page > 0;
+    ButtonState& go = v.buttons[kEventChoice2 - 1];
+    go.there = p.last_page() && !p.captions.empty();
+    if (go.there) go.words = p.captions[0], go.on = p.live.empty() || p.live[0];
+  } else if (p.news) {
     next.on = !p.last_page() || p.story + 1 < p.stories;
     v.buttons[kEventPrev - 1].on = p.page > 0 || p.story > 0;
   } else {

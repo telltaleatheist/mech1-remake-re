@@ -25,8 +25,9 @@ inline constexpr const char* kHubDialog = "MW1HUBDIALOG";  // its dialog
 // The hub's buttons, by their ids (and their names in mw1hub.zrd's BUTTONS). MW1's tiles: COMPANY, MECH COMPLEX and
 // HOUSE OFFICE down the left, STARPORT, BAR and OPTIONS down the right; with a contract accepted, DEPLOY in the
 // office's place and the right column gone (DS:10D7).
-enum HubButton : int32_t { kHubOk = 1, kHubReplay, kHubMarket, kHubBar, kHubTravel, kHubOffice, kHubOptions, kHubCompany, kHubDeploy };
-inline constexpr int32_t kHubButtonCount = 9;
+// FIXES.md item 47: STORY (the journal, mw1_journal.h), a small button under the right column once the story has begun.
+enum HubButton : int32_t { kHubOk = 1, kHubReplay, kHubMarket, kHubBar, kHubTravel, kHubOffice, kHubOptions, kHubCompany, kHubDeploy, kHubStory };
+inline constexpr int32_t kHubButtonCount = 10;
 // The middle panel's width in its line font's columns (4:3's 376: 48 fit); a longer line wraps there, indented.
 inline constexpr int32_t kHubPanelColumns = 48;
 const char* hub_button_name(int32_t id);  // "ACCEPT", ... ("" for no button)
@@ -49,6 +50,7 @@ struct HubView {
   bool replay = false;
   bool contract = false;              // a contract accepted: DEPLOY in the office's place, the right column gone
   bool office_open = true;            // the world has a House office: its tile (empty on a world with none, MW1's)
+  bool story = false;                 // the story has begun (its first event seen, MW1's exe read): STORY
   size_t page = 0;                    // the box's page (FIXES.md item 42: kBoxLinesMax lines a page, OK the next)
 };
 inline constexpr int32_t kHubBoxWidth = 376;  // the box between the tile columns, at 4:3 and 16:9 (mw1_box_376_<n>)

@@ -59,6 +59,10 @@ struct EventPanel {
   std::vector<bool> live;  // by caption; missing: live
   bool news = false;
   int32_t story = 0, stories = 0;
+  // FIXES.md item 47: the STORY page (mw1_journal.h's journal_pages): each page's title on the plaque's second line;
+  // PREV and NEXT through the pages, BACK; on the last (the lead's) GO THERE in NEXT's place (captions[0], live or not).
+  bool journal = false;
+  std::vector<std::string> titles;
   bool last_page() const { return page + 1 >= pages.size(); }
   bool choosing() const { return last_page() && !captions.empty(); }
 };

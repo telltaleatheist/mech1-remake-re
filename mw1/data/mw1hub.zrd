@@ -51,6 +51,8 @@ MW1HUBDIALOG (
     TRAVEL (POSITION (520 76) BITMAP ("mw1_tile_starport") ROLLOVER (BITMAP ("mw1_tile_starport_lit")) ACTIVATE (BITMAP ("mw1_tile_starport_down")) DISABLE (BITMAP ("mw1_tile_starport_off")) LABEL_AT (574 163) LABEL_FONT ("mw1_tile_label") LABEL_OFF_FONT ("mw1_tile_label_off"))
     BAR (POSITION (520 186) BITMAP ("mw1_tile_bar") ROLLOVER (BITMAP ("mw1_tile_bar_lit")) ACTIVATE (BITMAP ("mw1_tile_bar_down")) DISABLE (BITMAP ("mw1_tile_bar_off")) LABEL_AT (574 273) LABEL_FONT ("mw1_tile_label") LABEL_OFF_FONT ("mw1_tile_label_off"))
     OPTIONS (POSITION (520 296) BITMAP ("mw1_tile_options") ROLLOVER (BITMAP ("mw1_tile_options_lit")) ACTIVATE (BITMAP ("mw1_tile_options_down")) DISABLE (BITMAP ("mw1_tile_options_off")) LABEL_AT (574 383) LABEL_FONT ("mw1_tile_label") LABEL_OFF_FONT ("mw1_tile_label_off"))
+    ; FIXES.md item 47: the journal, under the right column (alone there with a contract).
+    STORY (POSITION (520 414) BITMAP ("mw1_button_tile") ROLLOVER (BITMAP ("mw1_button_tile_lit")) ACTIVATE (BITMAP ("mw1_button_tile_down")) DISABLE (BITMAP ("mw1_button_tile_off")) LABEL_AT (574 420) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
   )
   TEXTS (
     PLANET (POSITION (116 15) FONT ("mw1_plaque"))
@@ -89,6 +91,7 @@ MW1HUBDIALOG_WIDE (
     TRAVEL (POSITION (729 76) BITMAP ("mw1_tile_starport") ROLLOVER (BITMAP ("mw1_tile_starport_lit")) ACTIVATE (BITMAP ("mw1_tile_starport_down")) DISABLE (BITMAP ("mw1_tile_starport_off")) LABEL_AT (783 163) LABEL_FONT ("mw1_tile_label") LABEL_OFF_FONT ("mw1_tile_label_off") ANCHOR ("RIGHT"))
     BAR (POSITION (729 186) BITMAP ("mw1_tile_bar") ROLLOVER (BITMAP ("mw1_tile_bar_lit")) ACTIVATE (BITMAP ("mw1_tile_bar_down")) DISABLE (BITMAP ("mw1_tile_bar_off")) LABEL_AT (783 273) LABEL_FONT ("mw1_tile_label") LABEL_OFF_FONT ("mw1_tile_label_off") ANCHOR ("RIGHT"))
     OPTIONS (POSITION (729 296) BITMAP ("mw1_tile_options") ROLLOVER (BITMAP ("mw1_tile_options_lit")) ACTIVATE (BITMAP ("mw1_tile_options_down")) DISABLE (BITMAP ("mw1_tile_options_off")) LABEL_AT (783 383) LABEL_FONT ("mw1_tile_label") LABEL_OFF_FONT ("mw1_tile_label_off") ANCHOR ("RIGHT"))
+    STORY (POSITION (729 414) BITMAP ("mw1_button_tile") ROLLOVER (BITMAP ("mw1_button_tile_lit")) ACTIVATE (BITMAP ("mw1_button_tile_down")) DISABLE (BITMAP ("mw1_button_tile_off")) LABEL_AT (783 420) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("RIGHT"))
   )
   TEXTS (
     PLANET (POSITION (166 15) FONT ("mw1_plaque"))

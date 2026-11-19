@@ -358,6 +358,28 @@ TEST(mw1_story_saves_and_reads_back) {
   std::snprintf(check, sizeof check, "check=%08x\n", h);
   why.clear();
   EXPECT(!mw1::load_text(bad + check, old, k, &has, &why) && why.find("story") != std::string::npos);
+  // FIXES.md item 47: the rung won saves; a save without its line reads none won, or the Dark Wing's with it won.
+  auto signed_text = [](std::string t) {
+    uint32_t hh = 2166136261u;
+    for (unsigned char ch : t) hh = (hh ^ ch) * 16777619u;
+    char ck[32];
+    std::snprintf(ck, sizeof ck, "check=%08x\n", hh);
+    return t + ck;
+  };
+  mw1::Company r3 = c;
+  r3.story.dark_wing_won = false, r3.story.rung_won = 3;
+  const std::string t3 = mw1::save_text(r3, nullptr);
+  EXPECT(t3.find("story_rung=3\n") != std::string::npos && mw1::load_text(t3, back, k, &has, &why) && back.story.rung_won == 3);
+  std::string none = t3.substr(0, t3.rfind("check="));
+  none.erase(none.find("story_rung=3\n"), 13);
+  mw1::Company n0;
+  EXPECT(mw1::load_text(signed_text(none), n0, k, &has, &why) && n0.story.rung_won == 0);
+  std::string dw = text.substr(0, text.rfind("check="));
+  dw.erase(dw.find("story_rung=0\n"), 13);
+  mw1::Company n6;
+  EXPECT(mw1::load_text(signed_text(dw), n6, k, &has, &why) && n6.story.rung_won == mw1::kDarkWingRung);
+  std::string far = none + "story_rung=7\n";
+  EXPECT(!mw1::load_text(signed_text(far), n0, k, &has, &why));
 }
 
 // FIXES.md item 47 (mw1_ladder.h): the ladder in one table: six rungs, their forces rising; rung 6 the Dark Wing's
