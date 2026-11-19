@@ -1,5 +1,7 @@
 #include "mw1_screen.h"
 
+#include "gamez/zimage/zimg_library.h"
+
 #include <algorithm>
 #include <cstring>
 #include <cstdio>
@@ -216,8 +218,13 @@ Mw1Screen::Mw1Screen(mech3::Engine& e, zgame::Handle state_handle, const char* f
   for (const char* name : kPanelNames)
     if (zrdr::Node* pn = prims ? zrdr::find(prims, name) : nullptr) {
       panels_.push_back(std::make_unique<PanelImage>());
-      if (!bind_primitive(panels_.back().get(), name)) panels_.pop_back();
-      else panels_.back()->set_pos(panels_.back()->x + shift(anchor_of(pn)) - from, panels_.back()->y);
+      if (!bind_primitive(panels_.back().get(), name)) {
+        panels_.pop_back();
+      } else {
+        const char* bm = string_of(pn, "BITMAP");
+        panels_.back()->bitmap = bm ? bm : "";
+        panels_.back()->set_pos(panels_.back()->x + shift(anchor_of(pn)) - from, panels_.back()->y);
+      }
     }
   bool all = true;
   zrdr::Node* entries = zrdr::find(dlg, "BUTTONS");
@@ -535,6 +542,26 @@ bool Mw1Screen::inline_at(size_t i, int32_t* x, int32_t* y) const {
   *x = inline_[i]->x, *y = inline_[i]->y;
   return true;
 }
+std::vector<Mw1Screen::Box> Mw1Screen::terminals() const {
+  std::vector<Box> out;
+  for (size_t i = 0; i < panels_.size(); ++i) {
+    const PanelImage& p = *panels_[i];
+    if (!panel_shown(i) || !p.image || p.bitmap.rfind("mw1_term_", 0) != 0) continue;
+    out.push_back({p.x, p.y, p.x + p.image->width, p.y + p.image->height});
+  }
+  return out;
+}
+
+std::vector<Mw1Screen::Box> Mw1Screen::inline_boxes() const {
+  std::vector<Box> out;
+  for (size_t i = 0; i < inline_shown_.size() && i < inline_.size(); ++i) {
+    const ztwod::Image& m = *inline_[i];
+    if ((m.flags & ztwod::kHidden) || !m.image) continue;
+    out.push_back({m.x, m.y, m.x + m.image->width, m.y + m.image->height});
+  }
+  return out;
+}
+
 bool Mw1Screen::panel_shown(size_t i) const { return i < panels_.size() && !(panels_[i]->flags & ztwod::kHidden); }
 
 bool Mw1Screen::see_through_at(size_t i, int32_t* x, int32_t* y, int32_t* w, int32_t* h) const {

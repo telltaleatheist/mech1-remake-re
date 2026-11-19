@@ -33,7 +33,10 @@ enum MarketPanel : int32_t { kMarketPanelPlaque, kMarketPanelPlaque2, kMarketPan
                              kMarketPanelMechFrame, kMarketPanelMech, kMarketPanelCount };  // item 14: the chosen mech
 
 // The lists: each shows kMarketRows rows from its first shown (`*_top`), scrolled to keep the chosen one in view.
-inline constexpr int32_t kMarketRows = 8;
+// FIXES.md item 66 (Owen: the eighth row and its outline on the box's foot): the last row (15 high, its outline's
+// kRowIconH) ends inside the terminal with the title's margin above it, 10: rows from 52 below the terminal's top,
+// every 15, in its 172: 7 (the eighth's foot at 172, on the border).
+inline constexpr int32_t kMarketRows = 7;
 // Each row's mech outline (mw1_mech_icons.h's row_icon_image), after the row's cursor, in this much room.
 inline constexpr const char* kOutlineRoom = "   ";
 
