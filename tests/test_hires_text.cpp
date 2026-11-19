@@ -1,6 +1,7 @@
 // Ours (MW1's FIXES.md item 12, mw1/research/hires-2d.md B1 piece 4): platform::hires::TextRaster, the canvas's text
-// at the frame's scale. Each glyph where the canvas pen puts it, the line's ink where the canvas's is (times the
-// scale), on MW1's fonts and one of Pirate's Moon's (read, never changed), at 1080p's, 1440p's and 4K's scales.
+// at the frame's scale. The line's ink where the canvas's is (times the scale), each glyph between at the big font's
+// own spacing (FIXES.md item 94), on MW1's fonts and Pirate's Moon's (read, never changed), at 1080p's, 1440p's and
+// 4K's scales.
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
 
@@ -70,6 +71,22 @@ CanvasLine canvas_line(TTF_Font* f, const std::string& s, int tracking) {
   }
   return c;
 }
+// A glyph's ink's start from its pen in the big font: the first inked column of its render, less the render's start
+// left of the pen for a negative left bearing (SDL_ttf starts the render at the ink then).
+int ink_from_pen(TTF_Font* f, char ch) {
+  int minx = 0, maxx = 0, miny = 0, maxy = 0, adv = 0;
+  TTF_GetGlyphMetrics(f, static_cast<Uint32>(static_cast<unsigned char>(ch)), &minx, &maxx, &miny, &maxy, &adv);
+  SDL_Surface* s = TTF_RenderText_Blended(f, &ch, 1, SDL_Color{255, 255, 255, 255});
+  if (!s) return minx;
+  SDL_Surface* a = SDL_ConvertSurface(s, SDL_PIXELFORMAT_ARGB8888);
+  int x0 = a ? a->w : 0;
+  for (int y = 0; a && y < a->h; ++y)
+    for (int x = 0; x < x0; ++x)
+      if (reinterpret_cast<const uint32_t*>(static_cast<const uint8_t*>(a->pixels) + static_cast<size_t>(y) * a->pitch)[x] >> 24) x0 = x;
+  if (a) SDL_DestroySurface(a);
+  SDL_DestroySurface(s);
+  return x0 + std::min(minx, 0);
+}
 }  // namespace
 
 TEST(hires_text_on_the_canvas_pen) {
@@ -77,16 +94,22 @@ TEST(hires_text_on_the_canvas_pen) {
     std::printf("  no SDL_ttf\n");
     return;
   }
+  struct Case { const char* what; FontKey key; std::string text; };
   const std::string text = "MECH COMPLEX 1,029,000 Wages";
-  struct Case { const char* what; FontKey key; };
+  // Owen's objectives panel (FIXES.md item 94): "tow er", "Objec tives" crowded, "In Progress" uneven.
+  const std::string objectives = "Destroy the tower  OP: Tower Primary Objectives In Progress";
+  const std::string arial = std::string(MW3_GAME_DIR) + "/arial.ttf";
   std::vector<Case> cases = {
-      {"Saira Condensed Bold, tracked", {mw1_font("SairaCondensed-Bold.ttf"), 20, 700, false, 2, 1}},
-      {"Share Tech Mono, untracked", {mw1_font("ShareTechMono-Regular.ttf"), 16, 400, false, 0, 0}},
-      {"Share Tech Mono, tracked", {mw1_font("ShareTechMono-Regular.ttf"), 16, 400, false, 1, 0}},
-      {"Pirate's Moon's impact, untracked", {std::string(MW3_GAME_DIR) + "/impact.ttf", 18, 400, false, 0, 2}},
+      {"Saira Condensed Bold, tracked", {mw1_font("SairaCondensed-Bold.ttf"), 20, 700, false, 2, 1}, text},
+      {"Share Tech Mono, untracked", {mw1_font("ShareTechMono-Regular.ttf"), 16, 400, false, 0, 0}, text},
+      {"Share Tech Mono, tracked", {mw1_font("ShareTechMono-Regular.ttf"), 16, 400, false, 1, 0}, text},
+      {"Pirate's Moon's impact, untracked", {std::string(MW3_GAME_DIR) + "/impact.ttf", 18, 400, false, 0, 2}, text},
+      {"Pirate's Moon's arial 12, the objectives", {arial, 12, 400, false, 0, 0}, objectives},
+      {"Pirate's Moon's arial 14 bold, the objectives", {arial, 14, 700, false, 0, 0}, objectives},
   };
   TextRaster r;
   for (const Case& c : cases) {
+    const std::string& text = c.text;
     if (!fs::exists(c.key.path)) {
       std::printf("  %s: no font file\n", c.what);
       EXPECT(false);
@@ -111,16 +134,45 @@ TEST(hires_text_on_the_canvas_pen) {
       TTF_SetFontHinting(bf, TTF_HINTING_LIGHT);
       TTF_SetFontKerning(bf, false);
       TTF_SetFontStyle(bf, (c.key.weight >= 600 ? TTF_STYLE_BOLD : 0) | (c.key.italic ? TTF_STYLE_ITALIC : 0));
+      // The big font's pen before each glyph (frame pixels from the line's start): its advances (no kerning) and the
+      // tracking times the scale; and the stretch that takes them to the canvas font's advances times the scale.
+      const int tr = c.key.tracking;
+      auto adv_of = [](TTF_Font* f, char ch) {
+        int a0 = 0, a1 = 0, a2 = 0, a3 = 0, adv = 0;
+        TTF_GetGlyphMetrics(f, static_cast<Uint32>(static_cast<unsigned char>(ch)), &a0, &a1, &a2, &a3, &adv);
+        return adv;
+      };
+      std::vector<float> big_pen(text.size(), 0.0f);
+      float big_w = 0.0f, canvas_w = 0.0f;
+      for (size_t k = 0; k < text.size(); ++k) {
+        const bool last = k + 1 == text.size();
+        big_pen[k] = big_w;
+        big_w += static_cast<float>(adv_of(bf, text[k])) + (last ? 0.0f : static_cast<float>(tr) * s);
+        canvas_w += static_cast<float>(adv_of(cf, text[k]) + (last ? 0 : tr));
+      }
+      const float stretch = canvas_w * s / big_w;
+      EXPECT(stretch > 0.9f && stretch < 1.1f);  // the two fonts' lines within a tenth of each other
       size_t at = 0;
-      float worst = 0;
+      float worst = 0, worst_gap = 0, worst_gap_canvas = 0;
+      size_t prev = text.size();
       for (size_t k = 0; k < text.size(); ++k) {
         if (text[k] == ' ') continue;
-        int minx = 0, maxx = 0, miny = 0, maxy = 0, adv = 0;
-        TTF_GetGlyphMetrics(bf, static_cast<Uint32>(static_cast<unsigned char>(text[k])), &minx, &maxx, &miny, &maxy, &adv);
-        const float want = (pen_x + static_cast<float>(line.pens[k])) * s + static_cast<float>(minx);
+        const float want = std::round(pen_x * s + big_pen[k] * stretch) + static_cast<float>(ink_from_pen(bf, text[k]));
         worst = std::max(worst, std::abs(q[at].x - want));
         EXPECT(std::abs(q[at].x - want) <= 0.5f);  // the pen snapped to a whole frame pixel: half a pixel at most
         EXPECT(q[at].x == std::floor(q[at].x) && q[at].y == std::floor(q[at].y));  // whole frame pixels
+        // Each pen-to-pen step against the big font's own (times the stretch): a frame pixel at most off. The canvas
+        // pen's step times the scale (the old placement) for comparison: its whole canvas pixels miss by up to one
+        // canvas pixel, 2 to 5 frame pixels.
+        if (prev < text.size()) {
+          const float step = (q[at].x - static_cast<float>(ink_from_pen(bf, text[k]))) - (q[at - 1].x - static_cast<float>(ink_from_pen(bf, text[prev])));
+          const float own = (big_pen[k] - big_pen[prev]) * stretch;
+          const float canvas_step = static_cast<float>(line.pens[k] - line.pens[prev]) * s;
+          worst_gap = std::max(worst_gap, std::abs(step - own));
+          worst_gap_canvas = std::max(worst_gap_canvas, std::abs(canvas_step - own));
+          EXPECT(std::abs(step - own) <= 1.0f);
+        }
+        prev = k;
         ++at;
       }
       TTF_CloseFont(bf);
@@ -129,9 +181,11 @@ TEST(hires_text_on_the_canvas_pen) {
       float left = 1e9f, right = -1e9f;
       for (const GlyphQuad& g : q) left = std::min(left, g.x), right = std::max(right, g.x + g.w);
       const float want_l = (pen_x + static_cast<float>(line.left)) * s, want_r = (pen_x + static_cast<float>(line.right + 1)) * s;
-      std::printf("  %s at %.2f: ink %.1f..%.1f, the canvas's %.1f..%.1f; the furthest glyph %.1f from its pen and bearing\n", c.what,
-                  static_cast<double>(s), static_cast<double>(left), static_cast<double>(right), static_cast<double>(want_l),
-                  static_cast<double>(want_r), static_cast<double>(worst));
+      std::printf("  %s at %.2f: ink %.1f..%.1f, the canvas's %.1f..%.1f; the furthest glyph %.1f from its pen and bearing; "
+                  "steps off the font's by %.1f at most (the canvas pen's would be %.1f)\n",
+                  c.what, static_cast<double>(s), static_cast<double>(left), static_cast<double>(right), static_cast<double>(want_l),
+                  static_cast<double>(want_r), static_cast<double>(worst), static_cast<double>(worst_gap),
+                  static_cast<double>(worst_gap_canvas));
       // (Plus the half frame pixel the snap may move a glyph: impact's last glyph is about 1.2 canvas pixels wider
       // big than in the canvas's mono hinting, 5.5 frame pixels at 4.5 before the snap.)
       EXPECT(std::abs(left - want_l) <= s + 1.5f && std::abs(right - want_r) <= s + 1.5f);

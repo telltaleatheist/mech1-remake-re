@@ -31,6 +31,23 @@ std::vector<std::pair<size_t, size_t>> glyphs(const std::string& s) {
   return v;
 }
 
+// A glyph's code point (its UTF-8 bytes; a bad sequence its first byte).
+Uint32 code_point(const std::string& s, size_t at, size_t n) {
+  const auto b = [&](size_t k) { return static_cast<Uint32>(static_cast<unsigned char>(s[at + k])); };
+  if (n == 2) return ((b(0) & 0x1f) << 6) | (b(1) & 0x3f);
+  if (n == 3) return ((b(0) & 0x0f) << 12) | ((b(1) & 0x3f) << 6) | (b(2) & 0x3f);
+  if (n == 4) return ((b(0) & 0x07) << 18) | ((b(1) & 0x3f) << 12) | ((b(2) & 0x3f) << 6) | (b(3) & 0x3f);
+  return b(0);
+}
+
+// A glyph's advance in a font (its pen to the next one's, no kerning); its left bearing too when asked.
+int advance(TTF_Font* f, Uint32 cp, int* min_x = nullptr) {
+  int minx = 0, maxx = 0, miny = 0, maxy = 0, adv = 0;
+  if (!TTF_GetGlyphMetrics(f, cp, &minx, &maxx, &miny, &maxy, &adv)) return 0;
+  if (min_x) *min_x = minx;
+  return adv;
+}
+
 constexpr int32_t kFirstAtlas = 512, kPad = 1;
 }  // namespace
 
@@ -144,6 +161,11 @@ struct TextRaster::Impl {
         for (int32_t y = 0; y < gh; ++y)
           for (int32_t x = 0; x < gw; ++x) px[static_cast<size_t>(py0 + y) * w + px0 + x] = cov(x0 + x, y0 + y);
         mark(px0, py0, px0 + gw, py0 + gh);
+        // The render starts at the ink when the glyph's left bearing is negative (a "j": 3 frame pixels left of its
+        // pen at 4K), so its ink's place from the pen is that much less (FIXES.md item 94).
+        int minx = 0;
+        advance(t, code_point(g, 0, g.size()), &minx);
+        if (minx < 0) x0 += minx;
         out = {px0, py0, gw, gh, x0, y0};
       }
       if (a != s) SDL_DestroySurface(a);
@@ -191,26 +213,23 @@ bool TextRaster::layout(const FontKey& f, const std::string& utf8, float pen_x, 
   TTF_Font* big = canvas ? m.open(f, true) : nullptr;
   if (!canvas || !big) return false;
   const auto gs = glyphs(utf8);
-  // The canvas pen before each glyph (canvas pixels, from pen_x).
-  std::vector<float> pen(gs.size(), pen_x);
-  int pw = 0, ph = 0;
-  if (f.tracking == 0) {
-    for (size_t i = 0; i < gs.size(); ++i) {  // the line's bytes before the glyph, measured as one string
-      pw = 0;
-      if (gs[i].first > 0 && !TTF_GetStringSize(canvas, utf8.c_str(), gs[i].first, &pw, &ph)) return false;
-      pen[i] = pen_x + static_cast<float>(pw);
-    }
-  } else {
-    float p = pen_x;
-    for (size_t i = 0; i < gs.size(); ++i) {
-      pen[i] = p;
-      pw = 0;
-      if (!TTF_GetStringSize(canvas, utf8.c_str() + gs[i].first, gs[i].second, &pw, &ph)) return false;
-      p += static_cast<float>(pw + f.tracking);
-    }
+  // Where each glyph goes (FIXES.md item 94): at the big font's own advances, so the spacing is the font's at the
+  // frame's size. The canvas pen's are whole canvas pixels from a MONO-hinted small font, and times the scale a pixel
+  // of its rounding is 2 to 5 frame pixels (a wide "w", a crowded "ti"). Stretched evenly so the line starts at the
+  // canvas pen and spans what the canvas's advances span (its fit and overlap checks stay valid). Advances, not
+  // measured strings: a string's measure counts its last glyph's overhang past its advance (an "f", a "j").
+  std::vector<float> at(gs.size(), 0.0f);  // frame pixels from the line's start, the big font's
+  float big_end = 0.0f, canvas_end = 0.0f;  // the big line's width (frame pixels), the canvas's (canvas pixels)
+  for (size_t i = 0; i < gs.size(); ++i) {
+    const Uint32 cp = code_point(utf8, gs[i].first, gs[i].second);
+    const bool last = i + 1 == gs.size();
+    at[i] = big_end;
+    big_end += static_cast<float>(advance(big, cp)) + (last ? 0.0f : static_cast<float>(f.tracking) * sx);
+    canvas_end += static_cast<float>(advance(canvas, cp) + (last ? 0 : f.tracking));
   }
-  // Snapped to whole frame pixels (the pen below too): the atlas's coverage lands texel on pixel, never resampled
-  // half a pixel off (soft); each glyph within half a frame pixel of the canvas pen's place.
+  const float stretch = big_end > 0.0f && canvas_end > 0.0f ? canvas_end * sx / big_end : 1.0f;
+  // Snapped to whole frame pixels (the baseline below too): the atlas's coverage lands texel on pixel, never
+  // resampled half a pixel off (soft).
   const float baseline = std::round((top_y + static_cast<float>(f.shift + TTF_GetFontAscent(canvas))) * sy);
   const float big_top = baseline - static_cast<float>(TTF_GetFontAscent(big));
   // Twice at most: a full atlas is cleared once and the line placed from the start.
@@ -224,7 +243,7 @@ bool TextRaster::layout(const FontKey& f, const std::string& utf8, float pen_x, 
         continue;
       }
       if (g->aw == 0) continue;  // no ink
-      q.push_back({std::round(pen[i] * sx) + static_cast<float>(g->ox), big_top + static_cast<float>(g->oy), static_cast<float>(g->aw),
+      q.push_back({std::round(pen_x * sx + at[i] * stretch) + static_cast<float>(g->ox), big_top + static_cast<float>(g->oy), static_cast<float>(g->aw),
                    static_cast<float>(g->ah), g->ax, g->ay, g->aw, g->ah});
     }
     if (failed) return false;

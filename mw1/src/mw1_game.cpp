@@ -305,10 +305,12 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // loading screen, held there. MW1_SCREEN=lab or lab_files: the Mech Complex's MECH LAB instead (and the lab's load
     // box); lab_3, lab_4 its pages (lab_1, empty, falls back to the chassis: item 26). MW1_SCREEN=results: the
     // mission won 600 frames in (every enemy the commander's, the left arm hit), by PM's Exit Mission: the results.
-    // MW1_SCREEN=mission: as pause, never paused: the mission and its HUD (FIXES 12's HUD shots).
+    // MW1_SCREEN=mission: as pause, never paused: the mission and its HUD (FIXES 12's HUD shots). MW1_SCREEN=objectives:
+    // the mission with F12's objectives shown from frame 90 (FIXES 94's shots of the high-resolution text).
     if (const char* s = std::getenv("MW1_SCREEN");
         s && (std::string(s).rfind("pause", 0) == 0 || std::string(s).rfind("lab", 0) == 0 || std::string(s).rfind("loading", 0) == 0 ||
-              std::string(s) == "results" || std::string(s) == "mission" || std::string(s).rfind("walk_", 0) == 0 ||
+              std::string(s) == "results" || std::string(s) == "mission" || std::string(s) == "objectives" ||
+              std::string(s).rfind("walk_", 0) == 0 ||
               (std::string(s) == "bar" && std::getenv("MW1_BAR_GREYED")) || std::string(s) == "travel") &&
         !shot_driver_) {
       hold_for_shot_ = std::string(s).rfind("loading", 0) == 0;
@@ -3446,6 +3448,11 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (page == "results") return;
     // The pause as a player gets it: Escape pressed in the mission (CoreState's frame sees it, FIXES 83's grab without
     // the HUD's marker line), let go once the pause is up.
+    if (page == "objectives") {  // F12's command (0x44, the HUD's objectives) as its key gives it
+      if (now == &mech3::states().core && frames == 90)
+        if (void* me = mech3::mech_mission_player()) mech3::mech_command(me, 0x44);
+      return;
+    }
     if (now == &mech3::states().core && frames == 90 && page != "mission") zin::state().keys[1].state = 1;  // DIK_ESCAPE
     if (now == &mech3::states().pause && frames == 1) zin::state().keys[1].state = 0;
     if (now == &mech3::states().pause && frames == 2 && page == "pause") {  // for mw1/tests/pause_grab.cmake
