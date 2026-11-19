@@ -147,8 +147,11 @@ bool LabState::set_mech(int32_t mech) {
   Engine& en = e();
   en.lab_slot(pilot_, slot_);  // asked, unused
   if (en.lab_slot_mech(en.lab_slot(pilot_, slot_)) != mech) {
-    en.lab_slot_drop_config(en.lab_slot(pilot_, slot_), store_);
-    en.lab_slot_set_mech(en.lab_slot(pilot_, slot_), mech);
+    // Ours (FIXES 69): a program that keeps its own lance changes the slot itself (Engine::lab_slot_swap).
+    if (!en.lab_slot_swap(slot_, mech)) {
+      en.lab_slot_drop_config(en.lab_slot(pilot_, slot_), store_);
+      en.lab_slot_set_mech(en.lab_slot(pilot_, slot_), mech);
+    }
     // The exe calls the screen ([0x00605a58]) unchecked: it always has one
     // here; only the Lab State's own test (no screen) takes the guard.
     if (LabScreen* s = en.lab_screen(lab_screen_)) {

@@ -1046,6 +1046,12 @@ class Engine : public zgame::AppHooks {
     unported("0x00433df0", {slot, config, store, 1});
   }
   virtual void lab_slot_set_mech(Handle slot, int32_t mech) { set_field32(slot, 0x04, static_cast<uint32_t>(mech)); }
+  // Ours (MW1: Critical Hit, FIXES 69; opt-in, MW3 and PM never set it): a program's own change of slot `slot`'s
+  // chassis to `mech` (-1 none), its mech and loadout both set by it; false when it has none (the exe's way:
+  // the loadout to the store, the bare chassis). And CHASSIS_LIST's "no mech" for a lancemate in any game, not
+  // only the campaigns'.
+  virtual bool lab_slot_swap(int32_t slot, int32_t mech) { (void)slot, (void)mech; return false; }
+  virtual bool lab_no_mech_any() { return false; }
   virtual void salvage_open() { unported("0x0047d2f0", {}); }
   virtual void multiplayer_launch_prep() { unported("0x0046ceb0", {}); }
   // The missions object [0x006098d0]: loaded (0x00490930), the launch

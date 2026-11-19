@@ -487,6 +487,18 @@ class GameEngine : public Engine {
   // Y or Enter its YES (OK in a box without one), N or Escape its NO (else CANCEL; an OK-only box, OK); the key's
   // state cleared after, so the screen under the box never sees it.
   void set_box_keys(bool on) { box_keys_ = on; }
+  // Ours (MW1: Critical Hit, FIXES 69; opt-in, MW3 and PM never set it): the lab's lance as a program keeps it,
+  // `swap` changing a slot's chassis itself (Engine::lab_slot_swap), and "no mech" offered for any lancemate.
+  // An empty `swap` and false: the exe's way again.
+  void set_lab_lance(std::function<void(int32_t slot, int32_t mech)> swap, bool no_mech) {
+    lab_swap_ = std::move(swap), lab_no_mech_ = no_mech;
+  }
+  bool lab_slot_swap(int32_t slot, int32_t mech) override {
+    if (!lab_swap_) return false;
+    lab_swap_(slot, mech);
+    return true;
+  }
+  bool lab_no_mech_any() override { return lab_no_mech_; }
   ztwod::MessageBox* message_box_open() const { return box_; }  // the box being answered, or null
   class LabFileBox* file_box_ = nullptr;  // up: a window closed ends it, as box_
 
@@ -738,6 +750,8 @@ class GameEngine : public Engine {
   std::string box_file_, box_dialog_;  // ours: set_message_box_layout's
   bool box_blends_ = false;              // ours: set_box_blends_over_frame's
   bool box_keys_ = false;                // ours: set_box_keys'
+  std::function<void(int32_t, int32_t)> lab_swap_;  // ours: set_lab_lance's
+  bool lab_no_mech_ = false;
   std::vector<void*> objects_;           // handle - 0x00100000 - 1
   Launch launch_;
   Handle pilot_ = 0, game_ = 0, view_ = 0, camera_ = 0;
