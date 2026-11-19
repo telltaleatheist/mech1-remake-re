@@ -122,14 +122,19 @@ const mech3::Config* stock_loadout(int32_t mech) {
   return d->configs->configs.empty() ? nullptr : d->configs->configs.front();
 }
 
-Deal buy(Company& c, int32_t stock_index) {
-  Market& m = c.market;
+Deal can_buy(const Company& c, int32_t stock_index) {
+  const Market& m = c.market;
   if (stock_index < 0 || stock_index >= static_cast<int32_t>(m.stock.size())) return Deal::kNoSuch;
-  const int32_t mech = m.stock[static_cast<size_t>(stock_index)];
-  const int64_t price = buy_price(mech, c.tier);
-  if (c.funds < price) return Deal::kNoFunds;
+  if (c.funds < buy_price(m.stock[static_cast<size_t>(stock_index)], c.tier)) return Deal::kNoFunds;
   if (owned_count(c) >= kOwnedMost) return Deal::kHangarFull;  // MW1's order: the funds, then the room
-  c.funds -= price;
+  return Deal::kDone;
+}
+
+Deal buy(Company& c, int32_t stock_index) {
+  if (const Deal d = can_buy(c, stock_index); d != Deal::kDone) return d;
+  Market& m = c.market;
+  const int32_t mech = m.stock[static_cast<size_t>(stock_index)];
+  c.funds -= buy_price(mech, c.tier);
   m.stock.erase(m.stock.begin() + stock_index);
   OwnedMech o;
   o.mech = mech;
@@ -137,23 +142,41 @@ Deal buy(Company& c, int32_t stock_index) {
   return Deal::kDone;
 }
 
-Deal sell(Company& c, int32_t owned_index, const StockLoadout& stock) {
-  if (owned_index < 0 || owned_index >= owned_count(c)) return Deal::kNoSuch;
-  if (owned_count(c) == 1) return Deal::kLastMech;
-  if (c.market.limit >= 0 && c.market.sold >= c.market.limit) return Deal::kDealerFull;
+namespace {
+// The stores after `owned_index`'s sale (its loadout in, its stock loadout out), or false: a refit needed.
+bool stores_after_sale(const Company& c, int32_t owned_index, const StockLoadout& stock, mech3::Store* after) {
   const int32_t mech = owned_mech(c, owned_index);
   const std::shared_ptr<mech3::Config>& loadout =
       owned_index == 0 ? c.loadout : c.hangar[static_cast<size_t>(owned_index - 1)].loadout;
-  // Back to stock: its items into a copy of the stores, the stock loadout's taken out of it (all of them there,
-  // or the sale refused); a mech on its stock loadout already leaves the stores as they are.
+  if (!loadout || !c.stores) return true;
+  const mech3::Config* s = stock ? stock(mech) : nullptr;
+  if (!s) return false;
+  after->assign(*c.stores);
+  after->add_config(loadout.get());
+  if (!after->has_config(-1, static_cast<const mech3::Store*>(nullptr), s)) return false;
+  after->remove_config(s);
+  return true;
+}
+}  // namespace
+
+Deal can_sell(const Company& c, int32_t owned_index, const StockLoadout& stock) {
+  if (owned_index < 0 || owned_index >= owned_count(c)) return Deal::kNoSuch;
+  if (owned_count(c) == 1) return Deal::kLastMech;
+  if (c.market.limit >= 0 && c.market.sold >= c.market.limit) return Deal::kDealerFull;
+  mech3::Store after;
+  return stores_after_sale(c, owned_index, stock, &after) ? Deal::kDone : Deal::kRefit;
+}
+
+Deal sell(Company& c, int32_t owned_index, const StockLoadout& stock) {
+  if (const Deal d = can_sell(c, owned_index, stock); d != Deal::kDone) return d;
+  const int32_t mech = owned_mech(c, owned_index);
+  const std::shared_ptr<mech3::Config>& loadout =
+      owned_index == 0 ? c.loadout : c.hangar[static_cast<size_t>(owned_index - 1)].loadout;
+  // Back to stock: its items into a copy of the stores, the stock loadout's taken out of it (can_sell checked
+  // they're all there); a mech on its stock loadout already leaves the stores as they are.
   if (loadout && c.stores) {
-    const mech3::Config* s = stock ? stock(mech) : nullptr;
-    if (!s) return Deal::kRefit;
     mech3::Store after;
-    after.assign(*c.stores);
-    after.add_config(loadout.get());
-    if (!after.has_config(-1, static_cast<const mech3::Store*>(nullptr), s)) return Deal::kRefit;
-    after.remove_config(s);
+    stores_after_sale(c, owned_index, stock, &after);
     c.stores->assign(after);
     clamp_stores(*c.stores);
   }

@@ -1,7 +1,7 @@
 ; MW1: Critical Hit's Mech Complex (src/mw1_market_screen.h), on MW1's screen
 ; template (src/mw1_screen.h; ANCHOR, LABEL_AT, LABEL_FONT, LABEL_OFF_FONT, TEXTS
 ; and the _WIDE layout are ours). FIXES.md items 8 and 13, Owen's shape: one
-; page, MW1's buttons down the left (BUY, SELL, REPAIR, RELOAD, MECH LAB,
+; page, MW1's buttons down the left (BUY, SELL, MECH LAB,
 ; BACK), FOR SALE's terminal over YOUR MECHS', each list with its arrows; under the
 ; buttons the chosen mech's render (FIXES.md item 14, PANEL6 and 7). The funds
 ; on the right plaque (PLACE); FOR SALE's rows the company can't afford in
@@ -25,10 +25,8 @@ MW1MARKETDIALOG (
   BUTTONS (
     ; Down the left, MW1's way (their ids are mw1_market_screen.h's, in this order).
     BUY (POSITION (12 84) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 90) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
-    SELL (POSITION (12 122) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 128) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
-    REPAIR (POSITION (12 160) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 166) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
-    RELOAD (POSITION (12 198) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 204) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
-    LAB (POSITION (12 236) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 242) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    SELL (POSITION (12 147) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 153) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    LAB (POSITION (12 211) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 217) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
     BACK (POSITION (12 274) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 280) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
     ; Each list's arrows, inside its terminal's right edge.
     STOCK_UP (POSITION (590 104) BITMAP ("mw1_up") ROLLOVER (BITMAP ("mw1_up_lit")) ACTIVATE (BITMAP ("mw1_up_down")) DISABLE (BITMAP ("mw1_up_off")))
@@ -67,10 +65,8 @@ MW1MARKETDIALOG_WIDE (
   BUTTONS (
     ; Down the left, MW1's way (their ids are mw1_market_screen.h's, in this order).
     BUY (POSITION (16 84) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 90) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
-    SELL (POSITION (16 122) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 128) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
-    REPAIR (POSITION (16 160) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 166) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
-    RELOAD (POSITION (16 198) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 204) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
-    LAB (POSITION (16 236) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 242) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    SELL (POSITION (16 147) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 153) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    LAB (POSITION (16 211) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 217) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
     BACK (POSITION (16 274) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 280) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
     ; Each list's arrows, inside its terminal's right edge.
     STOCK_UP (POSITION (803 104) BITMAP ("mw1_up") ROLLOVER (BITMAP ("mw1_up_lit")) ACTIVATE (BITMAP ("mw1_up_down")) DISABLE (BITMAP ("mw1_up_off")))

@@ -196,6 +196,9 @@ int32_t er_medium_lasers(const std::list<mech3::ConfigItem*>& items) {
 // item count (-1: stock), and the first and the last offer.
 struct Run {
   std::string save;    // mw1save.txt's path; empty: none
+  // FIXES.md item 60: BUY's and SELL's questions as asked (the box's words); the next `deal_no` answered NO.
+  std::vector<std::string> deal_questions;
+  int deal_no = 0;
   bool strip = false;  // the lab takes a weapon off the Owens (a loadout of the company's own)
   std::string worlds;  // MW3's converted worlds to register, as mw1's start does (mw1_worlds.h); empty: none
   std::string world;   // every contract on this world's first Instant Action map; empty: the contracts' own
@@ -399,7 +402,13 @@ void loop_run(Ending ending, Run* run = nullptr) {
     mech3::set_app(&app);
     EXPECT(app.init_instance());
     engine.on_message_box = [&](int32_t, int32_t, int32_t) -> uint32_t {
-      std::printf("  a message box (none expected with the hub): %s\n", engine.last_box_text.c_str());
+      const std::string& t = engine.last_box_text;
+      if (run && (t.rfind("Buy the ", 0) == 0 || t.rfind("Sell the ", 0) == 0)) {  // the Mech Complex's (item 60)
+        run->deal_questions.push_back(t);
+        std::printf("  asked: %s\n", t.c_str());
+        return run->deal_no > 0 ? (--run->deal_no, 7u) : 6u;  // IDNO, IDYES
+      }
+      std::printf("  a message box (none expected with the hub): %s\n", t.c_str());
       EXPECT(false);
       return 1u;
     };
@@ -576,7 +585,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
         const int32_t dx = sc->shift(mw1::Anchor::kLayout), left = sc->wide() ? 16 : 12, list = sc->wide() ? 216 : 204;
         const int32_t arrow = (sc->wide() ? 200 + 637 : 188 + 436) - 34 + 14;
         auto click = [&](int32_t x, int32_t y) { click_x = x + dx, click_y = y, click_phase = 1; };
-        auto button = [&](int32_t k) { click(left + 84, 84 + 38 * k + 15); };  // the k-th down the left
+        auto button = [&](int32_t k) { click(left + 84, mw1::kMarketButtonTop[k] + 15); };  // the k-th down the left
         auto row = [&](bool own, int32_t r) {
           click(list + 30, mw1::kMarketListTop[own ? 1 : 0] + mw1::kMarketRowsFrom + r * mw1::kMarketRowGap + 5);
         };
@@ -586,11 +595,18 @@ void loop_run(Ending ending, Run* run = nullptr) {
           return false;
         };
         const int64_t funds = c->funds;
+        // FIXES.md item 58: the live panel's 'Mech is always the chosen row's (YOUR MECHS' after BUY and SELL).
+        const mw1::MarketChoice* mc = mw1::game_loop_market_choice();
+        auto panel_is_owned_row = [&] {
+          return mc && mc->own_shown && mw1::game_loop_market_panel_mech() == mw1::owned_mech(*c, mc->owned);
+        };
         switch (market_step++) {
           case 0:  // the one page: FOR SALE's second row (the Atlas)
             run->market_lines = shown;
-            EXPECT(sc->loaded() && sc->enabled(mw1::kMarketBuy) && !sc->enabled(mw1::kMarketSell) && !sc->enabled(mw1::kMarketRepair) &&
-                   !sc->enabled(mw1::kMarketReload) && sc->enabled(mw1::kMarketLab) && !sc->enabled(mw1::kMarketStockUp));
+            EXPECT(mc && !mc->own_shown && mw1::game_loop_market_panel_mech() == c->market.stock[0]);  // the first entry
+            EXPECT(sc->loaded() && sc->enabled(mw1::kMarketBuy) && !sc->enabled(mw1::kMarketSell) && sc->enabled(mw1::kMarketLab) &&
+                   !sc->enabled(mw1::kMarketStockUp));
+            for (const char* gone : {"REPAIR", "RELOAD"}) EXPECT(!has(gone));  // FIXES.md item 59
             row(false, 1);
             break;
           case 1:  // scrolled back up by its arrow
@@ -600,44 +616,60 @@ void loop_run(Ending ending, Run* run = nullptr) {
           case 2:  // the Firefly chosen: BUY
             EXPECT(!sc->enabled(mw1::kMarketStockUp) && sc->enabled(mw1::kMarketStockDown));
             run->market_funds = funds;
+            run->deal_no = 1;  // FIXES.md item 60: NO first
             button(0);
             break;
-          case 3:  // bought, chosen in YOUR MECHS: YOUR MECHS' up arrow
+          case 3:  // NO: nothing bought, nothing paid; asked as Owen wanted. BUY again, YES
+            EXPECT(c->hangar.empty() && funds == run->market_funds && c->market.stock.size() == 2);
+            EXPECT(run->deal_questions.size() == 1 && run->deal_questions[0].rfind("Buy the Firefly for ", 0) == 0 &&
+                   run->deal_questions[0].find(" C-bills?") != std::string::npos);
+            button(0);
+            break;
+          case 4:  // bought, chosen in YOUR MECHS: YOUR MECHS' up arrow
             run->market_bought_for = run->market_funds - funds;
             EXPECT(c->hangar.size() == 1 && c->hangar[0].mech == mw1::kPmFirefly && c->market.stock.size() == 1);
             EXPECT(sc->enabled(mw1::kMarketOwnUp) && sc->enabled(mw1::kMarketSell));
+            EXPECT(panel_is_owned_row() && mw1::game_loop_market_panel_mech() == mw1::kPmFirefly);  // not FOR SALE's
             click(arrow, 284 + 11);
             break;
-          case 4:  // yours chosen; the Firefly's row clicked
+          case 5:  // yours chosen; the Firefly's row clicked
             EXPECT(!sc->enabled(mw1::kMarketOwnUp));
             row(true, 1);
             break;
-          case 5:  // SELL it
+          case 6:  // SELL it
             EXPECT(sc->enabled(mw1::kMarketOwnUp));
             run->market_funds = funds;
+            run->deal_no = 1;  // NO first
             button(1);
             break;
-          case 6:  // sold, back in the stock: its row, FOR SALE's last
+          case 7:  // NO: still yours, nothing paid. SELL again, YES
+            EXPECT(c->hangar.size() == 1 && c->hangar[0].mech == mw1::kPmFirefly && funds == run->market_funds && c->market.stock.size() == 1);
+            EXPECT(run->deal_questions.size() == 3 && run->deal_questions[2].rfind("Sell the Firefly for ", 0) == 0);
+            button(1);
+            break;
+          case 8:  // sold, back in the stock: its row, FOR SALE's last
             run->market_sold_for = funds - run->market_funds;
             EXPECT(c->hangar.empty() && c->market.stock.back() == mw1::kPmFirefly && !sc->enabled(mw1::kMarketSell));
+            EXPECT(panel_is_owned_row() && mw1::game_loop_market_panel_mech() == c->mech);  // the row in the sold one's place
             row(false, static_cast<int32_t>(c->market.stock.size()) - 1);
             break;
-          case 7:  // BUY it back
+          case 9:  // BUY it back
             EXPECT(!sc->enabled(mw1::kMarketStockDown));
             button(0);
             break;
-          case 8:  // MECH LAB on it (chosen in YOUR MECHS)
+          case 10:  // MECH LAB on it (chosen in YOUR MECHS)
             EXPECT(c->hangar.size() == 1 && c->hangar[0].mech == mw1::kPmFirefly && sc->enabled(mw1::kMarketOwnUp));
+            EXPECT(panel_is_owned_row() && mw1::game_loop_market_panel_mech() == mw1::kPmFirefly);
             run->lab_stores = c->stores->count();
-            button(4);
+            button(2);
             break;
-          case 9:  // back from the lab: you pilot the Firefly, with its loadout; the weapon in the stores. BACK
+          case 11:  // back from the lab: you pilot the Firefly, with its loadout; the weapon in the stores. BACK
             EXPECT(run->lab_done && run->lab_mech == mw1::kPmFirefly && run->lab_pilot == "spare" && run->lab_pilot_after == "YOU");
             EXPECT(!run->lab_funds_want.empty() && run->lab_funds == run->lab_funds_want);  // after the Firefly's price
             EXPECT(has("piloted by you") && c->mech == mw1::kPmFirefly && c->hangar.size() == 1 && c->hangar[0].mech == mw1::kPmOwens);
             EXPECT(c->loadout != nullptr && c->stores->count() == run->lab_stores + 1);
             run->market_done = true;
-            button(5);
+            button(3);
             break;
           default: break;
         }

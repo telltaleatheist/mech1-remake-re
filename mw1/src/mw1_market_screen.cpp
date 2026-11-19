@@ -14,9 +14,8 @@
 namespace mw1::market_ui {
 namespace {
 const std::vector<ScreenButton> kMarketButtons = {
-    {"BUY", "BUY"},       {"SELL", "SELL"},           {"REPAIR", "REPAIR"}, {"RELOAD", "RELOAD"},
-    {"LAB", "MECH LAB"},  {"BACK", "BACK"},           {"STOCK_UP", "", true},     {"STOCK_DOWN", "", true},
-    {"OWN_UP", "", true},       {"OWN_DOWN", "", true}};
+    {"BUY", "BUY"},           {"SELL", "SELL"},       {"LAB", "MECH LAB"}, {"BACK", "BACK"},
+    {"STOCK_UP", "", true},   {"STOCK_DOWN", "", true}, {"OWN_UP", "", true},  {"OWN_DOWN", "", true}};
 constexpr size_t kNameWidth = 14;  // the lists' columns (the line font is fixed-width)
 constexpr size_t kWhoWidth = 11;
 // The lists' terminals (the layouts' PANEL4 and PANEL5): left and right, the arrows' column inside the right edge.
@@ -72,6 +71,26 @@ void clamp_choice(const Company& c, MarketChoice& m) {
   m.owned_top = scrolled(m.owned_top, m.owned, owned);
 }
 
+void deal_choice(const Company& c, MarketChoice& m, bool bought) {
+  if (bought) m.owned = owned_count(c) - 1;
+  m.own_shown = true;
+  clamp_choice(c, m);
+}
+
+std::string buy_question(const Company& c, int32_t stock_index) {
+  if (stock_index < 0 || stock_index >= static_cast<int32_t>(c.market.stock.size())) return "";
+  const int32_t mech = c.market.stock[static_cast<size_t>(stock_index)];
+  return "Buy the " + mech_title(mech) + " for " + thousands(buy_price(mech, c.tier)) + " C-bills?";
+}
+
+std::string sell_question(const Company& c, int32_t owned_index) {
+  const int32_t mech = owned_mech(c, owned_index);
+  if (mech < 0) return "";
+  std::string q = "Sell the " + mech_title(mech) + " for " + thousands(sell_price(mech, c.tier)) + " C-bills?";
+  if (owned_index == 0 && owned_count(c) > 1) q += "\n\nYou will pilot the " + mech_title(owned_mech(c, 1)) + ".";
+  return q;
+}
+
 bool market_row_at(int32_t x, int32_t y, bool wide, bool* own, int32_t* row) {
   const int32_t l = wide ? 1 : 0;
   if (x < kListLeft[l] || x >= kListRight[l] - kArrowColumn) return false;
@@ -93,7 +112,7 @@ void set_market_live(bool on) { g_market_live = on; }
 bool market_live() { return g_market_live; }
 
 int32_t market_shown_mech(const Company& c, const MarketChoice& m) {
-  if (m.own_shown || c.market.stock.empty()) return owned_mech(c, m.owned);
+  if ((m.own_shown && owned_count(c) > 0) || c.market.stock.empty()) return owned_mech(c, m.owned);
   return c.market.stock[static_cast<size_t>(m.stock)];
 }
 
@@ -105,7 +124,7 @@ ScreenView market_view(const Company& c, const MarketChoice& m) {
               at_place("PLACE_SUB", {"TIER " + std::to_string(c.tier) + " WORLD \xB7 SELLING AT " +
                                      std::to_string(sell_percent(c.tier)) + "%"}),
               at_place("STATUS_WORLD", {upper(c.planet)}),
-              at_place("STATUS", {m.note.empty() ? "BUY takes from FOR SALE; the rest act on YOUR MECHS." : m.note})};
+              at_place("STATUS", {m.note.empty() ? "BUY from FOR SALE; SELL and MECH LAB on YOUR MECHS." : m.note})};
   v.panels.assign(kMarketPanelCount, true);
   // FIXES.md item 12: the chosen 'Mech under the buttons, drawn live in 3D (the panel left see-through); none without
   // the 3D (no stored picture of it: the renders are the loading screen's slot pictures only).
@@ -154,7 +173,6 @@ ScreenView market_view(const Company& c, const MarketChoice& m) {
   auto on = [&](int32_t id, bool b) { v.buttons[static_cast<size_t>(id - 1)].on = b; };
   on(kMarketBuy, !c.market.stock.empty());
   on(kMarketSell, owned_count(c) > 1);
-  on(kMarketRepair, false), on(kMarketReload, false);  // VISION.md: nothing to mend between missions
   on(kMarketStockUp, m.stock > 0);
   on(kMarketStockDown, m.stock + 1 < static_cast<int32_t>(c.market.stock.size()));
   on(kMarketOwnUp, m.owned > 0);

@@ -286,6 +286,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // Every message box in MW1's look (mw1dialog.zrd), Pirate's Moon's own boxes too (its quit question).
     if (layout_there(kDialogFile, kDialogName)) ge.set_message_box_layout(kDialogFile, kDialogName);
     ge.set_box_blends_over_frame(true);  // the box's dim over a 3D frame (the Mech Complex's live 'Mech, the lab)
+    ge.set_box_keys(true);  // FIXES.md item 60: Y / Enter, N / Escape answer MW1's boxes
     // MW1's main menu over PM's (mw1_menu.h): at the start, and under the hub after a mission (the hub's QUIT comes
     // back to it). Without its layout, or for the tests' straight start, the hub as before.
     const bool with_menu = start_ != Start::kHub && menu(ge);
@@ -509,13 +510,26 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "message_office") press(kHubOffice), message_over(kClassOffice);
       // market_box: the game's own box (the quit question) over the Mech Complex's live 'Mech (FIXES.md item 12: what is
       // drawn after the panel covers the 3D), raised once the market has drawn a while.
-      if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "market_box") {
+      // market_buy, market_sell (FIXES.md item 60): BUY's and SELL's questions there instead (the shot's company given
+      // the funds, a 'Mech for sale and a second of its own; SELL on the piloted one: who you pilot next named).
+      if (const char* s = std::getenv("MW1_SCREEN"); s && (std::string(s) == "market_box" || std::string(s) == "market_buy" ||
+                                                           std::string(s) == "market_sell")) {
+        const std::string page = s;
+        if (page != "market_box") {
+          company_.funds = std::max<int64_t>(company_.funds, 20000000);
+          if (company_.market.stock.empty()) company_.market.stock.push_back(kPmFirefly);
+          if (page == "market_sell" && company_.hangar.empty()) company_.hangar.push_back(OwnedMech{kPmFirefly, nullptr, 0});
+        }
         press(kHubMarket);
         auto before = ge.on_present;
-        ge.on_present = [&ge, before, start = -1, raised = false](int f) mutable {
+        ge.on_present = [this, &ge, before, page, start = -1, raised = false](int f) mutable {
           if (before) before(f);
           if (start < 0) start = f;
-          if (!raised && f - start >= 60) raised = true, ge.confirm_quit();
+          if (raised || f - start < 60) return;
+          raised = true;
+          if (page == "market_box") ge.confirm_quit();
+          else choice_.owned = 0, choice_.own_shown = page == "market_sell", show_market(),
+               press_market(page == "market_buy" ? kMarketBuy : kMarketSell);
         };
       }
       // MW1_SCREEN=options, options_gfx, options_controls, options_upgrades: PM's options pages on MW1's layouts.
@@ -1263,16 +1277,21 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       case kMarketBuy: {
         const int32_t mech = m.stock < static_cast<int32_t>(company_.market.stock.size()) ? company_.market.stock[m.stock] : -1;
         const int64_t price = mech >= 0 ? buy_price(mech, company_.tier) : 0;
-        if ((d = buy(company_, m.stock)) == Deal::kDone) {
+        // FIXES.md item 60: asked first (the reason at once when it can't be); NO leaves everything as it was.
+        if ((d = can_buy(company_, m.stock)) == Deal::kDone && !deal_asked(buy_question(company_, m.stock))) return;
+        if (d == Deal::kDone && (d = buy(company_, m.stock)) == Deal::kDone) {
           done = "Bought: " + mech_title(mech) + " for " + thousands(price) + " C-bills.";
-          m.owned = owned_count(company_) - 1;  // the new one chosen in YOUR MECHS (the hangar's last)
+          deal_choice(company_, m, true);  // the new one chosen and shown in YOUR MECHS (FIXES.md item 58)
         }
         break;
       }
       case kMarketSell: {
         const int32_t mech = owned_mech(company_, m.owned);
-        if ((d = sell(company_, m.owned)) == Deal::kDone)
+        if ((d = can_sell(company_, m.owned)) == Deal::kDone && !deal_asked(sell_question(company_, m.owned))) return;
+        if (d == Deal::kDone && (d = sell(company_, m.owned)) == Deal::kDone) {
           done = "Sold: " + mech_title(mech) + " for " + thousands(sell_price(mech, company_.tier)) + " C-bills.";
+          deal_choice(company_, m, false);  // YOUR MECHS' row in its place, shown (FIXES.md item 58)
+        }
         break;
       }
       case kMarketLab:
@@ -1294,6 +1313,14 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       if (d == Deal::kDone) save();
     }
     show_market();
+  }
+
+  // BUY's and SELL's question in the game's box (FIXES.md item 60): true on YES. Without an engine (no box), yes.
+  bool deal_asked(const std::string& question) {
+    if (!ge_) return true;
+    const bool yes = static_cast<int32_t>(ge_->message_box_words(kBoxYesNo, kDealCaption, question)) == kAnswerYes;
+    std::printf("mw1: market: %s %s\n", question.c_str(), yes ? "YES" : "NO");
+    return yes;
   }
 
   // A click on a list's row chooses it: FOR SALE's or YOUR MECHS', as scrolled.
@@ -2728,6 +2755,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   const AfterAction* pending() const { return pending_.get(); }
   HubState* hub_state() const { return hub_state_; }
   MarketState* market_state() const { return market_state_; }
+  const MarketChoice* market_choice() const { return &choice_; }
+  int32_t market_panel_mech() const { return market_shown_mech(company_, choice_); }
   const PilotChooser* lab_pilot() const { return lab_pilot_.attached() ? &lab_pilot_ : nullptr; }
   const LabFunds* lab_funds() const { return lab_funds_.attached() ? &lab_funds_ : nullptr; }
   BarState* bar_state() const { return bar_state_; }
@@ -3703,6 +3732,8 @@ void game_loop_offer_again() {
   if (the_loop()) the_loop()->offer_again();
 }
 MarketState* game_loop_market() { return the_loop() ? the_loop()->market_state() : nullptr; }
+const MarketChoice* game_loop_market_choice() { return the_loop() ? the_loop()->market_choice() : nullptr; }
+int32_t game_loop_market_panel_mech() { return the_loop() ? the_loop()->market_panel_mech() : -1; }
 const PilotChooser* game_loop_lab_pilot() { return the_loop() ? the_loop()->lab_pilot() : nullptr; }
 const LabFunds* game_loop_lab_funds() { return the_loop() ? the_loop()->lab_funds() : nullptr; }
 TravelState* game_loop_travel() { return the_loop() ? the_loop()->travel_state() : nullptr; }

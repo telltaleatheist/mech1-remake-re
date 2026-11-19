@@ -875,6 +875,10 @@ class MessageBox : public Dialog {
   virtual void answer_retry() { result = 4; frames = 0; }
   virtual void answer_ignore() { result = 5; frames = 0; }
   virtual void answer_user() { frames = 1; }
+  // Ours (opt-in, MW1: Critical Hit's FIXES.md item 60; unset for MW3 and Pirate's Moon): called each frame of
+  // run's loop after the input is polled, before the update (a program's keys for the answers).
+  std::function<void(MessageBox&)> each_frame;
+  uint32_t shown_style = 0;  // ours: run's style (its MB_* buttons), for each_frame
 };
 
 // 0x0059f810: ECX dialog, EDX its node.

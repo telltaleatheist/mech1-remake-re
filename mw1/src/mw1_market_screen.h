@@ -1,11 +1,11 @@
 #pragma once
 // MW1's Mech Complex (the hub's MECH COMPLEX; mw1_market.h's rules) on MW1's screen template (mw1_screen.h), its
 // layout mw1market.zrd in MW1's data folder. Owen's shape (FIXES.md items 8 and 13): one page, MW1's buttons down
-// the left (BUY, SELL, REPAIR, RELOAD, MECH LAB, BACK) and two lists, FOR SALE (the world's stock, the buying
+// the left (BUY, SELL, MECH LAB, BACK, evenly spaced over the column) and two lists, FOR SALE (the world's stock, the buying
 // prices) over YOUR MECHS (the company's, who pilots each, the selling prices). BUY takes FOR SALE's chosen mech;
-// SELL, REPAIR, RELOAD and MECH LAB act on YOUR MECHS' chosen one. MECH LAB is the lab's way in: Pirate's Moon's lab
-// on that mech, its pilot chosen there (mw1_lab_pilot.h), back here after. REPAIR and RELOAD are greyed (every
-// mission starts repaired and armed, VISION.md; research/repairs.md). The lists' rows take the mouse, their arrows
+// SELL and MECH LAB act on YOUR MECHS' chosen one. MECH LAB is the lab's way in: Pirate's Moon's lab on that mech,
+// its pilot chosen there (mw1_lab_pilot.h), back here after. No REPAIR or RELOAD (FIXES.md item 59): every mission
+// starts repaired and armed (VISION.md), the bill settled from the mission. The lists' rows take the mouse, their arrows
 // scroll them. Escape is BACK.
 #include <cstdint>
 #include <functional>
@@ -20,10 +20,12 @@ inline constexpr const char* kMarketFile = "mw1market.zrd";
 inline constexpr const char* kMarketDialog = "MW1MARKETDIALOG";
 
 enum MarketButton : int32_t {
-  kMarketBuy = 1, kMarketSell, kMarketRepair, kMarketReload, kMarketLab, kMarketBack,  // down the left
-  kMarketStockUp, kMarketStockDown, kMarketOwnUp, kMarketOwnDown                       // the lists' arrows
+  kMarketBuy = 1, kMarketSell, kMarketLab, kMarketBack,          // down the left
+  kMarketStockUp, kMarketStockDown, kMarketOwnUp, kMarketOwnDown  // the lists' arrows
 };
 inline constexpr int32_t kMarketButtonCount = kMarketOwnDown;
+// The left column's buttons' tops (both layouts'): evenly spaced from the lists' first row to BACK over the panel.
+inline constexpr int32_t kMarketButtonTop[4] = {84, 147, 211, 274};
 const char* market_button_name(int32_t id);
 
 // The layout's PANELs in order: the two plaques, the status bar, the two lists' terminals.
@@ -45,6 +47,16 @@ struct MarketChoice {
 };
 // The choices kept inside the lists as they change, each list scrolled to show its chosen row.
 void clamp_choice(const Company& c, MarketChoice& m);
+// A deal done (FIXES.md item 58, Owen 2026-11-18: the panel kept the FOR SALE row's 'Mech after BUY): YOUR MECHS'
+// row chosen and shown, the bought one (the hangar's last) after BUY, the row in the sold one's place after SELL;
+// then clamped. The panel's 'Mech (market_shown_mech) is that row's.
+void deal_choice(const Company& c, MarketChoice& m, bool bought);
+// FIXES.md item 60 (Owen 2026-11-18): BUY and SELL ask first, in the game's box (YES / NO; Y or Enter, N or Escape).
+// "Buy the Firefly for 2,605,000 C-bills?"; "Sell the Owens for 2,772,000 C-bills?", and selling the piloted one,
+// who you pilot after ("You will pilot the Firefly."). "" for a deal that can't be (its reason shown instead).
+std::string buy_question(const Company& c, int32_t stock_index);
+std::string sell_question(const Company& c, int32_t owned_index);
+inline constexpr const char* kDealCaption = "THE MECH COMPLEX";
 
 // The lists' rows by the mouse (a click chooses one): the shown row at (x, y) in the layout's places (the wide
 // layout's when `wide`), of YOUR MECHS (`own`) or FOR SALE; false off both (their titles, their arrows). The part of

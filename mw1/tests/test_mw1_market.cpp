@@ -299,7 +299,8 @@ TEST(mw1_market_rows_by_the_mouse) {
   EXPECT(!mw1::market_row_at(210, stock + mw1::kMarketRows * gap, false, &own, &row));  // under FOR SALE's last row
 }
 
-// The Mech Complex's one page (Owen's shape): the buttons down the left, REPAIR and RELOAD greyed; the lists
+// The Mech Complex's one page (Owen's shape): BUY, SELL, MECH LAB and BACK down the left (no REPAIR or RELOAD,
+// FIXES.md item 59); the lists
 // scrolled to keep the chosen row in view, kMarketRows of them shown.
 TEST(mw1_market_complex_page) {
   mw1::Company c;
@@ -310,7 +311,9 @@ TEST(mw1_market_complex_page) {
   auto on = [](const mw1::ScreenView& v, int32_t id) { return v.buttons[static_cast<size_t>(id - 1)].on; };
   mw1::clamp_choice(c, m);
   mw1::ScreenView v = mw1::market_view(c, m);
-  EXPECT(on(v, mw1::kMarketBuy) && !on(v, mw1::kMarketSell) && !on(v, mw1::kMarketRepair) && !on(v, mw1::kMarketReload));
+  EXPECT(on(v, mw1::kMarketBuy) && !on(v, mw1::kMarketSell) && v.buttons.size() == 8);
+  for (int32_t id = 1; id <= mw1::kMarketButtonCount; ++id)
+    EXPECT(std::string(mw1::market_button_name(id)) != "REPAIR" && std::string(mw1::market_button_name(id)) != "RELOAD");
   EXPECT(on(v, mw1::kMarketLab) && on(v, mw1::kMarketBack) && !on(v, mw1::kMarketStockUp) && on(v, mw1::kMarketStockDown));
   EXPECT(v.panels[mw1::kMarketPanelStock] && v.panels[mw1::kMarketPanelOwned]);
   m.stock = 11;
@@ -388,4 +391,54 @@ TEST(mw1_market_rows_show_their_outlines) {
   }
   EXPECT(stock == mw1::kMarketRows && owned == 1 && lit == 2);
   EXPECT(mw1::row_icon_image(kOwens, true) != mw1::row_icon_image(kOwens, false));
+}
+
+// FIXES.md item 58 (Owen 2026-11-18): the live panel's 'Mech follows the chosen row. FOR SALE's Atlas chosen, BUY the
+// Firefly by index: YOUR MECHS' new last row chosen and shown, the panel's the Firefly (it kept the FOR SALE row's).
+// SELL it: the row in its place (the commander's), shown.
+TEST(mw1_market_panel_follows_buy_and_sell) {
+  mw1::Company c = company_with_stores();
+  c.mech = kOwens, c.tier = 0, c.funds = 10000000;
+  c.market.stock = {kFirefly, kAtlas};
+  mw1::MarketChoice m;
+  mw1::clamp_choice(c, m);
+  EXPECT(mw1::market_shown_mech(c, m) == kFirefly);  // the first entry: FOR SALE's first
+  m.stock = 1;
+  EXPECT(mw1::market_shown_mech(c, m) == kAtlas);
+  EXPECT(mw1::buy(c, 0) == mw1::Deal::kDone);
+  mw1::deal_choice(c, m, true);
+  EXPECT(m.own_shown && mw1::owned_mech(c, m.owned) == kFirefly && mw1::market_shown_mech(c, m) == kFirefly);
+  m.own_shown = false;  // FOR SALE chosen again, then SELL (YOUR MECHS' Firefly)
+  EXPECT(mw1::sell(c, m.owned) == mw1::Deal::kDone);
+  mw1::deal_choice(c, m, false);
+  EXPECT(m.own_shown && m.owned == 0 && mw1::market_shown_mech(c, m) == kOwens);
+  // Every deal leaves the panel on YOUR MECHS' chosen row.
+  EXPECT(mw1::market_shown_mech(c, m) == mw1::owned_mech(c, m.owned));
+}
+
+// FIXES.md item 60: BUY and SELL ask first, the reason at once when the deal can't be. can_buy / can_sell answer as
+// buy / sell would and change nothing; the questions in Owen's words.
+TEST(mw1_market_asks_before_a_deal) {
+  mw1::Company c = company_with_stores();
+  c.mech = kOwens, c.tier = 0, c.funds = 1000;
+  c.market.stock = {kFirefly};
+  const mw1::Company before = c;
+  EXPECT(mw1::can_buy(c, 0) == mw1::Deal::kNoFunds && mw1::can_buy(c, 3) == mw1::Deal::kNoSuch);
+  EXPECT(mw1::can_sell(c, 0) == mw1::Deal::kLastMech);
+  c.funds = 3000000;
+  EXPECT(mw1::can_buy(c, 0) == mw1::Deal::kDone && c.funds == 3000000 && c.hangar.empty() && c.market.stock.size() == 1);
+  EXPECT(mw1::buy_question(c, 0) == "Buy the Firefly for 2,605,000 C-bills?");
+  EXPECT(mw1::buy_question(c, 5).empty());
+  EXPECT(mw1::buy(c, 0) == mw1::Deal::kDone);
+  // Selling: the hangar's one, or the piloted one (who you pilot next named); nothing changed by asking.
+  const int32_t items = c.stores->count();
+  const int64_t funds = c.funds;
+  EXPECT(mw1::can_sell(c, 1) == mw1::Deal::kDone && mw1::can_sell(c, 0) == mw1::Deal::kDone);
+  EXPECT(c.funds == funds && c.hangar.size() == 1 && c.stores->count() == items && c.market.sold == 0);
+  EXPECT(mw1::sell_question(c, 1) == "Sell the Firefly for 2,344,000 C-bills?");
+  EXPECT(mw1::sell_question(c, 0).rfind("Sell the Owens for ", 0) == 0 &&
+         mw1::sell_question(c, 0).find("You will pilot the Firefly.") != std::string::npos);
+  c.market.limit = 0;
+  EXPECT(mw1::can_sell(c, 1) == mw1::Deal::kDealerFull);
+  (void)before;
 }
