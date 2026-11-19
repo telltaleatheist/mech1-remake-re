@@ -123,7 +123,8 @@ Tick an item when it is merged into `main`.
 - **Owen (2026-11-18), after the 4K audit:** "i want to do it the right way ... no shortcuts or band-aids."
   - Everything on MW1's screens is drawn at the window's own resolution from a true source. No upscaling of small art stands in for that.
   - **Text:** already right. The fonts are real outline fonts (Saira Condensed, Share Tech Mono) rasterised at window size; no font change is needed.
-  - **'Mech icons:** drawn from the 'Mech's 3D model at window size and styled in MW1's amber (dev 1). The Scale2x upscaler is dropped.
+  - **'Mech icons (Owen, corrected):** PM's own amber outlines, not new art and not the 3D render. PM ships them only at 41x50 (rimage.zbd; the MFB salvage screen uses the same ones). So each is vectorised once into its line and fill layers (PM's exact three colours) and redrawn at window scale. An upscale is the last resort only (dev 1).
+  - **Renders for all 24 buyable 'Mechs:** the Mech Complex panel of a bought non-MW1 chassis (e.g. an Atlas) has no picture today. The render pass covers every sold chassis (dev 1, after the icons).
   - **Star map:** the backdrop is redrawn at window scale (done). The dots, rings and jump line are drawn by MW1 at window scale (dev 2, b2).
   - **Chrome lines and PM's list arrows / scrollbars:** no longer left at canvas size. They're drawn at window scale too, from geometry or redrawn art. This reverses the earlier "PM's widget art stays canvas-sharp".
   - **Framed tiles, DEPLOY's tile, the lab panels:** from their full-size source pictures (dev 1, B2).
