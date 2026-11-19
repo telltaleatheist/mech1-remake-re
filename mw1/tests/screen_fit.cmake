@@ -1,19 +1,47 @@
-# MW1's screens' text fit (FIXES.md items 3 and 5): mw1 with MW1_FIT=1 and MW1_SCREEN=<page> at 4:3 (640x480) and 16:9
-# (854x480), each on a new write dir. 40 frames into the page's MW1 screen every text must be inside the canvas (a
-# status line past the edge at 4:3 was the case); each outside is printed by place and length, never its words.
+# MW1's screens' text fit (FIXES.md items 3 and 5): mw1 with MW1_FIT=1 and MW1_SCREEN=<page> at 4:3 (640x480), 16:9
+# (854x480) and 16:9 in a 1920x1080 window (item 12: none of the 2D left to the canvas), each on a new write dir. 40
+# frames into the page's MW1 screen every text must be inside the canvas (a status line past the edge at 4:3 was the
+# case); each outside is printed by place and length, never its words.
 # cmake -DMW1_BIN=<mw1> -DDIR=<scratch dir> -P screen_fit.cmake
 set(pages hub hub_options market market_dealer market_full travel travel_pick company bar bar_note_long bar_recruit bar_drink office office_offer news event results loading loading_long)
+# FIXES.md item 12 (B4): at 1080p every text and picture drawn at the window's resolution. The draws still left to
+# the canvas, known and named: flat fills (nothing to lose magnified), the lab's
+# pressed 'Mech icon (icon_*_red, PM's), and a mission's HUD (hud_*, PM's: their sources are next, FIXES 12; the
+# results page's first frames are the mission's). Any other (a text, a picture not listed) fails.
+set(hires_known "^(mw1_clear|mw1_black|icon_[a-z0-9_]+_red|hud_[a-z0-9_]+)$")
+function(hires_short out_text result)
+  set(bad "")
+  string(REGEX MATCHALL "mw3: hires: [^\n]*left to the canvas[^\n]*" lines "${out_text}")
+  foreach(line IN LISTS lines)
+    string(REGEX REPLACE "^[^:]*:[^:]*:[^:]*: ?" "" items "${line}")
+    string(REGEX MATCHALL "(text|picture [^ ]+) \\(" kinds "${items}")
+    foreach(k IN LISTS kinds)
+      string(REGEX REPLACE " \\($" "" k "${k}")
+      string(REGEX REPLACE "^picture " "" name "${k}")
+      if(k MATCHES "^text" OR NOT name MATCHES "${hires_known}")
+        list(APPEND bad "${k}")
+      endif()
+    endforeach()
+    if(line MATCHES ", [1-9][0-9]* lines past the atlas")
+      list(APPEND bad "lines past the atlas")
+    endif()
+  endforeach()
+  set(${result} "${bad}" PARENT_SCOPE)
+endfunction()
 set(failed)
-foreach(shape 43 wide)
+foreach(shape 43 wide wide1080)
   foreach(page IN LISTS pages)
     set(wd "${DIR}/${shape}-${page}")
     file(REMOVE_RECURSE "${wd}")
     file(MAKE_DIRECTORY "${wd}")
     set(args)
     set(mode 5)  # InGameVMode: 640x480
-    if(shape STREQUAL "wide")
+    if(shape MATCHES "^wide")
       set(mode b)  # 854x480
       set(args --wide-menus)
+      if(shape STREQUAL "wide1080")  # FIXES.md item 12 (B4): at a real window, the text drawn at its resolution
+        list(APPEND args --window 1920x1080)
+      endif()
     endif()
     file(WRITE "${wd}/settings.reg" "Windows Registry Editor Version 5.00\n\n"
                "[HKEY_CURRENT_USER\\SOFTWARE\\MicroProse\\MechWarrior 3 EP1\\1.0]\n\"InGameVMode\"=dword:0000000${mode}\n")
@@ -50,6 +78,11 @@ foreach(shape 43 wide)
       string(REGEX REPLACE ".*((\n[^\n]*){12})$" "\\1" tail "${out}${err}")
       message("${shape} ${page}: FAILED, exit '${r}', ${done}; the run's last lines:${tail}")
       list(APPEND failed "${shape} ${page} (exit ${r})")
+    endif()
+    hires_short("${out}" short)
+    if(shape STREQUAL "wide1080" AND (short OR NOT out MATCHES "high-resolution 2D on"))
+      message("${shape} ${page}: FAILED, the 2D not all drawn at the window's resolution: ${short}")
+      list(APPEND failed "${shape} ${page} (hires)")
     endif()
   endforeach()
 endforeach()
