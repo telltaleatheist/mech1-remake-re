@@ -142,6 +142,40 @@ struct Story {
   bool arrived = false;
 };
 
+// The company's log's entries (mw1_log.h, FIXES.md items 62 and 63): numbers and ids, their words built when shown.
+enum class LogKind : int32_t {
+  kNews = 1,      // a: event, b: record (the story)
+  kStory,         // a: event, b: record (a story event seen)
+  kContract,      // a: House, b: objective (Objective), c: map row (-1 none), d: advance percent; n: payment (thousands)
+  kResult,        // a: outcome (Outcome); n: fee, m: salvage pay (C-bills)
+  kRepairs,       // n: the repairs' whole cost, m: billed past the wrecks; a: forgiven (thousands, rounded down)
+  kWagesPaid,     // n: C-bills
+  kWagesUnpaid,   // the lancemates warned
+  kLanceLeft,     // unpaid, the lancemates gone
+  kPromoted,      // a: pilot, b: the new Gunnery (0..3)
+  kMechLost,      // a: PM mech
+  kMissingInAction,  // a: pilot (a mission's)
+  kKilled,        // a: pilot
+  kMissing,       // a: pilot (a story setback's)
+  kBought,        // a: PM mech; n: price
+  kSold,          // a: PM mech; n: price
+  kHired,         // a: pilot
+  kLeft,          // a: pilot (dismissed at the Bar)
+  kTravelled,     // a: from (planet index), b: to; n: the fare
+  kTestLine,      // a: its number (development: MW1_SCREEN=hub_long's lines)
+};
+inline constexpr int32_t kLogKindLast = static_cast<int32_t>(LogKind::kTestLine);
+inline constexpr size_t kLogCap = 200;
+
+struct LogEntry {
+  Date date;
+  LogKind kind = LogKind::kTestLine;
+  int32_t a = 0, b = 0, c = 0, d = 0;
+  int64_t n = 0, m = 0;
+  bool heard = false;  // said at the hub (or never to be: what the player saw happen)
+  bool read = false;   // a news story opened
+};
+
 // "MALLORY'S WORLD" -> "Mallory's World": a world's name as the hub shows it.
 std::string title_case_name(const char* name);
 
@@ -178,8 +212,8 @@ struct Company {
   // FIXES.md item 46: the map the last offer was drawn on (its world and archive; "" none), never drawn twice running.
   std::string last_map_world;
   int32_t last_map_ia = 0;
-  // What happened since the hub last showed it (wages, promotions, casualties): the hub's lines, not saved.
-  std::vector<std::string> notices;
+  // The log (mw1_log.h), newest first; its entries not yet heard are the hub's MESSAGES.
+  std::vector<LogEntry> log;
   Story story;
 };
 

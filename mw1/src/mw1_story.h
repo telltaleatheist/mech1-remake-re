@@ -198,8 +198,17 @@ struct Shown {
 // The pages as shown: the named planet written into its field (its name as the exe has it), the captions' lines
 // taken off (the screen draws them as buttons), nothing after a choice's page.
 std::vector<Page> shown_pages(const Company& c, const Shown& s);
-// A news story's headline: the line before its first blank one (else its first).
+// A story's title: the line before its first page's first blank one (else its first).
+std::string news_title(const Company& c, const Shown& s);
+// A story's headline (FIXES.md item 67): its title; when another news story of the script has the same title (MW1's
+// round-ups share one), the first line of its first item (the first line after the blank under the title) instead,
+// so no two say the same. Its title still when it has no such line.
 std::string headline(const Company& c, const Shown& s);
+// Whether a news title is shared by more than one news record of the script.
+bool title_shared(const Company& c, const std::string& title);
+// A story as shown, rebuilt from its record (the log keeps the record, mw1_log.h): its event, the planet its text
+// names (kNamePlanet's), no captions. record -1 or out of range: event -1.
+Shown shown_of_record(int32_t record);
 
 // One event run as MW1 runs it (081B:639B): its conditions and actions in turn (funds, a planet named, a restart
 // queued, a date window, AND/OR); a choice opens when the conditions hold (marking it seen, but for the Dark Wing's

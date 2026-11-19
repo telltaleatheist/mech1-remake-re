@@ -7,7 +7,8 @@
 namespace mw1::event_ui {
 namespace {
 const std::vector<ScreenButton> kEventButtons = {{"CHOICE1", ""}, {"CHOICE2", ""}, {"CHOICE3", ""},
-                                                 {"NEXT", "NEXT"}, {"PREV", "PREV"}, {"BACK", "BACK"}};
+                                                 {"NEXT", "NEXT"}, {"PREV", "PREV"}, {"BACK", "BACK"},
+                                                 {"READ", "READ"}};
 }  // namespace
 
 std::string event_art(int32_t event) {
@@ -120,6 +121,7 @@ ScreenView event_view(const EventPanel& p) {
     if (p.pages.size() > 1) v.blocks.push_back(at_place("PAGE", {std::to_string(p.page + 1) + "/" + std::to_string(p.pages.size())}));
   }
   v.buttons.assign(kEventButtonCount, ButtonState{});
+  v.buttons[kEventRead - 1].there = false;  // the LOG's alone (below)
   for (int32_t i = 0; i < 3; ++i) {
     ButtonState& b = v.buttons[static_cast<size_t>(i)];
     const bool there = !p.news && !p.journal && p.choosing() && i < static_cast<int32_t>(p.captions.size());
@@ -133,8 +135,9 @@ ScreenView event_view(const EventPanel& p) {
     next.there = !p.last_page();
     v.buttons[kEventPrev - 1].on = p.page > 0;
     ButtonState& go = v.buttons[kEventChoice2 - 1];
-    go.there = p.last_page() && !p.captions.empty();
+    go.there = !p.log && p.last_page() && !p.captions.empty();
     if (go.there) go.words = p.captions[0], go.on = p.live.empty() || p.live[0];
+    v.buttons[kEventRead - 1].there = p.log && p.page < p.live.size() && p.live[p.page];
   } else if (p.news) {
     next.on = !p.last_page() || p.story + 1 < p.stories;
     v.buttons[kEventPrev - 1].on = p.page > 0 || p.story > 0;

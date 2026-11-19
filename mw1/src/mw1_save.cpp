@@ -163,6 +163,14 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
     if (c.story.seen[static_cast<size_t>(id)] == kSeenWaiting) o << (n++ ? "," : "") << id;
   o << "\n";
   o << "stores=" << (c.stores ? hex(bytes_of([&](std::FILE* f) { c.stores->save(f); })) : std::string()) << "\n";
+  // Version 10: the log, newest first, numbers only.
+  o << "log_count=" << c.log.size() << "\n";
+  for (size_t i = 0; i < c.log.size(); ++i) {
+    const LogEntry& e = c.log[i];
+    o << "log" << i << "=" << static_cast<int32_t>(e.kind) << ":" << e.date.units << ":" << e.date.month << ":" << e.date.year << ":"
+      << e.a << ":" << e.b << ":" << e.c << ":" << e.d << ":" << e.n << ":" << e.m << ":" << (e.heard ? 1 : 0) << ":"
+      << (e.read ? 1 : 0) << "\n";
+  }
   o << "offer=" << (offer ? 1 : 0) << "\n";
   if (offer) {
     const Contract& k = *offer;
@@ -434,6 +442,30 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
     std::vector<int64_t> waiting;
     if (v.count("story_waiting") && !list("story_waiting", 0, kEventIds - 1, &waiting)) return fail("the story's waiting steps are out of range");
     for (int64_t id : waiting) c.story.seen[static_cast<size_t>(id)] = kSeenWaiting;
+  }
+  // Version 10: the log (none before it).
+  if (int64_t count = 0; v.count("log_count")) {
+    if (!num("log_count", 0, 100000, &count)) return fail("the log's count is out of range");
+    for (int64_t i = 0; i < count; ++i) {
+      const std::string key = "log" + std::to_string(i);
+      if (!v.count(key)) return fail("the log's entry " + std::to_string(i) + " is missing");
+      std::vector<int64_t> f;
+      std::istringstream ss(v[key]);
+      std::string part;
+      while (std::getline(ss, part, ':')) {
+        int64_t x = 0;
+        if (!to_int(part, -(int64_t{1} << 62), int64_t{1} << 62, &x)) return fail("the log's entry " + std::to_string(i) + " doesn't read");
+        f.push_back(x);
+      }
+      if (f.size() != 12 || f[0] < 1 || f[0] > kLogKindLast) return fail("the log's entry " + std::to_string(i) + " doesn't read");
+      auto i32 = [](int64_t x) { return static_cast<int32_t>(std::clamp<int64_t>(x, INT32_MIN, INT32_MAX)); };
+      LogEntry e;
+      e.kind = static_cast<LogKind>(f[0]);
+      e.date.units = i32(f[1]), e.date.month = i32(f[2]), e.date.year = i32(f[3]);
+      e.a = i32(f[4]), e.b = i32(f[5]), e.c = i32(f[6]), e.d = i32(f[7]), e.n = f[8], e.m = f[9];
+      e.heard = f[10] != 0, e.read = f[11] != 0;
+      c.log.push_back(e);
+    }
   }
   // The world's name, House and tier are the map's, by its number.
   if (const int32_t w = planet_index(c.planet_number); w >= 0) set_planet(c, w);

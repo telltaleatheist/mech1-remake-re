@@ -19,6 +19,7 @@
 #include "mech3/pilot.h"
 #include "mw1_install.h"
 #include "mw1_campaign.h"
+#include "mw1_log.h"
 #include "mw1_pilots.h"
 #include "mw1_save.h"
 #include "mw1_travel.h"
@@ -193,7 +194,7 @@ TEST(mw1_pilots_wages_warning_and_leaving) {
   c.funds = 0;
   mw1::charge_wages(c, 1);
   EXPECT(c.lance.empty() && !c.wage_warned && c.pilots[1].where == mw1::PilotWhere::kFree);
-  for (const std::string& n : c.notices) std::printf("  %s\n", n.c_str());
+  for (const std::string& n : mw1::unheard_lines(c)) std::printf("  %s\n", n.c_str());
   // Two months short at once: they leave without a warning.
   c = company();
   c.recruits = {1};
@@ -225,7 +226,7 @@ TEST(mw1_pilots_promotion_and_casualties) {
   EXPECT(mw1::pilot_killed({ace, true}) && !mw1::pilot_killed({ace, false}));
   mw1::after_mission(c, {{poor, false}, {ace, true}});
   EXPECT(c.lance.size() == 1 && c.lance[0].id == poor && c.hangar.empty() && c.pilots[ace].where == mw1::PilotWhere::kDead);
-  for (const std::string& n : c.notices) std::printf("  %s\n", n.c_str());
+  for (const std::string& n : mw1::unheard_lines(c)) std::printf("  %s\n", n.c_str());
 }
 
 // FIXES.md item 32: a downed lancemate MISSING by kMissingPercent in 100, else KILLED. Missing: out of the lance, back
@@ -250,7 +251,7 @@ TEST(mw1_pilots_missing_in_action) {
          c.pilots[41].piloting == twin.pilots[41].piloting && c.pilots[41].missions == twin.pilots[41].missions &&
          c.pilots[41].missions == 2);
   bool said = false;
-  for (const std::string& n : c.notices) said = said || n.find("missing in action") != std::string::npos;
+  for (const mw1::LogEntry& e : c.log) said = said || e.kind == mw1::LogKind::kMissingInAction;
   EXPECT(said);
   // Back in the pool: a later Bar's recruits may be them (refresh_recruits draws from the free pilots).
   bool offered = false;

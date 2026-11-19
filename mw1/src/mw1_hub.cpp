@@ -13,7 +13,7 @@ namespace {
 const std::vector<ScreenButton> kHubButtons = {{"OK", "OK"},           {"REPLAY", "REPLAY"},   {"MARKET", "MECH COMPLEX"},
                                                {"BAR", "BAR"},         {"TRAVEL", "STARPORT"}, {"OFFICE", "HOUSE OFFICE"},
                                                {"OPTIONS", "OPTIONS"}, {"COMPANY", "COMPANY"}, {"DEPLOY", "DEPLOY"},
-                                               {"STORY", "STORY"}};
+                                               {"STORY", "STORY"},     {"READ", "READ"},       {"LOG", "LOG"}};
 const std::vector<ScreenButton> kHubOptionsButtons = {{"SETTINGS", "SETTINGS"}, {"MAIN_MENU", "MAIN MENU"}, {"BACK", "BACK"}};
 // The middle panel's lines wrapped at its words to kHubPanelColumns (4:3's panel, the narrower; a blank line kept).
 std::vector<std::string> wrapped(const std::vector<std::string>& lines) {
@@ -90,8 +90,10 @@ void HubState::show(const HubView& v) {
   b(kHubDeploy).there = v.contract;
   b(kHubTravel).there = b(kHubBar).there = b(kHubOptions).there = !v.contract;
   b(kHubStory).there = v.story;
+  b(kHubRead).there = v.message && v.read && !v.after_action;  // in REPLAY's place (never both)
+  b(kHubLog).there = true;
   // Nothing but OK (and REPLAY) while AFTER ACTION waits.
-  for (int32_t id : {kHubMarket, kHubBar, kHubTravel, kHubOffice, kHubCompany, kHubDeploy, kHubOptions, kHubStory}) b(id).on = !v.after_action;
+  for (int32_t id : {kHubMarket, kHubBar, kHubTravel, kHubOffice, kHubCompany, kHubDeploy, kHubOptions, kHubStory, kHubLog}) b(id).on = !v.after_action;
   Mw1State::show(s);
 }
 

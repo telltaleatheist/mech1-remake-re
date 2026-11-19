@@ -14,7 +14,7 @@
 ;   gone (the hub hides what isn't there);
 ; - the middle panel only with something to say (item 16): AFTER ACTION, or
 ;   the messages (payday, the news, a contract taken), OK (and AFTER ACTION's
-;   REPLAY) under it; else the scenery and the tiles alone. Item 42 (Owen:
+;   REPLAY, or the messages' READ) under it; else the scenery and the tiles alone. Item 42 (Owen:
 ;   unobtrusive): a box at the foot between the tile columns, sized to its
 ;   lines (mw1_box_<w>_<lines>, grown upward from the status line; the hub
 ;   names the size and moves the texts down from the six-line box's places),
@@ -53,6 +53,9 @@ MW1HUBDIALOG (
     OPTIONS (POSITION (520 296) BITMAP ("mw1_tile_options") ROLLOVER (BITMAP ("mw1_tile_options_lit")) ACTIVATE (BITMAP ("mw1_tile_options_down")) DISABLE (BITMAP ("mw1_tile_options_off")) LABEL_AT (574 383) LABEL_FONT ("mw1_tile_label") LABEL_OFF_FONT ("mw1_tile_label_off"))
     ; FIXES.md item 47: the journal, under the right column (alone there with a contract).
     STORY (POSITION (520 414) BITMAP ("mw1_button_tile") ROLLOVER (BITMAP ("mw1_button_tile_lit")) ACTIVATE (BITMAP ("mw1_button_tile_down")) DISABLE (BITMAP ("mw1_button_tile_off")) LABEL_AT (574 420) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    ; FIXES.md items 62, 63: READ (the messages' news stories) in REPLAY's place; LOG under the left column, always.
+    READ (POSITION (148 406) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (240 412) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    LOG (POSITION (12 414) BITMAP ("mw1_button_tile") ROLLOVER (BITMAP ("mw1_button_tile_lit")) ACTIVATE (BITMAP ("mw1_button_tile_down")) DISABLE (BITMAP ("mw1_button_tile_off")) LABEL_AT (66 420) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
   )
   TEXTS (
     PLANET (POSITION (116 15) FONT ("mw1_plaque"))
@@ -92,6 +95,8 @@ MW1HUBDIALOG_WIDE (
     BAR (POSITION (729 186) BITMAP ("mw1_tile_bar") ROLLOVER (BITMAP ("mw1_tile_bar_lit")) ACTIVATE (BITMAP ("mw1_tile_bar_down")) DISABLE (BITMAP ("mw1_tile_bar_off")) LABEL_AT (783 273) LABEL_FONT ("mw1_tile_label") LABEL_OFF_FONT ("mw1_tile_label_off") ANCHOR ("RIGHT"))
     OPTIONS (POSITION (729 296) BITMAP ("mw1_tile_options") ROLLOVER (BITMAP ("mw1_tile_options_lit")) ACTIVATE (BITMAP ("mw1_tile_options_down")) DISABLE (BITMAP ("mw1_tile_options_off")) LABEL_AT (783 383) LABEL_FONT ("mw1_tile_label") LABEL_OFF_FONT ("mw1_tile_label_off") ANCHOR ("RIGHT"))
     STORY (POSITION (729 414) BITMAP ("mw1_button_tile") ROLLOVER (BITMAP ("mw1_button_tile_lit")) ACTIVATE (BITMAP ("mw1_button_tile_down")) DISABLE (BITMAP ("mw1_button_tile_off")) LABEL_AT (783 420) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("RIGHT"))
+    READ (POSITION (254 406) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (346 412) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    LOG (POSITION (16 414) BITMAP ("mw1_button_tile") ROLLOVER (BITMAP ("mw1_button_tile_lit")) ACTIVATE (BITMAP ("mw1_button_tile_down")) DISABLE (BITMAP ("mw1_button_tile_off")) LABEL_AT (70 420) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
   )
   TEXTS (
     PLANET (POSITION (166 15) FONT ("mw1_plaque"))

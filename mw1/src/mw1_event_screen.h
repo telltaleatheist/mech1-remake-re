@@ -42,8 +42,8 @@ inline constexpr const char* kBarScene = "mw1_bar_scene";
 inline constexpr const char* kMarketScene = "mw1_mechcomplex_hangar";
 inline constexpr const char* kOfficeScene = "mw1_office_liaison";
 
-enum EventButton : int32_t { kEventChoice1 = 1, kEventChoice2, kEventChoice3, kEventNext, kEventPrev, kEventBack };
-inline constexpr int32_t kEventButtonCount = 6;
+enum EventButton : int32_t { kEventChoice1 = 1, kEventChoice2, kEventChoice3, kEventNext, kEventPrev, kEventBack, kEventRead };
+inline constexpr int32_t kEventButtonCount = 7;
 const char* event_button_name(int32_t id);
 
 // What the panel shows: where (the plaque), the pages and which, a choice's captions on its last page (each live or
@@ -63,6 +63,9 @@ struct EventPanel {
   // PREV and NEXT through the pages, BACK; on the last (the lead's) GO THERE in NEXT's place (captions[0], live or not).
   bool journal = false;
   std::vector<std::string> titles;
+  // FIXES.md item 63: the LOG (mw1_log.h's log_pages), a journal-like page (journal set too): READ (its own button,
+  // top right) on any page with news (`live`, one a page).
+  bool log = false;
   bool last_page() const { return page + 1 >= pages.size(); }
   bool choosing() const { return last_page() && !captions.empty(); }
 };

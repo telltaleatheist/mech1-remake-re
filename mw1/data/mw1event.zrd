@@ -29,6 +29,8 @@ MW1EVENTDIALOG (
     NEXT (POSITION (236 398) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (328 404) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
     PREV (POSITION (52 398) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (144 404) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
     BACK (POSITION (420 398) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (512 404) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    ; FIXES.md item 63: the LOG's READ (a page's news stories), top right beside the plaque.
+    READ (POSITION (520 24) BITMAP ("mw1_button_tile") ROLLOVER (BITMAP ("mw1_button_tile_lit")) ACTIVATE (BITMAP ("mw1_button_tile_down")) DISABLE (BITMAP ("mw1_button_tile_off")) LABEL_AT (574 30) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
   )
   TEXTS (
     PLANET (POSITION (320 23) FONT ("mw1_plaque") ANCHOR ("CENTRE"))
@@ -57,6 +59,8 @@ MW1EVENTBOTTOM (
     NEXT (POSITION (416 430) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (508 436) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
     PREV (POSITION (56 430) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (148 436) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
     BACK (POSITION (236 430) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (328 436) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    ; The LOG's READ is the full page's alone: here at BACK's place, never shown.
+    READ (POSITION (236 430) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (328 436) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
   )
   TEXTS (
     TITLE (POSITION (56 308) FONT ("mw1_term_title"))
@@ -80,6 +84,8 @@ MW1EVENTBOTTOM_WIDE (
     NEXT (POSITION (622 430) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (714 436) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
     PREV (POSITION (62 430) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (154 436) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
     BACK (POSITION (342 430) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (434 436) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    ; The LOG's READ is the full page's alone: here at BACK's place, never shown.
+    READ (POSITION (342 430) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (434 436) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
   )
   TEXTS (
     TITLE (POSITION (62 308) FONT ("mw1_term_title") ANCHOR ("CENTRE"))

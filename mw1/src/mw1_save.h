@@ -33,6 +33,10 @@
 //                      pending_seconds, pending_killers (by wreck),
 //                      pending_mech (armour then structure left by
 //                      location, percent); absent: unknown.
+//                      10 the log (mw1_log.h, FIXES.md items 62, 63):
+//                      log_count, then log<i> (0 the newest) =
+//                      kind:units:month:year:a:b:c:d:n:m:heard:read,
+//                      numbers only. Before 10: an empty log.
 //                      Versions 1 to 4 still read (before 5: the world's
 //                      premium without its roll, a wreck's damage from its
 //                      condition, no bills);
@@ -53,7 +57,7 @@
 
 namespace mw1 {
 
-inline constexpr int32_t kSaveVersion = 9;
+inline constexpr int32_t kSaveVersion = 10;
 inline constexpr const char* kSaveFile = "mw1save.txt";
 inline constexpr const char* kPrevSaveFile = "mw1save.prev";  // the company NEW CAMPAIGN replaced, kept beside it
 

@@ -26,8 +26,12 @@ inline constexpr const char* kHubDialog = "MW1HUBDIALOG";  // its dialog
 // HOUSE OFFICE down the left, STARPORT, BAR and OPTIONS down the right; with a contract accepted, DEPLOY in the
 // office's place and the right column gone (DS:10D7).
 // FIXES.md item 47: STORY (the journal, mw1_journal.h), a small button under the right column once the story has begun.
-enum HubButton : int32_t { kHubOk = 1, kHubReplay, kHubMarket, kHubBar, kHubTravel, kHubOffice, kHubOptions, kHubCompany, kHubDeploy, kHubStory };
-inline constexpr int32_t kHubButtonCount = 10;
+// FIXES.md items 62, 63 (mw1_log.h): READ in the box's foot when its messages have news (their stories), and LOG, a
+// small button under the left column, always (a contract taken too).
+enum HubButton : int32_t {
+  kHubOk = 1, kHubReplay, kHubMarket, kHubBar, kHubTravel, kHubOffice, kHubOptions, kHubCompany, kHubDeploy, kHubStory, kHubRead, kHubLog
+};
+inline constexpr int32_t kHubButtonCount = 12;
 // The middle panel's width in its line font's columns (4:3's 376: 48 fit); a longer line wraps there, indented.
 inline constexpr int32_t kHubPanelColumns = 48;
 const char* hub_button_name(int32_t id);  // "ACCEPT", ... ("" for no button)
@@ -45,7 +49,8 @@ struct HubView {
   // `message`, its OK under it; otherwise the hub is the scenery and the tiles.
   std::string title;                  // its title: "AFTER ACTION", "MESSAGES"
   std::vector<std::string> panel;     // its lines
-  bool message = false;               // messages (the company's notices): OK dismisses them
+  bool message = false;               // messages (the log's unheard entries, mw1_log.h): OK dismisses them
+  bool read = false;                  // the messages have news: READ opens their stories
   bool after_action = false;          // OK (and REPLAY when `replay`) under the panel, the services off
   bool replay = false;
   bool contract = false;              // a contract accepted: DEPLOY in the office's place, the right column gone

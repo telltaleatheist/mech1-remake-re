@@ -101,7 +101,7 @@ bool pilot_missing(const LanceFate& f);
 // After a counted mission (won, or failed and accepted; never a replay or a quit): promotions, then casualties (223F):
 // a killed pilot gone for good; a missing one out of the lance and back in the hiring pool with their ratings and
 // record (a Bar may offer them again); either way their destroyed mech lost (VISION; never the commander's). The
-// hub's lines in c.notices.
+// entries in the log (mw1_log.h), for the hub.
 void after_mission(Company& c, const std::vector<LanceFate>& fates);
 
 // The aim (VISION, "Gunnery is their aim"; open question 3, provisional): the map record's aim error (+0xb8) times

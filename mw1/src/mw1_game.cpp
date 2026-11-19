@@ -83,6 +83,7 @@
 #include "mw1_save.h"
 #include "mw1_story.h"
 #include "mw1_journal.h"
+#include "mw1_log.h"
 #include "mw1_ladder.h"
 
 namespace mw1 {
@@ -144,6 +145,14 @@ std::string objective_words(const Contract& k) {
     case Objective::kDestroyAll: break;
   }
   return "destroy all enemy mechs";
+}
+// The contract's row in the map table (its world, archive and structure), for the log: -1 none (a destroy-all).
+int32_t contract_row(const Contract& k) {
+  if (k.structure.empty()) return -1;
+  const std::vector<missions::MapRow>& rows = missions::map_table();
+  for (size_t r = 0; r < rows.size(); ++r)
+    if (rows[r].world == k.world && rows[r].ia == k.ia && rows[r].node == k.structure) return static_cast<int32_t>(r);
+  return -1;
 }
 // The map as PM's Instant Action screen names it: the world (PM's c1..c4 by their messages, 0xe33.., an MW3 world by
 // the name it was registered with) and the scenario of its archive (ia1 Battle, ia2 Attack, ia3 Defend; the
@@ -438,11 +447,22 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       // 1 of 2; and after OK (NEXT), page 2 (FIXES.md item 42). hub_long_short: two lines, the box sized to them.
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s).rfind("hub_long", 0) == 0 && !pending_) {
         const int count = std::string(s) == "hub_long_short" ? 2 : 9;
-        for (int k = 1; k <= count; ++k) company_.notices.push_back("Test message line " + std::to_string(k) + ".");
+        for (int k = 1; k <= count; ++k) log_add(company_, LogKind::kTestLine, false, k);
         show_hub();
         if (std::string(s) == "hub_long_next") press(kHubOk);
       }
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "news") press(kHubBar), press_bar(kBarNews);
+      // FIXES.md items 62, 63: hub_news (the hub's box with three of MW1's round-up stories, collapsed, and READ),
+      // hub_read (READ: their stories), log (the LOG page), log_read (its READ); a run of earlier entries seeded.
+      if (const char* s = std::getenv("MW1_SCREEN"); s && !pending_ && story_running() &&
+          (std::string(s).rfind("hub_news", 0) == 0 || std::string(s) == "hub_read" || std::string(s).rfind("log", 0) == 0)) {
+        seed_log_for_shots();
+        show_hub();
+        const std::string w = s;
+        if (w == "hub_read") press(kHubRead);
+        if (w.rfind("log", 0) == 0) press(kHubLog);
+        if (w == "log_read") press_event(kEventRead);
+      }
       // FIXES.md item 47: journal (the STORY page on its lead), journal_chapter (PREV: the last chapter's last page),
       // travel_story (GO THERE: the starport, the lead's world chosen and marked), hub_story (the hub with STORY); the
       // trail taken up to MW1_STORY_STEP (default 7: Brown on Dustball, a battle pending).
@@ -773,8 +793,16 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       show_hub();
       return;
     }
+    // FIXES.md item 62: READ, the messages' news stories (they stay unheard until OK, so the box comes back).
+    if (id == kHubRead) {
+      std::vector<Shown> list;
+      for (size_t i : unheard_news(company_)) list.push_back(shown_of_record(company_.log[i].b));
+      if (pending_ || list.empty() || !ge) return;
+      screen_change([this, list] { open_stories(list, StoriesFrom::kHub); });
+      return;
+    }
     hub_page_ = 0;
-    company_.notices.clear();  // the hub's last news, shown once
+    if (!unheard_lines(company_).empty()) hear_all(company_), save();  // the hub's last news, shown once (the log keeps it)
     hub_hover_ = 0;            // left (or the button gone): the status line's own words again
     switch (id) {
       case kHubDeploy:
@@ -843,6 +871,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       case kHubStory:
         if (pending_ || !ge) return;
         screen_change([this] { open_journal(); });
+        return;
+      case kHubLog:  // FIXES.md item 63
+        if (pending_ || !ge) return;
+        screen_change([this] { open_log(0); });
         return;
       case kHubBar:
         // The Bar in the hub's place (BACK brings the hub back); not while AFTER ACTION waits.
@@ -943,11 +975,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     accept(company_, contract_);
     offered_ = false;
     // Said at the hub once (item 16: a contract's state change is a message).
-    company_.notices.push_back("Contract accepted with House " + std::string(kHouses[contract_.house].name) + ": " +
-                               objective_words(contract_) + ".");
-    company_.notices.push_back("Payment " + thousands(int64_t{contract_.payment} * 1000) + " C-bills, " +
-                               std::to_string(contract_.advance_percent) + "% paid in advance.");
-    company_.notices.push_back("DEPLOY from the hub when the lance is ready.");
+    log_add(company_, LogKind::kContract, false, contract_.house, static_cast<int32_t>(contract_.objective), contract_row(contract_),
+            contract_.advance_percent, contract_.payment);
     std::printf("mw1: office: contract accepted: %s on %sia%d, %d thousand, %d%% advance; funds %s\n", objective_words(contract_).c_str(),
                 contract_.world.c_str(), contract_.ia, contract_.payment, contract_.advance_percent, thousands(company_.funds).c_str());
     save();
@@ -1036,14 +1065,20 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         bchoice_.note = h == Hire::kDone ? who + " joins the lance."
                         : h == Hire::kFull ? std::string(hire_words(h)) + " " + who + " won't wait: the offer is gone."
                                            : hire_words(h);
-        if (h == Hire::kDone) bchoice_.mate = static_cast<int32_t>(company_.lance.size()) - 1;
+        if (h == Hire::kDone) {
+          bchoice_.mate = static_cast<int32_t>(company_.lance.size()) - 1;
+          log_add(company_, LogKind::kHired, true, company_.lance.back().id);
+        }
         changed = h != Hire::kNoSuch;
         break;
       }
-      case kBarFire:
+      case kBarFire: {
+        const int32_t leaving = bchoice_.mate < static_cast<int32_t>(company_.lance.size()) ? company_.lance[static_cast<size_t>(bchoice_.mate)].id : -1;
         changed = fire(company_, bchoice_.mate);
+        if (changed && leaving >= 0) log_add(company_, LogKind::kLeft, true, leaving);
         bchoice_.note = changed ? mate + " leaves the company." : "Nobody chosen.";
         break;
+      }
       case kBarDrink:
         // MW1's drink (MwOrderDrinkContinuation): a unit of time (the wages if a month begins), then the drink's events:
         // a tip at its price, or the quiet text.
@@ -1159,7 +1194,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       case kTravelGo: {
         const int32_t w = chosen_world(company_, tchoice_);
         const int64_t cost = w >= 0 ? travel_cost(company_, kPlanets[w]) : 0;
+        const int32_t from = planet_index(company_.planet_number);
         const Trip t = mw1::travel(company_, w, rng_);
+        if (t == Trip::kDone) log_add(company_, LogKind::kTravelled, true, from, w, 0, 0, cost);
         if (t != Trip::kDone) {
           tchoice_.note = trip_words(t);
           std::printf("mw1: travel: %s\n", tchoice_.note.c_str());
@@ -1277,6 +1314,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         if ((d = can_buy(company_, m.stock)) == Deal::kDone && !deal_asked(buy_question(company_, m.stock))) return;
         if (d == Deal::kDone && (d = buy(company_, m.stock)) == Deal::kDone) {
           done = "Bought: " + mech_title(mech) + " for " + thousands(price) + " C-bills.";
+          log_add(company_, LogKind::kBought, true, mech, 0, 0, 0, price);
           deal_choice(company_, m, true);  // the new one chosen and shown in YOUR MECHS (FIXES.md item 58)
         }
         break;
@@ -1285,7 +1323,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         const int32_t mech = owned_mech(company_, m.owned);
         if ((d = can_sell(company_, m.owned)) == Deal::kDone && !deal_asked(sell_question(company_, m.owned))) return;
         if (d == Deal::kDone && (d = sell(company_, m.owned)) == Deal::kDone) {
-          done = "Sold: " + mech_title(mech) + " for " + thousands(sell_price(mech, company_.tier)) + " C-bills.";
+          const int64_t got = sell_price(mech, company_.tier);
+          done = "Sold: " + mech_title(mech) + " for " + thousands(got) + " C-bills.";
+          log_add(company_, LogKind::kSold, true, mech, 0, 0, 0, got);
           deal_choice(company_, m, false);  // YOUR MECHS' row in its place, shown (FIXES.md item 58)
         }
         break;
@@ -1897,7 +1937,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     screen_change([this, ge] {
       ge->pop_state(1);
       results_up_ = false;
-      company_.notices.clear();
+      hear_all(company_);
       settle_pending();
       show_hub();
       hub_events();  // back at the hub (MW1's after a battle)
@@ -1965,6 +2005,34 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (ev_panel_.pages.empty()) ev_panel_.pages.push_back({});
   }
 
+  // For the shots: earlier entries of each kind (heard), then three of the round-up's stories and a payday (unheard).
+  void seed_log_for_shots() {
+    const Script& sc = script();
+    std::map<std::string, std::vector<int32_t>> by_title;
+    for (size_t r = 0; r < sc.records.size(); ++r)
+      if (sc.records[r].cls == kClassNews) by_title[news_title(company_, shown_of_record(static_cast<int32_t>(r)))].push_back(static_cast<int32_t>(r));
+    std::vector<int32_t> round_up, single;
+    for (const auto& [t, rs] : by_title) {
+      if (rs.size() > round_up.size()) round_up = rs;
+      if (rs.size() == 1 && single.size() < 2) single.push_back(rs[0]);
+    }
+    const Date now = company_.date;
+    company_.date.month = (company_.date.month + 10) % 12;
+    log_add(company_, LogKind::kHired, true, 41);
+    log_add(company_, LogKind::kBought, true, 3, 0, 0, 0, 1450000);
+    for (int32_t r : single) log_add(company_, LogKind::kNews, true, sc.records[static_cast<size_t>(r)].id, r).read = true;
+    company_.date.month = (company_.date.month + 1) % 12;
+    log_add(company_, LogKind::kContract, true, kDavion, 0, -1, 20, 950);
+    log_add(company_, LogKind::kResult, true, static_cast<int32_t>(Outcome::kSuccess), 0, 0, 0, 760000, 215000);
+    log_add(company_, LogKind::kRepairs, true, 0, 0, 0, 0, 88000, 12000);
+    log_add(company_, LogKind::kPromoted, true, 41, 2);
+    log_add(company_, LogKind::kTravelled, true, planet_index(company_.planet_number), 0, 0, 0, 40000);
+    company_.date = now;
+    for (size_t i = 0; i < round_up.size() && i < 3; ++i)
+      log_add(company_, LogKind::kNews, false, sc.records[static_cast<size_t>(round_up[i])].id, round_up[i]);
+    log_add(company_, LogKind::kWagesPaid, false, 0, 0, 0, 0, 2400);
+  }
+
   bool story_running() const { return story_on_ && script().there() && company_.stores && ge_; }
 
   // At the hub (MW1 runs its events each time it draws it; not while AFTER ACTION waits): the news new since it last
@@ -1975,7 +2043,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     for (const Shown& n : news) {
       const std::string h = headline(company_, n);
       std::printf("mw1: story: news %#x\n", n.event);
-      if (!h.empty()) company_.notices.push_back("NEWS: " + h);
+      if (!h.empty()) log_add(company_, LogKind::kNews, false, n.event, n.record);
     }
     if (!news.empty()) save();  // heard (and seen): not announced again after a quit
     show_hub();
@@ -2002,6 +2070,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (!ge || !next(company_, ev_, rng_, &s)) return events_done();
     std::printf("mw1: story: event %#x (class %d)%s%s\n", s.event, ev_.cls, s.captions.empty() ? "" : ", a choice", s.restart ? ", a death" : "");
     ev_shown_ = s;
+    if (s.record >= 0) log_add(company_, LogKind::kStory, true, s.event, s.record);  // FIXES.md item 63
     ev_panel_ = EventPanel{};
     ev_panel_.planet = upper(company_.planet);
     ev_panel_.place = place_words(ev_.cls);
@@ -2086,6 +2155,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     std::printf("mw1: event: %s\n", event_button_name(id));
     if (!event_up_) return;
     if (ev_panel_.news) return press_news(id);
+    if (ev_panel_.log) return press_log(id);
     if (ev_panel_.journal) return press_journal(id);
     switch (id) {
       case kEventNext:
@@ -2238,28 +2308,95 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
 
   // The Bar's NEWS on the panel: each story live now (marked seen, as MW1's browsing marks it), PREV and NEXT through
   // their pages, BACK to the Bar. None: a line saying so.
-  void open_news() {
+  void open_news() { open_stories(live_news(company_, rng_), StoriesFrom::kBar); }
+
+  // FIXES.md item 62: the stories on the news's pages, from the Bar's NEWS, the hub's READ or the LOG's READ (over the
+  // Bar, the hub's scenery, or the LOG's page); each read as it's shown (the log's entries of its record).
+  enum class StoriesFrom { kBar, kHub, kLog };
+  void open_stories(std::vector<Shown> list, StoriesFrom from) {
     mech3::GameEngine* ge = ge_;
     if (!ge) return;
-    news_ = live_news(company_, rng_);
+    news_ = std::move(list);
+    stories_from_ = from;
     ev_ = start(kClassNews);
     ev_.done = true;
     std::printf("mw1: story: the news, %zu stories\n", news_.size());
     ev_panel_ = EventPanel{};
     ev_panel_.planet = upper(company_.planet), ev_panel_.place = place_words(kClassNews), ev_panel_.news = true;
-    place_over(kClassNews, ev_panel_);  // the Bar's
+    place_over(from == StoriesFrom::kBar ? kClassNews : kClassArrival, ev_panel_);  // the Bar's, else the hub's scenery
     ev_panel_.stories = static_cast<int32_t>(news_.size());
     news_story(0, false);
     if (!raise_event(*ge)) return;
     show_event();
   }
 
-  // Story `i` of the news on the panel, at its first page (its last: `at_end`).
+  // Story `i` of the news on the panel, at its first page (its last: `at_end`); read now.
   void news_story(int32_t i, bool at_end) {
     ev_panel_.story = i;
-    if (i < static_cast<int32_t>(news_.size())) set_pages(shown_pages(company_, news_[static_cast<size_t>(i)]));
-    else set_pages({{{news_.empty() ? "Nothing on the news." : ""}, false}});
+    if (i < static_cast<int32_t>(news_.size())) {
+      set_pages(shown_pages(company_, news_[static_cast<size_t>(i)]));
+      mark_read(company_, news_[static_cast<size_t>(i)].record);
+    } else {
+      set_pages({{{news_.empty() ? "Nothing on the news." : ""}, false}});
+    }
     ev_panel_.page = at_end ? ev_panel_.pages.size() - 1 : 0;
+  }
+  // The stories left (BACK, or past the last): the LOG's page again when they came from it, else the screen under.
+  void stories_done() {
+    if (stories_from_ == StoriesFrom::kLog) return open_log(log_page_);
+    events_done();
+  }
+
+  // FIXES.md item 63: the LOG, the event panel's full page over the world's scenery: every entry, newest first, dated;
+  // PREV and NEXT through the pages, BACK to the hub; READ on a page with news opens its stories (BACK comes back here).
+  static constexpr size_t kLogPageLines = 17;  // the terminal's (mw1_term_436x300: 15-pixel lines from 104)
+  void open_log(size_t page) {
+    mech3::GameEngine* ge = ge_;
+    if (!ge) return;
+    log_pages_ = log_pages(company_, kLogPageLines, journal::kColumns);
+    ev_ = start(kClassNews);
+    ev_.done = true;
+    ev_shown_ = Shown{};
+    ev_panel_ = EventPanel{};
+    ev_panel_.planet = "LOG", ev_panel_.journal = true, ev_panel_.log = true;
+    ev_panel_.scene = scenery_image(company_.planet_number), ev_panel_.side = Side::kFull;
+    std::vector<Page> pages;
+    for (const LogPage& lp : log_pages_) {
+      Page pg;
+      pg.lines = lp.lines.empty() ? std::vector<std::string>{"Nothing in the log yet."} : lp.lines;
+      pages.push_back(std::move(pg));
+      ev_panel_.titles.push_back(company_.log.empty() ? "THE COMPANY'S LOG" : "NEWEST FIRST");
+      ev_panel_.live.push_back(!lp.news.empty());
+    }
+    set_pages(std::move(pages));
+    ev_panel_.page = std::min(page, ev_panel_.pages.size() - 1);
+    log_page_ = ev_panel_.page;
+    std::printf("mw1: log: %zu entries, %zu pages, page %zu\n", company_.log.size(), ev_panel_.pages.size(), ev_panel_.page + 1);
+    if (!raise_event(*ge)) return;
+    show_event();
+  }
+
+  void press_log(int32_t id) {
+    switch (id) {
+      case kEventNext:
+        if (!ev_panel_.last_page()) ++ev_panel_.page;
+        else return screen_change([this] { events_done(); });  // Escape on the last page: back to the hub
+        break;
+      case kEventPrev:
+        if (ev_panel_.page > 0) --ev_panel_.page;
+        break;
+      case kEventBack: return screen_change([this] { events_done(); });
+      case kEventRead: {
+        if (ev_panel_.page >= log_pages_.size() || log_pages_[ev_panel_.page].news.empty()) return;
+        std::vector<Shown> list;
+        for (size_t i : log_pages_[ev_panel_.page].news) list.push_back(shown_of_record(company_.log[i].b));
+        log_page_ = ev_panel_.page;
+        return screen_change([this, list] { open_stories(list, StoriesFrom::kLog); });
+      }
+      default: return;
+    }
+    log_page_ = ev_panel_.page;
+    show_event();
   }
 
   void press_news(int32_t id) {
@@ -2267,13 +2404,13 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       case kEventNext:
         if (!ev_panel_.last_page()) ++ev_panel_.page;
         else if (ev_panel_.story + 1 < ev_panel_.stories) news_story(ev_panel_.story + 1, false);
-        else return events_done();  // Escape at the end: back to the Bar
+        else return stories_done();  // Escape at the end: back to the Bar (the hub, the LOG)
         break;
       case kEventPrev:
         if (ev_panel_.page > 0) --ev_panel_.page;
         else if (ev_panel_.story > 0) news_story(ev_panel_.story - 1, true);
         break;
-      case kEventBack: return events_done();
+      case kEventBack: return stories_done();
       default: return;
     }
     show_event();
@@ -2285,6 +2422,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // The fee, the fates, the repairs from the wrecks' worth, then the salvage on what's left (FIXES.md item 51).
     const MissionSettled m = settle_mission(company_, contract_, *pending_, rng_);
     const Settlement& s = m.s;
+    log_add(company_, LogKind::kResult, true, static_cast<int32_t>(pending_->outcome), 0, 0, 0, s.fee, s.salvage);
     // The parts are kept only on a win (VISION.md, the endings): failed or quit, the mission's salvage is dropped.
     if (pending_->outcome == Outcome::kSuccess && pending_->salvage) company_.stores->add_all(*pending_->salvage);
     clamp_stores(*company_.stores);  // FIXES.md item 53
@@ -2293,7 +2431,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // Then the repairs (mw1_repairs.h): the bill, the commander's loss.
     if (pending_->outcome != Outcome::kRetreat) {
       const Repairs& r = m.r;
-      for (const std::string& l : r.lines) company_.notices.push_back(l);
+      // The log keeps the repairs (not a hub message: FIXES.md item 57; AFTER ACTION and DETAILS say them).
+      if (r.sum.repairs > 0 || r.billed > 0)
+        log_add(company_, LogKind::kRepairs, true, static_cast<int32_t>(std::min<int64_t>(r.forgiven / 1000, INT32_MAX)), 0, 0, 0,
+                r.sum.repairs, r.billed);
       std::printf("mw1: repairs: %s, %s from the wrecks (%s), %s left; billed %s, paid %s, forgiven %s\n",
                   thousands(r.sum.repairs).c_str(), thousands(r.sum.covered).c_str(), thousands(r.sum.pool).c_str(),
                   thousands(r.sum.left).c_str(), thousands(r.billed).c_str(), thousands(r.paid).c_str(), thousands(r.forgiven).c_str());
@@ -2355,8 +2496,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (pending_ && !results_up_) {  // without the results screen's layout: the old AFTER ACTION panel
       v.title = "AFTER ACTION", v.after_action = true;
       v.replay = pending_->outcome == Outcome::kFailure;
-    } else if (!company_.notices.empty()) {
+    } else if (!unheard_lines(company_).empty()) {
       v.title = "MESSAGES", v.message = true;
+      v.read = !unheard_news(company_).empty();  // FIXES.md item 62: READ opens the stories
     }
     if (hub_page_ >= hub_pages(v.panel)) hub_page_ = 0;
     v.page = hub_page_;
@@ -2370,9 +2512,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     std::vector<std::string> p;
     if (pending_ && !results_up_) {
       p = after_action_lines();
-      if (!company_.notices.empty()) p.push_back("");
+      if (!unheard_lines(company_).empty()) p.push_back("");
     }
-    for (const std::string& n : company_.notices) p.push_back(n);
+    for (const std::string& n : unheard_lines(company_)) p.push_back(n);
     return p;
   }
 
@@ -3788,7 +3930,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   Shown ev_shown_;         // the event on the panel
   EventPanel ev_panel_;
   size_t hub_page_ = 0;  // the hub's box's page (FIXES.md item 42)
-  std::vector<Shown> news_;  // the Bar's NEWS: the stories live now
+  std::vector<Shown> news_;  // the news's pages: the Bar's stories live now, or READ's
+  StoriesFrom stories_from_ = StoriesFrom::kBar;
+  std::vector<LogPage> log_pages_;  // the LOG's pages as opened (their news entries)
+  size_t log_page_ = 0;
   // MW1's loading screen (mw1_loading.h) while a deployed mission loads, PM's briefing skipped (FIXES.md item 18).
   std::unique_ptr<screens::Mw1Screen> loading_;
   LoadingSeen seen_;  // tests

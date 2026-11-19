@@ -22,6 +22,7 @@
 
 #include "check.h"
 #include "mw1_install.h"
+#include "mw1_log.h"
 #include "mw1_layouts.h"
 #include "gamez/ztwod/twod.h"
 #include "gamez/zgame/zgame_table.h"
@@ -1083,7 +1084,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
           // The market run, its first messages: made longer than the box (made-up lines), so OK pages (item 42).
           const bool padded = run && run->market && run->messages_read == 1;
           if (padded)
-            for (int k = 1; k <= 9; ++k) mw1::game_loop_company_for_tests()->notices.push_back("Test line " + std::to_string(k));
+            for (int k = 1; k <= 9; ++k) mw1::log_add(*mw1::game_loop_company_for_tests(), mw1::LogKind::kTestLine, false, k);
           // More than the box's six lines: "MESSAGES  1/N", OK reading NEXT, each page after it; OK on the last clears.
           bool still = true;
           for (int presses = 0; still && presses < 12; ++presses) {
