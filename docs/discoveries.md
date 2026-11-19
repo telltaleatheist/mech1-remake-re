@@ -585,10 +585,13 @@ From the weapon code (weapons.md).
   crash the game before it got that far (see above). Every shipped world's
   diggable ground is textured and every crater keeps its flags, so neither
   shows.
-- **Unused: quicksand weapons.** The same system can sink an animated
+- **Unused: quicksand weapons, left over from Recoil.** MW3 has no
+  quicksand: the code is Recoil's, which shared MW3's GameZ engine and came
+  out first. It can sink an animated
   quicksand pit (seven frames, looping, with its own soil type) where a
-  shot lands, for a weapon with the `QUICKSAND` flag. Every world sets the
-  pits up in `declient.zrd`, but no shipped weapon has the flag. Had one
+  shot lands, for a weapon with the `QUICKSAND` flag. Every world still sets
+  the pits up in `declient.zrd`, but no shipped weapon has the flag, so
+  nothing in MW3 ever makes one. Had one
   been made, it would not trap anything: the pit is covered by a moving lid
   at ground level that mechs walk on like any ground (its soil is none the
   game knows, so it counts as default ground), with the texture repeated
