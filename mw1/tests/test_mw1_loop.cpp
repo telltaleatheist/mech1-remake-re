@@ -13,6 +13,7 @@
 #include <iterator>
 #include <sstream>
 #include <string>
+#include <typeinfo>
 
 #if !defined(_WIN32)
 #include <sys/wait.h>
@@ -47,6 +48,7 @@
 #include "mw1_lab_fit.h"
 #include "mw1_mech_icons.h"
 #include "mech3/mech_config.h"
+#include "mech3/lance_orders.h"
 #include "mech3/mech_control.h"
 #include "mech3/mech_names.h"
 #include "mech3/mech_objective.h"
@@ -262,6 +264,10 @@ struct Run {
   // an Owens, hired and assigned; in the mission their names and aims, the enemies and Holmaas's mech destroyed.
   bool lance = false, lance_hired = false, lance_set = false;  // hired at the Bar, then assigned in the COMPANY
   int32_t lance_count = 2;  // 3: Taris Ren too, in a second Firefly
+  // FIXES.md item 72: called each mission frame from the 30th while it returns true (then the run's ending as before).
+  std::function<bool(int32_t frame)> in_mission;
+  int32_t in_mission_frames = 0;
+  bool first_contract = true;  // false: the save's company had one before (the Houses' and kills' totals not checked)
   std::vector<std::string> ally_pilots;  // the allied brains' pilots, in the mission
   std::vector<float> ally_errors;
   int32_t allies = 0;
@@ -1473,6 +1479,10 @@ void loop_run(Ending ending, Run* run = nullptr) {
         ended = true;
         return;
       }
+      if (run && run->in_mission && frames >= 29) {
+        if (run->in_mission(++run->in_mission_frames)) return;
+        run->in_mission = nullptr, frames = 29;
+      }
       if (++frames != 30) return;
       // In the mission: the player disables every enemy, the mission is won, and Instant Action ends (IA Dummy).
       if (const mw1::Company* c = mw1::game_loop_company()) {
@@ -1614,13 +1624,14 @@ void loop_run(Ending ending, Run* run = nullptr) {
               target >= 0 && target < mw1::kHouseCount ? mw1::kHouses[target].name : "not a House",
               c && target >= 0 && target < mw1::kHouseCount ? c->grievance[target] : -1);
   EXPECT(target >= 0 && target != employer);
-  if (c && target < mw1::kHouseCount) EXPECT(c->grievance[target] == 2);
+  const bool first_contract = !run || run->first_contract;
+  if (c && target < mw1::kHouseCount && first_contract) EXPECT(c->grievance[target] == 2);
   const bool won = ending == kWon || ending == kReach;
-  EXPECT(c && c->favor[employer] == (won ? 2 : 0) && c->grievance[employer] == (ending == kQuit ? 1 : 0));
+  if (first_contract) EXPECT(c && c->favor[employer] == (won ? 2 : 0) && c->grievance[employer] == (ending == kQuit ? 1 : 0));
   if (ending == kReach) {
     EXPECT(c && c->funds > funds_in_mission && c->kills == 0 && c->stores->count() == items_at_offer);  // the fee alone
   } else if (ending == kWon) {
-    EXPECT(c && c->kills == enemies);  // every wreck counted
+    if (first_contract) EXPECT(c && c->kills == enemies);  // every wreck counted
     // The fee and the salvage; another employer than Davion may roll a reduced payout (Kurita's and Liao's 0%).
     // The fee (at the payout the settlement rolled: Kurita's and Liao's can be 0%) and the salvage, exactly as AFTER
     // ACTION showed them.
@@ -1630,7 +1641,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
     EXPECT(c && salvage_shown >= 0 && fee_shown >= 0 &&
            (c->lance.empty() ? wages == 0 : wages >= 0 && wages % mw1::monthly_wages(*c) == 0));
     if (employer == mw1::kDavion) EXPECT(c && c->funds > funds_in_mission);  // Davion always pays in full
-    EXPECT(c && c->stores->count() > items_at_offer);                    // the enemies' parts
+    if (first_contract) EXPECT(c && c->stores->count() > items_at_offer);  // the enemies' parts (a later contract's may stack)
   } else {
     // No fee, no salvage, no parts; an accepted failure's repairs billed (never below 0), a quit's none.
     if (ending == kQuit) EXPECT(bill_shown == 0);
@@ -4027,3 +4038,155 @@ TEST(mw1_travel_go_plays_the_launch_then_the_hub_headless) {
     else EXPECT(movie_seconds > 1.0 && movie_seconds < 2.0);
   }
 }
+
+// FIXES.md item 72 (Owen 2026-11-19): the lance orders' recipient follows W. The lancemates hired at the Bar just before
+// the contract (Owen's were brand new), each picked with W (the next friendly, PM's CMD_TARGET_NEXT_F) is the order's
+// recipient (the HUD's blue name: the saved target, else a lancemate targeted); then E (an enemy) and ATTACK (attack my
+// target, order 10) reach that lancemate's brain and no other, and it walks toward the enemy.
+namespace {
+struct OrderTrace {
+  std::vector<std::pair<const mech3::ai::Brain*, int32_t>> given;  // each order the dispatcher gave, its brain
+};
+OrderTrace* g_trace = nullptr;
+int32_t traced_order(mech3::ai::Brain& b, int32_t order, mech3::ai::Contact* c) {
+  if (g_trace) g_trace->given.push_back({&b, order});
+  return b.lance_order(order, c);
+}
+// The AI mech a contact is on (null: none of them, the player's own or not a mech), and its brain's pilot.
+void* contact_mech(mech3::ai::Contact* c) {
+  if (!c) return nullptr;
+  mech3::ai::BrainHooks& h = mech3::ai::brain_hooks();
+  const zgame::Handle v = h.contact_vehicle(c);
+  int32_t n = 0;
+  const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+  for (int32_t i = 0; i < n; ++i)
+    if (v && h.vehicle_handle(ai[i].mech) == v) return ai[i].mech;
+  return nullptr;
+}
+const mech3::ai::Brain* brain_of(void* mech) {
+  int32_t n = 0;
+  const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+  for (int32_t i = 0; i < n; ++i)
+    if (mech && ai[i].mech == mech) return static_cast<const mech3::ai::Brain*>(mech3::program_ai_mech_brain(ai[i].controls));
+  return nullptr;
+}
+std::string pilot_of(void* m) {
+  const mech3::ai::Brain* b = brain_of(m);
+  return b && b->params.pilot ? b->params.pilot : "";
+}
+float ground_distance(void* a, void* b) {
+  float p[3], q[3];
+  if (!mech3::mech_world_position(a, p) || !mech3::mech_world_position(b, q)) return -1;
+  return std::sqrt((p[0] - q[0]) * (p[0] - q[0]) + (p[2] - q[2]) * (p[2] - q[2]));
+}
+
+// One run: `count` lancemates hired and assigned, the save loaded again first when `reload` (a second run on the save the
+// first left, its lancemates now from the file). In the mission, W round the lance: each lancemate the recipient; then for
+// each, W to it, E, ATTACK: the order reaches its brain alone; it then walks toward the enemy.
+void lance_orders_run(const char* name, int32_t count, bool reload) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / name;
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  in_child([&] {
+    if (reload) {
+      Run first;
+      first.save = (dir / mw1::kSaveFile).string();
+      first.lance = true, first.lance_count = count + 1, first.world = "c2";  // the loop's J. Holmaas lost: `count` left
+      loop_run(kWon, &first);
+    }
+    Run run;
+    run.save = (dir / mw1::kSaveFile).string();
+    run.lance = !reload, run.lance_count = count, run.world = "c2";
+    run.first_contract = !reload;
+    OrderTrace trace;
+    g_trace = &trace;
+    mech3::lance_calls().order = traced_order;
+    std::set<std::string> recipients;      // each lancemate the recipient after a W
+    std::vector<std::string> mates;        // the lancemates in the mission
+    std::map<std::string, int32_t> reached;  // lancemate: attack orders its brain had
+    int32_t strays = 0, steps_left = 0, w_presses = 0;
+    std::string ordering;                  // the lancemate the attack is for
+    void* enemy = nullptr;
+    std::map<std::string, float> start_gap, end_gap;  // to the enemy at the order, and 600 frames on
+    int32_t ordered_at = 0;
+    size_t next_mate = 0;
+    run.in_mission = [&](int32_t f) {
+      void* me = mech3::mech_mission_player();
+      mech3::ai::AiTarget* at = me ? mech3::mech_ai_target(me) : nullptr;
+      if (!at) return f < 600;
+      if (f == 1) {
+        int32_t n = 0;
+        const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+        for (int32_t i = 0; i < n; ++i) {
+          const mech3::ai::Brain* b = brain_of(ai[i].mech);
+          if (b && b->params.team() == 1) mates.push_back(b->params.pilot ? b->params.pilot : "");
+          else if (!enemy) enemy = ai[i].mech;
+        }
+        return true;
+      }
+      // W round the lance, once a frame in tens: each lancemate the recipient (the HUD's own pick).
+      if (f >= 10 && f % 10 == 0 && w_presses < 2 * static_cast<int32_t>(mates.size())) {
+        mech3::mech_command(me, 0x47);
+        ++w_presses;
+        const std::string target = pilot_of(contact_mech(at->target)), saved = pilot_of(contact_mech(at->saved_target));
+        std::printf("  W: target %s, the recipient %s\n", target.empty() ? "-" : "a lancemate", saved == target ? "the same" : "another");
+        if (!target.empty() && saved == target) recipients.insert(saved);
+        return true;
+      }
+      // Then each lancemate in turn: W until it's the recipient, E, ATTACK; 600 frames to walk.
+      if (next_mate < mates.size() && ordering.empty() && f % 10 == 0) {
+        for (int32_t tries = 0; tries < 8 && pilot_of(contact_mech(at->saved_target)) != mates[next_mate]; ++tries)
+          mech3::mech_command(me, 0x47);
+        mech3::mech_command(me, 0x48);  // E
+        const size_t before = trace.given.size();
+        mech3::mech_command(me, 0x58);  // ATTACK (CMD_DIRECT_ATTACKT): order 10 on the target
+        for (size_t i = before; i < trace.given.size(); ++i) {
+          const auto& [b, order] = trace.given[i];
+          std::string who;
+          int32_t n = 0;
+          const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+          for (int32_t k = 0; k < n; ++k)
+            if (brain_of(ai[k].mech) == b) who = pilot_of(ai[k].mech);
+          if (who == mates[next_mate] && order == 10) ++reached[who];
+          else ++strays;
+        }
+        ordering = mates[next_mate], ordered_at = f;
+        int32_t n = 0;
+        const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+        for (int32_t k = 0; k < n; ++k)
+          if (pilot_of(ai[k].mech) == ordering) start_gap[ordering] = ground_distance(ai[k].mech, enemy);
+        return true;
+      }
+      if (!ordering.empty() && f - ordered_at == 600) {
+        int32_t n = 0;
+        const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+        for (int32_t k = 0; k < n; ++k)
+          if (pilot_of(ai[k].mech) == ordering) end_gap[ordering] = ground_distance(ai[k].mech, enemy);
+        ordering.clear(), ++next_mate;
+      }
+      return next_mate < mates.size() || !ordering.empty() || steps_left-- > 0;
+    };
+    loop_run(kWon, &run);
+    mech3::lance_calls().order = nullptr;
+    g_trace = nullptr;
+    std::printf("  %zu lancemates; %zu were the recipient after W; strays %d\n", mates.size(), recipients.size(), strays);
+    EXPECT(static_cast<int32_t>(mates.size()) == count);
+    EXPECT(recipients.size() == mates.size());
+    EXPECT(strays == 0);
+    for (const std::string& m : mates) {
+      const float a = start_gap.count(m) ? start_gap[m] : -1, b = end_gap.count(m) ? end_gap[m] : -1;
+      std::printf("  lancemate %zu: attack orders %d, to the enemy %.0f m, then %.0f m\n",
+                  static_cast<size_t>(std::find(mates.begin(), mates.end(), m) - mates.begin()) + 1, reached[m], a, b);
+      EXPECT(reached[m] == 1);
+      EXPECT(a > 0 && (b < 0 || b < a - 30));  // walked at it (or destroyed on the way: gone from the list)
+    }
+  });
+}
+}  // namespace
+
+TEST(mw1_loop_lance_orders_reach_each_new_hire_headless) { lance_orders_run("mw1_lance_orders_2", 2, false); }
+TEST(mw1_loop_lance_orders_reach_each_of_three_headless) { lance_orders_run("mw1_lance_orders_3", 3, false); }
+TEST(mw1_loop_lance_orders_reach_each_after_a_reload_headless) { lance_orders_run("mw1_lance_orders_reload", 2, true); }
+
