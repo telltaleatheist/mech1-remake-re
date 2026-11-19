@@ -810,6 +810,17 @@ Tick an item when it is merged into `main`.
 - **Owen (2026-11-19):** "lets stack the buttons closer together so they dont look as spread out. stack them up against the top".
 - **Done (lead):** BUY, SELL, MECH LAB and BACK now sit at y 84, 122, 160 and 198 in both layouts (the Bar's 38 apart; was 84/147/211/274). The live 'Mech panel stays at the column's foot. kMarketButtonTop follows.
 
+## 72. [ ] Lancemates stand still and don't attack
+- **Owen (2026-11-19, in play):** "my lancemates arent attacking targets. were they bouncing against a awll or something? they were stationary".
+- **Unknown yet:** the log of that mission was overwritten when the game was restarted. The lancemates were freshly hired, and possibly without 'Mechs of their own (69).
+- **To find out, in a hidden scripted MW1 mission with two lancemates in 'Mechs:**
+  - Are they spawned with PM's squad AI, or as plain AI 'Mechs?
+  - Which order do they start with: PM's default (form on me) or none?
+  - Do they follow, and do they engage on "attack my target" and on their own?
+  - Is their path blocked at the drop zone (a wall, or an MW3 world's nav data)?
+  - Compare an Instant Action mission in PM with lancemates on the same map.
+- **Done means:** the cause and the fix, with a test where lancemates move and fire. If PM's engine is at fault, it goes to the mw3 lead.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.
