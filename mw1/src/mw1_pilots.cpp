@@ -1,5 +1,7 @@
 #include "mw1_pilots.h"
 
+#include "mw1_log.h"
+
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
@@ -264,17 +266,17 @@ void charge_wages(Company& c, int32_t months) {
   const int64_t due = monthly_wages(c) * months;
   if (c.funds >= due) {
     c.funds -= due;  // a paid month doesn't clear an earlier warning (MW1's)
-    c.notices.push_back("Wages paid: " + std::to_string(due) + " C-bills.");
+    log_add(c, LogKind::kWagesPaid, false, 0, 0, 0, 0, due);
     return;
   }
   if (months <= 1 && !c.wage_warned) {
     c.wage_warned = true;
-    c.notices.push_back("The lancemates weren't paid this month. Next time they leave.");
+    log_add(c, LogKind::kWagesUnpaid, false);
     return;
   }
   c.wage_warned = false;
   while (!c.lance.empty()) fire(c, 0);
-  c.notices.push_back("Unpaid, the lancemates have left the company.");
+  log_add(c, LogKind::kLanceLeft, false);
 }
 
 std::vector<int32_t> stayed_behind(const std::vector<int32_t>& deployed, const std::vector<LanceFate>& launched) {
@@ -303,13 +305,13 @@ void after_mission(Company& c, const std::vector<LanceFate>& fates) {
       p.missions = 0;
     } else if (++p.missions >= kPromotionMissions[g]) {
       p.gunnery = p.piloting = g + 1, p.missions = 0;
-      c.notices.push_back(pilot_title(f.id) + " is promoted: Gunnery " + kRatingNames[g + 1] + ".");
+      log_add(c, LogKind::kPromoted, false, f.id, g + 1);
     }
     if (!f.destroyed) continue;
     // Killed, gone for good, or missing, back in the pool (ratings and record kept): the mech they flew lost either way.
     for (size_t h = 0; h < c.hangar.size(); ++h)
       if (c.hangar[h].pilot == f.id) {
-        c.notices.push_back("Lost: the " + mech_title(c.hangar[h].mech) + ".");
+        log_add(c, LogKind::kMechLost, false, c.hangar[h].mech);
         c.hangar.erase(c.hangar.begin() + static_cast<long>(h));
         break;
       }
@@ -317,10 +319,10 @@ void after_mission(Company& c, const std::vector<LanceFate>& fates) {
       if (c.lance[i].id == f.id) c.lance.erase(c.lance.begin() + static_cast<long>(i));
     if (pilot_missing(f)) {
       p.where = PilotWhere::kFree;
-      c.notices.push_back(pilot_title(f.id) + " is missing in action.");
+      log_add(c, LogKind::kMissingInAction, false, f.id);
     } else {
       p.where = PilotWhere::kDead;
-      c.notices.push_back(pilot_title(f.id) + " was killed.");
+      log_add(c, LogKind::kKilled, false, f.id);
     }
   }
 }

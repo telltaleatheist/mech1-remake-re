@@ -2,8 +2,10 @@
 #include "mw1_story.h"
 
 #include <algorithm>
+#include <cctype>
 #include <map>
 
+#include "mw1_log.h"
 #include "mw1_pilots.h"
 #include "mw1_travel.h"
 
@@ -215,21 +217,122 @@ std::vector<Page> shown_pages(const Company& c, const Shown& s) {
   return pages;
 }
 
+namespace {
+bool blank_line(const std::string& l) { return l.find_first_not_of(' ') == std::string::npos; }
+std::string trimmed(std::string h) {
+  h.erase(0, std::min(h.size(), h.find_first_not_of(' ')));
+  while (!h.empty() && h.back() == ' ') h.pop_back();
+  return h;
+}
+// The title's line in the first page's lines, -1 none.
+int32_t title_line(const std::vector<std::string>& ls) {
+  for (size_t i = 1; i < ls.size(); ++i)
+    if (blank_line(ls[i]) && !blank_line(ls[i - 1])) return static_cast<int32_t>(i - 1);
+  for (size_t i = 0; i < ls.size(); ++i)
+    if (!blank_line(ls[i])) return static_cast<int32_t>(i);
+  return -1;
+}
+}  // namespace
+
+std::string news_title(const Company& c, const Shown& s) {
+  const std::vector<Page> pages = shown_pages(c, s);
+  if (pages.empty()) return "";
+  const int32_t t = title_line(pages[0].lines);
+  return t < 0 ? "" : trimmed(pages[0].lines[static_cast<size_t>(t)]);
+}
+
+bool title_shared(const Company& c, const std::string& title) {
+  // Every news record's title, counted once per script (the titles don't hang on the company: a planet named in a
+  // title is the same field in each).
+  static const Script* counted = nullptr;
+  static size_t counted_records = 0;
+  static std::map<std::string, int32_t> counts;
+  const Script& sc = script();
+  if (counted != &sc || counted_records != sc.records.size()) {
+    counts.clear();
+    for (size_t r = 0; r < sc.records.size(); ++r)
+      if (sc.records[r].cls == kClassNews) ++counts[news_title(c, shown_of_record(static_cast<int32_t>(r)))];
+    counted = &sc, counted_records = sc.records.size();
+  }
+  const auto f = counts.find(title);
+  return !title.empty() && f != counts.end() && f->second > 1;
+}
+
+namespace {
+// A story's lines past its title, as (page, line) places, blanks skipped.
+std::vector<std::pair<size_t, size_t>> lines_past_title(const std::vector<Page>& pages, int32_t t) {
+  std::vector<std::pair<size_t, size_t>> out;
+  for (size_t p = 0; p < pages.size(); ++p)
+    for (size_t i = p == 0 ? static_cast<size_t>(t) + 1 : 0; i < pages[p].lines.size(); ++i)
+      if (!blank_line(pages[p].lines[i])) out.push_back({p, i});
+  return out;
+}
+}  // namespace
+
 std::string headline(const Company& c, const Shown& s) {
   const std::vector<Page> pages = shown_pages(c, s);
   if (pages.empty()) return "";
-  auto blank = [](const std::string& l) { return l.find_first_not_of(' ') == std::string::npos; };
-  const std::vector<std::string>& ls = pages[0].lines;
-  for (size_t i = 1; i < ls.size(); ++i)
-    if (blank(ls[i]) && !blank(ls[i - 1])) {
-      std::string h = ls[i - 1];
-      h.erase(0, h.find_first_not_of(' '));
-      while (!h.empty() && h.back() == ' ') h.pop_back();
-      return h;
+  const int32_t t = title_line(pages[0].lines);
+  if (t < 0) return "";
+  const std::string title = trimmed(pages[0].lines[static_cast<size_t>(t)]);
+  if (!title_shared(c, title)) return title;
+  const std::vector<std::pair<size_t, size_t>> mine = lines_past_title(pages, t);
+  if (mine.empty()) return title;
+  // FIXES.md item 67: the first line no other story under the title has (their shared heading skipped; a story the
+  // script repeats word for word is the same story). Its place by record, kept per script (the words are this
+  // company's: a story planet's name in it is theirs).
+  static const Script* cached = nullptr;
+  static std::map<int32_t, size_t> place;  // record -> index into its lines_past_title
+  const Script& sc = script();
+  if (cached != &sc) place.clear(), cached = &sc;
+  size_t pick = 0;
+  if (const auto f = s.record >= 0 ? place.find(s.record) : place.end(); f != place.end()) {
+    pick = f->second;
+  } else {
+    auto text_of = [&](const std::vector<Page>& ps) {
+      std::string x;
+      for (const Page& p : ps)
+        for (const std::string& l : p.lines) x += trimmed(l) + "\n";
+      return x;
+    };
+    const std::string me = text_of(pages);
+    std::vector<std::string> others;  // the other stories' lines under this title (differing stories only)
+    for (size_t r = 0; r < sc.records.size(); ++r) {
+      if (sc.records[r].cls != kClassNews || static_cast<int32_t>(r) == s.record) continue;
+      const std::vector<Page> op = shown_pages(c, shown_of_record(static_cast<int32_t>(r)));
+      if (op.empty()) continue;
+      const int32_t ot = title_line(op[0].lines);
+      if (ot < 0 || trimmed(op[0].lines[static_cast<size_t>(ot)]) != title || text_of(op) == me) continue;
+      for (const auto& [p, i] : lines_past_title(op, ot)) others.push_back(trimmed(op[p].lines[i]));
     }
-  for (const std::string& l : ls)
-    if (!blank(l)) return l.substr(l.find_first_not_of(' '));
-  return "";
+    // A dateline ("20 MAR 3027 - SOLARIS VII, ...": a day, then a dash) says when and where, not what: the first line
+    // past it that's the story's own, else the dateline itself.
+    auto dateline = [](const std::string& l) {
+      const std::string t = trimmed(l);
+      return !t.empty() && std::isdigit(static_cast<unsigned char>(t[0])) && t.find(" - ") != std::string::npos;
+    };
+    bool found = false;
+    for (int32_t pass = 0; pass < 2 && !found; ++pass)
+      for (size_t k = 0; k < mine.size() && !found; ++k) {
+        const std::string& l = pages[mine[k].first].lines[mine[k].second];
+        if (pass == 0 && dateline(l)) continue;
+        if (std::find(others.begin(), others.end(), trimmed(l)) == others.end()) pick = k, found = true;
+      }
+    if (s.record >= 0) place[s.record] = pick;
+  }
+  pick = std::min(pick, mine.size() - 1);
+  return trimmed(pages[mine[pick].first].lines[mine[pick].second]);
+}
+
+Shown shown_of_record(int32_t record) {
+  Shown s;
+  const Script& sc = script();
+  if (record < 0 || static_cast<size_t>(record) >= sc.records.size()) return s;
+  const Event& e = sc.records[static_cast<size_t>(record)];
+  s.event = e.id, s.record = record;
+  for (const Command& cmd : e.script)
+    if (cmd.action && cmd.op == kNamePlanet) s.named = cmd.value;
+  return s;
 }
 
 // ---- The step battles and the setbacks (FIXES.md item 47, ours) ----
@@ -347,7 +450,7 @@ SetbackDone apply_setback(Company& c, const Setback& s, Rng& rng) {
     d.lost = c.lance[static_cast<size_t>(i)].id;
     name = pilot_title(d.lost);
     fire(c, i);  // back in the pool, as MISSING (after_mission's): their mech stays in the hangar
-    c.notices.push_back(name + " is missing.");
+    log_add(c, LogKind::kMissing, false, d.lost);
   } else {
     d.fined = setback_fine(c, s);
     c.funds -= d.fined;
