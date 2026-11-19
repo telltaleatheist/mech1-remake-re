@@ -102,6 +102,7 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
   o << "planet_house=" << c.planet_house << "\n";
   o << "tier=" << c.tier << "\n";
   for (int h = 0; h < kHouseCount; ++h) o << "favor" << h << "=" << c.favor[h] << "\ngrievance" << h << "=" << c.grievance[h] << "\n";
+  for (int h = 0; h < kHouseCount; ++h) o << "calm" << h << "=" << c.calm[h] << "\n";  // FIXES.md item 84
   auto loadout_hex = [](const std::shared_ptr<mech3::Config>& l) {
     return l ? hex(bytes_of([&](std::FILE* f) { mech3::pilot_hooks().config_save(l.get(), f); })) : std::string();
   };
@@ -283,6 +284,11 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
     if (!num(("favor" + std::to_string(h)).c_str(), -kMax, kMax, &f) || !num(("grievance" + std::to_string(h)).c_str(), -kMax, kMax, &g))
       return fail("a House's favor or grievance is missing");
     c.favor[h] = static_cast<int32_t>(f), c.grievance[h] = static_cast<int32_t>(g);
+    // FIXES.md item 84: the months since the House was last fought; absent (an older save): none yet.
+    if (int64_t m = 0; v.count("calm" + std::to_string(h))) {
+      if (!num(("calm" + std::to_string(h)).c_str(), 0, kMax, &m)) return fail("a House's calm is out of range");
+      c.calm[h] = static_cast<int32_t>(m);
+    }
   }
   // A store's line (PM's Store, in hex; empty: none when `may_be_empty`) and a loadout's (empty: stock).
   auto store_line = [&](const char* key, bool may_be_empty, std::shared_ptr<mech3::Store>* s) {

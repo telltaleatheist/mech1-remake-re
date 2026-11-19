@@ -167,8 +167,9 @@ enum class LogKind : int32_t {
   // (a reward or a cost) or a setback's fine (item 47), and a setback's turning away to the nearest world.
   kStoryFunds,    // a: event; n: the funds' change (C-bills, signed)
   kTurnedAway,    // a: from (planet index), b: to
+  kWelcomeAgain,  // a: House: its grievances faded under the refusal (FIXES.md item 84)
 };
-inline constexpr int32_t kLogKindLast = static_cast<int32_t>(LogKind::kTurnedAway);
+inline constexpr int32_t kLogKindLast = static_cast<int32_t>(LogKind::kWelcomeAgain);
 inline constexpr size_t kLogCap = 200;
 
 struct LogEntry {
@@ -192,6 +193,9 @@ struct Company {
   std::shared_ptr<mech3::Config> loadout;
   int32_t kills = 0;  // playerCombatCredit: enemy mechs disabled, all campaign long
   int32_t favor[kHouseCount] = {}, grievance[kHouseCount] = {};
+  // Ours (FIXES.md item 84): the months since the company last fought each House (or since its last grievance
+  // faded); every kGrudgeFadeMonths of them one grievance against the company fades.
+  int32_t calm[kHouseCount] = {};
   // Where the company is (new_company: one of kStartPlanets; travel comes later). tier is its market tier.
   std::string planet = "Robinson";
   int32_t planet_house = kDavion, tier = 0;
@@ -283,6 +287,13 @@ void roll_patience(Company& c, Rng& rng);
 // MwRequestMissionOfferContinuation): no contracts on its worlds.
 inline constexpr int32_t kGrievanceRefusal = 8;
 bool refuses(const Company& c, int32_t house);
+// Ours, not MW1's (FIXES.md item 84, waiting on Owen): a grudge fades. Every kGrudgeFadeMonths without a fight against
+// a House, one of its grievances goes (never below 0), so a company working for one House stays welcome with the
+// others it fights now and then. A House that refused deals with the company again once under kGrievanceRefusal
+// (logged). A fight against the House starts its count again.
+inline constexpr int32_t kGrudgeFadeMonths = 4;  // the soak (FIXES.md item 84): 3, 4, 6 tried
+void fade_grudges(Company& c, int32_t months);
+int32_t& grudge_fade_months();  // kGrudgeFadeMonths; the soak tries others (tests)
 // The request's steps (MwEditContractRequestContinuation): the payment in 10 thousands up to 9,999 thousand, the
 // percents by 1 up to 100.
 inline constexpr int32_t kRequestPaymentStep = 10, kRequestPaymentMax = 9999, kRequestPercentMax = 100;

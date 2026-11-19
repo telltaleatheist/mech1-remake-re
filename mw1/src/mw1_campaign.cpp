@@ -1,5 +1,7 @@
 #include "mw1_campaign.h"
 
+#include "mw1_log.h"  // FIXES.md item 84: a House welcoming the company again
+
 #include <cctype>
 #include <algorithm>
 #include <cmath>
@@ -178,6 +180,26 @@ bool never_breaks_off(int32_t house) { return house == kSteiner || house == kDav
 void roll_patience(Company& c, Rng& rng) { c.patience = rng.upto(kPatienceRollMax) + kPatienceBase[c.planet_house]; }
 bool refuses(const Company& c, int32_t house) { return house >= 0 && house < kHouseCount && c.grievance[house] >= kGrievanceRefusal; }
 
+int32_t& grudge_fade_months() {
+  static int32_t months = kGrudgeFadeMonths;
+  return months;
+}
+
+void fade_grudges(Company& c, int32_t months) {
+  const int32_t every = std::max(1, grudge_fade_months());
+  for (int32_t h = 0; h < kHouseCount && months > 0; ++h) {
+    if (c.grievance[h] <= 0) {
+      c.calm[h] = 0;
+      continue;
+    }
+    const bool refused = refuses(c, h);
+    c.calm[h] += months;
+    while (c.calm[h] >= every && c.grievance[h] > 0) c.calm[h] -= every, --c.grievance[h];
+    if (c.grievance[h] <= 0) c.calm[h] = 0;
+    if (refused && !refuses(c, h)) log_add(c, LogKind::kWelcomeAgain, false, h);
+  }
+}
+
 namespace {
 // A term asked for more than the offer: the House's concession, 0..half the room to its ceiling on top of the offer
 // (an offer over its ceiling, which MW1's word arithmetic would wrap, concedes nothing).
@@ -257,7 +279,7 @@ Settlement settle(Company& c, Contract& k, Outcome o, const std::vector<Wreck>& 
   // failure; the House you fought +2 grievance every time.
   if (o == Outcome::kSuccess) c.favor[k.house] += 2;
   else if (o == Outcome::kRetreat) c.grievance[k.house] += 1;
-  if (k.target < kHouseCount) c.grievance[k.target] += kTargetGrievance;  // whatever the ending
+  if (k.target < kHouseCount) c.grievance[k.target] += kTargetGrievance, c.calm[k.target] = 0;  // whatever the ending
   c.kills += static_cast<int32_t>(wrecks.size());
   k.accepted = false;
   return s;

@@ -256,6 +256,7 @@ int32_t advance_time(Company& c, int32_t units, Rng& rng) {
     refresh_world(c, rng);
   }
   charge_wages(c, months);
+  fade_grudges(c, months);  // FIXES.md item 84
   return months;
 }
 

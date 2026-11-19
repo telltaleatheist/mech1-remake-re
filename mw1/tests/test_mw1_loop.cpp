@@ -3906,7 +3906,7 @@ int64_t logged_money(const mw1::LogEntry& e) {
 const char* kind_name(mw1::LogKind k) {
   static const char* const names[] = {"",       "news",     "story", "contract", "result",  "repairs", "wages",
                                       "unpaid", "lance left", "promoted", "mech lost", "MIA", "killed", "missing",
-                                      "bought", "sold",     "hired", "left",     "travelled", "test", "story funds", "turned away"};
+                                      "bought", "sold",     "hired", "left",     "travelled", "test", "story funds", "turned away", "welcome again"};
   const int32_t i = static_cast<int32_t>(k);
   return i >= 0 && i <= mw1::kLogKindLast ? names[i] : "?";
 }
@@ -3968,6 +3968,9 @@ TEST(mw1_soak_a_campaign_through_every_service_and_restarts_headless) {
     auto finding = [&](const std::string& kind, const std::string& what) {
       if (found[kind]++ < 4) first[kind].push_back(what);
     };
+    // FIXES.md item 84: MW1_GRUDGE_MONTHS=n tries another fade (the rate's search); the peak of Houses refusing at once.
+    if (const char* g = std::getenv("MW1_GRUDGE_MONTHS")) mw1::grudge_fade_months() = std::max(1, std::atoi(g));
+    int refusing_peak = 0;
     int settled = 0, won = 0, lost = 0, retreated = 0, hubs = 0, trips = 0, buys = 0, sells = 0, hires = 0, fires = 0;
     int lab_sets = 0, menus = 0, logs = 0, stories = 0, killed_allies = 0, commander_lost = 0, results_seen = 0, events = 0;
     for (int leg = 0; leg < legs; ++leg) {
@@ -4207,10 +4210,15 @@ TEST(mw1_soak_a_campaign_through_every_service_and_restarts_headless) {
           // A poor start on odd seeds (wages short, the stranded guard), a rich one on even (mechs bought, lancemates).
           if (leg == 0) c->funds = seed % 2 ? 60000 : 8000000, funds_was = c->funds, mw1::game_loop_offer_again();
         }
+        {
+          int refusing = 0;
+          for (int32_t h = 0; h < mw1::kHouseCount; ++h) refusing += mw1::refuses(*c, h) ? 1 : 0;
+          refusing_peak = std::max(refusing_peak, refusing);
+        }
         if (mw1::stranded(*c)) {
           if (mw1::cheapest_way_out(*c) < 0) {
-            // Every House with an office refuses the company (8+ grievances each, MW1's, never forgiven): no money
-            // helps. For the lead (a decision); the grievances cleared so the soak goes on.
+            // Every House with an office refuses the company (8+ grievances each): no money helps. A failure since
+            // the grudges fade (FIXES.md item 84); the grievances cleared so the soak goes on.
             std::string g;
             for (int32_t h = 0; h < mw1::kHouseCount; ++h) g += (h ? "," : "") + std::to_string(c->grievance[h]), c->grievance[h] = 0;
             finding("locked out", "leg " + std::to_string(leg) + " on " + c->planet + " after " + std::to_string(settled) +
@@ -4265,16 +4273,17 @@ TEST(mw1_soak_a_campaign_through_every_service_and_restarts_headless) {
     }
     std::printf("  soak79 %d: %d settled (%d won, %d lost, %d withdrawn), results logged %d, %d hubs, %d trips, %d buys, %d sells, "
                 "%d hires, %d fires, %d lab lances, %d menus, %d logs, %d story presses, %d event presses, %d allies killed, %d "
-                "commander's mechs lost, %zu dead\n",
+                "commander's mechs lost, %zu dead; at most %d Houses refusing at once (a grudge fades every %d months)\n",
                 seed, settled, won, lost, retreated, results_seen, hubs, trips, buys, sells, hires, fires, lab_sets, menus, logs,
-                stories, events, killed_allies, commander_lost, dead.size());
+                stories, events, killed_allies, commander_lost, dead.size(), refusing_peak, mw1::grudge_fade_months());
     for (const auto& [kind, n] : found) {
       std::printf("  soak79 %d: %s x%d\n", seed, kind.c_str(), n);
       for (const std::string& w : first[kind]) std::printf("    %s\n", w.c_str());
     }
     EXPECT(settled >= legs * per_leg && won > 0 && (lost > 0 || retreated > 0));
     EXPECT(results_seen == settled);
-    for (const char* kind : {"money", "mechs", "pilots", "log", "date", "save", "fit", "stuck", "lab", "short"}) EXPECT(!found.count(kind));
+    for (const char* kind : {"money", "mechs", "pilots", "log", "date", "save", "fit", "stuck", "lab", "short", "locked out"})
+      EXPECT(!found.count(kind));
   });
 }
 

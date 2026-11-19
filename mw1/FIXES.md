@@ -982,6 +982,20 @@ so the log's money didn't add up to the funds.
   entry (no `b`) still reads that way.
 - The soak's ledger counts a repair as billed less forgiven. The log test checks both kinds of entry.
 
+## 84. [ ] A grudge fades *(waiting on Owen; branch mw1-grudge-fade, not merged)*
+The soak's decision A: MW1's 8 grievances against a House is a refusal, never forgiven, and each contract adds +2
+against the House fought. In 11 of 40 long seeds every House with an office came to refuse after 26 to 48
+contracts: the company was stranded with nothing money could buy. The lead's recommendation, ours not MW1's:
+- Every `kGrudgeFadeMonths` (4) game months without a fight against a House, one grievance against the company fades
+  (never below 0). A fight against the House starts its count again. MW1's refusal at 8 is unchanged.
+- A House that refused deals with the company again once under 8, and the hub says so (the log: "Time has cooled
+  House X's anger: its offices will deal with the company again.").
+- The count is saved (`calm<h>`; an older save without it reads 0).
+- The rate, from the soak's 11 locked-out seeds: at 3, 4 and 6 months none locked out; at most 1, 2 and 3 Houses
+  refused at once. 4 keeps a refusal possible for a House fought too often, never all of them.
+- Tests: `mw1_office_a_grudge_fades_without_a_fight`; the soak now fails on "locked out" and prints the peak of
+  Houses refusing at once (`MW1_GRUDGE_MONTHS=n` tries another rate).
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.
