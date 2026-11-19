@@ -158,3 +158,19 @@ TEST(mw1_results_repair_line_fits_the_panel) {
   EXPECT(place(mw1::results_view(p, d, false), "LIST")[0] == p.kills[0].narrow);
   EXPECT(place(mw1::results_view(p, d, true), "LIST")[0] == p.kills[0].words);
 }
+
+// FIXES.md item 76: no message (a story battle's, or no exe), no message box; with one, the box; the other panels
+// and the crest as they were.
+TEST(mw1_results_no_message_no_box) {
+  mw1::ResultsPanel p;
+  p.outcome = "VICTORY", p.pay = {"Fee: 1,000", "Salvage: none", "Total: +1,000   Funds: 1,000"};
+  for (const bool wide : {false, true}) {
+    p.message.clear(), p.house = -1;
+    mw1::ScreenView v = mw1::results_view(p, {}, wide);
+    EXPECT(!v.panels[mw1::kResultsMessage] && !v.panels[mw1::kResultsCrest] && v.panels[mw1::kResultsStatus] &&
+           v.panels[mw1::kResultsPicture] && v.panels[mw1::kResultsFrame] && v.panels[mw1::kResultsDim]);
+    p.message = {"A line."}, p.house = mw1::kDavion;
+    v = mw1::results_view(p, {}, wide);
+    EXPECT(v.panels[mw1::kResultsMessage] && v.panels[mw1::kResultsCrest] && v.panels[mw1::kResultsStatus]);
+  }
+}

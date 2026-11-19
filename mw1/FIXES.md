@@ -885,6 +885,10 @@ Tick an item when it is merged into `main`.
   - **The "-j4 flake" at test_mw1_loop.cpp:913 wasn't a flake.** DETAILS' kills title gets " (1-6 of N)" once a downed lancemate's repair rows pass six, and the check matched it exactly. The lance-orders run fails whenever its roll downs Holmaas. It now matches the title's start.
   - **For Owen:** a story battle (no message) and play without the exe show an empty message box along the bottom. Hide the box when it's empty?
 
+## 76. [x] AFTER ACTION: no message, no message box *(done: mw1-empty-message)*
+- **Found in 75 (dev 1); the lead: a plain fix.** A story battle has no message since 75, and play without the exe never had one. Either way an empty bordered box sat along the bottom.
+- **Done:** results_view hides the message panel when there's no message. Everything else keeps its place, and the crest shows as before (a contract's, still without the exe). test_mw1_results `no_message_no_box` checks it at both shapes. Shots of a story battle and a run without the exe (a folder with only BTECH.EXE given as --mw1-game) at 1080p and 4:3.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.
