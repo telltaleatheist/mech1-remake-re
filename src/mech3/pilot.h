@@ -450,7 +450,7 @@ class ActionGame : public Game {
   bool remove(int32_t i);            // 0x00436af0: lineup[i] (0-based) out, the rest moved up
   void drop_enemies();               // 0x00436ac0
   // A slot appended: its mech, side, a copy of the loadout and its paint;
-  // null when the ten are taken.
+  // null when the ten are taken (ours: action_lineup_capacity()'s, ten unless a program asks for more).
   GameSlot* add(int32_t mech, uint8_t side, const Config* config, int32_t paint);  // 0x00436840
   // 0x004368e0 (+0x38), 0x00436950 (+0x3c), 0x004369c0 (+0x40): a copy of
   // `text` (the Action screen's world, the scenario's name and its description).
@@ -473,6 +473,17 @@ class ActionGame : public Game {
   GameSlot lineup[10];               // +0x80, 0x18 each
   uint8_t side[10] = {};             // +0x170  each slot's: 1 an ally
 
+  // Ours (MW1's FIXES.md item 48): the line-up past the exe's ten, slots 11..kLineupMost, used only when a program
+  // raises action_lineup_capacity() (MW3 and Pirate's Moon never do). PM's layout above stays as it is (+0x7c,
+  // +0x80, +0x170: the offsets the probes and action_field read); these follow PM's fields, in no record and no save
+  // (the line-up isn't saved: save() and load() write the stats and the Action screen's lists only).
+  static constexpr int32_t kLineupExe = 10, kLineupMore = 6, kLineupMost = kLineupExe + kLineupMore;
+  GameSlot lineup_more[kLineupMore];
+  uint8_t side_more[kLineupMore] = {};
+  GameSlot& slot_ref(int32_t k) { return k < kLineupExe ? lineup[k] : lineup_more[k - kLineupExe]; }  // 0-based
+  uint8_t& side_ref(int32_t k) { return k < kLineupExe ? side[k] : side_more[k - kLineupExe]; }
+  uint8_t side_of(int32_t k) const { return k < kLineupExe ? side[k] : side_more[k - kLineupExe]; }
+
   // Pirate's Moon's waves (+0x8c, a vector of 0x10-byte waves each holding a vector of (mech, loadout)):
   // ia_progression.zrd's block for the world, else its "default", in place of MW3's table (0x005e33a8).
   struct WaveSlot {
@@ -491,6 +502,11 @@ class ActionGame : public Game {
   bool waves_done() const;                         // 0x0040c3b0: wave mode past the last wave
   int32_t best_wave() const;                       // 0x0040c3e0: the best wave, no further than the last
 };
+
+// Ours (MW1's FIXES.md item 48): how many slots past the player's an Instant Action line-up holds: the exe's ten
+// unless a program raises it (MW1: Critical Hit, 16); clamped to 10..ActionGame::kLineupMost.
+int32_t action_lineup_capacity();
+void set_action_lineup_capacity(int32_t n);
 
 // [0x00608e2c]: the game is team play (the connection screen's, mp_connect.h).
 bool multiplayer_team_play();

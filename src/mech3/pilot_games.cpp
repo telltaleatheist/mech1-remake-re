@@ -901,24 +901,32 @@ ActionGame::~ActionGame() {
   std::free(x38), std::free(x3c), std::free(x40);
 }
 
-// Mech3.exe 1.2 @ 0x004368b0
+namespace {
+int32_t g_lineup_capacity = ActionGame::kLineupExe;  // ours (item 48): the exe's ten unless a program raises it
+}  // namespace
+int32_t action_lineup_capacity() { return g_lineup_capacity; }
+void set_action_lineup_capacity(int32_t n) {
+  g_lineup_capacity = n < ActionGame::kLineupExe ? ActionGame::kLineupExe : n > ActionGame::kLineupMost ? ActionGame::kLineupMost : n;
+}
+
+// Mech3.exe 1.2 @ 0x004368b0 (i < 11: the capacity's, ten unless raised)
 GameSlot* ActionGame::slot_at(int32_t i) {
   if (i == 0) return &slot;
-  return i > 0 && i < 11 ? &lineup[i - 1] : nullptr;
+  return i > 0 && i <= g_lineup_capacity ? &slot_ref(i - 1) : nullptr;
 }
 
-// Mech3.exe 1.2 @ 0x00436a90
+// Mech3.exe 1.2 @ 0x00436a90 (the same bound)
 bool ActionGame::ally(int32_t i) const {
   if (i == 0) return true;
-  return i > 0 && i < 11 && side[i - 1] != 0;
+  return i > 0 && i <= g_lineup_capacity && side_of(i - 1) != 0;
 }
 
-// Mech3.exe 1.2 @ 0x00436af0
+// Mech3.exe 1.2 @ 0x00436af0 (lineup[] and side[] through slot_ref and side_ref: the same slots up to ten)
 bool ActionGame::remove(int32_t i) {
   if (i < 0 || i > count) return false;
   for (; i < count - 1; ++i) {
-    lineup[i].copy_from(lineup[i + 1]);  // 0x00433d90
-    side[i] = side[i + 1];
+    slot_ref(i).copy_from(slot_ref(i + 1));  // 0x00433d90
+    side_ref(i) = side_ref(i + 1);
   }
   --count;
   return true;
@@ -1009,9 +1017,9 @@ int32_t ActionGame::best_wave() const { return last_wave() < waves ? last_wave()
 
 // Mech3.exe 1.2 @ 0x00436840
 GameSlot* ActionGame::add(int32_t mech, uint8_t s, const Config* config, int32_t paint) {
-  if (count > 9) return nullptr;
-  side[count] = s;
-  GameSlot& g = lineup[count++];
+  if (count >= g_lineup_capacity) return nullptr;  // the exe's count > 9 (ours: the capacity's)
+  side_ref(count) = s;
+  GameSlot& g = slot_ref(count++);
   g.x0c = 0;          // 0x00433ee0
   g.mech = mech;      // 0x005a2ba0
   g.set_config(config);

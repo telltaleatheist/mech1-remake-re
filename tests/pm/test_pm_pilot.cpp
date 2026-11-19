@@ -109,3 +109,34 @@ TEST(pm_objective_persist_kept_for_the_campaign) {
   zgame::set_game(zgame::mw3_table());
 }
 
+
+// Ours (MW1's FIXES.md item 48): Instant Action's line-up holds the exe's ten past the player's unless a program
+// raises action_lineup_capacity (MW1: 16, in a tail after PM's arrays, which keep their own slots and bounds).
+TEST(pm_action_lineup_ten_unless_raised) {
+  mech3::ActionGame g(nullptr);
+  EXPECT(mech3::action_lineup_capacity() == 10);
+  for (int32_t i = 0; i < 10; ++i) EXPECT(g.add(i, i < 3 ? 1 : 0, nullptr, 0) != nullptr);  // allies first, as the screen
+  EXPECT(g.add(10, 0, nullptr, 0) == nullptr && g.count == 10);  // the exe's count > 9
+  EXPECT(g.slot_at(10) == &g.lineup[9] && g.slot_at(11) == nullptr && !g.ally(11));
+  // Raised (MW1): 16; slots 11.. in the tail; add refuses the 17th.
+  mech3::set_action_lineup_capacity(16);
+  for (int32_t i = 10; i < 16; ++i) EXPECT(g.add(i, 0, nullptr, 0) != nullptr);
+  EXPECT(g.add(16, 0, nullptr, 0) == nullptr && g.count == 16);
+  EXPECT(g.slot_at(11) == &g.lineup_more[0] && g.slot_at(16) == &g.lineup_more[5] && g.slot_at(17) == nullptr);
+  EXPECT(g.slot_at(13)->mech == 12 && g.ally(3) && !g.ally(4) && !g.ally(13));
+  // Remove across the boundary: slot 9 (0-based) out, the tail's first moves into PM's last.
+  EXPECT(g.remove(9));
+  EXPECT(g.count == 15 && g.lineup[9].mech == 10 && g.lineup_more[0].mech == 11 && g.slot_at(12)->mech == 12);
+  g.drop_enemies();
+  EXPECT(g.count == 3 && g.ally(1) && g.ally(2) && g.ally(3));  // the enemies out, the tail's too
+  // A side kept in the tail: twelve allies.
+  mech3::ActionGame h(nullptr);
+  for (int32_t i = 0; i < 12; ++i) h.add(i, 1, nullptr, 0);
+  h.add(12, 0, nullptr, 0);
+  EXPECT(h.count == 13 && h.ally(12) && !h.ally(13) && h.side_more[1] == 1 && h.side_more[2] == 0);
+  // Clamped: never below the exe's ten nor past the tail.
+  mech3::set_action_lineup_capacity(40);
+  EXPECT(mech3::action_lineup_capacity() == 16);
+  mech3::set_action_lineup_capacity(3);
+  EXPECT(mech3::action_lineup_capacity() == 10);
+}
