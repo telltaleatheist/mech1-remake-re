@@ -743,7 +743,7 @@ Tick an item when it is merged into `main`.
   - MW1's own text is shown from the player's exe as now and never stored in the save beyond event IDs. Store IDs and numbers, and build the words when shown.
 - **Done means:** shots of the log at 1080p and 4:3, a test that entries survive save and load, and the cap.
 
-## 64. [ ] Don't show market tiers; show what MW1's own travel panel showed
+## 64. [x] Don't show market tiers; show what MW1's own travel panel showed *(done: mw1-no-tiers)*
 - **Owen (2026-11-18):** "i dont think we should show the tiers. let people figure it out" ... "unless the original said it. did it?"
 - **What MW1 showed:** it didn't. Its destination panel (SDL port MW_MAIN_081B_TRAVEL.c, ~081B:5600) draws:
   - the world's name and its House's crest;
@@ -758,6 +758,12 @@ Tick an item when it is merged into `main`.
 - **Keep:** prices in the Mech Complex (they're real), and the dealer's refusal when it's full (said when it happens, as MW1 did).
 - **Add, as MW1 had:** the landscape label, the population and the description on the travel panel. Read the labels and description from the player's MW_MAIN.EXE at run time, like our other MW1 text; never store them. Without the exe, leave them out.
 - **Done means:** the tests updated (test_mw1_travel, test_mw1_travel_map); shots of the travel panel and the Mech Complex banner at 1080p and 4:3.
+- **Done (dev 1):**
+  - **Gone:** the readout's tier, its buy and sell percentages and the dealer's limit; the map's four TIER filters (FILTER now cycles all, each House, offices, affordable, will deal); the Mech Complex banner's tier and percentage; and the "DEALER BUYS N MORE" on YOUR MECHS (MW1 had no running count either; the refusal when the dealer is full stays, said when it happens). Tiers still set the prices, unseen.
+  - **Added:** travel_rules::world_text reads a world's landscape label (DS:5CA6/5CAD/5CB6, title case), population (bytes 8-9, grouped, with DS:5B83's suffix) and description from the player's MW_MAIN.EXE at run time, checking the record is that world's. Nothing is stored; without the exe all three are left out.
+  - **The readout:** "House Kurita · Desert", "Population 1,009,000,000", MW1's description (in its capitals, wrapped to 26 columns), then the office, battles and Clan lines. To keep every world's readout within the 14 lines above GO, "You can't afford it." lost its blank line above.
+  - **The banner:** "TROPICAL · POP. 3,251,000,000", or the date without the exe.
+  - **Tests:** test_mw1_travel_map (the filter cycle, no TIER); test_mw1_travel's readout (nothing of tiers with or without the exe; every world's three facts with it; every line ≤ 26 columns; every world's hover readout ≤ 14 lines, 14 at most now). MW1's words are checked, never printed.
 
 ## 65. [x] The launch video: black, then fading in as it flies, with no frozen first frame
 - **Owen (2026-11-18):** "instead of pausing on the first frame for a second, lets just have it fade in from black for that second and then take off. no freeze frame. just be black for about a second, and then fade in from black as it flies away".

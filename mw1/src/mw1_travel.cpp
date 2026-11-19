@@ -1,13 +1,42 @@
 #include "mw1_travel.h"
 
+#include <cctype>
 #include <cmath>
 #include <cstdlib>
+#include <vector>
 
 #include "mw1_market.h"
 #include "mw1_pilots.h"
 #include "mw1_repairs.h"
 
 namespace mw1::travel_rules {
+
+WorldText world_text(int32_t world) {
+  const std::vector<uint8_t>& d = mw_main_data_segment();
+  constexpr size_t kDirectory = 0x6570, kRecordsStart = 0x67B6, kRecordsEnd = 0x8A16, kHeader = 10;
+  constexpr size_t kLabels[3] = {0x5CA6, 0x5CAD, 0x5CB6}, kSuffix = 0x5B83;
+  if (world < 0 || world >= kPlanetCount || d.size() < kRecordsEnd) return {};
+  const size_t at = d[kDirectory + 2 * static_cast<size_t>(world)] | d[kDirectory + 2 * static_cast<size_t>(world) + 1] << 8;
+  if (at < kRecordsStart || at + kHeader >= kRecordsEnd || d[at] != kPlanets[world].number) return {};
+  auto string_at = [&](size_t from, size_t end) {
+    std::string out;
+    while (from < end && d[from]) out += static_cast<char>(d[from++]);
+    return from < end ? out : std::string();
+  };
+  const std::string name = string_at(at + kHeader, kRecordsEnd);
+  if (name != kPlanets[world].name) return {};
+  WorldText t;
+  t.landscape = string_at(kLabels[(d[at + 2] - 1) % 3], kLabels[(d[at + 2] - 1) % 3] + 9);
+  for (size_t i = 1; i < t.landscape.size(); ++i)
+    t.landscape[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(t.landscape[i])));
+  std::string n = std::to_string(d[at + 8] | d[at + 9] << 8);  // MW1's grouped field (numericGroupingEnabled)
+  for (int i = static_cast<int>(n.size()) - 3; i > 0; i -= 3) n.insert(static_cast<size_t>(i), ",");
+  const std::string suffix = string_at(kSuffix, kSuffix + 9);
+  t.population = suffix.empty() ? std::string() : n + suffix;
+  t.description = string_at(at + kHeader + name.size() + 1, kRecordsEnd);
+  if (t.landscape.empty() || t.population.empty() || t.description.empty()) return {};
+  return t;
+}
 
 // DS:6570's records, the directory's 145 (number, name, House, tier, office, x, y, weight).
 const Planet kPlanets[kPlanetCount] = {

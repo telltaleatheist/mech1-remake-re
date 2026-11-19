@@ -17,6 +17,7 @@
 #include "mw1_install.h"
 #include "mw1_campaign.h"
 #include "mw1_market.h"
+#include "mw1_pilots.h"
 #include "mw1_save.h"
 #include "mw1_travel.h"
 #include "mw1_travel_screen.h"
@@ -340,26 +341,75 @@ TEST(mw1_travel_the_trade_loop_buy_low_sell_high) {
   EXPECT(margin > there_cost + back_cost);
 }
 
-// The readout's facts for a world (FIXES.md item 21), and the world under the mouse shown in the chosen one's place.
+// The readout's facts for a world (FIXES.md items 21, 64): no tier, prices or dealer's limit; MW1's landscape,
+// population and description from the player's exe (none without it); the world under the mouse shown in the
+// chosen one's place. MW1's words are checked, never printed.
 TEST(mw1_travel_screen_world_readout) {
   mw1::Company c = company_at("ROBINSON", 1000000);
   int32_t t3 = -1;
   for (int32_t i = 0; i < mw1::kPlanetCount && t3 < 0; ++i)
     if (mw1::kPlanets[i].tier == 3 && mw1::kPlanets[i].max_mission > 0) t3 = i;
-  const std::vector<std::string> l = mw1::world_lines(c, t3);
-  auto has = [&](const std::vector<std::string>& v, const std::string& s) { return std::find(v.begin(), v.end(), s) != v.end(); };
+  auto tiers = [](const std::vector<std::string>& l) {
+    for (const std::string& s : l)
+      for (const char* w : {"tier", "Tier", "TIER", "%", "Dealer", "sell mechs", "buy mechs"})
+        if (s.find(w) != std::string::npos) return true;
+    return false;
+  };
+  // Without the exe: the House, the office, the battles; nothing of MW1's.
+  mw1::set_mw1_game_dir("");
+  std::vector<std::string> l = mw1::world_lines(c, t3);
+  EXPECT(!tiers(l) && l.size() >= 3 && l[0] == "House " + std::string(mw1::kHouses[mw1::kPlanets[t3].house].name) &&
+         l[1].find("ffice") != std::string::npos && l[2].rfind("Battles up to ", 0) == 0 && mw1::world_text(t3).landscape.empty());
   for (const std::string& s : l) std::printf("  %s: %s\n", mw1::kPlanets[t3].name, s.c_str());
-  EXPECT(has(l, "You sell mechs at 140%") && has(l, "You buy mechs at 150%") && has(l, "Dealer buys 1-2 mechs"));
-  EXPECT(l.size() >= 6 && l[2].rfind("Battles up to ", 0) == 0);
-  for (const std::string& s : l) EXPECT(s.size() <= 26);  // the panel's width
   mw1::TravelChoice t;
   t.world = mw1::destinations(c, -1)[0], t.hover = t3;
-  const mw1::ScreenView v = mw1::travel_view(c, t);
-  bool title = false, hint = false;
-  for (const mw1::TextBlock& b : v.blocks)
-    for (const std::string& s : b.lines) {
-      title = title || s.find("You sell mechs at 140%") != std::string::npos;
-      hint = hint || s == "Click to choose it.";
+  mw1::ScreenView v = mw1::travel_view(c, t);
+  bool title = false, hint = false, tier = false;
+  for (const mw1::TextBlock& b : v.blocks) {
+    tier = tier || tiers(b.lines);
+    for (const std::string& s : b.lines) title = title || s == "Battles up to " + std::string(l[2].substr(14)), hint = hint || s == "Click to choose it.";
+  }
+  EXPECT(title && hint && !tier && v.buttons[mw1::kTravelGo - 1].on);  // GO still the chosen one's
+  if (mw1_test::no_mw1()) return;
+  // With it: every world's landscape one of MW1's three, its population grouped, its description; each line fits
+  // the panel.
+  mw1::set_mw1_game_dir(MW1_DOS_GAME_DIR);
+  std::vector<std::string> labels;
+  size_t longest = 0;
+  for (int32_t i = 0; i < mw1::kPlanetCount; ++i) {
+    const mw1::WorldText w = mw1::world_text(i);
+    EXPECT(!w.landscape.empty() && !w.population.empty() && !w.description.empty());
+    if (std::find(labels.begin(), labels.end(), w.landscape) == labels.end()) labels.push_back(w.landscape);
+    EXPECT(w.landscape.size() > 1 && std::isupper(static_cast<unsigned char>(w.landscape[0])) &&
+           std::islower(static_cast<unsigned char>(w.landscape[1])));
+    EXPECT(w.population.find(',') != std::string::npos);
+    const std::vector<std::string> lines = mw1::world_lines(c, i);
+    EXPECT(!tiers(lines) && lines.size() >= 4 && lines[0].size() > w.landscape.size() &&
+           lines[0].compare(lines[0].size() - w.landscape.size(), std::string::npos, w.landscape) == 0 &&
+           lines[1] == "Population " + w.population);
+    for (const std::string& s : lines) {
+      EXPECT(s.size() <= 26);  // the panel's width
+      longest = std::max(longest, s.size());
     }
-  EXPECT(title && hint && v.buttons[mw1::kTravelGo - 1].on);  // GO still the chosen one's
+  }
+  EXPECT(labels.size() == 3);
+  std::printf("  with MW1's exe: %zu landscapes, the longest readout line %zu columns\n", labels.size(), longest);
+  v = mw1::travel_view(c, t);
+  for (const mw1::TextBlock& b : v.blocks) EXPECT(!tiers(b.lines));
+  // Every world under the mouse, from a world it isn't, affordable or not: the readout's lines fit the 14 above GO
+  // (the layout's GO at y 348; the lines from 118, 16 apart).
+  size_t most = 0;
+  for (int64_t funds : {int64_t(100000000), int64_t(1000)}) {
+    c.funds = funds;
+    for (int32_t i = 0; i < mw1::kPlanetCount; ++i) {
+      mw1::TravelChoice h;
+      h.world = mw1::destinations(c, -1)[0], h.hover = i;
+      if (i == mw1::here_index(c)) continue;
+      for (const mw1::TextBlock& b : mw1::travel_view(c, h).blocks)
+        if (b.y == 118) most = std::max(most, b.lines.size());
+    }
+  }
+  std::printf("  the most readout lines: %zu of 14\n", most);
+  EXPECT(most > 0 && most <= 14);
+  mw1::set_mw1_game_dir("");
 }

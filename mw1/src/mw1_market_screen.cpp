@@ -10,6 +10,7 @@
 #include "mw1_mech_icons.h"
 #include "mw1_mech_renders.h"
 #include "mw1_pilots.h"
+#include "mw1_travel.h"
 
 namespace mw1::market_ui {
 namespace {
@@ -111,6 +112,14 @@ bool g_market_live = false;
 void set_market_live(bool on) { g_market_live = on; }
 bool market_live() { return g_market_live; }
 
+// The banner's second line (FIXES.md item 64: no tier, no percentage; MW1 never said them): the world's landscape
+// and population as MW1's travel panel gives them, from the player's exe; the date without it.
+static std::string world_words(const Company& c) {
+  const int32_t here = planet_index(c.planet_number);
+  const WorldText t = here >= 0 ? world_text(here) : WorldText{};
+  return t.landscape.empty() ? date_words(c.date) : upper(t.landscape) + " \xB7 POP. " + t.population;
+}
+
 int32_t market_shown_mech(const Company& c, const MarketChoice& m) {
   if ((m.own_shown && owned_count(c) > 0) || c.market.stock.empty()) return owned_mech(c, m.owned);
   return c.market.stock[static_cast<size_t>(m.stock)];
@@ -121,8 +130,7 @@ ScreenView market_view(const Company& c, const MarketChoice& m) {
   v.blocks = {at_place("PLANET", {upper(c.planet)}),
               at_place("HOUSE", {"HOUSE " + upper(kHouses[c.planet_house].name) + " \xB7 THE MECH COMPLEX"}),
               at_place("PLACE", {thousands(c.funds) + " C-BILLS"}),
-              at_place("PLACE_SUB", {"TIER " + std::to_string(c.tier) + " WORLD \xB7 SELLING AT " +
-                                     std::to_string(sell_percent(c.tier)) + "%"}),
+              at_place("PLACE_SUB", {world_words(c)}),
               at_place("STATUS_WORLD", {upper(c.planet)}),
               at_place("STATUS", {m.note.empty() ? "BUY from FOR SALE; SELL and MECH LAB on YOUR MECHS." : m.note})};
   v.panels.assign(kMarketPanelCount, true);
@@ -147,10 +155,6 @@ ScreenView market_view(const Company& c, const MarketChoice& m) {
   }
   for (int32_t mech : c.market.stock) any_clan = any_clan || clan_mech(mech);
   if (stock.empty()) stock.push_back("  Nothing for sale here.");
-  // The dealer's limit on the YOUR MECHS title (the column header has no room for it: past the 4:3 canvas, the
-  // mw1screenfit flake of FIXES 3+5, only when the market rolled a limit).
-  const std::string limit =
-      c.market.limit < 0 ? "" : " \xB7 DEALER BUYS " + std::to_string(c.market.limit - c.market.sold) + " MORE";
   v.blocks.push_back(at_place("S_TITLE", {"FOR SALE"}));
   v.blocks.push_back(at_place("S_HEAD", {"  " + std::string(kOutlineRoom) + padded("MECH", kNameWidth) + "TONS      PRICE" + (any_clan ? "   * Clan: twice" : "")}));
   v.blocks.push_back(at_place("S_ROWS", stock));
@@ -165,7 +169,7 @@ ScreenView market_view(const Company& c, const MarketChoice& m) {
                     padded(pilot_of(c, i), kWhoWidth) + price_column(sell_price(mech, c.tier)));
     v.inline_pictures.push_back({"O_ROWS", i - m.owned_top, kRowIconH, "> ", row_icon_image(mech, i == m.owned)});
   }
-  v.blocks.push_back(at_place("O_TITLE", {"YOUR MECHS" + limit}));
+  v.blocks.push_back(at_place("O_TITLE", {"YOUR MECHS"}));
   v.blocks.push_back(at_place("O_HEAD", {"  " + std::string(kOutlineRoom) + padded("MECH", kNameWidth) + "TONS " + padded("PILOT", kWhoWidth) + "     VALUE"}));
   v.blocks.push_back(at_place("O_ROWS", owned));
 
