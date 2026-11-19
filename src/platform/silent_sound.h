@@ -1,5 +1,6 @@
 #pragma once
 #include <map>
+#include <string>
 #include <vector>
 
 #include "platform/platform.h"
@@ -135,6 +136,21 @@ class SilentSoundOutput : public SoundOutput {
   }
   std::map<SoundBuffer, Buffer> buffers_;
   SoundBuffer next_ = 1;
+};
+
+// Ours: a platform::MusicOutput with no device, for a run no player hears (mw3 --nosound, a hands-off run:
+// pointer_hands_off.h). It keeps what the game asked (the file playing, paused, the volume, how many plays) and
+// never reaches a file's end, so a looping track plays on silently. Not a FIX: the original had no such run.
+class SilentMusicOutput : public MusicOutput {
+ public:
+  bool play(const std::string& path) override { return playing_path = path, paused = false, ++plays, true; }
+  void stop() override { playing_path.clear(), paused = false; }
+  void pause() override { paused = true; }
+  void resume() override { paused = false; }
+  void set_volume(uint16_t left, uint16_t right) override { volume = (static_cast<int32_t>(left) + right) / 2; }
+  std::string playing_path;  // "" stopped
+  bool paused = false;
+  int32_t volume = 0xFFFF, plays = 0;
 };
 
 }  // namespace platform
