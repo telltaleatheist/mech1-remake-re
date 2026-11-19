@@ -787,7 +787,7 @@ Tick an item when it is merged into `main`.
   - The hint is "HIRE pays their wage; PREV and NEXT show the rest."
   - mw1tests 181/0; mw1labfit, screenfit, hiresoff and smooth 4/4.
 
-## 69. [ ] The lab's top row: the lance's slots, not FUNDS
+## 69. [ ] The lab's top row: the lance's slots, not FUNDS; the lab assigns 'Mechs, not the Company page
 - **Owen (2026-11-18, in play):** "i just hired two lancemates. but they arent showing in the mech lab. i dont think we need the \"funds\"/c-bills at the top, where the lancemates are normally listed. lets do it the way mw3 does - put blank slots at the top if i have pilots with no mechs, and no slots at all if there arent any pilots".
 - **Wanted:** the top row is PM's or MW3's lance strip, done as MW3 does it:
   - one slot per pilot (you, then each lancemate), showing the mech outline of their assigned 'Mech;
@@ -795,7 +795,11 @@ Tick an item when it is merged into `main`.
   - no slots for pilots you don't have.
   - Clicking a slot picks that pilot's 'Mech, as in MW3; check how a blank slot behaves there.
   - FUNDS goes. If money must show somewhere in the lab, ask me first.
-- **Done means:** shots with you alone, with two lancemates and one 'Mech (two blank slots), and with a full lance, at 1080p and 4:3; tests.
+- **More from Owen (2026-11-18):** "we can get rid of the \"pilot (you)\" area under the mech list now too since we're doing it differently. and we shouldnt haev to assign mechs on the company page. the company page should be for firing or looking at the stats of my company members".
+  - **The lab is where 'Mechs are assigned,** MW3's way: pick a pilot's slot at the top, then pick a 'Mech from YOUR MECHS. A 'Mech already held by another pilot moves over, or swaps, whichever MW3 does.
+  - **The PILOT selector** (◀ YOU ▶) under YOUR MECHS goes.
+  - **The Company page (COMPANY, the Bar's lance page)** keeps FIRE, PREV, NEXT and LEAVE for firing and the stats. ASSIGN goes, with its hint. Remove ASSIGN only once the lab assigns, so there is always a way.
+- **Done means:** shots with you alone, with two lancemates and one 'Mech (two blank slots), and with a full lance, at 1080p and 4:3; assigning in the lab, and a test that the Company page has no ASSIGN.
 
 ## 70. [ ] The lab's warnings are hidden behind the bottom buttons
 - **Owen (2026-11-18, in play):** "the warning \"need [x] crits, only have [y]\" or the tonnage warning are both behind the buttons now. cant see the warnings". The shot shows "Not enough criticals free (need 14, have 10)" drawn across the third and fourth of the bottom icon buttons.
