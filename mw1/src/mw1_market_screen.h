@@ -1,11 +1,11 @@
 #pragma once
 // MW1's Mech Complex (the hub's MECH COMPLEX; mw1_market.h's rules) on MW1's screen template (mw1_screen.h), its
 // layout mw1market.zrd in MW1's data folder. Owen's shape (FIXES.md items 8 and 13): one page, MW1's buttons down
-// the left (BUY, SELL, REPAIR, RELOAD, MECH LAB, BACK) and two lists, FOR SALE (the world's stock, the buying
+// the left (BUY, SELL, MECH LAB, BACK, evenly spaced over the column) and two lists, FOR SALE (the world's stock, the buying
 // prices) over YOUR MECHS (the company's, who pilots each, the selling prices). BUY takes FOR SALE's chosen mech;
-// SELL, REPAIR, RELOAD and MECH LAB act on YOUR MECHS' chosen one. MECH LAB is the lab's way in: Pirate's Moon's lab
-// on that mech, its pilot chosen there (mw1_lab_pilot.h), back here after. REPAIR and RELOAD are greyed (every
-// mission starts repaired and armed, VISION.md; research/repairs.md). The lists' rows take the mouse, their arrows
+// SELL and MECH LAB act on YOUR MECHS' chosen one. MECH LAB is the lab's way in: Pirate's Moon's lab on that mech,
+// its pilot chosen there (mw1_lab_pilot.h), back here after. No REPAIR or RELOAD (FIXES.md item 59): every mission
+// starts repaired and armed (VISION.md), the bill settled from the mission. The lists' rows take the mouse, their arrows
 // scroll them. Escape is BACK.
 #include <cstdint>
 #include <functional>
@@ -20,10 +20,12 @@ inline constexpr const char* kMarketFile = "mw1market.zrd";
 inline constexpr const char* kMarketDialog = "MW1MARKETDIALOG";
 
 enum MarketButton : int32_t {
-  kMarketBuy = 1, kMarketSell, kMarketRepair, kMarketReload, kMarketLab, kMarketBack,  // down the left
-  kMarketStockUp, kMarketStockDown, kMarketOwnUp, kMarketOwnDown                       // the lists' arrows
+  kMarketBuy = 1, kMarketSell, kMarketLab, kMarketBack,          // down the left
+  kMarketStockUp, kMarketStockDown, kMarketOwnUp, kMarketOwnDown  // the lists' arrows
 };
 inline constexpr int32_t kMarketButtonCount = kMarketOwnDown;
+// The left column's buttons' tops (both layouts'): evenly spaced from the lists' first row to BACK over the panel.
+inline constexpr int32_t kMarketButtonTop[4] = {84, 147, 211, 274};
 const char* market_button_name(int32_t id);
 
 // The layout's PANELs in order: the two plaques, the status bar, the two lists' terminals.

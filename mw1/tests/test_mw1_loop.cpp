@@ -576,7 +576,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
         const int32_t dx = sc->shift(mw1::Anchor::kLayout), left = sc->wide() ? 16 : 12, list = sc->wide() ? 216 : 204;
         const int32_t arrow = (sc->wide() ? 200 + 637 : 188 + 436) - 34 + 14;
         auto click = [&](int32_t x, int32_t y) { click_x = x + dx, click_y = y, click_phase = 1; };
-        auto button = [&](int32_t k) { click(left + 84, 84 + 38 * k + 15); };  // the k-th down the left
+        auto button = [&](int32_t k) { click(left + 84, mw1::kMarketButtonTop[k] + 15); };  // the k-th down the left
         auto row = [&](bool own, int32_t r) {
           click(list + 30, mw1::kMarketListTop[own ? 1 : 0] + mw1::kMarketRowsFrom + r * mw1::kMarketRowGap + 5);
         };
@@ -595,8 +595,9 @@ void loop_run(Ending ending, Run* run = nullptr) {
           case 0:  // the one page: FOR SALE's second row (the Atlas)
             run->market_lines = shown;
             EXPECT(mc && !mc->own_shown && mw1::game_loop_market_panel_mech() == c->market.stock[0]);  // the first entry
-            EXPECT(sc->loaded() && sc->enabled(mw1::kMarketBuy) && !sc->enabled(mw1::kMarketSell) && !sc->enabled(mw1::kMarketRepair) &&
-                   !sc->enabled(mw1::kMarketReload) && sc->enabled(mw1::kMarketLab) && !sc->enabled(mw1::kMarketStockUp));
+            EXPECT(sc->loaded() && sc->enabled(mw1::kMarketBuy) && !sc->enabled(mw1::kMarketSell) && sc->enabled(mw1::kMarketLab) &&
+                   !sc->enabled(mw1::kMarketStockUp));
+            for (const char* gone : {"REPAIR", "RELOAD"}) EXPECT(!has(gone));  // FIXES.md item 59
             row(false, 1);
             break;
           case 1:  // scrolled back up by its arrow
@@ -638,7 +639,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
             EXPECT(c->hangar.size() == 1 && c->hangar[0].mech == mw1::kPmFirefly && sc->enabled(mw1::kMarketOwnUp));
             EXPECT(panel_is_owned_row() && mw1::game_loop_market_panel_mech() == mw1::kPmFirefly);
             run->lab_stores = c->stores->count();
-            button(4);
+            button(2);
             break;
           case 9:  // back from the lab: you pilot the Firefly, with its loadout; the weapon in the stores. BACK
             EXPECT(run->lab_done && run->lab_mech == mw1::kPmFirefly && run->lab_pilot == "spare" && run->lab_pilot_after == "YOU");
@@ -646,7 +647,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
             EXPECT(has("piloted by you") && c->mech == mw1::kPmFirefly && c->hangar.size() == 1 && c->hangar[0].mech == mw1::kPmOwens);
             EXPECT(c->loadout != nullptr && c->stores->count() == run->lab_stores + 1);
             run->market_done = true;
-            button(5);
+            button(3);
             break;
           default: break;
         }

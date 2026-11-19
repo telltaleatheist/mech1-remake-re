@@ -299,7 +299,8 @@ TEST(mw1_market_rows_by_the_mouse) {
   EXPECT(!mw1::market_row_at(210, stock + mw1::kMarketRows * gap, false, &own, &row));  // under FOR SALE's last row
 }
 
-// The Mech Complex's one page (Owen's shape): the buttons down the left, REPAIR and RELOAD greyed; the lists
+// The Mech Complex's one page (Owen's shape): BUY, SELL, MECH LAB and BACK down the left (no REPAIR or RELOAD,
+// FIXES.md item 59); the lists
 // scrolled to keep the chosen row in view, kMarketRows of them shown.
 TEST(mw1_market_complex_page) {
   mw1::Company c;
@@ -310,7 +311,9 @@ TEST(mw1_market_complex_page) {
   auto on = [](const mw1::ScreenView& v, int32_t id) { return v.buttons[static_cast<size_t>(id - 1)].on; };
   mw1::clamp_choice(c, m);
   mw1::ScreenView v = mw1::market_view(c, m);
-  EXPECT(on(v, mw1::kMarketBuy) && !on(v, mw1::kMarketSell) && !on(v, mw1::kMarketRepair) && !on(v, mw1::kMarketReload));
+  EXPECT(on(v, mw1::kMarketBuy) && !on(v, mw1::kMarketSell) && v.buttons.size() == 8);
+  for (int32_t id = 1; id <= mw1::kMarketButtonCount; ++id)
+    EXPECT(std::string(mw1::market_button_name(id)) != "REPAIR" && std::string(mw1::market_button_name(id)) != "RELOAD");
   EXPECT(on(v, mw1::kMarketLab) && on(v, mw1::kMarketBack) && !on(v, mw1::kMarketStockUp) && on(v, mw1::kMarketStockDown));
   EXPECT(v.panels[mw1::kMarketPanelStock] && v.panels[mw1::kMarketPanelOwned]);
   m.stock = 11;

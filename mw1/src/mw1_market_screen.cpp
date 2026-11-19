@@ -14,9 +14,8 @@
 namespace mw1::market_ui {
 namespace {
 const std::vector<ScreenButton> kMarketButtons = {
-    {"BUY", "BUY"},       {"SELL", "SELL"},           {"REPAIR", "REPAIR"}, {"RELOAD", "RELOAD"},
-    {"LAB", "MECH LAB"},  {"BACK", "BACK"},           {"STOCK_UP", "", true},     {"STOCK_DOWN", "", true},
-    {"OWN_UP", "", true},       {"OWN_DOWN", "", true}};
+    {"BUY", "BUY"},           {"SELL", "SELL"},       {"LAB", "MECH LAB"}, {"BACK", "BACK"},
+    {"STOCK_UP", "", true},   {"STOCK_DOWN", "", true}, {"OWN_UP", "", true},  {"OWN_DOWN", "", true}};
 constexpr size_t kNameWidth = 14;  // the lists' columns (the line font is fixed-width)
 constexpr size_t kWhoWidth = 11;
 // The lists' terminals (the layouts' PANEL4 and PANEL5): left and right, the arrows' column inside the right edge.
@@ -111,7 +110,7 @@ ScreenView market_view(const Company& c, const MarketChoice& m) {
               at_place("PLACE_SUB", {"TIER " + std::to_string(c.tier) + " WORLD \xB7 SELLING AT " +
                                      std::to_string(sell_percent(c.tier)) + "%"}),
               at_place("STATUS_WORLD", {upper(c.planet)}),
-              at_place("STATUS", {m.note.empty() ? "BUY takes from FOR SALE; the rest act on YOUR MECHS." : m.note})};
+              at_place("STATUS", {m.note.empty() ? "BUY from FOR SALE; SELL and MECH LAB on YOUR MECHS." : m.note})};
   v.panels.assign(kMarketPanelCount, true);
   // FIXES.md item 12: the chosen 'Mech under the buttons, drawn live in 3D (the panel left see-through); none without
   // the 3D (no stored picture of it: the renders are the loading screen's slot pictures only).
@@ -160,7 +159,6 @@ ScreenView market_view(const Company& c, const MarketChoice& m) {
   auto on = [&](int32_t id, bool b) { v.buttons[static_cast<size_t>(id - 1)].on = b; };
   on(kMarketBuy, !c.market.stock.empty());
   on(kMarketSell, owned_count(c) > 1);
-  on(kMarketRepair, false), on(kMarketReload, false);  // VISION.md: nothing to mend between missions
   on(kMarketStockUp, m.stock > 0);
   on(kMarketStockDown, m.stock + 1 < static_cast<int32_t>(c.market.stock.size()));
   on(kMarketOwnUp, m.owned > 0);
