@@ -1288,6 +1288,9 @@ int run(const Args& a, platform::VideoForWindows* vfw) {
     ztwod::set_host(&host);
     if (platform::hires_2d()) {  // ours, MW1's only (FIXES 12, B1 piece 4): the 2D's draws at the frame's resolution
       host.attach_hires_draw(window.render());
+      static sdlfe::SdlTwodHost* cleared_host = nullptr;  // the engine's buffer filled afresh: its draws forgotten
+      cleared_host = &host;
+      platform::hires_cleared() = [](const void* owner) { cleared_host->hires_lists().clear(owner); };
       screen.after_layer = [&host, &window](const uint16_t* px, int w, int h, int pitch, bool rgb565, bool keyed,
                                             uint16_t key) {
         host.hires_draw()->draw(px, w, h, pitch, rgb565, keyed, key);
@@ -2215,6 +2218,7 @@ int run(const Args& a, platform::VideoForWindows* vfw) {
     }
     screen.after_layer = nullptr;
     screen.before_layer = nullptr;
+    platform::hires_cleared() = nullptr;
     window.render()->on_present = nullptr;
     ztwod::set_host(nullptr);
     mech3::set_app(nullptr);

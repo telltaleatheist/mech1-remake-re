@@ -59,6 +59,7 @@ class SdlTwodHost : public ztwod::Host {
   // program wires hires_draw() to the screen's layer and the renderer's present).
   void attach_hires_draw(platform::Render3D* render) { hires_draw_ = std::make_unique<HiresDraw>(render, &hires_); }
   HiresDraw* hires_draw() const { return hires_draw_.get(); }
+  platform::hires::Lists& hires_lists() { return hires_; }
   Handle image_dc(zimg::Texture* image) override;
   void image_dc_release(zimg::Texture* image, Handle dc) override;
   int32_t video_mode() override;
