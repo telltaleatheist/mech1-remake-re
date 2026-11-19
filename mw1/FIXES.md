@@ -659,6 +659,21 @@ Tick an item when it is merged into `main`.
   - the sound stopped for good at the clip's end and on a skip, never heard on the next screen.
 - **Done means:** the cause of the replay named; a test that no sound is playing after the movie ends or is skipped; a windowed check with sound on.
 
+## 56. [ ] The office: NEGOTIATE and ACCEPT under the terms they act on
+- **Owen (2026-11-18):** "lets move the negotiate and accept buttons down under the terms box. it isnt intuitive that youd have them where they are and know what to click." NEXT OFFER and LEAVE "can stay where they are ... or we can move them to a more intuitive spot."
+- **The layout (the lead's proposal, mock-up `outbox/2026-11-18/office-layout-mockup.png`):** the screen reads top to bottom, contract → terms → act.
+  - **NEGOTIATE and ACCEPT** sit in one row right under TERMS, right-aligned to its edge.
+    - ACCEPT is the primary action, framed in amber, at the far right where the eye ends.
+    - NEGOTIATE sits beside it. It stays dimmed until a term has been changed, as today.
+  - **NEXT OFFER and LEAVE** stay at the top of the left column. They're about which contract and whether to stay, not about the terms.
+  - **The liaison's portrait** grows to fill the column below them. Its bottom stays on TERMS' bottom line, as in 50.
+  - **The hint lines** in CONTRACT ON OFFER ("Change a term with its arrows, then NEGOTIATE ...") go. The layout makes them unnecessary, and the status bar gives each button's hint on hover. CONTRACT ON OFFER shrinks by those lines, and TERMS moves up to make room for the button row.
+- **The same at 4:3.**
+- **Done means:**
+  - shots at 1080p and 4:3, with NEGOTIATE dim and lit;
+  - the fit checks (mw1screenfit, 50's line-up test, updated);
+  - the office golden re-recorded (off and on identical).
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.
