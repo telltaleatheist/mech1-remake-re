@@ -72,6 +72,7 @@
 #include "mw1_game.h"
 #include "mw1_movie.h"
 #include "mw1_hub.h"
+#include "mw1_hud_art.h"
 #include "mw1_market.h"
 #include "mw1_missions.h"
 #include "mw1_pilots.h"
@@ -4227,3 +4228,60 @@ TEST(mw1_loop_lance_orders_reach_each_new_hire_headless) { lance_orders_run("mw1
 TEST(mw1_loop_lance_orders_reach_each_of_three_headless) { lance_orders_run("mw1_lance_orders_3", 3, false); }
 TEST(mw1_loop_lance_orders_reach_each_after_a_reload_headless) { lance_orders_run("mw1_lance_orders_reload", 2, true); }
 
+
+namespace {
+// FIXES.md item 12: PM's mission HUD pictures drawn from their shapes (mw1_hud_art.h). At one device pixel a canvas
+// pixel each is PM's picture exactly, read from PM's own library in a mission (black: clear).
+TEST(mw1_loop_hud_art_is_pm_s_pictures_at_canvas_size) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_hud_art";
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  in_child([&] {
+    Run run;
+    run.save = (dir / mw1::kSaveFile).string();
+    int32_t compared = 0, worst = 0, sized = 0;
+    std::string worst_name;
+    run.in_mission = [&](int32_t f) {
+      if (f < 5) return true;
+      for (const std::string& n : mw1::hud_art::names()) {
+        zimg::Texture* t = zimg::fetch_image(n.c_str());
+        if (!t) {
+          std::printf("  %s: not in PM's libraries\n", n.c_str());
+          continue;
+        }
+        int32_t w = 0, h = 0;
+        mw1::hud_art::size_of(n, &w, &h);
+        const std::vector<uint8_t> mine = mw1::hud_art::draw(n, 1);
+        if (w == t->width && h == t->height && (t->flags & zimg::kTwoBytes) && !t->palette_count && t->pixels) {
+          ++sized;
+          int32_t off = 0;
+          const uint16_t* pm = static_cast<const uint16_t*>(t->pixels);
+          for (int32_t i = 0; i < w * h; ++i) {
+            const uint16_t v = pm[i];
+            const uint8_t* m = &mine[static_cast<size_t>(i) * 4];
+            const bool clear = v == 0;
+            const bool same = clear ? m[3] == 0
+                                    : m[3] == 255 && m[0] == ((v >> 11) << 3) && m[1] == (((v >> 5) & 63) << 2) && m[2] == ((v & 31) << 3);
+            off += !same;
+            if (!same && std::getenv("MW1_HUD_ART_DIFF"))
+              std::printf("    %s (%d,%d): PM %04x, ours %d,%d,%d a%d\n", n.c_str(), i % w, i / w, v, m[0], m[1], m[2], m[3]);
+          }
+          ++compared;
+          if (off > worst) worst = off, worst_name = n;
+        } else {
+          std::printf("  %s: PM's is %dx%d, ours %dx%d\n", n.c_str(), t->width, t->height, w, h);
+        }
+        zimg::free_texture(t);
+      }
+      return false;
+    };
+    loop_run(kWon, &run);
+    std::printf("  %zu HUD pictures, %d compared with PM's; the most pixels off: %d (%s)\n", mw1::hud_art::names().size(),
+                compared, worst, worst_name.empty() ? "-" : worst_name.c_str());
+    EXPECT(compared == static_cast<int32_t>(mw1::hud_art::names().size()) && sized == compared);
+    EXPECT(worst == 0);
+  });
+}
+}  // namespace
