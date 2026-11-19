@@ -479,6 +479,10 @@ class GameEngine : public Engine {
   // MB_OK ... MB_USERBTN). Unset (mw3, mw3pm): the game's.
   void set_message_box_layout(std::string file, std::string dialog) { box_file_ = std::move(file), box_dialog_ = std::move(dialog); }
   const std::string& message_box_file() const { return box_file_; }
+  // Ours (MW1: Critical Hit, FIXES.md item 12; opt-in, MW3 and PM never set it): a box over a held GPU frame
+  // (hold_shown_frame) records its alpha blends as the 3D lock's layer does (FIX (A), zrndr::LayerCover), so a
+  // see-through draw over the frame (MW1's dim) darkens it instead of mixing with the key colour (a magenta screen).
+  void set_box_blends_over_frame(bool on) { box_blends_ = on; }
   ztwod::MessageBox* message_box_open() const { return box_; }  // the box being answered, or null
   class LabFileBox* file_box_ = nullptr;  // up: a window closed ends it, as box_
 
@@ -728,6 +732,7 @@ class GameEngine : public Engine {
   std::string formatted_;
   ztwod::MessageBox* box_ = nullptr;  // the message box being answered (0x004ac150)
   std::string box_file_, box_dialog_;  // ours: set_message_box_layout's
+  bool box_blends_ = false;              // ours: set_box_blends_over_frame's
   std::vector<void*> objects_;           // handle - 0x00100000 - 1
   Launch launch_;
   Handle pilot_ = 0, game_ = 0, view_ = 0, camera_ = 0;
