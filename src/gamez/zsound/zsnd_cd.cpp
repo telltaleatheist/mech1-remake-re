@@ -18,6 +18,20 @@ State g_state;
 platform::Files* g_files = nullptr;
 platform::MusicOutput* g_output = nullptr;
 std::string g_dir = "music";
+std::string g_extra;  // ours (FIXES 100): kExtraTrack's file, "" none
+
+// music/trackNN.<ext> that exists, else "": the disc's own tracks (never the extra).
+std::string disc_track_path(int track) {
+  if (!g_files || track < 1 || track > 99) return "";
+  static const char* const kExts[] = {"ogg", "flac", "wav", "mp3"};
+  char name[32];
+  for (const char* ext : kExts) {
+    std::snprintf(name, sizeof name, "/track%02d.%s", track, ext);
+    std::string path = g_dir + name;
+    if (g_files->exists(path)) return path;
+  }
+  return "";
+}
 
 bool is_open() { return (g_state.flags & kOpen) != 0; }
 
@@ -71,16 +85,11 @@ void set_backend(platform::Files* files, platform::MusicOutput* output, std::str
 }
 
 std::string track_path(int track) {
-  if (!g_files || track < 1 || track > 99) return "";
-  static const char* const kExts[] = {"ogg", "flac", "wav", "mp3"};
-  char name[32];
-  for (const char* ext : kExts) {
-    std::snprintf(name, sizeof name, "/track%02d.%s", track, ext);
-    std::string path = g_dir + name;
-    if (g_files->exists(path)) return path;
-  }
-  return "";
+  if (track == kExtraTrack) return g_files && !g_extra.empty() && g_files->exists(g_extra) ? g_extra : std::string();
+  return disc_track_path(track);
 }
+
+void set_extra_track(std::string path) { g_extra = std::move(path); }
 
 // Mech3.exe 1.2 @ 0x00572450: open, media check, track count, CD_TRACKS cues.
 // FIX (A): the music folder is the disc; its highest track number is the count.
@@ -90,8 +99,9 @@ bool open(std::vector<Cue> cues) {
   g_state.enabled = true;
   int highest = 0;
   for (int t = 1; t <= 99; ++t)
-    if (!track_path(t).empty()) highest = t;
-  if (highest == 0) {  // media not present: the original closes and returns 0
+    if (!disc_track_path(t).empty()) highest = t;
+  if (highest == 0 && track_path(kExtraTrack).empty()) {  // media not present: the original closes and returns 0
+                                                          // (ours: an extra track alone opens it, no disc tracks counted)
     close();
     return false;
   }

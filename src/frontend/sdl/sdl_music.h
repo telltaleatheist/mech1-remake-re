@@ -2,6 +2,7 @@
 #include <SDL3/SDL.h>
 
 #include <atomic>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -26,6 +27,7 @@ class SdlMusicOutput : public platform::MusicOutput {
   void set_volume(uint16_t left, uint16_t right) override;
 
   static bool decodes(const std::string& ext);  // what this build can play
+  static int32_t devices_opened();              // ours (FIXES 100): audio devices opened in this process, for tests
   bool playing() const { return stream_ != nullptr && !paused_; }
 
  private:
@@ -39,5 +41,9 @@ class SdlMusicOutput : public platform::MusicOutput {
   bool paused_ = false;
   float gain_ = 1.0f;
 };
+
+// The game's music output (ours, FIXES.md item 100): the SDL one, or with platform::quiet_music() on and the run
+// --nosound or --hidden, platform::SilentMusicOutput (no audio device).
+std::unique_ptr<platform::MusicOutput> music_output_for(bool nosound, bool hidden);
 
 }  // namespace sdlfe

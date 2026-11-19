@@ -1240,3 +1240,34 @@ Owen, defending the tower on mw3c1ia3 (4 enemies): three came; the fourth never 
     takes it back. Fixed, all four close 470 to 690 m.
   - `mw1_loop_lance_orders_an_awesome_walks_headless`: the third lancemate in an Awesome walks at its target. The
     harness takes the lance's mechs (`lance_mechs`).
+
+## 100. [x] Menu music, QUIT in the hub, the sound settings *(done: mw1-fix100-music)*
+- **Owen (2026-11-19, via the lead):** a YuE2 track he picked as the menu music. QUIT outside the main menu. Music
+  and effects settings in MW1's options.
+- **The theme** (`data/music/menu-theme.ogg`, ours, 7.8 MB; the lead faded its last 5 s; the FLAC master is in
+  keep/mw1-critical-hit/music):
+  - It plays through the engine's CD music as zsnd_cd's extra track (track 100), from mw1data's music/. A numbered
+    trackNN would have raised the disc's track count, and PM's mission music picks among those, so it would have
+    drawn the theme.
+  - It starts with the game (the title, the intro) and plays on every screen out of a mission, looping. A screen
+    change never restarts it.
+  - DEPLOY fades it out over a second, then stops it and gives PM back its volume for the mission's music. At the
+    results it fades in again. PM's own menu music never plays over MW1's screens: the theme takes the CD back.
+  - mw1_music.{h,cpp}; `music::frame(!deployed_)` each frame shown.
+- **Silence:** a --nosound or --hidden run plays no music aloud. Before, SdlMusicOutput always opened the real
+  device. With MW1's flag (platform/quiet_music.h) such a run gets a platform::SilentMusicOutput, which keeps the calls
+  and opens no device. That's an "mw1 (engine, ours)" commit, opt-in, so MW3 and PM are unchanged.
+- **QUIT:** the hub's foot, between LOG and STORY, gone while the box shows. It asks with PM's quit box, the same one
+  as the main menu's QUIT: NO stays, OK quits.
+- **Settings** (the hub's OPTIONS): MUSIC: ON / OFF, then MUSIC n% and EFFECTS n% between ◀ ▶ arrows (steps of 10).
+  - They drive PM's own two (its options' CD volume and sound volume: GRAPHICS & SOUND's MUSIC VOLUME and SFX sliders),
+    so the mission's music and sounds follow, and the two screens never disagree.
+  - Off sets PM's music volume to 0, which stops the theme and any mission music; on brings back the saved volume.
+  - mw1.cfg keeps `music=`, `music_volume=` and `effects_volume=` beside the installs (mw1_start.h's SoundCfg). They're
+    applied at the main state's entry, and synced from PM's sliders whenever OPTIONS shows.
+- **Tests:**
+  - `mw1_music_theme_screens_mission_settings_and_quit_headless` (mw1tests): the theme at the menu and the intro; the
+    same play through the hub, the office and back; faded and gone in the mission, PM's volume back; again at the
+    results; OFF stops it and saves; EFFECTS applied and saved; ON brings it back; QUIT asks, NO stays, OK quits.
+  - `zsnd_cd_extra_track_outside_the_disc` and `quiet_music_a_hidden_run_opens_no_audio_device` (mw3pmsdltests).
+- **Shots:** the hub with QUIT, and OPTIONS, at 4:3 and 1080p: outbox/2026-11-19/mw1-fix100-music/.

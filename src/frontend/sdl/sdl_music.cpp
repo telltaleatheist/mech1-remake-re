@@ -5,12 +5,18 @@
 
 #include "frontend/sdl/sdl_platform.h"
 #include "gamez/zutil/zutl_path.h"
+#include "platform/quiet_music.h"
+#include "platform/silent_sound.h"
 
 #ifdef MW3_HAVE_SDL_SOUND
 #include <SDL3_sound/SDL_sound.h>
 #endif
 
 namespace sdlfe {
+
+namespace {
+int32_t g_devices_opened = 0;  // ours (FIXES 100): devices_opened()
+}  // namespace
 
 namespace {
 void post_end() {
@@ -124,6 +130,7 @@ bool SdlMusicOutput::play(const std::string& path) {
 #endif
   ended_ = false, drained_ = false;
   stream_ = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, feed, this);
+  if (stream_) ++g_devices_opened;
   if (!stream_) {
     std::fprintf(stderr, "mw3: music: no audio device: %s\n", SDL_GetError());
     close();
@@ -132,6 +139,13 @@ bool SdlMusicOutput::play(const std::string& path) {
   SDL_SetAudioStreamGain(stream_, gain_);
   SDL_ResumeAudioStreamDevice(stream_);
   return true;
+}
+
+int32_t SdlMusicOutput::devices_opened() { return g_devices_opened; }
+
+std::unique_ptr<platform::MusicOutput> music_output_for(bool nosound, bool hidden) {
+  if (platform::quiet_music() && (nosound || hidden)) return std::make_unique<platform::SilentMusicOutput>();
+  return std::make_unique<SdlMusicOutput>();
 }
 
 void SdlMusicOutput::stop() { close(); }

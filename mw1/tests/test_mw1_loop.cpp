@@ -83,6 +83,10 @@
 #include "mw1_results.h"
 #include "mw1_market_screen.h"
 #include "mw1_ladder.h"
+#include "mw1_music.h"
+#include "mw1_start.h"
+#include "gamez/zsound/zsnd_cd.h"
+#include "platform/silent_sound.h"
 #include "mw1_menu.h"
 #include "mw1_office.h"
 #include "mw1_images.h"
@@ -2510,6 +2514,9 @@ struct MenuRun {
   int limit = 6000;     // frames before the run gives up
   bool fade = false;    // the fade between screens (FIXES.md item 52); off: each change at once
   platform::SilentSoundOutput* sound = nullptr;  // the run's sound output, while it runs (FIXES.md item 55)
+  platform::SilentMusicOutput* music = nullptr;  // its music's (FIXES.md item 100: what plays, never aloud)
+  bool may_quit = false;     // the game may end the run itself (its QUIT answered OK: FIXES.md item 100)
+  bool game_ended = false;   // it did: the run over before the script's end
 };
 void menu_run(MenuRun& r) {
   zgame::set_game(pm::table());
@@ -2554,6 +2561,7 @@ void menu_run(MenuRun& r) {
   mech3::options() = mech3::Options{};
   mw1::set_mw1_game_dir(MW1_DOS_GAME_DIR);  // the narration
   mw1::fade::set_enabled(r.fade);  // FIXES.md item 52: off unless the test is about it
+  mw1::music::install(wd);  // FIXES.md item 100: the menu theme as the CD's extra track, as mw1_main does
   mw1::install_game_loop(r.seed);
   mw1::set_game_loop_start(r.start);
   mw1::set_game_loop_story(r.story);
@@ -2566,10 +2574,12 @@ void menu_run(MenuRun& r) {
   Screen screen;
   platform::SilentSoundOutput sound;
   r.sound = &sound;
+  platform::SilentMusicOutput music;
+  r.music = &music;
   mech3::MountFiles files;
   mech3::Platform p;
   p.window = &window, p.alert = &alert, p.clock = &clock, p.movie_clock = &movies, p.screen = &screen;
-  p.sound = &sound, p.files = &files, p.input = &keys;
+  p.sound = &sound, p.files = &files, p.input = &keys, p.music = &music;
   bool stop = false;
   {
     mech3::GameEngine engine(p, "mech3.exe -nofmv");
@@ -2593,7 +2603,10 @@ void menu_run(MenuRun& r) {
     app.exit_instance();
     mech3::set_app(nullptr);
   }
-  EXPECT(stop);  // the script ran to its end
+  r.game_ended = !stop;
+  EXPECT(stop || r.may_quit);  // the script ran to its end (or the game quit, where the test allows it)
+  r.music = nullptr;
+  zsnd_cd::set_extra_track("");
   mw1::art::install((gen / "zbd" / "none.zbd").string(), false);  // the art's lookup gone again
   mw1::uninstall_game_loop();
   mw1::set_mw1_game_dir("");
@@ -5157,3 +5170,169 @@ TEST(mw1_loop_hud_labels_drawn_as_text_in_place) {
   });
 }
 }  // namespace
+
+// FIXES.md item 100 (Owen): MW1's menu theme from the start (the menu, the intro), on through the screens without
+// restarting, faded out for a mission and in again after it; the hub's OPTIONS rows (music on or off, its volume and
+// the effects') applied at once to PM's own and kept in mw1.cfg; the hub's QUIT asks first (NO stays, OK quits). The
+// music is the run's silent output (what plays, never aloud).
+TEST(mw1_music_theme_screens_mission_settings_and_quit_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  in_child([&] {
+    std::vector<mw1::MapRow> rows;  // PM's maps (MW3's worlds aren't registered here)
+    for (const mw1::MapRow& m : shipped_rows())
+      if (m.world.rfind("mw3", 0) != 0) rows.push_back(m);
+    mw1::set_map_table(rows);
+    const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_music";
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    MenuRun r;
+    r.save = (dir / mw1::kSaveFile).string(), r.limit = 20000;
+    const std::string wd = std::string(MW3_TEST_TMP_ROOT) + "/mw1_menu_wd";  // menu_run's write dir (mw1.cfg's)
+    auto theme = [&] { return r.music && r.music->playing_path == mw1::music::kThemeFile; };
+    int step = 0, wait = 0, frames = 0;
+    bool at_menu = false, at_intro = false, at_hub = false, kept = false, faded = false, gone_in_mission = false, back_after = false;
+    bool off_stops = false, off_saved = false, on_again = false, effects_saved = false, quit_asked = false, quit_stays = false, quits = false;
+    int32_t plays_at_hub = 0, starts_at_hub = 0, quit_boxes = 0;
+    float lowest = 1;
+    r.box = [&](const std::string& words) -> uint32_t {
+      if (step == 9) return ++quit_boxes, quit_asked = true, 2u;  // NO (IDCANCEL): the hub stays
+      if (step == 10) return ++quit_boxes, 1u;                   // OK: the game quits
+      return words.find("?") != std::string::npos ? 6u : 1u;
+    };
+    r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
+      mw1::Company* c = mw1::game_loop_company_for_tests();
+      mw1::HubState* hub = mw1::game_loop_hub();
+      const mw1::music::Seen m = mw1::music::seen();
+      ++wait;
+      switch (step) {
+        case 0:  // the menu (the game's start): the theme, faded in within a second
+          if (!showing(app, mw1::game_loop_menu()) || wait < 70) return false;
+          at_menu = theme() && m.playing && m.level >= 1.0f && m.starts == 1;
+          mw1::game_loop_menu()->screen()->on_button(mw1::kMenuNew, 0, 0);
+          ++step, wait = 0;
+          return false;
+        case 1:  // the intro: still the same one, then skipped
+          if (!showing(app, mw1::game_loop_intro()) || wait < 20) return false;
+          at_intro = theme() && m.starts == 1;
+          mw1::game_loop_intro()->escape();
+          ++step, wait = 0;
+          return false;
+        case 2:  // the hub: the same play (never restarted); then the office, the market and back
+          if (!showing(app, hub) || wait < 10) return false;
+          if (hub->screen()->visible(mw1::kHubOk)) return hub->screen()->on_button(mw1::kHubOk, 0, 0), wait = 0, false;
+          at_hub = theme() && m.starts == 1 && r.music->plays == 1;
+          plays_at_hub = r.music->plays, starts_at_hub = m.starts;
+          hub->screen()->on_button(mw1::kHubOffice, 0, 0);
+          ++step, wait = 0;
+          return false;
+        case 3: {  // the office: REQUEST, ACCEPT (back to the hub; each a screen change)
+          if (mw1::game_loop_contract() && mw1::game_loop_contract()->accepted && showing(app, hub)) return ++step, wait = 0, false;
+          mw1::OfficeState* os = mw1::game_loop_office();
+          if (!showing(app, os) || wait < 5) return false;
+          mw1::Mw1Screen* sc = os->screen();
+          if (!(mw1::game_loop_contract() && mw1::game_loop_contract()->accepted)) {
+            if (sc->visible(mw1::kOfficeRequest) && sc->enabled(mw1::kOfficeRequest)) return sc->on_button(mw1::kOfficeRequest, 0, 0), wait = 0, false;
+            if (sc->visible(mw1::kOfficeAccept) && sc->enabled(mw1::kOfficeAccept)) return sc->on_button(mw1::kOfficeAccept, 0, 0), wait = 0, false;
+          }
+          sc->on_button(mw1::kOfficeBack, 0, 0);
+          ++step, wait = 0;
+          return false;
+        }
+        case 4:  // the hub again, unchanged music; DEPLOY
+          if (!showing(app, hub) || wait < 10) return false;
+          kept = theme() && m.starts == starts_at_hub && r.music->plays == plays_at_hub;
+          if (!hub->screen()->visible(mw1::kHubDeploy)) return false;
+          hub->screen()->on_button(mw1::kHubDeploy, 0, 0);
+          ++step, wait = 0, frames = 0;
+          return false;
+        case 5: {  // the load and the mission: faded, then gone (PM's volume back); won
+          if (m.playing) lowest = std::min(lowest, m.level), faded = faded || (m.level > 0 && m.level < 1);
+          int32_t na = 0;
+          const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&na);
+          if (app.current() != &mech3::states().core || na == 0 || ++frames < 90) return false;
+          gone_in_mission = !theme() && !m.playing && m.volume == static_cast<int32_t>(mech3::cd_volume() * 65535.0f);
+          for (int32_t i = 0; i < na; ++i) {
+            auto* b = static_cast<mech3::ai::Brain*>(mech3::program_ai_mech_brain(ai[i].controls));
+            if (b && b->params.team() == 1) continue;
+            mech3::mech_hit_part(ai[i].mech, 6, 10000.0f);
+            mech3::program_mech_kill_credit(mech3::mech_mission_player(), ai[i].mech);
+          }
+          mech3::missions().ended = 1;
+          for (int i = app.depth(); i > 0; --i) app.pop(1);
+          app.replace(&mech3::states().ia_dummy, 0);
+          ++step, wait = 0;
+          return false;
+        }
+        case 6: {  // the results: the theme again (a second start), fading in
+          mw1::ResultsState* rs = mw1::game_loop_results();
+          if (!showing(app, rs) || wait < 20) return false;
+          back_after = theme() && m.starts == starts_at_hub + 1 && m.level > 0;
+          rs->screen()->on_button(mw1::kResultsContinue, 0, 0);
+          ++step, wait = 0;
+          return false;
+        }
+        case 7:  // the hub (AFTER ACTION's OK), then OPTIONS
+          if (!showing(app, hub) || wait < 10) return false;
+          if (hub->screen()->visible(mw1::kHubOk)) return hub->screen()->on_button(mw1::kHubOk, 0, 0), wait = 0, false;
+          hub->screen()->on_button(mw1::kHubOptions, 0, 0);
+          ++step, wait = 0, frames = 0;
+          return false;
+        case 8: {  // OPTIONS: MUSIC off (stopped, saved), the effects down twice (applied, saved), MUSIC on (back)
+          mw1::HubOptionsState* ho = mw1::game_loop_hub_options();
+          if (!showing(app, ho) || wait < 10) return false;
+          mw1::Mw1Screen* sc = ho->screen();
+          if (frames == 0) {
+            sc->on_button(mw1::kHubOptMusic, 0, 0);
+            frames = 1, wait = 0;
+            return false;
+          }
+          if (frames == 1) {
+            const mw1::SoundCfg saved = mw1::read_cfg(wd).sound;
+            off_stops = !theme() && !mw1::music::settings().on && mech3::cd_volume() == 0.0f;
+            off_saved = saved.music == 0 && saved.music_volume == 50;
+            const int32_t fx = mw1::music::settings().effects;
+            sc->on_button(mw1::kHubOptEffectsDown, 0, 0), sc->on_button(mw1::kHubOptEffectsDown, 0, 0);
+            effects_saved = mw1::read_cfg(wd).sound.effects_volume == fx - 2 * mw1::kVolumeStep &&
+                            std::lround(mech3::sound_frequency() * 100) == fx - 2 * mw1::kVolumeStep;
+            sc->on_button(mw1::kHubOptMusic, 0, 0);
+            frames = 2, wait = 0;
+            return false;
+          }
+          if (wait < 70) return false;
+          on_again = theme() && m.level >= 1.0f && mw1::read_cfg(wd).sound.music == 1 && std::lround(mech3::cd_volume() * 100) == 50;
+          sc->on_button(mw1::kHubOptBack, 0, 0);
+          ++step, wait = 0, frames = 0;
+          return false;
+        }
+        case 9:  // the hub's QUIT: asked; NO stays
+          if (!showing(app, hub) || wait < 10) return false;
+          if (frames == 0) {
+            EXPECT(hub->screen()->visible(mw1::kHubQuit) && hub->screen()->enabled(mw1::kHubQuit));
+            hub->screen()->on_button(mw1::kHubQuit, 0, 0);
+            frames = 1, wait = 0;
+            return false;
+          }
+          quit_stays = quit_asked && showing(app, hub) && theme();
+          ++step, wait = 0;
+          hub->screen()->on_button(mw1::kHubQuit, 0, 0);  // OK this time: PM's quit (its exit state)
+          return false;
+        case 10: return wait > 300;  // OK quits: the run ends here (r.game_ended), never this far
+        default: return true;
+      }
+      (void)c;
+    };
+    r.may_quit = true;
+    menu_run(r);
+    quits = step == 10 && r.game_ended;
+    mw1::set_map_table({});
+    std::printf("  menu %d, intro %d, hub %d, kept %d; mission: faded %d (lowest %.2f), gone %d; after %d; off %d saved %d, effects %d, "
+                "on %d; quit asked %d (%d boxes), NO stays %d, OK quits %d\n",
+                at_menu, at_intro, at_hub, kept, faded, lowest, gone_in_mission, back_after, off_stops, off_saved, effects_saved, on_again,
+                quit_asked, quit_boxes, quit_stays, quits);
+    EXPECT(at_menu && at_intro && at_hub && kept);
+    EXPECT(faded && gone_in_mission && back_after);
+    EXPECT(off_stops && off_saved && effects_saved && on_again);
+    EXPECT(quit_asked && quit_boxes == 2 && quit_stays && quits);
+  });
+}
