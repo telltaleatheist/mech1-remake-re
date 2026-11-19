@@ -698,6 +698,15 @@ Tick an item when it is merged into `main`.
   - It must fit at 1080p and 4:3.
 - **Done means:** shots at 1080p and 4:3, and mw1screenfit, labfit, hiresoff and smooth passing (update the goldens where the market changes).
 
+## 60. [ ] Confirm before buying a 'Mech
+- **Owen (2026-11-18):** "lets put up a verify prompt when they buy a mech. you want to buy [x]? ... y/n".
+- **Wanted:**
+  - BUY raises a box in the same style as the game's other boxes, e.g. "Buy the Firefly for 2,605,000 C-bills?", with YES and NO buttons. The Y and N keys work too, Enter means YES and Esc means NO.
+  - The purchase happens only on YES; NO leaves everything unchanged.
+  - The box covers the live 'Mech, as the quit box does.
+  - When the buy can't happen (not enough C-bills, the hangar full at 30), say why instead of asking.
+- **Done means:** a shot of the box at 1080p and 4:3, and a test that NO leaves the money and roster alone.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.
