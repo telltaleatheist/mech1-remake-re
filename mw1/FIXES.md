@@ -1093,7 +1093,7 @@ so this is an "mw1 (engine, ours)" change, used only with hires on.
   a boundary through the host and checks three recorded lines, drawn anti-aliased in their colour over the key. With
   the host's recording off, it fails.
 
-## 84. [x] A grudge fades *(waiting on Owen; branch mw1-grudge-fade, not merged)*
+## 84. [x] A grudge fades *(done: mw1-grudge-fade; Owen: yes)*
 The soak's decision A: MW1's 8 grievances against a House is a refusal, never forgiven, and each contract adds +2
 against the House fought. In 11 of 40 long seeds every House with an office came to refuse after 26 to 48
 contracts: the company was stranded with nothing money could buy. The lead's recommendation, ours not MW1's:
@@ -1107,7 +1107,7 @@ contracts: the company was stranded with nothing money could buy. The lead's rec
 - Tests: `mw1_office_a_grudge_fades_without_a_fight`; the soak now fails on "locked out" and prints the peak of
   Houses refusing at once (`MW1_GRUDGE_MONTHS=n` tries another rate).
 
-## 85. [x] A hire or a buy seats the lancemates *(waiting on Owen; branch mw1-auto-assign on mw1-grudge-fade, not merged)*
+## 85. [x] A hire or a buy seats the lancemates *(done: mw1-auto-assign; Owen: yes, the Mech Lab's slots rule, see 92)*
 The soak's decision B: a lancemate hired, or a 'Mech bought, wasn't put on anything; only the mech lab's lance
 assigned them, and a lancemate without a 'Mech doesn't fly. The lead's recommendation, ours not MW1's:
 - After a hire or a buy, each lancemate without a 'Mech takes the first spare in the hangar, in lance order
@@ -1136,6 +1136,17 @@ assigned them, and a lancemate without a 'Mech doesn't fly. The lead's recommend
 3. 20's rest: the offer's key facts highlighted.
 4. 12: high-resolution 2D (the jagged text). The approved plan is in the lead's notes to dev 1. Step 1 shots to the lead before step 2.
 5. 3 + 5: sweep every screen for anything still PM's.
+
+## 86. [x] The menu's title clear of the 'Mech's head *(done: mw1-menu-title-up; Owen picked "up")*
+On the main menu MECHWARRIOR's last letters sat on the 'Mech's head (at 16:9 the R, at 4:3 the O).
+- **The two choices:** both were built as real layouts behind a development switch (branch mw1-menu-title):
+  - "up": the title moved into the sky.
+  - "low": the picture recut 1.25 times closer, so the head sits under the title.
+- **Owen's pick, "up":** MW1MENUDIALOG and MW1MENUDIALOG_WIDE (mw1menu.zrd) now carry it. MECHWARRIOR and CRITICAL
+  HIT sit 38 canvas pixels higher, in the sky above the head: TITLE at y -4, SUBTITLE at y 58. The sky over the head
+  is only about 50 pixels, so the title sits near the top edge.
+- **Not merged:** the switch, the "low" layouts and their picture (title_bg_low, and mw1art.py's 1.25 cut).
+- **Shots:** at 1080p and 4:3, in outbox/2026-11-19/mw1-menu-title/ (menu-final-*).
 
 ## 91. [x] The lance-orders test, made solid *(done: mw1-lance-flake)*
 `mw1_loop_lance_orders_reach_each_of_three_headless` failed 1 in 3 for the lead at 87's merge. Lancemate 1 was ordered
