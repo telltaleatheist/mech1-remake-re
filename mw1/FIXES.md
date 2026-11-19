@@ -762,7 +762,7 @@ Tick an item when it is merged into `main`.
 - **Owen (2026-11-18):** "instead of pausing on the first frame for a second, lets just have it fade in from black for that second and then take off. no freeze frame. just be black for about a second, and then fade in from black as it flies away".
 - **Done (lead):** after the screen change it stays black and silent for kHoldSeconds (1.0). Then the motion and the sound start together, and the picture fades in from black over kFadeInSeconds (1.0) (mw1_movie.h fade_in_black, MovieState::black()). test_mw1_loop checks no picture during the hold, a part-fade during the motion, and none after it.
 
-## 66. [ ] The FOR SALE list's last row overlaps the box's bottom edge
+## 66. [x] The FOR SALE list's last row overlaps the box's bottom edge
 - **Owen (2026-11-18, in play):** "the mechs in the purchase list overlap with the buttom of the box". Eight rows: the eighth (Awesome) and its outline sit on the box's bottom border.
 - **Wanted:**
   - The visible rows end inside the box with a margin equal to the top one, so fewer rows show if needed; the arrows scroll.
