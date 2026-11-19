@@ -74,7 +74,6 @@
 #include "mw1_pilots.h"
 #include "mw1_results.h"
 #include "mw1_market_screen.h"
-#include "mw1_lab_pilot.h"
 #include "mw1_ladder.h"
 #include "mw1_menu.h"
 #include "mw1_office.h"
@@ -223,8 +222,10 @@ struct Run {
   int64_t market_bought_for = -1, market_sold_for = -1, market_funds = 0;
   bool lab_done = false;  // the Mech Complex's MECH LAB opened, refitted and closed
   int32_t lab_mech = -1, lab_stores = -1;
-  std::string lab_pilot, lab_pilot_after;  // its PILOT line as the lab opened, after the arrow
-  std::string lab_funds, lab_funds_want;   // the lab's funds as shown, and the company's then (FIXES.md item 41)
+  // FIXES 69: the lab's slots as it opened, your slot's mech then, whether YOUR MECHS listed the spare Firefly.
+  int lab_slots = -1, lab_before = -1;
+  bool lab_opened = false, lab_listed = false;
+  int lab_funds = -1;                      // the lab's texts naming funds (FIXES 69: none)
   int32_t briefing_mech = -1;
   // FIXES.md item 22: the pointer's picture's width on PM's screens as they show (the briefing, the lab), by screen
   // (MouseHost serves only MW1's pictures: PM's ring would be none, -1).
@@ -486,24 +487,27 @@ void loop_run(Ending ending, Run* run = nullptr) {
         click_phase = click_phase == 4 ? 0 : click_phase + 1;
         return;
       }
-      // The Mech Complex's MECH LAB (FIXES.md item 8): Pirate's Moon's lab over it, on the bought Firefly. A weapon
-      // taken off as the lab does (GameSlot::set_config with the store, taking: it goes to the stores); its PILOT
-      // line's right arrow clicked (nobody, then you); ACCEPT.
+      // The Mech Complex's MECH LAB (FIXES.md item 8): Pirate's Moon's lab over it, MECH LAB on the bought Firefly, a
+      // spare: FIXES 69, the lab on your slot, the Firefly in YOUR MECHS; picked there (yours now, MW3's way). A weapon
+      // taken off as the lab does (GameSlot::set_config with the store, taking: it goes to the stores); ACCEPT.
       if (run && run->market && !run->lab_done && app.current() == &mech3::states().lab) {
         if (++hub_frames < 20) return;
         hub_frames = 0;
-        const mw1::PilotChooser* who = mw1::game_loop_lab_pilot();
-        if (run->lab_pilot.empty()) {
-          run->lab_pilot = who ? who->shown() : "?";
-          const mw1::LabFunds* funds = mw1::game_loop_lab_funds();
-          run->lab_funds = funds ? funds->shown() : "?";
-          if (const mw1::Company* co = mw1::game_loop_company()) {
-            std::string d = std::to_string(co->funds), grouped;  // "1,029,000"
-            for (size_t k = 0; k < d.size(); ++k) grouped += (k && (d.size() - k) % 3 == 0 ? "," : "") + d.substr(k, 1);
-            run->lab_funds_want = grouped + " C-BILLS";
-          }
+        if (!run->lab_opened) {
+          run->lab_opened = true;
+          // FIXES 69: no funds on the lab (it spends nothing): no text of its screen names C-bills.
+          run->lab_funds = 0;
           mech3::Pilot* p = mech3::current_pilot();
           mech3::ActionGame* g = p ? p->action() : nullptr;
+          run->lab_slots = g ? g->slot_count() : -1;
+          run->lab_before = g ? g->slot.mech : -1;
+          if (mech3::LabScreen* ls = engine.lab_screen(mech3::states().lab.lab_screen_)) {
+            for (const mw1::FitText& f : mw1::fit_texts(*ls, 0, 0, {}))
+              if (f.text.find("C-BILLS") != std::string::npos || f.text == "FUNDS") ++run->lab_funds;
+            const int32_t row = ls->chassis.find_mech(mw1::kPmFirefly);
+            run->lab_listed = ls->chassis.mech_at(row) == mw1::kPmFirefly;
+            if (run->lab_listed) ls->chassis.select(row);
+          }
           run->lab_mech = g ? g->slot.mech : -1;
           if (g && g->slot.config && p->store()) {
             mech3::Config* fitted = mech3::pilot_hooks().config_copy(*g->slot.config);
@@ -516,9 +520,6 @@ void loop_run(Ending ending, Run* run = nullptr) {
             g->slot.set_config(fitted, p->store(), true);
             delete fitted;
           }
-          // The right arrow's middle (mw1_lab_pilot.h: the row kPilotFromRight from the 640 canvas's right edge).
-          click_x = 640 - mw1::kPilotFromRight + mw1::kRightArrowX + mw1::chrome::kSideArrowW / 2;
-          click_y = mw1::kPilotY + mw1::kArrowDy + mw1::chrome::kSideArrowH / 2, click_phase = 1;
           return;
         }
         // Item 40: the grouping page; a group's weapons in the order the player put them there.
@@ -564,7 +565,6 @@ void loop_run(Ending ending, Run* run = nullptr) {
           }
           run->page_after = ls->page;
         }
-        run->lab_pilot_after = who ? who->shown() : "?";
         run->lab_done = true;
         mech3::states().lab.accept();
         return;
@@ -664,8 +664,10 @@ void loop_run(Ending ending, Run* run = nullptr) {
             button(2);
             break;
           case 11:  // back from the lab: you pilot the Firefly, with its loadout; the weapon in the stores. BACK
-            EXPECT(run->lab_done && run->lab_mech == mw1::kPmFirefly && run->lab_pilot == "spare" && run->lab_pilot_after == "YOU");
-            EXPECT(!run->lab_funds_want.empty() && run->lab_funds == run->lab_funds_want);  // after the Firefly's price
+            // FIXES 69: you alone, one slot, on the Owens; the spare Firefly listed and picked.
+            EXPECT(run->lab_done && run->lab_slots == 1 && run->lab_before == mw1::kPmOwens && run->lab_listed);
+            EXPECT(run->lab_mech == mw1::kPmFirefly);
+            EXPECT(run->lab_funds == 0);  // FIXES 69: the lab shows no funds
             EXPECT(has("piloted by you") && c->mech == mw1::kPmFirefly && c->hangar.size() == 1 && c->hangar[0].mech == mw1::kPmOwens);
             EXPECT(c->loadout != nullptr && c->stores->count() == run->lab_stores + 1);
             run->market_done = true;
@@ -685,7 +687,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
         if (sc->visible(mw1::kBarCrew)) {
           // The Bar's menu first (MW1's): its page buttons, not the pages' own; YOUR LANCE not there (the hub's COMPANY).
           EXPECT(sc->loaded() && !sc->visible(mw1::kBarLance) && sc->visible(mw1::kBarBack) && !sc->visible(mw1::kBarHire) &&
-                 !sc->visible(mw1::kBarDone) && !sc->visible(mw1::kBarAssign));
+                 !sc->visible(mw1::kBarDone));
           sc->on_button(mw1::kBarHire, 0, 0);  // not on the menu: nothing
           sc->on_button(mw1::kBarLance, 0, 0);
           EXPECT(c->lance.empty() && sc->visible(mw1::kBarCrew));
@@ -711,19 +713,23 @@ void loop_run(Ending ending, Run* run = nullptr) {
           sc->on_button(mw1::kBarBack, 0, 0);
           return;
         }
-        // The hub's COMPANY (MW1's CREW_MENU): the grid alone, no Bar menu; up to the first, ASSIGN (the Firefly),
-        // down, ASSIGN (the Owens), ...; LEAVE back to the hub.
-        EXPECT(sc->loaded() && sc->visible(mw1::kBarAssign) && sc->visible(mw1::kBarDone) && !sc->visible(mw1::kBarBack) &&
-               !sc->visible(mw1::kBarHire));
-        for (int32_t i = 0; i < n; ++i) sc->on_button(mw1::kBarLanceUp, 0, 0);
-        for (int32_t i = 0; i < n; ++i) {
-          if (i) sc->on_button(mw1::kBarLanceDown, 0, 0);
-          sc->on_button(mw1::kBarAssign, 0, 0);
+        // The hub's COMPANY (MW1's CREW_MENU): the grid alone, no Bar menu; FIRE, PREV, NEXT, LEAVE and no ASSIGN
+        // (FIXES 69: the mech lab assigns): each lancemate given the hangar's mech in turn as the lab's ACCEPT does
+        // (apply_lance); down to the last; LEAVE back to the hub.
+        EXPECT(sc->loaded() && sc->visible(mw1::kBarFire) && sc->visible(mw1::kBarLanceUp) && sc->visible(mw1::kBarLanceDown) &&
+               sc->visible(mw1::kBarDone) && !sc->visible(mw1::kBarBack) && !sc->visible(mw1::kBarHire));
+        for (int32_t id = 1; id <= mw1::kBarButtonCount; ++id) EXPECT(std::string(mw1::bar_button_name(id)) != "ASSIGN");
+        {
+          std::vector<int32_t> slots = {0};
+          std::vector<std::shared_ptr<mech3::Config>> loadouts(c->hangar.size() + 1);
+          for (int32_t i = 0; i < n; ++i) slots.push_back(i + 1);
+          EXPECT(mw1::apply_lance(*c, slots, loadouts));
+          for (int32_t i = 0; i < n; ++i) sc->on_button(mw1::kBarLanceDown, 0, 0);  // each shows the grid again
         }
         for (const std::string& l : sc->shown()) run->bar_after.push_back(l);
         EXPECT(static_cast<int32_t>(c->lance.size()) == n && c->recruits.empty() && mw1::mech_of(*c, 0) == 0 && mw1::mech_of(*c, 1) == 1);
         EXPECT(mw1::lance_weight(*c) == 1 + n);  // the Owens and the light mechs, 1 each
-        EXPECT(!sc->visible(mw1::kBarHire) && sc->enabled(mw1::kBarFire) && sc->enabled(mw1::kBarAssign));
+        EXPECT(!sc->visible(mw1::kBarHire) && sc->enabled(mw1::kBarFire));
         // MW1's grid: you first, then each lancemate's portrait and mech; the chosen one's (the last) frame lit.
         EXPECT(sc->picture(mw1::kBarPanelColumnPortrait) == mw1::commander_image(true) &&
                sc->picture(mw1::kBarPanelColumnPortrait + 2) == mw1::portrait_image(c->lance[1].id, true) &&
@@ -3626,7 +3632,6 @@ TEST(mw1_soak_twenty_contracts_through_the_hub_headless) {
         if (a == 7) sc->on_button(mw1::kBarCrew, 0, 0);       // the pages (each button only where it shows)
         else if (a == 8) sc->on_button(mw1::kBarLance, 0, 0);
         else if (a == 0 && sc->enabled(mw1::kBarHire)) sc->on_button(mw1::kBarHire, 0, 0);
-        else if (a == 1 && sc->enabled(mw1::kBarAssign)) sc->on_button(mw1::kBarAssign, 0, 0);
         else if (a == 2 && sc->enabled(mw1::kBarFire) && roll(3) == 0) sc->on_button(mw1::kBarFire, 0, 0);
         else if (a == 3 && sc->enabled(mw1::kBarDrink)) sc->on_button(mw1::kBarDrink, 0, 0);
         else if (a == 4 && sc->enabled(mw1::kBarNews)) sc->on_button(mw1::kBarNews, 0, 0);

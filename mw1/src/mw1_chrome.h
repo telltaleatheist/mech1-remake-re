@@ -176,17 +176,24 @@ std::vector<Drawn> lab_panels_at(const uint8_t* rgba, int32_t sw, int32_t sh, in
 struct LabBox { int32_t x0, y0, x1, y1; };
 inline constexpr int32_t kLabTrayY = 414;
 // The tray's four buttons (FIXES.md item 29): the chassis, criticals and groups pages' icons and ACCEPT (LabScreen's
-// tabs 0, 3, 4, 6), one size, kLabTabY down the layout, spread evenly across the panels' span (kLabTabSpan0..1, each
-// in its quarter's middle); mw1_game.cpp places them, mw1_lab_fit.h checks them.
+// tabs 0, 3, 4, 6), one size, kLabTabY down the layout, in pairs at the ends of the panels' span (kLabTabSpan0..1,
+// lab_tab_x; FIXES 70); mw1_game.cpp places them, mw1_lab_fit.h checks them.
 // Each button's HELP label (its hover words, PM's layout's) centred above it, kLabHelpY down, kLabHelpH high: between
 // the tray's line and the button, clear of both (FIXES.md item 37; the buttons 48 high, not item 29's 52, for its room).
 inline constexpr int32_t kLabHelpY = kLabTrayY + 2, kLabHelpH = 11;
 inline constexpr int32_t kLabTabW = 60, kLabTabH = 48, kLabTabY = kLabHelpY + kLabHelpH + 2;
 inline constexpr int32_t kLabTabSpan0 = 6, kLabTabSpan1 = 634;
 inline constexpr int32_t kLabTabPages[4] = {0, 3, 4, 6};
+// FIXES 70 (Owen, option A): in pairs at the tray's ends, the chassis and criticals buttons at the left, groups and
+// ACCEPT at the right, kLabTabEdge in from the span's ends and kLabTabPairGap apart; the middle clear for the warnings.
+inline constexpr int32_t kLabTabEdge = 14, kLabTabPairGap = 16;
 inline constexpr int32_t lab_tab_x(int32_t i) {
-  return kLabTabSpan0 + (kLabTabSpan1 - kLabTabSpan0) * (2 * i + 1) / 8 - kLabTabW / 2;
+  return i < 2 ? kLabTabSpan0 + kLabTabEdge + i * (kLabTabW + kLabTabPairGap)
+               : kLabTabSpan1 - kLabTabEdge - kLabTabW - (3 - i) * (kLabTabW + kLabTabPairGap);
 }
+// FIXES 70: the lab's warnings (MESSAGE_AREA; PM's place, under the tray's line, put them behind its buttons) in the
+// tray's middle, between the pairs, wrapped in a kLabWarnW x kLabWarnH box centred on the layout, from the buttons' top.
+inline constexpr int32_t kLabWarnW = 300, kLabWarnH = 39, kLabWarnY = kLabTabY;
 inline constexpr LabBox kLabSideUpper = {6, 6, 214, 242}, kLabSideLower = {6, 248, 214, 410}, kLabSideWhole = {6, 6, 214, 410};
 inline constexpr LabBox kLabCentreBox = {226, 280, 414, 410};  // in the 640 layout (the centre panel's image at 220)
 // The selection bar (lab_text_glow, 207x45, PM's OFFSET -17, -15 from the row): its solid edge kBarEdge wide just

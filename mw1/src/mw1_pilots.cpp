@@ -198,27 +198,6 @@ int32_t mech_of(const Company& c, int32_t i) {
   return -1;
 }
 
-bool assign(Company& c, int32_t i) {
-  if (i < 0 || i >= static_cast<int32_t>(c.lance.size())) return false;
-  const int32_t id = c.lance[static_cast<size_t>(i)].id;
-  const int32_t from = mech_of(c, i);
-  unassign(c, id);
-  for (int32_t h = from + 1; h < static_cast<int32_t>(c.hangar.size()); ++h)
-    if (c.hangar[static_cast<size_t>(h)].pilot == 0) {
-      c.hangar[static_cast<size_t>(h)].pilot = id;
-      return true;
-    }
-  return true;  // past the last: none
-}
-
-std::vector<int32_t> pilot_choices(const Company& c, int32_t owned) {
-  if (owned == 0) return {kCommander};
-  if (owned < 0 || owned > static_cast<int32_t>(c.hangar.size())) return {};
-  std::vector<int32_t> out = {kNobody, kCommander};
-  for (const Lancemate& m : c.lance) out.push_back(m.id);
-  return out;
-}
-
 int32_t pilot_now(const Company& c, int32_t owned) {
   if (owned == 0) return kCommander;
   if (owned < 0 || owned > static_cast<int32_t>(c.hangar.size())) return kNobody;
@@ -226,20 +205,43 @@ int32_t pilot_now(const Company& c, int32_t owned) {
   return id ? id : kNobody;
 }
 
-bool set_pilot(Company& c, int32_t owned, int32_t who) {
-  const std::vector<int32_t> can = pilot_choices(c, owned);
-  if (std::find(can.begin(), can.end(), who) == can.end()) return false;
-  if (owned == 0 || who == pilot_now(c, owned)) return true;
-  OwnedMech& o = c.hangar[static_cast<size_t>(owned - 1)];
-  if (who == kCommander) {
-    std::swap(c.mech, o.mech);
-    std::swap(c.loadout, o.loadout);
-  } else if (who == kNobody) {
-    o.pilot = 0;
-  } else {
-    unassign(c, who);
-    o.pilot = who;
+std::vector<int32_t> lance_slots(const Company& c) {
+  std::vector<int32_t> out = {0};
+  for (size_t i = 0; i < c.lance.size(); ++i) {
+    const int32_t h = mech_of(c, static_cast<int32_t>(i));
+    out.push_back(h < 0 ? -1 : h + 1);
   }
+  return out;
+}
+
+int32_t free_owned(const Company& c, const std::vector<int32_t>& slots, int32_t mech) {
+  for (int32_t i = 0; i <= static_cast<int32_t>(c.hangar.size()); ++i) {
+    const int32_t m = i == 0 ? c.mech : c.hangar[static_cast<size_t>(i - 1)].mech;
+    if (m == mech && std::find(slots.begin(), slots.end(), i) == slots.end()) return i;
+  }
+  return -1;
+}
+
+bool apply_lance(Company& c, const std::vector<int32_t>& slots, const std::vector<std::shared_ptr<mech3::Config>>& loadouts) {
+  const int32_t owned = static_cast<int32_t>(c.hangar.size()) + 1;
+  if (slots.size() != c.lance.size() + 1 || loadouts.size() != static_cast<size_t>(owned)) return false;
+  if (slots[0] < 0 || slots[0] >= owned) return false;
+  for (size_t k = 0; k < slots.size(); ++k) {
+    if (slots[k] >= owned) return false;
+    if (slots[k] >= 0 && std::count(slots.begin(), slots.end(), slots[k]) > 1) return false;
+  }
+  // Owned index o before, its index after: the commander's (0) and slot 0's change places.
+  const int32_t you = slots[0];
+  auto after = [&](int32_t o) { return o == you ? 0 : o == 0 ? you : o; };
+  const int32_t old_mech = c.mech;
+  if (you != 0) c.mech = c.hangar[static_cast<size_t>(you - 1)].mech, c.hangar[static_cast<size_t>(you - 1)].mech = old_mech;
+  for (int32_t o = 0; o < owned; ++o) {
+    const int32_t a = after(o);
+    (a == 0 ? c.loadout : c.hangar[static_cast<size_t>(a - 1)].loadout) = loadouts[static_cast<size_t>(o)];
+  }
+  for (OwnedMech& m : c.hangar) m.pilot = 0;
+  for (size_t k = 1; k < slots.size(); ++k)
+    if (slots[k] >= 0) c.hangar[static_cast<size_t>(after(slots[k]) - 1)].pilot = c.lance[k - 1].id;
   return true;
 }
 

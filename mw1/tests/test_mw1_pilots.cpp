@@ -13,6 +13,8 @@
 #include <string>
 #include <vector>
 
+#include "mech3/mech_config.h"
+
 #include "check.h"
 #include "mech3/pilot.h"
 #include "mw1_install.h"
@@ -121,20 +123,54 @@ TEST(mw1_pilots_hire_fire_assign) {
   EXPECT(mw1::hire(c, 0) == mw1::Hire::kDone && mw1::hire(c, 0) == mw1::Hire::kDone && c.lance.size() == 3);
   // Full: refused, the offer used all the same.
   EXPECT(mw1::hire(c, 0) == mw1::Hire::kFull && c.lance.size() == 3 && c.recruits.size() == 1 && c.pilots[7].where == mw1::PilotWhere::kFree);
-  // ASSIGN: through the hangar's free mechs, then none.
+  // The lance assigned (FIXES 69: in the mech lab, apply_lance): the Firefly and the Centurion, the third none.
   mw1::OwnedMech a, b;
   a.mech = mw1::kPmFirefly, b.mech = mw1::kPmCenturion;
   c.hangar = {a, b};
-  EXPECT(mw1::mech_of(c, 0) == -1 && mw1::assign(c, 0) && mw1::mech_of(c, 0) == 0);
-  EXPECT(mw1::assign(c, 1) && mw1::mech_of(c, 1) == 1);  // the Firefly taken: the Centurion
-  EXPECT(mw1::assign(c, 2) && mw1::mech_of(c, 2) == -1);  // none free
-  EXPECT(mw1::assign(c, 0) && mw1::mech_of(c, 0) == -1);  // past the last: none
-  EXPECT(mw1::assign(c, 2) && mw1::mech_of(c, 2) == 0);
+  const std::vector<std::shared_ptr<mech3::Config>> stock(3);
+  EXPECT(mw1::mech_of(c, 0) == -1 && mw1::lance_slots(c) == std::vector<int32_t>({0, -1, -1, -1}));
+  EXPECT(mw1::apply_lance(c, {0, 1, 2, -1}, stock) && mw1::mech_of(c, 0) == 0 && mw1::mech_of(c, 1) == 1 && mw1::mech_of(c, 2) == -1);
+  EXPECT(mw1::apply_lance(c, {0, -1, 2, 1}, stock) && mw1::mech_of(c, 0) == -1 && mw1::mech_of(c, 2) == 0);
   // The lance weight: the Owens 1, the Firefly 1, the Centurion 2.
   EXPECT(mw1::lance_weight(c) == 1 + 1 + 2);
   // FIRE: back to the pool, the mech free.
   EXPECT(mw1::fire(c, 2) && c.lance.size() == 2 && c.pilots[5].where == mw1::PilotWhere::kFree && c.hangar[0].pilot == 0);
   EXPECT(!mw1::fire(c, 5));
+}
+
+// FIXES 69: the mech lab's lance (Owen: assignment in the lab, MW3's way). Its slots (you, then each lancemate), the
+// mech a slot can take (the same chassis by owned order), and the lab's lance made the company's: you on another mech
+// (your old one in its place), the lancemates on theirs, each mech's loadout kept with it.
+TEST(mw1_pilots_lab_lance) {
+  mw1::Company c = company();
+  c.mech = mw1::kPmOwens;
+  c.recruits = {1, 3};
+  EXPECT(mw1::hire(c, 0) == mw1::Hire::kDone && mw1::hire(c, 0) == mw1::Hire::kDone);
+  mw1::OwnedMech a, b, d;
+  a.mech = mw1::kPmFirefly, b.mech = mw1::kPmCenturion, d.mech = mw1::kPmFirefly;
+  b.pilot = c.lance[0].id;
+  c.hangar = {a, b, d};
+  EXPECT(mw1::lance_slots(c) == std::vector<int32_t>({0, 2, -1}));
+  // The same chassis by owned order: the first Firefly free, then the second; a taken one never.
+  EXPECT(mw1::free_owned(c, {0, 2, -1}, mw1::kPmFirefly) == 1 && mw1::free_owned(c, {0, 2, 1}, mw1::kPmFirefly) == 3);
+  EXPECT(mw1::free_owned(c, {0, 2, -1}, mw1::kPmCenturion) == -1 && mw1::free_owned(c, {1, 2, -1}, mw1::kPmOwens) == 0);
+  // Each owned mech's loadout (by its owned index before): told apart by their mech number.
+  auto loadout = [](int32_t m) {
+    return std::make_shared<mech3::Config>(m, "");
+  };
+  std::vector<std::shared_ptr<mech3::Config>> loads = {loadout(100), loadout(101), loadout(102), loadout(103)};
+  // You take the second Firefly; the first lancemate the Owens (your old one); the second the Centurion.
+  EXPECT(mw1::apply_lance(c, {3, 0, 2}, loads));
+  EXPECT(c.mech == mw1::kPmFirefly && c.loadout && c.loadout->mech == 103);
+  EXPECT(c.hangar.size() == 3 && c.hangar[2].mech == mw1::kPmOwens && c.hangar[2].loadout->mech == 100);
+  EXPECT(c.hangar[0].mech == mw1::kPmFirefly && c.hangar[0].loadout->mech == 101 && c.hangar[0].pilot == 0);
+  EXPECT(c.hangar[1].mech == mw1::kPmCenturion && c.hangar[1].loadout->mech == 102);
+  EXPECT(mw1::mech_of(c, 0) == 2 && mw1::mech_of(c, 1) == 1);
+  // Refused, nothing changed: you without a mech, a mech in two slots, the wrong sizes.
+  const mw1::Company before = c;
+  EXPECT(!mw1::apply_lance(c, {-1, 0, 2}, loads) && !mw1::apply_lance(c, {0, 1, 1}, loads));
+  EXPECT(!mw1::apply_lance(c, {0, 1}, loads) && !mw1::apply_lance(c, {0, 1, 2}, {nullptr}) && !mw1::apply_lance(c, {0, 4, 2}, loads));
+  EXPECT(c.mech == before.mech && c.hangar[2].mech == before.hangar[2].mech && mw1::mech_of(c, 0) == 2);
 }
 
 TEST(mw1_pilots_wages_warning_and_leaving) {
@@ -320,7 +356,7 @@ TEST(mw1_pilots_lance_weight_makes_the_offer_harder) {
     o.mech = mech;
     c.hangar.push_back(o);
   }
-  for (int i = 0; i < 3; ++i) mw1::assign(c, i);
+  for (size_t i = 0; i < 3; ++i) c.hangar[i].pilot = c.lance[i].id;  // each on a mech (the lab assigns: FIXES 69)
   const mw1::Contract lance = mw1::generate_contract(c, 0, r2);
   auto names = [](const mw1::Contract& k) {
     std::string s;
@@ -341,7 +377,7 @@ TEST(mw1_pilots_saved_and_a_version_3_save_read) {
   mw1::OwnedMech o;
   o.mech = mw1::kPmFirefly;
   c.hangar.push_back(o);
-  mw1::assign(c, 1);
+  c.hangar[0].pilot = c.lance[1].id;  // J. Holmaas on the Firefly
   c.pilots[1].missions = 2, c.pilots[5].where = mw1::PilotWhere::kDead, c.pilots[7].gunnery = c.pilots[7].piloting = 2;
   c.wage_warned = true;
   const std::string text = mw1::save_text(c, nullptr);

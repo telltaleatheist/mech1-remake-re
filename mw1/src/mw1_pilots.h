@@ -61,18 +61,20 @@ const char* hire_words(Hire h);
 Hire hire(Company& c, int32_t recruit);
 // FIRE lancemate i (29E3): back to the pool, their mech free.
 bool fire(Company& c, int32_t lancemate);
-// ASSIGN lancemate i (MW1's crew menu): to the next hangar mech nobody pilots, after theirs; past the last, none.
-bool assign(Company& c, int32_t lancemate);
 int32_t mech_of(const Company& c, int32_t lancemate);  // the hangar index of their mech, -1 none
-// The mech lab's PILOT (FIXES.md item 8: Owen's, the market's PILOT moved there), by owned mech (mw1_market.h's
-// owned_mech: 0 the commander's, then the hangar's). Who can drive it: the commander's mech only you (you move by
-// choosing YOU on another mech); a hangar mech nobody (-1, a spare), you (0) or a lancemate (their id). Who does now.
-// The choice made: YOU swaps the commander's mech for it (the lancemate on it, if any, takes the old one); a
-// lancemate leaves the mech they had (a spare after) and whoever had this one is unassigned.
+// Who pilots owned mech `owned` (mw1_market.h's owned_mech: 0 the commander's, then the hangar's): the commander (0)
+// their own, a lancemate (their id) or nobody (-1, a spare) a hangar one's.
 inline constexpr int32_t kNobody = -1, kCommander = 0;
-std::vector<int32_t> pilot_choices(const Company& c, int32_t owned);
 int32_t pilot_now(const Company& c, int32_t owned);
-bool set_pilot(Company& c, int32_t owned, int32_t who);
+// FIXES 69 (Owen: assignment in the mech lab, MW3's way): the lab's lance, one slot per pilot, slot 0 the
+// commander's, slot k lance[k - 1]'s; each the owned mech in it (0 the commander's, then the hangar's from 1), -1 none.
+std::vector<int32_t> lance_slots(const Company& c);
+// The owned mech of chassis `mech` a slot can take: the first, in owned order, in none of `slots`; -1 none.
+int32_t free_owned(const Company& c, const std::vector<int32_t>& slots, int32_t mech);
+// The lab's lance made the company's: slot 0's mech the commander's (the one it had takes that one's place in the
+// hangar), each lancemate on their slot's mech, none on the rest; `loadouts` each owned mech's (by its owned index
+// before), null its stock one. False (nothing changed) when slot 0 is none, two slots share a mech, or a size is off.
+bool apply_lance(Company& c, const std::vector<int32_t>& slots, const std::vector<std::shared_ptr<mech3::Config>>& loadouts);
 int32_t lance_weight(const Company& c);                // MW1's lance weight: the commander's mech and the assigned ones
 
 // Wages (DS:2476, by the wage tier) a month. Charged as the calendar's months begin (advance_time): the company

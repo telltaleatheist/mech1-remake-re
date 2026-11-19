@@ -261,6 +261,10 @@ int32_t LabChassisList::mech_at(int32_t index) {
 
 // Mech3.exe 1.2 @ 0x00449a80
 int32_t LabChassisList::find_mech(int32_t mech) {
+  // Ours (FIXES 69, Engine::lab_no_mech_any): none is the "no mech" row (the exe's: row 0, whatever the sort put there).
+  if (mech < 0 && e_.lab_no_mech_any())
+    for (int32_t i = 0; i < item_count(); ++i)
+      if (items[static_cast<size_t>(i)]->value == 0) return i;
   for (int32_t i = 0; i < item_count(); ++i) {
     const ConfigItem* it = e_.item_of(static_cast<Handle>(items[static_cast<size_t>(i)]->value));
     if (it && it->kind() == 0 && it->id() == mech) return i;
@@ -287,7 +291,8 @@ void LabChassisList::refill() {
   if (!slot) return;
   const int32_t mech = e.lab_slot_mech(slot);
   // Pirate's Moon 1.0 @ 0x0044a6df: either campaign's lancemates can go without a mech.
-  if (e.pilot() && (e.pilot_campaign(e.pilot()) || e.pilot_standalone()) && lab.slot_ != 0)
+  // Ours (FIXES 69, Engine::lab_no_mech_any): any game's, when a program asks.
+  if (e.pilot() && (e.pilot_campaign(e.pilot()) || e.pilot_standalone() || e.lab_no_mech_any()) && lab.slot_ != 0)
     add_item(e.message(0x23d), 0);
   int32_t found = 0;
   if (Store* s = store ? e.store_of(store) : nullptr) {
@@ -310,6 +315,8 @@ void LabChassisList::refill() {
   const int32_t by = sort;
   vc6_sort(items.begin(), items.end(),
            [&](const Item* a, const Item* b) { return chassis_before(e, by, mech_of(a), mech_of(b)); });
+  // Ours (FIXES 69, Engine::lab_no_mech_any): the shown slot's row found after the sort (the exe's index is before it).
+  if (e.lab_no_mech_any()) found = find_mech(mech);
   FileList::select(found);  // 0x0048d0d0
 }
 

@@ -105,6 +105,32 @@ images::Image slot_icon(const std::string& name, const zimg::Texture& t, SlotLoo
   return tinted(name, t, 1, t.width, t.height, c.r, c.g, c.b);
 }
 
+std::string blank_slot_image(SlotLook look) {
+  return std::string("mw1_slot_none") + (look == SlotLook::kLit ? "_lit" : look == SlotLook::kOff ? "_off" : "");
+}
+
+images::Image blank_slot(SlotLook look) {
+  const outline::Colour c = slot_colour(look);
+  images::Image out;
+  out.name = blank_slot_image(look);
+  out.width = kBlankSlotW, out.height = kBlankSlotH;
+  out.pixels.assign(static_cast<size_t>(kBlankSlotW * kBlankSlotH), 0);
+  out.alpha.assign(out.pixels.size(), 0);
+  // The frame 3 in from the edge, dashed 4 on, 3 off from each corner.
+  constexpr int32_t kIn = 3, kOn = 4, kOff = 3;
+  auto put = [&](int32_t x, int32_t y) {
+    const size_t i = static_cast<size_t>(y * kBlankSlotW + x);
+    out.pixels[i] = images::rgb565(c.r, c.g, c.b), out.alpha[i] = 255;
+  };
+  for (int32_t x = kIn; x < kBlankSlotW - kIn; ++x)
+    if ((x - kIn) % (kOn + kOff) < kOn || (kBlankSlotW - kIn - 1 - x) % (kOn + kOff) < kOn)
+      put(x, kIn), put(x, kBlankSlotH - kIn - 1);
+  for (int32_t y = kIn; y < kBlankSlotH - kIn; ++y)
+    if ((y - kIn) % (kOn + kOff) < kOn || (kBlankSlotH - kIn - 1 - y) % (kOn + kOff) < kOn)
+      put(kIn, y), put(kBlankSlotW - kIn - 1, y);
+  return out;
+}
+
 images::Image amber_icon(const std::string& name, const zimg::Texture& t) {
   return tinted(name, t, kIconScale, kIconSlotW, kIconSlotH, 255, 176, 64);
 }
@@ -148,6 +174,7 @@ int32_t make_mech_icons(const std::string& write_dir) {
     zimg::free_texture(t);
   }
   if (mechs == 0) return 0;
+  for (SlotLook l : {SlotLook::kDim, SlotLook::kLit, SlotLook::kOff}) made.push_back(blank_slot(l));
   std::string why;
   const std::vector<uint8_t> bytes = images::pack(made, &why);
   if (!why.empty()) return 0;

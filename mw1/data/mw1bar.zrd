@@ -9,7 +9,8 @@
 ;   (FIXES.md item 68: no DECLINE);
 ; - YOUR LANCE, MW1's crew grid: a column each for you and the lancemates
 ;   (the portrait, the rows, the mech's picture), the chosen one's frame lit;
-;   FIRE, ASSIGN, PREV, NEXT, DONE down the left.
+;   FIRE, PREV, NEXT, DONE down the left (FIXES 69: no ASSIGN; the mech
+;   lab assigns).
 ; The plaques: the world and its House; the place and the company's funds.
 ; All MW1's own art (mw1image.zbd): nothing of Pirate's Moon's (FIXES.md item
 ; 5; tests/test_mw1_look.cpp). The portraits and mechs are named per view.
@@ -50,17 +51,16 @@ MW1BARDIALOG (
     ; The pages' buttons down the left (MW1's way); the menu's in its panel. Their ids are mw1_bar_screen.h's.
     HIRE (POSITION (12 84) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 90) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
     FIRE (POSITION (12 84) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 90) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
-    ASSIGN (POSITION (12 122) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 128) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
     BACK (POSITION (428 394) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (520 400) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
     RECRUIT_UP (POSITION (12 122) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 128) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
     RECRUIT_DOWN (POSITION (12 160) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 166) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
-    LANCE_UP (POSITION (12 160) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 166) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
-    LANCE_DOWN (POSITION (12 198) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 204) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    LANCE_UP (POSITION (12 122) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 128) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    LANCE_DOWN (POSITION (12 160) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 166) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
     DRINK (POSITION (428 242) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (520 248) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
     NEWS (POSITION (428 280) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (520 286) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
     CREW (POSITION (428 318) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (520 324) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
     LANCE (POSITION (428 356) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (520 362) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
-    DONE (POSITION (12 236) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 242) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    DONE (POSITION (12 198) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 204) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
   )
   TEXTS (
     PLANET (POSITION (162 15) FONT ("mw1_plaque"))
@@ -114,17 +114,16 @@ MW1BARDIALOG_WIDE (
     ; The pages' buttons down the left (MW1's way); the menu's in its panel. Their ids are mw1_bar_screen.h's.
     HIRE (POSITION (16 84) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 90) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
     FIRE (POSITION (16 84) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 90) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
-    ASSIGN (POSITION (16 122) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 128) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
     BACK (POSITION (637 394) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (729 400) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("RIGHT"))
     RECRUIT_UP (POSITION (16 122) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 128) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
     RECRUIT_DOWN (POSITION (16 160) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 166) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
-    LANCE_UP (POSITION (16 160) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 166) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
-    LANCE_DOWN (POSITION (16 198) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 204) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    LANCE_UP (POSITION (16 122) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 128) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    LANCE_DOWN (POSITION (16 160) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 166) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
     DRINK (POSITION (637 242) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (729 248) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("RIGHT"))
     NEWS (POSITION (637 280) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (729 286) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("RIGHT"))
     CREW (POSITION (637 318) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (729 324) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("RIGHT"))
     LANCE (POSITION (637 356) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (729 362) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("RIGHT"))
-    DONE (POSITION (16 236) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 242) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    DONE (POSITION (16 198) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 204) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
   )
   TEXTS (
     PLANET (POSITION (166 15) FONT ("mw1_plaque"))
