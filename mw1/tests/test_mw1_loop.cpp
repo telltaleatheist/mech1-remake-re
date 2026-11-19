@@ -4110,7 +4110,10 @@ void lance_orders_run(const char* name, int32_t count, bool reload) {
     int32_t strays = 0, steps_left = 0, w_presses = 0;
     std::string ordering;                  // the lancemate the attack is for
     void* enemy = nullptr;
-    std::map<std::string, float> start_gap, end_gap;  // to the enemy at the order, and 600 frames on
+    // To the enemy at the order, and then the nearest it came: checked each 300 frames from 600 until it has closed
+    // 30 m, up to 1800 (one may path round the ground first: 148 m walked and farther at 600 frames, seen in a full run).
+    std::map<std::string, float> start_gap, end_gap;
+    std::map<std::string, int32_t> took;  // frames to close
     int32_t ordered_at = 0;
     size_t next_mate = 0;
     run.in_mission = [&](int32_t f) {
@@ -4160,12 +4163,18 @@ void lance_orders_run(const char* name, int32_t count, bool reload) {
           if (pilot_of(ai[k].mech) == ordering) start_gap[ordering] = ground_distance(ai[k].mech, enemy);
         return true;
       }
-      if (!ordering.empty() && f - ordered_at == 600) {
+      if (!ordering.empty() && f - ordered_at >= 600 && (f - ordered_at) % 300 == 0) {
         int32_t n = 0;
         const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+        bool there = false;
         for (int32_t k = 0; k < n; ++k)
-          if (pilot_of(ai[k].mech) == ordering) end_gap[ordering] = ground_distance(ai[k].mech, enemy);
-        ordering.clear(), ++next_mate;
+          if (pilot_of(ai[k].mech) == ordering) {
+            const float g = ground_distance(ai[k].mech, enemy);
+            end_gap[ordering] = end_gap.count(ordering) ? std::min(end_gap[ordering], g) : g;
+            there = true;
+          }
+        const bool closed = !there || end_gap[ordering] < start_gap[ordering] - 30;  // gone: destroyed on the way
+        if (closed || f - ordered_at >= 1800) took[ordering] = f - ordered_at, ordering.clear(), ++next_mate;
       }
       return next_mate < mates.size() || !ordering.empty() || steps_left-- > 0;
     };
@@ -4178,8 +4187,9 @@ void lance_orders_run(const char* name, int32_t count, bool reload) {
     EXPECT(strays == 0);
     for (const std::string& m : mates) {
       const float a = start_gap.count(m) ? start_gap[m] : -1, b = end_gap.count(m) ? end_gap[m] : -1;
-      std::printf("  lancemate %zu: attack orders %d, to the enemy %.0f m, then %.0f m\n",
-                  static_cast<size_t>(std::find(mates.begin(), mates.end(), m) - mates.begin()) + 1, reached[m], a, b);
+      std::printf("  lancemate %zu: attack orders %d, to the enemy %.0f m, then %.0f m (%d frames)\n",
+                  static_cast<size_t>(std::find(mates.begin(), mates.end(), m) - mates.begin()) + 1, reached[m], a, b,
+                  took.count(m) ? took[m] : -1);
       EXPECT(reached[m] == 1);
       EXPECT(a > 0 && (b < 0 || b < a - 30));  // walked at it (or destroyed on the way: gone from the list)
     }
