@@ -99,7 +99,7 @@ std::vector<std::string> log_lines(const Company& c, const LogEntry& e) {
       }
       return {"A mission."};
     case LogKind::kRepairs:
-      if (e.m <= 0) return {"Repairs: " + thousands(e.n) + " C-bills, paid from the wrecks."};
+      if (e.m <= 0) return {"Repairs: " + thousands(e.n) + " C-bills, paid from salvage."};
       return {"Repairs: " + thousands(e.n) + " C-bills; billed " + thousands(e.m) +
               (e.a > 0 ? " (" + thousands(int64_t{e.a} * 1000) + " forgiven)" : std::string()) + "."};
     case LogKind::kWagesPaid: return {"Wages paid: " + thousands(e.n) + " C-bills."};  // item 73: commas, as the rest

@@ -1829,35 +1829,31 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (!objective.empty()) p.where.push_back(objective);
     p.where.push_back(std::string(success ? "Accomplished" : a.outcome == Outcome::kFailure ? "Failed" : "Withdrew") + " in " +
                       time_words(a.seconds));
-    // PAYMENT (FIXES.md item 51): the wrecks' worth less the repairs, the salvage term on what's left, the fee (any
-    // deduction on both), the total and the funds. Each mech's repairs in DETAILS.
+    // PAYMENT (FIXES.md items 51 and 57): the repairs in plain words (paid from the wrecks' worth first, the rest
+    // billed: one line, the mech's or the lance's total; each mech's in DETAILS), the salvage term on what's left, the
+    // fee (any deduction on both), the total and the funds.
     const bool docked = s.payout_percent < 100 && success;
     const std::string dock = !docked ? "" : s.payout_percent ? " (" + std::to_string(s.payout_percent) + "% paid)" : " (withheld)";
     const SalvageSum& sum = rep.sum;
+    p.repairs = repair_line_choices(rep);
     if (success) {
-      if (sum.repairs == 0) p.pay.push_back("Wrecks " + thousands(sum.pool) + ", no repairs");
-      else if (sum.beyond == 0)
-        p.pay.push_back("Wrecks " + thousands(sum.pool) + " - repairs " + thousands(sum.repairs) + " = " + thousands(sum.left));
-      else  // past the pool: the rest billed, no salvage (two lines: the narrow 4:3 panel)
-        p.pay.push_back("Wrecks " + thousands(sum.pool) + " - repairs " + thousands(sum.repairs)),
-            p.pay.push_back("Billed " + thousands(sum.beyond) + (rep.forgiven ? " (" + thousands(rep.forgiven) + " forgiven)" : "") +
-                            ", no salvage left");
-      if (sum.beyond > 0) {
-      } else if (sum.left == 0) p.pay.push_back("Salvage: nothing left");
+      if (sum.beyond > 0 || (sum.repairs > 0 && sum.left == 0)) p.pay.push_back("Salvage: none left after repairs");
+      else if (sum.left == 0) p.pay.push_back("Salvage: nothing left");
       else
         p.pay.push_back("Salvage: " + (m.term >= 100 ? std::string("all") : std::to_string(m.term) + "%") + " of " +
                         thousands(sum.left) + " = " + thousands(s.salvage) + dock);
     } else {
       p.pay.push_back(std::string("Salvage: none (") + (a.outcome == Outcome::kFailure ? "lost" : "withdrew") + ")");
-      for (const std::string& l : rep.lines)
-        if (l.rfind("Repair bill", 0) == 0) p.pay.push_back(l);
     }
     if (contract_.rung) p.pay.push_back("No fee: not a contract");
     else p.pay.insert(success ? p.pay.end() : p.pay.begin(), "Fee: " + thousands(s.fee) + dock);
+    p.repairs_at = success ? 0 : p.pay.size();  // a win's first (the salvage after them); else after the salvage
     const int64_t total = c.funds - before;
     p.pay.push_back("Total: " + std::string(total < 0 ? "-" : "+") + thousands(total < 0 ? -total : total) + "   Funds: " +
                     thousands(c.funds));
-    // CREW STATUS: each mech that flew, who flew it, what's left of it (MW1's "JENNER 93 %"); a lancemate's fate.
+    // CREW STATUS: each mech that flew, who flew it, what's left of it (MW1's "JENNER 93 %"); a lancemate's fate or
+    // promotion (FIXES.md item 57: the mission's, here, not a hub message).
+    std::vector<std::string> promoted;
     for (const auto& b : a.bills) {
       std::string l = mech_title(b.mech) + " (" + (b.who == 0 ? std::string("you") : pilot_title(b.who)) + "): ";
       if (b.destroyed) {
@@ -1866,9 +1862,19 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
           if (f.id == b.who && f.destroyed) l += pilot_killed(f) ? ", KILLED" : ", MISSING";
       } else {
         l += std::to_string(std::clamp(100 - (b.damage * 100 + kWhole / 2) / kWhole, 0, 100)) + "%";
+        // Promoted by this mission (after_mission's, on the copy): on the line when it fits 4:3's, else its own.
+        if (b.who && gunnery(c, b.who) > gunnery(company_, b.who)) {
+          const std::string up = pilot_title(b.who) + " promoted: Gunnery " + kRatingNames[gunnery(c, b.who)];
+          if (l.size() + 10 <= kResultsNarrow.status) l += ", promoted";
+          else promoted.push_back(up);
+        }
       }
       p.crew.push_back(l);
     }
+    for (const std::string& l : promoted) p.crew.push_back(l);
+    // The commander's mech lost: the one they take (and the lancemate who stays behind for it).
+    if (rep.took >= 0)
+      p.crew.push_back("Next: you take the " + mech_title(rep.took) + (rep.took_from ? ", " + pilot_title(rep.took_from) + " stays" : ""));
     if (a.bills.empty())  // a mission saved before the bills: the fates alone
       for (const LanceFate& f : a.lance)
         p.crew.push_back(pilot_title(f.id) + (!f.destroyed ? ": came back" : pilot_killed(f) ? ": KILLED" : ": MISSING"));
@@ -1891,10 +1897,11 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
                          static_cast<int32_t>(i)});
     }
     if (p.kills.empty()) p.kills.push_back({"None"});
-    // Each mech's repairs, how much the wrecks paid (FIXES.md item 51), a lost mech's fate, the bill past them.
+    // Each mech's repairs, how much the wrecks paid (FIXES.md items 51, 57), a lost mech's fate, the bill past them.
     if (!rep.lines.empty()) {
       p.kills.push_back({""});
-      for (const std::string& l : rep.lines) p.kills.push_back({l});
+      if (success) p.kills.push_back({"Wrecks' worth: " + thousands(sum.pool) + " C-bills"});
+      for (size_t i = 0; i < rep.lines.size(); ++i) p.kills.push_back({rep.lines[i], -1, i < rep.narrow.size() ? rep.narrow[i] : ""});
     }
     p.mech_title = "YOUR " + upper(mech_title(company_.mech));
     p.mech = mech_lines(a.armor_left, a.structure_left, destroyed);
@@ -2428,6 +2435,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   // salvage on a win, the experience, casualties and repairs on a counted mission, the time and the world moved on.
   void settle_pending() {
     // The fee, the fates, the repairs from the wrecks' worth, then the salvage on what's left (FIXES.md item 51).
+    // The fates (promotions, losses, the killed and missing) and the repairs are the mission's result, shown on AFTER
+    // ACTION (FIXES.md item 57): the log keeps them heard, never the hub's MESSAGES (after_mission, below).
     const MissionSettled m = settle_mission(company_, contract_, *pending_, rng_);
     const Settlement& s = m.s;
     log_add(company_, LogKind::kResult, true, static_cast<int32_t>(pending_->outcome), 0, 0, 0, s.fee, s.salvage);
@@ -2641,7 +2650,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       l.push_back(pilot_title(f.id) + (!f.destroyed                                ? ": flew"
                                        : pending_->outcome == Outcome::kRetreat ? ": mech destroyed"
                                        : pilot_missing(f)                       ? ": MISSING"
-                                                                                : ": KILLED"));
+                                                                                : ": KILLED") +
+                (!f.destroyed && gunnery(c, f.id) > gunnery(company_, f.id) ? ", promoted" : ""));
     for (int32_t id : pending_->stayed)
       l.push_back(pilot_title(id) + " stayed behind: no place on this map (" + std::to_string(pending_->lance.size()) + " allied)");
     if (pending_->outcome == Outcome::kFailure) l.push_back(""), l.push_back("REPLAY: play it again as it was");
@@ -3179,13 +3189,14 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     last = now;
     const bool lab = page.rfind("lab", 0) == 0;
     // The lab's pages: the Mech Complex's MECH LAB on the commander's mech (the briefing's is never shown).
-    if (lab && now == static_cast<zgame::State*>(ge->menu_state_of(hub_)) && frames == 10 && lab_owned_ < 0) {
+    if ((lab || page == "results") && now == static_cast<zgame::State*>(ge->menu_state_of(hub_)) && frames == 10 && lab_owned_ < 0) {
       static bool once = false;
       // lab_fit: every item of the stores at the most they hold (FIXES.md item 53), the Qty column's widest.
       if (!once && page == "lab_fit" && company_.stores)
         for (mech3::ConfigItem* it : company_.stores->items)
           if (it) it->count = kStoreMost;
-      // MW1_LAB_LANCE=<lancemates>:<their mechs>[:<spares>] (development, FIXES 69's shots): that many hired (MW1's
+      // MW1_LAB_LANCE=<lancemates>:<their mechs>[:<spares>] (development, FIXES 69's shots; and the results' with a
+      // lance, FIXES 57's): that many hired (MW1's
       // first pilots), the first <mechs> of them each on a hangar mech (the Firefly, Centurion, Awesome), the rest
       // without; and <spares> more hangar mechs (the same kinds), nobody's.
       if (const char* l = std::getenv("MW1_LAB_LANCE"); l && !once) {
@@ -3210,7 +3221,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
           company_.hangar.push_back(o);
         }
       }
-      if (!once) once = true, press(kHubMarket), press_market(kMarketLab);
+      if (!once && lab) once = true, press(kHubMarket), press_market(kMarketLab);
+      else once = true;  // results: the lance set, the hub deploys (below)
     }
     // The office's offer taken (MW1's way: the office, REQUEST, ACCEPT), then the hub's DEPLOY: the loading screen,
     // then the mission.
@@ -3272,7 +3284,13 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (page == "results" && now == &mech3::states().core && frames == 600) {
       int32_t n = 0;
       const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
-      for (int32_t i = 0; i < n; ++i) mech3::program_mech_kill_credit(mech3::mech_mission_player(), ai[i].mech);
+      // The enemies the commander's; the lance's mechs (MW1_LAB_LANCE's, FIXES 57's shots) each hit as the commander's:
+      // a repair each.
+      for (int32_t i = 0; i < n; ++i) {
+        const auto* b = static_cast<const mech3::ai::Brain*>(mech3::program_ai_mech_brain(ai[i].controls));
+        if (b && b->params.team() == 1) mech3::mech_hit_part(ai[i].mech, 2, 40.0f);
+        else mech3::program_mech_kill_credit(mech3::mech_mission_player(), ai[i].mech);
+      }
       mech3::mech_hit_part(mech3::mech_mission_player(), 2, 40.0f);
       mech3::missions().ended = 1;
       mech3::missions().on_command(0x79);  // Exit Mission: the end screen, then (skip_debriefing) the results
