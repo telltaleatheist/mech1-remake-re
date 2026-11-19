@@ -1271,3 +1271,21 @@ Owen, defending the tower on mw3c1ia3 (4 enemies): three came; the fourth never 
     results; OFF stops it and saves; EFFECTS applied and saved; ON brings it back; QUIT asks, NO stays, OK quits.
   - `zsnd_cd_extra_track_outside_the_disc` and `quiet_music_a_hidden_run_opens_no_audio_device` (mw3pmsdltests).
 - **Shots:** the hub with QUIT, and OPTIONS, at 4:3 and 1080p: outbox/2026-11-19/mw1-fix100-music/.
+
+## 101. The side arrows' triangles fit their boxes (Owen, 2026-11-19)
+
+Owen's crop of the hub's OPTIONS: each ◀ ▶ ran into its frame (the ◀'s flat side on the box's right, the ▶'s on its
+left), so it looked cut off and off-centre.
+
+- **The cause:** mw1_chrome.cpp side_arrow drew a triangle 16 rows high in the 18-row box, its base on the frame's
+  edge. The up and down arrows (the office's TERMS, the lists') were already right: 20 of 28 wide, centred.
+- **The fix:** the side arrow is now the up arrow's triangle turned on its side: a right angle at its point, its base
+  10 rows (kSideInkH) with two rows of glass inside the frame above and below, centred both ways. The same piece
+  serves every ◀ ▶ in MW1: the hub's OPTIONS and every options page (GRAPHICS & SOUND's 104).
+- **Checked:** the other arrows at 4:3, 1080p and 4K. The TERMS and lists' up and down arrows were already centred;
+  the lab's and the file list's small ones are bare triangles with no frame of their own, and sit centred.
+- **Test:** mw1_chrome_arrow_ink_inside_its_frame_and_centred covers mw1_up, mw1_dn, mw1_lt and mw1_rt at the
+  archive's scale and at 2, 3 and 4 (1080p, 4K). The ink must stay a pixel of glass inside the frame and be centred to
+  a device pixel. The old side arrow fails it 8 times. The geometry pieces' golden hash moved on purpose.
+- **Shots:** outbox/2026-11-19/mw1-fix101-arrows/ (hub_options, options_gfx, office_offer, lab_files at 43, 1080, 4k,
+  and a 4K crop of the hub's arrows).

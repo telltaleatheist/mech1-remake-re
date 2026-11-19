@@ -111,6 +111,7 @@ inline const std::vector<PanelSize>& frame_sizes() {
 // ones (an option's choice): mw1_lt and mw1_rt, the same four looks, kSideArrowW by kSideArrowH.
 inline constexpr int32_t kArrowW = 28, kArrowH = 22;
 inline constexpr int32_t kSideArrowW = 20, kSideArrowH = 18;
+inline constexpr int32_t kSideInkH = 10;  // the side arrow's triangle at its base (FIXES.md item 101)
 // The options' pieces (mw1options.zrd): a slider's bar and its fill, a check box and its check, a control table's
 // cell (and lit, chosen), the file popup's taller dialog.
 inline constexpr const char* kSlider = "mw1_slider";
