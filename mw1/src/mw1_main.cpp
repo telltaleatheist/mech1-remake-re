@@ -35,6 +35,7 @@
 #include "platform/menu_pointer.h"
 #include "gamez/zutil/zutl_path.h"
 #include "mw1_game.h"
+#include "mw1_hud_labels.h"
 #include "mw1_missions.h"
 #include "mw1_movie.h"
 #include "mw1_pilots.h"
@@ -251,6 +252,8 @@ int main(int argc, char** argv) {
   const char* hires = std::getenv("MW1_HIRES");
   platform::set_hires_2d(!(hires && std::strcmp(hires, "0") == 0));
   std::printf("mw1: high-resolution 2D %s\n", platform::hires_2d() ? "on" : "off (MW1_HIRES=0)");
+  // FIXES.md item 82: the HUD pictures' numbers and letters drawn as text in PM's HUD face above canvas size.
+  if (platform::hires_2d()) mw1::use_hud_label_font();
   // FIXES.md item 30 (Owen): the menus leave the mouse free fullscreen too (to a second screen), as MW3's do in a
   // window; a mission holds it.
   platform::set_menus_free_pointer(true);

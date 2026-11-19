@@ -4847,4 +4847,116 @@ TEST(mw1_loop_hud_art_is_pm_s_pictures_at_canvas_size) {
     EXPECT(read == 21 && read_wrong == 0 && read_colour <= 56);
   });
 }
+
+// FIXES.md item 82: the labels in PM's line art (the scales' numbers, the coolant's F and E, the compass tape's
+// headings) found where PM drew them, and above canvas size, with a painter, drawn as text in their place: PM's glyph
+// pixels gone, the painter's ink in PM's ink colour inside each label's box, the line art (the ticks) kept. At s 1, or
+// a painter giving nothing, the pictures stay PM's. A stand-in painter (a solid bar, its height the box's) stands for
+// the program's SDL_ttf one, which mw1tests can't link.
+TEST(mw1_loop_hud_labels_drawn_as_text_in_place) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_hud_labels";
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  in_child([&] {
+    Run run;
+    run.save = (dir / mw1::kSaveFile).string();
+    run.in_mission = [&](int32_t f) {
+      if (f < 5) return true;
+      // Where PM drew them, top to bottom (the compass's along its tape).
+      auto texts = [](const std::string& n) {
+        std::string all;
+        for (const mw1::hud_art::Label& l : mw1::hud_art::labels_of(n)) all += (all.empty() ? "" : " ") + l.text;
+        return all;
+      };
+      EXPECT(texts("hud_speed_frame") == "100 50 0");
+      EXPECT(texts("hud_fuel_frame") == "100 0");
+      EXPECT(texts("hud_coolant_frame") == "F E");
+      const std::vector<mw1::hud_art::Label> tape = mw1::hud_art::labels_of("hud_compass");
+      std::printf("  the compass tape: %zu labels\n", tape.size());
+      EXPECT(tape.size() == 47 && tape[0].text == "310" && tape[5].text == "N" && tape[14].text == "E" &&
+             tape[23].text == "S" && tape[32].text == "W" && tape[6].text == "10" && tape.back().text == "50");
+      EXPECT(mw1::hud_art::labels_of("hud_heat_meter").empty() && mw1::hud_art::labels_of("hud_zoomon").empty());
+      const std::vector<std::string> named = {"hud_speed_frame", "hud_fuel_frame", "hud_coolant_frame", "hud_compass"};
+      std::map<std::string, std::vector<uint8_t>> plain4, plain1;
+      for (const std::string& n : named) plain4[n] = mw1::hud_art::draw(n, 4), plain1[n] = mw1::hud_art::draw(n, 1);
+      // A painter that gives nothing: PM's pictures as without one.
+      mw1::hud_art::set_label_painter([](const std::string&, int32_t, int32_t, int32_t) { return std::vector<uint8_t>{}; });
+      for (const std::string& n : named) EXPECT(mw1::hud_art::draw(n, 4) == plain4[n]);
+      // The stand-in: a bar the box's height, 2 device pixels a character wide, against the box's align.
+      int32_t asked = 0;
+      mw1::hud_art::set_label_painter([&](const std::string& text, int32_t w, int32_t h, int32_t align) {
+        ++asked;
+        std::vector<uint8_t> c(static_cast<size_t>(w) * h, 0);
+        const int32_t tw = std::min<int32_t>(w, 2 * static_cast<int32_t>(text.size()));
+        const int32_t left = align < 0 ? 0 : align > 0 ? w - tw : (w - tw) / 2;
+        for (int32_t y = 0; y < h; ++y)
+          for (int32_t x = left; x < left + tw; ++x) c[static_cast<size_t>(y) * w + x] = 255;
+        return c;
+      });
+      int32_t gone = 0, glyphs = 0, kept = 0, lines = 0, inked = 0, boxes = 0;
+      for (const std::string& n : named) {
+        int32_t w = 0, h = 0;
+        mw1::hud_art::size_of(n, &w, &h);
+        EXPECT(mw1::hud_art::draw(n, 1) == plain1[n]);  // canvas size: PM's own
+        const std::vector<uint8_t> big = mw1::hud_art::draw(n, 4);
+        const std::vector<mw1::hud_art::Label> ls = mw1::hud_art::labels_of(n);
+        auto in_box = [&](int32_t x, int32_t y) {  // device pixels, inside a label's box or its shadow's
+          for (const mw1::hud_art::Label& l : ls)
+            if (x >= l.x * 4 && x < (l.x + l.w + 1) * 4 && y >= l.y * 4 && y < (l.y + l.h + 1) * 4) return true;
+          return false;
+        };
+        zimg::Texture* t = zimg::fetch_image(n.c_str());
+        const uint16_t* pm = t ? static_cast<const uint16_t*>(t->pixels) : nullptr;
+        uint16_t ink = 0;
+        for (int32_t i = 0; pm && i < w * h; ++i) {
+          const uint16_t v = pm[i];
+          if (((v >> 5) & 63) > ((ink >> 5) & 63)) ink = v;
+        }
+        for (int32_t y = 0; pm && y < h; ++y)
+          for (int32_t x = 0; x < w; ++x) {
+            // A canvas pixel's 4 x 4 block's middle: lit or clear.
+            const size_t at = ((static_cast<size_t>(y) * 4 + 2) * w * 4 + x * 4 + 2) * 4;
+            const bool lit = big[at + 3] > 127, was = plain4[n][at + 3] > 127;
+            const bool label = in_box(x * 4 + 2, y * 4 + 2);
+            if (!label && was) {  // the line art and the ticks: as before
+              ++lines;
+              kept += lit && std::memcmp(&big[at], &plain4[n][at], 4) == 0;
+            }
+            // PM's glyph pixels outside the bars the stand-in drew: gone.
+            if (label && pm[static_cast<size_t>(y) * w + x] == ink && n != "hud_compass") {
+              ++glyphs;
+              bool bar = false;
+              for (const mw1::hud_art::Label& l : ls) {
+                const int32_t bw = static_cast<int32_t>(std::lround(l.w * 4)), tw = std::min<int32_t>(bw, 2 * static_cast<int32_t>(l.text.size()));
+                const int32_t bx = static_cast<int32_t>(std::lround(l.x * 4)) + (l.align < 0 ? 0 : l.align > 0 ? bw - tw : (bw - tw) / 2);
+                bar = bar || (x * 4 + 2 >= bx && x * 4 + 2 < bx + tw + 4);
+              }
+              gone += bar || !lit;
+            }
+          }
+        // The bars in PM's ink colour.
+        for (const mw1::hud_art::Label& l : ls) {
+          ++boxes;
+          const int32_t bw = static_cast<int32_t>(std::lround(l.w * 4)), tw = std::min<int32_t>(bw, 2 * static_cast<int32_t>(l.text.size()));
+          const int32_t bx = static_cast<int32_t>(std::lround(l.x * 4)) + (l.align < 0 ? 0 : l.align > 0 ? bw - tw : (bw - tw) / 2);
+          const int32_t mx = bx + tw / 2, my = static_cast<int32_t>(std::lround((l.y + l.h / 2) * 4));
+          if (mx < 0 || mx >= w * 4 || my < 0 || my >= h * 4) continue;
+          const uint8_t* d = &big[(static_cast<size_t>(my) * w * 4 + mx) * 4];
+          inked += d[3] == 255 && d[0] == ((ink >> 11) << 3) && d[1] == (((ink >> 5) & 63) << 2) && d[2] == ((ink & 31) << 3);
+        }
+        if (t) zimg::free_texture(t);
+      }
+      mw1::hud_art::set_label_painter(nullptr);
+      std::printf("  labels: %d painted (%d boxes, %d in PM's ink); PM's glyph pixels gone %d of %d; line art kept %d of %d\n",
+                  asked, boxes, inked, gone, glyphs, kept, lines);
+      EXPECT(asked == boxes && boxes == 54 && inked >= 52);  // the tape's last label is cut by its right edge
+      EXPECT(glyphs > 0 && gone == glyphs);
+      EXPECT(lines > 0 && kept == lines);
+      return false;
+    };
+    loop_run(kWon, &run);
+  });
+}
 }  // namespace
