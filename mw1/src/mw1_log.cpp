@@ -117,6 +117,9 @@ std::vector<std::string> log_lines(const Company& c, const LogEntry& e) {
     case LogKind::kTravelled:
       return {"Travelled from " + planet_words(e.a) + " to " + planet_words(e.b) + " for " + thousands(e.n) + " C-bills."};
     case LogKind::kTestLine: return {"Test message line " + std::to_string(e.a) + "."};
+    case LogKind::kStoryFunds:
+      return {e.n < 0 ? "Paid " + thousands(-e.n) + " C-bills." : "Received " + thousands(e.n) + " C-bills."};
+    case LogKind::kTurnedAway: return {"Turned away from " + planet_words(e.a) + " to " + planet_words(e.b) + "."};
   }
   return {};
 }

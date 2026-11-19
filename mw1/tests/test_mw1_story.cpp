@@ -16,6 +16,7 @@
 #include "mw1_save.h"
 #include "mw1_story.h"
 #include "mw1_ladder.h"
+#include "mw1_log.h"
 #include "mw1_missions.h"
 #include "mw1_travel.h"
 
@@ -366,6 +367,8 @@ TEST(mw1_story_steps_wait_for_their_battles) {
     g.funds = 90000;
     const mw1::SetbackDone d = mw1::apply_setback(g, *mw1::setback_of(0x3F), rng);
     EXPECT(d.fined == 30000 && g.funds == 60000 && !d.line.empty());
+    EXPECT(!g.log.empty() && g.log[0].kind == mw1::LogKind::kStoryFunds && g.log[0].n == -30000 &&
+           mw1::log_lines(g, g.log[0]) == std::vector<std::string>{"Paid 30,000 C-bills."});
     g.funds = 1000000;
     mw1::apply_setback(g, *mw1::setback_of(0x4D), rng);
     EXPECT(g.funds == 800000 && g.story.seen[0x45] == mw1::kSeenWaiting);
@@ -401,6 +404,13 @@ TEST(mw1_story_steps_wait_for_their_battles) {
     const mw1::SetbackDone d = mw1::apply_setback(g, *mw1::setback_of(mw1::kEventPortArrest), rng);
     EXPECT(d.fined == 100000 && d.moved >= 0 && g.planet_number != mw1::kAndersMoon && !g.story.seen[mw1::kEventPortArrest]);
     EXPECT(g.date.year != before.year || g.date.month != before.month || g.date.units != before.units);
+    // FIXES.md item 79: the fine and the move in the log (the soak found the funds and the world changed unlogged).
+    bool paid = false, turned = false;
+    for (const mw1::LogEntry& e : g.log) {
+      paid = paid || (e.kind == mw1::LogKind::kStoryFunds && e.a == mw1::kEventPortArrest && e.n == -100000);
+      turned = turned || (e.kind == mw1::LogKind::kTurnedAway && e.b == d.moved && e.a == mw1::planet_index(mw1::kAndersMoon));
+    }
+    EXPECT(paid && turned);
     mw1::Company p = on_story(mw1::kAndersMoon);
     p.funds = 120000;
     EXPECT(mw1::setback_fine(p, *mw1::setback_of(mw1::kEventPortArrest)) == 40000);

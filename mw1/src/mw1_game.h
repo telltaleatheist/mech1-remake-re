@@ -128,6 +128,8 @@ void set_game_loop_story(bool on);
 // The offer drawn again for the company as a test changed it (game_loop_company_for_tests: its world, standing,
 // patience), and the hub shown again.
 void game_loop_offer_again();
+// Tests: the lab's lance (mw1_pilots.h's apply_lance slots) as its DONE leaves it, the loadouts as they are; saved.
+bool game_loop_lance(const std::vector<int32_t>& slots);
 // The lancemates the last launch offered (tests): who, the map record's aim error and the one set.
 struct AllyLaunch {
   int32_t id = 0;
@@ -149,6 +151,9 @@ struct LoadingSeen {
   std::string enemy;  // the main enemy's picture shown beside the terminal (empty: none)
 };
 LoadingSeen game_loop_loading_seen();
+// The MW1 screen showing now (its kind in `which`) against its room, as MW1_FIT checks one: a line per text outside,
+// over another or on a terminal's border; empty when it all fits or no MW1 screen is up (FIXES.md item 79's soak).
+std::vector<std::string> game_loop_fit_problems(std::string* which = nullptr);
 void set_game_loop_hold_launch(bool on);
 void game_loop_press(int32_t button);
 

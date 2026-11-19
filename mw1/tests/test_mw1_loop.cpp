@@ -718,8 +718,9 @@ void loop_run(Ending ending, Run* run = nullptr) {
           sc->on_button(mw1::kBarRecruitDown, 0, 0);
           for (const std::string& l : sc->shown()) run->bar_lines.push_back(l);
           sc->on_button(mw1::kBarRecruitUp, 0, 0);
-          std::printf("  bar:");
-          for (const std::string& l : run->bar_lines) std::printf(" [%s]", l.c_str());
+          // Sizes only: the pitches are MW1's words (never printed, FIXES.md item 79's sweep).
+          std::printf("  bar: %zu lines:", run->bar_lines.size());
+          for (const std::string& l : run->bar_lines) std::printf(" %zu", l.size());
           std::printf("\n");
           // HIRE each (the first recruit each time); then LEAVE: the lance assigned in the hub's COMPANY.
           for (int32_t i = 0; i < n; ++i) sc->on_button(mw1::kBarHire, 0, 0);
@@ -1880,7 +1881,7 @@ TEST(mw1_loop_deploy_goes_straight_in_never_through_pms_briefing_headless) {
     loop_run(kWon, &run);
     std::printf("  held %d; PM's briefing drew %d frames, its script played %d; MW1's loading screen up for %d loads:\n",
                 run.load_held, run.briefing_drawn, run.briefing_script, run.loadings);
-    for (const std::string& l : run.loading_lines) std::printf("    %s\n", l.c_str());
+    for (const std::string& l : run.loading_lines) std::printf("    a line of %zu letters\n", l.size());  // MW1's words never printed
     EXPECT(!run.load_held && run.briefing_drawn == 0 && !run.briefing_script && run.loadings == 1);
     auto has = [&](const std::string& start) {
       for (const std::string& l : run.loading_lines)
@@ -2980,7 +2981,7 @@ TEST(mw1_office_terminated_on_a_stuck_poor_world_and_a_refusal_headless) {
       }
     };
     menu_run(r);
-    for (const std::string& l : hub_lines) std::printf("  [%s]\n", l.c_str());
+    for (const std::string& l : hub_lines) std::printf("  a hub line of %zu letters\n", l.size());  // MW1's words never printed
     std::printf("  office over %d, hub over %d, stuck said %d, travel %d, refused %d\n", office_over, hub_over, hub_stuck, travel_stuck, refused);
     EXPECT(step >= 4 && office_over && hub_over && hub_stuck && travel_stuck && refused);
   });
@@ -3797,6 +3798,409 @@ TEST(mw1_soak_twenty_contracts_through_the_hub_headless) {
     EXPECT(!bad_funds && !bad_save && !bad_live && !bad_lance && !bad_guard && !stuck);
     for (size_t n : status_long) std::printf("  a status line of %zu letters (the room: %zu)\n", n, mw1::chrome::kStatusLetters);
     EXPECT(status_long.empty());
+  });
+}
+
+namespace {
+// FIXES.md item 79's ledger: the log's entries as they move the funds (mw1_campaign.h's LogKind), and the entries
+// new since a look (the log is newest first; past its cap the oldest go).
+bool same_entry(const mw1::LogEntry& a, const mw1::LogEntry& b) {
+  return a.date.units == b.date.units && a.date.month == b.date.month && a.date.year == b.date.year && a.kind == b.kind &&
+         a.a == b.a && a.b == b.b && a.c == b.c && a.d == b.d && a.n == b.n && a.m == b.m;
+}
+size_t new_entries(const std::vector<mw1::LogEntry>& now, const std::vector<mw1::LogEntry>& before) {
+  if (before.empty()) return now.size();
+  const size_t window = std::min<size_t>(8, before.size());
+  for (size_t k = 0; k < now.size(); ++k) {
+    const size_t n = std::min(window, now.size() - k);
+    bool ok = true;
+    for (size_t i = 0; ok && i < n; ++i) ok = same_entry(now[k + i], before[i]);
+    if (ok) return k;
+  }
+  return now.size();
+}
+int64_t logged_money(const mw1::LogEntry& e) {
+  switch (e.kind) {
+    case mw1::LogKind::kContract: return int64_t{e.d * static_cast<int32_t>(e.n) / 100} * 1000;  // the advance (accept's)
+    case mw1::LogKind::kResult: return e.n + e.m;
+    case mw1::LogKind::kRepairs: return -e.m;
+    case mw1::LogKind::kWagesPaid: return -e.n;
+    case mw1::LogKind::kBought: return -e.n;
+    case mw1::LogKind::kSold: return e.n;
+    case mw1::LogKind::kTravelled: return -e.n;
+    case mw1::LogKind::kStoryFunds: return e.n;
+    default: return 0;
+  }
+}
+const char* kind_name(mw1::LogKind k) {
+  static const char* const names[] = {"",       "news",     "story", "contract", "result",  "repairs", "wages",
+                                      "unpaid", "lance left", "promoted", "mech lost", "MIA", "killed", "missing",
+                                      "bought", "sold",     "hired", "left",     "travelled", "test", "story funds", "turned away"};
+  const int32_t i = static_cast<int32_t>(k);
+  return i >= 0 && i <= mw1::kLogKindLast ? names[i] : "?";
+}
+}  // namespace
+
+// FIXES.md item 79 (the lead, 2026-11-19: Owen keeps finding things only in play): a long campaign played as a player
+// would, the story on, in legs over one save (each leg a new run that loads the last one's save: save and load in
+// between), every service: the office (requests, next offers, negotiation, accepting), the market (buy, sell), the
+// Bar (hire, fire, drinks, news), the lab's lance (lancemates put on spare mechs, as the lab's apply), the log, the
+// company page, travel, the hub's main menu and back, story battles; missions won, lost and withdrawn from, the
+// player's mech hit or destroyed, lancemates killed. Every few frames, whatever the screen, the invariants:
+// - the money: each change of the funds is the log's (the advance, the fee and salvage, repairs billed, wages, buys,
+//   sells, fares); a change the log doesn't explain is listed with the screen it came on;
+// - the pilots: the lance is the pilots marked hired, at most 3, none twice; a lancemate comes only with a hire in
+//   the log and goes only with a dismissal, a death, MIA, a story's missing or the lance leaving unpaid; the dead never
+//   come back; each hangar mech's pilot a lancemate, none on two;
+// - the mechs: the owned count changes only by the log's buys, sells and losses;
+// - the log: each settlement a result entry of its outcome, each trip a travelled entry to the new world; the date
+//   never goes back; the funds never below 0;
+// - the save: on disk, read back and written out byte for byte, and the live company's (at each hub);
+// - the screen: every text inside its room, none over another, none on a terminal's border (MW1_FIT's check);
+// - nothing stuck on one screen.
+// Seeds 4 and 9 by default, 3 legs of 5 settlements; MW1_SOAK_LONG=n plays seeds 0..n-1, 6 legs of 8 (the search).
+TEST(mw1_soak_a_campaign_through_every_service_and_restarts_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  if (mw1_test::no_mw1()) return;
+  const char* longer = std::getenv("MW1_SOAK_LONG");
+  const char* one = std::getenv("MW1_SOAK_SEED");  // with MW1_SOAK_LONG: that seed alone
+  std::vector<int> seeds = {4, 9};
+  int legs = 3, per_leg = 5;
+  if (longer) {
+    seeds.clear();
+    for (int i = 0, n = std::max(1, std::atoi(longer)); i < n; ++i) seeds.push_back(i);
+    if (one) seeds = {std::atoi(one)};
+    legs = 6, per_leg = 8;
+  }
+  for (int seed : seeds) in_child([&] {
+    const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_soak79";
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    const std::string save = (dir / mw1::kSaveFile).string();
+    std::mt19937 rng(20261119u + static_cast<uint32_t>(seed) * 7919u);
+    auto roll = [&](int n) { return static_cast<int>(rng() % static_cast<uint32_t>(n)); };
+    // Carried across the legs: the ledger's last look.
+    bool looked = false;
+    int64_t funds_was = 0;
+    std::vector<mw1::LogEntry> log_was;
+    std::set<int32_t> lance_was, dead;
+    size_t owned_was = 0;
+    std::string planet_was;
+    mw1::Date date_was;
+    // The findings: each kind's count and its first few, by words.
+    std::map<std::string, int> found;
+    std::map<std::string, std::vector<std::string>> first;
+    auto finding = [&](const std::string& kind, const std::string& what) {
+      if (found[kind]++ < 4) first[kind].push_back(what);
+    };
+    int settled = 0, won = 0, lost = 0, retreated = 0, hubs = 0, trips = 0, buys = 0, sells = 0, hires = 0, fires = 0;
+    int lab_sets = 0, menus = 0, logs = 0, stories = 0, killed_allies = 0, commander_lost = 0, results_seen = 0, events = 0;
+    for (int leg = 0; leg < legs; ++leg) {
+      MenuRun r;
+      // The first leg a new company at the hub; each later one MW1's menu, LOAD (CONTINUE) on the last leg's save.
+      r.save = save, r.start = leg ? mw1::Start::kMenu : mw1::Start::kHub, r.story = true, r.seed = 31 + static_cast<uint32_t>(seed);
+      r.limit = 60000;
+      r.box = [&](const std::string&) -> uint32_t { return roll(5) ? 6u : 7u; };  // a question (BUY? SELL?): yes, mostly
+      int wait = 0, idle = 0, mission_frames = 0, loads_seen = 0, leg_settled = 0, menu_wait = 0;
+      bool in_mission = false, first_hub = true;
+      const void* last_state = nullptr;
+      std::string screen = "?";
+      r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
+        auto state_name = [&]() -> std::string {
+          const zgame::State* now = app.current();
+          auto is = [&](const void* st) { return st && now == static_cast<const zgame::State*>(st); };
+          return  is(mw1::game_loop_menu()) ? "MW1's menu" : is(mw1::game_loop_hub()) ? "the hub"
+                                    : is(mw1::game_loop_hub_options()) ? "the hub's options" : is(mw1::game_loop_event()) ? "the event panel"
+                                    : is(mw1::game_loop_bar()) ? "the Bar" : is(mw1::game_loop_market()) ? "the market"
+                                    : is(mw1::game_loop_office()) ? "the office" : is(mw1::game_loop_travel()) ? "travel"
+                                    : is(mw1::game_loop_results()) ? "the results" : is(&mech3::states().core) ? "a mission"
+                                    : is(&mech3::states().load) ? "a load" : "another state (depth " + std::to_string(app.depth()) + ")";
+        };
+        if (app.current() != last_state) {
+          last_state = app.current(), idle = 0;
+        } else if (++idle > 2000) {
+          const std::string state = state_name();
+          finding("stuck", "leg " + std::to_string(leg) + " on " + state + " (last MW1 screen " + screen + ")");
+          return true;
+        }
+        if (const int32_t n = mw1::game_loop_loading_seen().loads; n > loads_seen) loads_seen = n, mission_frames = 0, in_mission = true;
+        if (app.current() == &mech3::states().load) return false;
+        if (app.current() == &mech3::states().core) {  // the mission: won, lost or withdrawn from, hurt along the way
+          if (!in_mission || ++mission_frames != 30) return false;
+          in_mission = false;
+          const int how = roll(8);  // 0..4 won, 5..6 lost, 7 withdrawn
+          int32_t n = 0;
+          const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+          if (roll(3) == 0) mech3::mech_hit_part(mech3::mech_mission_player(), 2, 10.0f + static_cast<float>(roll(60)));
+          if (roll(14) == 0 && n > 0) ++commander_lost, mech3::program_mech_kill_credit(ai[0].mech, mech3::mech_mission_player());
+          for (int32_t i = 0; i < n; ++i) {
+            auto* b = static_cast<mech3::ai::Brain*>(mech3::program_ai_mech_brain(ai[i].controls));
+            const bool ally = b && b->params.team() == 1;
+            if (ally && roll(5) == 0) ++killed_allies, mech3::program_mech_kill_credit(mech3::mech_mission_player(), ai[i].mech);
+            else if (!ally && how <= 4) mech3::program_mech_kill_credit(mech3::mech_mission_player(), ai[i].mech);
+          }
+          if (how <= 6) mech3::missions().ended = 1;
+          if (how == 5 || how == 6) mech3::missions().aborting = 1;
+          for (int i = app.depth(); i > 0; --i) app.pop(1);
+          app.replace(&mech3::states().ia_dummy, 0);
+          return false;
+        }
+        if (++wait < 5) return false;
+        wait = 0;
+        // MW1's menu (a leg's start, or the hub's MAIN MENU): LOAD (CONTINUE), the save or the company in hand.
+        if (mw1::MenuState* m = mw1::game_loop_menu(); showing(app, m)) {
+          if (++menu_wait > 3) menu_wait = 0, m->screen()->on_button(mw1::kMenuContinue, 0, 0);
+          return false;
+        }
+        mw1::Company* c = mw1::game_loop_company_for_tests();
+        if (!c || !c->stores) return false;  // none loaded yet
+        // The screen: its texts in their room.
+        {
+          std::string which;
+          for (const std::string& p : mw1::game_loop_fit_problems(&which)) finding("fit", which + ": " + p);
+          if (!which.empty()) screen = which;
+        }
+        // The ledger: what changed since the last look, against the log's new entries.
+        {
+          const size_t k = looked ? new_entries(c->log, log_was) : 0;
+          int64_t money = 0;
+          std::string kinds;
+          int bought = 0, sold = 0, mechs_lost = 0, results = 0;
+          std::set<int32_t> hired, gone;
+          bool lance_left = false, travelled_to_here = false;
+          for (size_t i = 0; i < k; ++i) {
+            const mw1::LogEntry& e = c->log[i];
+            money += logged_money(e);
+            kinds += std::string(kinds.empty() ? "" : ",") + kind_name(e.kind);
+            switch (e.kind) {
+              case mw1::LogKind::kBought: ++bought; break;
+              case mw1::LogKind::kSold: ++sold; break;
+              case mw1::LogKind::kMechLost: ++mechs_lost; break;
+              case mw1::LogKind::kResult: ++results; break;
+              case mw1::LogKind::kHired: hired.insert(e.a); break;
+              case mw1::LogKind::kLeft: case mw1::LogKind::kKilled: case mw1::LogKind::kMissingInAction: case mw1::LogKind::kMissing:
+                gone.insert(e.a);
+                break;
+              case mw1::LogKind::kLanceLeft: lance_left = true; break;
+              case mw1::LogKind::kTravelled:
+              case mw1::LogKind::kTurnedAway:
+                travelled_to_here = travelled_to_here || e.b == mw1::planet_index(c->planet_number);
+                break;
+              default: break;
+            }
+          }
+          if (looked) {
+            const std::string at = "leg " + std::to_string(leg) + ", " + screen + ", " + std::to_string(settled) + " settled";
+            if (c->funds - funds_was != money)
+              finding("money", at + ": funds " + std::to_string(funds_was) + " -> " + std::to_string(c->funds) + " (" +
+                                   std::to_string(c->funds - funds_was) + "), the log's " + std::to_string(money) + " [" + kinds + "]");
+            const size_t owned = 1 + c->hangar.size();
+            if (static_cast<int64_t>(owned) - static_cast<int64_t>(owned_was) != bought - sold - mechs_lost)
+              finding("mechs", at + ": owned " + std::to_string(owned_was) + " -> " + std::to_string(owned) + " [" + kinds + "]");
+            std::set<int32_t> lance_now;
+            for (const mw1::Lancemate& m : c->lance) lance_now.insert(m.id);
+            for (int32_t id : lance_now)
+              if (!lance_was.count(id) && !hired.count(id)) finding("pilots", at + ": pilot " + std::to_string(id) + " joined unlogged [" + kinds + "]");
+            for (int32_t id : lance_was)
+              if (!lance_now.count(id) && !gone.count(id) && !lance_left)
+                finding("pilots", at + ": pilot " + std::to_string(id) + " gone unlogged [" + kinds + "]");
+            if (c->planet != planet_was && !travelled_to_here)
+              finding("log", at + ": now on " + c->planet + " from " + planet_was + " without a trip logged [" + kinds + "]");
+            const bool back = c->date.year < date_was.year || (c->date.year == date_was.year && c->date.month < date_was.month) ||
+                              (c->date.year == date_was.year && c->date.month == date_was.month && c->date.units < date_was.units);
+            if (back) finding("date", at + ": the date went back");
+            if (c->funds < 0) finding("money", at + ": funds below 0: " + std::to_string(c->funds));
+            if (results) results_seen += results;
+          }
+          // The pilots and their mechs, now.
+          std::set<int32_t> ids, flown;
+          bool ok = c->lance.size() <= static_cast<size_t>(mw1::kLanceMax);
+          for (const mw1::Lancemate& m : c->lance)
+            ok = ok && m.id >= 1 && m.id < mw1::kPilotIds && ids.insert(m.id).second && c->pilots[m.id].where == mw1::PilotWhere::kHired;
+          for (int32_t id = 1; id < mw1::kPilotIds; ++id)
+            if (c->pilots[id].where == mw1::PilotWhere::kHired && !ids.count(id)) ok = false;
+          for (const mw1::OwnedMech& o : c->hangar)
+            if (o.pilot) ok = ok && ids.count(o.pilot) && flown.insert(o.pilot).second;
+          for (int32_t id : c->recruits) ok = ok && id >= 1 && id < mw1::kPilotIds && c->pilots[id].where == mw1::PilotWhere::kFree;
+          if (!ok) finding("pilots", "leg " + std::to_string(leg) + ", " + screen + ": the lance, the pilots and the hangar disagree");
+          for (int32_t id = 1; id < mw1::kPilotIds; ++id) {
+            if (dead.count(id) && c->pilots[id].where != mw1::PilotWhere::kDead) finding("pilots", "pilot " + std::to_string(id) + " back from the dead");
+            if (c->pilots[id].where == mw1::PilotWhere::kDead) dead.insert(id);
+          }
+          looked = true, funds_was = c->funds, log_was = c->log, owned_was = 1 + c->hangar.size(), planet_was = c->planet, date_was = c->date;
+          lance_was.clear();
+          for (const mw1::Lancemate& m : c->lance) lance_was.insert(m.id);
+        }
+        // The screens, as a player would press them.
+        if (mw1::HubOptionsState* o = mw1::game_loop_hub_options(); showing(app, o)) {
+          // MAIN MENU only over MW1's menu (a leg that started at it; the first leg's hub has Pirate's Moon's under it).
+          o->screen()->on_button(leg && roll(2) ? mw1::kHubOptMainMenu : mw1::kHubOptBack, 0, 0);
+          return false;
+        }
+        if (mw1::EventState* ev = mw1::game_loop_event(); showing(app, ev)) {
+          ++events;
+          mw1::Mw1Screen* sc = ev->screen();
+          if (sc->visible(mw1::kEventNext) && sc->enabled(mw1::kEventNext) && roll(3)) return sc->on_button(mw1::kEventNext, 0, 0), false;
+          std::vector<int32_t> live;
+          for (int32_t id : {mw1::kEventChoice1, mw1::kEventChoice2, mw1::kEventChoice3})
+            if (sc->visible(id) && sc->enabled(id)) live.push_back(id);
+          if (!live.empty() && roll(4)) sc->on_button(live[static_cast<size_t>(roll(static_cast<int>(live.size())))], 0, 0);
+          else if (sc->visible(mw1::kEventBack)) sc->on_button(mw1::kEventBack, 0, 0);
+          else if (!live.empty()) sc->on_button(live[0], 0, 0);
+          return false;
+        }
+        if (mw1::MarketState* ms = mw1::game_loop_market(); showing(app, ms)) {
+          mw1::Mw1Screen* sc = ms->screen();
+          const int a = roll(6);
+          if (a <= 1 && sc->enabled(mw1::kMarketBuy) && c->funds > 1500000) ++buys, sc->on_button(mw1::kMarketBuy, 0, 0);
+          else if (a == 2 && sc->enabled(mw1::kMarketSell) && roll(2) == 0) ++sells, sc->on_button(mw1::kMarketSell, 0, 0);
+          else if (a == 3) sc->on_button(roll(2) ? mw1::kMarketStockDown : mw1::kMarketOwnDown, 0, 0);
+          else ms->escape();
+          return false;
+        }
+        if (mw1::BarState* bs = mw1::game_loop_bar(); showing(app, bs)) {
+          mw1::Mw1Screen* sc = bs->screen();
+          const int a = roll(9);
+          if (a == 7) sc->on_button(mw1::kBarCrew, 0, 0);
+          else if (a == 8) sc->on_button(mw1::kBarLance, 0, 0);
+          else if (a <= 1 && sc->enabled(mw1::kBarHire)) ++hires, sc->on_button(mw1::kBarHire, 0, 0);
+          else if (a == 2 && sc->enabled(mw1::kBarFire) && roll(2) == 0) ++fires, sc->on_button(mw1::kBarFire, 0, 0);
+          else if (a == 3 && sc->enabled(mw1::kBarDrink)) sc->on_button(mw1::kBarDrink, 0, 0);
+          else if (a == 4 && sc->enabled(mw1::kBarNews)) sc->on_button(mw1::kBarNews, 0, 0);
+          else sc->on_button(sc->visible(mw1::kBarDone) ? mw1::kBarDone : mw1::kBarBack, 0, 0);
+          return false;
+        }
+        if (mw1::OfficeState* os = mw1::game_loop_office(); showing(app, os)) {
+          mw1::Mw1Screen* sc = os->screen();
+          const int a = roll(5);
+          if (sc->visible(mw1::kOfficeRequest) && sc->enabled(mw1::kOfficeRequest) && roll(4)) sc->on_button(mw1::kOfficeRequest, 0, 0);
+          else if (a == 0 && sc->enabled(mw1::kOfficePayUp)) {
+            for (int i = 1 + roll(20); i > 0; --i) sc->on_button(roll(3) ? mw1::kOfficePayUp : mw1::kOfficeAdvanceUp, 0, 0);
+            sc->on_button(mw1::kOfficeSubmit, 0, 0);
+          } else if (a <= 2 && sc->enabled(mw1::kOfficeAccept)) sc->on_button(mw1::kOfficeAccept, 0, 0);
+          else if (a == 3 && sc->visible(mw1::kOfficeNext)) sc->on_button(mw1::kOfficeNext, 0, 0);
+          else sc->on_button(mw1::kOfficeBack, 0, 0);
+          return false;
+        }
+        if (mw1::TravelState* ts = mw1::game_loop_travel(); showing(app, ts)) {
+          mw1::Mw1Screen* sc = ts->screen();
+          if (roll(4) == 0) return sc->on_button(mw1::kTravelBack, 0, 0), false;
+          if (roll(4) == 0) sc->on_button(mw1::kTravelFilter, 0, 0);
+          const std::vector<int32_t> near = mw1::destinations(*c, -1);
+          if (near.empty()) return sc->on_button(mw1::kTravelBack, 0, 0), false;
+          const mw1::Point p = mw1::on_screen(near[static_cast<size_t>(roll(static_cast<int>(std::min<size_t>(near.size(), 8))))]);
+          sc->point(p.x, p.y, true);
+          const size_t entries = c->log.size();
+          const mw1::LogEntry* top = c->log.empty() ? nullptr : &c->log.front();
+          const mw1::LogEntry before = top ? *top : mw1::LogEntry{};
+          sc->on_button(mw1::kTravelGo, 0, 0);
+          // Gone (the log's trip; a setback may turn the company back to where it left, so not by the world's name):
+          // the screen changes on their way, nothing more pressed here. Else BACK.
+          const bool went = c->log.size() != entries || (top && !same_entry(c->log.front(), before));
+          if (went) ++trips;
+          else sc->on_button(mw1::kTravelBack, 0, 0);
+          return false;
+        }
+        if (mw1::results::ResultsState* rs = mw1::game_loop_results(); showing(app, rs)) {
+          if (const mw1::AfterAction* p = mw1::game_loop_pending()) {
+            ++settled, ++leg_settled;
+            (p->outcome == mw1::Outcome::kFailure ? ++lost : p->outcome == mw1::Outcome::kRetreat ? ++retreated : ++won);
+            rs->screen()->on_button(mw1::kResultsContinue, 0, 0);
+          }
+          return false;
+        }
+        mw1::HubState* hub = mw1::game_loop_hub();
+        if (!showing(app, hub)) return false;
+        mw1::Mw1Screen* sc = hub->screen();
+        ++hubs;
+        // The save at each hub: on disk, round-tripped, the live company's.
+        {
+          const std::string text = read_file(save);
+          mw1::Company back;
+          mw1::Contract k;
+          mw1::AfterAction pa;
+          bool has_offer = false, has_pending = false;
+          std::string why;
+          if (!mw1::load_text(text, back, k, &has_offer, &why, &pa, &has_pending) ||
+              mw1::save_text(back, has_offer ? &k : nullptr, has_pending ? &pa : nullptr) != text)
+            finding("save", "leg " + std::to_string(leg) + ": the save doesn't round-trip: " + why);
+          else if (text != mw1::save_text(*c, mw1::game_loop_contract(), mw1::game_loop_pending()))
+            finding("save", "leg " + std::to_string(leg) + ", hub " + std::to_string(hubs) + ": the save isn't the live company");
+        }
+        if (first_hub) {
+          first_hub = false;
+          // A poor start on odd seeds (wages short, the stranded guard), a rich one on even (mechs bought, lancemates).
+          if (leg == 0) c->funds = seed % 2 ? 60000 : 8000000, funds_was = c->funds, mw1::game_loop_offer_again();
+        }
+        if (mw1::stranded(*c)) {
+          if (mw1::cheapest_way_out(*c) < 0) {
+            // Every House with an office refuses the company (8+ grievances each, MW1's, never forgiven): no money
+            // helps. For the lead (a decision); the grievances cleared so the soak goes on.
+            std::string g;
+            for (int32_t h = 0; h < mw1::kHouseCount; ++h) g += (h ? "," : "") + std::to_string(c->grievance[h]), c->grievance[h] = 0;
+            finding("locked out", "leg " + std::to_string(leg) + " on " + c->planet + " after " + std::to_string(settled) +
+                                      " settled: every House refuses (grievances " + g + ")");
+          } else {
+            finding("stranded", "leg " + std::to_string(leg) + " on " + c->planet + " (a way out given)");
+            c->funds += 2000000, funds_was = c->funds;
+          }
+          mw1::game_loop_offer_again();
+          return false;
+        }
+        if (mw1::game_loop_pending()) {
+          ++settled, ++leg_settled;
+          const mw1::Outcome o = mw1::game_loop_pending()->outcome;
+          (o == mw1::Outcome::kFailure ? ++lost : o == mw1::Outcome::kRetreat ? ++retreated : ++won);
+          sc->on_button(mw1::kHubOk, 0, 0);
+          return false;
+        }
+        if (leg_settled >= per_leg) return true;  // this leg's end: the next run loads its save
+        // The lab's lance: lancemates without a mech put on the spare ones (apply_lance, as the lab's DONE).
+        if (roll(4) == 0) {
+          std::vector<int32_t> slots = mw1::lance_slots(*c);
+          bool changed = false;
+          for (size_t i = 1; i < slots.size(); ++i)
+            if (slots[i] < 0)
+              for (int32_t h = 1; h <= static_cast<int32_t>(c->hangar.size()); ++h)
+                if (std::find(slots.begin(), slots.end(), h) == slots.end()) {
+                  slots[i] = h, changed = true;
+                  break;
+                }
+          if (changed) {
+            if (mw1::game_loop_lance(slots)) ++lab_sets;
+            else finding("lab", "the lab's lance refused a plain assignment");
+          }
+        }
+        const int a = roll(16);
+        if ((a == 0 || a == 8 || a == 9) && sc->enabled(mw1::kHubMarket)) return sc->on_button(mw1::kHubMarket, 0, 0), false;
+        if ((a == 1 || a == 10) && sc->enabled(mw1::kHubBar)) return sc->on_button(mw1::kHubBar, 0, 0), false;
+        if (a == 2 && sc->enabled(mw1::kHubCompany)) return sc->on_button(mw1::kHubCompany, 0, 0), false;
+        if (a == 3 && sc->visible(mw1::kHubLog) && sc->enabled(mw1::kHubLog)) return ++logs, sc->on_button(mw1::kHubLog, 0, 0), false;
+        if (a == 4 && sc->enabled(mw1::kHubOptions)) return ++menus, sc->on_button(mw1::kHubOptions, 0, 0), false;
+        if (a == 5 && sc->visible(mw1::kHubStory) && sc->enabled(mw1::kHubStory)) return ++stories, sc->on_button(mw1::kHubStory, 0, 0), false;
+        if (a == 6 && sc->visible(mw1::kHubRead) && sc->enabled(mw1::kHubRead)) return sc->on_button(mw1::kHubRead, 0, 0), false;
+        if (sc->visible(mw1::kHubDeploy) && sc->enabled(mw1::kHubDeploy)) return sc->on_button(mw1::kHubDeploy, 0, 0), false;
+        const bool office = sc->visible(mw1::kHubOffice) && sc->enabled(mw1::kHubOffice) && mw1::earning_here(*c);
+        if ((a == 7 || a == 11 || !office) && sc->enabled(mw1::kHubTravel)) return sc->on_button(mw1::kHubTravel, 0, 0), false;
+        if (office) return sc->on_button(mw1::kHubOffice, 0, 0), false;
+        return false;
+      };
+      menu_run(r);
+      if (leg_settled < per_leg) finding("short", "leg " + std::to_string(leg) + " settled " + std::to_string(leg_settled) + " of " + std::to_string(per_leg));
+    }
+    std::printf("  soak79 %d: %d settled (%d won, %d lost, %d withdrawn), results logged %d, %d hubs, %d trips, %d buys, %d sells, "
+                "%d hires, %d fires, %d lab lances, %d menus, %d logs, %d story presses, %d event presses, %d allies killed, %d "
+                "commander's mechs lost, %zu dead\n",
+                seed, settled, won, lost, retreated, results_seen, hubs, trips, buys, sells, hires, fires, lab_sets, menus, logs,
+                stories, events, killed_allies, commander_lost, dead.size());
+    for (const auto& [kind, n] : found) {
+      std::printf("  soak79 %d: %s x%d\n", seed, kind.c_str(), n);
+      for (const std::string& w : first[kind]) std::printf("    %s\n", w.c_str());
+    }
+    EXPECT(settled >= legs * per_leg && won > 0 && (lost > 0 || retreated > 0));
+    EXPECT(results_seen == settled);
+    for (const char* kind : {"money", "mechs", "pilots", "log", "date", "save", "fit", "stuck", "lab", "short"}) EXPECT(!found.count(kind));
   });
 }
 
