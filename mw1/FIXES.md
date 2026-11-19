@@ -742,6 +742,22 @@ Tick an item when it is merged into `main`.
   - MW1's own text is shown from the player's exe as now and never stored in the save beyond event IDs. Store IDs and numbers, and build the words when shown.
 - **Done means:** shots of the log at 1080p and 4:3, a test that entries survive save and load, and the cap.
 
+## 64. [ ] Don't show market tiers; show what MW1's own travel panel showed
+- **Owen (2026-11-18):** "i dont think we should show the tiers. let people figure it out" ... "unless the original said it. did it?"
+- **What MW1 showed:** it didn't. Its destination panel (SDL port MW_MAIN_081B_TRAVEL.c, ~081B:5600) draws:
+  - the world's name and its House's crest;
+  - its landscape label (travelLandscapeLabels[(code-1) % N], the same byte whose (code-1)/3 is the tier);
+  - its population in millions;
+  - its description.
+  There is no tier, no buy or sell percentage and no dealer limit. The market shows only actual prices.
+- **Take out:**
+  - the travel panel's "tier N" and the "You sell mechs at", "You buy mechs at" and "Dealer buys" lines (mw1_travel_screen.cpp ~107-116);
+  - the map's TIER filters, including "TIER 3: SELL HIGH" and "TIER 0: BUY CHEAP" (mw1_travel_map.cpp ~131);
+  - the Mech Complex banner's "TIER N WORLD · SELLING AT N%" (mw1_market_screen.cpp ~105). Put something neutral in its place, e.g. the world's landscape and population, or nothing.
+- **Keep:** prices in the Mech Complex (they're real), and the dealer's refusal when it's full (said when it happens, as MW1 did).
+- **Add, as MW1 had:** the landscape label, the population and the description on the travel panel. Read the labels and description from the player's MW_MAIN.EXE at run time, like our other MW1 text; never store them. Without the exe, leave them out.
+- **Done means:** the tests updated (test_mw1_travel, test_mw1_travel_map); shots of the travel panel and the Mech Complex banner at 1080p and 4:3.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.
