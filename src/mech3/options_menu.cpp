@@ -304,10 +304,12 @@ void ResolutionCycle::rebuild(int32_t dev) {
   static const struct {
     int32_t mode, message;
   } kModes[] = {{3, 0x41}, {5, 0x42}, {6, 0x43}, {7, 0x44}, {8, 0xfda}, {9, 0xfdb}, {10, 0xfdc}};
-  // Ours (MW1's FIXES.md item 83, opt-in: platform/mode_labels.h): one format, the mode's own size.
+  // Ours (MW1's FIXES.md items 83 and 88, opt-in: platform/mode_labels.h): one format, the mode's own size; mode 3 by
+  // the size it draws (320x240, doubled to 640x480: 0x0040d810), as PM's message 0x41 named it, not 5's 640 x 480.
   auto size_label = [](int32_t mode, char* out, size_t n, const char* fmt) {
     int32_t w = 0, h = 0;
-    if (!vmode_size(mode, &w, &h)) return false;
+    if (mode == 3) w = 320, h = 240;
+    else if (!vmode_size(mode, &w, &h)) return false;
     std::snprintf(out, n, fmt, w, h);
     return true;
   };
@@ -323,7 +325,8 @@ void ResolutionCycle::rebuild(int32_t dev) {
     int32_t w = 0, h = 0;
     if (lo > mode || hi < mode || !vmode_size(mode, &w, &h)) continue;
     char label[24];
-    std::snprintf(label, sizeof label, uniform ? "%d x %d" : "%dx%d", w, h);
+    // FIXES.md item 88: the player's own size (16) told from the same size's mode in one format.
+    std::snprintf(label, sizeof label, !uniform ? "%dx%d" : mode == kCustomVMode ? "%d x %d custom" : "%d x %d", w, h);
     add_item(label, mode);
   }
   if (cur < lo) select_value(lo);
