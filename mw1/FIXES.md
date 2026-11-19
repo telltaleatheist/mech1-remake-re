@@ -938,6 +938,32 @@ Tick an item when it is merged into `main`.
 - **Dev switch:** MW1_BAR_GREYED=1 with MW1_SCREEN=bar hovers the greyed NEWS for a shot.
 - **Shots:** `outbox/2026-11-19/mw1-no-exe-hints-78/` (hub and Bar, 1080p and 4:3, with and without the exe).
 
+## 79. [x] A campaign soak for play bugs *(done: mw1-soak)*
+- **The lead (2026-11-19):** Owen keeps finding things only in play. Play a long hidden headless campaign and check the invariants at each step: the money adds up, every 'Mech and pilot is accounted for, no lancemate without a slot, the log matches what happened, nothing leaves the screen.
+- **The soak** (`mw1_soak_a_campaign_through_every_service_and_restarts_headless`, test_mw1_loop.cpp):
+  - A campaign with the story on, played in legs over one save. Each later leg starts at MW1's menu and LOADs the last leg's save, so the game is saved and loaded between legs.
+  - Every service: the office (requests, next offers, negotiating, accepting); the market (buy and sell, its questions answered yes); the Bar (hire, fire, drinks, news); the lab's lance (lancemates put on spare mechs, as the lab's DONE does); LOG, READ, the company page, travel, the hub's MAIN MENU and back, STORY.
+  - Missions are won, lost or withdrawn from. Along the way the player's mech is hit or destroyed and lancemates are killed.
+- **Checked every few frames, on whatever screen:**
+  - the money: each change of the funds is the log's;
+  - the pilots: hired means in the lance, joining and leaving only through the log's entries, the dead stay dead;
+  - the mechs: the owned count changes only by the log's buys, sells and losses;
+  - the log: one result per settlement, a trip or turn-away for each new world;
+  - the date never goes back, and the funds never fall below 0;
+  - the save round-trips and is the live company;
+  - every text fits its room: MW1_FIT's check, now `fit_problems`, shared through `game_loop_fit_problems`;
+  - nothing is stuck.
+- **Runs:** by default, seeds 4 and 9, 3 legs of 5 settlements, in mw1tests. `MW1_SOAK_LONG=n` plays seeds 0..n-1 at 6 legs of 8; `MW1_SOAK_SEED=k` plays one seed. Ten long seeds, 480 contracts, are clean.
+- **Fixed:**
+  - **The story's money wasn't in the log.** A setback's fine (Ander's Moon's 10%, up to a third) and MW1's script's funds commands moved the money unlogged, and a turn-away moved the company to another world unlogged. New log kinds: `kStoryFunds` ("Paid 30,000 C-bills." / "Received ...") and `kTurnedAway` ("Turned away from X to Y.").
+  - **The commander's own mech destroyed** (they take a spare) wasn't logged as lost; a lancemate's was. It is now (`kMechLost`).
+  - **The market's BUY and SELL questions were always answered NO in the soaks,** so the old 20-contract soak never bought or sold. The new soak answers yes.
+  - **MW1's words printed in tests:** AFTER ACTION's message, the Bar's pitches, the loading screen's lines and the hub's refusal lines. They print sizes now.
+- **For a decision (sent to the lead):**
+  - **Every House can come to refuse the company for good.** MW1's 8 grievances against a House is a refusal, never forgiven, and each contract adds +2 against the House fought (+1 to the employer on a retreat). In 6 of 10 long seeds every House with an office refused after 30 to 45 contracts. The company is then stranded with no way out that money can buy. The soak records it and clears the grievances to go on.
+  - **A lancemate hired, or a mech bought, isn't put on anything:** only the lab's lance assigns them, and a lancemate without a mech doesn't fly. The soak assigns through the lab's apply.
+  - **With the screen fade off, a press on a screen being replaced still acts.** The soak pressed travel's BACK in the frame after GO, and the queued swap replaced the arrival's event panel. The fade (on by default) ignores presses during a change, so play can't do this; a guard could ignore presses while a change is pending.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.

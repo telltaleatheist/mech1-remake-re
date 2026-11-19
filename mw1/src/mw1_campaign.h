@@ -163,8 +163,12 @@ enum class LogKind : int32_t {
   kLeft,          // a: pilot (dismissed at the Bar)
   kTravelled,     // a: from (planet index), b: to; n: the fare
   kTestLine,      // a: its number (development: MW1_SCREEN=hub_long's lines)
+  // FIXES.md item 79 (the soak: the funds moved without a word in the log): the story's money, MW1's script's
+  // (a reward or a cost) or a setback's fine (item 47), and a setback's turning away to the nearest world.
+  kStoryFunds,    // a: event; n: the funds' change (C-bills, signed)
+  kTurnedAway,    // a: from (planet index), b: to
 };
-inline constexpr int32_t kLogKindLast = static_cast<int32_t>(LogKind::kTestLine);
+inline constexpr int32_t kLogKindLast = static_cast<int32_t>(LogKind::kTurnedAway);
 inline constexpr size_t kLogCap = 200;
 
 struct LogEntry {

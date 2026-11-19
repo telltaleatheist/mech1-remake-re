@@ -1791,10 +1791,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     for (size_t k = 0; k < lab_slots_.size(); ++k)
       if (mech3::GameSlot* s = g->slot_at(static_cast<int32_t>(k)); s && lab_slots_[k] >= 0)
         lab_loadouts_[static_cast<size_t>(lab_slots_[k])] = s->config ? copy_config(*s->config) : nullptr;
-    const int32_t you = lab_slots_[0], weight = lance_weight(company_);
-    if (!apply_lance(company_, lab_slots_, lab_loadouts_)) std::printf("mw1: market: the lab's lance not applied\n");
-    // The lance weighs on the offer (MW1's, as the Company page's ASSIGN did): changed, the offer is drawn again.
-    if (lance_weight(company_) != weight && offered_ && !pending_ && !contract_.accepted) new_offer();
+    const int32_t you = lab_slots_[0];
+    if (!lance_from_lab(lab_slots_, lab_loadouts_)) std::printf("mw1: market: the lab's lance not applied\n");
     // The mech MECH LAB was on stays the chosen one: yours now if you took it, and your old one in its place.
     choice_.owned = i == you ? 0 : i == 0 ? you : i;
     choice_.own_shown = true;
@@ -1804,6 +1802,23 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     std::printf("mw1: market: back from the mech lab: %d items in the stores\n", company_.stores->count());
     save();
     show_market();
+  }
+  // The lab's lance made the company's (apply_lance). The lance weighs on the offer (MW1's, as the Company page's
+  // ASSIGN did): changed, the offer is drawn again.
+  bool lance_from_lab(const std::vector<int32_t>& slots, const std::vector<std::shared_ptr<mech3::Config>>& loadouts) {
+    const int32_t weight = lance_weight(company_);
+    if (!apply_lance(company_, slots, loadouts)) return false;
+    if (lance_weight(company_) != weight && offered_ && !pending_ && !contract_.accepted) new_offer();
+    return true;
+  }
+  // Tests (FIXES.md item 79's soak): the lab's lance as its DONE leaves it, without the lab: applied, saved.
+  bool lance_for_tests(const std::vector<int32_t>& slots) {
+    std::vector<std::shared_ptr<mech3::Config>> loadouts = {company_.loadout};
+    for (const OwnedMech& o : company_.hangar) loadouts.push_back(o.loadout);
+    if (!lance_from_lab(slots, loadouts)) return false;
+    save();
+    show_hub();
+    return true;
   }
   std::shared_ptr<mech3::Config>& owned_loadout(int32_t i) {
     return i == 0 ? company_.loadout : company_.hangar[static_cast<size_t>(i - 1)].loadout;
@@ -3002,6 +3017,23 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   HubOptionsState* hub_options_state() const { return hub_options_state_; }
   EventState* event_state() const { return event_up_ ? event_state_ : nullptr; }
   const LoadingSeen& loading_seen() const { return seen_; }
+  // The MW1 screen showing now and its fit problems (FIXES.md item 79's soak): none when no MW1 screen is up.
+  std::vector<std::string> current_fit_problems(std::string* which) const {
+    mech3::Mech3App* app = mech3::app_if_any();
+    if (!app || !ge_) return {};
+    auto on = [&](auto* st) { return st && app->current() == static_cast<zgame::State*>(st) ? st->screen() : nullptr; };
+    struct Shown { Mw1Screen* sc; const char* kind; };
+    const Shown shown[] = {{on(results_state_), "results"}, {app->current() == &mech3::states().load ? loading_.get() : nullptr, "loading"},
+                           {on(hub_options_state_), "hub_options"}, {on(event_state_), "event"}, {on(hub_state_), "hub"},
+                           {on(market_state_), "market"}, {on(travel_state_), "travel"}, {on(office_state_), "office"},
+                           {on(bar_state_), "bar"}};
+    for (const Shown& s : shown)
+      if (s.sc) {
+        if (which) *which = s.kind;
+        return fit_problems(*s.sc, s.kind);
+      }
+    return {};
+  }
   ResultsState* results_state() const { return results_state_; }
   const ResultsPanel& results_shown() const { return seen_results_; }
   void set_hold_launch(bool on) { hold_launch_ = on; }
@@ -3662,7 +3694,27 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (!sc) return void(frames = 0);
     if (++frames < 40) return;
     const int32_t w = ge_->buffer_width(), h = ge_->buffer_height();
-    int texts = 0, outside = 0;
+    int texts = 0, outside = 0, overlaps = 0;
+    for (const std::string& l : fit_problems(*sc, p, &texts, &outside, &overlaps)) std::printf("mw1 screen fit: %s, %s\n", page, l.c_str());
+    std::printf("mw1 screen fit: done at %dx%d on %s, %d texts, %d outside, %d overlapping\n", w, h, page, texts, outside,
+                overlaps);
+    reported = true;
+    end_fit_run();
+  }
+
+  // A screen's texts against its room (MW1_FIT's check, and the soak's, FIXES.md item 79): each text inside the canvas
+  // (the results' and the loading screen's inside their pieces), no text over another, none on a terminal's border.
+  // One line per problem, by place and length (MW1's words never); `page`: the MW1_SCREEN name or the kind ("results",
+  // "loading...", anything else a whole-canvas screen).
+  std::vector<std::string> fit_problems(Mw1Screen& screen, const std::string& p, int* texts_out = nullptr, int* outside_out = nullptr,
+                                        int* overlaps_out = nullptr) const {
+    Mw1Screen* sc = &screen;
+    auto span = [](const FitText& t) {
+      return std::to_string(t.left) + ".." + std::to_string(t.right) + " x " + std::to_string(t.top) + ".." + std::to_string(t.bottom);
+    };
+    const int32_t w = ge_->buffer_width(), h = ge_->buffer_height();
+    std::vector<std::string> out;
+    int texts = 0, outside = 0, overlaps = 0;
     // The results and loading screens' texts each inside its own piece (their layouts' 640 x 480, centred; the
     // results' wide layout's from the left): the plaque, the picture's column, the status terminal (clear of the
     // list's arrows), the message's band (clear of the crest), the buttons; the loading terminal at the foot, LOADING in it (FIXES.md
@@ -3683,12 +3735,11 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       ++texts;
       if (f.fits) continue;
       ++outside;
-      std::printf("mw1 screen fit: %s, %zu letters at %d..%d x %d..%d: OUTSIDE\n", page, f.text.size(), f.left, f.right, f.top, f.bottom);
+      out.push_back(std::to_string(f.text.size()) + " letters at " + span(f) + ": OUTSIDE");
     }
     // Text over text (FIXES 3+5: the status bar's world over its words): two texts' boxes crossing by more than
     // kSlack each way (a text's box is 3 wider than its letters, and a block's lines may touch by a pixel or two).
     constexpr int32_t kSlack = 3;
-    int overlaps = 0;
     for (size_t i = 0; i < fits.size(); ++i)
       for (size_t j = i + 1; j < fits.size(); ++j) {
         const FitText &a = fits[i], &b = fits[j];
@@ -3696,8 +3747,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         const int32_t dy = std::min(a.bottom, b.bottom) - std::max(a.top, b.top);
         if (dx <= kSlack || dy <= kSlack) continue;
         ++overlaps;
-        std::printf("mw1 screen fit: %s, %zu letters at %d..%d x %d..%d over %zu letters at %d..%d x %d..%d: OVERLAP\n",
-                    page, a.text.size(), a.left, a.right, a.top, a.bottom, b.text.size(), b.left, b.right, b.top, b.bottom);
+        out.push_back(std::to_string(a.text.size()) + " letters at " + span(a) + " over " + std::to_string(b.text.size()) +
+                      " letters at " + span(b) + ": OVERLAP");
       }
     // FIXES.md item 66 (Owen: FOR SALE's eighth row and its outline on the box's foot; the canvas check passed it):
     // a text, arrow or outline in a terminal (its middle inside) stays clear of its border, kTermEdge each side (the
@@ -3713,15 +3764,15 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         if (mx < l || mx >= r || my < t.top || my >= t.bottom) continue;
         if (f.left >= l + kTermEdge && f.right <= r - kTermEdge && f.top >= t.top + kTermEdge && f.bottom <= t.bottom - kTermEdge) continue;
         ++outside, ++texts;
-        std::printf("mw1 screen fit: %s, %s at %d..%d x %d..%d in the terminal %d..%d x %d..%d: ON ITS BORDER\n", page,
-                    f.text.rfind("[", 0) == 0 ? f.text.c_str() : (std::to_string(f.text.size()) + " letters").c_str(),
-                    f.left, f.right, f.top, f.bottom, l, r, t.top, t.bottom);
+        out.push_back((f.text.rfind("[", 0) == 0 ? f.text : std::to_string(f.text.size()) + " letters") + " at " + span(f) +
+                      " in the terminal " + std::to_string(l) + ".." + std::to_string(r) + " x " + std::to_string(t.top) + ".." +
+                      std::to_string(t.bottom) + ": ON ITS BORDER");
       }
     }
-    std::printf("mw1 screen fit: done at %dx%d on %s, %d texts, %d outside, %d overlapping\n", w, h, page, texts, outside,
-                overlaps);
-    reported = true;
-    end_fit_run();
+    if (texts_out) *texts_out = texts;
+    if (outside_out) *outside_out = outside;
+    if (overlaps_out) *overlaps_out = overlaps;
+    return out;
   }
 
   // MW1_SCREEN=lab_fit (the lab's text guard, mw1_lab_fit.h): the lab's pages 0 (chassis), 1, 3 (each supply tab)
@@ -4093,6 +4144,7 @@ BarState* game_loop_bar() { return the_loop() ? the_loop()->bar_state() : nullpt
 OfficeState* game_loop_office() { return the_loop() ? the_loop()->office_state() : nullptr; }
 EventState* game_loop_event() { return the_loop() ? the_loop()->event_state() : nullptr; }
 LoadingSeen game_loop_loading_seen() { return the_loop() ? the_loop()->loading_seen() : LoadingSeen{}; }
+std::vector<std::string> game_loop_fit_problems(std::string* which) { return the_loop() ? the_loop()->current_fit_problems(which) : std::vector<std::string>{}; }
 void set_game_loop_hold_launch(bool on) {
   if (the_loop()) the_loop()->set_hold_launch(on);
 }
@@ -4102,6 +4154,7 @@ void set_game_loop_story(bool on) {
 void game_loop_offer_again() {
   if (the_loop()) the_loop()->offer_again();
 }
+bool game_loop_lance(const std::vector<int32_t>& slots) { return the_loop() && the_loop()->lance_for_tests(slots); }
 MarketState* game_loop_market() { return the_loop() ? the_loop()->market_state() : nullptr; }
 const MarketChoice* game_loop_market_choice() { return the_loop() ? the_loop()->market_choice() : nullptr; }
 int32_t game_loop_market_panel_mech() { return the_loop() ? the_loop()->market_panel_mech() : -1; }

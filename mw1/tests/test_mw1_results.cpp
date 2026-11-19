@@ -75,7 +75,8 @@ TEST(mw1_results_the_message_is_the_exes) {
   EXPECT(win_d == win_s);                                       // Davion and Steiner share theirs
   EXPECT(fail_k != fail_m);
   EXPECT(!garrison.empty() && garrison[0].find("GARRISON") != std::string::npos);
-  std::printf("  a win for Kurita: \"%s\"\n", win_k.empty() ? "" : win_k[0].c_str());
+  // Its size only: MW1's words are never printed (FIXES.md item 79's sweep).
+  std::printf("  a win for Kurita: %zu lines, the first %zu letters\n", win_k.size(), win_k.empty() ? size_t{0} : win_k[0].size());
   // A short-paid win: the win, then its deduction line, each of the four its own.
   for (size_t i = 0; i < docked.size(); ++i) {
     EXPECT(docked[i].size() == 2 && docked[i][0] == win_s[0]);

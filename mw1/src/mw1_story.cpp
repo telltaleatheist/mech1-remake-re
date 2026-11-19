@@ -465,6 +465,7 @@ SetbackDone apply_setback(Company& c, const Setback& s, Rng& rng) {
   } else {
     d.fined = setback_fine(c, s);
     c.funds -= d.fined;
+    if (d.fined > 0) log_add(c, LogKind::kStoryFunds, true, s.event, 0, 0, 0, -d.fined);  // FIXES.md item 79
   }
   if (s.cost == Cost::kTurnAway) {
     const Planet& here = planet_here(c);
@@ -476,6 +477,7 @@ SetbackDone apply_setback(Company& c, const Setback& s, Rng& rng) {
     }
     if (best >= 0) {
       const int32_t units = travel_units(here, kPlanets[best]);
+      log_add(c, LogKind::kTurnedAway, true, planet_index(here.number), best);  // FIXES.md item 79
       set_planet(c, best);
       advance_time(c, units, rng);
       refresh_world(c, rng);
@@ -559,7 +561,11 @@ Ran run_event(Company& c, int32_t record, int32_t cls, Rng& rng, Shown* out) {
           break;
         }
         case kFunds:
-          if (result) c.funds = std::max<int64_t>(0, c.funds + cmd.funds);  // never below none (MW1's clamp)
+          if (result) {
+            const int64_t was = c.funds;
+            c.funds = std::max<int64_t>(0, c.funds + cmd.funds);  // never below none (MW1's clamp)
+            if (c.funds != was) log_add(c, LogKind::kStoryFunds, true, e.id, 0, 0, 0, c.funds - was);  // FIXES.md item 79
+          }
           break;
         case kUseAnd: with_and = true; break;
         case kUseOr: with_and = false; break;

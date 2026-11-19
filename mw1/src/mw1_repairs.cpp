@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "mech3/mech_names.h"
+#include "mw1_log.h"
 #include "mw1_market.h"
 #include "mw1_pilots.h"
 
@@ -86,6 +87,7 @@ Repairs settle_repairs(Company& c, const std::vector<MechBill>& bills, int64_t p
       c.hangar.erase(c.hangar.begin() + take);
       c.mech = o.mech, c.loadout = o.loadout;
       r.took = o.mech, r.took_from = from;
+      log_add(c, LogKind::kMechLost, true, was);  // FIXES.md item 79: the commander's own, in the log as a lancemate's is
       lost.push_back("Lost: your " + mech_title(was) + ". You take the " + mech_title(o.mech) +
                      (from ? "; " + pilot_title(from) + " stays behind next time." : "."));
     } else {
