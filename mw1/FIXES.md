@@ -619,6 +619,8 @@ Tick an item when it is merged into `main`.
   - Saves past the cap still load.
 - **Also:** check the stores (no tonnage limit, Owen) for a count overflow. Clamp each item's quantity at a sane maximum (e.g. 9,999) and fit the lab's Qty column to it.
 - **Done means:** the exe's answer with its address; a test buying to the cap; a shot of the full hangar list.
+- **Found:** MW1's limit is 12 (081B:4674, DS:0530). **Owen (2026-11-18): make it 30.**
+- **Owen (2026-11-18), on 51:** repairs stay cheap (kRepairScale unchanged).
 
 ## 54. [ ] The travel animation back, as a video: the DropShip launches on departure
 - **Owen (2026-11-18):** "in the original, when you take off to a new location, it shows an animation of the spaceship taking off ... we could use ltx to generate a 5 second video of the spaceship launching ... use the image as the first frame."
