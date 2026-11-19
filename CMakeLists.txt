@@ -789,6 +789,7 @@ if(MW3_BUILD_PM)
     tests/pm/test_pm_lobby.cpp
     tests/test_help_button.cpp  # HelpButton's blink, and set_buttons_steady (ours)
     tests/test_hires_lists.cpp  # ours: MW1's high-resolution 2D, the recorded draws kept with the pixels
+    tests/pm/test_pm_entities_sort.cpp
     tests/pm/test_pm_net.cpp
     tests/pm/test_pm_wire.cpp
     tests/pm/test_pm_wire_walk.cpp

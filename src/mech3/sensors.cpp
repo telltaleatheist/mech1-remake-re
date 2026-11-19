@@ -658,8 +658,8 @@ void lance_flag(Handle x) {
 void entities_sort() {
   SensorHooks& h = H();
   std::vector<Handle>& l = g_entities;
-  for (Handle e : l)
-    if (const Handle x = veh(e)) lance_flag(x);
+  for (size_t i = 0; i < l.size(); ++i)  // by index: a lancemate's flag makes its own marker, an entity added to l
+    if (const Handle x = veh(l[i])) lance_flag(x);
   if (l.size() > 1) {
     crt::msvc_sort(l.begin(), l.end(), EntityLess{h.player(), h.stealth()});
     const Handle p = h.player();
