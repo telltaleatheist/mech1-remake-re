@@ -819,7 +819,10 @@ Tick an item when it is merged into `main`.
   - Do they follow, and do they engage on "attack my target" and on their own?
   - Is their path blocked at the drop zone (a wall, or an MW3 world's nav data)?
   - Compare an Instant Action mission in PM with lancemates on the same map.
-- **Done means:** the cause and the fix, with a test where lancemates move and fire. If PM's engine is at fault, it goes to the mw3 lead.
+- **More from Owen (2026-11-19):** "i targeted one lancemate, john zoe, and then i targeted my other lancemate, alex veer ... when you target a lancemate with w, it puts their name in blue at the top because thats who youre giving orders to ... when i switched from john zoe to alex veer ... the top name remained john zoe, though it did target alex veer ... when i targeted enemies, it would only target them with john zoe".
+  - So the order recipient sticks to the first lancemate chosen. Targeting the second lancemate with W moves the target, but not the recipient (the blue name at the top). Orders, such as attack, then go to the first lancemate only.
+  - Find out whether this is MW1's lance setup (e.g. the squad's member list or slot numbers built wrong for MW1's lancemates) or PM's own recipient logic. Compare with PM's Instant Action with two lancemates.
+- **Done means:** the cause and the fix, with a test where lancemates move and fire, and where W on each lancemate in turn makes it the recipient and an attack order reaches it. If PM's engine is at fault, it goes to the mw3 lead.
 
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
