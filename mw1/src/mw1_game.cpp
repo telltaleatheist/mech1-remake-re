@@ -66,6 +66,7 @@
 #include "mw1_office.h"
 #include "mw1_campaign.h"
 #include "mw1_hub.h"
+#include "mw1_hud_art.h"
 #include "mw1_market.h"
 #include "mw1_market_screen.h"
 #include "mw1_menu.h"
@@ -193,21 +194,27 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   void menus_building(mech3::Engine& e) override {
     register_images();
     register_fonts();
-    // FIXES.md item 23: the Company screen's mech pictures, PM's lab icons in amber (mw1_mech_icons.h).
-    if (const int32_t n = make_mech_icons(zutl::mounts().write); n > 0) {
-      bool there = false;
-      for (zimg::Library* lib : zimg::library_list(1)) there = there || (lib && std::strstr(lib->name, kIconLibrary));
-      if (!there) zimg::new_image_library(kIconLibrary, 0, false);
-      // At the window's scale (research/hires-2d.md B2 item 1): PM's outlines redrawn as lines (mw1_outline.h).
-      art::set_drawn_art([](const std::string& name, art::DrawnArt* out) {
-        const IconOutline* o = icon_outline(name);
-        if (!o) return false;
+    // At the window's scale (research/hires-2d.md B2): PM's 'Mech outlines redrawn as lines (mw1_outline.h), and PM's
+    // mission HUD pictures drawn from their shapes (mw1_hud_art.h).
+    art::set_drawn_art([](const std::string& name, art::DrawnArt* out) {
+      if (const IconOutline* o = icon_outline(name)) {
         out->canvas_w = o->canvas_w, out->canvas_h = o->canvas_h;
         out->draw = [lines = o->lines, c = o->colour, sc = o->scale, w = o->canvas_w, h = o->canvas_h, fit = o->fit](int32_t s) {
           return fit ? outline::draw_fit(*lines, c, w, h, s, kRowLineMin) : outline::draw(*lines, c, sc, w, h, s);
         };
         return true;
-      });
+      }
+      if (hud_art::size_of(name, &out->canvas_w, &out->canvas_h)) {
+        out->draw = [name](int32_t s) { return hud_art::draw(name, s); };
+        return true;
+      }
+      return false;
+    });
+    // FIXES.md item 23: the Company screen's mech pictures, PM's lab icons in amber (mw1_mech_icons.h).
+    if (const int32_t n = make_mech_icons(zutl::mounts().write); n > 0) {
+      bool there = false;
+      for (zimg::Library* lib : zimg::library_list(1)) there = there || (lib && std::strstr(lib->name, kIconLibrary));
+      if (!there) zimg::new_image_library(kIconLibrary, 0, false);
     } else {
       std::printf("mw1: no mech icons from Pirate's Moon's pictures: the Company screen's mech slots stay empty\n");
     }
@@ -272,9 +279,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // loading screen, held there. MW1_SCREEN=lab or lab_files: the Mech Complex's MECH LAB instead (and the lab's load
     // box); lab_3, lab_4 its pages (lab_1, empty, falls back to the chassis: item 26). MW1_SCREEN=results: the
     // mission won 600 frames in (every enemy the commander's, the left arm hit), by PM's Exit Mission: the results.
+    // MW1_SCREEN=mission: as pause, never paused: the mission and its HUD (FIXES 12's HUD shots).
     if (const char* s = std::getenv("MW1_SCREEN");
         s && (std::string(s).rfind("pause", 0) == 0 || std::string(s).rfind("lab", 0) == 0 || std::string(s).rfind("loading", 0) == 0 ||
-              std::string(s) == "results" || std::string(s).rfind("walk_", 0) == 0) &&
+              std::string(s) == "results" || std::string(s) == "mission" || std::string(s).rfind("walk_", 0) == 0) &&
         !shot_driver_) {
       hold_for_shot_ = std::string(s).rfind("loading", 0) == 0;
       // FIXES.md item 51's shots: MW1_SHOT_PAY=pool,repairs (C-bills), the win's pool and the commander's repairs.
@@ -3271,7 +3279,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       return;
     }
     if (page == "results") return;
-    if (now == &mech3::states().core && frames == 90) app->push(app->state(3), 0);
+    if (now == &mech3::states().core && frames == 90 && page != "mission") app->push(app->state(3), 0);
     if (now == &mech3::states().pause && frames == 10 && page == "pause_options")
       if (auto* p = dynamic_cast<mech3::PauseScreen*>(ge->screen_of(mech3::states().pause.screen_))) p->on_button(mech3::PauseScreen::kOptions, 0, 0);
   }

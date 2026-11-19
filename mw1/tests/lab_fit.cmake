@@ -5,11 +5,10 @@
 # cmake -DMW1_BIN=<mw1> -DDIR=<scratch dir> -P lab_fit.cmake
 # FIXES.md item 12 (B4): at 1080p every text and picture drawn at the window's resolution. The draws still left to
 # the canvas, known and named: flat fills (nothing to lose magnified), the lab's
-# pressed 'Mech icon (icon_*_red, PM's), and a mission's HUD (hud_*, PM's: their sources are next, FIXES 12; the
-# results page's first frames are the mission's). Any other (a text, a picture not listed) fails.
-# The HUD's toggler (src/mech3/hud.cpp) is PM's lab_toggle[lr]_* by its own name: the lab draws MW1's reskin
-# (mw1_lab_toggle*, a source of its own), so the bare name is only ever the HUD's; its source comes with hud_*'s.
-set(hires_known "^(mw1_clear|mw1_black|icon_[a-z0-9_]+_red|hud_[a-z0-9_]+|lab_toggle[lr]_(green|red))$")
+# pressed 'Mech icon (icon_*_red, PM's). Any other (a text, a picture not listed) fails: a mission's HUD (hud_*, and
+# its toggler, PM's lab_toggle[lr]_* by its own name) is drawn from its shapes since (mw1_hud_art.h), so the results
+# page's first frames, the mission's, hold it to that too.
+set(hires_known "^(mw1_clear|mw1_black|icon_[a-z0-9_]+_red)$")
 function(hires_short out_text result)
   set(bad "")
   string(REGEX MATCHALL "mw3: hires: [^\n]*left to the canvas[^\n]*" lines "${out_text}")
