@@ -200,9 +200,11 @@ struct Shown {
 std::vector<Page> shown_pages(const Company& c, const Shown& s);
 // A story's title: the line before its first page's first blank one (else its first).
 std::string news_title(const Company& c, const Shown& s);
+// Whether a line ends a sentence (., ! or ?, a closing quote or bracket after it): FIXES.md item 73.
+bool sentence_ends(const std::string& line);
 // A story's headline (FIXES.md item 67): its title; when another news story of the script has the same title (MW1's
-// round-ups share one), the first line of its first item (the first line after the blank under the title) instead,
-// so no two say the same. Its title still when it has no such line.
+// round-ups share one), the first line no other story under that title has, past a dateline, instead, so no two say
+// the same; ending in "..." when it doesn't end a sentence (item 73). Its title still when it has no such line.
 std::string headline(const Company& c, const Shown& s);
 // Whether a news title is shared by more than one news record of the script.
 bool title_shared(const Company& c, const std::string& title);

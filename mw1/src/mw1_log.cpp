@@ -102,7 +102,7 @@ std::vector<std::string> log_lines(const Company& c, const LogEntry& e) {
       if (e.m <= 0) return {"Repairs: " + thousands(e.n) + " C-bills, paid from the wrecks."};
       return {"Repairs: " + thousands(e.n) + " C-bills; billed " + thousands(e.m) +
               (e.a > 0 ? " (" + thousands(int64_t{e.a} * 1000) + " forgiven)" : std::string()) + "."};
-    case LogKind::kWagesPaid: return {"Wages paid: " + std::to_string(e.n) + " C-bills."};
+    case LogKind::kWagesPaid: return {"Wages paid: " + thousands(e.n) + " C-bills."};  // item 73: commas, as the rest
     case LogKind::kWagesUnpaid: return {"The lancemates weren't paid this month. Next time they leave."};
     case LogKind::kLanceLeft: return {"Unpaid, the lancemates have left the company."};
     case LogKind::kPromoted: return {pilot_title(e.a) + " is promoted: Gunnery " + rating_words(e.b) + "."};
