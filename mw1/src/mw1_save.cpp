@@ -157,6 +157,11 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
   o << "\n";
   // FIXES.md item 47 (any version 8; a save without it: none won, or the Dark Wing's rung when it was won).
   o << "story_rung=" << c.story.rung_won << "\n";
+  // Item 47's setbacks (a save without it: none): the steps' events seen and waiting to fire again (kSeenWaiting).
+  o << "story_waiting=";
+  for (int32_t id = 0, n = 0; id < kEventIds; ++id)
+    if (c.story.seen[static_cast<size_t>(id)] == kSeenWaiting) o << (n++ ? "," : "") << id;
+  o << "\n";
   o << "stores=" << (c.stores ? hex(bytes_of([&](std::FILE* f) { c.stores->save(f); })) : std::string()) << "\n";
   o << "offer=" << (offer ? 1 : 0) << "\n";
   if (offer) {
@@ -177,6 +182,7 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
       << "\noffer_climate=" << k.climate << "\n";
     o << "offer_accepted=" << (k.accepted ? 1 : 0) << "\noffer_remaining=" << k.remaining << "\n";
     o << "offer_rung=" << k.rung << "\n";  // FIXES.md item 47: a story battle's (0 none); older saves without it: 0
+    o << "offer_hardest=" << (k.hardest ? 1 : 0) << "\n";  // item 47's setbacks: at its hardest; missing: 0
   }
   o << "pending=" << (pending && offer ? 1 : 0) << "\n";
   if (pending && offer) {
@@ -425,6 +431,9 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
     int64_t rung = c.story.dark_wing_won ? kDarkWingRung : 0;
     if (v.count("story_rung") && !num("story_rung", 0, kRungs, &rung)) return fail("the story's rung is out of range");
     c.story.rung_won = static_cast<int32_t>(rung);
+    std::vector<int64_t> waiting;
+    if (v.count("story_waiting") && !list("story_waiting", 0, kEventIds - 1, &waiting)) return fail("the story's waiting steps are out of range");
+    for (int64_t id : waiting) c.story.seen[static_cast<size_t>(id)] = kSeenWaiting;
   }
   // The world's name, House and tier are the map's, by its number.
   if (const int32_t w = planet_index(c.planet_number); w >= 0) set_planet(c, w);
@@ -478,6 +487,9 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
     int64_t rung = 0;
     if (v.count("offer_rung") && !num("offer_rung", 0, kRungs, &rung)) return fail("the story battle's rung is wrong");
     k.rung = static_cast<int32_t>(rung);
+    int64_t hardest = 0;
+    if (v.count("offer_hardest") && !num("offer_hardest", 0, 1, &hardest)) return fail("the story battle's hardest line is wrong");
+    k.hardest = hardest != 0;
     k.accepted = acc != 0, k.remaining = static_cast<int32_t>(rem);
   }
   int64_t pend = 0;

@@ -196,13 +196,14 @@ TEST(mw1_story_runs_as_mw1_does) {
   for (int32_t pick = 0; pick < 2; ++pick) {
     mw1::Company g = on_story(mw1::kPools[1][0]);
     g.story.seen[0x0C] = 1;
+    g.story.rung_won = 1;  // ours (item 47): Grig's men beaten first
     f = fire(g, mw1::kClassArrival, rng, pick);
     EXPECT(f.size() >= 2 && f[0] == 0x64 && f[1] == (pick ? 0x0F : 0x0E));
     EXPECT(g.story.seen[0x64] && g.story.seen[pick ? 0x0F : 0x0E] && !g.story.seen[pick ? 0x0E : 0x0F]);
   }
-  // A planet named in the text: the man in the Bar (0x0C) names story planet 1.
+  // A planet named in the text: the man in the Bar (0x0C) names story planet 1 (ours: on Land's End, item 47).
   {
-    mw1::Company g = on_story(mw1::kPools[0][0]);
+    mw1::Company g = on_story(mw1::kLandsEnd);
     g.story.seen[0x0B] = 1;
     mw1::Dispatch d = mw1::start(mw1::kClassBarEntry);
     mw1::Shown s;
@@ -253,6 +254,176 @@ TEST(mw1_story_runs_as_mw1_does) {
     g.date = {0, 0, 3035};
     f = fire(g, mw1::kClassArrival, rng);
     EXPECT(has(f, mw1::kEventDarkWingAttack) && !has(f, mw1::kEventTooLate) && !g.story.seen[mw1::kEventTooLate]);
+  }
+}
+
+// FIXES.md item 47 (ours, the mw1 lead's plan): each step waits for its battle. The gates hold the next step until the
+// rung is won; FIGHT is the battle (step_fight); a step left without it waits for the next arrival (kSeenWaiting);
+// a won battle's page is due until shown; MW1's deaths and stalling choices are setbacks, a fine capped at a third of
+// the funds, a lancemate gone, or a turn-away from Ander's Moon.
+TEST(mw1_story_steps_wait_for_their_battles) {
+  if (mw1_test::no_mw1()) return;
+  mw1::set_mw1_game_dir(MW1_DOS_GAME_DIR);
+  mw1::Rng rng(5);
+  // Rung 1: 0x0C only on Land's End, a choice of MW1's FIGHT / RUN (0x27's captions), still naming story planet 1.
+  {
+    mw1::Company g = on_story(48);  // Dustball
+    g.story.seen[0x0B] = 1;
+    EXPECT(!has(fire(g, mw1::kClassBarEntry, rng), mw1::kEventGrigsMen));
+    mw1::Company l = on_story(mw1::kLandsEnd);
+    l.story.seen[0x0B] = 1;
+    mw1::Dispatch d = mw1::start(mw1::kClassBarEntry);
+    mw1::Shown s;
+    EXPECT(mw1::next(l, d, rng, &s) && s.event == mw1::kEventGrigsMen && s.named == 1);
+    const std::vector<std::string> fr = mw1::fight_or_run();
+    EXPECT(fr.size() == 2 && s.captions == fr && s.branches == std::vector<int32_t>({-1, -1}));
+    const mw1::Event& e27 = mw1::script().records[static_cast<size_t>(mw1::record_of(0x27))];
+    bool same = false;
+    for (const mw1::Command& cmd : e27.script)
+      if (cmd.captions.size() >= 2) same = cmd.captions[0] == fr[0] && cmd.captions[1] == fr[1];
+    EXPECT(same);
+    // RUN (no branch): the step waits; on the next Bar entry there it's asked again; won, it's MW1's text alone.
+    mw1::choose(d, s, 1);
+    while (mw1::next(l, d, rng, &s)) {}
+    mw1::steps_wait(l);
+    EXPECT(l.story.seen[mw1::kEventGrigsMen] == mw1::kSeenWaiting);
+    EXPECT(has(fire(l, mw1::kClassBarEntry, rng), mw1::kEventGrigsMen));
+    l.story.rung_won = 1;
+    mw1::steps_wait(l);
+    EXPECT(l.story.seen[mw1::kEventGrigsMen] == 1);
+  }
+  // The gates: Grig's base (0x64) for rung 1, the Stone Arrow (0x24) for 2.
+  {
+    mw1::Company g = on_story(mw1::kPools[1][0]);
+    g.story.seen[0x0C] = 1;
+    EXPECT(!has(fire(g, mw1::kClassArrival, rng), 0x64));
+    g.story.rung_won = 1;
+    EXPECT(has(fire(g, mw1::kClassArrival, rng), 0x64));
+    mw1::Company b = on_story(48);
+    b.story.seen[0x17] = 1, b.story.rung_won = 1;
+    EXPECT(!has(fire(b, mw1::kClassBarDrink, rng), 0x24));
+    b.story.rung_won = 2;
+    EXPECT(has(fire(b, mw1::kClassBarDrink, rng), 0x24));
+    EXPECT(mw1::step_gate(0x2D) == 3 && mw1::step_gate(0x2E) == 3 && mw1::step_gate(0x40) == 4 && mw1::step_gate(0x43) == 5 &&
+           mw1::step_gate(0x17) == 0);
+  }
+  // The FIGHTs: their rungs, the second at Dustball at its hardest; RUN isn't one.
+  {
+    struct Want {
+      int32_t event, choice, rung;
+      bool hardest;
+    };
+    for (const Want& w : {Want{0x0C, 0, 1, false}, Want{0x17, 0, 2, false}, Want{0x19, 0, 2, true}, Want{0x27, 0, 3, false},
+                          Want{0x30, 1, 4, false}, Want{0x32, 0, 4, false}, Want{0x40, 0, 5, false}}) {
+      const mw1::StepFight* f = mw1::step_fight(w.event, w.choice);
+      EXPECT(f && f->rung == w.rung && f->hardest == w.hardest);
+    }
+    EXPECT(!mw1::step_fight(0x17, 1) && !mw1::step_fight(0x27, 1) && !mw1::step_fight(0x30, 0) && !mw1::step_fight(0x40, 1));
+    // Each FIGHT is a choice of the exe's script there, and its branch MW1's (0x30's second: to 0x33).
+    const mw1::Script& sc = mw1::script();
+    for (int32_t ev : {0x17, 0x19, 0x27, 0x30, 0x32, 0x40}) {
+      bool chooses = false;
+      for (const mw1::Command& cmd : sc.records[static_cast<size_t>(mw1::record_of(ev))].script) chooses |= cmd.branches.size() >= 2;
+      EXPECT(chooses);
+    }
+  }
+  // A hub step left without its battle (Brown's, RUN then RUN): waits for the next arrival, not the hub drawn again.
+  {
+    mw1::Company g = on_story(48);
+    g.story.seen[0x0E] = 1;
+    std::vector<int32_t> f = fire(g, mw1::kClassArrival, rng, 1);
+    EXPECT(has(f, 0x17) && has(f, 0x19) && has(f, 0x1C));
+    mw1::steps_wait(g);
+    EXPECT(g.story.seen[0x17] == mw1::kSeenWaiting);
+    EXPECT(!has(fire(g, mw1::kClassArrival, rng, 1), 0x17));
+    g.story.arrived = true;
+    EXPECT(has(fire(g, mw1::kClassArrival, rng, 1), 0x17));
+  }
+  // A won battle's page: due until shown (0x18 marked, the exchange the battle stood for); a quiet one marked at once;
+  // 0x3E's choice due until TASHA (0x43).
+  {
+    mw1::Company g = on_story(48);
+    g.story.seen[0x0E] = g.story.seen[0x17] = 1;
+    g.story.rung_won = 3;
+    const mw1::StepFight* f = mw1::step_win_due(g);
+    EXPECT(f && f->won == 0x1B && g.story.seen[0x18] && g.story.seen[0x29]);
+    mw1::Shown s;
+    EXPECT(mw1::run_event(g, mw1::record_of(0x1B), mw1::kClassArrival, rng, &s) == mw1::Ran::kShown && g.story.seen[0x1B]);
+    EXPECT(!mw1::step_win_due(g));
+    g.story.seen[0x30] = g.story.seen[0x33] = g.story.seen[0x40] = 1, g.story.rung_won = 5;
+    f = mw1::step_win_due(g);
+    EXPECT(f && f->won == 0x3E);
+    EXPECT(mw1::run_event(g, mw1::record_of(0x3E), mw1::kClassArrival, rng, &s) == mw1::Ran::kChoice && s.captions.size() == 2);
+    EXPECT(mw1::step_win_due(g) == f);  // the choice not made yet: still due
+    g.story.seen[0x43] = 1;
+    EXPECT(!mw1::step_win_due(g));
+  }
+  // The setbacks: every death and stalling choice the lead listed has one; fines capped at a third of the funds.
+  {
+    for (int32_t ev : {0x0F, 0x1A, 0x28, 0x34, 0x3F, 0x44, 0x4D, 0x75}) EXPECT(mw1::setback_of(ev) != nullptr);
+    EXPECT(!mw1::setback_of(0x0E) && mw1::setback_of(0x44)->reoffer == 0x3E && mw1::setback_of(0x4D)->again == 0x45);
+    mw1::Company g = on_story(48);
+    g.funds = 90000;
+    const mw1::SetbackDone d = mw1::apply_setback(g, *mw1::setback_of(0x3F), rng);
+    EXPECT(d.fined == 30000 && g.funds == 60000 && !d.line.empty());
+    g.funds = 1000000;
+    mw1::apply_setback(g, *mw1::setback_of(0x4D), rng);
+    EXPECT(g.funds == 800000 && g.story.seen[0x45] == mw1::kSeenWaiting);
+  }
+  // A lancemate lost: back in the pool (missing), their mech kept; with none, a fine.
+  {
+    mw1::Company g = mw1::new_company(rng);
+    g.lance = {{1, 0}, {41, 0}};
+    for (int32_t id : {1, 41}) {
+      g.pilots[id].where = mw1::PilotWhere::kHired;
+      mw1::OwnedMech o;
+      o.pilot = id;
+      g.hangar.push_back(o);
+    }
+    const size_t hangar = g.hangar.size();
+    const int64_t funds = g.funds;
+    const mw1::SetbackDone d = mw1::apply_setback(g, *mw1::setback_of(0x34), rng);
+    EXPECT((d.lost == 1 || d.lost == 41) && g.lance.size() == 1 && g.pilots[d.lost].where == mw1::PilotWhere::kFree &&
+           g.hangar.size() == hangar && g.funds == funds);
+    g.lance.clear();
+    const mw1::SetbackDone n = mw1::apply_setback(g, *mw1::setback_of(0x44), rng);
+    EXPECT(n.lost == 0 && n.fined == 100000 && g.funds == funds - 100000);
+  }
+  // Ander's Moon before the win: fined (10%, at least 50,000, at most a third) and turned away to another world, the
+  // trip's time passing; 0x75 never marked seen, so it fires on every arrival there until the Dark Wing is won.
+  {
+    mw1::Company g = on_story(mw1::kAndersMoon);
+    g.funds = 1000000;
+    const mw1::Date before = g.date;
+    mw1::Dispatch dd = mw1::start(mw1::kClassArrival);
+    mw1::Shown s;
+    EXPECT(mw1::next(g, dd, rng, &s) && s.event == mw1::kEventPortArrest && s.restart);
+    const mw1::SetbackDone d = mw1::apply_setback(g, *mw1::setback_of(mw1::kEventPortArrest), rng);
+    EXPECT(d.fined == 100000 && d.moved >= 0 && g.planet_number != mw1::kAndersMoon && !g.story.seen[mw1::kEventPortArrest]);
+    EXPECT(g.date.year != before.year || g.date.month != before.month || g.date.units != before.units);
+    mw1::Company p = on_story(mw1::kAndersMoon);
+    p.funds = 120000;
+    EXPECT(mw1::setback_fine(p, *mw1::setback_of(mw1::kEventPortArrest)) == 40000);
+  }
+  // A step battle at its hardest: an escort more and the next rung's aim.
+  {
+    mw1::Company g = on_story(48);
+    const mw1::Contract k = mw1::story_battle(g, 2, rng, true), n = mw1::story_battle(g, 2, rng);
+    EXPECT(k.hardest && k.enemies.size() == n.enemies.size() + 1 && mw1::story_aim(k) == mw1::rung(3).aim &&
+           mw1::story_aim(n) == mw1::rung(2).aim);
+  }
+  // Saved: the waiting steps, and a battle's hardest.
+  {
+    mw1::Company g = mw1::new_company(rng);
+    g.story.seen[0x17] = mw1::kSeenWaiting, g.story.seen[0x0C] = 1, g.story.rung_won = 1;
+    mw1::Contract k = mw1::story_battle(g, 2, rng, true);
+    const std::string text = mw1::save_text(g, &k);
+    mw1::Company back;
+    mw1::Contract kb;
+    bool has_offer = false;
+    std::string why;
+    EXPECT(mw1::load_text(text, back, kb, &has_offer, &why));
+    EXPECT(back.story.seen == g.story.seen && has_offer && kb.hardest && kb.rung == 2 && mw1::save_text(back, &kb) == text);
   }
 }
 

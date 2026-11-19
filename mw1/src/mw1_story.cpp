@@ -232,11 +232,161 @@ std::string headline(const Company& c, const Shown& s) {
   return "";
 }
 
+// ---- The step battles and the setbacks (FIXES.md item 47, ours) ----
+
+namespace {
+struct Gate {
+  int32_t event, rung;
+};
+// The next step's events wait for the step's battle: Grig's base (0x64) for rung 1, the Stone Arrow (0x24) for 2,
+// Kearney (0x2D, 0x2E) for 3, the Matabushi raid (0x40) for 4, the disk (0x43) for 5.
+constexpr Gate kGates[] = {{0x64, 1}, {0x24, 2}, {0x2D, 3}, {0x2E, 3}, {0x40, 4}, {0x43, 5}};
+// The FIGHTs (research/story.md's chain; the branches as the exe has them): 0x0C's ours; 0x17's FIGHT (to 0x18) and,
+// after RUN, 0x19's (to 0x1A, a death in MW1: the battle at its hardest), won on to 0x1B (the clue); 0x27's FIGHT
+// (to 0x28, MW1's death), won: 0x29 seen (the news 0x2B follows); the address's two FIGHTs to 0x33 (0x30's second,
+// 0x32's first), won: 0x33's page; 0x40's FOLLOW HER, won: 0x3E's choice (TASHA / KEARNEY).
+constexpr StepFight kFights[] = {
+    {kEventGrigsMen, 0, 1, false, -1, -1, false, -1},
+    {0x17, 0, 2, false, 0x1B, 0x18, false, 0x1B},
+    {0x19, 0, 2, true, 0x1B, 0x18, false, 0x1B},
+    {0x27, 0, 3, false, 0x29, -1, true, 0x29},
+    {0x30, 1, 4, false, 0x33, -1, false, 0x33},
+    {0x32, 0, 4, false, 0x33, -1, false, 0x33},
+    {0x40, 0, 5, false, 0x3E, -1, false, 0x43},  // 0x3E's choice due until TASHA (0x43)
+};
+// Each step's own event: done when its rung is won (0x64: when YES is taken, 0x0E seen).
+constexpr StepRoot kRoots[] = {{kEventGrigsMen, 1, -1}, {0x64, 0, 0x0E}, {0x17, 2, -1}, {0x27, 3, -1}, {0x2F, 4, -1}, {0x40, 5, -1}};
+// MW1's deaths and stalling choices (the mw1 lead's list, 2026-11-18). 0x1A and 0x28 are the battles now (their FIGHTs
+// launch them), kept as fines in case a path still reaches them.
+constexpr Setback kSetbacks[] = {
+    {0x0F, Cost::kFine, 50000, -1, -1, "You turned Grig down, and his men made sure it cost you."},
+    {0x1A, Cost::kFine, 100000, -1, -1, "Brown's men left you for dead. The repairs cost you."},
+    {0x28, Cost::kFine, 100000, -1, -1, "The ambush nearly finished you. The repairs cost you."},
+    {0x34, Cost::kLancemate, 100000, -1, -1, "Talking was a mistake: they took %s. Missing."},
+    {0x3F, Cost::kFine, 100000, -1, -1, "You stayed down, and the raid's damage is yours to pay for."},
+    {0x44, Cost::kLancemate, 100000, -1, 0x3E, "Kearney sold you out: %s is missing. Tasha is still waiting."},
+    {0x4D, Cost::kFine, 200000, 0x45, -1, "Grig's drunk took your money and ran."},
+    {kEventPortArrest, Cost::kTurnAway, 50000, -1, -1, "The guards on Ander's Moon know your name. Fined and turned away."},
+};
+constexpr int64_t kTurnAwayPercent = 10;
+const char* const kNoLanceLine = "With no lance to lose, it cost you in C-bills instead.";
+
+}  // namespace
+
+int32_t record_of(int32_t id) {
+  const Script& s = script();
+  for (size_t i = 0; i < s.records.size(); ++i)
+    if (s.records[i].id == id) return static_cast<int32_t>(i);
+  return -1;
+}
+
+const StepFight* step_win_due(Company& c) {
+  for (const StepFight& f : kFights)
+    if (f.won >= 0 && f.won_quiet && c.story.rung_won >= f.rung) c.story.seen[static_cast<size_t>(f.won)] = 1;
+  for (const StepFight& f : kFights) {
+    if (f.won < 0 || f.won_quiet || c.story.rung_won < f.rung || c.story.seen[static_cast<size_t>(f.won_done)]) continue;
+    if (f.needs >= 0) c.story.seen[static_cast<size_t>(f.needs)] = 1;
+    return &f;
+  }
+  return nullptr;
+}
+
+int32_t step_gate(int32_t event) {
+  for (const Gate& g : kGates)
+    if (g.event == event) return g.rung;
+  return 0;
+}
+
+const StepFight* step_fight(int32_t event, int32_t choice) {
+  for (const StepFight& f : kFights)
+    if (f.event == event && f.choice == choice) return &f;
+  return nullptr;
+}
+
+bool step_done(const Company& c, const StepRoot& r) {
+  if (r.rung > 0) return c.story.rung_won >= r.rung;
+  return r.done >= 0 && c.story.seen[static_cast<size_t>(r.done)] != 0;
+}
+
+void steps_wait(Company& c) {
+  for (const StepRoot& r : kRoots) {
+    uint8_t& f = c.story.seen[static_cast<size_t>(r.event)];
+    if (f == 1 && !step_done(c, r)) f = kSeenWaiting;
+    else if (f == kSeenWaiting && step_done(c, r)) f = 1;
+  }
+}
+
+std::vector<std::string> fight_or_run() {
+  const Script& s = script();
+  const int32_t rec = record_of(0x27);
+  if (rec < 0) return {};
+  for (const Command& cmd : s.records[static_cast<size_t>(rec)].script)
+    if (cmd.op == kChoices && cmd.action == false && cmd.captions.size() >= 2) return {cmd.captions[0], cmd.captions[1]};
+  for (const Command& cmd : s.records[static_cast<size_t>(rec)].script)
+    if (cmd.captions.size() >= 2) return {cmd.captions[0], cmd.captions[1]};
+  return {};
+}
+
+const Setback* setback_of(int32_t event) {
+  for (const Setback& b : kSetbacks)
+    if (b.event == event) return &b;
+  return nullptr;
+}
+
+int64_t setback_fine(const Company& c, const Setback& s) {
+  int64_t want = s.fine;
+  if (s.cost == Cost::kTurnAway) want = std::max(want, c.funds * kTurnAwayPercent / 100);
+  return std::max<int64_t>(0, std::min(want, c.funds / 3));  // never more than a third (the mw1 lead)
+}
+
+SetbackDone apply_setback(Company& c, const Setback& s, Rng& rng) {
+  SetbackDone d;
+  std::string name;
+  if (s.cost == Cost::kLancemate && !c.lance.empty()) {
+    const int32_t i = rng.upto(static_cast<int32_t>(c.lance.size()) - 1);
+    d.lost = c.lance[static_cast<size_t>(i)].id;
+    name = pilot_title(d.lost);
+    fire(c, i);  // back in the pool, as MISSING (after_mission's): their mech stays in the hangar
+    c.notices.push_back(name + " is missing.");
+  } else {
+    d.fined = setback_fine(c, s);
+    c.funds -= d.fined;
+  }
+  if (s.cost == Cost::kTurnAway) {
+    const Planet& here = planet_here(c);
+    int32_t best = -1, near = 0;
+    for (int32_t i = 0; i < kPlanetCount; ++i) {
+      if (kPlanets[i].number == here.number || kPlanets[i].number == kAndersMoon) continue;
+      const int32_t dist = distance(here, kPlanets[i]);
+      if (best < 0 || dist < near) best = i, near = dist;
+    }
+    if (best >= 0) {
+      const int32_t units = travel_units(here, kPlanets[best]);
+      set_planet(c, best);
+      advance_time(c, units, rng);
+      refresh_world(c, rng);
+      c.story.arrived = true;
+      d.moved = best;
+    }
+  }
+  if (s.event == kEventPortArrest) c.story.seen[static_cast<size_t>(s.event)] = 0;  // fires on every arrival until won
+  if (s.again >= 0) c.story.seen[static_cast<size_t>(s.again)] = kSeenWaiting;
+  d.line = s.line;
+  if (const size_t at = d.line.find("%s"); at != std::string::npos) d.line.replace(at, 2, name);
+  if (s.cost == Cost::kLancemate && d.lost == 0) d.line = kNoLanceLine;
+  return d;
+}
+
 Ran run_event(Company& c, int32_t record, int32_t cls, Rng& rng, Shown* out) {
   const Script& s = script();
   if (record < 0 || record >= static_cast<int32_t>(s.records.size())) return Ran::kNot;
   const Event& e = s.records[static_cast<size_t>(record)];
   if (kNoDeadline && e.id == kEventTooLate) return Ran::kNot;  // ours: never too late
+  // Ours (item 47): the step's battle first; a waiting step's hub event fires again on an arrival; Grig's men at
+  // Land's End's Bar only.
+  if (c.story.rung_won < step_gate(e.id)) return Ran::kNot;
+  if (cls == kClassArrival && c.story.seen[static_cast<size_t>(e.id)] == kSeenWaiting && !c.story.arrived) return Ran::kNot;
+  if (e.id == kEventGrigsMen && c.planet_number != kLandsEnd) return Ran::kNot;
   bool result = false, with_and = false;
   Shown sh;
   sh.event = e.id, sh.record = record;
@@ -312,6 +462,15 @@ Ran run_event(Company& c, int32_t record, int32_t cls, Rng& rng, Shown* out) {
     if (!c.story.arrived) return Ran::kNot;
   } else {
     c.story.seen[static_cast<size_t>(e.id)] = 1;
+  }
+  // Ours (item 47, rung 1): Grig's men meet you at the Bar's door: FIGHT / RUN (MW1's captions) under its text.
+  if (e.id == kEventGrigsMen && c.story.rung_won < 1) {
+    std::vector<std::string> caps = fight_or_run();
+    if (!caps.empty()) {
+      sh.captions = caps, sh.branches = {-1, -1};
+      if (out) *out = sh;
+      return Ran::kChoice;
+    }
   }
   if (out) *out = sh;
   return Ran::kShown;

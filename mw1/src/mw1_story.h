@@ -128,6 +128,64 @@ inline constexpr bool kDarkWingOnArrival = true;
 // start kept), 0x73 (too late) never fires. The news keeps its dates.
 inline constexpr bool kNoDeadline = true;
 
+// ---- The step battles and the setbacks (ours: FIXES.md item 47, the mw1 lead's plan of 2026-11-18) ----
+//
+// Each step of the chain with a battle (mw1_ladder.h's rungs 1..5; 6 is 0x72's ATTACK) waits until its battle is won:
+// a FIGHT launches it (step_fight), the next step's events don't fire before it (step_gate), and a step's event that
+// ends without it (RUN, a stalling choice, the battle lost) waits to fire again (kSeenWaiting, steps_wait). MW1's
+// deaths and stalling choices are setbacks (setback_of): a fine (a third of the company's funds at most), a lancemate
+// lost, or a turn-away; never a death or a dead end.
+inline constexpr int32_t kEventGrigsMen = 0x0C;      // rung 1: ours adds FIGHT / RUN (MW1's captions) under its text
+inline constexpr int32_t kLandsEnd = 30, kAndersMoon = 127;  // planet numbers (0x0B's and 0x75's conditions)
+// The rung won an event needs to fire (0: none).
+int32_t step_gate(int32_t event);
+// A choice that launches its step's battle: event `event`'s choice `choice` (0 first), rung `rung`, at its hardest
+// (MW1's second FIGHT, a death there), and what a win goes on to: event `won` run next at the hub (-1 none; `needs`
+// marked seen first, the exchange the battle stands for), or with `won_quiet` only marked seen (its page MW1's
+// escape, not the battle's); the win's page is due until `won_done` is seen (a quit before it: shown again).
+struct StepFight {
+  int32_t event, choice, rung;
+  bool hardest;
+  int32_t won, needs;
+  bool won_quiet;
+  int32_t won_done;
+};
+const StepFight* step_fight(int32_t event, int32_t choice);  // null: not one
+// A won step battle's page still due (the rungs won whose `won_done` isn't seen): its StepFight, else null. Quiet
+// wins are marked here.
+const StepFight* step_win_due(Company& c);
+int32_t record_of(int32_t event);  // the script's record of an event (its first), -1 none
+// Every step's own event (its battle's rung, or `done`'s seen for 0x64), and whether its step is done.
+struct StepRoot {
+  int32_t event, rung, done;
+};
+bool step_done(const Company& c, const StepRoot& r);
+// After a class's events: each step's event seen and its step not done waits to fire again.
+void steps_wait(Company& c);
+// MW1's caption for FIGHT and RUN (0x27's choices, from the exe): 0x0C's choice. Empty without the script.
+std::vector<std::string> fight_or_run();
+
+enum class Cost { kFine, kLancemate, kTurnAway };
+struct Setback {
+  int32_t event;     // MW1's death or stalling choice's event
+  Cost cost;
+  int64_t fine;      // kFine's, or kLancemate's without a lance; kTurnAway's least (10% of the funds above it)
+  int32_t again;     // the step's event that waits to fire again (-1: steps_wait's own)
+  int32_t reoffer;   // an event whose choice is offered again at once (-1 none): 0x44's, 0x3E
+  const char* line;  // our words, in place of MW1's death page: "%s" the lancemate lost, else unused
+};
+const Setback* setback_of(int32_t event);  // null: not one
+int64_t setback_fine(const Company& c, const Setback& s);  // the fine, capped at a third of the funds
+// The setback applied: the fine paid, a lancemate gone (MISSING: back in the pool, their mech kept), the company
+// turned away (to the nearest other world, the trip's time passing); its event waits (0x75: never seen until won).
+struct SetbackDone {
+  int64_t fined = 0;
+  int32_t lost = 0;    // the lancemate's pilot id, 0 none
+  int32_t moved = -1;  // kPlanets index turned away to, -1 none
+  std::string line;    // the panel's
+};
+SetbackDone apply_setback(Company& c, const Setback& s, Rng& rng);
+
 // An event to show: its text (the event's id), its choices, and what MW1 does after it.
 struct Shown {
   int32_t event = -1;

@@ -41,7 +41,9 @@ bool map_holds(const std::string& world, int32_t ia, int32_t n) {
   return false;
 }
 
-Contract story_battle(const Company& c, int32_t r, Rng& rng) {
+float story_aim(const Contract& k) { return rung(k.hardest && k.rung < kRungs ? k.rung + 1 : k.rung).aim; }
+
+Contract story_battle(const Company& c, int32_t r, Rng& rng, bool hardest) {
   Contract k;
   k.rung = rung(r).rung;
   k.house = c.planet_house;
@@ -50,6 +52,9 @@ Contract story_battle(const Company& c, int32_t r, Rng& rng) {
   for (size_t i = 0; i < c.lance.size(); ++i)
     if (mech_of(c, static_cast<int32_t>(i)) >= 0) ++lancemates;
   k.enemies = rung_force(k.rung, lancemates);
+  k.hardest = hardest;
+  if (hardest && !k.enemies.empty() && lancemates + 1 + static_cast<int32_t>(k.enemies.size()) < kLineupSlots)
+    k.enemies.push_back(k.enemies.back());
   if (static_cast<int32_t>(k.enemies.size()) < rung(k.rung).count)
     std::printf("mw1: story battle %d: %zu of its %d (a lance of %d: the line-up's %d slots), the escorts trimmed\n", k.rung,
                 k.enemies.size(), rung(k.rung).count, lancemates + 1, kLineupSlots);

@@ -55,6 +55,26 @@ std::vector<int32_t> fire(mw1::Company& c, int32_t cls, mw1::Rng& rng, int32_t o
   return out;
 }
 
+// A won step battle's page at the hub, as the game shows it after the battle (dev 1's step_win_due): its record run
+// alone, its choices from kPick.
+std::vector<int32_t> after_win(mw1::Company& c, mw1::Rng& rng) {
+  std::vector<int32_t> out;
+  while (const mw1::StepFight* f = mw1::step_win_due(c)) {
+    mw1::Dispatch d = mw1::start(mw1::kClassArrival);
+    d.branch = mw1::record_of(f->won), d.at = mw1::script().list.size();
+    mw1::Shown s;
+    const size_t before = out.size();
+    for (int32_t guard = 0; guard < 10 && mw1::next(c, d, rng, &s); ++guard) {
+      out.push_back(s.event);
+      if (s.captions.empty()) continue;
+      const auto k = kPick.find(s.event);
+      mw1::choose(d, s, k != kPick.end() ? k->second : 0);
+    }
+    if (out.size() == before) break;  // nothing ran: not due after all
+  }
+  return out;
+}
+
 std::vector<int32_t> visit(mw1::Company& c, const J::Lead& l, mw1::Rng& rng) {
   if (l.planet >= 0) mw1::set_planet(c, l.planet);
   if (l.place == J::Place::kNews) {
@@ -116,12 +136,15 @@ TEST(mw1_journal_walks_the_whole_chain_by_its_leads) {
       std::printf("\n");
     }
     EXPECT(has(fired, l.event));
-    // The step's battle (a stand-in for dev 1's: won as it's offered), pending until won.
+    // The step's battle (won as it's offered), then, as the game does after the win, its page at the hub (dev 1's
+    // step_win_due: the clue after Brown, 0x3E's TASHA / KEARNEY after the raid) and the steps left waiting.
     if (l.rung) {
       EXPECT(!l.strength.empty() && l.strength.find("Expect ") == 0);
       if (l.event == mw1::kEventDarkWingAttack) c.story.dark_wing_won = true;
       c.story.rung_won = l.rung;
+      after_win(c, rng);
     }
+    mw1::steps_wait(c);
   }
   const J::Lead end = J::current_lead(c);
   EXPECT(end.step == J::kLeadSteps + 1 && end.event == -1 && end.caution.empty() && end.side.empty());

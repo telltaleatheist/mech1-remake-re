@@ -1686,6 +1686,13 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     }
     if (!news.empty()) save();  // heard (and seen): not announced again after a quit
     show_hub();
+    // Item 47: a step battle won, its page next (MW1's text of what follows the fight), then the hub's events.
+    if (const StepFight* f = step_win_due(company_); f && script().there() && !event_up_) {
+      std::printf("mw1: story: rung %d won: event %#x next\n", f->rung, f->won);
+      ev_ = start(kClassArrival);
+      ev_.branch = record_of(f->won);
+      return next_event();
+    }
     story_events(kClassArrival);
   }
 
@@ -1708,7 +1715,21 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     ev_panel_.scene = event_art(s.event);  // its own art: a full page, the art dimmed behind
     if (ev_panel_.scene.empty()) place_over(ev_.cls, ev_panel_);  // else over its screen's picture, at its foot
     set_pages(shown_pages(company_, s));
-    if (s.restart) {
+    if (const Setback* b = setback_of(s.event)) {
+      // Item 47 (the mw1 lead): MW1's death or stalling choice, a setback instead; our line in place of its page.
+      const SetbackDone d = apply_setback(company_, *b, rng_);
+      std::printf("mw1: story: setback for %#x: fined %s, lancemate %d lost, turned away to %d\n", s.event,
+                  thousands(d.fined).c_str(), d.lost, d.moved);
+      std::vector<std::string> lines = {d.line};
+      if (d.fined > 0) lines.push_back("Paid: " + thousands(d.fined) + " C-bills.");
+      if (d.moved >= 0) lines.push_back("The company is on " + title_case_name(kPlanets[d.moved].name) + ".");
+      Page pg;
+      pg.lines = wrap(lines, kMw1Columns);
+      set_pages({pg});
+      if (b->reoffer >= 0) ev_.branch = record_of(b->reoffer);  // 0x44: TASHA / KEARNEY again, at once
+      if (d.moved >= 0) ev_panel_.planet = upper(company_.planet);
+      save();  // paid (and moved) now: a quit with the panel up keeps it
+    } else if (s.restart) {
       // MW1 restarts the campaign here (PLAY AGAIN / QUIT); ours never does (FIXES.md item 33, Owen: "you cant die in
       // this one"): the page is shown and play goes on.
       std::printf("mw1: story: MW1 would restart here; play goes on (FIXES.md item 33)\n");
@@ -1730,6 +1751,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     const bool was_up = event_up_;
     if (event_up_ && ge) ge->pop_state(1);
     event_up_ = false, event_state_ = nullptr, news_.clear();
+    steps_wait(company_);  // item 47: a step's event left without its battle won waits to fire again
     if (ev_.cls == kClassArrival) company_.story.arrived = false;  // MW1 clears it after the hub's events
     if (!was_up) return;
     save();
@@ -1792,6 +1814,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
           events_done();
           return attack(kDarkWingRung);
         }
+        if (const StepFight* f = step_fight(ev_shown_.event, i); f && company_.story.rung_won < f->rung) {
+          events_done();  // item 47: the step's FIGHT is its battle
+          return attack(f->rung, f->hardest);
+        }
         choose(ev_, ev_shown_, i);
         next_event();
         return;
@@ -1805,13 +1831,13 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   // holds it; no office, no pay. 0x72's ATTACK (MW1's MwPrepareEventSpecialCombatContinuation, ATTACK the first
   // caption): the Dark Wing's, rung 6.
   static constexpr int32_t kAttackChoice = 0;
-  void attack(int32_t r) {
+  void attack(int32_t r, bool hardest = false) {
     if (!ge_ || pending_) return;
     if (contract_.accepted) std::printf("mw1: story battle over a taken contract (%s): it gives way\n", objective_words(contract_).c_str());
-    contract_ = story_battle(company_, r, rng_);
+    contract_ = story_battle(company_, r, rng_, hardest);
     offered_ = false;
     std::printf("mw1: story battle %d: %zu enemies (%d t, aim x%g) on %sia%d (%s)\n", contract_.rung, contract_.enemies.size(),
-                rung_tons(contract_.enemies), rung(contract_.rung).aim, contract_.world.c_str(), contract_.ia,
+                rung_tons(contract_.enemies), story_aim(contract_), contract_.world.c_str(), contract_.ia,
                 climate_name(contract_.climate));
     save();
     press(kHubDeploy);
@@ -1821,6 +1847,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   // goes on, as item 33).
   void dark_wing_won() {
     company_.story.dark_wing_won = true;
+    company_.story.rung_won = kDarkWingRung;
     company_.story.seen[static_cast<size_t>(kEventDarkWingAttack)] = 1;
     company_.story.seen[static_cast<size_t>(kEventPortArrest)] = 1;
     save();
@@ -1976,6 +2003,13 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
                 ending_word(pending_->outcome), pending_->wrecks.size(), thousands(s.salvage).c_str(), thousands(s.fee).c_str(),
                 s.payout_percent, thousands(company_.funds).c_str(), company_.stores->count());
     const bool story_won = contract_.rung == kDarkWingRung && pending_->outcome == Outcome::kSuccess;
+    // Item 47: a step battle won, its rung (the journal's lead moves on; its page at the hub, step_win_due); lost or
+    // withdrawn from, the step's event waits for the next arrival (steps_wait).
+    if (contract_.rung > 0 && contract_.rung < kDarkWingRung && pending_->outcome == Outcome::kSuccess) {
+      company_.story.rung_won = std::max(company_.story.rung_won, contract_.rung);
+      std::printf("mw1: story: rung %d won\n", contract_.rung);
+    }
+    steps_wait(company_);
     const int32_t rung_fought = contract_.rung;
     pending_.reset();
     // The mission's time (STARTUP 350: the return, the world's weights, the deployment), then the refresh the
@@ -2367,7 +2401,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   // FIXES.md item 47: a story battle's enemies aim as its rung says (mw1_ladder.h); a contract's as their records.
   void enemy_launching(int32_t slot, mech3::ai::AiParams& params) override {
     if (!deployed_ || !contract_.rung) return;
-    const float error = params.get<float>(0xb8) * rung(contract_.rung).aim;
+    const float error = params.get<float>(0xb8) * story_aim(contract_);
     std::printf("mw1: story battle %d: enemy in slot %d, aim error %g\n", contract_.rung, slot, error);
     enemy_aims_.push_back(error);
     params.put<float>(0xb8, error);

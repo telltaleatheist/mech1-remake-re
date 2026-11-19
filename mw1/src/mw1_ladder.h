@@ -60,6 +60,10 @@ bool map_holds(const std::string& world, int32_t ia, int32_t n);
 // A story battle as a contract (Contract::rung): on the company's world (its landscape the climate), no pay, no
 // advance, accepted; the employer the world's House, against no House; destroy all on a map of the climate whose
 // enemy places hold the force (map_holds; none: any that does), its force the rung's for the company's lance.
-Contract story_battle(const Company& c, int32_t r, Rng& rng);
+// `hardest` (item 47's setbacks, ours: MW1's second FIGHT, a death there): an escort more (the rung's last kind) and
+// the next rung's aim (story_aim).
+Contract story_battle(const Company& c, int32_t r, Rng& rng, bool hardest = false);
+// The enemy pilots' aim error factor in a story battle: its rung's, or the next rung's when at its hardest.
+float story_aim(const Contract& k);
 
 }  // namespace mw1
