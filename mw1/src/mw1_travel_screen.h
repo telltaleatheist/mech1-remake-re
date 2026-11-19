@@ -35,6 +35,7 @@ inline constexpr bool kJumpLine = true;
 // far, and the line said after the last GO.
 struct TravelChoice {
   int32_t world = -1, hover = -1;
+  int32_t story = -1;  // FIXES.md item 47: the journal's lead's world (kPlanets index), its story marker; -1 none
   Filter filter;
   Search search;
   std::string note;

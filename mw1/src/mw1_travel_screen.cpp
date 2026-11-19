@@ -152,12 +152,21 @@ ScreenView travel_view(const Company& c, const TravelChoice& t) {
     }
   }
   if (t.hover >= 0 && t.hover != wi && t.hover != here) v.marks.push_back(ring(on_screen(t.hover), 8, faint));
+  // The journal's lead (FIXES.md item 47): a gold square round its world, its name with STORY.
+  const map_image::Rgb gold = {255, 176, 32};
+  if (t.story >= 0 && t.story != here)
+    for (int32_t r : {11, 12}) {
+      Mark q = ring(on_screen(t.story), r, gold);
+      q.kind = Mark::Kind::kSquare;
+      v.marks.push_back(q);
+    }
   v.marks.push_back(ring(on_screen(here), 8, yellow));
   if (wi >= 0) v.marks.push_back(ring(on_screen(wi), 9, white)), v.marks.push_back(ring(on_screen(wi), 10, white));
   // The names: here, the chosen world, the one under the mouse, and the capitals.
   std::vector<int32_t> named = {here};
   if (wi >= 0) named.push_back(wi);
   if (t.hover >= 0) named.push_back(t.hover);
+  if (t.story >= 0) named.push_back(t.story);
   if (kCapitalNames)
     for (int32_t i = 0; i < kPlanetCount; ++i)
       if (capital(i)) named.push_back(i);
@@ -169,7 +178,7 @@ ScreenView travel_view(const Company& c, const TravelChoice& t) {
     if (std::find(seen.begin(), seen.end(), i) != seen.end()) continue;
     seen.push_back(i);
     const Point p = on_screen(i);
-    const std::string n = title_case_name(kPlanets[i].name);
+    const std::string n = title_case_name(kPlanets[i].name) + (i == t.story && i != here ? " \xB7 STORY" : "");
     // Right of the world (clear of its rings), else left of it, else above, else below; right or left first by
     // the map's right edge. A name's box: 7 a letter (the note font's), 14 high.
     const int32_t w = static_cast<int32_t>(n.size()) * 7, h = 14;
@@ -190,7 +199,7 @@ ScreenView travel_view(const Company& c, const TravelChoice& t) {
         break;
       }
     placed.push_back(at);
-    v.blocks.push_back({at.l, at.t, i == wi || i == here ? kNoteFont : kLineFont, {n}});
+    v.blocks.push_back({at.l, at.t, i == wi || i == here || i == t.story ? kNoteFont : kLineFont, {n}});
   }
   // The right column: the filter, the funds and date, the chosen world, the search.
   std::string title = "CHOOSE A WORLD";  // nothing chosen or under the mouse
