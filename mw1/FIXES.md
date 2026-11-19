@@ -705,7 +705,7 @@ Tick an item when it is merged into `main`.
   - The purchase happens only on YES; NO leaves everything unchanged.
   - The box covers the live 'Mech, as the quit box does.
   - When the buy can't happen (not enough C-bills, the hangar full at 30), say why instead of asking.
-- **SELL too (Owen: "yes, same thing for sell"):** "Sell the Owens for 2,772,000 C-bills?", same keys. When the sale can't happen (the 'Mech you pilot, the last 'Mech), say why.
+- **SELL too (Owen: "yes, same thing for sell"):** "Sell the Owens for 2,772,000 C-bills?", same keys. Selling the piloted 'Mech stays allowed (today's rule), and the question names the 'Mech you'll pilot next: "... You'll pilot the Firefly." When the sale can't happen (the last 'Mech, a full dealer), say why.
 - **Done means:** shots of both boxes at 1080p and 4:3, and tests that NO leaves the money and roster alone.
 
 ## 61. [x] AMS doesn't stop missiles (works; no fix needed)
