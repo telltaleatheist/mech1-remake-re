@@ -824,7 +824,7 @@ Tick an item when it is merged into `main`.
 - **Owen (2026-11-19):** "lets stack the buttons closer together so they dont look as spread out. stack them up against the top".
 - **Done (lead):** BUY, SELL, MECH LAB and BACK now sit at y 84, 122, 160 and 198 in both layouts (the Bar's 38 apart; was 84/147/211/274). The live 'Mech panel stays at the column's foot. kMarketButtonTop follows.
 
-## 72. [ ] Lancemates stand still and don't attack
+## 72. [x] Lancemates stand still and don't attack
 - **Owen (2026-11-19, in play):** "my lancemates arent attacking targets. were they bouncing against a awll or something? they were stationary".
 - **Unknown yet:** the log of that mission was overwritten when the game was restarted. The lancemates were freshly hired, and possibly without 'Mechs of their own (69).
 - **To find out, in a hidden scripted MW1 mission with two lancemates in 'Mechs:**
