@@ -226,7 +226,15 @@ TEST(mw1_pilots_promotion_and_casualties) {
   EXPECT(mw1::pilot_killed({ace, true}) && !mw1::pilot_killed({ace, false}));
   mw1::after_mission(c, {{poor, false}, {ace, true}});
   EXPECT(c.lance.size() == 1 && c.lance[0].id == poor && c.hangar.empty() && c.pilots[ace].where == mw1::PilotWhere::kDead);
-  for (const std::string& n : mw1::unheard_lines(c)) std::printf("  %s\n", n.c_str());
+  // FIXES.md item 57: the mission's result, on AFTER ACTION: logged, never the hub's MESSAGES.
+  int32_t promoted = 0, lost = 0, killed = 0;
+  for (const mw1::LogEntry& e : c.log) {
+    promoted += e.kind == mw1::LogKind::kPromoted, lost += e.kind == mw1::LogKind::kMechLost;
+    killed += e.kind == mw1::LogKind::kKilled;
+  }
+  std::printf("  logged: %d promotions, %d mechs lost, %d killed; %zu lines for the hub\n", promoted, lost, killed,
+              mw1::unheard_lines(c).size());
+  EXPECT(promoted == 2 && lost == 1 && killed == 1 && mw1::unheard_lines(c).empty());
 }
 
 // FIXES.md item 32: a downed lancemate MISSING by kMissingPercent in 100, else KILLED. Missing: out of the lance, back

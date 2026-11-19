@@ -296,6 +296,8 @@ void roll_missing(std::vector<LanceFate>& fates, Rng& rng) {
 bool pilot_killed(const LanceFate& f) { return f.destroyed && !f.missing; }
 bool pilot_missing(const LanceFate& f) { return f.destroyed && f.missing; }
 
+// The promotions, the mechs lost, the killed and the missing go in the log heard (FIXES.md item 57): they are the
+// mission's result, on AFTER ACTION (CREW STATUS), not the hub's MESSAGES.
 void after_mission(Company& c, const std::vector<LanceFate>& fates) {
   for (const LanceFate& f : fates) {
     if (!pilot_record(f.id) || c.pilots[f.id].where != PilotWhere::kHired) continue;
@@ -305,13 +307,13 @@ void after_mission(Company& c, const std::vector<LanceFate>& fates) {
       p.missions = 0;
     } else if (++p.missions >= kPromotionMissions[g]) {
       p.gunnery = p.piloting = g + 1, p.missions = 0;
-      log_add(c, LogKind::kPromoted, false, f.id, g + 1);
+      log_add(c, LogKind::kPromoted, true, f.id, g + 1);
     }
     if (!f.destroyed) continue;
     // Killed, gone for good, or missing, back in the pool (ratings and record kept): the mech they flew lost either way.
     for (size_t h = 0; h < c.hangar.size(); ++h)
       if (c.hangar[h].pilot == f.id) {
-        log_add(c, LogKind::kMechLost, false, c.hangar[h].mech);
+        log_add(c, LogKind::kMechLost, true, c.hangar[h].mech);
         c.hangar.erase(c.hangar.begin() + static_cast<long>(h));
         break;
       }
@@ -319,10 +321,10 @@ void after_mission(Company& c, const std::vector<LanceFate>& fates) {
       if (c.lance[i].id == f.id) c.lance.erase(c.lance.begin() + static_cast<long>(i));
     if (pilot_missing(f)) {
       p.where = PilotWhere::kFree;
-      log_add(c, LogKind::kMissingInAction, false, f.id);
+      log_add(c, LogKind::kMissingInAction, true, f.id);
     } else {
       p.where = PilotWhere::kDead;
-      log_add(c, LogKind::kKilled, false, f.id);
+      log_add(c, LogKind::kKilled, true, f.id);
     }
   }
 }
