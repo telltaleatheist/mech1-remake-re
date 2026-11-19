@@ -290,14 +290,14 @@ std::vector<images::Image> tiles(const images::Image& picture, const std::string
 
 images::Image button(int32_t state) { return button(state, kButtonW, kButtonH, kButtons[std::clamp(state, 0, 3)]); }
 
-images::Image button(int32_t state, int32_t w, int32_t h, const std::string& name, int32_t drawn) {
+images::Image button(int32_t state, int32_t w, int32_t h, const std::string& name, int32_t drawn, bool primary) {
   // Dark glass in a thin frame, a lamp at the left end: amber when lit or pressed; greyed when off. `drawn` wide
   // from the left (0: all of it), the rest clear.
   Canvas c(w, h);
   const int32_t dw = drawn > 0 ? std::min(drawn, w) : w;
   const Rgba amber_tint = {255, 170, 40, 200}, off_tint = {40, 40, 44, 150};
   glass(c, 3, 3, dw - 3, h - 3, state == 2 ? 250 : 230);
-  thin_frame(c, 0, 0, dw, h, 3, state == 1 ? amber_tint : state == 3 ? off_tint : Rgba{});
+  thin_frame(c, 0, 0, dw, h, 3, state == 1 || (primary && state == 0) ? amber_tint : state == 3 ? off_tint : Rgba{});
   lamp(c, 13, h / 2, 4, state == 1 || state == 2);
   if (state == 1) glow(c, 3, 3, dw - 3, h - 3);
   return c.image(name);
@@ -870,6 +870,7 @@ std::vector<Maker> makers() {
                          [] { return plaque(kStripW, kStrip); }, status_bar, dialog_frame, dim, cursor};
   for (int32_t s = 0; s < 3; ++s) v.push_back([=] { return tile_frame(s); });
   for (int32_t s = 0; s < 4; ++s) v.push_back([=] { return button(s); });
+  v.push_back([=] { return button(0, kButtonW, kButtonH, kPrimaryButton, 0, true); });
   for (int32_t s = 0; s < 4; ++s) v.push_back([=] { return button(s, kTileButtonW, kButtonH, kTileButtons[s]); });
   for (const PanelSize& p : panel_sizes()) v.push_back([=] { return panel(p.w, p.h); });
   for (const PanelSize& p : terminal_sizes()) v.push_back([=] { return terminal(p.w, p.h); });

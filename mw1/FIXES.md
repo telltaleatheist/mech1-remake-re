@@ -673,7 +673,7 @@ Tick an item when it is merged into `main`.
   - the sound stopped for good at the clip's end and on a skip, never heard on the next screen.
 - **Done means:** the cause of the replay named; a test that no sound is playing after the movie ends or is skipped; a windowed check with sound on.
 
-## 56. [ ] The office: NEGOTIATE and ACCEPT under the terms they act on
+## 56. [x] The office: NEGOTIATE and ACCEPT under the terms they act on *(done: mw1-office-layout)*
 - **Owen (2026-11-18):** "lets move the negotiate and accept buttons down under the terms box. it isnt intuitive that youd have them where they are and know what to click." NEXT OFFER and LEAVE "can stay where they are ... or we can move them to a more intuitive spot."
 - **The layout (the lead's proposal, mock-up `outbox/2026-11-18/office-layout-mockup.png`):** the screen reads top to bottom, contract → terms → act.
   - **NEGOTIATE and ACCEPT** sit in one row right under TERMS, right-aligned to its edge.
@@ -687,6 +687,31 @@ Tick an item when it is merged into `main`.
   - shots at 1080p and 4:3, with NEGOTIATE dim and lit;
   - the fit checks (mw1screenfit, 50's line-up test, updated);
   - the office golden re-recorded (off and on identical).
+- **Done (built to the mock-up):**
+  - **Layout** (`data/mw1office.zrd`, both sizes, the same canvas rows):
+    - NEXT OFFER (REQUEST MISSION) at 84 and LEAVE right under it at 122.
+    - The liaison's frame from a button gap under LEAVE (160) down to the button row's foot (446): 168x286, the portrait 160x278.
+    - CONTRACT ON OFFER 76..228 (152 high: its seven lines, the hint lines gone).
+    - TERMS a button gap under it, 236..408 (its rows and arrows moved up with it).
+    - NEGOTIATE and ACCEPT a button gap under TERMS, 416..446: ACCEPT's right edge on the terms box's, NEGOTIATE a button gap to its left.
+  - **Portrait foot:** the frame's foot is on the button row's foot, as in the mock-up. TERMS' foot is no longer the column's bottom, so the spec's "on TERMS' bottom line" became "on the right column's bottom line".
+  - **ACCEPT is the primary action:** a new chrome piece, `mw1_button_primary`, framed in amber when still. Lit, pressed and off it looks as any button, so hovering it still lights it.
+  - **The House's answer** used the hint lines' place (NOTES), which is gone. It goes on the status line, the liaison's line:
+    - a counter-offer reads "The House counters: 320,000, salvage 5%, advance 6%.";
+    - the last round reads "Losing patience: ..." instead (the hint before the last round kept);
+    - a broken-off round says nothing there: the terms box already says why;
+    - a button's hover words replace the answer while over it. Pressing NEGOTIATE clears the hover, so the answer shows at once.
+  - **Every button's status words on hover:** NEGOTIATE, ACCEPT, NEXT OFFER, REQUEST MISSION, LEAVE and the pay and advance arrows (the salvage arrows' kept). A greyed NEGOTIATE says "Change a term with its arrows, then NEGOTIATE." (78's greyed hook). All fit the 4:3 status line.
+  - **Portraits:** `tools/mw1art.py` cuts `<liaison>_office` to 160:278: the whole height, the middle of the width. Rerun on the keep folder, only the five office pictures and art.csv changed.
+  - **Tests:**
+    - 50's line-up test now checks the whole column (LEAVE under REQUEST, contract → terms → button row a gap apart, ACCEPT on the terms' right edge, NEGOTIATE beside it, the frame's foot on the row's, above the status bar).
+    - New `mw1_office_the_status_line_says_it`: no hint lines; the answer and every button's words on the status line, each within 62 letters, the longest counter-offer too.
+    - The chrome count and the primary button's look; the art sizes (160x278).
+    - The office golden re-recorded: the canvas off and on identical (5b448363...).
+    - screenfit and labfit green.
+  - **Dev switch:** `MW1_OFFICE_ASK=1` with MW1_SCREEN=office_offer asks a step more pay (NEGOTIATE lit); `=2` asks far over the offer and negotiates (the counter-offer on the status line).
+  - **Shots:** `outbox/2026-11-19/mw1-office-layout-56/` (1080p and 4:3: NEGOTIATE dim, lit, and the House's counter).
+  - **Based on 78's branch**, for its greyed-button hook.
 
 ## 57. [x] The repair line belongs on the mission summary, not a hub message
 - **Owen (2026-11-18, in play):** a MESSAGES box on the hub after a mission said "Repairs: the Owens 4,963, from the wrecks". He asked "is this right? also, this should probably appear on the mission summary screen".

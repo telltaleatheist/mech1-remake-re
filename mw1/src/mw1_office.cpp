@@ -92,18 +92,29 @@ std::string accepted_words() {
   return l.empty() ? std::string("The contract is accepted.") : l[0];
 }
 
-std::vector<std::string> answer_lines(Answer a, const Company& c, const Contract& k) {
-  if (a == Answer::kAgreed) return {accepted_words()};
-  if (a == Answer::kTerminated) return terminated_words();
-  std::vector<std::string> l = {"The House counters: " + money(k.payment) + ", salvage " + std::to_string(k.salvage_percent) +
-                                "%, advance " + std::to_string(k.advance_percent) + "%."};
-  if (last_round(c, k)) l.push_back("The House's liaison is losing patience.");
-  return l;
+std::string answer_words(Answer a, const Company& c, const Contract& k) {
+  if (a == Answer::kAgreed) return accepted_words();
+  if (a == Answer::kTerminated) return "";
+  const std::string terms = money(k.payment) + ", salvage " + std::to_string(k.salvage_percent) + "%, advance " +
+                            std::to_string(k.advance_percent) + "%.";
+  return (last_round(c, k) ? "Losing patience: " : "The House counters: ") + terms;
 }
 
-std::string office_hint(int32_t id) {
-  if (id == kOfficeSalvageDown || id == kOfficeSalvageUp) return "Salvage pays this % of the wrecks' worth after your repairs.";
-  return "";
+std::string office_hint(int32_t id, bool on) {
+  switch (id) {
+    case kOfficeSalvageDown:
+    case kOfficeSalvageUp: return "Salvage pays this % of the wrecks' worth after your repairs.";
+    case kOfficePayDown:
+    case kOfficePayUp: return "Ask for less or more pay, 10,000 C-bills a step.";
+    case kOfficeAdvanceDown:
+    case kOfficeAdvanceUp: return "Ask for less or more of the pay up front, on accepting.";
+    case kOfficeSubmit: return on ? "Put the terms you asked for to the House." : "Change a term with its arrows, then NEGOTIATE.";
+    case kOfficeAccept: return "Take the contract on the House's terms as they stand.";
+    case kOfficeRequest: return "Ask the House's liaison for a contract.";
+    case kOfficeNext: return "Another contract in this one's place.";
+    case kOfficeBack: return "Back to the hub. The offer stays open.";
+    default: return "";
+  }
 }
 
 ScreenView office_view(const Company& c, const Contract& k, const OfficeChoice& o, const std::vector<std::string>& offer,
@@ -114,22 +125,19 @@ ScreenView office_view(const Company& c, const Contract& k, const OfficeChoice& 
     // The House's offer highlighted (FIXES.md item 20: the pay among the key facts).
     return std::vector<std::string>{name, "  Offer: " + highlighted(theirs) + (asked >= 0 ? "    Ask: " + ask_words : std::string())};
   };
-  std::vector<std::string> notes = o.answer;
-  if (up && notes.empty()) notes = {"Change a term with its arrows, then NEGOTIATE;", "ACCEPT takes the offer as it stands."};
-  if (open && !up && notes.empty()) notes = {"REQUEST MISSION: the House's liaison", "puts a contract on offer."};
   const std::string house = kHouses[c.planet_house].name;
   v.blocks = {at_place("PLANET", {upper(c.planet)}),
               at_place("HOUSE", {"HOUSE " + upper(house)}),
               at_place("PLACE", {"HOUSE OFFICE"}),
               at_place("PLACE_SUB", {"FUNDS " + thousands(c.funds) + " C-BILLS"}),
               at_place("STATUS_WORLD", {upper(c.planet)}),
-              at_place("STATUS", {!hint.empty() ? hint
-                                  : up        ? "The House's liaison will hear your terms."
+              at_place("STATUS", {!hint.empty()     ? hint
+                                  : up && !o.answer.empty() ? o.answer
+                                  : up                    ? "The House's liaison will hear your terms."
                                   : open      ? "Ask the liaison for a mission."
                                               : "Nothing to negotiate here now."}),
               at_place("C_TITLE", {"CONTRACT ON OFFER"}),
               at_place("C_LINES", up ? offer : std::vector<std::string>{"No contract on offer."}),
-              at_place("NOTES", notes),
               at_place("T_TITLE", {"TERMS"})};
   if (up) {
     v.blocks.push_back(at_place("ROW1", row("Payment (C-bills)", money(k.payment), o.ask.payment, money(o.ask.payment))));

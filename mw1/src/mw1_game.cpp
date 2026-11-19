@@ -472,7 +472,15 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "hub_contract_read" && !pending_)
         press(kHubOffice), press_office(kOfficeRequest), press_office(kOfficeAccept), press(kHubOk);
       // office_offer: the office with an offer up; hub_contract: one accepted, the hub's DEPLOY; hub_options: OPTIONS.
-      if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "office_offer") press(kHubOffice), press_office(kOfficeRequest);
+      // MW1_OFFICE_ASK=1 (development shots, FIXES.md item 56): a term asked up a step, NEGOTIATE lit; =2: the pay
+      // asked far over the offer and put to the House, its counter-offer on the status line.
+      if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "office_offer") {
+        press(kHubOffice), press_office(kOfficeRequest);
+        if (const char* a = std::getenv("MW1_OFFICE_ASK")) {
+          for (int i = std::string(a) == "2" ? 400 : 1; i > 0; --i) press_office(kOfficePayUp);
+          if (std::string(a) == "2") press_office(kOfficeSubmit);
+        }
+      }
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "hub_contract")
         press(kHubOffice), press_office(kOfficeRequest), press_office(kOfficeAccept);
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "hub_options") press(kHubOptions);
@@ -950,12 +958,16 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       return false;
     }
     office_ = ge.adopt_state([this](zgame::Handle h) { return office_state_ = new OfficeState(h, [this](int32_t id) { as_player([&] { press_office(id); }); }); });
-    if (office_state_)
-      office_state_->set_hover([this](int32_t id) {  // the status line's words over a button (FIXES.md item 51)
+    if (office_state_) {
+      // The status line's words over a button (FIXES.md items 51 and 56), a greyed one's too (NEGOTIATE: why it's off).
+      auto over = [this](int32_t id) {
         if (id == office_hover_) return;
         office_hover_ = id;
         show_office();
-      });
+      };
+      office_state_->set_hover(over);
+      office_state_->set_greyed(over);
+    }
     return office_ != 0;
   }
 
@@ -966,8 +978,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       case kOfficeSubmit: {
         if (!offered_ || pending_ || !ochoice_.ask.any()) return;
         const Answer a = negotiate(company_, contract_, ochoice_.ask, rng_);
-        ochoice_.answer = answer_lines(a, company_, contract_);
+        ochoice_.answer = answer_words(a, company_, contract_);
         ochoice_.ask = Request{};  // MW1 clears the ask after each round
+        office_hover_ = 0;         // the answer on the status line, not NEGOTIATE's hint (item 56)
         std::printf("mw1: office: round %d (patience %d%s): %s; the offer %d thousand, salvage %d%%, advance %d%%\n", contract_.attempts,
                     company_.patience, never_breaks_off(company_.planet_house) ? ", never breaks off" : "",
                     a == Answer::kAgreed ? "agreed" : a == Answer::kCounter ? "a counter-offer" : "terminated", contract_.payment,
@@ -1073,7 +1086,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       closed.push_back(refuses(company_, company_.planet_house) ? "No contracts from this House." : "No contracts here until you leave.");
     }
     office_state_->show(office_view(company_, contract_, ochoice_, offered_ ? offer_lines(false, false) : std::vector<std::string>{}, closed,
-                                    office_hint(office_hover_)));
+                                    office_hint(office_hover_, office_hover_ != kOfficeSubmit || ochoice_.ask.any())));
   }
 
   // ---- the Bar (mw1_pilots.h, mw1_bar_screen.h) ----

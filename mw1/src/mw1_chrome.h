@@ -40,6 +40,9 @@ inline constexpr const char* kTileFrames[3] = {"mw1_tile", "mw1_tile_lit", "mw1_
 inline constexpr int32_t kTinyButtonW = 58;  // the load box's OK and NO, framed (in PM's 84 wide circlebtn_tiny)
 inline constexpr int32_t kButtonW = 168, kButtonH = 30;         // a button (MECH LAB, LAUNCH, NEW, ...)
 inline constexpr const char* kButtons[4] = {"mw1_button", "mw1_button_lit", "mw1_button_down", "mw1_button_off"};
+// A screen's primary action (the office's ACCEPT, FIXES.md item 56): a button framed in amber when still; lit, pressed
+// and off it looks as any (kButtons' 1..3).
+inline constexpr const char* kPrimaryButton = "mw1_button_primary";
 // A button a tile wide (the hub's STORY under its right column, FIXES.md item 47).
 inline constexpr int32_t kTileButtonW = kTile + 2 * kTileFrame;
 inline constexpr const char* kTileButtons[4] = {"mw1_button_tile", "mw1_button_tile_lit", "mw1_button_tile_down", "mw1_button_tile_off"};
@@ -84,7 +87,7 @@ std::string box_name(int32_t w, int32_t lines);
 inline const std::vector<PanelSize>& panel_sizes() {
   // The ones the screens use (each screen's layout names its own; add one here when a layout needs it).
   static const std::vector<PanelSize> k = {{232, 120}, {300, 200}, {400, 300}, {560, 360}, {280, 420}, {376, 214}, {456, 214},
-                                           {232, 244}, {176, 156}, {436, 370}, {637, 370}, {436, 190}, {637, 190}};
+                                           {232, 244}, {176, 156}, {436, 370}, {637, 370}, {436, 152}, {637, 152}};
   return k;
 }
 inline const std::vector<PanelSize>& terminal_sizes() {
@@ -100,8 +103,8 @@ inline constexpr int32_t kFrame = 4;
 std::string frame_name(int32_t w, int32_t h, bool lit = false);
 inline const std::vector<PanelSize>& frame_sizes() {
   // A portrait (240x320), a small one (96x128), the market's mech (160x128), AFTER ACTION's picture (item 38: 240x210
-  // at 16:9, 192x168 at 4:3), the office's liaison (item 50: 160x202).
-  static const std::vector<PanelSize> k = {{248, 328}, {104, 136}, {168, 136}, {248, 218}, {200, 176}, {168, 210}};
+  // at 16:9, 192x168 at 4:3), the office's liaison (items 50 and 56: 160x278).
+  static const std::vector<PanelSize> k = {{248, 328}, {104, 136}, {168, 136}, {248, 218}, {200, 176}, {168, 286}};
   return k;
 }
 // The up and down arrows (a list's, a term's): mw1_up and mw1_dn, each with _lit, _down and _off; the left and right
@@ -132,7 +135,7 @@ std::vector<images::Image> tiles(const images::Image& picture, const std::string
 std::vector<Drawn> tiles_at(const uint8_t* rgba, int32_t sw, int32_t sh, int32_t x0, int32_t y0, int32_t side_w,
                             int32_t side_h, const std::string& base, int32_t s);
 images::Image button(int32_t state);
-images::Image button(int32_t state, int32_t w, int32_t h, const std::string& name, int32_t drawn = 0);  // any size, any name      // 0 still, 1 lit, 2 pressed, 3 off
+images::Image button(int32_t state, int32_t w, int32_t h, const std::string& name, int32_t drawn = 0, bool primary = false);  // any size, any name      // 0 still, 1 lit, 2 pressed, 3 off
 images::Image panel(int32_t w, int32_t h);
 images::Image terminal(int32_t w, int32_t h);
 images::Image box(int32_t w, int32_t lines);
