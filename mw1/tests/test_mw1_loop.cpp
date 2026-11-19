@@ -67,6 +67,7 @@
 #include "mw1_campaign.h"
 #include "mw1_fade.h"
 #include "mw1_game.h"
+#include "mw1_movie.h"
 #include "mw1_hub.h"
 #include "mw1_market.h"
 #include "mw1_missions.h"
@@ -3873,4 +3874,85 @@ TEST(mw1_loop_screens_fade_to_black_and_back_headless) {
   EXPECT(changed_at >= mw1::fade::kFadeSeconds / 2 - 0.02f && changed_at <= mw1::fade::kFadeSeconds / 2 + 0.06f);
   EXPECT(done_at >= mw1::fade::kFadeSeconds - 0.02f && done_at <= mw1::fade::kFadeSeconds + 0.1f);
   EXPECT(back_changed >= mw1::fade::kFadeSeconds / 2 - 0.02f && back_changed <= mw1::fade::kFadeSeconds / 2 + 0.06f);
+}
+
+// FIXES.md item 54: GO on the travel map (a paid trip) plays the DropShip's launch in the travel screen's place, then
+// the hub: played to its end, skipped by a key, skipped by a click, and with the file missing straight to the hub. The
+// runs are headless, so MW1_MOVIE=1 asks for it (a window plays it of itself; --hidden never). The first run fades:
+// out of the map, into the movie, out of it, into the hub.
+TEST(mw1_travel_go_plays_the_launch_then_the_hub_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  enum class How { kPlayed, kKey, kClick, kMissing };
+  for (const How how : {How::kPlayed, How::kKey, How::kClick, How::kMissing}) {
+    setenv("MW1_MOVIE", "1", 1);
+    mw1::movie::set_data_folder(how == How::kMissing ? (fs::path(MW3_TEST_TMP_ROOT) / "mw1_no_movies").string() : MW1_DATA_DIR);
+    MenuRun r;
+    r.start = mw1::Start::kHub;
+    r.fade = how == How::kPlayed;
+    int step = 0, wait = 0, movie_frames = 0, click_frame = -1;
+    std::string was, arrived;
+    bool movie_seen = false, finished = false, black_over_movie = false, movie_after_hub = false;
+    double movie_seconds = 0;
+    float max_alpha_in_movie = 0;
+    r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
+      mw1::HubState* hub = mw1::game_loop_hub();
+      mw1::TravelState* tr = mw1::game_loop_travel();
+      mw1::movie::MovieState* mv = mw1::game_loop_movie();
+      mw1::Company* c = mw1::game_loop_company_for_tests();
+      mw1::fade::Fade& f = mw1::fade::current();
+      const bool in_movie = mv && app.current() == static_cast<zgame::State*>(mv);
+      if (step == 0) {
+        if (!showing(app, hub) || f.busy() || ++wait < 5) return false;
+        c->funds = 5000000, was = c->planet;
+        hub->screen()->on_button(mw1::kHubTravel, 0, 0);
+        step = 1, wait = 0;
+        return false;
+      }
+      if (step == 1) {
+        if (!showing(app, tr) || f.busy() || ++wait < 5) return false;
+        const std::vector<int32_t> near = mw1::destinations(*c, -1);
+        const mw1::Point p = mw1::on_screen(near[0]);
+        tr->screen()->point(p.x, p.y, true);
+        tr->screen()->on_button(mw1::kTravelGo, 0, 0);
+        step = 2;
+        return false;
+      }
+      // step 2: the movie, then the hub.
+      if (in_movie) {
+        if (arrived.size()) movie_after_hub = true;
+        movie_seen = true, ++movie_frames;
+        movie_seconds = mv->seconds();
+        if (f.busy()) max_alpha_in_movie = std::max(max_alpha_in_movie, f.alpha());
+        if (mv->finished() && f.phase() == mw1::fade::Fade::Phase::kOut && f.alpha() > 0.3f) black_over_movie = true;  // fading out over it
+        if (!f.busy() && mv->seconds() > 1.0 && !mv->finished()) {
+          zin::MouseInfo* mi = zin::mouse_info();
+          if (how == How::kKey) mv->press(0x39);  // Space
+          if (how == How::kClick && click_frame < 0) click_frame = movie_frames, mi->left = 1;
+          else if (how == How::kClick && mi) mi->left = 0;
+        }
+        return false;
+      }
+      if (showing(app, hub) && (movie_seen || how == How::kMissing)) {
+        if (arrived.empty()) arrived = c->planet, finished = mv && mv->finished();
+        return !f.busy();
+      }
+      return false;
+    };
+    menu_run(r);
+    unsetenv("MW1_MOVIE");
+    mw1::fade::set_enabled(false);
+    std::printf("  %s: movie %s, %d frames, %.2f s, finished %d; %s -> %s; fade black over it %.2f, fading out over its end %d\n",
+                how == How::kPlayed ? "played" : how == How::kKey ? "a key" : how == How::kClick ? "a click" : "missing",
+                movie_seen ? "shown" : "not shown", movie_frames, movie_seconds, finished, was.c_str(), arrived.c_str(),
+                max_alpha_in_movie, black_over_movie);
+    EXPECT(!arrived.empty() && arrived != was && !movie_after_hub);
+    if (how == How::kMissing) {
+      EXPECT(!movie_seen);
+      continue;
+    }
+    EXPECT(movie_seen && finished);
+    if (how == How::kPlayed) EXPECT(movie_seconds > 4.8 && max_alpha_in_movie == 1.0f && black_over_movie);
+    else EXPECT(movie_seconds > 1.0 && movie_seconds < 2.0);
+  }
 }

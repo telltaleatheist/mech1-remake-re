@@ -562,6 +562,20 @@ void fade_present(mech3::Engine& en) {
   if (f.busy()) fade_tint(en, f.alpha());  // for the next frame's scene, if the screen draws one (PM's lab does)
 }
 
+float fade_frame(mech3::Engine& en) {
+  fade::Fade& f = fade::current();
+  if (!f.busy()) return 0.0f;
+  const bool changed = fade_step(en.frame_dt());
+  g_drawn_frame = static_cast<uint32_t>(zcls::frames().frame);  // drawn here: fade_present leaves it be
+  if (changed) {
+    fade_tint(en, 1.0);  // the next screen's first frame black
+    return -1.0f;
+  }
+  return f.busy() ? static_cast<float>(f.alpha()) : 0.0f;
+}
+
+void fade_black(mech3::Engine& en, float alpha) { fade_tint(en, alpha); }
+
 void fade_over_layer(mech3::Engine& en) {
   fade::Fade& f = fade::current();
   if (!f.busy()) return;

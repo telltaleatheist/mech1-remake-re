@@ -36,6 +36,7 @@
 #include "gamez/zutil/zutl_path.h"
 #include "mw1_game.h"
 #include "mw1_missions.h"
+#include "mw1_movie.h"
 #include "mw1_pilots.h"
 #include "mw1_save.h"
 #include "mw1_start.h"
@@ -216,7 +217,7 @@ int main(int argc, char** argv) {
   if (const char* base = SDL_GetBasePath()) {
     const std::filesystem::path data = std::filesystem::path(base) / "mw1data";
     std::error_code ec;
-    if (std::filesystem::is_directory(data, ec)) zutl::mount(data.string());
+    if (std::filesystem::is_directory(data, ec)) zutl::mount(data.string()), mw1::movie::set_data_folder(data.string());
     else std::printf("mw1: no mw1data beside the program (%s): the hub is PM's message boxes\n", data.string().c_str());
   }
   // MW1's map table (mw1_missions.h): the maps and structures the contracts choose from; none, the milestone's map.
@@ -237,6 +238,7 @@ int main(int argc, char** argv) {
   const std::string worlds =
       !a.worlds.empty() ? a.worlds : a.write_dir.empty() ? std::string() : (std::filesystem::path(a.write_dir) / mw1::kWorldsFolder).string();
   const bool hidden = std::find(a.rest.begin(), a.rest.end(), "--hidden") != a.rest.end();
+  mw1::movie::set_hidden(hidden);  // FIXES.md item 54: no movie under --hidden (MW1_MOVIE=1 plays it anyway)
   const zipkit::Progress said = [](const std::string& world, const std::string& step, int done, int total) {
     std::printf("mw1:   %s: %s (%d of %d)\n", world.c_str(), step.c_str(), done + 1, total);
     std::fflush(stdout);
