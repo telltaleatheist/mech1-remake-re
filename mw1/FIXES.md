@@ -565,7 +565,7 @@ Tick an item when it is merged into `main`.
 - **Wanted:** the horizon as MW3 draws it. Compare a shot of the same spot in MW3's own program (the mw3 build), then fix it in the converter or in MW1's world setup. MW3's and PM's files are never modified.
 - **Done means:** before and after shots of Grasslands, Big Lake, Rolling Hills and Gorge, and the cause named.
 
-## 50. [ ] The office's liaison portrait: as wide as the buttons, its bottom on the terms box's bottom
+## 50. [x] The office's liaison portrait: as wide as the buttons, its bottom on the terms box's bottom
 - **Owen (2026-11-18):** the portrait at the bottom left of the office (negotiation) screen leaves room unfilled.
 - **Wanted:**
   - the portrait as wide as the buttons above it (NEXT OFFER through LEAVE), left and right edges lined up with theirs;
