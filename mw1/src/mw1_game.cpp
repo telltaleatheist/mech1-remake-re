@@ -86,6 +86,7 @@
 #include "mw1_story.h"
 #include "mw1_journal.h"
 #include "mw1_log.h"
+#include "mw1_music.h"
 #include "mw1_ladder.h"
 
 namespace mw1 {
@@ -292,11 +293,13 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // The mission's end heard the frame it happens (latch_ending), after each frame shown. Put on here, as the main
     // state is entered, never from inside a frame's own on_present (replacing the function that is running frees it).
     if (!ending_hook_) {
+      music::apply();  // FIXES.md item 100: mw1.cfg's sound over PM's options (read by now)
       ending_hook_ = true;
       auto before = ge.on_present;
       ge.on_present = [this, before](int f) {
         if (before) before(f);
         if (deployed_ && launched_ && !ending_latched_ && ge_ && ge_->mission_ended()) latch_ending(*ge_);
+        music::frame(!deployed_);  // FIXES.md item 100: the theme out of a mission, faded out for one
         lab_look_frame();
         briefing_cursor_frame();
         if (std::getenv("MW1_FIT")) screen_fit_frame();
@@ -923,11 +926,15 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
           replay(*ge);
         });
         return;
+      case kHubQuit:  // FIXES.md item 100: PM's quit box, as the main menu's QUIT (its NO back to the hub)
+        if (pending_ || !ge) return;
+        ge->confirm_quit();
+        return;
       case kHubOptions:
         // MW1's OPTIONS in the hub's place: SETTINGS (PM's options), MAIN MENU, BACK (Escape at the hub too).
         if (pending_ || !ge || !hub_options(*ge)) return;
         screen_change([this, ge] {
-          hub_options_state_->show(scenery_image(company_.planet_number), upper(company_.planet));
+          show_hub_options();
           swap_to(*ge, hub_options_);
         });
         return;
@@ -1093,6 +1100,11 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     return hub_options_ != 0;
   }
 
+  void show_hub_options() {  // FIXES.md item 100: PM's sliders may have moved: mw1.cfg kept to match
+    if (!hub_options_state_) return;
+    music::sync();
+    hub_options_state_->show(scenery_image(company_.planet_number), upper(company_.planet));
+  }
   void press_hub_options(int32_t id) {
     std::printf("mw1: options: %s\n", hub_options_button_name(id));
     mech3::GameEngine* ge = ge_;
@@ -1108,6 +1120,19 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         });
         return;
       case kHubOptBack: screen_change([this] { back_to_hub(); }); return;
+      case kHubOptMusic:  // FIXES.md item 100: on or off at once, saved
+      case kHubOptMusicDown:
+      case kHubOptMusicUp:
+      case kHubOptEffectsDown:
+      case kHubOptEffectsUp: {
+        music::Settings m = music::settings();
+        if (id == kHubOptMusic) m.on = !m.on;
+        if (id == kHubOptMusicDown || id == kHubOptMusicUp) m.music = std::clamp(m.music + (id == kHubOptMusicUp ? kVolumeStep : -kVolumeStep), 0, 100);
+        if (id == kHubOptEffectsDown || id == kHubOptEffectsUp) m.effects = std::clamp(m.effects + (id == kHubOptEffectsUp ? kVolumeStep : -kVolumeStep), 0, 100);
+        music::set_settings(m);
+        show_hub_options();
+        return;
+      }
       default: return;
     }
   }
@@ -2683,6 +2708,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       case kHubTravel: return "STARPORT: travel to another world.";
       case kHubBar: return "BAR: a drink, the news, pilots looking for work.";
       case kHubOptions: return "OPTIONS: the game's settings and the main menu.";
+      case kHubQuit: return "QUIT: leave the game.";
       case kHubStory: return "STORY: the trail so far, and where it leads next.";
       case kHubOk: return pending_ ? "OK settles the mission." : "OK clears the messages.";
       case kHubReplay: return "REPLAY: fight the mission again.";

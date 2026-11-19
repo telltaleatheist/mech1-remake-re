@@ -87,7 +87,7 @@ std::string box_name(int32_t w, int32_t lines);
 inline const std::vector<PanelSize>& panel_sizes() {
   // The ones the screens use (each screen's layout names its own; add one here when a layout needs it).
   static const std::vector<PanelSize> k = {{232, 120}, {300, 200}, {400, 300}, {560, 360}, {280, 420}, {376, 214}, {456, 214},
-                                           {232, 244}, {176, 156}, {436, 370}, {637, 370}, {436, 152}, {637, 152}};
+                                           {232, 244}, {232, 324}, {176, 156}, {436, 370}, {637, 370}, {436, 152}, {637, 152}};
   return k;
 }
 inline const std::vector<PanelSize>& terminal_sizes() {

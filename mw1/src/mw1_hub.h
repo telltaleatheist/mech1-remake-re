@@ -29,9 +29,10 @@ inline constexpr const char* kHubDialog = "MW1HUBDIALOG";  // its dialog
 // FIXES.md items 62, 63 (mw1_log.h): READ in the box's foot when its messages have news (their stories), and LOG, a
 // small button under the left column, always (a contract taken too).
 enum HubButton : int32_t {
-  kHubOk = 1, kHubReplay, kHubMarket, kHubBar, kHubTravel, kHubOffice, kHubOptions, kHubCompany, kHubDeploy, kHubStory, kHubRead, kHubLog
+  kHubOk = 1, kHubReplay, kHubMarket, kHubBar, kHubTravel, kHubOffice, kHubOptions, kHubCompany, kHubDeploy, kHubStory, kHubRead, kHubLog,
+  kHubQuit  // FIXES.md item 100: at the foot between LOG and STORY; PM's quit box (the main menu's) asks first
 };
-inline constexpr int32_t kHubButtonCount = 12;
+inline constexpr int32_t kHubButtonCount = 13;
 // The middle panel's width in its line font's columns (4:3's 376: 48 fit); a longer line wraps there, indented.
 inline constexpr int32_t kHubPanelColumns = 48;
 const char* hub_button_name(int32_t id);  // "ACCEPT", ... ("" for no button)
@@ -64,8 +65,12 @@ size_t hub_pages(const std::vector<std::string>& panel);
 
 // The hub's OPTIONS (MW1's options hold the game's own: ours, PM's settings and the main menu).
 inline constexpr const char* kHubOptionsDialog = "MW1HUBOPTIONS";  // in mw1hub.zrd
-enum HubOptionsButton : int32_t { kHubOptSettings = 1, kHubOptMainMenu, kHubOptBack };
-inline constexpr int32_t kHubOptionsButtonCount = 3;
+// FIXES.md item 100: MUSIC (on or off), the music's and the effects' volumes between their arrows (mw1_music.h).
+enum HubOptionsButton : int32_t {
+  kHubOptSettings = 1, kHubOptMainMenu, kHubOptBack, kHubOptMusic, kHubOptMusicDown, kHubOptMusicUp, kHubOptEffectsDown, kHubOptEffectsUp
+};
+inline constexpr int32_t kHubOptionsButtonCount = 8;
+inline constexpr int32_t kVolumeStep = 10;  // an arrow's step, percent
 const char* hub_options_button_name(int32_t id);
 
 using HubScreen = Mw1Screen;

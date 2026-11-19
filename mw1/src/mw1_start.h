@@ -15,10 +15,20 @@ inline constexpr const char* kPmApp = "Pirate's Moon";  // PM's own write dir, b
 inline constexpr const char* kCfg = "mw1.cfg";
 
 // The three installs the player brings (VISION.md, pillar 4).
+// FIXES.md item 100: the sound settings MW1's OPTIONS keeps (mw1_music.h), in mw1.cfg beside the installs. -1: never
+// set (the game's own, PM's settings, stand).
+struct SoundCfg {
+  int32_t music = -1;           // music=1 on, 0 off
+  int32_t music_volume = -1;    // music_volume=0..100
+  int32_t effects_volume = -1;  // effects_volume=0..100
+  bool operator==(const SoundCfg&) const = default;
+};
+
 struct Installs {
   std::string pm;   // Pirate's Moon: the game's own install (mw3pm's --install)
   std::string mw3;  // MechWarrior 3: its worlds c2 and c4b (research/maps.md)
   std::string mw1;  // MechWarrior (1989), the DOS game: its BTECH.EXE folder
+  SoundCfg sound;   // not an install: kept with them (merge() keeps the saved one)
 };
 
 // What mw1 takes before handing the rest to the game main.
@@ -34,7 +44,7 @@ struct Args {
 // are read and also left in `rest` (the game main takes them too).
 Args parse(int argc, char** argv);
 
-// mw1.cfg in the write dir: install=, mw3_install=, mw1_game= (a line each,
+// mw1.cfg in the write dir: install=, mw3_install=, mw1_game=, and the sound's music=, music_volume=, effects_volume= (a line each,
 // paths as zutl::path_from_config reads them). A missing file reads empty.
 Installs read_cfg(const std::string& write_dir);
 bool write_cfg(const std::string& write_dir, const Installs& in);

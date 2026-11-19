@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 
@@ -44,6 +45,15 @@ Installs read_cfg(const std::string& write_dir) {
       if (line.rfind(k, 0) == 0) to = zutl::path_from_config(line.substr(k.size()));
     };
     take("install", in.pm), take("mw3_install", in.mw3), take("mw1_game", in.mw1);
+    auto number = [&](const char* key, int32_t& to, int32_t most) {
+      const std::string k = std::string(key) + "=";
+      if (line.rfind(k, 0) != 0) return;
+      char* end = nullptr;
+      const long v = std::strtol(line.c_str() + k.size(), &end, 10);
+      if (end != line.c_str() + k.size()) to = static_cast<int32_t>(std::clamp<long>(v, 0, most));
+    };
+    number("music", in.sound.music, 1), number("music_volume", in.sound.music_volume, 100);
+    number("effects_volume", in.sound.effects_volume, 100);
   }
   return in;
 }
@@ -54,6 +64,9 @@ bool write_cfg(const std::string& write_dir, const Installs& in) {
   if (!in.pm.empty()) f << "install=" << in.pm << "\n";
   if (!in.mw3.empty()) f << "mw3_install=" << in.mw3 << "\n";
   if (!in.mw1.empty()) f << "mw1_game=" << in.mw1 << "\n";
+  if (in.sound.music >= 0) f << "music=" << in.sound.music << "\n";
+  if (in.sound.music_volume >= 0) f << "music_volume=" << in.sound.music_volume << "\n";
+  if (in.sound.effects_volume >= 0) f << "effects_volume=" << in.sound.effects_volume << "\n";
   return static_cast<bool>(f);
 }
 
