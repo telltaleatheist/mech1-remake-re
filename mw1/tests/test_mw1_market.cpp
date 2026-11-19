@@ -136,10 +136,10 @@ TEST(mw1_market_buy_sell_pilot_and_the_last_mech) {
   EXPECT(mw1::sell(c, 0) == mw1::Deal::kDone && c.mech == kFirefly && c.hangar.empty());
 }
 
-// FIXES.md item 53: the most mechs owned (kOwnedMost, MW1's twelve, the piloted one included): BUY refused at it after
+// FIXES.md item 53: the most mechs owned (kOwnedMost: MW1's 12, Owen's 30; the piloted one included): BUY refused at it after
 // the funds' check, nothing paid or taken from the stock; a sale makes room again. A save past it still loads (and
 // still refuses). The stores' items clamped at kStoreMost.
-TEST(mw1_market_the_hangar_holds_twelve) {
+TEST(mw1_market_the_hangar_holds_the_most) {
   mw1::Company c = company_with_stores();
   c.mech = kOwens, c.tier = 0, c.funds = 100000000;
   c.market.stock = {kFirefly, kFirefly};
@@ -156,11 +156,20 @@ TEST(mw1_market_the_hangar_holds_twelve) {
   EXPECT(mw1::buy(c, 0) == mw1::Deal::kNoFunds);  // MW1's order: the funds first
   c.funds = funds;
   EXPECT(mw1::sell(c, 1) == mw1::Deal::kDone && mw1::buy(c, 0) == mw1::Deal::kDone);
-  // YOUR MECHS scrolls: the last of twelve chosen, the list's top moves to show it within its rows.
+  // YOUR MECHS scrolls: the last of the most chosen, the list's top moves to show it within its rows, and the list
+  // shows it marked, a full page of rows.
   mw1::MarketChoice m;
   m.owned = mw1::kOwnedMost - 1;
   mw1::clamp_choice(c, m);
   EXPECT(m.owned == mw1::kOwnedMost - 1 && m.owned_top > 0 && m.owned_top <= m.owned && m.owned < m.owned_top + mw1::kMarketRows);
+  EXPECT(m.owned_top == mw1::kOwnedMost - mw1::kMarketRows);
+  {
+    const mw1::ScreenView v = mw1::market_view(c, m);
+    const std::vector<std::string>* rows = nullptr;
+    for (const mw1::TextBlock& b : v.blocks)
+      if (b.at && std::string(b.at) == "O_ROWS") rows = &b.lines;
+    EXPECT(rows && static_cast<int32_t>(rows->size()) == mw1::kMarketRows && rows->back().rfind("> ", 0) == 0);
+  }
   // An old save with fifteen: read, nothing taken away; BUY still refused.
   for (int32_t i = 0; i < 3; ++i) {
     mw1::OwnedMech o;
