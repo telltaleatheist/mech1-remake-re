@@ -195,13 +195,14 @@ bool MovieState::update() {
     return false;
   }
   if (!finished_) {
-    // The first frame, still and silent, through the fade in and kHoldSeconds after it (FIXES.md item 55).
+    // Black and silent through the screen change and kHoldSeconds after it, then the motion and the sound as the
+    // picture fades in (FIXES.md items 55, 65: no frozen first frame).
     const bool holding = fading || held_ < kHoldSeconds;
     if (holding) {
       if (!fading) held_ += en.frame_dt();
     } else if (!sound_started_) {  // the sound with the motion
       sound_started_ = true;
-      std::printf("mw1: movie held %.2f s on its first frame; the motion and the sound start\n", held_);
+      std::printf("mw1: movie black %.2f s; the motion and the sound start, fading in\n", held_);
       if (!clip_.pcm().empty() && clip_.sample_rate() > 0) {
         platform::WaveFormat wf;
         wf.format_tag = 1, wf.channels = 2, wf.samples_per_sec = static_cast<uint32_t>(clip_.sample_rate());
@@ -225,18 +226,20 @@ bool MovieState::update() {
     mouse_was_down_ = down;
     const uint32_t key = pressed_ ? pressed_ : zin::frame_key();
     pressed_ = 0;
+    // The black over the picture: whole while held, then thinning as it plays; the screen fade's when that's darker.
+    if (!finished_) black_ = holding ? 1.0f : fade_in_black(seconds_);
     if (!fading && frames_ > 1 && (key != 0 || click || en.key_state(1) == 1)) {
-      draw(alpha);
+      draw(std::max(alpha, black_));
       finish("skipped");
       return false;
     }
     if (clip_.ended(seconds_)) {
-      draw(alpha);
+      draw(std::max(alpha, black_));
       finish("played");
       return false;
     }
   }
-  draw(alpha);
+  draw(std::max(alpha, black_));
   return false;
 }
 

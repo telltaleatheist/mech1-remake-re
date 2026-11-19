@@ -3899,6 +3899,7 @@ TEST(mw1_travel_go_plays_the_launch_then_the_hub_headless) {
     float max_alpha_in_movie = 0;
     // FIXES.md item 55: the sound's buffers, playing and looped, through the run's sound output.
     bool sound_heard = false, sound_looped = false, sound_after_end = false, sound_at_hub = false, moved_in_hold = false;
+    bool picture_in_hold = false, faded_in_motion = false, black_after_fade_in = false;
     auto playing = [&](bool* looped) {
       int n = 0;
       for (platform::SoundBuffer b = 1; b < 4096; ++b) {
@@ -3941,6 +3942,10 @@ TEST(mw1_travel_go_plays_the_launch_then_the_hub_headless) {
         if (f.busy()) max_alpha_in_movie = std::max(max_alpha_in_movie, f.alpha());
         if (mv->sound_playing() && !sound_heard) sound_heard = true, held_at_sound = mv->held();
         if (mv->held() < mw1::movie::kHoldSeconds && mv->seconds() > 0) moved_in_hold = true;
+        // Item 65: all black while held, no picture; then thinning as the motion plays, gone after kFadeInSeconds.
+        if (mv->held() < mw1::movie::kHoldSeconds && mv->black() < 1.0f) picture_in_hold = true;
+        if (mv->seconds() > 0.2 && mv->seconds() < 0.8 && mv->black() > 0.0f && mv->black() < 1.0f) faded_in_motion = true;
+        if (mv->seconds() > mw1::movie::kFadeInSeconds + 0.1 && !mv->finished() && mv->black() > 0.0f) black_after_fade_in = true;
         if (mv->sound_playing()) playing(&sound_looped);
         if (mv->finished() && (mv->sound_playing() || playing(nullptr) > 0)) sound_after_end = true;
         if (mv->finished() && f.phase() == mw1::fade::Fade::Phase::kOut && f.alpha() > 0.3f) black_over_movie = true;  // fading out over it
@@ -3978,6 +3983,9 @@ TEST(mw1_travel_go_plays_the_launch_then_the_hub_headless) {
                 sound_heard, held_at_sound, sound_looped, sound_after_end, sound_at_hub, moved_in_hold);
     EXPECT(sound_heard && held_at_sound >= mw1::movie::kHoldSeconds && !moved_in_hold);
     EXPECT(!sound_looped && !sound_after_end && !sound_at_hub);
+    std::printf("  fade in: picture in the hold %d, faded in with the motion %d, black after the fade in %d\n", picture_in_hold,
+                faded_in_motion, black_after_fade_in);
+    EXPECT(!picture_in_hold && faded_in_motion && !black_after_fade_in);
     if (how == How::kPlayed) EXPECT(movie_seconds > 4.8 && max_alpha_in_movie == 1.0f && black_over_movie);
     else EXPECT(movie_seconds > 1.0 && movie_seconds < 2.0);
   }

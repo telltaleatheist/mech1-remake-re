@@ -7,8 +7,9 @@
 //
 // The clip is drawn over the whole window at its own resolution (a texture on the frame's renderer, letterboxed to the
 // window's shape), not through the 640x480 canvas; its sound plays once through zSound at the effects volume. A key
-// or a click skips it; it fades in and out with the screens (FIXES.md item 52). After the fade in its first frame is
-// held still and silent kHoldSeconds; its sound is stopped at its end or the skip, before the fade out (item 55).
+// or a click skips it; it fades in and out with the screens (FIXES.md item 52). After the change the screen stays black
+// and silent kHoldSeconds, then the clip plays as it fades in (item 65); its sound is stopped at its end or the skip,
+// before the fade out (item 55).
 // With no renderer (headless), under --hidden, or with the file missing, nothing plays and play goes straight on;
 // MW1_MOVIE=1 plays it anyway (the shots, the tests), MW1_MOVIE=0 never.
 #include <cstdint>
@@ -24,9 +25,15 @@ namespace mw1::movie {
 
 inline constexpr const char* kLaunchClip = "dropship_launch";  // mw1data/video/<name>.mpg
 inline constexpr const char* kFolder = "video";
-// FIXES.md item 55 (Owen: "it felt very sudden"): after the fade in, the first frame held still and silent this long
-// before the motion and the sound start.
+// FIXES.md item 55 (Owen: "it felt very sudden"), then item 65 (Owen: "no freeze frame. just be black for about a
+// second, and then fade in from black as it flies away"): black and silent this long after the screen change, then the
+// motion and the sound start together as the picture fades in from black over kFadeInSeconds.
 inline constexpr double kHoldSeconds = 1.0;
+inline constexpr double kFadeInSeconds = 1.0;
+// The black over the clip at `played` seconds into its motion: 1 at its start, 0 from kFadeInSeconds on.
+inline float fade_in_black(double played) {
+  return played >= kFadeInSeconds ? 0.0f : played <= 0.0 ? 1.0f : static_cast<float>(1.0 - played / kFadeInSeconds);
+}
 
 // Where the clips are: mw1data/ beside the program (mw1_main.cpp). Empty: none found.
 void set_data_folder(const std::string& dir);
@@ -89,6 +96,7 @@ class MovieState : public mech3::MenuState {
   bool finished() const { return finished_; }
   double seconds() const { return seconds_; }  // the clip's time: 0 through the fade in and the hold
   double held() const { return held_; }
+  float black() const { return black_; }  // the black over the picture now (1: all black)
   // Whether the clip's sound is playing now (FIXES.md item 55: never once it has finished or been skipped).
   bool sound_playing() const;
   int32_t frames_shown() const { return shown_; }
@@ -103,6 +111,7 @@ class MovieState : public mech3::MenuState {
   Clip clip_;
   bool open_ = false, finished_ = false, mouse_was_down_ = true, sound_started_ = false;
   double seconds_ = 0, held_ = 0;
+  float black_ = 1.0f;  // the black over the picture (FIXES.md item 65)
   int32_t frames_ = 0, shown_ = 0;
   uint32_t pressed_ = 0;
   int32_t texture_ = -1;

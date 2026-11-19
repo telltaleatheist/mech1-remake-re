@@ -758,6 +758,18 @@ Tick an item when it is merged into `main`.
 - **Add, as MW1 had:** the landscape label, the population and the description on the travel panel. Read the labels and description from the player's MW_MAIN.EXE at run time, like our other MW1 text; never store them. Without the exe, leave them out.
 - **Done means:** the tests updated (test_mw1_travel, test_mw1_travel_map); shots of the travel panel and the Mech Complex banner at 1080p and 4:3.
 
+## 65. [x] The launch video: black, then fading in as it flies, with no frozen first frame
+- **Owen (2026-11-18):** "instead of pausing on the first frame for a second, lets just have it fade in from black for that second and then take off. no freeze frame. just be black for about a second, and then fade in from black as it flies away".
+- **Done (lead):** after the screen change it stays black and silent for kHoldSeconds (1.0). Then the motion and the sound start together, and the picture fades in from black over kFadeInSeconds (1.0) (mw1_movie.h fade_in_black, MovieState::black()). test_mw1_loop checks no picture during the hold, a part-fade during the motion, and none after it.
+
+## 66. [ ] The FOR SALE list's last row overlaps the box's bottom edge
+- **Owen (2026-11-18, in play):** "the mechs in the purchase list overlap with the buttom of the box". Eight rows: the eighth (Awesome) and its outline sit on the box's bottom border.
+- **Wanted:**
+  - The visible rows end inside the box with a margin equal to the top one, so fewer rows show if needed; the arrows scroll.
+  - The same check for YOUR MECHS.
+  - Find out why mw1screenfit didn't catch it: outlines and text touching a box's border should fail. Add that check.
+- **Done means:** shots at 1080p, 4K and 4:3 with a full list; the fit check fails on the old layout.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.
