@@ -1,3 +1,4 @@
+#include "platform/hires_2d.h"
 #include "gamez/zeffect/zeff_anim_save.h"
 #include "gamez/zclass/display.h"
 #include "gamez/zclass/window.h"
@@ -960,6 +961,7 @@ bool GameEngine::hold_shown_frame() {
   if (!p_.render || !p_.screen || !last_via_render_ || buffer_is_screen_ || !p_.render->hold_frame()) return false;
   held_ = true;
   std::fill(buffer_.begin(), buffer_.end(), kLayerKey);
+  if (platform::hires_cleared()) platform::hires_cleared()(buffer_.data());  // mw1 (ours), FIXES 12
   buffer_is_screen_ = true;  // no read-back into it at the next lock: it is the box's layer
   if (box_blends_) cover_alpha_.assign(buffer_.size(), 0), cover_colour_.resize(buffer_.size());  // ours
   return true;
@@ -1058,6 +1060,7 @@ int32_t GameEngine::lock_back(zvid::Surface* s) {
   if (buffer_is_screen_) kept_screen_ = buffer_;
   else kept_screen_.clear();
   std::fill(buffer_.begin(), buffer_.end(), kLayerKey);
+  if (kept_screen_.empty() && platform::hires_cleared()) platform::hires_cleared()(buffer_.data());  // mw1 (ours), FIXES 12
   buffer_is_screen_ = false;
   cover_alpha_.assign(buffer_.size(), 0);
   cover_colour_.resize(buffer_.size());

@@ -27,4 +27,13 @@ inline bool hires_2d_debug() {
   return v;
 }
 
+// mw1 (engine, ours), FIXES 12: the engine's 2D buffer filled afresh with the layer's key (a mission's frame, the
+// held frame's box layer), so the draws recorded in it are gone. The SDL host sets it while hires_2d() is on, and only
+// then; null otherwise (MW3, PM: nothing to tell). Without it a mission's HUD draws piled up past the lists' cap.
+using HiresCleared = void (*)(const void* owner);
+inline HiresCleared& hires_cleared() {
+  static HiresCleared f = nullptr;
+  return f;
+}
+
 }  // namespace platform

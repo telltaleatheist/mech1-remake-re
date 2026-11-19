@@ -25,6 +25,8 @@
 #include <vector>
 
 #include "check.h"
+#include "gamez/zvideo/zvid_dd.h"
+#include "platform/hires_2d.h"
 #include "platform/menu_pointer.h"
 #include "mech3/source_map.h"
 #include "mech3/patch_import.h"
@@ -9788,4 +9790,53 @@ TEST(sdl_mouse_let_go_where_it_was_taken) {
     in.mouse_state(&s);
     EXPECT(in.captured() && moves == 0);
   }
+}
+
+namespace {
+struct ClearedWindow : platform::Window {
+  uint32_t create(const std::string&, int, int) override { return 0x1234; }
+  void set_title(const std::string&) override {}
+  void show() override {}
+  void client_size(int* w, int* h) override { *w = 640, *h = 480; }
+};
+struct ClearedAlert : platform::Alert {
+  void abort_message(const std::string&) override {}
+};
+struct ClearedClock : platform::Clock {
+  uint32_t now = 0;
+  uint32_t ticks_ms() override { return now += 16; }
+};
+struct ClearedScreen : platform::Screen2D {
+  void present_16(const uint16_t*, int, int, int, bool) override {}
+  void overlay_16(const uint16_t*, int, int, int, bool, uint16_t, const uint8_t*, const uint16_t*) override {}
+};
+}  // namespace
+
+// MW1's FIXES.md item 12 (ours): the engine's 2D buffer filled with the layer's key at each lock (a mission's frame)
+// tells the high-resolution lists it was cleared, through platform::hires_cleared, which only MW1 sets; unset, the
+// lock is as before (MW3, PM).
+TEST(sdl_lock_back_tells_the_hires_lists_its_buffer_was_cleared) {
+  ClearedWindow window;
+  ClearedAlert alert;
+  ClearedClock clock, movie;
+  ClearedScreen screen;
+  platform::SilentSoundOutput sound;
+  mech3::MountFiles files;
+  mech3::Platform p;
+  p.window = &window, p.alert = &alert, p.clock = &clock, p.movie_clock = &movie, p.screen = &screen, p.sound = &sound, p.files = &files;
+  mech3::GameEngine engine(p, "mech3.exe -nofmv");
+  static const void* told = nullptr;
+  static int calls = 0;
+  told = nullptr, calls = 0;
+  zvid::Surface s{};
+  platform::hires_cleared() = nullptr;
+  engine.lock_back(&s);  // unset: nothing to tell
+  if (s.pixels) static_cast<uint16_t*>(s.pixels)[0] = 0x1234;  // a frame drawn (a mission's): the buffer not kept
+  engine.unlock_back(&s);
+  EXPECT(calls == 0);
+  platform::hires_cleared() = [](const void* owner) { told = owner, ++calls; };
+  engine.lock_back(&s);
+  platform::hires_cleared() = nullptr;
+  EXPECT(calls == 1 && told == s.pixels);
+  engine.unlock_back(&s);
 }
