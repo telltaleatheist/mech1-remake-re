@@ -564,6 +564,11 @@ Tick an item when it is merged into `main`.
 - **Likely cause:** something the conversion or our sky lacks, such as the sky dome's lower part, the horizon's fog colour, or a far-plane clear colour. It must be found before the arctic map (44), which is a converted MW3 world too.
 - **Wanted:** the horizon as MW3 draws it. Compare a shot of the same spot in MW3's own program (the mw3 build), then fix it in the converter or in MW1's world setup. MW3's and PM's files are never modified.
 - **Done means:** before and after shots of Grasslands, Big Lake, Rolling Hills and Gorge, and the cause named.
+- **Found (dev 2, 2026-11-18):** the band is in shot files only.
+  - MW3's horizon ring `g15055` is untextured and fog-coloured. Through PM's flat batch (pack_material) it gets alpha 0, and the --shot BMP keeps that alpha, so viewers lay it over white.
+  - On screen it's MW3's own haze ring.
+  - The fix is one line in the shared shot path, with a test; the patch is in outbox/2026-11-18/mw1-horizon. It's with the mw3 lead for main and pm, and mw1 takes it by merging pm.
+  - **Open:** Owen to say whether he saw the band in a live window. If so, there's a second cause.
 
 ## 50. [x] The office's liaison portrait: as wide as the buttons, its bottom on the terms box's bottom
 - **Owen (2026-11-18):** the portrait at the bottom left of the office (negotiation) screen leaves room unfilled.
