@@ -68,6 +68,7 @@
 #include <string>
 #include <vector>
 
+#include "frontend/sdl/system_pickers.h"
 #include "frontend/sdl/vulkan_check.h"
 #include "frontend/sdl/campaign_chain.h"
 #include "frontend/sdl/editor_imgui.h"
@@ -1136,8 +1137,7 @@ int run(const Args& a, platform::VideoForWindows* vfw) {
       if (!scripted.empty()) return mech3::mods_menu_picked(scripted);
       auto done = [](void*, const char* const* list, int) { mech3::mods_menu_picked(list && list[0] ? list[0] : ""); };
       static const SDL_DialogFileFilter filters[] = {{"Mods (.zip, .7z, .rar), mech loadouts (.m3c)", "zip;7z;rar;m3c"}};
-      if (folder) SDL_ShowOpenFolderDialog(done, nullptr, parent, nullptr, false);
-      else SDL_ShowOpenFileDialog(done, nullptr, parent, filters, 1, nullptr, false);
+      sdlfe::open_picker({folder ? sdlfe::PickerKind::kOpenFolder : sdlfe::PickerKind::kOpenFile, done, nullptr, parent, filters, 1});
     };
     // EXPORT: the system's save box in the player's documents, the mod's
     // "<name> <version>.zip" offered.
@@ -1150,7 +1150,7 @@ int run(const Args& a, platform::VideoForWindows* vfw) {
       const char* docs = SDL_GetUserFolder(SDL_FOLDER_DOCUMENTS);
       static std::string start;
       start = docs ? (std::filesystem::path(docs) / file_name).string() : file_name;
-      SDL_ShowSaveFileDialog(done, nullptr, parent, filters, 1, start.c_str());
+      sdlfe::open_picker({sdlfe::PickerKind::kSaveFile, done, nullptr, parent, filters, 1, start.c_str()});
     };
     mp.open_folder = [](const std::string& dir) { return sdlfe::open_folder(dir); };
     // --pick: no box, this game; else unset, and MODS asks in the game's own box (W16).

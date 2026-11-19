@@ -902,7 +902,7 @@ uint32_t SdlZinHost::map_virtual_key(uint32_t scan) {
 // VK_SHIFT, VK_CONTROL, VK_MENU held (0x80), VK_CAPITAL and VK_NUMLOCK toggled (1).
 bool SdlZinHost::keyboard_state(uint8_t* st) {
   std::memset(st, 0, 256);
-  const SDL_Keymod m = SDL_GetModState();
+  const SDL_Keymod m = platform::pointer_hands_off() ? SDL_KMOD_NONE : SDL_GetModState();  // a run no player is at: none
   if (m & SDL_KMOD_SHIFT) st[0x10] = 0x80;
   if (m & SDL_KMOD_CTRL) st[0x11] = 0x80;
   if (m & SDL_KMOD_ALT) st[0x12] = 0x80;

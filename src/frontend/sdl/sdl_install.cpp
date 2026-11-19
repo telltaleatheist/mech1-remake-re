@@ -1,4 +1,5 @@
 #include "frontend/sdl/sdl_install.h"
+#include "frontend/sdl/system_pickers.h"
 #include "gamez/zutil/zutl_path.h"
 #include "pm/pm_game.h"
 
@@ -289,7 +290,7 @@ std::string pick_file(const std::string& start) {
     if (list && list[0]) w->file = list[0];
     w->done = true;
   };
-  SDL_ShowOpenFileDialog(done, &w, nullptr, filters, 2, start.empty() ? nullptr : start.c_str(), false);
+  sdlfe::open_picker({sdlfe::PickerKind::kOpenFile, done, &w, nullptr, filters, 2, start.empty() ? nullptr : start.c_str()});
   while (!w.done) {
     SDL_Event e;
     SDL_WaitEventTimeout(&e, 50);

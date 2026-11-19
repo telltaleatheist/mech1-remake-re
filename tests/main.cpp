@@ -30,6 +30,7 @@
 #include "platform/pointer_hands_off.h"
 #include "gamez/zgame/zgame_table.h"
 #include "gamez/zsound/zsnd.h"
+#include "platform/pointer_hands_off.h"
 
 namespace check {
 std::vector<Test>& registry() {

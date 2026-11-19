@@ -1,5 +1,7 @@
 #include "frontend/sdl/sdl_mods.h"
 
+#include "platform/pointer_hands_off.h"
+
 #include <SDL3/SDL.h>
 
 #include <cctype>
@@ -10,7 +12,8 @@
 namespace sdlfe {
 
 bool open_folder(const std::string& dir) {
-  if (SDL_getenv("MW3_NO_OPEN_FOLDER")) {  // checks: said, not opened (no window on the machine running them)
+  // checks, and any run no player is at (pointer_hands_off.h): said, not opened (no window on the machine running them)
+  if (SDL_getenv("MW3_NO_OPEN_FOLDER") || platform::pointer_hands_off()) {
     std::printf("mw3: open folder %s\n", dir.c_str());
     return true;
   }
