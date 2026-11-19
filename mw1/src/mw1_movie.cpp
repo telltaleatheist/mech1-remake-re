@@ -139,7 +139,7 @@ MovieState::MovieState(zgame::Handle h, std::string path, std::function<void()> 
 MovieState::~MovieState() { stop_sound(); }
 
 bool MovieState::enter() {
-  seconds_ = 0, frames_ = 0, shown_ = 0, finished_ = false, sound_started_ = false;
+  seconds_ = 0, held_ = 0, frames_ = 0, shown_ = 0, finished_ = false, sound_started_ = false;
   const zin::MouseInfo* m = zin::mouse_info();
   mouse_was_down_ = m && m->left;  // the click that pressed GO isn't a skip
   open_ = clip_.open(path_);
@@ -153,10 +153,15 @@ bool MovieState::enter() {
 }
 
 void MovieState::stop_sound() {
+  if (voice_) std::printf("mw1: movie sound stopped at %.2f s (%s)\n", seconds_, sound_playing() ? "playing" : "done");
   if (voice_) zsnd::stop(static_cast<zsnd::VoiceBase*>(voice_));
   voice_ = nullptr;
   if (sound_) zsnd::stream_free(static_cast<zsnd::Sound*>(sound_));
   sound_ = nullptr;
+}
+
+bool MovieState::sound_playing() const {
+  return voice_ && zsnd::status(static_cast<zsnd::VoiceBase*>(voice_)) == 1;
 }
 
 void MovieState::leave() {
@@ -170,6 +175,9 @@ void MovieState::leave() {
 void MovieState::finish(const char* how) {
   if (finished_) return;
   finished_ = true;
+  // FIXES.md item 55: the sound stopped here, at the clip's end or the skip, before the fade out (it had played on
+  // through the fade, its buffer looping back to its start, heard over the next screen).
+  stop_sound();
   std::printf("mw1: movie %s at %.2f s (%d frames shown)\n", how, seconds_, shown_);
   if (done_) done_();
 }
@@ -187,13 +195,21 @@ bool MovieState::update() {
     return false;
   }
   if (!finished_) {
-    if (!sound_started_) {  // the sound with the first frame
+    // The first frame, still and silent, through the fade in and kHoldSeconds after it (FIXES.md item 55).
+    const bool holding = fading || held_ < kHoldSeconds;
+    if (holding) {
+      if (!fading) held_ += en.frame_dt();
+    } else if (!sound_started_) {  // the sound with the motion
       sound_started_ = true;
+      std::printf("mw1: movie held %.2f s on its first frame; the motion and the sound start\n", held_);
       if (!clip_.pcm().empty() && clip_.sample_rate() > 0) {
         platform::WaveFormat wf;
         wf.format_tag = 1, wf.channels = 2, wf.samples_per_sec = static_cast<uint32_t>(clip_.sample_rate());
         wf.bits_per_sample = 16, wf.block_align = 4, wf.avg_bytes_per_sec = wf.samples_per_sec * 4;
         auto* s = zsnd::stream_create(&wf, clip_.pcm().data(), static_cast<uint32_t>(clip_.pcm().size() * 2));
+        // stream_create makes a looped buffer (MW3's movie player refills it as it plays, 0x005758c0); ours holds
+        // the whole sound, played once: looped, it started over at its end (FIXES.md item 55).
+        if (s) s->flags &= ~zsnd::kLooped;
         sound_ = s;
         if (s) voice_ = zsnd::play(s, 1.0f);
       }
