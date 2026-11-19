@@ -684,11 +684,11 @@ Tick an item when it is merged into `main`.
   - Check every other line in that hub box for the same problem: anything that belongs to the mission's result goes on the results screen.
 - **Done means:** shots of the results screen (one 'Mech, a full lance, repairs over the pool) at 1080p and 4:3; no repair box on the hub; the tests updated.
 
-## 58. [ ] The Mech Complex's gunmetal render doesn't follow BUY
+## 58. [x] The Mech Complex's gunmetal render doesn't follow BUY
 - **Owen (2026-11-18, in play):** after buying a Firefly, the selection moved to it in YOUR MECHS, but the big panel still showed the Strider, the FOR SALE row chosen before. Switching rows corrected it.
 - **Wanted:** the panel follows every change of the chosen 'Mech: BUY, SELL, the selection moving between lists, and the first entry. Add a test (dev 1).
 
-## 59. [ ] Remove REPAIR and RELOAD from the Mech Complex
+## 59. [x] Remove REPAIR and RELOAD from the Mech Complex
 - **Owen (2026-11-18):** "lets get rid of the repair/reload buttons in the mech bay, too, since we dont need them".
 - **Why they're dead:** every mission starts with every 'Mech repaired and rearmed (MW3's rule), and the bill is settled from the mission (51/57), so the buttons do nothing useful.
 - **Wanted:**
@@ -698,7 +698,7 @@ Tick an item when it is merged into `main`.
   - It must fit at 1080p and 4:3.
 - **Done means:** shots at 1080p and 4:3, and mw1screenfit, labfit, hiresoff and smooth passing (update the goldens where the market changes).
 
-## 60. [ ] Confirm before buying or selling a 'Mech
+## 60. [x] Confirm before buying or selling a 'Mech
 - **Owen (2026-11-18):** "lets put up a verify prompt when they buy a mech. you want to buy [x]? ... y/n".
 - **Wanted:**
   - BUY raises a box in the same style as the game's other boxes, e.g. "Buy the Firefly for 2,605,000 C-bills?", with YES and NO buttons. The Y and N keys work too, Enter means YES and Esc means NO.
@@ -769,6 +769,15 @@ Tick an item when it is merged into `main`.
   - The same check for YOUR MECHS.
   - Find out why mw1screenfit didn't catch it: outlines and text touching a box's border should fail. Add that check.
 - **Done means:** shots at 1080p, 4K and 4:3 with a full list; the fit check fails on the old layout.
+
+## 67. [ ] Several news lines read the same: "NEWS: BRIEF HEADLINES" three times
+- **Owen (2026-11-18, in play):** "i got a message that said: NEWS: BRIEF HEADLINES (x3) ... is that intentional". No.
+- **Cause:** story_rules::headline() takes the line before a story's first blank line. Several of MW1's NewsNet stories are bulletins that share one title (news 0x66, 0x67 and 0x68 arrived together in his play.log), so the hub shows that title once per story.
+- **Wanted:**
+  - A headline that tells stories apart. When a story's title line is one that other stories share, use its first item's line instead, or the title plus that line. This is all built at run time from the exe's text, as now.
+  - Never show the same line twice in one hub box: same-titled stories collapse to "NEWS: <title> (3)", each readable through READ (62).
+  - The log (63) uses the same headline.
+- **Done means:** a test over the whole script: no two live news stories give the same hub line, or they're collapsed with a count.
 
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
