@@ -68,7 +68,6 @@
 #include "mw1_hub.h"
 #include "mw1_market.h"
 #include "mw1_market_screen.h"
-#include "mw1_lab_pilot.h"
 #include "mw1_menu.h"
 #include "mw1_movie.h"
 #include "mw1_images.h"
@@ -1045,14 +1044,6 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         changed = fire(company_, bchoice_.mate);
         bchoice_.note = changed ? mate + " leaves the company." : "Nobody chosen.";
         break;
-      case kBarAssign: {
-        changed = assign(company_, bchoice_.mate);
-        const int32_t h = mech_of(company_, bchoice_.mate);
-        bchoice_.note = !changed ? "Nobody chosen."
-                        : h >= 0 ? mate + " takes the " + mech_title(company_.hangar[static_cast<size_t>(h)].mech) + "."
-                                 : mate + " has no mech: they stay behind.";
-        break;
-      }
       case kBarDrink:
         // MW1's drink (MwOrderDrinkContinuation): a unit of time (the wages if a month begins), then the drink's events:
         // a tip at its price, or the quiet text.
@@ -1348,9 +1339,12 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (market_state_) market_state_->show(market_view(company_, choice_));
   }
 
-  // MECH LAB (FIXES.md item 8): Pirate's Moon's lab on the chosen mech, as the briefing's MECHLAB opens it, with a
-  // copy of the company's stores. The company pilot's Instant Action slot carries the mech and its loadout; when the
-  // lab's ACCEPT brings the Mech Complex back (lab_closed), the slot's loadout and the store become the company's.
+  // MECH LAB (FIXES.md item 8): Pirate's Moon's lab, as the briefing's MECHLAB opens it, with a copy of the company's
+  // stores. FIXES 69 (Owen: assignment in the lab, MW3's way): the lance in its slots, you first, then each lancemate
+  // (lance_slots), each with their mech and its loadout, a lancemate without one an empty slot; the spares' chassis in
+  // the lab's store (YOUR MECHS lists them and the shown slot's). Picking one for a slot swaps (lab_swap), each mech
+  // keeping its own loadout. The lab opens on the slot of the mech chosen in YOUR MECHS (a spare: yours, the spare
+  // listed). ACCEPT brings the Mech Complex back (lab_closed): the lance, loadouts and stores become the company's.
   void open_lab(mech3::GameEngine& ge) {
     const int32_t i = choice_.owned, mech = owned_mech(company_, i);
     if (mech < 0) return;
@@ -1359,17 +1353,24 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     p->select_game(mech3::kInstantAction);
     mech3::ActionGame* g = p->action();
     while (g->count > 0) g->remove(0);
-    g->slot.set_config(nullptr), g->slot.mech = mech;
-    // A copy of its loadout; on its stock one (null), the stock loadout itself: the lab edits a whole mech, where a
-    // slot with none shows it bare.
-    const mech3::Config* loadout = owned_loadout(i) ? owned_loadout(i).get() : stock_loadout(mech);
-    g->slot.set_config(loadout);
+    lab_slots_ = lance_slots(company_);
+    lab_loadouts_.clear();
+    for (int32_t o = 0; o <= static_cast<int32_t>(company_.hangar.size()); ++o)
+      lab_loadouts_.push_back(owned_loadout(o) ? copy_config(*owned_loadout(o)) : nullptr);
+    lab_fill(g->slot, lab_slots_[0]);
+    for (size_t k = 1; k < lab_slots_.size(); ++k)
+      if (mech3::GameSlot* s = g->add(-1, 1, nullptr, 0)) lab_fill(*s, lab_slots_[k]);
     g->store.clear();
     g->store.full = 0;
     g->store.add_all(*company_.stores);
+    for (int32_t o = 0; o < static_cast<int32_t>(lab_loadouts_.size()); ++o)
+      if (std::find(lab_slots_.begin(), lab_slots_.end(), o) == lab_slots_.end()) g->store.add_mech(owned_mech(company_, o));
     p->save();
-    lab_owned_ = i, lab_who_ = pilot_now(company_, i);
-    if (!lab_hook_) {  // the lab's PILOT line, put on its screen once it is up (each frame shown, until it is)
+    lab_owned_ = i;
+    const auto at = std::find(lab_slots_.begin(), lab_slots_.end(), i);
+    lab_show_ = at == lab_slots_.end() ? 0 : static_cast<int32_t>(at - lab_slots_.begin());
+    ge.set_lab_lance([this](int32_t slot, int32_t m) { lab_swap(slot, m); }, true);
+    if (!lab_hook_) {  // the lab's first slot shown, once its screen is up (each frame shown, until it is)
       lab_hook_ = true;
       auto before = ge.on_present;
       ge.on_present = [this, before](int f) {
@@ -1377,9 +1378,29 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         lab_frame();
       };
     }
-    std::printf("mw1: market: the mech lab on the %s\n", mech3::mech_name(mech));
+    std::printf("mw1: market: the mech lab on the %s, %zu slots\n", mech3::mech_name(mech), lab_slots_.size());
     ge.pilot_chosen(p);  // the lab's pilot is the engine's current one ([0x0060861c])
     ge.mech_lab_open(ge.store_handle(&g->store), 0);
+  }
+  // A lab slot given owned mech `o` (-1 none) with a copy of its loadout (its stock one when it has none: the lab
+  // edits a whole mech).
+  void lab_fill(mech3::GameSlot& s, int32_t o) {
+    s.set_config(nullptr);
+    s.mech = o < 0 ? -1 : owned_mech(company_, o);
+    if (o >= 0) s.set_config(lab_loadouts_[static_cast<size_t>(o)] ? lab_loadouts_[static_cast<size_t>(o)].get() : stock_loadout(s.mech));
+  }
+  // FIXES 69: a slot's chassis changed in YOUR MECHS (Engine::lab_slot_swap): the mech it had keeps its loadout (a
+  // spare now, in the store as the lab left it), the picked one comes with its own; the same chassis by owned order.
+  void lab_swap(int32_t slot, int32_t mech) {
+    mech3::GameSlot* s = ge_ ? ge_->game_slot(slot) : nullptr;
+    if (!s || slot < 0 || slot >= static_cast<int32_t>(lab_slots_.size())) return;
+    int32_t& o = lab_slots_[static_cast<size_t>(slot)];
+    if (o >= 0) lab_loadouts_[static_cast<size_t>(o)] = s->config ? copy_config(*s->config) : nullptr;
+    o = -1;
+    o = mech < 0 ? -1 : free_owned(company_, lab_slots_, mech);
+    lab_fill(*s, o);
+    if (o < 0 && mech >= 0) s->mech = mech;  // none of the company's (never: the list has only these): the bare chassis
+    std::printf("mw1: lab: slot %d now %s\n", slot, o < 0 ? "empty" : mech3::mech_name(mech));
   }
   // FIXES.md item 22: PM's briefing reads its layout's node itself (BriefingScreen's load_node, not Dialog::load), so
   // set_layout_image's swap for briefing.zrd never applies to it: its pointer made ours once it has loaded.
@@ -1407,6 +1428,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // weapons, equipment and mission-data pages (1, 2, 5) have nothing on them: the chassis in their place.
     if (ls->page == 1 || ls->page == 2 || ls->page == 5) ls->switch_page(0);
     lab_slot_icons(*ls);
+    fit_lab_warning(*ls);
     // The chosen page's tray button lit (its ACTIVATE look): LabScreen::refresh, on every page switch and every
     // loadout change, gives the criticals and groups buttons their still look again (Control::refresh), and only the
     // pointer leaving one lit it again (HelpButton::set_blink).
@@ -1433,18 +1455,37 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     ztwod::Host& h = ztwod::host();
     for (int32_t i = 0; i < kLabSlots; ++i) {
       mech3::MechButton& b = ls.mechs[i];
-      if (b.mech < 0 || b.mech >= mech3::mech_count() || !b.img_normal || b.img_normal == slot_ours_[static_cast<size_t>(i)]) continue;
-      zimg::Texture* dim = h.image_get(slot_icon_image(b.mech, SlotLook::kDim).c_str());
+      if (i >= 4 || (b.flags & ztwod::kHidden) || b.mech >= mech3::mech_count() || (b.img_normal && b.img_normal == slot_ours_[static_cast<size_t>(i)])) continue;
+      // FIXES 69: a lancemate's slot with no mech (PM's has no picture for none): the empty frame.
+      const bool none = b.mech < 0;
+      if (!none && !b.img_normal) continue;
+      auto name = [&](SlotLook l) { return none ? blank_slot_image(l) : slot_icon_image(b.mech, l); };
+      zimg::Texture* dim = h.image_get(name(SlotLook::kDim).c_str());
       if (!dim) continue;  // no amber icons (no PM icons at the start): PM's stay
       h.image_release(b.img_normal), h.image_release(b.img_activate), h.image_release(b.img_disabled);
       b.img_normal = dim;
-      b.img_activate = h.image_get(slot_icon_image(b.mech, SlotLook::kLit).c_str());
-      b.img_disabled = h.image_get(slot_icon_image(b.mech, SlotLook::kOff).c_str());
+      b.img_activate = h.image_get(name(SlotLook::kLit).c_str());
+      b.img_disabled = h.image_get(name(SlotLook::kOff).c_str());
       b.set_image(b.selected ? b.img_activate : b.enabled ? b.img_normal : b.img_disabled);
       b.dirty();
       slot_ours_[static_cast<size_t>(i)] = dim;
     }
   }
+  // FIXES 70: the warning (MESSAGE_AREA) in the tray's middle, between the button pairs, centred: its box its own
+  // line's width, at most kLabWarnW (wrapped past that). Each new text once.
+  void fit_lab_warning(mech3::LabScreen& ls) {
+    ztwod::FontText& m = ls.message;
+    if (m.fixed && lab_warning_ == m.text) return;
+    lab_warning_ = m.text;
+    ztwod::Rect box{0, 0, chrome::kLabWarnW, chrome::kLabWarnH};
+    m.set_fixed_rect(&box);
+    m.align = 1;
+    m.set_pos(ge_->buffer_width() / 2, chrome::kLabWarnY);
+    m.render();  // measures its one line (drawn_width) before the box
+    if (m.drawn_width > 0 && m.drawn_width < chrome::kLabWarnW) box.right = m.drawn_width, m.set_fixed_rect(&box), m.render();
+    m.dirty();
+  }
+  std::string lab_warning_;
   static constexpr int32_t kLabSlots = 12;
   const mech3::LabScreen* slot_screen_ = nullptr;
   std::array<zimg::Texture*, kLabSlots> slot_ours_{};
@@ -1529,8 +1570,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
           if (std::find(moved.begin(), moved.end(), l) == moved.end()) moved.push_back(l), l->y -= kDataUp, l->dirty();
     }
   }
-  // FIXES.md item 29: the tray's four buttons (one picture size, mw1_chrome.h) at even places along it, not PM's (its
-  // icons of four sizes, the groups one over the centre's frame); the chosen page's glow centred on its button; item
+  // FIXES.md item 29: the tray's four buttons (one picture size, mw1_chrome.h) in pairs at its ends (FIXES 70), not
+  // PM's places (its icons of four sizes, the groups one over the centre's frame); the chosen page's glow centred on its button; item
   // 37: each one's hover label centred above it.
   void place_lab_tabs(mech3::LabScreen& ls) {
     const int32_t left = ge_->buffer_width() / 2 - 320;  // PM's 640 layout, centred
@@ -1625,38 +1666,13 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   static constexpr const char* kAmmoTab = "Ammo";
   static constexpr int32_t kTabGap = 8, kListUp = 12, kEngineUp = 9, kEngineValueW = 112, kDataLeft = 6, kDataUp = 8, kArrowGap = 3;
 
-  // The lab's PILOT line and its funds on its screen (mw1_lab_pilot.h), once the lab from MECH LAB is up.
+  // FIXES 69: the lab opened on the slot of the mech chosen in YOUR MECHS, once its screen is up.
   void lab_frame() {
     mech3::Mech3App* app = mech3::app_if_any();
-    if (lab_owned_ < 0 || !ge_ || !app || app->current() != &mech3::states().lab) return;
-    mech3::LabScreen* ls = ge_->lab_screen(mech3::states().lab.lab_screen_);
-    if (!ls) return;
-    if (!lab_funds_.attached()) {  // every page's (FIXES.md item 41); the lab spends nothing, so set once
-      lab_funds_.attach(ls, ge_->buffer_width() / 2 - 320 + kFundsX, kFundsY);
-      lab_funds_.show(thousands(company_.funds) + " C-BILLS");
-    }
-    if (lab_pilot_.attached()) {  // the chassis page's only (FIXES.md item 17): hidden on the others
-      lab_pilot_.visible(ls->page == kLabChassisPage);
-      return;
-    }
-    // A row in the lab's right-hand panel (MOBILE HQ STOCKPILE), under its list: one chassis here, the one in the
-    // lab. The lab is PM's 640 layout centred on a wider canvas: the panel's right edge is the layout's.
-    const int32_t layout_right = ge_->buffer_width() / 2 + 320;
-    lab_pilot_.attach(ls, layout_right - kPilotFromRight, kPilotY, [this](int32_t by) { lab_pilot_step(by); });
-    show_lab_pilot();
-    lab_pilot_.visible(ls->page == kLabChassisPage);
-  }
-  void lab_pilot_step(int32_t by) {
-    const std::vector<int32_t> can = pilot_choices(company_, lab_owned_);
-    if (can.empty()) return;
-    const auto at = std::find(can.begin(), can.end(), lab_who_);
-    const int32_t n = static_cast<int32_t>(can.size()), i = at == can.end() ? 0 : static_cast<int32_t>(at - can.begin());
-    lab_who_ = can[static_cast<size_t>(((i + by) % n + n) % n)];
-    show_lab_pilot();
-  }
-  void show_lab_pilot() {
-    const std::string name = lab_who_ == kNobody ? "spare" : lab_who_ == kCommander ? "YOU" : pilot_title(lab_who_);
-    lab_pilot_.show(name, pilot_choices(company_, lab_owned_).size() > 1);
+    if (lab_owned_ < 0 || lab_show_ <= 0 || !ge_ || !app || app->current() != &mech3::states().lab) return;
+    if (!ge_->lab_screen(mech3::states().lab.lab_screen_)) return;
+    mech3::states().lab.show_slot(lab_show_);
+    lab_show_ = 0;
   }
 
   void lab_closed() {
@@ -1664,23 +1680,28 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (fade::enabled()) fade::current().fade_in();  // FIXES.md item 52: the Mech Complex back in from black
     const int32_t i = lab_owned_;
     lab_owned_ = -1;
-    lab_pilot_.forget();  // its screen gone with the lab
-    lab_funds_.forget();
+    if (ge_) ge_->set_lab_lance({}, false);
     mech3::Pilot* p = mech3::current_pilot();
     mech3::ActionGame* g = p ? p->action() : nullptr;
-    if (!g || g->slot.mech != owned_mech(company_, i)) return;
+    if (!g || g->slot_count() != static_cast<int32_t>(lab_slots_.size())) return;
     company_.stores->assign(g->store);
     // ACCEPT lets the lab's slots go, their mechs back into its store as items; the company's mechs are its hangar's,
     // never the stores' (VISION.md).
     for (int32_t r = 0; r < mech3::kMechCount; ++r)
       while (company_.stores->has_mech(r)) company_.stores->remove_mech(r);
-    owned_loadout(i) = g->slot.config ? copy_config(*g->slot.config) : nullptr;
-    const int32_t mech = g->slot.mech;
-    const bool moved = lab_who_ != pilot_now(company_, i);
-    set_pilot(company_, i, lab_who_);
-    if (moved && lab_who_ == kCommander) choice_.owned = 0;  // the commander's now: owned 0
-    choice_.note = "The " + mech_title(mech) + " out of the mech lab" +
-                   (lab_who_ == kNobody ? ", a spare." : ", piloted by " + (lab_who_ == kCommander ? std::string("you") : pilot_title(lab_who_)) + ".");
+    for (size_t k = 0; k < lab_slots_.size(); ++k)
+      if (mech3::GameSlot* s = g->slot_at(static_cast<int32_t>(k)); s && lab_slots_[k] >= 0)
+        lab_loadouts_[static_cast<size_t>(lab_slots_[k])] = s->config ? copy_config(*s->config) : nullptr;
+    const int32_t you = lab_slots_[0], weight = lance_weight(company_);
+    if (!apply_lance(company_, lab_slots_, lab_loadouts_)) std::printf("mw1: market: the lab's lance not applied\n");
+    // The lance weighs on the offer (MW1's, as the Company page's ASSIGN did): changed, the offer is drawn again.
+    if (lance_weight(company_) != weight && offered_ && !pending_ && !contract_.accepted) new_offer();
+    // The mech MECH LAB was on stays the chosen one: yours now if you took it, and your old one in its place.
+    choice_.owned = i == you ? 0 : i == 0 ? you : i;
+    choice_.own_shown = true;
+    const int32_t who = pilot_now(company_, choice_.owned);
+    choice_.note = "The " + mech_title(owned_mech(company_, choice_.owned)) + " out of the mech lab" +
+                   (who == kNobody ? ", a spare." : ", piloted by " + (who == kCommander ? std::string("you") : pilot_title(who)) + ".");
     std::printf("mw1: market: back from the mech lab: %d items in the stores\n", company_.stores->count());
     save();
     show_market();
@@ -2762,8 +2783,6 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   MarketState* market_state() const { return market_state_; }
   const MarketChoice* market_choice() const { return &choice_; }
   int32_t market_panel_mech() const { return market_shown_mech(company_, choice_); }
-  const PilotChooser* lab_pilot() const { return lab_pilot_.attached() ? &lab_pilot_ : nullptr; }
-  const LabFunds* lab_funds() const { return lab_funds_.attached() ? &lab_funds_ : nullptr; }
   BarState* bar_state() const { return bar_state_; }
   OfficeState* office_state() const { return office_state_; }
   HubOptionsState* hub_options_state() const { return hub_options_state_; }
@@ -3016,6 +3035,31 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       if (!once && page == "lab_fit" && company_.stores)
         for (mech3::ConfigItem* it : company_.stores->items)
           if (it) it->count = kStoreMost;
+      // MW1_LAB_LANCE=<lancemates>:<their mechs>[:<spares>] (development, FIXES 69's shots): that many hired (MW1's
+      // first pilots), the first <mechs> of them each on a hangar mech (the Firefly, Centurion, Awesome), the rest
+      // without; and <spares> more hangar mechs (the same kinds), nobody's.
+      if (const char* l = std::getenv("MW1_LAB_LANCE"); l && !once) {
+        const int32_t mates = std::clamp(std::atoi(l), 0, kLanceMax);
+        const char* colon = std::strchr(l, ':');
+        const int32_t mechs = std::clamp(colon ? std::atoi(colon + 1) : 0, 0, mates);
+        static const int32_t kKinds[3] = {kPmFirefly, kPmCenturion, kPmAwesome};
+        company_.lance.clear(), company_.hangar.clear();
+        for (int32_t i = 0; i < mates; ++i) {
+          company_.lance.push_back({2 * i + 1, 0});
+          company_.pilots[static_cast<size_t>(2 * i + 1)].where = PilotWhere::kHired;
+          if (i < mechs) {
+            OwnedMech o;
+            o.mech = kKinds[i], o.pilot = 2 * i + 1;
+            company_.hangar.push_back(o);
+          }
+        }
+        const char* more = colon ? std::strchr(colon + 1, ':') : nullptr;  // :<spares>, nobody's
+        for (int32_t i = 0, n = more ? std::clamp(std::atoi(more + 1), 0, 3) : 0; i < n; ++i) {
+          OwnedMech o;
+          o.mech = kKinds[i];
+          company_.hangar.push_back(o);
+        }
+      }
       if (!once) once = true, press(kHubMarket), press_market(kMarketLab);
     }
     // The office's offer taken (MW1's way: the office, REQUEST, ACCEPT), then the hub's DEPLOY: the loading screen,
@@ -3056,6 +3100,25 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         for (int32_t i = 0; i < 4; ++i)
           if (mech3::HelpButton* t = l->tab(kLabTabPages[i]))
             for (ztwod::Text* x : t->help) i == std::atoi(h) ? x->show_for(-1.0f) : x->hide();
+    // MW1_LAB_SLOT=<slot>[:<mech name>] (development, FIXES 69's shots): from the 30th frame, that lance slot shown (as
+    // its button clicked), then that mech picked in YOUR MECHS (as its row clicked; "none" the slot's "no mech").
+    if (const char* w = std::getenv("MW1_LAB_SLOT"); w && lab && now == &mech3::states().lab && (frames == 30 || frames == 40))
+      if (mech3::LabScreen* l = ge->lab_screen(mech3::states().lab.lab_screen_)) {
+        const char* colon = std::strchr(w, ':');
+        if (frames == 30) mech3::states().lab.show_slot(std::atoi(w));
+        else if (colon) {
+          int32_t row = -1;
+          for (int32_t i = 0; i < l->chassis.item_count() && row < 0; ++i) {
+            const int32_t m = l->chassis.mech_at(i);
+            if (m < 0 ? std::strcmp(colon + 1, "none") == 0 : strcasecmp(mech3::mech_name(m), colon + 1) == 0) row = i;
+          }
+          if (row >= 0) l->chassis.select(row);
+        }
+      }
+    // MW1_LAB_WARN=0..8 (development: --shot pictures of the lab's warnings, FIXES 70): that warning shown, again
+    // every second from the 25th frame (each shows for 3 seconds).
+    if (const char* w = std::getenv("MW1_LAB_WARN"); w && lab && now == &mech3::states().lab && frames >= 25 && frames % 60 == 25)
+      if (mech3::LabScreen* l = ge->lab_screen(mech3::states().lab.lab_screen_)) show_lab_warning(*ge, *l, std::atoi(w));
     if (page == "results" && now == &mech3::states().core && frames == 600) {
       int32_t n = 0;
       const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
@@ -3069,6 +3132,27 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (now == &mech3::states().core && frames == 90) app->push(app->state(3), 0);
     if (now == &mech3::states().pause && frames == 10 && page == "pause_options")
       if (auto* p = dynamic_cast<mech3::PauseScreen*>(ge->screen_of(mech3::states().pause.screen_))) p->on_button(mech3::PauseScreen::kOptions, 0, 0);
+  }
+
+  // FIXES 70: the lab's warnings (MESSAGE_AREA's texts, lab_screen.cpp's callers), each at its longest: over the
+  // tonnage, the criticals an XL engine or endo steel wants, 16 weapons, the heat sinks, the jump jets.
+  static constexpr int32_t kLabWarnings = 9;
+  void show_lab_warning(mech3::GameEngine& ge, mech3::LabScreen& l, int32_t k) {
+    switch (k) {
+      case 0: l.message.set_text_id(0xdce, "99.5"); break;
+      case 1: l.message.set_text_id(0xdcf, 3); break;
+      case 2: l.message.set_text_id(0xdd0, 6); break;
+      case 3: l.message.set_text_id(0xdd1, 14, 0); break;
+      case 4: l.message.set_text_id(0xdd2, "99.5"); break;
+      case 5: l.message.set_text_id(0xfb2); break;
+      case 6: ge.lab_message("Only 16 weapons are allowed"); break;
+      case 7: ge.lab_message(ge.message(0xf02)); break;
+      default: {
+        const mech3::LabState& lab = mech3::states().lab;
+        const std::string name = mech_title(ge.lab_slot_mech(ge.lab_slot(lab.pilot_, lab.slot_)));
+        ge.lab_message(ge.message_format_sd(0xfc1, name.c_str(), 12, true).substr(0, 0x45).c_str());
+      }
+    }
   }
 
   // MW1_SCREEN=lab_render (development, FIXES 14's test renders): the pass's stage (render_stage) showing
@@ -3511,6 +3595,37 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         if (std::abs(u.weapon.labels[0]->x - lab_list_left(u)) > 1) wrong.push_back("the supply tabs don't start at the rows' left");
       }
     }
+    // FIXES 70: the warnings (MESSAGE_AREA, every page's), each at its longest, on the chassis page: inside the
+    // layout, over none of the tray's buttons and none of their labels, and inside a panel or clear of them all.
+    if (step == 0) {
+      const int32_t ox = ge.buffer_width() / 2 - 320;
+      const std::vector<FitBox> panels = lab_fit_panels();
+      for (int32_t k = 0; k < kLabWarnings; ++k) {
+        show_lab_warning(ge, *l, k);
+        fit_lab_warning(*l);
+        ztwod::FontText& m = l->message;
+        if (m.needs_render) m.render();
+        int32_t x = m.x - ox;
+        if (m.align == 1) x -= m.width / 2;
+        else if (m.align == 2) x -= m.width;
+        const FitBox b{x, m.y, x + m.width, m.y + m.text_height(), "warning"};
+        auto over = [&](const FitBox& o) { return b.left < o.right && o.left < b.right && b.top < o.bottom && o.top < b.bottom; };
+        std::string why;
+        if (b.left < 0 || b.right > 640 || b.top < 0 || b.bottom > 480) why = "outside the layout";
+        for (const FitBox& t : tray)
+          if (why.empty() && over(t)) why = std::string("over the ") + t.name + " button";
+        for (const FitBox& t : labels)
+          if (why.empty() && over(t)) why = std::string("over the ") + t.name + " label";
+        for (const FitBox& p : panels) {
+          const bool inside = b.left >= p.left && b.right <= p.right && b.top >= p.top && b.bottom <= p.bottom;
+          if (why.empty() && over(p) && !inside) why = std::string("across ") + p.name + "'s frame";
+        }
+        std::printf("mw1 lab fit: warning %d (%zu letters) %d..%d x %d..%d: %s\n", k, std::strlen(m.text), b.left, b.right,
+                    b.top, b.bottom, why.empty() ? "fits" : (why + ": OUTSIDE").c_str());
+        ++texts, outside += why.empty() ? 0 : 1;
+      }
+      l->message.hide();
+    }
     for (const std::string& w : wrong) std::printf("mw1 lab fit: %s the tray: %s: OUTSIDE\n", kSteps[step].name, w.c_str());
     texts += static_cast<int>(tray.size() + labels.size()) + margins, outside += static_cast<int>(wrong.size());
     if (++step < kStepCount) {
@@ -3631,11 +3746,12 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   std::vector<ztwod::Object2D*> stage_hidden_;
   ztwod::Object2D* stage_cursor_ = nullptr;
   mech3::LabScreen* stage_screen_ = nullptr;  // the owned mech in the Mech Complex's MECH LAB (-1 none open)
-  int32_t lab_who_ = kNobody;  // its pilot as chosen in the lab (mw1_pilots.h)
+  // FIXES 69: the lab's lance while it is open: each slot's owned mech (lance_slots), each owned mech's loadout,
+  // the slot to show once the screen is up.
+  std::vector<int32_t> lab_slots_;
+  std::vector<std::shared_ptr<mech3::Config>> lab_loadouts_;
+  int32_t lab_show_ = 0;
   bool lab_hook_ = false;
-  PilotChooser lab_pilot_;
-  LabFunds lab_funds_;  // the funds on the lab's pages (FIXES.md item 41)
-  // The PILOT line's place on the lab's screen: from the canvas's right edge, and down.
   static constexpr int32_t kLabChassisPage = 0;  // LabScreen::page: the chassis page (ICON_CHASSIS)
   static constexpr int32_t kLabCriticalsPage = 3;  // the criticals page: LOAD-OUT and the supplies (ICON_CRITICALS)
   std::shared_ptr<mech3::Store> salvage_;  // this mission's parts, the stores' on a win
@@ -3758,8 +3874,6 @@ void game_loop_offer_again() {
 MarketState* game_loop_market() { return the_loop() ? the_loop()->market_state() : nullptr; }
 const MarketChoice* game_loop_market_choice() { return the_loop() ? the_loop()->market_choice() : nullptr; }
 int32_t game_loop_market_panel_mech() { return the_loop() ? the_loop()->market_panel_mech() : -1; }
-const PilotChooser* game_loop_lab_pilot() { return the_loop() ? the_loop()->lab_pilot() : nullptr; }
-const LabFunds* game_loop_lab_funds() { return the_loop() ? the_loop()->lab_funds() : nullptr; }
 TravelState* game_loop_travel() { return the_loop() ? the_loop()->travel_state() : nullptr; }
 const std::vector<AllyLaunch>& game_loop_ally_launches() {
   static const std::vector<AllyLaunch> none;

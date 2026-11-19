@@ -4,7 +4,7 @@
 // the left (BUY, SELL, MECH LAB, BACK, stacked at the column's top) and two lists, FOR SALE (the world's stock, the buying
 // prices) over YOUR MECHS (the company's, who pilots each, the selling prices). BUY takes FOR SALE's chosen mech;
 // SELL and MECH LAB act on YOUR MECHS' chosen one. MECH LAB is the lab's way in: Pirate's Moon's lab on that mech,
-// its pilot chosen there (mw1_lab_pilot.h), back here after. No REPAIR or RELOAD (FIXES.md item 59): every mission
+// the lance assigned there (FIXES 69: MW3's slots), back here after. No REPAIR or RELOAD (FIXES.md item 59): every mission
 // starts repaired and armed (VISION.md), the bill settled from the mission. The lists' rows take the mouse, their arrows
 // scroll them. Escape is BACK.
 #include <cstdint>

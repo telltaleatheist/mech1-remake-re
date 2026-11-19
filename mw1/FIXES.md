@@ -323,6 +323,7 @@ Tick an item when it is merged into `main`.
 - **Owen (2026-11-18, playing):** "the buttons on the bottom of the mech lab are different sizes and shapes. and the customize button isnt the right size. its overlapping. weapons grouping isnt too tall but its wider than the others i think. they should all be the same size/shape, including accept"
 - **Cause:** MW1's lab icons keep PM's four sizes: lab_icon1 (chassis) 51x58, lab_icon4 (criticals/customize) 55x49, lab_icon5 (groups) 65x48, lab_accept 60x49. They sit at PM's positions in dlgMechLabII.
 - **Wanted:** all four the same framed size and shape, evenly spaced along the bottom bar, with none overlapping, at both shapes. mw1labfit checks that they are equal and don't overlap.
+- **Changed by 70 (Owen 2026-11-19, option A):** not evenly spaced any more. The buttons are in pairs at the bar's ends (chassis and criticals left, groups and ACCEPT right; mw1_chrome.h's lab_tab_x), so the warnings get the clear middle. Same size, no overlap, labels centred over their buttons, as before.
 
 ## 30. [ ] Don't hold the mouse: let it leave the window *(merged: mw1-pointer-hands-off, mw1-free-mouse-2; tick after the windowed SDL suite and Owen's feel check)*
 - **Owen (2026-11-18, playing):** "lets make it so it doesnt hold the mouse. if i scroll the mouse out of the window (because i have 2 screens), or if i move it outside the viewport, it will move outside the viewport. mw3 works that way and its fine"
@@ -787,7 +788,7 @@ Tick an item when it is merged into `main`.
   - The hint is "HIRE pays their wage; PREV and NEXT show the rest."
   - mw1tests 181/0; mw1labfit, screenfit, hiresoff and smooth 4/4.
 
-## 69. [ ] The lab's top row: the lance's slots, not FUNDS; the lab assigns 'Mechs, not the Company page
+## 69. [x] The lab's top row: the lance's slots, not FUNDS; the lab assigns 'Mechs, not the Company page *(done: mw1-lab-slots)*
 - **Owen (2026-11-18, in play):** "i just hired two lancemates. but they arent showing in the mech lab. i dont think we need the \"funds\"/c-bills at the top, where the lancemates are normally listed. lets do it the way mw3 does - put blank slots at the top if i have pilots with no mechs, and no slots at all if there arent any pilots".
 - **Wanted:** the top row is PM's or MW3's lance strip, done as MW3 does it:
   - one slot per pilot (you, then each lancemate), showing the mech outline of their assigned 'Mech;
@@ -800,11 +801,24 @@ Tick an item when it is merged into `main`.
   - **The PILOT selector** (◀ YOU ▶) under YOUR MECHS goes.
   - **The Company page (COMPANY, the Bar's lance page)** keeps FIRE, PREV, NEXT and LEAVE for firing and the stats. ASSIGN goes, with its hint. Remove ASSIGN only once the lab assigns, so there is always a way.
 - **Done means:** shots with you alone, with two lancemates and one 'Mech (two blank slots), and with a full lance, at 1080p and 4:3; assigning in the lab, and a test that the Company page has no ASSIGN.
+- **How it works now:**
+  - MECH LAB opens PM's lab with one slot per pilot: you, then each lancemate (Instant Action's line-up). A lancemate without a 'Mech gets a dashed empty frame (mw1_slot_none).
+  - YOUR MECHS lists the spares and the shown slot's own 'Mech, MW3's way. A 'Mech in another slot isn't listed; free it from its own slot first. Picking a spare swaps: the old 'Mech becomes a spare.
+  - Each 'Mech keeps its own loadout in and out of a slot (MW1's way; the lead, 2026-11-19). Two of the same chassis are matched in hangar order.
+  - A lancemate's slot also offers "No 'Mech".
+  - MECH LAB on a spare opens on your slot, with the spare listed. It never auto-assigns.
+  - ACCEPT makes the lance the company's (mw1_pilots.h's apply_lance). The offer is redrawn when the lance weight changes, as ASSIGN did.
+- **Removed:** the PILOT selector (mw1_lab_pilot), FUNDS, the Company page's ASSIGN with its hint, and `assign`, `set_pilot` and `pilot_choices`. FIRE, PREV, NEXT and LEAVE close up, and the recruits page's DONE moves up with them.
+- **Engine (ours, opt-in):** GameEngine::set_lab_lance. A program changes a slot's chassis itself (Engine::lab_slot_swap) and offers "No 'Mech" in any game. With it on, the "no mech" row is the selected one for an empty slot. In PM, find_mech's fallback to row 0 picked whatever row the sort put first.
+- **Dev:** MW1_LAB_LANCE=<mates>:<their mechs>[:<spares>] and MW1_LAB_SLOT=<slot>[:<mech>|none] for --shot pictures.
 
-## 70. [ ] The lab's warnings are hidden behind the bottom buttons
+## 70. [x] The lab's warnings are hidden behind the bottom buttons *(done: mw1-lab-slots)*
 - **Owen (2026-11-18, in play):** "the warning \"need [x] crits, only have [y]\" or the tonnage warning are both behind the buttons now. cant see the warnings". The shot shows "Not enough criticals free (need 14, have 10)" drawn across the third and fourth of the bottom icon buttons.
 - **Wanted:** every lab warning shows in full where it can be read: in clear space (e.g. above the button row, or in a panel's own status line), above everything, at 1080p, 4K and 4:3. labfit should check that the warning line isn't covered by a button.
 - **Done means:** shots of the crits and the tonnage warnings, and a labfit case that fails on the current layout.
+- **Why the first idea failed:** the lab's 3D view (210..430 x 52..288 of the layout) draws over the 2D, so a warning above the centre box sat under the 'Mech's feet and the reticle. The only clear 2D space in the centre column is the top strip, which 69's slots use.
+- **Owen chose option A (2026-11-19):** the tray buttons in pairs at the ends (item 29 updated), the warning in the clear middle. It is centred, as wide as its line, and wraps past 300 (kLabWarnW) onto a second line.
+- **The check:** mw1labfit shows every lab warning at its longest (tonnage, the criticals for XL and endo steel, 16 weapons, heat sinks, jump jets). It fails any that leaves the layout, covers a tray button or its label, or crosses a panel's frame. On the old layout all 9 failed "over the groups button". Dev: MW1_LAB_WARN=0..8 holds one warning up for --shot pictures.
 
 ## 71. [x] The Mech Complex buttons stacked at the top
 - **Owen (2026-11-19):** "lets stack the buttons closer together so they dont look as spread out. stack them up against the top".
