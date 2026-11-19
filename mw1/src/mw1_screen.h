@@ -180,9 +180,10 @@ class Mw1Screen : public mech3::MenuScreen {
   std::vector<std::vector<std::string>> shown_lines_;
   void fit_status(ztwod::Text* t, int32_t y, size_t world_block, int32_t world_x);              // by block: the lines as shown, plain
   std::vector<std::unique_ptr<ztwod::Image>> panels_;         // the layout's PANEL images, behind the texts
-  std::vector<std::unique_ptr<ztwod::Frame>> rings_;           // the marks, by kind, reused show to show
-  std::vector<std::unique_ptr<ztwod::Line2D>> lines_;
-  std::vector<std::unique_ptr<ztwod::PolyLine>> squares_;
+  // The marks, each a picture (mw1_marks.h: drawn at the window's resolution too, FIXES.md item 12), reused show to
+  // show; the image each holds now, by its name.
+  std::vector<std::unique_ptr<ztwod::Image>> marks_;
+  std::vector<std::string> mark_names_;
   std::vector<Mark> marks_now_;
   std::unique_ptr<ztwod::Object2D> pointer_;
   std::function<void(int32_t, int32_t, bool)> heard_;     // in the layout's places (point())
