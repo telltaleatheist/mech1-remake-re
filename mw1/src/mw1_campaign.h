@@ -127,6 +127,10 @@ struct Date {
 // (planetArrivalEventsPending: the House-hatred arrivals fire only then; not saved); and the news stories the hub
 // has announced (their records' DS offsets: a yearly story is a new record each year).
 inline constexpr int32_t kEventIds = 0x8C, kStoryPlanets = 6;
+// A seen flag's value besides 0 and 1 (ours, FIXES.md item 47): a step's event seen, its step not done (a RUN, a
+// stalling choice, a battle lost), waiting to fire again: in the Bar or the Mech Complex on the next visit, at the hub
+// on the next arrival. Seen still for everything that reads the flag (the journal's chapters, MW1's conditions).
+inline constexpr uint8_t kSeenWaiting = 2;
 struct Story {
   std::array<uint8_t, kEventIds> seen{};
   int32_t planets[kStoryPlanets] = {};
@@ -209,6 +213,7 @@ struct Contract {
   int32_t category = 3, code = 0, mission_planet = -1, climate = 0;
   // FIXES.md item 47 (mw1_ladder.h): a story battle's rung, 1..6 (6 the Dark Wing); 0 a House's contract.
   int32_t rung = 0;
+  bool hardest = false;  // ours (item 47's setbacks): the rung's battle at its hardest (an escort more, the next rung's aim)
 };
 
 // A new company as MW1 makes it: the starting funds plus 0..255 x 1,000, and

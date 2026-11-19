@@ -2923,6 +2923,7 @@ void dark_wing_run(DarkWingRun& d) {
         for (size_t id = 0; id < c->story.seen.size(); ++id)
           if (static_cast<int32_t>(id) != mw1::kEventDarkWingAttack && static_cast<int32_t>(id) != mw1::kEventTooLate) c->story.seen[id] = 1;
         c->story.planets[5] = c->planet_number;
+        c->story.rung_won = 5;  // the steps' battles won (item 47): only the Dark Wing's left
         c->story.arrived = true;
         d.funds_before = c->funds;
         revisit(hub);
@@ -3083,6 +3084,160 @@ TEST(mw1_story_the_dark_wing_won_and_lost_headless) {
   }
 }
 
+// FIXES.md item 47, the step battles (mw1_story.h): Brown on Dustball (0x17, rung 2). FIGHT launches the rung's force
+// (no fee); won, the rung is the company's and MW1's next page (0x1B, the clue) comes at the hub; lost, the step
+// waits: the hub drawn again doesn't ask, the next arrival does. MW1's words are never printed.
+namespace {
+struct StepRun {
+  bool win = true;
+  bool asked = false, launched = false, results = false, no_fee = false, won_page = false, not_redrawn = true, asked_again = false;
+  int32_t rung = 0, enemies = 0, made = 0, rung_won = -1;
+  uint8_t waiting = 0;
+};
+void step_run(StepRun& d) {
+  std::error_code ec;
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / (d.win ? "mw1_step_won" : "mw1_step_lost");
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  MenuRun r;
+  r.save = (dir / mw1::kSaveFile).string(), r.start = mw1::Start::kHub, r.story = true, r.limit = 30000;
+  int step = 0, wait = 0, frames = 0;
+  auto revisit = [](mw1::HubState* hub) { hub->screen()->on_button(mw1::kHubBar, 0, 0); };
+  // Reads an event's pages through; a choice: true (left up).
+  auto read_through = [](mw1::EventState* ev) {
+    if (ev->screen()->visible(mw1::kEventNext)) {
+      ev->screen()->on_button(mw1::kEventNext, 0, 0);
+      return false;
+    }
+    return ev->screen()->visible(mw1::kEventChoice1);
+  };
+  r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
+    mw1::HubState* hub = mw1::game_loop_hub();
+    mw1::EventState* ev = mw1::game_loop_event();
+    mw1::Company* c = mw1::game_loop_company_for_tests();
+    if (++wait < 5) return false;
+    switch (step) {
+      case 0:  // the new campaign's own events read through; then on Dustball with Grig's YES taken and rung 1 won
+        if (showing(app, ev)) {
+          ev->screen()->on_button(ev->screen()->visible(mw1::kEventNext) ? mw1::kEventNext : mw1::kEventChoice1, 0, 0);
+          wait = 0;
+          return false;
+        }
+        if (!showing(app, hub) || !c) return false;
+        mw1::set_planet(*c, mw1::planet_index(48));
+        c->story.seen[0x0B] = c->story.seen[0x0C] = c->story.seen[0x64] = c->story.seen[0x0E] = 1;
+        c->story.rung_won = 1;
+        c->story.arrived = true;
+        revisit(hub);
+        ++step, wait = 0;
+        return false;
+      case 1:
+        if (!showing(app, mw1::game_loop_bar())) return false;
+        mw1::game_loop_bar()->screen()->on_button(mw1::kBarBack, 0, 0);
+        ++step, wait = 0;
+        return false;
+      case 2:  // 0x17: its pages, then FIGHT
+        if (!showing(app, ev)) return false;
+        wait = 0;
+        if (!read_through(ev)) return false;
+        d.asked = c->story.seen[0x17] != 0;
+        ev->screen()->on_button(mw1::kEventChoice1, 0, 0);
+        ++step, frames = 0;
+        return false;
+      case 3: {  // the battle: its force counted; ended, won (the enemies destroyed first) or withdrawn from
+        int32_t na = 0;
+        const mech3::AiMechMade* ma = mech3::mission_ai_mechs(&na);
+        if (app.current() != &mech3::states().core || na == 0) return false;
+        if (++frames < 30) return false;
+        d.launched = true;
+        if (const mw1::Contract* k = mw1::game_loop_contract()) d.rung = k->rung, d.enemies = static_cast<int32_t>(k->enemies.size());
+        for (int32_t i = 0; i < na; ++i) {
+          auto* b = static_cast<mech3::ai::Brain*>(mech3::program_ai_mech_brain(ma[i].controls));
+          if (b && b->params.team() == 1) continue;
+          ++d.made;
+          if (d.win) {
+            mech3::mech_hit_part(ma[i].mech, 6, 10000.0f);
+            mech3::program_mech_kill_credit(mech3::mech_mission_player(), ma[i].mech);
+          }
+        }
+        mech3::missions().ended = 1;
+        if (!d.win) mech3::missions().aborting = 1;
+        for (int i = app.depth(); i > 0; --i) app.pop(1);
+        app.replace(&mech3::states().ia_dummy, 0);
+        ++step, wait = 0;
+        return false;
+      }
+      case 4: {
+        mw1::ResultsState* rs = mw1::game_loop_results();
+        if (!showing(app, rs)) return false;
+        if (const mw1::ResultsPanel* p = mw1::game_loop_results_shown())
+          d.results = true, d.no_fee = !p->pay.empty() && p->pay[0] == "No fee: not a contract";
+        rs->screen()->on_button(mw1::kResultsContinue, 0, 0);
+        ++step, wait = 0;
+        return false;
+      }
+      case 5:  // won: the clue's page at the hub; lost: the hub at once
+        if (showing(app, ev)) {
+          d.won_page = d.won_page || c->story.seen[0x1B] != 0;
+          if (!read_through(ev)) wait = 0;
+          return false;
+        }
+        if (!showing(app, hub)) return false;
+        d.rung_won = c->story.rung_won, d.waiting = c->story.seen[0x17];
+        revisit(hub);  // the hub drawn again (not an arrival)
+        ++step, wait = 0;
+        return false;
+      case 6:
+        if (showing(app, ev)) d.not_redrawn = false;
+        if (!showing(app, mw1::game_loop_bar())) return false;
+        c->story.arrived = true;  // the next arrival, as travel's
+        mw1::game_loop_bar()->screen()->on_button(mw1::kBarBack, 0, 0);
+        ++step, wait = 0;
+        return false;
+      case 7:
+        if (wait < 20) return false;
+        if (showing(app, ev)) {
+          if (!read_through(ev)) {
+            wait = 10;
+            return false;
+          }
+          d.asked_again = c->story.seen[0x17] == 1;
+          return true;
+        }
+        return showing(app, hub);
+      default: return true;
+    }
+  };
+  menu_run(r);
+}
+}  // namespace
+
+TEST(mw1_story_a_step_battle_won_and_lost_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  if (mw1_test::no_mw1()) return;
+  for (const bool win : {true, false}) {
+    in_child([&] {
+      StepRun d;
+      d.win = win;
+      std::vector<mw1::MapRow> rows;  // PM's maps (MW3's worlds aren't registered here)
+      for (const mw1::MapRow& m : shipped_rows())
+        if (m.world.rfind("mw3", 0) != 0) rows.push_back(m);
+      mw1::set_map_table(rows);
+      step_run(d);
+      mw1::set_map_table({});
+      std::printf("  %s: asked %d; rung %d, %d enemies (%d made); results %d (no fee %d); the clue's page %d; rung won %d, "
+                  "the step %d; the hub again asks %d; the next arrival asks %d\n",
+                  win ? "won" : "lost", d.asked, d.rung, d.enemies, d.made, d.results, d.no_fee, d.won_page, d.rung_won, d.waiting,
+                  !d.not_redrawn, d.asked_again);
+      EXPECT(d.asked && d.launched && d.rung == 2 && d.enemies == mw1::rung(2).count && d.made == d.enemies);
+      EXPECT(d.results && d.no_fee && d.not_redrawn);
+      if (win) EXPECT(d.won_page && d.rung_won == 2 && d.waiting == 1 && !d.asked_again);
+      else EXPECT(!d.won_page && d.rung_won == 1 && d.waiting == mw1::kSeenWaiting && d.asked_again);
+    });
+  }
+}
+
 // MW1's story on the event panel (mw1_story.h, mw1_event_screen.h): the start world's crest over the hub at the first
 // arrival with the frame-up's news under the hub's panel; a choice's captions on the panel's buttons, its branch at
 // once; the Mech Complex's and the House office's events over their screens; all saved.
@@ -3125,6 +3280,7 @@ TEST(mw1_story_events_on_the_panel_headless) {
           if (!showing(app, hub)) return false;
           news = shows_line(hub->screen()->shown(), "NEWS: ");
           c->story.seen[0x0C] = 1, c->story.planets[1] = c->planet_number;
+          c->story.rung_won = 1;  // ours (item 47): Grig's men beaten first (0x64's gate)
           hub->screen()->on_button(mw1::kHubBar, 0, 0);
           ++step, wait = 0;
           return false;
