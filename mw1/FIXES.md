@@ -905,6 +905,14 @@ Tick an item when it is merged into `main`.
     - the hub has no STORY button, since the story is MW1's script.
     The look is otherwise unchanged; whether those should explain themselves (a hint naming MW1's install) is a design call.
 
+## 78. [x] Without MW1's exe, the greyed Bar buttons and the missing STORY say why *(done: mw1-no-exe-hints)*
+- **Bar:** without MW_MAIN.EXE, ORDER DRINK and NEWS stay greyed. Hovering or pressing either puts "Needs MW_MAIN.EXE in your MechWarrior 1989 folder." on the status line. The player points us at the MW1 folder (the launcher, or `--mw1-game`), and the exe is looked for there. The note is 51 characters and fits the 4:3 status line.
+- **Hub:** without the exe, the hub's status line says "Story off: MW1's MW_MAIN.EXE not found." once, on the first arrival. Hovering a tile or pressing anything replaces it, and later visits show the usual line.
+- **Engine of the menus:** Mw1Screen/Mw1State gain a `set_greyed` hook. It is called when a disabled button is hovered or clicked; enabled buttons keep `set_hover`.
+- **Tests:** the loop test checks the hub note shows on the first hub only, and never with the exe. The Bar test checks both buttons are disabled without the exe, that greying over NEWS shows the note (at most 56 characters), and that other buttons don't.
+- **Dev switch:** MW1_BAR_GREYED=1 with MW1_SCREEN=bar hovers the greyed NEWS for a shot.
+- **Shots:** `outbox/2026-11-19/mw1-no-exe-hints-78/` (hub and Bar, 1080p and 4:3, with and without the exe).
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.

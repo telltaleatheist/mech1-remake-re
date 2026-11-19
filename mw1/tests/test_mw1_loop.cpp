@@ -696,6 +696,16 @@ void loop_run(Ending ending, Run* run = nullptr) {
           // The Bar's menu first (MW1's): its page buttons, not the pages' own; YOUR LANCE not there (the hub's COMPANY).
           EXPECT(sc->loaded() && !sc->visible(mw1::kBarLance) && sc->visible(mw1::kBarBack) && !sc->visible(mw1::kBarHire) &&
                  !sc->visible(mw1::kBarDone));
+          // FIXES.md item 78: without MW1's exe ORDER DRINK and NEWS greyed; the mouse on one says why (our words, one
+          // status line); with it, neither greyed nor said.
+          if (!mw1::script().there()) {
+            EXPECT(sc->visible(mw1::kBarDrink) && !sc->enabled(mw1::kBarDrink) && !sc->enabled(mw1::kBarNews));
+            EXPECT(!on_screen_now(sc, mw1::kNeedsExeNote));
+            sc->greyed_on(mw1::kBarNews);
+            EXPECT(on_screen_now(sc, mw1::kNeedsExeNote) && std::string(mw1::kNeedsExeNote).size() <= 56);
+            sc->greyed_on(mw1::kBarCrew);  // not one of the two: nothing changes
+            EXPECT(on_screen_now(sc, mw1::kNeedsExeNote));
+          }
           sc->on_button(mw1::kBarHire, 0, 0);  // not on the menu: nothing
           sc->on_button(mw1::kBarLance, 0, 0);
           EXPECT(c->lance.empty() && sc->visible(mw1::kBarCrew));
@@ -1006,6 +1016,10 @@ void loop_run(Ending ending, Run* run = nullptr) {
         std::printf("  hub %d:", hubs);
         for (const std::string& l : shown) std::printf(" [%s]", l.c_str());
         std::printf("\n");
+        // FIXES.md item 78: without MW1's exe (these runs give none) the story is off: said on the hub's first showing,
+        // once (a press moves it on), never with the exe.
+        if (!mw1::script().there() && !mw1::game_loop_pending()) EXPECT(has(mw1::kStoryOffNote) == (hubs == 1));
+        if (mw1::script().there()) EXPECT(!has(mw1::kStoryOffNote));
         // Always: the plaque, the company, the later screens greyed, QUIT there.
         // (The company strip between the plaques, always there: its labels, then its values, C-BILLS, PAYROLL, KILLS;
         // no stores or mechs on the hub: Owen on item 16.)
