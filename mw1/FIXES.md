@@ -614,7 +614,7 @@ Tick an item when it is merged into `main`.
 - **Then:**
   - If MW1 has a limit, use it (raise it if it's tiny; ask Owen).
   - If not, the cap is 100 'Mechs owned, the piloted one included (Owen's first figure).
-  - BUY is refused at the cap with a short message, and salvage never adds a 'Mech past it.
+  - BUY is refused at the cap with a short message. Salvage never brings in 'Mechs, only money and parts (Owen), so BUY is the only way in.
   - The hangar's list scrolls to the cap.
   - Saves past the cap still load.
 - **Also:** check the stores (no tonnage limit, Owen) for a count overflow. Clamp each item's quantity at a sane maximum (e.g. 9,999) and fit the lab's Qty column to it.
