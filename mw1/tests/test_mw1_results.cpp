@@ -130,25 +130,25 @@ TEST(mw1_results_the_list_scrolls_and_details) {
 // none without repairs.
 TEST(mw1_results_repair_line_fits_the_panel) {
   mw1::ResultsPanel p;
-  p.pay = {"Salvage: 50% of 46,037 = 23,018", "Fee: 400,000", "Total: +423,018   Funds: 1,000,000"};
+  p.pay = {"Fee: 400,000", "Salvage: 50% of 46,037 = 23,018", "Total: +423,018   Funds: 1,000,000"};
   const std::vector<std::string> pay = p.pay;
   EXPECT(mw1::pay_lines(p, mw1::kResultsNarrow.status) == pay);
   p.repairs = {"Owens repaired: 4,963 C-bills, paid from salvage", "Owens repaired: 4,963, paid from salvage",
                "Repairs: 4,963, from salvage"};
-  p.repairs_at = 0;
+  p.repairs_at = 2;  // the money's order: the fee, the salvage, the repairs, the total
   std::vector<std::string> l = mw1::pay_lines(p, mw1::kResultsWide.status);
-  EXPECT(l.size() == 4 && l[0] == p.repairs[0] && l[1] == pay[0]);
+  EXPECT(l.size() == 4 && l[0] == pay[0] && l[1] == pay[1] && l[2] == p.repairs[0] && l[3] == pay[2]);
   l = mw1::pay_lines(p, mw1::kResultsNarrow.status);
-  EXPECT(l.size() == 4 && l[0] == p.repairs[1] && l[0].size() <= mw1::kResultsNarrow.status);
-  EXPECT(mw1::pay_lines(p, 10)[0] == p.repairs.back());  // none fits: the shortest
+  EXPECT(l.size() == 4 && l[2] == p.repairs[1] && l[2].size() <= mw1::kResultsNarrow.status);
+  EXPECT(mw1::pay_lines(p, 10)[2] == p.repairs.back());  // none fits: the shortest
   p.repairs_at = 9;                                          // past the end: last
   EXPECT(mw1::pay_lines(p, 80).back() == p.repairs[0]);
   // On the screen: PAYMENT's four lines, the repair line among them.
-  p.repairs_at = 0;
+  p.repairs_at = 2;
   for (bool wide : {false, true}) {
     const mw1::ScreenView v = mw1::results_view(p, {}, wide);
     const std::vector<std::string> shown = place(v, "PAY");
-    EXPECT(shown.size() == mw1::kPayLines && shown[0] == p.repairs[wide ? 0 : 1]);
+    EXPECT(shown.size() == mw1::kPayLines && shown[2] == p.repairs[wide ? 0 : 1] && shown[3].rfind("Total: ", 0) == 0);
     for (const std::string& s : shown) EXPECT(s.size() <= (wide ? mw1::kResultsWide : mw1::kResultsNarrow).status);
   }
   // DETAILS' rows: a mech's repair too wide for 4:3's panel takes its narrow words there; 16:9 keeps the full.

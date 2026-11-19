@@ -1829,9 +1829,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (!objective.empty()) p.where.push_back(objective);
     p.where.push_back(std::string(success ? "Accomplished" : a.outcome == Outcome::kFailure ? "Failed" : "Withdrew") + " in " +
                       time_words(a.seconds));
-    // PAYMENT (FIXES.md items 51 and 57): the repairs in plain words (paid from the wrecks' worth first, the rest
-    // billed: one line, the mech's or the lance's total; each mech's in DETAILS), the salvage term on what's left, the
-    // fee (any deduction on both), the total and the funds.
+    // PAYMENT (FIXES.md items 51 and 57), in the order the money flows: the fee (any deduction), the salvage term on
+    // what the repairs left of the wrecks' worth, the repairs in plain words (paid from the wrecks' worth first, the
+    // rest billed: one line, the mech's or the lance's total; each mech's in DETAILS), the total and the funds.
     const bool docked = s.payout_percent < 100 && success;
     const std::string dock = !docked ? "" : s.payout_percent ? " (" + std::to_string(s.payout_percent) + "% paid)" : " (withheld)";
     const SalvageSum& sum = rep.sum;
@@ -1845,9 +1845,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     } else {
       p.pay.push_back(std::string("Salvage: none (") + (a.outcome == Outcome::kFailure ? "lost" : "withdrew") + ")");
     }
-    if (contract_.rung) p.pay.push_back("No fee: not a contract");
-    else p.pay.insert(success ? p.pay.end() : p.pay.begin(), "Fee: " + thousands(s.fee) + dock);
-    p.repairs_at = success ? 0 : p.pay.size();  // a win's first (the salvage after them); else after the salvage
+    p.pay.insert(p.pay.begin(), contract_.rung ? std::string("No fee: not a contract") : "Fee: " + thousands(s.fee) + dock);
+    p.repairs_at = p.pay.size();  // after the salvage, before the total
     const int64_t total = c.funds - before;
     p.pay.push_back("Total: " + std::string(total < 0 ? "-" : "+") + thousands(total < 0 ? -total : total) + "   Funds: " +
                     thousands(c.funds));

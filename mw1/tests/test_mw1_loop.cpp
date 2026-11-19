@@ -915,6 +915,10 @@ void loop_run(Ending ending, Run* run = nullptr) {
         EXPECT(on_screen_now(sc, "PAYMENT"));
         std::vector<std::string> all = {rp->outcome};
         const std::vector<std::string> pay = mw1::pay_lines(*rp, mw1::kResultsWide.status);  // with its repair line
+        // The money's order (FIXES.md item 57): the fee first, the salvage, any repairs, the total last.
+        EXPECT(pay.size() >= 3 && (pay[0].rfind("Fee: ", 0) == 0 || pay[0].rfind("No fee", 0) == 0) &&
+               pay[1].rfind("Salvage: ", 0) == 0 && pay.back().rfind("Total: ", 0) == 0);
+        EXPECT(pay.size() == 3 + !rp->repairs.empty());
         for (const std::vector<std::string>* v : {&rp->where, &pay, &rp->crew, &rp->mech}) all.insert(all.end(), v->begin(), v->end());
         for (const std::vector<mw1::ListRow>* v : {&rp->salvage, &rp->kills})
           for (const mw1::ListRow& r : *v) all.push_back(r.words);
