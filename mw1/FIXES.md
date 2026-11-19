@@ -964,6 +964,18 @@ Tick an item when it is merged into `main`.
   - **A lancemate hired, or a mech bought, isn't put on anything:** only the lab's lance assigns them, and a lancemate without a mech doesn't fly. The soak assigns through the lab's apply.
   - **With the screen fade off, a press on a screen being replaced still acts.** The soak pressed travel's BACK in the frame after GO, and the queued swap replaced the arrival's event panel. The fade (on by default) ignores presses during a change, so play can't do this; a guard could ignore presses while a change is pending.
 
+## 82. [x] The HUD's text at the window's resolution *(done: mw1-fix82-hud-text)*
+- **The lead (2026-11-19), after the 4K sweep:** the HUD's words already went through TextRaster (weapon names, timer, the OP line, Heat, Coolant, KPH), so what was left was bugs and polish: (a) the numbers and letters inside PM's pictures were blocks, (b) a stray mark after "Heat" and "Coolant", (c) the speed readout "-0.0" cut on its right, (d) check gradient text.
+- **(a) The labels in PM's line art** (the speed and fuel scales' 100/50/0, the coolant's F and E, the compass tape's headings and N E S W) are PM's pixel font. Above canvas size they are now drawn as text in PM's gauge face (Arial), in PM's ink colour and drop shadow, where PM put them; PM's glyph pixels are left out of the traced line art.
+  - mw1_hud_art finds them in PM's pictures: the scales' by their colour (PM's brightest), grouped and read top to bottom; the tape's every 36 pixels between its major ticks, 310 first. If PM's picture isn't laid out as expected, its pixels stay.
+  - The painter is the mw1 program's (mw1_hud_labels.cpp, SDL_ttf: mw1core has none): rendered big, its ink averaged down into the label's box, narrowed to fit. At canvas size, and with no painter (the tests), the pictures are PM's own.
+- **(b) and (c), one cause:** a recorded hires line was clipped to its advances (x0 to x0 + w). A glyph's ink past its last advance (the t's bar, the last 0 at 4K) was cut, and the canvas's own ink past it showed beside the line as a dot. A transparent line's draw now takes its DC's rect across; an OPAQUE one's stays its cells. Engine, ours (sdl_twod_host.cpp's hires record, on only with the 2D at high resolution: MW1).
+- **(d) No change needed:** no HUD text is a gradient. PM's 112 named fonts are all one colour top to bottom, and the HUD's own (gauge_font, the weapon list) set one colour. Checked with a probe in a mission, its pause and its results (not kept).
+- **Tests:**
+  - mw1tests `mw1_loop_hud_labels_drawn_as_text_in_place`: the labels PM's texts in order (the tape's 47, N at 0, E at 90, S, W); with a stand-in painter every PM glyph pixel gone and the painter's ink in PM's colour, the line art kept; at s 1, or a painter giving nothing, PM's own. Sabotaged (PM's glyphs kept): fails.
+  - mw3pmsdltests `sdl_hires_transparent_line_takes_its_dc_rect`: "Heat" in PM's gauge font, transparent: the DC's rect; opaque: its cells; the 2D off: nothing recorded. Sabotaged (cells always): fails.
+- **Shots:** `outbox/2026-11-19/mw1-hud-text-82/` (4K mission before and after: the compass, the scales, Heat and Coolant, the speed readout).
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.

@@ -5,6 +5,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <mutex>
 
 #include "gamez/zimage/zimg_library.h"
 #include "gamez/zimage/zimg_texture.h"
@@ -443,6 +444,209 @@ std::vector<uint8_t> draw_light(const Pm& pm, int32_t s) {
   return paint(pm.w, pm.h, s, {{disc(cx, cy, r), shade}});
 }
 
+
+// ---- the labels (FIXES.md item 82) ----
+LabelPainter& painter() {
+  static LabelPainter p;
+  return p;
+}
+std::mutex& painter_lock() {
+  static std::mutex m;
+  return m;
+}
+bool same(Rgb a, Rgb b) { return a.r == b.r && a.g == b.g && a.b == b.b; }
+bool lit(const Rgb& c) { return c.r || c.g || c.b; }
+
+// The scales' and the coolant's labels: their pixels PM's brightest colour (the lines are a dimmer one), in groups a
+// few pixels apart (a number's digits), top to bottom: PM's text for each, in that order.
+const std::map<std::string, std::vector<std::string>>& scale_texts() {
+  static const std::map<std::string, std::vector<std::string>> m = {
+      {"hud_speed_frame", {"100", "50", "0"}}, {"hud_fuel_frame", {"100", "0"}}, {"hud_coolant_frame", {"F", "E"}}};
+  return m;
+}
+// The compass tape: a heading's label every 36 pixels, centred between its major ticks (full height, at 26 + 36 m), on
+// 8 + 36 k: 310 degrees first, ten a label; N E S W at 0, 90, 180 and 270 (the full height), the numbers rows 1 to 8.
+constexpr int32_t kCompassFirstX = 8, kCompassStep = 36, kCompassFirst = 310, kCompassHalf = 6, kCompassRoom = 15;  // the room: 3 clear of the minor ticks
+
+struct Found {
+  Label label;
+  std::vector<size_t> pixels;  // PM's: the glyphs' and their shadow's, left out of the line art
+  Rgb ink{0, 0, 0}, shadow{0, 0, 0};
+  bool has_shadow = false;
+};
+
+std::vector<Found> find_scale_labels(const Pm& pm, const std::vector<std::string>& texts) {
+  Rgb ink{0, 0, 0};
+  for (const Rgb& c : pm.rgb)
+    if (luma(c) > luma(ink)) ink = c;
+  if (!lit(ink)) return {};
+  // The ink's pixels in groups: 8-connected, then any two whose boxes come within 2 pixels across and share rows.
+  struct Box {
+    int32_t x0, y0, x1, y1;
+    std::vector<size_t> px;
+  };
+  std::vector<Box> boxes;
+  std::vector<int32_t> seen(pm.rgb.size(), 0);
+  for (size_t i = 0; i < pm.rgb.size(); ++i) {
+    if (seen[i] || !same(pm.rgb[i], ink)) continue;
+    Box b{pm.w, pm.h, -1, -1, {}};
+    std::vector<size_t> todo{i};
+    seen[i] = 1;
+    while (!todo.empty()) {
+      const size_t at = todo.back();
+      todo.pop_back();
+      const int32_t x = static_cast<int32_t>(at % pm.w), y = static_cast<int32_t>(at / pm.w);
+      b.px.push_back(at), b.x0 = std::min(b.x0, x), b.y0 = std::min(b.y0, y), b.x1 = std::max(b.x1, x), b.y1 = std::max(b.y1, y);
+      for (int32_t dy = -1; dy <= 1; ++dy)
+        for (int32_t dx = -1; dx <= 1; ++dx) {
+          const int32_t nx = x + dx, ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= pm.w || ny >= pm.h) continue;
+          const size_t n = static_cast<size_t>(ny) * pm.w + nx;
+          if (!seen[n] && same(pm.rgb[n], ink)) seen[n] = 1, todo.push_back(n);
+        }
+    }
+    boxes.push_back(std::move(b));
+  }
+  for (bool merged = true; merged;) {
+    merged = false;
+    for (size_t a = 0; a < boxes.size() && !merged; ++a)
+      for (size_t b = a + 1; b < boxes.size() && !merged; ++b) {
+        Box &p = boxes[a], &q = boxes[b];
+        const bool rows = p.y0 <= q.y1 && q.y0 <= p.y1;
+        const bool near = q.x0 - p.x1 <= 3 && p.x0 - q.x1 <= 3;
+        if (!rows || !near) continue;
+        p.x0 = std::min(p.x0, q.x0), p.y0 = std::min(p.y0, q.y0), p.x1 = std::max(p.x1, q.x1), p.y1 = std::max(p.y1, q.y1);
+        p.px.insert(p.px.end(), q.px.begin(), q.px.end());
+        boxes.erase(boxes.begin() + static_cast<std::ptrdiff_t>(b));
+        merged = true;
+      }
+  }
+  if (boxes.size() != texts.size()) return {};  // not PM's as expected: keep its pixels
+  std::sort(boxes.begin(), boxes.end(), [](const Box& a, const Box& b) { return a.y0 < b.y0; });
+  // The drop shadow: the colour most under the ink one pixel right and down (not ink itself).
+  std::map<uint32_t, std::pair<Rgb, int32_t>> under;
+  for (const Box& b : boxes)
+    for (size_t at : b.px) {
+      const int32_t x = static_cast<int32_t>(at % pm.w) + 1, y = static_cast<int32_t>(at / pm.w) + 1;
+      if (x >= pm.w || y >= pm.h) continue;
+      const Rgb& c = pm.rgb[static_cast<size_t>(y) * pm.w + x];
+      if (!lit(c) || same(c, ink)) continue;
+      auto& u = under[(static_cast<uint32_t>(c.r) << 16) | (c.g << 8) | c.b];
+      u.first = c, ++u.second;
+    }
+  Rgb shadow{0, 0, 0};
+  int32_t most = 0;
+  for (const auto& [k, u] : under)
+    if (u.second > most) shadow = u.first, most = u.second;
+  std::vector<Found> out;
+  for (size_t k = 0; k < boxes.size(); ++k) {
+    const Box& b = boxes[k];
+    Found f;
+    f.ink = ink, f.shadow = shadow, f.has_shadow = most > 0;
+    f.pixels = b.px;
+    // Its shadow's pixels: right, down and both of an ink pixel, the shadow's colour, not also a line's shadow (a
+    // line pixel up, left or both of it).
+    if (f.has_shadow)
+      for (size_t at : b.px) {
+        const int32_t x = static_cast<int32_t>(at % pm.w), y = static_cast<int32_t>(at / pm.w);
+        for (const auto& [dx, dy] : {std::pair<int32_t, int32_t>{1, 0}, {0, 1}, {1, 1}}) {
+          const int32_t sx = x + dx, sy = y + dy;
+          if (sx >= pm.w || sy >= pm.h) continue;
+          const size_t si = static_cast<size_t>(sy) * pm.w + sx;
+          if (!same(pm.rgb[si], shadow)) continue;
+          bool line = false;
+          for (const auto& [ux, uy] : {std::pair<int32_t, int32_t>{-1, 0}, {0, -1}, {-1, -1}}) {
+            const int32_t lx = sx + ux, ly = sy + uy;
+            if (lx < 0 || ly < 0) continue;
+            const Rgb& c = pm.rgb[static_cast<size_t>(ly) * pm.w + lx];
+            line = line || (lit(c) && !same(c, ink) && !same(c, shadow));
+          }
+          if (!line) f.pixels.push_back(si);
+        }
+      }
+    // Its box: the ink's rows; a letter (the coolant's, against the picture's left) grows right, a number left toward
+    // the picture's edge, its right kept by the scale's tick.
+    f.label.text = texts[k];
+    f.label.y = b.y0, f.label.h = b.y1 - b.y0 + 1;
+    if (!(texts[k][0] >= '0' && texts[k][0] <= '9')) {
+      f.label.x = b.x0, f.label.w = b.x1 - b.x0 + 2, f.label.align = -1;
+    } else {
+      f.label.x = 0, f.label.w = b.x1 + 1, f.label.align = 1;
+    }
+    out.push_back(std::move(f));
+  }
+  return out;
+}
+
+std::vector<Found> find_compass_labels(const Pm& pm) {
+  std::vector<Found> out;
+  auto at = [&pm](int32_t x, int32_t y) -> const Rgb& { return pm.rgb[static_cast<size_t>(y) * pm.w + x]; };
+  for (int32_t k = 0;; ++k) {
+    const int32_t c = kCompassFirstX + kCompassStep * k;
+    if (c - kCompassHalf >= pm.w) break;
+    // Its major ticks where they fall inside the tape: lit the full height, alone; else PM's isn't as expected.
+    for (int32_t t : {c - kCompassStep / 2, c + kCompassStep / 2}) {
+      if (t < 0 || t >= pm.w) continue;
+      for (int32_t y = 0; y < pm.h; ++y)
+        if (!lit(at(t, y))) return {};
+      if ((t > 0 && lit(at(t - 1, 0))) || (t + 1 < pm.w && lit(at(t + 1, 0)))) return {};
+    }
+    const int32_t deg = (kCompassFirst + 10 * k) % 360;
+    Found f;
+    const char* letter = deg == 0 ? "N" : deg == 90 ? "E" : deg == 180 ? "S" : deg == 270 ? "W" : nullptr;
+    f.label.text = letter ? letter : std::to_string(deg);
+    f.label.y = letter ? 0 : 1, f.label.h = letter ? pm.h : 8;
+    f.label.x = c + 0.5 - kCompassRoom / 2.0, f.label.w = kCompassRoom, f.label.align = 0;
+    Rgb ink{0, 0, 0};
+    for (int32_t y = 0; y < pm.h; ++y)
+      for (int32_t x = std::max(0, c - kCompassHalf); x <= std::min(pm.w - 1, c + kCompassHalf); ++x)
+        if (lit(at(x, y))) {
+          f.pixels.push_back(static_cast<size_t>(y) * pm.w + x);
+          if (luma(at(x, y)) > luma(ink)) ink = at(x, y);
+        }
+    if (f.pixels.empty()) return {};
+    f.ink = ink;
+    out.push_back(std::move(f));
+  }
+  return out;
+}
+
+std::vector<Found> find_labels(const std::string& name, const Pm& pm) {
+  if (name == "hud_compass") return find_compass_labels(pm);
+  auto t = scale_texts().find(name);
+  return t == scale_texts().end() ? std::vector<Found>{} : find_scale_labels(pm, t->second);
+}
+
+// The labels painted as text over `art` (pw x ph canvas pixels at s): each its shadow (one canvas pixel right and
+// down) then its ink. False when the painter gives nothing for one (the art then keeps PM's glyphs).
+bool paint_labels(const LabelPainter& paint, const std::vector<Found>& found, int32_t pw, int32_t ph, int32_t s,
+                  std::vector<uint8_t>* art) {
+  const int32_t dw = pw * s, dh = ph * s;
+  std::vector<uint8_t> layer(static_cast<size_t>(dw) * dh * 4, 0);
+  auto put = [&](const std::vector<uint8_t>& cov, int32_t bw, int32_t bh, int32_t ox, int32_t oy, Rgb c) {
+    std::vector<uint8_t> one(layer.size(), 0);
+    for (int32_t j = 0; j < bh; ++j)
+      for (int32_t i = 0; i < bw; ++i) {
+        const int32_t x = ox + i, y = oy + j;
+        const uint8_t a = cov[static_cast<size_t>(j) * bw + i];
+        if (!a || x < 0 || y < 0 || x >= dw || y >= dh) continue;
+        uint8_t* d = &one[(static_cast<size_t>(y) * dw + x) * 4];
+        d[0] = c.r, d[1] = c.g, d[2] = c.b, d[3] = a;
+      }
+    over(layer, one);
+  };
+  for (const Found& f : found) {
+    const int32_t bw = static_cast<int32_t>(std::lround(f.label.w * s)), bh = static_cast<int32_t>(std::lround(f.label.h * s));
+    const std::vector<uint8_t> cov = paint(f.label.text, bw, bh, f.label.align);
+    if (cov.size() != static_cast<size_t>(bw) * bh) return false;
+    const int32_t ox = static_cast<int32_t>(std::lround(f.label.x * s)), oy = static_cast<int32_t>(std::lround(f.label.y * s));
+    if (f.has_shadow) put(cov, bw, bh, ox + s, oy + s, f.shadow);
+    put(cov, bw, bh, ox, oy, f.ink);
+  }
+  over(*art, layer);
+  return true;
+}
+
 }  // namespace
 
 const std::vector<std::string>& names() {
@@ -469,12 +673,40 @@ bool size_of(const std::string& name, int32_t* w, int32_t* h) {
 
 bool read_from_pm(const std::string& name) { return read_pieces().count(name) != 0; }
 
+void set_label_painter(LabelPainter paint) {
+  std::lock_guard<std::mutex> hold(painter_lock());
+  painter() = std::move(paint);
+}
+
+std::vector<Label> labels_of(const std::string& name) {
+  auto r = read_pieces().find(name);
+  Pm pm;
+  if (r == read_pieces().end() || r->second.kind != Read::kLines || !read_pm(name, r->second.w, r->second.h, &pm)) return {};
+  std::vector<Label> out;
+  for (const Found& f : find_labels(name, pm)) out.push_back(f.label);
+  return out;
+}
+
 std::vector<uint8_t> draw(const std::string& name, int32_t s) {
   if (auto r = read_pieces().find(name); r != read_pieces().end()) {
     Pm pm;
     if (s < 1 || !read_pm(name, r->second.w, r->second.h, &pm)) return {};
     switch (r->second.kind) {
-      case Read::kLines: return draw_lines(pm, s);
+      case Read::kLines: {
+        LabelPainter paint;
+        {
+          std::lock_guard<std::mutex> hold(painter_lock());
+          paint = painter();
+        }
+        const std::vector<Found> found = s >= 2 && paint ? find_labels(name, pm) : std::vector<Found>{};
+        if (found.empty()) return draw_lines(pm, s);
+        Pm bare = pm;  // PM's glyphs left out: the text takes their place
+        for (const Found& f : found)
+          for (size_t i : f.pixels) bare.rgb[i] = {0, 0, 0}, bare.alpha[i] = 0;
+        std::vector<uint8_t> art = draw_lines(bare, s);
+        if (!paint_labels(paint, found, pm.w, pm.h, s, &art)) return draw_lines(pm, s);
+        return art;
+      }
       case Read::kHeatBar: return draw_heat_bar(pm, s);
       case Read::kCompassFrame: return draw_compass_frame(pm, s);
       case Read::kLight: return draw_light(pm, s);
