@@ -674,6 +674,16 @@ Tick an item when it is merged into `main`.
   - the fit checks (mw1screenfit, 50's line-up test, updated);
   - the office golden re-recorded (off and on identical).
 
+## 57. [ ] The repair line belongs on the mission summary, not a hub message
+- **Owen (2026-11-18, in play):** a MESSAGES box on the hub after a mission said "Repairs: the Owens 4,963, from the wrecks". He asked "is this right? also, this should probably appear on the mission summary screen".
+- **Right:** yes. The Owens's repairs (4,963) were paid from the wrecks' worth (51), so nothing was billed. But the wording is unclear, and a box after the fact is the wrong place for it.
+- **Wanted:**
+  - The repairs show on the results screen (AFTER ACTION), in PAYMENT or right under it, one line per 'Mech, in plain words. For example: "Owens repaired: 4,963 C-bills, paid from salvage", or "... 400,000 billed to you" when the pool ran short.
+  - It must fit at 1080p and 4:3. If several 'Mechs don't fit, show the total with the per-'Mech lines in DETAILS.
+  - The hub no longer raises a MESSAGES box for repairs. Other after-mission notes that only the hub can show stay.
+  - Check every other line in that hub box for the same problem: anything that belongs to the mission's result goes on the results screen.
+- **Done means:** shots of the results screen (one 'Mech, a full lance, repairs over the pool) at 1080p and 4:3; no repair box on the hub; the tests updated.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.
