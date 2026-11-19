@@ -47,6 +47,7 @@
 #include "mech3/briefing.h"
 #include "mech3/debriefing.h"
 #include "mech3/lab_screen.h"
+#include "platform/list_wheel.h"
 #include "mech3/menu_widgets.h"
 #include "gamez/zimage/zimg_texture.h"
 #include "mw1_art.h"
@@ -237,6 +238,11 @@ struct Run {
   // FIXES 69: the lab's slots as it opened, your slot's mech then, whether YOUR MECHS listed the spare Firefly.
   int lab_slots = -1, lab_before = -1;
   bool lab_opened = false, lab_listed = false;
+  // FIXES 102: the wheel over the lab's chassis list (zin's wheel, a notch a frame): down to its foot and no further,
+  // then up to its head; the market's lists (over each, and the frame's own wheel) and the Bar's.
+  int32_t lab_wheel = 0, lab_wheel_real = 0, lab_wheel_count = -1, lab_wheel_rows = -1, lab_wheel_foot = -1, lab_wheel_head = -1, lab_wheel_moves = 0;
+  bool market_wheeled = false, bar_wheeled = false;
+  int32_t market_wheel_step = 0;
   int lab_funds = -1;                      // the lab's texts naming funds (FIXES 69: none)
   int32_t briefing_mech = -1;
   // FIXES.md item 22: the pointer's picture's width on PM's screens as they show (the briefing, the lab), by screen
@@ -509,6 +515,42 @@ void loop_run(Ending ending, Run* run = nullptr) {
       // spare: FIXES 69, the lab on your slot, the Firefly in YOUR MECHS; picked there (yours now, MW3's way). A weapon
       // taken off as the lab does (GameSlot::set_config with the store, taking: it goes to the stores); ACCEPT.
       if (run && run->market && !run->lab_done && app.current() == &mech3::states().lab) {
+        if (mech3::LabScreen* ls = engine.lab_screen(mech3::states().lab.lab_screen_); ls && run->lab_wheel < 1000) {
+          mech3::FileList& l = ls->chassis;
+          zin::MouseInfo* mi = zin::mouse_info();
+          const int32_t notches = l.item_count() + 6;
+          if (run->lab_wheel == 0) {
+            if (l.flags & ztwod::kHidden) return;
+            platform::set_list_wheel(true);
+            mi->x = (l.rect.left + l.rect.right) / 2, mi->y = (l.rect.top + l.rect.bottom) / 2, mi->left = 0;
+            // The list padded past its rows (blank rows, taken off after) so the wheel has somewhere to go.
+            run->lab_wheel_real = l.item_count();
+            while (l.item_count() < static_cast<int32_t>(l.rows.size()) + 4) l.add_item("", -1);
+            run->lab_wheel_count = l.item_count(), run->lab_wheel_rows = static_cast<int32_t>(l.rows.size());
+            ++run->lab_wheel;
+            return;
+          }
+          if (run->lab_wheel <= 2 * notches) {
+            const int32_t was = l.top;
+            if (run->lab_wheel == notches + 1) run->lab_wheel_foot = l.top;
+            mi->z += run->lab_wheel <= notches ? -1 : 1;
+            run->lab_wheel_moves += was != l.top;
+            ++run->lab_wheel;
+            return;
+          }
+          run->lab_wheel_head = l.top;
+          run->lab_wheel = 1000;
+          while (l.item_count() > run->lab_wheel_real) {
+            std::free(l.items.back()->text);
+            delete l.items.back();
+            l.items.pop_back();
+          }
+          l.top = 0;
+          l.layout();
+          platform::set_list_wheel(false);
+          std::printf("  lab wheel: %d items, %d rows; the foot's top %d, the head's %d\n", run->lab_wheel_count,
+                      run->lab_wheel_rows, run->lab_wheel_foot, run->lab_wheel_head);
+        }
         if (++hub_frames < 20) return;
         hub_frames = 0;
         if (!run->lab_opened) {
@@ -618,6 +660,37 @@ void loop_run(Ending ending, Run* run = nullptr) {
         auto panel_is_owned_row = [&] {
           return mc && mc->own_shown && mw1::game_loop_market_panel_mech() == mw1::owned_mech(*c, mc->owned);
         };
+        // FIXES 102: the wheel over FOR SALE steps it as its arrows do, to its foot and no further, and back; over YOUR
+        // MECHS (none yet) nothing; then a notch down by zin's wheel at the list (the frame's own reading), and up.
+        if (!run->market_wheeled && market_step == 0) {
+          mw1::Mw1Screen::Box st{}, ow{};
+          zin::MouseInfo* mi = zin::mouse_info();
+          EXPECT(sc->panel_box(mw1::kMarketPanelStock, &st));
+          const bool owned_shown = sc->panel_box(mw1::kMarketPanelOwned, &ow);
+          const int32_t sx = (st.left + st.right) / 2, sy = (st.top + st.bottom) / 2;
+          const int32_t n = static_cast<int32_t>(c->market.stock.size());
+          if (run->market_wheel_step == 1) {
+            EXPECT(mc->stock == 1);
+            mi->z += 1;
+            run->market_wheel_step = 2;
+            return;
+          }
+          if (run->market_wheel_step == 2) {
+            EXPECT(mc->stock == 0);
+            run->market_wheeled = true;
+            return;
+          }
+          for (int32_t i = 0; i < n + 2; ++i) ms->wheel(-1, sx, sy);
+          EXPECT(mc->stock == n - 1 && !mc->own_shown && !sc->enabled(mw1::kMarketStockDown));
+          for (int32_t i = 0; i < n + 2; ++i) ms->wheel(1, sx, sy);
+          EXPECT(mc->stock == 0 && !sc->enabled(mw1::kMarketStockUp));
+          if (owned_shown) ms->wheel(-1, (ow.left + ow.right) / 2, (ow.top + ow.bottom) / 2);
+          ms->wheel(-1, 1, 1);  // over neither list: nothing
+          EXPECT(mc->stock == 0 && !mc->own_shown);
+          mi->x = sx, mi->y = sy, mi->left = 0, mi->z -= 1;
+          run->market_wheel_step = 1;
+          return;
+        }
         switch (market_step++) {
           case 0:  // the one page: FOR SALE's second row (the Atlas)
             run->market_lines = shown;
@@ -684,6 +757,10 @@ void loop_run(Ending ending, Run* run = nullptr) {
           case 11:  // back from the lab: you pilot the Firefly, with its loadout; the weapon in the stores. BACK
             // FIXES 69: you alone, one slot, on the Owens; the spare Firefly listed and picked.
             EXPECT(run->lab_done && run->lab_slots == 1 && run->lab_before == mw1::kPmOwens && run->lab_listed);
+            // FIXES 102: the wheel took the chassis list to its foot (the last rows shown) and back to its head.
+            EXPECT(run->lab_wheel_count > run->lab_wheel_rows && run->lab_wheel_rows > 0 &&
+                   run->lab_wheel_foot + run->lab_wheel_rows >= run->lab_wheel_count && run->lab_wheel_foot < run->lab_wheel_count &&
+                   run->lab_wheel_head == 0 && run->market_wheeled);
             EXPECT(run->lab_mech == mw1::kPmFirefly);
             EXPECT(run->lab_funds == 0);  // FIXES 69: the lab shows no funds
             EXPECT(has("piloted by you") && c->mech == mw1::kPmFirefly && c->hangar.size() == 1 && c->hangar[0].mech == mw1::kPmOwens);
@@ -728,6 +805,17 @@ void loop_run(Ending ending, Run* run = nullptr) {
           sc->on_button(mw1::kBarRecruitDown, 0, 0);
           for (const std::string& l : sc->shown()) run->bar_lines.push_back(l);
           sc->on_button(mw1::kBarRecruitUp, 0, 0);
+          {  // FIXES 102: the wheel anywhere steps the recruits as their arrows do, to the last and no further, and back
+            const size_t k = c->recruits.size();
+            for (size_t i = 0; i < k + 2; ++i) bs->wheel(-1, 320, 240);
+            const bool foot = sc->picture(mw1::kBarPanelPortrait) == mw1::portrait_image(c->recruits[k - 1], false) &&
+                              !sc->enabled(mw1::kBarRecruitDown);
+            for (size_t i = 0; i < k + 2; ++i) bs->wheel(1, 320, 240);
+            const bool head = sc->picture(mw1::kBarPanelPortrait) == mw1::portrait_image(c->recruits[0], false) &&
+                              !sc->enabled(mw1::kBarRecruitUp);
+            EXPECT(k > 1 && foot && head);
+            run->bar_wheeled = foot && head;
+          }
           // Sizes only: the pitches are MW1's words (never printed, FIXES.md item 79's sweep).
           std::printf("  bar: %zu lines:", run->bar_lines.size());
           for (const std::string& l : run->bar_lines) std::printf(" %zu", l.size());
@@ -786,6 +874,13 @@ void loop_run(Ending ending, Run* run = nullptr) {
           for (int32_t i = 0; i < n; ++i) slots.push_back(i + 1);
           EXPECT(mw1::apply_lance(*c, slots, loadouts));
           for (int32_t i = 0; i < n; ++i) sc->on_button(mw1::kBarLanceDown, 0, 0);  // each shows the grid again
+          // FIXES 102: the wheel steps the lance (the COMPANY page) as PREV and NEXT do: to the head, then the foot.
+          if (n > 1) {
+            for (int32_t i = 0; i < n + 2; ++i) bs->wheel(1, 320, 240);
+            EXPECT(!sc->enabled(mw1::kBarLanceUp) && sc->enabled(mw1::kBarLanceDown));
+            for (int32_t i = 0; i < n + 2; ++i) bs->wheel(-1, 320, 240);
+            EXPECT(sc->enabled(mw1::kBarLanceUp) && !sc->enabled(mw1::kBarLanceDown));
+          }
         }
         for (const std::string& l : sc->shown()) run->bar_after.push_back(l);
         EXPECT(static_cast<int32_t>(c->lance.size()) == n && c->recruits.empty() && mw1::mech_of(*c, 0) == 0 && mw1::mech_of(*c, 1) == 1);
@@ -3673,6 +3768,71 @@ TEST(mw1_a_press_while_a_screen_change_is_queued_is_ignored_headless) {
   });
 }
 
+// FIXES 102 (Owen: the wheel scrolls every list): the LOG's pages by the wheel as PREV and NEXT: down to the last page
+// and no further (NEXT gone there), up to the first and no further.
+TEST(mw1_wheel_pages_the_log_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  if (mw1_test::no_mw1()) return;
+  in_child([&] {
+    const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_wheel_log";
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    MenuRun r;
+    r.save = (dir / mw1::kSaveFile).string(), r.start = mw1::Start::kHub;
+    int step = 0, wait = 0, pages = 0;
+    bool opened = false, foot = false, head = false, stays = false;
+    r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
+      mw1::HubState* hub = mw1::game_loop_hub();
+      mw1::EventState* ev = mw1::game_loop_event();
+      mw1::Company* c = mw1::game_loop_company_for_tests();
+      if (++wait < 5) return false;
+      switch (step) {
+        case 0:
+          if (showing(app, ev)) {
+            ev->screen()->on_button(mw1::kEventNext, 0, 0);
+            wait = 0;
+            return false;
+          }
+          if (!showing(app, hub) || !c) return false;
+          for (int32_t i = 0; i < 40; ++i) {
+            mw1::LogEntry e;
+            e.date = c->date, e.kind = mw1::LogKind::kTestLine, e.a = i, e.heard = true;
+            c->log.push_back(e);
+          }
+          hub->screen()->on_button(mw1::kHubLog, 0, 0);
+          ++step, wait = 0;
+          return false;
+        case 1: {
+          if (!showing(app, ev)) return false;
+          mw1::Mw1Screen* sc = ev->screen();
+          opened = sc->visible(mw1::kEventNext) && !sc->enabled(mw1::kEventPrev);
+          std::vector<std::string> was = sc->shown();
+          ev->wheel(1, 320, 240);  // up on the first page: nothing
+          stays = sc->shown() == was;
+          for (int32_t i = 0; i < 100 && sc->visible(mw1::kEventNext); ++i) {
+            ev->wheel(-1, 320, 240);
+            ++pages;
+          }
+          was = sc->shown();
+          ev->wheel(-1, 320, 240);  // the last page: nothing (NEXT gone, never the hub)
+          foot = !sc->visible(mw1::kEventNext) && sc->shown() == was && showing(app, ev);
+          for (int32_t i = 0; i < 100 && sc->enabled(mw1::kEventPrev); ++i) ev->wheel(1, 320, 240);
+          head = !sc->enabled(mw1::kEventPrev) && sc->visible(mw1::kEventNext);
+          ++step, wait = 0;
+          return false;
+        }
+        default:
+          return showing(app, ev);
+      }
+    };
+    menu_run(r);
+    std::printf("  log wheel: opened %d, up at the head stays %d, %d pages down, the foot %d, back to the head %d\n", opened, stays,
+                pages, foot, head);
+    EXPECT(opened && stays && pages > 0 && pages < 100 && foot && head);
+  });
+}
+
 // The Bar's DRINK and NEWS (mw1_story.h): on the start world a drink is a tip at its price and a unit of time (0x06,
 // then 0x0A), then the quiet text; NEWS shows the news live now, PREV and NEXT through it, BACK to the Bar.
 TEST(mw1_story_drinks_and_news_in_the_bar_headless) {
@@ -3689,7 +3849,7 @@ TEST(mw1_story_drinks_and_news_in_the_bar_headless) {
     std::vector<int32_t> tips;
     std::vector<int64_t> paid;
     int32_t units = -1;
-    bool live = false, quiet = false, news = false, paged = false, back = false, over_bar = true;
+    bool live = false, quiet = false, news = false, paged = false, back = false, over_bar = true, still = true, wheeled = false;
     r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
       mw1::HubState* hub = mw1::game_loop_hub();
       mw1::BarState* bar = mw1::game_loop_bar();
@@ -3711,6 +3871,11 @@ TEST(mw1_story_drinks_and_news_in_the_bar_headless) {
           if (showing(app, ev)) {
             // Over the Bar (FIXES.md item 34): its picture behind, undimmed, the panel in its left side.
             over_bar = over_bar && ev->side() == mw1::Side::kBottom && ev->screen()->backdrop() == mw1::kBarScene;
+            {  // FIXES 102: a plain event's NEXT is its OK: the wheel leaves it be
+              const std::vector<std::string> was = ev->screen()->shown();
+              ev->wheel(-1, 320, 240);
+              still = still && showing(app, ev) && ev->screen()->shown() == was;
+            }
             ev->screen()->on_button(mw1::kEventNext, 0, 0);
             wait = 0;
             return false;
@@ -3743,6 +3908,15 @@ TEST(mw1_story_drinks_and_news_in_the_bar_headless) {
           ev->screen()->on_button(mw1::kEventNext, 0, 0);
           ev->screen()->on_button(mw1::kEventPrev, 0, 0);
           paged = shows_line(ev->screen()->shown(), "NEWS (1 OF");
+          {  // FIXES 102: the wheel pages the news as PREV and NEXT do; up on the first page stays there
+            const std::vector<std::string> first = ev->screen()->shown();
+            ev->wheel(1, 320, 240);
+            const bool stays = ev->screen()->shown() == first;
+            ev->wheel(-1, 320, 240);
+            const bool on = ev->screen()->shown() != first;
+            ev->wheel(1, 320, 240);
+            wheeled = stays && on && ev->screen()->shown() == first;
+          }
           ev->screen()->on_button(mw1::kEventBack, 0, 0);
           ++step, wait = 0;
           return false;
@@ -3755,9 +3929,9 @@ TEST(mw1_story_drinks_and_news_in_the_bar_headless) {
     menu_run(r);
     std::printf("  drinks: %zu tips, paid", tips.size());
     for (int64_t p : paid) std::printf(" %lld", static_cast<long long>(p));
-    std::printf("; a unit each %d; live %d, quiet %d, news %d, paged %d, back %d, over the Bar %d\n", units, live, quiet, news, paged,
-                back, over_bar);
-    EXPECT(live && quiet && news && paged && back && units == 1 && over_bar);
+    std::printf("; a unit each %d; live %d, quiet %d, news %d, paged %d, back %d, over the Bar %d; wheel: still %d, paged %d\n", units,
+                live, quiet, news, paged, back, over_bar, still, wheeled);
+    EXPECT(live && quiet && news && paged && back && units == 1 && over_bar && still && wheeled);
     EXPECT(paid.size() == 3 && paid[0] == 5 && paid[1] == 5 && paid[2] == 0);
   });
 }

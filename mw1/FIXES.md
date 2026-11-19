@@ -1340,3 +1340,39 @@ as in MW1, and a narrow win never empty-handed.
     no floor.
   - The loop: a casualty pinned (KILLED or MISSING, the 'Mech lost, AFTER ACTION's House and "beyond repair"
     lines), and the full lance's downed lancemate recovered and back.
+
+## 102. [x] The mouse wheel scrolls every list *(done: mw1-wheel-lists)*
+
+Owen (2026-11-19): the wheel already scrolled AFTER ACTION's salvage list; scroll every list in MW1 the same way, the
+list under the pointer, with the same step and direction.
+- **One handler** (`Mw1State::wheel`, mw1_screen.h's `WheelList`):
+  - A screen names its lists: each with the PANEL it sits in (or anywhere on the screen) and its two arrows.
+  - A notch up presses the list's up arrow; a notch down presses its down arrow. That is a row each notch (a page for
+    a pager), as a click on the arrow does.
+  - It presses only a shown, enabled arrow, so the wheel stops at both ends as the arrows do.
+  - The list under the pointer wins. Of the anywhere lists, it takes the first whose arrows are shown.
+- **The lists:**
+  - The Mech Complex: FOR SALE and YOUR MECHS, each under the pointer.
+  - The Bar: the recruits, and the lance on the COMPANY page.
+  - The event panel's pagers: the LOG, the STORY journal and the news (PREV and NEXT). A plain event's NEXT is its
+    OK, so the wheel leaves it alone.
+  - AFTER ACTION keeps its own wheel (FIXES.md item 38): same step, same direction.
+  - Travel has no world list any more (the map and a typed search), so there is nothing to scroll there.
+- **The Mech Lab** (PM's screen, an engine change: "mw1 (engine, ours)", opt-in `platform/list_wheel.h`, MW3 and PM
+  unchanged):
+  - Its lists (FileList: the chassis, the weapons, the loadouts; LabItemList: the store and the parts) read zin's
+    wheel each frame.
+  - With the pointer over the list, a notch presses its UP or DOWN arrow, shown and enabled only.
+  - A hidden list forgets the wheel, so the turns made elsewhere don't scroll it when it shows again.
+- **Tests** (hidden):
+  - Market (`mw1_loop_market_buy_sell_pilot_...`): over FOR SALE, to its last row and no further, then back to the
+    first. Over YOUR MECHS (empty) or off both lists, nothing. A notch by zin's wheel at the list, read by the
+    frame's own update, steps it down and back up.
+  - The lab's chassis list, padded past its rows: to its foot (the last rows shown) and no further, then back to its
+    head, a notch a frame by zin's wheel.
+  - The Bar (`mw1_loop_a_full_lance_flies_on_a_pm_map_headless`): the recruits to the last and back; the COMPANY
+    page's lance to its head and its foot.
+  - The news (`mw1_story_drinks_and_news_in_the_bar_headless`): it pages down and back up, and up on the first page
+    stays put. On a plain drink event the wheel changes nothing.
+  - The LOG (`mw1_wheel_pages_the_log_headless`): 40 lines, down to the last page and no further (never back to the
+    hub), up to the first.

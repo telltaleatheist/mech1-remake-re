@@ -35,6 +35,7 @@
 #include "platform/menu_pointer.h"
 #include "platform/pause_hud.h"
 #include "platform/mode_labels.h"
+#include "platform/list_wheel.h"
 #include "gamez/zutil/zutl_path.h"
 #include "frontend/sdl/sdl_twod_host.h"
 #include "gamez/ztwod/twod_host.h"
@@ -270,6 +271,8 @@ int main(int argc, char** argv) {
   platform::set_pause_hides_hud_marker(true);
   // FIXES.md item 83 (the lead): RESOLUTION's modes all "W x H", their own sizes (platform/mode_labels.h).
   platform::set_uniform_mode_labels(true);
+  // FIXES 102 (Owen): the wheel scrolls the Mech Lab's lists as the arrows do (platform/list_wheel.h).
+  platform::set_list_wheel(true);
   // FIXES.md item 88: the pause test's count of the grab's recorded texts (the SDL host's lists).
   mw1::recorded_lines() = [](const void* owner, const int32_t r[4], uint32_t colour) {
     auto* host = dynamic_cast<sdlfe::SdlTwodHost*>(&ztwod::host());

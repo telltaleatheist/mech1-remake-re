@@ -607,6 +607,13 @@ std::vector<Mw1Screen::Box> Mw1Screen::inline_boxes() const {
 
 bool Mw1Screen::panel_shown(size_t i) const { return i < panels_.size() && !(panels_[i]->flags & ztwod::kHidden); }
 
+bool Mw1Screen::panel_box(size_t i, Box* b) const {
+  if (!panel_shown(i) || !panels_[i]->image) return false;
+  const PanelImage& p = *panels_[i];
+  *b = {p.x, p.y, p.x + p.image->width, p.y + p.image->height};
+  return true;
+}
+
 bool Mw1Screen::see_through_at(size_t i, int32_t* x, int32_t* y, int32_t* w, int32_t* h) const {
   if (!panel_shown(i) || panels_[i]->see_w <= 0 || panels_[i]->see_h <= 0) return false;
   *x = panels_[i]->x, *y = panels_[i]->y, *w = panels_[i]->see_w, *h = panels_[i]->see_h;
@@ -819,14 +826,35 @@ bool Mw1State::update() {
   }
   if (keys_ && screen_ptr_)
     if (const uint32_t k = e().input_frame_key()) keys_(k);
-  // The wheel: its position (zin's, unclamped) against last frame's.
-  if (const zin::MouseInfo* m = wheel_ && screen_ptr_ ? zin::mouse_info() : nullptr) {
+  // The wheel: its position (zin's, unclamped) against last frame's; the lists' (FIXES 102) at the pointer.
+  if (const zin::MouseInfo* m = (wheel_ || !wheel_lists_.empty()) && screen_ptr_ ? zin::mouse_info() : nullptr) {
     const int32_t was = wheel_at_;
     wheel_at_ = m->z;
-    if (wheel_read_ && m->z != was) wheel_(m->z > was ? 1 : -1);
+    if (wheel_read_ && m->z != was) {
+      if (!wheel_lists_.empty()) wheel(m->z > was ? 1 : -1, m->x, m->y);
+      else wheel_(m->z > was ? 1 : -1);
+    }
     wheel_read_ = true;
   }
   return r;
+}
+
+void Mw1State::wheel(int32_t notch, int32_t x, int32_t y) {
+  if (!screen_ptr_ || !notch || fade::current().busy()) return;
+  const WheelList* under = nullptr;
+  const WheelList* anywhere = nullptr;
+  for (const WheelList& l : wheel_lists_) {
+    Mw1Screen::Box b{};
+    if (l.panel < 0) {  // the first whose arrows are shown (the Bar's recruits or its lance, by page)
+      if (!anywhere && (screen_ptr_->visible(l.up) || screen_ptr_->visible(l.down))) anywhere = &l;
+    }
+    else if (!under && screen_ptr_->panel_box(static_cast<size_t>(l.panel), &b) && x >= b.left && x < b.right && y >= b.top && y < b.bottom)
+      under = &l;
+  }
+  const WheelList* l = under ? under : anywhere;
+  if (!l) return;
+  const int32_t id = notch > 0 ? l->up : l->down;
+  if (id > 0) screen_ptr_->on_button(id, 0, 0);  // shown and enabled only (on_button's own check)
 }
 
 bool Mw1State::enter() {

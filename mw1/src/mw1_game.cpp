@@ -1163,6 +1163,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     }
     bar_ = ge.adopt_state([this](zgame::Handle h) { return bar_state_ = new BarState(h, [this](int32_t id) { as_player([&] { press_bar(id); }); }); });
     // FIXES.md item 78: ORDER DRINK and NEWS greyed without MW1's exe; the mouse on one (or a click) says why.
+    // FIXES 102: the wheel steps the recruits (or the lance, on its page) as their arrows do.
+    if (bar_state_) bar_state_->set_wheel_lists({{-1, kBarRecruitUp, kBarRecruitDown}, {-1, kBarLanceUp, kBarLanceDown}});
     if (bar_state_)
       bar_state_->set_greyed([this](int32_t id) {
         if ((id != kBarDrink && id != kBarNews) || script().there() || bchoice_.note == kNeedsExeNote) return;
@@ -1394,6 +1396,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       market_state_->set_pointer(kMarketListArea[0], kMarketListArea[1], kMarketListArea[2], kMarketListArea[3],
                                  [this](int32_t x, int32_t y, bool click) { market_point(x, y, click); });
       market_state_->set_resumed([this] { lab_closed(); });
+      // FIXES 102: the wheel over the stock or the owned list steps it as its arrows do.
+      market_state_->set_wheel_lists({{kMarketPanelStock, kMarketStockUp, kMarketStockDown}, {kMarketPanelOwned, kMarketOwnUp, kMarketOwnDown}});
       // FIXES.md item 12 (Owen 2026-11-18): the chosen 'Mech live in gunmetal in its panel, where the engine draws 3D.
       set_market_live(ge.video_mode() != 0);
       if (market_live())
@@ -2284,7 +2288,11 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   }
 
   void show_event() {
-    if (event_state_) event_state_->show(event_view(ev_panel_));
+    if (!event_state_) return;
+    // FIXES 102: the wheel pages the journal, the LOG and the news as PREV and NEXT do; a plain event's NEXT is its OK.
+    if (ev_panel_.journal || ev_panel_.news) event_state_->set_wheel_lists({{-1, kEventPrev, kEventNext}});
+    else event_state_->set_wheel_lists({});
+    event_state_->show(event_view(ev_panel_));
   }
 
   // The class done: the panel off, the screen under it shown again (the funds may have changed), saved.
