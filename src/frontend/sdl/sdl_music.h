@@ -27,7 +27,7 @@ class SdlMusicOutput : public platform::MusicOutput {
   void set_volume(uint16_t left, uint16_t right) override;
 
   static bool decodes(const std::string& ext);  // what this build can play
-  static int32_t devices_opened();              // ours (FIXES 100): audio devices opened in this process, for tests
+  static int32_t devices_opened();              // ours: audio devices opened in this process (tests)
   bool playing() const { return stream_ != nullptr && !paused_; }
 
  private:
@@ -42,8 +42,8 @@ class SdlMusicOutput : public platform::MusicOutput {
   float gain_ = 1.0f;
 };
 
-// The game's music output (ours, FIXES.md item 100): the SDL one, or with platform::quiet_music() on and the run
-// --nosound or --hidden, platform::SilentMusicOutput (no audio device).
-std::unique_ptr<platform::MusicOutput> music_output_for(bool nosound, bool hidden);
+// The game's music output (ours): this SDL one for a player, platform::SilentMusicOutput (no audio device) for a run
+// no player hears: --nosound, or hands off (pointer_hands_off.h: hidden, --frames, a scripted chain or modes run).
+std::unique_ptr<platform::MusicOutput> music_output_for(bool nosound, bool hands_off);
 
 }  // namespace sdlfe

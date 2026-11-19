@@ -41,7 +41,7 @@
 //   --seed N             rand seeded with N where the game seeds it from the clock (ours)
 //   --window WxH         window size (default 1280x960; with any_resolution the
 //                        frame's shape, and a given size pillarboxes the frame)
-//   --nosound            no audio device (a silent DirectSound stand-in)
+//   --nosound            no audio device (a silent DirectSound stand-in; the music silent too)
 //   --hidden             keep the window hidden
 //   --windowed           a window, not fullscreen (also --window, or windowed=1 in mw3.cfg)
 //   --pick PATH          the MODS screen's IMPORT picker answered with PATH, no dialog (ours)
@@ -1202,8 +1202,9 @@ int run(const Args& a, platform::VideoForWindows* vfw) {
     sound = std::move(silent);
   }
   else sound = std::make_unique<sdlfe::SdlSoundOutput>();
-  // Ours (MW1's FIXES 100, quiet_music.h): with MW1's flag, --nosound and --hidden play no music aloud either.
-  const std::unique_ptr<platform::MusicOutput> music = sdlfe::music_output_for(a.nosound, a.hidden);
+  // Ours: --nosound means no audio device for the music too, as for the sounds; so does a run no player is at
+  // (pointer_hands_off.h). Its requests are kept (platform::SilentMusicOutput); a player's run is unchanged.
+  const std::unique_ptr<platform::MusicOutput> music = sdlfe::music_output_for(a.nosound, platform::pointer_hands_off());
   mech3::MountFiles files;
 
   mech3::Platform p;

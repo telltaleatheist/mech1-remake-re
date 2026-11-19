@@ -8,7 +8,6 @@
 #include "mech3/music.h"
 #include "mech3/options.h"
 #include "mw1_start.h"
-#include "platform/quiet_music.h"
 
 namespace mw1::music {
 namespace {
@@ -35,7 +34,6 @@ void install(const std::string& write_dir) {
   g_dir = write_dir;
   g_level = 0, g_starts = 0, g_volume = 0, g_faded_out = true;
   g_cfg = read_cfg(write_dir).sound;
-  platform::set_quiet_music(true);
   zsnd_cd::set_extra_track(kThemeFile);
 }
 

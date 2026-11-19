@@ -1,22 +1,23 @@
-// Ours (MW1: Critical Hit's FIXES.md item 100): the CD's extra track (MW1's menu theme) and the quiet music output
-// for runs no player hears (--nosound, --hidden).
+// Ours: a run no player hears (--nosound, or hands off: pointer_hands_off.h) gets a silent music output, which keeps
+// the game's requests and opens no audio device; a player's run keeps the SDL output. And MW1's (FIXES.md item 100):
+// the CD's extra track, MW1's menu theme.
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <memory>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <SDL3/SDL.h>
 
 #include "check.h"
+#include "frontend/sdl/sdl_music.h"
 #include "frontend/sdl/sdl_platform.h"
 #include "gamez/zgame/zgameapp.h"
-#include "frontend/sdl/sdl_music.h"
 #include "gamez/zsound/zsnd_cd.h"
 #include "platform/platform.h"
-#include "platform/quiet_music.h"
 #include "platform/silent_sound.h"
 
 namespace {
@@ -70,28 +71,25 @@ TEST(zsnd_cd_extra_track_outside_the_disc) {
   }
 }
 
-// With the flag (MW1's), a --nosound or --hidden run's music is the silent output: playing a real track opens no
-// audio device. Without it (MW3's, PM's) the SDL output as before.
 TEST(quiet_music_a_hidden_run_opens_no_audio_device) {
-  const bool was = platform::quiet_music();
-  platform::set_quiet_music(true);
   const int32_t before = sdlfe::SdlMusicOutput::devices_opened();
-  for (auto [nosound, hidden] : {std::pair{true, false}, std::pair{false, true}, std::pair{true, true}}) {
-    std::unique_ptr<platform::MusicOutput> m = sdlfe::music_output_for(nosound, hidden);
+  for (auto [nosound, hands_off] : {std::pair{true, false}, std::pair{false, true}, std::pair{true, true}}) {
+    std::unique_ptr<platform::MusicOutput> m = sdlfe::music_output_for(nosound, hands_off);
     auto* quiet = dynamic_cast<platform::SilentMusicOutput*>(m.get());
     EXPECT(quiet != nullptr);
-    if (quiet) {
-      EXPECT(quiet->play("music/menu-theme.ogg") && quiet->playing_path == "music/menu-theme.ogg");
-      quiet->set_volume(0x8000, 0x8000);
-      EXPECT(quiet->volume == 0x8000);
-    }
+    if (!quiet) continue;
+    // The requests kept: the track asked for, its volume, a pause, a stop.
+    EXPECT(quiet->play("music/track02.ogg") && quiet->playing_path == "music/track02.ogg" && quiet->plays == 1);
+    quiet->set_volume(0x8000, 0x8000);
+    quiet->pause();
+    EXPECT(quiet->volume == 0x8000 && quiet->paused);
+    quiet->resume();
+    quiet->stop();
+    EXPECT(!quiet->paused && quiet->playing_path.empty());
   }
-  EXPECT(sdlfe::SdlMusicOutput::devices_opened() == before);
-  // A player's run (neither): the SDL output, even with the flag.
+  EXPECT(sdlfe::SdlMusicOutput::devices_opened() == before);  // no audio device opened
+  // A player's run: the SDL output, as ever.
   EXPECT(dynamic_cast<sdlfe::SdlMusicOutput*>(sdlfe::music_output_for(false, false).get()) != nullptr);
-  platform::set_quiet_music(false);
-  EXPECT(dynamic_cast<sdlfe::SdlMusicOutput*>(sdlfe::music_output_for(true, true).get()) != nullptr);  // the flag off: as ever
-  platform::set_quiet_music(was);
 }
 
 // FIXES.md item 103 (Owen: the theme played once and stopped): the extra track through the real output (SDL's, on

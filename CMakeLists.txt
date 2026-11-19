@@ -1215,6 +1215,7 @@ if(SDL3_FOUND)
     target_link_libraries(mw3indeo_fake PRIVATE mw3core)
     add_executable(mw3sdltests
       tests/main.cpp
+      tests/test_quiet_music.cpp  # ours: no music aloud in a run no player hears
       tests/test_sdl_frontend.cpp
       tests/test_sdl_new_world.cpp
       tests/test_win_cmdline.cpp
