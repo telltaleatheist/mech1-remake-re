@@ -130,6 +130,8 @@ ScreenView results_view(const ResultsPanel& p, const ResultsChoice& choice, bool
   v.pictures[kResultsCrest] = crest_image(p.house);
   v.panels.assign(kResultsCrest + 1, true);
   v.panels[kResultsCrest] = !v.pictures[kResultsCrest].empty();
+  // FIXES.md item 76: no message (a story battle's, or no exe), no box; the rest keeps its place.
+  v.panels[kResultsMessage] = !p.message.empty();
   return v;
 }
 
