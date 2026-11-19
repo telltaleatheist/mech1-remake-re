@@ -145,7 +145,7 @@ uint32_t SdlScreen2D::rgba(uint16_t pixel, bool rgb565) { return rgba_table(rgb5
 // The 16-bit pixels as RGBA8 into the layer's texture; `key` pixels (when
 // keyed) transparent, blended ones (`alpha`, zrndr::LayerCover) see-through.
 void SdlScreen2D::upload(const uint16_t* pixels, int width, int height, int pitch, bool rgb565, bool keyed,
-                         uint16_t key, const uint8_t* alpha, const uint16_t* colour) {
+                         uint16_t key, const uint8_t* alpha, const uint16_t* colour, const uint8_t* clear) {
   rgba_.resize(static_cast<size_t>(width) * height * 4);
   const uint32_t* table = rgba_table(rgb565);
   for (int y = 0; y < height; ++y) {
@@ -159,6 +159,11 @@ void SdlScreen2D::upload(const uint16_t* pixels, int width, int height, int pitc
       const size_t at = static_cast<size_t>(y) * (pitch / 2);
       for (int x = 0; x < width; ++x)
         if (alpha[at + x] && colour[at + x] == row[x]) o[x] = premultiplied(o[x], alpha[at + x]);
+    }
+    if (clear) {  // ours (before_layer's): drawn over the 3D at the frame's resolution instead
+      const uint8_t* c = clear + static_cast<size_t>(y) * width;
+      for (int x = 0; x < width; ++x)
+        if (c[x]) o[x] = 0u;
     }
   }
   if (texture_ < 0 || tw_ != width || th_ != height) {
@@ -256,7 +261,8 @@ void SdlScreen2D::overlay_16(const uint16_t* pixels, int width, int height, int 
   // upload and draw of the whole layer are skipped.
   if (layer_empty(pixels, width, height, pitch, key)) return;
   keep_canvas(pixels, width, height, pitch, true, key, alpha);
-  upload(pixels, width, height, pitch, rgb565, true, key, alpha, colour);
+  const uint8_t* clear = before_layer ? before_layer(pixels, width, height, pitch, rgb565, true, key) : nullptr;
+  upload(pixels, width, height, pitch, rgb565, true, key, alpha, colour, clear);
   int vx, vy, vw, vh;
   render_->viewport(&vx, &vy, &vw, &vh);
   render_->set_viewport(0, 0, width, height);

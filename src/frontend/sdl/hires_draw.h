@@ -13,6 +13,7 @@
 // 3. Each draw at its pixels: a picture from its source (HiresImages), a line from the glyph atlas (TextRaster) at the
 //    canvas's own pen.
 // MW1_HIRES_DEBUG=1 tints what is drawn here magenta; what is left the canvas's is untinted.
+#include <chrono>
 #include <cstdint>
 #include <unordered_map>
 #include <vector>
@@ -30,6 +31,11 @@ class HiresDraw {
   // After the canvas's layer is drawn, before the frame is shown: the screen `pixels` (the lists' owner, pitch in
   // bytes) at width x height. `keyed`: an overlay over the 3D, `key` its clear pixels.
   void draw(const uint16_t* pixels, int width, int height, int pitch, bool rgb565, bool keyed, uint16_t key);
+  // mw1 (engine, ours), FIXES 12: draw()'s first half, before the canvas's layer is uploaded (SdlScreen2D's
+  // before_layer): which draws go where, what's under them. On a keyed overlay, the pixels whose chain is drawn here
+  // with the key under its base (a pixel each, 1: drop the layer's canvas copy there, so the 3D is under the draws);
+  // null when there are none. draw() of the same pixels then uses it.
+  const uint8_t* prepare(const uint16_t* pixels, int width, int height, int pitch, bool rgb565, bool keyed, uint16_t key);
   // After the frame is shown: the pictures' sources may go (HiresImages::end_frame), unseen textures are dropped.
   void end_frame();
 
@@ -40,6 +46,7 @@ class HiresDraw {
     int lines = 0;        // drawn from the atlas
     int failed = 0;       // left to the canvas (no source, no glyphs)
     long under = 0;       // pixels under a chain (its base's "before")
+    long unkeyed = 0;     // keyed: the layer's pixels dropped for a chain drawn here over the key
     int overflowed = 0;   // the frame's lines didn't fit one atlas (left to the canvas until the list changes)
     double ms = 0;        // draw()'s own time
   };
@@ -73,6 +80,12 @@ class HiresDraw {
   std::vector<platform::hires::Rect> rects_, open_, next_;
   std::vector<platform::TLVertex> verts_;
   Stats stats_;
+  // prepare()'s, for the draw() that follows it.
+  const uint16_t* prepared_ = nullptr;
+  int prep_w_ = 0, prep_h_ = 0, fw_ = 0, fh_ = 0;
+  size_t prep_n_ = 0;
+  std::chrono::steady_clock::time_point start_;
+  std::vector<uint8_t> mask_;
   std::vector<double> times_;  // MW1_HIRES_DEBUG: draw()'s times, reported each 600 frames
 };
 
