@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "platform/pointer_hands_off.h"
 #include "gamez/zutil/zutl_path.h"
 #include "frontend/sdl/crash_report.h"
 #include "frontend/sdl/data_folder_start.h"
@@ -102,9 +103,9 @@ int main(int argc, char** argv) {
       const std::string v = next();
       if (std::sscanf(v.c_str(), "%dx%d", &o.win_w, &o.win_h) == 2) window_given = true;
     } else if (s == "--nosound") o.sound = false;
-    else if (s == "--hidden") o.hidden = true;
+    else if (s == "--hidden") o.hidden = true, platform::set_pointer_hands_off(true);  // no picker, no pointer
     else if (s == "--no-import") o.no_import = true;
-    else if (s == "--launcher-shot") o.shot = next(), hidden_log = true;
+    else if (s == "--launcher-shot") o.shot = next(), hidden_log = true, platform::set_pointer_hands_off(true);
     else if (s == "--launcher-screen") o.screen = next();
     else if (s == "--launcher-play") o.play = true;
     else if (s == "--launcher-mw1") o.play_mw1 = true;

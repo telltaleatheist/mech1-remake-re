@@ -67,6 +67,7 @@
 #include <string>
 #include <vector>
 
+#include "frontend/sdl/system_pickers.h"
 #include "frontend/sdl/vulkan_check.h"
 #include "frontend/sdl/campaign_chain.h"
 #include "frontend/sdl/editor_imgui.h"
@@ -151,6 +152,7 @@ extern "C" const char mw3_version_tag[] = "MW3-PROGRAM-VERSION:" MW3_VERSION;
 #include "gamez/zclass/list.h"
 #include "mech3/app_sensors.h"
 #include "mech3/turret.h"
+#include "platform/pointer_hands_off.h"
 #include "platform/reg_file.h"
 #include "platform/silent_sound.h"
 
@@ -769,6 +771,8 @@ int program(int argc, char** argv) {
   }
   if (!a.shot.empty()) a.hidden = true;
   if (a.verbose) mech3::ai::set_pm_ai_report(true);  // the PM AI's unanswered calls, as they come and at exit
+  // Ours (MW1's FIXES 30): a run no player is at never holds or moves the system's pointer (pointer_hands_off.h).
+  if (a.hidden || a.frames > 0 || !a.chain.empty() || !a.modes.empty()) platform::set_pointer_hands_off(true);
   mech3::mods_program_version() = MW3_VERSION;  // game_version= in mod.txt (upgrades/mods/mod_needs.h)
   if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK)) {
     sdlfe::fatal_box(std::string("MechWarrior 3 cannot start: ") + SDL_GetError(), a.hidden);
@@ -1128,8 +1132,7 @@ int run(const Args& a, platform::VideoForWindows* vfw) {
       if (!scripted.empty()) return mech3::mods_menu_picked(scripted);
       auto done = [](void*, const char* const* list, int) { mech3::mods_menu_picked(list && list[0] ? list[0] : ""); };
       static const SDL_DialogFileFilter filters[] = {{"Mods (.zip, .7z, .rar), mech loadouts (.m3c)", "zip;7z;rar;m3c"}};
-      if (folder) SDL_ShowOpenFolderDialog(done, nullptr, parent, nullptr, false);
-      else SDL_ShowOpenFileDialog(done, nullptr, parent, filters, 1, nullptr, false);
+      sdlfe::open_picker({folder ? sdlfe::PickerKind::kOpenFolder : sdlfe::PickerKind::kOpenFile, done, nullptr, parent, filters, 1});
     };
     // EXPORT: the system's save box in the player's documents, the mod's
     // "<name> <version>.zip" offered.
@@ -1142,7 +1145,7 @@ int run(const Args& a, platform::VideoForWindows* vfw) {
       const char* docs = SDL_GetUserFolder(SDL_FOLDER_DOCUMENTS);
       static std::string start;
       start = docs ? (std::filesystem::path(docs) / file_name).string() : file_name;
-      SDL_ShowSaveFileDialog(done, nullptr, parent, filters, 1, start.c_str());
+      sdlfe::open_picker({sdlfe::PickerKind::kSaveFile, done, nullptr, parent, filters, 1, start.c_str()});
     };
     mp.open_folder = [](const std::string& dir) { return sdlfe::open_folder(dir); };
     // --pick: no box, this game; else unset, and MODS asks in the game's own box (W16).
