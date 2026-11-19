@@ -2390,6 +2390,7 @@ struct MenuRun {
   bool story = false;  // MW1's story's events (mw1_story.h); off unless a test is about them
   int limit = 6000;     // frames before the run gives up
   bool fade = false;    // the fade between screens (FIXES.md item 52); off: each change at once
+  platform::SilentSoundOutput* sound = nullptr;  // the run's sound output, while it runs (FIXES.md item 55)
 };
 void menu_run(MenuRun& r) {
   zgame::set_game(pm::table());
@@ -2427,6 +2428,7 @@ void menu_run(MenuRun& r) {
   MovieClock movies;
   Screen screen;
   platform::SilentSoundOutput sound;
+  r.sound = &sound;
   mech3::MountFiles files;
   mech3::Platform p;
   p.window = &window, p.alert = &alert, p.clock = &clock, p.movie_clock = &movies, p.screen = &screen;
@@ -3893,8 +3895,21 @@ TEST(mw1_travel_go_plays_the_launch_then_the_hub_headless) {
     int step = 0, wait = 0, movie_frames = 0, click_frame = -1;
     std::string was, arrived;
     bool movie_seen = false, finished = false, black_over_movie = false, movie_after_hub = false;
-    double movie_seconds = 0;
+    double movie_seconds = 0, held_at_sound = -1;
     float max_alpha_in_movie = 0;
+    // FIXES.md item 55: the sound's buffers, playing and looped, through the run's sound output.
+    bool sound_heard = false, sound_looped = false, sound_after_end = false, sound_at_hub = false, moved_in_hold = false;
+    auto playing = [&](bool* looped) {
+      int n = 0;
+      for (platform::SoundBuffer b = 1; b < 4096; ++b) {
+        uint32_t st = 0;
+        if (r.sound && r.sound->get_status(b, &st) == 0 && (st & platform::SoundOutput::kStatusPlaying)) {
+          ++n;
+          if (looped && (st & platform::SoundOutput::kStatusLooping)) *looped = true;
+        }
+      }
+      return n;
+    };
     r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
       mw1::HubState* hub = mw1::game_loop_hub();
       mw1::TravelState* tr = mw1::game_loop_travel();
@@ -3924,8 +3939,12 @@ TEST(mw1_travel_go_plays_the_launch_then_the_hub_headless) {
         movie_seen = true, ++movie_frames;
         movie_seconds = mv->seconds();
         if (f.busy()) max_alpha_in_movie = std::max(max_alpha_in_movie, f.alpha());
+        if (mv->sound_playing() && !sound_heard) sound_heard = true, held_at_sound = mv->held();
+        if (mv->held() < mw1::movie::kHoldSeconds && mv->seconds() > 0) moved_in_hold = true;
+        if (mv->sound_playing()) playing(&sound_looped);
+        if (mv->finished() && (mv->sound_playing() || playing(nullptr) > 0)) sound_after_end = true;
         if (mv->finished() && f.phase() == mw1::fade::Fade::Phase::kOut && f.alpha() > 0.3f) black_over_movie = true;  // fading out over it
-        if (!f.busy() && mv->seconds() > 1.0 && !mv->finished()) {
+        if (!f.busy() && mv->seconds() > 1.0 && !mv->finished()) {  // past the hold, a second into the motion
           zin::MouseInfo* mi = zin::mouse_info();
           if (how == How::kKey) mv->press(0x39);  // Space
           if (how == How::kClick && click_frame < 0) click_frame = movie_frames, mi->left = 1;
@@ -3935,6 +3954,7 @@ TEST(mw1_travel_go_plays_the_launch_then_the_hub_headless) {
       }
       if (showing(app, hub) && (movie_seen || how == How::kMissing)) {
         if (arrived.empty()) arrived = c->planet, finished = mv && mv->finished();
+        if (playing(nullptr) > 0) sound_at_hub = true;
         return !f.busy();
       }
       return false;
@@ -3952,6 +3972,12 @@ TEST(mw1_travel_go_plays_the_launch_then_the_hub_headless) {
       continue;
     }
     EXPECT(movie_seen && finished);
+    // FIXES.md item 55: the first frame held still and silent kHoldSeconds after the fade in; the sound played once
+    // (not looped) and stopped at the end or the skip: none through the fade out, none on the hub.
+    std::printf("  sound: heard %d after %.2f s held, looped %d, after the end %d, at the hub %d, moved in the hold %d\n",
+                sound_heard, held_at_sound, sound_looped, sound_after_end, sound_at_hub, moved_in_hold);
+    EXPECT(sound_heard && held_at_sound >= mw1::movie::kHoldSeconds && !moved_in_hold);
+    EXPECT(!sound_looped && !sound_after_end && !sound_at_hub);
     if (how == How::kPlayed) EXPECT(movie_seconds > 4.8 && max_alpha_in_movie == 1.0f && black_over_movie);
     else EXPECT(movie_seconds > 1.0 && movie_seconds < 2.0);
   }
