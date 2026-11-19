@@ -716,6 +716,16 @@ Tick an item when it is merged into `main`.
   - Does it find and fire on incoming missiles?
   - Compare with PM's own game on the same 'Mech.
 - **Done means:** the cause found and fixed, with a test or a scripted mission that shows missiles shot down. If it's PM's engine and PM is affected too, it goes to the mw3 lead.
+- **Update (Owen, later the same session):** "i was in an owens. and it did work just now. might be false alarm". Lowered to a quick check: in one hidden scripted mission, confirm the AMS is on at the start and shoots down missiles, then close this or report.
+
+## 62. [ ] A news headline at the hub doesn't say where to read it
+- **Owen (2026-11-18, in play):** "it said \"personal message from jordan rowe\" but im not seeing where to click to view it".
+- **Cause:** hub_events adds "NEWS: <headline>" to the hub's messages, but the full text is only on the Bar's NEWS (NewsNet). Nothing on the hub points there.
+- **Wanted:**
+  - The hub line names where to read it, e.g. "NEWS: Personal message from Jordan Rowe. Read it at the BAR, under NEWS."
+  - Better still, a READ button beside OK opens that story straight from the hub, using the NewsNet's own pages. If it does, reading it there counts as read.
+  - Pick the cleanest; the wording comes from our code, never from MW1's text.
+- **Done means:** a shot of the hub with a news line; reading it from where the hub points; tests.
 
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
