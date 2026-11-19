@@ -1,12 +1,13 @@
 ; MW1: Critical Hit's House office (src/mw1_office.h), on MW1's screen
 ; template (src/mw1_screen.h; ANCHOR, LABEL_AT, LABEL_FONT, LABEL_OFF_FONT,
 ; TEXTS and the _WIDE layout are ours). FIXES.md item 3, CATALOG's 16: the
-; office scene, the House's liaison (named per view, the world's House) under
-; REQUEST MISSION (NEXT OFFER once one is up), NEGOTIATE (SUBMIT), ACCEPT and LEAVE (BACK) down the left
-; (MW1's CONTRACT_OFFICE: REQUEST_MISSION_OFFER, NEXT_MISSION_OFFER, NEGOTIATE_CONTRACT); the contract on offer on the panel,
-; the three terms on the terminal (FIXES.md item 50: the liaison's frame as wide as the buttons, edges lined up, a
-; button gap under LEAVE, its foot on the terminal's; the portrait 4 inside it, cut to fit, never stretched), each with MW1's arrows (up asks more, down
-; less, as MW1's keys did). The plaques: the world and its House; the place
+; office scene, read top to bottom (FIXES.md item 56): REQUEST MISSION (NEXT OFFER once one is up) and LEAVE (BACK)
+; at the top of the left column, the House's liaison (named per view, the world's House) under them; the contract on
+; offer on the panel, the three terms on the terminal under it, each with MW1's arrows (up asks more, down less, as
+; MW1's keys did), and the buttons that act on the terms under the terminal, at its right edge: NEGOTIATE (SUBMIT),
+; then ACCEPT, the primary action, framed in amber (MW1's CONTRACT_OFFICE: REQUEST_MISSION_OFFER, NEXT_MISSION_OFFER,
+; NEGOTIATE_CONTRACT). The liaison's frame (item 50) as wide as the buttons, edges lined up, a button gap under LEAVE,
+; its foot on the button row's; the portrait 4 inside it, cut to fit, never stretched. The plaques: the world and its House; the place
 ; and the company's funds. All MW1's own art (mw1image.zbd): nothing of
 ; Pirate's Moon's (FIXES.md item 5; tests/test_mw1_look.cpp).
 ;
@@ -19,23 +20,23 @@ MW1OFFICEDIALOG (
     PANEL (POSITION (12 8) BITMAP ("mw1_plaque"))
     PANEL2 (POSITION (328 8) BITMAP ("mw1_plaque"))
     PANEL3 (POSITION (-107 454) BITMAP ("mw1_statusbar") ANCHOR ("CENTRE"))
-    PANEL4 (POSITION (12 236) BITMAP ("mw1_frame_168x210"))
-    PANEL5 (POSITION (16 240) BITMAP ("mw1_liaison_davion_office"))
-    PANEL6 (POSITION (188 76) BITMAP ("mw1_panel_436x190"))
-    PANEL7 (POSITION (188 274) BITMAP ("mw1_term_436x172"))
+    PANEL4 (POSITION (12 160) BITMAP ("mw1_frame_168x286"))
+    PANEL5 (POSITION (16 164) BITMAP ("mw1_liaison_davion_office"))
+    PANEL6 (POSITION (188 76) BITMAP ("mw1_panel_436x152"))
+    PANEL7 (POSITION (188 236) BITMAP ("mw1_term_436x172"))
   )
   BUTTONS (
     REQUEST (POSITION (12 84) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 90) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
     NEXT (POSITION (12 84) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 90) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
-    SUBMIT (POSITION (12 122) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 128) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
-    ACCEPT (POSITION (12 160) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 166) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
-    BACK (POSITION (12 198) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 204) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
-    PAY_DOWN (POSITION (548 308) BITMAP ("mw1_dn") ROLLOVER (BITMAP ("mw1_dn_lit")) ACTIVATE (BITMAP ("mw1_dn_down")) DISABLE (BITMAP ("mw1_dn_off")))
-    PAY_UP (POSITION (582 308) BITMAP ("mw1_up") ROLLOVER (BITMAP ("mw1_up_lit")) ACTIVATE (BITMAP ("mw1_up_down")) DISABLE (BITMAP ("mw1_up_off")))
-    SALVAGE_DOWN (POSITION (548 354) BITMAP ("mw1_dn") ROLLOVER (BITMAP ("mw1_dn_lit")) ACTIVATE (BITMAP ("mw1_dn_down")) DISABLE (BITMAP ("mw1_dn_off")))
-    SALVAGE_UP (POSITION (582 354) BITMAP ("mw1_up") ROLLOVER (BITMAP ("mw1_up_lit")) ACTIVATE (BITMAP ("mw1_up_down")) DISABLE (BITMAP ("mw1_up_off")))
-    ADVANCE_DOWN (POSITION (548 400) BITMAP ("mw1_dn") ROLLOVER (BITMAP ("mw1_dn_lit")) ACTIVATE (BITMAP ("mw1_dn_down")) DISABLE (BITMAP ("mw1_dn_off")))
-    ADVANCE_UP (POSITION (582 400) BITMAP ("mw1_up") ROLLOVER (BITMAP ("mw1_up_lit")) ACTIVATE (BITMAP ("mw1_up_down")) DISABLE (BITMAP ("mw1_up_off")))
+    SUBMIT (POSITION (280 416) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (372 422) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    ACCEPT (POSITION (456 416) BITMAP ("mw1_button_primary") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (548 422) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    BACK (POSITION (12 122) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 128) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    PAY_DOWN (POSITION (548 270) BITMAP ("mw1_dn") ROLLOVER (BITMAP ("mw1_dn_lit")) ACTIVATE (BITMAP ("mw1_dn_down")) DISABLE (BITMAP ("mw1_dn_off")))
+    PAY_UP (POSITION (582 270) BITMAP ("mw1_up") ROLLOVER (BITMAP ("mw1_up_lit")) ACTIVATE (BITMAP ("mw1_up_down")) DISABLE (BITMAP ("mw1_up_off")))
+    SALVAGE_DOWN (POSITION (548 316) BITMAP ("mw1_dn") ROLLOVER (BITMAP ("mw1_dn_lit")) ACTIVATE (BITMAP ("mw1_dn_down")) DISABLE (BITMAP ("mw1_dn_off")))
+    SALVAGE_UP (POSITION (582 316) BITMAP ("mw1_up") ROLLOVER (BITMAP ("mw1_up_lit")) ACTIVATE (BITMAP ("mw1_up_down")) DISABLE (BITMAP ("mw1_up_off")))
+    ADVANCE_DOWN (POSITION (548 362) BITMAP ("mw1_dn") ROLLOVER (BITMAP ("mw1_dn_lit")) ACTIVATE (BITMAP ("mw1_dn_down")) DISABLE (BITMAP ("mw1_dn_off")))
+    ADVANCE_UP (POSITION (582 362) BITMAP ("mw1_up") ROLLOVER (BITMAP ("mw1_up_lit")) ACTIVATE (BITMAP ("mw1_up_down")) DISABLE (BITMAP ("mw1_up_off")))
   )
   TEXTS (
     PLANET (POSITION (162 15) FONT ("mw1_plaque"))
@@ -46,11 +47,10 @@ MW1OFFICEDIALOG (
     STATUS (POSITION (132 461) FONT ("mw1_status"))
     C_TITLE (POSITION (202 86) FONT ("mw1_panel_title"))
     C_LINES (POSITION (202 112) FONT ("mw1_panel_line") GAP (15))
-    NOTES (POSITION (202 226) FONT ("mw1_note") GAP (15))
-    T_TITLE (POSITION (200 282) FONT ("mw1_term_title"))
-    ROW1 (POSITION (200 306) FONT ("mw1_term_line") GAP (15))
-    ROW2 (POSITION (200 352) FONT ("mw1_term_line") GAP (15))
-    ROW3 (POSITION (200 398) FONT ("mw1_term_line") GAP (15))
+    T_TITLE (POSITION (200 244) FONT ("mw1_term_title"))
+    ROW1 (POSITION (200 268) FONT ("mw1_term_line") GAP (15))
+    ROW2 (POSITION (200 314) FONT ("mw1_term_line") GAP (15))
+    ROW3 (POSITION (200 360) FONT ("mw1_term_line") GAP (15))
   )
 )
 MW1OFFICEDIALOG_WIDE (
@@ -60,23 +60,23 @@ MW1OFFICEDIALOG_WIDE (
     PANEL (POSITION (16 8) BITMAP ("mw1_plaque"))
     PANEL2 (POSITION (537 8) BITMAP ("mw1_plaque") ANCHOR ("RIGHT"))
     PANEL3 (POSITION (0 454) BITMAP ("mw1_statusbar") ANCHOR ("CENTRE"))
-    PANEL4 (POSITION (16 236) BITMAP ("mw1_frame_168x210"))
-    PANEL5 (POSITION (20 240) BITMAP ("mw1_liaison_davion_office"))
-    PANEL6 (POSITION (200 76) BITMAP ("mw1_panel_637x190"))
-    PANEL7 (POSITION (200 274) BITMAP ("mw1_term_637x172"))
+    PANEL4 (POSITION (16 160) BITMAP ("mw1_frame_168x286"))
+    PANEL5 (POSITION (20 164) BITMAP ("mw1_liaison_davion_office"))
+    PANEL6 (POSITION (200 76) BITMAP ("mw1_panel_637x152"))
+    PANEL7 (POSITION (200 236) BITMAP ("mw1_term_637x172"))
   )
   BUTTONS (
     REQUEST (POSITION (16 84) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 90) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
     NEXT (POSITION (16 84) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 90) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
-    SUBMIT (POSITION (16 122) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 128) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
-    ACCEPT (POSITION (16 160) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 166) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
-    BACK (POSITION (16 198) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 204) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
-    PAY_DOWN (POSITION (761 308) BITMAP ("mw1_dn") ROLLOVER (BITMAP ("mw1_dn_lit")) ACTIVATE (BITMAP ("mw1_dn_down")) DISABLE (BITMAP ("mw1_dn_off")))
-    PAY_UP (POSITION (795 308) BITMAP ("mw1_up") ROLLOVER (BITMAP ("mw1_up_lit")) ACTIVATE (BITMAP ("mw1_up_down")) DISABLE (BITMAP ("mw1_up_off")))
-    SALVAGE_DOWN (POSITION (761 354) BITMAP ("mw1_dn") ROLLOVER (BITMAP ("mw1_dn_lit")) ACTIVATE (BITMAP ("mw1_dn_down")) DISABLE (BITMAP ("mw1_dn_off")))
-    SALVAGE_UP (POSITION (795 354) BITMAP ("mw1_up") ROLLOVER (BITMAP ("mw1_up_lit")) ACTIVATE (BITMAP ("mw1_up_down")) DISABLE (BITMAP ("mw1_up_off")))
-    ADVANCE_DOWN (POSITION (761 400) BITMAP ("mw1_dn") ROLLOVER (BITMAP ("mw1_dn_lit")) ACTIVATE (BITMAP ("mw1_dn_down")) DISABLE (BITMAP ("mw1_dn_off")))
-    ADVANCE_UP (POSITION (795 400) BITMAP ("mw1_up") ROLLOVER (BITMAP ("mw1_up_lit")) ACTIVATE (BITMAP ("mw1_up_down")) DISABLE (BITMAP ("mw1_up_off")))
+    SUBMIT (POSITION (493 416) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (585 422) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    ACCEPT (POSITION (669 416) BITMAP ("mw1_button_primary") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (761 422) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    BACK (POSITION (16 122) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 128) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    PAY_DOWN (POSITION (761 270) BITMAP ("mw1_dn") ROLLOVER (BITMAP ("mw1_dn_lit")) ACTIVATE (BITMAP ("mw1_dn_down")) DISABLE (BITMAP ("mw1_dn_off")))
+    PAY_UP (POSITION (795 270) BITMAP ("mw1_up") ROLLOVER (BITMAP ("mw1_up_lit")) ACTIVATE (BITMAP ("mw1_up_down")) DISABLE (BITMAP ("mw1_up_off")))
+    SALVAGE_DOWN (POSITION (761 316) BITMAP ("mw1_dn") ROLLOVER (BITMAP ("mw1_dn_lit")) ACTIVATE (BITMAP ("mw1_dn_down")) DISABLE (BITMAP ("mw1_dn_off")))
+    SALVAGE_UP (POSITION (795 316) BITMAP ("mw1_up") ROLLOVER (BITMAP ("mw1_up_lit")) ACTIVATE (BITMAP ("mw1_up_down")) DISABLE (BITMAP ("mw1_up_off")))
+    ADVANCE_DOWN (POSITION (761 362) BITMAP ("mw1_dn") ROLLOVER (BITMAP ("mw1_dn_lit")) ACTIVATE (BITMAP ("mw1_dn_down")) DISABLE (BITMAP ("mw1_dn_off")))
+    ADVANCE_UP (POSITION (795 362) BITMAP ("mw1_up") ROLLOVER (BITMAP ("mw1_up_lit")) ACTIVATE (BITMAP ("mw1_up_down")) DISABLE (BITMAP ("mw1_up_off")))
   )
   TEXTS (
     PLANET (POSITION (166 15) FONT ("mw1_plaque"))
@@ -87,11 +87,10 @@ MW1OFFICEDIALOG_WIDE (
     STATUS (POSITION (136 461) FONT ("mw1_status"))
     C_TITLE (POSITION (214 86) FONT ("mw1_panel_title"))
     C_LINES (POSITION (214 112) FONT ("mw1_panel_line") GAP (15))
-    NOTES (POSITION (214 226) FONT ("mw1_note") GAP (15))
-    T_TITLE (POSITION (212 282) FONT ("mw1_term_title"))
-    ROW1 (POSITION (212 306) FONT ("mw1_term_line") GAP (15))
-    ROW2 (POSITION (212 352) FONT ("mw1_term_line") GAP (15))
-    ROW3 (POSITION (212 398) FONT ("mw1_term_line") GAP (15))
+    T_TITLE (POSITION (212 244) FONT ("mw1_term_title"))
+    ROW1 (POSITION (212 268) FONT ("mw1_term_line") GAP (15))
+    ROW2 (POSITION (212 314) FONT ("mw1_term_line") GAP (15))
+    ROW3 (POSITION (212 360) FONT ("mw1_term_line") GAP (15))
   )
 )
 )

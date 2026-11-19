@@ -135,7 +135,7 @@ TEST(mw1_office_patience_ends_it_and_the_world_is_withdrawn_until_travel) {
   EXPECT(!mw1::last_round(c, k));
   EXPECT(mw1::negotiate(c, k, q, r) == mw1::Answer::kCounter && !mw1::last_round(c, k));
   EXPECT(mw1::negotiate(c, k, q, r) == mw1::Answer::kCounter && mw1::last_round(c, k));
-  EXPECT(has(mw1::answer_lines(mw1::Answer::kCounter, c, k), "losing patience"));
+  EXPECT(mw1::answer_words(mw1::Answer::kCounter, c, k).rfind("Losing patience: ", 0) == 0);
   EXPECT(mw1::earning_here(c));
   EXPECT(mw1::negotiate(c, k, q, r) == mw1::Answer::kTerminated && c.withdrawn && k.attempts == 3);
   EXPECT(!mw1::earning_here(c) && mw1::contracts_here(c));
@@ -231,6 +231,50 @@ TEST(mw1_office_the_screen_asks_only_what_was_touched) {
   EXPECT(none && why && !employer);
 }
 
+// FIXES.md item 56: no hint lines on the screen (the layout says what to press); the status line says what each button
+// does over it (a greyed NEGOTIATE why), and the House's answer to a round, each within the 4:3 status line.
+TEST(mw1_office_the_status_line_says_it) {
+  mw1::Company c = company_on(mw1::kLiao);
+  mw1::Contract k = offer(mw1::kLiao);
+  mw1::OfficeChoice o;
+  const std::vector<std::string> lines = {"Employer: House Liao"};
+  auto status = [](const mw1::ScreenView& v) {
+    for (const mw1::TextBlock& b : v.blocks)
+      if (b.at && std::string(b.at) == "STATUS") return b.lines.empty() ? std::string() : b.lines[0];
+    return std::string("(none)");
+  };
+  auto any_line = [](const mw1::ScreenView& v, const std::string& part) {
+    for (const mw1::TextBlock& b : v.blocks)
+      for (const std::string& l : b.lines)
+        if (l.find(part) != std::string::npos) return true;
+    return false;
+  };
+  mw1::ScreenView v = mw1::office_view(c, k, o, lines);
+  EXPECT(!any_line(v, "Change a term") && !any_line(v, "takes the offer") && !any_line(v, "puts a contract on offer"));
+  EXPECT(status(v) == "The House's liaison will hear your terms.");
+  v = mw1::office_view(c, k, o, {});
+  EXPECT(!any_line(v, "REQUEST MISSION:") && status(v) == "Ask the liaison for a mission.");
+  for (int32_t id = 1; id <= mw1::kOfficeButtonCount; ++id)
+    for (const bool on : {true, false}) {
+      const std::string h = mw1::office_hint(id, on);
+      EXPECT(!h.empty() && h.size() <= mw1::kStatusLetters);
+      EXPECT(status(mw1::office_view(c, k, o, lines, {}, h)) == h);
+    }
+  EXPECT(mw1::office_hint(mw1::kOfficeSubmit, false).find("arrows") != std::string::npos &&
+         mw1::office_hint(mw1::kOfficeSubmit, true) != mw1::office_hint(mw1::kOfficeSubmit, false));
+  // The House's answer: on the status line until a button's words replace it; the longest still fits.
+  o.answer = mw1::answer_words(mw1::Answer::kCounter, c, k);
+  EXPECT(o.answer.rfind("The House counters: ", 0) == 0 && status(mw1::office_view(c, k, o, lines)) == o.answer);
+  EXPECT(status(mw1::office_view(c, k, o, lines, {}, mw1::office_hint(mw1::kOfficeAccept))) == mw1::office_hint(mw1::kOfficeAccept));
+  mw1::Contract most = k;
+  most.payment = mw1::kRequestPaymentMax, most.salvage_percent = most.advance_percent = mw1::kRequestPercentMax;
+  EXPECT(mw1::answer_words(mw1::Answer::kCounter, c, most).size() <= mw1::kStatusLetters);
+  most.attempts = 99;
+  c.patience = 1;
+  EXPECT(mw1::answer_words(mw1::Answer::kCounter, c, most).size() <= mw1::kStatusLetters);
+  EXPECT(mw1::answer_words(mw1::Answer::kTerminated, c, k).empty());
+}
+
 TEST(mw1_office_saved_and_a_version_6_save_read) {
   mw1::Company c = company_on(mw1::kMarik, 5);
   c.withdrawn = true;
@@ -270,8 +314,11 @@ TEST(mw1_office_saved_and_a_version_6_save_read) {
 }
 
 // FIXES.md item 50 (Owen 2026-11-18): the liaison's frame as wide as the buttons above it, its edges on theirs; its top a
-// button gap under LEAVE; its foot on the terms box's; the portrait inside the frame's border, its art that size and
-// cut to it (never stretched: the file's shape is the picture's). At 4:3 and 16:9, to the pixel.
+// button gap under LEAVE; the portrait inside the frame's border, its art that size and cut to it (never stretched: the
+// file's shape is the picture's). Item 56 (Owen 2026-11-18): the screen read top to bottom: LEAVE right under REQUEST
+// MISSION; the contract, then the terms a button gap under it, then NEGOTIATE and ACCEPT a button gap under the terms,
+// ACCEPT's right edge on the terms box's and NEGOTIATE a button gap to its left; the frame's foot on that row's. At
+// 4:3 and 16:9, to the pixel.
 TEST(mw1_office_the_liaison_lines_up_with_the_buttons_and_the_terms) {
   namespace fs = std::filesystem;
   std::ifstream f(fs::path(MW1_DATA_DIR) / "mw1office.zrd");
@@ -295,18 +342,28 @@ TEST(mw1_office_the_liaison_lines_up_with_the_buttons_and_the_terms) {
   };
   for (const bool wide : {false, true}) {
     const std::string d = wide ? all.substr(wide_at) : all.substr(0, wide_at);
-    const Rect request = piece(d, "REQUEST"), submit = piece(d, "SUBMIT"), back = piece(d, "BACK");
-    const Rect frame = piece(d, "PANEL4"), picture = piece(d, "PANEL5"), terms = piece(d, "PANEL7");
-    int fw = 0, fh = 0, tw = 0, th = 0;
-    EXPECT(size_of(frame.bitmap, &fw, &fh) && size_of(terms.bitmap, &tw, &th));
-    const int gap = submit.y - request.y - mw1::kButtonH;
-    std::printf("  %s: buttons x %d..%d, LEAVE's foot %d, gap %d; the frame %d..%d x %d..%d; the terms' foot %d\n",
+    const Rect request = piece(d, "REQUEST"), next = piece(d, "NEXT"), back = piece(d, "BACK");
+    const Rect submit = piece(d, "SUBMIT"), accept = piece(d, "ACCEPT");
+    const Rect frame = piece(d, "PANEL4"), picture = piece(d, "PANEL5"), contract = piece(d, "PANEL6"), terms = piece(d, "PANEL7");
+    int fw = 0, fh = 0, cw = 0, ch = 0, tw = 0, th = 0;
+    EXPECT(size_of(frame.bitmap, &fw, &fh) && size_of(contract.bitmap, &cw, &ch) && size_of(terms.bitmap, &tw, &th));
+    const int gap = back.y - request.y - mw1::kButtonH;
+    std::printf("  %s: buttons x %d..%d, LEAVE's foot %d, gap %d; the frame %d..%d x %d..%d; the contract %d..%d, the terms "
+                "%d..%d (x %d..%d); NEGOTIATE x %d, ACCEPT x %d..%d, their row %d..%d\n",
                 wide ? "16:9" : "4:3", back.x, back.x + mw1::kButtonW, back.y + mw1::kButtonH, gap, frame.x, frame.x + fw,
-                frame.y, frame.y + fh, terms.y + th);
-    EXPECT(gap > 0 && back.x == request.x);
+                frame.y, frame.y + fh, contract.y, contract.y + ch, terms.y, terms.y + th, terms.x, terms.x + tw, submit.x,
+                accept.x, accept.x + mw1::kButtonW, accept.y, accept.y + mw1::kButtonH);
+    EXPECT(gap > 0 && back.x == request.x && next.x == request.x && next.y == request.y);
     EXPECT(frame.x == back.x && fw == mw1::kButtonW);              // as wide as the buttons, edges lined up
     EXPECT(frame.y == back.y + mw1::kButtonH + gap);               // a button gap under LEAVE
-    EXPECT(frame.y + fh == terms.y + th);                          // its foot on the terms box's
+    // Top to bottom: the contract, the terms, the buttons that act on them (item 56).
+    EXPECT(contract.x == terms.x && cw == tw && terms.y == contract.y + ch + gap);
+    EXPECT(submit.y == accept.y && accept.y == terms.y + th + gap);  // a button gap under the terms
+    EXPECT(accept.x + mw1::kButtonW == terms.x + tw);               // ACCEPT at the terms box's right edge
+    EXPECT(submit.x + mw1::kButtonW + gap == accept.x);             // NEGOTIATE beside it
+    EXPECT(accept.bitmap == mw1::kPrimaryButton && submit.bitmap == "mw1_button");
+    EXPECT(frame.y + fh == accept.y + mw1::kButtonH);               // its foot on the button row's
+    EXPECT(accept.y + mw1::kButtonH < 454);                         // above the status bar
     EXPECT(picture.x == frame.x + mw1::kFrame && picture.y == frame.y + mw1::kFrame);
     EXPECT(picture.bitmap == "mw1_liaison_davion_office");
     bool known = false;
@@ -317,7 +374,7 @@ TEST(mw1_office_the_liaison_lines_up_with_the_buttons_and_the_terms) {
   std::ifstream csv(fs::path(MW1_DATA_DIR).parent_path() / "data-src" / "art" / "art.csv");
   std::string line;
   int found = 0;
-  const int iw = mw1::kButtonW - 2 * mw1::kFrame, ih = 210 - 2 * mw1::kFrame;
+  const int iw = mw1::kButtonW - 2 * mw1::kFrame, ih = 286 - 2 * mw1::kFrame;
   while (std::getline(csv, line)) {
     std::smatch m;
     if (!std::regex_match(line, m, std::regex("liaison_([a-z]+)_office,(liaison_[a-z]+_office\\.jpg),(\\d+),(\\d+)"))) continue;

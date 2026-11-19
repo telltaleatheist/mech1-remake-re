@@ -39,9 +39,9 @@ SKIP = {"hub_" + t for t in ("agri", "capital", "culture", "frontier", "ice", "i
                              "ocean", "pleasure", "temperate", "trade")}
 EMBLEMS = {"story_darkwing_crest"}
 PORTRAIT_PREFIX = ("recruit_", "char_", "liaison_")
-# FIXES.md item 50: the office's liaison, as wide as its buttons and down to the terms box: <name>_office, its own file
-# cut to the shape from the top (the face kept: the heads are in the pictures' top third), never stretched.
-OFFICE_PORTRAIT = (160, 202)
+# FIXES.md items 50 and 56: the office's liaison, as wide as its buttons, from under LEAVE down to the button row's
+# foot: <name>_office, its own file, the portrait's whole height and the middle of its width, never stretched.
+OFFICE_PORTRAIT = (160, 278)
 PORTRAITS = {"bartender_portrait", "office_liaison_portrait"}
 
 
@@ -97,8 +97,7 @@ def main():
         for suffix, size in sizes:
             rows.append([name + suffix, file, size[0], size[1]])
         if name.startswith("liaison_"):
-            w, h = im.size
-            office = im.crop((0, 0, w, round(w * OFFICE_PORTRAIT[1] / OFFICE_PORTRAIT[0])))
+            office = cut(im, OFFICE_PORTRAIT)
             ofile = name + "_office.jpg"
             office.save(os.path.join(out, ofile), quality=90, optimize=True)
             made.append(os.path.join(out, ofile))

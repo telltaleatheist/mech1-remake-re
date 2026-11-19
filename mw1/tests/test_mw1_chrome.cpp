@@ -27,7 +27,7 @@ uint8_t alpha_at(const mw1::images::Image& im, int32_t x, int32_t y) { return im
 
 TEST(mw1_chrome_pieces) {
   const std::vector<mw1::images::Image> all = mw1::chrome::all();
-  EXPECT(all.size() == 7 + 3 + 4 + 4 /* the tile-wide button's (STORY, item 47) */ + mw1::chrome::panel_sizes().size() + mw1::chrome::terminal_sizes().size() +
+  EXPECT(all.size() == 7 + 3 + 4 + 4 /* the tile-wide button's (STORY, item 47) */ + 1 /* the primary button (item 56) */ + mw1::chrome::panel_sizes().size() + mw1::chrome::terminal_sizes().size() +
                           std::size(mw1::chrome::kBoxWidths) * mw1::chrome::kBoxLinesMax +
                           2 * mw1::chrome::frame_sizes().size() + 8 + 8 + 4 + 3 + 2 + 3 /* the render cover's */ +
                           mw1::chrome::lab_pictures().size() - 6 + mw1::chrome::filebox_pictures().size());
@@ -38,6 +38,10 @@ TEST(mw1_chrome_pieces) {
       if (im.name == mw1::chrome::kTileButtons[st]) found = im.width == mw1::chrome::kTileButtonW;
     EXPECT(found);
   }
+  // FIXES.md item 56: the primary button (the office's ACCEPT), a button's size, framed in amber where the still one isn't.
+  const mw1::images::Image still = mw1::chrome::button(0), primary = mw1::chrome::button(0, mw1::kButtonW, mw1::kButtonH, mw1::kPrimaryButton, 0, true);
+  EXPECT(primary.name == mw1::kPrimaryButton && primary.width == still.width && primary.height == still.height);
+  EXPECT(primary.pixels[1] != still.pixels[1] && primary.pixels[static_cast<size_t>(primary.width) + 1] != still.pixels[static_cast<size_t>(still.width) + 1]);
   // The render pass's cover (FIXES.md item 14): its plaque, and a progress bar of 8 cells as wide as a plaque.
   EXPECT(mw1::chrome::progress_cell(true).name == mw1::kProgressCell[1] && mw1::chrome::progress_cell(false).width == mw1::kProgressCellW);
   EXPECT(8 * mw1::kProgressCellW + 7 * mw1::kProgressGap == mw1::kPlaqueW && mw1::kPlaqueCoverW > mw1::kPlaqueW);
