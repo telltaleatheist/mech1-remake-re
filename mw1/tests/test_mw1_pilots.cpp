@@ -19,6 +19,7 @@
 #include "mech3/pilot.h"
 #include "mw1_install.h"
 #include "mw1_campaign.h"
+#include "mw1_chrome.h"
 #include "mw1_log.h"
 #include "mw1_pilots.h"
 #include "mw1_save.h"
@@ -174,8 +175,8 @@ TEST(mw1_pilots_lab_lance) {
   EXPECT(c.mech == before.mech && c.hangar[2].mech == before.hangar[2].mech && mw1::mech_of(c, 0) == 2);
 }
 
-// FIXES.md item 85 (ours, waiting on Owen): after a hire or a buy, each lancemate without a mech takes the first
-// spare in the hangar, in lance order; a seated one keeps theirs; the lab can still change it.
+// FIXES.md items 85, 92: after a hire or a buy, each lancemate without a mech takes the first spare in the hangar, in
+// lance order; a seated one keeps theirs (nobody moved); the lab can still change it, as the note says.
 TEST(mw1_pilots_a_hire_or_a_buy_seats_the_lancemates) {
   mw1::Company c = company();
   c.recruits = {1, 3, 5};
@@ -202,6 +203,14 @@ TEST(mw1_pilots_a_hire_or_a_buy_seats_the_lancemates) {
   // The lab changes it all the same: the first lancemate off, the third on the Centurion.
   const std::vector<std::shared_ptr<mech3::Config>> stock(4);
   EXPECT(mw1::apply_lance(c, {0, -1, 3, 2}, stock) && mw1::mech_of(c, 0) == -1 && mw1::mech_of(c, 2) == 1);
+  // FIXES.md item 92: the note points at the Mech Lab, in the status line's room; nobody seated, none.
+  EXPECT(mw1::seated_note(c, {}, true).empty());
+  for (const bool hired : {true, false}) {
+    const std::string one = mw1::seated_note(c, {{1, 0}}, hired), two = mw1::seated_note(c, {{1, 0}, {3, 1}}, hired);
+    EXPECT(one.find(hired ? " joins in the " : " takes the ") != std::string::npos && one.find("Mech Lab") != std::string::npos);
+    EXPECT(two.find("2 lancemates") == 0 && two.find("Mech Lab") != std::string::npos);
+    EXPECT(one.size() <= mw1::kStatusLetters && two.size() <= mw1::kStatusLetters);
+  }
 }
 
 TEST(mw1_pilots_wages_warning_and_leaving) {

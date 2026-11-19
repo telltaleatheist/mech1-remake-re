@@ -1,9 +1,11 @@
 #include "mw1_pilots.h"
 
+#include "mw1_chrome.h"
 #include "mw1_log.h"
 
 #include <algorithm>
 #include <cctype>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -261,6 +263,18 @@ std::vector<Seated> seat_lancemates(Company& c) {
       }
   }
   return done;
+}
+
+std::string seated_note(const Company& c, const std::vector<Seated>& seated, bool hired) {
+  if (seated.empty()) return "";
+  if (seated.size() > 1)  // a hire or a buy seats one; more only when lancemates were left without one before
+    return std::to_string(seated.size()) + " lancemates take spare 'Mechs; see the Mech Lab.";
+  const Seated& s = seated.front();
+  const std::string head = pilot_title(s.pilot) + (hired ? " joins in the " : " takes the ") +
+                           mech_title(c.hangar[static_cast<size_t>(s.hangar)].mech);
+  for (const char* tail : {" (change it in the Mech Lab).", "; see the Mech Lab.", " (Mech Lab)."})
+    if (head.size() + std::strlen(tail) <= kStatusLetters) return head + tail;
+  return head + ".";
 }
 
 int32_t lance_weight(const Company& c) {
