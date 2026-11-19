@@ -13,6 +13,7 @@
 #include "gamez/zclass/cls_node.h"
 #include "mw1_fade.h"
 #include "gamez/zrender/zrndr_tint.h"
+#include "gamez/zrender/zrndr_blit.h"
 #include "gamez/zvideo/zvid_ddd3d.h"
 
 namespace mw1::screens {
@@ -561,21 +562,59 @@ void fade_present(mech3::Engine& en) {
   if (f.busy()) fade_tint(en, f.alpha());  // for the next frame's scene, if the screen draws one (PM's lab does)
 }
 
+void fade_over_layer(mech3::Engine& en) {
+  fade::Fade& f = fade::current();
+  if (!f.busy()) return;
+  // PM's Load state's frame is the 16-bit buffer shown as it is (GameEngine::video_flip's present_16: no layer laid
+  // over a scene, so no tint quad): the black blended into the locked buffer's pixels (RGB565), by the fade's alpha.
+  zrndr::Target2D& t = zrndr::target2d();
+  if (!t.base || !t.width || !t.height) return;
+  const uint32_t keep = static_cast<uint32_t>((1.0f - f.alpha()) * 256.0f + 0.5f);
+  for (uint32_t y = 0; y < t.height; ++y) {
+    auto* row = reinterpret_cast<uint16_t*>(t.base + static_cast<size_t>(y) * t.pitch);
+    for (uint32_t x = 0; x < t.width; ++x) {
+      const uint32_t p = row[x];
+      const uint32_t r = ((p >> 11) & 31) * keep >> 8, g = ((p >> 5) & 63) * keep >> 8, b = (p & 31) * keep >> 8;
+      row[x] = static_cast<uint16_t>(r << 11 | g << 5 | b);
+    }
+  }
+  (void)en;
+}
+
 bool Mw1State::fading_frame() {
   mech3::Engine& en = e();
   if (fade_step(en.frame_dt())) {
     fade_tint(en, 1.0);  // the change made: the next screen's first frame black, MW1's or not (PM's lab)
     return true;
   }
-  // The live screen as PM's fade draws its still (0x0048f0b0): the layer laid over the frame, the black tint quad
-  // over both (the high-res list too, drawn with the layer), then shown. Input ignored: polled, never read.
+  // Input ignored: polled, never read.
   en.input_poll(0);
   en.sound_update(0, 0);
+  draw_faded(true);
+  return true;
+}
+
+// FIXES.md item 52: a screen come back to under the fade (the journal's event popped for GO THERE's starport, the
+// hub between): ShellState's resume draws it and shows it at once, unfaded; this draws it under the black.
+void Mw1State::resume(uint32_t arg) {
+  if (!fade::current().busy() || !screen_ || arg != 1) return MenuState::resume(arg);
+  mech3::Engine& en = e();
+  refresh_target();
+  en.vcall(screen_, 0x04, {1});
+  en.screen_refresh(screen_);
+  draw_faded(false);
+}
+
+// The live screen as PM's fade draws its still (0x0048f0b0): the layer laid over the frame, the black tint quad
+// over both (the high-res list too, drawn with the layer), then shown.
+void Mw1State::draw_faded(bool step_dt) {
+  mech3::Engine& en = e();
   const double alpha = fade::current().alpha();
+  const float dt = step_dt ? en.frame_dt() : 0.0f;
   g_drawn_frame = static_cast<uint32_t>(zcls::frames().frame);
   if (en.video_mode() != 0) {
     en.video_begin_3d();
-    if (screen_) en.vcall(screen_, 0x00, {zgame::bits(en.frame_dt())});
+    if (screen_) en.vcall(screen_, 0x00, {zgame::bits(dt)});
     en.video_end_3d();
     // The canvas's whole rect, given (without one the tint takes the 2D target's size, none on MW1's screens), on
     // the frame's renderer: a mission's setup gives it to zvid (app_mission's texture setup); before the first
@@ -587,13 +626,12 @@ bool Mw1State::fading_frame() {
     en.video_flip(0, 0, 0, 0);
   } else {
     en.video_lock();
-    if (screen_) en.vcall(screen_, 0x00, {zgame::bits(en.frame_dt())});
+    if (screen_) en.vcall(screen_, 0x00, {zgame::bits(dt)});
     en.screen_tint(0, 0, alpha);
     en.render_finish();
     en.video_unlock();
     en.video_flip(0, 0, 1, 1);
   }
-  return true;
 }
 
 bool Mw1State::update() {

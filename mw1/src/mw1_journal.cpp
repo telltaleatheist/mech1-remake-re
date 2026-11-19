@@ -67,6 +67,19 @@ const Step kSteps[] = {
 };
 static_assert(sizeof kSteps / sizeof kSteps[0] == kLeadSteps, "kLeadSteps is the chain's length");
 
+// A step's battle not won yet while its event waits to fire again (mw1_story.h's steps_wait: the battle lost, or RUN,
+// or a stalling choice; dev 1's step battles, 2026-11-18): a lost battle marks no setback event of its own.
+const char* unbeaten_line(int32_t event) {
+  switch (event) {
+    case 0x0C: return "You haven't beaten Grig's men yet. Try again: the Bar on %s.";
+    case 0x17: return "You haven't beaten Brown's men yet. Try again: arrive on %s.";
+    case 0x27: return "You haven't beaten the ambush yet. Try again: arrive on %s.";
+    case 0x2F: return "You haven't won at Kearney's address yet. Try again: arrive on %s.";
+    case 0x40: return "You haven't beaten the Matabushi raid yet. Try again: arrive on %s.";
+    default: return nullptr;
+  }
+}
+
 std::string with_planet(const char* fmt, const std::string& name) {
   std::string out = fmt;
   if (const size_t at = out.find("%s"); at != std::string::npos) out.replace(at, 2, name);
@@ -168,6 +181,8 @@ Lead current_lead(const Company& c) {
       lead.line = with_planet(s.retry2, name), lead.retry = true;
     } else if (s.setback >= 0 && seen(c, s.setback) && !(taken && s.rung == 0)) {
       lead.line = with_planet(s.retry, name), lead.retry = true;
+    } else if (s.rung > won && c.story.seen[static_cast<size_t>(s.event)] == kSeenWaiting && unbeaten_line(s.event)) {
+      lead.line = with_planet(unbeaten_line(s.event), name), lead.retry = true;
     }
     if (s.rung > won) lead.rung = s.rung, lead.strength = strength_line(s.rung, lancemates_of(c));
     return lead;

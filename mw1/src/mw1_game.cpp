@@ -280,6 +280,20 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       }
       // MW1_SCREEN=hub, market, travel or bar: the hub at once, over the menu (shots); else the menu waits.
       if (!screen || std::string(screen) == "menu") return true;
+      // FIXES.md item 52's capture: the menu, then CONTINUE (a save there) as the player at MW1_FADE_AT (default 60).
+      if (std::string(screen) == "fade_menu") {
+        const int at = std::getenv("MW1_FADE_AT") ? std::atoi(std::getenv("MW1_FADE_AT")) : 60;
+        auto before = ge.on_present;
+        ge.on_present = [this, before, at, start = -1](int f) mutable {
+          if (before) before(f);
+          if (start < 0) start = f;
+          if (f - start == at) {
+            std::printf("mw1: fade capture: frame %d, CONTINUE\n", f);
+            as_player([&] { press_menu(kMenuContinue); });
+          }
+        };
+        return true;
+      }
     }
     return enter_hub(ge);
   }
@@ -414,23 +428,37 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       }
       // FIXES.md item 52's captures: the player's presses at set frames (as a click: faded), the hub's first at
       // MW1_FADE_AT (default 60), the next 40 frames on. fade_bar: BAR, then the Bar's BACK; fade_lab: MECH COMPLEX,
-      // then MECH LAB (on the commander's mech).
-      if (const char* s = std::getenv("MW1_SCREEN"); s && (std::string(s) == "fade_bar" || std::string(s) == "fade_lab")) {
-        const bool lab = std::string(s) == "fade_lab";
+      // then MECH LAB (on the commander's mech); fade_story: STORY (the trail at MW1_STORY_STEP, default 7), then GO
+      // THERE; fade_deploy: the office's offer taken, then DEPLOY (the loading screen).
+      if (const char* s = std::getenv("MW1_SCREEN");
+          s && (std::string(s) == "fade_bar" || std::string(s) == "fade_lab" || std::string(s) == "fade_story" ||
+                std::string(s) == "fade_deploy")) {
+        const std::string page = s;
         const int at = std::getenv("MW1_FADE_AT") ? std::atoi(std::getenv("MW1_FADE_AT")) : 60;
+        if (page == "fade_story") {
+          const char* step = std::getenv("MW1_STORY_STEP");
+          journal::seed_for_shots(company_, step ? std::atoi(step) : 7);
+        }
         press(kHubOk);
         auto before = ge.on_present;
-        ge.on_present = [this, before, lab, at, start = -1](int f) mutable {
+        ge.on_present = [this, before, page, at, start = -1](int f) mutable {
           if (before) before(f);
           if (start < 0) start = f;
           const int n = f - start;
           if (n == at) {
-            std::printf("mw1: fade capture: frame %d, %s\n", f, lab ? "MECH COMPLEX" : "BAR");
-            as_player([&] { press(lab ? kHubMarket : kHubBar); });
+            std::printf("mw1: fade capture: frame %d, the first press (%s)\n", f, page.c_str());
+            if (page == "fade_deploy" && !contract_.accepted && earning_here(company_)) new_offer(), take_contract();
+            as_player([&] {
+              press(page == "fade_lab" ? kHubMarket : page == "fade_story" ? kHubStory : page == "fade_deploy" ? kHubDeploy : kHubBar);
+            });
           }
-          if (n == at + 40) {
-            std::printf("mw1: fade capture: frame %d, %s\n", f, lab ? "MECH LAB" : "BACK");
-            as_player([&] { lab ? press_market(kMarketLab) : press_bar(kBarBack); });
+          if (n == at + 40 && page != "fade_deploy") {
+            std::printf("mw1: fade capture: frame %d, the second press (%s)\n", f, page.c_str());
+            as_player([&] {
+              if (page == "fade_lab") press_market(kMarketLab);
+              else if (page == "fade_story") press_event(kEventChoice2);
+              else press_bar(kBarBack);
+            });
           }
         };
       }
@@ -740,7 +768,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         return;
       case kHubStory:
         if (pending_ || !ge) return;
-        open_journal();
+        screen_change([this] { open_journal(); });
         return;
       case kHubBar:
         // The Bar in the hub's place (BACK brings the hub back); not while AFTER ACTION waits.
@@ -1007,7 +1035,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       // typed, Enter).
       travel_state_->set_pointer(kMapLeft, kMapTop, kMapLeft + kMapWidth - 1, kMapTop + kMapHeight - 1,
                                  [this](int32_t x, int32_t y, bool click) { travel_point(x, y, click); });
-      travel_state_->set_keys([this](uint32_t k) { travel_key(k); });
+      travel_state_->set_keys([this](uint32_t k) { as_player([&] { travel_key(k); }); });
     }
     return travel_ != 0;
   }
@@ -1521,7 +1549,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     }
     results_ = ge.adopt_state([this](zgame::Handle h) { return results_state_ = new ResultsState(h, [this](int32_t id) { as_player([&] { press_results(id); }); }); });
     if (results_state_) {
-      results_state_->set_keys([this](uint32_t k) { results_key(k); });
+      results_state_->set_keys([this](uint32_t k) { as_player([&] { results_key(k); }); });
       results_state_->set_wheel([this](int32_t d) { results_move(-d); });
     }
     return results_ != 0;
@@ -1996,20 +2024,23 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     switch (id) {
       case kEventNext:
         if (!ev_panel_.last_page()) ++ev_panel_.page;
-        else return events_done();  // Escape on the lead's page: back to the hub
+        else return screen_change([this] { events_done(); });  // Escape on the lead's page: back to the hub
         break;
       case kEventPrev:
         if (ev_panel_.page > 0) --ev_panel_.page;
         break;
-      case kEventBack: return events_done();
+      case kEventBack: return screen_change([this] { events_done(); });  // FIXES.md item 52: faded, as a screen
       case kEventChoice2: {
         if (ev_panel_.live.empty() || !ev_panel_.live[0]) return;
         const int32_t to = journal::current_lead(company_).planet;
-        events_done();
-        press(kHubTravel);
-        tchoice_.world = to;
-        std::printf("mw1: story: GO THERE: the starport, %s chosen\n", to >= 0 ? kPlanets[to].name : "none");
-        show_travel();
+        // At black (item 52): the hub's starport (its own change made at once inside this one), the lead's world.
+        screen_change([this, to] {
+          events_done();
+          press(kHubTravel);
+          tchoice_.world = to;
+          std::printf("mw1: story: GO THERE: the starport, %s chosen\n", to >= 0 ? kPlanets[to].name : "none");
+          show_travel();
+        });
         return;
       }
       default: return;
@@ -2330,7 +2361,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       art::Store::get().preload({scenery_image(company_.planet_number)});
       std::printf("mw1: loading %sia%d: %s\n", contract_.world.c_str(), contract_.ia, objective_words(contract_).c_str());
     }
-    if (loading_) loading_->update(dt);
+    if (loading_) loading_->update(dt), screens::fade_over_layer(e);  // FIXES.md item 52: in from black
     if (!loaded || hold_launch_ || hold_for_shot_) return LoadingNext::kWait;
     // A load MW1 didn't ask for (PM's own next round, its debriefing's CONTINUE): never played, back to the hub.
     if (!deployed_ || launched_) return LoadingNext::kAbort;
