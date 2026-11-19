@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 
 namespace mw1::map_image {
 namespace {
@@ -105,6 +106,93 @@ images::Image backdrop(int32_t lit) {
   im.pixels.resize(px.size());
   for (size_t i = 0; i < px.size(); ++i) im.pixels[i] = images::rgb565(px[i].r, px[i].g, px[i].b);
   return im;
+}
+
+std::vector<uint8_t> backdrop_rgba(int32_t lit, int32_t scale) {
+  const int32_t sc = std::max(1, scale), fw = kMapWidth * sc, fh = kMapHeight * sc;
+  const float inv = 1.0f / static_cast<float>(sc);
+  // Each fine pixel's House: the canvas pixel's inside a territory, found again on a border.
+  std::vector<int8_t> fine(static_cast<size_t>(fw) * fh, -1);
+  Point at[kPlanetCount];
+  for (int32_t i = 0; i < kPlanetCount; ++i) at[i] = on_screen(i);
+  const float reach2 = static_cast<float>(kTerritoryReach * kTerritoryReach);
+  std::vector<int32_t> near;
+  for (int32_t cy = 0; cy < kMapHeight; ++cy)
+    for (int32_t cx = 0; cx < kMapWidth; ++cx) {
+      const int32_t h = house_at(cx, cy);
+      bool border = false, by_space = false;
+      for (int32_t dy = -1; dy <= 1; ++dy)
+        for (int32_t dx = -1; dx <= 1; ++dx) {
+          const int32_t n = house_at(cx + dx, cy + dy);
+          border |= n != h, by_space |= n < 0;
+        }
+      if (!border) {
+        for (int32_t y = cy * sc; y < (cy + 1) * sc; ++y)
+          std::fill_n(fine.begin() + static_cast<ptrdiff_t>(y) * fw + cx * sc, sc, static_cast<int8_t>(h));
+        continue;
+      }
+      near.clear();  // the worlds that can own a point of this pixel
+      for (int32_t i = 0; i < kPlanetCount; ++i) {
+        const int32_t dx = at[i].x - (kMapLeft + cx), dy = at[i].y - (kMapTop + cy);
+        if (dx * dx + dy * dy <= (kTerritoryReach + 2) * (kTerritoryReach + 2)) near.push_back(i);
+      }
+      for (int32_t y = cy * sc; y < (cy + 1) * sc; ++y)
+        for (int32_t x = cx * sc; x < (cx + 1) * sc; ++x) {
+          const float px = kMapLeft + (x + 0.5f) * inv - 0.5f, py = kMapTop + (y + 0.5f) * inv - 0.5f;
+          int32_t best = -1;
+          float best_d = reach2 + 1e-3f;
+          for (int32_t i : near) {
+            const float dx = at[i].x - px, dy = at[i].y - py, d = dx * dx + dy * dy;
+            if (d < best_d) best = i, best_d = d;
+          }
+          // Beyond every reach: space where the canvas pixel touches space, else a hole the canvas filled.
+          const int32_t got = best >= 0 ? kPlanets[best].house : (by_space || h < 0 ? -1 : h);
+          fine[static_cast<size_t>(y) * fw + x] = static_cast<int8_t>(got);
+        }
+    }
+  auto fine_at = [&](int32_t x, int32_t y) {
+    return x < 0 || y < 0 || x >= fw || y >= fh ? int8_t{-1} : fine[static_cast<size_t>(y) * fw + x];
+  };
+  std::vector<float> rgb(static_cast<size_t>(fw) * fh * 3, 0.0f);
+  if (kStarfield) {  // the canvas's stars, each a soft dot about a canvas pixel across
+    uint32_t s = kStarSeed;
+    auto next = [&] { return s = s * 1664525u + 1013904223u, s >> 8; };
+    const float r = 0.55f * sc;
+    for (int32_t i = 0; i < kStars; ++i) {
+      const int32_t x = static_cast<int32_t>(next() % kMapWidth), y = static_cast<int32_t>(next() % kMapHeight);
+      const float v = static_cast<float>(40 + next() % 70);
+      const float cxf = (x + 0.5f) * sc, cyf = (y + 0.5f) * sc;
+      for (int32_t fy = static_cast<int32_t>(cyf - r - 1); fy <= static_cast<int32_t>(cyf + r + 1); ++fy)
+        for (int32_t fx = static_cast<int32_t>(cxf - r - 1); fx <= static_cast<int32_t>(cxf + r + 1); ++fx) {
+          if (fx < 0 || fy < 0 || fx >= fw || fy >= fh) continue;
+          const float d = std::sqrt((fx + 0.5f - cxf) * (fx + 0.5f - cxf) + (fy + 0.5f - cyf) * (fy + 0.5f - cyf));
+          const float a = std::clamp(r + 0.5f - d, 0.0f, 1.0f);
+          float* p = &rgb[(static_cast<size_t>(fy) * fw + fx) * 3];
+          p[0] = std::max(p[0], v * a), p[1] = std::max(p[1], v * a), p[2] = std::max(p[2], std::min(255.0f, v + 20) * a);
+        }
+    }
+  }
+  const int32_t t = std::max(1, (sc + 1) / 2);  // the outline's half-width, fine pixels: a canvas pixel in all
+  std::vector<uint8_t> out(static_cast<size_t>(fw) * fh * 4, 255);
+  for (int32_t y = 0; y < fh; ++y)
+    for (int32_t x = 0; x < fw; ++x) {
+      float* p = &rgb[(static_cast<size_t>(y) * fw + x) * 3];
+      const int8_t h = fine[static_cast<size_t>(y) * fw + x];
+      if (kTerritories && h >= 0) {
+        bool edge = false;
+        for (int32_t k = 1; k <= t && !edge; ++k)
+          edge = fine_at(x + k, y) != h || fine_at(x - k, y) != h || fine_at(x, y + k) != h || fine_at(x, y - k) != h;
+        const int32_t dim = lit >= 0 && h != lit ? kDimmedPercent : 100;
+        const Rgb c = kHouseColours[h];
+        const float pc = (edge ? kOutlinePercent : kFillPercent) * dim / 10000.0f;
+        const float base = edge ? 0.0f : 1.0f;  // an outline over black, a fill over the stars
+        p[0] = p[0] * base * (1 - pc) + c.r * pc, p[1] = p[1] * base * (1 - pc) + c.g * pc;
+        p[2] = p[2] * base * (1 - pc) + c.b * pc;
+      }
+      uint8_t* o = &out[(static_cast<size_t>(y) * fw + x) * 4];
+      for (int32_t i = 0; i < 3; ++i) o[i] = static_cast<uint8_t>(std::clamp(p[i] + 0.5f, 0.0f, 255.0f));
+    }
+  return out;
 }
 
 std::vector<images::Image> backdrops() {

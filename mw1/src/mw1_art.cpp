@@ -12,6 +12,7 @@
 #include "gamez/zimage/zimg_library.h"
 #include "gamez/zutil/zutl_path.h"
 #include "mw1_chrome.h"
+#include "mw1_map_image.h"
 #include "platform/hires_2d.h"
 #include "platform/hires_images.h"
 
@@ -216,7 +217,7 @@ struct Store::Impl {
   };
   std::map<std::string, Slot> slots;
   // B2b: the drawn pieces, each made from a source image (its name in by_name) with its group.
-  enum class Kind { kTiles, kDeployTile, kLabPanels, kChrome };
+  enum class Kind { kTiles, kDeployTile, kLabPanels, kChrome, kMap };
   struct Recipe { Kind kind; std::string source, base; };
   std::map<std::string, Recipe> recipes;  // by the piece's name
   struct Made {
@@ -276,12 +277,23 @@ struct Store::Impl {
       chrome::Drawn one;
       if (chrome::chrome_at(name, scale, &one)) group.push_back(std::move(one));
     }
-    Slot* src = r->second.kind == Kind::kChrome ? nullptr : slot(r->second.source, true);
-    if (r->second.kind != Kind::kChrome && (!src || !src->done)) return nullptr;
+    const bool sourceless = r->second.kind == Kind::kChrome || r->second.kind == Kind::kMap;
+    Slot* src = sourceless ? nullptr : slot(r->second.source, true);
+    if (!sourceless && (!src || !src->done)) return nullptr;
     static const Decoded kNone;
     const Decoded& d = src ? *src->done : kNone;
     switch (r->second.kind) {
       case Kind::kChrome: break;
+      case Kind::kMap: {
+        int32_t lit = -1;
+        for (int32_t h = 0; h < kHouseCount; ++h)
+          if (name == map_image::house_image(h)) lit = h;
+        chrome::Drawn one;
+        one.name = name, one.canvas_w = kMapWidth, one.canvas_h = kMapHeight, one.s = scale;
+        one.rgba = map_image::backdrop_rgba(lit, scale);
+        group.push_back(std::move(one));
+        break;
+      }
       case Kind::kTiles: group = chrome::tiles_at(d.rgba.data(), d.w, d.h, 0, 0, d.w, d.h, r->second.base, scale); break;
       case Kind::kDeployTile: {  // the launch's middle square, as the packer cut it
         const int32_t side = std::min(d.w, d.h);
@@ -361,6 +373,9 @@ bool Store::open(const std::string& path) {
   // The chrome drawn in code (mw1_chrome.h's chrome_names: the plaques, buttons, frames, panels, the dialog...).
   for (const std::string& n : chrome::chrome_names())
     if (!impl->recipes.count(n)) add(Kind::kChrome, "", n, {n});
+  // The travel map's backdrops (FIXES.md item 12), drawn in code as the packer drew them, at the window's scale.
+  add(Kind::kMap, "", map_image::kMapImage, {map_image::kMapImage});
+  for (int32_t h = 0; h < kHouseCount; ++h) add(Kind::kMap, "", map_image::house_image(h), {map_image::house_image(h)});
   impl->scale = g_scale;
   impl_ = impl.release();
   const std::vector<std::string> added = g_added;

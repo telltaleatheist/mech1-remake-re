@@ -2,6 +2,7 @@
 // in their own colours on the image, the six images packed, and the same pixels every build. MW1_MAP_PREVIEW=DIR
 // writes them as BMPs there to look at.
 #include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -115,4 +116,59 @@ TEST(mw1_map_image_no_slivers) {
   }
   std::printf("  %d pieces, %d stray\n", pieces, stray);
   EXPECT(stray == 0);
+}
+
+// FIXES.md item 12: the backdrop drawn again at the window's scale is the canvas's picture, finer. At scale 1 it is
+// the canvas's own (the borders found again at each pixel's own place, which is the canvas's); at 5 (4K's) each
+// canvas pixel's fine pixels average near its colour inside a territory, a border runs through fine pixels, not
+// whole canvas pixels, and it is quick enough to make as the screen opens.
+TEST(mw1_map_backdrop_at_the_windows_scale) {
+  for (int32_t lit : {-1, 2}) {
+    const mw1::images::Image canvas = mw1::backdrop(lit);
+    const std::vector<uint8_t> one = mw1::backdrop_rgba(lit, 1);
+    EXPECT(one.size() == static_cast<size_t>(mw1::kMapWidth) * mw1::kMapHeight * 4);
+    int32_t differ = 0;
+    for (size_t i = 0; i < canvas.pixels.size(); ++i) {
+      const uint16_t p = mw1::images::rgb565(one[i * 4], one[i * 4 + 1], one[i * 4 + 2]);
+      const int32_t dr = std::abs((p >> 11) - (canvas.pixels[i] >> 11)), dg = std::abs(((p >> 5) & 63) - ((canvas.pixels[i] >> 5) & 63)),
+                    db = std::abs((p & 31) - (canvas.pixels[i] & 31));
+      differ += std::max({dr, dg / 2, db}) > 1;
+    }
+    std::printf("  lit %d, scale 1: %d of %zu pixels differ\n", lit, differ, canvas.pixels.size());
+    EXPECT(differ * 200 < static_cast<int32_t>(canvas.pixels.size()));  // under 0.5% (the stars' soft edges)
+  }
+  const int32_t s = 5;
+  const auto t0 = std::chrono::steady_clock::now();
+  const std::vector<uint8_t> big = mw1::backdrop_rgba(-1, s);
+  const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+  std::printf("  scale %d: %dx%d in %.0f ms\n", s, mw1::kMapWidth * s, mw1::kMapHeight * s, ms);
+  EXPECT(big.size() == static_cast<size_t>(mw1::kMapWidth * s) * mw1::kMapHeight * s * 4);
+  EXPECT(ms < 1500);
+  const mw1::images::Image canvas = mw1::backdrop(-1);
+  int32_t inside = 0, near = 0, split = 0;
+  for (int32_t cy = 1; cy + 1 < mw1::kMapHeight; ++cy)
+    for (int32_t cx = 1; cx + 1 < mw1::kMapWidth; ++cx) {
+      const int32_t h = mw1::territory_at(mw1::kMapLeft + cx, mw1::kMapTop + cy);
+      bool same = h >= 0;
+      for (int32_t d = -2; d <= 2 && same; ++d)
+        same = mw1::territory_at(mw1::kMapLeft + cx + d, mw1::kMapTop + cy) == h && mw1::territory_at(mw1::kMapLeft + cx, mw1::kMapTop + cy + d) == h;
+      int32_t sum[3] = {0, 0, 0}, lo = 255, hi = 0;
+      for (int32_t y = cy * s; y < (cy + 1) * s; ++y)
+        for (int32_t x = cx * s; x < (cx + 1) * s; ++x) {
+          const uint8_t* p = &big[(static_cast<size_t>(y) * mw1::kMapWidth * s + x) * 4];
+          for (int32_t i = 0; i < 3; ++i) sum[i] += p[i];
+          lo = std::min<int32_t>(lo, p[0] + p[1] + p[2]), hi = std::max<int32_t>(hi, p[0] + p[1] + p[2]);
+        }
+      if (same) {  // a territory's inside, starless: the canvas's fill
+        const uint16_t c = canvas.pixels[static_cast<size_t>(cy) * mw1::kMapWidth + cx];
+        const int32_t r = (c >> 11) * 255 / 31, g = ((c >> 5) & 63) * 255 / 63, b = (c & 31) * 255 / 31;
+        ++inside;
+        near += std::abs(sum[0] / (s * s) - r) <= 12 && std::abs(sum[1] / (s * s) - g) <= 12 && std::abs(sum[2] / (s * s) - b) <= 12;
+      } else if (h >= 0 && hi - lo > 60) {
+        ++split;  // a border inside one canvas pixel: finer than the canvas
+      }
+    }
+  std::printf("  %d inside pixels, %d near the canvas's colour; %d border pixels split finer\n", inside, near, split);
+  EXPECT(near * 100 >= inside * 98);
+  EXPECT(split > 500);
 }
