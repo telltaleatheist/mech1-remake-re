@@ -332,16 +332,16 @@ Tick an item when it is merged into `main`.
 - **Then:** the results screen gets a picture panel (victory picture on a win; defeat picture on a loss or retreat), kept at source size for item 12. If MW1's exe holds the debrief lines ("A very boring and uneventful tour of garrison duty..."), read them from the player's exe as the pitches are, under the picture.
 
 ## 28. [ ] Decisions waiting for Owen (not bugs; asked in chat)
-- Salvage parts on a lost or abandoned mission: kept or dropped? Today: dropped (VISION's endings).
+- ~~Salvage on a loss~~ Owen: lost or retreated loses all salvage. Salvage cash: see 51.
 - The morning list's open story questions (`outbox/2026-11-17/mw1-morning-decisions.md`): the deaths, the deadline, the ending, the commander's name, the Dark Wing battle, multi-stage battles, the major campaign's dates.
 - The travel map's seven look-and-feel questions, which will be folded into item 21's readout.
 - An arctic Instant Action layout built from MW3's snow world (m4/m6) at conversion time?
-- Item 20's highlight colour: MW1's bright amber (built), or white? Should the hub's status-line contract readout be highlighted too?
+- ~~Item 20's highlight colour~~ Owen: bright amber stays. Should the hub's status-line contract readout be highlighted too?
 - zipkit should free its own node pool (MW1 frees it after the conversion today, mw1_worlds.cpp); move the fix into zipkit?
 - For the mw3 lead, not MW1: on 16:9 the engine's widening shifts a centred dialog's list arrows by the 107 px margin once too often (PM's own load box shows it). MW1 works round it in MW1LOADSAVE_WIDE.
-- The lab's remaining PM wordings: the variant names ("Alternate A (incomplete)"), the Rename, Save and Delete links, "'Mech Name", and the SKINS cycle's camo names (GUNMETAL). Keep them, or use MW1 words?
-- Dev 2 shortened three Bar hints to fit 4:3 ("Order a drink, read the news, or find pilots for hire.", etc.). Is the wording OK?
-- Item 19's results screen: the shot is in `outbox/2026-11-17/results-screen/`; anything to change?
+- ~~The lab's remaining PM wordings~~ Owen: MW3's terms (Alternate, Primary, …) are fine; keep them. Was: the variant names ("Alternate A (incomplete)"), the Rename, Save and Delete links, "'Mech Name", and the SKINS cycle's camo names (GUNMETAL). Keep them, or use MW1 words?
+- ~~Bar hints~~ Owen: 4:3 is rare but supported; the short hints stand. Was: Dev 2 shortened three Bar hints to fit 4:3 ("Order a drink, read the news, or find pilots for hire.", etc.). Is the wording OK?
+- Item 19's results screen: Owen hasn't seen it in play yet (needs his rebuilt game). The shot is in `outbox/2026-11-17/results-screen/`; anything to change?
 
 ## 32. [x] Missing in action: a downed lancemate can come back to the hiring pool *(mw1-missing-pilots)*
 - **Owen (2026-11-18):** yes, add MW1's MISSING.
@@ -544,7 +544,7 @@ Tick an item when it is merged into `main`.
   - shots of the journal, the map marker and a step battle's offer;
   - the ladder in one table.
 
-## 48. [ ] Lift the 10-'Mech limit in a battle (MW1's line-up)
+## 48. [x] Lift the 10-'Mech limit in a battle (MW1's line-up)
 - **Owen (2026-11-18):** there's no reason to keep a battle capped at 10 'Mechs. We may not want many more in play, but the cap shouldn't be the engine's.
 - **Today:**
   - PM's ActionGame line-up holds 10 (lineup[10], add() refuses past 9; pilot_games.cpp:1012), the player included.
@@ -581,6 +581,31 @@ Tick an item when it is merged into `main`.
 - **Done means:**
   - shots at 1080p and 4:3, with every liaison (each House);
   - a fit check: the edges line up within 1 px.
+
+## 51. [ ] Salvage pays from what's left after your repairs; parts are always yours
+- **Owen (2026-11-18), answering 28's salvage questions:**
+  - **Lost or retreated:** you lose all salvage (cash and parts). That's today's rule; keep it.
+  - **Parts:** every weapon, ammo, armour and equipment item salvaged on a win is yours to keep, with no limit (no tonnage limit, no pick list). So 38's "salvage limit" is not wanted.
+  - **Cash, the new rule:**
+    1. The pool is the destroyed enemy 'Mechs' worth (the wrecks' value, as today).
+    2. Your own 'Mech's repairs come off the top of the pool.
+    3. The contract's salvage term (the percent agreed in the office) is paid on what's left.
+    - Owen's example: a 3,000,000 wreck, 2,000,000 of damage to you, so 1,000,000 is left. At a 10% term you get 100,000, and your 'Mech is repaired.
+  - **Repairs over the pool:** if the repairs cost more than the pool, the pool covers what it can and the rest is billed as today. *(Lead's default; tell Owen.)*
+  - **Lancemates' 'Mechs:** repaired from the pool the same way, after yours. *(Lead's default; tell Owen.)*
+- **AFTER ACTION's PAYMENT shows the sum:** the wrecks' worth, less repairs, = left; times the term = salvage pay; then the fee and the total.
+- **Story battles** pay no fee, but the salvage rule is the same (Dark Wing included).
+- **Done means:** a test with Owen's numbers (3,000,000 / 2,000,000 / 10% → 100,000, repaired, nothing billed); a test with repairs over the pool; and shots of the PAYMENT block.
+
+## 52. [ ] Fade to black and back between screens
+- **Owen (2026-11-18):** "when we switch screens, it jumps from one thing to another. can we have it fade to black and fade back in to the new screen ... maybe half a second fade in/out."
+- **Wanted:** every change between MW1's own screens fades out to black and then in to the new screen. That covers the hub, Bar, Mech Complex, office, lab, starport, travel, the STORY page, AFTER ACTION, the loading screen and the main menu.
+  - About half a second in all: 0.25 s out and 0.25 s in. The timing is one constant, so it can be tuned.
+  - Input is ignored during the fade, so a double click can't skip a screen.
+  - Event messages in the bottom box (34/42) don't fade the screen; only a change of screen does.
+  - No main-menu flash (35) during the fade.
+- **With 12:** the fade must look right on the high-resolution 2D path. Draw it as a tint quad over the frame (research/hires-2d.md: the tint path), not by reading pixels. This folds in 12's parked fade.
+- **Done means:** a frame capture of hub → Bar → hub and hub → lab at 1080p, showing the ramp, no flash, and the half-second timing.
 
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
