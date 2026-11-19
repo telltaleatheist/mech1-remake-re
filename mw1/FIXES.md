@@ -515,7 +515,7 @@ Tick an item when it is merged into `main`.
   - the offer's climate word (44 c) shows the map's own climate.
 - **Done means:** a test that draws 10,000 offers per climate and reports the shares, with never a forbidden pairing and never a repeat; plus the new rows passing 45.
 
-## 47. [ ] The story made overt and hard: a journal that points to the spot, and a battle at every step
+## 47. [x] The story made overt and hard: a journal that points to the spot, and a battle at every step
 - **Owen (2026-11-18):** give the player something to do and something to look for. A journal that says how to do the next thing in the story and points right to the spot. Every step in the chain very hard, so even knowing what to do, the player has to build up a powerful army first. The final battle very hard, with a set number of mechs.
 - **The journal (a STORY button on the hub, a page like the news):**
   - **Chapters:** every story step seen so far, in order, with MW1's own text read from the exe as now.
@@ -559,7 +559,7 @@ Tick an item when it is merged into `main`.
   - frame time measured at 1080p with 16 'Mechs;
   - MW3's and PM's own IA unchanged (their suites).
 
-## 49. [ ] A flat white band at the horizon on converted MW3 worlds
+## 49. [x] A flat white band at the horizon on converted MW3 worlds
 - **Seen (2026-11-18, dev 2's 46 shots: Gorge, Big Lake, also Grasslands):** a band of flat white about a tenth of the screen tall, between the sky and the ground, all round the horizon. MW3 itself shows haze or distant terrain there.
 - **Likely cause:** something the conversion or our sky lacks, such as the sky dome's lower part, the horizon's fog colour, or a far-plane clear colour. It must be found before the arctic map (44), which is a converted MW3 world too.
 - **Wanted:** the horizon as MW3 draws it. Compare a shot of the same spot in MW3's own program (the mw3 build), then fix it in the converter or in MW1's world setup. MW3's and PM's files are never modified.
