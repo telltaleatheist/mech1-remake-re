@@ -11,6 +11,7 @@
 #include "check.h"
 #include "mw1_images.h"
 #include "mw1_map_image.h"
+#include "mw1_marks.h"
 #include "mw1_travel.h"
 #include "mw1_travel_map.h"
 
@@ -171,4 +172,52 @@ TEST(mw1_map_backdrop_at_the_windows_scale) {
   std::printf("  %d inside pixels, %d near the canvas's colour; %d border pixels split finer\n", inside, near, split);
   EXPECT(near * 100 >= inside * 98);
   EXPECT(split > 500);
+}
+
+// FIXES.md item 12: the travel map's marks as pictures (mw1_marks.h), drawn from one geometry at the canvas's size
+// and the window's scale.
+TEST(mw1_marks_named_drawn_and_scaled) {
+  mw1::marks::Spec dot;  // a world's: the ring of 2, the square of 1, the middle pixel, its office's ring of 4
+  dot.r = 255, dot.g = 85, dot.b = 255;
+  dot.parts = {{mw1::marks::Shape::kRing, 2, 0, 0}, {mw1::marks::Shape::kSquare, 1, 0, 0},
+               {mw1::marks::Shape::kLine, 0, 0, 0}, {mw1::marks::Shape::kRing, 4, 0, 0}};
+  const std::string name = mw1::marks::image_name(dot);
+  EXPECT(name == "mw1_mark_ff55ff_r2_s1_l0,0_r4");
+  mw1::marks::Spec back;
+  EXPECT(mw1::marks::parse(name, &back) && mw1::marks::image_name(back) == name && back.parts.size() == 4);
+  EXPECT(!mw1::marks::is_mark("mw1_map") && !mw1::marks::is_mark("mw1_mark_ff55ff") && !mw1::marks::is_mark("mw1_mark_ff55ff_r2_q1") &&
+         !mw1::marks::is_mark("mw1_mark_ff55ff_r02"));  // one spelling a picture
+  int32_t w, h, ax, ay;
+  mw1::marks::extent(dot, &w, &h, &ax, &ay);
+  EXPECT(w == 11 && h == 11 && ax == 5 && ay == 5);
+  // The canvas: the dot's middle 5x5 filled but its corners (a disc 5 across), the ring of 4 round it, nothing
+  // between.
+  const mw1::images::Image c = mw1::marks::canvas(dot);
+  auto solid = [&](int32_t dx, int32_t dy) { return c.alpha[static_cast<size_t>((ay + dy) * w + ax + dx)] == 255; };
+  int32_t filled = 0;
+  for (int32_t dy = -1; dy <= 1; ++dy)
+    for (int32_t dx = -1; dx <= 1; ++dx) filled += solid(dx, dy);
+  EXPECT(filled == 9 && solid(2, 0) && solid(0, -2) && solid(2, 1) && !solid(2, 2) && !solid(3, 0) && solid(4, 0) && solid(0, 4));
+  EXPECT(c.pixels[0] == mw1::images::rgb565(255, 85, 255));
+  // A line: Bresenham's pixels from the anchor to its end, one a column.
+  mw1::marks::Spec line;
+  line.parts = {{mw1::marks::Shape::kLine, 0, -6, 3}};
+  mw1::marks::extent(line, &w, &h, &ax, &ay);
+  const mw1::images::Image l = mw1::marks::canvas(line);
+  int32_t lit = 0;
+  for (uint8_t a : l.alpha) lit += a == 255;
+  EXPECT(lit == 7 && l.alpha[static_cast<size_t>(ay * w + ax)] == 255 && l.alpha[static_cast<size_t>((ay + 3) * w + ax - 6)] == 255);
+  // At 5x: the ring's band anti-aliased (partial coverage on its edges), the middle solid, the gap clear.
+  const int32_t s = 5;
+  mw1::marks::extent(dot, &w, &h, &ax, &ay);
+  const std::vector<uint8_t> big = mw1::marks::rgba(dot, s);
+  EXPECT(big.size() == static_cast<size_t>(w * s) * (h * s) * 4);
+  auto alpha = [&](float cx, float cy) {  // canvas units from the anchor's centre
+    const int32_t x = static_cast<int32_t>((ax + 0.5f + cx) * s), y = static_cast<int32_t>((ay + 0.5f + cy) * s);
+    return big[(static_cast<size_t>(y) * w * s + x) * 4 + 3];
+  };
+  int32_t partial = 0;
+  for (size_t i = 3; i < big.size(); i += 4) partial += big[i] > 0 && big[i] < 255;
+  EXPECT(alpha(0, 0) == 255 && alpha(1.2f, 0) == 255 && alpha(3.0f, 0) == 0 && alpha(4.0f, 0) == 255 && alpha(0, -4.0f) == 255);
+  EXPECT(partial > 40);
 }

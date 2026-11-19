@@ -12,6 +12,7 @@
 #include "mech3/app_hooks.h"
 #include "gamez/zclass/cls_node.h"
 #include "mw1_fade.h"
+#include "mw1_marks.h"
 #include "gamez/zrender/zrndr_tint.h"
 #include "gamez/zrender/zrndr_blit.h"
 #include "gamez/zvideo/zvid_ddd3d.h"
@@ -135,7 +136,6 @@ class Pointer : public ztwod::Object2D {
   int32_t mx_ = 0, my_ = 0, told_x_ = -1, told_y_ = -1;
 };
 
-uint32_t pixel(const Mark& m) { return zvid::pack_bytes(m.r, m.g, m.b); }
 
 // A key's string, written bare (KEY "x") or listed (KEY ("x")); null when not there.
 const char* string_of(zrdr::Node* entry, const char* key) {
@@ -320,50 +320,39 @@ void Mw1Screen::point(int32_t x, int32_t y, bool click) {
 void Mw1Screen::show(const ScreenView& v) {
   // The marks first (made before the texts on a first show, so the names draw over them).
   marks_now_ = v.marks;
-  size_t rings = 0, lines = 0, squares = 0;
   const int32_t mdx = shift(Anchor::kLayout);  // the marks move with the layout
-  for (Mark m : v.marks) {
-    m.x += mdx, m.x2 += mdx;
-    switch (m.kind) {
-      case Mark::Kind::kRing: {
-        if (rings_.size() <= rings) {
-          rings_.push_back(std::make_unique<ztwod::Frame>(0, 0, 1, 0, nullptr));
-          add(rings_.back().get());
-        }
-        ztwod::Frame* f = rings_[rings++].get();
-        f->set_pos(m.x, m.y), f->radius = m.size, f->radius_sq = m.size * m.size, f->color = pixel(m);
-        f->show_for(-1.0f), f->dirty();
-        break;
-      }
-      case Mark::Kind::kLine: {
-        if (lines_.size() <= lines) {
-          lines_.push_back(std::make_unique<ztwod::Line2D>(0, 0, 0, 0, 0));
-          add(lines_.back().get());
-        }
-        ztwod::Line2D* l = lines_[lines++].get();
-        l->set(m.x, m.y, m.x2, m.y2), l->color = pixel(m);
-        l->show_for(-1.0f), l->dirty();
-        break;
-      }
-      case Mark::Kind::kSquare: {
-        if (squares_.size() <= squares) {
-          squares_.push_back(std::make_unique<ztwod::PolyLine>());
-          add(squares_.back().get());
-        }
-        ztwod::PolyLine* q = squares_[squares++].get();
-        const int32_t d = m.size;
-        q->count = 5;
-        q->set_point(0, m.x - d, m.y - d), q->set_point(1, m.x + d, m.y - d), q->set_point(2, m.x + d, m.y + d);
-        q->set_point(3, m.x - d, m.y + d), q->set_point(4, m.x - d, m.y - d);
-        q->color = pixel(m);
-        q->show_for(-1.0f), q->dirty();
-        break;
-      }
+  size_t shown = 0;
+  // A run of marks at one place in one colour (a world's dot, ring and square) is one picture (mw1_marks.h).
+  for (size_t i = 0; i < v.marks.size();) {
+    const Mark& m = v.marks[i];
+    marks::Spec spec;
+    spec.r = m.r, spec.g = m.g, spec.b = m.b;
+    size_t j = i;
+    for (; j < v.marks.size(); ++j) {
+      const Mark& n = v.marks[j];
+      if (n.x != m.x || n.y != m.y || n.r != m.r || n.g != m.g || n.b != m.b) break;
+      marks::Part part;
+      part.shape = n.kind == Mark::Kind::kRing ? marks::Shape::kRing : n.kind == Mark::Kind::kSquare ? marks::Shape::kSquare : marks::Shape::kLine;
+      part.size = n.kind == Mark::Kind::kLine ? 0 : n.size;
+      if (n.kind == Mark::Kind::kLine) part.dx = n.x2 - n.x, part.dy = n.y2 - n.y;
+      spec.parts.push_back(part);
     }
+    i = j;
+    int32_t w, h, ax, ay;
+    marks::extent(spec, &w, &h, &ax, &ay);
+    if (marks_.size() <= shown) {
+      marks_.push_back(std::make_unique<ztwod::Image>(0));
+      mark_names_.emplace_back();
+      add(marks_.back().get());
+    }
+    ztwod::Image* im = marks_[shown].get();
+    const std::string name = marks::image_name(spec);
+    if (mark_names_[shown] != name) mark_names_[shown] = name, im->set_image(name.c_str());
+    im->set_pos(m.x + mdx - ax, m.y - ay);
+    im->show_for(-1.0f), im->dirty();
+    ++shown;
   }
-  for (size_t i = rings; i < rings_.size(); ++i) rings_[i]->hide();
-  for (size_t i = lines; i < lines_.size(); ++i) lines_[i]->hide();
-  for (size_t i = squares; i < squares_.size(); ++i) squares_[i]->hide();
+  for (size_t i = shown; i < marks_.size(); ++i) marks_[i]->hide();
   if (blocks_.size() < v.blocks.size()) blocks_.resize(v.blocks.size());
   spans_.resize(blocks_.size()), shown_lines_.assign(blocks_.size(), {});
   // The status bar: its words start after the world's name, however long the name (FIXES 3+5: a long name ran over
