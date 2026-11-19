@@ -688,6 +688,16 @@ Tick an item when it is merged into `main`.
 - **Owen (2026-11-18, in play):** after buying a Firefly, the selection moved to it in YOUR MECHS, but the big panel still showed the Strider, the FOR SALE row chosen before. Switching rows corrected it.
 - **Wanted:** the panel follows every change of the chosen 'Mech: BUY, SELL, the selection moving between lists, and the first entry. Add a test (dev 1).
 
+## 59. [ ] Remove REPAIR and RELOAD from the Mech Complex
+- **Owen (2026-11-18):** "lets get rid of the repair/reload buttons in the mech bay, too, since we dont need them".
+- **Why they're dead:** every mission starts with every 'Mech repaired and rearmed (MW3's rule), and the bill is settled from the mission (51/57), so the buttons do nothing useful.
+- **Wanted:**
+  - The Mech Complex column is BUY, SELL, MECH LAB, BACK, evenly spaced. The live gunmetal panel keeps its place under BACK.
+  - The hint line no longer mentions them.
+  - Remove the dead code paths and their tests, or update them.
+  - It must fit at 1080p and 4:3.
+- **Done means:** shots at 1080p and 4:3, and mw1screenfit, labfit, hiresoff and smooth passing (update the goldens where the market changes).
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.
