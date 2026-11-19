@@ -20,6 +20,10 @@ void reach(const Part& p, int32_t* l, int32_t* t, int32_t* r, int32_t* b) {
     *l = std::max(0, -p.dx), *t = std::max(0, -p.dy), *r = std::max(0, p.dx), *b = std::max(0, p.dy);
     return;
   }
+  if (p.shape == Shape::kBox) {
+    *l = *t = 0, *r = std::max(0, p.dx - 1), *b = std::max(0, p.dy - 1);
+    return;
+  }
   *l = *t = *r = *b = p.size;
 }
 
@@ -36,6 +40,8 @@ bool covers(const Part& p, float cx, float cy, float px, float py) {
       const bool in_inner = px >= l + 1 && px < r - 1 && py >= t + 1 && py < b - 1;
       return in_outer && !in_inner;
     }
+    case Shape::kBox:
+      return px >= cx - 0.5f && px < cx - 0.5f + p.dx && py >= cy - 0.5f && py < cy - 0.5f + p.dy;
     case Shape::kLine: {
       // A line of no length is the anchor's pixel, whole (a world's dot's middle: a disc left its corners open).
       if (p.dx == 0 && p.dy == 0) return std::fabs(px - cx) <= 0.5f && std::fabs(py - cy) <= 0.5f;
@@ -56,6 +62,8 @@ std::string image_name(const Spec& s) {
   for (const Part& p : s.parts) {
     if (p.shape == Shape::kLine)
       std::snprintf(b, sizeof b, "_l%d,%d", p.dx, p.dy);
+    else if (p.shape == Shape::kBox)
+      std::snprintf(b, sizeof b, "_b%dx%do%d", p.dx, p.dy, p.opacity);
     else
       std::snprintf(b, sizeof b, "_%c%d", p.shape == Shape::kRing ? 'r' : 's', p.size);
     n += b;
@@ -81,6 +89,11 @@ bool parse(const std::string& name, Spec* s) {
     if (kind == 'l') {
       if (std::sscanf(rest, "%d,%d%n", &a, &b, &n) != 2 || std::abs(a) > 1024 || std::abs(b) > 1024) return false;
       p.shape = Shape::kLine, p.dx = a, p.dy = b;
+    } else if (kind == 'b') {
+      int c = 0;
+      if (std::sscanf(rest, "%dx%do%d%n", &a, &b, &c, &n) != 3 || a < 1 || b < 1 || a > 640 || b > 64 || c < 0 || c > 255)
+        return false;
+      p.shape = Shape::kBox, p.dx = a, p.dy = b, p.opacity = static_cast<uint8_t>(c);
     } else if (kind == 'r' || kind == 's') {
       if (std::sscanf(rest, "%d%n", &a, &n) != 1 || a < 0 || a > 64) return false;
       p.shape = kind == 'r' ? Shape::kRing : Shape::kSquare, p.size = a;
@@ -131,9 +144,10 @@ images::Image canvas(const Spec& s) {
       }
       continue;
     }
+    const uint8_t a = p.shape == Shape::kBox ? p.opacity : 255;
     for (int32_t y = 0; y < h; ++y)
       for (int32_t x = 0; x < w; ++x)
-        if (covers(p, ax + 0.5f, ay + 0.5f, x + 0.5f, y + 0.5f)) im.alpha[static_cast<size_t>(y) * w + x] = 255;
+        if (covers(p, ax + 0.5f, ay + 0.5f, x + 0.5f, y + 0.5f)) im.alpha[static_cast<size_t>(y) * w + x] = a;
   }
   return im;
 }
@@ -152,13 +166,13 @@ std::vector<uint8_t> rgba(const Spec& s, int32_t scale) {
           const float px = (x + (i + 0.5f) / 4.0f) * inv, py = (y + (j + 0.5f) / 4.0f) * inv;
           for (const Part& p : s.parts)
             if (covers(p, cx, cy, px, py)) {
-              ++hits;
+              hits += p.shape == Shape::kBox ? p.opacity : 255;
               break;
             }
         }
       if (!hits) continue;
       uint8_t* q = &out[(static_cast<size_t>(y) * fw + x) * 4];
-      q[0] = s.r, q[1] = s.g, q[2] = s.b, q[3] = static_cast<uint8_t>((hits * 255 + 8) / 16);
+      q[0] = s.r, q[1] = s.g, q[2] = s.b, q[3] = static_cast<uint8_t>((hits + 8) / 16);
     }
   return out;
 }

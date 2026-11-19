@@ -1013,6 +1013,19 @@ From the 2026-11-19 screen sweep (the lead's calls). Item 1 (the menu title over
 - **The shot driver:** `hub_contract` and `hub_contract_read` take a contract (REQUEST, ACCEPT, OK) before
   their shot; the pause page presses Escape as a player does.
 
+## 87. [x] The travel map's names on a dark backing *(done: mw1-fix87-name-backing)*
+FIXES 83 put each name above its world, but in dense clusters (Sian, New Avalon) it still crossed the dots there.
+The lead's call: a subtle backing, only as wide as the name.
+- Each world's name sits on a black box at opacity 150/255. The box is the words' width as drawn (FontText's
+  rect less its 3) plus 2 canvas pixels on each side, and the line's height. It draws over the marks and under the
+  texts.
+- The box is a mark (`mw1_marks.h`'s `b<w>x<h>o<opacity>`), so the canvas and the high-resolution draw make it from
+  the same geometry, anti-aliased at the window's scale.
+- Mw1Screen takes it from `TextBlock::backing`. A pool of 16 is made with the marks on the first show, before any
+  text.
+- `mw1namebacking` runs the travel page hidden at 16:9 and 4:3. Every name backed must fit its words. With the
+  backings off it fails (0 backed). The marks test covers the box's name, canvas alpha and scaled alpha.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.

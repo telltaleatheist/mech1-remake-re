@@ -367,6 +367,16 @@ void Mw1Screen::show(const ScreenView& v) {
     ++shown;
   }
   for (size_t i = shown; i < marks_.size(); ++i) marks_[i]->hide();
+  // The backings' pool, made once, here: after the marks (drawn over them), before the texts (under them). A view
+  // with backings shows marks on its first show (the travel map), so the marks made later stay few and under them too.
+  if (backings_.empty()) {
+    for (size_t i = 0; i < kBackings; ++i) {
+      backings_.push_back(std::make_unique<ztwod::Image>(0));
+      add(backings_.back().get());
+      backings_.back()->hide();
+    }
+    backing_names_.assign(kBackings, std::string());
+  }
   if (blocks_.size() < v.blocks.size()) blocks_.resize(v.blocks.size());
   spans_.resize(blocks_.size()), shown_lines_.assign(blocks_.size(), {});
   // The status bar: its words start after the world's name, however long the name (FIXES 3+5: a long name ran over
@@ -428,6 +438,33 @@ void Mw1Screen::show(const ScreenView& v) {
     for (size_t i = ls.size(); i < pool.size(); ++i) pool[i]->hide();
     for (size_t i = spans; i < spans_[b].size(); ++i) spans_[b][i]->hide();
   }
+  // The backings: a dark box behind each asking block's first line, its words' width (FontText's rect is the words
+  // and 3 more) and kBackingPad each side, the line's height.
+  size_t backed = 0;
+  backings_now_.clear(), backed_texts_now_.clear();
+  for (size_t b = 0; b < v.blocks.size() && b < blocks_.size(); ++b) {
+    if (!v.blocks[b].backing || v.blocks[b].lines.empty() || blocks_[b].empty() || backed >= backings_.size()) continue;
+    ztwod::Rect r{};
+    blocks_[b][0]->rect_at(&r);
+    const int32_t w = std::max(0, r.right - r.left - 3) + 2 * kBackingPad, h = r.bottom - r.top;
+    if (w <= 2 * kBackingPad || h <= 0) continue;
+    marks::Spec spec;
+    spec.r = spec.g = spec.b = 0;
+    marks::Part part;
+    part.shape = marks::Shape::kBox, part.dx = w, part.dy = h, part.opacity = kBackingOpacity;
+    spec.parts.push_back(part);
+    int32_t ew, eh, ax, ay;
+    marks::extent(spec, &ew, &eh, &ax, &ay);
+    ztwod::Image* im = backings_[backed].get();
+    const std::string name = marks::image_name(spec);
+    if (backing_names_[backed] != name) backing_names_[backed] = name, im->set_image(name.c_str());
+    im->set_pos(r.left - kBackingPad - ax, r.top - ay);
+    im->show_for(-1.0f), im->dirty();
+    backings_now_.push_back({r.left - kBackingPad, r.top, r.left - kBackingPad + w, r.top + h});
+    backed_texts_now_.push_back(r);
+    ++backed;
+  }
+  for (size_t i = backed; i < backings_.size(); ++i) backings_[i]->hide();
   // The inline pictures: each at its line's column in its place, measured in the place's font.
   inline_shown_.clear();
   size_t shown_inline = 0;
