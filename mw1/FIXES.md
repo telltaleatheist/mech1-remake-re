@@ -728,6 +728,20 @@ Tick an item when it is merged into `main`.
   - Pick the cleanest; the wording comes from our code, never from MW1's text.
 - **Done means:** a shot of the hub with a news line; reading it from where the hub points; tests.
 
+## 63. [ ] A log of every message
+- **Owen (2026-11-18, in play):** "im getting messages like \"wanted - 50,000...\". not sure waht that means exactly but it would be useful to see a log of all the messages and everything somewhere".
+- **The WANTED line** is a NewsNet headline (story news 0x16 in his play.log). The hub showed only the headline; the story is at the BAR, under NEWS. 62 fixes the pointer.
+- **Wanted:** a message log the player can open any time, e.g. a LOG page off COMPANY or the hub. Newest first, each with its game date:
+  - the hub's notices;
+  - the news headlines, each opening its full story (NewsNet's pages);
+  - story events seen;
+  - mission results: outcome, pay, repairs (57), salvage;
+  - purchases and sales; hires, departures and deaths; travel.
+  - It is saved with the company and capped (e.g. the last 200 entries).
+  - It fits at 1080p and 4:3, and scrolls the way the market lists do.
+  - MW1's own text is shown from the player's exe as now and never stored in the save beyond event IDs. Store IDs and numbers, and build the words when shown.
+- **Done means:** shots of the log at 1080p and 4:3, a test that entries survive save and load, and the cap.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.
