@@ -359,6 +359,19 @@ Tick an item when it is merged into `main`.
 - ~~The lab's remaining PM wordings~~ Owen: MW3's terms (Alternate, Primary, …) are fine; keep them. Was: the variant names ("Alternate A (incomplete)"), the Rename, Save and Delete links, "'Mech Name", and the SKINS cycle's camo names (GUNMETAL). Keep them, or use MW1 words?
 - ~~Bar hints~~ Owen: 4:3 is rare but supported; the short hints stand. Was: Dev 2 shortened three Bar hints to fit 4:3 ("Order a drink, read the news, or find pilots for hire.", etc.). Is the wording OK?
 - Item 19's results screen: Owen hasn't seen it in play yet (needs his rebuilt game). The shot is in `outbox/2026-11-17/results-screen/`; anything to change?
+- **AFTER ACTION review (dev 1, 2026-11-19, branch mw1-results-review):** every ending shot at 1080p and 4:3 (`outbox/2026-11-19/mw1-results-review-28/`): win, loss, retreat, a story battle, the Dark Wing lost, a fee paid short, a lancemate KILLED, MISSING on a retreat, your 'Mech lost with a spare, your only 'Mech lost, and DETAILS. Nothing is cut or overlapping at either size.
+  - **Fixed (plain):**
+    - A retreat settles no fates (settle_mission: a retreat isn't counted), but CREW STATUS said "destroyed, MISSING" or "KILLED" and the picture was the someone-lost one. Now it says "destroyed", and the picture is the retreat's.
+    - A retreat's SALVAGE TO STORES said "None: the field was lost"; it now says "None: you withdrew".
+    - "Fee: 0" on a loss or retreat now says "Fee: none (lost)" or "Fee: none (withdrew)", like the salvage line.
+    - "Salvage: all of 9,804,683 = 9,804,683" (a story battle) is now "Salvage: all of 9,804,683".
+    - "Next: you take the Firefly" when it's a spare (not a lancemate's) now says "the spare Firefly".
+    - test_mw1_loop checks the fee and retreat wordings. MW1_RESULTS (development) now takes a comma list: win, loss, retreat, lost, mechlost, killed, missing, story, darkwing, docked.
+  - **For Owen:**
+    1. A retreat costs only standing: no repair bill, no mech lost, nobody killed or missing, even when a lancemate's 'Mech went down. Is that right, or should a retreat bill repairs and keep losses?
+    2. A story battle pays all the wrecks' worth as salvage (kStorySalvagePercent): about 9.8 million C-bills in the shot, ten times a contract's pay. Intended?
+    3. A story battle shows the world's House crest and the House's "WELL DONE!" line, though no House hired you. Keep them, or show no message and no crest?
+    4. A win with a lancemate KILLED shows the victory picture (MW1's rule: the cockpit picture only on a failure). Keep it?
 
 ## 32. [x] Missing in action: a downed lancemate can come back to the hiring pool *(mw1-missing-pilots)*
 - **Owen (2026-11-18):** yes, add MW1's MISSING.
