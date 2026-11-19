@@ -168,8 +168,9 @@ enum class LogKind : int32_t {
   kStoryFunds,    // a: event; n: the funds' change (C-bills, signed)
   kTurnedAway,    // a: from (planet index), b: to
   kWelcomeAgain,  // a: House: its grievances faded under the refusal (FIXES.md item 84)
+  kSeated,        // a: pilot, b: PM mech: a lancemate put on a spare by a hire or a buy (FIXES.md item 85)
 };
-inline constexpr int32_t kLogKindLast = static_cast<int32_t>(LogKind::kWelcomeAgain);
+inline constexpr int32_t kLogKindLast = static_cast<int32_t>(LogKind::kSeated);
 inline constexpr size_t kLogCap = 200;
 
 struct LogEntry {

@@ -996,6 +996,19 @@ contracts: the company was stranded with nothing money could buy. The lead's rec
 - Tests: `mw1_office_a_grudge_fades_without_a_fight`; the soak now fails on "locked out" and prints the peak of
   Houses refusing at once (`MW1_GRUDGE_MONTHS=n` tries another rate).
 
+## 85. [ ] A hire or a buy seats the lancemates *(waiting on Owen; branch mw1-auto-assign on mw1-grudge-fade, not merged)*
+The soak's decision B: a lancemate hired, or a 'Mech bought, wasn't put on anything; only the mech lab's lance
+assigned them, and a lancemate without a 'Mech doesn't fly. The lead's recommendation, ours not MW1's:
+- After a hire or a buy, each lancemate without a 'Mech takes the first spare in the hangar, in lance order
+  (`seat_lancemates`). Nobody already seated is moved.
+- The Bar's or the market's status line says so ("X takes the Firefly."), and the log keeps it quietly (`kSeated`).
+- The lance's weight changed by a buy, the offer is drawn again, as the Bar and the lab already do.
+- The mech lab can still change it all.
+- Tests: `mw1_pilots_a_hire_or_a_buy_seats_the_lancemates`; the loop's Bar run checks each hire took its spare and the
+  status line said so.
+- Stacked on 84 only because both add a log kind (84's `kWelcomeAgain`, then `kSeated`); alone it rebases with one
+  line changed.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.

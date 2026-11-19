@@ -1130,6 +1130,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         if (h == Hire::kDone) {
           bchoice_.mate = static_cast<int32_t>(company_.lance.size()) - 1;
           log_add(company_, LogKind::kHired, true, company_.lance.back().id);
+          bchoice_.note += seated_words(seat_lancemates(company_));  // FIXES.md item 85: a spare taken
         }
         changed = h != Hire::kNoSuch;
         break;
@@ -1377,6 +1378,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         if (d == Deal::kDone && (d = buy(company_, m.stock)) == Deal::kDone) {
           done = "Bought: " + mech_title(mech) + " for " + thousands(price) + " C-bills.";
           log_add(company_, LogKind::kBought, true, mech, 0, 0, 0, price);
+          // FIXES.md item 85: a lancemate without a mech takes it; the lance's weight changed, the offer redrawn.
+          const int32_t weight = lance_weight(company_);
+          done += seated_words(seat_lancemates(company_));
+          if (lance_weight(company_) != weight && offered_ && !pending_ && !contract_.accepted) new_offer();
           deal_choice(company_, m, true);  // the new one chosen and shown in YOUR MECHS (FIXES.md item 58)
         }
         break;
@@ -1411,6 +1416,17 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       if (d == Deal::kDone) save();
     }
     show_market();
+  }
+
+  // FIXES.md item 85: who took which spare, logged (quiet: the status line says it) and as the status line's words.
+  std::string seated_words(const std::vector<Seated>& seated) {
+    std::string words;
+    for (const Seated& s : seated) {
+      const int32_t mech = company_.hangar[static_cast<size_t>(s.hangar)].mech;
+      log_add(company_, LogKind::kSeated, true, s.pilot, mech);
+      words += " " + pilot_title(s.pilot) + " takes the " + mech_title(mech) + ".";
+    }
+    return words;
   }
 
   // BUY's and SELL's question in the game's box (FIXES.md item 60): true on YES. Without an engine (no box), yes.

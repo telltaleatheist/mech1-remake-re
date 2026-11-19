@@ -723,9 +723,17 @@ void loop_run(Ending ending, Run* run = nullptr) {
           for (const std::string& l : run->bar_lines) std::printf(" %zu", l.size());
           std::printf("\n");
           // HIRE each (the first recruit each time); then LEAVE: the lance assigned in the hub's COMPANY.
+          const size_t spares = c->hangar.size();
           for (int32_t i = 0; i < n; ++i) sc->on_button(mw1::kBarHire, 0, 0);
           for (const std::string& l : sc->shown()) run->bar_after.push_back(l);  // nobody left
           EXPECT(static_cast<int32_t>(c->lance.size()) == n && c->recruits.empty());
+          // FIXES.md item 85: each hire took a spare in turn, the status line and the log saying so (not printed).
+          if (spares >= static_cast<size_t>(n)) {
+            bool said = false;
+            for (const std::string& l : sc->shown()) said = said || l.find(" takes the ") != std::string::npos;
+            EXPECT(said && !c->log.empty() && c->log[0].kind == mw1::LogKind::kSeated && c->log[0].a == c->lance.back().id);
+            for (int32_t i = 0; i < n; ++i) EXPECT(mw1::mech_of(*c, i) == i);
+          }
           run->lance_hired = true;
           mw1::game_loop_bar()->escape();  // Escape on a page: the Bar's menu, still the Bar
           EXPECT(sc->visible(mw1::kBarBack) && !sc->visible(mw1::kBarDone) && mw1::game_loop_bar()->screen() == sc);
@@ -3906,7 +3914,7 @@ int64_t logged_money(const mw1::LogEntry& e) {
 const char* kind_name(mw1::LogKind k) {
   static const char* const names[] = {"",       "news",     "story", "contract", "result",  "repairs", "wages",
                                       "unpaid", "lance left", "promoted", "mech lost", "MIA", "killed", "missing",
-                                      "bought", "sold",     "hired", "left",     "travelled", "test", "story funds", "turned away", "welcome again"};
+                                      "bought", "sold",     "hired", "left",     "travelled", "test", "story funds", "turned away", "welcome again", "seated"};
   const int32_t i = static_cast<int32_t>(k);
   return i >= 0 && i <= mw1::kLogKindLast ? names[i] : "?";
 }

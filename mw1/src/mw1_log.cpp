@@ -126,6 +126,7 @@ std::vector<std::string> log_lines(const Company& c, const LogEntry& e) {
     case LogKind::kTurnedAway: return {"Turned away from " + planet_words(e.a) + " to " + planet_words(e.b) + "."};
     case LogKind::kWelcomeAgain:
       return {"Time has cooled House " + house_words(e.a) + "'s anger: its offices will deal with the company again."};
+    case LogKind::kSeated: return {pilot_title(e.a) + " takes the " + mech_title(e.b) + "."};
   }
   return {};
 }

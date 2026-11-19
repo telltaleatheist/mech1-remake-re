@@ -174,6 +174,36 @@ TEST(mw1_pilots_lab_lance) {
   EXPECT(c.mech == before.mech && c.hangar[2].mech == before.hangar[2].mech && mw1::mech_of(c, 0) == 2);
 }
 
+// FIXES.md item 85 (ours, waiting on Owen): after a hire or a buy, each lancemate without a mech takes the first
+// spare in the hangar, in lance order; a seated one keeps theirs; the lab can still change it.
+TEST(mw1_pilots_a_hire_or_a_buy_seats_the_lancemates) {
+  mw1::Company c = company();
+  c.recruits = {1, 3, 5};
+  mw1::OwnedMech a, b;
+  a.mech = mw1::kPmFirefly, b.mech = mw1::kPmCenturion;
+  c.hangar = {a, b};
+  // A hire with spares: the first spare taken.
+  EXPECT(mw1::hire(c, 0) == mw1::Hire::kDone);
+  std::vector<mw1::Seated> s = mw1::seat_lancemates(c);
+  EXPECT(s.size() == 1 && s[0].pilot == 1 && s[0].hangar == 0 && mw1::mech_of(c, 0) == 0);
+  // Nothing to do: nobody without a mech.
+  EXPECT(mw1::seat_lancemates(c).empty() && mw1::mech_of(c, 0) == 0);
+  // The next takes the next spare; the third has none left.
+  EXPECT(mw1::hire(c, 0) == mw1::Hire::kDone && mw1::hire(c, 0) == mw1::Hire::kDone);
+  s = mw1::seat_lancemates(c);
+  EXPECT(s.size() == 1 && s[0].pilot == 3 && s[0].hangar == 1 && mw1::mech_of(c, 2) == -1);
+  // A buy: the one without a mech takes it; the others keep theirs.
+  mw1::OwnedMech d;
+  d.mech = mw1::kPmFirefly;
+  c.hangar.push_back(d);
+  s = mw1::seat_lancemates(c);
+  EXPECT(s.size() == 1 && s[0].pilot == 5 && s[0].hangar == 2);
+  EXPECT(mw1::mech_of(c, 0) == 0 && mw1::mech_of(c, 1) == 1 && mw1::mech_of(c, 2) == 2);
+  // The lab changes it all the same: the first lancemate off, the third on the Centurion.
+  const std::vector<std::shared_ptr<mech3::Config>> stock(4);
+  EXPECT(mw1::apply_lance(c, {0, -1, 3, 2}, stock) && mw1::mech_of(c, 0) == -1 && mw1::mech_of(c, 2) == 1);
+}
+
 TEST(mw1_pilots_wages_warning_and_leaving) {
   mw1::Rng rng(2);
   mw1::Company c = company();
