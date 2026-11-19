@@ -236,7 +236,6 @@ ScreenView travel_view(const Company& c, const TravelChoice& t) {
     detail = world_lines(c, here);
     detail.push_back(""), detail.push_back("You are here.");
   }
-  if (!t.search.typed.empty()) detail.push_back(""), detail.push_back("Find: " + upper(t.search.typed));
   // The stranded lines over the map's foot; the last GO's line, else how to choose, on the status line.
   std::vector<std::string> note;
   for (const std::string& l : stranded_lines(c))
@@ -246,7 +245,11 @@ ScreenView travel_view(const Company& c, const TravelChoice& t) {
   v.blocks.push_back(at_place("PLACE", {thousands(c.funds) + " C-BILLS"}));
   v.blocks.push_back(at_place("PLACE_SUB", {date_words(c.date)}));
   v.blocks.push_back(at_place("STATUS_WORLD", {upper(c.planet)}));
-  v.blocks.push_back(at_place("STATUS", {!t.note.empty() ? t.note : "Click a world or use the arrows. Type a name to find it."}));
+  // What's typed so far on the status line (FIXES.md item 74: under the readout it could run past GO), over the last
+  // GO's line: the newer of the two.
+  v.blocks.push_back(at_place("STATUS", {!t.search.typed.empty() ? "Find: " + upper(t.search.typed)
+                                         : !t.note.empty()       ? t.note
+                                                                 : "Click a world or use the arrows. Type a name to find it."}));
   v.blocks.push_back({kPanelX, 72, kPlaqueSmallFont, {"MAP: " + filter_words(t.filter)}});
   v.blocks.push_back({kPanelX, 94, kTitleFont, {title}});
   v.blocks.push_back({kPanelX, 118, kLineFont, detail});

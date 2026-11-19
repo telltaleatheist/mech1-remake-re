@@ -396,17 +396,25 @@ TEST(mw1_travel_screen_world_readout) {
   std::printf("  with MW1's exe: %zu landscapes, the longest readout line %zu columns\n", labels.size(), longest);
   v = mw1::travel_view(c, t);
   for (const mw1::TextBlock& b : v.blocks) EXPECT(!tiers(b.lines));
-  // Every world under the mouse, from a world it isn't, affordable or not: the readout's lines fit the 14 above GO
+  // Every world under the mouse, from a world it isn't, affordable or not, a search typed or not: the readout's
+  // lines fit the 14 above GO
   // (the layout's GO at y 348; the lines from 118, 16 apart).
   size_t most = 0;
   for (int64_t funds : {int64_t(100000000), int64_t(1000)}) {
     c.funds = funds;
     for (int32_t i = 0; i < mw1::kPlanetCount; ++i) {
-      mw1::TravelChoice h;
-      h.world = mw1::destinations(c, -1)[0], h.hover = i;
-      if (i == mw1::here_index(c)) continue;
-      for (const mw1::TextBlock& b : mw1::travel_view(c, h).blocks)
-        if (b.y == 118) most = std::max(most, b.lines.size());
+      for (const char* typed : {"", "TH"}) {  // FIXES.md item 74: a search typed adds nothing to the readout
+        mw1::TravelChoice h;
+        h.world = mw1::destinations(c, -1)[0], h.hover = i, h.search.typed = typed;
+        if (i == mw1::here_index(c)) continue;
+        bool status = false;
+        for (const mw1::TextBlock& b : mw1::travel_view(c, h).blocks) {
+          if (b.y == 118) most = std::max(most, b.lines.size());
+          if (b.at && std::string(b.at) == "STATUS")
+            status = b.lines.size() == 1 && (*typed ? b.lines[0] == "Find: TH" : b.lines[0].rfind("Click a world", 0) == 0);
+        }
+        EXPECT(status);
+      }
     }
   }
   std::printf("  the most readout lines: %zu of 14\n", most);
