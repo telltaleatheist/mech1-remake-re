@@ -393,6 +393,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
   int64_t funds_at_offer = 0, funds_in_mission = 0;
   int results_screens = 0;  // the results screen's frames handled
   int64_t salvage_shown = -1, fee_shown = -1, bill_shown = 0;  // the first AFTER ACTION's settlement, as rolled
+  int64_t house_shown = 0;  // FIXES 98: what the House covered (PAYMENT's "... House covers N")
   int32_t favor_at_offer[mw1::kHouseCount] = {}, grievance_at_offer[mw1::kHouseCount] = {};
   int market_step = 0, click_phase = 0, click_x = 0, click_y = 0;  // the market's clicks (zin's mouse)
   int messages_hubs = 0;  // hub visits that read MESSAGES and pressed OK (item 16)
@@ -1014,6 +1015,15 @@ void loop_run(Ending ending, Run* run = nullptr) {
         };
         if (salvage_shown < 0) {
           salvage_shown = salvage_pay(), fee_shown = amount("Fee: ");
+          for (const std::string& l : pay)
+            if (const size_t at = l.find("House covers "); at != std::string::npos) {
+              std::string digits;
+              for (char ch : l.substr(at + 13)) {
+                if (ch == ' ' && !digits.empty()) break;
+                if (ch >= '0' && ch <= '9') digits += ch;
+              }
+              if (!digits.empty()) house_shown = std::stoll(digits);
+            }
           const int64_t bill = std::max(amount("Repair bill: "), amount("Billed "));
           bill_shown = std::max<int64_t>(0, bill);
           if (run) {
@@ -1705,7 +1715,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
     // The fee (at the payout the settlement rolled: Kurita's and Liao's can be 0%) and the salvage, exactly as AFTER
     // ACTION showed them.
     // With lancemates, less their wages for the mission's months (mw1_pilots.h), whole months of the survivors'.
-    const int64_t wages = c ? funds_in_mission + salvage_shown + fee_shown - bill_shown - c->funds : -1;
+    const int64_t wages = c ? funds_in_mission + salvage_shown + fee_shown + house_shown - bill_shown - c->funds : -1;
     std::printf("  won: wages for the mission's months %lld\n", static_cast<long long>(wages));
     EXPECT(c && salvage_shown >= 0 && fee_shown >= 0 &&
            (c->lance.empty() ? wages == 0 : wages >= 0 && wages % mw1::monthly_wages(*c) == 0));
@@ -2127,6 +2137,8 @@ TEST(mw1_loop_lancemates_fly_named_and_aimed_then_the_casualty_headless) {
     run.save = (dir / mw1::kSaveFile).string();
     run.lance = true;
     run.world = "c2";
+    // FIXES 98: the casualty's rolls pinned, as the rare case: KILLED or MISSING, the mech lost for good.
+    mw1::loss_rates() = {100, 50, 50};
     mw1::set_mw1_game_dir(MW1_DOS_GAME_DIR);  // the pitches, as mw1's start gives it
     const std::vector<std::string> pitch = mw1::pitch(1);
     EXPECT(!pitch.empty() || !mw1_test::mw1_there());  // the pitch shown when MW1 is installed (its absence counted outside)
@@ -2162,6 +2174,17 @@ TEST(mw1_loop_lancemates_fly_named_and_aimed_then_the_casualty_headless) {
     std::string why;
     EXPECT(mw1::load_file(run.save, saved, k, &has, &why) == mw1::Loaded::kLoaded);
     EXPECT(saved.lance.size() == 1 && saved.lance[0].id == 1 && saved.pilots[1].missions == 1);
+    // FIXES 98: the win's net held at its floor, the House covering the lost mech; AFTER ACTION's PAYMENT says so, and
+    // CREW STATUS the mech destroyed beyond repair with its pilot's fate, each line fitting 4:3.
+    bool house = false, beyond = false;
+    for (const std::string& l : run.after_action) {
+      house = house || l.find("House covers ") != std::string::npos, beyond = beyond || l.find("beyond repair, ") != std::string::npos;
+      // PAYMENT's line (4:3 picks the shortest wording that fits: at least the last fits) and CREW STATUS's (DETAILS'
+      // rows, "The House covers ..." and "Lost: ...", have their own narrow wordings).
+      if (l.rfind("House covers ", 0) == 0 || l.find("beyond repair, ") != std::string::npos)
+        EXPECT(l.size() <= mw1::results::kResultsNarrow.status);
+    }
+    EXPECT(house && beyond);
     // Holmaas KILLED or MISSING (FIXES.md item 32, the loop's roll): gone from the lance either way, the Firefly lost.
     std::printf("  J. Holmaas %s\n", saved.pilots[41].where == mw1::PilotWhere::kDead ? "killed" : "missing");
     EXPECT((saved.pilots[41].where == mw1::PilotWhere::kDead || saved.pilots[41].where == mw1::PilotWhere::kFree) && saved.hangar.size() == 1 && saved.hangar[0].mech == mw1::kPmFirefly &&
@@ -2183,20 +2206,26 @@ TEST(mw1_loop_a_full_lance_flies_on_a_pm_map_headless) {
     run.save = (dir / mw1::kSaveFile).string();
     run.lance = true, run.lance_count = 3;
     run.world = "c2";
+    mw1::loss_rates() = {0, 0, 0};  // FIXES 98: the usual case pinned: downed on a win, recovered, back
     loop_run(kWon, &run);
     std::printf("  lance of 3: %d allies launched;", run.allies);
     for (const std::string& p : run.ally_pilots) std::printf(" [%s]", p.c_str());
     std::printf("\n");
     EXPECT(run.allies == 3 && run.launches.size() == 3);
-    // CREW STATUS (item 38): "<mech> (<pilot>): <condition>%", or "destroyed" and the pilot's fate.
+    // CREW STATUS (item 38): "<mech> (<pilot>): <condition>%", or (FIXES 98) downed and recovered: its repairs.
     auto shows = [&](const std::string& who, const std::string& end) {
       for (const std::string& l : run.after_action)
         if (l.find(" (" + who + "): ") != std::string::npos && l.size() >= end.size() && l.compare(l.size() - end.size(), end.size(), end) == 0)
           return true;
       return false;
     };
-    EXPECT(shows("Elli Gujar", "%") && (shows("J. Holmaas", "destroyed, KILLED") || shows("J. Holmaas", "destroyed, MISSING")) &&
-           shows("Taris Ren", "%"));
+    bool recovered = false;
+    for (const std::string& l : run.after_action) {
+      std::printf("  | %s\n", l.c_str());
+      recovered = recovered || (l.find("J. Holmaas") != std::string::npos && l.find("recovered (repairs ") != std::string::npos &&
+                                l.size() <= mw1::results::kResultsNarrow.status);
+    }
+    EXPECT(shows("Elli Gujar", "%") && recovered && shows("Taris Ren", "%"));
     for (const std::string& l : run.after_action) EXPECT(l.find("stayed behind") == std::string::npos);
   });
 }
@@ -4695,7 +4724,9 @@ void lance_orders_run(const char* name, int32_t count, bool reload) {
       Run first;
       first.save = (dir / mw1::kSaveFile).string();
       first.lance = true, first.lance_count = count + 1, first.world = "c2";  // the loop's J. Holmaas lost: `count` left
+      mw1::loss_rates() = {100, 100, 0};  // FIXES 98: lost, as this test needs (killed, the mech lost)
       loop_run(kWon, &first);
+      mw1::loss_rates() = {};
     }
     Run run;
     run.save = (dir / mw1::kSaveFile).string();

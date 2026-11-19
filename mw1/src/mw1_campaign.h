@@ -169,8 +169,12 @@ enum class LogKind : int32_t {
   kTurnedAway,    // a: from (planet index), b: to
   kWelcomeAgain,  // a: House: its grievances faded under the refusal (FIXES.md item 84)
   kSeated,        // a: pilot, b: PM mech: a lancemate put on a spare by a hire or a buy (FIXES.md item 85)
+  // FIXES 98: a downed mech recovered after a win (a: PM mech, b: its pilot, 0 the commander); the House covering a
+  // narrow win's costs down to the floor (n: C-bills).
+  kMechRecovered,
+  kHouseCovers,
 };
-inline constexpr int32_t kLogKindLast = static_cast<int32_t>(LogKind::kSeated);
+inline constexpr int32_t kLogKindLast = static_cast<int32_t>(LogKind::kHouseCovers);
 inline constexpr size_t kLogCap = 200;
 
 struct LogEntry {
@@ -328,10 +332,15 @@ struct Wreck {
 // A mission back and not settled yet: what the hub's AFTER ACTION shows until OK settles it (or REPLAY plays the
 // contract again). Saved whole (mw1_save.h), so a restart shows it again: never settled twice, never lost.
 // A lancemate's mission (mw1_pilots.h): who flew, and whether their mech was destroyed.
+// FIXES 98 (Owen: losses rare, as in MW1): a downed lancemate's pilot rarely dies or goes missing; most come back. Their
+// mech is recovered on a win (rarely lost for good), lost on a loss or a retreat. All rolled once as the mission ends
+// (crew::roll_losses), so AFTER ACTION, its settlement and a save and reload agree.
 struct LanceFate {
   int32_t id = 0;
-  bool destroyed = false;
-  bool missing = false;  // destroyed, and its pilot MISSING, not KILLED (FIXES.md item 32; rolled as the mission ends)
+  bool destroyed = false;  // their mech went down
+  bool missing = false;    // downed, and its pilot MISSING (FIXES.md item 32; rolled as the mission ends)
+  bool killed = false;     // downed, and its pilot KILLED
+  bool mech_lost = false;  // downed, and the mech lost for good (not recovered)
 };
 // A mech's locations as the results screen reads them (FIXES.md item 19): head, torso, left arm, right arm, left leg,
 // right leg.
@@ -345,7 +354,8 @@ struct AfterAction {
   // destroyed), billed when the mission counts.
   struct Bill {
     int32_t who = 0, mech = -1, damage = 0;
-    bool destroyed = false;
+    bool destroyed = false;  // went down
+    bool lost = false;       // and lost for good (FIXES 98: a win recovers the rest, billed as repairs)
   };
   std::vector<Bill> bills;
   std::shared_ptr<mech3::Store> salvage;         // the mission's parts, the stores' on a win

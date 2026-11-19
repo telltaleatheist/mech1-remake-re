@@ -201,9 +201,12 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
     for (size_t i = 0; i < p.wrecks.size(); ++i) o << (i ? "," : "") << p.wrecks[i].kind << ":" << p.wrecks[i].condition << ":" << p.wrecks[i].damage;
     o << "\npending_bills=";
     for (size_t i = 0; i < p.bills.size(); ++i)
-      o << (i ? "," : "") << p.bills[i].who << ":" << p.bills[i].mech << ":" << p.bills[i].damage << ":" << (p.bills[i].destroyed ? 1 : 0);
+      o << (i ? "," : "") << p.bills[i].who << ":" << p.bills[i].mech << ":" << p.bills[i].damage << ":" << (p.bills[i].destroyed ? 1 : 0)
+        << ":" << (p.bills[i].lost ? 1 : 0);
     o << "\npending_lance=";
-    for (size_t i = 0; i < p.lance.size(); ++i) o << (i ? "," : "") << p.lance[i].id << ":" << (p.lance[i].destroyed ? 1 : 0) << ":" << (p.lance[i].missing ? 1 : 0);
+    for (size_t i = 0; i < p.lance.size(); ++i)
+      o << (i ? "," : "") << p.lance[i].id << ":" << (p.lance[i].destroyed ? 1 : 0) << ":" << (p.lance[i].missing ? 1 : 0) << ":"
+        << (p.lance[i].killed ? 1 : 0) << ":" << (p.lance[i].mech_lost ? 1 : 0);
     o << "\npending_stayed=";
     for (size_t i = 0; i < p.stayed.size(); ++i) o << (i ? "," : "") << p.stayed[i];
     o << "\npending_seconds=" << p.seconds << "\npending_killers=";
@@ -567,10 +570,13 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
       std::istringstream bs(v["pending_bills"]);
       std::string b;
       while (std::getline(bs, b, ',')) {
+        // who:mech:damage:destroyed, then :lost (FIXES 98; absent in older saves: a downed mech lost, as then).
         std::vector<int64_t> f;
-        if (!fields(b, {{0, kPilotIds - 1}, {0, mech3::kMechCount - 1}, {0, kWhole}, {0, 1}}, &f))
+        if (!fields(b, {{0, kPilotIds - 1}, {0, mech3::kMechCount - 1}, {0, kWhole}, {0, 1}, {0, 1}}, &f) &&
+            (f.clear(), !fields(b, {{0, kPilotIds - 1}, {0, mech3::kMechCount - 1}, {0, kWhole}, {0, 1}}, &f)))
           return fail("the pending mission's bills don't read");
-        p.bills.push_back({static_cast<int32_t>(f[0]), static_cast<int32_t>(f[1]), static_cast<int32_t>(f[2]), f[3] != 0});
+        const bool lost = f.size() > 4 ? f[4] != 0 : f[3] != 0;
+        p.bills.push_back({static_cast<int32_t>(f[0]), static_cast<int32_t>(f[1]), static_cast<int32_t>(f[2]), f[3] != 0, f[3] != 0 && lost});
       }
     }
     if (v4) {
@@ -578,14 +584,22 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
       std::istringstream fs(v["pending_lance"]);
       std::string f;
       while (std::getline(fs, f, ',')) {
-        // id:destroyed, then :missing (FIXES.md item 32; absent in older saves: not missing, killed as before).
-        const size_t colon = f.find(':'), colon2 = colon == std::string::npos ? colon : f.find(':', colon + 1);
-        int64_t id = 0, gone = 0, missing = 0;
-        if (colon == std::string::npos || !to_int(f.substr(0, colon), 1, kPilotIds - 1, &id) ||
-            !to_int(f.substr(colon + 1, colon2 == std::string::npos ? std::string::npos : colon2 - colon - 1), 0, 1, &gone) ||
-            (colon2 != std::string::npos && !to_int(f.substr(colon2 + 1), 0, 1, &missing)))
-          return fail("the pending mission's lance doesn't read");
-        p.lance.push_back({static_cast<int32_t>(id), gone != 0, gone != 0 && missing != 0});
+        // id:destroyed, then :missing (FIXES.md item 32), then :killed:mech_lost (FIXES 98). Absent in older saves: not
+        // missing, killed and their mech lost, as before.
+        std::vector<int64_t> x;
+        {
+          std::istringstream is(f);
+          std::string e;
+          while (std::getline(is, e, ':')) {
+            int64_t n = 0;
+            if (!to_int(e, x.empty() ? 1 : 0, x.empty() ? kPilotIds - 1 : 1, &n)) return fail("the pending mission's lance doesn't read");
+            x.push_back(n);
+          }
+        }
+        if (x.size() < 2 || x.size() > 5 || x.size() == 4) return fail("the pending mission's lance doesn't read");
+        const bool gone = x[1] != 0, missing = gone && x.size() > 2 && x[2] != 0;
+        const bool killed = gone && (x.size() == 5 ? x[3] != 0 : !missing), mech_lost = gone && (x.size() == 5 ? x[4] != 0 : true);
+        p.lance.push_back({static_cast<int32_t>(x[0]), gone, missing, killed, mech_lost});
       }
       std::istringstream ss(v.count("pending_stayed") ? v["pending_stayed"] : std::string());  // absent: none (early v4)
       while (std::getline(ss, f, ',')) {
