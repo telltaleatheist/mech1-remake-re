@@ -15,6 +15,7 @@
 #include "gamez/zrender/zrndr_tint.h"
 #include "gamez/zrender/zrndr_blit.h"
 #include "gamez/zvideo/zvid_ddd3d.h"
+#include "platform/hires_2d.h"
 
 namespace mw1::screens {
 namespace {
@@ -566,7 +567,11 @@ void fade_over_layer(mech3::Engine& en) {
   fade::Fade& f = fade::current();
   if (!f.busy()) return;
   // PM's Load state's frame is the 16-bit buffer shown as it is (GameEngine::video_flip's present_16: no layer laid
-  // over a scene, so no tint quad): the black blended into the locked buffer's pixels (RGB565), by the fade's alpha.
+  // over a scene, so no tint quad drawn by the frame). With the high-resolution 2D on (FIXES.md item 12), the black
+  // is the tint quad, drawn by the program's hires hook after the list (mw3_main.cpp): darkening the buffer's pixels
+  // would break every recorded draw's chain, and the text would show the canvas's blocky copy until the fade ended.
+  if (platform::hires_2d()) return fade_tint(en, f.alpha());
+  // Off: the black blended into the locked buffer's pixels (RGB565), by the fade's alpha.
   zrndr::Target2D& t = zrndr::target2d();
   if (!t.base || !t.width || !t.height) return;
   const uint32_t keep = static_cast<uint32_t>((1.0f - f.alpha()) * 256.0f + 0.5f);
@@ -578,7 +583,6 @@ void fade_over_layer(mech3::Engine& en) {
       row[x] = static_cast<uint16_t>(r << 11 | g << 5 | b);
     }
   }
-  (void)en;
 }
 
 bool Mw1State::fading_frame() {

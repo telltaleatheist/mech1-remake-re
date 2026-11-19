@@ -152,6 +152,7 @@ extern "C" const char mw3_version_tag[] = "MW3-PROGRAM-VERSION:" MW3_VERSION;
 #include "gamez/zclass/list.h"
 #include "mech3/app_sensors.h"
 #include "mech3/turret.h"
+#include "gamez/zvideo/zvid_ddd3d.h"
 #include "platform/hires_2d.h"
 #include "platform/pointer_hands_off.h"
 #include "platform/reg_file.h"
@@ -1287,8 +1288,17 @@ int run(const Args& a, platform::VideoForWindows* vfw) {
     ztwod::set_host(&host);
     if (platform::hires_2d()) {  // ours, MW1's only (FIXES 12, B1 piece 4): the 2D's draws at the frame's resolution
       host.attach_hires_draw(window.render());
-      screen.after_layer = [&host](const uint16_t* px, int w, int h, int pitch, bool rgb565, bool keyed, uint16_t key) {
+      screen.after_layer = [&host, &window](const uint16_t* px, int w, int h, int pitch, bool rgb565, bool keyed,
+                                            uint16_t key) {
         host.hires_draw()->draw(px, w, h, pitch, rgb565, keyed, key);
+        // FIXES 12 (ours, MW1's only): a 16-bit frame shown whole (present_16: PM's Load state) draws no scene, so
+        // no tint quad. One left pending (MW1's fade over its loading screen, mw1_screen.cpp) is drawn here, over
+        // the list, so the fade darkens the high-resolution text and pictures too.
+        if (!keyed && zvid::tint_quad().pending) {
+          window.render()->begin_scene();
+          zvid::draw_tint_quad();
+          window.render()->end_scene();
+        }
       };
       window.render()->on_present = [&host] { host.hires_draw()->end_frame(); };
     }
