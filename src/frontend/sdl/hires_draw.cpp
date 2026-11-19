@@ -153,12 +153,15 @@ bool HiresDraw::upload_atlas() {
   return atlas_tex_ >= 0;
 }
 
-void HiresDraw::draw(const uint16_t* pixels, int width, int height, int pitch, bool rgb565, bool keyed, uint16_t key) {
-  const auto start = std::chrono::steady_clock::now();
+const uint8_t* HiresDraw::prepare(const uint16_t* pixels, int width, int height, int pitch, bool rgb565, bool keyed,
+                                  uint16_t key) {
+  prepared_ = nullptr;
+  start_ = std::chrono::steady_clock::now();
   stats_ = Stats{};
   const std::vector<Command>* list = lists_ ? lists_->of(pixels) : nullptr;
   int fw = 0, fh = 0;
-  if (!render_ || !list || list->empty() || width <= 0 || height <= 0 || !render_->frame_size(&fw, &fh)) return;
+  if (!render_ || !list || list->empty() || width <= 0 || height <= 0 || !render_->frame_size(&fw, &fh)) return nullptr;
+  fw_ = fw, fh_ = fh;
   const int32_t pitch_px = pitch / 2;
   textures_for_scale(static_cast<float>(fw) / width, static_cast<float>(fh) / height, height);
   const std::vector<Command>& l = *list;
@@ -231,6 +234,7 @@ void HiresDraw::draw(const uint16_t* pixels, int width, int height, int pitch, b
 
   // Under each chain its base's "before": the canvas's own copy of the draws covered.
   under_rgba_.assign(static_cast<size_t>(width) * height * 4, 0);
+  mask_.assign(keyed ? static_cast<size_t>(width) * height : 0, 0);
   auto* under = reinterpret_cast<uint32_t*>(under_rgba_.data());
   for (int32_t y = 0; y < height; ++y)
     for (int32_t x = 0; x < width; ++x) {
@@ -263,10 +267,34 @@ void HiresDraw::draw(const uint16_t* pixels, int width, int height, int pitch, b
           }
         }
       }
-      if (keyed && v == key) continue;  // over the 3D: clear
+      if (keyed && v == key) {  // over the 3D: clear
+        // mw1 (engine, ours), FIXES 12: and the layer's canvas copy of the chain dropped there too (before_layer),
+        // else under the draws at the frame's resolution their canvas pixels show: a blocky ring round a glyph, a
+        // blend (a dim) twice. A failed base keeps its canvas copy (its pixels are the chain's).
+        if (ok[b - 1]) mask_[static_cast<size_t>(y) * width + x] = 1, ++stats_.unkeyed;
+        continue;
+      }
       under[static_cast<size_t>(y) * width + x] = SdlScreen2D::rgba(v, rgb565);
       ++stats_.under;
     }
+  prepared_ = pixels, prep_w_ = width, prep_h_ = height, prep_n_ = n;
+  return keyed && stats_.unkeyed ? mask_.data() : nullptr;
+}
+
+void HiresDraw::draw(const uint16_t* pixels, int width, int height, int pitch, bool rgb565, bool keyed, uint16_t key) {
+  // As prepared before the layer (a keyed overlay's before_layer), else now.
+  if (prepared_ != pixels || prep_w_ != width || prep_h_ != height) prepare(pixels, width, height, pitch, rgb565, keyed, key);
+  if (prepared_ != pixels) return;
+  prepared_ = nullptr;
+  const std::vector<Command>& l = *lists_->of(pixels);
+  const size_t n = prep_n_;
+  const int fw = fw_, fh = fh_;
+  const auto start = start_;
+  std::vector<int32_t>& tex = tex_;
+  std::vector<float>& us = us_;
+  std::vector<float>& vs = vs_;
+  std::vector<uint8_t>& ok = ok_;
+  auto& glyphs = glyphs_;
   if (under_tex_ < 0 || under_w_ != width || under_h_ != height) {
     if (under_tex_ >= 0) render_->release_texture(under_tex_);
     under_tex_ = render_->create_screen_texture(width, height, under_rgba_.data());

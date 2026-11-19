@@ -1300,6 +1300,9 @@ int run(const Args& a, platform::VideoForWindows* vfw) {
           window.render()->end_scene();
         }
       };
+      screen.before_layer = [&host](const uint16_t* px, int w, int h, int pitch, bool rgb565, bool keyed, uint16_t key) {
+        return host.hires_draw()->prepare(px, w, h, pitch, rgb565, keyed, key);
+      };
       window.render()->on_present = [&host] { host.hires_draw()->end_frame(); };
     }
     mech3::reset_states();
@@ -2211,6 +2214,7 @@ int run(const Args& a, platform::VideoForWindows* vfw) {
                    gaps, engine.unported_counts().size() - gaps);
     }
     screen.after_layer = nullptr;
+    screen.before_layer = nullptr;
     window.render()->on_present = nullptr;
     ztwod::set_host(nullptr);
     mech3::set_app(nullptr);

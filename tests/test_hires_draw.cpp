@@ -236,6 +236,38 @@ TEST(hires_draw_a_failed_see_through_picture_keeps_what_is_under_it) {
   EXPECT(p && box(*p) == (Rect{0, 0, 64, 32}));  // the backdrop drawn at its pixels over all of it
 }
 
+TEST(hires_draw_keyed_layer_drops_the_canvas_copy_of_what_it_draws) {
+  // Over the 3D (a keyed overlay: the Mech Complex's live 'Mech, the mission's HUD): a blend drawn here from its
+  // source (a dim) must leave the layer's canvas copy of it out, or both land (the dim twice); a draw with no source
+  // keeps its canvas copy, the only one there is.
+  const uint16_t kKey = 0xf81f;
+  Recorder r;
+  Images im;
+  add_pic(im);
+  platform::set_hires_images(&im);
+  Lists l;
+  Canvas c(64, 32);
+  c.fill({0, 0, 64, 32}, kKey);
+  static int icon_owner;
+  blit(l, c, &pic_owner, 64, 32, 0, 0, false, "pic", [&] { c.fill({8, 8, 24, 24}, 0x2104); });
+  blit(l, c, &icon_owner, 8, 8, 40, 8, false, "icon", [&] { c.fill({42, 10, 46, 14}, 0xfd20); });
+  sdlfe::HiresDraw d(&r, &l);
+  const uint8_t* clear = d.prepare(c.px.data(), c.w, c.h, c.w * 2, true, true, kKey);
+  EXPECT(clear != nullptr);
+  if (clear) {
+    EXPECT(clear[10 * 64 + 10] == 1);  // the dim's pixel: drawn here, the layer's copy dropped
+    EXPECT(clear[11 * 64 + 43] == 0);  // the failed icon's: the canvas's
+  }
+  d.draw(c.px.data(), c.w, c.h, c.w * 2, true, true, kKey);
+  platform::set_hires_images(nullptr);
+  EXPECT(d.stats().pictures == 1 && d.stats().failed == 1 && d.stats().unkeyed > 0);
+  // Not keyed: nothing to drop (the under texture covers the canvas there).
+  sdlfe::HiresDraw d2(&r, &l);
+  platform::set_hires_images(&im);
+  EXPECT(d2.prepare(c.px.data(), c.w, c.h, c.w * 2, true, false, 0) == nullptr);
+  platform::set_hires_images(nullptr);
+}
+
 TEST(hires_draw_text_over_a_picture_and_an_unrecorded_write) {
   const std::string font = (fs::path(__FILE__).parent_path().parent_path() / "mw1" / "data" / "fonts" /
                             "ShareTechMono-Regular.ttf").string();

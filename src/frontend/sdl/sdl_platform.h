@@ -87,6 +87,10 @@ class SdlScreen2D : public platform::Screen2D {
   // Ours (MW1's 2D at the frame's resolution, opt-in): after the layer is drawn, before the frame is shown, the
   // layer's 16-bit pixels (pitch in bytes), rgb565, and whether keyed over the 3D and its key.
   std::function<void(const uint16_t*, int, int, int, bool, bool, uint16_t)> after_layer;
+  // mw1 (engine, ours), FIXES 12: on a keyed overlay, before the layer is uploaded, the same arguments; returns a
+  // pixel each (width x height) to leave clear, the key's (the canvas's copy of what after_layer draws over the 3D),
+  // or null for none. Unset (MW3, PM): the layer as ever.
+  std::function<const uint8_t*(const uint16_t*, int, int, int, bool, bool, uint16_t)> before_layer;
 
  private:
   void keep_canvas(const uint16_t* pixels, int width, int height, int pitch, bool keyed, uint16_t key, const uint8_t* alpha);
@@ -94,7 +98,7 @@ class SdlScreen2D : public platform::Screen2D {
   bool canvas_armed_ = false;
   std::vector<uint8_t> canvas_;
   void upload(const uint16_t* pixels, int width, int height, int pitch, bool rgb565, bool keyed, uint16_t key,
-              const uint8_t* alpha = nullptr, const uint16_t* colour = nullptr);
+              const uint8_t* alpha = nullptr, const uint16_t* colour = nullptr, const uint8_t* clear = nullptr);
   void draw_layer(int width, int height, bool blend);
   SdlRender3D* render_;
   int32_t texture_ = -1;
