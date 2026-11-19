@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iterator>
 #include <map>
+#include <memory>
 #include <set>
 
 #include "gamez/zimage/zimg_library.h"
@@ -89,6 +90,34 @@ images::Image tinted(const std::string& name, const zimg::Texture& t, int32_t sc
   return out;
 }
 }  // namespace
+
+const IconOutline* pm_icon_outline(const std::string& name) {
+  static std::map<std::string, std::unique_ptr<IconOutline>> made;  // null: asked, not one
+  if (name.rfind("icon_", 0) != 0) return nullptr;
+  if (auto it = made.find(name); it != made.end()) return it->second.get();
+  std::unique_ptr<IconOutline>& out = made[name];
+  for (int32_t m = 0; m < mech3::mech_count() && !out; ++m)
+    for (const char* c : kPmIconColours) {
+      if (name != "icon_" + std::string(mech3::mech_name(m)) + "_" + c) continue;
+      zimg::Texture* t = zimg::fetch_image(name.c_str());
+      if (!t) break;
+      if (auto o = outline_of(*t)) {
+        const auto* px = static_cast<const uint16_t*>(t->pixels);
+        uint16_t best = 0;
+        int32_t bright = -1;
+        for (int32_t i = 0; i < t->width * t->height; ++i) {
+          const int32_t v = std::max({(px[i] >> 11) * 255 / 31, ((px[i] >> 5) & 63) * 255 / 63, (px[i] & 31) * 255 / 31});
+          if (px[i] && v > bright) bright = v, best = px[i];
+        }
+        const outline::Colour col{static_cast<uint8_t>((best >> 11) * 255 / 31), static_cast<uint8_t>(((best >> 5) & 63) * 255 / 63),
+                                  static_cast<uint8_t>((best & 31) * 255 / 31)};
+        out = std::make_unique<IconOutline>(IconOutline{o, col, 1, t->width, t->height});
+      }
+      zimg::free_texture(t);
+      break;
+    }
+  return out.get();
+}
 
 std::string slot_icon_image(int32_t pm_mech, SlotLook look) {
   return "mw1_slot_" + lower(mech3::mech_name(pm_mech)) + (look == SlotLook::kLit ? "_lit" : look == SlotLook::kOff ? "_off" : "");

@@ -198,12 +198,30 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // At the window's scale (research/hires-2d.md B2): PM's 'Mech outlines redrawn as lines (mw1_outline.h), and PM's
     // mission HUD pictures drawn from their shapes (mw1_hud_art.h).
     art::set_drawn_art([](const std::string& name, art::DrawnArt* out) {
-      if (const IconOutline* o = icon_outline(name)) {
+      const IconOutline* o = icon_outline(name);
+      if (!o) o = pm_icon_outline(name);  // FIXES.md item 12: PM's own icons as PM's screens show them (the lab's)
+      if (o) {
         out->canvas_w = o->canvas_w, out->canvas_h = o->canvas_h;
         out->draw = [lines = o->lines, c = o->colour, sc = o->scale, w = o->canvas_w, h = o->canvas_h, fit = o->fit](int32_t s) {
           return fit ? outline::draw_fit(*lines, c, w, h, s, kRowLineMin) : outline::draw(*lines, c, sc, w, h, s);
         };
         return true;
+      }
+      // FIXES.md item 12 (the 4K sweep): MW1's flat pictures, all clear (a part a screen binds that MW1 doesn't show)
+      // or all black (the narration's and the travel map's backdrop), at any scale: the canvas's copy is no worse, but
+      // drawn here they leave the "left to the canvas" log to the pictures that are.
+      if (name == chrome::kClear || name == kBlackImage) {
+        if (zimg::Texture* t = zimg::fetch_image(name.c_str())) {
+          out->canvas_w = t->width, out->canvas_h = t->height;
+          zimg::free_texture(t);
+          out->draw = [w = out->canvas_w, h = out->canvas_h, black = name == kBlackImage](int32_t s) {
+            std::vector<uint8_t> rgba(static_cast<size_t>(w) * s * h * s * 4, 0);
+            if (black)
+              for (size_t i = 3; i < rgba.size(); i += 4) rgba[i] = 255;
+            return rgba;
+          };
+          return true;
+        }
       }
       if (hud_art::size_of(name, &out->canvas_w, &out->canvas_h)) {
         out->draw = [name](int32_t s) { return hud_art::draw(name, s); };
