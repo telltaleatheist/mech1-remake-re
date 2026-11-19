@@ -462,7 +462,7 @@ Tick an item when it is merged into `main`.
 - **Wanted:** every "reach" objective has its place as a nav point, named for it (e.g. "Pump complex"), selectable and on the map like MW3's and PM's. The same goes for any objective whose place isn't otherwise shown, such as a defended structure.
 - **Done means:** a test that every reach row in mw1maps.zrd gives a nav point at its node, and a shot of the nav display in that mission.
 
-## 44. [ ] An ice world's contract plays on a desert map
+## 44. [x] An ice world's contract plays on a desert map
 - **Owen (2026-11-18):** Rasalhague (the north of Kurita's blue region) sent him to Road to Madre, a desert, though he took it for an arctic world.
 - **Cause:** no Instant Action map is arctic (research/maps.md, "An arctic map"). A contract in the ice climate falls back to its kind anywhere, which here is the desert.
 - **To check:** that Rasalhague's battles really are ice in MW1's data.
@@ -568,7 +568,7 @@ Tick an item when it is merged into `main`.
   - MW3's horizon ring `g15055` is untextured and fog-coloured. Through PM's flat batch (pack_material) it gets alpha 0, and the --shot BMP keeps that alpha, so viewers lay it over white.
   - On screen it's MW3's own haze ring.
   - The fix is one line in the shared shot path, with a test; the patch is in outbox/2026-11-18/mw1-horizon. It's with the mw3 lead for main and pm, and mw1 takes it by merging pm.
-  - **Open:** Owen to say whether he saw the band in a live window. If so, there's a second cause.
+  - **Owen (2026-11-18): "looks correct".** The shot fix is enough; it's left to the mw3 lead to land.
 
 ## 50. [x] The office's liaison portrait: as wide as the buttons, its bottom on the terms box's bottom
 - **Owen (2026-11-18):** the portrait at the bottom left of the office (negotiation) screen leaves room unfilled.
