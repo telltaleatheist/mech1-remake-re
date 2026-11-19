@@ -125,7 +125,13 @@ Tick an item when it is merged into `main`.
   - **Text:** already right. The fonts are real outline fonts (Saira Condensed, Share Tech Mono) rasterised at window size; no font change is needed.
   - **'Mech icons (Owen, corrected):** PM's own amber outlines, not new art and not the 3D render. PM ships them only at 41x50 (rimage.zbd; the MFB salvage screen uses the same ones). So each is vectorised once into its line and fill layers (PM's exact three colours) and redrawn at window scale. An upscale is the last resort only (dev 1).
   - **The Mech Complex's 'Mech (Owen, 2026-11-18):** "3d renders of the mechs from the front in gunmetal for that screen, not using image renders". The panel draws the 'Mech's 3D model live, front view, in PM's GUNMETAL skin, at window resolution, as the lab draws its 'Mech. That covers every sold chassis (it replaces the plan to pre-render all 24). The other screens using stored renders (market rows, Company, loading, briefing) are to be asked (dev 1 plans).
-  - **Owen (2026-11-18):** the Mech Complex 'Mech stands still, facing front. The Company page draws each pilot's 'Mech live in gunmetal too. The loading screen keeps a stored picture, re-rendered in gunmetal for all 24 sold chassis at first run.
+  - **Owen's names (2026-11-18):** **mech outlines** are PM's amber outlines redrawn as vectors: small, they fit anywhere. **Gunmetal renders** are the full 3D 'Mech in GUNMETAL: they can spin.
+  - **Where each goes (Owen, 2026-11-18):**
+    - Mech Complex panel: the gunmetal render, live, still and facing front; spinning is built as an option.
+    - Company page: each pilot's 'Mech as its mech outline, under the pilot's name.
+    - Mech Complex market: a mech outline next to each 'Mech's name in the list for sale.
+    - Loading screen: a stored gunmetal render, made for all 24 sold chassis at first run.
+    - Lab slot: the mech outline.
   - **Star map:** the backdrop is redrawn at window scale (done). The dots, rings and jump line are drawn by MW1 at window scale (dev 2, b2).
   - **Chrome lines and PM's list arrows / scrollbars:** no longer left at canvas size. They're drawn at window scale too, from geometry or redrawn art. This reverses the earlier "PM's widget art stays canvas-sharp".
   - **Framed tiles, DEPLOY's tile, the lab panels:** from their full-size source pictures (dev 1, B2).
