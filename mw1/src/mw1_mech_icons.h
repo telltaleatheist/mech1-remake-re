@@ -4,10 +4,12 @@
 // screen's 96x128 mech slot. Made at the start from the player's Pirate's Moon (never changed) into an image archive
 // in MW1's write dir (<kIconLibrary>.zbd at its root, rewritten when it differs), registered beside mw1image.zbd.
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "mw1_images.h"
+#include "mw1_outline.h"
 
 namespace zimg { struct Texture; }
 
@@ -21,6 +23,11 @@ inline constexpr int32_t kIconScale = 2;
 std::string mech_icon_image(int32_t pm_mech);
 // PM's icon picture's name for a mech (mech_icon's colour 2, yellow).
 std::string pm_mech_icon(int32_t pm_mech);
+// PM's icon for a mech in the first colour PM has it in: yellow, then green, red, grey (six chassis, the Atlas,
+// Awesome, Centurion, Clint, Masakari and Ryoken, have no yellow one). Null when PM has none; free it with
+// zimg::free_texture.
+inline constexpr const char* kPmIconColours[] = {"yellow", "green", "red", "grey"};
+zimg::Texture* fetch_pm_mech_icon(int32_t pm_mech);
 // The icon in amber: each lit pixel (any channel) amber at its brightness, black clear; scaled by kIconScale and
 // centred on a clear kIconSlotW x kIconSlotH. An empty image's name when the texture is not 16-bit.
 images::Image amber_icon(const std::string& name, const zimg::Texture& pm_icon);
@@ -30,8 +37,25 @@ images::Image amber_icon(const std::string& name, const zimg::Texture& pm_icon);
 enum class SlotLook { kDim, kLit, kOff };
 std::string slot_icon_image(int32_t pm_mech, SlotLook look);  // "mw1_slot_<mech>", _lit, _off
 images::Image slot_icon(const std::string& name, const zimg::Texture& pm_icon, SlotLook look);
+outline::Colour slot_colour(SlotLook look);  // each look's colour
 // Every mech MW1 uses (kMechKinds' stand-ins) and every PM mech's slot looks, from PM's libraries; the archive written under `write_dir` when it
 // differs from what is there. The count made (0: none of PM's icons found).
 int32_t make_mech_icons(const std::string& write_dir);
+// research/hires-2d.md B2 item 1 (Owen 2026-11-18): an icon made this run, as its outline redrawn (mw1_outline.h),
+// its colour, and how its canvas copy places it (`scale` canvas pixels an icon pixel, centred on canvas_w x canvas_h);
+// the 2D at the window's scale draws it so (mw1_art.h's set_drawn_art). Null when `name` isn't one.
+struct IconOutline {
+  std::shared_ptr<const outline::Outline> lines;
+  outline::Colour colour{};
+  int32_t scale = 1, canvas_w = 0, canvas_h = 0;
+  bool fit = false;  // fitted into canvas_w x canvas_h (outline::draw_fit, lines at least kRowLineMin) instead
+};
+// The market's rows (Owen 2026-11-18): each mech's outline beside its name, kRowIconW x kRowIconH canvas pixels (a
+// row's height: the lists' GAP), lit on the chosen row, dim on the rest (SlotLook's colours). Its lines at least
+// kRowLineMin device pixels wide.
+inline constexpr int32_t kRowIconW = 12, kRowIconH = 15;
+inline constexpr double kRowLineMin = 1.2;
+std::string row_icon_image(int32_t pm_mech, bool lit);  // "mw1_row_<mech>", _lit
+const IconOutline* icon_outline(const std::string& name);
 
 }  // namespace mw1

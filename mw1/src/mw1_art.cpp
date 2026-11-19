@@ -201,6 +201,7 @@ struct Decoded {
 namespace {
 int32_t g_scale = 1;  // the last scale set, kept across a reopen (the host sets it only when it changes)
 std::vector<std::string> g_added;  // add's archives, read again after an open (which starts the store afresh)
+std::function<bool(const std::string&, DrawnArt*)> g_drawn_art;  // the program's own pieces (set_drawn_art)
 }  // namespace
 
 struct Store::Impl {
@@ -261,6 +262,24 @@ struct Store::Impl {
       s.picture = {s.done->w, s.done->h, (s.done->shown.empty() ? s.done->rgba : s.done->shown).data(), s.done->serial, e->second.canvas_w, e->second.canvas_h};
     }
     return &s;
+  }
+
+  // A piece the program draws (set_drawn_art), made at the current scale.
+  const Picture* drawn_art(const std::string& name, const DrawnArt& da) {
+    auto m = made.find(name);
+    if (m != made.end()) {
+      m->second.used = frame;
+      return &m->second.picture;
+    }
+    if (scale < 2 || !da.draw || da.canvas_w <= 0 || da.canvas_h <= 0) return nullptr;
+    std::vector<uint8_t> rgba = da.draw(scale);
+    if (rgba.size() != static_cast<size_t>(da.canvas_w) * scale * da.canvas_h * scale * 4) return nullptr;
+    Made& mm = made[name];
+    mm.drawn.name = name, mm.drawn.canvas_w = da.canvas_w, mm.drawn.canvas_h = da.canvas_h, mm.drawn.s = scale;
+    mm.drawn.rgba = std::move(rgba);
+    mm.picture = {da.canvas_w * scale, da.canvas_h * scale, mm.drawn.rgba.data(), next_serial++, da.canvas_w, da.canvas_h};
+    mm.used = frame;
+    return &mm.picture;
   }
 
   // The group `name` belongs to, made at the current scale (its source decoded if it isn't).
@@ -418,6 +437,10 @@ void* Store::canvas_texture(const char* name) {
 const Store::Picture* Store::picture(const char* name) {
   if (!impl_ || !name) return nullptr;
   if (impl_->recipes.count(name)) return impl_->drawn(name);
+  if (g_drawn_art && !impl_->by_name.count(name)) {
+    DrawnArt da;
+    if (g_drawn_art(name, &da)) return impl_->drawn_art(name, da);
+  }
   Impl::Slot* s = impl_->slot(name, true, true);
   return s && s->done ? &s->picture : nullptr;
 }
@@ -487,6 +510,8 @@ class Hires : public platform::HiresImages {
   std::map<std::string, platform::HiresImage> found_;
 };
 }  // namespace
+
+void set_drawn_art(std::function<bool(const std::string& name, DrawnArt* out)> source) { g_drawn_art = std::move(source); }
 
 bool install(const std::string& path, bool hires) {
   static Hires h;

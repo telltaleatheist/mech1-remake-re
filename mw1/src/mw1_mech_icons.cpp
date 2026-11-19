@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <map>
 #include <set>
 
 #include "gamez/zimage/zimg_library.h"
@@ -23,6 +24,45 @@ std::string lower(std::string s) {
 
 std::string mech_icon_image(int32_t pm_mech) { return "mw1_icon_" + lower(mech3::mech_name(pm_mech)); }
 std::string pm_mech_icon(int32_t pm_mech) { return "icon_" + std::string(mech3::mech_name(pm_mech)) + "_yellow"; }
+
+zimg::Texture* fetch_pm_mech_icon(int32_t pm_mech) {
+  for (const char* c : kPmIconColours)
+    if (zimg::Texture* t = zimg::fetch_image(("icon_" + std::string(mech3::mech_name(pm_mech)) + "_" + c).c_str())) return t;
+  return nullptr;
+}
+
+namespace {
+std::map<std::string, IconOutline> g_outlines;  // this run's icons, by name
+
+std::shared_ptr<const outline::Outline> outline_of(const zimg::Texture& t) {
+  if (!(t.flags & zimg::kTwoBytes) || t.palette_count || !t.pixels || t.width <= 0 || t.height <= 0) return nullptr;
+  const auto* px = static_cast<const uint16_t*>(t.pixels);
+  auto o = std::make_shared<outline::Outline>(
+      outline::vectorise(std::vector<uint16_t>(px, px + static_cast<size_t>(t.width) * t.height), t.width, t.height));
+  return o->empty() ? nullptr : o;
+}
+}  // namespace
+
+std::string row_icon_image(int32_t pm_mech, bool lit) { return "mw1_row_" + lower(mech3::mech_name(pm_mech)) + (lit ? "_lit" : ""); }
+
+namespace {
+// An RGBA drawing (straight alpha) as a canvas image: 565 and its alpha plane.
+images::Image image_of(const std::string& name, const std::vector<uint8_t>& rgba, int32_t w, int32_t h) {
+  images::Image i;
+  i.name = name, i.width = w, i.height = h;
+  i.pixels.assign(static_cast<size_t>(w) * h, 0), i.alpha.assign(i.pixels.size(), 0);
+  for (size_t k = 0; k < i.pixels.size() && k * 4 + 3 < rgba.size(); ++k) {
+    i.alpha[k] = rgba[k * 4 + 3];
+    if (i.alpha[k]) i.pixels[k] = images::rgb565(rgba[k * 4], rgba[k * 4 + 1], rgba[k * 4 + 2]);
+  }
+  return i;
+}
+}  // namespace
+
+const IconOutline* icon_outline(const std::string& name) {
+  auto it = g_outlines.find(name);
+  return it == g_outlines.end() ? nullptr : &it->second;
+}
 
 namespace {
 // `t`'s lit pixels in (r, g, b) at their brightness, black clear, scaled by `scale`, centred on a clear w x h.
@@ -53,11 +93,16 @@ images::Image tinted(const std::string& name, const zimg::Texture& t, int32_t sc
 std::string slot_icon_image(int32_t pm_mech, SlotLook look) {
   return "mw1_slot_" + lower(mech3::mech_name(pm_mech)) + (look == SlotLook::kLit ? "_lit" : look == SlotLook::kOff ? "_off" : "");
 }
-images::Image slot_icon(const std::string& name, const zimg::Texture& t, SlotLook look) {
+outline::Colour slot_colour(SlotLook look) {
   // MW1's amber lit; a dimmer amber not chosen; grey off.
-  if (look == SlotLook::kLit) return tinted(name, t, 1, t.width, t.height, 255, 176, 64);
-  if (look == SlotLook::kOff) return tinted(name, t, 1, t.width, t.height, 110, 110, 110);
-  return tinted(name, t, 1, t.width, t.height, 170, 110, 30);
+  if (look == SlotLook::kLit) return {255, 176, 64};
+  if (look == SlotLook::kOff) return {110, 110, 110};
+  return {170, 110, 30};
+}
+
+images::Image slot_icon(const std::string& name, const zimg::Texture& t, SlotLook look) {
+  const outline::Colour c = slot_colour(look);
+  return tinted(name, t, 1, t.width, t.height, c.r, c.g, c.b);
 }
 
 images::Image amber_icon(const std::string& name, const zimg::Texture& t) {
@@ -68,10 +113,12 @@ int32_t make_mech_icons(const std::string& write_dir) {
   if (write_dir.empty()) return 0;  // never beside the program
   std::vector<images::Image> made;
   std::set<int32_t> done;
+  g_outlines.clear();
   for (const MechKind& k : kMechKinds) {
     if (!done.insert(k.pm_mech).second) continue;
-    zimg::Texture* t = zimg::fetch_image(pm_mech_icon(k.pm_mech).c_str());
+    zimg::Texture* t = fetch_pm_mech_icon(k.pm_mech);
     if (!t) continue;
+    if (auto o = outline_of(*t)) g_outlines[mech_icon_image(k.pm_mech)] = {o, {255, 176, 64}, kIconScale, kIconSlotW, kIconSlotH};
     images::Image i = amber_icon(mech_icon_image(k.pm_mech), *t);
     zimg::free_texture(t);  // fetch_image reads a new copy for every get
     if (!i.name.empty()) made.push_back(std::move(i));
@@ -79,9 +126,22 @@ int32_t make_mech_icons(const std::string& write_dir) {
   const int32_t mechs = static_cast<int32_t>(made.size());
   // The lab's slots: every PM mech's (mech_count: the mods' too).
   for (int32_t m = 0; m < mech3::mech_count(); ++m) {
-    zimg::Texture* t = zimg::fetch_image(pm_mech_icon(m).c_str());
+    zimg::Texture* t = fetch_pm_mech_icon(m);
     if (!t) continue;
+    const auto o = outline_of(*t);
+    if (done.insert(m).second) {  // the Company page's outline for every chassis the company can own (a bought one)
+      if (o) g_outlines[mech_icon_image(m)] = {o, {255, 176, 64}, kIconScale, kIconSlotW, kIconSlotH};
+      images::Image i = amber_icon(mech_icon_image(m), *t);
+      if (!i.name.empty()) made.push_back(std::move(i));
+    }
+    if (o)  // the market's rows: drawn from the outline at the canvas's size too (no pixel copy of PM's to shrink)
+      for (bool lit : {false, true}) {
+        const outline::Colour c = slot_colour(lit ? SlotLook::kLit : SlotLook::kDim);
+        g_outlines[row_icon_image(m, lit)] = {o, c, 1, kRowIconW, kRowIconH, true};
+        made.push_back(image_of(row_icon_image(m, lit), outline::draw_fit(*o, c, kRowIconW, kRowIconH, 1, 1.0), kRowIconW, kRowIconH));
+      }
     for (SlotLook l : {SlotLook::kDim, SlotLook::kLit, SlotLook::kOff}) {
+      if (o) g_outlines[slot_icon_image(m, l)] = {o, slot_colour(l), 1, t->width, t->height};
       images::Image i = slot_icon(slot_icon_image(m, l), *t, l);
       if (!i.name.empty()) made.push_back(std::move(i));
     }

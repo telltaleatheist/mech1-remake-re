@@ -186,6 +186,16 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       bool there = false;
       for (zimg::Library* lib : zimg::library_list(1)) there = there || (lib && std::strstr(lib->name, kIconLibrary));
       if (!there) zimg::new_image_library(kIconLibrary, 0, false);
+      // At the window's scale (research/hires-2d.md B2 item 1): PM's outlines redrawn as lines (mw1_outline.h).
+      art::set_drawn_art([](const std::string& name, art::DrawnArt* out) {
+        const IconOutline* o = icon_outline(name);
+        if (!o) return false;
+        out->canvas_w = o->canvas_w, out->canvas_h = o->canvas_h;
+        out->draw = [lines = o->lines, c = o->colour, sc = o->scale, w = o->canvas_w, h = o->canvas_h, fit = o->fit](int32_t s) {
+          return fit ? outline::draw_fit(*lines, c, w, h, s, kRowLineMin) : outline::draw(*lines, c, sc, w, h, s);
+        };
+        return true;
+      });
     } else {
       std::printf("mw1: no mech icons from Pirate's Moon's pictures: the Company screen's mech slots stay empty\n");
     }
