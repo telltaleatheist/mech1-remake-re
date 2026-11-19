@@ -1255,8 +1255,9 @@ Owen, defending the tower on mw3c1ia3 (4 enemies): three came; the fourth never 
     results it fades in again. PM's own menu music never plays over MW1's screens: the theme takes the CD back.
   - mw1_music.{h,cpp}; `music::frame(!deployed_)` each frame shown.
 - **Silence:** a --nosound or --hidden run plays no music aloud. Before, SdlMusicOutput always opened the real
-  device. With MW1's flag (platform/quiet_music.h) such a run gets a platform::SilentMusicOutput, which keeps the calls
-  and opens no device. That's an "mw1 (engine, ours)" commit, opt-in, so MW3 and PM are unchanged.
+  device. Such a run now gets a platform::SilentMusicOutput, which keeps the calls and opens no device. It began as
+  MW1's opt-in flag; the mw3 lead took it onto main for every program (--nosound or a hands-off run, 5681fc40), and
+  the flag went at the merge of pm (mw1-merge-pm-2).
 - **QUIT:** the hub's foot, between LOG and STORY, gone while the box shows. It asks with PM's quit box, the same one
   as the main menu's QUIT: NO stays, OK quits.
 - **Settings** (the hub's OPTIONS): MUSIC: ON / OFF, then MUSIC n% and EFFECTS n% between ◀ ▶ arrows (steps of 10).

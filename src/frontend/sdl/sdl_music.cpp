@@ -5,7 +5,6 @@
 
 #include "frontend/sdl/sdl_platform.h"
 #include "gamez/zutil/zutl_path.h"
-#include "platform/quiet_music.h"
 #include "platform/silent_sound.h"
 
 #ifdef MW3_HAVE_SDL_SOUND
@@ -15,7 +14,7 @@
 namespace sdlfe {
 
 namespace {
-int32_t g_devices_opened = 0;  // ours (FIXES 100): devices_opened()
+int32_t g_devices_opened = 0;  // devices_opened()
 }  // namespace
 
 namespace {
@@ -143,8 +142,8 @@ bool SdlMusicOutput::play(const std::string& path) {
 
 int32_t SdlMusicOutput::devices_opened() { return g_devices_opened; }
 
-std::unique_ptr<platform::MusicOutput> music_output_for(bool nosound, bool hidden) {
-  if (platform::quiet_music() && (nosound || hidden)) return std::make_unique<platform::SilentMusicOutput>();
+std::unique_ptr<platform::MusicOutput> music_output_for(bool nosound, bool hands_off) {
+  if (nosound || hands_off) return std::make_unique<platform::SilentMusicOutput>();
   return std::make_unique<SdlMusicOutput>();
 }
 
