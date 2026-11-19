@@ -1,3 +1,4 @@
+#include "platform/mode_labels.h"
 #include "mech3/options_menu.h"
 
 #include <algorithm>
@@ -303,14 +304,26 @@ void ResolutionCycle::rebuild(int32_t dev) {
   static const struct {
     int32_t mode, message;
   } kModes[] = {{3, 0x41}, {5, 0x42}, {6, 0x43}, {7, 0x44}, {8, 0xfda}, {9, 0xfdb}, {10, 0xfdc}};
+  // Ours (MW1's FIXES.md item 83, opt-in: platform/mode_labels.h): one format, the mode's own size.
+  auto size_label = [](int32_t mode, char* out, size_t n, const char* fmt) {
+    int32_t w = 0, h = 0;
+    if (!vmode_size(mode, &w, &h)) return false;
+    std::snprintf(out, n, fmt, w, h);
+    return true;
+  };
+  const bool uniform = platform::uniform_mode_labels();
   for (const auto& m : kModes)
-    if (lo <= m.mode && hi >= m.mode) add_item(e_.message(m.message), m.mode);
+    if (lo <= m.mode && hi >= m.mode) {
+      char label[24];
+      if (uniform && size_label(m.mode, label, sizeof label, "%d x %d")) add_item(label, m.mode);
+      else add_item(e_.message(m.message), m.mode);
+    }
   // FIX (B) (resolution.md): the new sizes, by their size (no message names them).
   for (int32_t mode = 11; zfix::options().any_resolution && mode <= kLastVMode; ++mode) {
     int32_t w = 0, h = 0;
     if (lo > mode || hi < mode || !vmode_size(mode, &w, &h)) continue;
     char label[24];
-    std::snprintf(label, sizeof label, "%dx%d", w, h);
+    std::snprintf(label, sizeof label, uniform ? "%d x %d" : "%dx%d", w, h);
     add_item(label, mode);
   }
   if (cur < lo) select_value(lo);

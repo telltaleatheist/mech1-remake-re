@@ -1,10 +1,10 @@
-// mw1imgpack OUT.zbd ART.zbd INTRO.bmp ART_DIR: MW1's two image archives from their sources in data-src/, at build time.
+// mw1imgpack OUT.zbd ART.zbd ART_DIR: MW1's two image archives from their sources in data-src/, at build time.
 // - ART.zbd (src/mw1_art.h): the screens' art, ART_DIR's files (tools/mw1art.py's, at their sources' size) copied as
 //   they are, each canvas image art.csv names as mw1_<its name>. Their canvas copies are made when they load.
-// - OUT.zbd (src/mw1_images.h): the opening picture filling the 854x480 canvas (mw1_intro), the narration's black
+// - OUT.zbd (src/mw1_images.h): the narration's black
 //   (mw1_black), the travel map's backdrops drawn from the worlds' data (src/mw1_map_image.h: mw1_map and one per
 //   House), what is cut from the art's canvas copies (the service tiles, DEPLOY's, the lab's panels), and the chrome
-//   drawn in code (src/mw1_chrome.h), with alpha.
+//   drawn in code (src/mw1_chrome.h), with alpha. The intro's opening picture (mw1_intro) is art (FIXES.md item 83).
 #include <SDL3/SDL.h>
 
 #include <cstdio>
@@ -22,49 +22,22 @@
 #include "mw1_images.h"
 #include "mw1_map_image.h"
 
-namespace {
-// A picture file's pixels as 565 (SDL's loaders: BMP, and PNG since SDL 3.4); false with the reason printed.
-bool load(const std::string& path, int* w, int* h, std::vector<uint16_t>* px) {
-  SDL_Surface* s = SDL_LoadSurface(path.c_str());
-  SDL_Surface* rgb = s ? SDL_ConvertSurface(s, SDL_PIXELFORMAT_RGB565) : nullptr;
-  if (!rgb) {
-    std::fprintf(stderr, "mw1imgpack: %s: %s\n", path.c_str(), SDL_GetError());
-    if (s) SDL_DestroySurface(s);
-    return false;
-  }
-  px->assign(static_cast<size_t>(rgb->w) * static_cast<size_t>(rgb->h), 0);
-  for (int y = 0; y < rgb->h; ++y) {
-    const auto* row = reinterpret_cast<const uint16_t*>(static_cast<const uint8_t*>(rgb->pixels) + static_cast<size_t>(y) * rgb->pitch);
-    for (int x = 0; x < rgb->w; ++x) (*px)[static_cast<size_t>(y * rgb->w + x)] = row[x];
-  }
-  *w = rgb->w, *h = rgb->h;
-  SDL_DestroySurface(rgb), SDL_DestroySurface(s);
-  return true;
-}
-}  // namespace
 
 int main(int argc, char** argv) {
-  if (argc != 5) {
-    std::fprintf(stderr, "usage: mw1imgpack OUT.zbd ART.zbd INTRO.bmp ART_DIR\n");
+  if (argc != 4) {
+    std::fprintf(stderr, "usage: mw1imgpack OUT.zbd ART.zbd ART_DIR\n");
     return 2;
   }
-  int w = 0, h = 0;
-  std::vector<uint16_t> px;
-  if (!load(argv[3], &w, &h, &px)) return 1;
-  if (w > mw1::kScreenW || h > mw1::kScreenH) {
-    std::fprintf(stderr, "mw1imgpack: %s is %dx%d, larger than the screen\n", argv[3], w, h);
-    return 1;
-  }
   std::string why;
-  std::vector<mw1::images::Image> all = {mw1::cover(mw1::kIntroImage, w, h, px, mw1::kWideW, mw1::kScreenH), mw1::black(mw1::kBlackImage)};
+  std::vector<mw1::images::Image> all = {mw1::black(mw1::kBlackImage)};
   // The black backdrop the wide canvas across (centred, 4:3 shows its middle): nothing of the screen under it shows.
-  all[1].width = mw1::kWideW, all[1].pixels.assign(static_cast<size_t>(mw1::kWideW) * mw1::kScreenH, 0);
+  all[0].width = mw1::kWideW, all[0].pixels.assign(static_cast<size_t>(mw1::kWideW) * mw1::kScreenH, 0);
   for (mw1::images::Image& m : mw1::backdrops()) all.push_back(std::move(m));
   // The art, in art.csv's order (the same archive every build): each file's bytes once, and its canvas copies.
-  const std::filesystem::path dir = argv[4];
+  const std::filesystem::path dir = argv[3];
   std::ifstream csv(dir / "art.csv");
   if (!csv) {
-    std::fprintf(stderr, "mw1imgpack: no art.csv in %s\n", argv[4]);
+    std::fprintf(stderr, "mw1imgpack: no art.csv in %s\n", argv[3]);
     return 1;
   }
   std::vector<mw1::art::Packed> packed;

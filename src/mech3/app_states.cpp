@@ -13,6 +13,8 @@
 #include "mech3/mission.h"
 #include "gamez/zutil/zfix.h"
 #include "mech3/app_shadows.h"
+#include "mech3/app_hud.h"
+#include "platform/pause_hud.h"
 
 #include <cstdio>
 
@@ -670,11 +672,14 @@ bool CoreState::draw_hardware(Handle veh, bool flag) {
   const Handle scene = en.scene_begin();
   en.vcall(en.player_view(), 0x04, {});
   if (veh) zoom_pass(en, veh);
-  if (en.key_state(1) & 3) {
+  // Ours (MW1's FIXES.md item 83, opt-in: platform/pause_hud.h): Escape draws this frame once more, the world not
+  // moved, the HUD's marker line left out, for the pause's grab; else the exe's: straight to the pause.
+  const bool pausing = (en.key_state(1) & 3) != 0;
+  if (pausing && !platform::pause_hides_hud_marker()) {
     if (flag && veh) en.node_set_active(en.vehicle_node(veh), 1);
     return true;
   }
-  world_tick(en);
+  if (!pausing) world_tick(en);
   en.weather_rect(0, window);
   en.video_begin_3d();
   en.weather_tick(en.frame_dt());
@@ -699,6 +704,7 @@ bool CoreState::draw_hardware(Handle veh, bool flag) {
   }
   en.vcall(en.field32(en.player_view(), 0x64), 0xe4, {zgame::bits(en.frame_dt())});
   en.video_begin_3d();
+  if (pausing) program_hud_marker_hide(true);
   hud(en);
   hud_static(en, veh);
   // FIX (A), playtest W44/W46: the quit box (the exe's update after the frame,
@@ -706,7 +712,8 @@ bool CoreState::draw_hardware(Handle veh, bool flag) {
   en.vcall(message_box_, 0x00, {zgame::bits(en.frame_dt())});
   en.video_end_3d();
   fade_present(en);  // Pirate's Moon: after the HUD, the fade from black
-  return false;
+  if (pausing) program_hud_marker_hide(false);
+  return pausing;
 }
 
 namespace {

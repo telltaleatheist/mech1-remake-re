@@ -95,6 +95,9 @@ if(TARGET mw3pm)
     # MW1's own screens' text fit (FIXES.md items 3 and 5): every text inside the canvas, both shapes.
     add_test(NAME mw1screenfit COMMAND ${CMAKE_COMMAND} -DMW1_BIN=$<TARGET_FILE:mw1> -DDIR=${CMAKE_CURRENT_BINARY_DIR}/mw1screenfit
                                        -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/screen_fit.cmake)
+    # The pause's backdrop without the HUD's marker line (FIXES.md item 83), both shapes.
+    add_test(NAME mw1pausegrab COMMAND ${CMAKE_COMMAND} -DMW1_BIN=$<TARGET_FILE:mw1> -DDIR=${CMAKE_CURRENT_BINARY_DIR}/mw1pausegrab
+                                       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/pause_grab.cmake)
     # The high-resolution 2D (FIXES.md item 12, research/hires-2d.md B3 and B4). Off, every frame byte-identical to
     # the recorded one (PM's options, MW1 with MW1_HIRES=0); on, MW1's 2D at 4K has detail inside the canvas's texels.
     add_executable(mw1hirescheck tools/mw1hirescheck.cpp)
@@ -177,11 +180,11 @@ if(TARGET mw3pm)
   file(CONFIGURE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/mw1gen-art-list.txt CONTENT "${mw1_art_lines}\n" @ONLY)
   add_custom_command(OUTPUT ${mw1_image_zbd} ${mw1_art_zbd}
                      COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/mw1gen/zbd
-                     COMMAND mw1imgpack ${mw1_image_zbd} ${mw1_art_zbd} ${CMAKE_CURRENT_SOURCE_DIR}/data-src/intro.bmp ${CMAKE_CURRENT_SOURCE_DIR}/data-src/art
+                     COMMAND mw1imgpack ${mw1_image_zbd} ${mw1_art_zbd} ${CMAKE_CURRENT_SOURCE_DIR}/data-src/art
                      # Beside the program at once: a repack alone (the art or the chrome changed, the program not
                      # relinked) reached mw1data/ only at the program's next link before.
                      COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_BINARY_DIR}/mw1gen $<TARGET_FILE_DIR:mw1>/mw1data
-                     DEPENDS mw1imgpack ${CMAKE_CURRENT_SOURCE_DIR}/data-src/intro.bmp ${CMAKE_CURRENT_SOURCE_DIR}/src/mw1_map_image.cpp
+                     DEPENDS mw1imgpack ${CMAKE_CURRENT_SOURCE_DIR}/src/mw1_map_image.cpp
                              ${CMAKE_CURRENT_SOURCE_DIR}/src/mw1_map_image.h ${CMAKE_CURRENT_SOURCE_DIR}/src/mw1_travel_map.cpp
                              ${CMAKE_CURRENT_SOURCE_DIR}/src/mw1_chrome.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/mw1_chrome.h ${mw1_art}
                              ${CMAKE_CURRENT_SOURCE_DIR}/src/mw1_art.cpp ${CMAKE_CURRENT_BINARY_DIR}/mw1gen-art-list.txt

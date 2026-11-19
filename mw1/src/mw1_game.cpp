@@ -49,6 +49,7 @@
 #include "gamez/zimage/zimg_library.h"
 #include "gamez/zimage/zimg_texture.h"
 #include "gamez/zinput/zinput.h"
+#include "mech3/app_hud.h"
 #include "gamez/zreader/zreader.h"
 #include "gamez/ztwod/twod.h"
 #include "gamez/ztwod/twod_host.h"
@@ -469,8 +470,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       // hub_clear: the messages read (OK), the scenery and the tiles alone; hub_contract_read: a contract taken at the
       // office, its message read, the status line saying it (item 16).
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "hub_clear" && !pending_) press(kHubOk);
+      // Both, as hub_story: the arrival's message read first (OK), else the presses land under it and it stays up
+      // (the sweep's shots of both were the arrival, FIXES.md item 83).
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "hub_contract_read" && !pending_)
-        press(kHubOffice), press_office(kOfficeRequest), press_office(kOfficeAccept), press(kHubOk);
+        press(kHubOk), press(kHubOffice), press_office(kOfficeRequest), press_office(kOfficeAccept), press(kHubOk);
       // office_offer: the office with an offer up; hub_contract: one accepted, the hub's DEPLOY; hub_options: OPTIONS.
       // MW1_OFFICE_ASK=1 (development shots, FIXES.md item 56): a term asked up a step, NEGOTIATE lit; =2: the pay
       // asked far over the offer and put to the House, its counter-offer on the status line.
@@ -481,8 +484,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
           if (std::string(a) == "2") press_office(kOfficeSubmit);
         }
       }
-      if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "hub_contract")
-        press(kHubOffice), press_office(kOfficeRequest), press_office(kOfficeAccept);
+      if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "hub_contract" && !pending_)
+        press(kHubOk), press(kHubOffice), press_office(kOfficeRequest), press_office(kOfficeAccept);
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "hub_options") press(kHubOptions);
       // credits: the credits over the hub, MW1_CREDITS_AT seconds in (default 12: MW1's first panels up).
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "credits" && !pending_) {
@@ -3391,7 +3394,13 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       return;
     }
     if (page == "results") return;
-    if (now == &mech3::states().core && frames == 90 && page != "mission") app->push(app->state(3), 0);
+    // The pause as a player gets it: Escape pressed in the mission (CoreState's frame sees it, FIXES 83's grab without
+    // the HUD's marker line), let go once the pause is up.
+    if (now == &mech3::states().core && frames == 90 && page != "mission") zin::state().keys[1].state = 1;  // DIK_ESCAPE
+    if (now == &mech3::states().pause && frames == 1) zin::state().keys[1].state = 0;
+    if (now == &mech3::states().pause && frames == 2 && page == "pause")  // for mw1/tests/pause_grab.cmake
+      std::printf("mw1 pause: grab drawn without the marker line %d, the line shown again %s\n",
+                  static_cast<int>(mech3::program_hud_marker_hides()), mech3::program_hud_marker_shown() ? "yes" : "no");
     if (now == &mech3::states().pause && frames == 10 && page == "pause_options")
       if (auto* p = dynamic_cast<mech3::PauseScreen*>(ge->screen_of(mech3::states().pause.screen_))) p->on_button(mech3::PauseScreen::kOptions, 0, 0);
   }

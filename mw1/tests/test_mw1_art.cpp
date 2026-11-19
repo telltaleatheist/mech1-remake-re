@@ -390,3 +390,22 @@ TEST(mw1_art_chrome_at_scale) {
   for (size_t k = 3; k < d.rgba.size(); k += 4) edges = edges && !(d.rgba[k] >= 1 && d.rgba[k] <= 3) && !(d.rgba[k] >= 0xfc && d.rgba[k] < 255);
   EXPECT(edges);
 }
+
+// FIXES.md item 83 (the lead's sweep, 6): the intro's opening picture is art like the other scenes, so the 2D draws it
+// at the window's resolution: art.csv's "intro" (the name the intro's layout draws, mw1_intro), a scene on the
+// 854x480 canvas, its file at the mockup's own size (1344 wide), not the 640x366 copy it was.
+TEST(mw1_art_intro_picture_at_its_own_size) {
+  const Row* intro = nullptr;
+  const std::vector<Row> rows = art_csv();
+  for (const Row& r : rows)
+    if ("mw1_" + r.image == mw1::kIntroImage) intro = &r;
+  EXPECT(intro && intro->w == 854 && intro->h == 480);
+  if (!intro) return;
+  const std::vector<uint8_t> bytes = file_bytes(art_dir() / intro->file);
+  int32_t w = 0, h = 0;
+  std::vector<uint8_t> rgba;
+  EXPECT(!bytes.empty() && mw1::art::decode(bytes.data(), bytes.size(), &w, &h, &rgba));
+  std::printf("  the intro's picture %dx%d\n", static_cast<int>(w), static_cast<int>(h));
+  EXPECT(w == 1344 && h == 755);  // the mockup's width, cut to 854:480
+  EXPECT(!fs::exists(art_dir() / ".." / "intro.bmp"));  // one copy: the old 640x366 one gone
+}

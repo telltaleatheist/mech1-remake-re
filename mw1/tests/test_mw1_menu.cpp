@@ -16,6 +16,9 @@
 #include "mw1_menu.h"
 #include "mw1_pilots.h"
 #include "mw1_start.h"
+#include "gamez/zutil/zfix.h"
+#include "mech3/options_menu.h"
+#include "platform/mode_labels.h"
 
 namespace fs = std::filesystem;
 
@@ -181,4 +184,43 @@ TEST(mw1_menu_the_music_is_ours_else_pms_read_where_it_is) {
   const fs::path lone = fresh("mw1music2") / "MicroProse" / mw1::kApp;
   fs::create_directories(lone, ec);
   EXPECT(mw1::music_from(lone.string()).empty() && !fs::exists(lone.parent_path() / mw1::kPmApp));
+}
+
+// FIXES.md item 83 (the lead's sweep, 3): GRAPHICS & SOUND's RESOLUTION names every mode in one format, "W x H", the
+// mode's own size: PM named 3..10 by its messages and FIX (B)'s 11..16 "1920x1080". MW1's opt-in; off, as before.
+namespace {
+struct ModeListEngine : mech3::Engine {
+  int32_t video_memory_total() override { return 4 << 20; }
+  int32_t video_memory_used() override { return 0; }
+  const char* message(int32_t id) override {
+    static std::string s;
+    s = "msg" + std::to_string(id);
+    return s.c_str();
+  }
+  uint32_t unported(const char*, std::initializer_list<zgame::Arg>) override { return 0; }
+};
+std::vector<std::string> mode_labels(mech3::ResolutionCycle& list, int32_t dev) {
+  list.rebuild(dev);
+  std::vector<std::string> out;
+  for (auto* it : list.items) out.push_back(it->text ? it->text : "");
+  return out;
+}
+}  // namespace
+
+TEST(mw1_menu_resolution_names_in_one_format) {
+  const bool was_fix = zfix::options().any_resolution, was_uniform = platform::uniform_mode_labels();
+  zfix::options().any_resolution = true;
+  ModeListEngine e;
+  mech3::ResolutionCycle list(e);
+  platform::set_uniform_mode_labels(true);
+  std::vector<std::string> l = mode_labels(list, 0);
+  EXPECT(l.size() == 12 && l[0] == "640 x 480" && l[1] == "800 x 600" && l[5] == "1600 x 1200");
+  EXPECT(l.size() == 12 && l[6] == "1280 x 720" && l[8] == "1920 x 1080" && list.value_at(8) == 13);
+  l = mode_labels(list, -1);  // software: 3 and 5
+  EXPECT(l.size() == 2 && l[0] == "640 x 480" && l[1] == "640 x 480");
+  platform::set_uniform_mode_labels(false);
+  l = mode_labels(list, 0);
+  EXPECT(l.size() == 12 && l[3] == "msg4058" && l[8] == "1920x1080");
+  platform::set_uniform_mode_labels(was_uniform);
+  zfix::options().any_resolution = was_fix;
 }

@@ -15,7 +15,7 @@ are JPEG at quality 90, the tiles' pictures and the emblem PNG (hard edges).
 - a results picture (FIXES.md item 31, Owen's picks from KEEP_DIR/assets: ENDINGS): kept whole (8:7), shown 192x168
   at 4:3, and <name>_l, 240x210, at 16:9 (item 38); one file.
 art.csv lists each canvas image: its name, its file and its canvas size.
-The intro's unused takes (intro_0_*), the mechs' pictures and the hub's first scenes (SKIP) are left out.
+The intro's opening picture is the repo's mockups/intro.jpg, a scene. The intro's unused takes (intro_0_*), the mechs' pictures and the hub's first scenes (SKIP) are left out.
 
 scenery.csv: each world's scenery (hub_<type>), by MW1's planet number: our classification only (MW1's descriptions,
 which it was read from, stay out of the repo).
@@ -109,6 +109,12 @@ def main():
         made.append(os.path.join(out, file))
         rows.append([name, file, ENDING[0], ENDING[1]])
         rows.append([name + "_l", file, ENDING_LARGE[0], ENDING_LARGE[1]])
+    # The New Campaign intro's opening picture (FIXES.md item 83): the repo's mockup, a scene like the others, so the 2D
+    # draws it at the window's resolution too (it was a 640x366 BMP in mw1image.zbd before).
+    im = cut(Image.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "mockups", "intro.jpg")).convert("RGB"), SCENE)
+    im.save(os.path.join(out, "intro.jpg"), quality=90, optimize=True)
+    made.append(os.path.join(out, "intro.jpg"))
+    rows.append(["intro", "intro.jpg", SCENE[0], SCENE[1]])
     rows.sort(key=lambda r: r[0])
     with open(os.path.join(out, "art.csv"), "w", newline="") as o:
         w = csv.writer(o, lineterminator="\n")
