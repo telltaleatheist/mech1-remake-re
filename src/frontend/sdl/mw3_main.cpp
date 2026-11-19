@@ -1291,17 +1291,11 @@ int run(const Args& a, platform::VideoForWindows* vfw) {
       static sdlfe::SdlTwodHost* cleared_host = nullptr;  // the engine's buffer filled afresh: its draws forgotten
       cleared_host = &host;
       platform::hires_cleared() = [](const void* owner) { cleared_host->hires_lists().clear(owner); };
-      screen.after_layer = [&host, &window](const uint16_t* px, int w, int h, int pitch, bool rgb565, bool keyed,
-                                            uint16_t key) {
-        host.hires_draw()->draw(px, w, h, pitch, rgb565, keyed, key);
-        // FIXES 12 (ours, MW1's only): a 16-bit frame shown whole (present_16: PM's Load state) draws no scene, so
-        // no tint quad. One left pending (MW1's fade over its loading screen, mw1_screen.cpp) is drawn here, over
-        // the list, so the fade darkens the high-resolution text and pictures too.
-        if (!keyed && zvid::tint_quad().pending) {
-          window.render()->begin_scene();
-          zvid::draw_tint_quad();
-          window.render()->end_scene();
-        }
+      // FIXES 12 (ours, MW1's only): a 16-bit frame shown whole (present_16: PM's Load state) draws no scene, so no
+      // tint quad. One left pending (MW1's fade over its loading screen, mw1_screen.cpp) is drawn over the list, so the
+      // fade darkens the high-resolution text and pictures too (HiresDraw::draw_after_layer).
+      screen.after_layer = [&host](const uint16_t* px, int w, int h, int pitch, bool rgb565, bool keyed, uint16_t key) {
+        host.hires_draw()->draw_after_layer(px, w, h, pitch, rgb565, keyed, key);
       };
       screen.before_layer = [&host](const uint16_t* px, int w, int h, int pitch, bool rgb565, bool keyed, uint16_t key) {
         return host.hires_draw()->prepare(px, w, h, pitch, rgb565, keyed, key);

@@ -112,7 +112,7 @@ the cursor's save. So a draw list held only by the screen would lose text and pi
 | `mech3/pause_menu.cpp:34` `screen_grab(1)`; `app_mission.cpp:2570` `screen_grab(0)` | the mission's shown frame | over a mission only: PM's HUD, nothing recorded | nothing to do |
 | `gamez/ztwod/twod_object.cpp:597` `Ripple::draw_in_rect` | the canvas in a ring | no: no RIPPLE in MW1's layouts (PM's main-menu slide buttons) | rule 5: it stamps the mask and the canvas shows |
 | `gamez/zrender/zrndr_blur.*` (`app_fmv.cpp:90`) | the canvas, averaged | FMV BLUR actions and the pause, not MW1's screens | rule 5 |
-| `zrndr::tint` (`app_engine.cpp:981`, `twod_weather.cpp:114`) | nothing; the GPU tints the frame with a quad (`tint_quad_on_frame`) | fades and flashes | the list is drawn straight after the layer, into the same target, so a tint over the layer is over the list too. B1 test: a fade darkens recorded text |
+| `zrndr::tint` (`app_engine.cpp:981`, `twod_weather.cpp:114`) | nothing; the GPU tints the frame with a quad (`tint_quad_on_frame`) | fades and flashes | the list is drawn straight after the layer, into the same target, so a tint over the layer is over the list too; on a frame shown whole (present_16) a pending quad is drawn over the list (`HiresDraw::draw_after_layer`). Test: `sdl_hires_a_fade_darkens_recorded_draws` (a half fade: the line still one frame pixel, at half) |
 | `frontend/sdl/launcher.cpp:1344` `zrndr::ripple` | the launcher's own canvas | the launcher, not the game | out of scope |
 | `mw1/src/mw1_mech_renders.cpp` | the 3D frame, captured for the renders | no 2D involved | nothing to do |
 

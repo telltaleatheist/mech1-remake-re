@@ -5,6 +5,7 @@
 #include <cstdio>
 
 #include "frontend/sdl/sdl_platform.h"
+#include "gamez/zvideo/zvid_ddd3d.h"
 #include "platform/hires_2d.h"
 #include "platform/hires_images.h"
 #include "platform/render3d.h"
@@ -389,6 +390,16 @@ void HiresDraw::end_frame() {
     } else {
       ++it;
     }
+  }
+}
+
+void HiresDraw::draw_after_layer(const uint16_t* pixels, int width, int height, int pitch, bool rgb565, bool keyed,
+                                 uint16_t key) {
+  draw(pixels, width, height, pitch, rgb565, keyed, key);
+  if (!keyed && zvid::tint_quad().pending && render_) {
+    render_->begin_scene();
+    zvid::draw_tint_quad();
+    render_->end_scene();
   }
 }
 
