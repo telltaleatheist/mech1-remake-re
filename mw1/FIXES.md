@@ -620,6 +620,18 @@ Tick an item when it is merged into `main`.
 - **Also:** check the stores (no tonnage limit, Owen) for a count overflow. Clamp each item's quantity at a sane maximum (e.g. 9,999) and fit the lab's Qty column to it.
 - **Done means:** the exe's answer with its address; a test buying to the cap; a shot of the full hangar list.
 
+## 54. [ ] The travel animation back, as a video: the DropShip launches on departure
+- **Owen (2026-11-18):** "in the original, when you take off to a new location, it shows an animation of the spaceship taking off ... we could use ltx to generate a 5 second video of the spaceship launching ... use the image as the first frame."
+- **MW1:** MwPlayHiredTransportAnimation (MW_MAIN 081B:6095) on a paid trip. There's also an owned-DropShip version (60AD).
+- **The clips:** LTX-2.5 on the Mac, from data-src/art/travel_dropship_launch.jpg. Takes 11 and 22 are in outbox/2026-11-18/mw1-launch-video/. Owen to pick; take 11 for now.
+- **Built (dev 1's plan):**
+  - mw1_movie, MPEG-1 + MP2 via pl_mpeg (no new dependency), full window on the high-res 2D path;
+  - plays at the paid departure; click or key skips; fades with 52;
+  - skipped if the file is missing, or headless;
+  - 1280x704 at 5 Mbit/s, about 3.2 MB.
+- **Later, if Owen wants:** a clip for the owned DropShip and the Dark Wing victory (the same player); the Mech Complex idle loop and the intro's background (needs loop + rectangle).
+- **Done means:** GO → movie → hub with and without the file; skip by key and click; a 1080p capture of the fade in and out.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.
