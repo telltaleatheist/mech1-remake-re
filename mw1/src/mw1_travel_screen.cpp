@@ -14,6 +14,7 @@ namespace {
 const std::vector<ScreenButton> kTravelButtons = {{"GO", "GO"}, {"FILTER", "FILTER"}, {"BACK", "BACK"}};
 constexpr int32_t kPanelX = 470;             // the right column, beside the map
 constexpr size_t kNoteColumns = 72;          // the note's, across the map's foot
+constexpr size_t kPanelColumns = 26;         // the readout's, beside the map
 
 std::string thousands(int64_t v) {
   std::string s = std::to_string(v < 0 ? -v : v);
@@ -104,16 +105,17 @@ std::vector<std::string> stranded_lines(const Company& c) {
 std::vector<std::string> world_lines(const Company& c, int32_t world) {
   if (world < 0 || world >= kPlanetCount) return {};
   const Planet& w = kPlanets[world];
-  std::vector<std::string> l = {"House " + std::string(kHouses[w.house].name) + ", tier " + std::to_string(w.tier),
-                                !w.office             ? std::string("No House office")
-                                : refuses(c, w.house) ? std::string("Office: won't deal with you")
-                                                      : std::string("Office: contracts")};
+  // MW1's own panel (081B:56F9, FIXES.md item 64): the landscape, the population and the description, from the
+  // player's exe; no tier, no prices and no dealer's limit (MW1 never said them: the Mech Complex shows the prices).
+  const WorldText t = world_text(world);
+  std::vector<std::string> l = {"House " + std::string(kHouses[w.house].name) + (t.landscape.empty() ? "" : " \xB7 " + t.landscape)};
+  if (!t.population.empty()) l.push_back("Population " + t.population);
+  for (const std::string& s : wrap(t.description, kPanelColumns)) l.push_back(s);
+  l.push_back(!w.office             ? std::string("No House office")
+              : refuses(c, w.house) ? std::string("Office: won't deal with you")
+                                    : std::string("Office: contracts"));
   static const char* const kBattle[] = {"", "defence", "rescue", "raid", "campaign"};  // category_name's, short
   if (w.max_mission > 0 && w.max_mission < kCategoryCount) l.push_back("Battles up to " + std::string(kBattle[w.max_mission]));
-  l.push_back("You sell mechs at " + std::to_string(sell_percent(w.tier)) + "%");
-  l.push_back("You buy mechs at " + std::to_string(buy_percent(w.tier)) + "%");
-  const int32_t most = dealer_most(w.tier);
-  l.push_back(most < 0 ? std::string("Dealer buys any number") : "Dealer buys 1-" + std::to_string(most) + " mechs");
   if (clan_world(w.number)) l.push_back("Clan mechs for sale");
   return l;
 }
@@ -219,7 +221,7 @@ ScreenView travel_view(const Company& c, const TravelChoice& t) {
     detail.push_back("Cost " + thousands(cost) + " for " + std::to_string(mechs) + (mechs == 1 ? " mech" : " mechs"));
     detail.push_back("Arrives " + date_words(date_after(c.date, units)));
     detail.push_back("  " + days_words(units) + " on the way");
-    if (cost > c.funds) detail.push_back(""), detail.push_back("You can't afford it.");
+    if (cost > c.funds) detail.push_back("You can't afford it.");  // no gap: the readout's 14 lines (FIXES 64)
     if (shown != wi) detail.push_back("Click to choose it.");
     // Going somewhere with no office and no way on: say so first.
     if (!deals_with(c, w) && cost <= c.funds) {

@@ -110,8 +110,7 @@ Filter next_filter(const Filter& f) {
   switch (f.kind) {
     case FilterKind::kAll: return {FilterKind::kHouse, 0};
     case FilterKind::kHouse: return f.house + 1 < kHouseCount ? Filter{FilterKind::kHouse, f.house + 1} : Filter{FilterKind::kOffices, 0};
-    case FilterKind::kOffices: return {FilterKind::kTier, 0, kTierCount - 1};
-    case FilterKind::kTier: return f.tier > 0 ? Filter{FilterKind::kTier, 0, f.tier - 1} : Filter{FilterKind::kAffordable, 0};
+    case FilterKind::kOffices: return {FilterKind::kAffordable, 0};
     case FilterKind::kAffordable: return {FilterKind::kDeals, 0};
     case FilterKind::kDeals: return {};
   }
@@ -127,8 +126,6 @@ std::string filter_words(const Filter& f) {
       return "HOUSE " + n;
     }
     case FilterKind::kOffices: return "HOUSE OFFICES";
-    case FilterKind::kTier:
-      return "TIER " + std::to_string(f.tier) + (f.tier == kTierCount - 1 ? ": SELL HIGH" : f.tier == 0 ? ": BUY CHEAP" : "");
     case FilterKind::kAffordable: return "AFFORDABLE";
     case FilterKind::kDeals: return "WILL DEAL WITH YOU";
   }
@@ -142,7 +139,6 @@ bool lit(const Company& c, const Filter& f, int32_t world) {
     case FilterKind::kAll: return true;
     case FilterKind::kHouse: return w.house == f.house;
     case FilterKind::kOffices: return w.office != 0;
-    case FilterKind::kTier: return w.tier == f.tier;
     case FilterKind::kAffordable: return w.number == planet_here(c).number || travel_cost(c, w) <= c.funds;
     case FilterKind::kDeals: return deals_with(c, w);
   }

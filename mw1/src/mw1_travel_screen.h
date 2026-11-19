@@ -2,8 +2,8 @@
 // MW1's travel screen (the hub's TRAVEL; mw1_travel.h's rules) on MW1's screen template (mw1_screen.h), its layout
 // mw1travel.zrd in MW1's data folder: the star map (research/travel-map.md; mw1_travel_map.h's rules, the backdrop
 // mw1_map_image.h's) on the left, every world a dot in its House's colour, the company's world and the chosen one
-// ringed and joined by the jump's line; the chosen world on the right (its House, tier, office, the cost, the
-// arrival date); GO, FILTER and BACK. A click or the arrows choose; typing a name finds one (MW1's search, in place
+// ringed and joined by the jump's line; the chosen world on the right (its House, landscape, population, office, the
+// cost, the arrival date, its description); GO, FILTER and BACK. A click or the arrows choose; typing a name finds one (MW1's search, in place
 // of the old list); Enter is GO.
 #include <cstdint>
 #include <functional>
@@ -53,8 +53,10 @@ Date date_after(const Date& d, int32_t units);
 // The stranded lines (mw1_travel.h's stranded): what the company can do; empty when it isn't.
 std::vector<std::string> stranded_lines(const Company& c);
 
-// A world's facts for the readout (FIXES.md item 21): its House and tier, its office, the biggest battle fought
-// there (the record's byte 3), what mechs sell and cost there, the dealer's limit, Clan mechs.
+// A world's facts for the readout (FIXES.md items 21, 64): its House and landscape, its population and MW1's
+// description (wrapped to the panel; the three from the player's exe, none without it); its office, the biggest
+// battle fought there (the record's byte 3), Clan mechs. No tier, prices or dealer's limit: MW1 never showed them.
+// With the trip's lines, the readout fits the 14 lines above GO.
 std::vector<std::string> world_lines(const Company& c, int32_t world);
 
 ScreenView travel_view(const Company& c, const TravelChoice& t);

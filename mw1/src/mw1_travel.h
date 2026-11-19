@@ -29,6 +29,15 @@ struct Planet {
 inline constexpr int32_t kPlanetCount = 145;
 extern const Planet kPlanets[kPlanetCount];
 int32_t planet_index(int32_t planet_number);  // -1: none
+// What MW1's travel panel says of a world (081B:56F9, FIXES.md item 64), from the player's MW_MAIN.EXE at run time
+// (mw1_pilots.h's mw_main_data_segment), never kept here: its landscape's label (DS:5CA6, 5CAD, 5CB6 by byte 2's
+// (code - 1) % 3, title case: "Desert"), its population (bytes 8-9 in millions, grouped, with DS:5B83's suffix) and
+// its description (the string after its name, as the exe has it). All empty without the exe, or when the record
+// isn't this world's (another exe).
+struct WorldText {
+  std::string landscape, population, description;
+};
+WorldText world_text(int32_t world);  // a kPlanets index
 const Planet& planet_here(const Company& c);    // the company's (Robinson when its number is no world's)
 
 // The distance (081B:5912): sqrt(dx^2 + (dy x 32/20)^2) / 18, at least 1, through MW1's banded square root
