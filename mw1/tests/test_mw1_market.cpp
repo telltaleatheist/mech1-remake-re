@@ -10,6 +10,7 @@
 
 #include "check.h"
 #include "mw1_market_screen.h"
+#include "mw1_mech_icons.h"
 #include "mech3/mech_config.h"
 #include "mech3/mech_ids.h"
 #include "mech3/mech_names.h"
@@ -363,4 +364,28 @@ TEST(mw1_market_funds_shown_and_unaffordable_dimmed) {
   c.funds = 100000000;
   v = mw1::market_view(c, m);
   EXPECT(block(v, "S_ROWS_DIM") == nullptr);
+}
+
+// The rows' mech outlines (research/hires-2d.md B2 item 1, Owen 2026-11-18): one after each shown row's cursor, on
+// that row's line in FOR SALE and YOUR MECHS (a dimmed row's in S_ROWS still), the chosen row's lit, the others dim.
+TEST(mw1_market_rows_show_their_outlines) {
+  mw1::Company c = company_with_stores();
+  c.planet = "Test", c.mech = kOwens;
+  for (int i = 0; i < 12; ++i) c.market.stock.push_back(i % 2 ? kOwens : kFirefly);
+  c.funds = 2700000;  // the Firefly affordable, the Owens' row dimmed
+  mw1::MarketChoice m;
+  m.stock = 9;
+  mw1::clamp_choice(c, m);
+  const mw1::ScreenView v = mw1::market_view(c, m);
+  int32_t stock = 0, owned = 0, lit = 0;
+  for (const mw1::ScreenView::InlinePicture& p : v.inline_pictures) {
+    const std::string at = p.at ? p.at : "";
+    const int32_t i = p.line + (at == "S_ROWS" ? m.stock_top : m.owned_top);
+    const int32_t mech = at == "S_ROWS" ? c.market.stock[static_cast<size_t>(i)] : kOwens;
+    const bool chosen = at == "S_ROWS" ? i == m.stock : i == m.owned;
+    EXPECT(p.prefix == "> " && p.h == mw1::kRowIconH && p.image == mw1::row_icon_image(mech, chosen));
+    stock += at == "S_ROWS", owned += at == "O_ROWS", lit += chosen;
+  }
+  EXPECT(stock == mw1::kMarketRows && owned == 1 && lit == 2);
+  EXPECT(mw1::row_icon_image(kOwens, true) != mw1::row_icon_image(kOwens, false));
 }

@@ -121,6 +121,15 @@ struct ScreenView {
   // A PANEL's picture now, by its place among the panels (a portrait, a mech): its image's name; empty, or past
   // the end: the layout's own.
   std::vector<std::string> pictures;
+  // Pictures in a text place's lines (the market's mech outlines beside the names): `image` (h tall) starting where
+  // `prefix` ends (measured in the place's font), centred on the line's height. The line keeps spaces there for it.
+  struct InlinePicture {
+    const char* at = nullptr;  // a place in the layout's TEXTS
+    int32_t line = 0, h = 0;
+    std::string prefix;  // the line's text before the picture (measured: where it starts)
+    std::string image;
+  };
+  std::vector<InlinePicture> inline_pictures;
 };
 
 class Mw1Screen : public mech3::MenuScreen {
@@ -155,6 +164,8 @@ class Mw1Screen : public mech3::MenuScreen {
   std::string backdrop() const { return backdrop_; }  // for the tests: the BACKGROUND's image's name now
   std::string look(int32_t id) const;                 // and a button's look ("" the layout's)
   std::string picture(size_t i) const { return i < pictures_.size() ? pictures_[i] : ""; }  // a PANEL's, as asked
+  const std::vector<std::string>& inline_shown() const { return inline_shown_; }      // the inline pictures' images
+  bool inline_at(size_t i, int32_t* x, int32_t* y) const;                             // and where (tests)
 
  private:
   ztwod::Text* text(std::vector<std::unique_ptr<ztwod::Text>>& pool, size_t i, int32_t x, int32_t y, const char* font);
@@ -179,7 +190,10 @@ class Mw1Screen : public mech3::MenuScreen {
   std::vector<std::vector<std::unique_ptr<ztwod::Text>>> spans_;  // by block: a line's spans after its first
   std::vector<std::vector<std::string>> shown_lines_;
   void fit_status(ztwod::Text* t, int32_t y, size_t world_block, int32_t world_x);              // by block: the lines as shown, plain
-  std::vector<std::unique_ptr<ztwod::Image>> panels_;         // the layout's PANEL images, behind the texts
+  std::vector<std::unique_ptr<ztwod::Image>> panels_;
+  std::vector<std::unique_ptr<ztwod::Image>> inline_;         // ScreenView::inline_pictures, reused show to show
+  std::vector<std::unique_ptr<ztwod::Text>> measure_;         // one hidden Text: an inline picture's place measured
+  std::vector<std::string> inline_shown_;                      // for the tests: their images now         // the layout's PANEL images, behind the texts
   std::vector<std::unique_ptr<ztwod::Frame>> rings_;           // the marks, by kind, reused show to show
   std::vector<std::unique_ptr<ztwod::Line2D>> lines_;
   std::vector<std::unique_ptr<ztwod::PolyLine>> squares_;
