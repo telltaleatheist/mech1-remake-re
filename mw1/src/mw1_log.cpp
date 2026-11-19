@@ -53,6 +53,7 @@ bool log_announced(LogKind k) {
     case LogKind::kMissingInAction:
     case LogKind::kKilled:
     case LogKind::kMissing:
+    case LogKind::kWelcomeAgain:  // FIXES.md item 84: said at the hub
     case LogKind::kTestLine: return true;
     default: return false;  // the story's events, missions, repairs (FIXES.md item 57), deals, crew, travel: seen as they happen
   }
@@ -123,6 +124,9 @@ std::vector<std::string> log_lines(const Company& c, const LogEntry& e) {
     case LogKind::kStoryFunds:
       return {e.n < 0 ? "Paid " + thousands(-e.n) + " C-bills." : "Received " + thousands(e.n) + " C-bills."};
     case LogKind::kTurnedAway: return {"Turned away from " + planet_words(e.a) + " to " + planet_words(e.b) + "."};
+    case LogKind::kWelcomeAgain:
+      return {"Time has cooled House " + house_words(e.a) + "'s anger: its offices will deal with the company again."};
+    case LogKind::kSeated: return {pilot_title(e.a) + " takes the " + mech_title(e.b) + "."};
   }
   return {};
 }

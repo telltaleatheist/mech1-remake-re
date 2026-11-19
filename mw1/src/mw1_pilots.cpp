@@ -247,6 +247,22 @@ bool apply_lance(Company& c, const std::vector<int32_t>& slots, const std::vecto
   return true;
 }
 
+std::vector<Seated> seat_lancemates(Company& c) {
+  std::vector<Seated> done;
+  for (const Lancemate& l : c.lance) {
+    bool has = false;
+    for (const OwnedMech& o : c.hangar) has = has || o.pilot == l.id;
+    if (has) continue;
+    for (size_t i = 0; i < c.hangar.size(); ++i)
+      if (c.hangar[i].pilot == 0) {
+        c.hangar[i].pilot = l.id;
+        done.push_back({l.id, static_cast<int32_t>(i)});
+        break;
+      }
+  }
+  return done;
+}
+
 int32_t lance_weight(const Company& c) {
   auto of = [](int32_t mech) { return lance_weight_of_tons(static_cast<int32_t>(std::lround(mech3::max_mass(mech)))); };
   int32_t w = c.mech >= 0 ? of(c.mech) : 0;

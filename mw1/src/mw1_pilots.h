@@ -76,6 +76,12 @@ int32_t free_owned(const Company& c, const std::vector<int32_t>& slots, int32_t 
 // before), null its stock one. False (nothing changed) when slot 0 is none, two slots share a mech, or a size is off.
 bool apply_lance(Company& c, const std::vector<int32_t>& slots, const std::vector<std::shared_ptr<mech3::Config>>& loadouts);
 int32_t lance_weight(const Company& c);                // MW1's lance weight: the commander's mech and the assigned ones
+// Ours (FIXES.md item 85, waiting on Owen): after a hire or a buy, each lancemate without a mech takes the first spare
+// in the hangar, in lance order. What was done, as (pilot id, hangar index); the lab can change it all the same.
+struct Seated {
+  int32_t pilot = 0, hangar = -1;
+};
+std::vector<Seated> seat_lancemates(Company& c);
 
 // Wages (DS:2476, by the wage tier) a month. Charged as the calendar's months begin (advance_time): the company
 // short, the first time (one month) a warning, the next the lancemates leave, back to the pool, their mechs free.

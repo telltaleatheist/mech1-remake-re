@@ -11,6 +11,7 @@
 
 #include "check.h"
 #include "mw1_install.h"
+#include "mw1_log.h"
 #include "mw1_campaign.h"
 #include "mw1_chrome.h"
 #include "mw1_office.h"
@@ -199,6 +200,50 @@ TEST(mw1_office_a_refusing_house_and_the_stuck_guard) {
   EXPECT(mw1::cheapest_way_out(picky) >= cheapest);
   for (int32_t i = 0; i < mw1::kPlanetCount; ++i)
     if (mw1::kPlanets[i].house != mw1::kDavion) EXPECT(!mw1::deals_with(picky, mw1::kPlanets[i]));
+}
+
+// FIXES.md item 84 (ours, waiting on Owen): a grudge fades, one grievance every kGrudgeFadeMonths without a fight
+// against the House; a House that refused deals again under 8, and says so; a fight starts the count again; saved.
+TEST(mw1_office_a_grudge_fades_without_a_fight) {
+  mw1::Company c = company_on(mw1::kKurita);
+  c.log.clear();
+  const int32_t every = mw1::kGrudgeFadeMonths;
+  EXPECT(mw1::grudge_fade_months() == every && every > 1);
+  c.grievance[mw1::kLiao] = mw1::kGrievanceRefusal;
+  mw1::fade_grudges(c, every - 1);
+  EXPECT(c.grievance[mw1::kLiao] == mw1::kGrievanceRefusal && c.calm[mw1::kLiao] == every - 1 && mw1::refuses(c, mw1::kLiao));
+  EXPECT(c.log.empty());
+  mw1::fade_grudges(c, 1);
+  EXPECT(c.grievance[mw1::kLiao] == mw1::kGrievanceRefusal - 1 && c.calm[mw1::kLiao] == 0 && !mw1::refuses(c, mw1::kLiao));
+  EXPECT(c.log.size() == 1 && c.log[0].kind == mw1::LogKind::kWelcomeAgain && c.log[0].a == mw1::kLiao && !c.log[0].heard);
+  if (!c.log.empty()) {
+    const std::vector<std::string> l = mw1::log_lines(c, c.log[0]);
+    EXPECT(l.size() == 1 && l[0].find("deal with the company again") != std::string::npos);
+  }
+  // Never below none; a House without a grudge counts nothing.
+  c.grievance[mw1::kMarik] = 1;
+  mw1::fade_grudges(c, every * 5);
+  EXPECT(c.grievance[mw1::kMarik] == 0 && c.calm[mw1::kMarik] == 0 && c.calm[mw1::kSteiner] == 0);
+  // A fight against the House: +2 and its count starts again.
+  mw1::Rng rng(3);
+  c.grievance[mw1::kSteiner] = 3, c.calm[mw1::kSteiner] = every - 1;
+  mw1::Contract g = mw1::generate_contract(c, 0, rng);
+  g.target = mw1::kSteiner;
+  mw1::accept(c, g);
+  mw1::settle(c, g, mw1::Outcome::kSuccess, {}, rng);
+  EXPECT(c.grievance[mw1::kSteiner] == 5 && c.calm[mw1::kSteiner] == 0);
+  // Time passing fades it (advance_time's months).
+  mw1::advance_time(c, mw1::kUnitsPerMonth * every, rng);
+  EXPECT(c.grievance[mw1::kSteiner] == 4 && c.calm[mw1::kSteiner] == 0);
+  // Saved and read back.
+  c.calm[mw1::kSteiner] = 2;
+  mw1::Company back;
+  mw1::Contract kb;
+  bool got = false;
+  std::string why;
+  const std::string text = mw1::save_text(c, nullptr);
+  EXPECT(mw1::load_text(text, back, kb, &got, &why) && back.calm[mw1::kSteiner] == 2 && back.grievance[mw1::kSteiner] == 4);
+  EXPECT(text.find("\ncalm" + std::to_string(mw1::kSteiner) + "=2\n") != std::string::npos);
 }
 
 TEST(mw1_office_the_screen_asks_only_what_was_touched) {
