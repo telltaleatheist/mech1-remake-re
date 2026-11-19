@@ -98,7 +98,7 @@ inline constexpr int32_t kMissingPercent = 50;
 void roll_missing(std::vector<LanceFate>& fates, Rng& rng);
 bool pilot_killed(const LanceFate& f);
 bool pilot_missing(const LanceFate& f);
-// After a counted mission (won, or failed and accepted; never a replay or a quit): promotions, then casualties (223F):
+// After a settled mission (won, lost or withdrawn from, FIXES.md item 75; never a replay): promotions, then casualties (223F):
 // a killed pilot gone for good; a missing one out of the lance and back in the hiring pool with their ratings and
 // record (a Bar may offer them again); either way their destroyed mech lost (VISION; never the commander's). The
 // entries in the log (mw1_log.h), for the hub.

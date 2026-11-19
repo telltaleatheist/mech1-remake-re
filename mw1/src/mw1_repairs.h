@@ -69,7 +69,7 @@ struct SalvageSum {
 };
 SalvageSum salvage_after_repairs(int64_t pool, const std::vector<int64_t>& bills, int32_t term_percent, int32_t payout_percent);
 
-// The repairs after a counted mission (won, or failed and accepted; after the fee and the lancemates' fates): the
+// The repairs after a mission (won, lost or withdrawn from, FIXES.md item 75; after the fee and the lancemates' fates): the
 // bill for each mech come back (a destroyed one is lost, never billed), the commander's first, paid from `pool` (a
 // win's wrecks' worth: salvage_after_repairs) and the rest taken from the funds, never below 0, the rest of that
 // forgiven. The commander's destroyed mech is lost: they take the first idle hangar mech, else a lancemate's (who
@@ -103,7 +103,7 @@ Repairs settle_repairs(Company& c, const std::vector<MechBill>& bills, int64_t p
                        int32_t payout_percent = 100);
 
 // A mission settled, as CONTINUE settles it (and the results screen and the hub's lines show it, on copies): settle's
-// fee, standing and pool; on a counted mission (not a retreat) the lancemates' fates (after_mission) and the repairs
+// fee, standing and pool; on every ending (a retreat too, item 75) the lancemates' fates (after_mission) and the repairs
 // from the pool; then the salvage pay (Settlement::salvage) added to the funds.
 struct MissionSettled {
   Settlement s;

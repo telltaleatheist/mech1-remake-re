@@ -910,7 +910,11 @@ void loop_run(Ending ending, Run* run = nullptr) {
         EXPECT(std::any_of(shown.begin(), shown.end(), [](const std::string& l) { return l.rfind("SALVAGE TO STORES", 0) == 0; }));
         // DETAILS (item 38): your mech by location and the kills in the same panel, then back.
         sc->on_button(mw1::kResultsDetails, 0, 0);
-        EXPECT(on_screen_now(sc, rp->mech_title) && on_screen_now(sc, rp->kills_title) && !on_screen_now(sc, "PAYMENT"));
+        // The kills' title as shown: with " (1-6 of N)" past six rows (a lancemate's 'Mech lost adds DETAILS' repair
+        // rows): exact, it failed whenever the roll downed one (the -j4 "flake" FIXES 28's review saw).
+        const std::vector<std::string> now = sc->shown();
+        const bool kills_shown = std::any_of(now.begin(), now.end(), [&](const std::string& l) { return l.rfind(rp->kills_title, 0) == 0; });
+        EXPECT(on_screen_now(sc, rp->mech_title) && kills_shown && !on_screen_now(sc, "PAYMENT"));
         sc->on_button(mw1::kResultsDetails, 0, 0);
         EXPECT(on_screen_now(sc, "PAYMENT"));
         std::vector<std::string> all = {rp->outcome};
@@ -919,14 +923,12 @@ void loop_run(Ending ending, Run* run = nullptr) {
         EXPECT(pay.size() >= 3 && (pay[0].rfind("Fee: ", 0) == 0 || pay[0].rfind("No fee", 0) == 0) &&
                pay[1].rfind("Salvage: ", 0) == 0 && pay.back().rfind("Total: ", 0) == 0);
         EXPECT(pay.size() == 3 + !rp->repairs.empty());
-        // FIXES 28's review: no "Fee: 0" on a loss or a retreat; a retreat settles no fates, so no KILLED or MISSING and
-        // not the someone-lost picture; its salvage list says it withdrew, not lost.
+        // FIXES 28's review: no "Fee: 0" on a loss or a retreat; a retreat's salvage list says it withdrew, not lost (its
+        // fates and repairs settled as a loss's since item 75).
         if (pa->outcome != mw1::Outcome::kSuccess) EXPECT(pay[0] == (failed ? "Fee: none (lost)" : "Fee: none (withdrew)") || pay[0].rfind("No fee", 0) == 0);
-        if (pa->outcome == mw1::Outcome::kRetreat) {
-          for (const std::string& l : rp->crew) EXPECT(l.find("KILLED") == std::string::npos && l.find("MISSING") == std::string::npos);
-          EXPECT(rp->ending == mw1::Ending::kRetreat || rp->ending == mw1::Ending::kLost);
-          EXPECT(!rp->salvage.empty() && rp->salvage[0].words == "None: you withdrew");
-        }
+        if (pa->outcome == mw1::Outcome::kRetreat) EXPECT(!rp->salvage.empty() && rp->salvage[0].words == "None: you withdrew");
+        // FIXES 75: a story battle has no House's crest and no House's message (no House hired you).
+        if (rp->employer == "THE STORY") EXPECT(rp->house < 0 && mw1::crest_image(rp->house).empty());
         for (const std::vector<std::string>* v : {&rp->where, &pay, &rp->crew, &rp->mech}) all.insert(all.end(), v->begin(), v->end());
         for (const std::vector<mw1::ListRow>* v : {&rp->salvage, &rp->kills})
           for (const mw1::ListRow& r : *v) all.push_back(r.words);
@@ -1659,8 +1661,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
     if (employer == mw1::kDavion) EXPECT(c && c->funds > funds_in_mission);  // Davion always pays in full
     if (first_contract) EXPECT(c && c->stores->count() > items_at_offer);  // the enemies' parts (a later contract's may stack)
   } else {
-    // No fee, no salvage, no parts; an accepted failure's repairs billed (never below 0), a quit's none.
-    if (ending == kQuit) EXPECT(bill_shown == 0);
+    // No fee, no salvage, no parts; the repairs billed (never below 0), a quit's too (FIXES.md item 75).
     EXPECT(c && c->funds == funds_in_mission - bill_shown && c->stores->count() == (lab_after >= 0 ? lab_after : items_at_offer));
   }
   for (int32_t r = 0; c && r < mech3::kMechCount; ++r) EXPECT(c->stores->has_mech(r) == nullptr);  // never a mech
@@ -2151,15 +2152,15 @@ TEST(mw1_loop_a_full_lance_flies_on_a_pm_map_headless) {
 
 // Repairs (mw1_repairs.h) through the loop: the player's mech hit in a won mission, its repairs paid from the wrecks'
 // worth (FIXES.md item 51: no bill from the funds); a field base's repair (the engine's hook, ProgramFlow::mech_repaired) billed on
-// an accepted failure, and dropped on a quit.
-TEST(mw1_loop_repairs_billed_won_failed_and_never_on_a_quit_headless) {
+// an accepted failure, and on a quit (FIXES.md item 75, Owen: a retreat bills its repairs).
+TEST(mw1_loop_repairs_billed_won_failed_and_quit_headless) {
   std::error_code ec;
   if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
   const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_loop_repairs";
   struct Case { const char* name; Ending ending; float hit; bool mend; bool billed; bool killed; };
   const Case cases[] = {{"won, hit", kWon, 40.0f, false, false, false},
                         {"failed and accepted, a field base", kFailed, 0, true, true, false},
-                        {"quit, a field base", kQuit, 0, true, false, false},
+                        {"quit, a field base", kQuit, 0, true, true, false},
                         {"failed and accepted, the commander's mech destroyed", kFailed, 0, false, false, true}};
   for (const Case& k : cases) {
     fs::remove_all(dir, ec);
@@ -2982,7 +2983,7 @@ struct DarkWingRun {
   bool win = true;
   bool asked = false, attack_live = false, launched = false, results = false, no_fee = false, replay = true, message = false;
   bool victory_panel = false, won = false, arrest_seen = false, saved_won = false, asked_again = false, asked_late = false;
-  bool not_redrawn = true, too_late = false;
+  bool not_redrawn = true, too_late = false, no_crest = false;  // FIXES 75: no House's crest
   bool credits = false, credits_shown = false, credits_over = false;  // won: the credits after the panel, then the hub
   size_t credit_lines = 0;
   int32_t rung = 0, enemies = 0, made = 0, aims = 0, units_on = -1;
@@ -3077,6 +3078,7 @@ void dark_wing_run(DarkWingRun& d) {
         if (const mw1::ResultsPanel* p = mw1::game_loop_results_shown()) {
           d.results = true, d.replay = p->replay, d.message = !p->message.empty();
           d.no_fee = std::find(p->pay.begin(), p->pay.end(), "No fee: not a contract") != p->pay.end();
+          d.no_crest = mw1::crest_image(p->house).empty();
         }
         rs->screen()->on_button(mw1::kResultsContinue, 0, 0);
         ++step, wait = 0;
@@ -3166,7 +3168,7 @@ TEST(mw1_story_the_dark_wing_won_and_lost_headless) {
       EXPECT(d.enemies == mw1::kRungMechs && d.made == d.enemies && d.aims == d.enemies);  // the commander alone: all 8
       EXPECT(d.climate == d.map_climate);
       // No fee; a win's salvage is all of what the wrecks leave after the repairs (FIXES.md item 51), a loss pays none.
-      EXPECT(d.results && d.no_fee && !d.replay && (win || d.funds_after <= d.funds_before));
+      EXPECT(d.results && d.no_fee && d.no_crest && !d.replay && (win || d.funds_after <= d.funds_before));
       EXPECT(!d.too_late);
       if (win) {
         EXPECT(d.victory_panel && d.won && d.arrest_seen && d.saved_won && d.units_on == 0 && d.not_redrawn && !d.asked_late);
@@ -3186,6 +3188,7 @@ namespace {
 struct StepRun {
   bool win = true;
   bool asked = false, launched = false, results = false, no_fee = false, won_page = false, not_redrawn = true, asked_again = false;
+  bool no_house = false;  // FIXES 75: no House's crest or message on the results
   int32_t rung = 0, enemies = 0, made = 0, rung_won = -1;
   uint8_t waiting = 0;
 };
@@ -3265,8 +3268,10 @@ void step_run(StepRun& d) {
       case 4: {
         mw1::ResultsState* rs = mw1::game_loop_results();
         if (!showing(app, rs)) return false;
-        if (const mw1::ResultsPanel* p = mw1::game_loop_results_shown())
+        if (const mw1::ResultsPanel* p = mw1::game_loop_results_shown()) {
           d.results = true, d.no_fee = std::find(p->pay.begin(), p->pay.end(), "No fee: not a contract") != p->pay.end();
+          d.no_house = mw1::crest_image(p->house).empty() && p->message.empty();
+        }
         rs->screen()->on_button(mw1::kResultsContinue, 0, 0);
         ++step, wait = 0;
         return false;
@@ -3326,7 +3331,7 @@ TEST(mw1_story_a_step_battle_won_and_lost_headless) {
                   win ? "won" : "lost", d.asked, d.rung, d.enemies, d.made, d.results, d.no_fee, d.won_page, d.rung_won, d.waiting,
                   !d.not_redrawn, d.asked_again);
       EXPECT(d.asked && d.launched && d.rung == 2 && d.enemies == mw1::rung(2).count && d.made == d.enemies);
-      EXPECT(d.results && d.no_fee && d.not_redrawn);
+      EXPECT(d.results && d.no_fee && d.no_house && d.not_redrawn);
       if (win) EXPECT(d.won_page && d.rung_won == 2 && d.waiting == 1 && !d.asked_again);
       else EXPECT(!d.won_page && d.rung_won == 1 && d.waiting == mw1::kSeenWaiting && d.asked_again);
     });

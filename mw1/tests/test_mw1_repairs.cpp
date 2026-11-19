@@ -284,3 +284,36 @@ TEST(mw1_repairs_settle_mission_pays_after_the_repairs) {
   m = mw1::settle_mission(c, f, a, rng);
   EXPECT(m.s.pool == 0 && m.s.salvage == 0 && m.r.sum.covered == 0 && m.r.billed == m.r.sum.repairs && c.funds == before3 - m.r.paid);
 }
+
+// FIXES.md item 75 (Owen): a retreat counts as a loss does: no fee and no salvage, the repairs billed from the funds,
+// and a downed lancemate's 'Mech lost and its pilot KILLED (or MISSING).
+TEST(mw1_repairs_a_retreat_bills_repairs_and_settles_the_fates) {
+  mw1::Rng rng(7);
+  mw1::Company c = mw1::new_company(rng);
+  c.repair_premium = 18;
+  for (const bool missing : {false, true}) {
+    const int32_t id = missing ? 3 : 1;
+    c.lance = {{id, 0}};
+    c.pilots[static_cast<size_t>(id)].where = mw1::PilotWhere::kHired;
+    mw1::OwnedMech o;
+    o.mech = mw1::kPmFirefly, o.pilot = id;
+    c.hangar = {o};
+    mw1::Contract k = mw1::generate_contract(c, 0, rng);
+    mw1::accept(c, k);
+    mw1::AfterAction a;
+    a.outcome = mw1::Outcome::kRetreat;
+    a.wrecks = {{mw1::kJenner, 100, 0}};
+    a.lance = {{id, true, missing}};
+    a.bills = {{0, c.mech, 5000, false}, {id, mw1::kPmFirefly, mw1::kWhole, true}};
+    const int64_t before = c.funds;
+    const mw1::MissionSettled m = mw1::settle_mission(c, k, a, rng);
+    std::printf("  retreat (%s): fee %lld, salvage %lld, repairs %lld, billed %lld, paid %lld; funds %lld -> %lld\n",
+                missing ? "missing" : "killed", static_cast<long long>(m.s.fee), static_cast<long long>(m.s.salvage),
+                static_cast<long long>(m.r.sum.repairs), static_cast<long long>(m.r.billed), static_cast<long long>(m.r.paid),
+                static_cast<long long>(before), static_cast<long long>(c.funds));
+    EXPECT(m.s.fee == 0 && m.s.pool == 0 && m.s.salvage == 0 && m.r.sum.repairs > 0 && m.r.billed == m.r.sum.repairs &&
+           m.r.paid > 0 && c.funds == before - m.r.paid);
+    EXPECT(c.hangar.empty() && c.lance.empty() &&
+           c.pilots[static_cast<size_t>(id)].where == (missing ? mw1::PilotWhere::kFree : mw1::PilotWhere::kDead));
+  }
+}

@@ -867,7 +867,7 @@ Tick an item when it is merged into `main`.
 - **Found in 64 (dev 1):** typing a world's name added a blank line and "Find: <typed>" under the readout. On the longest readouts (a world under the mouse with an office, battles, Clan mechs and a two-line description) that made 16 lines, two more than fit above GO.
 - **Done:** what's typed goes on the status line ("Find: THA"), over the last GO's line, and the readout gains nothing. test_mw1_travel checks every world under the mouse, affordable or not, typed or not: at most 14 readout lines, and the status line says what's typed. test_mw1_loop's typed-name walk still finds "Find: THA" on the screen.
 
-## 75. [ ] AFTER ACTION: Owen's answers from the results review (28)
+## 75. [x] AFTER ACTION: Owen's answers from the results review (28) *(done: mw1-retreat-counts)*
 - **Owen (2026-11-19), on dev 1's four questions:**
   1. **A retreat:** "Bill repairs, keep losses". With no salvage, the repairs come out of funds. A 'Mech that went down is lost, and its pilot is KILLED or MISSING as on a loss. settle_mission must stop skipping retreats for the fates and the bill.
   2. **A story battle's salvage:** "Keep full value". No change.
@@ -876,6 +876,14 @@ Tick an item when it is merged into `main`.
 - **Done means:**
   - tests: a retreat with a downed lancemate bills repairs from funds and settles the fates; a story battle has no crest and no House message;
   - shots of both at 1080p and 4:3 (dev 1).
+- **Done (dev 1):**
+  - settle_mission settles every ending: the fates (after_mission), then the repairs from the pool, which is empty on a retreat, so the bill comes out of funds. settle_pending and the text results no longer special-case a retreat. CREW STATUS and the picture follow the real fates (FIXES 28's retreat wording is undone).
+  - A story battle's results: no crest (house -1) and no House message. The Dark Wing keeps its own attack-failed line.
+  - **Tests:**
+    - test_mw1_repairs `a_retreat_bills_repairs_and_settles_the_fates`, KILLED and MISSING: no fee or salvage, the repairs billed and paid from funds, the 'Mech gone, the pilot dead or free.
+    - test_mw1_loop: the quit case's field-base repair is now billed (the test is renamed `..._won_failed_and_quit_headless`). The step and Dark Wing runs check no crest, and the step runs also check no message.
+  - **The "-j4 flake" at test_mw1_loop.cpp:913 wasn't a flake.** DETAILS' kills title gets " (1-6 of N)" once a downed lancemate's repair rows pass six, and the check matched it exactly. The lance-orders run fails whenever its roll downs Holmaas. It now matches the title's start.
+  - **For Owen:** a story battle (no message) and play without the exe show an empty message box along the bottom. Hide the box when it's empty?
 
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
