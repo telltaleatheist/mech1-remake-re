@@ -1074,7 +1074,7 @@ From dev 1's review of 83 (the lead's list).
 4. 12: high-resolution 2D (the jagged text). The approved plan is in the lead's notes to dev 1. Step 1 shots to the lead before step 2.
 5. 3 + 5: sweep every screen for anything still PM's.
 
-## 89. [x] The lance-orders test, made solid *(done: mw1-lance-flake)*
+## 91. [x] The lance-orders test, made solid *(done: mw1-lance-flake)*
 `mw1_loop_lance_orders_reach_each_of_three_headless` failed 1 in 3 for the lead at 87's merge. Lancemate 1 was ordered
 at a mech 370 m away and walked 6 m in 450 frames; the other two walked as always.
 - **What was found:** the engine seeds its rand from time(). Given the seed, a run is the same to the metre: the
