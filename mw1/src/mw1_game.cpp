@@ -303,6 +303,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   // House office.
   bool enter_hub(mech3::GameEngine& ge) {
     if (!company_.stores) start_company();
+    if (company_.stores) clamp_stores(*company_.stores);  // FIXES.md item 53: the lab's returns, an old save's
     // Back from a contract's mission, the main menu stays MW1's even when the next offer is declined: taken over,
     // Instant Action's own return (its screen reopened) does not follow (program_flow.h).
     const bool returning = deployed_;
@@ -2097,6 +2098,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     const Settlement s = settle(company_, contract_, pending_->outcome, pending_->wrecks, rng_);
     // The parts are kept only on a win (VISION.md, the endings): failed or quit, the mission's salvage is dropped.
     if (pending_->outcome == Outcome::kSuccess && pending_->salvage) company_.stores->add_all(*pending_->salvage);
+    clamp_stores(*company_.stores);  // FIXES.md item 53
     // A counted mission (won, or failed and accepted; a retreat isn't, nor a replayed failure): the lancemates'
     // experience, then their casualties (mw1_pilots.h).
     // Then the repairs (mw1_repairs.h): the bill, the commander's loss.
@@ -2848,6 +2850,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // The lab's pages: the Mech Complex's MECH LAB on the commander's mech (the briefing's is never shown).
     if (lab && now == static_cast<zgame::State*>(ge->menu_state_of(hub_)) && frames == 10 && lab_owned_ < 0) {
       static bool once = false;
+      // lab_fit: every item of the stores at the most they hold (FIXES.md item 53), the Qty column's widest.
+      if (!once && page == "lab_fit" && company_.stores)
+        for (mech3::ConfigItem* it : company_.stores->items)
+          if (it) it->count = kStoreMost;
       if (!once) once = true, press(kHubMarket), press_market(kMarketLab);
     }
     // The office's offer taken (MW1's way: the office, REQUEST, ACCEPT), then the hub's DEPLOY: the loading screen,
