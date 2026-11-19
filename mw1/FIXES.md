@@ -708,7 +708,7 @@ Tick an item when it is merged into `main`.
 - **SELL too (Owen: "yes, same thing for sell"):** "Sell the Owens for 2,772,000 C-bills?", same keys. When the sale can't happen (the 'Mech you pilot, the last 'Mech), say why.
 - **Done means:** shots of both boxes at 1080p and 4:3, and tests that NO leaves the money and roster alone.
 
-## 61. [ ] AMS doesn't stop missiles
+## 61. [x] AMS doesn't stop missiles (works; no fix needed)
 - **Owen (2026-11-18, in play):** "i dont think the ams is working. im getting hit with missiles and the ams dont appear to be stopping anything".
 - **Where to start:** Mech::update_ams (src/mech3/mech.cpp, PM 0x00419200) fires only when the mech has an AMS fitted (equipment[0] > 0), m.ams exists and ams->on is true, and only when g_calls.equipment_update isn't set (mech_update.cpp:176). Check each in an MW1 mission:
   - Does the player's 'Mech actually carry an AMS and ammo (MW1's loadouts, the lab)?
@@ -716,6 +716,7 @@ Tick an item when it is merged into `main`.
   - Does it find and fire on incoming missiles?
   - Compare with PM's own game on the same 'Mech.
 - **Done means:** the cause found and fixed, with a test or a scripted mission that shows missiles shot down. If it's PM's engine and PM is affected too, it goes to the mw3 lead.
+- **Closed (dev 2, hidden scripted mission):** the AMS is on from the first frame with 100 rounds. It found the hostile missiles and shot down 14 of 35 (rounds 100 to 86). But the stock Owens carries no AMS (equipment[0] = 0); it fires only once one is fitted in the lab. That likely explains the first report.
 - **Update (Owen, later the same session):** "i was in an owens. and it did work just now. might be false alarm". Lowered to a quick check: in one hidden scripted mission, confirm the AMS is on at the start and shoots down missiles, then close this or report.
 
 ## 62. [ ] A news headline at the hub doesn't say where to read it
