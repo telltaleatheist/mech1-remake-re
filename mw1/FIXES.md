@@ -684,6 +684,10 @@ Tick an item when it is merged into `main`.
   - Check every other line in that hub box for the same problem: anything that belongs to the mission's result goes on the results screen.
 - **Done means:** shots of the results screen (one 'Mech, a full lance, repairs over the pool) at 1080p and 4:3; no repair box on the hub; the tests updated.
 
+## 58. [ ] The Mech Complex's gunmetal render doesn't follow BUY
+- **Owen (2026-11-18, in play):** after buying a Firefly, the selection moved to it in YOUR MECHS, but the big panel still showed the Strider, the FOR SALE row chosen before. Switching rows corrected it.
+- **Wanted:** the panel follows every change of the chosen 'Mech: BUY, SELL, the selection moving between lists, and the first entry. Add a test (dev 1).
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.
