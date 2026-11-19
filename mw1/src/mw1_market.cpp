@@ -92,6 +92,11 @@ void refresh_market(Company& c, Rng& rng) {
   m.limit = c.tier >= kDealerLimitTier ? rng.upto(kDealerLimitBase - c.tier) + 1 : -1;
 }
 
+void clamp_stores(mech3::Store& s) {
+  for (mech3::ConfigItem* it : s.items)
+    if (it && it->count > kStoreMost) it->count = kStoreMost;
+}
+
 int32_t owned_count(const Company& c) { return 1 + static_cast<int32_t>(c.hangar.size()); }
 int32_t owned_mech(const Company& c, int32_t i) {
   return i == 0 ? c.mech : i > 0 && i < owned_count(c) ? c.hangar[static_cast<size_t>(i - 1)].mech : -1;
@@ -105,6 +110,7 @@ const char* deal_words(Deal d) {
     case Deal::kLastMech: return "You can't sell your last mech.";
     case Deal::kDealerFull: return "The dealer buys no more mechs until the market changes.";
     case Deal::kRefit: return "It lacks parts of its stock loadout: refit it first.";
+    case Deal::kHangarFull: return "Your hangar is full: sell a 'Mech first.";
   }
   return "";
 }
@@ -122,6 +128,7 @@ Deal buy(Company& c, int32_t stock_index) {
   const int32_t mech = m.stock[static_cast<size_t>(stock_index)];
   const int64_t price = buy_price(mech, c.tier);
   if (c.funds < price) return Deal::kNoFunds;
+  if (owned_count(c) >= kOwnedMost) return Deal::kHangarFull;  // MW1's order: the funds, then the room
   c.funds -= price;
   m.stock.erase(m.stock.begin() + stock_index);
   OwnedMech o;
@@ -148,6 +155,7 @@ Deal sell(Company& c, int32_t owned_index, const StockLoadout& stock) {
     if (!after.has_config(-1, static_cast<const mech3::Store*>(nullptr), s)) return Deal::kRefit;
     after.remove_config(s);
     c.stores->assign(after);
+    clamp_stores(*c.stores);
   }
   c.funds += sell_price(mech, c.tier);
   c.market.stock.push_back(mech);

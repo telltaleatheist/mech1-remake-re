@@ -136,6 +136,54 @@ TEST(mw1_market_buy_sell_pilot_and_the_last_mech) {
   EXPECT(mw1::sell(c, 0) == mw1::Deal::kDone && c.mech == kFirefly && c.hangar.empty());
 }
 
+// FIXES.md item 53: the most mechs owned (kOwnedMost, MW1's twelve, the piloted one included): BUY refused at it after
+// the funds' check, nothing paid or taken from the stock; a sale makes room again. A save past it still loads (and
+// still refuses). The stores' items clamped at kStoreMost.
+TEST(mw1_market_the_hangar_holds_twelve) {
+  mw1::Company c = company_with_stores();
+  c.mech = kOwens, c.tier = 0, c.funds = 100000000;
+  c.market.stock = {kFirefly, kFirefly};
+  for (int32_t i = 1; i < mw1::kOwnedMost - 1; ++i) {
+    mw1::OwnedMech o;
+    o.mech = kFirefly;
+    c.hangar.push_back(o);
+  }
+  EXPECT(mw1::owned_count(c) == mw1::kOwnedMost - 1 && mw1::buy(c, 0) == mw1::Deal::kDone && mw1::owned_count(c) == mw1::kOwnedMost);
+  const int64_t funds = c.funds;
+  EXPECT(mw1::buy(c, 0) == mw1::Deal::kHangarFull && c.funds == funds && c.market.stock.size() == 1);
+  EXPECT(std::string(mw1::deal_words(mw1::Deal::kHangarFull)).find("full") != std::string::npos);
+  c.funds = 0;
+  EXPECT(mw1::buy(c, 0) == mw1::Deal::kNoFunds);  // MW1's order: the funds first
+  c.funds = funds;
+  EXPECT(mw1::sell(c, 1) == mw1::Deal::kDone && mw1::buy(c, 0) == mw1::Deal::kDone);
+  // YOUR MECHS scrolls: the last of twelve chosen, the list's top moves to show it within its rows.
+  mw1::MarketChoice m;
+  m.owned = mw1::kOwnedMost - 1;
+  mw1::clamp_choice(c, m);
+  EXPECT(m.owned == mw1::kOwnedMost - 1 && m.owned_top > 0 && m.owned_top <= m.owned && m.owned < m.owned_top + mw1::kMarketRows);
+  // An old save with fifteen: read, nothing taken away; BUY still refused.
+  for (int32_t i = 0; i < 3; ++i) {
+    mw1::OwnedMech o;
+    o.mech = kAtlas;
+    c.hangar.push_back(o);
+  }
+  mw1::Company back;
+  mw1::Contract k;
+  bool has = false;
+  std::string why;
+  EXPECT(mw1::load_text(mw1::save_text(c, nullptr), back, k, &has, &why) && mw1::owned_count(back) == mw1::kOwnedMost + 3);
+  back.market.stock = {kFirefly};
+  EXPECT(mw1::buy(back, 0) == mw1::Deal::kHangarFull);
+  // The stores: an item past the most is cut to it; under it, left.
+  mech3::Store s;
+  s.add_ammo(kErMediumLaser, mw1::kStoreMost + 50);
+  s.add_weapon(kErMediumLaser, mech3::kInnerSphere);
+  mw1::clamp_stores(s);
+  int32_t most = 0, least = mw1::kStoreMost;
+  for (const mech3::ConfigItem* it : s.items) most = std::max(most, it->count), least = std::min(least, it->count);
+  EXPECT(most == mw1::kStoreMost && least == 1);
+}
+
 TEST(mw1_market_sale_puts_the_mech_back_to_stock) {
   // A stand-in stock loadout for the Owens: two ER medium lasers and a heat sink.
   mech3::Config stock(kOwens, "standard");
