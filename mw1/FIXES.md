@@ -147,6 +147,14 @@ Tick an item when it is merged into `main`.
       high-resolution draw has only text and pictures, so they stay blocky at 4K, and the log can't see them. That is
       this keyed-overlay gap, for the mw3 lead. Text, contacts, bars, the compass and the damage display are already
       sharp. The cockpit's dashboard is a 3D texture, not 2D.
+  - **The 2D at 4K is finished with item 89 (dev 2, 2026-11-19):** the radar's lines and circles are drawn
+    anti-aliased at the window's scale.
+    - A follow-up (FIXES 90: filled polygons and dashed lines, the same way) was built and tested, but not merged.
+      A probe of the mission, pause, results, travel, lab, hub, market and bar pages found only two host polygons,
+      both whole-pixel quads on the mission HUD that look the same either way, and no dashed lines (nothing in the
+      port sets a line's dash).
+    - The work is kept on origin as `mw1-fix90-fills-dashes`, in case a later screen needs it.
+    - Still open in item 12: only the windowed check, which waits on Owen.
 
 ## 13. [x] The Mech Complex's market: lists and buttons don't work; PM's look *(done: mw1-mech-complex)*
 - **Owen (2026-11-17, `keep/mw1-remake/reference/owen-play-market.png`):** "These buttons/lists don't seem to be working. Also, can we make the buttons, colours, and general style closer to the other MW1 style we've established?"
