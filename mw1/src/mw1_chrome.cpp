@@ -456,15 +456,18 @@ images::Image arrow(bool up, int32_t state) {
 }
 
 images::Image side_arrow(bool right, int32_t state) {
-  // arrow()'s look on its side: the point to the left or the right.
+  // arrow()'s look on its side: the point to the left or the right. FIXES.md item 101 (Owen): the triangle as the
+  // up arrow's turned, a right angle at its point, its base kSideInkH rows with two of glass above and below inside
+  // the frame (the up arrow's sides), the shape centred in the box both ways. It was 16 rows high in the 18, its base
+  // on the frame, so it looked cut off and off-centre.
   Canvas c(kSideArrowW, kSideArrowH);
   glass(c, 2, 2, kSideArrowW - 2, kSideArrowH - 2, state == 2 ? 250 : 230);
   thin_frame(c, 0, 0, kSideArrowW, kSideArrowH, 2, state == 1 ? Rgba{255, 170, 40, 200} : state == 3 ? Rgba{40, 40, 44, 150} : Rgba{});
   const Rgba ink = state == 3 ? Rgba{80, 84, 88, 255} : state == 0 ? Rgba{217, 221, 224, 255} : Rgba{255, 176, 64, 255};
-  const int32_t cy = kSideArrowH / 2, left = 6, cols = kSideArrowW - 12;
-  c.cover(left, 0, left + cols, kSideArrowH, ink, [&](double x, double y) {
-    const double t = right ? left + cols - x : x - left;  // how far from the point
-    return std::abs(y - cy) <= t;
+  const int32_t half = kSideInkH / 2, depth = half + 1, left = (kSideArrowW - depth) / 2, cy = kSideArrowH / 2;
+  c.cover(left, cy - half, left + depth, cy + half, ink, [&](double x, double y) {
+    const double t = right ? left + depth - x : x - left;  // how far from the point
+    return std::abs(y - cy) <= std::min(t, static_cast<double>(half));
   });
   static const char* const kLooks[4] = {"", "_lit", "_down", "_off"};
   return c.image(std::string(right ? "mw1_rt" : "mw1_lt") + kLooks[std::clamp(state, 0, 3)]);

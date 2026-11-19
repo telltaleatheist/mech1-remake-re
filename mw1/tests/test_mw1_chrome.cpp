@@ -2,12 +2,14 @@
 // body part see-through, the plaque solid), the same pixels every build, and packed with kFullAlpha. MW1_CHROME_PREVIEW=DIR
 // writes each as a BMP (over a checkerboard) to look at.
 #include <algorithm>
+#include <array>
 #include <iterator>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <string>
+#include <vector>
 
 #include "check.h"
 #include "mw1_chrome.h"
@@ -281,9 +283,10 @@ TEST(mw1_chrome_geometry_pieces_keep_their_canvas_pixels) {
     for (size_t i = 0; i < im.pixels.size(); ++i) mix(static_cast<uint64_t>(im.pixels[i]) << 8 | im.alpha[i]);
   }
   // The hash of these pieces as they were before item 12 drew them from geometry (33 of them): a change here moves
-  // the archive's pixels, which must be on purpose.
+  // the archive's pixels, which must be on purpose. On purpose since: FIXES.md item 101's side arrows (mw1_lt, mw1_rt),
+  // their triangle centred inside the frame (it was 0xed62fc8e8ffcddd0).
   EXPECT(n == 33);
-  EXPECT(h == 0xed62fc8e8ffcddd0ull);
+  EXPECT(h == 0x00a8d71a7bacb020ull);
 }
 
 TEST(mw1_chrome_geometry_pieces_are_finer_than_the_canvas_at_scale) {
@@ -309,4 +312,44 @@ TEST(mw1_chrome_geometry_pieces_are_finer_than_the_canvas_at_scale) {
     EXPECT(finer);
   }
   EXPECT(n == 33);
+}
+
+// FIXES.md item 101 (Owen): every arrow button's triangle inside its frame, a canvas pixel of glass at least between
+// them, and centred: as much room on the left as the right, above as below (a device pixel's slack). Each arrow at the
+// archive's scale and the 2D's (2 at 1080p, 4 at 4K); its still look, whose ink is told from the frame's greys.
+TEST(mw1_chrome_arrow_ink_inside_its_frame_and_centred) {
+  const int32_t frame = 2, margin = 1;
+  int32_t checked = 0;
+  for (const char* name : {"mw1_up", "mw1_dn", "mw1_lt", "mw1_rt"})
+    for (int32_t s : {1, 2, 3, 4}) {
+      int32_t w = 0, h = 0;
+      std::vector<std::array<int32_t, 3>> rgb;
+      if (s == 1) {
+        const bool side = name[4] == 'l' || name[4] == 'r';
+        const mw1::images::Image im = side ? mw1::chrome::side_arrow(name[4] == 'r', 0) : mw1::chrome::arrow(name[4] == 'u', 0);
+        EXPECT(im.name == name);
+        w = im.width, h = im.height;
+        for (const uint16_t p : im.pixels) rgb.push_back({(p >> 11) << 3, ((p >> 5) & 63) << 2, (p & 31) << 3});
+      } else {
+        mw1::chrome::Drawn d;
+        EXPECT(mw1::chrome::chrome_at(name, s, &d));
+        w = d.canvas_w * s, h = d.canvas_h * s;
+        for (size_t i = 0; i + 3 < d.rgba.size(); i += 4)
+          rgb.push_back({d.rgba[i + 3] > 200 ? d.rgba[i] : 0, d.rgba[i + 3] > 200 ? d.rgba[i + 1] : 0, d.rgba[i + 3] > 200 ? d.rgba[i + 2] : 0});
+      }
+      int32_t x0 = w, y0 = h, x1 = -1, y1 = -1;
+      for (int32_t y = 0; y < h; ++y)
+        for (int32_t x = 0; x < w; ++x) {
+          const auto& c = rgb[static_cast<size_t>(y * w + x)];
+          if (std::abs(c[0] - 217) <= 20 && std::abs(c[1] - 221) <= 20 && std::abs(c[2] - 224) <= 20)
+            x0 = std::min(x0, x), y0 = std::min(y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);
+        }
+      EXPECT(x1 >= x0 && y1 >= y0);  // ink at all
+      const int32_t room = (frame + margin) * s, l = x0, r = w - 1 - x1, t = y0, b = h - 1 - y1;
+      const bool ok = l >= room && r >= room && t >= room && b >= room && std::abs(l - r) <= 1 && std::abs(t - b) <= 1;
+      if (!ok) std::printf("  %s at %d: %dx%d, ink left %d right %d top %d bottom %d (room %d)\n", name, s, w, h, l, r, t, b, room);
+      EXPECT(ok);
+      ++checked;
+    }
+  EXPECT(checked == 16);
 }
