@@ -37,6 +37,13 @@ void Lists::text(const void* owner, Command c) {
   append(owner, std::move(c));
 }
 
+size_t Lists::line(const void* owner, Command c) {
+  c.kind = Kind::kLine;
+  const size_t before = size(owner);
+  append(owner, std::move(c));
+  return size(owner) > before ? 1 : 0;
+}
+
 size_t Lists::blit(const void* src, int32_t w, int32_t h, const Rect* part, const void* dst, int32_t dst_w, int32_t dst_h,
                    int32_t x, int32_t y, bool opaque, const std::string& name) {
   Rect s = part ? intersect(*part, Rect{0, 0, w, h}) : Rect{0, 0, w, h};

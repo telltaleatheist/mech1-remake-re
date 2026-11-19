@@ -50,6 +50,7 @@ class HiresDraw {
     int draws = 0;        // the screen's recorded draws
     int pictures = 0;     // drawn from their sources
     int lines = 0;        // drawn from the atlas
+    int strokes = 0;      // FIXES 89: recorded lines and circles drawn anti-aliased
     int failed = 0;       // left to the canvas (no source, no glyphs)
     long under = 0;       // pixels under a chain (its base's "before")
     long unkeyed = 0;     // keyed: the layer's pixels dropped for a chain drawn here over the key
@@ -67,6 +68,8 @@ class HiresDraw {
   };
   void textures_for_scale(float sx, float sy, int height);
   int32_t picture_texture(const platform::hires::Command& c, float* u_scale, float* v_scale);
+  // mw1 (engine, ours), FIXES 89: a recorded line's texture at this scale (hires_lines.h), kept by what it draws.
+  int32_t line_texture(const platform::hires::Command& c, bool rgb565, float* u_scale, float* v_scale);
   bool upload_atlas();
 
   platform::Render3D* render_;
@@ -74,6 +77,11 @@ class HiresDraw {
   platform::hires::TextRaster text_;
   float sx_ = 0, sy_ = 0, art_scale_ = 0;
   std::unordered_map<uint64_t, Picture> pictures_;  // by HiresImage::serial
+  struct LineTexture {
+    int32_t texture = -1, w = 0, h = 0;
+    int unseen = 0;
+  };
+  std::unordered_map<uint64_t, LineTexture> line_textures_;  // FIXES 89: by its points, radius, colour, rect, scale
   int32_t atlas_tex_ = -1, atlas_w_ = 0, atlas_h_ = 0;
   int32_t under_tex_ = -1, under_w_ = 0, under_h_ = 0;
   std::vector<uint16_t> base_;

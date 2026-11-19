@@ -239,6 +239,52 @@ void SdlTwodHost::blit(zimg::Texture* image, int32_t x, int32_t y, int32_t flags
   if (added) hires_.snapshot(t.base, added, reinterpret_cast<const uint16_t*>(t.base), static_cast<int32_t>(t.pitch / 2), true);
 }
 
+// mw1 (engine, ours), FIXES 89: a line's rect is its pixels' bounds a pixel round (its anti-aliased edge's room),
+// within the clip (inclusive, as zrndr's) and the target.
+size_t SdlTwodHost::line_begin(platform::hires::Command c, const ztwod::Rect* clip) {
+  const zrndr::Target2D& t = zrndr::target2d();
+  if (!platform::hires_2d() || !t.base || c.pts.size() < 2) return 0;
+  int32_t l = c.pts[0], tp = c.pts[1], r = l, b = tp;
+  for (size_t i = 0; i + 1 < c.pts.size(); i += 2)
+    l = std::min(l, c.pts[i]), r = std::max(r, c.pts[i]), tp = std::min(tp, c.pts[i + 1]), b = std::max(b, c.pts[i + 1]);
+  if (c.radius > 0) l -= c.radius, r += c.radius, tp -= c.radius, b += c.radius;
+  platform::hires::Rect rect{l - 1, tp - 1, r + 2, b + 2};
+  if (clip) rect = platform::hires::intersect(rect, {clip->left, clip->top, clip->right + 1, clip->bottom + 1});
+  c.rect = platform::hires::intersect(rect, {0, 0, static_cast<int32_t>(t.width), static_cast<int32_t>(t.height)});
+  c.x = c.y = 0;
+  if (c.rect.empty()) return 0;
+  const size_t added = hires_.line(t.base, std::move(c));
+  if (added) hires_.snapshot(t.base, added, reinterpret_cast<const uint16_t*>(t.base), static_cast<int32_t>(t.pitch / 2), false);
+  return added;
+}
+void SdlTwodHost::line_end(size_t added) {
+  const zrndr::Target2D& t = zrndr::target2d();
+  if (added) hires_.snapshot(t.base, added, reinterpret_cast<const uint16_t*>(t.base), static_cast<int32_t>(t.pitch / 2), true);
+}
+void SdlTwodHost::line(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t pixel) {
+  platform::hires::Command c;
+  c.pts = {x0, y0, x1, y1}, c.colour = pixel & 0xffff;
+  const size_t added = line_begin(std::move(c), nullptr);
+  ztwod::Host::line(x0, y0, x1, y1, pixel);
+  line_end(added);
+}
+void SdlTwodHost::line_list(const int32_t* points, int32_t count, const ztwod::Rect* clip, uint32_t pixel) {
+  platform::hires::Command c;
+  if (points && count > 0) c.pts.assign(points, points + 2 * (count + 1));
+  c.colour = pixel & 0xffff;
+  const size_t added = line_begin(std::move(c), clip);
+  ztwod::Host::line_list(points, count, clip, pixel);
+  line_end(added);
+}
+void SdlTwodHost::circle(int32_t cx, int32_t cy, int32_t r, uint32_t pixel, const ztwod::Rect* clip) {
+  platform::hires::Command c;
+  if (r > 0) c.pts = {cx, cy}, c.radius = r;
+  c.colour = pixel & 0xffff;
+  const size_t added = line_begin(std::move(c), clip);
+  ztwod::Host::circle(cx, cy, r, pixel, clip);
+  line_end(added);
+}
+
 // 0x00516f50 (zImage's texture directory, "zbd" for the shell): FIX (A), each
 // ';'-separated directory under every read root joins the mounts, once.
 void SdlTwodHost::image_path(const char* path) {

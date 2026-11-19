@@ -49,7 +49,9 @@ struct FontKey {
   }
 };
 
-enum class Kind : uint8_t { kText, kPicture };
+// kLine: mw1 (engine, ours), FIXES 89: a 2D line, line list or circle the canvas drew (the mission radar's), drawn
+// again anti-aliased at the frame's scale (hires_lines.h).
+enum class Kind : uint8_t { kText, kPicture, kLine };
 
 struct Command {
   Kind kind = Kind::kText;
@@ -62,6 +64,10 @@ struct Command {
   uint32_t box_colour = 0;  // GDI's 0x00bbggrr
   std::string name;       // picture: the image's name (image_get's)
   bool alpha = false;     // picture: the image blends (a key or an alpha plane)
+  // line: the points (x, y pairs, canvas pixels, from (x, y)): a line's two, a list's joined in order; a circle's
+  // centre with its radius (> 0). Its colour the canvas's own pixel (16 bits, the canvas's format).
+  std::vector<int32_t> pts;
+  int32_t radius = 0;
   uint64_t seq = 0;       // the order it was drawn in, over all owners
   uint64_t origin = 0;    // the draw it copies (its first seq): a grab's copies and a blit's keep it
   std::vector<uint16_t> before, after;  // on the screen: the canvas's pixels in rect before its blit and after
@@ -76,6 +82,9 @@ class Lists {
   void clear(const void* owner);  // drawn afresh, or freed: nothing recorded, no longer fallen
   // A text line drawn into `owner`, its rect already clipped to the owner and the DC's rect.
   void text(const void* owner, Command c);
+  // mw1 (engine, ours), FIXES 89: a line drawn into `owner` (its rect: its pixels' bounds, a pixel round, clipped).
+  // Returns how many draws it added (0 or 1), for snapshot().
+  size_t line(const void* owner, Command c);
   // `src` (w x h pixels; all of it or `part`) drawn at (x, y) on `dst` (dst_w x dst_h). `name`: a named image's;
   // `opaque`: every pixel drawn written (no key, no alpha plane).
   // Returns how many draws it added to dst (its list's last ones), for snapshot().
