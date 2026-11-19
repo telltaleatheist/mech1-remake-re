@@ -19,9 +19,11 @@ namespace mw1 {
 inline constexpr int32_t kRungs = 6;
 inline constexpr int32_t kDarkWingRung = 6;
 inline constexpr int32_t kRungMechs = 8;  // the most a rung fields (every table map's enemy places hold it: kMapPlaces)
-// Instant Action's line-up: ten slots beside the player's (ActionGame::lineup, PM's layout), the lancemates first.
-// So a rung of 8 is up to 8: 7 with a full lance (3 lancemates), its escorts trimmed first (the lead, 2026-11-18).
-inline constexpr int32_t kLineupSlots = 10;
+// Instant Action's line-up beside the player's, the lancemates first: the exe's ten raised to 16 for MW1 (FIXES.md
+// item 48, mech3::set_action_lineup_capacity; PM's ten slots and our tail after them), the enemies past a map's own
+// places made beside them on clear ground (ProgramFlow::extra_enemy_places). A full lance (3 lancemates) leaves 13: a
+// rung's whole force. The escorts' trim stays as a guard (a rung past 13).
+inline constexpr int32_t kLineupSlots = 16;
 
 struct Rung {
   int32_t rung;                    // 1..kRungs
