@@ -1271,3 +1271,19 @@ Owen, defending the tower on mw3c1ia3 (4 enemies): three came; the fourth never 
     results; OFF stops it and saves; EFFECTS applied and saved; ON brings it back; QUIT asks, NO stays, OK quits.
   - `zsnd_cd_extra_track_outside_the_disc` and `quiet_music_a_hidden_run_opens_no_audio_device` (mw3pmsdltests).
 - **Shots:** the hub with QUIT, and OPTIONS, at 4:3 and 1080p: outbox/2026-11-19/mw1-fix100-music/.
+
+## 99. [x] The starport says each world's tier *(done: mw1-fix99-travel-tier)*
+- **Owen (2026-11-19, via the lead):** show each world's tier in the travel page's readout, as MW1 numbers it, e.g.
+  "Tier 2". Don't say what tiers do. This reverses item 64 for the starport only: the Mech Complex and the map's
+  filters stay tier-free.
+- **MW1's numbers:** byte 2 of the planet record, (code - 1) / 3: 0 to 3 (44 worlds tier 0, 50 tier 1, 21 tier 2, 30
+  tier 3).
+- **Where:** a line of its own, "Tier N", under the House line (mw1_travel_screen.cpp world_lines). It shows for the
+  world under the mouse, the chosen one, and "You are here".
+- **The fit:** neither the House line nor the population has room for " · Tier N" (both run to 24 of 26 columns). With
+  the line, the longest readout (a long description, the trip unaffordable, not yet chosen) came to 15 of the 14
+  lines above GO, so a readout past 14 drops its blank gap lines first. 14 at most, every world, either way.
+- **Shots:** the readout at 4:3 and 1080p: outbox/2026-11-19/mw1-fix99-travel-tier/.
+- **Tests** (`mw1_travel_screen_world_readout`): each of the 145 worlds says its own tier once, with no other tier word;
+  nothing says what a tier does (no %, dealer or buy/sell lines); every line fits the panel's 26 columns, and the
+  readout still fits its 14 lines above GO.
