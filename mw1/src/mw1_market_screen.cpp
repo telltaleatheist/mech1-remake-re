@@ -85,6 +85,18 @@ bool market_row_at(int32_t x, int32_t y, bool wide, bool* own, int32_t* row) {
   return false;
 }
 
+namespace {
+bool g_market_live = false;
+}  // namespace
+
+void set_market_live(bool on) { g_market_live = on; }
+bool market_live() { return g_market_live; }
+
+int32_t market_shown_mech(const Company& c, const MarketChoice& m) {
+  if (m.own_shown || c.market.stock.empty()) return owned_mech(c, m.owned);
+  return c.market.stock[static_cast<size_t>(m.stock)];
+}
+
 ScreenView market_view(const Company& c, const MarketChoice& m) {
   ScreenView v;
   v.blocks = {at_place("PLANET", {upper(c.planet)}),
@@ -96,11 +108,13 @@ ScreenView market_view(const Company& c, const MarketChoice& m) {
               at_place("STATUS", {m.note.empty() ? "BUY takes from FOR SALE; the rest act on YOUR MECHS." : m.note})};
   v.panels.assign(kMarketPanelCount, true);
   // FIXES.md item 14: the chosen mech's render under the buttons (none till the renders are made).
-  const int32_t shown = m.own_shown || c.market.stock.empty() ? owned_mech(c, m.owned)
-                                                              : c.market.stock[static_cast<size_t>(m.stock)];
+  // Live (FIXES.md item 12): the panel left see-through, the 'Mech drawn under it in 3D; its stored render kept as the
+  // picture for a frame drawn without the 3D (the frame a state over it shows when it comes back).
+  const int32_t shown = market_shown_mech(c, m);
   v.pictures.assign(kMarketPanelCount, "");
   if (renders_ready() && shown >= 0) v.pictures[kMarketPanelMech] = render_image(shown, RenderUse::kPanel);
-  v.panels[kMarketPanelMechFrame] = v.panels[kMarketPanelMech] = renders_ready() && shown >= 0;
+  if (market_live() && shown >= 0) v.see_through.push_back({kMarketPanelMech, kRenderPanelW, kRenderPanelH});
+  v.panels[kMarketPanelMechFrame] = v.panels[kMarketPanelMech] = (market_live() || renders_ready()) && shown >= 0;
 
   // FOR SALE: the stock at the buying price; a price over the funds dimmed (FIXES.md item 41, Owen: what he can
   // afford at a glance): its row in S_ROWS_DIM's darker green, a blank line in its place in S_ROWS (and the other way).
