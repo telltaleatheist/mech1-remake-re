@@ -348,7 +348,7 @@ Tick an item when it is merged into `main`.
 - **Art:** the lead is making victory and defeat candidates on Crucible (qwen-image-2.1, the mw3 style, the commander as char_gideon) for Owen to pick from.
 - **Then:** the results screen gets a picture panel (victory picture on a win; defeat picture on a loss or retreat), kept at source size for item 12. If MW1's exe holds the debrief lines ("A very boring and uneventful tour of garrison duty..."), read them from the player's exe as the pitches are, under the picture.
 
-## 28. [ ] Decisions waiting for Owen (not bugs; asked in chat)
+## 28. [x] Decisions waiting for Owen (not bugs; asked in chat)
 - ~~Salvage on a loss~~ Owen: lost or retreated loses all salvage. Salvage cash: see 51.
 - The morning list's open story questions (`outbox/2026-11-17/mw1-morning-decisions.md`): the deaths, the deadline, the ending, the commander's name, the Dark Wing battle, multi-stage battles, the major campaign's dates.
 - The travel map's seven look-and-feel questions, which will be folded into item 21's readout.
