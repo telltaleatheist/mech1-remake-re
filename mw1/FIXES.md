@@ -720,7 +720,7 @@ Tick an item when it is merged into `main`.
 - **Closed (dev 2, hidden scripted mission):** the AMS is on from the first frame with 100 rounds. It found the hostile missiles and shot down 14 of 35 (rounds 100 to 86). But the stock Owens carries no AMS (equipment[0] = 0); it fires only once one is fitted in the lab. That likely explains the first report.
 - **Update (Owen, later the same session):** "i was in an owens. and it did work just now. might be false alarm". Lowered to a quick check: in one hidden scripted mission, confirm the AMS is on at the start and shoots down missiles, then close this or report.
 
-## 62. [ ] A news headline at the hub doesn't say where to read it
+## 62. [x] A news headline at the hub doesn't say where to read it
 - **Owen (2026-11-18, in play):** "it said \"personal message from jordan rowe\" but im not seeing where to click to view it".
 - **Cause:** hub_events adds "NEWS: <headline>" to the hub's messages, but the full text is only on the Bar's NEWS (NewsNet). Nothing on the hub points there.
 - **Wanted:**
@@ -729,7 +729,7 @@ Tick an item when it is merged into `main`.
   - Pick the cleanest; the wording comes from our code, never from MW1's text.
 - **Done means:** a shot of the hub with a news line; reading it from where the hub points; tests.
 
-## 63. [ ] A log of every message
+## 63. [x] A log of every message
 - **Owen (2026-11-18, in play):** "im getting messages like \"wanted - 50,000...\". not sure waht that means exactly but it would be useful to see a log of all the messages and everything somewhere".
 - **The WANTED line** is a NewsNet headline (story news 0x16 in his play.log). The hub showed only the headline; the story is at the BAR, under NEWS. 62 fixes the pointer.
 - **Wanted:** a message log the player can open any time, e.g. a LOG page off COMPANY or the hub. Newest first, each with its game date:
@@ -771,7 +771,7 @@ Tick an item when it is merged into `main`.
   - Find out why mw1screenfit didn't catch it: outlines and text touching a box's border should fail. Add that check.
 - **Done means:** shots at 1080p, 4K and 4:3 with a full list; the fit check fails on the old layout.
 
-## 67. [ ] Several news lines read the same: "NEWS: BRIEF HEADLINES" three times
+## 67. [x] Several news lines read the same: "NEWS: BRIEF HEADLINES" three times
 - **Owen (2026-11-18, in play):** "i got a message that said: NEWS: BRIEF HEADLINES (x3) ... is that intentional". No.
 - **Cause:** story_rules::headline() takes the line before a story's first blank line. Several of MW1's NewsNet stories are bulletins that share one title (news 0x66, 0x67 and 0x68 arrived together in his play.log), so the hub shows that title once per story.
 - **Wanted:**
@@ -837,6 +837,12 @@ Tick an item when it is merged into `main`.
   - So the order recipient sticks to the first lancemate chosen. Targeting the second lancemate with W moves the target, but not the recipient (the blue name at the top). Orders, such as attack, then go to the first lancemate only.
   - Find out whether this is MW1's lance setup (e.g. the squad's member list or slot numbers built wrong for MW1's lancemates) or PM's own recipient logic. Compare with PM's Instant Action with two lancemates.
 - **Done means:** the cause and the fix, with a test where lancemates move and fire, and where W on each lancemate in turn makes it the recipient and an attack order reaches it. If PM's engine is at fault, it goes to the mw3 lead.
+
+## 73. [ ] The log's polish: cut headlines and the money format
+- **Lead's review of 62/63/67 (the LOG shot):**
+  - A headline taken from inside a shared-title story stops mid-sentence: "JUSTIN ALLARD NOW JUSTIN XIANG SEEKS", "ALLARD TRIAL ENDS IN CONFUSION PRINCE". When the line doesn't end a sentence, end it with "…" so it reads as cut on purpose.
+  - Money: "Wages paid: 2400 C-bills." has no thousands comma, while the other lines do. Every amount in the log and the hub box goes through the same thousands().
+- **Done means:** the log test checks that each headline ends in punctuation or "…", and that every number of four digits or more has commas.
 
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
