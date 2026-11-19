@@ -123,7 +123,15 @@ Tick an item when it is merged into `main`.
 - **Owen (2026-11-18), after the 4K audit:** "i want to do it the right way ... no shortcuts or band-aids."
   - Everything on MW1's screens is drawn at the window's own resolution from a true source. No upscaling of small art stands in for that.
   - **Text:** already right. The fonts are real outline fonts (Saira Condensed, Share Tech Mono) rasterised at window size; no font change is needed.
-  - **'Mech icons:** drawn from the 'Mech's 3D model at window size and styled in MW1's amber (dev 1). The Scale2x upscaler is dropped.
+  - **'Mech icons (Owen, corrected):** PM's own amber outlines, not new art and not the 3D render. PM ships them only at 41x50 (rimage.zbd; the MFB salvage screen uses the same ones). So each is vectorised once into its line and fill layers (PM's exact three colours) and redrawn at window scale. An upscale is the last resort only (dev 1).
+  - **The Mech Complex's 'Mech (Owen, 2026-11-18):** "3d renders of the mechs from the front in gunmetal for that screen, not using image renders". The panel draws the 'Mech's 3D model live, front view, in PM's GUNMETAL skin, at window resolution, as the lab draws its 'Mech. That covers every sold chassis (it replaces the plan to pre-render all 24). The other screens using stored renders (market rows, Company, loading, briefing) are to be asked (dev 1 plans).
+  - **Owen's names (2026-11-18):** **mech outlines** are PM's amber outlines redrawn as vectors: small, they fit anywhere. **Gunmetal renders** are the full 3D 'Mech in GUNMETAL: they can spin.
+  - **Where each goes (Owen, 2026-11-18):**
+    - Mech Complex panel: the gunmetal render, live, still and facing front; spinning is built as an option.
+    - Company page: each pilot's 'Mech as its mech outline, under the pilot's name.
+    - Mech Complex market: a mech outline next to each 'Mech's name in the list for sale.
+    - Loading screen: a stored gunmetal render, made for all 24 sold chassis at first run.
+    - Lab slot: the mech outline.
   - **Star map:** the backdrop is redrawn at window scale (done). The dots, rings and jump line are drawn by MW1 at window scale (dev 2, b2).
   - **Chrome lines and PM's list arrows / scrollbars:** no longer left at canvas size. They're drawn at window scale too, from geometry or redrawn art. This reverses the earlier "PM's widget art stays canvas-sharp".
   - **Framed tiles, DEPLOY's tile, the lab panels:** from their full-size source pictures (dev 1, B2).
@@ -641,6 +649,15 @@ Tick an item when it is merged into `main`.
   - 1280x704 at 5 Mbit/s, about 3.2 MB.
 - **Later, if Owen wants:** a clip for the owned DropShip and the Dark Wing victory (the same player); the Mech Complex idle loop and the intro's background (needs loop + rectangle).
 - **Done means:** GO → movie → hub with and without the file; skip by key and click; a 1080p capture of the fade in and out.
+
+## 55. [ ] The launch video: a pause before it, and its sound replaying at the end
+- **Owen (2026-11-18, in play):**
+  - "put a slight pause before the video plays showing the dropship taking off. it felt very sudden."
+  - "it played the dropship sound for a split second after loading the new screen when the dropship animation was complete. like it was starting it over."
+- **Wanted:**
+  - the first frame held still and silent (about 1 s, one constant) before the motion and sound start;
+  - the sound stopped for good at the clip's end and on a skip, never heard on the next screen.
+- **Done means:** the cause of the replay named; a test that no sound is playing after the movie ends or is skipped; a windowed check with sound on.
 
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:

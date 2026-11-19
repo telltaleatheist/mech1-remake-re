@@ -13,6 +13,7 @@
 #include "gamez/zutil/zutl_path.h"
 #include "mw1_chrome.h"
 #include "mw1_map_image.h"
+#include "mw1_marks.h"
 #include "platform/hires_2d.h"
 #include "platform/hires_images.h"
 
@@ -282,6 +283,24 @@ struct Store::Impl {
     return &mm.picture;
   }
 
+  // A travel map's mark (mw1_marks.h), made at the current scale from its name, kept as the drawn pieces are.
+  const Picture* mark(const std::string& name, const marks::Spec& spec) {
+    auto m = made.find(name);
+    if (m != made.end()) {
+      m->second.used = frame;
+      return &m->second.picture;
+    }
+    if (scale < 2) return nullptr;
+    int32_t w, h, ax, ay;
+    marks::extent(spec, &w, &h, &ax, &ay);
+    Made& mm = made[name];
+    mm.drawn.name = name, mm.drawn.canvas_w = w, mm.drawn.canvas_h = h, mm.drawn.s = scale;
+    mm.drawn.rgba = marks::rgba(spec, scale);
+    mm.picture = {w * scale, h * scale, mm.drawn.rgba.data(), next_serial++, w, h};
+    mm.used = frame;
+    return &mm.picture;
+  }
+
   // The group `name` belongs to, made at the current scale (its source decoded if it isn't).
   const Picture* drawn(const std::string& name) {
     auto m = made.find(name);
@@ -436,6 +455,7 @@ void* Store::canvas_texture(const char* name) {
 
 const Store::Picture* Store::picture(const char* name) {
   if (!impl_ || !name) return nullptr;
+  if (marks::Spec spec; marks::parse(name, &spec)) return impl_->mark(name, spec);
   if (impl_->recipes.count(name)) return impl_->drawn(name);
   if (g_drawn_art && !impl_->by_name.count(name)) {
     DrawnArt da;
@@ -521,8 +541,10 @@ bool install(const std::string& path, bool hires) {
     return false;
   }
   zimg::ImageProvider p;
-  p.fetch = [](const char* n) { return static_cast<zimg::Texture*>(Store::get().canvas_texture(n)); };
-  p.has = [](const char* n) { return n && Store::get().has(n); };
+  p.fetch = [](const char* n) {  // the travel map's marks (FIXES.md item 12) made from their names; the rest stored
+    return static_cast<zimg::Texture*>(marks::is_mark(n) ? marks::canvas_texture(n) : Store::get().canvas_texture(n));
+  };
+  p.has = [](const char* n) { return n && (marks::is_mark(n) || Store::get().has(n)); };
   zimg::set_image_provider(p);
   platform::set_hires_images(hires ? &h : nullptr);
   return true;
