@@ -113,6 +113,11 @@ bool program_hud_objectives(HudObjectivesReport* r);
 void program_hud_objectives_toggle();
 // Tests only: Shift+R on it (0xa5, 0x0043dc10).
 void program_hud_map_toggle();
+// Ours (MW1's FIXES.md item 83, platform/pause_hud.h): the view target's HUD's marker line (the radar's text2) left
+// out of the frames drawn while `hide` (its own shown or hidden kept, and given back with false).
+void program_hud_marker_hide(bool hide);
+int32_t program_hud_marker_hides();  // ours, for MW1's tests: the frames drawn so
+bool program_hud_marker_shown();     // the view target's marker line not hidden now
 // Tests only: the view target's HUD's zoom window locked open (keypad 0, 0x00442e00).
 void program_hud_zoom_show();
 // Tests only: the view target's HUD's MFD set to mode `m` (vt+0x7c).

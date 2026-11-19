@@ -1435,6 +1435,31 @@ bool program_hud_objectives(HudObjectivesReport* r) {
   r->line_height = o.text_height();
   return true;
 }
+namespace {
+int32_t g_marker_hides = 0;
+}
+int32_t program_hud_marker_hides() { return g_marker_hides; }
+bool program_hud_marker_shown() {
+  Mech* t = program_view_mech();
+  Hud* h = t && t->pilot ? pilot_hud(*t->pilot) : nullptr;
+  return h && !(h->radar.text2.flags & ztwod::kHidden);
+}
+void program_hud_marker_hide(bool hide) {
+  static bool held = false, was_hidden = false;
+  Mech* t = program_view_mech();
+  Hud* h = t && t->pilot ? pilot_hud(*t->pilot) : nullptr;
+  if (!h) return;
+  ztwod::FontText& line = h->radar.text2;
+  if (hide && !held) {
+    was_hidden = (line.flags & ztwod::kHidden) != 0;
+    line.flags |= ztwod::kHidden;
+    held = true;
+    ++g_marker_hides;
+  } else if (!hide && held) {
+    if (!was_hidden) line.flags &= ~ztwod::kHidden;
+    held = false;
+  }
+}
 void program_hud_map_toggle() {
   Mech* t = program_view_mech();
   if (Hud* h = t && t->pilot ? pilot_hud(*t->pilot) : nullptr) h->radar.toggle_map();
