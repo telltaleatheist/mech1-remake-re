@@ -62,10 +62,10 @@ int32_t dealer_most(int32_t tier);
 
 // The company's mechs, 0 the one the commander pilots (Company::mech), then the hangar's.
 int32_t owned_count(const Company& c);
-// FIXES.md item 53: the most mechs the company owns, the piloted one included. MW1's own (MW_MAIN 081B:4674, BUY:
-// `cmp word [0530], 0Ch`, its table DS:0532 twelve words); Owen to say whether ours stays at it. BUY refuses at it
+// FIXES.md item 53: the most mechs the company owns, the piloted one included. MW1's was 12 (MW_MAIN 081B:4674, BUY:
+// `cmp word [0530], 0Ch`, its table DS:0532 twelve words), raised to 30 by Owen on 2026-11-18. BUY refuses at it
 // (Deal::kHangarFull; salvage never brings mechs). A save past it still loads (nothing is taken away).
-inline constexpr int32_t kOwnedMost = 12;
+inline constexpr int32_t kOwnedMost = 30;
 // The most of one item the stores hold (each item's count, clamped where MW1 adds to them: salvage, a sale, the hub).
 inline constexpr int32_t kStoreMost = 9999;
 void clamp_stores(mech3::Store& s);
