@@ -5,6 +5,7 @@
 #include <iterator>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <string>
 
@@ -251,4 +252,57 @@ TEST(mw1_chrome_box_rewrap) {
   EXPECT(tip_out.size() == 4 && tip_out[0] == early.substr(0, 35) + " pays the most these days." && tip_out[2] == "SHORT HEADLINE");
   // Lines already short stay as they are.
   EXPECT(mw1::rewrapped({"one", "two", "three"}, mw1::kBoxColumns) == (std::vector<std::string>{"one", "two", "three"}));
+}
+
+namespace {
+// The pieces item 12's geometry draws (triangles, the elliptical glows): drawn from their shapes at the window's
+// scale, so at the canvas's they must stay exactly the pixels they always were (mw1image.zbd, the canvas goldens).
+bool fine_geometry_piece(const std::string& n) {
+  for (const char* p : {"mw1_up", "mw1_dn", "mw1_lt", "mw1_rt", "mw1_lab_arrow", "mw1_lab_toggle", "mw1_arrowupmp",
+                        "mw1_arrowdnmp", "mw1_lab_icon_glow", "mw1_lab_player_glow", "mw1_file_arrow"})
+    if (n.rfind(p, 0) == 0) return true;
+  return false;
+}
+}  // namespace
+
+TEST(mw1_chrome_geometry_pieces_keep_their_canvas_pixels) {
+  uint64_t h = 1469598103934665603ull;
+  auto mix = [&](uint64_t v) { h = (h ^ v) * 1099511628211ull; };
+  int32_t n = 0;
+  for (const mw1::images::Image& im : mw1::chrome::all()) {
+    if (!fine_geometry_piece(im.name)) continue;
+    ++n;
+    for (char ch : im.name) mix(static_cast<uint8_t>(ch));
+    mix(static_cast<uint64_t>(im.width) << 16 | static_cast<uint64_t>(im.height));
+    for (size_t i = 0; i < im.pixels.size(); ++i) mix(static_cast<uint64_t>(im.pixels[i]) << 8 | im.alpha[i]);
+  }
+  // The hash of these pieces as they were before item 12 drew them from geometry (33 of them): a change here moves
+  // the archive's pixels, which must be on purpose.
+  EXPECT(n == 33);
+  EXPECT(h == 0xed62fc8e8ffcddd0ull);
+}
+
+TEST(mw1_chrome_geometry_pieces_are_finer_than_the_canvas_at_scale) {
+  // At the window's scale (5 at 4K) each is its shape's, not its canvas pixels magnified: some 5 x 5 block of device
+  // pixels isn't one colour.
+  int32_t n = 0;
+  for (const std::string& name : mw1::chrome::chrome_names()) {
+    if (!fine_geometry_piece(name)) continue;
+    mw1::chrome::Drawn d;
+    EXPECT(mw1::chrome::chrome_at(name, 5, &d));
+    if (d.rgba.empty()) continue;
+    ++n;
+    const int32_t s = d.s, W = d.canvas_w * s;
+    bool finer = false;
+    for (int32_t by = 0; by < d.canvas_h && !finer; ++by)
+      for (int32_t bx = 0; bx < d.canvas_w && !finer; ++bx) {
+        const uint8_t* p0 = &d.rgba[(static_cast<size_t>(by * s) * W + bx * s) * 4];
+        for (int32_t y = 0; y < s && !finer; ++y)
+          for (int32_t x = 0; x < s && !finer; ++x)
+            finer = std::memcmp(p0, &d.rgba[(static_cast<size_t>(by * s + y) * W + bx * s + x) * 4], 4) != 0;
+      }
+    if (!finer) std::printf("  %s: its canvas pixels magnified\n", name.c_str());
+    EXPECT(finer);
+  }
+  EXPECT(n == 33);
 }

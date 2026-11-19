@@ -56,6 +56,44 @@ struct Canvas {
     for (int32_t j = 0; j < s; ++j)
       for (int32_t i = 0; i < s; ++i) over_d(x * s + i, y * s + j, c);
   }
+  // A shape in canvas coordinates (FIXES.md item 12, "the right way"): `in(x, y)` says whether a point is inside, a
+  // pixel's centre at its + 0.5. At s 1 each canvas pixel whose centre is in takes `ink`, as the pieces always were;
+  // above, each device pixel is sampled 4 x 4 and takes the ink by its coverage, so a diagonal edge is the shape's,
+  // not the canvas pixels' staircase. Within canvas pixels [x0, x1) x [y0, y1).
+  template <typename In>
+  void cover(int32_t x0, int32_t y0, int32_t x1, int32_t y1, Rgba ink, In in) {
+    if (s == 1) {
+      for (int32_t y = y0; y < y1; ++y)
+        for (int32_t x = x0; x < x1; ++x)
+          if (in(x + 0.5, y + 0.5)) set(x, y, ink);
+      return;
+    }
+    for (int32_t j = y0 * s; j < y1 * s; ++j)
+      for (int32_t i = x0 * s; i < x1 * s; ++i) {
+        int32_t hits = 0;
+        for (int32_t b = 0; b < 4; ++b)
+          for (int32_t a = 0; a < 4; ++a) hits += in((i + (a + 0.5) / 4.0) / s, (j + (b + 0.5) / 4.0) / s) ? 1 : 0;
+        if (hits == 16)
+          set_d(i, j, ink);
+        else if (hits)
+          over_d(i, j, {ink.r, ink.g, ink.b, (ink.a * hits + 8) / 16});
+      }
+  }
+  // A colour that varies over the canvas (a glow): `at(x, y, &c)` gives the colour at a point, false for none. At s 1
+  // taken at each canvas pixel's centre, as always; above, at each device pixel's centre, so it varies smoothly.
+  template <typename At>
+  void shade(int32_t x0, int32_t y0, int32_t x1, int32_t y1, At at) {
+    Rgba c;
+    if (s == 1) {
+      for (int32_t y = y0; y < y1; ++y)
+        for (int32_t x = x0; x < x1; ++x)
+          if (at(x + 0.5, y + 0.5, &c)) set(x, y, c);
+      return;
+    }
+    for (int32_t j = y0 * s; j < y1 * s; ++j)
+      for (int32_t i = x0 * s; i < x1 * s; ++i)
+        if (at((i + 0.5) / s, (j + 0.5) / s, &c)) set_d(i, j, c);
+  }
   images::Image image(const std::string& name) const {  // at s 1; above, handed to piece_at (the image named only)
     images::Image im;
     if (s > 1) {
@@ -406,11 +444,13 @@ images::Image arrow(bool up, int32_t state) {
   glass(c, 2, 2, kArrowW - 2, kArrowH - 2, state == 2 ? 250 : 230);
   thin_frame(c, 0, 0, kArrowW, kArrowH, 2, state == 1 ? Rgba{255, 170, 40, 200} : state == 3 ? Rgba{40, 40, 44, 150} : Rgba{});
   const Rgba ink = state == 3 ? Rgba{80, 84, 88, 255} : state == 0 ? Rgba{217, 221, 224, 255} : Rgba{255, 176, 64, 255};
+  // The triangle: its point on the line between the middle two columns, `rows` high and twice that wide at its base
+  // (at s 1 row r, from the point, spans r + 1 pixels each side of the middle, as it always did).
   const int32_t cx = kArrowW / 2, top = 6, rows = kArrowH - 12;
-  for (int32_t r = 0; r < rows; ++r) {
-    const int32_t half = up ? r : rows - 1 - r;  // up: the point at the top
-    for (int32_t x = cx - half - 1; x <= cx + half; ++x) c.set(x, top + r, ink);
-  }
+  c.cover(0, top, kArrowW, top + rows, ink, [&](double x, double y) {
+    const double t = up ? y - top : top + rows - y;  // how far from the point
+    return std::abs(x - cx) <= t;
+  });
   static const char* const kLooks[4] = {"", "_lit", "_down", "_off"};
   return c.image(std::string(up ? "mw1_up" : "mw1_dn") + kLooks[std::clamp(state, 0, 3)]);
 }
@@ -422,10 +462,10 @@ images::Image side_arrow(bool right, int32_t state) {
   thin_frame(c, 0, 0, kSideArrowW, kSideArrowH, 2, state == 1 ? Rgba{255, 170, 40, 200} : state == 3 ? Rgba{40, 40, 44, 150} : Rgba{});
   const Rgba ink = state == 3 ? Rgba{80, 84, 88, 255} : state == 0 ? Rgba{217, 221, 224, 255} : Rgba{255, 176, 64, 255};
   const int32_t cy = kSideArrowH / 2, left = 6, cols = kSideArrowW - 12;
-  for (int32_t col = 0; col < cols; ++col) {
-    const int32_t half = right ? cols - 1 - col : col;
-    for (int32_t y = cy - half - 1; y <= cy + half; ++y) c.set(left + col, y, ink);
-  }
+  c.cover(left, 0, left + cols, kSideArrowH, ink, [&](double x, double y) {
+    const double t = right ? left + cols - x : x - left;  // how far from the point
+    return std::abs(y - cy) <= t;
+  });
   static const char* const kLooks[4] = {"", "_lit", "_down", "_off"};
   return c.image(std::string(right ? "mw1_rt" : "mw1_lt") + kLooks[std::clamp(state, 0, 3)]);
 }
@@ -559,22 +599,22 @@ void line(Canvas& c, double x0, double y0, double x1, double y1, double t, Rgba 
 // A solid triangle in (x0, y0)-(x1, y1) pointing `dir` (0 up, 1 down, 2 left, 3 right).
 void triangle(Canvas& c, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int32_t dir, Rgba ink) {
   const double w = x1 - x0, h = y1 - y0;
-  for (int32_t y = y0; y < y1; ++y)
-    for (int32_t x = x0; x < x1; ++x) {
-      const double u = (x - x0 + 0.5) / w, v = (y - y0 + 0.5) / h;  // 0..1 across, down
-      const double along = dir == 0 ? v : dir == 1 ? 1 - v : dir == 2 ? u : 1 - u;  // 0 at the point
-      const double side = dir <= 1 ? u : v;
-      if (std::abs(side - 0.5) <= along / 2 + 0.06) c.set(x, y, ink);
-    }
+  c.cover(x0, y0, x1, y1, ink, [&](double x, double y) {
+    const double u = (x - x0) / w, v = (y - y0) / h;  // 0..1 across, down
+    const double along = dir == 0 ? v : dir == 1 ? 1 - v : dir == 2 ? u : 1 - u;  // 0 at the point
+    const double side = dir <= 1 ? u : v;
+    return std::abs(side - 0.5) <= along / 2 + 0.06;
+  });
 }
 // A soft amber glow filling the canvas (an ellipse), at most `peak` opaque.
 images::Image glow_piece(const Reskin& r, int32_t peak) {
   Canvas c(r.w, r.h);
-  for (int32_t y = 0; y < r.h; ++y)
-    for (int32_t x = 0; x < r.w; ++x) {
-      const double u = (x + 0.5) / r.w * 2 - 1, v = (y + 0.5) / r.h * 2 - 1, d = u * u + v * v;
-      if (d < 1) c.set(x, y, {255, 170, 40, static_cast<int32_t>(peak * (1 - d) * (1 - d))});
-    }
+  c.shade(0, 0, r.w, r.h, [&](double x, double y, Rgba* out) {
+    const double u = x / r.w * 2 - 1, v = y / r.h * 2 - 1, d = u * u + v * v;
+    if (d >= 1) return false;
+    *out = {255, 170, 40, static_cast<int32_t>(peak * (1 - d) * (1 - d))};
+    return true;
+  });
   return c.image(reskin_name(r.game));
 }
 // The chosen row's mark in the lab's lists (FIXES.md item 17: our amber bar, not a glow): PM places it 17 left of and
