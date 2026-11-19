@@ -414,6 +414,34 @@ void Mw1Screen::show(const ScreenView& v) {
     for (size_t i = ls.size(); i < pool.size(); ++i) pool[i]->hide();
     for (size_t i = spans; i < spans_[b].size(); ++i) spans_[b][i]->hide();
   }
+  // The inline pictures: each at its line's column in its place, measured in the place's font.
+  inline_shown_.clear();
+  size_t shown_inline = 0;
+  for (const ScreenView::InlinePicture& ip : v.inline_pictures) {
+    const Place* p = nullptr;
+    for (const auto& [n, pl] : places_)
+      if (ip.at && n == ip.at) p = &pl;
+    if (!p || ip.image.empty()) continue;
+    const int32_t line_y = p->y + ip.line * std::max(0, p->gap);
+    int32_t x = p->x, mid = line_y + ip.h / 2;
+    ztwod::Text* m = text(measure_, 0, p->x, line_y, p->font.empty() ? kLineFont : p->font.c_str());
+    m->set_text_plain(ip.prefix.empty() ? " " : ip.prefix.c_str());
+    ztwod::Rect r{};
+    m->rect_at(&r);
+    if (!ip.prefix.empty()) x = p->x + std::max(0, r.right - r.left - 3);  // FontText's width is the text's and 3 more
+    mid = (r.top + r.bottom) / 2;
+    m->hide();
+    while (inline_.size() <= shown_inline) {
+      inline_.push_back(std::make_unique<ztwod::Image>(0));
+      add(inline_.back().get());
+    }
+    ztwod::Image* im = inline_[shown_inline++].get();
+    im->set_image(ip.image.c_str());
+    im->set_pos(x, mid - ip.h / 2);
+    im->show_for(-1.0f), im->dirty();
+    inline_shown_.push_back(ip.image);
+  }
+  for (size_t i = shown_inline; i < inline_.size(); ++i) inline_[i]->hide();
   // The panels' pictures asked for (kept as asked; an image not in the archive leaves the panel empty).
   if (pictures_.size() < panels_.size()) pictures_.resize(panels_.size());
   for (size_t i = 0; i < panels_.size() && i < v.pictures.size(); ++i)
@@ -497,6 +525,11 @@ std::vector<std::string> Mw1Screen::shown() const {
 
 bool Mw1Screen::visible(int32_t id) const {
   return id >= 1 && static_cast<size_t>(id) <= buttons_.size() && !(buttons_[id - 1]->flags & ztwod::kHidden);
+}
+bool Mw1Screen::inline_at(size_t i, int32_t* x, int32_t* y) const {
+  if (i >= inline_shown_.size() || i >= inline_.size()) return false;
+  *x = inline_[i]->x, *y = inline_[i]->y;
+  return true;
 }
 bool Mw1Screen::panel_shown(size_t i) const { return i < panels_.size() && !(panels_[i]->flags & ztwod::kHidden); }
 bool Mw1Screen::enabled(int32_t id) const {

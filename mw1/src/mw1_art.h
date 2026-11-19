@@ -12,6 +12,7 @@
 // and height, each u16; 4 zero bytes), then the files' bytes. Images cut from one file (a portrait and its small
 // one) share its bytes.
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -103,5 +104,16 @@ class Store {
 // missing). `hires` off: the canvas copies only; on, the pictures are found only while platform::hires_2d() is
 // (MW1_HIRES=0 turns it off).
 bool install(const std::string& path, bool hires);
+
+// research/hires-2d.md B2 item 1: pieces the program draws itself at the window's scale (the mech outlines,
+// mw1_outline.h). `source` answers for a name it makes: its canvas size and how to draw it at s device pixels a
+// canvas pixel ((canvas_w * s) x (canvas_h * s) RGBA, straight alpha). The store makes it on first asking at the
+// current scale and keeps it as B2b's drawn pieces are kept (dropped on a scale change; none below 2: the canvas
+// draws it). Unset or false: not one.
+struct DrawnArt {
+  int32_t canvas_w = 0, canvas_h = 0;
+  std::function<std::vector<uint8_t>(int32_t s)> draw;
+};
+void set_drawn_art(std::function<bool(const std::string& name, DrawnArt* out)> source);
 
 }  // namespace mw1::art

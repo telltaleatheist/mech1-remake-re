@@ -296,6 +296,17 @@ TEST(mw1_art_drawn_by_frame_scale) {
   const uint64_t first = t ? t->serial : 0;
   const platform::HiresImage* l = hi->find("mw1_lab_panel_leftdouble");
   EXPECT(l && l->w == 220 * 3 && l->h == 480 * 3 && l->canvas_w == 220 && l->canvas_h == 480);
+  // B2 item 1: a piece the program draws (the mech outlines), made at the scale on first asking.
+  int32_t asked_s = 0;
+  mw1::art::set_drawn_art([&](const std::string& name, mw1::art::DrawnArt* out) {
+    if (name != "mw1_test_drawn") return false;
+    out->canvas_w = 4, out->canvas_h = 2;
+    out->draw = [&](int32_t s) { return asked_s = s, std::vector<uint8_t>(static_cast<size_t>(4 * s) * (2 * s) * 4, 255); };
+    return true;
+  });
+  const platform::HiresImage* da = hi->find("mw1_test_drawn");
+  EXPECT(da && da->w == 12 && da->h == 6 && da->canvas_w == 4 && da->canvas_h == 2 && asked_s == 3 && hi->find("mw1_test_other") == nullptr);
+  mw1::art::set_drawn_art(nullptr);
   hi->end_frame();
   hi->set_frame_scale(2.25f);  // the same: kept
   t = hi->find("mw1_tile_bar_down");

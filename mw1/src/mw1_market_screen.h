@@ -32,6 +32,8 @@ enum MarketPanel : int32_t { kMarketPanelPlaque, kMarketPanelPlaque2, kMarketPan
 
 // The lists: each shows kMarketRows rows from its first shown (`*_top`), scrolled to keep the chosen one in view.
 inline constexpr int32_t kMarketRows = 8;
+// Each row's mech outline (mw1_mech_icons.h's row_icon_image), after the row's cursor, in this much room.
+inline constexpr const char* kOutlineRoom = "   ";
 
 // What the player has chosen in each list, how far each is scrolled, and the line said after the last button (a
 // refusal's reason, or what was done).
