@@ -1013,6 +1013,37 @@ From the 2026-11-19 screen sweep (the lead's calls). Item 1 (the menu title over
 - **The shot driver:** `hub_contract` and `hub_contract_read` take a contract (REQUEST, ACCEPT, OK) before
   their shot; the pause page presses Escape as a player does.
 
+## 88. [x] FIXES 83's review: the tests that check the picture, one name a mode *(done: mw1-fix88-review)*
+From dev 1's review of 83 (the lead's list).
+- **The pause's grab, checked in the picture (1):** `mw1pausegrab` now looks at the pause's backdrop at the marker
+  line's rect, not just at the counters.
+  - With the high-resolution draw on, the HUD's texts reach the grab only as its copied recorded draws (FIXES 12);
+    its 565 pixels hold no HUD at all. So the check is the grab's recorded texts of the line's colour (0x1fa201)
+    over the rect, counted through the program's SDL host (`mw1::recorded_lines`), plus the canvas pixels.
+  - It fails with the opt-in off (the frame before Escape: 1 recorded line), and when the hide is counted but the
+    flag isn't set (as if the HUD ignored kHidden: the counters pass, the picture has the line).
+  - A third run uses MW1_HIRES=0.
+  - The software and doubled paths aren't changed: the SDL port's mission draws Direct3D's path only (the device is
+    SDL GPU; docs/resolution.md, the software paths not ported).
+- **The intro's picture through the real lookup (2):** the headless intro test packs `data-src/art`'s intro into an
+  mw1art.zbd as the build does and installs the art.
+  - In the picture phase, zimg's lookup (the image provider) gives the canvas copy (854x480, not one colour), and
+    the art store gives the source (1344x755). The headless 2D host loads no layout pictures, so these are asked
+    directly.
+  - The generated mw1image.zbd keeps only mw1_black. `images::letterbox` and `images::cover` are gone, along with
+    their test.
+  - The check fails without the art archive.
+- **RESOLUTION's duplicates (3):** mode 3 is "320 x 240" (it draws 320x240, doubled: 0x0040d810), not 5's
+  "640 x 480". The player's own size (16) is "1920 x 1080 custom", not 13's "1920 x 1080". The test checks that no
+  two items in either list read alike.
+- **The names' places (4):** a new test chooses every world in turn, with its nearest world hovered and its second
+  nearest the story's (" · STORY").
+  - Each name must be where the rule puts it (above, right/left by the edge, below; the first clear), in the
+    note font when chosen, here or the story's.
+  - All four kinds of place come up (above 1002, right 158, left 69, below 34 of 1281 names), and the suffix
+    every time.
+  - With left and below swapped, it fails.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.

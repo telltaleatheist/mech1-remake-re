@@ -1,4 +1,5 @@
 #pragma once
+#include <functional>
 // MW1's loop over Pirate's Moon's game (VISION.md, "The first milestone"):
 // the hub between missions (mw1_hub.h; PM's message boxes when MW1's layout
 // is missing), one contract, the
@@ -10,6 +11,11 @@
 #include <string>
 
 namespace mw1 {
+
+// FIXES.md item 88 (mw1/tests/pause_grab.cmake): set by the program, the recorded texts of `owner` (a grab's pixels)
+// over rect (left, top, right, bottom) in `colour` (GDI's 0x00bbggrr), counted.
+using RecordedLines = std::function<int32_t(const void* owner, const int32_t rect[4], uint32_t colour)>;
+RecordedLines& recorded_lines();
 
 // Set the loop on the engine before PM's game main runs. A seed of 0 rolls
 // the company at random; another gives the same company and contracts (tests).

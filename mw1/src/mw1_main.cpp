@@ -36,6 +36,9 @@
 #include "platform/pause_hud.h"
 #include "platform/mode_labels.h"
 #include "gamez/zutil/zutl_path.h"
+#include "frontend/sdl/sdl_twod_host.h"
+#include "gamez/ztwod/twod_host.h"
+#include "platform/hires_lists.h"
 #include "mw1_game.h"
 #include "mw1_hud_labels.h"
 #include "mw1_missions.h"
@@ -263,6 +266,17 @@ int main(int argc, char** argv) {
   platform::set_pause_hides_hud_marker(true);
   // FIXES.md item 83 (the lead): RESOLUTION's modes all "W x H", their own sizes (platform/mode_labels.h).
   platform::set_uniform_mode_labels(true);
+  // FIXES.md item 88: the pause test's count of the grab's recorded texts (the SDL host's lists).
+  mw1::recorded_lines() = [](const void* owner, const int32_t r[4], uint32_t colour) {
+    auto* host = dynamic_cast<sdlfe::SdlTwodHost*>(&ztwod::host());
+    if (!host) return -1;
+    int32_t n = 0;
+    if (const auto* cmds = host->hires_lists().of(owner))
+      for (const platform::hires::Command& c : *cmds)
+        n += c.kind == platform::hires::Kind::kText && c.colour == colour &&
+             !platform::hires::intersect(c.rect, platform::hires::Rect{r[0], r[1], r[2], r[3]}).empty();
+    return n;
+  };
   // The rest is PM's game main, on its own write dir and PM install.
   std::vector<std::string> args = mw1::game_args(argv[0], a, use);
   std::vector<char*> raw;

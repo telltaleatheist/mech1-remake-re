@@ -19,45 +19,6 @@ uint16_t rgb565(uint8_t r, uint8_t g, uint8_t b) {
   return static_cast<uint16_t>((r >> 3) << 11 | (g >> 2) << 5 | (b >> 3));
 }
 
-Image letterbox(const std::string& name, int32_t w, int32_t h, const std::vector<uint16_t>& picture) {
-  Image out = black(name);
-  const int32_t x0 = (kScreenW - w) / 2, y0 = (kScreenH - h) / 2;
-  for (int32_t y = 0; y < h; ++y)
-    for (int32_t x = 0; x < w; ++x) {
-      const int32_t tx = x0 + x, ty = y0 + y;
-      if (tx >= 0 && ty >= 0 && tx < kScreenW && ty < kScreenH)
-        out.pixels[static_cast<size_t>(ty * kScreenW + tx)] = picture[static_cast<size_t>(y * w + x)];
-    }
-  return out;
-}
-
-Image cover(const std::string& name, int32_t w, int32_t h, const std::vector<uint16_t>& picture, int32_t out_w, int32_t out_h) {
-  Image out;
-  out.name = name, out.width = out_w, out.height = out_h;
-  out.pixels.assign(static_cast<size_t>(out_w) * static_cast<size_t>(out_h), 0);
-  if (w <= 0 || h <= 0 || picture.size() < static_cast<size_t>(w) * static_cast<size_t>(h)) return out;
-  const double s = std::max(static_cast<double>(out_w) / w, static_cast<double>(out_h) / h);
-  const double ox = (w * s - out_w) / 2, oy = (h * s - out_h) / 2;
-  auto at = [&](int32_t x, int32_t y, int sh, int mask) {
-    x = std::clamp(x, 0, w - 1), y = std::clamp(y, 0, h - 1);
-    return (picture[static_cast<size_t>(y) * static_cast<size_t>(w) + static_cast<size_t>(x)] >> sh) & mask;
-  };
-  for (int32_t y = 0; y < out_h; ++y)
-    for (int32_t x = 0; x < out_w; ++x) {
-      const double sx = (x + 0.5 + ox) / s - 0.5, sy = (y + 0.5 + oy) / s - 0.5;
-      const int32_t x0 = static_cast<int32_t>(std::floor(sx)), y0 = static_cast<int32_t>(std::floor(sy));
-      const double fx = sx - x0, fy = sy - y0;
-      uint16_t px = 0;
-      for (const auto& [sh, mask] : {std::pair{11, 31}, std::pair{5, 63}, std::pair{0, 31}}) {
-        const double v = (at(x0, y0, sh, mask) * (1 - fx) + at(x0 + 1, y0, sh, mask) * fx) * (1 - fy) +
-                         (at(x0, y0 + 1, sh, mask) * (1 - fx) + at(x0 + 1, y0 + 1, sh, mask) * fx) * fy;
-        px = static_cast<uint16_t>(px | (static_cast<uint16_t>(std::lround(v)) << sh));
-      }
-      out.pixels[static_cast<size_t>(y) * static_cast<size_t>(out_w) + static_cast<size_t>(x)] = px;
-    }
-  return out;
-}
-
 Image black(const std::string& name) {
   Image out;
   out.name = name, out.width = kScreenW, out.height = kScreenH;
