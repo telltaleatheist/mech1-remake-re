@@ -51,6 +51,13 @@ images::Image backdrop(int32_t lit = -1);
 // All six, for the archive.
 std::vector<images::Image> backdrops();
 
+// The backdrop at `scale` times the canvas's size, RGBA (opaque), for the 2D drawn at the window's resolution
+// (FIXES.md item 12, research/hires-2d.md: the travel map). The same picture as backdrop(lit): each fine pixel's House
+// is the canvas pixel's, found again from the worlds at the fine pixel's own place where the canvas pixel is on a
+// border (so a border is a smooth curve, not the canvas's steps); the outline about a canvas pixel wide; each star a
+// soft dot where the canvas has its pixel.
+std::vector<uint8_t> backdrop_rgba(int32_t lit, int32_t scale);
+
 }  // namespace mw1::map_image
 
 namespace mw1 {
