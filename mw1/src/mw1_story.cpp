@@ -258,6 +258,12 @@ bool title_shared(const Company& c, const std::string& title) {
   return !title.empty() && f != counts.end() && f->second > 1;
 }
 
+bool sentence_ends(const std::string& line) {
+  std::string t = line;
+  while (!t.empty() && (t.back() == '"' || t.back() == '\'' || t.back() == ')' || t.back() == ' ')) t.pop_back();
+  return !t.empty() && (t.back() == '.' || t.back() == '!' || t.back() == '?');
+}
+
 namespace {
 // A story's lines past its title, as (page, line) places, blanks skipped.
 std::vector<std::pair<size_t, size_t>> lines_past_title(const std::vector<Page>& pages, int32_t t) {
@@ -321,7 +327,12 @@ std::string headline(const Company& c, const Shown& s) {
     if (s.record >= 0) place[s.record] = pick;
   }
   pick = std::min(pick, mine.size() - 1);
-  return trimmed(pages[mine[pick].first].lines[mine[pick].second]);
+  // FIXES.md item 73: a line from inside the story that doesn't end a sentence reads as cut on purpose: "..." (three
+  // dots: the menus' fonts are a byte a letter), a trailing comma, colon or dash dropped first.
+  std::string h = trimmed(pages[mine[pick].first].lines[mine[pick].second]);
+  while (!h.empty() && (h.back() == ',' || h.back() == ';' || h.back() == ':' || h.back() == '-' || h.back() == ' ')) h.pop_back();
+  if (!h.empty() && !sentence_ends(h)) h += "...";
+  return h;
 }
 
 Shown shown_of_record(int32_t record) {

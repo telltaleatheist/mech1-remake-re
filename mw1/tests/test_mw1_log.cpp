@@ -1,6 +1,7 @@
 // The company's log (src/mw1_log.h, FIXES.md items 62, 63) and the news's headlines (item 67). MW1's words are never
 // printed here: places, counts and lengths only.
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <map>
 #include <set>
@@ -47,7 +48,7 @@ TEST(mw1_log_entries_newest_first_and_heard_by_kind) {
   EXPECT(c.log[2].date.units == 10 && c.log[0].date.units == 12 && c.log[0].date.year == 3025);
   EXPECT(!c.log[2].heard && c.log[1].heard && !c.log[0].heard);  // a purchase is seen at the market
   const std::vector<std::string> lines = mw1::unheard_lines(c);
-  EXPECT(lines.size() == 2 && lines[0] == "Wages paid: 2400 C-bills." && lines[1] == "Test message line 1.");  // oldest first
+  EXPECT(lines.size() == 2 && lines[0] == "Wages paid: 2,400 C-bills." && lines[1] == "Test message line 1.");  // oldest first
   EXPECT(mw1::log_date(c.log[0].date) == "7 " + std::string(mw1::kMonthNames[3]).substr(0, 3) + " 3025");
   mw1::hear_all(c);
   EXPECT(mw1::unheard_lines(c).empty() && c.log.size() == 3);
@@ -204,4 +205,52 @@ TEST(mw1_log_news_headlines_tell_the_stories_apart) {
   EXPECT(mw1::unheard_news(c).size() == 3);
   // The log says each by its own headline.
   EXPECT(mw1::log_lines(c, c.log[0])[0] != mw1::log_lines(c, c.log[1])[0]);
+}
+
+// FIXES.md item 73: a headline from inside a story (a shared title's) ends a sentence or says it's cut ("..."); the
+// titles are MW1's own, as they are.
+TEST(mw1_log_cut_headlines_end_in_dots) {
+  if (!script_there()) return;
+  mw1::Company c = a_company();
+  size_t inner = 0, cut = 0;
+  for (int32_t r : news_records()) {
+    const mw1::Shown s = mw1::shown_of_record(r);
+    const std::string h = mw1::headline(c, s), t = mw1::news_title(c, s);
+    if (h == t) continue;
+    ++inner;
+    const bool dots = h.size() > 3 && h.compare(h.size() - 3, 3, "...") == 0;
+    cut += dots ? 1 : 0;
+    if (!dots && !mw1::sentence_ends(h)) std::printf("  record %d: a headline of %zu letters ends neither\n", r, h.size());
+    EXPECT(dots || mw1::sentence_ends(h));
+    EXPECT(h.find("....") == std::string::npos && h.find(",...") == std::string::npos);
+  }
+  std::printf("  %zu headlines from inside a story, %zu cut\n", inner, cut);
+  EXPECT(inner > 0 && cut > 0);
+  EXPECT(mw1::sentence_ends("IT ENDS.") && mw1::sentence_ends("\"WHY?\"") && !mw1::sentence_ends("IN CONFUSION PRINCE"));
+}
+
+// FIXES.md item 73: every amount the log says (and so the hub's box) has its thousands commas: no run of four digits
+// or more in any kind's words (the news, MW1's own text with its years, aside).
+TEST(mw1_log_amounts_have_commas) {
+  mw1::Company c = a_company();
+  c.log.clear();
+  const int64_t big = 1234567;
+  for (int32_t k = 1; k <= mw1::kLogKindLast; ++k) {
+    const mw1::LogKind kind = static_cast<mw1::LogKind>(k);
+    if (kind == mw1::LogKind::kNews || kind == mw1::LogKind::kStory) continue;
+    mw1::log_add(c, kind, true, 1, 2, -1, 25, big, big);
+  }
+  size_t lines = 0;
+  for (const mw1::LogEntry& e : c.log)
+    for (const std::string& l : mw1::log_lines(c, e)) {
+      ++lines;
+      size_t run = 0, longest = 0;
+      for (char ch : l) run = std::isdigit(static_cast<unsigned char>(ch)) ? run + 1 : 0, longest = std::max(longest, run);
+      if (longest >= 4) std::printf("  kind %d: a number of %zu digits without commas\n", static_cast<int32_t>(e.kind), longest);
+      EXPECT(longest < 4);
+    }
+  std::printf("  %zu lines over %zu kinds\n", lines, c.log.size());
+  EXPECT(mw1::unheard_lines(c).empty());
+  mw1::log_add(c, mw1::LogKind::kWagesPaid, false, 0, 0, 0, 0, 2400);
+  EXPECT(mw1::unheard_lines(c) == std::vector<std::string>{"Wages paid: 2,400 C-bills."});
 }
