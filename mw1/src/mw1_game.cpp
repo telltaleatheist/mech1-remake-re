@@ -2293,6 +2293,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     enemy_aims_.push_back(error);
     params.put<float>(0xb8, error);
   }
+  // FIXES.md item 48: an enemy past the map's own places is made beside one of them, on clear ground (player.cpp).
+  bool extra_enemy_places() override { return deployed_; }
   void ally_launching(int32_t slot, mech3::ai::AiParams& params) override {
     if (!deployed_ || slot < 1 || slot > static_cast<int32_t>(flying_.size())) return;
     const int32_t id = flying_[static_cast<size_t>(slot - 1)];
@@ -3252,11 +3254,13 @@ static std::unique_ptr<Loop>& the_loop() {
 void install_game_loop(uint32_t seed, const char* reach) {
   the_loop() = std::make_unique<Loop>(seed, reach);
   mech3::set_program_flow(the_loop().get());
+  mech3::set_action_lineup_capacity(kLineupSlots);  // FIXES.md item 48: 16 past the commander (the exe's ten)
   mech3::set_objectives_extension(the_loop().get());
 }
 
 void uninstall_game_loop() {
   mech3::set_program_flow(nullptr);
+  mech3::set_action_lineup_capacity(mech3::ActionGame::kLineupExe);
   mech3::set_objectives_extension(nullptr);
   the_loop().reset();
 }

@@ -1,5 +1,7 @@
 #include "mech3/player.h"
 
+#include <array>
+#include <cmath>
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
@@ -9,6 +11,7 @@
 #include "gamez/zmodel/gmod_cull.h"
 #include "gamez/zutil/zfix.h"
 #include "mech3/program_flow.h"
+#include "mech3/zai_nav.h"
 #include "mech3/zrdraiv.h"
 
 // The mission start's vehicles and the player's tick; docs/mission-start.md.
@@ -366,6 +369,56 @@ Handle action_net(bool ally, const ai::AivRecord* rec) {
 // The record's name copied as 0x0049dc80 does, into its 80 bytes. FIX
 // (bug): cut to fit (the exe copies it whole).
 void copy_name(char (&out)[0x50], const char* name) { std::snprintf(out, sizeof out, "%s", name); }
+
+// Ours (MW1's FIXES.md item 48, ProgramFlow::extra_enemy_places): a place on clear ground beside `base`, for an
+// enemy past the map's own places. On rings of 30, 45 and 60 m in eight directions (the first away from `away`, the
+// player), the first point
+// - with ground (the floor nearest the base's height, within 20 m; no water over it),
+// - level enough: the ground 4 m off each way within a step's rise (zai_nav's kClimb),
+// - reached from the base without a wall at chest height, and no wall across it 6 m each way,
+// - not a place the AI is told to keep out of,
+// - more than kApart from every place this launch has taken.
+// The world's own queries (zai_nav's World), as the AI's walkability grid asks them. False: none.
+constexpr float kApart = 20.0f;
+bool ground_near(ai::nav::World& w, float x, float z, float near_y, float* y) {
+  ai::nav::Floor f[ai::nav::kLevels];
+  const int n = w.ground(x, z, f, ai::nav::kLevels);
+  bool found = false;
+  for (int i = 0; i < n; ++i) {
+    if (std::fabs(f[i].y - near_y) > 20.0f || f[i].water > f[i].y) continue;  // (NaN water: none)
+    if (!found || std::fabs(f[i].y - near_y) < std::fabs(*y - near_y)) *y = f[i].y, found = true;
+  }
+  return found;
+}
+bool extra_enemy_place(const float base[3], const float away[3], const std::vector<std::array<float, 3>>& taken, float out[3]) {
+  ai::nav::World& w = ai::nav::zcls_world();
+  const float start = std::atan2(base[2] - away[2], base[0] - away[0]);
+  for (const float ring : {30.0f, 45.0f, 60.0f})
+    for (int d = 0; d < 8; ++d) {
+      const float a = start + static_cast<float>(d) * 0.785398163f;
+      const float x = base[0] + ring * std::cos(a), z = base[2] + ring * std::sin(a);
+      float y = 0;
+      if (!ground_near(w, x, z, base[1], &y)) continue;
+      bool level = true;
+      for (const auto& o : {std::array<float, 2>{4, 0}, {-4, 0}, {0, 4}, {0, -4}}) {
+        float oy = 0;
+        level = level && ground_near(w, x + o[0], z + o[1], y, &oy) && std::fabs(oy - y) <= 4.0f * ai::nav::kClimb;
+      }
+      if (!level) continue;
+      const float chest = 5.0f, from[3] = {base[0], base[1] + chest, base[2]}, to[3] = {x, y + chest, z};
+      const float ax[3] = {x - 6, y + 3, z}, bx[3] = {x + 6, y + 3, z}, az[3] = {x, y + 3, z - 6}, bz[3] = {x, y + 3, z + 6};
+      if (w.wall(from, to) || w.wall(ax, bx) || w.wall(az, bz) || w.avoid(x, y, z)) continue;
+      bool apart = true;
+      for (const auto& t : taken) {
+        const float dx = t[0] - x, dz = t[2] - z;
+        apart = apart && dx * dx + dz * dz > kApart * kApart;
+      }
+      if (!apart) continue;
+      out[0] = x, out[1] = y, out[2] = z;
+      return true;
+    }
+  return false;
+}
 }  // namespace
 
 // 0x005e33a8
@@ -421,6 +474,13 @@ bool action_lineup(bool launch) {
     h.slot_set_paint(h.action_slot(g, 0), paint);
   }
   const int32_t enemy_paint = (paint + 7) % 8;
+  // Ours (item 48): the places this launch took, and its enemies' records, for an enemy past the map's places.
+  ProgramFlow* flow = program_flow();
+  const bool extra_places = launch && flow && flow->extra_enemy_places();
+  std::vector<std::array<float, 3>> places;
+  std::vector<int32_t> enemy_picks;
+  size_t next_base = 0;
+  char extra_name[0x50] = {};
   for (int32_t i = 1; i <= static_cast<int32_t>(h.field32(g, 0x7c)); ++i) {
     const bool ally = h.action_ally(g, i);
     if (ally && !launch) continue;  // a new wave: the enemies only
@@ -442,7 +502,45 @@ bool action_lineup(bool launch) {
         const bool on_side = (h.field32(player, 0xc4) & team_mask(static_cast<uint32_t>(r->team()))) != 0;
         if (on_side == ally && std::abs(weight - w) == d) found[static_cast<size_t>(n++)] = j;
       }
-    if (n == 0) continue;
+    if (n == 0) {
+      // Ours (item 48): an enemy past the map's places, on a copy of an enemy record this launch took (each in
+      // turn), moved onto clear ground beside it; named after it with the slot's number (names stay unique).
+      if (!extra_places || ally || have || enemy_picks.empty()) continue;
+      float player_at[3] = {0, 0, 0};
+      h.vehicle_position(player, player_at);
+      ai::AivRecord* r = nullptr;
+      const char* name = nullptr;
+      for (size_t tries = 0; tries < enemy_picks.size() && !r; ++tries) {
+        const int32_t base = enemy_picks[next_base++ % enemy_picks.size()];
+        ai::AivRecord* b = h.aiv_read(rec, base, &name);
+        if (!b) continue;
+        const float at[3] = {b->get<float>(0x08), b->get<float>(0x0c), b->get<float>(0x10)};
+        float to[3];
+        if (!extra_enemy_place(at, player_at, places, to)) continue;
+        for (int c = 0; c < 3; ++c) b->put<float>(0x08 + 4 * c, to[c]);
+        r = b;
+      }
+      if (!r) {
+        std::printf("mw3: InstantAction: slot %d past the map's places: no clear ground found\n", i);
+        continue;
+      }
+      std::snprintf(extra_name, sizeof extra_name, "%.40s_%d", name ? name : "enemy", i);
+      places.push_back({r->get<float>(0x08), r->get<float>(0x0c), r->get<float>(0x10)});
+      std::printf("mw3: InstantAction: slot %d past the map's places, at %.0f %.0f %.0f\n", i, places.back()[0],
+                  places.back()[1], places.back()[2]);
+      flow->enemy_launching(i, *r);
+      const Handle net = action_net(false, r);
+      char text[0x50];
+      copy_name(text, extra_name);
+      const Handle m = create_ai_mech(h.mech_name(mech), text, mech, r, net);
+      if (!m) continue;
+      const Handle dfn = h.mech_dfn(h.mech_roster(m));
+      h.mech_set_config(m, h.field32(slot, 0x08));
+      const int32_t skins = h.dfn_skin_count(dfn);
+      h.mech_set_skin(m, enemy_paint < skins && enemy_paint >= 0 ? h.dfn_skin(dfn, enemy_paint) : 0);
+      h.slot_set_mech(slot, m);
+      continue;
+    }
     int32_t k = 0;
     if (launch) {
       k = h.crt_rand() % n;
@@ -464,6 +562,10 @@ bool action_lineup(bool launch) {
     const char* name = nullptr;
     ai::AivRecord* r = h.aiv_read(rec, pick, &name);
     if (!r) continue;  // read before: it does not fail now
+    if (extra_places) {  // ours (item 48): kept for the places past the map's
+      places.push_back({r->get<float>(0x08), r->get<float>(0x0c), r->get<float>(0x10)});
+      if (!ally) enemy_picks.push_back(pick);
+    }
     if (!have) {
       // Ours (program_flow.h, for MW1: Critical Hit): the program may set an ally's pilot and aim on this launch's
       // copy of its record. Without a program flow the original's.

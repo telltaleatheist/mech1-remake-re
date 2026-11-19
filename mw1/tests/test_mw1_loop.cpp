@@ -3,6 +3,7 @@
 // disabled, the mission's end, and back at the hub the settlement (the fee, the wrecks' salvage) in the company's
 // funds and the enemies' parts in its stores; the next offer declined, so PM's main menu stays. Failed, or quit
 // (no mission end), no fee and no salvage: the stores and the funds as the advance left them (VISION.md, the endings).
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
@@ -55,6 +56,7 @@
 #include "mech3/pilot.h"
 #include "mech3/program_flow.h"
 #include "mech3/zai_brain.h"
+#include "mech3/zai_nav.h"
 #include "mech3/zai_params.h"
 #include "mech3/mainmenu.h"
 #include "mw1_bar_screen.h"
@@ -278,6 +280,14 @@ struct Run {
   bool survey = false, destroy_structure = false, kill_enemies = false, kill_after_end = false;
   std::vector<int32_t> force;  // every contract's force (MW1 kinds; empty: its own); `enemies_made` at frame 30
   int32_t enemies_made = -1;  // the enemies the mission made
+  // At frame 30 too: each AI mech the mission made (its team, aiv record name, world position, and the ground's
+  // height nearest under it, NaN none).
+  struct Made {
+    int32_t team;
+    std::string name;
+    float at[3], ground;
+  };
+  std::vector<Made> made;
   int give_up = 1200;  // frames before the test stops waiting for the objectives (a quit)
   std::string objective_built;
   bool fell_back = false, structure_found = false, mission_ended = false, mission_lost = false;
@@ -1233,6 +1243,13 @@ void loop_run(Ending ending, Run* run = nullptr) {
             for (int32_t i = 0; i < na; ++i) {
               auto* b = static_cast<mech3::ai::Brain*>(mech3::program_ai_mech_brain(ma[i].controls));
               if (b && b->params.team() != 1) ++run->enemies_made;
+              Run::Made m{b ? b->params.team() : -1, ma[i].name ? ma[i].name : "", {}, std::nanf("")};
+              mech3::mech_world_position(ma[i].mech, m.at);
+              mech3::ai::nav::Floor f[mech3::ai::nav::kLevels];
+              const int nf = mech3::ai::nav::zcls_world().ground(m.at[0], m.at[2], f, mech3::ai::nav::kLevels);
+              for (int k = 0; k < nf; ++k)
+                if (std::isnan(m.ground) || std::fabs(f[k].y - m.at[1]) < std::fabs(m.ground - m.at[1])) m.ground = f[k].y;
+              run->made.push_back(m);
             }
           }
           // FIXES.md item 44: the world's ground on a grid (MW1_GROUND_PROBE=<file>: "x z height node" lines, the
@@ -2166,6 +2183,57 @@ TEST(mw1_loop_the_dark_wing_fits_these_maps_headless) {
       EXPECT(fits == (run.enemies_made == static_cast<int32_t>(run.force.size())));
     });
   }
+}
+
+// FIXES.md item 48: the line-up raised to 16 for MW1, the enemies past a map's own places made beside them on clear
+// ground. A full lance (three lancemates) against twelve on a map of eight enemy places (PM's own maps hold twelve;
+// MW3's converted worlds, item 46, eight or nine): all twelve made, the four past the map's places (named
+// "<base record>_<n>") on the ground and apart from every other mech.
+TEST(mw1_loop_a_full_lance_meets_twelve_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  if (!fs::exists(fs::path(MW1_MW3_GAME_DIR) / "zbd" / "c2" / "gamez.zbd", ec)) return;
+  const std::string worlds = converted_worlds();
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_loop_twelve";
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  mw1::MapRow battle;
+  for (const mw1::MapRow& r : shipped_rows())
+    if (r.world == "mw3c2" && r.ia == 1) battle = mw1::MapRow{r.world, r.ia, r.climate, mw1::RowKind::kAny, "", ""};
+  EXPECT(battle.world == "mw3c2");
+  in_child([&] {
+    Run run;
+    run.save = (dir / mw1::kSaveFile).string();
+    run.lance = true, run.lance_count = 3;
+    run.row = &battle, run.survey = true, run.stop_at_after_action = true, run.worlds = worlds;
+    const std::vector<int32_t> eight = mw1::rung_force(mw1::kDarkWingRung, 0);
+    run.force = eight;
+    run.force.insert(run.force.end(), eight.begin(), eight.begin() + 4);
+    loop_run(kObjective, &run);
+    int32_t allies = 0, extras = 0, grounded = 0, apart = 0;
+    for (const Run::Made& m : run.made) allies += m.team == 1;
+    for (size_t i = 0; i < run.made.size(); ++i) {
+      const Run::Made& m = run.made[i];
+      bool extra = false;
+      for (const Run::Made& o : run.made)
+        if (&o != &m && m.name.size() > o.name.size() + 1 && m.name.compare(0, o.name.size(), o.name) == 0 &&
+            m.name[o.name.size()] == '_')
+          extra = true;
+      if (!extra || m.team == 1) continue;
+      ++extras;
+      if (!std::isnan(m.ground) && std::fabs(m.at[1] - m.ground) < 6.0f) ++grounded;
+      float nearest = 1e9f;
+      for (size_t j = 0; j < run.made.size(); ++j)
+        if (j != i) nearest = std::min(nearest, std::hypot(run.made[j].at[0] - m.at[0], run.made[j].at[2] - m.at[2]));
+      if (nearest > 15.0f) ++apart;
+      std::printf("  past the places: %+.0f %+.0f %+.0f (ground %+.1f), nearest mech %.0f m\n", m.at[0], m.at[1], m.at[2],
+                  m.ground, nearest);
+    }
+    std::printf("  mw3c2 ia1, a lance of 4 against %zu: %d enemies made, %d lancemates, %d past the map's places (%d on the "
+                "ground, %d apart)\n", run.force.size(), run.enemies_made, allies, extras, grounded, apart);
+    EXPECT(run.enemies_made == 12 && allies == 3);
+    EXPECT(extras == 4 && grounded == 4 && apart == 4);
+  });
 }
 
 // FIXES.md item 45: every row of the map table played to its end as a player would, headless, one line each.
