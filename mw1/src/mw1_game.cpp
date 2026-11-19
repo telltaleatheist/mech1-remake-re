@@ -447,6 +447,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
           journal::seed_for_shots(company_, step ? std::atoi(step) : 7);
         }
         press(kHubOk);
+        // fade_deploy: the loading screen held once loaded (a fixed frame time loads it while it's still black),
+        // so its fade-in is seen (FIXES.md item 12, the fade over the high-resolution draw).
+        if (page == "fade_deploy") hold_for_shot_ = true;
         auto before = ge.on_present;
         ge.on_present = [this, before, page, at, start = -1](int f) mutable {
           if (before) before(f);
