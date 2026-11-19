@@ -80,6 +80,10 @@ using StockLoadout = std::function<const mech3::Config*(int32_t mech)>;
 const mech3::Config* stock_loadout(int32_t mech);
 
 // BUY: stock[i] into the hangar, with its stock loadout, for its price.
+// What BUY or SELL would answer, nothing changed (FIXES.md item 60: the reason said at once, else the question
+// asked): buy's and sell's own refusals in their order, kDone when the deal would go through.
+Deal can_buy(const Company& c, int32_t stock_index);
+Deal can_sell(const Company& c, int32_t owned_index, const StockLoadout& stock = stock_loadout);
 Deal buy(Company& c, int32_t stock_index);
 // SELL: owned mech i for its one price, put back to its stock loadout first (Owen 2026-11-17): what it carries
 // beyond stock goes to the stores, what it lacks of stock comes from them, and when they don't hold it the sale is

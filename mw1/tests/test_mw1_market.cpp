@@ -415,3 +415,30 @@ TEST(mw1_market_panel_follows_buy_and_sell) {
   // Every deal leaves the panel on YOUR MECHS' chosen row.
   EXPECT(mw1::market_shown_mech(c, m) == mw1::owned_mech(c, m.owned));
 }
+
+// FIXES.md item 60: BUY and SELL ask first, the reason at once when the deal can't be. can_buy / can_sell answer as
+// buy / sell would and change nothing; the questions in Owen's words.
+TEST(mw1_market_asks_before_a_deal) {
+  mw1::Company c = company_with_stores();
+  c.mech = kOwens, c.tier = 0, c.funds = 1000;
+  c.market.stock = {kFirefly};
+  const mw1::Company before = c;
+  EXPECT(mw1::can_buy(c, 0) == mw1::Deal::kNoFunds && mw1::can_buy(c, 3) == mw1::Deal::kNoSuch);
+  EXPECT(mw1::can_sell(c, 0) == mw1::Deal::kLastMech);
+  c.funds = 3000000;
+  EXPECT(mw1::can_buy(c, 0) == mw1::Deal::kDone && c.funds == 3000000 && c.hangar.empty() && c.market.stock.size() == 1);
+  EXPECT(mw1::buy_question(c, 0) == "Buy the Firefly for 2,605,000 C-bills?");
+  EXPECT(mw1::buy_question(c, 5).empty());
+  EXPECT(mw1::buy(c, 0) == mw1::Deal::kDone);
+  // Selling: the hangar's one, or the piloted one (who you pilot next named); nothing changed by asking.
+  const int32_t items = c.stores->count();
+  const int64_t funds = c.funds;
+  EXPECT(mw1::can_sell(c, 1) == mw1::Deal::kDone && mw1::can_sell(c, 0) == mw1::Deal::kDone);
+  EXPECT(c.funds == funds && c.hangar.size() == 1 && c.stores->count() == items && c.market.sold == 0);
+  EXPECT(mw1::sell_question(c, 1) == "Sell the Firefly for 2,344,000 C-bills?");
+  EXPECT(mw1::sell_question(c, 0).rfind("Sell the Owens for ", 0) == 0 &&
+         mw1::sell_question(c, 0).find("You will pilot the Firefly.") != std::string::npos);
+  c.market.limit = 0;
+  EXPECT(mw1::can_sell(c, 1) == mw1::Deal::kDealerFull);
+  (void)before;
+}

@@ -51,6 +51,12 @@ void clamp_choice(const Company& c, MarketChoice& m);
 // row chosen and shown, the bought one (the hangar's last) after BUY, the row in the sold one's place after SELL;
 // then clamped. The panel's 'Mech (market_shown_mech) is that row's.
 void deal_choice(const Company& c, MarketChoice& m, bool bought);
+// FIXES.md item 60 (Owen 2026-11-18): BUY and SELL ask first, in the game's box (YES / NO; Y or Enter, N or Escape).
+// "Buy the Firefly for 2,605,000 C-bills?"; "Sell the Owens for 2,772,000 C-bills?", and selling the piloted one,
+// who you pilot after ("You will pilot the Firefly."). "" for a deal that can't be (its reason shown instead).
+std::string buy_question(const Company& c, int32_t stock_index);
+std::string sell_question(const Company& c, int32_t owned_index);
+inline constexpr const char* kDealCaption = "THE MECH COMPLEX";
 
 // The lists' rows by the mouse (a click chooses one): the shown row at (x, y) in the layout's places (the wide
 // layout's when `wide`), of YOUR MECHS (`own`) or FOR SALE; false off both (their titles, their arrows). The part of

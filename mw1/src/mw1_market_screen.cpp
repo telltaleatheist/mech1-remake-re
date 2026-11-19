@@ -77,6 +77,20 @@ void deal_choice(const Company& c, MarketChoice& m, bool bought) {
   clamp_choice(c, m);
 }
 
+std::string buy_question(const Company& c, int32_t stock_index) {
+  if (stock_index < 0 || stock_index >= static_cast<int32_t>(c.market.stock.size())) return "";
+  const int32_t mech = c.market.stock[static_cast<size_t>(stock_index)];
+  return "Buy the " + mech_title(mech) + " for " + thousands(buy_price(mech, c.tier)) + " C-bills?";
+}
+
+std::string sell_question(const Company& c, int32_t owned_index) {
+  const int32_t mech = owned_mech(c, owned_index);
+  if (mech < 0) return "";
+  std::string q = "Sell the " + mech_title(mech) + " for " + thousands(sell_price(mech, c.tier)) + " C-bills?";
+  if (owned_index == 0 && owned_count(c) > 1) q += "\n\nYou will pilot the " + mech_title(owned_mech(c, 1)) + ".";
+  return q;
+}
+
 bool market_row_at(int32_t x, int32_t y, bool wide, bool* own, int32_t* row) {
   const int32_t l = wide ? 1 : 0;
   if (x < kListLeft[l] || x >= kListRight[l] - kArrowColumn) return false;
