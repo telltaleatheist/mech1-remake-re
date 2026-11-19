@@ -348,6 +348,10 @@ Checks:
 - a capture of a PM menu and an MW3 menu at 1080p, before and after, byte-identical (a new test in
   `tests/test_sdl_frontend.cpp`, beside `sdl_layer_scales_sharp`).
 
+On the mw1 branch MW3 doesn't build (MW3_BUILD_MW3 is off here, and it doesn't compile or link even at the commit
+before the high-resolution 2D), so the identity golden is PM's only on this branch (the lead, 2026-11-18). MW3's
+check is made where MW3 builds.
+
 ### B4. Tests
 
 - **Fit guards at 1080p.** `mw1screenfit` and `mw1labfit` gain runs at `--window 1920x1080` with the 16:9 mode,
