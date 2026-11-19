@@ -32,6 +32,7 @@ const std::vector<MapPlaces> kMapPlaces = {
     {"c3", 1, 8},    {"c3", 2, 8},    {"c3", 3, 8},    {"c4", 1, 8},    {"c4", 2, 8},    {"c4", 3, 8},
     {"mw3c1", 1, 8}, {"mw3c1", 2, 8}, {"mw3c1", 3, 8}, {"mw3c2", 1, 8}, {"mw3c2", 2, 8}, {"mw3c2", 3, 8},
     {"mw3c3", 1, 8}, {"mw3c3", 2, 8}, {"mw3c3", 3, 8}, {"mw3c4", 1, 8}, {"mw3c4", 2, 8}, {"mw3c4", 3, 8},
+    {"mw3c4b", 1, 8}, {"mw3c4b", 2, 8},  // item 44's arctic maps (MW1's own, 8 Enemy_ records each): surveyed 2026-11-18
 };
 
 bool map_holds(const std::string& world, int32_t ia, int32_t n) {

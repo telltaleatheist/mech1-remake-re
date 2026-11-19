@@ -41,6 +41,16 @@ MAP (WORLD ("mw3c3") IA (1) CLIMATE ("tropical") KIND ("any"))
 MAP (WORLD ("mw3c3") IA (3) CLIMATE ("tropical") KIND ("any"))
 MAP (WORLD ("mw3c4") IA (1) CLIMATE ("desert") KIND ("any"))
 MAP (WORLD ("mw3c4") IA (3) CLIMATE ("desert") KIND ("any"))
+MAP (WORLD ("mw3c4b") IA (1) CLIMATE ("ice") KIND ("any"))
+; MW1's arctic map 1 (item 44, laid from data/arctic/ia1): c4b's warehouses.
+MAP (WORLD ("mw3c4b") IA (1) CLIMATE ("ice") KIND ("reach") NODE ("ware03") WORDS ("the south warehouse"))
+MAP (WORLD ("mw3c4b") IA (1) CLIMATE ("ice") KIND ("attack") NODE ("ware01") WORDS ("the supply warehouse"))
+MAP (WORLD ("mw3c4b") IA (1) CLIMATE ("ice") KIND ("defend") NODE ("ware02") WORDS ("the depot"))
+; MW1's arctic map 2 (data/arctic/ia2).
+MAP (WORLD ("mw3c4b") IA (2) CLIMATE ("ice") KIND ("any"))
+MAP (WORLD ("mw3c4b") IA (2) CLIMATE ("ice") KIND ("reach") NODE ("ware02") WORDS ("the depot"))
+MAP (WORLD ("mw3c4b") IA (2) CLIMATE ("ice") KIND ("attack") NODE ("ware03") WORDS ("the south warehouse"))
+MAP (WORLD ("mw3c4b") IA (2) CLIMATE ("ice") KIND ("defend") NODE ("ware01") WORDS ("the supply warehouse"))
 ; Reach (MW1's withdraw).
 MAP (WORLD ("c2") IA (1) CLIMATE ("desert") KIND ("reach") NODE ("3twr1") WORDS ("the pump complex"))
 MAP (WORLD ("c2") IA (2) CLIMATE ("desert") KIND ("reach") NODE ("portalgate") WORDS ("the portal gate"))

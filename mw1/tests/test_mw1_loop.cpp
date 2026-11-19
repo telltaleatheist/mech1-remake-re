@@ -24,7 +24,9 @@
 #include "gamez/ztwod/twod.h"
 #include "gamez/zgame/zgame_table.h"
 #include "gamez/zclass/class.h"
+#include "gamez/zclass/cls_di.h"
 #include "gamez/zclass/cls_node.h"
+#include "mech3/mission_world.h"
 #include "gamez/zinput/zinput.h"
 #include "gamez/zimage/zimg_library.h"
 #include <map>
@@ -1199,8 +1201,18 @@ void loop_run(Ending ending, Run* run = nullptr) {
               run->nav_label = n.labels[n.current], run->nav_off = std::sqrt(dx * dx + dz * dz), run->nav_watched = n.watched;
             }
           }
-          if (const char* probe = std::getenv("MW1_NODE_PROBE")) {  // FIXES.md item 45: a node's tree, by hand
+          // FIXES.md item 45: a node's tree, by hand (item 44: a comma-separated list of names, each said).
+          std::string probes = std::getenv("MW1_NODE_PROBE") ? std::getenv("MW1_NODE_PROBE") : "";
+          for (size_t at = 0; !probes.empty() && at <= probes.size();) {
+            const size_t comma = std::min(probes.find(',', at), probes.size());
+            const std::string one = probes.substr(at, comma - at);
+            at = comma + 1;
+            const char* probe = one.c_str();
             const zgame::Handle hn = mech3::mission_objective_hooks().node_find(probe);
+            if (!hn) {
+              std::printf("  node %s: none\n", probe);
+              continue;
+            }
             std::function<void(zcls::Node*, int)> show = [&](zcls::Node* n, int depth) {
               if (!n || depth > 3) return;
               float w[3] = {};
@@ -1221,6 +1233,28 @@ void loop_run(Ending ending, Run* run = nullptr) {
             for (int32_t i = 0; i < na; ++i) {
               auto* b = static_cast<mech3::ai::Brain*>(mech3::program_ai_mech_brain(ma[i].controls));
               if (b && b->params.team() != 1) ++run->enemies_made;
+            }
+          }
+          // FIXES.md item 44: the world's ground on a grid (MW1_GROUND_PROBE=<file>: "x z height node" lines, the
+          // highest polygon under each point), to lay the arctic map from the terrain, by hand.
+          if (const char* out = std::getenv("MW1_GROUND_PROBE")) {
+            zcls::Node* w = mech3::world_hooks().world;
+            if (std::FILE* f = w ? std::fopen(out, "w") : nullptr) {
+              const int step = std::getenv("MW1_GROUND_STEP") ? std::atoi(std::getenv("MW1_GROUND_STEP")) : 32;
+              for (int z = -4096; z <= 4096; z += step)
+                for (int x = -4096; x <= 4096; x += step) {
+                  zcls::GroundHits hits{};
+                  if (zcls::ground_point(w, static_cast<float>(x), 3000.0f, static_cast<float>(z), &hits) != 0 || !hits.count) continue;
+                  int best = 0;
+                  for (int i = 1; i < hits.count; ++i)
+                    if (hits.hit[i].height > hits.hit[best].height) best = i;
+                  std::fprintf(f, "%d %d %.1f %s\n", x, z, hits.hit[best].height, hits.hit[best].node ? hits.hit[best].node->name() : "-");
+                }
+              std::fclose(f);
+              void* me = mech3::mech_mission_player();
+              float p[3] = {};
+              if (me) mech3::mech_world_position(me, p);
+              std::printf("  ground probe written to %s; the player at %.0f %.0f %.0f\n", out, p[0], p[1], p[2]);
             }
           }
           if (run->survey) return end_it();
@@ -2141,7 +2175,7 @@ TEST(mw1_loop_the_dark_wing_fits_these_maps_headless) {
 // - attack (special target): the structure worn down by hits: won; the enemies alone disabled: not won;
 // - defend (defend special target, oppose withdrawal): the enemies disabled, the structure standing: won; the
 //   structure worn down: lost.
-// MW1_ROWS=<node> plays only the rows on that node (a row's work, by hand). By default one row of each kind (about
+// MW1_ROWS=<node> (or <world>ia<n>) plays only the rows on that node (or map) (a row's work, by hand). By default one row of each kind (about
 // two minutes: c2's battle, the pump complex, the portal gate attacked, the headquarters defended); MW1_ALL_ROWS=1
 // plays every row, with each reach once more with its enemy alive (about half an hour: before a map table change).
 TEST(mw1_loop_every_row_is_won_as_a_player_would_headless) {
@@ -2165,7 +2199,7 @@ TEST(mw1_loop_every_row_is_won_as_a_player_would_headless) {
   };
   for (const mw1::MapRow& r : rows) {
     if (r.world.rfind("mw3", 0) == 0 && !have_mw3) continue;
-    if (only && r.node != only) continue;
+    if (only && r.node != only && r.world + "ia" + std::to_string(r.ia) != only) continue;
     if (!only && !all && !quick(r)) continue;
     std::vector<Play> plays;
     switch (r.kind) {

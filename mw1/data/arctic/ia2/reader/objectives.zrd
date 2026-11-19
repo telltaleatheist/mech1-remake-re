@@ -1,0 +1,4 @@
+; MW1's arctic Instant Action map 2: its objectives (MW1 sets the contract's own), appended as "ia2".
+(
+"ia2" ("primary" () "secondary" () "final" () "fail" ())
+)

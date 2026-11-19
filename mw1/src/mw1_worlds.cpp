@@ -9,6 +9,7 @@
 #include <sstream>
 
 #include "gamez/zclass/list.h"
+#include "mw1_arctic.h"
 #include "gamez/zutil/zutl_path.h"
 #include "mech3/mission.h"
 #include "mech3/mods.h"
@@ -131,6 +132,7 @@ bool prepare_worlds(const std::string& install, const std::string& dir, const zi
   const std::string why = worlds_stale(install, dir);
   if (why.empty()) {
     line("MechWarrior 3's worlds are current in " + dir);
+    arctic::lay_arctic(dir, say);  // item 44: MW1's own arctic maps on the converted c4b
     return false;
   }
   line("converting MechWarrior 3's worlds into " + dir + " (" + why + ")");
@@ -157,9 +159,11 @@ bool prepare_worlds(const std::string& install, const std::string& dir, const zi
     if (fs::exists(tmp / kMarker, ec)) fs::remove_all(tmp, ec);
     line("MechWarrior 3's worlds could not be converted: " + (error.empty() ? std::string("no reason given") : error) +
                     (worlds_whole(dir) ? " The ones from before are used." : " Pirate's Moon's worlds only."));
+    if (worlds_whole(dir)) arctic::lay_arctic(dir, say);
     return false;
   }
   line("MechWarrior 3's worlds converted");
+  arctic::lay_arctic(dir, say);
   return true;
 }
 
