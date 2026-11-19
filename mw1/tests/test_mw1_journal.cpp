@@ -138,10 +138,12 @@ TEST(mw1_journal_a_battle_waits_until_won) {
   mw1::Company c = on_story();
   for (int32_t id : {0x06, 0x07, 0x08, 0x0B}) c.story.seen[static_cast<size_t>(id)] = 1;
   J::Lead l = J::current_lead(c);
-  EXPECT(l.step == 4 && l.rung == 1 && l.planet == J::planet_named("LAND'S END") && l.place == J::Place::kBar);
+  EXPECT(l.step == 5 && l.rung == 1 && l.planet == J::planet_named("LAND'S END") && l.place == J::Place::kBar && !l.strength.empty());
+  c.story.seen[0x0C] = 1;  // its FIGHT lost: seen (dev 1 clears it to fire again; either way the battle waits)
+  EXPECT(J::current_lead(c).step == 5);
   c.story.rung_won = 1;
   l = J::current_lead(c);
-  EXPECT(l.step == 5 && l.rung == 0 && l.strength.empty());
+  EXPECT(l.step == 6 && l.rung == 0 && l.strength.empty());
 }
 
 TEST(mw1_journal_setbacks_say_try_again_there) {

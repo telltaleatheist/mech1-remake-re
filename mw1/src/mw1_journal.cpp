@@ -40,8 +40,9 @@ const Step kSteps[] = {
     {0x06, Place::kBar, kRef(0), "Ask about the skull-and-wings crest in the Bar on %s.", 0x06, 0, -1, nullptr},
     {0x07, Place::kMechComplex, kAnywhere, "Ask an old tech about the crest at any Mech Complex.", 0x07, 0, -1, nullptr},
     {0x08, Place::kOffice, kFixed("GALEDON V"), "Go to the House office on %s.", 0x08, 0, -1, nullptr},
-    {0x0B, Place::kBar, kFixed("LAND'S END"), "Ask to meet Grig's men in the Bar on %s.", 0x0B, 1, -1, nullptr},
-    {0x0C, Place::kBar, kFixed("LAND'S END"), "Go back into the Bar on %s: Grig's man will find you.", 0x0C, 0, -1, nullptr},
+    {0x0B, Place::kBar, kFixed("LAND'S END"), "Ask to meet Grig's men in the Bar on %s.", 0x0B, 0, -1, nullptr},
+    // Rung 1 (dev 1's): Grig's men at the Bar's door, 0x0C's FIGHT / RUN; the step waits there until it's won.
+    {0x0C, Place::kBar, kFixed("LAND'S END"), "Go back into the Bar on %s: Grig's men will be waiting.", 0x0C, 1, -1, nullptr},
     {0x64, Place::kArrival, kRef(1), "Go to %s: Grig's base.", 0x0E, 0, 0x0F,
      "You turned Grig down. Try again: arrive on %s and take his offer."},
     {0x17, Place::kArrival, kFixed("DUSTBALL"), "Go to %s: Grig's agent, Brown, waits there.", 0x17, 2, 0x1A,
@@ -53,7 +54,8 @@ const Step kSteps[] = {
      "The ambush beat you back. Try again: arrive on %s."},
     {0x2D, Place::kBar, kRef(3), "Find the MIIO agent Kearney: ask in the Bar on %s.", 0x2D, 0, -1, nullptr},
     {0x2E, Place::kBar, kRef(3), "Buy Kearney's contact another drink in the Bar on %s.", 0x2E, 0, -1, nullptr},
-    {0x2F, Place::kArrival, kRef(3), "Kearney's address: it finds you when you arrive on %s.", 0x30, 4, 0x31,
+    // Rung 4 (dev 1's): the FIGHTs at Kearney's address (to 0x33); the step taken once its rung is won.
+    {0x2F, Place::kArrival, kRef(3), "Kearney's address: it finds you when you arrive on %s.", 0x2F, 4, 0x31,
      "You let Kearney's address go. Try again: arrive on %s and follow it.", 0x34,
      "Talking nearly cost you everything. Try again: arrive on %s."},
     {0x36, Place::kNews, kAnywhere, "Read the NEWS in any Bar: a story about the agent Tasha.", 0x36, 0, -1, nullptr},
