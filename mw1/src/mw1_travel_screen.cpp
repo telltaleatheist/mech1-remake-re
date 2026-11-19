@@ -203,6 +203,7 @@ ScreenView travel_view(const Company& c, const TravelChoice& t) {
       }
     placed.push_back(at);
     v.blocks.push_back({at.l, at.t, i == wi || i == here || i == t.story ? kNoteFont : kLineFont, {n}});
+    v.blocks.back().backing = true;  // FIXES.md item 87: readable over the dots
   }
   // The right column: the filter, the funds and date, the chosen world, the search.
   std::string title = "CHOOSE A WORLD";  // nothing chosen or under the mouse

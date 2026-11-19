@@ -220,4 +220,28 @@ TEST(mw1_marks_named_drawn_and_scaled) {
   for (size_t i = 3; i < big.size(); i += 4) partial += big[i] > 0 && big[i] < 255;
   EXPECT(alpha(0, 0) == 255 && alpha(1.2f, 0) == 255 && alpha(3.0f, 0) == 0 && alpha(4.0f, 0) == 255 && alpha(0, -4.0f) == 255);
   EXPECT(partial > 40);
+  // FIXES.md item 87: a box (the travel map's names' backing), w x h from the anchor pixel at its own opacity; its name
+  // round-trips; the canvas's alpha is the opacity inside, 0 outside; at 3x the same inside, a whole number of pixels.
+  mw1::marks::Spec box;
+  box.r = box.g = box.b = 0;
+  mw1::marks::Part bp;
+  bp.shape = mw1::marks::Shape::kBox, bp.dx = 20, bp.dy = 9, bp.opacity = 150;
+  box.parts = {bp};
+  const std::string bn = mw1::marks::image_name(box);
+  EXPECT(bn == "mw1_mark_000000_b20x9o150");
+  EXPECT(mw1::marks::parse(bn, &back) && back.parts.size() == 1 && back.parts[0].opacity == 150 && back.parts[0].dx == 20);
+  EXPECT(!mw1::marks::is_mark("mw1_mark_000000_b0x9o150") && !mw1::marks::is_mark("mw1_mark_000000_b20x9o300"));
+  mw1::marks::extent(box, &w, &h, &ax, &ay);
+  EXPECT(w == 22 && h == 11 && ax == 1 && ay == 1);
+  const mw1::images::Image bc = mw1::marks::canvas(box);
+  int32_t inside = 0, stray = 0;
+  for (int32_t y = 0; y < h; ++y)
+    for (int32_t x = 0; x < w; ++x) {
+      const bool in = x >= ax && x < ax + 20 && y >= ay && y < ay + 9;
+      const uint8_t a = bc.alpha[static_cast<size_t>(y * w + x)];
+      inside += in && a == 150, stray += !in && a != 0;
+    }
+  EXPECT(inside == 20 * 9 && stray == 0);
+  const std::vector<uint8_t> bb = mw1::marks::rgba(box, 3);
+  EXPECT(bb[(static_cast<size_t>(3 * ay + 4) * w * 3 + 3 * ax + 4) * 4 + 3] == 150 && bb[3] == 0);
 }

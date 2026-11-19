@@ -88,7 +88,13 @@ struct TextBlock {
   const char* at = nullptr;  // a place in the layout's TEXTS: its POSITION, FONT, GAP and ANCHOR in place of these
   Anchor anchor = Anchor::kLayout;
   int32_t dy = 0;  // with `at`: this far below the place (a box sized to its text, its top lower for fewer lines)
+  // FIXES.md item 87 (the travel map's names): a subtle dark box behind the first line, only as wide as its words
+  // (measured as drawn), so the name reads over the map's dots. Drawn over the marks, under the texts.
+  bool backing = false;
 };
+// The backing's look: black at this opacity, this many canvas pixels out from the words' sides.
+inline constexpr uint8_t kBackingOpacity = 150;
+inline constexpr int32_t kBackingPad = 2;
 // Lines at a layout's text place, `dy` below it.
 inline TextBlock at_place_down(const char* place, std::vector<std::string> lines, int32_t dy) {
   TextBlock b;
@@ -192,6 +198,10 @@ class Mw1Screen : public mech3::MenuScreen {
     if (greyed_) greyed_(id);
   }
   const std::vector<Mark>& marks() const { return marks_now_; }  // for the tests: the shapes shown now
+  // For the tests (FIXES.md item 87): the backings shown now, canvas rects (left, top, right, bottom), and the texts'
+  // first lines' rects they are behind.
+  const std::vector<ztwod::Rect>& backings() const { return backings_now_; }
+  const std::vector<ztwod::Rect>& backed_texts() const { return backed_texts_now_; }
   int32_t shift(Anchor a) const;  // how far a piece moves right from its layout's place on this canvas
   bool wide() const { return wide_; }  // laid out by <dialog>_WIDE
   std::string backdrop() const { return backdrop_; }  // for the tests: the BACKGROUND's image's name now
@@ -234,6 +244,12 @@ class Mw1Screen : public mech3::MenuScreen {
   // show; the image each holds now, by its name.
   std::vector<std::unique_ptr<ztwod::Image>> marks_;
   std::vector<std::string> mark_names_;
+  // The texts' backings (TextBlock::backing): made with the marks on the first show, before any text, so they stay
+  // under the texts; kBackings of them.
+  static constexpr size_t kBackings = 16;
+  std::vector<std::unique_ptr<ztwod::Image>> backings_;
+  std::vector<std::string> backing_names_;
+  std::vector<ztwod::Rect> backings_now_, backed_texts_now_;
   std::vector<std::unique_ptr<ztwod::Image>> inline_;         // ScreenView::inline_pictures, reused show to show
   std::vector<std::unique_ptr<ztwod::Text>> measure_;         // one hidden Text: an inline picture's place measured
   std::vector<std::string> inline_shown_;                      // for the tests: their images now

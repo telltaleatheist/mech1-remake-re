@@ -284,7 +284,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (const char* s = std::getenv("MW1_SCREEN");
         s && (std::string(s).rfind("pause", 0) == 0 || std::string(s).rfind("lab", 0) == 0 || std::string(s).rfind("loading", 0) == 0 ||
               std::string(s) == "results" || std::string(s) == "mission" || std::string(s).rfind("walk_", 0) == 0 ||
-              (std::string(s) == "bar" && std::getenv("MW1_BAR_GREYED"))) &&
+              (std::string(s) == "bar" && std::getenv("MW1_BAR_GREYED")) || std::string(s) == "travel") &&
         !shot_driver_) {
       hold_for_shot_ = std::string(s).rfind("loading", 0) == 0;
       // FIXES.md item 51's shots: MW1_SHOT_PAY=pool,repairs (C-bills), the win's pool and the commander's repairs.
@@ -3369,6 +3369,18 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
           if (row >= 0) l->chassis.select(row);
         }
       }
+    // For mw1/tests/name_backing.cmake (FIXES.md item 87): the travel map's names backed, and how many fit their
+    // words (2 out from each side, the line's height); counts only.
+    if (page.rfind("travel", 0) == 0 && travel_state_ && now == static_cast<zgame::State*>(travel_state_) && frames == 30 &&
+        travel_state_->screen()) {
+      const std::vector<ztwod::Rect>& bk = travel_state_->screen()->backings();
+      const std::vector<ztwod::Rect>& tx = travel_state_->screen()->backed_texts();
+      int32_t fit = 0;
+      for (size_t k = 0; k < bk.size() && k < tx.size(); ++k)
+        fit += bk[k].left == tx[k].left - kBackingPad && bk[k].right == tx[k].right - 3 + kBackingPad && bk[k].top == tx[k].top &&
+               bk[k].bottom == tx[k].bottom && tx[k].right - tx[k].left > 3;
+      std::printf("mw1 travel: %zu names backed, %d fitting their words\n", bk.size(), static_cast<int>(fit));
+    }
     // MW1_BAR_GREYED (development, FIXES 78's shots): the Bar's greyed NEWS under the mouse from its 30th frame (as
     // the button hears it; nothing with the exe).
     if (std::getenv("MW1_BAR_GREYED") && page == "bar" && bar_state_ && now == static_cast<zgame::State*>(bar_state_) &&
