@@ -118,6 +118,7 @@ void program_hud_map_toggle();
 void program_hud_marker_hide(bool hide);
 int32_t program_hud_marker_hides();  // ours, for MW1's tests: the frames drawn so
 bool program_hud_marker_shown();     // the view target's marker line not hidden now
+bool program_hud_marker_rect(int32_t out[4]);  // ours, for MW1's tests (FIXES.md item 88): the line's rect, canvas pixels
 // Tests only: the view target's HUD's zoom window locked open (keypad 0, 0x00442e00).
 void program_hud_zoom_show();
 // Tests only: the view target's HUD's MFD set to mode `m` (vt+0x7c).

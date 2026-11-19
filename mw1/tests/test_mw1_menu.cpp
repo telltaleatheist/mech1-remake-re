@@ -17,6 +17,7 @@
 #include "mw1_pilots.h"
 #include "mw1_start.h"
 #include "gamez/zutil/zfix.h"
+#include "mech3/options.h"
 #include "mech3/options_menu.h"
 #include "platform/mode_labels.h"
 
@@ -118,24 +119,13 @@ TEST(mw1_menu_the_intro_keeps_mw1s_times) {
 }
 
 TEST(mw1_menu_the_image_archive_reads_back_through_the_engine) {
-  // A 4x2 picture of one colour, letterboxed: in the middle of 640x480, black around it.
+  // A 640x480 picture, black but a red 4x2 in its middle (FIXES.md item 88: the intro's picture is art now, so its
+  // letterbox and cover went; the archive's own images are made whole).
   const uint16_t red = mw1::rgb565(255, 0, 0);
   EXPECT(red == 0xF800);
-  const mw1::Image pic = mw1::letterbox("pic", 4, 2, std::vector<uint16_t>(8, red));
-  EXPECT(pic.width == 640 && pic.height == 480);
-  EXPECT(pic.pixels[239 * 640 + 318] == red && pic.pixels[240 * 640 + 321] == red);
-  EXPECT(pic.pixels[238 * 640 + 318] == 0 && pic.pixels[239 * 640 + 317] == 0 && pic.pixels[0] == 0);
-  // The intro's own size, 640x366, filling the wide canvas (FIXES.md item 9): no black anywhere; a picture red on
-  // its left half and green on its right comes out split down the middle, its overflow cut evenly.
-  const mw1::Image intro = mw1::cover(mw1::kIntroImage, 640, 366, std::vector<uint16_t>(640 * 366, red), mw1::kWideW, 480);
-  EXPECT(intro.width == 854 && intro.height == 480 &&
-         std::all_of(intro.pixels.begin(), intro.pixels.end(), [&](uint16_t p) { return p == red; }));
-  std::vector<uint16_t> halves(640 * 366, red);
-  for (size_t y = 0; y < 366; ++y)
-    for (size_t x = 320; x < 640; ++x) halves[y * 640 + x] = 0x07E0;
-  const mw1::Image split = mw1::cover("split", 640, 366, halves, mw1::kWideW, 480);
-  EXPECT(split.pixels[240 * 854 + 400] == red && split.pixels[240 * 854 + 454] == 0x07E0 && split.pixels[0] == red &&
-         split.pixels[479 * 854 + 853] == 0x07E0);
+  mw1::Image pic = mw1::black("pic");
+  for (int32_t y = 239; y < 241; ++y)
+    for (int32_t x = 318; x < 322; ++x) pic.pixels[static_cast<size_t>(y * 640 + x)] = red;
   std::string why;
   EXPECT(mw1::pack({mw1::Image{std::string(32, 'x'), 1, 1, {0}}}, &why).empty() && !why.empty());
   EXPECT(mw1::pack({mw1::Image{"bad", 2, 2, {0}}}, &why).empty() && !why.empty());
@@ -216,8 +206,15 @@ TEST(mw1_menu_resolution_names_in_one_format) {
   std::vector<std::string> l = mode_labels(list, 0);
   EXPECT(l.size() == 12 && l[0] == "640 x 480" && l[1] == "800 x 600" && l[5] == "1600 x 1200");
   EXPECT(l.size() == 12 && l[6] == "1280 x 720" && l[8] == "1920 x 1080" && list.value_at(8) == 13);
-  l = mode_labels(list, -1);  // software: 3 and 5
-  EXPECT(l.size() == 2 && l[0] == "640 x 480" && l[1] == "640 x 480");
+  // The player's own size (mode 16, ScreenWidth x ScreenHeight, 1920x1080 by default) said as theirs, not as 13's.
+  EXPECT(l.size() == 12 && list.value_at(11) == mech3::kCustomVMode && l[11] == "1920 x 1080 custom");
+  l = mode_labels(list, -1);  // software: 3 (320x240 drawn, doubled) and 5, told apart (FIXES.md item 88)
+  EXPECT(l.size() == 2 && l[0] == "320 x 240" && l[1] == "640 x 480");
+  for (size_t i = 0; i < l.size(); ++i)
+    for (size_t j = i + 1; j < l.size(); ++j) EXPECT(l[i] != l[j]);
+  l = mode_labels(list, 0);  // no two modes named alike
+  for (size_t i = 0; i < l.size(); ++i)
+    for (size_t j = i + 1; j < l.size(); ++j) EXPECT(l[i] != l[j]);
   platform::set_uniform_mode_labels(false);
   l = mode_labels(list, 0);
   EXPECT(l.size() == 12 && l[3] == "msg4058" && l[8] == "1920x1080");

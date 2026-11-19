@@ -89,6 +89,13 @@
 #include "mw1_ladder.h"
 
 namespace mw1 {
+
+// FIXES.md item 88: the program's count of the recorded texts (the high-resolution draw's) an owner has over a rect in
+// a colour; unset in the tests (no SDL host), the count -1.
+RecordedLines& recorded_lines() {
+  static RecordedLines f;
+  return f;
+}
 namespace {
 
 constexpr int32_t kBoxOk = 0, kBoxYesNo = 4, kAnswerYes = 6;
@@ -3410,9 +3417,35 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // the HUD's marker line), let go once the pause is up.
     if (now == &mech3::states().core && frames == 90 && page != "mission") zin::state().keys[1].state = 1;  // DIK_ESCAPE
     if (now == &mech3::states().pause && frames == 1) zin::state().keys[1].state = 0;
-    if (now == &mech3::states().pause && frames == 2 && page == "pause")  // for mw1/tests/pause_grab.cmake
+    if (now == &mech3::states().pause && frames == 2 && page == "pause") {  // for mw1/tests/pause_grab.cmake
       std::printf("mw1 pause: grab drawn without the marker line %d, the line shown again %s\n",
                   static_cast<int>(mech3::program_hud_marker_hides()), mech3::program_hud_marker_shown() ? "yes" : "no");
+      // FIXES.md item 88 (dev 1's review): the picture itself, the pause's backdrop (the grab) at the marker line's
+      // rect. With the high-resolution draw on, the HUD's texts reach the grab as its copied recorded draws (FIXES 12),
+      // so the line there is a recorded text of its colour (0x1fa201, as the lists keep it) over the rect: a grab of
+      // the frame before Escape has one, and so would a HUD drawing the hidden line. The canvas's own pixels of that
+      // colour are counted too (within 12 a channel of the 565 copy; MW1_HIRES=0's grab has no HUD in its pixels).
+      // Counts and sizes only.
+      int32_t r[4] = {};
+      int32_t lit = -1;
+      auto* ps = dynamic_cast<mech3::PauseScreen*>(ge->screen_of(mech3::states().pause.screen_));
+      const zimg::Texture* g = ps ? ps->backdrop.image : nullptr;
+      if (g && g->pixels && mech3::program_hud_marker_rect(r)) {
+        lit = 0;
+        for (int32_t y = std::max(0, r[1]); y < std::min<int32_t>(r[3], g->height); ++y)
+          for (int32_t x = std::max(0, r[0]); x < std::min<int32_t>(r[2], g->width); ++x) {
+            const uint16_t v = static_cast<const uint16_t*>(g->pixels)[static_cast<size_t>(y) * g->width + x];
+            const int32_t cr = (v >> 11) << 3, cg = ((v >> 5) & 63) << 2, cb = (v & 31) << 3;
+            lit += std::abs(cr - 0x1f) <= 12 && std::abs(cg - 0xa2) <= 12 && cb <= 12;
+          }
+      }
+      // And the high-resolution draw's: the grab carries the frame's recorded texts (FIXES 12), so the line drawn
+      // only there is a recorded text of its colour (GDI's 0x00bbggrr) over the rect.
+      int32_t recorded = -1;
+      if (g && g->pixels && r[2] > r[0] && recorded_lines()) recorded = recorded_lines()(g->pixels, r, 0x1fa201u);
+      std::printf("mw1 pause: the grab at the marker line's rect (%dx%d): %d pixels of its colour, %d recorded lines of it\n",
+                  static_cast<int>(r[2] - r[0]), static_cast<int>(r[3] - r[1]), static_cast<int>(lit), static_cast<int>(recorded));
+    }
     if (now == &mech3::states().pause && frames == 10 && page == "pause_options")
       if (auto* p = dynamic_cast<mech3::PauseScreen*>(ge->screen_of(mech3::states().pause.screen_))) p->on_button(mech3::PauseScreen::kOptions, 0, 0);
   }

@@ -445,3 +445,79 @@ TEST(mw1_travel_screen_names_above_their_worlds) {
   std::printf("  %d names, %d above their worlds\n", names, above);
   EXPECT(names >= 2 && above == names);
 }
+
+// FIXES.md item 88 (dev 1's review of 83): the names' places in crowds. For every world chosen, with its nearest other
+// world under the mouse and its second nearest the journal's lead (STORY), each name is where the rule puts it, in the
+// view's order (here, the chosen, the hovered, the story's, the capitals): above its world, else right (left first
+// near the map's right edge), else left, else below, the first that crosses no earlier name; the story's name carries
+// " · STORY"; the chosen, here and the story's in the note font. Over all of them, every kind of place is used, and no
+// two names cross where a clear place was left. Counts only.
+TEST(mw1_travel_screen_names_in_crowds_story_chosen_and_hovered) {
+  mw1::Company c = company_at("ROBINSON", 1000000);
+  const int32_t here = mw1::here_index(c);
+  struct Box { int32_t l, t, r, b; };
+  int32_t kinds[4] = {}, views = 0, names = 0, wrong = 0, story_named = 0, fonts_wrong = 0;
+  for (int32_t w = 0; w < mw1::kPlanetCount; ++w) {
+    if (w == here) continue;
+    int32_t near1 = -1, near2 = -1, d1 = 1 << 30, d2 = 1 << 30;
+    const mw1::Point pw = mw1::on_screen(w);
+    for (int32_t j = 0; j < mw1::kPlanetCount; ++j) {
+      if (j == w || j == here) continue;
+      const mw1::Point q = mw1::on_screen(j);
+      const int32_t d = (q.x - pw.x) * (q.x - pw.x) + (q.y - pw.y) * (q.y - pw.y);
+      if (d < d1) near2 = near1, d2 = d1, near1 = j, d1 = d;
+      else if (d < d2) near2 = j, d2 = d;
+    }
+    mw1::TravelChoice t;
+    t.world = w, t.hover = near1, t.story = near2;
+    const mw1::ScreenView v = mw1::travel_view(c, t);
+    ++views;
+    std::vector<int32_t> order = {here, w, near1, near2};
+    for (int32_t i = 0; i < mw1::kPlanetCount; ++i)
+      if (mw1::kCapitalNames && mw1::capital(i)) order.push_back(i);
+    std::vector<int32_t> seen;
+    std::vector<Box> placed;
+    for (int32_t i : order) {
+      if (std::find(seen.begin(), seen.end(), i) != seen.end()) continue;
+      seen.push_back(i);
+      const bool story = i == near2 && i != here;
+      const std::string n = mw1::title_case_name(mw1::kPlanets[i].name) + (story ? " \xB7 STORY" : "");
+      const mw1::Point p = mw1::on_screen(i);
+      const int32_t wd = static_cast<int32_t>(n.size()) * 7, h = 14;
+      const bool near_right = p.x + 14 + wd > mw1::kMapLeft + mw1::kMapWidth;
+      const Box right{p.x + 14, p.y - 7, p.x + 14 + wd, p.y + 7}, left{p.x - 14 - wd, p.y - 7, p.x - 14, p.y + 7};
+      const int32_t mid = std::max(mw1::kMapLeft, std::min(p.x - wd / 2, mw1::kMapLeft + mw1::kMapWidth - wd));
+      const Box tries[4] = {{mid, p.y - 13 - h, mid + wd, p.y - 13}, near_right ? left : right, near_right ? right : left,
+                            {mid, p.y + 12, mid + wd, p.y + 12 + h}};
+      int32_t kind = 0;
+      for (; kind < 4; ++kind) {
+        bool clear = true;
+        for (const Box& o : placed)
+          if (tries[kind].l < o.r && o.l < tries[kind].r && tries[kind].t < o.b && o.t < tries[kind].b) clear = false;
+        if (clear) break;
+      }
+      const Box at = tries[kind < 4 ? kind : 0];
+      placed.push_back(at);
+      const mw1::TextBlock* b = nullptr;
+      for (const mw1::TextBlock& x : v.blocks)
+        if (!x.at && x.lines.size() == 1 && x.lines[0] == n) b = &x;
+      ++names;
+      if (!b || b->x != at.l || b->y != at.t) {
+        ++wrong;
+        continue;
+      }
+      if (kind < 4) {
+        const int32_t place = kind == 0 ? 0 : kind == 3 ? 3 : (tries[kind].l > p.x ? 1 : 2);  // above, right, left, below
+        ++kinds[place];
+      }
+      story_named += story;
+      const bool note = i == w || i == here || story;
+      fonts_wrong += (std::string(b->font) == mw1::kNoteFont) != note;
+    }
+  }
+  std::printf("  %d views, %d names (%d wrong); above %d, right %d, left %d, below %d; %d story names; %d fonts wrong\n",
+              views, names, wrong, kinds[0], kinds[1], kinds[2], kinds[3], story_named, fonts_wrong);
+  EXPECT(views == mw1::kPlanetCount - 1 && wrong == 0 && fonts_wrong == 0);
+  EXPECT(kinds[0] > 0 && kinds[1] > 0 && kinds[2] > 0 && kinds[3] > 0);  // every place used: the crowds reach below
+  EXPECT(story_named == views);  // the story's name every time, with its suffix
+}

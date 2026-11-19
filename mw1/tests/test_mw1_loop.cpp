@@ -46,6 +46,7 @@
 #include "mech3/lab_screen.h"
 #include "mech3/menu_widgets.h"
 #include "gamez/zimage/zimg_texture.h"
+#include "mw1_art.h"
 #include "mw1_lab_fit.h"
 #include "mw1_mech_icons.h"
 #include "mech3/mech_config.h"
@@ -2478,14 +2479,32 @@ void menu_run(MenuRun& r) {
   zutl::mounts() = zutl::Mounts{};
   zutl::mount(MW3PM_GAME_DIR);
   zutl::mount(MW1_DATA_DIR);
-  // MW1's image archive, as the build packs it into mw1data/zbd (a stand-in picture: the tests don't read data-src).
+  // MW1's image archive, as the build packs it into mw1data/zbd: the narration's black.
   const fs::path gen = fs::path(MW3_TEST_TMP_ROOT) / "mw1_menu_gen";
   std::error_code ec;
   fs::create_directories(gen / "zbd", ec);
-  const std::vector<uint8_t> b = mw1::pack({mw1::letterbox(mw1::kIntroImage, 64, 36, std::vector<uint16_t>(64 * 36, 0x07E0)),
-                                            mw1::black(mw1::kBlackImage)});
+  const std::vector<uint8_t> b = mw1::pack({mw1::black(mw1::kBlackImage)});
   std::ofstream(gen / "zbd" / "mw1image.zbd", std::ios::binary).write(reinterpret_cast<const char*>(b.data()), static_cast<std::streamsize>(b.size()));
   zutl::mount(gen.string());
+  // The intro's picture is art (FIXES.md items 83 and 88): its own file from data-src/art packed into an mw1art.zbd as
+  // the build does (art.csv's row, the canvas size), and the art installed, so mw1_intro comes through the art store's
+  // lookup (zimg's image provider), as in the game.
+  {
+    const fs::path art = fs::path(MW1_DATA_DIR) / ".." / "data-src" / "art";
+    std::ifstream csv(art / "art.csv");
+    std::string line, file;
+    int32_t w = 0, h = 0;
+    while (std::getline(csv, line))
+      if (line.rfind("intro,", 0) == 0) {
+        const size_t a1 = line.find(','), a2 = line.find(',', a1 + 1), a3 = line.find(',', a2 + 1);
+        file = line.substr(a1 + 1, a2 - a1 - 1), w = std::stoi(line.substr(a2 + 1, a3 - a2 - 1)), h = std::stoi(line.substr(a3 + 1));
+      }
+    std::ifstream in(art / file, std::ios::binary);
+    const std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    const std::vector<uint8_t> zbd = mw1::art::pack({{mw1::kIntroImage, 0, w, h}}, {bytes});
+    std::ofstream(gen / "zbd" / "mw1art.zbd", std::ios::binary).write(reinterpret_cast<const char*>(zbd.data()), static_cast<std::streamsize>(zbd.size()));
+    EXPECT(!file.empty() && !zbd.empty() && mw1::art::install((gen / "zbd" / "mw1art.zbd").string(), false));
+  }
   const std::string wd = std::string(MW3_TEST_TMP_ROOT) + "/mw1_menu_wd";
   fs::remove_all(wd, ec);
   fs::create_directories(wd, ec);
@@ -2538,6 +2557,7 @@ void menu_run(MenuRun& r) {
     mech3::set_app(nullptr);
   }
   EXPECT(stop);  // the script ran to its end
+  mw1::art::install((gen / "zbd" / "none.zbd").string(), false);  // the art's lookup gone again
   mw1::uninstall_game_loop();
   mw1::set_mw1_game_dir("");
   zrdr::close_archives(true);
@@ -2570,7 +2590,7 @@ TEST(mw1_menu_new_campaign_plays_the_intro_then_the_hub_headless) {
     MenuRun r;
     r.save = (dir / mw1::kSaveFile).string();
     int step = 0, wait = 0;
-    bool grey = false, white = false, picture = false, narration = false, options_seen = false, quit_asked = false;
+    bool grey = false, white = false, picture = false, narration = false, options_seen = false, quit_asked = false, intro_art = false;
     float intro_seconds = 0;
     std::vector<std::string> menu_first, menu_later;
     r.step = [&](mech3::Mech3App& app, mech3::GameEngine& engine) {
@@ -2629,7 +2649,22 @@ TEST(mw1_menu_new_campaign_plays_the_intro_then_the_hub_headless) {
             narration |= shown.size() == 10;
             if (in->phase() == mw1::IntroPhase::kGrey) grey = true;
             if (in->phase() == mw1::IntroPhase::kWhite) white = true;
-            if (in->phase() == mw1::IntroPhase::kPicture) picture = in->screen()->panel_shown(0) && shown.empty();
+            if (in->phase() == mw1::IntroPhase::kPicture) {
+              picture = in->screen()->panel_shown(0) && shown.empty();
+              // FIXES.md item 88: the picture the layout names is the art store's, through the game's own lookups (a
+              // headless 2D host loads no pictures, so they are asked here): zimg's (the image provider) its canvas
+              // copy, 854x480 and more than one colour; the high-resolution draw's its source, the mockup's size.
+              if (!intro_art) {
+                zimg::Texture* t = zimg::fetch_image(mw1::kIntroImage);
+                bool varied = false;
+                if (t && t->pixels)
+                  for (int32_t i = 1; i < t->width * t->height && !varied; ++i)
+                    varied = static_cast<const uint16_t*>(t->pixels)[i] != static_cast<const uint16_t*>(t->pixels)[0];
+                const mw1::art::Store::Picture* src = mw1::art::Store::get().picture(mw1::kIntroImage);
+                intro_art = t && t->width == 854 && t->height == 480 && varied && src && src->w == 1344 && src->h == 755;
+                if (t) zimg::free_texture(t);
+              }
+            }
             intro_seconds = in->seconds();
             return false;
           }
@@ -2689,6 +2724,7 @@ TEST(mw1_menu_new_campaign_plays_the_intro_then_the_hub_headless) {
     std::printf("\n  intro: %.1f s, narration %d, grey %d white %d picture %d; options %d, quit asked %d\n", intro_seconds, narration, grey,
                 white, picture, options_seen, quit_asked);
     EXPECT(step >= 9 && grey && white && picture && intro_seconds > 30.0f);
+    EXPECT(intro_art);  // FIXES.md item 88
     EXPECT(narration == with_mw1);  // MW1's ten lines with its install; without it, none (black, then the picture)
     EXPECT(r.boxes.size() == 1);  // PM's quit box alone: a first campaign isn't asked about
     EXPECT(options_seen && quit_asked);

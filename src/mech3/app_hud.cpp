@@ -1444,6 +1444,15 @@ bool program_hud_marker_shown() {
   Hud* h = t && t->pilot ? pilot_hud(*t->pilot) : nullptr;
   return h && !(h->radar.text2.flags & ztwod::kHidden);
 }
+bool program_hud_marker_rect(int32_t out[4]) {
+  Mech* t = program_view_mech();
+  Hud* h = t && t->pilot ? pilot_hud(*t->pilot) : nullptr;
+  if (!h) return false;
+  ztwod::Rect r{};
+  h->radar.text2.rect_at(&r);
+  out[0] = r.left, out[1] = r.top, out[2] = r.right, out[3] = r.bottom;
+  return r.right > r.left && r.bottom > r.top;
+}
 void program_hud_marker_hide(bool hide) {
   static bool held = false, was_hidden = false;
   Mech* t = program_view_mech();
