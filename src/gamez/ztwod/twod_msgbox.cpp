@@ -115,8 +115,10 @@ int32_t MessageBox::run(const char* text, const char* caption, uint32_t style) {
     default:
       break;
   }
+  shown_style = style;
   while (frames-- > 0) {
     h.input_poll(0);
+    if (each_frame) each_frame(*this);  // ours: a program's keys (none set: the original loop); an answer ends it
     h.timer_update();
     h.video_lock();
     update(h.frame_dt());

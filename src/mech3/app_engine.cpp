@@ -472,6 +472,17 @@ uint32_t GameEngine::game_message_box(int32_t style, const char* cap, const std:
     const bool own = !box_file_.empty();  // ours: a program's own layout (set_message_box_layout)
     ztwod::MessageBox box(own ? box_file_.c_str() : "dlgMessage.zrd", own ? box_dialog_.c_str() : "MESSAGEBOX", false);
     box_ = &box;
+    bool keyed = false;
+    if (box_keys_)  // ours (opt-in, FIXES.md item 60): Y / Enter yes, N / Escape no
+      box.each_frame = [&keyed](ztwod::MessageBox& b) {
+        constexpr int32_t kY = 0x15, kN = 0x31, kEnter = 0x1c, kPadEnter = 0x9c, kEscape = 0x01;  // DIK codes
+        auto down = [](int32_t k) { return zin::key_state(k) == 1; };
+        const uint32_t buttons = b.shown_style & 0xf;  // MB_OK 0, OKCANCEL 1, YESNOCANCEL 3, YESNO 4, ...
+        const bool yes_no = buttons == 3 || buttons == 4;
+        if (down(kY) || down(kEnter) || down(kPadEnter)) yes_no ? b.answer_yes() : b.answer_ok(), keyed = true;
+        else if (down(kN) || down(kEscape))
+          yes_no ? b.answer_no() : buttons == 0 ? b.answer_ok() : b.answer_cancel(), keyed = true;
+      };
     // Ours: the box's words go to the log too (players' logs; W11).
     std::string one;
     for (char c : text) {
@@ -482,7 +493,8 @@ uint32_t GameEngine::game_message_box(int32_t style, const char* cap, const std:
     std::printf("mw3: message box: [%s] %s\n", cap ? cap : "", one.c_str());
     std::fflush(stdout);
     r = box.run(text.c_str(), cap ? cap : "", static_cast<uint32_t>(style));
-    std::printf("mw3: message box answered %d\n", r);
+    std::printf("mw3: message box answered %d%s\n", r, keyed ? " (a key)" : "");
+    if (keyed) zin::kbd_reset();  // ours: the answering key's press not left for the screen under the box
     box_ = nullptr;
   }
   exchange_fast_menu(fast & 0xff);
