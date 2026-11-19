@@ -1215,3 +1215,19 @@ and "In Progress" looked uneven.
   outbox/2026-11-19/mw1-hires-advance/.
 - **"Destroy the tower  OP: Tower":** that's PM's and MW3's own line (Mech3.exe 0x0045e080): the objective's text,
   two spaces, then its nav point's name as "OP: <name>". It reads as the originals do.
+
+## 99. [x] The starport says each world's tier *(done: mw1-fix99-travel-tier)*
+- **Owen (2026-11-19, via the lead):** show each world's tier in the travel page's readout, as MW1 numbers it, e.g.
+  "Tier 2". Don't say what tiers do. This reverses item 64 for the starport only: the Mech Complex and the map's
+  filters stay tier-free.
+- **MW1's numbers:** byte 2 of the planet record, (code - 1) / 3: 0 to 3 (44 worlds tier 0, 50 tier 1, 21 tier 2, 30
+  tier 3).
+- **Where:** a line of its own, "Tier N", under the House line (mw1_travel_screen.cpp world_lines). It shows for the
+  world under the mouse, the chosen one, and "You are here".
+- **The fit:** neither the House line nor the population has room for " · Tier N" (both run to 24 of 26 columns). With
+  the line, the longest readout (a long description, the trip unaffordable, not yet chosen) came to 15 of the 14
+  lines above GO, so a readout past 14 drops its blank gap lines first. 14 at most, every world, either way.
+- **Shots:** the readout at 4:3 and 1080p: outbox/2026-11-19/mw1-fix99-travel-tier/.
+- **Tests** (`mw1_travel_screen_world_readout`): each of the 145 worlds says its own tier once, with no other tier word;
+  nothing says what a tier does (no %, dealer or buy/sell lines); every line fits the panel's 26 columns, and the
+  readout still fits its 14 lines above GO.

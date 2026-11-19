@@ -15,6 +15,7 @@ const std::vector<ScreenButton> kTravelButtons = {{"GO", "GO"}, {"FILTER", "FILT
 constexpr int32_t kPanelX = 470;             // the right column, beside the map
 constexpr size_t kNoteColumns = 72;          // the note's, across the map's foot
 constexpr size_t kPanelColumns = 26;         // the readout's, beside the map
+constexpr size_t kReadoutLines = 14;         // the readout's lines above GO (the layout's GO at y 348; from 118, 16 apart)
 
 std::string thousands(int64_t v) {
   std::string s = std::to_string(v < 0 ? -v : v);
@@ -106,9 +107,12 @@ std::vector<std::string> world_lines(const Company& c, int32_t world) {
   if (world < 0 || world >= kPlanetCount) return {};
   const Planet& w = kPlanets[world];
   // MW1's own panel (081B:56F9, FIXES.md item 64): the landscape, the population and the description, from the
-  // player's exe; no tier, no prices and no dealer's limit (MW1 never said them: the Mech Complex shows the prices).
+  // player's exe; no prices and no dealer's limit (MW1 never said them: the Mech Complex shows the prices). The
+  // world's tier is ours (FIXES.md item 99, Owen 2026-11-19): MW1's own number (byte 2's (code - 1) / 3, 0 to 3), said
+  // here only, never what it does; the market and elsewhere stay tier-free.
   const WorldText t = world_text(world);
-  std::vector<std::string> l = {"House " + std::string(kHouses[w.house].name) + (t.landscape.empty() ? "" : " \xB7 " + t.landscape)};
+  std::vector<std::string> l = {"House " + std::string(kHouses[w.house].name) + (t.landscape.empty() ? "" : " \xB7 " + t.landscape),
+                                "Tier " + std::to_string(w.tier)};
   if (!t.population.empty()) l.push_back("Population " + t.population);
   for (const std::string& s : wrap(t.description, kPanelColumns)) l.push_back(s);
   l.push_back(!w.office             ? std::string("No House office")
@@ -233,6 +237,10 @@ ScreenView travel_view(const Company& c, const TravelChoice& t) {
       after.withdrawn = false;  // a broken-off negotiation stays behind
       if (stranded(after)) detail.push_back(""), detail.push_back("You couldn't afford to leave it.");
     }
+    // The readout's 14 lines above GO: the tier's line (FIXES.md item 99) can make a long one 15; its gaps go first.
+    for (auto gap = std::find(detail.begin(), detail.end(), std::string()); detail.size() > kReadoutLines && gap != detail.end();
+         gap = std::find(detail.begin(), detail.end(), std::string()))
+      detail.erase(gap);
   } else if (t.world == here || t.hover == here) {
     title = upper(c.planet);
     detail = world_lines(c, here);
