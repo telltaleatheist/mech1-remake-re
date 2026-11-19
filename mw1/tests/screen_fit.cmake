@@ -80,6 +80,12 @@ foreach(shape 43 wide wide1080)
       message("${shape} ${page}: FAILED, exit '${r}', ${done}; the run's last lines:${tail}")
       list(APPEND failed "${shape} ${page} (exit ${r})")
     endif()
+    # 16:9's status bar has the room for the world's name and its words (a _long page's note is made to overflow) (the starport's 640 layout, centred, too:
+    # fit_status measured it against 640 once, so its name went).
+    if(shape MATCHES "^wide" AND NOT page MATCHES "_long$" AND out MATCHES "the status line hides the world's name")
+      message("${shape} ${page}: FAILED, the status line hid the world's name")
+      list(APPEND failed "${shape} ${page} (status)")
+    endif()
     hires_short("${out}" short)
     if(shape STREQUAL "wide1080" AND (short OR NOT out MATCHES "high-resolution 2D on"))
       message("${shape} ${page}: FAILED, the 2D not all drawn at the window's resolution: ${short}")
