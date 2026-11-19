@@ -82,6 +82,7 @@
 #include "mw1_pilots.h"
 #include "mw1_results.h"
 #include "mw1_market_screen.h"
+#include "mw1_journal.h"
 #include "mw1_ladder.h"
 #include "mw1_menu.h"
 #include "mw1_office.h"
@@ -5076,3 +5077,303 @@ TEST(mw1_loop_hud_labels_drawn_as_text_in_place) {
   });
 }
 }  // namespace
+
+// FIXES.md item 93 (Owen: can the game be played start to finish, the storyline working?): a new campaign played
+// through the real loop to MW1's ending, as a player would. At each hub the player reads the journal's lead. Before a
+// step's battle it builds the lance up to the expected force (the ladder's tons: contracts in the House offices, the
+// Mech Complex's heaviest 'Mech it can afford, the Bar's pilots for the spares, the heaviest in the lab's slots).
+// Then it takes STORY's GO THERE, visits the place the lead names, answers MW1's pages with the choices that carry
+// the trail on, and wins the battles. The Dark Wing is fought three times for the game's three endings: lost, then
+// withdrawn from (play goes on, the trail waits), then won: the victory's pages, the credits, then the hub again.
+// MW1 has no deadline here (Owen 2026-11-18: item 47) and no game over. Reports the game months, the contracts and
+// what blocked; MW1's words are never printed. Long: MW1_PLAYTHROUGH=1 runs it (MW1_PLAYTHROUGH_SEED: the seed).
+namespace {
+// The choices that carry the trail on (the commander lives and follows), by event: the journal walk's.
+const std::map<int32_t, int32_t> kTrailPick = {{0x64, 0}, {0x17, 1}, {0x18, 1}, {0x19, 1}, {0x27, 1}, {0x2F, 0}, {0x30, 1},
+                                               {0x32, 0}, {0x37, 0}, {0x40, 0}, {0x3E, 0}, {0x45, 1}, {0x72, 0}};
+int32_t months_between(const mw1::Date& a, const mw1::Date& b) { return (b.year - a.year) * 12 + (b.month - a.month); }
+// The lance's tons as the lab would have it: the heaviest owned 'Mechs, one each for the commander and the lancemates.
+int32_t best_lance_tons(const mw1::Company& c, size_t pilots) {
+  std::vector<int32_t> tons = {static_cast<int32_t>(std::lround(mech3::max_mass(c.mech)))};
+  for (const mw1::OwnedMech& o : c.hangar) tons.push_back(static_cast<int32_t>(std::lround(mech3::max_mass(o.mech))));
+  std::sort(tons.rbegin(), tons.rend());
+  int32_t t = 0;
+  for (size_t i = 0; i < tons.size() && i < pilots; ++i) t += tons[i];
+  return t;
+}
+}  // namespace
+
+TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  if (mw1_test::no_mw1()) return;
+  if (!std::getenv("MW1_PLAYTHROUGH")) return;
+  const uint32_t seed = std::getenv("MW1_PLAYTHROUGH_SEED") ? static_cast<uint32_t>(std::atoi(std::getenv("MW1_PLAYTHROUGH_SEED"))) : 5u;
+  in_child([&] {
+    std::vector<mw1::MapRow> rows;  // PM's maps (MW3's worlds aren't registered here)
+    for (const mw1::MapRow& m : shipped_rows())
+      if (m.world.rfind("mw3", 0) != 0) rows.push_back(m);
+    mw1::set_map_table(rows);
+    const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_playthrough";
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    MenuRun r;
+    r.save = (dir / mw1::kSaveFile).string(), r.start = mw1::Start::kHub, r.story = true, r.seed = seed, r.limit = 2000000;
+    r.box = [](const std::string&) -> uint32_t { return 6u; };  // BUY? SELL?: yes
+    // What happened.
+    int contracts = 0, contracts_won = 0, story_battles = 0, trips = 0, buys = 0, hires = 0, lab_sets = 0, journals = 0;
+    int dw_tries = 0, credits_frames = 0, hubs = 0, idle = 0, wait = 0, mission_frames = 0, loads_seen = 0, stuck_visits = 0;
+    bool in_mission = false, credits_seen = false, credits_over = false, done = false, journal_open = false;
+    int32_t travel_to = -1;
+    int builds = 0;  // the hubs spent building the lance up
+    std::set<int32_t> markets_no_better;  // worlds whose Mech Complex had nothing heavier to sell (cleared each step)  // the world the hub's TRAVEL is for (chosen once the starport shows)
+    int32_t last_step = 0, visits_this_step = 0;
+    std::vector<std::string> blocks;      // what blocked or was unclear
+    std::vector<std::string> endings;     // each Dark Wing try's: its outcome and picture
+    std::set<std::string> scenes;         // every results picture shown
+    std::map<int32_t, std::pair<int32_t, int32_t>> step_at;  // a step's first lead: its month and the contracts by then
+    mw1::Date start_date;
+    bool started = false;
+    const void* last_state = nullptr;
+    auto block = [&](const std::string& w) {
+      if (std::find(blocks.begin(), blocks.end(), w) == blocks.end()) blocks.push_back(w);
+    };
+    r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
+      if (app.current() != last_state) last_state = app.current(), idle = 0;
+      else if (++idle > 3000) return block("stuck on one screen 3,000 frames"), true;
+      mw1::Company* c = mw1::game_loop_company_for_tests();
+      if (const int32_t n = mw1::game_loop_loading_seen().loads; n > loads_seen) loads_seen = n, mission_frames = 0, in_mission = true;
+      if (app.current() == &mech3::states().load) return false;
+      if (app.current() == &mech3::states().core) {  // the battle: won, except the Dark Wing's first two
+        if (!in_mission || ++mission_frames != 30 || !c) return false;
+        in_mission = false;
+        const mw1::Contract* k = mw1::game_loop_contract();
+        const bool story = k && k->rung > 0, dark_wing = story && k->rung == mw1::kDarkWingRung;
+        int how = 0;  // 0 won, 1 lost, 2 withdrawn
+        if (dark_wing) how = dw_tries == 0 ? 1 : dw_tries == 1 ? 2 : 0, ++dw_tries;
+        story ? ++story_battles : ++contracts;
+        int32_t n = 0;
+        const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+        for (int32_t i = 0; i < n; ++i) {
+          auto* b = static_cast<mech3::ai::Brain*>(mech3::program_ai_mech_brain(ai[i].controls));
+          if ((b && b->params.team() == 1) || how != 0) continue;
+          mech3::mech_hit_part(ai[i].mech, 6, 10000.0f);
+          mech3::program_mech_kill_credit(mech3::mech_mission_player(), ai[i].mech);
+        }
+        if (how == 1 && n > 0) {  // lost: the commander's 'Mech destroyed
+          mech3::mech_hit_part(mech3::mech_mission_player(), 6, 10000.0f);
+          mech3::program_mech_kill_credit(ai[0].mech, mech3::mech_mission_player());
+        }
+        if (how != 2) mech3::missions().ended = 1;
+        if (how != 0) mech3::missions().aborting = 1;
+        for (int i = app.depth(); i > 0; --i) app.pop(1);
+        app.replace(&mech3::states().ia_dummy, 0);
+        return false;
+      }
+      if (++wait < 5) return false;
+      wait = 0;
+      if (!c || !c->stores) return false;
+      if (!started) started = true, start_date = c->date;
+      if (mw1::CreditsState* cs = mw1::game_loop_credits(); cs && showing(app, cs)) {
+        credits_seen = true;
+        if (++credits_frames > 24) cs->escape();  // rolled a while (each step is 5 frames), then skipped
+        return false;
+      }
+      if (mw1::results::ResultsState* rs = mw1::game_loop_results(); showing(app, rs)) {
+        if (const mw1::ResultsPanel* p = mw1::game_loop_results_shown()) {
+          scenes.insert(p->scene);
+          const mw1::AfterAction* pa = mw1::game_loop_pending();
+          const mw1::Contract* k = mw1::game_loop_contract();
+          if (pa && k && k->rung == mw1::kDarkWingRung)
+            endings.push_back(std::string(pa->outcome == mw1::Outcome::kSuccess ? "won" : pa->outcome == mw1::Outcome::kFailure ? "lost" : "withdrawn") +
+                              " (" + p->scene + ")");
+          if (pa && k && k->rung == 0 && pa->outcome == mw1::Outcome::kSuccess) ++contracts_won;
+        }
+        rs->screen()->on_button(mw1::kResultsContinue, 0, 0);
+        return false;
+      }
+      if (mw1::EventState* ev = mw1::game_loop_event(); showing(app, ev)) {
+        mw1::Mw1Screen* sc = ev->screen();
+        if (journal_open) {  // STORY: GO THERE if it's live, else back
+          journal_open = false;
+          if (sc->visible(mw1::kEventChoice2) && sc->enabled(mw1::kEventChoice2)) return sc->on_button(mw1::kEventChoice2, 0, 0), false;
+          block("STORY's GO THERE not live for step " + std::to_string(mw1::journal::current_lead(*c).step));
+          return sc->on_button(mw1::kEventBack, 0, 0), false;
+        }
+        if (sc->visible(mw1::kEventNext) && sc->enabled(mw1::kEventNext)) return sc->on_button(mw1::kEventNext, 0, 0), false;
+        const int32_t e = mw1::game_loop_event_id();
+        const auto k = kTrailPick.find(e);
+        int32_t id = mw1::kEventChoice1 + (k != kTrailPick.end() ? k->second : 0);
+        for (int32_t ch = 0; ch < 3; ++ch)  // ready: the choice that fights the step's battle (FIGHT, ATTACK)
+          if (const mw1::StepFight* f = mw1::step_fight(e, ch); f && c->story.rung_won < f->rung) id = mw1::kEventChoice1 + ch;
+        if (sc->visible(id) && sc->enabled(id)) return sc->on_button(id, 0, 0), false;
+        if (sc->visible(mw1::kEventChoice1) && sc->enabled(mw1::kEventChoice1)) return sc->on_button(mw1::kEventChoice1, 0, 0), false;
+        if (sc->visible(mw1::kEventBack)) return sc->on_button(mw1::kEventBack, 0, 0), false;
+        return false;
+      }
+      if (mw1::OfficeState* os = mw1::game_loop_office(); showing(app, os)) {
+        mw1::Mw1Screen* sc = os->screen();
+        const bool taken = mw1::game_loop_contract() && mw1::game_loop_contract()->accepted;
+        if (!taken && sc->visible(mw1::kOfficeRequest) && sc->enabled(mw1::kOfficeRequest)) return sc->on_button(mw1::kOfficeRequest, 0, 0), false;
+        if (!taken && sc->visible(mw1::kOfficeAccept) && sc->enabled(mw1::kOfficeAccept)) return sc->on_button(mw1::kOfficeAccept, 0, 0), false;
+        return sc->on_button(mw1::kOfficeBack, 0, 0), false;
+      }
+      if (mw1::MarketState* ms = mw1::game_loop_market(); showing(app, ms)) {
+        // The heaviest 'Mech it can buy keeping a reserve, if it makes the lance heavier; else back.
+        mw1::Mw1Screen* sc = ms->screen();
+        const int64_t reserve = 400000 + 150000 * static_cast<int64_t>(c->lance.size());
+        const size_t pilots = 1 + c->lance.size() + (c->lance.size() < 3 ? 1 : 0);
+        int32_t best = -1;
+        float best_mass = 0;
+        for (size_t i = 0; i < c->market.stock.size(); ++i) {
+          const int32_t m = c->market.stock[i];
+          if (mw1::can_buy(*c, static_cast<int32_t>(i)) != mw1::Deal::kDone || c->funds - mw1::buy_price(m, c->tier) < reserve) continue;
+          if (mech3::max_mass(m) > best_mass) best_mass = mech3::max_mass(m), best = static_cast<int32_t>(i);
+        }
+        mw1::Company with = *c;
+        if (best >= 0) with.hangar.push_back(mw1::OwnedMech{c->market.stock[static_cast<size_t>(best)]});
+        const mw1::MarketChoice* ch = mw1::game_loop_market_choice();
+        if (best < 0 || !ch || best_lance_tons(with, pilots) <= best_lance_tons(*c, pilots)) {
+          if (c->funds > 3000000) markets_no_better.insert(mw1::planet_index(c->planet_number));
+          return ms->escape(), false;
+        }
+        if (ch->stock != best) return sc->on_button(ch->stock < best ? mw1::kMarketStockDown : mw1::kMarketStockUp, 0, 0), false;
+        ++buys;
+        sc->on_button(mw1::kMarketBuy, 0, 0);
+        return ms->escape(), false;
+      }
+      if (mw1::BarState* bs = mw1::game_loop_bar(); showing(app, bs)) {
+        mw1::Mw1Screen* sc = bs->screen();
+        const mw1::journal::Lead l = mw1::journal::current_lead(*c);
+        const bool spare = c->hangar.size() > c->lance.size();
+        if (spare && c->lance.size() < 3 && sc->visible(mw1::kBarHire) && sc->enabled(mw1::kBarHire) && c->funds > 600000)
+          return ++hires, sc->on_button(mw1::kBarHire, 0, 0), false;
+        if (spare && c->lance.size() < 3 && !sc->visible(mw1::kBarHire) && sc->visible(mw1::kBarCrew) && c->funds > 600000)
+          return sc->on_button(mw1::kBarCrew, 0, 0), false;
+        const int32_t need = l.rung ? mw1::rung_tons(mw1::rung_force(l.rung, static_cast<int32_t>(c->lance.size()))) : 0;
+        const bool ready = best_lance_tons(*c, 1 + c->lance.size()) >= need && (l.rung < 3 || c->lance.size() >= 3);
+        if (ready && l.place == mw1::journal::Place::kBar && (l.planet < 0 || l.planet == mw1::planet_index(c->planet_number)) &&
+            sc->visible(mw1::kBarDrink) && sc->enabled(mw1::kBarDrink) && visits_this_step < 40)
+          return ++visits_this_step, sc->on_button(mw1::kBarDrink, 0, 0), false;
+        if (l.place == mw1::journal::Place::kNews && sc->visible(mw1::kBarNews) && sc->enabled(mw1::kBarNews) && visits_this_step < 40)
+          return ++visits_this_step, sc->on_button(mw1::kBarNews, 0, 0), false;
+        return sc->on_button(sc->visible(mw1::kBarDone) ? mw1::kBarDone : mw1::kBarBack, 0, 0), false;
+      }
+      if (mw1::TravelState* ts = mw1::game_loop_travel(); showing(app, ts)) {
+        // GO THERE chose the lead's world (or the hub's TRAVEL a world with an office, nearest first): GO, then BACK.
+        mw1::Mw1Screen* sc = ts->screen();
+        if (travel_to >= 0) {
+          const mw1::Point p = mw1::on_screen(travel_to);
+          sc->point(p.x, p.y, true);
+          travel_to = -1;
+        }
+        const size_t entries = c->log.size();
+        const std::string was = c->planet;
+        sc->on_button(mw1::kTravelGo, 0, 0);
+        if (c->planet != was || c->log.size() != entries) ++trips;
+        sc->on_button(mw1::kTravelBack, 0, 0);
+        return false;
+      }
+      mw1::HubState* hub = mw1::game_loop_hub();
+      if (!showing(app, hub)) return false;
+      mw1::Mw1Screen* sc = hub->screen();
+      ++hubs;
+      if (mw1::game_loop_pending()) return sc->on_button(mw1::kHubOk, 0, 0), false;
+      if (credits_seen && !mw1::game_loop_credits()) credits_over = true;
+      if (c->story.dark_wing_won && credits_over) return done = true, true;  // the end, and play goes on: the hub again
+      const mw1::journal::Lead l = mw1::journal::current_lead(*c);
+      if (l.step != last_step) {
+        if (!step_at.count(l.step)) step_at[l.step] = {months_between(start_date, c->date), contracts};
+        std::printf("PLAY: step %d event %02X at %s (%s), rung %d; here %s, month %d, %d contracts, funds %lld, lance %zu, tons %d\n", l.step, l.event,
+                    l.planet >= 0 ? mw1::kPlanets[l.planet].name : "anywhere", mw1::journal::place_words(l.place), l.rung, c->planet.c_str(),
+                    months_between(start_date, c->date), contracts, static_cast<long long>(c->funds), c->lance.size(), best_lance_tons(*c, 1 + c->lance.size()));
+        if (l.rung)
+          std::printf("PLAY:   rung %d's force: %d t against no lancemates, %d t against three\n", l.rung, mw1::rung_tons(mw1::rung_force(l.rung, 0)),
+                      mw1::rung_tons(mw1::rung_force(l.rung, 3)));
+        last_step = l.step, visits_this_step = 0, markets_no_better.clear();
+      }
+      if (visits_this_step > 60) return block("step " + std::to_string(l.step) + " didn't move after 60 visits ready"), true;
+      if (mw1::stranded(*c)) return block("stranded on " + c->planet), true;
+      // An accepted contract: DEPLOY.
+      if (sc->visible(mw1::kHubDeploy) && sc->enabled(mw1::kHubDeploy)) return sc->on_button(mw1::kHubDeploy, 0, 0), false;
+      // The lab: the heaviest 'Mechs in the slots (the commander's first).
+      {
+        std::vector<int32_t> owned = {0};
+        for (int32_t h = 1; h <= static_cast<int32_t>(c->hangar.size()); ++h) owned.push_back(h);
+        auto mass = [&](int32_t o) { return mech3::max_mass(o == 0 ? c->mech : c->hangar[static_cast<size_t>(o - 1)].mech); };
+        std::stable_sort(owned.begin(), owned.end(), [&](int32_t a, int32_t b) { return mass(a) > mass(b); });
+        std::vector<int32_t> slots = mw1::lance_slots(*c), want(slots.size(), -1);
+        for (size_t i = 0; i < want.size() && i < owned.size(); ++i) want[i] = owned[i];
+        if (want != slots && !want.empty() && want[0] >= 0) (mw1::game_loop_lance(want) ? ++lab_sets : (block("the lab refused the heaviest lance"), 0));
+      }
+      // Ready for the step's battle? The lance's tons against the force's.
+      const size_t pilots = 1 + c->lance.size();
+      const int32_t need = l.rung ? mw1::rung_tons(mw1::rung_force(l.rung, static_cast<int32_t>(c->lance.size()))) : 0;
+      const int32_t here = mw1::planet_index(c->planet_number);
+      const bool ready = best_lance_tons(*c, pilots) >= need && (l.rung < 3 || c->lance.size() >= 3);
+      if (!ready) {  // build up: spare 'Mechs for new pilots, 'Mechs from the market, contracts for the money
+        ++builds;
+        if (c->hangar.size() > c->lance.size() && c->lance.size() < 3 && c->funds > 600000 && sc->enabled(mw1::kHubBar) && builds % 2 == 0)
+          return sc->on_button(mw1::kHubBar, 0, 0), false;
+        if (c->funds > 1500000 && sc->enabled(mw1::kHubMarket) && builds % 3 == 0) return sc->on_button(mw1::kHubMarket, 0, 0), false;
+        if (builds > 4000) return block("the lance never got ready for step " + std::to_string(l.step)), true;
+        // Money but nothing heavier here: the nearest richer market not yet looked at (a tier 2 or 3 world).
+        if (c->funds > 6000000 && markets_no_better.count(here) && sc->enabled(mw1::kHubTravel))
+          for (int32_t w : mw1::destinations(*c, -1))
+            if (mw1::kPlanets[w].tier >= 2 && !markets_no_better.count(w) && mw1::kPlanets[w].number != mw1::kAndersMoon)  // its guards
+              return markets_no_better.insert(w), travel_to = w, sc->on_button(mw1::kHubTravel, 0, 0), false;
+        if (mw1::earning_here(*c) && sc->visible(mw1::kHubOffice) && sc->enabled(mw1::kHubOffice)) return sc->on_button(mw1::kHubOffice, 0, 0), false;
+        // No contracts here: the nearest world that has them.
+        for (int32_t w : mw1::destinations(*c, -1)) {
+          mw1::Company there = *c;
+          mw1::set_planet(there, w);
+          if (!mw1::earning_here(there)) continue;
+          if (!sc->enabled(mw1::kHubTravel)) break;
+          travel_to = w;
+          return sc->on_button(mw1::kHubTravel, 0, 0), false;
+        }
+        return block("no world with contracts in reach of " + c->planet), true;
+      }
+      // Ready: to the lead's world (STORY's GO THERE), then its place.
+      ++visits_this_step;
+      if (l.planet >= 0 && l.planet != here) return ++journals, journal_open = true, sc->on_button(mw1::kHubStory, 0, 0), false;
+      switch (l.place) {
+        case mw1::journal::Place::kBar:
+        case mw1::journal::Place::kNews: return sc->on_button(mw1::kHubBar, 0, 0), false;
+        case mw1::journal::Place::kMechComplex: return sc->on_button(mw1::kHubMarket, 0, 0), false;
+        case mw1::journal::Place::kOffice: return sc->on_button(mw1::kHubOffice, 0, 0), false;
+        default: {  // an arrival here: away to the nearest world and back
+          const std::vector<int32_t> near = mw1::destinations(*c, -1);
+          if (near.empty() || !sc->enabled(mw1::kHubTravel)) return block("an arrival lead with nowhere to go"), true;
+          travel_to = near[0];
+          return sc->on_button(mw1::kHubTravel, 0, 0), false;
+        }
+      }
+    };
+    menu_run(r);
+    mw1::set_map_table({});
+    const mw1::Company* c = mw1::game_loop_company();
+    const int32_t months = c && started ? months_between(start_date, c->date) : -1;
+    std::printf("  seed %u: %s in %d game months (%s): %d contracts (%d won), %d story battles, %d trips, %d 'Mechs bought, "
+                "%d pilots hired, %d lab lances, %d journal visits, %d hubs; funds %lld, %zu 'Mechs, %zu lancemates\n",
+                seed, done ? "the ending reached" : "NOT finished", months, c ? mw1::date_words(c->date).c_str() : "?", contracts,
+                contracts_won, story_battles, trips, buys, hires, lab_sets, journals, hubs, c ? static_cast<long long>(c->funds) : 0LL,
+                c ? 1 + c->hangar.size() : 0, c ? c->lance.size() : 0);
+    for (const auto& [step, at] : step_at) std::printf("    step %2d first led to at month %d, after %d contracts\n", step, at.first, at.second);
+    for (const std::string& e : endings) std::printf("    the Dark Wing: %s\n", e.c_str());
+    std::printf("    the credits %s; results pictures:", credits_seen ? (credits_over ? "rolled, then the hub" : "rolled") : "never");
+    for (const std::string& s : scenes) std::printf(" %s", s.c_str());
+    std::printf("\n");
+    for (const std::string& b : blocks) std::printf("    BLOCK: %s\n", b.c_str());
+    // The ending pictures are there to show: the built art archive has every results picture seen.
+    const fs::path art = fs::path(MW1_DATA_DIR) / "zbd" / "mw1art.zbd";
+    int missing = 0;
+    if (fs::exists(art, ec) && mw1::art::install(art.string(), false))
+      for (const std::string& s : scenes)
+        if (!s.empty() && !mw1::art::Store::get().has(s.c_str()) && !mw1::art::Store::get().has((s + "_l").c_str()))
+          std::printf("    NO PICTURE: %s\n", s.c_str()), ++missing;
+    EXPECT(done && blocks.empty() && missing == 0);
+    EXPECT(endings.size() == 3 && endings[0].rfind("lost", 0) == 0 && endings[1].rfind("withdrawn", 0) == 0 && endings[2].rfind("won", 0) == 0);
+    EXPECT(c && c->story.dark_wing_won && credits_seen && credits_over);
+  });
+}
