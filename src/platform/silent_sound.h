@@ -138,8 +138,9 @@ class SilentSoundOutput : public SoundOutput {
   SoundBuffer next_ = 1;
 };
 
-// Ours (FIXES.md item 100, quiet_music.h): a platform::MusicOutput with no device. It keeps what it was asked (the
-// file playing, paused, the volume) and never reaches a file's end (a looping track plays on, silently).
+// Ours: a platform::MusicOutput with no device, for a run no player hears (mw3 --nosound, a hands-off run:
+// pointer_hands_off.h). It keeps what the game asked (the file playing, paused, the volume, how many plays) and
+// never reaches a file's end, so a looping track plays on silently. Not a FIX: the original had no such run.
 class SilentMusicOutput : public MusicOutput {
  public:
   bool play(const std::string& path) override { return playing_path = path, paused = false, ++plays, true; }

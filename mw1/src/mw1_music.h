@@ -10,7 +10,7 @@
 // The settings (the hub's OPTIONS): music on or off, its volume and the effects' volume, in mw1.cfg (mw1_start.h's
 // SoundCfg) and applied at once to PM's own two (its options' CD volume and sound volume, GRAPHICS & SOUND's
 // sliders), so the mission's music and sounds follow and the two screens never disagree. A run no player hears
-// (--nosound, --hidden) plays nothing aloud (platform/quiet_music.h).
+// (--nosound, --hidden) plays nothing aloud (the engine's own rule: platform::SilentMusicOutput).
 #include <cstdint>
 #include <string>
 
