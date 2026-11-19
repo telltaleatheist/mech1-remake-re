@@ -28,6 +28,7 @@
 #include "gamez/zvideo/zvid_dd.h"
 #include "platform/hires_2d.h"
 #include "frontend/sdl/hires_draw.h"
+#include "gamez/zvideo/zvid_ddd3d.h"
 #include "platform/hires_images.h"
 #include "platform/hires_lists.h"
 #include "platform/menu_pointer.h"
@@ -1338,6 +1339,80 @@ TEST(sdl_hires_picture_keeps_its_source_detail) {
   std::printf("a source pixel's line at 5x: %d frame pixels from the canvas, %d drawn from the source\n", canvas_w, hires_w);
   EXPECT(canvas_w == 5);
   EXPECT(hires_w >= 1 && hires_w <= 2);
+}
+
+// MW1's FIXES.md item 12 (research/hires-2d.md B0's tint, B4): a fade darkens the draws at the frame's resolution as it
+// would the canvas. On a frame shown whole (present_16: MW1's menus, PM's Load state) no scene draws the fade's quad;
+// the layer's hook (HiresDraw::draw_after_layer, as mw3_main.cpp's) draws one left pending over the list. The fixture
+// as above: the line one frame pixel wide from its source; under a half black quad it is still that line, at half.
+TEST(sdl_hires_a_fade_darkens_recorded_draws) {
+  if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) return;
+  struct Fixture : platform::HiresImages {
+    std::vector<uint8_t> px;
+    platform::HiresImage im;
+    Fixture() : px(320u * 320u * 4u) {
+      for (int32_t y = 0; y < 320; ++y)
+        for (int32_t x = 0; x < 320; ++x) {
+          uint8_t* q = &px[(static_cast<size_t>(y) * 320 + x) * 4];
+          const uint8_t v = x == 160 ? 255 : 96;
+          q[0] = q[1] = q[2] = v, q[3] = 255;
+        }
+      im.w = im.h = 320, im.rgba = px.data(), im.serial = 0x5eee, im.canvas_w = im.canvas_h = 64;
+    }
+    const platform::HiresImage* find(const char* name) override { return std::string(name) == "fixture" ? &im : nullptr; }
+    void set_frame_scale(float) override {}
+  } fixture;
+  sdlfe::SdlWindow w;
+  EXPECT(w.init(true));
+  platform::hires::Lists lists;
+  std::vector<uint16_t> canvas(256 * 192, 0);
+  static int fixture_owner;
+  const size_t added = lists.blit(&fixture_owner, 64, 64, nullptr, canvas.data(), 256, 192, 64, 64, true, "fixture");
+  lists.snapshot(canvas.data(), added, canvas.data(), 256, false);
+  for (int32_t y = 64; y < 128; ++y)
+    for (int32_t x = 64; x < 128; ++x) canvas[y * 256 + x] = x == 96 ? 0xffff : 0x630c;  // the canvas's copy
+  lists.snapshot(canvas.data(), added, canvas.data(), 256, true);
+  struct Row {
+    int lit = -1, line = 0, back = 0;  // the line's width (pixels at least half its own), its brightest, the ground's
+  };
+  platform::Render3D* const kept = zvid::render3d();
+  auto row = [&](double fade) {
+    Row r;
+    w.create("mw1 hires fade test", 1280, 960);
+    w.frame_size(1280, 960, 256, 192);
+    sdlfe::SdlScreen2D screen(w.render());
+    sdlfe::HiresDraw draw(w.render(), &lists);
+    platform::set_hires_images(&fixture);
+    zvid::set_render3d(w.render());
+    screen.after_layer = [&](const uint16_t* p, int cw, int ch, int pitch, bool rgb565, bool keyed, uint16_t key) {
+      draw.draw_after_layer(p, cw, ch, pitch, rgb565, keyed, key);
+    };
+    w.render()->set_viewport(0, 0, 1280, 960);
+    if (fade > 0) {
+      const int32_t frame[4] = {0, 0, 1280, 960};
+      zvid::set_tint_quad(0, frame, fade);  // black, as MW1's fade (mw1_screen.cpp's fade_tint)
+    }
+    screen.present_16(canvas.data(), 256, 192, 256 * 2, true);
+    const bool drawn = !zvid::tint_quad().pending;
+    zvid::reset_tint_quad();
+    platform::set_hires_images(nullptr);
+    std::vector<uint32_t> f;
+    int rw = 0, rh = 0;
+    if (!drawn || !w.render()->read_back(&f, &rw, &rh) || rw != 1280 || rh != 960) return r;
+    for (int32_t x = 320; x < 640; ++x) r.line = std::max(r.line, static_cast<int>(f[480 * 1280 + x] & 0xff));
+    r.back = static_cast<int>(f[480 * 1280 + 360] & 0xff);
+    r.lit = 0;
+    for (int32_t x = 320; x < 640; ++x) r.lit += static_cast<int>(f[480 * 1280 + x] & 0xff) * 2 >= r.line + r.back;
+    return r;
+  };
+  const Row plain = row(0), faded = row(0.5);
+  zvid::set_render3d(kept);
+  if (plain.lit < 0) return;  // no hidden window of that size (a headless runner)
+  std::printf("the line: %d frame pixels, %d on %d; under a half fade: %d frame pixels, %d on %d\n", plain.lit,
+              plain.line, plain.back, faded.lit, faded.line, faded.back);
+  EXPECT(plain.lit >= 1 && plain.lit <= 2 && plain.line >= 240 && plain.back >= 88 && plain.back <= 104);
+  EXPECT(faded.lit >= 1 && faded.lit <= 2);  // still the line drawn from its source, not the canvas's
+  EXPECT(std::abs(faded.line - plain.line / 2) <= 12 && std::abs(faded.back - plain.back / 2) <= 8);
 }
 
 // Playtest W22: the menus' whole-screen layer (present_16, the pause screen)
