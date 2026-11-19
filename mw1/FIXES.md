@@ -622,7 +622,7 @@ Tick an item when it is merged into `main`.
 - **Found:** MW1's limit is 12 (081B:4674, DS:0530). **Owen (2026-11-18): make it 30.**
 - **Owen (2026-11-18), on 51:** repairs stay cheap (kRepairScale unchanged).
 
-## 54. [ ] The travel animation back, as a video: the DropShip launches on departure
+## 54. [x] The travel animation back, as a video: the DropShip launches on departure
 - **Owen (2026-11-18):** "in the original, when you take off to a new location, it shows an animation of the spaceship taking off ... we could use ltx to generate a 5 second video of the spaceship launching ... use the image as the first frame."
 - **MW1:** MwPlayHiredTransportAnimation (MW_MAIN 081B:6095) on a paid trip. There's also an owned-DropShip version (60AD).
 - **The clips:** LTX-2.5 on the Mac, from data-src/art/travel_dropship_launch.jpg. Takes 11 and 22 are in outbox/2026-11-18/mw1-launch-video/. **Owen (2026-11-18): take 11.**
