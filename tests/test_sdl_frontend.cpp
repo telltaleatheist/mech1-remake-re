@@ -2046,6 +2046,53 @@ TEST(sdl_host_fonts_take_gdis_sizes_and_widths) {
   h.DeleteDC(dc);
 }
 
+// Ours (MW1's FIXES.md item 82): with the high-resolution 2D on, a transparent line's recorded draw takes its DC's rect
+// across, not its advances': a glyph's ink past its last advance (a t's bar at the window's scale) is drawn, and the
+// canvas's own ink there doesn't show beside the line (the HUD's "Heat" in PM's gauge font, Arial 8 at width 6). An
+// OPAQUE line's stays its cells (GDI fills those alone). With the 2D off nothing is recorded.
+TEST(sdl_hires_transparent_line_takes_its_dc_rect) {
+  if (!have_fonts()) return;
+  Mounted mnt;
+  zvid::set_pixel_format(5, 6, 5);
+  const bool was = platform::hires_2d();
+  sdlfe::SdlTwodHost h(nullptr, nullptr, nullptr);
+  const zgame::Handle f = h.CreateFontA(-8, 6, 0, 0, 300, 0, 0, 0, 0, 4, 0, 1, 2, "Arial");
+  auto record = [&](bool on, int32_t mode, int32_t* advance) {
+    platform::set_hires_2d(on);
+    zimg::Texture* img = h.image_new(40, 12);
+    const zgame::Handle dc = h.image_dc(img);
+    h.SelectObject(dc, f);
+    h.SetBkMode(dc, mode);
+    h.SetTextColor(dc, 0x01a21f);
+    ztwod::Rect r{};
+    h.DrawTextA(dc, "Heat", -1, &r, 0xc00);  // measured, as FontText does
+    *advance = r.right - r.left;
+    ztwod::Rect box{2, 0, 38, 12};
+    h.DrawTextA(dc, "Heat", -1, &box, 0x800);
+    h.image_dc_release(img, dc);
+    platform::hires::Rect got{-1, -1, -1, -1};
+    const std::vector<platform::hires::Command>* cs = h.hires_lists().of(img->pixels);
+    const size_t n = cs ? cs->size() : 0;
+    if (n == 1) got = (*cs)[0].rect;
+    h.texture_free(img);
+    return std::pair<size_t, platform::hires::Rect>{n, got};
+  };
+  int32_t w = 0;
+  const auto clear = record(true, 1, &w);
+  int32_t w2 = 0;
+  const auto cells = record(true, 2, &w2);
+  int32_t w3 = 0;
+  const auto off = record(false, 1, &w3);
+  platform::set_hires_2d(was);
+  h.DeleteObject(f);
+  std::printf("\"Heat\" advances %d: transparent rect %d..%d, opaque %d..%d, the 2D off %zu recorded\n", w, clear.second.l,
+              clear.second.r, cells.second.l, cells.second.r, off.first);
+  EXPECT(w > 0 && w < 36);
+  EXPECT(clear.first == 1 && clear.second.l == 2 && clear.second.r == 38);
+  EXPECT(cells.first == 1 && cells.second.l == 2 && cells.second.r == 2 + w2);
+  EXPECT(off.first == 0);
+}
+
 // Ours (mw1, for MW1's screens): a program's own fonts table, opt in. Without one the game's fonts.zrd is all there
 // is, as before; with one its entries come beside the game's (unchanged), each may name its font file, and a
 // tracking widens the text by that much between glyphs (measured and drawn alike). A table added after the fonts

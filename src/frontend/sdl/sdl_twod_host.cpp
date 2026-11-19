@@ -724,11 +724,16 @@ int32_t SdlTwodHost::DrawTextA(Handle d, const char* text, int32_t length, ztwod
     if (format & kCenter) x0 = rect->left + (box_w - w) / 2;
     else if (format & kRight) x0 = rect->right - w;
     const int ly = y0 + static_cast<int>(i) * lh;
-    // Ours (MW1's FIXES 12, B0 rule 2): the line recorded on its image, clipped as its pixels are.
+    // Ours (MW1's FIXES 12, B0 rule 2): the line recorded on its image, clipped as its pixels are. MW1's FIXES 82: a
+    // transparent line's across the DC's rect, not its advances' (x0 to x0 + w): a glyph's ink past its advance (the
+    // last t's bar, a 0 at the window's scale) was cut there, and the canvas's own ink past it showed beside the
+    // line (the HUD's "Heat"). An OPAQUE one's cells stay its advances', as GDI fills them.
     if (platform::hires_2d() && !l.empty()) {
       platform::hires::Command c;
+      const bool cells = x->bk_mode == 2;
       c.rect = platform::hires::intersect(
-          platform::hires::intersect(platform::hires::Rect{x0, ly, x0 + w, ly + lh},
+          platform::hires::intersect(platform::hires::Rect{cells ? x0 : std::min(x0, static_cast<int>(rect->left)), ly,
+                                                           cells ? x0 + w : std::max(x0 + w, static_cast<int>(rect->right)), ly + lh},
                                      platform::hires::Rect{rect->left, rect->top, rect->right, rect->bottom}),
           platform::hires::Rect{0, 0, img->width, img->height});
       c.x = x0, c.y = ly;
