@@ -25,9 +25,9 @@ struct World {
   const char* ia_name;
 };
 // FIXES.md item 46: every MW3 Instant Action world (Big Lake, Grasslands, Rolling Hills, Gorge), and c4b (no IA
-// maps; item 44's arctic map is laid on it).
+// maps of MW3's: item 44's arctic maps, MW1's own, are laid on it: mw1_arctic.h).
 inline constexpr World kWorlds[] = {{"c1", "mw3c1", "Big Lake"}, {"c2", "mw3c2", "Grasslands"}, {"c3", "mw3c3", "Rolling Hills"},
-                                    {"c4", "mw3c4", "Gorge"},    {"c4b", "mw3c4b", ""}};
+                                    {"c4", "mw3c4", "Gorge"},    {"c4b", "mw3c4b", "Arctic"}};
 inline constexpr const char* kWorldsFolder = "worlds";  // under mw1's write dir
 
 // Why the worlds in `dir` need converting from MW3's `install`; empty when

@@ -10,6 +10,9 @@
 #include <vector>
 
 #include "check.h"
+#include "gamez/zclass/list.h"
+#include "gamez/zutil/zutl_path.h"
+#include "mw1_arctic.h"
 #include "mw1_worlds.h"
 
 namespace fs = std::filesystem;
@@ -140,4 +143,58 @@ TEST(mw1_worlds_without_mw3_say_so_once) {
   Said said;
   EXPECT(!start("", dir, &said) && said.conversions == 0 && said.lines.size() == 1);
   EXPECT(said.all().find("need MechWarrior 3's install") != std::string::npos && !fs::exists(dir, ec));
+}
+
+// FIXES.md item 44: MW1's arctic maps laid on the converted c4b (mw1_arctic.h): laid at first, current at the next
+// start, laid again when zipkit wrote the world again, when a map is missing or when our text changed; text the
+// reader refuses leaves what was there and says so.
+TEST(mw1_arctic_laid_on_the_converted_world_then_current_then_again) {
+  if (!have_mw3()) return;
+  const fs::path root = fs::path(MW3_TEST_TMP_ROOT) / "mw1_arctic";
+  const fs::path dir = root / "worlds", world = dir / "zbd" / mw1::arctic::kWorld;
+  std::error_code ec;
+  fs::remove_all(root, ec);
+  zipkit::Options o;
+  o.install = MW1_MW3_GAME_DIR, o.out = dir.string(), o.worlds = {{"c4b", mw1::arctic::kWorld}};
+  std::string error;
+  EXPECT(zipkit::mw3_to_pm(o, &error));
+  zcls::classes_reset();
+  const std::string zipkits = file_text(world / "reader.zbd");
+  // Our text from a copy of MW1's data folder, mounted first, so a test may change it.
+  const fs::path data = root / "data";
+  fs::create_directories(data, ec);
+  fs::copy(fs::path(MW1_DATA_DIR) / "arctic", data / "arctic", fs::copy_options::recursive, ec);
+  zutl::mounts() = zutl::Mounts{};
+  zutl::mount(data.string());
+  std::vector<std::string> said;
+  const auto say = [&](const std::string& l) { said.push_back(l), std::printf("  %s\n", l.c_str()); };
+  // First: laid. zipkit's reader kept beside the merged one, which holds our blocks and waynet.
+  EXPECT(mw1::arctic_stale(dir.string()) == "not laid yet");
+  EXPECT(mw1::lay_arctic(dir.string(), say) && said.back().find("laid on mw3c4b (ia1") != std::string::npos);
+  EXPECT(file_text(world / "reader.zipkit.zbd") == zipkits);
+  const std::string merged = file_text(world / "reader.zbd");
+  EXPECT(merged != zipkits && merged.find("waynet_ia1.zrd") != std::string::npos && merged.find("ia1") != std::string::npos);
+  EXPECT(file_text(world / "readeria1.zbd").find("Enemy_08") != std::string::npos);
+  EXPECT(mw1::arctic_stale(dir.string()).empty());
+  // Next start: current, nothing written.
+  EXPECT(mw1::lay_arctic(dir.string(), say) && said.back().find("current") != std::string::npos);
+  // zipkit wrote the world again: laid again, the same bytes.
+  std::ofstream(world / "reader.zbd", std::ios::binary | std::ios::trunc) << zipkits;
+  EXPECT(mw1::arctic_stale(dir.string()) == "the world was converted again");
+  EXPECT(mw1::lay_arctic(dir.string(), say) && file_text(world / "reader.zbd") == merged);
+  // A map gone: laid again.
+  fs::remove(world / "readeria1.zbd", ec);
+  EXPECT(mw1::arctic_stale(dir.string()) == "a map is missing");
+  EXPECT(mw1::lay_arctic(dir.string(), say) && fs::is_regular_file(world / "readeria1.zbd", ec));
+  // Our text changed: laid again.
+  const fs::path aiv = data / "arctic" / "ia1" / "readeria" / "aiv.zrd";
+  std::ofstream(aiv, std::ios::binary | std::ios::app) << "; a comment more\n";
+  EXPECT(mw1::arctic_stale(dir.string()) == "our arctic data changed");
+  EXPECT(mw1::lay_arctic(dir.string(), say) && mw1::arctic_stale(dir.string()).empty());
+  // Text the reader refuses: not laid, said with the file and line; the world as it was.
+  std::ofstream(aiv, std::ios::binary | std::ios::app) << "( \"Enemy_09\" (1\n";
+  EXPECT(!mw1::lay_arctic(dir.string(), say) && said.back().find("not laid") != std::string::npos &&
+         said.back().find("aiv.zrd") != std::string::npos);
+  EXPECT(file_text(world / "reader.zbd") == merged && fs::is_regular_file(world / "readeria1.zbd", ec));
+  zutl::mounts() = zutl::Mounts{};
 }

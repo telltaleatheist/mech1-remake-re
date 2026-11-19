@@ -112,6 +112,7 @@ TEST(mw1_look_mw1_opens_only_its_own_layouts) {
     for (std::sregex_iterator i(text.begin(), text.end(), file), e; i != e; ++i) {
       const std::string n = (*i)[1].str();
       if (n == "targets.zrd") continue;
+      if (n == "world.zrd" || n == "objectives.zrd") continue;  // the converted world's, our arctic blocks appended (mw1_arctic.cpp)
       if (n == "dlgPause.zrd" || n == "dlgOptions.zrd") continue;  // swapped away (mw1_layouts.h), not opened
       if (n == "dlgMechLabII.zrd" || n == "dlgLoadSave.zrd") continue;  // reskinned (mw1_lab_skin.h): PM's code reads them
       if (std::find(std::begin(mw1::kPmCursorFiles), std::end(mw1::kPmCursorFiles), n) != std::end(mw1::kPmCursorFiles))

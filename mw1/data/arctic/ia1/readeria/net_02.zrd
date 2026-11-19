@@ -1,0 +1,2 @@
+; Enemy_02's patrol: a loop of four nodes through its post.
+( "version" (106) "name" ("net_02") "node_00" (12 (420.0 5.3 980.0) (1)) "node_01" (12 (300.0 5.8 980.0) (2)) "node_02" (12 (300.0 2.9 860.0) (3)) "node_03" (12 (420.0 5.5 860.0) (0)) )

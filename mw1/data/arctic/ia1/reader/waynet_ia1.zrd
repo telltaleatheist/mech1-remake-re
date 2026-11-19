@@ -1,0 +1,5 @@
+; MW1's arctic Instant Action map 1: the nav points (the start; MW1 adds the contract's).
+(
+"version" (107) "name" ("waynet_ia1")
+"node_00" (12 (-600.0 7.4 300.0) () "name" ("MSG_WAYNET_START") "auxname" ("Start"))
+)
