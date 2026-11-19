@@ -228,9 +228,12 @@ building.
   filled from the background beside it), then each draw as quads clipped to where it shows: pictures from
   HiresImages, lines from TextRaster at the canvas's pen. A draw that can't be drawn takes itself and the draws over
   it out at its pixels, and the canvas shows.
-- **Known gap, accepted for now (the lead, 2026-11-18):** on a keyed overlay over the 3D (a mission's HUD), where a
-  draw's "before" is the layer's key, the under texture is clear there, so the canvas's blocky glyph is not covered
-  and shows round the smooth one. MW1's goal is the menus, which are drawn whole (present_16), not keyed.
+- **The keyed overlay (a mission's HUD), closed:** where a draw's "before" is the layer's key, the under texture is
+  clear there, so the canvas's own copy of the draw would show round the smooth one. The upload leaves those pixels
+  clear instead (`before_layer`, 93438c22); `SdlScreen2D::overlay_16` passes that mask to the same `upload` as
+  `present_16`. Measured with the HUD's pictures drawn (mw1_hud_art.h, MW1_SCREEN=mission at 4K, 2026-11-19): round
+  the nav arrow, 0 of 3,931 arrow-coloured pixels more than 1.5 device pixels outside its true triangle (the canvas
+  alone: 10, the stairs' corners). The HUD's words are PM's fonts, left as they are until Owen decides.
 
 ### B2. The pictures at high resolution
 

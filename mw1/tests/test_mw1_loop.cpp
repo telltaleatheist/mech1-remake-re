@@ -4231,7 +4231,8 @@ TEST(mw1_loop_lance_orders_reach_each_after_a_reload_headless) { lance_orders_ru
 
 namespace {
 // FIXES.md item 12: PM's mission HUD pictures drawn from their shapes (mw1_hud_art.h). At one device pixel a canvas
-// pixel each is PM's picture exactly, read from PM's own library in a mission (black: clear).
+// pixel each shape is PM's picture exactly, read from PM's own library in a mission (black: clear); the ones drawn
+// from PM's (the line art, the gradients, the lights) are checked at four.
 TEST(mw1_loop_hud_art_is_pm_s_pictures_at_canvas_size) {
   std::error_code ec;
   if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
@@ -4241,7 +4242,7 @@ TEST(mw1_loop_hud_art_is_pm_s_pictures_at_canvas_size) {
   in_child([&] {
     Run run;
     run.save = (dir / mw1::kSaveFile).string();
-    int32_t compared = 0, worst = 0, sized = 0;
+    int32_t compared = 0, worst = 0, sized = 0, read = 0, read_wrong = 0, read_colour = 0;  // read_wrong: per 1000
     std::string worst_name;
     run.in_mission = [&](int32_t f) {
       if (f < 5) return true;
@@ -4253,6 +4254,51 @@ TEST(mw1_loop_hud_art_is_pm_s_pictures_at_canvas_size) {
         }
         int32_t w = 0, h = 0;
         mw1::hud_art::size_of(n, &w, &h);
+        if (mw1::hud_art::read_from_pm(n) && w == t->width && h == t->height) {
+          // Drawn smooth from PM's: at 4 device pixels a canvas pixel, each canvas pixel's 4 x 4 block lit where PM's
+          // is (over half its alpha) and clear where PM's is, its colour PM's.
+          const std::vector<uint8_t> big = mw1::hud_art::draw(n, 4);
+          if (const char* dump = std::getenv("MW1_HUD_ART_DUMP")) {  // development: each at 4x over black, PPM
+            if (std::FILE* f = std::fopen((std::string(dump) + "/" + n + "_x4.ppm").c_str(), "wb")) {
+              std::fprintf(f, "P6 %d %d 255\n", w * 4, h * 4);
+              for (size_t i = 0; i + 3 < big.size(); i += 4)
+                for (int32_t k = 0; k < 3; ++k) std::fputc(big[i + k] * big[i + 3] / 255, f);
+              std::fclose(f);
+            }
+          }
+          const uint16_t* pm = static_cast<const uint16_t*>(t->pixels);
+          int32_t wrong = 0, worst_colour = 0;
+          for (int32_t y = 0; y < h && big.size() == static_cast<size_t>(w) * h * 64; ++y)
+            for (int32_t x = 0; x < w; ++x) {
+              double a = 0, c[3] = {0, 0, 0};
+              for (int32_t j = 0; j < 4; ++j)
+                for (int32_t i = 0; i < 4; ++i) {
+                  const uint8_t* d = &big[((static_cast<size_t>(y) * 4 + j) * w * 4 + x * 4 + i) * 4];
+                  a += d[3] / 255.0;
+                  for (int32_t k = 0; k < 3; ++k) c[k] += d[k] * d[3] / 255.0;
+                }
+              const size_t at = static_cast<size_t>(y) * w + x;
+              const double pa = t->alpha ? t->alpha[at] / 255.0 : (pm[at] ? 1.0 : 0.0);
+              // Lit or clear as PM's: over half its alpha, or (PM's own alpha partial: the reticle, the damage
+              // display's backgrounds) within a quarter of it.
+              const bool partial = t->alpha && pa > 0 && pa < 0.9;
+              const bool lit = partial ? std::abs(a / 16 - pa) < 0.25 : a / 16 > 0.5, pm_lit = partial ? true : pa > 0.5;
+              wrong += lit != pm_lit;
+              if (lit && pm_lit && pa >= 0.9) {  // colour where PM's is opaque (a partial one's is its blend's)
+                const uint16_t v = pm[at];
+                const int32_t pc[3] = {(v >> 11) << 3, ((v >> 5) & 63) << 2, (v & 31) << 3};
+                for (int32_t k = 0; k < 3; ++k)
+                  worst_colour = std::max(worst_colour, std::abs(static_cast<int32_t>(c[k] / a) - pc[k]));
+              }
+            }
+          std::printf("  %s (from PM's): %d of %d canvas pixels lit or clear unlike PM's, colour off by up to %d\n",
+                      n.c_str(), wrong, w * h, worst_colour);
+          ++read, ++sized;
+          read_wrong = std::max(read_wrong, 1000 * wrong / (w * h));
+          read_colour = std::max(read_colour, worst_colour);
+          zimg::free_texture(t);
+          continue;
+        }
         const std::vector<uint8_t> mine = mw1::hud_art::draw(n, 1);
         if (w == t->width && h == t->height && (t->flags & zimg::kTwoBytes) && !t->palette_count && t->pixels) {
           ++sized;
@@ -4280,8 +4326,14 @@ TEST(mw1_loop_hud_art_is_pm_s_pictures_at_canvas_size) {
     loop_run(kWon, &run);
     std::printf("  %zu HUD pictures, %d compared with PM's; the most pixels off: %d (%s)\n", mw1::hud_art::names().size(),
                 compared, worst, worst_name.empty() ? "-" : worst_name.c_str());
-    EXPECT(compared == static_cast<int32_t>(mw1::hud_art::names().size()) && sized == compared);
+    std::printf("  %d drawn from PM's: at most %d per 1000 canvas pixels unlike PM's, colour off by up to %d\n", read,
+                read_wrong, read_colour);
+    EXPECT(compared + read == static_cast<int32_t>(mw1::hud_art::names().size()) && sized == compared + read);
     EXPECT(worst == 0);
+    // The pictures read from PM's: lit and clear as PM's at every canvas pixel. Their colour PM's where PM's is
+    // opaque, but where it runs: the heat bar's rows (each row's mean, PM's are dithered: 16 seen), the speed frame's
+    // 5 at its corner join (45), the lights' shading (52).
+    EXPECT(read == 21 && read_wrong == 0 && read_colour <= 56);
   });
 }
 }  // namespace

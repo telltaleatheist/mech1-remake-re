@@ -4,6 +4,10 @@
 #include <cmath>
 #include <functional>
 #include <map>
+#include <memory>
+
+#include "gamez/zimage/zimg_library.h"
+#include "gamez/zimage/zimg_texture.h"
 
 namespace mw1::hud_art {
 namespace {
@@ -149,25 +153,336 @@ const std::map<std::string, Piece>& pieces() {
   return all;
 }
 
+// ---- the pictures read from PM's at run time ----
+// The line art (the frames and their digits, the heat meter's ladder, the zoom's crosshairs, the compass's tape): one-
+// pixel strokes in a few colours, each under its drop shadow in a darker one, all of it on the pixel grid but for the
+// compass's letters' diagonals: a pixel font whose one-pixel steps are meant (the 3's gaps, the 5's corner), so not
+// fitted as the 'Mech outlines' stairs are. Each colour's pixels are drawn as their squares (at canvas size PM's
+// exactly), and two that touch only at a corner are joined by a stroke a pixel wide between their centres (the N's
+// diagonal a line, not stairs); the darkest colour first, the shadows under the lines. The heat bar: three stacked bars, its colour
+// running down them (each row's own, between the rows' centres). The compass frame: a band of PM's dark green whose
+// alpha rises from its ends (each column's, between the columns' centres) under the bright centre tick. The lights: a
+// disc (its centre and area PM's alpha's) shaded as PM's are (the colour between the pixels' centres). The reticle:
+// its ring a circle fitted to PM's (draw_reticle). The damage display's backgrounds (a 'Mech's silhouette over a grid,
+// at two alphas): their pixels, as the line art's.
+enum class Read { kLines, kHeatBar, kCompassFrame, kLight, kReticle, kAlphaPixels };
+struct ReadPiece {
+  int32_t w, h;
+  Read kind;
+};
+const std::map<std::string, ReadPiece>& read_pieces() {
+  static const std::map<std::string, ReadPiece> m = {
+      {"hud_coolant_frame", {20, 40, Read::kLines}}, {"hud_fuel_frame", {27, 38, Read::kLines}},
+      {"hud_speed_frame", {28, 78, Read::kLines}},   {"hud_heat_meter", {17, 112, Read::kLines}},
+      {"hud_zoomcant", {21, 21, Read::kLines}},      {"hud_zoomoff", {21, 21, Read::kLines}},
+      {"hud_zoomon", {21, 21, Read::kLines}},        {"hud_zoomover", {21, 21, Read::kLines}},
+      {"hud_compass", {1668, 10, Read::kLines}},     {"hud_heat_bar", {15, 110, Read::kHeatBar}},
+      {"hud_compass_frame", {148, 19, Read::kCompassFrame}}, {"hud_light_green", {8, 8, Read::kLight}},
+      {"hud_light_red", {8, 8, Read::kLight}},       {"hud_light_yellow", {8, 8, Read::kLight}},
+      // The reticle's four looks (hud.cpp; veh_stealth.cpp's ret_off) and the damage display's backgrounds.
+      {"ret_off", {40, 48, Read::kReticle}},         {"ret_on", {40, 48, Read::kReticle}},
+      {"ret_over", {40, 48, Read::kReticle}},        {"ret_cant", {40, 48, Read::kReticle}},
+      {"dmg_bg_blue", {75, 91, Read::kAlphaPixels}}, {"dmg_bg_grn", {75, 91, Read::kAlphaPixels}},
+      {"dmg_bg_red", {75, 91, Read::kAlphaPixels}}};
+  return m;
+}
+
+// PM's picture as RGB and alpha (no alpha: black clear), or false when it isn't there at the size expected.
+struct Pm {
+  int32_t w = 0, h = 0;
+  std::vector<Rgb> rgb;
+  std::vector<uint8_t> alpha;
+};
+bool read_pm(const std::string& name, int32_t w, int32_t h, Pm* out) {
+  zimg::Texture* t = zimg::fetch_image(name.c_str());
+  if (!t) return false;
+  const bool ok = t->width == w && t->height == h && (t->flags & zimg::kTwoBytes) && !t->palette_count && t->pixels;
+  if (ok) {
+    out->w = w, out->h = h;
+    const uint16_t* p = static_cast<const uint16_t*>(t->pixels);
+    for (int32_t i = 0; i < w * h; ++i) {
+      const uint16_t v = p[i];
+      out->rgb.push_back({static_cast<uint8_t>((v >> 11) << 3), static_cast<uint8_t>(((v >> 5) & 63) << 2), static_cast<uint8_t>((v & 31) << 3)});
+      out->alpha.push_back(t->alpha ? t->alpha[i] : (v ? 255 : 0));
+    }
+  }
+  zimg::free_texture(t);  // fetch_image reads a new copy for every get
+  return ok;
+}
+
+int32_t luma(Rgb c) { return 299 * c.r + 587 * c.g + 114 * c.b; }
+
+// `src` (straight alpha) over `dst`, both RGBA bytes.
+void over(std::vector<uint8_t>& dst, const std::vector<uint8_t>& src) {
+  for (size_t i = 0; i + 3 < dst.size() && i + 3 < src.size(); i += 4) {
+    const float a = src[i + 3] / 255.0f, b = dst[i + 3] / 255.0f, oa = a + b * (1 - a);
+    if (oa <= 0) continue;
+    for (size_t k = 0; k < 3; ++k) dst[i + k] = static_cast<uint8_t>(std::lround((src[i + k] * a + dst[i + k] * b * (1 - a)) / oa));
+    dst[i + 3] = static_cast<uint8_t>(std::lround(oa * 255.0f));
+  }
+}
+
+// A layer coloured point by point: `tone` gives straight RGB and an alpha (0..1) at a canvas point.
+using Tone = std::function<void(double x, double y, float* rgba)>;
+std::vector<uint8_t> paint(int32_t w, int32_t h, int32_t s, const std::vector<std::pair<Shape, Tone>>& layers) {
+  const int32_t dw = w * s, dh = h * s, n = s == 1 ? 1 : 4;
+  std::vector<uint8_t> out(static_cast<size_t>(dw) * dh * 4, 0);
+  for (const auto& [in, tone] : layers) {
+    std::vector<uint8_t> layer(out.size(), 0);
+    for (int32_t j = 0; j < dh; ++j)
+      for (int32_t i = 0; i < dw; ++i) {
+        int32_t hits = 0;
+        for (int32_t b = 0; b < n; ++b)
+          for (int32_t a = 0; a < n; ++a) hits += in((i + (a + 0.5) / n) / s, (j + (b + 0.5) / n) / s) ? 1 : 0;
+        if (!hits) continue;
+        float t[4];
+        tone((i + 0.5) / s, (j + 0.5) / s, t);
+        uint8_t* d = &layer[(static_cast<size_t>(j) * dw + i) * 4];
+        for (int32_t k = 0; k < 3; ++k) d[k] = static_cast<uint8_t>(std::lround(std::clamp(t[k], 0.0f, 255.0f)));
+        d[3] = static_cast<uint8_t>(std::lround(std::clamp(t[3] * hits / (n * n), 0.0f, 1.0f) * 255.0f));
+      }
+    over(out, layer);
+  }
+  return out;
+}
+Tone flat(Rgb c, float alpha = 1) {
+  return [=](double, double, float* t) { t[0] = c.r, t[1] = c.g, t[2] = c.b, t[3] = alpha; };
+}
+// Values at the centres of n cells, read between them at u (cells of size 1 from 0).
+float between(const std::vector<float>& v, double u) {
+  const double f = std::clamp(u - 0.5, 0.0, static_cast<double>(v.size() - 1));
+  const size_t i = static_cast<size_t>(f);
+  const double k = f - i;
+  return static_cast<float>(i + 1 < v.size() ? v[i] * (1 - k) + v[i + 1] * k : v[i]);
+}
+
+// One colour's pixels as squares, and a stroke one pixel wide joining the centres of two that touch only at a corner.
+Shape pixels_where(const Pm& pm, const std::function<bool(size_t i)>& which) {
+  auto set = std::make_shared<std::vector<uint8_t>>(pm.rgb.size(), 0);
+  for (size_t i = 0; i < set->size(); ++i) (*set)[i] = which(i);
+  const int32_t w = pm.w, h = pm.h;
+  auto on = [set, w, h](int32_t x, int32_t y) { return x >= 0 && y >= 0 && x < w && y < h && (*set)[static_cast<size_t>(y) * w + x]; };
+  // The corner joins by the 2 x 2 cell they cross (its top-left pixel): 1 down-right, 2 down-left.
+  auto joins = std::make_shared<std::map<int64_t, int32_t>>();
+  for (int32_t y = 0; y + 1 < h; ++y)
+    for (int32_t x = 0; x + 1 < w; ++x) {
+      const bool a = on(x, y), b = on(x + 1, y), cc = on(x, y + 1), d = on(x + 1, y + 1);
+      const int32_t k = (a && d && !b && !cc ? 1 : 0) | (b && cc && !a && !d ? 2 : 0);
+      if (k) (*joins)[static_cast<int64_t>(y) * w + x] = k;
+    }
+  return [on, joins, w](double x, double y) {
+    const int32_t ix = static_cast<int32_t>(std::floor(x)), iy = static_cast<int32_t>(std::floor(y));
+    if (on(ix, iy)) return true;
+    for (int32_t cy = iy - 1; cy <= iy; ++cy)
+      for (int32_t cx = ix - 1; cx <= ix; ++cx) {
+        if (cx < 0 || cy < 0) continue;
+        auto it = joins->find(static_cast<int64_t>(cy) * w + cx);
+        if (it == joins->end()) continue;
+        // Distance to the centre-to-centre segment of the cell's diagonal(s), under half a pixel.
+        for (int32_t k = 1; k <= 2; ++k) {
+          if (!(it->second & k)) continue;
+          const double ax = cx + (k == 1 ? 0.5 : 1.5), ay = cy + 0.5, bx = cx + (k == 1 ? 1.5 : 0.5), by = cy + 1.5;
+          const double dx = bx - ax, dy = by - ay, t = std::clamp(((x - ax) * dx + (y - ay) * dy) / 2.0, 0.0, 1.0);
+          const double ex = ax + t * dx - x, ey = ay + t * dy - y;
+          if (ex * ex + ey * ey < 0.25) return true;
+        }
+      }
+    return false;
+  };
+}
+
+Shape pixels_of(const Pm& pm, Rgb c) {
+  return pixels_where(pm, [&pm, c](size_t i) { return pm.rgb[i].r == c.r && pm.rgb[i].g == c.g && pm.rgb[i].b == c.b; });
+}
+
+// Pictures with alpha drawn as their pixels: each colour and alpha its own layer (squares, corner joins), faintest
+// first. `skip` leaves pixels out (the reticle's ring, drawn as a circle).
+void alpha_layers(const Pm& pm, const std::function<bool(size_t)>& skip, std::vector<std::pair<Shape, Tone>>* layers) {
+  std::map<uint64_t, std::pair<Rgb, uint8_t>> groups;
+  for (size_t i = 0; i < pm.rgb.size(); ++i) {
+    if (!pm.alpha[i] || skip(i)) continue;
+    const Rgb& c = pm.rgb[i];
+    groups[(static_cast<uint64_t>(pm.alpha[i]) << 24) | (static_cast<uint64_t>(c.r) << 16) | (c.g << 8) | c.b] = {c, pm.alpha[i]};
+  }
+  for (const auto& [key, g] : groups) {
+    const Rgb c = g.first;
+    const uint8_t a = g.second;
+    layers->push_back({pixels_where(pm, [&pm, &skip, c, a](size_t i) {
+                         return pm.alpha[i] == a && !skip(i) && pm.rgb[i].r == c.r && pm.rgb[i].g == c.g && pm.rgb[i].b == c.b;
+                       }),
+                       flat(c, a / 255.0f)});
+  }
+}
+
+std::vector<uint8_t> draw_alpha_pixels(const Pm& pm, int32_t s) {
+  std::vector<std::pair<Shape, Tone>> layers;
+  alpha_layers(pm, [](size_t) { return false; }, &layers);
+  return paint(pm.w, pm.h, s, layers);
+}
+
+// The reticle: PM's ring (its bright pixels away from the centre dot) fitted as a circle, its centre and radius from
+// their alpha; under it the dim backing and over it the centre dot as their pixels.
+std::vector<uint8_t> draw_reticle(const Pm& pm, int32_t s) {
+  auto bright = [&pm](size_t i) { return pm.alpha[i] > 0 && luma(pm.rgb[i]) > 299 * 40 + 587 * 40 + 114 * 40; };
+  double sw = 0, cx = 0, cy = 0;
+  for (size_t i = 0; i < pm.rgb.size(); ++i)
+    if (bright(i)) {
+      const double a = pm.alpha[i] / 255.0;
+      sw += a, cx += a * (i % pm.w + 0.5), cy += a * (i / pm.w + 0.5);
+    }
+  if (sw <= 0) return draw_alpha_pixels(pm, s);
+  cx /= sw, cy /= sw;
+  auto ring_px = [&](size_t i) {
+    const double dx = i % pm.w + 0.5 - cx, dy = i / pm.w + 0.5 - cy;
+    return bright(i) && dx * dx + dy * dy > 9;
+  };
+  // The ring's colour its brightest pixels' and its alpha theirs (the most of them at it); its width keeps PM's light:
+  // all its pixels' alpha x brightness over that alpha x brightness, along the circle.
+  double rsum = 0, cover = 0, light = 0;
+  Rgb colour{0, 0, 0};
+  for (size_t i = 0; i < pm.rgb.size(); ++i)
+    if (ring_px(i) && luma(pm.rgb[i]) > luma(colour)) colour = pm.rgb[i];
+  std::map<uint8_t, int32_t> at;
+  for (size_t i = 0; i < pm.rgb.size(); ++i)
+    if (ring_px(i)) {
+      const double a = pm.alpha[i] / 255.0;
+      rsum += a * std::hypot(i % pm.w + 0.5 - cx, i / pm.w + 0.5 - cy), cover += a;
+      light += a * luma(pm.rgb[i]);
+      if (luma(pm.rgb[i]) == luma(colour)) ++at[pm.alpha[i]];
+    }
+  uint8_t core = 0;
+  for (const auto& [a, n] : at)
+    if (!core || n > at[core]) core = a;
+  std::vector<std::pair<Shape, Tone>> layers;
+  alpha_layers(pm, [&](size_t i) { return bright(i); }, &layers);  // the backing
+  if (cover > 0 && core) {
+    const double r = rsum / cover, width = light / (core / 255.0 * luma(colour)) / (2 * 3.14159265358979 * r);
+    layers.push_back({ring(cx, cy, r + width / 2, r - width / 2), flat(colour, core / 255.0f)});
+  }
+  alpha_layers(pm, [&](size_t i) { return !bright(i) || ring_px(i); }, &layers);  // the dot
+  return paint(pm.w, pm.h, s, layers);
+}
+
+std::vector<uint8_t> draw_lines(const Pm& pm, int32_t s) {
+  std::map<uint32_t, Rgb> colours;
+  for (const Rgb& c : pm.rgb)
+    if (c.r || c.g || c.b) colours[(static_cast<uint32_t>(c.r) << 16) | (c.g << 8) | c.b] = c;
+  std::vector<Rgb> order;
+  for (const auto& [key, c] : colours) order.push_back(c);
+  std::stable_sort(order.begin(), order.end(), [](Rgb a, Rgb b) { return luma(a) < luma(b); });  // the shadows first
+  std::vector<std::pair<Shape, Tone>> layers;
+  for (const Rgb& c : order) layers.push_back({pixels_of(pm, c), flat(c)});
+  return paint(pm.w, pm.h, s, layers);
+}
+
+std::vector<uint8_t> draw_heat_bar(const Pm& pm, int32_t s) {
+  // Each row's colour, its lit pixels' mean.
+  std::vector<float> ch[3];
+  for (int32_t y = 0; y < pm.h; ++y) {
+    double sum[3] = {0, 0, 0};
+    int32_t n = 0;
+    for (int32_t x = 0; x < pm.w; ++x) {
+      const Rgb& c = pm.rgb[static_cast<size_t>(y) * pm.w + x];
+      if (!(c.r || c.g || c.b)) continue;
+      sum[0] += c.r, sum[1] += c.g, sum[2] += c.b, ++n;
+    }
+    for (int32_t k = 0; k < 3; ++k) ch[k].push_back(n ? static_cast<float>(sum[k] / n) : (ch[k].empty() ? 0.0f : ch[k].back()));
+  }
+  const Shape bars = [](double x, double y) {
+    return x >= 0 && y >= 0 && ((y < 41 && x < 15) || (y < 61 && x < 11) || (y < 110 && x < 7));
+  };
+  const Tone run = [&](double, double y, float* t) {
+    for (int32_t k = 0; k < 3; ++k) t[k] = between(ch[k], y);
+    t[3] = 1;
+  };
+  return paint(pm.w, pm.h, s, {{bars, run}});
+}
+
+std::vector<uint8_t> draw_compass_frame(const Pm& pm, int32_t s) {
+  std::vector<float> a;  // each column's alpha over the band's rows (7 to 18)
+  for (int32_t x = 0; x < pm.w; ++x) {
+    double sum = 0;
+    for (int32_t y = 7; y < pm.h; ++y) sum += pm.alpha[static_cast<size_t>(y) * pm.w + x];
+    a.push_back(static_cast<float>(sum / (pm.h - 7) / 255.0));
+  }
+  const Rgb band = pm.rgb[static_cast<size_t>(12) * pm.w + pm.w / 2], tick = pm.rgb[74];
+  const Tone fade = [&](double x, double, float* t) { t[0] = band.r, t[1] = band.g, t[2] = band.b, t[3] = between(a, x); };
+  return paint(pm.w, pm.h, s, {{rect(0, 7, pm.w, pm.h), fade}, {rect(74, 0, 75, 7), flat(tick)}});
+}
+
+std::vector<uint8_t> draw_light(const Pm& pm, int32_t s) {
+  double area = 0, cx = 0, cy = 0;
+  std::vector<float> ch[3];
+  for (auto& c : ch) c.resize(pm.rgb.size());
+  for (int32_t y = 0; y < pm.h; ++y)
+    for (int32_t x = 0; x < pm.w; ++x) {
+      const size_t i = static_cast<size_t>(y) * pm.w + x;
+      const double a = pm.alpha[i] / 255.0;
+      area += a, cx += a * (x + 0.5), cy += a * (y + 0.5);
+      ch[0][i] = pm.rgb[i].r, ch[1][i] = pm.rgb[i].g, ch[2][i] = pm.rgb[i].b;
+    }
+  if (area <= 0) return std::vector<uint8_t>(static_cast<size_t>(pm.w) * s * pm.h * s * 4, 0);
+  cx /= area, cy /= area;
+  const double r = std::sqrt(area / 3.14159265358979);
+  // The shading between the pixels' centres, from the lit ones only (the clear ones are black).
+  const Tone shade = [&, w = pm.w, h = pm.h](double x, double y, float* t) {
+    const double fx = std::clamp(x - 0.5, 0.0, w - 1.0), fy = std::clamp(y - 0.5, 0.0, h - 1.0);
+    const int32_t x0 = static_cast<int32_t>(fx), y0 = static_cast<int32_t>(fy);
+    double sum[3] = {0, 0, 0}, wsum = 0;
+    for (int32_t j = 0; j < 2; ++j)
+      for (int32_t i = 0; i < 2; ++i) {
+        const int32_t xi = std::min(x0 + i, w - 1), yj = std::min(y0 + j, h - 1);
+        const size_t k = static_cast<size_t>(yj) * w + xi;
+        const double wt = (i ? fx - x0 : 1 - (fx - x0)) * (j ? fy - y0 : 1 - (fy - y0)) * (pm.alpha[k] / 255.0);
+        for (int32_t c = 0; c < 3; ++c) sum[c] += wt * ch[c][k];
+        wsum += wt;
+      }
+    for (int32_t c = 0; c < 3; ++c) t[c] = wsum > 0 ? static_cast<float>(sum[c] / wsum) : 0.0f;
+    t[3] = 1;
+  };
+  return paint(pm.w, pm.h, s, {{disc(cx, cy, r), shade}});
+}
+
 }  // namespace
 
 const std::vector<std::string>& names() {
   static const std::vector<std::string> n = [] {
     std::vector<std::string> v;
     for (const auto& [name, p] : pieces()) v.push_back(name);
+    for (const auto& [name, p] : read_pieces()) v.push_back(name);
+    std::sort(v.begin(), v.end());
     return v;
   }();
   return n;
 }
 
 bool size_of(const std::string& name, int32_t* w, int32_t* h) {
+  if (auto r = read_pieces().find(name); r != read_pieces().end()) {
+    *w = r->second.w, *h = r->second.h;
+    return true;
+  }
   auto it = pieces().find(name);
   if (it == pieces().end()) return false;
   *w = it->second.w, *h = it->second.h;
   return true;
 }
 
+bool read_from_pm(const std::string& name) { return read_pieces().count(name) != 0; }
+
 std::vector<uint8_t> draw(const std::string& name, int32_t s) {
+  if (auto r = read_pieces().find(name); r != read_pieces().end()) {
+    Pm pm;
+    if (s < 1 || !read_pm(name, r->second.w, r->second.h, &pm)) return {};
+    switch (r->second.kind) {
+      case Read::kLines: return draw_lines(pm, s);
+      case Read::kHeatBar: return draw_heat_bar(pm, s);
+      case Read::kCompassFrame: return draw_compass_frame(pm, s);
+      case Read::kLight: return draw_light(pm, s);
+      case Read::kReticle: return draw_reticle(pm, s);
+      case Read::kAlphaPixels: return draw_alpha_pixels(pm, s);
+    }
+    return {};
+  }
   auto it = pieces().find(name);
   if (it == pieces().end() || s < 1) return {};
   const Piece& p = it->second;
