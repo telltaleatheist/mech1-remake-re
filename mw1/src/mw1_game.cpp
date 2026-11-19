@@ -2403,6 +2403,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       }
     }
     company_ = new_company(rng_);
+    // MW1_START_WORLD=<name> (development: --shot pictures of another House's world, FIXES.md item 50's liaisons): the
+    // new company on that world (a name's beginning, as the travel map's search).
+    if (const char* w = std::getenv("MW1_START_WORLD"))
+      if (const int32_t i = find_by_name(w); i >= 0) set_planet(company_, i);
     refresh_world(company_, rng_);
     std::printf("mw1: a new company on %s, %s C-bills\n", company_.planet.c_str(), thousands(company_.funds).c_str());
     offered_ = false, contract_ = Contract{};

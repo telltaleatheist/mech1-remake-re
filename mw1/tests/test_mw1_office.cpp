@@ -2,12 +2,17 @@
 // (mw1_office.h): the rule's rounds against rolls predicted from a copy of the same generator, the patience and its
 // ending, the refusal, the stuck guard counting both, the save. The office in play: test_mw1_loop.cpp.
 #include <cstdio>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <regex>
 #include <string>
 #include <vector>
 
 #include "check.h"
 #include "mw1_install.h"
 #include "mw1_campaign.h"
+#include "mw1_chrome.h"
 #include "mw1_office.h"
 #include "mw1_pilots.h"
 #include "mw1_start.h"
@@ -262,4 +267,76 @@ TEST(mw1_office_saved_and_a_version_6_save_read) {
   std::printf("  version 6: patience %d, ceilings %d%% %d%%, %s\n", back.patience, kb.salvage_ceiling, kb.advance_ceiling, why.c_str());
   EXPECT(back.patience == mw1::kPatienceBase[mw1::kMarik] + 1 && !back.withdrawn && kb.attempts == 0);
   EXPECT(kb.salvage_ceiling == mw1::salvage_ceiling(back, mw1::kMarik) && kb.advance_ceiling == mw1::advance_ceiling(back, mw1::kMarik));
+}
+
+// FIXES.md item 50 (Owen 2026-11-18): the liaison's frame as wide as the buttons above it, its edges on theirs; its top a
+// button gap under LEAVE; its foot on the terms box's; the portrait inside the frame's border, its art that size and
+// cut to it (never stretched: the file's shape is the picture's). At 4:3 and 16:9, to the pixel.
+TEST(mw1_office_the_liaison_lines_up_with_the_buttons_and_the_terms) {
+  namespace fs = std::filesystem;
+  std::ifstream f(fs::path(MW1_DATA_DIR) / "mw1office.zrd");
+  const std::string all((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+  const size_t wide_at = all.find("MW1OFFICEDIALOG_WIDE (");
+  EXPECT(wide_at != std::string::npos);
+  struct Rect {
+    int x = -1, y = -1;
+    std::string bitmap;
+  };
+  auto piece = [](const std::string& d, const std::string& name) {
+    const std::regex re("\\b" + name + " \\(POSITION \\((-?\\d+) (-?\\d+)\\) BITMAP \\(\"([a-z0-9_]+)\"\\)");
+    std::smatch m;
+    Rect r;
+    if (std::regex_search(d, m, re)) r.x = std::stoi(m[1]), r.y = std::stoi(m[2]), r.bitmap = m[3];
+    return r;
+  };
+  auto size_of = [](const std::string& bitmap, int* w, int* h) {  // mw1_<kind>_<w>x<h>
+    std::smatch m;
+    return std::regex_search(bitmap, m, std::regex("_(\\d+)x(\\d+)$")) && (*w = std::stoi(m[1]), *h = std::stoi(m[2]), true);
+  };
+  for (const bool wide : {false, true}) {
+    const std::string d = wide ? all.substr(wide_at) : all.substr(0, wide_at);
+    const Rect request = piece(d, "REQUEST"), submit = piece(d, "SUBMIT"), back = piece(d, "BACK");
+    const Rect frame = piece(d, "PANEL4"), picture = piece(d, "PANEL5"), terms = piece(d, "PANEL7");
+    int fw = 0, fh = 0, tw = 0, th = 0;
+    EXPECT(size_of(frame.bitmap, &fw, &fh) && size_of(terms.bitmap, &tw, &th));
+    const int gap = submit.y - request.y - mw1::kButtonH;
+    std::printf("  %s: buttons x %d..%d, LEAVE's foot %d, gap %d; the frame %d..%d x %d..%d; the terms' foot %d\n",
+                wide ? "16:9" : "4:3", back.x, back.x + mw1::kButtonW, back.y + mw1::kButtonH, gap, frame.x, frame.x + fw,
+                frame.y, frame.y + fh, terms.y + th);
+    EXPECT(gap > 0 && back.x == request.x);
+    EXPECT(frame.x == back.x && fw == mw1::kButtonW);              // as wide as the buttons, edges lined up
+    EXPECT(frame.y == back.y + mw1::kButtonH + gap);               // a button gap under LEAVE
+    EXPECT(frame.y + fh == terms.y + th);                          // its foot on the terms box's
+    EXPECT(picture.x == frame.x + mw1::kFrame && picture.y == frame.y + mw1::kFrame);
+    EXPECT(picture.bitmap == "mw1_liaison_davion_office");
+    bool known = false;
+    for (const mw1::PanelSize& p : mw1::frame_sizes()) known = known || (p.w == fw && p.h == fh);
+    EXPECT(known);  // the chrome makes the frame
+  }
+  // Each House's portrait: the frame's inside, from its own file cut to that shape (within a pixel of the file's).
+  std::ifstream csv(fs::path(MW1_DATA_DIR).parent_path() / "data-src" / "art" / "art.csv");
+  std::string line;
+  int found = 0;
+  const int iw = mw1::kButtonW - 2 * mw1::kFrame, ih = 210 - 2 * mw1::kFrame;
+  while (std::getline(csv, line)) {
+    std::smatch m;
+    if (!std::regex_match(line, m, std::regex("liaison_([a-z]+)_office,(liaison_[a-z]+_office\\.jpg),(\\d+),(\\d+)"))) continue;
+    ++found;
+    EXPECT(std::stoi(m[3]) == iw && std::stoi(m[4]) == ih);
+    // The JPEG's size (its SOF0 marker): the file's shape the picture's, so the packer's scaling stretches nothing.
+    std::ifstream j(fs::path(MW1_DATA_DIR).parent_path() / "data-src" / "art" / m[2].str(), std::ios::binary);
+    const std::vector<unsigned char> b((std::istreambuf_iterator<char>(j)), std::istreambuf_iterator<char>());
+    int jw = 0, jh = 0;
+    for (size_t i = 2; i + 9 < b.size();) {
+      if (b[i] != 0xFF) break;
+      const int marker = b[i + 1], len = b[i + 2] << 8 | b[i + 3];
+      if (marker == 0xC0 || marker == 0xC2) {
+        jh = b[i + 5] << 8 | b[i + 6], jw = b[i + 7] << 8 | b[i + 8];
+        break;
+      }
+      i += 2 + static_cast<size_t>(len);
+    }
+    EXPECT(jw > 0 && std::abs(jw * ih - jh * iw) <= std::max(iw, ih));  // the same shape, to a pixel's rounding
+  }
+  EXPECT(found == 5);  // every House's liaison
 }

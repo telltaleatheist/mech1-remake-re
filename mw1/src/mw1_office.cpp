@@ -139,7 +139,7 @@ ScreenView office_view(const Company& c, const Contract& k, const OfficeChoice& 
   v.pictures.assign(kOfficePanelLiaison + 1, "");
   std::string h;
   for (char ch : house) h += static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-  v.pictures[kOfficePanelLiaison] = "mw1_liaison_" + h + "_s";
+  v.pictures[kOfficePanelLiaison] = "mw1_liaison_" + h + "_office";  // item 50: lined up with the buttons
   v.buttons.resize(kOfficeButtonCount);
   v.buttons[kOfficeSubmit - 1].on = up && o.ask.any();
   v.buttons[kOfficeAccept - 1].on = up;
