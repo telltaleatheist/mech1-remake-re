@@ -185,6 +185,12 @@ class Mw1Screen : public mech3::MenuScreen {
   void hover_on(int32_t id) {
     if (hover_) hover_(id);
   }
+  // `greyed` hears a disabled button's id as the mouse comes onto it or clicks it (FIXES.md item 78: the status line
+  // says why it's greyed); greyed_on() is the same from a test.
+  void set_greyed(std::function<void(int32_t)> greyed) { greyed_ = std::move(greyed); }
+  void greyed_on(int32_t id) {
+    if (greyed_) greyed_(id);
+  }
   const std::vector<Mark>& marks() const { return marks_now_; }  // for the tests: the shapes shown now
   int32_t shift(Anchor a) const;  // how far a piece moves right from its layout's place on this canvas
   bool wide() const { return wide_; }  // laid out by <dialog>_WIDE
@@ -215,6 +221,7 @@ class Mw1Screen : public mech3::MenuScreen {
   std::vector<std::pair<std::string, Place>> places_;  // TEXTS, anchored
   std::function<void(int32_t)> pressed_;
   std::function<void(int32_t)> hover_;  // the buttons hold its address (set_hover)
+  std::function<void(int32_t)> greyed_;  // and this one's (set_greyed)
   bool loaded_ = false;
   std::vector<std::unique_ptr<mech3::HelpButton>> buttons_;   // by id - 1
   std::vector<std::unique_ptr<ztwod::Text>> labels_;          // the buttons' words, by id - 1
@@ -258,6 +265,10 @@ class Mw1State : public mech3::MenuState {
     hover_ = hover;
     if (screen_ptr_) screen_ptr_->set_hover(std::move(hover));
   }
+  void set_greyed(std::function<void(int32_t)> greyed) {  // a disabled button's hover or click (Mw1Screen::set_greyed)
+    greyed_ = greyed;
+    if (screen_ptr_) screen_ptr_->set_greyed(std::move(greyed));
+  }
   void key(uint32_t code) {  // a key as pressed (tests)
     if (keys_) keys_(code);
   }
@@ -291,6 +302,7 @@ class Mw1State : public mech3::MenuState {
   int32_t wheel_at_ = 0;  // the wheel's position last frame
   bool wheel_read_ = false;
   std::function<void(int32_t)> hover_;
+  std::function<void(int32_t)> greyed_;
 };
 
 // FIXES.md item 52: after each frame shown (Engine::on_present), the fade between screens on a screen that isn't

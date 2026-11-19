@@ -27,16 +27,18 @@ namespace {
 // images every 0.05 s while the mouse is over it, so MW1's frame flashed amber once and went dark while its dot
 // blinked. Here the lit look (frame amber, dot lit) holds as long as the mouse is over it, a click shows the pressed
 // look for a moment, and a screen shown again under the mouse (a click's result) keeps it lit.
-// It tells the screen's hover hook (Mw1Screen::set_hover) when the mouse comes onto it (enabled) and goes off it.
+// It tells the screen's hover hook (Mw1Screen::set_hover) when the mouse comes onto it (enabled) and goes off it, and
+// the greyed hook (set_greyed, FIXES.md item 78) when the mouse comes onto it or clicks it while it's disabled.
 class Mw1Button : public mech3::HelpButton {
  public:
-  Mw1Button(mech3::Engine& e, int32_t id, std::function<void(int32_t)>* hover, bool repeat)
-      : HelpButton(e, id), hover_(hover), repeat_(repeat) {}
+  Mw1Button(mech3::Engine& e, int32_t id, std::function<void(int32_t)>* hover, std::function<void(int32_t)>* greyed, bool repeat)
+      : HelpButton(e, id), hover_(hover), greyed_(greyed), repeat_(repeat) {}
   void on_enter() override {
     HelpButton::on_enter();
     blinking = 0, hovered_ = true;
     lit();
     if (enabled && hover_ && *hover_) (*hover_)(id);
+    if (!enabled && greyed_ && *greyed_) (*greyed_)(id);
   }
   void on_leave() override {
     const bool was = hovered_;
@@ -48,6 +50,7 @@ class Mw1Button : public mech3::HelpButton {
   // the same pass, so a press that changes the page (PURCHASE MECHS) would also press the page's new button at that
   // place (its DONE), shown only a moment before the release reached it.
   void on_left_up() override {
+    if (!enabled && hovered_ && greyed_ && *greyed_) (*greyed_)(id);
     if (!(mouse & ztwod::kPressed)) return;
     if (repeat_) {  // it acted on the press
       // FIXES.md item 36: the press over. The window marks a press (kPressed) and calls on_press only while unmarked,
@@ -93,6 +96,7 @@ class Mw1Button : public mech3::HelpButton {
     if (img_rollover && image != img_rollover) set_image(img_rollover), dirty();
   }
   std::function<void(int32_t)>* hover_;
+  std::function<void(int32_t)>* greyed_;
   bool hovered_ = false;
   float pressed_for_ = 0.0f;
   bool repeat_ = false;
@@ -230,7 +234,7 @@ Mw1Screen::Mw1Screen(mech3::Engine& e, zgame::Handle state_handle, const char* f
   zrdr::Node* entries = zrdr::find(dlg, "BUTTONS");
   for (size_t i = 0; i < names_.size(); ++i) {
     const int32_t id = static_cast<int32_t>(i) + 1;
-    std::unique_ptr<mech3::HelpButton> b = std::make_unique<Mw1Button>(e, id, &hover_, names_[i].repeat);
+    std::unique_ptr<mech3::HelpButton> b = std::make_unique<Mw1Button>(e, id, &hover_, &greyed_, names_[i].repeat);
     b->id = id;
     if (!ztwod::bind_button(this, dlg, b.get(), names_[i].name)) {
       std::printf("mw1: the layout %s has no button %s\n", file, names_[i].name);
@@ -800,6 +804,7 @@ bool Mw1State::enter() {
       if (!fade::current().busy()) p(x, y, down);
     });
   if (hover_) screen_ptr_->set_hover(hover_);
+  if (greyed_) screen_ptr_->set_greyed(greyed_);
   screen_ptr_->show(view_);
   ShellState::enter();
   return true;

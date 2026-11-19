@@ -282,7 +282,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // MW1_SCREEN=mission: as pause, never paused: the mission and its HUD (FIXES 12's HUD shots).
     if (const char* s = std::getenv("MW1_SCREEN");
         s && (std::string(s).rfind("pause", 0) == 0 || std::string(s).rfind("lab", 0) == 0 || std::string(s).rfind("loading", 0) == 0 ||
-              std::string(s) == "results" || std::string(s) == "mission" || std::string(s).rfind("walk_", 0) == 0) &&
+              std::string(s) == "results" || std::string(s) == "mission" || std::string(s).rfind("walk_", 0) == 0 ||
+              (std::string(s) == "bar" && std::getenv("MW1_BAR_GREYED"))) &&
         !shot_driver_) {
       hold_for_shot_ = std::string(s).rfind("loading", 0) == 0;
       // FIXES.md item 51's shots: MW1_SHOT_PAY=pool,repairs (C-bills), the win's pool and the commander's repairs.
@@ -823,6 +824,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   // A button of the hub (or the boxes' answers, without it).
   void press(int32_t id) {
     std::printf("mw1: hub: %s\n", hub_button_name(id));
+    story_off_now_ = false;  // FIXES.md item 78: the story-off note said once
     mech3::GameEngine* ge = ge_;
     // The box's next page first (FIXES.md item 42: six lines a page): OK is NEXT until the last.
     if (id == kHubOk && hub_page_ + 1 < hub_pages(hub_view_panel())) {
@@ -1083,6 +1085,13 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       return false;
     }
     bar_ = ge.adopt_state([this](zgame::Handle h) { return bar_state_ = new BarState(h, [this](int32_t id) { as_player([&] { press_bar(id); }); }); });
+    // FIXES.md item 78: ORDER DRINK and NEWS greyed without MW1's exe; the mouse on one (or a click) says why.
+    if (bar_state_)
+      bar_state_->set_greyed([this](int32_t id) {
+        if ((id != kBarDrink && id != kBarNews) || script().there() || bchoice_.note == kNeedsExeNote) return;
+        bchoice_.note = kNeedsExeNote;
+        show_bar();
+      });
     return bar_ != 0;
   }
 
@@ -2551,7 +2560,11 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (hub_page_ >= hub_pages(v.panel)) hub_page_ = 0;
     v.page = hub_page_;
     v.contract = contract_.accepted && !pending_;
-    v.status = pending_ ? "The mission's back: OK settles it." : hub_hover_ ? tile_words(hub_hover_) : hub_status();
+    // FIXES.md item 78: without MW1's exe, no story (no STORY tile): said once, the hub's first showing, until the mouse
+    // or a press moves on.
+    if (!script().there() && !story_off_said_) story_off_said_ = story_off_now_ = true;
+    v.status = pending_ ? "The mission's back: OK settles it." : hub_hover_ ? tile_words(hub_hover_)
+               : story_off_now_ ? std::string(kStoryOffNote) : hub_status();
     hub_state_->show(v);
   }
 
@@ -2601,7 +2614,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   }
   void hub_hovered(int32_t id) {
     if (id == hub_hover_) return;
-    hub_hover_ = id;
+    hub_hover_ = id, story_off_now_ = false;
     show_hub();
   }
 
@@ -3305,6 +3318,11 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
           if (row >= 0) l->chassis.select(row);
         }
       }
+    // MW1_BAR_GREYED (development, FIXES 78's shots): the Bar's greyed NEWS under the mouse from its 30th frame (as
+    // the button hears it; nothing with the exe).
+    if (std::getenv("MW1_BAR_GREYED") && page == "bar" && bar_state_ && now == static_cast<zgame::State*>(bar_state_) &&
+        frames == 30 && bar_state_->screen())
+      bar_state_->screen()->greyed_on(kBarNews);
     // MW1_LAB_WARN=0..8 (development: --shot pictures of the lab's warnings, FIXES 70): that warning shown, again
     // every second from the 25th frame (each shows for 3 seconds).
     if (const char* w = std::getenv("MW1_LAB_WARN"); w && lab && now == &mech3::states().lab && frames >= 25 && frames % 60 == 25)
@@ -3908,6 +3926,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   int32_t hub_hover_ = 0;  // the hub's button under the mouse (its words on the status line), 0 none
   zgame::Handle bar_ = 0;
   BarState* bar_state_ = nullptr;
+  bool story_off_said_ = false, story_off_now_ = false;  // FIXES.md item 78: the hub's story-off note, once a run
   BarChoice bchoice_;
   zgame::Handle office_ = 0;
   OfficeState* office_state_ = nullptr;

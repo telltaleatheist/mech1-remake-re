@@ -74,6 +74,10 @@ class HubOptionsState;
 using namespace hub;
 // A mission back and not settled (the hub's AFTER ACTION), else null (tests).
 const AfterAction* game_loop_pending();
+// FIXES.md item 78: the status line's words without MW1's MW_MAIN.EXE (ours): the Bar's greyed ORDER DRINK or NEWS
+// under the mouse (or clicked), and the hub's once, on its first showing (no STORY tile).
+inline constexpr const char* kNeedsExeNote = "Needs MW_MAIN.EXE in your MechWarrior 1989 folder.";
+inline constexpr const char* kStoryOffNote = "Story off: MW1's MW_MAIN.EXE not found.";
 // The hub's state, once the loop has made it (tests: its screen shows what the player sees); a press of one of
 // its buttons (mw1_hub.h's HubButton), as the screen's own.
 HubState* game_loop_hub();
