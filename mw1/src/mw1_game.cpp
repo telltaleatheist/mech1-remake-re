@@ -103,6 +103,9 @@ constexpr const char* kFontsFile = "mw1fonts.zrd";  // MW1's data folder
 constexpr const char* kDialogFile = "mw1dialog.zrd", *kDialogName = "MW1MESSAGEBOX";  // every message box's layout
 constexpr uint32_t kOptionsStateGlobal = 0x609868;  // PM's main menu's Options state (its OPTIONS button pushes it)  // the message box's styles and answer (Win32's)
 constexpr uint32_t kGfxOptionsStateGlobal = 0x60986c, kControlsStateGlobal = 0x609870;  // its other pages' (MW1_SCREEN)
+// FIXES 97: a defence's enemies engage the company from this far (metres) at least: every enemy must come (an Instant
+// Action map's guards wait at a post until the player comes within their own range).
+constexpr float kDefenceEngage = 3000.0f;
 constexpr const char* kPilotName = "MW1 Company";  // the company's PM pilot (step 2)
 constexpr float kNavNear = 1.0f;  // item 43: only a map's own point on the structure serves as its (a near "Able" says nothing)
 constexpr float kReachRadius = 40.0f;  // metres from the structure's point: FIXES.md item 45, the worst row's closest stand (mw3c2's tower, 33 m) and a margin
@@ -2970,7 +2973,23 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   // Instant Action's launch offers each ally (program_flow.h): slot 1.. in deploy()'s order, flying_'s. The lancemate's
   // name and their Gunnery's aim (kAimErrorFactor on the record's aim error); they launched.
   // FIXES.md item 47: a story battle's enemies aim as its rung says (mw1_ladder.h); a contract's as their records.
+  // FIXES 97: a defence's enemies all come (for the structure or the company). An Instant Action map's record may start
+  // its pilot at mode 0 (+0x3c: MW3's guard, which won't engage until something hits it; mw3c1ia3's Enemy_08 does),
+  // and a defence is won only when every enemy is down: one left at its post a kilometre off stood all mission. Mode
+  // 1 from the start, as the map's other enemies have.
   void enemy_launching(int32_t slot, mech3::ai::AiParams& params) override {
+    if (deployed_ && contract_.objective == Objective::kDefendStructure) {
+      const int32_t mode = params.get<int32_t>(0x3c);
+      const float engage = params.get<float>(0x20);  // squared, as the brain reads it
+      const uint8_t flags = params.get<uint8_t>(0xcc);  // PM's break-offs: 1 the leash from where the fight began, 2 its time
+      if (mode != 1 || engage < kDefenceEngage * kDefenceEngage || (flags & 3)) {
+        std::printf("mw1: defence: the enemy in slot %d comes (mode %d, engage %.0f m, break-offs %d)\n", slot, mode,
+                    std::sqrt(double{engage}), flags & 3);
+        params.put<int32_t>(0x3c, 1);
+        params.put<float>(0x20, std::max(engage, kDefenceEngage * kDefenceEngage));
+        params.put<uint8_t>(0xcc, static_cast<uint8_t>(flags & ~3));
+      }
+    }
     if (!deployed_ || !contract_.rung) return;
     const float error = params.get<float>(0xb8) * story_aim(contract_);
     std::printf("mw1: story battle %d: enemy in slot %d, aim error %g\n", contract_.rung, slot, error);

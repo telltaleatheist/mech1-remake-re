@@ -270,6 +270,7 @@ struct Run {
   // an Owens, hired and assigned; in the mission their names and aims, the enemies and Holmaas's mech destroyed.
   bool lance = false, lance_hired = false, lance_set = false;  // hired at the Bar, then assigned in the COMPANY
   int32_t lance_count = 2;  // 3: Taris Ren too, in a second Firefly
+  std::vector<int32_t> lance_mechs;  // the hangar's mechs for the lance instead (FIXES 97: an Awesome); empty: as above
   // FIXES.md item 72: called each mission frame from the 30th while it returns true (then the run's ending as before).
   std::function<bool(int32_t frame)> in_mission;
   int32_t in_mission_frames = 0;
@@ -783,7 +784,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
         }
         for (const std::string& l : sc->shown()) run->bar_after.push_back(l);
         EXPECT(static_cast<int32_t>(c->lance.size()) == n && c->recruits.empty() && mw1::mech_of(*c, 0) == 0 && mw1::mech_of(*c, 1) == 1);
-        EXPECT(mw1::lance_weight(*c) == 1 + n);  // the Owens and the light mechs, 1 each
+        if (run->lance_mechs.empty()) EXPECT(mw1::lance_weight(*c) == 1 + n);  // the Owens and the light mechs, 1 each
         EXPECT(!sc->visible(mw1::kBarHire) && sc->enabled(mw1::kBarFire));
         // MW1's grid: you first, then each lancemate's portrait and mech; the chosen one's (the last) frame lit.
         EXPECT(sc->picture(mw1::kBarPanelColumnPortrait) == mw1::commander_image(true) &&
@@ -1210,6 +1211,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
           if (run->lance_count == 3) mc->recruits.push_back(3);
           std::vector<int32_t> mechs = {mw1::kPmFirefly, mw1::kPmOwens};
           if (run->lance_count == 3) mechs.push_back(mw1::kPmFirefly);
+          if (!run->lance_mechs.empty()) mechs = run->lance_mechs;
           for (int32_t m : mechs) {
             mw1::OwnedMech o;
             o.mech = m;
@@ -4679,7 +4681,7 @@ float ground_distance(void* a, void* b) {
 // mech its E picked (with two enemies E may pick either: measured to the first listed, one walking at the other ended
 // farther from it, FIXES 72's flake). The hold is short so the lance can't win the fight before the loop ends the
 // mission (held 600 frames a lancemate, the three won it under the hook and the loop's end never ran).
-void lance_orders_run(const char* name, int32_t count, bool reload) {
+void lance_orders_run(const char* name, int32_t count, bool reload, std::vector<int32_t> mechs = {}) {
   std::error_code ec;
   if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
   const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / name;
@@ -4700,6 +4702,7 @@ void lance_orders_run(const char* name, int32_t count, bool reload) {
     Run run;
     run.save = (dir / mw1::kSaveFile).string();
     run.lance = !reload, run.lance_count = count, run.world = "c2";
+    run.lance_mechs = mechs;
     run.first_contract = !reload;
     OrderTrace trace;
     g_trace = &trace;
@@ -4853,7 +4856,85 @@ void lance_orders_run(const char* name, int32_t count, bool reload) {
 
 TEST(mw1_loop_lance_orders_reach_each_new_hire_headless) { lance_orders_run("mw1_lance_orders_2", 2, false); }
 TEST(mw1_loop_lance_orders_reach_each_of_three_headless) { lance_orders_run("mw1_lance_orders_3", 3, false); }
+// FIXES 97 (first suspected, then cleared: the one who stood was an enemy): an Awesome, whose gait table PM reports
+// (run's bounds 3 to 3), walks under orders as the lighter mechs do. The third lancemate in one.
+TEST(mw1_loop_lance_orders_an_awesome_walks_headless) {
+  lance_orders_run("mw1_lance_orders_awesome", 3, false, {mw1::kPmFirefly, mw1::kPmOwens, mw1::kPmAwesome});
+}
 TEST(mw1_loop_lance_orders_reach_each_after_a_reload_headless) { lance_orders_run("mw1_lance_orders_reload", 2, true); }
+
+// FIXES 97: Owen's defence of the tower on mw3c1ia3 (four enemies: a Shadow Hawk, a Warhammer, two Marauders): three
+// came; the fourth stood at its post all mission, fighting only when he came near. The map's Enemy_08 is MW3's guard: its
+// net (net_06) ends 56 m from where it starts, its pilot starts at mode 0 (won't engage), its engage range is 850 m and
+// it breaks off (leash, time) back to its post; from the company's start it never comes. A defence is won only when
+// every enemy is down, so MW1's defence makes each come (mw1_game.cpp, enemy_launching). Here the same mission and force,
+// the player standing at his start (invincible): every enemy closes on him by kCloses within kFrames (unfixed, the
+// guard closed 56 m; with mode 1 alone, about 230 m, the leash taking it back).
+TEST(mw1_loop_defend_every_enemy_comes_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  if (!fs::exists(fs::path(MW1_MW3_GAME_DIR) / "zbd" / "c2" / "gamez.zbd", ec)) return;
+  const std::string worlds = converted_worlds();
+  mw1::MapRow defend;
+  for (const mw1::MapRow& r : shipped_rows())
+    if (r.world == "mw3c1" && r.ia == 3 && r.kind == mw1::RowKind::kDefend) defend = r;
+  EXPECT(defend.node == "iatower");
+  in_child([&] {
+    const char* replay = std::getenv("MW1_TEST_SEED");
+    const auto seed = static_cast<uint32_t>(replay ? std::strtoul(replay, nullptr, 10) : std::time(nullptr));
+    crt::rand_fixed_seed() = seed;
+    Run run;
+    run.row = &defend, run.worlds = worlds;
+    run.force = {mw1::kShadowHawk, mw1::kWarhammer, mw1::kMarauder, mw1::kMarauder};
+    struct Watch {
+      void* mech;
+      std::string record;
+      float from = 0, closest = 1e9f;  // to the player
+      std::string start;               // its pilot's numbers at the start
+    };
+    std::vector<Watch> enemies;
+    constexpr int32_t kFrames = 2400;
+    constexpr float kCloses = 300.0f;
+    bool ended_early = false;
+    float me_at[3] = {};
+    auto gap = [&](void* m) {
+      float p[3];
+      if (!mech3::mech_world_position(m, p)) return -1.0f;
+      return std::sqrt((p[0] - me_at[0]) * (p[0] - me_at[0]) + (p[2] - me_at[2]) * (p[2] - me_at[2]));
+    };
+    run.in_mission = [&](int32_t f) {
+      if (f > 1 && mech3::missions().ended) return ended_early = true, false;
+      void* me = mech3::mech_mission_player();
+      if (!me) return f < 600;
+      if (enemies.empty()) {
+        mech3::program_mech_set_invincible(me, true);
+        mech3::mech_world_position(me, me_at);
+        int32_t n = 0;
+        const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+        for (int32_t i = 0; i < n; ++i) {
+          const mech3::ai::Brain* b = brain_of(ai[i].mech);
+          if (!b || b->params.team() == 1) continue;
+          const mech3::ai::AiParams& q = b->params;
+          char t[160];
+          std::snprintf(t, sizeof t, "net %d, mode %d, engage %.0f m, break-offs %d", q.kind(), q.get<int32_t>(0x3c),
+                        std::sqrt(double{q.get<float>(0x20)}), q.get<uint8_t>(0xcc) & 3);
+          enemies.push_back({ai[i].mech, ai[i].name ? ai[i].name : "", gap(ai[i].mech), 1e9f, t});
+        }
+        return true;
+      }
+      for (Watch& w : enemies)
+        if (const float d = gap(w.mech); d >= 0) w.closest = std::min(w.closest, d);
+      return f < kFrames;
+    };
+    loop_run(kWon, &run);
+    std::printf("  seed %u (MW1_TEST_SEED replays it); %zu enemies%s\n", seed, enemies.size(), ended_early ? "; the mission ended early" : "");
+    for (const Watch& w : enemies) {
+      std::printf("  %-10s (%s): %.0f m from the player, closed %.0f m\n", w.record.c_str(), w.start.c_str(), w.from, w.from - w.closest);
+      EXPECT(w.from - w.closest >= kCloses);
+    }
+    EXPECT(enemies.size() == 4 && !ended_early);
+  });
+}
 
 
 namespace {
