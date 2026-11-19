@@ -423,6 +423,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         const char* to = std::getenv("MW1_TRAVEL_TO");
         const std::vector<int32_t> near = destinations(company_, -1);
         tchoice_.world = to ? find_by_name(to) : near.size() > 6 ? near[6] : -1;
+        // MW1_TRAVEL_FIND (development, FIXES 74's shots): that much typed into the search, as the keys would.
+        if (const char* f = std::getenv("MW1_TRAVEL_FIND"))
+          for (const char* ch = f; *ch; ++ch) type_letter(tchoice_.search, *ch);
         show_travel();
       }
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "bar") press(kHubBar);

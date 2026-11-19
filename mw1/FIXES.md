@@ -850,6 +850,10 @@ Tick an item when it is merged into `main`.
   - Money: "Wages paid: 2400 C-bills." has no thousands comma, while the other lines do. Every amount in the log and the hub box goes through the same thousands().
 - **Done means:** the log test checks that each headline ends in punctuation or "…", and that every number of four digits or more has commas.
 
+## 74. [x] The travel search's "Find:" line could run past GO *(done: mw1-find-line)*
+- **Found in 64 (dev 1):** typing a world's name added a blank line and "Find: <typed>" under the readout. On the longest readouts (a world under the mouse with an office, battles, Clan mechs and a two-line description) that made 16 lines, two more than fit above GO.
+- **Done:** what's typed goes on the status line ("Find: THA"), over the last GO's line, and the readout gains nothing. test_mw1_travel checks every world under the mouse, affordable or not, typed or not: at most 14 readout lines, and the status line says what's typed. test_mw1_loop's typed-name walk still finds "Find: THA" on the screen.
+
 ## Order (open items, the lead's, 2026-11-17; two devs from 22:30)
 **mw1 dev 1** (the hub, the lab, the market, travel), in order:
 1. 23 + 27: the Company screen's mech icons, and every mech picture as PM's icon.
