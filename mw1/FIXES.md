@@ -650,7 +650,7 @@ Tick an item when it is merged into `main`.
 - **Later, if Owen wants:** a clip for the owned DropShip and the Dark Wing victory (the same player); the Mech Complex idle loop and the intro's background (needs loop + rectangle).
 - **Done means:** GO → movie → hub with and without the file; skip by key and click; a 1080p capture of the fade in and out.
 
-## 55. [ ] The launch video: a pause before it, and its sound replaying at the end
+## 55. [x] The launch video: a pause before it, and its sound replaying at the end
 - **Owen (2026-11-18, in play):**
   - "put a slight pause before the video plays showing the dropship taking off. it felt very sudden."
   - "it played the dropship sound for a split second after loading the new screen when the dropship animation was complete. like it was starting it over."
