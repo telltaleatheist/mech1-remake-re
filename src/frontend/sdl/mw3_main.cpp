@@ -1202,13 +1202,14 @@ int run(const Args& a, platform::VideoForWindows* vfw) {
     sound = std::move(silent);
   }
   else sound = std::make_unique<sdlfe::SdlSoundOutput>();
-  sdlfe::SdlMusicOutput music;
+  // Ours (MW1's FIXES 100, quiet_music.h): with MW1's flag, --nosound and --hidden play no music aloud either.
+  const std::unique_ptr<platform::MusicOutput> music = sdlfe::music_output_for(a.nosound, a.hidden);
   mech3::MountFiles files;
 
   mech3::Platform p;
   p.window = &window, p.alert = &alert, p.clock = &clock, p.input = &input, p.force = &force, p.vfw = vfw, p.sound = sound.get();
   if (stepped) p.movie_clock = &movie_clock;
-  p.music = &music, p.files = &files, p.render = window.render(), p.screen = &screen;
+  p.music = music.get(), p.files = &files, p.render = window.render(), p.screen = &screen;
   p.window_width = a.win_w, p.window_height = a.win_h;
   // The registry's keys as a file in the write dir (docs/settings.md).
   platform::RegFile settings(a.write_dir.empty() ? std::string() : a.write_dir + "/settings.reg");
