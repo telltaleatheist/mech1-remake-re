@@ -1182,3 +1182,36 @@ slot the lab would show, never move anyone, and the status line should say where
     and bought (2016 notes). None is over the limit, every one names the Mech Lab, and 1911 are in Owen's words.
   - Its hire check now looks for " joins in the " and the lab.
   - The pilots test covers the forms.
+
+## 94. [x] The sharp text's letters evenly spaced *(done: mw1-hires-advance)*
+Owen, in a mission's F12 objectives: "tow er" and "Tow er" had a gap after the w, "Objectives" had its "ti" crowded,
+and "In Progress" looked uneven.
+- **The cause** (`platform/hires_text.cpp`, FIXES 12's raster for every high-resolution line):
+  - Each glyph was drawn from the font opened at the frame's size, but placed at the canvas font's pen times the
+    scale. That pen is the 480-line font, MONO-hinted, in whole canvas pixels: a "w" a pixel wide, a "t" a pixel
+    narrow. Times 2.25 (1080p) to 4.5 (4K), a pixel of that rounding is 2 to 5 frame pixels. On Owen's Arial line
+    a letter-to-letter step was up to 6.4 frame pixels off the font's own at 4K.
+  - Two smaller faults made it worse:
+    - A glyph with a negative left bearing (a "j") was drawn that much to the right: 3 frame pixels at 4K, into its
+      neighbour. SDL_ttf starts a glyph's render at its ink, not its pen.
+    - Pens taken from measured strings count the last glyph's overhang past its advance (an "f", a "j").
+- **The fix:**
+  - The line still starts at the canvas pen and spans what the canvas's advances span, so the layouts, fit guards
+    and overlap checks still hold.
+  - Each glyph sits within the line at the big font's own advances, stretched evenly to those ends; the two widths
+    are within a tenth of each other.
+  - The ink offset keeps a negative bearing.
+  - The tracking is still the canvas's, times the scale.
+  - Every high-resolution line goes through this: the HUD, the menus, MW1's screens and PM's.
+  - With the opt-in off (PM, MW3, MW1_HIRES=0) nothing changes.
+- **Tests** (`hires_text_on_the_canvas_pen`, mw3pmsdltests):
+  - Fonts: MW1's two, PM's impact, and PM's arial at 12 and 14 bold on Owen's lines ("Destroy the tower  OP:
+    Tower Primary Objectives In Progress").
+  - Scales: 1080p's, 1440p's and 4K's.
+  - Each glyph's ink is exactly where the rule puts it, and each step is within a frame pixel of the font's own.
+  - On the old raster it fails 529 checks, 162 of them the uneven steps.
+- **Shots:** `MW1_SCREEN=objectives` (development) shows F12's objectives over the mission (command 0x44 at frame
+  90). Hidden shots of the objectives, the HUD, the menu and the Bar at 1080p and 4K:
+  outbox/2026-11-19/mw1-hires-advance/.
+- **"Destroy the tower  OP: Tower":** that's PM's and MW3's own line (Mech3.exe 0x0045e080): the objective's text,
+  two spaces, then its nav point's name as "OP: <name>". It reads as the originals do.
