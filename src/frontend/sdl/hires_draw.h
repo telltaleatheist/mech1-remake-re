@@ -32,6 +32,11 @@ class HiresDraw {
   // After the canvas's layer is drawn, before the frame is shown: the screen `pixels` (the lists' owner, pitch in
   // bytes) at width x height. `keyed`: an overlay over the 3D, `key` its clear pixels.
   void draw(const uint16_t* pixels, int width, int height, int pitch, bool rgb565, bool keyed, uint16_t key);
+  // mw1 (engine, ours), FIXES 12: what SdlScreen2D's after_layer does (mw3_main.cpp): draw(), then on a frame shown
+  // whole (not keyed: present_16, PM's Load state and MW1's menus, no scene) a tint quad left pending (a fade's) over
+  // the list, so the fade darkens the high-resolution draws as it would the canvas. On a keyed overlay the frame's
+  // scene drew any quad before the layer; the list is then as the layer is, under no tint.
+  void draw_after_layer(const uint16_t* pixels, int width, int height, int pitch, bool rgb565, bool keyed, uint16_t key);
   // mw1 (engine, ours), FIXES 12: draw()'s first half, before the canvas's layer is uploaded (SdlScreen2D's
   // before_layer): which draws go where, what's under them. On a keyed overlay, the pixels whose chain is drawn here
   // with the key under its base (a pixel each, 1: drop the layer's canvas copy there, so the 3D is under the draws);
