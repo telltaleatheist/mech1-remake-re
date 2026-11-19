@@ -154,6 +154,7 @@ class PanelImage : public ztwod::Image {
   PanelImage() : ztwod::Image(0) {}
   void draw() override;
   int32_t see_w = 0, see_h = 0;  // 0: a picture panel
+  std::string bitmap;            // the layout's BITMAP (a terminal's: "mw1_term_<w>x<h>")
 };
 
 class Mw1Screen : public mech3::MenuScreen {
@@ -192,6 +193,11 @@ class Mw1Screen : public mech3::MenuScreen {
   std::string picture(size_t i) const { return i < pictures_.size() ? pictures_[i] : ""; }  // a PANEL's, as asked
   const std::vector<std::string>& inline_shown() const { return inline_shown_; }      // the inline pictures' images
   bool inline_at(size_t i, int32_t* x, int32_t* y) const;                             // and where (tests)
+  // mw1screenfit's (FIXES.md item 66): the shown terminals' canvas rects (the PANELs whose layout bitmap is a
+  // chrome terminal, mw1_term_*), and the shown inline pictures' (the outlines).
+  struct Box { int32_t left, top, right, bottom; };
+  std::vector<Box> terminals() const;
+  std::vector<Box> inline_boxes() const;
 
  private:
   ztwod::Text* text(std::vector<std::unique_ptr<ztwod::Text>>& pool, size_t i, int32_t x, int32_t y, const char* font);

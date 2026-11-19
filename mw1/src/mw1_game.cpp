@@ -388,6 +388,15 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         if (std::string(s) == "market_dealer") {  // the dealer's limit up (a later tier's roll; mw1screenfit's case)
           company_.market.limit = company_.market.sold + kDealerLimitBase, show_market();
         }
+        // market_full (FIXES.md item 66, mw1screenfit's case): both lists past their rows (twelve for sale, ten owned),
+        // so the last shown row and its outline sit at the terminals' feet.
+        if (std::string(s) == "market_full") {
+          company_.market.stock.clear();
+          for (int32_t i = 0; i < 12; ++i) company_.market.stock.push_back(i % 2 ? kPmAwesome : kPmOwens);
+          company_.hangar.clear();
+          for (int32_t i = 0; i < 9; ++i) company_.hangar.push_back(OwnedMech{i % 2 ? kPmAwesome : kPmFirefly, nullptr, 0});
+          show_market();
+        }
         // market_mixed: funds for the cheapest only (3,000,000 on the start world's stock), the rest dimmed (item 41).
         if (std::string(s) == "market_mixed") company_.funds = 3000000, show_market();
       }
@@ -3379,6 +3388,25 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         std::printf("mw1 screen fit: %s, %zu letters at %d..%d x %d..%d over %zu letters at %d..%d x %d..%d: OVERLAP\n",
                     page, a.text.size(), a.left, a.right, a.top, a.bottom, b.text.size(), b.left, b.right, b.top, b.bottom);
       }
+    // FIXES.md item 66 (Owen: FOR SALE's eighth row and its outline on the box's foot; the canvas check passed it):
+    // a text, arrow or outline in a terminal (its middle inside) stays clear of its border, kTermEdge each side (the
+    // chrome terminal's green edge and its dim inner line). Counted as outside.
+    constexpr int32_t kTermEdge = 4;
+    const int32_t tx = boxed && !wide_results ? (w - 640) / 2 : 0;
+    std::vector<FitText> pieces = fits;
+    for (const Mw1Screen::Box& b : sc->inline_boxes()) pieces.push_back({"[outline]", b.left - tx, b.top, b.right - tx, b.bottom, nullptr, true});
+    for (const Mw1Screen::Box& t : sc->terminals()) {
+      const int32_t l = t.left - tx, r = t.right - tx;
+      for (const FitText& f : pieces) {
+        const int32_t mx = (f.left + f.right) / 2, my = (f.top + f.bottom) / 2;
+        if (mx < l || mx >= r || my < t.top || my >= t.bottom) continue;
+        if (f.left >= l + kTermEdge && f.right <= r - kTermEdge && f.top >= t.top + kTermEdge && f.bottom <= t.bottom - kTermEdge) continue;
+        ++outside, ++texts;
+        std::printf("mw1 screen fit: %s, %s at %d..%d x %d..%d in the terminal %d..%d x %d..%d: ON ITS BORDER\n", page,
+                    f.text.rfind("[", 0) == 0 ? f.text.c_str() : (std::to_string(f.text.size()) + " letters").c_str(),
+                    f.left, f.right, f.top, f.bottom, l, r, t.top, t.bottom);
+      }
+    }
     std::printf("mw1 screen fit: done at %dx%d on %s, %d texts, %d outside, %d overlapping\n", w, h, page, texts, outside,
                 overlaps);
     reported = true;

@@ -2,7 +2,7 @@
 # (854x480), each on a new write dir. 40 frames into the page's MW1 screen every text must be inside the canvas (a
 # status line past the edge at 4:3 was the case); each outside is printed by place and length, never its words.
 # cmake -DMW1_BIN=<mw1> -DDIR=<scratch dir> -P screen_fit.cmake
-set(pages hub hub_options market market_dealer travel travel_pick company bar bar_note_long bar_recruit bar_drink office office_offer news event results loading loading_long)
+set(pages hub hub_options market market_dealer market_full travel travel_pick company bar bar_note_long bar_recruit bar_drink office office_offer news event results loading loading_long)
 set(failed)
 foreach(shape 43 wide)
   foreach(page IN LISTS pages)
@@ -24,7 +24,7 @@ foreach(shape 43 wide)
       execute_process(COMMAND ${CMAKE_COMMAND} -E env MW1_FIT=1 MW1_SCREEN=${page} "${MW1_BIN}" --write-dir "${wd}" --nosound
                               --hidden ${args}
                       RESULT_VARIABLE r OUTPUT_VARIABLE out ERROR_VARIABLE err TIMEOUT 120)
-      string(REGEX MATCHALL "mw1 screen fit: [^\n]*OUTSIDE" bad "${out}")
+      string(REGEX MATCHALL "mw1 screen fit: [^\n]*(OUTSIDE|ON ITS BORDER)" bad "${out}")
       string(REGEX MATCH "mw1 screen fit: done at [^\n]*" done "${out}")
       if(done OR NOT r EQUAL 0)
         break()
