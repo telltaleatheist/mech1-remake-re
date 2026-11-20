@@ -213,6 +213,10 @@ struct Mech : Vehicle {
   HeatSinks heat_sinks;      // +0x658
   Handle attacker = nullptr;  // +0x664  the last to hit it
   uint8_t net_acked = 0;     // +0x668  the last state sent has arrived (0x004709d0)
+  // Ours (MW1 FIXES 113: a lancemate dead with no hit seen): what killed it, for the log. The part (PartId) whose
+  // destruction started its death, 0 not known; and how the damage came (DamagePath, mech_parts.h).
+  int8_t death_part = 0;
+  uint8_t death_path = 0;
   uint32_t net_sent = 0;     // +0x66c  that send's id
   std::list<NetShot> net_shots;  // +0x678, count +0x67c: the shots since the last state sent (0x0046f160 kind 0x16)
   uint32_t net_damaged = 0;  // +0x680  the parts (bit by id) whose damage goes with the next state (kind 0x15)

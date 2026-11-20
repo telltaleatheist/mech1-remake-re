@@ -4,6 +4,7 @@
 #include "mech3/mech_collide.h"
 
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 
 #include "crt/msvc_math.h"
@@ -16,6 +17,7 @@
 #include "mech3/mech.h"
 #include "mech3/mech_ids.h"
 #include "mech3/mech_move.h"
+#include "mech3/mech_parts.h"
 #include "mech3/mission_world.h"
 
 #pragma STDC FP_CONTRACT OFF
@@ -285,6 +287,16 @@ void Mech::ceiling_response(const CollisionHit& h) {
   if (!b) return;
   const float v = ((X(b[5]) - b[2]) * (X(b[4]) - b[1]) * (X(b[3]) - b[0]) / kCrushVolume * 0.25f).f();
   if (v == 0.0f) return;
+  // Ours (MW1 FIXES 113): each crush in the log, what was over the mech and how much it took; a death from it says so.
+  {
+    auto* n = static_cast<zcls::Node*>(h.hit.node);
+    auto* self = static_cast<zcls::Node*>(node);
+    const Handle owner = g_calls.node_object ? g_calls.node_object(h.hit.node) : nullptr;
+    std::printf("mw3: ceiling crush: %s under %s (id 0x%x, %s), box volume %.2f: head %.2f, torso %.2f + %.2f a side\n",
+                self && self->name() ? self->name() : "?", n && n->name() ? n->name() : "?", n ? n->get<uint32_t>(0x28) : 0u,
+                owner ? "owned" : "no owner", static_cast<double>(v), v * 0.1, v * 0.4, v * 0.25);
+  }
+  const DamagePathScope path(kPathCrush);
   head->apply_damage(crt::x87_mul_f24(v, 0.1), 0);
   torso->apply_damage(crt::x87_mul_f24(v, 0.4), 0);  // 0x005dffb0
   const float side = crt::x87_mul_f24(v, 0.25);      // 0x005dfce0
@@ -338,6 +350,7 @@ void Mech::vehicle_response() {
 
 // Pirate's Moon 1.0 @ 0x00425370: 1 is the torso, its centre half and each side a quarter; else the leg 4 or 5.
 void Mech::crash_part(Mech* by, float d, int32_t part) {
+  const DamagePathScope path(kPathRam);  // ours (MW1 FIXES 113)
   attacker = by;
   if (part != 1) return legs[part & 1]->apply_damage(d, 0);
   torso->apply_damage((X(d) * 0.5f).f(), 0);

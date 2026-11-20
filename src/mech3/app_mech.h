@@ -675,6 +675,9 @@ void* mech_mission_player();
 // A lance card's armor display's read (0x0047eba0, 0x0047ef10): the mech's
 // type, its loadout's armor and its parts' armor left in the bars' order.
 bool mech_lance_armor(void* mech, int32_t* type, int32_t armor[11], float left[11]);
+// Ours (MW1 FIXES 113): what killed a mech: the part (PartId) whose destruction started its death, 0 not known, and
+// how the damage came (mech_parts.h DamagePath: 0 none of these, 1 a weapon's hit, 2 the ceiling's crush, 3 a ram).
+bool mech_death_cause(void* mech, int32_t* part, int32_t* path);
 // Ours (for MW1: Critical Hit's repair bill): the same bars' internal structure, each part's points (100 / its
 // scale; 0 where the part has none) and the fraction left. A pure read.
 bool mech_lance_structure(void* mech, float points[11], float left[11]);

@@ -1251,6 +1251,37 @@ Owen, defending the tower on mw3c1ia3 (4 enemies): three came; the fourth never 
   - `mw1_loop_lance_orders_an_awesome_walks_headless`: the third lancemate in an Awesome walks at its target. The
     harness takes the lance's mechs (`lance_mechs`).
 
+## 113. [x] A lancemate "untouched, then dead" on c4ia1 *(chased: a fair fight lost, unseen and unsaid; the death's line now says what went)*
+
+Owen (2026-11-19): Erin Falls's Centurion, bought new, about 25 s into a destroy-all on c4ia1, the lance bunched,
+"completely untouched", then "I'm ejecting" and destroyed; no shot at her that he saw, no friendly-fire line.
+- **Ruled out, in MW3's and PM's code:**
+  - *The ceiling's crush* (MW3 0x00423600, PM 0x00424ba0 with 0x00424d80): the one path that kills with no hit and
+    no mech's kill. A thing over the head crushes only when it moved this frame and nothing standing owns it; a
+    mech's geometry sorts as a mech (0x00423010, the owner by 0x0040e9d0) first. Every boxed node of the Atlas,
+    the Annihilator and the lance's mechs carries its owner's bits (43, 28, 23, 26 nodes): none can be a ceiling.
+    No crush in eight seeds.
+  - *Criticals* (MW3 0x00460d50; PM's ammo critical 0x004621a7 zeroes the section it hit, the centre torso's a
+    death): a hit can roll one only on a part at 15% armour or less (the torso's front centre for any torso
+    section). None rolled in the runs.
+  - *Rams:* allies take none. *Heat:* 0 to 1. Spawn overlap: none; each walked 10 to 26 m.
+- **What kills her, reproduced** (`MW1_ROWS=mw3c4ia1`, his lance, seeds 1 to 8, the commander standing): in seeds
+  4, 5 and 7 the Centurion is first hit about 11 s in, from 781 m, by one enemy (a Bushwacker), and worn down, 31 to
+  41 hits in volleys of four, every one on the front of the centre torso, until it goes at 35 to 42 s. The head,
+  arms and legs untouched; CT 0/0, the rest near full: "untouched" but for the centre torso, which the enemy's aim
+  takes after a first hit (the torso's node, damage.md). Owen's own right torso was hit before she fell in his log,
+  so the enemies were firing then.
+- **Why it looked sudden:** nothing told him. A lancemate under fire radios for help only with the player over 22 m
+  off (PM 0x004fbc20, MW3 0x004ea520: dist2 > 500); bunched, she said nothing until the ejecting line.
+- **The death's line** (106's, `log_lancemate_down`) now says which part's destruction killed the mech, how the
+  damage came (a weapon's hit, the ceiling's crush, a mech's ram, or none of those: a fall, heat, a script) and every
+  location's armour and structure left. The engine keeps the part and the path on the mech (`mech_death_cause`), and
+  logs each ceiling crush (what was over the mech, its box, the damage) and each critical (part, section, kind, the
+  section before). Logging only: nothing plays differently.
+- **Test** (`mw1_loop_a_lancemate_s_death_says_what_went_headless`): his lance on c4ia1, seed 4: one death, "the
+  centre torso went, by a weapon's hit", CT 0/0, head 100/100. With the hit's path unmarked it fails.
+- **Open, Owen's call:** whether a lancemate should call out under fire when close (PM's own rule says no), or
+  whether the HUD should show the lance's damage.
 ## 105. [x] Release prep for MW1 1.0.0: its own version, packaged builds, where mw1data goes *(done, mw1-fix105-release)*
 
 The lead (2026-11-19): MW1 1.0.0 rides mw3-re v1.1.3; the launcher reads each program's version from its file.

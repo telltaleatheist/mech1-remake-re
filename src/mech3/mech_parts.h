@@ -144,6 +144,19 @@ enum PartId : int32_t {
   kLeftHand, kRightHand, kLeftCalf, kRightCalf, kLeftFoot, kRightFoot, kHip,
 };
 
+// Ours (MW1 FIXES 113): how the damage being applied now came, for a death's log line (Mech::death_path): a
+// weapon's hit (MechPart::take_hit), the ceiling's crush (Mech::ceiling_response), a mech's ram (Mech::crash_part),
+// or none of those (a fall, heat, a script).
+enum DamagePath : uint8_t { kPathOther = 0, kPathHit = 1, kPathCrush = 2, kPathRam = 3 };
+DamagePath& damage_path();
+struct DamagePathScope {
+  DamagePath was;
+  explicit DamagePathScope(DamagePath p) : was(damage_path()) { damage_path() = p; }
+  ~DamagePathScope() { damage_path() = was; }
+  DamagePathScope(const DamagePathScope&) = delete;
+  DamagePathScope& operator=(const DamagePathScope&) = delete;
+};
+
 enum CriticalKind : int32_t { kCritSink = 0, kCritWeapon, kCritAmmo, kCritEquipment, kCritSpecial };
 
 // Base part, vtable 0x005c2840. Armor and internal structure are fractions,
