@@ -30,6 +30,19 @@ original.
 
 Nothing yet.
 
+**1.1.3 (2026-11-20)** (the full notes are in
+[docs/release-notes-1.1.3.md](docs/release-notes-1.1.3.md)):
+
+- **Three games on one launcher**: MW1: Critical Hit 1.0.0, a fan remake of
+  MechWarrior (1989) on the rebuild's engine, joins the combined package. The
+  launcher finds your MechWarrior (1989), or takes its folder or the .zip it
+  came in.
+- **Music that should repeat now repeats**, and a disc plays on to the next
+  track.
+- Fixes: a machine gun's sound stuck on after firing (a small fix), memory
+  growing mission after mission, Pirate's Moon's lance orders going to the
+  first lancemate.
+
 **1.1.2 (2026-11-15)** (the full notes are in
 [docs/release-notes-1.1.2.md](docs/release-notes-1.1.2.md)):
 
