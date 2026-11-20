@@ -5488,7 +5488,67 @@ TEST(mw1_loop_hud_art_is_pm_s_pictures_at_canvas_size) {
     // The pictures read from PM's: lit and clear as PM's at every canvas pixel. Their colour PM's where PM's is
     // opaque, but where it runs: the heat bar's rows (each row's mean, PM's are dithered: 16 seen), the speed frame's
     // 5 at its corner join (45), the lights' shading (52).
-    EXPECT(read == 21 && read_wrong == 0 && read_colour <= 56);
+    EXPECT(read == 21 + 32 && read_wrong == 0 && read_colour <= 56);  // + the damage display's parts (item 109)
+  });
+}
+
+// FIXES.md item 109 (Owen: the damage display showed a part or a few, an arm alone, over its grid): the display's
+// eight parts, each in its four states, drawn at the window's resolution as its background is. Left to the canvas
+// they were under the hires grid, and which showed varied by frame. In a mission, at 1080p's art scale (3) and 4K's
+// (5): every part's picture is drawn, its size its canvas size times the scale, and lit where PM's is (PM's opaque
+// pixels' count times the scale squared, within a tenth).
+TEST(mw1_loop_hud_damage_parts_drawn_at_the_window_s_resolution) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_hud_dmg";
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  in_child([&] {
+    Run run;
+    run.save = (dir / mw1::kSaveFile).string();
+    int32_t parts_drawn[2] = {0, 0}, pictures = 0, lit_ok = 0;
+    bool done = false;
+    run.in_mission = [&](int32_t f) {
+      if (f < 5 || done) return !done;
+      done = true;
+      const char* const kPart[8] = {"head", "ltorso", "rtorso", "ctorso", "larm", "rarm", "lleg", "rleg"};
+      const char* const kState[4] = {"blue", "grn", "yel", "red"};
+      const int32_t kScale[2] = {3, 5};
+      for (int32_t k = 0; k < 2; ++k)
+        for (const char* part : kPart) {
+          int32_t states = 0;
+          for (const char* st : kState) {
+            const std::string n = std::string("dmg_") + part + "_" + st;
+            int32_t w = 0, h = 0;
+            if (!mw1::hud_art::size_of(n, &w, &h) || !mw1::hud_art::read_from_pm(n)) {
+              std::printf("  %s: not drawn here\n", n.c_str());
+              continue;
+            }
+            zimg::Texture* t = zimg::fetch_image(n.c_str());
+            int32_t pm_lit = 0;
+            for (int32_t i = 0; t && i < w * h; ++i)
+              pm_lit += t->alpha ? t->alpha[i] > 127 : static_cast<const uint16_t*>(t->pixels)[i] != 0;
+            if (t) zimg::free_texture(t);
+            const int32_t sc = kScale[k];
+            const std::vector<uint8_t> big = mw1::hud_art::draw(n, sc);
+            int32_t lit = 0;
+            for (size_t i = 3; i < big.size(); i += 4) lit += big[i] > 127;
+            const int32_t want = pm_lit * sc * sc;
+            const bool ok = big.size() == static_cast<size_t>(w) * sc * h * sc * 4 && pm_lit > 0 &&
+                            std::abs(lit - want) * 10 <= want;
+            if (!ok) std::printf("  %s at %d: %zu bytes, lit %d (PM's %d x %d)\n", n.c_str(), sc, big.size(), lit, pm_lit, sc * sc);
+            ++pictures;
+            lit_ok += ok;
+            states += ok;
+          }
+          parts_drawn[k] += states == 4;
+        }
+      return false;
+    };
+    loop_run(kWon, &run);
+    std::printf("  the damage display's parts: %d of 8 at 1080p's scale, %d of 8 at 4K's; %d of %d pictures as PM's\n",
+                parts_drawn[0], parts_drawn[1], lit_ok, pictures);
+    EXPECT(done && parts_drawn[0] == 8 && parts_drawn[1] == 8 && pictures == 64 && lit_ok == 64);
   });
 }
 
