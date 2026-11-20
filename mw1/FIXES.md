@@ -1996,3 +1996,17 @@ about 6 s with its speed up, moving 0 m, before it walked.
   - **Route:** a mw1 dev writes the engine module as a clean main-targeted commit. The mw3 lead reviews it and lands
     it on main, then merges main into pm, and mw1 takes it from pm. mw1 then adds the store, the assignment screen,
     the save and the price curve. The price table goes to Owen for approval.
+
+## 127. [x] An Exotic loadout's id shown as its name: "Puma: MSG_CONFIG_EXOTIC_A" *(done: mw1-fix127-exotic-names, for 1.0.2)*
+- **Found by Owen (2026-11-20):** an enemy's target line read "Puma: MSG_CONFIG_EXOTIC_A".
+- **Cause:** PM's reader.zbd has 42 Exotic loadouts, every one marked `hidden`. Neither PM's nor MW3's Mech3Msg.dll
+  has a MSG_CONFIG_EXOTIC_* message, only MSG_CONFIG_PRIMARY and _ALTERNATE_A to _D. So the loader's localize keeps
+  the id. PM never shows a hidden loadout, and MW3 has none. MW1 fields them (FIXES 104: about 10% of enemies), so
+  its HUD showed the id.
+- **Class:** an MW1 bug, not a shared engine bug. Nothing goes upstream.
+- **Fix:** MW1's stock_config gives a fielded Exotic words in the Alternates' style ("Exotic A"), once, in place. A
+  loadout that already has words is left as it is. MW1 code only, no engine commit.
+- **Test:** mw1_loop's every-chassis run (every chassis, every loadout fielded) checks that no fielded loadout's name
+  has "MSG_" in it.
+- **Not covered:** a company save made before this that holds a salvaged Exotic loadout keeps the id in its saved
+  copy. A rename at load would cover it, if anyone sees one.

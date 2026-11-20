@@ -17,6 +17,7 @@
 #include "gamez/zclass/class.h"
 #include "gamez/zclass/cls_node.h"
 #include <functional>
+#include "gamez/zutil/zutl_msg.h"
 #include "mech3/app_vehicle.h"
 #include "mech3/action_menu.h"
 #include "mech3/app_states.h"
@@ -118,6 +119,19 @@ constexpr uint32_t kGfxOptionsStateGlobal = 0x60986c, kControlsStateGlobal = 0x6
 // FIXES 97: a defence's enemies engage the company from this far (metres) at least: every enemy must come (an Instant
 // Action map's guards wait at a post until the player comes within their own range).
 constexpr float kDefenceEngage = 3000.0f;
+// FIXES 127: PM's Exotic loadouts are hidden in PM, and its message table has no words for their names (no
+// MSG_CONFIG_EXOTIC_*, in PM's or MW3's Mech3Msg.dll), so they keep their ids ("MSG_CONFIG_EXOTIC_A"), which the HUD's
+// target line showed. When MW1 fields one, it gets words in the Alternates' style: "Exotic A". Once, in place; a
+// loadout with words (or one a later message table names) is left as it is.
+mech3::Config* name_exotic(mech3::Config* c) {
+  constexpr const char* kId = "MSG_CONFIG_EXOTIC_";
+  if (c && c->name && std::strncmp(c->name, kId, std::strlen(kId)) == 0 && std::strcmp(zutl::localize(c->name), c->name) == 0) {
+    const std::string words = "Exotic " + std::string(c->name + std::strlen(kId));
+    std::free(c->name);
+    c->name = strdup(words.c_str());
+  }
+  return c;
+}
 // FIXES 104: a chassis's stock loadout by its index in PM's order (mw1_enemies.h): its definition's configs, the
 // player's own skipped; null for the Primary (the engine's own pick) or one not there.
 const mech3::Config* stock_config(int32_t chassis, int32_t loadout) {
@@ -126,7 +140,7 @@ const mech3::Config* stock_config(int32_t chassis, int32_t loadout) {
   if (!d || !d->configs) return nullptr;
   int32_t n = 0;
   for (const mech3::Config* c : d->configs->configs)
-    if (c && !c->player_made && n++ == loadout) return c;
+    if (c && !c->player_made && n++ == loadout) return name_exotic(const_cast<mech3::Config*>(c));
   return nullptr;
 }
 constexpr const char* kPilotName = "MW1 Company";  // the company's PM pilot (step 2)

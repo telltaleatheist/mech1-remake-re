@@ -6688,7 +6688,7 @@ TEST(mw1_loop_every_chassis_and_loadout_fields_and_salvages_headless) {
             const std::vector<const mech3::Config*> v = stock(m);
             bool ok = static_cast<int32_t>(v.size()) == mw1::loadout_count(m);
             for (size_t i = 0; ok && i < v.size(); ++i) {
-              std::string n = v[i]->name ? v[i]->name : "";  // its id (MSG_CONFIG_EXOTIC_D) or its words (Alternate B)
+              std::string n = v[i]->name ? v[i]->name : "";  // its id (MSG_CONFIG_EXOTIC_D), its words (Alternate B), or once fielded ours (Exotic D)
               for (char& ch : n) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
               const mw1::LoadoutKind k = mw1::loadout_kind(m, static_cast<int32_t>(i));
               ok = n.find(k == mw1::LoadoutKind::kPrimary ? "PRIMARY" : k == mw1::LoadoutKind::kAlternate ? "ALTERNATE" : "EXOTIC") !=
@@ -6722,6 +6722,8 @@ TEST(mw1_loop_every_chassis_and_loadout_fields_and_salvages_headless) {
       std::printf("  mission %d:%s; %zu wrecks, %d salvage items\n", missions, said.c_str(), run.wreck_chassis.size(), run.salvage_items);
       if (!table_checked) EXPECT(table_ok);
       EXPECT(spawned == wanted);
+      // FIXES 127: every fielded loadout has words, never an id PM's message table lacks ("MSG_CONFIG_EXOTIC_A").
+      for (const std::string& s : spawned) EXPECT(s.find("MSG_") == std::string::npos);
       EXPECT(got_chassis == want_chassis && run.salvage_items > 0);
     });
     table_checked = true;
