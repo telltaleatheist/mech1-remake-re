@@ -5,6 +5,30 @@ Tick an item when it is merged into `main`.
 
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 122. [ ] An arms dealer: weapons and equipment for sale *(planned for MW1 1.1.0; not in 1.0.0)*
+- **Owen (2026-11-20), via the lead:** the weapons a campaign never meets come from an arms dealer, in 1.1.0. Today
+  MW1 has no item shop: items come only from the starting stores, the loadouts of 'Mechs bought, and salvage (111).
+- **What it is:** a hub shop that sells weapons and equipment into the company's stores, which the mech lab fits
+  from. Stock varies by world: richer worlds and edge worlds carry rarer stock. It sits beside 118's permanent
+  upgrades, which are always on sale at the hub; the two can share one shop screen and one price table for Owen.
+- **It must cover the items no fielded loadout carries** (dev 1's 111 report; none was seen in 10 runs to the Dark
+  Wing, and none can be, short of the stores):
+  - autocannons: AC 2, AC 5, LB-2X, LB-5X, LB-20X, Ultra AC 2, Ultra AC 10, Ultra AC 20;
+  - energy: PPC, ER Laser (S), Clan Heavy Laser (S);
+  - missiles: SRM 2, Streak SRM 4, Streak SRM 6, Clan Streak SRM 4, MRM 10, MRM 40, TBOLT 10, TBOLT 15, Clan LRM 5;
+  - other: Clan light MG, MASC, ECM, and the Inner Sphere targeting computer.
+- **And the items carried only by Alternates and Exotics,** never seen in those runs: the Clan AMS, Clan ECM, C3
+  computer, Clan TAG, Clan heat sink and Clan heavy MG. The Clan targeting computer and Clan AMS are also lost to most
+  kills by the exe's torso rule (121), so the dealer is their sure source whatever 121 decides.
+- **To settle with Owen before building:**
+  - which worlds count as rich or edge, and how rare each item is (the stock table);
+  - prices against MW1's 'Mech prices and the pay (111: early contracts net 220-350k);
+  - whether stock refreshes over game time or per visit, and whether the dealer buys items back.
+- **Tests:** a seeded hub's stock, by world, holds the rare items only where the table puts them; a purchase debits
+  the funds and lands in the stores; the lab fits it. 111's gauge (`MW1_ITEM_SOURCES`, the ITEM lines) is rerun to
+  show every item above reachable.
+- **Links:** 118 (the hub's other money sink), 121 (torso items lost to salvage), 111 (the weapons report).
+
 ## 121. [ ] Clan targeting computers and AMSes almost never salvaged *(cause found: the original's rule; MW1's rule the lead's call)*
 From dev 1's 111 weapons report (the lead, 2026-11-20):
 - The Clan TC is on the Puma and Masakari Primaries and a Thor Alternate, in the right torso. It was salvaged in 1 of
@@ -119,7 +143,10 @@ Found in the 1.0.0 release check of 116 (dev 2, 2026-11-20). In the packaged mw1
   Only the log shows it: mw1 always passes `--install`, so the first start's box never shows it. MW1 has no flag
   that turns the note off, so silencing it needs an engine change (an opt-out in the game main, MW1 choice (b)).
 
-## 111. [ ] The pace to the Dark Wing, and the weapons met on the way *(measured: mw1-balance-pay; the pay is unchanged until Owen picks)*
+## 111. [x] The pace to the Dark Wing, and the weapons met on the way *(no change, Owen 2026-11-20)*
+- **Owen (2026-11-20), via the lead:** no change. The pace stays the original's: no rung-1 or contract-time change, and
+  the pay stays at 100% (`kPayPercent`). The missing weapons wait for 1.1.0's arms dealer (122). The measurements
+  below stay as the record, and the gauge stays in the playthrough test.
 Owen, via the lead (2026-11-20): about 40 fights to the Dark Wing, contracts plus story battles, about 7 hours, with
 a steady build-up, and about 5 game years. "Maybe we could just increase the money payout or something a bit." Also
 "make sure we're getting enough weapons over the course of the campaign".
@@ -1913,6 +1940,7 @@ about 6 s with its speed up, moving 0 m, before it walked.
     degrees it keeps going, and past them it brakes; standing still it needs 10 degrees to set off.
 
 ## 118. [ ] Permanent upgrades bought with money *(planned for MW1 1.1.0; not in 1.0.0)*
+- **See also 122:** 1.1.0's arms dealer, the hub's other shop (weapons and equipment by world).
 - **Owen (2026-11-20):** players can keep playing indefinitely without the story, like an Instant Action mod, and
   money needs something to buy. It's always on sale at the hub; nothing to hunt for. It applies to the player's side
   only, never to enemies.
