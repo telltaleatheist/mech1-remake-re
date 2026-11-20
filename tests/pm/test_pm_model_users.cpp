@@ -1,12 +1,15 @@
 // PM's models where MW3's code meets them: a node holds pm_model, not model.
+#include <cstdlib>
 #include <cstring>
 
 #include "check.h"
 #include "gamez/zclass/cls_node.h"
+#include "gamez/zclass/list.h"
 #include "gamez/zclass/object3d.h"
 #include "gamez/zgame/zgame_table.h"
 #include "gamez/zinterp/zinterp.h"
 #include "gamez/zmodel/gmod_const.h"
+#include "gamez/zmodel/gmod_matl.h"
 #include "mech3/mech_build.h"
 #include "mech3/veh_controls.h"
 #include "pm/gamez/zmodel/gmod_const.h"
@@ -66,4 +69,39 @@ TEST(pm_node_model_reads) {
   zcls::node_set_pm_model(node, nullptr);
   pm::zmod::model_release(m);
   zcls::node_release(node);
+}
+
+// A PM world's unload (destroy_all's node_destroy, MW3's 0x004f84b0): an Object3d drops its PM model, the model is
+// released once no node uses it, and the node itself is freed. Before the fix node_drop_model looked only at model,
+// so the node kept pm_model, node_free refused it, and the nodes' lists and data and the models leaked on every
+// mission's unload (MW1's playthrough: about 7 MB a battle).
+TEST(pm_world_unload_frees_a_node_s_pm_model) {
+  zgame::set_game(pm::table());
+  zcls::Node* a = zcls::object3d_create();
+  zcls::Node* b = zcls::object3d_create();
+  pm::zmod::Model* m = pm_model(1);
+  const int32_t count = pm::zmod::models().count;
+  zcls::node_set_pm_model(a, m);
+  zcls::node_set_pm_model(b, m);
+  EXPECT(zcls::node_destroy(a) == 0);  // b still uses the model: kept
+  EXPECT(pm::zmod::models().count == count);
+  EXPECT(zcls::node_destroy(b) == 0);  // the last user: released, the slot back in the pool
+  EXPECT(pm::zmod::models().count == count - 1);
+  EXPECT(!b->pm_model && !b->data);  // node_free ran: its data gone
+  zgame::set_game(zgame::mw3_table());
+}
+
+// The models' free (0x00526920 with the materials' 0x005372c0): every animated material's cycle freed with the
+// table, as material_free frees one. Before, the table was replaced and each cycle (PM's worlds have them) leaked.
+TEST(pm_models_free_frees_material_cycles) {
+  zmod::MaterialTable& t = zmod::materials();
+  t = zmod::MaterialTable{};
+  t.blocks.emplace_back(new zmod::Material[zmod::kMaterialBlock]{});
+  t.capacity = 2;
+  auto* c = static_cast<zmod::Cycle*>(std::calloc(1, sizeof(zmod::Cycle)));
+  c->texture_count = 3;
+  c->textures = static_cast<zimg::TextureEntry**>(std::calloc(3, sizeof(void*)));
+  t.at(1).flags = 4, t.at(1).cycle = c;
+  zmod::materials_free();  // frees c and its list (leaks and ASan see it); the table empty
+  EXPECT(t.capacity == 0 && t.blocks.empty() && t.used_head == -1);
 }
