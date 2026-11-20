@@ -219,7 +219,7 @@ From dev 1's 111 weapons report (the lead, 2026-11-20):
   salvage. we can keep the logic." MW1 keeps the exe's rule: torso equipment is salvaged only off a mech brought down
   by its legs. The test stays as the rule's pin, so a change to it fails there first.
 
-## 120. [ ] The same seed rolls a different game on each platform *(planned for MW1 1.1.0; not in 1.0.0)*
+## 120. [x] The same seed rolls a different game on each platform *(done: mw1-fix120-portable-seed-r, for MW1 1.1.0)*
 
 Found in the 1.0.0 release check (dev 2, 2026-11-20). The packaged mw1 was run with the same `MW1_SEED=7` on Mac and
 Linux. The Mac started on Robinson with a defence contract on c3ia3; Linux started on Matsuida with a
@@ -243,6 +243,32 @@ destroy-the-tower contract on mw3c1ia2.
   3. A test that the same seed gives the same first contract on every platform, MSVC included: a seed's first rolls
      and its first offered contract (map, objective, fee, enemy) checked against fixed values written in the
      test. It runs in mw1tests on the Mac, Linux and Windows, so any platform that disagrees fails.
+- **Fixed:** `Rng::upto` is Lemire's multiply-shift with rejection over the mt19937's 32 bits (unbiased); `max <= 0`
+  is 0 and draws nothing (libc++ drew nothing there, libstdc++ one). Every MW1 roll goes through it (`EnemyRng`
+  wraps it). Saves hold what was rolled, never the generator, and loading rolls nothing from save version 8 on, so
+  a save reads as before.
+  - Test `mw1_rng_the_same_seed_rolls_the_same_everywhere` (test_mw1_campaign.cpp), no game install needed: seeds 7
+    and 20261120's first 16 rolls over widths 2 to 2^31; seeds 7 and 1's company and first contract on the shipped
+    map table and pools; max <= 0 draws nothing; 0..2 even over 30,000 rolls; a seeded company and contract saved and
+    read back in a run rolled otherwise, unchanged. Run on all three, every value the same: the Mac (clang, libc++),
+    Linux (WSL Ubuntu, g++ and libstdc++) and Windows (clang-cl, MSVC's STL).
+  - mw1tests had never built on Windows: `test_mw1_loop.cpp`'s peak memory (`sys/resource.h`) is now
+    `tests/peak_memory.cpp` (the working set on Windows; its own file, as `windows.h`'s macros clash with the
+    engine's headers), and setenv/unsetenv come from `tests/posix_env.h` there. Only the new test was run on
+    Windows and Linux (no game installs there).
+  - Re-pinned, every seed rolling otherwise on the Mac too; nothing else in mw1tests or ctest moved:
+    - `mw1_story_the_dark_wing_won_and_lost_headless`: the seed rolls a tropical Dark Wing planet, and the test's
+      table (PM's maps alone) has no tropical map that holds 8, so `story_battle`'s fallback is right. It checks the
+      rule now: the planet's climate whenever the table has such a map of it.
+    - `mw1_travel_the_trade_loop_buy_low_sell_high`: the tier 3 limit rolls 2 and the test bought 2, so selling ended
+      with an empty hangar; it buys 3.
+    - `mw1_repairs_settle_mission_pays_after_the_repairs`: seed 5 starts at a tier 1 world; the pool pinned to the
+      wrecks' worth there (3,388 + 2,812 thousand).
+    - `mw1hiresoff`: the office offer shows seed 7's first contract; its canvas (the same with MW1_HIRES off and on)
+      and Darwin-arm64's frame line re-recorded.
+    - The playthrough (`MW1_PLAYTHROUGH=1`, seed 5): still to the ending, 242 months, 61 contracts; nothing pinned.
+  - `MW1_SEED=7` now starts on Matsuida with a destroy-the-tower contract on every platform, as Linux did before
+    (likely because recent libstdc++ maps with Lemire's method too; not checked further).
 
 ## 116. [x] Our combat music in the missions *(done: mw1-combat-music)*
 Owen (2026-11-19, via the lead): the combat tracks he picked play in MW1's missions in place of Pirate's Moon's disc
