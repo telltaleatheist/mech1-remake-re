@@ -117,7 +117,13 @@
 #if defined(__GNUC__) || defined(__clang__)
 __attribute__((used))
 #endif
+// MW1: Critical Hit (mw1/CMakeLists.txt, FIXES.md item 105) builds this file into its own program with its own
+// version, MW1's describe (mw1-v...), in place of the engine's: the one tag in that file, so the launcher reads MW1's.
+#if defined(MW1_VERSION)
+extern "C" const char mw3_version_tag[] = "MW3-PROGRAM-VERSION:" MW1_VERSION;
+#else
 extern "C" const char mw3_version_tag[] = "MW3-PROGRAM-VERSION:" MW3_VERSION;
+#endif
 #include "gamez/znetwork/znet_dplay.h"
 #include "gamez/znetwork/znet_session.h"
 #include "gamez/ztwod/twod_host.h"

@@ -1251,6 +1251,29 @@ Owen, defending the tower on mw3c1ia3 (4 enemies): three came; the fourth never 
   - `mw1_loop_lance_orders_an_awesome_walks_headless`: the third lancemate in an Awesome walks at its target. The
     harness takes the lance's mechs (`lance_mechs`).
 
+## 105. [x] Release prep for MW1 1.0.0: its own version, packaged builds, where mw1data goes *(done, mw1-fix105-release)*
+
+The lead (2026-11-19): MW1 1.0.0 rides mw3-re v1.1.3; the launcher reads each program's version from its file.
+- **Version:** mw1 compiles mw3_main.cpp with mw3pm's definitions, so its file carried the engine's describe
+  (pm-v1.1.2-639-g...) as its `MW3-PROGRAM-VERSION:` tag. Now `MW1_VERSION`, `git describe --tags --match
+  "mw1-v[0-9]*" --always --dirty` on every platform (was Windows only, any tag), is the one tag (mw3_main.cpp, the
+  engine commit). Untagged: the bare commit. The Windows version resource takes it too.
+- `mw1 --version` answers first ("mw1 (MechWarrior 1: Critical Hit) <v>"), before a write dir, an install or a
+  window; it set up the user's write dir before.
+- **Test** `mw1version` (ctest, every build): one tag in the file, CMake's describe, MW1's shape (mw1-v..., or the
+  bare commit; never pm-v or v), and --version prints the same.
+- **Package builds** (`-DMW3_PACKAGE=ON -DMW3_BUILD_MW1=ON`, target mw1, scratch worktrees): the Mac builds; WSL
+  (Ubuntu, GCC 13, the release deps prefix) failed on `SoundCfg`'s defaulted `==` (C++20; the project is C++17,
+  Clang only warned): written out. Both build and pass `mw1version`. MW1's own warnings left (13 to 14, other
+  items' code: missing `narrow` initializers, an unused variable and function) don't stop either.
+- **Where mw1data goes:** mw1 mounts `<SDL base path>/mw1data`. Probed with SDL3 itself: in a .app, a program in
+  `Contents/MacOS` gets `Contents/Resources/`; on Linux, the program's folder (`AppDir/usr/bin/`, with or without
+  APPIMAGE/APPDIR set); Windows, the program's folder. So: `Contents/MacOS/mw1` with
+  `Contents/Resources/mw1data/`; `usr/bin/mw1` with `usr/bin/mw1data/`; `mw1.exe` with `mw1data\` beside it. The
+  launcher's art goes the same way (tools/macos/make_app.sh, tools/linux/make-appimage.sh).
+- **With it:** the missing-installs box looked for `mw3launcher` at SDL's base path too, which in a .app is
+  Resources: never found there. It looks in mw1's own folder now (Contents/MacOS).
+
 ## 100. [x] Menu music, QUIT in the hub, the sound settings *(done: mw1-fix100-music)*
 - **Owen (2026-11-19, via the lead):** a YuE2 track he picked as the menu music. QUIT outside the main menu. Music
   and effects settings in MW1's options.
