@@ -67,9 +67,10 @@ size_t hub_pages(const std::vector<std::string>& panel);
 inline constexpr const char* kHubOptionsDialog = "MW1HUBOPTIONS";  // in mw1hub.zrd
 // FIXES.md item 100: MUSIC (on or off), the music's and the effects' volumes between their arrows (mw1_music.h).
 enum HubOptionsButton : int32_t {
-  kHubOptSettings = 1, kHubOptMainMenu, kHubOptBack, kHubOptMusic, kHubOptMusicDown, kHubOptMusicUp, kHubOptEffectsDown, kHubOptEffectsUp
+  kHubOptSettings = 1, kHubOptMainMenu, kHubOptBack, kHubOptMusic, kHubOptMusicDown, kHubOptMusicUp, kHubOptEffectsDown, kHubOptEffectsUp,
+  kHubOptSaveGame, kHubOptLoadGame  // FIXES 125: the save slots' screen, to SAVE or to LOAD
 };
-inline constexpr int32_t kHubOptionsButtonCount = 8;
+inline constexpr int32_t kHubOptionsButtonCount = 10;
 inline constexpr int32_t kVolumeStep = 10;  // an arrow's step, percent
 const char* hub_options_button_name(int32_t id);
 

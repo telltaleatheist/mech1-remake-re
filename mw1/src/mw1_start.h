@@ -34,6 +34,7 @@ struct Installs {
   std::string mw3;  // MechWarrior 3: its worlds c2 and c4b (research/maps.md)
   std::string mw1;  // MechWarrior (1989), the DOS game: its BTECH.EXE folder
   SoundCfg sound;   // not an install: kept with them (merge() keeps the saved one)
+  int32_t save_slot = -1;  // FIXES 125: the save slot in play, 1..kSaveSlots (-1: none written; slot 1)
 };
 
 // What mw1 takes before handing the rest to the game main.
@@ -49,7 +50,8 @@ struct Args {
 // are read and also left in `rest` (the game main takes them too).
 Args parse(int argc, char** argv);
 
-// mw1.cfg in the write dir: install=, mw3_install=, mw1_game=, and the sound's music=, music_volume=, effects_volume= (a line each,
+// mw1.cfg in the write dir: install=, mw3_install=, mw1_game=, the sound's music=, music_volume=, effects_volume=, and
+// save_slot= (FIXES 125) (a line each,
 // paths as zutl::path_from_config reads them). A missing file reads empty.
 Installs read_cfg(const std::string& write_dir);
 bool write_cfg(const std::string& write_dir, const Installs& in);

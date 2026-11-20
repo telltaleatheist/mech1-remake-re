@@ -54,6 +54,8 @@ Installs read_cfg(const std::string& write_dir) {
     };
     number("music", in.sound.music, 1), number("music_volume", in.sound.music_volume, 100);
     number("effects_volume", in.sound.effects_volume, 100);
+    number("save_slot", in.save_slot, 3);
+    if (in.save_slot == 0) in.save_slot = -1;  // not a slot
   }
   return in;
 }
@@ -67,6 +69,7 @@ bool write_cfg(const std::string& write_dir, const Installs& in) {
   if (in.sound.music >= 0) f << "music=" << in.sound.music << "\n";
   if (in.sound.music_volume >= 0) f << "music_volume=" << in.sound.music_volume << "\n";
   if (in.sound.effects_volume >= 0) f << "effects_volume=" << in.sound.effects_volume << "\n";
+  if (in.save_slot >= 1) f << "save_slot=" << in.save_slot << "\n";
   return static_cast<bool>(f);
 }
 

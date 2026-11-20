@@ -9,6 +9,8 @@
 WINDOWS_FONTS (
   ; The plaques: the world and the date in big tracked caps; the line under in amber.
   "mw1_plaque" (face "Saira Condensed ExtraBold" file "fonts\SairaCondensed-ExtraBold.ttf" height -26 tracking 3 align "center" color (233 236 238))
+  ; FIXES 125: a save slot's world, left-aligned.
+  "mw1_slot_name" (face "Saira Condensed ExtraBold" file "fonts\SairaCondensed-ExtraBold.ttf" height -26 tracking 3 color (233 236 238))
   "mw1_plaque_sub" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -11 tracking 2 align "center" color (255 176 64))
   ; The hub's company strip between the plaques: the labels in the plaques' amber, the values bright (x their right end).
   "mw1_strip_label" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -11 tracking 2 color (255 176 64))
