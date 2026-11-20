@@ -1539,6 +1539,26 @@ MW1's kinds. The design the lead approved (2026-11-19), in `mw1_enemies.h/.cpp`:
   spawns four mixed (MW1_ALL_LOADOUTS=1: all 112) and checks each fields, is killed and salvaged, and the engine's stock
   config counts match the table.
 
+## 114. [x] MW1's words name our 'Mechs; the Dark Wing fields them *(done: mw1-text-names)*
+Owen (2026-11-19, through the lead, on 112's list of MW1's run-time text): "warhammers should be swapped out with
+[the Thor] and battlemaster swapped out with atlas if theres scripted stuff."
+- **The words, as drawn** (`mw1_text_names.h`): MW1's story texts and choices (`text_pages`, the script's captions)
+  and the Bar's pitches (`pitch`) show our names for MW1's. MW1's names are read from the player's exe too (its
+  kind-name table, DS:2E86, ten names in its records' order), never kept here; the exe is never changed. Any case, a
+  space or hyphen inside or none, a plural (Atlas: "Atlases") and a possessive, upper case kept, whole words only.
+- **The mapping** (`kOurChassis`, by MW1's kind record): Owen's, the 70 t record the **Thor**, the 85 t the
+  **Atlas**, the first 20 t record the **Owens**; the 75 t record the **Mad Cat** (`kOurs75`). All four
+  Owen's (final, 2026-11-19). The rest, never drawn today, the nearest of ours by tons in the same PM
+  class, Inner Sphere on a tie: the other 20 t record the Firefly, 35 t the Owens, 45 t the Shadow Cat, 55 t the
+  Bushwacker, 60 t the Champion. Drawn today: the Thor and the Atlas (story texts 0x2C and 0x43), the Owens (pilot
+  8's pitch), the 75 t record's (pilots 13 and 35).
+- **The scripted force:** the Dark Wing's rung (rung 6, the only fixed one; rungs 1 to 5 roll as contracts) fields
+  the Thor and four Atlases, its three escorts the 75 t record's (`kOurs75`), on their Primary (`Rung::chassis`; the
+  hardest's extra one too). It fielded its slots' stand-ins before (an Avatar, four Awesomes, Orions).
+- **Tests:** `mw1_story_our_names_for_mw1s` (the swap on made-up names in the table's places);
+  `mw1_story_no_mw1_mech_names_drawn` (with the exe: none of the 1,785 lines we draw names one of MW1's 'Mechs, the
+  Dark Wing's texts name the Thor and the Atlas); `mw1_enemies_story_battles_roll_but_the_dark_wing` (its chassis).
+
 ## 112. [x] Our roster, not MW1's 'Mechs: the force in tonnage slots, one roster list *(done: mw1-roster)*
 Owen (2026-11-19, through the lead): "we dont have any phoenix hawks in this game … we're using the entire mw3+pm
 roster, not mw1 mechs … make sure the phoenix hawk, shadow hawk, marauder, etc. names are all scrubbed from the

@@ -175,7 +175,9 @@ TEST(mw1_enemies_older_saves_keep_their_stand_ins) {
   if (!why.empty()) std::printf("  %s\n", why.c_str());
 }
 
-// Story battles roll too (kStoryBattlesRoll), the Dark Wing's last rung as it was (its kinds' stand-ins).
+// Story battles roll too (kStoryBattlesRoll); the Dark Wing's scripted force (FIXES 114, Owen) is MW1's text's
+// 'Mechs as ours: a Thor and four Atlases, the escorts the 75 t record's (kOurs75), on their Primary, its hardest's
+// extra one too.
 TEST(mw1_enemies_story_battles_roll_but_the_dark_wing) {
   mw1::Rng rng(11);
   mw1::Company c = mw1::new_company(rng);
@@ -183,8 +185,18 @@ TEST(mw1_enemies_story_battles_roll_but_the_dark_wing) {
   for (int32_t r = 1; r <= mw1::kDarkWingRung; ++r) {
     const mw1::Contract k = mw1::story_battle(c, r, rng, false);
     EXPECT(!k.enemies.empty());
-    if (r == mw1::kDarkWingRung || !mw1::kStoryBattlesRoll) EXPECT(k.chassis.empty());
-    else EXPECT(k.chassis.size() == k.enemies.size());
+    if (r == mw1::kDarkWingRung) {
+      const std::vector<int32_t> want = {mw1::kPmThor, mw1::kPmAtlas, mw1::kPmAtlas, mw1::kPmAtlas,
+                                         mw1::kPmAtlas, mw1::kOurs75, mw1::kOurs75, mw1::kOurs75};
+      EXPECT(k.chassis == want && k.loadouts == std::vector<int32_t>(8, 0));
+      for (size_t s = 0; s < k.enemies.size(); ++s) EXPECT(mw1::enemy_chassis(k, s) == want[s]);
+      const mw1::Contract h = mw1::story_battle(c, r, rng, true);
+      EXPECT(h.chassis.size() == h.enemies.size() && h.chassis.back() == mw1::kOurs75);
+    } else if (mw1::kStoryBattlesRoll) {
+      EXPECT(k.chassis.size() == k.enemies.size());
+    } else {
+      EXPECT(k.chassis.empty());
+    }
   }
 }
 
