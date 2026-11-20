@@ -290,6 +290,12 @@ void add_starting_stores(mech3::Store& s);
 // MwGenerateMissionOffer (081B:4F6E) for offer slot `slot` (0..5), with the
 // company's lance (the commander's mech and the lancemates' assigned, mw1_pilots.h's lance_weight) as MW1's lance
 // weight; the objective and map are the milestone's.
+// FIXES.md item 111: a contract's pay, percent of MW1's (the House's ceiling, so its opening and every counter-offer;
+// the floor and the advance follow). kPayPercent ships; pay_percent() is what applies (a soak's sweep sets it).
+inline constexpr int32_t kPayPercent = 100;
+int32_t& pay_percent();
+// A soak's: each world tier's percent on top (identity, 100 each, unless a sweep sets it).
+std::array<int32_t, 4>& pay_tier_percent();
 Contract generate_contract(const Company& c, int32_t slot, Rng& rng);
 // The company's record band by its kills (MW1's: 0 to 3), the force budget's first term (FIXES 104 reads it too).
 int32_t record_band(int32_t kills);
