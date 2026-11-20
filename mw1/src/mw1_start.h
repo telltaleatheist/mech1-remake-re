@@ -2,6 +2,7 @@
 // MW1: Critical Hit's start (VISION.md, The code base): which installs it
 // uses and where it keeps its settings, before PM's game main takes over.
 // No SDL here, so the tests read it directly.
+#include <cstdint>
 #include <string>
 #include <vector>
 
