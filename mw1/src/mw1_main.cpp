@@ -40,6 +40,7 @@
 #include "platform/mode_labels.h"
 #include "platform/list_wheel.h"
 #include "gamez/zutil/zutl_path.h"
+#include "frontend/sdl/crash_report.h"
 #include "frontend/sdl/sdl_twod_host.h"
 #include "gamez/ztwod/twod_host.h"
 #include "platform/hires_lists.h"
@@ -146,11 +147,18 @@ static std::filesystem::path own_dir() {
 extern "C" const char mw3_version_tag[];
 
 int main(int argc, char** argv) {
+  // FIXES 123: the log's first line, the crash report and the crash box name MW1 and MW1's version, not Pirate's
+  // Moon's (mw3_game_main's, through sdlfe::program_name: unset, PM's own).
+  const char* version = mw3_version_tag + std::strlen("MW3-PROGRAM-VERSION:");
+  sdlfe::program_name() = {"mw1", "MechWarrior 1: Critical Hit", version};
+  // A crash's box (Mac, Linux): the crash's handler starts this program again as `mw1 --crash-box <text>`, which
+  // shows the box and is all it does. Before MW1's start, which would have taken it for a game's start.
+  if (sdlfe::crash_box_main(argc, argv)) return 0;
   // --version first, before a write dir, an install or a window (FIXES.md item 105): the tag's version, as the
   // launcher reads it from the file.
   for (int i = 1; i < argc; ++i)
     if (std::strcmp(argv[i], "--version") == 0) {
-      std::printf("mw1 (MechWarrior 1: Critical Hit) %s\n", mw3_version_tag + std::strlen("MW3-PROGRAM-VERSION:"));
+      std::printf("mw1 (MechWarrior 1: Critical Hit) %s\n", version);
       return 0;
     }
   mw1::Args a = mw1::parse(argc, argv);
