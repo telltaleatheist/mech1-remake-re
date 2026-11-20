@@ -2,6 +2,7 @@
 #include "mech3/mech_parts.h"
 
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <utility>
 #include <vector>
@@ -105,8 +106,14 @@ const Vec3* hit_shot() { return reinterpret_cast<const Vec3*>(zwep::shot_line())
 FlyCalls& fly_calls() { return g_fly; }
 FreeCalls& free_calls() { return g_free; }
 
+DamagePath& damage_path() {
+  static DamagePath p = kPathOther;
+  return p;
+}
+
 // Mech3.exe 1.2 @ 0x00460970. Docs: damage.md, the hit path.
 int MechPart::take_hit(WeaponDef* def, Collision*, float damage, Vec3* impulse) {
+  const DamagePathScope path(kPathHit);  // ours (MW1 FIXES 113): a death from here says a hit
   World& w = world();
   Mech& m = *mech;
   float d = damage * interp_globals().damage_scale;  // 0x005e1f68
@@ -420,6 +427,12 @@ bool MechPart::critical(int kind, int section) {
   // A side torso's own weapons, ammo and CASE: its id as a part.
   const int part = id != kTorso ? id : section == 1 ? kLeftTorso : section == 2 ? kRightTorso : id;
   bool ok = false;
+  // Ours (MW1 FIXES 113): each critical in the log, the mech, the part and section, the kind, and the section's
+  // armour and structure before it (an ammo critical zeroes the section it hit, the centre torso's a death).
+  if (const auto* n = static_cast<const zcls::Node*>(m.node))
+    std::printf("mw3: critical: %s part %d section %d kind %d (armour %.2f, structure %.2f before)\n",
+                n->name() ? n->name() : "?", part, section, kind, static_cast<double>(get_armor(section)),
+                static_cast<double>(get_internal(section)));
   switch (kind) {
     case kCritSink: {
       // FIX (bug), behind fixed: 0x0045fbc0 always reports failure, so the
@@ -649,6 +662,8 @@ void Torso::apply_impact(Vec3* impulse, float force) {
 void Torso::destroy(int explode, int) {
   if (destroyed) return;
   Mech& m = *mech;
+  if (!m.death_part) m.death_part = kTorso;  // ours (MW1 FIXES 113): the head's and the hip's set theirs first
+  m.death_path = damage_path();
   World& w = world();
   if (!m.head->destroyed) m.salvage_mech = false;  // Pirate's Moon 0x00467800: the chassis goes with a good head
   if (explode == 1) m.killed_by_nuke = true;
@@ -985,6 +1000,7 @@ void Head::destroy(int, int) {
   internal = 0.0f;  // Pirate's Moon 0x00468c50
   armor = 0.0f;
   destroyed = true;
+  if (!mech->death_part && !mech->torso->destroyed) mech->death_part = kHead;  // ours (MW1 FIXES 113)
   mech->torso->destroy(0, 1);
 }
 
@@ -996,7 +1012,10 @@ int Hip::take_hit(WeaponDef* def, Collision* coll, float damage, Vec3* impulse) 
 void Hip::apply_impact(Vec3* impulse, float force) { mech->torso->apply_impact(impulse, force); }
 
 // Mech3.exe 1.2 @ 0x00462490
-void Hip::destroy(int, int) { mech->torso->destroy(0, 0); }
+void Hip::destroy(int, int) {
+  if (!mech->death_part && !mech->torso->destroyed) mech->death_part = kHip;  // ours (MW1 FIXES 113)
+  mech->torso->destroy(0, 0);
+}
 
 // Mech3.exe 1.2 @ 0x00466e40
 Arm* Hand::arm() const {
