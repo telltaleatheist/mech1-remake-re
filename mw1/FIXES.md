@@ -5,6 +5,38 @@ Tick an item when it is merged into `main`.
 
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 121. [ ] Clan targeting computers and AMSes almost never salvaged *(cause found: the original's rule; MW1's rule the lead's call)*
+From dev 1's 111 weapons report (the lead, 2026-11-20):
+- The Clan TC is on the Puma and Masakari Primaries and a Thor Alternate, in the right torso. It was salvaged in 1 of
+  10 runs, and seed 2's three Puma Primary kills gave none.
+- The Clan AMS is on 17 loadouts and was never salvaged.
+
+**The answers (dev 2):**
+- **The loadout fielded is the one MW1 lists.** The Puma Primary in the mission carries the Clan TC at location 8
+  (the right torso), and a double heat sink at 7, as listed.
+- **Salvage drops them, by the original exe's rule; it isn't a port bug.**
+  - The engine's mech has one torso part for ids 1, 7 and 8 (the torso, the left and the right torso: Mech3.exe
+    0x0041d510, docs/structs.md Parts).
+  - Salvage keeps an equipment item only off a destroyed part (Mech3.exe 0x00472f00, PM 0x00474f80).
+  - Every death but one by both legs destroys the torso. A torso kill does it directly. A head kill does too:
+    `Head::destroy` calls `Torso::destroy` (Mech3.exe 0x004671e0, PM 0x00468c50), and the hip does the same
+    (0x00462490).
+  - So any item in a torso place is lost to a head or torso kill, and salvaged only off a mech brought down by its
+    legs. Weapons are salvaged by type, without a part check, and sinks by their count, so neither is affected.
+  - The stock loadouts:
+    - all 7 TCs are in the torso;
+    - the 17 loadouts with a Clan AMS have 31 of them in the torso and 2 in the head (the Mad Cat's and the
+      Masakari's Exotics), which a head kill destroys too.
+  - So dev 1's 1 in 10 was a legs kill.
+- **MW1's stores intake doesn't drop them.** A TC salvaged reaches the company's stores on the win.
+- **Test:** `mw1_loop_a_puma_primarys_targeting_computer_salvaged_off_a_standing_torso_headless` kills a Puma
+  Primary by the head, by the torso and by both legs, and reads the mission's salvage and the stores after OK. The
+  head and torso kills give no TC; both legs give one, into the stores. The census of the stock TCs and Clan AMSes
+  by place is pinned too.
+- **Class:** not (a). Main and PM are faithful to the exe, and MW3 and PM players lose torso equipment the same way.
+  Changing it in MW1 is an MW1 choice (b): for example, a torso item is kept unless the mech died by its torso, or
+  a part's items go only with that part's own damage. That's the lead's and Owen's call; nothing is changed yet.
+
 ## 120. [ ] The same seed rolls a different game on each platform *(planned for MW1 1.1.0; not in 1.0.0)*
 
 Found in the 1.0.0 release check (dev 2, 2026-11-20). The packaged mw1 was run with the same `MW1_SEED=7` on Mac and
