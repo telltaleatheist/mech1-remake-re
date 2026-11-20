@@ -42,11 +42,14 @@ void set_settings(const Settings& s);
 void apply();  // mw1.cfg's settings to PM's options (the main state entered: after PM read its own)
 void sync();   // PM's options moved (its SETTINGS' sliders): mw1.cfg saved to match (the hub's OPTIONS shown)
 
-// Where the game is, each frame shown: MW1's screens; DEPLOY's load (and the briefing), before the launch; the mission.
-enum class Where { kMenus, kLoading, kMission };
+// Where the game is, each frame shown: MW1's screens; DEPLOY's load (and the briefing), before the launch; the mission;
+// the mission ended (its outcome latched: PM's end screen, its fade, Instant Action's end, until MW1's screens).
+enum class Where { kMenus, kLoading, kMission, kEnded };
 // Each frame shown. Menus: the theme started (from silence) when it isn't playing, faded in (a combat track still
 // playing stopped first). Loading: the theme faded out, then stopped, PM's music volume given back. Mission: the launch's combat
-// track, playing (started again if it stopped: music turned off and on), at the music volume.
+// track, playing (started again if it stopped: music turned off and on), at the music volume. Ended: silence, the
+// launch's track stopped if it still plays and never started again (FIXES.md item 116b: the mission's end stops the CD,
+// and the mission's own frames until the results started it again from the top).
 void frame(Where where);
 // Each launch (a replay's too): a combat track picked for it, never the last one played.
 void launched();
@@ -63,6 +66,7 @@ struct Seen {
   int32_t combat = -1;   // the combat track playing now (kCombatFiles' index), -1 none
   int32_t picked = -1;   // the last launch's pick
   int32_t launches = 0;  // launches seen
+  int32_t combat_starts = 0;  // times a combat track was started (FIXES 116b: one a launch)
 };
 Seen seen();
 void set_last_combat_for_tests(int32_t last);  // as if the last launch played this one

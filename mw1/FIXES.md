@@ -58,6 +58,35 @@ music. It's the release gate.
     moves it at once. At the results the theme is back.
   - `mw1_music_a_launch_never_plays_the_last_combat_track`: 3,000 picks, never the last, each about a third.
 
+## 116b. [x] The combat track started again after the mission's end *(done: mw1-fix116b-music-restart)*
+Found in the 1.0.0 release check of 116 (dev 2, 2026-11-20). In the packaged mw1's headless mission the log read
+"music: combat …" a second time just after "the mission's end: won".
+- **Cause:** the mission's end stops the CD, as 116 meant. The frames after it (PM's end screen and its fade,
+  Instant Action's end) still told `music::frame` "the mission", because the launch was still on. The track wasn't
+  playing, so the mission branch started it again from the top until MW1's screens.
+  - After a win, a player heard the music cut at the end, then the same track again from its start for a couple of
+    seconds, then the theme.
+  - After a failure that offers REPLAY it was worse: the restarted track played on over the results screen, and the
+    theme never came.
+- **The fix (MW1's alone):**
+  - A fourth place, `Where::kEnded`. The game passes it once the launch's outcome is latched (`ending_latched_`, the
+    frame the mission ends), until MW1's screens.
+  - There `music::frame` stops a combat track that still plays and never starts one. The silence lasts until MW1's
+    screens, where the theme fades in at the results as before, the failure's too.
+  - A replay's launch clears the latch, so its mission plays its own new pick.
+- **Test:** `mw1_music_combat_once_a_launch_silent_after_the_end_and_a_new_pick_on_replay_headless`. A mission is
+  failed by PM's own Exit Mission (its end screen, as a player leaves), REPLAY at the results, and the replay is won
+  the same way. It checks:
+  - each launch starts its combat track exactly once (`Seen::combat_starts`, new);
+  - from each end until the theme, no combat track is on or started;
+  - the replay's pick is a new one;
+  - both results screens have the theme a second in.
+  - Without the fix it fails: 4 starts, and a combat track on in 251 of the 253 frames after the ends.
+- **Left for 1.1.0:** mw1's log still prints PM's start note "No music: … Put your own rip in <write dir>/music as
+  track02.ogg …" (mw3_main.cpp's `start_notes`). Since 116 MW1 reads no ripped tracks, so the note is wrong there.
+  Only the log shows it: mw1 always passes `--install`, so the first start's box never shows it. MW1 has no flag
+  that turns the note off, so silencing it needs an engine change (an opt-out in the game main, MW1 choice (b)).
+
 ## 119. [x] The release tidy: MW1's own build warnings cleared *(done, mw1-fix119-warnings)*
 
 For clean 1.0.0 builds: no warning from MW1's own code (mw1/src, mw1/tests) on Mac clang or Linux GCC 13.3; the
