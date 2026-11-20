@@ -808,12 +808,18 @@ int program(int argc, char** argv) {
   // build) stdout and stderr go to the file (log_to_file), else they are
   // copied to it (run_log.h).
   sdlfe::RunLog run_log;
+  // The program's name (ours, opt-in: sdlfe::program_name, set by another program on this main, MW1's FIXES 123),
+  // else Pirate's Moon's.
+  const sdlfe::ProgramName& named = sdlfe::program_name();
+  const std::string program = named.id.empty() ? "mw3pm" : named.id;
+  const std::string banner = named.id.empty() ? std::string("mw3pm (Pirate's Moon rebuild) ") + MW3_VERSION
+                                              : named.id + " (" + named.title + ") " + named.version;
   if (sdlfe::log_to_file(a.write_dir))
-    std::printf("mw3pm (Pirate's Moon rebuild) %s: %s\n", MW3_VERSION, argc > 1 ? "started with arguments" : "started");
+    std::printf("%s: %s\n", banner.c_str(), argc > 1 ? "started with arguments" : "started");
   else if (!a.write_dir.empty() && run_log.open(a.write_dir))
-    std::printf("mw3pm (Pirate's Moon rebuild) %s, log %s\n", MW3_VERSION, run_log.path().c_str());
+    std::printf("%s, log %s\n", banner.c_str(), run_log.path().c_str());
   zutl::repair_old_names(a.write_dir);
-  if (!a.hidden && !a.write_dir.empty()) sdlfe::crash_report_install("mw3pm", a.write_dir + "/mw3.log", true);
+  if (!a.hidden && !a.write_dir.empty()) sdlfe::crash_report_install(program, a.write_dir + "/mw3.log", true);
   if (!a.write_dir.empty()) read_config(a.write_dir, a);
   // Ours (docs/mods-campaigns-plan.md): a plain start mounts no mods, the main menu plays the original;
   // mw3.cfg's mod= lines are only moved to the campaign entries (entries_migrate), mods mount for --entry
