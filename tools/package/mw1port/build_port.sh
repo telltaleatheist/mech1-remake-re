@@ -106,7 +106,13 @@ cp "$SRC/munt/mt32emu/COPYING.LESSER.txt" "$L/libmt32emu-LICENSE.txt"
 cp "$SRC/nuked-opl3/LICENSE" "$L/Nuked-OPL3-LICENSE.txt"
 sdl_lic="$(ls "$PREFIX"/share/licenses/SDL3/LICENSE.txt 2>/dev/null || ls /opt/homebrew/opt/sdl3/LICENSE.txt 2>/dev/null || true)"
 [ -n "$sdl_lic" ] && cp "$sdl_lic" "$L/SDL3-LICENSE.txt" || { echo "no SDL3 LICENSE.txt found" >&2; exit 1; }
+# SDL3's version, from the headers built against (the prefix's, else Homebrew's).
+sdl_h="$(ls "$PREFIX"/include/SDL3/SDL_version.h 2>/dev/null || ls /opt/homebrew/include/SDL3/SDL_version.h 2>/dev/null || true)"
+sdl_ver="$(awk '/#define SDL_(MAJOR|MINOR|MICRO)_VERSION/{printf "%s%s", sep, $3; sep="."}' "$sdl_h" 2>/dev/null || true)"
+[ -n "$sdl_ver" ] || { echo "no SDL_version.h found for SOURCES.txt" >&2; exit 1; }
 {
+  echo "MechWarrior (1989) SDL port by Elthial ($PORT_URL, commit $PORT_COMMIT); thank you."
+  echo
   echo "MechWarrior (1989) SDL port, as built for MechWarrior 3 Rebuild's launcher (PLAY ORIGINAL)."
   echo "A legally obtained MechWarrior (1989) installation is required; none is included."
   echo
@@ -114,7 +120,7 @@ sdl_lic="$(ls "$PREFIX"/share/licenses/SDL3/LICENSE.txt 2>/dev/null || ls /opt/h
   echo "  port        $PORT_URL @ $PORT_COMMIT"
   echo "  libmt32emu  $MUNT_URL @ $MUNT_COMMIT (mt32emu/)"
   echo "  nukedopl    $NUKED_URL @ $NUKED_COMMIT (opl3.c)"
-  echo "  SDL3        https://github.com/libsdl-org/SDL ($(basename "$(dirname "$(dirname "$sdl_lic")")") prefix)"
+  echo "  SDL3        https://github.com/libsdl-org/SDL release $sdl_ver (zlib licence)"
   echo "Patches applied to the port:"
   for p in "${PATCHES[@]}"; do echo "  $(basename "$p")"; done
   echo "The two LGPL libraries are separate shared libraries beside the program and may be replaced."
