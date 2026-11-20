@@ -24,8 +24,7 @@ Libraries beside the program:
   nukedopl (Nuked-OPL3 by Nuke.YKT, https://github.com/nukeykt/Nuked-OPL3, the
   AdLib emulation): GNU Lesser General Public License 2.1
   (libmt32emu-LICENSE.txt, Nuked-OPL3-LICENSE.txt). Both are separate shared
-  libraries, which you may replace with your own builds. Their corresponding
-  source is at the commits in SOURCES.txt; on request we will also send it
-  to you, for three years from this release, through the issues page of
-  https://github.com/telltaleatheist/mw3-re.
+  libraries, which you may replace with your own builds. Their source is
+  on GitHub at the exact commits listed in SOURCES.txt, and how we build
+  them is in tools/package/mw1port/ of https://github.com/telltaleatheist/mw3-re.
 - SDL 3 (https://www.libsdl.org/): zlib licence (SDL3-LICENSE.txt).
