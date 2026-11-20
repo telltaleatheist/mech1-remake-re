@@ -229,6 +229,19 @@ Material* material_find_texture(zimg::TextureEntry* t) {
 // material; every caller passes one.
 Material* material_copy(const Material& m) { return new_material(m); }
 
+// The materials' free with the models' (0x005372c0 in 0x00526920's place): every material's cycle freed (its
+// texture list, then itself, as material_free does one), then an empty table. FIX (A): the table's blocks alone
+// went, and every animated material's cycle leaked on each mission's unload (Pirate's Moon's worlds have them).
+void materials_free() {
+  MaterialTable& t = g_table;
+  for (int32_t i = 0; i < t.capacity; ++i) {
+    Material& m = t.at(i);
+    if ((m.flags & 4) && m.cycle) std::free(m.cycle->textures), std::free(m.cycle);
+    m.cycle = nullptr;
+  }
+  t = MaterialTable{};
+}
+
 // Mech3.exe 1.2 @ 0x00537070: a material back on the free list: its cycle
 // freed, everything but the links cleared, then 0x10 (as the exe) and 0x20,
 // unlinked from the used list to the free list's front. The free head

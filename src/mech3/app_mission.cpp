@@ -1968,7 +1968,7 @@ struct WiredMissionHooks : MissionHooks {
     zmod::ModelPool& p = zmod::models();
     for (int32_t i = 0; i < p.count; ++i) zmod::model_release(&p.slots[i]);  // 0x00539150
     zmod::models() = zmod::ModelPool{};
-    zmod::materials() = zmod::MaterialTable{};
+    zmod::materials_free();
     pm::zmod::models() = pm::zmod::ModelPool{};  // Pirate's Moon 0x00540200: its pool with its materials
   }
   void textures_free() override { zimg::textures_free(); }  // 0x00516f30: 0x00518b70
