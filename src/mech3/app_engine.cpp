@@ -666,7 +666,10 @@ void GameEngine::force_feedback_spring(Handle, int32_t on) {
   if (force_) force_->spring(on != 0);
 }
 void GameEngine::input_set_mode(uint32_t mode) { zin::set_mode(mode); }
-void GameEngine::input_poll(uint8_t callbacks) { zin::poll(callbacks != 0); }
+void GameEngine::input_poll(uint8_t callbacks) {
+  zin::poll(callbacks != 0);
+  if (zin::joy_take_arrival()) stick_arrived(*this);  // FIX (B): a stick plugged in later
+}
 uint32_t GameEngine::key_state(int32_t key) { return zin::key_state(key); }
 void GameEngine::input_clear() { zin::kbd_reset(); }
 void GameEngine::input_reset() { zin::reset(); }

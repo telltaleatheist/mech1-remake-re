@@ -487,6 +487,55 @@ TEST(sdl_input_stick_taken_out_reads_centred) {
   SDL_DetachVirtualJoystick(id);
 }
 
+// FIX (B) (Owen 2026-11-20, for MW1's remake too): a stick plugged in after the
+// start is opened by zInput's poll with the users asked for meanwhile, the
+// arrival taken once; its buttons 11..15 read and bind as 1..10 do (the
+// original stops at 10, which the probes' path keeps).
+TEST(sdl_input_stick_plugged_in_later_and_its_high_buttons) {
+  EXPECT(SDL_InitSubSystem(SDL_INIT_JOYSTICK | SDL_INIT_GAMEPAD));
+  const zfix::Options saved = zfix::options();
+  zfix::options().fixed = true;
+  sdlfe::SdlInput in;
+  in.hid_usages = [](SDL_Joystick*) { return std::vector<uint16_t>{}; };
+  zin::State& s = zin::state();
+  platform::Input* was = s.di;
+  s.di = &in;
+  s.started = 1, s.joy_flags = 0, s.joy_users = 0, s.joy_wanted = 0, s.joy_arrived = false;
+  EXPECT(zin::joy_init(0) == 0);  // the start: no stick
+  zin::joy_use();                 // the start's own use
+  zin::joy_use(), zin::joy_unuse();  // a screen's, given back
+  zin::poll(false);
+  EXPECT(!zin::joy_present() && !zin::joy_take_arrival());
+  const SDL_JoystickID id = attach_stick("mw3 test late stick", 4, 15, 1);
+  pump(in);
+  zin::poll(false);
+  std::printf("  plugged in: present %d, flags %d, users %d\n", zin::joy_present(), s.joy_flags, s.joy_users);
+  EXPECT(zin::joy_present() && s.joy_flags == 1 && s.joy_users == 1);
+  EXPECT(zin::joy_take_arrival() && !zin::joy_take_arrival());
+  SDL_Joystick* v = SDL_OpenJoystick(id);
+  SDL_SetJoystickVirtualButton(v, 12, true);  // button 13
+  SDL_UpdateJoysticks();
+  zin::poll(false);
+  EXPECT(zin::joy_button(13) == zin::kPressed && zin::joy_wait_button(false) == 13);
+  char name[64] = {};
+  zin::make_joy_names();
+  EXPECT(std::strcmp(zin::joy_button_name(15, name, sizeof name), "Button 15") == 0);
+  SDL_SetJoystickVirtualButton(v, 12, false);
+  SDL_UpdateJoysticks();
+  zin::poll(false);
+  zfix::options().fixed = false;  // the original: 1..10 only
+  SDL_SetJoystickVirtualButton(v, 12, true);
+  SDL_UpdateJoysticks();
+  zin::poll(false);
+  EXPECT(zin::joy_button(13) == zin::kPressed && zin::joy_wait_button(false) == 0);
+  zin::joy_close();
+  s.di = was;
+  s.started = 0, s.joy_flags = 0, s.joy_users = 0;
+  zfix::options() = saved;
+  SDL_CloseJoystick(v);
+  SDL_DetachVirtualJoystick(id);
+}
+
 TEST(sdl_input_virtual_gamepad_reads_as_directinput_xinput) {
   EXPECT(SDL_InitSubSystem(SDL_INIT_JOYSTICK | SDL_INIT_GAMEPAD));
   SDL_VirtualJoystickDesc d;

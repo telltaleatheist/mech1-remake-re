@@ -128,6 +128,7 @@ extern "C" {
 
 void zin_setup(Cb cb, int with_di) {
   g_cb = cb;
+  zfix::set_all(false);  // the original's path (zfix.h): buttons 1..10
   zin::reset_state();
   zin::set_input(with_di ? &g_input : nullptr);
   zin::set_host(&g_host);

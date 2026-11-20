@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "gamez/zutil/zfix.h"
 #include "platform/platform.h"
 
 // zInput, the engine's input (C:\zipper\GameZMech3\zInput: zin_kbd.cpp,
@@ -106,6 +107,10 @@ struct State {
 
   // Joystick.
   uint32_t joy_ready = 0;              // 0x0063c4a4
+  // Ours, FIX (B): joy_use calls made while there was no stick (its users
+  // once one is plugged in), and the arrival not yet taken (joy_take_arrival).
+  uint16_t joy_wanted = 0;
+  bool joy_arrived = false;
   bool joy_open = false;               // 0x0063c4a8
   platform::JoyState joy, joy_prev;    // 0x0063c4ac, 0x0063c5bc
   uint32_t joy_axes = 0;               // 0x0063c6ec
@@ -136,8 +141,8 @@ struct State {
   std::unique_ptr<CmdMap> base;        // the first map, made by 0x0051c630
   std::string key_names[0xde];         // 0x0063cdd4 by DIK code; empty: none
   bool key_named[0xde] = {};
-  std::string joy_names[11];           // 0x0063d14c (1..10)
-  bool joy_named[11] = {};
+  std::string joy_names[16];           // 0x0063d14c (1..10; 1..15 with FIX (B), joy_last_button)
+  bool joy_named[16] = {};
   std::string mouse_names[4];          // 0x0063d18c (1..3)
   bool mouse_named[4] = {};
 };
@@ -158,6 +163,8 @@ void suspend();                        // 0x0051b050 (window deactivated)
 void resume();                         // 0x0051b080
 uint32_t kbd_use();                    // 0x0051b290
 uint32_t joy_use();                    // 0x0051b2c0
+// FIX (B): true once after zin::poll opened a stick plugged in after the start.
+bool joy_take_arrival();
 uint32_t joy_unuse();                  // 0x0051b2f0
 uint32_t mouse_use();                  // 0x0051b310
 uint32_t mouse_unuse();                // 0x0051b340
@@ -255,7 +262,10 @@ bool joy_present();                    // 0x0051dc10
 bool joy_gamepad();                    // ours: the platform's joystick_gamepad (W56)
 platform::JoyState* joy_read(bool callbacks);  // 0x0051dc20: null when nothing was read
 platform::JoyState* joy_state();       // 0x0051dce0
-uint32_t joy_button(int32_t b);        // 0x0051dcf0 (1..10)
+uint32_t joy_button(int32_t b);        // 0x0051dcf0 (1..joy_last_button())
+// FIX (B): the original reads buttons 1..10, so a modern pad's 11..15 do
+// nothing; the binding word holds 15 (input.md section 4). The probes get 10.
+inline int32_t joy_last_button() { return zfix::options().fixed ? 15 : 10; }
 int32_t joy_wait_button(bool wait);    // 0x0051dd20
 void joy_reset();                      // 0x0051dd60
 uint32_t force_feedback();             // 0x0051ddb0

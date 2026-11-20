@@ -193,8 +193,9 @@ void mouse_integrate() {
   const float fy = static_cast<float>(m.dy) * s.accel_y + s.frac_y;
   m.dx = static_cast<int32_t>(fx);
   m.dy = static_cast<int32_t>(fy);
-  s.frac_x = fx - static_cast<float>(m.dx);
-  s.frac_y = fy - static_cast<float>(m.dy);
+  const bool carry = zfix::options().fixed;  // the probes: the original's cut
+  s.frac_x = carry ? fx - static_cast<float>(m.dx) : 0.0f;
+  s.frac_y = carry ? fy - static_cast<float>(m.dy) : 0.0f;
   m.x += m.dx;
   m.y += m.dy;
   m.z += m.dz;

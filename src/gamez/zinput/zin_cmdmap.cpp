@@ -231,7 +231,7 @@ void mouse_callbacks() {
 
 // Mech3.exe 1.2 @ 0x0051c270
 void joy_callbacks() {
-  for (int32_t b = 1; b < 0xb; ++b) {
+  for (int32_t b = 1; b <= joy_last_button(); ++b) {  // FIX (B): b < 0xb
     if (joy_button(b) != kPressed) continue;
     const int32_t c = joy_command(b);
     if (CommandCallback cb = cur()->callbacks[c]) cb(c);
@@ -259,7 +259,8 @@ uint32_t command(int32_t cmd) {
   if (k1) s = key_state(static_cast<int32_t>(k1));
   if (k2) s |= key_state(static_cast<int32_t>(k2));
   const uint32_t j = joy_of(cmd);
-  if (j != 0 && j < 0xb) s |= joy_button(static_cast<int32_t>(j));
+  // FIX (B): j < 0xb in the original (joy_last_button).
+  if (j != 0 && j <= static_cast<uint32_t>(joy_last_button())) s |= joy_button(static_cast<int32_t>(j));
   const MouseInfo* m = mouse_info();
   switch (mouse_of(cmd)) {
     case 1: return s | m->left;
@@ -370,7 +371,7 @@ void make_key_names() {
 // Mech3.exe 1.2 @ 0x0051d020
 void make_joy_names() {
   State& s = state();
-  for (int i = 1; i <= 10; ++i) {
+  for (int i = 1; i <= joy_last_button(); ++i) {  // FIX (B): 1..10
     char key[64], fallback[64];
     std::snprintf(key, sizeof key, "MSG_JBTN_%d", i);
     std::snprintf(fallback, sizeof fallback, "Button %d", i);
@@ -393,7 +394,7 @@ void shutdown() {
   State& s = state();
   while (s.map && s.map->owned) pop_map();
   for (int i = 0; i < 4; ++i) s.mouse_names[i].clear(), s.mouse_named[i] = false;  // 0x0051d190
-  for (int i = 0; i < 11; ++i) s.joy_names[i].clear(), s.joy_named[i] = false;     // 0x0051d160
+  for (int i = 0; i < 16; ++i) s.joy_names[i].clear(), s.joy_named[i] = false;     // 0x0051d160
   for (int i = 0; i < 0xde; ++i) s.key_names[i].clear(), s.key_named[i] = false;   // 0x0051d130
   if (s.map) {
     map_release(s.map);

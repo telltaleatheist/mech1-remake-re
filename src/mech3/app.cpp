@@ -6,12 +6,19 @@
 
 #include "mech3/app_states.h"
 #include "mech3/options.h"
+#include "gamez/zutil/zfix.h"
 
 namespace mech3 {
 
 namespace {
 AppGlobals g_globals;
 Mech3App* g_app = nullptr;
+// FIX (B): what the start changed for want of a stick (stick_arrived).
+struct StickAtStart {
+  bool missing = false;
+  int32_t use_joystick = 0;
+  AxisTable before, after;
+} g_stick;
 }  // namespace
 
 AppGlobals& globals() { return g_globals; }
@@ -287,8 +294,10 @@ bool Mech3App::start_game(uint32_t window) {
   e.input_start(window, cmd_show_);
   if (!e.joystick_present()) {
     AxisTable& t = axis_table();
+    g_stick = {zfix::options().fixed, use_joystick(), t, {}};  // FIX (B): stick_arrived
     if (t.stock) t.ready = 1;
     e.set_use_joystick(0);
+    g_stick.after = t;
   } else {
     if (Handle old = e.force_feedback()) e.force_feedback_delete(old);
     e.set_force_feedback(0);
@@ -426,6 +435,27 @@ void parse_command_line(Engine& e, Mech3App& app, const char* line) {
       app.set_cd_track(tok[3] == '\0' ? 0 : static_cast<int32_t>(std::atol(tok + 3)));
     }
   }
+}
+
+// Ours, FIX (B): the original opens the stick only at the start, so one
+// plugged in later did nothing until the game was started again. Now
+// zInput opens it (zin::poll); here the start's no-stick branch is undone:
+// UseJoystick as saved, the axes as they were (unless changed since), and
+// the force feedback the stick's start would have made.
+void stick_arrived(Engine& e) {
+  if (!g_stick.missing) return;
+  g_stick.missing = false;
+  AxisTable& t = axis_table();
+  bool untouched = t.ready == g_stick.after.ready;
+  for (int i = 0; i < 4; ++i) {
+    const AxisBinding &x = t.axes[i], &y = g_stick.after.axes[i];
+    untouched = untouched && x.source == y.source && x.scale == y.scale && x.offset == y.offset && x.deadzone == y.deadzone;
+  }
+  if (g_stick.use_joystick) e.set_use_joystick(1);
+  if (untouched) t = g_stick.before;
+  if (Handle old = e.force_feedback()) e.force_feedback_delete(old);
+  e.set_force_feedback(0);
+  if (e.force_feedback_present()) e.set_force_feedback(e.force_feedback_new());
 }
 
 }  // namespace mech3
