@@ -246,6 +246,17 @@ std::vector<std::string> wrapped(const std::string& text, size_t columns) {
   return out;
 }
 
+std::vector<std::string> quoted(const std::vector<std::string>& lines, size_t columns) {
+  std::string text;
+  for (const std::string& l : lines) {
+    const size_t a = l.find_first_not_of(' ');
+    if (a == std::string::npos) continue;
+    text += (text.empty() ? "" : " ") + l.substr(a, l.find_last_not_of(' ') - a + 1);
+  }
+  if (text.empty()) return {};
+  return wrapped("\"" + text + "\"", columns);
+}
+
 bool can_go_there(const Company& c, const Lead& l) { return l.planet >= 0 && l.planet != planet_index(c.planet_number); }
 
 Page lead_page(const Company& c, const Lead& l) {

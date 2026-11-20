@@ -68,6 +68,7 @@
 #include "mech3/zai_params.h"
 #include "mech3/mainmenu.h"
 #include "mw1_bar_screen.h"
+#include "mw1_journal.h"
 #include "mw1_chrome.h"
 #include "mw1_event_screen.h"
 #include "mw1_scenery.h"
@@ -2291,7 +2292,9 @@ TEST(mw1_loop_lancemates_fly_named_and_aimed_then_the_casualty_headless) {
     };
     EXPECT(shows(run.bar_lines, "ELLI GUJAR") && shows(run.bar_lines, "Recruit 1 of") && shows(run.bar_lines, "J. HOLMAAS") &&
            shows(run.bar_lines, "Recruit 2 of") && shows(run.bar_lines, "Gunnery") && shows(run.bar_lines, "a month"));
-    if (!pitch.empty()) EXPECT(shows(run.bar_lines, "\"" + pitch[0] + "\""));  // Elli Gujar's own words
+    // Elli Gujar's own words, one quote (FIXES 95): each of its lines shown, and never the first exe line quoted alone.
+    for (const std::string& l : mw1::journal::quoted(pitch, mw1::bar_ui::kPitchColumns)) EXPECT(shows(run.bar_lines, l));
+    if (!pitch.empty()) EXPECT(!shows(run.bar_lines, "\"" + pitch[0] + "\""));
     EXPECT(shows(run.bar_after, "Nobody here") && shows(run.bar_after, "J. HOLMAAS") && shows(run.bar_after, "Owens") &&
            shows(run.bar_after, "LANCE 2 OF 3 \xB7 WAGES 2,400 A MONTH") && shows(run.bar_after, "PILOT it in the MARKET") &&
            shows(run.bar_after, "Commander"));

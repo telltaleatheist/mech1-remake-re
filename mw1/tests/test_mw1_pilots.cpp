@@ -2,6 +2,7 @@
 // (counts by tier, the reputation's Gunnery, the portrait pairs); hiring, the full lance, declining, firing,
 // assigning; wages, the warning and the lance leaving; promotion; the casualties' rule and their mechs; the lance's
 // weight in the offer.
+#include <algorithm>
 #include <cctype>
 #include <cstdlib>
 #include <memory>
@@ -19,7 +20,9 @@
 #include "mech3/pilot.h"
 #include "mw1_install.h"
 #include "mw1_campaign.h"
+#include "mw1_bar_screen.h"
 #include "mw1_chrome.h"
+#include "mw1_journal.h"
 #include "mw1_log.h"
 #include "mw1_pilots.h"
 #include "mw1_repairs.h"
@@ -82,6 +85,60 @@ TEST(mw1_pilots_records_and_wages_are_mw_main_exes) {
   EXPECT(mw1::pitch(1).empty());
   mw1::set_mw1_game_dir("");
   EXPECT(mw1::pilot_title(id_named("J. HOLMAAS")) == "J. Holmaas" && mw1::pilot_title(1) == "Elli Gujar" && mw1::pilot_title(3) == "Taris Ren");
+}
+
+// FIXES 95: each recruit's pitch on the Bar's terminal as one quote (mw1_bar_screen.cpp, journal::quoted), not each
+// exe line in its own: for every pilot with a pitch, a quote mark opens its first line and closes its last, no other
+// mark added; its words all there in their order and case; every line within kPitchColumns (a word longer stays whole)
+// and at most kPitchLines. Sizes only: the pitches are MW1's words.
+TEST(mw1_pilots_each_pitch_is_one_quote_wrapped) {
+  mw1::set_mw1_game_dir(MW1_DOS_GAME_DIR);
+  if (mw1::pitch(1).empty()) {
+    mw1::set_mw1_game_dir("");
+    mw1_test::no_mw1();
+    return;
+  }
+  auto words = [](const std::string& text) {
+    std::vector<std::string> w;
+    std::string one;
+    for (char ch : text + " ")
+      if (ch != ' ') one += ch;
+      else if (!one.empty()) w.push_back(one), one.clear();
+    return w;
+  };
+  auto marks = [](const std::string& t) { return std::count(t.begin(), t.end(), '"'); };
+  int32_t pitches = 0;
+  size_t most_lines = 0, longest = 0;
+  for (int32_t id = 1; id <= mw1::kPilotCount; ++id) {
+    const std::vector<std::string> exe = mw1::pitch(id);
+    if (exe.empty()) continue;
+    ++pitches;
+    const std::vector<std::string> shown = mw1::journal::quoted(exe, mw1::bar_ui::kPitchColumns);
+    std::string exe_text, shown_text;
+    for (const std::string& l : exe) exe_text += l + " ";
+    for (const std::string& l : shown) shown_text += l + " ";
+    size_t widest = 0;
+    bool fits = true;
+    for (const std::string& l : shown) {
+      widest = std::max(widest, l.size());
+      fits = fits && (l.size() <= mw1::bar_ui::kPitchColumns || l.find(' ') == std::string::npos);
+    }
+    std::vector<std::string> said = words(shown_text);
+    if (!said.empty()) said.front().erase(0, 1), said.back().pop_back();  // the marks off
+    std::printf("  pilot %2d: %zu exe lines, %zu shown, the widest %zu letters\n", id, exe.size(), shown.size(), widest);
+    EXPECT(!shown.empty() && shown.front().front() == '"' && shown.back().back() == '"');
+    EXPECT(marks(shown_text) == marks(exe_text) + 2);
+    EXPECT(said == words(exe_text));
+    EXPECT(fits && shown.size() <= mw1::bar_ui::kPitchLines);
+    most_lines = std::max(most_lines, shown.size()), longest = std::max(longest, widest);
+  }
+  std::printf("  %d pitches, at most %zu lines, the widest %zu letters\n", pitches, most_lines, longest);
+  EXPECT(pitches > 0);
+  // The helper's own rules: the ends' spaces and a blank line dropped, nothing for nothing.
+  EXPECT((mw1::journal::quoted({"  AB ", "", "CD"}, 20) == std::vector<std::string>{"\"AB CD\""}));
+  EXPECT((mw1::journal::quoted({"ONE TWO", "THREE"}, 7) == std::vector<std::string>{"\"ONE", "TWO", "THREE\""}));
+  EXPECT(mw1::journal::quoted({"", "  "}, 20).empty());
+  mw1::set_mw1_game_dir("");
 }
 
 TEST(mw1_pilots_recruits_by_tier_reputation_and_portraits) {
