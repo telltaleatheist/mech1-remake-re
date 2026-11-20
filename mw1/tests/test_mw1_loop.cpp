@@ -1118,7 +1118,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
         // The money's order (FIXES.md item 57): the fee first, the salvage, any repairs, the total last.
         EXPECT(pay.size() >= 3 && (pay[0].rfind("Fee: ", 0) == 0 || pay[0].rfind("No fee", 0) == 0) &&
                pay[1].rfind("Salvage: ", 0) == 0 && pay.back().rfind("Total: ", 0) == 0);
-        EXPECT(pay.size() == 3 + !rp->repairs.empty());
+        EXPECT(pay.size() == size_t{3} + (rp->repairs.empty() ? 0u : 1u));
         // FIXES 28's review: no "Fee: 0" on a loss or a retreat; a retreat's salvage list says it withdrew, not lost (its
         // fates and repairs settled as a loss's since item 75).
         if (pa->outcome != mw1::Outcome::kSuccess) EXPECT(pay[0] == (failed ? "Fee: none (lost)" : "Fee: none (withdrew)") || pay[0].rfind("No fee", 0) == 0);
@@ -1507,7 +1507,6 @@ void loop_run(Ending ending, Run* run = nullptr) {
             run->structure_found = mech3::mission_objective_hooks().entity_find(k->structure.c_str()) != 0;
           else run->structure_found = true;
           if (const mw1::Contract* k = mw1::game_loop_contract(); k && !k->structure.empty()) {
-            mech3::ObjectiveHooks& h = mech3::mission_objective_hooks();
             const mech3::NavSummary n = mech3::program_nav_summary(mech3::program_mission_waynet());
             if (float at[3]; mw1::game_loop_structure_point(at) && n.current >= 0 && n.current < 8) {
               const float dx = n.pos[n.current][0] - at[0], dz = n.pos[n.current][2] - at[2];
@@ -4035,7 +4034,7 @@ TEST(mw1_soak_twenty_contracts_through_the_hub_headless) {
     auto bad = [&](int& n, const std::string& why) {
       if (!n++ && first_bad.empty()) first_bad = why;
     };
-    r.step = [&](mech3::Mech3App& app, mech3::GameEngine& engine) {
+    r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
       // A stuck state: one screen for 2,000 frames.
       if (app.current() != last_state) last_state = app.current(), idle = 0;
       else if (++idle > 2000) {
@@ -4727,7 +4726,10 @@ TEST(mw1_loop_screens_change_in_one_step_headless) {
         auto* st = app.current() != static_cast<zgame::State*>(hub) ? dynamic_cast<mw1::Mw1State*>(app.current()) : nullptr;
         mw1::Mw1Screen* sc = st ? st->screen() : nullptr;
         if (!sc) return false;
-        const int32_t back = step == 1 ? mw1::kBarBack : step == 3 ? mw1::kMarketBack : step == 5 ? mw1::kTravelBack : mw1::kOfficeBack;
+        const int32_t back = step == 1   ? static_cast<int32_t>(mw1::kBarBack)
+                             : step == 3 ? static_cast<int32_t>(mw1::kMarketBack)
+                             : step == 5 ? static_cast<int32_t>(mw1::kTravelBack)
+                                         : static_cast<int32_t>(mw1::kOfficeBack);
         sc->on_button(back, 0, 0);
       }
       ++step, wait = 0;
@@ -6171,7 +6173,7 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
     r.box = [](const std::string&) -> uint32_t { return 6u; };  // BUY? SELL?: yes
     // What happened.
     int contracts = 0, contracts_won = 0, story_battles = 0, trips = 0, buys = 0, hires = 0, lab_sets = 0, journals = 0;
-    int dw_tries = 0, credits_frames = 0, hubs = 0, idle = 0, wait = 0, mission_frames = 0, loads_seen = 0, stuck_visits = 0;
+    int dw_tries = 0, credits_frames = 0, hubs = 0, idle = 0, wait = 0, mission_frames = 0, loads_seen = 0;
     bool in_mission = false, credits_seen = false, credits_over = false, done = false, journal_open = false;
     int32_t travel_to = -1;
     int builds = 0;  // the hubs spent building the lance up
@@ -6294,7 +6296,7 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
           if (mech3::max_mass(m) > best_mass) best_mass = mech3::max_mass(m), best = static_cast<int32_t>(i);
         }
         mw1::Company with = *c;
-        if (best >= 0) with.hangar.push_back(mw1::OwnedMech{c->market.stock[static_cast<size_t>(best)]});
+        if (best >= 0) with.hangar.push_back(mw1::OwnedMech{c->market.stock[static_cast<size_t>(best)], nullptr, 0});
         const mw1::MarketChoice* ch = mw1::game_loop_market_choice();
         if (best < 0 || !ch || best_lance_tons(with, pilots) <= best_lance_tons(*c, pilots)) {
           if (c->funds > 3000000) markets_no_better.insert(mw1::planet_index(c->planet_number));

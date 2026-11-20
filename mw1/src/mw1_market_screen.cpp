@@ -37,7 +37,7 @@ std::string padded(std::string s, size_t w) {
   return s;
 }
 std::string tons(int32_t mech) {
-  char t[8];
+  char t[16];  // "%3dt " fits 8 for any 'Mech's tons; room for any int (GCC's -Wformat-truncation)
   std::snprintf(t, sizeof t, "%3dt ", static_cast<int>(tier0_price(mech) + kPriceOffset) / kPricePerTon);
   return t;
 }

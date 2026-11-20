@@ -144,10 +144,6 @@ std::string join(const std::vector<std::string>& l, const char* sep) {
   for (const std::string& x : l) s += (s.empty() ? "" : sep) + x;
   return s;
 }
-std::string title_case(std::string s) {
-  if (!s.empty()) s[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(s[0])));
-  return s;
-}
 // Is `name` one of the mission's targets.zrd entities? Read as the engine reads it (the mounted archives, the
 // mission's first): at block_read the targets aren't made yet (entity_find answers none), and destroy_entity finds
 // its entity by name later, at its checks; a name it never finds counts as destroyed at once, so it's asked here.
@@ -1032,7 +1028,6 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
 
   void press_office(int32_t id) {
     if (id < kOfficePayDown || id > kOfficeAdvanceUp) std::printf("mw1: office: %s\n", office_button_name(id));  // the arrows unlogged
-    mech3::GameEngine* ge = ge_;
     switch (id) {
       case kOfficeSubmit: {
         if (!offered_ || pending_ || !ochoice_.ask.any()) return;
@@ -2062,9 +2057,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       const mech3::MessageText msg = [](int32_t id) { return mech3::pilot_hooks().message(id); };
       int32_t i = 0;
       for (const mech3::ConfigItem* it : a.salvage->items)
-        p.salvage.push_back({std::to_string(it->count) + " x " + mech3::item_name(*it, msg) + (it->kind() == 2 ? " ammo" : ""), i++});
+        p.salvage.push_back({std::to_string(it->count) + " x " + mech3::item_name(*it, msg) + (it->kind() == 2 ? " ammo" : ""), i++, ""});
     } else {
-      p.salvage.push_back({success ? "Nothing salvaged" : a.outcome == Outcome::kFailure ? "None: the field was lost" : "None: you withdrew"});
+      p.salvage.push_back({success ? "Nothing salvaged" : a.outcome == Outcome::kFailure ? "None: the field was lost" : "None: you withdrew", -1, ""});
     }
     // DETAILS: each wreck, who disabled it, its value (the salvage share's base); your mech by location.
     p.kills_title = "ENEMY MECHS DESTROYED: " + std::to_string(a.wrecks.size());
@@ -2072,19 +2067,19 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       const std::string by = killer_words(i);
       const int64_t v = int64_t{wreck_value(company_, a.wrecks[i])} * 1000;
       p.kills.push_back({mech_title(wreck_chassis(a.wrecks[i])) + (by.empty() ? "" : " by " + by) + " " + thousands(v),
-                         static_cast<int32_t>(i)});
+                         static_cast<int32_t>(i), ""});
     }
-    if (p.kills.empty()) p.kills.push_back({"None"});
+    if (p.kills.empty()) p.kills.push_back({"None", -1, ""});
     // Each mech's repairs, how much the wrecks paid (FIXES.md items 51, 57), a lost mech's fate, the bill past them.
     if (!rep.lines.empty()) {
-      p.kills.push_back({""});
-      if (success) p.kills.push_back({"Wrecks' worth: " + thousands(sum.pool) + " C-bills"});
+      p.kills.push_back({"", -1, ""});
+      if (success) p.kills.push_back({"Wrecks' worth: " + thousands(sum.pool) + " C-bills", -1, ""});
       for (size_t i = 0; i < rep.lines.size(); ++i) p.kills.push_back({rep.lines[i], -1, i < rep.narrow.size() ? rep.narrow[i] : ""});
     }
     // FIXES 98: each downed lancemate's fate.
     for (const LanceFate& f : a.lance)
       if (f.destroyed)
-        p.kills.push_back({pilot_title(f.id) + (pilot_killed(f) ? ": KILLED" : pilot_missing(f) ? ": MISSING" : ": downed, came back")});
+        p.kills.push_back({pilot_title(f.id) + (pilot_killed(f) ? ": KILLED" : pilot_missing(f) ? ": MISSING" : ": downed, came back"), -1, ""});
     p.mech_title = "YOUR " + upper(mech_title(company_.mech));
     p.mech = mech_lines(a.armor_left, a.structure_left, destroyed);
     // The message (item 31): the exe's outcome line, and the deduction's after a win paid short (MW1's
@@ -4292,7 +4287,6 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   std::vector<std::shared_ptr<mech3::Config>> lab_loadouts_;
   int32_t lab_show_ = 0;
   bool lab_hook_ = false;
-  static constexpr int32_t kLabChassisPage = 0;  // LabScreen::page: the chassis page (ICON_CHASSIS)
   static constexpr int32_t kLabCriticalsPage = 3;  // the criticals page: LOAD-OUT and the supplies (ICON_CRITICALS)
   std::shared_ptr<mech3::Store> salvage_;  // this mission's parts, the stores' on a win
   bool deployed_ = false, launched_ = false, ended_ = false, failed_ = false, own_wins_ = false;

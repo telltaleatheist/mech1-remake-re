@@ -5,6 +5,16 @@ Tick an item when it is merged into `main`.
 
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 119. [x] The release tidy: MW1's own build warnings cleared *(done, mw1-fix119-warnings)*
+
+For clean 1.0.0 builds: no warning from MW1's own code (mw1/src, mw1/tests) on Mac clang or Linux GCC 13.3; the
+engine's warnings are left alone. No behaviour change.
+- Clang's 18: the unused title_case, ge and kLabChassisPage gone; the results lists' rows and the story's Reader
+  with every field written; the tests' unused names and unwritten fields.
+- GCC's 3 more: the market's tons column with room for any int (the text the same), a size compared as size_t,
+  a back button from four screens' enums as int32_t.
+- 93's playthrough test: an unused counter, an OwnedMech with every field.
+
 ## 1. [x] The main menu is Pirate's Moon's *(done: title screen ours)*
 - **Seen:** starting MW1 shows a PM-style menu.
 - **Wanted:** MW1's own title screen, using the generated `title_bg` with NEW / LOAD / QUIT in MW1's style.
