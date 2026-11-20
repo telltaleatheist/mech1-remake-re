@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "check.h"
+#include "mw1_btech_stand_in.h"
 #if MW3_HAVE_LIBARCHIVE
 #include <archive.h>
 #include <archive_entry.h>
@@ -6916,7 +6917,7 @@ TEST(sdl_program_launcher_starts_mechwarrior_1989) {
   std::filesystem::remove_all(dir, ec);
   std::filesystem::create_directories(dir + "/wd", ec);
   std::filesystem::create_directories(dir + "/game", ec);
-  std::ofstream(dir + "/game/BTECH.EXE") << "x";
+  std::ofstream(dir + "/game/BTECH.EXE", std::ios::binary) << mw1_port_btech_stand_in();  // a revision the port plays
   {
     std::ofstream cfg(dir + "/wd/mw3.cfg");
     cfg << "mw1_game=" << dir << "/game\n";
@@ -7059,16 +7060,26 @@ TEST(sdl_program_launcher_starts_mechwarrior_1) {
       std::ofstream cfg(dir + "/wd/mw3.cfg", std::ios::trunc);
       cfg << "mw1_game=" << dir << "/game\ninstall=" << mw3 << "\npm_install=" << pm << "\n";
     }
-    std::filesystem::remove(dir + "/args.txt", ec);
-    setenv("MW3_MW1_BIN", mw1.c_str(), 1), setenv("MW3_PM_BIN", pm_bin.c_str(), 1), setenv("MW3_FIND_INSTALL", "1", 1);
-    setenv("MW3_MW1_PORT", port.c_str(), 1), setenv("MW3_LAUNCHER_NAV", "next,next,next,press", 1), setenv("MW3_LAUNCHER_FRAMES", "30", 1);
-    const std::string log = dir + "/original.log";
-    const pid_t pid = spawn_launcher({"--write-dir", dir + "/wd", "--window", "640x480", "--nosound", "--hidden"}, log);
-    for (const char* v : {"MW3_MW1_BIN", "MW3_PM_BIN", "MW3_FIND_INSTALL", "MW3_MW1_PORT", "MW3_LAUNCHER_NAV", "MW3_LAUNCHER_FRAMES"}) unsetenv(v);
-    int status = 0;
-    EXPECT(waited(pid, &status) && WIFEXITED(status) && WEXITSTATUS(status) == 0);
-    std::ifstream lf(log), pf(dir + "/port-args.txt");
-    const std::string text((std::istreambuf_iterator<char>(lf)), std::istreambuf_iterator<char>());
+    auto run_original = [&](const char* name) {
+      std::filesystem::remove(dir + "/args.txt", ec), std::filesystem::remove(dir + "/port-args.txt", ec);
+      setenv("MW3_MW1_BIN", mw1.c_str(), 1), setenv("MW3_PM_BIN", pm_bin.c_str(), 1), setenv("MW3_FIND_INSTALL", "1", 1);
+      setenv("MW3_MW1_PORT", port.c_str(), 1), setenv("MW3_LAUNCHER_NAV", "next,next,next,press", 1), setenv("MW3_LAUNCHER_FRAMES", "30", 1);
+      const std::string log = dir + "/" + name + ".log";
+      const pid_t pid = spawn_launcher({"--write-dir", dir + "/wd", "--window", "640x480", "--nosound", "--hidden"}, log);
+      for (const char* v : {"MW3_MW1_BIN", "MW3_PM_BIN", "MW3_FIND_INSTALL", "MW3_MW1_PORT", "MW3_LAUNCHER_NAV", "MW3_LAUNCHER_FRAMES"}) unsetenv(v);
+      int status = 0;
+      EXPECT(waited(pid, &status) && WIFEXITED(status) && WEXITSTATUS(status) == 0);
+      std::ifstream lf(log);
+      return std::string((std::istreambuf_iterator<char>(lf)), std::istreambuf_iterator<char>());
+    };
+    // The 1-byte stand-in is no revision the port plays: PLAY ORIGINAL greyed and said (the press goes to the next
+    // button that takes it), the port never started.
+    const std::string refused = run_original("unsupported");
+    EXPECT(refused.find("entry MECHWARRIOR 1 ORIGINAL: BTECH.EXE not a revision the port supports") != std::string::npos);
+    EXPECT(refused.find("focus MECHWARRIOR 1 ORIGINAL") == std::string::npos && !std::filesystem::exists(dir + "/port-args.txt"));
+    std::ofstream(dir + "/game/BTECH.EXE", std::ios::binary | std::ios::trunc) << mw1_port_btech_stand_in();
+    const std::string text = run_original("original");
+    std::ifstream pf(dir + "/port-args.txt");
     std::string pargs;
     std::getline(pf, pargs);
     std::printf("launcher mw1 original: given \"%s\"\n", pargs.c_str());

@@ -410,6 +410,14 @@ the 1280x720 mockup at two thirds on the 854x480 canvas.
   with Owen). PLAY ORIGINAL is greyed, "NEEDS ELTHIAL'S PORT", with a line on
   the card, until the player puts the port beside the launcher or in a
   `MechWarrior1989` folder beside it; then it starts it as below.
+- The original's combat plays one BTECH.EXE revision (the port's
+  CombatInstallation.c pins the whole file's CRC-32, 0x36A13E1A, 174,267
+  bytes): `sdlfe::mw1::original_supported`. Another revision greys PLAY
+  ORIGINAL ("BTECH.EXE NOT SUPPORTED", and "Your BTECH.EXE isn't a revision
+  Elthial's port supports" on the card) instead of failing at the first
+  battle; a pick made from PLAY ORIGINAL is kept for the remake and said.
+  The checks use a stand-in of zeros with its last four bytes set to the
+  CRC (`tests/mw1_btech_stand_in.h`): no game data.
 - The bottom row: GAME FILES, UPDATES, QUIT (flat buttons), the package's
   version and the trademark line at the right.
 - Square buttons only: a hovered one lights its edge in amber (an amber

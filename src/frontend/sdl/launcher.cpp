@@ -1141,10 +1141,14 @@ void Launcher::layout() {
         if (!needs.empty()) c.lines.push_back("Remake " + needs);
         else if (!mw1_game_.empty()) c.lines.push_back(mw1_game_), c.keep = {0, 0};
         else c.lines.push_back("PLAY finds your MechWarrior (1989)");
+        // The original's combat plays one BTECH.EXE revision only (mw1::original_supported): another is said here,
+        // not at the first battle.
+        const bool unsupported = !port_exe_.empty() && !mw1_game_.empty() && !sdlfe::mw1::original_supported(mw1_game_);
         if (port_exe_.empty()) c.lines.push_back("Original: needs Elthial's SDL port");
+        else if (unsupported) c.lines.push_back("Your BTECH.EXE isn't a revision Elthial's port supports");
         if (c.keep.size() < c.lines.size()) c.keep.resize(c.lines.size(), 0);
-        play(c, 0, kMw1Original, "PLAY ORIGINAL", port_exe_.empty() ? "NEEDS ELTHIAL'S PORT" : "AS RELEASED, 1989",
-             "MECHWARRIOR 1 ORIGINAL", Button::kGrey, !port_exe_.empty());
+        play(c, 0, kMw1Original, "PLAY ORIGINAL", port_exe_.empty() ? "NEEDS ELTHIAL'S PORT" : unsupported ? "BTECH.EXE NOT SUPPORTED" : "AS RELEASED, 1989",
+             "MECHWARRIOR 1 ORIGINAL", Button::kGrey, !port_exe_.empty() && !unsupported);
         play(c, 1, kMw1, "PLAY REMAKE", mw1_remake_ ? "CRITICAL HIT, 3D" : "NOT IN THIS PACKAGE", "MECHWARRIOR 1", Button::kAmber,
              mw1_remake_ && needs.empty());
         if (!mw1_logged_) {  // the line the round entry had, for the log and the checks
@@ -1154,7 +1158,9 @@ void Launcher::layout() {
                                    : mw1_program_.empty()  ? "Ready: " + mw1_game_
                                                            : "Ready, " + mw1_program_ + ": " + mw1_game_;
           std::printf("mw3: launcher: entry %s: %s\n", mw1_remake_ ? "MECHWARRIOR 1" : "MECHWARRIOR (1989)", line.c_str());
-          std::printf("mw3: launcher: entry MECHWARRIOR 1 ORIGINAL: %s\n", port_exe_.empty() ? "needs Elthial's port" : port_exe_.c_str());
+          std::printf("mw3: launcher: entry MECHWARRIOR 1 ORIGINAL: %s\n", port_exe_.empty() ? "needs Elthial's port"
+                                                                           : unsupported ? "BTECH.EXE not a revision the port supports"
+                                                                                         : port_exe_.c_str());
           mw1_logged_ = true;
         }
       }
@@ -1601,6 +1607,11 @@ void Launcher::picked(int what, const std::string& path) {
                 sdlfe::mw1::has_main(dir) ? "" : " (no MW_MAIN.EXE: the Bar's drinks and news stay greyed)");
     mw1_game_ = dir;
     save_config_value(o_.write_dir, "mw1_game", dir);
+    if (mw1_original_ && !mw1_repick_ && !sdlfe::mw1::original_supported(dir)) {  // kept for the remake; the original says why not
+      status_ = "Your BTECH.EXE isn't a revision Elthial's port supports, so PLAY ORIGINAL can't play it.", status_good_ = false;
+      std::printf("mw3: launcher: MechWarrior (1989) original: BTECH.EXE not a supported revision\n");
+      return layout();
+    }
     if (std::exchange(mw1_repick_, false)) {  // GAME FILES: the new folder kept, PLAY left to the player
       status_ = "MechWarrior (1989) is now " + dir + ".", status_good_ = true;
       return layout();

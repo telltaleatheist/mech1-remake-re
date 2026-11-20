@@ -78,6 +78,25 @@ std::string archive_dir(const std::string& path) {
 }  // namespace
 
 bool game_valid(const std::string& dir) { return has_file(dir, "BTECH.EXE"); }
+
+bool original_supported(const std::string& dir) {
+  std::error_code ec;
+  for (fs::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec)) {
+    if (upper(it->path().filename().string()) != "BTECH.EXE" || it->file_size(ec) != kPortBtechSize) continue;
+    std::ifstream f(it->path(), std::ios::binary);
+    uint32_t crc = 0xFFFFFFFFu;
+    char buf[1 << 14];
+    while (f.read(buf, sizeof buf) || f.gcount() > 0) {
+      for (std::streamsize i = 0; i < f.gcount(); ++i) {
+        crc ^= static_cast<uint8_t>(buf[i]);
+        for (int b = 0; b < 8; ++b) crc = (crc >> 1) ^ ((crc & 1) ? 0xEDB88320u : 0);
+      }
+      if (!f) break;
+    }
+    return ~crc == kPortBtechCrc;
+  }
+  return false;
+}
 bool has_main(const std::string& dir) { return has_file(dir, "MW_MAIN.EXE"); }
 
 std::string game_in(const std::string& dir, int depth) {
