@@ -5,7 +5,7 @@ Tick an item when it is merged into `main`.
 
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
-## 121. [ ] Clan targeting computers and AMSes almost never salvaged *(cause found: the original's rule; MW1's rule the lead's call)*
+## 121. [x] Clan targeting computers and AMSes almost never salvaged *(closed: by design, the exe's rule kept; mw1-fix121-salvage-tc-ams)*
 From dev 1's 111 weapons report (the lead, 2026-11-20):
 - The Clan TC is on the Puma and Masakari Primaries and a Thor Alternate, in the right torso. It was salvaged in 1 of
   10 runs, and seed 2's three Puma Primary kills gave none.
@@ -17,7 +17,7 @@ From dev 1's 111 weapons report (the lead, 2026-11-20):
 - **Salvage drops them, by the original exe's rule; it isn't a port bug.**
   - The engine's mech has one torso part for ids 1, 7 and 8 (the torso, the left and the right torso: Mech3.exe
     0x0041d510, docs/structs.md Parts).
-  - Salvage keeps an equipment item only off a destroyed part (Mech3.exe 0x00472f00, PM 0x00474f80).
+  - Salvage keeps an equipment item only when its part isn't destroyed (Mech3.exe 0x00472f00, PM 0x00474f80).
   - Every death but one by both legs destroys the torso. A torso kill does it directly. A head kill does too:
     `Head::destroy` calls `Torso::destroy` (Mech3.exe 0x004671e0, PM 0x00468c50), and the hip does the same
     (0x00462490).
@@ -34,8 +34,11 @@ From dev 1's 111 weapons report (the lead, 2026-11-20):
   head and torso kills give no TC; both legs give one, into the stores. The census of the stock TCs and Clan AMSes
   by place is pinned too.
 - **Class:** not (a). Main and PM are faithful to the exe, and MW3 and PM players lose torso equipment the same way.
-  Changing it in MW1 is an MW1 choice (b): for example, a torso item is kept unless the mech died by its torso, or
-  a part's items go only with that part's own damage. That's the lead's and Owen's call; nothing is changed yet.
+  Changing it in MW1 would have been an MW1 choice (b), such as keeping a torso item unless the mech died by its
+  torso.
+- **Owen (2026-11-20, via the lead): kept as it is.** "everybody knows you have to knock the leg out to get good
+  salvage. we can keep the logic." MW1 keeps the exe's rule: torso equipment is salvaged only off a mech brought down
+  by its legs. The test stays as the rule's pin, so a change to it fails there first.
 
 ## 120. [ ] The same seed rolls a different game on each platform *(planned for MW1 1.1.0; not in 1.0.0)*
 
