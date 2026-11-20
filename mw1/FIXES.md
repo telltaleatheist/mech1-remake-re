@@ -1561,3 +1561,38 @@ MW1's kinds. The design the lead approved (2026-11-19), in `mw1_enemies.h/.cpp`:
   100-tonner; determinism; older saves; story battles). `mw1_loop_every_chassis_and_loadout_fields_and_salvages_headless`
   spawns four mixed (MW1_ALL_LOADOUTS=1: all 112) and checks each fields, is killed and salvaged, and the engine's stock
   config counts match the table.
+
+## 110. [x] A lancemate under orders stood with its throttle up before it walked *(done: mw1-lance-stall)*
+Found in FIXES 91's walk flake: on c2, seed 6 (the enemies 1,359 m off, the lance facing away), the Awesome stood
+about 6 s with its speed up, moving 0 m, before it walked.
+- **Cause (PM's walking context, `WalkPm::throttle`, 0x004d9550):** a pilot more than 10 degrees off its carrot
+  (`steer.cos_on`) "brakes off" by throwing the throttle the other way. It judges this by the throttle alone, not by
+  whether the 'Mech moves. The Awesome turns at half a light 'Mech's rate (turn rate 1.245 against the Firefly's
+  2.588). It swung about 14 degrees past its carrot just after it throttled up, while still standing in the step
+  waiting for a footfall. So it threw the throttle into reverse for 28 frames, stopped, turned back and set off
+  again: 167 frames from its throttle up to walking.
+- **Ruled out:**
+  - The nav path: the way was laid at the order and never moved.
+  - The gait: the Awesome's "trot max = run max" report doesn't matter; it walks.
+  - A map guard: the state is PM's follow throughout.
+  - The 'Mech's turn smoothing: turn_accel is 1.5 on every chassis.
+- **Fix (engine, ours, opt-in: `mech3::ai::set_walk_keeps_going`, zai_walk_pm.h):** a walk under way (its throttle
+  past `steer.brake`) keeps going while the pilot faces within 30 degrees of its carrot. The exe's 10 degrees still
+  gate the start, and past 30 it brakes as ever. MW1's game loop turns it on (`install_game_loop`); MW3's and PM's
+  programs keep the exe's rule.
+- **Measured, seeds 1 to 8, a Firefly, an Owens and an Awesome:**
+  - Each turns within 49 frames of the order.
+  - Its gait walks 13 to 57 frames after its throttle comes up. The step waits for a footfall before it walks.
+  - The Awesome on seed 6 now walks at f+189 (before: f+311), and 2 m at f+214 (before: f+322).
+  - A Centurion, an Atlas and an Annihilator never stalled and are unchanged. Owen's Centurion on c4ia1 isn't this:
+    its turn rate (1.205) is near the Awesome's, but it never backed off on any seed.
+  - A walk of 2 m isn't timed: PM ramps a heavy 'Mech's throttle with its carrot's distance, so the Annihilator
+    (9 m/s) takes about 3 s to cover 2 m once its gait walks.
+- **Tests:**
+  - `mw1_loop_lance_orders_set_off_on_seeds_1_to_8_headless`: each lancemate turns within 2 s of the order, and its
+    gait walks within 2.5 s of its throttle coming up, unbroken until it has walked 2 m. With MW1_WALK_EXE=1 (the
+    exe's rule) seed 6's Awesome fails.
+  - MW1_LANCE_MECHS picks another lance and MW1_TEST_SEED one seed; MW1_WALK_TRACE prints each lancemate's state
+    every 10 frames.
+  - mw3pmtests `pm_walk_keeps_going_inside_thirty_degrees_only_when_asked`: the exe's brake when off; inside 30
+    degrees it keeps going, and past them it brakes; standing still it needs 10 degrees to set off.
