@@ -189,8 +189,11 @@ MechWarrior 1: Critical Hit joins the combined package (Owen, 2026-11-17): built
 from the branch `mw1`, `mw1` and its `mw1data/` go beside the launcher, whose
 MECHWARRIOR 1 entry starts it (launcher.md, MechWarrior 1). One launcher, three
 games. MW3 alone and PM alone never carry it. On Windows `combined.cmd` takes
-the mw1 ref third (below); the Mac's and Linux's `combined.sh` do not carry it
-yet.
+the mw1 ref third; the Mac's and Linux's `combined.sh` take `--mw1 <ref>`
+(below). `mw1` finds its data at SDL's base path: `mw1data\` beside `mw1.exe`,
+`Contents/Resources/mw1data/` in the .app (`mw1` in `Contents/MacOS` beside the
+launcher), `usr/bin/mw1data/` in the AppImage. MW1's version is its own
+`mw1-vX.Y.Z` tag on `mw1`, shown on its launcher line (launcher.md).
 
 | Platform | Combined (the updater's) | MechWarrior 3 alone | Pirate's Moon alone |
 |---|---|---|---|
@@ -215,15 +218,17 @@ Moon.app".
       the launcher reads (`mw3_version_tag`) and the shared mods code
       (`mods_game` "mw3pm" as its default); otherwise its line says "modified
       (program)".
-- [ ] Owen tags both commits, or approves the tags.
+- [ ] With MW1 in the package, `mw1` has `pm` merged before its `mw1-vX.Y.Z`
+      tag.
+- [ ] Owen tags the commits, or approves the tags.
 
 ### Building
 
 - [ ] Each platform from the two tags, in clean worktrees of their own:
-      `tools/package/combined.sh mac v1.1.0 pm-v1.0.2 --deps` on the Mac,
-      `tools/package/combined.sh linux v1.1.0 pm-v1.0.2 PREFIX TOOLS` in WSL
+      `tools/package/combined.sh mac v1.1.0 pm-v1.0.2 --deps --mw1 <mw1 ref>` on the Mac,
+      `tools/package/combined.sh linux v1.1.0 pm-v1.0.2 PREFIX TOOLS --mw1 <mw1 ref>` in WSL
       (PREFIX: `build-deps/linux/prefix`, the one with FFmpeg),
-      `tools\package\combined.cmd v1.1.0 pm-v1.0.2 <mw1 ref>` on the PC (the third
+      `tools\package\combined.cmd v1.1.0 pm-v1.0.2 <mw1 ref>` on the PC (the mw1
       ref builds MW1 into the combined package; without it, none). Each makes the
       three packages in `build-pkg/dist/<platform>/` with their SHA256SUMS and
       runs the platform's own checks (section 3) on each.
