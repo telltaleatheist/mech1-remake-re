@@ -634,12 +634,11 @@ add_library(mw3probe SHARED
   tests/probe_mech_repair.cpp
   tests/probe_mech_repair_store.cpp
   tests/probe_field_cut.cpp
-  tests/probe_veh_controls.cpp
+  # tests/probe_veh_controls.cpp, tests/probe_turret.cpp: the turn limits are PM's here (0x004a6ec0); MW3's vehicle and turret tests run from `main`
   tests/probe_ai_brain.cpp
   tests/probe_ai_orders.cpp
   tests/probe_ai_valve.cpp
   tests/probe_ai_target.cpp
-  tests/probe_turret.cpp
   tests/probe_net105.cpp
   tests/probe_effects.cpp
   tests/probe_sensors.cpp
@@ -748,6 +747,7 @@ target_compile_definitions(mw3tests PRIVATE MW3_GAME_DIR="${MW3_GAME_DIR}"
                                           MW3_TEST_TMP_ROOT="${CMAKE_BINARY_DIR}"
                                           MW3_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 add_test(NAME mw3tests COMMAND mw3tests)
+target_compile_definitions(mw3tests PRIVATE MW3PM_GAME_DIR="${MW3PM_GAME_DIR}")  # pm: test_teleport reads PM's c3
 endif()
 
 # Pirate's Moon's own code (src/pm/: what PM adds or changes) and its tests,
@@ -1070,7 +1070,7 @@ if(SDL3_FOUND)
     if(NOT MW3_PACKAGE)
       target_compile_definitions(mw3text PRIVATE MW3_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets")
     endif()
-    if(MW3_BUILD_MW3)
+    if(FALSE)  # MW3's programs build from `main` only (games-layout.md); on `pm` mw3_main.cpp is mw3pm's, with no main of its own
     add_executable(mw3
       src/frontend/sdl/mw3_main.cpp
       src/frontend/sdl/sdl_restart.cpp
@@ -1202,7 +1202,7 @@ if(SDL3_FOUND)
     endif()
     # The Indeo helper's stand-in for the tests (tools/indeo; the real
     # mw3indeo.exe is 32-bit Windows, built by tools/windows/build.cmd).
-    if(MW3_BUILD_MW3)
+    if(FALSE)  # MW3's SDL tests start MW3's programs: from `main` only (above)
     add_executable(mw3indeo_fake tools/indeo/mw3indeo_fake.cpp)
     target_link_libraries(mw3indeo_fake PRIVATE mw3core)
     add_executable(mw3sdltests
@@ -1233,7 +1233,7 @@ if(SDL3_FOUND)
     endif()
     # PM's platform tests (input, window, render, text, net), in the same files. MW3_PM_SUITE
     # leaves out those that read MW3's data or start MW3's programs; a PM version comes with its feature.
-    if(MW3_BUILD_PM AND NOT MW3_BUILD_MW3)
+    if(MW3_BUILD_PM)
       add_executable(mw3pmsdltests tests/main.cpp tests/test_sdl_frontend.cpp tests/test_sdl_new_world.cpp src/frontend/sdl/sdl_update.cpp tests/test_net_enet.cpp tests/test_net_upnp.cpp
                      src/frontend/sdl/sdl_restart.cpp src/frontend/sdl/win_cmdline.cpp tests/test_win_cmdline.cpp tests/test_log_start.cpp
                      tests/test_quiet_music.cpp)  # ours: no music aloud in a run no player hears
