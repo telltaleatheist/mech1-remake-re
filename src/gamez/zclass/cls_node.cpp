@@ -565,9 +565,9 @@ int node_set_pm_model(Node* node, pm::zmod::Model* model) {
 }
 
 int node_drop_model(Node* node) {
-  // FIX (A): a Pirate's Moon node holds its model at pm_model, not model. Dropped and released the same way (PM's
-  // release 0x005590f0 once no node uses it), or every PM world's Object3d keeps its model, node_free keeps the node,
-  // and the nodes' lists and data and the models' arrays leak on every mission's unload.
+  // A Pirate's Moon node holds its model at pm_model: dropped (0x004fcc60) and released once no node uses it
+  // (0x005590f0), as PM's own node delete does (PM 0x0050cc80). Without it every PM world's Object3d kept its model,
+  // node_free kept the node, and the nodes' lists and data and the models' arrays leaked on each unload (MW1's 93).
   if (pm::zmod::Model* pm_m = node->pm_model) {
     if (int r = node_set_pm_model(node, nullptr)) return r;
     if (pm_m->count(0xc) != 0) return 0;

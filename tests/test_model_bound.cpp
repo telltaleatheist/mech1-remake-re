@@ -2,6 +2,7 @@
 // for more than the file holds is refused fast and in little memory; a cut file's arrays still read as zeros.
 #include <chrono>
 #include <cstdint>
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
 #include <utility>
@@ -163,4 +164,46 @@ TEST(material_reader_is_not_refused_by_an_earlier_read) {
   EXPECT(zmod::read_materials(f) > 0);
   std::fclose(f);
   zmod::materials() = std::move(saved);
+}
+
+// The models' free (0x005372c0, the materials' half): every animated material's cycle is freed with the table, as
+// material_free (0x00537070) frees one. The port had replaced the table alone, so each cycle and its texture list
+// leaked on every mission's unload (MW1's playthrough). Here 1,000 cycles: the allocator's blocks in use drop by
+// their 2,000 blocks (macOS and glibc count them; elsewhere only the empty table is checked).
+#if defined(__APPLE__)
+#include <malloc/malloc.h>
+static long long blocks_in_use() {
+  malloc_statistics_t s{};
+  malloc_zone_statistics(nullptr, &s);
+  return static_cast<long long>(s.blocks_in_use);
+}
+#elif defined(__GLIBC__)
+#include <malloc.h>
+static long long blocks_in_use() { return static_cast<long long>(mallinfo2().uordblks); }  // bytes in use
+#else
+static long long blocks_in_use() { return -1; }
+#endif
+TEST(models_free_frees_the_materials_cycles) {
+  zmod::MaterialTable& t = zmod::materials();
+  zmod::MaterialTable saved = std::move(t);
+  t = zmod::MaterialTable{};
+  const int32_t n = 1000;
+  while (t.capacity < n) {
+    t.blocks.emplace_back(new zmod::Material[zmod::kMaterialBlock]{});
+    t.capacity += zmod::kMaterialBlock;
+  }
+  const long long before = blocks_in_use();
+  for (int32_t i = 0; i < n; ++i) {
+    auto* c = static_cast<zmod::Cycle*>(std::calloc(1, sizeof(zmod::Cycle)));
+    c->texture_count = 3;
+    c->textures = static_cast<zimg::TextureEntry**>(std::calloc(64, sizeof(void*)));
+    t.at(i).flags = 4, t.at(i).cycle = c;
+  }
+  const long long with = blocks_in_use();
+  zmod::materials_free();
+  const long long after = blocks_in_use();
+  std::printf("  in use: %lld before the cycles, %lld with them, %lld after the free\n", before, with, after);
+  EXPECT(t.capacity == 0 && t.blocks.empty() && t.used_head == -1);
+  if (before >= 0) EXPECT(after - before < (with - before) / 10);  // the cycles and lists gone, not kept
+  t = std::move(saved);
 }

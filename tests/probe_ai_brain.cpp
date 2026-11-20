@@ -252,8 +252,7 @@ void image(Img& o, uint32_t addr, const void* obj, int kind) {
       o.u(0x38, static_cast<uint32_t>(c.state));
       o.u(0x78c, addr + 0x790);
       o.u(0x790, 0x005c8340);
-      o.f(0x794, c.turret.lo_sin), o.f(0x798, c.turret.lo_cos);
-      o.f(0x79c, c.turret.hi_sin), o.f(0x7a0, c.turret.hi_cos);
+      // 0x794..0x7a0, the turret's limits: PM's own on `pm` (veh_controls.h, c[18]); MW3's vehicle image runs from `main`.
       brain_image(o, 0xa04, addr, *c.brain, 0x005cd830, 0x005cd8b0);
       o.v3(0xcb0, c.aim.dir);
       o.b8(0xcbc, c.aim.set);

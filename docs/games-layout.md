@@ -13,8 +13,8 @@ working, new PM work edits the base files in place or forks where that is plainl
 only when that code is being worked on anyway.
 
 The plain build on `pm` is PM alone: `mw3pm`, `mw3pmtests`, `mw3pmsdltests` (the render's window tests; `MW3_TEST=sdl_render`,
-the ones that start MW3's programs do not apply) and `pmprobe`. `-DMW3_BUILD_MW3=ON` brings MW3's programs, probe and tests
-back, for reading only. `mw3pm` goes to `--fly` when given it, else to the game (`mw3_main.cpp`, on PM's table). No launcher
+the ones that start MW3's programs do not apply) and `pmprobe`. `-DMW3_BUILD_MW3=ON` brings MW3's probe and tests
+back (not its programs, which build from `main`), for checking shared code (`pm-tests.md`). `mw3pm` goes to `--fly` when given it, else to the game (`mw3_main.cpp`, on PM's table). No launcher
 in PM's package for now; the combined package is Owen's later decision. The package scripts make PM alone, with its own
 Mac bundle id (`com.owenmorgan.mw3pmrebuild`), Windows AppId and write folder (`MicroProse/Pirate's Moon`).
 

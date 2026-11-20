@@ -219,6 +219,15 @@ mission, sun light and software colour; DeadCalls.entity_step; InOutHooks.operat
 `hook_fields.inc` and `probe_world.cpp`, `probe_zgeo.cpp` is out of the probe (zGeo takes PM's models here), and the
 probe calls PM's `tree_copy_materials` and DebriefScreen with MW3's arguments.
 
+Repaired 2026-11-19 (it had stopped building since): `probe_veh_controls.cpp` and `probe_turret.cpp` are out of the
+probe (the turn limits are PM's here, `c[18]` at 0x004a6ec0; MW3's vehicle and turret tests run from `main`), and the AI
+vehicle image leaves the turret's limits out; `import_takes_a_mech_loadout_for_the_lab` is out of `test_pilot_names.cpp`
+(PM's lab names its loadout file, 0x00427f50); `test_teleport` gets `MW3PM_GAME_DIR`; `mech_tag_muzzle` (a tests-only
+helper PM's `app_weapons.cpp` had dropped) is back. MW3's programs and `mw3sdltests` are not targets here even with
+the switch on (they start MW3's programs, built from `main`), and `mw3pmsdltests` is built either way, so a plain
+`ninja` builds the whole tree. `mission_c1m1_tag_fires_from_the_mech_headless` crashes loading MW3's mission, with the
+mission tests below.
+
 Each of MW3's 254 non-mission tests run alone (`MW3_TEST=<name> MW3_SKIP=headless`): 233 pass. These 19 test code
 that `pm` holds as PM's, so they fail here by design (not each traced): the mechlib reads and fuzz (PM's tree copy;
 they crash in mark_moved), `mech_dfn_bad_version_does_not_save` (PM reads no version), `data_version_names_the_install`,
