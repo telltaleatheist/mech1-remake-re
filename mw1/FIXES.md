@@ -1165,6 +1165,16 @@ at a mech 370 m away and walked 6 m in 450 frames; the other two walked as alway
   - The test picks the engine's seed itself (time()), prints it, and `MW1_TEST_SEED=<n>` replays it.
   - Each lancemate's walk is kept every 50 frames: how far toward its mech, how far moved, speed, health and the gap.
     It is printed for any lancemate that didn't walk at its mech, so the next stall tells what it was.
+- **Later, the walk flake (the lead, 2026-11-19; mw1-walk-flake):** `mw1_loop_lance_orders_an_awesome_walks` failed
+  at nearly every merge. Its seed came from the clock, and the seed decides the layout: the enemies 340 to 1,360 m
+  off. Over seeds 1 to 8 the Awesome (the third lancemate) walked 18 to 73 m. From the far layouts (seed 6, 1,359 m)
+  it stood about 300 frames, its speed up but moving 0 m, then walked: 18 m in the 450 frames, under the 30 m bar.
+  - **The test now:** the four lance-orders tests run at a fixed seed (kSeed, 1: the enemies 340 to 410 m off, or
+    1,700 m with one enemy); `MW1_TEST_SEED=<n>` still picks another. Each lancemate must also close the gap to its
+    mech by 30 m (printed as "closed"), not only walk 30 m toward it. At seed 1 the least is the Awesome's: 62 m
+    walked, 135 m closed. It gave the same metres 14 times in a row.
+  - **Left open:** the Awesome's slow start from a far layout (speed without movement for about 10 s) is worth its
+    own look: a lancemate under orders shouldn't stand that long.
 
 ## 92. [x] The seat's status line points at the Mech Lab *(done: mw1-seat-lab)*
 Owen, on 85: assignments belong to the Mech Lab's slots along the top, as in MW3. So the seat may only fill a blank

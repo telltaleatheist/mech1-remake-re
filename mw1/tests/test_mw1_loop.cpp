@@ -4933,8 +4933,11 @@ float ground_distance(void* a, void* b) {
 // first left, its lancemates now from the file). In the mission, W round the lance: each lancemate the recipient; then for
 // each in turn, W to it, E, ATTACK: the order reaches its brain alone. All ordered, 450 frames on each has walked at the
 // mech its E picked (with two enemies E may pick either: measured to the first listed, one walking at the other ended
-// farther from it, FIXES 72's flake). The hold is short so the lance can't win the fight before the loop ends the
-// mission (held 600 frames a lancemate, the three won it under the hook and the loop's end never ran).
+// farther from it, FIXES 72's flake), and the gap to it closed. The hold is short so the lance can't win the fight
+// before the loop ends the mission (held 600 frames a lancemate, the three won it under the hook and the loop's end
+// never ran). The game's rolls seeded (kSeed; MW1_TEST_SEED=<n> another): seeded by the clock, the map's layout put
+// the enemies 340 to 1,360 m off, and from the far ones the Awesome (FIXES 97) stood about 300 frames before it walked
+// (its speed up, moving 0 m), 18 m in all: the walk flake (the lead, 2026-11-19).
 void lance_orders_run(const char* name, int32_t count, bool reload, std::vector<int32_t> mechs = {}) {
   std::error_code ec;
   if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
@@ -4942,10 +4945,10 @@ void lance_orders_run(const char* name, int32_t count, bool reload, std::vector<
   fs::remove_all(dir, ec);
   fs::create_directories(dir, ec);
   in_child([&] {
-    // The engine's srand(time()), the test's own: a new one each run, printed, so a failure replays with
-    // MW1_TEST_SEED=<it> (the run is the same for the same seed).
+    // The engine's srand(time()), the test's own: kSeed, or MW1_TEST_SEED=<n> (the run is the same for the same seed).
+    constexpr uint32_t kSeed = 1;
     const char* replay = std::getenv("MW1_TEST_SEED");
-    const auto seed = static_cast<uint32_t>(replay ? std::strtoul(replay, nullptr, 10) : std::time(nullptr));
+    const auto seed = static_cast<uint32_t>(replay ? std::strtoul(replay, nullptr, 10) : kSeed);
     crt::rand_fixed_seed() = seed;
     if (reload) {
       Run first;
@@ -5097,11 +5100,13 @@ void lance_orders_run(const char* name, int32_t count, bool reload, std::vector<
     for (const std::string& m : mates) {
       const float a = start_gap.count(m) ? start_gap[m] : -1, b = end_gap.count(m) ? end_gap[m] : -1;
       const float w = walked_at.count(m) ? walked_at[m] : -1, d = moved.count(m) ? moved[m] : -1;
-      std::printf("  lancemate %zu: attack orders %d, to the mech E picked %.0f m, %d frames on %.0f m; walked %.0f m "
-                  "toward it (moved %.0f m)\n",
-                  static_cast<size_t>(std::find(mates.begin(), mates.end(), m) - mates.begin()) + 1, reached[m], a, kWalkFrames, b, w, d);
+      std::printf("  lancemate %zu: attack orders %d, to the mech E picked %.0f m, %d frames on %.0f m (closed %.0f m); walked "
+                  "%.0f m toward it (moved %.0f m)\n",
+                  static_cast<size_t>(std::find(mates.begin(), mates.end(), m) - mates.begin()) + 1, reached[m], a, kWalkFrames, b,
+                  b >= 0 ? a - b : -1.f, w, d);
       EXPECT(reached[m] == 1 && aimed[m] != nullptr);
-      const bool walked = a > 0 && w >= 30 && w >= 0.8f * d;  // walked at it: 41 m the least seen in 450 frames, all of it toward
+      // Walked at it (all of it toward) and the gap closed: kSeed's least, the Awesome's 62 m and 134 m.
+      const bool walked = a > 0 && w >= 30 && w >= 0.8f * d && b >= 0 && a - b >= 30;
       if (!walked)
         for (const std::string& l : walk_trace[m]) std::printf("    %s %s\n", m.c_str(), l.c_str());
       EXPECT(walked);
