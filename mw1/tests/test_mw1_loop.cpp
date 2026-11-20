@@ -67,6 +67,7 @@
 #include "mech3/zai_nav.h"
 #include "mech3/zai_params.h"
 #include "mech3/mainmenu.h"
+#include "mech3/mech_reader.h"
 #include "mw1_bar_screen.h"
 #include "mw1_journal.h"
 #include "mw1_chrome.h"
@@ -84,6 +85,7 @@
 #include "mw1_pilots.h"
 #include "mw1_results.h"
 #include "mw1_market_screen.h"
+#include "mw1_enemies.h"
 #include "mw1_ladder.h"
 #include "mw1_music.h"
 #include "mw1_start.h"
@@ -207,6 +209,8 @@ int32_t er_medium_lasers(const std::list<mech3::ConfigItem*>& items) {
 
 // A run's save and what it saw, for the restart test: the company at the first offer and at the end, its loadout's
 // item count (-1: stock), and the first and the last offer.
+struct Run;
+void take_wrecks(Run* run);
 struct Run {
   std::string save;    // mw1save.txt's path; empty: none
   // FIXES.md item 60: BUY's and SELL's questions as asked (the box's words); the next `deal_no` answered NO.
@@ -289,8 +293,12 @@ struct Run {
   // FIXES.md item 72: called each mission frame from the 30th while it returns true (then the run's ending as before).
   std::function<bool(int32_t frame)> in_mission;
   int32_t in_mission_frames = 0;
-  int32_t pump_limit = 0;
-  std::vector<std::string> lance_downs;  // FIXES 106: the lancemates down as the log said them, at AFTER ACTION  // FIXES 106: the run's passes, when more than the pump's own (a long watch in the mission)
+  int32_t pump_limit = 0;  // FIXES 106: the run's passes, when more than the pump's own (a long watch in the mission)
+  std::vector<std::string> lance_downs;  // FIXES 106: the lancemates down as the log said them, at AFTER ACTION
+  // FIXES 104: the force's chassis and loadouts (one each a kind in `force`); empty: the contract's own roll.
+  std::vector<int32_t> force_chassis, force_loadouts;
+  std::vector<int32_t> wreck_chassis;  // and at AFTER ACTION, each wreck's chassis; the mission's salvage items
+  int32_t salvage_items = -1;
   bool first_contract = true;  // false: the save's company had one before (the Houses' and kills' totals not checked)
   std::vector<std::string> ally_pilots;  // the allied brains' pilots, in the mission
   std::vector<float> ally_errors;
@@ -365,6 +373,15 @@ struct Run {
   int32_t loadings = 0;
   bool load_held = false;  // the test launched (or aborted) the load itself (a lab fit, a strip, ABORT, PM's next round)
 };
+
+// FIXES 104: at AFTER ACTION, each wreck's chassis and the mission's salvage (what the harness reads of the pending).
+void take_wrecks(Run* run) {
+  const mw1::AfterAction* p = mw1::game_loop_pending();
+  if (!p) return;
+  run->wreck_chassis.clear();
+  for (const mw1::Wreck& w : p->wrecks) run->wreck_chassis.push_back(w.chassis);
+  run->salvage_items = p->salvage ? p->salvage->count() : 0;
+}
 int loadout_items(const mw1::Company* c) { return c && c->loadout ? static_cast<int>(c->loadout->items.size()) : -1; }
 
 void loop_run(Ending ending, Run* run = nullptr) {
@@ -395,7 +412,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
   if (run) run->load_held = held;
   if (run) mw1::set_game_loop_save(run->save, false);
   if (run && run->row) mw1::set_game_loop_row(*run->row);
-  if (run && !run->force.empty()) mw1::set_game_loop_enemies(run->force);
+  if (run && !run->force.empty()) mw1::set_game_loop_enemies(run->force, run->force_chassis, run->force_loadouts);
   if (run && !run->world.empty()) mw1::set_game_loop_world(run->world, 1);
   NoKeys keys;
   Window window;
@@ -1159,6 +1176,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
           }
         }
         if (run && run->after_action.empty()) run->after_action = all, run->results_lines = mission, run->lance_downs = mw1::game_loop_lance_downs();
+        if (run) take_wrecks(run);
         if (run && run->stop_at_after_action) {
           back_at_main = true;  // the program stopped here
           return;
@@ -1252,6 +1270,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
           EXPECT(has("AFTER ACTION") && sc->visible(mw1::kHubOk) && !sc->visible(mw1::kHubDeploy));
           EXPECT(sc->visible(mw1::kHubReplay) == failed);
           if (run && run->after_action.empty()) run->after_action = shown, run->lance_downs = mw1::game_loop_lance_downs();
+          if (run) take_wrecks(run);
           if (run && run->stop_at_after_action) {
             back_at_main = true;  // the program stopped here
             return;
@@ -5844,4 +5863,101 @@ TEST(mw1_music_theme_screens_mission_settings_and_quit_headless) {
     EXPECT(off_stops && off_saved && effects_saved && on_again);
     EXPECT(quit_asked && quit_boxes == 2 && quit_stays && quits);
   });
+}
+
+// FIXES 104: every chassis that fields, in every stock loadout, spawned as an enemy and salvaged. Four to a mission
+// (c2, won as the loop wins), each enemy the chassis and loadout asked for (its definition's stock configs read as
+// mw1_enemies.h's table has them: the Primary, the Alternates, the Exotics), each disabled into a wreck of that chassis,
+// the mission's salvage not empty. By default one mission of four mixed (an Atlas's Exotic, a Mad Cat's Alternate, a
+// Puma's Exotic, a Sunder's Alternate); MW1_ALL_LOADOUTS=1 every one (112, 28 missions, about three minutes).
+TEST(mw1_loop_every_chassis_and_loadout_fields_and_salvages_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  std::vector<std::pair<int32_t, int32_t>> all;
+  if (std::getenv("MW1_ALL_LOADOUTS")) {
+    for (int32_t m = 0; m < mech3::kMechCount; ++m)
+      if (mw1::fields(m))
+        for (int32_t l = 0; l < mw1::loadout_count(m); ++l) all.push_back({m, l});
+  } else {
+    all = {{mech3::mech_index("atlas"), 4}, {mech3::kMadCat, 2}, {mech3::mech_index("puma"), 5}, {mech3::mech_index("sunder"), 1}};
+  }
+  // The MW1 kind a chassis stands in a slot of (the nearest by tons): only its pay and the offer's class words.
+  auto kind_for = [](int32_t m) {
+    const int32_t t = static_cast<int32_t>(std::lround(mech3::max_mass(m)));
+    int32_t best = 0;
+    for (int32_t k = 1; k < mw1::kKindCount; ++k)
+      if (std::abs(mw1::kMechKinds[k].tons - t) < std::abs(mw1::kMechKinds[best].tons - t)) best = k;
+    return best;
+  };
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_loop_every_chassis";
+  int32_t missions = 0, fielded = 0;
+  bool table_checked = false;
+  for (size_t at = 0; at < all.size(); at += 4) {
+    const std::vector<std::pair<int32_t, int32_t>> four(all.begin() + static_cast<long>(at),
+                                                        all.begin() + static_cast<long>(std::min(at + 4, all.size())));
+    ++missions;
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    in_child([&] {
+      Run run;
+      run.save = (dir / mw1::kSaveFile).string();
+      run.world = "c2";
+      for (const auto& [m, l] : four) run.force.push_back(kind_for(m)), run.force_chassis.push_back(m), run.force_loadouts.push_back(l);
+      std::vector<std::string> spawned, wanted;
+      bool table_ok = true;
+      run.in_mission = [&](int32_t f) {
+        if (!mech3::mech_mission_player()) return f < 600;
+        // The table against PM's own definitions (once): each chassis's stock configs, in order, by their names.
+        auto stock = [](int32_t m) {
+          std::vector<const mech3::Config*> v;
+          if (const mech3::MechDfn* d = mech3::mech_dfn(m); d && d->configs)
+            for (const mech3::Config* c : d->configs->configs)
+              if (c && !c->player_made) v.push_back(c);
+          return v;
+        };
+        if (!table_checked)
+          for (int32_t m = 0; m < mech3::kMechCount; ++m) {
+            const std::vector<const mech3::Config*> v = stock(m);
+            bool ok = static_cast<int32_t>(v.size()) == mw1::loadout_count(m);
+            for (size_t i = 0; ok && i < v.size(); ++i) {
+              std::string n = v[i]->name ? v[i]->name : "";  // its id (MSG_CONFIG_EXOTIC_D) or its words (Alternate B)
+              for (char& ch : n) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+              const mw1::LoadoutKind k = mw1::loadout_kind(m, static_cast<int32_t>(i));
+              ok = n.find(k == mw1::LoadoutKind::kPrimary ? "PRIMARY" : k == mw1::LoadoutKind::kAlternate ? "ALTERNATE" : "EXOTIC") !=
+                   std::string::npos;
+            }
+            if (!ok) std::printf("  the table differs from PM's for %s (%zu stock)\n", mech3::mech_name(m), v.size());
+            table_ok = table_ok && ok;
+          }
+        for (const auto& [m, l] : four) {
+          const std::vector<const mech3::Config*> v = stock(m);
+          wanted.push_back(std::string(mech3::mech_name(m)) + "/" + (static_cast<size_t>(l) < v.size() && v[l]->name ? v[l]->name : "?"));
+        }
+        int32_t n = 0;
+        const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+        for (int32_t i = 0; i < n; ++i) {
+          const mech3::ai::Brain* b = brain_of(ai[i].mech);
+          mech3::LaunchedMech d;
+          if (b && b->params.team() != 1 && mech3::describe_mech(ai[i].mech, &d)) {
+            const auto* c = static_cast<const mech3::Config*>(d.config);
+            spawned.push_back(std::string(mech3::mech_name(d.roster)) + "/" + (c && c->name ? c->name : "?"));
+          }
+        }
+        return false;
+      };
+      loop_run(kWon, &run);
+      std::sort(spawned.begin(), spawned.end()), std::sort(wanted.begin(), wanted.end());
+      std::vector<int32_t> want_chassis = run.force_chassis, got_chassis = run.wreck_chassis;
+      std::sort(want_chassis.begin(), want_chassis.end()), std::sort(got_chassis.begin(), got_chassis.end());
+      std::string said;
+      for (const std::string& s : spawned) said += " " + s;
+      std::printf("  mission %d:%s; %zu wrecks, %d salvage items\n", missions, said.c_str(), run.wreck_chassis.size(), run.salvage_items);
+      if (!table_checked) EXPECT(table_ok);
+      EXPECT(spawned == wanted);
+      EXPECT(got_chassis == want_chassis && run.salvage_items > 0);
+    });
+    table_checked = true;
+    fielded += static_cast<int32_t>(four.size());
+  }
+  std::printf("  %d loadouts fielded in %d missions\n", fielded, missions);
 }

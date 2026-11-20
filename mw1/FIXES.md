@@ -1517,3 +1517,24 @@ Owen (2026-11-19): RECRUIT CREW showed each line of a recruit's words in its own
   one closing, no other added, the words all there in order, each line within 20 letters, at most 10 (they take 3
   or 4). The Bar loop test shows each line of Elli Gujar's quote and never her first exe line quoted alone.
 - **Shots:** outbox/2026-11-19/mw1-pitch-quote/ (4:3 and 1080p, with the terminal cropped).
+
+## 104. [x] Every 'Mech of PM's as an enemy, in its real loadouts *(done: mw1-every-chassis)*
+
+Owen (for 1.0.0): the enemy fields all of Pirate's Moon's 'Mechs and their real variants, not only the stand-ins for
+MW1's kinds. The design the lead approved (2026-11-19), in `mw1_enemies.h/.cpp`:
+- **MW1's force roll unchanged** (the budget, the classes, at most four; the ladder's rungs). Each slot then gets a
+  PM chassis within kSlotTons (10 t) of its MW1 kind's, Clan by kClanPercent per tier; the 100-tonners only in the
+  BattleMaster's slot and only late (tier ≥ 2 or record band 3). A loadout from the chassis's stock ones: Primary 60%,
+  Alternates 30%, Exotics 10% (no Alternates: 75/25). Its own generator, seeded by the company and the contract, so
+  MW1's draws are untouched and the same offer rolls the same 'Mechs.
+- **Owen's four, each a named constant there:** kElementalsField (false), kClanPercent ({0, 10, 25, 40}), kWreckPay
+  (MW1's kind price), kStoryBattlesRoll (true; the Dark Wing's last rung keeps its stand-ins).
+- **Names real everywhere:** the offer ("2 Heavy, 1 Medium (Thor, Avatar, Centurion)": MW1's class words, the real
+  chassis), the mission log, AFTER ACTION's kills, the wrecks and salvage, the main enemy's picture, the amber icons.
+- **Saves:** optional `offer_chassis=`, `offer_loadouts=`, `pending_wreck_chassis=`; an older save's contract and
+  wrecks keep their kinds' stand-ins on the Primary.
+- **Tests:** `test_mw1_enemies.cpp` (the reach: 24 chassis, 112 loadouts; a 20,000-contract soak: every chassis and
+  loadout seen, the Primary each one's commonest, Clan 0 / 9.8 / 25.1 / 40.2% where a Clan chassis could be, no early
+  100-tonner; determinism; older saves; story battles). `mw1_loop_every_chassis_and_loadout_fields_and_salvages_headless`
+  spawns four mixed (MW1_ALL_LOADOUTS=1: all 112) and checks each fields, is killed and salvaged, and the engine's stock
+  config counts match the table.

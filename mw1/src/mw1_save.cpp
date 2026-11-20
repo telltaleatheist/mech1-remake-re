@@ -1,4 +1,5 @@
 #include "mw1_save.h"
+#include "mw1_enemies.h"
 #include "mw1_travel.h"
 #include "mw1_repairs.h"
 #include "mw1_ladder.h"
@@ -178,6 +179,13 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
     o << "offer_house=" << k.house << "\noffer_target=" << k.target << "\noffer_budget=" << k.budget << "\n";
     o << "offer_enemies=";
     for (size_t i = 0; i < k.enemies.size(); ++i) o << (i ? "," : "") << k.enemies[i];
+    // FIXES 104: each enemy's chassis and loadout (absent in an older save: the kinds' stand-ins).
+    if (k.chassis.size() == k.enemies.size() && k.loadouts.size() == k.enemies.size()) {
+      o << "\noffer_chassis=";
+      for (size_t i = 0; i < k.chassis.size(); ++i) o << (i ? "," : "") << k.chassis[i];
+      o << "\noffer_loadouts=";
+      for (size_t i = 0; i < k.loadouts.size(); ++i) o << (i ? "," : "") << k.loadouts[i];
+    }
     o << "\noffer_payment=" << k.payment << "\noffer_payment_ceiling=" << k.payment_ceiling << "\n";
     o << "offer_salvage=" << k.salvage_percent << "\noffer_advance=" << k.advance_percent << "\n";
     o << "offer_salvage_ceiling=" << k.salvage_ceiling << "\noffer_advance_ceiling=" << k.advance_ceiling
@@ -199,6 +207,8 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
     o << "pending_outcome=" << (p.outcome == Outcome::kSuccess ? 0 : p.outcome == Outcome::kFailure ? 1 : 2) << "\n";
     o << "pending_wrecks=";
     for (size_t i = 0; i < p.wrecks.size(); ++i) o << (i ? "," : "") << p.wrecks[i].kind << ":" << p.wrecks[i].condition << ":" << p.wrecks[i].damage;
+    o << "\npending_wreck_chassis=";  // FIXES 104: what each was (-1: its kind's stand-in)
+    for (size_t i = 0; i < p.wrecks.size(); ++i) o << (i ? "," : "") << p.wrecks[i].chassis;
     o << "\npending_bills=";
     for (size_t i = 0; i < p.bills.size(); ++i)
       o << (i ? "," : "") << p.bills[i].who << ":" << p.bills[i].mech << ":" << p.bills[i].damage << ":" << (p.bills[i].destroyed ? 1 : 0)
@@ -503,6 +513,23 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
       k.enemies.push_back(static_cast<int32_t>(kind));
     }
     if (k.enemies.empty() || k.enemies.size() > 4) return fail("the offer has no enemies, or too many");
+    // FIXES 104: the chassis and loadouts, one per enemy; absent (an older save), the stand-ins; there but bad, the save fails.
+    if (v.count("offer_chassis") && v.count("offer_loadouts")) {
+      std::vector<int32_t> ch, lo;
+      bool ok = true;
+      for (auto [key, out] : {std::pair{"offer_chassis", &ch}, std::pair{"offer_loadouts", &lo}}) {
+        std::istringstream is(v[key]);
+        std::string x;
+        while (std::getline(is, x, ',')) {
+          int64_t n64 = 0;
+          ok = ok && to_int(x, 0, 99, &n64);
+          out->push_back(static_cast<int32_t>(n64));
+        }
+      }
+      for (size_t i = 0; ok && i < ch.size(); ++i) ok = ch[i] < mech3::kMechCount && lo.size() == ch.size() && lo[i] < loadout_count(ch[i]);
+      if (!ok || ch.size() != k.enemies.size() || lo.size() != k.enemies.size()) return fail("the offer's chassis don't read");
+      k.chassis = ch, k.loadouts = lo;
+    }
     if (k.objective != Objective::kDestroyAll && k.structure.empty()) return fail("a structure's offer with no structure");
     // Version 6's mission; before it, none rolled (a raid with no code, no planet).
     if (n >= 6) {
@@ -564,6 +591,17 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
         return fail("the pending mission's wrecks don't read");
       p.wrecks.push_back(Wreck{static_cast<int32_t>(f[0]), static_cast<int32_t>(f[1]),
                                v5 ? static_cast<int32_t>(f[2]) : static_cast<int32_t>((100 - f[1]) * kWhole / 100)});
+    }
+    if (v.count("pending_wreck_chassis") && !v["pending_wreck_chassis"].empty()) {  // FIXES 104; absent: stand-ins
+      std::istringstream cs(v["pending_wreck_chassis"]);
+      std::string x;
+      size_t i = 0;
+      while (std::getline(cs, x, ',')) {
+        int64_t ch = 0;
+        if (i >= p.wrecks.size() || !to_int(x, -1, mech3::kMechCount - 1, &ch)) return fail("the pending mission's wreck chassis don't read");
+        p.wrecks[i++].chassis = static_cast<int32_t>(ch);
+      }
+      if (i != p.wrecks.size()) return fail("the pending mission's wreck chassis don't read");
     }
     if (v5) {
       if (!v.count("pending_bills")) return fail("the pending mission's bills are missing");
