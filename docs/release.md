@@ -193,7 +193,9 @@ the mw1 ref third; the Mac's and Linux's `combined.sh` take `--mw1 <ref>`
 (below). `mw1` finds its data at SDL's base path: `mw1data\` beside `mw1.exe`,
 `Contents/Resources/mw1data/` in the .app (`mw1` in `Contents/MacOS` beside the
 launcher), `usr/bin/mw1data/` in the AppImage. MW1's version is its own
-`mw1-vX.Y.Z` tag on `mw1`, shown on its launcher line (launcher.md).
+`mw1-vX.Y.Z` tag on `mw1`, shown on its launcher line (launcher.md). Its own `README-MW1.txt` and `THIRD-PARTY-MW1.txt` (`mw1/dist` on its
+branch) go beside `mw1.exe`, in the .app's Resources and in the AppImage's
+`usr/share/doc/mw3`; a build without them warns, and is not for release.
 
 | Platform | Combined (the updater's) | MechWarrior 3 alone | Pirate's Moon alone |
 |---|---|---|---|
