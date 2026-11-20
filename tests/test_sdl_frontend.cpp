@@ -5235,9 +5235,9 @@ TEST(sdl_program_launcher_screens) {
   std::filesystem::remove_all(dir, ec);
   std::filesystem::create_directories(dir + "/wd", ec);
   std::filesystem::create_directories(dir + "/wd2", ec);
-  // The first entry hovered (Owen, the PC's fresh install): the ripple only
-  // round a round badge; a square plate lights its edge (at edge_x, edge_y,
-  // the plate's top, the 640 block 107 in) in amber instead.
+  // The first entry hovered (Owen, the PC's fresh install): a square plate lights its edge (at edge_x, edge_y,
+  // the plate's top, the 640 block 107 in) in amber. The main screen's cards (layout C, 2026-11-20): MW3's PLAY
+  // lights its edge too, no ripple (two cards here: no MW1 program).
   struct Shot {
     const char* screen;
     bool none;
@@ -5245,7 +5245,7 @@ TEST(sdl_program_launcher_screens) {
     const char* hover;
     int edge_x, edge_y;
   };
-  for (const Shot& s : {Shot{"main", false, "screen main: MECHWARRIOR 3, PIRATE'S MOON, GAME FILES, UPDATES, QUIT\n", "hover MECHWARRIOR 3: ripple\n", -1, -1},
+  for (const Shot& s : {Shot{"main", false, "screen main: MECHWARRIOR 3, PIRATE'S MOON, GAME FILES, UPDATES, QUIT\n", "hover MECHWARRIOR 3: edge\n", 232, 362},
                         Shot{"setup", true, "screen find: FIND THE GAME, BACK\n", "hover FIND THE GAME: edge\n", 427, 222},
                         Shot{"pick", true, "screen find: FIND THE GAME, BACK\n", "hover FIND THE GAME: edge\n", 427, 222},
                         Shot{"work", false, "launcher: Found MechWarrior 3", "hover CANCEL: edge\n", 427, 372},
@@ -6713,6 +6713,9 @@ TEST(sdl_program_launcher_says_the_picker_is_opening_before_it_asks) {
   std::filesystem::remove_all(dir, ec);
   std::filesystem::create_directories(dir + "/wd", ec);
   const std::string shot = dir + "/ask.bmp";
+  std::ofstream(dir + "/mechwarrior") << "#!/bin/sh\nexit 0\n";  // a stand-in port: PLAY ORIGINAL asks for the folder
+  setenv("MW3_MW1_PORT", (dir + "/mechwarrior").c_str(), 1);
+  setenv("MW3_MW1_BIN", "", 1);
   setenv("MW3_LAUNCHER_PICKER", "cancel", 1);
   setenv("MW3_LAUNCHER_PICKER_SHOT", shot.c_str(), 1);
   setenv("MW3_LAUNCHER_FRAMES", "20", 1);
@@ -6721,6 +6724,7 @@ TEST(sdl_program_launcher_says_the_picker_is_opening_before_it_asks) {
   unsetenv("MW3_LAUNCHER_FRAMES");
   unsetenv("MW3_LAUNCHER_PICKER_SHOT");
   unsetenv("MW3_LAUNCHER_PICKER");
+  unsetenv("MW3_MW1_PORT"), unsetenv("MW3_MW1_BIN");
   int status = 0;
   const bool exited = waited(pid, &status) && WIFEXITED(status) && WEXITSTATUS(status) == 0;
   std::ifstream f(dir + "/launcher.log");
@@ -7002,6 +7006,7 @@ TEST(sdl_program_launcher_starts_mechwarrior_1) {
   EXPECT(text.find("entry MECHWARRIOR 1: Ready, mw1-v1.0.0: " + dir + "/game") != std::string::npos);
   EXPECT(text.find(", MechWarrior 1 mw1-v1.0.0\n") != std::string::npos);
   EXPECT(text.find("MechWarrior 1 exited (0)") != std::string::npos);
+  EXPECT(text.find("entry MECHWARRIOR 1 ORIGINAL: needs Elthial's port") != std::string::npos);  // no port: greyed, said
   EXPECT(args.rfind("--install " + pm + " --mw3-install ", 0) == 0);
   EXPECT(args.find(" --mw1-game " + dir + "/game --no-launcher") != std::string::npos);
   // No MW3 named (Pirate's Moon may still be found on this machine): said on its line, and a press starts nothing.
@@ -7041,6 +7046,40 @@ TEST(sdl_program_launcher_starts_mechwarrior_1) {
   EXPECT(std::filesystem::is_regular_file(dir + "/wd/mw1/game/BTECH.EXE", ec));
   EXPECT(cfg_text.find("mw1_game=" + dir + "/wd/mw1/game") != std::string::npos);
 #endif
+  // The cards (layout C, 2026-11-20): with Elthial's port beside the launcher too, MW1's card has both; PLAY
+  // ORIGINAL (the third button: MW3's PLAY, PM's, then it) starts the port on the same folder, not the remake.
+  {
+    const std::string port = dir + "/mechwarrior";
+    {
+      std::ofstream sh(port);
+      sh << "#!/bin/sh\necho \"$1|$2\" > \"" << dir << "/port-args.txt\"\nexit 0\n";
+    }
+    std::filesystem::permissions(port, std::filesystem::perms::owner_all, ec);
+    {
+      std::ofstream cfg(dir + "/wd/mw3.cfg", std::ios::trunc);
+      cfg << "mw1_game=" << dir << "/game\ninstall=" << mw3 << "\npm_install=" << pm << "\n";
+    }
+    std::filesystem::remove(dir + "/args.txt", ec);
+    setenv("MW3_MW1_BIN", mw1.c_str(), 1), setenv("MW3_PM_BIN", pm_bin.c_str(), 1), setenv("MW3_FIND_INSTALL", "1", 1);
+    setenv("MW3_MW1_PORT", port.c_str(), 1), setenv("MW3_LAUNCHER_NAV", "next,next,next,press", 1), setenv("MW3_LAUNCHER_FRAMES", "30", 1);
+    const std::string log = dir + "/original.log";
+    const pid_t pid = spawn_launcher({"--write-dir", dir + "/wd", "--window", "640x480", "--nosound", "--hidden"}, log);
+    for (const char* v : {"MW3_MW1_BIN", "MW3_PM_BIN", "MW3_FIND_INSTALL", "MW3_MW1_PORT", "MW3_LAUNCHER_NAV", "MW3_LAUNCHER_FRAMES"}) unsetenv(v);
+    int status = 0;
+    EXPECT(waited(pid, &status) && WIFEXITED(status) && WEXITSTATUS(status) == 0);
+    std::ifstream lf(log), pf(dir + "/port-args.txt");
+    const std::string text((std::istreambuf_iterator<char>(lf)), std::istreambuf_iterator<char>());
+    std::string pargs;
+    std::getline(pf, pargs);
+    std::printf("launcher mw1 original: given \"%s\"\n", pargs.c_str());
+    EXPECT(text.find("screen main: MECHWARRIOR 3, PIRATE'S MOON, MECHWARRIOR 1 ORIGINAL, MECHWARRIOR 1, GAME FILES, UPDATES, QUIT") !=
+           std::string::npos);
+    EXPECT(text.find("focus MECHWARRIOR 1 ORIGINAL") != std::string::npos);
+    EXPECT(text.find("MechWarrior (1989) exited (0)") != std::string::npos);
+    EXPECT(pargs == dir + "/game|" + dir + "/wd/mw1/captures");
+    EXPECT(text.find("MechWarrior 1 started") == std::string::npos && !std::filesystem::exists(dir + "/args.txt"));
+    std::filesystem::remove(port, ec);
+  }
   // GAME FILES after MW1's line: its folder picked again (a folder above the game here), kept, nothing started.
   {
     std::filesystem::create_directories(dir + "/other/MECHWAR", ec);

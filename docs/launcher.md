@@ -385,6 +385,49 @@ folder): the code is UTF-8 throughout, but on Windows `fs::path` and `fopen` rea
 narrow strings in the ANSI code page and `fs::path::string()` writes them in it.
 MY DATA FOLDER refuses such a name; the install has no such guard.
 
+## The cards (layout C, Owen 2026-11-20)
+
+The main screen as the mockup Owen picked on 2026-11-19 (layout C, "Cards";
+its source in claude-files/keep/mw3-rebuild/launcher-mockup-2026-11-19):
+the 1280x720 mockup at two thirds on the 854x480 canvas.
+
+- The starfield darkened (its colour at 45%), no metal bands; the emblem and
+  "MW3 REBUILD" top left; the status message in the header's right half.
+- A card a game, left to right: MECHWARRIOR 3, PIRATE'S MOON, MECHWARRIOR 1
+  (only when its remake or Elthial's port is there; two cards otherwise).
+  Each card: the mockup's panel (a dark gradient, a steel edge, an amber
+  line along its bottom), its badge on the panel with no box, its name, up
+  to three status lines (the verdict, the versions, the folder; the folder
+  shortened in the middle), and its buttons along the bottom.
+- MW3 and Pirate's Moon: "REBUILT ON ITS OWN ENGINE" above one amber PLAY,
+  which does what the round entry's click did (finds the game first).
+- MW1: a grey PLAY ORIGINAL (Elthial's port of the 1989 game) above the
+  amber PLAY REMAKE (MW1: Critical Hit). Both use the same MechWarrior
+  (1989) folder (MechWarrior 1's files, below). The remake needs MW3 and
+  Pirate's Moon first; the original needs only its port.
+- The original is not shipped: the port's licence leaves its reconstructed
+  game code (most of any build) outside the MIT grant (mw1 dev 1, 2026-11-20;
+  with Owen). PLAY ORIGINAL is greyed, "NEEDS ELTHIAL'S PORT", with a line on
+  the card, until the player puts the port beside the launcher or in a
+  `MechWarrior1989` folder beside it; then it starts it as below.
+- The bottom row: GAME FILES, UPDATES, QUIT (flat buttons), the package's
+  version and the trademark line at the right.
+- Square buttons only: a hovered one lights its edge in amber (an amber
+  button also brightens); no ripple. The click sound stays.
+- The badges are cut out (`tools/badge_cutout.py`: the black surround
+  flooded to transparent from the edges) and drawn with their own alpha;
+  `assets/launcher/README.md` has their prompts and seeds.
+- The log and the checks name each card's PLAY by its game ("screen main:
+  MECHWARRIOR 3, PIRATE'S MOON, MECHWARRIOR 1 ORIGINAL, MECHWARRIOR 1, GAME
+  FILES, UPDATES, QUIT"), and the entry lines are as before, plus
+  "entry MECHWARRIOR 1 ORIGINAL: <port> | needs Elthial's port".
+- `--launcher-mw1` (checks) presses PLAY REMAKE, or PLAY ORIGINAL when
+  there is no remake. Checks: `sdl_program_launcher_screens` (the hover's
+  edge), `sdl_program_launcher_starts_mechwarrior_1` (both programs: the
+  original's button starts the port, not the remake).
+- The other screens (find, notes, data, updates, working) keep their
+  metal-band look for now.
+
 ## MechWarrior 1 (MW1: Critical Hit's fork, 2026-11-16)
 
 In the MW1 fork the entry starts MechWarrior 1: Critical Hit in
@@ -448,8 +491,10 @@ the mw1 files just like mw3 and pm do"), in `frontend/sdl/mw1_files` (ours):
 ## MechWarrior (1989)
 
 Elthial's MechWarrior SDL port (github.com/Elthial/Mechwarrior-sdl-port;
-MIT for its own code, credited on its entry's line, "Elthial's SDL port";
-we ship none of it, so no licence file goes with ours). Shown when
+MIT for its host code only: its reconstructed game code is outside the
+grant, so we ship none of it and no licence file goes with ours). Since the
+cards it is MW1's PLAY ORIGINAL (above); before them it was the
+MECHWARRIOR (1989) entry. Found when
 `mechwarrior.exe` (`mechwarrior` elsewhere) is beside `mw3` or in a
 `MechWarrior1989\` folder beside it (`MW3_MW1_PORT` names it, for checks).
 It needs the player's MW1 folder (`BTECH.EXE`, any case): picked once with
