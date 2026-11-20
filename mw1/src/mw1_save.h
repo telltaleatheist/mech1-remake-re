@@ -37,6 +37,10 @@
 //                      log_count, then log<i> (0 the newest) =
 //                      kind:units:month:year:a:b:c:d:n:m:heard:read,
 //                      numbers only. Before 10: an empty log.
+//                      11 the force's slots (FIXES 112, kForceSlots):
+//                      offer_enemies and a wreck's first number are
+//                      slots. Before 11 MW1's kind numbers, read as
+//                      their slots (slot_of_mw1_kind).
 //                      Versions 1 to 4 still read (before 5: the world's
 //                      premium without its roll, a wreck's damage from its
 //                      condition, no bills);
@@ -57,7 +61,7 @@
 
 namespace mw1 {
 
-inline constexpr int32_t kSaveVersion = 10;
+inline constexpr int32_t kSaveVersion = 11;
 inline constexpr const char* kSaveFile = "mw1save.txt";
 inline constexpr const char* kPrevSaveFile = "mw1save.prev";  // the company NEW CAMPAIGN replaced, kept beside it
 

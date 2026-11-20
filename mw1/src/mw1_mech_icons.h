@@ -44,7 +44,7 @@ inline constexpr int32_t kBlankSlotW = 41, kBlankSlotH = 50;
 std::string blank_slot_image(SlotLook look);
 images::Image blank_slot(SlotLook look);
 outline::Colour slot_colour(SlotLook look);  // each look's colour
-// Every mech MW1 uses (kMechKinds' stand-ins) and every PM mech's slot looks, from PM's libraries; the archive written under `write_dir` when it
+// Every chassis that fields as an enemy (the roster) and every PM mech's slot looks, from PM's libraries; the archive written under `write_dir` when it
 // differs from what is there. The count made (0: none of PM's icons found).
 int32_t make_mech_icons(const std::string& write_dir);
 // research/hires-2d.md B2 item 1 (Owen 2026-11-18): an icon made this run, as its outline redrawn (mw1_outline.h),

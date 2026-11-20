@@ -48,7 +48,18 @@ uint32_t mix(uint32_t h, int64_t v) {
   return h;
 }
 
+std::vector<int32_t>& roster_in_use() {
+  static std::vector<int32_t> r(std::begin(kRoster), std::end(kRoster));
+  return r;
+}
+
 }  // namespace
+
+const std::vector<int32_t>& roster() { return roster_in_use(); }
+
+void set_roster_for_tests(const std::vector<int32_t>& chassis) {
+  roster_in_use() = chassis.empty() ? std::vector<int32_t>(std::begin(kRoster), std::end(kRoster)) : chassis;
+}
 
 StockLoadouts stock_loadouts(int32_t chassis) {
   return chassis >= 0 && chassis < mech3::kMechCount ? kStock[chassis] : StockLoadouts{};
@@ -67,22 +78,27 @@ LoadoutKind loadout_kind(int32_t chassis, int32_t loadout) {
 
 bool fields(int32_t chassis) {
   if (chassis < 0 || chassis >= mech3::kMechCount) return false;
+  const std::vector<int32_t>& r = roster();
+  if (std::find(r.begin(), r.end(), chassis) == r.end()) return false;
   return chassis != mech3::kElemental || kElementalsField;
 }
 
 bool is_clan(int32_t chassis) { return mech3::mech_tech(chassis) == mech3::kClan; }
 
-std::vector<int32_t> slot_chassis(int32_t kind, bool clan, int32_t tier, int32_t band) {
+int32_t slot_class(int32_t slot) {
+  if (slot < 0 || slot >= kSlotCount) return -1;
+  const int32_t t = kForceSlots[slot].tons;
+  return t < 40 ? 0 : t < 60 ? 1 : t < 80 ? 2 : 3;
+}
+
+std::vector<int32_t> slot_chassis(int32_t slot, bool clan, int32_t tier, int32_t band) {
   std::vector<int32_t> out;
-  if (kind < 0 || kind >= kKindCount) return out;
-  const int32_t want = kMechKinds[kind].tons;
-  int32_t heaviest = 0;  // MW1's heaviest kind (the BattleMaster, 85 t): the only slot a 100-tonner fields
-  for (const MechKind& m : kMechKinds) heaviest = std::max(heaviest, m.tons);
+  const int32_t cls = slot_class(slot);
+  if (cls < 0) return out;
   const bool late = tier >= kHundredTonTier || band >= kHundredTonBand;
   for (int32_t m = 0; m < mech3::kMechCount; ++m) {
     if (!fields(m) || is_clan(m) != clan) continue;
-    const int32_t t = tons(m);
-    const bool in_reach = t >= kHundredTons ? late && want == heaviest : std::abs(t - want) <= kSlotTons;
+    const bool in_reach = tons(m) >= kHundredTons ? late && cls >= 2 : mech3::weight_class(m) == cls;
     if (in_reach) out.push_back(m);
   }
   return out;
@@ -98,13 +114,40 @@ int32_t roll_loadout(int32_t chassis, EnemyRng& rng) {
   return 1 + s.alternates + rng.upto(s.exotics - 1);
 }
 
-Fielded roll_enemy(int32_t kind, int32_t tier, int32_t band, EnemyRng& rng) {
+int32_t stand_in(int32_t slot) {
+  if (slot < 0 || slot >= kSlotCount) return -1;
+  const int32_t want = kForceSlots[slot].tons;
+  int32_t best = -1;
+  int64_t best_key = 0;
+  for (int32_t m : roster()) {
+    if (!fields(m)) continue;
+    const int32_t t = tons(m);
+    // Inner Sphere first, below 100 t first, then the nearest, then the lighter.
+    const int64_t key = (int64_t{is_clan(m)} << 40) + (int64_t{t >= kHundredTons} << 32) + (int64_t{std::abs(t - want)} << 16) + t;
+    if (best < 0 || key < best_key) best = m, best_key = key;
+  }
+  return best;
+}
+
+std::vector<int32_t> slot_pool(int32_t slot, int32_t tier, int32_t band) {
+  std::vector<int32_t> out = slot_chassis(slot, false, tier, band);
+  for (int32_t m : slot_chassis(slot, true, tier, band)) out.push_back(m);
+  std::sort(out.begin(), out.end());
+  return out;
+}
+
+Fielded roll_enemy(int32_t slot, int32_t tier, int32_t band, EnemyRng& rng) {
   Fielded f;
-  const bool clan = rng.upto(99) < kClanPercent[tier >= 0 && tier < kTierCount ? tier : 0];
-  std::vector<int32_t> pool = slot_chassis(kind, clan, tier, band);
-  if (pool.empty()) pool = slot_chassis(kind, !clan, tier, band);
-  if (pool.empty()) {  // no PM chassis near it (none today): its stand-in
-    f.chassis = kind >= 0 && kind < kKindCount ? kMechKinds[kind].pm_mech : -1;
+  std::vector<int32_t> pool;
+  if (kClanGated) {
+    const bool clan = rng.upto(99) < kClanPercent[tier >= 0 && tier < kTierCount ? tier : 0];
+    pool = slot_chassis(slot, clan, tier, band);
+    if (pool.empty()) pool = slot_chassis(slot, !clan, tier, band);
+  } else {
+    pool = slot_pool(slot, tier, band);
+  }
+  if (pool.empty()) {  // no roster chassis near it (a cut roster): its stand-in, on its Primary
+    f.chassis = stand_in(slot);
     return f;
   }
   f.chassis = pool[static_cast<size_t>(rng.upto(static_cast<int32_t>(pool.size()) - 1))];
@@ -129,7 +172,7 @@ void field_force(const Company& c, Contract& k) {
 
 int32_t enemy_chassis(const Contract& k, size_t slot) {
   if (k.chassis.size() == k.enemies.size() && slot < k.chassis.size() && k.chassis[slot] >= 0) return k.chassis[slot];
-  return slot < k.enemies.size() && k.enemies[slot] >= 0 && k.enemies[slot] < kKindCount ? kMechKinds[k.enemies[slot]].pm_mech : -1;
+  return slot < k.enemies.size() ? stand_in(k.enemies[slot]) : -1;
 }
 
 int32_t enemy_loadout(const Contract& k, size_t slot) {
@@ -140,12 +183,12 @@ int32_t enemy_loadout(const Contract& k, size_t slot) {
 
 int32_t wreck_chassis(const Wreck& w) {
   if (w.chassis >= 0 && w.chassis < mech3::kMechCount) return w.chassis;
-  return w.kind >= 0 && w.kind < kKindCount ? kMechKinds[w.kind].pm_mech : -1;
+  return stand_in(w.slot);
 }
 
 int32_t pay_chassis(const Wreck& w) {
   if (kWreckPay == WreckPay::kChassis) return wreck_chassis(w);
-  return w.kind >= 0 && w.kind < kKindCount ? kMechKinds[w.kind].pm_mech : -1;
+  return stand_in(w.slot);
 }
 
 }  // namespace mw1

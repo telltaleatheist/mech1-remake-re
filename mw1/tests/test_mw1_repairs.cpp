@@ -53,14 +53,14 @@ TEST(mw1_repairs_body_prices_are_mw_main_exes_and_the_line) {
   // MW1's table against the exe (skipped without the install; the line below still checked).
   if (!mw1_test::no_mw1()) {
     const std::vector<uint8_t> d = mw_main_data();
-    EXPECT(d.size() > 0x3CAB + mw1::kKindCount);
-    for (int k = 0; k < mw1::kKindCount && d.size() > 0x3CAB + mw1::kKindCount; ++k)
+    EXPECT(d.size() > 0x3CAB + mw1::kMw1KindCount);
+    for (int k = 0; k < mw1::kMw1KindCount && d.size() > 0x3CAB + mw1::kMw1KindCount; ++k)
       EXPECT(d[0x3CAB + static_cast<size_t>(k)] == mw1::kBodyRepairPrices[k]);
   }
-  // The line through MW1's ten (provisional Q1), each kind's own price beside it.
-  for (int k = 0; k < mw1::kKindCount; ++k) {
-    const int32_t line = mw1::kRepairPerTon * mw1::kMechKinds[k].tons - mw1::kRepairOffset;
-    std::printf("  %-12s %2d t: MW1 %2d,000 a location, the line %5d\n", mw1::kMechKinds[k].name, mw1::kMechKinds[k].tons,
+  // The line through MW1's ten (provisional Q1), each record's own price beside it.
+  for (int k = 0; k < mw1::kMw1KindCount; ++k) {
+    const int32_t line = mw1::kRepairPerTon * mw1::kMw1Kinds[k].tons - mw1::kRepairOffset;
+    std::printf("  record %d, %2d t: MW1 %2d,000 a location, the line %5d\n", k, mw1::kMw1Kinds[k].tons,
                 mw1::kBodyRepairPrices[k], line);
     EXPECT(std::abs(line - mw1::kBodyRepairPrices[k] * 1000) <= 3500);
   }
@@ -165,7 +165,7 @@ TEST(mw1_repairs_saved_and_a_version_4_save_read) {
   mw1::accept(c, k);
   mw1::AfterAction p;
   p.outcome = mw1::Outcome::kFailure;
-  p.wrecks = {{mw1::kLocust, 40, 6100}};
+  p.wrecks = {{mw1::kSlot20, 40, 6100}};
   p.bills = {{0, mw1::kPmOwens, 1234, false}, {41, mw1::kPmFirefly, 0, true}};
   p.salvage = std::make_shared<mech3::Store>();
   p.launch_stores = std::make_shared<mech3::Store>();
@@ -284,7 +284,7 @@ TEST(mw1_repairs_settle_mission_pays_after_the_repairs) {
   mw1::accept(c, k);
   mw1::AfterAction a;
   a.outcome = mw1::Outcome::kSuccess;
-  a.wrecks = {{mw1::kJenner, 100, 0}, {mw1::kLocust, 0, mw1::kWhole}};
+  a.wrecks = {{mw1::kSlot35, 100, 0}, {mw1::kSlot20, 0, mw1::kWhole}};
   a.bills = {{0, c.mech, 5000, false}};
   const int64_t before = c.funds;
   mw1::MissionSettled m = mw1::settle_mission(c, k, a, rng);
@@ -326,7 +326,7 @@ TEST(mw1_repairs_a_retreat_bills_repairs_and_settles_the_fates) {
     mw1::accept(c, k);
     mw1::AfterAction a;
     a.outcome = mw1::Outcome::kRetreat;
-    a.wrecks = {{mw1::kJenner, 100, 0}};
+    a.wrecks = {{mw1::kSlot35, 100, 0}};
     a.lance = {{id, true, missing, !missing, true}};  // as roll_losses leaves a retreat's (FIXES 98): the mech lost
     a.bills = {{0, c.mech, 5000, false}, {id, mw1::kPmFirefly, mw1::kWhole, true, true}};
     const int64_t before = c.funds;
@@ -368,7 +368,7 @@ TEST(mw1_repairs_a_narrow_win_nets_the_floor) {
     mw1::accept(c, k);
     mw1::AfterAction a;
     a.outcome = o;
-    if (!dear) a.wrecks = {{mw1::kLocust, 60, 4000}};
+    if (!dear) a.wrecks = {{mw1::kSlot20, 60, 4000}};
     a.bills.push_back({0, c.mech, hurt ? 9000 : 500, false});
     for (int i = 0; i < 3; ++i) {
       const int32_t id = c.lance[static_cast<size_t>(i)].id;

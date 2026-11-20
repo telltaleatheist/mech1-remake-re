@@ -5,7 +5,7 @@
 // - top left, the picture (item 31: by the outcome and the fates), the outcome (VICTORY, DEFEAT, RETREAT) and where
 //   under it: the world and the employer, the objective and how long it took;
 // - top right, the status: PAYMENT (the fee with any deduction, the salvage share, the repair bill, the total and the
-//   funds), CREW STATUS (each mech that flew, its pilot and its condition, MW1's "JENNER 93 %"; a lancemate KILLED or
+//   funds), CREW STATUS (each mech that flew, its pilot and its condition, MW1's "<MECH> 93 %"; a lancemate KILLED or
 //   MISSING), then SALVAGE TO STORES, every part kept, a list its arrows (the wheel, the keys) scroll;
 // - along the bottom, the outcome's message from the player's MW_MAIN.EXE (none without it) and the House's crest.
 // DETAILS shows what doesn't fit there in the same panel: the enemy mechs destroyed, by whom and their values (in the

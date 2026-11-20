@@ -505,7 +505,7 @@ TEST(mw1_pilots_lance_weight_makes_the_offer_harder) {
   const mw1::Contract lance = mw1::generate_contract(c, 0, r2);
   auto names = [](const mw1::Contract& k) {
     std::string s;
-    for (int32_t e : k.enemies) s += std::string(s.empty() ? "" : ", ") + mw1::kMechKinds[e].name;
+    for (int32_t e : k.enemies) s += std::string(s.empty() ? "" : ", ") + std::to_string(mw1::kForceSlots[e].tons) + " t";
     return s;
   };
   std::printf("  alone (weight %d): budget %d, %s, %d thousand\n", 1, alone.budget, names(alone).c_str(), alone.payment);
