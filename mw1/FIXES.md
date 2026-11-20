@@ -1593,6 +1593,20 @@ MW1's kinds. The design the lead approved (2026-11-19), in `mw1_enemies.h/.cpp`:
   spawns four mixed (MW1_ALL_LOADOUTS=1: all 112) and checks each fields, is killed and salvaged, and the engine's stock
   config counts match the table.
 
+## 115. [x] Clan 'Mechs priced as Inner Sphere ones *(done: mw1-clan-price)*
+Owen (earlier): "clan mech worth should roughly mirror mw3". The lead's research
+(`keep/mw1-critical-hit/research/clan-vs-is-2026-11-19/`) found no Clan premium in MW3 or PM. There is no price or
+value field, the chassis are tech-blind, and the Clan's edge is only its equipment.
+- `kClanPriceFactor` is 1 (was 2, VISION 2026-11-16). A Clan 'Mech buys, sells and pays as a wreck as an Inner
+  Sphere one of its tons. Nothing else doubled Clan: salvage parts go to the stores unpriced.
+- The market's header: "* Clan" marks the starred rows; "twice" is dropped. The travel screen's "Clan mechs for
+  sale" stays: it's where they're sold, still rare and only at the five edge worlds.
+- VISION's 2026-11-16 line says Owen changed it on 2026-11-19.
+- The roster's Clan share stays flat (FIXES 112, ungated: about 50%, MW3's own 49% without the Elementals).
+- **Test** (`mw1_market_prices_by_tonnage_tier_and_clan`): the Mad Cat and the Orion, the Puma and the Owens, the
+  Daishi and the Atlas price the same at every tier, bought and sold, and as wrecks when they pay by chassis.
+  `mw1_market_mw1s_formula_pinned` takes the factor.
+
 ## 114. [x] MW1's words name our 'Mechs; the Dark Wing fields them *(done: mw1-text-names)*
 Owen (2026-11-19, through the lead, on 112's list of MW1's run-time text): "warhammers should be swapped out with
 [the Thor] and battlemaster swapped out with atlas if theres scripted stuff."

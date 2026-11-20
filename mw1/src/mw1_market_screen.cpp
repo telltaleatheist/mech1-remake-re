@@ -156,7 +156,7 @@ ScreenView market_view(const Company& c, const MarketChoice& m) {
   for (int32_t mech : c.market.stock) any_clan = any_clan || clan_mech(mech);
   if (stock.empty()) stock.push_back("  Nothing for sale here.");
   v.blocks.push_back(at_place("S_TITLE", {"FOR SALE"}));
-  v.blocks.push_back(at_place("S_HEAD", {"  " + std::string(kOutlineRoom) + padded("MECH", kNameWidth) + "TONS      PRICE" + (any_clan ? "   * Clan: twice" : "")}));
+  v.blocks.push_back(at_place("S_HEAD", {"  " + std::string(kOutlineRoom) + padded("MECH", kNameWidth) + "TONS      PRICE" + (any_clan ? "   * Clan" : "")}));
   v.blocks.push_back(at_place("S_ROWS", stock));
   if (std::any_of(stock_dim.begin(), stock_dim.end(), [](const std::string& l) { return !l.empty(); }))
     v.blocks.push_back(at_place("S_ROWS_DIM", stock_dim));
