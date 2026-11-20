@@ -32,6 +32,7 @@ TEST(pm_small_fixes_list_matches_its_gates) {
       {"A vehicle file with pitch and no roll keeps its pitch.", {{"mech3/veh_controls.cpp", 1}}},
       {"TAG's strike lands where the target is, not was.", {{"mech3/weapon.cpp", 1}}},
       {"A held beam stays on a moving mech after release.", {{"mech3/weapon.cpp", 1}}},
+      {"A weapon's loop sound stops when firing stops.", {{"mech3/weapon.cpp", 1}}},
       {"A mech re-placed where it stands keeps to its ground.", {{"mech3/mech_place.cpp", 1}}},
       // Pirate's Moon's own copy of the file and the one it shares with MechWarrior 3's build.
       {"A mission's last animation can be waited for.", {{"pm/gamez/zeffect/zeff_anim_init.cpp", 1}, {"gamez/zeffect/zeff_anim_init.cpp", 1}}},

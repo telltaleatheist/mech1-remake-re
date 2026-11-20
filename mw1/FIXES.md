@@ -1449,3 +1449,29 @@ save: the Centurion lost, the pilot missing in action).
     is the lead's call.
 - **Looked at and left:** MW3's allied places engage at 100 m (PM's at 10,000 m). Raised to 10,000 m, the lance did
   no better (it holds by the commander and fires either way), so it's unchanged.
+
+## 107. A weapon's looped sound stops (Owen, 2026-11-19)
+
+Owen's c4ia1: the machine gun's sound came on and played to the mission's end.
+
+- **The cause found:** a weapon's looped sound (U_LOOPED: the machine gun's) plays from its trigger to its release
+  (weapon.cpp trigger and release). Outside group fire, a group lets go of only its current weapon (the exe's
+  0x004b20b0), and the fire mode can change while the trigger is held. The mode key (group fire on to chain fire)
+  selects the group again, which releases under the new mode, so the group's other weapons that had fired were
+  never let go and their loops played on. The AI's volley pick changes mode the same way. The exe's own order, so a
+  FIX (bug), behind SMALL FIXES: the group also lets go of each other weapon still sounding or firing.
+- **Ruled out:** the effects volume (FIXES 100) only sets zSound's master level and touches no playing voice; a
+  voice out of hearing range is muted, never stopped or handed to another sound; a mech's death releases every
+  weapon (destroy_all). The log's DSERR_CONTROLUNAVAIL is a pitch change (set_frequency) on a sound made without that
+  control, refused, and stops nothing.
+- **Not proven from the log:** it has no line for a fire-mode change. This is the one path found that leaves a loop
+  playing; if the sound sticks again without a mode change, the log needs a line for it.
+- **The voices "outside the game's folders":** PM's sound list names ../data/common/sounds/... (eject_voice, the
+  ai_* acknowledgements, ge53xx, c1m4dia7). Those files are in no install: not loose in PM's, MW3 1.0's or 1.2's,
+  and not in any soundsH.zbd or soundsL.zbd. PM's own game never played them; the line is our confinement saying
+  so. Not changed: they need MW1's own recordings, if wanted.
+- **On the UPGRADES page:** SMALL FIXES' list gains "A weapon's loop sound stops when firing stops." (it fits
+  at 4:3: outbox/2026-11-19/mw1-fix107-loop-sound/); docs/upgrades-sort.md item 21.
+- **Test (mw3pmtests):** pm_volley_a_group_volley_lets_every_loop_go. A group volley's two loops playing, then the
+  mode key while firing, and the trigger let go in single fire: both loops stopped and cleared. Before, the second
+  played on.

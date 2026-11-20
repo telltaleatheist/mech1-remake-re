@@ -447,13 +447,20 @@ void WeaponGroup::prev() {
   current_weapon = at(static_cast<uint32_t>(current));
 }
 
-// Mech3.exe 1.2 @ 0x004b20b0
+// Mech3.exe 1.2 @ 0x004b20b0. FIX (bug), behind small_fixes (MW1's FIXES.md item 103's sibling, 107: Owen's machine
+// gun sounded to the mission's end): outside group fire the exe lets go of the current weapon alone. The fire mode
+// can change while the trigger is held (the mode key: group fire on to chain fire, then the group selected again,
+// which releases under the new mode), so the group's other weapons the volley fired were never let go: a looped
+// sound (U_LOOPED, the machine gun's) played on. Here each other weapon still sounding or firing is let go too.
 void WeaponGroup::release() {
   if (!current_weapon) return;
   if (manager->mode == 2) {
     for (uint32_t i = 0; i < count; ++i) weapons[i]->release();
   } else {
     current_weapon->release();
+    if (zfix::options().small_fixes)
+      for (uint32_t i = 0; i < count; ++i)
+        if (Weapon* w = weapons[i]; w && w != current_weapon && (w->loop_sound || w->is_firing())) w->release();
   }
 }
 
