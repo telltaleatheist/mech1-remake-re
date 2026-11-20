@@ -1377,3 +1377,19 @@ list under the pointer, with the same step and direction.
     stays put. On a plain drink event the wheel changes nothing.
   - The LOG (`mw1_wheel_pages_the_log_headless`): 40 lines, down to the last page and no further (never back to the
     hub), up to the first.
+
+## 103. The menu theme loops (Owen, 2026-11-19)
+
+Owen's game (5e8bb062): the theme played once and stopped.
+
+- **The cause:** the engine's SDL music output (sdl_music.cpp) waits for its stream's queue to empty before it posts
+  a file's end, which the pump hands to zsnd_cd (MM_MCINOTIFY) to play a Loop track again. SDL3's stream resamples a
+  file whose rate isn't the device's, and it keeps its last frames back until the stream is flushed. Nothing flushed
+  it, so the queue never emptied and the end never came. The headless tests used the silent output, which has no end.
+- **The fix:** the output flushes its stream once the file is all decoded. An "mw1 (engine, ours)" commit. It also
+  mends PM's and MW3's own Loop tracks and a disc playing on, which had the same fault on main.
+- **Not an end:** MW1's fade for a mission and OPTIONS' OFF stop the CD (zsnd_cd::stop), which closes the stream. No
+  end is posted and nothing starts again.
+- **Test (mw3pmsdltests):** zsnd_cd_extra_track_loops_through_the_sdl_output_and_pump runs the real SDL output on
+  SDL's dummy driver (nothing aloud), with the real pump and app. A fifth of a second at 22050 Hz must play at least
+  3 times in 2 s, then stopped, nothing more. Before the fix, once.
