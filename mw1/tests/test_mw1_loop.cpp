@@ -1506,7 +1506,6 @@ void loop_run(Ending ending, Run* run = nullptr) {
             run->structure_found = mech3::mission_objective_hooks().entity_find(k->structure.c_str()) != 0;
           else run->structure_found = true;
           if (const mw1::Contract* k = mw1::game_loop_contract(); k && !k->structure.empty()) {
-            mech3::ObjectiveHooks& h = mech3::mission_objective_hooks();
             const mech3::NavSummary n = mech3::program_nav_summary(mech3::program_mission_waynet());
             if (float at[3]; mw1::game_loop_structure_point(at) && n.current >= 0 && n.current < 8) {
               const float dx = n.pos[n.current][0] - at[0], dz = n.pos[n.current][2] - at[2];
@@ -4034,7 +4033,7 @@ TEST(mw1_soak_twenty_contracts_through_the_hub_headless) {
     auto bad = [&](int& n, const std::string& why) {
       if (!n++ && first_bad.empty()) first_bad = why;
     };
-    r.step = [&](mech3::Mech3App& app, mech3::GameEngine& engine) {
+    r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
       // A stuck state: one screen for 2,000 frames.
       if (app.current() != last_state) last_state = app.current(), idle = 0;
       else if (++idle > 2000) {

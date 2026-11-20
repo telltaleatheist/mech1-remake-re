@@ -106,7 +106,7 @@ Script read_script() {
   Script s;
   const std::vector<uint8_t>& d = ds();
   if (d.size() < kTextAt + kTextEnd || d.size() < 0x9000) return s;
-  Reader rd{d, s};
+  Reader rd{d, s, {}, {}};
   size_t c = kCaptions;
   for (int32_t i = 0; i < kCaptionCount; ++i) {
     const size_t at = c++;  // the colour byte

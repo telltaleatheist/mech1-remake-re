@@ -127,8 +127,8 @@ TEST(mw1_menu_the_image_archive_reads_back_through_the_engine) {
   for (int32_t y = 239; y < 241; ++y)
     for (int32_t x = 318; x < 322; ++x) pic.pixels[static_cast<size_t>(y * 640 + x)] = red;
   std::string why;
-  EXPECT(mw1::pack({mw1::Image{std::string(32, 'x'), 1, 1, {0}}}, &why).empty() && !why.empty());
-  EXPECT(mw1::pack({mw1::Image{"bad", 2, 2, {0}}}, &why).empty() && !why.empty());
+  EXPECT(mw1::pack({mw1::Image{std::string(32, 'x'), 1, 1, {0}, {}}}, &why).empty() && !why.empty());
+  EXPECT(mw1::pack({mw1::Image{"bad", 2, 2, {0}, {}}}, &why).empty() && !why.empty());
   const std::vector<uint8_t> b = mw1::pack({pic, mw1::black(mw1::kBlackImage)}, &why);
   EXPECT(!b.empty() && why.empty());
   const fs::path f = fresh("mw1images") / "mw1image.zbd";

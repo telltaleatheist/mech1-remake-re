@@ -96,9 +96,9 @@ std::vector<std::string> place(const mw1::ScreenView& v, const char* at) {
 // The salvage, all of it, a list its arrows scroll (item 38); DETAILS puts your mech and the kills in the panel.
 TEST(mw1_results_the_list_scrolls_and_details) {
   mw1::ResultsPanel p;
-  for (int i = 0; i < 20; ++i) p.salvage.push_back({"part " + std::to_string(i), i});
+  for (int i = 0; i < 20; ++i) p.salvage.push_back({"part " + std::to_string(i), i, ""});
   p.salvage[3].words = std::string(80, 'x');  // longer than the panel: cut
-  p.kills = {{"Owens by you 120,000", 0}};
+  p.kills = {{"Owens by you 120,000", 0, ""}};
   p.mech_title = "YOUR OWENS";
   p.mech = {"head", "torso"};
   p.pay = {"Fee: 1"};
@@ -153,7 +153,7 @@ TEST(mw1_results_repair_line_fits_the_panel) {
     for (const std::string& s : shown) EXPECT(s.size() <= (wide ? mw1::kResultsWide : mw1::kResultsNarrow).status);
   }
   // DETAILS' rows: a mech's repair too wide for 4:3's panel takes its narrow words there; 16:9 keeps the full.
-  p.kills = {{"Centurion (Taris Ren): 4,977, paid from salvage", -1, "Taris Ren: 4,977 from salvage"}, {"None"}};
+  p.kills = {{"Centurion (Taris Ren): 4,977, paid from salvage", -1, "Taris Ren: 4,977 from salvage"}, {"None", -1, ""}};
   mw1::ResultsChoice d;
   d.details = true;
   EXPECT(place(mw1::results_view(p, d, false), "LIST")[0] == p.kills[0].narrow);
