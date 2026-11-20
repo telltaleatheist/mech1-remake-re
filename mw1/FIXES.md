@@ -5,6 +5,57 @@ Tick an item when it is merged into `main`.
 
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 111. [ ] The pace to the Dark Wing, and the weapons met on the way *(measured: mw1-balance-pay; the pay is unchanged until Owen picks)*
+Owen, via the lead (2026-11-20): about 40 fights to the Dark Wing, contracts plus story battles, about 7 hours, with
+a steady build-up, and about 5 game years. "Maybe we could just increase the money payout or something a bit." Also
+"make sure we're getting enough weapons over the course of the campaign".
+- **The knob:** `kPayPercent` (mw1_campaign.h, 100) scales the House's pay ceiling, so the opening, every
+  counter-offer, the advance and the floor follow it. It's applied on top of MW1's own arithmetic and kept in its
+  bounds. `pay_percent()` and `pay_tier_percent()` are what a sweep sets.
+- **The measure:** 93's playthrough as a gauge (`MW1_PLAYTHROUGH=1 MW1_PLAYTHROUGH_TO_DW=1`, `MW1_PAY_PERCENT`,
+  `MW1_PAY_TIERS`, `MW1_ITEM_SOURCES`). It stops at the Dark Wing's first battle and prints:
+  - PACE: each step's month, contracts and fights;
+  - TIME: the game months spent on contracts, story battles, travel and the Bar;
+  - ITEM: each weapon's and equipment's first fight, salvaged and owned;
+  - SOURCE: each fielded chassis and loadout's items.
+  About 50 s a seed. Its player wins every battle at once, by a headshot, so its repairs are near nothing and its
+  salvage is the kill's.
+- **Fights and months to the Dark Wing's first battle** (12 seeds each; medians, with the range):
+
+  | pay | fights | months | rung 1 at fight (month) |
+  |---|---|---|---|
+  | 100% | 41 (37-60) | 102 (83-138) | 26.5 (57) |
+  | 125% | 34 (31-41) | 86 (74-110) | 24.5 (52) |
+  | 150% | 35 (29-109) | 85 (66-397) | 22 (48) |
+  | 200% | 33.5 (29-125) | 77 (71-456) | 20.5 (44) |
+  | 300% | 27.5 (21-43) | 71 (55-87) | 15 (32) |
+  | tiers 200/150/100/100 | 35 (29-109) | 84 | 22 (48) |
+  | tiers 300/200/100/100 | 33.5 (27-125) | 77 | 20.5 (44) |
+
+  - 73 fights in 93's run counted all three Dark Wing tries and the rebuilds between them. To the first, it's about
+    40 at today's pay.
+  - Rung 1 is the grind. It takes 110 t against a 35 t commander, which means three light 'Mechs at 3.1-3.7M each.
+    Early contracts net 220-350k. Rung 1 comes at fight 26 of 41, and after it the rest come fast: funds run 16M at
+    rung 1 and over 100M at the Dark Wing.
+  - More pay, flat or by tier, shortens everything together. Rung 1 stays 60-70% of the road, so pay doesn't give a
+    steady build-up.
+  - The months: a contract takes about 2 game months (MW1's mission time), travel 20-40 months in a run, the Bar and
+    the story battles about 2. About 40 fights is about 100 months, whatever the pay.
+  - The few long runs (109, 125 fights) and the step-7 stalls (a few runs) are the test player's, not the game's: it
+    spends down and can't pay the fare to the lead's world.
+- **Weapons and equipment** (pay 100%, 10 runs; the lab offers 110):
+  - Had by fight 10, 20, 30 and 40: 22, 41, 55 and 62 (medians), 17, 36, 50 and 58 of them salvaged. Pay 125% is the
+    same: 22, 42, 60, 63.
+  - FF armour by fight 14 and Clan FF by fight 2, in every run.
+  - The Inner Sphere targeting computer: no loadout carries it, so it never comes. The Clan one is on the Puma's
+    Primary, the Masakari's five and a Thor Alternate (the right torso). It was seen in 1 run of 10, and seed 2's
+    three Puma Primaries left none: why is open.
+  - Never seen, and no fielded loadout carries them: AC 2, AC 5, PPC, ER Laser (S), SRM 2, Streak SRM 4 and 6 (and
+    the Clan Streak 4), LB-2X, LB-5X, LB-20X, Ultra AC 2, 10 and 20, MRM 10 and 40, TBOLT 10 and 15, Clan LRM 5, Clan
+    light MG, Clan Heavy Laser (S), MASC, ECM.
+  - Never seen, though fielded loadouts carry them (Alternates and Exotics only): the Clan AMS (17 loadouts, also
+    open), Clan ECM, C3 computer, Clan TAG, Clan heat sink, Clan heavy MG.
+
 ## 119. [x] The release tidy: MW1's own build warnings cleared *(done, mw1-fix119-warnings)*
 
 For clean 1.0.0 builds: no warning from MW1's own code (mw1/src, mw1/tests) on Mac clang or Linux GCC 13.3; the

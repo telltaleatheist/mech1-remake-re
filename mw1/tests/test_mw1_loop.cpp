@@ -94,6 +94,7 @@
 #include "mw1_music.h"
 #include "mw1_start.h"
 #include "gamez/zsound/zsnd_cd.h"
+#include "mech3/mech_salvage.h"
 #include "platform/silent_sound.h"
 #include "mw1_menu.h"
 #include "mw1_office.h"
@@ -6622,6 +6623,31 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
     MenuRun r;
     r.save = (dir / mw1::kSaveFile).string(), r.start = mw1::Start::kHub, r.story = true, r.seed = seed, r.limit = 2000000;
     r.box = [](const std::string&) -> uint32_t { return 6u; };  // BUY? SELL?: yes
+    // FIXES 111's pace sweep: MW1_PAY_PERCENT (the contracts' pay, mw1_campaign.h), MW1_PLAYTHROUGH_TO_DW=1 (stop at the
+    // Dark Wing's first battle: the fights and months to it, each weapon's and equipment's first fight).
+    if (const char* pp = std::getenv("MW1_PAY_PERCENT")) mw1::pay_percent() = std::max(1, std::atoi(pp));
+    if (const char* pt = std::getenv("MW1_PAY_TIERS"))  // a,b,c,d: each tier's percent on top
+      std::sscanf(pt, "%d,%d,%d,%d", &mw1::pay_tier_percent()[0], &mw1::pay_tier_percent()[1], &mw1::pay_tier_percent()[2], &mw1::pay_tier_percent()[3]);
+    const bool to_dw = std::getenv("MW1_PLAYTHROUGH_TO_DW") != nullptr;
+    int dw_fights = -1, dw_contracts = -1, dw_month = -1;
+    // The game time by what the player did since the last look (the hub's): fights, trips, the Bar, else.
+    std::map<std::string, int64_t> time_by;
+    std::string doing = "other";
+    int64_t units_was = -1;
+    auto units_of = [](const mw1::Date& d) { return (int64_t{d.year} * mw1::kMonthCount + d.month) * mw1::kUnitsPerMonth + d.units; };
+    std::map<std::string, int> first_salvaged, first_owned;
+    std::set<std::string> offered;  // the lab's full store's  // an item's name: the fight it was first salvaged, owned
+    const mech3::MessageText item_msg = [](int32_t id) { return mech3::pilot_hooks().message(id); };
+    auto item_said = [&](const mech3::ConfigItem* it) -> std::string {
+      if (!it || (it->kind() != 1 && it->kind() != 3)) return "";
+      if (it->kind() == 1) return "weapon " + mech3::item_name(*it, item_msg);
+      const auto* e = static_cast<const mech3::EquipmentItem*>(it);  // its kind too: PM names some none
+      return "equipment " + std::to_string(e->equipment) + " " + mech3::item_name(*it, item_msg);
+    };
+    auto note_items = [&](std::map<std::string, int>& into, const auto& items, int fight) {
+      for (const mech3::ConfigItem* it : items)
+        if (const std::string k = item_said(it); !k.empty() && !into.count(k)) into[k] = fight;
+    };
     // What happened.
     int contracts = 0, contracts_won = 0, story_battles = 0, trips = 0, buys = 0, hires = 0, lab_sets = 0, journals = 0;
     int dw_tries = 0, credits_frames = 0, hubs = 0, idle = 0, wait = 0, mission_frames = 0, loads_seen = 0;
@@ -6654,7 +6680,12 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
         in_mission = false;
         const mw1::Contract* k = mw1::game_loop_contract();
         const bool story = k && k->rung > 0, dark_wing = story && k->rung == mw1::kDarkWingRung;
+        doing = story ? "story battles" : "contracts";
         int how = 0;  // 0 won, 1 lost, 2 withdrawn
+        if (dark_wing && dw_tries == 0) {
+          dw_fights = contracts + story_battles + 1, dw_contracts = contracts, dw_month = months_between(start_date, c->date);
+          if (to_dw) return done = true, true;
+        }
         if (dark_wing) how = dw_tries == 0 ? 1 : dw_tries == 1 ? 2 : 0, ++dw_tries;
         story ? ++story_battles : ++contracts;
         if ((contracts + story_battles) % 25 == 0) {  // memory over a long campaign: the peak so far
@@ -6686,8 +6717,45 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
       if (++wait < 5) return false;
       wait = 0;
       if (!c || !c->stores) return false;
-      if (!started) started = true, start_date = c->date;
+      if (!started) {
+        started = true, start_date = c->date;
+        {  // the lab's full store, named while PM's text is up
+          mech3::Store all;
+          all.fill_all();
+          for (const mech3::ConfigItem* it : all.items)
+            if (const std::string k = item_said(it); !k.empty()) offered.insert(k);
+        }
+        if (std::getenv("MW1_ITEM_SOURCES"))  // FIXES 111: where each weapon and equipment item comes from
+          for (int32_t m = 0; m < mech3::kMechCount; ++m) {
+            const mech3::MechDfn* d = mech3::mech_dfn(m);
+            if (!d || !d->configs) continue;
+            int32_t n = 0;
+            for (const mech3::Config* cfg : d->configs->configs) {
+              if (!cfg || cfg->player_made) continue;
+              const int32_t loadout = n++;
+              std::set<std::string> said;
+              for (const mech3::ConfigItem* it : cfg->items)
+                if (const std::string k = item_said(it); !k.empty() && said.insert(k).second)
+                  std::printf("SOURCE: %s|%s|%d|%s|%s|part %d\n", k.c_str(), mw1::mech_title(m).c_str(), loadout,
+                              loadout >= mw1::loadout_count(m) ? "unused" : loadout == 0 ? "primary" : mw1::loadout_kind(m, loadout) == mw1::LoadoutKind::kAlternate ? "alternate" : "exotic",
+                              mw1::fields(m) ? (mw1::is_clan(m) ? "clan" : "is") : "never fields", it->location(-1));
+            }
+          }
+      }
       last = *c;  // the summary's: the game is gone once the run ends
+      if (const int64_t u = units_of(c->date); units_was >= 0 && u != units_was) time_by[doing] += u - units_was, units_was = u;
+      else if (units_was < 0) units_was = u;
+      {  // owned: the stores, and each 'Mech's loadout (its own, else its stock one)
+        const int fight = contracts + story_battles;
+        note_items(first_owned, c->stores->items, fight);
+        auto own_config = [&](int32_t mech, const std::shared_ptr<mech3::Config>& l) {
+          if (l) return note_items(first_owned, l->items, fight);
+          const mech3::MechDfn* d = mech3::mech_dfn(mech);
+          if (d && d->configs && !d->configs->configs.empty() && d->configs->configs[0]) note_items(first_owned, d->configs->configs[0]->items, fight);
+        };
+        own_config(c->mech, c->loadout);
+        for (const mw1::OwnedMech& o : c->hangar) own_config(o.mech, o.loadout);
+      }
       if (mw1::CreditsState* cs = mw1::game_loop_credits(); cs && showing(app, cs)) {
         credits_seen = true;
         if (++credits_frames > 24) cs->escape();  // rolled a while (each step is 5 frames), then skipped
@@ -6704,6 +6772,7 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
             endings.push_back(std::string(p->ending == mw1::Ending::kWin ? "won" : p->ending == mw1::Ending::kLost ? "lost" : "withdrawn") +
                               " (" + picture + ")");
           if (pa && k && k->rung == 0 && pa->outcome == mw1::Outcome::kSuccess) ++contracts_won;
+          if (pa && pa->salvage && pa->outcome == mw1::Outcome::kSuccess) note_items(first_salvaged, pa->salvage->items, contracts + story_battles);
         }
         rs->screen()->on_button(mw1::kResultsContinue, 0, 0);
         return false;
@@ -6760,6 +6829,7 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
       }
       if (mw1::BarState* bs = mw1::game_loop_bar(); showing(app, bs)) {
         mw1::Mw1Screen* sc = bs->screen();
+        doing = "the Bar";
         const mw1::journal::Lead l = mw1::journal::current_lead(*c);
         const bool spare = c->hangar.size() > c->lance.size();
         if (spare && c->lance.size() < 3 && sc->visible(mw1::kBarHire) && sc->enabled(mw1::kBarHire) && c->funds > 600000)
@@ -6784,6 +6854,7 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
         }
         const size_t entries = c->log.size();
         const std::string was = c->planet;
+        doing = "travel";
         sc->on_button(mw1::kTravelGo, 0, 0);
         if (c->planet != was || c->log.size() != entries) ++trips;
         sc->on_button(mw1::kTravelBack, 0, 0);
@@ -6798,7 +6869,11 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
       if (c->story.dark_wing_won && credits_over) return done = true, true;  // the end, and play goes on: the hub again
       const mw1::journal::Lead l = mw1::journal::current_lead(*c);
       if (l.step != last_step) {
-        if (!step_at.count(l.step)) step_at[l.step] = {months_between(start_date, c->date), contracts};
+        if (!step_at.count(l.step)) {
+          step_at[l.step] = {months_between(start_date, c->date), contracts};
+          std::printf("PACE: step %d rung %d month %d contracts %d fights %d funds %lld\n", l.step, l.rung, months_between(start_date, c->date), contracts,
+                      contracts + story_battles, static_cast<long long>(c->funds));
+        }
         std::printf("PLAY: step %d event %02X at %s (%s), rung %d; here %s, month %d, %d contracts, funds %lld, lance %zu, tons %d\n", l.step, l.event,
                     l.planet >= 0 ? mw1::kPlanets[l.planet].name : "anywhere", mw1::journal::place_words(l.place), l.rung, c->planet.c_str(),
                     months_between(start_date, c->date), contracts, static_cast<long long>(c->funds), c->lance.size(), best_lance_tons(*c, 1 + c->lance.size()));
@@ -6878,6 +6953,20 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
     for (const std::string& s : scenes) std::printf(" %s", s.c_str());
     std::printf("\n");
     for (const std::string& b : blocks) std::printf("    BLOCK: %s\n", b.c_str());
+    std::printf("PACE: tiers %d,%d,%d,%d\n", mw1::pay_tier_percent()[0], mw1::pay_tier_percent()[1], mw1::pay_tier_percent()[2], mw1::pay_tier_percent()[3]);
+    std::printf("PACE: seed %u pay %d%% dark wing at fight %d (contracts %d) month %d\n", seed, mw1::pay_percent(), dw_fights, dw_contracts, dw_month);
+    std::printf("TIME:");
+    for (const auto& [what, u] : time_by) std::printf(" %s %.1f;", what.c_str(), static_cast<double>(u) / mw1::kUnitsPerMonth);
+    std::printf(" (months)\n");
+    {
+      std::set<std::string> names;
+      for (const auto& [n, f] : first_salvaged) names.insert(n);
+      for (const auto& [n, f] : first_owned) names.insert(n);
+      for (const std::string& n : offered) names.insert(n);
+      for (const std::string& n : names)
+        std::printf("ITEM: salvaged %d owned %d %s\n", first_salvaged.count(n) ? first_salvaged[n] : -1, first_owned.count(n) ? first_owned[n] : -1, n.c_str());
+    }
+    if (to_dw) return;  // the sweep's run: no ending
     // The ending pictures are there to show: the built art archive has every results picture seen.
     const fs::path art = fs::path(MW1_DATA_DIR) / "zbd" / "mw1art.zbd";
     int missing = 0;
