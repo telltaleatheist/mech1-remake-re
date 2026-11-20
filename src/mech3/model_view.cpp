@@ -3,9 +3,9 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cctype>
 #include <cstring>
 #include <vector>
-#include <strings.h>
 
 #include "gamez/zclass/camera.h"
 #include "gamez/zclass/class.h"
@@ -24,6 +24,16 @@
 #include "mech3/mech_skin.h"
 #include "mech3/mission.h"
 #include "mech3/options.h"
+
+namespace {
+// A case-insensitive compare that builds everywhere (strcasecmp is POSIX's, not the Windows toolchains').
+int ieq_cmp(const char* a, const char* b) {
+  for (;; ++a, ++b) {
+    const int x = std::tolower(static_cast<unsigned char>(*a)), y = std::tolower(static_cast<unsigned char>(*b));
+    if (x != y || !x) return x - y;
+  }
+}
+}  // namespace
 
 namespace mech3 {
 
@@ -90,9 +100,9 @@ bool ModelView::prepare(GameEngine& en, int32_t mech, const std::string& skin) {
     const std::vector<Skin*>& skins = d->skins->skins;
     int32_t want = 0;
     for (size_t i = 0; i < skins.size(); ++i)
-      if (skins[i] && skins[i]->name && strcasecmp(skins[i]->name, skin.c_str()) == 0) want = static_cast<int32_t>(i);
+      if (skins[i] && skins[i]->name && ieq_cmp(skins[i]->name, skin.c_str()) == 0) want = static_cast<int32_t>(i);
     bool found = false;
-    for (Skin* k : skins) found = found || (k && k->name && strcasecmp(k->name, skin.c_str()) == 0);
+    for (Skin* k : skins) found = found || (k && k->name && ieq_cmp(k->name, skin.c_str()) == 0);
     if (!found) {
       std::string names;
       for (Skin* k : skins) names += std::string(" ") + (k && k->name ? k->name : "?");
