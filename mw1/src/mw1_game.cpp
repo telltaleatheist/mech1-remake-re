@@ -3121,8 +3121,29 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
                   "state %d, action %d", pilot_title(id).c_str(), why, static_cast<double>(mech3::missions().time),
                   killer == victim ? "its own" : mech_named(killer).c_str(), mech_named(mech3::mech_last_attacker(victim)).c_str(),
                   static_cast<double>(got ? d.heat : 0), got ? d.anim_state : -1, got ? d.action : -1);
-    lance_downs_.push_back(line);
-    std::printf("mw1: %s\n", line);
+    // FIXES 113 (Owen: did the head go or the centre torso?): the part whose destruction killed it, how the damage
+    // came (a weapon's hit, the ceiling's crush, a ram, or none of those), each location's armour and structure left.
+    std::string cause = line;
+    int32_t part = 0, path = 0;
+    if (mech3::mech_death_cause(victim, &part, &path)) {
+      static const char* const kPart[] = {"not known", "the centre torso", "the left arm", "the right arm", "the left leg",
+                                          "the right leg", "the head", "the left torso", "the right torso"};
+      static const char* const kPath[] = {"none of a hit, a crush or a ram (a fall, heat, a script)", "a weapon's hit",
+                                          "the ceiling's crush", "a mech's ram"};
+      cause += std::string("; ") + (part == 15 ? "the hip" : part >= 0 && part <= 8 ? kPart[part] : "a part") + " went, by " +
+               (path >= 0 && path <= 3 ? kPath[path] : "?");
+    }
+    const Bars b = bars_of(victim);
+    static const char* const kBar[11] = {"CT", "LT", "RT", "CT rear", "LT rear", "RT rear", "head", "LA", "RA", "LL", "RL"};
+    cause += "; armour/structure left:";
+    for (int32_t k = 0; k < 11; ++k) {
+      char one[48];
+      std::snprintf(one, sizeof one, " %s %.0f/%.0f%%", kBar[k], static_cast<double>(b.armor_left[k] * 100),
+                    static_cast<double>(b.structure_left[k] * 100));
+      cause += one;
+    }
+    lance_downs_.push_back(cause);
+    std::printf("mw1: %s\n", cause.c_str());
   }
   void log_lancemate_down(int32_t id, void* victim, void* killer) { log_lancemate_down(id, victim, "", killer); }
   // Whose a mission mech is: 0 the commander's, a lancemate's pilot id, -1 none of the company's.
