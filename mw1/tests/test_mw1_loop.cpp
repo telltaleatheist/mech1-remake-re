@@ -252,6 +252,10 @@ struct Run {
   bool steady = false;  // item 25: PM's HelpButtons held steady while MW1 runs (mech3::buttons_steady)
   int32_t page_after = -2, slot_w = -1;  // item 26: the lab's page after the weapons page was asked for; the slot icon
   bool slot_amber = false;
+  // FIXES 96: the empty slot's looks are MW3's placeholder 'Mech (icon_notmech) in the slot's colours with its outline,
+  // not the dashed frame: its lit pixels, the dashed frame's, whether they differ, and its outline.
+  int32_t none_lit = -1, frame_lit = -1;
+  bool none_not_frame = false, none_outline = false, none_amber = false;
   // FIXES.md item 24: PAY_UP held with zin's mouse at the first offer (the market run): the ask before, after the
   // hold (kHoldSeconds of the game's time), and a while after the release.
   int hold_phase = 0, hold_frames = 0;
@@ -451,6 +455,26 @@ void loop_run(Ending ending, Run* run = nullptr) {
               ++lit, amber += r > g && g >= b;
             }
           run->slot_w = t->width, run->slot_amber = lit > 0 && amber == lit;
+          zimg::free_texture(t);
+        }
+      if (run && run->none_lit < 0)  // FIXES 96
+        if (zimg::Texture* t = zimg::fetch_image(mw1::blank_slot_image(mw1::SlotLook::kLit).c_str())) {
+          const auto* px = static_cast<const uint16_t*>(t->pixels);
+          const mw1::images::Image frame = mw1::blank_slot(mw1::SlotLook::kLit);
+          int32_t lit = 0, amber = 0, same = 0;
+          for (int32_t i = 0; i < t->width * t->height; ++i) {
+            const bool on = px[i] != 0, frame_on = static_cast<size_t>(i) < frame.alpha.size() && frame.alpha[static_cast<size_t>(i)];
+            same += on == frame_on;
+            if (on) {
+              const int32_t r = (px[i] >> 11) << 3, g = ((px[i] >> 5) & 63) << 2, b = (px[i] & 31) << 3;
+              ++lit, amber += r > g && g >= b;
+            }
+          }
+          run->frame_lit = 0;
+          for (uint8_t a : frame.alpha) run->frame_lit += a != 0;
+          run->none_lit = lit, run->none_amber = lit > 0 && amber == lit;
+          run->none_not_frame = same < t->width * t->height;
+          run->none_outline = mw1::icon_outline(mw1::blank_slot_image(mw1::SlotLook::kLit)) != nullptr;
           zimg::free_texture(t);
         }
       if (run && run->icon_w < 0)  // item 23
@@ -2133,6 +2157,9 @@ TEST(mw1_loop_market_buy_sell_pilot_then_a_contract_in_the_bought_mech_headless)
     EXPECT(run.steady);  // item 25
     std::printf("  lab: page 1 asked, page %d shown; slot icon %d wide, amber %d\n", run.page_after, run.slot_w, run.slot_amber);
     EXPECT(run.page_after == 0 && run.slot_w == 41 && run.slot_amber);  // item 26
+    std::printf("  lab: the empty slot %d lit pixels (the dashed frame %d), amber %d, not the frame %d, outline %d\n", run.none_lit,
+                run.frame_lit, run.none_amber, run.none_not_frame, run.none_outline);
+    EXPECT(run.none_lit > 0 && run.none_amber && run.none_not_frame && run.none_outline);  // FIXES 96
     // Item 24: PAY_UP held a second steps the ask on (more than one step), and stops when let go.
     std::printf("  PAY_UP held 1 s: %d thousand offered, asked %d, %d after the release\n", run.ask_offer, run.ask_held, run.ask_released);
     EXPECT(run.hold_phase == 8 && run.ask_held > run.ask_offer + mw1::kRequestPaymentStep && run.ask_released == run.ask_held);
