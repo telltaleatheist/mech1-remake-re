@@ -120,6 +120,16 @@ Company new_company(Rng& rng) {
 
 int32_t record_band(int32_t kills) { return band(kills); }
 
+int32_t& pay_percent() {
+  static int32_t p = kPayPercent;
+  return p;
+}
+
+std::array<int32_t, 4>& pay_tier_percent() {
+  static std::array<int32_t, 4> p = {100, 100, 100, 100};
+  return p;
+}
+
 Contract generate_contract(const Company& c, int32_t slot, Rng& rng) {
   Contract k;
   k.house = c.planet_house;
@@ -159,7 +169,12 @@ Contract generate_contract(const Company& c, int32_t slot, Rng& rng) {
   ceiling = static_cast<uint16_t>(ceiling / kPaymentRounding * kPaymentRounding);
   if (ceiling < kPaymentMin) ceiling = kPaymentMin;
   if (ceiling > kPaymentMax) ceiling = kPaymentMax;
-  k.payment_ceiling = ceiling;
+  // FIXES.md item 111: ours on top of MW1's arithmetic, kept in its bounds.
+  const int32_t tier_pct = pay_tier_percent()[static_cast<size_t>(std::clamp(c.tier, 0, 3))];
+  int32_t scaled = static_cast<int32_t>(int64_t{ceiling} * pay_percent() * tier_pct / 10000) / kPaymentRounding * kPaymentRounding;
+  scaled = std::clamp(scaled, kPaymentMin, kPaymentMax);
+  k.payment_ceiling = scaled;
+  ceiling = static_cast<uint16_t>(scaled);
   int32_t opening = (ceiling >> 2) / kPaymentRounding * kPaymentRounding;
   k.payment = opening < kPaymentMin ? kPaymentMin : opening;
   // Salvage and advance: the House's base shifted by the standing; the opening a quarter.
