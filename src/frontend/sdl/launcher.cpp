@@ -813,7 +813,17 @@ void Launcher::run_mw1() {
     }
   const std::string game = mw1_game_, captures = (base / "captures").string();
   const char* args[] = {port_exe_.c_str(), game.c_str(), captures.c_str(), nullptr};
+#if defined(_WIN32)
+  // mechwarrior.exe is a console program: started in the background (CREATE_NO_WINDOW) no console opens beside the
+  // game (mw1 dev 1, 2026-11-20). SDL then reports its exit as 0, so a failure is not told apart here.
+  const SDL_PropertiesID props = SDL_CreateProperties();
+  SDL_SetPointerProperty(props, SDL_PROP_PROCESS_CREATE_ARGS_POINTER, const_cast<char**>(args));
+  SDL_SetBooleanProperty(props, SDL_PROP_PROCESS_CREATE_BACKGROUND_BOOLEAN, true);
+  SDL_Process* p = SDL_CreateProcessWithProperties(props);
+  SDL_DestroyProperties(props);
+#else
   SDL_Process* p = SDL_CreateProcess(args, false);
+#endif
   if (!p) {
     status_ = std::string("MechWarrior (1989) did not start: ") + SDL_GetError(), status_good_ = false;
     std::printf("mw3: launcher: %s\n", status_.c_str());

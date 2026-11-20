@@ -563,7 +563,7 @@ shared engine, MechWarrior 3, Pirate's Moon and the launcher):
   `THIRD-PARTY.txt`, with their own licence files.
 - The launcher's PLAY ORIGINAL starts **MechWarrior (1989)** from your own
   copy through [Elthial's SDL port](https://github.com/Elthial/Mechwarrior-sdl-port),
-  which the Mac package carries (with Munt and Nuked-OPL3, under the LGPL;
+  which the packages with MW1 carry (with Munt and Nuked-OPL3, under the LGPL;
   `THIRD-PARTY-MW1989.txt`). Thank you, Elthial.
 
 MechWarrior is a trademark of Microsoft. This project is not affiliated with

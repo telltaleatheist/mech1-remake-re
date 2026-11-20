@@ -527,8 +527,18 @@ and its libraries in `Contents/MacOS/MechWarrior1989/` (code only, signed)
 and MechWarrior.ini, `licences/` (the port's LICENSE, MIT and NOTICE
 unchanged, the LGPL texts, SDL's, and SOURCES.txt with every commit) and
 `THIRD-PARTY-MW1989.txt` in `Contents/Resources`. The two LGPL libraries
-stay separate, replaceable shared libraries. Linux and Windows follow the
-kit's builds there.
+stay separate, replaceable shared libraries. Linux: `combined.sh linux ...
+--mw1` builds it against make-appimage.sh's prefix and the AppImage carries
+the staged folder whole in `usr/bin/MechWarrior1989/` (its libraries by
+`$ORIGIN`, not through linuxdeploy; glibc 2.38 or later, as the AppImage).
+Windows: `combined.cmd`'s third ref runs `build_port.cmd` (clang-cl, its VC
+runtime app-local: Windows does not look in the launcher's folder for a
+program in a subfolder) and `package.cmd` copies it to `MechWarrior1989\`;
+`check_dist.ps1 -Mw1Port` checks its DLLs against its own folder and its
+licences. mechwarrior.exe is a console program, so the launcher starts it in
+SDL's background mode on Windows (no console window; its exit then reads 0).
+The MW3-alone installer leaves `MechWarrior1989\` alone: a port the player
+put there is theirs.
 Built 2026-10-31;
 `--launcher-mw1` presses it at once (checks);
 `sdl_program_launcher_starts_mechwarrior_1989` (a stand-in script).

@@ -6,20 +6,26 @@
 # -Pm: the combined package, mw3pm.exe required too (its DLLs checked as every program's).
 # -Mw1: MechWarrior 1: Critical Hit in it too, mw1.exe required; its own mw1data\ (MW1's .zrd screens and the
 # image archive packed from its repo's art) is ours, not a game file.
-param([Parameter(Mandatory = $true)][string]$Dist, [switch]$Pm, [switch]$Mw1)
+# -Mw1Port: Elthial's MechWarrior (1989) port in MechWarrior1989\, its program and licences required, its DLLs
+# checked against its own folder (Windows looks there first for a program in it).
+param([Parameter(Mandatory = $true)][string]$Dist, [switch]$Pm, [switch]$Mw1, [switch]$Mw1Port)
 $ErrorActionPreference = 'Stop'
-$here = Get-ChildItem -LiteralPath $Dist -File | ForEach-Object { $_.Name.ToLowerInvariant() }
 $sys = Join-Path $env:SystemRoot 'System32'
 $runtime = '^(vcruntime|msvcp|concrt|vccorlib)\d'
 $missing = @()
-foreach ($bin in Get-ChildItem -LiteralPath $Dist -File | Where-Object { $_.Extension -in '.exe', '.dll' }) {
-  $deps = & dumpbin /nologo /dependents $bin.FullName | Where-Object { $_ -match '^\s+(\S+\.dll)\s*$' } |
-    ForEach-Object { $Matches[1].ToLowerInvariant() }
-  foreach ($d in $deps) {
-    if ($here -contains $d) { continue }
-    if ($d -match '^(api|ext)-ms-win-') { continue }
-    if ($d -notmatch $runtime -and (Test-Path -LiteralPath (Join-Path $sys $d))) { continue }
-    $missing += "$($bin.Name) needs $d"
+$folders = @($Dist) + $(if ($Mw1Port) { @(Join-Path $Dist 'MechWarrior1989') } else { @() })
+foreach ($folder in $folders) {
+  if (-not (Test-Path -LiteralPath $folder)) { continue }
+  $here = Get-ChildItem -LiteralPath $folder -File | ForEach-Object { $_.Name.ToLowerInvariant() }
+  foreach ($bin in Get-ChildItem -LiteralPath $folder -File | Where-Object { $_.Extension -in '.exe', '.dll' }) {
+    $deps = & dumpbin /nologo /dependents $bin.FullName | Where-Object { $_ -match '^\s+(\S+\.dll)\s*$' } |
+      ForEach-Object { $Matches[1].ToLowerInvariant() }
+    foreach ($d in $deps) {
+      if ($here -contains $d) { continue }
+      if ($d -match '^(api|ext)-ms-win-') { continue }
+      if ($d -notmatch $runtime -and (Test-Path -LiteralPath (Join-Path $sys $d))) { continue }
+      $missing += "$($bin.Name) needs $d"
+    }
   }
 }
 # Our free fonts are the only .ttf a package may hold (assets\launcher, assets\fonts); the game's are not.
@@ -32,6 +38,11 @@ $game = Get-ChildItem -LiteralPath $Dist -Recurse -File |
                  ($_.Extension -ieq '.ttf' -and $_.Name -cnotin $ours) }
 # The launcher (the main shortcut) and the game it starts.
 $programs = @('mw3launcher.exe', 'mw3.exe') + $(if ($Pm) { @('mw3pm.exe') } else { @() }) + $(if ($Mw1) { @('mw1.exe') } else { @() })
+if ($Mw1Port) {
+  $programs += 'MechWarrior1989\mechwarrior.exe', 'MechWarrior1989\MechWarrior.ini', 'THIRD-PARTY-MW1989.txt',
+    'MechWarrior1989\licences\SOURCES.txt', 'MechWarrior1989\licences\MechWarrior-sdl-port-LICENSE.txt',
+    'MechWarrior1989\licences\libmt32emu-LICENSE.txt', 'MechWarrior1989\licences\Nuked-OPL3-LICENSE.txt'
+}
 foreach ($exe in $programs) {
   if (-not (Test-Path -LiteralPath (Join-Path $Dist $exe))) { $missing += "$exe (the program itself)" }
 }

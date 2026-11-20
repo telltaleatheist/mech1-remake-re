@@ -13,6 +13,8 @@ rem Usage: tools\windows\package.cmd
 rem For the combined package (tools\package\combined.cmd, docs/release.md):
 rem   MW3_PKG_PM_BIN=<mw3pm.exe built on pm>  adds Pirate's Moon beside mw3.exe (its DLLs checked as mw3's)
 rem   MW3_PKG_MW1_DIR=<mw1's build tree on mw1>  adds MechWarrior 1: Critical Hit: mw1.exe and mw1data\ (its own data)
+rem   MW3_PKG_MW1_PORT_DIR=<staged port>  adds Elthial's MechWarrior (1989) SDL port (PLAY ORIGINAL) in
+rem                         MechWarrior1989\, as tools\package\mw1port\build_port.cmd stages it (Owen, 2026-11-20)
 rem   MW3_PKG_STEM=<stem>   names <stem>-<version>-win64 (folder, zip) and <stem>-Setup-<version>.exe
 rem                         (default MW3-Rebuild; MW3 alone is MW3-alone, which the launcher's updater never takes)
 rem   MW3_PKG_KEEP_BUILD=1  reuse build-win-pkg (a second package from the same build)
@@ -32,6 +34,7 @@ if not exist deps\archive\share\licenses\libarchive-3.7.9\COPYING (echo deps\arc
 if not defined MW3_PKG_STEM set MW3_PKG_STEM=MW3-Rebuild
 if defined MW3_PKG_PM_BIN if not exist "%MW3_PKG_PM_BIN%" (echo MW3_PKG_PM_BIN: no program at %MW3_PKG_PM_BIN% & exit /b 1)
 if defined MW3_PKG_MW1_DIR if not exist "%MW3_PKG_MW1_DIR%\mw1.exe" (echo MW3_PKG_MW1_DIR: no mw1.exe in %MW3_PKG_MW1_DIR% & exit /b 1)
+if defined MW3_PKG_MW1_PORT_DIR if not exist "%MW3_PKG_MW1_PORT_DIR%\licences\SOURCES.txt" (echo MW3_PKG_MW1_PORT_DIR: no staged port in %MW3_PKG_MW1_PORT_DIR% & exit /b 1)
 
 rem The build, from scratch each time so the version and the switches are this checkout's.
 if not defined MW3_PKG_KEEP_BUILD if exist build-win-pkg rmdir /s /q build-win-pkg
@@ -64,6 +67,10 @@ rem Its read-me and notices (mw1\dist on its branch, beside the build tree), bes
 if defined MW3_PKG_MW1_DIR for %%f in (README-MW1.txt THIRD-PARTY-MW1.txt) do (
   if exist "%MW3_PKG_MW1_DIR%\..\mw1\dist\%%f" (copy /y "%MW3_PKG_MW1_DIR%\..\mw1\dist\%%f" "%DIST%\" >nul || exit /b 1) else (echo warning: no %%f in mw1\dist: not for release)
 )
+rem Elthial's port in MechWarrior1989\ (the launcher finds it there): its program, DLLs (the VC runtime its own),
+rem MechWarrior.ini and licences\, and THIRD-PARTY-MW1989.txt beside ours.
+if defined MW3_PKG_MW1_PORT_DIR xcopy /e /i /q /y "%MW3_PKG_MW1_PORT_DIR%" "%DIST%\MechWarrior1989" >nul || exit /b 1
+if defined MW3_PKG_MW1_PORT_DIR copy /y tools\package\mw1port\THIRD-PARTY-MW1989.txt "%DIST%\" >nul || exit /b 1
 copy /y build-win-pkg\*.dll "%DIST%\" >nul || exit /b 1
 rem The Visual C++ runtime, app-local (a player may not have the redistributable).
 for /d %%d in ("%VCToolsRedistDir%x64\Microsoft.VC*.CRT") do (
@@ -114,6 +121,7 @@ rem Every DLL the programs load is in the folder or part of Windows; no game fil
 set PMCHECK=
 if defined MW3_PKG_PM_BIN set PMCHECK=-Pm
 if defined MW3_PKG_MW1_DIR set PMCHECK=%PMCHECK% -Mw1
+if defined MW3_PKG_MW1_PORT_DIR set PMCHECK=%PMCHECK% -Mw1Port
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\windows\check_dist.ps1 "%DIST%" %PMCHECK% || exit /b 1
 
 tar -a -c -f "build-win\dist\%NAME%.zip" -C build-win\dist "%NAME%" || exit /b 1

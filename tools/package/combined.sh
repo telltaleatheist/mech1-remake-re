@@ -12,9 +12,9 @@
 #
 # --mw1: MechWarrior 1: Critical Hit (branch mw1, an mw1-vX.Y.Z tag) built too, in build-pkg/mw1, and put in the
 # MW3-Rebuild package beside the launcher with its mw1data/ (combined.cmd's third ref); MW3 alone and PM alone never
-# carry it. On the Mac it also brings Elthial's MechWarrior (1989) SDL port for PLAY ORIGINAL (Owen, 2026-11-20):
+# carry it. It also brings Elthial's MechWarrior (1989) SDL port for PLAY ORIGINAL (Owen, 2026-11-20):
 # tools/package/mw1port/build_port.sh at its pins with the proposed patches (read-only opens of the player's game),
-# staged in build-pkg/mw1port; Linux and Windows follow when the kit builds there.
+# staged in build-pkg/mw1port (Windows: combined.cmd and build_port.cmd).
 #
 # Refs: the tags for a release (v1.1.0 pm-v1.0.2); any commit for a check (origin/main origin/pm). The worktrees are
 # build-pkg/main and build-pkg/pm (ours, replaced each run); the deps (build-deps/, ../prefix) are linked or passed.
@@ -73,13 +73,14 @@ if [ -n "$MW1_REF" ]; then
 fi
 
 PORT_DIR=""
-if [ -n "$MW1_REF" ] && [ "$PLATFORM" = mac ]; then
+if [ -n "$MW1_REF" ]; then
   PORT_DIR="$W/mw1port"
   KIT="$W/main/tools/package/mw1port/build_port.sh"  # the main ref's kit, as its make_app.sh expects
   [ -d "$ROOT/build-deps/mw1port/src/port/.git" ] || MW1PORT_SRC="$ROOT/build-deps/mw1port/src" "$KIT" fetch
   PORT_ARGS=()
-  if [[ " ${EXTRA[*]-} " == *" --deps "* ]]; then PORT_ARGS+=("$ROOT/build-deps/mac/prefix"); fi
-  MW1PORT_SRC="$ROOT/build-deps/mw1port/src" "$KIT" mac "$PORT_DIR" ${PORT_ARGS[@]+"${PORT_ARGS[@]}"} --proposed >/dev/null
+  if [ "$PLATFORM" = linux ]; then PORT_ARGS+=("${EXTRA[0]}")  # make-appimage.sh's PREFIX
+  elif [[ " ${EXTRA[*]-} " == *" --deps "* ]]; then PORT_ARGS+=("$ROOT/build-deps/mac/prefix"); fi
+  MW1PORT_SRC="$ROOT/build-deps/mw1port/src" "$KIT" "$PLATFORM" "$PORT_DIR" ${PORT_ARGS[@]+"${PORT_ARGS[@]}"} --proposed >/dev/null
   echo "mw1port: $(grep -m1 ' port ' "$PORT_DIR/licences/SOURCES.txt" | awk '{print $NF}')"
 fi
 
@@ -99,7 +100,7 @@ else
   PM_BIN="$W/pm/build-linux-pkg/mw3pm"
   (cd "$W/main" && MW3_PKG_STEM=MW3-alone tools/linux/make-appimage.sh ${EXTRA[@]+"${EXTRA[@]}"})
   cp "$W"/main/build-linux-pkg/dist/MW3-alone-*-x86_64.AppImage "$OUT/"
-  (cd "$W/main" && MW3_PKG_KEEP_BUILD=1 MW3_PKG_PM_BIN="$PM_BIN" MW3_PKG_MW1_DIR="$MW1_DIR" tools/linux/make-appimage.sh ${EXTRA[@]+"${EXTRA[@]}"})
+  (cd "$W/main" && MW3_PKG_KEEP_BUILD=1 MW3_PKG_PM_BIN="$PM_BIN" MW3_PKG_MW1_DIR="$MW1_DIR" MW3_PKG_MW1_PORT_DIR="$PORT_DIR" tools/linux/make-appimage.sh ${EXTRA[@]+"${EXTRA[@]}"})
   cp "$W"/main/build-linux-pkg/dist/MW3-Rebuild-*-x86_64.AppImage "$OUT/"
 fi
 python3 -I tools/package/sums.py "$OUT"
