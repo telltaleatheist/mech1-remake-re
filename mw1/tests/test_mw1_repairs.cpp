@@ -288,10 +288,13 @@ TEST(mw1_repairs_settle_mission_pays_after_the_repairs) {
   a.bills = {{0, c.mech, 5000, false}};
   const int64_t before = c.funds;
   mw1::MissionSettled m = mw1::settle_mission(c, k, a, rng);
-  std::printf("  won: pool %lld, repairs %lld, left %lld, paid %lld (%d%%), fee %lld\n", static_cast<long long>(m.r.sum.pool),
+  std::printf("  won: tier %d, wrecks %d + %d thousand; pool %lld, repairs %lld, left %lld, paid %lld (%d%%), fee %lld\n", c.tier,
+              mw1::wreck_value(c, a.wrecks[0]), mw1::wreck_value(c, a.wrecks[1]), static_cast<long long>(m.r.sum.pool),
               static_cast<long long>(m.r.sum.repairs), static_cast<long long>(m.r.sum.left), static_cast<long long>(m.s.salvage),
               m.term, static_cast<long long>(m.s.fee));
-  EXPECT(m.term == 10 && m.s.pool == (2772 + 2291) * 1000 && m.r.sum.repairs > 0 && m.r.billed == 0);
+  // Seed 5 starts at a tier 1 world (FIXES 120's portable roll): the 35 t slot's wreck 3,388, the 20 t
+  // slot's 2,812 thousand.
+  EXPECT(c.tier == 1 && m.term == 10 && m.s.pool == (3388 + 2812) * 1000 && m.r.sum.repairs > 0 && m.r.billed == 0);
   EXPECT(m.r.sum.left == m.s.pool - m.r.sum.repairs && m.s.salvage == m.r.sum.left * 10 * m.s.payout_percent / 10000);
   EXPECT(c.funds == before + m.s.fee + m.s.salvage);
   // A story battle won: no fee, all of what's left.

@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -17,6 +18,10 @@
 #include "mech3/mech_names.h"
 #include "mech3/pilot.h"
 #include "mw1_campaign.h"
+#include "gamez/zreader/zreader.h"
+#include "gamez/zutil/zutl_path.h"
+#include "mw1_save.h"
+#include "mw1_missions.h"
 #include "mw1_enemies.h"
 #include "mw1_repairs.h"
 #include "mw1_screen.h"
@@ -103,6 +108,85 @@ TEST(mw1_campaign_new_company) {
   }
   mw1::Rng a(7), b(7);  // a seed gives the same company
   EXPECT(mw1::new_company(a).funds == mw1::new_company(b).funds);
+}
+
+// FIXES 120: the same seed rolls the same on every platform (Rng::upto is ours, not the library's distribution). A
+// seed's first rolls, its company and its first contract (the shipped map table and pools, as the game draws them),
+// against fixed values written here: mw1tests on the Mac (libc++), Linux (libstdc++) and Windows (MSVC's) each
+// check them, so a platform that rolls otherwise fails. Numbers only (ids, PM's folders), never MW1's words.
+namespace {
+std::string join(const std::vector<int32_t>& v) {
+  std::string s;
+  for (int32_t x : v) s += (s.empty() ? "" : ",") + std::to_string(x);
+  return s;
+}
+std::string first_rolls(uint32_t seed) {
+  mw1::Rng rng(seed);
+  std::vector<int32_t> r;
+  for (int32_t max : {1, 2, 3, 5, 7, 9, 99, 100, 255, 999, 4095, 65535, 1000000, 0x7fffffff, 0x40000000, 6})
+    r.push_back(rng.upto(max));
+  return join(r);
+}
+std::string first_game(uint32_t seed) {
+  mw1::Rng rng(seed);
+  const mw1::Company c = mw1::new_company(rng);
+  const mw1::Contract k = mw1::generate_contract(c, 0, rng);
+  std::ostringstream o;
+  o << "planet " << c.planet_number << " house " << c.planet_house << " tier " << c.tier << " funds " << c.funds << "; contract "
+    << k.house << " vs " << k.target << " on " << k.world << " ia" << k.ia << " objective " << static_cast<int>(k.objective)
+    << " code " << k.code << " pay " << k.payment << " enemies " << join(k.enemies) << " chassis " << join(k.chassis)
+    << " loadouts " << join(k.loadouts);
+  return o.str();
+}
+}  // namespace
+
+TEST(mw1_rng_the_same_seed_rolls_the_same_everywhere) {
+  // The rolls themselves, every range's width from 2 to 2^31.
+  const std::string r7 = first_rolls(7), r20261120 = first_rolls(20261120u);
+  std::printf("  seed 7: %s\n  seed 20261120: %s\n", r7.c_str(), r20261120.c_str());
+  EXPECT(r7 == "0,0,3,1,3,9,72,46,250,308,2205,17293,501120,186280108,77364315,2");
+  EXPECT(r20261120 == "1,2,3,2,4,2,47,58,63,332,10,1717,453781,1169069853,719233227,1");
+  // max <= 0 is 0 and draws nothing: the next roll is the same as with none before it.
+  mw1::Rng a(9), b(9);
+  EXPECT(a.upto(0) == 0 && a.upto(-1) == 0 && a.upto(-0x7fffffff) == 0);
+  EXPECT(a.upto(1000000) == b.upto(1000000) && a.upto(3) == b.upto(3));
+  // Unbiased: 0..2 over 30,000 rolls, each within 3% of a third.
+  mw1::Rng u(120);
+  int32_t n[3] = {};
+  for (int i = 0; i < 30000; ++i) ++n[u.upto(2)];
+  EXPECT(n[0] > 9700 && n[0] < 10300 && n[1] > 9700 && n[1] < 10300 && n[2] > 9700 && n[2] < 10300);
+  // A seed's company and first contract, as the game rolls them (MW1_SEED's), on the shipped map table and pools.
+  zutl::mounts() = zutl::Mounts{};
+  zutl::mount(MW1_DATA_DIR);
+  mw1::set_map_table(mw1::parse_maps(mw1::kMapsFile));
+  mw1::set_map_pools(mw1::parse_pools(mw1::kMapsFile));
+  zrdr::close_archives(true);
+  const std::string g7 = first_game(7), g1 = first_game(1);
+  std::printf("  seed 7: %s\n  seed 1: %s\n", g7.c_str(), g1.c_str());
+  EXPECT(g7 == "planet 10 house 0 tier 1 funds 1058000; contract 0 vs 3 on c2 ia1 objective 0 code 1 pay 120 enemies 0 chassis 17 "
+                "loadouts 0");
+  EXPECT(g1 == "planet 12 house 0 tier 0 funds 1255000; contract 0 vs 6 on mw3c1 ia3 objective 3 code 4 pay 130 enemies 0 "
+                "chassis 17 loadouts 0");
+  // A save keeps what was rolled, not the generator: seed 7's company and contract saved, then read back in a run whose
+  // rolls are otherwise (a save of 1.0.x reads as before: loading rolls nothing, save versions 8 on).
+  {
+    mw1::Rng rng(7);
+    const mw1::Company c = mw1::new_company(rng);
+    const mw1::Contract k = mw1::generate_contract(c, 0, rng);
+    const std::string text = mw1::save_text(c, &k);
+    mw1::Rng other(8);
+    (void)mw1::new_company(other);
+    mw1::Company back;
+    mw1::Contract kb;
+    bool has = false;
+    std::string why;
+    EXPECT(mw1::load_text(text, back, kb, &has, &why) && has);
+    EXPECT(back.planet_number == c.planet_number && back.funds == c.funds && back.tier == c.tier && kb.world == k.world &&
+           kb.ia == k.ia && kb.payment == k.payment && kb.enemies == k.enemies && kb.chassis == k.chassis &&
+           kb.loadouts == k.loadouts && mw1::save_text(back, &kb) == text);
+  }
+  mw1::set_map_table({});
+  mw1::set_map_pools({});
 }
 
 // research/contracts.md's examples, an Owens (35 t: a light, 1) as the lance.
