@@ -1,0 +1,42 @@
+Third-party parts in MW1: Critical Hit
+======================================
+
+MW1: Critical Hit (the mw1 program and its mw1data folder) is built on the
+MechWarrior 3 rebuild. The engine's libraries and fonts are listed in that
+package's own THIRD-PARTY.txt. The parts below are MW1's own additions.
+Thank you to all of their authors.
+
+
+Saira Condensed Bold and ExtraBold (mw1data/fonts)
+--------------------------------------------------
+The screens' plaques, titles, tiles and buttons. Copyright 2016 The Saira
+Project Authors, https://github.com/Omnibus-Type/Saira. SIL Open Font License
+1.1 (mw1data/fonts/SairaCondensed-OFL.txt). Unchanged, under the reserved name
+"Saira".
+
+
+Share Tech and Share Tech Mono (mw1data/fonts)
+----------------------------------------------
+The Mech Lab's data and lists, the terminal panels and the status line.
+Share Tech: Copyright 2012 The Share Tech Project Authors. Share Tech Mono:
+Copyright (c) 2012, Carrois Type Design, Ralph du Carrois. Both are at
+https://github.com/google/fonts. SIL Open Font License 1.1
+(mw1data/fonts/ShareTech-OFL.txt and ShareTechMono-OFL.txt). Unchanged, under
+the reserved name "Share".
+
+
+stb_image (built into mw1)
+--------------------------
+stb_image.h v2.30 by Sean Barrett, https://github.com/nothings/stb. Public
+domain or MIT licence, at the user's choice; the licence text is at the end
+of the header. Unmodified. It decodes MW1's JPEG and PNG pictures.
+
+
+Art, music and video
+--------------------
+MW1: Critical Hit's own pictures, music and the DropShip launch video were
+made for this project with locally run generative models, then chosen and
+edited by the author. They contain no art, music or footage from MechWarrior,
+MechWarrior 3 or Pirate's Moon. MW1's text, MechWarrior 3's and Pirate's Moon's
+'Mechs, worlds and sounds are read from the player's own installed games and
+are not included.
