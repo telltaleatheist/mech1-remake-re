@@ -526,7 +526,7 @@ class Launcher {
   void show_update();
   std::string pm_data_;                  // ... its data's version ("1.0", "unknown", "incomplete")
   std::vector<std::string> mw3_check_notes_;  // start_check's for MW3, part of notes_ (notes_refresh)
-  std::string mw3_program_, pm_program_;  // each game's program's version (--version), once at the start
+  std::string mw3_program_, pm_program_, mw1_program_;  // each game's program's version (--version), once at the start
   bool entries_logged_ = false;
   std::string game_name_ = "MechWarrior 3";  // the one started, for the status lines
   SDL_Process* game_ = nullptr;  // mw3, started by MECHWARRIOR 3 (game_bin)
@@ -1058,10 +1058,11 @@ void Launcher::layout() {
         const std::string needs = mw1_needs();
         const std::string line = mw1_game_.empty() ? "Click to pick your MechWarrior (1989) folder"
                                  : !needs.empty()  ? "Not ready: " + needs
-                                                   : "Ready: " + mw1_game_;
+                                 : mw1_program_.empty() ? "Ready: " + mw1_game_
+                                                        : "Ready, " + mw1_program_ + ": " + mw1_game_;
         // Greyed until MW3 and PM are both there (Owen, 2026-11-16); then a click picks the MW1 folder or plays.
         game(kMw1, 2, 2, "MECHWARRIOR 1", line, needs.empty());
-        if (needs.empty() && !mw1_game_.empty()) buttons_.back().sub_keep = 7;  // "Ready: " kept, the folder shortened
+        if (needs.empty() && !mw1_game_.empty()) buttons_.back().sub_keep = line.size() - mw1_game_.size();  // "Ready...: " kept
         if (!mw1_logged_) std::printf("mw3: launcher: entry MECHWARRIOR 1: %s\n", line.c_str()), mw1_logged_ = true;
       } else if (!mw1_exe_.empty()) {  // Elthial's port, credited on its line (MIT; THIRD-PARTY.txt)
         const std::string by = "Elthial's SDL port: ";
@@ -2162,8 +2163,10 @@ LauncherChoice Launcher::run() {
   // from pm's).
   mw3_program_ = o_.game_bin.empty() ? std::string(MW3_VERSION) : program_version(o_.game_bin);
   if (!o_.pm_bin.empty()) pm_program_ = program_version(o_.pm_bin);
+  if (mw1_remake_) mw1_program_ = program_version(mw1_exe_);  // MW1: Critical Hit's, from a mw1-vX.Y.Z tag on mw1
   std::printf("mw3: launcher: programs: MechWarrior 3 %s", mw3_program_.empty() ? "unknown" : mw3_program_.c_str());
   if (!o_.pm_bin.empty()) std::printf(", Pirate's Moon %s", pm_program_.empty() ? "unknown" : pm_program_.c_str());
+  if (mw1_remake_) std::printf(", MechWarrior 1 %s", mw1_program_.empty() ? "unknown" : mw1_program_.c_str());
   std::printf("\n");
   std::printf("mw3: launcher: art %.0f ms, font %.0f ms, the install search %.0f ms\n", ms(t0, t_art), ms(t_art, t_font),
               ms(t_font, t_install));

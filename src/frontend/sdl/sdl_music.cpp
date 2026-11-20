@@ -84,9 +84,9 @@ void SDLCALL SdlMusicOutput::feed(void* self, SDL_AudioStream* stream, int addit
       additional -= static_cast<int>(n);
       if (n == 0 || (s->flags & (SOUND_SAMPLEFLAG_EOF | SOUND_SAMPLEFLAG_ERROR))) {
         m->drained_ = true;
-        // Ours (MW1's FIXES.md item 103): the stream's input is over. Unflushed, SDL3's resampler keeps its last
-        // frames back, so the queue never empties and the end below never came (a file at another rate than the
-        // device's: MW1's theme played once and stopped, a Loop track or a disc never went on).
+        // Ours: the stream's input is over. Unflushed, SDL3's resampler keeps its last frames back, so the queue
+        // never empties and the end above never came (a file at another rate than the device's: a Loop track
+        // played once, a disc never went on to its next track).
         SDL_FlushAudioStream(stream);
         return;
       }
