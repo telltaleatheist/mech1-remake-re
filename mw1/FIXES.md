@@ -5,6 +5,29 @@ Tick an item when it is merged into `main`.
 
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 128. [x] Key bindings and a joystick in MW1 as in MW3 *(done: mw1-fix128-controls, tests only; for 1.0.2)*
+Owen: "key binds and joystick should work in mw1 just like it does in mw3". MW1 uses Pirate's Moon's key map, command
+map and stick code unchanged (SETTINGS, CONTROLS, KEY BINDINGS opens PM's CTL_CFG_DIALOG in MW1's look), so the work
+was checking each part in MW1, against MW3/PM. Nothing in the game needed fixing; two tests now hold it.
+- **Rebinding:** KEY, KEY 2, a mouse button and a stick button each rebind through the screen, and each drives its
+  command in an MW1 battle. ACCEPT keeps the map; it is written at the game's exit to `settings.reg` in MW1's write
+  dir (`DefaultCmdMap`), and read back at the next start. SAVE KEYS and LOAD KEYS write and read `keys\<name>.zrd` in
+  MW1's write dir. MW3's and PM's installs are never written (the test compares PM's files before and after).
+- **The stick:** JOYSTICK DEFAULTS puts throttle on Z, turn on X, pitch on Y and twist on RZ; in an MW1 battle the
+  lever, the turn, the twist, the trigger (button 1) and the hat all work. MOUSE DEFAULTS puts PM's mouse setup back
+  (the mouse's X twists, its Y pitches; throttle and turn on the keys). ASSIGN AXIS is PM's popup (tested in PM).
+- **As MW3 (kept):** the screen captures stick buttons 1 to 10 only (the original's loop); a stick plugged in after
+  the start is not opened until a restart (one unplugged and plugged back is reopened); the in-game menus take the
+  mouse and Escape (Enter in text fields and boxes), and a gamepad drives only the launcher. MW1's screens are the
+  same, plus travel's arrows, Enter and typing and the results' Up/Down/PgUp/PgDn.
+- **MW1's own battle actions:** none. Lance orders are PM's Communications Controls (CMD_DIRECT_ATTACKT and the
+  rest), in the map and bindable.
+- **The tests' harness:** `menu_run` takes an input (keys, mouse buttons, a stick with named axes), a `settings.reg`
+  in its write dir and a kept write dir (a restart); with settings it saves them at the end as the game's exit does
+  (`app.destroy()`).
+- **Tests:** `mw1_controls_rebound_through_settings_kept_in_mw1s_write_dir_and_live_in_battle_headless`,
+  `mw1_controls_a_stick_drives_the_mech_in_mw1s_battles_headless`.
+
 ## 126. [ ] One SETTINGS screen in place of Pirate's Moon's option pages *(MW1 1.0.2; branch mw1-options-126)*
 - **Owen (2026-11-20), via the lead:** "lets make the options menu more intuitive. its currently based on mw1's
   options menu but it doesnt have to be." He approved the mockups ("those new options pages look good"; outbox

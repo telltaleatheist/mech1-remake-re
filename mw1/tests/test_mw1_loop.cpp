@@ -33,7 +33,12 @@
 #include "mech3/options_menu.h"
 #include "mech3/pause_menu.h"
 #include "gamez/zutil/zutl_reg.h"
+#include <memory>
+
 #include "platform/platform.h"
+#include "platform/reg_file.h"
+#include "mech3/controls_menu.h"
+#include "mech3/menu_states.h"
 #include "gamez/ztwod/twod.h"
 #include "gamez/zgame/zgame_table.h"
 #include "gamez/zclass/class.h"
@@ -2740,6 +2745,11 @@ struct MenuRun {
   bool may_quit = false;     // the game may end the run itself (its QUIT answered OK: FIXES.md item 100)
   bool game_ended = false;   // it did: the run over before the script's end
   std::string worlds;        // MW3's worlds, converted (converted_worlds()), registered as mw1's start does ("" none)
+  // FIXES 128: the input (null: no keys, no mouse, no stick); a settings.reg in the write dir, as mw1's start has
+  // (mw3_main's); the write dir kept from the last run (a restart).
+  platform::Input* input = nullptr;
+  bool settings = false;
+  bool keep_wd = false;
 };
 void menu_run(MenuRun& r) {
   zgame::set_game(pm::table());
@@ -2774,7 +2784,7 @@ void menu_run(MenuRun& r) {
   }
   if (!r.worlds.empty()) mw1::register_worlds(r.worlds);
   const std::string wd = std::string(MW3_TEST_TMP_ROOT) + "/mw1_menu_wd";
-  fs::remove_all(wd, ec);
+  if (!r.keep_wd) fs::remove_all(wd, ec);
   fs::create_directories(wd, ec);
   zutl::set_write_dir(wd.c_str());
   mech3::reset_states();
@@ -2803,7 +2813,9 @@ void menu_run(MenuRun& r) {
   mech3::MountFiles files;
   mech3::Platform p;
   p.window = &window, p.alert = &alert, p.clock = &clock, p.movie_clock = &movies, p.screen = &screen;
-  p.sound = &sound, p.files = &files, p.input = &keys, p.music = &music;
+  p.sound = &sound, p.files = &files, p.input = r.input ? r.input : &keys, p.music = &music;
+  std::unique_ptr<platform::RegFile> settings;
+  if (r.settings) settings = std::make_unique<platform::RegFile>(wd + "/settings.reg"), p.settings = settings.get();
   bool stop = false;
   {
     mech3::GameEngine engine(p, "mech3.exe -nofmv");
@@ -2825,6 +2837,7 @@ void menu_run(MenuRun& r) {
     app.run(pump);
     app.stop_game();
     app.exit_instance();
+    if (settings) app.destroy();  // FIXES 128: the settings saved, as the game's exit does
     mech3::set_app(nullptr);
   }
   r.game_ended = !stop;
@@ -7580,5 +7593,361 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
     // battle: node_drop_model kept PM's models, and the material cycles were never freed).
     if (battles_last > 25) std::printf("    memory: %ld MB at 25 battles, %ld MB at %d\n", mb_at_25, mb_last, battles_last);
     EXPECT(battles_last <= 25 || mb_last - mb_at_25 < battles_last - 25);
+  });
+}
+
+// FIXES 128 (Owen: "key binds and joystick should work in mw1 just like it does in mw3"): the keys, the mouse and a
+// stick as the tests give them (no device): keys queued as DirectInput's buffer, the mouse's buttons and a stick's
+// state as read each frame; the stick there only when `stick` is set.
+namespace {
+struct BindInput : platform::Input {
+  std::vector<platform::KeyEvent> queue;
+  uint32_t t = 0;
+  uint8_t buttons[4] = {};
+  bool stick = false;
+  platform::JoyState st;
+  void key(uint32_t dik, bool down) { queue.push_back({dik, down ? 0x80u : 0u, ++t, t}); }
+  void press(uint32_t dik) { key(dik, true), key(dik, false); }
+  bool open(Device d) override { return d == kKeyboard || d == kMouse || (d == kJoystick && stick); }
+  void close(Device) override {}
+  int32_t acquire(Device) override { return 0; }
+  int32_t unacquire(Device) override { return 0; }
+  int32_t keyboard_data(platform::KeyEvent* out, uint32_t* count) override {
+    const uint32_t n = std::min<uint32_t>(*count, static_cast<uint32_t>(queue.size()));
+    std::copy(queue.begin(), queue.begin() + n, out);
+    queue.erase(queue.begin(), queue.begin() + n);
+    *count = n;
+    return 0;
+  }
+  int32_t mouse_state(platform::MouseState* m) override {
+    *m = platform::MouseState{};
+    std::memcpy(m->buttons, buttons, 4);
+    return 0;
+  }
+  int32_t joystick_state(platform::JoyState* out) override {
+    if (!stick) return kNotAcquired;
+    *out = st;
+    return 0;
+  }
+  // Six axes, each named (zInput reads a rotation the stick has no name for as 0).
+  int32_t joystick_caps(uint32_t* flags, uint32_t* axes) override { *flags = 0, *axes = 6; return 0; }
+  int32_t joystick_set_range(uint32_t, int32_t, int32_t) override { return 0; }  // each axis -1000..1000, as asked
+  int32_t joystick_object_name(uint32_t ofs, char* name, uint32_t size) override {
+    static const char* const kNames[] = {"X", "Y", "Z", "RX", "RY", "RZ"};
+    if (!stick || ofs / 4 >= 6) return platform::Input::joystick_object_name(ofs, name, size);
+    std::snprintf(name, size, "%s", kNames[ofs / 4]);
+    return 0;
+  }
+};
+// PM's key map over MW1's SETTINGS (CONTROLS, KEY BINDINGS), when it shows.
+mech3::ControlsScreen* key_map(mech3::Mech3App& app, mech3::GameEngine& engine) {
+  auto* os = dynamic_cast<mech3::OptionsState*>(app.current());
+  return os && os->kind == mech3::OptionsState::kControls ? dynamic_cast<mech3::ControlsScreen*>(engine.screen_of(os->screen_)) : nullptr;
+}
+// The hub to the key map: OPTIONS, SETTINGS, its CONTROLS section, KEY BINDINGS. `stage` steps 0..3 (4: there).
+bool to_key_map(mech3::Mech3App& app, mech3::GameEngine& engine, int& stage) {
+  if (stage == 0 && showing(app, mw1::game_loop_hub())) return mw1::game_loop_hub()->screen()->on_button(mw1::kHubOptions, 0, 0), ++stage, true;
+  if (stage == 1 && showing(app, mw1::game_loop_hub_options()))
+    return mw1::game_loop_hub_options()->screen()->on_button(mw1::kHubOptSettings, 0, 0), ++stage, true;
+  if (stage == 2 && showing(app, mw1::game_loop_settings())) {
+    mw1::game_loop_settings()->press(mw1::settings::kTab0 + static_cast<int32_t>(mw1::settings::Tab::kControls));
+    mw1::game_loop_settings()->press(mw1::settings::kKeys);
+    return ++stage, true;
+  }
+  if (stage == 3 && key_map(app, engine)) return ++stage, true;
+  return false;
+}
+// The hub into a mission: the office's REQUEST and ACCEPT, then DEPLOY. `stage` steps 0..2 (3: deployed).
+bool to_battle(mech3::Mech3App& app, int& stage) {
+  mw1::HubState* hub = mw1::game_loop_hub();
+  const bool taken = mw1::game_loop_contract() && mw1::game_loop_contract()->accepted;
+  if (stage == 0 && showing(app, hub)) {
+    if (hub->screen()->visible(mw1::kHubOk)) return hub->screen()->on_button(mw1::kHubOk, 0, 0), true;
+    return hub->screen()->on_button(taken ? mw1::kHubDeploy : mw1::kHubOffice, 0, 0), stage = taken ? 3 : 1, true;
+  }
+  if (stage == 1 && taken && showing(app, hub)) return stage = 2, false;  // the office closed itself on ACCEPT
+  if (stage == 1 && showing(app, mw1::game_loop_office())) {
+    mw1::Mw1Screen* sc = mw1::game_loop_office()->screen();
+    if (!taken && sc->visible(mw1::kOfficeRequest) && sc->enabled(mw1::kOfficeRequest)) return sc->on_button(mw1::kOfficeRequest, 0, 0), true;
+    if (!taken && sc->visible(mw1::kOfficeAccept) && sc->enabled(mw1::kOfficeAccept)) return sc->on_button(mw1::kOfficeAccept, 0, 0), true;
+    return sc->on_button(mw1::kOfficeBack, 0, 0), stage = 2, true;
+  }
+  if (stage == 2 && showing(app, hub) && hub->screen()->visible(mw1::kHubDeploy)) return hub->screen()->on_button(mw1::kHubDeploy, 0, 0), stage = 3, true;
+  return false;
+}
+// A mission's end (failed, by PM's Exit Mission), as the tests above end one.
+void leave_battle() {
+  mech3::missions().ended = 1, mech3::missions().aborting = 1;
+  mech3::missions().on_command(0x79);
+}
+std::set<std::string> files_under(const fs::path& dir) {
+  std::set<std::string> out;
+  std::error_code ec;
+  for (auto it = fs::recursive_directory_iterator(dir, ec); !ec && it != fs::recursive_directory_iterator(); it.increment(ec))
+    if (it->is_regular_file(ec)) out.insert(it->path().string() + "@" + std::to_string(static_cast<long long>(fs::last_write_time(it->path(), ec).time_since_epoch().count())));
+  return out;
+}
+}  // namespace
+
+// FIXES 128: PM's key map in MW1 (SETTINGS, CONTROLS, KEY BINDINGS) rebinds the movement group's four commands each
+// a different way: THROTTLE UP's KEY to a free key, THROTTLE DOWN's KEY 2 to another, TURN LEFT's MOUSE to the middle
+// button, TURN RIGHT's JOYSTICK to stick button 9 (the capture takes 1 to 10, as MW3's). ACCEPT (its save question: yes) keeps them in MW1's write dir
+// (settings.reg, keys\DefaultCtlConfig.zrd), nothing written in Pirate's Moon's install. Restarted on that write dir:
+// the four still bound, and in battle each drives its command (the keys the throttle's target up and down; the
+// button and the stick's button their turns). A run on a fresh write dir has the defaults again.
+TEST(mw1_controls_rebound_through_settings_kept_in_mw1s_write_dir_and_live_in_battle_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  in_child([&] {
+    const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_keys";
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    const fs::path wd = fs::path(MW3_TEST_TMP_ROOT) / "mw1_menu_wd";
+    const std::set<std::string> pm_before = files_under(MW3PM_GAME_DIR);
+    int32_t cmd[4] = {};
+    uint32_t free1 = 0, free2 = 0, free3 = 0;
+    bool bound[4] = {}, accepted = false, saved_file = false, changed = false, loaded = false;
+    int boxes = 0;
+    {
+      BindInput in;
+      in.stick = true;
+      MenuRun r;
+      r.save = mw1::slot_path(dir.string(), 1), r.start = mw1::Start::kHub, r.input = &in, r.settings = true, r.limit = 4000;
+      r.box = [&](const std::string&) -> uint32_t { return ++boxes, 7u; };  // ACCEPT's save question: no (the file's saved)
+      int stage = 0, wait = 0, box_frames = 0, row = 0;
+      r.step = [&](mech3::Mech3App& app, mech3::GameEngine& engine) {
+        if (ztwod::MessageBox* box = engine.message_box_open()) {  // ACCEPT's save question: yes
+          if (++box_frames == 3) ++boxes, box->buttons[0].on_left_up(), box_frames = 0;
+          return false;
+        }
+        if (++wait < 4) return false;
+        if (stage < 4) {
+          if (to_key_map(app, engine, stage)) wait = 0;
+          return false;
+        }
+        mech3::ControlsScreen* c = key_map(app, engine);
+        if (stage == 4 && c) {  // the movement group: its four rows; two keys no command has
+          for (int i = 0; i < 4; ++i) cmd[i] = engine.controls_group_command(c->group(), i);
+          for (uint32_t k = 0x02; k < 0x58 && !free3; ++k)
+            if (!engine.key1_command(k) && !engine.key2_command(k)) (!free1 ? free1 : !free2 ? free2 : free3) = k;
+          stage = 5, wait = 0, row = 0;
+          return false;
+        }
+        if (stage == 5 && c) {  // each row's capture: clicked, then the key, button or stick button
+          if (row == 0) {
+            if (wait == 5) c->key_a.select(0), c->key_a.on_left_up();
+            if (wait == 9) in.press(free1);
+            if (zin::key1_of(cmd[0]) == free1) bound[0] = true, ++row, wait = 0;
+          } else if (row == 1) {
+            if (wait == 5) c->key_b.select(1), c->key_b.on_left_up();
+            if (wait == 9) in.press(free2);
+            if (zin::key2_of(cmd[1]) == free2) bound[1] = true, ++row, wait = 0;
+          } else if (row == 2) {
+            if (wait == 12) c->mouse.select(2), c->mouse.on_left_up();  // past the click's own button
+            if (wait >= 15 && wait < 20) in.buttons[2] = 0x80;
+            if (wait == 20) in.buttons[2] = 0;
+            if (zin::mouse_of(cmd[2]) == 3) bound[2] = true, ++row, wait = 0;
+          } else if (row == 3) {
+            if (wait == 12) c->joy.select(3), c->joy.on_left_up();
+            if (wait >= 15 && wait < 20) in.st.buttons[8] = 0x80;
+            if (wait == 20) in.st.buttons[8] = 0;
+            if (zin::joy_of(cmd[3]) == 9) bound[3] = true, ++row, wait = 0;
+          } else if (wait == 9) {
+            c->export_btn.on_left_up(), stage = 6, wait = 0;  // SAVE KEYS
+          }
+          return wait > 120;  // a capture that never took: the run ends, the checks say which
+        }
+        // SAVE KEYS' and LOAD KEYS' popup: a name typed (MW1TEST), OK.
+        if (auto* lsp = dynamic_cast<mech3::LoadSavePopupState*>(app.current()); lsp && lsp->popup && (stage == 6 || stage == 8)) {
+          if (wait == 5) lsp->popup->bar.set_text("MW1TEST"), lsp->popup->ok.on_left_up(), ++stage, wait = 0;
+          return wait > 60;
+        }
+        if (stage == 7 && c && wait == 5) {  // saved; THROTTLE UP's key changed, then LOAD KEYS
+          saved_file = fs::exists(wd / "keys" / "MW1TEST.zrd", ec);
+          c->key_a.select(0), c->key_a.on_left_up();
+        }
+        if (stage == 7 && c && wait == 9) in.press(free3);
+        if (stage == 7 && c && wait == 14) changed = zin::key1_of(cmd[0]) == free3, c->import_btn.on_left_up(), stage = 8, wait = 0;
+        if (stage == 9 && c && wait == 5) {  // loaded: the saved four back; ACCEPT
+          loaded = zin::key1_of(cmd[0]) == free1 && zin::key2_of(cmd[1]) == free2 && zin::mouse_of(cmd[2]) == 3 && zin::joy_of(cmd[3]) == 9;
+          c->accept.on_left_up(), stage = 10, wait = 0;
+        }
+        if (stage == 10 && !c && showing(app, mw1::game_loop_settings())) return accepted = true, true;
+        return wait > 200;
+      };
+      menu_run(r);
+    }
+    const std::set<std::string> pm_after = files_under(MW3PM_GAME_DIR);
+    const bool reg = fs::exists(wd / "settings.reg", ec), keys_file = saved_file && fs::exists(wd / "keys" / "MW1TEST.zrd", ec);
+    std::printf("  rebound: throttle up %#x %d, down %#x (key 2) %d, turn left mouse 3 %d, turn right stick 9 %d; SAVE KEYS %d, changed %d,"
+                " LOAD KEYS %d; accepted %d, %d boxes; settings.reg %d, keys file %d, PM's install unchanged %d\n",
+                free1, bound[0], free2, bound[1], bound[2], bound[3], saved_file, changed, loaded, accepted, boxes, reg, keys_file, pm_before == pm_after);
+    EXPECT(cmd[0] == 0x18 && cmd[1] == 0x19 && cmd[2] == 0x2 && cmd[3] == 0x3);
+    EXPECT(bound[0] && bound[1] && bound[2] && bound[3] && saved_file && changed && loaded && accepted);
+    EXPECT(reg && keys_file && pm_before == pm_after);
+    // Restarted on it; into battle.
+    bool kept = false, in_battle = false;
+    float before = -9, after_up = -9, after_down = -9;
+    bool mouse_turn = false, stick_turn = false, idle_quiet = false;
+    {
+      BindInput in;
+      in.stick = true;
+      MenuRun r;
+      r.save = mw1::slot_path(dir.string(), 1), r.start = mw1::Start::kHub, r.input = &in, r.settings = true, r.keep_wd = true, r.limit = 6000;
+      int stage = 0, wait = 0, f = 0;
+      r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
+        if (!kept && showing(app, mw1::game_loop_hub()))
+          kept = zin::key1_of(0x18) == free1 && zin::key2_of(0x19) == free2 && zin::mouse_of(0x2) == 3 && zin::joy_of(0x3) == 9;
+        if (stage < 3) {
+          if (++wait > 8 && to_battle(app, stage)) wait = 0;
+          return false;
+        }
+        int32_t na = 0;
+        mech3::mission_ai_mechs(&na);
+        if (app.current() != &mech3::states().core || na == 0) return mw1::game_loop_results() && showing(app, mw1::game_loop_results());
+        in_battle = true;
+        mech3::PlayerControls* pc = mech3::player_controls_instance();
+        if (!pc) return false;
+        ++f;
+        if (f == 40) idle_quiet = zin::command(0x2) == 0 && zin::command(0x3) == 0, before = pc->throttle_target, in.key(free1, true);
+        if (f == 70) in.key(free1, false);
+        if (f == 72) after_up = pc->throttle_target, in.key(free2, true);
+        if (f == 102) in.key(free2, false);
+        if (f == 104) after_down = pc->throttle_target, in.buttons[2] = 0x80;
+        if (f == 110) mouse_turn = zin::command(0x2) != 0, in.buttons[2] = 0, in.st.buttons[8] = 0x80;
+        if (f == 116) stick_turn = zin::command(0x3) != 0, in.st.buttons[8] = 0;
+        if (f == 120) leave_battle();
+        return false;
+      };
+      menu_run(r);
+    }
+    std::printf("  restarted: kept %d; battle %d: throttle target %.2f, after the up key %.2f, after the down key %.2f;"
+                " the middle button turns left %d, stick button 9 turns right %d (neither held: quiet %d)\n",
+                kept, in_battle, before, after_up, after_down, mouse_turn, stick_turn, idle_quiet);
+    EXPECT(kept && in_battle);
+    EXPECT(after_up > before && after_down < after_up);
+    EXPECT(idle_quiet && mouse_turn && stick_turn);
+    // A fresh write dir: the defaults (UP, DOWN), nothing carried over in the process.
+    bool defaults = false;
+    {
+      MenuRun r;
+      r.save = mw1::slot_path(dir.string(), 2), r.start = mw1::Start::kHub, r.settings = true;
+      r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
+        if (!showing(app, mw1::game_loop_hub())) return false;
+        defaults = zin::key1_of(0x18) == 0xc8 && zin::key1_of(0x19) == 0xd0 && zin::mouse_of(0x2) == 0 && zin::joy_of(0x3) == 0;
+        return true;
+      };
+      menu_run(r);
+    }
+    EXPECT(defaults);
+  });
+}
+
+// FIXES 128: a stick in MW1's battles as in MW3's. JOYSTICK DEFAULTS (KEY BINDINGS, ACCEPTed) puts the stick's axes on
+// the throttle (Z), turn (X), pitch (Y) and twist (RZ); in an MW1 mission the lever full forward and back sets the
+// throttle's target to each end, the stick right and left turns, its twist twists the torso, the hat looks, and its
+// trigger (button 1) fires (the stick's default for CMD_TRIGGER1). MOUSE DEFAULTS puts PM's mouse setup back: the
+// mouse's X twists, its Y pitches, the throttle and the turn the keys', the stick's axes off.
+TEST(mw1_controls_a_stick_drives_the_mech_in_mw1s_battles_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  in_child([&] {
+    const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_stick";
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    const mech3::AxisTable axes_was = mech3::axis_table();
+    BindInput in;
+    in.stick = true;  // there from the start (zInput opens the stick once, at the start, as MW3's)
+    MenuRun r;
+    r.save = mw1::slot_path(dir.string(), 1), r.start = mw1::Start::kHub, r.input = &in, r.settings = true, r.limit = 8000;
+    int stage = 0, wait = 0, box_frames = 0, f = 0, battle = 0;
+    bool joy_defaults = false, mouse_defaults = false, in_battle = false;
+    float full = -9, back = -9, right = 0, left = 0, twist = 0;
+    bool fired = false, quiet_trigger = false;
+    uint32_t pov_seen = 0;
+    r.step = [&](mech3::Mech3App& app, mech3::GameEngine& engine) {
+      if (ztwod::MessageBox* box = engine.message_box_open()) {
+        if (++box_frames == 3) box->buttons[0].on_left_up(), box_frames = 0;
+        return false;
+      }
+      if (stage < 4) {
+        if (++wait > 4 && to_key_map(app, engine, stage)) wait = 0;
+        return false;
+      }
+      mech3::ControlsScreen* c = key_map(app, engine);
+      if (stage == 4 && c) {
+        if (++wait == 8) c->reset_joy.on_left_up();
+        if (wait == 12) {
+          const mech3::AxisTable& a = mech3::axis_table();
+          joy_defaults = a.axes[0].source == 3 && a.axes[3].source == 1 && mech3::use_joystick();
+          c->accept.on_left_up(), stage = 5, wait = 0;
+        }
+        return false;
+      }
+      if (stage == 5) {  // back at SETTINGS: DONE, then the hub's OPTIONS' BACK
+        if (showing(app, mw1::game_loop_settings()) && ++wait > 4) mw1::game_loop_settings()->press(mw1::settings::kDone), wait = 0;
+        if (showing(app, mw1::game_loop_hub_options()) && ++wait > 4) mw1::game_loop_hub_options()->screen()->on_button(mw1::kHubOptBack, 0, 0), wait = 0;
+        if (showing(app, mw1::game_loop_hub())) stage = 6, battle = 0, wait = 0;
+        return false;
+      }
+      if (stage == 6) {
+        if (battle < 3) {
+          if (++wait > 8 && to_battle(app, battle)) wait = 0;
+          return false;
+        }
+        int32_t na = 0;
+        mech3::mission_ai_mechs(&na);
+        if (app.current() != &mech3::states().core || na == 0) {
+          if (in_battle && showing(app, mw1::game_loop_results())) stage = 7;
+          return false;
+        }
+        in_battle = true;
+        mech3::PlayerControls* pc = mech3::player_controls_instance();
+        if (!pc) return false;
+        ++f;
+        if (f == 30) in.st.z = -1000;  // the lever full forward (the defaults take a falling reading as up)
+        if (f == 50) full = pc->throttle_target, in.st.z = 1000;
+        if (f == 70) back = pc->throttle_target, in.st.z = 0, in.st.x = 1000;
+        if (f == 90) right = pc->turn_target, in.st.x = -1000;
+        if (f == 110) left = pc->turn_target, in.st.x = 0, in.st.rz = 1000;
+        if (f == 130) twist = pc->twist, in.st.rz = 0, quiet_trigger = zin::command(0x3e) == 0, in.st.buttons[0] = 0x80;
+        if (f == 133) fired = zin::command(0x3e) != 0, in.st.buttons[0] = 0, in.st.pov[0] = 9000;
+        if (f == 140) pov_seen = pc->last_pov, in.st.pov[0] = 0xffffffffu;
+        if (f == 145) leave_battle();
+        return false;
+      }
+      if (stage == 7) {  // the results' CONTINUE: the hub; then the key map again for MOUSE DEFAULTS
+        if (showing(app, mw1::game_loop_results()) && ++wait > 6) mw1::game_loop_results()->screen()->on_button(mw1::kResultsContinue, 0, 0), wait = 0;
+        if (showing(app, mw1::game_loop_hub())) stage = 8, wait = 0;
+        return false;
+      }
+      if (stage >= 8 && stage < 12) {
+        int s = stage - 8;
+        if (++wait > 4 && to_key_map(app, engine, s)) wait = 0;
+        stage = 8 + s;
+        return false;
+      }
+      if (stage == 12 && c) {
+        if (++wait == 4) c->reset_mouse.on_left_up();
+        if (wait == 8) {
+          const mech3::AxisTable& a = mech3::axis_table();
+          mouse_defaults = !mech3::use_joystick() && a.axes[0].source == 0 && a.axes[1].source == 9 && a.axes[2].source == 10 && a.axes[3].source == 0;
+          return true;
+        }
+      }
+      return false;
+    };
+    menu_run(r);
+    mech3::axis_table() = axes_was;
+    std::printf("  stick: joystick defaults %d; battle %d: lever forward %.2f, back %.2f; turn right %.2f, left %.2f; twist %.2f;"
+                " trigger fires %d (quiet before %d); hat %u; mouse defaults %d\n",
+                joy_defaults, in_battle, full, back, right, left, twist, fired, quiet_trigger, pov_seen, mouse_defaults);
+    EXPECT(joy_defaults && in_battle);
+    EXPECT(full > 0.9f && back < -0.9f);
+    EXPECT(right != 0 && left != 0 && (right > 0) != (left > 0));
+    EXPECT(twist != 0);
+    EXPECT(quiet_trigger && fired);
+    EXPECT(pov_seen != 1);
+    EXPECT(mouse_defaults);
   });
 }
