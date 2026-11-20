@@ -569,6 +569,10 @@ These change how the game talks to the computer, not how it plays.
   textures loaded from the game's own thread).
 - Music from `music/trackNN.ogg` (or .flac, .wav, .mp3) instead of the CD;
   a ripped disc maps track for track.
+- A music track that should repeat (a menu's) repeats, and the music plays on
+  into the next track, whatever the file's sample rate. Our player never
+  noticed a file's end when the file's rate wasn't the sound card's, so such a
+  track played once and the music stopped.
 - The frame clock counts from game start, not from when the computer booted,
   so the game no longer stutters on a machine that has been on for days.
 - The software renderer's stack-pointer trick (drawing pixels with PUSH) is

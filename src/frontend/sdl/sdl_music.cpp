@@ -84,6 +84,10 @@ void SDLCALL SdlMusicOutput::feed(void* self, SDL_AudioStream* stream, int addit
       additional -= static_cast<int>(n);
       if (n == 0 || (s->flags & (SOUND_SAMPLEFLAG_EOF | SOUND_SAMPLEFLAG_ERROR))) {
         m->drained_ = true;
+        // Ours: the stream's input is over. Unflushed, SDL3's resampler keeps its last frames back, so the queue
+        // never empties and the end above never came (a file at another rate than the device's: a Loop track
+        // played once, a disc never went on to its next track).
+        SDL_FlushAudioStream(stream);
         return;
       }
       continue;
@@ -92,6 +96,7 @@ void SDLCALL SdlMusicOutput::feed(void* self, SDL_AudioStream* stream, int addit
     const size_t left = m->wav_.size() - m->wav_at_;
     if (left == 0) {
       m->drained_ = true;
+      SDL_FlushAudioStream(stream);  // as above
       return;
     }
     const size_t n = left < static_cast<size_t>(additional) ? left : static_cast<size_t>(additional);
