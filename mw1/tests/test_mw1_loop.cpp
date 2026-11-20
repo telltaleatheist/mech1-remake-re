@@ -19,18 +19,8 @@
 #include <typeinfo>
 
 #if !defined(_WIN32)
-#include <sys/resource.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#else
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
-#include <psapi.h>
 #endif
 
 #include "check.h"
@@ -129,6 +119,9 @@
 #include <fstream>
 #include "platform/silent_sound.h"
 #include "pm/pm_game.h"
+// The process's peak memory so far, in MB (peak_memory.cpp: its own file, as windows.h's macros clash with the
+// engine's headers).
+long peak_mb();
 
 namespace fs = std::filesystem;
 
@@ -7373,24 +7366,6 @@ namespace {
 // The choices that carry the trail on (the commander lives and follows), by event: the journal walk's.
 const std::map<int32_t, int32_t> kTrailPick = {{0x64, 0}, {0x17, 1}, {0x18, 1}, {0x19, 1}, {0x27, 1}, {0x2F, 0}, {0x30, 1},
                                                {0x32, 0}, {0x37, 0}, {0x40, 0}, {0x3E, 0}, {0x45, 1}, {0x72, 0}};
-// The process's peak memory so far, in MB: ru_maxrss (bytes on macOS, kilobytes on Linux); on Windows the peak
-// working set (FIXES 120: mw1tests builds there too).
-long peak_mb() {
-#if defined(_WIN32)
-  PROCESS_MEMORY_COUNTERS pmc{};
-  pmc.cb = sizeof pmc;
-  if (!K32GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof pmc)) return 0;
-  return static_cast<long>(pmc.PeakWorkingSetSize / (1024 * 1024));
-#else
-  struct rusage ru {};
-  getrusage(RUSAGE_SELF, &ru);
-#if defined(__APPLE__)
-  return static_cast<long>(ru.ru_maxrss / (1024 * 1024));
-#else
-  return static_cast<long>(ru.ru_maxrss / 1024);
-#endif
-#endif
-}
 int32_t months_between(const mw1::Date& a, const mw1::Date& b) { return (b.year - a.year) * 12 + (b.month - a.month); }
 // The lance's tons as the lab would have it: the heaviest owned 'Mechs, one each for the commander and the lancemates.
 int32_t best_lance_tons(const mw1::Company& c, size_t pilots) {
