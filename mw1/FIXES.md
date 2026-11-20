@@ -1393,3 +1393,31 @@ Owen's game (5e8bb062): the theme played once and stopped.
 - **Test (mw3pmsdltests):** zsnd_cd_extra_track_loops_through_the_sdl_output_and_pump runs the real SDL output on
   SDL's dummy driver (nothing aloud), with the real pump and app. A fifth of a second at 22050 Hz must play at least
   3 times in 2 s, then stopped, nothing more. Before the fix, once.
+
+## 106. [ ] A lancemate ejected 25 s into a destroy-all on c4ia1 *(the log: done, mw1-c4ia1-lance; the cause open)*
+
+Owen (2026-11-19): a contract, "destroy all enemy mechs" on c4ia1. About 25 s after the launch Erin Falls said "I'm
+ejecting". After the mission she was MISSING and her Centurion gone. His build predates 98: the old loss rule (his
+save: the Centurion lost, the pilot missing in action).
+- **Not reproduced on c4ia1:** with his lance and his contract's four, the commander standing, the enemies start
+  1,000 to 1,400 m off and the first hits come near 56 s, from under 100 m. Owen moved and pressed keys in those 25 s,
+  so the fight likely started early; his log couldn't say who killed her.
+- **The log now says** (`mw1_game.cpp`, `log_lancemate_down`):
+  - each lancemate's mech down, at what time, who had the kill (the commander, a lancemate, or an enemy by its
+    chassis), who hit it last, its heat and its state;
+  - a lancemate found down at the mission's end with no mech's kill (the engine reports a kill only when a mech gets
+    the credit: a vehicle's, a turret's or a building's never reaches us), marked destroyed (before, its mech came
+    back as if standing, the pilot unhurt);
+  - at settlement each mech's fate (back, destroyed and recovered, destroyed and lost for good, with its damage) and
+    each lancemate's (back, ejected and back, killed, missing in action) (`fate_lines`, `mw1_repairs.h`).
+- **Tests:**
+  - `mw1_loop_a_lancemate_down_is_logged_by_whom` (c4ia1): one lancemate killed by an enemy (named by its chassis),
+    one with no mech's kill (found at the end), the third standing; AFTER ACTION's crew status agrees.
+  - `mw1_repairs_the_fates_said_for_the_log`: every fate's line.
+  - `mw1_loop_the_lance_lives_the_opening_minute` plays c4ia1 (MW1_ALL_MAPS=1: every Instant Action map of the
+    table, about two minutes) for a minute with his lance and force, the commander idle, and reports each lancemate. On PM's maps all three stood. On mw3c1 ia1 and
+    mw3c4 ia1 a lancemate can fall inside the minute: the enemies open fire from about 900 m within 10 s, then close,
+    and the lance trades fire with them (two enemies down by then). Whether the test must require all three standing
+    is the lead's call.
+- **Looked at and left:** MW3's allied places engage at 100 m (PM's at 10,000 m). Raised to 10,000 m, the lance did
+  no better (it holds by the commander and fires either way), so it's unchanged.

@@ -2612,6 +2612,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // ACTION (FIXES.md item 57): the log keeps them heard, never the hub's MESSAGES (after_mission, below).
     const MissionSettled m = settle_mission(company_, contract_, *pending_, rng_);
     const Settlement& s = m.s;
+    for (const std::string& l : fate_lines(*pending_)) std::printf("mw1: fate: %s\n", l.c_str());  // FIXES 106
     log_add(company_, LogKind::kResult, true, static_cast<int32_t>(pending_->outcome), 0, 0, 0, s.fee, s.salvage);
     // The parts are kept only on a win (VISION.md, the endings): failed or quit, the mission's salvage is dropped.
     if (pending_->outcome == Outcome::kSuccess && pending_->salvage) company_.stores->add_all(*pending_->salvage);
@@ -3014,7 +3015,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (const int32_t id = lancemate_of(victim)) {
       for (LanceFate& f : fates_)
         if (f.id == id) f.destroyed = true;
-      std::printf("mw1: lancemate %s's mech destroyed\n", pilot_title(id).c_str());
+      log_lancemate_down(id, victim, killer);
       return;
     }
     mech3::LaunchedMech d;
@@ -3080,6 +3081,29 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     mech3::mech_lance_structure(mech, b.structure_points, b.structure_left);  // none read: armor alone
     return b;
   }
+  // FIXES 106: a mission mech by name for the log: the commander, a lancemate, an enemy by its chassis.
+  std::string mech_named(void* m) const {
+    if (!m) return "none";
+    if (const int32_t w = whose(m); w >= 0) return w ? pilot_title(w) : "the commander";
+    mech3::LaunchedMech d;
+    if (mech3::describe_mech(m, &d) && d.roster >= 0) return "an enemy " + mech_title(d.roster);
+    return "an unknown mech";
+  }
+  // FIXES 106 (Erin Falls on c4ia1, ejected 25 s in, the cause unknown from the log): a lancemate's mech down, who
+  // had the kill and who hit it last (a mech's kill only: the engine reports none for a vehicle's, a turret's or a
+  // building's), its heat and its state (+0x578, 10 down; the action, 7 and 8 the death falls), the mission's time.
+  void log_lancemate_down(int32_t id, void* victim, const char* why, void* killer) {
+    mech3::LaunchedMech d;
+    const bool got = mech3::describe_mech(victim, &d);
+    char line[320];
+    std::snprintf(line, sizeof line, "lancemate %s's mech destroyed%s at %.0f s: the kill %s, the last hit by %s, heat %.0f, "
+                  "state %d, action %d", pilot_title(id).c_str(), why, static_cast<double>(mech3::missions().time),
+                  killer == victim ? "its own" : mech_named(killer).c_str(), mech_named(mech3::mech_last_attacker(victim)).c_str(),
+                  static_cast<double>(got ? d.heat : 0), got ? d.anim_state : -1, got ? d.action : -1);
+    lance_downs_.push_back(line);
+    std::printf("mw1: %s\n", line);
+  }
+  void log_lancemate_down(int32_t id, void* victim, void* killer) { log_lancemate_down(id, victim, "", killer); }
   // Whose a mission mech is: 0 the commander's, a lancemate's pilot id, -1 none of the company's.
   int32_t whose(void* mech) const {
     if (mech && mech == mech3::mech_mission_player()) return 0;
@@ -3104,10 +3128,16 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
                       commander_destroyed_});
     int32_t n = 0;
     const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
-    for (const LanceFate& f : fates_) {
+    for (LanceFate& f : fates_) {
       void* m = nullptr;
       for (int32_t k = 0; k < n && !m; ++k)
         if (lancemate_of(ai[k].mech) == f.id) m = ai[k].mech;
+      // FIXES 106: down with no mech's kill reported (a vehicle's, a turret's, a building's or its own): destroyed too.
+      mech3::LaunchedMech d;
+      if (m && !f.destroyed && mech3::describe_mech(m, &d) && (d.deadmech || d.anim_state == 10)) {
+        f.destroyed = true;
+        log_lancemate_down(f.id, m, " (no mech's kill)", nullptr);
+      }
       int32_t mech = -1;
       for (size_t i = 0; i < company_.lance.size(); ++i)
         if (company_.lance[i].id == f.id)
@@ -3134,6 +3164,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   const std::vector<AllyLaunch>& launches() const { return launches_; }
   const std::vector<float>& enemy_aims() const { return enemy_aims_; }
   const AfterAction* pending() const { return pending_.get(); }
+  const std::vector<std::string>& lance_downs() const { return lance_downs_; }
   HubState* hub_state() const { return hub_state_; }
   MarketState* market_state() const { return market_state_; }
   const MarketChoice* market_choice() const { return &choice_; }
@@ -4107,7 +4138,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // The lancemates with a mech, as allies first (line-up slots 1..), their mechs' saved loadouts; then the enemy.
     // Instant Action's line-up offers them (ally_launching) during the launch, before mission_launched.
     flying_.clear(), fates_.clear(), launches_.clear(), enemy_aims_.clear();
-    bills_.clear(), mended_.clear(), commander_destroyed_ = false;
+    bills_.clear(), mended_.clear(), commander_destroyed_ = false, lance_downs_.clear();
     for (size_t i = 0; i < company_.lance.size(); ++i)
       if (const int32_t h = mech_of(company_, static_cast<int32_t>(i)); h >= 0) {
         const OwnedMech& o = company_.hangar[static_cast<size_t>(h)];
@@ -4140,6 +4171,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   std::vector<MechBill> bills_;       // this mission's company mechs (collect_bills)
   std::map<int32_t, int32_t> mended_;  // what field bases mended, by whose (0 the commander)
   bool commander_destroyed_ = false;   // those who launched this mission, and whether their mech was destroyed
+  std::vector<std::string> lance_downs_;  // FIXES 106: this launch's lancemates down, as the log said them
   std::unique_ptr<AfterAction> pending_;  // a mission back, AFTER ACTION until OK (or REPLAY)
   bool offered_ = false;                  // a contract on offer at the House office (not yet accepted)
   zgame::Handle travel_ = 0;
@@ -4307,6 +4339,7 @@ std::string game_loop_objective_built(bool* fell_back) {
 }
 
 const AfterAction* game_loop_pending() { return the_loop() ? the_loop()->pending() : nullptr; }
+std::vector<std::string> game_loop_lance_downs() { return the_loop() ? the_loop()->lance_downs() : std::vector<std::string>{}; }
 HubState* game_loop_hub() { return the_loop() ? the_loop()->hub_state() : nullptr; }
 ResultsState* game_loop_results() { return the_loop() ? the_loop()->results_state() : nullptr; }
 const ResultsPanel* game_loop_results_shown() { return the_loop() ? &the_loop()->results_shown() : nullptr; }

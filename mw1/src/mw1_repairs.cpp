@@ -163,6 +163,22 @@ PayOverride& pay_override() {
   return o;
 }
 
+std::vector<std::string> fate_lines(const AfterAction& a) {
+  std::vector<std::string> out;
+  for (const AfterAction::Bill& b : a.bills) {
+    const std::string whose = b.who == 0 ? std::string("the commander's") : pilot_title(b.who) + "'s";
+    const std::string mech = b.mech >= 0 ? mech_title(b.mech) : std::string("mech");
+    const char* fate = !b.destroyed ? "back" : b.lost ? "destroyed, lost for good" : "destroyed, recovered";
+    out.push_back(whose + " " + mech + " " + fate + " (damage " + std::to_string(b.damage) + " of " + std::to_string(kWhole) + ")");
+  }
+  for (const LanceFate& f : a.lance)
+    out.push_back(pilot_title(f.id) + (!f.destroyed ? " back with the company"
+                                       : f.killed   ? " killed"
+                                       : f.missing  ? " missing in action"
+                                                    : " ejected, back with the company"));
+  return out;
+}
+
 MissionSettled settle_mission(Company& c, Contract& k, const AfterAction& a, Rng& rng) {
   MissionSettled m;
   m.term = k.rung ? kStorySalvagePercent : k.salvage_percent;  // read before settle closes the contract
