@@ -42,7 +42,7 @@ bool clan_world(int32_t planet_number) {
 int32_t tier0_price(int32_t mech) { return kPricePerTon * tons_of(mech) - kPriceOffset; }
 bool clan_mech(int32_t mech) { return mech3::mech_tech(mech) == mech3::kClan; }
 
-// Floored to 1,000 (research/economy.md), before the Clan's doubling.
+// Floored to 1,000 (research/economy.md), before the Clan's factor (kClanPriceFactor, 1 since FIXES 115).
 int64_t buy_price(int32_t mech, int32_t tier) {
   const int64_t p = static_cast<int64_t>(tier0_price(mech)) * kTierMultipliers[tier] * 100 / 1000 * 1000;
   return clan_mech(mech) ? p * kClanPriceFactor : p;

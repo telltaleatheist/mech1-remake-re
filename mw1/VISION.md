@@ -504,7 +504,12 @@ remlab). Battle Value is the better guide, since it rates what a mech does
 in a fight, and the published C-bill prices are argued over even by fans.
 **To start** (Owen, 2026-11-16, tuned by playing): Clan mechs at ×2, rare
 (about one in ten of a dealer's stock) and sold only at a few edge worlds of
-Kurita and Steiner, near the Clan border. The same tech
+Kurita and Steiner, near the Clan border. **Changed** (Owen, 2026-11-19, FIXES
+115): "clan mech worth should roughly mirror mw3". MW3 and PM price no chassis
+by its tech (the Clan's edge is its equipment), so Clan mechs now cost what an
+Inner Sphere mech of their tons does, bought, sold and as wrecks; still rare
+and sold only at those edge worlds. Enemy lances field Clan and Inner Sphere
+alike (FIXES 112). The same tech
 rules MW3 already applies to weapons and armor stay as they are.
 
 ## The first milestone: the thinnest playable loop (Owen, 2026-11-16)

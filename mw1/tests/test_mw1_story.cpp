@@ -2,6 +2,7 @@
 // the story planets, the rules as MW1 runs them (conditions, actions, choices, the news), the errata, and the save.
 // No words of MW1's here: the checks count and compare, and print counts.
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <fstream>
 #include <map>
@@ -10,6 +11,8 @@
 #include <vector>
 
 #include "check.h"
+#include "mw1_market.h"
+#include "mw1_text_names.h"
 #include "mw1_install.h"
 #include "mw1_campaign.h"
 #include "mw1_pilots.h"
@@ -596,4 +599,66 @@ TEST(mw1_ladder_rungs_and_the_dark_wing_force) {
     EXPECT(k.climate != mw1::kDesert || k.world == "c1");
   }
   mw1::set_map_table({});
+}
+
+// FIXES 114: the swap itself, on made-up names in the table's places (MW1's own never kept here): any case, a space
+// or none, a plural, a possessive, upper case kept, whole words only; the 70 t record the Thor, the 85 t the Atlas.
+TEST(mw1_story_our_names_for_mw1s) {
+  std::vector<std::string> names = {"KIND ZERO", "KINDONE", "KINDTWO", "KIND THREE", "KINDFOUR",
+                                    "KINDFIVE",  "KINDSIX", "OLDHAMMER", "KINDEIGHT", "BIGCHIEF"};
+  const std::string thor = mw1::mech_title(mw1::kPmThor), atlas = mw1::mech_title(mw1::kPmAtlas);
+  auto upper = [](std::string s) {
+    for (char& c : s) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    return s;
+  };
+  EXPECT(mw1::our_names("an Oldhammer and four BigChiefs.", names) == "an " + thor + " and four " + atlas + "es.");
+  EXPECT(mw1::our_names("THE BIG CHIEF'S GUNS", names) == "THE " + upper(atlas) + "'S GUNS");
+  EXPECT(mw1::our_names("Oldhammers' and oldhammer-like", names) == thor + "s' and " + thor + "-like");
+  EXPECT(mw1::our_names("Kind-Three, KINDZERO", names) ==
+         mw1::mech_title(mw1::kPmShadowCat) + ", " + upper(mw1::mech_title(mw1::kPmOwens)));
+  EXPECT(mw1::our_names("Oldhammered Oldhammerz xOldhammer", names) == "Oldhammered Oldhammerz xOldhammer");
+  EXPECT(mw1::our_names("no names", {}) == "no names");
+  for (int32_t k = 0; k < mw1::kMw1KindCount; ++k) {  // every record's ours a fielding 'Mech of its class or near
+    const int32_t m = mw1::kOurChassis[k];
+    EXPECT(m >= 0 && m < mw1::kPmMechCount && m != mw1::kPmElemental);
+  }
+}
+
+// With the player's exe: MW1's kind names read from it (ten, upper case), and no story text, choice or Bar pitch we
+// draw names one of them any more; the Dark Wing's texts (0x2C, 0x43) name the Thor and the Atlas instead. Counts
+// only (MW1's words are never printed).
+TEST(mw1_story_no_mw1_mech_names_drawn) {
+  if (mw1_test::no_mw1()) return;
+  mw1::set_mw1_game_dir(MW1_DOS_GAME_DIR);
+  const std::vector<std::string> names = mw1::mw1_kind_names();
+  EXPECT(names.size() == static_cast<size_t>(mw1::kMw1KindCount));
+  auto letters = [](const std::string& s) {
+    std::string o;
+    for (char c : s)
+      if (std::isalpha(static_cast<unsigned char>(c))) o += static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    return o;
+  };
+  auto named = [&](const std::string& line) {  // MW1's names, the line's letters run together (spaces dropped)
+    const std::string l = letters(line);
+    int32_t n = 0;
+    for (const std::string& k : names) n += l.find(letters(k)) != std::string::npos;
+    return n;
+  };
+  int32_t lines = 0, left = 0, thor = 0, atlas = 0;
+  const std::string t = letters(mw1::mech_title(mw1::kPmThor)), a = letters(mw1::mech_title(mw1::kPmAtlas));
+  for (int32_t id = 0; id < mw1::story_rules::kTextCount; ++id)
+    for (const mw1::story_rules::Page& p : mw1::story_rules::text_pages(id))
+      for (const std::string& l : p.lines) {
+        ++lines, left += named(l);
+        if (id == 0x2C || id == 0x43) thor += letters(l).find(t) != std::string::npos, atlas += letters(l).find(a) != std::string::npos;
+      }
+  for (const mw1::story_rules::Event& e : mw1::story_rules::script().records)
+    for (const mw1::story_rules::Command& c : e.script)
+      for (const std::string& cap : c.captions) ++lines, left += named(cap);
+  for (int32_t id = 1; id < mw1::kPilotCount + 1; ++id)
+    for (const std::string& l : mw1::pitch(id)) ++lines, left += named(l);
+  std::printf("  %d lines drawn from the exe: %d name one of MW1's 'Mechs; the Dark Wing's texts: %d with the Thor, %d the Atlas\n",
+              lines, left, thor, atlas);
+  EXPECT(lines > 500 && left == 0 && thor >= 1 && atlas >= 1);
+  mw1::set_mw1_game_dir("");
 }

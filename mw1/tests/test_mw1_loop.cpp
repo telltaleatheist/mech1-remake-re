@@ -5453,6 +5453,50 @@ TEST(mw1_loop_the_lance_lives_the_opening_minute_headless) {
   EXPECT(maps > 0);
 }
 
+// FIXES 113 (Owen: Erin Falls's Centurion "completely untouched, then dead" about 25 s into a destroy-all on c4ia1,
+// the lance bunched). Owen's lance on c4ia1 (the Atlas, the Annihilator, a Centurion), the commander standing
+// (invincible, never firing), the game's rolls seeded (113's run: seed 4). The Centurion is first hit about 11 s in
+// from near 800 m and worn down, hit after hit, all of it on the front of the centre torso, until it goes about 35 s
+// in: no critical, no ceiling's crush, the head whole. The death's line says so: the centre torso went, by a
+// weapon's hit, and every location's armour and structure left (the head 100/100). Close by the commander, a
+// lancemate under fire never calls for help (PM's radio line 0 wants the player over 22 m off), so nothing said she
+// was being hit. Needs MechWarrior 3's install (c4 is its world).
+TEST(mw1_loop_a_lancemate_s_death_says_what_went_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  if (!fs::exists(fs::path(MW1_MW3_GAME_DIR) / "zbd" / "c2" / "gamez.zbd", ec)) return;
+  const std::string worlds = converted_worlds();
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_loop_death_says";
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  mw1::MapRow battle{"mw3c4", 1, mw1::kIce, mw1::RowKind::kAny, "", ""};
+  for (const mw1::MapRow& r : shipped_rows())
+    if (r.world == "mw3c4" && r.ia == 1) battle.climate = r.climate;
+  in_child([&] {
+    crt::rand_fixed_seed() = 4;
+    Run run;
+    run.save = (dir / mw1::kSaveFile).string();
+    run.lance = true, run.lance_count = 3;
+    run.lance_mechs = {1, 0, mw1::kPmCenturion};
+    run.row = &battle, run.survey = true, run.stop_at_after_action = true, run.worlds = worlds;
+    run.force = {mw1::kSlot45, mw1::kSlot85, mw1::kSlot85, mw1::kSlot55};  // his contract's four, by weight (112)
+    run.pump_limit = 9000;
+    bool set = false;
+    run.in_mission = [&](int32_t f) {
+      void* me = mech3::mech_mission_player();
+      if (!me) return f < 600;
+      if (!set) mech3::program_mech_set_invincible(me, true), set = true;
+      return mech3::missions().time < 45.0f;
+    };
+    loop_run(kObjective, &run);
+    for (const std::string& l : run.lance_downs) std::printf("  %s\n", l.c_str());
+    EXPECT(run.lance_downs.size() == 1);
+    const std::string l = run.lance_downs.empty() ? std::string() : run.lance_downs[0];
+    EXPECT(l.find("the centre torso went, by a weapon's hit") != std::string::npos);
+    EXPECT(l.find("CT 0/0%") != std::string::npos && l.find("head 100/100%") != std::string::npos);
+  });
+}
+
 // FIXES 97: Owen's defence of the tower on mw3c1ia3 (four enemies: a 55 t, a 70 t and two 75 t slots): three
 // came; the fourth stood at its post all mission, fighting only when he came near. The map's Enemy_08 is MW3's guard: its
 // net (net_06) ends 56 m from where it starts, its pilot starts at mode 0 (won't engage), its engage range is 850 m and

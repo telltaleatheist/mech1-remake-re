@@ -1,4 +1,4 @@
-// MW1's market (src/mw1_market.h): the prices by the tonnage line and the tier, Clan double; the stock's size by
+// MW1's market (src/mw1_market.h): the prices by the tonnage line and the tier, Clan as Inner Sphere (FIXES 115); the stock's size by
 // tier, its classes' shares, Clan mechs only at the Clan worlds and about one in ten there; the dealer's limit; buying,
 // selling (put back to stock first: both directions, and refused when the stores lack a stock part), piloting, the
 // last mech kept; the wrecks' cash on the same sale price; the hangar and the market saved (version 2) and a version 1
@@ -18,6 +18,7 @@
 #include "mw1_campaign.h"
 #include "mw1_repairs.h"
 #include "mw1_market.h"
+#include "mw1_enemies.h"
 #include "mw1_save.h"
 
 namespace {
@@ -56,9 +57,20 @@ TEST(mw1_market_prices_by_tonnage_tier_and_clan) {
   EXPECT(mw1::buy_price(kOwens, 3) == 4620000 && mw1::sell_price(kOwens, 3) == 4312000);
   // Buy at a tier 0 world, sell at a tier 3 one: 40% (research/economy.md).
   EXPECT(mw1::sell_price(kAtlas, 3) * 10 == mw1::buy_price(kAtlas, 0) * 14);
-  // The Mad Cat (75 t, Clan) against the Orion (75 t, Inner Sphere): double.
-  EXPECT(mw1::clan_mech(kMadCat) && !mw1::clan_mech(mw1::kPmOrion));
-  EXPECT(mw1::buy_price(kMadCat, 1) == 2 * mw1::buy_price(mw1::kPmOrion, 1));
+  // FIXES 115: a Clan chassis and an Inner Sphere one of the same tons price the same at every tier, bought, sold and
+  // as a wreck: the Mad Cat and the Orion (75 t), the Puma and the Owens (35 t), the Daishi and the Atlas (100 t).
+  EXPECT(mw1::clan_mech(kMadCat) && !mw1::clan_mech(mw1::kPmOrion) && mw1::market::kClanPriceFactor == 1);
+  for (auto [clan, is] : {std::pair{kMadCat, int32_t{mw1::kPmOrion}}, std::pair{int32_t{mw1::kPmPuma}, kOwens},
+                          std::pair{int32_t{mw1::kPmDaishi}, kAtlas}}) {
+    EXPECT(mw1::clan_mech(clan) && !mw1::clan_mech(is));
+    for (int32_t t = 0; t < mw1::kTierCount; ++t) {
+      EXPECT(mw1::buy_price(clan, t) == mw1::buy_price(is, t) && mw1::sell_price(clan, t) == mw1::sell_price(is, t));
+      mw1::Company w;
+      w.tier = t, w.repair_premium = 18;
+      EXPECT(mw1::wreck_value(w, mw1::Wreck{mw1::kSlot75, 60, 3000, clan}) == mw1::wreck_value(w, mw1::Wreck{mw1::kSlot75, 60, 3000, is}) ||
+             mw1::kWreckPay != mw1::WreckPay::kChassis);
+    }
+  }
   std::printf("  Owens %lld to buy at tier 0, a new company's funds 1,000,000 to 1,255,000\n",
               static_cast<long long>(mw1::buy_price(kOwens, 0)));
   // The classes: never the Elemental.
@@ -68,13 +80,13 @@ TEST(mw1_market_prices_by_tonnage_tier_and_clan) {
 
 // FIXES 108 (Owen: by design, as MW1 had it): MW1's own formula pinned, every chassis at every tier. Buying is the tier 0
 // price times the tier's percent (100/120/130/150), selling 10 points less (90/110/120/140), floored to 1,000 C-bills,
-// a Clan 'Mech's doubled; so within one world selling always pays less than buying, and buying cheap at a low tier and
+// a Clan 'Mech's times kClanPriceFactor (1 since FIXES 115); so within one world selling always pays less than buying, and buying cheap at a low tier and
 // selling at a dearer world pays (MW1's trade, kept).
 TEST(mw1_market_mw1s_formula_pinned) {
   int32_t checked = 0, arbitrage = 0;
   for (int32_t m = 0; m < mech3::kMechCount; ++m) {
     if (!mw1::market::sold_mech(m)) continue;
-    const int64_t base = int64_t{mw1::market::tier0_price(m)} * 1000, clan = mw1::market::clan_mech(m) ? 2 : 1;
+    const int64_t base = int64_t{mw1::market::tier0_price(m)} * 1000, clan = mw1::market::clan_mech(m) ? mw1::market::kClanPriceFactor : 1;
     EXPECT(mw1::market::tier0_price(m) == mw1::market::kPricePerTon * static_cast<int32_t>(mech3::max_mass(m)) - mw1::market::kPriceOffset);
     for (int32_t t = 0; t < mw1::kTierCount; ++t) {
       const int64_t pct = mw1::kTierMultipliers[t] * 10;

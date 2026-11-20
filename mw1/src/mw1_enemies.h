@@ -36,7 +36,7 @@ inline constexpr int32_t kClanPercent[kTierCount] = {20, 30, 40, 50};
 // it really was.
 enum class WreckPay { kSlot, kChassis };
 inline constexpr WreckPay kWreckPay = WreckPay::kSlot;
-// A story battle's enemies roll their chassis too (the Dark Wing's last rung as it was: its slots' stand-ins).
+// A story battle's enemies roll their chassis too (a scripted rung, the Dark Wing's, fields its own: mw1_ladder.h).
 inline constexpr bool kStoryBattlesRoll = true;
 
 // ---- The rest of the rule ----

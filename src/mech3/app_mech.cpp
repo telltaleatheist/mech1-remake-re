@@ -2528,6 +2528,12 @@ bool mech_lance_armor(void* mech, int32_t* type, int32_t armor[11], float left[1
   }
   return true;
 }
+bool mech_death_cause(void* mech, int32_t* part, int32_t* path) {  // ours (app_mech.h)
+  if (!entity_is_mech(mech)) return false;
+  const auto* m = static_cast<const Mech*>(mech);
+  *part = m->death_part, *path = m->death_path;
+  return true;
+}
 bool mech_lance_structure(void* mech, float points[11], float left[11]) {  // ours (app_mech.h)
   auto* m = static_cast<Mech*>(mech);
   if (!m) return false;

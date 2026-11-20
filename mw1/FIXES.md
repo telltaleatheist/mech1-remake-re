@@ -1275,6 +1275,37 @@ the credits and the hub again. Long, so behind `MW1_PLAYTHROUGH=1` (`MW1_PLAYTHR
   assault 'Mechs at most); the endings read from the results panel (a withdrawal is a Failure with the retreat
   picture); the summary taken while the game is up.
 
+## 113. [x] A lancemate "untouched, then dead" on c4ia1 *(chased: a fair fight lost, unseen and unsaid; the death's line now says what went)*
+
+Owen (2026-11-19): Erin Falls's Centurion, bought new, about 25 s into a destroy-all on c4ia1, the lance bunched,
+"completely untouched", then "I'm ejecting" and destroyed; no shot at her that he saw, no friendly-fire line.
+- **Ruled out, in MW3's and PM's code:**
+  - *The ceiling's crush* (MW3 0x00423600, PM 0x00424ba0 with 0x00424d80): the one path that kills with no hit and
+    no mech's kill. A thing over the head crushes only when it moved this frame and nothing standing owns it; a
+    mech's geometry sorts as a mech (0x00423010, the owner by 0x0040e9d0) first. Every boxed node of the Atlas,
+    the Annihilator and the lance's mechs carries its owner's bits (43, 28, 23, 26 nodes): none can be a ceiling.
+    No crush in eight seeds.
+  - *Criticals* (MW3 0x00460d50; PM's ammo critical 0x004621a7 zeroes the section it hit, the centre torso's a
+    death): a hit can roll one only on a part at 15% armour or less (the torso's front centre for any torso
+    section). None rolled in the runs.
+  - *Rams:* allies take none. *Heat:* 0 to 1. Spawn overlap: none; each walked 10 to 26 m.
+- **What kills her, reproduced** (`MW1_ROWS=mw3c4ia1`, his lance, seeds 1 to 8, the commander standing): in seeds
+  4, 5 and 7 the Centurion is first hit about 11 s in, from 781 m, by one enemy (a Bushwacker), and worn down, 31 to
+  41 hits in volleys of four, every one on the front of the centre torso, until it goes at 35 to 42 s. The head,
+  arms and legs untouched; CT 0/0, the rest near full: "untouched" but for the centre torso, which the enemy's aim
+  takes after a first hit (the torso's node, damage.md). Owen's own right torso was hit before she fell in his log,
+  so the enemies were firing then.
+- **Why it looked sudden:** nothing told him. A lancemate under fire radios for help only with the player over 22 m
+  off (PM 0x004fbc20, MW3 0x004ea520: dist2 > 500); bunched, she said nothing until the ejecting line.
+- **The death's line** (106's, `log_lancemate_down`) now says which part's destruction killed the mech, how the
+  damage came (a weapon's hit, the ceiling's crush, a mech's ram, or none of those: a fall, heat, a script) and every
+  location's armour and structure left. The engine keeps the part and the path on the mech (`mech_death_cause`), and
+  logs each ceiling crush (what was over the mech, its box, the damage) and each critical (part, section, kind, the
+  section before). Logging only: nothing plays differently.
+- **Test** (`mw1_loop_a_lancemate_s_death_says_what_went_headless`): his lance on c4ia1, seed 4: one death, "the
+  centre torso went, by a weapon's hit", CT 0/0, head 100/100. With the hit's path unmarked it fails.
+- **Open, Owen's call:** whether a lancemate should call out under fire when close (PM's own rule says no), or
+  whether the HUD should show the lance's damage.
 ## 105. [x] Release prep for MW1 1.0.0: its own version, packaged builds, where mw1data goes *(done, mw1-fix105-release)*
 
 The lead (2026-11-19): MW1 1.0.0 rides mw3-re v1.1.3; the launcher reads each program's version from its file.
@@ -1586,6 +1617,40 @@ MW1's kinds. The design the lead approved (2026-11-19), in `mw1_enemies.h/.cpp`:
   spawns four mixed (MW1_ALL_LOADOUTS=1: all 112) and checks each fields, is killed and salvaged, and the engine's stock
   config counts match the table.
 
+## 115. [x] Clan 'Mechs priced as Inner Sphere ones *(done: mw1-clan-price)*
+Owen (earlier): "clan mech worth should roughly mirror mw3". The lead's research
+(`keep/mw1-critical-hit/research/clan-vs-is-2026-11-19/`) found no Clan premium in MW3 or PM. There is no price or
+value field, the chassis are tech-blind, and the Clan's edge is only its equipment.
+- `kClanPriceFactor` is 1 (was 2, VISION 2026-11-16). A Clan 'Mech buys, sells and pays as a wreck as an Inner
+  Sphere one of its tons. Nothing else doubled Clan: salvage parts go to the stores unpriced.
+- The market's header: "* Clan" marks the starred rows; "twice" is dropped. The travel screen's "Clan mechs for
+  sale" stays: it's where they're sold, still rare and only at the five edge worlds.
+- VISION's 2026-11-16 line says Owen changed it on 2026-11-19.
+- The roster's Clan share stays flat (FIXES 112, ungated: about 50%, MW3's own 49% without the Elementals).
+- **Test** (`mw1_market_prices_by_tonnage_tier_and_clan`): the Mad Cat and the Orion, the Puma and the Owens, the
+  Daishi and the Atlas price the same at every tier, bought and sold, and as wrecks when they pay by chassis.
+  `mw1_market_mw1s_formula_pinned` takes the factor.
+
+## 114. [x] MW1's words name our 'Mechs; the Dark Wing fields them *(done: mw1-text-names)*
+Owen (2026-11-19, through the lead, on 112's list of MW1's run-time text): "warhammers should be swapped out with
+[the Thor] and battlemaster swapped out with atlas if theres scripted stuff."
+- **The words, as drawn** (`mw1_text_names.h`): MW1's story texts and choices (`text_pages`, the script's captions)
+  and the Bar's pitches (`pitch`) show our names for MW1's. MW1's names are read from the player's exe too (its
+  kind-name table, DS:2E86, ten names in its records' order), never kept here; the exe is never changed. Any case, a
+  space or hyphen inside or none, a plural (Atlas: "Atlases") and a possessive, upper case kept, whole words only.
+- **The mapping** (`kOurChassis`, by MW1's kind record): Owen's, the 70 t record the **Thor**, the 85 t the
+  **Atlas**, the first 20 t record the **Owens**; the 75 t record the **Mad Cat** (`kOurs75`). All four
+  Owen's (final, 2026-11-19). The rest, never drawn today, the nearest of ours by tons in the same PM
+  class, Inner Sphere on a tie: the other 20 t record the Firefly, 35 t the Owens, 45 t the Shadow Cat, 55 t the
+  Bushwacker, 60 t the Champion. Drawn today: the Thor and the Atlas (story texts 0x2C and 0x43), the Owens (pilot
+  8's pitch), the 75 t record's (pilots 13 and 35).
+- **The scripted force:** the Dark Wing's rung (rung 6, the only fixed one; rungs 1 to 5 roll as contracts) fields
+  the Thor and four Atlases, its three escorts the 75 t record's (`kOurs75`), on their Primary (`Rung::chassis`; the
+  hardest's extra one too). It fielded its slots' stand-ins before (an Avatar, four Awesomes, Orions).
+- **Tests:** `mw1_story_our_names_for_mw1s` (the swap on made-up names in the table's places);
+  `mw1_story_no_mw1_mech_names_drawn` (with the exe: none of the 1,785 lines we draw names one of MW1's 'Mechs, the
+  Dark Wing's texts name the Thor and the Atlas); `mw1_enemies_story_battles_roll_but_the_dark_wing` (its chassis).
+
 ## 112. [x] Our roster, not MW1's 'Mechs: the force in tonnage slots, one roster list *(done: mw1-roster)*
 Owen (2026-11-19, through the lead): "we dont have any phoenix hawks in this game … we're using the entire mw3+pm
 roster, not mw1 mechs … make sure the phoenix hawk, shadow hawk, marauder, etc. names are all scrubbed from the
@@ -1671,3 +1736,40 @@ about 6 s with its speed up, moving 0 m, before it walked.
     every 10 frames.
   - mw3pmtests `pm_walk_keeps_going_inside_thirty_degrees_only_when_asked`: the exe's brake when off; inside 30
     degrees it keeps going, and past them it brakes; standing still it needs 10 degrees to set off.
+
+## 118. [ ] Permanent upgrades bought with money *(planned for MW1 1.1.0; not in 1.0.0)*
+- **Owen (2026-11-20):** players can keep playing indefinitely without the story, like an Instant Action mod, and
+  money needs something to buy. It's always on sale at the hub; nothing to hunt for. It applies to the player's side
+  only, never to enemies.
+  - **Kits, one unit per purchase:**
+    - a permanent heat sink (+1 sink, no crits, no tonnage);
+    - a permanent armour point (+1 point beyond the normal cap).
+    The company owns them. Assign any number to any of your own or your lancemates' 'Mechs (10 on one, or 5 and 5)
+    and move them later. A lost 'Mech's kits return to the storehouse.
+  - **Weapon-type steps:** power or range in small steps (e.g. +10 m), with the heat unchanged. A step applies to
+    every weapon of that type the company owns (all LRM 20s). A medium laser can climb to an ER large laser's punch
+    at a medium laser's heat.
+  - **Balance:** high prices and slow increments. Each repeat purchase costs more than the last.
+- **Shared code (Owen):** "add the logic to the mw3/pm code as an upgrade, but let's not activate it in mw3 right
+  now. Just in mw1." The mw3 lead agreed the split and set these rules (2026-11-20):
+  1. It lives in `src/upgrades/kits/`, not `src/mech3/`. Ported functions get only a hook line and the comment "Ours:
+     upgrade hook (src/upgrades/kits)". It is not a FIX, and CHANGES.md gets nothing until MW3 turns it on.
+  2. A hook table, `upgrades::kit_hooks()`, all null by default: `extra_sinks(const Mech*)`,
+     `extra_armour(const Mech*, int part)`, `damage_scale(const Weapon*)` and `range_add(const Weapon*)`. Null keeps
+     the exe's path, and the probe library leaves them null. mw1 sets them and answers from its own state.
+  3. Weapon steps are per weapon, never per `zwep::WeaponDef`, which enemies share. Apply them where the owner is
+     known: the hit's damage, the range checks, and the AI's range and fire picks (allied AI uses the longer range;
+     enemies don't). List every read of the def's damage and range in the commit.
+  4. Armour and sinks are bonuses outside the Config. Apply them at mission start and in the heat dissipation, never
+     in the .m3c, the lab's cap or the saved sink count, so saved loadouts still load in the original exe and in MW3.
+     The lab may show "+N". Keep the HUD's heat readout consistent.
+  5. In a network game the hooks answer nothing, or answer from the host, so heat and damage stay in sync.
+  6. **Tests:**
+     - hooks null: the differential tests (heat, damage, weapons_run, the config reader) still agree with the original;
+     - hooks set: one mw3tests test per effect, on and off;
+     - a seeded headless mission with kits: heat lower, armour higher, and the boosted weapon's hit bigger for the
+       player and unchanged for an enemy of the same type.
+  7. A plain-words `docs/upgrades-kits.md` lists the hooks and says MW3 and PM don't turn it on yet.
+  - **Route:** a mw1 dev writes the engine module as a clean main-targeted commit. The mw3 lead reviews it and lands
+    it on main, then merges main into pm, and mw1 takes it from pm. mw1 then adds the store, the assignment screen,
+    the save and the price curve. The price table goes to Owen for approval.

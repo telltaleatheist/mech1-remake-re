@@ -14,6 +14,7 @@
 
 #include "mech3/mech_names.h"
 #include "mw1_market.h"
+#include "mw1_text_names.h"
 
 namespace mw1::crew {
 
@@ -124,6 +125,7 @@ std::vector<std::string> pitch(int32_t id) {
     if (d[i] == '\r') lines.emplace_back();
     else lines.back() += static_cast<char>(d[i]);
   }
+  for (std::string& l : lines) l = our_names(l);  // FIXES 114: our 'Mechs' names for MW1's, as drawn
   return lines;
 }
 
