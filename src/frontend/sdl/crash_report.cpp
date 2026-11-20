@@ -34,12 +34,19 @@ namespace sdlfe {
 namespace {
 
 char g_program[64] = "mw3pm";
+char g_title[96] = "Pirate's Moon";  // the box's title and "<title> crashed" (program_name's, when set)
 char g_tail[1024] = "";  // the box's text after the reason
 bool g_box = false;
 bool g_test = false;
 
+const char* box_title() {
+  const ProgramName& p = program_name();
+  return p.id.empty() ? "Pirate's Moon" : p.title.c_str();
+}
+
 void set_text(const std::string& program, const std::string& log) {
   std::snprintf(g_program, sizeof g_program, "%s", program.c_str());
+  std::snprintf(g_title, sizeof g_title, "%s", box_title());
   std::snprintf(g_tail, sizeof g_tail, ".\n\nThe log is %s\nPlease include it if you report this.", log.c_str());
 }
 
@@ -62,9 +69,9 @@ void say_crash(const char* reason) {
   Sleep(100);  // the log's thread passes this on (run_log.cpp)
   if (g_test) _exit(70);
   char text[1200];
-  std::snprintf(text, sizeof text, "Pirate's Moon crashed (%s)%s", reason, g_tail);
+  std::snprintf(text, sizeof text, "%s crashed (%s)%s", g_title, reason, g_tail);
   // Topmost: with no owner it could open behind a fullscreen game.
-  if (g_box) MessageBoxA(nullptr, text, "Pirate's Moon", MB_OK | MB_ICONERROR | MB_TOPMOST | MB_SETFOREGROUND);
+  if (g_box) MessageBoxA(nullptr, text, g_title, MB_OK | MB_ICONERROR | MB_TOPMOST | MB_SETFOREGROUND);
 }
 
 LONG WINAPI on_exception(EXCEPTION_POINTERS* e) {
@@ -125,7 +132,8 @@ void on_signal(int sig) {
   if (g_box && g_exe[0] && fork() == 0) {
     setsid();  // on its own: the box stays after the game's window has gone
     text[0] = 0;
-    append(text, sizeof text, "Pirate's Moon crashed (");
+    append(text, sizeof text, g_title);
+    append(text, sizeof text, " crashed (");
     append(text, sizeof text, signal_name(sig));
     append(text, sizeof text, ")");
     append(text, sizeof text, g_tail);
@@ -150,6 +158,11 @@ void own_path() {
 #endif
 
 }  // namespace
+
+ProgramName& program_name() {
+  static ProgramName name;
+  return name;
+}
 
 void crash_report_install(const std::string& program, const std::string& log, bool box) {
   set_text(program, log);
@@ -187,13 +200,13 @@ void crash_report_install(const std::string& program, const std::string& log, bo
 
 bool crash_box_main(int argc, char** argv) {
   if (argc != 3 || std::strcmp(argv[1], "--crash-box") != 0) return false;
-  SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Pirate's Moon", argv[2], nullptr);
+  SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, box_title(), argv[2], nullptr);
   return true;
 }
 
 void fatal_box(const std::string& message, bool hidden) {
   std::fprintf(stderr, "mw3: %s\n", message.c_str());
-  if (!hidden && !SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Pirate's Moon", message.c_str(), nullptr))
+  if (!hidden && !SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, box_title(), message.c_str(), nullptr))
     std::fprintf(stderr, "mw3: no message box either: %s\n", SDL_GetError());
 }
 

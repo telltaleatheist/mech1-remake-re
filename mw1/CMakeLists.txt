@@ -143,6 +143,13 @@ if(TARGET mw3pm)
   # FIXES.md item 105: the built program's version tag is MW1's describe, once, and MW1's alone.
   add_test(NAME mw1version COMMAND ${CMAKE_COMMAND} -DMW1_BIN=$<TARGET_FILE:mw1> -DWANT=${MW1_VERSION}
                                   -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/version_tag.cmake)
+  # FIXES 123: the log's first line and the crash report name MW1 and its version; PM's are PM's (a development build:
+  # its installs found, as a player's start).
+  if(NOT MW3_PACKAGE)
+    add_test(NAME mw1banner COMMAND ${CMAKE_COMMAND} -DMW1_BIN=$<TARGET_FILE:mw1> -DPM_BIN=$<TARGET_FILE:mw3pm>
+                                    -DWANT=${MW1_VERSION} -DDIR=${CMAKE_CURRENT_BINARY_DIR}/mw1banner
+                                    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/banner.cmake)
+  endif()
   if(WIN32)
     set(MW3_VERSION ${MW1_VERSION})  # the version resource's (this directory's scope; the engine's are its own)
     set(MW3_RC_NAME "MechWarrior 1: Critical Hit")

@@ -5,6 +5,18 @@
 
 namespace sdlfe {
 
+// Ours (opt-in, MW1's FIXES 123): the name of a program other than Pirate's Moon built on PM's game main
+// (mw3_game_main; MechWarrior 1: Critical Hit's mw1_main.cpp), set before it runs. It names the log's first line
+// ("<id> (<title>) <version>, log ...", or "...: started" on Windows), the crash report's lines (as crash_report_install's
+// `program`) and the crash box's and fatal_box's title and words. Unset (id empty: MW3, PM, the launcher), every one
+// is Pirate's Moon's, as it was.
+struct ProgramName {
+  std::string id;       // "mw1"
+  std::string title;    // "MechWarrior 1: Critical Hit"
+  std::string version;  // its own (mw1-v...), in place of the engine's
+};
+ProgramName& program_name();
+
 // The handlers for a crash and for an uncaught exception. `log` is named in
 // the box; with `box` false only the log says it (hidden runs do not install
 // this at all; MW3_LAUNCHER_WATCHES: the launcher shows the box, see
