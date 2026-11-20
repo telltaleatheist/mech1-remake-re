@@ -396,7 +396,7 @@ MW1 (`BTECH.EXE`, picked and kept as `mw1_game=` as before), Pirate's Moon's
 MECHWARRIOR 3 uses). Its line is "Ready: <MW1
 folder>" ("Ready, mw1-v1.0.0: <MW1 folder>" when its file holds a version, read
 as mw3pm's is, from a `mw1-vX.Y.Z` tag on branch mw1; also on the log's
-programs line), "Click to pick your MechWarrior (1989) folder", or "Not ready:
+programs line), "Not found yet: click to find your MechWarrior (1989)", or "Not ready:
 needs MechWarrior 3 and/or Pirate's Moon: find them in GAME FILES", greyed
 until both games are there (Owen, 2026-11-16: an icon follows what is loaded);
 then a click picks the MW1 folder or starts it. Started as `mw1 --install <PM>
@@ -409,6 +409,41 @@ searched for and started as below.
 `sdl_program_launcher_starts_mechwarrior_1` (a stand-in `mw1`: the
 arguments given, and the line when MW3 is not known);
 `sdl_program_launcher_starts_mechwarrior_1989` (no `mw1`: the port's entry).
+
+### MechWarrior 1's files (2026-11-20)
+
+Taken the way MW3's and Pirate's Moon's are (Owen, 2026-11-20: "it accepts
+the mw1 files just like mw3 and pm do"), in `frontend/sdl/mw1_files` (ours):
+
+- **At start**, `mw1_game=` while it still holds `BTECH.EXE`; else the usual
+  places, each looked into a level down: the write dir's `mw1/game` (our
+  unpacked copy), folders named MechWarrior, MechWarrior1989, MW1, MECHWAR,
+  MECH or MW beside the program (beside the Mac's .app, beside the
+  AppImage), in the home folder or on the system drive, and under their
+  Games, DOSBox or DOS folders. Only named folders: on the Mac a look into
+  Documents or Downloads would ask the player for permission. The one found
+  is kept as `mw1_game=`. `MW3_LAUNCHER_NO_MW1_SEARCH` (checks) skips it.
+- **A click** with none found opens the file picker (as MW3's one picker):
+  `BTECH.EXE` or any file in the game's folder; a folder above it, one or two
+  levels (a DOSBox drive folder); or the download it came in (.zip and the
+  other archives SETUP reads), whose folder holding `BTECH.EXE` is unpacked
+  into the write dir's `mw1/game`. That folder carries our marker
+  (`mw3-launcher-unpacked.txt`); a later download replaces it, and a folder
+  there without the marker is never replaced. Entries that climb out
+  (`..`, absolute paths) are skipped. A pick that is not the game is said on
+  the status line ("That download has no BTECH.EXE: it is not MechWarrior
+  (1989).") and nothing changes. Without `MW_MAIN.EXE` beside it the game is
+  still taken (its Bar keeps ORDER DRINK and NEWS greyed), logged.
+- **GAME FILES** after MW1's line was clicked (as it acts on the game last
+  clicked for MW3 and Pirate's Moon) opens the same picker: the new folder is
+  kept, nothing started; a cancel keeps the one in use. A kept folder that no
+  longer holds the game is dropped at the next start and searched for again.
+- Its line says what it needs (MW3, Pirate's Moon) before asking for its
+  folder, and a press then opens no picker.
+- `MW3_LAUNCHER_PICK` with `--launcher-mw1` (checks) stands for the picker's
+  answer; `MW3_LAUNCHER_PICKER=path:<file>` answers any ask with that file;
+  `MW3_LAUNCHER_FILES=mw1` opens GAME FILES as after MW1's line. `test_mw1_files.cpp`; the zip pick in
+  `sdl_program_launcher_starts_mechwarrior_1`.
 
 ## MechWarrior (1989)
 
