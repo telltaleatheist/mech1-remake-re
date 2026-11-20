@@ -5875,6 +5875,7 @@ TEST(mw1_music_theme_screens_mission_settings_and_quit_headless) {
     auto theme = [&] { return r.music && r.music->playing_path == mw1::music::kThemeFile; };
     int step = 0, wait = 0, frames = 0;
     bool at_menu = false, at_intro = false, at_hub = false, kept = false, faded = false, gone_in_mission = false, back_after = false;
+    bool combat = false, combat_follows = false;  // FIXES 116
     bool off_stops = false, off_saved = false, on_again = false, effects_saved = false, quit_asked = false, quit_stays = false, quits = false;
     int32_t plays_at_hub = 0, starts_at_hub = 0, quit_boxes = 0;
     float lowest = 1;
@@ -5926,6 +5927,7 @@ TEST(mw1_music_theme_screens_mission_settings_and_quit_headless) {
           if (!showing(app, hub) || wait < 10) return false;
           kept = theme() && m.starts == starts_at_hub && r.music->plays == plays_at_hub;
           if (!hub->screen()->visible(mw1::kHubDeploy)) return false;
+          mw1::music::set_last_combat_for_tests(0);  // FIXES 116: as if the last launch played 7106; this one mustn't
           hub->screen()->on_button(mw1::kHubDeploy, 0, 0);
           ++step, wait = 0, frames = 0;
           return false;
@@ -5934,7 +5936,18 @@ TEST(mw1_music_theme_screens_mission_settings_and_quit_headless) {
           int32_t na = 0;
           const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&na);
           if (app.current() != &mech3::states().core || na == 0 || ++frames < 90) return false;
-          gone_in_mission = !theme() && !m.playing && m.volume == static_cast<int32_t>(mech3::cd_volume() * 65535.0f);
+          const int32_t full = static_cast<int32_t>(mech3::cd_volume() * 65535.0f);
+          if (frames == 90) {  // FIXES 116: the launch's combat track, not the last one, looped, at the music volume; no disc
+            gone_in_mission = !theme() && !m.playing;
+            combat = m.launches == 1 && m.picked > 0 && m.combat == m.picked && r.music->playing_path == mw1::music::kCombatFiles[m.picked] &&
+                     m.volume == full && zsnd_cd::state().mode == zsnd_cd::Loop && zsnd_cd::state().num_tracks == 0;
+            std::printf("  mission: combat %d (picked %d, %s), volume %d of %d, disc tracks %d\n", m.combat, m.picked,
+                        r.music->playing_path.c_str(), m.volume, full, zsnd_cd::state().num_tracks);
+            mech3::set_cd_volume(0.3f);  // PM's slider (the pause's GRAPHICS & SOUND): the track follows
+            return false;
+          }
+          combat_follows = m.combat == m.picked && m.volume == static_cast<int32_t>(0.3f * 65535.0f);
+          mech3::set_cd_volume(0.5f);
           for (int32_t i = 0; i < na; ++i) {
             auto* b = static_cast<mech3::ai::Brain*>(mech3::program_ai_mech_brain(ai[i].controls));
             if (b && b->params.team() == 1) continue;
@@ -5950,7 +5963,7 @@ TEST(mw1_music_theme_screens_mission_settings_and_quit_headless) {
         case 6: {  // the results: the theme again (a second start), fading in
           mw1::ResultsState* rs = mw1::game_loop_results();
           if (!showing(app, rs) || wait < 20) return false;
-          back_after = theme() && m.starts == starts_at_hub + 1 && m.level > 0;
+          back_after = theme() && m.starts == starts_at_hub + 1 && m.level > 0 && m.combat < 0 && r.music->playing_path == mw1::music::kThemeFile;
           rs->screen()->on_button(mw1::kResultsContinue, 0, 0);
           ++step, wait = 0;
           return false;
@@ -6009,12 +6022,14 @@ TEST(mw1_music_theme_screens_mission_settings_and_quit_headless) {
     menu_run(r);
     quits = step == 10 && r.game_ended;
     mw1::set_map_table({});
+    std::printf("  combat %d, follows the volume %d\n", combat, combat_follows);
     std::printf("  menu %d, intro %d, hub %d, kept %d; mission: faded %d (lowest %.2f), gone %d; after %d; off %d saved %d, effects %d, "
                 "on %d; quit asked %d (%d boxes), NO stays %d, OK quits %d\n",
                 at_menu, at_intro, at_hub, kept, faded, lowest, gone_in_mission, back_after, off_stops, off_saved, effects_saved, on_again,
                 quit_asked, quit_boxes, quit_stays, quits);
     EXPECT(at_menu && at_intro && at_hub && kept);
     EXPECT(faded && gone_in_mission && back_after);
+    EXPECT(combat && combat_follows);
     EXPECT(off_stops && off_saved && effects_saved && on_again);
     EXPECT(quit_asked && quit_boxes == 2 && quit_stays && quits);
   });

@@ -308,7 +308,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       ge.on_present = [this, before](int f) {
         if (before) before(f);
         if (deployed_ && launched_ && !ending_latched_ && ge_ && ge_->mission_ended()) latch_ending(*ge_);
-        music::frame(!deployed_);  // FIXES.md item 100: the theme out of a mission, faded out for one
+        music::frame(!deployed_ ? music::Where::kMenus : launched_ ? music::Where::kMission : music::Where::kLoading);  // FIXES 100, 116
         lab_look_frame();
         briefing_cursor_frame();
         if (std::getenv("MW1_FIT")) screen_fit_frame();
@@ -2983,11 +2983,13 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       launch_stores_->assign(*company_.stores);
       launch_loadout_ = company_.loadout;
       launched_ = true;
+      music::launched();  // FIXES.md item 116: this launch's combat track
     } else {
       // A later launch of the same contract (a replay): what its first launch left.
       if (launch_stores_) company_.stores->assign(*launch_stores_);
       company_.loadout = launch_loadout_;
       launched_ = true;
+      music::launched();
       pending_.reset();  // the failure replayed: not settled, not shown again
     }
     wrecks_.clear(), killers_.clear(), armor_left_.clear(), structure_left_.clear(), seconds_ = -1;

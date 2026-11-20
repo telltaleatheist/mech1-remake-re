@@ -5,6 +5,34 @@ Tick an item when it is merged into `main`.
 
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 116. [x] Our combat music in the missions *(done: mw1-combat-music)*
+Owen (2026-11-19, via the lead): the combat tracks he picked play in MW1's missions in place of Pirate's Moon's disc
+music. It's the release gate.
+- **The tracks** (`data/music/combat-7106.ogg`, `-7101.ogg`, `-7102.ogg`, ours; YuE2 "combat relentless", E minor,
+  140 BPM). 7106 is the soundtrack's pick, and 7101 and 7102 are "okay and usable". They are encoded as FIXES 100's
+  theme was: libvorbis q6, 48 kHz stereo, with no tags. 7106 and 7101 already end in their own tail. 7102 stopped
+  loud, so its last 5 s are faded out for the loop. The FLAC masters are in keep/mw1-critical-hit/music.
+- **Which one plays:**
+  - Each launch, a replay's too, picks one (`music::launched`, `pick_combat`). The first is any of the three, then
+    never the one the last launch played.
+  - It plays through the CD's extra track (FIXES 100's, its file swapped), from the launch, looped (FIXES 103's
+    flush), at the music volume. That's PM's own, which OPTIONS and the pause's GRAPHICS & SOUND set, so it follows
+    them at once. MUSIC: OFF keeps it off.
+  - It pauses with the game. The mission's end stops it, as it stopped PM's music, and the theme fades in at the
+    results.
+  - `music::frame` now takes where the game is (MW1's screens, DEPLOY's load, the mission).
+- **PM's disc music never plays in MW1:**
+  - MW1's CD has no disc tracks: `num_tracks` is 0 each frame, so PM's mission start picks none.
+  - MW1 no longer mounts PM's player's music/ or reads the player's ripped tracks (`music_from` and `has_music` are
+    gone, with their test).
+  - MW3 and PM are unchanged. There's no engine change: the CD's extra track is FIXES 100's.
+- **Size:** the package grows by 14.7 MB (5.3 + 4.7 + 4.7). mw1data/music/ goes from 7.8 to 22.6 MB.
+- **Tests:**
+  - `mw1_music_theme_screens_mission_settings_and_quit_headless` now covers the launch. The last track is set to
+    7106; in the mission another one plays, looped, at the music volume, with no disc tracks. PM's slider at 30%
+    moves it at once. At the results the theme is back.
+  - `mw1_music_a_launch_never_plays_the_last_combat_track`: 3,000 picks, never the last, each about a third.
+
 ## 119. [x] The release tidy: MW1's own build warnings cleared *(done, mw1-fix119-warnings)*
 
 For clean 1.0.0 builds: no warning from MW1's own code (mw1/src, mw1/tests) on Mac clang or Linux GCC 13.3; the

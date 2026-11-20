@@ -65,11 +65,6 @@ bool is_mw1_install(const std::string& dir);
 
 // The game main's argv: the program's name, --write-dir (unless given), then
 // `rest`, with --install added when only mw1.cfg named PM's.
-// Where mw1's music is read from (provisional, mw1 lead 2026-11-17): `write_dir` when its music/ has a track, else
-// Pirate's Moon's write dir when its has (`pm_write_dir`; empty: PM's default, beside mw1's under the same folder,
-// found without making it), else "".
-std::string music_from(const std::string& write_dir, const std::string& pm_write_dir = "");
-bool has_music(const std::string& dir);  // dir/music/trackNN.(ogg|flac|wav|mp3), any NN 1..99
 std::vector<std::string> game_args(const std::string& argv0, const Args& a, const Installs& use);
 
 }  // namespace mw1
