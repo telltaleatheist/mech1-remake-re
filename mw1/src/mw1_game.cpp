@@ -13,7 +13,6 @@
 #include <random>
 #include <string>
 #include <vector>
-#include <strings.h>
 
 #include "gamez/zclass/class.h"
 #include "gamez/zclass/cls_node.h"
@@ -90,6 +89,16 @@
 #include "mw1_music.h"
 #include "mw1_enemies.h"
 #include "mw1_ladder.h"
+
+namespace {
+// A case-insensitive compare that builds everywhere (strcasecmp is POSIX's, not the Windows toolchains').
+int ieq_cmp(const char* a, const char* b) {
+  for (;; ++a, ++b) {
+    const int x = std::tolower(static_cast<unsigned char>(*a)), y = std::tolower(static_cast<unsigned char>(*b));
+    if (x != y || !x) return x - y;
+  }
+}
+}  // namespace
 
 namespace mw1 {
 
@@ -3559,7 +3568,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
           int32_t row = -1;
           for (int32_t i = 0; i < l->chassis.item_count() && row < 0; ++i) {
             const int32_t m = l->chassis.mech_at(i);
-            if (m < 0 ? std::strcmp(colon + 1, "none") == 0 : strcasecmp(mech3::mech_name(m), colon + 1) == 0) row = i;
+            if (m < 0 ? std::strcmp(colon + 1, "none") == 0 : ieq_cmp(mech3::mech_name(m), colon + 1) == 0) row = i;
           }
           if (row >= 0) l->chassis.select(row);
         }
@@ -3868,7 +3877,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (!d || !d->skins || !v || !ls.model_) return false;
     const std::vector<mech3::Skin*>& skins = d->skins->skins;
     for (size_t i = 0; i < skins.size(); ++i)
-      if (skins[i] && skins[i]->name && strcasecmp(skins[i]->name, kRenderSkin) == 0) {
+      if (skins[i] && skins[i]->name && ieq_cmp(skins[i]->name, kRenderSkin) == 0) {
         const int32_t want = static_cast<int32_t>(i);
         mech3::LabModel& m = v->models[ls.model_];
         if (m.shown == want) return false;
