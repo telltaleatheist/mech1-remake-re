@@ -721,8 +721,8 @@ std::string program_version(const std::string& bin) {
 }  // namespace
 
 // MW1's card (docs/launcher.md, The cards): MW1: Critical Hit's `mw1` beside ours (PLAY REMAKE), and Elthial's
-// MechWarrior (1989) SDL port (PLAY ORIGINAL), which the player puts beside ours or in a MechWarrior1989 folder
-// beside it (MW3_MW1_PORT for checks): not shipped, its licence keeps most of it out of the MIT grant (2026-11-20).
+// MechWarrior (1989) SDL port (PLAY ORIGINAL), in the MechWarrior1989 folder beside ours (the package ships it
+// there, Owen 2026-11-20) or put beside ours by the player (MW3_MW1_PORT for checks).
 // Both play the same MechWarrior (1989) folder. The card shows when either is there.
 void Launcher::find_mw1() {
   mw1_remake_ = !o_.mw1_bin.empty();
@@ -803,6 +803,14 @@ void Launcher::run_mw1() {
   fs::create_directories(base / "captures", ec);
   fs::create_directories(base / "saves", ec);
   SDL_SetEnvironmentVariable(SDL_GetEnvironment(), "MECHWARRIOR_SAVE_DIRECTORY", (base / "saves").string().c_str(), true);
+  // Its MechWarrior.ini: beside it, or in the Mac app's Resources/MechWarrior1989 (the package keeps only code in
+  // MacOS), named outright since SDL's base path for a program inside an app is the app's.
+  const fs::path port_dir = fs::path(port_exe_).parent_path();
+  for (const fs::path& ini : {port_dir / "MechWarrior.ini", port_dir / ".." / ".." / "Resources" / "MechWarrior1989" / "MechWarrior.ini"})
+    if (fs::is_regular_file(ini, ec)) {
+      SDL_SetEnvironmentVariable(SDL_GetEnvironment(), "MECHWARRIOR_TIMING_CONFIG", ini.lexically_normal().string().c_str(), true);
+      break;
+    }
   const std::string game = mw1_game_, captures = (base / "captures").string();
   const char* args[] = {port_exe_.c_str(), game.c_str(), captures.c_str(), nullptr};
   SDL_Process* p = SDL_CreateProcess(args, false);
@@ -1133,7 +1141,7 @@ void Launcher::layout() {
       entries_logged_ = true;  // once a run: the lines as first shown
       if (mw1) {
         // The remake needs MW3 and Pirate's Moon first (Owen, 2026-11-16), and both need the 1989 game's folder;
-        // the original is Elthial's port, which the player brings (not shipped: its licence).
+        // the original is Elthial's port, credited on the card.
         const std::string needs = mw1_remake_ ? mw1_needs() : std::string();
         Card& c = card(2, 2, "MECHWARRIOR 1", true);
         c.lines.push_back(std::string(mw1_remake_ ? "Remake " + (mw1_program_.empty() ? std::string("ready") : mw1_program_) : "No remake") +
@@ -1145,6 +1153,7 @@ void Launcher::layout() {
         // not at the first battle.
         const bool unsupported = !port_exe_.empty() && !mw1_game_.empty() && !sdlfe::mw1::original_supported(mw1_game_);
         if (port_exe_.empty()) c.lines.push_back("Original: needs Elthial's SDL port");
+        else if (!unsupported) c.lines.push_back("Original: Elthial's SDL port");
         else if (unsupported) c.lines.push_back("Your BTECH.EXE isn't a revision Elthial's port supports");
         if (c.keep.size() < c.lines.size()) c.keep.resize(c.lines.size(), 0);
         play(c, 0, kMw1Original, "PLAY ORIGINAL", port_exe_.empty() ? "NEEDS ELTHIAL'S PORT" : unsupported ? "BTECH.EXE NOT SUPPORTED" : "AS RELEASED, 1989",

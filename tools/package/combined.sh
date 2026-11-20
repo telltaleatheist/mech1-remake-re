@@ -12,7 +12,9 @@
 #
 # --mw1: MechWarrior 1: Critical Hit (branch mw1, an mw1-vX.Y.Z tag) built too, in build-pkg/mw1, and put in the
 # MW3-Rebuild package beside the launcher with its mw1data/ (combined.cmd's third ref); MW3 alone and PM alone never
-# carry it.
+# carry it. On the Mac it also brings Elthial's MechWarrior (1989) SDL port for PLAY ORIGINAL (Owen, 2026-11-20):
+# tools/package/mw1port/build_port.sh at its pins with the proposed patches (read-only opens of the player's game),
+# staged in build-pkg/mw1port; Linux and Windows follow when the kit builds there.
 #
 # Refs: the tags for a release (v1.1.0 pm-v1.0.2); any commit for a check (origin/main origin/pm). The worktrees are
 # build-pkg/main and build-pkg/pm (ours, replaced each run); the deps (build-deps/, ../prefix) are linked or passed.
@@ -70,6 +72,17 @@ if [ -n "$MW1_REF" ]; then
   echo "mw1: $(strings "$MW1_DIR/mw1" | grep -m1 '^MW3-PROGRAM-VERSION:' | cut -d: -f2-)"  # read, never run
 fi
 
+PORT_DIR=""
+if [ -n "$MW1_REF" ] && [ "$PLATFORM" = mac ]; then
+  PORT_DIR="$W/mw1port"
+  KIT="$W/main/tools/package/mw1port/build_port.sh"  # the main ref's kit, as its make_app.sh expects
+  [ -d "$ROOT/build-deps/mw1port/src/port/.git" ] || MW1PORT_SRC="$ROOT/build-deps/mw1port/src" "$KIT" fetch
+  PORT_ARGS=()
+  if [[ " ${EXTRA[*]-} " == *" --deps "* ]]; then PORT_ARGS+=("$ROOT/build-deps/mac/prefix"); fi
+  MW1PORT_SRC="$ROOT/build-deps/mw1port/src" "$KIT" mac "$PORT_DIR" ${PORT_ARGS[@]+"${PORT_ARGS[@]}"} --proposed >/dev/null
+  echo "mw1port: $(grep -m1 ' port ' "$PORT_DIR/licences/SOURCES.txt" | awk '{print $NF}')"
+fi
+
 if [ "$PLATFORM" = mac ]; then
   # Pirate's Moon alone (pm's own script), which also leaves mw3pm built.
   (cd "$W/pm" && tools/macos/make_app.sh ${EXTRA[@]+"${EXTRA[@]}"})
@@ -78,7 +91,7 @@ if [ "$PLATFORM" = mac ]; then
   # MechWarrior 3 alone, then the combined one from the same build.
   (cd "$W/main" && MW3_PKG_STEM=MW3-alone tools/macos/make_app.sh ${EXTRA[@]+"${EXTRA[@]}"})
   cp "$W"/main/build-mac/dist/MW3-alone-*-mac.dmg "$OUT/"
-  (cd "$W/main" && MW3_PKG_KEEP_BUILD=1 MW3_PKG_PM_BIN="$PM_BIN" MW3_PKG_MW1_DIR="$MW1_DIR" tools/macos/make_app.sh ${EXTRA[@]+"${EXTRA[@]}"})
+  (cd "$W/main" && MW3_PKG_KEEP_BUILD=1 MW3_PKG_PM_BIN="$PM_BIN" MW3_PKG_MW1_DIR="$MW1_DIR" MW3_PKG_MW1_PORT_DIR="$PORT_DIR" tools/macos/make_app.sh ${EXTRA[@]+"${EXTRA[@]}"})
   cp "$W"/main/build-mac/dist/MW3-Rebuild-*-mac.dmg "$OUT/"
 else
   (cd "$W/pm" && tools/linux/make-appimage.sh ${EXTRA[@]+"${EXTRA[@]}"})

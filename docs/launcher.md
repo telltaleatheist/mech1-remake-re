@@ -405,11 +405,14 @@ the 1280x720 mockup at two thirds on the 854x480 canvas.
   amber PLAY REMAKE (MW1: Critical Hit). Both use the same MechWarrior
   (1989) folder (MechWarrior 1's files, below). The remake needs MW3 and
   Pirate's Moon first; the original needs only its port.
-- The original is not shipped: the port's licence leaves its reconstructed
-  game code (most of any build) outside the MIT grant (mw1 dev 1, 2026-11-20;
-  with Owen). PLAY ORIGINAL is greyed, "NEEDS ELTHIAL'S PORT", with a line on
-  the card, until the player puts the port beside the launcher or in a
-  `MechWarrior1989` folder beside it; then it starts it as below.
+- The original ships in the MW3-Rebuild package that carries MW1 (Owen,
+  2026-11-20, aware its licence leaves the reconstructed game code outside
+  the MIT grant): Elthial is credited on the card ("Original: Elthial's SDL
+  port") and in THIRD-PARTY-MW1989.txt, with the port's licences, notices
+  and the LGPL source lines beside it (below). Without it (a plain package,
+  or the player's own build missing) PLAY ORIGINAL is greyed, "NEEDS
+  ELTHIAL'S PORT", until the port is beside the launcher or in a
+  `MechWarrior1989` folder beside it.
 - The original's combat plays one BTECH.EXE revision (the port's
   CombatInstallation.c pins the whole file's CRC-32, 0x36A13E1A, 174,267
   bytes): `sdlfe::mw1::original_supported`. Another revision greys PLAY
@@ -498,10 +501,8 @@ the mw1 files just like mw3 and pm do"), in `frontend/sdl/mw1_files` (ours):
 
 ## MechWarrior (1989)
 
-Elthial's MechWarrior SDL port (github.com/Elthial/Mechwarrior-sdl-port;
-MIT for its host code only: its reconstructed game code is outside the
-grant, so we ship none of it and no licence file goes with ours). Since the
-cards it is MW1's PLAY ORIGINAL (above); before them it was the
+Elthial's MechWarrior SDL port (github.com/Elthial/Mechwarrior-sdl-port).
+Since the cards it is MW1's PLAY ORIGINAL (above); before them it was the
 MECHWARRIOR (1989) entry. Found when
 `mechwarrior.exe` (`mechwarrior` elsewhere) is beside `mw3` or in a
 `MechWarrior1989\` folder beside it (`MW3_MW1_PORT` names it, for checks).
@@ -509,10 +510,26 @@ It needs the player's MW1 folder (`BTECH.EXE`, any case): picked once with
 a folder picker and kept as `mw1_game=` in mw3.cfg (`save_config_value`).
 Started with `SDL_CreateProcess` as its own script (Run-MechWarrior.ps1)
 does: `mechwarrior <game dir> <capture dir>`, the capture dir
-`<write dir>/mw1/captures` (made first: the port wants it existing) and
-MECHWARRIOR_SAVE_DIRECTORY `<write dir>/mw1/saves`; its MechWarrior.ini
-is its own, beside it. The launcher's window hides until it exits, then
-comes back with a line saying how it closed. Built 2026-10-31;
+`<write dir>/mw1/captures` (made first: the port wants it existing; F12's
+shots land there, never in the game folder) and
+MECHWARRIOR_SAVE_DIRECTORY `<write dir>/mw1/saves`. Its MechWarrior.ini is
+named in MECHWARRIOR_TIMING_CONFIG: beside it, or in the Mac app's
+`Resources/MechWarrior1989/` (SDL's base path inside an app is the app's).
+The release build applies the kit's proposed patches, so the player's game
+folder is opened read-only (mw1 dev 1, 2026-11-20: nothing but saves is ever
+written, and saves go to the save dir).
+
+The package (Owen, 2026-11-20): `tools/package/mw1port/build_port.sh`
+(mw1 dev 1's kit: the port, Munt and Nuked-OPL3 at the commits in
+`pins.txt`, its patches, SDL3) builds and stages it; `combined.sh mac ...
+--mw1 <ref>` builds it with `--proposed` and `make_app.sh` puts the program
+and its libraries in `Contents/MacOS/MechWarrior1989/` (code only, signed)
+and MechWarrior.ini, `licences/` (the port's LICENSE, MIT and NOTICE
+unchanged, the LGPL texts, SDL's, and SOURCES.txt with every commit) and
+`THIRD-PARTY-MW1989.txt` in `Contents/Resources`. The two LGPL libraries
+stay separate, replaceable shared libraries. Linux and Windows follow the
+kit's builds there.
+Built 2026-10-31;
 `--launcher-mw1` presses it at once (checks);
 `sdl_program_launcher_starts_mechwarrior_1989` (a stand-in script).
 

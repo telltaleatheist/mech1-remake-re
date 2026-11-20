@@ -561,9 +561,10 @@ shared engine, MechWarrior 3, Pirate's Moon and the launcher):
   SDL3_sound), and converts the movies with a minimal LGPL build of
   [FFmpeg](https://ffmpeg.org/). Each download lists them in
   `THIRD-PARTY.txt`, with their own licence files.
-- The launcher can also start **MechWarrior (1989)** through
-  [Elthial's SDL port](https://github.com/Elthial/Mechwarrior-sdl-port), if
-  you have that installed beside it.
+- The launcher's PLAY ORIGINAL starts **MechWarrior (1989)** from your own
+  copy through [Elthial's SDL port](https://github.com/Elthial/Mechwarrior-sdl-port),
+  which the Mac package carries (with Munt and Nuked-OPL3, under the LGPL;
+  `THIRD-PARTY-MW1989.txt`). Thank you, Elthial.
 
 MechWarrior is a trademark of Microsoft. This project is not affiliated with
 or endorsed by Microsoft, MicroProse or Zipper Interactive.
