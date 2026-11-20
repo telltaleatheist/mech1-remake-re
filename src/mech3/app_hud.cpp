@@ -977,6 +977,14 @@ void wire_hud() {
   wc.hud_443d20 = [](Handle s, int32_t v) { static_cast<Hud*>(s)->reticle.aim_state(v != 0); };
   // Ours (pm-tests item 25): each lock-on volley of the player's in the log: locked or not, the target and how
   // long since it was picked, the reticle's lock state and how long it has held, where the shot was aimed.
+  // Ours (MW1 FIXES 107: a machine gun's sound that played on): each looped weapon sound's start and stop, the
+  // weapon, its mech and why it stopped, so a loop left on shows in the log as started and never stopped.
+  wc.loop_note = [](const Weapon& w, const char* why) {
+    Mech* m = w.manager ? static_cast<Mech*>(w.manager->owner) : nullptr;
+    const char* mech = m && m->node ? static_cast<zcls::Node*>(m->node)->name() : "(no mech)";
+    std::printf("mw3: loop sound: %s on %s%s %s\n", w.def && w.def->name ? w.def->name : "?", mech ? mech : "?",
+                m && m == program_view_mech() ? " (the player's)" : "", why ? why : "started");
+  };
   wc.lock_shot = [](const Weapon& w) {
     Mech* m = program_view_mech();
     Hud* h = m && m->pilot ? pilot_hud(*m->pilot) : nullptr;
@@ -1093,7 +1101,7 @@ void unwire_hud() {
   damage_calls().zaps_hud = nullptr;
   WeaponCalls& wc = weapon_calls();
   wc.screen = nullptr, wc.hud_screen = nullptr, wc.hud_groups = nullptr, wc.hud_weapons = nullptr;
-  wc.hud_fire = nullptr, wc.hud_highlight = nullptr, wc.lock_shot = nullptr;
+  wc.hud_fire = nullptr, wc.hud_highlight = nullptr, wc.lock_shot = nullptr, wc.loop_note = nullptr;
   mech_radar_blips_destroy();
   update_calls().player_frame = nullptr;
   mech_hud_calls() = MechHudCalls{};
