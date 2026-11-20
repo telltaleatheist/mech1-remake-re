@@ -394,7 +394,9 @@ MECHWARRIOR 1. Shown when `mw1` (`mw1.exe`) is beside the launcher
 MW1 (`BTECH.EXE`, picked and kept as `mw1_game=` as before), Pirate's Moon's
 (`pm_install=`, as PIRATE'S MOON finds it) and MechWarrior 3's (the install
 MECHWARRIOR 3 uses). Its line is "Ready: <MW1
-folder>", "Click to pick your MechWarrior (1989) folder", or "Not ready:
+folder>" ("Ready, mw1-v1.0.0: <MW1 folder>" when its file holds a version, read
+as mw3pm's is, from a `mw1-vX.Y.Z` tag on branch mw1; also on the log's
+programs line), "Click to pick your MechWarrior (1989) folder", or "Not ready:
 needs MechWarrior 3 and/or Pirate's Moon: find them in GAME FILES", greyed
 until both games are there (Owen, 2026-11-16: an icon follows what is loaded);
 then a click picks the MW1 folder or starts it. Started as `mw1 --install <PM>
