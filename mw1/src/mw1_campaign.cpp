@@ -1,5 +1,7 @@
 #include "mw1_campaign.h"
 
+#include "mw1_enemies.h"
+
 #include "mw1_log.h"  // FIXES.md item 84: a House welcoming the company again
 
 #include <cctype>
@@ -114,6 +116,8 @@ Company new_company(Rng& rng) {
   return c;
 }
 
+int32_t record_band(int32_t kills) { return band(kills); }
+
 Contract generate_contract(const Company& c, int32_t slot, Rng& rng) {
   Contract k;
   k.house = c.planet_house;
@@ -170,6 +174,7 @@ Contract generate_contract(const Company& c, int32_t slot, Rng& rng) {
   k.target = column;
   // What it asks and where: MW1's category, description and mission planet, and the map for them.
   choose_mission(k, rng, c.last_map_world, c.last_map_ia);  // item 46: never the map last drawn
+  field_force(c, k);  // FIXES 104: each enemy's chassis and loadout (its own draws: MW1's above untouched)
   return k;
 }
 
@@ -252,7 +257,7 @@ void accept(Company& c, Contract& k) {
 }
 
 int32_t wreck_value(const Company& c, const Wreck& w) {
-  const int32_t chassis = kMechKinds[w.kind].pm_mech;
+  const int32_t chassis = pay_chassis(w);  // FIXES 104: MW1's kind's (kWreckPay), as before, or the real one
   // VISION ("Wrecks pay what they're worth, less their repairs"): the chassis's sale price at this world less its
   // repairs by the one rule (mw1_repairs.h), +500 and in thousands as MwCalculateUnitConditionPrice rounds; never
   // below the scrap value, tons x 10,000 (provisional Q4).

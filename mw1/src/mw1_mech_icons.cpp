@@ -1,4 +1,5 @@
 #include "mw1_mech_icons.h"
+#include "mw1_enemies.h"
 
 #include <algorithm>
 #include <cctype>
@@ -169,12 +170,17 @@ int32_t make_mech_icons(const std::string& write_dir) {
   std::vector<images::Image> made;
   std::set<int32_t> done;
   g_outlines.clear();
-  for (const MechKind& k : kMechKinds) {
-    if (!done.insert(k.pm_mech).second) continue;
-    zimg::Texture* t = fetch_pm_mech_icon(k.pm_mech);
+  // MW1's kinds' stand-ins, then (FIXES 104) every chassis that fields as an enemy: the offer's main enemy.
+  std::vector<int32_t> amber;
+  for (const MechKind& k : kMechKinds) amber.push_back(k.pm_mech);
+  for (int32_t m = 0; m < mech3::kMechCount; ++m)
+    if (fields(m)) amber.push_back(m);
+  for (int32_t pm : amber) {
+    if (!done.insert(pm).second) continue;
+    zimg::Texture* t = fetch_pm_mech_icon(pm);
     if (!t) continue;
-    if (auto o = outline_of(*t)) g_outlines[mech_icon_image(k.pm_mech)] = {o, {255, 176, 64}, kIconScale, kIconSlotW, kIconSlotH};
-    images::Image i = amber_icon(mech_icon_image(k.pm_mech), *t);
+    if (auto o = outline_of(*t)) g_outlines[mech_icon_image(pm)] = {o, {255, 176, 64}, kIconScale, kIconSlotW, kIconSlotH};
+    images::Image i = amber_icon(mech_icon_image(pm), *t);
     zimg::free_texture(t);  // fetch_image reads a new copy for every get
     if (!i.name.empty()) made.push_back(std::move(i));
   }

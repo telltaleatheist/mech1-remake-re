@@ -67,7 +67,9 @@
 #include "mech3/zai_nav.h"
 #include "mech3/zai_params.h"
 #include "mech3/mainmenu.h"
+#include "mech3/mech_reader.h"
 #include "mw1_bar_screen.h"
+#include "mw1_journal.h"
 #include "mw1_chrome.h"
 #include "mw1_event_screen.h"
 #include "mw1_scenery.h"
@@ -83,6 +85,7 @@
 #include "mw1_pilots.h"
 #include "mw1_results.h"
 #include "mw1_market_screen.h"
+#include "mw1_enemies.h"
 #include "mw1_ladder.h"
 #include "mw1_music.h"
 #include "mw1_start.h"
@@ -206,6 +209,8 @@ int32_t er_medium_lasers(const std::list<mech3::ConfigItem*>& items) {
 
 // A run's save and what it saw, for the restart test: the company at the first offer and at the end, its loadout's
 // item count (-1: stock), and the first and the last offer.
+struct Run;
+void take_wrecks(Run* run);
 struct Run {
   std::string save;    // mw1save.txt's path; empty: none
   // FIXES.md item 60: BUY's and SELL's questions as asked (the box's words); the next `deal_no` answered NO.
@@ -288,8 +293,12 @@ struct Run {
   // FIXES.md item 72: called each mission frame from the 30th while it returns true (then the run's ending as before).
   std::function<bool(int32_t frame)> in_mission;
   int32_t in_mission_frames = 0;
-  int32_t pump_limit = 0;
-  std::vector<std::string> lance_downs;  // FIXES 106: the lancemates down as the log said them, at AFTER ACTION  // FIXES 106: the run's passes, when more than the pump's own (a long watch in the mission)
+  int32_t pump_limit = 0;  // FIXES 106: the run's passes, when more than the pump's own (a long watch in the mission)
+  std::vector<std::string> lance_downs;  // FIXES 106: the lancemates down as the log said them, at AFTER ACTION
+  // FIXES 104: the force's chassis and loadouts (one each a kind in `force`); empty: the contract's own roll.
+  std::vector<int32_t> force_chassis, force_loadouts;
+  std::vector<int32_t> wreck_chassis;  // and at AFTER ACTION, each wreck's chassis; the mission's salvage items
+  int32_t salvage_items = -1;
   bool first_contract = true;  // false: the save's company had one before (the Houses' and kills' totals not checked)
   std::vector<std::string> ally_pilots;  // the allied brains' pilots, in the mission
   std::vector<float> ally_errors;
@@ -364,6 +373,15 @@ struct Run {
   int32_t loadings = 0;
   bool load_held = false;  // the test launched (or aborted) the load itself (a lab fit, a strip, ABORT, PM's next round)
 };
+
+// FIXES 104: at AFTER ACTION, each wreck's chassis and the mission's salvage (what the harness reads of the pending).
+void take_wrecks(Run* run) {
+  const mw1::AfterAction* p = mw1::game_loop_pending();
+  if (!p) return;
+  run->wreck_chassis.clear();
+  for (const mw1::Wreck& w : p->wrecks) run->wreck_chassis.push_back(w.chassis);
+  run->salvage_items = p->salvage ? p->salvage->count() : 0;
+}
 int loadout_items(const mw1::Company* c) { return c && c->loadout ? static_cast<int>(c->loadout->items.size()) : -1; }
 
 void loop_run(Ending ending, Run* run = nullptr) {
@@ -394,7 +412,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
   if (run) run->load_held = held;
   if (run) mw1::set_game_loop_save(run->save, false);
   if (run && run->row) mw1::set_game_loop_row(*run->row);
-  if (run && !run->force.empty()) mw1::set_game_loop_enemies(run->force);
+  if (run && !run->force.empty()) mw1::set_game_loop_enemies(run->force, run->force_chassis, run->force_loadouts);
   if (run && !run->world.empty()) mw1::set_game_loop_world(run->world, 1);
   NoKeys keys;
   Window window;
@@ -1158,6 +1176,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
           }
         }
         if (run && run->after_action.empty()) run->after_action = all, run->results_lines = mission, run->lance_downs = mw1::game_loop_lance_downs();
+        if (run) take_wrecks(run);
         if (run && run->stop_at_after_action) {
           back_at_main = true;  // the program stopped here
           return;
@@ -1251,6 +1270,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
           EXPECT(has("AFTER ACTION") && sc->visible(mw1::kHubOk) && !sc->visible(mw1::kHubDeploy));
           EXPECT(sc->visible(mw1::kHubReplay) == failed);
           if (run && run->after_action.empty()) run->after_action = shown, run->lance_downs = mw1::game_loop_lance_downs();
+          if (run) take_wrecks(run);
           if (run && run->stop_at_after_action) {
             back_at_main = true;  // the program stopped here
             return;
@@ -2291,7 +2311,9 @@ TEST(mw1_loop_lancemates_fly_named_and_aimed_then_the_casualty_headless) {
     };
     EXPECT(shows(run.bar_lines, "ELLI GUJAR") && shows(run.bar_lines, "Recruit 1 of") && shows(run.bar_lines, "J. HOLMAAS") &&
            shows(run.bar_lines, "Recruit 2 of") && shows(run.bar_lines, "Gunnery") && shows(run.bar_lines, "a month"));
-    if (!pitch.empty()) EXPECT(shows(run.bar_lines, "\"" + pitch[0] + "\""));  // Elli Gujar's own words
+    // Elli Gujar's own words, one quote (FIXES 95): each of its lines shown, and never the first exe line quoted alone.
+    for (const std::string& l : mw1::journal::quoted(pitch, mw1::bar_ui::kPitchColumns)) EXPECT(shows(run.bar_lines, l));
+    if (!pitch.empty()) EXPECT(!shows(run.bar_lines, "\"" + pitch[0] + "\""));
     EXPECT(shows(run.bar_after, "Nobody here") && shows(run.bar_after, "J. HOLMAAS") && shows(run.bar_after, "Owens") &&
            shows(run.bar_after, "LANCE 2 OF 3 \xB7 WAGES 2,400 A MONTH") && shows(run.bar_after, "PILOT it in the MARKET") &&
            shows(run.bar_after, "Commander"));
@@ -4930,8 +4952,11 @@ float ground_distance(void* a, void* b) {
 // first left, its lancemates now from the file). In the mission, W round the lance: each lancemate the recipient; then for
 // each in turn, W to it, E, ATTACK: the order reaches its brain alone. All ordered, 450 frames on each has walked at the
 // mech its E picked (with two enemies E may pick either: measured to the first listed, one walking at the other ended
-// farther from it, FIXES 72's flake). The hold is short so the lance can't win the fight before the loop ends the
-// mission (held 600 frames a lancemate, the three won it under the hook and the loop's end never ran).
+// farther from it, FIXES 72's flake), and the gap to it closed. The hold is short so the lance can't win the fight
+// before the loop ends the mission (held 600 frames a lancemate, the three won it under the hook and the loop's end
+// never ran). The game's rolls seeded (kSeed; MW1_TEST_SEED=<n> another): seeded by the clock, the map's layout put
+// the enemies 340 to 1,360 m off, and from the far ones the Awesome (FIXES 97) stood about 300 frames before it walked
+// (its speed up, moving 0 m), 18 m in all: the walk flake (the lead, 2026-11-19).
 void lance_orders_run(const char* name, int32_t count, bool reload, std::vector<int32_t> mechs = {}) {
   std::error_code ec;
   if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
@@ -4939,10 +4964,10 @@ void lance_orders_run(const char* name, int32_t count, bool reload, std::vector<
   fs::remove_all(dir, ec);
   fs::create_directories(dir, ec);
   in_child([&] {
-    // The engine's srand(time()), the test's own: a new one each run, printed, so a failure replays with
-    // MW1_TEST_SEED=<it> (the run is the same for the same seed).
+    // The engine's srand(time()), the test's own: kSeed, or MW1_TEST_SEED=<n> (the run is the same for the same seed).
+    constexpr uint32_t kSeed = 1;
     const char* replay = std::getenv("MW1_TEST_SEED");
-    const auto seed = static_cast<uint32_t>(replay ? std::strtoul(replay, nullptr, 10) : std::time(nullptr));
+    const auto seed = static_cast<uint32_t>(replay ? std::strtoul(replay, nullptr, 10) : kSeed);
     crt::rand_fixed_seed() = seed;
     if (reload) {
       Run first;
@@ -5094,11 +5119,13 @@ void lance_orders_run(const char* name, int32_t count, bool reload, std::vector<
     for (const std::string& m : mates) {
       const float a = start_gap.count(m) ? start_gap[m] : -1, b = end_gap.count(m) ? end_gap[m] : -1;
       const float w = walked_at.count(m) ? walked_at[m] : -1, d = moved.count(m) ? moved[m] : -1;
-      std::printf("  lancemate %zu: attack orders %d, to the mech E picked %.0f m, %d frames on %.0f m; walked %.0f m "
-                  "toward it (moved %.0f m)\n",
-                  static_cast<size_t>(std::find(mates.begin(), mates.end(), m) - mates.begin()) + 1, reached[m], a, kWalkFrames, b, w, d);
+      std::printf("  lancemate %zu: attack orders %d, to the mech E picked %.0f m, %d frames on %.0f m (closed %.0f m); walked "
+                  "%.0f m toward it (moved %.0f m)\n",
+                  static_cast<size_t>(std::find(mates.begin(), mates.end(), m) - mates.begin()) + 1, reached[m], a, kWalkFrames, b,
+                  b >= 0 ? a - b : -1.f, w, d);
       EXPECT(reached[m] == 1 && aimed[m] != nullptr);
-      const bool walked = a > 0 && w >= 30 && w >= 0.8f * d;  // walked at it: 41 m the least seen in 450 frames, all of it toward
+      // Walked at it (all of it toward) and the gap closed: kSeed's least, the Awesome's 62 m and 134 m.
+      const bool walked = a > 0 && w >= 30 && w >= 0.8f * d && b >= 0 && a - b >= 30;
       if (!walked)
         for (const std::string& l : walk_trace[m]) std::printf("    %s %s\n", m.c_str(), l.c_str());
       EXPECT(walked);
@@ -5495,7 +5522,67 @@ TEST(mw1_loop_hud_art_is_pm_s_pictures_at_canvas_size) {
     // The pictures read from PM's: lit and clear as PM's at every canvas pixel. Their colour PM's where PM's is
     // opaque, but where it runs: the heat bar's rows (each row's mean, PM's are dithered: 16 seen), the speed frame's
     // 5 at its corner join (45), the lights' shading (52).
-    EXPECT(read == 21 && read_wrong == 0 && read_colour <= 56);
+    EXPECT(read == 21 + 32 && read_wrong == 0 && read_colour <= 56);  // + the damage display's parts (item 109)
+  });
+}
+
+// FIXES.md item 109 (Owen: the damage display showed a part or a few, an arm alone, over its grid): the display's
+// eight parts, each in its four states, drawn at the window's resolution as its background is. Left to the canvas
+// they were under the hires grid, and which showed varied by frame. In a mission, at 1080p's art scale (3) and 4K's
+// (5): every part's picture is drawn, its size its canvas size times the scale, and lit where PM's is (PM's opaque
+// pixels' count times the scale squared, within a tenth).
+TEST(mw1_loop_hud_damage_parts_drawn_at_the_window_s_resolution) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_hud_dmg";
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  in_child([&] {
+    Run run;
+    run.save = (dir / mw1::kSaveFile).string();
+    int32_t parts_drawn[2] = {0, 0}, pictures = 0, lit_ok = 0;
+    bool done = false;
+    run.in_mission = [&](int32_t f) {
+      if (f < 5 || done) return !done;
+      done = true;
+      const char* const kPart[8] = {"head", "ltorso", "rtorso", "ctorso", "larm", "rarm", "lleg", "rleg"};
+      const char* const kState[4] = {"blue", "grn", "yel", "red"};
+      const int32_t kScale[2] = {3, 5};
+      for (int32_t k = 0; k < 2; ++k)
+        for (const char* part : kPart) {
+          int32_t states = 0;
+          for (const char* st : kState) {
+            const std::string n = std::string("dmg_") + part + "_" + st;
+            int32_t w = 0, h = 0;
+            if (!mw1::hud_art::size_of(n, &w, &h) || !mw1::hud_art::read_from_pm(n)) {
+              std::printf("  %s: not drawn here\n", n.c_str());
+              continue;
+            }
+            zimg::Texture* t = zimg::fetch_image(n.c_str());
+            int32_t pm_lit = 0;
+            for (int32_t i = 0; t && i < w * h; ++i)
+              pm_lit += t->alpha ? t->alpha[i] > 127 : static_cast<const uint16_t*>(t->pixels)[i] != 0;
+            if (t) zimg::free_texture(t);
+            const int32_t sc = kScale[k];
+            const std::vector<uint8_t> big = mw1::hud_art::draw(n, sc);
+            int32_t lit = 0;
+            for (size_t i = 3; i < big.size(); i += 4) lit += big[i] > 127;
+            const int32_t want = pm_lit * sc * sc;
+            const bool ok = big.size() == static_cast<size_t>(w) * sc * h * sc * 4 && pm_lit > 0 &&
+                            std::abs(lit - want) * 10 <= want;
+            if (!ok) std::printf("  %s at %d: %zu bytes, lit %d (PM's %d x %d)\n", n.c_str(), sc, big.size(), lit, pm_lit, sc * sc);
+            ++pictures;
+            lit_ok += ok;
+            states += ok;
+          }
+          parts_drawn[k] += states == 4;
+        }
+      return false;
+    };
+    loop_run(kWon, &run);
+    std::printf("  the damage display's parts: %d of 8 at 1080p's scale, %d of 8 at 4K's; %d of %d pictures as PM's\n",
+                parts_drawn[0], parts_drawn[1], lit_ok, pictures);
+    EXPECT(done && parts_drawn[0] == 8 && parts_drawn[1] == 8 && pictures == 64 && lit_ok == 64);
   });
 }
 
@@ -5776,4 +5863,101 @@ TEST(mw1_music_theme_screens_mission_settings_and_quit_headless) {
     EXPECT(off_stops && off_saved && effects_saved && on_again);
     EXPECT(quit_asked && quit_boxes == 2 && quit_stays && quits);
   });
+}
+
+// FIXES 104: every chassis that fields, in every stock loadout, spawned as an enemy and salvaged. Four to a mission
+// (c2, won as the loop wins), each enemy the chassis and loadout asked for (its definition's stock configs read as
+// mw1_enemies.h's table has them: the Primary, the Alternates, the Exotics), each disabled into a wreck of that chassis,
+// the mission's salvage not empty. By default one mission of four mixed (an Atlas's Exotic, a Mad Cat's Alternate, a
+// Puma's Exotic, a Sunder's Alternate); MW1_ALL_LOADOUTS=1 every one (112, 28 missions, about three minutes).
+TEST(mw1_loop_every_chassis_and_loadout_fields_and_salvages_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  std::vector<std::pair<int32_t, int32_t>> all;
+  if (std::getenv("MW1_ALL_LOADOUTS")) {
+    for (int32_t m = 0; m < mech3::kMechCount; ++m)
+      if (mw1::fields(m))
+        for (int32_t l = 0; l < mw1::loadout_count(m); ++l) all.push_back({m, l});
+  } else {
+    all = {{mech3::mech_index("atlas"), 4}, {mech3::kMadCat, 2}, {mech3::mech_index("puma"), 5}, {mech3::mech_index("sunder"), 1}};
+  }
+  // The MW1 kind a chassis stands in a slot of (the nearest by tons): only its pay and the offer's class words.
+  auto kind_for = [](int32_t m) {
+    const int32_t t = static_cast<int32_t>(std::lround(mech3::max_mass(m)));
+    int32_t best = 0;
+    for (int32_t k = 1; k < mw1::kKindCount; ++k)
+      if (std::abs(mw1::kMechKinds[k].tons - t) < std::abs(mw1::kMechKinds[best].tons - t)) best = k;
+    return best;
+  };
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_loop_every_chassis";
+  int32_t missions = 0, fielded = 0;
+  bool table_checked = false;
+  for (size_t at = 0; at < all.size(); at += 4) {
+    const std::vector<std::pair<int32_t, int32_t>> four(all.begin() + static_cast<long>(at),
+                                                        all.begin() + static_cast<long>(std::min(at + 4, all.size())));
+    ++missions;
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    in_child([&] {
+      Run run;
+      run.save = (dir / mw1::kSaveFile).string();
+      run.world = "c2";
+      for (const auto& [m, l] : four) run.force.push_back(kind_for(m)), run.force_chassis.push_back(m), run.force_loadouts.push_back(l);
+      std::vector<std::string> spawned, wanted;
+      bool table_ok = true;
+      run.in_mission = [&](int32_t f) {
+        if (!mech3::mech_mission_player()) return f < 600;
+        // The table against PM's own definitions (once): each chassis's stock configs, in order, by their names.
+        auto stock = [](int32_t m) {
+          std::vector<const mech3::Config*> v;
+          if (const mech3::MechDfn* d = mech3::mech_dfn(m); d && d->configs)
+            for (const mech3::Config* c : d->configs->configs)
+              if (c && !c->player_made) v.push_back(c);
+          return v;
+        };
+        if (!table_checked)
+          for (int32_t m = 0; m < mech3::kMechCount; ++m) {
+            const std::vector<const mech3::Config*> v = stock(m);
+            bool ok = static_cast<int32_t>(v.size()) == mw1::loadout_count(m);
+            for (size_t i = 0; ok && i < v.size(); ++i) {
+              std::string n = v[i]->name ? v[i]->name : "";  // its id (MSG_CONFIG_EXOTIC_D) or its words (Alternate B)
+              for (char& ch : n) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+              const mw1::LoadoutKind k = mw1::loadout_kind(m, static_cast<int32_t>(i));
+              ok = n.find(k == mw1::LoadoutKind::kPrimary ? "PRIMARY" : k == mw1::LoadoutKind::kAlternate ? "ALTERNATE" : "EXOTIC") !=
+                   std::string::npos;
+            }
+            if (!ok) std::printf("  the table differs from PM's for %s (%zu stock)\n", mech3::mech_name(m), v.size());
+            table_ok = table_ok && ok;
+          }
+        for (const auto& [m, l] : four) {
+          const std::vector<const mech3::Config*> v = stock(m);
+          wanted.push_back(std::string(mech3::mech_name(m)) + "/" + (static_cast<size_t>(l) < v.size() && v[l]->name ? v[l]->name : "?"));
+        }
+        int32_t n = 0;
+        const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+        for (int32_t i = 0; i < n; ++i) {
+          const mech3::ai::Brain* b = brain_of(ai[i].mech);
+          mech3::LaunchedMech d;
+          if (b && b->params.team() != 1 && mech3::describe_mech(ai[i].mech, &d)) {
+            const auto* c = static_cast<const mech3::Config*>(d.config);
+            spawned.push_back(std::string(mech3::mech_name(d.roster)) + "/" + (c && c->name ? c->name : "?"));
+          }
+        }
+        return false;
+      };
+      loop_run(kWon, &run);
+      std::sort(spawned.begin(), spawned.end()), std::sort(wanted.begin(), wanted.end());
+      std::vector<int32_t> want_chassis = run.force_chassis, got_chassis = run.wreck_chassis;
+      std::sort(want_chassis.begin(), want_chassis.end()), std::sort(got_chassis.begin(), got_chassis.end());
+      std::string said;
+      for (const std::string& s : spawned) said += " " + s;
+      std::printf("  mission %d:%s; %zu wrecks, %d salvage items\n", missions, said.c_str(), run.wreck_chassis.size(), run.salvage_items);
+      if (!table_checked) EXPECT(table_ok);
+      EXPECT(spawned == wanted);
+      EXPECT(got_chassis == want_chassis && run.salvage_items > 0);
+    });
+    table_checked = true;
+    fielded += static_cast<int32_t>(four.size());
+  }
+  std::printf("  %d loadouts fielded in %d missions\n", fielded, missions);
 }

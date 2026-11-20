@@ -1165,6 +1165,16 @@ at a mech 370 m away and walked 6 m in 450 frames; the other two walked as alway
   - The test picks the engine's seed itself (time()), prints it, and `MW1_TEST_SEED=<n>` replays it.
   - Each lancemate's walk is kept every 50 frames: how far toward its mech, how far moved, speed, health and the gap.
     It is printed for any lancemate that didn't walk at its mech, so the next stall tells what it was.
+- **Later, the walk flake (the lead, 2026-11-19; mw1-walk-flake):** `mw1_loop_lance_orders_an_awesome_walks` failed
+  at nearly every merge. Its seed came from the clock, and the seed decides the layout: the enemies 340 to 1,360 m
+  off. Over seeds 1 to 8 the Awesome (the third lancemate) walked 18 to 73 m. From the far layouts (seed 6, 1,359 m)
+  it stood about 300 frames, its speed up but moving 0 m, then walked: 18 m in the 450 frames, under the 30 m bar.
+  - **The test now:** the four lance-orders tests run at a fixed seed (kSeed, 1: the enemies 340 to 410 m off, or
+    1,700 m with one enemy); `MW1_TEST_SEED=<n>` still picks another. Each lancemate must also close the gap to its
+    mech by 30 m (printed as "closed"), not only walk 30 m toward it. At seed 1 the least is the Awesome's: 62 m
+    walked, 135 m closed. It gave the same metres 14 times in a row.
+  - **Left open:** the Awesome's slow start from a far layout (speed without movement for about 10 s) is worth its
+    own look: a lancemate under orders shouldn't stand that long.
 
 ## 92. [x] The seat's status line points at the Mech Lab *(done: mw1-seat-lab)*
 Owen, on 85: assignments belong to the Mech Lab's slots along the top, as in MW3. So the seat may only fill a blank
@@ -1410,6 +1420,25 @@ placeholder 'Mech there.
 - PM's own icon still shows for the one frame a slot changes, before ours replaces it, as its red pressed icons
   do on every slot.
 
+## 109. [x] The damage display showed only some of the 'Mech's parts at high resolution *(done, mw1-fix109-dmg-hires)*
+
+Owen (2026-11-19, a crop of the bottom right): one arm's outline over the blue grid. The log: "8 draws left to the
+canvas", the eight `dmg_<part>_<colour>` pictures.
+- **Why:** the hires pass draws the display's background (`dmg_bg_*`) from PM's pixels at the window's scale, but
+  not its eight part pictures (hud.cpp `kParts`). Left to the canvas, they sat under the high-resolution grid; which
+  showed changed with what was drawn over them.
+- **Fix:** `mw1_hud_art.cpp` reads all 32 (8 parts, blue/green/yellow/red) from PM's as the backgrounds are (PM has
+  no `_blk`; the "not found" lines are PM's own). Each draws at hud.cpp's place in its order, its colour the
+  part's state, as before.
+- **Test** (`mw1_loop_hud_damage_parts_drawn_at_the_window_s_resolution`): in a mission, every part's four pictures
+  drawn at 1080p's art scale (3) and 4K's (5), their size and lit pixels PM's times the scale: 8 of 8 at each, 64
+  of 64. `mw1_loop_hud_art_is_pm_s_pictures_at_canvas_size` counts 53 read pieces (21 + 32), each lit as PM's.
+- **Shots** (hidden, the mission with D to the damage display), 1080p and 4K, whole and cropped:
+  outbox/2026-11-19/mw1-fix109-damage-display/. No picture of the mission is left to the canvas at 4:3, 1080p or 4K.
+- **With it** (the lead, for 107): each looped weapon sound's start and stop is logged, `mw3: loop sound: <weapon>
+  on <mech> [(the player's)] started|released|out of ammo|destroyed|deleted`. A loop left on shows as started and
+  never stopped. Test `pm_volley_a_loop_sound_s_stop_is_noted`.
+
 ## 108. [x] A 'Mech sold dearer than it was bought *(closed: by design, MW1's own trade)*
 
 The lead (2026-11-19), from Owen's log: a Centurion bought for 4,505,000 sold for 6,307,000.
@@ -1475,3 +1504,37 @@ Owen's c4ia1: the machine gun's sound came on and played to the mission's end.
 - **Test (mw3pmtests):** pm_volley_a_group_volley_lets_every_loop_go. A group volley's two loops playing, then the
   mode key while firing, and the trigger let go in single fire: both loops stopped and cleared. Before, the second
   played on.
+
+## 95. [x] The Bar's recruit pitch in one quote, not each line in its own *(done: mw1-pitch-quote)*
+
+Owen (2026-11-19): RECRUIT CREW showed each line of a recruit's words in its own quote marks, as the exe breaks them.
+- **The fix** (`mw1_bar_screen.cpp`, `journal::quoted` in `mw1_journal.h`): the exe's lines joined by a space, one mark
+  before the first word and one after the last, wrapped to the terminal (kPitchColumns, 20 letters at 4:3; at most
+  kPitchLines, 10). MW1's words and case kept; nothing else added.
+- **Drinks and news:** nothing to change. MW1's texts already open a quote on one line and close it on a later one
+  (14 open, 21 close, none in a run of self-quoted lines over its 112 texts); only our pitch quoted each line.
+- **Tests:** `mw1_pilots_each_pitch_is_one_quote_wrapped`, every pilot's pitch (42, sizes only): one mark opening,
+  one closing, no other added, the words all there in order, each line within 20 letters, at most 10 (they take 3
+  or 4). The Bar loop test shows each line of Elli Gujar's quote and never her first exe line quoted alone.
+- **Shots:** outbox/2026-11-19/mw1-pitch-quote/ (4:3 and 1080p, with the terminal cropped).
+
+## 104. [x] Every 'Mech of PM's as an enemy, in its real loadouts *(done: mw1-every-chassis)*
+
+Owen (for 1.0.0): the enemy fields all of Pirate's Moon's 'Mechs and their real variants, not only the stand-ins for
+MW1's kinds. The design the lead approved (2026-11-19), in `mw1_enemies.h/.cpp`:
+- **MW1's force roll unchanged** (the budget, the classes, at most four; the ladder's rungs). Each slot then gets a
+  PM chassis within kSlotTons (10 t) of its MW1 kind's, Clan by kClanPercent per tier; the 100-tonners only in the
+  BattleMaster's slot and only late (tier ≥ 2 or record band 3). A loadout from the chassis's stock ones: Primary 60%,
+  Alternates 30%, Exotics 10% (no Alternates: 75/25). Its own generator, seeded by the company and the contract, so
+  MW1's draws are untouched and the same offer rolls the same 'Mechs.
+- **Owen's four, each a named constant there:** kElementalsField (false), kClanPercent ({0, 10, 25, 40}), kWreckPay
+  (MW1's kind price), kStoryBattlesRoll (true; the Dark Wing's last rung keeps its stand-ins).
+- **Names real everywhere:** the offer ("2 Heavy, 1 Medium (Thor, Avatar, Centurion)": MW1's class words, the real
+  chassis), the mission log, AFTER ACTION's kills, the wrecks and salvage, the main enemy's picture, the amber icons.
+- **Saves:** optional `offer_chassis=`, `offer_loadouts=`, `pending_wreck_chassis=`; an older save's contract and
+  wrecks keep their kinds' stand-ins on the Primary.
+- **Tests:** `test_mw1_enemies.cpp` (the reach: 24 chassis, 112 loadouts; a 20,000-contract soak: every chassis and
+  loadout seen, the Primary each one's commonest, Clan 0 / 9.8 / 25.1 / 40.2% where a Clan chassis could be, no early
+  100-tonner; determinism; older saves; story battles). `mw1_loop_every_chassis_and_loadout_fields_and_salvages_headless`
+  spawns four mixed (MW1_ALL_LOADOUTS=1: all 112) and checks each fields, is killed and salvaged, and the engine's stock
+  config counts match the table.
