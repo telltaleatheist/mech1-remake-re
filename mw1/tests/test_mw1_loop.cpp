@@ -24,6 +24,7 @@
 #endif
 
 #include "check.h"
+#include "posix_env.h"
 #include "crt/msvc_rand.h"
 #include "mw1_install.h"
 #include "mw1_log.h"

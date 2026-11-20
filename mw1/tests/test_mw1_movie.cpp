@@ -8,12 +8,7 @@
 #include <string>
 
 #include "check.h"
-#if defined(_WIN32)
-namespace {  // POSIX's, on Windows (FIXES 120: mw1tests builds there too); "" unsets, as _putenv_s does
-int setenv(const char* name, const char* value, int) { return _putenv_s(name, value); }
-int unsetenv(const char* name) { return _putenv_s(name, ""); }
-}  // namespace
-#endif
+#include "posix_env.h"
 #include "mw1_movie.h"
 
 namespace M = mw1::movie;
