@@ -1712,3 +1712,40 @@ about 6 s with its speed up, moving 0 m, before it walked.
     every 10 frames.
   - mw3pmtests `pm_walk_keeps_going_inside_thirty_degrees_only_when_asked`: the exe's brake when off; inside 30
     degrees it keeps going, and past them it brakes; standing still it needs 10 degrees to set off.
+
+## 118. [ ] Permanent upgrades bought with money *(planned for MW1 1.1.0; not in 1.0.0)*
+- **Owen (2026-11-20):** players can keep playing indefinitely without the story, like an Instant Action mod, and
+  money needs something to buy. It's always on sale at the hub; nothing to hunt for. It applies to the player's side
+  only, never to enemies.
+  - **Kits, one unit per purchase:**
+    - a permanent heat sink (+1 sink, no crits, no tonnage);
+    - a permanent armour point (+1 point beyond the normal cap).
+    The company owns them. Assign any number to any of your own or your lancemates' 'Mechs (10 on one, or 5 and 5)
+    and move them later. A lost 'Mech's kits return to the storehouse.
+  - **Weapon-type steps:** power or range in small steps (e.g. +10 m), with the heat unchanged. A step applies to
+    every weapon of that type the company owns (all LRM 20s). A medium laser can climb to an ER large laser's punch
+    at a medium laser's heat.
+  - **Balance:** high prices and slow increments. Each repeat purchase costs more than the last.
+- **Shared code (Owen):** "add the logic to the mw3/pm code as an upgrade, but let's not activate it in mw3 right
+  now. Just in mw1." The mw3 lead agreed the split and set these rules (2026-11-20):
+  1. It lives in `src/upgrades/kits/`, not `src/mech3/`. Ported functions get only a hook line and the comment "Ours:
+     upgrade hook (src/upgrades/kits)". It is not a FIX, and CHANGES.md gets nothing until MW3 turns it on.
+  2. A hook table, `upgrades::kit_hooks()`, all null by default: `extra_sinks(const Mech*)`,
+     `extra_armour(const Mech*, int part)`, `damage_scale(const Weapon*)` and `range_add(const Weapon*)`. Null keeps
+     the exe's path, and the probe library leaves them null. mw1 sets them and answers from its own state.
+  3. Weapon steps are per weapon, never per `zwep::WeaponDef`, which enemies share. Apply them where the owner is
+     known: the hit's damage, the range checks, and the AI's range and fire picks (allied AI uses the longer range;
+     enemies don't). List every read of the def's damage and range in the commit.
+  4. Armour and sinks are bonuses outside the Config. Apply them at mission start and in the heat dissipation, never
+     in the .m3c, the lab's cap or the saved sink count, so saved loadouts still load in the original exe and in MW3.
+     The lab may show "+N". Keep the HUD's heat readout consistent.
+  5. In a network game the hooks answer nothing, or answer from the host, so heat and damage stay in sync.
+  6. **Tests:**
+     - hooks null: the differential tests (heat, damage, weapons_run, the config reader) still agree with the original;
+     - hooks set: one mw3tests test per effect, on and off;
+     - a seeded headless mission with kits: heat lower, armour higher, and the boosted weapon's hit bigger for the
+       player and unchanged for an enemy of the same type.
+  7. A plain-words `docs/upgrades-kits.md` lists the hooks and says MW3 and PM don't turn it on yet.
+  - **Route:** a mw1 dev writes the engine module as a clean main-targeted commit. The mw3 lead reviews it and lands
+    it on main, then merges main into pm, and mw1 takes it from pm. mw1 then adds the store, the assignment screen,
+    the save and the price curve. The price table goes to Owen for approval.
