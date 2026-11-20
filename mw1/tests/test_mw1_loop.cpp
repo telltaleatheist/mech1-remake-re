@@ -5183,11 +5183,11 @@ TEST(mw1_loop_a_lancemate_down_is_logged_by_whom_headless) {
 // the table, a destroy-all with his lance (the Atlas, the Annihilator and a Centurion) against his contract's four
 // (a Phoenix Hawk, two BattleMasters, a Shadow Hawk), the player standing at his start (invincible, never firing):
 // each lancemate's health a minute in, its last attacker, where the nearest enemy started, how far it walked, its first
-// hit (when, from how far). The lance flies and the minute is played on every map; whether all three must stand is
-// the lead's call (2026-11-19): on MW3's worlds (mw3c1 ia1, mw3c4 ia1) the enemies start 700 to 970 m off, open fire
-// from about 900 m within 10 s and close, and with the commander idle a lancemate can fall in a fair fight (two of
-// the enemies down by then). By default c4ia1 alone (Owen's); MW1_ALL_MAPS=1 plays every map (about two minutes),
-// MW1_ROWS=<world>ia<n> that map only; MW1_BRAINS=1 adds each mech's brain (mode,
+// hit (when, from how far). The game's rolls seeded (kSeed; MW1_TEST_SEED=<n> another). On PM's maps all three stand
+// (the lead, 2026-11-19). On MW3's worlds it's said, not required: there (mw3c1 ia1, mw3c4 ia1) the enemies start 700
+// to 970 m off, open fire from about 900 m within 10 s and close, and with the commander idle a lancemate can fall in
+// a fair fight (two of the enemies down by then); whether that's too harsh is Owen's call. By default PM's maps;
+// MW1_ALL_MAPS=1 MW3's worlds too (about two minutes), MW1_ROWS=<world>ia<n> that map only; MW1_BRAINS=1 adds each mech's brain (mode,
 // sight, engage, leash) and every mech's health and place each 10 s.
 TEST(mw1_loop_the_lance_lives_the_opening_minute_headless) {
   std::error_code ec;
@@ -5195,19 +5195,24 @@ TEST(mw1_loop_the_lance_lives_the_opening_minute_headless) {
   const bool have_mw3 = fs::exists(fs::path(MW1_MW3_GAME_DIR) / "zbd" / "c2" / "gamez.zbd", ec);
   const std::string worlds = have_mw3 ? converted_worlds() : std::string();
   const char* only = std::getenv("MW1_ROWS");
-  if (!only && !std::getenv("MW1_ALL_MAPS")) only = "c4ia1";
+  const bool all = std::getenv("MW1_ALL_MAPS") != nullptr;
+  constexpr uint32_t kSeed = 106;
+  const char* seeded = std::getenv("MW1_TEST_SEED");
+  const uint32_t seed = seeded ? static_cast<uint32_t>(std::strtoul(seeded, nullptr, 10)) : kSeed;
   const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_loop_lance_minute";
   std::set<std::pair<std::string, int32_t>> done;
   int32_t maps = 0;
   for (const mw1::MapRow& r : shipped_rows()) {
-    if (r.world.rfind("mw3", 0) == 0 && !have_mw3) continue;
-    if (only && r.world + "ia" + std::to_string(r.ia) != only) continue;
+    const bool mw3 = r.world.rfind("mw3", 0) == 0;
+    if (mw3 && !have_mw3) continue;
+    if (only ? r.world + "ia" + std::to_string(r.ia) != only : mw3 && !all) continue;
     if (!done.insert({r.world, r.ia}).second) continue;
     ++maps;
     mw1::MapRow battle{r.world, r.ia, r.climate, mw1::RowKind::kAny, "", ""};
     fs::remove_all(dir, ec);
     fs::create_directories(dir, ec);
     in_child([&] {
+      crt::rand_fixed_seed() = seed;
       Run run;
       run.save = (dir / mw1::kSaveFile).string();
       run.lance = true, run.lance_count = 3;
@@ -5302,8 +5307,10 @@ TEST(mw1_loop_the_lance_lives_the_opening_minute_headless) {
                     "walked %.0f m, first hit at %.0f s from %.0f m, heat up to %.0f\n", r.world.c_str(), r.ia, seconds, m.who.c_str(),
                     m.health, m.by.c_str(), m.enemy_at_start, m.walked, m.first_hit, m.hit_from, m.heat);
       }
-      std::printf("  %-6s ia%d: %d of %zu lancemates standing\n", r.world.c_str(), r.ia, standing, mates.size());
+      std::printf("  %-6s ia%d: %d of %zu lancemates standing%s (seed %u)\n", r.world.c_str(), r.ia, standing, mates.size(),
+                  mw3 ? " (said, not required)" : "", seed);
       EXPECT(mates.size() == 3 && seconds >= 60.0f);
+      if (!mw3) EXPECT(standing == 3);
     });
   }
   std::printf("  %d maps\n", maps);

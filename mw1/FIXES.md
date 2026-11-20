@@ -1442,11 +1442,11 @@ save: the Centurion lost, the pilot missing in action).
   - `mw1_loop_a_lancemate_down_is_logged_by_whom` (c4ia1): one lancemate killed by an enemy (named by its chassis),
     one with no mech's kill (found at the end), the third standing; AFTER ACTION's crew status agrees.
   - `mw1_repairs_the_fates_said_for_the_log`: every fate's line.
-  - `mw1_loop_the_lance_lives_the_opening_minute` plays c4ia1 (MW1_ALL_MAPS=1: every Instant Action map of the
-    table, about two minutes) for a minute with his lance and force, the commander idle, and reports each lancemate. On PM's maps all three stood. On mw3c1 ia1 and
-    mw3c4 ia1 a lancemate can fall inside the minute: the enemies open fire from about 900 m within 10 s, then close,
-    and the lance trades fire with them (two enemies down by then). Whether the test must require all three standing
-    is the lead's call.
+  - `mw1_loop_the_lance_lives_the_opening_minute` plays each of PM's Instant Action maps (12) for a minute with his
+    lance and force, the commander idle, the rolls seeded: all three lancemates must stand (the lead, 2026-11-19; seeds
+    106, 7 and 2026 all pass, about 70 s). MW1_ALL_MAPS=1 adds MW3's worlds, reported, not required: on mw3c1 ia1 and
+    mw3c4 ia1 a lancemate can fall inside the minute (the enemies open fire from about 900 m within 10 s, then close,
+    and the lance trades fire with them, two enemies down by then). Whether that's too harsh is Owen's call.
 - **Looked at and left:** MW3's allied places engage at 100 m (PM's at 10,000 m). Raised to 10,000 m, the lance did
   no better (it holds by the commander and fires either way), so it's unchanged.
 
