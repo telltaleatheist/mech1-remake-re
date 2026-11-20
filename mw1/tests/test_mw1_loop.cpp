@@ -1117,7 +1117,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
         // The money's order (FIXES.md item 57): the fee first, the salvage, any repairs, the total last.
         EXPECT(pay.size() >= 3 && (pay[0].rfind("Fee: ", 0) == 0 || pay[0].rfind("No fee", 0) == 0) &&
                pay[1].rfind("Salvage: ", 0) == 0 && pay.back().rfind("Total: ", 0) == 0);
-        EXPECT(pay.size() == 3 + !rp->repairs.empty());
+        EXPECT(pay.size() == size_t{3} + (rp->repairs.empty() ? 0u : 1u));
         // FIXES 28's review: no "Fee: 0" on a loss or a retreat; a retreat's salvage list says it withdrew, not lost (its
         // fates and repairs settled as a loss's since item 75).
         if (pa->outcome != mw1::Outcome::kSuccess) EXPECT(pay[0] == (failed ? "Fee: none (lost)" : "Fee: none (withdrew)") || pay[0].rfind("No fee", 0) == 0);
@@ -4725,7 +4725,10 @@ TEST(mw1_loop_screens_change_in_one_step_headless) {
         auto* st = app.current() != static_cast<zgame::State*>(hub) ? dynamic_cast<mw1::Mw1State*>(app.current()) : nullptr;
         mw1::Mw1Screen* sc = st ? st->screen() : nullptr;
         if (!sc) return false;
-        const int32_t back = step == 1 ? mw1::kBarBack : step == 3 ? mw1::kMarketBack : step == 5 ? mw1::kTravelBack : mw1::kOfficeBack;
+        const int32_t back = step == 1   ? static_cast<int32_t>(mw1::kBarBack)
+                             : step == 3 ? static_cast<int32_t>(mw1::kMarketBack)
+                             : step == 5 ? static_cast<int32_t>(mw1::kTravelBack)
+                                         : static_cast<int32_t>(mw1::kOfficeBack);
         sc->on_button(back, 0, 0);
       }
       ++step, wait = 0;
