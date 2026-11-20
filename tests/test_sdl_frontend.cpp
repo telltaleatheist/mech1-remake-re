@@ -2332,6 +2332,16 @@ TEST(sdl_install_is_found_and_saved) {
   }
   // Each line keeps its own ending and the new one takes the file's first (save_config_value, since 1.1.0).
   EXPECT(cfg == "install=/new\r\nassets=/a\r\nwindowed=1\n");
+  // A relative folder is saved absolute: the app starts elsewhere (PR #1, dj0nes).
+  EXPECT(sdlfe::save_install(tmp, "rel/./mw3"));
+  cfg.clear();
+  if (std::FILE* f = std::fopen((tmp + "/mw3.cfg").c_str(), "rb")) {
+    char buf[256];
+    for (size_t n; (n = std::fread(buf, 1, sizeof buf, f)) > 0;) cfg.append(buf, n);
+    std::fclose(f);
+  }
+  const std::string want = "install=" + (fs::current_path() / "rel" / "mw3").string();
+  EXPECT(cfg.rfind(want, 0) == 0 && cfg.size() > want.size() && (cfg[want.size()] == '\r' || cfg[want.size()] == '\n'));
   fs::remove_all(tmp);
 }
 
