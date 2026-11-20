@@ -65,13 +65,10 @@ size_t hub_pages(const std::vector<std::string>& panel);
 
 // The hub's OPTIONS (MW1's options hold the game's own: ours, PM's settings and the main menu).
 inline constexpr const char* kHubOptionsDialog = "MW1HUBOPTIONS";  // in mw1hub.zrd
-// FIXES.md item 100: MUSIC (on or off), the music's and the effects' volumes between their arrows (mw1_music.h).
-enum HubOptionsButton : int32_t {
-  kHubOptSettings = 1, kHubOptMainMenu, kHubOptBack, kHubOptMusic, kHubOptMusicDown, kHubOptMusicUp, kHubOptEffectsDown, kHubOptEffectsUp,
-  kHubOptSaveGame, kHubOptLoadGame  // FIXES 125: the save slots' screen, to SAVE or to LOAD
-};
-inline constexpr int32_t kHubOptionsButtonCount = 10;
-inline constexpr int32_t kVolumeStep = 10;  // an arrow's step, percent
+// SETTINGS (MW1's, FIXES 126: mw1_settings.h; the sound settings of FIXES.md item 100 are its SOUND now), SAVE GAME and
+// LOAD GAME (FIXES 125: the save slots' screen), MAIN MENU, BACK.
+enum HubOptionsButton : int32_t { kHubOptSettings = 1, kHubOptMainMenu, kHubOptBack, kHubOptSaveGame, kHubOptLoadGame };
+inline constexpr int32_t kHubOptionsButtonCount = 5;
 const char* hub_options_button_name(int32_t id);
 
 using HubScreen = Mw1Screen;
@@ -88,7 +85,7 @@ class HubState : public Mw1State {
   int32_t frames_ = 0;
 };
 
-// The OPTIONS menu over the hub's scenery: SETTINGS (Pirate's Moon's options on MW1's layouts), MAIN MENU, BACK.
+// The OPTIONS menu over the hub's scenery: SETTINGS, SAVE GAME, LOAD GAME, MAIN MENU, BACK.
 // Escape is BACK.
 class HubOptionsState : public Mw1State {
  public:

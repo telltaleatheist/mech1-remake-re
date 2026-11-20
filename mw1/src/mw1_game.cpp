@@ -1163,9 +1163,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     mech3::GameEngine* ge = ge_;
     if (!ge) return;
     switch (id) {
-      case kHubOptSettings:  // PM's own options over these (its BACK comes back), the state PM's main menu made
-        if (const zgame::Handle options = ge->peek32(kOptionsStateGlobal)) ge->push_state(options, 0);
-        return;
+      case kHubOptSettings: open_settings(*ge); return;  // FIXES 126: MW1's SETTINGS over these (its DONE comes back)
       case kHubOptMainMenu:
         screen_change([this, ge] {
           ge->pop_state(1);  // MW1's menu, under these (Pirate's Moon's without it); CONTINUE brings the hub back
@@ -1175,19 +1173,6 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       case kHubOptBack: screen_change([this] { back_to_hub(); }); return;
       case kHubOptSaveGame: open_slots(*ge, slots::Use::kSave, true); return;  // FIXES 125
       case kHubOptLoadGame: open_slots(*ge, slots::Use::kLoad, true); return;
-      case kHubOptMusic:  // FIXES.md item 100: on or off at once, saved
-      case kHubOptMusicDown:
-      case kHubOptMusicUp:
-      case kHubOptEffectsDown:
-      case kHubOptEffectsUp: {
-        music::Settings m = music::settings();
-        if (id == kHubOptMusic) m.on = !m.on;
-        if (id == kHubOptMusicDown || id == kHubOptMusicUp) m.music = std::clamp(m.music + (id == kHubOptMusicUp ? kVolumeStep : -kVolumeStep), 0, 100);
-        if (id == kHubOptEffectsDown || id == kHubOptEffectsUp) m.effects = std::clamp(m.effects + (id == kHubOptEffectsUp ? kVolumeStep : -kVolumeStep), 0, 100);
-        music::set_settings(m);
-        show_hub_options();
-        return;
-      }
       default: return;
     }
   }

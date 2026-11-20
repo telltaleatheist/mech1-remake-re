@@ -2963,10 +2963,9 @@ TEST(mw1_menu_new_campaign_plays_the_intro_then_the_hub_headless) {
           hub_options->screen()->on_button(mw1::kHubOptSettings, 0, 0);
           ++step, wait = 0;
           return false;
-        case 4:  // PM's options state over them; its BACK (Escape)
+        case 4:  // MW1's SETTINGS over them (FIXES 126); Escape (its DONE)
           if (app.current() == static_cast<zgame::State*>(hub_options) || !app.current()) return false;
-          options_seen = engine.menu_state_of(engine.peek32(0x609868)) != nullptr &&
-                         app.current() == static_cast<zgame::State*>(engine.menu_state_of(engine.peek32(0x609868)));
+          options_seen = showing(app, mw1::game_loop_settings());
           static_cast<mech3::ShellState*>(app.current())->escape();
           ++step, wait = 0;
           return false;
@@ -6574,30 +6573,43 @@ TEST(mw1_music_theme_screens_mission_settings_and_quit_headless) {
           hub->screen()->on_button(mw1::kHubOptions, 0, 0);
           ++step, wait = 0, frames = 0;
           return false;
-        case 8: {  // OPTIONS: MUSIC off (stopped, saved), the effects down twice (applied, saved), MUSIC on (back)
+        case 8: {  // OPTIONS' SETTINGS, its SOUND (FIXES 126): MUSIC off (stopped, saved), the effects 20 lower (applied,
+                   // saved), MUSIC on (back); DONE, then BACK
           mw1::HubOptionsState* ho = mw1::game_loop_hub_options();
-          if (!showing(app, ho) || wait < 10) return false;
-          mw1::Mw1Screen* sc = ho->screen();
+          mw1::settings::SettingsState* st = mw1::game_loop_settings();
           if (frames == 0) {
-            sc->on_button(mw1::kHubOptMusic, 0, 0);
+            if (!showing(app, ho) || wait < 10) return false;
+            ho->screen()->on_button(mw1::kHubOptSettings, 0, 0);
             frames = 1, wait = 0;
             return false;
           }
           if (frames == 1) {
-            const mw1::SoundCfg saved = mw1::read_cfg(wd).sound;
-            off_stops = !theme() && !mw1::music::settings().on && mech3::cd_volume() == 0.0f;
-            off_saved = saved.music == 0 && saved.music_volume == 50;
-            const int32_t fx = mw1::music::settings().effects;
-            sc->on_button(mw1::kHubOptEffectsDown, 0, 0), sc->on_button(mw1::kHubOptEffectsDown, 0, 0);
-            effects_saved = mw1::read_cfg(wd).sound.effects_volume == fx - 2 * mw1::kVolumeStep &&
-                            std::lround(mech3::sound_frequency() * 100) == fx - 2 * mw1::kVolumeStep;
-            sc->on_button(mw1::kHubOptMusic, 0, 0);
+            if (!showing(app, st) || wait < 5) return false;
+            st->screen()->on_button(mw1::settings::kTab0 + static_cast<int32_t>(mw1::settings::Tab::kSound), 0, 0);
+            st->screen()->on_button(mw1::settings::seg_id(0, 0), 0, 0);  // MUSIC: OFF
             frames = 2, wait = 0;
             return false;
           }
-          if (wait < 70) return false;
-          on_again = theme() && m.level >= 1.0f && mw1::read_cfg(wd).sound.music == 1 && std::lround(mech3::cd_volume() * 100) == 50;
-          sc->on_button(mw1::kHubOptBack, 0, 0);
+          if (frames == 2) {
+            const mw1::SoundCfg saved = mw1::read_cfg(wd).sound;
+            off_stops = !theme() && !mw1::music::settings().on && mech3::cd_volume() == 0.0f;
+            off_saved = saved.music == 0 && saved.music_volume == 50;
+            const int32_t fx = mw1::music::settings().effects, to = fx - 20;
+            st->screen()->on_button(mw1::settings::cell_id(2, to / 10 - 1), 0, 0);  // EFFECTS VOLUME's bar for it
+            effects_saved = to >= 10 && mw1::read_cfg(wd).sound.effects_volume == to && std::lround(mech3::sound_frequency() * 100) == to;
+            st->screen()->on_button(mw1::settings::seg_id(0, 1), 0, 0);  // MUSIC: ON
+            frames = 3, wait = 0;
+            return false;
+          }
+          if (frames == 3) {
+            if (wait < 70) return false;
+            on_again = theme() && m.level >= 1.0f && mw1::read_cfg(wd).sound.music == 1 && std::lround(mech3::cd_volume() * 100) == 50;
+            st->screen()->on_button(mw1::settings::kDone, 0, 0);
+            frames = 4, wait = 0;
+            return false;
+          }
+          if (!showing(app, ho) || wait < 5) return false;
+          ho->screen()->on_button(mw1::kHubOptBack, 0, 0);
           ++step, wait = 0, frames = 0;
           return false;
         }
@@ -6698,6 +6710,7 @@ TEST(mw1_settings_every_row_applies_saves_and_defaults_headless) {
           mw1::game_loop_menu()->screen()->on_button(mw1::kMenuNew, 0, 0);
           return ++step, wait = 0, false;
         case 1:
+          if (answer_slots(app, 1)) return false;  // FIXES 125: NEW's slot first
           if (!showing(app, mw1::game_loop_intro()) || wait < 5) return false;
           mw1::game_loop_intro()->escape();
           return ++step, wait = 0, false;

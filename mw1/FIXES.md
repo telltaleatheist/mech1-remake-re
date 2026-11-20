@@ -30,14 +30,16 @@ Tick an item when it is merged into `main`.
 - **Saving:** each change is applied and saved at once. PM's values go through its own setters and `settings_write`
   (as its ACCEPT did). The sound goes through `music::set_settings` (mw1.cfg via mw1_start's read_cfg and
   write_cfg). The switches and WIDE MENUS go through PM's upgrades saver (mw3.cfg's keys).
-- **Where it opens:** the pause's OPTIONS, through `mech3::pause_options_hook()` (an opt-in engine hook, its own
-  commit: unset in MW3 and PM, whose pause is unchanged). The hub's OPTIONS dialog's SETTINGS opens it once FIXES
-  125's new dialog is in (mw1 dev 2's), which also drops the dialog's own MUSIC and EFFECTS rows.
+- **Where it opens:** the hub's OPTIONS (its SETTINGS), and the pause's OPTIONS through
+  `mech3::pause_options_hook()` (an opt-in engine hook, its own commit: unset in MW3 and PM, whose pause is unchanged).
+- **The hub's OPTIONS** (on FIXES 125's dialog): SETTINGS, SAVE GAME, LOAD GAME, MAIN MENU, BACK. Item 100's MUSIC and
+  EFFECTS rows are gone from it (they are SETTINGS' SOUND), the rest moved up, the panel 232x256.
 - **Test:** `mw1_settings_every_row_applies_saves_and_defaults_headless` (mw1tests). In every section each row's
   own control changes it: shown and applied at once, and saved (PM's settings written, mw1.cfg, the switches). The
   chosen value is lit, DEFAULTS gives back every row's default, every hint fits, DONE goes back, and the pause's
   hook opens the screen with PM's key map made for it.
 - **Shots:** every section at 1080p (16:9 menus) and 4:3; `MW1_SCREEN=settings_<section>` shows one.
+
 ## 125. [x] Three save slots, each one overwritable *(done: mw1-fix125-save-slots; for MW1 1.0.2 with the launcher's 1.2.0)*
 Owen: "lets make it so people have three game save slots and they can overwrite any of them." Then: "save and load
 both, yes. maybe it lists three slots and you pick one, and if you want to start a new game you can click new game
