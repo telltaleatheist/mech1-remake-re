@@ -7629,6 +7629,15 @@ struct BindInput : platform::Input {
     *out = st;
     return 0;
   }
+  // Six axes, each named (zInput reads a rotation the stick has no name for as 0).
+  int32_t joystick_caps(uint32_t* flags, uint32_t* axes) override { *flags = 0, *axes = 6; return 0; }
+  int32_t joystick_set_range(uint32_t, int32_t, int32_t) override { return 0; }  // each axis -1000..1000, as asked
+  int32_t joystick_object_name(uint32_t ofs, char* name, uint32_t size) override {
+    static const char* const kNames[] = {"X", "Y", "Z", "RX", "RY", "RZ"};
+    if (!stick || ofs / 4 >= 6) return platform::Input::joystick_object_name(ofs, name, size);
+    std::snprintf(name, size, "%s", kNames[ofs / 4]);
+    return 0;
+  }
 };
 // PM's key map over MW1's SETTINGS (CONTROLS, KEY BINDINGS), when it shows.
 mech3::ControlsScreen* key_map(mech3::Mech3App& app, mech3::GameEngine& engine) {
@@ -7837,8 +7846,8 @@ TEST(mw1_controls_rebound_through_settings_kept_in_mw1s_write_dir_and_live_in_ba
 // FIXES 128: a stick in MW1's battles as in MW3's. JOYSTICK DEFAULTS (KEY BINDINGS, ACCEPTed) puts the stick's axes on
 // the throttle (Z), turn (X), pitch (Y) and twist (RZ); in an MW1 mission the lever full forward and back sets the
 // throttle's target to each end, the stick right and left turns, its twist twists the torso, the hat looks, and its
-// trigger (button 1) fires (the stick's default for CMD_TRIGGER1). MOUSE DEFAULTS puts the mouse back and the stick's
-// axes off. A stick that comes after the start (hot-plugged) is read once it's there.
+// trigger (button 1) fires (the stick's default for CMD_TRIGGER1). MOUSE DEFAULTS puts PM's mouse setup back: the
+// mouse's X twists, its Y pitches, the throttle and the turn the keys', the stick's axes off.
 TEST(mw1_controls_a_stick_drives_the_mech_in_mw1s_battles_headless) {
   std::error_code ec;
   if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
@@ -7848,7 +7857,7 @@ TEST(mw1_controls_a_stick_drives_the_mech_in_mw1s_battles_headless) {
     fs::create_directories(dir, ec);
     const mech3::AxisTable axes_was = mech3::axis_table();
     BindInput in;
-    in.stick = false;  // plugged in at the key map
+    in.stick = true;  // there from the start (zInput opens the stick once, at the start, as MW3's)
     MenuRun r;
     r.save = mw1::slot_path(dir.string(), 1), r.start = mw1::Start::kHub, r.input = &in, r.settings = true, r.limit = 8000;
     int stage = 0, wait = 0, box_frames = 0, f = 0, battle = 0;
@@ -7867,8 +7876,7 @@ TEST(mw1_controls_a_stick_drives_the_mech_in_mw1s_battles_headless) {
       }
       mech3::ControlsScreen* c = key_map(app, engine);
       if (stage == 4 && c) {
-        if (++wait == 3) in.stick = true;  // plugged in now
-        if (wait == 8) c->reset_joy.on_left_up();
+        if (++wait == 8) c->reset_joy.on_left_up();
         if (wait == 12) {
           const mech3::AxisTable& a = mech3::axis_table();
           joy_defaults = a.axes[0].source == 3 && a.axes[3].source == 1 && mech3::use_joystick();
@@ -7923,7 +7931,7 @@ TEST(mw1_controls_a_stick_drives_the_mech_in_mw1s_battles_headless) {
         if (++wait == 4) c->reset_mouse.on_left_up();
         if (wait == 8) {
           const mech3::AxisTable& a = mech3::axis_table();
-          mouse_defaults = !mech3::use_joystick() && a.axes[0].source != 3 && a.axes[3].source >= 9;
+          mouse_defaults = !mech3::use_joystick() && a.axes[0].source == 0 && a.axes[1].source == 9 && a.axes[2].source == 10 && a.axes[3].source == 0;
           return true;
         }
       }
