@@ -307,13 +307,15 @@ TEST(mw1_travel_the_trade_loop_buy_low_sell_high) {
   c.mech = mw1::kPmOwens, c.funds = 20000000;
   mw1::set_planet(c, low);
   const mw1::StockLoadout none = [](int32_t) -> const mech3::Config* { return nullptr; };
-  // Buy two at tier 0 (100% of the tier 0 price).
+  // Buy three at tier 0 (100% of the tier 0 price): one more than the tier 3 dealer's most, so selling ends at its
+  // limit, not with the hangar empty (FIXES 120's seed rolls the limit 2).
   const int32_t shadow = mw1::kPmOwens;  // any Inner Sphere mech; the Owens has the price line's tonnage
-  c.market.stock = {shadow, shadow}, c.market.limit = -1, c.market.sold = 0;
+  c.market.stock = {shadow, shadow, shadow}, c.market.limit = -1, c.market.sold = 0;
   const int64_t start = c.funds;
-  EXPECT(mw1::buy(c, 0) == mw1::Deal::kDone && mw1::buy(c, 0) == mw1::Deal::kDone && c.hangar.size() == 2);
+  EXPECT(mw1::buy(c, 0) == mw1::Deal::kDone && mw1::buy(c, 0) == mw1::Deal::kDone && mw1::buy(c, 0) == mw1::Deal::kDone &&
+         c.hangar.size() == 3);
   const int64_t paid = start - c.funds;
-  EXPECT(paid == 2 * mw1::buy_price(shadow, 0) && mw1::buy_percent(0) == 100);
+  EXPECT(paid == 3 * mw1::buy_price(shadow, 0) && mw1::buy_percent(0) == 100);
   // There: the trip paid for three mechs; the dealer's limit rolled on arrival (1 or 2 at tier 3).
   const int64_t there_cost = mw1::travel_cost(c, mw1::kPlanets[high]);
   EXPECT(mw1::travel(c, high, rng) == mw1::Trip::kDone && c.tier == 3);
@@ -335,7 +337,7 @@ TEST(mw1_travel_the_trade_loop_buy_low_sell_high) {
   const int64_t back_cost = mw1::travel_cost(c, mw1::kPlanets[low]);
   EXPECT(mw1::travel(c, low, rng) == mw1::Trip::kDone && c.tier == 0);
   const int64_t margin = got - sold * mw1::buy_price(shadow, 0);
-  std::printf("  trade: %s (tier 0) -> %s (tier 3), distance %d: bought 2 for %lld, sold %d for %lld, trips %lld + %lld\n",
+  std::printf("  trade: %s (tier 0) -> %s (tier 3), distance %d: bought 3 for %lld, sold %d for %lld, trips %lld + %lld\n",
               mw1::kPlanets[low].name, mw1::kPlanets[high].name, best, static_cast<long long>(paid), sold,
               static_cast<long long>(got), static_cast<long long>(there_cost), static_cast<long long>(back_cost));
   EXPECT(margin > there_cost + back_cost);

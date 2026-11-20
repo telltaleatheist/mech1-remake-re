@@ -3,7 +3,6 @@
 // disabled, the mission's end, and back at the hub the settlement (the fee, the wrecks' salvage) in the company's
 // funds and the enemies' parts in its stores; the next offer declined, so PM's main menu stays. Failed, or quit
 // (no mission end), no fee and no salvage: the stores and the funds as the advance left them (VISION.md, the endings).
-#include <sys/resource.h>
 #include <array>
 #include <cmath>
 #include <cstdio>
@@ -25,6 +24,7 @@
 #endif
 
 #include "check.h"
+#include "posix_env.h"
 #include "crt/msvc_rand.h"
 #include "mw1_install.h"
 #include "mw1_log.h"
@@ -120,6 +120,9 @@
 #include <fstream>
 #include "platform/silent_sound.h"
 #include "pm/pm_game.h"
+// The process's peak memory so far, in MB (peak_memory.cpp: its own file, as windows.h's macros clash with the
+// engine's headers).
+long peak_mb();
 
 namespace fs = std::filesystem;
 
@@ -3431,6 +3434,7 @@ struct DarkWingRun {
   size_t credit_lines = 0;
   int32_t rung = 0, enemies = 0, made = 0, aims = 0, units_on = -1;
   std::string world, climate, map_climate;
+  bool climate_has_map = false;  // the table has a map of the planet's climate that holds the force (FIXES 120)
   float aim = 0;
   int64_t funds_before = -1, funds_after = -1;
 };
@@ -3496,6 +3500,9 @@ void dark_wing_run(DarkWingRun& d) {
           d.rung = k->rung, d.enemies = static_cast<int32_t>(k->enemies.size()), d.world = k->world + " ia" + std::to_string(k->ia);
           d.climate = mw1::climate_name(k->climate);
           d.map_climate = mw1::climate_name(mw1::map_climate(mw1::map_table(), k->world, k->ia));
+          for (const mw1::MapRow& m : mw1::map_table())
+            d.climate_has_map = d.climate_has_map || (m.kind == mw1::RowKind::kAny && m.climate == k->climate &&
+                                                      mw1::map_holds(m.world, m.ia, static_cast<int32_t>(k->enemies.size())));
         }
         const std::vector<float>& aims = mw1::game_loop_enemy_aims();
         d.aims = static_cast<int32_t>(aims.size()), d.aim = aims.empty() ? 0 : aims[0];
@@ -3609,7 +3616,9 @@ TEST(mw1_story_the_dark_wing_won_and_lost_headless) {
                   d.asked_late, d.too_late);
       EXPECT(d.asked && d.attack_live && d.launched && d.rung == mw1::kDarkWingRung);
       EXPECT(d.enemies == mw1::kRungMechs && d.made == d.enemies && d.aims == d.enemies);  // the commander alone: all 8
-      EXPECT(d.climate == d.map_climate);
+      // The planet's climate when the table has a map of it that holds the force; else any that does (story_battle's
+      // fallback: this table is PM's maps alone, and a tropical Dark Wing planet has none; FIXES 120's seed rolls one).
+      EXPECT(d.climate == d.map_climate || !d.climate_has_map);
       // No fee; a win's salvage is all of what the wrecks leave after the repairs (FIXES.md item 51), a loss pays none.
       EXPECT(d.results && d.no_fee && d.no_crest && !d.replay && (win || d.funds_after <= d.funds_before));
       EXPECT(!d.too_late);
@@ -7358,11 +7367,6 @@ namespace {
 // The choices that carry the trail on (the commander lives and follows), by event: the journal walk's.
 const std::map<int32_t, int32_t> kTrailPick = {{0x64, 0}, {0x17, 1}, {0x18, 1}, {0x19, 1}, {0x27, 1}, {0x2F, 0}, {0x30, 1},
                                                {0x32, 0}, {0x37, 0}, {0x40, 0}, {0x3E, 0}, {0x45, 1}, {0x72, 0}};
-#if defined(__APPLE__)
-constexpr long kRssPerMb = 1024 * 1024;  // ru_maxrss in bytes on macOS
-#else
-constexpr long kRssPerMb = 1024;  // in kilobytes on Linux
-#endif
 int32_t months_between(const mw1::Date& a, const mw1::Date& b) { return (b.year - a.year) * 12 + (b.month - a.month); }
 // The lance's tons as the lab would have it: the heaviest owned 'Mechs, one each for the commander and the lancemates.
 int32_t best_lance_tons(const mw1::Company& c, size_t pilots) {
@@ -7465,9 +7469,7 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
         if (dark_wing) how = dw_tries == 0 ? 1 : dw_tries == 1 ? 2 : 0, ++dw_tries;
         story ? ++story_battles : ++contracts;
         if ((contracts + story_battles) % 25 == 0) {  // memory over a long campaign: the peak so far
-          struct rusage ru {};
-          getrusage(RUSAGE_SELF, &ru);
-          const long mb = static_cast<long>(ru.ru_maxrss / kRssPerMb);
+          const long mb = peak_mb();
           std::printf("PLAY: %d battles, peak memory %ld MB\n", contracts + story_battles, mb);
           if (contracts + story_battles == 25) mb_at_25 = mb;
           mb_last = mb, battles_last = contracts + story_battles;

@@ -8,6 +8,7 @@
 #include <string>
 
 #include "check.h"
+#include "posix_env.h"
 #include "mw1_movie.h"
 
 namespace M = mw1::movie;

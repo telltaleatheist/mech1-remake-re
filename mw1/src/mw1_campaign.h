@@ -88,12 +88,27 @@ inline constexpr uint8_t kHouseTargets[kHouseCount][kTargetColumns] = {
     {4, 0, 3, 4, 0, 0, 0, 1}};
 
 // MW1's random rolls: 0..max, both ends included (MwRandomUpTo). Seeded for the tests.
+//
+// FIXES 120: the same seed rolls the same on every platform. The mt19937's stream is the standard's, the same
+// everywhere; std::uniform_int_distribution's mapping of it is each library's own (libc++, libstdc++ and MSVC's
+// differed), so the roll is ours: Lemire's multiply-shift over the stream's 32 bits, a draw again for the few that
+// would favour some values (unbiased). max <= 0 is 0 and draws nothing.
 class Rng {
  public:
   explicit Rng(uint32_t seed) : g_(seed) {}
-  int32_t upto(int32_t max) { return std::uniform_int_distribution<int32_t>(0, max)(g_); }
+  int32_t upto(int32_t max) {
+    if (max <= 0) return 0;
+    const uint32_t range = static_cast<uint32_t>(max) + 1u;  // at most 2^31
+    uint64_t m = static_cast<uint64_t>(next()) * range;
+    if (static_cast<uint32_t>(m) < range) {
+      const uint32_t floor = (0u - range) % range;  // 2^32 mod range: the low products that would bias
+      while (static_cast<uint32_t>(m) < floor) m = static_cast<uint64_t>(next()) * range;
+    }
+    return static_cast<int32_t>(m >> 32);
+  }
 
  private:
+  uint32_t next() { return static_cast<uint32_t>(g_()); }  // the mt19937's 32 bits (its type may be wider)
   std::mt19937 g_;
 };
 
