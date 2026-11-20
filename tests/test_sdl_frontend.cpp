@@ -7017,7 +7017,7 @@ TEST(sdl_program_launcher_starts_mechwarrior_1) {
   EXPECT(text.find("entry MECHWARRIOR 1: Ready, mw1-v1.0.0: " + dir + "/game") != std::string::npos);
   EXPECT(text.find(", MechWarrior 1 mw1-v1.0.0\n") != std::string::npos);
   EXPECT(text.find("MechWarrior 1 exited (0)") != std::string::npos);
-  EXPECT(text.find("entry MECHWARRIOR 1 ORIGINAL: needs Elthial's port") != std::string::npos);  // no port: greyed, said
+  EXPECT(text.find("entry MECHWARRIOR 1 ORIGINAL: coming later") != std::string::npos);  // no port: greyed, said
   EXPECT(args.rfind("--install " + pm + " --mw3-install ", 0) == 0);
   EXPECT(args.find(" --mw1-game " + dir + "/game --no-launcher") != std::string::npos);
   // No MW3 named (Pirate's Moon may still be found on this machine): said on its line, and a press starts nothing.

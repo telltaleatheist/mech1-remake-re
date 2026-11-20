@@ -405,14 +405,12 @@ the 1280x720 mockup at two thirds on the 854x480 canvas.
   amber PLAY REMAKE (MW1: Critical Hit). Both use the same MechWarrior
   (1989) folder (MechWarrior 1's files, below). The remake needs MW3 and
   Pirate's Moon first; the original needs only its port.
-- The original ships in the MW3-Rebuild package that carries MW1 (Owen,
-  2026-11-20, aware its licence leaves the reconstructed game code outside
-  the MIT grant): Elthial is credited on the card ("Original: Elthial's SDL
-  port") and in THIRD-PARTY-MW1989.txt, with the port's licences, notices
-  and the LGPL source lines beside it (below). Without it (a plain package,
-  or the player's own build missing) PLAY ORIGINAL is greyed, "NEEDS
-  ELTHIAL'S PORT", until the port is beside the launcher or in a
-  `MechWarrior1989` folder beside it.
+- The original is cut for now (Owen, 2026-11-20: he doesn't like how
+  Elthial's port runs; MW1 original may come out with Crescent Hawk's
+  Inception). PLAY ORIGINAL is greyed, "COMING LATER", with "Original: coming
+  later" on the card. The port is looked for only at `MW3_MW1_PORT` (the
+  checks), so its start below stays tested; the packaging is opt-in
+  (`combined.sh --mw1-port`, `MW3_PKG_WITH_PORT=1` for combined.cmd).
 - The original's combat plays one BTECH.EXE revision (the port's
   CombatInstallation.c pins the whole file's CRC-32, 0x36A13E1A, 174,267
   bytes): `sdlfe::mw1::original_supported`. Another revision greys PLAY
@@ -519,10 +517,10 @@ The release build applies the kit's proposed patches, so the player's game
 folder is opened read-only (mw1 dev 1, 2026-11-20: nothing but saves is ever
 written, and saves go to the save dir).
 
-The package (Owen, 2026-11-20): `tools/package/mw1port/build_port.sh`
+The package (built 2026-11-20, opt-in since the cut the same day): `tools/package/mw1port/build_port.sh`
 (mw1 dev 1's kit: the port, Munt and Nuked-OPL3 at the commits in
 `pins.txt`, its patches, SDL3) builds and stages it; `combined.sh mac ...
---mw1 <ref>` builds it with `--proposed` and `make_app.sh` puts the program
+--mw1 <ref> --mw1-port` builds it with `--proposed` and `make_app.sh` puts the program
 and its libraries in `Contents/MacOS/MechWarrior1989/` (code only, signed)
 and MechWarrior.ini, `licences/` (the port's LICENSE, MIT and NOTICE
 unchanged, the LGPL texts, SDL's, and SOURCES.txt with every commit) and

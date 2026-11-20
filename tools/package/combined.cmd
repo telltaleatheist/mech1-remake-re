@@ -8,10 +8,10 @@ rem   PM-Rebuild-Setup-<pm v>.exe and mw3pm-<pm v>-win64.zip     mw3pm alone (br
 rem and their SHA256SUMS (tools\package\sums.py; again over every platform's files once collected).
 rem Usage: tools\package\combined.cmd <main ref> <pm ref> [<mw1 ref>]   e.g. v1.1.0 pm-v1.0.2 (origin/main origin/pm for a check)
 rem With a third ref, MechWarrior 1: Critical Hit (branch mw1) is built too and goes beside the launcher in the
-rem MW3-Rebuild package (mw1.exe and mw1data\); MW3 alone and PM alone never carry it. It also brings Elthial's
-rem MechWarrior (1989) SDL port for PLAY ORIGINAL (Owen, 2026-11-20): tools\package\mw1port\build_port.cmd at its pins
-rem with the proposed patches (the player's game folder opened read-only), staged in build-pkg\mw1port and put in
-rem MechWarrior1989\ beside the launcher.
+rem MW3-Rebuild package (mw1.exe and mw1data\); MW3 alone and PM alone never carry it. With MW3_PKG_WITH_PORT=1 it
+rem also brings Elthial's MechWarrior (1989) SDL port for PLAY ORIGINAL: tools\package\mw1port\build_port.cmd at its
+rem pins with the proposed patches, staged in build-pkg\mw1port and put in MechWarrior1989\ beside the launcher.
+rem Off: Owen cut it for now (2026-11-20).
 rem The worktrees are build-pkg\main, build-pkg\pm and build-pkg\mw1 (ours, replaced each run); deps\ is joined into each.
 setlocal
 cd /d "%~dp0\..\.."
@@ -35,7 +35,7 @@ copy /y "%W%\pm\build-win\dist\mw3pm-*-win64.zip" "%OUT%\" >nul || exit /b 1
 
 rem MechWarrior 1: Critical Hit, when asked for: mw1.exe and mw1data\ in its build tree, for the combined package.
 if not "%~3"=="" call :mw1 || exit /b 1
-if not "%~3"=="" call :mw1port || exit /b 1
+if not "%~3"=="" if "%MW3_PKG_WITH_PORT%"=="1" call :mw1port || exit /b 1
 
 rem MechWarrior 3 alone, then the combined one from the same build.
 pushd "%W%\main" || exit /b 1
@@ -45,7 +45,7 @@ set MW3_PKG_STEM=
 set MW3_PKG_KEEP_BUILD=1
 set MW3_PKG_PM_BIN=%W%\pm\build-win-pkg\mw3pm.exe
 if not "%~3"=="" set MW3_PKG_MW1_DIR=%W%\mw1\build-win-pkg
-if not "%~3"=="" set MW3_PKG_MW1_PORT_DIR=%W%\mw1port
+if not "%~3"=="" if "%MW3_PKG_WITH_PORT%"=="1" set MW3_PKG_MW1_PORT_DIR=%W%\mw1port
 call tools\windows\package.cmd || (popd & exit /b 1)
 set MW3_PKG_KEEP_BUILD=
 set MW3_PKG_PM_BIN=

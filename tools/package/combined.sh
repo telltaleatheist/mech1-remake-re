@@ -7,14 +7,14 @@
 #   PM-Rebuild-<pm v>-...                       mw3pm alone (branch pm's own package)
 # Then tools/package/sums.py writes their SHA256SUMS (and again over every platform's files once collected).
 #
-#   tools/package/combined.sh mac   <main ref> <pm ref> [--deps] [--mw1 <mw1 ref>]      (on the Mac; --deps for a release)
+#   tools/package/combined.sh mac   <main ref> <pm ref> [--deps] [--mw1 <mw1 ref> [--mw1-port]]  (on the Mac; --deps for a release)
 #   tools/package/combined.sh linux <main ref> <pm ref> PREFIX TOOLS [--mw1 <mw1 ref>]  (in WSL; make-appimage.sh's)
 #
 # --mw1: MechWarrior 1: Critical Hit (branch mw1, an mw1-vX.Y.Z tag) built too, in build-pkg/mw1, and put in the
 # MW3-Rebuild package beside the launcher with its mw1data/ (combined.cmd's third ref); MW3 alone and PM alone never
-# carry it. It also brings Elthial's MechWarrior (1989) SDL port for PLAY ORIGINAL (Owen, 2026-11-20):
-# tools/package/mw1port/build_port.sh at its pins with the proposed patches (read-only opens of the player's game),
-# staged in build-pkg/mw1port (Windows: combined.cmd and build_port.cmd).
+# carry it. --mw1-port also brings Elthial's MechWarrior (1989) SDL port for PLAY ORIGINAL: tools/package/mw1port/
+# build_port.sh at its pins with the proposed patches (read-only opens of the player's game), staged in
+# build-pkg/mw1port (Windows: combined.cmd with MW3_PKG_WITH_PORT=1). Off: Owen cut it for now (2026-11-20).
 #
 # Refs: the tags for a release (v1.1.0 pm-v1.0.2); any commit for a check (origin/main origin/pm). The worktrees are
 # build-pkg/main and build-pkg/pm (ours, replaced each run); the deps (build-deps/, ../prefix) are linked or passed.
@@ -26,9 +26,11 @@ MAIN_REF="${2:?the main ref (a vX.Y.Z tag)}"
 PM_REF="${3:?the pm ref (a pm-vX.Y.Z tag)}"
 shift 3
 case "$PLATFORM" in mac|linux) ;; *) echo "mac or linux, not $PLATFORM" >&2; exit 2 ;; esac
-EXTRA=() MW1_REF=""
+EXTRA=() MW1_REF="" WITH_PORT=0
 while [ $# -gt 0 ]; do
-  if [ "$1" = --mw1 ]; then MW1_REF="${2:?--mw1 needs a ref}"; shift 2; else EXTRA+=("$1"); shift; fi
+  if [ "$1" = --mw1 ]; then MW1_REF="${2:?--mw1 needs a ref}"; shift 2
+  elif [ "$1" = --mw1-port ]; then WITH_PORT=1; shift
+  else EXTRA+=("$1"); shift; fi
 done
 if [ "$PLATFORM" = linux ]; then  # absolute, for the worktrees
   [ ${#EXTRA[@]} -ge 2 ] || { echo "linux needs PREFIX and TOOLS (make-appimage.sh's)" >&2; exit 2; }
@@ -73,7 +75,7 @@ if [ -n "$MW1_REF" ]; then
 fi
 
 PORT_DIR=""
-if [ -n "$MW1_REF" ]; then
+if [ -n "$MW1_REF" ] && [ "$WITH_PORT" = 1 ]; then
   PORT_DIR="$W/mw1port"
   KIT="$W/main/tools/package/mw1port/build_port.sh"  # the main ref's kit, as its make_app.sh expects
   [ -d "$ROOT/build-deps/mw1port/src/port/.git" ] || MW1PORT_SRC="$ROOT/build-deps/mw1port/src" "$KIT" fetch

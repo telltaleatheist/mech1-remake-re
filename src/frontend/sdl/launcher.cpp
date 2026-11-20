@@ -721,8 +721,9 @@ std::string program_version(const std::string& bin) {
 }  // namespace
 
 // MW1's card (docs/launcher.md, The cards): MW1: Critical Hit's `mw1` beside ours (PLAY REMAKE), and Elthial's
-// MechWarrior (1989) SDL port (PLAY ORIGINAL), in the MechWarrior1989 folder beside ours (the package ships it
-// there, Owen 2026-11-20) or put beside ours by the player (MW3_MW1_PORT for checks).
+// MechWarrior (1989) SDL port (PLAY ORIGINAL). Cut for now (Owen, 2026-11-20: he doesn't like how it runs; MW1
+// original may come with Crescent Hawk's Inception): PLAY ORIGINAL is greyed, COMING LATER, and the port is
+// looked for only where a check names it (MW3_MW1_PORT), so its start stays tested.
 // Both play the same MechWarrior (1989) folder. The card shows when either is there.
 void Launcher::find_mw1() {
   mw1_remake_ = !o_.mw1_bin.empty();
@@ -735,9 +736,9 @@ void Launcher::find_mw1() {
 #else
   const char* name = "mechwarrior";
 #endif
+  (void)name;  // beside ours and MechWarrior1989/<name> while it shipped
   std::vector<fs::path> tries;
   if (const char* env = SDL_getenv("MW3_MW1_PORT")) tries.emplace_back(env);
-  tries.push_back(fs::path(o_.program_dir) / name), tries.push_back(fs::path(o_.program_dir) / "MechWarrior1989" / name);
   std::error_code ec;
   for (const fs::path& t : tries)
     if (fs::is_regular_file(t, ec)) {
@@ -1162,11 +1163,11 @@ void Launcher::layout() {
         // The original's combat plays one BTECH.EXE revision only (mw1::original_supported): another is said here,
         // not at the first battle.
         const bool unsupported = !port_exe_.empty() && !mw1_game_.empty() && !sdlfe::mw1::original_supported(mw1_game_);
-        if (port_exe_.empty()) c.lines.push_back("Original: needs Elthial's SDL port");
+        if (port_exe_.empty()) c.lines.push_back("Original: coming later");
         else if (!unsupported) c.lines.push_back("Original: Elthial's SDL port");
         else if (unsupported) c.lines.push_back("Your BTECH.EXE isn't a revision Elthial's port supports");
         if (c.keep.size() < c.lines.size()) c.keep.resize(c.lines.size(), 0);
-        play(c, 0, kMw1Original, "PLAY ORIGINAL", port_exe_.empty() ? "NEEDS ELTHIAL'S PORT" : unsupported ? "BTECH.EXE NOT SUPPORTED" : "AS RELEASED, 1989",
+        play(c, 0, kMw1Original, "PLAY ORIGINAL", port_exe_.empty() ? "COMING LATER" : unsupported ? "BTECH.EXE NOT SUPPORTED" : "AS RELEASED, 1989",
              "MECHWARRIOR 1 ORIGINAL", Button::kGrey, !port_exe_.empty() && !unsupported);
         play(c, 1, kMw1, "PLAY REMAKE", mw1_remake_ ? "CRITICAL HIT, 3D" : "NOT IN THIS PACKAGE", "MECHWARRIOR 1", Button::kAmber,
              mw1_remake_ && needs.empty());
@@ -1177,7 +1178,7 @@ void Launcher::layout() {
                                    : mw1_program_.empty()  ? "Ready: " + mw1_game_
                                                            : "Ready, " + mw1_program_ + ": " + mw1_game_;
           std::printf("mw3: launcher: entry %s: %s\n", mw1_remake_ ? "MECHWARRIOR 1" : "MECHWARRIOR (1989)", line.c_str());
-          std::printf("mw3: launcher: entry MECHWARRIOR 1 ORIGINAL: %s\n", port_exe_.empty() ? "needs Elthial's port"
+          std::printf("mw3: launcher: entry MECHWARRIOR 1 ORIGINAL: %s\n", port_exe_.empty() ? "coming later"
                                                                            : unsupported ? "BTECH.EXE not a revision the port supports"
                                                                                          : port_exe_.c_str());
           mw1_logged_ = true;
@@ -2274,7 +2275,7 @@ void Launcher::activate(int id) {
     case kMw1Original:  // Elthial's port (PLAY ORIGINAL): the same folder; it needs no other game
       mw1_last_ = true, pm_last_ = false, mw1_original_ = true;
       if (port_exe_.empty()) {
-        status_ = "PLAY ORIGINAL needs Elthial's MechWarrior SDL port in a MechWarrior1989 folder beside the launcher.", status_good_ = false;
+        status_ = "PLAY ORIGINAL (MechWarrior as released in 1989) is coming later.", status_good_ = false;
         layout();
       } else if (mw1_game_.empty()) {
         status_ = "Pick your MechWarrior (1989): its BTECH.EXE, or the download it came in (.zip).", status_good_ = true;
