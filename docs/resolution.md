@@ -1,8 +1,9 @@
-# Screen size and aspect (any size, 16:9)
+# Screen size and aspect
 
 Mech3.exe 1.2, mapped 2026-10-21 (mac 2) for Owen's decision (fixes.md,
 Candidates and Decided): any size up to 4K, 16:9 included, 640x480 4:3
-identical to the original. A first start plays at the desktop's size
+identical to the original; since 2026-11-20 any width up to 7680 at 2160 high,
+21:9 and 32:9 included (section 13). A first start plays at the desktop's size
 (Owen, 2026-10-30; section 10). 16:9 widens the view instead of
 stretching it. The menus and HUD art are scaled, and the menus pillarboxed.
 If larger sizes are trouble, the cap is 1920x1080. A FIX (B), behind
@@ -430,10 +431,10 @@ saved, `load_options` (0x0040c420) makes the mission's mode 16 at the
 desktop's size (`OptionsHooks::first_start_screen`, the program's
 `platform::Window::first_start_size`: SDL's desktop mode, in points as the
 frame is on a Retina Mac, pixels on Windows), which `vmode_size` keeps
-inside 640x480 .. 3840x2160. The size goes to ScreenWidth / ScreenHeight,
-so RESOLUTION lists it ("2560x1440") and the next start reads it back. A
-saved InGameVMode (or a saved size) wins: the store reads the saved values
-over the defaults. The menus stay 640x480, pillarboxed (section 9).
+inside 640x480 .. 7680x2160 (section 13). The size goes to ScreenWidth /
+ScreenHeight, so RESOLUTION lists it ("2560x1440") and the next start reads
+it back. A saved InGameVMode (or a saved size) wins: the store reads the
+saved values over the defaults. The menus take the mode's shape (section 12).
 
 Only a play run asks: checks, shots, `--frames` and the chains keep the
 original's 5 (`set_first_start_desktop`), so the tests stay at their sizes.
@@ -446,16 +447,9 @@ saved 13, or a saved 16 at 1280x720, wins; no desktop (a check) or the fix
 off gives 5. Break: the mode not set fails it twice.
 
 **16:9 at most** (Owen, 2026-10-30, instead of extra cockpit geometry for
-wide screens). Mode 16's size (`vmode_size`) is at most 16:9: a 21:9 or 32:9
-screen gets a 16:9 frame at its height, which the window's fit (section 6)
-pillarboxes, centred. 3440x1440 plays at 2560x1440 at x 440, 2560x1080 and
-3840x1080 at 1920x1080. The first start's desktop size and RESOLUTION's own
-size ("2560x1440") both come from it; ScreenWidth keeps the desktop's.
-Narrower than 4:3 (5:4, 1280x1024) is unchanged. The fixed modes 11..15 are
-16:9 already. Tests: `resolution_new_modes_only_with_the_fix` (the sizes at
-21:9, 32:9, 5:4 and 16:9, and the canvas), the first-start test (a 3440x1440
-desktop), `sdl_window_shape_maps_the_mouse_through_the_frame` (the fit at
-21:9 and 32:9). Break: without the clamp, 6 checks fail.
+wide screens; lifted 2026-11-20, section 13). Mode 16's size was at most 16:9:
+a 21:9 or 32:9 screen got a 16:9 frame at its height, pillarboxed by the
+window's fit (section 6).
 
 ## 11. Playtest W13: a mode changed mid-mission (2026-10-30)
 
@@ -761,3 +755,39 @@ alike, letting go of the old as the control's destructor would. Checked:
 screen's images' width the same through MODS > BACK, no mods and one; the
 break, the looks left, fails both). Multiplayer's MODS > BACK was right
 already: its lines are a plain image, with no looks to put back.
+
+## 13. Ultrawide (PR #3 by roswellien, 2026-11-20)
+
+Owen took the pull request and lifted section 10's 16:9 cap. Still FIX (B)
+under any_resolution; off, the original's modes only.
+
+- **Mode 16** keeps the asked shape. `vmode_size` fits it inside
+  `kMaxScreen` (7680x2160, 32:9 at 4K height) whole, in integers: a size
+  over the cap is scaled down keeping its shape (5120x2880 plays 3840x2160,
+  10240x2880 plays 7680x2160), and 640x480 stays the least of each side.
+- **Modes 17..20**, appended so saved 3..16 keep their meaning: 2560x1080,
+  3440x1440, 3840x1080 and 5120x1440. RESOLUTION lists 8..20 (16 in its
+  place, then the four).
+- **The view.** Section 3's camera rule already holds the vertical 60
+  degrees: 112.74 across at 21:9, 131.84 at 32:9. The 2D canvas stays 480
+  high (1147 wide at 3440x1440, 1707 at 5120x1440); the HUD's anchors, the
+  wide menus' groups (section 12) and the mouse's mapping use it as at 16:9.
+- **The cockpits** are the 4:3 models, open frames that already end in the
+  air at the sides of a 16:9 view. Wider, more of the same shows: struts and
+  side consoles run off the screen or stop short, and a few roof plates
+  (the Annihilator's, the Sunder's) show their ends. Nothing is missing or
+  drawn wrong; checked on every chassis at 16:9, 21:9 and 32:9 in c1m1
+  (the Elemental has no cockpit).
+
+Tests: `resolution_new_modes_only_with_the_fix` (the four sizes, mode 16 at
+21:9, 32:9, 5:4 and 16:9 and the cap), `resolution_range_and_list` (16
+entries), `resolution_ultrawide_bounds_preserve_valid_aspects` (over-cap and
+extreme sizes), `resolution_ultrawide_hud_and_pointer_share_the_frame`,
+`settings_first_start_plays_at_the_desktop_size` (a 3440x1440 desktop plays
+3440x1440), `menus_wide_follow_the_selected_aspect`,
+`menus_ultrawide_keep_native_controls_and_lab_aligned_headless` (the
+menus, controls, pilots and lab at 3440 and 5120), and
+`mission_c1m1_mode_change_keeps_the_camera_shape_headless` (modes 5, 13,
+18, 20, 16, 5: the angle across and the reticle each time). The PR's break
+runs: the cap put back fails 28 checks; the presets taken out and the
+camera's and menus' aspect broken, 15.

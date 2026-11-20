@@ -15,10 +15,10 @@ Each one holds MechWarrior 3, Pirate's Moon, MW1: Critical Hit and the launcher.
 
 ## What's new
 
-- **MW1: Critical Hit 1.0.0** joins the launcher: MechWarrior (1989)'s mercenary campaign on MechWarrior 3's combat, with every 'Mech of MechWarrior 3 and Pirate's Moon, new art and an original soundtrack.
+- **MW1: Critical Hit 1.0.1** joins the launcher: MechWarrior (1989)'s mercenary campaign on MechWarrior 3's combat, with every 'Mech of MechWarrior 3 and Pirate's Moon, new art and an original soundtrack.
 - A music track that should repeat now repeats, and the music plays on to the next track.
 - A machine gun's sound stops when you stop firing (a small fix on the UPGRADES page).
 - Pirate's Moon: lance orders go to the lancemate you picked.
 - Memory no longer grows mission after mission in one sitting.
 
-Full notes: [release-notes-1.1.3.md](https://github.com/telltaleatheist/mw3-re/blob/v1.1.3/docs/release-notes-1.1.3.md). Each of MechWarrior 3 and Pirate's Moon on its own, a zip instead of the Windows installer, and `SHA256SUMS` are under Assets below.
+Full notes: [release-notes-1.1.3.md](https://github.com/telltaleatheist/mw3-re/blob/main/docs/release-notes-1.1.3.md). Each of MechWarrior 3 and Pirate's Moon on its own, a zip instead of the Windows installer, and `SHA256SUMS` are under Assets below.

@@ -18,6 +18,23 @@ the plates is drawn by the launcher, not baked in.
 | badge_pm.png | 768x768 | 22 | A round military medallion badge: a pale crescent moon above a jagged rocky horizon, embossed brushed steel with cold blue enamel inlays, inside a thick circular steel rim with small rivets around it, symmetrical, centred on a pure black background, no text, no letters. |
 | badge_mw1.png | 768x768 | 23 | A round military medallion badge: the side view of a walking armoured war robot in simple retro pixel-art style with a few flat colours, inside a thick circular steel rim with small rivets around it, centred on a pure black background, no text, no letters. |
 
+**The cards' badges (2026-11-20, layout C):** `badge_pm.png` and
+`badge_mw1.png` are now seed 31 (a real moon) and seed 51 (a Mad Cat style
+'Mech), and all three, `badge_mw3.png` included, are cut out: the black
+surround made transparent from the edges and cropped square at 320x320
+(`tools/badge_cutout.py`). The prompts: Pirate's Moon, "A round military
+medallion badge: a large pale full moon with visible craters and maria
+hanging low over a jagged dark rocky lunar horizon, the moon clearly a moon,
+embossed brushed steel with cold blue enamel inlays, ..."; MW1, "A round
+military medallion badge: a heavy Mad Cat style BattleMech in side view,
+reverse-jointed bird-like legs, a forward-jutting cockpit nose, a big boxy
+missile pod on top of each shoulder, thick arm-mounted gun barrels, menacing
+and powerful, embossed brushed steel with amber enamel inlays, ..."; each
+ends "inside a thick circular brushed steel rim with small rivets around it,
+symmetrical, front view, centred on a pure black background, no text, no
+letters." Qwen-Image 2.1, 768x768, 40 steps. The rows above are the first
+badges'.
+
 The three badges (2026-10-31, Owen: the ripple belongs to a circle) are
 the games' entries: MechWarrior 3, Pirate's Moon (greyed until it is
 supported) and MechWarrior (1989) (shown when its port is beside ours).

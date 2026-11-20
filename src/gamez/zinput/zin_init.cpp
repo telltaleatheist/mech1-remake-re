@@ -35,6 +35,7 @@ int32_t start(uint32_t window, uint32_t) {
   s.window = 0;
   s.kbd_flags = s.joy_flags = s.mouse_flags = 0;
   s.kbd_users = s.joy_users = s.mouse_users = 0;
+  s.joy_wanted = 0, s.joy_arrived = false;  // ours (FIX (B), poll)
   s.di = g_di;
   if (!s.di) {
     report(static_cast<int32_t>(0x80004005), "C:\\zipper\\GameZMech3\\zInput\\zin_init.cpp", 0x96);
@@ -118,12 +119,15 @@ uint32_t joy_use() {
   if (s.joy_flags & 1) {
     if (s.joy_users == 0) joy_reset();
     ++s.joy_users;
+  } else if (zfix::options().fixed) {
+    ++s.joy_wanted;  // FIX (B): its user once a stick is plugged in (poll)
   }
   return s.joy_users;
 }
 
 // Mech3.exe 1.2 @ 0x0051b2f0
 uint32_t joy_unuse() {
+  if (!(g_state.joy_flags & 1) && g_state.joy_wanted != 0) --g_state.joy_wanted;  // FIX (B)
   if (g_state.joy_users != 0) --g_state.joy_users;
   return g_state.joy_users;
 }
@@ -144,10 +148,25 @@ uint32_t mouse_unuse() {
   return g_state.mouse_users;
 }
 
+bool joy_take_arrival() {
+  const bool a = g_state.joy_arrived;
+  g_state.joy_arrived = false;
+  return a;
+}
+
 // Mech3.exe 1.2 @ 0x0051b360
 // A device is read when present, not suspended (flags exactly 1) and used.
 void poll(bool callbacks) {
   State& s = g_state;
+  // FIX (B): the original opens the stick only in start(); one plugged in
+  // later is opened here, with the users it would have had (input.md section 4).
+  if (zfix::options().fixed && s.started && !(s.joy_flags & 1) && s.di && s.di->joystick_arrived() &&
+      joy_init(s.window) != 0) {
+    s.joy_flags |= 1;
+    s.joy_users = s.joy_wanted, s.joy_wanted = 0;
+    joy_reset();
+    s.joy_arrived = true;
+  }
   if (s.mouse_flags == 1 && s.mouse_users != 0) mouse_poll(callbacks);
   if (s.joy_flags == 1 && s.joy_users != 0) joy_read(callbacks);
   if (s.kbd_flags == 1 && s.kbd_users != 0) kbd_read(callbacks);

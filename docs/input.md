@@ -192,6 +192,23 @@ centres the hats (0xffff) and clears the button bytes 1..10. Quirk kept:
 those are buttons 2..11, so button 1, the trigger, keeps its state through a
 reset.
 
+Two FIX (B) changes (Owen, 2026-11-20, for MW1's remake too), both off in
+the probes (`zfix fixed`):
+
+- Buttons 11..15. The binding word's joystick field (bits 22..25) and the
+  map's 16 slots hold 15, but the reads, the callbacks, `command()` and the
+  names stop at 10. `zin::joy_last_button()` gives 15 (10 in the probes);
+  the reset clears through it, keeping the quirk's shape.
+- A stick plugged in after the start. The original opens a stick only in
+  `start()`; with none, `joy_flags` stays 0 and `joy_use` counts no user,
+  and the app's start (0x00480570) turns UseJoystick off and the axes to
+  the mouse's. Now `platform::Input::joystick_arrived()` (SdlInput: a
+  device added while none is open) makes `poll()` run `joy_init`, with the
+  `joy_use` calls made meanwhile as its users; `mech3::stick_arrived`
+  (from the engine's input poll) then puts back the saved UseJoystick, the
+  axes the start changed (unless changed since) and the force feedback.
+  Test: `sdl_input_stick_plugged_in_later_and_its_high_buttons`.
+
 ## 5. The port
 
 `src/gamez/zinput/`: `zinput.h` (the globals as `zin::State` with their

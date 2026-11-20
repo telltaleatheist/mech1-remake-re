@@ -4,6 +4,7 @@
 #include <deque>
 #include <functional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "frontend/sdl/sdl_fit.h"
@@ -75,6 +76,7 @@ class SdlInput : public platform::Input {
   const int* axis_slots() const { return slot_; }
   bool unplugged() const { return unplugged_; }
   int32_t joystick_caps(uint32_t* flags, uint32_t* axes) override;
+  bool joystick_arrived() override { return std::exchange(arrived_, false); }
   bool joystick_gamepad() const override { return pad_ != nullptr || (unplugged_ && pad_was_); }
   SDL_Joystick* joystick() const { return joy_; }  // the force feedback's device (sdl_force.h)
   int32_t joystick_object_name(uint32_t ofs, char* name, uint32_t n) override;
@@ -231,6 +233,7 @@ class SdlInput : public platform::Input {
   bool pad_was_ = false;    // it was opened as a gamepad
   platform::JoyState last_;  // the last live read
   bool tried_ = false;      // zInput asked for a joystick
+  bool arrived_ = false;    // ours, FIX (B): plugged in with none open (joystick_arrived)
 };
 
 // The default hid_usages: the device's HID descriptor through SDL_hid, only

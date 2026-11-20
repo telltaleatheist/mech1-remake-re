@@ -33,7 +33,7 @@ Nothing yet.
 **1.1.3 (2026-11-20)** (the full notes are in
 [docs/release-notes-1.1.3.md](docs/release-notes-1.1.3.md)):
 
-- **Three games on one launcher**: MW1: Critical Hit 1.0.0, a fan remake of
+- **Three games on one launcher**: MW1: Critical Hit 1.0.1, a fan remake of
   MechWarrior (1989) on the rebuild's engine, joins the combined package. The
   launcher finds your MechWarrior (1989), or takes its folder or the .zip it
   came in.
@@ -323,6 +323,9 @@ installed copy does not have. Two ways to get it back:
 
 - The game runs fullscreen at your desktop's resolution, widescreen
   included. **Alt+Enter** switches between fullscreen and a window.
+- Ultrawide screens (21:9, 32:9) play at their full width: the view widens
+  without stretching, and RESOLUTION offers 2560x1080, 3440x1440, 3840x1080
+  and 5120x1440 (contributed by roswellien).
 - In a window, press and release **Ctrl+Alt** to free the mouse; click in
   the window to take it back. Switching away frees it too, and coming back
   to a mission (Cmd+Tab, Alt+Tab or a click) takes it again at once; that
@@ -568,9 +571,8 @@ shared engine, MechWarrior 3, Pirate's Moon and the launcher):
   SDL3_sound), and converts the movies with a minimal LGPL build of
   [FFmpeg](https://ffmpeg.org/). Each download lists them in
   `THIRD-PARTY.txt`, with their own licence files.
-- The launcher can also start **MechWarrior (1989)** through
-  [Elthial's SDL port](https://github.com/Elthial/Mechwarrior-sdl-port), if
-  you have that installed beside it.
+- The MW1 card's PLAY ORIGINAL (MechWarrior as released in 1989) is coming
+  later.
 
 MechWarrior is a trademark of Microsoft. This project is not affiliated with
 or endorsed by Microsoft, MicroProse or Zipper Interactive.
