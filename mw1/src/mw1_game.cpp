@@ -46,6 +46,7 @@
 #include "mech3/program_flow.h"
 #include "mech3/zai_brain.h"
 #include "mech3/zai_params.h"
+#include "mech3/zai_walk_pm.h"
 #include "gamez/zimage/zimg_library.h"
 #include "gamez/zimage/zimg_texture.h"
 #include "gamez/zinput/zinput.h"
@@ -4297,12 +4298,14 @@ void install_game_loop(uint32_t seed, const char* reach) {
   mech3::set_program_flow(the_loop().get());
   mech3::set_action_lineup_capacity(kLineupSlots);  // FIXES.md item 48: 16 past the commander (the exe's ten)
   mech3::set_objectives_extension(the_loop().get());
+  mech3::ai::set_walk_keeps_going(true);  // FIXES 110: a walk under way doesn't brake at 10 degrees off (zai_walk_pm.h)
 }
 
 void uninstall_game_loop() {
   mech3::set_program_flow(nullptr);
   mech3::set_action_lineup_capacity(mech3::ActionGame::kLineupExe);
   mech3::set_objectives_extension(nullptr);
+  mech3::ai::set_walk_keeps_going(false);
   the_loop().reset();
 }
 
