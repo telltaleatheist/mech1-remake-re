@@ -53,6 +53,7 @@ struct MaterialTable {
   int32_t index_of(const Material* m) const;  // -1 when not in the table
 };
 MaterialTable& materials();
+void materials_free();  // 0x005372c0: every material's cycle freed, then an empty table (the models' free)
 
 int read_materials(std::FILE* f);  // 0x005363d0
 // WriteZBD's (ported for preservation): the index, marking it referenced; the table written back.

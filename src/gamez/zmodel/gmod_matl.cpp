@@ -229,6 +229,19 @@ Material* material_find_texture(zimg::TextureEntry* t) {
 // material; every caller passes one.
 Material* material_copy(const Material& m) { return new_material(m); }
 
+// Mech3.exe 1.2 @ 0x005372c0 (the materials' half of the models' free, 0x00526920): every material freed as
+// material_free does one, so each animated material's cycle (its texture list, then itself) goes, then an empty
+// table. The port had replaced the table alone, and every cycle leaked on each mission's unload (MW1's playthrough).
+void materials_free() {
+  MaterialTable& t = g_table;
+  for (int32_t i = 0; i < t.capacity; ++i) {
+    Material& m = t.at(i);
+    if ((m.flags & 4) && m.cycle) std::free(m.cycle->textures), std::free(m.cycle);
+    m.cycle = nullptr;
+  }
+  t = MaterialTable{};
+}
+
 // Mech3.exe 1.2 @ 0x00537070: a material back on the free list: its cycle
 // freed, everything but the links cleared, then 0x10 (as the exe) and 0x20,
 // unlinked from the used list to the free list's front. The free head
