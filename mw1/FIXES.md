@@ -5,6 +5,16 @@ Tick an item when it is merged into `main`.
 
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 119. [x] The release tidy: MW1's own build warnings cleared *(done, mw1-fix119-warnings)*
+
+For clean 1.0.0 builds: no warning from MW1's own code (mw1/src, mw1/tests) on Mac clang or Linux GCC 13.3; the
+engine's warnings are left alone. No behaviour change.
+- Clang's 18: the unused title_case, ge and kLabChassisPage gone; the results lists' rows and the story's Reader
+  with every field written; the tests' unused names and unwritten fields.
+- GCC's 3 more: the market's tons column with room for any int (the text the same), a size compared as size_t,
+  a back button from four screens' enums as int32_t.
+- 93's playthrough test: an unused counter, an OwnedMech with every field.
+
 ## 1. [x] The main menu is Pirate's Moon's *(done: title screen ours)*
 - **Seen:** starting MW1 shows a PM-style menu.
 - **Wanted:** MW1's own title screen, using the generated `title_bg` with NEW / LOAD / QUIT in MW1's style.
@@ -1250,6 +1260,30 @@ Owen, defending the tower on mw3c1ia3 (4 enemies): three came; the fourth never 
     takes it back. Fixed, all four close 470 to 690 m.
   - `mw1_loop_lance_orders_an_awesome_walks_headless`: the third lancemate in an Awesome walks at its target. The
     harness takes the lance's mechs (`lance_mechs`).
+
+## 93. [x] A new campaign played to its ending, headless *(done, mw1-fix93-playthrough; MW1_PLAYTHROUGH=1)*
+
+Owen: can the game be played start to finish, the storyline working? `mw1_story_a_whole_campaign_played_to_its_ending_headless`
+plays one through the real loop as a player would: the journal's lead at each hub, the lance built up for each
+step's battle (contracts, the Mech Complex, the Bar's pilots, the lab), STORY's GO THERE, MW1's pages answered to
+carry the trail on, the battles won. The Dark Wing three times, for the three endings: lost, withdrawn, won; then
+the credits and the hub again. Long, so behind `MW1_PLAYTHROUGH=1` (`MW1_PLAYTHROUGH_SEED`, 5 by default).
+- **Seed 5:** the ending reached. 65 contracts (all won), 8 story battles, 97 trips, 16 'Mechs bought, 3 pilots.
+  - Steps 1 to 4 at once. Step 5's battle (rung 1, 110 t) waits from month 2 to month 62 (28 contracts): a lance
+    of three lancemates, 135 t, built first. Then steps 6 to 17 by month 91; ATTACK first offered at month 108,
+    after 34 contracts.
+  - The Dark Wing's endings: lost (mw1_end_lost), withdrawn (mw1_end_retreat), won (mw1_end_win), each with its
+    picture; the credits rolled, then the hub. The ending at month 262: the test rebuilds a 390 t lance between
+    tries (a player could try again at once).
+- **Nothing blocks.** The story's questions (line 372): 1 to 3 and 5 Owen's; 4 (MW1's name), 6 (one stage) and 7
+  (the offers as built) stand as built for 1.0.0, the lead's call, for Owen's morning list.
+- **Found, a real engine bug (for main and pm):** every Pirate's Moon world's unload leaked about 7 MB (246 MB at
+  25 battles, 444 at 50; past 8 GB at 1,128). A PM node's model (pm_model) was never dropped, so its node, lists
+  and data and the model stayed; and the material cycles were never freed. Fixed in the engine (its own commit and
+  tests); now 95 MB at 25 battles, 108 at 50. The test fails if a campaign grows 1 MB a battle after the first 25.
+- **The test's own fixes:** ready for a step's battle at 100 t a pilot at most (the Dark Wing's 635 t meets four
+  assault 'Mechs at most); the endings read from the results panel (a withdrawal is a Failure with the retreat
+  picture); the summary taken while the game is up.
 
 ## 113. [x] A lancemate "untouched, then dead" on c4ia1 *(chased: a fair fight lost, unseen and unsaid; the death's line now says what went)*
 
