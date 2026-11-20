@@ -21,7 +21,11 @@ struct SoundCfg {
   int32_t music = -1;           // music=1 on, 0 off
   int32_t music_volume = -1;    // music_volume=0..100
   int32_t effects_volume = -1;  // effects_volume=0..100
-  bool operator==(const SoundCfg&) const = default;
+  // Written out: the project is C++17 (a defaulted == is C++20: GCC refuses it, FIXES.md item 105's Linux build).
+  bool operator==(const SoundCfg& o) const {
+    return music == o.music && music_volume == o.music_volume && effects_volume == o.effects_volume;
+  }
+  bool operator!=(const SoundCfg& o) const { return !(*this == o); }
 };
 
 struct Installs {
