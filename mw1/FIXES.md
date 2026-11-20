@@ -5,6 +5,31 @@ Tick an item when it is merged into `main`.
 
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 120. [ ] The same seed rolls a different game on each platform *(planned for MW1 1.1.0; not in 1.0.0)*
+
+Found in the 1.0.0 release check (dev 2, 2026-11-20). The packaged mw1 was run with the same `MW1_SEED=7` on Mac and
+Linux. The Mac started on Robinson with a defence contract on c3ia3; Linux started on Matsuida with a
+destroy-the-tower contract on mw3c1ia2.
+- **Cause:** `mw1::Rng::upto` (mw1_campaign.h) rolls with `std::uniform_int_distribution`. The C++ standard leaves
+  that distribution's algorithm to the library, so libc++ (Mac), libstdc++ (Linux) and MSVC's each turn the same
+  `std::mt19937` stream into different numbers. The mt19937 itself is portable. No other MW1 roll uses a standard
+  distribution, shuffle or sample.
+- **Players:** not affected. An unseeded game draws its seed from `std::random_device`, and a save keeps what was
+  rolled, so a save carries over between platforms unchanged. Only seeds are not portable: the tests' and the
+  playthrough's (`MW1_SEED`, `MW1_PLAYTHROUGH_SEED`). A test pinned to one seed's result can pass on one platform and
+  fail on another.
+- **The lead (2026-11-20):** not for 1.0.0; for 1.1.0.
+- **What it needs:**
+  1. An MW1-only portable roll in `Rng::upto` over the mt19937's raw 32-bit output: Lemire's multiply-shift with
+     rejection, or plain modulo with rejection. No standard distribution. It stays unbiased, and all three
+     platforms produce the same numbers.
+  2. Re-pinning the seeded expectations. Every seed's rolls change on the Mac too, so every test that names a seed
+     must be rechecked and re-pinned: the loop tests, the playthrough's default seed, and the cmake page tests'
+     `MW1_SEED=7`. The commit lists each one.
+  3. A test that the same seed gives the same first contract on every platform, MSVC included: a seed's first rolls
+     and its first offered contract (map, objective, fee, enemy) checked against fixed values written in the
+     test. It runs in mw1tests on the Mac, Linux and Windows, so any platform that disagrees fails.
+
 ## 119. [x] The release tidy: MW1's own build warnings cleared *(done, mw1-fix119-warnings)*
 
 For clean 1.0.0 builds: no warning from MW1's own code (mw1/src, mw1/tests) on Mac clang or Linux GCC 13.3; the
