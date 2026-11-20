@@ -5,6 +5,23 @@ Tick an item when it is merged into `main`.
 
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 123. [ ] mw1's log opens with Pirate's Moon's banner and an engine version *(planned for MW1 1.1.0; cosmetic)*
+- **What shows:** the first line of every mw1 run, on the console and in `<write dir>/mw3.log`, is
+  `mw3pm (Pirate's Moon rebuild) pm-v1.1.3-657-gcd180547, log …/mw3.log`, not MW1's name and `mw1-v1.0.1`.
+  The Windows package (no console) writes `mw3pm (Pirate's Moon rebuild) …: started` instead. Seen in the
+  1.0.1 release acceptance (mw1 dev 2, 2026-11-20); the same on every earlier build, so not new. `mw1 --version`
+  and the launcher's "Ready, mw1-v1.0.1" are right: only this banner is PM's.
+- **Where:** `mw1/src/mw1_main.cpp` ends in `mw3_game_main` (the engine's game main, PM's build of it), whose
+  banner is `src/frontend/sdl/mw3_main.cpp:811-814`: a fixed "mw3pm (Pirate's Moon rebuild)" and the engine
+  library's `MW3_VERSION` (git describe against PM's tags, so a pm-v… string on an MW1 commit). The crash report
+  just below (`:816`) is installed under the name "mw3pm" too, and the log file is `mw3.log`.
+- **Likely fix:** an engine hook, opt-in (b): the program's name and version for the banner and the crash report,
+  set by `mw1_main` before it calls `mw3_game_main` (for example `sdlfe::set_program("mw1", "MechWarrior 1:
+  Critical Hit", MW1_VERSION)`), PM's own by default, so main and PM print exactly what they print today. Its
+  own "mw1 (engine, ours)" commit. Optionally the log named `mw1.log`; that touches what players and the
+  launcher's "see its log" point at, so the lead's call. Test: mw1's first log line names MW1 and its
+  version, and a PM run's banner is unchanged.
+
 ## 122. [ ] An arms dealer: weapons and equipment for sale *(planned for MW1 1.1.0; not in 1.0.0)*
 - **Owen (2026-11-20), via the lead:** the weapons a campaign never meets come from an arms dealer, in 1.1.0. Today
   MW1 has no item shop: items come only from the starting stores, the loadouts of 'Mechs bought, and salvage (111).
