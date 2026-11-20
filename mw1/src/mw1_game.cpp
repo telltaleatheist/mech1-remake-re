@@ -83,6 +83,8 @@
 #include "mw1_travel_map.h"
 #include "mw1_travel_screen.h"
 #include "mw1_save.h"
+#include "mw1_slots.h"
+#include "mw1_start.h"
 #include "mw1_story.h"
 #include "mw1_journal.h"
 #include "mw1_log.h"
@@ -370,11 +372,16 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       const char* screen = std::getenv("MW1_SCREEN");  // development: --shot pictures of the intro
       if (start_ == Start::kNewCampaign || (screen && std::string(screen).rfind("intro", 0) == 0)) {
         start_ = Start::kMenu;  // once: --new-company, as NEW CAMPAIGN without its question
-        new_campaign(ge, false);
+        new_campaign(ge);
         return true;
       }
       // MW1_SCREEN=hub, market, travel or bar: the hub at once, over the menu (shots); else the menu waits.
       if (!screen || std::string(screen) == "menu") return true;
+      // FIXES 125: MW1_SCREEN=slots_load or slots_new (development shots): the menu's LOAD or NEW, its slots.
+      if (std::string(screen) == "slots_load" || std::string(screen) == "slots_new") {
+        open_slots(ge, std::string(screen) == "slots_load" ? slots::Use::kLoad : slots::Use::kNew, false);
+        return true;
+      }
       // FIXES.md item 52's capture: the menu, then CONTINUE (a save there) as the player at MW1_FADE_AT (default 60).
       if (std::string(screen) == "fade_menu") {
         const int at = std::getenv("MW1_FADE_AT") ? std::atoi(std::getenv("MW1_FADE_AT")) : 60;
@@ -384,7 +391,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
           if (start < 0) start = f;
           if (f - start == at) {
             std::printf("mw1: fade capture: frame %d, CONTINUE\n", f);
-            as_player([&] { press_menu(kMenuContinue); });
+            as_player([&] { screen_change([this] { load_slot(*ge_, slot_in_play(), false); }); });
           }
         };
         return true;
@@ -544,6 +551,12 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "hub_contract" && !pending_)
         press(kHubOk), press(kHubOffice), press_office(kOfficeRequest), press_office(kOfficeAccept);
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "hub_options") press(kHubOptions);
+      // FIXES 125: slots_save, the hub's SAVE GAME; slots_confirm, its SLOT2 pressed (a used slot not in play: asked).
+      if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s).rfind("slots_", 0) == 0 && !pending_) {
+        press(kHubOptions);
+        press_hub_options(kHubOptSaveGame);
+        if (std::string(s) == "slots_confirm") press_slots(slots::kSlot2);
+      }
       // credits: the credits over the hub, MW1_CREDITS_AT seconds in (default 12: MW1's first panels up).
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "credits" && !pending_) {
         const char* at = std::getenv("MW1_CREDITS_AT");
@@ -741,18 +754,13 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     std::string line;
     if (company_.stores) line = title_case_name(company_.planet.c_str()) + ", " + thousands(company_.funds) + " C-bills";
     bool can_continue = company_.stores != nullptr;
-    if (!company_.stores && save_there()) {  // the saved company, read to name it (the game loads it at CONTINUE)
-      Company saved;
-      Contract offer;
-      AfterAction after;
-      bool has_offer = false, has_after = false;
-      std::string why;
-      if (load_file(save_path_, saved, offer, &has_offer, &why, &after, &has_after) == Loaded::kLoaded) {
-        line = title_case_name(saved.planet.c_str()) + ", " + thousands(saved.funds) + " C-bills";
-        can_continue = true;
-      } else {
-        line = "The save doesn't read: a new campaign";  // CONTINUE would make a new company (start_company)
-      }
+    // FIXES 125: LOAD opens the slots: on when any holds a company (read only to name the slot in play's; a damaged
+    // one is said on its row, never moved from here).
+    if (!company_.stores && !slot_dir_.empty()) {
+      const std::array<SlotInfo, kSaveSlots> slots = slot_infos();
+      for (const SlotInfo& si : slots) can_continue = can_continue || si.state == SlotInfo::kUsed;
+      const SlotInfo& now = slots[static_cast<size_t>(slot_in_play() - 1)];
+      if (now.state == SlotInfo::kUsed) line = title_case_name(now.planet.c_str()) + ", " + thousands(now.funds) + " C-bills";
     }
     menu_state_->show_menu(can_continue, line);
   }
@@ -762,18 +770,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     mech3::GameEngine* ge = ge_;
     if (!ge) return;
     switch (id) {
-      case kMenuNew: screen_change([this, ge] { new_campaign(*ge, true); }); return;
-      case kMenuContinue:
-        if (company_.stores) {  // the hub's QUIT came back here: the same company, the same offer
-          screen_change([this, ge] {
-            show_hub();
-            ge->push_state(hub_, 0);
-            hub_events();
-          });
-          return;
-        }
-        if (save_there()) screen_change([this, ge] { enter_hub(*ge); });
-        return;
+      // FIXES 125: NEW and LOAD open the save slots (NEW: the slot to start in; LOAD: the slot to load).
+      case kMenuNew: open_slots(*ge, slots::Use::kNew, false); return;
+      case kMenuContinue: open_slots(*ge, slots::Use::kLoad, false); return;
       case kMenuOptions:  // PM's own options, the state its main menu made (its OPTIONS button's, 0x00609868)
         if (const zgame::Handle options = ge->peek32(kOptionsStateGlobal)) ge->push_state(options, 0);
         return;
@@ -782,20 +781,15 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     }
   }
 
-  // NEW CAMPAIGN: over a company asks first, and keeps its save as mw1save.prev; then MW1's intro, then the new company
-  // in the hub (intro_done). `ask` false: --new-company's (the flag is the asking).
-  void new_campaign(mech3::GameEngine& ge, bool ask) {
-    const bool over = company_.stores || save_there();
-    if (ask && over &&
-        static_cast<int32_t>(ge.message_box_words(kBoxYesNo, "MechWarrior 1: Critical Hit",
-                                                  "Start a new campaign?\n\nThe company you have now is kept as " + std::string(kPrevSaveFile) +
-                                                      ".")) != kAnswerYes)
-      return;
+  // NEW CAMPAIGN in the slot in play (FIXES 125: the slots' screen picked it, and asked over a used one; --new-company
+  // doesn't ask): its save kept as its .prev (mw1save2.txt's mw1save2.prev); then MW1's intro, then the new company in
+  // the hub (intro_done).
+  void new_campaign(mech3::GameEngine& ge) {
     if (save_there()) {
-      const std::filesystem::path prev = std::filesystem::path(save_path_).replace_filename(kPrevSaveFile);
+      const std::string prev = beside_save(save_path_, ".prev");
       std::error_code ec;
       std::filesystem::rename(save_path_, prev, ec);
-      std::printf("mw1: the company's save kept as %s%s\n", prev.string().c_str(), ec ? " (failed)" : "");
+      std::printf("mw1: the company's save kept as %s%s\n", prev.c_str(), ec ? " (failed)" : "");
     }
     company_ = Company{}, contract_ = Contract{}, pending_.reset(), offered_ = false, deployed_ = false, launched_ = false;
     fresh_ = true;  // start_company makes one, loading nothing
@@ -1143,6 +1137,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         });
         return;
       case kHubOptBack: screen_change([this] { back_to_hub(); }); return;
+      case kHubOptSaveGame: open_slots(*ge, slots::Use::kSave, true); return;  // FIXES 125
+      case kHubOptLoadGame: open_slots(*ge, slots::Use::kLoad, true); return;
       case kHubOptMusic:  // FIXES.md item 100: on or off at once, saved
       case kHubOptMusicDown:
       case kHubOptMusicUp:
@@ -1158,6 +1154,127 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       }
       default: return;
     }
+  }
+
+  // ---- FIXES 125: the save slots (mw1_slots.h, mw1_save.h) ----
+
+  bool slots_screen(mech3::GameEngine& ge) {
+    if (slots_ && ge.menu_state_of(slots_) == slots_state_) return true;
+    if (!layout_there(slots::kSlotsFile, slots::kSlotsDialog)) return false;
+    slots_ = ge.adopt_state([this](zgame::Handle h) {
+      return slots_state_ = new slots::SlotsState(h, [this](int32_t id) { as_player([&] { press_slots(id); }); });
+    });
+    return slots_ != 0;
+  }
+  std::array<SlotInfo, kSaveSlots> slot_infos() const {
+    std::array<SlotInfo, kSaveSlots> out;
+    if (slot_dir_.empty()) return out;
+    for (int32_t i = 0; i < kSaveSlots; ++i) out[static_cast<size_t>(i)] = peek_slot(slot_path(slot_dir_, i + 1));
+    return out;
+  }
+  void show_slots() {
+    if (!slots_state_) return;
+    slots::SlotsView v;
+    v.use = slots_use_, v.slots = slot_infos(), v.asking = slots_asking_, v.status = slots_status_;
+    // The slot in play marked when it holds something: this company, or the save it was last.
+    if (slot_ && (company_.stores || v.slots[static_cast<size_t>(slot_ - 1)].state != SlotInfo::kEmpty)) v.in_play = slot_;
+    if (slots_from_hub_) v.backdrop = scenery_image(company_.planet_number), v.world = upper(company_.planet);
+    slots_state_->show_slots(v);
+  }
+  // The slots' screen for `use`: over the main menu (NEW, LOAD), or in the hub's OPTIONS' place (SAVE GAME, LOAD GAME).
+  void open_slots(mech3::GameEngine& ge, slots::Use use, bool from_hub) {
+    if (!slots_screen(ge)) return;
+    slots_use_ = use, slots_from_hub_ = from_hub, slots_asking_ = 0, slots_status_.clear();
+    mech3::GameEngine* g = &ge;
+    screen_change([this, g, from_hub] {
+      show_slots();
+      if (from_hub) swap_to(*g, slots_);
+      else g->push_state(slots_, 0);
+    });
+  }
+  // BACK: where the screen came from.
+  void leave_slots(mech3::GameEngine& ge) {
+    if (slots_from_hub_) {
+      show_hub_options();
+      swap_to(ge, hub_options_);
+      return;
+    }
+    ge.pop_state(1);  // the main menu, under it
+    show_menu();
+  }
+  void press_slots(int32_t id) {
+    std::printf("mw1: slots: %s\n", slots::slots_button_name(id));
+    mech3::GameEngine* ge = ge_;
+    if (!ge) return;
+    if (id == slots::kSlotsBack || id == slots::kSlotsNo) {
+      if (slots_asking_) {  // CANCEL (Escape too): the slots again, nothing changed
+        slots_asking_ = 0;
+        show_slots();
+        return;
+      }
+      if (id == slots::kSlotsBack) screen_change([this, ge] { leave_slots(*ge); });
+      return;
+    }
+    int32_t slot = 0;
+    if (id == slots::kSlotsYes) {
+      slot = std::exchange(slots_asking_, 0);
+    } else if (id >= slots::kSlot1 && id <= slots::kSlot3) {
+      slot = id - slots::kSlot1 + 1;
+      const SlotInfo info = peek_slot(slot_path(slot_dir_, slot));
+      if (!slots::slot_usable(slots_use_, info)) return;
+      // A used slot asks first; SAVE over the slot in play doesn't (it holds this company already, the autosave's).
+      const bool own = slots_use_ == slots::Use::kSave && slot == slot_;
+      if (slots::slot_asks(slots_use_, info) && !own) {
+        slots_asking_ = slot;
+        std::printf("mw1: slots: asking before slot %d is overwritten\n", slot);
+        show_slots();
+        return;
+      }
+    }
+    if (slot < 1 || slot > kSaveSlots) return;
+    switch (slots_use_) {
+      case slots::Use::kSave:
+        use_slot(slot);
+        save();
+        std::printf("mw1: saved in slot %d\n", slot);
+        slots_status_ = "Saved in slot " + std::to_string(slot) + ".";
+        show_slots();
+        return;
+      case slots::Use::kLoad: screen_change([this, ge, slot] { load_slot(*ge, slot, true); }); return;
+      case slots::Use::kNew:
+        screen_change([this, ge, slot] {
+          ge->pop_state(1);  // the main menu, under the slots; the intro goes over it
+          forget_company();
+          use_slot(slot);
+          std::printf("mw1: a new campaign in slot %d\n", slot);
+          new_campaign(*ge);
+        });
+        return;
+    }
+  }
+  // The slot in play now `slot`: the autosave writes there, and mw1.cfg keeps it for the next start.
+  void use_slot(int32_t slot) {
+    if (slot_dir_.empty() || slot < 1 || slot > kSaveSlots) return;
+    slot_ = slot, save_path_ = slot_path(slot_dir_, slot);
+    Installs in = read_cfg(slot_dir_);
+    if (in.save_slot != slot) {
+      in.save_slot = slot;
+      if (!write_cfg(slot_dir_, in)) std::printf("mw1: couldn't keep the slot in play in %s\n", kCfg);
+    }
+  }
+  void forget_company() {
+    company_ = Company{}, contract_ = Contract{}, pending_.reset(), offered_ = false, deployed_ = false, launched_ = false;
+    fresh_ = false;
+  }
+  // LOAD: the company in play saved first (the autosave's, so nothing is lost), then `slot`'s company in the hub over
+  // the main menu. `from_screen`: the slots' screen is up (it goes; the menu is under it).
+  void load_slot(mech3::GameEngine& ge, int32_t slot, bool from_screen) {
+    if (company_.stores && !deployed_) save();
+    if (from_screen) ge.pop_state(1);
+    forget_company();
+    use_slot(slot);
+    std::printf("mw1: loading slot %d\n", slot);
+    enter_hub(ge);
   }
 
   void show_office() {
@@ -3232,7 +3349,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     auto on = [&](auto* st) { return st && app->current() == static_cast<zgame::State*>(st) ? st->screen() : nullptr; };
     struct Shown { Mw1Screen* sc; const char* kind; };
     const Shown shown[] = {{on(results_state_), "results"}, {app->current() == &mech3::states().load ? loading_.get() : nullptr, "loading"},
-                           {on(hub_options_state_), "hub_options"}, {on(event_state_), "event"}, {on(hub_state_), "hub"},
+                           {on(hub_options_state_), "hub_options"}, {on(slots_state_), "slots"}, {on(event_state_), "event"}, {on(hub_state_), "hub"},
                            {on(market_state_), "market"}, {on(travel_state_), "travel"}, {on(office_state_), "office"},
                            {on(bar_state_), "bar"}};
     for (const Shown& s : shown)
@@ -3253,8 +3370,22 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   TravelState* travel_state() const { return travel_state_; }
   Company* company_mut() { return company_.stores ? &company_ : nullptr; }
   void market_changed() { show_market(); }
-  void set_save(const std::string& path, bool fresh) { save_path_ = path, fresh_ = fresh; }
+  // The save at `path` (the tests'): the slots beside it (its folder's mw1save1.txt..), none of them in play unless
+  // it is one.
+  void set_save(const std::string& path, bool fresh) {
+    save_path_ = path, fresh_ = fresh, slot_ = 0;
+    slot_dir_ = path.empty() ? std::string() : std::filesystem::path(path).parent_path().string();
+    for (int32_t i = 1; i <= kSaveSlots; ++i)
+      if (!path.empty() && slot_path(slot_dir_, i) == path) slot_ = i;
+  }
+  // FIXES 125: the slots in mw1's write dir, `slot` the one in play (mw1.cfg's save_slot=).
+  void set_slots(const std::string& write_dir, int32_t slot, bool fresh) {
+    slot_dir_ = write_dir, slot_ = std::clamp(slot, 1, kSaveSlots), fresh_ = fresh;
+    save_path_ = slot_path(write_dir, slot_);
+  }
+  int32_t slot_in_play() const { return slot_ ? slot_ : 1; }
   void set_start(Start s) { start_ = s; }
+  slots::SlotsState* slots_state() const { return slots_state_; }
   MenuState* menu_state() const { return menu_state_; }
   IntroState* intro_state() const { return intro_state_; }
   CreditsState* credits_state() const { return credits_up_ ? credits_state_ : nullptr; }
@@ -3396,7 +3527,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       switch (load_file(save_path_, company_, contract_, &has_offer, &why, pending.get(), &has_pending)) {
         case Loaded::kLoaded:
           if (!company_.market.rolled) refresh_world(company_, rng_);  // a version 1 save: no market yet
-          else if (company_.recruits.empty()) refresh_recruits(company_, rng_);  // before version 4: no Bar yet
+          // Before version 4: no Bar yet. (Not on an empty list: a save whose recruits were all hired keeps none; FIXES 125's
+          // LOAD reads the slot again over the company in play, and the soak found the redraw.)
+          else if (company_.recruits_unsaved) refresh_recruits(company_, rng_), company_.recruits_unsaved = false;
           if (!company_.story.planets[0]) roll_story_planets_for_old_save(company_, rng_);  // before version 8: no story yet
           if (has_pending) pending_ = std::move(pending), launch_stores_ = pending_->launch_stores, launch_loadout_ = pending_->launch_loadout;
           std::printf("mw1: the company loaded from %s: %s C-bills, %d items in the stores, %d kills%s\n", save_path_.c_str(),
@@ -3405,7 +3538,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
           offered_ = has_offer && !contract_.accepted;  // an offer up at the office; one taken shows at the hub
           return has_offer;
         case Loaded::kBad:
-          std::printf("mw1: the save %s doesn't read (%s): kept as mw1save.bad; a new company\n", save_path_.c_str(), why.c_str());
+          std::printf("mw1: the save %s doesn't read (%s): kept as %s; a new company\n", save_path_.c_str(), why.c_str(),
+                      std::filesystem::path(beside_save(save_path_, ".bad")).filename().string().c_str());
           break;
         case Loaded::kNone: break;
       }
@@ -3941,6 +4075,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     Mw1Screen* sc = p == "results"     ? on(game_loop_results())
                     : p.rfind("loading", 0) == 0 ? (app->current() == &mech3::states().load ? loading_.get() : nullptr)
                     : p == "hub_options" ? on(game_loop_hub_options())
+                    : p.rfind("slots", 0) == 0 ? on(game_loop_slots())
                     : p == "news" || p == "bar_drink" || p == "event" || (p.rfind("hub", 0) == 0 && on(game_loop_event()))
                         ? on(game_loop_event())
                     : p.rfind("hub", 0) == 0                ? on(game_loop_hub())
@@ -4314,7 +4449,17 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   std::vector<int32_t> enemy_chassis_, enemy_loadouts_;  // and its chassis and loadouts (FIXES 104; empty: stand-ins)
   std::string objective_built_;
   bool objective_fell_back_ = false;
-  std::string save_path_;  // mw1save.txt; empty: no save
+  std::string save_path_;  // the slot in play's save (mw1save<n>.txt); empty: no save
+  // FIXES 125: the slots' folder (mw1's write dir), the slot in play (0: the save isn't a slot, a test's path), and
+  // the slots' screen: its state, its use, where it came from (the hub's OPTIONS, else the main menu), its question.
+  std::string slot_dir_;
+  int32_t slot_ = 0;
+  zgame::Handle slots_ = 0;
+  slots::SlotsState* slots_state_ = nullptr;
+  slots::Use slots_use_ = slots::Use::kLoad;
+  bool slots_from_hub_ = false;
+  int32_t slots_asking_ = 0;
+  std::string slots_status_;
   std::string world_;      // set_game_loop_world's: every new contract there
   int32_t world_ia_ = 1;
   bool fresh_ = false;     // --new-company: a new company over the save
@@ -4374,6 +4519,11 @@ void uninstall_game_loop() {
 void set_game_loop_save(const std::string& path, bool new_company) {
   if (the_loop()) the_loop()->set_save(path, new_company);
 }
+
+void set_game_loop_slots(const std::string& write_dir, int32_t slot, bool new_company) {
+  if (the_loop()) the_loop()->set_slots(write_dir, slot, new_company);
+}
+slots::SlotsState* game_loop_slots() { return the_loop() ? the_loop()->slots_state() : nullptr; }
 
 void set_game_loop_start(Start s) {
   if (the_loop()) the_loop()->set_start(s);

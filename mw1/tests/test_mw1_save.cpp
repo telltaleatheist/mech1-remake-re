@@ -14,6 +14,8 @@
 #include "mech3/pilot.h"
 #include "mw1_campaign.h"
 #include "mw1_save.h"
+#include "mw1_slots.h"
+#include "mw1_start.h"
 
 namespace fs = std::filesystem;
 
@@ -132,7 +134,8 @@ TEST(mw1_save_file_missing_bad_and_atomic) {
   EXPECT(mw1::save_file(path, c, nullptr, &why));
   c.funds += 5000;
   EXPECT(mw1::save_file(path, c, nullptr, &why));
-  EXPECT(!fs::exists(path + ".tmp", ec) && file_text(path) == mw1::save_text(c, nullptr));
+  EXPECT(!fs::exists(path + ".tmp", ec) && file_text(path) == mw1::save_text(c, nullptr, nullptr, mw1::saved_at_in(file_text(path))));
+  EXPECT(mw1::saved_at_in(file_text(path)) > 0);  // FIXES 125: when it was written
   EXPECT(mw1::load_file(path, into, k, &has, &why) == mw1::Loaded::kLoaded && into.funds == c.funds);
   // Damaged on disk: refused, said, and set aside as mw1save.bad (the same bytes), the save itself gone.
   std::string damaged = file_text(path);
@@ -263,4 +266,105 @@ TEST(mw1_save_a_version_10_save_reads_mw1s_kinds_as_slots) {
   const std::string again = mw1::save_text(back, &kb, &pb);
   EXPECT(again.find("\nversion=11\n") != std::string::npos || again.rfind("version=11\n", 0) == 0);
   EXPECT(again.find("\noffer_enemies=7,0,3,2\n") != std::string::npos && again.find("\npending_wrecks=6:50:0,1:100:0\n") != std::string::npos);
+}
+
+// FIXES 125: the three slots. The one save from before 1.0.2 (with its .prev and .bad) becomes slot 1's, bytes
+// untouched, once; a slot already there is never replaced by it.
+TEST(mw1_save_slots_migrate_the_old_save_to_slot_1) {
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_save_migrate";
+  std::error_code ec;
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  mw1::Rng rng(21);
+  const mw1::Company c = played_company(rng);
+  std::string why, said;
+  EXPECT(!mw1::migrate_slots(dir.string(), &said));  // nothing there: nothing done
+  EXPECT(mw1::save_file((dir / mw1::kSaveFile).string(), c, nullptr, &why));
+  std::ofstream(dir / mw1::kPrevSaveFile) << "the company NEW CAMPAIGN replaced";
+  std::ofstream(dir / "mw1save.bad") << "a damaged one";
+  const std::string text = file_text(dir / mw1::kSaveFile);
+  EXPECT(mw1::migrate_slots(dir.string(), &said));
+  std::printf("  migrated: %s\n", said.c_str());
+  const std::string one = mw1::slot_path(dir.string(), 1);
+  EXPECT(fs::path(one).filename() == "mw1save1.txt" && file_text(one) == text && !fs::exists(dir / mw1::kSaveFile, ec));
+  EXPECT(file_text(dir / "mw1save1.prev") == "the company NEW CAMPAIGN replaced" && file_text(dir / "mw1save1.bad") == "a damaged one");
+  EXPECT(!fs::exists(dir / mw1::kPrevSaveFile, ec) && !fs::exists(dir / "mw1save.bad", ec));
+  EXPECT(said.find("mw1save1.txt") != std::string::npos);
+  // Once: an old save that turns up again beside slot 1 is left alone.
+  std::ofstream(dir / mw1::kSaveFile) << "x";
+  EXPECT(!mw1::migrate_slots(dir.string(), &said) && file_text(one) == text && file_text(dir / mw1::kSaveFile) == "x");
+}
+
+// FIXES 125: each slot read without changing anything (peek_slot), its words on the screen, and what its button does
+// in each use. A damaged slot is said and stays where it is; the others read.
+TEST(mw1_save_slots_peek_words_and_a_damaged_slot_alone) {
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_save_slots";
+  std::error_code ec;
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  mw1::Rng rng(22);
+  mw1::Company a = played_company(rng), b = played_company(rng);
+  a.funds = 1196000, a.kills = 3, b.funds = 3412500, b.kills = 14;
+  std::string why;
+  const std::string p1 = mw1::slot_path(dir.string(), 1), p2 = mw1::slot_path(dir.string(), 2), p3 = mw1::slot_path(dir.string(), 3);
+  EXPECT(mw1::save_file(p1, a, nullptr, &why) && mw1::save_file(p3, b, nullptr, &why));
+  // Slot 2 damaged (a byte changed): DAMAGED, left in place; slots 1 and 3 read as saved.
+  EXPECT(mw1::save_file(p2, b, nullptr, &why));
+  std::string t = file_text(p2);
+  t[t.find("funds=") + 6] ^= 1;
+  std::ofstream(p2, std::ios::binary | std::ios::trunc) << t;
+  const mw1::SlotInfo s1 = mw1::peek_slot(p1), s2 = mw1::peek_slot(p2), s3 = mw1::peek_slot(p3);
+  EXPECT(s1.state == mw1::SlotInfo::kUsed && s1.funds == a.funds && s1.kills == 3 && s1.planet == a.planet && s1.saved_at > 0);
+  EXPECT(s2.state == mw1::SlotInfo::kDamaged && file_text(p2) == t && !fs::exists(dir / "mw1save2.bad", ec));
+  EXPECT(s3.state == mw1::SlotInfo::kUsed && s3.funds == b.funds && s3.kills == 14);
+  EXPECT(mw1::peek_slot((dir / "mw1save9.txt").string()).state == mw1::SlotInfo::kEmpty);
+  // A company whose recruits were all hired reads back with none (and none to draw: LOAD over the company in play
+  // reads the slot again, and the soak found the Bar's redraw).
+  {
+    mw1::Company hired = a, back;
+    hired.recruits.clear();
+    mw1::Contract kk;
+    bool hk = false;
+    std::string w;
+    EXPECT(mw1::load_text(mw1::save_text(hired, nullptr), back, kk, &hk, &w) && back.recruits.empty() && !back.recruits_unsaved);
+  }
+  // Loading the damaged one sets it aside as its own .bad; the others untouched.
+  const std::string one = file_text(p1), three = file_text(p3);
+  mw1::Company into;
+  mw1::Contract k;
+  bool has = false;
+  EXPECT(mw1::load_file(p2, into, k, &has, &why) == mw1::Loaded::kBad && file_text(dir / "mw1save2.bad") == t && !fs::exists(p2, ec));
+  EXPECT(file_text(p1) == one && file_text(p3) == three && !fs::exists(dir / "mw1save.bad", ec));
+  // The words.
+  using namespace mw1::slots;
+  const SlotWords w1 = slot_words(s1, 1, true), w2 = slot_words(s2, 2, false), we = slot_words(mw1::SlotInfo{}, 3, false);
+  std::printf("  slot 1: [%s] [%s] [%s] [%s] [%s]\n", w1.head.c_str(), w1.name.c_str(), w1.lines[0].c_str(), w1.lines[1].c_str(), w1.saved.c_str());
+  EXPECT(w1.head == "SLOT 1  \xB7  IN PLAY" && w1.lines.size() == 2 && w1.lines[1] == "1,196,000 C-BILLS, 3 KILLS");
+  EXPECT(w1.lines[0].rfind("HOUSE ", 0) == 0 && w1.saved.rfind("SAVED ", 0) == 0 && w1.saved.size() == 22);
+  EXPECT(w2.head == "SLOT 2" && w2.name == "DAMAGED" && we.name == "EMPTY" && we.lines.empty() && we.saved.empty());
+  // Each fits its place: the lines in the slot's room left of its button (28 letters of Share Tech Mono at 13).
+  for (const std::string& l : w1.lines) EXPECT(l.size() <= 30);
+  // LOAD a used slot only; SAVE and START any, a used or damaged one asked about first.
+  EXPECT(slot_usable(Use::kLoad, s1) && !slot_usable(Use::kLoad, s2) && !slot_usable(Use::kLoad, mw1::SlotInfo{}));
+  EXPECT(slot_usable(Use::kSave, mw1::SlotInfo{}) && slot_usable(Use::kNew, s2));
+  EXPECT(!slot_asks(Use::kLoad, s1) && slot_asks(Use::kSave, s1) && slot_asks(Use::kNew, s2) && !slot_asks(Use::kSave, mw1::SlotInfo{}));
+  EXPECT(confirm_title(Use::kSave, 2) == "OVERWRITE SLOT 2?" && confirm_title(Use::kNew, 1) == "START OVER IN SLOT 1?");
+  const std::vector<std::string> cl = confirm_lines(Use::kNew, s1, 1);
+  EXPECT(cl.size() == 5 && cl.back().find("mw1save1.prev") != std::string::npos);
+}
+
+// FIXES 125: mw1.cfg keeps the slot in play (save_slot=), beside the installs and the sound, through a read and a write.
+TEST(mw1_save_slots_the_slot_in_play_in_mw1_cfg) {
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_save_cfg";
+  std::error_code ec;
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  EXPECT(mw1::read_cfg(dir.string()).save_slot == -1);  // none: slot 1 at the start
+  mw1::Installs in;
+  in.pm = "/pm", in.save_slot = 3, in.sound.music = 1;
+  EXPECT(mw1::write_cfg(dir.string(), in));
+  const mw1::Installs back = mw1::read_cfg(dir.string());
+  EXPECT(back.save_slot == 3 && back.pm == "/pm" && back.sound.music == 1);
+  std::ofstream(dir / mw1::kCfg) << "save_slot=0\n";
+  EXPECT(mw1::read_cfg(dir.string()).save_slot == -1);  // not a slot
 }

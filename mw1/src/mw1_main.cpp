@@ -229,9 +229,14 @@ int main(int argc, char** argv) {
   // contract reach that structure on c2's second Instant Action map.
   const char* seed = std::getenv("MW1_SEED");
   mw1::install_game_loop(seed ? static_cast<uint32_t>(std::strtoul(seed, nullptr, 10)) : 0, std::getenv("MW1_REACH"));
-  // The company's save in the write dir (mw1_save.h). MW1's main menu first (mw1_menu.h); --new-company is its NEW
-  // CAMPAIGN at once (the intro, the old save kept as mw1save.prev).
-  if (!a.write_dir.empty()) mw1::set_game_loop_save((std::filesystem::path(a.write_dir) / mw1::kSaveFile).string(), a.new_company);
+  // The company's saves in the write dir (mw1_save.h, FIXES 125: three slots; the one save before 1.0.2 becomes slot
+  // 1), the slot in play mw1.cfg's. MW1's main menu first (mw1_menu.h); --new-company is NEW CAMPAIGN at once in the
+  // slot in play (the intro, its old save kept as its .prev).
+  if (!a.write_dir.empty()) {
+    std::string said;
+    if (mw1::migrate_slots(a.write_dir, &said)) std::printf("mw1: saves: %s\n", said.c_str());
+    mw1::set_game_loop_slots(a.write_dir, use.save_slot >= 1 ? use.save_slot : 1, a.new_company);
+  }
   mw1::set_game_loop_start(a.new_company ? mw1::Start::kNewCampaign : mw1::Start::kMenu);
   // FIXES.md item 100: MW1's menu theme (the CD's extra track, mw1data's music/), its settings from mw1.cfg; a run no
   // player hears (--nosound, --hidden) plays no music aloud.

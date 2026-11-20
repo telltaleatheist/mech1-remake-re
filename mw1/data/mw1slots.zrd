@@ -1,0 +1,89 @@
+; MW1: Critical Hit's save slots (FIXES 125, src/mw1_slots.h), on MW1's screen template (src/mw1_screen.h; the
+; keys ANCHOR, LABEL_AT, LABEL_FONT, LABEL_OFF_FONT, TEXTS and the _WIDE layout are ours).
+; One screen for LOAD GAME (the main menu's LOAD), SAVE GAME (the hub's OPTIONS) and NEW CAMPAIGN (the main menu's
+; NEW): a panel with the three slots' terminals, each with its words and its button (LOAD, SAVE or START), and BACK.
+; The BACKGROUND is the title screen's; from the hub, the world's scenery (the screen names it).
+; The confirm (overwriting a used slot) is in the screen, MW1's look, no system dialog: PANEL5's panel with its
+; title and lines, YES and NO (their words the screen's); while it shows, the slots' terminals, words and buttons and
+; BACK are hidden.
+; MW1SLOTS is 4:3's (640); MW1SLOTS_WIDE the 16:9 canvas's (853).
+(
+MW1SLOTS (
+  CURSOR (BITMAP ("mw1_cursor") CENTER (1))
+  PRIMITIVES (
+    BACKGROUND (POSITION (-107 0) BITMAP ("mw1_title_bg") ANCHOR ("CENTRE"))
+    PANEL (POSITION (90 22) BITMAP ("mw1_panel_460x414"))
+    PANEL2 (POSITION (108 66) BITMAP ("mw1_panel_424x100"))
+    PANEL3 (POSITION (108 172) BITMAP ("mw1_panel_424x100"))
+    PANEL4 (POSITION (108 278) BITMAP ("mw1_panel_424x100"))
+    PANEL5 (POSITION (108 130) BITMAP ("mw1_panel_424x170"))
+    PANEL6 (POSITION (-107 454) BITMAP ("mw1_statusbar") ANCHOR ("CENTRE"))
+  )
+  BUTTONS (
+    SLOT1 (POSITION (352 101) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (436 107) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    SLOT2 (POSITION (352 207) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (436 213) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    SLOT3 (POSITION (352 313) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (436 319) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    BACK (POSITION (236 392) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (320 398) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    YES (POSITION (130 258) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (214 264) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    NO (POSITION (342 258) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (426 264) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+  )
+  TEXTS (
+    TITLE (POSITION (112 36) FONT ("mw1_panel_title"))
+    SLOT1_HEAD (POSITION (120 74) FONT ("mw1_panel_title"))
+    SLOT1_NAME (POSITION (120 88) FONT ("mw1_slot_name"))
+    SLOT1_LINES (POSITION (120 118) FONT ("mw1_panel_line") GAP (14))
+    SLOT1_SAVED (POSITION (120 146) FONT ("mw1_line_off"))
+    SLOT2_HEAD (POSITION (120 180) FONT ("mw1_panel_title"))
+    SLOT2_NAME (POSITION (120 194) FONT ("mw1_slot_name"))
+    SLOT2_LINES (POSITION (120 224) FONT ("mw1_panel_line") GAP (14))
+    SLOT2_SAVED (POSITION (120 252) FONT ("mw1_line_off"))
+    SLOT3_HEAD (POSITION (120 286) FONT ("mw1_panel_title"))
+    SLOT3_NAME (POSITION (120 300) FONT ("mw1_slot_name"))
+    SLOT3_LINES (POSITION (120 330) FONT ("mw1_panel_line") GAP (14))
+    SLOT3_SAVED (POSITION (120 358) FONT ("mw1_line_off"))
+    CONFIRM_TITLE (POSITION (124 142) FONT ("mw1_panel_title"))
+    CONFIRM_LINES (POSITION (124 166) FONT ("mw1_panel_line") GAP (15))
+    STATUS_WORLD (POSITION (12 460) FONT ("mw1_status_world"))
+    STATUS (POSITION (132 461) FONT ("mw1_status"))
+  )
+)
+MW1SLOTS_WIDE (
+  CURSOR (BITMAP ("mw1_cursor") CENTER (1))
+  PRIMITIVES (
+    BACKGROUND (POSITION (0 0) BITMAP ("mw1_title_bg") ANCHOR ("CENTRE"))
+    PANEL (POSITION (197 22) BITMAP ("mw1_panel_460x414") ANCHOR ("CENTRE"))
+    PANEL2 (POSITION (215 66) BITMAP ("mw1_panel_424x100") ANCHOR ("CENTRE"))
+    PANEL3 (POSITION (215 172) BITMAP ("mw1_panel_424x100") ANCHOR ("CENTRE"))
+    PANEL4 (POSITION (215 278) BITMAP ("mw1_panel_424x100") ANCHOR ("CENTRE"))
+    PANEL5 (POSITION (215 130) BITMAP ("mw1_panel_424x170") ANCHOR ("CENTRE"))
+    PANEL6 (POSITION (0 454) BITMAP ("mw1_statusbar") ANCHOR ("CENTRE"))
+  )
+  BUTTONS (
+    SLOT1 (POSITION (459 101) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (543 107) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    SLOT2 (POSITION (459 207) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (543 213) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    SLOT3 (POSITION (459 313) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (543 319) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    BACK (POSITION (343 392) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (427 398) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    YES (POSITION (237 258) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (321 264) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    NO (POSITION (449 258) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (533 264) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+  )
+  TEXTS (
+    TITLE (POSITION (219 36) FONT ("mw1_panel_title") ANCHOR ("CENTRE"))
+    SLOT1_HEAD (POSITION (227 74) FONT ("mw1_panel_title") ANCHOR ("CENTRE"))
+    SLOT1_NAME (POSITION (227 88) FONT ("mw1_slot_name") ANCHOR ("CENTRE"))
+    SLOT1_LINES (POSITION (227 118) FONT ("mw1_panel_line") GAP (14) ANCHOR ("CENTRE"))
+    SLOT1_SAVED (POSITION (227 146) FONT ("mw1_line_off") ANCHOR ("CENTRE"))
+    SLOT2_HEAD (POSITION (227 180) FONT ("mw1_panel_title") ANCHOR ("CENTRE"))
+    SLOT2_NAME (POSITION (227 194) FONT ("mw1_slot_name") ANCHOR ("CENTRE"))
+    SLOT2_LINES (POSITION (227 224) FONT ("mw1_panel_line") GAP (14) ANCHOR ("CENTRE"))
+    SLOT2_SAVED (POSITION (227 252) FONT ("mw1_line_off") ANCHOR ("CENTRE"))
+    SLOT3_HEAD (POSITION (227 286) FONT ("mw1_panel_title") ANCHOR ("CENTRE"))
+    SLOT3_NAME (POSITION (227 300) FONT ("mw1_slot_name") ANCHOR ("CENTRE"))
+    SLOT3_LINES (POSITION (227 330) FONT ("mw1_panel_line") GAP (14) ANCHOR ("CENTRE"))
+    SLOT3_SAVED (POSITION (227 358) FONT ("mw1_line_off") ANCHOR ("CENTRE"))
+    CONFIRM_TITLE (POSITION (231 142) FONT ("mw1_panel_title") ANCHOR ("CENTRE"))
+    CONFIRM_LINES (POSITION (231 166) FONT ("mw1_panel_line") GAP (15) ANCHOR ("CENTRE"))
+    STATUS_WORLD (POSITION (16 460) FONT ("mw1_status_world"))
+    STATUS (POSITION (136 461) FONT ("mw1_status"))
+  )
+)
+)

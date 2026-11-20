@@ -5,6 +5,42 @@ Tick an item when it is merged into `main`.
 
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 125. [x] Three save slots, each one overwritable *(done: mw1-fix125-save-slots; for MW1 1.0.2 with the launcher's 1.2.0)*
+Owen: "lets make it so people have three game save slots and they can overwrite any of them." Then: "save and load
+both, yes. maybe it lists three slots and you pick one, and if you want to start a new game you can click new game
+and pick the slot to overwrite".
+- **The files:** `mw1save1.txt`, `mw1save2.txt` and `mw1save3.txt` in the write dir, each written atomically as
+  before (a `.tmp` renamed). `.prev` (the company NEW CAMPAIGN replaced) and `.bad` (a save that didn't read) are per
+  slot: `mw1save2.prev`, `mw1save2.bad`. A damaged slot is set aside alone; the other two still load.
+- **Migration:** at start, `mw1save.txt` (with its `.prev` and `.bad`) becomes slot 1's, its bytes untouched, once, and
+  only when there is no slot 1 (`migrate_slots`; the log says "mw1: saves: mw1save.txt is now mw1save1.txt").
+- **The slot in play** is kept in `mw1.cfg` (`save_slot=`, 1 to 3; none means slot 1). The autosave writes to it.
+- **The screen** (`mw1_slots.h`, `mw1slots.zrd`, 4:3 and 16:9): one panel per slot, headed SLOT n (and IN PLAY), the
+  world in big letters, the House and date, the funds and kills, and when it was saved. An empty slot says EMPTY and a
+  damaged one says DAMAGED. Each slot's button is the use's verb:
+  - **NEW CAMPAIGN** (the title screen): START on any slot.
+  - **LOAD** (the title screen; on when any slot is used): LOAD on a used slot.
+  - **SAVE GAME** and **LOAD GAME** (the hub's OPTIONS; the dialog is now SETTINGS, the music rows, SAVE GAME,
+    LOAD GAME, MAIN MENU, BACK).
+- **The confirm** is in the screen, MW1's look, never a system dialog. SAVE over a used slot asks OVERWRITE SLOT n?
+  (SAVE / CANCEL); START over a used or damaged one asks START OVER IN SLOT n? and names its `.prev`. While it asks,
+  the slots and BACK are hidden. NEW CAMPAIGN's old question (a message box) is gone; it is this confirm now.
+- **Decisions:** SAVE into another slot makes that the slot in play. SAVE over the slot in play doesn't ask (it is the
+  autosave's own file). LOAD from the hub saves the slot in play first (any change since the autosave), then loads.
+  Each slot is headed by its world, not a name: the commander's name comes from the player's MW_MAIN.EXE and is the
+  same in every slot.
+- **The save format:** a `saved_at=` line (Unix seconds) after the version. Unknown keys are ignored, so no version
+  bump, and 1.0.1 still reads 1.0.2's saves. A save without it shows the file's time.
+- **Found on the way (the soak):** loading a save whose Bar recruits were all hired drew new ones, because the
+  rule for saves before version 4 (no Bar) tested for an empty list. It now tests the save's version
+  (`Company::recruits_unsaved`). It only showed once LOAD read a slot again over the company in play.
+- **Tests:** `mw1_save_slots_migrate_the_old_save_to_slot_1`, `mw1_save_slots_peek_words_and_a_damaged_slot_alone`,
+  `mw1_save_slots_the_slot_in_play_in_mw1_cfg`; `mw1_menu_continue_and_new_over_a_save_headless` rewritten (LOAD
+  through the slots, NEW's confirm CANCEL then START with `mw1save1.prev`, the hub's SAVE GAME into slot 2 and its
+  LOAD GAME of slot 1 with the change saved first, no system box); `mw1_menu_new_campaign_plays_the_intro_then_the_hub_headless`
+  starts in slot 2; the soaks, the music tests and the via-menu run go through the slots screen.
+- **Shots:** `MW1_SCREEN=slots_save`, `slots_confirm` (from the hub), `slots_load`, `slots_new` (from the menu).
+
 ## 123. [ ] mw1's log opens with Pirate's Moon's banner and an engine version *(planned for MW1 1.1.0; cosmetic)*
 - **What shows:** the first line of every mw1 run, on the console and in `<write dir>/mw3.log`, is
   `mw3pm (Pirate's Moon rebuild) pm-v1.1.3-657-gcd180547, log …/mw3.log`, not MW1's name and `mw1-v1.0.1`.

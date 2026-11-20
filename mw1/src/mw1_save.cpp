@@ -5,6 +5,8 @@
 #include "mw1_ladder.h"
 
 #include <cctype>
+#include <ctime>
+#include <sys/stat.h>
 #include <cstdio>
 #include <filesystem>
 #include <algorithm>
@@ -93,9 +95,10 @@ bool to_int(const std::string& s, int64_t lo, int64_t hi, int64_t* out) {
 
 }  // namespace
 
-std::string save_text(const Company& c, const Contract* offer, const AfterAction* pending) {
+std::string save_text(const Company& c, const Contract* offer, const AfterAction* pending, int64_t saved_at) {
   std::ostringstream o;
   o << "version=" << kSaveVersion << "\n";
+  if (saved_at) o << "saved_at=" << saved_at << "\n";
   o << "funds=" << c.funds << "\n";
   o << "mech=" << c.mech << "\n";
   o << "kills=" << c.kills << "\n";
@@ -383,6 +386,7 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
     c.date = {static_cast<int32_t>(f[0]), static_cast<int32_t>(f[1]), static_cast<int32_t>(f[2])};
     c.market_clock = static_cast<int32_t>(clock);
   }
+  c.recruits_unsaved = !v4;
   if (v4) {
     // A comma list of numbers (each lo..hi) or a's pairs "a:b".
     auto ints = [&](const std::string& text, char sep, int64_t lo, int64_t hi, std::vector<int64_t>* out) {
@@ -687,7 +691,7 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
 }
 
 bool save_file(const std::string& path, const Company& c, const Contract* offer, std::string* why, const AfterAction* pending) {
-  const std::string text = save_text(c, offer, pending), tmp = path + ".tmp";
+  const std::string text = save_text(c, offer, pending, static_cast<int64_t>(std::time(nullptr))), tmp = path + ".tmp";
   {
     std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
     f << text;
@@ -715,12 +719,74 @@ Loaded load_file(const std::string& path, Company& c, Contract& offer, bool* has
   all << f.rdbuf();
   if (f.bad() || !load_text(all.str(), c, offer, has_offer, why, pending, has_pending)) {
     if (why && why->empty()) *why = "it doesn't read";
-    const std::string bad = (fs::path(path).parent_path() / "mw1save.bad").string();
+    const std::string bad = beside_save(path, ".bad");
     fs::remove(bad, ec);
     fs::rename(path, bad, ec);
     return Loaded::kBad;
   }
   return Loaded::kLoaded;
+}
+
+std::string slot_path(const std::string& write_dir, int32_t slot) {
+  return (fs::path(write_dir) / ("mw1save" + std::to_string(slot) + ".txt")).string();
+}
+
+std::string beside_save(const std::string& save_path, const char* extension) {
+  return fs::path(save_path).replace_extension(extension).string();
+}
+
+bool migrate_slots(const std::string& write_dir, std::string* said) {
+  if (write_dir.empty()) return false;
+  const fs::path old = fs::path(write_dir) / kSaveFile;
+  const std::string one = slot_path(write_dir, 1);
+  std::error_code ec;
+  if (!fs::exists(old, ec) || fs::exists(one, ec)) return false;
+  bool moved = false;
+  std::string words;
+  for (const char* ext : {".txt", ".prev", ".bad"}) {
+    const fs::path from = fs::path(old).replace_extension(ext), to = beside_save(one, ext);
+    if (!fs::exists(from, ec) || fs::exists(to, ec)) continue;
+    fs::rename(from, to, ec);
+    if (ec) {
+      words += (words.empty() ? "" : ", ") + from.filename().string() + " not moved (" + ec.message() + ")";
+      continue;
+    }
+    moved = true;
+    words += (words.empty() ? "" : ", ") + from.filename().string() + " is now " + to.filename().string();
+  }
+  if (said) *said = words;
+  return moved;
+}
+
+int64_t saved_at_in(const std::string& text) {
+  const size_t at = text.find("\nsaved_at=");
+  return at == std::string::npos ? 0 : std::strtoll(text.c_str() + at + 10, nullptr, 10);
+}
+
+SlotInfo peek_slot(const std::string& path) {
+  SlotInfo out;
+  std::error_code ec;
+  if (!fs::is_regular_file(path, ec)) return out;
+  std::ifstream f(path, std::ios::binary);
+  std::ostringstream all;
+  all << f.rdbuf();
+  const std::string text = all.str();
+  Company c;
+  Contract offer;
+  bool has_offer = false;
+  std::string why;
+  if (f.bad() || !load_text(text, c, offer, &has_offer, &why)) {
+    out.state = SlotInfo::kDamaged;
+    return out;
+  }
+  out.state = SlotInfo::kUsed;
+  out.planet = c.planet, out.house = c.planet_house, out.date = c.date, out.funds = c.funds, out.kills = c.kills;
+  out.saved_at = saved_at_in(text);
+  if (out.saved_at <= 0) {  // a save from before saved_at=: when its file was written
+    struct stat st {};
+    if (::stat(path.c_str(), &st) == 0) out.saved_at = static_cast<int64_t>(st.st_mtime);
+  }
+  return out;
 }
 
 }  // namespace mw1

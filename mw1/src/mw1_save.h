@@ -51,6 +51,8 @@
 //                      another is refused. The world's name, House and tier
 //                      are re-read from the map (mw1_travel.h) by its number.
 //   ...                the company's and the offer's lines
+//   saved_at=<n>       FIXES 125: when it was written (Unix seconds), for the slots' screen; any version (a
+//                      reader without it ignores the line). Absent: the file's modified time.
 //   check=<8 hex>      FNV-1a of every line before it, so a damaged or partial
 //                      file is refused before anything in it is read
 //
@@ -68,20 +70,49 @@ inline constexpr const char* kPrevSaveFile = "mw1save.prev";  // the company NEW
 // The file's text for a company and the contract (null: none on offer), and
 // a mission back and not settled yet (null: none; then the contract is the
 // accepted one, its advance paid: pending_* lines).
-std::string save_text(const Company& c, const Contract* offer, const AfterAction* pending = nullptr);
+// `saved_at` (Unix seconds) 0: no saved_at line.
+std::string save_text(const Company& c, const Contract* offer, const AfterAction* pending = nullptr, int64_t saved_at = 0);
 // Read back: false, and why, when the text is not a whole save of versions 1 to 8. On
 // false `c`, `offer` and `pending` are left as they were. A save from before
 // the pending lines reads as none pending.
 bool load_text(const std::string& text, Company& c, Contract& offer, bool* has_offer, std::string* why,
                AfterAction* pending = nullptr, bool* has_pending = nullptr);
 
-// To `path`, atomically (path + ".tmp", then the rename); false and why when it can't.
+// To `path`, atomically (path + ".tmp", then the rename), saved_at= the time now; false and why when it can't.
 bool save_file(const std::string& path, const Company& c, const Contract* offer, std::string* why,
                const AfterAction* pending = nullptr);
 enum class Loaded { kNone, kLoaded, kBad };
 // From `path`: kNone when there is no file; kBad when it doesn't read (why says
-// why, and the file is moved aside to mw1save.bad, replacing an older one).
+// why, and the file is moved aside to its .bad (mw1save1.txt's mw1save1.bad), replacing an older one).
 Loaded load_file(const std::string& path, Company& c, Contract& offer, bool* has_offer, std::string* why,
                  AfterAction* pending = nullptr, bool* has_pending = nullptr);
+
+// ---- FIXES 125: three save slots ----
+// mw1save1.txt, mw1save2.txt and mw1save3.txt in mw1's write dir, each written as above. Beside each, its own .prev
+// (the company a NEW CAMPAIGN replaced in that slot) and .bad (that slot's save set aside when it didn't read); one
+// slot's files never touch another's. The slot in play (the one loaded, started in or last saved to) is mw1.cfg's
+// save_slot= (mw1_start.h), and the game's autosave writes there.
+inline constexpr int32_t kSaveSlots = 3;
+std::string slot_path(const std::string& write_dir, int32_t slot);  // <write dir>/mw1save<slot>.txt
+// A save's file beside it with another extension (".prev", ".bad"): mw1save2.txt's mw1save2.prev.
+std::string beside_save(const std::string& save_path, const char* extension);
+// Before 1.0.2 one save, mw1save.txt (and its mw1save.prev and mw1save.bad): moved to slot 1's names, bytes untouched,
+// when slot 1 has no save yet. True when it moved anything; `said` the line for the log.
+bool migrate_slots(const std::string& write_dir, std::string* said = nullptr);
+
+// What the slots' screen shows of a slot, read without changing anything (a damaged save stays where it is).
+struct SlotInfo {
+  enum State { kEmpty, kUsed, kDamaged };
+  State state = kEmpty;
+  std::string planet;  // the world, as saved ("GALAX")
+  int32_t house = 0;   // the world's House (kDavion...)
+  Date date;
+  int64_t funds = 0;
+  int32_t kills = 0;
+  int64_t saved_at = 0;  // Unix seconds: its saved_at=, else the file's modified time
+};
+SlotInfo peek_slot(const std::string& path);
+// A save's saved_at= (0: none), from its text.
+int64_t saved_at_in(const std::string& text);
 
 }  // namespace mw1

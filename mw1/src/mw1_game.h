@@ -27,6 +27,12 @@ void install_game_loop(uint32_t seed, const char* reach = nullptr);
 // is there (unless `new_company`: one made new, over it), and written after
 // each settlement and at each new offer. Empty: no save (tests).
 void set_game_loop_save(const std::string& path, bool new_company);
+// FIXES 125: the three save slots in mw1's write dir (mw1_save.h), `slot` the one in play (mw1.cfg's save_slot=).
+void set_game_loop_slots(const std::string& write_dir, int32_t slot, bool new_company);
+namespace slots {
+class SlotsState;
+}
+slots::SlotsState* game_loop_slots();  // the save slots' screen's state once made (tests)
 // How the game starts (mw1_menu.h): MW1's main menu (the program's), NEW CAMPAIGN at once over the menu without its
 // question (--new-company: the intro, the old save kept as mw1save.prev), or the hub at once as before the menu (the
 // tests that don't drive the menu).

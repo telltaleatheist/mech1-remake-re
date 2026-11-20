@@ -227,6 +227,7 @@ struct Company {
   std::vector<Lancemate> lance;
   PilotState pilots[kPilotIds];
   std::vector<int32_t> recruits;
+  bool recruits_unsaved = false;  // read from a save before version 4 (no Bar): drawn at the load; not saved
   bool wage_warned = false;
   // The world's repair premium in percent (mw1_repairs.h; MW1's planetMarketPremiumPercent, rolled on arrival).
   int32_t repair_premium = 18;

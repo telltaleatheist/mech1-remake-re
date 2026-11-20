@@ -18,7 +18,8 @@ const std::vector<ScreenButton> kHubButtons = {{"OK", "OK"},           {"REPLAY"
                                                {"QUIT", "QUIT"}};
 const std::vector<ScreenButton> kHubOptionsButtons = {{"SETTINGS", "SETTINGS"},   {"MAIN_MENU", "MAIN MENU"}, {"BACK", "BACK"},
                                                       {"MUSIC", "MUSIC: ON"},     {"MUSIC_DOWN", ""},         {"MUSIC_UP", ""},
-                                                      {"EFFECTS_DOWN", ""},       {"EFFECTS_UP", ""}};
+                                                      {"EFFECTS_DOWN", ""},       {"EFFECTS_UP", ""},
+                                                      {"SAVE_GAME", "SAVE GAME"}, {"LOAD_GAME", "LOAD GAME"}};
 // The middle panel's lines wrapped at its words to kHubPanelColumns (4:3's panel, the narrower; a blank line kept).
 std::vector<std::string> wrapped(const std::vector<std::string>& lines) {
   std::vector<std::string> out;
@@ -112,7 +113,7 @@ void HubOptionsState::show(const std::string& scenery, const std::string& planet
   s.blocks = {at_place("TITLE", {"OPTIONS"}), at_place("STATUS_WORLD", {planet}),
               at_place("MUSIC_VALUE", {"MUSIC " + std::to_string(m.music) + "%"}),
               at_place("EFFECTS_VALUE", {"EFFECTS " + std::to_string(m.effects) + "%"}),
-              at_place("STATUS", {"SETTINGS: the game's options. MAIN MENU: saves and leaves."})};
+              at_place("STATUS", {"SAVE GAME, LOAD GAME: the three slots. MAIN MENU: leaves."})};
   s.buttons.resize(kHubOptionsButtonCount);
   auto b = [&](int32_t id) -> ButtonState& { return s.buttons[static_cast<size_t>(id - 1)]; };
   b(kHubOptMusic).words = m.on ? "MUSIC: ON" : "MUSIC: OFF";

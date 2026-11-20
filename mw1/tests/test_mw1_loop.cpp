@@ -103,6 +103,7 @@
 #include "mw1_travel.h"
 #include "mw1_travel_screen.h"
 #include "mw1_save.h"
+#include "mw1_slots.h"
 #include "mw1_worlds.h"
 #include <fstream>
 #include "platform/silent_sound.h"
@@ -115,6 +116,17 @@ namespace {
 bool on_screen_now(mw1::Mw1Screen* sc, const std::string& t) {
   const std::vector<std::string> l = sc->shown();
   return std::find(l.begin(), l.end(), t) != l.end();
+}
+// FIXES 125: the save slots' screen up (the menu's NEW or LOAD): `slot` picked as a click does, its confirm answered
+// YES, a few frames apart. True while the screen shows (the caller waits).
+bool answer_slots(mech3::Mech3App& app, int32_t slot) {
+  mw1::slots::SlotsState* s = mw1::game_loop_slots();
+  if (!s || app.current() != static_cast<zgame::State*>(s) || !s->screen()) return false;
+  static int frames = 0;
+  if (++frames < 5) return true;
+  frames = 0;
+  s->screen()->on_button(s->view().asking ? mw1::slots::kSlotsYes : mw1::slots::kSlot1 + slot - 1, 0, 0);
+  return true;
 }
 }  // namespace
 
@@ -556,6 +568,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
           if (!in->finished()) run->intro_seen = true, in->escape();
           return;
         }
+        if (answer_slots(app, 1)) return;  // FIXES 125: NEW's slot
         mw1::MenuState* m = mw1::game_loop_menu();
         if (m && app.current() == static_cast<zgame::State*>(m) && m->screen()) {
           if (++hub_frames < 10) return;
@@ -2263,7 +2276,7 @@ TEST(mw1_loop_market_buy_sell_pilot_then_a_contract_in_the_bought_mech_headless)
       std::ifstream f(run.save, std::ios::binary);
       std::ostringstream text;
       text << f.rdbuf();
-      EXPECT(mw1::save_text(saved, has ? &k : nullptr) == text.str());
+      EXPECT(mw1::save_text(saved, has ? &k : nullptr, nullptr, mw1::saved_at_in(text.str())) == text.str());
     }
   });
 }
@@ -2844,7 +2857,7 @@ TEST(mw1_menu_new_campaign_plays_the_intro_then_the_hub_headless) {
     fs::remove_all(dir, ec);
     fs::create_directories(dir, ec);
     MenuRun r;
-    r.save = (dir / mw1::kSaveFile).string();
+    r.save = mw1::slot_path(dir.string(), 1);  // FIXES 125: slot 1
     int step = 0, wait = 0;
     bool grey = false, white = false, picture = false, narration = false, options_seen = false, quit_asked = false, intro_art = false;
     float intro_seconds = 0;
@@ -2899,7 +2912,14 @@ TEST(mw1_menu_new_campaign_plays_the_intro_then_the_hub_headless) {
           m->screen()->on_button(mw1::kMenuNew, 0, 0);
           ++step, wait = 0;
           return false;
-        case 1:  // the intro, to its end
+        case 1:  // NEW's slots (FIXES 125): all empty, slot 2 picked, nothing asked; then the intro, to its end
+          if (mw1::slots::SlotsState* sl = mw1::game_loop_slots(); showing(app, sl)) {
+            EXPECT(sl->view().use == mw1::slots::Use::kNew && !sl->view().asking);
+            for (int32_t i = 1; i <= mw1::kSaveSlots; ++i) EXPECT(sl->screen()->enabled(i) && sl->screen()->visible(i));
+            EXPECT(!sl->screen()->visible(mw1::slots::kSlotsYes));
+            sl->screen()->on_button(mw1::slots::kSlot2, 0, 0);
+            return false;
+          }
           if (showing(app, in)) {
             const std::vector<std::string> shown = in->screen()->shown();
             narration |= shown.size() == 10;
@@ -2927,8 +2947,9 @@ TEST(mw1_menu_new_campaign_plays_the_intro_then_the_hub_headless) {
           if (!showing(app, hub)) return false;
           ++step, wait = 0;
           return false;
-        case 2:  // the hub, the new company saved, nothing on offer; its OPTIONS tile
-          EXPECT(mw1::game_loop_company() && fs::exists(r.save, ec) && !mw1::game_loop_contract());
+        case 2:  // the hub, the new company saved in slot 2 (the slot in play, kept in mw1.cfg), nothing on offer; its OPTIONS tile
+          EXPECT(mw1::game_loop_company() && fs::exists(mw1::slot_path(dir.string(), 2), ec) && !fs::exists(r.save, ec) && !mw1::game_loop_contract());
+          EXPECT(mw1::read_cfg(dir.string()).save_slot == 2);
           hub->screen()->on_button(mw1::kHubOptions, 0, 0);
           ++step, wait = 0;
           return false;
@@ -2988,17 +3009,22 @@ TEST(mw1_menu_new_campaign_plays_the_intro_then_the_hub_headless) {
   });
 }
 
-// Over a save: CONTINUE opens the hub on it; NEW CAMPAIGN asks first (No: nothing changes; Yes: the intro, skipped
-// with Escape, a new company, the old save kept as mw1save.prev); --new-company's start does it without asking.
+// FIXES 125: over a save in slot 1, the slot in play. LOAD opens the slots (slot 1's LOAD on, the empty ones' greyed):
+// slot 1, the hub on it, nothing asked. NEW CAMPAIGN opens them too: slot 1 asks first, in the screen (CANCEL: nothing
+// changes; again and START: the intro, skipped, a new company in slot 1, the old one kept as mw1save1.prev); no
+// system box. --new-company's start does it in the slot in play without asking. The hub's SAVE GAME into slot 2
+// (empty: nothing asked) makes it the slot in play (mw1.cfg); its LOAD GAME then slot 1: that company again.
 TEST(mw1_menu_continue_and_new_over_a_save_headless) {
   std::error_code ec;
   if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
   in_child([&] {
+    using namespace mw1::slots;
     const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_menu_save";
     fs::remove_all(dir, ec);
     fs::create_directories(dir, ec);
-    const fs::path save = dir / mw1::kSaveFile, prev = dir / mw1::kPrevSaveFile;
-    // A company to continue: the straight start's, saved at once.
+    const fs::path save = mw1::slot_path(dir.string(), 1), prev = dir / "mw1save1.prev";
+    const fs::path two = mw1::slot_path(dir.string(), 2);
+    // A company to load: the straight start's, saved at once.
     {
       MenuRun r;
       r.save = save.string(), r.start = mw1::Start::kHub;
@@ -3007,68 +3033,94 @@ TEST(mw1_menu_continue_and_new_over_a_save_headless) {
     }
     const std::string first = read_file(save);
     EXPECT(!first.empty());
-    // CONTINUE: the hub on the saved company.
+    // LOAD: the slots, slot 1, the hub on the saved company.
     int64_t funds = -1;
+    bool load_greyed = false;
     {
       MenuRun r;
       r.save = save.string();
-      int step = 0;
+      int step = 0, wait = 0;
       r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
+        if (++wait < 5) return false;
         mw1::MenuState* m = mw1::game_loop_menu();
+        SlotsState* sl = mw1::game_loop_slots();
         if (step == 0 && showing(app, m)) {
           EXPECT(m->screen()->enabled(mw1::kMenuContinue));
           // The saved company named before it's loaded: its planet and funds.
           const std::vector<std::string> shown = m->screen()->shown();
           bool named = false;
           for (const std::string& l : shown) named |= l.find("C-bills") != std::string::npos;
-          std::printf("  the menu over the save:");
-          for (const std::string& l : shown) std::printf(" [%s]", l.c_str());
-          std::printf("\n");
           EXPECT(named && !mw1::game_loop_company());
-          m->screen()->on_button(mw1::kMenuContinue, 0, 0), step = 1;
+          m->screen()->on_button(mw1::kMenuContinue, 0, 0), step = 1, wait = 0;
           return false;
         }
-        if (step == 1 && showing(app, mw1::game_loop_hub())) {
+        if (step == 1 && showing(app, sl)) {
+          EXPECT(sl->view().use == Use::kLoad && sl->view().in_play == 1);
+          load_greyed = sl->screen()->enabled(kSlot1) && !sl->screen()->enabled(kSlot2) && !sl->screen()->enabled(kSlot3);
+          bool in_play = false;
+          for (const std::string& l : sl->screen()->shown()) in_play |= l.find("IN PLAY") != std::string::npos;
+          EXPECT(in_play);
+          sl->screen()->on_button(kSlot1, 0, 0), step = 2, wait = 0;
+          return false;
+        }
+        if (step == 2 && showing(app, mw1::game_loop_hub())) {
           funds = mw1::game_loop_company() ? mw1::game_loop_company()->funds : -1;
           return true;
         }
         return false;
       };
       menu_run(r);
-      EXPECT(r.boxes.empty() && read_file(save) == first);  // the same company, the same offer
+      EXPECT(r.boxes.empty() && load_greyed && funds > 0);
     }
-    // NEW CAMPAIGN over it: No, then Yes; the intro skipped.
-    bool skipped = false;
+    // NEW CAMPAIGN over it: slot 1 asks; CANCEL; again, START; the intro skipped.
+    bool skipped = false, asked = false, cancelled = false;
     {
       MenuRun r;
       r.save = save.string(), r.seed = 2;
-      int step = 0, answers = 0;
-      r.box = [&](const std::string&) -> uint32_t { return ++answers == 1 ? 7u : 6u; };
+      int step = 0, wait = 0;
       r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
+        if (++wait < 5) return false;
         mw1::MenuState* m = mw1::game_loop_menu();
         mw1::IntroState* in = mw1::game_loop_intro();
-        if (step == 0 && showing(app, m)) {
-          m->screen()->on_button(mw1::kMenuNew, 0, 0);  // No
-          EXPECT(answers == 1 && showing(app, m) && read_file(save) == first && !fs::exists(prev, ec));
-          m->screen()->on_button(mw1::kMenuNew, 0, 0);  // Yes
-          EXPECT(answers == 2 && fs::exists(prev, ec) && read_file(prev) == first);
-          step = 1;
-          return false;
+        SlotsState* sl = mw1::game_loop_slots();
+        switch (step) {
+          case 0:
+            if (!showing(app, m)) return false;
+            m->screen()->on_button(mw1::kMenuNew, 0, 0), ++step, wait = 0;
+            return false;
+          case 1:
+          case 3:
+            if (!showing(app, sl)) return false;
+            sl->screen()->on_button(kSlot1, 0, 0), ++step, wait = 0;
+            return false;
+          case 2:  // asked, in the screen: the slots and BACK hidden, the confirm's START and CANCEL
+            if (!showing(app, sl) || !sl->view().asking) return false;
+            asked = sl->view().asking == 1 && sl->screen()->visible(kSlotsYes) && sl->screen()->visible(kSlotsNo) &&
+                    !sl->screen()->visible(kSlot1) && !sl->screen()->visible(kSlotsBack) && read_file(save) == first;
+            EXPECT(asked);
+            sl->screen()->on_button(kSlotsNo, 0, 0), ++step, wait = 0;
+            cancelled = showing(app, sl) && !sl->view().asking && read_file(save) == first && !fs::exists(prev, ec);
+            EXPECT(cancelled);
+            return false;
+          case 4:
+            if (!showing(app, sl) || !sl->view().asking) return false;
+            sl->screen()->on_button(kSlotsYes, 0, 0), ++step, wait = 0;
+            return false;
+          case 5:
+            if (!showing(app, in)) return false;
+            EXPECT(in->phase() != mw1::IntroPhase::kDone && fs::exists(prev, ec) && read_file(prev) == first);
+            in->escape(), skipped = true, ++step;
+            return false;
+          default: return showing(app, mw1::game_loop_hub());
         }
-        if (step == 1 && showing(app, in)) {
-          EXPECT(in->phase() != mw1::IntroPhase::kDone);
-          in->escape(), skipped = true, step = 2;
-          return false;
-        }
-        return step == 2 && showing(app, mw1::game_loop_hub());
       };
       menu_run(r);
-      EXPECT(r.boxes.size() == 2 && r.boxes[0].find(mw1::kPrevSaveFile) != std::string::npos);
+      EXPECT(r.boxes.empty());  // the slots' own confirm: no system box
     }
     const std::string second = read_file(save);
-    std::printf("  continue: funds %lld; new over it: skipped %d, the save %s, .prev the old %d\n", static_cast<long long>(funds), skipped,
-                second != first ? "new" : "THE SAME", read_file(prev) == first);
-    EXPECT(funds > 0 && skipped && !second.empty() && second != first && read_file(prev) == first);
+    std::printf("  load: funds %lld; new over it: asked %d, cancelled %d, skipped %d, the save %s, .prev the old %d\n",
+                static_cast<long long>(funds), asked, cancelled, skipped, second != first ? "new" : "THE SAME", read_file(prev) == first);
+    EXPECT(skipped && !second.empty() && second != first && read_file(prev) == first);
     // --new-company: no question, the intro at once, the save kept as .prev again (the one before replaced).
     {
       MenuRun r;
@@ -3086,6 +3138,71 @@ TEST(mw1_menu_continue_and_new_over_a_save_headless) {
       menu_run(r);
       EXPECT(r.boxes.empty() && intro_first && read_file(prev) == second && read_file(save) != second);
     }
+    // The hub's SAVE GAME into slot 2, then its LOAD GAME of slot 1.
+    const std::string third = read_file(save);
+    bool saved_two = false, loaded_one = false;
+    {
+      MenuRun r;
+      r.save = save.string(), r.seed = 4;
+      int step = 0, wait = 0;
+      int64_t funds_now = -1;
+      r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
+        if (++wait < 5) return false;
+        mw1::MenuState* m = mw1::game_loop_menu();
+        mw1::HubState* hub = mw1::game_loop_hub();
+        mw1::HubOptionsState* opts = mw1::game_loop_hub_options();
+        SlotsState* sl = mw1::game_loop_slots();
+        switch (step) {
+          case 0:
+            if (!showing(app, m)) return false;
+            m->screen()->on_button(mw1::kMenuContinue, 0, 0), ++step, wait = 0;
+            return false;
+          case 1:
+            if (!showing(app, sl)) return false;
+            sl->screen()->on_button(kSlot1, 0, 0), ++step, wait = 0;
+            return false;
+          case 2:
+            if (!showing(app, hub)) return false;
+            funds_now = mw1::game_loop_company()->funds;
+            mw1::game_loop_company_for_tests()->funds += 777;  // a change since the autosave: saved before a load
+            hub->screen()->on_button(mw1::kHubOptions, 0, 0), ++step, wait = 0;
+            return false;
+          case 3:
+            if (!showing(app, opts)) return false;
+            EXPECT(opts->screen()->visible(mw1::kHubOptSaveGame) && opts->screen()->visible(mw1::kHubOptLoadGame));
+            opts->screen()->on_button(mw1::kHubOptSaveGame, 0, 0), ++step, wait = 0;
+            return false;
+          case 4:  // SAVE GAME: slot 2 empty, saved at once, the slot in play now
+            if (!showing(app, sl)) return false;
+            EXPECT(sl->view().use == Use::kSave && sl->screen()->enabled(kSlot2) && sl->screen()->enabled(kSlot3));
+            sl->screen()->on_button(kSlot2, 0, 0);
+            saved_two = showing(app, sl) && !sl->view().asking && fs::exists(two, ec) && sl->view().in_play == 2 &&
+                        mw1::read_cfg(dir.string()).save_slot == 2 && mw1::peek_slot(two.string()).funds == funds_now + 777;
+            EXPECT(saved_two);
+            sl->screen()->on_button(kSlotsBack, 0, 0), ++step, wait = 0;
+            return false;
+          case 5:
+            if (!showing(app, opts)) return false;
+            opts->screen()->on_button(mw1::kHubOptLoadGame, 0, 0), ++step, wait = 0;
+            return false;
+          case 6:  // LOAD GAME: slot 1 (nothing asked)
+            if (!showing(app, sl)) return false;
+            EXPECT(sl->view().use == Use::kLoad && sl->screen()->enabled(kSlot1) && sl->screen()->enabled(kSlot2) && !sl->screen()->enabled(kSlot3));
+            mw1::game_loop_company_for_tests()->funds += 1000;  // since slot 2's save: kept there before the load
+            sl->screen()->on_button(kSlot1, 0, 0), ++step, wait = 0;
+            return false;
+          default:
+            if (!showing(app, hub) || !mw1::game_loop_company()) return false;
+            loaded_one = mw1::read_cfg(dir.string()).save_slot == 1 && mw1::game_loop_company()->funds == funds_now &&
+                         mw1::peek_slot(two.string()).funds == funds_now + 1777;
+            return true;
+        }
+      };
+      menu_run(r);
+      EXPECT(r.boxes.empty());
+    }
+    std::printf("  the hub's SAVE GAME in slot 2 %d; LOAD GAME of slot 1 %d\n", saved_two, loaded_one);
+    EXPECT(saved_two && loaded_one && !third.empty());
   });
 }
 
@@ -4181,11 +4298,11 @@ TEST(mw1_soak_twenty_contracts_through_the_hub_headless) {
         bool has_offer = false, has_pending = false;
         std::string why;
         if (!mw1::load_text(text, back, k, &has_offer, &why, &pa, &has_pending) ||
-            mw1::save_text(back, has_offer ? &k : nullptr, has_pending ? &pa : nullptr) != text)
+            mw1::save_text(back, has_offer ? &k : nullptr, has_pending ? &pa : nullptr, mw1::saved_at_in(text)) != text)
           bad(bad_save, "the save doesn't round-trip at hub " + std::to_string(hubs) + ": " + why);
-        else if (text != mw1::save_text(*c, mw1::game_loop_contract(), mw1::game_loop_pending()))
+        else if (text != mw1::save_text(*c, mw1::game_loop_contract(), mw1::game_loop_pending(), mw1::saved_at_in(text)))
         {
-          const std::string live = mw1::save_text(*c, mw1::game_loop_contract(), mw1::game_loop_pending());
+          const std::string live = mw1::save_text(*c, mw1::game_loop_contract(), mw1::game_loop_pending(), mw1::saved_at_in(text));
           std::string diff;
           std::istringstream a(text), b(live);
           std::string la, lb;
@@ -4322,7 +4439,7 @@ TEST(mw1_soak_a_campaign_through_every_service_and_restarts_headless) {
     const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_soak79";
     fs::remove_all(dir, ec);
     fs::create_directories(dir, ec);
-    const std::string save = (dir / mw1::kSaveFile).string();
+    const std::string save = mw1::slot_path(dir.string(), 1);  // FIXES 125: slot 1, LOAD's
     std::mt19937 rng(20261119u + static_cast<uint32_t>(seed) * 7919u);
     auto roll = [&](int n) { return static_cast<int>(rng() % static_cast<uint32_t>(n)); };
     // Carried across the legs: the ledger's last look.
@@ -4396,7 +4513,8 @@ TEST(mw1_soak_a_campaign_through_every_service_and_restarts_headless) {
         }
         if (++wait < 5) return false;
         wait = 0;
-        // MW1's menu (a leg's start, or the hub's MAIN MENU): LOAD (CONTINUE), the save or the company in hand.
+        // MW1's menu (a leg's start, or the hub's MAIN MENU): LOAD, the slot in play (FIXES 125: its slots' screen).
+        if (answer_slots(app, 1)) return false;
         if (mw1::MenuState* m = mw1::game_loop_menu(); showing(app, m)) {
           if (++menu_wait > 3) menu_wait = 0, m->screen()->on_button(mw1::kMenuContinue, 0, 0);
           return false;
@@ -4571,10 +4689,15 @@ TEST(mw1_soak_a_campaign_through_every_service_and_restarts_headless) {
           bool has_offer = false, has_pending = false;
           std::string why;
           if (!mw1::load_text(text, back, k, &has_offer, &why, &pa, &has_pending) ||
-              mw1::save_text(back, has_offer ? &k : nullptr, has_pending ? &pa : nullptr) != text)
+              mw1::save_text(back, has_offer ? &k : nullptr, has_pending ? &pa : nullptr, mw1::saved_at_in(text)) != text)
             finding("save", "leg " + std::to_string(leg) + ": the save doesn't round-trip: " + why);
-          else if (text != mw1::save_text(*c, mw1::game_loop_contract(), mw1::game_loop_pending()))
-            finding("save", "leg " + std::to_string(leg) + ", hub " + std::to_string(hubs) + ": the save isn't the live company");
+          else if (const std::string live = mw1::save_text(*c, mw1::game_loop_contract(), mw1::game_loop_pending(), mw1::saved_at_in(text)); text != live) {
+            std::string diff;
+            std::istringstream ta(text), tb(live);
+            for (std::string la, lb; std::getline(ta, la) && std::getline(tb, lb);)
+              if (la != lb && la.rfind("check=", 0) != 0) diff += " [" + la.substr(0, 50) + " | " + lb.substr(0, 50) + "]";
+            finding("save", "leg " + std::to_string(leg) + ", hub " + std::to_string(hubs) + ": the save isn't the live company:" + diff.substr(0, 300));
+          }
         }
         if (first_hub) {
           first_hub = false;
@@ -6368,6 +6491,7 @@ TEST(mw1_music_theme_screens_mission_settings_and_quit_headless) {
           ++step, wait = 0;
           return false;
         case 1:  // the intro: still the same one, then skipped
+          if (answer_slots(app, 1)) return false;  // FIXES 125: NEW's slot first
           if (!showing(app, mw1::game_loop_intro()) || wait < 20) return false;
           at_intro = theme() && m.starts == 1;
           mw1::game_loop_intro()->escape();
@@ -6560,6 +6684,7 @@ TEST(mw1_music_combat_once_a_launch_silent_after_the_end_and_a_new_pick_on_repla
       else if (!starts_in_mission.empty()) starts_in_mission.back() += started;
       switch (step) {
         case 0:  // the menu: NEW CAMPAIGN; the intro skipped
+          if (answer_slots(app, 1)) return false;  // FIXES 125: NEW's slot
           if (showing(app, mw1::game_loop_menu()) && wait > 10) mw1::game_loop_menu()->screen()->on_button(mw1::kMenuNew, 0, 0), wait = 0;
           if (showing(app, mw1::game_loop_intro()) && wait > 10) mw1::game_loop_intro()->escape(), ++step, wait = 0;
           return false;
