@@ -200,10 +200,13 @@ TEST(mw1_menu_resolution_names_in_one_format) {
   mech3::ResolutionCycle list(e);
   platform::set_uniform_mode_labels(true);
   std::vector<std::string> l = mode_labels(list, 0);
-  EXPECT(l.size() == 12 && l[0] == "640 x 480" && l[1] == "800 x 600" && l[5] == "1600 x 1200");
-  EXPECT(l.size() == 12 && l[6] == "1280 x 720" && l[8] == "1920 x 1080" && list.value_at(8) == 13);
+  EXPECT(l.size() == 16 && l[0] == "640 x 480" && l[1] == "800 x 600" && l[5] == "1600 x 1200");
+  EXPECT(l.size() == 16 && l[6] == "1280 x 720" && l[8] == "1920 x 1080" && list.value_at(8) == 13);
   // The player's own size (mode 16, ScreenWidth x ScreenHeight, 1920x1080 by default) said as theirs, not as 13's.
-  EXPECT(l.size() == 12 && list.value_at(11) == mech3::kCustomVMode && l[11] == "1920 x 1080 custom");
+  EXPECT(l.size() == 16 && list.value_at(11) == mech3::kCustomVMode && l[11] == "1920 x 1080 custom");
+  // PR #3's ultrawides (modes 17 to 20), after the player's own.
+  EXPECT(l.size() == 16 && l[12] == "2560 x 1080" && l[13] == "3440 x 1440" && l[14] == "3840 x 1080" &&
+         l[15] == "5120 x 1440" && list.value_at(15) == 20);
   l = mode_labels(list, -1);  // software: 3 (320x240 drawn, doubled) and 5, told apart (FIXES.md item 88)
   EXPECT(l.size() == 2 && l[0] == "320 x 240" && l[1] == "640 x 480");
   for (size_t i = 0; i < l.size(); ++i)
@@ -213,7 +216,7 @@ TEST(mw1_menu_resolution_names_in_one_format) {
     for (size_t j = i + 1; j < l.size(); ++j) EXPECT(l[i] != l[j]);
   platform::set_uniform_mode_labels(false);
   l = mode_labels(list, 0);
-  EXPECT(l.size() == 12 && l[3] == "msg4058" && l[8] == "1920x1080");
+  EXPECT(l.size() == 16 && l[3] == "msg4058" && l[8] == "1920x1080");
   platform::set_uniform_mode_labels(was_uniform);
   zfix::options().any_resolution = was_fix;
 }
