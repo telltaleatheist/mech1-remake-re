@@ -23,9 +23,9 @@ Rows that could sit on either side are listed under **For Owen** with the
 side this proposes. No code changes with this; Owen approves (or moves rows)
 before anything moves.
 
-478 rows: fixes.md's 473 table rows, its four data typos still to fix (Original bugs
+479 rows: fixes.md's 474 table rows, its four data typos still to fix (Original bugs
 still to fix) and the Small Pulse Laser's flash. 436 always on, 5 in our own
-tools, 8 under the four own switches, 20 under Small fixes, 4 left as the original, 5 not changes.
+tools, 8 under the four own switches, 21 under Small fixes, 4 left as the original, 5 not changes.
 Rows are MW3's unless marked PM (a row on both games is listed once, as MW3's).
 
 ## The switches
@@ -42,7 +42,7 @@ and text put back as the data had them.
 | Improved AI | Lancemates find their way round walls, rivers and corners, and keep their floor in another zone. | 4 |
 | Water movement | Deep water slows a mech smoothly instead of stopping it. | 1 |
 | Artemis tracking | Artemis FCS missiles get their extra tracking. | 1 |
-| Small fixes | Everything in the list below: weapons, turrets and vehicles, mission scripts, the mechs' data typos. | 20 |
+| Small fixes | Everything in the list below: weapons, turrets and vehicles, mission scripts, the mechs' data typos. | 21 |
 
 The turrets' pick (their count ran on across missions, so each later mission's
 turrets acted less often) was the one other row noticeable in play; Owen made
@@ -98,6 +98,7 @@ Pirate's Moon).
 18. c2 mission 3's secondary objective waits for the mission's two Fireflies (it named two that aren't there, so it completed at once).
 19. The Sunder Alternate B carries its LRM 20's extra 240 missiles.
 20. The Strider's recoil slide is read as a number, as on the Cauldron, Bushwacker and Champion.
+21. A weapon's looped sound (the machine gun's) stops when firing stops, though the fire mode changed while the trigger was held (WeaponGroup::release, weapon.cpp; MW1's FIXES 107).
 
 ## Owen's answers (2026-11-10)
 
