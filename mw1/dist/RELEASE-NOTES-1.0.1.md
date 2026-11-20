@@ -1,6 +1,6 @@
-## MW1: Critical Hit 1.0.0
+## MW1: Critical Hit 1.0.1
 
-The first release of MW1: Critical Hit, a fan remake of MechWarrior (1989) on the MechWarrior 3 rebuild's engine. It ships beside MechWarrior 3 and Pirate's Moon on the rebuild's launcher.
+The first release of MW1: Critical Hit (1.0.0 was tagged but never published; 1.0.1 adds the Windows build), a fan remake of MechWarrior (1989) on the MechWarrior 3 rebuild's engine. It ships beside MechWarrior 3 and Pirate's Moon on the rebuild's launcher.
 
 - **MW1's whole mercenary campaign:** the five Houses, worlds across the Inner Sphere, contracts, the Bar, recruits and the story that clears your family's name, up to the Dark Wing.
 - **MechWarrior 3 combat:** missions are fought in 3D on MechWarrior 3's and Pirate's Moon's worlds, with their Mech Lab and salvage.
