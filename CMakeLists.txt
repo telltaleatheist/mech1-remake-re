@@ -973,6 +973,7 @@ if(SDL3_FOUND)
     src/frontend/sdl/sdl_input.cpp
     src/frontend/sdl/sdl_force.cpp
     src/frontend/sdl/sdl_install.cpp
+    src/frontend/sdl/mw1_files.cpp  # ours: the launcher's MechWarrior (1989) intake
     src/frontend/sdl/sdl_music.cpp
     src/frontend/sdl/sdl_platform.cpp
     src/frontend/sdl/sdl_mods.cpp
@@ -1209,6 +1210,7 @@ if(SDL3_FOUND)
       tests/main.cpp
       tests/test_quiet_music.cpp  # ours: no music aloud in a run no player hears
       tests/test_sdl_frontend.cpp
+      tests/test_mw1_files.cpp
       tests/test_sdl_new_world.cpp
       tests/test_win_cmdline.cpp
       tests/test_log_start.cpp

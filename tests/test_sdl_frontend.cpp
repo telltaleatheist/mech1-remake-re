@@ -25,6 +25,10 @@
 #include <vector>
 
 #include "check.h"
+#if MW3_HAVE_LIBARCHIVE
+#include <archive.h>
+#include <archive_entry.h>
+#endif
 #include "mech3/source_map.h"
 #include "mech3/patch_import.h"
 #include "frontend/sdl/sdl_update.h"
@@ -7023,7 +7027,7 @@ TEST(sdl_program_launcher_says_the_picker_is_opening_before_it_asks) {
   std::ifstream f(dir + "/launcher.log");
   const std::string log((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
   const size_t frame = log.find("first frame shown"), notice = log.find("the picker's notice shown"),
-               asked = log.find("the folder picker asked for"), answered = log.find("the picker answered (cancelled)");
+               asked = log.find("the file picker asked for"), answered = log.find("the picker answered (cancelled)");
   std::printf("the picker's notice: exited %d, first frame %d, notice %d, asked %d, answered %d\n", exited, frame != std::string::npos,
               notice != std::string::npos, asked != std::string::npos, answered != std::string::npos);
   EXPECT(exited);
@@ -7270,10 +7274,10 @@ TEST(sdl_program_launcher_starts_mechwarrior_1) {
   std::filesystem::permissions(mw1, std::filesystem::perms::owner_all, ec);
   std::filesystem::permissions(pm_bin, std::filesystem::perms::owner_all, ec);
   setenv("MW3_PM_WRITE_DIR", (dir + "/pmwd").c_str(), 1);  // never the player's own
-  auto run = [&](bool installs, const char* name) {
+  auto run = [&](bool installs, const char* name, bool mw1_set = true) {
     {
       std::ofstream cfg(dir + "/wd/mw3.cfg", std::ios::trunc);
-      cfg << "mw1_game=" << dir << "/game\n";
+      if (mw1_set) cfg << "mw1_game=" << dir << "/game\n";
       if (installs) cfg << "install=" << mw3 << "\npm_install=" << pm << "\n";
     }
     std::filesystem::remove(dir + "/args.txt", ec);
@@ -7305,6 +7309,64 @@ TEST(sdl_program_launcher_starts_mechwarrior_1) {
   const std::string none = run(false, "needs");
   EXPECT(none.find("entry MECHWARRIOR 1: Not ready: needs MechWarrior 3") != std::string::npos);
   EXPECT(none.find("MechWarrior 1 started") == std::string::npos && !std::filesystem::exists(dir + "/args.txt"));
+  // No MW1 folder either: its line still says what it needs first (mw1 dev 2's new-player check, 2026-11-20).
+  setenv("MW3_LAUNCHER_NO_MW1_SEARCH", "1", 1);
+  const std::string bare = run(false, "bare", false);
+  unsetenv("MW3_LAUNCHER_NO_MW1_SEARCH");
+  EXPECT(bare.find("entry MECHWARRIOR 1: Not ready: needs MechWarrior 3") != std::string::npos);
+#if MW3_HAVE_LIBARCHIVE
+  // None picked yet and a download picked on its line (the picker's answer by MW3_LAUNCHER_PICK): unpacked into the
+  // write dir's mw1/game, kept as mw1_game=, and started with it (docs/launcher.md, MechWarrior 1's files).
+  {
+    archive* a = archive_write_new();
+    archive_write_set_format_zip(a);
+    archive_write_open_filename(a, (dir + "/mw1.zip").c_str());
+    for (const char* n : {"MW/BTECH.EXE", "MW/MW_MAIN.EXE"}) {
+      archive_entry* e = archive_entry_new();
+      archive_entry_set_pathname(e, n), archive_entry_set_size(e, 1), archive_entry_set_filetype(e, AE_IFREG);
+      archive_entry_set_perm(e, 0644), archive_write_header(a, e), archive_write_data(a, "x", 1), archive_entry_free(e);
+    }
+    archive_write_close(a), archive_write_free(a);
+  }
+  setenv("MW3_LAUNCHER_PICK", (dir + "/mw1.zip").c_str(), 1);
+  setenv("MW3_LAUNCHER_NO_MW1_SEARCH", "1", 1);  // only the pick, whatever this machine holds
+  const std::string zipped = run(true, "zip", false);
+  unsetenv("MW3_LAUNCHER_PICK"), unsetenv("MW3_LAUNCHER_NO_MW1_SEARCH");
+  std::ifstream zf(dir + "/args.txt");
+  std::string zargs;
+  std::getline(zf, zargs);
+  std::ifstream kept(dir + "/wd/mw3.cfg");
+  const std::string cfg_text((std::istreambuf_iterator<char>(kept)), std::istreambuf_iterator<char>());
+  std::printf("launcher mw1 zip: given \"%s\"\n", zargs.c_str());
+  EXPECT(zargs.find(" --mw1-game " + dir + "/wd/mw1/game --no-launcher") != std::string::npos);
+  EXPECT(std::filesystem::is_regular_file(dir + "/wd/mw1/game/BTECH.EXE", ec));
+  EXPECT(cfg_text.find("mw1_game=" + dir + "/wd/mw1/game") != std::string::npos);
+#endif
+  // GAME FILES after MW1's line: its folder picked again (a folder above the game here), kept, nothing started.
+  {
+    std::filesystem::create_directories(dir + "/other/MECHWAR", ec);
+    std::ofstream(dir + "/other/MECHWAR/BTECH.EXE") << "x";
+    {
+      std::ofstream cfg(dir + "/wd/mw3.cfg", std::ios::trunc);
+      cfg << "mw1_game=" << dir << "/game\ninstall=" << mw3 << "\npm_install=" << pm << "\n";
+    }
+    std::filesystem::remove(dir + "/args.txt", ec);
+    setenv("MW3_MW1_BIN", mw1.c_str(), 1), setenv("MW3_PM_BIN", pm_bin.c_str(), 1), setenv("MW3_FIND_INSTALL", "1", 1);
+    setenv("MW3_LAUNCHER_FILES", "mw1", 1), setenv("MW3_LAUNCHER_PICKER", ("path:" + dir + "/other").c_str(), 1);
+    setenv("MW3_LAUNCHER_FRAMES", "30", 1);
+    const std::string log = dir + "/repick.log";
+    const pid_t pid = spawn_launcher({"--write-dir", dir + "/wd", "--window", "640x480", "--nosound", "--hidden"}, log);
+    for (const char* v : {"MW3_MW1_BIN", "MW3_PM_BIN", "MW3_FIND_INSTALL", "MW3_LAUNCHER_FILES", "MW3_LAUNCHER_PICKER", "MW3_LAUNCHER_FRAMES"})
+      unsetenv(v);
+    int status = 0;
+    EXPECT(waited(pid, &status) && WIFEXITED(status) && WEXITSTATUS(status) == 0);
+    std::ifstream kept(dir + "/wd/mw3.cfg"), lf(log);
+    const std::string cfg_text((std::istreambuf_iterator<char>(kept)), std::istreambuf_iterator<char>());
+    const std::string text((std::istreambuf_iterator<char>(lf)), std::istreambuf_iterator<char>());
+    EXPECT(cfg_text.find("mw1_game=" + dir + "/other/MECHWAR") != std::string::npos);
+    EXPECT(text.find("MechWarrior (1989) at " + dir + "/other/MECHWAR") != std::string::npos);
+    EXPECT(text.find("MechWarrior 1 started") == std::string::npos && !std::filesystem::exists(dir + "/args.txt"));
+  }
   unsetenv("MW3_PM_WRITE_DIR");
 }
 #endif
