@@ -564,7 +564,7 @@ TEST(mw1_story_saves_and_reads_back) {
 }
 
 // FIXES.md item 47 (mw1_ladder.h): the ladder in one table: six rungs, their forces rising; rung 6 the Dark Wing's
-// eight (the Warhammer and four BattleMasters, three escorts, 635 t by MW1's tonnage), all eight with a full lance
+// eight (a 70 t and four 85 t, three escorts, 635 t), all eight with a full lance
 // (item 48's line-up of 16), the escorts trimmed past that (a lance the line-up can't hold) and never its core; a story battle a destroy-all with no pay on a map that holds it.
 TEST(mw1_ladder_rungs_and_the_dark_wing_force) {
   int32_t last = 0;
@@ -575,9 +575,9 @@ TEST(mw1_ladder_rungs_and_the_dark_wing_force) {
     last = mw1::rung_tons(f);
   }
   const std::vector<int32_t> dw = mw1::rung_force(mw1::kDarkWingRung, 0);
-  int32_t battlemasters = 0;
-  for (int32_t k : dw) battlemasters += k == mw1::kBattleMaster;
-  EXPECT(dw.size() == 8 && dw[0] == mw1::kWarhammer && battlemasters == 4 && mw1::rung_tons(dw) == 635);
+  int32_t heaviest = 0;
+  for (int32_t k : dw) heaviest += k == mw1::kSlot85;
+  EXPECT(dw.size() == 8 && dw[0] == mw1::kSlot70 && heaviest == 4 && mw1::rung_tons(dw) == 635);
   EXPECT(mw1::rung_force(mw1::kDarkWingRung, 2).size() == 8);
   const std::vector<int32_t> full = mw1::rung_force(mw1::kDarkWingRung, 3);
   EXPECT(full == dw);

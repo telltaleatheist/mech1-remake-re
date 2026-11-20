@@ -5208,8 +5208,9 @@ void lance_orders_run(const char* name, int32_t count, bool reload, std::vector<
                   static_cast<size_t>(std::find(mates.begin(), mates.end(), m) - mates.begin()) + 1, turned, off, gait, on,
                   backed.count(m) ? backed[m] : 0);
       if (set_off_check) {
-        // Turning within 2 s (none: it faced its way already and set off at once), and walking soon after it set off.
-        EXPECT((turned >= 0 && turned <= kTurnFrames) || (turned < 0 && off >= 0 && off <= kTurnFrames));
+        // Turning within 2 s, or setting off within 2 s (it faced its way already: a later turn is a course
+        // correction on the walk, as seed 4's lancemate 2 since FIXES 112's rolls), and walking soon after it set off.
+        EXPECT((turned >= 0 && turned <= kTurnFrames) || (off >= 0 && off <= kTurnFrames));
         EXPECT(off >= 0 && gait >= 0 && on >= 0 && gait - off <= kSetOffFrames);
       }
       EXPECT(reached[m] == 1 && aimed[m] != nullptr);
@@ -5268,7 +5269,7 @@ TEST(mw1_loop_a_lancemate_down_is_logged_by_whom_headless) {
     run.save = (dir / mw1::kSaveFile).string();
     run.lance = true, run.lance_count = 3;
     run.row = &battle, run.survey = true, run.stop_at_after_action = true;
-    run.force = {mw1::kPhoenixHawk, mw1::kBattleMaster, mw1::kBattleMaster, mw1::kShadowHawk};
+    run.force = {mw1::kSlot45, mw1::kSlot85, mw1::kSlot85, mw1::kSlot55};
     std::string first, second, third, chassis;
     float killed_at = -1;
     run.in_mission = [&](int32_t f) {
@@ -5315,7 +5316,7 @@ TEST(mw1_loop_a_lancemate_down_is_logged_by_whom_headless) {
 
 // FIXES 106: Owen's lancemate Erin Falls ejected about 25 s into a destroy-all on c4ia1. Each Instant Action map of
 // the table, a destroy-all with his lance (the Atlas, the Annihilator and a Centurion) against his contract's four
-// (a Phoenix Hawk, two BattleMasters, a Shadow Hawk), the player standing at his start (invincible, never firing):
+// (a 45 t, two 85 t and a 55 t slot), the player standing at his start (invincible, never firing):
 // each lancemate's health a minute in, its last attacker, where the nearest enemy started, how far it walked, its first
 // hit (when, from how far). The game's rolls seeded (kSeed; MW1_TEST_SEED=<n> another). On PM's maps all three stand
 // (the lead, 2026-11-19). On MW3's worlds it's said, not required: there (mw3c1 ia1, mw3c4 ia1) the enemies start 700
@@ -5352,7 +5353,7 @@ TEST(mw1_loop_the_lance_lives_the_opening_minute_headless) {
       run.lance = true, run.lance_count = 3;
       run.lance_mechs = {1, 0, mw1::kPmCenturion};
       run.row = &battle, run.survey = true, run.stop_at_after_action = true, run.worlds = worlds;
-      run.force = {mw1::kPhoenixHawk, mw1::kBattleMaster, mw1::kBattleMaster, mw1::kShadowHawk};
+      run.force = {mw1::kSlot45, mw1::kSlot85, mw1::kSlot85, mw1::kSlot55};
       run.pump_limit = 9000;
       struct Mate {
         void* mech;
@@ -5451,7 +5452,7 @@ TEST(mw1_loop_the_lance_lives_the_opening_minute_headless) {
   EXPECT(maps > 0);
 }
 
-// FIXES 97: Owen's defence of the tower on mw3c1ia3 (four enemies: a Shadow Hawk, a Warhammer, two Marauders): three
+// FIXES 97: Owen's defence of the tower on mw3c1ia3 (four enemies: a 55 t, a 70 t and two 75 t slots): three
 // came; the fourth stood at its post all mission, fighting only when he came near. The map's Enemy_08 is MW3's guard: its
 // net (net_06) ends 56 m from where it starts, its pilot starts at mode 0 (won't engage), its engage range is 850 m and
 // it breaks off (leash, time) back to its post; from the company's start it never comes. A defence is won only when
@@ -5473,7 +5474,7 @@ TEST(mw1_loop_defend_every_enemy_comes_headless) {
     crt::rand_fixed_seed() = seed;
     Run run;
     run.row = &defend, run.worlds = worlds;
-    run.force = {mw1::kShadowHawk, mw1::kWarhammer, mw1::kMarauder, mw1::kMarauder};
+    run.force = {mw1::kSlot55, mw1::kSlot70, mw1::kSlot75, mw1::kSlot75};
     struct Watch {
       void* mech;
       std::string record;
@@ -5988,12 +5989,12 @@ TEST(mw1_loop_every_chassis_and_loadout_fields_and_salvages_headless) {
   } else {
     all = {{mech3::mech_index("atlas"), 4}, {mech3::kMadCat, 2}, {mech3::mech_index("puma"), 5}, {mech3::mech_index("sunder"), 1}};
   }
-  // The MW1 kind a chassis stands in a slot of (the nearest by tons): only its pay and the offer's class words.
-  auto kind_for = [](int32_t m) {
+  // The slot a chassis fills (the nearest by tons): only its pay and the offer's class words.
+  auto slot_for = [](int32_t m) {
     const int32_t t = static_cast<int32_t>(std::lround(mech3::max_mass(m)));
     int32_t best = 0;
-    for (int32_t k = 1; k < mw1::kKindCount; ++k)
-      if (std::abs(mw1::kMechKinds[k].tons - t) < std::abs(mw1::kMechKinds[best].tons - t)) best = k;
+    for (int32_t k = 1; k < mw1::kSlotCount; ++k)
+      if (std::abs(mw1::kForceSlots[k].tons - t) < std::abs(mw1::kForceSlots[best].tons - t)) best = k;
     return best;
   };
   const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_loop_every_chassis";
@@ -6009,7 +6010,7 @@ TEST(mw1_loop_every_chassis_and_loadout_fields_and_salvages_headless) {
       Run run;
       run.save = (dir / mw1::kSaveFile).string();
       run.world = "c2";
-      for (const auto& [m, l] : four) run.force.push_back(kind_for(m)), run.force_chassis.push_back(m), run.force_loadouts.push_back(l);
+      for (const auto& [m, l] : four) run.force.push_back(slot_for(m)), run.force_chassis.push_back(m), run.force_loadouts.push_back(l);
       std::vector<std::string> spawned, wanted;
       bool table_ok = true;
       run.in_mission = [&](int32_t f) {

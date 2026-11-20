@@ -170,9 +170,8 @@ int32_t make_mech_icons(const std::string& write_dir) {
   std::vector<images::Image> made;
   std::set<int32_t> done;
   g_outlines.clear();
-  // MW1's kinds' stand-ins, then (FIXES 104) every chassis that fields as an enemy: the offer's main enemy.
+  // Every chassis that fields as an enemy (FIXES 104, the roster): the offer's main enemy.
   std::vector<int32_t> amber;
-  for (const MechKind& k : kMechKinds) amber.push_back(k.pm_mech);
   for (int32_t m = 0; m < mech3::kMechCount; ++m)
     if (fields(m)) amber.push_back(m);
   for (int32_t pm : amber) {

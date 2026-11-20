@@ -12,6 +12,7 @@
 #include "check.h"
 #include "mech3/model_view.h"
 #include "mech3/mech_names.h"
+#include "mw1_enemies.h"
 #include "mw1_campaign.h"
 #include "mw1_market.h"
 #include "mw1_art.h"
@@ -63,14 +64,15 @@ TEST(mw1_renders_graded_frame) {
   EXPECT(v.size() == 1 && v[0].width == mw1::kRenderSlotW && v[0].height == mw1::kRenderSlotH);
 }
 
-// Every chassis the market sells (24: PM's roster but the Elemental), once each, so every kind's stand-in; the archive
+// Every chassis the market sells (24: PM's roster but the Elemental), once each, so every enemy's; the archive
 // current only under its own stamp.
 TEST(mw1_renders_stamp) {
   const std::vector<int32_t> mechs = mw1::render_mechs();
   EXPECT(mechs.size() == 24);
   for (int32_t m = 0; m < mech3::kMechCount; ++m)
     EXPECT(std::count(mechs.begin(), mechs.end(), m) == (mw1::sold_mech(m) ? 1 : 0));
-  for (const mw1::MechKind& k : mw1::kMechKinds) EXPECT(std::count(mechs.begin(), mechs.end(), k.pm_mech) == 1);
+  for (int32_t m = 0; m < mech3::kMechCount; ++m)
+    if (mw1::fields(m)) EXPECT(std::count(mechs.begin(), mechs.end(), m) == 1);
   for (int32_t m : mechs) EXPECT(mw1::render_image(m).size() <= 31);
 
   const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_renders";

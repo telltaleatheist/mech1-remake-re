@@ -11,12 +11,12 @@
 
 namespace mw1::repairs {
 
-// MW1's body repair (MwQuoteRepairComponent, REPAIR 081B:3E28; MwQuoteMechRepairTotal 3763): the kind's price
-// (bodyRepairBasePricesByKind, DS:3CAB, thousands) for each of the 9 body locations damaged, plus the world's
-// premium. A full repair is all 9.
-inline constexpr int32_t kBodyRepairPrices[kKindCount] = {4, 3, 4, 8, 10, 10, 12, 10, 12, 15};
+// MW1's body repair (MwQuoteRepairComponent, REPAIR 081B:3E28; MwQuoteMechRepairTotal 3763): its kind record's price
+// (bodyRepairBasePricesByKind, DS:3CAB, thousands; kMw1Kinds' order) for each of the 9 body locations damaged, plus
+// the world's premium. A full repair is all 9.
+inline constexpr int32_t kBodyRepairPrices[kMw1KindCount] = {4, 3, 4, 8, 10, 10, 12, 10, 12, 15};
 inline constexpr int32_t kBodyLocations = 9;  // CAMPAIGN_BODY_LOCATION_COUNT
-// Pirate's Moon's mechs aren't MW1's kinds: a location's price is the straight line through MW1's ten by tons
+// Our 'Mechs aren't MW1's: a location's price is the straight line through MW1's ten records by tons
 // (least squares, provisional Q1): 172 x tons - 150 C-bills.
 inline constexpr int32_t kRepairPerTon = 172, kRepairOffset = 150;
 // The tuning knob (provisional Q3: MW1's numbers as they are).

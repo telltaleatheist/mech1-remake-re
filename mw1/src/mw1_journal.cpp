@@ -140,7 +140,7 @@ std::string strength_line(int32_t r, int32_t lancemates) {
   int32_t per[4] = {};
   for (int32_t k : force)
     for (int32_t i = 0; i < 4; ++i)
-      if (std::strcmp(weight_class(kMechKinds[k].tons), kClasses[i]) == 0) ++per[i];
+      if (std::strcmp(weight_class(kForceSlots[k].tons), kClasses[i]) == 0) ++per[i];
   static const char* kPlurals[] = {"lights", "mediums", "heavies", "assaults"};
   std::vector<std::string> kinds;
   for (int32_t i = 0; i < 4; ++i)

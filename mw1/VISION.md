@@ -128,7 +128,7 @@ numbers and formulas are in `research/economy.md`.
   worlds that pay 140% (Kurita has 7 core and 10 edge worlds, Steiner 7 and
   7).
 - **Buy low, sell far away.** Buy at Luthien, sell at Anywhere, come back
-  for a BattleMaster. The edge worlds only buy one or two mechs a visit, and
+  for an Atlas. The edge worlds only buy one or two mechs a visit, and
   their own stock is small.
 - **Travel costs money and time.** You pay per pilot, per mech or for your own
   DropShip, by distance. Time spent travelling costs wages, and arriving
@@ -168,8 +168,8 @@ salvage. What you can fit is what you've salvaged or bought.
   2026-11-16; changed if it becomes a problem).
 - **The company starts as Pirate's Moon's campaign does**: PM's starting
   stores of weapons and equipment, with an **Owens** (35 tons) for the
-  commander in place of PM's Centurion (50 tons), MW1's Jenner being a
-  35-ton light. Plus MW1's starting money and its random bonus.
+  commander in place of PM's Centurion (50 tons), MW1's own starting 'Mech
+  being a 35-ton light. Plus MW1's starting money and its random bonus.
 - **You can't sell your last mech** (Owen, 2026-11-16). MW1 allowed it and
   left a company with no mech and no money stuck for good
   (`research/economy.md`). Anything but the last one can be sold.
@@ -189,7 +189,7 @@ pay) is ours.
 
 - **Every mission starts fresh**: every mech fully repaired, its ammo
   loaded from the stores, as MW3 does it. Gone with it: MW1's condition tiers, the Mech Complex's repair
-  and rearm screens, repair time, and the starting Jenner's damage.
+  and rearm screens, repair time, and the starting 'Mech's damage.
 - **The fight's cost is settled at the debriefing**, as one bill: a price
   per point of armor and structure repaired (at an MFB or at the end, the
   same rate). Only the mech's body: nothing else is on it.
@@ -211,7 +211,7 @@ pay) is ours.
 - **Wrecks pay what they're worth, less their repairs** (Owen, 2026-11-16).
   Each enemy mech the lance brings down shows in the salvage and pays its
   sale price at this world (MW1's) minus what it would cost to repair (MW1's
-  repair prices): a Locust that sells for 10,000 and needs 1,000 of repairs
+  repair prices): a Firefly that sells for 10,000 and needs 1,000 of repairs
   pays 9,000. **One rule prices repairs everywhere**: our own mechs' bill and
   the wrecks' deduction come from the same repair prices, proportional to
   the damage. If wrecks pay too much, the same sum is scaled down (halved,

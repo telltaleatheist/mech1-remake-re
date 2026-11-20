@@ -206,8 +206,8 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
     const AfterAction& p = *pending;
     o << "pending_outcome=" << (p.outcome == Outcome::kSuccess ? 0 : p.outcome == Outcome::kFailure ? 1 : 2) << "\n";
     o << "pending_wrecks=";
-    for (size_t i = 0; i < p.wrecks.size(); ++i) o << (i ? "," : "") << p.wrecks[i].kind << ":" << p.wrecks[i].condition << ":" << p.wrecks[i].damage;
-    o << "\npending_wreck_chassis=";  // FIXES 104: what each was (-1: its kind's stand-in)
+    for (size_t i = 0; i < p.wrecks.size(); ++i) o << (i ? "," : "") << p.wrecks[i].slot << ":" << p.wrecks[i].condition << ":" << p.wrecks[i].damage;
+    o << "\npending_wreck_chassis=";  // FIXES 104: what each was (-1: its slot's stand-in)
     for (size_t i = 0; i < p.wrecks.size(); ++i) o << (i ? "," : "") << p.wrecks[i].chassis;
     o << "\npending_bills=";
     for (size_t i = 0; i < p.bills.size(); ++i)
@@ -277,6 +277,7 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
   const bool v5 = n >= 5;  // the repairs; before them, the premium rolled anew and no bills
   const bool v8 = n >= 8;  // the story; before it, the story planets rolled at the load and nothing seen
   const bool v7 = n >= 7;  // negotiation; before it, the House's middle patience and the ceilings as they'd be now
+  const bool v11 = n >= 11;  // FIXES 112: the force's slots; before it, MW1's kind numbers (slot_of_mw1_kind)
   const bool v1 = n == 1;  // before the hangar and the market: a hangar of none, the market rolled at the next refresh
   Company c;
   const int64_t kMax = int64_t{1} << 40;
@@ -508,9 +509,9 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
     std::istringstream es(v["offer_enemies"]);
     std::string e;
     while (std::getline(es, e, ',')) {
-      int64_t kind = 0;
-      if (!to_int(e, 0, kKindCount - 1, &kind)) return fail("the offer's enemies don't read");
-      k.enemies.push_back(static_cast<int32_t>(kind));
+      int64_t x = 0;
+      if (!to_int(e, 0, (v11 ? kSlotCount : kMw1KindCount) - 1, &x)) return fail("the offer's enemies don't read");
+      k.enemies.push_back(v11 ? static_cast<int32_t>(x) : slot_of_mw1_kind(static_cast<int32_t>(x)));
     }
     if (k.enemies.empty() || k.enemies.size() > 4) return fail("the offer has no enemies, or too many");
     // FIXES 104: the chassis and loadouts, one per enemy; absent (an older save), the stand-ins; there but bad, the save fails.
@@ -584,12 +585,14 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
     };
     while (std::getline(ws, w, ',')) {
       std::vector<int64_t> f;
-      // Before version 5 kind:condition, the damage taken as the parts lost (the old pay's shape).
-      if (!fields(w, v5 ? std::vector<std::pair<int64_t, int64_t>>{{0, kKindCount - 1}, {0, 100}, {0, kWhole}}
-                        : std::vector<std::pair<int64_t, int64_t>>{{0, kKindCount - 1}, {0, 100}},
+      // slot:condition:damage (before version 11 MW1's kind number for the slot; before version 5 kind:condition, the
+      // damage taken as the parts lost, the old pay's shape).
+      const int64_t top = (v11 ? kSlotCount : kMw1KindCount) - 1;
+      if (!fields(w, v5 ? std::vector<std::pair<int64_t, int64_t>>{{0, top}, {0, 100}, {0, kWhole}}
+                        : std::vector<std::pair<int64_t, int64_t>>{{0, top}, {0, 100}},
                   &f))
         return fail("the pending mission's wrecks don't read");
-      p.wrecks.push_back(Wreck{static_cast<int32_t>(f[0]), static_cast<int32_t>(f[1]),
+      p.wrecks.push_back(Wreck{v11 ? static_cast<int32_t>(f[0]) : slot_of_mw1_kind(static_cast<int32_t>(f[0])), static_cast<int32_t>(f[1]),
                                v5 ? static_cast<int32_t>(f[2]) : static_cast<int32_t>((100 - f[1]) * kWhole / 100)});
     }
     if (v.count("pending_wreck_chassis") && !v["pending_wreck_chassis"].empty()) {  // FIXES 104; absent: stand-ins

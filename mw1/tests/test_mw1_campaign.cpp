@@ -17,6 +17,7 @@
 #include "mech3/mech_names.h"
 #include "mech3/pilot.h"
 #include "mw1_campaign.h"
+#include "mw1_enemies.h"
 #include "mw1_repairs.h"
 #include "mw1_screen.h"
 #include "mw1_results.h"
@@ -56,10 +57,10 @@ TEST(mw1_campaign_tables_are_mw_main_exes) {
   for (int i = 0; i < 4; ++i) EXPECT(d[0x3057 + i] == mw1::kTierMultipliers[i]);
   for (int h = 0; h < mw1::kHouseCount; ++h)
     for (int t = 0; t < mw1::kTargetColumns; ++t) EXPECT(d[0x5CBA + h * mw1::kTargetColumns + t] == mw1::kHouseTargets[h][t]);
-  for (int k = 0; k < mw1::kKindCount; ++k) {
-    EXPECT(word(d, 0x122B + 2 * k) == mw1::kMechKinds[k].tons);
-    EXPECT(d[0x4B55 + k] == mw1::kMechKinds[k].weight);
-    EXPECT(word(d, 0x305F + 2 * k) == mw1::kMechKinds[k].base_price);
+  for (int k = 0; k < mw1::kMw1KindCount; ++k) {
+    EXPECT(word(d, 0x122B + 2 * k) == mw1::kMw1Kinds[k].tons);
+    EXPECT(d[0x4B55 + k] == mw1::kMw1Kinds[k].weight);
+    EXPECT(word(d, 0x305F + 2 * k) == mw1::kMw1Kinds[k].base_price);
   }
   for (int h = 0; h < mw1::kHouseCount; ++h) {
     const mw1::HouseRules& r = mw1::kHouses[h];
@@ -69,14 +70,22 @@ TEST(mw1_campaign_tables_are_mw_main_exes) {
   }
 }
 
-// Each MW1 kind's stand-in is the Pirate's Moon Inner Sphere mech nearest its tonnage (research/contracts.md).
-TEST(mw1_campaign_stand_ins_are_pms_nearest) {
-  const char* const want[mw1::kKindCount] = {"firefly", "firefly", "owens", "strider", "bushwacker",
-                                             "bushwacker", "champion", "avatar", "orion", "awesome"};
-  for (int k = 0; k < mw1::kKindCount; ++k) {
-    const mw1::MechKind& m = mw1::kMechKinds[k];
-    EXPECT(std::strcmp(mech3::mech_name(m.pm_mech), want[k]) == 0);
-    std::printf("  %-13s %2d t -> %-10s %3.0f t\n", m.name, m.tons, mech3::mech_name(m.pm_mech), mech3::max_mass(m.pm_mech));
+// FIXES 112: the force's slots are MW1's fielded tonnages and classes (each an exe record's; the never-fielded twins
+// fold into theirs), an older save's kind number reads as its slot, and each slot's stand-in is the roster's nearest
+// Inner Sphere chassis: with the full roster, the eight the game fielded before 104 (research/contracts.md).
+TEST(mw1_campaign_slots_and_stand_ins) {
+  const int32_t old_slots[mw1::kMw1KindCount] = {0, 0, 1, 2, 3, 3, 4, 5, 6, 7};
+  for (int k = 0; k < mw1::kMw1KindCount; ++k) {
+    const int32_t s = mw1::slot_of_mw1_kind(k);
+    EXPECT(s == old_slots[k] && mw1::kForceSlots[s].tons == mw1::kMw1Kinds[k].tons &&
+           mw1::kForceSlots[s].weight == mw1::kMw1Kinds[k].weight);
+  }
+  EXPECT(mw1::slot_of_mw1_kind(-1) == -1 && mw1::slot_of_mw1_kind(mw1::kMw1KindCount) == -1);
+  const char* const want[mw1::kSlotCount] = {"firefly", "owens", "strider", "bushwacker", "champion", "avatar", "orion", "awesome"};
+  for (int s = 0; s < mw1::kSlotCount; ++s) {
+    const int32_t m = mw1::stand_in(s);
+    EXPECT(m >= 0 && std::strcmp(mech3::mech_name(m), want[s]) == 0);
+    std::printf("  the %2d t slot -> %-10s %3.0f t\n", mw1::kForceSlots[s].tons, m >= 0 ? mech3::mech_name(m) : "?", m >= 0 ? mech3::max_mass(m) : 0.0f);
   }
   EXPECT(mw1::lance_weight_of_tons(35) == 1 && mw1::lance_weight_of_tons(45) == 2 && mw1::lance_weight_of_tons(55) == 2 &&
          mw1::lance_weight_of_tons(60) == 3);
@@ -103,7 +112,7 @@ TEST(mw1_campaign_contracts_as_mw1_sizes_them) {
   c.planet_house = mw1::kDavion;
   auto classes = [](const mw1::Contract& k) {
     int l = 0, m = 0, h = 0;
-    for (int32_t e : k.enemies) (mw1::kMechKinds[e].weight == 1 ? l : mw1::kMechKinds[e].weight == 2 ? m : h)++;
+    for (int32_t e : k.enemies) (mw1::kForceSlots[e].weight == 1 ? l : mw1::kForceSlots[e].weight == 2 ? m : h)++;
     return std::to_string(h) + "h" + std::to_string(m) + "m" + std::to_string(l) + "l";
   };
   // The start, no kills: budget 10, one light; the x1.5 offer one medium, the x0.5 one light.
@@ -141,16 +150,16 @@ TEST(mw1_campaign_accept_and_settle) {
   const int64_t start = c.funds;
   mw1::accept(c, k);  // 6% of 150 thousand: 9 thousand now, 141 left
   EXPECT(c.funds == start + 9000 && k.remaining == 141 && k.accepted);
-  // A wreck pays its PM chassis's sale price there less its repairs (mw1_repairs.h). An undamaged Jenner (the Owens)
+  // A wreck pays its PM chassis's sale price there less its repairs (mw1_repairs.h). An undamaged 35 t slot (the Owens)
   // at tier 0: (10-1) x 100 x (95 x 35 - 245) = 2,772 thousand. Half its repairs at an 18% premium: (172 x 35 - 150)
   // x 9 x 1.18 / 2 = 31,169 off: 2,741.
   c.repair_premium = 18;
-  EXPECT(mw1::wreck_value(c, {mw1::kJenner, 100, 0}) == 2772 && mw1::wreck_value(c, {mw1::kJenner, 50, 5000}) == 2741);
+  EXPECT(mw1::wreck_value(c, {mw1::kSlot35, 100, 0}) == 2772 && mw1::wreck_value(c, {mw1::kSlot35, 50, 5000}) == 2741);
   // Success (Davion always pays 100%): the fee's remainder, and the pool of the wrecks' worth (the salvage paid from
-  // it after the repairs: mw1_repairs.h's settle_mission, FIXES.md item 51); +2 favor, the kills counted. A Locust
+  // it after the repairs: mw1_repairs.h's settle_mission, FIXES.md item 51); +2 favor, the kills counted. A 20 t slot
   // (the Firefly, 30 t) wholly to repair: 2,344,000 - 53,206 = 2,291 thousand.
   const mw1::Settlement s =
-      mw1::settle(c, k, mw1::Outcome::kSuccess, {{mw1::kJenner, 100, 0}, {mw1::kLocust, 0, mw1::kWhole}}, rng);
+      mw1::settle(c, k, mw1::Outcome::kSuccess, {{mw1::kSlot35, 100, 0}, {mw1::kSlot20, 0, mw1::kWhole}}, rng);
   EXPECT(s.payout_percent == 100 && s.pool == (2772 + 2291) * 1000 && s.salvage == 0 && s.fee == 141000);
   EXPECT(c.funds == start + 9000 + s.fee && c.favor[mw1::kDavion] == 2 && c.kills == 2 && !k.accepted);
   // A retreat pays nothing and costs a grievance; a failure pays nothing either way.
@@ -158,12 +167,12 @@ TEST(mw1_campaign_accept_and_settle) {
   mw1::Contract r = mw1::generate_contract(c, 0, rng);
   mw1::accept(c, r);
   const int64_t advanced = c.funds;
-  const mw1::Settlement t = mw1::settle(c, r, mw1::Outcome::kRetreat, {{mw1::kJenner, 100}}, rng);
+  const mw1::Settlement t = mw1::settle(c, r, mw1::Outcome::kRetreat, {{mw1::kSlot35, 100}}, rng);
   EXPECT(t.salvage == 0 && t.pool == 0 && t.fee == 0 && c.funds == advanced && advanced > before && c.grievance[mw1::kDavion] == 1);
   mw1::Contract f = mw1::generate_contract(c, 0, rng);
   mw1::accept(c, f);
   const int64_t f_advanced = c.funds;
-  const mw1::Settlement u = mw1::settle(c, f, mw1::Outcome::kFailure, {{mw1::kJenner, 100}}, rng);
+  const mw1::Settlement u = mw1::settle(c, f, mw1::Outcome::kFailure, {{mw1::kSlot35, 100}}, rng);
   EXPECT(u.fee == 0 && u.salvage == 0 && u.pool == 0 && c.funds == f_advanced && c.grievance[mw1::kDavion] == 1);
   // The House you fought: +2 grievance at every ending, a target that isn't a House none.
   for (const mw1::Outcome o : {mw1::Outcome::kSuccess, mw1::Outcome::kFailure, mw1::Outcome::kRetreat})
