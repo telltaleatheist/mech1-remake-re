@@ -240,10 +240,11 @@ void set_window_size(int32_t w, int32_t h);   // 0x0040d7d0
 void set_window_origin(int32_t x, int32_t y); // 0x0040d7f0
 void set_vmode(int32_t mode);               // 0x0040d810
 // A mode's size: the original's 3 (drawn 320x240) and 5..10, and with
-// zfix's any_resolution 11..15 (1280x720 .. 3840x2160) and 16 the player's
-// own; false for a mode that keeps the sizes it had (resolution.md).
-constexpr int32_t kLastVMode = 16, kCustomVMode = 16;
-constexpr int32_t kMaxScreen[2] = {3840, 2160};  // lower to 1920x1080 if larger sizes are trouble
+// zfix's any_resolution 11..15 (1280x720 .. 3840x2160), 16 the player's
+// own and 17..20 (2560x1080 .. 5120x1440, after 16 so saved modes keep their
+// meaning); false for a mode that keeps the sizes it had (resolution.md).
+constexpr int32_t kLastVMode = 20, kCustomVMode = 16;
+constexpr int32_t kMaxScreen[2] = {7680, 2160};  // 32:9 at 4K's height
 bool vmode_size(int32_t mode, int32_t* w, int32_t* h);
 // FIX (B), any_resolution: the 2D canvas past mode 10 (480 high, the frame
 // over art_scale), and its rects onto the frame (resolution.md step 4).

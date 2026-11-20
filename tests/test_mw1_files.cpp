@@ -9,6 +9,7 @@
 
 #include "check.h"
 #include "frontend/sdl/mw1_files.h"
+#include "mw1_btech_stand_in.h"
 
 #if MW3_HAVE_LIBARCHIVE
 #if defined(_WIN32) && !defined(NOMINMAX)
@@ -80,6 +81,18 @@ TEST(mw1_files_takes_the_folder_any_file_in_it_and_a_folder_above) {
   put(fs::path(d) / "lone" / "BTECH.EXE");  // MW_MAIN.EXE missing: still the game, said elsewhere
   EXPECT(mw1::game_valid(d + "/lone") && !mw1::has_main(d + "/lone"));
   EXPECT(mw1::game_in(d, 0) == "" && mw1::game_in(d + "/dos", 1) == game);
+}
+
+// Elthial's port plays one BTECH.EXE revision (its CRC-32 and size): another is told apart before PLAY ORIGINAL.
+TEST(mw1_files_knows_the_btech_revision_the_port_plays) {
+  const std::string d = fresh("revision");
+  put(fs::path(d) / "ok" / "btech.exe", mw1_port_btech_stand_in());  // any case
+  std::string other = mw1_port_btech_stand_in();
+  other[100] = 1;  // the same size, another CRC
+  put(fs::path(d) / "other" / "BTECH.EXE", other);
+  put(fs::path(d) / "short" / "BTECH.EXE", "x");
+  EXPECT(mw1::original_supported(d + "/ok"));
+  EXPECT(!mw1::original_supported(d + "/other") && !mw1::original_supported(d + "/short") && !mw1::original_supported(d + "/none"));
 }
 
 TEST(mw1_files_searches_the_usual_places_without_a_pick) {

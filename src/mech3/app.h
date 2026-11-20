@@ -106,5 +106,9 @@ class Mech3App : public zgame::App {
 Mech3App& app();             // the one at 0x00608c88
 Mech3App* app_if_any();      // null before set_app
 void set_app(Mech3App* app);
+// FIX (B): a stick plugged in after the start: the joystick setting and the
+// axes the start's no-stick branch changed come back, with force feedback
+// (input.md section 4). Called by the input poll once zInput has opened it.
+void stick_arrived(Engine& e);
 
 }  // namespace mech3

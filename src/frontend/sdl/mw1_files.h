@@ -6,6 +6,7 @@
 // when nothing is picked yet.
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -18,6 +19,13 @@ bool has_main(const std::string& dir);
 // `dir` when it is the game, else the first folder under it, `depth` levels
 // down at most, that is (shallowest first, names sorted); "" when none.
 std::string game_in(const std::string& dir, int depth = 2);
+
+// Whether Elthial's port can play this folder's combat: its BTECH.EXE is the one revision the port unpacks
+// (its CombatInstallation.c pins the whole file's CRC-32 at 0x36A13E1A; 174,267 bytes). Any other revision fails
+// only at the first battle, so the launcher says so first (2026-11-20, the mw1 lead and dev 1).
+bool original_supported(const std::string& dir);
+inline constexpr uint32_t kPortBtechCrc = 0x36A13E1Au;
+inline constexpr uint64_t kPortBtechSize = 174267;
 
 // The folder our unpacking makes: <write dir>/mw1/game.
 std::string unpacked_dir(const std::string& write_dir);

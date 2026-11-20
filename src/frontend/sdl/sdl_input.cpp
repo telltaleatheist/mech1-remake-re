@@ -734,8 +734,9 @@ void SdlInput::on_event(const SDL_Event& e) {
           joy_ = pad_ ? SDL_GetGamepadJoystick(pad_) : SDL_OpenJoystick(e.jdevice.which);
           if (joy_) id_ = e.jdevice.which, unplugged_ = false, std::printf("mw3: joystick back\n");
         }
-      } else if (!joy_ && tried_) {  // none at the start: zInput set up without one
-        std::printf("mw3: a joystick was plugged in: the game takes it at its next start\n");
+      } else if (!joy_ && tried_) {  // none at the start: zInput opens it at its next poll (FIX (B))
+        std::printf("mw3: a joystick was plugged in\n");
+        arrived_ = true;
       }
       break;
     case SDL_EVENT_WINDOW_FOCUS_GAINED:

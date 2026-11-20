@@ -52,7 +52,10 @@ namespace fs = std::filesystem;
 constexpr int W = 854, H = 480, kX = (W - 640) / 2;
 // ADD FROM MY DISC's line under its name: short enough for the plate at its font (it was cut in the middle).
 constexpr char kAddDiscSub[] = "A disc in a drive, or its image or any file of the disc";
-constexpr int kBadge = 76;  // a game's badge across, on the 640x480 canvas
+constexpr int kBadge = 76;  // a game's badge across, on the 640x480 canvas (the other screens' round entries)
+// The main screen's cards (layout C, the mockup's 1280x720 at two thirds): the header, the cards, the bottom row.
+constexpr int kCardsW = 768, kCardsTop = 84, kCardsBottom = 416, kCardBadge = 100, kCardButtonH = 42;
+constexpr int kRowTop = 428, kRowH = 30;
 
 // ---- art ----
 
@@ -142,6 +145,24 @@ SDL_Surface* cut_out(SDL_Surface* s, int thresh, bool alpha) {
   }
   return c;
 }
+// A card's status from a ready line ("Ready, official: data 1.2, program v1.1.3, ") and the folder: the verdict,
+// the versions, the folder, a line each.
+std::vector<std::string> status_lines(const std::string& ready, const std::string& dir) {
+  std::string r = ready;
+  while (!r.empty() && (r.back() == ' ' || r.back() == ',')) r.pop_back();
+  const size_t colon = r.find(": ");
+  if (colon == std::string::npos) return {r, dir};
+  return {r.substr(0, colon), r.substr(colon + 2), dir};
+}
+// Whether a picture has see-through pixels of its own (a cut-out badge).
+bool has_alpha(SDL_Surface* s) {
+  for (int y = 0; y < s->h; ++y) {
+    const uint32_t* row = reinterpret_cast<const uint32_t*>(static_cast<uint8_t*>(s->pixels) + y * s->pitch);
+    for (int x = 0; x < s->w; ++x)
+      if ((row[x] >> 24) != 0xff) return true;
+  }
+  return false;
+}
 SDL_Surface* scaled(SDL_Surface* s, int w, int h) {
   if (!s) return nullptr;
   SDL_Surface* r = SDL_ScaleSurface(s, w, h, SDL_SCALEMODE_LINEAR);
@@ -165,8 +186,11 @@ struct Art {
     if (SDL_Surface* t = cut_out(load_png(dir, "title.png"), 24, true)) title = scaled(t, 420, t->h * 420 / t->w), SDL_DestroySurface(t);
     if (SDL_Surface* e = cut_out(load_png(dir, "emblem.png"), 24, true)) emblem = scaled(e, 72, 72), SDL_DestroySurface(e);
     const char* const badges[3] = {"badge_mw3.png", "badge_pm.png", "badge_mw1.png"};
-    for (int i = 0; i < 3; ++i)
-      if (SDL_Surface* b = cut_out(load_png(dir, badges[i]), 24, true)) badge[i] = scaled(b, kBadge, kBadge), SDL_DestroySurface(b);
+    for (int i = 0; i < 3; ++i) {  // cut out already (tools/badge_cutout.py): their own alpha; an older black one cut here
+      SDL_Surface* b = load_png(dir, badges[i]);
+      if (b && !has_alpha(b)) b = cut_out(b, 24, true);
+      if (b) badge[i] = scaled(b, kCardBadge, kCardBadge), SDL_DestroySurface(b);
+    }
   }
 };
 
@@ -356,6 +380,23 @@ struct Button {
   bool enabled = true;
   size_t sub_keep = 0;  // the sub's start kept whole when it is shortened to fit
   int badge = -1;       // a game's entry: its round badge (Art::badge), the name beside it
+  // The cards (Owen, 2026-11-20, layout C): a card's amber PLAY, its grey PLAY ORIGINAL, the bottom row's
+  // flat buttons; 0 the steel plate of the other screens.
+  enum Style { kPlate, kAmber, kGrey, kFlat } style = kPlate;
+  std::string name;  // what the log and the checks call it ("" the label): a card's PLAY by its game
+  const std::string& log_name() const { return name.empty() ? label : name; }
+};
+
+// A game's card on the main screen (layout C): its badge on the starfield, its name, its status lines; its
+// buttons are Buttons.
+struct Card {
+  SDL_Rect r{};
+  int badge = 0;
+  std::string name;
+  std::vector<std::string> lines;  // the status, a line each, the last of them shortened to fit
+  std::vector<size_t> keep;        // each line's start kept whole when it is shortened (Text::fit)
+  std::string note;                // a single game's words above its PLAY
+  bool on = true;
 };
 
 enum Id {
@@ -368,6 +409,7 @@ enum Id {
   kUpdates = 49,
   kUpdateGo = 80, kUpdateNotNow, kUpdatePrev, kUpdateNext,
   kVulkanAgain = 90,  // ours: the Vulkan check again (docs/linux.md)
+  kMw1Original = 100,  // MW1's card: PLAY ORIGINAL, Elthial's port of the 1989 game
 };
 
 struct Install {
@@ -444,6 +486,7 @@ class Launcher {
   bool notes_once(const std::vector<std::string>& notes, std::string* crc_kept, const char* key);
   void find_pm();
   void find_mw1_game();
+  void draw_card(const Card& c);
   // GAME FILES on Pirate's Moon (files_pm_): its settings folder as mw3pm
   // finds it, its usual one (MW3's sibling, "MicroProse/Pirate's Moon", made
   // by mw3pm, not here), what it lacks, and the folder in use.
@@ -543,8 +586,11 @@ class Launcher {
   double status_read_ms_ = -1e9;  // no first frame within ready_wait_ms(): the status line says so
   std::string ready_file_;
   bool mw1_logged_ = false;  // MW1: its entry's line said once
-  bool mw1_remake_ = false;  // MW1: MechWarrior 1: Critical Hit's mw1 beside ours; without it, Elthial's port as before
-  std::string mw1_exe_, mw1_game_;  // MechWarrior (1989): Elthial's port beside ours, the player's folder
+  bool mw1_remake_ = false;  // MW1: MechWarrior 1: Critical Hit's mw1 beside ours
+  std::string mw1_exe_, mw1_game_;  // MW1: Critical Hit's program; the player's MechWarrior (1989) folder
+  std::string port_exe_;            // Elthial's port of the 1989 game, when the player has put it beside ours
+  bool mw1_original_ = false;       // the MW1 run asked for is the original's (PLAY ORIGINAL)
+  std::vector<Card> cards_;         // the main screen's (layout)
   std::string status_;
   bool status_good_ = true;
   Vulkan vulkan_ = Vulkan::kOk;  // ours (docs/linux.md, Vulkan): what the start found
@@ -674,32 +720,30 @@ std::string program_version(const std::string& bin) {
 
 }  // namespace
 
-// Elthial's MechWarrior (1989) SDL port (docs/launcher.md): its program
-// beside ours or in a MechWarrior1989 folder beside it (MW3_MW1_PORT for
-// checks); the entry shows only when it is there.
+// MW1's card (docs/launcher.md, The cards): MW1: Critical Hit's `mw1` beside ours (PLAY REMAKE), and Elthial's
+// MechWarrior (1989) SDL port (PLAY ORIGINAL). Cut for now (Owen, 2026-11-20: he doesn't like how it runs; MW1
+// original may come with Crescent Hawk's Inception): PLAY ORIGINAL is greyed, COMING LATER, and the port is
+// looked for only where a check names it (MW3_MW1_PORT), so its start stays tested.
+// Both play the same MechWarrior (1989) folder. The card shows when either is there.
 void Launcher::find_mw1() {
-  // MW1: with `mw1` beside ours (MW1: Critical Hit's VISION.md), this entry is the
-  // remake's, with the player's MW1 folder as before; without it, the port's search below as it always was.
   mw1_remake_ = !o_.mw1_bin.empty();
   if (mw1_remake_) {
     mw1_exe_ = o_.mw1_bin;
     std::printf("mw3: launcher: MechWarrior 1 at %s\n", mw1_exe_.c_str());
-    find_mw1_game();
-    return;
   }
 #if defined(_WIN32)
   const char* name = "mechwarrior.exe";
 #else
   const char* name = "mechwarrior";
 #endif
+  (void)name;  // beside ours and MechWarrior1989/<name> while it shipped
   std::vector<fs::path> tries;
   if (const char* env = SDL_getenv("MW3_MW1_PORT")) tries.emplace_back(env);
-  tries.push_back(fs::path(o_.program_dir) / name), tries.push_back(fs::path(o_.program_dir) / "MechWarrior1989" / name);
   std::error_code ec;
   for (const fs::path& t : tries)
     if (fs::is_regular_file(t, ec)) {
-      mw1_exe_ = t.string();
-      std::printf("mw3: launcher: MechWarrior (1989) port at %s\n", mw1_exe_.c_str());
+      port_exe_ = t.string();
+      std::printf("mw3: launcher: MechWarrior (1989) port at %s\n", port_exe_.c_str());
       break;
     }
   find_mw1_game();
@@ -753,16 +797,34 @@ void Launcher::find_pm() {
 
 void Launcher::run_mw1() {
   // MW1: the remake gets the three installs and this start's choices, as Pirate's Moon does; its settings and
-  // saves are its own folder's. Without it, the port's start below.
-  if (mw1_remake_) return run_mw1_remake();
+  // saves are its own folder's. PLAY ORIGINAL: the port's start below.
+  if (!mw1_original_) return run_mw1_remake();
   const fs::path base = o_.write_dir.empty() ? fs::path("mw1") : fs::path(o_.write_dir) / "mw1";
   std::error_code ec;
   fs::create_directories(base / "captures", ec);
   fs::create_directories(base / "saves", ec);
   SDL_SetEnvironmentVariable(SDL_GetEnvironment(), "MECHWARRIOR_SAVE_DIRECTORY", (base / "saves").string().c_str(), true);
+  // Its MechWarrior.ini: beside it, or in the Mac app's Resources/MechWarrior1989 (the package keeps only code in
+  // MacOS), named outright since SDL's base path for a program inside an app is the app's.
+  const fs::path port_dir = fs::path(port_exe_).parent_path();
+  for (const fs::path& ini : {port_dir / "MechWarrior.ini", port_dir / ".." / ".." / "Resources" / "MechWarrior1989" / "MechWarrior.ini"})
+    if (fs::is_regular_file(ini, ec)) {
+      SDL_SetEnvironmentVariable(SDL_GetEnvironment(), "MECHWARRIOR_TIMING_CONFIG", ini.lexically_normal().string().c_str(), true);
+      break;
+    }
   const std::string game = mw1_game_, captures = (base / "captures").string();
-  const char* args[] = {mw1_exe_.c_str(), game.c_str(), captures.c_str(), nullptr};
+  const char* args[] = {port_exe_.c_str(), game.c_str(), captures.c_str(), nullptr};
+#if defined(_WIN32)
+  // mechwarrior.exe is a console program: started in the background (CREATE_NO_WINDOW) no console opens beside the
+  // game (mw1 dev 1, 2026-11-20). SDL then reports its exit as 0, so a failure is not told apart here.
+  const SDL_PropertiesID props = SDL_CreateProperties();
+  SDL_SetPointerProperty(props, SDL_PROP_PROCESS_CREATE_ARGS_POINTER, const_cast<char**>(args));
+  SDL_SetBooleanProperty(props, SDL_PROP_PROCESS_CREATE_BACKGROUND_BOOLEAN, true);
+  SDL_Process* p = SDL_CreateProcessWithProperties(props);
+  SDL_DestroyProperties(props);
+#else
   SDL_Process* p = SDL_CreateProcess(args, false);
+#endif
   if (!p) {
     status_ = std::string("MechWarrior (1989) did not start: ") + SDL_GetError(), status_good_ = false;
     std::printf("mw3: launcher: %s\n", status_.c_str());
@@ -815,8 +877,8 @@ void Launcher::run_mw1_remake() {
 std::string Launcher::mw1_needs() const {
   const bool mw3 = install_.ok && !install_.dir.empty(), pm = !pm_dir_.empty();
   if (mw3 && pm) return "";
-  return std::string("needs ") + (!mw3 && !pm ? "MechWarrior 3 and Pirate's Moon" : !mw3 ? "MechWarrior 3" : "Pirate's Moon") +
-         ": find them in GAME FILES";
+  return std::string("needs ") + (!mw3 && !pm ? "MechWarrior 3 and Pirate's Moon: find them" : !mw3 ? "MechWarrior 3: find it" : "Pirate's Moon: find it") +
+         " in GAME FILES";
 }
 
 // Pirate's Moon checked before it starts (setup::check_install, docs/launcher.md,
@@ -1040,53 +1102,97 @@ void Launcher::layout() {
   }
   switch (screen_) {
     case kMain: {
-      // A long folder is shortened to the plate when drawn (Text::fit), the
-      // words before it kept.
+      // The cards (Owen, 2026-11-20: the mockup's layout C, docs/launcher.md, The cards): one a game, its badge
+      // on the starfield, its name and status, its PLAY along the bottom; MW1's grey PLAY ORIGINAL above its amber
+      // PLAY REMAKE. The square buttons light their edge, no ripple; the click sound stays. Logs and checks name a
+      // card's PLAY by its game (Button::name), as the round entries were.
+      cards_.clear();
+      const bool mw1 = mw1_remake_ || !port_exe_.empty();
+      const int n = mw1 ? 3 : 2, gap = 12, cw = (kCardsW - gap * (n - 1)) / n;
+      const int x0 = (W - (cw * n + gap * (n - 1))) / 2;
+      auto card = [&](int i, int badge, const char* name, bool on) -> Card& {
+        cards_.push_back({{x0 + i * (cw + gap), kCardsTop, cw, kCardsBottom - kCardsTop}, badge, name, {}, {}, {}, on});
+        return cards_.back();
+      };
+      // Each card's buttons: rects on the canvas (add() shifts by kX, so it is taken off here).
+      auto play = [&](const Card& c, int slot, int id, const char* label, const char* sub, const char* name, Button::Style st,
+                      bool on) {
+        const SDL_Rect r{c.r.x + 12 - kX, c.r.y + c.r.h - 12 - (2 - slot) * kCardButtonH - (1 - slot) * 6, c.r.w - 24, kCardButtonH};
+        add(id, r, label, sub, on);
+        buttons_.back().style = st, buttons_.back().name = name;
+      };
       const std::string ready = "Ready, " + official_words(install_.version, mw3_program_, false) + ": " +
                                 versions_words(install_.version, mw3_program_);
-      std::string sub = install_.ok ? ready + install_.dir : "Not found yet: click to find your game";
-      // The games as round badges (Owen: the ripple belongs to a circle),
-      // each name and line beside its badge, the ripple from its centre.
-      auto game = [&](int id, int row, int badge, const char* name, const std::string& line, bool on) {
-        add(id, {70, 118 + row * 84, 500, 80}, name, line, on);  // 500 wide at 16:9 (380 at 4:3): the longer lines
-        buttons_.back().badge = badge;
-      };
-      game(kMw3, 0, 0, "MECHWARRIOR 3", sub, true);
+      const std::string sub = install_.ok ? ready + install_.dir : "Not found yet: click to find your game";
+      {
+        Card& c = card(0, 0, "MECHWARRIOR 3", true);
+        if (install_.ok) c.lines = status_lines(ready, install_.dir), c.keep = {0, 0, 0};
+        else c.lines = {"Not found yet:", "PLAY finds your game"};
+        c.note = "REBUILT ON ITS OWN ENGINE";
+        play(c, 1, kMw3, "PLAY", "", "MECHWARRIOR 3", Button::kAmber, true);
+      }
       if (!entries_logged_) std::printf("mw3: launcher: entry MECHWARRIOR 3: %s\n", sub.c_str());
-      if (sub.rfind(ready, 0) == 0) buttons_.back().sub_keep = ready.size();
-      // Pirate's Moon when its program is beside this one (a package with it).
-      if (o_.pm_bin.empty()) {
-        game(kPm, 1, 1, "PIRATE'S MOON", "Coming later", false);
-      } else {
-        const std::string pm_ready = "Ready, " + official_words(pm_data_, pm_program_, true) + ": " +
-                                     versions_words(pm_data_, pm_program_);
-        game(kPm, 1, 1, "PIRATE'S MOON", pm_dir_.empty() ? "Not found yet: click to find your game" : pm_ready + pm_dir_, true);
-        if (!pm_dir_.empty()) buttons_.back().sub_keep = pm_ready.size();
-        if (!entries_logged_) std::printf("mw3: launcher: entry PIRATE'S MOON: %s\n", buttons_.back().sub.c_str());
+      {  // Pirate's Moon when its program is beside this one (a package with it)
+        Card& c = card(1, 1, "PIRATE'S MOON", !o_.pm_bin.empty());
+        c.note = "REBUILT ON ITS OWN ENGINE";
+        if (o_.pm_bin.empty()) {
+          c.lines = {"Coming later"};
+        } else {
+          const std::string pm_ready = "Ready, " + official_words(pm_data_, pm_program_, true) + ": " +
+                                       versions_words(pm_data_, pm_program_);
+          if (pm_dir_.empty()) c.lines = {"Not found yet:", "PLAY finds your game"};
+          else c.lines = status_lines(pm_ready, pm_dir_), c.keep = {0, 0, 0};
+          if (!entries_logged_)
+            std::printf("mw3: launcher: entry PIRATE'S MOON: %s\n",
+                        (pm_dir_.empty() ? "Not found yet: click to find your game" : pm_ready + pm_dir_).c_str());
+        }
+        play(c, 1, kPm, "PLAY", "", "PIRATE'S MOON", Button::kAmber, !o_.pm_bin.empty());
       }
       if (!entries_logged_) std::printf("mw3: launcher: footer %s\n", package_words().c_str());
       entries_logged_ = true;  // once a run: the lines as first shown
-      if (mw1_remake_) {  // MW1: the remake; its line names what it still needs, else its MW1 folder
-        const std::string needs = mw1_needs();
-        const std::string line = !needs.empty()        ? "Not ready: " + needs  // the other two games first, said before the folder
-                                 : mw1_game_.empty() ? "Not found yet: click to find your MechWarrior (1989)"
-                                 : mw1_program_.empty() ? "Ready: " + mw1_game_
-                                                        : "Ready, " + mw1_program_ + ": " + mw1_game_;
-        // Greyed until MW3 and PM are both there (Owen, 2026-11-16); then a click picks the MW1 folder or plays.
-        game(kMw1, 2, 2, "MECHWARRIOR 1", line, needs.empty());
-        if (needs.empty() && !mw1_game_.empty()) buttons_.back().sub_keep = line.size() - mw1_game_.size();  // "Ready...: " kept
-        if (!mw1_logged_) std::printf("mw3: launcher: entry MECHWARRIOR 1: %s\n", line.c_str()), mw1_logged_ = true;
-      } else if (!mw1_exe_.empty()) {  // Elthial's port, credited on its line (MIT; THIRD-PARTY.txt)
-        const std::string by = "Elthial's SDL port: ";
-        game(kMw1, 2, 2, "MECHWARRIOR (1989)", by + (mw1_game_.empty() ? "click to pick your MechWarrior folder" : mw1_game_), true);
-        buttons_.back().sub_keep = by.size();
+      if (mw1) {
+        // The remake needs MW3 and Pirate's Moon first (Owen, 2026-11-16), and both need the 1989 game's folder;
+        // the original is Elthial's port, credited on the card.
+        const std::string needs = mw1_remake_ ? mw1_needs() : std::string();
+        Card& c = card(2, 2, "MECHWARRIOR 1", true);
+        c.lines.push_back(std::string(mw1_remake_ ? "Remake " + (mw1_program_.empty() ? std::string("ready") : mw1_program_) : "No remake") +
+                          " \xc2\xb7 " + (mw1_game_.empty() ? "1989 game not found yet" : "1989 game found"));
+        if (!needs.empty()) c.lines.push_back("Remake " + needs);
+        else if (!mw1_game_.empty()) c.lines.push_back(mw1_game_), c.keep = {0, 0};
+        else c.lines.push_back("PLAY finds your MechWarrior (1989)");
+        // The original's combat plays one BTECH.EXE revision only (mw1::original_supported): another is said here,
+        // not at the first battle.
+        const bool unsupported = !port_exe_.empty() && !mw1_game_.empty() && !sdlfe::mw1::original_supported(mw1_game_);
+        if (port_exe_.empty()) c.lines.push_back("Original: coming later");
+        else if (!unsupported) c.lines.push_back("Original: Elthial's SDL port");
+        else if (unsupported) c.lines.push_back("Your BTECH.EXE isn't a revision Elthial's port supports");
+        if (c.keep.size() < c.lines.size()) c.keep.resize(c.lines.size(), 0);
+        play(c, 0, kMw1Original, "PLAY ORIGINAL", port_exe_.empty() ? "COMING LATER" : unsupported ? "BTECH.EXE NOT SUPPORTED" : "AS RELEASED, 1989",
+             "MECHWARRIOR 1 ORIGINAL", Button::kGrey, !port_exe_.empty() && !unsupported);
+        play(c, 1, kMw1, "PLAY REMAKE", mw1_remake_ ? "CRITICAL HIT, 3D" : "NOT IN THIS PACKAGE", "MECHWARRIOR 1", Button::kAmber,
+             mw1_remake_ && needs.empty());
+        if (!mw1_logged_) {  // the line the round entry had, for the log and the checks
+          const std::string line = !mw1_remake_            ? "Elthial's SDL port: " + (mw1_game_.empty() ? std::string("click to pick your MechWarrior folder") : mw1_game_)
+                                   : !needs.empty()        ? "Not ready: " + needs
+                                   : mw1_game_.empty()     ? "Not found yet: click to find your MechWarrior (1989)"
+                                   : mw1_program_.empty()  ? "Ready: " + mw1_game_
+                                                           : "Ready, " + mw1_program_ + ": " + mw1_game_;
+          std::printf("mw3: launcher: entry %s: %s\n", mw1_remake_ ? "MECHWARRIOR 1" : "MECHWARRIOR (1989)", line.c_str());
+          std::printf("mw3: launcher: entry MECHWARRIOR 1 ORIGINAL: %s\n", port_exe_.empty() ? "coming later"
+                                                                           : unsupported ? "BTECH.EXE not a revision the port supports"
+                                                                                         : port_exe_.c_str());
+          mw1_logged_ = true;
+        }
       }
-      // GAME FILES (Owen, 2026-11-02): the find screen at any time, to pick
-      // or refresh the game's files; QUIT for fullscreen (Escape too).
-      // No UPDATES on branch pm: the updater takes MW3's newest vX.Y.Z and would put
-      // that package over this program; the combined package's mw3launcher updates both.
-      add(kFiles, {148, 384, 160, 34}, "GAME FILES");
-      add(kQuit, {332, 384, 160, 34}, "QUIT");
+      // GAME FILES (Owen, 2026-11-02): the find screen at any time, to pick or refresh the game's files; QUIT for
+      // fullscreen (Escape too). The mockup's bottom row, flat buttons. No UPDATES on branch pm: the updater takes
+      // MW3's newest vX.Y.Z and would put that package over this program; the combined package's mw3launcher updates both.
+      auto flat = [&](int id, int x, int w, const char* label) {
+        add(id, {x - kX, kRowTop, w, kRowH}, label);
+        buttons_.back().style = Button::kFlat;
+      };
+      flat(kFiles, x0, 112, "GAME FILES");
+      flat(kQuit, x0 + 120, 72, "QUIT");
       break;
     }
     case kSetupScreen: {
@@ -1146,7 +1252,7 @@ void Launcher::layout() {
   {  // the screen and its plates (the checks follow them)
     static const char* const kNames[] = {"main", "find", "confirm", "work", "notes", "data", "update"};
     std::string labels;
-    for (const Button& b : buttons_) labels += (labels.empty() ? "" : ", ") + b.label;
+    for (const Button& b : buttons_) labels += (labels.empty() ? "" : ", ") + b.log_name();
     std::printf("mw3: launcher: screen %s: %s\n", kNames[screen_], labels.c_str());
   }
   hot_ = focus_ = -1;
@@ -1155,6 +1261,8 @@ void Launcher::layout() {
 void Launcher::background(float dt) {
   scroll_ += dt * 6.0f;  // a few pixels a second
   SDL_FillSurfaceRect(canvas_, nullptr, SDL_MapSurfaceRGB(canvas_, 8, 8, 12));
+  const bool cards = screen_ == kMain;  // the mockup's: the starfield darkened, no metal bands, the mark top left
+  if (art_.stars) SDL_SetSurfaceColorMod(art_.stars, cards ? 115 : 255, cards ? 115 : 255, cards ? 118 : 255);
   if (art_.stars) {
     const int sw = art_.stars->w, x = static_cast<int>(scroll_) % sw;
     SDL_Rect src{x, 0, std::min(W, sw - x), H}, dst{0, 0, src.w, H};
@@ -1163,6 +1271,14 @@ void Launcher::background(float dt) {
       SDL_Rect s2{0, 0, W - src.w, H}, d2{src.w, 0, W - src.w, H};
       SDL_BlitSurface(art_.stars, &s2, canvas_, &d2);
     }
+  }
+  if (cards) {
+    if (art_.emblem) {
+      SDL_Rect e{43, 22, 46, 46};
+      SDL_BlitSurfaceScaled(art_.emblem, nullptr, canvas_, &e, SDL_SCALEMODE_LINEAR);
+    }
+    text_.draw(canvas_, "MW3 REBUILD", 30, kWhite, 101, 46, -1);
+    return;
   }
   if (art_.metal) {
     const int span = art_.metal->w - W - 200, o = span > 0 ? static_cast<int>(scroll_ / 3) % span : 0;
@@ -1214,8 +1330,68 @@ Launcher::NotesLayout Launcher::notes_layout() {
   return l;
 }
 
+// A card (layout C): the mockup's panel (a dark gradient, a thin steel edge, an amber line along the bottom), the
+// badge on it with no box, the name, the status lines and a single game's words above its PLAY.
+void Launcher::draw_card(const Card& c) {
+  const SDL_Rect& r = c.r;
+  for (int y = 0; y < r.h; ++y) {  // rgba(43,48,56) to rgba(26,29,34) at 0.92 over the stars: near enough opaque
+    const float t = static_cast<float>(y) / static_cast<float>(r.h);
+    const int inset = y == 0 || y == r.h - 1 ? 2 : y == 1 || y == r.h - 2 ? 1 : 0;  // the corners rounded a little
+    SDL_Rect row{r.x + inset, r.y + y, r.w - inset * 2, 1};
+    SDL_FillSurfaceRect(canvas_, &row, SDL_MapSurfaceRGB(canvas_, static_cast<Uint8>(41 - 16 * t), static_cast<Uint8>(46 - 18 * t),
+                                                         static_cast<Uint8>(53 - 21 * t)));
+  }
+  const uint32_t edge = SDL_MapSurfaceRGB(canvas_, 0x45, 0x4c, 0x55), amber = SDL_MapSurfaceRGB(canvas_, 0xf0, 0xa0, 0x20);
+  const SDL_Rect sides[3] = {{r.x + 2, r.y, r.w - 4, 1}, {r.x, r.y + 2, 1, r.h - 4}, {r.x + r.w - 1, r.y + 2, 1, r.h - 4}};
+  SDL_FillSurfaceRects(canvas_, sides, 3, edge);
+  const SDL_Rect bottom{r.x + 2, r.y + r.h - 2, r.w - 4, 2};
+  SDL_FillSurfaceRect(canvas_, &bottom, amber);
+  const int cx = r.x + r.w / 2;
+  if (SDL_Surface* art = art_.badge[c.badge]) {
+    const uint8_t m = c.on ? 255 : 90;
+    SDL_SetSurfaceColorMod(art, m, m, m);
+    SDL_Rect d{cx - kCardBadge / 2, r.y + 12, kCardBadge, kCardBadge};
+    SDL_BlitSurfaceScaled(art, nullptr, canvas_, &d, SDL_SCALEMODE_LINEAR);
+  }
+  text_.draw(canvas_, text_.fit(c.name, 20, r.w - 16), 20, c.on ? kWhite : kGrey, cx, r.y + 136);
+  const int lh = text_.line_skip(12);
+  for (size_t i = 0; i < c.lines.size(); ++i)
+    text_.draw(canvas_, text_.fit(c.lines[i], 12, r.w - 20, i < c.keep.size() ? c.keep[i] : 0), 12,
+               SDL_Color{0xa7, 0xad, 0xb4, 255}, cx, r.y + 160 + static_cast<int>(i) * lh);
+  if (!c.note.empty()) text_.draw(canvas_, c.note, 11, SDL_Color{0xa7, 0xad, 0xb4, 255}, cx, r.y + r.h - 12 - kCardButtonH - 6 - kCardButtonH / 2);
+}
+
 void Launcher::plate(const Button& b, bool hot) {
   SDL_Rect r = b.r;
+  if (b.style != Button::kPlate) {  // the cards' screen: square, flat, its edge lit when hot (no ripple; Owen)
+    const bool amber = b.style == Button::kAmber;
+    SDL_Color fill = amber ? SDL_Color{0xf0, 0xa0, 0x20, 255} : b.style == Button::kGrey ? SDL_Color{0x15, 0x18, 0x1c, 255}
+                                                                                        : SDL_Color{0x1c, 0x20, 0x26, 255};
+    SDL_Color line = amber ? fill : b.style == Button::kGrey ? SDL_Color{0x6b, 0x73, 0x7d, 255} : SDL_Color{0x45, 0x4c, 0x55, 255};
+    SDL_Color ink = amber ? SDL_Color{0x14, 0x10, 0x0a, 255} : kWhite;
+    if (!b.enabled) fill = {0x22, 0x25, 0x2a, 255}, line = {0x3a, 0x3f, 0x46, 255}, ink = kGrey;
+    else if (hot && amber) fill = {0xff, 0xb8, 0x4d, 255};
+    else if (hot) fill = {static_cast<Uint8>(fill.r + 14), static_cast<Uint8>(fill.g + 14), static_cast<Uint8>(fill.b + 16), 255};
+    SDL_FillSurfaceRect(canvas_, &r, SDL_MapSurfaceRGB(canvas_, line.r, line.g, line.b));
+    const SDL_Rect in{r.x + 1, r.y + 1, r.w - 2, r.h - 2};
+    SDL_FillSurfaceRect(canvas_, &in, SDL_MapSurfaceRGB(canvas_, fill.r, fill.g, fill.b));
+    if (hot) {  // the frame's amber edge, as the plates' (an amber button shows it by its lighter face)
+      const uint32_t e = SDL_MapSurfaceRGB(canvas_, 255, 176, 64);
+      const SDL_Rect ring[4] = {{r.x, r.y, r.w, 1}, {r.x, r.y + r.h - 1, r.w, 1}, {r.x, r.y, 1, r.h}, {r.x + r.w - 1, r.y, 1, r.h}};
+      SDL_FillSurfaceRects(canvas_, ring, 4, e);
+      drew_edge_ = true;
+    }
+    const int cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+    const int big = b.style == Button::kFlat ? 15 : 18;
+    if (b.sub.empty()) {
+      text_.draw(canvas_, b.label, big, ink, cx, cy + 1);
+    } else {
+      text_.draw(canvas_, b.label, big, ink, cx, cy - 7);
+      const SDL_Color dim = amber && b.enabled ? SDL_Color{0x3a, 0x2a, 0x10, 255} : b.enabled ? SDL_Color{0xb9, 0xbf, 0xc6, 255} : kGrey;
+      text_.draw(canvas_, b.sub, 11, dim, cx, cy + 11);
+    }
+    return;
+  }
   if (b.badge >= 0) {  // a game: its badge, the name and its line beside it
     const SDL_Point c = ring_centre(b);
     SDL_Surface* art = art_.badge[b.badge];
@@ -1269,15 +1445,20 @@ void Launcher::plate(const Button& b, bool hot) {
 void Launcher::draw(float dt) {
   background(dt);
   switch (screen_) {
-    case kMain:
-      if (!status_.empty()) {
-        SDL_Rect box{kX + 110, 104, 420, 24};
-        SDL_FillSurfaceRect(canvas_, &box, SDL_MapSurfaceRGB(canvas_, status_good_ ? 16 : 30, status_good_ ? 26 : 14, 16));
-        text_.draw(canvas_, status_, 12, status_good_ ? SDL_Color{200, 230, 200, 255} : SDL_Color{240, 190, 180, 255}, W / 2, 116);
+    case kMain: {
+      for (const Card& c : cards_) draw_card(c);
+      if (!status_.empty()) {  // in the header, right of the mark: the cards stay whole
+        const SDL_Color col = status_good_ ? SDL_Color{200, 230, 200, 255} : SDL_Color{240, 190, 180, 255};
+        const std::vector<std::string> lines = text_.wrap(status_, 12, 470);
+        const int lh = text_.line_skip(12), y0 = 46 - lh * static_cast<int>(std::min<size_t>(lines.size(), 3)) / 2 + lh / 2;
+        for (size_t i = 0; i < lines.size() && i < 3; ++i)
+          text_.draw(canvas_, lines[i], 12, col, W - 43, y0 + static_cast<int>(i) * lh, 1);
       }
-      text_.draw(canvas_, "Unofficial fan rebuild. MechWarrior is a trademark of Microsoft.", 12, kDim, 16, H - 24, -1);
-      text_.draw(canvas_, package_words(), 12, kDim, W - 16, H - 24, 1);  // the package's own version (the games' are on their lines)
+      const int right = cards_.empty() ? W - 43 : cards_.back().r.x + cards_.back().r.w;
+      text_.draw(canvas_, package_words(), 12, kDim, right, kRowTop + 9, 1);  // the package's own version (the games' are on their cards)
+      text_.draw(canvas_, "Unofficial fan rebuild. MechWarrior is a trademark of Microsoft.", 10, kGrey, right, kRowTop + 23, 1);
       break;
+    }
     case kSetupScreen: {
       SDL_Rect box{kX + 70, 104, 500, 64};
       SDL_FillSurfaceRect(canvas_, &box, SDL_MapSurfaceRGB(canvas_, 16, 18, 22));
@@ -1446,12 +1627,17 @@ void Launcher::picked(int what, const std::string& path) {
                 sdlfe::mw1::has_main(dir) ? "" : " (no MW_MAIN.EXE: the Bar's drinks and news stay greyed)");
     mw1_game_ = dir;
     save_config_value(o_.write_dir, "mw1_game", dir);
+    if (mw1_original_ && !mw1_repick_ && !sdlfe::mw1::original_supported(dir)) {  // kept for the remake; the original says why not
+      status_ = "Your BTECH.EXE isn't a revision Elthial's port supports, so PLAY ORIGINAL can't play it.", status_good_ = false;
+      std::printf("mw3: launcher: MechWarrior (1989) original: BTECH.EXE not a supported revision\n");
+      return layout();
+    }
     if (std::exchange(mw1_repick_, false)) {  // GAME FILES: the new folder kept, PLAY left to the player
       status_ = "MechWarrior (1989) is now " + dir + ".", status_good_ = true;
       return layout();
     }
     layout();
-    if (mw1_remake_ && !mw1_needs().empty()) {  // MW1: the other two games first, said
+    if (!mw1_original_ && mw1_remake_ && !mw1_needs().empty()) {  // MW1: the other two games first, said
       status_ = "MechWarrior 1 " + mw1_needs() + ".", status_good_ = false;
       return layout();
     }
@@ -2062,7 +2248,7 @@ void Launcher::activate(int id) {
       break;
     }
     case kFiles:  // the find screen at any time (Owen): repick or refresh the game's files
-      if (mw1_last_ && !mw1_exe_.empty()) {  // MW1's: its folder picked again (a cancel keeps the one in use)
+      if (mw1_last_ && (mw1_remake_ || !port_exe_.empty())) {  // MW1's: its folder picked again (a cancel keeps the one in use)
         status_ = (mw1_game_.empty() ? std::string("Pick your MechWarrior (1989)")
                                      : "MechWarrior (1989) is at " + mw1_game_ + ". Pick another") +
                   ": its BTECH.EXE, or the download it came in (.zip).";
@@ -2086,8 +2272,21 @@ void Launcher::activate(int id) {
         start_pm();
       }
       break;
+    case kMw1Original:  // Elthial's port (PLAY ORIGINAL): the same folder; it needs no other game
+      mw1_last_ = true, pm_last_ = false, mw1_original_ = true;
+      if (port_exe_.empty()) {
+        status_ = "PLAY ORIGINAL (MechWarrior as released in 1989) is coming later.", status_good_ = false;
+        layout();
+      } else if (mw1_game_.empty()) {
+        status_ = "Pick your MechWarrior (1989): its BTECH.EXE, or the download it came in (.zip).", status_good_ = true;
+        ask_file(kMw1, kMw1Files, 2);
+      } else {
+        run_mw1();
+      }
+      break;
     case kMw1:
-      mw1_last_ = true, pm_last_ = false;
+      mw1_last_ = true, pm_last_ = false, mw1_original_ = false;
+      if (!mw1_remake_) break;  // no remake in this package: its button is greyed
       if (mw1_remake_ && !mw1_needs().empty()) {  // MW1: the other two games first, said (before its own folder too)
         status_ = "MechWarrior 1 " + mw1_needs() + ".", status_good_ = false;
         layout();
@@ -2243,7 +2442,7 @@ LauncherChoice Launcher::run() {
     draw(0.0f);
     for (int i = 0; i < 6; ++i) draw(1.0f / 30.0f);  // 0.2 s on: the hovered entry's ripple spreading
     if (hot_ >= 0)
-      std::printf("mw3: launcher: hover %s:%s%s\n", buttons_[hot_].label.c_str(), drew_ripple_ ? " ripple" : "", drew_edge_ ? " edge" : "");
+      std::printf("mw3: launcher: hover %s:%s%s\n", buttons_[hot_].log_name().c_str(), drew_ripple_ ? " ripple" : "", drew_edge_ ? " edge" : "");
     std::printf("mw3: launcher: first frame drawn %.0f ms after the start (its draw %.1f ms)\n", ms(t0, SDL_GetTicksNS()),
                 ms(td, SDL_GetTicksNS()));
     SDL_SaveBMP(canvas_, o_.shot.c_str());
@@ -2285,7 +2484,7 @@ LauncherChoice Launcher::run() {
       nav(s == "next" ? 1 : s == "prev" ? -1 : s == "press" ? 2 : s == "back" ? 3 : 0);
       const int f = focus_;
       if (f >= 0 && f < static_cast<int>(buttons_.size()) && s != "press" && s != "back")
-        std::printf("mw3: launcher: focus %s\n", buttons_[f].label.c_str());
+        std::printf("mw3: launcher: focus %s\n", buttons_[f].log_name().c_str());
       at = comma + 1;
     }
   }
@@ -2307,8 +2506,10 @@ LauncherChoice Launcher::run() {
   if (pick && (screen_ == kSetupScreen || !install_.ok))  // MW3_LAUNCHER_NO_PLAY (checks): the game's button left to the player
     auto_go_ = auto_ok_ = true, auto_play_ = !SDL_getenv("MW3_LAUNCHER_NO_PLAY"), look_at(pick);
   if (o_.play_mw1) {
-    if (pick && mw1_game_.empty()) picked(kMw1, pick), done_ = true;  // checks: the MW1 line's pick, as the picker would give it
-    else activate(kMw1), done_ = !asking_;
+    // checks: the MW1 line's pick, as the picker would give it; without the remake, the port's (as before the cards)
+    mw1_original_ = !mw1_remake_;
+    if (pick && mw1_game_.empty()) picked(kMw1, pick), done_ = true;
+    else activate(mw1_remake_ ? kMw1 : kMw1Original), done_ = !asking_;
   }
   if (o_.play_pm && !pm_pick) {  // never the picker: a check has nobody to answer it
     if (pm_dir_.empty()) done_ = true;

@@ -1,6 +1,6 @@
 # MechWarrior 3 Rebuild 1.1.3
 
-**Three games on one launcher.** MW1: Critical Hit 1.0.0, a fan remake of MechWarrior (1989) on the rebuild's engine, joins MechWarrior 3 and Pirate's Moon in the combined package, on the launcher's MECHWARRIOR 1 line. Both rebuilt games get a music fix, a stuck weapon sound fixed, and memory that no longer grows mission after mission. Install it over 1.1.2, 1.1.1, 1.1.0 or any 1.0.x: your pilots, saves, settings and mods are kept.
+**Three games on one launcher.** MW1: Critical Hit 1.0.1, a fan remake of MechWarrior (1989) on the rebuild's engine, joins MechWarrior 3 and Pirate's Moon in the combined package, on the launcher's MECHWARRIOR 1 line. Both rebuilt games get a music fix, a stuck weapon sound fixed, and memory that no longer grows mission after mission. Install it over 1.1.2, 1.1.1, 1.1.0 or any 1.0.x: your pilots, saves, settings and mods are kept.
 
 ## Downloads
 
@@ -16,7 +16,7 @@ You still need your own games: none of the original games' files are in these do
 
 ## What's new
 
-### MW1: Critical Hit 1.0.0
+### MW1: Critical Hit 1.0.1
 
 MechWarrior (1989)'s mercenary campaign on MechWarrior 3's combat: the five Houses, the contracts, the Bar, the 'Mech markets and the story that clears your family's name, fought in 3D on MechWarrior 3's and Pirate's Moon's worlds with their Mech Lab, salvage and every one of their 24 'Mechs. New art for every screen between missions and an original soundtrack. It needs your own MechWarrior (1989), MechWarrior 3 and Pirate's Moon; the MECHWARRIOR 1 line is ready once the launcher has found the other two. The launcher looks for your MechWarrior (1989) in the usual places; if it isn't there, a click takes its BTECH.EXE, its folder or the download it came in (a .zip is unpacked into the launcher's own folder, nothing of yours is changed). Its own read-me and notices are beside it in the package (`README-MW1.txt`, `THIRD-PARTY-MW1.txt`). MW1's version shows on its launcher line.
 

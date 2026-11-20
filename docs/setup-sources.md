@@ -13,7 +13,7 @@ sittings, each reported.
   the music);
 - an archive holding any of those, at any depth: a .zip (Redump's zips of a
   .cue and its .bins; the Internet Archive's zip of an image's zip with box
-  scans and metadata beside it; the abandonware sites' zip of an ISO), a .7z,
+  scans and metadata beside it; a plain zip of an ISO), a .7z,
   a .rar, a .tar and its compressions.
 
 ## How (the plan)

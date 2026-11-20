@@ -117,12 +117,12 @@ uint32_t joy_button(int32_t b) {
 }
 
 // Mech3.exe 1.2 @ 0x0051dd20
-// The first button pressed this read, 1..10; with wait, reads until one is.
+// The first button pressed this read, 1..10 (15: joy_last_button); with wait, reads until one is.
 int32_t joy_wait_button(bool wait) {
   int32_t found = 0;
   do {
     if (wait) joy_read(false);
-    for (int32_t b = 1; b < 0xb; ++b) {
+    for (int32_t b = 1; b <= joy_last_button(); ++b) {  // FIX (B): b < 0xb
       if (joy_button(b) == kPressed) {
         found = b;
         break;
@@ -140,7 +140,7 @@ int32_t joy_wait_button(bool wait) {
 void joy_reset() {
   State& s = state();
   if (s.joy_ready == 0) return;
-  for (int b = 1; b <= 10; ++b) s.joy.buttons[b] = s.joy_prev.buttons[b] = 0;
+  for (int b = 1; b <= joy_last_button(); ++b) s.joy.buttons[b] = s.joy_prev.buttons[b] = 0;
   for (int i = 0; i < 4; ++i) s.joy.pov[i] = s.joy_prev.pov[i] = 0xffff;
 }
 

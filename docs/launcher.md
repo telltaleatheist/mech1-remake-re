@@ -385,6 +385,58 @@ folder): the code is UTF-8 throughout, but on Windows `fs::path` and `fopen` rea
 narrow strings in the ANSI code page and `fs::path::string()` writes them in it.
 MY DATA FOLDER refuses such a name; the install has no such guard.
 
+## The cards (layout C, Owen 2026-11-20)
+
+The main screen as the mockup Owen picked on 2026-11-19 (layout C, "Cards";
+its source in claude-files/keep/mw3-rebuild/launcher-mockup-2026-11-19):
+the 1280x720 mockup at two thirds on the 854x480 canvas.
+
+- The starfield darkened (its colour at 45%), no metal bands; the emblem and
+  "MW3 REBUILD" top left; the status message in the header's right half.
+- A card a game, left to right: MECHWARRIOR 3, PIRATE'S MOON, MECHWARRIOR 1
+  (only when its remake or Elthial's port is there; two cards otherwise).
+  Each card: the mockup's panel (a dark gradient, a steel edge, an amber
+  line along its bottom), its badge on the panel with no box, its name, up
+  to three status lines (the verdict, the versions, the folder; the folder
+  shortened in the middle), and its buttons along the bottom.
+- MW3 and Pirate's Moon: "REBUILT ON ITS OWN ENGINE" above one amber PLAY,
+  which does what the round entry's click did (finds the game first).
+- MW1: a grey PLAY ORIGINAL (Elthial's port of the 1989 game) above the
+  amber PLAY REMAKE (MW1: Critical Hit). Both use the same MechWarrior
+  (1989) folder (MechWarrior 1's files, below). The remake needs MW3 and
+  Pirate's Moon first; the original needs only its port.
+- The original is cut for now (Owen, 2026-11-20: he doesn't like how
+  Elthial's port runs; MW1 original may come out with Crescent Hawk's
+  Inception). PLAY ORIGINAL is greyed, "COMING LATER", with "Original: coming
+  later" on the card. The port is looked for only at `MW3_MW1_PORT` (the
+  checks), so its start below stays tested; the packaging is opt-in
+  (`combined.sh --mw1-port`, `MW3_PKG_WITH_PORT=1` for combined.cmd).
+- The original's combat plays one BTECH.EXE revision (the port's
+  CombatInstallation.c pins the whole file's CRC-32, 0x36A13E1A, 174,267
+  bytes): `sdlfe::mw1::original_supported`. Another revision greys PLAY
+  ORIGINAL ("BTECH.EXE NOT SUPPORTED", and "Your BTECH.EXE isn't a revision
+  Elthial's port supports" on the card) instead of failing at the first
+  battle; a pick made from PLAY ORIGINAL is kept for the remake and said.
+  The checks use a stand-in of zeros with its last four bytes set to the
+  CRC (`tests/mw1_btech_stand_in.h`): no game data.
+- The bottom row: GAME FILES, UPDATES, QUIT (flat buttons), the package's
+  version and the trademark line at the right.
+- Square buttons only: a hovered one lights its edge in amber (an amber
+  button also brightens); no ripple. The click sound stays.
+- The badges are cut out (`tools/badge_cutout.py`: the black surround
+  flooded to transparent from the edges) and drawn with their own alpha;
+  `assets/launcher/README.md` has their prompts and seeds.
+- The log and the checks name each card's PLAY by its game ("screen main:
+  MECHWARRIOR 3, PIRATE'S MOON, MECHWARRIOR 1 ORIGINAL, MECHWARRIOR 1, GAME
+  FILES, UPDATES, QUIT"), and the entry lines are as before, plus
+  "entry MECHWARRIOR 1 ORIGINAL: <port> | needs Elthial's port".
+- `--launcher-mw1` (checks) presses PLAY REMAKE, or PLAY ORIGINAL when
+  there is no remake. Checks: `sdl_program_launcher_screens` (the hover's
+  edge), `sdl_program_launcher_starts_mechwarrior_1` (both programs: the
+  original's button starts the port, not the remake).
+- The other screens (find, notes, data, updates, working) keep their
+  metal-band look for now.
+
 ## MechWarrior 1 (MW1: Critical Hit's fork, 2026-11-16)
 
 In the MW1 fork the entry starts MechWarrior 1: Critical Hit in
@@ -397,7 +449,7 @@ MECHWARRIOR 3 uses). Its line is "Ready: <MW1
 folder>" ("Ready, mw1-v1.0.0: <MW1 folder>" when its file holds a version, read
 as mw3pm's is, from a `mw1-vX.Y.Z` tag on branch mw1; also on the log's
 programs line), "Not found yet: click to find your MechWarrior (1989)", or "Not ready:
-needs MechWarrior 3 and/or Pirate's Moon: find them in GAME FILES", greyed
+needs MechWarrior 3 and/or Pirate's Moon: find them (or it) in GAME FILES", greyed
 until both games are there (Owen, 2026-11-16: an icon follows what is loaded);
 then a click picks the MW1 folder or starts it. Started as `mw1 --install <PM>
 --mw3-install <MW3> --mw1-game <MW1> --no-launcher` plus this start's choices
@@ -447,19 +499,45 @@ the mw1 files just like mw3 and pm do"), in `frontend/sdl/mw1_files` (ours):
 
 ## MechWarrior (1989)
 
-Elthial's MechWarrior SDL port (github.com/Elthial/Mechwarrior-sdl-port;
-MIT for its own code, credited on its entry's line, "Elthial's SDL port";
-we ship none of it, so no licence file goes with ours). Shown when
+Elthial's MechWarrior SDL port (github.com/Elthial/Mechwarrior-sdl-port).
+Since the cards it is MW1's PLAY ORIGINAL (above); before them it was the
+MECHWARRIOR (1989) entry. Found when
 `mechwarrior.exe` (`mechwarrior` elsewhere) is beside `mw3` or in a
 `MechWarrior1989\` folder beside it (`MW3_MW1_PORT` names it, for checks).
 It needs the player's MW1 folder (`BTECH.EXE`, any case): picked once with
 a folder picker and kept as `mw1_game=` in mw3.cfg (`save_config_value`).
 Started with `SDL_CreateProcess` as its own script (Run-MechWarrior.ps1)
 does: `mechwarrior <game dir> <capture dir>`, the capture dir
-`<write dir>/mw1/captures` (made first: the port wants it existing) and
-MECHWARRIOR_SAVE_DIRECTORY `<write dir>/mw1/saves`; its MechWarrior.ini
-is its own, beside it. The launcher's window hides until it exits, then
-comes back with a line saying how it closed. Built 2026-10-31;
+`<write dir>/mw1/captures` (made first: the port wants it existing; F12's
+shots land there, never in the game folder) and
+MECHWARRIOR_SAVE_DIRECTORY `<write dir>/mw1/saves`. Its MechWarrior.ini is
+named in MECHWARRIOR_TIMING_CONFIG: beside it, or in the Mac app's
+`Resources/MechWarrior1989/` (SDL's base path inside an app is the app's).
+The release build applies the kit's proposed patches, so the player's game
+folder is opened read-only (mw1 dev 1, 2026-11-20: nothing but saves is ever
+written, and saves go to the save dir).
+
+The package (built 2026-11-20, opt-in since the cut the same day): `tools/package/mw1port/build_port.sh`
+(mw1 dev 1's kit: the port, Munt and Nuked-OPL3 at the commits in
+`pins.txt`, its patches, SDL3) builds and stages it; `combined.sh mac ...
+--mw1 <ref> --mw1-port` builds it with `--proposed` and `make_app.sh` puts the program
+and its libraries in `Contents/MacOS/MechWarrior1989/` (code only, signed)
+and MechWarrior.ini, `licences/` (the port's LICENSE, MIT and NOTICE
+unchanged, the LGPL texts, SDL's, and SOURCES.txt with every commit) and
+`THIRD-PARTY-MW1989.txt` in `Contents/Resources`. The two LGPL libraries
+stay separate, replaceable shared libraries. Linux: `combined.sh linux ...
+--mw1` builds it against make-appimage.sh's prefix and the AppImage carries
+the staged folder whole in `usr/bin/MechWarrior1989/` (its libraries by
+`$ORIGIN`, not through linuxdeploy; glibc 2.38 or later, as the AppImage).
+Windows: `combined.cmd`'s third ref runs `build_port.cmd` (clang-cl, its VC
+runtime app-local: Windows does not look in the launcher's folder for a
+program in a subfolder) and `package.cmd` copies it to `MechWarrior1989\`;
+`check_dist.ps1 -Mw1Port` checks its DLLs against its own folder and its
+licences. mechwarrior.exe is a console program, so the launcher starts it in
+SDL's background mode on Windows (no console window; its exit then reads 0).
+The MW3-alone installer leaves `MechWarrior1989\` alone: a port the player
+put there is theirs.
+Built 2026-10-31;
 `--launcher-mw1` presses it at once (checks);
 `sdl_program_launcher_starts_mechwarrior_1989` (a stand-in script).
 

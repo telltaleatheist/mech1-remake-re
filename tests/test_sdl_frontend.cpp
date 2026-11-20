@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "check.h"
+#include "mw1_btech_stand_in.h"
 #if MW3_HAVE_LIBARCHIVE
 #include <archive.h>
 #include <archive_entry.h>
@@ -488,6 +489,55 @@ TEST(sdl_input_stick_taken_out_reads_centred) {
   SDL_UpdateJoysticks();
   EXPECT(in.joystick_state(&st) == 0 && st.y == 1000);
   in.close(platform::Input::kJoystick);
+  SDL_CloseJoystick(v);
+  SDL_DetachVirtualJoystick(id);
+}
+
+// FIX (B) (Owen 2026-11-20, for MW1's remake too): a stick plugged in after the
+// start is opened by zInput's poll with the users asked for meanwhile, the
+// arrival taken once; its buttons 11..15 read and bind as 1..10 do (the
+// original stops at 10, which the probes' path keeps).
+TEST(sdl_input_stick_plugged_in_later_and_its_high_buttons) {
+  EXPECT(SDL_InitSubSystem(SDL_INIT_JOYSTICK | SDL_INIT_GAMEPAD));
+  const zfix::Options saved = zfix::options();
+  zfix::options().fixed = true;
+  sdlfe::SdlInput in;
+  in.hid_usages = [](SDL_Joystick*) { return std::vector<uint16_t>{}; };
+  zin::State& s = zin::state();
+  platform::Input* was = s.di;
+  s.di = &in;
+  s.started = 1, s.joy_flags = 0, s.joy_users = 0, s.joy_wanted = 0, s.joy_arrived = false;
+  EXPECT(zin::joy_init(0) == 0);  // the start: no stick
+  zin::joy_use();                 // the start's own use
+  zin::joy_use(), zin::joy_unuse();  // a screen's, given back
+  zin::poll(false);
+  EXPECT(!zin::joy_present() && !zin::joy_take_arrival());
+  const SDL_JoystickID id = attach_stick("mw3 test late stick", 4, 15, 1);
+  pump(in);
+  zin::poll(false);
+  std::printf("  plugged in: present %d, flags %d, users %d\n", zin::joy_present(), s.joy_flags, s.joy_users);
+  EXPECT(zin::joy_present() && s.joy_flags == 1 && s.joy_users == 1);
+  EXPECT(zin::joy_take_arrival() && !zin::joy_take_arrival());
+  SDL_Joystick* v = SDL_OpenJoystick(id);
+  SDL_SetJoystickVirtualButton(v, 12, true);  // button 13
+  SDL_UpdateJoysticks();
+  zin::poll(false);
+  EXPECT(zin::joy_button(13) == zin::kPressed && zin::joy_wait_button(false) == 13);
+  char name[64] = {};
+  zin::make_joy_names();
+  EXPECT(std::strcmp(zin::joy_button_name(15, name, sizeof name), "Button 15") == 0);
+  SDL_SetJoystickVirtualButton(v, 12, false);
+  SDL_UpdateJoysticks();
+  zin::poll(false);
+  zfix::options().fixed = false;  // the original: 1..10 only
+  SDL_SetJoystickVirtualButton(v, 12, true);
+  SDL_UpdateJoysticks();
+  zin::poll(false);
+  EXPECT(zin::joy_button(13) == zin::kPressed && zin::joy_wait_button(false) == 0);
+  zin::joy_close();
+  s.di = was;
+  s.started = 0, s.joy_flags = 0, s.joy_users = 0;
+  zfix::options() = saved;
   SDL_CloseJoystick(v);
   SDL_DetachVirtualJoystick(id);
 }
@@ -2509,6 +2559,16 @@ TEST(sdl_install_is_found_and_saved) {
   }
   // Each line keeps its own ending and the new one takes the file's first (save_config_value, since 1.1.0).
   EXPECT(cfg == "install=/new\r\nassets=/a\r\nwindowed=1\n");
+  // A relative folder is saved absolute: the app starts elsewhere (PR #1, dj0nes).
+  EXPECT(sdlfe::save_install(tmp, "rel/./mw3"));
+  cfg.clear();
+  if (std::FILE* f = std::fopen((tmp + "/mw3.cfg").c_str(), "rb")) {
+    char buf[256];
+    for (size_t n; (n = std::fread(buf, 1, sizeof buf, f)) > 0;) cfg.append(buf, n);
+    std::fclose(f);
+  }
+  const std::string want = "install=" + (fs::current_path() / "rel" / "mw3").string();
+  EXPECT(cfg.rfind(want, 0) == 0 && cfg.size() > want.size() && (cfg[want.size()] == '\r' || cfg[want.size()] == '\n'));
   fs::remove_all(tmp);
 }
 
@@ -2808,8 +2868,8 @@ TEST(sdl_window_shape_maps_the_mouse_through_the_frame) {
   const sdlfe::FrameShape v640{640, 480, true};
   const sdlfe::FitRect r43 = sdlfe::fit_rect(1280, 960, v640);
   EXPECT(r43.x == 0 && r43.y == 0 && r43.w == 1280 && r43.h == 960);
-  // 21:9 and 32:9 screens: mode 16 is 16:9 at their height (vmode_size),
-  // pillarboxed and centred (resolution.md section 10).
+  // Fixed 16:9 modes still pillarbox on wider screens. Native custom modes
+  // instead use their full shape (resolution_ultrawide_hud_and_pointer_share_the_frame).
   const sdlfe::FitRect r219 = sdlfe::fit_rect(3440, 1440, sdlfe::FrameShape{2560, 1440, true, 853, 480});
   EXPECT(r219.x == 440 && r219.y == 0 && r219.w == 2560 && r219.h == 1440);
   const sdlfe::FitRect r329 = sdlfe::fit_rect(3840, 1080, sdlfe::FrameShape{1920, 1080, true, 853, 480});
@@ -5536,9 +5596,9 @@ TEST(sdl_program_launcher_screens) {
   std::filesystem::remove_all(dir, ec);
   std::filesystem::create_directories(dir + "/wd", ec);
   std::filesystem::create_directories(dir + "/wd2", ec);
-  // The first entry hovered (Owen, the PC's fresh install): the ripple only
-  // round a round badge; a square plate lights its edge (at edge_x, edge_y,
-  // the plate's top, the 640 block 107 in) in amber instead.
+  // The first entry hovered (Owen, the PC's fresh install): a square plate lights its edge (at edge_x, edge_y,
+  // the plate's top, the 640 block 107 in) in amber. The main screen's cards (layout C, 2026-11-20): MW3's PLAY
+  // lights its edge too, no ripple (two cards here: no MW1 program).
   struct Shot {
     const char* screen;
     bool none;
@@ -5546,7 +5606,7 @@ TEST(sdl_program_launcher_screens) {
     const char* hover;
     int edge_x, edge_y;
   };
-  for (const Shot& s : {Shot{"main", false, "screen main: MECHWARRIOR 3, PIRATE'S MOON, GAME FILES, UPDATES, QUIT\n", "hover MECHWARRIOR 3: ripple\n", -1, -1},
+  for (const Shot& s : {Shot{"main", false, "screen main: MECHWARRIOR 3, PIRATE'S MOON, GAME FILES, UPDATES, QUIT\n", "hover MECHWARRIOR 3: edge\n", 232, 362},
                         Shot{"setup", true, "screen find: FIND THE GAME, BACK\n", "hover FIND THE GAME: edge\n", 427, 222},
                         Shot{"pick", true, "screen find: FIND THE GAME, BACK\n", "hover FIND THE GAME: edge\n", 427, 222},
                         Shot{"work", false, "launcher: Found MechWarrior 3", "hover CANCEL: edge\n", 427, 372},
@@ -7014,6 +7074,9 @@ TEST(sdl_program_launcher_says_the_picker_is_opening_before_it_asks) {
   std::filesystem::remove_all(dir, ec);
   std::filesystem::create_directories(dir + "/wd", ec);
   const std::string shot = dir + "/ask.bmp";
+  std::ofstream(dir + "/mechwarrior") << "#!/bin/sh\nexit 0\n";  // a stand-in port: PLAY ORIGINAL asks for the folder
+  setenv("MW3_MW1_PORT", (dir + "/mechwarrior").c_str(), 1);
+  setenv("MW3_MW1_BIN", "", 1);
   setenv("MW3_LAUNCHER_PICKER", "cancel", 1);
   setenv("MW3_LAUNCHER_PICKER_SHOT", shot.c_str(), 1);
   setenv("MW3_LAUNCHER_FRAMES", "20", 1);
@@ -7022,6 +7085,7 @@ TEST(sdl_program_launcher_says_the_picker_is_opening_before_it_asks) {
   unsetenv("MW3_LAUNCHER_FRAMES");
   unsetenv("MW3_LAUNCHER_PICKER_SHOT");
   unsetenv("MW3_LAUNCHER_PICKER");
+  unsetenv("MW3_MW1_PORT"), unsetenv("MW3_MW1_BIN");
   int status = 0;
   const bool exited = waited(pid, &status) && WIFEXITED(status) && WEXITSTATUS(status) == 0;
   std::ifstream f(dir + "/launcher.log");
@@ -7213,7 +7277,7 @@ TEST(sdl_program_launcher_starts_mechwarrior_1989) {
   std::filesystem::remove_all(dir, ec);
   std::filesystem::create_directories(dir + "/wd", ec);
   std::filesystem::create_directories(dir + "/game", ec);
-  std::ofstream(dir + "/game/BTECH.EXE") << "x";
+  std::ofstream(dir + "/game/BTECH.EXE", std::ios::binary) << mw1_port_btech_stand_in();  // a revision the port plays
   {
     std::ofstream cfg(dir + "/wd/mw3.cfg");
     cfg << "mw1_game=" << dir << "/game\n";
@@ -7303,6 +7367,7 @@ TEST(sdl_program_launcher_starts_mechwarrior_1) {
   EXPECT(text.find("entry MECHWARRIOR 1: Ready, mw1-v1.0.0: " + dir + "/game") != std::string::npos);
   EXPECT(text.find(", MechWarrior 1 mw1-v1.0.0\n") != std::string::npos);
   EXPECT(text.find("MechWarrior 1 exited (0)") != std::string::npos);
+  EXPECT(text.find("entry MECHWARRIOR 1 ORIGINAL: coming later") != std::string::npos);  // no port: greyed, said
   EXPECT(args.rfind("--install " + pm + " --mw3-install ", 0) == 0);
   EXPECT(args.find(" --mw1-game " + dir + "/game --no-launcher") != std::string::npos);
   // No MW3 named (Pirate's Moon may still be found on this machine): said on its line, and a press starts nothing.
@@ -7342,6 +7407,50 @@ TEST(sdl_program_launcher_starts_mechwarrior_1) {
   EXPECT(std::filesystem::is_regular_file(dir + "/wd/mw1/game/BTECH.EXE", ec));
   EXPECT(cfg_text.find("mw1_game=" + dir + "/wd/mw1/game") != std::string::npos);
 #endif
+  // The cards (layout C, 2026-11-20): with Elthial's port beside the launcher too, MW1's card has both; PLAY
+  // ORIGINAL (the third button: MW3's PLAY, PM's, then it) starts the port on the same folder, not the remake.
+  {
+    const std::string port = dir + "/mechwarrior";
+    {
+      std::ofstream sh(port);
+      sh << "#!/bin/sh\necho \"$1|$2\" > \"" << dir << "/port-args.txt\"\nexit 0\n";
+    }
+    std::filesystem::permissions(port, std::filesystem::perms::owner_all, ec);
+    {
+      std::ofstream cfg(dir + "/wd/mw3.cfg", std::ios::trunc);
+      cfg << "mw1_game=" << dir << "/game\ninstall=" << mw3 << "\npm_install=" << pm << "\n";
+    }
+    auto run_original = [&](const char* name) {
+      std::filesystem::remove(dir + "/args.txt", ec), std::filesystem::remove(dir + "/port-args.txt", ec);
+      setenv("MW3_MW1_BIN", mw1.c_str(), 1), setenv("MW3_PM_BIN", pm_bin.c_str(), 1), setenv("MW3_FIND_INSTALL", "1", 1);
+      setenv("MW3_MW1_PORT", port.c_str(), 1), setenv("MW3_LAUNCHER_NAV", "next,next,next,press", 1), setenv("MW3_LAUNCHER_FRAMES", "30", 1);
+      const std::string log = dir + "/" + name + ".log";
+      const pid_t pid = spawn_launcher({"--write-dir", dir + "/wd", "--window", "640x480", "--nosound", "--hidden"}, log);
+      for (const char* v : {"MW3_MW1_BIN", "MW3_PM_BIN", "MW3_FIND_INSTALL", "MW3_MW1_PORT", "MW3_LAUNCHER_NAV", "MW3_LAUNCHER_FRAMES"}) unsetenv(v);
+      int status = 0;
+      EXPECT(waited(pid, &status) && WIFEXITED(status) && WEXITSTATUS(status) == 0);
+      std::ifstream lf(log);
+      return std::string((std::istreambuf_iterator<char>(lf)), std::istreambuf_iterator<char>());
+    };
+    // The 1-byte stand-in is no revision the port plays: PLAY ORIGINAL greyed and said (the press goes to the next
+    // button that takes it), the port never started.
+    const std::string refused = run_original("unsupported");
+    EXPECT(refused.find("entry MECHWARRIOR 1 ORIGINAL: BTECH.EXE not a revision the port supports") != std::string::npos);
+    EXPECT(refused.find("focus MECHWARRIOR 1 ORIGINAL") == std::string::npos && !std::filesystem::exists(dir + "/port-args.txt"));
+    std::ofstream(dir + "/game/BTECH.EXE", std::ios::binary | std::ios::trunc) << mw1_port_btech_stand_in();
+    const std::string text = run_original("original");
+    std::ifstream pf(dir + "/port-args.txt");
+    std::string pargs;
+    std::getline(pf, pargs);
+    std::printf("launcher mw1 original: given \"%s\"\n", pargs.c_str());
+    EXPECT(text.find("screen main: MECHWARRIOR 3, PIRATE'S MOON, MECHWARRIOR 1 ORIGINAL, MECHWARRIOR 1, GAME FILES, UPDATES, QUIT") !=
+           std::string::npos);
+    EXPECT(text.find("focus MECHWARRIOR 1 ORIGINAL") != std::string::npos);
+    EXPECT(text.find("MechWarrior (1989) exited (0)") != std::string::npos);
+    EXPECT(pargs == dir + "/game|" + dir + "/wd/mw1/captures");
+    EXPECT(text.find("MechWarrior 1 started") == std::string::npos && !std::filesystem::exists(dir + "/args.txt"));
+    std::filesystem::remove(port, ec);
+  }
   // GAME FILES after MW1's line: its folder picked again (a folder above the game here), kept, nothing started.
   {
     std::filesystem::create_directories(dir + "/other/MECHWAR", ec);
