@@ -8,6 +8,7 @@
 #include "mw1_log.h"
 #include "mw1_pilots.h"
 #include "mw1_travel.h"
+#include "mw1_text_names.h"
 
 namespace mw1::story_rules {
 
@@ -111,7 +112,7 @@ Script read_script() {
     const size_t at = c++;  // the colour byte
     std::string t;
     while (c < kEventListDirectory && d[c]) t += static_cast<char>(d[c++]);
-    rd.captions[at] = t;
+    rd.captions[at] = our_names(t);  // FIXES 114: our 'Mechs' names for MW1's
     ++c;
   }
   const size_t which = word(d, kNewCampaignList);
@@ -189,6 +190,7 @@ std::vector<Page> text_pages(int32_t id) {
         pg.lines.back() += static_cast<char>(d[kTextAt + p]);
       }
     }
+    for (std::string& l : pg.lines) l = our_names(l);  // FIXES 114: our 'Mechs' names for MW1's, as drawn
     pages.push_back(std::move(pg));
     if (pages.back().choices || ++p >= kTextEnd || !d[kTextAt + p]) break;  // nothing after a choice's page
   }
