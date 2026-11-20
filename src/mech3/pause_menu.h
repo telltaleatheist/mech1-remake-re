@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <functional>
 
 #include "mech3/menu_widgets.h"
 
@@ -33,5 +34,9 @@ class PauseScreen : public MenuScreen {
   SlideButton editor;
   bool has_editor = false;
 };
+
+// Ours (opt-in; MW1: Critical Hit's SETTINGS, its FIXES 126): OPTIONS asks this first; true, it opened its own
+// options and the game's are not pushed. Unset (MW3, Pirate's Moon): the game's options as always.
+std::function<bool()>& pause_options_hook();
 
 }  // namespace mech3

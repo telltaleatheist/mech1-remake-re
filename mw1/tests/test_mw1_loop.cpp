@@ -29,6 +29,11 @@
 #include "mw1_install.h"
 #include "mw1_log.h"
 #include "mw1_layouts.h"
+#include "mw1_settings.h"
+#include "mech3/options_menu.h"
+#include "mech3/pause_menu.h"
+#include "gamez/zutil/zutl_reg.h"
+#include "platform/platform.h"
 #include "gamez/ztwod/twod.h"
 #include "gamez/zgame/zgame_table.h"
 #include "gamez/zclass/class.h"
@@ -2958,10 +2963,9 @@ TEST(mw1_menu_new_campaign_plays_the_intro_then_the_hub_headless) {
           hub_options->screen()->on_button(mw1::kHubOptSettings, 0, 0);
           ++step, wait = 0;
           return false;
-        case 4:  // PM's options state over them; its BACK (Escape)
+        case 4:  // MW1's SETTINGS over them (FIXES 126); Escape (its DONE)
           if (app.current() == static_cast<zgame::State*>(hub_options) || !app.current()) return false;
-          options_seen = engine.menu_state_of(engine.peek32(0x609868)) != nullptr &&
-                         app.current() == static_cast<zgame::State*>(engine.menu_state_of(engine.peek32(0x609868)));
+          options_seen = showing(app, mw1::game_loop_settings());
           static_cast<mech3::ShellState*>(app.current())->escape();
           ++step, wait = 0;
           return false;
@@ -6569,30 +6573,43 @@ TEST(mw1_music_theme_screens_mission_settings_and_quit_headless) {
           hub->screen()->on_button(mw1::kHubOptions, 0, 0);
           ++step, wait = 0, frames = 0;
           return false;
-        case 8: {  // OPTIONS: MUSIC off (stopped, saved), the effects down twice (applied, saved), MUSIC on (back)
+        case 8: {  // OPTIONS' SETTINGS, its SOUND (FIXES 126): MUSIC off (stopped, saved), the effects 20 lower (applied,
+                   // saved), MUSIC on (back); DONE, then BACK
           mw1::HubOptionsState* ho = mw1::game_loop_hub_options();
-          if (!showing(app, ho) || wait < 10) return false;
-          mw1::Mw1Screen* sc = ho->screen();
+          mw1::settings::SettingsState* st = mw1::game_loop_settings();
           if (frames == 0) {
-            sc->on_button(mw1::kHubOptMusic, 0, 0);
+            if (!showing(app, ho) || wait < 10) return false;
+            ho->screen()->on_button(mw1::kHubOptSettings, 0, 0);
             frames = 1, wait = 0;
             return false;
           }
           if (frames == 1) {
-            const mw1::SoundCfg saved = mw1::read_cfg(wd).sound;
-            off_stops = !theme() && !mw1::music::settings().on && mech3::cd_volume() == 0.0f;
-            off_saved = saved.music == 0 && saved.music_volume == 50;
-            const int32_t fx = mw1::music::settings().effects;
-            sc->on_button(mw1::kHubOptEffectsDown, 0, 0), sc->on_button(mw1::kHubOptEffectsDown, 0, 0);
-            effects_saved = mw1::read_cfg(wd).sound.effects_volume == fx - 2 * mw1::kVolumeStep &&
-                            std::lround(mech3::sound_frequency() * 100) == fx - 2 * mw1::kVolumeStep;
-            sc->on_button(mw1::kHubOptMusic, 0, 0);
+            if (!showing(app, st) || wait < 5) return false;
+            st->screen()->on_button(mw1::settings::kTab0 + static_cast<int32_t>(mw1::settings::Tab::kSound), 0, 0);
+            st->screen()->on_button(mw1::settings::seg_id(0, 0), 0, 0);  // MUSIC: OFF
             frames = 2, wait = 0;
             return false;
           }
-          if (wait < 70) return false;
-          on_again = theme() && m.level >= 1.0f && mw1::read_cfg(wd).sound.music == 1 && std::lround(mech3::cd_volume() * 100) == 50;
-          sc->on_button(mw1::kHubOptBack, 0, 0);
+          if (frames == 2) {
+            const mw1::SoundCfg saved = mw1::read_cfg(wd).sound;
+            off_stops = !theme() && !mw1::music::settings().on && mech3::cd_volume() == 0.0f;
+            off_saved = saved.music == 0 && saved.music_volume == 50;
+            const int32_t fx = mw1::music::settings().effects, to = fx - 20;
+            st->screen()->on_button(mw1::settings::cell_id(2, to / 10 - 1), 0, 0);  // EFFECTS VOLUME's bar for it
+            effects_saved = to >= 10 && mw1::read_cfg(wd).sound.effects_volume == to && std::lround(mech3::sound_frequency() * 100) == to;
+            st->screen()->on_button(mw1::settings::seg_id(0, 1), 0, 0);  // MUSIC: ON
+            frames = 3, wait = 0;
+            return false;
+          }
+          if (frames == 3) {
+            if (wait < 70) return false;
+            on_again = theme() && m.level >= 1.0f && mw1::read_cfg(wd).sound.music == 1 && std::lround(mech3::cd_volume() * 100) == 50;
+            st->screen()->on_button(mw1::settings::kDone, 0, 0);
+            frames = 4, wait = 0;
+            return false;
+          }
+          if (!showing(app, ho) || wait < 5) return false;
+          ho->screen()->on_button(mw1::kHubOptBack, 0, 0);
           ++step, wait = 0, frames = 0;
           return false;
         }
@@ -6627,6 +6644,188 @@ TEST(mw1_music_theme_screens_mission_settings_and_quit_headless) {
     EXPECT(combat && combat_follows);
     EXPECT(off_stops && off_saved && effects_saved && on_again);
     EXPECT(quit_asked && quit_boxes == 2 && quit_stays && quits);
+  });
+}
+
+// FIXES 126 (Owen: "make the options menu more intuitive"): MW1's SETTINGS, opened over the hub as its SETTINGS opens
+// it. In every section each row with a setting is changed by its own control (a choice's value, a list's arrow, a volume's
+// bar): the change is shown and applied at once (the engine's value read back), and saved (PM's settings.reg written,
+// mw1.cfg's sound, the switches' keys); the chosen value is lit (disabled) and the rest clickable. DEFAULTS gives back
+// each row's default; each hint keeps to the status line's room. DONE goes back to the hub; the pause's OPTIONS hook
+// (mech3/pause_menu.h) opens the same screen, the key map made for its KEY BINDINGS.
+namespace {
+// PM's settings as written (zreg's registry stand-in): each value's bytes by name, the reads passed to the run's own.
+struct RecordedSettings : platform::Settings {
+  platform::Settings* inner = nullptr;
+  std::map<std::string, std::vector<uint8_t>> written;
+  bool open(const std::string& key, bool per_user, bool write) override { return write || !inner || inner->open(key, per_user, write); }
+  bool query(bool per_user, const std::string& name, uint32_t* size) override { return inner && inner->query(per_user, name, size); }
+  bool read(bool per_user, const std::string& name, void* data, uint32_t* size) override {
+    return inner && inner->read(per_user, name, data, size);
+  }
+  bool write(bool, const std::string& name, uint32_t, const void* data, uint32_t size) override {
+    const auto* b = static_cast<const uint8_t*>(data);
+    written[name].assign(b, b + size);
+    return true;
+  }
+  void close(bool per_user) override {
+    if (inner) inner->close(per_user);
+  }
+};
+}  // namespace
+
+TEST(mw1_settings_every_row_applies_saves_and_defaults_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  in_child([&] {
+    std::vector<mw1::MapRow> rows;
+    for (const mw1::MapRow& m : shipped_rows())
+      if (m.world.rfind("mw3", 0) != 0) rows.push_back(m);
+    mw1::set_map_table(rows);
+    const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_settings";
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    MenuRun r;
+    r.save = (dir / mw1::kSaveFile).string(), r.limit = 20000;
+    const std::string wd = std::string(MW3_TEST_TMP_ROOT) + "/mw1_menu_wd";  // menu_run's write dir
+    std::map<std::string, bool> switches;  // the switches as saved (mw3.cfg's keys, through PM's saver)
+    RecordedSettings recorded;  // PM's settings as saved (zreg::write_all), from the hub on
+    mech3::options_upgrades_saver() = [&](const char* key, bool on) { switches[key] = on; };
+    int step = 0, wait = 0;
+    int32_t changed = 0, applied = 0, saved = 0, lit = 0, defaulted = 0, default_rows = 0, hints = 0, long_hints = 0, unavailable = 0;
+    bool opened = false, all_tabs = true, done_back = false, hook_opens = false, keys_made = false, volume_steps = false;
+    r.box = [](const std::string& words) -> uint32_t { return words.find("?") != std::string::npos ? 6u : 1u; };
+    r.step = [&](mech3::Mech3App& app, mech3::GameEngine& ge) {
+      mw1::HubState* hub = mw1::game_loop_hub();
+      mw1::settings::SettingsState* st = mw1::game_loop_settings();
+      ++wait;
+      auto reg = [&] { return recorded.written; };
+      auto hint_ok = [&](const std::string& h) {
+        ++hints;
+        if (h.empty() || h.size() > mw1::chrome::kStatusLetters) ++long_hints, std::printf("  hint too long or empty: \"%s\"\n", h.c_str());
+      };
+      switch (step) {
+        case 0:
+          if (!showing(app, mw1::game_loop_menu()) || wait < 10) return false;
+          mw1::game_loop_menu()->screen()->on_button(mw1::kMenuNew, 0, 0);
+          return ++step, wait = 0, false;
+        case 1:
+          if (answer_slots(app, 1)) return false;  // FIXES 125: NEW's slot first
+          if (!showing(app, mw1::game_loop_intro()) || wait < 5) return false;
+          mw1::game_loop_intro()->escape();
+          return ++step, wait = 0, false;
+        case 2:
+          if (!showing(app, hub) || wait < 10) return false;
+          if (hub->screen()->visible(mw1::kHubOk)) return hub->screen()->on_button(mw1::kHubOk, 0, 0), wait = 0, false;
+          recorded.inner = zreg::settings(), zreg::set_settings(&recorded);
+          opened = mw1::game_loop_open_settings();
+          return ++step, wait = 0, false;
+        case 3: {
+          if (!showing(app, st) || wait < 5) return false;
+          mw1::Mw1Screen* sc = st->screen();
+          for (int32_t ti = 0; ti < mw1::settings::kTabCount; ++ti) {
+            const auto t = static_cast<mw1::settings::Tab>(ti);
+            sc->on_button(mw1::settings::kTab0 + ti, 0, 0);
+            all_tabs = all_tabs && st->tab() == t && !sc->enabled(mw1::settings::kTab0 + ti);
+            sc->hover_on(mw1::settings::kTab0 + ti), hint_ok(st->status());
+            const std::vector<mw1::settings::Row> rs = mw1::settings::rows(ge, t);
+            for (size_t i = 0; i < rs.size(); ++i) {
+              const mw1::settings::Row& row = rs[i];
+              const int32_t ri = static_cast<int32_t>(i);
+              if (row.kind == mw1::settings::Kind::kHeading) continue;
+              hint_ok(row.hint);
+              if (!row.available) {
+                ++unavailable;
+                std::printf("  %s %s: unavailable (%s)\n", mw1::settings::tab_name(t), row.label.c_str(), row.unavailable.c_str());
+                continue;
+              }
+              int32_t id = 0, want = row.index;
+              switch (row.kind) {
+                case mw1::settings::Kind::kChoice:
+                  want = (row.index + 1) % static_cast<int32_t>(row.names.size()), id = mw1::settings::seg_id(ri, want);
+                  if (!sc->enabled(mw1::settings::seg_id(ri, row.index)) && sc->enabled(id)) ++lit;
+                  else std::printf("  %s: the chosen value not lit\n", row.label.c_str());
+                  break;
+                case mw1::settings::Kind::kCycle:
+                  if (row.names.size() < 2) continue;
+                  want = row.index + 1 < static_cast<int32_t>(row.names.size()) ? row.index + 1 : row.index - 1;
+                  id = want > row.index ? mw1::settings::right_id(ri) : mw1::settings::left_id(ri);
+                  break;
+                case mw1::settings::Kind::kVolume:
+                  want = row.index == 30 ? 20 : 30, id = mw1::settings::cell_id(ri, want / 10 - 1);
+                  break;
+                case mw1::settings::Kind::kAction: EXPECT(sc->visible(mw1::settings::kKeys)); continue;
+                default: continue;
+              }
+              sc->hover_on(id);
+              const bool hover_says = st->status() == row.hint;
+              const auto reg_before = reg();
+              const mw1::SoundCfg cfg_before = mw1::read_cfg(wd).sound;
+              const size_t switches_before = switches.size();
+              switches.clear();
+              EXPECT(sc->visible(id) && sc->enabled(id));
+              sc->on_button(id, 0, 0);
+              ++changed;
+              const int32_t now = mw1::settings::rows(ge, t)[i].index;
+              const mw1::SoundCfg cfg = mw1::read_cfg(wd).sound;
+              const bool wrote = reg() != reg_before || cfg.music != cfg_before.music || cfg.music_volume != cfg_before.music_volume ||
+                                 cfg.effects_volume != cfg_before.effects_volume || !switches.empty();
+              (void)switches_before;
+              if (now == want) ++applied;
+              if (wrote) ++saved;
+              if (now != want || !wrote || !hover_says)
+                std::printf("  %s %s: wanted %d, now %d, saved %d, hint shown %d\n", mw1::settings::tab_name(t), row.label.c_str(), want,
+                            now, wrote, hover_says);
+              if (row.kind == mw1::settings::Kind::kVolume && want == 30) {  // the top bar again: one lower
+                sc->on_button(id, 0, 0);
+                volume_steps = mw1::settings::rows(ge, t)[i].index == 20;
+              }
+            }
+            sc->on_button(mw1::settings::kDefaults, 0, 0);
+            const std::vector<mw1::settings::Row> after = mw1::settings::rows(ge, t);
+            for (size_t i = 0; i < after.size(); ++i) {
+              const int32_t d = mw1::settings::default_of(ge, t, i);
+              if (d < 0 || !after[i].available) continue;
+              ++default_rows;
+              if (after[i].index == d) ++defaulted;
+              else std::printf("  %s %s: DEFAULTS gave %d, not %d\n", mw1::settings::tab_name(t), after[i].label.c_str(), after[i].index, d);
+            }
+          }
+          sc->hover_on(mw1::settings::kDefaults), hint_ok(st->status());
+          sc->hover_on(mw1::settings::kDone), hint_ok(st->status());
+          sc->on_button(mw1::settings::kDone, 0, 0);
+          return ++step, wait = 0, false;
+        }
+        case 4:
+          if (!showing(app, hub) || wait < 5) return false;
+          done_back = true;
+          ge.poke32(0x609870, 0);  // as in a mission: no key map made yet
+          hook_opens = mech3::pause_options_hook() && mech3::pause_options_hook()();
+          keys_made = ge.peek32(0x609870) != 0;
+          return ++step, wait = 0, false;
+        case 5:
+          if (!showing(app, st) || wait < 5) return false;
+          hook_opens = hook_opens && st->tab() == mw1::settings::Tab::kGame;
+          st->screen()->on_button(mw1::settings::kDone, 0, 0);
+          return ++step, wait = 0, false;
+        case 6: return showing(app, hub) && wait > 5;
+        default: return true;
+      }
+    };
+    menu_run(r);
+    zreg::set_settings(recorded.inner);
+    mech3::options_upgrades_saver() = nullptr;
+    mw1::set_map_table({});
+    std::printf("  opened %d, tabs %d; changed %d: applied %d, saved %d; lit %d; defaults %d of %d; hints %d (%d too long); "
+                "unavailable %d; volume steps %d; DONE back %d; the pause's hook %d (key map made %d)\n",
+                opened, all_tabs, changed, applied, saved, lit, defaulted, default_rows, hints, long_hints, unavailable, volume_steps,
+                done_back, hook_opens, keys_made);
+    EXPECT(opened && all_tabs);
+    EXPECT(changed >= 20 && applied == changed && saved == changed);
+    EXPECT(default_rows >= 18 && defaulted == default_rows);
+    EXPECT(hints > 20 && long_hints == 0);
+    EXPECT(volume_steps);
+    EXPECT(done_back && hook_opens && keys_made);
   });
 }
 

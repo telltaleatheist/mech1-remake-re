@@ -98,6 +98,13 @@ inline constexpr const char* kStoryOffNote = "Story off: MW1's MW_MAIN.EXE not f
 // its buttons (mw1_hub.h's HubButton), as the screen's own.
 HubState* game_loop_hub();
 HubOptionsState* game_loop_hub_options();  // the hub's OPTIONS state once made (tests)
+// FIXES 126: MW1's SETTINGS (mw1_settings.h) once made, and opened over the screen now (as the hub's SETTINGS and the
+// pause's OPTIONS open it) (tests).
+namespace settings {
+class SettingsState;
+}
+settings::SettingsState* game_loop_settings();
+bool game_loop_open_settings();
 // The results screen's state once made (FIXES.md item 19; tests: its screen shows what the player sees), and the last
 // panel it showed.
 namespace results {

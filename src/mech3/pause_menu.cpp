@@ -75,6 +75,11 @@ void PauseScreen::restore_sounds() {
   groups = 0;
 }
 
+std::function<bool()>& pause_options_hook() {
+  static std::function<bool()> f;
+  return f;
+}
+
 // Mech3.exe 1.2 @ 0x00492d70: RESUME gives the sounds and groups back; QUIT
 // drops them and leaves the mission by the game's kind; OPTIONS pushes the
 // game options; REPLAY ends the mission as a failure (0x0048fa80), so its
@@ -92,6 +97,7 @@ void PauseScreen::on_button(int32_t id, int32_t a, int32_t b) {
     case kQuit:
       break;
     case kOptions:
+      if (auto& hook = pause_options_hook(); hook && hook()) return;  // ours (opt-in)
       e.poke32(0x609868, e.construct(0x438be0, {}));
       e.poke32(0x60986c, e.construct(0x43a640, {}));
       e.poke32(0x609870, e.construct(0x42d9d0, {}));

@@ -303,6 +303,46 @@ images::Image button(int32_t state, int32_t w, int32_t h, const std::string& nam
   return c.image(name);
 }
 
+std::string look_name(const char* base, int32_t state) {
+  return std::string(base) + (state == 1 ? "_lit" : state == 2 ? "_down" : state == 3 ? "_off" : "");
+}
+
+images::Image tab(int32_t state) {
+  // A button (button()), the chosen one framed in amber with its lamp lit.
+  if (state != 3) return button(state, kButtonW, kButtonH, look_name(kTabLook, state));
+  Canvas c(kButtonW, kButtonH);
+  glass(c, 3, 3, kButtonW - 3, kButtonH - 3, 245);
+  for (int32_t y = 3; y < kButtonH - 3; ++y)
+    for (int32_t x = 3; x < kButtonW - 3; ++x) c.set(x, y, {40 + 20 * (kButtonH - y) / kButtonH, 26, 8, 235});
+  thin_frame(c, 0, 0, kButtonW, kButtonH, 3, {255, 170, 40, 230});
+  lamp(c, 13, kButtonH / 2, 4, true);
+  return c.image(look_name(kTabLook, 3));
+}
+
+images::Image segment(int32_t state, bool alert) {
+  // A choice's value: dark glass in a thin frame (amber when lit); the chosen one filled amber (a cheat's red).
+  Canvas c(kSegW, kSegH);
+  glass(c, 1, 1, kSegW - 1, kSegH - 1, state == 2 ? 250 : 220);
+  const Rgba fill = alert ? Rgba{110, 26, 16, 245} : Rgba{96, 60, 14, 245};
+  const Rgba edge = alert ? Rgba{255, 74, 50, 240} : Rgba{255, 170, 40, 240};
+  if (state == 3)
+    for (int32_t y = 2; y < kSegH - 2; ++y)
+      for (int32_t x = 2; x < kSegW - 2; ++x) c.set(x, y, fill);
+  thin_frame(c, 0, 0, kSegW, kSegH, 2, state == 1 || state == 3 ? edge : Rgba{});
+  return c.image(look_name(alert ? kSegAlertLook : kSegLook, state));
+}
+
+images::Image volume_cell(int32_t state, bool full) {
+  // A volume's bar: dark glass in a thin frame (amber when lit), full ones filled amber; off, greyed.
+  Canvas c(kVolW, kVolH);
+  glass(c, 1, 1, kVolW - 1, kVolH - 1, 220);
+  if (full && state != 3)
+    for (int32_t y = 2; y < kVolH - 2; ++y)
+      for (int32_t x = 2; x < kVolW - 2; ++x) c.set(x, y, state == 2 ? Rgba{200, 120, 30, 250} : Rgba{255, 176, 48, 250});
+  thin_frame(c, 0, 0, kVolW, kVolH, 2, state == 1 ? Rgba{255, 170, 40, 240} : state == 3 ? Rgba{40, 40, 44, 150} : Rgba{});
+  return c.image(look_name(full ? kVolOnLook : kVolLook, state));
+}
+
 images::Image panel(int32_t w, int32_t h) {
   // A steel menu panel (the Bar's menu, a contract): dark glass in a thin frame, a rivet at each corner.
   Canvas c(w, h);
@@ -888,6 +928,11 @@ std::vector<Maker> makers() {
   for (bool on : {false, true}) v.push_back([=] { return slider(on); }), v.push_back([=] { return check(on); });
   for (int32_t s = 0; s < 3; ++s) v.push_back([=] { return cell(s); });
   v.push_back([=] { return dialog_tall(); });
+  for (int32_t s = 0; s < 4; ++s) {  // FIXES 126: SETTINGS' tabs, choices and volume bars
+    v.push_back([=] { return tab(s); });
+    for (bool alert : {false, true}) v.push_back([=] { return segment(s, alert); });
+    for (bool full : {false, true}) v.push_back([=] { return volume_cell(s, full); });
+  }
   for (bool lit : {false, true}) v.push_back([=] { return progress_cell(lit); });
   v.push_back([=] { return plaque(kPlaqueCoverW, kPlaqueCover); });
   for (const std::vector<Reskin>* t : {&lab_pictures(), &filebox_pictures()})
