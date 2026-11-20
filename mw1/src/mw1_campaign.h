@@ -242,6 +242,9 @@ struct Contract {
   int32_t target = kTargetColumns;  // whom it's against: a House (below kHouseCount), else not a House
   int32_t budget = 0;          // the enemy force budget
   std::vector<int32_t> enemies;  // MW1 kinds
+  // FIXES 104 (mw1_enemies.h): each enemy's PM chassis and stock loadout, as many as `enemies`; empty (an older save's
+  // offer, a test's force): the kinds' stand-ins on their Primary, as before.
+  std::vector<int32_t> chassis, loadouts;
   int32_t payment = 0;         // thousands: the House's offer (the opening, then each counter-offer)
   int32_t payment_ceiling = 0;  // thousands: the most the House will ever pay (never shown, as MW1)
   int32_t salvage_percent = 0, advance_percent = 0;
@@ -275,6 +278,8 @@ void add_starting_stores(mech3::Store& s);
 // company's lance (the commander's mech and the lancemates' assigned, mw1_pilots.h's lance_weight) as MW1's lance
 // weight; the objective and map are the milestone's.
 Contract generate_contract(const Company& c, int32_t slot, Rng& rng);
+// The company's record band by its kills (MW1's: 0 to 3), the force budget's first term (FIXES 104 reads it too).
+int32_t record_band(int32_t kills);
 
 // The salvage and advance ceilings an offer of `house`'s opens from: the House's base (DS:4B5F, DS:4B69) shifted by
 // the standing, (favor - grievance) x 4 within +-10 (MwGenerateMissionOffer); never below 0.
@@ -328,6 +333,7 @@ struct Wreck {
   int32_t kind = 0;        // MW1 kind
   int32_t condition = 0;   // percent of its parts still standing (the log's; before save version 5 the pay's)
   int32_t damage = 0;      // its repairs, in ten-thousandths of a full one (mw1_repairs.h), read as it died
+  int32_t chassis = -1;    // FIXES 104: the PM chassis it was (-1, an older save's: its kind's stand-in)
 };
 // A mission back and not settled yet: what the hub's AFTER ACTION shows until OK settles it (or REPLAY plays the
 // contract again). Saved whole (mw1_save.h), so a restart shows it again: never settled twice, never lost.
