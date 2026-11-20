@@ -6035,6 +6035,133 @@ TEST(mw1_music_theme_screens_mission_settings_and_quit_headless) {
   });
 }
 
+// FIXES.md item 116b (dev 2's release check, 2026-11-20): the mission's end stops the combat track, and nothing starts
+// it again. The frames after a mission's end (PM's end screen and its fade, Instant Action's end) went on telling the
+// music "the mission", which started the stopped track again from the top until the results' theme. Here each mission
+// ends by PM's own Exit Mission (its end screen, as a player leaves): a failure, REPLAY at the results, the replay won.
+// Each launch starts its combat track exactly once; from each end until the theme no combat track plays (nor is
+// started); the replay's pick is a new one.
+TEST(mw1_music_combat_once_a_launch_silent_after_the_end_and_a_new_pick_on_replay_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  in_child([&] {
+    std::vector<mw1::MapRow> rows;  // PM's maps (MW3's worlds aren't registered here)
+    for (const mw1::MapRow& m : shipped_rows())
+      if (m.world.rfind("mw3", 0) != 0) rows.push_back(m);
+    mw1::set_map_table(rows);
+    const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_music_end";
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    MenuRun r;
+    r.save = (dir / mw1::kSaveFile).string(), r.limit = 20000;
+    int step = 0, wait = 0, frames = 0;
+    // Each launch's pick and the combat starts in its mission (before its end); from each end until the theme: the
+    // frames, those with a combat track on, the starts.
+    std::vector<int32_t> picks, starts_in_mission;
+    int32_t launches = 0, starts_seen = 0, ends = 0, quiet_frames = 0, combat_after_end = 0, starts_after_end = 0;
+    bool after_end = false, replay_offered = false, results_twice = false;
+    int32_t theme_at_results = 0;  // the results (the failure's, the win's) a second in: the theme, no combat track
+    r.box = [&](const std::string& words) -> uint32_t { return words.find("?") != std::string::npos ? 6u : 1u; };
+    // The mission ended by PM's Exit Mission (its end screen), failed or won (every enemy the commander's).
+    auto end_mission = [&](mech3::Mech3App&, bool fail) {
+      int32_t na = 0;
+      const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&na);
+      for (int32_t i = 0; i < na && !fail; ++i) {
+        auto* b = static_cast<mech3::ai::Brain*>(mech3::program_ai_mech_brain(ai[i].controls));
+        if (b && b->params.team() == 1) continue;
+        mech3::mech_hit_part(ai[i].mech, 6, 10000.0f);
+        mech3::program_mech_kill_credit(mech3::mech_mission_player(), ai[i].mech);
+      }
+      mech3::missions().ended = 1;
+      if (fail) mech3::missions().aborting = 1;
+      mech3::missions().on_command(0x79);
+      after_end = true, ++ends;
+    };
+    r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
+      mw1::HubState* hub = mw1::game_loop_hub();
+      const mw1::music::Seen m = mw1::music::seen();
+      ++wait;
+      if (m.launches != launches) launches = m.launches, picks.push_back(m.picked), starts_in_mission.push_back(0);
+      const int32_t started = m.combat_starts - starts_seen;
+      starts_seen = m.combat_starts;
+      if (after_end && m.playing) after_end = false;  // the theme: the end's silence over
+      if (after_end) ++quiet_frames, combat_after_end += m.combat >= 0, starts_after_end += started;
+      else if (!starts_in_mission.empty()) starts_in_mission.back() += started;
+      switch (step) {
+        case 0:  // the menu: NEW CAMPAIGN; the intro skipped
+          if (showing(app, mw1::game_loop_menu()) && wait > 10) mw1::game_loop_menu()->screen()->on_button(mw1::kMenuNew, 0, 0), wait = 0;
+          if (showing(app, mw1::game_loop_intro()) && wait > 10) mw1::game_loop_intro()->escape(), ++step, wait = 0;
+          return false;
+        case 1:  // the hub: the office
+          if (!showing(app, hub) || wait < 10) return false;
+          if (hub->screen()->visible(mw1::kHubOk)) return hub->screen()->on_button(mw1::kHubOk, 0, 0), wait = 0, false;
+          hub->screen()->on_button(mw1::kHubOffice, 0, 0);
+          ++step, wait = 0;
+          return false;
+        case 2: {  // the office: REQUEST, ACCEPT, back
+          if (mw1::game_loop_contract() && mw1::game_loop_contract()->accepted && showing(app, hub)) return ++step, wait = 0, false;
+          mw1::OfficeState* os = mw1::game_loop_office();
+          if (!showing(app, os) || wait < 5) return false;
+          mw1::Mw1Screen* sc = os->screen();
+          if (!(mw1::game_loop_contract() && mw1::game_loop_contract()->accepted)) {
+            if (sc->visible(mw1::kOfficeRequest) && sc->enabled(mw1::kOfficeRequest)) return sc->on_button(mw1::kOfficeRequest, 0, 0), wait = 0, false;
+            if (sc->visible(mw1::kOfficeAccept) && sc->enabled(mw1::kOfficeAccept)) return sc->on_button(mw1::kOfficeAccept, 0, 0), wait = 0, false;
+          }
+          sc->on_button(mw1::kOfficeBack, 0, 0);
+          ++step, wait = 0;
+          return false;
+        }
+        case 3:  // the hub: DEPLOY
+          if (!showing(app, hub) || wait < 10 || !hub->screen()->visible(mw1::kHubDeploy)) return false;
+          hub->screen()->on_button(mw1::kHubDeploy, 0, 0);
+          ++step, wait = 0, frames = 0;
+          return false;
+        case 4:  // the mission, 90 frames in: failed (the first launch) or won (the replay), by PM's Exit Mission
+        case 6: {
+          int32_t na = 0;
+          mech3::mission_ai_mechs(&na);
+          if (app.current() != &mech3::states().core || na == 0 || ++frames < 90) return false;
+          end_mission(app, step == 4);
+          ++step, wait = 0;
+          return false;
+        }
+        case 5: {  // the failure's results: REPLAY
+          mw1::ResultsState* rs = mw1::game_loop_results();
+          if (!showing(app, rs)) return wait = 0, false;  // the frames at the results only (not the end's fade)
+          if (wait < 70) return false;                     // the theme's fade in
+          theme_at_results += m.playing && m.combat < 0;
+          replay_offered = rs->screen()->visible(mw1::kResultsReplay);
+          if (!replay_offered) return true;
+          rs->screen()->on_button(mw1::kResultsReplay, 0, 0);
+          ++step, wait = 0, frames = 0;
+          return false;
+        }
+        case 7: {  // the replay's results: the run's end
+          mw1::ResultsState* rs = mw1::game_loop_results();
+          if (!showing(app, rs)) return wait = 0, false;
+          if (wait < 70) return false;
+          theme_at_results += m.playing && m.combat < 0;
+          results_twice = true;
+          return true;
+        }
+        default: return true;
+      }
+    };
+    menu_run(r);
+    mw1::set_map_table({});
+    std::printf("  launches %d, combat starts %d, picks", launches, starts_seen);
+    for (size_t i = 0; i < picks.size(); ++i) std::printf(" %d (%d started)", picks[i], starts_in_mission[i]);
+    std::printf("; ends %d, replay %d, results twice %d (the theme at %d); after the ends %d frames, a combat track on in %d, "
+                "started %d\n",
+                ends, replay_offered, results_twice, theme_at_results, quiet_frames, combat_after_end, starts_after_end);
+    EXPECT(replay_offered && results_twice && ends == 2 && launches == 2 && picks.size() == 2);
+    EXPECT(starts_in_mission.size() == 2 && starts_in_mission[0] == 1 && starts_in_mission[1] == 1 && starts_seen == 2);
+    EXPECT(picks.size() == 2 && picks[0] >= 0 && picks[1] >= 0 && picks[0] != picks[1]);  // the replay's own
+    EXPECT(quiet_frames > 0 && combat_after_end == 0 && starts_after_end == 0);
+    EXPECT(theme_at_results == 2);
+  });
+}
+
 // FIXES 104: every chassis that fields, in every stock loadout, spawned as an enemy and salvaged. Four to a mission
 // (c2, won as the loop wins), each enemy the chassis and loadout asked for (its definition's stock configs read as
 // mw1_enemies.h's table has them: the Primary, the Alternates, the Exotics), each disabled into a wreck of that chassis,

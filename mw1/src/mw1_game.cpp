@@ -308,7 +308,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       ge.on_present = [this, before](int f) {
         if (before) before(f);
         if (deployed_ && launched_ && !ending_latched_ && ge_ && ge_->mission_ended()) latch_ending(*ge_);
-        music::frame(!deployed_ ? music::Where::kMenus : launched_ ? music::Where::kMission : music::Where::kLoading);  // FIXES 100, 116
+        music::frame(!deployed_ ? music::Where::kMenus
+                     : !launched_     ? music::Where::kLoading
+                     : ending_latched_ ? music::Where::kEnded  // FIXES 116b: the track never started again after the end
+                                       : music::Where::kMission);  // FIXES 100, 116
         lab_look_frame();
         briefing_cursor_frame();
         if (std::getenv("MW1_FIT")) screen_fit_frame();

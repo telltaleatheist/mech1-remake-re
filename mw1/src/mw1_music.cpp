@@ -19,7 +19,7 @@ int32_t g_starts = 0, g_volume = 0;
 bool g_faded_out = true;  // in a mission, the theme gone and PM's volume given back
 // FIXES.md item 116: the extra track's file now (-1 the theme, else kCombatFiles' index); the launch's pick (-1 none
 // yet); the last pick played; a new launch's track not started yet.
-int32_t g_extra = -1, g_pick = -1, g_last = -1, g_launches = 0;
+int32_t g_extra = -1, g_pick = -1, g_last = -1, g_launches = 0, g_combat_starts = 0;
 bool g_new_launch = false, g_combat_failed = false;  // the launch's track wouldn't play: not tried every frame
 std::minstd_rand g_rng{std::random_device{}()};
 
@@ -49,7 +49,7 @@ int32_t percent(float v) { return static_cast<int32_t>(std::lround(std::clamp(v,
 void install(const std::string& write_dir) {
   g_dir = write_dir;
   g_level = 0, g_starts = 0, g_volume = 0, g_faded_out = true;
-  g_pick = -1, g_last = -1, g_launches = 0, g_new_launch = g_combat_failed = false;
+  g_pick = -1, g_last = -1, g_launches = 0, g_combat_starts = 0, g_new_launch = g_combat_failed = false;
   g_cfg = read_cfg(write_dir).sound;
   use_extra(-1);
 }
@@ -116,6 +116,13 @@ void frame(Where where) {
   zsnd_cd::state().num_tracks = 0;
   const bool on = settings().on && mech3_music::enabled();
   const float step = 1.0f / static_cast<float>(kFadeFrames);
+  // FIXES.md item 116b: the mission ended. Its end stops the CD (as it stopped PM's music); the launch's track is never
+  // started again (the mission's frames until the results did, from the top), and stopped if it plays on. Silence until
+  // MW1's screens, where the theme fades in.
+  if (where == Where::kEnded) {
+    if (combat_on() >= 0) zsnd_cd::stop(), g_level = 0;
+    return;
+  }
   if (where == Where::kMission) {
     // The theme cut if DEPLOY's fade hadn't ended (a fast load); the launch's pick started, or started again.
     if (theme_playing()) zsnd_cd::stop(), g_level = 0;
@@ -133,6 +140,7 @@ void frame(Where where) {
         g_combat_failed = true;
         return use_extra(-1);
       }
+      ++g_combat_starts;
       std::printf("mw1: music: combat %s\n", kCombatFiles[g_pick]);
     }
     g_faded_out = false, g_level = 1;
@@ -168,6 +176,6 @@ void frame(Where where) {
   }
 }
 
-Seen seen() { return {theme_playing(), g_level, g_starts, g_volume, combat_on(), g_pick, g_launches}; }
+Seen seen() { return {theme_playing(), g_level, g_starts, g_volume, combat_on(), g_pick, g_launches, g_combat_starts}; }
 
 }  // namespace mw1::music
