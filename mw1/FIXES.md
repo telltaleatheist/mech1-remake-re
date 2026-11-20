@@ -5,6 +5,22 @@ Tick an item when it is merged into `main`.
 
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 130. [ ] MW1 Original: the 1989 game rebuilt as our own C++ *(scoping: mw1-fix130-scoping; no code yet)*
+- **Owen (2026-11-20), via the lead:** rebuild MechWarrior (1989) as our own code, the way mw3-re rebuilt MW3.
+  - **The base:** Elthial's SDL port, forked with history and converted to clean C++20 (classes, namespaces, plain names, no goto, organized by function, the original's address per function).
+  - **No emulation libraries.**
+  - **Pull as little from the exes as we can:** only MW1's creative content is extracted at first run; UI words and rules are ours, in our own data files.
+- **The report:** mw1/research/original-rebuild-scoping.md. It covers:
+  - the port mapped (34.4k lines, 265 gotos, only 3k of it MIT);
+  - the exes (Owen's BTECH differs from the port's only inside segment 0810, about 272 bytes; the data layout is the same);
+  - every exe table sorted into extracted, ours and code;
+  - the import, in Inception's shape;
+  - the engine on SDL3;
+  - its own repo, a fork;
+  - the plan: about 14-17 developer-weeks, with Inception's DOSBox-X rig as the behaviour check;
+  - the comparison with Inception (nothing shared beyond EXEPACK and Microsoft C's runtime).
+- **To settle first:** the port's src/Original is excluded from its MIT grant, so we need Elthial's permission to fork it as the base. A copy of the 174,267-byte BTECH.EXE is needed for the revision diff.
+
 ## 128. [x] Key bindings and a joystick in MW1 as in MW3 *(done: mw1-fix128-controls, tests only; for 1.0.2)*
 Owen: "key binds and joystick should work in mw1 just like it does in mw3". MW1 uses Pirate's Moon's key map, command
 map and stick code unchanged (SETTINGS, CONTROLS, KEY BINDINGS opens PM's CTL_CFG_DIALOG in MW1's look), so the work
