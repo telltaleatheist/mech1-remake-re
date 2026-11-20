@@ -76,7 +76,7 @@ and pick the slot to overwrite".
   starts in slot 2; the soaks, the music tests and the via-menu run go through the slots screen.
 - **Shots:** `MW1_SCREEN=slots_save`, `slots_confirm` (from the hub), `slots_load`, `slots_new` (from the menu).
 
-## 123. [ ] mw1's log opens with Pirate's Moon's banner and an engine version *(planned for MW1 1.1.0; cosmetic)*
+## 123. [x] mw1's log opens with Pirate's Moon's banner and an engine version *(done: mw1-banner-123, for MW1 1.0.2)*
 - **What shows:** the first line of every mw1 run, on the console and in `<write dir>/mw3.log`, is
   `mw3pm (Pirate's Moon rebuild) pm-v1.1.3-657-gcd180547, log …/mw3.log`, not MW1's name and `mw1-v1.0.1`.
   The Windows package (no console) writes `mw3pm (Pirate's Moon rebuild) …: started` instead. Seen in the
@@ -92,6 +92,21 @@ and pick the slot to overwrite".
   own "mw1 (engine, ours)" commit. Optionally the log named `mw1.log`; that touches what players and the
   launcher's "see its log" point at, so the lead's call. Test: mw1's first log line names MW1 and its
   version, and a PM run's banner is unchanged.
+- **Fixed (the lead pulled it into 1.0.2):** `sdlfe::program_name()` (`src/frontend/sdl/crash_report.h`, its own
+  "mw1 (engine, ours)" commit): an id, a title and a version, empty in MW3, PM and the launcher, so their lines are
+  byte for byte as before. `mw1_main` sets it first (mw1, MechWarrior 1: Critical Hit, its version tag's describe,
+  --version's), and the game main's banner (`mw1 (MechWarrior 1: Critical Hit) mw1-v…, log …/mw3.log`, or
+  `…: started` on Windows), the crash report's lines (`mw1: crashed: …`) and the crash box's title and words
+  ("MechWarrior 1: Critical Hit crashed (…)") then name MW1. The log stays `mw3.log` (renaming it is the lead's
+  separate call).
+  - Found on the way: on the Mac and Linux a crash's handler starts the program again as `mw1 --crash-box <text>` to
+    show the box, and MW1's start took that for a game's start: its arguments went through MW1's own start, so the
+    game main never saw the bare `--crash-box <text>` it answers (read, not seen in a run). `mw1_main` answers it
+    first now.
+  - Test `mw1banner` (ctest; `mw1/tests/banner.cmake`): mw1 and mw3pm each run once with MW3_CRASH_TEST (exit 70
+    after the crash report's line) under SDL's dummy video; mw1's first log line is its name and the build's describe
+    and its crash line `mw1: crashed: segmentation fault`; mw3pm's are `mw3pm (Pirate's Moon rebuild) …` and
+    `mw3pm: crashed: …` as before.
 
 ## 122. [ ] An arms dealer: weapons and equipment for sale *(planned for MW1 1.1.0; not in 1.0.0)*
 - **Owen (2026-11-20), via the lead:** the weapons a campaign never meets come from an arms dealer, in 1.1.0. Today
