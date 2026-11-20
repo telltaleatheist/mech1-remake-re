@@ -3,6 +3,7 @@
 // disabled, the mission's end, and back at the hub the settlement (the fee, the wrecks' salvage) in the company's
 // funds and the enemies' parts in its stores; the next offer declined, so PM's main menu stays. Failed, or quit
 // (no mission end), no fee and no salvage: the stores and the funds as the advance left them (VISION.md, the endings).
+#include <sys/resource.h>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -6083,6 +6084,11 @@ namespace {
 // The choices that carry the trail on (the commander lives and follows), by event: the journal walk's.
 const std::map<int32_t, int32_t> kTrailPick = {{0x64, 0}, {0x17, 1}, {0x18, 1}, {0x19, 1}, {0x27, 1}, {0x2F, 0}, {0x30, 1},
                                                {0x32, 0}, {0x37, 0}, {0x40, 0}, {0x3E, 0}, {0x45, 1}, {0x72, 0}};
+#if defined(__APPLE__)
+constexpr long kRssPerMb = 1024 * 1024;  // ru_maxrss in bytes on macOS
+#else
+constexpr long kRssPerMb = 1024;  // in kilobytes on Linux
+#endif
 int32_t months_between(const mw1::Date& a, const mw1::Date& b) { return (b.year - a.year) * 12 + (b.month - a.month); }
 // The lance's tons as the lab would have it: the heaviest owned 'Mechs, one each for the commander and the lancemates.
 int32_t best_lance_tons(const mw1::Company& c, size_t pilots) {
@@ -6092,6 +6098,13 @@ int32_t best_lance_tons(const mw1::Company& c, size_t pilots) {
   int32_t t = 0;
   for (size_t i = 0; i < tons.size() && i < pilots; ++i) t += tons[i];
   return t;
+}
+// Ready for a step's battle: the lance as heavy as the force, but no lance outweighs 100 t a pilot (the Dark Wing's
+// 635 t meets four assault 'Mechs at most); from rung 3, a full lance.
+bool lance_ready(const mw1::Company& c, int32_t rung) {
+  const int32_t pilots = 1 + static_cast<int32_t>(c.lance.size());
+  const int32_t need = rung ? std::min(mw1::rung_tons(mw1::rung_force(rung, pilots - 1)), 100 * pilots - 10) : 0;
+  return best_lance_tons(c, static_cast<size_t>(pilots)) >= need && (rung < 3 || c.lance.size() >= 3);
 }
 }  // namespace
 
@@ -6127,6 +6140,9 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
     mw1::Date start_date;
     bool started = false;
     const void* last_state = nullptr;
+    mw1::Company last;  // the summary's
+    long mb_at_25 = 0, mb_last = 0;  // peak memory at 25 battles and at the last 25th
+    int battles_last = 0;
     auto block = [&](const std::string& w) {
       if (std::find(blocks.begin(), blocks.end(), w) == blocks.end()) blocks.push_back(w);
     };
@@ -6144,6 +6160,14 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
         int how = 0;  // 0 won, 1 lost, 2 withdrawn
         if (dark_wing) how = dw_tries == 0 ? 1 : dw_tries == 1 ? 2 : 0, ++dw_tries;
         story ? ++story_battles : ++contracts;
+        if ((contracts + story_battles) % 25 == 0) {  // memory over a long campaign: the peak so far
+          struct rusage ru {};
+          getrusage(RUSAGE_SELF, &ru);
+          const long mb = static_cast<long>(ru.ru_maxrss / kRssPerMb);
+          std::printf("PLAY: %d battles, peak memory %ld MB\n", contracts + story_battles, mb);
+          if (contracts + story_battles == 25) mb_at_25 = mb;
+          mb_last = mb, battles_last = contracts + story_battles;
+        }
         int32_t n = 0;
         const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
         for (int32_t i = 0; i < n; ++i) {
@@ -6166,6 +6190,7 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
       wait = 0;
       if (!c || !c->stores) return false;
       if (!started) started = true, start_date = c->date;
+      last = *c;  // the summary's: the game is gone once the run ends
       if (mw1::CreditsState* cs = mw1::game_loop_credits(); cs && showing(app, cs)) {
         credits_seen = true;
         if (++credits_frames > 24) cs->escape();  // rolled a while (each step is 5 frames), then skipped
@@ -6176,9 +6201,11 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
           scenes.insert(p->scene);
           const mw1::AfterAction* pa = mw1::game_loop_pending();
           const mw1::Contract* k = mw1::game_loop_contract();
+          const std::string picture = mw1::ending_image(p->ending, false);  // the outcome's picture (scene: the hub's, behind)
+          scenes.insert(picture);
           if (pa && k && k->rung == mw1::kDarkWingRung)
-            endings.push_back(std::string(pa->outcome == mw1::Outcome::kSuccess ? "won" : pa->outcome == mw1::Outcome::kFailure ? "lost" : "withdrawn") +
-                              " (" + p->scene + ")");
+            endings.push_back(std::string(p->ending == mw1::Ending::kWin ? "won" : p->ending == mw1::Ending::kLost ? "lost" : "withdrawn") +
+                              " (" + picture + ")");
           if (pa && k && k->rung == 0 && pa->outcome == mw1::Outcome::kSuccess) ++contracts_won;
         }
         rs->screen()->on_button(mw1::kResultsContinue, 0, 0);
@@ -6242,8 +6269,7 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
           return ++hires, sc->on_button(mw1::kBarHire, 0, 0), false;
         if (spare && c->lance.size() < 3 && !sc->visible(mw1::kBarHire) && sc->visible(mw1::kBarCrew) && c->funds > 600000)
           return sc->on_button(mw1::kBarCrew, 0, 0), false;
-        const int32_t need = l.rung ? mw1::rung_tons(mw1::rung_force(l.rung, static_cast<int32_t>(c->lance.size()))) : 0;
-        const bool ready = best_lance_tons(*c, 1 + c->lance.size()) >= need && (l.rung < 3 || c->lance.size() >= 3);
+        const bool ready = lance_ready(*c, l.rung);
         if (ready && l.place == mw1::journal::Place::kBar && (l.planet < 0 || l.planet == mw1::planet_index(c->planet_number)) &&
             sc->visible(mw1::kBarDrink) && sc->enabled(mw1::kBarDrink) && visits_this_step < 40)
           return ++visits_this_step, sc->on_button(mw1::kBarDrink, 0, 0), false;
@@ -6299,10 +6325,8 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
         if (want != slots && !want.empty() && want[0] >= 0) (mw1::game_loop_lance(want) ? ++lab_sets : (block("the lab refused the heaviest lance"), 0));
       }
       // Ready for the step's battle? The lance's tons against the force's.
-      const size_t pilots = 1 + c->lance.size();
-      const int32_t need = l.rung ? mw1::rung_tons(mw1::rung_force(l.rung, static_cast<int32_t>(c->lance.size()))) : 0;
       const int32_t here = mw1::planet_index(c->planet_number);
-      const bool ready = best_lance_tons(*c, pilots) >= need && (l.rung < 3 || c->lance.size() >= 3);
+      const bool ready = lance_ready(*c, l.rung);
       if (!ready) {  // build up: spare 'Mechs for new pilots, 'Mechs from the market, contracts for the money
         ++builds;
         if (c->hangar.size() > c->lance.size() && c->lance.size() < 3 && c->funds > 600000 && sc->enabled(mw1::kHubBar) && builds % 2 == 0)
@@ -6344,7 +6368,7 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
     };
     menu_run(r);
     mw1::set_map_table({});
-    const mw1::Company* c = mw1::game_loop_company();
+    const mw1::Company* c = started ? &last : nullptr;
     const int32_t months = c && started ? months_between(start_date, c->date) : -1;
     std::printf("  seed %u: %s in %d game months (%s): %d contracts (%d won), %d story battles, %d trips, %d 'Mechs bought, "
                 "%d pilots hired, %d lab lances, %d journal visits, %d hubs; funds %lld, %zu 'Mechs, %zu lancemates\n",
@@ -6367,5 +6391,9 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
     EXPECT(done && blocks.empty() && missing == 0);
     EXPECT(endings.size() == 3 && endings[0].rfind("lost", 0) == 0 && endings[1].rfind("withdrawn", 0) == 0 && endings[2].rfind("won", 0) == 0);
     EXPECT(c && c->story.dark_wing_won && credits_seen && credits_over);
+    // A long campaign doesn't grow: under 1 MB a battle after the first 25 (a PM world's unload leaked ~7 MB a
+    // battle: node_drop_model kept PM's models, and the material cycles were never freed).
+    if (battles_last > 25) std::printf("    memory: %ld MB at 25 battles, %ld MB at %d\n", mb_at_25, mb_last, battles_last);
+    EXPECT(battles_last <= 25 || mb_last - mb_at_25 < battles_last - 25);
   });
 }
