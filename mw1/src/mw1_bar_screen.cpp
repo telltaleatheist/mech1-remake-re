@@ -8,6 +8,7 @@
 #include "mw1_mech_icons.h"
 #include "mw1_mech_renders.h"
 #include "mw1_chrome.h"
+#include "mw1_journal.h"
 #include "mw1_pilots.h"
 #include "mw1_story.h"
 
@@ -98,7 +99,7 @@ ScreenView bar_view(const Company& c, const BarChoice& b, bool story) {
       r_lines = {"Recruit " + std::to_string(b.recruit + 1) + " of " + std::to_string(c.recruits.size()), "",
                  std::string("Gunnery  ") + kRatingNames[gunnery(c, id)], std::string("Piloting ") + kRatingNames[piloting(c, id)],
                  "Wage     " + thousands(kWages[std::clamp(gunnery(c, id), 0, 3)]) + " a month"};
-      for (const std::string& l : pitch(id)) r_pitch.push_back("\"" + l + "\"");
+      r_pitch = journal::quoted(pitch(id), kPitchColumns);  // FIXES 95: one quote, not each exe line in its own
       v.panels[kBarPanelFrame] = v.panels[kBarPanelPortrait] = true;
       v.pictures[kBarPanelPortrait] = portrait_image(id, false);
     }

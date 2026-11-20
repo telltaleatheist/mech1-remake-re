@@ -1421,3 +1421,16 @@ The lead (2026-11-19), from Owen's log: a Centurion bought for 4,505,000 sold fo
 - **Test** (`mw1_market_mw1s_formula_pinned`): every chassis at every tier, buying is base × tier%, selling is
   base × (tier% − 10), floored to 1,000, a Clan 'Mech's doubled, and selling is under buying in the same world. A
   later change can't move it either way unnoticed.
+
+## 95. [x] The Bar's recruit pitch in one quote, not each line in its own *(done: mw1-pitch-quote)*
+
+Owen (2026-11-19): RECRUIT CREW showed each line of a recruit's words in its own quote marks, as the exe breaks them.
+- **The fix** (`mw1_bar_screen.cpp`, `journal::quoted` in `mw1_journal.h`): the exe's lines joined by a space, one mark
+  before the first word and one after the last, wrapped to the terminal (kPitchColumns, 20 letters at 4:3; at most
+  kPitchLines, 10). MW1's words and case kept; nothing else added.
+- **Drinks and news:** nothing to change. MW1's texts already open a quote on one line and close it on a later one
+  (14 open, 21 close, none in a run of self-quoted lines over its 112 texts); only our pitch quoted each line.
+- **Tests:** `mw1_pilots_each_pitch_is_one_quote_wrapped`, every pilot's pitch (42, sizes only): one mark opening,
+  one closing, no other added, the words all there in order, each line within 20 letters, at most 10 (they take 3
+  or 4). The Bar loop test shows each line of Elli Gujar's quote and never her first exe line quoted alone.
+- **Shots:** outbox/2026-11-19/mw1-pitch-quote/ (4:3 and 1080p, with the terminal cropped).

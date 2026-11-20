@@ -73,6 +73,10 @@ std::vector<JournalPage> journal_pages(const Company& c);
 // GO THERE (the lead's page's button): the lead names a world that isn't the company's.
 bool can_go_there(const Company& c, const Lead& l);
 std::vector<std::string> wrapped(const std::string& text, size_t columns);  // words to lines, none longer (but a word)
+// FIXES 95: MW1's lines of one speech (a recruit's pitch: the exe breaks it for its own screen) as one quote: the lines
+// joined by a space (their own spaces at the ends dropped, a blank one skipped), a quote mark before the first word and
+// after the last, wrapped to `columns` with the marks counted. MW1's words and case kept; nothing else added. None: none.
+std::vector<std::string> quoted(const std::vector<std::string>& lines, size_t columns);
 
 // For the shots (MW1_SCREEN=journal, MW1_STORY_STEP): the trail taken up to step `step` (each earlier step's events
 // seen and its battle won), as a walk leaves it, near enough for a picture.
