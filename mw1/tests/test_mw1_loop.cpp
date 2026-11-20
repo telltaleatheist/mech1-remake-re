@@ -79,6 +79,8 @@
 #include "mech3/pilot.h"
 #include "mech3/program_flow.h"
 #include "mech3/zai_brain.h"
+#include "mech3/zai_attack.h"
+#include "mech3/mech_pocket.h"
 #include "mech3/zai_nav.h"
 #include "mech3/zai_params.h"
 #include "mech3/mainmenu.h"
@@ -5837,6 +5839,168 @@ void lance_orders_run(const char* name, int32_t count, bool reload, std::vector<
   });
 }
 }  // namespace
+
+// FIXES 129 (the lead: does a lancemate act on each of PM's lance orders in an MW1 battle?): two lancemates, A and B;
+// each step W to A (the recipient), then the order's keys, 150 frames apart: the order each brain had, the radio's
+// answer, A's orders' state after, and what its 'Mech did. FOLLOW, PAUSE, ATTACK (E first), DEFEND (on an enemy:
+// refused; on B, A kept the recipient by AWAITCMD: taken), REFIT (no repair site: refused) and the pocket commander
+// (POCKET, pick 1, FOLLOW: to A alone; none picked: to no one). The player and the lance can't fall meanwhile.
+namespace {
+std::vector<std::pair<const mech3::ai::Brain*, int32_t>>* g_radio = nullptr;
+std::string state_name(const mech3::ai::Brain* b) {
+  if (!b || b->orders.empty() || !b->orders.back().state) return "-";
+  std::string n = typeid(*b->orders.back().state).name();
+  const size_t at = n.find("ai");
+  return at == std::string::npos ? n : n.substr(at + 3);
+}
+zgame::Handle follows(const mech3::ai::Brain* b) {
+  if (!b || b->orders.empty()) return 0;
+  auto* vp = dynamic_cast<mech3::ai::VehiclePart*>(b->orders.back().net.get());
+  return dynamic_cast<mech3::ai::FollowState*>(b->orders.back().state.get()) && vp && vp->target ? vp->target->vehicle : 0;
+}
+}  // namespace
+TEST(mw1_loop_each_lance_order_in_an_mw1_battle_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_each_order";
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  in_child([&] {
+    crt::rand_fixed_seed() = 1;
+    Run run;
+    run.save = (dir / mw1::kSaveFile).string();
+    run.lance = true, run.lance_count = 2, run.world = "c2", run.first_contract = true;
+    OrderTrace trace;
+    g_trace = &trace;
+    mech3::lance_calls().order = traced_order;
+    std::vector<std::pair<const mech3::ai::Brain*, int32_t>> radio;
+    g_radio = &radio;
+    mech3::ai::radio_calls().line = [](mech3::ai::Brain& b, int32_t ev) { if (g_radio) g_radio->push_back({&b, ev}); };
+    // Each step: lancemate A the recipient first (W), then its keys; -1 W to lancemate B (the ally target), -2 E, -3 the
+    // pocket commander's pick 1 (PM's command 0x5d, its key map's number key 1, through its controls as the key reaches it).
+    struct Order { const char* name; std::vector<int32_t> keys; };
+    static const Order kOrders[] = {{"FOLLOW", {0x56}},
+                                    {"PAUSE", {0x55}},
+                                    {"ATTACK", {-2, 0x58}},
+                                    {"DEFEND an enemy", {-2, 0x59}},
+                                    {"DEFEND B (AWAITCMD, W to B)", {0x5b, -1, 0x59}},
+                                    {"REFIT", {0x5a}},
+                                    {"POCKET, lancemate 1 picked, FOLLOW", {0x53, -3, 0x56}},
+                                    {"POCKET, none picked, FOLLOW", {0x53, 0x56}}};
+    struct Seen { bool recipient_a = false; std::string name, orders, lines, state_before, state_after; float moved = 0, to_player0 = 0, to_player1 = 0, to_target0 = 0, to_target1 = 0; bool follows_player = false, follows_target = false; };
+    std::vector<Seen> seen;
+    void* mate = nullptr;
+    void* mate_b = nullptr;
+    void* target = nullptr;
+    bool has_radio = false, pocket_mode = false, picked_a = false;
+    int32_t next = 0, at = -1;
+    float p0[3] = {};
+    run.in_mission = [&](int32_t f) {
+      void* me = mech3::mech_mission_player();
+      mech3::ai::AiTarget* tg = me ? mech3::mech_ai_target(me) : nullptr;
+      if (!tg) return f < 600;
+      int32_t n = 0;
+      const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+      mech3::program_mech_set_invincible(me, true);
+      for (int32_t i = 0; i < n; ++i) mech3::program_mech_set_invincible(ai[i].mech, true);
+      if (f == 1) {
+        for (int32_t i = 0; i < n; ++i)
+          if (const mech3::ai::Brain* b = brain_of(ai[i].mech); b && b->params.team() == 1) {
+            if (!mate) mate = ai[i].mech, has_radio = b->radio != nullptr;
+            else mate_b = ai[i].mech;
+          }
+        return true;
+      }
+      if (!mate) return false;
+      const mech3::ai::Brain* b = brain_of(mate);
+      if (f == 20) {
+        for (int32_t tries = 0; tries < 8 && contact_mech(tg->saved_target) != mate; ++tries) mech3::mech_command(me, 0x47);  // W
+        mech3::mech_command(me, 0x48);  // E
+        target = contact_mech(tg->target);
+        return true;
+      }
+      if (f < 40) return true;
+      if (at < 0 || f - at == 150) {
+        if (at >= 0) {  // the last order's 150 frames
+          Seen& s = seen.back();
+          float p1[3];
+          mech3::mech_world_position(mate, p1);
+          s.moved = std::sqrt((p1[0] - p0[0]) * (p1[0] - p0[0]) + (p1[2] - p0[2]) * (p1[2] - p0[2]));
+          s.to_player1 = ground_distance(mate, me), s.to_target1 = target ? ground_distance(mate, target) : -1;
+          s.state_after = state_name(b);
+          s.follows_player = follows(b) == mech3::ai::brain_hooks().vehicle_handle(me);
+          s.follows_target = target && follows(b) == mech3::ai::brain_hooks().vehicle_handle(target);
+          auto who = [&](const mech3::ai::Brain* x) { return x == b ? "A:" : x == brain_of(mate_b) ? "B:" : "?:"; };
+          for (const auto& [bb, o] : trace.given) s.orders += (s.orders.empty() ? "" : ",") + std::string(who(bb)) + std::to_string(o);
+          for (const auto& [bb, e] : radio) s.lines += std::string(s.lines.empty() ? "" : ",") + who(bb) + mech3::ai::Radio::kEvents[e];
+        }
+        if (next == static_cast<int32_t>(std::size(kOrders))) return false;
+        trace.given.clear(), radio.clear();
+        Seen s;
+        s.name = kOrders[next].name;
+        s.state_before = state_name(b);
+        mech3::mech_world_position(mate, p0);
+        s.to_player0 = ground_distance(mate, me), s.to_target0 = target ? ground_distance(mate, target) : -1;
+        for (int32_t tries = 0; tries < 8 && contact_mech(tg->saved_target) != mate; ++tries) mech3::mech_command(me, 0x47);  // W to A
+        for (int32_t k : kOrders[next].keys) {
+          if (k == -1) {
+            for (int32_t tries = 0; tries < 8 && contact_mech(tg->target) != mate_b; ++tries) mech3::mech_command(me, 0x47);
+          } else if (k == -3) {
+            mech3::MechControls* pc = mech3::mech_controls(me);
+            pocket_mode = pc && pc->pocket();
+            if (pocket_mode) {
+              pc->pocket()->command(0x5d);  // Pirate's Moon's pick 1 (its pushed key map's number key 1)
+              mech3::PocketUnit u[4];
+              const int32_t pn = mech3::pocket_panel_units(*pc->pocket(), u, 4);
+              for (int32_t q = 0; q < pn; ++q) picked_a |= u[q].picked && u[q].mech == mate;
+            }
+          } else if (k == -2) {
+            mech3::mech_command(me, 0x48);
+            if (contact_mech(tg->target)) target = contact_mech(tg->target);
+          } else {
+            mech3::mech_command(me, k);
+          }
+        }
+        s.recipient_a = contact_mech(tg->saved_target) == mate;
+        seen.push_back(s);
+        ++next;
+        at = f;
+      }
+      return true;
+    };
+    loop_run(kWon, &run);
+    mech3::ai::radio_calls().line = nullptr;
+    mech3::lance_calls().order = nullptr;
+    g_trace = nullptr, g_radio = nullptr;
+    std::printf("  lancemate %d, radio %d, target an enemy %d; the pocket commander's mode %d, lancemate A picked %d\n", mate != nullptr,
+                has_radio, target != nullptr, pocket_mode, picked_a);
+    for (const Seen& s : seen)
+      std::printf("  %s (recipient A after %d): orders [%s] radio [%s] state %s -> %s; moved %.1f m; to the player %.0f -> %.0f m, to the target %.0f -> %.0f m;"
+                  " follows the player %d, the target %d\n",
+                  s.name.c_str(), s.recipient_a, s.orders.c_str(), s.lines.c_str(), s.state_before.c_str(), s.state_after.c_str(), s.moved, s.to_player0,
+                  s.to_player1, s.to_target0, s.to_target1, s.follows_player, s.follows_target);
+    EXPECT(mate && mate_b && target && has_radio && seen.size() == std::size(kOrders));
+    EXPECT(pocket_mode && picked_a);
+    // Each order to A alone (none to B), A's radio's answer as Pirate's Moon's (lance_order_pm), its state after.
+    struct Want { const char* orders; const char* lines; const char* state; };
+    static const Want kWant[] = {{"A:0", "A:follow", "FollowState"},
+                                 {"A:1", "A:stop", "StandState"},
+                                 {"A:10", "A:confirm_order", "FollowState"},
+                                 {"A:11", "A:disregard_order", ""},   // DEFEND needs an ally: an enemy refused
+                                 {"A:11", "A:confirm_order", ""},     // on B, A recipient kept by AWAITCMD
+                                 {"A:12", "A:disregard_order", ""},   // REFIT: no repair site on the map
+                                 {"A:0", "A:follow", "FollowState"},  // through the pocket commander, A picked
+                                 {"", "", ""}};                       // the pocket commander, none picked: no one
+    for (size_t i = 0; i < seen.size() && i < std::size(kWant); ++i) {
+      const Seen& s = seen[i];
+      EXPECT(s.recipient_a && s.orders == kWant[i].orders && s.lines == kWant[i].lines);
+      EXPECT(s.state_after.find(kWant[i].state) != std::string::npos);
+    }
+    // FOLLOW sets it walking (moved in its 150 frames); PAUSE stands it (it slows, under FOLLOW's distance); ATTACK
+    // turns it first, then it walks on at the target (the next step's 150 frames).
+    if (seen.size() == std::size(kWant)) EXPECT(seen[0].moved > 5.0f && seen[1].moved < seen[0].moved && seen[3].moved > 5.0f);
+  });
+}
 
 TEST(mw1_loop_lance_orders_reach_each_new_hire_headless) { lance_orders_run("mw1_lance_orders_2", 2, false); }
 TEST(mw1_loop_lance_orders_reach_each_of_three_headless) { lance_orders_run("mw1_lance_orders_3", 3, false); }

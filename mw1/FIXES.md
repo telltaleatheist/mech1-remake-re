@@ -27,6 +27,19 @@ was checking each part in MW1, against MW3/PM. Nothing in the game needed fixing
   (`app.destroy()`).
 - **Tests:** `mw1_controls_rebound_through_settings_kept_in_mw1s_write_dir_and_live_in_battle_headless`,
   `mw1_controls_a_stick_drives_the_mech_in_mw1s_battles_headless`.
+## 129. [x] Lance orders in MW1's battles, each one *(done: mw1-fix129-lance-orders, a test only; for 1.0.2)*
+The lead, after 128: does a lancemate act on each of Pirate's Moon's lance orders in an MW1 battle? Yes, every one, as
+in PM; nothing needed fixing. MW1's lancemates are PM AI 'Mechs on the player's side with a radio, in PM's lance
+roster (the pocket commander's panel lists them), so PM's dispatcher, brains and radio take the orders unchanged.
+- **FOLLOW** (CMD_DIRECT_FOLLOW): "follow", and it walks to the player. **PAUSE** (CMD_DIRECT_PAUSE): "stop", and it
+  stands. **ATTACK** (CMD_DIRECT_ATTACKT, on the player's target): "confirm", and it turns and walks at the target
+  (FIXES 72 and 110 time it). **DEFEND** (CMD_DIRECT_DEFENDT): on an enemy "disregard", as PM (it wants an ally); on
+  the other lancemate (AWAITCMD keeping the recipient while W targets the ally) "confirm". **REFIT**
+  (CMD_DIRECT_REFITT): "disregard" with no repair site on the map, as PM's. **POCKET** (CMD_DIRECT_POCKET): PM's
+  pocket commander; its number key 1 picks lancemate 1 (PM's command 0x5d, through the key map the mode pushes) and
+  the next order goes to it alone; with none picked, to no one.
+- **Test:** `mw1_loop_each_lance_order_in_an_mw1_battle_headless` (two lancemates; each order to A alone, A's radio's
+  answer, its state after, its walk).
 
 ## 126. [ ] One SETTINGS screen in place of Pirate's Moon's option pages *(MW1 1.0.2; branch mw1-options-126)*
 - **Owen (2026-11-20), via the lead:** "lets make the options menu more intuitive. its currently based on mw1's
