@@ -46,7 +46,7 @@ inline constexpr int32_t kBarPanelColumnPortrait = kBarPanelColumnFrame + 4, kBa
                          kBarPanelMech = kBarPanelColumnFrame + 12;
 
 // MW1's art by name (mw1image.zbd): a pilot's portrait (recruit_<their name>; `small` the grid's), the commander's,
-// and a mech's picture (the first of MW1's kinds that the Pirate's Moon mech stands in for, kMechKinds).
+// and a mech's picture (its amber icon, mw1_mech_icons.h).
 std::string portrait_image(int32_t pilot, bool small);
 std::string commander_image(bool small);
 std::string mech_image(int32_t pm_mech);

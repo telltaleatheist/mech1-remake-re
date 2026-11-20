@@ -30,6 +30,9 @@
 #include <string>
 #include <thread>
 #include <vector>
+#if defined(__APPLE__)
+#include <mach-o/dyld.h>
+#endif
 
 #include "platform/hires_2d.h"
 #include "platform/menu_pointer.h"
@@ -126,7 +129,30 @@ bool convert_in_window(const zipkit::Options& o, std::string* error) {
 }
 }  // namespace
 
+// This program's own folder (FIXES.md item 105): a .app's Contents/MacOS, the AppImage's usr/bin, the Windows
+// folder; where the launcher sits beside us. SDL's base path is that too but in a .app, where it is Resources (where
+// mw1data goes, as the packages put the launcher's art: tools/macos/make_app.sh).
+static std::filesystem::path own_dir() {
+#if defined(__APPLE__)
+  char buf[4096];
+  uint32_t n = sizeof buf;
+  if (_NSGetExecutablePath(buf, &n) == 0) return std::filesystem::weakly_canonical(std::filesystem::path(buf)).parent_path();
+#endif
+  const char* base = SDL_GetBasePath();
+  return base ? std::filesystem::path(base) : std::filesystem::path(".");
+}
+
+// The program's version tag (mw3_main.cpp's, MW1's describe here: FIXES.md item 105).
+extern "C" const char mw3_version_tag[];
+
 int main(int argc, char** argv) {
+  // --version first, before a write dir, an install or a window (FIXES.md item 105): the tag's version, as the
+  // launcher reads it from the file.
+  for (int i = 1; i < argc; ++i)
+    if (std::strcmp(argv[i], "--version") == 0) {
+      std::printf("mw1 (MechWarrior 1: Critical Hit) %s\n", mw3_version_tag + std::strlen("MW3-PROGRAM-VERSION:"));
+      return 0;
+    }
   mw1::Args a = mw1::parse(argc, argv);
   if (a.write_dir.empty()) a.write_dir = usual_write_dir();
   if (!a.write_dir.empty()) {
@@ -172,14 +198,11 @@ int main(int argc, char** argv) {
     if (use.pm.empty()) missing += "\n  - Pirate's Moon";
     if (use.mw3.empty()) missing += "\n  - MechWarrior 3";
     if (use.mw1.empty()) missing += "\n  - MechWarrior (1989)";
-    std::filesystem::path launcher;
-    if (const char* base = SDL_GetBasePath()) {
 #ifdef _WIN32
-      launcher = std::filesystem::path(base) / "mw3launcher.exe";
+    const std::filesystem::path launcher = own_dir() / "mw3launcher.exe";
 #else
-      launcher = std::filesystem::path(base) / "mw3launcher";
+    const std::filesystem::path launcher = own_dir() / "mw3launcher";  // a .app's MacOS, not SDL's Resources
 #endif
-    }
     std::error_code ec;
     const bool have_launcher = !launcher.empty() && std::filesystem::exists(launcher, ec);
     const std::string text = "MechWarrior 1: Critical Hit needs your own copies of:" + missing +

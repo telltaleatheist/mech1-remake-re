@@ -2013,7 +2013,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     const int64_t total = c.funds - before;
     p.pay.push_back("Total: " + std::string(total < 0 ? "-" : "+") + thousands(total < 0 ? -total : total) + "   Funds: " +
                     thousands(c.funds));
-    // CREW STATUS: each mech that flew, who flew it, what's left of it (MW1's "JENNER 93 %"); a lancemate's fate or
+    // CREW STATUS: each mech that flew, who flew it, what's left of it (MW1's "<MECH> 93 %"); a lancemate's fate or
     // promotion (FIXES.md item 57: the mission's, here, not a hub message).
     std::vector<std::string> promoted;
     for (const auto& b : a.bills) {
@@ -2768,15 +2768,14 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   // The contract on offer, line by line (with the planet and the funds first for the message box, which has no plaque).
   std::vector<std::string> offer_lines(bool with_company = false, bool with_terms = true, const Contract* of = nullptr) const {
     const Contract& k = of ? *of : contract_;
-    // The enemy as the player meets it (FIXES.md item 20): MW1's count by weight class, then the Pirate's Moon chassis
-    // each fields (FIXES 104: rolled per slot; an older contract's, its kinds' stand-ins), by name (MW1's own kind
-    // names stay in the logs).
+    // The enemy as the player meets it (FIXES.md item 20): MW1's count by weight class, then the chassis each slot
+    // fields (FIXES 104: rolled per slot; an older contract's, its slots' stand-ins), by name.
     // The key facts highlighted (item 20's colour, mw1_screen.h): the employer, the target, the objective, the map,
     // the enemy's count and class, the pay. A message box gets the lines plain.
     std::string enemies;
     for (int32_t w = 3; w >= 1; --w) {
       int32_t n = 0;
-      for (int32_t e : k.enemies) n += kMechKinds[e].weight == w;
+      for (int32_t e : k.enemies) n += e >= 0 && e < kSlotCount && kForceSlots[e].weight == w;
       if (n) enemies += std::string(enemies.empty() ? "" : ", ") + std::to_string(n) + (w == 3 ? " Heavy" : w == 2 ? " Medium" : " Light");
     }
     std::vector<std::pair<std::string, int32_t>> named;
@@ -2922,12 +2921,12 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     const std::string title_line = title.empty() ? "" : title_case_name(title.c_str());
     for (const std::string& l : offer_lines(false, false, &k))
       if (l.rfind("Employer: ", 0) != 0 && l != title_line) p.lines.push_back(l);
-    // The main enemy beside the terminal: the heaviest kind's PM mech (the first of the heaviest), its gunmetal render
+    // The main enemy beside the terminal: the heaviest slot's chassis (the first of the heaviest), its gunmetal render
     // once the first run has made them, else its amber icon (both the Company screen's 96x128 slot).
-    int32_t main = -1;  // a slot: the heaviest kind's first (FIXES 104: its rolled chassis pictured)
+    int32_t main = -1;  // the heaviest slot's first (FIXES 104: its rolled chassis pictured)
     for (size_t i = 0; i < k.enemies.size(); ++i) {
       const int32_t e = k.enemies[i];
-      if (e >= 0 && e < kKindCount && (main < 0 || kMechKinds[e].tons > kMechKinds[k.enemies[static_cast<size_t>(main)]].tons))
+      if (e >= 0 && e < kSlotCount && (main < 0 || kForceSlots[e].tons > kForceSlots[k.enemies[static_cast<size_t>(main)]].tons))
         main = static_cast<int32_t>(i);
     }
     if (main >= 0) {
@@ -2949,7 +2948,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     for (int32_t h = 0; h < kHouseCount; ++h)
       if (h != k.house && (k.target == kHouseCount || std::strlen(kHouses[h].name) > std::strlen(kHouses[k.target].name))) k.target = h;
     k.enemies.clear();
-    for (int32_t e = 0; e < kKindCount; ++e) k.enemies.push_back(e);
+    for (int32_t e = 0; e < kSlotCount; ++e) k.enemies.push_back(e);
     size_t longest = 0;
     Contract best = k;
     for (const MapRow& r : map_table()) {
@@ -3037,15 +3036,15 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     }
     mech3::LaunchedMech d;
     if (!mech3::describe_mech(victim, &d)) return;
-    // FIXES 104: the slot it filled: the first not yet down whose chassis it is (its kind for the pay).
-    int32_t kind = -1;
-    for (size_t i = 0; i < contract_.enemies.size() && kind < 0; ++i)
+    // FIXES 104: the slot it filled: the first not yet down whose chassis it is (the slot for the pay).
+    int32_t slot = -1;
+    for (size_t i = 0; i < contract_.enemies.size() && slot < 0; ++i)
       if (enemy_chassis(contract_, i) == d.roster && (i >= slots_down_.size() || !slots_down_[i])) {
-        kind = contract_.enemies[i];
+        slot = contract_.enemies[i];
         if (i < slots_down_.size()) slots_down_[i] = true;
       }
-    if (kind < 0) return;  // not one of the contract's
-    wrecks_.push_back({kind, condition_of(victim), damage_of(bars_of(victim)), d.roster});
+    if (slot < 0) return;  // not one of the contract's
+    wrecks_.push_back({slot, condition_of(victim), damage_of(bars_of(victim)), d.roster});
     killers_.push_back(whose(killer));  // the results' "by whom" (FIXES.md item 19)
     mech3::program_salvage_mech(victim, *salvage_, false);
     std::printf("mw1: an enemy %s disabled (%d%% standing)\n", mech_title(d.roster).c_str(), wrecks_.back().condition);
@@ -4194,8 +4193,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     for (size_t i = 0; i < contract_.enemies.size(); ++i) {
       const int32_t chassis = enemy_chassis(contract_, i), loadout = enemy_loadout(contract_, i);
       g->add(chassis, 0, stock_config(chassis, loadout), 0);
-      std::printf("mw1: enemy %zu: %s (MW1's %s), %s loadout %d\n", i + 1, mech_title(chassis).c_str(),
-                  kMechKinds[contract_.enemies[i]].name, loadout_kind(chassis, loadout) == LoadoutKind::kPrimary ? "the Primary" :
+      const int32_t e = contract_.enemies[i];
+      std::printf("mw1: enemy %zu: %s (the %d t slot), %s loadout %d\n", i + 1, mech_title(chassis).c_str(),
+                  e >= 0 && e < kSlotCount ? kForceSlots[e].tons : 0, loadout_kind(chassis, loadout) == LoadoutKind::kPrimary ? "the Primary" :
                   loadout_kind(chassis, loadout) == LoadoutKind::kAlternate ? "an Alternate" : "an Exotic", loadout);
     }
     g->x6c = 1, g->x70 = 0;
@@ -4383,9 +4383,9 @@ void set_game_loop_world(const std::string& world, int32_t ia) {
 void set_game_loop_row(const MapRow& row) {
   if (the_loop()) the_loop()->set_row(row);
 }
-void set_game_loop_enemies(const std::vector<int32_t>& kinds, const std::vector<int32_t>& chassis,
+void set_game_loop_enemies(const std::vector<int32_t>& slots, const std::vector<int32_t>& chassis,
                            const std::vector<int32_t>& loadouts) {
-  if (the_loop()) the_loop()->set_enemies(kinds, chassis, loadouts);
+  if (the_loop()) the_loop()->set_enemies(slots, chassis, loadouts);
 }
 bool game_loop_structure_point(float out[3]) {
   return the_loop() && the_loop()->structure_point_now(out);

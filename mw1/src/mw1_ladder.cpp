@@ -16,12 +16,12 @@ std::vector<int32_t> rung_force(int32_t r, int32_t lancemates) {
   const Rung& g = rung(r);
   const int32_t room = std::max(kLineupSlots - std::max(lancemates, 0), 0);
   const int32_t n = std::max(std::min(g.count, room), std::min(g.core, g.count));
-  return std::vector<int32_t>(g.kinds, g.kinds + n);
+  return std::vector<int32_t>(g.slots, g.slots + n);
 }
 
 int32_t rung_tons(const std::vector<int32_t>& force) {
   int32_t t = 0;
-  for (int32_t k : force) t += kMechKinds[k].tons;
+  for (int32_t k : force) t += kForceSlots[k].tons;
   return t;
 }
 

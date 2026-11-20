@@ -22,18 +22,20 @@
 
 namespace mw1 {
 
-// The stand-ins (research/contracts.md, "PM's mechs for MW1's"): each MW1 kind
-// by its tonnage to the nearest Pirate's Moon Inner Sphere mech (Annihilator
-// 100, Atlas 100, Avatar 70, Awesome 80, Bushwacker 55, Centurion 50, Champion
-// 60, Firefly 30, Orion 75, Owens 35, Strider 40, Sunder 90); a tie to the
-// lighter. MW1's Wasp and Wolverine are never stocked or fielded
-// (MwGenerateUnitStock swaps them), kept for the tables' order.
-const MechKind kMechKinds[kKindCount] = {
-    {"Locust", 20, 1, 1504, kPmFirefly},         {"Wasp", 20, 1, 2000, kPmFirefly},
-    {"Jenner", 35, 1, 3183, kPmOwens},           {"Phoenix Hawk", 45, 2, 4022, kPmStrider},
-    {"Shadow Hawk", 55, 2, 4622, kPmBushwacker}, {"Wolverine", 55, 2, 4966, kPmBushwacker},
-    {"Rifleman", 60, 3, 5500, kPmChampion},      {"Warhammer", 70, 3, 6021, kPmAvatar},
-    {"Marauder", 75, 3, 6729, kPmOrion},         {"BattleMaster", 85, 3, 8410, kPmAwesome}};
+// The force's slots: MW1's fielded tonnages and their classes (its exe's records below, the never-fielded twins
+// folded into theirs).
+const ForceSlot kForceSlots[kSlotCount] = {{20, 1}, {35, 1}, {45, 2}, {55, 2}, {60, 3}, {70, 3}, {75, 3}, {85, 3}};
+
+const Mw1Kind kMw1Kinds[kMw1KindCount] = {{20, 1, 1504}, {20, 1, 2000}, {35, 1, 3183}, {45, 2, 4022}, {55, 2, 4622},
+                                          {55, 2, 4966}, {60, 3, 5500}, {70, 3, 6021}, {75, 3, 6729}, {85, 3, 8410}};
+
+int32_t slot_of_mw1_kind(int32_t kind) {
+  if (kind < 0 || kind >= kMw1KindCount) return -1;
+  for (int32_t s = 0; s < kSlotCount; ++s)
+    if (kForceSlots[s].tons == kMw1Kinds[kind].tons) return s;
+  return -1;
+}
+static_assert(kPmMechCount == mech3::kMechCount && kPmElemental == mech3::kElemental && kPmMadCat == mech3::kMadCat);
 
 const HouseRules kHouses[kHouseCount] = {
     {"Kurita", 10, -1, 5, 5, 10, 0},   {"Steiner", 10, 1, 15, 10, 10, 75}, {"Marik", 5, -1, 20, 15, 30, 50},
@@ -51,10 +53,10 @@ constexpr int32_t kTargetGrievance = 2;     // the House you fought, at every en
 // The settlement's (STARTUP).
 constexpr int32_t kScrapPerTon = 10, kSaleRounding = 500;  // thousands a ton (research/contracts.md); C-bills
 
-// BtechPrepareEnemyMech: a class's kinds, picked at random within it.
-const int32_t kLights[] = {kLocust, kJenner};
-const int32_t kMediums[] = {kPhoenixHawk, kShadowHawk};
-const int32_t kHeavies[] = {kRifleman, kWarhammer, kMarauder, kBattleMaster};
+// BtechPrepareEnemyMech: a class's slots, picked at random within it (MW1's fielded ones, in its order).
+const int32_t kLights[] = {kSlot20, kSlot35};
+const int32_t kMediums[] = {kSlot45, kSlot55};
+const int32_t kHeavies[] = {kSlot60, kSlot70, kSlot75, kSlot85};
 
 int32_t band(int32_t kills) {
   return kills >= kBandFourth ? 3 : kills >= kBandThird ? 2 : kills >= kBandSecond ? 1 : 0;
@@ -257,7 +259,7 @@ void accept(Company& c, Contract& k) {
 }
 
 int32_t wreck_value(const Company& c, const Wreck& w) {
-  const int32_t chassis = pay_chassis(w);  // FIXES 104: MW1's kind's (kWreckPay), as before, or the real one
+  const int32_t chassis = pay_chassis(w);  // FIXES 104: its slot's stand-in (kWreckPay), as before, or the real one
   // VISION ("Wrecks pay what they're worth, less their repairs"): the chassis's sale price at this world less its
   // repairs by the one rule (mw1_repairs.h), +500 and in thousands as MwCalculateUnitConditionPrice rounds; never
   // below the scrap value, tons x 10,000 (provisional Q4).

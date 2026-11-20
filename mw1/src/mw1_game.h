@@ -54,9 +54,9 @@ namespace missions {
 struct MapRow;
 }
 void set_game_loop_row(const missions::MapRow& row);
-// Every new contract's force these MW1 kinds (tests: the ladder's map survey); empty: the contracts' own.
-// FIXES 104: with each enemy's chassis and stock loadout too (empty: the kinds' stand-ins on their Primary).
-void set_game_loop_enemies(const std::vector<int32_t>& kinds, const std::vector<int32_t>& chassis = {},
+// Every new contract's force these slots (kForceSlots; tests: the ladder's map survey); empty: the contracts' own.
+// FIXES 104: with each enemy's chassis and stock loadout too (empty: the slots' stand-ins on their Primary).
+void set_game_loop_enemies(const std::vector<int32_t>& slots, const std::vector<int32_t>& chassis = {},
                            const std::vector<int32_t>& loadouts = {});
 // What the mission's objectives were built as: "" (destroy all), "reach", "attack" or "defend"; `fell_back` when
 // the contract's structure wasn't on the map (tests).

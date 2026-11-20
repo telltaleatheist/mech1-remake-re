@@ -581,7 +581,7 @@ Tick an item when it is merged into `main`.
     | 3 | The ambush on ref2 (27, FIGHT) | 4 heavies, about 260 t |
     | 4 | Kearney's address (2F..35, FIGHT) | 4 heavies and assaults, about 300 t |
     | 5 | The Matabushi raid on Albiero (40) | 6 'Mechs, about 400 t, veterans |
-    | 6 | The Dark Wing (72, ATTACK) | 8 'Mechs: the Warhammer and four BattleMasters (as MW1's text says) plus 3 escorts, about 650 t, elite pilots |
+    | 6 | The Dark Wing (72, ATTACK) | 8 'Mechs: a 70 t and four 85 t (as MW1's text tells it) plus 3 escorts, about 650 t, elite pilots |
 
   - The enemy pilots' skill rises with the step.
   - The pay for a story battle is none, but the salvage is kept (the reason to fight it).
@@ -1244,7 +1244,7 @@ Owen, defending the tower on mw3c1ia3 (4 enemies): three came; the fourth never 
   above its trot. Of the market's nine chassis only the Awesome reports it, and it walks under orders as the
   others do (a new lance-orders test).
 - **Tests:**
-  - `mw1_loop_defend_every_enemy_comes_headless`: Owen's mission and force (Shadow Hawk, Warhammer, two Marauders)
+  - `mw1_loop_defend_every_enemy_comes_headless`: Owen's mission and force (a 55 t, a 70 t and two 75 t slots)
     with the player standing at his start. Every enemy must close 300 m on him in 2400 frames. Unfixed, the guard
     closes 56 m (and the slower Enemy_06 217 m). With mode 1 alone the guard closes about 230 m before the leash
     takes it back. Fixed, all four close 470 to 690 m.
@@ -1282,6 +1282,28 @@ Owen (2026-11-19): Erin Falls's Centurion, bought new, about 25 s into a destroy
   centre torso went, by a weapon's hit", CT 0/0, head 100/100. With the hit's path unmarked it fails.
 - **Open, Owen's call:** whether a lancemate should call out under fire when close (PM's own rule says no), or
   whether the HUD should show the lance's damage.
+## 105. [x] Release prep for MW1 1.0.0: its own version, packaged builds, where mw1data goes *(done, mw1-fix105-release)*
+
+The lead (2026-11-19): MW1 1.0.0 rides mw3-re v1.1.3; the launcher reads each program's version from its file.
+- **Version:** mw1 compiles mw3_main.cpp with mw3pm's definitions, so its file carried the engine's describe
+  (pm-v1.1.2-639-g...) as its `MW3-PROGRAM-VERSION:` tag. Now `MW1_VERSION`, `git describe --tags --match
+  "mw1-v[0-9]*" --always --dirty` on every platform (was Windows only, any tag), is the one tag (mw3_main.cpp, the
+  engine commit). Untagged: the bare commit. The Windows version resource takes it too.
+- `mw1 --version` answers first ("mw1 (MechWarrior 1: Critical Hit) <v>"), before a write dir, an install or a
+  window; it set up the user's write dir before.
+- **Test** `mw1version` (ctest, every build): one tag in the file, CMake's describe, MW1's shape (mw1-v..., or the
+  bare commit; never pm-v or v), and --version prints the same.
+- **Package builds** (`-DMW3_PACKAGE=ON -DMW3_BUILD_MW1=ON`, target mw1, scratch worktrees): the Mac builds; WSL
+  (Ubuntu, GCC 13, the release deps prefix) failed on `SoundCfg`'s defaulted `==` (C++20; the project is C++17,
+  Clang only warned): written out. Both build and pass `mw1version`. MW1's own warnings left (13 to 14, other
+  items' code: missing `narrow` initializers, an unused variable and function) don't stop either.
+- **Where mw1data goes:** mw1 mounts `<SDL base path>/mw1data`. Probed with SDL3 itself: in a .app, a program in
+  `Contents/MacOS` gets `Contents/Resources/`; on Linux, the program's folder (`AppDir/usr/bin/`, with or without
+  APPIMAGE/APPDIR set); Windows, the program's folder. So: `Contents/MacOS/mw1` with
+  `Contents/Resources/mw1data/`; `usr/bin/mw1` with `usr/bin/mw1data/`; `mw1.exe` with `mw1data\` beside it. The
+  launcher's art goes the same way (tools/macos/make_app.sh, tools/linux/make-appimage.sh).
+- **With it:** the missing-installs box looked for `mw3launcher` at SDL's base path too, which in a .app is
+  Resources: never found there. It looks in mw1's own folder now (Contents/MacOS).
 
 ## 100. [x] Menu music, QUIT in the hub, the sound settings *(done: mw1-fix100-music)*
 - **Owen (2026-11-19, via the lead):** a YuE2 track he picked as the menu music. QUIT outside the main menu. Music
@@ -1556,7 +1578,7 @@ Owen (for 1.0.0): the enemy fields all of Pirate's Moon's 'Mechs and their real 
 MW1's kinds. The design the lead approved (2026-11-19), in `mw1_enemies.h/.cpp`:
 - **MW1's force roll unchanged** (the budget, the classes, at most four; the ladder's rungs). Each slot then gets a
   PM chassis within kSlotTons (10 t) of its MW1 kind's, Clan by kClanPercent per tier; the 100-tonners only in the
-  BattleMaster's slot and only late (tier ≥ 2 or record band 3). A loadout from the chassis's stock ones: Primary 60%,
+  heaviest (85 t) slot and only late (tier ≥ 2 or record band 3). A loadout from the chassis's stock ones: Primary 60%,
   Alternates 30%, Exotics 10% (no Alternates: 75/25). Its own generator, seeded by the company and the contract, so
   MW1's draws are untouched and the same offer rolls the same 'Mechs.
 - **Owen's four, each a named constant there:** kElementalsField (false), kClanPercent ({0, 10, 25, 40}), kWreckPay
@@ -1570,6 +1592,57 @@ MW1's kinds. The design the lead approved (2026-11-19), in `mw1_enemies.h/.cpp`:
   100-tonner; determinism; older saves; story battles). `mw1_loop_every_chassis_and_loadout_fields_and_salvages_headless`
   spawns four mixed (MW1_ALL_LOADOUTS=1: all 112) and checks each fields, is killed and salvaged, and the engine's stock
   config counts match the table.
+
+## 112. [x] Our roster, not MW1's 'Mechs: the force in tonnage slots, one roster list *(done: mw1-roster)*
+Owen (2026-11-19, through the lead): "we dont have any phoenix hawks in this game … we're using the entire mw3+pm
+roster, not mw1 mechs … make sure the phoenix hawk, shadow hawk, marauder, etc. names are all scrubbed from the
+codebase and it refers to the mechs that we actually have … if we ever want to drop back down to only 8 mechs … we
+can change that list."
+- **The force's slots** (`mw1_campaign.h`): MW1's ten named kinds are gone. The force rolls in eight tonnage slots,
+  `kSlot20` to `kSlot85` (`kForceSlots`: the tons MW1's fielded enemies had, each with its class). MW1's roll is
+  unchanged: the budget, x1.5 and x0.5, at most four, heavies first, a class's slots picked at random. The two
+  kinds MW1 never fielded (its 20 t and 55 t twins) fold into those slots. The ladder's rungs are written in slots
+  (the same tons: 110 to 635 t).
+- **MW1's exe records stay as numbers** (`kMw1Kinds`: tons, class and price by index, no names). The tests pin them
+  and the body repair prices against the exe, and the repair line is fitted through them.
+- **The roster** (`mw1_enemies.h`, `kRoster`): the one list of chassis an enemy can be. It defaults to all 25 of
+  MW3's and PM's; the Elemental fields only by `kElementalsField` (still false). Cut it to any subset and the rest
+  follows.
+- **All of them, from the first contract** (Owen: "i just tried to get a contract and only the original 8 mechs are
+  showing up"; his tier-0 offer was three of the old stand-ins of four). 104's slots reached only within 10 t of
+  MW1's kind, Clan was 0% at tier 0 and the 100-tonners came only at tier 2 in the 85 t slot, so tier 0 was mostly the
+  old eight. Now a slot draws **uniformly from its whole weight class**, PM's own (`slot_class`: the 20 and 35 t slots
+  light, 45 and 55 medium, 60 to 75 heavy, 85 assault). **Clan and Inner Sphere alike** (Owen: "the clan mechs arent
+  that much better than the IS mechs"); `kClanGated` (false) puts a per-tier gate back, `kClanPercent`. The
+  **100-tonners** go in any heavy or assault slot from tier 1 (`kHundredTonTier`, was 2) or record band 3. MW1's
+  budget and class counts are unchanged, so the balance holds class by class. A slot with nothing on the roster
+  fields its **stand-in**: the roster's nearest chassis by tons, Inner Sphere first, below 100 t first, ties to the
+  lighter. With the full roster the stand-ins are exactly the
+  eight the game fielded before 104 (Firefly, Owens, Strider, Bushwacker, Champion, Avatar, Orion, Awesome), so
+  pre-104 contracts and wrecks field and pay as before. `PmMech` names all 25 ids.
+- **Wreck pay** keeps MW1's price per slot: `kWreckPay` is now `kSlot` (the slot's stand-in at the world, as before)
+  or `kChassis`.
+- **Old saves** (save version 11): `offer_enemies` and a pending wreck's first number are slots now. Before 11 they
+  were MW1's kind numbers and read as their slots (`slot_of_mw1_kind`).
+- **Scrubbed:** the names are out of code, comments, logs ("the 55 t slot"), tests, VISION.md, the hub mockups and
+  this file's own descriptions of our roster. Kept: Owen's quoted words, the history of item 20, the research notes
+  (they describe MW1 itself), and VISION's BattleTech price citation.
+- **Tests:**
+  - `mw1_campaign_slots_and_stand_ins`: slots against the exe records; the old kind numbers to slots; the stand-ins.
+  - `mw1_enemies_a_cut_roster_still_fields_every_slot`: the old eight as the roster (only they appear, all of them, a
+    pre-104 wreck pays the same), and a roster of one.
+  - `mw1_enemies_every_tier_fields_most_of_the_roster`: 2,000 contracts a tier. All 24 chassis appear at every tier;
+    the old eight are 35 to 37% of the enemies (the light class is only three: Firefly, Owens, Puma), Clan 48 to 50%.
+    Each tier's pools are printed.
+  - `mw1_save_a_version_10_save_reads_mw1s_kinds_as_slots`: a version 10 file's kinds read as slots, its pre-104
+    wrecks pay as their old stand-ins, and it writes back as version 11.
+- **MW1's own text, read at run time from the player's MW_MAIN.EXE, that names those 'Mechs** (we can't change it;
+  Owen to decide: leave it, or show a mapped name where we draw it):
+  - Story texts 0x2C and 0x43 (segment 1AA5): a 70 t (both) and an 85 t (0x43), the Dark Wing's force. They show on
+    the event panel.
+  - The Bar's pitches (RECRUIT CREW) of pilots 8 (a 20 t), 13 and 35 (a 75 t).
+  - Also in the exe but not drawn by us: MW1's kind-name tables (DS:24A5.., DS:2DB3, DS:2E70) and seven strings at
+    DS:3FE5..410A and DS:6BCB.
 
 ## 110. [x] A lancemate under orders stood with its throttle up before it walked *(done: mw1-lance-stall)*
 Found in FIXES 91's walk flake: on c2, seed 6 (the enemies 1,359 m off, the lance facing away), the Awesome stood

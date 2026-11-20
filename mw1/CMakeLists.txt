@@ -119,23 +119,32 @@ if(TARGET mw3pm)
                                         -DDIR=${CMAKE_CURRENT_BINARY_DIR}/mw1hiresorder
                                         -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/hires_order.cmake)
   endif()
-  if(WIN32)
-    # The version resource's numbers, MW1's own (the engine's are in its own scope): git's describe and commit count.
-    set(MW3_VERSION dev)
-    set(MW3_BUILD_NUMBER 0)
-    find_package(Git QUIET)
-    if(GIT_FOUND)
-      execute_process(COMMAND ${GIT_EXECUTABLE} describe --tags --always --dirty WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-                      OUTPUT_VARIABLE mw1_describe OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET RESULT_VARIABLE mw1_git_r)
-      if(mw1_git_r EQUAL 0 AND mw1_describe)
-        set(MW3_VERSION ${mw1_describe})
-      endif()
-      execute_process(COMMAND ${GIT_EXECUTABLE} rev-list --count HEAD WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-                      OUTPUT_VARIABLE mw1_count OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET RESULT_VARIABLE mw1_git_r)
-      if(mw1_git_r EQUAL 0 AND mw1_count MATCHES "^[0-9]+$")
-        math(EXPR MW3_BUILD_NUMBER "${mw1_count} % 65536")
-      endif()
+  # MW1's version, its own on every platform (FIXES.md item 105): git's describe against MW1's tags alone
+  # (mw1-v1.0.0), never the engine's (pm-v, v): untagged, the bare commit. Built in as the program's version tag
+  # (mw3_main.cpp's, MW1_VERSION in place of the engine's), which the launcher reads from the file and --version
+  # prints; the Windows version resource's too.
+  set(MW1_VERSION unknown)
+  set(MW3_BUILD_NUMBER 0)
+  find_package(Git QUIET)
+  if(GIT_FOUND)
+    execute_process(COMMAND ${GIT_EXECUTABLE} describe --tags --match "mw1-v[0-9]*" --always --dirty
+                    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                    OUTPUT_VARIABLE mw1_describe OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET RESULT_VARIABLE mw1_git_r)
+    if(mw1_git_r EQUAL 0 AND mw1_describe)
+      set(MW1_VERSION ${mw1_describe})
     endif()
+    execute_process(COMMAND ${GIT_EXECUTABLE} rev-list --count HEAD WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                    OUTPUT_VARIABLE mw1_count OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET RESULT_VARIABLE mw1_git_r)
+    if(mw1_git_r EQUAL 0 AND mw1_count MATCHES "^[0-9]+$")
+      math(EXPR MW3_BUILD_NUMBER "${mw1_count} % 65536")
+    endif()
+  endif()
+  target_compile_definitions(mw1 PRIVATE MW1_VERSION="${MW1_VERSION}")
+  # FIXES.md item 105: the built program's version tag is MW1's describe, once, and MW1's alone.
+  add_test(NAME mw1version COMMAND ${CMAKE_COMMAND} -DMW1_BIN=$<TARGET_FILE:mw1> -DWANT=${MW1_VERSION}
+                                  -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/version_tag.cmake)
+  if(WIN32)
+    set(MW3_VERSION ${MW1_VERSION})  # the version resource's (this directory's scope; the engine's are its own)
     set(MW3_RC_NAME "MechWarrior 1: Critical Hit")
     set(MW3_RC_FILE "mw1.exe")
     set(MW3_RC_ICON "ICON_MAIN ICON \"${MW3RE_DIR}/tools/windows/mw3.ico\"")

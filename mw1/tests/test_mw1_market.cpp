@@ -250,18 +250,18 @@ TEST(mw1_market_sale_puts_the_mech_back_to_stock) {
 }
 
 TEST(mw1_market_wrecks_pay_the_markets_sale_price) {
-  // A wreck's cash is its PM chassis's sale price at this world, by its condition: a whole Jenner (the Owens) at
+  // A wreck's cash is its PM chassis's sale price at this world, by its condition: a whole 35 t slot (the Owens) at
   // tier 0 pays what the market pays for an Owens there.
   mw1::Company c = company_with_stores();
   for (int32_t tier = 0; tier < 4; ++tier) {
     c.tier = tier;
-    EXPECT(mw1::wreck_value(c, {mw1::kJenner, 100}) == (mw1::sell_price(kOwens, tier) + 500) / 1000);
+    EXPECT(mw1::wreck_value(c, {mw1::kSlot35, 100}) == (mw1::sell_price(kOwens, tier) + 500) / 1000);
   }
   c.tier = 0, c.repair_premium = 18;
-  EXPECT(mw1::wreck_value(c, {mw1::kJenner, 50, 5000}) == (2772000 - 31169 + 500) / 1000);  // less half its repairs
+  EXPECT(mw1::wreck_value(c, {mw1::kSlot35, 50, 5000}) == (2772000 - 31169 + 500) / 1000);  // less half its repairs
   // Never below scrap (the Firefly's 30 t x 10): only a repair dearer than the sale, here a 10,000% premium.
   c.repair_premium = 10000;
-  EXPECT(mw1::wreck_value(c, {mw1::kLocust, 0, mw1::kWhole}) == 300);
+  EXPECT(mw1::wreck_value(c, {mw1::kSlot20, 0, mw1::kWhole}) == 300);
 }
 
 TEST(mw1_market_saved_and_a_version_1_save_read) {
