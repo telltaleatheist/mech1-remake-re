@@ -107,7 +107,10 @@ void WalkPm::turn() {
 // Pirate's Moon 1.0 @ 0x004d9550: not facing the way, only braking off; facing it, by how far the
 // carrot is, within the brain's most.
 void WalkPm::throttle() {
-  if (!(steer.cos_on < dot)) {
+  // Ours (FIXES 110, walk_keeps_going): under way, the wider cone.
+  static const float cos_keep = static_cast<float>(std::cos(kKeepGoingDegrees * 0.017453292519943295));
+  const bool going = walk_keeps_going() && steer.brake < std::fabs(h.throttle_goal());
+  if (!((going ? cos_keep : steer.cos_on) < dot)) {
     const float t = h.throttle_goal();
     throttle_out = t;
     if (steer.brake < std::fabs(t)) throttle_out = static_cast<float>(std::copysign(1.0, -static_cast<double>(t)));

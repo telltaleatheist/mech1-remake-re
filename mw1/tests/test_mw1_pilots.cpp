@@ -2,6 +2,7 @@
 // (counts by tier, the reputation's Gunnery, the portrait pairs); hiring, the full lance, declining, firing,
 // assigning; wages, the warning and the lance leaving; promotion; the casualties' rule and their mechs; the lance's
 // weight in the offer.
+#include <algorithm>
 #include <cctype>
 #include <cstdlib>
 #include <memory>
@@ -19,9 +20,12 @@
 #include "mech3/pilot.h"
 #include "mw1_install.h"
 #include "mw1_campaign.h"
+#include "mw1_bar_screen.h"
 #include "mw1_chrome.h"
+#include "mw1_journal.h"
 #include "mw1_log.h"
 #include "mw1_pilots.h"
+#include "mw1_repairs.h"
 #include "mw1_save.h"
 #include "mw1_travel.h"
 
@@ -81,6 +85,60 @@ TEST(mw1_pilots_records_and_wages_are_mw_main_exes) {
   EXPECT(mw1::pitch(1).empty());
   mw1::set_mw1_game_dir("");
   EXPECT(mw1::pilot_title(id_named("J. HOLMAAS")) == "J. Holmaas" && mw1::pilot_title(1) == "Elli Gujar" && mw1::pilot_title(3) == "Taris Ren");
+}
+
+// FIXES 95: each recruit's pitch on the Bar's terminal as one quote (mw1_bar_screen.cpp, journal::quoted), not each
+// exe line in its own: for every pilot with a pitch, a quote mark opens its first line and closes its last, no other
+// mark added; its words all there in their order and case; every line within kPitchColumns (a word longer stays whole)
+// and at most kPitchLines. Sizes only: the pitches are MW1's words.
+TEST(mw1_pilots_each_pitch_is_one_quote_wrapped) {
+  mw1::set_mw1_game_dir(MW1_DOS_GAME_DIR);
+  if (mw1::pitch(1).empty()) {
+    mw1::set_mw1_game_dir("");
+    mw1_test::no_mw1();
+    return;
+  }
+  auto words = [](const std::string& text) {
+    std::vector<std::string> w;
+    std::string one;
+    for (char ch : text + " ")
+      if (ch != ' ') one += ch;
+      else if (!one.empty()) w.push_back(one), one.clear();
+    return w;
+  };
+  auto marks = [](const std::string& t) { return std::count(t.begin(), t.end(), '"'); };
+  int32_t pitches = 0;
+  size_t most_lines = 0, longest = 0;
+  for (int32_t id = 1; id <= mw1::kPilotCount; ++id) {
+    const std::vector<std::string> exe = mw1::pitch(id);
+    if (exe.empty()) continue;
+    ++pitches;
+    const std::vector<std::string> shown = mw1::journal::quoted(exe, mw1::bar_ui::kPitchColumns);
+    std::string exe_text, shown_text;
+    for (const std::string& l : exe) exe_text += l + " ";
+    for (const std::string& l : shown) shown_text += l + " ";
+    size_t widest = 0;
+    bool fits = true;
+    for (const std::string& l : shown) {
+      widest = std::max(widest, l.size());
+      fits = fits && (l.size() <= mw1::bar_ui::kPitchColumns || l.find(' ') == std::string::npos);
+    }
+    std::vector<std::string> said = words(shown_text);
+    if (!said.empty()) said.front().erase(0, 1), said.back().pop_back();  // the marks off
+    std::printf("  pilot %2d: %zu exe lines, %zu shown, the widest %zu letters\n", id, exe.size(), shown.size(), widest);
+    EXPECT(!shown.empty() && shown.front().front() == '"' && shown.back().back() == '"');
+    EXPECT(marks(shown_text) == marks(exe_text) + 2);
+    EXPECT(said == words(exe_text));
+    EXPECT(fits && shown.size() <= mw1::bar_ui::kPitchLines);
+    most_lines = std::max(most_lines, shown.size()), longest = std::max(longest, widest);
+  }
+  std::printf("  %d pitches, at most %zu lines, the widest %zu letters\n", pitches, most_lines, longest);
+  EXPECT(pitches > 0);
+  // The helper's own rules: the ends' spaces and a blank line dropped, nothing for nothing.
+  EXPECT((mw1::journal::quoted({"  AB ", "", "CD"}, 20) == std::vector<std::string>{"\"AB CD\""}));
+  EXPECT((mw1::journal::quoted({"ONE TWO", "THREE"}, 7) == std::vector<std::string>{"\"ONE", "TWO", "THREE\""}));
+  EXPECT(mw1::journal::quoted({"", "  "}, 20).empty());
+  mw1::set_mw1_game_dir("");
 }
 
 TEST(mw1_pilots_recruits_by_tier_reputation_and_portraits) {
@@ -262,8 +320,8 @@ TEST(mw1_pilots_promotion_and_casualties) {
   mw1::OwnedMech m;
   m.mech = mw1::kPmFirefly, m.pilot = ace;
   c.hangar = {m};
-  EXPECT(mw1::pilot_killed({ace, true}) && !mw1::pilot_killed({ace, false}));
-  mw1::after_mission(c, {{poor, false}, {ace, true}});
+  EXPECT(mw1::pilot_killed({ace, true, false, true, true}) && !mw1::pilot_killed({ace, false}) && !mw1::pilot_killed({ace, true}));
+  mw1::after_mission(c, {{poor, false}, {ace, true, false, true, true}});
   EXPECT(c.lance.size() == 1 && c.lance[0].id == poor && c.hangar.empty() && c.pilots[ace].where == mw1::PilotWhere::kDead);
   // FIXES.md item 57: the mission's result, on AFTER ACTION: logged, never the hub's MESSAGES.
   int32_t promoted = 0, lost = 0, killed = 0;
@@ -287,12 +345,12 @@ TEST(mw1_pilots_missing_in_action) {
   mw1::OwnedMech m;
   m.mech = mw1::kPmFirefly, m.pilot = 41;
   c.hangar = {m};
-  EXPECT(mw1::pilot_missing({41, true, true}) && !mw1::pilot_killed({41, true, true}));
+  EXPECT(mw1::pilot_missing({41, true, true, false, true}) && !mw1::pilot_killed({41, true, true, false, true}));
   EXPECT(!mw1::pilot_missing({41, false, false}) && !mw1::pilot_killed({41, false, false}));
   // Their ratings and record as if they'd come back: the mission counted, then out of the lance.
   mw1::Company twin = c;
   mw1::after_mission(twin, {{1, false}, {41, false}, {3, false}});
-  mw1::after_mission(c, {{1, false}, {41, true, true}, {3, false}});
+  mw1::after_mission(c, {{1, false}, {41, true, true, false, true}, {3, false}});
   EXPECT(c.lance.size() == 2 && c.lance[0].id == 1 && c.lance[1].id == 3 && c.hangar.empty());
   EXPECT(c.pilots[41].where == mw1::PilotWhere::kFree && c.pilots[41].gunnery == twin.pilots[41].gunnery &&
          c.pilots[41].piloting == twin.pilots[41].piloting && c.pilots[41].missions == twin.pilots[41].missions &&
@@ -309,21 +367,55 @@ TEST(mw1_pilots_missing_in_action) {
   }
   EXPECT(offered);
 
-  // The roll: never for a mech that came back; about kMissingPercent in 100 of the downed; the same seed the same.
-  mw1::Rng r(77);
-  int32_t missing = 0, n = 4000;
-  for (int32_t i = 0; i < n; ++i) {
-    std::vector<mw1::LanceFate> f = {{1, false}, {41, true}};
-    mw1::roll_missing(f, r);
-    EXPECT(!f[0].missing);
-    missing += f[1].missing ? 1 : 0;
+  // The rolls (FIXES 98): never for a mech that came back; of the downed, about kKilledPercent in 100 KILLED and
+  // kMissingPercent MISSING on any ending; their mech lost by kMechLostPercent on a win, always on a loss or a
+  // retreat; the same seed the same.
+  for (const mw1::Outcome o : {mw1::Outcome::kSuccess, mw1::Outcome::kFailure, mw1::Outcome::kRetreat}) {
+    mw1::Rng r(77);
+    int32_t missing = 0, killed = 0, lost = 0, mine_lost = 0, n = 4000;
+    for (int32_t i = 0; i < n; ++i) {
+      std::vector<mw1::LanceFate> f = {{1, false}, {41, true}};
+      std::vector<mw1::AfterAction::Bill> bills = {{0, mw1::kPmOwens, mw1::kWhole, true}, {1, mw1::kPmFirefly, 10, false},
+                                                   {41, mw1::kPmFirefly, mw1::kWhole, true}};
+      mw1::roll_losses(o, f, bills, r);
+      EXPECT(!f[0].missing && !f[0].killed && !f[0].mech_lost && !bills[1].lost);
+      EXPECT(f[1].mech_lost == bills[2].lost && !(f[1].killed && f[1].missing));
+      missing += f[1].missing, killed += f[1].killed, lost += f[1].mech_lost, mine_lost += bills[0].lost;
+    }
+    const bool won = o == mw1::Outcome::kSuccess;
+    std::printf("  %s: of %d downed, %d killed, %d missing, %d mechs lost (yours %d)\n", won ? "won" : "lost or withdrew", n, killed,
+                missing, lost, mine_lost);
+    EXPECT(std::abs(killed * 100 - mw1::kKilledPercent * n) <= 2 * n && std::abs(missing * 100 - mw1::kMissingPercent * n) <= 2 * n);
+    if (won) EXPECT(std::abs(lost * 100 - mw1::kMechLostPercent * n) <= 2 * n && std::abs(mine_lost * 100 - mw1::kMechLostPercent * n) <= 2 * n);
+    else EXPECT(lost == n && mine_lost == n);
   }
-  std::printf("  missing %d of %d downed (kMissingPercent %d)\n", missing, n, mw1::kMissingPercent);
-  EXPECT(std::abs(missing * 100 - mw1::kMissingPercent * n) <= 5 * n);  // within 5 points
   mw1::Rng a(3), b(3);
   std::vector<mw1::LanceFate> fa(8, {41, true}), fb = fa;
-  mw1::roll_missing(fa, a), mw1::roll_missing(fb, b);
-  for (size_t i = 0; i < fa.size(); ++i) EXPECT(fa[i].missing == fb[i].missing);
+  std::vector<mw1::AfterAction::Bill> ba(8, {41, mw1::kPmFirefly, mw1::kWhole, true}), bb = ba;
+  mw1::roll_losses(mw1::Outcome::kSuccess, fa, ba, a), mw1::roll_losses(mw1::Outcome::kSuccess, fb, bb, b);
+  for (size_t i = 0; i < fa.size(); ++i)
+    EXPECT(fa[i].missing == fb[i].missing && fa[i].killed == fb[i].killed && fa[i].mech_lost == fb[i].mech_lost && ba[i].lost == bb[i].lost);
+}
+
+// FIXES 98: a downed lancemate who came back stays in the lance; their recovered mech stays theirs (logged
+// recovered); a lost one leaves the hangar and they stay without one; a killed pilot's recovered mech is a spare.
+TEST(mw1_pilots_downed_come_back) {
+  mw1::Company c = company();
+  c.recruits = {1, 41, 3};
+  for (int i = 0; i < 3; ++i) mw1::hire(c, 0);
+  mw1::OwnedMech a, b, d;
+  a.mech = mw1::kPmFirefly, a.pilot = 1, b.mech = mw1::kPmOwens, b.pilot = 41, d.mech = mw1::kPmStrider, d.pilot = 3;
+  c.hangar = {a, b, d};
+  // 1: downed, back, mech recovered; 41: downed, back, mech lost; 3: downed, KILLED, mech recovered.
+  mw1::after_mission(c, {{1, true, false, false, false}, {41, true, false, false, true}, {3, true, false, true, false}});
+  EXPECT(c.lance.size() == 2 && c.lance[0].id == 1 && c.lance[1].id == 41);
+  EXPECT(c.pilots[1].where == mw1::PilotWhere::kHired && c.pilots[41].where == mw1::PilotWhere::kHired &&
+         c.pilots[3].where == mw1::PilotWhere::kDead);
+  EXPECT(c.hangar.size() == 2 && c.hangar[0].mech == mw1::kPmFirefly && c.hangar[0].pilot == 1 && c.hangar[1].mech == mw1::kPmStrider &&
+         c.hangar[1].pilot == 0);
+  int32_t recovered = 0, lost = 0;
+  for (const mw1::LogEntry& e : c.log) recovered += e.kind == mw1::LogKind::kMechRecovered, lost += e.kind == mw1::LogKind::kMechLost;
+  EXPECT(recovered == 2 && lost == 1);
 }
 
 // The pending mission's lance saved id:destroyed:missing; an older save's id:destroyed still reads (killed, as then).
@@ -334,7 +426,9 @@ TEST(mw1_pilots_missing_saved_and_an_older_lance_read) {
   mw1::accept(c, k);
   mw1::AfterAction p;
   p.outcome = mw1::Outcome::kSuccess;
-  p.lance = {{1, false, false}, {41, true, true}, {3, true, false}};
+  p.lance = {{1, false, false}, {41, true, true, false, true}, {3, true, false, false, false}};
+  p.bills = {{0, mw1::kPmOwens, 100, false, false}, {41, mw1::kPmFirefly, mw1::kWhole, true, true},
+             {3, mw1::kPmFirefly, mw1::kWhole, true, false}};
   p.salvage = std::make_shared<mech3::Store>();
   p.launch_stores = std::make_shared<mech3::Store>();
   p.launch_stores->assign(*c.stores);
@@ -347,7 +441,9 @@ TEST(mw1_pilots_missing_saved_and_an_older_lance_read) {
   EXPECT(mw1::load_text(text, back, kb, &has, &why, &pb, &pend));
   EXPECT(pend && pb.lance.size() == 3 && !pb.lance[0].destroyed && !pb.lance[0].missing);
   EXPECT(pb.lance[1].id == 41 && pb.lance[1].destroyed && pb.lance[1].missing);
-  EXPECT(pb.lance[2].id == 3 && pb.lance[2].destroyed && !pb.lance[2].missing);
+  EXPECT(pb.lance[2].id == 3 && pb.lance[2].destroyed && !pb.lance[2].missing && !pb.lance[2].killed && !pb.lance[2].mech_lost);
+  EXPECT(pb.lance[1].mech_lost && !pb.lance[1].killed);
+  EXPECT(pb.bills.size() == 3 && !pb.bills[0].lost && pb.bills[1].lost && pb.bills[2].destroyed && !pb.bills[2].lost);
   EXPECT(mw1::save_text(back, &kb, &pb) == text);
   // The older lance: each fate id:destroyed, no third field.
   std::string old;
@@ -361,7 +457,7 @@ TEST(mw1_pilots_missing_saved_and_an_older_lance_read) {
         comma = line.find(',', f);
         if (comma == std::string::npos) comma = line.size();
         const std::string fate = line.substr(f, comma - f);
-        two += (f > 14 ? "," : "") + fate.substr(0, fate.rfind(':'));
+        two += (f > 14 ? "," : "") + fate.substr(0, fate.find(':', fate.find(':') + 1));
       }
       EXPECT(two != line);
       line = two;
@@ -377,6 +473,7 @@ TEST(mw1_pilots_missing_saved_and_an_older_lance_read) {
   EXPECT(mw1::load_text(old + check, back, kb, &has, &why, &po, &pend));
   std::printf("  %s\n", why.c_str());
   EXPECT(pend && po.lance.size() == 3 && po.lance[1].destroyed && !po.lance[1].missing && po.lance[2].destroyed);
+  EXPECT(po.lance[1].killed && po.lance[1].mech_lost && po.lance[2].killed);  // as then: killed, the mech lost
   // A bad third field is refused.
   std::string bad = text.substr(0, text.find("check="));
   const size_t at = bad.find("41:1:1");
@@ -408,7 +505,7 @@ TEST(mw1_pilots_lance_weight_makes_the_offer_harder) {
   const mw1::Contract lance = mw1::generate_contract(c, 0, r2);
   auto names = [](const mw1::Contract& k) {
     std::string s;
-    for (int32_t e : k.enemies) s += std::string(s.empty() ? "" : ", ") + mw1::kMechKinds[e].name;
+    for (int32_t e : k.enemies) s += std::string(s.empty() ? "" : ", ") + std::to_string(mw1::kForceSlots[e].tons) + " t";
     return s;
   };
   std::printf("  alone (weight %d): budget %d, %s, %d thousand\n", 1, alone.budget, names(alone).c_str(), alone.payment);
@@ -467,7 +564,7 @@ TEST(mw1_pilots_who_stayed_behind) {
   mw1::Company c = company();
   c.recruits = {1, 41, 3};
   for (int i = 0; i < 3; ++i) mw1::hire(c, 0);
-  mw1::after_mission(c, {{1, false}, {41, true}});
+  mw1::after_mission(c, {{1, false}, {41, true, false, true, true}});
   EXPECT(c.pilots[1].missions == 1 && c.pilots[3].missions == 0 && c.pilots[3].where == mw1::PilotWhere::kHired &&
          c.pilots[41].where == mw1::PilotWhere::kDead);
 }

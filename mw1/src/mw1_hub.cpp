@@ -6,6 +6,7 @@
 
 #include "mech3/app_hooks.h"
 #include "mw1_chrome.h"
+#include "mw1_music.h"
 
 namespace mw1::hub {
 namespace {
@@ -13,8 +14,11 @@ namespace {
 const std::vector<ScreenButton> kHubButtons = {{"OK", "OK"},           {"REPLAY", "REPLAY"},   {"MARKET", "MECH COMPLEX"},
                                                {"BAR", "BAR"},         {"TRAVEL", "STARPORT"}, {"OFFICE", "HOUSE OFFICE"},
                                                {"OPTIONS", "OPTIONS"}, {"COMPANY", "COMPANY"}, {"DEPLOY", "DEPLOY"},
-                                               {"STORY", "STORY"},     {"READ", "READ"},       {"LOG", "LOG"}};
-const std::vector<ScreenButton> kHubOptionsButtons = {{"SETTINGS", "SETTINGS"}, {"MAIN_MENU", "MAIN MENU"}, {"BACK", "BACK"}};
+                                               {"STORY", "STORY"},     {"READ", "READ"},       {"LOG", "LOG"},
+                                               {"QUIT", "QUIT"}};
+const std::vector<ScreenButton> kHubOptionsButtons = {{"SETTINGS", "SETTINGS"},   {"MAIN_MENU", "MAIN MENU"}, {"BACK", "BACK"},
+                                                      {"MUSIC", "MUSIC: ON"},     {"MUSIC_DOWN", ""},         {"MUSIC_UP", ""},
+                                                      {"EFFECTS_DOWN", ""},       {"EFFECTS_UP", ""}};
 // The middle panel's lines wrapped at its words to kHubPanelColumns (4:3's panel, the narrower; a blank line kept).
 std::vector<std::string> wrapped(const std::vector<std::string>& lines) {
   std::vector<std::string> out;
@@ -92,8 +96,9 @@ void HubState::show(const HubView& v) {
   b(kHubStory).there = v.story;
   b(kHubRead).there = v.message && v.read && !v.after_action;  // in REPLAY's place (never both)
   b(kHubLog).there = true;
+  b(kHubQuit).there = !box;  // the box's foot is there while it shows
   // Nothing but OK (and REPLAY) while AFTER ACTION waits.
-  for (int32_t id : {kHubMarket, kHubBar, kHubTravel, kHubOffice, kHubCompany, kHubDeploy, kHubOptions, kHubStory, kHubLog}) b(id).on = !v.after_action;
+  for (int32_t id : {kHubMarket, kHubBar, kHubTravel, kHubOffice, kHubCompany, kHubDeploy, kHubOptions, kHubStory, kHubLog, kHubQuit}) b(id).on = !v.after_action;
   Mw1State::show(s);
 }
 
@@ -103,9 +108,16 @@ HubOptionsState::HubOptionsState(zgame::Handle h, std::function<void(int32_t)> p
 void HubOptionsState::show(const std::string& scenery, const std::string& planet) {
   ScreenView s;
   s.backdrop = scenery;
+  const music::Settings m = music::settings();
   s.blocks = {at_place("TITLE", {"OPTIONS"}), at_place("STATUS_WORLD", {planet}),
+              at_place("MUSIC_VALUE", {"MUSIC " + std::to_string(m.music) + "%"}),
+              at_place("EFFECTS_VALUE", {"EFFECTS " + std::to_string(m.effects) + "%"}),
               at_place("STATUS", {"SETTINGS: the game's options. MAIN MENU: saves and leaves."})};
   s.buttons.resize(kHubOptionsButtonCount);
+  auto b = [&](int32_t id) -> ButtonState& { return s.buttons[static_cast<size_t>(id - 1)]; };
+  b(kHubOptMusic).words = m.on ? "MUSIC: ON" : "MUSIC: OFF";
+  b(kHubOptMusicDown).on = m.music > 0, b(kHubOptMusicUp).on = m.music < 100;
+  b(kHubOptEffectsDown).on = m.effects > 0, b(kHubOptEffectsUp).on = m.effects < 100;
   Mw1State::show(s);
 }
 

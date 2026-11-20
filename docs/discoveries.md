@@ -513,6 +513,7 @@ From the gait, the controls, the ground probes, the jump jets and the falls
 
 ## Weapons
 
+- **A machine gun's sound can play on forever.** A weapon's looping sound (the machine guns') runs from the moment you fire until the game lets go of that weapon. Fire a group all together, change the fire mode while still holding the trigger, and then let go: the game lets go of only the weapon now selected, so the group's other machine guns keep sounding to the end of the mission. (MW1: Critical Hit's team found it; WeaponGroup::release, docs/fixes.md. The rebuild stops them under Small fixes.)
 From the weapon code (weapons.md).
 
 - **Some "weapon destroyed" voices are missing from the data.** When a

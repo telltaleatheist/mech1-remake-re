@@ -110,7 +110,10 @@ std::vector<std::string> log_lines(const Company& c, const LogEntry& e) {
     case LogKind::kWagesUnpaid: return {"The lancemates weren't paid this month. Next time they leave."};
     case LogKind::kLanceLeft: return {"Unpaid, the lancemates have left the company."};
     case LogKind::kPromoted: return {pilot_title(e.a) + " is promoted: Gunnery " + rating_words(e.b) + "."};
-    case LogKind::kMechLost: return {"Lost: the " + mech_title(e.a) + "."};
+    case LogKind::kMechLost: return {"Lost: the " + mech_title(e.a) + ", destroyed beyond repair."};
+    case LogKind::kMechRecovered:
+      return {"Recovered: the " + mech_title(e.a) + " (" + (e.b ? pilot_title(e.b) : std::string("yours")) + "), sent for repairs."};
+    case LogKind::kHouseCovers: return {"The House covered " + thousands(e.n) + " C-bills of the mission's costs."};
     case LogKind::kMissingInAction: return {pilot_title(e.a) + " is missing in action."};
     case LogKind::kKilled: return {pilot_title(e.a) + " was killed."};
     case LogKind::kMissing: return {pilot_title(e.a) + " is missing."};

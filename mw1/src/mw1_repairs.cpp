@@ -73,7 +73,7 @@ Repairs settle_repairs(Company& c, const std::vector<MechBill>& bills, int64_t p
     if (b.who == 0) {
       if (b.destroyed) commander_lost = true;
       else if (const int64_t bill = pay_override().commander_repairs >= 0 ? pay_override().commander_repairs : bill_of(c, b); bill > 0)
-        order.push_back({0, b.mech, bill, 0, false});
+        order.push_back({0, b.mech, bill, 0, false, b.recovered});
     }
   if (commander_lost) {
     const int32_t was = c.mech;
@@ -96,9 +96,13 @@ Repairs settle_repairs(Company& c, const std::vector<MechBill>& bills, int64_t p
     }
   }
   for (const MechBill& b : bills) {
-    if (b.who == 0 || b.destroyed) continue;  // lost (a lancemate's with them: after_mission), never billed
+    if (b.who == 0) continue;
+    if (b.destroyed) {  // lost (a lancemate's with them: after_mission), never billed
+      lost.push_back("Lost: the " + mech_title(b.mech) + " (" + pilot_title(b.who) + "), destroyed beyond repair.");
+      continue;
+    }
     if (const int64_t bill = bill_of(c, b); bill > 0)
-      order.push_back({b.who, b.mech, bill, 0, false});
+      order.push_back({b.who, b.mech, bill, 0, false, b.recovered});
   }
   std::vector<int64_t> amounts;
   for (const MechRepair& m : order) amounts.push_back(m.amount);
@@ -111,9 +115,9 @@ Repairs settle_repairs(Company& c, const std::vector<MechBill>& bills, int64_t p
     m.from_pool = r.sum.from_pool[i];
     const int64_t billed = m.amount - m.from_pool;
     r.lines.push_back(mech_title(m.mech) + " (" + (m.who ? pilot_title(m.who) : std::string("you")) + ")" +
-                      (m.rebuilt ? " rebuilt" : "") + ": " + thousands(m.amount) +
+                      (m.rebuilt ? " rebuilt" : m.recovered ? " recovered" : "") + ": " + thousands(m.amount) +
                       (billed == 0 ? ", paid from salvage" : m.from_pool == 0 ? ", billed" : ", " + thousands(billed) + " billed"));
-    r.narrow.push_back((m.who ? pilot_title(m.who) : mech_title(m.mech) + " (you)") + (m.rebuilt ? " rebuilt" : "") + ": " +
+    r.narrow.push_back((m.who ? pilot_title(m.who) : mech_title(m.mech) + " (you)") + (m.rebuilt ? " rebuilt" : m.recovered ? " recovered" : "") + ": " +
                        thousands(m.amount) +
                        (billed == 0 ? " from salvage" : m.from_pool == 0 ? " billed" : ", " + thousands(billed) + " billed"));
   }
@@ -130,10 +134,19 @@ Repairs settle_repairs(Company& c, const std::vector<MechBill>& bills, int64_t p
 }
 
 std::vector<std::string> repair_line_choices(const Repairs& r) {
-  if (r.mechs.empty()) return {};
   int64_t amount = 0, from = 0;
   bool rebuilt = false;
   for (const MechRepair& m : r.mechs) amount += m.amount, from += m.from_pool, rebuilt = rebuilt || m.rebuilt;
+  // FIXES 98: the House covering a narrow win's costs (the repairs, the mechs lost) down to the floor.
+  if (r.house > 0) {
+    const std::string h = thousands(r.house);
+    if (r.mechs.empty())
+      return {"'Mechs lost: " + thousands(r.lost_value) + "; the House covers " + h, "Lost " + thousands(r.lost_value) + "; House covers " + h,
+              "House covers " + h};
+    return {"Repairs " + thousands(amount) + "; the House covers " + h, "Repairs " + thousands(amount) + "; House covers " + h,
+            "House covers " + h};
+  }
+  if (r.mechs.empty()) return {};
   const int64_t billed = amount - from;
   const std::string who = r.mechs.size() == 1 ? mech_title(r.mechs[0].mech) : std::to_string(r.mechs.size()) + " 'Mechs";
   const std::string done = who + (r.mechs.size() == 1 && rebuilt ? " rebuilt: " : " repaired: ");
@@ -150,20 +163,55 @@ PayOverride& pay_override() {
   return o;
 }
 
+std::vector<std::string> fate_lines(const AfterAction& a) {
+  std::vector<std::string> out;
+  for (const AfterAction::Bill& b : a.bills) {
+    const std::string whose = b.who == 0 ? std::string("the commander's") : pilot_title(b.who) + "'s";
+    const std::string mech = b.mech >= 0 ? mech_title(b.mech) : std::string("mech");
+    const char* fate = !b.destroyed ? "back" : b.lost ? "destroyed, lost for good" : "destroyed, recovered";
+    out.push_back(whose + " " + mech + " " + fate + " (damage " + std::to_string(b.damage) + " of " + std::to_string(kWhole) + ")");
+  }
+  for (const LanceFate& f : a.lance)
+    out.push_back(pilot_title(f.id) + (!f.destroyed ? " back with the company"
+                                       : f.killed   ? " killed"
+                                       : f.missing  ? " missing in action"
+                                                    : " ejected, back with the company"));
+  return out;
+}
+
 MissionSettled settle_mission(Company& c, Contract& k, const AfterAction& a, Rng& rng) {
   MissionSettled m;
   m.term = k.rung ? kStorySalvagePercent : k.salvage_percent;  // read before settle closes the contract
+  m.payment = k.payment, m.advance = k.payment - k.remaining;
   m.s = settle(c, k, a.outcome, a.wrecks, rng);
   if (a.outcome == Outcome::kSuccess && pay_override().pool >= 0) m.s.pool = pay_override().pool;  // shots only
   if (pay_override().term >= 0) m.term = pay_override().term;
   // Every ending counts (FIXES.md item 75, Owen: a retreat too): the fates, then the repairs from the pool (none but
   // a win's: a loss's or a retreat's repairs come out of funds).
+  // FIXES 98: the mechs lost for good, at their value (the commander's too), before the fates take them off the hangar.
+  int64_t lost_value = 0;
+  for (const AfterAction::Bill& b : a.bills)
+    if (b.lost && b.mech >= 0) lost_value += buy_price(b.mech, c.tier);
   after_mission(c, a.lance);
   std::vector<MechBill> bills;
-  for (const AfterAction::Bill& b : a.bills) bills.push_back({b.who, b.mech, b.damage, b.destroyed});
+  for (const AfterAction::Bill& b : a.bills) bills.push_back({b.who, b.mech, b.damage, b.lost, b.destroyed && !b.lost});
   m.r = settle_repairs(c, bills, m.s.pool, m.term, m.s.payout_percent);
   m.s.salvage = m.r.sum.pay;
   c.funds += m.s.salvage;
+  m.r.lost_value = lost_value;
+  if (a.outcome == Outcome::kSuccess && !k.rung) {
+    const int64_t floor = int64_t{m.payment} * 1000 * kWinFloorPercent / 100;
+    const int64_t costs = m.r.paid + lost_value;
+    const int64_t net = int64_t{m.advance} * 1000 + m.s.fee + m.s.salvage - costs;  // the advance too: the contract's pay
+    m.r.house = std::clamp<int64_t>(floor - net, 0, costs);
+    if (m.r.house > 0) {
+      c.funds += m.r.house;
+      log_add(c, LogKind::kHouseCovers, false, 0, 0, 0, 0, m.r.house);
+      m.r.lines.push_back("The House covers " + thousands(m.r.house) + " C-bills (a win nets " + std::to_string(kWinFloorPercent) +
+                          "% of the pay at least)");
+      m.r.narrow.push_back("The House covers " + thousands(m.r.house) + " C-bills");
+    }
+  }
   return m;
 }
 

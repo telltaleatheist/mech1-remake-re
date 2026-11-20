@@ -11,12 +11,12 @@
 
 namespace mw1::repairs {
 
-// MW1's body repair (MwQuoteRepairComponent, REPAIR 081B:3E28; MwQuoteMechRepairTotal 3763): the kind's price
-// (bodyRepairBasePricesByKind, DS:3CAB, thousands) for each of the 9 body locations damaged, plus the world's
-// premium. A full repair is all 9.
-inline constexpr int32_t kBodyRepairPrices[kKindCount] = {4, 3, 4, 8, 10, 10, 12, 10, 12, 15};
+// MW1's body repair (MwQuoteRepairComponent, REPAIR 081B:3E28; MwQuoteMechRepairTotal 3763): its kind record's price
+// (bodyRepairBasePricesByKind, DS:3CAB, thousands; kMw1Kinds' order) for each of the 9 body locations damaged, plus
+// the world's premium. A full repair is all 9.
+inline constexpr int32_t kBodyRepairPrices[kMw1KindCount] = {4, 3, 4, 8, 10, 10, 12, 10, 12, 15};
 inline constexpr int32_t kBodyLocations = 9;  // CAMPAIGN_BODY_LOCATION_COUNT
-// Pirate's Moon's mechs aren't MW1's kinds: a location's price is the straight line through MW1's ten by tons
+// Our 'Mechs aren't MW1's: a location's price is the straight line through MW1's ten records by tons
 // (least squares, provisional Q1): 172 x tons - 150 C-bills.
 inline constexpr int32_t kRepairPerTon = 172, kRepairOffset = 150;
 // The tuning knob (provisional Q3: MW1's numbers as they are).
@@ -46,7 +46,8 @@ struct MechBill {
   int32_t who = 0;
   int32_t mech = -1;
   int32_t damage = 0;
-  bool destroyed = false;
+  bool destroyed = false;  // lost for good: never billed
+  bool recovered = false;  // FIXES 98: went down, recovered after a win: billed as any repair, said so
 };
 int64_t bill_of(const Company& c, const MechBill& b);
 
@@ -82,9 +83,13 @@ struct MechRepair {
   int32_t who = 0, mech = -1;
   int64_t amount = 0, from_pool = 0;
   bool rebuilt = false;
+  bool recovered = false;  // FIXES 98: downed and recovered
 };
 struct Repairs {
   int64_t billed = 0, paid = 0, forgiven = 0;  // billed: past the pool, from the funds
+  // FIXES 98 (settle_mission's, a win's): the mechs lost for good at their value (buy_price at the company's tier), and
+  // what the House covered to keep the mission's net at its floor.
+  int64_t lost_value = 0, house = 0;
   SalvageSum sum;
   std::vector<MechRepair> mechs;
   int32_t took = -1, took_from = 0;  // the commander's mech lost: the mech they take, and the lancemate's it was (0 none)
@@ -105,12 +110,21 @@ Repairs settle_repairs(Company& c, const std::vector<MechBill>& bills, int64_t p
 // A mission settled, as CONTINUE settles it (and the results screen and the hub's lines show it, on copies): settle's
 // fee, standing and pool; on every ending (a retreat too, item 75) the lancemates' fates (after_mission) and the repairs
 // from the pool; then the salvage pay (Settlement::salvage) added to the funds.
+// FIXES 98 (Owen: a narrow win is still a win): a House contract won nets at least kWinFloorPercent of its payment:
+// the advance + the fee + the salvage pay - the repairs paid - the mechs lost for good (their value), the House covering the rest of
+// the costs (Repairs::house, never more than they came to). A loss or a retreat has no floor.
+inline constexpr int32_t kWinFloorPercent = 25;
 struct MissionSettled {
   Settlement s;
   Repairs r;
   int32_t term = 0;  // the salvage term the pay used (percent)
+  int32_t payment = 0, advance = 0;  // the contract's payment and its advance (thousands), read before settle closes it (FIXES 98)
 };
 MissionSettled settle_mission(Company& c, Contract& k, const AfterAction& a, Rng& rng);
+// FIXES 106: for the log, each of the company's mechs and lancemates as the mission left them (after its losses were
+// rolled): the commander's mech, each lancemate's mech, then each lancemate. "the commander's Atlas back (damage 120
+// of 10000)", "Erin Falls's Centurion destroyed, lost for good (...)", "Erin Falls missing in action".
+std::vector<std::string> fate_lines(const AfterAction& a);
 // Development shots only (MW1_SHOT_PAY=pool,repairs[,term]; the loop sets it): a win's pool, the commander's mech's
 // repairs and the salvage term as given, so the PAYMENT block can be shown at any numbers (today's repairs are a few percent of a pool).
 // Negative: as computed.

@@ -171,7 +171,7 @@ TEST(mw1_save_pending_after_action) {
   EXPECT(mw1::load_text(text, back, kb, &has, &why, &pb, &has_pending));
   std::printf("  pending: %zu bytes; read back: %s\n", text.size(), why.empty() ? "ok" : why.c_str());
   EXPECT(has && has_pending && kb.accepted && kb.remaining == 3 && pb.outcome == mw1::Outcome::kFailure);
-  EXPECT(pb.wrecks.size() == 2 && pb.wrecks[1].kind == 3 && pb.salvage && pb.salvage->count() == 1);
+  EXPECT(pb.wrecks.size() == 2 && pb.wrecks[1].slot == 3 && pb.salvage && pb.salvage->count() == 1);
   EXPECT(pb.launch_stores && pb.launch_stores->count() == c.stores->count() && !pb.launch_loadout);
   EXPECT(pb.seconds == 725 && pb.killers == p.killers && pb.armor_left == p.armor_left && pb.structure_left == p.structure_left);
   EXPECT(mw1::save_text(back, &kb, &pb) == text);
@@ -211,4 +211,56 @@ TEST(mw1_save_pending_after_action) {
   // No pending block written: none read back.
   const std::string none = mw1::save_text(c, &k);
   EXPECT(mw1::load_text(none, back, kb, &has, &why, &pb, &has_pending) && !has_pending);
+}
+
+// FIXES 112: a save from before version 11 numbered the offer's enemies and the pending wrecks by MW1's ten kind
+// records; they read as their slots (slot_of_mw1_kind: the 20 t pair as the 20 t slot, the 55 t pair as the 55 t),
+// and a wreck with no chassis (before 104) pays as it did. Written again, the slots.
+TEST(mw1_save_a_version_10_save_reads_mw1s_kinds_as_slots) {
+  mw1::Rng rng(112);
+  const mw1::Company c = played_company(rng);
+  mw1::Contract k = mw1::generate_contract(c, 1, rng);
+  k.accepted = true, k.remaining = 3;
+  k.chassis.clear(), k.loadouts.clear();  // before 104: no chassis lines
+  mw1::AfterAction p;
+  p.outcome = mw1::Outcome::kSuccess;
+  p.wrecks = {{0, 50}, {0, 100}};
+  p.salvage = std::make_shared<mech3::Store>();
+  p.launch_stores = std::make_shared<mech3::Store>();
+  p.launch_stores->assign(*c.stores);
+  const std::string text = mw1::save_text(c, &k, &p);
+  // The same file as version 10 wrote it: the kinds 9, 1, 5, 3 offered; wrecks of kinds 8 and 2.
+  auto hash = [](const std::string& s) {
+    uint32_t h = 2166136261u;
+    for (unsigned char ch : s) h = (h ^ ch) * 16777619u;
+    return h;
+  };
+  std::string v10;
+  for (size_t at = 0, nl; at < text.size(); at = nl + 1) {
+    nl = text.find('\n', at);
+    std::string line = text.substr(at, nl - at);
+    if (line.rfind("check=", 0) == 0 || line.rfind("pending_wreck_chassis=", 0) == 0) continue;
+    if (line.rfind("version=", 0) == 0) line = "version=10";
+    if (line.rfind("offer_enemies=", 0) == 0) line = "offer_enemies=9,1,5,3";
+    if (line.rfind("pending_wrecks=", 0) == 0) line = "pending_wrecks=8:50:0,2:100:0";
+    v10 += line + "\n";
+  }
+  char check[32];
+  std::snprintf(check, sizeof check, "check=%08x\n", hash(v10));
+  mw1::Company back;
+  mw1::Contract kb;
+  mw1::AfterAction pb;
+  bool has = false, has_pending = false;
+  std::string why;
+  EXPECT(mw1::load_text(v10 + check, back, kb, &has, &why, &pb, &has_pending));
+  std::printf("  version 10: %s\n", why.empty() ? "read" : why.c_str());
+  EXPECT(has && has_pending);
+  EXPECT((kb.enemies == std::vector<int32_t>{mw1::kSlot85, mw1::kSlot20, mw1::kSlot55, mw1::kSlot45}));
+  EXPECT(pb.wrecks.size() == 2 && pb.wrecks[0].slot == mw1::kSlot75 && pb.wrecks[1].slot == mw1::kSlot35);
+  // The pre-104 wrecks pay as their old stand-ins did: the 75 t slot as an Orion, the 35 t as an Owens.
+  EXPECT(mw1::wreck_value(back, pb.wrecks[0]) == mw1::wreck_value(back, mw1::Wreck{mw1::kSlot75, 50, 0, mw1::kPmOrion}));
+  EXPECT(mw1::wreck_value(back, pb.wrecks[1]) == mw1::wreck_value(back, mw1::Wreck{mw1::kSlot35, 100, 0, mw1::kPmOwens}));
+  const std::string again = mw1::save_text(back, &kb, &pb);
+  EXPECT(again.find("\nversion=11\n") != std::string::npos || again.rfind("version=11\n", 0) == 0);
+  EXPECT(again.find("\noffer_enemies=7,0,3,2\n") != std::string::npos && again.find("\npending_wrecks=6:50:0,1:100:0\n") != std::string::npos);
 }

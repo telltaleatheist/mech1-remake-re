@@ -447,13 +447,20 @@ void WeaponGroup::prev() {
   current_weapon = at(static_cast<uint32_t>(current));
 }
 
-// Mech3.exe 1.2 @ 0x004b20b0
+// Mech3.exe 1.2 @ 0x004b20b0. FIX (bug), behind small_fixes (MW1's FIXES 107: a machine gun sounded to the
+// mission's end): outside group fire the exe lets go of the current weapon alone. The fire mode can change while
+// the trigger is held (the mode key: group fire to chain fire, the group selected again, which releases under the
+// new mode), so the group's other weapons the volley fired were never let go: a looped sound (U_LOOPED, the
+// machine gun's) played on. Here each other weapon still sounding or firing is let go too.
 void WeaponGroup::release() {
   if (!current_weapon) return;
   if (manager->mode == 2) {
     for (uint32_t i = 0; i < count; ++i) weapons[i]->release();
   } else {
     current_weapon->release();
+    if (zfix::options().small_fixes)
+      for (uint32_t i = 0; i < count; ++i)
+        if (Weapon* w = weapons[i]; w && w != current_weapon && (w->loop_sound || w->is_firing())) w->release();
   }
 }
 
@@ -1054,6 +1061,7 @@ Weapon::Weapon(WeaponDef* d, Handle n, WeaponManager* m, bool beam) : node(n), d
 Weapon::~Weapon() {
   if (bin && --bin->refs == 0) delete bin;
   bin = nullptr;
+  if (loop_sound && g_calls.loop_note) g_calls.loop_note(*this, "deleted");
   halt(loop_sound);
   halt(recharge_sound);
 }
@@ -1387,6 +1395,7 @@ void Weapon::destroy() {
     // a destroyed weapon as the exe does it. A vehicle without the player's screen takes its group's next
     // unchecked (0x004b45f0), as the exe.
   }
+  if (loop_sound && g_calls.loop_note) g_calls.loop_note(*this, "destroyed");
   halt(loop_sound);
   loop_sound = nullptr;
   halt(recharge_sound);
@@ -1566,7 +1575,10 @@ bool Weapon::trigger() {
   if (fired) {
     if (salvo) salvo_left = salvo - 1;
     const WeaponType* t = type_of(def);
-    if (t->looped_sound && !loop_sound && g_calls.play_at) loop_sound = g_calls.play_at(t->looped_sound, &muzzle);
+    if (t->looped_sound && !loop_sound && g_calls.play_at) {
+      loop_sound = g_calls.play_at(t->looped_sound, &muzzle);
+      if (loop_sound && g_calls.loop_note) g_calls.loop_note(*this, nullptr);
+    }
   }
   out_of_ammo_note(fired);
   return fired;
@@ -1574,6 +1586,7 @@ bool Weapon::trigger() {
 
 // Mech3.exe 1.2 @ 0x004b3260
 void Weapon::release() {
+  if (loop_sound && g_calls.loop_note) g_calls.loop_note(*this, "released");
   halt(loop_sound);
   loop_sound = nullptr;
 }
@@ -1588,6 +1601,7 @@ void Weapon::held() {
   }
   if (!again) aim_and_fire(&manager->aim, false);
   if (ammo() == 0 && loop_sound) {
+    if (g_calls.loop_note) g_calls.loop_note(*this, "out of ammo");
     halt(loop_sound);
     loop_sound = nullptr;
   }
@@ -1618,6 +1632,7 @@ BeamWeapon::~BeamWeapon() {
     BeamWeapon::release();
     stop();
   }
+  if (loop_sound && g_calls.loop_note) g_calls.loop_note(*this, "deleted");
   halt(loop_sound);
   halt(recharge_sound);
   delete bin;

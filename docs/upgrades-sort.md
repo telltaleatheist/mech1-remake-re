@@ -98,6 +98,7 @@ Pirate's Moon).
 18. c2 mission 3's secondary objective waits for the mission's two Fireflies (it named two that aren't there, so it completed at once).
 19. The Sunder Alternate B carries its LRM 20's extra 240 missiles.
 20. The Strider's recoil slide is read as a number, as on the Cauldron, Bushwacker and Champion.
+21. A weapon's looped sound (the machine gun's) stops when firing stops, though the fire mode changed while the trigger was held (WeaponGroup::release, weapon.cpp; MW1's FIXES 107). On Pirate's Moon's list, as "A weapon's loop sound stops when firing stops."
 
 ## Owen's answers (2026-11-10)
 

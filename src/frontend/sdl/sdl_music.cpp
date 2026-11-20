@@ -5,12 +5,17 @@
 
 #include "frontend/sdl/sdl_platform.h"
 #include "gamez/zutil/zutl_path.h"
+#include "platform/silent_sound.h"
 
 #ifdef MW3_HAVE_SDL_SOUND
 #include <SDL3_sound/SDL_sound.h>
 #endif
 
 namespace sdlfe {
+
+namespace {
+int32_t g_devices_opened = 0;  // devices_opened()
+}  // namespace
 
 namespace {
 void post_end() {
@@ -79,6 +84,10 @@ void SDLCALL SdlMusicOutput::feed(void* self, SDL_AudioStream* stream, int addit
       additional -= static_cast<int>(n);
       if (n == 0 || (s->flags & (SOUND_SAMPLEFLAG_EOF | SOUND_SAMPLEFLAG_ERROR))) {
         m->drained_ = true;
+        // Ours: the stream's input is over. Unflushed, SDL3's resampler keeps its last frames back, so the queue
+        // never empties and the end above never came (a file at another rate than the device's: a Loop track
+        // played once, a disc never went on to its next track).
+        SDL_FlushAudioStream(stream);
         return;
       }
       continue;
@@ -87,6 +96,7 @@ void SDLCALL SdlMusicOutput::feed(void* self, SDL_AudioStream* stream, int addit
     const size_t left = m->wav_.size() - m->wav_at_;
     if (left == 0) {
       m->drained_ = true;
+      SDL_FlushAudioStream(stream);  // as above
       return;
     }
     const size_t n = left < static_cast<size_t>(additional) ? left : static_cast<size_t>(additional);
@@ -124,6 +134,7 @@ bool SdlMusicOutput::play(const std::string& path) {
 #endif
   ended_ = false, drained_ = false;
   stream_ = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, feed, this);
+  if (stream_) ++g_devices_opened;
   if (!stream_) {
     std::fprintf(stderr, "mw3: music: no audio device: %s\n", SDL_GetError());
     close();
@@ -132,6 +143,13 @@ bool SdlMusicOutput::play(const std::string& path) {
   SDL_SetAudioStreamGain(stream_, gain_);
   SDL_ResumeAudioStreamDevice(stream_);
   return true;
+}
+
+int32_t SdlMusicOutput::devices_opened() { return g_devices_opened; }
+
+std::unique_ptr<platform::MusicOutput> music_output_for(bool nosound, bool hands_off) {
+  if (nosound || hands_off) return std::make_unique<platform::SilentMusicOutput>();
+  return std::make_unique<SdlMusicOutput>();
 }
 
 void SdlMusicOutput::stop() { close(); }

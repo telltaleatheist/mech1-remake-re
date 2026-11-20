@@ -4,6 +4,7 @@
 // mode (which on the Mac warps the pointer to the window's centre, over and over) nor moves the pointer: the game's
 // own mouse state is decided as before (its checks unchanged), only SDL is not asked. A player's run is unchanged.
 // MW3_POINTER_HANDS_OFF=1 turns it on for any run too.
+// On main it also keeps the host keyboard's modifiers (Shift, Ctrl, Alt, Caps Lock) out of scripted typing (sdl_input.cpp).
 #include <cstdlib>
 #include <cstring>
 

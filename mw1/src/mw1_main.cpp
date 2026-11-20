@@ -30,11 +30,15 @@
 #include <string>
 #include <thread>
 #include <vector>
+#if defined(__APPLE__)
+#include <mach-o/dyld.h>
+#endif
 
 #include "platform/hires_2d.h"
 #include "platform/menu_pointer.h"
 #include "platform/pause_hud.h"
 #include "platform/mode_labels.h"
+#include "platform/list_wheel.h"
 #include "gamez/zutil/zutl_path.h"
 #include "frontend/sdl/sdl_twod_host.h"
 #include "gamez/ztwod/twod_host.h"
@@ -45,6 +49,7 @@
 #include "mw1_movie.h"
 #include "mw1_pilots.h"
 #include "mw1_save.h"
+#include "mw1_music.h"
 #include "mw1_start.h"
 #include "mw1_worlds.h"
 #include "pm/pm_game.h"
@@ -124,7 +129,30 @@ bool convert_in_window(const zipkit::Options& o, std::string* error) {
 }
 }  // namespace
 
+// This program's own folder (FIXES.md item 105): a .app's Contents/MacOS, the AppImage's usr/bin, the Windows
+// folder; where the launcher sits beside us. SDL's base path is that too but in a .app, where it is Resources (where
+// mw1data goes, as the packages put the launcher's art: tools/macos/make_app.sh).
+static std::filesystem::path own_dir() {
+#if defined(__APPLE__)
+  char buf[4096];
+  uint32_t n = sizeof buf;
+  if (_NSGetExecutablePath(buf, &n) == 0) return std::filesystem::weakly_canonical(std::filesystem::path(buf)).parent_path();
+#endif
+  const char* base = SDL_GetBasePath();
+  return base ? std::filesystem::path(base) : std::filesystem::path(".");
+}
+
+// The program's version tag (mw3_main.cpp's, MW1's describe here: FIXES.md item 105).
+extern "C" const char mw3_version_tag[];
+
 int main(int argc, char** argv) {
+  // --version first, before a write dir, an install or a window (FIXES.md item 105): the tag's version, as the
+  // launcher reads it from the file.
+  for (int i = 1; i < argc; ++i)
+    if (std::strcmp(argv[i], "--version") == 0) {
+      std::printf("mw1 (MechWarrior 1: Critical Hit) %s\n", mw3_version_tag + std::strlen("MW3-PROGRAM-VERSION:"));
+      return 0;
+    }
   mw1::Args a = mw1::parse(argc, argv);
   if (a.write_dir.empty()) a.write_dir = usual_write_dir();
   if (!a.write_dir.empty()) {
@@ -170,14 +198,11 @@ int main(int argc, char** argv) {
     if (use.pm.empty()) missing += "\n  - Pirate's Moon";
     if (use.mw3.empty()) missing += "\n  - MechWarrior 3";
     if (use.mw1.empty()) missing += "\n  - MechWarrior (1989)";
-    std::filesystem::path launcher;
-    if (const char* base = SDL_GetBasePath()) {
 #ifdef _WIN32
-      launcher = std::filesystem::path(base) / "mw3launcher.exe";
+    const std::filesystem::path launcher = own_dir() / "mw3launcher.exe";
 #else
-      launcher = std::filesystem::path(base) / "mw3launcher";
+    const std::filesystem::path launcher = own_dir() / "mw3launcher";  // a .app's MacOS, not SDL's Resources
 #endif
-    }
     std::error_code ec;
     const bool have_launcher = !launcher.empty() && std::filesystem::exists(launcher, ec);
     const std::string text = "MechWarrior 1: Critical Hit needs your own copies of:" + missing +
@@ -208,12 +233,15 @@ int main(int argc, char** argv) {
   // CAMPAIGN at once (the intro, the old save kept as mw1save.prev).
   if (!a.write_dir.empty()) mw1::set_game_loop_save((std::filesystem::path(a.write_dir) / mw1::kSaveFile).string(), a.new_company);
   mw1::set_game_loop_start(a.new_company ? mw1::Start::kNewCampaign : mw1::Start::kMenu);
+  // FIXES.md item 100: MW1's menu theme (the CD's extra track, mw1data's music/), its settings from mw1.cfg; a run no
+  // player hears (--nosound, --hidden) plays no music aloud.
+  mw1::music::install(a.write_dir);
   // The music (provisional, research/intro.md): the player's ripped tracks in mw1's write dir's music/, else
   // Pirate's Moon's, read where PM keeps them (its write dir, beside ours) and never written: mounted for music/
   // alone (zutl::mount_only), so nothing else of PM's player comes along.
   if (!a.write_dir.empty()) {
     const std::string from = mw1::music_from(a.write_dir);
-    if (from.empty()) std::printf("mw1: no music (none ripped in %s/music, nor in Pirate's Moon's)\n", a.write_dir.c_str());
+    if (from.empty()) std::printf("mw1: no mission music (none ripped in %s/music, nor in Pirate's Moon's): the menu theme only\n", a.write_dir.c_str());
     else if (from != a.write_dir) {
       zutl::mount_only(from, "music/");
       std::printf("mw1: the music is Pirate's Moon's, read from %s/music\n", from.c_str());
@@ -266,6 +294,8 @@ int main(int argc, char** argv) {
   platform::set_pause_hides_hud_marker(true);
   // FIXES.md item 83 (the lead): RESOLUTION's modes all "W x H", their own sizes (platform/mode_labels.h).
   platform::set_uniform_mode_labels(true);
+  // FIXES 102 (Owen): the wheel scrolls the Mech Lab's lists as the arrows do (platform/list_wheel.h).
+  platform::set_list_wheel(true);
   // FIXES.md item 88: the pause test's count of the grab's recorded texts (the SDL host's lists).
   mw1::recorded_lines() = [](const void* owner, const int32_t r[4], uint32_t colour) {
     auto* host = dynamic_cast<sdlfe::SdlTwodHost*>(&ztwod::host());

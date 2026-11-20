@@ -98,7 +98,7 @@ TEST(mw1_results_the_list_scrolls_and_details) {
   mw1::ResultsPanel p;
   for (int i = 0; i < 20; ++i) p.salvage.push_back({"part " + std::to_string(i), i});
   p.salvage[3].words = std::string(80, 'x');  // longer than the panel: cut
-  p.kills = {{"Jenner by you 120,000", 0}};
+  p.kills = {{"Owens by you 120,000", 0}};
   p.mech_title = "YOUR OWENS";
   p.mech = {"head", "torso"};
   p.pay = {"Fee: 1"};

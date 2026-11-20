@@ -1,4 +1,5 @@
 #include "mw1_mech_icons.h"
+#include "mw1_enemies.h"
 
 #include <algorithm>
 #include <cctype>
@@ -169,12 +170,16 @@ int32_t make_mech_icons(const std::string& write_dir) {
   std::vector<images::Image> made;
   std::set<int32_t> done;
   g_outlines.clear();
-  for (const MechKind& k : kMechKinds) {
-    if (!done.insert(k.pm_mech).second) continue;
-    zimg::Texture* t = fetch_pm_mech_icon(k.pm_mech);
+  // Every chassis that fields as an enemy (FIXES 104, the roster): the offer's main enemy.
+  std::vector<int32_t> amber;
+  for (int32_t m = 0; m < mech3::kMechCount; ++m)
+    if (fields(m)) amber.push_back(m);
+  for (int32_t pm : amber) {
+    if (!done.insert(pm).second) continue;
+    zimg::Texture* t = fetch_pm_mech_icon(pm);
     if (!t) continue;
-    if (auto o = outline_of(*t)) g_outlines[mech_icon_image(k.pm_mech)] = {o, {255, 176, 64}, kIconScale, kIconSlotW, kIconSlotH};
-    images::Image i = amber_icon(mech_icon_image(k.pm_mech), *t);
+    if (auto o = outline_of(*t)) g_outlines[mech_icon_image(pm)] = {o, {255, 176, 64}, kIconScale, kIconSlotW, kIconSlotH};
+    images::Image i = amber_icon(mech_icon_image(pm), *t);
     zimg::free_texture(t);  // fetch_image reads a new copy for every get
     if (!i.name.empty()) made.push_back(std::move(i));
   }
@@ -203,7 +208,20 @@ int32_t make_mech_icons(const std::string& write_dir) {
     zimg::free_texture(t);
   }
   if (mechs == 0) return 0;
-  for (SlotLook l : {SlotLook::kDim, SlotLook::kLit, SlotLook::kOff}) made.push_back(blank_slot(l));
+  // FIXES 96 (Owen): a lancemate's slot with no 'Mech shows MW3's own placeholder 'Mech, icon_notmech (PM's and MW3's
+  // libraries: green, red, grey; mech_name(-1) is "notmech", so PM's MechButton asks for it by that name), in the
+  // slot's three looks and drawn by its outline as the other slots are. The dashed frame only when it isn't there.
+  zimg::Texture* none = nullptr;
+  for (const char* c : kPmIconColours)
+    if ((none = zimg::fetch_image((std::string("icon_notmech_") + c).c_str()))) break;
+  const auto none_lines = none ? outline_of(*none) : nullptr;
+  for (SlotLook l : {SlotLook::kDim, SlotLook::kLit, SlotLook::kOff}) {
+    images::Image i = none ? slot_icon(blank_slot_image(l), *none, l) : images::Image{};
+    if (i.name.empty()) i = blank_slot(l);
+    else if (none_lines) g_outlines[blank_slot_image(l)] = {none_lines, slot_colour(l), 1, none->width, none->height};
+    made.push_back(std::move(i));
+  }
+  if (none) zimg::free_texture(none);
   std::string why;
   const std::vector<uint8_t> bytes = images::pack(made, &why);
   if (!why.empty()) return 0;

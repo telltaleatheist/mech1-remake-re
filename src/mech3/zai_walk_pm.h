@@ -11,6 +11,21 @@ namespace mech3::ai {
 
 struct InOutVia;
 
+// Ours (MW1: Critical Hit's FIXES 110): a walk under way keeps going while the pilot faces within kKeepGoingDegrees
+// of its carrot, not only the exe's 10 degrees (steer.cos_on), which still gates the start. Off (MW3's and PM's
+// programs), the exe's rule: past 10 degrees the walking context brakes by throwing the throttle the other way, judged
+// by the throttle alone, so a slow turner (the Awesome, its turn rate half a light 'Mech's) that swings past the
+// carrot just after it throttles up, still standing in the step, backs off, stops and turns again before it walks.
+inline constexpr double kKeepGoingDegrees = 30.0;
+namespace walk_keeps_going_detail {
+inline bool& on() {
+  static bool v = false;
+  return v;
+}
+}  // namespace walk_keeps_going_detail
+inline void set_walk_keeps_going(bool on) { walk_keeps_going_detail::on() = on; }
+inline bool walk_keeps_going() { return walk_keeps_going_detail::on(); }
+
 class WalkPmHooks : public SteerPmHooks {
  public:
   virtual float turn_goal() = 0;      // the controls' vt+0x30

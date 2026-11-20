@@ -400,6 +400,8 @@ class FileList : public ShellButton {
   float repeat_timer = 0.5f;         // +0x1f0
   float repeat_delay = 0.5f;         // +0x1f4  before an arrow held repeats
   float repeat_rate = 0.15f;         // +0x1f8  then a step each
+  int32_t wheel_z = 0;               // ours (platform/list_wheel.h): the wheel's position last read
+  bool wheel_read = false;
   uint8_t repeating = 0;             // +0x1fc
   uint8_t no_repeat = 0;             // +0x1fd  (nothing sets it)
 };

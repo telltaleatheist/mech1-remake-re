@@ -54,8 +54,10 @@ negotiation moves between them. Harder fights pay more.
 
 MW1 fights with Pirate's Moon's mechs. Each of MW1's kinds stands in as the
 PM **Inner Sphere** mech nearest its tonnage (a tie goes to the lighter), and
-a kind PM has maps to itself. No Clan mechs in the milestone. The table is
-`kMechKinds` in `src/mw1_campaign.cpp`; change it there.
+a kind PM has maps to itself. No Clan mechs in the milestone. *Superseded:
+FIXES 104 rolls every roster chassis, and FIXES 112 replaced MW1's kinds with
+tonnage slots (`kForceSlots`) and one roster list (`kRoster`,
+`src/mw1_enemies.h`); this table survives as each slot's stand-in.*
 
 | MW1 kind | Tons (DS:122B) | Class | PM mech | Tons |
 |---|---:|---|---|---:|

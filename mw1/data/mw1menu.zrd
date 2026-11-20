@@ -6,6 +6,7 @@
 ; of Pirate's Moon's (FIXES.md item 5; tests/test_mw1_look.cpp).
 ;
 ; MW1MENUDIALOG is 4:3's (640); MW1MENUDIALOG_WIDE the 16:9 canvas's (853).
+; The title and subtitle sit high, in the sky above the 'Mech's head (FIXES.md item 86).
 (
 MW1MENUDIALOG (
   CURSOR (BITMAP ("mw1_cursor") CENTER (1))
@@ -20,8 +21,8 @@ MW1MENUDIALOG (
     QUIT (POSITION (40 376) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (132 382) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
   )
   TEXTS (
-    TITLE (POSITION (38 34) FONT ("mw1_title_43"))
-    SUBTITLE (POSITION (42 96) FONT ("mw1_title_sub"))
+    TITLE (POSITION (38 -4) FONT ("mw1_title_43"))
+    SUBTITLE (POSITION (42 58) FONT ("mw1_title_sub"))
     SAVE (POSITION (42 416) FONT ("mw1_note"))
   )
 )
@@ -38,8 +39,8 @@ MW1MENUDIALOG_WIDE (
     QUIT (POSITION (48 376) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (140 382) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
   )
   TEXTS (
-    TITLE (POSITION (46 34) FONT ("mw1_title"))
-    SUBTITLE (POSITION (50 96) FONT ("mw1_title_sub"))
+    TITLE (POSITION (46 -4) FONT ("mw1_title"))
+    SUBTITLE (POSITION (50 58) FONT ("mw1_title_sub"))
     SAVE (POSITION (50 416) FONT ("mw1_note"))
   )
 )

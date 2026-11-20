@@ -145,6 +145,8 @@ class LabItemList : public ShellButton {
   int32_t row_width = kRowWidth;
   static constexpr int32_t kRowWidth = 0xac;
   int32_t column(int32_t pm) const { return pm * row_width / kRowWidth; }  // PM's column at this width
+  int32_t wheel_z = 0;               // ours (platform/list_wheel.h): the wheel's position last read
+  bool wheel_read = false;
 };
 
 // 0x0048c0b0 on any flashing text (FileRow::flash's body).

@@ -87,7 +87,7 @@ std::string box_name(int32_t w, int32_t lines);
 inline const std::vector<PanelSize>& panel_sizes() {
   // The ones the screens use (each screen's layout names its own; add one here when a layout needs it).
   static const std::vector<PanelSize> k = {{232, 120}, {300, 200}, {400, 300}, {560, 360}, {280, 420}, {376, 214}, {456, 214},
-                                           {232, 244}, {176, 156}, {436, 370}, {637, 370}, {436, 152}, {637, 152}};
+                                           {232, 244}, {232, 324}, {176, 156}, {436, 370}, {637, 370}, {436, 152}, {637, 152}};
   return k;
 }
 inline const std::vector<PanelSize>& terminal_sizes() {
@@ -111,6 +111,7 @@ inline const std::vector<PanelSize>& frame_sizes() {
 // ones (an option's choice): mw1_lt and mw1_rt, the same four looks, kSideArrowW by kSideArrowH.
 inline constexpr int32_t kArrowW = 28, kArrowH = 22;
 inline constexpr int32_t kSideArrowW = 20, kSideArrowH = 18;
+inline constexpr int32_t kSideInkH = 10;  // the side arrow's triangle at its base (FIXES.md item 101)
 // The options' pieces (mw1options.zrd): a slider's bar and its fill, a check box and its check, a control table's
 // cell (and lit, chosen), the file popup's taller dialog.
 inline constexpr const char* kSlider = "mw1_slider";

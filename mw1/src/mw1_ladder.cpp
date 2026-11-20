@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstdio>
 
+#include "mw1_enemies.h"
 #include "mw1_missions.h"
 #include "mw1_pilots.h"
 #include "mw1_travel.h"
@@ -15,12 +16,12 @@ std::vector<int32_t> rung_force(int32_t r, int32_t lancemates) {
   const Rung& g = rung(r);
   const int32_t room = std::max(kLineupSlots - std::max(lancemates, 0), 0);
   const int32_t n = std::max(std::min(g.count, room), std::min(g.core, g.count));
-  return std::vector<int32_t>(g.kinds, g.kinds + n);
+  return std::vector<int32_t>(g.slots, g.slots + n);
 }
 
 int32_t rung_tons(const std::vector<int32_t>& force) {
   int32_t t = 0;
-  for (int32_t k : force) t += kMechKinds[k].tons;
+  for (int32_t k : force) t += kForceSlots[k].tons;
   return t;
 }
 
@@ -72,6 +73,8 @@ Contract story_battle(const Company& c, int32_t r, Rng& rng, bool hardest) {
     row = choose_pool_row(fits, *pool, RowKind::kAny, c.last_map_world, c.last_map_ia, rng);
   if (row < 0) row = choose_row(fits, RowKind::kAny, k.climate, rng);
   if (row >= 0) k.world = fits[static_cast<size_t>(row)].world, k.ia = fits[static_cast<size_t>(row)].ia;
+  // FIXES 104: the escorts' chassis and loadouts rolled as a contract's; the Dark Wing's last rung as it was.
+  if (kStoryBattlesRoll && k.rung != kDarkWingRung) field_force(c, k);
   k.accepted = true;
   return k;
 }

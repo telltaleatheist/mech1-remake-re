@@ -54,8 +54,10 @@ namespace missions {
 struct MapRow;
 }
 void set_game_loop_row(const missions::MapRow& row);
-// Every new contract's force these MW1 kinds (tests: the ladder's map survey); empty: the contracts' own.
-void set_game_loop_enemies(const std::vector<int32_t>& kinds);
+// Every new contract's force these slots (kForceSlots; tests: the ladder's map survey); empty: the contracts' own.
+// FIXES 104: with each enemy's chassis and stock loadout too (empty: the slots' stand-ins on their Primary).
+void set_game_loop_enemies(const std::vector<int32_t>& slots, const std::vector<int32_t>& chassis = {},
+                           const std::vector<int32_t>& loadouts = {});
 // What the mission's objectives were built as: "" (destroy all), "reach", "attack" or "defend"; `fell_back` when
 // the contract's structure wasn't on the map (tests).
 std::string game_loop_objective_built(bool* fell_back = nullptr);
@@ -80,6 +82,8 @@ class HubOptionsState;
 using namespace hub;
 // A mission back and not settled (the hub's AFTER ACTION), else null (tests).
 const AfterAction* game_loop_pending();
+// FIXES 106: the last launch's lancemates down, as the log said them (who had the kill, who hit last, heat) (tests).
+std::vector<std::string> game_loop_lance_downs();
 // FIXES.md item 78: the status line's words without MW1's MW_MAIN.EXE (ours): the Bar's greyed ORDER DRINK or NEWS
 // under the mouse (or clicked), and the hub's once, on its first showing (no STORY tile).
 inline constexpr const char* kNeedsExeNote = "Needs MW_MAIN.EXE in your MechWarrior 1989 folder.";

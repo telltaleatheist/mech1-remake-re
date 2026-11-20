@@ -213,6 +213,7 @@ class Mw1Screen : public mech3::MenuScreen {
   // chrome terminal, mw1_term_*), and the shown inline pictures' (the outlines).
   struct Box { int32_t left, top, right, bottom; };
   std::vector<Box> terminals() const;
+  bool panel_box(size_t i, Box* b) const;  // a shown PANEL's canvas rect (FIXES 102: the list under the pointer)
   std::vector<Box> inline_boxes() const;
 
  private:
@@ -259,6 +260,15 @@ class Mw1Screen : public mech3::MenuScreen {
   std::function<void(int32_t, int32_t, bool)> on_canvas_;  // the pointer's: the canvas's places, made the layout's
 };
 
+// FIXES 102 (Owen: the wheel scrolls every list, as AFTER ACTION's salvage list): a list the mouse wheel scrolls. Over
+// its `panel` (the layout's PANEL by place; -1: anywhere on the screen), a notch up presses `up` and a notch down
+// presses `down`, as a click on the list's own arrows (PREV and NEXT for a pager) does: a row (or a page) each notch,
+// and only when that button is shown and enabled, so the wheel stops at both ends as the arrows do.
+struct WheelList {
+  int32_t panel = -1;
+  int32_t up = 0, down = 0;
+};
+
 // A screen's state: pushed by the loop, its screen made on entering
 // (Engine::adopt_screen) and gone on leaving, as the engine's own menus are.
 // Escape presses `escape_id`.
@@ -277,6 +287,10 @@ class Mw1State : public mech3::MenuState {
   void set_keys(std::function<void(uint32_t)> keys) { keys_ = std::move(keys); }
   // The mouse wheel turned (each frame it moved: +1 up, -1 down; FIXES.md item 38, the results' list).
   void set_wheel(std::function<void(int32_t)> wheel) { wheel_ = std::move(wheel); }
+  // FIXES 102: the lists the wheel scrolls (WheelList), set again whenever they change (an empty set: none). wheel()
+  // is a notch (+1 up, -1 down) at a canvas point, as the mouse gives it each frame (and the tests do).
+  void set_wheel_lists(std::vector<WheelList> lists) { wheel_lists_ = std::move(lists); }
+  void wheel(int32_t notch, int32_t x, int32_t y);
   void set_hover(std::function<void(int32_t)> hover) {  // the buttons' hover (Mw1Screen::set_hover), set on each entering
     hover_ = hover;
     if (screen_ptr_) screen_ptr_->set_hover(std::move(hover));
@@ -315,6 +329,7 @@ class Mw1State : public mech3::MenuState {
   std::function<void(int32_t, int32_t, bool)> pointer_;
   std::function<void(uint32_t)> keys_;
   std::function<void(int32_t)> wheel_;
+  std::vector<WheelList> wheel_lists_;
   int32_t wheel_at_ = 0;  // the wheel's position last frame
   bool wheel_read_ = false;
   std::function<void(int32_t)> hover_;

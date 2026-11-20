@@ -24,21 +24,34 @@ struct Config;
 
 namespace mw1 {
 
-// MW1's campaign mech kinds, in the exe's order (DS:122B tonnages, DS:305F prices).
-enum Kind : int32_t { kLocust, kWasp, kJenner, kPhoenixHawk, kShadowHawk, kWolverine, kRifleman, kWarhammer, kMarauder, kBattleMaster, kKindCount };
-
-struct MechKind {
-  const char* name;
-  int32_t tons;         // DS:122B
-  int32_t weight;       // DS:4B55: the contract's force weight (1 light, 2 medium, 3 heavy)
-  int32_t base_price;   // DS:305F: thousands per multiplier point (price = base x multiplier x 100)
-  int32_t pm_mech;      // the Pirate's Moon Inner Sphere mech that stands in for it (research/contracts.md)
+// The contract's force is rolled in slots, MW1's way (mw1_campaign.cpp: the budget, the classes, at most four), each
+// slot a tonnage band: the tons MW1's own fielded enemies had, its class with them (the force's weight: 1 light, 2
+// medium, 3 heavy). Each slot is then fielded as a chassis of the roster near its tons (mw1_enemies.h, kRoster).
+enum Slot : int32_t { kSlot20, kSlot35, kSlot45, kSlot55, kSlot60, kSlot70, kSlot75, kSlot85, kSlotCount };
+struct ForceSlot {
+  int32_t tons;
+  int32_t weight;  // DS:4B55's class: 1 light, 2 medium, 3 heavy
 };
-extern const MechKind kMechKinds[kKindCount];
+extern const ForceSlot kForceSlots[kSlotCount];
 
-// Pirate's Moon's mech ids (mech3/mech_names.cpp's roster order) that MW1 uses.
-enum PmMech : int32_t { kPmAwesome = 3, kPmBushwacker = 5, kPmCenturion = 7, kPmChampion = 8, kPmFirefly = 12, kPmOrion = 15,
-                        kPmOwens = 16, kPmStrider = 20, kPmAvatar = 2 };
+// MW1's exe's ten kind records, by index, as its tables hold them (DS:122B tons, DS:4B55 class, DS:305F price in
+// thousands per multiplier point): the tests pin them against the exe, the repair line is fitted through them, and an
+// older save (before version 11) numbered its enemies and wrecks by them. Two are never stocked or fielded
+// (MwGenerateUnitStock swaps them for their twins): 1 for 0, 5 for 4.
+inline constexpr int32_t kMw1KindCount = 10;
+struct Mw1Kind {
+  int32_t tons, weight, base_price;
+};
+extern const Mw1Kind kMw1Kinds[kMw1KindCount];
+// The slot an older save's MW1 kind number is (its tons' band; -1 out of range).
+int32_t slot_of_mw1_kind(int32_t kind);
+
+// Pirate's Moon's mech ids (mech3/mech_names.cpp's roster order: MW3's and PM's 'Mechs).
+enum PmMech : int32_t {
+  kPmAnnihilator, kPmAtlas, kPmAvatar, kPmAwesome, kPmBlackhawk, kPmBushwacker, kPmCauldron, kPmCenturion, kPmChampion,
+  kPmClint, kPmDaishi, kPmElemental, kPmFirefly, kPmMadCat, kPmMasakari, kPmOrion, kPmOwens, kPmPuma, kPmRyoken,
+  kPmShadowCat, kPmStrider, kPmSunder, kPmSupernova, kPmThor, kPmVulture, kPmMechCount
+};
 
 enum House : int32_t { kKurita, kSteiner, kMarik, kLiao, kDavion, kHouseCount };
 struct HouseRules {
@@ -169,8 +182,12 @@ enum class LogKind : int32_t {
   kTurnedAway,    // a: from (planet index), b: to
   kWelcomeAgain,  // a: House: its grievances faded under the refusal (FIXES.md item 84)
   kSeated,        // a: pilot, b: PM mech: a lancemate put on a spare by a hire or a buy (FIXES.md item 85)
+  // FIXES 98: a downed mech recovered after a win (a: PM mech, b: its pilot, 0 the commander); the House covering a
+  // narrow win's costs down to the floor (n: C-bills).
+  kMechRecovered,
+  kHouseCovers,
 };
-inline constexpr int32_t kLogKindLast = static_cast<int32_t>(LogKind::kSeated);
+inline constexpr int32_t kLogKindLast = static_cast<int32_t>(LogKind::kHouseCovers);
 inline constexpr size_t kLogCap = 200;
 
 struct LogEntry {
@@ -226,8 +243,8 @@ struct Company {
   Story story;
 };
 
-// MW1's "Lance weight" for a PM mech, by its tonnage as MW1's own kinds are
-// classed: under 40 t light (1), up to 55 t medium (2), heavier heavy (3).
+// MW1's "Lance weight" for a PM mech, by its tonnage as MW1's classes go: under 40 t light (1), up to 55 t medium
+// (2), heavier heavy (3).
 int32_t lance_weight_of_tons(int32_t tons);
 
 // What the contract asks (mw1_missions.h): destroy all, or reach, attack or defend a structure (saved as 0..3).
@@ -237,7 +254,10 @@ struct Contract {
   int32_t house = kDavion;     // the employer (the planet's House)
   int32_t target = kTargetColumns;  // whom it's against: a House (below kHouseCount), else not a House
   int32_t budget = 0;          // the enemy force budget
-  std::vector<int32_t> enemies;  // MW1 kinds
+  std::vector<int32_t> enemies;  // the force's slots (kForceSlots)
+  // FIXES 104 (mw1_enemies.h): each enemy's PM chassis and stock loadout, as many as `enemies`; empty (an older save's
+  // offer, a test's force): each slot's nearest roster chassis on its Primary (stand_in).
+  std::vector<int32_t> chassis, loadouts;
   int32_t payment = 0;         // thousands: the House's offer (the opening, then each counter-offer)
   int32_t payment_ceiling = 0;  // thousands: the most the House will ever pay (never shown, as MW1)
   int32_t salvage_percent = 0, advance_percent = 0;
@@ -271,6 +291,8 @@ void add_starting_stores(mech3::Store& s);
 // company's lance (the commander's mech and the lancemates' assigned, mw1_pilots.h's lance_weight) as MW1's lance
 // weight; the objective and map are the milestone's.
 Contract generate_contract(const Company& c, int32_t slot, Rng& rng);
+// The company's record band by its kills (MW1's: 0 to 3), the force budget's first term (FIXES 104 reads it too).
+int32_t record_band(int32_t kills);
 
 // The salvage and advance ceilings an offer of `house`'s opens from: the House's base (DS:4B5F, DS:4B69) shifted by
 // the standing, (favor - grievance) x 4 within +-10 (MwGenerateMissionOffer); never below 0.
@@ -321,17 +343,23 @@ void accept(Company& c, Contract& k);
 
 enum class Outcome { kSuccess, kFailure, kRetreat };
 struct Wreck {
-  int32_t kind = 0;        // MW1 kind
+  int32_t slot = 0;        // its force slot (kForceSlots)
   int32_t condition = 0;   // percent of its parts still standing (the log's; before save version 5 the pay's)
   int32_t damage = 0;      // its repairs, in ten-thousandths of a full one (mw1_repairs.h), read as it died
+  int32_t chassis = -1;    // FIXES 104: the PM chassis it was (-1, an older save's: its slot's stand-in)
 };
 // A mission back and not settled yet: what the hub's AFTER ACTION shows until OK settles it (or REPLAY plays the
 // contract again). Saved whole (mw1_save.h), so a restart shows it again: never settled twice, never lost.
 // A lancemate's mission (mw1_pilots.h): who flew, and whether their mech was destroyed.
+// FIXES 98 (Owen: losses rare, as in MW1): a downed lancemate's pilot rarely dies or goes missing; most come back. Their
+// mech is recovered on a win (rarely lost for good), lost on a loss or a retreat. All rolled once as the mission ends
+// (crew::roll_losses), so AFTER ACTION, its settlement and a save and reload agree.
 struct LanceFate {
   int32_t id = 0;
-  bool destroyed = false;
-  bool missing = false;  // destroyed, and its pilot MISSING, not KILLED (FIXES.md item 32; rolled as the mission ends)
+  bool destroyed = false;  // their mech went down
+  bool missing = false;    // downed, and its pilot MISSING (FIXES.md item 32; rolled as the mission ends)
+  bool killed = false;     // downed, and its pilot KILLED
+  bool mech_lost = false;  // downed, and the mech lost for good (not recovered)
 };
 // A mech's locations as the results screen reads them (FIXES.md item 19): head, torso, left arm, right arm, left leg,
 // right leg.
@@ -345,7 +373,8 @@ struct AfterAction {
   // destroyed), billed when the mission counts.
   struct Bill {
     int32_t who = 0, mech = -1, damage = 0;
-    bool destroyed = false;
+    bool destroyed = false;  // went down
+    bool lost = false;       // and lost for good (FIXES 98: a win recovers the rest, billed as repairs)
   };
   std::vector<Bill> bills;
   std::shared_ptr<mech3::Store> salvage;         // the mission's parts, the stores' on a win

@@ -56,6 +56,8 @@ MW1HUBDIALOG (
     ; FIXES.md items 62, 63: READ (the messages' news stories) in REPLAY's place; LOG under the left column, always.
     READ (POSITION (148 406) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (240 412) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
     LOG (POSITION (12 414) BITMAP ("mw1_button_tile") ROLLOVER (BITMAP ("mw1_button_tile_lit")) ACTIVATE (BITMAP ("mw1_button_tile_down")) DISABLE (BITMAP ("mw1_button_tile_off")) LABEL_AT (66 420) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    ; FIXES.md item 100: QUIT at the foot, between LOG and STORY (gone while the box shows); PM's quit box asks.
+    QUIT (POSITION (266 414) BITMAP ("mw1_button_tile") ROLLOVER (BITMAP ("mw1_button_tile_lit")) ACTIVATE (BITMAP ("mw1_button_tile_down")) DISABLE (BITMAP ("mw1_button_tile_off")) LABEL_AT (320 420) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
   )
   TEXTS (
     PLANET (POSITION (116 15) FONT ("mw1_plaque"))
@@ -97,6 +99,8 @@ MW1HUBDIALOG_WIDE (
     STORY (POSITION (729 414) BITMAP ("mw1_button_tile") ROLLOVER (BITMAP ("mw1_button_tile_lit")) ACTIVATE (BITMAP ("mw1_button_tile_down")) DISABLE (BITMAP ("mw1_button_tile_off")) LABEL_AT (783 420) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("RIGHT"))
     READ (POSITION (254 406) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (346 412) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
     LOG (POSITION (16 414) BITMAP ("mw1_button_tile") ROLLOVER (BITMAP ("mw1_button_tile_lit")) ACTIVATE (BITMAP ("mw1_button_tile_down")) DISABLE (BITMAP ("mw1_button_tile_off")) LABEL_AT (70 420) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    ; FIXES.md item 100: QUIT at the foot, between LOG and STORY (gone while the box shows); PM's quit box asks.
+    QUIT (POSITION (372 414) BITMAP ("mw1_button_tile") ROLLOVER (BITMAP ("mw1_button_tile_lit")) ACTIVATE (BITMAP ("mw1_button_tile_down")) DISABLE (BITMAP ("mw1_button_tile_off")) LABEL_AT (426 420) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
   )
   TEXTS (
     PLANET (POSITION (166 15) FONT ("mw1_plaque"))
@@ -116,16 +120,24 @@ MW1HUBOPTIONS (
   PRIMITIVES (
     BACKGROUND (POSITION (-107 0) BITMAP ("mw1_hub_desert_starport") ANCHOR ("CENTRE"))
     PANEL (POSITION (-107 0) BITMAP ("mw1_clear") ANCHOR ("CENTRE"))
-    PANEL2 (POSITION (204 140) BITMAP ("mw1_panel_232x244"))
+    PANEL2 (POSITION (204 100) BITMAP ("mw1_panel_232x324"))
     PANEL3 (POSITION (-107 454) BITMAP ("mw1_statusbar") ANCHOR ("CENTRE"))
   )
   BUTTONS (
-    SETTINGS (POSITION (236 206) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (328 212) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
-    MAIN_MENU (POSITION (236 246) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (328 252) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
-    BACK (POSITION (236 330) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (328 336) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    SETTINGS (POSITION (236 150) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (328 156) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    ; FIXES.md item 100: the music on or off, then its volume and the effects' (each between its arrows).
+    MUSIC (POSITION (236 190) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (328 196) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    MUSIC_DOWN (POSITION (236 236) BITMAP ("mw1_lt") ROLLOVER (BITMAP ("mw1_lt_lit")) ACTIVATE (BITMAP ("mw1_lt_down")) DISABLE (BITMAP ("mw1_lt_off")))
+    MUSIC_UP (POSITION (384 236) BITMAP ("mw1_rt") ROLLOVER (BITMAP ("mw1_rt_lit")) ACTIVATE (BITMAP ("mw1_rt_down")) DISABLE (BITMAP ("mw1_rt_off")))
+    EFFECTS_DOWN (POSITION (236 266) BITMAP ("mw1_lt") ROLLOVER (BITMAP ("mw1_lt_lit")) ACTIVATE (BITMAP ("mw1_lt_down")) DISABLE (BITMAP ("mw1_lt_off")))
+    EFFECTS_UP (POSITION (384 266) BITMAP ("mw1_rt") ROLLOVER (BITMAP ("mw1_rt_lit")) ACTIVATE (BITMAP ("mw1_rt_down")) DISABLE (BITMAP ("mw1_rt_off")))
+    MAIN_MENU (POSITION (236 304) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (328 310) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    BACK (POSITION (236 362) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (328 368) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
   )
   TEXTS (
-    TITLE (POSITION (222 156) FONT ("mw1_panel_title"))
+    TITLE (POSITION (222 116) FONT ("mw1_panel_title"))
+    MUSIC_VALUE (POSITION (264 237) FONT ("mw1_panel_line"))
+    EFFECTS_VALUE (POSITION (264 267) FONT ("mw1_panel_line"))
     STATUS_WORLD (POSITION (12 460) FONT ("mw1_status_world"))
     STATUS (POSITION (132 461) FONT ("mw1_status"))
   )
@@ -135,16 +147,24 @@ MW1HUBOPTIONS_WIDE (
   PRIMITIVES (
     BACKGROUND (POSITION (0 0) BITMAP ("mw1_hub_desert_starport") ANCHOR ("CENTRE"))
     PANEL (POSITION (0 0) BITMAP ("mw1_clear") ANCHOR ("CENTRE"))
-    PANEL2 (POSITION (311 140) BITMAP ("mw1_panel_232x244") ANCHOR ("CENTRE"))
+    PANEL2 (POSITION (311 100) BITMAP ("mw1_panel_232x324") ANCHOR ("CENTRE"))
     PANEL3 (POSITION (0 454) BITMAP ("mw1_statusbar") ANCHOR ("CENTRE"))
   )
   BUTTONS (
-    SETTINGS (POSITION (343 206) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (435 212) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
-    MAIN_MENU (POSITION (343 246) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (435 252) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
-    BACK (POSITION (343 330) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (435 336) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    SETTINGS (POSITION (343 150) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (435 156) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    ; FIXES.md item 100: the music on or off, then its volume and the effects' (each between its arrows).
+    MUSIC (POSITION (343 190) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (435 196) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    MUSIC_DOWN (POSITION (343 236) BITMAP ("mw1_lt") ROLLOVER (BITMAP ("mw1_lt_lit")) ACTIVATE (BITMAP ("mw1_lt_down")) DISABLE (BITMAP ("mw1_lt_off")) ANCHOR ("CENTRE"))
+    MUSIC_UP (POSITION (491 236) BITMAP ("mw1_rt") ROLLOVER (BITMAP ("mw1_rt_lit")) ACTIVATE (BITMAP ("mw1_rt_down")) DISABLE (BITMAP ("mw1_rt_off")) ANCHOR ("CENTRE"))
+    EFFECTS_DOWN (POSITION (343 266) BITMAP ("mw1_lt") ROLLOVER (BITMAP ("mw1_lt_lit")) ACTIVATE (BITMAP ("mw1_lt_down")) DISABLE (BITMAP ("mw1_lt_off")) ANCHOR ("CENTRE"))
+    EFFECTS_UP (POSITION (491 266) BITMAP ("mw1_rt") ROLLOVER (BITMAP ("mw1_rt_lit")) ACTIVATE (BITMAP ("mw1_rt_down")) DISABLE (BITMAP ("mw1_rt_off")) ANCHOR ("CENTRE"))
+    MAIN_MENU (POSITION (343 304) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (435 310) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    BACK (POSITION (343 362) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (435 368) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
   )
   TEXTS (
-    TITLE (POSITION (329 156) FONT ("mw1_panel_title") ANCHOR ("CENTRE"))
+    TITLE (POSITION (329 116) FONT ("mw1_panel_title") ANCHOR ("CENTRE"))
+    MUSIC_VALUE (POSITION (371 237) FONT ("mw1_panel_line") ANCHOR ("CENTRE"))
+    EFFECTS_VALUE (POSITION (371 267) FONT ("mw1_panel_line") ANCHOR ("CENTRE"))
     STATUS_WORLD (POSITION (16 460) FONT ("mw1_status_world"))
     STATUS (POSITION (136 461) FONT ("mw1_status"))
   )

@@ -581,7 +581,7 @@ Tick an item when it is merged into `main`.
     | 3 | The ambush on ref2 (27, FIGHT) | 4 heavies, about 260 t |
     | 4 | Kearney's address (2F..35, FIGHT) | 4 heavies and assaults, about 300 t |
     | 5 | The Matabushi raid on Albiero (40) | 6 'Mechs, about 400 t, veterans |
-    | 6 | The Dark Wing (72, ATTACK) | 8 'Mechs: the Warhammer and four BattleMasters (as MW1's text says) plus 3 escorts, about 650 t, elite pilots |
+    | 6 | The Dark Wing (72, ATTACK) | 8 'Mechs: a 70 t and four 85 t (as MW1's text tells it) plus 3 escorts, about 650 t, elite pilots |
 
   - The enemy pilots' skill rises with the step.
   - The pay for a story battle is none, but the salvage is kept (the reason to fight it).
@@ -1093,7 +1093,7 @@ so this is an "mw1 (engine, ours)" change, used only with hires on.
   a boundary through the host and checks three recorded lines, drawn anti-aliased in their colour over the key. With
   the host's recording off, it fails.
 
-## 84. [x] A grudge fades *(waiting on Owen; branch mw1-grudge-fade, not merged)*
+## 84. [x] A grudge fades *(done: mw1-grudge-fade; Owen: yes)*
 The soak's decision A: MW1's 8 grievances against a House is a refusal, never forgiven, and each contract adds +2
 against the House fought. In 11 of 40 long seeds every House with an office came to refuse after 26 to 48
 contracts: the company was stranded with nothing money could buy. The lead's recommendation, ours not MW1's:
@@ -1107,7 +1107,7 @@ contracts: the company was stranded with nothing money could buy. The lead's rec
 - Tests: `mw1_office_a_grudge_fades_without_a_fight`; the soak now fails on "locked out" and prints the peak of
   Houses refusing at once (`MW1_GRUDGE_MONTHS=n` tries another rate).
 
-## 85. [x] A hire or a buy seats the lancemates *(waiting on Owen; branch mw1-auto-assign on mw1-grudge-fade, not merged)*
+## 85. [x] A hire or a buy seats the lancemates *(done: mw1-auto-assign; Owen: yes, the Mech Lab's slots rule, see 92)*
 The soak's decision B: a lancemate hired, or a 'Mech bought, wasn't put on anything; only the mech lab's lance
 assigned them, and a lancemate without a 'Mech doesn't fly. The lead's recommendation, ours not MW1's:
 - After a hire or a buy, each lancemate without a 'Mech takes the first spare in the hangar, in lance order
@@ -1137,6 +1137,17 @@ assigned them, and a lancemate without a 'Mech doesn't fly. The lead's recommend
 4. 12: high-resolution 2D (the jagged text). The approved plan is in the lead's notes to dev 1. Step 1 shots to the lead before step 2.
 5. 3 + 5: sweep every screen for anything still PM's.
 
+## 86. [x] The menu's title clear of the 'Mech's head *(done: mw1-menu-title-up; Owen picked "up")*
+On the main menu MECHWARRIOR's last letters sat on the 'Mech's head (at 16:9 the R, at 4:3 the O).
+- **The two choices:** both were built as real layouts behind a development switch (branch mw1-menu-title):
+  - "up": the title moved into the sky.
+  - "low": the picture recut 1.25 times closer, so the head sits under the title.
+- **Owen's pick, "up":** MW1MENUDIALOG and MW1MENUDIALOG_WIDE (mw1menu.zrd) now carry it. MECHWARRIOR and CRITICAL
+  HIT sit 38 canvas pixels higher, in the sky above the head: TITLE at y -4, SUBTITLE at y 58. The sky over the head
+  is only about 50 pixels, so the title sits near the top edge.
+- **Not merged:** the switch, the "low" layouts and their picture (title_bg_low, and mw1art.py's 1.25 cut).
+- **Shots:** at 1080p and 4:3, in outbox/2026-11-19/mw1-menu-title/ (menu-final-*).
+
 ## 91. [x] The lance-orders test, made solid *(done: mw1-lance-flake)*
 `mw1_loop_lance_orders_reach_each_of_three_headless` failed 1 in 3 for the lead at 87's merge. Lancemate 1 was ordered
 at a mech 370 m away and walked 6 m in 450 frames; the other two walked as always.
@@ -1154,6 +1165,16 @@ at a mech 370 m away and walked 6 m in 450 frames; the other two walked as alway
   - The test picks the engine's seed itself (time()), prints it, and `MW1_TEST_SEED=<n>` replays it.
   - Each lancemate's walk is kept every 50 frames: how far toward its mech, how far moved, speed, health and the gap.
     It is printed for any lancemate that didn't walk at its mech, so the next stall tells what it was.
+- **Later, the walk flake (the lead, 2026-11-19; mw1-walk-flake):** `mw1_loop_lance_orders_an_awesome_walks` failed
+  at nearly every merge. Its seed came from the clock, and the seed decides the layout: the enemies 340 to 1,360 m
+  off. Over seeds 1 to 8 the Awesome (the third lancemate) walked 18 to 73 m. From the far layouts (seed 6, 1,359 m)
+  it stood about 300 frames, its speed up but moving 0 m, then walked: 18 m in the 450 frames, under the 30 m bar.
+  - **The test now:** the four lance-orders tests run at a fixed seed (kSeed, 1: the enemies 340 to 410 m off, or
+    1,700 m with one enemy); `MW1_TEST_SEED=<n>` still picks another. Each lancemate must also close the gap to its
+    mech by 30 m (printed as "closed"), not only walk 30 m toward it. At seed 1 the least is the Awesome's: 62 m
+    walked, 135 m closed. It gave the same metres 14 times in a row.
+  - **Left open:** the Awesome's slow start from a far layout (speed without movement for about 10 s) is worth its
+    own look: a lancemate under orders shouldn't stand that long.
 
 ## 92. [x] The seat's status line points at the Mech Lab *(done: mw1-seat-lab)*
 Owen, on 85: assignments belong to the Mech Lab's slots along the top, as in MW3. So the seat may only fill a blank
@@ -1171,3 +1192,458 @@ slot the lab would show, never move anyone, and the status line should say where
     and bought (2016 notes). None is over the limit, every one names the Mech Lab, and 1911 are in Owen's words.
   - Its hire check now looks for " joins in the " and the lab.
   - The pilots test covers the forms.
+
+## 94. [x] The sharp text's letters evenly spaced *(done: mw1-hires-advance)*
+Owen, in a mission's F12 objectives: "tow er" and "Tow er" had a gap after the w, "Objectives" had its "ti" crowded,
+and "In Progress" looked uneven.
+- **The cause** (`platform/hires_text.cpp`, FIXES 12's raster for every high-resolution line):
+  - Each glyph was drawn from the font opened at the frame's size, but placed at the canvas font's pen times the
+    scale. That pen is the 480-line font, MONO-hinted, in whole canvas pixels: a "w" a pixel wide, a "t" a pixel
+    narrow. Times 2.25 (1080p) to 4.5 (4K), a pixel of that rounding is 2 to 5 frame pixels. On Owen's Arial line
+    a letter-to-letter step was up to 6.4 frame pixels off the font's own at 4K.
+  - Two smaller faults made it worse:
+    - A glyph with a negative left bearing (a "j") was drawn that much to the right: 3 frame pixels at 4K, into its
+      neighbour. SDL_ttf starts a glyph's render at its ink, not its pen.
+    - Pens taken from measured strings count the last glyph's overhang past its advance (an "f", a "j").
+- **The fix:**
+  - The line still starts at the canvas pen and spans what the canvas's advances span, so the layouts, fit guards
+    and overlap checks still hold.
+  - Each glyph sits within the line at the big font's own advances, stretched evenly to those ends; the two widths
+    are within a tenth of each other.
+  - The ink offset keeps a negative bearing.
+  - The tracking is still the canvas's, times the scale.
+  - Every high-resolution line goes through this: the HUD, the menus, MW1's screens and PM's.
+  - With the opt-in off (PM, MW3, MW1_HIRES=0) nothing changes.
+- **Tests** (`hires_text_on_the_canvas_pen`, mw3pmsdltests):
+  - Fonts: MW1's two, PM's impact, and PM's arial at 12 and 14 bold on Owen's lines ("Destroy the tower  OP:
+    Tower Primary Objectives In Progress").
+  - Scales: 1080p's, 1440p's and 4K's.
+  - Each glyph's ink is exactly where the rule puts it, and each step is within a frame pixel of the font's own.
+  - On the old raster it fails 529 checks, 162 of them the uneven steps.
+- **Shots:** `MW1_SCREEN=objectives` (development) shows F12's objectives over the mission (command 0x44 at frame
+  90). Hidden shots of the objectives, the HUD, the menu and the Bar at 1080p and 4K:
+  outbox/2026-11-19/mw1-hires-advance/.
+- **"Destroy the tower  OP: Tower":** that's PM's and MW3's own line (Mech3.exe 0x0045e080): the objective's text,
+  two spaces, then its nav point's name as "OP: <name>". It reads as the originals do.
+
+## 97. [x] A defence's enemy stood at its post all mission *(done: mw1-defend-guard)*
+Owen, defending the tower on mw3c1ia3 (4 enemies): three came; the fourth never moved, but fought when he came near.
+- **Cause:** the map's Enemy_08 is MW3's Instant Action guard, in its aiv record:
+  - Its net (`net_06`) is three nodes that end 56 m from where it starts, with no link on.
+  - Its pilot starts at mode 0 (PM's `may_engage` wants 1).
+  - It engages within 850 m. The company starts about 870 to 930 m off.
+  - Its break-offs (`+0xcc` bits 0 and 1: the leash from where a fight began, and the fight's time) send it back to
+    its post.
+  In MW3 it waits until the player comes. A defence, though, is won only by destroying every enemy, so one left at
+  its post a kilometre away stood all mission.
+- **Fix (mw1_game.cpp, `enemy_launching`):** in a defence only, every enemy starts at mode 1, engages from 3 km at least
+  (`kDefenceEngage`), and has no leash or time break-off, so each one comes for the company. Other contracts keep the
+  map's own pilots. The log says each enemy it changed.
+- **Ruled out first:** the lancemates, and the Awesome's gait warning (PM's own report: run's bounds 3 to 3). Only
+  assault chassis report it (awesome, atlas, annihilator, and MW3's own daishi and supernova): each has no run
+  above its trot. Of the market's nine chassis only the Awesome reports it, and it walks under orders as the
+  others do (a new lance-orders test).
+- **Tests:**
+  - `mw1_loop_defend_every_enemy_comes_headless`: Owen's mission and force (a 55 t, a 70 t and two 75 t slots)
+    with the player standing at his start. Every enemy must close 300 m on him in 2400 frames. Unfixed, the guard
+    closes 56 m (and the slower Enemy_06 217 m). With mode 1 alone the guard closes about 230 m before the leash
+    takes it back. Fixed, all four close 470 to 690 m.
+  - `mw1_loop_lance_orders_an_awesome_walks_headless`: the third lancemate in an Awesome walks at its target. The
+    harness takes the lance's mechs (`lance_mechs`).
+
+## 105. [x] Release prep for MW1 1.0.0: its own version, packaged builds, where mw1data goes *(done, mw1-fix105-release)*
+
+The lead (2026-11-19): MW1 1.0.0 rides mw3-re v1.1.3; the launcher reads each program's version from its file.
+- **Version:** mw1 compiles mw3_main.cpp with mw3pm's definitions, so its file carried the engine's describe
+  (pm-v1.1.2-639-g...) as its `MW3-PROGRAM-VERSION:` tag. Now `MW1_VERSION`, `git describe --tags --match
+  "mw1-v[0-9]*" --always --dirty` on every platform (was Windows only, any tag), is the one tag (mw3_main.cpp, the
+  engine commit). Untagged: the bare commit. The Windows version resource takes it too.
+- `mw1 --version` answers first ("mw1 (MechWarrior 1: Critical Hit) <v>"), before a write dir, an install or a
+  window; it set up the user's write dir before.
+- **Test** `mw1version` (ctest, every build): one tag in the file, CMake's describe, MW1's shape (mw1-v..., or the
+  bare commit; never pm-v or v), and --version prints the same.
+- **Package builds** (`-DMW3_PACKAGE=ON -DMW3_BUILD_MW1=ON`, target mw1, scratch worktrees): the Mac builds; WSL
+  (Ubuntu, GCC 13, the release deps prefix) failed on `SoundCfg`'s defaulted `==` (C++20; the project is C++17,
+  Clang only warned): written out. Both build and pass `mw1version`. MW1's own warnings left (13 to 14, other
+  items' code: missing `narrow` initializers, an unused variable and function) don't stop either.
+- **Where mw1data goes:** mw1 mounts `<SDL base path>/mw1data`. Probed with SDL3 itself: in a .app, a program in
+  `Contents/MacOS` gets `Contents/Resources/`; on Linux, the program's folder (`AppDir/usr/bin/`, with or without
+  APPIMAGE/APPDIR set); Windows, the program's folder. So: `Contents/MacOS/mw1` with
+  `Contents/Resources/mw1data/`; `usr/bin/mw1` with `usr/bin/mw1data/`; `mw1.exe` with `mw1data\` beside it. The
+  launcher's art goes the same way (tools/macos/make_app.sh, tools/linux/make-appimage.sh).
+- **With it:** the missing-installs box looked for `mw3launcher` at SDL's base path too, which in a .app is
+  Resources: never found there. It looks in mw1's own folder now (Contents/MacOS).
+
+## 100. [x] Menu music, QUIT in the hub, the sound settings *(done: mw1-fix100-music)*
+- **Owen (2026-11-19, via the lead):** a YuE2 track he picked as the menu music. QUIT outside the main menu. Music
+  and effects settings in MW1's options.
+- **The theme** (`data/music/menu-theme.ogg`, ours, 7.8 MB; the lead faded its last 5 s; the FLAC master is in
+  keep/mw1-critical-hit/music):
+  - It plays through the engine's CD music as zsnd_cd's extra track (track 100), from mw1data's music/. A numbered
+    trackNN would have raised the disc's track count, and PM's mission music picks among those, so it would have
+    drawn the theme.
+  - It starts with the game (the title, the intro) and plays on every screen out of a mission, looping. A screen
+    change never restarts it.
+  - DEPLOY fades it out over a second, then stops it and gives PM back its volume for the mission's music. At the
+    results it fades in again. PM's own menu music never plays over MW1's screens: the theme takes the CD back.
+  - mw1_music.{h,cpp}; `music::frame(!deployed_)` each frame shown.
+- **Silence:** a --nosound or --hidden run plays no music aloud. Before, SdlMusicOutput always opened the real
+  device. Such a run now gets a platform::SilentMusicOutput, which keeps the calls and opens no device. It began as
+  MW1's opt-in flag; the mw3 lead took it onto main for every program (--nosound or a hands-off run, 5681fc40), and
+  the flag went at the merge of pm (mw1-merge-pm-2).
+- **QUIT:** the hub's foot, between LOG and STORY, gone while the box shows. It asks with PM's quit box, the same one
+  as the main menu's QUIT: NO stays, OK quits.
+- **Settings** (the hub's OPTIONS): MUSIC: ON / OFF, then MUSIC n% and EFFECTS n% between ◀ ▶ arrows (steps of 10).
+  - They drive PM's own two (its options' CD volume and sound volume: GRAPHICS & SOUND's MUSIC VOLUME and SFX sliders),
+    so the mission's music and sounds follow, and the two screens never disagree.
+  - Off sets PM's music volume to 0, which stops the theme and any mission music; on brings back the saved volume.
+  - mw1.cfg keeps `music=`, `music_volume=` and `effects_volume=` beside the installs (mw1_start.h's SoundCfg). They're
+    applied at the main state's entry, and synced from PM's sliders whenever OPTIONS shows.
+- **Tests:**
+  - `mw1_music_theme_screens_mission_settings_and_quit_headless` (mw1tests): the theme at the menu and the intro; the
+    same play through the hub, the office and back; faded and gone in the mission, PM's volume back; again at the
+    results; OFF stops it and saves; EFFECTS applied and saved; ON brings it back; QUIT asks, NO stays, OK quits.
+  - `zsnd_cd_extra_track_outside_the_disc` and `quiet_music_a_hidden_run_opens_no_audio_device` (mw3pmsdltests).
+- **Shots:** the hub with QUIT, and OPTIONS, at 4:3 and 1080p: outbox/2026-11-19/mw1-fix100-music/.
+
+## 99. [x] The starport says each world's tier *(done: mw1-fix99-travel-tier)*
+- **Owen (2026-11-19, via the lead):** show each world's tier in the travel page's readout, as MW1 numbers it, e.g.
+  "Tier 2". Don't say what tiers do. This reverses item 64 for the starport only: the Mech Complex and the map's
+  filters stay tier-free.
+- **MW1's numbers:** byte 2 of the planet record, (code - 1) / 3: 0 to 3 (44 worlds tier 0, 50 tier 1, 21 tier 2, 30
+  tier 3).
+- **Where:** a line of its own, "Tier N", under the House line (mw1_travel_screen.cpp world_lines). It shows for the
+  world under the mouse, the chosen one, and "You are here".
+- **The fit:** neither the House line nor the population has room for " · Tier N" (both run to 24 of 26 columns). With
+  the line, the longest readout (a long description, the trip unaffordable, not yet chosen) came to 15 of the 14
+  lines above GO, so a readout past 14 drops its blank gap lines first. 14 at most, every world, either way.
+- **Shots:** the readout at 4:3 and 1080p: outbox/2026-11-19/mw1-fix99-travel-tier/.
+- **Tests** (`mw1_travel_screen_world_readout`): each of the 145 worlds says its own tier once, with no other tier word;
+  nothing says what a tier does (no %, dealer or buy/sell lines); every line fits the panel's 26 columns, and the
+  readout still fits its 14 lines above GO.
+
+## 101. The side arrows' triangles fit their boxes (Owen, 2026-11-19)
+
+Owen's crop of the hub's OPTIONS: each ◀ ▶ ran into its frame (the ◀'s flat side on the box's right, the ▶'s on its
+left), so it looked cut off and off-centre.
+
+- **The cause:** mw1_chrome.cpp side_arrow drew a triangle 16 rows high in the 18-row box, its base on the frame's
+  edge. The up and down arrows (the office's TERMS, the lists') were already right: 20 of 28 wide, centred.
+- **The fix:** the side arrow is now the up arrow's triangle turned on its side: a right angle at its point, its base
+  10 rows (kSideInkH) with two rows of glass inside the frame above and below, centred both ways. The same piece
+  serves every ◀ ▶ in MW1: the hub's OPTIONS and every options page (GRAPHICS & SOUND's 104).
+- **Checked:** the other arrows at 4:3, 1080p and 4K. The TERMS and lists' up and down arrows were already centred;
+  the lab's and the file list's small ones are bare triangles with no frame of their own, and sit centred.
+- **Test:** mw1_chrome_arrow_ink_inside_its_frame_and_centred covers mw1_up, mw1_dn, mw1_lt and mw1_rt at the
+  archive's scale and at 2, 3 and 4 (1080p, 4K). The ink must stay a pixel of glass inside the frame and be centred to
+  a device pixel. The old side arrow fails it 8 times. The geometry pieces' golden hash moved on purpose.
+- **Shots:** outbox/2026-11-19/mw1-fix101-arrows/ (hub_options, options_gfx, office_offer, lab_files at 43, 1080, 4k,
+  and a 4K crop of the hub's arrows).
+
+## 98. [x] Losses rare, and a narrow win still a win *(done: mw1-rare-losses)*
+Owen lost all three lancemates and their 'Mechs in one mission (about 15 million C-bills). He wants losses much rarer,
+as in MW1, and a narrow win never empty-handed.
+- **The rolls (`crew::roll_losses`, once as the mission ends):**
+  - On a win, every company 'Mech that went down (the commander's too) is recovered, its repair billed as usual
+    (the whole repair). It's lost for good by `kMechLostPercent` (10).
+  - On a loss or a retreat, a downed 'Mech is lost, as before (FIXES.md item 75).
+  - A downed lancemate is KILLED by `kKilledPercent` (5) and MISSING by `kMissingPercent` (5, was 50) on any
+    ending. Otherwise they come back and stay in the lance. One whose 'Mech was lost stays without one (the lab's
+    blank slot). A killed or missing pilot's recovered 'Mech becomes a spare.
+  - `loss_rates()` (or `MW1_LOSS_RATES=mech,killed,missing`) lets the tests pin a case and a soak tune them.
+- **The floor (`settle_mission`):** a House contract won nets at least `kWinFloorPercent` (25) of its payment. The
+  net is the advance + the fee + the salvage pay - the repairs paid - the 'Mechs lost at their value
+  (`buy_price` at the company's tier). The House covers the shortfall, never more than the costs. Losses and
+  retreats have no floor.
+- **AFTER ACTION:**
+  - PAYMENT: "Repairs 1,649,385; the House covers 884,385", or "Lost 3,696,000; House covers ..." for a lost
+    'Mech alone, with a shorter wording for 4:3.
+  - CREW STATUS: "Firefly (J. Holmaas): recovered (repairs 73,962)", "... destroyed beyond repair, KILLED", each
+    the fullest wording that fits 4:3.
+  - DETAILS: each repair marked "recovered", a lost lancemate's 'Mech "Lost: the Awesome (Tank Smith), destroyed
+    beyond repair.", the House's part, and each downed lancemate's fate.
+  - The log adds "Recovered: ..." and "The House covered ...". A lost 'Mech's line now says "destroyed beyond repair".
+- **Saves:** the pending mission's bills gain ":lost" and its lance ":killed:mech_lost". Older saves read as before
+  (a downed 'Mech lost, its pilot killed unless missing).
+- **Tests:**
+  - The rolls' rates on each ending, over 4000 rolls.
+  - Downed lancemates coming back, with their 'Mech recovered, lost, or left as a spare.
+  - The save, and an older save.
+  - A narrow win (every 'Mech down, repairs at four times today's price) netting exactly the floor, with the House's
+    PAYMENT line fitting 4:3. A lost Awesome on a win, still at the floor. A clean win netting more. A loss with
+    no floor.
+  - The loop: a casualty pinned (KILLED or MISSING, the 'Mech lost, AFTER ACTION's House and "beyond repair"
+    lines), and the full lance's downed lancemate recovered and back.
+
+## 102. [x] The mouse wheel scrolls every list *(done: mw1-wheel-lists)*
+
+Owen (2026-11-19): the wheel already scrolled AFTER ACTION's salvage list; scroll every list in MW1 the same way, the
+list under the pointer, with the same step and direction.
+- **One handler** (`Mw1State::wheel`, mw1_screen.h's `WheelList`):
+  - A screen names its lists: each with the PANEL it sits in (or anywhere on the screen) and its two arrows.
+  - A notch up presses the list's up arrow; a notch down presses its down arrow. That is a row each notch (a page for
+    a pager), as a click on the arrow does.
+  - It presses only a shown, enabled arrow, so the wheel stops at both ends as the arrows do.
+  - The list under the pointer wins. Of the anywhere lists, it takes the first whose arrows are shown.
+- **The lists:**
+  - The Mech Complex: FOR SALE and YOUR MECHS, each under the pointer.
+  - The Bar: the recruits, and the lance on the COMPANY page.
+  - The event panel's pagers: the LOG, the STORY journal and the news (PREV and NEXT). A plain event's NEXT is its
+    OK, so the wheel leaves it alone.
+  - AFTER ACTION keeps its own wheel (FIXES.md item 38): same step, same direction.
+  - Travel has no world list any more (the map and a typed search), so there is nothing to scroll there.
+- **The Mech Lab** (PM's screen, an engine change: "mw1 (engine, ours)", opt-in `platform/list_wheel.h`, MW3 and PM
+  unchanged):
+  - Its lists (FileList: the chassis, the weapons, the loadouts; LabItemList: the store and the parts) read zin's
+    wheel each frame.
+  - With the pointer over the list, a notch presses its UP or DOWN arrow, shown and enabled only.
+  - A hidden list forgets the wheel, so the turns made elsewhere don't scroll it when it shows again.
+- **Tests** (hidden):
+  - Market (`mw1_loop_market_buy_sell_pilot_...`): over FOR SALE, to its last row and no further, then back to the
+    first. Over YOUR MECHS (empty) or off both lists, nothing. A notch by zin's wheel at the list, read by the
+    frame's own update, steps it down and back up.
+  - The lab's chassis list, padded past its rows: to its foot (the last rows shown) and no further, then back to its
+    head, a notch a frame by zin's wheel.
+  - The Bar (`mw1_loop_a_full_lance_flies_on_a_pm_map_headless`): the recruits to the last and back; the COMPANY
+    page's lance to its head and its foot.
+  - The news (`mw1_story_drinks_and_news_in_the_bar_headless`): it pages down and back up, and up on the first page
+    stays put. On a plain drink event the wheel changes nothing.
+  - The LOG (`mw1_wheel_pages_the_log_headless`): 40 lines, down to the last page and no further (never back to the
+    hub), up to the first.
+
+## 103. The menu theme loops (Owen, 2026-11-19)
+
+Owen's game (5e8bb062): the theme played once and stopped.
+
+- **The cause:** the engine's SDL music output (sdl_music.cpp) waits for its stream's queue to empty before it posts
+  a file's end, which the pump hands to zsnd_cd (MM_MCINOTIFY) to play a Loop track again. SDL3's stream resamples a
+  file whose rate isn't the device's, and it keeps its last frames back until the stream is flushed. Nothing flushed
+  it, so the queue never emptied and the end never came. The headless tests used the silent output, which has no end.
+- **The fix:** the output flushes its stream once the file is all decoded. An "mw1 (engine, ours)" commit. It also
+  mends PM's and MW3's own Loop tracks and a disc playing on, which had the same fault on main.
+- **Not an end:** MW1's fade for a mission and OPTIONS' OFF stop the CD (zsnd_cd::stop), which closes the stream. No
+  end is posted and nothing starts again.
+- **Test (mw3pmsdltests):** zsnd_cd_extra_track_loops_through_the_sdl_output_and_pump runs the real SDL output on
+  SDL's dummy driver (nothing aloud), with the real pump and app. A fifth of a second at 22050 Hz must play at least
+  3 times in 2 s, then stopped, nothing more. Before the fix, once.
+
+## 96. [x] The lab's empty lance slot shows MW3's placeholder 'Mech *(done: mw1-notmech-slot)*
+
+Owen (2026-11-19): the Mech Lab's top row showed an empty dashed box for a lancemate without a 'Mech; MW3 shows its
+placeholder 'Mech there.
+- **What MW3 does:** a slot with no 'Mech asks for its 'Mech's icon by name, and `mech_name(-1)` is "notmech", so
+  MechButton asks for `icon_notmech_<colour>`. PM's and MW3's image libraries both ship it (green, red and grey; no
+  yellow).
+- **The fix** (`mw1_mech_icons.cpp`, `make_mech_icons`): the slot's three looks (`mw1_slot_none`, `_lit`, `_off`)
+  are made from `icon_notmech`, read from the install at run time, in the slot's colours, with its outline for the
+  high-resolution draw, as every other slot is. The dashed frame stays only for an install without the icon.
+- **Test** (`mw1_loop_market_buy_sell_pilot_...`): the made empty-slot look is lit, all amber, not the dashed
+  frame, and has an outline.
+- **Shots** (hidden, `MW1_SCREEN=lab MW1_LAB_LANCE=3:2`), 4:3 and 1080p: outbox/2026-11-19/mw1-notmech-slot/.
+- PM's own icon still shows for the one frame a slot changes, before ours replaces it, as its red pressed icons
+  do on every slot.
+
+## 109. [x] The damage display showed only some of the 'Mech's parts at high resolution *(done, mw1-fix109-dmg-hires)*
+
+Owen (2026-11-19, a crop of the bottom right): one arm's outline over the blue grid. The log: "8 draws left to the
+canvas", the eight `dmg_<part>_<colour>` pictures.
+- **Why:** the hires pass draws the display's background (`dmg_bg_*`) from PM's pixels at the window's scale, but
+  not its eight part pictures (hud.cpp `kParts`). Left to the canvas, they sat under the high-resolution grid; which
+  showed changed with what was drawn over them.
+- **Fix:** `mw1_hud_art.cpp` reads all 32 (8 parts, blue/green/yellow/red) from PM's as the backgrounds are (PM has
+  no `_blk`; the "not found" lines are PM's own). Each draws at hud.cpp's place in its order, its colour the
+  part's state, as before.
+- **Test** (`mw1_loop_hud_damage_parts_drawn_at_the_window_s_resolution`): in a mission, every part's four pictures
+  drawn at 1080p's art scale (3) and 4K's (5), their size and lit pixels PM's times the scale: 8 of 8 at each, 64
+  of 64. `mw1_loop_hud_art_is_pm_s_pictures_at_canvas_size` counts 53 read pieces (21 + 32), each lit as PM's.
+- **Shots** (hidden, the mission with D to the damage display), 1080p and 4K, whole and cropped:
+  outbox/2026-11-19/mw1-fix109-damage-display/. No picture of the mission is left to the canvas at 4:3, 1080p or 4K.
+- **With it** (the lead, for 107): each looped weapon sound's start and stop is logged, `mw3: loop sound: <weapon>
+  on <mech> [(the player's)] started|released|out of ammo|destroyed|deleted`. A loop left on shows as started and
+  never stopped. Test `pm_volley_a_loop_sound_s_stop_is_noted`.
+
+## 108. [x] A 'Mech sold dearer than it was bought *(closed: by design, MW1's own trade)*
+
+The lead (2026-11-19), from Owen's log: a Centurion bought for 4,505,000 sold for 6,307,000.
+- **Why:** buying pays the tier 0 price times the world's tier percent (100/120/130/150); selling pays 10 points
+  less (90/110/120/140). That's MW1's own formula (081B:4645, 081B:32BA). Owen bought at a tier 0 world and sold at
+  Skokie, tier 3.
+- Within one world selling always pays less than buying; between worlds it pays to buy cheap and sell dear, as in
+  MW1. Owen: keep it.
+- **Test** (`mw1_market_mw1s_formula_pinned`): every chassis at every tier, buying is base × tier%, selling is
+  base × (tier% − 10), floored to 1,000, a Clan 'Mech's doubled, and selling is under buying in the same world. A
+  later change can't move it either way unnoticed.
+
+## 106. [ ] A lancemate ejected 25 s into a destroy-all on c4ia1 *(the log: done, mw1-c4ia1-lance; the cause open)*
+
+Owen (2026-11-19): a contract, "destroy all enemy mechs" on c4ia1. About 25 s after the launch Erin Falls said "I'm
+ejecting". After the mission she was MISSING and her Centurion gone. His build predates 98: the old loss rule (his
+save: the Centurion lost, the pilot missing in action).
+- **Not reproduced on c4ia1:** with his lance and his contract's four, the commander standing, the enemies start
+  1,000 to 1,400 m off and the first hits come near 56 s, from under 100 m. Owen moved and pressed keys in those 25 s,
+  so the fight likely started early; his log couldn't say who killed her.
+- **The log now says** (`mw1_game.cpp`, `log_lancemate_down`):
+  - each lancemate's mech down, at what time, who had the kill (the commander, a lancemate, or an enemy by its
+    chassis), who hit it last, its heat and its state;
+  - a lancemate found down at the mission's end with no mech's kill (the engine reports a kill only when a mech gets
+    the credit: a vehicle's, a turret's or a building's never reaches us), marked destroyed (before, its mech came
+    back as if standing, the pilot unhurt);
+  - at settlement each mech's fate (back, destroyed and recovered, destroyed and lost for good, with its damage) and
+    each lancemate's (back, ejected and back, killed, missing in action) (`fate_lines`, `mw1_repairs.h`).
+- **Tests:**
+  - `mw1_loop_a_lancemate_down_is_logged_by_whom` (c4ia1): one lancemate killed by an enemy (named by its chassis),
+    one with no mech's kill (found at the end), the third standing; AFTER ACTION's crew status agrees.
+  - `mw1_repairs_the_fates_said_for_the_log`: every fate's line.
+  - `mw1_loop_the_lance_lives_the_opening_minute` plays each of PM's Instant Action maps (12) for a minute with his
+    lance and force, the commander idle, the rolls seeded: all three lancemates must stand (the lead, 2026-11-19; seeds
+    106, 7 and 2026 all pass, about 70 s). MW1_ALL_MAPS=1 adds MW3's worlds, reported, not required: on mw3c1 ia1 and
+    mw3c4 ia1 a lancemate can fall inside the minute (the enemies open fire from about 900 m within 10 s, then close,
+    and the lance trades fire with them, two enemies down by then). Whether that's too harsh is Owen's call.
+- **Looked at and left:** MW3's allied places engage at 100 m (PM's at 10,000 m). Raised to 10,000 m, the lance did
+  no better (it holds by the commander and fires either way), so it's unchanged.
+
+## 107. A weapon's looped sound stops (Owen, 2026-11-19)
+
+Owen's c4ia1: the machine gun's sound came on and played to the mission's end.
+
+- **The cause found:** a weapon's looped sound (U_LOOPED: the machine gun's) plays from its trigger to its release
+  (weapon.cpp trigger and release). Outside group fire, a group lets go of only its current weapon (the exe's
+  0x004b20b0), and the fire mode can change while the trigger is held. The mode key (group fire on to chain fire)
+  selects the group again, which releases under the new mode, so the group's other weapons that had fired were
+  never let go and their loops played on. The AI's volley pick changes mode the same way. The exe's own order, so a
+  FIX (bug), behind SMALL FIXES: the group also lets go of each other weapon still sounding or firing.
+- **Ruled out:** the effects volume (FIXES 100) only sets zSound's master level and touches no playing voice; a
+  voice out of hearing range is muted, never stopped or handed to another sound; a mech's death releases every
+  weapon (destroy_all). The log's DSERR_CONTROLUNAVAIL is a pitch change (set_frequency) on a sound made without that
+  control, refused, and stops nothing.
+- **Not proven from the log:** it has no line for a fire-mode change. This is the one path found that leaves a loop
+  playing; if the sound sticks again without a mode change, the log needs a line for it.
+- **The voices "outside the game's folders":** PM's sound list names ../data/common/sounds/... (eject_voice, the
+  ai_* acknowledgements, ge53xx, c1m4dia7). Those files are in no install: not loose in PM's, MW3 1.0's or 1.2's,
+  and not in any soundsH.zbd or soundsL.zbd. PM's own game never played them; the line is our confinement saying
+  so. Not changed: they need MW1's own recordings, if wanted.
+- **On the UPGRADES page:** SMALL FIXES' list gains "A weapon's loop sound stops when firing stops." (it fits
+  at 4:3: outbox/2026-11-19/mw1-fix107-loop-sound/); docs/upgrades-sort.md item 21.
+- **Test (mw3pmtests):** pm_volley_a_group_volley_lets_every_loop_go. A group volley's two loops playing, then the
+  mode key while firing, and the trigger let go in single fire: both loops stopped and cleared. Before, the second
+  played on.
+
+## 95. [x] The Bar's recruit pitch in one quote, not each line in its own *(done: mw1-pitch-quote)*
+
+Owen (2026-11-19): RECRUIT CREW showed each line of a recruit's words in its own quote marks, as the exe breaks them.
+- **The fix** (`mw1_bar_screen.cpp`, `journal::quoted` in `mw1_journal.h`): the exe's lines joined by a space, one mark
+  before the first word and one after the last, wrapped to the terminal (kPitchColumns, 20 letters at 4:3; at most
+  kPitchLines, 10). MW1's words and case kept; nothing else added.
+- **Drinks and news:** nothing to change. MW1's texts already open a quote on one line and close it on a later one
+  (14 open, 21 close, none in a run of self-quoted lines over its 112 texts); only our pitch quoted each line.
+- **Tests:** `mw1_pilots_each_pitch_is_one_quote_wrapped`, every pilot's pitch (42, sizes only): one mark opening,
+  one closing, no other added, the words all there in order, each line within 20 letters, at most 10 (they take 3
+  or 4). The Bar loop test shows each line of Elli Gujar's quote and never her first exe line quoted alone.
+- **Shots:** outbox/2026-11-19/mw1-pitch-quote/ (4:3 and 1080p, with the terminal cropped).
+
+## 104. [x] Every 'Mech of PM's as an enemy, in its real loadouts *(done: mw1-every-chassis)*
+
+Owen (for 1.0.0): the enemy fields all of Pirate's Moon's 'Mechs and their real variants, not only the stand-ins for
+MW1's kinds. The design the lead approved (2026-11-19), in `mw1_enemies.h/.cpp`:
+- **MW1's force roll unchanged** (the budget, the classes, at most four; the ladder's rungs). Each slot then gets a
+  PM chassis within kSlotTons (10 t) of its MW1 kind's, Clan by kClanPercent per tier; the 100-tonners only in the
+  heaviest (85 t) slot and only late (tier ≥ 2 or record band 3). A loadout from the chassis's stock ones: Primary 60%,
+  Alternates 30%, Exotics 10% (no Alternates: 75/25). Its own generator, seeded by the company and the contract, so
+  MW1's draws are untouched and the same offer rolls the same 'Mechs.
+- **Owen's four, each a named constant there:** kElementalsField (false), kClanPercent ({0, 10, 25, 40}), kWreckPay
+  (MW1's kind price), kStoryBattlesRoll (true; the Dark Wing's last rung keeps its stand-ins).
+- **Names real everywhere:** the offer ("2 Heavy, 1 Medium (Thor, Avatar, Centurion)": MW1's class words, the real
+  chassis), the mission log, AFTER ACTION's kills, the wrecks and salvage, the main enemy's picture, the amber icons.
+- **Saves:** optional `offer_chassis=`, `offer_loadouts=`, `pending_wreck_chassis=`; an older save's contract and
+  wrecks keep their kinds' stand-ins on the Primary.
+- **Tests:** `test_mw1_enemies.cpp` (the reach: 24 chassis, 112 loadouts; a 20,000-contract soak: every chassis and
+  loadout seen, the Primary each one's commonest, Clan 0 / 9.8 / 25.1 / 40.2% where a Clan chassis could be, no early
+  100-tonner; determinism; older saves; story battles). `mw1_loop_every_chassis_and_loadout_fields_and_salvages_headless`
+  spawns four mixed (MW1_ALL_LOADOUTS=1: all 112) and checks each fields, is killed and salvaged, and the engine's stock
+  config counts match the table.
+
+## 112. [x] Our roster, not MW1's 'Mechs: the force in tonnage slots, one roster list *(done: mw1-roster)*
+Owen (2026-11-19, through the lead): "we dont have any phoenix hawks in this game … we're using the entire mw3+pm
+roster, not mw1 mechs … make sure the phoenix hawk, shadow hawk, marauder, etc. names are all scrubbed from the
+codebase and it refers to the mechs that we actually have … if we ever want to drop back down to only 8 mechs … we
+can change that list."
+- **The force's slots** (`mw1_campaign.h`): MW1's ten named kinds are gone. The force rolls in eight tonnage slots,
+  `kSlot20` to `kSlot85` (`kForceSlots`: the tons MW1's fielded enemies had, each with its class). MW1's roll is
+  unchanged: the budget, x1.5 and x0.5, at most four, heavies first, a class's slots picked at random. The two
+  kinds MW1 never fielded (its 20 t and 55 t twins) fold into those slots. The ladder's rungs are written in slots
+  (the same tons: 110 to 635 t).
+- **MW1's exe records stay as numbers** (`kMw1Kinds`: tons, class and price by index, no names). The tests pin them
+  and the body repair prices against the exe, and the repair line is fitted through them.
+- **The roster** (`mw1_enemies.h`, `kRoster`): the one list of chassis an enemy can be. It defaults to all 25 of
+  MW3's and PM's; the Elemental fields only by `kElementalsField` (still false). Cut it to any subset and the rest
+  follows.
+- **All of them, from the first contract** (Owen: "i just tried to get a contract and only the original 8 mechs are
+  showing up"; his tier-0 offer was three of the old stand-ins of four). 104's slots reached only within 10 t of
+  MW1's kind, Clan was 0% at tier 0 and the 100-tonners came only at tier 2 in the 85 t slot, so tier 0 was mostly the
+  old eight. Now a slot draws **uniformly from its whole weight class**, PM's own (`slot_class`: the 20 and 35 t slots
+  light, 45 and 55 medium, 60 to 75 heavy, 85 assault). **Clan and Inner Sphere alike** (Owen: "the clan mechs arent
+  that much better than the IS mechs"); `kClanGated` (false) puts a per-tier gate back, `kClanPercent`. The
+  **100-tonners** go in any heavy or assault slot from tier 1 (`kHundredTonTier`, was 2) or record band 3. MW1's
+  budget and class counts are unchanged, so the balance holds class by class. A slot with nothing on the roster
+  fields its **stand-in**: the roster's nearest chassis by tons, Inner Sphere first, below 100 t first, ties to the
+  lighter. With the full roster the stand-ins are exactly the
+  eight the game fielded before 104 (Firefly, Owens, Strider, Bushwacker, Champion, Avatar, Orion, Awesome), so
+  pre-104 contracts and wrecks field and pay as before. `PmMech` names all 25 ids.
+- **Wreck pay** keeps MW1's price per slot: `kWreckPay` is now `kSlot` (the slot's stand-in at the world, as before)
+  or `kChassis`.
+- **Old saves** (save version 11): `offer_enemies` and a pending wreck's first number are slots now. Before 11 they
+  were MW1's kind numbers and read as their slots (`slot_of_mw1_kind`).
+- **Scrubbed:** the names are out of code, comments, logs ("the 55 t slot"), tests, VISION.md, the hub mockups and
+  this file's own descriptions of our roster. Kept: Owen's quoted words, the history of item 20, the research notes
+  (they describe MW1 itself), and VISION's BattleTech price citation.
+- **Tests:**
+  - `mw1_campaign_slots_and_stand_ins`: slots against the exe records; the old kind numbers to slots; the stand-ins.
+  - `mw1_enemies_a_cut_roster_still_fields_every_slot`: the old eight as the roster (only they appear, all of them, a
+    pre-104 wreck pays the same), and a roster of one.
+  - `mw1_enemies_every_tier_fields_most_of_the_roster`: 2,000 contracts a tier. All 24 chassis appear at every tier;
+    the old eight are 35 to 37% of the enemies (the light class is only three: Firefly, Owens, Puma), Clan 48 to 50%.
+    Each tier's pools are printed.
+  - `mw1_save_a_version_10_save_reads_mw1s_kinds_as_slots`: a version 10 file's kinds read as slots, its pre-104
+    wrecks pay as their old stand-ins, and it writes back as version 11.
+- **MW1's own text, read at run time from the player's MW_MAIN.EXE, that names those 'Mechs** (we can't change it;
+  Owen to decide: leave it, or show a mapped name where we draw it):
+  - Story texts 0x2C and 0x43 (segment 1AA5): a 70 t (both) and an 85 t (0x43), the Dark Wing's force. They show on
+    the event panel.
+  - The Bar's pitches (RECRUIT CREW) of pilots 8 (a 20 t), 13 and 35 (a 75 t).
+  - Also in the exe but not drawn by us: MW1's kind-name tables (DS:24A5.., DS:2DB3, DS:2E70) and seven strings at
+    DS:3FE5..410A and DS:6BCB.
+
+## 110. [x] A lancemate under orders stood with its throttle up before it walked *(done: mw1-lance-stall)*
+Found in FIXES 91's walk flake: on c2, seed 6 (the enemies 1,359 m off, the lance facing away), the Awesome stood
+about 6 s with its speed up, moving 0 m, before it walked.
+- **Cause (PM's walking context, `WalkPm::throttle`, 0x004d9550):** a pilot more than 10 degrees off its carrot
+  (`steer.cos_on`) "brakes off" by throwing the throttle the other way. It judges this by the throttle alone, not by
+  whether the 'Mech moves. The Awesome turns at half a light 'Mech's rate (turn rate 1.245 against the Firefly's
+  2.588). It swung about 14 degrees past its carrot just after it throttled up, while still standing in the step
+  waiting for a footfall. So it threw the throttle into reverse for 28 frames, stopped, turned back and set off
+  again: 167 frames from its throttle up to walking.
+- **Ruled out:**
+  - The nav path: the way was laid at the order and never moved.
+  - The gait: the Awesome's "trot max = run max" report doesn't matter; it walks.
+  - A map guard: the state is PM's follow throughout.
+  - The 'Mech's turn smoothing: turn_accel is 1.5 on every chassis.
+- **Fix (engine, ours, opt-in: `mech3::ai::set_walk_keeps_going`, zai_walk_pm.h):** a walk under way (its throttle
+  past `steer.brake`) keeps going while the pilot faces within 30 degrees of its carrot. The exe's 10 degrees still
+  gate the start, and past 30 it brakes as ever. MW1's game loop turns it on (`install_game_loop`); MW3's and PM's
+  programs keep the exe's rule.
+- **Measured, seeds 1 to 8, a Firefly, an Owens and an Awesome:**
+  - Each turns within 49 frames of the order.
+  - Its gait walks 13 to 57 frames after its throttle comes up. The step waits for a footfall before it walks.
+  - The Awesome on seed 6 now walks at f+189 (before: f+311), and 2 m at f+214 (before: f+322).
+  - A Centurion, an Atlas and an Annihilator never stalled and are unchanged. Owen's Centurion on c4ia1 isn't this:
+    its turn rate (1.205) is near the Awesome's, but it never backed off on any seed.
+  - A walk of 2 m isn't timed: PM ramps a heavy 'Mech's throttle with its carrot's distance, so the Annihilator
+    (9 m/s) takes about 3 s to cover 2 m once its gait walks.
+- **Tests:**
+  - `mw1_loop_lance_orders_set_off_on_seeds_1_to_8_headless`: each lancemate turns within 2 s of the order, and its
+    gait walks within 2.5 s of its throttle coming up, unbroken until it has walked 2 m. With MW1_WALK_EXE=1 (the
+    exe's rule) seed 6's Awesome fails.
+  - MW1_LANCE_MECHS picks another lance and MW1_TEST_SEED one seed; MW1_WALK_TRACE prints each lancemate's state
+    every 10 frames.
+  - mw3pmtests `pm_walk_keeps_going_inside_thirty_degrees_only_when_asked`: the exe's brake when off; inside 30
+    degrees it keeps going, and past them it brakes; standing still it needs 10 degrees to set off.

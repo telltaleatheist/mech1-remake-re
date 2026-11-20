@@ -1,6 +1,7 @@
 // The frame-rate fixes (zfix::Options::per_second, docs/fixes.md): the same
 // second of play at 30 and 144 fps comes out the same, and the exe's
 // per-frame path does not.
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -139,6 +140,7 @@ TEST(small_fixes_list_matches_its_gates) {
       {"TAG's strike lands where the target is, not was.", {{"mech3/weapon.cpp", 1}}},
       {"A held beam stays on a moving mech after release.", {{"mech3/weapon.cpp", 1}}},
       {"A destroyed weapon's selection moves to a working one.", {{"mech3/weapon.cpp", 1}}},
+      {"A weapon's loop sound stops when firing stops.", {{"mech3/weapon.cpp", 1}}},
       {"A mech re-placed where it stands keeps to its ground.", {{"mech3/mech_place.cpp", 1}}},
       {"A mission's last animation can be waited for.", {{"gamez/zeffect/zeff_anim_init.cpp", 1}}},
       {"An animation whose object is missing waits its turn.", {{"gamez/zeffect/zeff_anim_init.cpp", 1}}},
@@ -2276,4 +2278,62 @@ TEST(fix_material_table_read_again_keeps_no_pointer_into_the_old_blocks) {
   EXPECT(zmod::material_add(m) != nullptr);  // and the next add reads nothing freed
   zmod::materials() = std::move(keep);
   std::filesystem::remove_all(dir, ec);
+}
+
+// MW1's FIXES 107 (Owen: a machine gun's sound came on and never stopped), small_fixes: a weapon's looped sound
+// (U_LOOPED) plays from its trigger to its release. Outside group fire a group lets go of only its current weapon,
+// and the fire mode can change while the trigger is held: after a group volley the group's other weapons were never
+// released and their loops played on. With the fix each weapon still sounding is let go; without it, the exe's.
+namespace {
+struct LoopUnlimited : mech3::Weapon {
+  using mech3::Weapon::Weapon;
+  int32_t ammo() const override { return -1; }
+};
+std::vector<zwep::Handle> g_loops_stopped;
+}  // namespace
+
+TEST(fix_group_release_lets_every_loop_go) {
+  mech3::WeaponCalls& calls = mech3::weapon_calls();
+  const auto was_stop = calls.stop_sound;
+  const zfix::Options saved = zfix::options();
+  calls.stop_sound = [](zwep::Handle s) { g_loops_stopped.push_back(s); };
+  for (const bool fix : {true, false})
+    for (const int k : {0, 1}) {  // k 0: the mode key while firing; k 1: the trigger let go in single fire
+      zfix::options().small_fixes = fix;
+      g_loops_stopped.clear();
+      mech3::WeaponType type{};
+      type.heat = 0.1f, type.range = 1000.0f, type.range_sq = 1e6f;
+      zwep::WeaponDef def{};
+      def.type = &type;
+      def.flags = zwep::kBeam;
+      mech3::WeaponManager m(nullptr);
+      LoopUnlimited a(&def, nullptr, &m, true), b(&def, nullptr, &m, true), c(&def, nullptr, &m, true);
+      for (LoopUnlimited* w : {&a, &b, &c}) w->rating = 5.0f, w->reload = 0.0f;
+      m.weapons[0] = &a, m.weapons[1] = &b, m.weapons[2] = &c, m.count = 3;
+      m.groups[0]->add(&a), m.groups[0]->add(&b), m.groups[1]->add(&c);
+      a.group = 0, b.group = 0, c.group = 1;
+      m.group = 0, m.groups[0]->current_weapon = &a;
+      m.mode = 2, m.trigger_down = true;  // a group volley: both of group 0's loops playing, the trigger held
+      a.loop_sound = reinterpret_cast<zwep::Handle>(0xA), b.loop_sound = reinterpret_cast<zwep::Handle>(0xB);
+      if (k == 0) {  // the mode key while firing (mech_command 0x28): group fire to chain fire, reselected
+        m.mode = (m.mode + 1) % 3;
+        EXPECT(m.mode == 0 && m.select_group(m.group));
+      } else {
+        m.mode = 1;  // the mode changed while held; the trigger let go
+        m.set_trigger(false);
+        m.update(0.0f);
+      }
+      const auto gone = [](uintptr_t h) {
+        return std::count(g_loops_stopped.begin(), g_loops_stopped.end(), reinterpret_cast<zwep::Handle>(h)) > 0;
+      };
+      std::printf("  fix %d case %d: loops stopped a %d b %d\n", fix, k, gone(0xA), gone(0xB));
+      EXPECT(gone(0xA) && !a.loop_sound);
+      EXPECT(fix ? gone(0xB) && !b.loop_sound : !gone(0xB) && b.loop_sound != nullptr);  // the exe: b plays on
+      b.loop_sound = nullptr;
+      m.groups[0]->remove(&a), m.groups[0]->remove(&b), m.groups[1]->remove(&c);
+      for (int i = 0; i < 3; ++i) m.weapons[i] = nullptr;
+      m.count = 0;
+    }
+  calls.stop_sound = was_stop;
+  zfix::options() = saved;
 }

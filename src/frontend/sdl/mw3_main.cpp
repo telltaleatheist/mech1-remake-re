@@ -41,7 +41,7 @@
 //   --seed N             rand seeded with N where the game seeds it from the clock (ours)
 //   --window WxH         window size (default 1280x960; with any_resolution the
 //                        frame's shape, and a given size pillarboxes the frame)
-//   --nosound            no audio device (a silent DirectSound stand-in)
+//   --nosound            no audio device (a silent DirectSound stand-in; the music silent too)
 //   --hidden             keep the window hidden
 //   --windowed           a window, not fullscreen (also --window, or windowed=1 in mw3.cfg)
 //   --pick PATH          the MODS screen's IMPORT picker answered with PATH, no dialog (ours)
@@ -68,6 +68,7 @@
 #include <string>
 #include <vector>
 
+#include "frontend/sdl/system_pickers.h"
 #include "frontend/sdl/vulkan_check.h"
 #include "frontend/sdl/campaign_chain.h"
 #include "frontend/sdl/editor_imgui.h"
@@ -116,7 +117,13 @@
 #if defined(__GNUC__) || defined(__clang__)
 __attribute__((used))
 #endif
+// MW1: Critical Hit (mw1/CMakeLists.txt, FIXES.md item 105) builds this file into its own program with its own
+// version, MW1's describe (mw1-v...), in place of the engine's: the one tag in that file, so the launcher reads MW1's.
+#if defined(MW1_VERSION)
+extern "C" const char mw3_version_tag[] = "MW3-PROGRAM-VERSION:" MW1_VERSION;
+#else
 extern "C" const char mw3_version_tag[] = "MW3-PROGRAM-VERSION:" MW3_VERSION;
+#endif
 #include "gamez/znetwork/znet_dplay.h"
 #include "gamez/znetwork/znet_session.h"
 #include "gamez/ztwod/twod_host.h"
@@ -1136,8 +1143,7 @@ int run(const Args& a, platform::VideoForWindows* vfw) {
       if (!scripted.empty()) return mech3::mods_menu_picked(scripted);
       auto done = [](void*, const char* const* list, int) { mech3::mods_menu_picked(list && list[0] ? list[0] : ""); };
       static const SDL_DialogFileFilter filters[] = {{"Mods (.zip, .7z, .rar), mech loadouts (.m3c)", "zip;7z;rar;m3c"}};
-      if (folder) SDL_ShowOpenFolderDialog(done, nullptr, parent, nullptr, false);
-      else SDL_ShowOpenFileDialog(done, nullptr, parent, filters, 1, nullptr, false);
+      sdlfe::open_picker({folder ? sdlfe::PickerKind::kOpenFolder : sdlfe::PickerKind::kOpenFile, done, nullptr, parent, filters, 1});
     };
     // EXPORT: the system's save box in the player's documents, the mod's
     // "<name> <version>.zip" offered.
@@ -1150,7 +1156,7 @@ int run(const Args& a, platform::VideoForWindows* vfw) {
       const char* docs = SDL_GetUserFolder(SDL_FOLDER_DOCUMENTS);
       static std::string start;
       start = docs ? (std::filesystem::path(docs) / file_name).string() : file_name;
-      SDL_ShowSaveFileDialog(done, nullptr, parent, filters, 1, start.c_str());
+      sdlfe::open_picker({sdlfe::PickerKind::kSaveFile, done, nullptr, parent, filters, 1, start.c_str()});
     };
     mp.open_folder = [](const std::string& dir) { return sdlfe::open_folder(dir); };
     // --pick: no box, this game; else unset, and MODS asks in the game's own box (W16).
@@ -1202,13 +1208,15 @@ int run(const Args& a, platform::VideoForWindows* vfw) {
     sound = std::move(silent);
   }
   else sound = std::make_unique<sdlfe::SdlSoundOutput>();
-  sdlfe::SdlMusicOutput music;
+  // Ours: --nosound means no audio device for the music too, as for the sounds; so does a run no player is at
+  // (pointer_hands_off.h). Its requests are kept (platform::SilentMusicOutput); a player's run is unchanged.
+  const std::unique_ptr<platform::MusicOutput> music = sdlfe::music_output_for(a.nosound, platform::pointer_hands_off());
   mech3::MountFiles files;
 
   mech3::Platform p;
   p.window = &window, p.alert = &alert, p.clock = &clock, p.input = &input, p.force = &force, p.vfw = vfw, p.sound = sound.get();
   if (stepped) p.movie_clock = &movie_clock;
-  p.music = &music, p.files = &files, p.render = window.render(), p.screen = &screen;
+  p.music = music.get(), p.files = &files, p.render = window.render(), p.screen = &screen;
   p.window_width = a.win_w, p.window_height = a.win_h;
   // The registry's keys as a file in the write dir (docs/settings.md).
   platform::RegFile settings(a.write_dir.empty() ? std::string() : a.write_dir + "/settings.reg");

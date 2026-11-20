@@ -13,8 +13,10 @@
 #include "mw1_install.h"
 #include "mech3/pilot.h"
 #include "mw1_campaign.h"
+#include "mw1_market.h"
 #include "mw1_pilots.h"
 #include "mw1_repairs.h"
+#include "mw1_results.h"
 #include "mw1_save.h"
 
 namespace fs = std::filesystem;
@@ -51,14 +53,14 @@ TEST(mw1_repairs_body_prices_are_mw_main_exes_and_the_line) {
   // MW1's table against the exe (skipped without the install; the line below still checked).
   if (!mw1_test::no_mw1()) {
     const std::vector<uint8_t> d = mw_main_data();
-    EXPECT(d.size() > 0x3CAB + mw1::kKindCount);
-    for (int k = 0; k < mw1::kKindCount && d.size() > 0x3CAB + mw1::kKindCount; ++k)
+    EXPECT(d.size() > 0x3CAB + mw1::kMw1KindCount);
+    for (int k = 0; k < mw1::kMw1KindCount && d.size() > 0x3CAB + mw1::kMw1KindCount; ++k)
       EXPECT(d[0x3CAB + static_cast<size_t>(k)] == mw1::kBodyRepairPrices[k]);
   }
-  // The line through MW1's ten (provisional Q1), each kind's own price beside it.
-  for (int k = 0; k < mw1::kKindCount; ++k) {
-    const int32_t line = mw1::kRepairPerTon * mw1::kMechKinds[k].tons - mw1::kRepairOffset;
-    std::printf("  %-12s %2d t: MW1 %2d,000 a location, the line %5d\n", mw1::kMechKinds[k].name, mw1::kMechKinds[k].tons,
+  // The line through MW1's ten (provisional Q1), each record's own price beside it.
+  for (int k = 0; k < mw1::kMw1KindCount; ++k) {
+    const int32_t line = mw1::kRepairPerTon * mw1::kMw1Kinds[k].tons - mw1::kRepairOffset;
+    std::printf("  record %d, %2d t: MW1 %2d,000 a location, the line %5d\n", k, mw1::kMw1Kinds[k].tons,
                 mw1::kBodyRepairPrices[k], line);
     EXPECT(std::abs(line - mw1::kBodyRepairPrices[k] * 1000) <= 3500);
   }
@@ -133,6 +135,28 @@ TEST(mw1_repairs_the_bill_taken_forgiven_and_the_lost_mechs) {
   for (const std::string& l : r.lines) std::printf("  %s\n", l.c_str());
 }
 
+// FIXES 106: the log's fates at settlement (mw1_game.cpp, settle_pending), each mech and lancemate as the losses left
+// them: the commander's mech back, a lancemate's mech recovered and its pilot missing, another's lost and its pilot
+// killed, a third's whole and its pilot back.
+TEST(mw1_repairs_the_fates_said_for_the_log) {
+  mw1::AfterAction a;
+  a.bills = {{0, mw1::kPmOwens, 120, false, false}, {1, mw1::kPmCenturion, mw1::kWhole, true, false},
+             {41, mw1::kPmFirefly, mw1::kWhole, true, true}, {3, mw1::kPmStrider, 0, false, false}};
+  a.lance = {{1, true, true, false, false}, {41, true, false, true, true}, {3, false}};
+  const std::vector<std::string> l = mw1::fate_lines(a);
+  for (const std::string& x : l) std::printf("  %s\n", x.c_str());
+  const std::string one = mw1::pilot_title(1), two = mw1::pilot_title(41), three = mw1::pilot_title(3);
+  EXPECT(l.size() == 7);
+  EXPECT(l.size() == 7 && l[0] == "the commander's " + mw1::mech_title(mw1::kPmOwens) + " back (damage 120 of 10000)");
+  EXPECT(l.size() == 7 && l[1] == one + "'s " + mw1::mech_title(mw1::kPmCenturion) + " destroyed, recovered (damage 10000 of 10000)");
+  EXPECT(l.size() == 7 && l[2] == two + "'s " + mw1::mech_title(mw1::kPmFirefly) + " destroyed, lost for good (damage 10000 of 10000)");
+  EXPECT(l.size() == 7 && l[3] == three + "'s " + mw1::mech_title(mw1::kPmStrider) + " back (damage 0 of 10000)");
+  EXPECT(l.size() == 7 && l[4] == one + " missing in action" && l[5] == two + " killed" && l[6] == three + " back with the company");
+  // Downed, neither killed nor missing: ejected and back.
+  a.lance = {{1, true}};
+  EXPECT(mw1::fate_lines(a).back() == one + " ejected, back with the company");
+}
+
 TEST(mw1_repairs_saved_and_a_version_4_save_read) {
   mw1::Rng rng(9);
   mw1::Company c = mw1::new_company(rng);
@@ -141,7 +165,7 @@ TEST(mw1_repairs_saved_and_a_version_4_save_read) {
   mw1::accept(c, k);
   mw1::AfterAction p;
   p.outcome = mw1::Outcome::kFailure;
-  p.wrecks = {{mw1::kLocust, 40, 6100}};
+  p.wrecks = {{mw1::kSlot20, 40, 6100}};
   p.bills = {{0, mw1::kPmOwens, 1234, false}, {41, mw1::kPmFirefly, 0, true}};
   p.salvage = std::make_shared<mech3::Store>();
   p.launch_stores = std::make_shared<mech3::Store>();
@@ -260,7 +284,7 @@ TEST(mw1_repairs_settle_mission_pays_after_the_repairs) {
   mw1::accept(c, k);
   mw1::AfterAction a;
   a.outcome = mw1::Outcome::kSuccess;
-  a.wrecks = {{mw1::kJenner, 100, 0}, {mw1::kLocust, 0, mw1::kWhole}};
+  a.wrecks = {{mw1::kSlot35, 100, 0}, {mw1::kSlot20, 0, mw1::kWhole}};
   a.bills = {{0, c.mech, 5000, false}};
   const int64_t before = c.funds;
   mw1::MissionSettled m = mw1::settle_mission(c, k, a, rng);
@@ -302,9 +326,9 @@ TEST(mw1_repairs_a_retreat_bills_repairs_and_settles_the_fates) {
     mw1::accept(c, k);
     mw1::AfterAction a;
     a.outcome = mw1::Outcome::kRetreat;
-    a.wrecks = {{mw1::kJenner, 100, 0}};
-    a.lance = {{id, true, missing}};
-    a.bills = {{0, c.mech, 5000, false}, {id, mw1::kPmFirefly, mw1::kWhole, true}};
+    a.wrecks = {{mw1::kSlot35, 100, 0}};
+    a.lance = {{id, true, missing, !missing, true}};  // as roll_losses leaves a retreat's (FIXES 98): the mech lost
+    a.bills = {{0, c.mech, 5000, false}, {id, mw1::kPmFirefly, mw1::kWhole, true, true}};
     const int64_t before = c.funds;
     const mw1::MissionSettled m = mw1::settle_mission(c, k, a, rng);
     std::printf("  retreat (%s): fee %lld, salvage %lld, repairs %lld, billed %lld, paid %lld; funds %lld -> %lld\n",
@@ -316,4 +340,87 @@ TEST(mw1_repairs_a_retreat_bills_repairs_and_settles_the_fates) {
     EXPECT(c.hangar.empty() && c.lance.empty() &&
            c.pilots[static_cast<size_t>(id)].where == (missing ? mw1::PilotWhere::kFree : mw1::PilotWhere::kDead));
   }
+}
+
+// FIXES 98 (Owen: losses rare, a narrow win still a win). A win recovers every downed mech of the company's (billed as
+// repairs, said "recovered"); one lost for good counts at its value; the mission's net (fee + salvage pay - repairs paid
+// - mechs lost) never under kWinFloorPercent of the payment, the House covering the rest; a clean win nets more. A
+// loss keeps today's rule (no floor).
+TEST(mw1_repairs_a_narrow_win_nets_the_floor) {
+  // `dear`: repairs at four times the price and no wrecks (no pool, no salvage), so a downed lance's repairs eat the pay
+  // (today's prices rebuild all four mechs for about 40% of a first contract's).
+  auto run = [](bool hurt, bool lose_one, mw1::Outcome o, bool dear = false) {
+    mw1::Rng rng(11);
+    mw1::Company c = mw1::new_company(rng);
+    c.repair_premium = dear ? 400 : 18;
+    c.funds = 50000000;
+    c.recruits = {1, 3, 41};
+    for (int i = 0; i < 3; ++i) mw1::hire(c, 0);
+    const int32_t mechs[3] = {mw1::kPmFirefly, mw1::kPmOrion, mw1::kPmAwesome};
+    c.hangar.clear();
+    for (int i = 0; i < 3; ++i) {
+      mw1::OwnedMech m;
+      m.mech = mechs[i], m.pilot = c.lance[static_cast<size_t>(i)].id;
+      c.hangar.push_back(m);
+    }
+    c.planet_house = mw1::kDavion;  // never docks: the fee whole
+    mw1::Contract k = mw1::generate_contract(c, 0, rng);
+    mw1::accept(c, k);
+    mw1::AfterAction a;
+    a.outcome = o;
+    if (!dear) a.wrecks = {{mw1::kSlot20, 60, 4000}};
+    a.bills.push_back({0, c.mech, hurt ? 9000 : 500, false});
+    for (int i = 0; i < 3; ++i) {
+      const int32_t id = c.lance[static_cast<size_t>(i)].id;
+      const bool down = hurt, lost = down && (o != mw1::Outcome::kSuccess || (lose_one && i == 2));
+      a.lance.push_back({id, down, false, false, lost});
+      a.bills.push_back({id, mechs[i], down ? mw1::kWhole : 300, down, lost});
+    }
+    const int64_t before = c.funds;
+    const int64_t floor = int64_t{k.payment} * 1000 * mw1::kWinFloorPercent / 100;
+    const mw1::MissionSettled m = mw1::settle_mission(c, k, a, rng);
+    const int64_t net = int64_t{m.advance} * 1000 + m.s.fee + m.s.salvage - m.r.paid - m.r.lost_value + m.r.house;
+    const std::vector<std::string> pay = mw1::repair_line_choices(m.r);
+    std::printf("  %s%s%s: payment %lld, fee %lld, salvage %lld, repairs %lld (paid %lld), lost %lld, House %lld: net %lld (floor %lld); "
+                "funds %+lld; paid %d%%; PAYMENT \"%s\"\n",
+                o == mw1::Outcome::kSuccess ? "won" : "lost", hurt ? ", all down" : ", clean", lose_one ? ", one lost" : "",
+                static_cast<long long>(k.payment), static_cast<long long>(m.s.fee), static_cast<long long>(m.s.salvage),
+                static_cast<long long>(m.r.sum.repairs), static_cast<long long>(m.r.paid), static_cast<long long>(m.r.lost_value),
+                static_cast<long long>(m.r.house), static_cast<long long>(net), static_cast<long long>(floor),
+                static_cast<long long>(c.funds - before), m.s.payout_percent, pay.empty() ? "" : pay[0].c_str());
+    for (const std::string& l : m.r.lines) std::printf("    %s\n", l.c_str());
+    struct Out {
+      mw1::MissionSettled m;
+      mw1::Company c;
+      int64_t net, floor, delta;
+      std::vector<std::string> pay;
+    };
+    return Out{m, c, net, floor, c.funds - before + int64_t{m.advance} * 1000, pay};
+  };
+  // Every mech down, the commander's badly hurt: all recovered, billed; the net exactly the floor, the House's line.
+  const auto narrow = run(true, false, mw1::Outcome::kSuccess, true);
+  EXPECT(narrow.m.r.house > 0 && narrow.net == narrow.floor && narrow.delta == narrow.floor);
+  EXPECT(narrow.c.lance.size() == 3 && narrow.c.hangar.size() == 3);  // every lancemate back, every mech recovered
+  int32_t recovered = 0;
+  for (const mw1::MechRepair& r : narrow.m.r.mechs) recovered += r.recovered;
+  EXPECT(recovered == 3);
+  bool said_recovered = false, said_house = false;
+  for (const std::string& l : narrow.m.r.lines) said_recovered = said_recovered || l.find(" recovered: ") != std::string::npos,
+                                                said_house = said_house || l.rfind("The House covers ", 0) == 0;
+  EXPECT(said_recovered && said_house);
+  // PAYMENT's line: the repairs and the House's part, one wording fitting 4:3.
+  EXPECT(!narrow.pay.empty() && narrow.pay[0].find("the House covers") != std::string::npos);
+  bool fits = false;
+  for (const std::string& l : narrow.pay) fits = fits || l.size() <= mw1::results::kResultsNarrow.status;
+  EXPECT(fits);
+  // One mech lost for good on the win: at its value, the floor still holds; it leaves the hangar, its pilot stays.
+  const auto lost = run(true, true, mw1::Outcome::kSuccess);
+  EXPECT(lost.m.r.lost_value > 0 && lost.m.r.house > 0 && lost.net == lost.floor && lost.c.hangar.size() == 2 && lost.c.lance.size() == 3);
+  // A clean win nets more than the narrow one, no House (and so does today's prices' downed lance).
+  const auto clean = run(false, false, mw1::Outcome::kSuccess, true), downed = run(true, false, mw1::Outcome::kSuccess);
+  EXPECT(downed.m.r.house == 0 && downed.delta > downed.floor);
+  EXPECT(clean.m.r.house == 0 && clean.delta > narrow.delta);
+  // A loss: no floor, the downed mechs lost, it can cost money.
+  const auto loss = run(true, false, mw1::Outcome::kFailure);
+  EXPECT(loss.m.r.house == 0 && loss.m.r.paid > 0 && loss.m.s.fee == 0 && loss.c.hangar.empty());
 }

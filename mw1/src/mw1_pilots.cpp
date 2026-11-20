@@ -5,6 +5,8 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -319,11 +321,31 @@ std::vector<int32_t> stayed_behind(const std::vector<int32_t>& deployed, const s
   return out;
 }
 
-void roll_missing(std::vector<LanceFate>& fates, Rng& rng) {
-  for (LanceFate& f : fates) f.missing = f.destroyed && rng.upto(99) < kMissingPercent;
+LossRates& loss_rates() {
+  static LossRates r = [] {
+    LossRates x;
+    if (const char* e = std::getenv("MW1_LOSS_RATES")) std::sscanf(e, "%d,%d,%d", &x.mech_lost, &x.killed, &x.missing);
+    return x;
+  }();
+  return r;
 }
 
-bool pilot_killed(const LanceFate& f) { return f.destroyed && !f.missing; }
+void roll_losses(Outcome o, std::vector<LanceFate>& fates, std::vector<AfterAction::Bill>& bills, Rng& rng) {
+  const LossRates& rate = loss_rates();
+  for (AfterAction::Bill& b : bills) b.lost = b.destroyed && (o != Outcome::kSuccess || rng.upto(99) < rate.mech_lost);
+  for (LanceFate& f : fates) {
+    f.killed = f.missing = f.mech_lost = false;
+    if (!f.destroyed) continue;
+    f.mech_lost = true;  // no bill (no mech of theirs found): as before, gone
+    for (const AfterAction::Bill& b : bills)
+      if (b.who == f.id) f.mech_lost = b.lost;
+    const int32_t r = rng.upto(99);
+    f.killed = r < rate.killed;
+    f.missing = !f.killed && r < rate.killed + rate.missing;
+  }
+}
+
+bool pilot_killed(const LanceFate& f) { return f.destroyed && f.killed; }
 bool pilot_missing(const LanceFate& f) { return f.destroyed && f.missing; }
 
 // The promotions, the mechs lost, the killed and the missing go in the log heard (FIXES.md item 57): they are the
@@ -340,13 +362,20 @@ void after_mission(Company& c, const std::vector<LanceFate>& fates) {
       log_add(c, LogKind::kPromoted, true, f.id, g + 1);
     }
     if (!f.destroyed) continue;
-    // Killed, gone for good, or missing, back in the pool (ratings and record kept): the mech they flew lost either way.
+    // The mech they flew: lost for good, or recovered (FIXES 98: a win's; its repairs on the bill, settle_repairs).
     for (size_t h = 0; h < c.hangar.size(); ++h)
       if (c.hangar[h].pilot == f.id) {
-        log_add(c, LogKind::kMechLost, true, c.hangar[h].mech);
-        c.hangar.erase(c.hangar.begin() + static_cast<long>(h));
+        if (f.mech_lost) {
+          log_add(c, LogKind::kMechLost, true, c.hangar[h].mech);
+          c.hangar.erase(c.hangar.begin() + static_cast<long>(h));
+        } else {
+          log_add(c, LogKind::kMechRecovered, false, c.hangar[h].mech, f.id);
+          if (pilot_killed(f) || pilot_missing(f)) c.hangar[h].pilot = 0;  // a spare now
+        }
         break;
       }
+    if (!pilot_killed(f) && !pilot_missing(f)) continue;  // back with the company
+    // Killed, gone for good, or missing, back in the pool (ratings and record kept).
     for (size_t i = 0; i < c.lance.size(); ++i)
       if (c.lance[i].id == f.id) c.lance.erase(c.lance.begin() + static_cast<long>(i));
     if (pilot_missing(f)) {

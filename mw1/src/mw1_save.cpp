@@ -1,4 +1,5 @@
 #include "mw1_save.h"
+#include "mw1_enemies.h"
 #include "mw1_travel.h"
 #include "mw1_repairs.h"
 #include "mw1_ladder.h"
@@ -178,6 +179,13 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
     o << "offer_house=" << k.house << "\noffer_target=" << k.target << "\noffer_budget=" << k.budget << "\n";
     o << "offer_enemies=";
     for (size_t i = 0; i < k.enemies.size(); ++i) o << (i ? "," : "") << k.enemies[i];
+    // FIXES 104: each enemy's chassis and loadout (absent in an older save: the kinds' stand-ins).
+    if (k.chassis.size() == k.enemies.size() && k.loadouts.size() == k.enemies.size()) {
+      o << "\noffer_chassis=";
+      for (size_t i = 0; i < k.chassis.size(); ++i) o << (i ? "," : "") << k.chassis[i];
+      o << "\noffer_loadouts=";
+      for (size_t i = 0; i < k.loadouts.size(); ++i) o << (i ? "," : "") << k.loadouts[i];
+    }
     o << "\noffer_payment=" << k.payment << "\noffer_payment_ceiling=" << k.payment_ceiling << "\n";
     o << "offer_salvage=" << k.salvage_percent << "\noffer_advance=" << k.advance_percent << "\n";
     o << "offer_salvage_ceiling=" << k.salvage_ceiling << "\noffer_advance_ceiling=" << k.advance_ceiling
@@ -198,12 +206,17 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
     const AfterAction& p = *pending;
     o << "pending_outcome=" << (p.outcome == Outcome::kSuccess ? 0 : p.outcome == Outcome::kFailure ? 1 : 2) << "\n";
     o << "pending_wrecks=";
-    for (size_t i = 0; i < p.wrecks.size(); ++i) o << (i ? "," : "") << p.wrecks[i].kind << ":" << p.wrecks[i].condition << ":" << p.wrecks[i].damage;
+    for (size_t i = 0; i < p.wrecks.size(); ++i) o << (i ? "," : "") << p.wrecks[i].slot << ":" << p.wrecks[i].condition << ":" << p.wrecks[i].damage;
+    o << "\npending_wreck_chassis=";  // FIXES 104: what each was (-1: its slot's stand-in)
+    for (size_t i = 0; i < p.wrecks.size(); ++i) o << (i ? "," : "") << p.wrecks[i].chassis;
     o << "\npending_bills=";
     for (size_t i = 0; i < p.bills.size(); ++i)
-      o << (i ? "," : "") << p.bills[i].who << ":" << p.bills[i].mech << ":" << p.bills[i].damage << ":" << (p.bills[i].destroyed ? 1 : 0);
+      o << (i ? "," : "") << p.bills[i].who << ":" << p.bills[i].mech << ":" << p.bills[i].damage << ":" << (p.bills[i].destroyed ? 1 : 0)
+        << ":" << (p.bills[i].lost ? 1 : 0);
     o << "\npending_lance=";
-    for (size_t i = 0; i < p.lance.size(); ++i) o << (i ? "," : "") << p.lance[i].id << ":" << (p.lance[i].destroyed ? 1 : 0) << ":" << (p.lance[i].missing ? 1 : 0);
+    for (size_t i = 0; i < p.lance.size(); ++i)
+      o << (i ? "," : "") << p.lance[i].id << ":" << (p.lance[i].destroyed ? 1 : 0) << ":" << (p.lance[i].missing ? 1 : 0) << ":"
+        << (p.lance[i].killed ? 1 : 0) << ":" << (p.lance[i].mech_lost ? 1 : 0);
     o << "\npending_stayed=";
     for (size_t i = 0; i < p.stayed.size(); ++i) o << (i ? "," : "") << p.stayed[i];
     o << "\npending_seconds=" << p.seconds << "\npending_killers=";
@@ -264,6 +277,7 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
   const bool v5 = n >= 5;  // the repairs; before them, the premium rolled anew and no bills
   const bool v8 = n >= 8;  // the story; before it, the story planets rolled at the load and nothing seen
   const bool v7 = n >= 7;  // negotiation; before it, the House's middle patience and the ceilings as they'd be now
+  const bool v11 = n >= 11;  // FIXES 112: the force's slots; before it, MW1's kind numbers (slot_of_mw1_kind)
   const bool v1 = n == 1;  // before the hangar and the market: a hangar of none, the market rolled at the next refresh
   Company c;
   const int64_t kMax = int64_t{1} << 40;
@@ -495,11 +509,28 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
     std::istringstream es(v["offer_enemies"]);
     std::string e;
     while (std::getline(es, e, ',')) {
-      int64_t kind = 0;
-      if (!to_int(e, 0, kKindCount - 1, &kind)) return fail("the offer's enemies don't read");
-      k.enemies.push_back(static_cast<int32_t>(kind));
+      int64_t x = 0;
+      if (!to_int(e, 0, (v11 ? kSlotCount : kMw1KindCount) - 1, &x)) return fail("the offer's enemies don't read");
+      k.enemies.push_back(v11 ? static_cast<int32_t>(x) : slot_of_mw1_kind(static_cast<int32_t>(x)));
     }
     if (k.enemies.empty() || k.enemies.size() > 4) return fail("the offer has no enemies, or too many");
+    // FIXES 104: the chassis and loadouts, one per enemy; absent (an older save), the stand-ins; there but bad, the save fails.
+    if (v.count("offer_chassis") && v.count("offer_loadouts")) {
+      std::vector<int32_t> ch, lo;
+      bool ok = true;
+      for (auto [key, out] : {std::pair{"offer_chassis", &ch}, std::pair{"offer_loadouts", &lo}}) {
+        std::istringstream is(v[key]);
+        std::string x;
+        while (std::getline(is, x, ',')) {
+          int64_t n64 = 0;
+          ok = ok && to_int(x, 0, 99, &n64);
+          out->push_back(static_cast<int32_t>(n64));
+        }
+      }
+      for (size_t i = 0; ok && i < ch.size(); ++i) ok = ch[i] < mech3::kMechCount && lo.size() == ch.size() && lo[i] < loadout_count(ch[i]);
+      if (!ok || ch.size() != k.enemies.size() || lo.size() != k.enemies.size()) return fail("the offer's chassis don't read");
+      k.chassis = ch, k.loadouts = lo;
+    }
     if (k.objective != Objective::kDestroyAll && k.structure.empty()) return fail("a structure's offer with no structure");
     // Version 6's mission; before it, none rolled (a raid with no code, no planet).
     if (n >= 6) {
@@ -554,23 +585,39 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
     };
     while (std::getline(ws, w, ',')) {
       std::vector<int64_t> f;
-      // Before version 5 kind:condition, the damage taken as the parts lost (the old pay's shape).
-      if (!fields(w, v5 ? std::vector<std::pair<int64_t, int64_t>>{{0, kKindCount - 1}, {0, 100}, {0, kWhole}}
-                        : std::vector<std::pair<int64_t, int64_t>>{{0, kKindCount - 1}, {0, 100}},
+      // slot:condition:damage (before version 11 MW1's kind number for the slot; before version 5 kind:condition, the
+      // damage taken as the parts lost, the old pay's shape).
+      const int64_t top = (v11 ? kSlotCount : kMw1KindCount) - 1;
+      if (!fields(w, v5 ? std::vector<std::pair<int64_t, int64_t>>{{0, top}, {0, 100}, {0, kWhole}}
+                        : std::vector<std::pair<int64_t, int64_t>>{{0, top}, {0, 100}},
                   &f))
         return fail("the pending mission's wrecks don't read");
-      p.wrecks.push_back(Wreck{static_cast<int32_t>(f[0]), static_cast<int32_t>(f[1]),
+      p.wrecks.push_back(Wreck{v11 ? static_cast<int32_t>(f[0]) : slot_of_mw1_kind(static_cast<int32_t>(f[0])), static_cast<int32_t>(f[1]),
                                v5 ? static_cast<int32_t>(f[2]) : static_cast<int32_t>((100 - f[1]) * kWhole / 100)});
+    }
+    if (v.count("pending_wreck_chassis") && !v["pending_wreck_chassis"].empty()) {  // FIXES 104; absent: stand-ins
+      std::istringstream cs(v["pending_wreck_chassis"]);
+      std::string x;
+      size_t i = 0;
+      while (std::getline(cs, x, ',')) {
+        int64_t ch = 0;
+        if (i >= p.wrecks.size() || !to_int(x, -1, mech3::kMechCount - 1, &ch)) return fail("the pending mission's wreck chassis don't read");
+        p.wrecks[i++].chassis = static_cast<int32_t>(ch);
+      }
+      if (i != p.wrecks.size()) return fail("the pending mission's wreck chassis don't read");
     }
     if (v5) {
       if (!v.count("pending_bills")) return fail("the pending mission's bills are missing");
       std::istringstream bs(v["pending_bills"]);
       std::string b;
       while (std::getline(bs, b, ',')) {
+        // who:mech:damage:destroyed, then :lost (FIXES 98; absent in older saves: a downed mech lost, as then).
         std::vector<int64_t> f;
-        if (!fields(b, {{0, kPilotIds - 1}, {0, mech3::kMechCount - 1}, {0, kWhole}, {0, 1}}, &f))
+        if (!fields(b, {{0, kPilotIds - 1}, {0, mech3::kMechCount - 1}, {0, kWhole}, {0, 1}, {0, 1}}, &f) &&
+            (f.clear(), !fields(b, {{0, kPilotIds - 1}, {0, mech3::kMechCount - 1}, {0, kWhole}, {0, 1}}, &f)))
           return fail("the pending mission's bills don't read");
-        p.bills.push_back({static_cast<int32_t>(f[0]), static_cast<int32_t>(f[1]), static_cast<int32_t>(f[2]), f[3] != 0});
+        const bool lost = f.size() > 4 ? f[4] != 0 : f[3] != 0;
+        p.bills.push_back({static_cast<int32_t>(f[0]), static_cast<int32_t>(f[1]), static_cast<int32_t>(f[2]), f[3] != 0, f[3] != 0 && lost});
       }
     }
     if (v4) {
@@ -578,14 +625,22 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
       std::istringstream fs(v["pending_lance"]);
       std::string f;
       while (std::getline(fs, f, ',')) {
-        // id:destroyed, then :missing (FIXES.md item 32; absent in older saves: not missing, killed as before).
-        const size_t colon = f.find(':'), colon2 = colon == std::string::npos ? colon : f.find(':', colon + 1);
-        int64_t id = 0, gone = 0, missing = 0;
-        if (colon == std::string::npos || !to_int(f.substr(0, colon), 1, kPilotIds - 1, &id) ||
-            !to_int(f.substr(colon + 1, colon2 == std::string::npos ? std::string::npos : colon2 - colon - 1), 0, 1, &gone) ||
-            (colon2 != std::string::npos && !to_int(f.substr(colon2 + 1), 0, 1, &missing)))
-          return fail("the pending mission's lance doesn't read");
-        p.lance.push_back({static_cast<int32_t>(id), gone != 0, gone != 0 && missing != 0});
+        // id:destroyed, then :missing (FIXES.md item 32), then :killed:mech_lost (FIXES 98). Absent in older saves: not
+        // missing, killed and their mech lost, as before.
+        std::vector<int64_t> x;
+        {
+          std::istringstream is(f);
+          std::string e;
+          while (std::getline(is, e, ':')) {
+            int64_t n = 0;
+            if (!to_int(e, x.empty() ? 1 : 0, x.empty() ? kPilotIds - 1 : 1, &n)) return fail("the pending mission's lance doesn't read");
+            x.push_back(n);
+          }
+        }
+        if (x.size() < 2 || x.size() > 5 || x.size() == 4) return fail("the pending mission's lance doesn't read");
+        const bool gone = x[1] != 0, missing = gone && x.size() > 2 && x[2] != 0;
+        const bool killed = gone && (x.size() == 5 ? x[3] != 0 : !missing), mech_lost = gone && (x.size() == 5 ? x[4] != 0 : true);
+        p.lance.push_back({static_cast<int32_t>(x[0]), gone, missing, killed, mech_lost});
       }
       std::istringstream ss(v.count("pending_stayed") ? v["pending_stayed"] : std::string());  // absent: none (early v4)
       while (std::getline(ss, f, ',')) {

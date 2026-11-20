@@ -140,7 +140,7 @@ std::string strength_line(int32_t r, int32_t lancemates) {
   int32_t per[4] = {};
   for (int32_t k : force)
     for (int32_t i = 0; i < 4; ++i)
-      if (std::strcmp(weight_class(kMechKinds[k].tons), kClasses[i]) == 0) ++per[i];
+      if (std::strcmp(weight_class(kForceSlots[k].tons), kClasses[i]) == 0) ++per[i];
   static const char* kPlurals[] = {"lights", "mediums", "heavies", "assaults"};
   std::vector<std::string> kinds;
   for (int32_t i = 0; i < 4; ++i)
@@ -244,6 +244,17 @@ std::vector<std::string> wrapped(const std::string& text, size_t columns) {
   put();
   if (!line.empty()) out.push_back(line);
   return out;
+}
+
+std::vector<std::string> quoted(const std::vector<std::string>& lines, size_t columns) {
+  std::string text;
+  for (const std::string& l : lines) {
+    const size_t a = l.find_first_not_of(' ');
+    if (a == std::string::npos) continue;
+    text += (text.empty() ? "" : " ") + l.substr(a, l.find_last_not_of(' ') - a + 1);
+  }
+  if (text.empty()) return {};
+  return wrapped("\"" + text + "\"", columns);
 }
 
 bool can_go_there(const Company& c, const Lead& l) { return l.planet >= 0 && l.planet != planet_index(c.planet_number); }

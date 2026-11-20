@@ -47,6 +47,13 @@ State& state();
 void set_backend(platform::Files* files, platform::MusicOutput* output, std::string music_dir);
 std::string track_path(int track);  // music/trackNN.<ext> that exists, else ""
 
+// Ours (MW1: Critical Hit's FIXES.md item 100): a track the disc hasn't, its file by path (through the mounts), e.g.
+// MW1's menu theme. Its number is outside the CD's 1..99, so it never counts toward num_tracks (PM's mission music
+// picks among those) and opens the "drive" alone when there's no other music. Played, looped and stopped like any
+// track (play_track(kExtraTrack, Loop)). Empty: none (MW3's and PM's programs never set it).
+inline constexpr int kExtraTrack = 100;
+void set_extra_track(std::string path);
+
 bool open(std::vector<Cue> cues);   // 0x00572450
 void close();                       // 0x005728f0
 bool play_track(int track, int mode);  // 0x00572af0

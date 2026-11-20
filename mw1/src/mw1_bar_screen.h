@@ -39,11 +39,14 @@ enum BarPanel : int32_t {
   kBarPanelTerminal, kBarPanelGrid, kBarPanelColumnFrame, kBarPanelCount = kBarPanelColumnFrame + 16
 };
 inline constexpr int32_t kBarColumns = 4;
+// FIXES 95: the recruit's pitch on the terminal (mw1_term_186x328, its words from x 454 at 4:3: about 8 px a letter):
+// one quote wrapped to this many letters, at most kPitchLines (from y 236, 15 apart, above the terminal's foot).
+inline constexpr size_t kPitchColumns = 20, kPitchLines = 10;
 inline constexpr int32_t kBarPanelColumnPortrait = kBarPanelColumnFrame + 4, kBarPanelMechFrame = kBarPanelColumnFrame + 8,
                          kBarPanelMech = kBarPanelColumnFrame + 12;
 
 // MW1's art by name (mw1image.zbd): a pilot's portrait (recruit_<their name>; `small` the grid's), the commander's,
-// and a mech's picture (the first of MW1's kinds that the Pirate's Moon mech stands in for, kMechKinds).
+// and a mech's picture (its amber icon, mw1_mech_icons.h).
 std::string portrait_image(int32_t pilot, bool small);
 std::string commander_image(bool small);
 std::string mech_image(int32_t pm_mech);

@@ -6,6 +6,7 @@
 
 #include "check.h"
 #include "gamez/zimage/zimg_library.h"
+#include "mw1_enemies.h"
 #include "mw1_mech_icons.h"
 #include "mw1_scenery.h"
 #include "mw1_travel.h"
@@ -42,7 +43,7 @@ TEST(mw1_rooms_every_portrait_and_mech_picture_is_mw1s_art) {
   EXPECT(missing == 0);
   EXPECT(art_there(mw1::commander_image(true)) && art_there(mw1::commander_image(false)));
   // The mechs' pictures are PM's lab icons in amber, made at the start (FIXES.md item 23, mw1_mech_icons.h).
-  for (const mw1::MechKind& k : mw1::kMechKinds) EXPECT(mw1::mech_image(k.pm_mech) == mw1::mech_icon_image(k.pm_mech));
+  for (int32_t m : mw1::kRoster) EXPECT(mw1::mech_image(m) == mw1::mech_icon_image(m));
   EXPECT(mw1::mech_image(mw1::kPmOwens) == "mw1_icon_owens");
   EXPECT(mw1::mech_image(-1).empty());
   EXPECT(art_there("mw1_bar_scene") && art_there("mw1_office_liaison"));
