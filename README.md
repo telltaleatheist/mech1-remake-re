@@ -313,6 +313,9 @@ installed copy does not have. Two ways to get it back:
 
 - The game runs fullscreen at your desktop's resolution, widescreen
   included. **Alt+Enter** switches between fullscreen and a window.
+- Ultrawide screens (21:9, 32:9) play at their full width: the view widens
+  without stretching, and RESOLUTION offers 2560x1080, 3440x1440, 3840x1080
+  and 5120x1440 (contributed by roswellien).
 - In a window, press and release **Ctrl+Alt** to free the mouse; click in
   the window to take it back. Switching away frees it too, and coming back
   to a mission (Cmd+Tab, Alt+Tab or a click) takes it again at once; that
