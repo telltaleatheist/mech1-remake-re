@@ -1997,6 +1997,7 @@ about 6 s with its speed up, moving 0 m, before it walked.
 
 ## 118. [ ] Permanent upgrades bought with money *(planned for MW1 1.1.0; not in 1.0.0)*
 - **See also 122:** 1.1.0's arms dealer, the hub's other shop (weapons and equipment by world).
+- **The full plan, with open questions:** mw1/research/permanent-upgrades-plan.md.
 - **Owen (2026-11-20):** players can keep playing indefinitely without the story, like an Instant Action mod, and
   money needs something to buy. It's always on sale at the hub; nothing to hunt for. It applies to the player's side
   only, never to enemies.
