@@ -83,6 +83,7 @@ Owen's install has 129 files. The exes, against the hashes Elthial's `docs/SUPPO
 - The data segment moves the same way, 304E→305F (image offset 0x284F0 against 0x283E0). It has the same size (0x4EE0 bytes before BSS, matching Elthial's `BTECH_BSS_START` 0x4EDC), and its tables sit at the same offsets: four of the port's string pointer tables at DS:02B6..02FA resolve to text in Owen's copy.
 - **So the revisions differ only inside segment 0810, BTECH's main combat code, by about 272 bytes.** It is probably a bug-fix patch. What it changes needs a Ghidra diff of segment 0810 against the 174,267-byte BTECH, and **no copy of that revision is on this Mac** (searched all of Callisto). Elthial or another owner would need to supply one.
 - MW_MAIN, MW.EXE and the drivers are identical, so the campaign is the same.
+- **The port refuses Owen's BTECH at run time** (dev 1, FIXES 124, run in WSL). `BtechHostLoadInitialData` checks the exact packed size, 174,267, before the CRC. Owen's 174,533 fails and falls into the original's insert-disk prompt, printed to stdout only. So the port runs the campaign with Owen's files but **no combat**. Golden traces of combat need the 174,267 revision. Otherwise combat's oracle is DOSBox-X alone.
 
 **Data files:**
 
@@ -250,6 +251,14 @@ The second choice is `git subtree add --prefix=mw1o/` into mw3-re's mw1 branch. 
 - Combat checkpoints compare the mech states DOSBox's debugger dumps.
 - This is mw3-re's differential idea without a probe DLL, since 16-bit code can't be linked. DOSBox-X is a test tool only: Inception already uses it this way, so the no-emulation rule (which is about what ships) isn't touched.
 - **Pure functions** (geometry, clipping, division, ellipses, LZW, picture decoding) get unit differentials: while each is converted, the old C version stays in the test build and both are fed the same random inputs, as mw3-re's probe tests do.
+
+**The port's own headless oracle** (dev 1, FIXES 124) is the cheapest way to record the golden traces:
+- **Running it:** set `MECHWARRIOR_DEBUG_CONTROL_DIRECTORY` and it takes scripted key steps from `command.txt`.
+- **status.json:** each step writes the current original menu (each entry's handler offset in the original, its label and its navigation links), plus the campaign fields (planet, contract, payment, scenario, result) and, in combat, the units and targets.
+- **Captures:** each step also writes `.indices`, the indexed EGA frame.
+- **Headless:** with `SDL_VIDEO_DRIVER=offscreen`, `SDL_AUDIO_DRIVER=dummy` and `MECHWARRIOR_SAVE_DIRECTORY`, it writes nothing into the game folder.
+- **Uses:** its handler offsets map the menu tree onto the original's functions, and phase 0 records traces through it.
+- **Where:** a built copy and a driver script are on the PC (WSL `~/mw1port`).
 
 **The phases:**
 - **Phase 0. Fork and harness** (about 1-2 weeks): fork with history; CMake on Mac, Linux and Windows; record the golden traces; a headless test runner in mw3-re's style (filters, `--hidden`); Inception's DOSBox-X rig brought over with the int 9 feeder.
