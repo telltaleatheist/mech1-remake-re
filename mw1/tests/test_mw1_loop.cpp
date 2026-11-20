@@ -4,6 +4,7 @@
 // funds and the enemies' parts in its stores; the next offer declined, so PM's main menu stays. Failed, or quit
 // (no mission end), no fee and no salvage: the stores and the funds as the advance left them (VISION.md, the endings).
 #include <sys/resource.h>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -303,6 +304,9 @@ struct Run {
   std::vector<int32_t> force_chassis, force_loadouts;
   std::vector<int32_t> wreck_chassis;  // and at AFTER ACTION, each wreck's chassis; the mission's salvage items
   int32_t salvage_items = -1;
+  // FIXES 121: the mission's salvage's equipment at AFTER ACTION, and the stores' at the run's end: each (kind, tech,
+  // count).
+  std::vector<std::array<int32_t, 3>> salvage_equipment, stores_equipment;
   bool first_contract = true;  // false: the save's company had one before (the Houses' and kills' totals not checked)
   std::vector<std::string> ally_pilots;  // the allied brains' pilots, in the mission
   std::vector<float> ally_errors;
@@ -385,6 +389,21 @@ void take_wrecks(Run* run) {
   run->wreck_chassis.clear();
   for (const mw1::Wreck& w : p->wrecks) run->wreck_chassis.push_back(w.chassis);
   run->salvage_items = p->salvage ? p->salvage->count() : 0;
+  run->salvage_equipment.clear();
+  if (p->salvage)
+    for (const mech3::ConfigItem* it : p->salvage->items)
+      if (it->kind() == 3)
+        run->salvage_equipment.push_back({static_cast<const mech3::EquipmentItem*>(it)->equipment,
+                                          static_cast<const mech3::EquipmentItem*>(it)->tech, it->count});
+}
+// FIXES 121: the stores' equipment as the run ends (with funds_end and items_end).
+void take_stores(Run* run, const mw1::Company* c) {
+  if (!run || !c || !c->stores) return;
+  run->stores_equipment.clear();
+  for (const mech3::ConfigItem* it : c->stores->items)
+    if (it->kind() == 3)
+      run->stores_equipment.push_back({static_cast<const mech3::EquipmentItem*>(it)->equipment,
+                                       static_cast<const mech3::EquipmentItem*>(it)->tech, it->count});
 }
 int loadout_items(const mw1::Company* c) { return c && c->loadout ? static_cast<int>(c->loadout->items.size()) : -1; }
 
@@ -1398,7 +1417,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
         // The run over: another offer at the office (NEXT OFFER, LEAVE), then OPTIONS' MAIN MENU (PM's main menu, the
         // hub off). After an ABORT the contract is still taken (no office, no OPTIONS tile): OPTIONS by Escape.
         if (!declined) {
-          if (run && c) run->funds_end = c->funds, run->items_end = c->stores->count(), run->loadout_end = loadout_items(c);
+          if (run && c) run->funds_end = c->funds, run->items_end = c->stores->count(), run->loadout_end = loadout_items(c), take_stores(run, c);
           if (!taken) {
             sc->on_button(mw1::kHubOffice, 0, 0);
             return;
@@ -1802,7 +1821,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
               items_at_offer, c ? c->stores->count() : -1, c ? c->kills : -1, c ? c->favor[c->planet_house] : -1);
   // A run stopped at AFTER ACTION, or started on one (the restart tests): what it left, checked by its test.
   if (run && (run->stop_at_after_action || run->resume)) {
-    if (c) run->funds_end = c->funds, run->items_end = c->stores->count(), run->loadout_end = loadout_items(c);
+    if (c) run->funds_end = c->funds, run->items_end = c->stores->count(), run->loadout_end = loadout_items(c), take_stores(run, c);
     EXPECT(back_at_main);
     mw1::uninstall_game_loop();
     zrdr::close_archives(true);
@@ -1827,7 +1846,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
     EXPECT(mw1::game_loop_contract() && mw1::game_loop_contract()->accepted);
     if (run) EXPECT(loadout_items(c) == run->loadout_at_offer);
     else EXPECT(c && !c->loadout);
-    if (run && c) run->funds_end = c->funds, run->items_end = c->stores->count(), run->loadout_end = loadout_items(c);
+    if (run && c) run->funds_end = c->funds, run->items_end = c->stores->count(), run->loadout_end = loadout_items(c), take_stores(run, c);
     for (int h = 0; c && h < mw1::kHouseCount; ++h) EXPECT(c->favor[h] == favor_at_offer[h] && c->grievance[h] == grievance_at_offer[h]);
     mw1::uninstall_game_loop();
     zrdr::close_archives(true);
@@ -1882,7 +1901,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
     EXPECT(c && c->funds == funds_in_mission - bill_shown && c->stores->count() == (lab_after >= 0 ? lab_after : items_at_offer));
   }
   for (int32_t r = 0; c && r < mech3::kMechCount; ++r) EXPECT(c->stores->has_mech(r) == nullptr);  // never a mech
-  if (run && c) run->funds_end = c->funds, run->items_end = c->stores->count(), run->loadout_end = loadout_items(c);
+  if (run && c) run->funds_end = c->funds, run->items_end = c->stores->count(), run->loadout_end = loadout_items(c), take_stores(run, c);
   if (run && c) run->date_end = mw1::date_words(c->date);
   mw1::uninstall_game_loop();
   EXPECT(mech3::program_flow() == nullptr);
@@ -6257,6 +6276,118 @@ TEST(mw1_loop_every_chassis_and_loadout_fields_and_salvages_headless) {
     fielded += static_cast<int32_t>(four.size());
   }
   std::printf("  %d loadouts fielded in %d missions\n", fielded, missions);
+}
+
+// FIXES.md item 121 (dev 1's 111 weapons report): the Clan targeting computer (the Puma's and Masakari's Primaries, a
+// Thor Alternate, in the right torso) was salvaged in 1 of 10 runs, the Clan AMS (17 loadouts) never. A Puma Primary
+// killed two ways, its salvage at AFTER ACTION and the company's stores after OK read: by the head (the torso left
+// standing), then by the torso. The engine's mech has one torso part for ids 1, 7 and 8 (the torso, the left and
+// right torso: 0x0041d510, docs/structs.md Parts), and salvage keeps an item only off a destroyed part
+// (0x00474f80): a torso kill loses every torso item, by the original's rule.
+TEST(mw1_loop_a_puma_primarys_targeting_computer_salvaged_off_a_standing_torso_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  int32_t puma = -1;
+  for (int32_t m = 0; m < mech3::kMechCount && puma < 0; ++m) {
+    std::string n = mech3::mech_name(m) ? mech3::mech_name(m) : "";
+    for (char& ch : n) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    if (n == "puma") puma = m;
+  }
+  int32_t primary = -1;
+  for (int32_t l = 0; puma >= 0 && l < mw1::loadout_count(puma) && primary < 0; ++l)
+    if (mw1::loadout_kind(puma, l) == mw1::LoadoutKind::kPrimary) primary = l;
+  EXPECT(puma >= 0 && primary >= 0);
+  if (puma < 0 || primary < 0) return;
+  constexpr int32_t kTc = 14, kAms = 0;  // equip kinds (mech_names.cpp's kEquipment)
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_loop_puma_tc";
+  for (const int32_t part : {6, 1, 4}) {  // the head, the torso, both legs (4 and 5)
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    in_child([&] {
+      Run run;
+      run.save = (dir / mw1::kSaveFile).string();
+      run.world = "c2";
+      run.force = {mw1::kSlot45}, run.force_chassis = {puma}, run.force_loadouts = {primary};
+      std::vector<std::array<int32_t, 3>> carried;  // the Puma's equipment as fielded: (kind, tech, location)
+      // The parts standing by id (0x0041d510's 15) before the hit and after: the torso is ids 1, 7 and 8, three gone.
+      int32_t standing_before = -1, standing_after = -1;
+      bool census = false;  // every stock TC and AMS in the torso
+      run.in_mission = [&](int32_t) {
+        if (!mech3::mech_mission_player()) return true;
+        if (part == 6) {  // every stock loadout's TCs and AMSes by place: in the torso (ids 1, 7, 8) or not
+          int32_t tc_torso = 0, tc_other = 0, ams_torso = 0, ams_other = 0, ams_head = 0, ams_loadouts = 0;
+          for (int32_t m = 0; m < mech3::kMechCount; ++m)
+            if (const mech3::MechDfn* d = mech3::mech_dfn(m); d && d->configs)
+              for (const mech3::Config* c : d->configs->configs) {
+                if (!c || c->player_made) continue;
+                bool ams = false;
+                for (const mech3::ConfigItem* it : c->items) {
+                  if (it->kind() != 3) continue;
+                  const int32_t k = static_cast<const mech3::EquipmentItem*>(it)->equipment, at = it->location(-1);
+                  const bool torso = at == 1 || at == 7 || at == 8;
+                  if (k == kTc) (torso ? tc_torso : tc_other) += 1;
+                  const bool clan = static_cast<const mech3::EquipmentItem*>(it)->tech == 1;
+                  if (k == kAms && clan) (torso ? ams_torso : ams_other) += 1, ams = true;
+                  ams_head += k == kAms && clan && at == 6;
+                }
+                ams_loadouts += ams;
+              }
+          std::printf("  stock loadouts: TCs %d in the torso, %d elsewhere; Clan AMSes %d in the torso, %d elsewhere (%d in the head; %d "
+                      "loadouts)\n",
+                      tc_torso, tc_other, ams_torso, ams_other, ams_head, ams_loadouts);
+          // Each lost to a head or a torso kill: the TCs all in the torso, the Clan AMSes in the torso or the head.
+          census = tc_torso > 0 && tc_other == 0 && ams_torso > 0 && ams_other == ams_head;
+        }
+        int32_t n = 0;
+        const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+        for (int32_t i = 0; i < n; ++i) {
+          const mech3::ai::Brain* b = brain_of(ai[i].mech);
+          mech3::LaunchedMech d;
+          if (!b || b->params.team() == 1 || !mech3::describe_mech(ai[i].mech, &d)) continue;
+          if (const auto* c = static_cast<const mech3::Config*>(d.config))
+            for (const mech3::ConfigItem* it : c->items)
+              if (it->kind() == 3)
+                carried.push_back({static_cast<const mech3::EquipmentItem*>(it)->equipment,
+                                   static_cast<const mech3::EquipmentItem*>(it)->tech, it->location(-1)});
+          int32_t before = 0, after = 0, all = 0;
+          mech3::program_mech_parts_standing(ai[i].mech, &before, &all);
+          mech3::mech_hit_part(ai[i].mech, part, 10000.0f);
+          if (part == 4) mech3::mech_hit_part(ai[i].mech, 5, 10000.0f);
+          mech3::program_mech_kill_credit(mech3::mech_mission_player(), ai[i].mech);
+          mech3::program_mech_parts_standing(ai[i].mech, &after, &all);
+          standing_before = before, standing_after = after;
+        }
+        return false;
+      };
+      loop_run(kWon, &run);
+      auto has = [](const std::vector<std::array<int32_t, 3>>& v, int32_t kind) {
+        int32_t n = 0;
+        for (const auto& e : v)
+          if (e[0] == kind && e[1] == 1) n += e[2];
+        return n;
+      };
+      std::string said;
+      for (const auto& e : carried) said += " kind " + std::to_string(e[0]) + " tech " + std::to_string(e[1]) + " at " + std::to_string(e[2]) + ";";
+      std::string got;
+      for (const auto& e : run.salvage_equipment) got += " kind " + std::to_string(e[0]) + " tech " + std::to_string(e[1]) + " x" + std::to_string(e[2]) + ";";
+      const int32_t stores_tc = has(run.stores_equipment, kTc);
+      std::printf("  killed by part %d (parts standing %d -> %d): carried%s salvage%s the stores' Clan TCs %d\n", part,
+                  standing_before, standing_after,
+                  said.c_str(), got.c_str(), stores_tc);
+      int32_t tc_carried = 0;
+      for (const auto& e : carried) tc_carried += e[0] == kTc && e[1] == 1 && e[2] == 8;
+      EXPECT(tc_carried == 1);  // the Puma Primary's Clan targeting computer
+      // The original's rule (Mech3.exe 0x004671e0 / PM 0x00468c50: a head's loss destroys the torso too; 0x00462490 the
+      // hip's): a head or a torso kill leaves the torso destroyed, so the TC (right torso) is lost; both legs leave it
+      // standing, so the TC is salvaged and, the mission won, in the company's stores.
+      if (part == 6) EXPECT(census);
+      if (part == 4) {
+        EXPECT(has(run.salvage_equipment, kTc) == 1 && stores_tc == 1);
+      } else {
+        EXPECT(standing_before - standing_after >= 3 && has(run.salvage_equipment, kTc) == 0 && stores_tc == 0);
+      }
+    });
+  }
 }
 
 // FIXES.md item 93 (Owen: can the game be played start to finish, the storyline working?): a new campaign played
