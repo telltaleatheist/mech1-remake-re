@@ -3048,11 +3048,12 @@ static void werewolf_run() {
               crater_history);
   EXPECT(crater == 0 && crater_polys >= 20 && crater_refs > 0 && crater_history == 1);  // 10 quads, 10 triangles; a bent quad is 2
   EXPECT(pm::zmod::clip3d_state().overruns == 0);  // the clippers stayed in their arena (gmod_draw.cpp)
-  // Leaving the mech lab purges what no model uses (0x005394c0): the world's materials stay.
+  // Leaving the mech lab purges what no model uses (0x005394c0): the world's materials stay. (Over 1000 while a
+  // destroyed node's PM model was never released, ~2480; with it released, as MW3's node_drop_model does, ~490.)
   const int32_t materials = ::zmod::materials().count;
   ::zmod::models_purge(true, true);
   std::printf("  c2m4: materials %d before the lab's purge, %d after\n", materials, ::zmod::materials().count);
-  EXPECT(materials > 1000 && ::zmod::materials().count > 1000);
+  EXPECT(materials > 400 && ::zmod::materials().count == materials);
 }
 
 // pm-tests item 18: there is no cow level on c2m3, typed at the start and mid-mission: every primary and secondary

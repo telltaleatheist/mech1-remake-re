@@ -3214,6 +3214,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   OfficeState* office_state() const { return office_state_; }
   HubOptionsState* hub_options_state() const { return hub_options_state_; }
   EventState* event_state() const { return event_up_ ? event_state_ : nullptr; }
+  int32_t event_id() const { return event_up_ && !ev_panel_.journal && !ev_panel_.news ? ev_shown_.event : -1; }
   const LoadingSeen& loading_seen() const { return seen_; }
   // The MW1 screen showing now and its fit problems (FIXES.md item 79's soak): none when no MW1 screen is up.
   std::vector<std::string> current_fit_problems(std::string* which) const {
@@ -4408,6 +4409,7 @@ void game_loop_press(int32_t button) {
 BarState* game_loop_bar() { return the_loop() ? the_loop()->bar_state() : nullptr; }
 OfficeState* game_loop_office() { return the_loop() ? the_loop()->office_state() : nullptr; }
 EventState* game_loop_event() { return the_loop() ? the_loop()->event_state() : nullptr; }
+int32_t game_loop_event_id() { return the_loop() ? the_loop()->event_id() : -1; }
 LoadingSeen game_loop_loading_seen() { return the_loop() ? the_loop()->loading_seen() : LoadingSeen{}; }
 std::vector<std::string> game_loop_fit_problems(std::string* which) { return the_loop() ? the_loop()->current_fit_problems(which) : std::vector<std::string>{}; }
 void set_game_loop_hold_launch(bool on) {

@@ -133,6 +133,8 @@ class EventState;
 }
 using namespace event_ui;
 EventState* game_loop_event();  // the event panel's state once made (tests)
+// FIXES.md item 93 (tests): the story event on the panel, its id; -1 none (or the journal, the log, the news).
+int32_t game_loop_event_id();
 // MW1's story (mw1_story.h) on or off: on in the game; the loop tests that aren't about it turn it off.
 void set_game_loop_story(bool on);
 // The offer drawn again for the company as a test changed it (game_loop_company_for_tests: its world, standing,
