@@ -3,7 +3,6 @@
 // disabled, the mission's end, and back at the hub the settlement (the fee, the wrecks' salvage) in the company's
 // funds and the enemies' parts in its stores; the next offer declined, so PM's main menu stays. Failed, or quit
 // (no mission end), no fee and no salvage: the stores and the funds as the advance left them (VISION.md, the endings).
-#include <sys/resource.h>
 #include <array>
 #include <cmath>
 #include <cstdio>
@@ -20,8 +19,18 @@
 #include <typeinfo>
 
 #if !defined(_WIN32)
+#include <sys/resource.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#else
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <psapi.h>
 #endif
 
 #include "check.h"
@@ -7364,11 +7373,24 @@ namespace {
 // The choices that carry the trail on (the commander lives and follows), by event: the journal walk's.
 const std::map<int32_t, int32_t> kTrailPick = {{0x64, 0}, {0x17, 1}, {0x18, 1}, {0x19, 1}, {0x27, 1}, {0x2F, 0}, {0x30, 1},
                                                {0x32, 0}, {0x37, 0}, {0x40, 0}, {0x3E, 0}, {0x45, 1}, {0x72, 0}};
-#if defined(__APPLE__)
-constexpr long kRssPerMb = 1024 * 1024;  // ru_maxrss in bytes on macOS
+// The process's peak memory so far, in MB: ru_maxrss (bytes on macOS, kilobytes on Linux); on Windows the peak
+// working set (FIXES 120: mw1tests builds there too).
+long peak_mb() {
+#if defined(_WIN32)
+  PROCESS_MEMORY_COUNTERS pmc{};
+  pmc.cb = sizeof pmc;
+  if (!K32GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof pmc)) return 0;
+  return static_cast<long>(pmc.PeakWorkingSetSize / (1024 * 1024));
 #else
-constexpr long kRssPerMb = 1024;  // in kilobytes on Linux
+  struct rusage ru {};
+  getrusage(RUSAGE_SELF, &ru);
+#if defined(__APPLE__)
+  return static_cast<long>(ru.ru_maxrss / (1024 * 1024));
+#else
+  return static_cast<long>(ru.ru_maxrss / 1024);
 #endif
+#endif
+}
 int32_t months_between(const mw1::Date& a, const mw1::Date& b) { return (b.year - a.year) * 12 + (b.month - a.month); }
 // The lance's tons as the lab would have it: the heaviest owned 'Mechs, one each for the commander and the lancemates.
 int32_t best_lance_tons(const mw1::Company& c, size_t pilots) {
@@ -7471,9 +7493,7 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
         if (dark_wing) how = dw_tries == 0 ? 1 : dw_tries == 1 ? 2 : 0, ++dw_tries;
         story ? ++story_battles : ++contracts;
         if ((contracts + story_battles) % 25 == 0) {  // memory over a long campaign: the peak so far
-          struct rusage ru {};
-          getrusage(RUSAGE_SELF, &ru);
-          const long mb = static_cast<long>(ru.ru_maxrss / kRssPerMb);
+          const long mb = peak_mb();
           std::printf("PLAY: %d battles, peak memory %ld MB\n", contracts + story_battles, mb);
           if (contracts + story_battles == 25) mb_at_25 = mb;
           mb_last = mb, battles_last = contracts + story_battles;
