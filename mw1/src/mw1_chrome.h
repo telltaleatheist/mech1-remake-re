@@ -124,6 +124,20 @@ inline constexpr const char* kChecked = "mw1_check_on";
 inline constexpr int32_t kCheckSize = 16;
 inline constexpr const char* kCells[3] = {"mw1_cell", "mw1_cell_lit", "mw1_cell_sel"};
 inline constexpr int32_t kCellW = 62, kCellH = 20;
+// FIXES 126, MW1's SETTINGS (mw1settings.zrd): a section's tab (a button's looks; _off the chosen one, its lamp lit and
+// framed in amber), a choice's value (a segment; _off the chosen one, filled amber; a cheat's chosen ON filled red,
+// mw1_segx_off), and a volume's cell (empty, mw1_vol; full, mw1_vol_on), each with the four looks.
+inline constexpr const char* kTabLook = "mw1_tab";
+inline constexpr const char* kSegLook = "mw1_seg";
+inline constexpr const char* kSegAlertLook = "mw1_segx";
+inline constexpr int32_t kSegW = 84, kSegH = 20;
+inline constexpr const char* kVolLook = "mw1_vol";
+inline constexpr const char* kVolOnLook = "mw1_vol_on";
+inline constexpr int32_t kVolW = 14, kVolH = 18;
+images::Image tab(int32_t state);                       // 0 still, 1 lit, 2 pressed, 3 the chosen one
+images::Image segment(int32_t state, bool alert);       // the same; 3 chosen (amber; red when alert)
+images::Image volume_cell(int32_t state, bool full);    // 0 still, 1 lit, 2 pressed, 3 off
+std::string look_name(const char* base, int32_t state);  // base, _lit, _down, _off
 inline constexpr const char* kClear = "mw1_clear";  // nothing to see: a part a screen binds that MW1 doesn't show
 inline constexpr const char* kDialogTall = "mw1_dialog_tall";
 inline constexpr int32_t kDialogTallH = 300;

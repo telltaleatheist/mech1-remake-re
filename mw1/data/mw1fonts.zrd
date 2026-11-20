@@ -49,6 +49,15 @@ WINDOWS_FONTS (
   "mw1_line_off" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -13 color (96 100 104))
   "mw1_value" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -13 tracking 1 color (255 176 64))
   "mw1_value_alert" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -13 tracking 1 color (255 84 60))
+  ; FIXES 126, SETTINGS: a chosen tab's words (amber); a choice's words and the chosen one's; a group's heading (a
+  ; cheat's in red, its highlight); a list's value centred between its arrows; its count; the small fixes' list.
+  "mw1_label_on" (face "Saira Condensed Bold" file "fonts\SairaCondensed-Bold.ttf" height -15 tracking 2 align "center" color (255 196 90))
+  "mw1_seg" (face "Saira Condensed Bold" file "fonts\SairaCondensed-Bold.ttf" height -12 tracking 1 align "center" color (150 156 162))
+  "mw1_seg_on" (face "Saira Condensed Bold" file "fonts\SairaCondensed-Bold.ttf" height -12 tracking 1 align "center" color (255 226 180))
+  "mw1_sub" (face "Saira Condensed Bold" file "fonts\SairaCondensed-Bold.ttf" height -12 tracking 3 color (125 133 138))
+  "mw1_sub_hi" (face "Saira Condensed Bold" file "fonts\SairaCondensed-Bold.ttf" height -12 tracking 3 color (255 84 60))
+  "mw1_value_mid" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -13 tracking 1 align "center" color (255 196 90))
+  "mw1_count" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -11 color (125 133 138))
   ; A control table's key (its cell narrow): the row's and the row shown's.
   "mw1_cell_text" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -11 color (210 214 218))
   "mw1_cell_value" (face "Share Tech Mono" file "fonts\ShareTechMono-Regular.ttf" height -11 color (255 176 64))

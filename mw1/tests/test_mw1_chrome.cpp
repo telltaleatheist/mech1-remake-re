@@ -1,6 +1,7 @@
 // MW1's chrome (src/mw1_chrome.h): every piece its size, with an alpha plane (a tile frame's window clear, a panel's
 // body part see-through, the plaque solid), the same pixels every build, and packed with kFullAlpha. MW1_CHROME_PREVIEW=DIR
 // writes each as a BMP (over a checkerboard) to look at.
+#include <tuple>
 #include <algorithm>
 #include <array>
 #include <iterator>
@@ -32,7 +33,20 @@ TEST(mw1_chrome_pieces) {
   EXPECT(all.size() == 7 + 3 + 4 + 4 /* the tile-wide button's (STORY, item 47) */ + 1 /* the primary button (item 56) */ + mw1::chrome::panel_sizes().size() + mw1::chrome::terminal_sizes().size() +
                           std::size(mw1::chrome::kBoxWidths) * mw1::chrome::kBoxLinesMax +
                           2 * mw1::chrome::frame_sizes().size() + 8 + 8 + 4 + 3 + 2 + 3 /* the render cover's */ +
+                          20 /* FIXES 126, SETTINGS: tab, segment, red segment, volume bar, full bar, four looks each */ +
                           mw1::chrome::lab_pictures().size() - 6 + mw1::chrome::filebox_pictures().size());
+  // FIXES 126: SETTINGS' pieces, by name at their sizes, each look.
+  for (int32_t st = 0; st < 4; ++st)
+    for (const auto& [base, w, h] : {std::tuple{mw1::chrome::kTabLook, mw1::chrome::kButtonW, mw1::chrome::kButtonH},
+                                     std::tuple{mw1::chrome::kSegLook, mw1::chrome::kSegW, mw1::chrome::kSegH},
+                                     std::tuple{mw1::chrome::kSegAlertLook, mw1::chrome::kSegW, mw1::chrome::kSegH},
+                                     std::tuple{mw1::chrome::kVolLook, mw1::chrome::kVolW, mw1::chrome::kVolH},
+                                     std::tuple{mw1::chrome::kVolOnLook, mw1::chrome::kVolW, mw1::chrome::kVolH}}) {
+      bool found = false;
+      for (const mw1::images::Image& im : all)
+        if (im.name == mw1::chrome::look_name(base, st)) found = im.width == w && im.height == h;
+      EXPECT(found);
+    }
   // FIXES.md item 47: the tile-wide button, a tile's width, its four states.
   for (int32_t st = 0; st < 4; ++st) {
     bool found = false;

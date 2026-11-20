@@ -67,6 +67,8 @@
 #include "mw1_office.h"
 #include "mw1_campaign.h"
 #include "mw1_hub.h"
+#include "mech3/pause_menu.h"
+#include "mw1_settings.h"
 #include "mw1_hud_art.h"
 #include "mw1_market.h"
 #include "mw1_market_screen.h"
@@ -116,7 +118,8 @@ constexpr int32_t kBoxOk = 0, kBoxYesNo = 4, kAnswerYes = 6;
 constexpr const char* kFontsFile = "mw1fonts.zrd";  // MW1's data folder
 constexpr const char* kDialogFile = "mw1dialog.zrd", *kDialogName = "MW1MESSAGEBOX";  // every message box's layout
 constexpr uint32_t kOptionsStateGlobal = 0x609868;  // PM's main menu's Options state (its OPTIONS button pushes it)  // the message box's styles and answer (Win32's)
-constexpr uint32_t kGfxOptionsStateGlobal = 0x60986c, kControlsStateGlobal = 0x609870;  // its other pages' (MW1_SCREEN)
+constexpr uint32_t kGfxOptionsStateGlobal = 0x60986c, kControlsStateGlobal = 0x609870;
+constexpr uint32_t kControlsStateCtor = 0x42d9d0;  // "Controls Configure State" (menu_states.h), as the pause makes it  // its other pages' (MW1_SCREEN)
 // FIXES 97: a defence's enemies engage the company from this far (metres) at least: every enemy must come (an Instant
 // Action map's guards wait at a post until the player comes within their own range).
 constexpr float kDefenceEngage = 3000.0f;
@@ -314,6 +317,13 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // state is entered, never from inside a frame's own on_present (replacing the function that is running frees it).
     if (!ending_hook_) {
       music::apply();  // FIXES.md item 100: mw1.cfg's sound over PM's options (read by now)
+      settings::at_start(ge);  // FIXES 126: TEXTURES (hidden) the device's largest
+      // FIXES 126: the pause's OPTIONS opens MW1's SETTINGS (Pirate's Moon's key map made fresh, as its pause does).
+      mech3::pause_options_hook() = [this] {
+        if (!ge_) return false;
+        ge_->poke32(kControlsStateGlobal, ge_->construct(kControlsStateCtor, {}));
+        return open_settings(*ge_);
+      };
       ending_hook_ = true;
       auto before = ge.on_present;
       ge.on_present = [this, before](int f) {
@@ -679,6 +689,11 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
                press_market(page == "market_buy" ? kMarketBuy : kMarketSell);
         };
       }
+      // MW1_SCREEN=settings_game, settings_display, settings_sound, settings_controls, settings_enhancements (FIXES 126):
+      // MW1's SETTINGS over the hub, at that section.
+      if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s).rfind("settings_", 0) == 0 && open_settings(ge))
+        for (int32_t t = 0; t < kTabCount; ++t)
+          if (upper(std::string(s).substr(9)) == tab_name(static_cast<Tab>(t))) settings_state_->show_tab(static_cast<Tab>(t));
       // MW1_SCREEN=options, options_gfx, options_controls, options_upgrades: PM's options pages on MW1's layouts.
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s).rfind("options", 0) == 0) {
         const std::string page = s;
@@ -874,6 +889,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     bar_ = 0, bar_state_ = nullptr;
     office_ = 0, office_state_ = nullptr;
     hub_options_ = 0, hub_options_state_ = nullptr;
+    settings_ = 0, settings_state_ = nullptr;
     for (int32_t i = 0; i < kSides; ++i) events_[i] = 0, event_states_[i] = nullptr;
     event_state_ = nullptr, event_up_ = false;
     results_ = 0, results_state_ = nullptr, results_up_ = false;
@@ -1115,6 +1131,26 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (!layout_there(kHubFile, kHubOptionsDialog)) return false;
     hub_options_ = ge.adopt_state([this](zgame::Handle h) { return hub_options_state_ = new HubOptionsState(h, [this](int32_t id) { as_player([&] { press_hub_options(id); }); }); });
     return hub_options_ != 0;
+  }
+
+  // ---- MW1's SETTINGS (FIXES 126, mw1_settings.h): from the hub's OPTIONS and the pause ----
+
+  bool open_settings(mech3::GameEngine& ge) {
+    if (!layout_there(kSettingsFile, kSettingsDialog)) return false;
+    if (!settings_ || ge.menu_state_of(settings_) != settings_state_)
+      settings_ = ge.adopt_state([this](zgame::Handle h) {
+        return settings_state_ = new SettingsState(h, [this] {
+          // KEY BINDINGS: Pirate's Moon's key map (the state its menu made; made here when there is none).
+          mech3::GameEngine* g = ge_;
+          if (!g) return;
+          if (!g->peek32(kControlsStateGlobal)) g->poke32(kControlsStateGlobal, g->construct(kControlsStateCtor, {}));
+          if (const zgame::Handle keys = g->peek32(kControlsStateGlobal)) g->push_state(keys, 0);
+        });
+      });
+    if (!settings_) return false;
+    settings_state_->show_tab(Tab::kGame);
+    ge.push_state(settings_, 0);
+    return true;
   }
 
   void show_hub_options() {  // FIXES.md item 100: PM's sliders may have moved: mw1.cfg kept to match
@@ -3339,6 +3375,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   BarState* bar_state() const { return bar_state_; }
   OfficeState* office_state() const { return office_state_; }
   HubOptionsState* hub_options_state() const { return hub_options_state_; }
+  SettingsState* settings_state() const { return settings_state_; }
+  bool open_settings_for_tests() { return ge_ && open_settings(*ge_); }
   EventState* event_state() const { return event_up_ ? event_state_ : nullptr; }
   int32_t event_id() const { return event_up_ && !ev_panel_.journal && !ev_panel_.news ? ev_shown_.event : -1; }
   const LoadingSeen& loading_seen() const { return seen_; }
@@ -4076,6 +4114,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
                     : p.rfind("loading", 0) == 0 ? (app->current() == &mech3::states().load ? loading_.get() : nullptr)
                     : p == "hub_options" ? on(game_loop_hub_options())
                     : p.rfind("slots", 0) == 0 ? on(game_loop_slots())
+                    : p.rfind("settings_", 0) == 0 ? on(game_loop_settings())
                     : p == "news" || p == "bar_drink" || p == "event" || (p.rfind("hub", 0) == 0 && on(game_loop_event()))
                         ? on(game_loop_event())
                     : p.rfind("hub", 0) == 0                ? on(game_loop_hub())
@@ -4401,6 +4440,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   OfficeState* office_state_ = nullptr;
   zgame::Handle hub_options_ = 0;
   HubOptionsState* hub_options_state_ = nullptr;
+  zgame::Handle settings_ = 0;  // FIXES 126
+  SettingsState* settings_state_ = nullptr;
   OfficeChoice ochoice_;
   zgame::Handle market_ = 0;
   MarketState* market_state_ = nullptr;
@@ -4560,6 +4601,8 @@ HubState* game_loop_hub() { return the_loop() ? the_loop()->hub_state() : nullpt
 ResultsState* game_loop_results() { return the_loop() ? the_loop()->results_state() : nullptr; }
 const ResultsPanel* game_loop_results_shown() { return the_loop() ? &the_loop()->results_shown() : nullptr; }
 HubOptionsState* game_loop_hub_options() { return the_loop() ? the_loop()->hub_options_state() : nullptr; }
+SettingsState* game_loop_settings() { return the_loop() ? the_loop()->settings_state() : nullptr; }
+bool game_loop_open_settings() { return the_loop() && the_loop()->open_settings_for_tests(); }
 void game_loop_press(int32_t button) {
   if (the_loop()) the_loop()->press(button);
 }

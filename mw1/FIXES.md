@@ -5,6 +5,39 @@ Tick an item when it is merged into `main`.
 
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 126. [ ] One SETTINGS screen in place of Pirate's Moon's option pages *(MW1 1.0.2; branch mw1-options-126)*
+- **Owen (2026-11-20), via the lead:** "lets make the options menu more intuitive. its currently based on mw1's
+  options menu but it doesnt have to be." He approved the mockups ("those new options pages look good"; outbox
+  2026-11-20/mw1-options-126/mockup). The lead's calls: (a) every change applies at once; (b) TEXTURES and MFB
+  REGROUP hidden in MW1; (c) the cheats stay in GAME as their own red-headed group.
+- **The screen** (`src/mw1_settings.{h,cpp}`, layout `data/mw1settings.zrd` written by `tools/mw1settings_zrd.py`):
+  - Section tabs down the left: GAME, DISPLAY, SOUND, CONTROLS, ENHANCEMENTS. The chosen one is lit amber. DEFAULTS
+    (this section's) and DONE sit under them. DONE and Escape go back.
+  - The section's rows in the panel: a plain label, then its control. A choice of two or three shows every value,
+    the chosen one lit amber (a cheat's ON and HEAT's NONE in red). A longer list (RESOLUTION, LIGHTING, MOUSE
+    SENSITIVITY) shows its value between arrows, with "n of N". A volume is ten bars and its %; clicking the top lit
+    bar again goes one lower, so 0 can be had.
+  - The status line says what the row under the mouse does (each hint at most 62 letters).
+  - GAME: DIFFICULTY, CAMERA, TORSO RE-CENTRES, THROTTLE STAYS SET, JUMP ASSIST; CHEATS: INVINCIBLE, UNLIMITED AMMO,
+    HEAT. DISPLAY: RESOLUTION; QUALITY: DETAIL, EFFECTS, LIGHTING, SHADOWS, SELF SHADOWS; MENUS: WIDE MENUS (taken
+    at the next start). SOUND: MUSIC, MUSIC VOLUME, EFFECTS VOLUME, SOUND QUALITY. CONTROLS: MOUSE SENSITIVITY,
+    INVERT MOUSE, KEY BINDINGS (PM's key map, as it is). ENHANCEMENTS: IMPROVED AI, ARTEMIS TRACKING, WATER MOVEMENT,
+    SMALL FIXES and its list.
+  - Not offered: TEXTURES (set to the device's largest at each start, `settings::at_start`), MFB REGROUP (MW1 fields
+    no MFB), and the video device (the SDL build has one; PM's own page shows a single entry too).
+  - RESOLUTION is the battles' size (PM's in-game mode), taken when the next battle starts or the pause is left, so
+    no keep-or-revert check: a window takes any size.
+- **Saving:** each change is applied and saved at once. PM's values go through its own setters and `settings_write`
+  (as its ACCEPT did). The sound goes through `music::set_settings` (mw1.cfg via mw1_start's read_cfg and
+  write_cfg). The switches and WIDE MENUS go through PM's upgrades saver (mw3.cfg's keys).
+- **Where it opens:** the pause's OPTIONS, through `mech3::pause_options_hook()` (an opt-in engine hook, its own
+  commit: unset in MW3 and PM, whose pause is unchanged). The hub's OPTIONS dialog's SETTINGS opens it once FIXES
+  125's new dialog is in (mw1 dev 2's), which also drops the dialog's own MUSIC and EFFECTS rows.
+- **Test:** `mw1_settings_every_row_applies_saves_and_defaults_headless` (mw1tests). In every section each row's
+  own control changes it: shown and applied at once, and saved (PM's settings written, mw1.cfg, the switches). The
+  chosen value is lit, DEFAULTS gives back every row's default, every hint fits, DONE goes back, and the pause's
+  hook opens the screen with PM's key map made for it.
+- **Shots:** every section at 1080p (16:9 menus) and 4:3; `MW1_SCREEN=settings_<section>` shows one.
 ## 125. [x] Three save slots, each one overwritable *(done: mw1-fix125-save-slots; for MW1 1.0.2 with the launcher's 1.2.0)*
 Owen: "lets make it so people have three game save slots and they can overwrite any of them." Then: "save and load
 both, yes. maybe it lists three slots and you pick one, and if you want to start a new game you can click new game
