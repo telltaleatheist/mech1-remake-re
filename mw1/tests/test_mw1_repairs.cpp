@@ -13,6 +13,7 @@
 #include "mw1_install.h"
 #include "mech3/pilot.h"
 #include "mw1_campaign.h"
+#include "mw1_market.h"
 #include "mw1_pilots.h"
 #include "mw1_repairs.h"
 #include "mw1_results.h"
@@ -132,6 +133,28 @@ TEST(mw1_repairs_the_bill_taken_forgiven_and_the_lost_mechs) {
   r = mw1::settle_repairs(c, {{0, mw1::kPmFirefly, mw1::kWhole, true}});
   EXPECT(c.mech == mw1::kPmFirefly && r.billed == 53206 && r.forgiven == 53206 && c.funds == 0);
   for (const std::string& l : r.lines) std::printf("  %s\n", l.c_str());
+}
+
+// FIXES 106: the log's fates at settlement (mw1_game.cpp, settle_pending), each mech and lancemate as the losses left
+// them: the commander's mech back, a lancemate's mech recovered and its pilot missing, another's lost and its pilot
+// killed, a third's whole and its pilot back.
+TEST(mw1_repairs_the_fates_said_for_the_log) {
+  mw1::AfterAction a;
+  a.bills = {{0, mw1::kPmOwens, 120, false, false}, {1, mw1::kPmCenturion, mw1::kWhole, true, false},
+             {41, mw1::kPmFirefly, mw1::kWhole, true, true}, {3, mw1::kPmStrider, 0, false, false}};
+  a.lance = {{1, true, true, false, false}, {41, true, false, true, true}, {3, false}};
+  const std::vector<std::string> l = mw1::fate_lines(a);
+  for (const std::string& x : l) std::printf("  %s\n", x.c_str());
+  const std::string one = mw1::pilot_title(1), two = mw1::pilot_title(41), three = mw1::pilot_title(3);
+  EXPECT(l.size() == 7);
+  EXPECT(l.size() == 7 && l[0] == "the commander's " + mw1::mech_title(mw1::kPmOwens) + " back (damage 120 of 10000)");
+  EXPECT(l.size() == 7 && l[1] == one + "'s " + mw1::mech_title(mw1::kPmCenturion) + " destroyed, recovered (damage 10000 of 10000)");
+  EXPECT(l.size() == 7 && l[2] == two + "'s " + mw1::mech_title(mw1::kPmFirefly) + " destroyed, lost for good (damage 10000 of 10000)");
+  EXPECT(l.size() == 7 && l[3] == three + "'s " + mw1::mech_title(mw1::kPmStrider) + " back (damage 0 of 10000)");
+  EXPECT(l.size() == 7 && l[4] == one + " missing in action" && l[5] == two + " killed" && l[6] == three + " back with the company");
+  // Downed, neither killed nor missing: ejected and back.
+  a.lance = {{1, true}};
+  EXPECT(mw1::fate_lines(a).back() == one + " ejected, back with the company");
 }
 
 TEST(mw1_repairs_saved_and_a_version_4_save_read) {

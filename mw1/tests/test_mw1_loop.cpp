@@ -288,6 +288,8 @@ struct Run {
   // FIXES.md item 72: called each mission frame from the 30th while it returns true (then the run's ending as before).
   std::function<bool(int32_t frame)> in_mission;
   int32_t in_mission_frames = 0;
+  int32_t pump_limit = 0;
+  std::vector<std::string> lance_downs;  // FIXES 106: the lancemates down as the log said them, at AFTER ACTION  // FIXES 106: the run's passes, when more than the pump's own (a long watch in the mission)
   bool first_contract = true;  // false: the save's company had one before (the Houses' and kills' totals not checked)
   std::vector<std::string> ally_pilots;  // the allied brains' pilots, in the mission
   std::vector<float> ally_errors;
@@ -1155,7 +1157,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
             for (const std::string& l : pay) run->from_wrecks = run->from_wrecks || l.find("paid from salvage") != std::string::npos;
           }
         }
-        if (run && run->after_action.empty()) run->after_action = all, run->results_lines = mission;
+        if (run && run->after_action.empty()) run->after_action = all, run->results_lines = mission, run->lance_downs = mw1::game_loop_lance_downs();
         if (run && run->stop_at_after_action) {
           back_at_main = true;  // the program stopped here
           return;
@@ -1248,7 +1250,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
           }
           EXPECT(has("AFTER ACTION") && sc->visible(mw1::kHubOk) && !sc->visible(mw1::kHubDeploy));
           EXPECT(sc->visible(mw1::kHubReplay) == failed);
-          if (run && run->after_action.empty()) run->after_action = shown;
+          if (run && run->after_action.empty()) run->after_action = shown, run->lance_downs = mw1::game_loop_lance_downs();
           if (run && run->stop_at_after_action) {
             back_at_main = true;  // the program stopped here
             return;
@@ -1450,6 +1452,11 @@ void loop_run(Ending ending, Run* run = nullptr) {
         }
       }
       if (ending == kObjective && run) {
+        // FIXES 106: the mission watched first (`in_mission`, frame by frame), then the objective's checks.
+        if (run->in_mission) {
+          if (run->in_mission(++run->in_mission_frames)) return;
+          run->in_mission = nullptr;
+        }
         auto kill_enemies = [&] {
           int32_t na = 0;
           const mech3::AiMechMade* ma = mech3::mission_ai_mechs(&na);
@@ -1758,6 +1765,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
     Pump pump;
     pump.stop = [&] { return back_at_main; };
     if (run && run->play) pump.limit = std::max(pump.limit, run->give_up + 3000);  // FIXES.md item 45: a long drive
+    if (run) pump.limit = std::max(pump.limit, run->pump_limit);
     app.run(pump);
     mech3::controls_calls().command = nullptr;  // the drive's keys let go
     app.stop_game();
@@ -5107,6 +5115,200 @@ TEST(mw1_loop_lance_orders_an_awesome_walks_headless) {
   lance_orders_run("mw1_lance_orders_awesome", 3, false, {mw1::kPmFirefly, mw1::kPmOwens, mw1::kPmAwesome});
 }
 TEST(mw1_loop_lance_orders_reach_each_after_a_reload_headless) { lance_orders_run("mw1_lance_orders_reload", 2, true); }
+
+// FIXES 106: the log says who brought a lancemate's mech down. On c4ia1 with three lancemates, 5 s in: the first's
+// mech destroyed by an enemy (the kill an enemy's, by its chassis), the second's with no mech's kill (as a vehicle's,
+// a turret's or a building's: the engine reports none) found down at the mission's end, destroyed all the same; the
+// third standing. AFTER ACTION's crew status says both downed.
+TEST(mw1_loop_a_lancemate_down_is_logged_by_whom_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_loop_lance_down";
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  in_child([&] {
+    mw1::MapRow battle{"c4", 1, mw1::kDesert, mw1::RowKind::kAny, "", ""};
+    for (const mw1::MapRow& r : shipped_rows())
+      if (r.world == "c4" && r.ia == 1) battle.climate = r.climate;
+    Run run;
+    run.save = (dir / mw1::kSaveFile).string();
+    run.lance = true, run.lance_count = 3;
+    run.row = &battle, run.survey = true, run.stop_at_after_action = true;
+    run.force = {mw1::kPhoenixHawk, mw1::kBattleMaster, mw1::kBattleMaster, mw1::kShadowHawk};
+    std::string first, second, third, chassis;
+    float killed_at = -1;
+    run.in_mission = [&](int32_t f) {
+      if (!mech3::mech_mission_player()) return f < 600;
+      if (mech3::missions().time < 5.0f) return true;
+      if (killed_at >= 0) return mech3::missions().time < killed_at + 3.0f;
+      int32_t n = 0;
+      const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+      std::vector<void*> mates;
+      void* enemy = nullptr;
+      for (int32_t i = 0; i < n; ++i)
+        if (const mech3::ai::Brain* b = brain_of(ai[i].mech)) {
+          if (b->params.team() == 1) mates.push_back(ai[i].mech);
+          else if (!enemy) enemy = ai[i].mech;
+        }
+      if (mates.size() < 3 || !enemy) return f < 600;
+      first = pilot_of(mates[0]), second = pilot_of(mates[1]), third = pilot_of(mates[2]);
+      mech3::LaunchedMech d;
+      if (mech3::describe_mech(enemy, &d)) chassis = mw1::mech_title(d.roster);
+      mech3::mech_kill(mates[0], enemy);
+      mech3::mech_kill(mates[1], nullptr);
+      killed_at = mech3::missions().time;
+      return true;
+    };
+    loop_run(kObjective, &run);
+    for (const std::string& l : run.lance_downs) std::printf("  %s\n", l.c_str());
+    auto said = [&](const std::string& who, const std::string& what) {
+      for (const std::string& l : run.lance_downs)
+        if (l.rfind("lancemate " + who + "'s mech destroyed", 0) == 0 && l.find(what) != std::string::npos) return true;
+      return false;
+    };
+    EXPECT(!first.empty() && !chassis.empty() && run.lance_downs.size() == 2);
+    EXPECT(said(first, ": the kill an enemy " + chassis + ", the last hit by an enemy " + chassis));
+    EXPECT(said(second, " (no mech's kill) at ") && said(second, "the kill none"));
+    EXPECT(!said(third, ""));
+    auto downed = [&](const std::string& who) {  // "Elli Gujar: destroyed ..." or "Owens (J. Holmaas): destroyed ..."
+      for (const std::string& l : run.after_action)
+        if (l.find(who) != std::string::npos && l.find(": destroyed") != std::string::npos) return true;
+      return false;
+    };
+    EXPECT(downed(first) && downed(second) && !downed(third));
+  });
+}
+
+// FIXES 106: Owen's lancemate Erin Falls ejected about 25 s into a destroy-all on c4ia1. Each Instant Action map of
+// the table, a destroy-all with his lance (the Atlas, the Annihilator and a Centurion) against his contract's four
+// (a Phoenix Hawk, two BattleMasters, a Shadow Hawk), the player standing at his start (invincible, never firing):
+// each lancemate's health a minute in, its last attacker, where the nearest enemy started, how far it walked, its first
+// hit (when, from how far). The lance flies and the minute is played on every map; whether all three must stand is
+// the lead's call (2026-11-19): on MW3's worlds (mw3c1 ia1, mw3c4 ia1) the enemies start 700 to 970 m off, open fire
+// from about 900 m within 10 s and close, and with the commander idle a lancemate can fall in a fair fight (two of
+// the enemies down by then). By default c4ia1 alone (Owen's); MW1_ALL_MAPS=1 plays every map (about two minutes),
+// MW1_ROWS=<world>ia<n> that map only; MW1_BRAINS=1 adds each mech's brain (mode,
+// sight, engage, leash) and every mech's health and place each 10 s.
+TEST(mw1_loop_the_lance_lives_the_opening_minute_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  const bool have_mw3 = fs::exists(fs::path(MW1_MW3_GAME_DIR) / "zbd" / "c2" / "gamez.zbd", ec);
+  const std::string worlds = have_mw3 ? converted_worlds() : std::string();
+  const char* only = std::getenv("MW1_ROWS");
+  if (!only && !std::getenv("MW1_ALL_MAPS")) only = "c4ia1";
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_loop_lance_minute";
+  std::set<std::pair<std::string, int32_t>> done;
+  int32_t maps = 0;
+  for (const mw1::MapRow& r : shipped_rows()) {
+    if (r.world.rfind("mw3", 0) == 0 && !have_mw3) continue;
+    if (only && r.world + "ia" + std::to_string(r.ia) != only) continue;
+    if (!done.insert({r.world, r.ia}).second) continue;
+    ++maps;
+    mw1::MapRow battle{r.world, r.ia, r.climate, mw1::RowKind::kAny, "", ""};
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    in_child([&] {
+      Run run;
+      run.save = (dir / mw1::kSaveFile).string();
+      run.lance = true, run.lance_count = 3;
+      run.lance_mechs = {1, 0, mw1::kPmCenturion};
+      run.row = &battle, run.survey = true, run.stop_at_after_action = true, run.worlds = worlds;
+      run.force = {mw1::kPhoenixHawk, mw1::kBattleMaster, mw1::kBattleMaster, mw1::kShadowHawk};
+      run.pump_limit = 9000;
+      struct Mate {
+        void* mech;
+        std::string who;
+        float health = 1, start[3] = {}, walked = 0, first_hit = -1, enemy_at_start = 0, hit_from = -1, heat = 0;
+        std::string by = "none";
+      };
+      std::vector<Mate> mates;
+      float seconds = 0;
+      auto nearest_enemy = [](const float p[3]) {
+        float near = 1e9f;
+        int32_t n = 0;
+        const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+        for (int32_t i = 0; i < n; ++i) {
+          const mech3::ai::Brain* b = brain_of(ai[i].mech);
+          float q[3];
+          if (b && b->params.team() != 1 && mech3::mech_world_position(ai[i].mech, q)) near = std::min(near, std::hypot(q[0] - p[0], q[2] - p[2]));
+        }
+        return near;
+      };
+      run.in_mission = [&](int32_t f) {
+        void* me = mech3::mech_mission_player();
+        if (!me) return f < 600;
+        if (mates.empty()) {
+          mech3::program_mech_set_invincible(me, true);
+          int32_t n = 0;
+          const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+          if (std::getenv("MW1_BRAINS"))
+            for (int32_t i = 0; i < n; ++i)
+              if (const mech3::ai::Brain* b = brain_of(ai[i].mech))
+                std::printf("  brain %-13s team %d roster %2d mode %d sight %.0f engage %.0f leash %.0f m awake %d by_player %d "
+                            "aims %d flags %d/%d\n", ai[i].name ? ai[i].name : "-", b->params.team(),
+                            mech3::program_mech_roster(ai[i].mech), b->params.get<int32_t>(0x3c),
+                            std::sqrt(double{b->params.get<float>(0x1c)}), std::sqrt(double{b->params.get<float>(0x20)}),
+                            std::sqrt(double{b->params.get<float>(0x24)}), b->params.get<int32_t>(0x88), b->params.get<int32_t>(0x8c),
+                            b->params.get<int32_t>(0x98), b->params.get<uint8_t>(0xcc), b->params.get<uint8_t>(0xec));
+          for (int32_t i = 0; i < n; ++i)
+            if (const mech3::ai::Brain* b = brain_of(ai[i].mech); b && b->params.team() == 1) {
+              Mate m{ai[i].mech, pilot_of(ai[i].mech)};
+              mech3::mech_world_position(m.mech, m.start);
+              m.enemy_at_start = nearest_enemy(m.start);
+              mates.push_back(m);
+            }
+          if (mates.empty()) return f < 600;
+        }
+        for (Mate& m : mates) {
+          if (m.health <= 0) continue;
+          m.health = mech3::mech_health(m.mech);
+          float p[3] = {};
+          mech3::mech_world_position(m.mech, p);
+          m.heat = std::max(m.heat, mech3::mech_heat(m.mech));
+          if (m.health < 1 && m.first_hit < 0) {
+            m.first_hit = mech3::missions().time;
+            float q[3];
+            if (void* by = mech3::mech_last_attacker(m.mech); by && mech3::mech_world_position(by, q))
+              m.hit_from = std::hypot(q[0] - p[0], q[2] - p[2]);
+          }
+          m.walked = std::max(m.walked, std::hypot(p[0] - m.start[0], p[2] - m.start[2]));
+          if (void* by = mech3::mech_last_attacker(m.mech))
+            m.by = by == me ? "the player" : pilot_of(by).empty() ? "an enemy" : pilot_of(by);
+        }
+        seconds = mech3::missions().time;
+        if (std::getenv("MW1_BRAINS") && f % 300 == 0) {
+          int32_t n = 0;
+          const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+          std::string line;
+          for (int32_t i = 0; i < n; ++i)
+            if (const mech3::ai::Brain* b = brain_of(ai[i].mech)) {
+              float q[3] = {};
+              mech3::mech_world_position(ai[i].mech, q);
+              char one[96];
+              void* t = mech3::mech_target_contact(ai[i].mech);
+              std::snprintf(one, sizeof one, " %s%d:%.2f@%.0f,%.0f%s", b->params.team() == 1 ? "A" : "E", i, mech3::mech_health(ai[i].mech),
+                            q[0], q[2], t ? "*" : "");
+              line += one;
+            }
+          std::printf("  t%.0f%s\n", seconds, line.c_str());
+        }
+        return seconds < 60.0f && !mech3::missions().ended && f < 6000;
+      };
+      loop_run(kObjective, &run);
+      int32_t standing = 0;
+      for (const Mate& m : mates) {
+        standing += m.health > 0;
+        std::printf("  %-6s ia%d at %.0f s: %-10s health %.2f, the last hit by %s; the nearest enemy %.0f m at the start, "
+                    "walked %.0f m, first hit at %.0f s from %.0f m, heat up to %.0f\n", r.world.c_str(), r.ia, seconds, m.who.c_str(),
+                    m.health, m.by.c_str(), m.enemy_at_start, m.walked, m.first_hit, m.hit_from, m.heat);
+      }
+      std::printf("  %-6s ia%d: %d of %zu lancemates standing\n", r.world.c_str(), r.ia, standing, mates.size());
+      EXPECT(mates.size() == 3 && seconds >= 60.0f);
+    });
+  }
+  std::printf("  %d maps\n", maps);
+  EXPECT(maps > 0);
+}
 
 // FIXES 97: Owen's defence of the tower on mw3c1ia3 (four enemies: a Shadow Hawk, a Warhammer, two Marauders): three
 // came; the fourth stood at its post all mission, fighting only when he came near. The map's Enemy_08 is MW3's guard: its

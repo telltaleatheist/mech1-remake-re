@@ -121,6 +121,10 @@ struct MissionSettled {
   int32_t payment = 0, advance = 0;  // the contract's payment and its advance (thousands), read before settle closes it (FIXES 98)
 };
 MissionSettled settle_mission(Company& c, Contract& k, const AfterAction& a, Rng& rng);
+// FIXES 106: for the log, each of the company's mechs and lancemates as the mission left them (after its losses were
+// rolled): the commander's mech, each lancemate's mech, then each lancemate. "the commander's Atlas back (damage 120
+// of 10000)", "Erin Falls's Centurion destroyed, lost for good (...)", "Erin Falls missing in action".
+std::vector<std::string> fate_lines(const AfterAction& a);
 // Development shots only (MW1_SHOT_PAY=pool,repairs[,term]; the loop sets it): a win's pool, the commander's mech's
 // repairs and the salvage term as given, so the PAYMENT block can be shown at any numbers (today's repairs are a few percent of a pool).
 // Negative: as computed.

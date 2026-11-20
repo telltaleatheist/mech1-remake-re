@@ -80,6 +80,8 @@ class HubOptionsState;
 using namespace hub;
 // A mission back and not settled (the hub's AFTER ACTION), else null (tests).
 const AfterAction* game_loop_pending();
+// FIXES 106: the last launch's lancemates down, as the log said them (who had the kill, who hit last, heat) (tests).
+std::vector<std::string> game_loop_lance_downs();
 // FIXES.md item 78: the status line's words without MW1's MW_MAIN.EXE (ours): the Bar's greyed ORDER DRINK or NEWS
 // under the mouse (or clicked), and the hub's once, on its first showing (no STORY tile).
 inline constexpr const char* kNeedsExeNote = "Needs MW_MAIN.EXE in your MechWarrior 1989 folder.";
