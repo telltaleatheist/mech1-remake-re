@@ -236,17 +236,8 @@ int main(int argc, char** argv) {
   // FIXES.md item 100: MW1's menu theme (the CD's extra track, mw1data's music/), its settings from mw1.cfg; a run no
   // player hears (--nosound, --hidden) plays no music aloud.
   mw1::music::install(a.write_dir);
-  // The music (provisional, research/intro.md): the player's ripped tracks in mw1's write dir's music/, else
-  // Pirate's Moon's, read where PM keeps them (its write dir, beside ours) and never written: mounted for music/
-  // alone (zutl::mount_only), so nothing else of PM's player comes along.
-  if (!a.write_dir.empty()) {
-    const std::string from = mw1::music_from(a.write_dir);
-    if (from.empty()) std::printf("mw1: no mission music (none ripped in %s/music, nor in Pirate's Moon's): the menu theme only\n", a.write_dir.c_str());
-    else if (from != a.write_dir) {
-      zutl::mount_only(from, "music/");
-      std::printf("mw1: the music is Pirate's Moon's, read from %s/music\n", from.c_str());
-    }
-  }
+  // FIXES.md item 116: no disc music. The missions play MW1's combat tracks (mw1_music.h); neither the player's ripped
+  // tracks nor Pirate's Moon's are read.
   // MW1's own data (the hub's layout), beside the program: mounted after what is (PM's install comes in the game main).
   if (const char* base = SDL_GetBasePath()) {
     const std::filesystem::path data = std::filesystem::path(base) / "mw1data";

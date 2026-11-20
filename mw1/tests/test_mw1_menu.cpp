@@ -1,10 +1,10 @@
 // MW1's main menu and intro (src/mw1_menu.h): the narration read from the player's MW_MAIN.EXE, the intro's times;
-// MW1's image archive (src/mw1_images.h) read back through the engine's own reader; where the music comes from
-// (mw1_start.h). The menu and the intro in play: test_mw1_loop.cpp.
+// MW1's image archive (src/mw1_images.h) read back through the engine's own reader. The menu and the intro in play: test_mw1_loop.cpp.
 #include <algorithm>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <random>
 #include <string>
 #include <vector>
 
@@ -13,6 +13,7 @@
 #include "gamez/zimage/zimg_library.h"
 #include "gamez/zimage/zimg_texture.h"
 #include "mw1_images.h"
+#include "mw1_music.h"
 #include "mw1_menu.h"
 #include "mw1_pilots.h"
 #include "mw1_start.h"
@@ -30,11 +31,6 @@ fs::path fresh(const char* name) {
   fs::remove_all(d, ec);
   fs::create_directories(d, ec);
   return d;
-}
-void touch(const fs::path& p) {
-  std::error_code ec;
-  fs::create_directories(p.parent_path(), ec);
-  std::ofstream(p) << "x";
 }
 }  // namespace
 
@@ -155,25 +151,25 @@ TEST(mw1_menu_the_image_archive_reads_back_through_the_engine) {
   std::fclose(in);
 }
 
-TEST(mw1_menu_the_music_is_ours_else_pms_read_where_it_is) {
-  const fs::path d = fresh("mw1music");
-  const fs::path mine = d / "MicroProse" / mw1::kApp, pm = d / "MicroProse" / mw1::kPmApp;
-  std::error_code ec;
-  fs::create_directories(mine, ec);
-  EXPECT(mw1::music_from(mine.string()).empty());  // none anywhere
-  touch(pm / "music" / "track02.wav");
-  touch(pm / "music" / "notes.txt");
-  EXPECT(mw1::music_from(mine.string()) == pm.string());  // PM's, beside ours
-  EXPECT(mw1::music_from(mine.string() + "/") == pm.string());
-  touch(mine / "music" / "readme.txt");
-  EXPECT(mw1::music_from(mine.string()) == pm.string());  // a music/ without a track isn't music
-  touch(mine / "music" / "Track03.OGG");
-  EXPECT(mw1::music_from(mine.string()) == mine.string());  // the player's own first
-  EXPECT(mw1::music_from((d / "x").string(), (d / "none").string()).empty());
-  // Nothing was made in PM's folder, nor PM's folder when it isn't there.
-  const fs::path lone = fresh("mw1music2") / "MicroProse" / mw1::kApp;
-  fs::create_directories(lone, ec);
-  EXPECT(mw1::music_from(lone.string()).empty() && !fs::exists(lone.parent_path() / mw1::kPmApp));
+// FIXES.md item 116: a launch's combat track is any of the three at first, then never the last one, and every one
+// comes up.
+TEST(mw1_music_a_launch_never_plays_the_last_combat_track) {
+  int32_t last = -1, count[mw1::music::kCombatCount] = {};
+  bool repeated = false, in_range = true;
+  std::minstd_rand rng(116);
+  for (uint32_t i = 0; i < 3000; ++i) {
+    const uint32_t roll = static_cast<uint32_t>(rng());
+    const int32_t pick = mw1::music::pick_combat(last, roll);
+    in_range = in_range && pick >= 0 && pick < mw1::music::kCombatCount;
+    if (!in_range) break;
+    repeated = repeated || pick == last;
+    ++count[pick], last = pick;
+  }
+  for (int32_t first = 0; first < mw1::music::kCombatCount; ++first)  // the first launch: each possible
+    EXPECT(mw1::music::pick_combat(-1, static_cast<uint32_t>(first)) == first);
+  std::printf("  picks: %d %d %d\n", count[0], count[1], count[2]);
+  EXPECT(in_range && !repeated);
+  for (int32_t c : count) EXPECT(c > 500);
 }
 
 // FIXES.md item 83 (the lead's sweep, 3): GRAPHICS & SOUND's RESOLUTION names every mode in one format, "W x H", the
