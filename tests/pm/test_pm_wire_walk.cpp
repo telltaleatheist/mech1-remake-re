@@ -1,5 +1,6 @@
 // The walk's hooks on the program (zai_wire_walk_pm): each asks the controls, the brain or BrainHooks,
 // and what has no answer yet is counted.
+#include <cmath>
 #include <vector>
 
 #include "check.h"
@@ -7,6 +8,7 @@
 #include "mech3/zai_steps.h"
 #include "mech3/zai_wire_attack_pm.h"
 #include "mech3/zainet_inout.h"
+#include "mech3/zai_walk_pm.h"
 #include "mech3/zai_wire_walk_pm.h"
 
 using namespace mech3::ai;
@@ -212,4 +214,40 @@ TEST(pm_wire_walk_queue_via_leaves_a_pending_item) {
   EXPECT(pm_pending_count(b) == 4);
   EXPECT(pm_hooks_missing().empty());
   pm_pending_forget(b);
+}
+
+// MW1's FIXES 110 (walk_keeps_going, off in MW3's and PM's programs): the walking context's throttle 20 degrees off its
+// carrot. Off, the exe's rule: past steer.cos_on (10 degrees) it brakes by throwing the throttle the other way, though
+// the throttle (here 0.75) is all it judges by. On, a walk under way (the throttle past steer.brake) keeps going inside
+// 30 degrees; past them it brakes as ever, and one standing (throttle 0) still needs the 10 degrees to set off.
+TEST(pm_walk_keeps_going_inside_thirty_degrees_only_when_asked) {
+  Fake f;
+  Installed in(&f);
+  AiParams rec;
+  Brain b(nullptr, rec);
+  b.xec = 1.0f;
+  struct Rolling : Controls {
+    float now = 0.75f;
+    float throttle_now() override { return now; }
+  } c;
+  WireWalk w(b, c);
+  SteerPm steer;
+  WalkPm p(w, steer, 7);
+  auto at = [&](double degrees, float throttle_now) {
+    c.now = throttle_now;
+    p.dot = static_cast<float>(std::cos(degrees * 0.017453292519943295));
+    p.off_along = steer.far_along + 10.0f, p.off_side = 0.0f, p.backing = 0;
+    p.throttle();
+    return p.throttle_out;
+  };
+  EXPECT(!walk_keeps_going());
+  EXPECT(at(20, 0.75f) == -1.0f);  // the exe's: braking, the throttle thrown back
+  EXPECT(at(5, 0.75f) > 0.0f);     // facing: going
+  set_walk_keeps_going(true);
+  EXPECT(at(20, 0.75f) > 0.0f);    // under way, inside 30 degrees: going on
+  EXPECT(at(40, 0.75f) == -1.0f);  // past them: braking as ever
+  EXPECT(at(20, 0.0f) == 0.0f);    // standing, 20 degrees off: not yet
+  EXPECT(at(5, 0.0f) > 0.0f);      // standing, facing: setting off
+  set_walk_keeps_going(false);
+  EXPECT(at(20, 0.75f) == -1.0f);
 }

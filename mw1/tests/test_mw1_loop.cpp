@@ -54,6 +54,9 @@
 #include "mw1_lab_fit.h"
 #include "mw1_mech_icons.h"
 #include "mech3/mech_config.h"
+#include "mech3/mech_reader.h"
+#include "mech3/zai_walk_pm.h"
+#include "mech3/zai_wire_pm.h"
 #include "mech3/lance_orders.h"
 #include "mech3/mech_control.h"
 #include "mech3/mech_names.h"
@@ -4957,7 +4960,14 @@ float ground_distance(void* a, void* b) {
 // never ran). The game's rolls seeded (kSeed; MW1_TEST_SEED=<n> another): seeded by the clock, the map's layout put
 // the enemies 340 to 1,360 m off, and from the far ones the Awesome (FIXES 97) stood about 300 frames before it walked
 // (its speed up, moving 0 m), 18 m in all: the walk flake (the lead, 2026-11-19).
-void lance_orders_run(const char* name, int32_t count, bool reload, std::vector<int32_t> mechs = {}) {
+// FIXES 110: `seed` (0: kSeed or MW1_TEST_SEED) and `set_off_check`: each lancemate turns within 2 s of the order and,
+// once its throttle comes up (stays at 0.1 or more 10 frames), its gait is walking within 2 s, unbroken until it has
+// walked 2 m: it never stands with its throttle up (the exe's walking context backed the slow-turning Awesome off on
+// seed 6: up at f+144, walking for good at f+320, 28 frames in reverse between). The 2 m itself isn't timed: PM ramps
+// a heavy 'Mech's throttle with its carrot's distance (the Annihilator, 9 m/s, walks 2 m 2.4 s after its gait starts).
+constexpr int32_t kTurnFrames = 60, kSetOffFrames = 75;
+void lance_orders_run(const char* name, int32_t count, bool reload, std::vector<int32_t> mechs = {}, uint32_t seed_in = 0,
+                      bool set_off_check = false) {
   std::error_code ec;
   if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
   const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / name;
@@ -4967,7 +4977,7 @@ void lance_orders_run(const char* name, int32_t count, bool reload, std::vector<
     // The engine's srand(time()), the test's own: kSeed, or MW1_TEST_SEED=<n> (the run is the same for the same seed).
     constexpr uint32_t kSeed = 1;
     const char* replay = std::getenv("MW1_TEST_SEED");
-    const auto seed = static_cast<uint32_t>(replay ? std::strtoul(replay, nullptr, 10) : kSeed);
+    const auto seed = seed_in ? seed_in : static_cast<uint32_t>(replay ? std::strtoul(replay, nullptr, 10) : kSeed);
     crt::rand_fixed_seed() = seed;
     if (reload) {
       Run first;
@@ -4994,6 +5004,12 @@ void lance_orders_run(const char* name, int32_t count, bool reload, std::vector<
     // gap alone mixes in the mech's own walk, toward or away).
     std::map<std::string, std::array<float, 3>> from, toward;
     std::map<std::string, float> walked_at, moved;
+    // FIXES 110, frames from the order: to the first turn, to its throttle up (0.1), to 2 m walked; its facing then.
+    std::map<std::string, int32_t> turn_start, set_off, walk_start, backed;  // backed: frames in reverse between
+    std::map<std::string, float> yaw_at_order;
+    std::map<std::string, int32_t> high_from;  // the frame its throttle came up, while it stays up
+    std::map<std::string, int32_t> gait_from, walk_gait;
+    std::map<std::string, bool> low_seen;  // its gait walking unbroken from (to 2 m walked)
     std::map<std::string, std::vector<std::string>> walk_trace;  // each 50 frames from the order
     int32_t strays = 0, w_presses = 0, enemies = 0, ordered_at = -1;
     constexpr int32_t kWalkFrames = 450;
@@ -5018,12 +5034,20 @@ void lance_orders_run(const char* name, int32_t count, bool reload, std::vector<
       mech3::ai::AiTarget* at = me ? mech3::mech_ai_target(me) : nullptr;
       if (!at) return f < 600;
       if (f == 1) {
+        if (std::getenv("MW1_WALK_EXE")) mech3::ai::set_walk_keeps_going(false);  // the exe's rule, to compare
         int32_t n = 0;
         const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
         for (int32_t i = 0; i < n; ++i) {
           const mech3::ai::Brain* b = brain_of(ai[i].mech);
           if (b && b->params.team() == 1) mates.push_back(b->params.pilot ? b->params.pilot : "");
           else ++enemies;
+          if (std::getenv("MW1_WALK_TRACE")) {
+            mech3::LaunchedMech d;
+            const mech3::MechDfn* dfn = mech3::describe_mech(ai[i].mech, &d) ? mech3::mech_dfn(d.roster) : nullptr;
+            const mech3::Config* cf = dfn && dfn->configs && !dfn->configs->configs.empty() ? dfn->configs->configs[0] : nullptr;
+            std::printf("  mech %d (%d): team %d, turn rate %.3f, turn accel %.3f, top speed %.1f\n", i, d.roster,
+                        b ? b->params.team() : -1, cf ? cf->turn_rate : -1.f, cf ? cf->turn_accel : -1.f, d.max_speed);
+          }
         }
         return true;
       }
@@ -5074,8 +5098,38 @@ void lance_orders_run(const char* name, int32_t count, bool reload, std::vector<
       for (int32_t i = 0; i < n; ++i)
         if (const mech3::ai::Brain* b = brain_of(ai[i].mech); b && b->params.team() != 1)
           mech3::program_mech_set_invincible(ai[i].mech, walking);
+      // FIXES 110: each lancemate's first turn (5 degrees from its facing at the order), the frame its throttle first
+      // comes up (it sets off), the frames it then spends in reverse, and the frame it first stands 2 m from where
+      // it was ordered.
+      for (const std::string& mate : mates) {
+        float now[3] = {};
+        void* m = mech_of(mate);
+        mech3::LaunchedMech d;
+        if (!m || !mech3::describe_mech(m, &d)) continue;
+        const float yaw = 2 * std::asin(d.yaw_sin) * 57.2958f;
+        if (!yaw_at_order.count(mate)) yaw_at_order[mate] = yaw;
+        auto off = [](float a, float b) { return std::fabs(std::remainder(a - b, 360.0f)); };
+        if (!turn_start.count(mate) && off(yaw, yaw_at_order[mate]) >= 5) turn_start[mate] = f - ordered_at;
+        if (!walk_start.count(mate)) {  // set off: the first time its throttle stays at 0.1 or more for 10 frames
+          const float thr = mech3::mech_throttle_target(m);  // (a throttle up from before the order, its formation
+          if (thr < 0.1f) high_from.erase(mate), low_seen[mate] = true;  // walk, counts once it has come down)
+          else if (!high_from.count(mate) && low_seen[mate]) high_from[mate] = f - ordered_at;
+          if (!set_off.count(mate) && high_from.count(mate) && f - ordered_at - high_from[mate] >= 10)
+            set_off[mate] = high_from[mate];
+          if (set_off.count(mate) && thr < 0) ++backed[mate];
+        }
+        if (!walk_start.count(mate)) {  // the gait walking (MW1's states 5 up) from this frame on, unbroken
+          if (d.anim_state < 5) gait_from.erase(mate);
+          else if (!gait_from.count(mate)) gait_from[mate] = f - ordered_at;
+        }
+        if (!walk_start.count(mate) && from.count(mate) && mech3::mech_world_position(m, now) &&
+            std::hypot(now[0] - from[mate][0], now[2] - from[mate][2]) >= 2) {
+          walk_start[mate] = f - ordered_at;
+          if (gait_from.count(mate)) walk_gait[mate] = gait_from[mate];
+        }
+      }
       // Each lancemate every 50 frames, printed only if one didn't walk at its mech.
-      if ((f - ordered_at) % 50 == 0)
+      if ((f - ordered_at) % (std::getenv("MW1_WALK_TRACE") ? 10 : 50) == 0)
         for (const std::string& mate : mates) {
           void* m = mech_of(mate);
           float now[3] = {};
@@ -5083,12 +5137,35 @@ void lance_orders_run(const char* name, int32_t count, bool reload, std::vector<
           const std::array<float, 3>& a = from[mate];
           const std::array<float, 3>& t = toward[mate];
           const float dx = t[0] - a[0], dz = t[2] - a[2], len = std::hypot(dx, dz);
-          char line[200];
+          char line[400];
           std::snprintf(line, sizeof line, "f+%d: health %.2f, toward %.0f m (moved %.0f), speed %.1f, active %d, gap %.0f m",
                         f - ordered_at, m ? mech3::mech_health(m) : -1.f,
                         has && len > 0 ? ((now[0] - a[0]) * dx + (now[2] - a[2]) * dz) / len : -1.f,
                         has ? std::hypot(now[0] - a[0], now[2] - a[2]) : -1.f, m ? mech3::mech_forward_speed(m) : -1.f,
                         m ? mech3::mech_active(m) : -1, m && aimed[mate] && listed(aimed[mate]) ? ground_distance(m, aimed[mate]) : -1.f);
+          if (std::getenv("MW1_WALK_TRACE") && m) {  // FIXES 110: the stall's state
+            mech3::LaunchedMech d;
+            if (mech3::describe_mech(m, &d)) {
+              const size_t k = std::strlen(line);
+              std::snprintf(line + k, sizeof line - k, ", anim %d, yaw %.0f deg, blocked %d%d%d%d, throttle %.1f",
+                            d.anim_state, 2 * std::asin(d.yaw_sin) * 57.2958f, d.blocked[0], d.blocked[1], d.blocked[2],
+                            d.blocked[3], mech3::mech_throttle_target(m));
+            }
+            if (const mech3::ai::Brain* b = brain_of(m); b && !b->orders.empty()) {
+              const mech3::ai::Order& o = b->orders.back();
+              const auto* net = o.net.get();
+              const auto* state = o.state.get();
+              const size_t k = std::strlen(line);
+              std::snprintf(line + k, sizeof line - k, ", orders %zu, net %s, state %s", b->orders.size(),
+                            net ? typeid(*net).name() : "-", state ? typeid(*state).name() : "-");
+              auto& br = const_cast<mech3::ai::Brain&>(*b);
+              const mech3::ai::SteerPm& st = mech3::ai::pm_brain(br).steer;
+              const size_t k2 = std::strlen(line);
+              std::snprintf(line + k2, sizeof line - k2, ", turn goal %.2f, way %.0f deg along %.0f/%.0f side %.0f",
+                            br.controls ? br.controls->turn_goal() : -9.f, std::atan2(st.dir[0], st.dir[1]) * 57.2958f,
+                            st.along, st.length, st.side);
+            }
+          }
           walk_trace[mate].push_back(line);
         }
       if (walking) return true;
@@ -5123,10 +5200,22 @@ void lance_orders_run(const char* name, int32_t count, bool reload, std::vector<
                   "%.0f m toward it (moved %.0f m)\n",
                   static_cast<size_t>(std::find(mates.begin(), mates.end(), m) - mates.begin()) + 1, reached[m], a, kWalkFrames, b,
                   b >= 0 ? a - b : -1.f, w, d);
+      const int32_t turned = turn_start.count(m) ? turn_start[m] : -1;
+      const int32_t off = set_off.count(m) ? set_off[m] : !low_seen[m] && walk_start.count(m) ? 0 : -1;  // up throughout
+      const int32_t on = walk_start.count(m) ? walk_start[m] : -1, gait = walk_gait.count(m) ? walk_gait[m] : -1;
+      std::printf("  lancemate %zu: turning at f+%d, set off at f+%d, its gait walking from f+%d, 2 m at f+%d, %d frames in "
+                  "reverse between\n",
+                  static_cast<size_t>(std::find(mates.begin(), mates.end(), m) - mates.begin()) + 1, turned, off, gait, on,
+                  backed.count(m) ? backed[m] : 0);
+      if (set_off_check) {
+        // Turning within 2 s (none: it faced its way already and set off at once), and walking soon after it set off.
+        EXPECT((turned >= 0 && turned <= kTurnFrames) || (turned < 0 && off >= 0 && off <= kTurnFrames));
+        EXPECT(off >= 0 && gait >= 0 && on >= 0 && gait - off <= kSetOffFrames);
+      }
       EXPECT(reached[m] == 1 && aimed[m] != nullptr);
       // Walked at it (all of it toward) and the gap closed: kSeed's least, the Awesome's 62 m and 134 m.
       const bool walked = a > 0 && w >= 30 && w >= 0.8f * d && b >= 0 && a - b >= 30;
-      if (!walked)
+      if (!walked || std::getenv("MW1_WALK_TRACE"))
         for (const std::string& l : walk_trace[m]) std::printf("    %s %s\n", m.c_str(), l.c_str());
       EXPECT(walked);
     }
@@ -5142,6 +5231,24 @@ TEST(mw1_loop_lance_orders_an_awesome_walks_headless) {
   lance_orders_run("mw1_lance_orders_awesome", 3, false, {mw1::kPmFirefly, mw1::kPmOwens, mw1::kPmAwesome});
 }
 TEST(mw1_loop_lance_orders_reach_each_after_a_reload_headless) { lance_orders_run("mw1_lance_orders_reload", 2, true); }
+// FIXES 110: on seeds 1 to 8 (the enemies 340 to 1,360 m off, the lance facing them or away) a Firefly, an Owens and
+// an Awesome each turn within 2 s of the order and walk soon after their throttle comes up. MW1_WALK_EXE=1 runs the
+// exe's walking context instead (seed 6's Awesome then fails: backed off with its throttle up).
+TEST(mw1_loop_lance_orders_set_off_on_seeds_1_to_8_headless) {
+  std::vector<int32_t> mechs = {mw1::kPmFirefly, mw1::kPmOwens, mw1::kPmAwesome};
+  if (const char* e = std::getenv("MW1_LANCE_MECHS")) {  // another lance (PM's ids, comma separated)
+    mechs.clear();
+    for (const char* p = e; *p;) {
+      char* end = nullptr;
+      mechs.push_back(static_cast<int32_t>(std::strtol(p, &end, 10)));
+      p = *end ? end + 1 : end;
+    }
+  }
+  const char* one = std::getenv("MW1_TEST_SEED");
+  const uint32_t first = one ? static_cast<uint32_t>(std::atoi(one)) : 1, last = one ? first : 8;
+  for (uint32_t seed = first; seed <= last; ++seed)
+    lance_orders_run("mw1_lance_orders_set_off", static_cast<int32_t>(mechs.size()), false, mechs, seed, true);
+}
 
 // FIXES 106: the log says who brought a lancemate's mech down. On c4ia1 with three lancemates, 5 s in: the first's
 // mech destroyed by an enemy (the kill an enemy's, by its chassis), the second's with no mech's kill (as a vehicle's,
