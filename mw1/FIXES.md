@@ -43,6 +43,13 @@ was checking each part in MW1, against MW3/PM. Nothing in the game needed fixing
   (`app.destroy()`).
 - **Tests:** `mw1_controls_rebound_through_settings_kept_in_mw1s_write_dir_and_live_in_battle_headless`,
   `mw1_controls_a_stick_drives_the_mech_in_mw1s_battles_headless`.
+- **After the engine's joystick fix (main a936e6ca, through pm; for 1.0.2):** a stick plugged in while MW1 runs is
+  opened, and buttons 11 to 15 bind. MW1 needed no change: its screens poll through PM's `GameEngine::input_poll`,
+  and it starts through PM's `Mech3App::start_game`.
+  - **The test:** no stick at the start; one plugged in at the hub, and zInput opens it. Then JOYSTICK DEFAULTS, and
+    TURN RIGHT's JOYSTICK captured as button 13. In an MW1 battle the lever sets the throttle, and button 13 turns
+    right.
+  - **Test:** `mw1_controls_a_stick_plugged_in_later_drives_the_mech_and_binds_button_13_headless`.
 ## 129. [x] Lance orders in MW1's battles, each one *(done: mw1-fix129-lance-orders, a test only; for 1.0.2)*
 The lead, after 128: does a lancemate act on each of Pirate's Moon's lance orders in an MW1 battle? Yes, every one, as
 in PM; nothing needed fixing. MW1's lancemates are PM AI 'Mechs on the player's side with a radio, in PM's lance

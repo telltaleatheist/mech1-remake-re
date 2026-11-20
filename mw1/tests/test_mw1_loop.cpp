@@ -7771,6 +7771,7 @@ struct BindInput : platform::Input {
   uint32_t t = 0;
   uint8_t buttons[4] = {};
   bool stick = false;
+  bool arrived = false;  // a stick plugged in now (SdlInput's joystick_arrived): told once
   platform::JoyState st;
   void key(uint32_t dik, bool down) { queue.push_back({dik, down ? 0x80u : 0u, ++t, t}); }
   void press(uint32_t dik) { key(dik, true), key(dik, false); }
@@ -7790,6 +7791,7 @@ struct BindInput : platform::Input {
     std::memcpy(m->buttons, buttons, 4);
     return 0;
   }
+  bool joystick_arrived() override { return std::exchange(arrived, false); }
   int32_t joystick_state(platform::JoyState* out) override {
     if (!stick) return kNotAcquired;
     *out = st;
@@ -8006,6 +8008,103 @@ TEST(mw1_controls_rebound_through_settings_kept_in_mw1s_write_dir_and_live_in_ba
       menu_run(r);
     }
     EXPECT(defaults);
+  });
+}
+
+// FIXES 128, after the engine's joystick fix (main a936e6ca, through pm): a stick plugged in while MW1 runs. No stick at
+// the start; at the hub one arrives (the platform says so once), and zInput's poll in MW1's own screen opens it. In the
+// key map, JOYSTICK DEFAULTS, then TURN RIGHT's JOYSTICK captured as stick button 13 (past the original's 10). ACCEPTed
+// (its save question: yes, a file name, OK, then ACCEPT again), in an MW1 mission the lever full forward sets the throttle's target, and button 13 turns right.
+TEST(mw1_controls_a_stick_plugged_in_later_drives_the_mech_and_binds_button_13_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  in_child([&] {
+    const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_stick_later";
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    const mech3::AxisTable axes_was = mech3::axis_table();
+    BindInput in;  // no stick at the start
+    MenuRun r;
+    r.save = mw1::slot_path(dir.string(), 1), r.start = mw1::Start::kHub, r.input = &in, r.settings = true, r.limit = 8000;
+    int stage = 0, wait = 0, box_frames = 0, f = 0, battle = 0, hub_frames = 0;
+    bool absent_at_start = false, opened = false, joy_defaults = false, bound13 = false, in_battle = false;
+    bool quiet = false, turned = false;
+    int32_t turn_right = 0;
+    float full = -9;
+    r.step = [&](mech3::Mech3App& app, mech3::GameEngine& engine) {
+      if (ztwod::MessageBox* box = engine.message_box_open()) {
+        if (++box_frames == 3) box->buttons[0].on_left_up(), box_frames = 0;
+        return false;
+      }
+      if (stage == 0) {  // the hub, no stick; then one plugged in, and MW1's screen polls
+        if (!showing(app, mw1::game_loop_hub())) return false;
+        ++hub_frames;
+        if (hub_frames == 10) absent_at_start = !zin::joy_present(), in.stick = true, in.arrived = true;
+        if (hub_frames == 20) opened = zin::joy_present() && !in.arrived, stage = 1, wait = 0;
+        return false;
+      }
+      if (stage < 5) {
+        int s = stage - 1;
+        if (++wait > 4 && to_key_map(app, engine, s)) wait = 0;
+        stage = 1 + s;
+        return false;
+      }
+      mech3::ControlsScreen* c = key_map(app, engine);
+      if (stage == 5 && c) {  // JOYSTICK DEFAULTS, then TURN RIGHT's JOYSTICK row captured as button 13
+        ++wait;
+        if (wait == 8) c->reset_joy.on_left_up();
+        if (wait == 12) {
+          const mech3::AxisTable& a = mech3::axis_table();
+          joy_defaults = a.axes[0].source == 3 && a.axes[3].source == 1 && mech3::use_joystick();
+          turn_right = engine.controls_group_command(c->group(), 3);
+        }
+        if (wait == 20) c->joy.select(3), c->joy.on_left_up();
+        if (wait >= 23 && wait < 28) in.st.buttons[12] = 0x80;
+        if (wait == 28) in.st.buttons[12] = 0;
+        if (wait > 28 && zin::joy_of(turn_right) == 13) bound13 = true, c->accept.on_left_up(), stage = 6, wait = 0;
+        return wait > 120;  // a capture that never took: the run ends, the checks say which
+      }
+      // ACCEPT's save question (yes): its file-name popup, a name typed (MW1LATE), OK.
+      if (auto* lsp = dynamic_cast<mech3::LoadSavePopupState*>(app.current()); lsp && lsp->popup && stage == 6) {
+        if (++wait == 5) lsp->popup->bar.set_text("MW1LATE"), lsp->popup->ok.on_left_up(), wait = 0;
+        return false;
+      }
+      if (stage == 6) {  // the key map again after the popup: ACCEPT; SETTINGS: DONE; the hub's OPTIONS: BACK
+        if (c && ++wait > 6) c->accept.on_left_up(), wait = 0;
+        if (showing(app, mw1::game_loop_settings()) && ++wait > 4) mw1::game_loop_settings()->press(mw1::settings::kDone), wait = 0;
+        if (showing(app, mw1::game_loop_hub_options()) && ++wait > 4) mw1::game_loop_hub_options()->screen()->on_button(mw1::kHubOptBack, 0, 0), wait = 0;
+        if (showing(app, mw1::game_loop_hub())) stage = 7, battle = 0, wait = 0;
+        return false;
+      }
+      if (stage == 7) {
+        if (battle < 3) {
+          if (++wait > 8 && to_battle(app, battle)) wait = 0;
+          return false;
+        }
+        int32_t na = 0;
+        mech3::mission_ai_mechs(&na);
+        if (app.current() != &mech3::states().core || na == 0) return in_battle && showing(app, mw1::game_loop_results());
+        in_battle = true;
+        mech3::PlayerControls* pc = mech3::player_controls_instance();
+        if (!pc) return false;
+        ++f;
+        if (f == 30) in.st.z = -1000;  // the lever full forward
+        if (f == 50) full = pc->throttle_target, in.st.z = 0, quiet = zin::command(turn_right) == 0, in.st.buttons[12] = 0x80;
+        if (f == 53) turned = zin::command(turn_right) != 0, in.st.buttons[12] = 0;
+        if (f == 60) leave_battle();
+        return false;
+      }
+      return false;
+    };
+    menu_run(r);
+    mech3::axis_table() = axes_was;
+    std::printf("  stick plugged in later: absent at the start %d, opened %d; joystick defaults %d; TURN RIGHT on button 13 %d;"
+                " battle %d: lever forward %.2f, button 13 turns right %d (quiet before %d)\n",
+                absent_at_start, opened, joy_defaults, bound13, in_battle, full, turned, quiet);
+    EXPECT(absent_at_start && opened);
+    EXPECT(joy_defaults && bound13);
+    EXPECT(in_battle && full > 0.9f);
+    EXPECT(quiet && turned);
   });
 }
 
