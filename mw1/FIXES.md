@@ -1410,6 +1410,25 @@ placeholder 'Mech there.
 - PM's own icon still shows for the one frame a slot changes, before ours replaces it, as its red pressed icons
   do on every slot.
 
+## 109. [x] The damage display showed only some of the 'Mech's parts at high resolution *(done, mw1-fix109-dmg-hires)*
+
+Owen (2026-11-19, a crop of the bottom right): one arm's outline over the blue grid. The log: "8 draws left to the
+canvas", the eight `dmg_<part>_<colour>` pictures.
+- **Why:** the hires pass draws the display's background (`dmg_bg_*`) from PM's pixels at the window's scale, but
+  not its eight part pictures (hud.cpp `kParts`). Left to the canvas, they sat under the high-resolution grid; which
+  showed changed with what was drawn over them.
+- **Fix:** `mw1_hud_art.cpp` reads all 32 (8 parts, blue/green/yellow/red) from PM's as the backgrounds are (PM has
+  no `_blk`; the "not found" lines are PM's own). Each draws at hud.cpp's place in its order, its colour the
+  part's state, as before.
+- **Test** (`mw1_loop_hud_damage_parts_drawn_at_the_window_s_resolution`): in a mission, every part's four pictures
+  drawn at 1080p's art scale (3) and 4K's (5), their size and lit pixels PM's times the scale: 8 of 8 at each, 64
+  of 64. `mw1_loop_hud_art_is_pm_s_pictures_at_canvas_size` counts 53 read pieces (21 + 32), each lit as PM's.
+- **Shots** (hidden, the mission with D to the damage display), 1080p and 4K, whole and cropped:
+  outbox/2026-11-19/mw1-fix109-damage-display/. No picture of the mission is left to the canvas at 4:3, 1080p or 4K.
+- **With it** (the lead, for 107): each looped weapon sound's start and stop is logged, `mw3: loop sound: <weapon>
+  on <mech> [(the player's)] started|released|out of ammo|destroyed|deleted`. A loop left on shows as started and
+  never stopped. Test `pm_volley_a_loop_sound_s_stop_is_noted`.
+
 ## 108. [x] A 'Mech sold dearer than it was bought *(closed: by design, MW1's own trade)*
 
 The lead (2026-11-19), from Owen's log: a Centurion bought for 4,505,000 sold for 6,307,000.

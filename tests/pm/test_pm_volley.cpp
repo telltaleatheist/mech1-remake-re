@@ -2,6 +2,7 @@
 // definition (0x004b8ce0); MW3 also waited for the weapon type's AI wait (0x004b4c70, the type's +0xc4).
 #include <algorithm>
 #include <cstdio>
+#include <string>
 #include <vector>
 
 #include "check.h"
@@ -43,6 +44,36 @@ TEST(pm_volley_counts_a_waiting_type) {
     m.groups[0]->remove(&w);
     m.weapons[0] = nullptr, m.count = 0;
   }
+}
+
+// MW1 FIXES 107 (the log): a weapon's looped sound stopped says so with why: let go ("released") and with the weapon
+// gone ("deleted"); a weapon with no loop playing says nothing.
+namespace {
+std::vector<std::string> g_notes;
+}
+TEST(pm_volley_a_loop_sound_s_stop_is_noted) {
+  mech3::WeaponCalls& calls = mech3::weapon_calls();
+  const auto was_note = calls.loop_note;
+  const auto was_stop = calls.stop_sound;
+  calls.loop_note = [](const mech3::Weapon&, const char* why) { g_notes.push_back(why ? why : "started"); };
+  calls.stop_sound = [](zwep::Handle) {};
+  mech3::WeaponType type{};
+  type.heat = 0.1f, type.range = 1000.0f, type.range_sq = 1e6f;
+  zwep::WeaponDef def{};
+  def.type = &type;
+  def.flags = zwep::kBeam;
+  mech3::WeaponManager m(nullptr);
+  {
+    Unlimited w(&def, nullptr, &m, true), quiet(&def, nullptr, &m, true);
+    w.loop_sound = reinterpret_cast<zwep::Handle>(0xA);
+    w.release();
+    quiet.release();
+    w.loop_sound = reinterpret_cast<zwep::Handle>(0xB);
+  }  // w deleted with its loop on
+  std::printf("  %zu notes: %s, %s\n", g_notes.size(), g_notes.size() > 0 ? g_notes[0].c_str() : "-",
+              g_notes.size() > 1 ? g_notes[1].c_str() : "-");
+  EXPECT(g_notes == std::vector<std::string>({"released", "deleted"}));
+  calls.loop_note = was_note, calls.stop_sound = was_stop;
 }
 
 // MW1's FIXES.md item 107 (Owen: a machine gun's sound came on and never stopped): a weapon's looped sound (U_LOOPED,

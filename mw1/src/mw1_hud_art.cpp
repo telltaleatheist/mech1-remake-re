@@ -184,7 +184,18 @@ const std::map<std::string, ReadPiece>& read_pieces() {
       {"ret_off", {40, 48, Read::kReticle}},         {"ret_on", {40, 48, Read::kReticle}},
       {"ret_over", {40, 48, Read::kReticle}},        {"ret_cant", {40, 48, Read::kReticle}},
       {"dmg_bg_blue", {75, 91, Read::kAlphaPixels}}, {"dmg_bg_grn", {75, 91, Read::kAlphaPixels}},
-      {"dmg_bg_red", {75, 91, Read::kAlphaPixels}}};
+      {"dmg_bg_red", {75, 91, Read::kAlphaPixels}},
+      // FIXES.md item 109 (Owen: the damage display showed some parts, an arm alone): the eight parts' pictures in
+      // their four states (hud.cpp kParts; PM has no _blk), drawn here as the backgrounds are. Left to the canvas
+      // they were under the hires grid, and which showed changed frame to frame.
+      {"dmg_head_blue", {15, 10, Read::kAlphaPixels}}, {"dmg_head_grn", {15, 10, Read::kAlphaPixels}}, {"dmg_head_yel", {15, 10, Read::kAlphaPixels}}, {"dmg_head_red", {15, 10, Read::kAlphaPixels}},
+      {"dmg_ltorso_blue", {10, 32, Read::kAlphaPixels}}, {"dmg_ltorso_grn", {10, 32, Read::kAlphaPixels}}, {"dmg_ltorso_yel", {10, 32, Read::kAlphaPixels}}, {"dmg_ltorso_red", {10, 32, Read::kAlphaPixels}},
+      {"dmg_rtorso_blue", {10, 32, Read::kAlphaPixels}}, {"dmg_rtorso_grn", {10, 32, Read::kAlphaPixels}}, {"dmg_rtorso_yel", {10, 32, Read::kAlphaPixels}}, {"dmg_rtorso_red", {10, 32, Read::kAlphaPixels}},
+      {"dmg_ctorso_blue", {13, 33, Read::kAlphaPixels}}, {"dmg_ctorso_grn", {13, 33, Read::kAlphaPixels}}, {"dmg_ctorso_yel", {13, 33, Read::kAlphaPixels}}, {"dmg_ctorso_red", {13, 33, Read::kAlphaPixels}},
+      {"dmg_larm_blue", {15, 38, Read::kAlphaPixels}}, {"dmg_larm_grn", {15, 38, Read::kAlphaPixels}}, {"dmg_larm_yel", {15, 38, Read::kAlphaPixels}}, {"dmg_larm_red", {15, 38, Read::kAlphaPixels}},
+      {"dmg_rarm_blue", {15, 38, Read::kAlphaPixels}}, {"dmg_rarm_grn", {15, 38, Read::kAlphaPixels}}, {"dmg_rarm_yel", {15, 38, Read::kAlphaPixels}}, {"dmg_rarm_red", {15, 38, Read::kAlphaPixels}},
+      {"dmg_lleg_blue", {29, 47, Read::kAlphaPixels}}, {"dmg_lleg_grn", {29, 47, Read::kAlphaPixels}}, {"dmg_lleg_yel", {29, 47, Read::kAlphaPixels}}, {"dmg_lleg_red", {29, 47, Read::kAlphaPixels}},
+      {"dmg_rleg_blue", {29, 47, Read::kAlphaPixels}}, {"dmg_rleg_grn", {29, 47, Read::kAlphaPixels}}, {"dmg_rleg_yel", {29, 47, Read::kAlphaPixels}}, {"dmg_rleg_red", {29, 47, Read::kAlphaPixels}}};
   return m;
 }
 
