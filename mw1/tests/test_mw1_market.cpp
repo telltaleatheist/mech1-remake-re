@@ -66,6 +66,31 @@ TEST(mw1_market_prices_by_tonnage_tier_and_clan) {
          mw1::mech_class(mw1::kPmChampion) == 2 && mw1::mech_class(kAtlas) == 2 && !mw1::sold_mech(mech3::kElemental));
 }
 
+// FIXES 108 (Owen: by design, as MW1 had it): MW1's own formula pinned, every chassis at every tier. Buying is the tier 0
+// price times the tier's percent (100/120/130/150), selling 10 points less (90/110/120/140), floored to 1,000 C-bills,
+// a Clan 'Mech's doubled; so within one world selling always pays less than buying, and buying cheap at a low tier and
+// selling at a dearer world pays (MW1's trade, kept).
+TEST(mw1_market_mw1s_formula_pinned) {
+  int32_t checked = 0, arbitrage = 0;
+  for (int32_t m = 0; m < mech3::kMechCount; ++m) {
+    if (!mw1::market::sold_mech(m)) continue;
+    const int64_t base = int64_t{mw1::market::tier0_price(m)} * 1000, clan = mw1::market::clan_mech(m) ? 2 : 1;
+    EXPECT(mw1::market::tier0_price(m) == mw1::market::kPricePerTon * static_cast<int32_t>(mech3::max_mass(m)) - mw1::market::kPriceOffset);
+    for (int32_t t = 0; t < mw1::kTierCount; ++t) {
+      const int64_t pct = mw1::kTierMultipliers[t] * 10;
+      const int64_t buy = mw1::market::buy_price(m, t), sell = mw1::market::sell_price(m, t);
+      EXPECT(buy == base * pct / 100 / 1000 * 1000 * clan);
+      EXPECT(sell == base * (pct - 10) / 100 / 1000 * 1000 * clan);
+      EXPECT(sell < buy);
+      EXPECT(mw1::market::buy_percent(t) == pct && mw1::market::sell_percent(t) == pct - 10);
+      arbitrage += sell > mw1::market::buy_price(m, 0);
+      ++checked;
+    }
+  }
+  std::printf("  %d prices checked; %d sales above a tier 0 purchase (MW1's trade)\n", checked, arbitrage);
+  EXPECT(checked > 0 && arbitrage > 0);
+}
+
 TEST(mw1_market_stock_by_tier_classes_and_clan_worlds) {
   mw1::Rng rng(7);
   for (int32_t tier = 0; tier < 4; ++tier) {

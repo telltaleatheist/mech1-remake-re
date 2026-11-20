@@ -1341,3 +1341,31 @@ as in MW1, and a narrow win never empty-handed.
     no floor.
   - The loop: a casualty pinned (KILLED or MISSING, the 'Mech lost, AFTER ACTION's House and "beyond repair"
     lines), and the full lance's downed lancemate recovered and back.
+
+## 96. [x] The lab's empty lance slot shows MW3's placeholder 'Mech *(done: mw1-notmech-slot)*
+
+Owen (2026-11-19): the Mech Lab's top row showed an empty dashed box for a lancemate without a 'Mech; MW3 shows its
+placeholder 'Mech there.
+- **What MW3 does:** a slot with no 'Mech asks for its 'Mech's icon by name, and `mech_name(-1)` is "notmech", so
+  MechButton asks for `icon_notmech_<colour>`. PM's and MW3's image libraries both ship it (green, red and grey; no
+  yellow).
+- **The fix** (`mw1_mech_icons.cpp`, `make_mech_icons`): the slot's three looks (`mw1_slot_none`, `_lit`, `_off`)
+  are made from `icon_notmech`, read from the install at run time, in the slot's colours, with its outline for the
+  high-resolution draw, as every other slot is. The dashed frame stays only for an install without the icon.
+- **Test** (`mw1_loop_market_buy_sell_pilot_...`): the made empty-slot look is lit, all amber, not the dashed
+  frame, and has an outline.
+- **Shots** (hidden, `MW1_SCREEN=lab MW1_LAB_LANCE=3:2`), 4:3 and 1080p: outbox/2026-11-19/mw1-notmech-slot/.
+- PM's own icon still shows for the one frame a slot changes, before ours replaces it, as its red pressed icons
+  do on every slot.
+
+## 108. [x] A 'Mech sold dearer than it was bought *(closed: by design, MW1's own trade)*
+
+The lead (2026-11-19), from Owen's log: a Centurion bought for 4,505,000 sold for 6,307,000.
+- **Why:** buying pays the tier 0 price times the world's tier percent (100/120/130/150); selling pays 10 points
+  less (90/110/120/140). That's MW1's own formula (081B:4645, 081B:32BA). Owen bought at a tier 0 world and sold at
+  Skokie, tier 3.
+- Within one world selling always pays less than buying; between worlds it pays to buy cheap and sell dear, as in
+  MW1. Owen: keep it.
+- **Test** (`mw1_market_mw1s_formula_pinned`): every chassis at every tier, buying is base × tier%, selling is
+  base × (tier% − 10), floored to 1,000, a Clan 'Mech's doubled, and selling is under buying in the same world. A
+  later change can't move it either way unnoticed.

@@ -37,8 +37,9 @@ images::Image amber_icon(const std::string& name, const zimg::Texture& pm_icon);
 enum class SlotLook { kDim, kLit, kOff };
 std::string slot_icon_image(int32_t pm_mech, SlotLook look);  // "mw1_slot_<mech>", _lit, _off
 images::Image slot_icon(const std::string& name, const zimg::Texture& pm_icon, SlotLook look);
-// FIXES 69: a lancemate's slot with no mech: an empty frame, dashed, a PM icon's size (kBlankSlotW x kBlankSlotH), in
-// the look's colour. "mw1_slot_none", _lit, _off.
+// FIXES 69, 96: a lancemate's slot with no mech: MW3's placeholder 'Mech (icon_notmech, from PM's or MW3's libraries)
+// in the look's colour, its outline drawn as the other slots'; only without it, an empty dashed frame of a PM icon's
+// size (kBlankSlotW x kBlankSlotH, blank_slot). "mw1_slot_none", _lit, _off.
 inline constexpr int32_t kBlankSlotW = 41, kBlankSlotH = 50;
 std::string blank_slot_image(SlotLook look);
 images::Image blank_slot(SlotLook look);
