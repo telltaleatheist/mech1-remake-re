@@ -603,6 +603,36 @@ bind; `issue16_a_mission_keeps_the_stick_axes_headless`: a launch keeps the
 stick's mode 6 and axes). Why "joystick/kyb default" helped one player is
 not known.
 
+## 13. The mission's mouse line (issue #15, 2026-11-21)
+
+Players (Owen on Windows before 1.1.0, then fjosk on 1.1.x): "it's stuck at
+the middle and had to move it very far, only then the reticle respond". The
+cut that caused Owen's (W19, section 2's MOUSE SENSITIVITY on a frame's 0 or
+1 counts) has been carried since 1.1.0, and every later step was checked
+with slow motion and found to keep it: SDL's events through `SdlInput`
+(its fractions), zInput's sensitivity, the controls' view 0 and view 2, the
+torso's steer (linear) and the HUD's reticle (placed at the pointer), MW3
+and Pirate's Moon alike (the same code). Windows' Enhance pointer precision,
+as SDL 3.4 copies it, gives about 0.57 px a count at the slowest; DDrawCompat's
+default (desktop) follows the same curve, so Windows should feel as the
+original does. On the Mac SDL takes NSEvent's deltaX, already through the
+system's acceleration, and the system-scale hint does nothing there.
+
+What was left is the system, which no test here reaches. So each mission's
+end (and a pause) writes one line to mw3.log (ours, `SdlInput::motion_report`):
+
+    mw3: mouse over the mission: E motion events (S under a pixel), P px from
+    SDL, C counts to the game, M after MOUSE SENSITIVITY x/y; window WxH,
+    frame FWxFH, K counts a pixel; <video driver>, system speed 1, captured 1
+
+P is what SDL gave (the system's speed), C what reached zInput (P times K,
+the frame's scale), M what zInput kept after the sensitivity, which the aim
+reads. A player's log then says at which step slow motion goes: P small for
+the motion made (the system's curve), C short of P times K (ours), or M short
+of C times the sensitivity (zInput). `sdl_issue15_mission_mouse_line_counts_slow_motion`:
+400 events of 0.4 px in a 1280-wide window at 0.5: 160 px, 80 counts, 40
+kept; dropping SdlInput's carried fractions reads 0 counts and fails.
+
 ## Open
 
 - The controls screen (0x0042be10 ..), which uses read_key and the wait

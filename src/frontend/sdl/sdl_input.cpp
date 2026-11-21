@@ -385,6 +385,26 @@ void SdlInput::capture(bool on) {
   if (window) SDL_SetWindowRelativeMouseMode(window, on);
 }
 
+// Ours (issue #15, input.md section 13): one line a mission, the mouse's motion at
+// each step: SDL's pixels (the system's speed), the counts handed to zInput (times
+// the frame's scale), and zInput's after MOUSE SENSITIVITY, which the aim reads.
+void SdlInput::motion_report() {
+  int w = 0, h = 0;
+  if (window_size) window_size(&w, &h);
+  else if (window) SDL_GetWindowSize(window, &w, &h);
+  const zin::State& z = zin::state();
+  const char* drv = SDL_GetCurrentVideoDriver();
+  const char* scaled = SDL_GetHint(SDL_HINT_MOUSE_RELATIVE_SYSTEM_SCALE);
+  std::printf("mw3: mouse over the mission: %llu motion events (%llu under a pixel), %.0f px from SDL, %.0f counts to "
+              "the game, %.0f after MOUSE SENSITIVITY %.2f/%.2f; window %dx%d, frame %dx%d, %.3f counts a pixel; %s, "
+              "system speed %s, captured %d\n",
+              static_cast<unsigned long long>(stats_.events), static_cast<unsigned long long>(stats_.small), stats_.sdl,
+              stats_.counts, z.moved - stats_.moved_at_start, static_cast<double>(z.accel_x),
+              static_cast<double>(z.accel_y), w, h, z.width, z.height, static_cast<double>(motion_scale()),
+              drv ? drv : "no video driver", scaled ? scaled : "unset", captured_ ? 1 : 0);
+  std::fflush(stdout);
+}
+
 uint64_t SdlInput::clock() const { return now_ns ? now_ns() : SDL_GetTicksNS(); }
 
 // FIX (A), playtest W4 (sdl_input.h, has_focus): the focus as it really is.
@@ -453,7 +473,9 @@ void SdlInput::refresh() {
   win_ = windowed && windowed();
   const bool mission = in_mission && in_mission();
   if (mission != mission_) {
+    if (mission_) motion_report();  // out of the mission (or into the pause)
     mission_ = mission;
+    if (mission) stats_ = MotionStats{}, stats_.moved_at_start = zin::state().moved;
     if (mission) released_ = win_ && !focused_;  // into the mission (or out of the pause): held
     // FIX (A), playtest W30: a press from the screen before (LAUNCH, RESUME)
     // is not the mission's fire. The exe's load took seconds, so the click
@@ -554,6 +576,7 @@ int32_t SdlInput::mouse_state(platform::MouseState* out) {
   }
   out->x = static_cast<int32_t>(dx_), out->y = static_cast<int32_t>(dy_), out->z = static_cast<int32_t>(dz_);
   dx_ -= out->x, dy_ -= out->y, dz_ -= out->z;  // the fractions carry over
+  if (mission_) stats_.counts += std::abs(out->x) + std::abs(out->y);
   // FIX (A): DirectInput's device state caught a click shorter than a frame
   // through its buffer; SDL's events can press and release between two reads,
   // so a press stays down for the read after it.
@@ -785,6 +808,10 @@ void SdlInput::on_event(const SDL_Event& e) {
       if (acquired_[kMouse] && !muted()) {
         const float k = motion_scale();
         dx_ += e.motion.xrel * k, dy_ += e.motion.yrel * k;
+        if (mission_) {  // issue #15: the mission's mouse line
+          const double d = std::fabs(e.motion.xrel) + std::fabs(e.motion.yrel);
+          ++stats_.events, stats_.small += d < 1.0 ? 1 : 0, stats_.sdl += d;
+        }
       }
       break;
     case SDL_EVENT_MOUSE_WHEEL:
