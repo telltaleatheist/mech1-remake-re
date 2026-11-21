@@ -122,6 +122,10 @@
 #include "platform/silent_sound.h"
 #include "pm/pm_game.h"
 #include "mw1_placement.h"
+#include "mech3/app_hud.h"
+#include "mech3/zainet_region.h"
+#include "mech3/zai_valve.h"
+#include "mech3/zrdrvalve.h"
 #include "gamez/zweapon/zweapon.h"
 #include "pm/gamez/zmodel/gmod_const.h"
 // The process's peak memory so far, in MB (peak_memory.cpp: its own file, as windows.h's macros clash with the
@@ -362,6 +366,9 @@ struct Run {
   // (`kill_enemies`) at frame 30, the enemies too once the mission has ended (`kill_after_end`), then the engine's
   // objectives end it.
   const mw1::MapRow* row = nullptr;
+  // FIXES 138: on a row's mission, called at frame 30 and each frame after while it returns true (then the run ends);
+  // the boundary survey's.
+  std::function<bool(int32_t frame)> boundary_frame;
   bool survey = false, destroy_structure = false, kill_enemies = false, kill_after_end = false;
   std::vector<int32_t> force;  // every contract's force (MW1 kinds; empty: its own); `enemies_made` at frame 30
   int32_t enemies_made = -1;  // the enemies the mission made
@@ -1744,6 +1751,10 @@ void loop_run(Ending ending, Run* run = nullptr) {
               std::printf("  ground probe written to %s; the player at %.0f %.0f %.0f\n", out, p[0], p[1], p[2]);
             }
           }
+          if (run->boundary_frame) {
+            if (!run->boundary_frame(frames)) return end_it();
+            return;
+          }
           if (run->survey) return end_it();
           if (run->destroy_structure) {
             const mw1::Contract* k = mw1::game_loop_contract();
@@ -1752,6 +1763,10 @@ void loop_run(Ending ending, Run* run = nullptr) {
               if (h && t->self == h) t->destroy();
           }
           if (run->kill_enemies) kill_enemies();
+          return;
+        }
+        if (frames > 30 && run->boundary_frame) {
+          if (!run->boundary_frame(frames)) return end_it();
           return;
         }
         if (frames > 30 && run->play && !run->mission_ended) {
@@ -2870,6 +2885,302 @@ TEST(mw1_loop_every_row_is_won_as_a_player_would_headless) {
         EXPECT(run.objective_built == kind_said(r.kind) && !run.fell_back);
         if (std::string(pl.want) != "any") EXPECT(got == pl.want);
       });
+  }
+}
+
+// FIXES 138, the survey before the rule (MW1_BOUNDARY_SURVEY=1; MW1_ROWS=<node or worldiaN> for some): on each row of
+// the map table, the mission's boundary as the engine has it. The regions loaded (every reg_inside_/reg_outside_, its
+// corners and extent), the pair the radar takes (the player's vlist's, mech3/app_hud.cpp) and what the radar draws;
+// whether the start, every enemy and the structure lie inside each; then the player put just past the yellow line
+// (240 frames), then past the red (300): every objective item that changes, and whether the mission ends. A map with
+// neither region: the player put 5 km out instead. MW1_BOUNDARY_TABLE=<file> appends each row's summary line.
+namespace {
+struct BoundarySurvey {
+  std::string inner_name, outer_name;  // the radar's pair ("" none)
+  mech3::ai::Region* inner = nullptr;
+  mech3::ai::Region* outer = nullptr;
+  float start[3] = {}, yellow_at[3] = {}, red_at[3] = {};
+  bool have_yellow = false, have_red = false, far = false;
+  int phase = 0;  // 1 past yellow, 2 past red
+  std::vector<std::string> said;  // the report's lines
+  std::map<std::string, std::string> items;  // objective item -> its state, the last frame
+  std::string yellow_did, red_did;
+  std::vector<std::pair<mech3::ai::Valve*, int32_t>> valves;  // the boundary entries' valves, their last values
+};
+// A valve's reactions, by their types (valves.zrd's actions, mech3/zrdrvalve).
+std::string reactions_said(mech3::ai::Valve* v) {
+  if (!v || !v->chain) return "none";
+  std::string out;
+  auto one = [&](mech3::ai::Reaction* r) {
+    std::string t = typeid(*r).name();
+    char b[120] = "";
+    if (auto* sa = dynamic_cast<mech3::ai::SoundAction*>(r))
+      std::snprintf(b, sizeof b, " (on %d, sound handle %u%s)", sa->value, static_cast<unsigned>(sa->sound), sa->sound ? "" : ": NONE");
+    else if (auto* ma = dynamic_cast<mech3::ai::MissionAction*>(r))
+      std::snprintf(b, sizeof b, " (on %d, fn %08x)", ma->value, ma->fn);
+    out += (out.empty() ? "" : ", ") + t + b;
+  };
+  if (mech3::ai::Composite* c = v->chain->as_composite())
+    for (mech3::ai::Reaction* r : c->items) one(r);
+  else
+    one(v->chain);
+  return out;
+}
+std::string region_said(mech3::ai::Region* r) {
+  if (!r) return "none";
+  float lo[2] = {1e9f, 1e9f}, hi[2] = {-1e9f, -1e9f};
+  for (size_t i = 0; i < r->elems.size(); ++i) {
+    const float* p = r->edge(static_cast<int32_t>(i))->point;
+    lo[0] = std::min(lo[0], p[0]), hi[0] = std::max(hi[0], p[0]), lo[1] = std::min(lo[1], p[2]), hi[1] = std::max(hi[1], p[2]);
+  }
+  char b[200];
+  std::snprintf(b, sizeof b, "%s: %zu corners, x %.0f..%.0f, z %.0f..%.0f", r->name() ? r->name() : "?", r->elems.size(), lo[0], hi[0],
+                lo[1], hi[1]);
+  return b;
+}
+void objective_items(const mech3::Objective* o, const std::string& path, std::map<std::string, std::string>& out) {
+  if (!o) return;
+  const std::string me = path + "/" + (o->desc ? *o->desc : std::string("-")) + "#" + std::to_string(static_cast<int>(o->kind));
+  out[me] = std::string(o->done ? "done" : "open") + (o->failed ? ",failed" : "");
+  if (auto* g = dynamic_cast<const mech3::ObjectiveGroup*>(o)) {
+    for (const auto& i : g->items) objective_items(i.get(), me, out);
+    for (const auto& i : g->fails) objective_items(i.get(), me + "/FAILS", out);
+  }
+}
+std::map<std::string, std::string> objectives_now() {
+  std::map<std::string, std::string> out;
+  const mech3::Objectives& o = mech3::mission_objectives();
+  objective_items(o.primary.get(), "primary", out), objective_items(o.secondary.get(), "secondary", out);
+  objective_items(o.final.get(), "final", out), objective_items(o.fail.get(), "fail", out);
+  return out;
+}
+float ground_top(float x, float z, float fallback) {
+  zcls::GroundHits hits{};
+  zcls::Node* w = mech3::world_hooks().world;
+  if (!w || zcls::ground_point(w, x, 3000.0f, z, &hits) != 0 || !hits.count) return fallback;
+  float top = hits.hit[0].height;
+  for (int i = 1; i < hits.count; ++i) top = std::max(top, hits.hit[i].height);
+  return top;
+}
+// frame 30: what's there; after: the crossings.
+bool boundary_frame(BoundarySurvey& b, int32_t frame) {
+  char line[400];
+  void* me = mech3::mech_mission_player();
+  if (frame == 30) {
+    if (me) mech3::mech_world_position(me, b.start);
+    for (mech3::ai::Region* r : mech3::ai::regions())
+      if (r->name() && (std::strncmp(r->name(), "reg_inside_", 11) == 0 || std::strncmp(r->name(), "reg_outside_", 12) == 0))
+        b.said.push_back("region loaded " + region_said(r));
+    auto* c = me ? dynamic_cast<mech3::PlayerControls*>(mech3::mech_controls(me)) : nullptr;
+    if (c && c->settings.vlist)
+      for (const mech3::ai::VListEntry& e : *c->settings.vlist)
+        if (e.region && e.region->name()) {
+          if (std::strncmp(e.region->name(), "reg_inside_", 11) == 0) b.inner = e.region;
+          if (std::strncmp(e.region->name(), "reg_outside_", 12) == 0) b.outer = e.region;
+          // What the entry sets (docs/ai.md 17.5): its valve, and whether valves.zrd gave that valve reactions.
+          std::snprintf(line, sizeof line, "vlist entry %s: flags %02x %02x, valve %s = %d, reactions %s", e.region->name(), e.flags,
+                        e.flags2, e.valve && e.valve->name ? e.valve->name : "none", e.valve ? e.valve->get() : 0,
+                        reactions_said(e.valve).c_str());
+          b.said.push_back(line);
+          if (e.valve) b.valves.push_back({e.valve, e.valve->get()});
+        }
+    b.inner_name = b.inner ? b.inner->name() : "", b.outer_name = b.outer ? b.outer->name() : "";
+    b.said.push_back("radar's yellow " + region_said(b.inner) + "; red " + region_said(b.outer));
+    mech3::HudReport h;
+    if (mech3::program_hud_report(&h)) {
+      std::snprintf(line, sizeof line, "radar draws: yellow %d corners (shown %d, %d drawn), red %d (shown %d, %d drawn)",
+                    h.boundary_points[0], h.boundary_shown[0], h.boundary_drawn[0], h.boundary_points[1], h.boundary_shown[1],
+                    h.boundary_drawn[1]);
+      b.said.push_back(line);
+    }
+    // Inside: the start, the enemies (and allies), the structure.
+    auto in = [&](const float p[3]) {
+      std::string s;
+      s += b.inner ? (b.inner->inside(p) ? "Y:in" : "Y:OUT") : "Y:-";
+      s += b.outer ? (b.outer->inside(p) ? " R:in" : " R:OUT") : " R:-";
+      return s;
+    };
+    std::snprintf(line, sizeof line, "start (%.0f, %.0f) %s", b.start[0], b.start[2], in(b.start).c_str());
+    b.said.push_back(line);
+    int32_t n = 0;
+    const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+    int enemies = 0, enemies_out_y = 0, enemies_out_r = 0;
+    for (int32_t i = 0; i < n; ++i) {
+      auto* br = static_cast<mech3::ai::Brain*>(mech3::program_ai_mech_brain(ai[i].controls));
+      float p[3] = {};
+      mech3::mech_world_position(ai[i].mech, p);
+      const bool ally = br && br->params.team() == 1;
+      if (!ally) {
+        ++enemies;
+        if (b.inner && !b.inner->inside(p)) ++enemies_out_y;
+        if (b.outer && !b.outer->inside(p)) ++enemies_out_r;
+      }
+      std::snprintf(line, sizeof line, "%s %s (%.0f, %.0f) %s", ally ? "ally" : "enemy", ai[i].name ? ai[i].name : "?", p[0], p[2],
+                    in(p).c_str());
+      b.said.push_back(line);
+    }
+    float at[3] = {};
+    std::string structure = "no structure";
+    if (mw1::game_loop_structure_point(at)) {
+      std::snprintf(line, sizeof line, "structure (%.0f, %.0f) %s", at[0], at[2], in(at).c_str());
+      structure = line;
+    }
+    b.said.push_back(structure);
+    std::snprintf(line, sizeof line, "enemies %d, outside yellow %d, outside red %d", enemies, enemies_out_y, enemies_out_r);
+    b.said.push_back(line);
+    // The crossings: of 16 bearings from the start, the one that leaves the yellow soonest (the red when no yellow),
+    // a point 40 m past it, and one 40 m past the red on the same bearing.
+    mech3::ai::Region* first = b.inner ? b.inner : b.outer;
+    if (first) {
+      float best = 1e9f, best_b = 0;
+      for (int k = 0; k < 16; ++k) {
+        const float a = k * 0.392699f;
+        for (float d = 0; d < 12000.0f; d += 10.0f) {
+          float p[3] = {b.start[0] + d * std::sin(a), b.start[1], b.start[2] + d * std::cos(a)};
+          if (!first->inside(p)) {
+            if (d < best) best = d, best_b = a;
+            break;
+          }
+        }
+      }
+      if (best < 1e9f) {
+        auto point = [&](float d, float out[3]) {
+          out[0] = b.start[0] + d * std::sin(best_b), out[2] = b.start[2] + d * std::cos(best_b);
+          out[1] = ground_top(out[0], out[2], b.start[1]);
+        };
+        float red_d = -1;
+        if (b.outer)
+          for (float d = 0; d < 12000.0f; d += 10.0f) {
+            float p[3] = {b.start[0] + d * std::sin(best_b), b.start[1], b.start[2] + d * std::cos(best_b)};
+            if (!b.outer->inside(p)) {
+              red_d = d;
+              break;
+            }
+          }
+        if (b.inner) {
+          // Past the yellow, short of the red: 40 m past, or halfway to the red when that's nearer.
+          float d = best + 40.0f;
+          if (red_d > 0 && d >= red_d - 10.0f) d = (best + red_d) / 2;
+          point(d, b.yellow_at), b.have_yellow = true;
+        }
+        if (red_d > 0) point(red_d + 40.0f, b.red_at), b.have_red = true;
+        std::snprintf(line, sizeof line, "crossing bearing %.0f deg: yellow at %.0f m, red at %.0f m", best_b * 57.2958f,
+                      b.inner ? best : -1.0f, red_d);
+        b.said.push_back(line);
+      }
+    } else {
+      // Neither: 5 km out along +x.
+      b.far = b.have_red = true;
+      b.red_at[0] = b.start[0] + 5000.0f, b.red_at[2] = b.start[2];
+      b.red_at[1] = ground_top(b.red_at[0], b.red_at[2], b.start[1]);
+      b.said.push_back("no boundary regions: the player put 5 km out instead");
+    }
+    b.items = objectives_now();
+    for (const auto& [k, v] : b.items) b.said.push_back("objective " + k + " = " + v);
+    return true;
+  }
+  // The crossings, then the watch.
+  auto watch = [&](std::string& did) {
+    for (auto& [v, last] : b.valves)
+      if (v->get() != last) {
+        std::snprintf(line, sizeof line, "frame %d: valve %s %d -> %d", frame, v->name ? v->name : "?", last, v->get());
+        b.said.push_back(line);
+        did += std::string(did.empty() ? "" : "; ") + "valve " + (v->name ? v->name : "?") + "=" + std::to_string(v->get());
+        last = v->get();
+      }
+    const auto now = objectives_now();
+    for (const auto& [k, v] : now) {
+      auto it = b.items.find(k);
+      if (it == b.items.end() || it->second != v) {
+        std::snprintf(line, sizeof line, "frame %d: objective %s -> %s", frame, k.c_str(), v.c_str());
+        b.said.push_back(line);
+        did += (did.empty() ? "" : "; ") + k.substr(k.rfind('/') + 1) + " " + v;
+      }
+    }
+    b.items = now;
+    if (mech3::missions().ended) {
+      const bool lost = mech3::missions().aborting != 0;
+      std::snprintf(line, sizeof line, "frame %d: the mission ended, %s", frame, lost ? "LOST" : "won");
+      b.said.push_back(line);
+      did += std::string(did.empty() ? "" : "; ") + (lost ? "mission LOST" : "mission won");
+      return false;
+    }
+    return true;
+  };
+  if (frame == 31) {
+    if (b.have_yellow && me) {
+      mech3::move_mech(me, b.yellow_at, 0.0f), b.phase = 1;
+      std::snprintf(line, sizeof line, "frame 31: put past the yellow at (%.0f, %.0f)", b.yellow_at[0], b.yellow_at[2]);
+      b.said.push_back(line);
+    } else {
+      b.phase = 2;
+    }
+  }
+  if (b.phase == 1) {
+    if (!watch(b.yellow_did)) return false;
+    if (frame < 31 + 240) return true;
+    b.phase = 2;
+  }
+  if (b.phase == 2 && !b.have_red) return false;
+  if (b.phase == 2) {
+    float p[3] = {};
+    if (me) mech3::mech_world_position(me, p);
+    std::snprintf(line, sizeof line, "frame %d: the player at (%.0f, %.0f) before the red; put past it at (%.0f, %.0f)", frame, p[0], p[2],
+                  b.red_at[0], b.red_at[2]);
+    b.said.push_back(line);
+    if (me) mech3::move_mech(me, b.red_at, 0.0f);
+    b.phase = 3;
+    b.items = objectives_now();
+    return true;
+  }
+  if (b.phase >= 3) {
+    if (!watch(b.red_did)) return false;
+    if (++b.phase < 3 + 300) return true;
+    return false;
+  }
+  return false;
+}
+}  // namespace
+
+TEST(mw1_loop_boundary_survey_headless) {
+  if (!std::getenv("MW1_BOUNDARY_SURVEY")) return;
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  const std::vector<mw1::MapRow> rows = shipped_rows();
+  const bool have_mw3 = fs::exists(fs::path(MW1_MW3_GAME_DIR) / "zbd" / "c2" / "gamez.zbd", ec);
+  const std::string worlds = have_mw3 ? converted_worlds() : std::string();
+  const char* only = std::getenv("MW1_ROWS");
+  for (const mw1::MapRow& r : rows) {
+    if (r.world.rfind("mw3", 0) == 0 && !have_mw3) continue;
+    if (only && r.node != only && r.world + "ia" + std::to_string(r.ia) != only) continue;
+    in_child([&] {
+      BoundarySurvey b;
+      Run run;
+      run.row = &r, run.worlds = worlds, run.stop_at_after_action = true, run.give_up = 2000;
+      // Every enemy place the map has (as mw1_loop_every_map_row_is_there_headless): more enemies than any has places.
+      run.force = mw1::rung_force(mw1::kDarkWingRung, 0);
+      run.force.insert(run.force.end(), run.force.begin(), run.force.end());
+      run.boundary_frame = [&](int32_t f) { return boundary_frame(b, f); };
+      loop_run(kObjective, &run);
+      std::printf("  BOUNDARY %s ia%d %s %s\n", r.world.c_str(), r.ia, kind_said(r.kind), r.node.c_str());
+      for (const std::string& l : b.said) std::printf("    %s\n", l.c_str());
+      char line[600];
+      std::snprintf(line, sizeof line, "%s\tia%d\t%s\t%s\t%s\t%s\tyellow: %s\tred%s: %s\n", r.world.c_str(), r.ia, kind_said(r.kind),
+                    r.node.c_str(), b.inner_name.empty() ? "-" : b.inner_name.c_str(), b.outer_name.empty() ? "-" : b.outer_name.c_str(),
+                    !b.have_yellow ? "n/a" : b.yellow_did.empty() ? "nothing" : b.yellow_did.c_str(), b.far ? " (5 km out)" : "",
+                    !b.have_red ? "n/a" : b.red_did.empty() ? "nothing" : b.red_did.c_str());
+      std::printf("  %s", line);
+      // (a child's output is kept only when it fails: the table and its detail go to files)
+      if (const char* table = std::getenv("MW1_BOUNDARY_TABLE")) {
+        if (std::FILE* f = std::fopen(table, "a")) std::fputs(line, f), std::fclose(f);
+        if (std::FILE* f = std::fopen((std::string(table) + ".detail").c_str(), "a")) {
+          std::fprintf(f, "BOUNDARY %s ia%d %s %s\n", r.world.c_str(), r.ia, kind_said(r.kind), r.node.c_str());
+          for (const std::string& l : b.said) std::fprintf(f, "    %s\n", l.c_str());
+          std::fclose(f);
+        }
+      }
+      EXPECT(run.objective_built == kind_said(r.kind));
+    });
   }
 }
 
