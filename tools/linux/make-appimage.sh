@@ -117,9 +117,16 @@ fi
 
 # libarchive, zlib and liblzma are linked in: build_deps.sh keeps their licences in the prefix.
 [ -d "$PREFIX/share/licenses" ] && cp -R "$PREFIX/share/licenses/." "$APPDIR/usr/share/doc/mw3/licenses/"
+# The combined package is named BattleTech in menus (it holds more than MW3; Owen, 2026-11-20), found by its
+# games' names too (Keywords).
+DESKTOP=tools/linux/mw3.desktop
+if [ -n "${MW3_PKG_PM_BIN:-}" ]; then
+  mkdir -p build-linux-pkg/desktop && DESKTOP=build-linux-pkg/desktop/mw3.desktop
+  sed -e 's/^Name=.*/Name=BattleTech/' -e "s/^Comment=.*/Comment=MechWarrior 3, Pirate's Moon and MechWarrior 1 rebuilt, with your own game files/" tools/linux/mw3.desktop > "$DESKTOP"
+fi
 # The libraries they load (SDL's from PREFIX), the desktop entry and icon.
 LD_LIBRARY_PATH="$PREFIX/lib:$LD_LIBRARY_PATH" "$TOOLS/linuxdeploy-x86_64.AppImage" --appdir "$APPDIR" $EXES \
-  -d tools/linux/mw3.desktop -i tools/linux/mw3.png
+  -d "$DESKTOP" -i tools/linux/mw3.png
 # Both programs, the launcher as the entry (AppRun follows the desktop file's Exec).
 PROGRAMS="mw3launcher mw3"
 [ -n "${MW3_PKG_PM_BIN:-}" ] && PROGRAMS="$PROGRAMS mw3pm"
