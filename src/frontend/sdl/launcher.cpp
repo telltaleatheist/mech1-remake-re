@@ -2155,7 +2155,8 @@ void Launcher::finish_work() {
     if (f.cancelled || !r.ok) {
       status_ = r.summary, status_good_ = f.cancelled;
       screen_ = kSetupScreen;
-    } else if (f.kind == mech3::source::Found::kInstall && f.on_disk) {  // used where it is
+    } else if (std::error_code same; f.kind == mech3::source::Found::kInstall && f.on_disk &&
+                                     fs::equivalent(f.path, fs::path(files_wd()) / "install", same)) {  // this folder's own copy
       const mech3::setup::Result c = mech3::setup::check_install(f.path, files_wd(), files_pm_);
       const std::string dir = c.install_dir.empty() ? f.path : c.install_dir;
       if (c.ok && files_pm_) return use_pm(fs::is_regular_file(dir) ? fs::path(dir).parent_path().string() : dir, c.summary);
@@ -2163,7 +2164,8 @@ void Launcher::finish_work() {
       status_ = c.summary, status_good_ = false, screen_ = kSetupScreen;
     } else {
       const std::string out = (fs::path(files_wd()) / "install").make_preferred().string();
-      confirm_text_ = (files_pm_ ? r.summary : f.summary) + "\n\nIt will be installed into " + out + ". Your own files are only read.";
+      confirm_text_ = (files_pm_ ? r.summary : f.summary) + "\n\nIt will be " + (f.kind == mech3::source::Found::kInstall ? "copied" : "installed") +
+                      " into " + out + ". Your own files are only read, and may be deleted afterwards.";
       confirm_go_ = 1;
       screen_ = kConfirm;
       if (auto_go_) {

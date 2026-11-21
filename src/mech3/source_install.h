@@ -35,7 +35,7 @@ struct Staged {
 // The fraction of the read (0..1) and the entry; false cancels.
 using StageProgress = std::function<bool(double fraction, const std::string& entry)>;
 
-// `f` from map_source, not on disk (an on-disk source installs as it is).
+// `f` from map_source, not on disk (an on-disk install is copied by setup::install_from_source, a disc read in place).
 // `staging` and `install_to` are made here; a failure or a cancel removes
 // both, so nothing half-copied is left to look like a good copy.
 Staged stage_source(const Found& f, const std::string& staging, const std::string& install_to,

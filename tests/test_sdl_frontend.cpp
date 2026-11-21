@@ -6794,18 +6794,21 @@ TEST(sdl_program_launcher_finds_the_game_then_plays) {
   for (const char* gone : {"SETUP", "SEARCH AGAIN", "A FOLDER INSTEAD", "APPLY THE 1.2 PATCH", "POINT TO YOUR GAME",
                            "A DISC IMAGE OR DOWNLOAD", ", A FOLDER,", "THE DISC'S FOLDER"})
     EXPECT(!screen(a.log, gone));
-  // Found (an installed copy picked), music there: straight into the game.
+  // Found (an installed copy picked, copied into <write dir>/install: Owen, 2026-11-21), music there: straight
+  // into the game.
+  auto copied = [](const char* name) { return std::string(MW3_TEST_TMP) + "/" + name + "/wd/install"; };
   const auto pick = std::vector<std::pair<std::string, std::string>>{{"MW3_FIND_INSTALL", "1"}, {"MW3_LAUNCHER_PICK", MW3_GAME_DIR},
                                                                    {"MW3_LAUNCHER_FRAMES", "1800"}};
   const LauncherRun b = run_launcher_with("launcher_v1_music", "READY\nsleep 2", nullptr, pick, [](const std::string& d) {
     std::filesystem::create_directories(d + "/wd/music");
     std::ofstream(d + "/wd/music/track02.wav") << "x";
   });
-  EXPECT(b.exited && !b.args.empty() && b.args[0] == MW3_GAME_DIR && screen(b.log, "the game's first frame"));
+  EXPECT(b.exited && !b.args.empty() && b.args[0] == copied("launcher_v1_music") && screen(b.log, "the game's first frame"));
+  EXPECT(screen(b.log, "copied from"));
   EXPECT(!screen(b.log, "screen notes:"));
   // Found, no music: the notes first (ADD FROM MY DISC, OK), their OK the start.
   const LauncherRun c = run_launcher_with("launcher_v1_notes", "READY\nsleep 2", nullptr, pick);
-  EXPECT(c.exited && !c.args.empty() && c.args[0] == MW3_GAME_DIR && screen(c.log, "the game's first frame"));
+  EXPECT(c.exited && !c.args.empty() && c.args[0] == copied("launcher_v1_notes") && screen(c.log, "the game's first frame"));
   EXPECT(screen(c.log, "screen notes: ADD FROM MY DISC, OK\n") && screen(c.log, "note: No music yet"));
   EXPECT(c.log.find("screen notes:") < c.log.find("the game's first frame"));
   // W13 (Owen, 2026-11-12): a player's pick (no check's click on MECHWARRIOR 3 after it) ends on the games,
@@ -6832,7 +6835,7 @@ TEST(sdl_program_launcher_finds_the_game_then_plays) {
   const LauncherRun d = run_launcher_with("launcher_v1_cd", "READY\nsleep 2", nullptr, pick_cd);
   std::printf("a CD-type install: notes %d, both missing %d, started %d\n", screen(d.log, "screen notes: ADD FROM MY DISC, OK\n"),
               screen(d.log, "no movies (they stayed on the CD) and no music"), !d.args.empty());
-  EXPECT(d.exited && !d.args.empty() && d.args[0] == cd);
+  EXPECT(d.exited && !d.args.empty() && d.args[0] == copied("launcher_v1_cd"));  // its linked zbd copied too
   EXPECT(screen(d.log, "screen notes: ADD FROM MY DISC, OK\n") && screen(d.log, "no movies (they stayed on the CD) and no music"));
   std::filesystem::remove_all(cd, ec);
 }
@@ -7054,9 +7057,9 @@ TEST(sdl_program_launcher_says_the_picker_is_opening_before_it_asks) {
 
 // GAME FILES (Owen, 2026-11-02): the find screen at any time, by keys or a
 // pad as by the mouse (MW3_LAUNCHER_NAV); with the install in use lacking
-// its music, ADD FROM MY DISC there too. A repick to a copy used where it
-// is: the launcher's own earlier copy (<write dir>/install, no longer
-// pointed at) is removed, mw3.cfg points at the new one, back to the games.
+// its music, ADD FROM MY DISC there too. A repick of an installed copy:
+// copied in over the launcher's own earlier copy (<write dir>/install, its
+// marker; Owen, 2026-11-21), mw3.cfg pointing there, back to the games.
 TEST(sdl_program_launcher_game_files_repicks) {
   auto seen = [](const std::string& log, const std::string& line) { return log.find(line) != std::string::npos; };
   const auto keys = std::vector<std::pair<std::string, std::string>>{
@@ -7076,21 +7079,22 @@ TEST(sdl_program_launcher_game_files_repicks) {
   EXPECT(a.exited && a.args.empty());
   EXPECT(seen(a.log, "screen main: MECHWARRIOR 3, PIRATE'S MOON, GAME FILES, UPDATES, QUIT\n") && seen(a.log, "focus MECHWARRIOR 3\n") &&
          seen(a.log, "focus GAME FILES\n") && seen(a.log, "screen find: FIND THE GAME, ADD FROM MY DISC, BACK\n"));
-  // GAME FILES, then the development copy picked (used where it is).
+  // GAME FILES, then the development copy picked (copied in).
   const auto repick = std::vector<std::pair<std::string, std::string>>{{"MW3_FIND_INSTALL", "1"},
-                                                                     {"MW3_LAUNCHER_FRAMES", "600"},
+                                                                     {"MW3_LAUNCHER_FRAMES", "1800"},
                                                                      {"MW3_LAUNCHER_NAV", "next,next,press"},
                                                                      {"MW3_LAUNCHER_PICK", MW3_GAME_DIR}};
   const LauncherRun b = run_launcher_with("launcher_files_repick", "READY", nullptr, repick, own_copy, false);
   const std::string dir = std::string(MW3_TEST_TMP) + "/launcher_files_repick";
   std::ifstream cfg(dir + "/wd/mw3.cfg");
   const std::string text((std::istreambuf_iterator<char>(cfg)), std::istreambuf_iterator<char>());
-  const std::string after = b.log.substr(std::min(b.log.find("no longer used"), b.log.size()));
-  std::printf("repick: removed %d, cfg %d, back to the games %d\n", seen(b.log, "is no longer used: removed"),
-              seen(text, std::string("install=") + MW3_GAME_DIR), seen(after, "screen main:"));
-  EXPECT(b.exited && b.args.empty() && seen(b.log, "is no longer used: removed") && !std::filesystem::exists(dir + "/wd/install"));
-  EXPECT(seen(text, std::string("install=") + MW3_GAME_DIR));
-  EXPECT(seen(b.log, "no longer used") && seen(after, "screen main:"));
+  const std::string after = b.log.substr(std::min(b.log.find("copied from"), b.log.size()));
+  std::printf("repick: copied %d, cfg %d, back to the games %d\n", seen(b.log, "copied from"),
+              seen(text, "install=" + dir + "/wd/install"), seen(after, "screen main:"));
+  EXPECT(b.exited && b.args.empty() && seen(b.log, "copied from") && !std::filesystem::is_symlink(dir + "/wd/install/zbd") &&
+         std::filesystem::exists(dir + "/wd/install/zbd/reader.zbd") && std::filesystem::exists(dir + "/wd/install/mw3-install.txt"));
+  EXPECT(seen(text, "install=" + dir + "/wd/install") && !std::filesystem::exists(dir + "/wd/install.old"));
+  EXPECT(seen(after, "screen main:"));
 }
 
 // The game's own status before its first frame (its first start's movie

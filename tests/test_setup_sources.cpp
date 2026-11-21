@@ -502,10 +502,17 @@ TEST(setup_install_pirates_moon_from_its_disc) {
   EXPECT(slurp(tmp + "/a/Mech3.exe") == slurp(kGame + "/pm/Mech3.exe"));
   EXPECT(slurp(tmp + "/a/zbd/reader.zbd") == slurp(kGame + "/pm/zbd/reader.zbd"));
   EXPECT(same_as_pm(tmp + "/a") && read_back(tmp + "/a"));
-  // An installed copy on disk is used where it is.
-  const su::Result b = su::install_from_source(mech3::source::map_source(tmp + "/a"), tmp + "/unused", "", "", tmp + "/write",
+  // An installed copy on disk is copied in (Owen, 2026-11-21: the original may then be deleted); the folder's
+  // own copy, picked again, is used where it is.
+  const su::Result b = su::install_from_source(mech3::source::map_source(tmp + "/a"), tmp + "/copy", "", "", tmp + "/write",
                                                nullptr);
-  EXPECT(b.ok && b.pirates_moon && b.install_dir == tmp + "/a" && !fs::exists(tmp + "/unused", ec));
+  std::printf("  copied: %s\n", b.summary.c_str());
+  EXPECT(b.ok && b.pirates_moon && b.install_dir == tmp + "/copy" && fs::exists(tmp + "/copy/mw3-install.txt", ec) &&
+         same_as_pm(tmp + "/copy") && b.summary.find("copied from") != std::string::npos);
+  const su::Result own = su::install_from_source(mech3::source::map_source(tmp + "/copy"), tmp + "/copy", "", "",
+                                                 tmp + "/write", nullptr);
+  EXPECT(own.ok && own.install_dir == tmp + "/copy" && !fs::exists(tmp + "/copy.new", ec));
+  fs::remove_all(tmp + "/copy", ec);
 
   // The image in a zip (stored: the test's own write), read out in one pass.
   const std::string zip = tmp + "/Pirate's Moon.zip";
