@@ -1,6 +1,6 @@
-## MW1: Critical Hit 1.0.5
+## MechWarrior 1 Remake 1.0.5
 
-Fixes from GitHub issues, and 'Mech prices that vary.
+The game is now called MechWarrior 1 Remake (it was MW1: Critical Hit; your saves and settings stay where they were). Fixes from GitHub issues, and 'Mech prices that vary.
 
 - **'Mech prices vary a little:** each time a world's market restocks, every 'Mech model gets its own price there, within 5% of the usual (most within 2%). Buying and selling at that world use the same price, so the dealer's margin stays and you can't buy and resell for profit. A wreck you salvage sells at that world's price too. Saves from earlier versions load with the usual prices until the market next restocks.
 - **Out of bounds on every map:** every contract map now has MechWarrior 3's two lines on the radar. Cross the yellow one and you hear "leaving mission area"; cross the red one and the mission is lost. MechWarrior 3's maps had them already; Pirate's Moon's and the arctic maps now get their own, well clear of everything the mission puts there. On one MechWarrior 3 map a few enemies started outside the lines, so chasing them could lose you the mission; they now start inside.

@@ -5,6 +5,16 @@ Tick an item when it is merged into `main`.
 
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 139. [ ] The window title and the save folder say MechWarrior 1 Remake *(next release after 1.0.5)*
+
+- **Why (2026-11-21):** the game is renamed MechWarrior 1 Remake (short MW1 Remake; repo mech1-remake-re). 1.0.5
+  changed the visible text (title screen, credits, read-me, notes); the window title and the save folder
+  (`MicroProse/MechWarrior 1 Critical Hit`) still carry the old name.
+- **Wanted:** the window title "MechWarrior 1 Remake"; the save folder `MicroProse/MechWarrior 1 Remake`, with a
+  migration: at start, when the new folder is missing and the old one exists, move it (or copy then verify), so saves,
+  settings and mw1.cfg carry over. Tests: an old folder migrates whole; both present keeps the new; a failed move
+  leaves the old untouched and the game still starts.
+
 ## 138. [x] Out of bounds: leaving the battle area fails the mission *(design; with 136; `mw1-fix138-boundary-survey`)*
 
 - **Raised (2026-11-21):** "do we have out of bounds that the player loses the mission if they cross? we probably

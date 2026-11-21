@@ -28,7 +28,7 @@ MenuState::MenuState(zgame::Handle h, std::function<void(int32_t)> pressed)
 
 void MenuState::show_menu(bool continue_on, const std::string& save_line) {
   ScreenView s;
-  s.blocks = {at_place("TITLE", {"MECHWARRIOR"}), at_place("SUBTITLE", {"CRITICAL HIT"})};
+  s.blocks = {at_place("TITLE", {"MECHWARRIOR"}), at_place("SUBTITLE", {"1 REMAKE"})};
   if (!save_line.empty()) s.blocks.push_back(at_place("SAVE", {save_line}));
   s.buttons.resize(kMenuButtonCount);
   s.buttons[kMenuContinue - 1].on = continue_on;
@@ -151,7 +151,7 @@ std::vector<CreditPanel> mw1_credits() {
 // Ours, after MW1's: who made this game, in MW1's two columns (a role over its names).
 std::vector<CreditPanel> extra_credits() {
   CreditPanel ours;
-  ours.texts = {{100, 20, {"MW1: CRITICAL HIT", "Owen Morgan"}}, {200, 20, {"BUILT ON", "MechWarrior 3 rebuild", "(mw3-re)"}}};
+  ours.texts = {{100, 20, {"MECHWARRIOR 1 REMAKE", "Owen Morgan"}}, {200, 20, {"BUILT ON", "MechWarrior 3 rebuild", "(mw3-re)"}}};
   return {ours};
 }
 

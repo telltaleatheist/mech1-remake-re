@@ -1,7 +1,7 @@
-Third-party parts in MW1: Critical Hit
+Third-party parts in MechWarrior 1 Remake
 ======================================
 
-MW1: Critical Hit (the mw1 program and its mw1data folder) is built on the
+MechWarrior 1 Remake (the mw1 program and its mw1data folder) is built on the
 MechWarrior 3 rebuild. The engine's libraries and fonts are listed in that
 package's own THIRD-PARTY.txt. The parts below are MW1's own additions.
 Thank you to all of their authors.
@@ -34,7 +34,7 @@ of the header. Unmodified. It decodes MW1's JPEG and PNG pictures.
 
 Art, music and video
 --------------------
-MW1: Critical Hit's own pictures, music and the DropShip launch video were
+MechWarrior 1 Remake's own pictures, music and the DropShip launch video were
 made for this project with locally run generative models, then chosen and
 edited by the author. They contain no art, music or footage from MechWarrior,
 MechWarrior 3 or Pirate's Moon. MW1's text, MechWarrior 3's and Pirate's Moon's

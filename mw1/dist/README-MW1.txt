@@ -1,5 +1,5 @@
-MW1: Critical Hit
-=================
+MechWarrior 1 Remake
+====================
 
 A fan remake of MechWarrior (1989), played on the engine of the MechWarrior 3
 rebuild. MW1's mercenary campaign comes to Pirate's Moon's game:
@@ -23,7 +23,7 @@ No game files are included. You need your own copies of:
 - MechWarrior 3;
 - Pirate's Moon, MechWarrior 3's expansion.
 
-MW1: Critical Hit reads MW1's story, news and briefing text from your copy of
+MechWarrior 1 Remake reads MW1's story, news and briefing text from your copy of
 MechWarrior at run time. It reads MechWarrior 3's and Pirate's Moon's 'Mechs,
 worlds and sounds from theirs. Your files are never changed.
 
@@ -46,6 +46,6 @@ You can also start mw1 directly:
 Credits
 -------
 
-MW1: Critical Hit is by Owen Morgan, made on the MechWarrior 3 rebuild (mw3-re).
+MechWarrior 1 Remake is by Owen Morgan, made on the MechWarrior 3 rebuild (mw3-re).
 - Fonts, libraries and other third-party parts: THIRD-PARTY-MW1.txt.
 - Source code and issues: https://github.com/telltaleatheist/mw3-re (branch mw1).
