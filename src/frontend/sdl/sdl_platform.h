@@ -20,6 +20,10 @@ namespace sdlfe {
 class SdlInput;
 class SdlMusicOutput;
 
+// Ours (opt-in, MW1's FIXES 139): the window's title for a program other than Pirate's Moon built on its game main,
+// set before it runs; it stands for the game's own (message 5). Empty (MW3, PM): the game's title, as it was.
+std::string& window_name();
+
 // The main window ("Mech3Class", CWnd::CreateEx in 0x00482d10) with the GPU
 // device behind Render3D. Made hidden at start so Render3D exists before the
 // game creates its window; create() sizes, titles and keeps it hidden until
