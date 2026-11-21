@@ -144,6 +144,14 @@ class SdlInput : public platform::Input {
   // Window-pixel motion since the last call, whether or not zInput holds the
   // mouse (for tools such as the free camera; the game reads mouse_state).
   void take_motion(float* x, float* y) { *x = raw_dx_, *y = raw_dy_, raw_dx_ = raw_dy_ = 0; }
+  // Ours (issue #15): what the mouse did over a mission, said in mw3.log at its
+  // end, so a player's log shows where slow motion goes (input.md section 13).
+  struct MotionStats {
+    uint64_t events = 0, small = 0;  // SDL's motion events held by the game; those under a pixel
+    double sdl = 0, counts = 0;      // |x| + |y|: SDL's pixels, the counts handed to zInput
+    double moved_at_start = 0;       // zInput's `moved` when the mission began
+  };
+  const MotionStats& motion_stats() const { return stats_; }
 
   static constexpr uint32_t kBufferSize = 0x80;  // DIPROP_BUFFERSIZE (0x0051a170)
 
@@ -194,6 +202,8 @@ class SdlInput : public platform::Input {
   bool held_[256] = {};
   float dx_ = 0, dy_ = 0, dz_ = 0;
   float raw_dx_ = 0, raw_dy_ = 0;
+  MotionStats stats_;
+  void motion_report();
   uint8_t buttons_[4] = {};
   uint8_t latched_[4] = {};  // a press not yet read (FIX (A): a click inside one frame)
   SDL_Joystick* joy_ = nullptr;

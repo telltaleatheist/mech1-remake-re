@@ -1123,6 +1123,54 @@ TEST(sdl_mission_start_drops_the_launch_click) {
   button(false);
 }
 
+// Issue #15 ("it's stuck at the middle and had to move it very far, only then
+// the reticle respond"): the mission's mouse line in mw3.log says how much
+// motion SDL gave, how many counts reached zInput and how many were left after
+// MOUSE SENSITIVITY. Slow motion here (0.4 px an event, every event under a
+// pixel, a 1280-wide window: half a count each, sensitivity 0.5) is all kept.
+TEST(sdl_issue15_mission_mouse_line_counts_slow_motion) {
+  sdlfe::SdlInput in;
+  sdlfe::SdlPump pump(&in, nullptr);
+  bool mission = false;
+  in.windowed = [] { return false; };
+  in.in_mission = [&] { return mission; };
+  in.window_size = [](int* w, int* h) { *w = 1280, *h = 960; };
+  in.set_cooperative_level(platform::Input::kMouse, 5);
+  EXPECT(in.open(platform::Input::kMouse) && in.acquire(platform::Input::kMouse) == 0);
+  zin::State& z = zin::state();
+  platform::Input* const di_was = z.di;
+  const bool open_was = z.mouse_open;
+  const uint32_t acq_was = z.mouse_acquired;
+  const float ax = z.accel_x, ay = z.accel_y;
+  const int32_t sw = z.width, sh = z.height;
+  z.di = &in, z.mouse_open = true, z.mouse_acquired = 1, z.accel_x = z.accel_y = 0.5f, z.frac_x = z.frac_y = 0.0f;
+  zin::mouse_set_screen(640, 480);
+  platform::MouseState ms;
+  in.mouse_state(&ms);
+  mission = true;
+  zin::mouse_read(false);  // the mission's first frame
+  for (int i = 0; i < 400; ++i) {
+    SDL_Event e{};
+    e.type = SDL_EVENT_MOUSE_MOTION;
+    e.motion.xrel = 0.4f;
+    pump.handle(e);
+    zin::mouse_read(false);
+  }
+  mission = false;
+  in.mouse_state(&ms);  // out of the mission: the line is said
+  const sdlfe::SdlInput::MotionStats& st = in.motion_stats();
+  const double moved = z.moved - st.moved_at_start;
+  std::printf("  issue 15: %llu events (%llu under a pixel), %.1f px, %.0f counts, %.0f after the sensitivity\n",
+              static_cast<unsigned long long>(st.events), static_cast<unsigned long long>(st.small), st.sdl, st.counts, moved);
+  EXPECT(st.events == 400 && st.small == 400);
+  EXPECT(std::fabs(st.sdl - 160.0) < 0.01);
+  EXPECT(std::fabs(st.counts - 80.0) <= 1.0);  // 400 x 0.4 x 640 / 1280
+  EXPECT(std::fabs(moved - 40.0) <= 1.0);      // x 0.5
+  z.di = di_was, z.mouse_open = open_was, z.mouse_acquired = acq_was, z.accel_x = ax, z.accel_y = ay;
+  z.frac_x = z.frac_y = 0.0f;
+  if (sw > 0 && sh > 0) zin::mouse_set_screen(sw, sh);
+}
+
 // Playtest (1.1.0): "there's no cursor when I edit [in the] Battlesport editor
 // ... I expected to be able to click the buttons." The game editor up in a
 // mission lets the mouse go, fullscreen too, and zInput's mouse is put where
