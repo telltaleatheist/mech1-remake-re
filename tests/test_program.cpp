@@ -28640,13 +28640,18 @@ TEST(issue4_a_shutdown_key_bound_in_a_mission_works_headless) {
   if (!have_game()) return;
   uint32_t key = 0;
   bool down = false;
-  g_cheat_mission_at_start = [] {  // the player's map: SHUTDOWN with no key
-    zin::bind_key1(0, 0x3f), zin::bind_key2(0, 0x3f);
+  bool mouse_only = false;
+  g_cheat_mission_at_start = [] {  // the player's map: SHUTDOWN with no key; FREELOOK and TOGGLE_TMODE on the mouse alone (#10 item 1)
+    for (const int32_t c : {0x3f, 0x17, 0x16}) zin::bind_key1(0, c), zin::bind_key2(0, c);
+    zin::bind_mouse(0, 0x17), zin::bind_mouse(0, 0x16);
+    zin::bind_mouse(3, 0x17);
     zin::map_refresh();
   };
   cheat_mission("issue4_write", 0, 1, 900, [&](int f, mech3::GameEngine& engine, CheatKeys& keys) {
     if (f == 10) {
       key = zin::key1_of(0x3f) == 0 && zin::key2_of(0x3f) == 0 ? 0 : 1;  // still none at the launch
+      // the middle button's command runs its callback (mouse_callbacks, 0x0051c200): one is kept
+      mouse_only = zin::mouse_command(3) == 0x17 && zin::current_map()->callbacks[0x17] != nullptr;
       for (uint32_t k = 0x02; k < 0x58 && !key; ++k)
         if (!engine.key1_command(k) && !engine.key2_command(k)) key = k;
       zin::bind_key1(key, 0x3f);
@@ -28660,6 +28665,8 @@ TEST(issue4_a_shutdown_key_bound_in_a_mission_works_headless) {
   g_cheat_mission_at_start = nullptr;
   std::printf("  issue 4: SHUTDOWN on key %#x, powered down %d\n", key, down);
   EXPECT(key > 1 && down);
+  std::printf("  issue 10 item 1: FREELOOK on the middle button alone has its callback %d\n", mouse_only);
+  EXPECT(mouse_only);
 }
 // Playtest W50 (Owen, c1m2 on the Mac, v1.0): "Destroy Missile Platforms
 // OP: Baker" stays In Progress; triturret02 vanished with no wreck while its

@@ -179,7 +179,7 @@ A command's callback is kept only when it has a key (0x0051c2b0), and the
 player's commands get theirs once a run, at the first mission. One with no
 key then (SHUTDOWN in a map saved without it) never ran its callback, even
 after a key was bound and the map rebuilt, until the game was started again
-(issue #4); a command on a stick or mouse button alone never ran one. The
+(issue #4); a command on a stick or mouse button alone never ran one (issue #10 item 1: FREELOOK or TOGGLE_TMODE on the middle button with no key did nothing). The
 port keeps the callback anyway (FIX (bug), fixes.md).
 
 ## 4. The joystick
