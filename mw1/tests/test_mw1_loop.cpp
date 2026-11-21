@@ -282,11 +282,7 @@ struct RouteKnown {
   const char* why;
 };
 constexpr RouteKnown kRouteKnownFailing[] = {
-    {"c2", 2, "portalgate", "the gate 32 m from an enemy place; no other structure clear on the map"},
-    {"mw3c1", 2, "iatower", "MW3's tower 73 m from its defenders; another structure to pick"},
-    {"mw3c2", 2, "iatower", "MW3's tower 56 m from its defenders; another structure to pick"},
-    {"mw3c3", 2, "iatower", "MW3's tower 65 m from its defenders; another structure to pick"},
-    {"mw3c4", 2, "iatower", "MW3's tower ringed by 7 of its 12 places; another structure to pick"},
+    {"", 0, "", ""},  // none (FIXES 136's picks: the mw3cN rows on other buildings, c2 ia2's reach dropped)
 };
 const RouteKnown* route_known(const mw1::MapRow& r) {
   for (const RouteKnown& k : kRouteKnownFailing)

@@ -125,6 +125,15 @@ Tick an item when it is merged into `main`.
   game's `node_find` takes it) that passes the same rule from the row's start, with its place, route and
   clearances; `MW1_ROUTE_DUMP=<file>` writes each row's start, goal, enemy places, yellow and path. The fix order:
   another structure; then the start; enemy places last, and never outside the yellow; never MW3's tower moved.
+- **The fixes (2026-11-21, picked from the candidate list):** mw3c2 ia2 reaches the hangar (`noruff_hang`, a
+  ship in it; route 1379 m, detour 1.01), mw3c1 ia2 the barracks (`urbbar02`; 1335 m, 1.04), mw3c3 ia2 the
+  warehouses (`whsA01`; 2224 m, 1.07) and mw3c4 ia2 the dock (`dockfal`; 411 m, 1.12, the end 264 m clear; the
+  house beside it only 220 m). c2 ia2's reach is dropped: no structure there is clear of the enemy, and the map
+  keeps its attack on the portal gate. Every reach row passes; the known-failure list is empty. The pools keep their
+  70..80% (desert 75.7%, tropical 75.2%, ice 75.4%). The steepest step measured on the new routes is mw3c2's 1.24
+  (report only).
+- **Still to do:** point reach rows (a reach at a point, not a node), the attack targets chosen by the same scores,
+  and the decoy check, headless.
 
 ## 135. [x] 'Mech prices vary a little *(done: mw1-fix135-price-variety)*
 

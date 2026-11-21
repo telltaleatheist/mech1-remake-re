@@ -467,6 +467,12 @@ the enemies' centre (1).
 | defend | along ≤ 0.5, nearer the start than the enemies | along ≤ 0.17, enemies ≥ 1.5× as far | c3 ia3 `mpbbase` (3.99), c4b ia1 `ware02` (1.25; `ware03` with a moved start, FIXES 137), c4b ia2 `ware01` (0.94) |
 | reach | ≥ 150 m from the start, whichever way it leads | all | none (c2 ia1, c3 ia1, c4 ia1 lead away from the enemies: MW1's withdraw) |
 
+FIXES 136 adds the reach's route rule (a way there keeping 200 m from every
+enemy place, inside the yellow, at most twice the straight way, the start 150 m
+clear): MW3's IA towers stand among their defenders, so the mw3cN reach rows
+now name the hangar (mw3c2), the barracks (mw3c1), the warehouses (mw3c3) and
+the dock (mw3c4); c2 ia2's reach is dropped (FIXES.md item 136 has the table).
+
 An attack's target or a reach's place needn't sit among the enemies: a
 project decision is that a player who tries may slip past them. The survey
 measures, without gating on them yet (`src/mw1_placement.h`, for choosing a
