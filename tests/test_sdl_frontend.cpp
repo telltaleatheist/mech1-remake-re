@@ -1179,6 +1179,80 @@ TEST(sdl_issue15_mission_mouse_line_counts_slow_motion) {
   if (sw > 0 && sh > 0) zin::mouse_set_screen(sw, sh);
 }
 
+// Issue #15, RAW MOUSE (Owen, 2026-11-21; input.md section 14): on, a held
+// mouse asks SDL for the counts (the system scale hint "0"), off for the
+// system's speed ("1"), switched at once. With a raw source (the Mac's
+// GCMouse) its counts are the motion and SDL's (the system's curve) dropped;
+// while it is silent SDL's are taken past 16 frame pixels, none lost.
+TEST(sdl_issue15_raw_mouse) {
+  const char* hint_was = SDL_GetHint(SDL_HINT_MOUSE_RELATIVE_SYSTEM_SCALE);
+  const std::string keep = hint_was ? hint_was : "";
+  sdlfe::SdlInput in;
+  sdlfe::SdlPump pump(&in, nullptr);
+  bool raw = true;
+  float qx = 0, qy = 0;
+  int takes = 0;
+  in.windowed = [] { return false; };
+  in.in_mission = [] { return true; };
+  in.window_size = [](int* w, int* h) { *w = 1280, *h = 960; };  // half a frame pixel a window pixel
+  in.raw_mouse = [&] { return raw; };
+  in.set_cooperative_level(platform::Input::kMouse, 5);
+  EXPECT(in.open(platform::Input::kMouse) && in.acquire(platform::Input::kMouse) == 0);
+  platform::MouseState ms;
+  auto hint = [] {
+    const char* h = SDL_GetHint(SDL_HINT_MOUSE_RELATIVE_SYSTEM_SCALE);
+    return std::string(h ? h : "");
+  };
+  auto motion = [&](float x, float y) {
+    SDL_Event e{};
+    e.type = SDL_EVENT_MOUSE_MOTION;
+    e.motion.xrel = x, e.motion.yrel = y;
+    pump.handle(e);
+  };
+  in.mouse_state(&ms);
+  EXPECT(in.captured() && hint() == "0");
+  raw = false;
+  in.mouse_state(&ms);
+  EXPECT(hint() == "1");  // off: the system's speed, at once
+  motion(10, -4);
+  EXPECT(in.mouse_state(&ms) == 0 && ms.x == 5 && ms.y == -2);  // no source: SDL's
+  raw = true;
+  in.mouse_state(&ms);
+  EXPECT(hint() == "0");
+  motion(10, -4);
+  EXPECT(in.mouse_state(&ms) == 0 && ms.x == 5 && ms.y == -2);  // on, no source (Windows, Linux): SDL's counts
+  in.raw_counts = [&](float* x, float* y) {
+    ++takes;
+    *x = qx, *y = qy, qx = qy = 0;
+    return *x != 0 || *y != 0;
+  };
+  int sx = 0, sy = 0;
+  for (int i = 0; i < 10; ++i) {  // the source's counts; SDL's accelerated motion dropped
+    motion(30, 12);
+    qx = 4, qy = -2;
+    EXPECT(in.mouse_state(&ms) == 0);
+    sx += ms.x, sy += ms.y;
+  }
+  std::printf("  raw source: %d, %d (40 x 0.5, -20 x 0.5)\n", sx, sy);
+  EXPECT(sx == 20 && sy == -10);
+  sx = sy = 0;
+  for (int i = 0; i < 100; ++i) {  // silent (a trackpad): SDL's slow motion, all of it
+    motion(0.4f, 0.2f);
+    EXPECT(in.mouse_state(&ms) == 0);
+    sx += ms.x, sy += ms.y;
+  }
+  std::printf("  source silent: %d, %d of SDL's 20, 10\n", sx, sy);
+  EXPECT(sx >= 19 && sx <= 20 && sy >= 9 && sy <= 10);
+  motion(50, 50);
+  qx = 6;
+  EXPECT(in.mouse_state(&ms) == 0 && ms.x == 3 && ms.y == 0);  // back: SDL's dropped again
+  raw = false;
+  const int before = takes;
+  motion(8, 8);
+  EXPECT(in.mouse_state(&ms) == 0 && ms.x == 4 && ms.y == 4 && takes == before);  // off: the source not read
+  SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_SYSTEM_SCALE, hint_was ? keep.c_str() : nullptr);
+}
+
 // Playtest (1.1.0): "there's no cursor when I edit [in the] Battlesport editor
 // ... I expected to be able to click the buttons." The game editor up in a
 // mission lets the mouse go, fullscreen too, and zInput's mouse is put where

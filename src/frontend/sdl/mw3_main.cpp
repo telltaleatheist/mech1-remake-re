@@ -99,6 +99,7 @@
 #include "mech3/options_menu.h"
 #include "mech3/game_setup.h"
 #include "frontend/sdl/sdl_force.h"
+#include "frontend/sdl/sdl_rawmouse.h"
 #include "frontend/sdl/sdl_input.h"
 #include "frontend/sdl/sdl_music.h"
 #include "frontend/sdl/sdl_platform.h"
@@ -185,6 +186,7 @@ struct Args {
   std::string cfg_install;  // mw3.cfg's install= (the command line's wins)
   std::string cfg_mw1_game;  // mw3.cfg's mw1_game= (ours: the launcher's MechWarrior 1989 folder)
   std::string cfg_joystick, cfg_joystick_axes;  // mw3.cfg's joystick=, joystick_axes= (ours, W54: sdl_input.h)
+  int raw_mouse = -1, cfg_raw_mouse = -1;   // --raw-mouse / --no-raw-mouse, mw3.cfg's rawmouse= (ours, issue #15)
   int wide_menus = -1, cfg_wide_menus = -1;  // --wide-menus / --no-wide-menus, mw3.cfg's widemenus= (ours)
   bool debug_camera = false;  // --debug-camera (ours, docs/editor.md S4): the game editor anywhere; developers only
   std::vector<std::string> assets;
@@ -309,7 +311,7 @@ void usage() {
       "mw3 [install-dir] [--install DIR | --install-from DISC|ISO|CUE [--install-to DIR]] [--assets DIR]... [--write-dir DIR] [--version]\n"
       "    [--mission NAME [--valve-map DIR] | --fly NAME [--variant BLOCK]] [--pos X Y Z] [--look YAW PITCH] [--vehicle-ahead M [--vehicle-hold]] [--turret-ahead M] [--node-ahead NAME M] [--mech-ahead M] [--dialog FILE NAME]\n"
       "    [--shot FILE.bmp [--shot-frame N] [--shot-any] [--shot-series K]] [--fire N [--fire-group 1..5]] [--objectives N] [--hurt F@N] [--win N] [--lose N] [--lab-mech N]\n"
-      "    [--windowed] [--original] [--import | --no-import] [--no-launcher] [--debug-camera] [--wide-menus | --no-wide-menus] [--mod NAME]... [--no-mods] [--mods] [--entry ID [--entry-play | --entry-ia | --entry-mission WORLD N [--edit]]] [--entry-pilot NAME] [--open-mods [--mods-entry ID] | --open-ia] [--check-mod DIR] [--mod-report DIR] [--build-anim DIR] [--make-starter mech|weapon|translation|mission|salvage] [--reference FILE] [--editor-guide FILE] [--pick PATH] [--save-pick PATH] [--patch ZIP|DIR] [--vfw-helper EXE | --no-vfw-helper] [--briefing c1m2] [--click N[:M]] [--click-at X,Y@N]... [--mouse-at X,Y@N[c]]... [--then ...] [--click-players X,Y@N/P]... [--click-sessions X,Y@N/S]... [--click-return X,Y@N]... [--walk] [--tap DIK@N[:M]]... [--frames N] [--frame-ms N] [--frame-times N] [--seed N] [--window WxH] [--nosound] [--hidden] [--verbose]\n"
+      "    [--windowed] [--original] [--import | --no-import] [--no-launcher] [--debug-camera] [--wide-menus | --no-wide-menus] [--raw-mouse | --no-raw-mouse] [--mod NAME]... [--no-mods] [--mods] [--entry ID [--entry-play | --entry-ia | --entry-mission WORLD N [--edit]]] [--entry-pilot NAME] [--open-mods [--mods-entry ID] | --open-ia] [--check-mod DIR] [--mod-report DIR] [--build-anim DIR] [--make-starter mech|weapon|translation|mission|salvage] [--reference FILE] [--editor-guide FILE] [--pick PATH] [--save-pick PATH] [--patch ZIP|DIR] [--vfw-helper EXE | --no-vfw-helper] [--briefing c1m2] [--click N[:M]] [--click-at X,Y@N]... [--mouse-at X,Y@N[c]]... [--then ...] [--click-players X,Y@N/P]... [--click-sessions X,Y@N/S]... [--click-return X,Y@N]... [--walk] [--tap DIK@N[:M]]... [--frames N] [--frame-ms N] [--frame-times N] [--seed N] [--window WxH] [--nosound] [--hidden] [--verbose]\n"
       "    [-nofmv] [-seasick] [-cdN]\n"
       "See docs/program.md.\n");
 }
@@ -476,6 +478,8 @@ bool parse(int argc, char** argv, Args& a) {
     else if (s == "--wide-menus") a.wide_menus = 1;
     else if (s == "--debug-camera") a.debug_camera = true;
     else if (s == "--no-wide-menus") a.wide_menus = 0;
+    else if (s == "--raw-mouse") a.raw_mouse = 1;
+    else if (s == "--no-raw-mouse") a.raw_mouse = 0;
     else if (s == "--original") a.play_original = true;
     else if (s == "--import") a.force_import = true;
     else if (s == "--patch" && next(1)) a.patch = argv[++i];
@@ -535,6 +539,8 @@ void read_config(const std::string& dir, Args& a) {
     }
     else if (line == "widemenus=0") a.cfg_wide_menus = 0;
     else if (line == "widemenus=1") a.cfg_wide_menus = 1;
+    else if (line == "rawmouse=0") a.cfg_raw_mouse = 0;
+    else if (line == "rawmouse=1") a.cfg_raw_mouse = 1;
     else if (line == "throttle_reverse=0") a.cfg_throttle_reverse = 0;
     else if (line == "throttle_reverse=1") a.cfg_throttle_reverse = 1;
   }
@@ -903,6 +909,7 @@ int program(int argc, char** argv) {
   // The menus' 16:9 (a display choice, kept by --original): the command
   // line's, else mw3.cfg's widemenus=, else on.
   zfix::options().wide_menus = a.wide_menus >= 0 ? a.wide_menus != 0 : a.cfg_wide_menus != 0;
+  zfix::options().raw_mouse = a.raw_mouse >= 0 ? a.raw_mouse != 0 : a.cfg_raw_mouse != 0;  // the same (issue #15)
   zfix::options().throttle_reverse = a.cfg_throttle_reverse != 0;  // with fixed (lever_reverse_on)
   // The options' UPGRADES page saves its switches here, beside the rest of mw3.cfg (ours).
   // --original's five stay off for the run only: nothing of them saved.
@@ -1121,6 +1128,13 @@ int run(const Args& a, platform::VideoForWindows* vfw) {
   input.window = window.sdl();
   int focus_at = 0, focus_passes = 0;  // MW3_FOCUS_AT (checks)
   input.shape = &window.shape();       // any_resolution: the frame's rect, not 640 (sdl_fit.h)
+  // Ours (issue #15): RAW MOUSE, the Upgrades page's (zfix raw_mouse); on the
+  // Mac its counts from GCMouse (sdl_rawmouse.h), not in a hidden run, whose
+  // motion is the checks' own SDL events.
+  input.raw_mouse = [] { return zfix::options().raw_mouse; };
+#if defined(__APPLE__)
+  if (!a.hidden && sdlfe::raw_mouse_start()) input.raw_counts = sdlfe::raw_mouse_take;
+#endif
   // The MODS screen's ADD MOD (ours, mods_menu.h): SDL's pickers, their
   // answer handed to the screen (it may come on another thread); the mods
   // folder in the system's file browser; which game, when a mod cannot tell.

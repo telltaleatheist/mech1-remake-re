@@ -207,9 +207,10 @@ options' `option1_lines` would leave seven of its nine boxes empty) and a
 `textbox70` under each switch's ON/OFF row, the arrows at the box's ends.
 Since 1.1.0 (Owen, 2026-11-10; docs/upgrades-sort.md) it holds the five
 upgrades, WATER MOVEMENT, MFB REGROUP, IMPROVED AI, ARTEMIS TRACKING and SMALL
-FIXES (zfix's five, at once), and WIDE MENUS (from the next screen made), one
-column in the frame at y 64 to 214; ACCEPT saves them to mw3.cfg
-(`upgrade_<name>=`, `widemenus=`). On the right, SMALL FIXES (our list record,
+FIXES (zfix's five, at once), WIDE MENUS (from the next screen made) and,
+since issue #15 (2026-11-21), RAW MOUSE (at once; input.md section 14), one
+column in the frame at y 64 to 244; ACCEPT saves them to mw3.cfg
+(`upgrade_<name>=`, `widemenus=`, `rawmouse=`). On the right, SMALL FIXES (our list record,
 read only: no row lit or picked, 14 rows, the arrows scroll) lists the small
 fixes in plain words (`upgrades::small_fixes_list`), and a line under the
 frame says what off means, or, for a joiner in a network game, that the five
