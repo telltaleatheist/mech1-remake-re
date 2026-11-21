@@ -1,4 +1,5 @@
 #include "frontend/sdl/crash_report.h"
+#include "frontend/sdl/run_log.h"
 
 #include <SDL3/SDL.h>
 
@@ -188,6 +189,9 @@ void crash_report_install(const std::string& program, const std::string& log, bo
   for (int sig : {SIGSEGV, SIGBUS, SIGFPE, SIGILL, SIGABRT}) sigaction(sig, &sa, nullptr);
 #endif
   if (g_test) {
+    // Ours: what the start printed (the log's banner) in the log before the crash's line, which goes straight to
+    // stderr's pipe; without this the two pipes' threads could put it first (run_log_drain; mw1banner).
+    run_log_drain();
     if (std::strcmp(std::getenv("MW3_CRASH_TEST"), "abort") == 0) std::abort();
 #if defined(_WIN32)
     volatile int* nothing = nullptr;  // the CRT's raise(SIGSEGV) never reaches the filter
