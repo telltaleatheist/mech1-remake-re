@@ -1157,7 +1157,10 @@ void Launcher::layout() {
         Card& c = card(2, 2, "MECHWARRIOR 1", true);
         c.lines.push_back(std::string(mw1_remake_ ? "Remake " + (mw1_program_.empty() ? std::string("ready") : mw1_program_) : "No remake") +
                           " \xc2\xb7 " + (mw1_game_.empty() ? "1989 game not found yet" : "1989 game found"));
-        if (!needs.empty()) c.lines.push_back("Remake " + needs);
+        if (!needs.empty()) {  // short on the card (it cut mid-word, MW1 dev 2's 1.2.0 pass); whole in the status line
+          const bool mw3 = install_.ok && !install_.dir.empty(), pm = !pm_dir_.empty();
+          c.lines.push_back(std::string("Remake needs ") + (!mw3 && !pm ? "MW3 and Pirate's Moon" : !mw3 ? "MechWarrior 3" : "Pirate's Moon"));
+        }
         else if (!mw1_game_.empty()) c.lines.push_back(mw1_game_), c.keep = {0, 0};
         else c.lines.push_back("PLAY finds your MechWarrior (1989)");
         // The original's combat plays one BTECH.EXE revision only (mw1::original_supported): another is said here,
