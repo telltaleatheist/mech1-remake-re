@@ -4,7 +4,10 @@
 # ASCII and as UTF-16, so a library's built-in strings count too (FFmpeg's
 # configure line once carried the build folder). The public GitHub address
 # (github.com/<user>, and the updater's api.github.com/repos/<user>) is the one
-# allowed use of the name.
+# allowed use of the name. A compiler may store that address in overlapping
+# pieces (GCC's immediate stores of a short string: "...repos/tel" then
+# "telltale..."), so the name may follow the address and a first part of
+# itself (2026-11-21, 1.2.2's Linux mw3pm).
 # Usage: check_paths.py <folder> [extra name ...]   (make_app.sh, make-appimage.sh)
 import getpass, os, re, sys
 
@@ -14,7 +17,7 @@ names = {n for n in [getpass.getuser(), os.environ.get('SUDO_USER', ''),
 words = [b'/Volumes/', b'/Users/', b'/home/', b'C:\\Users\\', b'C:/Users/'] + [n.encode() for n in sorted(names)]
 pat = re.compile(b'|'.join(re.escape(w) for w in words))
 pat16 = re.compile(b'|'.join(re.escape(w.decode().encode('utf-16-le')) for w in words))
-allowed = re.compile(rb'github\.com/(repos/)?$', re.I)
+allowed = re.compile(rb'github\.com/(repos/)?([A-Za-z0-9-]{0,16})$', re.I)
 
 bad = []
 for d, _, files in os.walk(root):
@@ -24,7 +27,8 @@ for d, _, files in os.walk(root):
             continue
         data = open(p, 'rb').read()
         for m in pat.finditer(data):
-            if allowed.search(data[max(0, m.start() - 17):m.start()]):
+            a = allowed.search(data[max(0, m.start() - 40):m.start()])
+            if a and m.group().lower().startswith(a.group(2).lower()):
                 continue
             ctx = data[max(0, m.start() - 30):m.end() + 50]
             bad.append(f"{os.path.relpath(p, root)}: {ctx.decode('latin-1')!r}")
