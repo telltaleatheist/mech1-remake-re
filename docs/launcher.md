@@ -404,7 +404,10 @@ the 1280x720 mockup at two thirds on the 854x480 canvas.
 - MW1: a grey PLAY ORIGINAL (Elthial's port of the 1989 game) above the
   amber PLAY REMAKE (MW1: Critical Hit). Both use the same MechWarrior
   (1989) folder (MechWarrior 1's files, below). The remake needs MW3 and
-  Pirate's Moon first; the original needs only its port.
+  Pirate's Moon first; the original needs only its port. The card says what
+  is missing short ("Remake needs MW3 and Pirate's Moon"; the whole sentence,
+  with GAME FILES, cut in the middle on a fresh install: MW1 dev 2's 1.2.0
+  pass); the status line and the log keep the whole sentence.
 - The original is cut for now (Owen, 2026-11-20: he doesn't like how
   Elthial's port runs; MW1 original may come out with Crescent Hawk's
   Inception). PLAY ORIGINAL is greyed, "COMING LATER", with "Original: coming
