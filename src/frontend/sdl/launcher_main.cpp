@@ -142,7 +142,9 @@ int main(int argc, char** argv) {
 #ifdef MW3_GAME_DIR
   if (!std::getenv("MW3_FIND_INSTALL")) o.more_installs.push_back(MW3_GAME_DIR);
 #endif
-  o.fullscreen = !windowed && !window_given;
+  // Windowed always (Owen, 2026-11-20): on the Mac a fullscreen launcher is a fullscreen game to macOS (the bundle's
+  // games category), so Game Mode slowed the file picker to 7-12 s (docs/launcher.md). The games keep fullscreen.
+  o.fullscreen = false;
   o.program_dir = own_dir().string();
   o.game_bin = beside("MW3_GAME_BIN", "mw3");
   o.pm_bin = beside("MW3_PM_BIN", "mw3pm");

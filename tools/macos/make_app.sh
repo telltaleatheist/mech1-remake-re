@@ -174,6 +174,8 @@ cat > "$APP/Contents/Info.plist" <<EOF
 <dict>
   <key>CFBundleName</key><string>$NAME</string>
   <key>CFBundleDisplayName</key><string>$NAME</string>
+  <key>CFBundleDevelopmentRegion</key><string>en</string>
+  <key>LSHasLocalizedDisplayName</key><true/>
   <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
   <key>CFBundleExecutable</key><string>mw3pm</string>
   <key>CFBundleIconFile</key><string>mw3</string>
@@ -189,6 +191,12 @@ cat > "$APP/Contents/Info.plist" <<EOF
 </dict>
 </plist>
 EOF
+
+# The name shown (Finder, Dock, Launchpad, the menu bar): Pirate's Moon alone keeps its own (main's combined package
+# shows BattleTech; Owen, 2026-11-20).
+SHOWN="$NAME"
+mkdir -p "$APP/Contents/Resources/en.lproj"
+printf 'CFBundleName = "%s";\nCFBundleDisplayName = "%s";\n' "$SHOWN" "$SHOWN" > "$APP/Contents/Resources/en.lproj/InfoPlist.strings"
 
 # The read-me and the notices beside the program.
 cp tools/macos/README.txt "$APP/Contents/Resources/README.txt"

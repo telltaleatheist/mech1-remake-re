@@ -949,7 +949,7 @@ int program(int argc, char** argv) {
 #ifdef MW3_GAME_DIR
     if (!std::getenv("MW3_FIND_INSTALL")) lo.more_installs.push_back(MW3_GAME_DIR);
 #endif
-    lo.fullscreen = !a.windowed && !a.window_given;
+    lo.fullscreen = false;  // the launcher's screen windowed, as mw3launcher (launcher_main.cpp); the game goes fullscreen
     lo.sound = !a.nosound;
     lo.no_import = a.no_import;
     lo.window_from(a.window_given, a.win_w, a.win_h);
