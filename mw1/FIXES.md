@@ -14,6 +14,19 @@ Tick an item when it is merged into `main`.
   migration: at start, when the new folder is missing and the old one exists, move it (or copy then verify), so saves,
   settings and mw1.cfg carry over. Tests: an old folder migrates whole; both present keeps the new; a failed move
   leaves the old untouched and the game still starts.
+- **Agreed (2026-11-21, with the mw3 lead):** `SDL_GetPrefPath("MicroProse", "MechWarrior 1 Remake")`, the family's
+  pattern (MicroProse/MechWarrior 3, MicroProse/Pirate's Moon). Nothing on main or pm reads MW1's folder; main's
+  README.md and tools/windows/installer.iss name the old one in text, and the mw3 lead updates them with this release.
+- **Done (mw1 dev 2, `mw1-139-rename`):** `mw1::move_write_dir` (src/mw1_start.h), from mw1_main's usual write dir
+  (not a `--write-dir`). SDL makes the new folder when asked, so an empty one counts as missing. The old folder is
+  renamed in place, else copied beside the new one (`<new>.moving`), every file compared byte for byte, the copy
+  renamed into place, and only then the old one removed; either way the new folder is left owner-writable (a
+  read-only old folder still gives a write dir the game can save in). Files in both: the new one is used, the old one left and the
+  log says so. A failed move removes the half copy, leaves the old folder as it was, uses it for the run and says why.
+  The window's title comes from `sdlfe::window_name()` (ours, opt-in; empty for MW3 and PM), set to "MechWarrior 1
+  Remake"; the log's banner, the crash box, the start box and the deploy box take the same name, and the Windows
+  program's description too. Tests (test_mw1_start.cpp): old only (renamed, and the checked copy), both, new only, a
+  read-only old folder, and a failed move.
 
 ## 138. [x] Out of bounds: leaving the battle area fails the mission *(design; with 136; `mw1-fix138-boundary-survey`)*
 

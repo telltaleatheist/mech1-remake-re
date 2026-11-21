@@ -12,7 +12,7 @@ namespace sdlfe {
 // is Pirate's Moon's, as it was.
 struct ProgramName {
   std::string id;       // "mw1"
-  std::string title;    // "MechWarrior 1: Critical Hit"
+  std::string title;    // "MechWarrior 1 Remake"
   std::string version;  // its own (mw1-v...), in place of the engine's
 };
 ProgramName& program_name();

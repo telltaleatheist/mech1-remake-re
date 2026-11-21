@@ -21,7 +21,7 @@ if(NOT got MATCHES "^(mw1-v[0-9][0-9.]*(-[a-z]+[0-9]*)?(-[0-9]+-g[0-9a-f]+)?|[0-
   message(FATAL_ERROR "mw1version: ${got} is not MW1's (mw1-v..., or the bare commit)")
 endif()
 execute_process(COMMAND "${MW1_BIN}" --version --hidden OUTPUT_VARIABLE out ERROR_VARIABLE err RESULT_VARIABLE r TIMEOUT 60)
-if(NOT r EQUAL 0 OR NOT out STREQUAL "mw1 (MechWarrior 1: Critical Hit) ${got}\n")
+if(NOT r EQUAL 0 OR NOT out STREQUAL "mw1 (MechWarrior 1 Remake) ${got}\n")
   message(FATAL_ERROR "mw1version: --version gave ${r}: ${out}${err}")
 endif()
 message(STATUS "mw1version: ${got}, once, and --version agrees")
