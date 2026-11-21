@@ -14,10 +14,10 @@ Tick an item when it is merged into `main`.
 - **Measures (FIXES 134's survey reports them):** the angle at A between A to B and A to C; the closest approach of
   A to C to B; the race ratio |AC| / |BC|; the highest ground between B and the A to C path.
 - **The lance as a decoy (2026-11-20):** order the lancemates at the enemy and slip past to the objective. That
-  needs the enemy to fight whoever is in front of it, not to make for the player. Check how the AI picks its
-  target (nearest, last attacker, or the player first), with a headless run: lance ordered to attack, the player
-  heading for C, and log who each enemy targets. If it always hunts the player, that is the thing to change, as an
-  MW1 choice.
+  needs the enemy to fight whoever is in front of it, not to make for the player. MW3's AI already does
+  (docs/ai.md, 0x4ca600): the nearest enemy contact first, else its last attacker when hit within 1 s, else any
+  contact. So a lance in front draws them. Still confirm it in play with a headless run (lance ordered to attack,
+  the player heading for C, who each enemy targets logged).
 - **Then:** reach points chosen by those scores (reach_area takes any point, on open, reachable floor); attack
   targets chosen among each map's real structures by the same scores. Thresholds from the measured table.
 
