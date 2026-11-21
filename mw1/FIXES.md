@@ -13,6 +13,11 @@ Tick an item when it is merged into `main`.
   a careful player can avoid the fight.
 - **Measures (FIXES 134's survey reports them):** the angle at A between A to B and A to C; the closest approach of
   A to C to B; the race ratio |AC| / |BC|; the highest ground between B and the A to C path.
+- **The lance as a decoy (2026-11-20):** order the lancemates at the enemy and slip past to the objective. That
+  needs the enemy to fight whoever is in front of it, not to make for the player. Check how the AI picks its
+  target (nearest, last attacker, or the player first), with a headless run: lance ordered to attack, the player
+  heading for C, and log who each enemy targets. If it always hunts the player, that is the thing to change, as an
+  MW1 choice.
 - **Then:** reach points chosen by those scores (reach_area takes any point, on open, reachable floor); attack
   targets chosen among each map's real structures by the same scores. Thresholds from the measured table.
 
