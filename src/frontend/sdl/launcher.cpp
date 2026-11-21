@@ -55,6 +55,9 @@ constexpr char kAddDiscSub[] = "A disc in a drive, or its image or any file of t
 constexpr int kBadge = 76;  // a game's badge across, on the 640x480 canvas (the other screens' round entries)
 // The main screen's cards (layout C, the mockup's 1280x720 at two thirds): the header, the cards, the bottom row.
 constexpr int kCardsW = 768, kCardsTop = 84, kCardsBottom = 416, kCardBadge = 100, kCardButtonH = 42;
+// The cards' screen (Owen, 1.2.0): the starfield zoomed so its drift reads round the cards, the cards a little see-through.
+constexpr float kStarZoom = 1.8f;
+constexpr Uint8 kCardAlpha = 196;
 constexpr int kRowTop = 428, kRowH = 30;
 
 // ---- art ----
@@ -172,13 +175,20 @@ SDL_Surface* scaled(SDL_Surface* s, int w, int h) {
 
 struct Art {
   SDL_Surface *stars = nullptr, *metal = nullptr, *plate = nullptr, *title = nullptr, *emblem = nullptr;
+  SDL_Surface* stars_big = nullptr;  // the cards' screen: the starfield at kStarZoom, so its drift shows (Owen, 1.2.0)
   SDL_Surface* badge[3] = {};  // the games' round badges: MechWarrior 3, Pirate's Moon, MechWarrior (1989)
   ~Art() {
-    for (SDL_Surface* s : {stars, metal, plate, title, emblem, badge[0], badge[1], badge[2]})
+    for (SDL_Surface* s : {stars, stars_big, metal, plate, title, emblem, badge[0], badge[1], badge[2]})
       if (s) SDL_DestroySurface(s);
   }
   void load(const std::string& dir) {
-    if (SDL_Surface* s = load_png(dir, "bg_stars.png")) stars = scaled(s, s->w * H / s->h, H), SDL_DestroySurface(s);
+    if (SDL_Surface* s = load_png(dir, "bg_stars.png")) {
+      stars = scaled(s, s->w * H / s->h, H);
+      const int bh = static_cast<int>(H * kStarZoom);
+      stars_big = scaled(s, s->w * bh / s->h, bh);
+      SDL_DestroySurface(s);
+    }
+    if (stars_big) SDL_SetSurfaceBlendMode(stars_big, SDL_BLENDMODE_NONE);
     if (SDL_Surface* s = load_png(dir, "bg_metal.png")) metal = scaled(s, s->w * 240 / s->h, 240), SDL_DestroySurface(s);
     if (stars) SDL_SetSurfaceBlendMode(stars, SDL_BLENDMODE_NONE);
     if (metal) SDL_SetSurfaceBlendMode(metal, SDL_BLENDMODE_NONE), SDL_SetSurfaceColorMod(metal, 190, 190, 190);
@@ -230,7 +240,9 @@ struct Text {
     SDL_Rect r{x, y - t->h / 2, t->w, t->h};
     if (align == 0) r.x -= t->w / 2;
     if (align > 0) r.x -= t->w;
-    SDL_Surface* shadow = TTF_RenderText_Blended(f, text.c_str(), 0, SDL_Color{0, 0, 0, 255});
+    // A black shadow lifts light text; under dark text (the amber buttons' ink) it read as a doubled letter (Owen, 1.2.0).
+    const bool dark = c.r * 3 + c.g * 6 + c.b < 1000;
+    SDL_Surface* shadow = dark ? nullptr : TTF_RenderText_Blended(f, text.c_str(), 0, SDL_Color{0, 0, 0, 255});
     if (shadow) {
       SDL_Rect sr{r.x + 1, r.y + 2, r.w, r.h};
       SDL_BlitSurface(shadow, nullptr, dst, &sr), SDL_DestroySurface(shadow);
@@ -1265,8 +1277,18 @@ void Launcher::background(float dt) {
   scroll_ += dt * 6.0f;  // a few pixels a second
   SDL_FillSurfaceRect(canvas_, nullptr, SDL_MapSurfaceRGB(canvas_, 8, 8, 12));
   const bool cards = screen_ == kMain;  // the mockup's: the starfield darkened, no metal bands, the mark top left
-  if (art_.stars) SDL_SetSurfaceColorMod(art_.stars, cards ? 115 : 255, cards ? 115 : 255, cards ? 118 : 255);
-  if (art_.stars) {
+  if (cards && art_.stars_big) {  // zoomed and lighter than the mockup's 45%, its drift seen round the cards (Owen, 1.2.0)
+    SDL_Surface* s = art_.stars_big;
+    SDL_SetSurfaceColorMod(s, 255, 255, 255);
+    const int sw = s->w, x = static_cast<int>(scroll_ * kStarZoom) % sw, y = (s->h - H) / 2;
+    SDL_Rect src{x, y, std::min(W, sw - x), H}, dst{0, 0, src.w, H};
+    SDL_BlitSurface(s, &src, canvas_, &dst);
+    if (src.w < W) {
+      SDL_Rect s2{0, y, W - src.w, H}, d2{src.w, 0, W - src.w, H};
+      SDL_BlitSurface(s, &s2, canvas_, &d2);
+    }
+  } else if (art_.stars) {
+    SDL_SetSurfaceColorMod(art_.stars, cards ? 115 : 255, cards ? 115 : 255, cards ? 118 : 255);
     const int sw = art_.stars->w, x = static_cast<int>(scroll_) % sw;
     SDL_Rect src{x, 0, std::min(W, sw - x), H}, dst{0, 0, src.w, H};
     SDL_BlitSurface(art_.stars, &src, canvas_, &dst);
@@ -1337,13 +1359,24 @@ Launcher::NotesLayout Launcher::notes_layout() {
 // badge on it with no box, the name, the status lines and a single game's words above its PLAY.
 void Launcher::draw_card(const Card& c) {
   const SDL_Rect& r = c.r;
-  for (int y = 0; y < r.h; ++y) {  // rgba(43,48,56) to rgba(26,29,34) at 0.92 over the stars: near enough opaque
+  // rgba(43,48,56) to rgba(26,29,34) over the stars at kCardAlpha: a little of the drift shows through (Owen, 1.2.0)
+  SDL_Surface* row_s = SDL_CreateSurface(r.w, 1, SDL_PIXELFORMAT_RGBA32);
+  if (row_s) SDL_SetSurfaceBlendMode(row_s, SDL_BLENDMODE_BLEND);
+  for (int y = 0; y < r.h; ++y) {
     const float t = static_cast<float>(y) / static_cast<float>(r.h);
     const int inset = y == 0 || y == r.h - 1 ? 2 : y == 1 || y == r.h - 2 ? 1 : 0;  // the corners rounded a little
+    // lifted so that over the dark sky the card keeps the mockup's tone
+    const Uint8 cr = static_cast<Uint8>(50 - 20 * t), cg = static_cast<Uint8>(56 - 22 * t), cb = static_cast<Uint8>(65 - 26 * t);
     SDL_Rect row{r.x + inset, r.y + y, r.w - inset * 2, 1};
-    SDL_FillSurfaceRect(canvas_, &row, SDL_MapSurfaceRGB(canvas_, static_cast<Uint8>(41 - 16 * t), static_cast<Uint8>(46 - 18 * t),
-                                                         static_cast<Uint8>(53 - 21 * t)));
+    if (!row_s) {
+      SDL_FillSurfaceRect(canvas_, &row, SDL_MapSurfaceRGB(canvas_, cr, cg, cb));
+      continue;
+    }
+    SDL_FillSurfaceRect(row_s, nullptr, SDL_MapSurfaceRGBA(row_s, cr, cg, cb, kCardAlpha));
+    SDL_Rect src{0, 0, row.w, 1};
+    SDL_BlitSurface(row_s, &src, canvas_, &row);
   }
+  if (row_s) SDL_DestroySurface(row_s);
   const uint32_t edge = SDL_MapSurfaceRGB(canvas_, 0x45, 0x4c, 0x55), amber = SDL_MapSurfaceRGB(canvas_, 0xf0, 0xa0, 0x20);
   const SDL_Rect sides[3] = {{r.x + 2, r.y, r.w - 4, 1}, {r.x, r.y + 2, 1, r.h - 4}, {r.x + r.w - 1, r.y + 2, 1, r.h - 4}};
   SDL_FillSurfaceRects(canvas_, sides, 3, edge);
