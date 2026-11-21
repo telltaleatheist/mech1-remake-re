@@ -27,6 +27,12 @@ Tick an item when it is merged into `main`.
   Remake"; the log's banner, the crash box, the start box and the deploy box take the same name, and the Windows
   program's description too. Tests (test_mw1_start.cpp): old only (renamed, and the checked copy), both, new only, a
   read-only old folder, and a failed move.
+- **Windows check (mw1 dev 2, 2026-11-21):** the move's cases built with mingw from mw1_start.cpp and run on a PC
+  under %TEMP%: all passed, a save held open with no sharing among them (the old folder kept and used, moved on the
+  next start). Two small follow-ups (`mw1-139-move-fixes`): the copy path's removal of the old folder cleared its
+  read-only bits first (only after the copy is checked and in place; Windows' remove_all stops at a read-only file
+  and left part of the old folder), and copy_tree stops at its first error, so the log says "the copy failed: <why>"
+  where the iterator's next step used to clear the error and only the byte check caught it. Tests for both.
 
 ## 138. [x] Out of bounds: leaving the battle area fails the mission *(design; with 136; `mw1-fix138-boundary-survey`)*
 

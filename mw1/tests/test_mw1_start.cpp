@@ -126,6 +126,24 @@ TEST(mw1_write_dir_new_only_stays) {
   EXPECT(mw1::move_write_dir("", to.string()).how == mw1::Moved::kNothing);
 }
 
+// The copy (no rename) with read-only files, and on POSIX read-only folders too: once the copy is checked and in
+// place, the old tree's read-only bits are cleared and the old folder removed whole.
+TEST(mw1_write_dir_copy_removes_a_read_only_old) {
+  const fs::path root = fresh("mw1move_ro_copy");
+  const fs::path from = root / mw1::kOldApp, to = root / mw1::kApp;
+  player_folder(from, "old");
+  const auto ro = fs::perms::owner_read | fs::perms::group_read | fs::perms::others_read;
+  for (const char* f : {"mw1.cfg", "options.ini", "saves/slot1/mw1save.txt"}) fs::permissions(from / f, ro);
+#ifndef _WIN32
+  const auto ro_dir = fs::perms::owner_read | fs::perms::owner_exec;
+  fs::permissions(from / "saves" / "slot1", ro_dir), fs::permissions(from / "saves", ro_dir), fs::permissions(from, ro_dir);
+#endif
+  fs::create_directories(to);
+  const mw1::WriteDirMove m = mw1::move_write_dir(from.string(), to.string(), false);
+  EXPECT(m.how == mw1::Moved::kCopied && m.why.empty() && m.use == to.string());
+  EXPECT(!fs::exists(from) && player_folder_is(to, "old") && !fs::exists(to.string() + ".moving"));
+}
+
 #ifndef _WIN32
 #include <unistd.h>
 // A read-only old folder: its files reach the new one whole; the old one, which can't be emptied, is left.
@@ -162,6 +180,7 @@ TEST(mw1_write_dir_failed_move_keeps_the_old) {
   const mw1::WriteDirMove m = mw1::move_write_dir(from.string(), to.string(), false);
   fs::permissions(locked, fs::perms::owner_read | fs::perms::owner_write);
   EXPECT(m.how == mw1::Moved::kFailed && m.use == from.string() && !m.why.empty());
+  EXPECT(m.why.rfind("the copy failed: ", 0) == 0);  // the copy's own error, not only the byte check's
   EXPECT(player_folder_is(from, "old") && !fs::exists(to.string() + ".moving"));
   EXPECT(fs::is_directory(to) && fs::is_empty(to));  // as SDL left it: the next start tries again
 }

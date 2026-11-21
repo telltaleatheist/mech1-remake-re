@@ -137,15 +137,21 @@ bool same_tree(const fs::path& a, const fs::path& b) {
 // a write dir the game can write in (fs::copy would carry the folders' permissions over and fail inside them).
 void copy_tree(const fs::path& from, const fs::path& to, std::error_code& ec) {
   if (!fs::create_directory(to, ec) || ec) return;
+  // Each step's error ends the copy at once, before the iterator's increment(ec) could clear it.
   for (fs::recursive_directory_iterator it(from, ec), end; !ec && it != end; it.increment(ec)) {
     const fs::path there = to / fs::relative(it->path(), from, ec);
     if (ec) return;
-    if (it->is_directory(ec)) {
+    const bool dir = it->is_directory(ec);
+    if (ec) return;
+    if (dir) {
       fs::create_directory(there, ec);
-    } else if (!ec) {
-      fs::copy_file(it->path(), there, ec);
-      if (!ec) fs::permissions(there, fs::perms::owner_read | fs::perms::owner_write, fs::perm_options::add, ec);
+      if (ec) return;
+      continue;
     }
+    fs::copy_file(it->path(), there, ec);
+    if (ec) return;
+    fs::permissions(there, fs::perms::owner_read | fs::perms::owner_write, fs::perm_options::add, ec);
+    if (ec) return;
   }
 }
 
@@ -202,6 +208,9 @@ WriteDirMove move_write_dir(const std::string& old_dir, const std::string& new_d
     return failed(why);
   }
   r.how = Moved::kCopied;
+  // Only now, the copy checked and in place: the old tree's read-only bits cleared (Windows' remove_all doesn't, and
+  // stops at the first read-only file), then the old folder removed. What can't be removed is left and said.
+  make_writable(from);
   fs::remove_all(from, ec);
   if (ec) r.why = "the old folder could not be removed: " + ec.message();
   return r;
