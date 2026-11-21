@@ -12,6 +12,19 @@
 
 namespace sdlfe {
 
+std::string& window_name() {
+  static std::string name;
+  return name;
+}
+
+namespace {
+// The title shown: the program's own (window_name) over the game's.
+const char* shown_title(const std::string& game, const char* fallback) {
+  if (!window_name().empty()) return window_name().c_str();
+  return game.empty() ? fallback : game.c_str();
+}
+}  // namespace
+
 bool SdlWindow::init(bool hidden_for_good, SDL_Window* adopt) {
   hidden_ = hidden_for_good;
   // Metal, Direct3D 12 or Vulkan (SPIR-V only where the build has it).
@@ -21,7 +34,7 @@ bool SdlWindow::init(bool hidden_for_good, SDL_Window* adopt) {
 #endif
   device_ = SDL_CreateGPUDevice(formats, false, nullptr);
   if (!device_) return std::fprintf(stderr, "mw3: SDL_CreateGPUDevice: %s\n", SDL_GetError()), false;
-  window_ = adopt ? adopt : SDL_CreateWindow("MechWarrior 3", 1280, 960, SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE);
+  window_ = adopt ? adopt : SDL_CreateWindow(shown_title("", "MechWarrior 3"), 1280, 960, SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE);
   if (adopt) std::printf("mw3: the game took the launcher's window\n");
   if (!window_) return std::fprintf(stderr, "mw3: SDL_CreateWindow: %s\n", SDL_GetError()), false;
   if (!SDL_ClaimWindowForGPUDevice(device_, window_))
@@ -41,15 +54,15 @@ SdlWindow::~SdlWindow() {
 uint32_t SdlWindow::create(const std::string& title, int width, int height) {
   if (!window_) return 0;
   windowed_w_ = width, windowed_h_ = height;
-  if (fullscreen_) return SDL_SetWindowTitle(window_, title.empty() ? "MechWarrior 3" : title.c_str()), kHwnd;
+  if (fullscreen_) return SDL_SetWindowTitle(window_, shown_title(title, "MechWarrior 3")), kHwnd;
   SDL_SetWindowSize(window_, width, height);
   SDL_SetWindowPosition(window_, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
   SDL_SyncWindow(window_);  // X11 and Wayland apply a size later: the next frame's is this one (docs/linux.md)
-  if (!title.empty()) SDL_SetWindowTitle(window_, title.c_str());
+  if (!title.empty() || !window_name().empty()) SDL_SetWindowTitle(window_, shown_title(title, ""));
   return kHwnd;
 }
 void SdlWindow::set_title(const std::string& title) {
-  if (window_) SDL_SetWindowTitle(window_, title.c_str());
+  if (window_) SDL_SetWindowTitle(window_, window_name().empty() ? title.c_str() : window_name().c_str());
 }
 void SdlWindow::show() {
   if (!window_ || hidden_) return;

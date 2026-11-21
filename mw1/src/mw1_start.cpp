@@ -108,4 +108,123 @@ std::vector<std::string> game_args(const std::string& argv0, const Args& a, cons
   return out;
 }
 
+namespace {
+
+// Every file under `a` is under `b` with the same bytes (folders too); false on anything unreadable.
+bool same_tree(const fs::path& a, const fs::path& b) {
+  std::error_code ec;
+  for (fs::recursive_directory_iterator it(a, ec), end; !ec && it != end; it.increment(ec)) {
+    const fs::path there = b / fs::relative(it->path(), a, ec);
+    if (ec) return false;
+    if (it->is_directory(ec)) {
+      if (!fs::is_directory(there, ec)) return false;
+      continue;
+    }
+    if (fs::file_size(it->path(), ec) != fs::file_size(there, ec) || ec) return false;
+    std::ifstream x(it->path(), std::ios::binary), y(there, std::ios::binary);
+    if (!x || !y) return false;
+    std::vector<char> bx(65536), by(65536);
+    while (x && y) {
+      x.read(bx.data(), static_cast<std::streamsize>(bx.size())), y.read(by.data(), static_cast<std::streamsize>(by.size()));
+      if (x.gcount() != y.gcount() || !std::equal(bx.data(), bx.data() + x.gcount(), by.data())) return false;
+    }
+    if (x.bad() || y.bad()) return false;
+  }
+  return !ec;
+}
+
+// `from` copied to `to` (made): folders made plain and files owner-writable, so a read-only old folder still gives
+// a write dir the game can write in (fs::copy would carry the folders' permissions over and fail inside them).
+void copy_tree(const fs::path& from, const fs::path& to, std::error_code& ec) {
+  if (!fs::create_directory(to, ec) || ec) return;
+  // Each step's error ends the copy at once, before the iterator's increment(ec) could clear it.
+  for (fs::recursive_directory_iterator it(from, ec), end; !ec && it != end; it.increment(ec)) {
+    const fs::path there = to / fs::relative(it->path(), from, ec);
+    if (ec) return;
+    const bool dir = it->is_directory(ec);
+    if (ec) return;
+    if (dir) {
+      fs::create_directory(there, ec);
+      if (ec) return;
+      continue;
+    }
+    fs::copy_file(it->path(), there, ec);
+    if (ec) return;
+    fs::permissions(there, fs::perms::owner_read | fs::perms::owner_write, fs::perm_options::add, ec);
+    if (ec) return;
+  }
+}
+
+// After a rename: the folders and files the owner can write (a read-only old folder made a write dir again).
+void make_writable(const fs::path& d) {
+  std::error_code ec;
+  const fs::perms dir = fs::perms::owner_all, file = fs::perms::owner_read | fs::perms::owner_write;
+  fs::permissions(d, dir, fs::perm_options::add, ec);
+  for (fs::recursive_directory_iterator it(d, ec), end; !ec && it != end; it.increment(ec)) {
+    std::error_code e2;
+    fs::permissions(it->path(), it->is_directory(e2) ? dir : file, fs::perm_options::add, e2);
+  }
+}
+
+bool empty_dir(const fs::path& d) {
+  std::error_code ec;
+  return fs::is_directory(d, ec) && fs::directory_iterator(d, ec) == fs::directory_iterator() && !ec;
+}
+
+}  // namespace
+
+WriteDirMove move_write_dir(const std::string& old_dir, const std::string& new_dir, bool try_rename) {
+  WriteDirMove r;
+  r.use = new_dir;
+  std::error_code ec;
+  const fs::path from(old_dir), to(new_dir);
+  if (old_dir.empty() || new_dir.empty() || !fs::is_directory(from, ec) || fs::equivalent(from, to, ec)) return r;
+  if (fs::exists(to, ec) && !empty_dir(to)) return r.how = Moved::kBothKept, r;
+  auto failed = [&](const std::string& why) {
+    r.how = Moved::kFailed, r.use = old_dir, r.why = why;
+    return r;
+  };
+  if (fs::exists(to, ec) && !fs::remove(to, ec)) return failed("the new folder could not be replaced: " + ec.message());
+  if (try_rename) {
+    fs::rename(from, to, ec);
+    if (!ec) return make_writable(to), r.how = Moved::kRenamed, r;
+  }
+  // The copy, beside the new one; one left by an earlier failed move is ours and goes first.
+  const fs::path part = to.string() + ".moving";
+  fs::remove_all(part, ec);
+  ec.clear();
+  copy_tree(from, part, ec);
+  if (ec || !same_tree(from, part)) {
+    const std::string why = ec ? "the copy failed: " + ec.message() : "the copy did not match";
+    fs::remove_all(part, ec);
+    fs::create_directories(to, ec);  // as SDL left it
+    return failed(why);
+  }
+  fs::rename(part, to, ec);
+  if (ec) {
+    const std::string why = "the copy could not be renamed: " + ec.message();
+    fs::remove_all(part, ec);
+    fs::create_directories(to, ec);
+    return failed(why);
+  }
+  r.how = Moved::kCopied;
+  // Only now, the copy checked and in place: the old tree's read-only bits cleared (Windows' remove_all doesn't, and
+  // stops at the first read-only file), then the old folder removed. What can't be removed is left and said.
+  make_writable(from);
+  fs::remove_all(from, ec);
+  if (ec) r.why = "the old folder could not be removed: " + ec.message();
+  return r;
+}
+
+const char* moved_words(Moved how) {
+  switch (how) {
+    case Moved::kNothing: return "nothing to move";
+    case Moved::kRenamed: return "renamed";
+    case Moved::kCopied: return "copied and checked";
+    case Moved::kBothKept: return "both folders kept";
+    case Moved::kFailed: return "not moved";
+  }
+  return "";
+}
+
 }  // namespace mw1

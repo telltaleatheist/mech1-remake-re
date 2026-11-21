@@ -1,4 +1,4 @@
-# FIXES 123: mw1's log opens with MW1's name and version ("mw1 (MechWarrior 1: Critical Hit) <describe>, log ..."),
+# FIXES 123: mw1's log opens with MW1's name and version ("mw1 (MechWarrior 1 Remake) <describe>, log ..."),
 # the same as --version, and its crash report names mw1; a Pirate's Moon run's are PM's, as before (the engine's hook,
 # sdlfe::program_name, unset there). Each program once with MW3_CRASH_TEST=1, which ends the run with exit 70 right
 # after the crash report's line (crash_report.h); not --hidden, as a hidden run installs no crash report. No window
@@ -30,6 +30,6 @@ function(run name bin first_re crash_line)
   message(STATUS "mw1banner: ${name}: ${first}; \"${crash_line}\"")
 endfunction()
 string(REGEX REPLACE "([][+.*()^$?|\\\\])" "\\\\\\1" want_re "${WANT}")
-run(mw1 "${MW1_BIN}" "^mw1 \\(MechWarrior 1: Critical Hit\\) ${want_re}, log .*/mw3\\.log$" "mw1: crashed: segmentation fault"
+run(mw1 "${MW1_BIN}" "^mw1 \\(MechWarrior 1 Remake\\) ${want_re}, log .*/mw3\\.log$" "mw1: crashed: segmentation fault"
     ${MW1_ARGS})
 run(pm "${PM_BIN}" "^mw3pm \\(Pirate's Moon rebuild\\) [^ ]+, log .*/mw3\\.log$" "mw3pm: crashed: segmentation fault")
