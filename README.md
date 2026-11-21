@@ -25,6 +25,15 @@ original.
 
 Nothing yet.
 
+**1.2.0 (2026-11-20)** (the full notes are in
+[docs/release-notes-1.2.0.md](docs/release-notes-1.2.0.md)):
+
+- **Ultrawide screens** (21:9, 32:9) filled without stretching, with
+  2560x1080, 3440x1440, 3840x1080 and 5120x1440 in the graphics options.
+- **Joysticks**: buttons 11 to 15 can be bound, and a stick plugged in while
+  the game runs works without a restart.
+- **The launcher's cards**, one a game; MW1: Critical Hit 1.0.2.
+
 **1.1.3 (2026-11-20)** (the full notes are in
 [docs/release-notes-1.1.3.md](docs/release-notes-1.1.3.md)):
 
