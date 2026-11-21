@@ -332,11 +332,13 @@ TEST(mw1_travel_the_trade_loop_buy_low_sell_high) {
     }
     got += c.funds - before, ++sold;
   }
-  EXPECT(sold == c.market.limit && got == sold * mw1::sell_price(shadow, 3) && mw1::sell_percent(3) == 140);
+  // At the market's price there (FIXES 135: the base times this world's shift for the model, within 5%).
+  EXPECT(sold == c.market.limit && got == sold * mw1::market_sell_price(c, shadow) && mw1::sell_percent(3) == 140);
+  EXPECT(got * 1000 >= sold * mw1::sell_price(shadow, 3) * (1000 - mw1::kShiftMost));
   // Back: the profit on what sold beats both trips.
   const int64_t back_cost = mw1::travel_cost(c, mw1::kPlanets[low]);
   EXPECT(mw1::travel(c, low, rng) == mw1::Trip::kDone && c.tier == 0);
-  const int64_t margin = got - sold * mw1::buy_price(shadow, 0);
+  const int64_t margin = got - sold * (paid / 3);
   std::printf("  trade: %s (tier 0) -> %s (tier 3), distance %d: bought 3 for %lld, sold %d for %lld, trips %lld + %lld\n",
               mw1::kPlanets[low].name, mw1::kPlanets[high].name, best, static_cast<long long>(paid), sold,
               static_cast<long long>(got), static_cast<long long>(there_cost), static_cast<long long>(back_cost));

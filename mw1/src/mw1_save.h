@@ -63,7 +63,7 @@
 
 namespace mw1 {
 
-inline constexpr int32_t kSaveVersion = 11;
+inline constexpr int32_t kSaveVersion = 12;  // 12: FIXES 135, the market's price shifts
 inline constexpr const char* kSaveFile = "mw1save.txt";
 inline constexpr const char* kPrevSaveFile = "mw1save.prev";  // the company NEW CAMPAIGN replaced, kept beside it
 

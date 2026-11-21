@@ -3,6 +3,7 @@
 #include "mw1_travel.h"
 #include "mw1_repairs.h"
 #include "mw1_ladder.h"
+#include "mw1_market.h"
 
 #include <cctype>
 #include <ctime>
@@ -129,6 +130,10 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
   o << "market_stock=";
   for (size_t i = 0; i < c.market.stock.size(); ++i) o << (i ? "," : "") << c.market.stock[i];
   o << "\nmarket_sold=" << c.market.sold << "\nmarket_limit=" << c.market.limit << "\n";
+  // Version 12 (FIXES 135): each model's price shift at this world, permille, by PM mech id.
+  o << "market_shift=";
+  for (size_t i = 0; i < c.market.shift.size(); ++i) o << (i ? "," : "") << c.market.shift[i];
+  o << "\n";
   // Version 3: the calendar.
   o << "calendar=" << c.date.units << "," << c.date.month << "," << c.date.year << "\n";
   o << "market_clock=" << c.market_clock << "\n";
@@ -281,6 +286,7 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
   const bool v8 = n >= 8;  // the story; before it, the story planets rolled at the load and nothing seen
   const bool v7 = n >= 7;  // negotiation; before it, the House's middle patience and the ceilings as they'd be now
   const bool v11 = n >= 11;  // FIXES 112: the force's slots; before it, MW1's kind numbers (slot_of_mw1_kind)
+  const bool v12 = n >= 12;  // FIXES 135: the market's price shifts; before it, none (the base prices until a refresh)
   const bool v1 = n == 1;  // before the hangar and the market: a hangar of none, the market rolled at the next refresh
   Company c;
   const int64_t kMax = int64_t{1} << 40;
@@ -366,6 +372,16 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
       c.market.stock.push_back(static_cast<int32_t>(m));
     }
     c.market.sold = static_cast<int32_t>(sold), c.market.limit = static_cast<int32_t>(limit), c.market.rolled = true;
+    if (v12) {
+      if (!v.count("market_shift")) return fail("the market's price shifts are missing");
+      std::istringstream ss(v["market_shift"]);
+      while (std::getline(ss, e, ',')) {
+        int64_t s = 0;
+        if (!to_int(e, -market::kShiftMost, market::kShiftMost, &s) || c.market.shift.size() >= size_t{mech3::kMechCount})
+          return fail("the market's price shifts don't read");
+        c.market.shift.push_back(static_cast<int32_t>(s));
+      }
+    }
   } else {
     // Version 1 knew only the start worlds by name.
     for (const StartPlanet& sp : kStartPlanets) {

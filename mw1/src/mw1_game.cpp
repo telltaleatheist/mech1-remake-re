@@ -1611,7 +1611,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     switch (id) {
       case kMarketBuy: {
         const int32_t mech = m.stock < static_cast<int32_t>(company_.market.stock.size()) ? company_.market.stock[m.stock] : -1;
-        const int64_t price = mech >= 0 ? buy_price(mech, company_.tier) : 0;
+        const int64_t price = mech >= 0 ? market_buy_price(company_, mech) : 0;
         // FIXES.md item 60: asked first (the reason at once when it can't be); NO leaves everything as it was.
         if ((d = can_buy(company_, m.stock)) == Deal::kDone && !deal_asked(buy_question(company_, m.stock))) return;
         if (d == Deal::kDone && (d = buy(company_, m.stock)) == Deal::kDone) {
@@ -1629,7 +1629,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         const int32_t mech = owned_mech(company_, m.owned);
         if ((d = can_sell(company_, m.owned)) == Deal::kDone && !deal_asked(sell_question(company_, m.owned))) return;
         if (d == Deal::kDone && (d = sell(company_, m.owned)) == Deal::kDone) {
-          const int64_t got = sell_price(mech, company_.tier);
+          const int64_t got = market_sell_price(company_, mech);  // the shift is the market's, unchanged by the sale
           done = "Sold: " + mech_title(mech) + " for " + thousands(got) + " C-bills.";
           log_add(company_, LogKind::kSold, true, mech, 0, 0, 0, got);
           deal_choice(company_, m, false);  // YOUR MECHS' row in its place, shown (FIXES.md item 58)

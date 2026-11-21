@@ -2395,8 +2395,13 @@ TEST(mw1_loop_market_buy_sell_pilot_then_a_contract_in_the_bought_mech_headless)
     bool has = false;
     std::string why;
     EXPECT(mw1::load_file(run.save, saved, k, &has, &why) == mw1::Loaded::kLoaded);
-    EXPECT(run.market_bought_for == mw1::buy_price(mw1::kPmFirefly, saved.tier) &&
-           run.market_sold_for == mw1::sell_price(mw1::kPmFirefly, saved.tier));
+    // FIXES 135: at that market's shift for the Firefly (the save comes after a contract, so its market may have
+    // been rolled again since): one shift within 5% gives both the price paid and the price got.
+    bool one_shift = false;
+    for (int32_t s = -mw1::kShiftMost; s <= mw1::kShiftMost && !one_shift; ++s)
+      one_shift = run.market_bought_for == mw1::buy_price(mw1::kPmFirefly, saved.tier, s) &&
+                  run.market_sold_for == mw1::sell_price(mw1::kPmFirefly, saved.tier, s);
+    EXPECT(one_shift);
     EXPECT(run.briefing_mech == mw1::kPmFirefly && saved.mech == mw1::kPmFirefly && saved.hangar.size() == 1 &&
            saved.hangar[0].mech == mw1::kPmOwens);
     // FIXES.md item 40: the group's order as chosen, listed so, and read back so from the save (a mission later);

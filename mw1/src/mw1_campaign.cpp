@@ -279,7 +279,7 @@ int32_t wreck_value(const Company& c, const Wreck& w) {
   // repairs by the one rule (mw1_repairs.h), +500 and in thousands as MwCalculateUnitConditionPrice rounds; never
   // below the scrap value, tons x 10,000 (provisional Q4).
   const int32_t scrap = static_cast<int32_t>(std::lround(mech3::max_mass(chassis))) * kScrapPerTon;
-  const int64_t worth = sell_price(chassis, c.tier) - wreck_repairs(c, chassis, w.damage);
+  const int64_t worth = market_sell_price(c, chassis) - wreck_repairs(c, chassis, w.damage);  // FIXES 135: the shift too
   return std::max(scrap, static_cast<int32_t>((worth + kSaleRounding) / 1000));
 }
 
