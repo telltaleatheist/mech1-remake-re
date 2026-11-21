@@ -76,7 +76,6 @@ add_library(mw3core STATIC
   src/mech3/source_map.cpp
   src/mech3/source_install.cpp
   src/mech3/game_setup.cpp
-  third_party/miniz/miniz_tinfl.c
   src/gamez/zutil/zutl_zar.cpp
   src/gamez/zutil/zutl_zip.cpp
   src/gamez/zutil/zutl_json.cpp
@@ -392,8 +391,6 @@ target_include_directories(mw3core PUBLIC src)
 target_include_directories(mw3core PRIVATE third_party)
 # pl_mpeg (third_party/pl_mpeg): as written, its warnings not ours.
 set_source_files_properties(third_party/pl_mpeg/pl_mpeg.c PROPERTIES COMPILE_OPTIONS "$<IF:$<C_COMPILER_ID:MSVC>,/w,-w>")
-# tinfl (third_party/miniz, miniz's inflate) likewise.
-set_source_files_properties(third_party/miniz/miniz_tinfl.c PROPERTIES COMPILE_OPTIONS "$<IF:$<C_COMPILER_ID:MSVC>,/w,-w>")
 # ENet (third_party/enet, MIT): the multiplayer transport (docs/multiplayer-port.md),
 # unmodified, its warnings not ours. unix.c's feature macros as its own build
 # finds them on macOS and Linux (no gethostby*_r: it falls back).
@@ -466,8 +463,8 @@ else()
   target_compile_definitions(mw3core PUBLIC MW3_HAVE_LIBARCHIVE=0)  # source_archive.cpp reads it as a value
   message(STATUS "libarchive not found: SETUP reads folders, drives, .iso and .cue only")
 endif()
-# The shared setup kit (extern/re-setup-kit, a submodule; DESIGN.md there): SETUP's archive reader and the cue
-# sheets' CD audio so far. It takes the libarchive found above.
+# The shared setup kit (extern/re-setup-kit, a submodule; DESIGN.md there): SETUP's archive reader, the cue
+# sheets' CD audio, InstallShield 5, ZIP and deflate (miniz's tinfl, its third_party/miniz), SHA-256 and MD5. It takes the libarchive found above.
 set(REKIT_LIBARCHIVE_INCLUDE "${LIBARCHIVE_INCLUDE}" CACHE PATH "" FORCE)
 set(REKIT_LIBARCHIVE_LIB "${LIBARCHIVE_LIB}" CACHE FILEPATH "" FORCE)
 if(NOT EXISTS "${CMAKE_SOURCE_DIR}/extern/re-setup-kit/CMakeLists.txt")

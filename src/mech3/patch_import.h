@@ -1,4 +1,6 @@
 #pragma once
+#include "rekit/hash.h"
+#include "rekit/installshield.h"
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -12,27 +14,13 @@
 // player's install is never written.
 namespace mech3 {
 
-struct PatchEntry {
-  std::string path;  // as the source names it, '/'-separated ("zbd/c1/reader.zbd")
-  std::vector<uint8_t> data;
-};
-
-// Every file of an InstallShield 5 cabinet (data1.hdr's directory, data1.cab's
-// data), each under its directory; false with `error` set when it is not one
-// this reads (another version, split across volumes) or a file fails to inflate.
-bool read_installshield(const std::vector<uint8_t>& hdr, const std::vector<uint8_t>& cab,
-                        std::vector<PatchEntry>* out, std::string* error);
-
-// The same, file by file, from a cabinet read where it lies (a disc's
-// DATA1.CAB, 198 MB): `read` gives `n` bytes at `at`; `each` takes each file
-// (false stops with an error). Every file is checked against its MD5.
-// The files a cabinet's header lists (path, expanded size), without its data.
-bool list_installshield(const std::vector<uint8_t>& hdr, std::vector<std::pair<std::string, uint64_t>>* out,
-                        std::string* error);
-using CabRead = std::function<bool(uint64_t at, size_t n, uint8_t* out)>;
-bool each_installshield(const std::vector<uint8_t>& hdr, uint64_t cab_size, const CabRead& read,
-                        const std::function<bool(PatchEntry&&)>& each, std::string* error);
-
+// The InstallShield 5 reader lives in the shared setup kit since 2026-11-21 (extern/re-setup-kit,
+// rekit/installshield.h); the port's names kept.
+using PatchEntry = rekit::CabFile;
+using rekit::CabRead;
+using rekit::each_installshield;
+using rekit::list_installshield;
+using rekit::read_installshield;
 struct PatchImport {
   bool ok = false;
   std::string error;               // why nothing was written
@@ -46,23 +34,9 @@ struct PatchImport {
 // loose 1.2 files. The 28 go into `out_dir` (written to `out_dir`.new, then
 // renamed) only when all 28 are found.
 PatchImport import_patch_12(const std::string& source, const std::string& out_dir);
-
-std::string sha256_hex(const uint8_t* data, size_t n);
-// A file's SHA-256 as hex, read a megabyte at a time; empty when it cannot be read.
-std::string sha256_file_hex(const std::string& path);
-// The same over data given in pieces (a mod's files, EXPORT and IMPORT);
-// hex() once, at the end.
-struct Sha256 {
-  void add(const uint8_t* data, size_t n);
-  std::string hex();
-
- private:
-  void block(const uint8_t* p);
-  uint32_t h[8] = {0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19};
-  uint8_t buf[64] = {};
-  size_t used = 0;
-  uint64_t total = 0;
-};
-void md5(const uint8_t* data, size_t n, uint8_t out[16]);
-
+// SHA-256 and MD5: the setup kit's (rekit/hash.h) since 2026-11-21.
+using rekit::md5;
+using rekit::Sha256;
+using rekit::sha256_file_hex;
+using rekit::sha256_hex;
 }  // namespace mech3
