@@ -219,6 +219,8 @@ cat > "$APP/Contents/Info.plist" <<EOF
 <dict>
   <key>CFBundleName</key><string>$NAME</string>
   <key>CFBundleDisplayName</key><string>$NAME</string>
+  <key>CFBundleDevelopmentRegion</key><string>en</string>
+  <key>LSHasLocalizedDisplayName</key><true/>
   <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
   <key>CFBundleExecutable</key><string>mw3launcher</string>
   <key>CFBundleIconFile</key><string>mw3</string>
@@ -234,6 +236,14 @@ cat > "$APP/Contents/Info.plist" <<EOF
 </dict>
 </plist>
 EOF
+
+# The name shown (Finder, Dock, Launchpad, the menu bar): BattleTech for the combined package, which holds more than
+# MW3 (Owen, 2026-11-20). The folder and the plist keep "MechWarrior 3" (the updater's path; a localized name shows only
+# when the plist's matches the folder's), so Spotlight finds it by both names.
+SHOWN="$NAME"
+[ -n "$PM_BIN" ] && SHOWN="BattleTech"
+mkdir -p "$APP/Contents/Resources/en.lproj"
+printf 'CFBundleName = "%s";\nCFBundleDisplayName = "%s";\n' "$SHOWN" "$SHOWN" > "$APP/Contents/Resources/en.lproj/InfoPlist.strings"
 
 # The read-me and the notices beside the program.
 cp tools/macos/README.txt "$APP/Contents/Resources/README.txt"

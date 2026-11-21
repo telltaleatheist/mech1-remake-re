@@ -19,6 +19,16 @@
   #define Stem "MW3-Rebuild"
 #endif
 
+; The shortcut's name: BattleTech for the combined package, which holds more than MW3 (Owen, 2026-11-20), its
+; comment naming the games for the Start menu's search; MW3 alone keeps its own name.
+#if Stem == "MW3-alone"
+  #define Shortcut "MechWarrior 3"
+  #define ShortcutComment "MechWarrior 3, rebuilt"
+#else
+  #define Shortcut "BattleTech"
+  #define ShortcutComment "MechWarrior 3, Pirate's Moon and MechWarrior 1, rebuilt"
+#endif
+
 [Setup]
 ; The same AppId every version: a new installer upgrades the old install in place.
 AppId={{920C98A6-550D-41A3-839E-540B93B8F40D}
@@ -68,15 +78,22 @@ Type: files; Name: "{app}\README-MW1.txt"
 Type: files; Name: "{app}\THIRD-PARTY-MW1.txt"
 #endif
 
+#if Stem != "MW3-alone"
+[InstallDelete]
+; An earlier version's shortcuts, named MechWarrior 3 before the combined package became BattleTech.
+Type: files; Name: "{autoprograms}\MechWarrior 3.lnk"
+Type: files; Name: "{autodesktop}\MechWarrior 3.lnk"
+#endif
+
 [Icons]
-; The launcher is the shortcut, named for the game; mw3.exe is installed
+; The launcher is the shortcut; mw3.exe is installed
 ; and starts alone too, but has no shortcut (Owen, 2026-11-02; launcher.md).
-Name: "{autoprograms}\MechWarrior 3"; Filename: "{app}\mw3launcher.exe"; WorkingDir: "{app}"
+Name: "{autoprograms}\{#Shortcut}"; Filename: "{app}\mw3launcher.exe"; WorkingDir: "{app}"; Comment: "{#ShortcutComment}"
 Name: "{autoprograms}\MechWarrior 3 Rebuild - Read me"; Filename: "{app}\README.txt"
-Name: "{autodesktop}\MechWarrior 3"; Filename: "{app}\mw3launcher.exe"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{autodesktop}\{#Shortcut}"; Filename: "{app}\mw3launcher.exe"; WorkingDir: "{app}"; Comment: "{#ShortcutComment}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\mw3launcher.exe"; Description: "{cm:LaunchProgram,MechWarrior 3}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\mw3launcher.exe"; Description: "{cm:LaunchProgram,{#Shortcut}}"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
 ; Only what the installer put in {app}; %APPDATA%\MicroProse\MechWarrior 3 stays.
