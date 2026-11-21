@@ -996,6 +996,13 @@ if(SDL3_FOUND)
     src/frontend/sdl/editor_imgui.cpp
   )
   target_link_libraries(mw3sdl PUBLIC mw3core SDL3::SDL3 enet miniupnpc)
+  # Ours (issue #15): the Mac's RAW MOUSE through GameController's GCMouse
+  # (sdl_rawmouse.h); SDL's Cocoa motion is the system's curve.
+  if(APPLE)
+    enable_language(OBJCXX)
+    target_sources(mw3sdl PRIVATE src/frontend/sdl/sdl_rawmouse_mac.mm)
+    target_link_libraries(mw3sdl PUBLIC "-framework GameController" "-framework Foundation")
+  endif()
   # Dear ImGui (third_party/imgui, VERSION.txt): the game editor's dialogs only
   # (docs/editor.md); in the programs through mw3sdl, never in mw3core or the probes.
   add_library(mw3imgui STATIC

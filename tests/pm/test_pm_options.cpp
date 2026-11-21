@@ -515,7 +515,7 @@ TEST(pm_upgrades_page_has_five_switches_headless) {
   mech3::Platform p;
   p.window = &window, p.alert = &alert, p.clock = &clock, p.movie_clock = &movies, p.screen = &screen;
   p.sound = &sound, p.files = &files;
-  int stage = 0, rows[6] = {-1, -1, -1, -1, -1, -1}, lines = -1;
+  int stage = 0, rows[7] = {-1, -1, -1, -1, -1, -1, -1}, lines = -1;
   bool water_on_screen = false, water_shown_off = false, water_after = false, small_after = true;
   {
     mech3::GameEngine engine(p, "mech3.exe -nofmv");
@@ -535,8 +535,9 @@ TEST(pm_upgrades_page_has_five_switches_headless) {
         g->upgrades.on_left_up();
         stage = 2;
       } else if (stage == 2 && u) {
-        ztwod::Object2D* const row[6] = {&u->water, &u->mfb_regroup, &u->improved_ai, &u->artemis, &u->small_fixes, &u->wide_menus};
-        for (int k = 0; k < 6; ++k) rows[k] = row[k]->get_y();
+        ztwod::Object2D* const row[7] = {&u->water, &u->mfb_regroup, &u->improved_ai, &u->artemis, &u->small_fixes, &u->wide_menus,
+                                         &u->raw_mouse};
+        for (int k = 0; k < 7; ++k) rows[k] = row[k]->get_y();
         water_on_screen = false;
         for (ztwod::Object2D* o = u->head; o; o = o->next) water_on_screen = water_on_screen || o == &u->water;
         water_shown_off = u->water.selected_value() == 0;  // the page reads the setting
@@ -561,12 +562,13 @@ TEST(pm_upgrades_page_has_five_switches_headless) {
   mech3::options_upgrades_saver() = saver_was;
   std::string keys;
   for (const std::string& s : saved) keys += s + " ";
-  std::printf("  rows at %d %d %d %d %d, wide menus %d (WATER on the screen %d); the list %d lines; saved: %s\n", rows[0], rows[1], rows[2],
-              rows[3], rows[4], rows[5], water_on_screen, lines, keys.c_str());
-  EXPECT(stage == 3 && rows[0] == 64 && rows[1] == 94 && rows[2] == 124 && rows[3] == 154 && rows[4] == 184 && rows[5] == 214);
+  std::printf("  rows at %d %d %d %d %d, wide menus %d, raw mouse %d (WATER on the screen %d); the list %d lines; saved: %s\n", rows[0], rows[1], rows[2],
+              rows[3], rows[4], rows[5], rows[6], water_on_screen, lines, keys.c_str());
+  EXPECT(stage == 3 && rows[0] == 64 && rows[1] == 94 && rows[2] == 124 && rows[3] == 154 && rows[4] == 184 && rows[5] == 214 &&
+         rows[6] == 244);
   EXPECT(water_on_screen && water_shown_off);
   EXPECT(lines == 12 && upgrades::small_fixes_list().size() == 12);
-  EXPECT(keys == "upgrade_water=1 upgrade_mfb_regroup=1 upgrade_improved_ai=1 upgrade_artemis=1 upgrade_small_fixes=0 widemenus=1 ");
+  EXPECT(keys == "upgrade_water=1 upgrade_mfb_regroup=1 upgrade_improved_ai=1 upgrade_artemis=1 upgrade_small_fixes=0 widemenus=1 rawmouse=1 ");
   EXPECT(water_after && !small_after);  // each switch as the page left it
   // A host's word, the five bits (water the lowest), as MechWarrior 3's.
   zfix::set_all(true);

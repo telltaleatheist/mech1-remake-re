@@ -191,7 +191,7 @@ void UpgradesScreen::AcceptButton::on_left_up() {
 // own wading (mech_move.cpp, Pirate's Moon 0x00418fc0; Owen, 2026-11-10).
 UpgradesScreen::UpgradesScreen(Engine& e, Handle s)
     : MenuScreen(e, s), accept(e), back(e), water(e), mfb_regroup(e), improved_ai(e), artemis(e), small_fixes(e),
-      wide_menus(e), small_list(e) {
+      wide_menus(e), raw_mouse(e), small_list(e) {
   target_buffers(e);
   const bool moving = !e.fast_menu();
   if (load("dlgOptions.zrd", "UPGRADES_DIALOG", moving)) {
@@ -199,7 +199,7 @@ UpgradesScreen::UpgradesScreen(Engine& e, Handle s)
     bind_primitive(&lines, "LINES");
     bind_primitive(&lines1, "LINES1");
     char name[8];
-    for (int k = 0; k < 6; ++k) std::snprintf(name, sizeof(name), "BOX%d", k + 1), bind_primitive(&box[k], name);
+    for (int k = 0; k < 7; ++k) std::snprintf(name, sizeof(name), "BOX%d", k + 1), bind_primitive(&box[k], name);
     bind_button(&accept, "ACCEPT");
     bind_button(&back, "BACK");
     if (!moving) {
@@ -214,6 +214,7 @@ UpgradesScreen::UpgradesScreen(Engine& e, Handle s)
     static const char* const kNames[5] = {"WATER", "MFB_REGROUP", "IMPROVED_AI", "ARTEMIS", "SMALL_FIXES"};
     for (int k = 0; k < 5; ++k) bind_button(five[k], kNames[k]);
     bind_button(&wide_menus, "WIDE_MENUS");
+    bind_button(&raw_mouse, "RAW_MOUSE");
     bind_button(&small_list, "SMALL_LIST");
     // Ours: a program's layout may place the note itself (a NOTE text: its place and font); none in PM's.
     if (zrdr::Node* prims = zrdr::find(node, "PRIMITIVES"); prims && zrdr::find(prims, "NOTE")) note_placed = bind_primitive(&note, "NOTE");
@@ -245,16 +246,19 @@ void UpgradesScreen::apply(int32_t to_options) {
   if (!to_options) {
     for (size_t k = 0; k < sw.size(); ++k) five[k]->select(o.*sw[k].field);
     wide_menus.select(o.wide_menus);
+    raw_mouse.select(o.raw_mouse);
     return;
   }
   const bool hosts = upgrades::hosts();
   if (!hosts)
     for (size_t k = 0; k < sw.size(); ++k) o.*sw[k].field = five[k]->selected_value() != 0;
   o.wide_menus = wide_menus.selected_value() != 0;
+  o.raw_mouse = raw_mouse.selected_value() != 0;  // the next capture takes it (sdl_input.h, raw_mouse)
   if (auto& save = options_upgrades_saver()) {
     if (!hosts)
       for (size_t k = 0; k < sw.size(); ++k) save((std::string("upgrade_") + sw[k].key).c_str(), o.*sw[k].field);
     save("widemenus", o.wide_menus);
+    save("rawmouse", o.raw_mouse);
   }
 }
 

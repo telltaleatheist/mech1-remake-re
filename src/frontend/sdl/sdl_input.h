@@ -162,6 +162,26 @@ class SdlInput : public platform::Input {
   // Window-pixel motion since the last call, whether or not zInput holds the
   // mouse (for tools such as the free camera; the game reads mouse_state).
   void take_motion(float* x, float* y) { *x = raw_dx_, *y = raw_dy_, raw_dx_ = raw_dy_ = 0; }
+  // Ours (issue #15): what the mouse did over a mission, said in mw3.log at its
+  // end, so a player's log shows where slow motion goes (input.md section 13).
+  struct MotionStats {
+    uint64_t events = 0, small = 0;  // SDL's motion events held by the game; those under a pixel
+    double sdl = 0, counts = 0;      // |x| + |y|: SDL's pixels, the counts handed to zInput
+    double raw = 0;                  // |x| + |y| of the raw source's counts (the Mac's raw mouse)
+    double moved_at_start = 0;       // zInput's `moved` when the mission began
+  };
+  const MotionStats& motion_stats() const { return stats_; }
+
+  // Ours (issue #15, input.md section 14): RAW MOUSE. On, a capture asks SDL
+  // for the mouse's own counts, linear (no SDL_HINT_MOUSE_RELATIVE_SYSTEM_SCALE)
+  // as DirectInput gave the original; off, the system pointer's speed and
+  // curve (1.1.0 to 1.2.1). SDL's Cocoa motion is the system's either way,
+  // so on the Mac `raw_counts` (sdl_rawmouse.h, GCMouse) gives the counts
+  // since its last call, false with none; while it is silent and SDL moves
+  // (a trackpad, no GCMouse), SDL's motion is taken. Unset: off.
+  std::function<bool()> raw_mouse;
+  std::function<bool(float*, float*)> raw_counts;
+  static constexpr float kRawSilentPx = 16.0f;  // SDL's frame pixels with the raw source silent before SDL's are taken
 
   static constexpr uint32_t kBufferSize = 0x80;  // DIPROP_BUFFERSIZE (0x0051a170)
 
@@ -192,7 +212,7 @@ class SdlInput : public platform::Input {
   void release_chord(SDL_Scancode s, bool down);
   bool win_ = false, mission_ = false, absolute_ = false, free_ = false;
   bool held_from_ = false;  // where the hold took the pointer (MW1's FIXES 30)
-  float held_x_ = 0, held_y_ = 0;
+  float pointer_x_ = 0, pointer_y_ = 0;
   bool released_ = false;
   bool cursor_hidden_ = false;
   void note_mouse_state(bool want);
@@ -216,6 +236,16 @@ class SdlInput : public platform::Input {
   bool held_[256] = {};
   float dx_ = 0, dy_ = 0, dz_ = 0;
   float raw_dx_ = 0, raw_dy_ = 0;
+  bool raw_wanted() const { return raw_mouse && raw_mouse(); }
+  bool raw_source() const { return raw_wanted() && raw_counts; }
+  void take_raw(float rx, float ry, bool got);  // the raw source's counts into dx_, dy_ (or SDL's held, when it is silent)
+  float held_x_ = 0, held_y_ = 0;    // SDL's motion (frame pixels) held while the raw source is in use
+  bool raw_silent_ = false;          // SDL's motion taken: the raw source gave none
+  bool raw_said_ = false;            // the log's line said (once a run)
+  const char* hint_ = nullptr;       // the system scale hint as last set
+  void sync_scale_hint();
+  MotionStats stats_;
+  void motion_report();
   uint8_t buttons_[4] = {};
   uint8_t latched_[4] = {};  // a press not yet read (FIX (A): a click inside one frame)
   SDL_Joystick* joy_ = nullptr;

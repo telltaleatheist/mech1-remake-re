@@ -3,6 +3,8 @@
 #pragma STDC FP_CONTRACT OFF
 #include "gamez/zinput/zinput.h"
 
+#include <cstdlib>
+
 namespace zin {
 
 extern Host* g_host;
@@ -196,6 +198,7 @@ void mouse_integrate() {
   const bool carry = zfix::options().fixed;  // the probes: the original's cut
   s.frac_x = carry ? fx - static_cast<float>(m.dx) : 0.0f;
   s.frac_y = carry ? fy - static_cast<float>(m.dy) : 0.0f;
+  s.moved += std::abs(m.dx) + std::abs(m.dy);  // ours: for the log's mouse line
   m.x += m.dx;
   m.y += m.dy;
   m.z += m.dz;

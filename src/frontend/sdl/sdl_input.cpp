@@ -384,23 +384,78 @@ void SdlInput::capture(bool on) {
     // MW1's FIXES 30: where the pointer was, to let it go there.
     held_from_ = false;
     if (menus_free) {
-      if (pointer_at) held_from_ = pointer_at(&held_x_, &held_y_);
-      else if (!platform::pointer_hands_off()) SDL_GetGlobalMouseState(&held_x_, &held_y_), held_from_ = true;
+      if (pointer_at) held_from_ = pointer_at(&pointer_x_, &pointer_y_);
+      else if (!platform::pointer_hands_off()) SDL_GetGlobalMouseState(&pointer_x_, &pointer_y_), held_from_ = true;
     }
   }
   const bool was = captured_;
   captured_ = on;
-  if (on) SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_SYSTEM_SCALE, "1");  // the system's speed and acceleration (sdl_input.h)
+  if (on) sync_scale_hint();  // issue #15: the system's speed and acceleration, or none for RAW MOUSE
   if (on && menus_free) SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_CENTER, "0");  // taken where it is, not centred
+  if (on && raw_source()) {  // counts from before the capture are not the game's
+    float x, y;
+    raw_counts(&x, &y);
+    held_x_ = held_y_ = 0;
+  }
   // A run no player is at never holds the system's pointer (pointer_hands_off.h); relative mode let go if it was on.
   if (window && (!platform::pointer_hands_off() || !on)) SDL_SetWindowRelativeMouseMode(window, on);
   // Let go with the window still in front (out of a mission, the pause): the pointer where the hold took it.
   if (!on && was && held_from_) {
     held_from_ = false;
     if (focused_) {
-      if (move_pointer) move_pointer(held_x_, held_y_);
-      else if (!platform::pointer_hands_off()) SDL_WarpMouseGlobal(held_x_, held_y_);
+      if (move_pointer) move_pointer(pointer_x_, pointer_y_);
+      else if (!platform::pointer_hands_off()) SDL_WarpMouseGlobal(pointer_x_, pointer_y_);
     }
+  }
+}
+
+// Ours (issue #15, input.md section 13): one line a mission, the mouse's motion at
+// each step: SDL's pixels (the system's speed), the counts handed to zInput (times
+// the frame's scale), and zInput's after MOUSE SENSITIVITY, which the aim reads.
+void SdlInput::motion_report() {
+  int w = 0, h = 0;
+  if (window_size) window_size(&w, &h);
+  else if (window) SDL_GetWindowSize(window, &w, &h);
+  const zin::State& z = zin::state();
+  const char* drv = SDL_GetCurrentVideoDriver();
+  const char* scaled = SDL_GetHint(SDL_HINT_MOUSE_RELATIVE_SYSTEM_SCALE);
+  std::printf("mw3: mouse over the mission: %llu motion events (%llu under a pixel), %.0f px from SDL, %.0f counts to "
+              "the game, %.0f after MOUSE SENSITIVITY %.2f/%.2f; window %dx%d, frame %dx%d, %.3f counts a pixel; %s, "
+              "system speed %s, raw mouse %s (%.0f raw counts), captured %d\n",
+              static_cast<unsigned long long>(stats_.events), static_cast<unsigned long long>(stats_.small), stats_.sdl,
+              stats_.counts, z.moved - stats_.moved_at_start, static_cast<double>(z.accel_x),
+              static_cast<double>(z.accel_y), w, h, z.width, z.height, static_cast<double>(motion_scale()),
+              drv ? drv : "no video driver", scaled ? scaled : "unset",
+              !raw_wanted() ? "off" : !raw_counts ? "on" : raw_silent_ ? "on, the system's motion" : "on, GCMouse",
+              stats_.raw, captured_ ? 1 : 0);
+  std::fflush(stdout);
+}
+
+// The system's speed and acceleration, or with RAW MOUSE the counts
+// (sdl_input.h, raw_mouse); set when it changes, SDL taking it at once.
+void SdlInput::sync_scale_hint() {
+  const char* want = raw_wanted() ? "0" : "1";
+  if (hint_ && std::strcmp(hint_, want) == 0) return;
+  SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_SYSTEM_SCALE, want);
+  hint_ = want;
+}
+
+// Ours (issue #15, sdl_input.h raw_counts): the raw source's counts at the
+// frame's scale; SDL's held motion dropped while it gives them, taken when it
+// is silent past kRawSilentPx (a trackpad or a mouse GCMouse does not see).
+void SdlInput::take_raw(float rx, float ry, bool got) {
+  if (got) {
+    const float k = motion_scale();
+    dx_ += rx * k, dy_ += ry * k;
+    if (mission_) stats_.raw += std::fabs(rx) + std::fabs(ry);
+    held_x_ = held_y_ = 0;
+    raw_silent_ = false;
+    return;
+  }
+  if (raw_silent_ || std::fabs(held_x_) + std::fabs(held_y_) > kRawSilentPx) {
+    if (!raw_said_) std::printf("mw3: mouse: no raw counts from the system for this motion; the system's motion taken\n");
+    raw_silent_ = raw_said_ = true;
+    dx_ += held_x_, dy_ += held_y_, held_x_ = held_y_ = 0;
   }
 }
 
@@ -481,7 +536,9 @@ void SdlInput::refresh() {
   win_ = windowed && windowed();
   const bool mission = in_mission && in_mission();
   if (mission != mission_) {
+    if (mission_) motion_report();  // out of the mission (or into the pause)
     mission_ = mission;
+    if (mission) stats_ = MotionStats{}, stats_.moved_at_start = zin::state().moved;
     if (mission) released_ = win_ && !focused_;  // into the mission (or out of the pause): held
     // FIX (A), playtest W30: a press from the screen before (LAUNCH, RESUME)
     // is not the mission's fire. The exe's load took seconds, so the click
@@ -507,6 +564,7 @@ void SdlInput::refresh() {
   // system's cursor showed at the centre the game puts it each frame.
   note_mouse_state(want);
   if (want != captured_ || (window && SDL_GetWindowRelativeMouseMode(window) != want)) capture(want);
+  if (captured_) sync_scale_hint();  // RAW MOUSE switched on the pause's options: at once
   // The menus and a held mouse draw the game's own cursor or none; a mouse let
   // go in a window shows the system's.
   if (free != free_) {
@@ -574,18 +632,23 @@ void SdlInput::set_cooperative_level(Device d, uint32_t flags) { coop_[d] = flag
 
 int32_t SdlInput::mouse_state(platform::MouseState* out) {
   refresh();
+  float rx = 0, ry = 0;  // the raw source's counts, taken at every read so none wait for a later one
+  const bool raw = raw_source() && raw_counts(&rx, &ry) && (rx != 0 || ry != 0);
   if (!opened_[kMouse] || !acquired_[kMouse]) return lost_[kMouse] ? kInputLost : kNotAcquired;
   if (muted()) {  // let go in a mission: no motion, no buttons
     *out = platform::MouseState{};
-    dx_ = dy_ = dz_ = 0;
+    dx_ = dy_ = dz_ = 0, held_x_ = held_y_ = 0;
     return 0;
   }
+  if (raw_source()) take_raw(rx, ry, raw);
+  else held_x_ = held_y_ = 0, raw_silent_ = false;
   if (absolute_ && absolute_cursor && cursor_moved_) {  // the menus in a window: zInput's mouse at the cursor
     absolute_cursor(mouse_x, mouse_y);
     dx_ = dy_ = 0;
   }
   out->x = static_cast<int32_t>(dx_), out->y = static_cast<int32_t>(dy_), out->z = static_cast<int32_t>(dz_);
   dx_ -= out->x, dy_ -= out->y, dz_ -= out->z;  // the fractions carry over
+  if (mission_) stats_.counts += std::abs(out->x) + std::abs(out->y);
   // FIX (A): DirectInput's device state caught a click shorter than a frame
   // through its buffer; SDL's events can press and release between two reads,
   // so a press stays down for the read after it.
@@ -816,7 +879,12 @@ void SdlInput::on_event(const SDL_Event& e) {
       raw_dx_ += e.motion.xrel, raw_dy_ += e.motion.yrel;
       if (acquired_[kMouse] && !muted()) {
         const float k = motion_scale();
-        dx_ += e.motion.xrel * k, dy_ += e.motion.yrel * k;
+        if (raw_source()) held_x_ += e.motion.xrel * k, held_y_ += e.motion.yrel * k;  // take_raw decides
+        else dx_ += e.motion.xrel * k, dy_ += e.motion.yrel * k;
+        if (mission_) {  // issue #15: the mission's mouse line
+          const double d = std::fabs(e.motion.xrel) + std::fabs(e.motion.yrel);
+          ++stats_.events, stats_.small += d < 1.0 ? 1 : 0, stats_.sdl += d;
+        }
       }
       break;
     case SDL_EVENT_MOUSE_WHEEL:

@@ -603,6 +603,80 @@ bind; `issue16_a_mission_keeps_the_stick_axes_headless`: a launch keeps the
 stick's mode 6 and axes). Why "joystick/kyb default" helped one player is
 not known.
 
+## 13. The mission's mouse line (issue #15, 2026-11-21)
+
+Players (Owen on Windows before 1.1.0, then fjosk on 1.1.x): "it's stuck at
+the middle and had to move it very far, only then the reticle respond". The
+cut that caused Owen's (W19, section 2's MOUSE SENSITIVITY on a frame's 0 or
+1 counts) has been carried since 1.1.0, and every later step was checked
+with slow motion and found to keep it: SDL's events through `SdlInput`
+(its fractions), zInput's sensitivity, the controls' view 0 and view 2, the
+torso's steer (linear) and the HUD's reticle (placed at the pointer), MW3
+and Pirate's Moon alike (the same code). Windows' Enhance pointer precision,
+as SDL 3.4 copies it, gives about 0.57 px a count at the slowest; DDrawCompat's
+default (desktop) follows the same curve, so Windows should feel as the
+original does. On the Mac SDL takes NSEvent's deltaX, already through the
+system's acceleration, and the system-scale hint does nothing there.
+
+What was left is the system, which no test here reaches. So each mission's
+end (and a pause) writes one line to mw3.log (ours, `SdlInput::motion_report`):
+
+    mw3: mouse over the mission: E motion events (S under a pixel), P px from
+    SDL, C counts to the game, M after MOUSE SENSITIVITY x/y; window WxH,
+    frame FWxFH, K counts a pixel; <video driver>, system speed 1, captured 1
+
+P is what SDL gave (the system's speed), C what reached zInput (P times K,
+the frame's scale), M what zInput kept after the sensitivity, which the aim
+reads. A player's log then says at which step slow motion goes: P small for
+the motion made (the system's curve), C short of P times K (ours), or M short
+of C times the sensitivity (zInput). `sdl_issue15_mission_mouse_line_counts_slow_motion`:
+400 events of 0.4 px in a 1280-wide window at 0.5: 160 px, 80 counts, 40
+kept; dropping SdlInput's carried fractions reads 0 counts and fails.
+
+## 14. RAW MOUSE (issue #15, Owen 2026-11-21)
+
+The original read DirectInput's counts: linear, the same distance for the
+same hand movement at any speed. From 1.1.0 (section 10) ours took the
+system pointer's motion (SDL_HINT_MOUSE_RELATIVE_SYSTEM_SCALE), its speed
+and its acceleration curve, as DDrawCompat's default moves the original on
+Windows 11 with Enhance pointer precision on (with it off DDrawCompat gives
+the counts). Players of #15 and Owen before W19 felt the curve: slow strokes
+shrink (SDL's copy of Windows' curve, about 0.57 px a count at the slowest;
+macOS's own, steeper), fast ones grow.
+
+RAW MOUSE (ours, the Upgrades page's seventh row, beside WIDE MENUS; on by
+default; mw3.cfg `rawmouse=0/1`, `--raw-mouse`, `--no-raw-mouse`;
+`zfix::options().raw_mouse`, a display-side choice, not one of the five
+switches the network host sends): a held mouse is the counts.
+
+- Windows and Linux: the system scale hint is "0" (SDL's raw input on
+  Windows, XInput2 raw motion on X11, the relative-pointer protocol's
+  unaccelerated motion on Wayland), switched at once while held
+  (`SdlInput::sync_scale_hint`).
+- The Mac: SDL's Cocoa motion is NSEvent's, the system's curve, whatever the
+  hint. `sdl_rawmouse_mac.mm` listens to GameController's GCMouse (macOS 11;
+  every mouse, now and later connected, on its own queue; y negated as SDL's
+  UIKit backend does) and `SdlInput::raw_counts` takes its counts at each
+  read; SDL's motion is held meanwhile and dropped. While GCMouse gives
+  nothing and SDL's held motion passes 16 frame pixels (a trackpad, or a
+  mouse GCMouse does not see), SDL's is taken, none lost, with one log line
+  a run. Not in a hidden run (the checks' motion is their own SDL events).
+
+The counts keep section 10's scale (the frame's width over the window's), so
+a count is a desktop pixel's worth as Windows moves the cursor with Enhance
+pointer precision off. MOUSE SENSITIVITY's top went from 3.0 to 5.0 for a
+low-resolution mouse. The mission's line (section 13) adds `raw mouse off`,
+`on`, `on, GCMouse` or `on, the system's motion` and the raw counts.
+
+Tests: `sdl_issue15_raw_mouse` (the hint both ways and at once; the source's
+counts with SDL's accelerated motion dropped; a silent source's slow motion
+all taken; SDL's dropped again when it comes back; off, the source not
+read; breaking the hold, so SDL's motion passes beside the source's, reads
+170 for 20 and fails), `options_mouse_sensitivity_slider_headless` (the
+slider's 0.5..5.0 and the page's RAW MOUSE read, applied and saved). Not
+checked with a hand on a mouse: GCMouse's counts and their sign on Owen's
+Mac, and the feel on Windows against the original.
+
 ## Open
 
 - The controls screen (0x0042be10 ..), which uses read_key and the wait
