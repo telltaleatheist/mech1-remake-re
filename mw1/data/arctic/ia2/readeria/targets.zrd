@@ -1,7 +1,8 @@
 ; MW1's arctic Instant Action map 2: the structures a contract names (mw1maps.zrd's NODEs), c4b's own buildings.
 ; The first item is the side: 2 the enemy's (an attack's target), 1 the company's (a defence's). The supply
-; warehouse (ware02 here) is a reach's place only.
+; warehouse (ware01) stands with the enemies, so it is the attack's; the south warehouse (ware03), on the player's
+; side, the defence's (FIXES 134). The depot (ware02) is a reach's place only.
 (
-"ware03" (2 "destroy_anim" ("destroy_ware03") "health" (200.0) "health_below" ("ware03_down" 1 0.0))
-"ware01" (1 "destroy_anim" ("destroy_ware01") "health" (300.0) "health_below" ("ware01_down" 1 0.0))
+"ware01" (2 "destroy_anim" ("destroy_ware01") "health" (300.0) "health_below" ("ware01_down" 1 0.0))
+"ware03" (1 "destroy_anim" ("destroy_ware03") "health" (200.0) "health_below" ("ware03_down" 1 0.0))
 )

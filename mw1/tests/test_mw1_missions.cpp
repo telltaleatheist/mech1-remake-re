@@ -2,6 +2,7 @@
 // player's MW_MAIN.EXE and BTECH.EXE; the rolls MW1's chain makes; the map table (data/mw1maps.zrd) read; a row
 // chosen by the battle's climate; a contract given its mission and map.
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <cctype>
 #include <cstdio>
@@ -9,6 +10,7 @@
 #include <fstream>
 #include <iterator>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -17,6 +19,7 @@
 #include "gamez/zreader/zreader.h"
 #include "mw1_campaign.h"
 #include "mw1_missions.h"
+#include "mw1_placement.h"
 #include "mw1_pilots.h"
 #include "mw1_travel.h"
 #include "gamez/zutil/zutl_path.h"
@@ -214,7 +217,20 @@ TEST(mw1_missions_maps_drawn_by_the_planets_pool) {
                 p.planet.empty() ? mw1::climate_name(p.climate) : p.planet.c_str(), mostly / 100, mostly / 10 % 10, sometimes / 100,
                 sometimes / 10 % 10, outside, repeats, none, said.c_str());
     EXPECT(outside == 0 && repeats == 0 && none == 0);
-    if (mostly_has_maps && !p.sometimes.empty()) EXPECT(mostly >= 7000 && mostly <= 8000);
+    // FIXES 134: a kind with only one MOSTLY map (ice's defence, mw3c4b ia2) can't be drawn there twice running (no
+    // repeats), so after that map such a contract goes to SOMETIMES: the band's floor is lower then, said here.
+    std::string single;
+    for (int kd = 1; kd < 4; ++kd) {
+      std::set<std::pair<std::string, int32_t>> maps;
+      for (const mw1::MapRow& r : rows)
+        if (static_cast<int>(r.kind) == kd && has(p.mostly, r.world)) maps.insert({r.world, r.ia});
+      if (maps.size() == 1) single += " " + std::string(kd == 1 ? "reach" : kd == 2 ? "attack" : "defend") + " (" +
+                                      maps.begin()->first + " ia" + std::to_string(maps.begin()->second) + ")";
+    }
+    if (!single.empty())
+      std::printf("    %s: one MOSTLY map for%s: MOSTLY %d.%d%%, the floor 65%% (FIXES 137 brings it back to 70%%)\n",
+                  p.planet.empty() ? mw1::climate_name(p.climate) : p.planet.c_str(), single.c_str(), mostly / 100, mostly / 10 % 10);
+    if (mostly_has_maps && !p.sometimes.empty()) EXPECT(mostly >= (single.empty() ? 7000 : 6500) && mostly <= 8000);
     if (!mostly_has_maps) EXPECT(mostly == 0);
     // Even per world within a part, kind by kind: among the part's worlds with a row of the kind, each drawn as often
     // (a world without one, c1 for a reach, isn't drawn for it).
@@ -251,4 +267,28 @@ TEST(mw1_missions_maps_drawn_by_the_planets_pool) {
   EXPECT(off_pool == 0 && repeats == 0 && no_pool == 0);
   mw1::set_map_table({});
   mw1::set_map_pools({});
+}
+
+// FIXES 134: the placement measures (mw1_placement.h) on a triangle worked by hand. A at the origin, the enemies'
+// places at (900, 0) and (1100, 0) (their centre B at (1000, 0), spread 100), the structure C at (0, 1000): a right
+// angle at A, C level with A (along 0), B's closest approach to A->C is A itself (1000), the race 1000 / 1414.
+// The ground: flat at 0 but for a 30 m ridge across x = 500, which the line from B to A->C's midpoint (0, 500) crosses.
+TEST(mw1_placement_measures_a_triangle) {
+  using namespace mw1::placement;
+  const Ground ground = [](float x, float) { return std::fabs(x - 500.0f) < 20.0f ? 30.0f : 0.0f; };
+  const Measures m = measure({0, 0}, {0, 1000}, {{900, 0}, {1100, 0}}, ground);
+  auto near = [](float a, float b) { return std::fabs(a - b) < 0.5f; };
+  std::printf("  AC %.0f CB %.0f AB %.0f along %.2f angle %.0f B-to-AC %.0f race %.3f ridge %.0f nearest C %.0f A %.0f AC %.0f\n",
+              m.start_target, m.target_enemies, m.start_enemies, m.along, m.angle_at_start, m.centre_to_line, m.race, m.ridge,
+              m.nearest_to_target, m.nearest_to_start, m.nearest_to_line);
+  EXPECT(m.enemies == 2 && near(m.enemy_centre.x, 1000) && near(m.enemy_centre.z, 0) && near(m.spread, 100));
+  EXPECT(near(m.start_target, 1000) && near(m.start_enemies, 1000) && near(m.target_enemies, 1414.2f));
+  EXPECT(std::fabs(m.along) < 0.001f && near(m.angle_at_start, 90) && near(m.centre_to_line, 1000));
+  EXPECT(std::fabs(m.race - 1000.0f / 1414.2f) < 0.001f && near(m.ridge, 30));
+  EXPECT(near(m.nearest_to_target, 1345.4f) && near(m.nearest_to_start, 900) && near(m.nearest_to_line, 900));
+  // Straight at the enemies: along 1, angle 0, B on the line; no ground, no ridge; no enemies, only |AC|.
+  const Measures at = measure({0, 0}, {1000, 0}, {{900, 0}, {1100, 0}});
+  EXPECT(near(at.along, 1) && near(at.angle_at_start, 0) && near(at.centre_to_line, 0) && at.ridge == 0);
+  const Measures none = measure({0, 0}, {300, 400}, {});
+  EXPECT(none.enemies == 0 && near(none.start_target, 500) && none.target_enemies < 0);
 }

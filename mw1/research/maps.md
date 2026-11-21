@@ -426,7 +426,7 @@ They could pass as desert at a stretch, or serve as extra variety.
 ## The structure table (built 2026-11-17)
 
 The maps and structures MW1's contracts choose from are data,
-`data/mw1maps.zrd` (`src/mw1_missions.h`): 23 rows, every one passed by the
+`data/mw1maps.zrd` (`src/mw1_missions.h`): 23 rows then, every one passed by the
 headless survey `mw1_loop_every_map_row_is_there_headless`
 (`tests/test_mw1_loop.cpp`). The survey loads each row's map, builds its
 objective as a contract would, and checks the structure is found; it is the
@@ -438,12 +438,50 @@ table's gate.
   support building), mw3c2 ia2 `iatower`.
 - **Attack (special target), on each map's Attack archive (ia2), where the
   structure is the enemy's:** c1 `hitme_twr` (the dome core), c2
-  `portalgate`, c3 `mpbbase` and `pspwrsrc01`, c4 `warehouse_target40`,
-  mw3c2 `iatower`.
+  `portalgate`, c3 `pspwrsrc01`, c4 `warehouse_target40`, mw3c2
+  `iatower`.
 - **Defend (defend special target, oppose withdrawal), on each map's Defend
   archive (ia3), where it's yours:** c1 `pship_kill`, c2 `mp_tent_campb` and
-  `tcab05`, c3 `mpbbase` and `pspwrsrc01`, c4 `warehouse_target40`, mw3c2
+  `tcab05`, c3 `pspwrsrc01`, c4 `warehouse_target40`, mw3c2
   `iatower`.
+
+(The table has grown since: MW3's worlds and the arctic maps; `data/mw1maps.zrd`
+is the list.)
+
+### Where the structures stand (FIXES 134, 2026-11-20)
+
+A row can name a real, destructible structure and still be wrong: c3 ia2's
+attack on `mpbbase` put "the pirate base" 100 m from the player's start, 2.2 km
+from the enemies, so a player who fought the enemies at Able finished the fight
+with the mission still open. The survey now measures every structure row
+against the start and the centre of all the map's enemy places (the eight-mech
+force, so every place is used), and gates on it
+(`mw1_loop_every_map_row_is_there_headless`; `MW1_SURVEY_TABLE=<file>` writes
+the table, `MW1_LIST_TARGETS=<file>` every named target on each map with its
+distances). "Along" is the structure's place on the way from the start (0) to
+the enemies' centre (1).
+
+| Kind | Rule | Kept rows | Dropped or moved |
+|---|---|---|---|
+| attack | ≥ 150 m from the start, along ≥ 0.5 | along 0.81..1.28 | c3 ia2 `mpbbase` (0.04), c4b ia2 `ware03` (−0.08) |
+| defend | along ≤ 0.5, nearer the start than the enemies | along ≤ 0.17, enemies ≥ 1.5× as far | c3 ia3 `mpbbase` (3.99), c4b ia1 `ware02` (1.25), c4b ia2 `ware01` (0.94) |
+| reach | ≥ 150 m from the start, whichever way it leads | all | none (c2 ia1, c3 ia1, c4 ia1 lead away from the enemies: MW1's withdraw) |
+
+An attack's target or a reach's place needn't sit among the enemies: a
+project decision is that a player who tries may slip past them. The survey
+measures, without gating on them yet (`src/mw1_placement.h`, for choosing a
+point or a structure by these scores later, FIXES 136), with A the start, B the
+enemies' centre and C the structure: the angle at A between A→B and A→C; B's
+closest approach to the segment A→C; the race, |AC| / |BC| (under 1, the player
+is nearer C than the enemies' centre is); the ridge, the highest ground along
+B → the midpoint of A→C above the straight line between them (does a hill
+screen the way?); and the nearest enemy place to the segment A→C.
+
+On c4b ia2 the two warehouses changed sides (`data/arctic/ia2`): `ware01`,
+with the enemies, is now the attack's target, `ware03` the defence's. c4b ia1
+has no defence: all three warehouses stand on the enemies' side. The enemy
+places are spread wide (the farthest 630..2160 m from their centre), which is
+why the rules lean on "along" more than on the distance to the centre.
 
 PM's four worlds stand in for desert (c1 and c3 volcanic, at a stretch);
 mw3c2 is the one tropical map.

@@ -5,6 +5,15 @@ Tick an item when it is merged into `main`.
 
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 137. [ ] A defence on the arctic map 1 again *(after 1.0.4)*
+
+- **Why:** FIXES 134 dropped c4b ia1's defence (every warehouse stands on the enemies' side of the start), leaving
+  ice one defence map; ice contracts are about 68% mw3c4b, under item 46's 70..80% band, and the pool test carries a
+  65% exception for it.
+- **Plan:** move our own arctic ia1 player start (`data/arctic/ia1`) so a warehouse is on the player's side and passes
+  the survey's defence rule, add the row back, and remove the 65% exception from
+  `mw1_missions_maps_drawn_by_the_planets_pool` (ice back to about 75%).
+
 ## 136. [ ] Objectives on a triangle: the target off the line between you and the enemy *(design; after 1.0.4)*
 
 - **The design (2026-11-20):** you start at A, the enemy at B, the objective at C, a corner of a triangle, not on
@@ -27,14 +36,29 @@ Tick an item when it is merged into `main`.
   to both buying and selling at that world (keeps the 10% buy/sell gap, so no flip profit), on a bell curve, rounded
   to 1,000, saved with the market.
 
-## 134. [ ] Contract targets in the right places *(dev 1: mw1-fix134-phantom-targets; for 1.0.4)*
+## 134. [x] An attack's target that isn't where the fight is *(done: mw1-fix134-phantom-targets; for 1.0.4)*
 
-- **Reported (2026-11-20):** "destroy the pirate base" on PM c3 ia2 put the base 100 m from the start, the enemies
-  2.2 km away. The structure was real (destroying it wins); its place made no sense.
-- **The fix:** placement rules in the map survey, every row played to its end: attack targets at least 150 m from
-  the start and on the enemy's half; defended structures nearer you than the enemy; reach points at least 150 m
-  away. Rows that fail are dropped or swapped (c3 ia2 and ia3 mpbbase dropped, mw3c4b ia2 swapped, mw3c4b ia1's
-  defend dropped).
+- **Reported (2026-11-20):** "destroy the pirate base on c3ia2": all three enemies dead, the mission still running;
+  the nav point (1712, −980) about 100 m from the start, nothing seen there.
+- **Cause:** not a missing structure. Headless, `mpbbase` is live, drawn, its meshes hand weapon damage to the target,
+  and destroying it wins; the target simply stood beside the player's start, 2.2 km from the enemies at Able, and the
+  player left it behind. An attack isn't won by the enemies alone (by design), so the mission waited on it.
+- **Fix:** the map survey measures where every structure row stands against the start and all the map's enemy
+  places, and gates on it (research/maps.md, "Where the structures stand"): an attack's target on the enemies' side,
+  away from the start, a defence's on the player's side. Rows dropped: c3 ia2 attack `mpbbase` (c3 ia2's attack on `pspwrsrc01`, at Able,
+  stays), c3 ia3 defend `mpbbase` (across the map; the defence of `pspwrsrc01` by the start stays), c4b ia1 defend
+  `ware02` (every warehouse on the enemies' side). c4b ia2's attack and defence swapped warehouses. The survey's
+  attack play now wears the structure down through one of its meshes' damage handlers, as a weapon's hit does. No
+  world or climate is left without an attack or a defence.
+- **Decided:** an attack's target and a reach's place needn't sit among the enemies; a player who tries may slip
+  past them. Attack: at least 150 m from the start and on the enemies' side (at least halfway to their centre).
+  Reach (MW1's withdraw): at least 150 m from the start, whichever way it leads. The survey also measures, not yet
+  as rules, the angle at the start, the enemies' closest approach to the way, a race ratio and a screening ridge
+  (`src/mw1_placement.h`, ready for FIXES 136's chosen points).
+- **Ice's share:** with c4b ia1's defence gone, ice has one defence map (c4b ia2), and the no-repeat rule sends a
+  defence drawn right after a c4b ia2 contract to SOMETIMES, so ice contracts are now about 68% mw3c4b (the band's
+  75%, item 46). The pool test's floor is 65% for a pool it can name a kind with a single MOSTLY map for (it prints
+  the pool, the kind and the share); every other pool keeps 70%. Item 137 removes the exception.
 
 ## 133. [x] Ice missions cool the 'Mech faster *(done: mw1-fix133-arctic-cooling)*
 

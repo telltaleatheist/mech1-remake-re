@@ -121,6 +121,9 @@
 #include <fstream>
 #include "platform/silent_sound.h"
 #include "pm/pm_game.h"
+#include "mw1_placement.h"
+#include "gamez/zweapon/zweapon.h"
+#include "pm/gamez/zmodel/gmod_const.h"
 // The process's peak memory so far, in MB (peak_memory.cpp: its own file, as windows.h's macros clash with the
 // engine's headers).
 long peak_mb();
@@ -378,10 +381,21 @@ struct Run {
   std::string nav_label;
   float nav_off = -1;
   int32_t nav_watched = 0;
+  // FIXES 134: what a player meets at the structure. Its node's meshes shown (every node down to the mesh shown,
+  // node flag 4) and of those how many hand a weapon's damage to an object (zwep::damage_object, the target for an
+  // attack or a defence); an attack's or defence's target alive (health above 0, not destroyed); how far (ground
+  // plane) the structure is from the player's start; -1 none.
+  int32_t shown_meshes = -1, routed_meshes = -1;
+  bool target_live = false;
+  float start_off = -1;
+  float start_at[3] = {}, structure_at[3] = {};  // the player's start and the structure's point (start_off's ends)
+  mw1::placement::Measures placement;  // where the structure stands (mw1_placement.h), with the ground's ridge
+  bool placed = false;
   // FIXES.md item 45: the row played as a player would, from frame 30. 1: the player's mech driven to the structure's
-  // node by its own controls (throttle and turn, never moved); 2: the structure worn down by hits (CZAiTarget's
-  // on_hit, a weapon's way in); 3: the enemies disabled by hits (kill_enemies). The closest the mech came to the
-  // node (3D, as the reach checks it, and on the ground plane), the frame the mission ended, the player's end.
+  // node by its own controls (throttle and turn, never moved); 2: the structure worn down by hits (through one of its
+  // meshes' damage handlers, as a weapon's hit lands: FIXES 134); 3: the enemies disabled by hits (kill_enemies). The
+  // closest the mech came to the node (3D, as the reach checks it, and on the ground plane), the frame the mission
+  // ended, the player's end.
   int play = 0;
   float closest = 1e9f, closest_ground = 1e9f;
   int ended_frame = -1;
@@ -1556,6 +1570,31 @@ void loop_run(Ending ending, Run* run = nullptr) {
             run->structure_found = mech3::mission_objective_hooks().entity_find(k->structure.c_str()) != 0;
           else run->structure_found = true;
           if (const mw1::Contract* k = mw1::game_loop_contract(); k && !k->structure.empty()) {
+            // FIXES 134: the structure as a player meets it (Run::shown_meshes and the rest).
+            mech3::ObjectiveHooks& oh = mech3::mission_objective_hooks();
+            auto* ge = dynamic_cast<mech3::GameEngine*>(&app.engine());
+            const zgame::Handle hn = oh.node_find(k->structure.c_str());
+            if (auto* top = ge && hn ? static_cast<zcls::Node*>(ge->object_of(hn)) : nullptr) {
+              run->shown_meshes = run->routed_meshes = 0;
+              std::function<void(zcls::Node*, int)> walk = [&](zcls::Node* nd, int depth) {
+                if (!nd || depth > 8 || !(nd->flags() & 4)) return;
+                if (nd->pm_model || nd->model) {
+                  ++run->shown_meshes;
+                  if (zwep::damage_object(nd, nullptr)) ++run->routed_meshes;
+                }
+                for (int32_t i = 0; i < nd->child_count(); ++i) walk(nd->children[i], depth + 1);
+              };
+              walk(top, 0);
+            }
+            if (const zgame::Handle he = oh.entity_find(k->structure.c_str()))
+              for (mech3::ai::CZAiTarget* t : mech3::ai::target_list())
+                if (t->self == he) run->target_live = !t->destroyed && t->desc.health > 0.0f;
+            float at[3] = {}, me[3] = {};
+            if (void* pl = mech3::mech_mission_player(); pl && mw1::game_loop_structure_point(at)) {
+              mech3::mech_world_position(pl, me);
+              run->start_off = std::hypot(at[0] - me[0], at[2] - me[2]);
+              std::copy(me, me + 3, run->start_at), std::copy(at, at + 3, run->structure_at);
+            }
             const mech3::NavSummary n = mech3::program_nav_summary(mech3::program_mission_waynet());
             if (float at[3]; mw1::game_loop_structure_point(at) && n.current >= 0 && n.current < 8) {
               const float dx = n.pos[n.current][0] - at[0], dz = n.pos[n.current][2] - at[2];
@@ -1578,14 +1617,46 @@ void loop_run(Ending ending, Run* run = nullptr) {
               if (!n || depth > 3) return;
               float w[3] = {};
               if (n->data && n->cls() == 5) zcls::node_world_position(n, w);
-              std::printf("  node %*s%s cls %d flags %08x children %d parents %d world %.0f %.0f %.0f\n", depth * 2, "", n->name(),
-                          n->cls(), n->flags(), n->child_count(), n->parent_count(), w[0], w[1], w[2]);
+              // FIXES 134: its PM model's counts (+0x0c, +0x10), and whether a weapon's hit on it reaches an object.
+              std::string more;
+              if (n->pm_model) more += " model " + std::to_string(n->pm_model->count(0x0c)) + "/" + std::to_string(n->pm_model->count(0x10));
+              zwep::DamageFn fn = nullptr;
+              more += zwep::damage_object(n, &fn) && fn ? " hands damage on" : "";
+              std::printf("  node %*s%s cls %d flags %08x children %d parents %d world %.0f %.0f %.0f%s\n", depth * 2, "", n->name(),
+                          n->cls(), n->flags(), n->child_count(), n->parent_count(), w[0], w[1], w[2], more.c_str());
               for (int32_t i = 0; i < n->child_count() && i < 6; ++i) show(n->children[i], depth + 1);
             };
+            if (const zgame::Handle he = mech3::mission_objective_hooks().entity_find(probe))
+              for (mech3::ai::CZAiTarget* t : mech3::ai::target_list())
+                if (t->self == he)
+                  std::printf("  node target %s: health %.0f/%.0f destroy_anim %s flags %02x named %d \"%s\" destroyed %d\n", probe,
+                              t->desc.health, t->desc.max_health, t->desc.destroy_anim ? "yes" : "no", t->desc.flags, t->desc.named,
+                              t->desc.name.c_str(), t->destroyed);
             auto* ge = dynamic_cast<mech3::GameEngine*>(&app.engine());
             auto* n = ge ? static_cast<zcls::Node*>(ge->object_of(hn)) : nullptr;
-            if (n && n->parent_count() > 0) std::printf("  node parent: %s\n", n->parents[0]->name());
+            for (zcls::Node* up = n; up && up->parent_count() > 0; up = up->parents[0])
+              std::printf("  node parent: %s cls %d flags %08x\n", up->parents[0]->name(), up->parents[0]->cls(), up->parents[0]->flags());
             show(n, 0);
+            if (n) {
+              float w[3] = {};
+              zcls::node_world_position(n, w);
+              zcls::GroundHits hits{};
+              if (zcls::Node* wn = mech3::world_hooks().world; wn && zcls::ground_point(wn, w[0], 3000.0f, w[2], &hits) == 0)
+                for (int i = 0; i < hits.count; ++i)
+                  std::printf("  node ground under %s: %.1f (%s)\n", probe, hits.hit[i].height, hits.hit[i].node ? hits.hit[i].node->name() : "-");
+              void* me = mech3::mech_mission_player();
+              float p[3] = {};
+              if (me) mech3::mech_world_position(me, p);
+              std::printf("  node %s is %.0f m from the player at %.0f %.0f %.0f\n", probe, std::hypot(p[0] - w[0], p[2] - w[2]), p[0], p[1], p[2]);
+              for (int step = 0; step <= 20 && std::getenv("MW1_NODE_LINE"); ++step) {
+                const float t = step / 20.0f, x = p[0] + (w[0] - p[0]) * t, z = p[2] + (w[2] - p[2]) * t;
+                zcls::GroundHits gh{};
+                std::string line;
+                if (zcls::Node* wn = mech3::world_hooks().world; wn && zcls::ground_point(wn, x, 3000.0f, z, &gh) == 0)
+                  for (int i = 0; i < gh.count; ++i) line += " " + std::to_string(static_cast<int>(gh.hit[i].height)) + "(" + (gh.hit[i].node ? gh.hit[i].node->name() : "-") + ")";
+                std::printf("  node line %3.0f%%: %.0f %.0f:%s\n", t * 100, x, z, line.c_str());
+              }
+            }
           }
           {
             int32_t na = 0;
@@ -1601,6 +1672,54 @@ void loop_run(Ending ending, Run* run = nullptr) {
               for (int k = 0; k < nf; ++k)
                 if (std::isnan(m.ground) || std::fabs(f[k].y - m.at[1]) < std::fabs(m.ground - m.at[1])) m.ground = f[k].y;
               run->made.push_back(m);
+            }
+          }
+          // FIXES 134: where the structure stands (mw1_placement.h), the ground from the world as the weapons see it.
+          if (run->start_off >= 0) {
+            // The map's own enemy places: not the enemies made past them ("<a place's record>_<n>", FIXES.md item 48).
+            std::vector<mw1::placement::Point> places;
+            for (const Run::Made& m : run->made) {
+              bool extra = false;
+              for (const Run::Made& o : run->made)
+                if (&o != &m && m.name.size() > o.name.size() + 1 && m.name.compare(0, o.name.size(), o.name) == 0 &&
+                    m.name[o.name.size()] == '_')
+                  extra = true;
+              if (m.team != 1 && !extra) places.push_back({m.at[0], m.at[2]});
+            }
+            const mw1::placement::Ground ground = [](float x, float z) {
+              zcls::GroundHits hits{};
+              zcls::Node* w = mech3::world_hooks().world;
+              if (!w || zcls::ground_point(w, x, 3000.0f, z, &hits) != 0 || !hits.count) return std::nanf("");
+              float top = hits.hit[0].height;
+              for (int i = 1; i < hits.count; ++i) top = std::max(top, hits.hit[i].height);
+              return top;
+            };
+            run->placement = mw1::placement::measure({run->start_at[0], run->start_at[2]}, {run->structure_at[0], run->structure_at[2]},
+                                                     places, ground);
+            run->placed = true;
+          }
+          // FIXES 134: every named target on the map (MW1_LIST_TARGETS=<file>, appended), with how far it is from the
+          // player's start and from the enemies' centre: the candidates for a row's structure, by hand.
+          if (std::getenv("MW1_LIST_TARGETS")) {
+            auto* ge = dynamic_cast<mech3::GameEngine*>(&app.engine());
+            float me[3] = {}, centre[2] = {};
+            int nc = 0;
+            if (void* pl = mech3::mech_mission_player()) mech3::mech_world_position(pl, me);
+            for (const Run::Made& m : run->made)
+              if (m.team != 1) centre[0] += m.at[0], centre[1] += m.at[2], ++nc;
+            if (nc) centre[0] /= nc, centre[1] /= nc;
+            for (mech3::ai::CZAiTarget* t : mech3::ai::target_list()) {
+              auto* nd = ge && t->node ? static_cast<zcls::Node*>(ge->object_of(t->node)) : nullptr;
+              if (!nd || !t->desc.named) continue;
+              float w[3] = {};
+              zcls::node_world_position(nd, w);
+              char line[256];
+              const mw1::Contract* k = mw1::game_loop_contract();
+              std::snprintf(line, sizeof line, "%s ia%d target %-22s \"%s\" health %.0f at %.0f %.0f %.0f: start %.0f m, enemies %.0f m\n",
+                            k ? k->world.c_str() : "", k ? k->ia : 0, nd->name(), t->desc.name.c_str(), t->desc.max_health, w[0], w[1], w[2],
+                            std::hypot(w[0] - me[0], w[2] - me[2]), nc ? std::hypot(w[0] - centre[0], w[2] - centre[1]) : -1.0f);
+              std::printf("  %s", line);
+              if (std::FILE* f = std::fopen(std::getenv("MW1_LIST_TARGETS"), "a")) std::fputs(line, f), std::fclose(f);
             }
           }
           // FIXES.md item 44: the world's ground on a grid (MW1_GROUND_PROBE=<file>: "x z height node" lines, the
@@ -1739,9 +1858,25 @@ void loop_run(Ending ending, Run* run = nullptr) {
                           mech3::missions().time);
           }
           if (run->play == 2 && k && frames % 5 == 0) {
+            // FIXES 134: as a weapon's hit lands (zwep::apply_damage): on one of the structure's shown meshes, through
+            // that mesh's damage handler, 5% of the target's health a time.
             const zgame::Handle e = h.entity_find(k->structure.c_str());
+            auto* ge = dynamic_cast<mech3::GameEngine*>(&app.engine());
+            const zgame::Handle hn = h.node_find(k->structure.c_str());
+            zcls::Node* mesh = nullptr;
+            std::function<void(zcls::Node*, int)> find_mesh = [&](zcls::Node* nd, int depth) {
+              if (mesh || !nd || depth > 8 || !(nd->flags() & 4)) return;
+              if (nd->pm_model || nd->model) mesh = nd;
+              for (int32_t i = 0; i < nd->child_count(); ++i) find_mesh(nd->children[i], depth + 1);
+            };
+            find_mesh(ge && hn ? static_cast<zcls::Node*>(ge->object_of(hn)) : nullptr, 0);
             for (mech3::ai::CZAiTarget* t : mech3::ai::target_list())
-              if (e && t->self == e && !t->destroyed && t->desc.health > 0.0f) t->on_hit(0, 0, t->desc.max_health * 0.05f);
+              if (e && mesh && t->self == e && !t->destroyed && t->desc.health > 0.0f) {
+                zwep::DamageFn fn = nullptr;
+                zwep::HitRecord rec{};
+                rec.node = mesh;
+                if (void* o = zwep::damage_object(mesh, &fn); o && fn) fn(o, nullptr, &rec, t->desc.max_health * 0.05f);
+              }
           }
         }
         if (frames > 30 && !run->mission_ended && mech3::missions().ended) {
@@ -2501,6 +2636,19 @@ std::vector<mw1::MapRow> shipped_rows() {
   zrdr::close_archives(true);
   return rows;
 }
+// FIXES 134: where a row's structure stands, against the player's start and the enemies' (the centre of every enemy
+// place the map has). "Along": how far it is on the way from the start (0) to that centre (1). The thresholds sit in
+// the gaps the survey measured (research/maps.md, "Where the structures stand"):
+// - an attack's target is on the enemies' side, away from the start: at least kStructureFromStart from it (c3 ia2's
+//   pirate base, 100 m off, was walked past) and at least kAttackAlong of the way (the rows kept: 0.81..1.28;
+//   dropped: 0.04, -0.08). It needn't sit among the enemies: a careful player may slip past them to it (the
+//   project's choice), which the table's "line" measures (the nearest enemy place to the straight way there);
+// - a defence's is on the player's side: at most kDefendAlong of the way (kept: up to 0.17; dropped: 0.94 and over)
+//   and nearer the start than the enemies' centre (kept: at least 1.5 times);
+// - a reach's (MW1's withdraw) is at least kStructureFromStart from the start, whichever way it leads.
+constexpr float kStructureFromStart = 150.0f;
+constexpr float kAttackAlong = 0.5f;
+constexpr float kDefendAlong = 0.5f;
 const char* kind_said(mw1::RowKind k) {
   return k == mw1::RowKind::kReach ? "reach" : k == mw1::RowKind::kAttack ? "attack" : k == mw1::RowKind::kDefend ? "defend" : "";
 }
@@ -2522,6 +2670,10 @@ TEST(mw1_loop_every_map_row_is_there_headless) {
     in_child([&] {
       Run run;
       run.row = &r, run.survey = true, run.stop_at_after_action = true, run.worlds = worlds;
+      // FIXES 134: every enemy place the map has, for their centre: more enemies than any map has places (the ones
+      // past them, made beside them, are left out of the centre).
+      run.force = mw1::rung_force(mw1::kDarkWingRung, 0);
+      run.force.insert(run.force.end(), run.force.begin(), run.force.end());
       loop_run(kObjective, &run);
       std::printf("  %-6s ia%d %-7s %-20s: built \"%s\"%s, the mission on %s; nav \"%s\" %.0f m off, %d watched\n", r.world.c_str(),
                   r.ia, kind_said(r.kind), r.node.c_str(), run.objective_built.c_str(), run.fell_back ? " (FELL BACK)" : "",
@@ -2534,6 +2686,35 @@ TEST(mw1_loop_every_map_row_is_there_headless) {
         if (!want.empty()) want[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(want[0])));
         EXPECT(run.nav_off >= 0 && run.nav_off < 1.0f && run.nav_watched >= 1);
         EXPECT(run.nav_label == want);
+        // FIXES 134: where the structure stands (Run::placement, at frame 30, against every enemy place the map has);
+        // MW1_SURVEY_TABLE=<file> appends one line a row (the children's output is kept only when they fail). The
+        // angle, the centre's closest approach, the race and the ridge are measured for FIXES 136, not yet rules.
+        const bool target = r.kind == mw1::RowKind::kAttack || r.kind == mw1::RowKind::kDefend;
+        const mw1::placement::Measures& pm = run.placement;
+        const float along = pm.along, target_enemy = pm.target_enemies;
+        const int n = pm.enemies;
+        char line[400];
+        std::snprintf(line, sizeof line, "%-6s ia%d %-7s %-18s AC %5.0f  CB %5.0f  AB %5.0f  along %5.2f  angle %3.0f  B-to-AC %5.0f  "
+                      "race %4.2f  ridge %4.0f  nearest enemy: C %4.0f A %4.0f AC %4.0f  (%d places within %.0f)  meshes %d/%d%s\n",
+                      r.world.c_str(), r.ia, kind_said(r.kind), r.node.c_str(), pm.start_target, pm.target_enemies, pm.start_enemies,
+                      pm.along, pm.angle_at_start, pm.centre_to_line, pm.race, pm.ridge, pm.nearest_to_target, pm.nearest_to_start,
+                      pm.nearest_to_line, pm.enemies, pm.spread, run.routed_meshes, run.shown_meshes,
+                      target && !run.target_live ? "  NO LIVE TARGET" : "");
+        std::printf("  %s", line);
+        if (const char* table = std::getenv("MW1_SURVEY_TABLE"))
+          if (std::FILE* f = std::fopen(table, "a")) std::fputs(line, f), std::fclose(f);
+        EXPECT(run.shown_meshes > 0);
+        if (target) EXPECT(run.target_live && run.routed_meshes > 0);
+        EXPECT(run.placed && n > 0);
+        if (r.kind == mw1::RowKind::kAttack) {
+          EXPECT(run.start_off >= kStructureFromStart);
+          EXPECT(along >= kAttackAlong);
+        } else if (r.kind == mw1::RowKind::kDefend) {
+          EXPECT(along <= kDefendAlong);
+          EXPECT(target_enemy >= run.start_off);
+        } else if (r.kind == mw1::RowKind::kReach) {
+          EXPECT(run.start_off >= kStructureFromStart);
+        }
       }
     });
   }
