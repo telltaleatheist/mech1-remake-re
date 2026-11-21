@@ -198,3 +198,21 @@ TEST(mw1_arctic_laid_on_the_converted_world_then_current_then_again) {
   EXPECT(file_text(world / "reader.zbd") == merged && fs::is_regular_file(world / "readeria1.zbd", ec));
   zutl::mounts() = zutl::Mounts{};
 }
+
+// FIXES.md item 133: the arctic maps cool faster, as MW3's snow missions do. ambient_temperature is the engine's heat
+// scale (dissipation 1 / it, mission_world.cpp); zero or below falls back to the default 20, so a cold map needs a
+// positive value under 20.
+TEST(mw1_arctic_maps_cool_faster_than_the_default) {
+  for (const char* map : {"ia1", "ia2"}) {
+    std::ifstream in(fs::path(MW1_DATA_DIR) / "arctic" / map / "reader" / "world.zrd");
+    std::stringstream ss;
+    ss << in.rdbuf();
+    const std::string text = ss.str();
+    const std::string key = "\"ambient_temperature\" (";
+    const size_t at = text.find(key);
+    EXPECT(at != std::string::npos);
+    if (at == std::string::npos) continue;
+    const float t = std::stof(text.substr(at + key.size()));
+    EXPECT(t > 0.0f && t < 20.0f);
+  }
+}
