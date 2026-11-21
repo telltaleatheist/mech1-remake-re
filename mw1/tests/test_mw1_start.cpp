@@ -70,3 +70,99 @@ TEST(mw1_install_checks) {
   if (fs::exists(fs::path(MW1_MW3_GAME_DIR) / "zbd" / "reader.zbd")) EXPECT(mw1::is_mw3_install(MW1_MW3_GAME_DIR));
   if (fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd")) EXPECT(!mw1::is_mw3_install(MW3PM_GAME_DIR));
 }
+
+// FIXES 139: the write dir's old name moved to the new one (mw1::move_write_dir).
+namespace {
+void put(const fs::path& f, const std::string& text) {
+  fs::create_directories(f.parent_path());
+  std::ofstream(f, std::ios::binary) << text;
+}
+std::string got(const fs::path& f) {
+  std::ifstream in(f, std::ios::binary);
+  return std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+}
+// A player's folder: settings, a save in a slot folder, mw1.cfg.
+void player_folder(const fs::path& d, const std::string& tag) {
+  put(d / "mw1.cfg", "install=/pm-" + tag + "\n");
+  put(d / "saves" / "slot1" / "mw1save.txt", "company " + tag + "\n");
+  put(d / "options.ini", std::string("x\0y", 3) + tag);
+}
+bool player_folder_is(const fs::path& d, const std::string& tag) {
+  return got(d / "mw1.cfg") == "install=/pm-" + tag + "\n" && got(d / "saves" / "slot1" / "mw1save.txt") == "company " + tag + "\n" &&
+         got(d / "options.ini") == std::string("x\0y", 3) + tag;
+}
+}  // namespace
+
+TEST(mw1_write_dir_old_only_moves_whole) {
+  for (const bool rename : {true, false}) {  // renamed in place, and the copy that is checked
+    const fs::path root = fresh("mw1move_old");
+    const fs::path from = root / mw1::kOldApp, to = root / mw1::kApp;
+    player_folder(from, "old");
+    fs::create_directories(to);  // as SDL_GetPrefPath leaves it: made, empty
+    const mw1::WriteDirMove m = mw1::move_write_dir(from.string(), to.string(), rename);
+    EXPECT(m.how == (rename ? mw1::Moved::kRenamed : mw1::Moved::kCopied) && m.why.empty());
+    EXPECT(m.use == to.string() && player_folder_is(to, "old"));
+    EXPECT(!fs::exists(from) && !fs::exists(to.string() + ".moving"));
+    EXPECT(mw1::read_cfg(m.use).pm == "/pm-old");
+  }
+}
+
+TEST(mw1_write_dir_both_keeps_both) {
+  const fs::path root = fresh("mw1move_both");
+  const fs::path from = root / mw1::kOldApp, to = root / mw1::kApp;
+  player_folder(from, "old");
+  player_folder(to, "new");
+  const mw1::WriteDirMove m = mw1::move_write_dir(from.string(), to.string());
+  EXPECT(m.how == mw1::Moved::kBothKept && m.use == to.string());
+  EXPECT(player_folder_is(to, "new") && player_folder_is(from, "old"));  // nothing merged, nothing overwritten
+}
+
+TEST(mw1_write_dir_new_only_stays) {
+  const fs::path root = fresh("mw1move_new");
+  const fs::path from = root / mw1::kOldApp, to = root / mw1::kApp;
+  player_folder(to, "new");
+  const mw1::WriteDirMove m = mw1::move_write_dir(from.string(), to.string());
+  EXPECT(m.how == mw1::Moved::kNothing && m.use == to.string() && player_folder_is(to, "new") && !fs::exists(from));
+  EXPECT(mw1::move_write_dir("", to.string()).how == mw1::Moved::kNothing);
+}
+
+#ifndef _WIN32
+#include <unistd.h>
+// A read-only old folder: its files reach the new one whole; the old one, which can't be emptied, is left.
+TEST(mw1_write_dir_read_only_old) {
+  if (geteuid() == 0) return;  // root reads and removes anything
+  for (const bool rename : {true, false}) {
+    const fs::path root = fresh("mw1move_ro");
+    const fs::path from = root / mw1::kOldApp, to = root / mw1::kApp;
+    player_folder(from, "old");
+    const auto ro = fs::perms::owner_read | fs::perms::owner_exec;
+    fs::permissions(from / "saves" / "slot1", ro), fs::permissions(from / "saves", ro), fs::permissions(from, ro);
+    const mw1::WriteDirMove m = mw1::move_write_dir(from.string(), to.string(), rename);
+    EXPECT(m.how == mw1::Moved::kRenamed || m.how == mw1::Moved::kCopied);
+    EXPECT(m.use == to.string() && player_folder_is(to, "old"));
+    if (fs::exists(from)) EXPECT(player_folder_is(from, "old") && !m.why.empty());  // left whole, and said
+    put(to / "saves" / "slot1" / "mw1save.txt", "saved again\n");  // the new one is a write dir the game can write in
+    EXPECT(got(to / "saves" / "slot1" / "mw1save.txt") == "saved again\n");
+    for (const fs::path& d : {from, from / "saves", from / "saves" / "slot1", to, to / "saves", to / "saves" / "slot1"}) {
+      std::error_code ec;
+      fs::permissions(d, fs::perms::owner_all, ec);
+    }
+  }
+}
+
+// A move that fails (a save it can't read): the old folder is as it was and used, the half copy gone.
+TEST(mw1_write_dir_failed_move_keeps_the_old) {
+  if (geteuid() == 0) return;
+  const fs::path root = fresh("mw1move_fail");
+  const fs::path from = root / mw1::kOldApp, to = root / mw1::kApp;
+  player_folder(from, "old");
+  const fs::path locked = from / "saves" / "slot1" / "mw1save.txt";
+  fs::permissions(locked, fs::perms::none);
+  fs::create_directories(to);
+  const mw1::WriteDirMove m = mw1::move_write_dir(from.string(), to.string(), false);
+  fs::permissions(locked, fs::perms::owner_read | fs::perms::owner_write);
+  EXPECT(m.how == mw1::Moved::kFailed && m.use == from.string() && !m.why.empty());
+  EXPECT(player_folder_is(from, "old") && !fs::exists(to.string() + ".moving"));
+  EXPECT(fs::is_directory(to) && fs::is_empty(to));  // as SDL left it: the next start tries again
+}
+#endif

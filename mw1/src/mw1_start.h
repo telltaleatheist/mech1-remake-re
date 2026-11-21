@@ -1,5 +1,5 @@
 #pragma once
-// MW1: Critical Hit's start (VISION.md, The code base): which installs it
+// The MW1 remake's start (VISION.md, The code base): which installs it
 // uses and where it keeps its settings, before PM's game main takes over.
 // No SDL here, so the tests read it directly.
 #include <cstdint>
@@ -9,9 +9,11 @@
 namespace mw1 {
 
 // The program's folder name under the platform's app data, apart from MW3's
-// and Pirate's Moon's ("MicroProse/MechWarrior 1 Critical Hit").
+// and Pirate's Moon's ("MicroProse/MechWarrior 1 Remake"; FIXES 139).
 inline constexpr const char* kOrg = "MicroProse";
-inline constexpr const char* kApp = "MechWarrior 1 Critical Hit";
+inline constexpr const char* kApp = "MechWarrior 1 Remake";
+inline constexpr const char* kOldApp = "MechWarrior 1 Critical Hit";  // before FIXES 139: moved to kApp's at the start
+inline constexpr const char* kTitle = "MechWarrior 1 Remake";        // the window's title, the log's and the boxes'
 inline constexpr const char* kPmApp = "Pirate's Moon";  // PM's own write dir, beside ours (mw3pm's default)
 inline constexpr const char* kCfg = "mw1.cfg";
 
@@ -65,6 +67,27 @@ Installs merge(const Installs& given, const Installs& saved);
 bool is_mw3_install(const std::string& dir);
 // MW1's DOS folder: BTECH.EXE in it, any case (as the launcher checks).
 bool is_mw1_install(const std::string& dir);
+
+// FIXES 139: the write dir under its old name, moved to the new one at the start (the usual folder only, not a
+// --write-dir). The old folder is moved when it exists and the new one is missing or empty: renamed in place, else
+// copied beside the new one, every file compared, the copy renamed into place and only then the old one removed.
+// Nothing is merged or overwritten: with files in both, the new one is used and the old one left alone. A move that
+// fails leaves the old folder as it was (a half copy removed) and the run uses the old folder.
+enum class Moved {
+  kNothing,   // no old folder: the new one, as it is
+  kRenamed,   // the old folder renamed to the new name
+  kCopied,    // copied and checked; `why` says when the old one could not then be removed (left, the new one used)
+  kBothKept,  // files in both: the new one used, the old one left
+  kFailed,    // not moved (`why`): the old one used for this run
+};
+struct WriteDirMove {
+  Moved how = Moved::kNothing;
+  std::string use;  // the write dir for this run
+  std::string why;  // what failed, if anything
+};
+// `try_rename` false goes straight to the copy (the tests' way to reach it).
+WriteDirMove move_write_dir(const std::string& old_dir, const std::string& new_dir, bool try_rename = true);
+const char* moved_words(Moved how);
 
 // The game main's argv: the program's name, --write-dir (unless given), then
 // `rest`, with --install added when only mw1.cfg named PM's.

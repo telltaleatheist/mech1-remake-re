@@ -1,4 +1,4 @@
-// mw1: MechWarrior 1: Critical Hit (VISION.md, The code base). The third
+// mw1: the MW1 remake, MechWarrior 1 Remake (VISION.md, The code base). The third
 // program over the shared engine, built on Pirate's Moon's game code the way
 // mw3pm is: PM's game main (mw3_main.cpp) with its own write dir and the
 // player's three installs. For now it starts into PM's frontend as it is.
@@ -12,7 +12,8 @@
 //   --new-company      a new company, over the saved one (mw1save.txt)
 //   --mw1-worlds DIR   MW3's converted worlds (default: the write dir's worlds/)
 //   --write-dir DIR    settings and saves (default: the user's app data,
-//                      "MechWarrior 1 Critical Hit", apart from MW3's and PM's)
+//                      "MechWarrior 1 Remake", apart from MW3's and PM's;
+//                      the old "MechWarrior 1 Critical Hit" moved to it, FIXES 139)
 //
 // Each folder given is checked and saved to mw1.cfg in the write dir, so the
 // next start without them (the launcher's or a plain one) uses them again.
@@ -41,6 +42,7 @@
 #include "platform/list_wheel.h"
 #include "gamez/zutil/zutl_path.h"
 #include "frontend/sdl/crash_report.h"
+#include "frontend/sdl/sdl_platform.h"
 #include "frontend/sdl/sdl_twod_host.h"
 #include "gamez/ztwod/twod_host.h"
 #include "platform/hires_lists.h"
@@ -60,11 +62,21 @@ int mw3_game_main(int argc, char** argv);
 
 namespace {
 
+// The usual write dir, with the old name's folder moved to it (FIXES 139, mw1::move_write_dir). SDL makes the new
+// folder when asked for it, so an empty one counts as missing; the old one's path is its sibling, not made.
 std::string usual_write_dir() {
   std::string dir;
   if (char* p = SDL_GetPrefPath(mw1::kOrg, mw1::kApp)) dir = p, SDL_free(p);
-  while (dir.size() > 1 && dir.back() == '/') dir.pop_back();
-  return dir;
+  while (dir.size() > 1 && (dir.back() == '/' || dir.back() == '\\')) dir.pop_back();
+  if (dir.empty()) return dir;
+  const std::string old_dir = (std::filesystem::path(dir).parent_path() / mw1::kOldApp).string();
+  const mw1::WriteDirMove m = mw1::move_write_dir(old_dir, dir);
+  if (m.how == mw1::Moved::kNothing) return m.use;
+  std::printf("mw1: the write dir's old folder %s: %s%s%s\n", old_dir.c_str(), mw1::moved_words(m.how),
+              m.why.empty() ? "" : ", ", m.why.c_str());
+  if (m.how == mw1::Moved::kBothKept) std::printf("mw1: %s is used; the old folder is left as it is\n", dir.c_str());
+  if (m.how == mw1::Moved::kFailed) std::printf("mw1: the old folder is used for this run\n");
+  return m.use;
 }
 
 }  // namespace
@@ -151,7 +163,8 @@ int main(int argc, char** argv) {
   // FIXES 123: the log's first line, the crash report and the crash box name MW1 and MW1's version, not Pirate's
   // Moon's (mw3_game_main's, through sdlfe::program_name: unset, PM's own).
   const char* version = mw3_version_tag + std::strlen("MW3-PROGRAM-VERSION:");
-  sdlfe::program_name() = {"mw1", "MechWarrior 1: Critical Hit", version};
+  sdlfe::program_name() = {"mw1", mw1::kTitle, version};
+  sdlfe::window_name() = mw1::kTitle;  // FIXES 139: the game window's title, over PM's
   // A crash's box (Mac, Linux): the crash's handler starts this program again as `mw1 --crash-box <text>`, which
   // shows the box and is all it does. Before MW1's start, which would have taken it for a game's start.
   if (sdlfe::crash_box_main(argc, argv)) return 0;
@@ -159,7 +172,7 @@ int main(int argc, char** argv) {
   // launcher reads it from the file.
   for (int i = 1; i < argc; ++i)
     if (std::strcmp(argv[i], "--version") == 0) {
-      std::printf("mw1 (MechWarrior 1: Critical Hit) %s\n", version);
+      std::printf("mw1 (%s) %s\n", mw1::kTitle, version);
       return 0;
     }
   mw1::Args a = mw1::parse(argc, argv);
@@ -196,7 +209,7 @@ int main(int argc, char** argv) {
 #ifdef MW1_DOS_GAME_DIR
   if (use.mw1.empty() && mw1::is_mw1_install(MW1_DOS_GAME_DIR)) use.mw1 = MW1_DOS_GAME_DIR;
 #endif
-  std::printf("mw1: MechWarrior 1: Critical Hit, write dir %s\nmw1:   Pirate's Moon %s\nmw1:   MechWarrior 3 %s\nmw1:   MechWarrior (1989) %s\n",
+  std::printf("mw1: MechWarrior 1 Remake, write dir %s\nmw1:   Pirate's Moon %s\nmw1:   MechWarrior 3 %s\nmw1:   MechWarrior (1989) %s\n",
               a.write_dir.c_str(), use.pm.empty() ? "(not found)" : use.pm.c_str(), use.mw3.empty() ? "(not found)" : use.mw3.c_str(),
               use.mw1.empty() ? "(not found)" : use.mw1.c_str());
   // A start without all three games (mw1.exe opened by itself, before the launcher has given them): say so and
@@ -214,13 +227,13 @@ int main(int argc, char** argv) {
 #endif
     std::error_code ec;
     const bool have_launcher = !launcher.empty() && std::filesystem::exists(launcher, ec);
-    const std::string text = "MechWarrior 1: Critical Hit needs your own copies of:" + missing +
+    const std::string text = "MechWarrior 1 Remake needs your own copies of:" + missing +
                              (have_launcher ? "\n\nStart it from the launcher, which finds them: click MECHWARRIOR 1 there."
                                             : "\n\nStart it from the MechWarrior 3 rebuild's launcher, which finds them.");
     std::printf("mw1: missing installs:%s\n", missing.c_str());
     const SDL_MessageBoxButtonData buttons[] = {{SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, have_launcher ? "Open the launcher" : "OK"},
                                                 {SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "Quit"}};
-    const SDL_MessageBoxData box{SDL_MESSAGEBOX_WARNING, nullptr, "MechWarrior 1: Critical Hit", text.c_str(),
+    const SDL_MessageBoxData box{SDL_MESSAGEBOX_WARNING, nullptr, mw1::kTitle, text.c_str(),
                                  have_launcher ? 2 : 1, buttons, nullptr};
     int chose = 0;
     SDL_ShowMessageBox(&box, &chose);

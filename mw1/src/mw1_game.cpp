@@ -737,7 +737,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (!contract_.accepted) {
       if (!offered_) new_offer();
       if (!offered_) return returning;  // no House office here
-      if (static_cast<int32_t>(ge.message_box_words(kBoxYesNo, "MechWarrior 1: Critical Hit", plain_line(join(offer_lines(true), "\n")) + "\n\nAccept and deploy?")) !=
+      if (static_cast<int32_t>(ge.message_box_words(kBoxYesNo, mw1::kTitle, plain_line(join(offer_lines(true), "\n")) + "\n\nAccept and deploy?")) !=
           kAnswerYes)
         return returning;
       take_contract();
