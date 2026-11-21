@@ -1,10 +1,12 @@
 ; MW1's arctic Instant Action map 1: its sky and weather, appended to the converted world's world.zrd as "ia1".
+; ambient_temperature is the engine's heat scale, not degrees: dissipation is 1 / it, zero or below falls back to
+; 20 (world-params.md). 10 cools twice as fast as the default, as MW3's c4b m6 snow mission does.
 (
 "ia1" (
   "fog" ("node" ("hormain") "color" (0.70 0.76 0.82) "altitude" (80.0 100.0) "range" (350.0 650.0) "hwrange" (32.0 650.0))
   "weather" ("type" ("SNOW") "particles" (140) "color" (245 245 250) "wind" ("dir" (30.0) "vel" (0.3)) "gravity" (0.25) "alpha_gradient" (1.0 0.25))
   "sun" ("orientation" (-25.0 120.0 0.0) "diffuse" (0.6) "ambient" (0.45))
-  "ambient_temperature" (-15)
+  "ambient_temperature" (10)
   "global_wind" ("velocity" (0 0 0) "max_speed" (13) "random_accel" (2) "random_angvel" (10))
   "underwater" ("color" (0.176 0.473 0.723) "range" (0 250) "altitude" (80 100)))
 )
