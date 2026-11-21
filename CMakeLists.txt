@@ -61,7 +61,6 @@ add_library(mw3core STATIC
   src/gamez/zutil/zutl_winnames.cpp
   src/gamez/zutil/zutl_reg.cpp
   src/platform/reg_file.cpp
-  src/platform/cue_audio.cpp
   src/platform/mipmaps.cpp
   src/mech3/data_folder.cpp
   src/mech3/data_version.cpp
@@ -74,7 +73,6 @@ add_library(mw3core STATIC
   src/mech3/patch12_world.cpp
   src/mech3/patch_import.cpp
   src/mech3/disc_install.cpp
-  src/mech3/source_archive.cpp
   src/mech3/source_map.cpp
   src/mech3/source_install.cpp
   src/mech3/game_setup.cpp
@@ -468,6 +466,15 @@ else()
   target_compile_definitions(mw3core PUBLIC MW3_HAVE_LIBARCHIVE=0)  # source_archive.cpp reads it as a value
   message(STATUS "libarchive not found: SETUP reads folders, drives, .iso and .cue only")
 endif()
+# The shared setup kit (extern/re-setup-kit, a submodule; DESIGN.md there): SETUP's archive reader and the cue
+# sheets' CD audio so far. It takes the libarchive found above.
+set(REKIT_LIBARCHIVE_INCLUDE "${LIBARCHIVE_INCLUDE}" CACHE PATH "" FORCE)
+set(REKIT_LIBARCHIVE_LIB "${LIBARCHIVE_LIB}" CACHE FILEPATH "" FORCE)
+if(NOT EXISTS "${CMAKE_SOURCE_DIR}/extern/re-setup-kit/CMakeLists.txt")
+  message(FATAL_ERROR "extern/re-setup-kit is empty: run git submodule update --init")
+endif()
+add_subdirectory(extern/re-setup-kit EXCLUDE_FROM_ALL)
+target_link_libraries(mw3core PUBLIC rekit)
 
 # The x87 never fuses a multiply and an add; clang does by default on arm64,
 # which rounds differently from the original (CLAUDE.md, FPU precision).
