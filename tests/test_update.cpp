@@ -79,6 +79,20 @@ TEST(update_says_what_it_found) {
   EXPECT(none.kind == u::Verdict::kFailed && none.words.find("no release") != std::string::npos);
 }
 
+// Two homes (Owen 2026-11-21): the hub mw3-re and mech3-re; the newest package on either wins, one failing is fine.
+TEST(update_takes_the_newest_from_either_repo) {
+  const std::string hub = list({release("v1.2.2"), release("pm-v1.1.1")}), game = list({release("v1.3.0"), release("v1.4.0", true)});
+  const u::Verdict both = u::judge("v1.2.2", {{hub, ""}, {game, ""}});
+  std::printf("  %s\n", both.words.c_str());
+  EXPECT(both.kind == u::Verdict::kNewer && both.release.tag == "v1.3.0");
+  EXPECT(u::judge("v1.2.2", {{game, ""}, {hub, ""}}).release.tag == "v1.3.0");     // either order
+  EXPECT(u::judge("v1.2.2", {{hub, ""}, {"", "404"}}).kind == u::Verdict::kUpToDate);  // mech3-re not answering
+  EXPECT(u::judge("v1.2.1", {{"", "timed out"}, {hub, ""}}).release.tag == "v1.2.2");
+  EXPECT(u::judge("v1.2.2", {{"<html>", ""}, {game, ""}}).release.tag == "v1.3.0");     // one unreadable
+  const u::Verdict none = u::judge("v1.2.2", {{"", "could not resolve host"}, {"", "timed out"}});
+  EXPECT(none.kind == u::Verdict::kFailed && none.words == "Could not check for updates: could not resolve host. Is this computer online?");
+}
+
 TEST(update_notes_as_plain_lines) {
   const std::string md = "## MechWarrior 3\r\n\r\n- **Fixed:** the `c1m2` crash, see [the report](https://example.com/x).\n"
                          "  - A *nested* item with a file_name\n\n\n### Pirate's Moon\n* Lancemates follow again\n\n";

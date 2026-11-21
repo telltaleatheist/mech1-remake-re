@@ -728,8 +728,11 @@ CHECK FOR UPDATES in the launcher, the same flow on all three platforms, never
 the settings folders (MW3's, PM's, or where their pointers lead): only the
 program files are replaced.
 
-1. **Check**: GitHub's releases list
-   (`api.github.com/repos/telltaleatheist/mw3-re/releases`), the highest
+1. **Check**: GitHub's releases lists of both homes of the package
+   (`api.github.com/repos/telltaleatheist/mw3-re/releases`, the hub every
+   copy up to 1.2.1 asks, and `.../mech3-re/releases`, MechWarrior 3's own
+   repo after the split; Owen 2026-11-21), merged (one not answering is
+   fine; the check fails only when neither does), the highest
    bare `vX.Y.Z` tag of the releases that are neither drafts nor
    prereleases (`pm-v*` game releases and anything else left out; lead
    2026-11-10: not the Latest flag, which anyone may set otherwise), compared

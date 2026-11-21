@@ -382,18 +382,32 @@ std::string plain_version(const std::string& tag) {
 }
 
 Verdict judge(const std::string& current, const std::string& json, const std::string& fetch_error) {
+  return judge(current, std::vector<Answer>{{json, fetch_error}});
+}
+
+Verdict judge(const std::string& current, const std::vector<Answer>& answers) {
   Verdict v;
-  if (json.empty()) {
-    v.words = "Could not check for updates" + (fetch_error.empty() ? std::string(".") : ": " + fetch_error + ".") +
-              " Is this computer online?";
-    return v;
-  }
   std::vector<Release> all;
-  std::string error;
-  if (!parse_releases(json, &all, &error)) {
-    v.words = "Could not check for updates: GitHub's answer could not be read (" + error + ").";
+  bool read = false;
+  for (const Answer& a : answers) {
+    std::vector<Release> some;
+    std::string error;
+    if (a.json.empty()) {
+      if (v.words.empty())
+        v.words = "Could not check for updates" + (a.fetch_error.empty() ? std::string(".") : ": " + a.fetch_error + ".") +
+                  " Is this computer online?";
+    } else if (!parse_releases(a.json, &some, &error)) {
+      if (v.words.empty()) v.words = "Could not check for updates: GitHub's answer could not be read (" + error + ").";
+    } else {
+      read = true;
+      all.insert(all.end(), some.begin(), some.end());
+    }
+  }
+  if (!read) {
+    if (v.words.empty()) v.words = "Could not check for updates.";
     return v;
   }
+  v.words.clear();
   const Release* newest = newest_package(all);
   if (!newest) {
     v.words = "Could not check for updates: no release of MechWarrior 3 Rebuild was found.";
