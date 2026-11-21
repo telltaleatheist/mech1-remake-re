@@ -60,13 +60,18 @@ attack, defend).
 
 ## Notes
 
-- **mw3c4's boundary is tight in the south.** The yellow line's south edge is
-  at z 126 and the red's at z 56, a 70 m band. From ia3's start the yellow is
-  680 m off and the red 880 m. Four of ia3's enemy places stand south of
-  both lines, so those enemies start beyond the red. ia1's Enemy_01 starts
-  between the lines. MW3's own AI is pulled back by the boundary
-  (`zai_attack`, 0x004c3000), but a mission placing them there means an enemy
-  can start, or be fought, outside the area.
+- **mw3c4's south side.** The yellow's south side runs from (2294, 126) to
+  (−1149, 493) and the red's from (3084, 297) to (1025, 56). Below the
+  moved enemies (x ≈ 1000) they lie about 200 m apart (yellow z ≈ 264, red
+  z ≈ 56). An earlier reading of the boxes gave 70 m, which was wrong. At the
+  yellow's corner (2294, 126) the yellow pokes about 78 m outside the red:
+  there a player can cross the red, and lose, without crossing the yellow
+  first. That is MW3's data and is left as it is. Four of ia3's enemy places
+  stood south of both lines, so those enemies started beyond the red; ia1's
+  Enemy_01 started between the lines and its Enemy_03 28 m inside the
+  yellow. FIXES 138 moves all six (below). The start (1020, 934) and the
+  tower (1179, 896) are 650 m or more from the south side, so no route the
+  mission forces runs along it.
 - **The maps with no boundary** (PM's c1..c4, MW1's mw3c4b) need an area. What
   it must hold (the start, every enemy place, every row's structure), as the
   survey placed them:
@@ -91,5 +96,66 @@ attack, defend).
   PM's own AI has no sense of an edge (docs/pm-tests.md), so on these maps an
   enemy can walk out of any area we draw.
 - **Not measured:** whether the yellow voice is heard (the run is silent; the
-  sound action fired with a loaded sound handle), and what MW3's AI does near
-  the lines.
+  sound action fired with a loaded sound handle).
+
+## The AI and the lines
+
+MW3's boundary pull (0x004c3000; Pirate's Moon's `inout_pull`, 0x004ccaf0)
+never reads the `reg_` regions. It reads the world's `inout` outlines (from
+its `inoutia` node, `zainet_inout`): red ones push a destination off an
+obstacle, and blue ones (wound the other way) keep it inside. Sampled at
+frame 30:
+- some PM maps carry a blue outer edge (c2 ia3, c4 ia1);
+- others carry only obstacles (c1 ia1, c3 ia2), as MW3's maps do;
+- the arctic has no inout area.
+
+Nothing keeps the AI inside the `reg_` lines, on MW3's maps or ours. A
+project decision (2026-11-21): nothing is built to keep enemies in. The maps
+need only their out-of-bounds areas.
+
+## The rule (FIXES 138)
+
+- **MW3's maps** keep their own pair, voice and fail as they are.
+- **PM's maps and the arctic** get MW1's pair from `data/mw1bounds.zrd`
+  (`src/mw1_bounds.h`), named `reg_inside_mw1` and `reg_outside_mw1` so the
+  radar takes them. At the launch (`add_boundary`) the two regions join the
+  AI's regions, and the player's vlist gets MW3's three entries:
+  - outside the yellow sets `inside_mw1` to 1, which plays `out_of_bounds`
+    (PM's sounds.zrd has it, with its subtitle);
+  - back inside sets it to 0;
+  - outside the red sets `outside_mw1` to 1.
+
+  `block_read` adds the fail item, MW3's "Left Mission Boundaries"
+  (`MSG_OBJ_LEFT_MISSION_BOUNDARIES`, `valve_change` on `outside_mw1` at 1).
+  Then the radar's 0x0043d920 is run again.
+- **The areas:** `tools/mw1bounds.py` builds them from this survey's detail.
+  Yellow has 16 sides, their normals 22.5° apart, each 600 m past the
+  farthest of the map's places in its direction. An enemy's place counts as
+  60 m around it, where the launch may put another beside it. Red is each
+  side 500 m further out. The radar's outline holds at most 20 corners
+  (ztwod's PolyLine, `pts[21]`).
+- **mw3c4's places:** an enemy made within 80 m of a MOVE's FROM is made as
+  far from its TO, on the highest dry ground there (`enemy_launching`):
+  - ia1's two go north, at least 150 m inside;
+  - ia3's four go two east and two west along the south side, at least
+    150 m inside. They stay 1.0–1.45 km from the tower that ia3's own fail
+    block watches (`iatowv2`), as they were 1.05–1.28 km before.
+
+  Brought straight north (430 m from the tower), they took it down while a
+  test's player stood idle. Where they are now, they still come for it: with
+  the player standing and never firing, the tower fell after 1,589 frames
+  against 4,965 with the map's own places. Those four southern enemies stood
+  beyond the red all mission and never joined.
+- **A fix on the way:** a fail group MW1 makes (a map whose objectives have
+  none, as the arctic's) now fails on any one item, as `read_objectives`
+  makes a file's. Before this, the arctic's defence never lost to the
+  structure's fall alone.
+
+The tests:
+- `mw1_loop_boundary_survey_headless` checks every row (with
+  `MW1_BOUNDARY_SURVEY=1`; by default c2 ia3, mw3c4 ia3 and mw3c4b ia2):
+  - both regions, drawn;
+  - every place inside the yellow: on MW1's areas by 595 m (the 600 m margin,
+    less what the enemies walk in the first 30 frames), on MW3's by 150 m;
+  - past the yellow the voice, and play goes on;
+  - past the red the mission is lost.

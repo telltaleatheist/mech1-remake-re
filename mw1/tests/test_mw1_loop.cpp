@@ -126,6 +126,7 @@
 #include "mech3/zainet_region.h"
 #include "mech3/zai_valve.h"
 #include "mech3/zrdrvalve.h"
+#include "mw1_bounds.h"
 #include "gamez/zweapon/zweapon.h"
 #include "pm/gamez/zmodel/gmod_const.h"
 // The process's peak memory so far, in MB (peak_memory.cpp: its own file, as windows.h's macros clash with the
@@ -1986,7 +1987,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
     };
     Pump pump;
     pump.stop = [&] { return back_at_main; };
-    if (run && run->play) pump.limit = std::max(pump.limit, run->give_up + 3000);  // FIXES.md item 45: a long drive
+    if (run && run->play) pump.limit = std::max(pump.limit, run->give_up + 3000);  // FIXES.md item 45: a long drive  // FIXES.md item 45: a long drive
     if (run) pump.limit = std::max(pump.limit, run->pump_limit);
     app.run(pump);
     mech3::controls_calls().command = nullptr;  // the drive's keys let go
@@ -2888,7 +2889,7 @@ TEST(mw1_loop_every_row_is_won_as_a_player_would_headless) {
   }
 }
 
-// FIXES 138, the survey before the rule (MW1_BOUNDARY_SURVEY=1; MW1_ROWS=<node or worldiaN> for some): on each row of
+// FIXES 138, the survey before the rule (MW1_BOUNDARY_SURVEY=1; MW1_ROWS=<node or worldiaN>[,...] for some): on each row of
 // the map table, the mission's boundary as the engine has it. The regions loaded (every reg_inside_/reg_outside_, its
 // corners and extent), the pair the radar takes (the player's vlist's, mech3/app_hud.cpp) and what the radar draws;
 // whether the start, every enemy and the structure lie inside each; then the player put just past the yellow line
@@ -2906,7 +2907,15 @@ struct BoundarySurvey {
   std::map<std::string, std::string> items;  // objective item -> its state, the last frame
   std::string yellow_did, red_did;
   std::vector<std::pair<mech3::ai::Valve*, int32_t>> valves;  // the boundary entries' valves, their last values
+  float shallowest = 1e9f;   // the place nearest the yellow's side, how far inside (negative: outside)
+  std::string shallowest_what;
 };
+// A region's corners as an outline (mw1_bounds.h's geometry: how far inside a place lies).
+std::vector<mw1::Point2> region_outline(mech3::ai::Region* r) {
+  std::vector<mw1::Point2> o;
+  for (size_t i = 0; r && i < r->elems.size(); ++i) o.push_back({r->edge(static_cast<int32_t>(i))->point[0], r->edge(static_cast<int32_t>(i))->point[2]});
+  return o;
+}
 // A valve's reactions, by their types (valves.zrd's actions, mech3/zrdrvalve).
 std::string reactions_said(mech3::ai::Valve* v) {
   if (!v || !v->chain) return "none";
@@ -2994,13 +3003,18 @@ bool boundary_frame(BoundarySurvey& b, int32_t frame) {
       b.said.push_back(line);
     }
     // Inside: the start, the enemies (and allies), the structure.
-    auto in = [&](const float p[3]) {
+    const std::vector<mw1::Point2> yellow = region_outline(b.inner);
+    auto in = [&](const float p[3], const std::string& what) {
+      if (yellow.size() >= 3) {
+        const float d = mw1::depth_inside(yellow, p[0], p[2]);
+        if (d < b.shallowest) b.shallowest = d, b.shallowest_what = what;
+      }
       std::string s;
       s += b.inner ? (b.inner->inside(p) ? "Y:in" : "Y:OUT") : "Y:-";
       s += b.outer ? (b.outer->inside(p) ? " R:in" : " R:OUT") : " R:-";
       return s;
     };
-    std::snprintf(line, sizeof line, "start (%.0f, %.0f) %s", b.start[0], b.start[2], in(b.start).c_str());
+    std::snprintf(line, sizeof line, "start (%.0f, %.0f) %s", b.start[0], b.start[2], in(b.start, "start").c_str());
     b.said.push_back(line);
     int32_t n = 0;
     const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
@@ -3016,17 +3030,19 @@ bool boundary_frame(BoundarySurvey& b, int32_t frame) {
         if (b.outer && !b.outer->inside(p)) ++enemies_out_r;
       }
       std::snprintf(line, sizeof line, "%s %s (%.0f, %.0f) %s", ally ? "ally" : "enemy", ai[i].name ? ai[i].name : "?", p[0], p[2],
-                    in(p).c_str());
+                    in(p, ai[i].name ? ai[i].name : "?").c_str());
       b.said.push_back(line);
     }
     float at[3] = {};
     std::string structure = "no structure";
     if (mw1::game_loop_structure_point(at)) {
-      std::snprintf(line, sizeof line, "structure (%.0f, %.0f) %s", at[0], at[2], in(at).c_str());
+      std::snprintf(line, sizeof line, "structure (%.0f, %.0f) %s", at[0], at[2], in(at, "structure").c_str());
       structure = line;
     }
     b.said.push_back(structure);
     std::snprintf(line, sizeof line, "enemies %d, outside yellow %d, outside red %d", enemies, enemies_out_y, enemies_out_r);
+    b.said.push_back(line);
+    std::snprintf(line, sizeof line, "nearest the yellow's side: %s, %.0f m inside", b.shallowest_what.c_str(), b.shallowest);
     b.said.push_back(line);
     // The crossings: of 16 bearings from the start, the one that leaves the yellow soonest (the red when no yellow),
     // a point 40 m past it, and one 40 m past the red on the same bearing.
@@ -3143,16 +3159,29 @@ bool boundary_frame(BoundarySurvey& b, int32_t frame) {
 }  // namespace
 
 TEST(mw1_loop_boundary_survey_headless) {
-  if (!std::getenv("MW1_BOUNDARY_SURVEY")) return;
   std::error_code ec;
   if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
   const std::vector<mw1::MapRow> rows = shipped_rows();
+  zutl::mounts() = zutl::Mounts{};
+  zutl::mount(MW1_DATA_DIR);
+  std::string why;
+  mw1::set_bounds(mw1::parse_bounds(mw1::kBoundsFile, &why));
+  zrdr::close_archives(true);
+  EXPECT(why.empty());
+  // FIXES 138's rule, as shipped: by default a row of PM's, mw3c4's defence (its moved places) and the arctic's;
+  // MW1_BOUNDARY_SURVEY=1 every row (about ten minutes), MW1_ROWS some.
+  const char* only = std::getenv("MW1_ROWS");
+  if (!only && !std::getenv("MW1_BOUNDARY_SURVEY")) only = "c2ia3,mw3c4ia3,mw3c4bia2";
   const bool have_mw3 = fs::exists(fs::path(MW1_MW3_GAME_DIR) / "zbd" / "c2" / "gamez.zbd", ec);
   const std::string worlds = have_mw3 ? converted_worlds() : std::string();
-  const char* only = std::getenv("MW1_ROWS");
   for (const mw1::MapRow& r : rows) {
     if (r.world.rfind("mw3", 0) == 0 && !have_mw3) continue;
-    if (only && r.node != only && r.world + "ia" + std::to_string(r.ia) != only) continue;
+    if (only) {  // a comma list of nodes or maps
+      const std::string list = std::string(",") + only + ",";
+      if (list.find("," + r.node + ",") == std::string::npos &&
+          list.find("," + r.world + "ia" + std::to_string(r.ia) + ",") == std::string::npos)
+        continue;
+    }
     in_child([&] {
       BoundarySurvey b;
       Run run;
@@ -3180,6 +3209,18 @@ TEST(mw1_loop_boundary_survey_headless) {
         }
       }
       EXPECT(run.objective_built == kind_said(r.kind));
+      // The rule: every map a pair, the radar drawing both; every place inside the yellow (MW1's own areas by their
+      // margin, less 5 m for what the enemies walk in the first 30 frames; MW3's own by at least 150 m, the moved
+      // places' clearance); past the yellow the voice and play on; past the red the mission lost.
+      const bool ours = mw1::bound_for(r.world, r.ia) != nullptr;
+      EXPECT(b.inner && b.outer);
+      EXPECT(b.inner_name == (ours ? mw1::kBoundInside : b.inner_name));
+      EXPECT(b.shallowest >= (ours ? mw1::kBoundMargin - 5.0f : 150.0f));
+      EXPECT(b.yellow_did.find("valve inside_") != std::string::npos);
+      EXPECT(b.yellow_did.find("mission") == std::string::npos);
+      EXPECT(b.red_did.find("mission LOST") != std::string::npos);
+      if (!(b.shallowest >= (ours ? mw1::kBoundMargin - 5.0f : 150.0f)))
+        std::printf("  %s ia%d: %s only %.0f m inside the yellow\n", r.world.c_str(), r.ia, b.shallowest_what.c_str(), b.shallowest);
     });
   }
 }
