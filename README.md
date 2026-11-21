@@ -15,7 +15,7 @@ The download holds three games on one launcher, named **BattleTech**:
 
 - **MechWarrior 3**, rebuilt as above;
 - **Pirate's Moon**, the expansion, rebuilt the same way from its own exe;
-- **MW1: Critical Hit**, a fan remake of MechWarrior (1989)'s mercenary
+- **MechWarrior 1 Remake** (formerly MW1: Critical Hit), a fan remake of MechWarrior (1989)'s mercenary
   campaign on MechWarrior 3's combat, worlds and 'Mechs.
 
 Each game also starts on its own, and MechWarrior 3 and Pirate's Moon come
@@ -42,7 +42,7 @@ Nothing yet.
 
 **1.2.1 (2026-11-21)** (the full notes are in
 [docs/release-notes-1.2.1.md](docs/release-notes-1.2.1.md)): a fix release
-for MW1: Critical Hit, now 1.0.4.
+for MechWarrior 1 Remake, now 1.0.4.
 
 - **Every contract can be won**: Desolation Ridge's "destroy the pirate base"
   put its target beside your start, so the mission never ended; every
@@ -64,7 +64,7 @@ for MW1: Critical Hit, now 1.0.4.
 **1.1.3 (2026-11-20)** (the full notes are in
 [docs/release-notes-1.1.3.md](docs/release-notes-1.1.3.md)):
 
-- **Three games on one launcher**: MW1: Critical Hit 1.0.1, a fan remake of
+- **Three games on one launcher**: MechWarrior 1 Remake 1.0.1, a fan remake of
   MechWarrior (1989) on the rebuild's engine, joins the combined package. The
   launcher finds your MechWarrior (1989), or takes its folder or the .zip it
   came in.
@@ -263,7 +263,7 @@ Pirate's Moon, the expansion, is in the same download as its own program, and
 needs your own Pirate's Moon the same way (an installed copy, its disc or a
 disc image). Each game works without the other.
 
-MW1: Critical Hit needs your own MechWarrior (1989), MechWarrior 3 and
+MechWarrior 1 Remake needs your own MechWarrior (1989), MechWarrior 3 and
 Pirate's Moon: it is fought on their worlds with their 'Mechs. The launcher
 looks for MechWarrior (1989) in the usual places; if it isn't there, a click
 takes its `BTECH.EXE`, its folder or the `.zip` it came in.
@@ -541,7 +541,7 @@ adds weapons to the original `Mech3.exe`'s mech lab. It isn't part of the rebuil
 
 It holds `mw3.cfg`, your pilots and saves, the settings, your mods, the
 converted movies and the music, and `mw3.log`. Pirate's Moon keeps its own
-beside it, in `MicroProse/Pirate's Moon`, and MW1: Critical Hit in
+beside it, in `MicroProse/Pirate's Moon`, and MechWarrior 1 Remake in
 `MicroProse/MechWarrior 1 Critical Hit`. Uninstalling the rebuild keeps
 them; deleting one starts that game over. The launcher's GAME FILES, MY DATA
 FOLDER moves a game's folder to another drive.

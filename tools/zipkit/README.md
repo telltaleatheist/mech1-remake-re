@@ -1,7 +1,7 @@
 # zipkit
 
 Converts MechWarrior 3's files to Pirate's Moon's formats, so PM's engine (and
-games built on it, such as MW1: Critical Hit) can load MW3's worlds. It reads
+games built on it, such as MechWarrior 1 Remake) can load MW3's worlds. It reads
 the player's own MW3 install and writes only under the folder it is given.
 Nothing from either game is in this repository.
 
