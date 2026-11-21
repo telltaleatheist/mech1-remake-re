@@ -1,6 +1,7 @@
 #include "frontend/sdl/sdl_child.h"
 
 #include "frontend/sdl/log_start.h"
+#include "rekit/sdl/child.h"
 
 #include <string>
 
@@ -24,21 +25,7 @@
 
 namespace sdlfe {
 
-SDL_Process* start_child(const char* const* args) {
-#if defined(_WIN32)
-  if (!GetConsoleWindow()) {
-    const SDL_PropertiesID p = SDL_CreateProperties();
-    SDL_SetPointerProperty(p, SDL_PROP_PROCESS_CREATE_ARGS_POINTER, const_cast<char**>(args));
-    SDL_SetNumberProperty(p, SDL_PROP_PROCESS_CREATE_STDIN_NUMBER, SDL_PROCESS_STDIO_APP);
-    SDL_SetNumberProperty(p, SDL_PROP_PROCESS_CREATE_STDOUT_NUMBER, SDL_PROCESS_STDIO_APP);
-    SDL_SetBooleanProperty(p, SDL_PROP_PROCESS_CREATE_BACKGROUND_BOOLEAN, true);
-    SDL_Process* proc = SDL_CreateProcessWithProperties(p);
-    SDL_DestroyProperties(p);
-    return proc;
-  }
-#endif
-  return SDL_CreateProcess(args, true);
-}
+SDL_Process* start_child(const char* const* args) { return rekit::sdl::start_child(args); }
 
 namespace {
 std::string g_ready_file;

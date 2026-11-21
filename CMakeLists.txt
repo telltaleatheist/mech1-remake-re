@@ -741,7 +741,7 @@ if(SDL3_FOUND)
     src/frontend/sdl/log_start.cpp
     src/frontend/sdl/editor_imgui.cpp
   )
-  target_link_libraries(mw3sdl PUBLIC mw3core SDL3::SDL3 enet miniupnpc)
+  target_link_libraries(mw3sdl PUBLIC mw3core SDL3::SDL3 enet miniupnpc rekit_sdl)  # rekit_sdl: the setup kit's pickers and helpers
   # Ours (issue #15): the Mac's RAW MOUSE through GameController's GCMouse
   # (sdl_rawmouse.h); SDL's Cocoa motion is the system's curve.
   if(APPLE)
