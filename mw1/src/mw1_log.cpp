@@ -7,6 +7,7 @@
 #include "mw1_market.h"
 #include "mw1_missions.h"
 #include "mw1_pilots.h"
+#include "mw1_results.h"
 #include "mw1_story.h"
 #include "mw1_travel.h"
 
@@ -94,7 +95,11 @@ std::vector<std::string> log_lines(const Company& c, const LogEntry& e) {
               "DEPLOY from the hub when the lance is ready."};
     case LogKind::kResult:
       switch (static_cast<Outcome>(e.a)) {
-        case Outcome::kSuccess: return {"Mission won: fee " + thousands(e.n) + ", salvage " + thousands(e.m) + " C-bills."};
+        case Outcome::kSuccess: {
+          std::vector<std::string> l = {"Mission won: fee " + thousands(e.n) + ", salvage " + thousands(e.m) + " C-bills."};
+          if (e.c > 0 && e.d > 0) l.push_back(deduction_note(e.c - 1, 100 - e.d));  // FIXES 131
+          return l;
+        }
         case Outcome::kFailure: return {"Mission failed."};
         case Outcome::kRetreat: return {"Withdrew from the mission."};
       }

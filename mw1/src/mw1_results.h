@@ -70,6 +70,13 @@ Deduction deduction_of(Outcome o, int32_t payout_percent, int32_t pick);
 std::vector<std::string> outcome_message(int32_t house, Outcome o, bool garrison, Deduction d);
 // The Dark Wing's (research/story.md, the story battles): MW1's attack-failed line (DS:1BBC) as the results' message
 // of a lost or withdrawn attack; and its victory text (DS:1A37), shown on the event panel after a win. "" without it.
+// FIXES 131 (Owen, 2026-11-20): MW1's settlement roll (DS:1241/124B) stays, but ours says plainly that the House
+// did it, so a win paid short doesn't look like a bug. Our words, one line of at most kResultsNarrow.message letters
+// (it follows MW1's own lines in the message box): "House Kurita declared a breach: fee and salvage forfeit." or
+// "House Marik withheld 50% of your fee and salvage." "" when paid in full (or no such House).
+std::string deduction_note(int32_t house, int32_t payout_percent);
+// The fee's note beside its figure on PAYMENT: " (House Kurita: breach)", " (Marik withheld 50%)"; "" when paid in full.
+std::string fee_dock(int32_t house, int32_t payout_percent);
 std::string dark_wing_failed();
 std::string dark_wing_victory();
 // Paragraphs as lines of at most `width` letters, broken at spaces (a word longer than the width alone on its line).
