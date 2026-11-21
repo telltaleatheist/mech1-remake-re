@@ -40,6 +40,12 @@ struct Verdict {
 };
 // From what the fetch gave: `json` (empty when it failed, `fetch_error` saying why) against `current` (MW3_VERSION).
 Verdict judge(const std::string& current, const std::string& json, const std::string& fetch_error);
+// The same over several repos' lists (Owen 2026-11-21: the hub mw3-re and the game's own mech3-re, whichever has the
+// newest package): every list that reads counts; failed only when none does, saying the first one's reason.
+struct Answer {
+  std::string json, fetch_error;
+};
+Verdict judge(const std::string& current, const std::vector<Answer>& answers);
 
 // A release's notes (markdown) as plain lines for the launcher's screen: headings without their #, "- " and "* "
 // items as "• ", **bold**, *italic* and `code` marks dropped, [text](url) as its text, blank runs as one.

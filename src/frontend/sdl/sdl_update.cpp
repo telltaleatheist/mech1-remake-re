@@ -335,13 +335,23 @@ Installed install_update(const std::string& download) {
 #endif
 }
 
+// Both homes of the package (Owen 2026-11-21): the hub mw3-re, where every copy up to 1.2.1 looks, and mech3-re,
+// MechWarrior 3's own repo after the split; the newest package on either wins. MW3_UPDATE_API: one list, for checks.
 upgrades::update::Verdict check_for_updates(const std::string& current) {
   const char* api = std::getenv("MW3_UPDATE_API");
-  const std::string url = api ? api : "https://api.github.com/repos/telltaleatheist/mw3-re/releases?per_page=40";
-  std::string json, error;
-  curl_get(url, 20, &json, &error, api != nullptr);
-  std::printf("mw3: launcher: update check at %s: %s\n", url.c_str(), json.empty() ? error.c_str() : "answered");
-  return upgrades::update::judge(current, json, error);
+  std::vector<std::string> urls;
+  if (api) urls.push_back(api);
+  else
+    for (const char* repo : {"mw3-re", "mech3-re"})
+      urls.push_back(std::string("https://api.github.com/repos/telltaleatheist/") + repo + "/releases?per_page=40");
+  std::vector<upgrades::update::Answer> answers;
+  for (const std::string& url : urls) {
+    upgrades::update::Answer a;
+    curl_get(url, 20, &a.json, &a.fetch_error, api != nullptr);
+    std::printf("mw3: launcher: update check at %s: %s\n", url.c_str(), a.json.empty() ? a.fetch_error.c_str() : "answered");
+    answers.push_back(std::move(a));
+  }
+  return upgrades::update::judge(current, answers);
 }
 
 }  // namespace sdlfe
