@@ -5,6 +5,15 @@ Tick an item when it is merged into `main`.
 
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 133. [x] Ice missions cool the 'Mech faster *(done: mw1-fix133-arctic-cooling)*
+
+- **Reported (2026-11-20):** the arctic missions didn't lower heat, as MW3's snow missions do.
+- **Cause:** `ambient_temperature` is the engine's heat scale, not degrees: dissipation is `1 / ambient_temperature`
+  (docs/heat.md, world-params.md), and zero or below falls back to the default 20. Our arctic maps set -15 and -25,
+  so they cooled as a temperate map does.
+- **Fix:** ia1 10 (twice as fast, as MW3's c4b m6), ia2 2 (ten times, as c4b m4). An install re-lays the arctic
+  maps when their text changes (`arctic_stale`). Test: `mw1_arctic_maps_cool_faster_than_the_default`.
+
 ## 132. [ ] D in combat freezes the game for about 2 seconds *(dev 1: mw1-fix132-mfd-freeze; investigating)*
 
 - **Reported (2026-11-20):** pressing D in combat to cycle the MFD from the mech's 3D front view to the damage
