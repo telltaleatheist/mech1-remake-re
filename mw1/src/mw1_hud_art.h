@@ -39,6 +39,11 @@ std::vector<uint8_t> draw(const std::string& name, int32_t s);
 using LabelPainter = std::function<std::vector<uint8_t>(const std::string& text, int32_t w, int32_t h, int32_t align)>;
 void set_label_painter(LabelPainter paint);
 
+// FIXES.md item 132, tests only: true paints every layer as before the item, sampling every device pixel through the
+// shape's std::function and laying each layer over the whole picture (seconds at 4K); false (the default) the fast
+// painter. The pictures must be the same bytes either way.
+void set_reference_painter(bool on);
+
 // A picture's labels as found in PM's (canvas pixels: the ink's top and height, the box it may take): what draw()
 // draws as text. Empty for a picture without labels, or when PM's isn't laid out as expected (its pixels are kept).
 struct Label {

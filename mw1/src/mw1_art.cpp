@@ -226,6 +226,7 @@ struct Store::Impl {
     chrome::Drawn drawn;
     Picture picture;
     int64_t used = 0;
+    bool keep = false;  // DrawnArt::keep
   };
   std::map<std::string, Made> made;
   int32_t scale = 1;  // set from g_scale at open
@@ -280,6 +281,7 @@ struct Store::Impl {
     mm.drawn.rgba = std::move(rgba);
     mm.picture = {da.canvas_w * scale, da.canvas_h * scale, mm.drawn.rgba.data(), next_serial++, da.canvas_w, da.canvas_h};
     mm.used = frame;
+    mm.keep = da.keep;
     return &mm.picture;
   }
 
@@ -475,7 +477,7 @@ void Store::end_frame() {
   if (!impl_) return;
   ++impl_->frame;
   for (auto it = impl_->made.begin(); it != impl_->made.end();)
-    if (impl_->frame - it->second.used > kKeepFrames)
+    if (impl_->frame - it->second.used > kKeepFrames && !it->second.keep)
       it = impl_->made.erase(it);
     else
       ++it;
@@ -497,6 +499,8 @@ void Store::set_scale(int32_t scale) {
 int32_t Store::scale() const { return impl_ ? impl_->scale : g_scale; }
 
 bool Store::drawn_piece(const std::string& name) const { return impl_ && impl_->recipes.count(name); }
+
+bool Store::made(const std::string& name) const { return impl_ && impl_->made.count(name); }
 
 size_t Store::decoded_count() const {
   if (!impl_) return 0;

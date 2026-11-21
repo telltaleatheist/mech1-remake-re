@@ -5,16 +5,37 @@ Tick an item when it is merged into `main`.
 
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
-## 132. [ ] D in combat freezes the game for about 2 seconds *(dev 1: mw1-fix132-mfd-freeze; investigating)*
+## 132. [x] D in combat freezes the game for about 2 seconds *(done: mw1-fix132-mfd-freeze; MW1 only)*
 
 - **Reported (2026-11-20):** pressing D in combat to cycle the MFD from the mech's 3D front view to the damage
-  diagram or the bars stalls the game for about 2 seconds.
-- **Lead, not yet confirmed:** the MFD switch itself is trivial (`HudMfd::cycle_mode`, `set_mode`). The damage
-  view's pictures (the `dmg_bg_*` backgrounds and the 32 FIXES 109 part pieces) are drawn by `mw1_hud_art.cpp`'s
-  per-pixel, supersampled `paint()` on the main thread when the hires host first finds them, and may be dropped once
-  no frame wants them, so every switch into the damage view could repaint them all.
-- **Plan:** measure first (hidden, 1080p and 4K scales), then fix the cause properly, not a shortcut, with a
-  frame-stall test.
+  diagram or the bars stalls the game for about 2 seconds. Not in MW3 or PM.
+- **Measured (hidden `MW1_SCREEN=mission` runs, D tapped six times, a Mac Release build):** the whole stall was one
+  picture, the damage display's backdrop `dmg_bg_blue`, painted on the main thread when the display first showed:
+  467 ms at 1080p (a 474 ms frame), 1,288 ms at 4K (1,303 ms). Its 8 part pieces took under 1 ms each. It was painted
+  again on every return after three seconds away: the art store dropped a drawn piece 180 frames
+  (`Store::kKeepFrames`) after its last use. The other directions (to the nav list, back to the 3D view) cost no frame
+  over 20 ms: the 3D view has no cost of its own on show.
+- **The cause:** `mw1_hud_art.cpp`'s `paint()`. The backdrop is 102 layers (one per colour and alpha of PM's
+  picture), and each layer sampled every device pixel 16 times through a `std::function` with a `std::map` lookup
+  for its corner joins, then laid a whole-picture layer over the last: about 50 million calls at 4K for 4,293 lit
+  pixels. MW1's code alone (MW3 and PM never draw these pictures); nothing in the shared hires host.
+- **The fix (the pictures byte-identical):**
+  - `paint()` finds the pixel layers' shape (`PixelShape`, a named functor with dense arrays) in the `std::function`
+    and visits only the canvas pixels it can reach: a device pixel's samples all lie in one canvas pixel, so only a
+    lit pixel (every sample in) or one beside a corner join is sampled. Each hit is laid over at once (a pixel no
+    sample hits is unchanged). The backdrop: 5.6 ms at 4K. The reticle 25 to 0.3 ms, the heat bar 17 to 0.2 ms at
+    1080p.
+  - The HUD's pictures are kept once made (`DrawnArt::keep`), until a new scale or a reopen, not dropped after 180
+    frames: all of them are 8.4 MB at 4K. The zoom window, the reticles, the heat bar and the lights are among them.
+  - Measured again: D's first press at 4K 9.1 ms over the median frame (was 1,296), at 1080p 6.2 ms (was 466); back
+    to the damage display 300 frames later 2.7 ms. No painting ahead of time needed.
+- **Tests:**
+  - `mw1_loop_hud_art_fast_painter_draws_the_same_pictures`: every HUD picture (89) at 1 to 6 device pixels a canvas
+    pixel, byte for byte the painter before (kept as `set_reference_painter(true)`, the tests' only), and the backdrop
+    at 4K's scale under 100 ms.
+  - `mw1mfdstall` (`tests/mfd_stall.cmake`, `MW1_SCREEN=mfd`): D four times in a hidden mission at 4K and 1080p; each
+    press's frames within 20 ms of the median frame, the backdrop made at the first and kept 300 frames away. It fails
+    with the painter before (1,296 ms over at 4K) and with the pieces not kept ("kept no").
 
 ## 131. [x] A win paid short says the House did it *(done: mw1-fix131-breach; for 1.0.3, in the 1.2.0 rebuild)*
 

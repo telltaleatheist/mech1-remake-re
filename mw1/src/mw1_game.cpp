@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
@@ -273,6 +274,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       }
       if (hud_art::size_of(name, &out->canvas_w, &out->canvas_h)) {
         out->draw = [name](int32_t s) { return hud_art::draw(name, s); };
+        out->keep = true;  // FIXES.md item 132: the HUD's views (D) bring theirs back without drawing them again
         return true;
       }
       return false;
@@ -362,7 +364,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // the mission with F12's objectives shown from frame 90 (FIXES 94's shots of the high-resolution text).
     if (const char* s = std::getenv("MW1_SCREEN");
         s && (std::string(s).rfind("pause", 0) == 0 || std::string(s).rfind("lab", 0) == 0 || std::string(s).rfind("loading", 0) == 0 ||
-              std::string(s) == "results" || std::string(s) == "mission" || std::string(s) == "objectives" ||
+              std::string(s) == "results" || std::string(s) == "mission" || std::string(s) == "objectives" || std::string(s) == "mfd" ||
               std::string(s).rfind("walk_", 0) == 0 ||
               (std::string(s) == "bar" && std::getenv("MW1_BAR_GREYED")) || std::string(s) == "travel") &&
         !shot_driver_) {
@@ -3787,6 +3789,45 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (page == "results") return;
     // The pause as a player gets it: Escape pressed in the mission (CoreState's frame sees it, FIXES 83's grab without
     // the HUD's marker line), let go once the pause is up.
+    // MW1_SCREEN=mfd (FIXES.md item 132, mw1/tests/mfd_stall.cmake): D (the HUD's command 0x7c) at frames 120 (the
+    // 3D view to the damage display: its pictures drawn now, cold), 320 (to the nav list), 520 (the 3D view) and 820
+    // (the damage display again, 300 frames away: its pictures kept). Each press's frame and the next two timed on
+    // the wall clock against the run's median frame; at frame 1000 the report.
+    if (page == "mfd") {
+      static constexpr int kPress[4] = {120, 320, 520, 820};
+      static std::vector<double> all;
+      static double worst[4] = {0, 0, 0, 0};
+      static bool shown[2] = {false, false};
+      static auto last = std::chrono::steady_clock::now();
+      if (now != &mech3::states().core) return;
+      const auto t = std::chrono::steady_clock::now();
+      const double ms = std::chrono::duration<double, std::milli>(t - last).count();
+      last = t;
+      if (frames > 60 && frames < 1000) {
+        bool near_press = false;
+        for (int k = 0; k < 4; ++k)
+          if (frames > kPress[k] && frames <= kPress[k] + 3) worst[k] = std::max(worst[k], ms), near_press = true;
+        if (!near_press) all.push_back(ms);
+      }
+      for (int k = 0; k < 4; ++k)
+        if (frames == kPress[k])
+          if (void* me = mech3::mech_mission_player()) mech3::mech_command(me, 0x7c);
+      // The damage display's backdrop is drawn only while the display shows: made at the first press, and still
+      // there (kept) the frame before the fourth, 300 frames after the display was left.
+      const bool bg = art::Store::get().made("dmg_bg_blue") || art::Store::get().made("dmg_bg_grn") || art::Store::get().made("dmg_bg_red");
+      if (frames == kPress[0] + 5) shown[0] = bg;
+      if (frames == kPress[3] - 1) shown[1] = bg;
+      if (frames == 1000 && !all.empty()) {
+        std::sort(all.begin(), all.end());
+        const double median = all[all.size() / 2];
+        std::printf("mw1 mfd: the median frame %.1f ms; the damage display's backdrop made %s, kept %s\n", median,
+                    shown[0] ? "yes" : "no", shown[1] ? "yes" : "no");
+        for (int k = 0; k < 4; ++k)
+          std::printf("mw1 mfd: D at %d: the worst frame %.1f ms, %.1f over the median\n", kPress[k], worst[k], worst[k] - median);
+        std::fflush(stdout);
+      }
+      return;
+    }
     if (page == "objectives") {  // F12's command (0x44, the HUD's objectives) as its key gives it
       if (now == &mech3::states().core && frames == 90)
         if (void* me = mech3::mech_mission_player()) mech3::mech_command(me, 0x44);

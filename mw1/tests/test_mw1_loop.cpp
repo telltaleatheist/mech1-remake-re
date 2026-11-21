@@ -5,6 +5,7 @@
 // (no mission end), no fee and no salvage: the stores and the funds as the advance left them (VISION.md, the endings).
 #include <array>
 #include <cmath>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -6522,6 +6523,51 @@ TEST(mw1_loop_hud_damage_parts_drawn_at_the_window_s_resolution) {
     std::printf("  the damage display's parts: %d of 8 at 1080p's scale, %d of 8 at 4K's; %d of %d pictures as PM's\n",
                 parts_drawn[0], parts_drawn[1], lit_ok, pictures);
     EXPECT(done && parts_drawn[0] == 8 && parts_drawn[1] == 8 && pictures == 64 && lit_ok == 64);
+  });
+}
+
+// FIXES.md item 132: the HUD pictures are the same bytes from the fast painter as from the one before it (kept as
+// hud_art's reference painter): every picture of hud_art::names() at 1 to 6 device pixels a canvas pixel. And the
+// damage display's backdrop, the picture that stalled D, drawn fast: well under the 1.3 s it took at 4K before.
+TEST(mw1_loop_hud_art_fast_painter_draws_the_same_pictures) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_hud_art_fast";
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  in_child([&] {
+    Run run;
+    run.save = (dir / mw1::kSaveFile).string();
+    int32_t compared = 0, differ = 0;
+    double backdrop_ms = -1;
+    bool done = false;
+    run.in_mission = [&](int32_t f) {
+      if (f < 5 || done) return !done;
+      done = true;
+      for (const std::string& n : mw1::hud_art::names())
+        for (int32_t sc = 1; sc <= 6; ++sc) {
+          mw1::hud_art::set_reference_painter(false);
+          const std::vector<uint8_t> fast = mw1::hud_art::draw(n, sc);
+          mw1::hud_art::set_reference_painter(true);
+          const std::vector<uint8_t> before = mw1::hud_art::draw(n, sc);
+          mw1::hud_art::set_reference_painter(false);
+          ++compared;
+          if (fast != before) {
+            if (differ < 8) std::printf("  %s at %d: %zu bytes, the reference's %zu, not the same\n", n.c_str(), sc, fast.size(), before.size());
+            ++differ;
+          }
+        }
+      const auto t0 = std::chrono::steady_clock::now();
+      const std::vector<uint8_t> bg = mw1::hud_art::draw("dmg_bg_blue", 5);
+      backdrop_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+      EXPECT(!bg.empty());
+      return false;
+    };
+    loop_run(kWon, &run);
+    std::printf("  %d pictures and scales compared with the reference painter: %d differ; dmg_bg_blue at 5 in %.1f ms\n",
+                compared, differ, backdrop_ms);
+    EXPECT(done && compared == static_cast<int32_t>(mw1::hud_art::names().size()) * 6 && differ == 0);
+    EXPECT(backdrop_ms >= 0 && backdrop_ms < 100);  // 1,288 ms before (a Release build); debug builds are slower
   });
 }
 

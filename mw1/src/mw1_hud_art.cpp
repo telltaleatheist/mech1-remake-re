@@ -224,19 +224,71 @@ bool read_pm(const std::string& name, int32_t w, int32_t h, Pm* out) {
 
 int32_t luma(Rgb c) { return 299 * c.r + 587 * c.g + 114 * c.b; }
 
-// `src` (straight alpha) over `dst`, both RGBA bytes.
+// One RGBA pixel `src` (straight alpha) over `dst`.
+inline void over_px(uint8_t* dst, const uint8_t* src) {
+  const float a = src[3] / 255.0f, b = dst[3] / 255.0f, oa = a + b * (1 - a);
+  if (oa <= 0) return;
+  for (size_t k = 0; k < 3; ++k) dst[k] = static_cast<uint8_t>(std::lround((src[k] * a + dst[k] * b * (1 - a)) / oa));
+  dst[3] = static_cast<uint8_t>(std::lround(oa * 255.0f));
+}
+// `src` over `dst`, both RGBA bytes, the same size.
 void over(std::vector<uint8_t>& dst, const std::vector<uint8_t>& src) {
-  for (size_t i = 0; i + 3 < dst.size() && i + 3 < src.size(); i += 4) {
-    const float a = src[i + 3] / 255.0f, b = dst[i + 3] / 255.0f, oa = a + b * (1 - a);
-    if (oa <= 0) continue;
-    for (size_t k = 0; k < 3; ++k) dst[i + k] = static_cast<uint8_t>(std::lround((src[i + k] * a + dst[i + k] * b * (1 - a)) / oa));
-    dst[i + 3] = static_cast<uint8_t>(std::lround(oa * 255.0f));
-  }
+  for (size_t i = 0; i + 3 < dst.size() && i + 3 < src.size(); i += 4) over_px(&dst[i], &src[i]);
 }
 
+// One colour's pixels as squares, and a stroke one pixel wide joining the centres of two that touch only at a corner.
+// A named functor (not a lambda) so paint() can find it in the Shape, test its samples directly and visit only the
+// canvas pixels it can reach (FIXES.md item 132: the damage display's backdrop, 102 such layers, took 1.3 s at 4K
+// through std::function and a std::map per sample over every pixel). The same test either way: the same pictures.
+struct PixelShape {
+  int32_t w = 0, h = 0;
+  std::shared_ptr<const std::vector<uint8_t>> on;     // w * h: the pixel is the colour's
+  std::shared_ptr<const std::vector<uint8_t>> joins;  // w * h: the 2 x 2 cell at its top-left pixel joins 1 down-right, 2 down-left
+  int32_t left = 0, top = 0, right = 0, bottom = 0;   // the pixels' box (right and bottom one past); empty when none
+  bool at(int32_t x, int32_t y) const { return x >= 0 && y >= 0 && x < w && y < h && (*on)[static_cast<size_t>(y) * w + x]; }
+  bool operator()(double x, double y) const {
+    const int32_t ix = static_cast<int32_t>(std::floor(x)), iy = static_cast<int32_t>(std::floor(y));
+    if (at(ix, iy)) return true;
+    for (int32_t cy = iy - 1; cy <= iy; ++cy)
+      for (int32_t cx = ix - 1; cx <= ix; ++cx) {
+        if (cx < 0 || cy < 0 || cx >= w || cy >= h) continue;
+        const int32_t j = (*joins)[static_cast<size_t>(cy) * w + cx];
+        if (!j) continue;
+        // Distance to the centre-to-centre segment of the cell's diagonal(s), under half a pixel.
+        for (int32_t k = 1; k <= 2; ++k) {
+          if (!(j & k)) continue;
+          const double ax = cx + (k == 1 ? 0.5 : 1.5), ay = cy + 0.5, bx = cx + (k == 1 ? 1.5 : 0.5), by = cy + 1.5;
+          const double dx = bx - ax, dy = by - ay, t = std::clamp(((x - ax) * dx + (y - ay) * dy) / 2.0, 0.0, 1.0);
+          const double ex = ax + t * dx - x, ey = ay + t * dy - y;
+          if (ex * ex + ey * ey < 0.25) return true;
+        }
+      }
+    return false;
+  }
+};
 // A layer coloured point by point: `tone` gives straight RGB and an alpha (0..1) at a canvas point.
 using Tone = std::function<void(double x, double y, float* rgba)>;
-std::vector<uint8_t> paint(int32_t w, int32_t h, int32_t s, const std::vector<std::pair<Shape, Tone>>& layers) {
+// The device pixel (i, j)'s `hits` of n x n samples laid over `out` in the layer's tone. Each layer is laid over the
+// last pixel by pixel: a pixel no sample of the layer hits is left as it was (over a clear source is no change).
+inline void lay(std::vector<uint8_t>& out, int32_t dw, int32_t s, int32_t n, int32_t i, int32_t j, int32_t hits, const Tone& tone) {
+  float t[4];
+  tone((i + 0.5) / s, (j + 0.5) / s, t);
+  uint8_t d[4];
+  for (int32_t k = 0; k < 3; ++k) d[k] = static_cast<uint8_t>(std::lround(std::clamp(t[k], 0.0f, 255.0f)));
+  d[3] = static_cast<uint8_t>(std::lround(std::clamp(t[3] * hits / (n * n), 0.0f, 1.0f) * 255.0f));
+  over_px(&out[(static_cast<size_t>(j) * dw + i) * 4], d);
+}
+template <typename In>
+inline int32_t hits_at(const In& in, int32_t s, int32_t n, int32_t i, int32_t j) {
+  int32_t hits = 0;
+  for (int32_t b = 0; b < n; ++b)
+    for (int32_t a = 0; a < n; ++a) hits += in((i + (a + 0.5) / n) / s, (j + (b + 0.5) / n) / s) ? 1 : 0;
+  return hits;
+}
+bool g_reference = false;  // set_reference_painter
+// The painter before FIXES.md item 132, for the tests: every device pixel of every layer sampled, each layer a whole
+// picture laid over the last.
+std::vector<uint8_t> paint_reference(int32_t w, int32_t h, int32_t s, const std::vector<std::pair<Shape, Tone>>& layers) {
   const int32_t dw = w * s, dh = h * s, n = s == 1 ? 1 : 4;
   std::vector<uint8_t> out(static_cast<size_t>(dw) * dh * 4, 0);
   for (const auto& [in, tone] : layers) {
@@ -257,6 +309,38 @@ std::vector<uint8_t> paint(int32_t w, int32_t h, int32_t s, const std::vector<st
   }
   return out;
 }
+std::vector<uint8_t> paint(int32_t w, int32_t h, int32_t s, const std::vector<std::pair<Shape, Tone>>& layers) {
+  if (g_reference) return paint_reference(w, h, s, layers);
+  const int32_t dw = w * s, dh = h * s, n = s == 1 ? 1 : 4;
+  std::vector<uint8_t> out(static_cast<size_t>(dw) * dh * 4, 0);
+  for (const auto& [in, tone] : layers) {
+    if (const PixelShape* px = in.target<PixelShape>()) {
+      // A device pixel's samples all lie in one canvas pixel (s is whole), (i / s, j / s). A sample there is in only
+      // when that pixel is the colour's (then every sample is) or a corner join of the 2 x 2 cells it touches passes
+      // near: other canvas pixels are skipped, their device pixels not hit.
+      const PixelShape& p = *px;
+      for (int32_t y = p.top; y < p.bottom; ++y)
+        for (int32_t x = p.left; x < p.right; ++x) {
+          const bool full = p.at(x, y);
+          bool near = false;
+          for (int32_t cy = y - 1; cy <= y && !full && !near; ++cy)
+            for (int32_t cx = x - 1; cx <= x && !near; ++cx)
+              near = cx >= 0 && cy >= 0 && (*p.joins)[static_cast<size_t>(cy) * p.w + cx] != 0;
+          if (!full && !near) continue;
+          for (int32_t j = y * s; j < (y + 1) * s; ++j)
+            for (int32_t i = x * s; i < (x + 1) * s; ++i) {
+              const int32_t hits = full ? n * n : hits_at(p, s, n, i, j);
+              if (hits) lay(out, dw, s, n, i, j, hits, tone);
+            }
+        }
+    } else {
+      for (int32_t j = 0; j < dh; ++j)
+        for (int32_t i = 0; i < dw; ++i)
+          if (const int32_t hits = hits_at(in, s, n, i, j)) lay(out, dw, s, n, i, j, hits, tone);
+    }
+  }
+  return out;
+}
 Tone flat(Rgb c, float alpha = 1) {
   return [=](double, double, float* t) { t[0] = c.r, t[1] = c.g, t[2] = c.b, t[3] = alpha; };
 }
@@ -268,39 +352,28 @@ float between(const std::vector<float>& v, double u) {
   return static_cast<float>(i + 1 < v.size() ? v[i] * (1 - k) + v[i + 1] * k : v[i]);
 }
 
-// One colour's pixels as squares, and a stroke one pixel wide joining the centres of two that touch only at a corner.
+// `which` pixels as a PixelShape.
 Shape pixels_where(const Pm& pm, const std::function<bool(size_t i)>& which) {
-  auto set = std::make_shared<std::vector<uint8_t>>(pm.rgb.size(), 0);
-  for (size_t i = 0; i < set->size(); ++i) (*set)[i] = which(i);
-  const int32_t w = pm.w, h = pm.h;
-  auto on = [set, w, h](int32_t x, int32_t y) { return x >= 0 && y >= 0 && x < w && y < h && (*set)[static_cast<size_t>(y) * w + x]; };
-  // The corner joins by the 2 x 2 cell they cross (its top-left pixel): 1 down-right, 2 down-left.
-  auto joins = std::make_shared<std::map<int64_t, int32_t>>();
-  for (int32_t y = 0; y + 1 < h; ++y)
-    for (int32_t x = 0; x + 1 < w; ++x) {
-      const bool a = on(x, y), b = on(x + 1, y), cc = on(x, y + 1), d = on(x + 1, y + 1);
-      const int32_t k = (a && d && !b && !cc ? 1 : 0) | (b && cc && !a && !d ? 2 : 0);
-      if (k) (*joins)[static_cast<int64_t>(y) * w + x] = k;
+  PixelShape ps;
+  ps.w = pm.w, ps.h = pm.h;
+  auto on = std::make_shared<std::vector<uint8_t>>(pm.rgb.size(), 0);
+  ps.left = pm.w, ps.top = pm.h;
+  for (size_t i = 0; i < on->size(); ++i)
+    if (((*on)[i] = which(i))) {
+      const int32_t x = static_cast<int32_t>(i % pm.w), y = static_cast<int32_t>(i / pm.w);
+      ps.left = std::min(ps.left, x), ps.top = std::min(ps.top, y);
+      ps.right = std::max(ps.right, x + 1), ps.bottom = std::max(ps.bottom, y + 1);
     }
-  return [on, joins, w](double x, double y) {
-    const int32_t ix = static_cast<int32_t>(std::floor(x)), iy = static_cast<int32_t>(std::floor(y));
-    if (on(ix, iy)) return true;
-    for (int32_t cy = iy - 1; cy <= iy; ++cy)
-      for (int32_t cx = ix - 1; cx <= ix; ++cx) {
-        if (cx < 0 || cy < 0) continue;
-        auto it = joins->find(static_cast<int64_t>(cy) * w + cx);
-        if (it == joins->end()) continue;
-        // Distance to the centre-to-centre segment of the cell's diagonal(s), under half a pixel.
-        for (int32_t k = 1; k <= 2; ++k) {
-          if (!(it->second & k)) continue;
-          const double ax = cx + (k == 1 ? 0.5 : 1.5), ay = cy + 0.5, bx = cx + (k == 1 ? 1.5 : 0.5), by = cy + 1.5;
-          const double dx = bx - ax, dy = by - ay, t = std::clamp(((x - ax) * dx + (y - ay) * dy) / 2.0, 0.0, 1.0);
-          const double ex = ax + t * dx - x, ey = ay + t * dy - y;
-          if (ex * ex + ey * ey < 0.25) return true;
-        }
-      }
-    return false;
-  };
+  if (ps.left >= ps.right) ps.left = ps.top = ps.right = ps.bottom = 0;
+  ps.on = on;
+  auto joins = std::make_shared<std::vector<uint8_t>>(on->size(), 0);
+  for (int32_t y = 0; y + 1 < pm.h; ++y)
+    for (int32_t x = 0; x + 1 < pm.w; ++x) {
+      const bool a = ps.at(x, y), b = ps.at(x + 1, y), cc = ps.at(x, y + 1), d = ps.at(x + 1, y + 1);
+      (*joins)[static_cast<size_t>(y) * pm.w + x] = static_cast<uint8_t>((a && d && !b && !cc ? 1 : 0) | (b && cc && !a && !d ? 2 : 0));
+    }
+  ps.joins = joins;
+  return ps;
 }
 
 Shape pixels_of(const Pm& pm, Rgb c) {
@@ -683,6 +756,8 @@ bool size_of(const std::string& name, int32_t* w, int32_t* h) {
 }
 
 bool read_from_pm(const std::string& name) { return read_pieces().count(name) != 0; }
+
+void set_reference_painter(bool on) { g_reference = on; }
 
 void set_label_painter(LabelPainter paint) {
   std::lock_guard<std::mutex> hold(painter_lock());
