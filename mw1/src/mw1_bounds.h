@@ -10,6 +10,7 @@
 //
 // The same file moves enemy places that a map puts outside its own area (mw3c4's southern ones): an enemy of the
 // launch made near a MOVE's FROM is made at its TO instead, on the ground there. MW3's files are never changed.
+#include <cstdint>
 #include <array>
 #include <string>
 #include <vector>
