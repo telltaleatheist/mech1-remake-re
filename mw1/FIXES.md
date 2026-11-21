@@ -5,7 +5,7 @@ Tick an item when it is merged into `main`.
 
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
-## 139. [ ] The window title and the save folder say MechWarrior 1 Remake *(next release after 1.0.5)*
+## 139. [x] The window title and the save folder say MechWarrior 1 Remake *(done: mw1-139-rename and mw1-139-move-fixes; in 1.0.6)*
 
 - **Why (2026-11-21):** the game is renamed MechWarrior 1 Remake (short MW1 Remake; repo mech1-remake-re). 1.0.5
   changed the visible text (title screen, credits, read-me, notes); the window title and the save folder
