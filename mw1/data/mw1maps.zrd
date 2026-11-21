@@ -46,10 +46,11 @@ MAP (WORLD ("mw3c3") IA (3) CLIMATE ("tropical") KIND ("any"))
 MAP (WORLD ("mw3c4") IA (1) CLIMATE ("desert") KIND ("any"))
 MAP (WORLD ("mw3c4") IA (3) CLIMATE ("desert") KIND ("any"))
 MAP (WORLD ("mw3c4b") IA (1) CLIMATE ("ice") KIND ("any"))
-; MW1's arctic map 1 (item 44, laid from data/arctic/ia1): c4b's warehouses. No defend here: all three stand on the
-; enemies' side of the start (FIXES 134).
-MAP (WORLD ("mw3c4b") IA (1) CLIMATE ("ice") KIND ("reach") NODE ("ware03") WORDS ("the south warehouse"))
+; MW1's arctic map 1 (item 44, laid from data/arctic/ia1): c4b's warehouses. The company starts beside the south
+; warehouse, the defence's (FIXES 137).
+MAP (WORLD ("mw3c4b") IA (1) CLIMATE ("ice") KIND ("reach") NODE ("ware02") WORDS ("the depot"))
 MAP (WORLD ("mw3c4b") IA (1) CLIMATE ("ice") KIND ("attack") NODE ("ware01") WORDS ("the supply warehouse"))
+MAP (WORLD ("mw3c4b") IA (1) CLIMATE ("ice") KIND ("defend") NODE ("ware03") WORDS ("the south warehouse"))
 ; MW1's arctic map 2 (data/arctic/ia2).
 MAP (WORLD ("mw3c4b") IA (2) CLIMATE ("ice") KIND ("any"))
 MAP (WORLD ("mw3c4b") IA (2) CLIMATE ("ice") KIND ("reach") NODE ("ware02") WORDS ("the depot"))

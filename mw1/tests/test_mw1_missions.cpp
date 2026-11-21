@@ -10,7 +10,6 @@
 #include <fstream>
 #include <iterator>
 #include <map>
-#include <set>
 #include <string>
 #include <vector>
 
@@ -217,20 +216,7 @@ TEST(mw1_missions_maps_drawn_by_the_planets_pool) {
                 p.planet.empty() ? mw1::climate_name(p.climate) : p.planet.c_str(), mostly / 100, mostly / 10 % 10, sometimes / 100,
                 sometimes / 10 % 10, outside, repeats, none, said.c_str());
     EXPECT(outside == 0 && repeats == 0 && none == 0);
-    // FIXES 134: a kind with only one MOSTLY map (ice's defence, mw3c4b ia2) can't be drawn there twice running (no
-    // repeats), so after that map such a contract goes to SOMETIMES: the band's floor is lower then, said here.
-    std::string single;
-    for (int kd = 1; kd < 4; ++kd) {
-      std::set<std::pair<std::string, int32_t>> maps;
-      for (const mw1::MapRow& r : rows)
-        if (static_cast<int>(r.kind) == kd && has(p.mostly, r.world)) maps.insert({r.world, r.ia});
-      if (maps.size() == 1) single += " " + std::string(kd == 1 ? "reach" : kd == 2 ? "attack" : "defend") + " (" +
-                                      maps.begin()->first + " ia" + std::to_string(maps.begin()->second) + ")";
-    }
-    if (!single.empty())
-      std::printf("    %s: one MOSTLY map for%s: MOSTLY %d.%d%%, the floor 65%% (FIXES 137 brings it back to 70%%)\n",
-                  p.planet.empty() ? mw1::climate_name(p.climate) : p.planet.c_str(), single.c_str(), mostly / 100, mostly / 10 % 10);
-    if (mostly_has_maps && !p.sometimes.empty()) EXPECT(mostly >= (single.empty() ? 7000 : 6500) && mostly <= 8000);
+    if (mostly_has_maps && !p.sometimes.empty()) EXPECT(mostly >= 7000 && mostly <= 8000);
     if (!mostly_has_maps) EXPECT(mostly == 0);
     // Even per world within a part, kind by kind: among the part's worlds with a row of the kind, each drawn as often
     // (a world without one, c1 for a reach, isn't drawn for it).

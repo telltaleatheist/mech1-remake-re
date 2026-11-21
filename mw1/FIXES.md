@@ -49,7 +49,7 @@ Tick an item when it is merged into `main`.
     both lines drawn, that every start, enemy and structure lies inside the yellow (MW1's areas by 595 m, MW3's by
     150 m), that the voice plays past the yellow, and that the mission is lost past the red.
 
-## 137. [ ] A defence on the arctic map 1 again *(after 1.0.4)*
+## 137. [x] A defence on the arctic map 1 again *(done: mw1-fix137-arctic-defence)*
 
 - **Why:** FIXES 134 dropped c4b ia1's defence (every warehouse stands on the enemies' side of the start), leaving
   ice one defence map; ice contracts are about 68% mw3c4b, under item 46's 70..80% band, and the pool test carries a
@@ -57,6 +57,17 @@ Tick an item when it is merged into `main`.
 - **Plan:** move our own arctic ia1 player start (`data/arctic/ia1`) so a warehouse is on the player's side and passes
   the survey's defence rule, add the row back, and remove the 65% exception from
   `mw1_missions_maps_drawn_by_the_planets_pool` (ice back to about 75%).
+- **Done:** the company now starts at (640, −960) on the low rise south of the domed base, 255 m from the south
+  warehouse (`ware03`), facing the base; the lancemates stand behind it. c4b ia1's rows are now reach `ware02`
+  (1430 m, along 1.27), attack `ware01` (1399 m, along 1.25) and defend `ware03` (along −0.04, the enemies' centre
+  1163 m off, 4.6× as far as the start). The supply warehouse and the depot stand 55 m apart, so one can't be the
+  attack's and the other the defence's with any margin; the south warehouse, alone, is the defence's, as on ia2.
+  The nearest enemy place is 757 m from the new start (1077 m from the old one). Item 138's area for c4b ia1
+  (`data/mw1bounds.zrd`, a 16-sided outline 600 m round the places) left the new start only 503 m inside its yellow,
+  so the boundary survey failed all four c4b ia1 rows; that area is redrawn by `tools/mw1bounds.py` from a fresh
+  boundary survey (the other maps' areas kept: the survey's enemy line-up varies run to run, so redrawing them all
+  only moves them a little each time). The pool test's exception is gone: ice is 75.4% mw3c4b, every pool 70% or
+  more.
 
 ## 136. [ ] Objectives on a triangle: the target off the line between you and the enemy *(design; after 1.0.5, done in full)*
 
@@ -128,7 +139,7 @@ Tick an item when it is merged into `main`.
 - **Ice's share:** with c4b ia1's defence gone, ice has one defence map (c4b ia2), and the no-repeat rule sends a
   defence drawn right after a c4b ia2 contract to SOMETIMES, so ice contracts are now about 68% mw3c4b (the band's
   75%, item 46). The pool test's floor is 65% for a pool it can name a kind with a single MOSTLY map for (it prints
-  the pool, the kind and the share); every other pool keeps 70%. Item 137 removes the exception.
+  the pool, the kind and the share); every other pool keeps 70%. Item 137 removed the exception (ice 75.4%).
 
 ## 133. [x] Ice missions cool the 'Mech faster *(done: mw1-fix133-arctic-cooling)*
 
