@@ -35,6 +35,18 @@ original.
 
 Nothing yet.
 
+**1.2.2 (2026-11-21)** (the full notes are in
+[docs/release-notes-1.2.2.md](docs/release-notes-1.2.2.md)): fixes from your
+bug reports, for all three games.
+
+- **Raw mouse**: the mouse moves exactly as far as you move it, without the
+  system's acceleration (RAW MOUSE on the Upgrades page); MOUSE SENSITIVITY
+  goes to 5.0.
+- New key bindings work at once, rumble pads keep their bindings, free look
+  on the middle mouse button, no Linux crash at a mission's start.
+- MechWarrior 1 Remake 1.0.5: varied 'Mech prices and out-of-bounds lines on
+  every map.
+
 **1.2.1 (2026-11-21)** (the full notes are in
 [docs/release-notes-1.2.1.md](docs/release-notes-1.2.1.md)): a fix release
 for MechWarrior 1 Remake, now 1.0.4.
