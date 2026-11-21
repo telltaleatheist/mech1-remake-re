@@ -459,20 +459,55 @@ void SdlRender3D::end_scene() {
 bool SdlRender3D::read_back(std::vector<uint32_t>* argb, int* width, int* height) {
   if (!frame_) return false;
   const Uint32 w = frame_w_, h = frame_h_;
-  SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(dev_);
-  if (!cmd) return false;
-  SDL_GPUTransferBufferCreateInfo dbi{SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD, w * h * 4, 0};
+  if (w == 0 || h == 0) return false;
+  // Issue #7 (Linux, Vulkan: a crash inside SDL_DownloadFromGPUTexture at a
+  // mission's start and in the mech lab): each step checked; a readback that
+  // cannot be made is none (the fade starts from black, the grab is empty).
+  auto failed = [](const char* step) {
+    static int said = 0;
+    if (said++ < 3) std::printf("mw3: render: the frame's readback failed at %s: %s\n", step, SDL_GetError());
+    return false;
+  };
+  // The buffer at the frame's own texel size; a swapchain that is not 4 bytes
+  // a pixel (a 64-bit one) is not read as 0xAARRGGBB at all.
+  const Uint32 texel = SDL_GPUTextureFormatTexelBlockSize(color_format_);
+  if (texel != 4) {
+    static bool said = false;
+    if (!said) said = true, std::printf("mw3: render: no frame readback: the window's format (%d) is %u bytes a pixel\n",
+                                        static_cast<int>(color_format_), texel);
+    return false;
+  }
+  SDL_GPUTransferBufferCreateInfo dbi{SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD, w * h * texel, 0};
   SDL_GPUTransferBuffer* db = SDL_CreateGPUTransferBuffer(dev_, &dbi);
+  if (!db) return failed("its buffer");
+  SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(dev_);
+  if (!cmd) {
+    SDL_ReleaseGPUTransferBuffer(dev_, db);
+    return failed("its command buffer");
+  }
   SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd);
+  if (!copy) {
+    SDL_CancelGPUCommandBuffer(cmd);
+    SDL_ReleaseGPUTransferBuffer(dev_, db);
+    return failed("its copy pass");
+  }
   SDL_GPUTextureRegion src{};
   src.texture = frame_, src.w = w, src.h = h, src.d = 1;
   SDL_GPUTextureTransferInfo dst{db, 0, 0, 0};
   SDL_DownloadFromGPUTexture(copy, &src, &dst);
   SDL_EndGPUCopyPass(copy);
   SDL_GPUFence* fence = SDL_SubmitGPUCommandBufferAndAcquireFence(cmd);
+  if (!fence) {
+    SDL_ReleaseGPUTransferBuffer(dev_, db);
+    return failed("its submit");
+  }
   SDL_WaitForGPUFences(dev_, true, &fence, 1);
   SDL_ReleaseGPUFence(dev_, fence);
   const auto* p = static_cast<const uint32_t*>(SDL_MapGPUTransferBuffer(dev_, db, false));
+  if (!p) {
+    SDL_ReleaseGPUTransferBuffer(dev_, db);
+    return failed("its map");
+  }
   argb->assign(p, p + static_cast<size_t>(w) * h);
   SDL_UnmapGPUTransferBuffer(dev_, db);
   SDL_ReleaseGPUTransferBuffer(dev_, db);
