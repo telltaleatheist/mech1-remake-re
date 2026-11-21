@@ -148,10 +148,16 @@ std::vector<CreditPanel> mw1_credits() {
   return roll;
 }
 
-std::vector<CreditPanel> extra_credits() { return {}; }
+// Ours, after MW1's: who made this game, in MW1's two columns (a role over its names).
+std::vector<CreditPanel> extra_credits() {
+  CreditPanel ours;
+  ours.texts = {{100, 20, {"MW1: CRITICAL HIT", "Owen Morgan"}}, {200, 20, {"BUILT ON", "MechWarrior 3 rebuild", "(mw3-re)"}}};
+  return {ours};
+}
 
 std::vector<CreditPanel> credits_roll() {
   std::vector<CreditPanel> roll = mw1_credits();
+  if (roll.empty()) return roll;  // no MW1, no roll (play goes on); ours follow MW1's, never alone
   for (CreditPanel& p : extra_credits()) roll.push_back(std::move(p));
   return roll;
 }

@@ -8,3 +8,4 @@ Fixes from GitHub issues, and 'Mech prices that vary.
 - **Middle mouse button (issue #10):** FREELOOK and other commands bound to the middle button work with no key bound as well.
 - **Torso return with the mouse (issue #10):** torso auto return keeps the torso within its twist limit when the mouse steers twist and pitch (one of the small fixes).
 - **Linux crash at mission start (issues #5 and #7):** fixed in the screen read-back.
+- **Credits:** the end credits now name the game's maker after the original's, and the read-me says who made it.

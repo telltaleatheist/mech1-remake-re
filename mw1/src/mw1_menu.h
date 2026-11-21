@@ -98,7 +98,7 @@ struct CreditPanel {
 };
 std::vector<CreditPanel> mw1_credits();
 // The hook for our own credits, rolled after MW1's (a text's x picks its column as MW1's do: under 160 the left,
-// else the right; a line wider than a column centred across). None yet.
+// else the right; a line wider than a column centred across): the game's maker. Rolled only after MW1's.
 std::vector<CreditPanel> extra_credits();
 std::vector<CreditPanel> credits_roll();  // MW1's, then ours
 

@@ -5,6 +5,21 @@ Tick an item when it is merged into `main`.
 
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 138. [ ] Out of bounds: leaving the battle area fails the mission *(design; with 136)*
+
+- **Raised (2026-11-21):** "do we have out of bounds that the player loses the mission if they cross? we probably
+  should."
+- **What exists:** MW3's own Instant Action blocks fail you for leaving the boundary (`outside_ia*` in
+  objectives.zrd, regions `reg_inside_*`/`reg_outside_*`; research/maps.md). Pirate's Moon's IA archives have no
+  boundary files or boundary objective (research/maps.md, "Boundaries"). MW1 builds its contracts with no boundary rule
+  of its own, so whether one applies today depends on the map. Not yet checked in play.
+- **Wanted (2026-11-21), as MW3 does it:** two lines on the HUD's radar, a yellow inner one and a red outer one
+  (MW3's `reg_inside_*` / `reg_outside_*` pair, drawn by hud 0x0043d920). Crossing the yellow line says "leaving
+  mission area"; crossing the red line loses the mission at once. Every contract map gets the pair, PM's maps
+  included. AI pathing already respects the boundary's pull.
+- **First:** a headless survey of what each contract map does now (boundary or none, and what crossing it does).
+  Then the rule, the area for maps without one (PM's), and 136's points checked to lie inside it.
+
 ## 137. [ ] A defence on the arctic map 1 again *(after 1.0.4)*
 
 - **Why:** FIXES 134 dropped c4b ia1's defence (every warehouse stands on the enemies' side of the start), leaving
@@ -14,8 +29,11 @@ Tick an item when it is merged into `main`.
   the survey's defence rule, add the row back, and remove the 65% exception from
   `mw1_missions_maps_drawn_by_the_planets_pool` (ice back to about 75%).
 
-## 136. [ ] Objectives on a triangle: the target off the line between you and the enemy *(design; after 1.0.4)*
+## 136. [ ] Objectives on a triangle: the target off the line between you and the enemy *(design; after 1.0.5, done in full)*
 
+- **Rescoped (2026-11-21):** "it doesn't need to be a full triangle, but it should be reachable by avoiding the enemy." Then: "let's do it the
+  right way." So 136 is done in full after 1.0.5 (point reach rows on open, reachable floor; targets among each map's
+  structures; thresholds from the measured table; the decoy run), not the closest-approach-only shortcut.
 - **The design (2026-11-20):** you start at A, the enemy at B, the objective at C, a corner of a triangle, not on
   the A to B line. The enemy comes toward you, but a 'Mech outfitted to run (less armour, more speed) can make C
   first; or high ground screens the path. That matches the original intent of MW1's raid and withdraw contracts:
@@ -646,7 +664,7 @@ engine's warnings are left alone. No behaviour change.
   - DEPLOY gets a tile of its own (a dropship launch: art to come; until then `deploy_launch` cropped).
   - MAIN MENU moves inside OPTIONS (MW1's options hold save, load and quit).
 
-## 12. [ ] Blocky, low-resolution text and pictures
+## 12. [x] Blocky, low-resolution text and pictures *(done: the 2D at window resolution (FIXES 90 with it); the windowed check passed 2026-11-21, "text looks sharp and fine now")*
 - **Owen (2026-11-17):** "The text looks like it's really low resolution. Chunky and blocky ... hard to read. I get the impression it's not the font itself, it's something else."
 - **Cause:**
   - It isn't the fonts (Saira Condensed and Share Tech Mono are sharp). PM's 2D layer draws every menu on a canvas 480 pixels high (854×480 at 16:9), and the window scales that canvas up: about 2.3× in Owen's 2000×1125 window, 4.5× at 4K.
@@ -883,7 +901,7 @@ engine's warnings are left alone. No behaviour change.
 - **Wanted:** all four the same framed size and shape, evenly spaced along the bottom bar, with none overlapping, at both shapes. mw1labfit checks that they are equal and don't overlap.
 - **Changed by 70 (Owen 2026-11-19, option A):** not evenly spaced any more. The buttons are in pairs at the bar's ends (chassis and criticals left, groups and ACCEPT right; mw1_chrome.h's lab_tab_x), so the warnings get the clear middle. Same size, no overlap, labels centred over their buttons, as before.
 
-## 30. [ ] Don't hold the mouse: let it leave the window *(merged: mw1-pointer-hands-off, mw1-free-mouse-2; tick after the windowed SDL suite and Owen's feel check)*
+## 30. [x] Don't hold the mouse: let it leave the window *(merged: mw1-pointer-hands-off, mw1-free-mouse-2; the feel check passed 2026-11-21)*
 - **Owen (2026-11-18, playing):** "lets make it so it doesnt hold the mouse. if i scroll the mouse out of the window (because i have 2 screens), or if i move it outside the viewport, it will move outside the viewport. mw3 works that way and its fine"
 - **Where:** SdlInput::capture puts the window in relative mouse mode (src/frontend/sdl/sdl_input.cpp), and `want` decides when (focused, acquired, mission, window, released).
 - **Wanted:** in MW1, the pointer leaves the window freely, as in MW3. Find which input decides it differently for MW1 (the menus at least; in missions, match whatever MW3 does) and make MW1 behave like MW3. Opt-in if it touches the engine; MW3 and PM unchanged.
@@ -2068,7 +2086,7 @@ The lead (2026-11-19), from Owen's log: a Centurion bought for 4,505,000 sold fo
   base × (tier% − 10), floored to 1,000, a Clan 'Mech's doubled, and selling is under buying in the same world. A
   later change can't move it either way unnoticed.
 
-## 106. [ ] A lancemate ejected 25 s into a destroy-all on c4ia1 *(the log: done, mw1-c4ia1-lance; the cause open)*
+## 106. [x] A lancemate ejected 25 s into a destroy-all on c4ia1 *(closed 2026-11-21: not reproduced; the log now names who downed a lancemate; reopen if it happens again)*
 
 Owen (2026-11-19): a contract, "destroy all enemy mechs" on c4ia1. About 25 s after the launch Erin Falls said "I'm
 ejecting". After the mission she was MISSING and her Centurion gone. His build predates 98: the old loss rule (his
