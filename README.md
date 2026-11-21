@@ -11,7 +11,17 @@ minus the bugs and the problems it has on modern machines. It is a personal
 learning project: free, not sold, and not affiliated with or endorsed by
 Microsoft or MicroProse.
 
-**No game files are included.** You need your own copy of MechWarrior 3.
+The download holds three games on one launcher, named **BattleTech**:
+
+- **MechWarrior 3**, rebuilt as above;
+- **Pirate's Moon**, the expansion, rebuilt the same way from its own exe;
+- **MW1: Critical Hit**, a fan remake of MechWarrior (1989)'s mercenary
+  campaign on MechWarrior 3's combat, worlds and 'Mechs.
+
+Each game also starts on its own, and MechWarrior 3 and Pirate's Moon come
+as separate downloads too.
+
+**No game files are included.** You need your own copy of each game you play.
 
 > Found a bug? Please [report it](#reporting-a-bug).
 
@@ -25,6 +35,16 @@ original.
 
 Nothing yet.
 
+**1.2.1 (2026-11-21)** (the full notes are in
+[docs/release-notes-1.2.1.md](docs/release-notes-1.2.1.md)): a fix release
+for MW1: Critical Hit, now 1.0.4.
+
+- **Every contract can be won**: Desolation Ridge's "destroy the pirate base"
+  put its target beside your start, so the mission never ended; every
+  contract map is now checked.
+- No freeze switching the damage display (D) at high resolution; the arctic
+  maps cool your 'Mech faster; smoother HUD shapes.
+
 **1.2.0 (2026-11-20)** (the full notes are in
 [docs/release-notes-1.2.0.md](docs/release-notes-1.2.0.md)):
 
@@ -32,7 +52,9 @@ Nothing yet.
   2560x1080, 3440x1440, 3840x1080 and 5120x1440 in the graphics options.
 - **Joysticks**: buttons 11 to 15 can be bound, and a stick plugged in while
   the game runs works without a restart.
-- **The launcher's cards**, one a game; MW1: Critical Hit 1.0.3.
+- **A new launcher**: a card for each game, named BattleTech, in a window (on
+  a Mac its file pickers now open in a second, not 7 to 12); MW1: Critical
+  Hit 1.0.3.
 
 **1.1.3 (2026-11-20)** (the full notes are in
 [docs/release-notes-1.1.3.md](docs/release-notes-1.1.3.md)):
@@ -84,6 +106,9 @@ Nothing yet.
   movement, MFB regroup, improved AI, Artemis tracking, small fixes).
 - Fixes from the playtests: the Windows cursor stuck at the centre, a slow
   mouse not moving the aim, the game's boxes in its own look, and more.
+
+<details>
+<summary>1.0.1 to 1.0.5 (2026-11-03 to 11-07)</summary>
 
 **1.0.5 (2026-11-07)**
 
@@ -212,6 +237,8 @@ Nothing yet.
 - **A crash late in a fight** is fixed, along with the end credits on wide
   screens and the mech lab's "Overwrite?" box.
 
+</details>
+
 ## What you need
 
 - **Your own MechWarrior 3**, any of these:
@@ -231,6 +258,11 @@ Pirate's Moon, the expansion, is in the same download as its own program, and
 needs your own Pirate's Moon the same way (an installed copy, its disc or a
 disc image). Each game works without the other.
 
+MW1: Critical Hit needs your own MechWarrior (1989), MechWarrior 3 and
+Pirate's Moon: it is fought on their worlds with their 'Mechs. The launcher
+looks for MechWarrior (1989) in the usual places; if it isn't there, a click
+takes its `BTECH.EXE`, its folder or the `.zip` it came in.
+
 ## Download
 
 From the [Releases](../../releases) page:
@@ -242,11 +274,11 @@ From the [Releases](../../releases) page:
 | Linux | `MW3-Rebuild-<version>-x86_64.AppImage` | Make it executable (`chmod +x`) and run it. |
 
 **On a Mac, the first time:** the app is not signed by Apple, so macOS stops
-it the first time you open it ("MechWarrior 3 Not Opened"; click **Done**,
+it the first time you open it ("BattleTech Not Opened"; click **Done**,
 not Move to Trash).
 
 - **macOS 15 Sequoia and later:** open **System Settings > Privacy &
-  Security**, scroll down to the line about MechWarrior 3, click **Open
+  Security**, scroll down to the line about BattleTech, click **Open
   Anyway**, then **Open** (and your password if asked). Right-click > Open
   no longer gets past it on these versions.
 - **macOS 12 to 14:** right-click (or Control-click) the app, choose
@@ -260,8 +292,9 @@ macOS remembers your choice after that.
 
 ## The first start
 
-Start **MechWarrior 3** and it goes straight into the game when it finds
-your install: where the original installer put it, `Program Files`,
+Start **BattleTech** (the launcher; **MechWarrior 3** in the MechWarrior 3
+alone download) and click a game. MechWarrior 3 goes straight into the game
+when it finds your install: where the original installer put it, `Program Files`,
 `C:\Games`, a Wine, Proton or Lutris copy on Linux and the Mac, or a copy it
 installed itself earlier. It says which version it found in its log.
 
@@ -289,9 +322,10 @@ game:
 If something is wrong (not enough space, a damaged download, a file that
 is not MechWarrior 3) it says so in plain words and changes nothing.
 
-- **The launcher**, installed as "MechWarrior 3" (the Start-menu and
-  desktop shortcut on Windows, the Mac's "MechWarrior 3.app", the Linux
-  desktop entry), is the rebuild's own front screen: the games. It starts
+- **The launcher**, installed as "BattleTech" (the Start-menu and desktop
+  shortcut on Windows, the Mac's app, the Linux desktop entry; a search for
+  "MechWarrior 3" finds it too), is the rebuild's own front screen, in a
+  window: a card for each game. It starts
   the game and closes as soon as the game's first frame is on screen (if
   the game fails to start, it stays and says so). **Game files** there
   opens the same find-your-game screen at any time: to use another copy,
@@ -502,7 +536,8 @@ adds weapons to the original `Mech3.exe`'s mech lab. It isn't part of the rebuil
 
 It holds `mw3.cfg`, your pilots and saves, the settings, your mods, the
 converted movies and the music, and `mw3.log`. Pirate's Moon keeps its own
-beside it, in `MicroProse/Pirate's Moon`. Uninstalling the rebuild keeps
+beside it, in `MicroProse/Pirate's Moon`, and MW1: Critical Hit in
+`MicroProse/MechWarrior 1 Critical Hit`. Uninstalling the rebuild keeps
 them; deleting one starts that game over. The launcher's GAME FILES, MY DATA
 FOLDER moves a game's folder to another drive.
 
@@ -512,8 +547,8 @@ FOLDER moves a game's folder to another drive.
   Tools that filter mouse clicks to snap or move windows (Magnet and
   similar) can hold each mouse-button press back, so in a mission the mouse
   fires only when you let go. The keyboard is not affected. Quit the tool
-  while you play, or add MechWarrior 3 to its excluded apps if it has that
-  setting.
+  while you play, or add BattleTech (MechWarrior 3 in the MechWarrior 3
+  alone download) to its excluded apps if it has that setting.
 
 ## Reporting a bug
 
@@ -557,9 +592,10 @@ shared engine, MechWarrior 3, Pirate's Moon and the launcher):
 
 ## Credits and licence
 
-- **MechWarrior 3** was made by Zipper Interactive and published by
-  MicroProse in 1999. All the game's content is theirs and comes from your
-  own copy.
+- **MechWarrior 3** and **Pirate's Moon** were made by Zipper Interactive
+  and published by MicroProse in 1999. **MechWarrior** (1989) was made by
+  Dynamix and published by Activision. All the games' content is theirs and
+  comes from your own copies.
 - The rebuild is by Owen Morgan, under the [MIT licence](LICENSE). The
   original's code was studied with Ghidra and
   [REA](https://github.com/morluto/rea), the data formats cross-checked with
@@ -573,5 +609,6 @@ shared engine, MechWarrior 3, Pirate's Moon and the launcher):
 - The MW1 card's PLAY ORIGINAL (MechWarrior as released in 1989) is coming
   later.
 
-MechWarrior is a trademark of Microsoft. This project is not affiliated with
-or endorsed by Microsoft, MicroProse or Zipper Interactive.
+MechWarrior and BattleTech are trademarks of their owners. This project is not
+affiliated with or endorsed by Microsoft, MicroProse, Zipper Interactive,
+Dynamix or Activision.
