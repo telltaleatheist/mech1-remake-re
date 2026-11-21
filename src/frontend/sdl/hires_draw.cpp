@@ -138,6 +138,8 @@ int32_t HiresDraw::line_texture(const Command& c, bool rgb565, float* u_scale, f
   uint64_t key = 1469598103934665603ull;
   auto mix = [&](uint64_t v) { key = (key ^ v) * 1099511628211ull; };
   for (int32_t p : c.pts) mix(static_cast<uint32_t>(p));
+  for (float p : c.poly) mix(static_cast<uint64_t>(static_cast<int64_t>(p * 65536.0f)));  // FIXES 90
+  mix(c.segments ? 7 : 3);
   for (int32_t v : {c.radius, c.x, c.y, c.rect.l, c.rect.t, c.rect.r, c.rect.b}) mix(static_cast<uint32_t>(v));
   mix(c.colour), mix(rgb565), mix(static_cast<uint64_t>(sx_ * 4096)), mix(static_cast<uint64_t>(sy_ * 4096) << 1);
   LineTexture& lt = line_textures_[key];

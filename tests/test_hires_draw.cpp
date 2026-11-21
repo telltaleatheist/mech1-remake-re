@@ -12,6 +12,7 @@
 #include "frontend/sdl/hires_draw.h"
 #include "frontend/sdl/sdl_twod_host.h"
 #include "gamez/zrender/zrndr_blit.h"
+#include "gamez/zrender/zrndr_span.h"
 #include "gamez/ztwod/twod_host.h"
 #include "platform/hires_2d.h"
 #include "frontend/sdl/sdl_platform.h"
@@ -557,4 +558,73 @@ TEST(hires_draw_the_radar_s_lines_recorded_and_drawn_smooth) {
   EXPECT(lines == 3 && whole == 3);
   EXPECT(d.stats().strokes == 3 && d.stats().failed == 0 && unkeyed);
   EXPECT(solid > 0 && soft > solid / 4 && other_colour == 0);  // anti-aliased, in the canvas's own green
+}
+
+// mw1 (engine, ours), MW1's FIXES.md item 90: a filled polygon (the HUD's heat pointer) and a dashed line, through the
+// SDL host with the high-resolution 2D on: recorded as lines, drawn anti-aliased, and where the canvas drew them: the
+// fill's coverage over half at the canvas's filled pixels' centres and under half at the others, the dashes lit
+// where the canvas lit them. Fails when they go back to the canvas alone.
+TEST(hires_draw_fills_and_dashes_recorded_and_drawn_smooth) {
+  constexpr uint16_t kKey = 0xF81F, kGreen = 0x07E0;
+  Canvas c(128, 96);
+  zrndr::Target2D& t = zrndr::target2d();
+  const zrndr::Target2D was_target = t;
+  t.base = reinterpret_cast<uint8_t*>(c.px.data()), t.width = 128, t.height = 96, t.pitch = 256, t.format = 6;
+  zrndr::SoftTarget& st = zrndr::soft_target();
+  const zrndr::SoftTarget was_soft = st;
+  st.base = t.base, st.pitch = 256, st.bytes = 2, st.fill = zrndr::span_fill16;
+  const bool was = platform::hires_2d();
+  sdlfe::SdlTwodHost h(nullptr, nullptr, nullptr);
+  const float tri[] = {10.3f, 20.0f, 0, 40.7f, 35.2f, 0, 10.3f, 50.0f, 0};  // a pointer, as the heat gauge's
+  auto draw = [&](bool on) {
+    platform::set_hires_2d(on);
+    h.hires_lists().clear(c.px.data());
+    c.fill({0, 0, 128, 96}, kKey);
+    h.polygon(tri, 3, kGreen, 0);
+    h.line_dashed(50, 70, 120, 70, kGreen, 8);  // a level dashed line
+    h.line_dashed(50, 20, 110, 60, kGreen, 6);  // a slanting one
+  };
+  draw(false);
+  const size_t off = h.hires_lists().size(c.px.data());
+  draw(true);
+  const std::vector<Command>* cs = h.hires_lists().of(c.px.data());
+  int lines = 0, whole = 0;
+  if (cs)
+    for (const Command& k : *cs) {
+      lines += k.kind == platform::hires::Kind::kLine;
+      const size_t area = static_cast<size_t>(k.rect.r - k.rect.l) * (k.rect.b - k.rect.t);
+      whole += k.before.size() == area && k.after.size() == area && k.before != k.after;
+    }
+  Recorder r;
+  r.fw = 128 * 9 / 2, r.fh = 96 * 9 / 2;
+  sdlfe::HiresDraw d(&r, &h.hires_lists());
+  d.draw(c.px.data(), c.w, c.h, c.w * 2, true, true, kKey);
+  // Each command's texture (the premultiplied draws, in the list's order) read at its canvas pixels' centres.
+  int agree = 0, disagree = 0, soft = 0, k = 0, canvas_lit = 0, lit_missed = 0;
+  for (const Drawn& dr : r.draws) {
+    if (!dr.state.premultiplied || !cs || k >= static_cast<int>(cs->size())) continue;
+    const Command& cm = (*cs)[static_cast<size_t>(k++)];
+    const std::vector<uint8_t>& tx = r.textures[dr.texture];
+    const auto [tw, th] = r.sizes[dr.texture];
+    for (size_t i = 3; i < tx.size(); i += 4) soft += tx[i] > 0 && tx[i] < 255;
+    for (int32_t y = cm.rect.t; y < cm.rect.b; ++y)
+      for (int32_t x = cm.rect.l; x < cm.rect.r; ++x) {
+        const int32_t u = static_cast<int32_t>((x - cm.rect.l + 0.5f) * 4.5f), v = static_cast<int32_t>((y - cm.rect.t + 0.5f) * 4.5f);
+        if (u >= tw || v >= th) continue;
+        const bool lit = tx[(static_cast<size_t>(v) * tw + u) * 4 + 3] > 127;
+        const bool canvas = c.px[static_cast<size_t>(y) * 128 + x] == kGreen;
+        (lit == canvas ? agree : disagree) += 1;
+        canvas_lit += canvas, lit_missed += canvas && !lit;
+      }
+  }
+  platform::set_hires_2d(was);
+  h.hires_lists().clear(c.px.data());
+  t = was_target, st = was_soft;
+  std::printf("  off: %zu recorded; on: %d lines (%d with their snapshots), %d stroked, %d left to the canvas; "
+              "%d pixels agree with the canvas, %d don't (of its %d lit, %d not drawn here); %d texels blended\n", off,
+              lines, whole, d.stats().strokes, d.stats().failed, agree, disagree, canvas_lit, lit_missed, soft);
+  EXPECT(off == 0 && lines == 3 && whole == 3);
+  EXPECT(d.stats().strokes == 3 && d.stats().failed == 0 && soft > 0);
+  EXPECT(agree > 0 && disagree * 50 < agree);  // where the canvas drew them (the odd pixel at an edge or a run's end)
+  EXPECT(canvas_lit > 200 && lit_missed * 20 < canvas_lit);
 }

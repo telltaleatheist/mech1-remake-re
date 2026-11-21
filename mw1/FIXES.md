@@ -568,11 +568,12 @@ engine's warnings are left alone. No behaviour change.
       sharp. The cockpit's dashboard is a 3D texture, not 2D.
   - **The 2D at 4K is finished with item 89 (dev 2, 2026-11-19):** the radar's lines and circles are drawn
     anti-aliased at the window's scale.
-    - A follow-up (FIXES 90: filled polygons and dashed lines, the same way) was built and tested, but not merged.
+    - A follow-up (FIXES 90: filled polygons and dashed lines, the same way) was built and tested, then merged on
+      2026-11-20 (Owen's OK, rebased by dev 1 as `mw1-fix90-fills-dashes-r`). It is opt-in through hires_2d, MW1 only.
       A probe of the mission, pause, results, travel, lab, hub, market and bar pages found only two host polygons,
       both whole-pixel quads on the mission HUD that look the same either way, and no dashed lines (nothing in the
       port sets a line's dash).
-    - The work is kept on origin as `mw1-fix90-fills-dashes`, in case a later screen needs it.
+    - Nothing draws differently yet; the path is ready for a later screen that needs it.
     - Still open in item 12: only the windowed check, which waits on Owen.
 
 ## 13. [x] The Mech Complex's market: lists and buttons don't work; PM's look *(done: mw1-mech-complex)*
