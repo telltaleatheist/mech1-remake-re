@@ -208,6 +208,19 @@ std::vector<std::string> outcome_message(int32_t house, Outcome o, bool garrison
   return p;
 }
 
+std::string deduction_note(int32_t house, int32_t payout_percent) {
+  if (payout_percent >= 100 || house < 0 || house >= kHouseCount) return "";
+  const std::string h = kHouses[house].name;
+  if (payout_percent <= 0) return "House " + h + " declared a breach: fee and salvage forfeit.";
+  return "House " + h + " withheld " + std::to_string(100 - payout_percent) + "% of your fee and salvage.";
+}
+
+std::string fee_dock(int32_t house, int32_t payout_percent) {
+  if (payout_percent >= 100 || house < 0 || house >= kHouseCount) return "";
+  const std::string h = kHouses[house].name;
+  return payout_percent <= 0 ? " (House " + h + ": breach)" : " (" + h + " withheld " + std::to_string(100 - payout_percent) + "%)";
+}
+
 std::string dark_wing_failed() { return exe_text(kDarkWingFailed); }
 std::string dark_wing_victory() { return exe_text(kDarkWingVictory); }
 

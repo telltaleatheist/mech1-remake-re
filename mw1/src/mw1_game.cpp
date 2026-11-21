@@ -2166,7 +2166,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       p.pay.push_back(std::string("Salvage: none (") + (a.outcome == Outcome::kFailure ? "lost" : "withdrew") + ")");
     }
     p.pay.insert(p.pay.begin(), contract_.rung ? std::string("No fee: not a contract")
-                                : success      ? "Fee: " + thousands(s.fee) + dock
+                                : success      ? "Fee: " + thousands(s.fee) + (docked ? fee_dock(company_.planet_house, s.payout_percent) : "")
                                                : std::string("Fee: none (") + (a.outcome == Outcome::kFailure ? "lost" : "withdrew") + ")");
     p.repairs_at = p.pay.size();  // after the salvage, before the total
     const int64_t total = c.funds - before;
@@ -2253,6 +2253,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       if (!success && !failed.empty()) p.message.push_back(failed);
     } else if (!contract_.rung) {  // a story battle (item 75): no House's message, no House hired you
       p.message = outcome_message(company_.planet_house, a.outcome, false, deduction_of(a.outcome, s.payout_percent, r.upto(2)));
+      // FIXES 131: ours after MW1's, the House named and what it kept back (also without the exe's words).
+      if (docked) p.message.push_back(deduction_note(company_.planet_house, s.payout_percent));
     }
     return p;
   }
@@ -2785,7 +2787,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     const MissionSettled m = settle_mission(company_, contract_, *pending_, rng_);
     const Settlement& s = m.s;
     for (const std::string& l : fate_lines(*pending_)) std::printf("mw1: fate: %s\n", l.c_str());  // FIXES 106
-    log_add(company_, LogKind::kResult, true, static_cast<int32_t>(pending_->outcome), 0, 0, 0, s.fee, s.salvage);
+    // FIXES 131: c, the House that settled (+1; 0 an older save's), d, the percent it kept back.
+    log_add(company_, LogKind::kResult, true, static_cast<int32_t>(pending_->outcome), 0, company_.planet_house + 1,
+            pending_->outcome == Outcome::kSuccess && !contract_.rung ? 100 - s.payout_percent : 0, s.fee, s.salvage);
     // The parts are kept only on a win (VISION.md, the endings): failed or quit, the mission's salvage is dropped.
     if (pending_->outcome == Outcome::kSuccess && pending_->salvage) company_.stores->add_all(*pending_->salvage);
     clamp_stores(*company_.stores);  // FIXES.md item 53

@@ -5,6 +5,7 @@
 
 #include "check.h"
 #include "mw1_install.h"
+#include "mw1_log.h"
 #include "mw1_pilots.h"
 #include "mw1_results.h"
 
@@ -83,6 +84,43 @@ TEST(mw1_results_the_message_is_the_exes) {
     for (size_t j = 0; j < i; ++j) EXPECT(docked[i].size() == 2 && docked[j].size() == 2 && docked[i][1] != docked[j][1]);
   }
   EXPECT(docked[2].size() == 2 && docked[2][1].find("ABANDONED") != std::string::npos);
+}
+
+// FIXES 131: a win paid short says which House did it and what it kept, in our words after MW1's: a breach (Kurita,
+// Liao) or a share withheld (Marik 50%, Steiner 25%); in full, nothing. One line in the narrow message box, and with
+// MW1's own two paragraphs it still fits the box (kMessageLines) at both widths. The log's won line carries it too.
+TEST(mw1_results_a_win_paid_short_names_the_house_and_fits) {
+  EXPECT(mw1::deduction_note(mw1::kKurita, 0) == "House Kurita declared a breach: fee and salvage forfeit.");
+  EXPECT(mw1::deduction_note(mw1::kMarik, 50) == "House Marik withheld 50% of your fee and salvage.");
+  EXPECT(mw1::deduction_note(mw1::kSteiner, 75) == "House Steiner withheld 25% of your fee and salvage.");
+  EXPECT(mw1::deduction_note(mw1::kDavion, 100).empty() && mw1::deduction_note(-1, 0).empty());
+  EXPECT(mw1::fee_dock(mw1::kLiao, 0) == " (House Liao: breach)" && mw1::fee_dock(mw1::kMarik, 50) == " (Marik withheld 50%)");
+  EXPECT(mw1::fee_dock(mw1::kDavion, 100).empty());
+  for (int h = 0; h < mw1::kHouseCount; ++h)
+    for (int32_t pay : {0, 50, 75}) EXPECT(mw1::deduction_note(h, pay).size() <= mw1::kResultsNarrow.message);
+  // The log: the won line, then the House's (an older save's entry, no House, just the won line).
+  mw1::Company c;
+  mw1::LogEntry e;
+  e.kind = mw1::LogKind::kResult, e.a = static_cast<int32_t>(Outcome::kSuccess), e.c = mw1::kKurita + 1, e.d = 100;
+  const std::vector<std::string> logged = mw1::log_lines(c, e);
+  EXPECT(logged.size() == 2 && logged[1] == mw1::deduction_note(mw1::kKurita, 0));
+  e.c = 0, e.d = 0;
+  EXPECT(mw1::log_lines(c, e).size() == 1);
+  if (mw1_test::no_mw1()) return;
+  mw1::set_mw1_game_dir(MW1_DOS_GAME_DIR);
+  size_t most = 0;
+  for (int h = 0; h < mw1::kHouseCount; ++h)
+    for (Deduction d : {Deduction::kSupply, Deduction::kPerformance, Deduction::kTransport, Deduction::kNoPay}) {
+      std::vector<std::string> m = mw1::outcome_message(h, Outcome::kSuccess, false, d);
+      m.push_back(mw1::deduction_note(h, d == Deduction::kNoPay ? 0 : 50));
+      for (const mw1::ResultsWidths* w : {&mw1::kResultsNarrow, &mw1::kResultsWide}) {
+        const size_t n = mw1::wrap(m, w->message).size();
+        most = std::max(most, n);
+        EXPECT(n <= mw1::kMessageLines);
+      }
+    }
+  mw1::set_mw1_game_dir("");
+  std::printf("  a short-paid win's message, with ours: at most %zu of %zu lines\n", most, mw1::kMessageLines);
 }
 
 namespace {

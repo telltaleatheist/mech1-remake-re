@@ -5,6 +5,32 @@ Tick an item when it is merged into `main`.
 
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 131. [x] A win paid short says the House did it *(done: mw1-fix131-breach; for 1.0.3, in the 1.2.0 rebuild)*
+
+- **Found in the 1.2.0 new-player pass:** a won mission ended "breach of contract", 0 C-bills and 0 salvage, which
+  looked like a bug.
+- **The cause is MW1's own settlement roll, kept:** at 081B:1EB6, `MwRandomUpTo(100) <= DS:1241[house]` pays
+  DS:124B[house]% of the fee and salvage.
+  - Kurita and Liao pay 0% (the breach), Marik 50%, Steiner 75%; Davion never short-pays.
+  - The chance is 11 in 101 for Kurita and Steiner, 31 in 101 for Marik and Liao.
+  - Story battles skip it (MW1 skips the Dark Wing base).
+  - Ours already matched the original exactly: 0 to 100 inclusive, compared with `<=`, as MwRandomUpTo's
+    `maximum + 1`.
+- **Owen (2026-11-20):** keep the roll, but say plainly that the employer did it. Ours:
+  - **the message box:** after MW1's own lines, one line of ours, "House Kurita declared a breach: fee and salvage
+    forfeit." or "House Marik withheld 50% of your fee and salvage." (`deduction_note`). It is shown even without
+    the exe's words. With MW1's two paragraphs it fits the 6-line box at both widths; the tightest case is 6 of 6.
+  - **PAYMENT:** the fee's line, beside its figure: "Fee: 0 (House Kurita: breach)", "Fee: 105,000 (Steiner
+    withheld 25%)" (`fee_dock`).
+  - **the company log:** the won line, then the same line. The result entry keeps the House (+1) in c and the
+    percent kept back in d; an older save's 0 shows the won line alone.
+- **Tests:**
+  - `mw1_campaign_the_settlement_roll_is_mw1s_and_skips_davion_and_story_battles`: 20,000 settlements a House. The
+    rates are within 1 point of MW1's, and every short payment is the House's percent. Davion: none. A story battle:
+    no roll, and the generator isn't drawn.
+  - `mw1_results_a_win_paid_short_names_the_house_and_fits`: the wording, the widths, the log line, and the fit with
+    every House's and deduction's MW1 text.
+
 ## 130. [ ] MW1 Original: the 1989 game rebuilt as our own C++ *(scoping: mw1-fix130-scoping; no code yet)*
 - **Owen (2026-11-20), via the lead:** rebuild MechWarrior (1989) as our own code, the way mw3-re rebuilt MW3.
   - **The base:** Elthial's SDL port, forked with history and converted to clean C++20 (classes, namespaces, plain names, no goto, organized by function, the original's address per function).

@@ -431,3 +431,42 @@ TEST(mw1_highlight_marks) {
   EXPECT(l.find(mw1::kHighlight) != std::string::npos && mw1::plain_line(l) == "Employer: House Davion, 2 Heavy");
   EXPECT(mw1::plain_line("no marks") == "no marks");
 }
+
+// FIXES 131: MW1's settlement roll as the original (MW_MAIN 081B:1EB6, MwRandomUpTo(100) <= DS:1241[house], 0..100
+// inclusive): Kurita and Steiner short-pay 11 contracts in 101, Marik and Liao 31; Kurita and Liao pay nothing (the
+// breach), Marik half, Steiner 75%; Davion never. A story battle never rolls (nor draws).
+TEST(mw1_campaign_the_settlement_roll_is_mw1s_and_skips_davion_and_story_battles) {
+  constexpr int kRuns = 20000;
+  const int32_t want_paid[mw1::kHouseCount] = {0, 75, 50, 0, 100};
+  const int32_t want_in101[mw1::kHouseCount] = {11, 11, 31, 31, 0};
+  for (int h = 0; h < mw1::kHouseCount; ++h) {
+    mw1::Rng rng(static_cast<uint32_t>(40 + h));
+    mw1::Company c = mw1::new_company(rng);
+    c.planet_house = h, c.tier = 0;
+    int docked = 0, wrong = 0;
+    for (int i = 0; i < kRuns; ++i) {
+      mw1::Contract k = mw1::generate_contract(c, 0, rng);
+      mw1::accept(c, k);
+      const mw1::Settlement s = mw1::settle(c, k, mw1::Outcome::kSuccess, {}, rng);
+      if (s.payout_percent < 100) {
+        ++docked;
+        if (s.payout_percent != want_paid[h] || s.fee != int64_t{k.remaining} * want_paid[h] / 100 * 1000) ++wrong;
+      }
+    }
+    const double rate = 100.0 * docked / kRuns, want = 100.0 * want_in101[h] / 101;
+    std::printf("  %-8s short-paid %5.2f%% (MW1's %5.2f%%), paid %d%%\n", mw1::kHouses[h].name, rate, want, want_paid[h]);
+    EXPECT(wrong == 0);
+    EXPECT(h == mw1::kDavion ? docked == 0 : std::abs(rate - want) < 1.0);
+  }
+  // A story battle: no fee, no roll, the generator untouched.
+  mw1::Rng rng(9);
+  mw1::Company c = mw1::new_company(rng);
+  c.planet_house = mw1::kKurita;
+  for (int i = 0; i < 2000; ++i) {
+    mw1::Contract k = mw1::generate_contract(c, 0, rng);
+    k.rung = 1;
+    mw1::Rng before = rng;
+    const mw1::Settlement s = mw1::settle(c, k, mw1::Outcome::kSuccess, {}, rng);
+    EXPECT(s.payout_percent == 100 && s.fee == 0 && before.upto(1000000) == rng.upto(1000000));
+  }
+}
