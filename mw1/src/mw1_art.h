@@ -85,10 +85,12 @@ class Store {
   // The images a screen about to open will show, decoded on worker threads now (behind the loading screen) and kept
   // until first asked for.
   void preload(const std::vector<std::string>& names);
-  // Once a frame: the pictures not asked for in kKeepFrames frames (and not waiting to be, preloaded) are dropped.
+  // Once a frame: the pictures not asked for in kKeepFrames frames (and not waiting to be, preloaded, nor drawn
+  // pieces marked keep) are dropped.
   void end_frame();
   static constexpr int64_t kKeepFrames = 180;
   size_t decoded_count() const;  // for the tests
+  bool made(const std::string& name) const;  // for the tests: a drawn piece (set_drawn_art) made and not dropped
   void close();
 
   ~Store();
@@ -113,6 +115,10 @@ bool install(const std::string& path, bool hires);
 struct DrawnArt {
   int32_t canvas_w = 0, canvas_h = 0;
   std::function<std::vector<uint8_t>(int32_t s)> draw;
+  // Kept once made, not dropped kKeepFrames after its last use (only by a new scale or a reopen): for the mission
+  // HUD's pictures, which come and go with its views (FIXES.md item 132: the damage display's, made again on each D
+  // after three seconds away). All of them together are 8.4 MB at 4K.
+  bool keep = false;
 };
 void set_drawn_art(std::function<bool(const std::string& name, DrawnArt* out)> source);
 

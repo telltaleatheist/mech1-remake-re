@@ -98,6 +98,9 @@ if(TARGET mw3pm)
     # The travel map's names on their backings, each as wide as its name (FIXES.md item 87), both shapes.
     add_test(NAME mw1namebacking COMMAND ${CMAKE_COMMAND} -DMW1_BIN=$<TARGET_FILE:mw1> -DDIR=${CMAKE_CURRENT_BINARY_DIR}/mw1namebacking
                                          -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/name_backing.cmake)
+    # D in a mission doesn't stall a frame (FIXES.md item 132), at 4K and 1080p.
+    add_test(NAME mw1mfdstall COMMAND ${CMAKE_COMMAND} -DMW1_BIN=$<TARGET_FILE:mw1> -DDIR=${CMAKE_CURRENT_BINARY_DIR}/mw1mfdstall
+                                      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/mfd_stall.cmake)
     # The pause's backdrop without the HUD's marker line (FIXES.md item 83), both shapes.
     add_test(NAME mw1pausegrab COMMAND ${CMAKE_COMMAND} -DMW1_BIN=$<TARGET_FILE:mw1> -DDIR=${CMAKE_CURRENT_BINARY_DIR}/mw1pausegrab
                                        -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/pause_grab.cmake)
