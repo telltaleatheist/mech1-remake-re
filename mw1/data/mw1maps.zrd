@@ -9,7 +9,11 @@
 ; Attack rows are on each map's own Attack archive (ia2), where the structure is the enemy's and they guard it;
 ; defend rows on its Defend archive (ia3), where it's yours and they come for it. Every row here passes the
 ; survey (tests/test_mw1_loop.cpp, mw1_loop_every_map_row_is_there_headless): a structure the engine
-; can't find would count as destroyed at once.
+; can't find would count as destroyed at once. FIXES 134: the survey also checks where it stands. An attack's
+; target is on the enemies' side, away from the start (at least 150 m from it, at least halfway to the enemies'
+; centre), though a player who tries may slip past them to it; a defence's is on the player's side (at most halfway
+; to the enemies, nearer the start than the enemies), so they come through the player to reach it; a reach's place
+; (MW1's withdraw) is at least 150 m from the start, whichever way it leads.
 ;
 ; PM's four worlds are desert at a stretch (c1 and c3 volcanic; research/maps.md), MW3's Grasslands (mw3c2) the
 ; one green map; no Instant Action map is ice yet (research/maps.md, "Arctic").
@@ -42,15 +46,15 @@ MAP (WORLD ("mw3c3") IA (3) CLIMATE ("tropical") KIND ("any"))
 MAP (WORLD ("mw3c4") IA (1) CLIMATE ("desert") KIND ("any"))
 MAP (WORLD ("mw3c4") IA (3) CLIMATE ("desert") KIND ("any"))
 MAP (WORLD ("mw3c4b") IA (1) CLIMATE ("ice") KIND ("any"))
-; MW1's arctic map 1 (item 44, laid from data/arctic/ia1): c4b's warehouses.
+; MW1's arctic map 1 (item 44, laid from data/arctic/ia1): c4b's warehouses. No defend here: all three stand on the
+; enemies' side of the start (FIXES 134).
 MAP (WORLD ("mw3c4b") IA (1) CLIMATE ("ice") KIND ("reach") NODE ("ware03") WORDS ("the south warehouse"))
 MAP (WORLD ("mw3c4b") IA (1) CLIMATE ("ice") KIND ("attack") NODE ("ware01") WORDS ("the supply warehouse"))
-MAP (WORLD ("mw3c4b") IA (1) CLIMATE ("ice") KIND ("defend") NODE ("ware02") WORDS ("the depot"))
 ; MW1's arctic map 2 (data/arctic/ia2).
 MAP (WORLD ("mw3c4b") IA (2) CLIMATE ("ice") KIND ("any"))
 MAP (WORLD ("mw3c4b") IA (2) CLIMATE ("ice") KIND ("reach") NODE ("ware02") WORDS ("the depot"))
-MAP (WORLD ("mw3c4b") IA (2) CLIMATE ("ice") KIND ("attack") NODE ("ware03") WORDS ("the south warehouse"))
-MAP (WORLD ("mw3c4b") IA (2) CLIMATE ("ice") KIND ("defend") NODE ("ware01") WORDS ("the supply warehouse"))
+MAP (WORLD ("mw3c4b") IA (2) CLIMATE ("ice") KIND ("attack") NODE ("ware01") WORDS ("the supply warehouse"))
+MAP (WORLD ("mw3c4b") IA (2) CLIMATE ("ice") KIND ("defend") NODE ("ware03") WORDS ("the south warehouse"))
 ; Reach (MW1's withdraw).
 MAP (WORLD ("c2") IA (1) CLIMATE ("desert") KIND ("reach") NODE ("3twr1") WORDS ("the pump complex"))
 MAP (WORLD ("c2") IA (2) CLIMATE ("desert") KIND ("reach") NODE ("portalgate") WORDS ("the portal gate"))
@@ -63,7 +67,6 @@ MAP (WORLD ("mw3c4") IA (2) CLIMATE ("desert") KIND ("reach") NODE ("iatower") W
 ; Attack (MW1's special target).
 MAP (WORLD ("c1") IA (2) CLIMATE ("desert") KIND ("attack") NODE ("hitme_twr") WORDS ("the dome core"))
 MAP (WORLD ("c2") IA (2) CLIMATE ("desert") KIND ("attack") NODE ("portalgate") WORDS ("the portal gate"))
-MAP (WORLD ("c3") IA (2) CLIMATE ("desert") KIND ("attack") NODE ("mpbbase") WORDS ("the pirate base"))
 MAP (WORLD ("c3") IA (2) CLIMATE ("desert") KIND ("attack") NODE ("pspwrsrc01") WORDS ("the power generator"))
 MAP (WORLD ("c4") IA (2) CLIMATE ("desert") KIND ("attack") NODE ("warehouse_target40") WORDS ("the warehouse"))
 MAP (WORLD ("mw3c2") IA (2) CLIMATE ("tropical") KIND ("attack") NODE ("iatower") WORDS ("the tower"))
@@ -74,7 +77,6 @@ MAP (WORLD ("mw3c4") IA (2) CLIMATE ("desert") KIND ("attack") NODE ("iatower") 
 MAP (WORLD ("c1") IA (3) CLIMATE ("desert") KIND ("defend") NODE ("pship_kill") WORDS ("the pirate ship"))
 MAP (WORLD ("c2") IA (3) CLIMATE ("desert") KIND ("defend") NODE ("mp_tent_campb") WORDS ("the headquarters"))
 MAP (WORLD ("c2") IA (3) CLIMATE ("desert") KIND ("defend") NODE ("tcab05") WORDS ("the germanium transport"))
-MAP (WORLD ("c3") IA (3) CLIMATE ("desert") KIND ("defend") NODE ("mpbbase") WORDS ("the base"))
 MAP (WORLD ("c3") IA (3) CLIMATE ("desert") KIND ("defend") NODE ("pspwrsrc01") WORDS ("the power generator"))
 MAP (WORLD ("c4") IA (3) CLIMATE ("desert") KIND ("defend") NODE ("warehouse_target40") WORDS ("the warehouse"))
 MAP (WORLD ("mw3c2") IA (3) CLIMATE ("tropical") KIND ("defend") NODE ("iatower") WORDS ("the tower"))
