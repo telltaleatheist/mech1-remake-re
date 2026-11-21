@@ -1,4 +1,5 @@
 #include "frontend/sdl/movie_import.h"
+#include "rekit/sdl/child.h"
 
 #include <SDL3/SDL.h>
 
@@ -66,13 +67,7 @@ int movies_missing(const std::string& source, const std::string& write_dir) {
   return static_cast<int>(names.size());
 }
 
-size_t read_child(SDL_IOStream* io, void* buf, size_t n) {
-  for (;;) {
-    const size_t got = io ? SDL_ReadIO(io, buf, n) : 0;
-    if (got > 0 || !io || SDL_GetIOStatus(io) != SDL_IO_STATUS_NOT_READY) return got;
-    SDL_Delay(10);
-  }
-}
+size_t read_child(SDL_IOStream* io, void* buf, size_t n) { return rekit::sdl::read_child(io, buf, n); }
 
 int run_importer(const std::string& source, const std::string& write_dir,
                  const std::function<bool(int, int, const std::string&)>& progress) {

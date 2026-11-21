@@ -48,6 +48,7 @@ worktree() {
   fi
   git worktree prune
   git worktree add --detach "$dir" "$ref" >/dev/null
+  git -C "$dir" submodule update --init --quiet  # extern/re-setup-kit
   # The deps the package scripts read from the checkout (build_deps.sh's), linked in.
   [ -d "$ROOT/build-deps" ] && ln -s "$ROOT/build-deps" "$dir/build-deps"
   echo "$name: $(git -C "$dir" describe --tags --always --dirty) ($(git -C "$dir" rev-parse --short HEAD))"
