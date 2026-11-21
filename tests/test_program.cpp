@@ -24008,12 +24008,13 @@ TEST(mission_c1m2_destroy_objectives_met_by_mech_kills_headless) {
 // and the keyboard, `other` on the frames after the mission in other states,
 // until one says done or `limit` frames pass.
 platform::JoyState* g_cheat_stick = nullptr;  // a fake stick for the launch; none the default
+platform::MouseState* g_cheat_mouse = nullptr;  // a fake mouse for the launch (issue #10); none the default
 struct CheatKeys : platform::Input {
   std::vector<platform::KeyEvent> queue;
   uint32_t t = 0;
   void key(uint32_t dik, bool down) { queue.push_back({dik, down ? 0x80u : 0u, ++t, t}); }
   void press(uint32_t dik) { key(dik, true), key(dik, false); }
-  bool open(Device d) override { return d == kKeyboard || (d == kJoystick && g_cheat_stick); }
+  bool open(Device d) override { return d == kKeyboard || (d == kJoystick && g_cheat_stick) || (d == kMouse && g_cheat_mouse); }
   void close(Device) override {}
   int32_t acquire(Device) override { return 0; }
   int32_t unacquire(Device) override { return 0; }
@@ -24024,7 +24025,11 @@ struct CheatKeys : platform::Input {
     *count = n;
     return 0;
   }
-  int32_t mouse_state(platform::MouseState*) override { return kNotAcquired; }
+  int32_t mouse_state(platform::MouseState* out) override {
+    if (!g_cheat_mouse) return kNotAcquired;
+    *out = *g_cheat_mouse;
+    return 0;
+  }
   int32_t joystick_state(platform::JoyState* out) override {
     if (!g_cheat_stick) return kNotAcquired;
     *out = *g_cheat_stick;
@@ -28667,6 +28672,40 @@ TEST(issue4_a_shutdown_key_bound_in_a_mission_works_headless) {
   EXPECT(key > 1 && down);
   std::printf("  issue 10 item 1: FREELOOK on the middle button alone has its callback %d\n", mouse_only);
   EXPECT(mouse_only);
+}
+// Issue #10 item 2: TORSO AUTO RETURN on, a twist input past 1 (the mouse's,
+// a rate; here a stick's twist at slope 5, the same path) aimed the torso
+// past its limit and round. With SMALL FIXES the torso keeps to its limit.
+namespace {
+float issue10_twist(bool small) {
+  platform::MouseState mouse;  // twist and pitch on the mouse, as the report's: a rate, a stroke a frame
+  g_cheat_mouse = &mouse;
+  zfix::options().small_fixes = small;
+  float worst = 0.0f, limit = 0.0f;
+  cheat_mission("issue10_write", 0, 1, 900, [&](int f, mech3::GameEngine&, CheatKeys&) {
+    if (f == 1) {
+      mech3::axis_table().axes[1] = {9, -1.0f, 0.0f, 0.0f}, mech3::axis_table().axes[2] = {10, 1.0f, 0.0f, 0.0f};
+      mech3::set_torso_auto_return(1);  // as the options in a mission
+      if (auto* c = mech3::player_controls_instance()) c->view = 0;  // the torso on the mouse
+    }
+    mouse.x = f >= 5 && f < 60 ? -40 : 0;  // a quick stroke left, held
+    mech3::LaunchedMech x;
+    if (mech3::describe_mech(mech3::mission_player_mech(), &x)) {
+      limit = x.torso_max_yaw;
+      worst = std::max(worst, std::fabs(x.torso_yaw));
+    }
+    return f >= 120;
+  });
+  g_cheat_mouse = nullptr;
+  zfix::options().small_fixes = true;
+  std::printf("  issue 10 item 2 (small fixes %d): torso yaw at most %.2f, its limit %.2f\n", small, worst, limit);
+  return limit > 0.0f ? worst / limit : 0.0f;
+}
+}  // namespace
+TEST(issue10_auto_return_torso_keeps_its_limit_headless) {
+  if (!have_game()) return;
+  EXPECT(issue10_twist(true) <= 1.001f);
+  EXPECT(issue10_twist(false) > 1.5f);  // the original's: well past
 }
 // Playtest W50 (Owen, c1m2 on the Mac, v1.0): "Destroy Missile Platforms
 // OP: Baker" stays In Progress; triturret02 vanished with no wreck while its

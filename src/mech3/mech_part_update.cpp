@@ -1,6 +1,7 @@
 // The parts' setups and updates: the torso's aim and shake, the hip's crouch,
 // the feet on the ground, the arms' aim and recoil (docs/movement-ground.md,
 // The part updates). Original file: mech3\mech_parts.cpp (0x0045fdd0..0x00466f00).
+#include <algorithm>
 #include <cmath>
 
 #include "gamez/zclass/class.h"
@@ -8,6 +9,7 @@
 #include "gamez/zgeometry/zgeo_x87.h"
 #include "gamez/zmath/zmth_matrix.h"
 #include "gamez/zmath/zmth_vector.h"
+#include "gamez/zutil/zfix.h"
 #include "mech3/mech.h"
 #include "mech3/mech_collide.h"
 #include "mech3/mech_move.h"
@@ -810,11 +812,19 @@ void Torso::update(float dt) {
       max_yaw = d->get<float>(0x174);
       max_pitch = d->get<float>(0x178);
       min_pitch = d->get<float>(0x17c);
-      approach(&yaw, max_yaw * twist_in, rate, dt);
-      approach(&pitch, pitch_in >= 0.0f ? max_pitch * pitch_in : -(min_pitch * pitch_in), rate, dt);
+      // FIX (bug), issue #10 item 2, under SMALL FIXES: the inputs are positions
+      // here (a stick's -1..1), but the mouse's are rates (motion over the frame,
+      // 0x00427870), so a quick stroke with TORSO AUTO RETURN on aimed the torso
+      // far past its limit and round. Kept to -1..1, the limits hold.
+      const bool keep = zfix::options().small_fixes;
+      const auto lim = [keep](double v) { return keep ? std::clamp(v, -1.0, 1.0) : v; };
+      approach(&yaw, max_yaw * static_cast<float>(lim(twist_in)), rate, dt);
+      const float pin = static_cast<float>(lim(pitch_in));
+      approach(&pitch, pin >= 0.0f ? max_pitch * pin : -(min_pitch * pin), rate, dt);
       if (g_calls.look_limits) g_calls.look_limits(m, &max_yaw, &max_pitch, &min_pitch);
-      approach(&look_yaw_angle, look_yaw * max_yaw, rate, dt);
-      approach(&look_pitch_angle, (look_pitch >= 0.0f ? max_pitch : -min_pitch) * look_pitch, rate, dt);
+      approach(&look_yaw_angle, static_cast<float>(lim(look_yaw)) * max_yaw, rate, dt);
+      const float lpin = static_cast<float>(lim(look_pitch));
+      approach(&look_pitch_angle, (lpin >= 0.0f ? max_pitch : -min_pitch) * lpin, rate, dt);
     }
     yaw_pitch(yaw, pitch, turn_q);
     yaw_pitch(look_yaw_angle + yaw, look_pitch_angle + pitch, view_q);

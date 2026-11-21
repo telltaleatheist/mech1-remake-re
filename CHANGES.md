@@ -25,6 +25,7 @@ it is clear what the designers meant.
 ## Bug fixes that change play
 
 - **Leaving the pause menu with Escape no longer silences the mission.** The pause stops every sound and only the RESUME button started them again: leaving with Escape left the wind, the ocean and your mech's engine hum silent for the rest of the mission. Escape now brings them back as RESUME does (the expansion did the same).
+- **TORSO AUTO RETURN with the mouse keeps the torso within its twist.** With the mouse on twist and pitch, a quick stroke swung the torso past its limit and all the way round (issue #10). Under SMALL FIXES.
 - **The Sunder's Alternate B loadout carries all its LRM 20 missiles.** A misplaced word in its file left 240 of the 360 unloaded. Under SMALL FIXES.
 - **The Strider has its recoil slide.** Its file gave the number as text ("1.5.0"), so it had none; it now has the 1.5 of the mechs beside it. Under SMALL FIXES.
 - **The Vulture's DESERT camo has its cockpit canopy.** One texture of that camo is missing from the game's data, so the top of the canopy showed red and green checks; the developers had a special case for it with the name misspelt. It now takes the texture they meant. Under SMALL FIXES.
