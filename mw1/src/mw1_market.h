@@ -35,6 +35,22 @@ int64_t sell_price(int32_t mech, int32_t tier);
 int32_t buy_percent(int32_t tier);
 int32_t sell_percent(int32_t tier);
 
+// FIXES 135: a little variety. At each market refresh every model gets one shift for that world, on a bell curve:
+// the sum of three rolls of -17 to +17 permille, clamped to +-50 (+-5%). Buying and selling there both take it, so
+// the buy/sell gap stays and nothing is gained by buying and selling back. The base prices above stay the market's
+// without a shift: the travel map's percentages and a mech lost on a mission (repairs' lost_value: no market quotes
+// it, and the House's cover shouldn't ride on one world's roll) use them.
+inline constexpr int32_t kShiftMost = 50, kShiftRoll = 17;
+int32_t roll_shift(Rng& rng);
+int32_t market_shift(const Company& c, int32_t mech);  // permille; 0 for a model without one
+// The base prices times (1000 + shift) / 1000, floored to 1,000 as the base's are.
+int64_t buy_price(int32_t mech, int32_t tier, int32_t shift);
+int64_t sell_price(int32_t mech, int32_t tier, int32_t shift);
+// What this world's market charges and pays: the company's tier and the market's shift for the model. The market
+// screen, BUY, SELL, their funds checks and a wreck's value all use these.
+int64_t market_buy_price(const Company& c, int32_t mech);
+int64_t market_sell_price(const Company& c, int32_t mech);
+
 // MW1's classes for PM's mechs (VISION, "Combat: mechs"): 0 light (35 t and under), 1 medium (40 to 55 t), 2 heavy
 // (60 t and over: MW1's heavy takes in assault). PM's roster less the Elemental.
 int32_t mech_class(int32_t mech);

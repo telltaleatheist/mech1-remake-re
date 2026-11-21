@@ -264,7 +264,8 @@ TEST(mw1_save_a_version_10_save_reads_mw1s_kinds_as_slots) {
   EXPECT(mw1::wreck_value(back, pb.wrecks[0]) == mw1::wreck_value(back, mw1::Wreck{mw1::kSlot75, 50, 0, mw1::kPmOrion}));
   EXPECT(mw1::wreck_value(back, pb.wrecks[1]) == mw1::wreck_value(back, mw1::Wreck{mw1::kSlot35, 100, 0, mw1::kPmOwens}));
   const std::string again = mw1::save_text(back, &kb, &pb);
-  EXPECT(again.find("\nversion=11\n") != std::string::npos || again.rfind("version=11\n", 0) == 0);
+  const std::string now = "version=" + std::to_string(mw1::kSaveVersion) + "\n";  // saved again as this build's
+  EXPECT(again.find("\n" + now) != std::string::npos || again.rfind(now, 0) == 0);
   EXPECT(again.find("\noffer_enemies=7,0,3,2\n") != std::string::npos && again.find("\npending_wrecks=6:50:0,1:100:0\n") != std::string::npos);
 }
 

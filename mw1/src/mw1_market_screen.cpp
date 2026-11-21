@@ -81,13 +81,13 @@ void deal_choice(const Company& c, MarketChoice& m, bool bought) {
 std::string buy_question(const Company& c, int32_t stock_index) {
   if (stock_index < 0 || stock_index >= static_cast<int32_t>(c.market.stock.size())) return "";
   const int32_t mech = c.market.stock[static_cast<size_t>(stock_index)];
-  return "Buy the " + mech_title(mech) + " for " + thousands(buy_price(mech, c.tier)) + " C-bills?";
+  return "Buy the " + mech_title(mech) + " for " + thousands(market_buy_price(c, mech)) + " C-bills?";
 }
 
 std::string sell_question(const Company& c, int32_t owned_index) {
   const int32_t mech = owned_mech(c, owned_index);
   if (mech < 0) return "";
-  std::string q = "Sell the " + mech_title(mech) + " for " + thousands(sell_price(mech, c.tier)) + " C-bills?";
+  std::string q = "Sell the " + mech_title(mech) + " for " + thousands(market_sell_price(c, mech)) + " C-bills?";
   if (owned_index == 0 && owned_count(c) > 1) q += "\n\nYou will pilot the " + mech_title(owned_mech(c, 1)) + ".";
   return q;
 }
@@ -148,9 +148,9 @@ ScreenView market_view(const Company& c, const MarketChoice& m) {
   for (int32_t i = m.stock_top; i < static_cast<int32_t>(c.market.stock.size()) && i < m.stock_top + kMarketRows; ++i) {
     const int32_t mech = c.market.stock[static_cast<size_t>(i)];
     const std::string row = std::string(i == m.stock ? "> " : "  ") + kOutlineRoom + padded(listed(mech), kNameWidth) +
-                            tons(mech) + price_column(buy_price(mech, c.tier));
+                            tons(mech) + price_column(market_buy_price(c, mech));
     v.inline_pictures.push_back({"S_ROWS", i - m.stock_top, kRowIconH, "> ", row_icon_image(mech, i == m.stock)});
-    const bool afford = buy_price(mech, c.tier) <= c.funds;
+    const bool afford = market_buy_price(c, mech) <= c.funds;
     stock.push_back(afford ? row : ""), stock_dim.push_back(afford ? "" : row);
   }
   for (int32_t mech : c.market.stock) any_clan = any_clan || clan_mech(mech);
@@ -166,7 +166,7 @@ ScreenView market_view(const Company& c, const MarketChoice& m) {
   for (int32_t i = m.owned_top; i < owned_count(c) && i < m.owned_top + kMarketRows; ++i) {
     const int32_t mech = owned_mech(c, i);
     owned.push_back(std::string(i == m.owned ? "> " : "  ") + kOutlineRoom + padded(listed(mech), kNameWidth) + tons(mech) +
-                    padded(pilot_of(c, i), kWhoWidth) + price_column(sell_price(mech, c.tier)));
+                    padded(pilot_of(c, i), kWhoWidth) + price_column(market_sell_price(c, mech)));
     v.inline_pictures.push_back({"O_ROWS", i - m.owned_top, kRowIconH, "> ", row_icon_image(mech, i == m.owned)});
   }
   v.blocks.push_back(at_place("O_TITLE", {"YOUR MECHS"}));

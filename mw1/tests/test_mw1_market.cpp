@@ -4,6 +4,8 @@
 // last mech kept; the wrecks' cash on the same sale price; the hangar and the market saved (version 2) and a version 1
 // save read.
 #include <algorithm>
+#include <cmath>
+#include <cstdlib>
 #include <cstdio>
 #include <memory>
 #include <string>
@@ -478,4 +480,159 @@ TEST(mw1_market_asks_before_a_deal) {
   c.market.limit = 0;
   EXPECT(mw1::can_sell(c, 1) == mw1::Deal::kDealerFull);
   (void)before;
+}
+
+// FIXES 135: a little variety in 'Mech prices. One shift per model per market refresh, a bell curve within +-5%
+// (permille), shared by buying and selling at that world; the market screen, BUY, SELL, their checks and a wreck's
+// value all take it; saved with the market (version 12), none from an older save.
+namespace {
+std::string with_commas(int64_t v) {
+  std::string s = std::to_string(v);
+  for (int i = static_cast<int>(s.size()) - 3; i > 0; i -= 3) s.insert(static_cast<size_t>(i), ",");
+  return s;
+}
+}  // namespace
+
+TEST(mw1_market_shift_range_and_spread) {
+  mw1::Rng rng(135);
+  constexpr int kRolls = 40000;
+  int64_t sum = 0, sq = 0;
+  int lo = 0, hi = 0, within_sd = 0, far = 0;
+  for (int i = 0; i < kRolls; ++i) {
+    const int32_t s = mw1::roll_shift(rng);
+    EXPECT(s >= -mw1::kShiftMost && s <= mw1::kShiftMost);
+    sum += s, sq += int64_t{s} * s, lo = std::min(lo, s), hi = std::max(hi, s);
+    within_sd += s >= -17 && s <= 17, far += s <= -40 || s >= 40;
+  }
+  const double mean = static_cast<double>(sum) / kRolls, sd = std::sqrt(static_cast<double>(sq) / kRolls - mean * mean);
+  std::printf("  %d rolls: mean %.2f permille, sd %.1f, %d..%d, %.1f%% within +-1.7%%, %.2f%% beyond +-4%%\n", kRolls, mean, sd,
+              lo, hi, 100.0 * within_sd / kRolls, 100.0 * far / kRolls);
+  // Three rolls of -17..17: sd about 17.5 permille; a bell, not flat (a flat +-5% would put 34% within +-1.7%).
+  EXPECT(std::abs(mean) < 0.6 && sd > 16 && sd < 19 && lo <= -40 && hi >= 40);
+  EXPECT(within_sd > kRolls * 60 / 100 && far < kRolls * 3 / 100);
+  // A refresh gives every model the market deals in a shift, and they vary.
+  mw1::Company c;
+  c.tier = 1, c.planet_number = 10;
+  mw1::refresh_market(c, rng);
+  EXPECT(c.market.shift.size() == static_cast<size_t>(mech3::kMechCount));
+  int distinct = 0;
+  for (int32_t m = 0; m < mech3::kMechCount; ++m) {
+    if (!mw1::sold_mech(m)) EXPECT(mw1::market_shift(c, m) == 0);
+    distinct += mw1::sold_mech(m) && mw1::market_shift(c, m) != mw1::market_shift(c, kOwens);
+  }
+  EXPECT(distinct > 0);
+}
+
+TEST(mw1_market_shift_buy_and_sell_share_it) {
+  // Every model, tier and shift: the shift 0 is the base price; buying and selling scale together, on 1,000s, and
+  // selling stays below buying (no profit from buying and selling back at one world).
+  for (int32_t m = 0; m < mech3::kMechCount; ++m) {
+    if (!mw1::sold_mech(m)) continue;
+    for (int32_t t = 0; t < 4; ++t) {
+      EXPECT(mw1::buy_price(m, t, 0) == mw1::buy_price(m, t) && mw1::sell_price(m, t, 0) == mw1::sell_price(m, t));
+      for (int32_t s = -mw1::kShiftMost; s <= mw1::kShiftMost; s += 5) {
+        const int64_t buy = mw1::buy_price(m, t, s), sell = mw1::sell_price(m, t, s);
+        EXPECT(buy % 1000 == 0 && sell % 1000 == 0 && sell < buy);
+        EXPECT(std::llabs(buy * 1000 - mw1::buy_price(m, t) * (1000 + s)) <= 1000 * 1000);  // the shift, floored
+      }
+    }
+  }
+  EXPECT(mw1::buy_price(kOwens, 0, 50) == 3234000 && mw1::sell_price(kOwens, 0, 50) == 2910000);
+  EXPECT(mw1::buy_price(kOwens, 0, -50) == 2926000 && mw1::sell_price(kOwens, 0, -50) == 2633000);
+  // The market's: one shift per model for both directions.
+  mw1::Company c;
+  c.tier = 2, c.market.shift.assign(mech3::kMechCount, 0);
+  c.market.shift[static_cast<size_t>(kOwens)] = 37;
+  EXPECT(mw1::market_buy_price(c, kOwens) == mw1::buy_price(kOwens, 2, 37) &&
+         mw1::market_sell_price(c, kOwens) == mw1::sell_price(kOwens, 2, 37));
+  EXPECT(mw1::market_sell_price(c, kOwens) < mw1::market_buy_price(c, kOwens));
+  EXPECT(mw1::market_buy_price(c, kFirefly) == mw1::buy_price(kFirefly, 2));  // no shift: the base
+  // The travel map's readout stays the tier's share.
+  EXPECT(mw1::buy_percent(2) == 130 && mw1::sell_percent(2) == 120);
+}
+
+TEST(mw1_market_shift_shown_is_charged) {
+  mw1::Company c = company_with_stores();
+  c.mech = kOwens, c.tier = 1, c.funds = 10000000;
+  c.market.stock = {kFirefly};
+  c.market.shift.assign(mech3::kMechCount, 0);
+  c.market.shift[static_cast<size_t>(kFirefly)] = -43;
+  c.market.shift[static_cast<size_t>(kOwens)] = 29;
+  const int64_t buy = mw1::market_buy_price(c, kFirefly);
+  EXPECT(buy != mw1::buy_price(kFirefly, 1));
+  mw1::MarketChoice m;
+  mw1::clamp_choice(c, m);
+  auto block = [](const mw1::ScreenView& v, const char* at) -> const std::vector<std::string>* {
+    for (const mw1::TextBlock& b : v.blocks)
+      if (b.at && std::string(b.at) == at) return &b.lines;
+    return nullptr;
+  };
+  mw1::ScreenView v = mw1::market_view(c, m);
+  const std::vector<std::string>* rows = block(v, "S_ROWS");
+  EXPECT(rows && !rows->empty() && rows->front().find(with_commas(buy)) != std::string::npos);
+  EXPECT(mw1::buy_question(c, 0).find(with_commas(buy)) != std::string::npos);
+  // Affordable at the shifted price exactly, not a C-bill less.
+  c.funds = buy - 1;
+  EXPECT(mw1::can_buy(c, 0) == mw1::Deal::kNoFunds);
+  c.funds = buy;
+  EXPECT(mw1::can_buy(c, 0) == mw1::Deal::kDone && mw1::buy(c, 0) == mw1::Deal::kDone && c.funds == 0);
+  // Selling the Owens (the hangar's Firefly piloted next): YOUR MECHS, the question and the funds all agree.
+  const int64_t sell = mw1::market_sell_price(c, kOwens);
+  EXPECT(sell != mw1::sell_price(kOwens, 1));
+  mw1::clamp_choice(c, m);
+  v = mw1::market_view(c, m);
+  rows = block(v, "O_ROWS");
+  EXPECT(rows && !rows->empty() && rows->front().find(with_commas(sell)) != std::string::npos);
+  EXPECT(mw1::sell_question(c, 0).find(with_commas(sell)) != std::string::npos);
+  EXPECT(mw1::sell(c, 0, [](int32_t) { return static_cast<const mech3::Config*>(nullptr); }) == mw1::Deal::kDone &&
+         c.funds == sell);
+}
+
+TEST(mw1_market_shift_wreck_agrees) {
+  mw1::Company c = company_with_stores();
+  c.market.shift.assign(mech3::kMechCount, 0);
+  for (int32_t tier = 0; tier < 4; ++tier)
+    for (int32_t s : {-50, -12, 0, 31, 50}) {
+      c.tier = tier, c.market.shift[static_cast<size_t>(kOwens)] = s;
+      EXPECT(mw1::wreck_value(c, {mw1::kSlot35, 100}) == (mw1::market_sell_price(c, kOwens) + 500) / 1000);
+    }
+}
+
+TEST(mw1_market_shift_saved) {
+  mw1::Company c = company_with_stores();
+  c.mech = kOwens, c.tier = 1, c.planet_number = 10;
+  mw1::Rng rng(7);
+  mw1::refresh_market(c, rng);
+  const std::string text = mw1::save_text(c, nullptr);
+  EXPECT(text.find("\nmarket_shift=") != std::string::npos);
+  mw1::Company back;
+  mw1::Contract k;
+  bool has = false;
+  std::string why;
+  EXPECT(mw1::load_text(text, back, k, &has, &why));
+  EXPECT(back.market.shift == c.market.shift);  // (a bare company's other lines needn't re-save byte for byte)
+  // A version 11 save (before the shifts): read, no shift, the base prices.
+  std::string v11;
+  for (size_t at = 0, nl; at < text.size(); at = nl + 1) {
+    nl = text.find('\n', at);
+    std::string line = text.substr(at, nl - at);
+    if (line.rfind("check=", 0) == 0 || line.rfind("market_shift=", 0) == 0) continue;
+    if (line.rfind("version=", 0) == 0) line = "version=11";
+    v11 += line + "\n";
+  }
+  char check[32];
+  std::snprintf(check, sizeof check, "check=%08x\n", fnv1a(v11));
+  mw1::Company old;
+  EXPECT(mw1::load_text(v11 + check, old, k, &has, &why));
+  std::printf("  version 11: %s\n", why.empty() ? "read" : why.c_str());
+  EXPECT(old.market.shift.empty() && mw1::market_shift(old, kOwens) == 0 &&
+         mw1::market_buy_price(old, kOwens) == mw1::buy_price(kOwens, 1));
+  // A version 12 save without the line, or with a shift past 5%: refused.
+  std::string bad = v11;
+  bad.replace(0, bad.find('\n'), "version=" + std::to_string(mw1::kSaveVersion));
+  std::snprintf(check, sizeof check, "check=%08x\n", fnv1a(bad));
+  EXPECT(!mw1::load_text(bad + check, old, k, &has, &why) && why.find("shift") != std::string::npos);
+  bad += "market_shift=0,51\n";
+  std::snprintf(check, sizeof check, "check=%08x\n", fnv1a(bad));
+  EXPECT(!mw1::load_text(bad + check, old, k, &has, &why) && why.find("shift") != std::string::npos);
 }

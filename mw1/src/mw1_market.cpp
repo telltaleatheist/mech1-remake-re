@@ -42,15 +42,31 @@ bool clan_world(int32_t planet_number) {
 int32_t tier0_price(int32_t mech) { return kPricePerTon * tons_of(mech) - kPriceOffset; }
 bool clan_mech(int32_t mech) { return mech3::mech_tech(mech) == mech3::kClan; }
 
-// Floored to 1,000 (research/economy.md), before the Clan's factor (kClanPriceFactor, 1 since FIXES 115).
-int64_t buy_price(int32_t mech, int32_t tier) {
-  const int64_t p = static_cast<int64_t>(tier0_price(mech)) * kTierMultipliers[tier] * 100 / 1000 * 1000;
+// Floored to 1,000 (research/economy.md), before the Clan's factor (kClanPriceFactor, 1 since FIXES 115). The
+// shift (FIXES 135, permille) scales the price before the floor; 0 gives the base price exactly.
+int64_t buy_price(int32_t mech, int32_t tier, int32_t shift) {
+  const int64_t p = static_cast<int64_t>(tier0_price(mech)) * kTierMultipliers[tier] * 100 * (1000 + shift) / 1000 / 1000 * 1000;
   return clan_mech(mech) ? p * kClanPriceFactor : p;
 }
-int64_t sell_price(int32_t mech, int32_t tier) {
-  const int64_t p = static_cast<int64_t>(tier0_price(mech)) * (kTierMultipliers[tier] - 1) * 100 / 1000 * 1000;
+int64_t sell_price(int32_t mech, int32_t tier, int32_t shift) {
+  const int64_t p =
+      static_cast<int64_t>(tier0_price(mech)) * (kTierMultipliers[tier] - 1) * 100 * (1000 + shift) / 1000 / 1000 * 1000;
   return clan_mech(mech) ? p * kClanPriceFactor : p;
 }
+int64_t buy_price(int32_t mech, int32_t tier) { return buy_price(mech, tier, 0); }
+int64_t sell_price(int32_t mech, int32_t tier) { return sell_price(mech, tier, 0); }
+
+int32_t roll_shift(Rng& rng) {
+  int32_t s = 0;
+  for (int i = 0; i < 3; ++i) s += rng.upto(2 * kShiftRoll) - kShiftRoll;
+  return std::clamp(s, -kShiftMost, kShiftMost);
+}
+int32_t market_shift(const Company& c, int32_t mech) {
+  const std::vector<int32_t>& s = c.market.shift;
+  return mech >= 0 && mech < static_cast<int32_t>(s.size()) ? std::clamp(s[static_cast<size_t>(mech)], -kShiftMost, kShiftMost) : 0;
+}
+int64_t market_buy_price(const Company& c, int32_t mech) { return buy_price(mech, c.tier, market_shift(c, mech)); }
+int64_t market_sell_price(const Company& c, int32_t mech) { return sell_price(mech, c.tier, market_shift(c, mech)); }
 
 int32_t buy_percent(int32_t tier) { return kTierMultipliers[std::clamp(tier, 0, 3)] * 10; }
 int32_t sell_percent(int32_t tier) { return (kTierMultipliers[std::clamp(tier, 0, 3)] - 1) * 10; }
@@ -90,6 +106,10 @@ void refresh_market(Company& c, Rng& rng) {
   }
   m.sold = 0, m.rolled = true;
   m.limit = c.tier >= kDealerLimitTier ? rng.upto(kDealerLimitBase - c.tier) + 1 : -1;
+  // FIXES 135: every model's shift, sold here or not (a mech the company brings in sells at its shift too).
+  m.shift.assign(mech3::kMechCount, 0);
+  for (int32_t mech = 0; mech < mech3::kMechCount; ++mech)
+    if (sold_mech(mech)) m.shift[static_cast<size_t>(mech)] = roll_shift(rng);
 }
 
 void clamp_stores(mech3::Store& s) {
@@ -125,7 +145,7 @@ const mech3::Config* stock_loadout(int32_t mech) {
 Deal can_buy(const Company& c, int32_t stock_index) {
   const Market& m = c.market;
   if (stock_index < 0 || stock_index >= static_cast<int32_t>(m.stock.size())) return Deal::kNoSuch;
-  if (c.funds < buy_price(m.stock[static_cast<size_t>(stock_index)], c.tier)) return Deal::kNoFunds;
+  if (c.funds < market_buy_price(c, m.stock[static_cast<size_t>(stock_index)])) return Deal::kNoFunds;
   if (owned_count(c) >= kOwnedMost) return Deal::kHangarFull;  // MW1's order: the funds, then the room
   return Deal::kDone;
 }
@@ -134,7 +154,7 @@ Deal buy(Company& c, int32_t stock_index) {
   if (const Deal d = can_buy(c, stock_index); d != Deal::kDone) return d;
   Market& m = c.market;
   const int32_t mech = m.stock[static_cast<size_t>(stock_index)];
-  c.funds -= buy_price(mech, c.tier);
+  c.funds -= market_buy_price(c, mech);
   m.stock.erase(m.stock.begin() + stock_index);
   OwnedMech o;
   o.mech = mech;
@@ -180,7 +200,7 @@ Deal sell(Company& c, int32_t owned_index, const StockLoadout& stock) {
     c.stores->assign(after);
     clamp_stores(*c.stores);
   }
-  c.funds += sell_price(mech, c.tier);
+  c.funds += market_sell_price(c, mech);
   c.market.stock.push_back(mech);
   ++c.market.sold;
   if (owned_index == 0) {

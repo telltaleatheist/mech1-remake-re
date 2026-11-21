@@ -141,6 +141,9 @@ struct Market {
   std::vector<int32_t> stock;
   int32_t sold = 0, limit = -1;
   bool rolled = false;  // stocked once (refresh_market, or a version 2 save); not saved
+  // FIXES 135: each model's price shift at this world until the next refresh, in permille (mw1_market.h's
+  // roll_shift), indexed by PM mech id; empty or short: no shift (a save before version 12).
+  std::vector<int32_t> shift;
 };
 
 // MW1's calendar (DS:0479 sub-month units, 60 a month; DS:047B month, 0 January; DS:047D year): a new campaign's
@@ -423,7 +426,8 @@ struct Settlement {
 Settlement settle(Company& c, Contract& k, Outcome o, const std::vector<Wreck>& wrecks, Rng& rng);
 
 // A wreck's value in thousands at the company's tier: its PM chassis's sale price at this world (mw1_market.h's
-// sell_price, so a wreck and the market agree) by its condition (MwCalculateUnitConditionPrice's), or scrap.
+// market_sell_price, the market's shift and all, so a wreck and the market agree) by its condition
+// (MwCalculateUnitConditionPrice's), or scrap.
 int32_t wreck_value(const Company& c, const Wreck& w);
 
 }  // namespace mw1

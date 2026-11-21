@@ -30,11 +30,34 @@ Tick an item when it is merged into `main`.
 - **Then:** reach points chosen by those scores (reach_area takes any point, on open, reachable floor); attack
   targets chosen among each map's real structures by the same scores. Thresholds from the measured table.
 
-## 135. [ ] 'Mech prices vary a little *(proposed; waiting on a go)*
+## 135. [x] 'Mech prices vary a little *(done: mw1-fix135-price-variety)*
 
 - **The idea (2026-11-20):** about +-5% on 'Mech prices. Proposed: one roll per model per market refresh, applied
   to both buying and selling at that world (keeps the 10% buy/sell gap, so no flip profit), on a bell curve, rounded
-  to 1,000, saved with the market.
+  to 1,000, saved with the market. Approved 2026-11-21.
+- **The shift:** at each market refresh (`refresh_market`) every model the market deals in gets one shift for that
+  world, `roll_shift`: the sum of three rolls of -17 to +17 permille, clamped to +-50 (+-5%); sd about 1.75%, two
+  thirds within +-1.7%, about 1.5% beyond +-4%. It's per model, not per stock row, so a mech the company brings in
+  sells at the same shift. Kept in `Market::shift` (permille by PM mech id) until the next refresh.
+- **Prices:** `buy_price` / `sell_price(mech, tier)` stay the base; `buy_price` / `sell_price(mech, tier, shift)` scale
+  the base by (1000 + shift) / 1000 before the floor to 1,000; `market_buy_price` / `market_sell_price(company, mech)`
+  are what the world charges and pays. Buying and selling share the shift, so selling stays below buying at every
+  tier and shift (nothing gained by buying and selling back).
+- **Where:** the market screen's FOR SALE (and its can-afford dimming) and YOUR MECHS, the BUY and SELL questions,
+  `can_buy`'s funds check, `buy`, `sell`, the "Bought:" / "Sold:" lines and the log, and a wreck's value
+  (`wreck_value`, so a wreck and the market still agree). `can_sell` checks no price.
+- **Left at base:** a mech lost on a mission (repairs' `lost_value`, FIXES 98): no market quotes it, and the House's
+  cover of the mission's net shouldn't ride on one world's roll. The travel map's `buy_percent` / `sell_percent` stay
+  the tier's share.
+- **Save:** version 12 adds `market_shift=` (the permille list); a version 12 save without it, or with a shift past
+  +-50, is refused. An older save loads with no shift (the base prices) until the next refresh rolls them.
+- **Tests (mw1tests):** `mw1_market_shift_range_and_spread` (40,000 rolls: the range, mean, sd and the bell's shape; a
+  refresh shifts every model), `..._buy_and_sell_share_it` (every model, tier and shift: on 1,000s, sell below buy,
+  shift 0 the base), `..._shown_is_charged` (the screen's rows and the questions show what can_buy, buy and sell
+  take, to the C-bill), `..._wreck_agrees`, `..._saved` (round trip; version 11 loads with none; refusals). The
+  trade-loop test now expects the tier 3 world's shifted price, and the headless market run one shift for both its
+  deals. The refresh's rolls move the seeded stream after it, so `mw1hiresoff`'s office screen (MW1_SEED=7) shows
+  another offer: its golden re-recorded (hi-res off and on still give the one canvas).
 
 ## 134. [x] An attack's target that isn't where the fight is *(done: mw1-fix134-phantom-targets; for 1.0.4)*
 
