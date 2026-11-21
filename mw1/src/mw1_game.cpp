@@ -101,6 +101,7 @@
 #include "mw1_journal.h"
 #include "mw1_log.h"
 #include "mw1_music.h"
+#include "mw1_placement.h"
 #include "mw1_enemies.h"
 #include "mw1_ladder.h"
 
@@ -159,7 +160,7 @@ const mech3::Config* stock_config(int32_t chassis, int32_t loadout) {
 }
 constexpr const char* kPilotName = "MW1 Company";  // the company's PM pilot (step 2)
 constexpr float kNavNear = 1.0f;  // item 43: only a map's own point on the structure serves as its (a near "Able" says nothing)
-constexpr float kReachRadius = 40.0f;  // metres from the structure's point: FIXES.md item 45, the worst row's closest stand (mw3c2's tower, 33 m) and a margin
+constexpr float kReachRadius = mw1::placement::kReachRadius;  // metres from the structure's point (mw1_placement.h)
 constexpr int32_t kReachIa = 2;        // the map with the structures (c2's ia2)
 
 std::string thousands(int64_t v) {

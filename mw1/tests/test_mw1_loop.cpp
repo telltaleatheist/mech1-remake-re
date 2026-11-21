@@ -253,6 +253,45 @@ int32_t er_medium_lasers(const std::list<mech3::ConfigItem*>& items) {
 // item count (-1: stock), and the first and the last offer.
 struct Run;
 void take_wrecks(Run* run);
+// FIXES 134: where a row's structure stands, against the player's start and the enemies' (the centre of every enemy
+// place the map has). "Along": how far it is on the way from the start (0) to that centre (1). The thresholds sit in
+// the gaps the survey measured (research/maps.md, "Where the structures stand"):
+// - an attack's target is on the enemies' side, away from the start: at least kStructureFromStart from it (c3 ia2's
+//   pirate base, 100 m off, was walked past) and at least kAttackAlong of the way (the rows kept: 0.81..1.28;
+//   dropped: 0.04, -0.08). It needn't sit among the enemies: a careful player may slip past them to it (the
+//   project's choice), which the table's "line" measures (the nearest enemy place to the straight way there);
+// - a defence's is on the player's side: at most kDefendAlong of the way (kept: up to 0.17; dropped: 0.94 and over)
+//   and nearer the start than the enemies' centre (kept: at least 1.5 times);
+// - a reach's (MW1's withdraw) is at least kStructureFromStart from the start, whichever way it leads; and (FIXES 136)
+//   reachable by keeping away from the enemy: a route (mw1_placement.h) inside the yellow, every cell past the start's
+//   own disc at least kRouteClearance from every enemy place, to a cell within the reach's radius that is as clear,
+//   at most kRouteDetour times the straight way; and the start at least kStartClear from the nearest enemy place (not
+//   in a fight the moment the mission starts).
+constexpr float kStructureFromStart = 150.0f;
+constexpr float kAttackAlong = 0.5f;
+constexpr float kDefendAlong = 0.5f;
+constexpr float kRouteClearance = 200.0f;
+constexpr float kRouteDetour = 2.0f;
+constexpr float kStartClear = 150.0f;
+// FIXES 136: the reach rows known to fail the route rule until their fix lands, each with why. A row here that passes
+// fails the survey too, so the list stays honest.
+struct RouteKnown {
+  const char* world;
+  int32_t ia;
+  const char* node;
+  const char* why;
+};
+constexpr RouteKnown kRouteKnownFailing[] = {
+    {"", 0, "", ""},  // none (FIXES 136's picks: the mw3cN rows on other buildings, c2 ia2's reach dropped)
+};
+const RouteKnown* route_known(const mw1::MapRow& r) {
+  for (const RouteKnown& k : kRouteKnownFailing)
+    if (r.world == k.world && r.ia == k.ia && r.node == k.node) return &k;
+  return nullptr;
+}
+const char* kind_said(mw1::RowKind k) {
+  return k == mw1::RowKind::kReach ? "reach" : k == mw1::RowKind::kAttack ? "attack" : k == mw1::RowKind::kDefend ? "defend" : "";
+}
 struct Run {
   std::string save;    // mw1save.txt's path; empty: none
   // FIXES.md item 60: BUY's and SELL's questions as asked (the box's words); the next `deal_no` answered NO.
@@ -399,6 +438,8 @@ struct Run {
   float start_at[3] = {}, structure_at[3] = {};  // the player's start and the structure's point (start_off's ends)
   mw1::placement::Measures placement;  // where the structure stands (mw1_placement.h), with the ground's ridge
   bool placed = false;
+  mw1::placement::Route route;  // FIXES 136: a reach row's way round the enemy (mw1_placement.h), inside the yellow
+  bool routed = false, route_area = false;  // route_area: the yellow was there to bound it
   // FIXES.md item 45: the row played as a player would, from frame 30. 1: the player's mech driven to the structure's
   // node by its own controls (throttle and turn, never moved); 2: the structure worn down by hits (through one of its
   // meshes' damage handlers, as a weapon's hit lands: FIXES 134); 3: the enemies disabled by hits (kill_enemies). The
@@ -1705,6 +1746,102 @@ void loop_run(Ending ending, Run* run = nullptr) {
             run->placement = mw1::placement::measure({run->start_at[0], run->start_at[2]}, {run->structure_at[0], run->structure_at[2]},
                                                      places, ground);
             run->placed = true;
+            // FIXES 136: a reach row's place, reached keeping 200 m from every enemy place and inside the yellow (the
+            // player's reg_inside_ region, MW3's own or MW1's from mw1bounds.zrd, FIXES 138).
+            if (run->row && run->row->kind == mw1::RowKind::kReach) {
+              mech3::ai::Region* yellow = nullptr;
+              void* pl = mech3::mech_mission_player();
+              auto* pc = pl ? dynamic_cast<mech3::PlayerControls*>(mech3::mech_controls(pl)) : nullptr;
+              if (pc && pc->settings.vlist)
+                for (const mech3::ai::VListEntry& e : *pc->settings.vlist)
+                  if (e.region && e.region->name() && std::strncmp(e.region->name(), "reg_inside_", 11) == 0) yellow = e.region;
+              mw1::placement::Inside in;
+              if (yellow)
+                in = [yellow](float x, float z) {
+                  const float p[3] = {x, 0.0f, z};
+                  return yellow->inside(p);
+                };
+              run->route = mw1::placement::route({run->start_at[0], run->start_at[2]}, {run->structure_at[0], run->structure_at[2]},
+                                                 places, in, {}, ground);
+              run->routed = true, run->route_area = yellow != nullptr;
+              // MW1_REACH_CANDIDATES=<file> (appended): FIXES 136's candidate pass, every named node of the world that
+              // could stand in for the row's structure (a reach names any node: mw1_game's node_find), routed by the same
+              // rules; one line a node that passes, with its class, its model's counts and whether a weapon's hit on it
+              // reaches an object (a building's sign), for choosing by hand.
+              if (const char* cand = std::getenv("MW1_REACH_CANDIDATES"); cand && run->row) {
+                auto* ge = dynamic_cast<mech3::GameEngine*>(&app.engine());
+                struct Seen {
+                  zcls::Node* n;
+                  float at[3];
+                };
+                std::map<std::string, int> names;
+                std::set<zcls::Node*> visited;
+                std::function<void(zcls::Node*)> walk = [&](zcls::Node* n) {
+                  if (!n || !visited.insert(n).second) return;
+                  if (n->name() && *n->name()) ++names[n->name()];
+                  for (int32_t i = 0; i < n->child_count(); ++i) walk(n->children[i]);
+                };
+                walk(mech3::world_hooks().world);
+                const mw1::placement::Point a{run->start_at[0], run->start_at[2]};
+                std::vector<std::pair<mw1::placement::Route, const Seen*>> passing;
+                // Each name as the game takes it: node_find's node, at its place.
+                std::vector<Seen> resolved;
+                int left[5] = {};  // left out: no place, not found, near the start, outside, guarded
+                for (const auto& [name, count] : names) {
+                  const zgame::Handle hn = mech3::mission_objective_hooks().node_find(name.c_str());
+                  auto* rn = hn && ge ? static_cast<zcls::Node*>(ge->object_of(hn)) : nullptr;
+                  if (!rn && ++left[1]) continue;
+                  if ((!rn->data || rn->cls() != 5) && ++left[0]) continue;
+                  Seen sn{rn, {}};
+                  zcls::node_world_position(rn, sn.at);
+                  resolved.push_back(sn);
+                }
+                int tried = 0;
+                for (const Seen& sn : resolved) {
+                  const mw1::placement::Point c{sn.at[0], sn.at[2]};
+                  if (std::hypot(c.x - a.x, c.z - a.z) < kStructureFromStart && ++left[2]) continue;
+                  if (in && !in(c.x, c.z) && ++left[3]) continue;
+                  float near_enemy = 1e9f;
+                  for (const mw1::placement::Point& e : places) near_enemy = std::min(near_enemy, std::hypot(e.x - c.x, e.z - c.z));
+                  if (near_enemy < kRouteClearance - mw1::placement::kReachRadius && ++left[4]) continue;
+                  ++tried;
+                  mw1::placement::Route rt = mw1::placement::route(a, c, places, in, {}, ground);
+                  if (rt.found && rt.detour <= kRouteDetour && rt.start_clear >= kStartClear) passing.push_back({std::move(rt), &sn});
+                }
+                std::sort(passing.begin(), passing.end(), [](const auto& x, const auto& y) {
+                  return x.first.length != y.first.length ? x.first.length < y.first.length : x.first.end_clear > y.first.end_clear;
+                });
+                if (std::FILE* f = std::fopen(cand, "a")) {
+                  std::fprintf(f, "ROW %s ia%d %s %s: %zu names (left out: %d placeless, %d not found, %d within %.0f m "
+                               "of the start, %d outside the yellow, %d guarded), %d tried, %zu pass\n",
+                               run->row->world.c_str(), run->row->ia, kind_said(run->row->kind), run->row->node.c_str(), names.size(),
+                               left[0], left[1], left[2], kStructureFromStart, left[3], left[4], tried, passing.size());
+                  for (const auto& [rt, sn] : passing) {
+                    zwep::DamageFn fn = nullptr;
+                    const bool hit = zwep::damage_object(sn->n, &fn) && fn;
+                    std::string model = sn->n->pm_model ? std::to_string(sn->n->pm_model->count(0x0c)) + "/" + std::to_string(sn->n->pm_model->count(0x10)) : "-";
+                    std::fprintf(f, "  %-24s cls %d children %2d model %-9s %-8s at %5.0f %4.0f %5.0f  from start %5.0f  route %5.0f "
+                                 "detour %4.2f  clear: path %4.0f end %4.0f\n",
+                                 sn->n->name(), sn->n->cls(), sn->n->child_count(), model.c_str(), hit ? "damage" : "-", sn->at[0], sn->at[1],
+                                 sn->at[2], std::hypot(sn->at[0] - a.x, sn->at[2] - a.z), rt.length, rt.detour, rt.path_clear, rt.end_clear);
+                  }
+                  std::fclose(f);
+                }
+              }
+              // MW1_ROUTE_DUMP=<file> (appended): the row's start, goal, enemy places, the yellow's corners and both paths,
+              // to draw or check by hand.
+              if (const char* dump = std::getenv("MW1_ROUTE_DUMP"))
+                if (std::FILE* f = std::fopen(dump, "a")) {
+                  std::fprintf(f, "ROW %s ia%d %s\nstart %.0f %.0f\ngoal %.0f %.0f\n", run->row->world.c_str(), run->row->ia,
+                               run->row->node.c_str(), run->start_at[0], run->start_at[2], run->structure_at[0], run->structure_at[2]);
+                  for (const mw1::placement::Point& e : places) std::fprintf(f, "enemy %.0f %.0f\n", e.x, e.z);
+                  for (size_t k = 0; yellow && k < yellow->elems.size(); ++k)
+                    std::fprintf(f, "yellow %.0f %.0f\n", yellow->edge(static_cast<int32_t>(k))->point[0],
+                                 yellow->edge(static_cast<int32_t>(k))->point[2]);
+                  for (const mw1::placement::Point& q : run->route.path) std::fprintf(f, "path %.0f %.0f\n", q.x, q.z);
+                  std::fclose(f);
+                }
+            }
           }
           // FIXES 134: every named target on the map (MW1_LIST_TARGETS=<file>, appended), with how far it is from the
           // player's start and from the enemies' centre: the candidates for a row's structure, by hand.
@@ -2657,22 +2794,6 @@ std::vector<mw1::MapRow> shipped_rows() {
   zrdr::close_archives(true);
   return rows;
 }
-// FIXES 134: where a row's structure stands, against the player's start and the enemies' (the centre of every enemy
-// place the map has). "Along": how far it is on the way from the start (0) to that centre (1). The thresholds sit in
-// the gaps the survey measured (research/maps.md, "Where the structures stand"):
-// - an attack's target is on the enemies' side, away from the start: at least kStructureFromStart from it (c3 ia2's
-//   pirate base, 100 m off, was walked past) and at least kAttackAlong of the way (the rows kept: 0.81..1.28;
-//   dropped: 0.04, -0.08). It needn't sit among the enemies: a careful player may slip past them to it (the
-//   project's choice), which the table's "line" measures (the nearest enemy place to the straight way there);
-// - a defence's is on the player's side: at most kDefendAlong of the way (kept: up to 0.17; dropped: 0.94 and over)
-//   and nearer the start than the enemies' centre (kept: at least 1.5 times);
-// - a reach's (MW1's withdraw) is at least kStructureFromStart from the start, whichever way it leads.
-constexpr float kStructureFromStart = 150.0f;
-constexpr float kAttackAlong = 0.5f;
-constexpr float kDefendAlong = 0.5f;
-const char* kind_said(mw1::RowKind k) {
-  return k == mw1::RowKind::kReach ? "reach" : k == mw1::RowKind::kAttack ? "attack" : k == mw1::RowKind::kDefend ? "defend" : "";
-}
 }  // namespace
 
 // The map survey (mw1_missions.h, data/mw1maps.zrd), the table's gate: every row's map loaded in the engine and its
@@ -2683,6 +2804,15 @@ TEST(mw1_loop_every_map_row_is_there_headless) {
   std::error_code ec;
   if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
   const std::vector<mw1::MapRow> rows = shipped_rows();
+  {
+    // FIXES 138's areas, as the game loads them (mw1_main): a reach row's route (FIXES 136) keeps inside the yellow.
+    zutl::mounts() = zutl::Mounts{};
+    zutl::mount(MW1_DATA_DIR);
+    std::string why;
+    mw1::set_bounds(mw1::parse_bounds(mw1::kBoundsFile, &why));
+    zrdr::close_archives(true);
+    EXPECT(why.empty());
+  }
   EXPECT(!rows.empty());
   const bool have_mw3 = fs::exists(fs::path(MW1_MW3_GAME_DIR) / "zbd" / "c2" / "gamez.zbd", ec);
   const std::string worlds = have_mw3 ? converted_worlds() : std::string();
@@ -2714,13 +2844,25 @@ TEST(mw1_loop_every_map_row_is_there_headless) {
         const mw1::placement::Measures& pm = run.placement;
         const float along = pm.along, target_enemy = pm.target_enemies;
         const int n = pm.enemies;
-        char line[400];
+        char line[800];
         std::snprintf(line, sizeof line, "%-6s ia%d %-7s %-18s AC %5.0f  CB %5.0f  AB %5.0f  along %5.2f  angle %3.0f  B-to-AC %5.0f  "
                       "race %4.2f  ridge %4.0f  nearest enemy: C %4.0f A %4.0f AC %4.0f  (%d places within %.0f)  meshes %d/%d%s\n",
                       r.world.c_str(), r.ia, kind_said(r.kind), r.node.c_str(), pm.start_target, pm.target_enemies, pm.start_enemies,
                       pm.along, pm.angle_at_start, pm.centre_to_line, pm.race, pm.ridge, pm.nearest_to_target, pm.nearest_to_start,
                       pm.nearest_to_line, pm.enemies, pm.spread, run.routed_meshes, run.shown_meshes,
                       target && !run.target_live ? "  NO LIVE TARGET" : "");
+        if (run.routed) {
+          // FIXES 136: the route round the enemy, as a second line (MW1_SURVEY_TABLE too).
+          const mw1::placement::Route& rt = run.route;
+          char more[300];
+          std::snprintf(more, sizeof more, "%-6s ia%d %-7s %-18s ROUTE %s  length %5.0f  detour %4.2f  clear: start %4.0f path %4.0f end %4.0f "
+                        "(the structure %4.0f)  steepest %4.2f  %s%s%s  cells %d\n",
+                        r.world.c_str(), r.ia, kind_said(r.kind), r.node.c_str(), rt.found ? "found" : "NONE ", rt.length, rt.detour,
+                        rt.start_clear, rt.path_clear, rt.end_clear, rt.goal_clear, rt.steepest,
+                        run.route_area ? "in the yellow" : "NO AREA", rt.start_inside ? "" : ", START OUTSIDE",
+                        rt.goal_inside ? "" : ", GOAL OUTSIDE", rt.expanded);
+          std::strncat(line, more, sizeof line - std::strlen(line) - 1);
+        }
         std::printf("  %s", line);
         if (const char* table = std::getenv("MW1_SURVEY_TABLE"))
           if (std::FILE* f = std::fopen(table, "a")) std::fputs(line, f), std::fclose(f);
@@ -2735,6 +2877,17 @@ TEST(mw1_loop_every_map_row_is_there_headless) {
           EXPECT(target_enemy >= run.start_off);
         } else if (r.kind == mw1::RowKind::kReach) {
           EXPECT(run.start_off >= kStructureFromStart);
+          const mw1::placement::Route& rt = run.route;
+          const bool way = run.routed && run.route_area && rt.found && rt.detour <= kRouteDetour && rt.start_clear >= kStartClear &&
+                           rt.start_inside && rt.goal_inside;
+          if (const RouteKnown* k = route_known(r)) {
+            std::printf("  %s ia%d %s: a known route failure (%s)%s\n", r.world.c_str(), r.ia, r.node.c_str(), k->why,
+                        way ? ", BUT IT PASSES NOW: take it off the list" : "");
+            EXPECT(!way);
+          } else {
+            if (!way) std::printf("  %s ia%d %s: no way there round the enemy (FIXES 136)\n", r.world.c_str(), r.ia, r.node.c_str());
+            EXPECT(way);
+          }
         }
       }
     });

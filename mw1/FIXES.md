@@ -106,6 +106,34 @@ Tick an item when it is merged into `main`.
   the player heading for C, who each enemy targets logged).
 - **Then:** reach points chosen by those scores (reach_area takes any point, on open, reachable floor); attack
   targets chosen among each map's real structures by the same scores. Thresholds from the measured table.
+- **The rule (2026-11-21, set from the measured table):** a reach row's structure must be reachable by keeping
+  away from the enemy. A route (grid A*, 20 m cells, `src/mw1_placement.h`) from the start to the first cell within
+  the reach's radius (40 m, the game's `kReachRadius`), every cell past the start's own 200 m at least 200 m from
+  every enemy place (the map's own places, not the extras made beside them), the end cell as clear, all inside the
+  mission area (item 138's yellow), at most 2.0 times the straight way; and the start at least 150 m from the
+  nearest enemy place (not in a fight the moment the mission starts). Attacks are exempt: 134 puts their target
+  among the enemies. Defences keep 134's along rule. The steepest step on the route is measured, not yet a rule.
+- **The closest-approach table** (the straight line, before the route rule): with D = 200 m, 14 of 20 attack and
+  reach rows clear the enemies' centre and 5 of 20 the nearest enemy place; most reach rows' straight way runs
+  through an enemy place. The route rule asks instead whether a way round exists.
+- **Measured (the survey, `mw1_loop_every_map_row_is_there_headless`):** 10 reach rows; 5 pass (mw3c4b ia1 and
+  ia2, c2 ia1, c3 ia1, c4 ia1; detours 1.05 to 1.12), 5 fail at the goal: c2 ia2 `portalgate` (an enemy place
+  32 m off) and the four mw3cN ia2 `iatower` rows (MW3's tower stands among its defenders, 51 to 73 m; on mw3c4
+  7 of the 12 places ring it). None fails for want of a way round. The survey gates every reach row; those five are
+  listed as known failures with why (a listed row that passes fails the survey, so the list stays honest).
+- **Choosing structures:** `MW1_REACH_CANDIDATES=<file>` lists, per reach row, every named node of the map (as the
+  game's `node_find` takes it) that passes the same rule from the row's start, with its place, route and
+  clearances; `MW1_ROUTE_DUMP=<file>` writes each row's start, goal, enemy places, yellow and path. The fix order:
+  another structure; then the start; enemy places last, and never outside the yellow; never MW3's tower moved.
+- **The fixes (2026-11-21, picked from the candidate list):** mw3c2 ia2 reaches the hangar (`noruff_hang`, a
+  ship in it; route 1379 m, detour 1.01), mw3c1 ia2 the barracks (`urbbar02`; 1335 m, 1.04), mw3c3 ia2 the
+  warehouses (`whsA01`; 2224 m, 1.07) and mw3c4 ia2 the dock (`dockfal`; 411 m, 1.12, the end 264 m clear; the
+  house beside it only 220 m). c2 ia2's reach is dropped: no structure there is clear of the enemy, and the map
+  keeps its attack on the portal gate. Every reach row passes; the known-failure list is empty. The pools keep their
+  70..80% (desert 75.7%, tropical 75.2%, ice 75.4%). The steepest step measured on the new routes is mw3c2's 1.24
+  (report only).
+- **Still to do:** point reach rows (a reach at a point, not a node), the attack targets chosen by the same scores,
+  and the decoy check, headless.
 
 ## 135. [x] 'Mech prices vary a little *(done: mw1-fix135-price-variety)*
 
