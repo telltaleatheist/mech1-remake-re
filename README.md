@@ -37,7 +37,7 @@ Nothing yet.
   2560x1080, 3440x1440, 3840x1080 and 5120x1440 in the graphics options.
 - **Joysticks**: buttons 11 to 15 can be bound, and a stick plugged in while
   the game runs works without a restart.
-- **The launcher's cards**, one a game; MW1: Critical Hit 1.0.2.
+- **The launcher's cards**, one a game; MW1: Critical Hit 1.0.3.
 
 **1.1.3 (2026-11-20)** (the full notes are in
 [docs/release-notes-1.1.3.md](docs/release-notes-1.1.3.md)):
