@@ -46,6 +46,6 @@ You can also start mw1 directly:
 Credits
 -------
 
-Made on the MechWarrior 3 rebuild (mw3-re).
+MW1: Critical Hit is by Owen Morgan, made on the MechWarrior 3 rebuild (mw3-re).
 - Fonts, libraries and other third-party parts: THIRD-PARTY-MW1.txt.
 - Source code and issues: https://github.com/telltaleatheist/mw3-re (branch mw1).

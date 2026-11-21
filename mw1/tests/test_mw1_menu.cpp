@@ -70,6 +70,11 @@ TEST(mw1_menu_the_credits_are_the_exes) {
   mw1::set_mw1_game_dir("");
   EXPECT(roll.size() == static_cast<size_t>(mw1::kCreditPanels));
   EXPECT(all.size() == roll.size() + mw1::extra_credits().size());
+  // Ours (the game's maker) after MW1's: one headed panel, each line within its column.
+  EXPECT(mw1::extra_credits().size() == 1);
+  for (const mw1::CreditPanel& p : mw1::extra_credits())
+    for (const mw1::CreditText& x : p.texts)
+      for (const std::string& l : x.lines) EXPECT(l.size() <= static_cast<size_t>(mw1::kCreditColumnChars));
   // Each text's lines (0x0D-split, blanks kept): MW1's as surveyed.
   const size_t want[] = {3, 3, 5, 5, 9, 7, 3, 3, 7, 3, 3, 3, 11, 3};
   size_t t = 0, lines = 0, chars = 0;
