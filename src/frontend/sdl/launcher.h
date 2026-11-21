@@ -23,7 +23,7 @@ struct LauncherOptions {
   std::string pm_write_dir;               // Pirate's Moon's settings folder (MW3_PM_WRITE_DIR; else found at its start)
   std::string cfg_mw1_game;               // mw3.cfg's mw1_game= (MechWarrior 1989's folder)
   std::vector<std::string> more_installs;  // a development build's copy
-  bool fullscreen = true;
+  bool fullscreen = false;  // windowed (launcher_main.cpp: macOS Game Mode)
   bool sound = true;  // the main menu's rollover and select sounds from the install (off with --nosound)
   int win_w = 1280, win_h = 720;  // 16:9, as the canvas
   // The window's size from the program's --window, when one was given: else
