@@ -13,8 +13,8 @@ Tick an item when it is merged into `main`.
   view's pictures (the `dmg_bg_*` backgrounds and the 32 FIXES 109 part pieces) are drawn by `mw1_hud_art.cpp`'s
   per-pixel, supersampled `paint()` on the main thread when the hires host first finds them, and may be dropped once
   no frame wants them, so every switch into the damage view could repaint them all.
-- **Plan:** measure first (hidden, 1080p and 4K scales), then fix the cause, with a frame-stall test.
-  Owen: "we have all the time in the world to get it right. id rather do things the right way than to take shortcuts".
+- **Plan:** measure first (hidden, 1080p and 4K scales), then fix the cause properly, not a shortcut, with a
+  frame-stall test.
 
 ## 131. [x] A win paid short says the House did it *(done: mw1-fix131-breach; for 1.0.3, in the 1.2.0 rebuild)*
 
