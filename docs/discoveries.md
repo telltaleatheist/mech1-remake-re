@@ -3050,6 +3050,15 @@ From the view and its cameras (0x40aca0, 0x430e70; details: `view.md`).
 
 ## Keyboard, mouse and joystick
 
+- **Bind a key to a command that had none, and it does nothing until you
+  restart the game.** The game hands your mech's commands to their keys once,
+  at the first mission of a run, and skips any command with no key at that
+  moment. SHUTDOWN has no key in many setups, so binding it later (to power
+  down at a field base and repair) did nothing until the game was closed and
+  started again. A command put only on a joystick or mouse button was skipped
+  the same way. (From the code as ported: 0x0051c2b0, 0x00427280. Reported on
+  the rebuild as issue #4; fixed in the rebuild.)
+
 - **Save your stick setup, unplug the stick, and the mech drives itself.** The game
   only forgets the stick's axes when your controls file exactly matches the
   defaults. Change anything about the throttle axis, even its dead zone, and with
