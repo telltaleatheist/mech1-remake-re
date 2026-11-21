@@ -402,7 +402,7 @@ the 1280x720 mockup at two thirds on the 854x480 canvas.
 - MW3 and Pirate's Moon: "REBUILT ON ITS OWN ENGINE" above one amber PLAY,
   which does what the round entry's click did (finds the game first).
 - MW1: a grey PLAY ORIGINAL (Elthial's port of the 1989 game) above the
-  amber PLAY REMAKE (MW1: Critical Hit). Both use the same MechWarrior
+  amber PLAY REMAKE (MechWarrior 1 Remake). Both use the same MechWarrior
   (1989) folder (MechWarrior 1's files, below). The remake needs MW3 and
   Pirate's Moon first; the original needs only its port. The card says what
   is missing short ("Remake needs MW3 and Pirate's Moon"; the whole sentence,
@@ -440,9 +440,9 @@ the 1280x720 mockup at two thirds on the 854x480 canvas.
 - The other screens (find, notes, data, updates, working) keep their
   metal-band look for now.
 
-## MechWarrior 1 (MW1: Critical Hit's fork, 2026-11-16)
+## MechWarrior 1 (MechWarrior 1 Remake's fork, 2026-11-16)
 
-In the MW1 fork the entry starts MechWarrior 1: Critical Hit in
+In the MW1 fork the entry starts MechWarrior 1 Remake in
 place of Elthial's port: the same badge (`badge_mw1.png`) and place, the label
 MECHWARRIOR 1. Shown when `mw1` (`mw1.exe`) is beside the launcher
 (`MW3_MW1_BIN` names it, for checks). It needs three folders: the player's
@@ -458,7 +458,7 @@ then a click picks the MW1 folder or starts it. Started as `mw1 --install <PM>
 --mw3-install <MW3> --mw1-game <MW1> --no-launcher` plus this start's choices
 (`--windowed`, `--window`, `--nosound`, `--hidden`, `--no-import`), the
 launcher hidden until it exits. `mw1` keeps the three in its own `mw1.cfg`
-(MW1: Critical Hit's src/mw1_main.cpp). Without `mw1` beside the launcher
+(MechWarrior 1 Remake's src/mw1_main.cpp). Without `mw1` beside the launcher
 (a plain mw3-re package) nothing changes: the entry is Elthial's port's,
 searched for and started as below.
 `sdl_program_launcher_starts_mechwarrior_1` (a stand-in `mw1`: the

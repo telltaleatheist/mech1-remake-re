@@ -132,7 +132,7 @@ of the game with PM's changes in place, as the original's `branchep1` was.
 |---|---|---|
 | `main` | `mw3`, the launcher (`mw3launcher`), MW3's tests | a tag on `main` (`v1.x.y`) |
 | `pm` | `mw3pm`, PM's tests (`mw3pmtests`, `mw3pmsdltests`, `pmprobe`), `zipkit` | a tag on `pm` (`pm-v1.x.y`) |
-| `mw1` | `mw1` (MechWarrior 1: Critical Hit, in `mw1/`), `mw1tests`; PM's engine with it | a ref on `mw1`, in the combined package |
+| `mw1` | `mw1` (MechWarrior 1 Remake, in `mw1/`), `mw1tests`; PM's engine with it | a ref on `mw1`, in the combined package |
 
 - The combined package (launcher, `mw3`, `mw3pm`, `mw1`) takes the launcher and
   `mw3` from a tag on `main`, `mw3pm` from a tag on `pm` and `mw1` from `mw1`
@@ -146,7 +146,7 @@ of the game with PM's changes in place, as the original's `branchep1` was.
   `main`'s merges into `pm` stay clean and a shared-code change on `pm` can
   be checked against MW3's tests (`pm-tests.md`, MW3's tests built from
   `pm`). Nothing is built or released from them.
-- MechWarrior 1: Critical Hit (Owen, 2026-11-17: into mw3-re as the branch
+- MechWarrior 1 Remake (Owen, 2026-11-17: into mw3-re as the branch
   `mw1`, public, packaged with the other two) takes PM's engine by merging
   `pm` into `mw1`, and never merges back. Its launcher entry is `main`'s
   launcher's (`launcher.md`, MechWarrior 1).

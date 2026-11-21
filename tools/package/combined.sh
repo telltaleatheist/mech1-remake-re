@@ -10,7 +10,7 @@
 #   tools/package/combined.sh mac   <main ref> <pm ref> [--deps] [--mw1 <mw1 ref> [--mw1-port]]  (on the Mac; --deps for a release)
 #   tools/package/combined.sh linux <main ref> <pm ref> PREFIX TOOLS [--mw1 <mw1 ref>]  (in WSL; make-appimage.sh's)
 #
-# --mw1: MechWarrior 1: Critical Hit (branch mw1, an mw1-vX.Y.Z tag) built too, in build-pkg/mw1, and put in the
+# --mw1: MechWarrior 1 Remake (branch mw1, an mw1-vX.Y.Z tag) built too, in build-pkg/mw1, and put in the
 # MW3-Rebuild package beside the launcher with its mw1data/ (combined.cmd's third ref); MW3 alone and PM alone never
 # carry it. --mw1-port also brings Elthial's MechWarrior (1989) SDL port for PLAY ORIGINAL: tools/package/mw1port/
 # build_port.sh at its pins with the proposed patches (read-only opens of the player's game), staged in

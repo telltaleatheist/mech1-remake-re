@@ -185,7 +185,7 @@ MechWarrior 3 and Pirate's Moon (Owen, 2026-11-09), plus each game alone, all on
 one GitHub release. The launcher's updater takes only the combined package's
 name (launcher.md, Updates).
 
-MechWarrior 1: Critical Hit joins the combined package (Owen, 2026-11-17): built
+MechWarrior 1 Remake joins the combined package (Owen, 2026-11-17): built
 from the branch `mw1`, `mw1` and its `mw1data/` go beside the launcher, whose
 MECHWARRIOR 1 entry starts it (launcher.md, MechWarrior 1). One launcher, three
 games. MW3 alone and PM alone never carry it. On Windows `combined.cmd` takes
