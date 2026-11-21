@@ -409,6 +409,8 @@ struct Run {
   // FIXES 138: on a row's mission, called at frame 30 and each frame after while it returns true (then the run ends);
   // the boundary survey's.
   std::function<bool(int32_t frame)> boundary_frame;
+  // FIXES 136's decoy check: called each mission frame from the 31st, beside `play` (never ends the run itself).
+  std::function<void(int32_t frame)> watch;
   bool survey = false, destroy_structure = false, kill_enemies = false, kill_after_end = false;
   std::vector<int32_t> force;  // every contract's force (MW1 kinds; empty: its own); `enemies_made` at frame 30
   int32_t enemies_made = -1;  // the enemies the mission made
@@ -446,6 +448,10 @@ struct Run {
   // closest the mech came to the node (3D, as the reach checks it, and on the ground plane), the frame the mission
   // ended, the player's end.
   int play = 0;
+  // FIXES 136: play 1 along the survey's route round the enemy (`route`, a reach row's), waypoint by waypoint, not
+  // straight at the nav point; route_next the waypoint steered for.
+  bool follow_route = false;
+  size_t route_next = 1;
   float closest = 1e9f, closest_ground = 1e9f;
   int ended_frame = -1;
   bool player_down = false;
@@ -1907,6 +1913,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
           if (!run->boundary_frame(frames)) return end_it();
           return;
         }
+        if (frames > 30 && run->watch && !run->mission_ended) run->watch(frames);
         if (frames > 30 && run->play && !run->mission_ended) {
           void* me = mech3::mech_mission_player();
           const mw1::Contract* k = mw1::game_loop_contract();
@@ -1956,7 +1963,18 @@ void loop_run(Ending ending, Run* run = nullptr) {
             const float ground = std::sqrt(dx * dx + dz * dz), d3 = std::sqrt(dx * dx + dy * dy + dz * dz);
             run->closest = std::min(run->closest, d3);
             run->closest_ground = std::min(run->closest_ground, ground);
-            if (ground < run->check_ground - 2.0f) run->check_ground = ground, run->best_frame = frames;
+            // Steered for: the nav point, or (follow_route) the route's next waypoint, the way left measured along it.
+            float sx = dx, sz = dz, left = ground;
+            if (run->follow_route && run->routed && run->route.found && run->route.path.size() > 1) {
+              const std::vector<mw1::placement::Point>& w = run->route.path;
+              while (run->route_next + 1 < w.size() && std::hypot(w[run->route_next].x - pos[0], w[run->route_next].z - pos[2]) < 30.0f)
+                ++run->route_next;
+              sx = w[run->route_next].x - pos[0], sz = w[run->route_next].z - pos[2];
+              left = std::sqrt(sx * sx + sz * sz);
+              for (size_t q = run->route_next + 1; q < w.size(); ++q) left += std::hypot(w[q].x - w[q - 1].x, w[q].z - w[q - 1].z);
+              if (run->route_next + 1 == w.size()) sx = dx, sz = dz, left = ground;  // the last leg: at the nav point
+            }
+            if (left < run->check_ground - 2.0f) run->check_ground = left, run->best_frame = frames;
             mech3::controls_calls().command = drive_command;
             const float yaw = std::atan2(fwd[0], fwd[2]);
             if (frames < 70) {  // which way TURN LEFT turns: held, the heading watched
@@ -1995,9 +2013,9 @@ void loop_run(Ending ending, Run* run = nullptr) {
               g_turn_key = back || std::fabs(err) < 0.06f ? 0 : (err > 0 ? run->turn_sign : -run->turn_sign);
               mech3::mech_hold_throttle(me, back ? -0.6f : std::fabs(err) > 1.2f ? 0.2f : 1.0f);
               if (!back && std::sqrt(wx * wx + wz * wz) < 20.0f) run->escape = 0;  // there: in from here
-              if (!run->escape) run->best_frame = frames, run->check_ground = ground;
+              if (!run->escape) run->best_frame = frames, run->check_ground = left;
             } else {
-              float err = std::atan2(dx, dz) - yaw;
+              float err = std::atan2(sx, sz) - yaw;
               err = std::atan2(std::sin(err), std::cos(err));
               g_turn_key = std::fabs(err) < 0.06f ? 0 : (err > 0 ? run->turn_sign : -run->turn_sign);
               const float throttle = std::fabs(err) > 1.2f ? 0.2f : ground < 40.0f ? 0.5f : 1.0f;
@@ -6540,6 +6558,105 @@ void lance_orders_run(const char* name, int32_t count, bool reload, std::vector<
   });
 }
 }  // namespace
+
+// FIXES 136, the lance as a decoy: does the enemy fight whoever is in front of it, so a lance ordered at the enemy lets
+// the commander slip past to a reach's structure? MW3's AI takes the nearest enemy contact first, else its last
+// attacker when hit within 1 s, else any contact (docs/ai.md, 0x4ca600). On a reach row (c2 ia1's pump complex;
+// MW1_ROWS=<node or worldiaN>[,...] others), three lancemates hired, the ladder's last rung's eight enemies, the rolls
+// seeded; the commander driven to the structure along the survey's route round the enemy (play 1, follow_route) and
+// the enemy left alive, twice: the lance ordered to ATTACK at frame 31 (each lancemate the recipient by W, an enemy by E,
+// then ATTACK, as a player would), and the lance left following (the control). Every 30 frames each living enemy's
+// target is sampled (the commander, a lancemate, none); the shares, the frame an enemy first takes the commander,
+// whether the reach is won and the commander's health at the end. Measured and said; the run's own conditions only.
+TEST(mw1_loop_lance_as_a_decoy_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  const std::vector<mw1::MapRow> rows = shipped_rows();
+  const bool have_mw3 = fs::exists(fs::path(MW1_MW3_GAME_DIR) / "zbd" / "c2" / "gamez.zbd", ec);
+  const std::string worlds = have_mw3 ? converted_worlds() : std::string();
+  const std::string only = "," + std::string(std::getenv("MW1_ROWS") ? std::getenv("MW1_ROWS") : "3twr1") + ",";
+  int ran = 0;
+  for (const mw1::MapRow& r : rows) {
+    if (r.kind != mw1::RowKind::kReach) continue;
+    if (only.find("," + r.node + ",") == std::string::npos && only.find("," + r.world + "ia" + std::to_string(r.ia) + ",") == std::string::npos) continue;
+    if (r.world.rfind("mw3", 0) == 0 && !have_mw3) continue;
+    ++ran;
+    for (const bool order : {true, false})
+      in_child([&] {
+        // The game's rolls seeded (MW1_TEST_SEED=<n> another), so both runs meet the same enemy; the ladder's last
+        // rung (eight enemies, FIXES.md item 47) so the map's places are held as the survey measured them.
+        const char* replay = std::getenv("MW1_TEST_SEED");
+        crt::rand_fixed_seed() = static_cast<uint32_t>(replay ? std::strtoul(replay, nullptr, 10) : 1);
+        Run run;
+        run.row = &r, run.worlds = worlds, run.stop_at_after_action = true;
+        run.force = mw1::rung_force(mw1::kDarkWingRung, 0);
+        run.lance = true, run.lance_count = 3;
+        run.play = 1, run.follow_route = true, run.kill_enemies = false, run.give_up = 40000;
+        int32_t on_me = 0, on_lance = 0, on_none = 0, first_on_me = -1, ordered = 0, enemies = 0;
+        float health_end = -1, nearest_enemy = 1e9f;
+        run.watch = [&](int32_t frame) {
+          void* me = mech3::mech_mission_player();
+          if (!me) return;
+          mech3::ai::BrainHooks& h = mech3::ai::brain_hooks();
+          const zgame::Handle mine = h.vehicle_handle(me);
+          int32_t n = 0;
+          const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+          if (order && frame == 31) {
+            mech3::ai::AiTarget* tg = mech3::mech_ai_target(me);
+            for (int32_t i = 0; tg && i < n; ++i) {
+              const mech3::ai::Brain* b = static_cast<const mech3::ai::Brain*>(mech3::program_ai_mech_brain(ai[i].controls));
+              if (!b || b->params.team() != 1) continue;
+              for (int32_t tries = 0; tries < 8 && contact_mech(tg->saved_target) != ai[i].mech; ++tries) mech3::mech_command(me, 0x47);  // W
+              if (contact_mech(tg->saved_target) != ai[i].mech) continue;
+              mech3::mech_command(me, 0x48);  // E: an enemy
+              mech3::mech_command(me, 0x58);  // ATTACK my target
+              ++ordered;
+            }
+          }
+          health_end = mech3::mech_health(me);
+          if (frame == 31)
+            for (int32_t i = 0; i < n; ++i) {
+              const mech3::ai::Brain* b = static_cast<const mech3::ai::Brain*>(mech3::program_ai_mech_brain(ai[i].controls));
+              enemies += b && b->params.team() != 1;
+            }
+          if (frame % 30 != 0) return;
+          float p[3] = {};
+          mech3::mech_world_position(me, p);
+          for (int32_t i = 0; i < n; ++i) {
+            const mech3::ai::Brain* b = static_cast<const mech3::ai::Brain*>(mech3::program_ai_mech_brain(ai[i].controls));
+            if (!b || b->params.team() == 1 || mech3::mech_health(ai[i].mech) <= 0.0f) continue;
+            float q[3] = {};
+            mech3::mech_world_position(ai[i].mech, q);
+            nearest_enemy = std::min(nearest_enemy, std::hypot(q[0] - p[0], q[2] - p[2]));
+            mech3::ai::AiTarget* et = mech3::mech_ai_target(ai[i].mech);
+            mech3::ai::Contact* c = et ? et->target : nullptr;
+            if (!c) {
+              ++on_none;
+            } else if (h.contact_vehicle(c) == mine) {
+              ++on_me;
+              if (first_on_me < 0) first_on_me = frame;
+            } else if (contact_mech(c)) {
+              ++on_lance;
+            } else {
+              ++on_none;
+            }
+          }
+        };
+        loop_run(kObjective, &run);
+        const std::string got = run.mission_ended ? (run.mission_lost ? "lost" : "won") : "not ended";
+        const int32_t all = std::max(1, on_me + on_lance + on_none);
+        std::printf("  DECOY %-6s ia%d %-12s %-22s: %d enemies, %d ordered; the enemies' targets: the commander %d%%, the lance %d%%, none %d%% "
+                    "(%d samples); first on the commander at frame %d; nearest enemy %.0f m; the reach %s at frame %d; the commander's "
+                    "health %.0f%s\n",
+                    r.world.c_str(), r.ia, r.node.c_str(), order ? "lance ordered to ATTACK" : "lance following (control)", enemies, ordered,
+                    100 * on_me / all, 100 * on_lance / all, 100 * on_none / all, on_me + on_lance + on_none, first_on_me, nearest_enemy,
+                    got.c_str(), run.ended_frame, health_end, run.player_down ? ", DOWN" : "");
+        EXPECT(run.objective_built == "reach" && !run.fell_back);
+        if (order) EXPECT(ordered == 3);
+      });
+  }
+  EXPECT(ran > 0);
+}
 
 // FIXES 129 (the lead: does a lancemate act on each of PM's lance orders in an MW1 battle?): two lancemates, A and B;
 // each step W to A (the recipient), then the order's keys, 150 frames apart: the order each brain had, the radio's
