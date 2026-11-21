@@ -24008,12 +24008,13 @@ TEST(mission_c1m2_destroy_objectives_met_by_mech_kills_headless) {
 // and the keyboard, `other` on the frames after the mission in other states,
 // until one says done or `limit` frames pass.
 platform::JoyState* g_cheat_stick = nullptr;  // a fake stick for the launch; none the default
+platform::MouseState* g_cheat_mouse = nullptr;  // a fake mouse for the launch (issue #10); none the default
 struct CheatKeys : platform::Input {
   std::vector<platform::KeyEvent> queue;
   uint32_t t = 0;
   void key(uint32_t dik, bool down) { queue.push_back({dik, down ? 0x80u : 0u, ++t, t}); }
   void press(uint32_t dik) { key(dik, true), key(dik, false); }
-  bool open(Device d) override { return d == kKeyboard || (d == kJoystick && g_cheat_stick); }
+  bool open(Device d) override { return d == kKeyboard || (d == kJoystick && g_cheat_stick) || (d == kMouse && g_cheat_mouse); }
   void close(Device) override {}
   int32_t acquire(Device) override { return 0; }
   int32_t unacquire(Device) override { return 0; }
@@ -24024,7 +24025,11 @@ struct CheatKeys : platform::Input {
     *count = n;
     return 0;
   }
-  int32_t mouse_state(platform::MouseState*) override { return kNotAcquired; }
+  int32_t mouse_state(platform::MouseState* out) override {
+    if (!g_cheat_mouse) return kNotAcquired;
+    *out = *g_cheat_mouse;
+    return 0;
+  }
   int32_t joystick_state(platform::JoyState* out) override {
     if (!g_cheat_stick) return kNotAcquired;
     *out = *g_cheat_stick;
@@ -24033,6 +24038,7 @@ struct CheatKeys : platform::Input {
 };
 const char* g_cheat_mission_dir = nullptr;  // the launch's write dir kept (a saved controls file); none a fresh one
 platform::Settings* g_cheat_mission_settings = nullptr;  // the launch's saved settings; none the default
+std::function<void()> g_cheat_mission_at_start;  // run after the start, before the launch (issue #4: a map as saved)
 int g_cheat_mission_op = 0;  // the campaign's operation for the launch (a lancemate comes with it); 0 the default
 // The mods the launch mounts in front of the install, as mw3_main's mods_mount does; none the default.
 const std::vector<std::string>* g_cheat_mission_mods = nullptr;
@@ -24073,6 +24079,7 @@ int cheat_mission(const char* write, int32_t index, int32_t number, int limit,
     mech3::Mech3App app(&engine);
     mech3::set_app(&app);
     EXPECT(app.init_instance());
+    if (g_cheat_mission_at_start) g_cheat_mission_at_start();
     mech3::GameEngine::Launch l;
     l.index = index, l.number = number;
     if (g_cheat_mission_op) l.op = g_cheat_mission_op;
@@ -28472,6 +28479,233 @@ TEST(reddit_controls_screen_rebinds_through_the_keyboard_headless) {
   }, [](mech3::GameEngine&, mech3::Mech3App& app) { return at_main_menu(app); });
   EXPECT(kept);  // read back at the next start
   EXPECT(!saved.empty());
+}
+// Issue #16 (macOS and Windows, a DualSense and an XInput pad): the stick
+// column binds nothing until "joystick/kyb default" is pressed. A fake pad
+// (no RZ, as SDL gives a gamepad): the controls screen's stick column on
+// row 0 clicked, then a button pressed and let go.
+namespace {
+struct PadInput : RebindInput {
+  platform::JoyState pad;
+  bool plugged = true, arrive = false;
+  bool open(Device d) override { return d == kKeyboard || d == kMouse || (d == kJoystick && plugged); }
+  int32_t joystick_state(platform::JoyState* out) override {
+    *out = pad;
+    return 0;
+  }
+  int32_t joystick_caps(uint32_t* flags, uint32_t* axes) override {
+    *flags = 1, *axes = 5;
+    return 0;
+  }
+  bool joystick_gamepad() const override { return true; }
+  bool joystick_arrived() override {
+    if (!arrive) return false;
+    arrive = false, plugged = true;
+    return true;
+  }
+  int32_t joystick_object_name(uint32_t ofs, char* name, uint32_t n) override {
+    if (ofs > 0x10) return kObjectNotFound;
+    std::snprintf(name, n, "axis %u", ofs / 4);
+    return 0;
+  }
+};
+
+// How: 0 the pad there at the start; 1 UseJoystick off (the mouse's
+// defaults, or a settings file saved without a stick); 2 the pad seen only
+// after the start (SDL reports pads a moment after it starts).
+bool issue16_bind(int how) {
+  W40Setup w("issue16_write");
+  PadInput in;
+  in.plugged = how != 2;
+  int stage = 0, wait = 0;
+  int32_t cmd0 = 0, mode_after = -1, users = -1, use = -1;
+  uint32_t got = 0;
+  bool bound = false, present = false;
+  w40_run(w.dir, nullptr, [&] {
+    if (how == 1) mech3::set_use_joystick(0);
+  }, [&](mech3::GameEngine& engine, mech3::Mech3App& app) {
+    if (ztwod::MessageBox* box = engine.message_box_open()) {
+      box->buttons[0].on_left_up();
+      return false;
+    }
+    auto* os = dynamic_cast<mech3::OptionsState*>(app.current());
+    auto* c = os ? dynamic_cast<mech3::ControlsScreen*>(engine.screen_of(os->screen_)) : nullptr;
+    if (stage == 0 && at_main_menu(app)) {
+      if (how == 2) in.arrive = true;
+      const_cast<mech3::MainMenu*>(mech3::main_menu())->buttons[mech3::MainMenuButton::kOptions].on_left_up();
+      stage = 1;
+    } else if (stage == 1 && os) {
+      auto* g = dynamic_cast<mech3::GameOptionsScreen*>(engine.screen_of(os->screen_));
+      if (!g) return false;
+      g->controls.on_left_up();
+      stage = 2;
+    } else if (stage == 2 && c) {
+      cmd0 = engine.controls_group_command(c->group(), 0);
+      c->joy.select(0), c->joy.on_left_up();
+      stage = 3, wait = 0;
+    } else if (stage == 3) {
+      ++wait;
+      if (wait == 2 && c) mode_after = c->mode;
+      if (wait >= 4 && wait < 8) in.pad.buttons[2] = 0x80;  // button 3
+      if (wait == 8) in.pad.buttons[2] = 0;
+      got = zin::joy_of(cmd0), present = zin::joy_present(), users = static_cast<int32_t>(zin::state().joy_users);
+      use = mech3::use_joystick();
+      if (got == 3) bound = true;
+      if (bound || wait > 60) return true;
+    }
+    return false;
+  }, &in);
+  std::printf("  issue 16 (%d): cmd %#x, mode after the click %d, joy_of %u, present %d, users %d, use_joystick %d\n", how,
+              cmd0, mode_after, got, present, users, use);
+  return bound;
+}
+}  // namespace
+
+TEST(issue16_controls_screen_binds_a_pad_button_headless) {
+  if (!have_game()) return;
+  EXPECT(issue16_bind(0));
+  EXPECT(issue16_bind(1));
+  EXPECT(issue16_bind(2));
+}
+// Issue #16: with a stick (UseJoystick on, its default), the mission's
+// controls take the stick's mode (6), as 0x00491150 asks 0x0040d1b0; the
+// wiring answered 0, so each launch put twist and pitch on the mouse and
+// cleared the throttle and turn axes (set_mode 3), whatever was bound.
+TEST(issue16_a_mission_keeps_the_stick_axes_headless) {
+  if (!have_game()) return;
+  SavedMounts keep;
+  zutl::mounts() = zutl::Mounts{};
+  zutl::mount(MW3_GAME_DIR);
+  zutl::set_write_dir(temp_dir("issue16_mission_write"));
+  mech3::reset_states();
+  reset_process_state();
+  mech3::missions() = mech3::Missions{};
+  mech3::mech_types_forget();
+  mech3::player_controls_instance() = nullptr;
+  mech3::options() = mech3::Options{};
+  mech3::axis_table() = mech3::AxisTable{};
+  PadInput pad;
+  FakeWindow window;
+  FakeAlert alert;
+  FakeClock clock;
+  FakeScreen screen;
+  platform::SilentSoundOutput sound;
+  mech3::MountFiles files;
+  mech3::Platform p;
+  p.window = &window, p.alert = &alert, p.clock = &clock, p.movie_clock = &fast_movie_clock(), p.screen = &screen, p.sound = &sound, p.files = &files;
+  p.input = &pad;
+  mech3::AxisTable before, during;
+  uint32_t flags = 0;
+  int32_t use = -1;
+  {
+    mech3::GameEngine engine(p, "mech3.exe -nofmv");
+    engine.quiet = true;
+    mech3::Mech3App app(&engine);
+    mech3::set_app(&app);
+    EXPECT(app.init_instance());
+    before = mech3::axis_table();
+    use = mech3::use_joystick();
+    mech3::GameEngine::Launch l;
+    engine.set_launch(l);
+    app.post_intro_ = &mech3::states().load;
+    int frames = 0;
+    engine.on_present = [&](int) {
+      if (app.current() != &mech3::states().core) return;
+      if (++frames == 5) {
+        during = mech3::axis_table();
+        if (auto* c = mech3::player_controls_instance()) flags = c->flags;
+      }
+    };
+    CountingPump pump;
+    pump.limit = 900;
+    pump.stop = [&] { return frames >= 5; };
+    app.run(pump);
+    mech3::missions().cleanup(false);
+    app.stop_game();
+    app.exit_instance();
+    mech3::set_app(nullptr);
+  }
+  zrdr::close_archives(true);
+  mech3::reset_states();
+  reset_process_state();
+  mech3::options() = mech3::Options{};
+  mech3::player_controls_instance() = nullptr;
+  std::printf("  issue 16: use_joystick %d, axes at the menu %d %d %d %d, in the mission %d %d %d %d, controls flags %u\n", use,
+              before.axes[0].source, before.axes[1].source, before.axes[2].source, before.axes[3].source,
+              during.axes[0].source, during.axes[1].source, during.axes[2].source, during.axes[3].source, flags);
+  EXPECT(use == 1 && (flags & 4) != 0);
+  for (int i = 0; i < 4; ++i) EXPECT(during.axes[i].source == before.axes[i].source);
+}
+// Issue #4: SHUTDOWN (0x3f, unbound by default) bound in a mission (as the
+// controls screen's ACCEPT does: the map rebuilt) powers the mech down. The
+// player's commands get their callbacks at the first mission, and the exe's
+// 0x0051c2b0 kept none for a command with no key: the key did nothing until
+// the game was started again.
+TEST(issue4_a_shutdown_key_bound_in_a_mission_works_headless) {
+  if (!have_game()) return;
+  uint32_t key = 0;
+  bool down = false;
+  bool mouse_only = false;
+  g_cheat_mission_at_start = [] {  // the player's map: SHUTDOWN with no key; FREELOOK and TOGGLE_TMODE on the mouse alone (#10 item 1)
+    for (const int32_t c : {0x3f, 0x17, 0x16}) zin::bind_key1(0, c), zin::bind_key2(0, c);
+    zin::bind_mouse(0, 0x17), zin::bind_mouse(0, 0x16);
+    zin::bind_mouse(3, 0x17);
+    zin::map_refresh();
+  };
+  cheat_mission("issue4_write", 0, 1, 900, [&](int f, mech3::GameEngine& engine, CheatKeys& keys) {
+    if (f == 10) {
+      key = zin::key1_of(0x3f) == 0 && zin::key2_of(0x3f) == 0 ? 0 : 1;  // still none at the launch
+      // the middle button's command runs its callback (mouse_callbacks, 0x0051c200): one is kept
+      mouse_only = zin::mouse_command(3) == 0x17 && zin::current_map()->callbacks[0x17] != nullptr;
+      for (uint32_t k = 0x02; k < 0x58 && !key; ++k)
+        if (!engine.key1_command(k) && !engine.key2_command(k)) key = k;
+      zin::bind_key1(key, 0x3f);
+      zin::map_refresh();
+    }
+    if (f == 15) keys.press(key);
+    mech3::LaunchedMech x;
+    if (mech3::describe_mech(mech3::mission_player_mech(), &x)) down = down || x.powered_down || x.powering_down;
+    return down || f >= 120;
+  });
+  g_cheat_mission_at_start = nullptr;
+  std::printf("  issue 4: SHUTDOWN on key %#x, powered down %d\n", key, down);
+  EXPECT(key > 1 && down);
+  std::printf("  issue 10 item 1: FREELOOK on the middle button alone has its callback %d\n", mouse_only);
+  EXPECT(mouse_only);
+}
+// Issue #10 item 2: TORSO AUTO RETURN on, a twist input past 1 (the mouse's,
+// a rate; here a stick's twist at slope 5, the same path) aimed the torso
+// past its limit and round. With SMALL FIXES the torso keeps to its limit.
+namespace {
+float issue10_twist(bool small) {
+  platform::MouseState mouse;  // twist and pitch on the mouse, as the report's: a rate, a stroke a frame
+  g_cheat_mouse = &mouse;
+  zfix::options().small_fixes = small;
+  float worst = 0.0f, limit = 0.0f;
+  cheat_mission("issue10_write", 0, 1, 900, [&](int f, mech3::GameEngine&, CheatKeys&) {
+    if (f == 1) {
+      mech3::axis_table().axes[1] = {9, -1.0f, 0.0f, 0.0f}, mech3::axis_table().axes[2] = {10, 1.0f, 0.0f, 0.0f};
+      mech3::set_torso_auto_return(1);  // as the options in a mission
+      if (auto* c = mech3::player_controls_instance()) c->view = 0;  // the torso on the mouse
+    }
+    mouse.x = f >= 5 && f < 60 ? -40 : 0;  // a quick stroke left, held
+    mech3::LaunchedMech x;
+    if (mech3::describe_mech(mech3::mission_player_mech(), &x)) {
+      limit = x.torso_max_yaw;
+      worst = std::max(worst, std::fabs(x.torso_yaw));
+    }
+    return f >= 120;
+  });
+  g_cheat_mouse = nullptr;
+  zfix::options().small_fixes = true;
+  std::printf("  issue 10 item 2 (small fixes %d): torso yaw at most %.2f, its limit %.2f\n", small, worst, limit);
+  return limit > 0.0f ? worst / limit : 0.0f;
+}
+}  // namespace
+TEST(issue10_auto_return_torso_keeps_its_limit_headless) {
+  if (!have_game()) return;
+  EXPECT(issue10_twist(true) <= 1.001f);
+  EXPECT(issue10_twist(false) > 1.5f);  // the original's: well past
 }
 // Playtest W50 (Owen, c1m2 on the Mac, v1.0): "Destroy Missile Platforms
 // OP: Baker" stays In Progress; triturret02 vanished with no wreck while its

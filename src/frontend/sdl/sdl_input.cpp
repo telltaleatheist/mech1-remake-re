@@ -338,7 +338,9 @@ void SdlInput::close(Device d) {
 int32_t SdlInput::acquire(Device d) {
   if (!opened_[d]) return kNotAcquired;
   check_focus();  // W4: the focus as it really is
-  if ((coop_[d] & 5) == 5 && !focused_) return kNotAcquired;
+  // FIX (A), issue #16: refused for want of the focus, it reads "lost", so
+  // zInput asks again (it takes the stick again only on that, 0x0051dc20).
+  if ((coop_[d] & 5) == 5 && !focused_) return lost_[d] = true, kNotAcquired;
   acquired_[d] = true;
   lost_[d] = false;
   if (d == kMouse) refresh();
@@ -579,7 +581,7 @@ int32_t SdlInput::joystick_state(platform::JoyState* out) {
   if (!joy_) {
     if (!unplugged_) return kNotAcquired;
     neutral(out);
-    return acquired_[kJoystick] ? 0 : kNotAcquired;
+    return joystick_result();
   }
   SDL_UpdateJoysticks();  // Poll (IDirectInputDevice2 +0x64)
   *out = platform::JoyState{};
@@ -622,7 +624,16 @@ int32_t SdlInput::joystick_state(platform::JoyState* out) {
     for (int i = 0; i < 128 && i < nb; ++i) out->buttons[i] = SDL_GetJoystickButton(joy_, i) ? 0x80 : 0;
   }
   last_ = *out;
-  return acquired_[kJoystick] ? 0 : kNotAcquired;
+  return joystick_result();
+}
+
+// FIX (A), issue #16: a rumble pad is exclusive and foreground (zInput's
+// level 5); taken away by a focus loss or refused at the start, it reads
+// "input lost", as the mouse does, so zInput takes it again once the window
+// has the focus. "Not acquired" left it dead for good: no buttons, no axes.
+int32_t SdlInput::joystick_result() const {
+  if (acquired_[kJoystick]) return 0;
+  return lost_[kJoystick] ? kInputLost : kNotAcquired;
 }
 
 // The axes DirectInput's layout has: a gamepad's five (X, Y, Z, RX, RY),

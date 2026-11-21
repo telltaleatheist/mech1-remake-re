@@ -2228,6 +2228,11 @@ bool describe_mech(const void* mech, LaunchedMech* out) {
   s.powered_down = m->powered_down;
   if (m->transform) s.pos[0] = m->transform[9], s.pos[1] = m->transform[10], s.pos[2] = m->transform[11];
   s.yaw_sin = m->orientation[2];
+  if (m->torso) {
+    s.torso_yaw = m->torso->yaw, s.torso_twist_in = m->torso->twist_in;
+    const MechDfn* d = update_calls().dfn ? update_calls().dfn(const_cast<Mech&>(*m)) : (m->pilot ? mech_dfn(m->pilot->roster) : nullptr);
+    s.torso_max_yaw = d ? d->get<float>(0x174) : m->torso->max_yaw;  // the def's twist limit (0x0041e9a0's)
+  }
   s.feet_down = m->skis && m->skis->down[0] && m->skis->down[1];
   const zcls::Node* n = static_cast<const zcls::Node*>(m->node);
   for (int32_t i = 0; n && i < n->parent_count(); ++i) s.in_world |= n->parents[i] == world_hooks().world && n->parents[i];

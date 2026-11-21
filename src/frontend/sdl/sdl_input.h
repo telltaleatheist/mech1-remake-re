@@ -153,6 +153,7 @@ class SdlInput : public platform::Input {
   bool open_joystick();
   void map_axes();
   void neutral(platform::JoyState* out) const;
+  int32_t joystick_result() const;  // issue #16: 0, or "input lost" / "not acquired"
   double pad_axis(int i) const;
   bool opened_[3] = {};
   bool acquired_[3] = {};

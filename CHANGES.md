@@ -33,6 +33,8 @@ it is clear what the designers meant.
 - **Pirate's Moon's HUD static thickens the worse your mech is hurt.** The original works out how
   strong the static should be and then, on a 3D card, draws it at full strength however hurt you are;
   now it grades with your health, as MechWarrior 3's does: faint at 15% health, a full sheet near death.
+- **Leaving the pause menu with Escape no longer silences the mission.** The pause stops every sound and only the RESUME button started them again: leaving with Escape left the wind, the ocean and your mech's engine hum silent for the rest of the mission. Escape now brings them back as RESUME does (the expansion did the same).
+- **TORSO AUTO RETURN with the mouse keeps the torso within its twist.** With the mouse on twist and pitch, a quick stroke swung the torso past its limit and all the way round (issue #10). Under SMALL FIXES.
 - **The Sunder's Alternate B loadout carries all its LRM 20 missiles.** A misplaced word in its file left 240 of the 360 unloaded. Under SMALL FIXES.
 - **The Strider has its recoil slide.** Its file gave the number as text ("1.5.0"), so it had none; it now has the 1.5 of the mechs beside it. Under SMALL FIXES.
 - **The Firefly's fifth camo is named SLATE.** It was labelled WASP like the fourth. Always on.
@@ -171,6 +173,7 @@ it is clear what the designers meant.
 - **Craters next to an earlier crater are judged on the earlier one.** The original refuses a crater that would come within 5 m of an earlier crater in the same patch of ground, but it checked against the earlier crater's record after freeing it, so the answer depended on what the memory held by then. The rebuild keeps the earlier craters' outlines for the test.
 - From high up, no dark band between the far ground and the sky: what nothing draws takes the fog's colour (bug fixes on).
 - A light carried by something that moves now shines from where it is, not from the world's origin.
+- **A key bound to a command that had none works at once** (issue #4). The game gives your mech's commands to their keys once a run, at the first mission, and skipped any command that had no key then. SHUTDOWN (power down and up) has none in many control setups, so binding it later did nothing until the game was started again, and you could not power down at a field base to repair. Now the key works as soon as you bind it. A command bound only to a joystick or mouse button is helped the same way.
 
 ## Crashes and broken data that no longer break the game
 
@@ -668,6 +671,8 @@ These change how the game talks to the computer, not how it plays.
 
 - Setting the game up takes whatever you have (ours): one POINT TO YOUR GAME button takes your installed game, the disc, a disc image (.iso, .cue/.bin with its music) or the file you downloaded (.zip, .7z, .rar, even a zip inside a zip) and installs straight from it, with nothing to unpack by hand; it tells MechWarrior 3 from Pirate's Moon by the files themselves. Started directly, the game goes straight in when it finds your install, and shows only this setup screen when it does not.
 - A launcher (ours; its own program, the main icon, which starts the game and steps aside while it runs; the game also starts directly) finds your MechWarrior 3 by itself and, when it cannot, sets it up from buttons instead of command lines: point to your game (with a progress bar and Cancel), apply the official 1.2 patch (offered only for game files of an unknown version), add the music from a disc image.
+- **A gamepad that rumbles answers again after the window loses the focus, and when the game starts without it** (issue #16; FIX (A)). A DualSense or an XInput pad is taken as a force-feedback stick, which DirectInput gives the game only while its window is in front. When the window was not in front at the start (the Mac's full screen coming up, a launcher handing over) or lost the focus later, the pad stayed dead for the rest of the run: it still rumbled, but no button or stick reached the game or the controls screen. It is now taken again as soon as the window is in front.
+- **The picture behind a mission's fade, the pause menu and pop-ups no longer risks a crash on some Linux graphics drivers** (issue #7, ours). The game reads the last frame back from the graphics card for these; when the driver would not give it, the game crashed at a mission's start or in the mech lab. It now goes on without that picture and says why in mw3.log.
 
 ## Kept as the original, on purpose
 
