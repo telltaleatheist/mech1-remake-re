@@ -5,7 +5,7 @@ Tick an item when it is merged into `main`.
 
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
-## 138. [ ] Out of bounds: leaving the battle area fails the mission *(design; with 136)*
+## 138. [x] Out of bounds: leaving the battle area fails the mission *(design; with 136; `mw1-fix138-boundary-survey`)*
 
 - **Raised (2026-11-21):** "do we have out of bounds that the player loses the mission if they cross? we probably
   should."
@@ -19,6 +19,25 @@ Tick an item when it is merged into `main`.
   included. AI pathing already respects the boundary's pull.
 - **First:** a headless survey of what each contract map does now (boundary or none, and what crossing it does).
   Then the rule, the area for maps without one (PM's), and 136's points checked to lie inside it.
+- **Survey (mw1 dev 2, 2026-11-21; research/boundaries.md):** MW3's maps (mw3c1..mw3c4) already did it all. The
+  radar draws both lines, past the yellow the "out_of_bounds" voice plays, and past the red "Left Mission
+  Boundaries" loses the mission on the next frame. PM's c1..c4 and the arctic mw3c4b had nothing, even 5 km out.
+  On mw3c4, ia3's four southern enemy places stood beyond the red and ia1's Enemy_01 between the lines.
+- **Decided (project decision, 2026-11-21):** nothing is built to keep enemies in; the maps only need their
+  out-of-bounds areas. MW3's AI pull reads the world's `inout` outlines, never the `reg_` lines, and on MW3's own maps
+  nothing keeps its AI inside them either.
+- **Done (mw1 dev 2):**
+  - PM's maps and the arctic get MW1's own pair (`data/mw1bounds.zrd`, written by `tools/mw1bounds.py`; read by
+    `mw1_bounds.h`), which behaves like MW3's. Yellow is 16 sides, each 600 m past the farthest start, enemy place
+    (60 m around each, for the launch's extras) or structure; red is 500 m further out.
+  - mw3c4's six enemy places outside or near the edge are moved at least 150 m inside the yellow by MW1's MOVE
+    entries; MW3's files are unchanged.
+  - Found on the way: a fail group made by `block_read` (on the arctic, whose objectives have none) needed every
+    item, so the arctic defence's structure falling never lost the mission. It now fails on any one item, as MW3's
+    reader does.
+  - Test: `mw1_loop_boundary_survey_headless` (all 48 rows with `MW1_BOUNDARY_SURVEY=1`) checks that every map has
+    both lines drawn, that every start, enemy and structure lies inside the yellow (MW1's areas by 595 m, MW3's by
+    150 m), that the voice plays past the yellow, and that the mission is lost past the red.
 
 ## 137. [ ] A defence on the arctic map 1 again *(after 1.0.4)*
 

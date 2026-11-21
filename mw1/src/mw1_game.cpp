@@ -52,6 +52,14 @@
 #include "gamez/zimage/zimg_texture.h"
 #include "gamez/zinput/zinput.h"
 #include "mech3/app_hud.h"
+#include "mech3/hud.h"
+#include "mech3/mech_control.h"
+#include "mech3/zai_nav.h"
+#include "mech3/zai_valve.h"
+#include "mech3/zainet_region.h"
+#include "mech3/zrdrvalve.h"
+#include "gamez/znetwork/znet_object.h"
+#include "mw1_bounds.h"
 #include "gamez/zreader/zreader.h"
 #include "gamez/ztwod/twod.h"
 #include "gamez/ztwod/twod_host.h"
@@ -3132,8 +3140,55 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   // contract is accepted and its advance paid at its first launch only; a later launch of the same contract (a
   // replay; none reaches here yet, an IA REPLAY ends the mission as a failure) puts back what the first launch
   // left. Each launch starts the mission's salvage and wrecks afresh.
+  // FIXES 138 (mw1_bounds.h): a map with no area of its own gets MW1's, made as MW3's maps make theirs. Its two
+  // regions (reg_inside_mw1, reg_outside_mw1) join the AI's regions; the player's vlist gets MW3's three entries on
+  // them (aiv.zrd's: outside the yellow sets inside_mw1 to 1 and back inside to 0; outside the red sets outside_mw1
+  // to 1); inside_mw1 at 1 plays the "out_of_bounds" voice (valves.zrd's "sound"); the fail objective watching
+  // outside_mw1 is block_read's. Then the radar takes the pair (0x0043d920 again: it ran at the start, before them).
+  void add_boundary() {
+    const mw1::Bound* b = mw1::bound_for(contract_.world, contract_.ia);
+    if (!b) return;
+    auto* player = dynamic_cast<mech3::PlayerControls*>(static_cast<mech3::MechControls*>(
+        mech3::mech_controls_of(mech3::mech_mission_player())));
+    if (!player) return;
+    auto region = [](const char* name, const std::vector<mw1::Point2>& outline) {
+      if (mech3::ai::Region* r = mech3::ai::region_named(name)) return r;  // a replay of the same mission: kept
+      const int32_t id = znet::alloc_id(znet::kKeptIds, znet::kKeptIds, znet::kKeptIds + 100);
+      auto* r = new mech3::ai::Region(name, id, static_cast<int32_t>(outline.size()));
+      r->elems.resize(outline.size(), nullptr);
+      for (size_t i = 0; i < outline.size(); ++i) {
+        const mw1::Point2& a = outline[i];
+        const mw1::Point2& c = outline[(i + 1) % outline.size()];
+        const float from[3] = {a[0], 0.0f, a[1]}, to[3] = {c[0], 0.0f, c[1]};
+        r->elems[i] = new mech3::ai::RegionEdge(from, to);
+      }
+      mech3::ai::regions().push_back(r);
+      return r;
+    };
+    mech3::ai::Region* inner = region(mw1::kBoundInside, b->yellow);
+    mech3::ai::Region* outer = region(mw1::kBoundOutside, b->red);
+    mech3::ai::Valve* inside = mech3::ai::valve_get(mw1::kBoundInsideValve);
+    mech3::ai::Valve* outside = mech3::ai::valve_get(mw1::kBoundOutsideValve);
+    if (!inside->chain) inside->add(new mech3::ai::SoundAction(mw1::kBoundSound, 1, false));
+    auto& vl = player->settings.vlist;
+    if (!vl) vl = new std::list<mech3::ai::VListEntry>;
+    auto entry = [&](mech3::ai::Region* r, uint8_t flags, uint8_t flags2, mech3::ai::Valve* v) {
+      for (const mech3::ai::VListEntry& e : *vl)
+        if (e.region == r && e.flags == flags && e.flags2 == flags2 && e.valve == v) return;
+      mech3::ai::VListEntry e;
+      e.region = r, e.flags = flags, e.flags2 = flags2, e.valve = v;
+      vl->push_back(e);
+    };
+    entry(outer, 0x03, 0x02, outside);  // outside the red: outside_mw1 = 1
+    entry(inner, 0x03, 0x02, inside);   // outside the yellow: inside_mw1 = 1 (the voice)
+    entry(inner, 0x01, 0x01, inside);   // inside it again: 0
+    if (void* hud = mech3::program_mech_hud(mech3::mech_mission_player())) static_cast<mech3::Hud*>(hud)->radar.reset_boundary();
+    std::printf("mw1: %sia%d's mission area: yellow %zu corners, red %zu\n", contract_.world.c_str(), contract_.ia,
+                b->yellow.size(), b->red.size());
+  }
   void mission_launched(mech3::Engine&) override {
     loading_.reset();  // the loading screen's job done
+    if (deployed_) add_boundary();
     // FIXES.md item 43: the objective's nav point the selected one, so the HUD's nav and its arrow lead there.
     if (nav_point_) {
       float at[3];
@@ -3225,6 +3280,20 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   // and a defence is won only when every enemy is down: one left at its post a kilometre off stood all mission. Mode
   // 1 from the start, as the map's other enemies have.
   void enemy_launching(int32_t slot, mech3::ai::AiParams& params) override {
+    // FIXES 138: an enemy place the map puts outside its own area is moved inside it (mw1bounds.zrd's MOVE), onto the
+    // highest dry ground there.
+    float to_x = 0, to_z = 0;
+    if (deployed_ && mw1::moved_place(contract_.world, contract_.ia, params.get<float>(0x08), params.get<float>(0x10), &to_x, &to_z)) {
+      mech3::ai::nav::Floor f[mech3::ai::nav::kLevels];
+      const int n = mech3::ai::nav::zcls_world().ground(to_x, to_z, f, mech3::ai::nav::kLevels);
+      float y = params.get<float>(0x0c);
+      bool found = false;
+      for (int i = 0; i < n; ++i)
+        if (!(f[i].water > f[i].y) && (!found || f[i].y > y)) y = f[i].y, found = true;
+      std::printf("mw1: enemy in slot %d moved inside the area: (%.0f, %.0f) to (%.0f, %.0f)%s\n", slot,
+                  params.get<float>(0x08), params.get<float>(0x10), to_x, to_z, found ? "" : ", no ground found there");
+      params.put<float>(0x08, to_x), params.put<float>(0x0c, y), params.put<float>(0x10, to_z);
+    }
     if (deployed_ && contract_.objective == Objective::kDefendStructure) {
       const int32_t mode = params.get<int32_t>(0x3c);
       const float engage = params.get<float>(0x20);  // squared, as the brain reads it
@@ -3456,8 +3525,16 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   // destroy instead, said. The map survey (tests) is the gate; this is the net under it.
   void block_read(zrdr::Node*, mech3::Objectives& o) override {
     own_wins_ = false, objective_built_.clear(), objective_fell_back_ = false, nav_point_ = nullptr, nav_label_.clear();
-    if (!deployed_ || contract_.objective == Objective::kDestroyAll) return;
     mech3::ObjectiveHooks& h = mech3::mission_objective_hooks();
+    // FIXES 138: MW1's own area's fail, as MW3's maps have theirs (objectives.zrd's "Left Mission Boundaries": a
+    // valve_change on the red's valve at 1); the regions and the trigger come at the launch (add_boundary).
+    if (deployed_ && mw1::bound_for(contract_.world, contract_.ia)) {
+      if (!o.fail) o.fail = std::make_unique<mech3::ObjectiveGroup>(h.message(0xf04));
+      o.fail->goal_count = 1;  // any one fails it (read_objectives sets the same on a file's fail group)
+      const zgame::Handle v = h.valve_find(mw1::kBoundOutsideValve);
+      o.fail->items.push_back(std::make_unique<mech3::ValveChangeObjective>(h.localize("MSG_OBJ_LEFT_MISSION_BOUNDARIES"), v, 1));
+    }
+    if (!deployed_ || contract_.objective == Objective::kDestroyAll) return;
     const char* name = contract_.structure.c_str();
     const std::string shown = contract_.structure_words.empty() ? contract_.structure : contract_.structure_words;
     auto fall_back = [&] {
@@ -3495,6 +3572,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         d->nav = place_nav(h, h.node_find(name));
         o.primary.reset();  // Instant Action's "destroy the enemies" alone (add_enemy_group)
         if (!o.fail) o.fail = std::make_unique<mech3::ObjectiveGroup>(nullptr);
+        // FIXES 138: any one of the group's fails the mission, as read_objectives makes a file's fail group. A group
+        // made here (a map whose objectives have none: MW1's arctic) was left needing every item, so the structure's
+        // fall alone never lost the defence.
+        o.fail->goal_count = 1;
         o.fail->items.push_back(std::move(d));
         objective_built_ = "defend";
         break;

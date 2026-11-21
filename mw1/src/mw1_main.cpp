@@ -46,6 +46,7 @@
 #include "platform/hires_lists.h"
 #include "mw1_game.h"
 #include "mw1_hud_labels.h"
+#include "mw1_bounds.h"
 #include "mw1_missions.h"
 #include "mw1_movie.h"
 #include "mw1_pilots.h"
@@ -264,6 +265,13 @@ int main(int argc, char** argv) {
     mw1::set_map_table(mw1::parse_maps(mw1::kMapsFile, &why));
     mw1::set_map_pools(mw1::parse_pools(mw1::kMapsFile, &why));  // item 46
     std::printf("mw1: %zu maps in %s%s%s\n", mw1::map_table().size(), mw1::kMapsFile, why.empty() ? "" : ": ", why.c_str());
+  }
+  // FIXES 138 (mw1_bounds.h): the mission areas MW1 gives the maps without their own, and the enemy places it moves.
+  {
+    std::string why;
+    mw1::set_bounds(mw1::parse_bounds(mw1::kBoundsFile, &why));
+    std::printf("mw1: %zu mission areas, %zu moved places in %s%s%s\n", mw1::bounds().bounds.size(), mw1::bounds().moves.size(),
+                mw1::kBoundsFile, why.empty() ? "" : ": ", why.c_str());
   }
   // MW1_WORLD=<folder>ia<n> (a test override): every contract a battle on that world's Instant Action map, e.g.
   // mw3c2ia1. Without it the contracts choose their map and objective (mw1_missions.h, data/mw1maps.zrd).
