@@ -1,4 +1,5 @@
 #include "mech3/disc_install.h"
+#include "rekit/files.h"
 
 #include <algorithm>
 #include <cstring>
@@ -180,28 +181,8 @@ bool Disc::open(const std::string& path, std::string* error) {
 }
 
 bool swap_in_folder(const std::string& tmp, const std::string& out, std::error_code& ec) {
-  const fs::path old = out + ".old";
-  std::error_code e2;
-  const bool had = fs::exists(out, e2);
-  // Only our own earlier install (its marker) or an empty folder is replaced:
-  // --install-to may name any folder, and the old one is deleted below.
-  if (had && !fs::exists(fs::path(out) / kMarker, e2) && !fs::is_empty(out, e2)) {
-    ec = std::make_error_code(std::errc::directory_not_empty);
-    return false;
-  }
-  if (fs::exists(old / kMarker, e2)) fs::remove_all(old, e2);
-  if (had) {
-    fs::rename(out, old, ec);
-    if (ec) return false;
-  }
-  fs::create_directories(fs::path(out).parent_path(), e2);
-  fs::rename(tmp, out, ec);
-  if (ec) {
-    if (had) fs::rename(old, out, e2);  // the old one back
-    return false;
-  }
-  fs::remove_all(old, e2);
-  return true;
+  // Only our own earlier install (its marker) or an empty folder is replaced: --install-to may name any folder.
+  return rekit::swap_in_folder(tmp, out, kMarker, ec);
 }
 
 DiscInstall install_from_disc(const std::string& source, const std::string& out_dir, const std::string& patch,

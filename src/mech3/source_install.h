@@ -1,4 +1,5 @@
 #pragma once
+#include "rekit/files.h"
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -40,11 +41,7 @@ using StageProgress = std::function<bool(double fraction, const std::string& ent
 Staged stage_source(const Found& f, const std::string& staging, const std::string& install_to,
                     const StageProgress& progress);
 
-// An entry's path made safe to write under a folder ('\\' read as '/', "."
-// parts dropped); "" for an absolute path, a drive, or any ".." part.
-std::string safe_relative(const std::string& entry);
-
-// The free space kept beside what is written (64 MB; tests raise it).
-uint64_t& space_spare();
-
+// Safe paths and the free space kept: the setup kit's (rekit/files.h) since 2026-11-21.
+using rekit::safe_relative;
+using rekit::space_spare;
 }  // namespace mech3::source
