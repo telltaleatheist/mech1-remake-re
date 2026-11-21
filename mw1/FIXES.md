@@ -5,6 +5,32 @@ Tick an item when it is merged into `main`.
 
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 136. [ ] Objectives on a triangle: the target off the line between you and the enemy *(design; after 1.0.4)*
+
+- **The design (2026-11-20):** you start at A, the enemy at B, the objective at C, a corner of a triangle, not on
+  the A to B line. The enemy comes toward you, but a 'Mech outfitted to run (less armour, more speed) can make C
+  first; or high ground screens the path. That matches the original intent of MW1's raid and withdraw contracts:
+  a careful player can avoid the fight.
+- **Measures (FIXES 134's survey reports them):** the angle at A between A to B and A to C; the closest approach of
+  A to C to B; the race ratio |AC| / |BC|; the highest ground between B and the A to C path.
+- **Then:** reach points chosen by those scores (reach_area takes any point, on open, reachable floor); attack
+  targets chosen among each map's real structures by the same scores. Thresholds from the measured table.
+
+## 135. [ ] 'Mech prices vary a little *(proposed; waiting on a go)*
+
+- **The idea (2026-11-20):** about +-5% on 'Mech prices. Proposed: one roll per model per market refresh, applied
+  to both buying and selling at that world (keeps the 10% buy/sell gap, so no flip profit), on a bell curve, rounded
+  to 1,000, saved with the market.
+
+## 134. [ ] Contract targets in the right places *(dev 1: mw1-fix134-phantom-targets; for 1.0.4)*
+
+- **Reported (2026-11-20):** "destroy the pirate base" on PM c3 ia2 put the base 100 m from the start, the enemies
+  2.2 km away. The structure was real (destroying it wins); its place made no sense.
+- **The fix:** placement rules in the map survey, every row played to its end: attack targets at least 150 m from
+  the start and on the enemy's half; defended structures nearer you than the enemy; reach points at least 150 m
+  away. Rows that fail are dropped or swapped (c3 ia2 and ia3 mpbbase dropped, mw3c4b ia2 swapped, mw3c4b ia1's
+  defend dropped).
+
 ## 133. [x] Ice missions cool the 'Mech faster *(done: mw1-fix133-arctic-cooling)*
 
 - **Reported (2026-11-20):** the arctic missions didn't lower heat, as MW3's snow missions do.
