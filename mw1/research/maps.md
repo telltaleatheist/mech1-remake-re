@@ -464,7 +464,7 @@ the enemies' centre (1).
 | Kind | Rule | Kept rows | Dropped or moved |
 |---|---|---|---|
 | attack | ≥ 150 m from the start, along ≥ 0.5 | along 0.81..1.28 | c3 ia2 `mpbbase` (0.04), c4b ia2 `ware03` (−0.08) |
-| defend | along ≤ 0.5, nearer the start than the enemies | along ≤ 0.17, enemies ≥ 1.5× as far | c3 ia3 `mpbbase` (3.99), c4b ia1 `ware02` (1.25), c4b ia2 `ware01` (0.94) |
+| defend | along ≤ 0.5, nearer the start than the enemies | along ≤ 0.17, enemies ≥ 1.5× as far | c3 ia3 `mpbbase` (3.99), c4b ia1 `ware02` (1.25; `ware03` with a moved start, FIXES 137), c4b ia2 `ware01` (0.94) |
 | reach | ≥ 150 m from the start, whichever way it leads | all | none (c2 ia1, c3 ia1, c4 ia1 lead away from the enemies: MW1's withdraw) |
 
 An attack's target or a reach's place needn't sit among the enemies: a
@@ -478,8 +478,10 @@ B → the midpoint of A→C above the straight line between them (does a hill
 screen the way?); and the nearest enemy place to the segment A→C.
 
 On c4b ia2 the two warehouses changed sides (`data/arctic/ia2`): `ware01`,
-with the enemies, is now the attack's target, `ware03` the defence's. c4b ia1
-has no defence: all three warehouses stand on the enemies' side. The enemy
+with the enemies, is now the attack's target, `ware03` the defence's. On c4b
+ia1 the company's start moved (FIXES 137) from the snow west of the base to
+(640, −960), beside `ware03`, now the defence's (along −0.04); the reach is
+`ware02` and the attack `ware01`. The enemy
 places are spread wide (the farthest 630..2160 m from their centre), which is
 why the rules lean on "along" more than on the distance to the centre.
 
