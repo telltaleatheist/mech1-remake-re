@@ -20710,14 +20710,14 @@ TEST(playtest_w40_controls_screen_accept_saves_cancel_does_not_headless) {
 
 // MOUSE SENSITIVITY (ours, Owen 2026-11-02): a slider on the graphics and
 // audio screen (our record edit among the volume sliders) sets MouseAccelX
-// and Y's magnitude, 0.5 to 3.0 in tenths, Y keeping its sign (the game
+// and Y's magnitude, 0.5 to 5.0 in tenths (3.0 until issue #15's raw mouse), Y keeping its sign (the game
 // options' invert box, which keeps the magnitude); untouched, the original's 1.3. The mission's mouse reads scale by it (zInput's accel,
 // set from the options when a mission starts, 0x00480df0's 282).
 TEST(options_mouse_sensitivity_slider_headless) {
   if (!have_game()) return;
   EXPECT(mech3::sensitivity_of_slider(mech3::slider_of_sensitivity(1.3f)) == 1.3f);  // the default round-trips
-  EXPECT(mech3::sensitivity_of_slider(0.0f) == 0.5f && mech3::sensitivity_of_slider(1.0f) == 3.0f);
-  EXPECT(std::fabs(mech3::sensitivity_of_slider(0.5f) - 1.8f) < 1e-6f);  // tenths
+  EXPECT(mech3::sensitivity_of_slider(0.0f) == 0.5f && mech3::sensitivity_of_slider(1.0f) == 5.0f);
+  EXPECT(std::fabs(mech3::sensitivity_of_slider(0.5f) - 2.8f) < 1e-6f);  // tenths (2.75 rounded)
   SavedMounts keep;
   zutl::mounts() = zutl::Mounts{};
   zutl::mount(MW3_GAME_DIR);
@@ -20792,13 +20792,14 @@ TEST(options_mouse_sensitivity_slider_headless) {
       } else if (stage == 2 && u) {
         u->apply(0);  // the five off (set_all above), wide menus as they are
         page_read = u->wide_menus.selected_value() == (zfix::options().wide_menus ? 1 : 0) &&
+                    u->raw_mouse.selected_value() == (zfix::options().raw_mouse ? 1 : 0) && u->raw_mouse.count() == 2 &&
                     u->small_list.item_count() == static_cast<int32_t>(upgrades::small_fixes_list().size());
         for (mech3::OnOffCycle* c : u->five) page_read = page_read && c->selected_value() == 0;
-        u->water.select(1), u->small_fixes.select(1), u->wide_menus.select(0);
+        u->water.select(1), u->small_fixes.select(1), u->wide_menus.select(0), u->raw_mouse.select(0);
         u->apply(1);
         const zfix::Options& o = zfix::options();
         page_applied = o.water && o.small_fixes && !o.mfb_regroup && !o.improved_ai && !o.artemis && !o.wide_menus &&
-                       !o.fixed;  // the page never touches the always-on fixes
+                       !o.raw_mouse && !o.fixed;  // the page never touches the always-on fixes
         stage = 3;
       }
     };
@@ -20823,7 +20824,7 @@ TEST(options_mouse_sensitivity_slider_headless) {
   EXPECT(click_moves);
   EXPECT(page && page_read && page_applied);
   EXPECT(saved == std::vector<std::string>({"upgrade_water=1", "upgrade_mfb_regroup=0", "upgrade_improved_ai=0", "upgrade_artemis=0",
-                                            "upgrade_small_fixes=1", "widemenus=0"}));
+                                            "upgrade_small_fixes=1", "widemenus=0", "rawmouse=0"}));
   mech3::options_upgrades_saver() = nullptr;
   // The mission's step: zInput's read counts times the acceleration (cut toward zero).
   zin::State& st = zin::state();

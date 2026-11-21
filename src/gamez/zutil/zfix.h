@@ -32,6 +32,11 @@ struct Options {
   // (16:9), on by default (Owen, 2026-10-31); a display choice, not a bug
   // fix: mw3.cfg's widemenus=0, --no-wide-menus (resolution.md section 12).
   bool wide_menus = true;
+  // Ours (issue #15, Owen 2026-11-21): the mouse's raw counts, linear as
+  // DirectInput gave the original, not the system pointer's speed curve; a
+  // display-side choice like wide_menus: mw3.cfg's rawmouse=0, --no-raw-mouse
+  // (input.md section 14).
+  bool raw_mouse = true;
   // Ours (W56, Owen 2026-11-03), with `fixed`: a stick's throttle lever covers
   // reverse too (mech3::lever_throttle); mw3.cfg's throttle_reverse=0 keeps
   // the original's stop at the bottom.
