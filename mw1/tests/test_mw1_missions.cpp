@@ -278,3 +278,30 @@ TEST(mw1_placement_measures_a_triangle) {
   const Measures none = measure({0, 0}, {300, 400}, {});
   EXPECT(none.enemies == 0 && near(none.start_target, 500) && none.target_enemies < 0);
 }
+
+// FIXES 136: the reach row's route round the enemy (mw1_placement.h): the open field's straight way, a guarded goal,
+// a wall of enemies to go round, the start's own disc let through, and the area bounding it.
+TEST(mw1_placement_routes_round_the_enemy) {
+  using namespace mw1::placement;
+  const Route open = route({0, 0}, {1000, 0}, {}, {});
+  EXPECT(open.found && open.length > 940 && open.length < 980 && open.detour < 1.03f);
+  // The goal guarded: an enemy 50 m from it leaves no cell within the reach's 40 m that is 200 m clear.
+  const Route guarded = route({0, 0}, {1000, 0}, {{1050, 0}}, {});
+  EXPECT(!guarded.found && guarded.goal_clear == 50);
+  // An enemy on the way: round it, every cell 200 m clear of it, a little longer.
+  const Route round = route({0, 0}, {1000, 0}, {{500, 0}}, {});
+  EXPECT(round.found && round.path_clear >= 195 && round.detour > 1.02f && round.detour < 1.3f);
+  // A wall of enemies across the way, open only far to the north: found but more than twice as long.
+  std::vector<Point> wall;
+  for (float z = -1500; z <= 1500; z += 100) wall.push_back({500, z});
+  const Route walled = route({0, 0}, {1000, 0}, wall, {});
+  EXPECT(walled.found && walled.detour > 2.0f);
+  // The area closes the gap round the wall: none.
+  const Route boxed = route({0, 0}, {1000, 0}, wall, [](float, float z) { return std::fabs(z) < 1400; });
+  EXPECT(!boxed.found);
+  // An enemy 150 m from the start: its disc is the start's own, let through; start_clear says how near it is.
+  const Route near_start = route({0, 0}, {1000, 0}, {{-150, 0}}, {});
+  EXPECT(near_start.found && near_start.start_clear == 150);
+  // A start outside the area: none.
+  EXPECT(!route({0, 0}, {1000, 0}, {}, [](float x, float) { return x > 10; }).found);
+}
