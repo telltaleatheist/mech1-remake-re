@@ -132,8 +132,22 @@ Tick an item when it is merged into `main`.
   keeps its attack on the portal gate. Every reach row passes; the known-failure list is empty. The pools keep their
   70..80% (desert 75.7%, tropical 75.2%, ice 75.4%). The steepest step measured on the new routes is mw3c2's 1.24
   (report only).
-- **Still to do:** point reach rows (a reach at a point, not a node), the attack targets chosen by the same scores,
-  and the decoy check, headless.
+- **The steepest step (report only):** mw3c2's 1.24 is not the hangar's ramp. Its steepest step is at
+  (−123, −1520), about 1 km before the hangar: 35.4 m to 0 within 8 m. The route's ground is the highest polygon
+  under each point (the ridge's callback), so beside or under a structure it reads the roof, not the floor. A slope
+  rule would read the walking floor (the AI nav ground's level nearest the step before).
+- **The decoy check (2026-11-21, `mw1_loop_lance_as_a_decoy_headless`, measured):** three lancemates, eight enemies,
+  the rolls seeded, the commander driven along the route; the lance ordered to ATTACK at frame 31 against the lance
+  left following. The order helps where the lance meets the enemy in front of the commander (mw3c4's dock: the
+  enemies on the commander 2% against 9%; mw3c1: 0% against 21%, the control's commander lost) and hurts where it
+  draws the fight onto the commander's way (mw3c2: 65% against 0%, the commander lost). Two gaps found:
+  - mw3c4b ia1's commander is lost in both runs: the arctic enemies patrol their nets and close to 142 m of a
+    route kept 200 m from their start places. The rule wants the patrol nets in the discs.
+  - The route grid knows only the enemies and the yellow, not walls, buildings or cliffs: on mw3c3 the commander
+    stands against a wall at (−320, −4356) for the rest of the run (mw3c1's and mw3c2's runs too, once each). The
+    rule wants the walking floor (the AI nav ground, a step limit between cells).
+- **Still to do:** the two gaps above; point reach rows (a reach at a point, not a node); the attack targets chosen
+  by the same scores.
 
 ## 135. [x] 'Mech prices vary a little *(done: mw1-fix135-price-variety)*
 
