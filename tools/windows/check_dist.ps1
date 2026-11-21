@@ -4,7 +4,7 @@
 # is in the folder (a player may not have it); and no game file is in it.
 # Needs dumpbin (vcvars64). Usage: check_dist.ps1 <folder>
 # -Pm: the combined package, mw3pm.exe required too (its DLLs checked as every program's).
-# -Mw1: MechWarrior 1: Critical Hit in it too, mw1.exe required; its own mw1data\ (MW1's .zrd screens and the
+# -Mw1: MechWarrior 1 Remake in it too, mw1.exe required; its own mw1data\ (MW1's .zrd screens and the
 # image archive packed from its repo's art) is ours, not a game file.
 # -Mw1Port: Elthial's MechWarrior (1989) port in MechWarrior1989\, its program and licences required, its DLLs
 # checked against its own folder (Windows looks there first for a program in it).

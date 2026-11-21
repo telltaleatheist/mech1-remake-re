@@ -598,8 +598,8 @@ class Launcher {
   double status_read_ms_ = -1e9;  // no first frame within ready_wait_ms(): the status line says so
   std::string ready_file_;
   bool mw1_logged_ = false;  // MW1: its entry's line said once
-  bool mw1_remake_ = false;  // MW1: MechWarrior 1: Critical Hit's mw1 beside ours
-  std::string mw1_exe_, mw1_game_;  // MW1: Critical Hit's program; the player's MechWarrior (1989) folder
+  bool mw1_remake_ = false;  // MechWarrior 1 Remake's mw1 beside ours
+  std::string mw1_exe_, mw1_game_;  // MechWarrior 1 Remake's program; the player's MechWarrior (1989) folder
   std::string port_exe_;            // Elthial's port of the 1989 game, when the player has put it beside ours
   bool mw1_original_ = false;       // the MW1 run asked for is the original's (PLAY ORIGINAL)
   std::vector<Card> cards_;         // the main screen's (layout)
@@ -732,7 +732,7 @@ std::string program_version(const std::string& bin) {
 
 }  // namespace
 
-// MW1's card (docs/launcher.md, The cards): MW1: Critical Hit's `mw1` beside ours (PLAY REMAKE), and Elthial's
+// MW1's card (docs/launcher.md, The cards): MechWarrior 1 Remake's `mw1` beside ours (PLAY REMAKE), and Elthial's
 // MechWarrior (1989) SDL port (PLAY ORIGINAL). Cut for now (Owen, 2026-11-20: he doesn't like how it runs; MW1
 // original may come with Crescent Hawk's Inception): PLAY ORIGINAL is greyed, COMING LATER, and the port is
 // looked for only where a check names it (MW3_MW1_PORT), so its start stays tested.
@@ -856,7 +856,7 @@ void Launcher::run_mw1() {
   if (win_ && !o_.hidden) SDL_ShowWindow(win_), SDL_RaiseWindow(win_);
 }
 
-// MW1: MechWarrior 1: Critical Hit, started with the three installs (mw1/src/mw1_main.cpp), this window hidden
+// MechWarrior 1 Remake, started with the three installs (mw1/src/mw1_main.cpp), this window hidden
 // until it exits, as the port was.
 void Launcher::run_mw1_remake() {
   std::vector<std::string> args = {mw1_exe_, "--install", pm_dir_, "--mw3-install", install_.dir, "--mw1-game", mw1_game_,
@@ -1184,7 +1184,7 @@ void Launcher::layout() {
         if (c.keep.size() < c.lines.size()) c.keep.resize(c.lines.size(), 0);
         play(c, 0, kMw1Original, "PLAY ORIGINAL", port_exe_.empty() ? "COMING LATER" : unsupported ? "BTECH.EXE NOT SUPPORTED" : "AS RELEASED, 1989",
              "MECHWARRIOR 1 ORIGINAL", Button::kGrey, !port_exe_.empty() && !unsupported);
-        play(c, 1, kMw1, "PLAY REMAKE", mw1_remake_ ? "CRITICAL HIT, 3D" : "NOT IN THIS PACKAGE", "MECHWARRIOR 1", Button::kAmber,
+        play(c, 1, kMw1, "PLAY REMAKE", mw1_remake_ ? "REMAKE, 3D" : "NOT IN THIS PACKAGE", "MECHWARRIOR 1", Button::kAmber,
              mw1_remake_ && needs.empty());
         if (!mw1_logged_) {  // the line the round entry had, for the log and the checks
           const std::string line = !mw1_remake_            ? "Elthial's SDL port: " + (mw1_game_.empty() ? std::string("click to pick your MechWarrior folder") : mw1_game_)
@@ -2433,7 +2433,7 @@ LauncherChoice Launcher::run() {
   // from pm's).
   mw3_program_ = o_.game_bin.empty() ? std::string(MW3_VERSION) : program_version(o_.game_bin);
   if (!o_.pm_bin.empty()) pm_program_ = program_version(o_.pm_bin);
-  if (mw1_remake_) mw1_program_ = program_version(mw1_exe_);  // MW1: Critical Hit's, from a mw1-vX.Y.Z tag on mw1
+  if (mw1_remake_) mw1_program_ = program_version(mw1_exe_);  // MechWarrior 1 Remake's, from a mw1-vX.Y.Z tag on mw1
   std::printf("mw3: launcher: programs: MechWarrior 3 %s", mw3_program_.empty() ? "unknown" : mw3_program_.c_str());
   if (!o_.pm_bin.empty()) std::printf(", Pirate's Moon %s", pm_program_.empty() ? "unknown" : pm_program_.c_str());
   if (mw1_remake_) std::printf(", MechWarrior 1 %s", mw1_program_.empty() ? "unknown" : mw1_program_.c_str());

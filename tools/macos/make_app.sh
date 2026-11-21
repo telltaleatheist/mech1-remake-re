@@ -18,7 +18,7 @@
 #
 # For the combined package (tools/package/combined.sh, docs/release.md):
 #   MW3_PKG_PM_BIN=<mw3pm built on pm>  adds Pirate's Moon beside mw3 (bundled, signed and checked as mw3)
-#   MW3_PKG_MW1_DIR=<mw1's build tree>  adds MechWarrior 1: Critical Hit: mw1 beside the launcher, its mw1data/ in
+#   MW3_PKG_MW1_DIR=<mw1's build tree>  adds MechWarrior 1 Remake: mw1 beside the launcher, its mw1data/ in
 #                                       Resources (where SDL_GetBasePath points mw1)
 #   MW3_PKG_MW1_PORT_DIR=<staged port>  adds Elthial's MechWarrior (1989) SDL port (PLAY ORIGINAL), as
 #                                       tools/package/mw1port/build_port.sh stages it: the program and its libraries
@@ -82,7 +82,7 @@ cp build-mac-pkg/mw3 "$APP/Contents/MacOS/mw3"
 if [ -n "$DEPS" ]; then cp build-mac-pkg/mw3import "$APP/Contents/MacOS/mw3import"; fi
 # The combined package: Pirate's Moon beside it (the launcher finds it there, launcher.md).
 if [ -n "$PM_BIN" ]; then cp "$PM_BIN" "$APP/Contents/MacOS/mw3pm"; fi
-# MechWarrior 1: Critical Hit beside the launcher (it starts the launcher from its own folder), its data in Resources.
+# MechWarrior 1 Remake beside the launcher (it starts the launcher from its own folder), its data in Resources.
 if [ -n "$MW1_DIR" ]; then
   cp "$MW1_DIR/mw1" "$APP/Contents/MacOS/mw1"
   cp -R "$MW1_DIR/mw1data" "$APP/Contents/Resources/mw1data"

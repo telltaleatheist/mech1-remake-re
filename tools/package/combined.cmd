@@ -7,7 +7,7 @@ rem   MW3-alone-Setup-<v>.exe and MW3-alone-<v>-win64.zip       the launcher and
 rem   PM-Rebuild-Setup-<pm v>.exe and mw3pm-<pm v>-win64.zip     mw3pm alone (branch pm's own package)
 rem and their SHA256SUMS (tools\package\sums.py; again over every platform's files once collected).
 rem Usage: tools\package\combined.cmd <main ref> <pm ref> [<mw1 ref>]   e.g. v1.1.0 pm-v1.0.2 (origin/main origin/pm for a check)
-rem With a third ref, MechWarrior 1: Critical Hit (branch mw1) is built too and goes beside the launcher in the
+rem With a third ref, MechWarrior 1 Remake (branch mw1) is built too and goes beside the launcher in the
 rem MW3-Rebuild package (mw1.exe and mw1data\); MW3 alone and PM alone never carry it. With MW3_PKG_WITH_PORT=1 it
 rem also brings Elthial's MechWarrior (1989) SDL port for PLAY ORIGINAL: tools\package\mw1port\build_port.cmd at its
 rem pins with the proposed patches, staged in build-pkg\mw1port and put in MechWarrior1989\ beside the launcher.
@@ -33,7 +33,7 @@ popd
 copy /y "%W%\pm\build-win\dist\PM-Rebuild-Setup-*.exe" "%OUT%\" >nul || exit /b 1
 copy /y "%W%\pm\build-win\dist\mw3pm-*-win64.zip" "%OUT%\" >nul || exit /b 1
 
-rem MechWarrior 1: Critical Hit, when asked for: mw1.exe and mw1data\ in its build tree, for the combined package.
+rem MechWarrior 1 Remake, when asked for: mw1.exe and mw1data\ in its build tree, for the combined package.
 if not "%~3"=="" call :mw1 || exit /b 1
 if not "%~3"=="" if "%MW3_PKG_WITH_PORT%"=="1" call :mw1port || exit /b 1
 

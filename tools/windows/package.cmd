@@ -12,7 +12,7 @@ rem configured with MW3_PACKAGE (no development copy of the game in the exes).
 rem Usage: tools\windows\package.cmd
 rem For the combined package (tools\package\combined.cmd, docs/release.md):
 rem   MW3_PKG_PM_BIN=<mw3pm.exe built on pm>  adds Pirate's Moon beside mw3.exe (its DLLs checked as mw3's)
-rem   MW3_PKG_MW1_DIR=<mw1's build tree on mw1>  adds MechWarrior 1: Critical Hit: mw1.exe and mw1data\ (its own data)
+rem   MW3_PKG_MW1_DIR=<mw1's build tree on mw1>  adds MechWarrior 1 Remake: mw1.exe and mw1data\ (its own data)
 rem   MW3_PKG_MW1_PORT_DIR=<staged port>  adds Elthial's MechWarrior (1989) SDL port (PLAY ORIGINAL) in
 rem                         MechWarrior1989\, as tools\package\mw1port\build_port.cmd stages it (Owen, 2026-11-20)
 rem   MW3_PKG_STEM=<stem>   names <stem>-<version>-win64 (folder, zip) and <stem>-Setup-<version>.exe
@@ -60,7 +60,7 @@ copy /y build-win-pkg\mw3indeo.exe "%DIST%\" >nul || exit /b 1
 copy /y build-win-pkg\mw3import.exe "%DIST%\" >nul || exit /b 1
 rem The combined package: Pirate's Moon beside it (the launcher finds it there, launcher.md).
 if defined MW3_PKG_PM_BIN copy /y "%MW3_PKG_PM_BIN%" "%DIST%\mw3pm.exe" >nul || exit /b 1
-rem MechWarrior 1: Critical Hit beside them (the launcher's MECHWARRIOR 1 entry starts it from there, launcher.md).
+rem MechWarrior 1 Remake beside them (the launcher's MECHWARRIOR 1 entry starts it from there, launcher.md).
 if defined MW3_PKG_MW1_DIR copy /y "%MW3_PKG_MW1_DIR%\mw1.exe" "%DIST%\" >nul || exit /b 1
 if defined MW3_PKG_MW1_DIR xcopy /e /i /q /y "%MW3_PKG_MW1_DIR%\mw1data" "%DIST%\mw1data" >nul || exit /b 1
 rem Its read-me and notices (mw1\dist on its branch, beside the build tree), beside mw1.exe.

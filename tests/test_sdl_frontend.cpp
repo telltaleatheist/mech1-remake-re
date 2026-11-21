@@ -7154,7 +7154,7 @@ TEST(sdl_program_mouse_waits_for_the_focus) {
 // (`mechwarrior <game dir> <capture dir>`, the saves in
 // MECHWARRIOR_SAVE_DIRECTORY, both under the write dir's mw1) with the
 // folder mw3.cfg's mw1_game= keeps; the launcher waits for it. Without
-// MW1: Critical Hit's `mw1` beside the launcher (MW3_MW1_BIN empty here, as a
+// MechWarrior 1 Remake's `mw1` beside the launcher (MW3_MW1_BIN empty here, as a
 // plain mw3-re package), the entry is the port's, as it always was.
 TEST(sdl_program_launcher_starts_mechwarrior_1989) {
   const std::string dir = std::string(MW3_TEST_TMP) + "/launcher_mw1";
@@ -7197,7 +7197,7 @@ TEST(sdl_program_launcher_starts_mechwarrior_1989) {
 #endif
 
 #if !defined(_WIN32)
-// MW1 (for MechWarrior 1: Critical Hit, 2026-11-16): the launcher's MechWarrior 1 entry starts `mw1` in place of
+// MW1 (for MechWarrior 1 Remake, 2026-11-16): the launcher's MechWarrior 1 entry starts `mw1` in place of
 // Elthial's port (docs/launcher.md, MechWarrior 1): found beside ours (here a stand-in script by MW3_MW1_BIN),
 // given the three installs (Pirate's Moon's, MW3's, the MW1 folder mw3.cfg's mw1_game= keeps); the launcher waits
 // for it. Without MW3 found its line says what it needs, it is greyed, and a press starts nothing.
