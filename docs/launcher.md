@@ -563,7 +563,7 @@ count said nothing true.
 `mw3_main.cpp` for a player's plain start (not `--hidden`, `--frames`,
 `--shot`, a chain, `--mission`/`--fly`, `--movie`, `--dialog`, `-nofmv`, a
 named install or `--install-from`/`--patch`; `--no-launcher` skips it):
-- Its own SDL_Renderer window, always windowed since 1.2.1 (Owen, 2026-11-20: on the Mac a fullscreen launcher is a
+- Its own SDL_Renderer window, always windowed since 1.2.0 (Owen, 2026-11-20: on the Mac a fullscreen launcher is a
   fullscreen game to macOS, its bundle in the games category, so Game Mode came on and slowed every other process,
   the file picker's among them: 7-12 s to open, about 1 s windowed; gamepolicyd's log showed Game Mode on exactly
   while the picker loaded). The games still go fullscreen.
