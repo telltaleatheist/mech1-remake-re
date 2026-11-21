@@ -400,6 +400,7 @@ struct LaunchedMech {
   bool powered_down = false;   // +0xde
   float pos[3] = {};       // the node's translation
   float yaw_sin = 0;       // the orientation's y (sin of half the yaw)
+  float torso_yaw = 0, torso_max_yaw = 0, torso_twist_in = 0;  // the torso's twist, its limit, its input (issue #10)
   bool in_world = false;   // the node's parent is the world node
   bool feet_down = false;  // both skis on the ground
   float armor = 0;         // armor and structure left, summed over the parts (fractions)

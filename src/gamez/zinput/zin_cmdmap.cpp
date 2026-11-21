@@ -6,6 +6,7 @@
 #include <cstring>
 
 #include "gamez/zinput/zinput.h"
+#include "gamez/zutil/zfix.h"
 #include "gamez/zutil/zutl_msg.h"
 
 namespace zin {
@@ -241,9 +242,17 @@ void joy_callbacks() {
 // Mech3.exe 1.2 @ 0x0051c2b0
 // Only a command with a key gets its callback; each key takes the first one
 // given (0x0051a9c0) and runs whichever command it is bound to now.
+// FIX (bug), issue #4: the callback is kept for a command with no key too,
+// so a key bound to it later (the map rebuilt, 0x0051bca0) runs it. The
+// player's commands are given theirs once a run, at the first mission: an
+// unbound one (SHUTDOWN, unbound by default) bound afterwards did nothing
+// until the game was started again.
 uint32_t set_callback(int32_t cmd, CommandCallback cb) {
   const uint32_t k1 = key1_of(cmd), k2 = key2_of(cmd);
-  if (k1 == 0 && k2 == 0) return 0;
+  if (k1 == 0 && k2 == 0) {
+    if (zfix::options().fixed && cmd > 0 && cmd < cur()->count) cur()->callbacks[cmd] = cb;
+    return 0;
+  }
   cur()->callbacks[cmd] = cb;
   if (k1) set_key_callback(static_cast<int32_t>(k1), key_thunk);
   if (k2) set_key_callback(static_cast<int32_t>(k2), key_thunk);

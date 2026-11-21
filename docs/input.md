@@ -175,6 +175,13 @@ command) gets button 1 back on TRIGGER1, with a log line
   debug key setup 0x0040e430 push theirs). Each change rebuilds the tables
   and the keys' callbacks (0x0051bca0).
 
+A command's callback is kept only when it has a key (0x0051c2b0), and the
+player's commands get theirs once a run, at the first mission. One with no
+key then (SHUTDOWN in a map saved without it) never ran its callback, even
+after a key was bound and the map rebuilt, until the game was started again
+(issue #4); a command on a stick or mouse button alone never ran one (issue #10 item 1: FREELOOK or TOGGLE_TMODE on the middle button with no key did nothing). The
+port keeps the callback anyway (FIX (bug), fixes.md).
+
 ## 4. The joystick
 
 The first attached joystick (EnumDevices), as an IDirectInputDevice2 with
@@ -575,6 +582,26 @@ program, hidden, the focus given at the pump's 60th pass by `MW3_FOCUS_AT`),
 the Windows files compiled with mingw. **Not run:** anything on Windows; the
 cause above is from reading SDL's source, and the next stuck run's log lines
 will say whether it is the one.
+
+## 12. A rumble pad and the focus (issue #16, 2026-11-21)
+
+Players on the Mac (DualSense) and Windows (DualSense, an XInput pad):
+rumble worked, but the controls screen bound no pad button. A pad that
+rumbles is a force-feedback stick to zInput, which sets it exclusive and
+foreground (level 5). `SdlInput` refuses such a device while the window
+lacks the focus, as DirectInput does; it then read DIERR_NOTACQUIRED for
+good, and `joy_read` (0x0051dc20) takes the stick again only after
+DIERR_INPUTLOST. So a window that came up without the focus (the Mac's
+full screen, a launcher handing over) or lost it once left the pad dead.
+The original had the same hole after a focus loss (DirectInput gives
+INPUTLOST once; the acquire tried then fails in the background); the fix
+is in our SDL layer: refused or taken away, the stick reads "input lost"
+until an acquire succeeds. The port's own path was ruled out headless
+(mw3tests `issue16_controls_screen_binds_a_pad_button_headless`: a pad
+there at the start, UseJoystick off, a pad seen only after the start all
+bind; `issue16_a_mission_keeps_the_stick_axes_headless`: a launch keeps the
+stick's mode 6 and axes). Why "joystick/kyb default" helped one player is
+not known.
 
 ## Open
 

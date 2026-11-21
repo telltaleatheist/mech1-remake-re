@@ -3094,6 +3094,23 @@ From the view and its cameras (0x40aca0, 0x430e70; details: `view.md`).
 
 ## Keyboard, mouse and joystick
 
+- **TORSO AUTO RETURN plus the mouse lets the torso spin right round.** Auto
+  return treats the twist input as a position (how far to the limit), but the
+  mouse gives a speed. A quick stroke asks for "several times the limit", and
+  the torso swings past its stop, round to your back and beyond. With a
+  joystick the input never goes past the limit, so stick players never saw it.
+  (From the code as ported: 0x00464e80, 0x00427870; reported on the rebuild
+  as issue #10; fixed in the rebuild under SMALL FIXES.)
+
+- **Bind a key to a command that had none, and it does nothing until you
+  restart the game.** The game hands your mech's commands to their keys once,
+  at the first mission of a run, and skips any command with no key at that
+  moment. SHUTDOWN has no key in many setups, so binding it later (to power
+  down at a field base and repair) did nothing until the game was closed and
+  started again. A command put only on a joystick or mouse button was skipped
+  the same way. (From the code as ported: 0x0051c2b0, 0x00427280. Reported on
+  the rebuild as issue #4; fixed in the rebuild.)
+
 - **Save your stick setup, unplug the stick, and the mech drives itself.** The game
   only forgets the stick's axes when your controls file exactly matches the
   defaults. Change anything about the throttle axis, even its dead zone, and with

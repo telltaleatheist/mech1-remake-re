@@ -643,6 +643,70 @@ TEST(sdl_input_virtual_gamepad_through_zinput_drives_the_axes) {
   SDL_DetachVirtualJoystick(id);
 }
 
+// Issue #16 (a DualSense on the Mac, a DualSense and an XInput pad on
+// Windows: "rumble works but I can't bind any controls"): a pad that rumbles
+// is taken exclusive and foreground (cooperative level 5, as zInput asks for
+// a force-feedback stick). Refused at the start because the window had not
+// the focus yet, or taken away at a focus loss, it read "not acquired" for
+// good: zInput takes it again only on "input lost" (0x0051dc20). Here the
+// pad is refused, then the focus comes; then a focus loss and its return;
+// each time a button reaches zInput.
+namespace {
+bool g_pad16_focus = false;
+}
+TEST(sdl_input_issue16_a_rumble_pad_comes_back_with_the_focus) {
+  EXPECT(SDL_InitSubSystem(SDL_INIT_JOYSTICK | SDL_INIT_GAMEPAD));
+  SDL_VirtualJoystickDesc d;
+  SDL_INIT_INTERFACE(&d);
+  d.type = SDL_JOYSTICK_TYPE_GAMEPAD, d.naxes = SDL_GAMEPAD_AXIS_COUNT, d.nbuttons = SDL_GAMEPAD_BUTTON_COUNT;
+  d.name = "mw3 issue16 pad";
+  d.Rumble = [](void*, Uint16, Uint16) { return true; };
+  const SDL_JoystickID id = SDL_AttachVirtualJoystick(&d);
+  SDL_Joystick* v = SDL_OpenJoystick(id);
+  {
+    sdlfe::SdlInput in;
+    in.has_focus = [] { return g_pad16_focus; };
+    g_pad16_focus = false;
+    zin::State& s = zin::state();
+    platform::Input* was = s.di;
+    s.di = &in;
+    s.started = 1, s.joy_flags = 0, s.joy_users = 0, s.joy_wanted = 0, s.joy_arrived = false;
+    s.joy_flags = zin::joy_init(0) != 0 ? 1 : 0;
+    zin::joy_use();
+    EXPECT(zin::joy_present() && zin::force_feedback() != 0);
+    auto press = [&](int frames_after) {  // button 1 (south) pressed, read after `frames_after` polls
+      for (int i = 0; i < frames_after; ++i) zin::poll(false);
+      SDL_SetJoystickVirtualButton(v, SDL_GAMEPAD_BUTTON_SOUTH, true);
+      SDL_UpdateJoysticks();
+      zin::poll(false);
+      const int32_t b = zin::joy_wait_button(false);
+      SDL_SetJoystickVirtualButton(v, SDL_GAMEPAD_BUTTON_SOUTH, false);
+      SDL_UpdateJoysticks();
+      zin::poll(false);
+      return b;
+    };
+    const int32_t unfocused = press(2);
+    g_pad16_focus = true;
+    const int32_t focused = press(2);
+    SDL_Event ev{};
+    ev.type = SDL_EVENT_WINDOW_FOCUS_LOST;
+    in.on_event(ev);
+    g_pad16_focus = false;
+    const int32_t away = press(2);
+    g_pad16_focus = true;
+    ev.type = SDL_EVENT_WINDOW_FOCUS_GAINED;
+    in.on_event(ev);
+    const int32_t back = press(2);
+    std::printf("  issue 16 pad: unfocused %d, focus came %d, away %d, back %d\n", unfocused, focused, away, back);
+    EXPECT(unfocused == 0 && focused == 1 && away == 0 && back == 1);
+    zin::joy_close();
+    s.di = was;
+    s.started = 0, s.joy_flags = 0, s.joy_users = 0;
+  }
+  SDL_CloseJoystick(v);
+  SDL_DetachVirtualJoystick(id);
+}
+
 #if !defined(MW3_PM_SUITE)  // MW3's data or programs: not in Pirate's Moon's suite
 // Force feedback as rumble (FIX (A), sdl_force.h): the shipped force_eff.ifr
 // read as IFORCE2 reads it (18 records), the exe's names found with '_' for

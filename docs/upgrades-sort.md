@@ -99,6 +99,7 @@ Pirate's Moon).
 19. The Sunder Alternate B carries its LRM 20's extra 240 missiles.
 20. The Strider's recoil slide is read as a number, as on the Cauldron, Bushwacker and Champion.
 21. A weapon's looped sound (the machine gun's) stops when firing stops, though the fire mode changed while the trigger was held (WeaponGroup::release, weapon.cpp; MW1's FIXES 107). On Pirate's Moon's list, as "A weapon's loop sound stops when firing stops."
+22. Torso auto return keeps the torso within its twist limit with the mouse on twist and pitch (issue #10 item 2; Torso::update, 0x00464e80).
 
 ## Owen's answers (2026-11-10)
 

@@ -954,8 +954,11 @@ int program(int argc, char** argv) {
       if (searched && !a.write_dir.empty() && sdlfe::save_install(a.write_dir, found))
         std::printf("mw3: install %s saved to mw3.cfg\n", found.c_str());
     } else {
-      setup_only = true;
-      std::printf("mw3: no install found: the find screen\n");
+      // FIX (bug), issue #13: the launcher's find screen is MechWarrior 3's (it
+      // asked for MW3's disc and would install MW3 over Pirate's Moon's
+      // folder); started directly, mw3pm asks for its own folder instead
+      // (find_install below: Pirate's Moon's dialog, its Mech3.exe checked).
+      std::printf("mw3: no Pirate's Moon install found: its find dialog\n");
     }
   }
   if (setup_only) {
@@ -966,7 +969,7 @@ int program(int argc, char** argv) {
 #ifdef MW3_GAME_DIR
     if (!std::getenv("MW3_FIND_INSTALL")) lo.more_installs.push_back(MW3_GAME_DIR);
 #endif
-    lo.fullscreen = !a.windowed && !a.window_given;
+    lo.fullscreen = false;  // the launcher's screen windowed, as mw3launcher (launcher_main.cpp); the game goes fullscreen
     lo.sound = !a.nosound;
     lo.no_import = a.no_import;
     lo.window_from(a.window_given, a.win_w, a.win_h);

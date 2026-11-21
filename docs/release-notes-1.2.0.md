@@ -1,6 +1,6 @@
 # MechWarrior 3 Rebuild 1.2.0
 
-**Ultrawide screens, better joysticks, and a new launcher.** MechWarrior 3 and Pirate's Moon fill 21:9 and 32:9 screens, joysticks with more than ten buttons can use all of them, and a stick plugged in while the game is running now works. The launcher shows each game on a card of its own. MW1: Critical Hit is updated to 1.0.2. Install it over any earlier version: your pilots, saves, settings and mods are kept.
+**Ultrawide screens, better joysticks, and a new launcher.** MechWarrior 3 and Pirate's Moon fill 21:9 and 32:9 screens, joysticks with more than ten buttons can use all of them, and a stick plugged in while the game is running now works. The launcher shows each game on a card of its own, is named BattleTech, and opens in a window. MW1: Critical Hit is updated to 1.0.3. Install it over any earlier version: your pilots, saves, settings and mods are kept.
 
 ## Downloads
 
@@ -24,9 +24,12 @@ You still need your own games: none of the original games' files are in these do
 
 Each game has its own card with its badge and its PLAY button. MechWarrior 1's card has PLAY REMAKE for MW1: Critical Hit; its PLAY ORIGINAL, for MechWarrior (1989) as it was released, is greyed out and marked "coming later".
 
-### MW1: Critical Hit 1.0.2
+- **Named BattleTech.** The package holds more than MechWarrior 3, so its app (Mac), shortcuts (Windows) and menu entry (Linux) are now called BattleTech. Searching for "MechWarrior 3" still finds it, and MechWarrior 3 alone keeps its name.
+- **A window, not fullscreen.** On a Mac, a fullscreen launcher counted as a fullscreen game, which turns on macOS's Game Mode, and Game Mode slowed the file picker to 7 to 12 seconds. The launcher now opens in a window, and its pickers open in about a second. The games still go fullscreen.
 
-Three save slots, a new SETTINGS screen (Game, Display, Sound, Controls, Enhancements), key bindings and joysticks as in MechWarrior 3, Pirate's Moon's Exotic loadouts named, the ultrawide resolutions, and the same seed playing the same campaign on every system. Its full notes are in [mw1/dist/RELEASE-NOTES-1.0.2.md](https://github.com/telltaleatheist/mw3-re/blob/mw1-v1.0.2/mw1/dist/RELEASE-NOTES-1.0.2.md).
+### MW1: Critical Hit 1.0.3
+
+Three save slots, a new SETTINGS screen (Game, Display, Sound, Controls, Enhancements), key bindings and joysticks as in MechWarrior 3, Pirate's Moon's Exotic loadouts named, the ultrawide resolutions, the same seed playing the same campaign on every system, and a House that short-pays or voids a contract now named on the results screen with what it kept back. Its full notes are in [mw1/dist/RELEASE-NOTES-1.0.3.md](https://github.com/telltaleatheist/mw3-re/blob/mw1-v1.0.3/mw1/dist/RELEASE-NOTES-1.0.3.md).
 
 ### For people building from source
 
