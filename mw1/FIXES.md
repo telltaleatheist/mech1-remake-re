@@ -209,7 +209,7 @@ roster (the pocket commander's panel lists them), so PM's dispatcher, brains and
 - **Test:** `mw1_loop_each_lance_order_in_an_mw1_battle_headless` (two lancemates; each order to A alone, A's radio's
   answer, its state after, its walk).
 
-## 126. [ ] One SETTINGS screen in place of Pirate's Moon's option pages *(MW1 1.0.2; branch mw1-options-126)*
+## 126. [x] One SETTINGS screen in place of Pirate's Moon's option pages *(done: mw1-options-126, merged 7c989d2b; shipped in MW1 1.0.2)*
 - **Owen (2026-11-20), via the lead:** "lets make the options menu more intuitive. its currently based on mw1's
   options menu but it doesnt have to be." He approved the mockups ("those new options pages look good"; outbox
   2026-11-20/mw1-options-126/mockup). The lead's calls: (a) every change applies at once; (b) TEXTURES and MFB
