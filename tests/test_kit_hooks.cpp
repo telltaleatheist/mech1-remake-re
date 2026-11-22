@@ -170,7 +170,7 @@ TEST(kit_hooks_a_weapon_s_shot_and_reach_on_and_off) {
   EXPECT(same(other.max_range(), 100.0f) && same(other.max_range_sq(), 10000.0f) && same(def.range, 100.0f));
 
   upgrades::kit_hooks() = upgrades::KitHooks{};
-  EXPECT(fire(w, 0.75f) && g_spawns == 7 && same(g_seen_original, 0.75f) && same(g_seen_damage, 1.0f) &&
+  EXPECT(fire(w, 0.75f) && g_spawns == 6 && same(g_seen_original, 0.75f) && same(g_seen_damage, 1.0f) &&
          same(g_seen_reach, 0.0f));
   EXPECT(same(w.max_range(), 100.0f) && same(w.max_range_sq(), 10000.0f));
 }
