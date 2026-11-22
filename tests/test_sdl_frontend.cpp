@@ -7783,6 +7783,10 @@ TEST(sdl_program_launcher_finds_pirates_moon) {
 TEST(sdl_program_launcher_checks_mechwarrior3) {
   namespace fs = std::filesystem;
   std::error_code ec;
+  if (!fs::is_regular_file(std::string(MW3_GAME_DIR) + "/Mech3Msg.dll", ec)) {  // a checkout without game/ linked in
+    std::printf("launcher mw3 checks: no game/mw3-1.2: skipped\n");
+    return;
+  }
   const std::string dir = std::string(MW3_TEST_TMP) + "/launcher mw3 checks";
   fs::remove_all(dir, ec);
   fs::create_directories(dir + "/wd", ec);
