@@ -7466,30 +7466,105 @@ TEST(sdl_program_launcher_starts_mechwarrior_1) {
     EXPECT(text.find("MechWarrior 1 started") == std::string::npos && !std::filesystem::exists(dir + "/args.txt"));
     std::filesystem::remove(port, ec);
   }
-  // GAME FILES after MW1's line: its folder picked again (a folder above the game here), kept, nothing started.
-  {
-    std::filesystem::create_directories(dir + "/other/MECHWAR", ec);
-    std::ofstream(dir + "/other/MECHWAR/BTECH.EXE") << "x";
+  // GAME FILES after MW1's line (MW3_LAUNCHER_FILES=mw1, the picker's answer by MW3_LAUNCHER_PICKER): `pick` taken as
+  // its folder, copied in unless it is our copy; nothing started. Returns the log.
+  auto repick = [&](const std::string& wd, const std::string& cfg_game, const std::string& pick, const char* name) {
     {
-      std::ofstream cfg(dir + "/wd/mw3.cfg", std::ios::trunc);
-      cfg << "mw1_game=" << dir << "/game\ninstall=" << mw3 << "\npm_install=" << pm << "\n";
+      std::ofstream cfg(wd + "/mw3.cfg", std::ios::trunc);
+      cfg << "mw1_game=" << cfg_game << "\ninstall=" << mw3 << "\npm_install=" << pm << "\n";
     }
     std::filesystem::remove(dir + "/args.txt", ec);
     setenv("MW3_MW1_BIN", mw1.c_str(), 1), setenv("MW3_PM_BIN", pm_bin.c_str(), 1), setenv("MW3_FIND_INSTALL", "1", 1);
-    setenv("MW3_LAUNCHER_FILES", "mw1", 1), setenv("MW3_LAUNCHER_PICKER", ("path:" + dir + "/other").c_str(), 1);
-    setenv("MW3_LAUNCHER_FRAMES", "30", 1);
-    const std::string log = dir + "/repick.log";
-    const pid_t pid = spawn_launcher({"--write-dir", dir + "/wd", "--window", "640x480", "--nosound", "--hidden"}, log);
+    setenv("MW3_LAUNCHER_FILES", "mw1", 1), setenv("MW3_LAUNCHER_PICKER", ("path:" + pick).c_str(), 1);
+    setenv("MW3_LAUNCHER_FRAMES", "60", 1);
+    const std::string log = dir + "/" + name + ".log";
+    const pid_t pid = spawn_launcher({"--write-dir", wd, "--window", "640x480", "--nosound", "--hidden"}, log);
     for (const char* v : {"MW3_MW1_BIN", "MW3_PM_BIN", "MW3_FIND_INSTALL", "MW3_LAUNCHER_FILES", "MW3_LAUNCHER_PICKER", "MW3_LAUNCHER_FRAMES"})
       unsetenv(v);
     int status = 0;
     EXPECT(waited(pid, &status) && WIFEXITED(status) && WEXITSTATUS(status) == 0);
-    std::ifstream kept(dir + "/wd/mw3.cfg"), lf(log);
-    const std::string cfg_text((std::istreambuf_iterator<char>(kept)), std::istreambuf_iterator<char>());
-    const std::string text((std::istreambuf_iterator<char>(lf)), std::istreambuf_iterator<char>());
-    EXPECT(cfg_text.find("mw1_game=" + dir + "/other/MECHWAR") != std::string::npos);
-    EXPECT(text.find("MechWarrior (1989) at " + dir + "/other/MECHWAR") != std::string::npos);
+    std::ifstream lf(log);
+    return std::string((std::istreambuf_iterator<char>(lf)), std::istreambuf_iterator<char>());
+  };
+  auto read_text = [](const std::string& path) {
+    std::ifstream f(path, std::ios::binary);
+    return std::string((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+  };
+  auto cfg_of = [&](const std::string& wd) {
+    std::ifstream kept(wd + "/mw3.cfg");
+    return std::string((std::istreambuf_iterator<char>(kept)), std::istreambuf_iterator<char>());
+  };
+  const std::string copy = dir + "/wd/mw1/game";
+  // A folder above the game picked: copied into the write dir's mw1/game (so the player's own may be deleted), kept.
+  {
+    std::filesystem::create_directories(dir + "/other/MECHWAR", ec);
+    std::ofstream(dir + "/other/MECHWAR/BTECH.EXE") << "other";
+    const std::string text = repick(dir + "/wd", dir + "/game", dir + "/other", "repick");
+    EXPECT(text.find("work: COPYING MECHWARRIOR (1989)") != std::string::npos);
+    EXPECT(cfg_of(dir + "/wd").find("mw1_game=" + copy + "\n") != std::string::npos);
+    EXPECT(text.find("MechWarrior (1989) at " + copy) != std::string::npos && read_text(copy + "/BTECH.EXE") == "other");
     EXPECT(text.find("MechWarrior 1 started") == std::string::npos && !std::filesystem::exists(dir + "/args.txt"));
+  }
+  // A file in a folder picked (its MW_MAIN.EXE): that folder copied in, over our last copy.
+  {
+    std::filesystem::create_directories(dir + "/third/MW", ec);
+    std::ofstream(dir + "/third/MW/BTECH.EXE") << "third";
+    std::ofstream(dir + "/third/MW/MW_MAIN.EXE") << "main";
+    const std::string text = repick(dir + "/wd", copy, dir + "/third/MW/MW_MAIN.EXE", "repick_file");
+    EXPECT(text.find("work: COPYING MECHWARRIOR (1989)") != std::string::npos);
+    EXPECT(read_text(copy + "/BTECH.EXE") == "third" && read_text(copy + "/MW_MAIN.EXE") == "main");
+    EXPECT(cfg_of(dir + "/wd").find("mw1_game=" + copy + "\n") != std::string::npos);
+  }
+  // The copy in use picked again: used where it is, never copied onto itself.
+  {
+    const std::string text = repick(dir + "/wd", copy, copy + "/BTECH.EXE", "repick_ours");
+    EXPECT(text.find("work: COPYING") == std::string::npos && text.find("MechWarrior (1989) at " + copy) != std::string::npos);
+    EXPECT(read_text(copy + "/BTECH.EXE") == "third" && cfg_of(dir + "/wd").find("mw1_game=" + copy + "\n") != std::string::npos);
+  }
+  // A copy that fails (a folder of the player's where the copy goes): nothing changed, the setting kept, said.
+  {
+    std::filesystem::create_directories(dir + "/wd3/mw1/game", ec);
+    std::ofstream(dir + "/wd3/mw1/game/mine.txt") << "the player's";
+    const std::string text = repick(dir + "/wd3", dir + "/game", dir + "/other", "repick_fails");
+    EXPECT(text.find("not one the launcher made") != std::string::npos);
+    EXPECT(cfg_of(dir + "/wd3").find("mw1_game=" + dir + "/game\n") != std::string::npos);
+    EXPECT(read_text(dir + "/wd3/mw1/game/mine.txt") == "the player's" && !std::filesystem::exists(dir + "/wd3/mw1/game.copying"));
+  }
+  // None picked yet: the search's find (a MechWarrior folder beside the program, by MW3_SEARCH_PROGRAM_DIR) is only
+  // offered on the find's plate, never taken. INSTALL (MW3_LAUNCHER_GO): copied in, then played on the copy.
+  // The plate clicked (MW3_LAUNCHER_PICK_OTHER): the picker, and its answer copied in instead.
+  {
+    std::filesystem::create_directories(dir + "/beside/MechWarrior", ec);
+    std::ofstream(dir + "/beside/MechWarrior/BTECH.EXE") << "found";
+    auto offered = [&](const char* how, const char* name, const std::string& picker) {
+      std::filesystem::remove_all(dir + "/wd/mw1", ec);  // no copy of ours yet (it would be in use, not offered)
+      setenv("MW3_SEARCH_PROGRAM_DIR", (dir + "/beside").c_str(), 1);
+      setenv(how, "1", 1);
+      if (!picker.empty()) setenv("MW3_LAUNCHER_PICKER", ("path:" + picker).c_str(), 1);
+      const std::string text = run(true, name, false);
+      unsetenv("MW3_SEARCH_PROGRAM_DIR"), unsetenv(how), unsetenv("MW3_LAUNCHER_PICKER");
+      return text;
+    };
+    const std::string taken = offered("MW3_LAUNCHER_GO", "offer_go", "");
+    std::ifstream oa(dir + "/args.txt");
+    std::string oargs;
+    std::getline(oa, oargs);
+    std::printf("launcher mw1 offer: given \"%s\"\n", oargs.c_str());
+    EXPECT(taken.find("MechWarrior (1989) found at " + dir + "/beside/MechWarrior: offered, not taken") != std::string::npos);
+    EXPECT(taken.find("found plate: MechWarrior (MechWarrior (1989) at " + dir + "/beside/MechWarrior)") != std::string::npos);
+    EXPECT(taken.find("work: COPYING MECHWARRIOR (1989)") != std::string::npos && read_text(copy + "/BTECH.EXE") == "found");
+    EXPECT(oargs.find(" --mw1-game " + copy + " --no-launcher") != std::string::npos);
+    EXPECT(cfg_of(dir + "/wd").find("mw1_game=" + copy + "\n") != std::string::npos);
+    const std::string other = offered("MW3_LAUNCHER_PICK_OTHER", "offer_other", dir + "/other");
+    EXPECT(other.find("found plate: MechWarrior") != std::string::npos && read_text(copy + "/BTECH.EXE") == "other");
+    EXPECT(cfg_of(dir + "/wd").find("mw1_game=" + copy + "\n") != std::string::npos);
+    // Neither pressed: the plate shown and nothing taken (no copy, no mw1_game=).
+    std::filesystem::remove_all(dir + "/wd/mw1", ec);
+    setenv("MW3_SEARCH_PROGRAM_DIR", (dir + "/beside").c_str(), 1);
+    const std::string left = run(true, "offer_left", false);
+    unsetenv("MW3_SEARCH_PROGRAM_DIR");
+    EXPECT(left.find("found plate: MechWarrior") != std::string::npos && left.find("work: COPYING") == std::string::npos);
+    EXPECT(!std::filesystem::exists(copy) && cfg_of(dir + "/wd").find("mw1_game=") == std::string::npos);
   }
   unsetenv("MW3_PM_WRITE_DIR");
 }
