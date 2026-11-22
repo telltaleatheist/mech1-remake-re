@@ -252,6 +252,12 @@ struct Text {
     SDL_BlitSurface(t, nullptr, dst, &r);
     SDL_DestroySurface(t);
   }
+  int width(const std::string& s, int size) {
+    TTF_Font* f = font(size);
+    int w = 0, h = 0;
+    if (f) TTF_GetStringSize(f, shown(f, size, s).c_str(), 0, &w, &h);
+    return w;
+  }
   // `s` shortened from the middle with "..." until it is `width` across; its
   // first `keep` characters stay whole (a folder's start and end both show).
   std::string fit(const std::string& s, int size, int width, size_t keep = 0) {
@@ -527,6 +533,7 @@ class Launcher {
   void layout();
   void draw(float dt);
   void background(float dt);
+  int header_game() const;
   void plate(const Button& b, bool hot);
   static constexpr int kNotesTop = 162;  // BEFORE YOU PLAY's first note
   struct NotesLayout {
@@ -669,6 +676,7 @@ class Launcher {
   std::vector<std::string> move_copied_;
   std::shared_ptr<std::vector<std::string>> move_copied_out_;
   int confirm_go_ = 0;
+  int work_game_ = -1;  // the game a kGameInstall work installs (-1: from a file, not read yet)
   std::shared_ptr<mech3::source::Found> found_;  // the last look's (look_at)
   bool auto_go_ = false;  // MW3_LAUNCHER_PICK (checks): its look's INSTALL pressed too
   bool auto_ok_ = false;
@@ -855,6 +863,7 @@ void Launcher::install_game(int i) {
   auto done = game_done_ = std::make_shared<sdlfe::games::Done>();
   const Release r = checks_[i].release;
   const std::string root = games_root_;
+  work_game_ = i;
   std::string title = std::string(update ? "UPDATING " : "INSTALLING ") + game_info(g).name;
   for (char& ch : title) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
   work_->start(title, [done, g, r, root](const mech3::setup::ProgressFn& f) {
@@ -868,7 +877,7 @@ void Launcher::install_game(int i) {
 
 void Launcher::install_file_go() {
   if (work_ || install_file_.empty()) return;
-  confirm_go_ = 0;
+  confirm_go_ = 0, work_game_ = -1;
   work_ = std::make_unique<Work>();
   work_->kind = Work::kGameInstall;
   auto done = game_done_ = std::make_shared<sdlfe::games::Done>();
@@ -1544,6 +1553,7 @@ void Launcher::layout() {
     std::string labels;
     for (const Button& b : buttons_) labels += (labels.empty() ? "" : ", ") + b.log_name();
     std::printf("mw3: launcher: screen %s: %s\n", kNames[screen_], labels.c_str());
+    if (const int g = header_game(); g >= 0) std::printf("mw3: launcher: header %s\n", upgrades::update::game_info(upgrades::update::kGames[g]).name);
   }
   hot_ = focus_ = -1;
 }
@@ -1580,6 +1590,7 @@ void Launcher::background(float dt) {
     text_.draw(canvas_, "MW3 REBUILD", 30, kWhite, 101, 46, -1);
     return;
   }
+  const int game = header_game();
   if (art_.metal) {
     const int span = art_.metal->w - W - 200, o = span > 0 ? static_cast<int>(scroll_ / 3) % span : 0;
     SDL_Rect top{o, 40, W, 96}, bot{o + 100, 150, W, 48};
@@ -1590,7 +1601,15 @@ void Launcher::background(float dt) {
   const uint32_t amber = SDL_MapSurfaceRGB(canvas_, 255, 176, 64);
   SDL_Rect l1{0, 96, W, 1}, l2{0, H - 49, W, 1};
   SDL_FillSurfaceRect(canvas_, &l1, amber), SDL_FillSurfaceRect(canvas_, &l2, amber);
-  if (art_.title) {
+  if (game >= 0) {  // a setup screen: the game it sets up, never the launcher's name (Owen: the kit names no game)
+    static const char* const kNames[] = {"MECHWARRIOR 3", "PIRATE'S MOON", "MECHWARRIOR 1"};
+    const int badge = 64, gap = 16, w = badge + gap + text_.width(kNames[game], 36), x = (W - w) / 2;
+    if (SDL_Surface* b = art_.badge[game]) {
+      SDL_Rect e{x, 48 - badge / 2, badge, badge};
+      SDL_BlitSurfaceScaled(b, nullptr, canvas_, &e, SDL_SCALEMODE_LINEAR);
+    }
+    text_.draw(canvas_, kNames[game], 36, kWhite, x + badge + gap, 48, -1);
+  } else if (art_.title) {
     const int x = (W - art_.title->w - 84) / 2;
     if (art_.emblem) {
       SDL_Rect e{x, 12, art_.emblem->w, art_.emblem->h};
@@ -1601,6 +1620,32 @@ void Launcher::background(float dt) {
   } else {
     text_.draw(canvas_, "MW3 REBUILD", 40, kWhite, W / 2, 48);
   }
+}
+
+// The game a screen sets up (0 MechWarrior 3, 1 Pirate's Moon, 2 MechWarrior 1), named in its header; -1 the
+// launcher's own (the cards, its update, a download picked before it is read), under the launcher's title.
+int Launcher::header_game() const {
+  switch (screen_) {
+    case kMain:
+    case kUpdateScreen: return -1;
+    case kConfirm:
+      if (confirm_go_ == 4 || confirm_go_ == 6) return -1;  // Vulkan's question; a game's download, checked
+      if (confirm_go_ == 5) return 2;                       // MechWarrior (1989) found
+      break;
+    case kWorking:
+      if (!work_) break;
+      switch (work_->kind) {
+        case Work::kUpdateCheck:
+        case Work::kUpdateDownload:
+        case Work::kGameFileCheck: return -1;
+        case Work::kGameInstall: return work_game_;
+        case Work::kMw1Copy: return 2;
+        default: break;
+      }
+      break;
+    default: break;
+  }
+  return files_pm_ ? 1 : 0;
 }
 
 // BEFORE YOU PLAY by measure (Owen's playtest, W3: the status line "No disc in a drive ..." was at a fixed

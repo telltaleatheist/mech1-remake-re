@@ -5528,6 +5528,8 @@ TEST(sdl_program_launcher_screens) {
     EXPECT(img && img->w == 854 && img->h == 480 && lit > n / 5);  // 16:9 (Owen, 2026-11-08): more dark sky, 24% lit at least
     EXPECT(text.find(s.says) != std::string::npos);
     EXPECT(text.find(s.hover) != std::string::npos && edge);
+    // The setup screens name the game they set up, not the launcher (Owen 2026-11-22: the kit names no game); the cards keep its title.
+    EXPECT((text.find("launcher: header MechWarrior 3\n") != std::string::npos) == (std::string(s.screen) != "main"));
     if (img) SDL_DestroySurface(img);
   }
 }
@@ -8365,6 +8367,7 @@ TEST(sdl_program_launcher_game_files_pirates_moon) {
   std::string log = run("install", {{"MW3_LAUNCHER_PICK", cue}, {"MW3_LAUNCHER_FRAMES", "7200"}}, true);
   std::printf("  install: %s\n", log.find("Pirate's Moon 1.0 is installed") != std::string::npos ? "installed" : "?");
   EXPECT(log.find("MechWarrior 3: Pirate's Moon 1.0 is installed in " + install) != std::string::npos);
+  EXPECT(log.find("launcher: header Pirate's Moon\n") != std::string::npos && log.find("launcher: header MechWarrior 3\n") == std::string::npos);
   EXPECT(fs::exists(install + "/mw3-install.txt", ec) && fs::exists(pmwd + "/music/track02.wav", ec));
   EXPECT(args().size() >= 2 && args()[0] == "--install" && args()[1] == install);
   EXPECT(args().size() >= 5 && args()[3] == "--write-dir" && args()[4] == pmwd);  // its own, the usual one
