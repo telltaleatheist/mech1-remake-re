@@ -13,7 +13,9 @@
 #include <filesystem>
 #include <functional>
 #include <random>
+#include <queue>
 #include <set>
+#include <unordered_map>
 #include <iterator>
 #include <sstream>
 #include <string>
@@ -292,6 +294,132 @@ const RouteKnown* route_known(const mw1::MapRow& r) {
 const char* kind_said(mw1::RowKind k) {
   return k == mw1::RowKind::kReach ? "reach" : k == mw1::RowKind::kAttack ? "attack" : k == mw1::RowKind::kDefend ? "defend" : "";
 }
+// FIXES 136 (a): a reach row's route on the engine's own walking grid (mech3/zai_nav.h, the lancemates' pathing):
+// 4 m cells and their floors, a step's rise at most kClimb (tan 35 degrees, the skis' clamp), walls and buildings
+// (the grid's wall casts), the 4 m body buffer (Grid::walkable). On it the same rule as mw1_placement's route: every
+// cell past the start's own disc `clearance` from every enemy place, inside the yellow, to a cell within the reach's
+// radius of the structure that is as clear. The grid's tiles are built as the search reaches them; the search gives
+// up past kWalkBudget cells (said: `expanded`). The path is every 5th cell (20 m), for driving.
+constexpr int kWalkBudget = 4000000;
+mw1::placement::Route walk_route(mw1::placement::Point a, float ay, mw1::placement::Point c, const std::vector<mw1::placement::Point>& enemies,
+                                 const mw1::placement::Inside& inside, const mw1::placement::RouteRules& rules, int* tiles_built) {
+  namespace nav = mech3::ai::nav;
+  mw1::placement::Route r;
+  nav::Grid& g = nav::grid();
+  if (!g.world()) g.reset(&nav::zcls_world());
+  auto nearest = [&](float x, float z) {
+    float best = -1;
+    for (const mw1::placement::Point& e : enemies) {
+      const float d = std::hypot(x - e.x, z - e.z);
+      if (best < 0 || d < best) best = d;
+    }
+    return best;
+  };
+  r.start_clear = nearest(a.x, a.z), r.goal_clear = nearest(c.x, c.z);
+  r.start_inside = !inside || inside(a.x, a.z), r.goal_inside = !inside || inside(c.x, c.z);
+  if (!r.start_inside) return r;
+  int built = 0;
+  // The tiles under the 3 x 3 cells round (cx, cz) built (Grid::walkable reads its neighbours).
+  auto ensure = [&](int cx, int cz) {
+    for (int dz = -1; dz <= 1; ++dz)
+      for (int dx = -1; dx <= 1; ++dx) {
+        const int tx = nav::tile_of(cx + dx), tz = nav::tile_of(cz + dz);
+        if (g.built(tx * nav::kTile, tz * nav::kTile)) continue;
+        int steps = 1 << 30;
+        g.build(tx, tz, &steps);
+        ++built;
+      }
+  };
+  const int sx = nav::cell_of(a.x), sz = nav::cell_of(a.z);
+  ensure(sx, sz);
+  const int sl = g.level_at(sx, sz, ay);
+  if (sl < 0) {
+    if (tiles_built) *tiles_built = built;
+    return r;
+  }
+  auto key = [](int cx, int cz, int l) {
+    return (static_cast<uint64_t>(static_cast<uint32_t>(cx)) << 34) ^ (static_cast<uint64_t>(static_cast<uint32_t>(cz)) << 2) ^ static_cast<uint64_t>(l);
+  };
+  struct Node {
+    int cx, cz, l;
+    float g;
+    uint64_t parent;
+  };
+  std::unordered_map<uint64_t, Node> seen;
+  // Open past the start's own disc: inside the yellow, `clearance` from every enemy place.
+  auto clear = [&](int cx, int cz) {
+    const float x = nav::centre_of(cx), z = nav::centre_of(cz);
+    if (inside && !inside(x, z)) return false;
+    if (std::hypot(x - a.x, z - a.z) < rules.clearance) return true;
+    const float n = nearest(x, z);
+    return n < 0 || n >= rules.clearance;
+  };
+  auto h = [&](int cx, int cz) { return std::max(0.0f, std::hypot(nav::centre_of(cx) - c.x, nav::centre_of(cz) - c.z) - rules.reach); };
+  using Item = std::pair<float, uint64_t>;
+  std::priority_queue<Item, std::vector<Item>, std::greater<Item>> todo;
+  const uint64_t k0 = key(sx, sz, sl);
+  seen[k0] = Node{sx, sz, sl, 0.0f, k0};
+  todo.push({h(sx, sz), k0});
+  uint64_t end = 0;
+  bool reached = false;
+  while (!todo.empty() && r.expanded < kWalkBudget) {
+    const auto [f, k] = todo.top();
+    todo.pop();
+    const Node n = seen[k];
+    if (f > n.g + h(n.cx, n.cz) + 0.01f) continue;
+    ++r.expanded;
+    const float x = nav::centre_of(n.cx), z = nav::centre_of(n.cz);
+    if (std::hypot(x - c.x, z - c.z) <= rules.reach) {
+      const float e = nearest(x, z);
+      if (e < 0 || e >= rules.clearance) {
+        end = k, reached = true;
+        break;
+      }
+    }
+    for (int dz = -1; dz <= 1; ++dz)
+      for (int dx = -1; dx <= 1; ++dx) {
+        if (!dx && !dz) continue;
+        const int jx = n.cx + dx, jz = n.cz + dz;
+        if (!clear(jx, jz)) continue;
+        ensure(jx, jz);
+        const int jl = g.step(n.cx, n.cz, n.l, dx, dz);
+        if (jl < 0) continue;
+        const float ng = n.g + nav::kCell * (dx && dz ? 1.41421356f : 1.0f);
+        const uint64_t jk = key(jx, jz, jl);
+        auto it = seen.find(jk);
+        if (it == seen.end() || ng < it->second.g) {
+          seen[jk] = Node{jx, jz, jl, ng, k};
+          todo.push({ng + h(jx, jz), jk});
+        }
+      }
+  }
+  if (tiles_built) *tiles_built = built;
+  if (!reached) return r;
+  std::vector<const Node*> cells;
+  for (uint64_t k = end;; k = seen[k].parent) {
+    cells.push_back(&seen[k]);
+    if (seen[k].parent == k) break;
+  }
+  std::reverse(cells.begin(), cells.end());
+  r.found = true;
+  r.length = cells.back()->g;
+  r.path.push_back(a);
+  for (size_t i = 1; i < cells.size(); ++i) {
+    const nav::Cell* cl = g.cell(cells[i]->cx, cells[i]->cz, cells[i]->l);
+    const nav::Cell* pl = g.cell(cells[i - 1]->cx, cells[i - 1]->cz, cells[i - 1]->l);
+    const float run = nav::kCell * (cells[i]->cx != cells[i - 1]->cx && cells[i]->cz != cells[i - 1]->cz ? 1.41421356f : 1.0f);
+    if (cl && pl) r.steepest = std::max(r.steepest, std::fabs(cl->y - pl->y) / run);
+    if (i % 5 == 0 || i + 1 == cells.size()) r.path.push_back({nav::centre_of(cells[i]->cx), nav::centre_of(cells[i]->cz)});
+    const float px = nav::centre_of(cells[i]->cx), pz = nav::centre_of(cells[i]->cz);
+    const float e = nearest(px, pz);
+    if (std::hypot(px - a.x, pz - a.z) >= rules.clearance && e >= 0 && (r.path_clear < 0 || e < r.path_clear)) r.path_clear = e;
+  }
+  r.end_clear = nearest(r.path.back().x, r.path.back().z);
+  const float straight = std::hypot(c.x - a.x, c.z - a.z) - rules.reach;
+  r.detour = straight > 0 ? r.length / straight : 1.0f;
+  return r;
+}
+
 struct Run {
   std::string save;    // mw1save.txt's path; empty: none
   // FIXES.md item 60: BUY's and SELL's questions as asked (the box's words); the next `deal_no` answered NO.
@@ -442,6 +570,8 @@ struct Run {
   bool placed = false;
   mw1::placement::Route route;  // FIXES 136: a reach row's way round the enemy (mw1_placement.h), inside the yellow
   bool routed = false, route_area = false;  // route_area: the yellow was there to bound it
+  mw1::placement::Route walk;  // FIXES 136 (a): the same on the engine's walking grid (walk_route); the gate's
+  int walk_tiles = 0;          // the grid's tiles it built
   // FIXES.md item 45: the row played as a player would, from frame 30. 1: the player's mech driven to the structure's
   // node by its own controls (throttle and turn, never moved); 2: the structure worn down by hits (through one of its
   // meshes' damage handlers, as a weapon's hit lands: FIXES 134); 3: the enemies disabled by hits (kill_enemies). The
@@ -1770,6 +1900,8 @@ void loop_run(Ending ending, Run* run = nullptr) {
               run->route = mw1::placement::route({run->start_at[0], run->start_at[2]}, {run->structure_at[0], run->structure_at[2]},
                                                  places, in, {}, ground);
               run->routed = true, run->route_area = yellow != nullptr;
+              run->walk = walk_route({run->start_at[0], run->start_at[2]}, run->start_at[1], {run->structure_at[0], run->structure_at[2]},
+                                     places, in, {}, &run->walk_tiles);
               // MW1_REACH_CANDIDATES=<file> (appended): FIXES 136's candidate pass, every named node of the world that
               // could stand in for the row's structure (a reach names any node: mw1_game's node_find), routed by the same
               // rules; one line a node that passes, with its class, its model's counts and whether a weapon's hit on it
@@ -1812,7 +1944,11 @@ void loop_run(Ending ending, Run* run = nullptr) {
                   if (near_enemy < kRouteClearance - mw1::placement::kReachRadius && ++left[4]) continue;
                   ++tried;
                   mw1::placement::Route rt = mw1::placement::route(a, c, places, in, {}, ground);
-                  if (rt.found && rt.detour <= kRouteDetour && rt.start_clear >= kStartClear) passing.push_back({std::move(rt), &sn});
+                  if (!(rt.found && rt.detour <= kRouteDetour && rt.start_clear >= kStartClear)) continue;
+                  // FIXES 136 (a): the open-ground route only sorts out the hopeless; the walking grid's decides.
+                  int tiles = 0;
+                  mw1::placement::Route wk = walk_route(a, run->start_at[1], c, places, in, {}, &tiles);
+                  if (wk.found && wk.detour <= kRouteDetour && wk.start_clear >= kStartClear) passing.push_back({std::move(wk), &sn});
                 }
                 std::sort(passing.begin(), passing.end(), [](const auto& x, const auto& y) {
                   return x.first.length != y.first.length ? x.first.length < y.first.length : x.first.end_clear > y.first.end_clear;
@@ -1965,8 +2101,8 @@ void loop_run(Ending ending, Run* run = nullptr) {
             run->closest_ground = std::min(run->closest_ground, ground);
             // Steered for: the nav point, or (follow_route) the route's next waypoint, the way left measured along it.
             float sx = dx, sz = dz, left = ground;
-            if (run->follow_route && run->routed && run->route.found && run->route.path.size() > 1) {
-              const std::vector<mw1::placement::Point>& w = run->route.path;
+            if (run->follow_route && run->routed && run->walk.found && run->walk.path.size() > 1) {
+              const std::vector<mw1::placement::Point>& w = run->walk.path;
               while (run->route_next + 1 < w.size() && std::hypot(w[run->route_next].x - pos[0], w[run->route_next].z - pos[2]) < 30.0f)
                 ++run->route_next;
               sx = w[run->route_next].x - pos[0], sz = w[run->route_next].z - pos[2];
@@ -2880,6 +3016,12 @@ TEST(mw1_loop_every_map_row_is_there_headless) {
                         run.route_area ? "in the yellow" : "NO AREA", rt.start_inside ? "" : ", START OUTSIDE",
                         rt.goal_inside ? "" : ", GOAL OUTSIDE", rt.expanded);
           std::strncat(line, more, sizeof line - std::strlen(line) - 1);
+          const mw1::placement::Route& wk = run.walk;
+          std::snprintf(more, sizeof more, "%-6s ia%d %-7s %-18s WALK  %s  length %5.0f  detour %4.2f  clear: start %4.0f path %4.0f end %4.0f  "
+                        "steepest %4.2f  cells %d%s, tiles %d\n",
+                        r.world.c_str(), r.ia, kind_said(r.kind), r.node.c_str(), wk.found ? "found" : "NONE ", wk.length, wk.detour, wk.start_clear,
+                        wk.path_clear, wk.end_clear, wk.steepest, wk.expanded, wk.expanded >= kWalkBudget ? " (GAVE UP)" : "", run.walk_tiles);
+          std::strncat(line, more, sizeof line - std::strlen(line) - 1);
         }
         std::printf("  %s", line);
         if (const char* table = std::getenv("MW1_SURVEY_TABLE"))
@@ -2895,7 +3037,7 @@ TEST(mw1_loop_every_map_row_is_there_headless) {
           EXPECT(target_enemy >= run.start_off);
         } else if (r.kind == mw1::RowKind::kReach) {
           EXPECT(run.start_off >= kStructureFromStart);
-          const mw1::placement::Route& rt = run.route;
+          const mw1::placement::Route& rt = run.walk;  // FIXES 136 (a): the walking grid's
           const bool way = run.routed && run.route_area && rt.found && rt.detour <= kRouteDetour && rt.start_clear >= kStartClear &&
                            rt.start_inside && rt.goal_inside;
           if (const RouteKnown* k = route_known(r)) {
@@ -6575,13 +6717,17 @@ TEST(mw1_loop_lance_as_a_decoy_headless) {
   const bool have_mw3 = fs::exists(fs::path(MW1_MW3_GAME_DIR) / "zbd" / "c2" / "gamez.zbd", ec);
   const std::string worlds = have_mw3 ? converted_worlds() : std::string();
   const std::string only = "," + std::string(std::getenv("MW1_ROWS") ? std::getenv("MW1_ROWS") : "3twr1") + ",";
+  // MW1_DRIVE_ONLY: the walk alone (FIXES 136 (a)): the enemies disabled at frame 30, the lance following, once; does
+  // the commander arrive along the walking grid's route?
+  const bool drive_only = std::getenv("MW1_DRIVE_ONLY") != nullptr;
+  const std::vector<bool> runs = drive_only ? std::vector<bool>{false} : std::vector<bool>{true, false};
   int ran = 0;
   for (const mw1::MapRow& r : rows) {
     if (r.kind != mw1::RowKind::kReach) continue;
     if (only.find("," + r.node + ",") == std::string::npos && only.find("," + r.world + "ia" + std::to_string(r.ia) + ",") == std::string::npos) continue;
     if (r.world.rfind("mw3", 0) == 0 && !have_mw3) continue;
     ++ran;
-    for (const bool order : {true, false})
+    for (const bool order : runs)
       in_child([&] {
         // The game's rolls seeded (MW1_TEST_SEED=<n> another), so both runs meet the same enemy; the ladder's last
         // rung (eight enemies, FIXES.md item 47) so the map's places are held as the survey measured them.
@@ -6591,12 +6737,13 @@ TEST(mw1_loop_lance_as_a_decoy_headless) {
         run.row = &r, run.worlds = worlds, run.stop_at_after_action = true;
         run.force = mw1::rung_force(mw1::kDarkWingRung, 0);
         run.lance = true, run.lance_count = 3;
-        run.play = 1, run.follow_route = true, run.kill_enemies = false, run.give_up = 40000;
+        run.play = 1, run.follow_route = true, run.kill_enemies = drive_only, run.give_up = 40000;
         int32_t on_me = 0, on_lance = 0, on_none = 0, first_on_me = -1, ordered = 0, enemies = 0;
-        float health_end = -1, nearest_enemy = 1e9f;
+        float health_end = -1, nearest_enemy = 1e9f, last_at[3] = {};
         run.watch = [&](int32_t frame) {
           void* me = mech3::mech_mission_player();
           if (!me) return;
+          mech3::mech_world_position(me, last_at);
           mech3::ai::BrainHooks& h = mech3::ai::brain_hooks();
           const zgame::Handle mine = h.vehicle_handle(me);
           int32_t n = 0;
@@ -6648,11 +6795,15 @@ TEST(mw1_loop_lance_as_a_decoy_headless) {
         std::printf("  DECOY %-6s ia%d %-12s %-22s: %d enemies, %d ordered; the enemies' targets: the commander %d%%, the lance %d%%, none %d%% "
                     "(%d samples); first on the commander at frame %d; nearest enemy %.0f m; the reach %s at frame %d; the commander's "
                     "health %.0f%s\n",
-                    r.world.c_str(), r.ia, r.node.c_str(), order ? "lance ordered to ATTACK" : "lance following (control)", enemies, ordered,
+                    r.world.c_str(), r.ia, r.node.c_str(), order ? "lance ordered to ATTACK" : drive_only ? "DRIVE, enemies disabled" : "lance following (control)", enemies, ordered,
                     100 * on_me / all, 100 * on_lance / all, 100 * on_none / all, on_me + on_lance + on_none, first_on_me, nearest_enemy,
                     got.c_str(), run.ended_frame, health_end, run.player_down ? ", DOWN" : "");
         EXPECT(run.objective_built == "reach" && !run.fell_back);
         if (order) EXPECT(ordered == 3);
+        if (drive_only)
+          std::printf("  DRIVE  %-6s ia%d %-12s: the walking route %s, %.0f m, %zu waypoints; %s at frame %d; the commander last at %.0f %.0f\n",
+                      r.world.c_str(), r.ia, r.node.c_str(), run.walk.found ? "found" : "NONE", run.walk.length, run.walk.path.size(),
+                      run.mission_ended && !run.mission_lost ? "ARRIVED (won)" : "did not arrive", run.ended_frame, last_at[0], last_at[2]);
       });
   }
   EXPECT(ran > 0);
