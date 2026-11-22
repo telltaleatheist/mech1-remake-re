@@ -53,6 +53,11 @@ it is clear what the designers meant.
 - **A vehicle driving over burning ground no longer crashes the game.** When a tank's collision check touched a floor marked as fire, the original wrote into memory it should not have and could crash.
 - **A vehicle gun's pitch limit is worked out with the right length.** The original's function for putting an aim on a vehicle gun's top or bottom angle used the wrong length (a slip of one letter), so the result missed the limit. Nothing in the game uses that result (the AI aims with the unclipped direction), so this changes nothing you can see; it matters only if a mod or later code relies on it.
 - **A vehicle with chassis pitch settings and no roll settings keeps its pitch.** The original zeroed the pitch values when the roll values were missing (a copy slip). No vehicle in the game has either setting, so this only matters for modded vehicles.
+- **Walking into a 'Mech or a vehicle hurts the same at any frame rate.**
+  The original applied collision damage on every frame two machines touched,
+  so on a 60 Hz screen a 'Mech pushing into another took twice the damage it
+  did at 30 frames a second, and nearly five times on a 144 Hz screen. Now
+  it's always what it was at 30 frames a second.
 - **Lava heats the same at any frame rate.** The original added heat on
   every frame a foot touched lava, so a faster computer cooked you faster
   (1.5 heat a second at 30 fps, over 7 at 144). It is now 1.5 a second

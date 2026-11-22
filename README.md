@@ -33,7 +33,8 @@ original.
 
 ### Coming in the next release
 
-Nothing yet.
+- Walking into a 'Mech or a vehicle hurts the same at any frame rate (the
+  original's collision damage doubled on a 60 Hz screen).
 
 **1.2.3 (2026-11-21)** (the full notes are in
 [docs/release-notes-1.2.3.md](docs/release-notes-1.2.3.md)): setting up your
