@@ -205,6 +205,7 @@ MechReport report(void* mech) {
       if (!w) continue;
       MechReport::Gun g;
       if (w->item) g.weapon = w->item->weapon, g.tech = w->item->tech;
+      if (w->def && w->def->name) g.name = w->def->name;
       g.damage_scale = ::upgrades::kit_damage_scale(w);
       g.max_range = w->max_range();
       g.type_range = w->def && w->def->type ? w->def->type->range : 0.0f;

@@ -8495,8 +8495,9 @@ TEST(mw1_loop_a_lancemate_down_is_logged_by_whom_headless) {
 // weapon type has 4 power and 3 range steps. In the mission the engine's own reads show it:
 // - the commander's and the first lancemate's sinks cool faster, and their torsos carry the kit's points past the
 //   configuration's;
-// - every weapon of the lance (the second lancemate's too) hits 20% harder and reaches 30 m further, as its max_range
-//   (the AI's range pick) says;
+// - every weapon of the lance from its loadout (the second lancemate's too) hits 20% harder and reaches 30 m further,
+//   as its max_range (the AI's range pick) says; a weapon not from the loadout (no item: the commander's Owens has one)
+//   has no type the steps reach, and stays as it was;
 // - no enemy's sinks, armour or weapons change, a weapon type the lance also carries included.
 // Back at the hub the answers are disarmed.
 TEST(mw1_loop_kits_and_steps_the_lance_s_only_headless) {
@@ -8552,8 +8553,10 @@ TEST(mw1_loop_kits_and_steps_the_lance_s_only_headless) {
       return g.max_range == g.type_range + add || g.max_range == g.type_range * 0.5f + add * 0.5f;
     };
     auto boosted = [&](const Report& r) {
-      bool all = !r.guns.empty();
-      for (const Report::Gun& g : r.guns) all = all && g.damage_scale == power && reaches(g, reach);
+      bool all = false;
+      for (const Report::Gun& g : r.guns) all = all || g.weapon >= 0;  // some from the loadout
+      for (const Report::Gun& g : r.guns)
+        all = all && (g.weapon >= 0 ? g.damage_scale == power && reaches(g, reach) : g.damage_scale == 1.0f && reaches(g, 0.0f));
       return all;
     };
     auto kitted_mech = [&](const Report& r) {
@@ -8566,6 +8569,15 @@ TEST(mw1_loop_kits_and_steps_the_lance_s_only_headless) {
     std::printf("  kits: %d weapon types stepped; the commander's sinks %.3f (own %.3f), torso %d+%d points, %zu weapons\n",
                 types, static_cast<double>(commander.sink_rate), static_cast<double>(commander.own_sink_rate),
                 commander.torso_points, commander.torso_kit_points, commander.guns.size());
+    auto details = [&](const char* who, const Report& r) {  // each check's figures, for a failure's reading
+      std::printf("  %s: torso scale %.6f, its points' %.6f (%d+%d); weapons:", who, static_cast<double>(r.torso_armour_scale),
+                  static_cast<double>(scale(r.torso_points + r.torso_kit_points)), r.torso_points, r.torso_kit_points);
+      for (const Report::Gun& g : r.guns)
+        std::printf(" %s %d/%d x%.3f %.1f m (%.1f)", g.name.c_str(), g.weapon, g.tech, static_cast<double>(g.damage_scale),
+                    static_cast<double>(g.max_range), static_cast<double>(g.type_range));
+      std::printf("\n");
+    };
+    details("the commander", commander);
     EXPECT(armed && types > 0 && kitted > 0 && bare > 0);
     EXPECT(commander.found && commander.side == 0 && kitted_mech(commander) && boosted(commander));
     EXPECT(mates.size() == 2);
@@ -8573,6 +8585,7 @@ TEST(mw1_loop_kits_and_steps_the_lance_s_only_headless) {
       std::printf("  lancemate %s: side %d, sinks %.3f (own %.3f), torso %d+%d, %zu weapons\n", name.c_str(), r.side,
                   static_cast<double>(r.sink_rate), static_cast<double>(r.own_sink_rate), r.torso_points, r.torso_kit_points,
                   r.guns.size());
+      details(name.c_str(), r);
       EXPECT(boosted(r));
       if (name == mw1::pilot_title(kitted)) EXPECT(r.side == kitted && kitted_mech(r));
       else EXPECT(name == mw1::pilot_title(bare) && r.side == bare && plain_mech(r));

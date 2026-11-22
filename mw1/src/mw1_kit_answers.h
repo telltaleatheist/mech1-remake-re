@@ -44,11 +44,12 @@ std::array<int32_t, 11> spread_armour(int32_t points, const int32_t armour[11]);
 
 // A mission mech as the engine now sees it, for the tests and the log: its side, its sinks' rate with the kits
 // (heat_sink_rate) and without (HeatSinks::rate), its torso's armour scale and the configuration's points and the
-// kit's share there, and each weapon's: PM's id and tech, the damage scale and the reach the engine applies (through
-// its own guard), and its type's RANGE.
+// kit's share there, and each weapon's: PM's id and tech (-1 for one not from the loadout, which no step reaches), its
+// def's name, the damage scale and the reach the engine applies (through its own guard), and its type's RANGE.
 struct MechReport {
   struct Gun {
     int32_t weapon = -1, tech = 0;
+    std::string name;
     float damage_scale = 1, max_range = 0, type_range = 0;
   };
   bool found = false;

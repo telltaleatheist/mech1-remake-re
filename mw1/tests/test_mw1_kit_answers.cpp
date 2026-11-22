@@ -80,9 +80,10 @@ TEST(mw1_kit_answers_the_company_s_side_only) {
   // and an enemy's is none.
   pilots[&mate] = "Reinforcement";
   EXPECT(kits(&mate) == mw1::Kits{} && mw1::kit_answers::damage_for(&mate, kMediumLaser, kIs) == 1.0f);
-  // Still another mech there later (the game says a lancemate's, the pilot theirs again): theirs, checked as before.
-  mate_side = 7, pilots[&mate] = "Mate";
-  EXPECT(kits(&mate) == (mw1::Kits{1, 2}));
+  // Looked up as none, it's cached as none: no company mech is made after the launch.
+  mate_side = 7;
+  EXPECT(kits(&mate) == mw1::Kits{});
+  pilots[&mate] = "Mate";
 
   mw1::kit_answers::disarm();
   EXPECT(!mw1::kit_answers::armed() && kits(&commander) == mw1::Kits{} &&
