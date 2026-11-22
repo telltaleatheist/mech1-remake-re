@@ -5,7 +5,7 @@
 //
 // Armed at the deploy from the company as it is then (the kits on each 'Mech, the steps), before the mission loads:
 // a part's armour is set while its 'Mech is built. Disarmed at the mission's end and at an abort; unarmed, every hook
-// answers none. The game says whose a mission mech is (`Who`); once the launch is done the answers are cached per mech.
+// answers none. The game says whose a mission mech is (`Who`); once the launch is done the sides are cached (settle).
 #include <array>
 #include <cstdint>
 #include <functional>
@@ -18,11 +18,18 @@ namespace mw1::kit_answers {
 
 // A mission mech's side: 0 the commander's, a lancemate's pilot id, -1 anything else (an enemy, a vehicle).
 using Who = std::function<int32_t(const void* mech)>;
+// What identifies a mission mech for its lifetime: its AI pilot's name (what lancemate_of matches). A lancemate's side
+// is cached with it and looked up again when it no longer matches: a mech made later (a script's reinforcement) at a
+// destroyed lancemate's address is never taken for them. Null: the brain's pilot name.
+using Stamp = std::function<std::string(const void* mech)>;
 
 void install();                         // sets the engine's hooks (again: harmless)
 void uninstall();                       // the engine's hooks null again, and disarmed
-void arm(const Company& c, Who who);    // the deploy: this company's kits and steps
-void settle();                          // the launch done: the sides are known, answers cached per mech from now
+void arm(const Company& c, Who who, Stamp stamp = nullptr);  // the deploy: this company's kits and steps
+// The launch done, every company mech made: from now each mech's side is cached. The commander's never is (the
+// player's controls say it, cheaply); a lancemate's with its stamp, checked on each answer; anything else's as none
+// (no company mech is made after the launch).
+void settle();
 void disarm();                          // the mission's end, an abort
 bool armed();
 

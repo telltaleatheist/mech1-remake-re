@@ -1,9 +1,12 @@
 // FIXES 118, 1.1.0 slice 3 (src/mw1_kit_answers.h): MW1's answers to the engine's upgrade hooks. The armour kit's
 // spread over the slots; the company's side only (the commander's 'Mech, each lancemate's by their pilot id, never
-// another), each its own kits and every weapon of the side its type's steps; the sides cached once the launch is done;
+// another), each its own kits and every weapon of the side its type's steps; the sides cached once the launch is done,
+// a lancemate's checked by its pilot (a mech made later at its address is not theirs);
 // nothing when disarmed or uninstalled. Through the engine's own guard (src/upgrades/kits) as a port site reads it.
 #include <array>
 #include <cstdint>
+#include <map>
+#include <string>
 
 #include "check.h"
 #include "gamez/zweapon/zweapon.h"
@@ -53,7 +56,10 @@ TEST(mw1_kit_answers_the_company_s_side_only) {
   const mw1::Company c = company_with_kits();
   static mech3::Mech commander, mate, enemy;
   static int32_t mate_side = 7;
-  mw1::kit_answers::arm(c, [](const void* m) { return m == &commander ? 0 : m == &mate ? mate_side : -1; });
+  static std::map<const void*, std::string> pilots;  // each mech's AI pilot, as its brain would say
+  pilots = {{&mate, "Mate"}, {&enemy, "Enemy"}};
+  mw1::kit_answers::arm(c, [](const void* m) { return m == &commander ? 0 : m == &mate ? mate_side : -1; },
+                        [](const void* m) { return pilots.count(m) ? pilots[m] : std::string(); });
   EXPECT(mw1::kit_answers::armed());
   auto kits = [](const void* m) { return mw1::kit_answers::kits_for(m); };
   EXPECT(kits(&commander) == (mw1::Kits{3, 4}) && kits(&mate) == (mw1::Kits{1, 2}) && kits(&enemy) == mw1::Kits{});
@@ -64,12 +70,19 @@ TEST(mw1_kit_answers_the_company_s_side_only) {
   EXPECT(mw1::kit_answers::damage_for(&commander, kMediumLaser, kClan) == 1.0f);  // the Clan one has no steps
   EXPECT(mw1::kit_answers::range_for(&mate, kMediumLaser, kIs) == 10.0f && mw1::kit_answers::range_for(&enemy, kMediumLaser, kIs) == 0.0f);
 
-  // Settled: the sides as first looked up, whatever the game says later.
+  // Settled: a lancemate's side as first looked up while the mech is still theirs (its pilot the same); an enemy's
+  // cached as none.
   mw1::kit_answers::settle();
-  EXPECT(kits(&mate) == (mw1::Kits{1, 2}));
+  EXPECT(kits(&mate) == (mw1::Kits{1, 2}) && kits(&enemy) == mw1::Kits{});
   mate_side = -1;
   EXPECT(kits(&mate) == (mw1::Kits{1, 2}));
-  mate_side = 7;
+  // The lancemate's mech gone and a script's reinforcement made at its address: another pilot, so looked up afresh,
+  // and an enemy's is none.
+  pilots[&mate] = "Reinforcement";
+  EXPECT(kits(&mate) == mw1::Kits{} && mw1::kit_answers::damage_for(&mate, kMediumLaser, kIs) == 1.0f);
+  // Still another mech there later (the game says a lancemate's, the pilot theirs again): theirs, checked as before.
+  mate_side = 7, pilots[&mate] = "Mate";
+  EXPECT(kits(&mate) == (mw1::Kits{1, 2}));
 
   mw1::kit_answers::disarm();
   EXPECT(!mw1::kit_answers::armed() && kits(&commander) == mw1::Kits{} &&

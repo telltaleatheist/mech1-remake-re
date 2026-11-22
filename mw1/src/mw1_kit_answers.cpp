@@ -8,6 +8,8 @@
 
 #include "mech3/mech.h"
 #include "mech3/mech_control.h"
+#include "mech3/app_mech.h"
+#include "mech3/zai_brain.h"
 #include "mech3/weapon.h"
 #include "mw1_upgrades.h"
 #include "upgrades/kits/kit_hooks.h"
@@ -16,33 +18,61 @@ namespace mw1::kit_answers {
 
 namespace {
 
+struct Cached {
+  int32_t side = -1;
+  std::string stamp;  // a lancemate's: their AI pilot's name
+};
+
 struct State {
   bool armed = false;
   bool settled = false;
   Who who;
+  Stamp stamp;
   Kits commander;
   std::vector<std::pair<int32_t, Kits>> lancemates;  // pilot id, the kits on their 'Mech
   Company steps;                                      // only its upgrades.steps are read
-  std::unordered_map<const void*, int32_t> sides;     // after settle(): each mech's side, once looked up
+  std::unordered_map<const void*, Cached> sides;      // after settle(): each mech's side, once looked up
 };
 State& state() {
   static State s;
   return s;
 }
 
+// A mech's AI pilot name (none for the player's or a mech without a brain).
+std::string brain_pilot(const void* mech) {
+  const auto* m = static_cast<const mech3::Mech*>(mech);
+  const auto* b = m->controls ? static_cast<const mech3::ai::Brain*>(mech3::program_ai_mech_brain(m->controls)) : nullptr;
+  return b && b->params.pilot ? b->params.pilot : "";
+}
+
+std::string stamp_of(const void* mech) {
+  const State& s = state();
+  return s.stamp ? s.stamp(mech) : brain_pilot(mech);
+}
+
 // The commander's 'Mech is the one under the player's controls (mech_mission_player isn't set yet while it's built).
 int32_t side_of(const void* mech) {
   State& s = state();
   if (!s.armed || !mech) return -1;
+  const auto* m = static_cast<const mech3::Mech*>(mech);
+  if (m->controls && dynamic_cast<const mech3::PlayerControls*>(m->controls)) return 0;
   if (s.settled) {
     const auto it = s.sides.find(mech);
-    if (it != s.sides.end()) return it->second;
+    if (it != s.sides.end()) {
+      if (it->second.side < 0) return it->second.side;
+      if (stamp_of(mech) == it->second.stamp) return it->second.side;
+      s.sides.erase(it);  // another mech at that address now: looked up afresh
+    }
   }
-  const auto* m = static_cast<const mech3::Mech*>(mech);
-  int32_t side = -1;
-  if (m->controls && dynamic_cast<const mech3::PlayerControls*>(m->controls)) side = 0;
-  else if (s.who) side = s.who(mech);
-  if (s.settled) s.sides.emplace(mech, side);
+  const int32_t side = s.who ? s.who(mech) : -1;
+  if (s.settled) {
+    if (side < 0) {
+      s.sides.emplace(mech, Cached{side, {}});
+    } else if (side > 0) {  // a lancemate: cached only with a name to check it by
+      std::string stamp = stamp_of(mech);
+      if (!stamp.empty()) s.sides.emplace(mech, Cached{side, std::move(stamp)});
+    }
+  }
   return side;
 }
 
@@ -92,11 +122,12 @@ void uninstall() {
   ::upgrades::kit_hooks() = ::upgrades::KitHooks{};
 }
 
-void arm(const Company& c, Who who) {
+void arm(const Company& c, Who who, Stamp stamp) {
   State& s = state();
   s = State{};
   s.armed = true;
   s.who = std::move(who);
+  s.stamp = std::move(stamp);
   s.commander = c.kits;
   for (const OwnedMech& o : c.hangar)
     if (o.pilot != 0) s.lancemates.emplace_back(o.pilot, o.kits);
