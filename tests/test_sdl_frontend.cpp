@@ -7128,6 +7128,50 @@ TEST(sdl_program_a_found_install_is_copied_in_first) {
   fs::remove_all(dir, ec);
 }
 
+// Shift held at a plain start (Owen, 2026-11-21): the find screen with the files in use said and PLAY to go on
+// with them; FIND THE GAME opens the picker (the copy in use is no answer), and the pick is copied in and played.
+TEST(sdl_program_shift_at_start_chooses_the_files_again) {
+  namespace fs = std::filesystem;
+  const std::string dir = std::string(MW3_TEST_TMP) + "/shift_start";
+  std::error_code ec;
+  fs::remove_all(dir, ec);
+  const std::string other = dir + "/Other Copy";
+  fs::create_directories(other + "/video", ec);
+  fs::create_directories(dir + "/wd", ec);
+  fs::create_directory_symlink(std::string(MW3_GAME_DIR) + "/zbd", other + "/zbd", ec);
+  fs::copy_file(std::string(MW3_GAME_DIR) + "/Mech3Msg.dll", other + "/Mech3Msg.dll", ec);
+  EXPECT(sdlfe::save_install(dir + "/wd", MW3_GAME_DIR));
+  auto run = [&](const std::vector<std::string>& args, const std::string& log, int* code) {
+    int status = 0;
+    *code = waited(spawn_mw3(args, log), &status, 300) && WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+    std::ifstream f(log);
+    return std::string((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+  };
+  const std::vector<std::string> args = {"--write-dir", dir + "/wd", "--window", "640x480", "--nosound", "--no-import"};
+  setenv("MW3_START_ONLY", "1", 1);
+  setenv("MW3_LAUNCHER_FRAMES", "3600", 1);
+  int code = -1;
+  const std::string plain = run(args, dir + "/plain.log", &code);  // no Shift: straight in
+  EXPECT(code == 0 && plain.find("screen find:") == std::string::npos && plain.find("Shift held") == std::string::npos);
+  setenv("MW3_SHIFT_HELD", "1", 1);
+  setenv("MW3_LAUNCHER_NAV", "prev,press", 1);  // PLAY: on with the files in use
+  const std::string a = run(args, dir + "/a.log", &code);
+  EXPECT(code == 0 && a.find("Shift held at the start") != std::string::npos && a.find("FIND THE GAME, ADD FROM MY DISC, PLAY") != std::string::npos);
+  EXPECT(a.find(std::string("mw3: start only: install ") + MW3_GAME_DIR) != std::string::npos);
+  setenv("MW3_LAUNCHER_NAV", "next,press", 1);  // FIND THE GAME: the picker, another copy, INSTALL
+  setenv("MW3_LAUNCHER_PICKER", ("path:" + other + "/Mech3Msg.dll").c_str(), 1);
+  setenv("MW3_LAUNCHER_GO", "1", 1);
+  const std::string b = run(args, dir + "/b.log", &code);
+  for (const char* v : {"MW3_SHIFT_HELD", "MW3_LAUNCHER_NAV", "MW3_LAUNCHER_PICKER", "MW3_LAUNCHER_GO", "MW3_START_ONLY", "MW3_LAUNCHER_FRAMES"})
+    unsetenv(v);
+  std::printf("  shift: play on %d; find: picker %d, copied %d, started from it %d\n",
+              a.find(std::string("start only: install ") + MW3_GAME_DIR) != std::string::npos, b.find("picker asked for") != std::string::npos,
+              b.find("copied from Other Copy") != std::string::npos, b.find("start only: install " + dir + "/wd/install") != std::string::npos);
+  EXPECT(code == 0 && b.find("picker asked for") != std::string::npos && b.find("copied from Other Copy") != std::string::npos);
+  EXPECT(b.find("mw3: start only: install " + dir + "/wd/install") != std::string::npos);
+  if (!check::failures) fs::remove_all(dir, ec);
+}
+
 // GAME FILES (Owen, 2026-11-02): the find screen at any time, by keys or a
 // pad as by the mouse (MW3_LAUNCHER_NAV); with the install in use lacking
 // its music, ADD FROM MY DISC there too. A repick of an installed copy:

@@ -727,6 +727,7 @@ if(SDL3_FOUND)
     src/frontend/sdl/sdl_input.cpp
     src/frontend/sdl/sdl_force.cpp
     src/frontend/sdl/sdl_install.cpp
+    src/frontend/sdl/held_keys.cpp
     src/frontend/sdl/mw1_files.cpp  # ours: the launcher's MechWarrior (1989) intake
     src/frontend/sdl/sdl_music.cpp
     src/frontend/sdl/sdl_platform.cpp
@@ -747,8 +748,9 @@ if(SDL3_FOUND)
   if(APPLE)
     enable_language(OBJCXX)
     target_sources(mw3sdl PRIVATE src/frontend/sdl/sdl_rawmouse_mac.mm)
-    target_link_libraries(mw3sdl PUBLIC "-framework GameController" "-framework Foundation")
+    target_link_libraries(mw3sdl PUBLIC "-framework GameController" "-framework Foundation" "-framework CoreGraphics")
   endif()
+  target_link_libraries(mw3sdl PUBLIC ${CMAKE_DL_LIBS})  # held_keys.cpp: X11 opened when there (Linux)
   # Dear ImGui (third_party/imgui, VERSION.txt): the game editor's dialogs only
   # (docs/editor.md); in the programs through mw3sdl, never in mw3core or the probes.
   add_library(mw3imgui STATIC

@@ -84,6 +84,7 @@
 #include "frontend/sdl/sdl_child.h"
 #include "frontend/sdl/sdl_focus.h"
 #include "frontend/sdl/launcher.h"
+#include "frontend/sdl/held_keys.h"
 #include "frontend/sdl/sdl_install.h"
 #include "frontend/sdl/movie_import.h"
 #include "rekit/status.h"
@@ -973,7 +974,13 @@ int program(int argc, char** argv) {
   std::string look_first;  // a find to copy in (below)
   if (!a.ready_file.empty()) sdlfe::set_ready_file(a.ready_file);
   mech3::mods_other_game() = {a.other_write_dir, a.other_install};  // W15: a mod for the other game goes there
-  if (player_start && !a.no_launcher && !a.setup) {
+  // Shift held at the start (ours, Owen 2026-11-21): the find screen, to choose other game files without a terminal.
+  const bool choose_again = player_start && !a.no_launcher && !a.setup && sdlfe::shift_held_now();
+  if (choose_again) {
+    setup_only = true;
+    std::printf("mw3: Shift held at the start: the find screen, to choose the game files\n");
+  }
+  if (player_start && !a.no_launcher && !a.setup && !choose_again) {
     std::vector<std::string> more;
 #ifdef MW3_GAME_DIR
     if (!std::getenv("MW3_FIND_INSTALL")) more.push_back(MW3_GAME_DIR);
@@ -1000,6 +1007,7 @@ int program(int argc, char** argv) {
     sdlfe::LauncherOptions lo;
     lo.setup_only = setup_only;
     lo.look_first = look_first;
+    lo.choose_again = choose_again;
     lo.write_dir_fixed = write_dir_given;
     lo.write_dir = a.write_dir, lo.cfg_install = a.cfg_install, lo.cfg_mw1_game = a.cfg_mw1_game;
 #ifdef MW3_GAME_DIR

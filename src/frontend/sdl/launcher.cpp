@@ -1229,7 +1229,7 @@ void Launcher::layout() {
       if (files_pm_ ? !pm_dir_.empty() && (pm_lacks_music_ || pm_lacks_sounds_)
                     : install_.ok && (lacks_music_ || lacks_movies_))  // what the install in use lacks, from the disc
         add(kAddDisc, {130, 318, 380, 52}, "ADD FROM MY DISC", kAddDiscSub);
-      add(kBack, {250, 384, 140, 34}, o_.setup_only ? "QUIT" : "BACK");
+      add(kBack, {250, 384, 140, 34}, !o_.setup_only ? "BACK" : o_.choose_again && install_.ok ? "PLAY" : "QUIT");
       break;
     }
     case kDataScreen:
@@ -2091,18 +2091,18 @@ void Launcher::search() {
     const std::string had = pm_dir_;
     pm_dir_.clear(), o_.cfg_pm_install = had;
     find_pm();
-    if (!pm_dir_.empty() && !from_files_) return use_pm(pm_dir_, "Found Pirate's Moon at " + pm_dir_ + ".");
+    if (!pm_dir_.empty() && !from_files_ && !o_.choose_again) return use_pm(pm_dir_, "Found Pirate's Moon at " + pm_dir_ + ".");
   } else {
     find_install();
   }
   if (!files_pm_ && install_.ok && install_.elsewhere) return look_at(install_.dir);  // offered, to copy in or pass over
-  if (!files_pm_ && install_.ok && !from_files_) {  // SETUP's own copy (or mw3.cfg's): in use as before
+  if (!files_pm_ && install_.ok && !from_files_ && !o_.choose_again) {  // SETUP's own copy (or mw3.cfg's): in use as before
     use_install(install_.dir, install_.version, install_.summary);
     return;
   }
   // GAME FILES, the player choosing again: the copy in use is no answer; the picker for another (Owen, 2026-11-21).
   const std::string in_use = files_pm_ ? pm_dir_ : install_.ok ? install_.dir : "";
-  if (from_files_ && !in_use.empty()) {
+  if ((from_files_ || o_.choose_again) && !in_use.empty()) {
     status_ = "In use: " + in_use + ". Pick another copy: a disc image, a download, or Mech3.exe.", status_good_ = true;
     screen_ = kSetupScreen, layout();
     ask_file(kPoint, kGameFiles, 2);
@@ -2223,7 +2223,8 @@ void Launcher::finish_work() {
     screen_ = kSetupScreen, layout();
     return;
   }
-  if (r.ok && !r.install_dir.empty()) save_install(o_.write_dir, r.install_dir);
+  if (r.ok && !r.install_dir.empty())  // the new copy first in the search below, not the start's mw3.cfg
+    save_install(o_.write_dir, r.install_dir), o_.cfg_install = r.install_dir;
   find_install();
   if (kind == Work::kInstallIt && r.ok && install_.ok) return use_install(install_.dir, install_.version, status_);
   screen_ = install_.ok && r.ok ? kMain : kSetupScreen;
@@ -2379,6 +2380,7 @@ void Launcher::activate(int id) {
       break;
     case kBack:
       if (screen_ == kNotes) return activate(kNotesOk);  // Escape on the notes: as OK
+      if (o_.setup_only && screen_ == kSetupScreen && o_.choose_again && install_.ok) return play();  // Shift's: on with these
       if (o_.setup_only && screen_ == kSetupScreen) done_ = true;  // a plain start's QUIT
       else if (screen_ == kConfirm && confirm_go_ == 3) return activate(kKeepOld);  // Escape: nothing removed
       else if (screen_ == kConfirm && confirm_go_ == 2) screen_ = kDataScreen, layout();
@@ -2542,6 +2544,9 @@ LauncherChoice Launcher::run() {
   // A game without its files opens the find screen only when it is chosen;
   // a plain mw3 start that found none shows that screen alone.
   if (o_.setup_only) screen_ = kSetupScreen;
+  if (o_.choose_again && SDL_getenv("MW3_LAUNCHER_GO")) auto_go_ = auto_ok_ = true;  // checks: a pick's INSTALL (and notes' OK)
+  if (o_.choose_again && install_.ok)  // Shift at a plain start: what is in use, and the way on
+    status_ = "In use: " + install_.dir + ". FIND THE GAME to choose other files, or PLAY to go on.", status_good_ = true;
   else if (install_.ok && !install_.elsewhere && first_start) screen_ = kNotes, mw3_notes_seen();  // a find elsewhere: after its copy
   if (vulkan_said) show_vulkan();  // ours: before anything else, so PLAY never reaches the game's box
   layout();
