@@ -3664,8 +3664,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (parts)
       for (int i = 0; i < 3; ++i) out[i] = sum[i] / static_cast<float>(parts);
   }
-  // FIXES 136: a point row's place: (x, z) on its lowest dry ground (open ground, not a roof), y 0 if none is found.
-  // FIXES 136 (c): the mission's valves set by structure destruction alone: each targets.zrd record's health_below valve,
+// FIXES 136 (c): the mission's valves set by structure destruction alone: each targets.zrd record's health_below valve,
 // and a valves.zrd condition every member of which is one (followed through conditions). The player's vlist, a boundary,
 // a timer (delayupdate) or a script set none of theirs this way.
 static std::set<const mech3::ai::Valve*> structure_valves() {
@@ -3687,6 +3686,7 @@ static std::set<const mech3::ai::Valve*> structure_valves() {
   return out;
 }
 
+// FIXES 136: a point row's place: (x, z) on its lowest dry ground (open ground, not a roof), y 0 if none is found.
 static bool reach_ground(const std::string& structure, float out[3]) {
     float x = 0, z = 0;
     if (!mw1::reach_point(structure, &x, &z)) return false;
