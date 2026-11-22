@@ -42,11 +42,14 @@ bool in_unpacked(const std::string& dir, const std::string& write_dir);
 // decision, 2026-11-21): the kit's copy_folder into <unpacked_dir>.copying (room checked, links followed, a failure
 // or a cancel leaving nothing), marked as ours, then swapped in (rekit::swap_in_folder: a folder there that we did
 // not make is never replaced; the old copy kept until the new one is in). A folder already in_unpacked is used where
-// it is, never copied onto itself. The folder now holding the game, or "" with `error` (plain words) and
-// `*cancelled` set when `progress` said stop.
+// it is, never copied onto itself. A folder holding more than `max_bytes` (the game is about 1 MB; a pick of a
+// Games folder or a drive's root that happens to hold BTECH.EXE is far more) is refused before anything is copied.
+// The folder now holding the game, or "" with `error` (plain words) and `*cancelled` set when `progress` said stop.
+inline constexpr uint64_t kMaxCopyBytes = uint64_t(512) << 20;
 using CopyProgress = std::function<bool(uint64_t done, uint64_t total, const std::string& file)>;
 std::string copy_in(const std::string& game, const std::string& write_dir, std::string* error,
-                    const CopyProgress& progress = nullptr, bool* cancelled = nullptr);
+                    const CopyProgress& progress = nullptr, bool* cancelled = nullptr,
+                    uint64_t max_bytes = kMaxCopyBytes);
 
 // What a pick from the MECHWARRIOR 1 line stands for: an archive unpacked,
 // a folder searched (game_in), any other file its folder's. "" and `error`.
