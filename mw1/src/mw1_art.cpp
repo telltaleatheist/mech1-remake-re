@@ -14,6 +14,7 @@
 #include "mw1_chrome.h"
 #include "mw1_map_image.h"
 #include "mw1_marks.h"
+#include "mw1_mission_maps.h"
 #include "platform/hires_2d.h"
 #include "platform/hires_images.h"
 
@@ -540,15 +541,21 @@ void set_drawn_art(std::function<bool(const std::string& name, DrawnArt* out)> s
 bool install(const std::string& path, bool hires) {
   static Hires h;
   if (!Store::get().open(path)) {
-    zimg::set_image_provider({});
+    // FIXES 140: MW3's mission maps (mw1_mission_maps.h) still served without the archive.
+    zimg::ImageProvider p;
+    p.fetch = [](const char* n) { return mission_maps::image(n); };
+    p.has = [](const char* n) { return mission_maps::is_image(n); };
+    zimg::set_image_provider(p);
     if (platform::hires_images() == &h) platform::set_hires_images(nullptr);
     return false;
   }
   zimg::ImageProvider p;
-  p.fetch = [](const char* n) {  // the travel map's marks (FIXES.md item 12) made from their names; the rest stored
+  p.fetch = [](const char* n) {  // the travel map's marks (FIXES.md item 12) made from their names; MW3's mission maps
+                                 // (FIXES 140) read from its install; the rest stored
+    if (mission_maps::is_image(n)) return mission_maps::image(n);
     return static_cast<zimg::Texture*>(marks::is_mark(n) ? marks::canvas_texture(n) : Store::get().canvas_texture(n));
   };
-  p.has = [](const char* n) { return n && (marks::is_mark(n) || Store::get().has(n)); };
+  p.has = [](const char* n) { return n && (marks::is_mark(n) || mission_maps::is_image(n) || Store::get().has(n)); };
   zimg::set_image_provider(p);
   platform::set_hires_images(hires ? &h : nullptr);
   return true;

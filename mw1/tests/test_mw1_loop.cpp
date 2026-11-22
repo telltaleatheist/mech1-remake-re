@@ -49,6 +49,7 @@
 #include "mech3/controls_menu.h"
 #include "mech3/menu_states.h"
 #include "gamez/ztwod/twod.h"
+#include "gamez/ztwod/twod_host.h"
 #include "gamez/zgame/zgame_table.h"
 #include "gamez/zclass/class.h"
 #include "gamez/zclass/cls_di.h"
@@ -110,6 +111,7 @@
 #include "mw1_hub.h"
 #include "mw1_hud_art.h"
 #include "mw1_market.h"
+#include "mw1_mission_maps.h"
 #include "mw1_missions.h"
 #include "mw1_pilots.h"
 #include "mw1_results.h"
@@ -671,16 +673,23 @@ void flood_fill(const char* what, mw1::placement::Point a, float ay, const mw1::
 void point_search(const std::string& world, int ia, const float a[3], const std::vector<mw1::placement::Point>& places,
                   const mw1::placement::Inside& in, const mw1::placement::Ground& ground, int want) {
   namespace nav = mech3::ai::nav;
-  // The radar's small map for the world's Instant Action ("c2ia_small", maps.zrd), its image loaded for its size (the
-  // survey has no briefing, which loads it in play).
+  // The radar's small map for the world's Instant Action ("c2ia_small", maps.zrd; an MW3 world's, FIXES 140, the one
+  // its launch picks, mw1_mission_maps.h), its image loaded for its size (the survey has no briefing, which loads it
+  // in play).
+  const bool mw3 = world.rfind("mw3", 0) == 0;
+  if (mw3) mw1::mission_maps::set_install(MW1_MW3_GAME_DIR), mw1::mission_maps::add_maps();
+  const std::string small = (mw3 ? mw1::mission_maps::map_for(world, ia) : world + "ia") + mw1::mission_maps::kSmall;
   mech3::MissionMap* map = nullptr;
   for (mech3::MissionMap* m : mech3::mission_maps().list)
-    if (m->name && world + "ia_small" == m->name) map = m;
+    if (m->name && small == m->name) map = m;
   int32_t map_w = 0, map_h = 0;  // the image's size (zimg's own read: the survey's 2D host draws nothing)
-  if (map && map->bitmap)
-    if (zimg::Texture* t = zimg::fetch_image(map->bitmap)) map_w = t->width, map_h = t->height, zimg::free_texture(t);
+  if (map && map->bitmap) {
+    zimg::Texture* t = zimg::fetch_image(map->bitmap);
+    if (!t) t = mw1::mission_maps::image(map->bitmap);  // MW3's, from its install (the provider's read)
+    if (t) map_w = t->width, map_h = t->height, zimg::free_texture(t);
+  }
   auto on_map = [&](float x, float z) {
-    if (!map || map_w <= 0) return true;  // MW3's worlds: no mission map (Shift+R shows the radar alone), nothing to be on
+    if (!map || map_w <= 0) return true;  // no mission map (Shift+R shows the radar alone), nothing to be on
     const float p[3] = {x, 0.0f, z};
     int32_t px[2] = {};
     return map->point(p, px) && px[0] >= 16 && px[1] >= 16 && px[0] < map_w - 16 && px[1] < map_h - 16;
@@ -4375,6 +4384,106 @@ TEST(mw1_loop_boundary_survey_headless) {
       EXPECT(b.red_did.find("mission LOST") != std::string::npos);
       if (!(b.shallowest >= (ours ? mw1::kBoundMargin - 5.0f : 150.0f)))
         std::printf("  %s ia%d: %s only %.0f m inside the yellow\n", r.world.c_str(), r.ia, b.shallowest_what.c_str(), b.shallowest);
+    });
+  }
+}
+
+// FIXES 140: each MW3 world's map (and the arctic's) picked at the launch, its picture read from MW3's install, the
+// player's start on it, for every row of the table on those worlds; each row's objective on it too, but for the two
+// structures that stay off their map (mw3c1 ia2's barracks, mw3c3 ia2's warehouses, a project decision: their nav
+// leads there on the radar). A world of PM's still has its own map,
+// none of MW3's asked for with it. The 2D host loads only the maps' pictures, by the game's own fetch (the libraries,
+// then the provider), as the engine's map test's MapHost; PM's own aren't in the libraries a headless loop opens, so
+// on PM's world the test checks the briefing's pick asked for PM's pictures alone (the shots show them in play).
+struct MapFetchHost : ztwod::Host {
+  std::vector<zimg::Texture*> made;
+  std::vector<std::string> asked;  // the maps' pictures asked for
+  zimg::Texture* image_get(const char* name) override {
+    bool is_map = false;
+    for (const mech3::MissionMap* m : mech3::mission_maps().list) is_map |= name && m->bitmap && std::strcmp(m->bitmap, name) == 0;
+    if (is_map) asked.push_back(name);
+    zimg::Texture* t = is_map ? zimg::fetch_image(name) : nullptr;
+    if (t) made.push_back(t);
+    return t;
+  }
+  zimg::Texture* image_release(zimg::Texture*) override { return nullptr; }
+  ~MapFetchHost() override {
+    for (zimg::Texture* t : made) zimg::free_texture(t);
+  }
+};
+TEST(mw1_loop_each_mw3_world_s_map_picked_and_the_start_on_it_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  if (!fs::exists(fs::path(MW1_MW3_GAME_DIR) / "zbd" / "rimage.zbd", ec)) return;
+  const std::vector<mw1::MapRow> rows = shipped_rows();
+  const std::string worlds = converted_worlds();
+  struct Want {
+    const char* world;
+    int32_t ia;
+    const char* map;  // "" PM's own
+  };
+  const Want wants[] = {{"mw3c1", 1, "mw3c1ia"}, {"mw3c1", 2, "mw3c1ia"}, {"mw3c1", 3, "mw3c1ia"}, {"mw3c2", 1, "mw3c2ia"},
+                        {"mw3c2", 2, "mw3c2ia"},  {"mw3c2", 3, "mw3c2ia"},  {"mw3c3", 1, "mw3c3m3"}, {"mw3c3", 2, "mw3c3ia"},
+                        {"mw3c3", 3, "mw3c3ia"},  {"mw3c4", 1, "mw3c4ia"},  {"mw3c4", 2, "mw3c4ia"}, {"mw3c4", 3, "mw3c4ia"},
+                        {"mw3c4b", 1, "mw3c4b"},  {"mw3c4b", 2, "mw3c4b"},  {"mw3c4b", 3, "mw3c4b"}, {"c2", 1, ""}};
+  bool pm_run = false;
+  for (const mw1::MapRow& r : rows) {
+    const Want* found = nullptr;
+    for (const Want& w : wants)
+      if (r.world == w.world && r.ia == w.ia) found = &w;
+    if (!found && r.world.rfind("mw3", 0) == 0) std::printf("  MAP %s ia%d: no map expected\n", r.world.c_str(), r.ia);
+    EXPECT(found || r.world.rfind("mw3", 0) != 0);  // every MW3 world's row has its map
+    if (!found || (!*found->map && pm_run)) continue;  // PM's world: its first row alone
+    pm_run |= !*found->map;
+    const Want& w = *found;
+    const mw1::MapRow* row = &r;
+    EXPECT(mw1::mission_maps::map_for(w.world, w.ia) == w.map);
+    in_child([&] {
+      mw1::mission_maps::set_install(MW1_MW3_GAME_DIR);
+      mw1::art::install((fs::path(MW3_TEST_TMP_ROOT) / "none.zbd").string(), false);  // the provider, the maps' alone
+      MapFetchHost host;
+      ztwod::set_host(&host);
+      Run run;
+      run.row = row, run.worlds = worlds, run.stop_at_after_action = true, run.give_up = 2000;
+      mech3::HudReport h;
+      bool seen = false;
+      int32_t ours_loaded = 0;
+      float start[3] = {}, target[3] = {};
+      std::string where = "-";
+      bool target_on = true;
+      run.boundary_frame = [&](int32_t) {
+        seen = mech3::program_hud_report(&h);
+        if (void* me = mech3::mech_mission_player()) mech3::mech_world_position(me, start);
+        for (const mech3::MissionMap* m : mech3::mission_maps().list)
+          ours_loaded += m->image && mw1::mission_maps::is_image(m->name);
+        if (row->kind != mw1::RowKind::kAny && mw1::game_loop_structure_point(target)) {  // a point row's too
+          const auto* m = static_cast<const mech3::MissionMap*>(mech3::mission_map());
+          int32_t px[2] = {-1, -1};
+          const bool on = m && m->image && m->point(target, px) && px[0] < m->image->width && px[1] < m->image->height;
+          where = std::string(on ? "on it" : "OFF it") + " at (" + std::to_string(px[0]) + ", " + std::to_string(px[1]) + ")";
+          target_on = on;
+        }
+        return false;
+      };
+      loop_run(kObjective, &run);
+      ztwod::set_host(nullptr);
+      std::string asked;
+      int32_t asked_ours = 0;
+      for (const std::string& a : host.asked) asked += (asked.empty() ? "" : " ") + a, asked_ours += mw1::mission_maps::is_image(a.c_str());
+      std::printf("  MAP %s ia%d: %s %dx%d, the start (%.0f, %.0f) at pixel (%d, %d); %s %s %s; MW3's loaded %d\n", w.world, w.ia,
+                  h.map_name[0] ? h.map_name : "none", h.map_w, h.map_h, start[0], start[2], h.map_px[0], h.map_px[1],
+                  kind_said(row->kind), row->node.c_str(), where.c_str(), ours_loaded);
+      std::printf("    pictures asked for: %s\n", asked.c_str());
+      EXPECT(seen);
+      if (*w.map) {
+        EXPECT(std::string(h.map_name) == w.map && h.map_w > 0 && h.map_h > 0);
+        EXPECT(h.map_px[0] >= 0 && h.map_px[0] < h.map_w && h.map_px[1] >= 0 && h.map_px[1] < h.map_h);
+        EXPECT(asked_ours == 2 && ours_loaded == 2);  // the map and its small one
+        EXPECT(target_on || row->node == "urbbar02" || row->node == "whsA01");
+      } else {
+        EXPECT(!host.asked.empty() && asked_ours == 0 && ours_loaded == 0);  // PM's own pick
+        EXPECT(std::string(h.map_name).rfind("mw3", 0) != 0);
+      }
     });
   }
 }

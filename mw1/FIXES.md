@@ -5,13 +5,37 @@ Tick an item when it is merged into `main`.
 
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
-## 140. [ ] MW3's worlds have no mission map: wire MW3's own maps.zrd *(later; found with 136, not in its pass)*
+## 140. [ ] MW3's worlds have no mission map: wire MW3's own maps.zrd *(done: mw1-maps-140)*
 
 - **Found (2026-11-22, item 136's point search):** on MW3's worlds (mw3c1..mw3c4) Shift+R shows only the plain radar,
   for structure rows and point rows alike; PM's worlds draw their mission map (their maps.zrd). The nav point still
   shows on the radar, in the OP line and its arrow, which is enough for now (the lead).
 - **Wanted, later:** MW3's own maps.zrd wired for its converted worlds, so the radar's map mode draws them as PM's do.
   Then 136's "on the mission map's image" filter can apply to MW3's worlds too (today it applies to PM's only).
+- **Agreed (2026-11-22, a project decision):** MW1 side only, no engine change. mw3c3 ia1 takes MW3's c3m3 (its area
+  lies off c3ia), the arctic (mw3c4b) MW3's c4m4 (its start and all three structures on it), the others their own
+  cNia. The two point rows off their map (mw3c2 ia1, ia2) chosen again with the on-map filter and all of 136's rules;
+  the two structure rows off theirs (mw3c1 ia2's barracks, mw3c3 ia2's warehouses) stay, led by their radar nav.
+  c1ia and c2ia have a positive scale: MW3's half-turned compass and reversed radar cone kept as MW3 has them.
+- **Done (`mw1-maps-140`, `src/mw1_mission_maps.h`):**
+  - **The maps:** at the start (once PM's list is read) MW3's entries are added after PM's from MW3's own maps.zrd
+    (its `zbd/reader.zbd`, read as the engine reads PM's), renamed `mw3c1ia`, `mw3c2ia`, `mw3c3ia`, `mw3c3m3`,
+    `mw3c4ia` and `mw3c4b`, each with its `_small`: 12.
+  - **The pictures:** the image provider (`mw1_art.cpp`) serves those names from MW3's `zbd/rimage.zbd` (the
+    library's layout, `zimg::read_texture`), with or without MW1's art archive. MW3's files are only read.
+  - **The pick:** at each launch (`mission_launched`) the world's map is made the mission's (the radar's map mode,
+    the waypoints, the lance's map pick). On PM's worlds nothing changes: their briefing picks their own (c2: c2m3),
+    and any of ours its pick loaded (PM's `c1ia` is inside `mw3c1ia`) is let go.
+  - **The rows:** mw3c2 ia1 (−730, −286), 3/3 arrived, 38/5/8%; mw3c2 ia2 (−1791, −793), 3/3, 18/22/44% (the
+    seventh of eight the search kept: the six before it either stall 30 to 120 m short in the west's ground, which
+    the grid walks and the 'Mech can't, or go down). Both 150 m and more inside MW3's own yellow.
+  - **Tests:** `mw1_loop_each_mw3_world_s_map_picked_and_the_start_on_it_headless`: every table row on MW3's worlds
+    (32 launches) has its map, its picture read from MW3's install and the start on it, and its objective on it but
+    for the two structures above; PM's c2 asks for its own pictures only. The point search's filter
+    (`MW1_POINT_SEARCH`) now uses MW3's maps on MW3's worlds.
+  - **In play (hidden shots, Shift+R on each world):** every map drawn under the radar; on c1ia and c2ia the compass
+    reads the heading half a turn round (facing −z: S on c1ia) and the cone points with it, both measured from the
+    picture's top, which on those two is +z. MW3's own behaviour, nothing found wrong.
 
 ## 139. [x] The window title and the save folder say MechWarrior 1 Remake *(done: mw1-139-rename and mw1-139-move-fixes; in 1.0.6)*
 
@@ -240,14 +264,14 @@ Tick an item when it is merged into `main`.
 - **Point reach rows (2026-11-22, done):** a reach row may name a point (`POINT (x z)`, the words "the nav point";
   `mw1_missions.h` `reach_point`): the engine's `reach_area` there, its nav point on the radar and the OP line.
   - **The search (`MW1_POINT_SEARCH`):** 100 m cells inside the yellow with 100 m to spare, on the mission map's image
-    (PM's worlds; MW3's draw none, item 140), 800 to 2500 m from the start, 200 m from every enemy place, one dry
+    (since item 140, MW3's worlds' too), 800 to 2500 m from the start, 200 m from every enemy place, one dry
     floor, at most 90 degrees at A off the way to the enemies' centre (behind the start is a walk, not a contract:
     a map with none gets no point row, a project decision); ranked by the race, then the angle; walked by the gate's
     rule, then driven live (seeds 1..3 must arrive, the damage said).
   - **The rows:** c1 ia1 (2842, −1596) 48/14/3%; c1 ia2 (4542, −1468) 75/0/75%; c2 ia2 (1707, −761), c3 ia2
     (1071, −1299), c4 ia2 (2076, −918), mw3c2 ia2 (−991, −2093) and mw3c4 ia1 (−536, 1585) 0/0/0; mw3c1 ia1
     (−1189, −1926) 46/71/39% (the race 0.97, kept: being shot at on the way is the contract); mw3c2 ia1 (−930,
-    −1886) 10/25/14%. None on ia3 or mw3c3 ia1. The table is in `research/maps.md`.
+    −1886) 10/25/14%. (Item 140 moved mw3c2's two onto MW3's map.) None on ia3 or mw3c3 ia1. The table is in `research/maps.md`.
   - **The cloud death band:** c1's first picks went down at y −30 with no attacker: PM's `cloud_death` band (c1 and
     c3: −10000..−30; `mech3/cloud_band.h`) kills a 'Mech below it (`cloud_kill`, every part). The walk and the search
     refuse a cell with any floor in the band (+2 m) within `kBandClear` (36 m, beside `kReachRadius`; measured on

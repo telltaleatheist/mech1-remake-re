@@ -49,6 +49,7 @@
 #include "mw1_game.h"
 #include "mw1_hud_labels.h"
 #include "mw1_bounds.h"
+#include "mw1_mission_maps.h"
 #include "mw1_missions.h"
 #include "mw1_movie.h"
 #include "mw1_pilots.h"
@@ -305,6 +306,7 @@ int main(int argc, char** argv) {
   mw1::prepare_worlds(use.mw3, worlds, said, hidden ? mw1::Convert{} : mw1::Convert(convert_in_window),
                       [](const std::string& line) { std::printf("mw1: %s\n", line.c_str()), std::fflush(stdout); });
   for (const std::string& w : mw1::register_worlds(worlds)) std::printf("mw1: world %s from %s\n", w.c_str(), worlds.c_str());
+  mw1::mission_maps::set_install(use.mw3);  // FIXES 140: MW3's mission maps, read from its install
   // The 2D's text and pictures at the window's resolution (FIXES.md item 12, research/hires-2d.md): MW1's alone.
   // MW1_HIRES=0 (a test override) keeps the canvas only, as PM's and MW3's programs draw.
   const char* hires = std::getenv("MW1_HIRES");

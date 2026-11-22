@@ -72,6 +72,8 @@ MAP (WORLD ("mw3c4") IA (2) CLIMATE ("desert") KIND ("reach") NODE ("dockfal") W
 ; 90 degrees at the start off the way to the enemies (to its side or toward them, never behind), 800 to 2500 m out,
 ; 200 m from every enemy place, out of a world's cloud death band, walked on the engine's grid round the enemy, and
 ; driven live with the enemy alive (seeds 1..3 all arrive; the damage taken on the way is the contract's, not gated).
+; On the map the launch picks, 16 pixels in from its small picture's edge (FIXES 140: MW3's own on MW3's worlds, so
+; mw3c2's two points were chosen again on its c2ia).
 ; No Defend archive (ia3) and none where no point passes (mw3c3 ia1).
 MAP (WORLD ("c1") IA (1) CLIMATE ("desert") KIND ("reach") POINT (2842 -1596) WORDS ("the nav point"))
 MAP (WORLD ("c1") IA (2) CLIMATE ("desert") KIND ("reach") POINT (4542 -1468) WORDS ("the nav point"))
@@ -79,8 +81,8 @@ MAP (WORLD ("c2") IA (2) CLIMATE ("desert") KIND ("reach") POINT (1707 -761) WOR
 MAP (WORLD ("c3") IA (2) CLIMATE ("desert") KIND ("reach") POINT (1071 -1299) WORDS ("the nav point"))
 MAP (WORLD ("c4") IA (2) CLIMATE ("desert") KIND ("reach") POINT (2076 -918) WORDS ("the nav point"))
 MAP (WORLD ("mw3c1") IA (1) CLIMATE ("tropical") KIND ("reach") POINT (-1189 -1926) WORDS ("the nav point"))
-MAP (WORLD ("mw3c2") IA (1) CLIMATE ("tropical") KIND ("reach") POINT (-930 -1886) WORDS ("the nav point"))
-MAP (WORLD ("mw3c2") IA (2) CLIMATE ("tropical") KIND ("reach") POINT (-991 -2093) WORDS ("the nav point"))
+MAP (WORLD ("mw3c2") IA (1) CLIMATE ("tropical") KIND ("reach") POINT (-730 -286) WORDS ("the nav point"))
+MAP (WORLD ("mw3c2") IA (2) CLIMATE ("tropical") KIND ("reach") POINT (-1791 -793) WORDS ("the nav point"))
 MAP (WORLD ("mw3c4") IA (1) CLIMATE ("desert") KIND ("reach") POINT (-536 1585) WORDS ("the nav point"))
 ; Attack (MW1's special target).
 MAP (WORLD ("c1") IA (2) CLIMATE ("desert") KIND ("attack") NODE ("hitme_twr") WORDS ("the dome core"))

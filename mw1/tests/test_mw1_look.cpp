@@ -103,7 +103,7 @@ TEST(mw1_look_no_pirates_moon_art_in_mw1s_layouts) {
 
 TEST(mw1_look_mw1_opens_only_its_own_layouts) {
   // Every layout file MW1's code names is in MW1's data (Pirate's Moon's dialog files aren't), but the mission's
-  // targets (game data, read for a mission's objectives).
+  // targets and MW3's mission maps (game data, read for a mission's objectives and its map).
   const fs::path src = fs::path(MW1_DATA_DIR) / ".." / "src";
   static const std::regex file(R"re("([A-Za-z0-9_]+\.zrd)")re");
   int32_t named = 0;
@@ -112,6 +112,7 @@ TEST(mw1_look_mw1_opens_only_its_own_layouts) {
     for (std::sregex_iterator i(text.begin(), text.end(), file), e; i != e; ++i) {
       const std::string n = (*i)[1].str();
       if (n == "targets.zrd") continue;
+      if (n == "maps.zrd") continue;  // MW3's mission maps, read from MW3's own reader.zbd (mw1_mission_maps.cpp, FIXES 140)
       if (n == "world.zrd" || n == "objectives.zrd") continue;  // the converted world's, our arctic blocks appended (mw1_arctic.cpp)
       if (n == "dlgPause.zrd" || n == "dlgOptions.zrd") continue;  // swapped away (mw1_layouts.h), not opened
       if (n == "dlgMechLabII.zrd" || n == "dlgLoadSave.zrd") continue;  // reskinned (mw1_lab_skin.h): PM's code reads them
