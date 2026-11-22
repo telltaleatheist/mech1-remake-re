@@ -131,7 +131,21 @@ need only their out-of-bounds areas.
 - **The areas:** `tools/mw1bounds.py` builds them from this survey's detail.
   Yellow has 16 sides, their normals 22.5° apart, each 600 m past the
   farthest of the map's places in its direction. An enemy's place counts as
-  60 m around it, where the launch may put another beside it. Red is each
+  60 m around it, where the launch may put another beside it.
+- **The places are the map's candidates, not one run's draw.** The launch
+  picks each enemy's and ally's record at random among the map's records of
+  its weight class (`action_lineup`, `crt_rand() % n`), and the generator is
+  seeded from the clock (`srand(time())`, as the original). So two survey
+  runs made different line-ups (c1 ia3: 21 places in one, 19 in the next), and
+  areas drawn from them differed. The survey now logs every record the
+  launch may pick (`candidate enemy|ally NAME (x, z)`: aiv.zrd's records from
+  the third, mobile HQs aside, on its side, a MOVE applied), and the tool reads
+  only the start, the structures and the candidates; the run's own enemy and
+  ally lines are not read. The same data gives the same file: `mw1bounds.py
+  --repeat <detail>` makes it twice, the second from the logs and their rows in
+  reverse, and compares them byte for byte; `mw1bounds.py --launched <detail>
+  ...` checks that every enemy and ally some runs made lies at least 600 m
+  inside the file's yellow. Red is each
   side 500 m further out. The radar's outline holds at most 20 corners
   (ztwod's PolyLine, `pts[21]`).
 - **mw3c4's places:** an enemy made within 80 m of a MOVE's FROM is made as
