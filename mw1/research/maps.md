@@ -471,9 +471,37 @@ FIXES 136 adds the reach's route rule (a way there keeping 200 m from every
 enemy place, inside the yellow, at most twice the straight way, the start 150 m
 clear), walked on the engine's walking grid: MW3's IA towers stand among their
 defenders, so the mw3cN reach rows now name the barracks (mw3c1), the
-warehouses (mw3c3) and the dock (mw3c4); c2 ia2's reach is dropped, and
-mw3c2 ia2's (its hangar in a pit 182 m below the start, which no walk reaches)
-(FIXES.md item 136 has the table).
+warehouses (mw3c3) and the dock (mw3c4); c2 ia2's structure reach is dropped,
+and so is mw3c2 ia2's (its hangar in a pit 182 m below the start, which no walk
+reaches) (FIXES.md item 136 has the table).
+
+**Reach at a nav point (FIXES 136, 2026-11-22).** A reach row may name a point
+instead of a structure (`POINT (x z)`, the offer's words "the nav point"): the
+engine's `reach_area` at that point, its nav point on the radar and the OP
+line. The points were searched per map (`MW1_POINT_SEARCH`): inside the yellow
+with 100 m to spare, 800 to 2500 m from the start, 200 m from every enemy
+place, one dry floor, at most 90 degrees at A off the way to the enemies'
+centre (a reach behind the start is a walk, not a contract: a map with none
+gets no point row), ranked by the race then the angle; walked on the engine's
+grid by the gate's rule, out of the world's cloud death band (c1 and c3: a
+floor below y −30 kills, `kBandClear` 36 m); then driven live, the enemy alive,
+seeds 1..3, every seed arriving (the damage on the way is said, not gated).
+
+| Map | Point | AC | Race | Angle | Damage s1/s2/s3 |
+|---|---|---|---|---|---|
+| c1 ia1 | (2842, −1596) | 825 | 0.62 | 29° | 48/14/3% |
+| c1 ia2 | (4542, −1468) | 806 | 0.32 | 52° | 75/0/75% (a lancemate's crash) |
+| c2 ia2 | (1707, −761) | 806 | 0.31 | 70° | 0/0/0% |
+| c3 ia2 | (1071, −1299) | 806 | 0.48 | 36° | 0/0/0% |
+| c4 ia2 | (2076, −918) | 806 | 0.34 | 72° | 0/0/0% |
+| mw3c1 ia1 | (−1189, −1926) | 854 | 0.97 | 87° | 46/71/39% |
+| mw3c2 ia1 | (−930, −1886) | 825 | 0.89 | 85° | 10/25/14% |
+| mw3c2 ia2 | (−991, −2093) | 807 | 0.67 | 86° | 0/0/0% |
+| mw3c4 ia1 | (−536, 1585) | 854 | 0.87 | 86° | 0/0/0% |
+
+None on the Defend archives (ia3) or on mw3c3 ia1 (no point passes). MW3's
+worlds draw no mission map in the MW1 remake (Shift+R shows the plain radar;
+FIXES 140), so the "on the mission map" filter applies to PM's worlds only.
 
 An attack's target or a reach's place needn't sit among the enemies: a
 project decision is that a player who tries may slip past them. The survey

@@ -67,6 +67,10 @@ void set_game_loop_enemies(const std::vector<int32_t>& slots, const std::vector<
 // What the mission's objectives were built as: "" (destroy all), "reach", "attack" or "defend"; `fell_back` when
 // the contract's structure wasn't on the map (tests).
 std::string game_loop_objective_built(bool* fell_back = nullptr);
+// FIXES 136 (c): the valves whose fails a destroy-all launch took out of the map's fail block (none for another kind).
+std::vector<std::string> game_loop_stripped_fails();
+// FIXES 136 (c): whether the mission's valve `name` is set by structure destruction alone (what (c) strips on).
+bool game_loop_valve_by_structure(const char* name);
 // FIXES.md item 45 (tests): where the contract's structure is in the mission (its node's place, or its parts' middle
 // for a group); false without one.
 bool game_loop_structure_point(float out[3]);

@@ -14,9 +14,12 @@
 #include <filesystem>
 #include <functional>
 #include <random>
+#include <deque>
+#include <map>
 #include <queue>
 #include <set>
 #include <unordered_map>
+#include <unordered_set>
 #include <iterator>
 #include <sstream>
 #include <string>
@@ -34,6 +37,8 @@
 #include "mw1_log.h"
 #include "mw1_layouts.h"
 #include "mw1_settings.h"
+#include "upgrades/valve_map/valve_map.h"
+#include "mech3/cloud_band.h"
 #include "mech3/options_menu.h"
 #include "mech3/pause_menu.h"
 #include "gamez/zutil/zutl_reg.h"
@@ -88,6 +93,7 @@
 #include "mech3/zai_attack.h"
 #include "mech3/mech_pocket.h"
 #include "mech3/zai_nav.h"
+#include "mech3/mission_map.h"
 #include "mech3/zai_params.h"
 #include "mech3/mainmenu.h"
 #include "mech3/mech_reader.h"
@@ -316,6 +322,78 @@ struct WalkPatrol {
   float clearance = 0;
 };
 const WalkPatrol* g_walk_patrol = nullptr;
+// FIXES 136, the c1 kill volume: PM's cloud death band (MissionWorld cloud_death: mech_lod.cpp's cloud_kill kills a mech
+// whose y is inside it, c1 and c3 below -30) is no ground the grid knows. A cell is refused when any floor within
+// kBandClear of it (any level) lies in the band or less than kBandMargin over its top: a drive that drifts off a ledge
+// beside the route (c1 ia1's, at about 3226,-1371) doesn't slide into it. The band read from the world, never fixed.
+constexpr float kBandClear = 36.0f;  // beside mw1::placement::kReachRadius (40 m): measured on c1 ia1, a project decision
+constexpr float kBandMargin = 2.0f;
+// The hurt attribution's ram: no attacker and a mech's centre this near (8.8 m measured at contact, c1 ia2).
+constexpr float kRamContact = 15.0f;
+bool band_refuses(int cx, int cz) {
+  namespace nav = mech3::ai::nav;
+  const mech3::CloudBand band = mech3::program_cloud_band();
+  if (!band.on || !band.death_on) return false;
+  nav::Grid& g = nav::grid();
+  if (!g.world()) g.reset(&nav::zcls_world());
+  // Each cell's answer kept for the grid and band it was found on (a route asks for a cell's 8 neighbours' each time).
+  static std::unordered_map<uint64_t, bool> memo;
+  static const void* memo_grid = nullptr;
+  static float memo_low = 0, memo_high = 0;
+  if (memo_grid != g.world() || memo_low != band.low || memo_high != band.high)
+    memo.clear(), memo_grid = g.world(), memo_low = band.low, memo_high = band.high;
+  const uint64_t mk = (static_cast<uint64_t>(static_cast<uint32_t>(cx)) << 32) | static_cast<uint32_t>(cz);
+  if (const auto it = memo.find(mk); it != memo.end()) return it->second;
+  bool refused = false;
+  const int r = static_cast<int>(std::ceil(kBandClear / nav::kCell));
+  for (int dz = -r; dz <= r && !refused; ++dz)
+    for (int dx = -r; dx <= r; ++dx) {
+      if (std::hypot(dx * nav::kCell, dz * nav::kCell) > kBandClear) continue;
+      const int jx = cx + dx, jz = cz + dz;
+      const int tx = nav::tile_of(jx), tz = nav::tile_of(jz);
+      if (!g.built(tx * nav::kTile, tz * nav::kTile)) {
+        int steps = 1 << 30;
+        g.build(tx, tz, &steps);
+      }
+      for (int l = 0; l < nav::kLevels; ++l) {
+        const nav::Cell* q = g.cell(jx, jz, l);
+        if (q && !(q->flags & nav::kNoGround) && q->y > band.low && q->y < band.high + kBandMargin) refused = true;
+      }
+      if (refused) break;
+    }
+  memo[mk] = refused;
+  return refused;
+}
+// A floor in the band itself (or less than kBandMargin over its top): never walked, the goal's ring included.
+bool in_band(float y) {
+  const mech3::CloudBand band = mech3::program_cloud_band();
+  return band.on && band.death_on && y > band.low && y < band.high + kBandMargin;
+}
+// The nearest floor in the band (in_band) to (x, z) within 60 m, any level; -1 when none.
+float band_distance(float x, float z) {
+  namespace nav = mech3::ai::nav;
+  nav::Grid& g = nav::grid();
+  if (!g.world()) g.reset(&nav::zcls_world());
+  const int cx = nav::cell_of(x), cz = nav::cell_of(z);
+  float best = -1;
+  for (int dz = -15; dz <= 15; ++dz)
+    for (int dx = -15; dx <= 15; ++dx) {
+      const int tx = nav::tile_of(cx + dx), tz = nav::tile_of(cz + dz);
+      if (!g.built(tx * nav::kTile, tz * nav::kTile)) {
+        int steps = 1 << 30;
+        g.build(tx, tz, &steps);
+      }
+      for (int l = 0; l < nav::kLevels; ++l)
+        if (const nav::Cell* q = g.cell(cx + dx, cz + dz, l); q && !(q->flags & nav::kNoGround) && in_band(q->y))
+          if (const float d = std::hypot(nav::centre_of(cx + dx) - x, nav::centre_of(cz + dz) - z); d <= 60.0f && (best < 0 || d < best)) best = d;
+    }
+  return best;
+}
+// FIXES 136, a project decision: kBandClear is a planning margin for the routes we choose (the point search, the
+// gate's first pass). A shipped structure row whose walk can't keep it is walked again with this off (band floors
+// still refused), labelled NEAR BAND in the survey, and passes only by the live drive (three seeds, all arrive).
+bool g_walk_band_clear = true;
+float g_walk_lowest = 0;  // the last found route's lowest floor (the cloud band's measure, FIXES 136)
 mw1::placement::Route walk_route(mw1::placement::Point a, float ay, mw1::placement::Point c, const std::vector<mw1::placement::Point>& enemies,
                                  const mw1::placement::Inside& inside, const mw1::placement::RouteRules& rules, int* tiles_built) {
   namespace nav = mech3::ai::nav;
@@ -422,7 +500,10 @@ mw1::placement::Route walk_route(mw1::placement::Point a, float ay, mw1::placeme
         const int jl = g.step(n.cx, n.cz, n.l, dx, dz);
         if (jl < 0) continue;
         const nav::Cell* jc = g.cell(jx, jz, jl);
-        if (!jc || covered(jx, jz, jc->y)) continue;
+        // The band: its own floors refused always; kBandClear's margin too, unless g_walk_band_clear is off (the gate's
+        // second pass for a shipped structure row, "NEAR BAND": c3 ia1's land bridge, its approach beside a channel in it).
+        if (!jc || covered(jx, jz, jc->y) || in_band(jc->y)) continue;
+        if (g_walk_band_clear && band_refuses(jx, jz)) continue;
         const float ng = n.g + nav::kCell * (dx && dz ? 1.41421356f : 1.0f) * (g.tight(jx, jz, jl) ? 3.0f : 1.0f);
         const uint64_t jk = key(jx, jz, jl);
         auto it = seen.find(jk);
@@ -442,12 +523,14 @@ mw1::placement::Route walk_route(mw1::placement::Point a, float ay, mw1::placeme
   std::reverse(cells.begin(), cells.end());
   r.found = true;
   r.length = 0;
+  g_walk_lowest = 1e9f;
   r.path.push_back(a);
   for (size_t i = 1; i < cells.size(); ++i) {
     const nav::Cell* cl = g.cell(cells[i]->cx, cells[i]->cz, cells[i]->l);
     const nav::Cell* pl = g.cell(cells[i - 1]->cx, cells[i - 1]->cz, cells[i - 1]->l);
     const float run = nav::kCell * (cells[i]->cx != cells[i - 1]->cx && cells[i]->cz != cells[i - 1]->cz ? 1.41421356f : 1.0f);
     if (cl && pl) r.steepest = std::max(r.steepest, std::fabs(cl->y - pl->y) / run);
+    if (cl) g_walk_lowest = std::min(g_walk_lowest, cl->y);
     r.length += run;  // the walked length, not the cost (kTight's weight)
     r.path.push_back({nav::centre_of(cells[i]->cx), nav::centre_of(cells[i]->cz)});
     const float px = nav::centre_of(cells[i]->cx), pz = nav::centre_of(cells[i]->cz);
@@ -458,6 +541,204 @@ mw1::placement::Route walk_route(mw1::placement::Point a, float ay, mw1::placeme
   const float straight = std::hypot(c.x - a.x, c.z - a.z) - rules.reach;
   r.detour = straight > 0 ? r.length / straight : 1.0f;
   return r;
+}
+
+// FIXES 136, mw3c1 ia3's basin (measured, MW1_FLOOD): every cell the walking grid reaches from (a, ay) by walk_route's own
+// steps (the climb, the cover, the death band; no enemies), inside `inside` when given, up to `budget` cells. Said: the
+// cells reached, their extent, the floors' range, and the cells at the yellow's edge (a step the grid allows, refused only
+// as outside), by 64 m tile; with no `inside`, the reached cells outside `yellow` likewise (where the region leaves it).
+void flood_fill(const char* what, mw1::placement::Point a, float ay, const mw1::placement::Inside& inside,
+                const mw1::placement::Inside& yellow, int budget) {
+  namespace nav = mech3::ai::nav;
+  nav::Grid& g = nav::grid();
+  if (!g.world()) g.reset(&nav::zcls_world());
+  auto ensure = [&](int cx, int cz) {
+    for (int dz = -1; dz <= 1; ++dz)
+      for (int dx = -1; dx <= 1; ++dx) {
+        const int tx = nav::tile_of(cx + dx), tz = nav::tile_of(cz + dz);
+        if (g.built(tx * nav::kTile, tz * nav::kTile)) continue;
+        int steps = 1 << 30;
+        g.build(tx, tz, &steps);
+      }
+  };
+  auto covered = [&](int cx, int cz, float y) {
+    for (int dz = -1; dz <= 1; ++dz)
+      for (int dx = -1; dx <= 1; ++dx) {
+        const float rise = nav::kClimb * nav::kCell * (dx && dz ? 1.41421356f : 1.0f);
+        for (int l = 0; l < nav::kLevels; ++l) {
+          const nav::Cell* q = g.cell(cx + dx, cz + dz, l);
+          if (!q || (q->flags & nav::kNoGround)) continue;
+          if (q->y > y + std::max(rise, 2.0f)) return true;
+        }
+      }
+    return false;
+  };
+  const int sx = nav::cell_of(a.x), sz = nav::cell_of(a.z);
+  ensure(sx, sz);
+  const int sl = g.level_at(sx, sz, ay);
+  if (sl < 0) {
+    std::printf("  FLOOD %s: no level at the start\n", what);
+    return;
+  }
+  auto key = [](int cx, int cz, int l) {
+    return (static_cast<uint64_t>(static_cast<uint32_t>(cx)) << 34) ^ (static_cast<uint64_t>(static_cast<uint32_t>(cz)) << 2) ^ static_cast<uint64_t>(l);
+  };
+  struct C {
+    int cx, cz, l;
+  };
+  std::unordered_set<uint64_t> seen{key(sx, sz, sl)};
+  std::deque<C> todo{{sx, sz, sl}};
+  int reached = 0;
+  float x0 = 1e9f, x1 = -1e9f, z0 = 1e9f, z1 = -1e9f, y0 = 1e9f, y1 = -1e9f;
+  std::map<std::pair<int, int>, int> edge, out;  // by 64 m tile: cells at the yellow's edge, cells outside it
+  std::set<std::pair<int, int>> edge_seen;
+  // MW1_FLOOD_AT="x,z[;x,z...]": for each, the nearest reached cell and its floor (whether the region reaches it).
+  struct At {
+    float x, z, d = 1e9f, cx = 0, cz = 0, y = 0;
+  };
+  std::vector<At> ats;
+  if (const char* fa = std::getenv("MW1_FLOOD_AT"))
+    for (std::string rest = fa; !rest.empty();) {
+      const size_t semi = std::min(rest.find(';'), rest.size());
+      float px = 0, pz = 0;
+      if (std::sscanf(rest.substr(0, semi).c_str(), "%f,%f", &px, &pz) == 2) ats.push_back({px, pz});
+      rest = semi < rest.size() ? rest.substr(semi + 1) : std::string();
+    }
+  while (!todo.empty() && reached < budget) {
+    const C n = todo.front();
+    todo.pop_front();
+    ++reached;
+    const float x = nav::centre_of(n.cx), z = nav::centre_of(n.cz);
+    x0 = std::min(x0, x), x1 = std::max(x1, x), z0 = std::min(z0, z), z1 = std::max(z1, z);
+    if (const nav::Cell* c = g.cell(n.cx, n.cz, n.l)) y0 = std::min(y0, c->y), y1 = std::max(y1, c->y);
+    for (At& t : ats)
+      if (const float d = std::hypot(x - t.x, z - t.z); d < t.d)
+        if (const nav::Cell* c = g.cell(n.cx, n.cz, n.l)) t.d = d, t.cx = x, t.cz = z, t.y = c->y;
+    if (!inside && yellow && !yellow(x, z)) ++out[{nav::tile_of(n.cx), nav::tile_of(n.cz)}];
+    for (int dz = -1; dz <= 1; ++dz)
+      for (int dx = -1; dx <= 1; ++dx) {
+        if (!dx && !dz) continue;
+        const int jx = n.cx + dx, jz = n.cz + dz;
+        ensure(jx, jz);
+        const int jl = g.step(n.cx, n.cz, n.l, dx, dz);
+        if (jl < 0) continue;
+        const nav::Cell* jc = g.cell(jx, jz, jl);
+        if (!jc || covered(jx, jz, jc->y) || band_refuses(jx, jz)) continue;
+        if (inside && !inside(nav::centre_of(jx), nav::centre_of(jz))) {
+          if (edge_seen.insert({n.cx, n.cz}).second) ++edge[{nav::tile_of(n.cx), nav::tile_of(n.cz)}];
+          continue;
+        }
+        if (seen.insert(key(jx, jz, jl)).second) todo.push_back({jx, jz, jl});
+      }
+  }
+  std::printf("  FLOOD %s: %d cells (%.2f km2)%s; x %.0f..%.0f, z %.0f..%.0f, floors y %.1f..%.1f\n", what, reached,
+              reached * nav::kCell * nav::kCell / 1e6f, todo.empty() ? ", all" : ", the budget hit", x0, x1, z0, z1, y0, y1);
+  auto said = [&](const char* name, const std::map<std::pair<int, int>, int>& m) {
+    if (m.empty()) return;
+    std::string line;
+    int total = 0;
+    for (const auto& [t, k] : m) total += k;
+    std::printf("  FLOOD %s: %s, %d cells in %zu tiles (the tile's centre: cells)\n", what, name, total, m.size());
+    int col = 0;
+    for (const auto& [t, k] : m) {
+      char one[48];
+      std::snprintf(one, sizeof one, " %.0f,%.0f:%d", (t.first + 0.5f) * nav::kTile * nav::kCell, (t.second + 0.5f) * nav::kTile * nav::kCell, k);
+      line += one;
+      if (++col % 8 == 0) std::printf("  FLOOD %s:  %s\n", what, line.c_str()), line.clear();
+    }
+    if (!line.empty()) std::printf("  FLOOD %s:  %s\n", what, line.c_str());
+  };
+  std::printf("  FLOOD %s: from %.0f %.1f %.0f\n", what, a.x, ay, a.z);
+  for (const At& t : ats)
+    std::printf("  FLOOD %s: the point %.0f,%.0f: the nearest reached cell %.0f m off, at %.0f %.0f, floor y %.1f\n", what, t.x, t.z, t.d,
+                t.cx, t.cz, t.y);
+  said("at the yellow's edge", edge);
+  said("outside the yellow", out);
+}
+
+// FIXES 136: candidate points for a point reach row on the map being surveyed (MW1_POINT_SEARCH=<n>: the best n said).
+// Every 100 m cell is a candidate where: inside the yellow with 100 m to spare each way; on the mission map's image
+// (16 px in), which the radar's map mode (Shift+R) draws the nav point on; 800 to 2500 m from the start (nearer, the
+// race ratio ranks the start's own doorstep first); at least the
+// route clearance (200 m) from every enemy place; one dry floor (open ground, no roof or bridge over it); at most 90
+// degrees at A off the way to the enemies' centre (to its side or toward it: a reach behind the start is a walk, not a
+// contract, and a map with none gets no point row, a project decision). Ranked by the
+// race ratio |AC| / |BC| (under 1: the player nearer the point than the enemies' centre), then the angle at A off the
+// A-B line (ranking only, a project decision: the gate is the walking route and the live drive). The ranked ones are
+// walked on the engine's grid (walk_route, the gate's rule) in order, each at least 400 m from one already found and
+// 300 m from one already tried,
+// until n are found or 60 tried; each said as a POINT-CAND line.
+void point_search(const std::string& world, int ia, const float a[3], const std::vector<mw1::placement::Point>& places,
+                  const mw1::placement::Inside& in, const mw1::placement::Ground& ground, int want) {
+  namespace nav = mech3::ai::nav;
+  // The radar's small map for the world's Instant Action ("c2ia_small", maps.zrd), its image loaded for its size (the
+  // survey has no briefing, which loads it in play).
+  mech3::MissionMap* map = nullptr;
+  for (mech3::MissionMap* m : mech3::mission_maps().list)
+    if (m->name && world + "ia_small" == m->name) map = m;
+  int32_t map_w = 0, map_h = 0;  // the image's size (zimg's own read: the survey's 2D host draws nothing)
+  if (map && map->bitmap)
+    if (zimg::Texture* t = zimg::fetch_image(map->bitmap)) map_w = t->width, map_h = t->height, zimg::free_texture(t);
+  auto on_map = [&](float x, float z) {
+    if (!map || map_w <= 0) return true;  // MW3's worlds: no mission map (Shift+R shows the radar alone), nothing to be on
+    const float p[3] = {x, 0.0f, z};
+    int32_t px[2] = {};
+    return map->point(p, px) && px[0] >= 16 && px[1] >= 16 && px[0] < map_w - 16 && px[1] < map_h - 16;
+  };
+  auto one_floor = [](float x, float z) {
+    nav::Floor f[nav::kLevels];
+    const int n = nav::zcls_world().ground(x, z, f, nav::kLevels);
+    int dry = 0;
+    for (int i = 0; i < n; ++i) dry += !(f[i].water > f[i].y);
+    return n == 1 && dry == 1;
+  };
+  struct Cand {
+    mw1::placement::Point c;
+    mw1::placement::Measures m;
+  };
+  std::vector<Cand> cands;
+  int seen = 0, inside = 0, mapped = 0;
+  for (float x = a[0] - 2500; x <= a[0] + 2500; x += 100)
+    for (float z = a[2] - 2500; z <= a[2] + 2500; z += 100) {
+      const float ac = std::hypot(x - a[0], z - a[2]);
+      if (ac < 800 || ac > 2500) continue;
+      ++seen;
+      if (in && !(in(x, z) && in(x + 100, z) && in(x - 100, z) && in(x, z + 100) && in(x, z - 100))) continue;
+      ++inside;
+      if (!on_map(x, z)) continue;
+      ++mapped;
+      float nearest = 1e9f;
+      for (const mw1::placement::Point& e : places) nearest = std::min(nearest, std::hypot(x - e.x, z - e.z));
+      if (nearest < kRouteClearance || !one_floor(x, z) || band_refuses(nav::cell_of(x), nav::cell_of(z))) continue;
+      const mw1::placement::Measures m = mw1::placement::measure({a[0], a[2]}, {x, z}, places, ground);
+      if (m.angle_at_start > 90.0f) continue;  // behind the start, away from the enemy: not a contract (a project decision)
+      cands.push_back({{x, z}, m});
+    }
+  std::sort(cands.begin(), cands.end(), [](const Cand& p, const Cand& q) {
+    return p.m.race != q.m.race ? p.m.race < q.m.race : p.m.angle_at_start > q.m.angle_at_start;
+  });
+  std::printf("  POINT-SEARCH %s ia%d: start %.0f %.0f; %zu enemy places; the map %s (%d x %d px); cells %d, inside %d, on the map %d, "
+              "clear and open %zu\n", world.c_str(), ia, a[0], a[2], places.size(), map && map->name ? map->name : "none",
+              map_w, map_h, seen, inside, mapped, cands.size());
+  std::vector<mw1::placement::Point> found, tries;  // tries: the walked, kept or not (the next one tried 300 m off)
+  int tried = 0;
+  for (const Cand& k : cands) {
+    if (static_cast<int>(found.size()) >= want || tried >= 60) break;
+    bool near = false;
+    for (const mw1::placement::Point& f : found) near |= std::hypot(f.x - k.c.x, f.z - k.c.z) < 400;
+    for (const mw1::placement::Point& f : tries) near |= std::hypot(f.x - k.c.x, f.z - k.c.z) < 300;
+    if (near) continue;
+    ++tried, tries.push_back(k.c);
+    mw1::placement::RouteRules rules;
+    rules.clearance = kRouteClearance;
+    const mw1::placement::Route w = walk_route({a[0], a[2]}, a[1], k.c, places, in, rules, nullptr);
+    const bool ok = w.found && w.detour <= kRouteDetour && w.start_clear >= kStartClear;
+    if (ok) found.push_back(k.c);
+    std::printf("  POINT-CAND %s ia%d %5.0f %5.0f: AC %4.0f race %.2f angle %3.0f along %5.2f, the nearest enemy place %4.0f; walk %s length %4.0f "
+                "detour %.2f clear: start %4.0f path %4.0f end %4.0f; %s\n",
+                world.c_str(), ia, k.c.x, k.c.z, k.m.start_target, k.m.race, k.m.angle_at_start, k.m.along, k.m.nearest_to_target,
+                w.found ? "found" : "NONE ", w.length, w.detour, w.start_clear, w.path_clear, w.end_clear, ok ? "KEPT" : "-");
+  }
 }
 
 struct Run {
@@ -579,6 +860,7 @@ struct Run {
   std::function<bool(int32_t frame)> boundary_frame;
   // FIXES 136's decoy check: called each mission frame from the 31st, beside `play` (never ends the run itself).
   std::function<void(int32_t frame)> watch;
+  std::function<void()> at_survey;  // FIXES 136 (c): the survey's mission as launched, read before it ends
   bool survey = false, destroy_structure = false, kill_enemies = false, kill_after_end = false;
   std::vector<int32_t> force;  // every contract's force (MW1 kinds; empty: its own); `enemies_made` at frame 30
   int32_t enemies_made = -1;  // the enemies the mission made
@@ -618,6 +900,9 @@ struct Run {
   bool placed = false;
   mw1::placement::Route route;  // FIXES 136: a reach row's way round the enemy (mw1_placement.h), inside the yellow
   bool routed = false, route_area = false;  // route_area: the yellow was there to bound it
+  bool near_band = false;  // FIXES 136: the walk found only by the second pass (no kBandClear), and how near the band it
+  float near_band_m = -1;  // came (the nearest band floor to any of its cells, within 60 m; -1: none that near)
+  mw1::placement::Inside inside;  // the yellow (reg_inside_*) as the survey found it, empty when none (FIXES 136's basin)
   mw1::placement::Route walk;  // FIXES 136 (a): the same on the engine's walking grid (walk_route); the gate's
   int walk_tiles = 0;          // the grid's tiles it built
   // FIXES.md item 45: the row played as a player would, from frame 30. 1: the player's mech driven to the structure's
@@ -1820,6 +2105,66 @@ void loop_run(Ending ending, Run* run = nullptr) {
               };
               walk(top, 0);
             }
+            // MW1_OBJ_AUDIT (FIXES 136, measured): every objective item as our build leaves it, the map's own blocks with
+            // ours: its group, kind, words, and what it waits on (a valve watch's valve and value, a destroy's entity).
+            if (std::getenv("MW1_OBJ_AUDIT") && ge) {
+              std::set<std::string> audit_valves;
+              {
+                const mech3::CloudBand cb = mech3::program_cloud_band();
+                std::printf("  OBJ-CLOUD %s ia%d: cloud %d death %d band %.1f..%.1f\n", run->row ? run->row->world.c_str() : "-",
+                            run->row ? run->row->ia : 0, cb.on, cb.death_on, cb.low, cb.high);
+              }
+              std::function<void(const mech3::Objective*, const std::string&)> said = [&](const mech3::Objective* o, const std::string& path) {
+                if (!o) return;
+                std::string what;
+                if (auto* v = dynamic_cast<const mech3::ValveChangeObjective*>(o)) {
+                  const void* vp = v->watch ? ge->object_of(v->watch) : nullptr;
+                  const char* vn = "?";
+                  for (const mech3::ai::Valve* q : mech3::ai::valves())
+                    if (q == vp && q->name) vn = q->name;
+                  if (std::strcmp(vn, "?") != 0) audit_valves.insert(vn);
+                  what = std::string(" valve ") + vn + " = " + std::to_string(v->target) + " (now " +
+                         std::to_string(oh.valve_value(v->watch)) + ")";
+                } else if (auto* d = dynamic_cast<const mech3::DestroyObjective*>(o)) {
+                  what = " destroy " + (d->name ? *d->name : std::string("?"));
+                } else if (dynamic_cast<const mech3::ReachAreaObjective*>(o)) {
+                  what = " reach";
+                }
+                const std::string me = path + "/" + (o->desc ? *o->desc : std::string("-"));
+                std::printf("  OBJ-AUDIT %s ia%d %s %s: %s kind %d%s%s\n", run->row ? run->row->world.c_str() : "-", run->row ? run->row->ia : 0,
+                            run->row ? kind_said(run->row->kind) : "-", run->row ? run->row->node.c_str() : "-", me.c_str(),
+                            static_cast<int>(o->kind), what.c_str(), o->done ? " DONE" : "");
+                if (auto* g = dynamic_cast<const mech3::ObjectiveGroup*>(o)) {
+                  for (const auto& i : g->items) said(i.get(), me);
+                  for (const auto& i : g->fails) said(i.get(), me + "/FAILS");
+                }
+              };
+              const mech3::Objectives& ob = mech3::mission_objectives();
+              said(ob.primary.get(), "primary"), said(ob.secondary.get(), "secondary"), said(ob.final.get(), "final"), said(ob.fail.get(), "fail");
+              // Who sets each watched valve (the valve map: valves.zrd, aiv.zrd's vlists, targets.zrd's health_below, nets).
+              const mech3::ValveMap vm = mech3::valve_map_collect(run->row ? run->row->world : "-", run->row ? run->row->world : "-", 0,
+                                                                  [&](uint32_t h) { return static_cast<const void*>(ge->object_of(h)); });
+              if (std::string(std::getenv("MW1_OBJ_AUDIT")) == "all")  // every valve the map touches
+                for (const auto& [vn, e] : vm.valves) audit_valves.insert(vn);
+              std::vector<std::string> todo(audit_valves.begin(), audit_valves.end());
+              for (size_t ti = 0; ti < todo.size(); ++ti) {
+                const std::string vn = todo[ti];
+                const auto it = vm.valves.find(vn);
+                if (it == vm.valves.end()) continue;
+                for (const std::string& line : it->second.sets)  // a computed valve's members, followed too
+                  for (size_t b = line.find('['); b != std::string::npos; b = line.find('[', b + 1))
+                    if (const size_t e = line.find("](#v-", b); e != std::string::npos) {
+                      const std::string mem = line.substr(b + 1, e - b - 1);
+                      if (std::find(todo.begin(), todo.end(), mem) == todo.end()) todo.push_back(mem);
+                    }
+                for (const std::string& line : it->second.sets)
+                  std::printf("  OBJ-SETTER %s ia%d %s: %s <- %s\n", run->row ? run->row->world.c_str() : "-", run->row ? run->row->ia : 0,
+                              run->row ? run->row->node.c_str() : "-", vn.c_str(), line.c_str());
+                for (const std::string& line : it->second.effects)
+                  std::printf("  OBJ-EFFECT %s ia%d %s: %s -> %s\n", run->row ? run->row->world.c_str() : "-", run->row ? run->row->ia : 0,
+                              run->row ? run->row->node.c_str() : "-", vn.c_str(), line.c_str());
+              }
+            }
             if (const zgame::Handle he = oh.entity_find(k->structure.c_str()))
               for (mech3::ai::CZAiTarget* t : mech3::ai::target_list())
                 if (t->self == he) run->target_live = !t->destroyed && t->desc.health > 0.0f;
@@ -2003,6 +2348,106 @@ void loop_run(Ending ending, Run* run = nullptr) {
               run->routed = true, run->route_area = yellow != nullptr;
               run->walk = walk_route({run->start_at[0], run->start_at[2]}, run->start_at[1], {run->structure_at[0], run->structure_at[2]},
                                      places, in, {}, &run->walk_tiles);
+              float pnx = 0, pnz = 0;
+              if (!run->walk.found && !mw1::reach_point(run->row->node, &pnx, &pnz) && mech3::program_cloud_band().death_on) {
+                g_walk_band_clear = false;
+                run->walk = walk_route({run->start_at[0], run->start_at[2]}, run->start_at[1], {run->structure_at[0], run->structure_at[2]},
+                                       places, in, {}, &run->walk_tiles);
+                g_walk_band_clear = true;
+                if (run->walk.found) {
+                  run->near_band = true;
+                  for (const mw1::placement::Point& w : run->walk.path)
+                    if (const float d = band_distance(w.x, w.z); d >= 0 && (run->near_band_m < 0 || d < run->near_band_m)) run->near_band_m = d;
+                }
+              }
+              run->inside = in;
+              // MW1_FLOOD: the region the walking grid reaches from the start, in the yellow and without it (FIXES 136,
+              // mw3c1 ia3's basin; MW1_FLOOD_BUDGET the cells, 3,000,000).
+              if (std::getenv("MW1_FLOOD") && run->row->kind == mw1::RowKind::kReach) {
+                const int budget = std::getenv("MW1_FLOOD_BUDGET") ? std::atoi(std::getenv("MW1_FLOOD_BUDGET")) : 3000000;
+                const std::string tag = run->row->world + " ia" + std::to_string(run->row->ia);
+                flood_fill((tag + " in the yellow").c_str(), {run->start_at[0], run->start_at[2]}, run->start_at[1], in, {}, budget);
+                flood_fill((tag + " no yellow").c_str(), {run->start_at[0], run->start_at[2]}, run->start_at[1], {}, in, budget);
+              }
+              // FIXES 136: the death band's rule (band_refuses), checked on the maps that measured it: c1's cell where the
+              // commander died (floor -57, under c1's band) refused; c2, which has no band, refuses nothing.
+              const float lowest = g_walk_lowest;  // the row's walk, just made
+              if (run->row->world == "c1") {
+                namespace nav = mech3::ai::nav;
+                EXPECT(band_refuses(nav::cell_of(3310.0f), nav::cell_of(-1293.0f)));
+                EXPECT(!band_refuses(nav::cell_of(run->start_at[0]), nav::cell_of(run->start_at[2])));
+                // A point's route is found on the first pass, every cell kBandClear from the band.
+                float px = 0, pz = 0;
+                if (mw1::reach_point(run->row->node, &px, &pz)) {
+                  EXPECT(run->walk.found && !run->near_band);
+                  for (size_t q = 1; q < run->walk.path.size(); ++q)
+                    EXPECT(!band_refuses(nav::cell_of(run->walk.path[q].x), nav::cell_of(run->walk.path[q].z)));
+                }
+              } else if (run->row->world == "c3" && run->row->node == "xslid01") {
+                // The land bridge over c3's band: NEAR BAND (its approach beside a channel in the band), no cell in it.
+                EXPECT(run->walk.found && run->near_band && !in_band(lowest));
+              } else if (run->row->world == "c2") {
+                namespace nav = mech3::ai::nav;
+                EXPECT(!mech3::program_cloud_band().death_on);
+                EXPECT(!band_refuses(nav::cell_of(run->start_at[0]), nav::cell_of(run->start_at[2])));
+              }
+              // MW1_BAND_LINE=x0,z0,x1,z1: every 8 m along the line, the distance to the row's structure, the cell's floors,
+              // the nearest band floor within 60 m and whether the walk refuses the cell (FIXES 136, c3 ia1's bridge).
+              if (const char* bl = std::getenv("MW1_BAND_LINE")) {
+                namespace nav = mech3::ai::nav;
+                float x0 = 0, z0 = 0, x1 = 0, z1 = 0;
+                if (std::sscanf(bl, "%f,%f,%f,%f", &x0, &z0, &x1, &z1) == 4) {
+                  nav::Grid& g = nav::grid();
+                  const float len = std::hypot(x1 - x0, z1 - z0);
+                  for (float t = 0; t <= len; t += 8.0f) {
+                    const float x = x0 + (x1 - x0) * t / len, z = z0 + (z1 - z0) * t / len;
+                    const int cx = nav::cell_of(x), cz = nav::cell_of(z);
+                    float best = 1e9f, by = 0;
+                    for (int dz = -15; dz <= 15; ++dz)
+                      for (int dx = -15; dx <= 15; ++dx) {
+                        const int tx = nav::tile_of(cx + dx), tz = nav::tile_of(cz + dz);
+                        if (!g.built(tx * nav::kTile, tz * nav::kTile)) { int steps = 1 << 30; g.build(tx, tz, &steps); }
+                        for (int l = 0; l < nav::kLevels; ++l)
+                          if (const nav::Cell* q = g.cell(cx + dx, cz + dz, l); q && !(q->flags & nav::kNoGround) && in_band(q->y))
+                            if (const float d = std::hypot(dx * nav::kCell, dz * nav::kCell); d < best) best = d, by = q->y;
+                      }
+                    std::string floors;
+                    for (int l = 0; l < nav::kLevels; ++l)
+                      if (const nav::Cell* q = g.cell(cx, cz, l); q && !(q->flags & nav::kNoGround)) {
+                        char one[24];
+                        std::snprintf(one, sizeof one, " %.1f%s", q->y, g.tight(cx, cz, l) ? "t" : "");
+                        floors += one;
+                      }
+                    std::printf("  BAND-LINE %.0f,%.0f: %.0f m from the structure; floors%s; band floor %.0f m (y %.1f); %s\n", x, z,
+                                std::hypot(x - run->structure_at[0], z - run->structure_at[2]), floors.empty() ? " none" : floors.c_str(),
+                                best, by, band_refuses(cx, cz) ? "REFUSED" : "open");
+                  }
+                }
+              }
+              if (const char* bp = std::getenv("MW1_BAND_PROBE")) {  // x,z: the nearest floor in the band (+ margin) within 120 m
+                namespace nav = mech3::ai::nav;
+                float bx = 0, bz = 0;
+                const mech3::CloudBand band = mech3::program_cloud_band();
+                if (std::sscanf(bp, "%f,%f", &bx, &bz) == 2 && band.on && band.death_on) {
+                  nav::Grid& g = nav::grid();
+                  float best = 1e9f, by = 0;
+                  for (int dz = -30; dz <= 30; ++dz)
+                    for (int dx = -30; dx <= 30; ++dx) {
+                      const int jx = nav::cell_of(bx) + dx, jz = nav::cell_of(bz) + dz;
+                      const int tx = nav::tile_of(jx), tz = nav::tile_of(jz);
+                      if (!g.built(tx * nav::kTile, tz * nav::kTile)) { int steps = 1 << 30; g.build(tx, tz, &steps); }
+                      for (int l = 0; l < nav::kLevels; ++l)
+                        if (const nav::Cell* q = g.cell(jx, jz, l); q && !(q->flags & nav::kNoGround) && q->y > band.low && q->y < band.high + kBandMargin)
+                          if (const float d = std::hypot(nav::centre_of(jx) - bx, nav::centre_of(jz) - bz); d < best) best = d, by = q->y;
+                    }
+                  std::printf("  BAND-PROBE %s at %.0f,%.0f: the nearest band floor %.0f m (y %.1f)\n", run->row->world.c_str(), bx, bz, best, by);
+                }
+              }
+              if (run->walk.found && std::getenv("MW1_OBJ_AUDIT"))
+                std::printf("  WALK-LOW %s ia%d %s: lowest floor on the route %.1f\n", run->row->world.c_str(), run->row->ia,
+                            run->row->node.c_str(), g_walk_lowest);
+              if (const char* ps = std::getenv("MW1_POINT_SEARCH"))
+                point_search(run->row->world, run->row->ia, run->start_at, places, in, ground, std::max(1, std::atoi(ps)));
               // MW1_NET_CLEAR: the nearest patrol point to the route past the start's disc, and whose net.
               run->patrol_path = -1, run->patrol_by.clear(), run->patrol_goal = -1, run->patrol_goal_by.clear();
               for (size_t q = 0; g_walk_patrol && q < patrol.points.size(); ++q)
@@ -2018,7 +2463,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
                 }
               // MW1_WALK_PROBE=world:x,z0,z1[;...]: the grid's cells down that line (floors, flags, the step south) and the world's
               // wall test across each step at 0.5..12 m over the ground, to find what stops a mech the grid lets by.
-              if (const char* wps = std::getenv("MW1_WALK_PROBE"); wps && run->walk.found)
+              if (const char* wps = std::getenv("MW1_WALK_PROBE"))
                 for (std::string rest = wps; !rest.empty();) {
                 const size_t semi = rest.find(';');
                 const std::string one = rest.substr(0, semi);
@@ -2345,7 +2790,10 @@ void loop_run(Ending ending, Run* run = nullptr) {
             if (!run->boundary_frame(frames)) return end_it();
             return;
           }
-          if (run->survey) return end_it();
+          if (run->survey) {
+            if (run->at_survey) run->at_survey();
+            return end_it();
+          }
           if (run->destroy_structure) {
             const mw1::Contract* k = mw1::game_loop_contract();
             const zgame::Handle h = k ? mech3::mission_objective_hooks().entity_find(k->structure.c_str()) : 0;
@@ -2489,9 +2937,9 @@ void loop_run(Ending ending, Run* run = nullptr) {
                 run->escape = 600, ++run->escapes, run->round_best = 1e9f, run->round_frame = frames;
             }
             if (std::getenv("MW1_DRIVE_LOG") && frames % (std::getenv("MW1_DRIVE_EVERY") ? std::atoi(std::getenv("MW1_DRIVE_EVERY")) : 250) == 0)
-              std::printf("  drive %d: at %.0f %.0f %.0f, %.0f m (3D %.0f), yaw %.2f, sign %d, escape %d, speed %.1f, health %.2f, t %.0f, waypoint %zu at %.0f %.0f\n", frames,
+              std::printf("  drive %d: at %.0f %.0f %.0f, %.0f m (3D %.0f), yaw %.2f, sign %d, escape %d, speed %.1f, health %.2f, heat %.2f state %u, t %.0f, waypoint %zu at %.0f %.0f\n", frames,
                           pos[0], pos[1], pos[2], ground, d3, yaw, run->turn_sign * g_turn_key, run->escape, mech3::mech_throttle_speed(me), mech3::mech_health(me),
-                          mech3::missions().time, run->route_next, run->walk.found ? run->walk.path[run->route_next].x : 0.0f,
+                          mech3::mech_heat(me), mech3::mech_heat_state(me), mech3::missions().time, run->route_next, run->walk.found ? run->walk.path[run->route_next].x : 0.0f,
                           run->walk.found ? run->walk.path[run->route_next].z : 0.0f);
           }
           if (run->play == 2 && k && frames % 5 == 0) {
@@ -2559,8 +3007,8 @@ void loop_run(Ending ending, Run* run = nullptr) {
         if (o.primary && o.primary->items.size() == 1) r = dynamic_cast<const mech3::ReachAreaObjective*>(o.primary->items.front().get());
         reach_only = r != nullptr;
         if (r) {
-          float at[3];
-          mech3::mission_objective_hooks().node_position(r->node, at);
+          float at[3];  // the structure's node, or a point row's ground (FIXES 136)
+          if (!mw1::game_loop_structure_point(at)) mech3::mission_objective_hooks().node_position(r->node, at);
           std::printf("  portalgate at %.0f %.0f %.0f\n", at[0], at[1], at[2]);
           mech3::move_mech(mech3::mech_mission_player(), at, 0.0f);
         }
@@ -3276,6 +3724,27 @@ std::vector<mw1::MapRow> shipped_rows() {
   zutl::mount(MW1_DATA_DIR);
   std::vector<mw1::MapRow> rows = mw1::parse_maps(mw1::kMapsFile);
   zrdr::close_archives(true);
+  // FIXES 136: candidate point reach rows, tried before any is in the table: MW1_POINT_ROWS="world:ia:x,z[;...]"
+  // ("c2:2:-904,-1156"), each a reach at that point, "the nav point", its climate the world's first row's (else desert).
+  const std::string extra = std::getenv("MW1_POINT_ROWS") ? std::getenv("MW1_POINT_ROWS") : "";
+  for (size_t at = 0; at < extra.size();) {
+    const size_t end = std::min(extra.find(';', at), extra.size());
+    const std::string one = extra.substr(at, end - at);
+    at = end + 1;
+    const size_t c1 = one.find(':'), c2 = c1 == std::string::npos ? c1 : one.find(':', c1 + 1);
+    if (c2 == std::string::npos) continue;
+    mw1::MapRow r;
+    r.world = one.substr(0, c1), r.ia = std::atoi(one.substr(c1 + 1, c2 - c1 - 1).c_str());
+    float x = 0, z = 0;
+    if (!mw1::reach_point("@" + one.substr(c2 + 1), &x, &z) || r.ia < 1) continue;
+    r.kind = mw1::RowKind::kReach, r.node = mw1::point_node(x, z), r.words = "the nav point", r.climate = mw1::kDesert;
+    for (const mw1::MapRow& o : rows)
+      if (o.world == r.world) {
+        r.climate = o.climate;
+        break;
+      }
+    rows.push_back(r);
+  }
   return rows;
 }
 }  // namespace
@@ -3300,8 +3769,13 @@ TEST(mw1_loop_every_map_row_is_there_headless) {
   EXPECT(!rows.empty());
   const bool have_mw3 = fs::exists(fs::path(MW1_MW3_GAME_DIR) / "zbd" / "c2" / "gamez.zbd", ec);
   const std::string worlds = have_mw3 ? converted_worlds() : std::string();
+  // MW1_ROWS=<node or worldiaN>[,...]: some rows (a point row by its world and ia: "c2ia2").
+  const std::string only = std::getenv("MW1_ROWS") ? "," + std::string(std::getenv("MW1_ROWS")) + "," : "";
   for (const mw1::MapRow& r : rows) {
     if (r.world.rfind("mw3", 0) == 0 && !have_mw3) continue;
+    if (!only.empty() && only.find("," + r.node + ",") == std::string::npos &&
+        only.find("," + r.world + "ia" + std::to_string(r.ia) + ",") == std::string::npos)
+      continue;
     in_child([&] {
       Run run;
       run.row = &r, run.survey = true, run.stop_at_after_action = true, run.worlds = worlds;
@@ -3354,11 +3828,17 @@ TEST(mw1_loop_every_map_row_is_there_headless) {
                         run.net_points, run.patrol_start, run.patrol_path, run.patrol_by.c_str(), run.patrol_goal,
                         run.patrol_goal_by.c_str());
           std::strncat(line, more, sizeof line - std::strlen(line) - 1);
+          if (run.near_band) {  // FIXES 136: found only without kBandClear; the live drive is its gate
+            std::snprintf(more, sizeof more, "%-6s ia%d %-7s %-18s NEAR BAND: the nearest band floor %.0f m from the route (kBandClear %.0f m "
+                          "not kept; gated on the live drive)\n", r.world.c_str(), r.ia, kind_said(r.kind), r.node.c_str(), run.near_band_m, kBandClear);
+            std::strncat(line, more, sizeof line - std::strlen(line) - 1);
+          }
         }
         std::printf("  %s", line);
         if (const char* table = std::getenv("MW1_SURVEY_TABLE"))
           if (std::FILE* f = std::fopen(table, "a")) std::fputs(line, f), std::fclose(f);
-        EXPECT(run.shown_meshes > 0);
+        float px = 0, pz = 0;
+        if (!mw1::reach_point(r.node, &px, &pz)) EXPECT(run.shown_meshes > 0);  // a point row (FIXES 136) has no building
         if (target) EXPECT(run.target_live && run.routed_meshes > 0);
         EXPECT(run.placed && n > 0);
         if (r.kind == mw1::RowKind::kAttack) {
@@ -7089,10 +7569,32 @@ void drive_reach(const mw1::MapRow& r, const std::string& worlds, bool order, Dr
     std::map<std::string, Hurt> hurt;  // MW1_LIVE: who took the commander's health, and from how far
     float parts_was[11] = {}, sparts_was[11] = {};
     bool parts_known = false;
+    std::map<std::string, std::string> obj_was;  // the live drive's lost runs: which objective changed, and when
+    const bool basin = std::getenv("MW1_BASIN_TRACE") != nullptr;  // FIXES 136, mw3c1 ia3's basin (measured)
+    if (basin && std::getenv("MW1_BASIN_FRAMES")) run.give_up = std::max(600, std::atoi(std::getenv("MW1_BASIN_FRAMES")));
+    int32_t first_out = -1;
+    float out_at[3] = {}, bx0 = 1e9f, bx1 = -1e9f, bz0 = 1e9f, bz1 = -1e9f;
+    std::vector<std::string> obj_changes;
     run.watch = [&](int32_t frame) {
+      if (live) {
+        const auto now = objectives_now();
+        for (const auto& [k, v] : now)
+          if (auto it = obj_was.find(k); (it == obj_was.end() ? !obj_was.empty() : it->second != v) && obj_changes.size() < 24)
+            obj_changes.push_back("frame " + std::to_string(frame) + ": " + k + " -> " + v);
+        obj_was = now;
+      }
       void* me = mech3::mech_mission_player();
       if (!me) return;
       mech3::mech_world_position(me, last_at);
+      if (basin && frame % 30 == 0) {  // MW1_BASIN_TRACE: the way it went, and the first step outside the yellow
+        const bool in = !run.inside || run.inside(last_at[0], last_at[2]);
+        if (!in && first_out < 0) first_out = frame, std::copy(last_at, last_at + 3, out_at);
+        bx0 = std::min(bx0, last_at[0]), bx1 = std::max(bx1, last_at[0]), bz0 = std::min(bz0, last_at[2]), bz1 = std::max(bz1, last_at[2]);
+        if (frame % 300 == 0)
+          std::printf("  BASIN-AT %s ia%d %s seed %s frame %d: at %.0f %.1f %.0f %s, health %.2f, escapes %d\n", r.world.c_str(), r.ia,
+                      r.node.c_str(), replay, frame, last_at[0], last_at[1], last_at[2], in ? "in" : "OUTSIDE the yellow",
+                      mech3::mech_health(me), run.escapes);
+      }
       if (std::getenv("MW1_HURT_PARTS")) {  // each part's armour and structure left, the changes said with the frame and place
         int32_t ty = 0, arm[11] = {};
         float left[11] = {}, pts[11] = {}, sleft[11] = {};
@@ -7124,10 +7626,28 @@ void drive_reach(const mw1::MapRow& r, const std::string& worlds, bool order, Dr
           int32_t na = 0;
           const mech3::AiMechMade* am = mech3::mission_ai_mechs(&na);
           who = "not an AI mech";
+          if (by == me) who = "itself";
+          else if (const char* pilot = mech3::mech_brain_name(by)) who = std::string("a lancemate, ") + pilot;
           for (int32_t i = 0; i < na; ++i)
             if (am[i].mech == by) who = am[i].name ? am[i].name : "an AI mech";
           float q[3];
           if (mech3::mech_world_position(by, q)) d = std::hypot(q[0] - last_at[0], q[2] - last_at[2]);
+        }
+        // No attacker and a mech in contact: a ram (Mech::crash_part's, PM's crash both ways, no ally test). Its attacker is
+        // set, but the pilot's is cleared after every entity's frame (mech_after_frame, PM 0x0041b930) before this reads
+        // it, where a weapon's hit lands after. kRamContact: the centres apart at contact (8.8 m measured, c1 ia2).
+        if (who == "unknown") {
+          int32_t na = 0;
+          const mech3::AiMechMade* am = mech3::mission_ai_mechs(&na);
+          float best = kRamContact;
+          for (int32_t i = 0; i < na; ++i) {
+            float q[3];
+            if (!mech3::mech_world_position(am[i].mech, q)) continue;
+            if (const float dd = std::hypot(q[0] - last_at[0], q[2] - last_at[2]); dd < best) {
+              const char* pilot = mech3::mech_brain_name(am[i].mech);
+              best = dd, d = dd, who = std::string("ram: ") + (pilot ? pilot : am[i].name ? am[i].name : "a mech");
+            }
+          }
         }
         if (who == "unknown") {  // no attacker: a landmine gone off within its radius? (mech3/landmines.h)
           float md = 1e9f;
@@ -7209,6 +7729,10 @@ void drive_reach(const mw1::MapRow& r, const std::string& worlds, bool order, Dr
                     hu.near > 1e8f ? -1.0f : hu.near, hu.far);
       hurt_by += one;
     }
+    if (mode == Drive::kDecoy)  // FIXES 136 (c): who took the commander's health in this run, as the live drive says it
+      std::printf("  DECOY-HURT %-6s ia%d %-12s %-22s seed %s: damage %.0f%%; hit by %s\n", r.world.c_str(), r.ia, r.node.c_str(),
+                  order ? "lance ordered to ATTACK" : "lance following (control)", replay, 100.0f * (1.0f - std::max(0.0f, health_end)),
+                  hurt_by.empty() ? "none" : hurt_by.c_str());
     if (live) {
       // FIXES 136 (b)'s gate: arrived, never down. The damage and who did it said each seed (not gated: taking fire on
       // the way and getting through is the contract), so a data change shows as a number.
@@ -7221,8 +7745,22 @@ void drive_reach(const mw1::MapRow& r, const std::string& worlds, bool order, Dr
       std::fputs(line, stdout);
       if (const char* table = std::getenv("MW1_SURVEY_TABLE"))
         if (std::FILE* f = std::fopen(table, "a")) std::fputs(line, f), std::fclose(f);
+      if (!arrived)  // what ended it: the objectives' changes (a map's own fail block, the reach, the commander)
+      {
+        for (const std::string& c : obj_changes) std::printf("  REACH-END %s ia%d seed %s %s\n", r.world.c_str(), r.ia, replay, c.c_str());
+        for (const auto& [k, v] : obj_was)
+          if (v != "open") std::printf("  REACH-END %s ia%d seed %s at the last frame: %s %s\n", r.world.c_str(), r.ia, replay, k.c_str(), v.c_str());
+      }
       EXPECT(arrived && !run.player_down);
     }
+    if (basin)
+      std::printf("  BASIN %s ia%d %s seed %s: the route %s; %s at frame %d%s; last at %.0f %.0f; went x %.0f..%.0f, z %.0f..%.0f; "
+                  "nearest the point %.0f m; first outside the yellow %s%s\n",
+                  r.world.c_str(), r.ia, r.node.c_str(), replay, run.walk.found ? "found" : "NONE",
+                  run.mission_ended && !run.mission_lost ? "ARRIVED" : run.mission_ended ? "ended (lost)" : "did not arrive", run.ended_frame,
+                  run.player_down ? ", DOWN" : "", last_at[0], last_at[2], bx0, bx1, bz0, bz1, run.closest_ground,
+                  first_out < 0 ? "never" : ("at frame " + std::to_string(first_out)).c_str(),
+                  first_out < 0 ? "" : (" at " + std::to_string(std::lround(out_at[0])) + " " + std::to_string(std::lround(out_at[2]))).c_str());
     if (drive_only)
       std::printf("  DRIVE  %-6s ia%d %-12s: the walking route %s, %.0f m, %zu waypoints; %s at frame %d; the commander last at %.0f %.0f\n",
                   r.world.c_str(), r.ia, r.node.c_str(), run.walk.found ? "found" : "NONE", run.walk.length, run.walk.path.size(),
@@ -7290,6 +7828,300 @@ TEST(mw1_loop_every_reach_row_reached_live_headless) {
       in_child([&] { drive_reach(r, worlds, false, Drive::kLive, static_cast<uint32_t>(seed)); });
   }
   EXPECT(ran > 0);
+}
+
+// FIXES 136 (the lead's, measured): a battle (destroy all) on a Defend archive (ia3), the player passive: does the map's own
+// fail block (its base-down valve, set by the base's structures) lose a battle whose contract says only destroy all? The
+// ladder's last rung, the lance along, seeds 1..MW1_LIVE_SEEDS (3); MW1_DA_FRAMES the frames waited (9000, 5 minutes);
+// MW1_ROWS=<world>ia3[,...] some maps. Each objective item's change said with its frame, then the end.
+TEST(mw1_loop_destroy_all_on_defend_maps_live_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  if (!std::getenv("MW1_DA_LIVE")) return;  // measured by hand: minutes a map
+  const std::vector<mw1::MapRow> rows = shipped_rows();
+  const bool have_mw3 = fs::exists(fs::path(MW1_MW3_GAME_DIR) / "zbd" / "c2" / "gamez.zbd", ec);
+  const std::string worlds = have_mw3 ? converted_worlds() : std::string();
+  const char* some = std::getenv("MW1_ROWS");
+  const std::string only = some ? "," + std::string(some) + "," : std::string();
+  const int seeds = std::getenv("MW1_LIVE_SEEDS") ? std::clamp(std::atoi(std::getenv("MW1_LIVE_SEEDS")), 1, 3) : 3;
+  const int frames = std::getenv("MW1_DA_FRAMES") ? std::max(300, std::atoi(std::getenv("MW1_DA_FRAMES"))) : 9000;
+  for (const mw1::MapRow& r : rows) {
+    if (r.kind != mw1::RowKind::kAny || r.ia != 3) continue;
+    if (!only.empty() && only.find("," + r.world + "ia3,") == std::string::npos) continue;
+    if (r.world.rfind("mw3", 0) == 0 && !have_mw3) continue;
+    for (int seed = 1; seed <= seeds; ++seed)
+      in_child([&] {
+        crt::rand_fixed_seed() = static_cast<uint32_t>(seed);
+        Run run;
+        run.row = &r, run.worlds = worlds, run.stop_at_after_action = true;
+        run.force = mw1::rung_force(mw1::kDarkWingRung, 0);
+        run.lance = true, run.lance_count = 3;
+        run.play = 0, run.kill_enemies = false, run.give_up = frames, run.pump_limit = frames + 3000;
+        std::map<std::string, std::string> was;
+        std::vector<std::string> changes;
+        std::map<std::string, int32_t> fails_was;  // each fail valve watch's value, by its words
+        float health = -1;
+        run.watch = [&](int32_t frame) {
+          const auto now = objectives_now();
+          for (const auto& [k, v] : now)
+            if (auto it = was.find(k); !was.empty() && (it == was.end() || it->second != v) && changes.size() < 24)
+              changes.push_back("frame " + std::to_string(frame) + ": " + k + " -> " + v);
+          was = now;
+          mech3::ObjectiveHooks& oh = mech3::mission_objective_hooks();
+          std::function<void(const mech3::Objective*, const std::string&)> walk = [&](const mech3::Objective* o, const std::string& path) {
+            if (!o) return;
+            const std::string me = path + "/" + (o->desc ? *o->desc : std::string("-"));
+            if (auto* v = dynamic_cast<const mech3::ValveChangeObjective*>(o)) {
+              const int32_t val = oh.valve_value(v->watch);
+              if (auto it = fails_was.find(me); it != fails_was.end() && it->second != val && changes.size() < 24)
+                changes.push_back("frame " + std::to_string(frame) + ": valve of " + me + " " + std::to_string(it->second) + " -> " +
+                                  std::to_string(val) + " (fails at " + std::to_string(v->target) + ")");
+              fails_was[me] = val;
+            }
+            if (auto* g = dynamic_cast<const mech3::ObjectiveGroup*>(o)) {
+              for (const auto& i : g->items) walk(i.get(), me);
+              for (const auto& i : g->fails) walk(i.get(), me);
+            }
+          };
+          walk(mech3::mission_objectives().fail.get(), "fail");
+          if (void* pl = mech3::mech_mission_player()) {
+            health = mech3::mech_health(pl);
+            // MW1_DA_INVINCIBLE: the player can't fall (the base's fate measured alone: a passive player is killed first).
+            if (std::getenv("MW1_DA_INVINCIBLE")) mech3::program_mech_set_invincible(pl, true);
+          }
+        };
+        loop_run(kObjective, &run);
+        const std::string got = run.mission_ended ? (run.mission_lost ? "lost" : "won") : "not ended";
+        std::printf("  DA-LIVE %-6s ia3 seed %d: %s at frame %d; the player's health %.2f\n", r.world.c_str(), seed, got.c_str(),
+                    run.ended_frame, health);
+        for (const std::string& c : changes) std::printf("  DA-LIVE %-6s ia3 seed %d:   %s\n", r.world.c_str(), seed, c.c_str());
+      });
+  }
+}
+
+// FIXES 136 (c): the launch's fail tree, each fail item by its valve's name (an item watching no valve by its words).
+std::vector<std::string> fail_valves_now() {
+  std::vector<std::string> out;
+  mech3::ObjectiveHooks& oh = mech3::mission_objective_hooks();
+  std::function<void(const mech3::Objective*)> walk = [&](const mech3::Objective* o) {
+    if (!o) return;
+    if (auto* v = dynamic_cast<const mech3::ValveChangeObjective*>(o)) {
+      std::string n = "?";
+      for (const mech3::ai::Valve* q : mech3::ai::valves())
+        if (q->name && oh.valve_find(q->name) == v->watch) n = q->name;
+      out.push_back(n);
+    } else if (auto* d = dynamic_cast<const mech3::DestroyObjective*>(o)) {
+      out.push_back("destroy " + (d->name ? *d->name : std::string("?")));
+    }
+    if (auto* g = dynamic_cast<const mech3::ObjectiveGroup*>(o)) {
+      for (const auto& i : g->items) walk(i.get());
+      for (const auto& i : g->fails) walk(i.get());
+    }
+  };
+  walk(mech3::mission_objectives().fail.get());
+  return out;
+}
+std::string joined(const std::vector<std::string>& v) {
+  std::string s;
+  for (const std::string& x : v) s += (s.empty() ? "" : " ") + x;
+  return s.empty() ? "-" : s;
+}
+
+// FIXES 136 (c), a project decision: a battle (destroy all) on a Defend archive (ia3) is the enemy's and the boundaries'
+// alone. Each of the 8: the fails the launch took out, by valve (the list is the diff a data change shows), none left
+// on a valve set by structure destruction, and the boundary's fail kept (MW1's outside_mw1 on PM's worlds, which have
+// their area, MW3's outside_iaN on its own). On c1 ia3 the classifier itself: the base's valve is structure's; the
+// player's own (Player_Dead, its vlist on its health), a timer (play_dead, a delayupdate) and the boundary are not.
+// Then other kinds keep the map's fail tree whole: a defence on the same Defend archive (its base valve still watched),
+// an attack and a reach: nothing taken.
+TEST(mw1_loop_destroy_all_drops_only_the_maps_base_fails_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  {
+    // FIXES 138's areas, as the game loads them (mw1_main): PM's worlds' boundary fail is MW1's outside_mw1.
+    zutl::mounts() = zutl::Mounts{};
+    zutl::mount(MW1_DATA_DIR);
+    std::string why;
+    mw1::set_bounds(mw1::parse_bounds(mw1::kBoundsFile, &why));
+    zrdr::close_archives(true);
+    EXPECT(why.empty());
+  }
+  const bool have_mw3 = fs::exists(fs::path(MW1_MW3_GAME_DIR) / "zbd" / "c2" / "gamez.zbd", ec);
+  const std::string worlds = have_mw3 ? converted_worlds() : std::string();
+  const std::map<std::string, std::string> want = {
+      {"c1", "pirate_base_down"}, {"c2", "able_base_down"}, {"c3", "base_down"}, {"c4", "base_down"},
+      {"mw3c1", "iatowv2"},       {"mw3c2", "iatowv2"},     {"mw3c3", "iatowv2"}, {"mw3c4", "iatowv2"}};
+  int ran = 0;
+  for (const mw1::MapRow& r : shipped_rows()) {
+    if (r.kind != mw1::RowKind::kAny || r.ia != 3) continue;
+    if (r.world.rfind("mw3", 0) == 0 && !have_mw3) continue;
+    ++ran;
+    in_child([&] {
+      Run run;
+      run.row = &r, run.survey = true, run.stop_at_after_action = true, run.worlds = worlds;
+      std::vector<std::string> stripped, left;
+      bool by_structure_left = false, classifier = true;
+      run.at_survey = [&] {
+        stripped = mw1::game_loop_stripped_fails(), left = fail_valves_now();
+        for (const std::string& n : left) by_structure_left = by_structure_left || mw1::game_loop_valve_by_structure(n.c_str());
+        if (r.world == "c1")
+          classifier = mech3::ai::valve_find("Player_Dead") && mech3::ai::valve_find("play_dead") && mech3::ai::valve_find("outside_mw1") &&
+                       mw1::game_loop_valve_by_structure("pirate_base_down") && !mw1::game_loop_valve_by_structure("Player_Dead") &&
+                       !mw1::game_loop_valve_by_structure("play_dead") && !mw1::game_loop_valve_by_structure("outside_mw1");
+      };
+      loop_run(kObjective, &run);
+      const std::string boundary = r.world.rfind("mw3", 0) == 0 ? "outside_ia" + r.world.substr(4) : "outside_mw1";
+      std::printf("  DA-FAILS %-6s ia3: taken out: %s; left: %s\n", r.world.c_str(), joined(stripped).c_str(), joined(left).c_str());
+      EXPECT(joined(stripped) == want.at(r.world));
+      EXPECT(!by_structure_left);
+      EXPECT(std::find(left.begin(), left.end(), boundary) != left.end());
+      EXPECT(classifier);
+    });
+  }
+  EXPECT(ran == (have_mw3 ? 8 : 4));
+  // Other kinds: nothing taken, the map's tree as it was.
+  struct Other {
+    const char* world;
+    int ia;
+    mw1::RowKind kind;
+    const char* node;
+    const char* kept;  // a map valve still watched ("" none asked)
+  };
+  for (const Other& k : {Other{"c1", 3, mw1::RowKind::kDefend, "pship_kill", "pirate_base_down"},
+                         Other{"c2", 2, mw1::RowKind::kAttack, "portalgate", ""},
+                         Other{"c3", 1, mw1::RowKind::kReach, "xslid01", ""}}) {
+    const mw1::MapRow* row = nullptr;
+    const std::vector<mw1::MapRow> rows = shipped_rows();
+    for (const mw1::MapRow& r : rows)
+      if (r.world == k.world && r.ia == k.ia && r.kind == k.kind && r.node == k.node) row = &r;
+    EXPECT(row != nullptr);
+    if (!row) continue;
+    in_child([&] {
+      Run run;
+      run.row = row, run.survey = true, run.stop_at_after_action = true, run.worlds = worlds;
+      std::vector<std::string> stripped, left;
+      run.at_survey = [&] { stripped = mw1::game_loop_stripped_fails(), left = fail_valves_now(); };
+      loop_run(kObjective, &run);
+      std::printf("  DA-FAILS %-6s ia%d %s %s: taken out: %s; left: %s\n", k.world, k.ia, kind_said(k.kind), k.node, joined(stripped).c_str(),
+                  joined(left).c_str());
+      EXPECT(stripped.empty());
+      if (*k.kept) EXPECT(std::find(left.begin(), left.end(), std::string(k.kept)) != left.end());
+    });
+  }
+}
+
+// FIXES 136 (c), live: mw3c2 ia3's battle (destroy all), the player passive and unable to fall (else the enemy kills it
+// first: measured), seed 2 (the tower fell at frame 3846 before the change, losing the battle). The tower falls (its
+// valve iatowv2 set) and the battle goes on: not ended 600 frames after.
+TEST(mw1_loop_destroy_all_goes_on_when_the_base_falls_live_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  if (!fs::exists(fs::path(MW1_MW3_GAME_DIR) / "zbd" / "c2" / "gamez.zbd", ec)) return;
+  const std::string worlds = converted_worlds();
+  const mw1::MapRow* row = nullptr;
+  const std::vector<mw1::MapRow> rows = shipped_rows();
+  for (const mw1::MapRow& r : rows)
+    if (r.world == "mw3c2" && r.ia == 3 && r.kind == mw1::RowKind::kAny) row = &r;
+  EXPECT(row != nullptr);
+  if (!row) return;
+  in_child([&] {
+    crt::rand_fixed_seed() = 2;
+    Run run;
+    run.row = row, run.worlds = worlds, run.stop_at_after_action = true;
+    run.force = mw1::rung_force(mw1::kDarkWingRung, 0);
+    run.lance = true, run.lance_count = 3;
+    run.play = 0, run.kill_enemies = false, run.give_up = 7200, run.pump_limit = 7200 + 3000;
+    int fell = -1, last = -1;
+    run.watch = [&](int32_t frame) {
+      if (void* pl = mech3::mech_mission_player()) mech3::program_mech_set_invincible(pl, true);
+      const mech3::ai::Valve* v = mech3::ai::valve_find("iatowv2");
+      if (fell < 0 && v && v->get() == 1) fell = frame;
+      last = frame;
+    };
+    loop_run(kObjective, &run);
+    std::printf("  DA-GOES-ON mw3c2 ia3 seed 2: the tower fell at frame %d; the battle %s (frame %d), watched to %d\n", fell,
+                run.mission_ended ? (run.mission_lost ? "lost" : "won") : "not ended", run.ended_frame, last);
+    EXPECT(fell > 0);
+    EXPECT(!run.mission_ended || run.ended_frame > fell + 600);
+    EXPECT(!(run.mission_ended && run.mission_lost && run.ended_frame <= fell + 600));
+    EXPECT(last > fell + 600);
+  });
+}
+
+// FIXES 136, measured (MW1_LANCE_SPAWN=1; MW1_ROWS=<world>iaN[,...] some maps): each map's lancemates against the player at
+// the start, then the first 900 frames (30 s), the player passive, then walking straight off at full throttle: each
+// lancemate's start distance, the nearest it came, and the player's damage from rams (no attacker, a mech within
+// kRamContact: PM's crash both ways has no ally test). Measurement only.
+TEST(mw1_loop_lance_spawn_clearance_measured_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  if (!std::getenv("MW1_LANCE_SPAWN")) return;
+  const std::vector<mw1::MapRow> rows = shipped_rows();
+  const bool have_mw3 = fs::exists(fs::path(MW1_MW3_GAME_DIR) / "zbd" / "c2" / "gamez.zbd", ec);
+  const std::string worlds = have_mw3 ? converted_worlds() : std::string();
+  const char* some = std::getenv("MW1_ROWS");
+  const std::string only = some ? "," + std::string(some) + "," : std::string();
+  std::set<std::pair<std::string, int32_t>> done;
+  for (const mw1::MapRow& r : rows) {
+    if (r.world.rfind("mw3", 0) == 0 && !have_mw3) continue;
+    if (!only.empty() && only.find("," + r.world + "ia" + std::to_string(r.ia) + ",") == std::string::npos) continue;
+    if (!done.insert({r.world, r.ia}).second) continue;
+    for (int walk = 0; walk <= 1; ++walk)
+      in_child([&] {
+        crt::rand_fixed_seed() = 1;
+        mw1::MapRow battle{r.world, r.ia, r.climate, mw1::RowKind::kAny, "", ""};
+        Run run;
+        run.row = &battle, run.worlds = worlds, run.stop_at_after_action = true;
+        run.force = mw1::rung_force(mw1::kDarkWingRung, 0);
+        run.lance = true, run.lance_count = 3;
+        run.play = 0, run.kill_enemies = false, run.give_up = 930, run.pump_limit = 930 + 3000;
+        std::map<std::string, std::pair<float, float>> mates;  // name -> start, nearest
+        std::map<std::string, float> rammed;
+        float health_was = -1;
+        run.watch = [&](int32_t frame) {
+          void* me = mech3::mech_mission_player();
+          if (!me) return;
+          mech3::program_mech_set_invincible(me, true);  // no enemy ends it early
+          if (walk && frame >= 60) mech3::mech_hold_throttle(me, 1.0f);
+          float at[3];
+          mech3::mech_world_position(me, at);
+          int32_t na = 0;
+          const mech3::AiMechMade* am = mech3::mission_ai_mechs(&na);
+          for (int32_t i = 0; i < na; ++i) {
+            const mech3::ai::AiTarget* mt = mech3::mech_ai_target(am[i].mech);
+            const mech3::ai::AiTarget* pt = mech3::mech_ai_target(me);
+            if (!am[i].name || !mt || !pt || mt->team != pt->team) continue;  // the player's side: the lance
+            float q[3];
+            if (!mech3::mech_world_position(am[i].mech, q)) continue;
+            const float d = std::hypot(q[0] - at[0], q[2] - at[2]);
+            const char* pilot = mech3::mech_brain_name(am[i].mech);
+            const std::string n = std::string(am[i].name) + " (" + (pilot ? pilot : "-") + ")";
+            auto it = mates.find(n);
+            if (it == mates.end()) mates[n] = {d, d};
+            else it->second.second = std::min(it->second.second, d);
+          }
+          const float h = mech3::mech_health(me);
+          if (health_was >= 0 && h < health_was - 1e-4f && !mech3::mech_last_attacker(me))
+            for (int32_t i = 0; i < na; ++i) {
+              float q[3];
+              if (am[i].name && mech3::mech_world_position(am[i].mech, q) && std::hypot(q[0] - at[0], q[2] - at[2]) < kRamContact)
+                rammed[am[i].name] += health_was - h;
+            }
+          health_was = h;
+        };
+        loop_run(kObjective, &run);
+        std::string said;
+        for (const auto& [n, sd] : mates) {
+          char one[160];
+          std::snprintf(one, sizeof one, "%s%s start %.0f m nearest %.0f m", said.empty() ? "" : "; ", n.c_str(), sd.first, sd.second);
+          said += one;
+        }
+        std::string rams;
+        for (const auto& [n, dmg] : rammed) rams += (rams.empty() ? "" : ", ") + n + " " + std::to_string(static_cast<int>(dmg * 100 + 0.5f)) + "%";
+        std::printf("  LANCE-SPAWN %-6s ia%d %-7s: %s; rams: %s\n", r.world.c_str(), r.ia, walk ? "walking" : "passive", said.c_str(),
+                    rams.empty() ? "none" : rams.c_str());
+      });
+  }
 }
 
 // FIXES 129 (the lead: does a lancemate act on each of PM's lance orders in an MW1 battle?): two lancemates, A and B;

@@ -5,6 +5,14 @@ Tick an item when it is merged into `main`.
 
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 140. [ ] MW3's worlds have no mission map: wire MW3's own maps.zrd *(later; found with 136, not in its pass)*
+
+- **Found (2026-11-22, item 136's point search):** on MW3's worlds (mw3c1..mw3c4) Shift+R shows only the plain radar,
+  for structure rows and point rows alike; PM's worlds draw their mission map (their maps.zrd). The nav point still
+  shows on the radar, in the OP line and its arrow, which is enough for now (the lead).
+- **Wanted, later:** MW3's own maps.zrd wired for its converted worlds, so the radar's map mode draws them as PM's do.
+  Then 136's "on the mission map's image" filter can apply to MW3's worlds too (today it applies to PM's only).
+
 ## 139. [x] The window title and the save folder say MechWarrior 1 Remake *(done: mw1-139-rename and mw1-139-move-fixes; in 1.0.6)*
 
 - **Why (2026-11-21):** the game is renamed MechWarrior 1 Remake (short MW1 Remake; repo mech1-remake-re). 1.0.5
@@ -224,11 +232,53 @@ Tick an item when it is merged into `main`.
   - c3 ia1 15/7, 32/7, 21/23%: more on the commander with the order, on two seeds of three.
   - mw3c4b ia1 10/1% on all three, and the reach LOST with the order (the commander down at frames 3574, 4745,
     4807), won without it (frame 4904). Following, the lance takes 8 to 9% of the targeting there; sent off to
-    attack, none (who then hits the commander is not yet attributed in this run: Enemy_04, by the live drive, likely). The reach is won by the rule's own
+    attack, none, and Enemy_04 does it all (the DECOY-HURT lines: 100% on each seed, closing to 118, 128, 112 m;
+    following, Enemy_04 28, 41, 28%, as the live gate). Kept as it is (a project decision): sending the whole lance
+    away on this map is the choice's fair cost, and a player fires back and evades where the test's commander doesn't. The reach is won by the rule's own
     drive (the lance following), so the row stays; a player who sends the lance away on this map pays for it.
   - Every other run won the reach, with the order and without.
-- **Still to do:** point reach rows (a reach at a point, not a node); the attack targets chosen by the same scores;
-  who hits the commander in the decoy runs (the live drive's attribution, not yet in its ATTACK run).
+- **Point reach rows (2026-11-22, done):** a reach row may name a point (`POINT (x z)`, the words "the nav point";
+  `mw1_missions.h` `reach_point`): the engine's `reach_area` there, its nav point on the radar and the OP line.
+  - **The search (`MW1_POINT_SEARCH`):** 100 m cells inside the yellow with 100 m to spare, on the mission map's image
+    (PM's worlds; MW3's draw none, item 140), 800 to 2500 m from the start, 200 m from every enemy place, one dry
+    floor, at most 90 degrees at A off the way to the enemies' centre (behind the start is a walk, not a contract:
+    a map with none gets no point row, a project decision); ranked by the race, then the angle; walked by the gate's
+    rule, then driven live (seeds 1..3 must arrive, the damage said).
+  - **The rows:** c1 ia1 (2842, −1596) 48/14/3%; c1 ia2 (4542, −1468) 75/0/75%; c2 ia2 (1707, −761), c3 ia2
+    (1071, −1299), c4 ia2 (2076, −918), mw3c2 ia2 (−991, −2093) and mw3c4 ia1 (−536, 1585) 0/0/0; mw3c1 ia1
+    (−1189, −1926) 46/71/39% (the race 0.97, kept: being shot at on the way is the contract); mw3c2 ia1 (−930,
+    −1886) 10/25/14%. None on ia3 or mw3c3 ia1. The table is in `research/maps.md`.
+  - **The cloud death band:** c1's first picks went down at y −30 with no attacker: PM's `cloud_death` band (c1 and
+    c3: −10000..−30; `mech3/cloud_band.h`) kills a 'Mech below it (`cloud_kill`, every part). The walk and the search
+    refuse a cell with any floor in the band (+2 m) within `kBandClear` (36 m, beside `kReachRadius`; measured on
+    c1 ia1, the drive cuts corners) of it; a world with no band is untouched (c2's check).
+  - **The clearance is a planning margin (2026-11-22, a project decision):** it binds the routes we choose (the point
+    search, the gate's first pass). A shipped structure row whose walk can't keep it is walked again with band floors
+    still refused but no clearance, labelled NEAR BAND in the survey with the band's nearest distance, and passes only
+    by the live drive (three seeds, all arrive, never down); with no route on either pass it fails as before. c3 ia1's
+    land bridge is the one: its approach runs beside a channel just under y −30 (12 m from the route at its nearest)
+    and its canyon lies in the band under the deck; NEAR BAND, it arrives 3/3 at 0%. (A depth or drop-height scale
+    was measured and dropped: c1's fatal ledge also first meets a floor 0.6 m into the band, and the kill is the 'Mech's
+    y inside the band at any depth.)
+  - **Who hit the commander:** a ram (`Mech::collide`, the heavier's crash, no ally test, as the original: PM
+    0x00423730) leaves no attacker to read, since `mech_after_frame` clears it each frame; the drive names an AI
+    'Mech within `kRamContact` (15 m) as "ram: <pilot>". c1 ia2's 75% is a lancemate catching up with the slow or
+    stopped commander: the original's rule, kept.
+  - **The lance's spawn (`MW1_LANCE_SPAWN`, measured):** no map starts a lancemate within contact (the nearest 38 m,
+    mw3c1 ia3) and none rams the commander in its first 30 s, standing or walking off: no spacing change.
+  - **mw3c1 ia3's start (`MW1_FLOOD`, `MW1_BASIN_TRACE`, measured):** not boxed in: the walk reaches 11.6 km² of the
+    yellow, the north rim and the west; the south block and the east are separate high ground. Driven at three points
+    there, the 'Mech stops at the cliffs and never leaves the yellow: the game agrees with the grid.
+  - **The objectives audit (`MW1_OBJ_AUDIT`):** each row's live objective and fail tree, each valve with what sets it
+    (the valve map), and the world's cloud band.
+- **Destroy all on a Defend archive (2026-11-22, a project decision):** the ia3 maps' own fail block includes their
+  base's fall (c1 `pirate_base_down`, c2 `able_base_down`, c3 and c4 `base_down`, the mw3c* maps `iatowv2`), which
+  lost a battle whose contract says only destroy all. A destroy-all contract now takes out the map's fails on valves
+  set by structure destruction (health_below valves, and conditions made only of them), MW1's side only, and keeps
+  every other (the player's own 'Mech, the timers, the boundary). Missions holds the fail group's handle, so its top
+  group stays. Other kinds keep the map's fails unchanged. Tests: each ia3 row's taken-out valves named, the
+  boundary kept, one of each kept kind checked; live, mw3c2 ia3's tower falls at frame 3846 and the battle goes on.
+- **Still to do:** the attack targets chosen by the same scores.
 
 ## 135. [x] 'Mech prices vary a little *(done: mw1-fix135-price-variety)*
 

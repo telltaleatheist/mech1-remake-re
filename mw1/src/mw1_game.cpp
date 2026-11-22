@@ -10,6 +10,7 @@
 #include <cstring>
 #include <filesystem>
 #include <map>
+#include <set>
 #include <memory>
 #include <random>
 #include <string>
@@ -46,6 +47,10 @@
 #include "mech3/pilot.h"
 #include "mech3/program_flow.h"
 #include "mech3/zai_brain.h"
+#include "mech3/zai_target.h"
+#include "mech3/zai_valve.h"
+#include "mech3/zrdraiv.h"
+#include "mech3/zrdrvalve.h"
 #include "mech3/zai_params.h"
 #include "mech3/zai_walk_pm.h"
 #include "gamez/zimage/zimg_library.h"
@@ -242,7 +247,10 @@ int32_t condition_of(void* mech) {
 class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
  public:
   Loop(uint32_t seed, const char* reach) : rng_(seed ? seed : std::random_device{}()) {
-    if (reach && *reach) row_set_ = true, row_ = {"c2", kReachIa, kDesert, RowKind::kReach, reach, std::string("the ") + reach};
+    float px = 0, pz = 0;  // MW1_REACH=@x,z: a point (FIXES 136), "the nav point"
+    if (reach && *reach)
+      row_set_ = true, row_ = {"c2", kReachIa, kDesert, RowKind::kReach, reach,
+                               mw1::reach_point(reach, &px, &pz) ? std::string("the nav point") : std::string("the ") + reach};
   }
 
   // ---- ProgramFlow ----
@@ -374,6 +382,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (const char* s = std::getenv("MW1_SCREEN");
         s && (std::string(s).rfind("pause", 0) == 0 || std::string(s).rfind("lab", 0) == 0 || std::string(s).rfind("loading", 0) == 0 ||
               std::string(s) == "results" || std::string(s) == "mission" || std::string(s) == "objectives" || std::string(s) == "mfd" ||
+              std::string(s).rfind("radar_", 0) == 0 ||
               std::string(s).rfind("walk_", 0) == 0 ||
               (std::string(s) == "bar" && std::getenv("MW1_BAR_GREYED")) || std::string(s) == "travel") &&
         !shot_driver_) {
@@ -3190,11 +3199,13 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   void mission_launched(mech3::Engine&) override {
     loading_.reset();  // the loading screen's job done
     if (deployed_) add_boundary();
+    stripped_fails_.clear();
+    if (deployed_ && contract_.objective == Objective::kDestroyAll) strip_structure_fails();
     // FIXES.md item 43: the objective's nav point the selected one, so the HUD's nav and its arrow lead there.
     if (nav_point_) {
       float at[3];
-      structure_point(mech3::mission_objective_hooks(), nav_node_, at);
-      mech3::program_nav_move(nav_point_, at);
+      if (!reach_ground(contract_.structure, at)) structure_point(mech3::mission_objective_hooks(), nav_node_, at);
+      mech3::program_nav_move(nav_point_, at);  // the reach checks the nav's place, so a point row's ground is read here too
       std::printf("mw1: the objective's nav point selected: %s\n", mech3::program_nav_select(nav_point_) ? "yes" : "no");
     }
     if (const mech3::BriefingScreen* b = mech3::briefing_screen())  // launched from it: still there (tests)
@@ -3544,13 +3555,16 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     };
     switch (contract_.objective) {
       case Objective::kReachStructure: {
-        const zgame::Handle node = h.node_find(name);
-        if (!node) return fall_back();
+        // FIXES 136: a point row ("@x,z", mw1_missions.h reach_point): the engine's reach_area at that point, node 0.
         float point[3];
-        h.default_point(point);
+        const bool at_point = reach_ground(contract_.structure, point);
+        const zgame::Handle node = at_point ? 0 : h.node_find(name);
+        if (!node && !at_point) return fall_back();
+        if (!at_point) h.default_point(point);
         const std::string desc = "Reach " + shown;
         auto r = std::make_unique<mech3::ReachAreaObjective>(desc.c_str(), node, point, kReachRadius);
-        r->nav = place_nav(h, node);  // item 43: its place a nav point (the check then reads the point, at the node)
+        // item 43: its place a nav point (the check then reads the point, at the node or the row's point)
+        r->nav = at_point ? place_nav_at(h, point, 0) : place_nav(h, node);
         o.primary = std::make_unique<mech3::ObjectiveGroup>(h.message(0x16d));
         o.primary->items.push_back(std::move(r));
         own_wins_ = true, objective_built_ = "reach";
@@ -3584,6 +3598,44 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       case Objective::kDestroyAll: break;
     }
   }
+  // FIXES 136 (c), a project decision: a battle's contract says destroy all, so the enemy and the boundaries decide it
+  // alone. On a Defend archive (ia3) the map's own fail block also watches its base (MW3's "Base Destroyed", PM's
+  // "Failed to Protect Allied Base"), which the offer never names: measured, mw3c2 ia3's tower fell and lost the battle
+  // on every seed. At the launch (valves.zrd's conditions are built after the objectives are read), for a destroy-all
+  // contract only, each fail item watching a valve set by structure destruction leaves the fail tree: a targets.zrd
+  // record's health_below valve, or a condition every member of which is one (followed through conditions). A valve
+  // anything else sets (the player's own vlist, a boundary, a timer) is not one and stays; a group under the top left
+  // empty goes.
+  // Each one taken said by its valve's name (stripped_fails, the tests' diff).
+  void strip_structure_fails() {
+    stripped_fails_.clear();
+    mech3::Objectives& o = mech3::mission_objectives();
+    if (!o.fail) return;
+    const std::set<const mech3::ai::Valve*> by_structure = structure_valves();
+    mech3::ObjectiveHooks& h = mech3::mission_objective_hooks();
+    std::map<zgame::Handle, std::string> watched;
+    for (const mech3::ai::Valve* v : by_structure)
+      if (v->name)
+        if (const zgame::Handle hv = h.valve_find(v->name)) watched[hv] = v->name;
+    std::function<bool(mech3::ObjectiveGroup&)> prune = [&](mech3::ObjectiveGroup& g) {  // true: left empty
+      for (auto* list : {&g.items, &g.fails})
+        for (auto it = list->begin(); it != list->end();) {
+          bool drop = false;
+          if (const auto* v = dynamic_cast<const mech3::ValveChangeObjective*>(it->get())) {
+            if (const auto f = watched.find(v->watch); f != watched.end()) drop = true, stripped_fails_.push_back(f->second);
+          } else if (auto* sub = dynamic_cast<mech3::ObjectiveGroup*>(it->get())) {
+            drop = prune(*sub);
+          }
+          it = drop ? list->erase(it) : std::next(it);
+        }
+      return g.items.empty() && g.fails.empty();
+    };
+    prune(*o.fail);  // the top group stays, emptied or not: the mission holds its handle (Missions' objectives[4])
+    for (const std::string& n : stripped_fails_)
+      std::printf("mw1: a destroy-all battle: the map's fail on %s (structure destruction) taken out\n", n.c_str());
+  }
+  const std::vector<std::string>& stripped_fails() const { return stripped_fails_; }
+
   // FIXES.md item 43: the contract's place as a nav point, as MW3's objectives name theirs ("nav"), watched (on the
   // map, the HUD's list, the arrow): at the structure's node, labelled with its words ("Pump complex"); a point of
   // the map's own on it (kNavNear) serves instead. At the launch it is put where the node is then (a vehicle's is
@@ -3612,7 +3664,42 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (parts)
       for (int i = 0; i < 3; ++i) out[i] = sum[i] / static_cast<float>(parts);
   }
+  // FIXES 136: a point row's place: (x, z) on its lowest dry ground (open ground, not a roof), y 0 if none is found.
+  // FIXES 136 (c): the mission's valves set by structure destruction alone: each targets.zrd record's health_below valve,
+// and a valves.zrd condition every member of which is one (followed through conditions). The player's vlist, a boundary,
+// a timer (delayupdate) or a script set none of theirs this way.
+static std::set<const mech3::ai::Valve*> structure_valves() {
+  std::set<const mech3::ai::Valve*> out;
+  for (mech3::ai::CZAiTarget* t : mech3::ai::target_list())
+    if (t && t->desc.triggers)
+      for (const mech3::ai::HealthBelow& hb : *t->desc.triggers)
+        if (hb.valve) out.insert(hb.valve);
+  for (bool grew = true; grew;) {
+    grew = false;
+    for (mech3::ai::Valve* v : mech3::ai::valves()) {
+      const auto* c = v && v->value ? dynamic_cast<const mech3::ai::Condition*>(v->value) : nullptr;
+      if (!c || c->members.empty() || out.count(v)) continue;
+      bool all = true;
+      for (const mech3::ai::Valve* m : c->members) all = all && out.count(m) != 0;
+      if (all) out.insert(v), grew = true;
+    }
+  }
+  return out;
+}
+
+static bool reach_ground(const std::string& structure, float out[3]) {
+    float x = 0, z = 0;
+    if (!mw1::reach_point(structure, &x, &z)) return false;
+    mech3::ai::nav::Floor f[mech3::ai::nav::kLevels];
+    const int n = mech3::ai::nav::zcls_world().ground(x, z, f, mech3::ai::nav::kLevels);
+    float y = 0;
+    for (int i = 0; i < n; ++i)
+      if (!(f[i].water > f[i].y)) y = f[i].y;  // highest first: the last dry one is the lowest
+    out[0] = x, out[1] = y, out[2] = z;
+    return true;
+  }
   bool structure_point_now(float out[3]) const {
+    if (reach_ground(contract_.structure, out)) return true;
     mech3::ObjectiveHooks& h = mech3::mission_objective_hooks();
     const zgame::Handle node = contract_.structure.empty() ? 0 : h.node_find(contract_.structure.c_str());
     if (!node) return false;
@@ -3624,6 +3711,11 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (!node) return 0;
     float at[3];
     structure_point(h, node, at);
+    return place_nav_at(h, at, node);
+  }
+  // The objective's nav point at `at` (a structure's place, or a point row's: node 0), shown on the radar and the nav map.
+  zgame::Handle place_nav_at(mech3::ObjectiveHooks& h, const float at[3], zgame::Handle node) {
+    nav_label_.clear(), nav_point_ = nullptr, nav_node_ = 0;
     std::string label = contract_.structure_words.empty() ? contract_.structure : contract_.structure_words;
     if (label.rfind("the ", 0) == 0) label = label.substr(4);
     if (!label.empty()) label[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(label[0])));
@@ -3908,6 +4000,20 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
           std::printf("mw1 mfd: D at %d: the worst frame %.1f ms, %.1f over the median\n", kPress[k], worst[k], worst[k] - median);
         std::fflush(stdout);
       }
+      return;
+    }
+    // MW1_SCREEN=radar_zoom or radar_map (FIXES 136's shots: a point reach's nav on the radar): the radar zoomed (R)
+    // at frame 90, and for radar_map over the mission map too (Shift+R), as their keys give them.
+    if (page == "radar_zoom" || page == "radar_map") {
+      if (now == &mech3::states().core && frames == 90)
+        if (void* hud = mech3::program_mech_hud(mech3::mech_mission_player())) {
+          mech3::HudRadar& radar = static_cast<mech3::Hud*>(hud)->radar;
+          float me[3] = {};
+          mech3::mech_world_position(mech3::mech_mission_player(), me);
+          std::printf("mw1 radar: the player at %.0f, %.0f\n", me[0], me[2]);
+          if (page == "radar_map") radar.toggle_map();
+          else radar.toggle_zoom();
+        }
       return;
     }
     if (page == "objectives") {  // F12's command (0x44, the HUD's objectives) as its key gives it
@@ -4615,6 +4721,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   std::vector<int32_t> enemies_;  // set_game_loop_enemies': every new contract's force (empty: its own)
   std::vector<int32_t> enemy_chassis_, enemy_loadouts_;  // and its chassis and loadouts (FIXES 104; empty: stand-ins)
   std::string objective_built_;
+  std::vector<std::string> stripped_fails_;  // FIXES 136 (c): the valves whose fails the launch took out
   bool objective_fell_back_ = false;
   std::string save_path_;  // the slot in play's save (mw1save<n>.txt); empty: no save
   // FIXES 125: the slots' folder (mw1's write dir), the slot in play (0: the save isn't a slot, a test's path), and
@@ -4715,6 +4822,13 @@ void set_game_loop_enemies(const std::vector<int32_t>& slots, const std::vector<
 }
 bool game_loop_structure_point(float out[3]) {
   return the_loop() && the_loop()->structure_point_now(out);
+}
+bool game_loop_valve_by_structure(const char* name) {
+  const mech3::ai::Valve* v = name ? mech3::ai::valve_find(name) : nullptr;
+  return v && Loop::structure_valves().count(v) != 0;
+}
+std::vector<std::string> game_loop_stripped_fails() {
+  return the_loop() ? the_loop()->stripped_fails() : std::vector<std::string>{};
 }
 std::string game_loop_objective_built(bool* fell_back) {
   if (fell_back) *fell_back = the_loop() && the_loop()->objective_fell_back();
