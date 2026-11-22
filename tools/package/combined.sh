@@ -48,7 +48,9 @@ worktree() {
   fi
   git worktree prune
   git worktree add --detach "$dir" "$ref" >/dev/null
-  git -C "$dir" submodule update --init --quiet  # extern/re-setup-kit
+  # extern/re-setup-kit; a checkout whose .git/config points it at a local clone (the kit's developers) is allowed
+  # that clone (git refuses the file transport for submodules by default).
+  git -C "$dir" -c protocol.file.allow=always submodule update --init --quiet
   # The deps the package scripts read from the checkout (build_deps.sh's), linked in.
   [ -d "$ROOT/build-deps" ] && ln -s "$ROOT/build-deps" "$dir/build-deps"
   echo "$name: $(git -C "$dir" describe --tags --always --dirty) ($(git -C "$dir" rev-parse --short HEAD))"
@@ -70,7 +72,9 @@ if [ -n "$MW1_REF" ]; then
   fi
   rm -rf "$MW1_DIR"
   cmake -S "$W/mw1" -B "$MW1_DIR" "${CONF[@]}" >/dev/null
-  cmake --build "$MW1_DIR" --target mw1 >/dev/null
+  # Quiet unless it fails: then its errors (1.2.3's Linux link failure was silent behind >/dev/null).
+  cmake --build "$MW1_DIR" --target mw1 > "$W/mw1-build.log" 2>&1 ||
+    { grep -E -B2 -A8 "error|FAILED" "$W/mw1-build.log" | tail -40 >&2; echo "mw1 did not build: $W/mw1-build.log" >&2; exit 1; }
   [ -x "$MW1_DIR/mw1" ] && [ -f "$MW1_DIR/mw1data/zbd/mw1image.zbd" ] || { echo "mw1 or its mw1data was not built in $MW1_DIR" >&2; exit 1; }
   echo "mw1: $(strings "$MW1_DIR/mw1" | grep -m1 '^MW3-PROGRAM-VERSION:' | cut -d: -f2-)"  # read, never run
 fi
