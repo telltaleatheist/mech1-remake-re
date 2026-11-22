@@ -216,8 +216,19 @@ Tick an item when it is merged into `main`.
   - **The table (seeds 1, 2, 3; all arrive, none down):** mw3c4b ia1 28/41/28%; mw3c4b ia2 0/0/0; c2 ia1
     60/50/48% (Enemy_11 from 53 to 519 m, Enemy_01, 03, 12); c3 ia1 0/0/0; c4 ia1 0/0/0; mw3c1 ia2 0/0/0; mw3c3 ia2
     0/0/0; mw3c4 ia2 0/0/0.
-- **Still to do:** the decoy check again (a measurement); point reach rows (a reach at a point, not a node); the
-  attack targets chosen by the same scores.
+- **(c) The decoy check again (2026-11-21, measured on the release branch, not gated):** each reach row driven as
+  the gate drives it, twice per seed (1, 2, 3): the lance ordered to ATTACK at frame 31, and left following (the
+  control); the share of the living enemies' targets on the commander, sampled every 30 frames, ATTACK / follow:
+  - c2 ia1 12/15, 10/22, 24/35%; c4 ia1 17/22, 17/31, 20/27%; mw3c3 ia2 3/7, 2/6, 2/7%; mw3c4 ia2 3/6, 1/7, 2/7%:
+    the order draws some fire off the commander. mw3c1 ia2 2/2% on all three; mw3c4b ia2 0/0 (no enemy targets).
+  - c3 ia1 15/7, 32/7, 21/23%: more on the commander with the order, on two seeds of three.
+  - mw3c4b ia1 10/1% on all three, and the reach LOST with the order (the commander down at frames 3574, 4745,
+    4807), won without it (frame 4904). The lance sent off to attack leaves the commander alone on the depot's way
+    with Enemy_04; following, the lance takes 8 to 9% of the targeting there. The reach is won by the rule's own
+    drive (the lance following), so the row stays; a player who sends the lance away on this map pays for it.
+  - Every other run won the reach, with the order and without.
+- **Still to do:** point reach rows (a reach at a point, not a node); the attack targets chosen by the same scores;
+  who hits the commander in the decoy runs (the live drive's attribution, not yet in its ATTACK run).
 
 ## 135. [x] 'Mech prices vary a little *(done: mw1-fix135-price-variety)*
 
