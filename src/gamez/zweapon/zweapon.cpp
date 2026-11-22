@@ -122,7 +122,7 @@ void step(WeaponDef* def, Projectile* p, Vec3f3* move) {
   p->travelled = len + p->travelled;
   if (def->flags & kMine) p->travelled = p->travelled * 0.5f;
   bool burst = false, gone = false;
-  if (!(p->travelled < def->range)) {
+  if (!(p->travelled < def->range + p->range_add)) {  // Ours: upgrade hook (src/upgrades/kits)
     // At RANGE: a homing shot without EXPIRES bursts, so does DETONATE_AT_RANGE;
     // the rest vanish (every shipped missile has EXPIRES).
     if (((def->flags & kLockOn) && !(def->flags & kExpires)) || (def->flags & kDetonateAtRange)) burst = true;
@@ -573,6 +573,7 @@ int32_t startup() {
   f.damage_scale = f.beam_range_scale = 1.0f;
   f.track_scale[0] = f.track_scale[1] = 1.0f;
   f.terrain_follow = 0;
+  f.range_add = 0;  // Ours: upgrade hook (src/upgrades/kits)
   State& st = state();
   st.world = nullptr, st.tick = nullptr;
   st.defs.clear(), st.pool.clear();

@@ -297,6 +297,8 @@ Projectile* spawn(WeaponDef* def, Handle owner, const uint32_t* zone, const Vec3
   p->track_scale[0] = f.track_scale[0];
   p->track_scale[1] = f.track_scale[1];
   p->terrain_follow = f.terrain_follow;
+  p->range_add = f.range_add;  // Ours: upgrade hook (src/upgrades/kits)
+  f.range_add = 0;
   f.damage_scale = 1;
   f.track_scale[0] = f.track_scale[1] = 1;
   f.terrain_follow = 0;
@@ -309,7 +311,7 @@ Projectile* spawn(WeaponDef* def, Handle owner, const uint32_t* zone, const Vec3
       p->static_frame = g_rs.frame;
       p->static_next = 0;
       Vec3f3 end;
-      add_scaled(p->position, *dir, def->range, &end);
+      add_scaled(p->position, *dir, def->range + p->range_add, &end);  // Ours: upgrade hook (src/upgrades/kits)
       hide_shooter(def, p);
       if (g_rh.query_static) g_rh.query_static(1);
       const int32_t r = g_rh.segment_list ? g_rh.segment_list(&p->position, &end, &p->statics) : 1;
@@ -453,7 +455,7 @@ void update(WeaponDef* def) {
       if (!(def->flags & kInstant)) {
         step(def, p, &move);
       } else {
-        const float r = def->range;
+        const float r = def->range + p->range_add;  // Ours: upgrade hook (src/upgrades/kits)
         move = {r * p->direction.x, p->direction.y * r, p->direction.z * r};
       }
     }
@@ -588,7 +590,7 @@ void home(WeaponDef* def, Projectile* p) {
         }
       }
     } else {
-      p->travelled = def->range;  // nothing under it: gone next step
+      p->travelled = def->range + p->range_add;  // nothing under it: gone next step. Ours: upgrade hook (src/upgrades/kits)
     }
   }
   Vec3f3& d = p->direction;
@@ -781,7 +783,7 @@ void mine_land(WeaponDef* def, Projectile* p, HitRecord* rec, Vec3f3* to) {
       p->speed = 0;
       if (state().init_arg) p->homing_time = (g_rs.net_clock + p->homing_time) - -120.0f;  // two minutes
       p->state = 2;
-      p->travelled = def->range;
+      p->travelled = def->range + p->range_add;  // Ours: upgrade hook (src/upgrades/kits)
       *to = rec->point;
       spin(p->node);
       set_scale(p->node, 5.0f, 5.0f, 5.0f);

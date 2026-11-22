@@ -63,6 +63,7 @@ struct FireState {
   float beam_range_scale = 1;          // 0x009a17d4  0.5 under water
   float track_scale[2] = {1, 1};       // 0x009a17d8, 0x009a17dc  FCS: 2, 2; [0] the homing's (spawn has reset it: 1)
   int32_t terrain_follow = 0;          // 0x009a17e0  FCS: 1
+  float range_add = 0;                 // ours: upgrade hook (src/upgrades/kits): metres the next shot flies past RANGE
 };
 FireState& fire_state();
 

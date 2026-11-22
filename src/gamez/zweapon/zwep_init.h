@@ -197,6 +197,7 @@ struct Projectile {
   float damage_scale = 1;      // +0x5bc  FireState::damage_scale at the shot
   float track_scale[2] = {1, 1};  // +0x5c0  FireState::track_scale ([0] read by the homing behind artemis; [1] by nothing)
   int32_t terrain_follow = 0;  // +0x5c8  FireState::terrain_follow (FCS)
+  float range_add = 0;         // ours: upgrade hook (src/upgrades/kits): FireState::range_add at the shot
   int32_t net_id = 0;          // +0x5cc  spawn's fifth argument
   void (*tick)(Projectile* p) = nullptr;  // +0x5d0  run each frame (the radar's), ECX the shot
   uintptr_t tick_arg = 0;      // +0x5d4
