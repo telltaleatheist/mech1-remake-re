@@ -4,6 +4,7 @@
 #include "mw1_repairs.h"
 #include "mw1_ladder.h"
 #include "mw1_market.h"
+#include "mw1_dealer.h"
 #include "mw1_upgrades.h"
 
 #include <cctype>
@@ -187,6 +188,16 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
     o << (i ? "," : "") << w.weapon << ":" << w.tech << ":" << w.power << ":" << w.range;
   }
   o << "\n";
+  // Version 13 (FIXES 122, mw1_dealer.h): the arms dealer's stock, kind:id:tech:count, once rolled (absent: rolled at
+  // the hub, from the world and the date).
+  if (c.dealer.rolled) {
+    o << "dealer_stock=";
+    for (size_t i = 0; i < c.dealer.stock.size(); ++i) {
+      const DealerItem& d = c.dealer.stock[i];
+      o << (i ? "," : "") << d.kind << ":" << d.id << ":" << d.tech << ":" << d.count;
+    }
+    o << "\n";
+  }
   // Version 10: the log, newest first, numbers only.
   o << "log_count=" << c.log.size() << "\n";
   for (size_t i = 0; i < c.log.size(); ++i) {
@@ -747,6 +758,20 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
       for (const WeaponSteps& o : c.upgrades.steps)
         if (o.weapon == w.weapon && o.tech == w.tech) return fail("a weapon type's steps are there twice");
       c.upgrades.steps.push_back(w);
+    }
+    if (v.count("dealer_stock")) {  // FIXES 122
+      std::istringstream ds(v["dealer_stock"]);
+      while (std::getline(ds, f, ',')) {
+        std::vector<int64_t> x;
+        // A weapon or equipment in PM's tables in a tech (1 Clan, 2 Inner Sphere); ammunition for a weapon, tech 0.
+        const bool ok = numbers(f, 4, dealer::kStockMost, &x) && x[3] >= 1 &&
+                        (x[0] == dealer::kAmmo ? x[1] < mech3::weapon_count() && x[2] == 0
+                                               : (x[0] == dealer::kWeapon ? x[1] < mech3::weapon_count() : x[0] == dealer::kEquipment && x[1] < 15) &&
+                                                     (x[2] == mech3::kClan || x[2] == mech3::kInnerSphere));
+        if (!ok) return fail("the arms dealer's stock doesn't read");
+        c.dealer.stock.push_back({static_cast<int32_t>(x[0]), static_cast<int32_t>(x[1]), static_cast<int32_t>(x[2]), static_cast<int32_t>(x[3])});
+      }
+      c.dealer.rolled = true;
     }
   }
   if (!v5) c.repair_premium = (c.tier + 1) * kPremiumStep;  // before version 5: the world's premium without its roll
