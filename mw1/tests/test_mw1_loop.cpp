@@ -325,6 +325,8 @@ const WalkPatrol* g_walk_patrol = nullptr;
 // beside the route (c1 ia1's, at about 3226,-1371) doesn't slide into it. The band read from the world, never fixed.
 constexpr float kBandClear = 36.0f;  // beside mw1::placement::kReachRadius (40 m): measured on c1 ia1, a project decision
 constexpr float kBandMargin = 2.0f;
+// The hurt attribution's ram: no attacker and a mech's centre this near (8.8 m measured at contact, c1 ia2).
+constexpr float kRamContact = 15.0f;
 bool band_refuses(int cx, int cz) {
   namespace nav = mech3::ai::nav;
   const mech3::CloudBand band = mech3::program_cloud_band();
@@ -710,6 +712,7 @@ struct Run {
   std::function<bool(int32_t frame)> boundary_frame;
   // FIXES 136's decoy check: called each mission frame from the 31st, beside `play` (never ends the run itself).
   std::function<void(int32_t frame)> watch;
+  std::function<void()> at_survey;  // FIXES 136 (c): the survey's mission as launched, read before it ends
   bool survey = false, destroy_structure = false, kill_enemies = false, kill_after_end = false;
   std::vector<int32_t> force;  // every contract's force (MW1 kinds; empty: its own); `enemies_made` at frame 30
   int32_t enemies_made = -1;  // the enemies the mission made
@@ -2571,7 +2574,10 @@ void loop_run(Ending ending, Run* run = nullptr) {
             if (!run->boundary_frame(frames)) return end_it();
             return;
           }
-          if (run->survey) return end_it();
+          if (run->survey) {
+            if (run->at_survey) run->at_survey();
+            return end_it();
+          }
           if (run->destroy_structure) {
             const mw1::Contract* k = mw1::game_loop_contract();
             const zgame::Handle h = k ? mech3::mission_objective_hooks().entity_find(k->structure.c_str()) : 0;
@@ -7397,7 +7403,6 @@ void drive_reach(const mw1::MapRow& r, const std::string& worlds, bool order, Dr
         // set, but the pilot's is cleared after every entity's frame (mech_after_frame, PM 0x0041b930) before this reads
         // it, where a weapon's hit lands after. kRamContact: the centres apart at contact (8.8 m measured, c1 ia2).
         if (who == "unknown") {
-          constexpr float kRamContact = 15.0f;
           int32_t na = 0;
           const mech3::AiMechMade* am = mech3::mission_ai_mechs(&na);
           float best = kRamContact;
@@ -7612,19 +7617,193 @@ TEST(mw1_loop_destroy_all_on_defend_maps_live_headless) {
         run.play = 0, run.kill_enemies = false, run.give_up = frames, run.pump_limit = frames + 3000;
         std::map<std::string, std::string> was;
         std::vector<std::string> changes;
+        std::map<std::string, int32_t> fails_was;  // each fail valve watch's value, by its words
+        float health = -1;
         run.watch = [&](int32_t frame) {
           const auto now = objectives_now();
           for (const auto& [k, v] : now)
             if (auto it = was.find(k); !was.empty() && (it == was.end() || it->second != v) && changes.size() < 24)
               changes.push_back("frame " + std::to_string(frame) + ": " + k + " -> " + v);
           was = now;
+          mech3::ObjectiveHooks& oh = mech3::mission_objective_hooks();
+          std::function<void(const mech3::Objective*, const std::string&)> walk = [&](const mech3::Objective* o, const std::string& path) {
+            if (!o) return;
+            const std::string me = path + "/" + (o->desc ? *o->desc : std::string("-"));
+            if (auto* v = dynamic_cast<const mech3::ValveChangeObjective*>(o)) {
+              const int32_t val = oh.valve_value(v->watch);
+              if (auto it = fails_was.find(me); it != fails_was.end() && it->second != val && changes.size() < 24)
+                changes.push_back("frame " + std::to_string(frame) + ": valve of " + me + " " + std::to_string(it->second) + " -> " +
+                                  std::to_string(val) + " (fails at " + std::to_string(v->target) + ")");
+              fails_was[me] = val;
+            }
+            if (auto* g = dynamic_cast<const mech3::ObjectiveGroup*>(o)) {
+              for (const auto& i : g->items) walk(i.get(), me);
+              for (const auto& i : g->fails) walk(i.get(), me);
+            }
+          };
+          walk(mech3::mission_objectives().fail.get(), "fail");
+          if (void* pl = mech3::mech_mission_player()) {
+            health = mech3::mech_health(pl);
+            // MW1_DA_INVINCIBLE: the player can't fall (the base's fate measured alone: a passive player is killed first).
+            if (std::getenv("MW1_DA_INVINCIBLE")) mech3::program_mech_set_invincible(pl, true);
+          }
         };
         loop_run(kObjective, &run);
         const std::string got = run.mission_ended ? (run.mission_lost ? "lost" : "won") : "not ended";
-        std::printf("  DA-LIVE %-6s ia3 seed %d: %s at frame %d\n", r.world.c_str(), seed, got.c_str(), run.ended_frame);
+        std::printf("  DA-LIVE %-6s ia3 seed %d: %s at frame %d; the player's health %.2f\n", r.world.c_str(), seed, got.c_str(),
+                    run.ended_frame, health);
         for (const std::string& c : changes) std::printf("  DA-LIVE %-6s ia3 seed %d:   %s\n", r.world.c_str(), seed, c.c_str());
       });
   }
+}
+
+// FIXES 136 (c): the launch's fail tree, each fail item by its valve's name (an item watching no valve by its words).
+std::vector<std::string> fail_valves_now() {
+  std::vector<std::string> out;
+  mech3::ObjectiveHooks& oh = mech3::mission_objective_hooks();
+  std::function<void(const mech3::Objective*)> walk = [&](const mech3::Objective* o) {
+    if (!o) return;
+    if (auto* v = dynamic_cast<const mech3::ValveChangeObjective*>(o)) {
+      std::string n = "?";
+      for (const mech3::ai::Valve* q : mech3::ai::valves())
+        if (q->name && oh.valve_find(q->name) == v->watch) n = q->name;
+      out.push_back(n);
+    } else if (auto* d = dynamic_cast<const mech3::DestroyObjective*>(o)) {
+      out.push_back("destroy " + (d->name ? *d->name : std::string("?")));
+    }
+    if (auto* g = dynamic_cast<const mech3::ObjectiveGroup*>(o)) {
+      for (const auto& i : g->items) walk(i.get());
+      for (const auto& i : g->fails) walk(i.get());
+    }
+  };
+  walk(mech3::mission_objectives().fail.get());
+  return out;
+}
+std::string joined(const std::vector<std::string>& v) {
+  std::string s;
+  for (const std::string& x : v) s += (s.empty() ? "" : " ") + x;
+  return s.empty() ? "-" : s;
+}
+
+// FIXES 136 (c), a project decision: a battle (destroy all) on a Defend archive (ia3) is the enemy's and the boundaries'
+// alone. Each of the 8: the fails the launch took out, by valve (the list is the diff a data change shows), none left
+// on a valve set by structure destruction, and the boundary's fail kept (MW1's outside_mw1 on PM's worlds, which have
+// their area, MW3's outside_iaN on its own). On c1 ia3 the classifier itself: the base's valve is structure's; the
+// player's own (Player_Dead, its vlist on its health), a timer (play_dead, a delayupdate) and the boundary are not.
+// Then other kinds keep the map's fail tree whole: a defence on the same Defend archive (its base valve still watched),
+// an attack and a reach: nothing taken.
+TEST(mw1_loop_destroy_all_drops_only_the_maps_base_fails_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  {
+    // FIXES 138's areas, as the game loads them (mw1_main): PM's worlds' boundary fail is MW1's outside_mw1.
+    zutl::mounts() = zutl::Mounts{};
+    zutl::mount(MW1_DATA_DIR);
+    std::string why;
+    mw1::set_bounds(mw1::parse_bounds(mw1::kBoundsFile, &why));
+    zrdr::close_archives(true);
+    EXPECT(why.empty());
+  }
+  const bool have_mw3 = fs::exists(fs::path(MW1_MW3_GAME_DIR) / "zbd" / "c2" / "gamez.zbd", ec);
+  const std::string worlds = have_mw3 ? converted_worlds() : std::string();
+  const std::map<std::string, std::string> want = {
+      {"c1", "pirate_base_down"}, {"c2", "able_base_down"}, {"c3", "base_down"}, {"c4", "base_down"},
+      {"mw3c1", "iatowv2"},       {"mw3c2", "iatowv2"},     {"mw3c3", "iatowv2"}, {"mw3c4", "iatowv2"}};
+  int ran = 0;
+  for (const mw1::MapRow& r : shipped_rows()) {
+    if (r.kind != mw1::RowKind::kAny || r.ia != 3) continue;
+    if (r.world.rfind("mw3", 0) == 0 && !have_mw3) continue;
+    ++ran;
+    in_child([&] {
+      Run run;
+      run.row = &r, run.survey = true, run.stop_at_after_action = true, run.worlds = worlds;
+      std::vector<std::string> stripped, left;
+      bool by_structure_left = false, classifier = true;
+      run.at_survey = [&] {
+        stripped = mw1::game_loop_stripped_fails(), left = fail_valves_now();
+        for (const std::string& n : left) by_structure_left = by_structure_left || mw1::game_loop_valve_by_structure(n.c_str());
+        if (r.world == "c1")
+          classifier = mech3::ai::valve_find("Player_Dead") && mech3::ai::valve_find("play_dead") && mech3::ai::valve_find("outside_mw1") &&
+                       mw1::game_loop_valve_by_structure("pirate_base_down") && !mw1::game_loop_valve_by_structure("Player_Dead") &&
+                       !mw1::game_loop_valve_by_structure("play_dead") && !mw1::game_loop_valve_by_structure("outside_mw1");
+      };
+      loop_run(kObjective, &run);
+      const std::string boundary = r.world.rfind("mw3", 0) == 0 ? "outside_ia" + r.world.substr(4) : "outside_mw1";
+      std::printf("  DA-FAILS %-6s ia3: taken out: %s; left: %s\n", r.world.c_str(), joined(stripped).c_str(), joined(left).c_str());
+      EXPECT(joined(stripped) == want.at(r.world));
+      EXPECT(!by_structure_left);
+      EXPECT(std::find(left.begin(), left.end(), boundary) != left.end());
+      EXPECT(classifier);
+    });
+  }
+  EXPECT(ran == (have_mw3 ? 8 : 4));
+  // Other kinds: nothing taken, the map's tree as it was.
+  struct Other {
+    const char* world;
+    int ia;
+    mw1::RowKind kind;
+    const char* node;
+    const char* kept;  // a map valve still watched ("" none asked)
+  };
+  for (const Other& k : {Other{"c1", 3, mw1::RowKind::kDefend, "pship_kill", "pirate_base_down"},
+                         Other{"c2", 2, mw1::RowKind::kAttack, "portalgate", ""},
+                         Other{"c3", 1, mw1::RowKind::kReach, "xslid01", ""}}) {
+    const mw1::MapRow* row = nullptr;
+    const std::vector<mw1::MapRow> rows = shipped_rows();
+    for (const mw1::MapRow& r : rows)
+      if (r.world == k.world && r.ia == k.ia && r.kind == k.kind && r.node == k.node) row = &r;
+    EXPECT(row != nullptr);
+    if (!row) continue;
+    in_child([&] {
+      Run run;
+      run.row = row, run.survey = true, run.stop_at_after_action = true, run.worlds = worlds;
+      std::vector<std::string> stripped, left;
+      run.at_survey = [&] { stripped = mw1::game_loop_stripped_fails(), left = fail_valves_now(); };
+      loop_run(kObjective, &run);
+      std::printf("  DA-FAILS %-6s ia%d %s %s: taken out: %s; left: %s\n", k.world, k.ia, kind_said(k.kind), k.node, joined(stripped).c_str(),
+                  joined(left).c_str());
+      EXPECT(stripped.empty());
+      if (*k.kept) EXPECT(std::find(left.begin(), left.end(), std::string(k.kept)) != left.end());
+    });
+  }
+}
+
+// FIXES 136 (c), live: mw3c2 ia3's battle (destroy all), the player passive and unable to fall (else the enemy kills it
+// first: measured), seed 2 (the tower fell at frame 3846 before the change, losing the battle). The tower falls (its
+// valve iatowv2 set) and the battle goes on: not ended 600 frames after.
+TEST(mw1_loop_destroy_all_goes_on_when_the_base_falls_live_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  if (!fs::exists(fs::path(MW1_MW3_GAME_DIR) / "zbd" / "c2" / "gamez.zbd", ec)) return;
+  const std::string worlds = converted_worlds();
+  const mw1::MapRow* row = nullptr;
+  const std::vector<mw1::MapRow> rows = shipped_rows();
+  for (const mw1::MapRow& r : rows)
+    if (r.world == "mw3c2" && r.ia == 3 && r.kind == mw1::RowKind::kAny) row = &r;
+  EXPECT(row != nullptr);
+  if (!row) return;
+  in_child([&] {
+    crt::rand_fixed_seed() = 2;
+    Run run;
+    run.row = row, run.worlds = worlds, run.stop_at_after_action = true;
+    run.force = mw1::rung_force(mw1::kDarkWingRung, 0);
+    run.lance = true, run.lance_count = 3;
+    run.play = 0, run.kill_enemies = false, run.give_up = 7200, run.pump_limit = 7200 + 3000;
+    int fell = -1, last = -1;
+    run.watch = [&](int32_t frame) {
+      if (void* pl = mech3::mech_mission_player()) mech3::program_mech_set_invincible(pl, true);
+      const mech3::ai::Valve* v = mech3::ai::valve_find("iatowv2");
+      if (fell < 0 && v && v->get() == 1) fell = frame;
+      last = frame;
+    };
+    loop_run(kObjective, &run);
+    std::printf("  DA-GOES-ON mw3c2 ia3 seed 2: the tower fell at frame %d; the battle %s (frame %d), watched to %d\n", fell,
+                run.mission_ended ? (run.mission_lost ? "lost" : "won") : "not ended", run.ended_frame, last);
+    EXPECT(fell > 0);
+    EXPECT(!run.mission_ended || run.ended_frame > fell + 600);
+    EXPECT(!(run.mission_ended && run.mission_lost && run.ended_frame <= fell + 600));
+    EXPECT(last > fell + 600);
+  });
 }
 
 // FIXES 129 (the lead: does a lancemate act on each of PM's lance orders in an MW1 battle?): two lancemates, A and B;
