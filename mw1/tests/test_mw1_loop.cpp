@@ -35,6 +35,7 @@
 #include "mw1_layouts.h"
 #include "mw1_settings.h"
 #include "upgrades/valve_map/valve_map.h"
+#include "mech3/cloud_band.h"
 #include "mech3/options_menu.h"
 #include "mech3/pause_menu.h"
 #include "gamez/zutil/zutl_reg.h"
@@ -318,6 +319,7 @@ struct WalkPatrol {
   float clearance = 0;
 };
 const WalkPatrol* g_walk_patrol = nullptr;
+float g_walk_lowest = 0;  // the last found route's lowest floor (the cloud band's measure, FIXES 136)
 mw1::placement::Route walk_route(mw1::placement::Point a, float ay, mw1::placement::Point c, const std::vector<mw1::placement::Point>& enemies,
                                  const mw1::placement::Inside& inside, const mw1::placement::RouteRules& rules, int* tiles_built) {
   namespace nav = mech3::ai::nav;
@@ -444,12 +446,14 @@ mw1::placement::Route walk_route(mw1::placement::Point a, float ay, mw1::placeme
   std::reverse(cells.begin(), cells.end());
   r.found = true;
   r.length = 0;
+  g_walk_lowest = 1e9f;
   r.path.push_back(a);
   for (size_t i = 1; i < cells.size(); ++i) {
     const nav::Cell* cl = g.cell(cells[i]->cx, cells[i]->cz, cells[i]->l);
     const nav::Cell* pl = g.cell(cells[i - 1]->cx, cells[i - 1]->cz, cells[i - 1]->l);
     const float run = nav::kCell * (cells[i]->cx != cells[i - 1]->cx && cells[i]->cz != cells[i - 1]->cz ? 1.41421356f : 1.0f);
     if (cl && pl) r.steepest = std::max(r.steepest, std::fabs(cl->y - pl->y) / run);
+    if (cl) g_walk_lowest = std::min(g_walk_lowest, cl->y);
     r.length += run;  // the walked length, not the cost (kTight's weight)
     r.path.push_back({nav::centre_of(cells[i]->cx), nav::centre_of(cells[i]->cz)});
     const float px = nav::centre_of(cells[i]->cx), pz = nav::centre_of(cells[i]->cz);
@@ -1911,6 +1915,11 @@ void loop_run(Ending ending, Run* run = nullptr) {
             // ours: its group, kind, words, and what it waits on (a valve watch's valve and value, a destroy's entity).
             if (std::getenv("MW1_OBJ_AUDIT") && ge) {
               std::set<std::string> audit_valves;
+              {
+                const mech3::CloudBand cb = mech3::program_cloud_band();
+                std::printf("  OBJ-CLOUD %s ia%d: cloud %d death %d band %.1f..%.1f\n", run->row ? run->row->world.c_str() : "-",
+                            run->row ? run->row->ia : 0, cb.on, cb.death_on, cb.low, cb.high);
+              }
               std::function<void(const mech3::Objective*, const std::string&)> said = [&](const mech3::Objective* o, const std::string& path) {
                 if (!o) return;
                 std::string what;
@@ -1941,6 +1950,8 @@ void loop_run(Ending ending, Run* run = nullptr) {
               // Who sets each watched valve (the valve map: valves.zrd, aiv.zrd's vlists, targets.zrd's health_below, nets).
               const mech3::ValveMap vm = mech3::valve_map_collect(run->row ? run->row->world : "-", run->row ? run->row->world : "-", 0,
                                                                   [&](uint32_t h) { return static_cast<const void*>(ge->object_of(h)); });
+              if (std::string(std::getenv("MW1_OBJ_AUDIT")) == "all")  // every valve the map touches
+                for (const auto& [vn, e] : vm.valves) audit_valves.insert(vn);
               std::vector<std::string> todo(audit_valves.begin(), audit_valves.end());
               for (size_t ti = 0; ti < todo.size(); ++ti) {
                 const std::string vn = todo[ti];
@@ -2143,6 +2154,9 @@ void loop_run(Ending ending, Run* run = nullptr) {
               run->routed = true, run->route_area = yellow != nullptr;
               run->walk = walk_route({run->start_at[0], run->start_at[2]}, run->start_at[1], {run->structure_at[0], run->structure_at[2]},
                                      places, in, {}, &run->walk_tiles);
+              if (run->walk.found && std::getenv("MW1_OBJ_AUDIT"))
+                std::printf("  WALK-LOW %s ia%d %s: lowest floor on the route %.1f\n", run->row->world.c_str(), run->row->ia,
+                            run->row->node.c_str(), g_walk_lowest);
               if (const char* ps = std::getenv("MW1_POINT_SEARCH"))
                 point_search(run->row->world, run->row->ia, run->start_at, places, in, ground, std::max(1, std::atoi(ps)));
               // MW1_NET_CLEAR: the nearest patrol point to the route past the start's disc, and whose net.
@@ -2631,9 +2645,9 @@ void loop_run(Ending ending, Run* run = nullptr) {
                 run->escape = 600, ++run->escapes, run->round_best = 1e9f, run->round_frame = frames;
             }
             if (std::getenv("MW1_DRIVE_LOG") && frames % (std::getenv("MW1_DRIVE_EVERY") ? std::atoi(std::getenv("MW1_DRIVE_EVERY")) : 250) == 0)
-              std::printf("  drive %d: at %.0f %.0f %.0f, %.0f m (3D %.0f), yaw %.2f, sign %d, escape %d, speed %.1f, health %.2f, t %.0f, waypoint %zu at %.0f %.0f\n", frames,
+              std::printf("  drive %d: at %.0f %.0f %.0f, %.0f m (3D %.0f), yaw %.2f, sign %d, escape %d, speed %.1f, health %.2f, heat %.2f state %u, t %.0f, waypoint %zu at %.0f %.0f\n", frames,
                           pos[0], pos[1], pos[2], ground, d3, yaw, run->turn_sign * g_turn_key, run->escape, mech3::mech_throttle_speed(me), mech3::mech_health(me),
-                          mech3::missions().time, run->route_next, run->walk.found ? run->walk.path[run->route_next].x : 0.0f,
+                          mech3::mech_heat(me), mech3::mech_heat_state(me), mech3::missions().time, run->route_next, run->walk.found ? run->walk.path[run->route_next].x : 0.0f,
                           run->walk.found ? run->walk.path[run->route_next].z : 0.0f);
           }
           if (run->play == 2 && k && frames % 5 == 0) {
