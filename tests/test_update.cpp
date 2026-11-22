@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "check.h"
+#include "upgrades/update/games.h"
 #include "upgrades/update/update.h"
 
 namespace u = upgrades::update;
@@ -208,4 +209,58 @@ TEST(update_swaps_the_program_in_or_keeps_the_old) {
   fs::permissions(root / "ro", fs::perms::owner_all, ec);
   EXPECT(!done && text(root / "ro" / "MW3-Rebuild-x86_64.AppImage") == "kept" && !fs::exists(root / "ro" / "MW3-Rebuild-x86_64.AppImage.new"));
   fs::remove_all(root, ec);
+}
+
+// Games on demand (src/upgrades/update/games.h): each game's tags and files, the newest for a platform, the record.
+namespace {
+std::string game_release(const std::string& tag, const std::vector<std::string>& files, bool draft = false) {
+  std::string s = "{\"tag_name\":\"" + tag + "\",\"draft\":" + (draft ? "true" : "false") + ",\"prerelease\":false,\"body\":\"\",\"assets\":[";
+  for (size_t i = 0; i < files.size(); ++i)
+    s += std::string(i ? "," : "") + "{\"name\":\"" + files[i] + "\",\"size\":31457280,\"browser_download_url\":\"https://github.com/x/" + files[i] + "\"}";
+  return s + "]}";
+}
+}  // namespace
+
+TEST(games_tags_and_files) {
+  using G = u::Game;
+  EXPECT(u::game_tag(G::kMw3, "v1.2.4") && !u::game_tag(G::kMw3, "pm-v1.2.3") && !u::game_tag(G::kMw3, "v1.2.4-rc1"));
+  EXPECT(u::game_tag(G::kPm, "pm-v1.2.3") && !u::game_tag(G::kPm, "v1.2.3") && !u::game_tag(G::kPm, "mw1-v1.0.6"));
+  EXPECT(u::game_tag(G::kMw1, "mw1-v1.0.7") && !u::game_tag(G::kMw1, "mw1-v1.0"));
+  // The names the packaging gives them (docs/release.md); Windows' zip, never its Setup.
+  EXPECT(u::game_asset_name(G::kMw3, "v1.2.4", u::Platform::kWindows) == "MW3-alone-v1.2.4-win64.zip");
+  EXPECT(u::game_asset_name(G::kPm, "pm-v1.2.3", u::Platform::kWindows) == "mw3pm-pm-v1.2.3-win64.zip");
+  EXPECT(u::game_asset_name(G::kPm, "pm-v1.2.3", u::Platform::kMac) == "PM-Rebuild-pm-v1.2.3-mac.dmg");
+  EXPECT(u::game_asset_name(G::kMw1, "mw1-v1.0.7", u::Platform::kLinux) == "MW1-Remake-mw1-v1.0.7-x86_64.AppImage");
+  EXPECT(u::game_version("pm-v1.2.3") == "1.2.3" && u::game_version("v1.2.4") == "1.2.4");
+  EXPECT(u::size_words(31457280) == "30 MB" && u::size_words(1000) == "under 1 MB");
+}
+
+TEST(games_newest_for_the_platform) {
+  using G = u::Game;
+  // PM's repo: a newer release without the Mac's file, a draft, and the hub-style combined files are passed over.
+  const std::string json = list({game_release("pm-v1.2.4", {"mw3pm-pm-v1.2.4-win64.zip", "SHA256SUMS"}),
+                                 game_release("pm-v1.2.5", {"PM-Rebuild-pm-v1.2.5-mac.dmg"}, true),
+                                 game_release("pm-v1.2.3", {"PM-Rebuild-pm-v1.2.3-mac.dmg", "mw3pm-pm-v1.2.3-win64.zip", "SHA256SUMS"}),
+                                 game_release("v1.2.4", {"MW3-Rebuild-v1.2.4-mac.dmg"})});
+  u::GameCheck c = u::judge_game(G::kPm, "", {json, ""}, u::Platform::kMac);
+  EXPECT(c.kind == u::GameCheck::kNewer && c.release.tag == "pm-v1.2.3" && c.asset() && c.asset()->name == "PM-Rebuild-pm-v1.2.3-mac.dmg");
+  std::printf("  %s\n", c.words.c_str());
+  c = u::judge_game(G::kPm, "", {json, ""}, u::Platform::kWindows);
+  EXPECT(c.kind == u::GameCheck::kNewer && c.release.tag == "pm-v1.2.4");
+  EXPECT(u::judge_game(G::kPm, "pm-v1.2.3", {json, ""}, u::Platform::kMac).kind == u::GameCheck::kUpToDate);
+  EXPECT(u::judge_game(G::kPm, "pm-v1.2.2", {json, ""}, u::Platform::kMac).kind == u::GameCheck::kNewer);
+  EXPECT(u::judge_game(G::kPm, "pm-v1.2.4", {json, ""}, u::Platform::kMac).kind == u::GameCheck::kUpToDate);  // a newer one from a file
+  EXPECT(u::judge_game(G::kMw1, "", {json, ""}, u::Platform::kMac).kind == u::GameCheck::kNoRelease);
+  const u::GameCheck off = u::judge_game(G::kMw3, "v1.2.4", {"", "Could not resolve host"}, u::Platform::kMac);
+  EXPECT(off.kind == u::GameCheck::kFailed && off.words.find("Could not resolve host") != std::string::npos);
+  EXPECT(u::judge_game(G::kMw3, "", {"<html>", ""}, u::Platform::kMac).kind == u::GameCheck::kFailed);
+}
+
+TEST(games_installed_record) {
+  const u::InstalledGame in{"pm", "pm-v1.2.3", "PM-Rebuild-pm-v1.2.3-mac.dmg", "6c6b", "github"};
+  u::InstalledGame back;
+  EXPECT(u::parse_installed(u::installed_text(in), &back));
+  EXPECT(back.game == "pm" && back.tag == "pm-v1.2.3" && back.file == in.file && back.sha256 == "6c6b" && back.from == "github");
+  EXPECT(u::parse_installed("# x\r\ngame=mw3\r\ntag=v1.2.4\r\n", &back) && back.game == "mw3" && back.tag == "v1.2.4");  // CRLF
+  EXPECT(!u::parse_installed("tag=v1.2.4\n", &back));  // no game: not a record
 }

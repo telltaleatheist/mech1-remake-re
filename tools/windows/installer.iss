@@ -50,7 +50,7 @@ PrivilegesRequiredOverridesAllowed=dialog
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 SetupIconFile=mw3.ico
-UninstallDisplayIcon={app}\mw3.exe
+UninstallDisplayIcon={app}\mw3launcher.exe
 UninstallDisplayName=MechWarrior 3 Rebuild
 OutputBaseFilename={#Stem}-Setup-{#AppVersion}
 Compression=lzma2/max
@@ -83,6 +83,26 @@ Type: files; Name: "{app}\THIRD-PARTY-MW1.txt"
 ; An earlier version's shortcuts, named MechWarrior 3 before the combined package became BattleTech.
 Type: files; Name: "{autoprograms}\MechWarrior 3.lnk"
 Type: files; Name: "{autodesktop}\MechWarrior 3.lnk"
+#endif
+
+#ifdef LauncherOnly
+[InstallDelete]
+; The launcher alone over an earlier package that carried the games (1.2.4 and before, or MW3 alone): their
+; programs go, so the launcher does not start an old copy beside it; it downloads each game into its own folder
+; (docs/launcher.md, Games on demand). Settings, pilots, saves, mods and the copied game files are in %APPDATA% and
+; stay.
+Type: files; Name: "{app}\mw3.exe"
+Type: files; Name: "{app}\mw3import.exe"
+Type: files; Name: "{app}\mw3indeo.exe"
+Type: files; Name: "{app}\mw3pm.exe"
+Type: files; Name: "{app}\mw1.exe"
+Type: filesandordirs; Name: "{app}\mw1data"
+Type: filesandordirs; Name: "{app}\MechWarrior1989"
+Type: files; Name: "{app}\README-MW1.txt"
+Type: files; Name: "{app}\THIRD-PARTY-MW1.txt"
+Type: files; Name: "{app}\THIRD-PARTY-MW1989.txt"
+Type: files; Name: "{app}\av*.dll"
+Type: files; Name: "{app}\sw*.dll"
 #endif
 
 [Icons]

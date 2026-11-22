@@ -372,6 +372,7 @@ add_library(mw3core STATIC
   src/upgrades/mods/mp_mods.cpp
   src/upgrades/mods/starter_mods.cpp
   src/upgrades/update/update.cpp
+  src/upgrades/update/games.cpp
   src/upgrades/reference/reference.cpp
   src/upgrades/reference/reference_mods.cpp
   src/upgrades/reference/reference_weapons.cpp
@@ -842,6 +843,7 @@ if(SDL3_FOUND)
       src/frontend/sdl/crash_report.cpp
       src/frontend/sdl/launcher.cpp
       src/frontend/sdl/sdl_update.cpp
+      src/frontend/sdl/sdl_games.cpp
       src/frontend/sdl/debug_states.cpp
       src/frontend/sdl/campaign_chain.cpp
       src/frontend/sdl/modes_chain.cpp
@@ -887,6 +889,7 @@ if(SDL3_FOUND)
       src/frontend/sdl/launcher_main.cpp
       src/frontend/sdl/launcher.cpp
       src/frontend/sdl/sdl_update.cpp
+      src/frontend/sdl/sdl_games.cpp
       src/frontend/sdl/run_log.cpp
       src/frontend/sdl/crash_report.cpp
     )
@@ -930,6 +933,7 @@ if(SDL3_FOUND)
       tests/test_win_cmdline.cpp
       tests/test_log_start.cpp
       src/frontend/sdl/sdl_update.cpp
+      src/frontend/sdl/sdl_games.cpp
       src/frontend/sdl/sdl_restart.cpp
       src/frontend/sdl/win_cmdline.cpp
       tests/test_net_enet.cpp

@@ -27,6 +27,8 @@
 #   MW3_PKG_STEM=<stem>                 the DMG's name: <stem>-<version>-mac.dmg (default MW3-Rebuild; MW3 alone is
 #                                       MW3-alone, which the launcher's updater never takes)
 #   MW3_PKG_KEEP_BUILD=1                reuse build-mac-pkg (a second package from the same build)
+#   MW3_PKG_LAUNCHER_ONLY=1             the launcher alone, no game in it: the combined package since the launcher
+#                                       downloads each game (Owen, 2026-11-22; docs/launcher.md, Games on demand)
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 ID="-"  # ad hoc
@@ -78,8 +80,14 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Frameworks" "$APP/Contents/Resourc
 # The launcher is the app's own executable; the game beside it, started by it
 # and on its own (docs/games-layout.md).
 cp build-mac-pkg/mw3launcher "$APP/Contents/MacOS/mw3launcher"
-cp build-mac-pkg/mw3 "$APP/Contents/MacOS/mw3"
-if [ -n "$DEPS" ]; then cp build-mac-pkg/mw3import "$APP/Contents/MacOS/mw3import"; fi
+LAUNCHER_ONLY="${MW3_PKG_LAUNCHER_ONLY:-}"
+if [ -n "$LAUNCHER_ONLY" ] && { [ -n "$PM_BIN" ] || [ -n "$MW1_DIR" ] || [ -n "$PORT_DIR" ]; }; then
+  echo "MW3_PKG_LAUNCHER_ONLY carries no game: no MW3_PKG_PM_BIN, MW3_PKG_MW1_DIR or MW3_PKG_MW1_PORT_DIR" >&2; exit 1
+fi
+if [ -z "$LAUNCHER_ONLY" ]; then
+  cp build-mac-pkg/mw3 "$APP/Contents/MacOS/mw3"
+  if [ -n "$DEPS" ]; then cp build-mac-pkg/mw3import "$APP/Contents/MacOS/mw3import"; fi
+fi
 # The combined package: Pirate's Moon beside it (the launcher finds it there, launcher.md).
 if [ -n "$PM_BIN" ]; then cp "$PM_BIN" "$APP/Contents/MacOS/mw3pm"; fi
 # MechWarrior 1 Remake beside the launcher (it starts the launcher from its own folder), its data in Resources.
@@ -228,7 +236,7 @@ cat > "$APP/Contents/Info.plist" <<EOF
   <key>CFBundleShortVersionString</key><string>$VER</string>
   <key>CFBundleVersion</key><string>$VER</string>
   <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
-  <key>LSMinimumSystemVersion</key><string>$(otool -l "$APP/Contents/MacOS/mw3" | awk '/LC_BUILD_VERSION/{b=1} b&&/minos/{print $2; exit}')</string>
+  <key>LSMinimumSystemVersion</key><string>$(otool -l "$APP/Contents/MacOS/mw3launcher" | awk '/LC_BUILD_VERSION/{b=1} b&&/minos/{print $2; exit}')</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.games</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>LSArchitecturePriority</key><array><string>arm64</string></array>
@@ -241,7 +249,7 @@ EOF
 # MW3 (Owen, 2026-11-20). The folder and the plist keep "MechWarrior 3" (the updater's path; a localized name shows only
 # when the plist's matches the folder's), so Spotlight finds it by both names.
 SHOWN="$NAME"
-[ -n "$PM_BIN" ] && SHOWN="BattleTech"
+if [ -n "$PM_BIN" ] || [ -n "$LAUNCHER_ONLY" ]; then SHOWN="BattleTech"; fi
 mkdir -p "$APP/Contents/Resources/en.lproj"
 printf 'CFBundleName = "%s";\nCFBundleDisplayName = "%s";\n' "$SHOWN" "$SHOWN" > "$APP/Contents/Resources/en.lproj/InfoPlist.strings"
 
@@ -281,8 +289,7 @@ for f in "$APP"/Contents/Frameworks/*.dylib; do
   codesign "${SIGN[@]}" "$f"
 done
 # The game and the importer, second programs in Contents/MacOS, before the app that seals them.
-codesign "${SIGN[@]}" --entitlements tools/macos/mw3.entitlements "$APP/Contents/MacOS/mw3"
-for p in mw3import mw3pm mw1; do
+for p in mw3 mw3import mw3pm mw1; do
   if [ -f "$APP/Contents/MacOS/$p" ]; then codesign "${SIGN[@]}" --entitlements tools/macos/mw3.entitlements "$APP/Contents/MacOS/$p"; fi
 done
 if [ -n "$PORT_DIR" ]; then  # its libraries, then the program
@@ -293,6 +300,10 @@ codesign "${SIGN[@]}" --entitlements tools/macos/mw3.entitlements "$APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
 # The package carries both programs, the launcher as the app's executable.
 PROGRAMS="mw3launcher mw3"
+if [ -n "$LAUNCHER_ONLY" ]; then
+  PROGRAMS="mw3launcher"
+  for p in mw3 mw3pm mw1 mw3import; do [ ! -e "$APP/Contents/MacOS/$p" ] || { echo "$p in the launcher-only app" >&2; exit 1; }; done
+fi
 if [ -n "$PM_BIN" ]; then PROGRAMS="$PROGRAMS mw3pm"; fi
 if [ -n "$MW1_DIR" ]; then
   PROGRAMS="$PROGRAMS mw1"

@@ -11,15 +11,15 @@ minus the bugs and the problems it has on modern machines. It is a personal
 learning project: free, not sold, and not affiliated with or endorsed by
 Microsoft or MicroProse.
 
-The download holds three games on one launcher, named **BattleTech**:
+The launcher, named **BattleTech**, installs and updates three games:
 
 - **MechWarrior 3**, rebuilt as above;
 - **Pirate's Moon**, the expansion, rebuilt the same way from its own exe;
 - **MechWarrior 1 Remake** (formerly MW1: Critical Hit), a fan remake of MechWarrior (1989)'s mercenary
   campaign on MechWarrior 3's combat, worlds and 'Mechs.
 
-Each game also starts on its own, and MechWarrior 3 and Pirate's Moon come
-as separate downloads too.
+Each game also starts on its own, and each comes as a separate download
+too.
 
 **No game files are included.** You need your own copy of each game you play.
 
@@ -33,7 +33,13 @@ original.
 
 ### Coming in the next release
 
-Nothing yet.
+- **The launcher downloads the games.** Its download is now the launcher
+  alone; each game's card shows INSTALL, or UPDATE TO x.y.z when a newer
+  version is out, and gets the game from its own release. Nothing downloads
+  until you press it, every download is checked, and your game files,
+  pilots, saves and mods are kept. Offline, installed games just play, and
+  INSTALL FROM FILE takes a game's download you already have.
+- MechWarrior 1 Remake gets a download of its own.
 
 **1.2.4 (2026-11-22)** (the full notes are in
 [docs/release-notes-1.2.4.md](docs/release-notes-1.2.4.md)): a small fix.

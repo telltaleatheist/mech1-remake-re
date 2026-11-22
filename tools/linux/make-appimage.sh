@@ -20,6 +20,8 @@
 #   MW3_PKG_STEM=<stem>                 the AppImage's name: <stem>-<version>-x86_64.AppImage (default MW3-Rebuild;
 #                                       MW3 alone is MW3-alone, which the launcher's updater never takes)
 #   MW3_PKG_KEEP_BUILD=1                reuse build-linux-pkg's build (a second package from it)
+#   MW3_PKG_LAUNCHER_ONLY=1             the launcher alone, no game in it: the combined package since the launcher
+#                                       downloads each game (Owen, 2026-11-22; docs/launcher.md, Games on demand)
 set -e
 cd "$(dirname "$0")/../.."
 PREFIX=$(cd "${1:-../prefix}" && pwd)
@@ -59,9 +61,17 @@ VER=$(git describe --tags --match 'v[0-9]*' --always --dirty 2>/dev/null || echo
 APPDIR=build-linux-pkg/AppDir
 mkdir -p "$APPDIR/usr/bin/assets/launcher" "$APPDIR/usr/share/doc/mw3/licenses"
 # The launcher is the AppImage's entry (mw3.desktop's Exec); the game beside it.
-cp build-linux-pkg/mw3launcher build-linux-pkg/mw3 "$APPDIR/usr/bin/"
-EXES="-e $APPDIR/usr/bin/mw3launcher -e $APPDIR/usr/bin/mw3"
-if [ -x build-linux-pkg/mw3import ]; then
+LAUNCHER_ONLY="${MW3_PKG_LAUNCHER_ONLY:-}"
+if [ -n "$LAUNCHER_ONLY" ] && { [ -n "${MW3_PKG_PM_BIN:-}" ] || [ -n "${MW3_PKG_MW1_DIR:-}" ] || [ -n "${MW3_PKG_MW1_PORT_DIR:-}" ]; }; then
+  echo "MW3_PKG_LAUNCHER_ONLY carries no game: no MW3_PKG_PM_BIN, MW3_PKG_MW1_DIR or MW3_PKG_MW1_PORT_DIR" >&2; exit 1
+fi
+cp build-linux-pkg/mw3launcher "$APPDIR/usr/bin/"
+EXES="-e $APPDIR/usr/bin/mw3launcher"
+if [ -z "$LAUNCHER_ONLY" ]; then
+  cp build-linux-pkg/mw3 "$APPDIR/usr/bin/"
+  EXES="$EXES -e $APPDIR/usr/bin/mw3"
+fi
+if [ -x build-linux-pkg/mw3import ] && [ -z "$LAUNCHER_ONLY" ]; then
   cp build-linux-pkg/mw3import "$APPDIR/usr/bin/"
   EXES="$EXES -e $APPDIR/usr/bin/mw3import"
 fi
@@ -120,7 +130,7 @@ fi
 # The combined package is named BattleTech in menus (it holds more than MW3; Owen, 2026-11-20), found by its
 # games' names too (Keywords).
 DESKTOP=tools/linux/mw3.desktop
-if [ -n "${MW3_PKG_PM_BIN:-}" ]; then
+if [ -n "${MW3_PKG_PM_BIN:-}" ] || [ -n "$LAUNCHER_ONLY" ]; then
   mkdir -p build-linux-pkg/desktop && DESKTOP=build-linux-pkg/desktop/mw3.desktop
   sed -e 's/^Name=.*/Name=BattleTech/' -e "s/^Comment=.*/Comment=MechWarrior 3, Pirate's Moon and MechWarrior 1 rebuilt, with your own game files/" tools/linux/mw3.desktop > "$DESKTOP"
 fi
@@ -129,6 +139,10 @@ LD_LIBRARY_PATH="$PREFIX/lib:$LD_LIBRARY_PATH" "$TOOLS/linuxdeploy-x86_64.AppIma
   -d "$DESKTOP" -i tools/linux/mw3.png
 # Both programs, the launcher as the entry (AppRun follows the desktop file's Exec).
 PROGRAMS="mw3launcher mw3"
+if [ -n "$LAUNCHER_ONLY" ]; then
+  PROGRAMS="mw3launcher"
+  for p in mw3 mw3pm mw1 mw3import; do [ ! -e "$APPDIR/usr/bin/$p" ] || { echo "$p in the launcher-only AppImage" >&2; exit 1; }; done
+fi
 [ -n "${MW3_PKG_PM_BIN:-}" ] && PROGRAMS="$PROGRAMS mw3pm"
 if [ -n "${MW3_PKG_MW1_DIR:-}" ]; then
   PROGRAMS="$PROGRAMS mw1"

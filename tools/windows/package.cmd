@@ -15,6 +15,8 @@ rem   MW3_PKG_PM_BIN=<mw3pm.exe built on pm>  adds Pirate's Moon beside mw3.exe 
 rem   MW3_PKG_MW1_DIR=<mw1's build tree on mw1>  adds MechWarrior 1 Remake: mw1.exe and mw1data\ (its own data)
 rem   MW3_PKG_MW1_PORT_DIR=<staged port>  adds Elthial's MechWarrior (1989) SDL port (PLAY ORIGINAL) in
 rem                         MechWarrior1989\, as tools\package\mw1port\build_port.cmd stages it (Owen, 2026-11-20)
+rem   MW3_PKG_LAUNCHER_ONLY=1   the launcher alone, no game in it: the combined package since the launcher downloads
+rem                             each game (Owen, 2026-11-22; docs/launcher.md, Games on demand)
 rem   MW3_PKG_STEM=<stem>   names <stem>-<version>-win64 (folder, zip) and <stem>-Setup-<version>.exe
 rem                         (default MW3-Rebuild; MW3 alone is MW3-alone, which the launcher's updater never takes)
 rem   MW3_PKG_KEEP_BUILD=1  reuse build-win-pkg (a second package from the same build)
@@ -54,10 +56,14 @@ if exist "build-win\dist\%NAME%.zip" del "build-win\dist\%NAME%.zip"
 mkdir "%DIST%\licenses" || exit /b 1
 
 rem The three programs and the DLLs their builds copied beside them.
-copy /y build-win-pkg\mw3.exe "%DIST%\" >nul || exit /b 1
+if defined MW3_PKG_LAUNCHER_ONLY if defined MW3_PKG_PM_BIN (echo MW3_PKG_LAUNCHER_ONLY carries no game. & exit /b 1)
+if defined MW3_PKG_LAUNCHER_ONLY if defined MW3_PKG_MW1_DIR (echo MW3_PKG_LAUNCHER_ONLY carries no game. & exit /b 1)
 copy /y build-win-pkg\mw3launcher.exe "%DIST%\" >nul || exit /b 1
-copy /y build-win-pkg\mw3indeo.exe "%DIST%\" >nul || exit /b 1
-copy /y build-win-pkg\mw3import.exe "%DIST%\" >nul || exit /b 1
+if not defined MW3_PKG_LAUNCHER_ONLY (
+  copy /y build-win-pkg\mw3.exe "%DIST%\" >nul || exit /b 1
+  copy /y build-win-pkg\mw3indeo.exe "%DIST%\" >nul || exit /b 1
+  copy /y build-win-pkg\mw3import.exe "%DIST%\" >nul || exit /b 1
+)
 rem The combined package: Pirate's Moon beside it (the launcher finds it there, launcher.md).
 if defined MW3_PKG_PM_BIN copy /y "%MW3_PKG_PM_BIN%" "%DIST%\mw3pm.exe" >nul || exit /b 1
 rem MechWarrior 1 Remake beside them (the launcher's MECHWARRIOR 1 entry starts it from there, launcher.md).
@@ -72,6 +78,8 @@ rem MechWarrior.ini and licences\, and THIRD-PARTY-MW1989.txt beside ours.
 if defined MW3_PKG_MW1_PORT_DIR xcopy /e /i /q /y "%MW3_PKG_MW1_PORT_DIR%" "%DIST%\MechWarrior1989" >nul || exit /b 1
 if defined MW3_PKG_MW1_PORT_DIR copy /y tools\package\mw1port\THIRD-PARTY-MW1989.txt "%DIST%\" >nul || exit /b 1
 copy /y build-win-pkg\*.dll "%DIST%\" >nul || exit /b 1
+rem The launcher alone loads no FFmpeg (mw3import's): those DLLs stay out.
+if defined MW3_PKG_LAUNCHER_ONLY for %%f in (av*.dll sw*.dll) do if exist "%DIST%\%%f" del /q "%DIST%\%%f"
 rem The Visual C++ runtime, app-local (a player may not have the redistributable).
 for /d %%d in ("%VCToolsRedistDir%x64\Microsoft.VC*.CRT") do (
   for %%f in (msvcp140.dll vcruntime140.dll vcruntime140_1.dll) do if exist "%%d\%%f" copy /y "%%d\%%f" "%DIST%\" >nul
@@ -122,6 +130,7 @@ set PMCHECK=
 if defined MW3_PKG_PM_BIN set PMCHECK=-Pm
 if defined MW3_PKG_MW1_DIR set PMCHECK=%PMCHECK% -Mw1
 if defined MW3_PKG_MW1_PORT_DIR set PMCHECK=%PMCHECK% -Mw1Port
+if defined MW3_PKG_LAUNCHER_ONLY set PMCHECK=-LauncherOnly
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\windows\check_dist.ps1 "%DIST%" %PMCHECK% || exit /b 1
 
 tar -a -c -f "build-win\dist\%NAME%.zip" -C build-win\dist "%NAME%" || exit /b 1
@@ -137,7 +146,9 @@ if not defined ISCC (
   echo Warning: Inno Setup's ISCC.exe not found, so no installer was made ^(docs/windows.md, Packaging^).
   goto :done
 )
-"%ISCC%" /Qp "/DAppVersion=%VER%" "/DDist=%CD%\%DIST%" "/DStem=%MW3_PKG_STEM%" "/O%CD%\build-win\dist" tools\windows\installer.iss || exit /b 1
+set ISSONLY=
+if defined MW3_PKG_LAUNCHER_ONLY set ISSONLY=/DLauncherOnly=1
+"%ISCC%" /Qp %ISSONLY% "/DAppVersion=%VER%" "/DDist=%CD%\%DIST%" "/DStem=%MW3_PKG_STEM%" "/O%CD%\build-win\dist" tools\windows\installer.iss || exit /b 1
 echo Setup:   build-win\dist\%MW3_PKG_STEM%-Setup-%VER%.exe
 
 :done
