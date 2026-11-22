@@ -24,7 +24,15 @@ You still need your own games: none of the original games' files are in these do
 
 ## What's new: MechWarrior 1 Remake 1.0.6
 
-(The mw1 lead's notes go here: mw1/dist/RELEASE-NOTES-1.0.6.md.)
+The new name on the window and the save folder, and contracts you can win the way their briefings say.
+
+- **The new name everywhere:** the window, the log and the game's message boxes say MechWarrior 1 Remake, and settings and saves live in a "MechWarrior 1 Remake" folder. On the first start the old "MechWarrior 1 Critical Hit" folder is moved there once (renamed, or copied, checked byte for byte and only then removed); nothing is merged or overwritten, and if the move can't be done that run plays from the old folder and tries again next time.
+- **Reach contracts can be reached around the enemy:** every contract that asks you to reach a place has a walkable way there that keeps clear of where the enemy starts, each driven to in testing with the enemy alive. Three MechWarrior 3 maps now send you to a barracks, warehouses or a dock instead of a defended tower; one more, and one Pirate's Moon map, now offer only their attack contracts.
+- **The first arctic map has a defence contract again**, with the start moved south of the base and one patrol moved out of the way to the depot.
+- **Out-of-bounds lines are drawn around every place an enemy can start**, on Pirate's Moon's and the arctic maps.
+- The same setup changes as MechWarrior 3 above: your files copied in, a found copy only offered.
+
+Its full notes are in [mw1/dist/RELEASE-NOTES-1.0.6.md](https://github.com/telltaleatheist/mech1-remake-re/blob/mw1-v1.0.6/mw1/dist/RELEASE-NOTES-1.0.6.md).
 
 ## Still known
 
