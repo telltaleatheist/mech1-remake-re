@@ -58,15 +58,30 @@ MAP (WORLD ("mw3c4b") IA (2) CLIMATE ("ice") KIND ("attack") NODE ("ware01") WOR
 MAP (WORLD ("mw3c4b") IA (2) CLIMATE ("ice") KIND ("defend") NODE ("ware03") WORDS ("the south warehouse"))
 ; Reach (MW1's withdraw). Each reachable by keeping 200 m from the enemy (FIXES 136; the survey's route): MW3's IA
 ; towers stand among their defenders, so the mw3cN rows name another building; c2 ia2 has none clear of the enemy
-; (its portal gate 32 m from one), so no reach there. The route walked on the engine's walking grid (FIXES 136 (a)):
+; (its portal gate 32 m from one), so no structure reach there (a nav point instead, below). The route walked on
+; the engine's walking grid (FIXES 136 (a)):
 ; mw3c2 ia2's hangar stands 182 m below the start, in a pit no walk reaches (the engine's own pathfinder's too), and
-; no other building there is a place a player reads, so no reach on mw3c2.
+; no other building there is a place a player reads, so no structure reach on mw3c2 (nav points, below).
 MAP (WORLD ("c2") IA (1) CLIMATE ("desert") KIND ("reach") NODE ("3twr1") WORDS ("the pump complex"))
 MAP (WORLD ("c3") IA (1) CLIMATE ("desert") KIND ("reach") NODE ("xslid01") WORDS ("the land bridge"))
 MAP (WORLD ("c4") IA (1) CLIMATE ("desert") KIND ("reach") NODE ("modA140") WORDS ("the support building"))
 MAP (WORLD ("mw3c1") IA (2) CLIMATE ("tropical") KIND ("reach") NODE ("urbbar02") WORDS ("the barracks"))
 MAP (WORLD ("mw3c3") IA (2) CLIMATE ("tropical") KIND ("reach") NODE ("whsA01") WORDS ("the warehouses"))
 MAP (WORLD ("mw3c4") IA (2) CLIMATE ("desert") KIND ("reach") NODE ("dockfal") WORDS ("the dock"))
+; Reach at a nav point (FIXES 136, a project decision from the measured table): a point on open, walkable floor, at most
+; 90 degrees at the start off the way to the enemies (to its side or toward them, never behind), 800 to 2500 m out,
+; 200 m from every enemy place, out of a world's cloud death band, walked on the engine's grid round the enemy, and
+; driven live with the enemy alive (seeds 1..3 all arrive; the damage taken on the way is the contract's, not gated).
+; No Defend archive (ia3) and none where no point passes (mw3c3 ia1).
+MAP (WORLD ("c1") IA (1) CLIMATE ("desert") KIND ("reach") POINT (2842 -1596) WORDS ("the nav point"))
+MAP (WORLD ("c1") IA (2) CLIMATE ("desert") KIND ("reach") POINT (4542 -1468) WORDS ("the nav point"))
+MAP (WORLD ("c2") IA (2) CLIMATE ("desert") KIND ("reach") POINT (1707 -761) WORDS ("the nav point"))
+MAP (WORLD ("c3") IA (2) CLIMATE ("desert") KIND ("reach") POINT (1071 -1299) WORDS ("the nav point"))
+MAP (WORLD ("c4") IA (2) CLIMATE ("desert") KIND ("reach") POINT (2076 -918) WORDS ("the nav point"))
+MAP (WORLD ("mw3c1") IA (1) CLIMATE ("tropical") KIND ("reach") POINT (-1189 -1926) WORDS ("the nav point"))
+MAP (WORLD ("mw3c2") IA (1) CLIMATE ("tropical") KIND ("reach") POINT (-930 -1886) WORDS ("the nav point"))
+MAP (WORLD ("mw3c2") IA (2) CLIMATE ("tropical") KIND ("reach") POINT (-991 -2093) WORDS ("the nav point"))
+MAP (WORLD ("mw3c4") IA (1) CLIMATE ("desert") KIND ("reach") POINT (-536 1585) WORDS ("the nav point"))
 ; Attack (MW1's special target).
 MAP (WORLD ("c1") IA (2) CLIMATE ("desert") KIND ("attack") NODE ("hitme_twr") WORDS ("the dome core"))
 MAP (WORLD ("c2") IA (2) CLIMATE ("desert") KIND ("attack") NODE ("portalgate") WORDS ("the portal gate"))
