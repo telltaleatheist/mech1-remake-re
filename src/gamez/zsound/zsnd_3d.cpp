@@ -145,7 +145,14 @@ int32_t set_listener(const float* matrix, const float* vel) {
 int32_t update_3d(Voice* v, const float* pos, const float* vel, int32_t doppler) {
   State& st = state();
   if (v->kind != 0) return -1;
-  if (pos && !(v->sound->flags & k3D)) return 1;
+  if (pos && !(v->sound->flags & k3D)) {
+    // FIX (bug): a flat sound given a place kept the buffer's full volume, deaf to the volume
+    // setting (the stand-up's mech_crouch; fixes.md, flat sounds at a place).
+    if (!zfix::options().fixed || !v->buffer) return 1;
+    out()->set_pan(v->buffer, 0);
+    out()->set_volume(v->buffer, muted() ? -10000 : v->volume);
+    return 1;
+  }
   if (!v->buffer) return -1;
   int32_t vol, pan;
   if (st.listener_set && (v->has_pos || pos)) {

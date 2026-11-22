@@ -140,6 +140,10 @@ it is clear what the designers meant.
 - **Unpausing resumes the sounds that were playing,** from where they
   stopped, instead of restarting every copy of them, including ones that had
   already finished.
+- **Standing up from a crouch obeys the sound volume.** Some sounds without
+  3D placement were played at a place anyway, and the game then never set
+  their volume, so they played at full volume whatever the slider said. The
+  stand-up after a crouch was one of them.
 - **Volume fades finish.** A sound fading to a partial volume used to wobble
   around it forever; it now settles.
 - **3D sounds pan left and right.** The game asked the sound card for mono

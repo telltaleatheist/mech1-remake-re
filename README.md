@@ -33,7 +33,8 @@ original.
 
 ### Coming in the next release
 
-Nothing yet.
+- Standing up from a crouch obeys the sound volume (the original played it at
+  full volume).
 
 **1.2.3 (2026-11-21)** (the full notes are in
 [docs/release-notes-1.2.3.md](docs/release-notes-1.2.3.md)): setting up your

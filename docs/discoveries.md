@@ -826,6 +826,11 @@ From the weapon code (weapons.md).
 
 ## Sound
 
+- **The stand-up after a crouch ignores the volume slider.** Its sound
+  (`mech_crouch`) isn't a 3D sound, but the game plays it at your 'Mech's
+  position. The sound code skips any volume setting for a non-3D sound given a
+  position, so it plays at full volume however low you've set the sound. The
+  rebuild gives it its volume (found from a player's report, issue #10).
 - **Medium sound quality is low quality.** The detail setting picks
   `soundsH.zbd`, `soundsM.zbd` or `soundsL.zbd`, but no medium archive ever
   shipped, so the game moves on to the next one: medium loads the 11 kHz
