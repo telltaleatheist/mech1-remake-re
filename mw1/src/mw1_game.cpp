@@ -560,19 +560,24 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         // market_mixed: funds for the cheapest only (3,000,000 on the start world's stock), the rest dimmed (item 41).
         if (std::string(s) == "market_mixed") company_.funds = 3000000, show_market();
       }
-      // MW1_SCREEN=supply, supply_assign (1.1.0, FIXES 122 and 118): the Mech Complex's SUPPLY. supply_assign: kits
-      // bought, some on the commander's 'Mech and some in the storehouse, steps on the first weapon type, then ASSIGN.
+      // MW1_SCREEN=supply, supply_assign (1.1.0, FIXES 122 and 118; the shots and mw1screenfit's pages): the Mech
+      // Complex's SUPPLY over a company with some of everything: the world's dealer stock and the starting stores as
+      // they are, a lancemate in a hangar Firefly, kits on both 'Mechs and spares in the storehouse, steps on the first
+      // two weapon types. supply_assign: ASSIGN pressed, the lancemate's 'Mech chosen.
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s).rfind("supply", 0) == 0) {
         const std::string page = s;
-        if (page == "supply_assign") {
-          company_.upgrades.sinks_bought = 5, company_.upgrades.armour_bought = 21;
-          company_.kits = {3, 12}, company_.upgrades.store = {2, 9};
-          if (const std::vector<OwnedType> types = owned_weapon_types(company_); !types.empty())
-            company_.upgrades.steps.push_back({types[0].weapon, types[0].tech, 2, 1});
-        }
+        if (company_.lance.empty()) company_.lance.push_back({1, 0});
+        OwnedMech mate;
+        mate.mech = kPmFirefly, mate.pilot = company_.lance.front().id, mate.kits = {2, 6};
+        company_.hangar.push_back(mate);
+        company_.kits = {3, 12}, company_.upgrades.store = {2, 9};
+        company_.upgrades.sinks_bought = 7, company_.upgrades.armour_bought = 27;
+        const std::vector<OwnedType> types = owned_weapon_types(company_);
+        for (size_t i = 0; i < types.size() && i < 2; ++i)
+          company_.upgrades.steps.push_back({types[i].weapon, types[i].tech, i == 0 ? 2 : 1, i == 0 ? 1 : 0});
         press(kHubMarket);
         press_market(kMarketSupply);
-        if (page == "supply_assign") press_supply(kSupplyAssign);
+        if (page == "supply_assign") press_supply(kSupplyAssign), press_supply(kSupplyOwnDown);
       }
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "travel") press(kHubTravel);
       // MW1_SCREEN=travel_pick: the map with a world chosen (MW1_TRAVEL_TO, a name; else the farthest of the first few).
