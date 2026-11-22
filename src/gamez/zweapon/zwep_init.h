@@ -201,6 +201,8 @@ struct Projectile {
   void (*tick)(Projectile* p) = nullptr;  // +0x5d0  run each frame (the radar's), ECX the shot
   uintptr_t tick_arg = 0;      // +0x5d4
   uint32_t frame_stamp = 0;    // Pirate's Moon's +0x638: the frame it was made on, then the frame its retire waits for
+  float kit_scale = 1;         // ours: upgrade hook (src/upgrades/kits): FireState::kit_scale at the shot
+  float kit_range = 0;         // ours: and FireState::kit_range
 };
 
 // The zWeapon globals the reader fills.

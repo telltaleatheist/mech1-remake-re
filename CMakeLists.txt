@@ -390,6 +390,7 @@ add_library(mw3core STATIC
   src/upgrades/mods/bz2_read.cpp
   src/upgrades/mods/installer_read.cpp
   src/upgrades/settings/upgrades.cpp
+  src/upgrades/kits/kit_hooks.cpp
   src/upgrades/valve_map/valve_map.cpp
   src/upgrades/mods/mod_report.cpp
   src/upgrades/mods/found_worlds.cpp
@@ -831,6 +832,8 @@ if(MW3_BUILD_PM)
     tests/pm/test_pm_hud.cpp
     tests/pm/test_pm_volley.cpp
     tests/pm/test_pm_shots.cpp
+    tests/test_kit_hooks.cpp  # ours: the upgrade hooks (src/upgrades/kits), null and set
+    tests/test_kit_hooks_net.cpp  # ours: the hooks' network game type pinned to pilot.h's
     tests/pm/test_pm_fetch.cpp
     tests/pm/test_pm_mods.cpp
     tests/pm/test_pm_entries.cpp

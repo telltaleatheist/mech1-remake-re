@@ -175,6 +175,10 @@ int32_t beam_start(Beam* b) {
   f.damage_scale = 1;
   b->range_scale = f.beam_range_scale;
   f.beam_range_scale = 1;
+  b->kit_scale = f.kit_scale;  // Ours: upgrade hook (src/upgrades/kits)
+  b->kit_range = f.kit_range;
+  f.kit_scale = 1;
+  f.kit_range = 0;
   b->flags = (b->flags & ~1u) | (static_cast<uint32_t>(f.beam_ground_fx) & 1u);
   f.beam_ground_fx = 1;
   if (def->flags & kLockOn) {
@@ -311,7 +315,7 @@ void beam_update(WeaponDef* def) {
     if (def->flags & kMultiTarget) {
       multi_target(def, b, &n);
     } else {
-      const float reach = b->range_scale * def->range;
+      const float reach = b->range_scale * with_kit_range(def->range, b->kit_range);  // Ours: upgrade hook (src/upgrades/kits)
       if (b->length < reach || b->length > reach) {
         const float d = reach - b->length;
         if (!(static_cast<double>(d) > 0.1)) {
@@ -364,6 +368,7 @@ void beam_update(WeaponDef* def) {
                 t.position = *b->origin;
                 t.direction = *b->dir;
                 t.damage_scale = b->damage_scale;
+                t.kit_scale = b->kit_scale;  // Ours: upgrade hook (src/upgrades/kits)
                 impact(def, rec, &t, nullptr);
                 b->timer = 0;
               }
@@ -481,7 +486,7 @@ void multi_target(WeaponDef* def, Beam* b, int32_t* count) {
       n = 2;
     }
   } else {
-    const float reach = b->range_scale * def->range;
+    const float reach = b->range_scale * with_kit_range(def->range, b->kit_range);  // Ours: upgrade hook (src/upgrades/kits)
     sg[0].length = reach;
     Vec3f3 p;
     add_scaled(sg[0].start, sg[0].dir, reach, &p);
