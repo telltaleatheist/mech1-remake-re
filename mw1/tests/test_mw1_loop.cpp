@@ -114,6 +114,8 @@
 #include "mw1_mission_maps.h"
 #include "mw1_missions.h"
 #include "mw1_pilots.h"
+#include "mw1_kit_answers.h"
+#include "mw1_upgrades.h"
 #include "mw1_results.h"
 #include "mw1_market_screen.h"
 #include "mw1_enemies.h"
@@ -832,6 +834,8 @@ struct Run {
   // FIXES.md item 72: called each mission frame from the 30th while it returns true (then the run's ending as before).
   std::function<bool(int32_t frame)> in_mission;
   int32_t in_mission_frames = 0;
+  // FIXES 118: with `lance`, called once the lance is assigned (before the contract): kits and steps put on the company.
+  std::function<void(mw1::Company& c)> kits;
   int32_t pump_limit = 0;  // FIXES 106: the run's passes, when more than the pump's own (a long watch in the mission)
   std::vector<std::string> lance_downs;  // FIXES 106: the lancemates down as the log said them, at AFTER ACTION
   // FIXES 104: the force's chassis and loadouts (one each a kind in `force`); empty: the contract's own roll.
@@ -1532,6 +1536,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
                sc->picture(mw1::kBarPanelColumnFrame + static_cast<size_t>(n)) == mw1::frame_name(104, 136, true) &&
                sc->picture(mw1::kBarPanelColumnFrame + 1) == mw1::frame_name(104, 136, n == 1));
         if (n == 3) EXPECT(mw1::mech_of(*c, 2) == 2);
+        if (run->kits) run->kits(*c);
         run->lance_set = true;
         sc->on_button(mw1::kBarDone, 0, 0);  // LEAVE: the hub
         return;
@@ -8482,6 +8487,111 @@ TEST(mw1_loop_a_lancemate_down_is_logged_by_whom_headless) {
       return false;
     };
     EXPECT(downed(first) && downed(second) && !downed(third));
+  });
+}
+
+// FIXES 118 (1.1.0 slice 3, mw1_kit_answers.h): kits and steps in a mission, the company's side only. The
+// commander's 'Mech carries +10 sinks and +22 armour points, the first lancemate's +12 and +11, the second's none; every
+// weapon type has 4 power and 3 range steps. In the mission the engine's own reads show it:
+// - the commander's and the first lancemate's sinks cool faster, and their torsos carry the kit's points past the
+//   configuration's;
+// - every weapon of the lance (the second lancemate's too) hits 20% harder and reaches 30 m further, as its max_range
+//   (the AI's range pick) says;
+// - no enemy's sinks, armour or weapons change, a weapon type the lance also carries included.
+// Back at the hub the answers are disarmed.
+TEST(mw1_loop_kits_and_steps_the_lance_s_only_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_loop_kits";
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  in_child([&] {
+    mw1::MapRow battle{"c4", 1, mw1::kDesert, mw1::RowKind::kAny, "", ""};
+    for (const mw1::MapRow& r : shipped_rows())
+      if (r.world == "c4" && r.ia == 1) battle.climate = r.climate;
+    Run run;
+    run.save = (dir / mw1::kSaveFile).string();
+    run.lance = true;
+    run.row = &battle, run.stop_at_after_action = true;
+    run.force = {mw1::kSlot45, mw1::kSlot85, mw1::kSlot55};
+    int32_t kitted = 0, bare = 0, types = 0;
+    run.kits = [&](mw1::Company& c) {
+      c.kits = {10, 22};
+      for (mw1::OwnedMech& o : c.hangar) {
+        if (o.pilot && !kitted) o.kits = {12, 11}, kitted = o.pilot;
+        else if (o.pilot && !bare) bare = o.pilot;
+      }
+      types = mech3::weapon_count();
+      for (int32_t w = 0; w < types; ++w)
+        for (int32_t t : {1, 2}) c.upgrades.steps.push_back({w, t, 4, 3});
+    };
+    using Report = mw1::kit_answers::MechReport;
+    Report commander;
+    std::vector<std::pair<std::string, Report>> mates;
+    std::vector<Report> enemies;
+    bool armed = false;
+    run.in_mission = [&](int32_t f) {
+      if (!mech3::mech_mission_player()) return f < 600;
+      if (mech3::missions().time < 2.0f) return true;
+      armed = mw1::kit_answers::armed();
+      commander = mw1::kit_answers::report(mech3::mech_mission_player());
+      int32_t n = 0;
+      const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+      for (int32_t i = 0; i < n; ++i)
+        if (const mech3::ai::Brain* b = brain_of(ai[i].mech)) {
+          if (b->params.team() == 1) mates.emplace_back(pilot_of(ai[i].mech), mw1::kit_answers::report(ai[i].mech));
+          else enemies.push_back(mw1::kit_answers::report(ai[i].mech));
+        }
+      return false;
+    };
+    loop_run(kObjective, &run);
+    const float power = 1.0f + static_cast<float>(4 * mw1::upgrades::kPowerStepPercent) / 100.0f;
+    const float reach = static_cast<float>(3 * mw1::upgrades::kRangeStepMetres);
+    auto scale = [](int32_t points) { return 1.0f / (static_cast<float>(points) * 0.01f); };
+    auto reaches = [](const Report::Gun& g, float add) {  // a beam under water reaches half, the kit's metres too
+      return g.max_range == g.type_range + add || g.max_range == g.type_range * 0.5f + add * 0.5f;
+    };
+    auto boosted = [&](const Report& r) {
+      bool all = !r.guns.empty();
+      for (const Report::Gun& g : r.guns) all = all && g.damage_scale == power && reaches(g, reach);
+      return all;
+    };
+    auto kitted_mech = [&](const Report& r) {
+      return r.sink_rate > r.own_sink_rate && r.torso_kit_points > 0 &&
+             r.torso_armour_scale == scale(r.torso_points + r.torso_kit_points);
+    };
+    auto plain_mech = [&](const Report& r) {
+      return r.sink_rate == r.own_sink_rate && r.torso_kit_points == 0 && r.torso_armour_scale == scale(r.torso_points);
+    };
+    std::printf("  kits: %d weapon types stepped; the commander's sinks %.3f (own %.3f), torso %d+%d points, %zu weapons\n",
+                types, static_cast<double>(commander.sink_rate), static_cast<double>(commander.own_sink_rate),
+                commander.torso_points, commander.torso_kit_points, commander.guns.size());
+    EXPECT(armed && types > 0 && kitted > 0 && bare > 0);
+    EXPECT(commander.found && commander.side == 0 && kitted_mech(commander) && boosted(commander));
+    EXPECT(mates.size() == 2);
+    for (const auto& [name, r] : mates) {
+      std::printf("  lancemate %s: side %d, sinks %.3f (own %.3f), torso %d+%d, %zu weapons\n", name.c_str(), r.side,
+                  static_cast<double>(r.sink_rate), static_cast<double>(r.own_sink_rate), r.torso_points, r.torso_kit_points,
+                  r.guns.size());
+      EXPECT(boosted(r));
+      if (name == mw1::pilot_title(kitted)) EXPECT(r.side == kitted && kitted_mech(r));
+      else EXPECT(name == mw1::pilot_title(bare) && r.side == bare && plain_mech(r));
+    }
+    EXPECT(enemies.size() >= 3);  // the contract's three (a map may add its own)
+    int32_t shared = 0;
+    for (const Report& r : enemies) {
+      EXPECT(r.found && r.side == -1 && plain_mech(r) && !r.guns.empty());
+      for (const Report::Gun& g : r.guns) {
+        EXPECT(g.damage_scale == 1.0f && reaches(g, 0.0f));
+        bool ours = false;
+        for (const Report::Gun& o : commander.guns) ours = ours || (o.weapon == g.weapon && o.tech == g.tech);
+        for (const auto& [name, m] : mates)
+          for (const Report::Gun& o : m.guns) ours = ours || (o.weapon == g.weapon && o.tech == g.tech);
+        shared += ours ? 1 : 0;
+      }
+    }
+    std::printf("  enemies: %zu, %d of their weapons a type the lance carries too (unchanged)\n", enemies.size(), shared);
+    EXPECT(!mw1::kit_answers::armed());  // back at the hub
   });
 }
 

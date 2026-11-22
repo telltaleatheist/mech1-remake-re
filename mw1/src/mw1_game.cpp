@@ -112,6 +112,7 @@
 #include "mw1_placement.h"
 #include "mw1_enemies.h"
 #include "mw1_ladder.h"
+#include "mw1_kit_answers.h"
 
 namespace {
 // A case-insensitive compare that builds everywhere (strcasecmp is POSIX's, not the Windows toolchains').
@@ -459,6 +460,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // Instant Action's own return (its screen reopened) does not follow (program_flow.h).
     const bool returning = deployed_;
     loading_.reset();  // a load aborted (or PM's next round's): its loading screen gone
+    kit_answers::disarm();  // FIXES 118: the mission over (or aborted): no kit answers outside it
     if (deployed_ && !launched_) {  // ABORT at the briefing: the company as it was, the contract still taken (a replay's failure still pending)
       deployed_ = false;
       std::printf("mw1: aborted before the launch: nothing changed\n");
@@ -3203,6 +3205,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   }
   void mission_launched(mech3::Engine&) override {
     loading_.reset();  // the loading screen's job done
+    if (deployed_) {  // FIXES 118: every mech made, the sides known; the kits' answers cached per mech from now
+      kit_answers::settle();
+      std::printf("mw1: %s\n", kit_answers::summary().c_str());
+    }
     if (deployed_) add_boundary();
     // FIXES 140: an MW3 world's map (its briefing has none), for the radar's map mode and the waypoints.
     if (deployed_) {
@@ -4642,6 +4648,9 @@ static bool reach_ground(const std::string& structure, float out[3]) {
     g->store.add_all(*company_.stores);
     p->save();
     deployed_ = true, launched_ = false;
+    // FIXES 118: the company's kits and steps answer the engine's hooks for this mission, from before it loads (a
+    // part's armour is set as its 'Mech is built). Whose a mech is: the commander's, a lancemate's, or neither.
+    kit_answers::arm(company_, [this](const void* m) { return whose(const_cast<void*>(m)); });
     std::printf("mw1: deployed to %sia%d with the %s: loading\n", contract_.world.c_str(), contract_.ia,
                 mech3::mech_name(company_.mech));
     ge.replace_state(6);  // the Load state: the mission loaded behind MW1's loading screen, then launched
@@ -4801,6 +4810,7 @@ void install_game_loop(uint32_t seed, const char* reach) {
   mech3::set_action_lineup_capacity(kLineupSlots);  // FIXES.md item 48: 16 past the commander (the exe's ten)
   mech3::set_objectives_extension(the_loop().get());
   mech3::ai::set_walk_keeps_going(true);  // FIXES 110: a walk under way doesn't brake at 10 degrees off (zai_walk_pm.h)
+  kit_answers::install();  // FIXES 118: the engine's upgrade hooks, answered while a contract is deployed
 }
 
 void uninstall_game_loop() {
@@ -4808,6 +4818,7 @@ void uninstall_game_loop() {
   mech3::set_action_lineup_capacity(mech3::ActionGame::kLineupExe);
   mech3::set_objectives_extension(nullptr);
   mech3::ai::set_walk_keeps_going(false);
+  kit_answers::uninstall();
   the_loop().reset();
 }
 
