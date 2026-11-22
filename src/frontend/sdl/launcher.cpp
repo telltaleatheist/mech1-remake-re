@@ -416,7 +416,7 @@ enum Id {
   kFind = 10, kPoint, kBack,
   kPatch,  // the 1.2 patch's zip: unreachable since the patch is built in (patch12.h), its code kept
   kAddDisc = 20,
-  kGo = 30, kCancel, kNotesOk,
+  kGo = 30, kCancel, kNotesOk, kPickOther,
   kData = 40, kDataPick, kDataUsual, kMoveGo, kRemoveOld, kKeepOld,
   kUpdates = 49,
   kUpdateGo = 80, kUpdateNotNow, kUpdatePrev, kUpdateNext,
@@ -427,6 +427,9 @@ enum Id {
 struct Install {
   bool ok = false;
   std::string dir, version, summary;
+  // Found by the search (the installer's places, a drop-in), not set up yet: MECHWARRIOR 3 offers to copy it in
+  // first (Owen, 2026-11-21: once found, the original may be deleted).
+  bool elsewhere = false;
 };
 
 // An operation on a worker thread (mech3::setup's calls run on the caller's).
@@ -617,13 +620,15 @@ class Launcher {
   const SDL_DialogFileFilter* ask_filters_ = nullptr;
   int ask_filter_count_ = 0;
   std::string confirm_text_, pending_source_;
+  std::string found_name_, found_sub_;  // confirm_go_ 1: the find's plate (its name; what it is)
   std::string move_to_, move_from_;  // the data folder's move (ask_move)
   std::vector<std::string> move_copied_;
   std::shared_ptr<std::vector<std::string>> move_copied_out_;
   int confirm_go_ = 0;
   std::shared_ptr<mech3::source::Found> found_;  // the last look's (look_at)
   bool auto_go_ = false;  // MW3_LAUNCHER_PICK (checks): its look's INSTALL pressed too
-  bool auto_ok_ = false;  // and the notes' OK after it
+  bool auto_ok_ = false;
+  bool pick_other_ = SDL_getenv("MW3_LAUNCHER_PICK_OTHER") != nullptr;  // checks: the first find's plate clicked (other files)  // and the notes' OK after it
   bool auto_play_ = false;  // and then the game's button on the games screen (W13: an install no longer starts it)
   bool play_after_notes_ = false;  // the notes after an install: their OK starts the game
   bool pm_after_notes_ = false;    // ... Pirate's Moon (its notes, start_pm)
@@ -643,13 +648,17 @@ void Launcher::find_install() {
   std::vector<std::string> tries;
   if (!o_.cfg_install.empty()) tries.push_back(o_.cfg_install);
   if (!o_.write_dir.empty()) tries.push_back((fs::path(o_.write_dir) / "install").string());
-  for (const std::string& c : install_candidates()) tries.push_back(c);
+  const size_t searched_from = tries.size();
+  const std::vector<std::string> found = install_candidates();
+  tries.insert(tries.end(), found.begin(), found.end());
+  const size_t searched_to = tries.size();
   for (const std::string& c : o_.more_installs) tries.push_back(c);
-  for (const std::string& d : tries) {
+  for (size_t i = 0; i < tries.size(); ++i) {
+    const std::string& d = tries[i];
     if (!install_valid(d)) continue;
     const mech3::setup::Result r = mech3::setup::check_install(d, o_.write_dir, true);
     if (!r.ok) continue;
-    install_ = {true, r.install_dir.empty() ? d : r.install_dir, r.version, r.summary};
+    install_ = {true, r.install_dir.empty() ? d : r.install_dir, r.version, r.summary, i >= searched_from && i < searched_to};
     std::printf("mw3: launcher: %s\n", r.summary.c_str());
     return;
   }
@@ -1240,7 +1249,12 @@ void Launcher::layout() {
         break;
       }
       if (confirm_go_ == 2) add(kMoveGo, {170, 300, 140, 40}, "MOVE");
-      else if (confirm_go_) add(kGo, {170, 300, 140, 40}, "INSTALL");
+      else if (confirm_go_ == 1) {  // one plate shows the find; clicking it picks other files (Owen, 2026-11-21)
+        add(kPickOther, {130, 180, 380, 56}, found_name_, found_sub_);
+        add(kGo, {170, 330, 140, 40}, "INSTALL");
+        add(kBack, {330, 330, 140, 40}, "BACK");
+        break;
+      }
       add(kBack, {330, 300, 140, 40}, "BACK");
       break;
     case kWorking:
@@ -1515,7 +1529,12 @@ void Launcher::draw(float dt) {
       break;
     }
     case kConfirm:
-      text_.draw_wrapped(canvas_, confirm_text_, 16, kWhite, W / 2, 150, 460);
+      if (confirm_go_ == 1) {  // over and under the find's plate
+        text_.draw(canvas_, "USE THESE GAME FILES?", 18, kAmber, W / 2, 150);
+        text_.draw_wrapped(canvas_, confirm_text_, 14, kWhite, W / 2, 256, 460);
+      } else {
+        text_.draw_wrapped(canvas_, confirm_text_, 16, kWhite, W / 2, 150, 460);
+      }
       break;
     case kUpdateScreen: {  // the newer release's notes, a page at a time, and the question
       const std::string version = update_ ? upgrades::update::plain_version(update_->release.tag) : std::string();
@@ -2072,12 +2091,21 @@ void Launcher::search() {
     const std::string had = pm_dir_;
     pm_dir_.clear(), o_.cfg_pm_install = had;
     find_pm();
-    if (!pm_dir_.empty()) return use_pm(pm_dir_, "Found Pirate's Moon at " + pm_dir_ + ".");
+    if (!pm_dir_.empty() && !from_files_) return use_pm(pm_dir_, "Found Pirate's Moon at " + pm_dir_ + ".");
   } else {
     find_install();
   }
-  if (!files_pm_ && install_.ok) {
+  if (!files_pm_ && install_.ok && install_.elsewhere) return look_at(install_.dir);  // offered, to copy in or pass over
+  if (!files_pm_ && install_.ok && !from_files_) {  // SETUP's own copy (or mw3.cfg's): in use as before
     use_install(install_.dir, install_.version, install_.summary);
+    return;
+  }
+  // GAME FILES, the player choosing again: the copy in use is no answer; the picker for another (Owen, 2026-11-21).
+  const std::string in_use = files_pm_ ? pm_dir_ : install_.ok ? install_.dir : "";
+  if (from_files_ && !in_use.empty()) {
+    status_ = "In use: " + in_use + ". Pick another copy: a disc image, a download, or Mech3.exe.", status_good_ = true;
+    screen_ = kSetupScreen, layout();
+    ask_file(kPoint, kGameFiles, 2);
     return;
   }
   const std::vector<mech3::setup::DiscSource> discs = mech3::setup::find_discs();
@@ -2155,7 +2183,8 @@ void Launcher::finish_work() {
     if (f.cancelled || !r.ok) {
       status_ = r.summary, status_good_ = f.cancelled;
       screen_ = kSetupScreen;
-    } else if (f.kind == mech3::source::Found::kInstall && f.on_disk) {  // used where it is
+    } else if (std::error_code same; f.kind == mech3::source::Found::kInstall && f.on_disk &&
+                                     fs::equivalent(f.path, fs::path(files_wd()) / "install", same)) {  // this folder's own copy
       const mech3::setup::Result c = mech3::setup::check_install(f.path, files_wd(), files_pm_);
       const std::string dir = c.install_dir.empty() ? f.path : c.install_dir;
       if (c.ok && files_pm_) return use_pm(fs::is_regular_file(dir) ? fs::path(dir).parent_path().string() : dir, c.summary);
@@ -2163,9 +2192,21 @@ void Launcher::finish_work() {
       status_ = c.summary, status_good_ = false, screen_ = kSetupScreen;
     } else {
       const std::string out = (fs::path(files_wd()) / "install").make_preferred().string();
-      confirm_text_ = (files_pm_ ? r.summary : f.summary) + "\n\nIt will be installed into " + out + ". Your own files are only read.";
+      const std::string words = files_pm_ ? r.summary : f.summary;
+      found_name_ = fs::path(f.path).filename().string();
+      if (found_name_.empty()) found_name_ = f.path;  // a drive's top ("D:\\")
+      found_sub_ = "Click to pick other files";
+      std::printf("mw3: launcher: found plate: %s (%s)\n", found_name_.c_str(), words.c_str());
+      confirm_text_ = words + " It will be " + (f.kind == mech3::source::Found::kInstall ? "copied" : "installed") +
+                      " into " + out + ". Your own files are only read, and may be deleted afterwards.";
       confirm_go_ = 1;
       screen_ = kConfirm;
+      if (pick_other_) {  // checks (MW3_LAUNCHER_PICK_OTHER, with MW3_LAUNCHER_PICKER=path:): passed over for the pick
+        pick_other_ = false;
+        layout();
+        activate(kPickOther);
+        return;
+      }
       if (auto_go_) {
         auto_go_ = false;
         activate(kGo);
@@ -2195,7 +2236,10 @@ void Launcher::activate(int id) {
   switch (id) {
     case kMw3:
       pm_last_ = files_pm_ = mw1_last_ = false;
-      if (install_.ok) play();
+      if (install_.ok && install_.elsewhere) {  // copied in first
+        if (SDL_getenv("MW3_LAUNCHER_GO")) auto_go_ = auto_ok_ = true;  // checks: its INSTALL (and notes' OK) pressed
+        from_files_ = false, status_.clear(), look_at(install_.dir);
+      } else if (install_.ok) play();
       else from_files_ = false, screen_ = kSetupScreen, status_.clear(), layout();  // its files to find first
       break;
     case kQuit: done_ = true; break;
@@ -2358,6 +2402,11 @@ void Launcher::activate(int id) {
       }
       break;
     case kFind: search(); break;  // the usual places and the drives first, then the one picker
+    case kPickOther:  // the found copy passed over: the one picker
+      status_ = "Pick the copy to use: a disc image, a download, or Mech3.exe.", status_good_ = true;
+      screen_ = kSetupScreen, layout();
+      ask_file(kPoint, kGameFiles, 2);
+      break;
     case kAddDisc: {  // a disc in a drive first, then one picker: its image or any file of the disc
       const std::vector<mech3::setup::DiscSource> discs = mech3::setup::find_discs();
       if (!discs.empty()) {
@@ -2460,6 +2509,11 @@ LauncherChoice Launcher::run() {
     }
     if (o_.screen == "pmdisc") status_ = "No disc in a drive. Pick its image (.cue .iso) or any file of the disc.";
     if (o_.screen == "data") screen_ = kDataScreen;
+    if (o_.screen == "found") {  // a find offered: its plate (click: other files), INSTALL, BACK
+      screen_ = kConfirm, confirm_go_ = 1, found_name_ = "MechWarrior 3", found_sub_ = "Click to pick other files";
+      confirm_text_ = "An installed copy of MechWarrior 3 version 1.2. It will be copied into " +
+                      (fs::path(files_wd()) / "install").make_preferred().string() + ". Your own files are only read, and may be deleted afterwards.";
+    }
     if (o_.screen == "update") {  // the check (MW3_UPDATE_API in shots) and a newer release's screen
       update_ = std::make_shared<upgrades::update::Verdict>(check_for_updates(MW3_VERSION));
       if (update_->kind == upgrades::update::Verdict::kNewer) show_update();
@@ -2488,7 +2542,7 @@ LauncherChoice Launcher::run() {
   // A game without its files opens the find screen only when it is chosen;
   // a plain mw3 start that found none shows that screen alone.
   if (o_.setup_only) screen_ = kSetupScreen;
-  else if (install_.ok && first_start) screen_ = kNotes, mw3_notes_seen();
+  else if (install_.ok && !install_.elsewhere && first_start) screen_ = kNotes, mw3_notes_seen();  // a find elsewhere: after its copy
   if (vulkan_said) show_vulkan();  // ours: before anything else, so PLAY never reaches the game's box
   layout();
   // Not high pixel density: the game takes this window (one window into the
@@ -2535,6 +2589,10 @@ LauncherChoice Launcher::run() {
     if (screen_ == kConfirm && confirm_go_ == 2) activate(kMoveGo);
   }
   if (const char* add = SDL_getenv("MW3_LAUNCHER_ADD")) add_disc(add);  // checks: ADD FROM MY DISC's pick
+  if (!o_.look_first.empty()) {  // a plain start's find, offered to be copied in
+    if (SDL_getenv("MW3_LAUNCHER_GO")) auto_go_ = auto_ok_ = true;  // checks: its INSTALL (and notes' OK) pressed
+    look_at(o_.look_first);
+  }
   const char* pick = SDL_getenv("MW3_LAUNCHER_PICK");
   // --launcher-pm with none yet and a pick: its find screen, the pick installed, then started.
   const bool pm_pick = o_.play_pm && !o_.pm_bin.empty() && pm_dir_.empty() && pick;

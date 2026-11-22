@@ -992,6 +992,7 @@ int program(int argc, char** argv) {
                             a.install_from.empty() && a.patch.empty() && a.original.find("-nofmv") == std::string::npos;
   // --setup (the launcher contract): the find screen alone, whatever is found.
   bool setup_only = a.setup;
+  std::string look_first;  // a find to copy in (below)
   if (!a.ready_file.empty()) sdlfe::set_ready_file(a.ready_file);
   mech3::mods_other_game() = {a.other_write_dir, a.other_install};  // W15: a mod for the other game goes there
   if (player_start && !a.no_launcher && !a.setup) {
@@ -1002,7 +1003,13 @@ int program(int argc, char** argv) {
     if (!a.write_dir.empty()) more.push_back(a.write_dir + "/install");  // SETUP's own
     bool searched = false;
     const std::string found = sdlfe::find_install(a.cfg_install, more, false, &searched);
-    if (!found.empty()) {
+    // Found by the search (the installer's places, a drop-in), not set up yet: the find screen offers to copy it
+    // in first (Owen, 2026-11-21: once found, the original may be deleted). mw3.cfg's and SETUP's own go straight in.
+    const bool elsewhere = searched && std::find(more.begin(), more.end(), found) == more.end();
+    if (!found.empty() && elsewhere) {
+      setup_only = true, look_first = found;
+      std::printf("mw3: found %s: the find screen offers to copy it in\n", found.c_str());
+    } else if (!found.empty()) {
       a.install = found, a.first_start = searched;
       if (searched && !a.write_dir.empty() && sdlfe::save_install(a.write_dir, found))
         std::printf("mw3: install %s saved to mw3.cfg\n", found.c_str());
@@ -1017,6 +1024,7 @@ int program(int argc, char** argv) {
   if (setup_only) {
     sdlfe::LauncherOptions lo;
     lo.setup_only = setup_only;
+    lo.look_first = look_first;
     lo.write_dir_fixed = write_dir_given;
     lo.write_dir = a.write_dir, lo.cfg_install = a.cfg_install, lo.cfg_mw1_game = a.cfg_mw1_game;
 #ifdef MW3_GAME_DIR
