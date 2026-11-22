@@ -2572,8 +2572,13 @@ about 6 s with its speed up, moving 0 m, before it walked.
   - **Slice 1, the engine's hooks (mw1-110-hooks):** `src/upgrades/kits` (docs/upgrades-kits.md), an
     "mw1 (engine, ours)" commit. Four hooks, null in MW3 and PM: extra sinks in the heat step, extra armour at a
     part's setup, a weapon's damage scale and its extra range, per weapon (never the shared WeaponDef). They are off
-    in a network game, and damage is clamped to 4x and range to the weapon's own RANGE. MW1 doesn't set them yet
-    (slice 3).
+    in a network game, and damage is clamped to 4x and range to the weapon's own RANGE.
+  - **Slice 3, MW1 answers the hooks (mw1-110-answers):** `mw1_kit_answers.h`. Set up at each deploy from the company
+    as it is then, settled at the launch, and cleared at the hub. The commander's 'Mech and each flying lancemate's
+    get the kits on them, and an armour kit's points are spread over the locations in proportion to the 'Mech's own
+    armour. Every weapon on the company's side gets its type's steps, and no enemy gets anything, even with the same
+    weapon. A lancemate is known by their AI pilot, so a reinforcement made later at their 'Mech's address isn't
+    taken for them. `mw1_loop_kits_and_steps_the_lance_s_only_headless` checks it in a mission.
 - **Owen (2026-11-20):** players can keep playing indefinitely without the story, like an Instant Action mod, and
   money needs something to buy. It's always on sale at the hub; nothing to hunt for. It applies to the player's side
   only, never to enemies.
