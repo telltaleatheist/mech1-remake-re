@@ -477,15 +477,29 @@ the mw1 files just like mw3 and pm do"), in `frontend/sdl/mw1_files` (ours):
   MECH or MW beside the program (beside the Mac's .app, beside the
   AppImage), in the home folder or on the system drive, and under their
   Games, DOSBox or DOS folders. Only named folders: on the Mac a look into
-  Documents or Downloads would ask the player for permission. The one found
-  is kept as `mw1_game=`. `MW3_LAUNCHER_NO_MW1_SEARCH` (checks) skips it.
+  Documents or Downloads would ask the player for permission. Our own copy,
+  found, is kept as `mw1_game=`; anything else found is only offered, never
+  taken (2026-11-21, as MW3's: the player always chooses): MECHWARRIOR 1 (or
+  PLAY ORIGINAL) then shows MW3's find plate ("USE THESE GAME FILES?", the
+  find's name; clicking it opens the picker; INSTALL copies it in; BACK
+  leaves it), and its card line names the find. `MW3_LAUNCHER_NO_MW1_SEARCH`
+  (checks) skips the search; `MW3_SEARCH_PROGRAM_DIR` stands for the
+  program's folder; `MW3_LAUNCHER_GO` and `MW3_LAUNCHER_PICK_OTHER` press the
+  offer's INSTALL and its plate.
 - **A click** with none found opens the file picker (as MW3's one picker):
   `BTECH.EXE` or any file in the game's folder; a folder above it, one or two
   levels (a DOSBox drive folder); or the download it came in (.zip and the
   other archives SETUP reads), whose folder holding `BTECH.EXE` is unpacked
-  into the write dir's `mw1/game`. That folder carries our marker
-  (`mw3-launcher-unpacked.txt`); a later download replaces it, and a folder
-  there without the marker is never replaced. Entries that climb out
+  into the write dir's `mw1/game`. A folder picked (or a file's folder, or the
+  offered find) is copied there too (2026-11-21: once found, the original may
+  be deleted), by `mw1::copy_in` on the launcher's worker: the kit's
+  `copy_folder` into `mw1/game.copying` (room checked, links followed),
+  marked, then `swap_in_folder`, so the old copy stays until the new one is
+  in, and a failure or a cancel leaves nothing half-copied with `mw1_game=`
+  as it was. Our copy picked again is used where it is, never copied onto
+  itself. That folder carries our marker (`mw3-launcher-unpacked.txt`); a
+  later download or copy replaces it, and a folder there without the marker
+  is never replaced. Entries that climb out
   (`..`, absolute paths) are skipped. A pick that is not the game is said on
   the status line ("That download has no BTECH.EXE: it is not MechWarrior
   (1989).") and nothing changes. Without `MW_MAIN.EXE` beside it the game is
