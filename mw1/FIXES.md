@@ -5,7 +5,7 @@ Tick an item when it is merged into `main`.
 
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
-## 140. [ ] MW3's worlds have no mission map: wire MW3's own maps.zrd *(done: mw1-maps-140)*
+## 140. [x] MW3's worlds have no mission map: wire MW3's own maps.zrd *(done: mw1-maps-140; in 1.0.8)*
 
 - **Found (2026-11-22, item 136's point search):** on MW3's worlds (mw3c1..mw3c4) Shift+R shows only the plain radar,
   for structure rows and point rows alike; PM's worlds draw their mission map (their maps.zrd). The nav point still
