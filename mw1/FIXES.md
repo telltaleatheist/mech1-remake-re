@@ -5,6 +5,14 @@ Tick an item when it is merged into `main`.
 
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 140. [ ] MW3's worlds have no mission map: wire MW3's own maps.zrd *(later; found with 136, not in its pass)*
+
+- **Found (2026-11-22, item 136's point search):** on MW3's worlds (mw3c1..mw3c4) Shift+R shows only the plain radar,
+  for structure rows and point rows alike; PM's worlds draw their mission map (their maps.zrd). The nav point still
+  shows on the radar, in the OP line and its arrow, which is enough for now (the lead).
+- **Wanted, later:** MW3's own maps.zrd wired for its converted worlds, so the radar's map mode draws them as PM's do.
+  Then 136's "on the mission map's image" filter can apply to MW3's worlds too (today it applies to PM's only).
+
 ## 139. [x] The window title and the save folder say MechWarrior 1 Remake *(done: mw1-139-rename and mw1-139-move-fixes; in 1.0.6)*
 
 - **Why (2026-11-21):** the game is renamed MechWarrior 1 Remake (short MW1 Remake; repo mech1-remake-re). 1.0.5

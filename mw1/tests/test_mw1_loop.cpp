@@ -14,9 +14,12 @@
 #include <filesystem>
 #include <functional>
 #include <random>
+#include <deque>
+#include <map>
 #include <queue>
 #include <set>
 #include <unordered_map>
+#include <unordered_set>
 #include <iterator>
 #include <sstream>
 #include <string>
@@ -508,6 +511,119 @@ mw1::placement::Route walk_route(mw1::placement::Point a, float ay, mw1::placeme
   return r;
 }
 
+// FIXES 136, mw3c1 ia3's basin (measured, MW1_FLOOD): every cell the walking grid reaches from (a, ay) by walk_route's own
+// steps (the climb, the cover, the death band; no enemies), inside `inside` when given, up to `budget` cells. Said: the
+// cells reached, their extent, the floors' range, and the cells at the yellow's edge (a step the grid allows, refused only
+// as outside), by 64 m tile; with no `inside`, the reached cells outside `yellow` likewise (where the region leaves it).
+void flood_fill(const char* what, mw1::placement::Point a, float ay, const mw1::placement::Inside& inside,
+                const mw1::placement::Inside& yellow, int budget) {
+  namespace nav = mech3::ai::nav;
+  nav::Grid& g = nav::grid();
+  if (!g.world()) g.reset(&nav::zcls_world());
+  auto ensure = [&](int cx, int cz) {
+    for (int dz = -1; dz <= 1; ++dz)
+      for (int dx = -1; dx <= 1; ++dx) {
+        const int tx = nav::tile_of(cx + dx), tz = nav::tile_of(cz + dz);
+        if (g.built(tx * nav::kTile, tz * nav::kTile)) continue;
+        int steps = 1 << 30;
+        g.build(tx, tz, &steps);
+      }
+  };
+  auto covered = [&](int cx, int cz, float y) {
+    for (int dz = -1; dz <= 1; ++dz)
+      for (int dx = -1; dx <= 1; ++dx) {
+        const float rise = nav::kClimb * nav::kCell * (dx && dz ? 1.41421356f : 1.0f);
+        for (int l = 0; l < nav::kLevels; ++l) {
+          const nav::Cell* q = g.cell(cx + dx, cz + dz, l);
+          if (!q || (q->flags & nav::kNoGround)) continue;
+          if (q->y > y + std::max(rise, 2.0f)) return true;
+        }
+      }
+    return false;
+  };
+  const int sx = nav::cell_of(a.x), sz = nav::cell_of(a.z);
+  ensure(sx, sz);
+  const int sl = g.level_at(sx, sz, ay);
+  if (sl < 0) {
+    std::printf("  FLOOD %s: no level at the start\n", what);
+    return;
+  }
+  auto key = [](int cx, int cz, int l) {
+    return (static_cast<uint64_t>(static_cast<uint32_t>(cx)) << 34) ^ (static_cast<uint64_t>(static_cast<uint32_t>(cz)) << 2) ^ static_cast<uint64_t>(l);
+  };
+  struct C {
+    int cx, cz, l;
+  };
+  std::unordered_set<uint64_t> seen{key(sx, sz, sl)};
+  std::deque<C> todo{{sx, sz, sl}};
+  int reached = 0;
+  float x0 = 1e9f, x1 = -1e9f, z0 = 1e9f, z1 = -1e9f, y0 = 1e9f, y1 = -1e9f;
+  std::map<std::pair<int, int>, int> edge, out;  // by 64 m tile: cells at the yellow's edge, cells outside it
+  std::set<std::pair<int, int>> edge_seen;
+  // MW1_FLOOD_AT="x,z[;x,z...]": for each, the nearest reached cell and its floor (whether the region reaches it).
+  struct At {
+    float x, z, d = 1e9f, cx = 0, cz = 0, y = 0;
+  };
+  std::vector<At> ats;
+  if (const char* fa = std::getenv("MW1_FLOOD_AT"))
+    for (std::string rest = fa; !rest.empty();) {
+      const size_t semi = std::min(rest.find(';'), rest.size());
+      float px = 0, pz = 0;
+      if (std::sscanf(rest.substr(0, semi).c_str(), "%f,%f", &px, &pz) == 2) ats.push_back({px, pz});
+      rest = semi < rest.size() ? rest.substr(semi + 1) : std::string();
+    }
+  while (!todo.empty() && reached < budget) {
+    const C n = todo.front();
+    todo.pop_front();
+    ++reached;
+    const float x = nav::centre_of(n.cx), z = nav::centre_of(n.cz);
+    x0 = std::min(x0, x), x1 = std::max(x1, x), z0 = std::min(z0, z), z1 = std::max(z1, z);
+    if (const nav::Cell* c = g.cell(n.cx, n.cz, n.l)) y0 = std::min(y0, c->y), y1 = std::max(y1, c->y);
+    for (At& t : ats)
+      if (const float d = std::hypot(x - t.x, z - t.z); d < t.d)
+        if (const nav::Cell* c = g.cell(n.cx, n.cz, n.l)) t.d = d, t.cx = x, t.cz = z, t.y = c->y;
+    if (!inside && yellow && !yellow(x, z)) ++out[{nav::tile_of(n.cx), nav::tile_of(n.cz)}];
+    for (int dz = -1; dz <= 1; ++dz)
+      for (int dx = -1; dx <= 1; ++dx) {
+        if (!dx && !dz) continue;
+        const int jx = n.cx + dx, jz = n.cz + dz;
+        ensure(jx, jz);
+        const int jl = g.step(n.cx, n.cz, n.l, dx, dz);
+        if (jl < 0) continue;
+        const nav::Cell* jc = g.cell(jx, jz, jl);
+        if (!jc || covered(jx, jz, jc->y) || band_refuses(jx, jz)) continue;
+        if (inside && !inside(nav::centre_of(jx), nav::centre_of(jz))) {
+          if (edge_seen.insert({n.cx, n.cz}).second) ++edge[{nav::tile_of(n.cx), nav::tile_of(n.cz)}];
+          continue;
+        }
+        if (seen.insert(key(jx, jz, jl)).second) todo.push_back({jx, jz, jl});
+      }
+  }
+  std::printf("  FLOOD %s: %d cells (%.2f km2)%s; x %.0f..%.0f, z %.0f..%.0f, floors y %.1f..%.1f\n", what, reached,
+              reached * nav::kCell * nav::kCell / 1e6f, todo.empty() ? ", all" : ", the budget hit", x0, x1, z0, z1, y0, y1);
+  auto said = [&](const char* name, const std::map<std::pair<int, int>, int>& m) {
+    if (m.empty()) return;
+    std::string line;
+    int total = 0;
+    for (const auto& [t, k] : m) total += k;
+    std::printf("  FLOOD %s: %s, %d cells in %zu tiles (the tile's centre: cells)\n", what, name, total, m.size());
+    int col = 0;
+    for (const auto& [t, k] : m) {
+      char one[48];
+      std::snprintf(one, sizeof one, " %.0f,%.0f:%d", (t.first + 0.5f) * nav::kTile * nav::kCell, (t.second + 0.5f) * nav::kTile * nav::kCell, k);
+      line += one;
+      if (++col % 8 == 0) std::printf("  FLOOD %s:  %s\n", what, line.c_str()), line.clear();
+    }
+    if (!line.empty()) std::printf("  FLOOD %s:  %s\n", what, line.c_str());
+  };
+  std::printf("  FLOOD %s: from %.0f %.1f %.0f\n", what, a.x, ay, a.z);
+  for (const At& t : ats)
+    std::printf("  FLOOD %s: the point %.0f,%.0f: the nearest reached cell %.0f m off, at %.0f %.0f, floor y %.1f\n", what, t.x, t.z, t.d,
+                t.cx, t.cz, t.y);
+  said("at the yellow's edge", edge);
+  said("outside the yellow", out);
+}
+
 // FIXES 136: candidate points for a point reach row on the map being surveyed (MW1_POINT_SEARCH=<n>: the best n said).
 // Every 100 m cell is a candidate where: inside the yellow with 100 m to spare each way; on the mission map's image
 // (16 px in), which the radar's map mode (Shift+R) draws the nav point on; 800 to 2500 m from the start (nearer, the
@@ -752,6 +868,7 @@ struct Run {
   bool placed = false;
   mw1::placement::Route route;  // FIXES 136: a reach row's way round the enemy (mw1_placement.h), inside the yellow
   bool routed = false, route_area = false;  // route_area: the yellow was there to bound it
+  mw1::placement::Inside inside;  // the yellow (reg_inside_*) as the survey found it, empty when none (FIXES 136's basin)
   mw1::placement::Route walk;  // FIXES 136 (a): the same on the engine's walking grid (walk_route); the gate's
   int walk_tiles = 0;          // the grid's tiles it built
   // FIXES.md item 45: the row played as a player would, from frame 30. 1: the player's mech driven to the structure's
@@ -2197,6 +2314,15 @@ void loop_run(Ending ending, Run* run = nullptr) {
               run->routed = true, run->route_area = yellow != nullptr;
               run->walk = walk_route({run->start_at[0], run->start_at[2]}, run->start_at[1], {run->structure_at[0], run->structure_at[2]},
                                      places, in, {}, &run->walk_tiles);
+              run->inside = in;
+              // MW1_FLOOD: the region the walking grid reaches from the start, in the yellow and without it (FIXES 136,
+              // mw3c1 ia3's basin; MW1_FLOOD_BUDGET the cells, 3,000,000).
+              if (std::getenv("MW1_FLOOD") && run->row->kind == mw1::RowKind::kReach) {
+                const int budget = std::getenv("MW1_FLOOD_BUDGET") ? std::atoi(std::getenv("MW1_FLOOD_BUDGET")) : 3000000;
+                const std::string tag = run->row->world + " ia" + std::to_string(run->row->ia);
+                flood_fill((tag + " in the yellow").c_str(), {run->start_at[0], run->start_at[2]}, run->start_at[1], in, {}, budget);
+                flood_fill((tag + " no yellow").c_str(), {run->start_at[0], run->start_at[2]}, run->start_at[1], {}, in, budget);
+              }
               // FIXES 136: the death band's rule (band_refuses), checked on the maps that measured it: c1's cell where the
               // commander died (floor -57, under c1's band) refused; c2, which has no band, refuses nothing.
               if (run->row->world == "c1") {
@@ -7349,6 +7475,10 @@ void drive_reach(const mw1::MapRow& r, const std::string& worlds, bool order, Dr
     float parts_was[11] = {}, sparts_was[11] = {};
     bool parts_known = false;
     std::map<std::string, std::string> obj_was;  // the live drive's lost runs: which objective changed, and when
+    const bool basin = std::getenv("MW1_BASIN_TRACE") != nullptr;  // FIXES 136, mw3c1 ia3's basin (measured)
+    if (basin && std::getenv("MW1_BASIN_FRAMES")) run.give_up = std::max(600, std::atoi(std::getenv("MW1_BASIN_FRAMES")));
+    int32_t first_out = -1;
+    float out_at[3] = {}, bx0 = 1e9f, bx1 = -1e9f, bz0 = 1e9f, bz1 = -1e9f;
     std::vector<std::string> obj_changes;
     run.watch = [&](int32_t frame) {
       if (live) {
@@ -7361,6 +7491,15 @@ void drive_reach(const mw1::MapRow& r, const std::string& worlds, bool order, Dr
       void* me = mech3::mech_mission_player();
       if (!me) return;
       mech3::mech_world_position(me, last_at);
+      if (basin && frame % 30 == 0) {  // MW1_BASIN_TRACE: the way it went, and the first step outside the yellow
+        const bool in = !run.inside || run.inside(last_at[0], last_at[2]);
+        if (!in && first_out < 0) first_out = frame, std::copy(last_at, last_at + 3, out_at);
+        bx0 = std::min(bx0, last_at[0]), bx1 = std::max(bx1, last_at[0]), bz0 = std::min(bz0, last_at[2]), bz1 = std::max(bz1, last_at[2]);
+        if (frame % 300 == 0)
+          std::printf("  BASIN-AT %s ia%d %s seed %s frame %d: at %.0f %.1f %.0f %s, health %.2f, escapes %d\n", r.world.c_str(), r.ia,
+                      r.node.c_str(), replay, frame, last_at[0], last_at[1], last_at[2], in ? "in" : "OUTSIDE the yellow",
+                      mech3::mech_health(me), run.escapes);
+      }
       if (std::getenv("MW1_HURT_PARTS")) {  // each part's armour and structure left, the changes said with the frame and place
         int32_t ty = 0, arm[11] = {};
         float left[11] = {}, pts[11] = {}, sleft[11] = {};
@@ -7519,6 +7658,14 @@ void drive_reach(const mw1::MapRow& r, const std::string& worlds, bool order, Dr
       }
       EXPECT(arrived && !run.player_down);
     }
+    if (basin)
+      std::printf("  BASIN %s ia%d %s seed %s: the route %s; %s at frame %d%s; last at %.0f %.0f; went x %.0f..%.0f, z %.0f..%.0f; "
+                  "nearest the point %.0f m; first outside the yellow %s%s\n",
+                  r.world.c_str(), r.ia, r.node.c_str(), replay, run.walk.found ? "found" : "NONE",
+                  run.mission_ended && !run.mission_lost ? "ARRIVED" : run.mission_ended ? "ended (lost)" : "did not arrive", run.ended_frame,
+                  run.player_down ? ", DOWN" : "", last_at[0], last_at[2], bx0, bx1, bz0, bz1, run.closest_ground,
+                  first_out < 0 ? "never" : ("at frame " + std::to_string(first_out)).c_str(),
+                  first_out < 0 ? "" : (" at " + std::to_string(std::lround(out_at[0])) + " " + std::to_string(std::lround(out_at[2]))).c_str());
     if (drive_only)
       std::printf("  DRIVE  %-6s ia%d %-12s: the walking route %s, %.0f m, %zu waypoints; %s at frame %d; the commander last at %.0f %.0f\n",
                   r.world.c_str(), r.ia, r.node.c_str(), run.walk.found ? "found" : "NONE", run.walk.length, run.walk.path.size(),
