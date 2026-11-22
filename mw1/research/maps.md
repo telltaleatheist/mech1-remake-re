@@ -495,13 +495,17 @@ seeds 1..3, every seed arriving (the damage on the way is said, not gated).
 | c3 ia2 | (1071, −1299) | 806 | 0.48 | 36° | 0/0/0% |
 | c4 ia2 | (2076, −918) | 806 | 0.34 | 72° | 0/0/0% |
 | mw3c1 ia1 | (−1189, −1926) | 854 | 0.97 | 87° | 46/71/39% |
-| mw3c2 ia1 | (−930, −1886) | 825 | 0.89 | 85° | 10/25/14% |
-| mw3c2 ia2 | (−991, −2093) | 807 | 0.67 | 86° | 0/0/0% |
+| mw3c2 ia1 | (−730, −286) | 800 | 0.92 | 81° | 38/5/8% |
+| mw3c2 ia2 | (−1791, −793) | 1749 | 1.77 | 26° | 18/22/44% |
 | mw3c4 ia1 | (−536, 1585) | 854 | 0.87 | 86° | 0/0/0% |
 
-None on the Defend archives (ia3) or on mw3c3 ia1 (no point passes). MW3's
-worlds draw no mission map in the MW1 remake (Shift+R shows the plain radar;
-FIXES 140), so the "on the mission map" filter applies to PM's worlds only.
+None on the Defend archives (ia3) or on mw3c3 ia1 (no point passes). Since
+FIXES 140 MW3's worlds draw MW3's own maps (mw3c3 ia1 c3m3, the arctic c4m4,
+the rest their cNia), and the "on the mission map" filter applies to them too:
+mw3c2's two points were chosen again on c2ia (their first picks lay off its
+bottom edge). For ia2 the first six kept failed the drive (stalled 30 to 120 m
+short in the western ground the grid walks, or went down); the seventh is the
+row.
 
 An attack's target or a reach's place needn't sit among the enemies: a
 project decision is that a player who tries may slip past them. The survey

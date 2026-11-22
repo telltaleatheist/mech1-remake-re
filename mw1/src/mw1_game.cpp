@@ -58,6 +58,7 @@
 #include "gamez/zinput/zinput.h"
 #include "mech3/app_hud.h"
 #include "mech3/hud.h"
+#include "mech3/mission_map.h"
 #include "mech3/mech_control.h"
 #include "mech3/zai_nav.h"
 #include "mech3/zai_valve.h"
@@ -92,6 +93,7 @@
 #include "mw1_images.h"
 #include "mw1_lab_skin.h"
 #include "mw1_layouts.h"
+#include "mw1_mission_maps.h"
 #include "mw1_missions.h"
 #include "mw1_pilots.h"
 #include "mw1_repairs.h"
@@ -351,6 +353,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (!ending_hook_) {
       music::apply();  // FIXES.md item 100: mw1.cfg's sound over PM's options (read by now)
       settings::at_start(ge);  // FIXES 126: TEXTURES (hidden) the device's largest
+      // FIXES 140: MW3's mission maps after PM's in the list (read by now), from MW3's install.
+      if (const int32_t n = mission_maps::add_maps()) std::printf("mw1: %d of MW3's mission maps added\n", n);
       // FIXES 126: the pause's OPTIONS opens MW1's SETTINGS (Pirate's Moon's key map made fresh, as its pause does).
       mech3::pause_options_hook() = [this] {
         if (!ge_) return false;
@@ -3199,6 +3203,11 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   void mission_launched(mech3::Engine&) override {
     loading_.reset();  // the loading screen's job done
     if (deployed_) add_boundary();
+    // FIXES 140: an MW3 world's map (its briefing has none), for the radar's map mode and the waypoints.
+    if (deployed_) {
+      const std::string map = mission_maps::pick(contract_.world, contract_.ia);
+      if (!map.empty()) std::printf("mw1: %sia%d's map: %s\n", contract_.world.c_str(), contract_.ia, map.c_str());
+    }
     stripped_fails_.clear();
     if (deployed_ && contract_.objective == Objective::kDestroyAll) strip_structure_fails();
     // FIXES.md item 43: the objective's nav point the selected one, so the HUD's nav and its arrow lead there.
@@ -4003,7 +4012,8 @@ static bool reach_ground(const std::string& structure, float out[3]) {
       return;
     }
     // MW1_SCREEN=radar_zoom or radar_map (FIXES 136's shots: a point reach's nav on the radar): the radar zoomed (R)
-    // at frame 90, and for radar_map over the mission map too (Shift+R), as their keys give them.
+    // at frame 90, and for radar_map over the mission map too (Shift+R), as their keys give them. FIXES 140's: the
+    // mech's facing, the compass tape's reading (its window's middle, in degrees from its north) and the map's scale.
     if (page == "radar_zoom" || page == "radar_map") {
       if (now == &mech3::states().core && frames == 90)
         if (void* hud = mech3::program_mech_hud(mech3::mech_mission_player())) {
@@ -4011,6 +4021,14 @@ static bool reach_ground(const std::string& structure, float out[3]) {
           float me[3] = {};
           mech3::mech_world_position(mech3::mech_mission_player(), me);
           std::printf("mw1 radar: the player at %.0f, %.0f\n", me[0], me[2]);
+          float fwd[3] = {};
+          mech3::hud_hooks().mech_forward(static_cast<mech3::Mech*>(mech3::mech_mission_player()), fwd);
+          const mech3::HudCompass& c = static_cast<mech3::Hud*>(hud)->compass;
+          const auto* map = static_cast<const mech3::MissionMap*>(mech3::mission_map());
+          std::printf("mw1 radar: facing x %.2f z %.2f (%.0f degrees from -z), the compass reads %.0f degrees; the map %s, mpp %.3f\n",
+                      fwd[0], fwd[2], std::atan2(fwd[0], -fwd[2]) * 57.29578f,
+                      ((c.src.left + c.src.right) / 2 - c.centre) / c.scale * 57.29578f, map && map->name ? map->name : "none",
+                      map ? map->mpp : 0.0f);
           if (page == "radar_map") radar.toggle_map();
           else radar.toggle_zoom();
         }
