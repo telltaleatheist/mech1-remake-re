@@ -88,6 +88,7 @@
 #include "mech3/zai_attack.h"
 #include "mech3/mech_pocket.h"
 #include "mech3/zai_nav.h"
+#include "mech3/mission_map.h"
 #include "mech3/zai_params.h"
 #include "mech3/mainmenu.h"
 #include "mech3/mech_reader.h"
@@ -458,6 +459,87 @@ mw1::placement::Route walk_route(mw1::placement::Point a, float ay, mw1::placeme
   const float straight = std::hypot(c.x - a.x, c.z - a.z) - rules.reach;
   r.detour = straight > 0 ? r.length / straight : 1.0f;
   return r;
+}
+
+// FIXES 136: candidate points for a point reach row on the map being surveyed (MW1_POINT_SEARCH=<n>: the best n said).
+// Every 100 m cell is a candidate where: inside the yellow with 100 m to spare each way; on the mission map's image
+// (16 px in), which the radar's map mode (Shift+R) draws the nav point on; 800 to 2500 m from the start (nearer, the
+// race ratio ranks the start's own doorstep first); at least the
+// route clearance (200 m) from every enemy place; one dry floor (open ground, no roof or bridge over it). Ranked by the
+// race ratio |AC| / |BC| (under 1: the player nearer the point than the enemies' centre), then the angle at A off the
+// A-B line (ranking only, a project decision: the gate is the walking route and the live drive). The ranked ones are
+// walked on the engine's grid (walk_route, the gate's rule) in order, each at least 400 m from one already found and
+// 300 m from one already tried,
+// until n are found or 60 tried; each said as a POINT-CAND line.
+void point_search(const std::string& world, int ia, const float a[3], const std::vector<mw1::placement::Point>& places,
+                  const mw1::placement::Inside& in, const mw1::placement::Ground& ground, int want) {
+  namespace nav = mech3::ai::nav;
+  // The radar's small map for the world's Instant Action ("c2ia_small", maps.zrd), its image loaded for its size (the
+  // survey has no briefing, which loads it in play).
+  mech3::MissionMap* map = nullptr;
+  for (mech3::MissionMap* m : mech3::mission_maps().list)
+    if (m->name && world + "ia_small" == m->name) map = m;
+  int32_t map_w = 0, map_h = 0;  // the image's size (zimg's own read: the survey's 2D host draws nothing)
+  if (map && map->bitmap)
+    if (zimg::Texture* t = zimg::fetch_image(map->bitmap)) map_w = t->width, map_h = t->height, zimg::free_texture(t);
+  auto on_map = [&](float x, float z) {
+    if (!map || map_w <= 0) return true;  // MW3's worlds: no mission map (Shift+R shows the radar alone), nothing to be on
+    const float p[3] = {x, 0.0f, z};
+    int32_t px[2] = {};
+    return map->point(p, px) && px[0] >= 16 && px[1] >= 16 && px[0] < map_w - 16 && px[1] < map_h - 16;
+  };
+  auto one_floor = [](float x, float z) {
+    nav::Floor f[nav::kLevels];
+    const int n = nav::zcls_world().ground(x, z, f, nav::kLevels);
+    int dry = 0;
+    for (int i = 0; i < n; ++i) dry += !(f[i].water > f[i].y);
+    return n == 1 && dry == 1;
+  };
+  struct Cand {
+    mw1::placement::Point c;
+    mw1::placement::Measures m;
+  };
+  std::vector<Cand> cands;
+  int seen = 0, inside = 0, mapped = 0;
+  for (float x = a[0] - 2500; x <= a[0] + 2500; x += 100)
+    for (float z = a[2] - 2500; z <= a[2] + 2500; z += 100) {
+      const float ac = std::hypot(x - a[0], z - a[2]);
+      if (ac < 800 || ac > 2500) continue;
+      ++seen;
+      if (in && !(in(x, z) && in(x + 100, z) && in(x - 100, z) && in(x, z + 100) && in(x, z - 100))) continue;
+      ++inside;
+      if (!on_map(x, z)) continue;
+      ++mapped;
+      float nearest = 1e9f;
+      for (const mw1::placement::Point& e : places) nearest = std::min(nearest, std::hypot(x - e.x, z - e.z));
+      if (nearest < kRouteClearance || !one_floor(x, z)) continue;
+      cands.push_back({{x, z}, mw1::placement::measure({a[0], a[2]}, {x, z}, places, ground)});
+    }
+  std::sort(cands.begin(), cands.end(), [](const Cand& p, const Cand& q) {
+    return p.m.race != q.m.race ? p.m.race < q.m.race : p.m.angle_at_start > q.m.angle_at_start;
+  });
+  std::printf("  POINT-SEARCH %s ia%d: start %.0f %.0f; %zu enemy places; the map %s (%d x %d px); cells %d, inside %d, on the map %d, "
+              "clear and open %zu\n", world.c_str(), ia, a[0], a[2], places.size(), map && map->name ? map->name : "none",
+              map_w, map_h, seen, inside, mapped, cands.size());
+  std::vector<mw1::placement::Point> found, tries;  // tries: the walked, kept or not (the next one tried 300 m off)
+  int tried = 0;
+  for (const Cand& k : cands) {
+    if (static_cast<int>(found.size()) >= want || tried >= 60) break;
+    bool near = false;
+    for (const mw1::placement::Point& f : found) near |= std::hypot(f.x - k.c.x, f.z - k.c.z) < 400;
+    for (const mw1::placement::Point& f : tries) near |= std::hypot(f.x - k.c.x, f.z - k.c.z) < 300;
+    if (near) continue;
+    ++tried, tries.push_back(k.c);
+    mw1::placement::RouteRules rules;
+    rules.clearance = kRouteClearance;
+    const mw1::placement::Route w = walk_route({a[0], a[2]}, a[1], k.c, places, in, rules, nullptr);
+    const bool ok = w.found && w.detour <= kRouteDetour && w.start_clear >= kStartClear;
+    if (ok) found.push_back(k.c);
+    std::printf("  POINT-CAND %s ia%d %5.0f %5.0f: AC %4.0f race %.2f angle %3.0f along %5.2f, the nearest enemy place %4.0f; walk %s length %4.0f "
+                "detour %.2f clear: start %4.0f path %4.0f end %4.0f; %s\n",
+                world.c_str(), ia, k.c.x, k.c.z, k.m.start_target, k.m.race, k.m.angle_at_start, k.m.along, k.m.nearest_to_target,
+                w.found ? "found" : "NONE ", w.length, w.detour, w.start_clear, w.path_clear, w.end_clear, ok ? "KEPT" : "-");
+  }
 }
 
 struct Run {
@@ -2003,6 +2085,8 @@ void loop_run(Ending ending, Run* run = nullptr) {
               run->routed = true, run->route_area = yellow != nullptr;
               run->walk = walk_route({run->start_at[0], run->start_at[2]}, run->start_at[1], {run->structure_at[0], run->structure_at[2]},
                                      places, in, {}, &run->walk_tiles);
+              if (const char* ps = std::getenv("MW1_POINT_SEARCH"))
+                point_search(run->row->world, run->row->ia, run->start_at, places, in, ground, std::max(1, std::atoi(ps)));
               // MW1_NET_CLEAR: the nearest patrol point to the route past the start's disc, and whose net.
               run->patrol_path = -1, run->patrol_by.clear(), run->patrol_goal = -1, run->patrol_goal_by.clear();
               for (size_t q = 0; g_walk_patrol && q < patrol.points.size(); ++q)
