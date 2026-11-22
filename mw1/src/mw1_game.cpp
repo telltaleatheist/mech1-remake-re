@@ -242,7 +242,10 @@ int32_t condition_of(void* mech) {
 class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
  public:
   Loop(uint32_t seed, const char* reach) : rng_(seed ? seed : std::random_device{}()) {
-    if (reach && *reach) row_set_ = true, row_ = {"c2", kReachIa, kDesert, RowKind::kReach, reach, std::string("the ") + reach};
+    float px = 0, pz = 0;  // MW1_REACH=@x,z: a point (FIXES 136), "the nav point"
+    if (reach && *reach)
+      row_set_ = true, row_ = {"c2", kReachIa, kDesert, RowKind::kReach, reach,
+                               mw1::reach_point(reach, &px, &pz) ? std::string("the nav point") : std::string("the ") + reach};
   }
 
   // ---- ProgramFlow ----
@@ -374,6 +377,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (const char* s = std::getenv("MW1_SCREEN");
         s && (std::string(s).rfind("pause", 0) == 0 || std::string(s).rfind("lab", 0) == 0 || std::string(s).rfind("loading", 0) == 0 ||
               std::string(s) == "results" || std::string(s) == "mission" || std::string(s) == "objectives" || std::string(s) == "mfd" ||
+              std::string(s).rfind("radar_", 0) == 0 ||
               std::string(s).rfind("walk_", 0) == 0 ||
               (std::string(s) == "bar" && std::getenv("MW1_BAR_GREYED")) || std::string(s) == "travel") &&
         !shot_driver_) {
@@ -3193,8 +3197,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // FIXES.md item 43: the objective's nav point the selected one, so the HUD's nav and its arrow lead there.
     if (nav_point_) {
       float at[3];
-      structure_point(mech3::mission_objective_hooks(), nav_node_, at);
-      mech3::program_nav_move(nav_point_, at);
+      if (!reach_ground(contract_.structure, at)) structure_point(mech3::mission_objective_hooks(), nav_node_, at);
+      mech3::program_nav_move(nav_point_, at);  // the reach checks the nav's place, so a point row's ground is read here too
       std::printf("mw1: the objective's nav point selected: %s\n", mech3::program_nav_select(nav_point_) ? "yes" : "no");
     }
     if (const mech3::BriefingScreen* b = mech3::briefing_screen())  // launched from it: still there (tests)
@@ -3544,13 +3548,16 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     };
     switch (contract_.objective) {
       case Objective::kReachStructure: {
-        const zgame::Handle node = h.node_find(name);
-        if (!node) return fall_back();
+        // FIXES 136: a point row ("@x,z", mw1_missions.h reach_point): the engine's reach_area at that point, node 0.
         float point[3];
-        h.default_point(point);
+        const bool at_point = reach_ground(contract_.structure, point);
+        const zgame::Handle node = at_point ? 0 : h.node_find(name);
+        if (!node && !at_point) return fall_back();
+        if (!at_point) h.default_point(point);
         const std::string desc = "Reach " + shown;
         auto r = std::make_unique<mech3::ReachAreaObjective>(desc.c_str(), node, point, kReachRadius);
-        r->nav = place_nav(h, node);  // item 43: its place a nav point (the check then reads the point, at the node)
+        // item 43: its place a nav point (the check then reads the point, at the node or the row's point)
+        r->nav = at_point ? place_nav_at(h, point, 0) : place_nav(h, node);
         o.primary = std::make_unique<mech3::ObjectiveGroup>(h.message(0x16d));
         o.primary->items.push_back(std::move(r));
         own_wins_ = true, objective_built_ = "reach";
@@ -3612,7 +3619,20 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (parts)
       for (int i = 0; i < 3; ++i) out[i] = sum[i] / static_cast<float>(parts);
   }
+  // FIXES 136: a point row's place: (x, z) on its lowest dry ground (open ground, not a roof), y 0 if none is found.
+  static bool reach_ground(const std::string& structure, float out[3]) {
+    float x = 0, z = 0;
+    if (!mw1::reach_point(structure, &x, &z)) return false;
+    mech3::ai::nav::Floor f[mech3::ai::nav::kLevels];
+    const int n = mech3::ai::nav::zcls_world().ground(x, z, f, mech3::ai::nav::kLevels);
+    float y = 0;
+    for (int i = 0; i < n; ++i)
+      if (!(f[i].water > f[i].y)) y = f[i].y;  // highest first: the last dry one is the lowest
+    out[0] = x, out[1] = y, out[2] = z;
+    return true;
+  }
   bool structure_point_now(float out[3]) const {
+    if (reach_ground(contract_.structure, out)) return true;
     mech3::ObjectiveHooks& h = mech3::mission_objective_hooks();
     const zgame::Handle node = contract_.structure.empty() ? 0 : h.node_find(contract_.structure.c_str());
     if (!node) return false;
@@ -3624,6 +3644,11 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (!node) return 0;
     float at[3];
     structure_point(h, node, at);
+    return place_nav_at(h, at, node);
+  }
+  // The objective's nav point at `at` (a structure's place, or a point row's: node 0), shown on the radar and the nav map.
+  zgame::Handle place_nav_at(mech3::ObjectiveHooks& h, const float at[3], zgame::Handle node) {
+    nav_label_.clear(), nav_point_ = nullptr, nav_node_ = 0;
     std::string label = contract_.structure_words.empty() ? contract_.structure : contract_.structure_words;
     if (label.rfind("the ", 0) == 0) label = label.substr(4);
     if (!label.empty()) label[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(label[0])));
@@ -3908,6 +3933,20 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
           std::printf("mw1 mfd: D at %d: the worst frame %.1f ms, %.1f over the median\n", kPress[k], worst[k], worst[k] - median);
         std::fflush(stdout);
       }
+      return;
+    }
+    // MW1_SCREEN=radar_zoom or radar_map (FIXES 136's shots: a point reach's nav on the radar): the radar zoomed (R)
+    // at frame 90, and for radar_map over the mission map too (Shift+R), as their keys give them.
+    if (page == "radar_zoom" || page == "radar_map") {
+      if (now == &mech3::states().core && frames == 90)
+        if (void* hud = mech3::program_mech_hud(mech3::mech_mission_player())) {
+          mech3::HudRadar& radar = static_cast<mech3::Hud*>(hud)->radar;
+          float me[3] = {};
+          mech3::mech_world_position(mech3::mech_mission_player(), me);
+          std::printf("mw1 radar: the player at %.0f, %.0f\n", me[0], me[2]);
+          if (page == "radar_map") radar.toggle_map();
+          else radar.toggle_zoom();
+        }
       return;
     }
     if (page == "objectives") {  // F12's command (0x44, the HUD's objectives) as its key gives it

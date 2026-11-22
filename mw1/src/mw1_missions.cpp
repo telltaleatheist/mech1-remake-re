@@ -2,7 +2,9 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstdio>
+#include <cstdlib>
 
 #include "gamez/zreader/zreader.h"
 #include "mw1_pilots.h"
@@ -128,6 +130,25 @@ std::string lower(std::string s) {
 }
 }  // namespace
 
+bool reach_point(const std::string& node, float* x, float* z) {
+  if (node.size() < 4 || node[0] != '@') return false;
+  const size_t comma = node.find(',');
+  if (comma == std::string::npos) return false;
+  char* end = nullptr;
+  const float px = std::strtof(node.c_str() + 1, &end);
+  if (end != node.c_str() + comma) return false;
+  const float pz = std::strtof(node.c_str() + comma + 1, &end);
+  if (end != node.c_str() + node.size() || !std::isfinite(px) || !std::isfinite(pz)) return false;
+  *x = px, *z = pz;
+  return true;
+}
+
+std::string point_node(float x, float z) {
+  char b[48];
+  std::snprintf(b, sizeof b, "@%.0f,%.0f", x, z);
+  return b;
+}
+
 std::vector<MapRow> parse_maps(const std::string& zrd_path, std::string* why) {
   std::vector<MapRow> rows;
   zrdr::Node* root = zrdr::load(zrd_path.c_str());
@@ -158,6 +179,8 @@ std::vector<MapRow> parse_maps(const std::string& zrd_path, std::string* why) {
     r.climate = c == "desert" ? kDesert : c == "tropical" ? kTropical : c == "ice" ? kIce : -1;
     r.kind = k == "any" ? RowKind::kAny : k == "reach" ? RowKind::kReach : k == "attack" ? RowKind::kAttack : k == "defend" ? RowKind::kDefend
                                                                                                  : static_cast<RowKind>(-1);
+    float at[2] = {};
+    if (r.kind == RowKind::kReach && r.node.empty() && zrdr::get_vec2(m, "POINT", at)) r.node = point_node(at[0], at[1]);
     const bool ok = !r.world.empty() && r.ia >= 1 && r.climate >= 0 && static_cast<int32_t>(r.kind) >= 0 &&
                     (r.kind == RowKind::kAny || (!r.node.empty() && !r.words.empty()));
     if (ok) rows.push_back(r);

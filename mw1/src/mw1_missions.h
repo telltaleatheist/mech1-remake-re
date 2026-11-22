@@ -93,6 +93,11 @@ struct MapRow {
   std::string node;       // the structure: a world node (reach) or a targets.zrd entity (attack, defend)
   std::string words;      // as the offer says it: "the portal gate"
 };
+// FIXES 136: a reach at a point on open ground, not a node (MAP ... KIND ("reach") POINT (x z) WORDS (...)). The row's
+// node is then "@x,z" (no world node's name starts with '@'), so the contract and the save carry it as they carry a
+// structure's node; the reach is the engine's reach_area at that point (node 0), its nav point there.
+bool reach_point(const std::string& node, float* x, float* z);
+std::string point_node(float x, float z);
 inline constexpr const char* kMapsFile = "mw1maps.zrd";  // MW1's data folder
 // Read from a zrd's text (MAP (WORLD ("c2") IA (2) CLIMATE ("desert") KIND ("attack") NODE ("x") WORDS ("y")) ...);
 // rows that don't read are left out and said in `why`.

@@ -2559,8 +2559,8 @@ void loop_run(Ending ending, Run* run = nullptr) {
         if (o.primary && o.primary->items.size() == 1) r = dynamic_cast<const mech3::ReachAreaObjective*>(o.primary->items.front().get());
         reach_only = r != nullptr;
         if (r) {
-          float at[3];
-          mech3::mission_objective_hooks().node_position(r->node, at);
+          float at[3];  // the structure's node, or a point row's ground (FIXES 136)
+          if (!mw1::game_loop_structure_point(at)) mech3::mission_objective_hooks().node_position(r->node, at);
           std::printf("  portalgate at %.0f %.0f %.0f\n", at[0], at[1], at[2]);
           mech3::move_mech(mech3::mech_mission_player(), at, 0.0f);
         }
@@ -3276,6 +3276,27 @@ std::vector<mw1::MapRow> shipped_rows() {
   zutl::mount(MW1_DATA_DIR);
   std::vector<mw1::MapRow> rows = mw1::parse_maps(mw1::kMapsFile);
   zrdr::close_archives(true);
+  // FIXES 136: candidate point reach rows, tried before any is in the table: MW1_POINT_ROWS="world:ia:x,z[;...]"
+  // ("c2:2:-904,-1156"), each a reach at that point, "the nav point", its climate the world's first row's (else desert).
+  const std::string extra = std::getenv("MW1_POINT_ROWS") ? std::getenv("MW1_POINT_ROWS") : "";
+  for (size_t at = 0; at < extra.size();) {
+    const size_t end = std::min(extra.find(';', at), extra.size());
+    const std::string one = extra.substr(at, end - at);
+    at = end + 1;
+    const size_t c1 = one.find(':'), c2 = c1 == std::string::npos ? c1 : one.find(':', c1 + 1);
+    if (c2 == std::string::npos) continue;
+    mw1::MapRow r;
+    r.world = one.substr(0, c1), r.ia = std::atoi(one.substr(c1 + 1, c2 - c1 - 1).c_str());
+    float x = 0, z = 0;
+    if (!mw1::reach_point("@" + one.substr(c2 + 1), &x, &z) || r.ia < 1) continue;
+    r.kind = mw1::RowKind::kReach, r.node = mw1::point_node(x, z), r.words = "the nav point", r.climate = mw1::kDesert;
+    for (const mw1::MapRow& o : rows)
+      if (o.world == r.world) {
+        r.climate = o.climate;
+        break;
+      }
+    rows.push_back(r);
+  }
   return rows;
 }
 }  // namespace
@@ -3300,8 +3321,13 @@ TEST(mw1_loop_every_map_row_is_there_headless) {
   EXPECT(!rows.empty());
   const bool have_mw3 = fs::exists(fs::path(MW1_MW3_GAME_DIR) / "zbd" / "c2" / "gamez.zbd", ec);
   const std::string worlds = have_mw3 ? converted_worlds() : std::string();
+  // MW1_ROWS=<node or worldiaN>[,...]: some rows (a point row by its world and ia: "c2ia2").
+  const std::string only = std::getenv("MW1_ROWS") ? "," + std::string(std::getenv("MW1_ROWS")) + "," : "";
   for (const mw1::MapRow& r : rows) {
     if (r.world.rfind("mw3", 0) == 0 && !have_mw3) continue;
+    if (!only.empty() && only.find("," + r.node + ",") == std::string::npos &&
+        only.find("," + r.world + "ia" + std::to_string(r.ia) + ",") == std::string::npos)
+      continue;
     in_child([&] {
       Run run;
       run.row = &r, run.survey = true, run.stop_at_after_action = true, run.worlds = worlds;
@@ -3358,7 +3384,8 @@ TEST(mw1_loop_every_map_row_is_there_headless) {
         std::printf("  %s", line);
         if (const char* table = std::getenv("MW1_SURVEY_TABLE"))
           if (std::FILE* f = std::fopen(table, "a")) std::fputs(line, f), std::fclose(f);
-        EXPECT(run.shown_meshes > 0);
+        float px = 0, pz = 0;
+        if (!mw1::reach_point(r.node, &px, &pz)) EXPECT(run.shown_meshes > 0);  // a point row (FIXES 136) has no building
         if (target) EXPECT(run.target_live && run.routed_meshes > 0);
         EXPECT(run.placed && n > 0);
         if (r.kind == mw1::RowKind::kAttack) {
