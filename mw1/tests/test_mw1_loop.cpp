@@ -7204,7 +7204,16 @@ void drive_reach(const mw1::MapRow& r, const std::string& worlds, bool order, Dr
     std::map<std::string, Hurt> hurt;  // MW1_LIVE: who took the commander's health, and from how far
     float parts_was[11] = {}, sparts_was[11] = {};
     bool parts_known = false;
+    std::map<std::string, std::string> obj_was;  // the live drive's lost runs: which objective changed, and when
+    std::vector<std::string> obj_changes;
     run.watch = [&](int32_t frame) {
+      if (live) {
+        const auto now = objectives_now();
+        for (const auto& [k, v] : now)
+          if (auto it = obj_was.find(k); (it == obj_was.end() ? !obj_was.empty() : it->second != v) && obj_changes.size() < 24)
+            obj_changes.push_back("frame " + std::to_string(frame) + ": " + k + " -> " + v);
+        obj_was = now;
+      }
       void* me = mech3::mech_mission_player();
       if (!me) return;
       mech3::mech_world_position(me, last_at);
@@ -7340,6 +7349,12 @@ void drive_reach(const mw1::MapRow& r, const std::string& worlds, bool order, Dr
       std::fputs(line, stdout);
       if (const char* table = std::getenv("MW1_SURVEY_TABLE"))
         if (std::FILE* f = std::fopen(table, "a")) std::fputs(line, f), std::fclose(f);
+      if (!arrived)  // what ended it: the objectives' changes (a map's own fail block, the reach, the commander)
+      {
+        for (const std::string& c : obj_changes) std::printf("  REACH-END %s ia%d seed %s %s\n", r.world.c_str(), r.ia, replay, c.c_str());
+        for (const auto& [k, v] : obj_was)
+          if (v != "open") std::printf("  REACH-END %s ia%d seed %s at the last frame: %s %s\n", r.world.c_str(), r.ia, replay, k.c_str(), v.c_str());
+      }
       EXPECT(arrived && !run.player_down);
     }
     if (drive_only)
