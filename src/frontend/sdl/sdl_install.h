@@ -7,6 +7,7 @@
 
 #include <string>
 #include <vector>
+#include "rekit/search.h"
 #include "upgrades/settings/upgrades.h"
 
 namespace sdlfe {
@@ -28,8 +29,8 @@ std::string install_of_pick(const std::string& file);
 std::string pick_source(const std::string& file, const std::vector<std::string>& kinds);
 
 // The folder the installer's "Program" value names: a folder, or Mech3.exe's
-// full path (InstallShield's App Paths default).
-std::string install_of_program_value(std::string value);
+// full path (InstallShield's App Paths default; rekit/search.h).
+using rekit::install_of_program_value;
 
 // Where the original may be installed, in order: the installer's registry
 // values (HKLM SOFTWARE\MicroProse\MechWarrior 3\1.0 "Program", Pirate's
@@ -37,7 +38,8 @@ std::string install_of_program_value(std::string value);
 // VirtualStore views), the installer's default folders, the usual ones, the
 // Wine, Proton and Lutris prefixes and the Mac's CrossOver and Whisky
 // bottles, then this program's own folder and the one above it. Folders
-// only: the caller checks which game each holds (map_source).
+// only: the caller checks which game each holds (map_source). The search is
+// the kit's (rekit::install_candidates); these are its hints.
 std::vector<std::string> install_candidates(bool pirates_moon = false);
 // Ours, for the tests: while set, install_candidates() returns fn() instead,
 // so the machine's own installs (registry, standard folders) stay out; null restores it.

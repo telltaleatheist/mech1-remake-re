@@ -102,6 +102,7 @@ if exist "%DIR%" (
 )
 git worktree prune
 git worktree add --detach "%DIR%" %2 >nul || exit /b 1
+git -C "%DIR%" submodule update --init --quiet || exit /b 1
 if exist "%ROOT%\deps" mklink /J "%DIR%\deps" "%ROOT%\deps" >nul || exit /b 1
 for /f "usebackq delims=" %%v in (`git -C "%DIR%" describe --tags --always --dirty`) do echo %1: %%v
 exit /b 0

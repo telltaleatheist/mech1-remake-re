@@ -716,6 +716,22 @@ anything is opened or made (2026-11-11: a package check wants all three programs
   (mw3 refuses --launcher), the screens, sounds and MechWarrior (1989)
   checks on mw3launcher.
 
+## The setup kit's contract (2026-11-21, branch setup-kit)
+
+The shared setup kit (github.com/telltaleatheist/re-setup-kit, `extern/re-setup-kit`)
+lets each game answer the launcher on its own, so the launcher need not carry
+each game's recipe (DESIGN.md there):
+- `mw3 --status`: one JSON line on stdout, exit 0, no window and no log; the
+  start's own search (mw3.cfg's `install=`, `<write dir>/install`, the
+  installer's places) and `check_install`. `files.state` is `ready`,
+  `missing` or `incomplete`; `first_run.pending` lists `movies` while the
+  importer has movies to convert.
+- `mw3 --setup`: the find screen alone, whatever is found; exit 0 once a pick
+  is installed and saved to mw3.cfg, 1 when the player quits it, 2 when SDL
+  cannot start. `sdl_program_status_and_setup_answer_the_launcher`.
+The launcher still finds the games itself; it switches to asking `--status`
+once mw3pm answers it too.
+
 ## Open
 
 - The working title ("MW3 REBUILD" on the title art) and the font: Owen's.

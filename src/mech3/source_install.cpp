@@ -9,6 +9,7 @@
 #include <set>
 
 #include "mech3/source_archive.h"
+#include "rekit/files.h"
 
 namespace fs = std::filesystem;
 
@@ -21,8 +22,6 @@ std::string lower(std::string s) {
   return s;
 }
 
-uint64_t g_spare = 64u << 20;  // left free beside what is written
-
 void put32(uint8_t* p, uint32_t v) {
   for (int i = 0; i < 4; ++i) p[i] = static_cast<uint8_t>(v >> (8 * i));
 }
@@ -34,14 +33,7 @@ void wav_header(uint8_t* h, uint32_t bytes) {
   put32(h + 32, 4 | (16u << 16)), std::memcpy(h + 36, "data", 4), put32(h + 40, bytes);
 }
 
-// Whether `p` resolves to a place inside `base` (links and all followed).
-bool under(const fs::path& base, const fs::path& p) {
-  std::error_code ec;
-  const fs::path b = fs::weakly_canonical(base, ec), q = fs::weakly_canonical(p, ec);
-  if (ec) return false;
-  const fs::path rel = q.lexically_relative(b);
-  return !rel.empty() && rel != "." && *rel.begin() != "..";
-}
+bool under(const fs::path& base, const fs::path& p) { return rekit::path_inside(base.string(), p.string()); }
 
 struct Pass {
   const Found& f;
@@ -61,13 +53,11 @@ struct Pass {
     return fail(Staged::kCancelled, "cancelled");
   }
   bool room(const fs::path& dir, int64_t size) {
-    std::error_code ec;
-    const fs::space_info sp = fs::space(dir, ec);
-    if (ec || size < 0 || sp.available >= static_cast<uint64_t>(size) + g_spare) return true;
-    s.space_needed = static_cast<uint64_t>(size) + g_spare, s.space_free = sp.available, s.space_where = dir.string();
-    return fail(Staged::kNoSpace, "not enough free space in " + dir.string() + ": " +
-                                      std::to_string((static_cast<uint64_t>(size) + g_spare) >> 20) + " MB needed, " +
-                                      std::to_string(sp.available >> 20) + " MB free");
+    uint64_t needed = 0, free = 0;
+    if (rekit::has_room(dir.string(), size, &needed, &free)) return true;
+    s.space_needed = needed, s.space_free = free, s.space_where = dir.string();
+    return fail(Staged::kNoSpace, "not enough free space in " + dir.string() + ": " + std::to_string(needed >> 20) +
+                                      " MB needed, " + std::to_string(free >> 20) + " MB free");
   }
 
   // The current entry of `r` to `to`, `skip` bytes left out and, for a WAV,
@@ -138,25 +128,6 @@ struct Pass {
 };
 
 }  // namespace
-
-uint64_t& space_spare() { return g_spare; }
-
-std::string safe_relative(const std::string& entry) {
-  std::string out;
-  size_t at = 0;
-  std::string p = entry;
-  std::replace(p.begin(), p.end(), '\\', '/');
-  if (p.empty() || p[0] == '/' || (p.size() >= 2 && p[1] == ':')) return "";  // absolute, a drive, a share
-  while (at <= p.size()) {
-    const size_t end = std::min(p.find('/', at), p.size());
-    const std::string part = p.substr(at, end - at);
-    at = end + 1;
-    if (part.empty() || part == ".") continue;
-    if (part == "..") return "";
-    out += (out.empty() ? "" : "/") + part;
-  }
-  return out;
-}
 
 namespace {
 

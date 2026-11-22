@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+#include "rekit/sources.h"
+
 // Where the game is in whatever a player points SETUP at (ours, not original
 // code; docs/setup-sources.md, the map): an installed copy (its folder or its
 // Mech3.exe), the disc or its drive, a disc image (.iso, or a .cue with its
@@ -14,13 +16,8 @@
 // regions may label differently.
 namespace mech3::source {
 
-// One way into the next container, from the picked path: an archive entry
-// opened as an archive, or as a disc image (raw 2352-byte sectors or 2048).
-struct Step {
-  enum Kind { kArchive, kImage, kRawImage } kind = kArchive;
-  std::string entry;     // the entry's path in the container before it
-  int raw_offset = 16;   // kRawImage: the user data's place in a sector (MODE1 16, MODE2 24)
-};
+// One way into the next container (rekit/sources.h).
+using Step = rekit::Step;
 
 struct Found {
   enum Kind { kNothing, kInstall, kDisc } kind = kNothing;

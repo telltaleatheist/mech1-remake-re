@@ -70,6 +70,7 @@
 #include "frontend/sdl/sdl_install.h"
 #include "mech3/game_setup.h"
 #include "mech3/source_map.h"
+#include "rekit/status.h"
 #include "upgrades/settings/upgrades.h"
 #include "frontend/sdl/sdl_platform.h"
 #include "frontend/sdl/sdl_sound.h"
@@ -6269,6 +6270,58 @@ TEST(sdl_program_plain_start_goes_straight_in_or_to_setup) {
   unsetenv("MW3_FIND_INSTALL");
   unsetenv("MW3_LAUNCHER_FRAMES");
   unsetenv("MW3_START_ONLY");
+}
+
+// The launcher contract (re-setup-kit's DESIGN.md): --status prints one JSON
+// line and exits 0 without a window or a log; --setup shows the find screen
+// alone whatever is found, exits 0 once a pick is installed (saved to
+// mw3.cfg), 1 when the player quits it.
+TEST(sdl_program_status_and_setup_answer_the_launcher) {
+  const std::string dir = std::string(MW3_TEST_TMP) + "/status_setup";
+  std::error_code ec;
+  std::filesystem::remove_all(dir, ec);
+  for (const char* d : {"/wd", "/wd2", "/wd3", "/wd4", "/disc"}) std::filesystem::create_directories(dir + d, ec);
+  auto run = [&](const std::vector<std::string>& args, const std::string& log, int* code) {
+    int status = 0;
+    *code = waited(spawn_mw3(args, log), &status) && WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+    std::ifstream f(log);
+    return std::string((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+  };
+  int code = -1;
+  rekit::Status st;
+  const std::string a = run({"--status", "--write-dir", dir + "/wd"}, dir + "/a.log", &code);
+  std::printf("  status: %s", a.c_str());
+  EXPECT(code == 0 && rekit::parse_status(a, &st) && st.game == "mech3" && st.state == rekit::Status::kReady &&
+         !st.where.empty() && st.data == "1.2");
+  EXPECT(!std::filesystem::exists(dir + "/wd/mw3.log") && !std::filesystem::exists(dir + "/wd/mw3.cfg"));
+  setenv("MW3_FIND_INSTALL", "1", 1);
+  const std::string b = run({"--status", "--write-dir", dir + "/wd2"}, dir + "/b.log", &code);
+  EXPECT(code == 0 && rekit::parse_status(b, &st) && st.state == rekit::Status::kMissing && st.where.empty());
+  // --setup, quit after 20 frames: cancelled, even with the game found.
+  setenv("MW3_LAUNCHER_FRAMES", "20", 1);
+  unsetenv("MW3_FIND_INSTALL");
+  const std::string c = run({"--setup", "--write-dir", dir + "/wd3", "--window", "640x480", "--nosound"}, dir + "/c.log", &code);
+  EXPECT(code == 1 && c.find("mw3: --setup: cancelled") != std::string::npos);
+  setenv("MW3_FIND_INSTALL", "1", 1);
+  const std::string patch = std::string(MW3_GAME_DIR) + "/../patch-1.2/MechWarrior-3_Patch_Win_EN_Patch-12-US";
+  if (std::filesystem::exists(patch + "/data1.cab")) {
+    std::filesystem::copy_file(patch + "/data1.hdr", dir + "/disc/DATA1.HDR", ec);
+    std::filesystem::copy_file(patch + "/data1.cab", dir + "/disc/DATA1.CAB", ec);
+    setenv("MW3_LAUNCHER_FRAMES", "1800", 1);
+    setenv("MW3_LAUNCHER_PICK", (dir + "/disc").c_str(), 1);
+    const std::string d = run({"--setup", "--write-dir", dir + "/wd4", "--window", "640x480", "--nosound"}, dir + "/d.log", &code);
+    unsetenv("MW3_LAUNCHER_PICK");
+    std::printf("  setup from a disc: exit %d\n", code);
+    EXPECT(code == 0 && d.find("mw3: --setup: " + dir + "/wd4/install") != std::string::npos && d.find("start only") == std::string::npos);
+    std::ifstream cfg(dir + "/wd4/mw3.cfg");
+    const std::string text((std::istreambuf_iterator<char>(cfg)), std::istreambuf_iterator<char>());
+    EXPECT(text.find("install=" + dir + "/wd4/install") != std::string::npos);
+    const std::string e = run({"--status", "--write-dir", dir + "/wd4"}, dir + "/e.log", &code);
+    EXPECT(code == 0 && rekit::parse_status(e, &st) && st.state == rekit::Status::kReady && st.where == dir + "/wd4/install");
+  }
+  unsetenv("MW3_FIND_INSTALL");
+  unsetenv("MW3_LAUNCHER_FRAMES");
+  std::filesystem::remove_all(dir, ec);
 }
 
 // Mods by campaign, step 1 (upgrades/mods/campaign_entries.h): a start moves

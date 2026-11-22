@@ -87,6 +87,13 @@
 #include "frontend/sdl/sdl_focus.h"
 #include "frontend/sdl/launcher.h"
 #include "frontend/sdl/sdl_install.h"
+#include "frontend/sdl/movie_import.h"
+#include "rekit/status.h"
+#if defined(_WIN32)
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
 #include "upgrades/editor/help.h"
 #include "upgrades/mods/anim_defs.h"
 #include "upgrades/mods/campaign_entries.h"
@@ -251,6 +258,7 @@ struct Args {
   int click = 0, click_up = 0, shot_series = 0;
   bool no_import = false, force_import = false;  // --no-import, --import (ours: first_run_import.h)
   bool no_launcher = false;   // --no-launcher (ours: launcher.h): no find screen, the old dialog if there is no install
+  bool status = false, setup = false;  // --status, --setup (ours: the launcher contract, rekit/status.h)
   std::string ready_file;     // --ready-file F (ours, sdl_child.h): written at the first frame shown, for mw3launcher
   std::string other_write_dir, other_install;  // --other-write-dir, --other-install (ours, W15): the other game's, from mw3launcher
   std::string vfw_helper;     // --vfw-helper EXE (ours, sdl_vfw.h): the movies' Video for Windows helper; "-" none
@@ -321,7 +329,7 @@ void usage() {
       "mw3 [install-dir] [--install DIR | --install-from DISC|ISO|CUE [--install-to DIR]] [--assets DIR]... [--write-dir DIR] [--version]\n"
       "    [--mission NAME [--valve-map DIR] | --fly NAME [--variant BLOCK]] [--pos X Y Z] [--look YAW PITCH] [--vehicle-ahead M [--vehicle-hold]] [--turret-ahead M] [--node-ahead NAME M] [--mech-ahead M] [--dialog FILE NAME]\n"
       "    [--shot FILE.bmp [--shot-frame N] [--shot-any] [--shot-series K] [--shot-canvas FILE]] [--fire N [--fire-group 1..5]] [--objectives N] [--hurt F@N] [--win N] [--lose N] [--lab-mech N]\n"
-      "    [--windowed] [--original] [--import | --no-import] [--no-launcher] [--debug-camera] [--wide-menus | --no-wide-menus] [--raw-mouse | --no-raw-mouse] [--mod NAME]... [--no-mods] [--mods] [--entry ID [--entry-play | --entry-ia | --entry-mission WORLD N [--edit]]] [--entry-pilot NAME] [--open-mods [--mods-entry ID] | --open-ia] [--check-mod DIR] [--mod-report DIR] [--build-anim DIR] [--make-starter mech|weapon|translation|mission|salvage] [--reference FILE] [--editor-guide FILE] [--pick PATH] [--save-pick PATH] [--patch ZIP|DIR] [--vfw-helper EXE | --no-vfw-helper] [--briefing c1m2] [--click N[:M]] [--click-at X,Y@N]... [--mouse-at X,Y@N[c]]... [--then ...] [--click-players X,Y@N/P]... [--click-sessions X,Y@N/S]... [--click-return X,Y@N]... [--walk] [--tap DIK@N[:M]]... [--frames N] [--frame-ms N] [--frame-times N] [--seed N] [--window WxH] [--nosound] [--hidden] [--verbose]\n"
+      "    [--windowed] [--original] [--import | --no-import] [--no-launcher] [--status] [--setup] [--debug-camera] [--wide-menus | --no-wide-menus] [--raw-mouse | --no-raw-mouse] [--mod NAME]... [--no-mods] [--mods] [--entry ID [--entry-play | --entry-ia | --entry-mission WORLD N [--edit]]] [--entry-pilot NAME] [--open-mods [--mods-entry ID] | --open-ia] [--check-mod DIR] [--mod-report DIR] [--build-anim DIR] [--make-starter mech|weapon|translation|mission|salvage] [--reference FILE] [--editor-guide FILE] [--pick PATH] [--save-pick PATH] [--patch ZIP|DIR] [--vfw-helper EXE | --no-vfw-helper] [--briefing c1m2] [--click N[:M]] [--click-at X,Y@N]... [--mouse-at X,Y@N[c]]... [--then ...] [--click-players X,Y@N/P]... [--click-sessions X,Y@N/S]... [--click-return X,Y@N]... [--walk] [--tap DIK@N[:M]]... [--frames N] [--frame-ms N] [--frame-times N] [--seed N] [--window WxH] [--nosound] [--hidden] [--verbose]\n"
       "    [-nofmv] [-seasick] [-cdN]\n"
       "See docs/program.md.\n");
 }
@@ -483,6 +491,8 @@ bool parse(int argc, char** argv, Args& a) {
     else if (s == "--windowed") a.windowed = true;
     else if (s == "--no-import") a.no_import = true;
     else if (s == "--no-launcher") a.no_launcher = true;
+    else if (s == "--status") a.status = true;
+    else if (s == "--setup") a.setup = true;
     else if (s == "--ready-file" && next(1)) a.ready_file = argv[++i];
     else if (s == "--other-write-dir" && next(1)) a.other_write_dir = argv[++i];
     else if (s == "--other-install" && next(1)) a.other_install = argv[++i];
@@ -737,6 +747,56 @@ int program(int argc, char** argv);
 // Ours (sdl_restart.h): the run, then, when it asked, the program again into
 // a MODS campaign entry or back out of one, once everything of the run (its
 // log, SDL, its helpers) is gone.
+// --status (ours: the launcher contract, re-setup-kit's DESIGN.md): what this
+// game has, as one JSON line on stdout, exit 0; no window, no log, nothing
+// asked or saved. The search is the start's (mw3.cfg's install=, SETUP's own
+// install, the installer's places); anything it prints goes to stderr.
+int print_status(Args& a) {
+  std::fflush(stdout);
+#if defined(_WIN32)
+  const int out = _dup(1);
+  _dup2(2, 1);
+#else
+  const int out = dup(1);
+  dup2(2, 1);
+#endif
+  rekit::Status st;
+  st.game = "mech3-pm", st.version = MW3_VERSION;  // Pirate's Moon's branch
+  if (a.write_dir.empty() && !sdlfe::data_folder_at_start(&a.write_dir, false)) st.note = "the data folder cannot be used";
+  if (!a.write_dir.empty()) read_config(a.write_dir, a);
+  std::vector<std::string> more;
+#ifdef MW3_GAME_DIR
+  if (!std::getenv("MW3_FIND_INSTALL")) more.push_back(MW3_GAME_DIR);
+#endif
+  if (!a.write_dir.empty()) more.push_back(a.write_dir + "/install");
+  bool searched = false;
+  const std::string found = !a.install.empty() ? a.install : sdlfe::find_install(a.cfg_install, more, false, &searched);
+  if (!found.empty()) {
+    const mech3::setup::Result r = mech3::setup::check_install(found, a.write_dir, true);
+    st.where = r.install_dir.empty() ? found : r.install_dir;
+    if (r.ok) {
+      st.state = rekit::Status::kReady;
+      if (r.version != "unknown") st.data = r.version;
+#if !defined(_WIN32)
+      if (!a.no_import && sdlfe::movies_missing(st.where, a.write_dir) > 0) st.pending.push_back("movies");
+#endif
+    } else {
+      st.state = rekit::Status::kIncomplete;
+      st.missing.push_back(r.summary);
+    }
+  }
+  std::fflush(stdout);
+#if defined(_WIN32)
+  _dup2(out, 1);
+  _close(out);
+#else
+  dup2(out, 1);
+  close(out);
+#endif
+  std::printf("%s\n", rekit::status_json(st).c_str());
+  return 0;
+}
+
 // On Pirate's Moon's branch this is the game's main under mw3pm_main.cpp, which takes --fly first.
 int mw3_game_main(int argc, char** argv) {
   const int result = program(argc, argv);
@@ -786,6 +846,7 @@ int program(int argc, char** argv) {
     for (const std::string& line : mech3::mod_report(a.mod_report, a.install, "", &refused)) std::printf("%s\n", line.c_str());
     return refused ? 1 : 0;
   }
+  if (a.status) return print_status(a);
   if (!a.shot.empty()) a.hidden = true;
   // Ours (MW1's FIXES 30): a run no player is at never holds or moves the system's pointer (pointer_hands_off.h).
   if (a.hidden || a.frames > 0 || !a.chain.empty() || !a.modes.empty()) platform::set_pointer_hands_off(true);
@@ -793,7 +854,8 @@ int program(int argc, char** argv) {
   mech3::mods_program_version() = MW3_VERSION;  // game_version= in mod.txt (upgrades/mods/mod_needs.h)
   if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK)) {
     sdlfe::fatal_box(std::string("MechWarrior 3 cannot start: ") + SDL_GetError(), a.hidden);
-    return 1;
+    if (a.setup) std::printf("{\"error\": \"SDL could not start\"}\n");
+    return a.setup ? rekit::kSetupFailed : 1;
   }
   // The write dir: saves and settings, outside the install (assets-layer.md).
   // --write-dir wins; else the usual folder, or the one its pointer names (data_folder.h).
@@ -945,10 +1007,11 @@ int program(int argc, char** argv) {
   const bool player_start = !a.hidden && a.frames == 0 && a.shot.empty() && a.chain.empty() && a.modes.empty() &&
                             a.mission.empty() && !a.fly && a.dialog_file.empty() && a.movie.empty() && a.install.empty() &&
                             a.install_from.empty() && a.patch.empty() && a.original.find("-nofmv") == std::string::npos;
-  bool setup_only = false;
+  // --setup (the launcher contract): the find screen alone, whatever is found.
+  bool setup_only = a.setup;
   if (!a.ready_file.empty()) sdlfe::set_ready_file(a.ready_file);
   mech3::mods_other_game() = {a.other_write_dir, a.other_install};  // W15: a mod for the other game goes there
-  if (player_start && !a.no_launcher) {
+  if (player_start && !a.no_launcher && !a.setup) {
     std::vector<std::string> more;
 #ifdef MW3_GAME_DIR
     if (!std::getenv("MW3_FIND_INSTALL")) more.push_back(MW3_GAME_DIR);
@@ -981,6 +1044,13 @@ int program(int argc, char** argv) {
     lo.no_import = a.no_import;
     lo.window_from(a.window_given, a.win_w, a.win_h);
     const sdlfe::LauncherChoice c = sdlfe::run_launcher(lo);
+    if (a.setup) {  // ready (the install chosen, saved) or cancelled; nothing played
+      const bool ready = c.kind == sdlfe::LauncherChoice::kPlay && !c.install.empty();
+      if (ready && !a.write_dir.empty()) sdlfe::save_install(a.write_dir, c.install);
+      std::printf("mw3: --setup: %s\n", ready ? c.install.c_str() : "cancelled");
+      SDL_Quit();
+      return ready ? rekit::kSetupReady : rekit::kSetupCancelled;
+    }
     if (c.kind != sdlfe::LauncherChoice::kPlay) {
       SDL_Quit();
       return 0;

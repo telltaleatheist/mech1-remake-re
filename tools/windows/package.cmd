@@ -78,7 +78,7 @@ copy /y third_party\miniupnpc\LICENSE "%DIST%\licenses\miniupnpc\" >nul || exit 
 mkdir "%DIST%\licenses\imgui"
 copy /y third_party\imgui\LICENSE.txt "%DIST%\licenses\imgui\" >nul || exit /b 1
 mkdir "%DIST%\licenses\miniz"
-copy /y third_party\miniz\LICENSE "%DIST%\licenses\miniz\" >nul || exit /b 1
+copy /y extern\re-setup-kit\third_party\miniz\LICENSE "%DIST%\licenses\miniz\" >nul || exit /b 1
 
 rem Every DLL the programs load is in the folder or part of Windows; no game file is.
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\windows\check_dist.ps1 "%DIST%" || exit /b 1
