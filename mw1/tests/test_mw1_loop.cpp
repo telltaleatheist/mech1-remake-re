@@ -7806,6 +7806,82 @@ TEST(mw1_loop_destroy_all_goes_on_when_the_base_falls_live_headless) {
   });
 }
 
+// FIXES 136, measured (MW1_LANCE_SPAWN=1; MW1_ROWS=<world>iaN[,...] some maps): each map's lancemates against the player at
+// the start, then the first 900 frames (30 s), the player passive, then walking straight off at full throttle: each
+// lancemate's start distance, the nearest it came, and the player's damage from rams (no attacker, a mech within
+// kRamContact: PM's crash both ways has no ally test). Measurement only.
+TEST(mw1_loop_lance_spawn_clearance_measured_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  if (!std::getenv("MW1_LANCE_SPAWN")) return;
+  const std::vector<mw1::MapRow> rows = shipped_rows();
+  const bool have_mw3 = fs::exists(fs::path(MW1_MW3_GAME_DIR) / "zbd" / "c2" / "gamez.zbd", ec);
+  const std::string worlds = have_mw3 ? converted_worlds() : std::string();
+  const char* some = std::getenv("MW1_ROWS");
+  const std::string only = some ? "," + std::string(some) + "," : std::string();
+  std::set<std::pair<std::string, int32_t>> done;
+  for (const mw1::MapRow& r : rows) {
+    if (r.world.rfind("mw3", 0) == 0 && !have_mw3) continue;
+    if (!only.empty() && only.find("," + r.world + "ia" + std::to_string(r.ia) + ",") == std::string::npos) continue;
+    if (!done.insert({r.world, r.ia}).second) continue;
+    for (int walk = 0; walk <= 1; ++walk)
+      in_child([&] {
+        crt::rand_fixed_seed() = 1;
+        mw1::MapRow battle{r.world, r.ia, r.climate, mw1::RowKind::kAny, "", ""};
+        Run run;
+        run.row = &battle, run.worlds = worlds, run.stop_at_after_action = true;
+        run.force = mw1::rung_force(mw1::kDarkWingRung, 0);
+        run.lance = true, run.lance_count = 3;
+        run.play = 0, run.kill_enemies = false, run.give_up = 930, run.pump_limit = 930 + 3000;
+        std::map<std::string, std::pair<float, float>> mates;  // name -> start, nearest
+        std::map<std::string, float> rammed;
+        float health_was = -1;
+        run.watch = [&](int32_t frame) {
+          void* me = mech3::mech_mission_player();
+          if (!me) return;
+          mech3::program_mech_set_invincible(me, true);  // no enemy ends it early
+          if (walk && frame >= 60) mech3::mech_hold_throttle(me, 1.0f);
+          float at[3];
+          mech3::mech_world_position(me, at);
+          int32_t na = 0;
+          const mech3::AiMechMade* am = mech3::mission_ai_mechs(&na);
+          for (int32_t i = 0; i < na; ++i) {
+            const mech3::ai::AiTarget* mt = mech3::mech_ai_target(am[i].mech);
+            const mech3::ai::AiTarget* pt = mech3::mech_ai_target(me);
+            if (!am[i].name || !mt || !pt || mt->team != pt->team) continue;  // the player's side: the lance
+            float q[3];
+            if (!mech3::mech_world_position(am[i].mech, q)) continue;
+            const float d = std::hypot(q[0] - at[0], q[2] - at[2]);
+            const char* pilot = mech3::mech_brain_name(am[i].mech);
+            const std::string n = std::string(am[i].name) + " (" + (pilot ? pilot : "-") + ")";
+            auto it = mates.find(n);
+            if (it == mates.end()) mates[n] = {d, d};
+            else it->second.second = std::min(it->second.second, d);
+          }
+          const float h = mech3::mech_health(me);
+          if (health_was >= 0 && h < health_was - 1e-4f && !mech3::mech_last_attacker(me))
+            for (int32_t i = 0; i < na; ++i) {
+              float q[3];
+              if (am[i].name && mech3::mech_world_position(am[i].mech, q) && std::hypot(q[0] - at[0], q[2] - at[2]) < kRamContact)
+                rammed[am[i].name] += health_was - h;
+            }
+          health_was = h;
+        };
+        loop_run(kObjective, &run);
+        std::string said;
+        for (const auto& [n, sd] : mates) {
+          char one[160];
+          std::snprintf(one, sizeof one, "%s%s start %.0f m nearest %.0f m", said.empty() ? "" : "; ", n.c_str(), sd.first, sd.second);
+          said += one;
+        }
+        std::string rams;
+        for (const auto& [n, dmg] : rammed) rams += (rams.empty() ? "" : ", ") + n + " " + std::to_string(static_cast<int>(dmg * 100 + 0.5f)) + "%";
+        std::printf("  LANCE-SPAWN %-6s ia%d %-7s: %s; rams: %s\n", r.world.c_str(), r.ia, walk ? "walking" : "passive", said.c_str(),
+                    rams.empty() ? "none" : rams.c_str());
+      });
+  }
+}
+
 // FIXES 129 (the lead: does a lancemate act on each of PM's lance orders in an MW1 battle?): two lancemates, A and B;
 // each step W to A (the recipient), then the order's keys, 150 frames apart: the order each brain had, the radio's
 // answer, A's orders' state after, and what its 'Mech did. FOLLOW, PAUSE, ATTACK (E first), DEFEND (on an enemy:
