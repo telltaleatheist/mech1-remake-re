@@ -209,4 +209,17 @@ TEST(mw1_files_copies_a_picked_folder_into_the_write_dir) {
   EXPECT(read(fs::path(mw1::unpacked_dir(wd2)) / "mine.txt") == "the player's" && !fs::exists(mw1::unpacked_dir(wd2) + ".copying"));
   // Not the game: refused before anything is copied.
   EXPECT(mw1::copy_in(d + "/third", wd, &why).empty() && why.find("no BTECH.EXE") != std::string::npos);
+  // A folder far bigger than the game (a Games folder or a drive's root holding BTECH.EXE): refused before anything
+  // is copied, the copy in use as it was; the size counts what is in its subfolders too. The limit is lowered here
+  // so the test writes kilobytes, not half a gigabyte.
+  const std::string big = d + "/big";
+  put(fs::path(big) / "BTECH.EXE", "big");
+  put(fs::path(big) / "OtherGame" / "DATA.BIN", std::string(8192, 'o'));
+  calls = 0;
+  const auto count = [&](uint64_t, uint64_t, const std::string&) { ++calls; return true; };
+  EXPECT(mw1::copy_in(big, wd, &why, count, nullptr, 4096).empty() && why.find("far more than MechWarrior") != std::string::npos);
+  EXPECT(calls == 0 && read(fs::path(out) / "BTECH.EXE") == "second" && !fs::exists(out + ".copying"));
+  // The same folder under the limit copies as before.
+  EXPECT(mw1::copy_in(big, wd, &why, nullptr, nullptr, 65536) == out && read(fs::path(out) / "OtherGame" / "DATA.BIN").size() == 8192);
+  EXPECT(mw1::kMaxCopyBytes == uint64_t(512) << 20);
 }

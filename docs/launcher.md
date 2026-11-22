@@ -497,7 +497,10 @@ the mw1 files just like mw3 and pm do"), in `frontend/sdl/mw1_files` (ours):
   marked, then `swap_in_folder`, so the old copy stays until the new one is
   in, and a failure or a cancel leaves nothing half-copied with `mw1_game=`
   as it was. Our copy picked again is used where it is, never copied onto
-  itself. That folder carries our marker (`mw3-launcher-unpacked.txt`); a
+  itself. A folder holding more than 512 MB (the game is about 1 MB; a Games
+  folder or a drive's root that holds `BTECH.EXE` among other things) is
+  refused before anything is copied, with a status line asking for a folder
+  of the game's own. That folder carries our marker (`mw3-launcher-unpacked.txt`); a
   later download or copy replaces it, and a folder there without the marker
   is never replaced. Entries that climb out
   (`..`, absolute paths) are skipped. A pick that is not the game is said on
