@@ -166,6 +166,14 @@ second, at 33, 16, 8 and 4 ms. Scaling it by the frame time, as an earlier fix
 did, gave a building an eighth of the damage at 4 ms. Nearly every shipped
 touchable object has 30 health or less, so most go in one or two hits.
 
+Mech crashes are per hit for the same reason (measured 2026-11-21, when
+MechWarrior 1 Remake asked about Pirate's Moon's heavier-contact crash). In c1m1
+on `pm`, the player was put 15 m from a powered-down Thor and walked into it at
+100% throttle for 30 simulated seconds. That gave 104, 82, 73 and 28 crashes
+(0x4253f0) at 33, 16, 8 and 4 ms. Each hit bounces the mech off and cuts its
+throttle to a tenth, so a faster frame rate means fewer contacts, not more. A
+per-1/30 s scaling (82abad4d) was reverted on this measure.
+
 **Ceiling (0x423600)**: airborne and rising: vertical speed * -0.66, the mech
 put just under the contact, 0.002 head damage. On foot: damage by the volume
 of the box hit (dx dy dz / 180 / 4): head 0.1, torso 0.4, sides 0.25 each, and
