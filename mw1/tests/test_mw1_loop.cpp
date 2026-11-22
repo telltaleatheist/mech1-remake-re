@@ -364,6 +364,35 @@ bool band_refuses(int cx, int cz) {
   memo[mk] = refused;
   return refused;
 }
+// A floor in the band itself (or less than kBandMargin over its top): never walked, the goal's ring included.
+bool in_band(float y) {
+  const mech3::CloudBand band = mech3::program_cloud_band();
+  return band.on && band.death_on && y > band.low && y < band.high + kBandMargin;
+}
+// The nearest floor in the band (in_band) to (x, z) within 60 m, any level; -1 when none.
+float band_distance(float x, float z) {
+  namespace nav = mech3::ai::nav;
+  nav::Grid& g = nav::grid();
+  if (!g.world()) g.reset(&nav::zcls_world());
+  const int cx = nav::cell_of(x), cz = nav::cell_of(z);
+  float best = -1;
+  for (int dz = -15; dz <= 15; ++dz)
+    for (int dx = -15; dx <= 15; ++dx) {
+      const int tx = nav::tile_of(cx + dx), tz = nav::tile_of(cz + dz);
+      if (!g.built(tx * nav::kTile, tz * nav::kTile)) {
+        int steps = 1 << 30;
+        g.build(tx, tz, &steps);
+      }
+      for (int l = 0; l < nav::kLevels; ++l)
+        if (const nav::Cell* q = g.cell(cx + dx, cz + dz, l); q && !(q->flags & nav::kNoGround) && in_band(q->y))
+          if (const float d = std::hypot(nav::centre_of(cx + dx) - x, nav::centre_of(cz + dz) - z); d <= 60.0f && (best < 0 || d < best)) best = d;
+    }
+  return best;
+}
+// FIXES 136, a project decision: kBandClear is a planning margin for the routes we choose (the point search, the
+// gate's first pass). A shipped structure row whose walk can't keep it is walked again with this off (band floors
+// still refused), labelled NEAR BAND in the survey, and passes only by the live drive (three seeds, all arrive).
+bool g_walk_band_clear = true;
 float g_walk_lowest = 0;  // the last found route's lowest floor (the cloud band's measure, FIXES 136)
 mw1::placement::Route walk_route(mw1::placement::Point a, float ay, mw1::placement::Point c, const std::vector<mw1::placement::Point>& enemies,
                                  const mw1::placement::Inside& inside, const mw1::placement::RouteRules& rules, int* tiles_built) {
@@ -471,7 +500,10 @@ mw1::placement::Route walk_route(mw1::placement::Point a, float ay, mw1::placeme
         const int jl = g.step(n.cx, n.cz, n.l, dx, dz);
         if (jl < 0) continue;
         const nav::Cell* jc = g.cell(jx, jz, jl);
-        if (!jc || covered(jx, jz, jc->y) || band_refuses(jx, jz)) continue;
+        // The band: its own floors refused always; kBandClear's margin too, unless g_walk_band_clear is off (the gate's
+        // second pass for a shipped structure row, "NEAR BAND": c3 ia1's land bridge, its approach beside a channel in it).
+        if (!jc || covered(jx, jz, jc->y) || in_band(jc->y)) continue;
+        if (g_walk_band_clear && band_refuses(jx, jz)) continue;
         const float ng = n.g + nav::kCell * (dx && dz ? 1.41421356f : 1.0f) * (g.tight(jx, jz, jl) ? 3.0f : 1.0f);
         const uint64_t jk = key(jx, jz, jl);
         auto it = seen.find(jk);
@@ -868,6 +900,8 @@ struct Run {
   bool placed = false;
   mw1::placement::Route route;  // FIXES 136: a reach row's way round the enemy (mw1_placement.h), inside the yellow
   bool routed = false, route_area = false;  // route_area: the yellow was there to bound it
+  bool near_band = false;  // FIXES 136: the walk found only by the second pass (no kBandClear), and how near the band it
+  float near_band_m = -1;  // came (the nearest band floor to any of its cells, within 60 m; -1: none that near)
   mw1::placement::Inside inside;  // the yellow (reg_inside_*) as the survey found it, empty when none (FIXES 136's basin)
   mw1::placement::Route walk;  // FIXES 136 (a): the same on the engine's walking grid (walk_route); the gate's
   int walk_tiles = 0;          // the grid's tiles it built
@@ -2314,6 +2348,18 @@ void loop_run(Ending ending, Run* run = nullptr) {
               run->routed = true, run->route_area = yellow != nullptr;
               run->walk = walk_route({run->start_at[0], run->start_at[2]}, run->start_at[1], {run->structure_at[0], run->structure_at[2]},
                                      places, in, {}, &run->walk_tiles);
+              float pnx = 0, pnz = 0;
+              if (!run->walk.found && !mw1::reach_point(run->row->node, &pnx, &pnz) && mech3::program_cloud_band().death_on) {
+                g_walk_band_clear = false;
+                run->walk = walk_route({run->start_at[0], run->start_at[2]}, run->start_at[1], {run->structure_at[0], run->structure_at[2]},
+                                       places, in, {}, &run->walk_tiles);
+                g_walk_band_clear = true;
+                if (run->walk.found) {
+                  run->near_band = true;
+                  for (const mw1::placement::Point& w : run->walk.path)
+                    if (const float d = band_distance(w.x, w.z); d >= 0 && (run->near_band_m < 0 || d < run->near_band_m)) run->near_band_m = d;
+                }
+              }
               run->inside = in;
               // MW1_FLOOD: the region the walking grid reaches from the start, in the yellow and without it (FIXES 136,
               // mw3c1 ia3's basin; MW1_FLOOD_BUDGET the cells, 3,000,000).
@@ -2325,14 +2371,58 @@ void loop_run(Ending ending, Run* run = nullptr) {
               }
               // FIXES 136: the death band's rule (band_refuses), checked on the maps that measured it: c1's cell where the
               // commander died (floor -57, under c1's band) refused; c2, which has no band, refuses nothing.
+              const float lowest = g_walk_lowest;  // the row's walk, just made
               if (run->row->world == "c1") {
                 namespace nav = mech3::ai::nav;
                 EXPECT(band_refuses(nav::cell_of(3310.0f), nav::cell_of(-1293.0f)));
                 EXPECT(!band_refuses(nav::cell_of(run->start_at[0]), nav::cell_of(run->start_at[2])));
+                // A point's route is found on the first pass, every cell kBandClear from the band.
+                float px = 0, pz = 0;
+                if (mw1::reach_point(run->row->node, &px, &pz)) {
+                  EXPECT(run->walk.found && !run->near_band);
+                  for (size_t q = 1; q < run->walk.path.size(); ++q)
+                    EXPECT(!band_refuses(nav::cell_of(run->walk.path[q].x), nav::cell_of(run->walk.path[q].z)));
+                }
+              } else if (run->row->world == "c3" && run->row->node == "xslid01") {
+                // The land bridge over c3's band: NEAR BAND (its approach beside a channel in the band), no cell in it.
+                EXPECT(run->walk.found && run->near_band && !in_band(lowest));
               } else if (run->row->world == "c2") {
                 namespace nav = mech3::ai::nav;
                 EXPECT(!mech3::program_cloud_band().death_on);
                 EXPECT(!band_refuses(nav::cell_of(run->start_at[0]), nav::cell_of(run->start_at[2])));
+              }
+              // MW1_BAND_LINE=x0,z0,x1,z1: every 8 m along the line, the distance to the row's structure, the cell's floors,
+              // the nearest band floor within 60 m and whether the walk refuses the cell (FIXES 136, c3 ia1's bridge).
+              if (const char* bl = std::getenv("MW1_BAND_LINE")) {
+                namespace nav = mech3::ai::nav;
+                float x0 = 0, z0 = 0, x1 = 0, z1 = 0;
+                if (std::sscanf(bl, "%f,%f,%f,%f", &x0, &z0, &x1, &z1) == 4) {
+                  nav::Grid& g = nav::grid();
+                  const float len = std::hypot(x1 - x0, z1 - z0);
+                  for (float t = 0; t <= len; t += 8.0f) {
+                    const float x = x0 + (x1 - x0) * t / len, z = z0 + (z1 - z0) * t / len;
+                    const int cx = nav::cell_of(x), cz = nav::cell_of(z);
+                    float best = 1e9f, by = 0;
+                    for (int dz = -15; dz <= 15; ++dz)
+                      for (int dx = -15; dx <= 15; ++dx) {
+                        const int tx = nav::tile_of(cx + dx), tz = nav::tile_of(cz + dz);
+                        if (!g.built(tx * nav::kTile, tz * nav::kTile)) { int steps = 1 << 30; g.build(tx, tz, &steps); }
+                        for (int l = 0; l < nav::kLevels; ++l)
+                          if (const nav::Cell* q = g.cell(cx + dx, cz + dz, l); q && !(q->flags & nav::kNoGround) && in_band(q->y))
+                            if (const float d = std::hypot(dx * nav::kCell, dz * nav::kCell); d < best) best = d, by = q->y;
+                      }
+                    std::string floors;
+                    for (int l = 0; l < nav::kLevels; ++l)
+                      if (const nav::Cell* q = g.cell(cx, cz, l); q && !(q->flags & nav::kNoGround)) {
+                        char one[24];
+                        std::snprintf(one, sizeof one, " %.1f%s", q->y, g.tight(cx, cz, l) ? "t" : "");
+                        floors += one;
+                      }
+                    std::printf("  BAND-LINE %.0f,%.0f: %.0f m from the structure; floors%s; band floor %.0f m (y %.1f); %s\n", x, z,
+                                std::hypot(x - run->structure_at[0], z - run->structure_at[2]), floors.empty() ? " none" : floors.c_str(),
+                                best, by, band_refuses(cx, cz) ? "REFUSED" : "open");
+                  }
+                }
               }
               if (const char* bp = std::getenv("MW1_BAND_PROBE")) {  // x,z: the nearest floor in the band (+ margin) within 120 m
                 namespace nav = mech3::ai::nav;
@@ -3738,6 +3828,11 @@ TEST(mw1_loop_every_map_row_is_there_headless) {
                         run.net_points, run.patrol_start, run.patrol_path, run.patrol_by.c_str(), run.patrol_goal,
                         run.patrol_goal_by.c_str());
           std::strncat(line, more, sizeof line - std::strlen(line) - 1);
+          if (run.near_band) {  // FIXES 136: found only without kBandClear; the live drive is its gate
+            std::snprintf(more, sizeof more, "%-6s ia%d %-7s %-18s NEAR BAND: the nearest band floor %.0f m from the route (kBandClear %.0f m "
+                          "not kept; gated on the live drive)\n", r.world.c_str(), r.ia, kind_said(r.kind), r.node.c_str(), run.near_band_m, kBandClear);
+            std::strncat(line, more, sizeof line - std::strlen(line) - 1);
+          }
         }
         std::printf("  %s", line);
         if (const char* table = std::getenv("MW1_SURVEY_TABLE"))

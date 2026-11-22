@@ -252,6 +252,14 @@ Tick an item when it is merged into `main`.
     c3: −10000..−30; `mech3/cloud_band.h`) kills a 'Mech below it (`cloud_kill`, every part). The walk and the search
     refuse a cell with any floor in the band (+2 m) within `kBandClear` (36 m, beside `kReachRadius`; measured on
     c1 ia1, the drive cuts corners) of it; a world with no band is untouched (c2's check).
+  - **The clearance is a planning margin (2026-11-22, a project decision):** it binds the routes we choose (the point
+    search, the gate's first pass). A shipped structure row whose walk can't keep it is walked again with band floors
+    still refused but no clearance, labelled NEAR BAND in the survey with the band's nearest distance, and passes only
+    by the live drive (three seeds, all arrive, never down); with no route on either pass it fails as before. c3 ia1's
+    land bridge is the one: its approach runs beside a channel just under y −30 (12 m from the route at its nearest)
+    and its canyon lies in the band under the deck; NEAR BAND, it arrives 3/3 at 0%. (A depth or drop-height scale
+    was measured and dropped: c1's fatal ledge also first meets a floor 0.6 m into the band, and the kill is the 'Mech's
+    y inside the band at any depth.)
   - **Who hit the commander:** a ram (`Mech::collide`, the heavier's crash, no ally test, as the original: PM
     0x00423730) leaves no attacker to read, since `mech_after_frame` clears it each frame; the drive names an AI
     'Mech within `kRamContact` (15 m) as "ram: <pilot>". c1 ia2's 75% is a lancemate catching up with the slow or
