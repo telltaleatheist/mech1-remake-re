@@ -897,7 +897,7 @@ void Launcher::game_installed(const sdlfe::games::Done& d) {
     if (i == 2) find_mw1(), mw1_program_ = program_version(mw1_exe_);
   }
   GameCheck& c = checks_[i];
-  if (c.kind == GameCheck::kNewer && has_installed_[i] && compare_versions(c.release.tag, installed_[i].tag) <= 0) c.kind = GameCheck::kUpToDate;
+  if (c.kind == GameCheck::kNewer && has_installed_[i] && compare_game(c.release.tag, installed_[i].tag) <= 0) c.kind = GameCheck::kUpToDate;
   std::printf("mw3: launcher: games: %s now %s at %s\n", game_info(d.game).key, installed_[i].tag.c_str(), prog.c_str());
 }
 

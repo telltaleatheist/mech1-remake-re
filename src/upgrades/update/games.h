@@ -59,8 +59,10 @@ struct GameCheck {
 };
 GameCheck judge_game(Game g, const std::string& installed, const Answer& answer, Platform p);
 
-// A tag as a player reads it: "1.2.3" from "pm-v1.2.3".
+// A tag as a player reads it: "1.2.3" from "pm-v1.2.3", "1.0.7" from "mw1-v1.0.7".
 std::string game_version(const std::string& tag);
+// Two of a game's tags (or versions) by their numbers: <0, 0, >0.
+int compare_game(const std::string& a, const std::string& b);
 
 // The size of a download for the words: "48 MB".
 std::string size_words(uint64_t bytes);

@@ -33,10 +33,13 @@ const Asset* game_asset(Game g, const Release& r, Platform p) {
   return nullptr;
 }
 
+// compare_versions reads from the first digit, which in "mw1-v" is mw1's own "1".
+int compare_game(const std::string& a, const std::string& b) { return compare_versions(game_version(a), game_version(b)); }
+
 const Release* newest_game(Game g, const std::vector<Release>& releases, Platform p) {
   const Release* best = nullptr;
   for (const Release& r : releases)
-    if (!r.draft && !r.prerelease && game_tag(g, r.tag) && game_asset(g, r, p) && (!best || compare_versions(r.tag, best->tag) > 0))
+    if (!r.draft && !r.prerelease && game_tag(g, r.tag) && game_asset(g, r, p) && (!best || compare_game(r.tag, best->tag) > 0))
       best = &r;
   return best;
 }
@@ -96,7 +99,7 @@ GameCheck judge_game(Game g, const std::string& installed, const Answer& answer,
     return c;
   }
   c.release = *newest;
-  if (installed.empty() || compare_versions(newest->tag, installed) > 0) {
+  if (installed.empty() || compare_game(newest->tag, installed) > 0) {
     c.kind = GameCheck::kNewer;
     c.words = installed.empty() ? name + " " + game_version(newest->tag) + " can be installed."
                                 : name + " " + game_version(newest->tag) + " is out (installed: " + game_version(installed) + ").";
@@ -108,9 +111,10 @@ GameCheck judge_game(Game g, const std::string& installed, const Answer& answer,
 }
 
 std::string game_version(const std::string& tag) {
-  size_t i = 0;
-  while (i < tag.size() && !(tag[i] >= '0' && tag[i] <= '9')) ++i;
-  return i < tag.size() ? tag.substr(i) : tag;
+  // After the "v" that starts the numbers: "mw1-v1.0.7" has a digit in its prefix.
+  for (size_t i = 0; i + 1 < tag.size(); ++i)
+    if (tag[i] == 'v' && tag[i + 1] >= '0' && tag[i + 1] <= '9' && (i == 0 || tag[i - 1] == '-')) return tag.substr(i + 1);
+  return tag;
 }
 
 std::string size_words(uint64_t bytes) {
