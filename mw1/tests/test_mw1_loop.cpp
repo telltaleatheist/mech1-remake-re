@@ -465,7 +465,9 @@ mw1::placement::Route walk_route(mw1::placement::Point a, float ay, mw1::placeme
 // Every 100 m cell is a candidate where: inside the yellow with 100 m to spare each way; on the mission map's image
 // (16 px in), which the radar's map mode (Shift+R) draws the nav point on; 800 to 2500 m from the start (nearer, the
 // race ratio ranks the start's own doorstep first); at least the
-// route clearance (200 m) from every enemy place; one dry floor (open ground, no roof or bridge over it). Ranked by the
+// route clearance (200 m) from every enemy place; one dry floor (open ground, no roof or bridge over it); at most 90
+// degrees at A off the way to the enemies' centre (to its side or toward it: a reach behind the start is a walk, not a
+// contract, and a map with none gets no point row, a project decision). Ranked by the
 // race ratio |AC| / |BC| (under 1: the player nearer the point than the enemies' centre), then the angle at A off the
 // A-B line (ranking only, a project decision: the gate is the walking route and the live drive). The ranked ones are
 // walked on the engine's grid (walk_route, the gate's rule) in order, each at least 400 m from one already found and
@@ -513,7 +515,9 @@ void point_search(const std::string& world, int ia, const float a[3], const std:
       float nearest = 1e9f;
       for (const mw1::placement::Point& e : places) nearest = std::min(nearest, std::hypot(x - e.x, z - e.z));
       if (nearest < kRouteClearance || !one_floor(x, z)) continue;
-      cands.push_back({{x, z}, mw1::placement::measure({a[0], a[2]}, {x, z}, places, ground)});
+      const mw1::placement::Measures m = mw1::placement::measure({a[0], a[2]}, {x, z}, places, ground);
+      if (m.angle_at_start > 90.0f) continue;  // behind the start, away from the enemy: not a contract (a project decision)
+      cands.push_back({{x, z}, m});
     }
   std::sort(cands.begin(), cands.end(), [](const Cand& p, const Cand& q) {
     return p.m.race != q.m.race ? p.m.race < q.m.race : p.m.angle_at_start > q.m.angle_at_start;
@@ -2102,7 +2106,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
                 }
               // MW1_WALK_PROBE=world:x,z0,z1[;...]: the grid's cells down that line (floors, flags, the step south) and the world's
               // wall test across each step at 0.5..12 m over the ground, to find what stops a mech the grid lets by.
-              if (const char* wps = std::getenv("MW1_WALK_PROBE"); wps && run->walk.found)
+              if (const char* wps = std::getenv("MW1_WALK_PROBE"))
                 for (std::string rest = wps; !rest.empty();) {
                 const size_t semi = rest.find(';');
                 const std::string one = rest.substr(0, semi);
