@@ -7,6 +7,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -33,6 +34,19 @@ std::string unpacked_dir(const std::string& write_dir);
 // that holds BTECH.EXE, with everything under it. A folder there that we did
 // not make (no marker) is never replaced. "" and `error` (plain words) on failure.
 std::string unpack(const std::string& archive, const std::string& write_dir, std::string* error);
+
+// Whether `dir` is unpacked_dir or inside it (links followed): our own copy, used where it is.
+bool in_unpacked(const std::string& dir, const std::string& write_dir);
+
+// A MechWarrior (1989) folder copied into unpacked_dir, so the player's own may be deleted afterwards (a project
+// decision, 2026-11-21): the kit's copy_folder into <unpacked_dir>.copying (room checked, links followed, a failure
+// or a cancel leaving nothing), marked as ours, then swapped in (rekit::swap_in_folder: a folder there that we did
+// not make is never replaced; the old copy kept until the new one is in). A folder already in_unpacked is used where
+// it is, never copied onto itself. The folder now holding the game, or "" with `error` (plain words) and
+// `*cancelled` set when `progress` said stop.
+using CopyProgress = std::function<bool(uint64_t done, uint64_t total, const std::string& file)>;
+std::string copy_in(const std::string& game, const std::string& write_dir, std::string* error,
+                    const CopyProgress& progress = nullptr, bool* cancelled = nullptr);
 
 // What a pick from the MECHWARRIOR 1 line stands for: an archive unpacked,
 // a folder searched (game_in), any other file its folder's. "" and `error`.

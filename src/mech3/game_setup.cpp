@@ -1,4 +1,5 @@
 #include "mech3/game_setup.h"
+#include "rekit/files.h"
 
 #include <algorithm>
 #include <cctype>
@@ -166,11 +167,14 @@ Result install_from_source(const source::Found& found, const std::string& out_di
     return r;
   }
   const std::string patch_for = pm ? std::string() : patch;
-  if (found.on_disk && found.kind == Found::kInstall) return check_install(found.path, write_dir, pm);
-  if (found.on_disk) return install_from_disc(found.path, out_dir, patch_for, music_dir, progress, "", pm);
-
   const fs::path out(out_dir), staging = fs::path(write_dir) / "setup-staging";
   std::error_code ec;
+  // An installed copy on disk is copied in like one in an archive (Owen, 2026-11-21: once found, the original
+  // may be deleted); only this folder's own copy is used where it is.
+  const bool copy_folder = found.on_disk && found.kind == Found::kInstall;
+  if (copy_folder && fs::equivalent(found.path, out, ec)) return check_install(found.path, write_dir, pm);
+  if (found.on_disk && !copy_folder) return install_from_disc(found.path, out_dir, patch_for, music_dir, progress, "", pm);
+
   if (fs::exists(out, ec) && !fs::exists(out / "mw3-install.txt", ec) && !fs::is_empty(out, ec)) {
     r.summary = "The folder " + out_dir + " already has other files in it. Choose an empty folder.";
     return r;
@@ -180,10 +184,21 @@ Result install_from_source(const source::Found& found, const std::string& out_di
   fs::remove_all(staging, ec);
   // The read: most of the time for a disc image, all of it for a copy.
   const double share = found.kind == Found::kInstall ? 0.95 : 0.6;
-  const Staged s = source::stage_source(found, staging.string(), found.kind == Found::kInstall ? tmp : std::string(),
-                                        [&](double f, const std::string& entry) {
-                                          return p(Progress{"Reading " + fs::path(found.path).filename().string(), f * share, entry});
-                                        });
+  Staged s;
+  if (copy_folder) {
+    const rekit::CopyResult c = rekit::copy_folder(found.path, tmp, [&](uint64_t done, uint64_t total, const std::string& file) {
+      return p(Progress{"Copying " + fs::path(found.path).filename().string(), total ? share * done / total : 0, file});
+    });
+    s.ok = c.ok, s.files = c.files, s.bytes = c.bytes, s.error = c.error;
+    if (!c.ok) s.failure = c.cancelled ? Staged::kCancelled : c.no_space ? Staged::kNoSpace : Staged::kCannotWrite;
+    s.space_needed = c.needed, s.space_free = c.free, s.space_where = out.parent_path().string();
+    s.log.push_back("copied " + std::to_string(c.files) + " files from " + found.path);
+  } else {
+    s = source::stage_source(found, staging.string(), found.kind == Found::kInstall ? tmp : std::string(),
+                             [&](double f, const std::string& entry) {
+                               return p(Progress{"Reading " + fs::path(found.path).filename().string(), f * share, entry});
+                             });
+  }
   for (const std::string& l : s.log) r.detail += l + "\n";
   if (!s.ok) {
     r.detail += s.error + "\n";

@@ -46,7 +46,8 @@ Result install_from_disc(const std::string& source, const std::string& out_dir, 
                          bool pirates_moon = false);
 
 // Whatever map_source found (source_map.h), installed. An installed copy on
-// disk is used where it is (check_install); a disc or image on disk goes to
+// disk is copied into `out_dir` (rekit::copy_folder; `out_dir` itself is used
+// where it is); a disc or image on disk goes to
 // install_from_disc; anything in an archive is read out in one forward pass
 // (source_install.h): an installed copy's files into `out_dir`.new, a disc's
 // cabinet and movies staged in `write_dir`/setup-staging (removed after) and

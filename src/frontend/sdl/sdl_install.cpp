@@ -96,7 +96,9 @@ std::vector<std::string> install_candidates(bool pirates_moon) {
     h.installer_folders = {"MicroProse/MechWarrior 3", "MicroProse/MechWarrior3"};
     h.other_folders = {"Games/MechWarrior 3", "Games/MechWarrior3", "Games/MW3", "MechWarrior 3", "MechWarrior3", "MW3"};
   }
-  const char* base = SDL_GetBasePath();
+  // MW3_SEARCH_PROGRAM_DIR (checks): the program's places taken from there, for a drop-in laid out by a test.
+  const char* base = SDL_getenv("MW3_SEARCH_PROGRAM_DIR");
+  if (!base) base = SDL_GetBasePath();
   return rekit::install_candidates(h, base ? base : "");
 }
 

@@ -58,7 +58,7 @@ File weapons() {
               {W, "LOCK_ON_LEAD", "list: min max", "none", "min <= max", "Leads a locked target between these ranges."},
               {W, "MINE", "flag 0/1", "0", "", "Lies where it lands."},
               {W, "MULTI_TARGET", "flag 0/1", "0", "", "Can take several targets."},
-              {W, "QUICKSAND", "a block", "none", "", "A crater that sinks mechs (the CRATER keys)."},
+              {W, "QUICKSAND", "a block", "none", "", "Not used in MW3 (Recoil's, on the same engine): a quicksand pit (the CRATER keys), only a picture; it neither slows nor sinks a mech (craters.md 3)."},
               {W, "RANGE", "float (m)", "500", "", "How far it reaches."},
               {W, "RANGE_MINIMUM", "list: two floats", "none", "", "The closest it can hit, and a second distance."},
               {W, "RELATIVE_SPEED", "flag 0/1", "0", "", "Shots add the firer's speed."},

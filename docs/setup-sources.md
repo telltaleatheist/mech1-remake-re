@@ -111,7 +111,9 @@ zip (a long run).
    the staged movies with `movies_from` and moves them in before it writes
    mw3-install.txt, last). An installed copy gets its mw3-install.txt last
    too, then `out_dir`.new is renamed: a folder without the marker was never
-   finished. An installed copy on disk is used where it is (`check_install`);
+   finished. An installed copy on disk is copied in the same way (`rekit::copy_folder`
+   into `out_dir`.new, links followed; Owen, 2026-11-21: once found, the
+   original may be deleted), except `out_dir` itself picked again (`check_install`);
    a disc or image on disk goes to `install_from_disc` as before.
    - Safety: an entry's path is refused when absolute, with a drive ("C:",
      "C:x"), or with any ".." part, backslashes read as separators
