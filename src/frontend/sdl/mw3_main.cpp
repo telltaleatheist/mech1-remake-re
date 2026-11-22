@@ -1012,9 +1012,8 @@ int program(int argc, char** argv) {
     const std::string found = sdlfe::find_install(a.cfg_install, more, false, &searched);
     // Found by the search (the installer's places, a drop-in), not set up yet: the find screen offers to copy it
     // in first (Owen, 2026-11-21: once found, the original may be deleted). mw3.cfg's and SETUP's own go straight in.
-    // Pirate's Moon (this branch): not yet; its own start has no find screen of its own (issue #13's
-    // dialog), so a find is used where it is, as before, until the launcher's screen has a PM mode.
-    const bool elsewhere = false && searched && std::find(more.begin(), more.end(), found) == more.end();
+    // Pirate's Moon (this branch): the find screen as its own (LauncherOptions::pm, below).
+    const bool elsewhere = searched && std::find(more.begin(), more.end(), found) == more.end();
     if (!found.empty() && elsewhere) {
       setup_only = true, look_first = found;
       std::printf("mw3: found %s: the find screen offers to copy it in\n", found.c_str());
@@ -1035,6 +1034,7 @@ int program(int argc, char** argv) {
     lo.setup_only = setup_only;
     lo.look_first = look_first;
     lo.choose_again = choose_again;
+    lo.pm = true;  // this branch's program is mw3pm: the find screen is Pirate's Moon's (issue #13: never MW3's)
     lo.write_dir_fixed = write_dir_given;
     lo.write_dir = a.write_dir, lo.cfg_install = a.cfg_install, lo.cfg_mw1_game = a.cfg_mw1_game;
 #ifdef MW3_GAME_DIR

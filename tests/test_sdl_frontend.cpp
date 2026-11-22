@@ -4003,6 +4003,66 @@ bool waited(pid_t pid, int* status, int seconds = 120) {
   waitpid(pid, status, 0);
   return false;
 }
+
+// mw3pm's own start chooses its files as mw3 does (Owen, 2026-11-21; LauncherOptions::pm): a Pirate's Moon folder
+// dropped beside the program is offered on the find screen, as Pirate's Moon's (issue #13: never MW3's), copied
+// into the write dir's install (its mw3.cfg install=), started from the copy, the next start straight in; Shift
+// held shows what is in use, and FIND THE GAME's picker takes another copy, copied in instead.
+TEST(sdl_program_pm_offers_a_found_copy_and_shift_chooses_again) {
+  namespace fs = std::filesystem;
+  const std::string dir = std::string(MW3_TEST_TMP) + "/pm_found_copy";
+  std::error_code ec;
+  fs::remove_all(dir, ec);
+  const std::string drop = dir + "/My PM", other = dir + "/Other PM";
+  for (const std::string& d : {drop, other}) {
+    fs::create_directories(d + "/video", ec);
+    fs::create_directory_symlink(std::string(MW3_GAME_DIR) + "/zbd", d + "/zbd", ec);
+    for (const char* f : {"Mech3.exe", "Mech3Msg.dll"}) fs::copy_file(std::string(MW3_GAME_DIR) + "/" + f, d + "/" + f, ec);
+  }
+  fs::create_directories(dir + "/bin", ec);
+  fs::create_directories(dir + "/elsewhere", ec);
+  fs::rename(other, dir + "/elsewhere/Other PM", ec);  // not beside the program: only the picker reaches it
+  auto run = [&](const std::string& log, int* code) {
+    int status = 0;
+    *code = waited(spawn_mw3({"--write-dir", dir + "/wd", "--window", "640x480", "--nosound", "--no-import"}, log), &status, 300) &&
+                    WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+    std::ifstream f(log);
+    return std::string((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+  };
+  setenv("MW3_FIND_INSTALL", "1", 1);
+  setenv("MW3_SEARCH_PROGRAM_DIR", (dir + "/bin/").c_str(), 1);
+  setenv("MW3_START_ONLY", "1", 1);
+  setenv("MW3_LAUNCHER_FRAMES", "3600", 1);
+  setenv("MW3_LAUNCHER_GO", "1", 1);
+  int code = -1;
+  const std::string a = run(dir + "/a.log", &code);
+  const std::string copy = dir + "/wd/install";
+  std::ifstream cf(dir + "/wd/mw3.cfg");
+  const std::string cfg((std::istreambuf_iterator<char>(cf)), std::istreambuf_iterator<char>());
+  std::printf("  pm: offered %d, copied %d, started from it %d\n", a.find("Pirate's Moon found at " + drop + ": offered") != std::string::npos,
+              fs::is_regular_file(copy + "/Mech3.exe", ec), a.find("start only: install " + copy) != std::string::npos);
+  EXPECT(code == 0 && a.find("mw3: found " + drop + ": the find screen offers to copy it in") != std::string::npos &&
+         a.find("found plate: My PM") != std::string::npos && a.find("INSTALLING PIRATE'S MOON") != std::string::npos);
+  EXPECT(a.find("mw3: start only: install " + copy) != std::string::npos && cfg.find("install=" + copy) != std::string::npos);
+  unsetenv("MW3_LAUNCHER_GO");
+  fs::remove_all(drop, ec);  // the original gone: the copy stands
+  const std::string b = run(dir + "/b.log", &code);
+  EXPECT(code == 0 && b.find("screen find:") == std::string::npos && b.find("mw3: start only: install " + copy) != std::string::npos);
+  setenv("MW3_SHIFT_HELD", "1", 1);
+  setenv("MW3_LAUNCHER_NAV", "next,press", 1);
+  setenv("MW3_LAUNCHER_GO", "1", 1);
+  setenv("MW3_LAUNCHER_PICKER", ("path:" + dir + "/elsewhere/Other PM/Mech3.exe").c_str(), 1);
+  const std::string c = run(dir + "/c.log", &code);
+  for (const char* v : {"MW3_SHIFT_HELD", "MW3_LAUNCHER_NAV", "MW3_LAUNCHER_GO", "MW3_LAUNCHER_PICKER", "MW3_FIND_INSTALL",
+                        "MW3_SEARCH_PROGRAM_DIR", "MW3_START_ONLY", "MW3_LAUNCHER_FRAMES"})
+    unsetenv(v);
+  std::printf("  pm shift: in use said %d, picker %d, copied %d\n", c.find("In use: ") != std::string::npos || c.find("PLAY") != std::string::npos,
+              c.find("picker asked for") != std::string::npos, c.find("copied from Other PM") != std::string::npos);
+  EXPECT(code == 0 && c.find("Shift held at the start") != std::string::npos && c.find("FIND THE GAME, ADD FROM MY DISC, PLAY") != std::string::npos);
+  EXPECT(c.find("picker asked for") != std::string::npos && c.find("copied from Other PM") != std::string::npos &&
+         c.find("mw3: start only: install " + copy) != std::string::npos);
+  if (!check::failures) fs::remove_all(dir, ec);
+}
 #endif
 #if !defined(_WIN32)  // posix_spawn, waitpid
 extern char** environ;
