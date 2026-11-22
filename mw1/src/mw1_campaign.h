@@ -137,6 +137,20 @@ struct Upgrades {
   std::vector<WeaponSteps> steps;
 };
 
+// FIXES 122 (mw1_dealer.h): one line of the world's arms dealer's stock: a loadout item's kind as PM's items have it
+// (1 weapon, 2 ammunition, 3 equipment), its id (weapon or equipment kind), its tech (1 Clan, 2 Inner Sphere; 0 for
+// ammunition) and how many (ammunition: one-ton lots).
+struct DealerItem {
+  int32_t kind = 1, id = 0, tech = 2, count = 0;
+  friend bool operator==(const DealerItem& a, const DealerItem& b) {
+    return a.kind == b.kind && a.id == b.id && a.tech == b.tech && a.count == b.count;
+  }
+};
+struct Dealer {
+  std::vector<DealerItem> stock;
+  bool rolled = false;  // stocked once (dealer::roll_stock at the market's refresh, or a save's line); not saved
+};
+
 struct OwnedMech {
   int32_t mech = kPmOwens;
   std::shared_ptr<mech3::Config> loadout;  // null: its stock loadout
@@ -253,6 +267,7 @@ struct Company {
   std::shared_ptr<mech3::Config> loadout;
   Kits kits;  // FIXES 118: the kits on the commander's mech (they go with the mech, as a hangar mech's)
   Upgrades upgrades;  // FIXES 118 (mw1_upgrades.h)
+  Dealer dealer;  // FIXES 122 (mw1_dealer.h): this world's, restocked with the market
   int32_t kills = 0;  // playerCombatCredit: enemy mechs disabled, all campaign long
   int32_t favor[kHouseCount] = {}, grievance[kHouseCount] = {};
   // Ours (FIXES.md item 84): the months since the company last fought each House (or since its last grievance

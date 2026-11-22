@@ -93,6 +93,7 @@
 #include "mw1_images.h"
 #include "mw1_lab_skin.h"
 #include "mw1_layouts.h"
+#include "mw1_dealer.h"
 #include "mw1_mission_maps.h"
 #include "mw1_missions.h"
 #include "mw1_pilots.h"
@@ -3753,6 +3754,8 @@ static bool reach_ground(const std::string& structure, float out[3]) {
       switch (load_file(save_path_, company_, contract_, &has_offer, &why, pending.get(), &has_pending)) {
         case Loaded::kLoaded:
           if (!company_.market.rolled) refresh_world(company_, rng_);  // a version 1 save: no market yet
+          // FIXES 122: a save from before the arms dealer: its stock as this world and date roll it (its own seed).
+          if (!company_.dealer.rolled) dealer::roll_stock(company_);
           // Before version 4: no Bar yet. (Not on an empty list: a save whose recruits were all hired keeps none; FIXES 125's
           // LOAD reads the slot again over the company in play, and the soak found the redraw.)
           else if (company_.recruits_unsaved) refresh_recruits(company_, rng_), company_.recruits_unsaved = false;

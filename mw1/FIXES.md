@@ -609,6 +609,15 @@ and pick the slot to overwrite".
   the funds and lands in the stores; the lab fits it. 111's gauge (`MW1_ITEM_SOURCES`, the ITEM lines) is rerun to
   show every item above reachable.
 - **Links:** 118 (the hub's other money sink), 121 (torso items lost to salvage), 111 (the weapons report).
+- **1.1.0's plan:** mw1/research/plan-1.1.0.md. Done so far:
+  - **Slice 4, the dealer's model (mw1-110-dealer):** `mw1_dealer.h`. The wares are PM's weapons in each tech, their
+    ammunition in one-ton lots, and the equipment the lab fits, except plain armour. Every item listed above is a
+    ware. Rarity: Clan wares are rare (tier 3 and the Clan worlds); the Inner Sphere items above are uncommon (tier 1
+    and up); the rest are common. The stock is rolled at each market refresh from its own seed (the world and the
+    date), so the campaign's dice are untouched. BUY puts one into the stores; SELL takes one out of them, at the
+    tier's percentages as a 'Mech's. Save 13 adds `dealer_stock`. The prices and the stock's numbers are placeholders
+    in `mw1_dealer.h`; `MW1_PRICE_TABLE=1` with `mw1_dealer_price_table` prints every ware's prices with PM's weights.
+    No screen yet.
 
 ## 121. [x] Clan targeting computers and AMSes almost never salvaged *(closed: by design, the exe's rule kept; mw1-fix121-salvage-tc-ams)*
 From dev 1's 111 weapons report (the lead, 2026-11-20):

@@ -12,6 +12,7 @@
 #include "mech3/mech_names.h"
 #include "mech3/mech_reader.h"
 #include "mech3/pilot.h"
+#include "mw1_dealer.h"
 #include "mw1_upgrades.h"
 
 namespace mw1::market {
@@ -111,6 +112,7 @@ void refresh_market(Company& c, Rng& rng) {
   m.shift.assign(mech3::kMechCount, 0);
   for (int32_t mech = 0; mech < mech3::kMechCount; ++mech)
     if (sold_mech(mech)) m.shift[static_cast<size_t>(mech)] = roll_shift(rng);
+  dealer::roll_stock(c);  // FIXES 122: the arms dealer restocks with the market (its own seed: `rng` untouched)
 }
 
 void clamp_stores(mech3::Store& s) {
