@@ -34,11 +34,15 @@ different folder leaves the old folder's files there; delete them yourself.
 On the first start:
 - It looks for your MechWarrior 3 install (where the original installer put
   it, then Program Files\MicroProse\MechWarrior 3 and usual folders such as
-  C:\Games\MechWarrior3) and, when it finds one, goes straight into the
-  game. The folder is remembered. You can also name it:
+  C:\Games\MechWarrior3, or a game folder put next to the program) and,
+  when it finds one, asks USE THESE GAME FILES?: INSTALL copies it into the
+  game's own folder (so your copy can be deleted afterwards), and clicking
+  the found copy lets you pick other files instead. Hold Shift while the
+  game starts to choose again later. You can also name a folder to play
+  from as it is:
       mw3.exe "C:\path\to\MechWarrior 3"
 - If it finds none, it shows its setup screen. POINT TO YOUR GAME takes
-  whatever you have: your installed copy's Mech3.exe (or A FOLDER INSTEAD),
+  whatever you have: your installed copy's Mech3.exe (or A FOLDER INSTEAD, copied in),
   the disc or a disc image (.iso, or .cue with its .bin files, whose CD
   audio becomes the music), or the file you downloaded (.zip, .7z or .rar,
   even a zip inside a zip; nothing to unpack by hand). It says what it

@@ -69,6 +69,21 @@ bool relative_parts(std::string path, const std::string& prefix, std::vector<std
   return true;
 }
 
+// Whether the files under `dir` (links followed, as the copy follows them) come to more than `limit` bytes;
+// stops counting as soon as they do, so a whole drive is not walked.
+bool larger_than(const std::string& dir, uint64_t limit) {
+  std::error_code ec;
+  uint64_t total = 0;
+  const auto opts = fs::directory_options::follow_directory_symlink | fs::directory_options::skip_permission_denied;
+  for (fs::recursive_directory_iterator it(dir, opts, ec), end; !ec && it != end; it.increment(ec)) {
+    std::error_code e2;
+    if (!it->is_regular_file(e2)) continue;
+    const uint64_t size = it->file_size(e2);
+    if (!e2 && (total += size) > limit) return true;
+  }
+  return false;
+}
+
 std::string archive_dir(const std::string& path) {
   std::string p = path;
   std::replace(p.begin(), p.end(), '\\', '/');
@@ -213,7 +228,7 @@ bool in_unpacked(const std::string& dir, const std::string& write_dir) {
 }
 
 std::string copy_in(const std::string& game, const std::string& write_dir, std::string* error, const CopyProgress& progress,
-                    bool* cancelled) {
+                    bool* cancelled, uint64_t max_bytes) {
   auto fail = [error](const std::string& why) {
     if (error) *error = why;
     return std::string();
@@ -221,6 +236,9 @@ std::string copy_in(const std::string& game, const std::string& write_dir, std::
   if (cancelled) *cancelled = false;
   if (!game_valid(game)) return fail("That folder has no BTECH.EXE: it is not MechWarrior (1989).");
   if (in_unpacked(game, write_dir)) return game;  // ours already: used where it is
+  if (larger_than(game, max_bytes))
+    return fail("The folder " + game + " holds far more than MechWarrior (1989), which is about 1 MB: nothing was copied. "
+                "Put the game's files in a folder of their own and pick that.");
   const fs::path dest = unpacked_dir(write_dir), tmp = dest.string() + ".copying";
   std::error_code ec;
   if (!clearable(dest)) return fail("The folder " + dest.string() + " is not one the launcher made: move it away first.");
