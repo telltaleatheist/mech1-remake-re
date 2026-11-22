@@ -1,4 +1,4 @@
-# MW1: Critical Hit
+# MechWarrior 1 Remake
 
 A fan remake of **MechWarrior** (Dynamix and Activision, 1989) on the engine
 of the [MechWarrior 3 rebuild](https://github.com/telltaleatheist/mw3-re).
@@ -37,7 +37,7 @@ own or with the MechWarrior 3 rebuild, as a third game on its launcher.
 ## Getting it
 
 ```
-git clone -b mw1 https://github.com/telltaleatheist/mw3-re.git
+git clone https://github.com/telltaleatheist/mech1-remake-re.git
 ```
 
 ## Building
@@ -59,7 +59,7 @@ On Windows, the same route as mw3pm's (`tools\windows\build.cmd mw1`).
 
 `mw1` is Pirate's Moon's game main (`src/frontend/sdl/mw3_main.cpp`) started
 by `mw1/src/mw1_main.cpp`. It has its own settings and saves folder, SDL's
-app data for "MicroProse/MechWarrior 1 Critical Hit", apart from MW3's and
+app data for "MicroProse/MechWarrior 1 Remake", apart from MW3's and
 PM's. It takes the player's three installs; the launcher's MECHWARRIOR 1
 icon passes them:
 
@@ -73,6 +73,25 @@ icon passes them:
   launcher beside it.
 - Development builds fall back to the `game/` copies above. These are never
   saved.
+
+## Packaging
+
+MechWarrior 1 Remake's own packages, the ones the launcher's INSTALL / UPDATE
+downloads from this repo's Releases, are built from an `mw1-vX.Y.Z` tag by
+`mw1/tools/package/` (PM's own `tools/macos`, `tools/linux` and
+`tools/windows` scripts are left as they are):
+
+| Platform | Script (from the repo root) | Out |
+|---|---|---|
+| Mac | `mw1/tools/package/make_app.sh --deps` | `build-mw1-mac/dist/MW1-Remake-<tag>-mac.dmg` ("MechWarrior 1 Remake.app": `Contents/MacOS/mw1`, `mw1data` in `Contents/Resources`) |
+| Windows | `mw1\tools\package\package.cmd` | `build-mw1-win\dist\MW1-Remake-<tag>-win64.zip` (one top folder: `mw1.exe`, its DLLs, `mw1data\`) |
+| Linux | `mw1/tools/package/make_appimage.sh PREFIX TOOLS` | `build-mw1-linux/dist/MW1-Remake-<tag>-x86_64.AppImage` (`usr/bin/mw1`, `usr/bin/mw1data`) |
+
+The release carries a `SHA256SUMS` line for each (the launcher installs
+nothing without it). Each script builds from scratch, bundles the libraries,
+checks that no game file and no local path is in the package, and warns on a
+dirty tree. The dependency prefixes are the ones `tools/deps/build_deps.sh`
+and `tools/windows/package.cmd` use; DEPLOY.md has the whole release.
 
 ## Credits and licence
 

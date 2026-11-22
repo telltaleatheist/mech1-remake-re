@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=MechWarrior 1 Remake
+Comment=MechWarrior (1989)'s campaign on the MechWarrior 3 rebuild, with your own game files
+Exec=mw1
+Icon=mw1
+Categories=Game;ActionGame;
+Terminal=false
