@@ -1423,7 +1423,7 @@ void Launcher::layout() {
                Button::kGrey, !port_exe_.empty());
           if (!mw1_logged_) std::printf("mw3: launcher: entry MECHWARRIOR 1: Not installed\n"), mw1_logged_ = true;
         } else {
-        c.lines.push_back(std::string(mw1_remake_ ? "Remake " + (mw1_program_.empty() ? std::string("ready") : mw1_program_) : "No remake") +
+        c.lines.push_back(std::string(mw1_remake_ ? "Remake " + (mw1_program_.empty() ? std::string("ready") : upgrades::update::game_version(mw1_program_)) : "No remake") +
                           " \xc2\xb7 " + (mw1_game_.empty() ? "1989 game not found yet" : "1989 game found"));
         if (!needs.empty()) {  // short on the card (it cut mid-word, MW1 dev 2's 1.2.0 pass); whole in the status line
           const bool mw3 = install_.ok && !install_.dir.empty(), pm = !pm_dir_.empty();
