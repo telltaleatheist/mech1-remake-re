@@ -12,6 +12,7 @@
 #include "mech3/mech_names.h"
 #include "mech3/mech_reader.h"
 #include "mech3/pilot.h"
+#include "mw1_upgrades.h"
 
 namespace mw1::market {
 
@@ -203,10 +204,13 @@ Deal sell(Company& c, int32_t owned_index, const StockLoadout& stock) {
   c.funds += market_sell_price(c, mech);
   c.market.stock.push_back(mech);
   ++c.market.sold;
+  // FIXES 118: its kits back in the storehouse; the next mech's go with it.
   if (owned_index == 0) {
-    c.mech = c.hangar.front().mech, c.loadout = c.hangar.front().loadout;
+    upgrades::return_kits(c, c.kits);
+    c.mech = c.hangar.front().mech, c.loadout = c.hangar.front().loadout, c.kits = c.hangar.front().kits;
     c.hangar.erase(c.hangar.begin());
   } else {
+    upgrades::return_kits(c, c.hangar[static_cast<size_t>(owned_index - 1)].kits);
     c.hangar.erase(c.hangar.begin() + (owned_index - 1));
   }
   return Deal::kDone;
@@ -217,6 +221,7 @@ Deal pilot(Company& c, int32_t owned_index) {
   OwnedMech& o = c.hangar[static_cast<size_t>(owned_index - 1)];
   std::swap(c.mech, o.mech);
   std::swap(c.loadout, o.loadout);
+  std::swap(c.kits, o.kits);  // FIXES 118: the kits stay on their mech
   return Deal::kDone;
 }
 

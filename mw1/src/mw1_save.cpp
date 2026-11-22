@@ -4,6 +4,7 @@
 #include "mw1_repairs.h"
 #include "mw1_ladder.h"
 #include "mw1_market.h"
+#include "mw1_upgrades.h"
 
 #include <cctype>
 #include <ctime>
@@ -19,6 +20,7 @@
 
 #include "mech3/mech_config.h"
 #include "mech3/mech_ids.h"
+#include "mech3/mech_names.h"
 #include "mech3/pilot.h"
 
 namespace fs = std::filesystem;
@@ -173,6 +175,18 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
     if (c.story.seen[static_cast<size_t>(id)] == kSeenWaiting) o << (n++ ? "," : "") << id;
   o << "\n";
   o << "stores=" << (c.stores ? hex(bytes_of([&](std::FILE* f) { c.stores->save(f); })) : std::string()) << "\n";
+  // Version 13 (FIXES 118, mw1_upgrades.h): the kits in the storehouse, how many of each ever bought, those on each
+  // mech (the commander's, then the hangar's), and the weapon types' steps.
+  o << "kits=" << c.upgrades.store.sinks << ":" << c.upgrades.store.armour << "\nkits_bought=" << c.upgrades.sinks_bought << ":"
+    << c.upgrades.armour_bought << "\nmech_kits=" << c.kits.sinks << ":" << c.kits.armour << "\n";
+  for (size_t i = 0; i < c.hangar.size(); ++i)
+    o << "hangar" << i << "_kits=" << c.hangar[i].kits.sinks << ":" << c.hangar[i].kits.armour << "\n";
+  o << "steps=";
+  for (size_t i = 0; i < c.upgrades.steps.size(); ++i) {
+    const WeaponSteps& w = c.upgrades.steps[i];
+    o << (i ? "," : "") << w.weapon << ":" << w.tech << ":" << w.power << ":" << w.range;
+  }
+  o << "\n";
   // Version 10: the log, newest first, numbers only.
   o << "log_count=" << c.log.size() << "\n";
   for (size_t i = 0; i < c.log.size(); ++i) {
@@ -695,6 +709,45 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
     if (!store_line("pending_salvage", true, &p.salvage) || !store_line("pending_launch_stores", false, &p.launch_stores) ||
         !loadout_line("pending_launch_loadout", &p.launch_loadout, c.mech))
       return fail("the pending mission's stores or loadout don't read");
+  }
+  // Version 13 (FIXES 118): the upgrades; each line absent (an older save): none.
+  {
+    auto numbers = [&](const std::string& text, size_t count, int64_t most, std::vector<int64_t>* out) {
+      std::istringstream is(text);
+      std::string e;
+      while (std::getline(is, e, ':')) {
+        int64_t x = 0;
+        if (out->size() >= count || !to_int(e, 0, most, &x)) return false;
+        out->push_back(x);
+      }
+      return out->size() == count;
+    };
+    auto kits_line = [&](const std::string& key, int32_t* a, int32_t* b) {
+      if (!v.count(key)) return true;
+      std::vector<int64_t> x;
+      if (!numbers(v[key], 2, upgrades::kCountMost, &x)) return false;
+      *a = static_cast<int32_t>(x[0]), *b = static_cast<int32_t>(x[1]);
+      return true;
+    };
+    if (!kits_line("kits", &c.upgrades.store.sinks, &c.upgrades.store.armour) ||
+        !kits_line("kits_bought", &c.upgrades.sinks_bought, &c.upgrades.armour_bought) ||
+        !kits_line("mech_kits", &c.kits.sinks, &c.kits.armour))
+      return fail("the kits don't read");
+    for (size_t i = 0; i < c.hangar.size(); ++i)
+      if (!kits_line("hangar" + std::to_string(i) + "_kits", &c.hangar[i].kits.sinks, &c.hangar[i].kits.armour))
+        return fail("a hangar mech's kits don't read");
+    std::istringstream ss(v.count("steps") ? v["steps"] : std::string());
+    std::string f;
+    while (std::getline(ss, f, ',')) {
+      std::vector<int64_t> x;
+      if (!numbers(f, 4, upgrades::kCountMost, &x) || x[0] >= mech3::weapon_count() ||
+          (x[1] != mech3::kClan && x[1] != mech3::kInnerSphere))
+        return fail("the weapon steps don't read");
+      const WeaponSteps w{static_cast<int32_t>(x[0]), static_cast<int32_t>(x[1]), static_cast<int32_t>(x[2]), static_cast<int32_t>(x[3])};
+      for (const WeaponSteps& o : c.upgrades.steps)
+        if (o.weapon == w.weapon && o.tech == w.tech) return fail("a weapon type's steps are there twice");
+      c.upgrades.steps.push_back(w);
+    }
   }
   if (!v5) c.repair_premium = (c.tier + 1) * kPremiumStep;  // before version 5: the world's premium without its roll
   if (!v7) c.patience = kPatienceBase[c.planet_house] + kPatienceRollMax / 2;  // before 7: the House's middle patience

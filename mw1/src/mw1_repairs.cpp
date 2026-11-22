@@ -7,6 +7,7 @@
 #include "mw1_log.h"
 #include "mw1_market.h"
 #include "mw1_pilots.h"
+#include "mw1_upgrades.h"
 
 namespace mw1::repairs {
 namespace {
@@ -85,7 +86,8 @@ Repairs settle_repairs(Company& c, const std::vector<MechBill>& bills, int64_t p
     if (take >= 0) {
       const OwnedMech o = c.hangar[static_cast<size_t>(take)];
       c.hangar.erase(c.hangar.begin() + take);
-      c.mech = o.mech, c.loadout = o.loadout;
+      upgrades::return_kits(c, c.kits);  // FIXES 118: the lost mech's kits back in the storehouse
+      c.mech = o.mech, c.loadout = o.loadout, c.kits = o.kits;
       r.took = o.mech, r.took_from = from;
       log_add(c, LogKind::kMechLost, true, was);  // FIXES.md item 79: the commander's own, in the log as a lancemate's is
       lost.push_back("Lost: your " + mech_title(was) + ". You take the " + mech_title(o.mech) +

@@ -550,7 +550,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
           company_.market.stock.clear();
           for (int32_t i = 0; i < 12; ++i) company_.market.stock.push_back(i % 2 ? kPmAwesome : kPmOwens);
           company_.hangar.clear();
-          for (int32_t i = 0; i < 9; ++i) company_.hangar.push_back(OwnedMech{i % 2 ? kPmAwesome : kPmFirefly, nullptr, 0});
+          for (int32_t i = 0; i < 9; ++i) company_.hangar.push_back(OwnedMech{i % 2 ? kPmAwesome : kPmFirefly, nullptr, 0, {}});
           show_market();
         }
         // market_mixed: funds for the cheapest only (3,000,000 on the start world's stock), the rest dimmed (item 41).
@@ -713,7 +713,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         if (page != "market_box") {
           company_.funds = std::max<int64_t>(company_.funds, 20000000);
           if (company_.market.stock.empty()) company_.market.stock.push_back(kPmFirefly);
-          if (page == "market_sell" && company_.hangar.empty()) company_.hangar.push_back(OwnedMech{kPmFirefly, nullptr, 0});
+          if (page == "market_sell" && company_.hangar.empty()) company_.hangar.push_back(OwnedMech{kPmFirefly, nullptr, 0, {}});
         }
         press(kHubMarket);
         auto before = ge.on_present;

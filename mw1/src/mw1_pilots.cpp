@@ -15,6 +15,7 @@
 #include "mech3/mech_names.h"
 #include "mw1_market.h"
 #include "mw1_text_names.h"
+#include "mw1_upgrades.h"
 
 namespace mw1::crew {
 
@@ -242,7 +243,10 @@ bool apply_lance(Company& c, const std::vector<int32_t>& slots, const std::vecto
   const int32_t you = slots[0];
   auto after = [&](int32_t o) { return o == you ? 0 : o == 0 ? you : o; };
   const int32_t old_mech = c.mech;
-  if (you != 0) c.mech = c.hangar[static_cast<size_t>(you - 1)].mech, c.hangar[static_cast<size_t>(you - 1)].mech = old_mech;
+  if (you != 0) {
+    c.mech = c.hangar[static_cast<size_t>(you - 1)].mech, c.hangar[static_cast<size_t>(you - 1)].mech = old_mech;
+    std::swap(c.kits, c.hangar[static_cast<size_t>(you - 1)].kits);  // FIXES 118: the kits stay on their mech
+  }
   for (int32_t o = 0; o < owned; ++o) {
     const int32_t a = after(o);
     (a == 0 ? c.loadout : c.hangar[static_cast<size_t>(a - 1)].loadout) = loadouts[static_cast<size_t>(o)];
@@ -369,6 +373,7 @@ void after_mission(Company& c, const std::vector<LanceFate>& fates) {
       if (c.hangar[h].pilot == f.id) {
         if (f.mech_lost) {
           log_add(c, LogKind::kMechLost, true, c.hangar[h].mech);
+          upgrades::return_kits(c, c.hangar[h].kits);  // FIXES 118: never lost with it
           c.hangar.erase(c.hangar.begin() + static_cast<long>(h));
         } else {
           log_add(c, LogKind::kMechRecovered, false, c.hangar[h].mech, f.id);
