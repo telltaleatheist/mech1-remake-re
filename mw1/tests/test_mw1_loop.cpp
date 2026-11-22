@@ -118,6 +118,7 @@
 #include "mw1_supply_screen.h"
 #include "mw1_weapon_data.h"
 #include "pm_weapon_labs.h"
+#include "mw1_dealer.h"
 #include "mw1_upgrades.h"
 #include "mw1_results.h"
 #include "mw1_market_screen.h"
@@ -10137,6 +10138,118 @@ bool lance_ready(const mw1::Company& c, int32_t rung) {
   const int32_t need = rung ? std::min(mw1::rung_tons(mw1::rung_force(rung, pilots - 1)), 100 * pilots - 10) : 0;
   return best_lance_tons(c, static_cast<size_t>(pilots)) >= need && (rung < 3 || c.lance.size() >= 3);
 }
+
+// 1.1.0 (FIXES 118, 122): the spending soak, MW1_SOAK_SPEND on the playthrough. How hard the upgrades' prices make
+// them to get, in numbers: a player who spends past a reserve (MW1_SOAK_RESERVE, 3,000,000) at every hub look.
+//   none     spends nothing (the baseline, with the soak's report);
+//   sinks, armour, steps   only that ladder (steps: power on the lance's most-carried weapon type);
+//   mixed    the cheapest next item of the three;
+//   trader   mixed, and the dealer's buy-low-sell-high between tiers (the market's own percentages, the original's
+//            loophole, kept): at a tier 0 or 1 world it buys the wares that sell for more at tier 3, at a tier 2 or 3
+//            world it sells them back, with no detours (only where the story and the contracts take it).
+// Played on past the ending to twice its game days. SOAK lines, numbers only; mw1/tools/spend_soak_report.py makes
+// the tables.
+struct SpendSoak {
+  std::string mode;
+  int64_t reserve = 3000000;
+  std::map<std::string, int64_t> trade_cost;  // the trader's wares held: what they cost, by ware
+  std::map<std::string, int32_t> trade_held;
+  int64_t trade_spent = 0, trade_sold = 0;
+  bool on() const { return !mode.empty(); }
+  bool buys(const char* ladder) const { return mode == ladder || mode == "mixed" || mode == "trader"; }
+};
+// The weapon type the lance carries most: the commander's 'Mech and each lancemate's, its own loadout else its stock
+// one. {-1, 0}: none.
+std::pair<int32_t, int32_t> most_carried(const mw1::Company& c) {
+  std::map<std::pair<int32_t, int32_t>, int32_t> n;
+  auto count = [&](int32_t mech, const std::shared_ptr<mech3::Config>& l) {
+    const mech3::Config* cfg = l.get();
+    if (!cfg) {
+      const mech3::MechDfn* d = mech3::mech_dfn(mech);
+      cfg = d && d->configs && !d->configs->configs.empty() ? d->configs->configs[0] : nullptr;
+    }
+    if (!cfg) return;
+    for (const mech3::ConfigItem* it : cfg->items)
+      if (it && it->kind() == 1) ++n[{static_cast<const mech3::WeaponItem*>(it)->weapon, static_cast<const mech3::WeaponItem*>(it)->tech}];
+  };
+  count(c.mech, c.loadout);
+  for (const mw1::OwnedMech& o : c.hangar)
+    if (o.pilot) count(o.mech, o.loadout);
+  std::pair<int32_t, int32_t> best = {-1, 0};
+  int32_t most = 0;
+  for (const auto& [k, v] : n)
+    if (v > most) most = v, best = k;
+  return best;
+}
+int32_t steps_bought(const mw1::Company& c) {
+  int32_t n = 0;
+  for (const mw1::WeaponSteps& s : c.upgrades.steps) n += s.power + s.range;
+  return n;
+}
+// One look's spending: the soak's ladders, cheapest next first, while the reserve holds. The ladders bought.
+std::vector<std::string> soak_spend(mw1::Company& c, SpendSoak& s) {
+  namespace up = mw1::upgrades;
+  std::vector<std::string> bought;
+  for (int guard = 0; guard < 400; ++guard) {
+    const std::pair<int32_t, int32_t> type = most_carried(c);
+    struct Option {
+      const char* ladder;
+      int64_t price;
+    };
+    std::vector<Option> options;
+    if (s.buys("sinks")) options.push_back({"sinks", up::kit_price(c, up::Kit::kSink)});
+    if (s.buys("armour")) options.push_back({"armour", up::kit_price(c, up::Kit::kArmour)});
+    if (s.buys("steps") && type.first >= 0) options.push_back({"steps", up::step_price(c, type.first, type.second)});
+    const Option* pick = nullptr;
+    for (const Option& o : options)
+      if (c.funds - o.price >= s.reserve && (!pick || o.price < pick->price)) pick = &o;
+    if (!pick) break;
+    const std::string ladder = pick->ladder;
+    const up::Bought b = ladder == "sinks"    ? up::buy_kit(c, up::Kit::kSink)
+                         : ladder == "armour" ? up::buy_kit(c, up::Kit::kArmour)
+                                              : up::buy_step(c, type.first, type.second, up::Step::kPower);
+    if (b != up::Bought::kDone) break;
+    bought.push_back(ladder);
+  }
+  return bought;
+}
+// The trader's look: sells what it holds at a tier 2 or 3 world for more than it paid; buys at a tier 0 or 1 world
+// the dealer's weapons and equipment that sell for more at tier 3, the best margin first, while the reserve holds.
+void soak_trade(mw1::Company& c, SpendSoak& s) {
+  namespace dl = mw1::dealer;
+  if (s.mode != "trader") return;
+  if (!c.dealer.rolled) dl::roll_stock(c);
+  if (c.tier >= 2) {
+    for (auto& [name, held] : s.trade_held)
+      for (const dl::Ware& w : dl::wares()) {
+        if (dl::ware_name(w) != name) continue;
+        const int64_t each = held ? s.trade_cost[name] / held : 0;
+        while (held > 0 && dl::in_stores(c, w) > 0 && dl::sell_price(w, c.tier) > each) {
+          const int64_t got = dl::sell_price(w, c.tier);
+          if (dl::sell(c, w) != dl::Trade::kDone) break;
+          s.trade_sold += got, s.trade_cost[name] -= each, --held;
+        }
+      }
+    return;
+  }
+  std::vector<std::pair<int64_t, int32_t>> lines;  // margin, stock line
+  for (size_t i = 0; i < c.dealer.stock.size(); ++i) {
+    const mw1::DealerItem& d = c.dealer.stock[i];
+    if (d.kind == dl::kAmmo || d.count <= 0) continue;
+    const dl::Ware w{d.kind, d.id, d.tech};
+    if (const int64_t m = dl::sell_price(w, 3) - dl::buy_price(w, c.tier); m > 0) lines.push_back({m, static_cast<int32_t>(i)});
+  }
+  std::sort(lines.rbegin(), lines.rend());
+  for (const auto& [margin, i] : lines)
+    for (int guard = 0; guard < 8; ++guard) {
+      const mw1::DealerItem d = c.dealer.stock[static_cast<size_t>(i)];
+      const dl::Ware w{d.kind, d.id, d.tech};
+      const int64_t price = dl::buy_price(w, c.tier);
+      if (d.count <= 0 || c.funds - price < s.reserve || dl::buy(c, i) != dl::Trade::kDone) break;
+      const std::string name = dl::ware_name(w);
+      s.trade_spent += price, s.trade_cost[name] += price, ++s.trade_held[name];
+    }
+}
 }  // namespace
 
 TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
@@ -10161,7 +10274,16 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
     if (const char* pp = std::getenv("MW1_PAY_PERCENT")) mw1::pay_percent() = std::max(1, std::atoi(pp));
     if (const char* pt = std::getenv("MW1_PAY_TIERS"))  // a,b,c,d: each tier's percent on top
       std::sscanf(pt, "%d,%d,%d,%d", &mw1::pay_tier_percent()[0], &mw1::pay_tier_percent()[1], &mw1::pay_tier_percent()[2], &mw1::pay_tier_percent()[3]);
-    const bool to_dw = std::getenv("MW1_PLAYTHROUGH_TO_DW") != nullptr;
+    const bool to_dw = std::getenv("MW1_PLAYTHROUGH_TO_DW") != nullptr && !std::getenv("MW1_SOAK_SPEND");
+    SpendSoak soak;
+    if (const char* m = std::getenv("MW1_SOAK_SPEND")) soak.mode = m;
+    if (const char* rv = std::getenv("MW1_SOAK_RESERVE")) soak.reserve = std::max<int64_t>(0, std::atoll(rv));
+    if (soak.on()) r.limit = 6000000;  // on to twice the ending's days
+    bool after_end = false;
+    int64_t end_day = -1;
+    int32_t rung_seen = 0;
+    std::map<std::string, int32_t> ladder_count;  // the soak's purchases by ladder
+    if (soak.on()) std::printf("SOAK: mode %s seed %u reserve %lld\n", soak.mode.c_str(), seed, static_cast<long long>(soak.reserve));
     int dw_fights = -1, dw_contracts = -1, dw_month = -1;
     // The game time by what the player did since the last look (the hub's): fights, trips, the Bar, else.
     std::map<std::string, int64_t> time_by;
@@ -10201,6 +10323,14 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
     int battles_last = 0;
     auto block = [&](const std::string& w) {
       if (std::find(blocks.begin(), blocks.end(), w) == blocks.end()) blocks.push_back(w);
+    };
+    auto day_of = [&](const mw1::Company& co) { return (units_of(co.date) - units_of(start_date)) / 2; };  // 60 units a month
+    auto soak_at = [&](const char* when, const mw1::Company& co) {
+      const mw1::Kits all = mw1::upgrades::all_kits(co);
+      std::printf("SOAK: at %s day %lld contracts %d fights %d funds %lld mechs %zu lancemates %zu sinks %d armour %d steps %d "
+                  "trade_spent %lld trade_sold %lld\n", when, static_cast<long long>(day_of(co)), contracts, contracts + story_battles,
+                  static_cast<long long>(co.funds), 1 + co.hangar.size(), co.lance.size(), all.sinks, all.armour, steps_bought(co),
+                  static_cast<long long>(soak.trade_spent), static_cast<long long>(soak.trade_sold));
     };
     r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
       if (app.current() != last_state) last_state = app.current(), idle = 0;
@@ -10397,7 +10527,25 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
       ++hubs;
       if (mw1::game_loop_pending()) return sc->on_button(mw1::kHubOk, 0, 0), false;
       if (credits_seen && !mw1::game_loop_credits()) credits_over = true;
-      if (c->story.dark_wing_won && credits_over) return done = true, true;  // the end, and play goes on: the hub again
+      if (c->story.dark_wing_won && credits_over) {  // the end, and play goes on: the hub again
+        if (!soak.on()) return done = true, true;
+        if (!after_end) after_end = true, end_day = day_of(*c), soak_at("end", *c);
+        if (day_of(*c) >= 2 * std::max<int64_t>(end_day, 1)) return soak_at("twice", *c), done = true, true;
+      }
+      if (soak.on()) {  // the soak: rungs won, then the look's spending and trading
+        if (c->story.rung_won > rung_seen)
+          for (rung_seen = rung_seen + 1; rung_seen <= c->story.rung_won; ++rung_seen)
+            std::printf("SOAK: rung %d fights %d contracts %d day %lld funds %lld\n", rung_seen, contracts + story_battles, contracts,
+                        static_cast<long long>(day_of(*c)), static_cast<long long>(c->funds));
+        rung_seen = c->story.rung_won;
+        soak_trade(*c, soak);
+        for (const std::string& ladder : soak_spend(*c, soak)) {
+          const int32_t n = ++ladder_count[ladder];
+          std::printf("SOAK: bought %s %d contracts %d fights %d day %lld date %d-%02d-%02d funds %lld\n", ladder.c_str(), n, contracts,
+                      contracts + story_battles, static_cast<long long>(day_of(*c)), c->date.year, c->date.month + 1,
+                      std::max(1, c->date.units / 2), static_cast<long long>(c->funds));
+        }
+      }
       const mw1::journal::Lead l = mw1::journal::current_lead(*c);
       if (l.step != last_step) {
         if (!step_at.count(l.step)) {
@@ -10429,13 +10577,13 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
       }
       // Ready for the step's battle? The lance's tons against the force's.
       const int32_t here = mw1::planet_index(c->planet_number);
-      const bool ready = lance_ready(*c, l.rung);
+      const bool ready = !after_end && lance_ready(*c, l.rung);
       if (!ready) {  // build up: spare 'Mechs for new pilots, 'Mechs from the market, contracts for the money
         ++builds;
         if (c->hangar.size() > c->lance.size() && c->lance.size() < 3 && c->funds > 600000 && sc->enabled(mw1::kHubBar) && builds % 2 == 0)
           return sc->on_button(mw1::kHubBar, 0, 0), false;
         if (c->funds > 1500000 && sc->enabled(mw1::kHubMarket) && builds % 3 == 0) return sc->on_button(mw1::kHubMarket, 0, 0), false;
-        if (builds > 4000) return block("the lance never got ready for step " + std::to_string(l.step)), true;
+        if (builds > 4000 && !after_end) return block("the lance never got ready for step " + std::to_string(l.step)), true;
         // Money but nothing heavier here: the nearest richer market not yet looked at (a tier 2 or 3 world).
         if (c->funds > 6000000 && markets_no_better.count(here) && sc->enabled(mw1::kHubTravel))
           for (int32_t w : mw1::destinations(*c, -1))

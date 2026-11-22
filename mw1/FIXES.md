@@ -2594,6 +2594,18 @@ about 6 s with its speed up, moving 0 m, before it walked.
     limit. `mw1_weapon_data.h` reads the mounted weapons.zrd (a mod's overlaid) when the hub is made; the dealer's
     tons, an ammunition lot's rounds and the range limit ask the engine first and use it when the engine has nothing.
     The supply screen's names are the ones PM's lab shows (Mech3Msg's), the table's name when there's none.
+  - **The spending soak (how hard the upgrades are to get):** the playthrough gauge with `MW1_SOAK_SPEND`
+    (`none`, `sinks`, `armour`, `steps`, `mixed`, `trader`) and `MW1_SOAK_RESERVE` (3,000,000). The player spends past
+    the reserve at every hub look:
+    - `sinks`, `armour`, `steps`: only that ladder (steps: power on the lance's most-carried weapon type);
+    - `mixed`: the cheapest next item of the three;
+    - `trader`: mixed, plus the dealer's buy-low-sell-high between tiers, with no detours.
+
+    It plays on past the ending to twice its game days and prints SOAK lines.
+    `mw1/tools/spend_soak_report.py` makes:
+    - a table per run: each milestone's contract and day, and the rungs against `none` on the same seed;
+    - a line per mode with the median contract of each milestone;
+    - the plan's 10% check.
 - **Owen (2026-11-20):** players can keep playing indefinitely without the story, like an Instant Action mod, and
   money needs something to buy. It's always on sale at the hub; nothing to hunt for. It applies to the player's side
   only, never to enemies.
