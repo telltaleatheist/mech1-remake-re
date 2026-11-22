@@ -7702,7 +7702,9 @@ TEST(sdl_program_launcher_starts_pirates_moon) {
 // Pirate's Moon's folder name, MechWarrior 3's data again (searched first),
 // and a Mac CrossOver bottle holding Pirate's Moon. Each game's search lists its own places; read by
 // map_source, Pirate's Moon is the bottle's and never the MW3 copy. The
-// launcher with no pm_install= finds it, saves it, and starts it there.
+// launcher with no pm_install= finds it and offers it (Owen, 2026-11-21: never
+// taken on its own); INSTALL copies it into PM's settings folder's install,
+// saved as pm_install=, and starts it there.
 TEST(sdl_program_launcher_finds_pirates_moon) {
   namespace fs = std::filesystem;
   const fs::path mw3 = fs::path(MW3_GAME_DIR), pmdir = mw3.parent_path() / "pm";
@@ -7745,12 +7747,14 @@ TEST(sdl_program_launcher_finds_pirates_moon) {
   fs::permissions(pm, fs::perms::owner_all, ec);
   setenv("MW3_PM_BIN", pm.c_str(), 1);
   setenv("MW3_PM_WRITE_DIR", (dir + "/pmwd").c_str(), 1);
+  setenv("MW3_LAUNCHER_GO", "1", 1);
   const std::string log = dir + "/launcher.log";
   const pid_t pid = spawn_launcher({"--write-dir", dir + "/wd", "--launcher-pm", "--window", "640x480", "--hidden", "--nosound"}, log);
   int status = 0;
   EXPECT(pid > 0 && waitpid(pid, &status, 0) == pid && WIFEXITED(status) && WEXITSTATUS(status) == 0);
   unsetenv("MW3_PM_BIN");
   unsetenv("MW3_PM_WRITE_DIR");
+  unsetenv("MW3_LAUNCHER_GO");
   setenv("HOME", home_was.c_str(), 1);
   std::ifstream lf(log);
   const std::string text((std::istreambuf_iterator<char>(lf)), std::istreambuf_iterator<char>());
@@ -7761,9 +7765,14 @@ TEST(sdl_program_launcher_finds_pirates_moon) {
     std::ifstream af(dir + "/args.txt");
     for (std::string a; std::getline(af, a);) args.push_back(a);
   }
-  EXPECT(text.find("Pirate's Moon found at " + bottle.string()) != std::string::npos);
-  EXPECT(cfg.find("pm_install=" + bottle.string()) != std::string::npos);
-  EXPECT(args.size() >= 2 && args[0] == "--install" && args[1] == bottle.string());
+  const std::string copy = dir + "/pmwd/install";
+  std::printf("launcher finds pm: offered %d, copied %d, started from the copy %d\n",
+              text.find("Pirate's Moon found at " + bottle.string() + ": offered, not taken") != std::string::npos,
+              fs::exists(copy + "/zbd", ec), args.size() >= 2 && args[1] == copy);
+  EXPECT(text.find("Pirate's Moon found at " + bottle.string() + ": offered, not taken") != std::string::npos &&
+         text.find("found plate: ") != std::string::npos);
+  EXPECT(cfg.find("pm_install=" + copy) != std::string::npos && fs::is_regular_file(copy + "/Mech3.exe", ec));
+  EXPECT(args.size() >= 2 && args[0] == "--install" && args[1] == copy);
 }
 #endif
 

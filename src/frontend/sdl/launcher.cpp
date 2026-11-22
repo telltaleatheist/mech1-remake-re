@@ -580,6 +580,9 @@ class Launcher {
   }
   Install install_;
   std::string pm_dir_;  // Pirate's Moon's folder, kept as pm_install= in mw3.cfg
+  std::string pm_found_;  // the search's Pirate's Moon, not taken: offered when PIRATE'S MOON is chosen
+  bool have_files() const { return files_pm_ ? !pm_dir_.empty() : install_.ok; }
+  std::string files_dir() const { return files_pm_ ? pm_dir_ : install_.dir; }
   bool pm_last_ = false;  // the game last clicked: GAME FILES acts on it
   bool mw1_repick_ = false;  // the MW1 pick came from GAME FILES: kept, not played
   bool mw1_last_ = false;  // MW1's line last clicked: GAME FILES re-picks its folder
@@ -843,7 +846,8 @@ void Launcher::copy_mw1(const std::string& game) {
 // Mac's bottles), each read by map_source so an MW3 folder is never taken,
 // the one found saved to mw3.cfg as pm_install= (docs/launcher.md).
 void Launcher::find_pm() {
-  if (o_.pm_bin.empty()) return;
+  if (o_.pm_bin.empty() && !o_.pm) return;
+  pm_found_.clear();
   if (!o_.cfg_pm_install.empty() && is_pm_install(mech3::source::map_source(o_.cfg_pm_install))) {
     pm_dir_ = o_.cfg_pm_install;
     std::printf("mw3: launcher: Pirate's Moon at %s: ready\n", pm_dir_.c_str());
@@ -856,8 +860,13 @@ void Launcher::find_pm() {
   for (const std::string& d : tries) {
     std::error_code ec;
     if (!fs::is_directory(d, ec) || !is_pm_install(mech3::source::map_source(d))) continue;
-    pm_dir_ = d;
-    sdlfe::save_config_value(o_.write_dir, "pm_install", d);
+    if (!fs::equivalent(d, fs::path(pm_wd()) / "install", ec)) {  // the player's own: offered, never taken (Owen, 2026-11-21)
+      pm_found_ = d;
+      std::printf("mw3: launcher: Pirate's Moon found at %s: offered, not taken\n", d.c_str());
+      return;
+    }
+    pm_dir_ = d;  // our own copy (an earlier install's): in use as before
+    if (!o_.pm) sdlfe::save_config_value(o_.write_dir, "pm_install", d);
     std::printf("mw3: launcher: Pirate's Moon found at %s\n", d.c_str());
     return;
   }
@@ -1278,7 +1287,7 @@ void Launcher::layout() {
       if (files_pm_ ? !pm_dir_.empty() && (pm_lacks_music_ || pm_lacks_sounds_)
                     : install_.ok && (lacks_music_ || lacks_movies_))  // what the install in use lacks, from the disc
         add(kAddDisc, {130, 318, 380, 52}, "ADD FROM MY DISC", kAddDiscSub);
-      add(kBack, {250, 384, 140, 34}, !o_.setup_only ? "BACK" : o_.choose_again && install_.ok ? "PLAY" : "QUIT");
+      add(kBack, {250, 384, 140, 34}, !o_.setup_only ? "BACK" : o_.choose_again && have_files() ? "PLAY" : "QUIT");
       break;
     }
     case kDataScreen:
@@ -1866,8 +1875,8 @@ std::string Launcher::pm_in_use() const {
 // longer pointed at, then back to the games (or, from its click, started).
 void Launcher::use_pm(const std::string& dir, const std::string& summary) {
   const std::string before = pm_dir_;
-  pm_dir_ = dir, o_.cfg_pm_install = dir;
-  save_config_value(o_.write_dir, "pm_install", dir);
+  pm_dir_ = dir, o_.cfg_pm_install = dir, pm_found_.clear();
+  save_config_value(o_.write_dir, o_.pm ? "install" : "pm_install", dir);  // mw3pm's own mw3.cfg: install=
   status_ = summary, status_good_ = true;
   const fs::path own = fs::path(pm_wd()) / "install";
   std::error_code ec;
@@ -1877,6 +1886,12 @@ void Launcher::use_pm(const std::string& dir, const std::string& summary) {
     fs::remove_all(own, ec);
   }
   pm_refresh();
+  if (o_.pm) {  // mw3pm's own start: on into the game with these files
+    std::printf("mw3: launcher: Pirate's Moon at %s: on into the game\n", dir.c_str());
+    choice_ = {LauncherChoice::kPlay, dir};
+    done_ = true;
+    return;
+  }
   // W13: back to the games after an install (or GAME FILES), Pirate's Moon started by its own click.
   from_files_ = false;
   screen_ = kMain, layout();
@@ -2146,6 +2161,7 @@ void Launcher::search() {
     const std::string had = pm_dir_;
     pm_dir_.clear(), o_.cfg_pm_install = had;
     find_pm();
+    if (pm_dir_.empty() && !pm_found_.empty()) return look_at(pm_found_);  // offered, to copy in or pass over
     if (!pm_dir_.empty() && !from_files_ && !o_.choose_again) return use_pm(pm_dir_, "Found Pirate's Moon at " + pm_dir_ + ".");
   } else {
     find_install();
@@ -2409,7 +2425,11 @@ void Launcher::activate(int id) {
     case kPm:
       if (o_.pm_bin.empty()) break;
       pm_last_ = true, mw1_last_ = false;
-      if (pm_dir_.empty()) {  // its files to find first, as MechWarrior 3's
+      if (pm_dir_.empty() && !pm_found_.empty()) {  // the search's find: offered to be copied in
+        files_pm_ = true, from_files_ = false, status_.clear();
+        if (SDL_getenv("MW3_LAUNCHER_GO")) auto_go_ = auto_ok_ = true;  // checks: its INSTALL pressed
+        look_at(pm_found_);
+      } else if (pm_dir_.empty()) {  // its files to find first, as MechWarrior 3's
         files_pm_ = true, from_files_ = false, status_.clear();
         screen_ = kSetupScreen, layout();
       } else {
@@ -2447,7 +2467,8 @@ void Launcher::activate(int id) {
       break;
     case kBack:
       if (screen_ == kNotes) return activate(kNotesOk);  // Escape on the notes: as OK
-      if (o_.setup_only && screen_ == kSetupScreen && o_.choose_again && install_.ok) return play();  // Shift's: on with these
+      if (o_.setup_only && screen_ == kSetupScreen && o_.choose_again && have_files())  // Shift's: on with these
+        return files_pm_ ? use_pm(pm_dir_, pm_in_use()) : play();
       if (o_.setup_only && screen_ == kSetupScreen) done_ = true;  // a plain start's QUIT
       else if (screen_ == kConfirm && confirm_go_ == 3) return activate(kKeepOld);  // Escape: nothing removed
       else if (screen_ == kConfirm && confirm_go_ == 2) screen_ = kDataScreen, layout();
@@ -2555,6 +2576,7 @@ LauncherChoice Launcher::run() {
   const bool vulkan_said = vulkan_ != Vulkan::kOk;
 
   find_mw1();
+  if (o_.pm) files_pm_ = true, o_.pm_write_dir = o_.write_dir, o_.cfg_pm_install = o_.cfg_install;  // mw3pm's own start
   find_pm();
   pm_refresh();
   // Each game's program's own version, read from its file (the package's
@@ -2622,10 +2644,10 @@ LauncherChoice Launcher::run() {
   // A game without its files opens the find screen only when it is chosen;
   // a plain mw3 start that found none shows that screen alone.
   if (o_.setup_only) screen_ = kSetupScreen;
-  if (o_.choose_again && SDL_getenv("MW3_LAUNCHER_GO")) auto_go_ = auto_ok_ = true;  // checks: a pick's INSTALL (and notes' OK)
-  if (o_.choose_again && install_.ok)  // Shift at a plain start: what is in use, and the way on
-    status_ = "In use: " + install_.dir + ". FIND THE GAME to choose other files, or PLAY to go on.", status_good_ = true;
   else if (install_.ok && !install_.elsewhere && first_start) screen_ = kNotes, mw3_notes_seen();  // a find elsewhere: after its copy
+  if (o_.choose_again && SDL_getenv("MW3_LAUNCHER_GO")) auto_go_ = auto_ok_ = true;  // checks: a pick's INSTALL (and notes' OK)
+  if (o_.choose_again && have_files())  // Shift at a plain start: what is in use, and the way on
+    status_ = "In use: " + files_dir() + ". FIND THE GAME to choose other files, or PLAY to go on.", status_good_ = true;
   if (vulkan_said) show_vulkan();  // ours: before anything else, so PLAY never reaches the game's box
   layout();
   // Not high pixel density: the game takes this window (one window into the
@@ -2691,7 +2713,9 @@ LauncherChoice Launcher::run() {
     quit_after_mw1_ = !done_;  // a pick or a copy still to come: ended once done (the loop below)
   }
   if (o_.play_pm && !pm_pick) {  // never the picker: a check has nobody to answer it
-    if (pm_dir_.empty()) done_ = true;
+    if (pm_dir_.empty() && !pm_found_.empty() && SDL_getenv("MW3_LAUNCHER_GO"))  // checks: the find offered, INSTALL
+      auto_play_ = true, o_.quit_after_game = true, activate(kPm);           // pressed, copied in, then started
+    else if (pm_dir_.empty()) done_ = true;
     else auto_ok_ = true, activate(kPm), o_.quit_after_game = true, done_ = !game_;  // its notes' OK; refused: quit
   }
   while (!done_) {
