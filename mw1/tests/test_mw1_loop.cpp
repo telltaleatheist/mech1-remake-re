@@ -7209,6 +7209,10 @@ void drive_reach(const mw1::MapRow& r, const std::string& worlds, bool order, Dr
                     hu.near > 1e8f ? -1.0f : hu.near, hu.far);
       hurt_by += one;
     }
+    if (mode == Drive::kDecoy)  // FIXES 136 (c): who took the commander's health in this run, as the live drive says it
+      std::printf("  DECOY-HURT %-6s ia%d %-12s %-22s seed %s: damage %.0f%%; hit by %s\n", r.world.c_str(), r.ia, r.node.c_str(),
+                  order ? "lance ordered to ATTACK" : "lance following (control)", replay, 100.0f * (1.0f - std::max(0.0f, health_end)),
+                  hurt_by.empty() ? "none" : hurt_by.c_str());
     if (live) {
       // FIXES 136 (b)'s gate: arrived, never down. The damage and who did it said each seed (not gated: taking fire on
       // the way and getting through is the contract), so a data change shows as a number.
