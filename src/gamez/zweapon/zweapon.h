@@ -63,9 +63,14 @@ struct FireState {
   float beam_range_scale = 1;          // 0x009a17d4  0.5 under water
   float track_scale[2] = {1, 1};       // 0x009a17d8, 0x009a17dc  FCS: 2, 2; [0] the homing's (spawn has reset it: 1)
   int32_t terrain_follow = 0;          // 0x009a17e0  FCS: 1
-  float range_add = 0;                 // ours: upgrade hook (src/upgrades/kits): metres the next shot flies past RANGE
+  // Ours: upgrade hook (src/upgrades/kits): the next shot's or beam's kit, apart from the original's own scales above.
+  float kit_scale = 1;                 // its damage times this, on top of damage_scale
+  float kit_range = 0;                 // metres past RANGE
 };
 FireState& fire_state();
+
+// Ours: upgrade hook (src/upgrades/kits): RANGE, past it by a kit's metres when a shot or beam has some.
+inline float with_kit_range(float range, float kit_range) { return kit_range != 0.0f ? range + kit_range : range; }
 
 // What a hit leaves for the damage code (globals 0x009a0ec4.., 0x009a1788..).
 struct HitState {
@@ -117,6 +122,8 @@ struct Beam {
   const int32_t* lock_count = nullptr;     // +0x144  LOCK_ON: the weapon's lock flag, a count for MULTI_TARGET
   LockRef* targets = nullptr;              // +0x148  and its targets (an array for MULTI_TARGET)
   uint32_t flags = 0;                  // +0x14c  bit 0 ground effect, bit 1 damage dealt
+  float kit_scale = 1;                 // ours: upgrade hook (src/upgrades/kits): FireState::kit_scale at the start
+  float kit_range = 0;                 // ours: and FireState::kit_range
 };
 
 // The scene, effects and sounds a hit touches; unset ones do nothing.

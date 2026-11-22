@@ -31,15 +31,24 @@ h.range_add    = [](const mech3::Weapon* w) -> float { ... };                // 
    guards are the engine's own, whatever the caller.
 3. **Per weapon, never the def.** A WeaponDef (and its WeaponType) is shared by
    every weapon of that type, the enemies' included. The hooks are asked about
-   one `mech3::Weapon`, and the answer goes onto that weapon's shot or beam
-   (the projectile's `damage_scale` and `range_add`, the beam's `damage_scale`
-   and `range_scale`), never into the def.
-4. **Never saved, never in the configuration.** Kit armour and sinks are
+   one `mech3::Weapon`, and the answer goes onto that weapon's shot or beam,
+   never into the def.
+4. **The kit is apart from the original's own scales.** FireState, Projectile
+   and Beam each have two fields of ours, `kit_scale` (1) and `kit_range` (0).
+   A fire sets FireState's; `spawn` and `beam_start` take them onto the shot or
+   beam and clear them. The original's `damage_scale`, `beam_range_scale` and
+   `range_scale` are never touched. That matters because the original sets them
+   itself: a short hit's RANGE_MIN scale on a projectile, the half reach under
+   water, or a caller's scale before a fire. A damage read multiplies by the
+   kit only when it isn't 1, and a reach read adds it only when it isn't 0
+   (`with_kit_range`). An LB-X shell's pellets take the shell's kit, never its
+   own `damage_scale`, which the original doesn't hand on.
+5. **Never saved, never in the configuration.** Kit armour and sinks are
    applied when a part is set up at the mission's start and in the heat step.
    They are never written into the `Config`, its .m3c, the mech lab's armour
    cap or the sink count the mech saves and loses to criticals. A kit sink
    takes no crit slot and no tons.
-5. **No network effect.** In a network game (the mission's game type is
+6. **No network effect.** In a network game (the mission's game type is
    multiplayer) the helpers answer none, whatever the hook says, so every
    machine computes heat and damage alike.
    kit_hooks.h keeps that game type's number itself, as `kMultiplayerGame`,
@@ -56,14 +65,18 @@ Each site carries the comment `Ours: upgrade hook (src/upgrades/kits)`.
 | sinks | `mech.cpp` `update_heat` (Pirate's Moon 0x0041a100), through `heat_sink_rate` | the dissipation uses `HeatSinks::rate` with count + kit, of the mech's own kind (single or double) |
 | armour | `mech_part_build.cpp` `MechPart::init` (0x0045fe00) | `armor_scale` from the configuration's points + the kit's for the section's slot |
 | armour | `mech_part_build.cpp` `Torso::init` (0x004644b0) | each side and rear section's `sec_armor_scale` likewise (slots 1..5) |
-| power | `weapon.cpp` `Weapon::fire` (0x004b3450) | FireState's `damage_scale` times the weapon's scale before the spawn (taken into the projectile, which scales its impact and splash). The state is cleared after in case the spawn took nothing |
-| power | `weapon.cpp` `burst` | an air burst's children take the parent's `damage_scale` (only when it isn't 1) |
-| power | `weapon.cpp` `BeamWeapon::trigger` (0x004b3fc0) | FireState's `damage_scale` times the weapon's scale, taken by `beam_start` into the beam (timed and short beams both scale by it) |
-| range | `weapon.cpp` `Weapon::fire` | FireState's `range_add` (ours) plus the weapon's metres, taken by `spawn` into the projectile's `range_add` (ours) |
-| range | `zwep_shot.cpp` `spawn` | copies and clears `range_add`; the static hits' segment reaches RANGE + range_add |
-| range | `zweapon.cpp` the flight (0x00585cc0), `zwep_shot.cpp` the instant shot's move, the ground drop and the dormant mine | RANGE + the shot's `range_add` (0 adds nothing: the same float) |
-| range | `zweapon.cpp` the weapons' reset (0x00583750, Pirate's Moon 0x005a5170) | clears `range_add` with the rest |
-| range | `weapon.cpp` `BeamWeapon::trigger` | FireState's `beam_range_scale` times (RANGE + add) / RANGE, after the half under water |
+| power | `weapon.cpp` `Weapon::fire` (0x004b3450) | FireState's `kit_scale` = the weapon's scale before the spawn, cleared after in case the spawn took nothing |
+| power | `zwep_shot.cpp` `spawn`, `zwep_beam.cpp` `beam_start` | take `kit_scale` and `kit_range` onto the projectile or beam, then clear them |
+| power | `zweapon.cpp` the impact and `splash` | the damage times the shot's `kit_scale` (impact proximity, the splash's radius, unchanged) |
+| power | `zweapon.cpp` `beam_damage` (0x00583020) | timed and short beams' damage times the beam's `kit_scale` |
+| power | `zwep_beam.cpp` the DESIGNATE beam's stand-in shot | takes the beam's `kit_scale` with its `damage_scale` |
+| power | `weapon.cpp` `burst` (0x004b44d0) | each pellet gets the shell's `kit_scale` (not its `damage_scale`) |
+| power | `weapon.cpp` `BeamWeapon::trigger` (0x004b3fc0) | FireState's `kit_scale` = the weapon's scale before `beam_start`, cleared after |
+| range | `weapon.cpp` `Weapon::fire`, `BeamWeapon::trigger` | FireState's `kit_range` = the weapon's metres, as above |
+| range | `zwep_shot.cpp` `spawn` | the static hits' segment reaches `with_kit_range` |
+| range | `zweapon.cpp` the flight (0x00585cc0), `zwep_shot.cpp` the instant shot's move, the ground drop and the dormant mine | `with_kit_range(RANGE, the shot's kit_range)` |
+| range | `zwep_beam.cpp` the beam's reach (twice), `zweapon.cpp` `beam_damage`'s falloff | `range_scale` times `with_kit_range(RANGE, the beam's kit_range)`, so under water the kit's metres halve too |
+| range | `zweapon.cpp` the weapons' reset (0x00583750, Pirate's Moon 0x005a5170) | clears the kit fields with the rest |
 | range | `weapon.cpp` `Weapon::max_range`, `max_range_sq` | the type's range + the weapon's metres (half of them under water for a beam). This feeds the AI's range and fire picks (`weapon_planner.cpp`, `zai_wire_firing_pm.cpp`), the HUD's lock range (`group_max_range`) and the reticle |
 
 Not changed: `aim_slope` (0x00581ff0), the arc an AI aims a GRAVITY shot
@@ -80,6 +93,8 @@ the longer reach, as it does over the half reach under water.
 - sinks, armour, a projectile weapon's shot and reach, a beam weapon's damage
   and reach, and a shot's flight past RANGE, each with the hook set and then
   set back to null;
-- that a second weapon sharing the def stays unchanged.
+- that a second weapon sharing the def stays unchanged;
+- that an original `damage_scale` other than 1 (set before a fire, on a bursting
+  shell, on a beam) comes through as it was, with the kit on top.
 
 The MW1 remake's own tests check what it answers (`mw1/tests`).

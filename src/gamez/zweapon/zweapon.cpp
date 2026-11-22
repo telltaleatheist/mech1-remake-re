@@ -41,7 +41,8 @@ float beam_damage(WeaponDef* def, Beam* b) {
   if (!timed && (b->flags & 2)) return 0.0f;
   float v;
   if (def->damage_at_max_range < 1.0f) {
-    const float x = crt::x87_mul_f24(b->length, 3.141592653589793) / (b->range_scale * def->range);
+    // Ours: upgrade hook (src/upgrades/kits): the kit's reach, the falloff over it.
+    const float x = crt::x87_mul_f24(b->length, 3.141592653589793) / (b->range_scale * with_kit_range(def->range, b->kit_range));
     // fcos leaves an extended result: round once, after adding the 1.
     float f = static_cast<float>(std::cos(static_cast<double>(x)) + 1.0) * 0.5f;
     if (def->damage_at_max_range > f) f = def->damage_at_max_range;
@@ -49,9 +50,13 @@ float beam_damage(WeaponDef* def, Beam* b) {
   } else {
     v = def->damage;
   }
-  if (timed) return v * g_hit.dt * b->damage_scale;
+  if (timed) {
+    const float d = v * g_hit.dt * b->damage_scale;
+    return b->kit_scale != 1.0f ? d * b->kit_scale : d;  // Ours: upgrade hook (src/upgrades/kits)
+  }
   b->flags |= 2;
-  return v * b->damage_scale;
+  const float d = v * b->damage_scale;
+  return b->kit_scale != 1.0f ? d * b->kit_scale : d;  // Ours: upgrade hook (src/upgrades/kits)
 }
 
 // Mech3.exe 1.2 @ 0x00585cc0 (PM 0x005a79a0, its first frame's move below): one frame of flight into `move`: speed up to
@@ -122,7 +127,7 @@ void step(WeaponDef* def, Projectile* p, Vec3f3* move) {
   p->travelled = len + p->travelled;
   if (def->flags & kMine) p->travelled = p->travelled * 0.5f;
   bool burst = false, gone = false;
-  if (!(p->travelled < def->range + p->range_add)) {  // Ours: upgrade hook (src/upgrades/kits)
+  if (!(p->travelled < with_kit_range(def->range, p->kit_range))) {  // Ours: upgrade hook (src/upgrades/kits)
     // At RANGE: a homing shot without EXPIRES bursts, so does DETONATE_AT_RANGE;
     // the rest vanish (every shipped missile has EXPIRES).
     if (((def->flags & kLockOn) && !(def->flags & kExpires)) || (def->flags & kDetonateAtRange)) burst = true;
@@ -372,7 +377,9 @@ uint32_t impact(WeaponDef* def, HitRecord* rec, Projectile* p, Handle anim) {
   int32_t skip = 0;
   uint32_t flags = 0;
   if (def->callback) flags = def->callback(def, rec, p);
-  const uint32_t r = apply_damage(def, p->owner, &p->position, rec, def->damage * p->damage_scale, anim);
+  float damage = def->damage * p->damage_scale;
+  if (p->kit_scale != 1.0f) damage *= p->kit_scale;  // Ours: upgrade hook (src/upgrades/kits)
+  const uint32_t r = apply_damage(def, p->owner, &p->position, rec, damage, anim);
   if ((def->flags & kCrater) && !(flags & 2)) {
     if (!(def->flags & kAnimationAlways)) skip = 1;
     skip &= g_hh.crater ? g_hh.crater(def, rec, soil, p) : crater(def, rec, p);
@@ -452,6 +459,7 @@ int32_t splash(WeaponDef* def, Projectile* p, HitList* list, uintptr_t exclude) 
     if (def->flags & kMine) dmg = def->damage;
     else dmg = (1.0f - rec->distance_sq / def->impact_proximity_sq) * def->damage;
     dmg = p->damage_scale * dmg;
+    if (p->kit_scale != 1.0f) dmg *= p->kit_scale;  // Ours: upgrade hook (src/upgrades/kits)
     apply_damage(def, p->owner, &p->position, rec, dmg, nullptr);
     any = 1;
   }
@@ -573,7 +581,8 @@ int32_t startup() {
   f.damage_scale = f.beam_range_scale = 1.0f;
   f.track_scale[0] = f.track_scale[1] = 1.0f;
   f.terrain_follow = 0;
-  f.range_add = 0;  // Ours: upgrade hook (src/upgrades/kits)
+  f.kit_scale = 1;  // Ours: upgrade hook (src/upgrades/kits)
+  f.kit_range = 0;
   State& st = state();
   st.world = nullptr, st.tick = nullptr;
   st.defs.clear(), st.pool.clear();
