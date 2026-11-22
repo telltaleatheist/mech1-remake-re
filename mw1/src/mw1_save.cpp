@@ -20,6 +20,7 @@
 
 #include "mech3/mech_config.h"
 #include "mech3/mech_ids.h"
+#include "mech3/mech_names.h"
 #include "mech3/pilot.h"
 
 namespace fs = std::filesystem;
@@ -739,7 +740,8 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
     std::string f;
     while (std::getline(ss, f, ',')) {
       std::vector<int64_t> x;
-      if (!numbers(f, 4, upgrades::kCountMost, &x) || x[0] >= mech3::kWeaponCount || x[1] > 1)
+      if (!numbers(f, 4, upgrades::kCountMost, &x) || x[0] >= mech3::weapon_count() ||
+          (x[1] != mech3::kClan && x[1] != mech3::kInnerSphere))
         return fail("the weapon steps don't read");
       const WeaponSteps w{static_cast<int32_t>(x[0]), static_cast<int32_t>(x[1]), static_cast<int32_t>(x[2]), static_cast<int32_t>(x[3])};
       for (const WeaponSteps& o : c.upgrades.steps)

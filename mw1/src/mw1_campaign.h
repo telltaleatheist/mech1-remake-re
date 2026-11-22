@@ -120,7 +120,8 @@ struct Kits {
   int32_t sinks = 0, armour = 0;
   friend bool operator==(const Kits& a, const Kits& b) { return a.sinks == b.sinks && a.armour == b.armour; }
 };
-// FIXES 118: one weapon type's steps, every weapon of that type the company owns (PM's weapon id and its tech).
+// FIXES 118: one weapon type's steps, every weapon of that type the company owns (PM's weapon id and its tech: 1 Clan,
+// 2 Inner Sphere, mech3::Tech).
 struct WeaponSteps {
   int32_t weapon = 0, tech = 0, power = 0, range = 0;
   // Spelt out, not defaulted: mw1_campaign.h is also built as C++17 (a defaulted == is C++20's).

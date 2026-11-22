@@ -7,7 +7,8 @@
 // - Kits, one unit a purchase: a heat sink (+1 sink, no crits, no tonnage) or an armour point (+1 past the 'Mech's
 //   cap). The company owns them: assigned to any of its 'Mechs, moved later, back in the storehouse when the 'Mech
 //   is sold or lost.
-// - Weapon steps: power or range for every weapon of one type the company owns (PM's weapon id and its tech); heat
+// - Weapon steps: power or range for every weapon of one type the company owns (PM's weapon id and its tech, 1 Clan or
+//   2 Inner Sphere as the loadouts' items have it); heat
 //   unchanged. The player's side only, never an enemy's.
 // - Prices climb with each purchase: base x ratio^bought, floored to 1,000.
 #include <cstdint>
@@ -54,7 +55,8 @@ int32_t step_ladder_count(const Company& c, int32_t weapon, int32_t tech);
 int64_t step_price(const Company& c, int32_t weapon, int32_t tech);
 // The most range steps a weapon of `range_metres` takes (kRangeMostPercent of it); 0 for none.
 int32_t range_steps_most(float range_metres);
-// `range_most`: the type's range_steps_most (the screen knows the weapon's range); -1 no limit.
+// `range_most`: the type's range_steps_most (the screen knows the weapon's range); -1 no limit. kNoSuch: a weapon
+// past PM's table or a tech neither Clan nor Inner Sphere.
 Bought buy_step(Company& c, int32_t weapon, int32_t tech, Step s, int32_t range_most = -1);
 // The steps' effects on a weapon of that type: its damage times this, its range plus this (metres).
 float damage_scale(const Company& c, int32_t weapon, int32_t tech);

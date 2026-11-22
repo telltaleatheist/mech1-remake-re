@@ -10,6 +10,7 @@
 
 #include "check.h"
 #include "mech3/mech_config.h"
+#include "mech3/mech_names.h"
 #include "mech3/pilot.h"
 #include "mw1_campaign.h"
 #include "mw1_market.h"
@@ -22,6 +23,7 @@ namespace up = mw1::upgrades;
 
 namespace {
 constexpr int32_t kMediumLaser = 17, kLrm20 = 26;  // PM's Laser_Medium and LRM20 (mech_names.cpp)
+constexpr int32_t kIs = mech3::kInnerSphere, kClan = mech3::kClan;
 mw1::OwnedMech owned(int32_t mech, int32_t sinks = 0, int32_t armour = 0, int32_t pilot = 0) {
   mw1::OwnedMech o;
   o.mech = mech, o.pilot = pilot, o.kits = {sinks, armour};
@@ -85,24 +87,25 @@ TEST(mw1_upgrades_kits_and_steps_bought_against_the_funds) {
   EXPECT(c.funds == 100000000 - up::ladder_price(up::kArmourBase, up::kArmourRatio, 0) -
                         up::ladder_price(up::kArmourBase, up::kArmourRatio, 1) - up::ladder_price(up::kArmourBase, up::kArmourRatio, 2));
   // Steps: a weapon type's own ladder (power and range together); another type starts at the base.
-  EXPECT(!up::steps_of(c, kMediumLaser, 0) && up::damage_scale(c, kMediumLaser, 0) == 1.0f && up::range_add(c, kMediumLaser, 0) == 0.0f);
-  EXPECT(up::buy_step(c, kMediumLaser, 0, up::Step::kPower) == up::Bought::kDone);
-  EXPECT(up::buy_step(c, kMediumLaser, 0, up::Step::kRange, 2) == up::Bought::kDone);
-  EXPECT(up::buy_step(c, kMediumLaser, 0, up::Step::kRange, 2) == up::Bought::kDone);
-  EXPECT(up::buy_step(c, kMediumLaser, 0, up::Step::kRange, 2) == up::Bought::kAtMost);  // its range's limit
-  const mw1::WeaponSteps* s = up::steps_of(c, kMediumLaser, 0);
-  EXPECT(s && s->power == 1 && s->range == 2 && up::step_ladder_count(c, kMediumLaser, 0) == 3);
-  EXPECT(up::damage_scale(c, kMediumLaser, 0) == 1.0f + up::kPowerStepPercent / 100.0f);
-  EXPECT(up::range_add(c, kMediumLaser, 0) == 2.0f * up::kRangeStepMetres);
-  EXPECT(up::step_price(c, kMediumLaser, 0) == up::ladder_price(up::kStepBase, up::kStepRatio, 3));
-  EXPECT(up::step_price(c, kLrm20, 0) == up::kStepBase && up::step_price(c, kMediumLaser, 1) == up::kStepBase);  // the Clan's its own
-  EXPECT(!up::steps_of(c, kMediumLaser, 1) && up::damage_scale(c, kMediumLaser, 1) == 1.0f);
-  EXPECT(up::buy_step(c, kMediumLaser, 2, up::Step::kPower) == up::Bought::kNoSuch);
+  EXPECT(!up::steps_of(c, kMediumLaser, kIs) && up::damage_scale(c, kMediumLaser, kIs) == 1.0f && up::range_add(c, kMediumLaser, kIs) == 0.0f);
+  EXPECT(up::buy_step(c, kMediumLaser, kIs, up::Step::kPower) == up::Bought::kDone);
+  EXPECT(up::buy_step(c, kMediumLaser, kIs, up::Step::kRange, 2) == up::Bought::kDone);
+  EXPECT(up::buy_step(c, kMediumLaser, kIs, up::Step::kRange, 2) == up::Bought::kDone);
+  EXPECT(up::buy_step(c, kMediumLaser, kIs, up::Step::kRange, 2) == up::Bought::kAtMost);  // its range's limit
+  const mw1::WeaponSteps* s = up::steps_of(c, kMediumLaser, kIs);
+  EXPECT(s && s->power == 1 && s->range == 2 && up::step_ladder_count(c, kMediumLaser, kIs) == 3);
+  EXPECT(up::damage_scale(c, kMediumLaser, kIs) == 1.0f + up::kPowerStepPercent / 100.0f);
+  EXPECT(up::range_add(c, kMediumLaser, kIs) == 2.0f * up::kRangeStepMetres);
+  EXPECT(up::step_price(c, kMediumLaser, kIs) == up::ladder_price(up::kStepBase, up::kStepRatio, 3));
+  EXPECT(up::step_price(c, kLrm20, kIs) == up::kStepBase && up::step_price(c, kMediumLaser, kClan) == up::kStepBase);  // the Clan's its own
+  EXPECT(!up::steps_of(c, kMediumLaser, kClan) && up::damage_scale(c, kMediumLaser, kClan) == 1.0f);
+  EXPECT(up::buy_step(c, kMediumLaser, 0, up::Step::kPower) == up::Bought::kNoSuch &&
+         up::buy_step(c, mech3::kWeaponCount, kIs, up::Step::kPower) == up::Bought::kNoSuch);
   // The range limit: kRangeMostPercent of the weapon's range, in steps.
   EXPECT(up::range_steps_most(0) == 0 && up::range_steps_most(300.0f) == 300 * up::kRangeMostPercent / 100 / up::kRangeStepMetres);
   // No funds: nothing changes.
   c.funds = 0;
-  EXPECT(up::buy_step(c, kLrm20, 0, up::Step::kPower) == up::Bought::kNoFunds && !up::steps_of(c, kLrm20, 0));
+  EXPECT(up::buy_step(c, kLrm20, kIs, up::Step::kPower) == up::Bought::kNoFunds && !up::steps_of(c, kLrm20, kIs));
 }
 
 TEST(mw1_upgrades_kits_assigned_moved_and_never_lost) {
@@ -157,10 +160,10 @@ TEST(mw1_upgrades_saved_as_version_13_and_older_saves_read_none) {
   c.kits = {1, 30};
   c.upgrades.store = {4, 6};
   c.upgrades.sinks_bought = 7, c.upgrades.armour_bought = 45;
-  c.upgrades.steps = {{kMediumLaser, 0, 3, 1}, {kLrm20, 1, 0, 2}};
+  c.upgrades.steps = {{kMediumLaser, kIs, 3, 1}, {kLrm20, kClan, 0, 2}};
   const std::string text = mw1::save_text(c, nullptr);
   EXPECT(text.rfind("version=13\n", 0) == 0);
-  EXPECT(text.find("\nkits=4:6\nkits_bought=7:45\nmech_kits=1:30\nhangar0_kits=2:0\nhangar1_kits=0:9\nsteps=17:0:3:1,26:1:0:2\n") !=
+  EXPECT(text.find("\nkits=4:6\nkits_bought=7:45\nmech_kits=1:30\nhangar0_kits=2:0\nhangar1_kits=0:9\nsteps=17:2:3:1,26:1:0:2\n") !=
          std::string::npos);
   mw1::Company back;
   mw1::Contract k;
@@ -193,9 +196,9 @@ TEST(mw1_upgrades_saved_as_version_13_and_older_saves_read_none) {
     std::printf("  %s: %s\n", what, ok ? "read (!)" : w.c_str());
     return !ok && into.funds == 77;
   };
-  EXPECT(refused("steps=17:0:3:1", "steps=99:0:3:1", "a weapon past PM's"));
-  EXPECT(refused("steps=17:0:3:1", "steps=17:2:3:1", "a tech past the Clan's"));
-  EXPECT(refused("steps=17:0:3:1,26:1:0:2", "steps=17:0:3:1,17:0:0:2", "a type twice"));
+  EXPECT(refused("steps=17:2:3:1", "steps=99:2:3:1", "a weapon past PM's"));
+  EXPECT(refused("steps=17:2:3:1", "steps=17:0:3:1", "a tech neither Clan nor Inner Sphere"));
+  EXPECT(refused("steps=17:2:3:1,26:1:0:2", "steps=17:2:3:1,17:2:0:2", "a type twice"));
   EXPECT(refused("kits=4:6", "kits=4:-6", "a count below none"));
   EXPECT(refused("mech_kits=1:30", "mech_kits=1", "a kit line short"));
 }

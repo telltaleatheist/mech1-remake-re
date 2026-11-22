@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cstdio>
 
+#include "mech3/mech_names.h"
+
 namespace mw1::upgrades {
 
 namespace {
@@ -82,7 +84,7 @@ int32_t range_steps_most(float range_metres) {
 }
 
 Bought buy_step(Company& c, int32_t weapon, int32_t tech, Step s, int32_t range_most) {
-  if (weapon < 0 || tech < 0 || tech > 1) return Bought::kNoSuch;
+  if (weapon < 0 || weapon >= mech3::weapon_count() || (tech != mech3::kClan && tech != mech3::kInnerSphere)) return Bought::kNoSuch;
   const WeaponSteps* now = steps_of(c, weapon, tech);
   const int32_t have = now ? (s == Step::kPower ? now->power : now->range) : 0;
   if (have >= kCountMost || (s == Step::kRange && range_most >= 0 && have >= range_most)) return Bought::kAtMost;
