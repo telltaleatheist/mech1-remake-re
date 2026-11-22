@@ -19,6 +19,7 @@
 #include "mech3/mech_ids.h"
 #include "mech3/mech_names.h"
 #include "mech3/cheats.h"
+#include "upgrades/kits/kit_hooks.h"
 
 #pragma STDC FP_CONTRACT OFF
 
@@ -319,7 +320,9 @@ uint32_t burst(WeaponDef* def, const zwep::HitRecord*, zwep::Projectile* p) {
     float d[3] = {v.x, v.y, v.z};
     zmod::normalize(d);
     const zmth::Vec3 dn{d[0], d[1], d[2]};
+    if (p->kit_scale != 1.0f) zwep::fire_state().kit_scale = p->kit_scale;  // Ours: upgrade hook (src/upgrades/kits): the shell's kit, not its scale
     spawn_shot(t->burst, p->owner, nullptr, vf(&pos), vf(&dn), vf(&v), 0, 0, false);
+    if (p->kit_scale != 1.0f) zwep::fire_state().kit_scale = 1.0f;
   }
   return 0;
 }
@@ -1415,12 +1418,20 @@ float Weapon::min_range_sq() const { return def->range_min[0] * def->range_min[0
 // Mech3.exe 1.2 @ 0x004b39a0
 float Weapon::max_range() const {
   const WeaponType* t = type_of(def);
-  return (def->flags & zwep::kBeam) && in_water(part) ? t->half_range : t->range;
+  const bool half = (def->flags & zwep::kBeam) && in_water(part);
+  // Ours: upgrade hook (src/upgrades/kits): this weapon's kit reach (halved with the beam under water).
+  if (const float r = upgrades::kit_range_add(this); r != 0.0f) return half ? t->half_range + r * 0.5f : t->range + r;
+  return half ? t->half_range : t->range;
 }
 
 // Mech3.exe 1.2 @ 0x004b39e0
 float Weapon::max_range_sq() const {
   const WeaponType* t = type_of(def);
+  // Ours: upgrade hook (src/upgrades/kits): the kit's reach squared (max_range's).
+  if (upgrades::kit_range_add(this) != 0.0f) {
+    const float r = max_range();
+    return r * r;
+  }
   return (def->flags & zwep::kBeam) && in_water(part) ? t->half_range_sq : t->range_sq;
 }
 
@@ -1510,9 +1521,18 @@ bool Weapon::fire(const Vec3f* velocity) {
   if ((def->fire.flags & 2) && firepoint) zwep::attach_fire(def, node, firepoint->position);
   const uint32_t team = g_calls.player_team ? g_calls.player_team() : 0;
   const uint32_t enemies = g_calls.entity_enemies ? g_calls.entity_enemies(e) : 0;
+  // Ours: upgrade hook (src/upgrades/kits): this weapon's kit damage and reach on its shot, in FireState's kit fields (the spawn
+  // takes them; cleared after, should it not). The original's own damage_scale is left as it is.
+  const float kit_scale = upgrades::kit_damage_scale(this), kit_reach = upgrades::kit_range_add(this);
+  if (kit_scale != 1.0f) zwep::fire_state().kit_scale = kit_scale;
+  if (kit_reach != 0.0f) zwep::fire_state().kit_range = kit_reach;
   spawn_projectile(def, g_calls.entity_node ? g_calls.entity_node(e) : nullptr,
                    g_calls.entity_x64 ? g_calls.entity_x64(e) : nullptr, &muzzle, &direction, velocity, 0, 0,
                    (team & enemies) != 0);  // hostile to the player
+  if (kit_scale != 1.0f || kit_reach != 0.0f) {
+    zwep::fire_state().kit_scale = 1.0f;
+    zwep::fire_state().kit_range = 0.0f;
+  }
   if (owner == g_world.mission_player && g_world.force_feedback && g_calls.ff_weapon) g_calls.ff_weapon(index);
   if (g_calls.test_fired) g_calls.test_fired(*this);
   if (is_player(owner) && (def->flags & zwep::kLockOn) && salvo_left == 0 && g_calls.lock_shot) g_calls.lock_shot(*this);
@@ -1690,11 +1710,20 @@ bool BeamWeapon::trigger() {
     fired = true;
     fired_time = 0;
     if (in_water(part)) zwep::fire_state().beam_range_scale = 0.5f;
+    // Ours: upgrade hook (src/upgrades/kits): this weapon's kit damage and reach on its beam, in FireState's kit fields (beam_start
+    // takes them; cleared after, should it not). The original's own scales are left as they are.
+    const float kit_scale = upgrades::kit_damage_scale(this), kit_reach = upgrades::kit_range_add(this);
+    if (kit_scale != 1.0f) zwep::fire_state().kit_scale = kit_scale;
+    if (kit_reach != 0.0f) zwep::fire_state().kit_range = kit_reach;
     const int32_t used = bin->amount > 1 ? 1 : bin->amount;
     bin->amount -= used;
     if (bin->manager) bin->manager->ammo_value = bin->manager->ammo_value - static_cast<float>(used) * bin->damage;
     if (g_calls.beam_start) g_calls.beam_start(beam);
     else zwep::beam_start(static_cast<zwep::Beam*>(beam));
+    if (kit_scale != 1.0f || kit_reach != 0.0f) {
+      zwep::fire_state().kit_scale = 1.0f;
+      zwep::fire_state().kit_range = 0.0f;
+    }
     firing = true;
     if (Handle owner = manager->owner) {
       projectile_target = nullptr;

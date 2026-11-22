@@ -12,6 +12,7 @@
 #include "mech3/mission_world.h"
 #include "mech3/weapon.h"
 #include "mech3/cheats.h"
+#include "upgrades/kits/kit_hooks.h"
 
 namespace mech3 {
 
@@ -65,6 +66,16 @@ HeatCalls& heat_calls() { return g_calls; }
 float HeatSinks::rate() const {
   const double r = count * 0.1f * (doubles ? 2.5f : 1.25f);  // 0x00606db8, 0x00606dbc
   return r < 1.0 ? 1.0f : static_cast<float>(r);
+}
+
+// Ours: upgrade hook (src/upgrades/kits). The sinks' rate (HeatSinks::rate) with a kit's sinks counted as the mech's
+// own kind; without a kit, the sinks' own rate.
+float heat_sink_rate(const Mech& m) {
+  const int32_t kit = upgrades::kit_extra_sinks(&m);
+  if (kit == 0) return m.heat_sinks.rate();
+  HeatSinks more = m.heat_sinks;
+  more.count += kit;
+  return more.rate();
 }
 
 // Mech3.exe 1.2 @ 0x0045fbc0. Always false, so the "heat sink lost" callout
@@ -257,7 +268,7 @@ void update_heat(Mech& m, float dt) {
   // The exe adds 0.05 a frame. FIX (B): 0.05 per 1/30 s (docs/heat.md, Frame rate).
   if (m.foot(0)->soil == kLava || m.foot(1)->soil == kLava)
     m.heat_added += zfix::options().per_second ? dt * (0.05f * zfix::kReferenceFps) : 0.05f;
-  m.heat_dissipation *= m.heat_sinks.rate();
+  m.heat_dissipation *= heat_sink_rate(m);  // Ours: upgrade hook (src/upgrades/kits): HeatSinks::rate, the kits' sinks too
   m.heat_dissipation *= cheat_rate(&m == g_world.mission_player);  // ours: operation cwal (cheats.h)
 
   if ((g_calls.heat_option && g_calls.heat_option()) || game_type() == kMultiplayer) {

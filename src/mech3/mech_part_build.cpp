@@ -9,6 +9,7 @@
 #include "mech3/mech_config.h"
 #include "mech3/mech_names.h"
 #include "mech3/mech_reader.h"
+#include "upgrades/kits/kit_hooks.h"
 
 #pragma STDC FP_CONTRACT OFF
 
@@ -262,7 +263,8 @@ bool MechPart::init(const Config* cfg) {
   internal_scale = point_scale(points, 1.0f);
   internal = 1.0f;
   armor = 1.0f;
-  armor_scale = point_scale(slot >= 0 && slot < 11 ? cfg->armor[slot] : 0, 100.0f);  // 0x005c276c
+  // 0x005c276c. Ours: upgrade hook (src/upgrades/kits): a kit's points past the configuration's.
+  armor_scale = point_scale(slot >= 0 && slot < 11 ? cfg->armor[slot] + upgrades::kit_extra_armour(mech, slot) : 0, 100.0f);
   return true;
 }
 
@@ -274,7 +276,7 @@ bool Torso::init(const Config* cfg) {
   if (ok && cfg) {
     for (int s = 1; s <= 5; ++s) {
       sec_armor[s] = 1.0f;
-      sec_armor_scale[s] = point_scale(cfg->armor[s], 100.0f);
+      sec_armor_scale[s] = point_scale(cfg->armor[s] + upgrades::kit_extra_armour(mech, s), 100.0f);  // Ours: upgrade hook (src/upgrades/kits)
     }
   }
   const int32_t points = internal_points(mech->pilot->roster, 2);
