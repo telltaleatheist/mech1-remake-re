@@ -33,8 +33,13 @@ original.
 
 ### Coming in the next release
 
-- Standing up from a crouch obeys the sound volume (the original played it at
-  full volume).
+Nothing yet.
+
+**1.2.4 (2026-11-22)** (the full notes are in
+[docs/release-notes-1.2.4.md](docs/release-notes-1.2.4.md)): a small fix.
+
+- Standing up from a crouch obeys the sound volume, in MechWarrior 3 and
+  Pirate's Moon (the original played it at full volume).
 
 **1.2.3 (2026-11-21)** (the full notes are in
 [docs/release-notes-1.2.3.md](docs/release-notes-1.2.3.md)): setting up your
