@@ -4,7 +4,7 @@
 // it, hiding while the game runs. mw3 itself starts without it.
 //
 //   mw3launcher [--version] [--write-dir DIR] [--windowed | --window WxH] [--nosound] [--no-import]
-//               [--launcher-shot FILE [--launcher-screen main|setup|work|notes]]
+//               [--launcher-shot FILE [--launcher-screen main|setup|work|notes|found]]
 //               [--launcher-play] [--launcher-mw1]
 #include <SDL3/SDL.h>
 
@@ -113,7 +113,7 @@ int main(int argc, char** argv) {
     else {
       std::fprintf(stderr,
                    "usage: mw3launcher [--version] [--write-dir DIR] [--windowed | --window WxH] [--nosound] [--hidden] [--no-import]\n"
-                   "    [--launcher-shot FILE [--launcher-screen main|setup|work|notes]] [--launcher-play] [--launcher-mw1]\n");
+                   "    [--launcher-shot FILE [--launcher-screen main|setup|work|notes|found]] [--launcher-play] [--launcher-mw1]\n");
       return 2;
     }
   }

@@ -38,6 +38,9 @@ struct LauncherOptions {
   // A plain mw3 start that found no install (docs/games-layout.md): the find
   // screen alone, straight on into the game once there is one.
   bool setup_only = false;
+  // With setup_only: an install the plain start's search found elsewhere, looked at first and offered to be
+  // copied in (INSTALL), so the original may be deleted afterwards (Owen, 2026-11-21).
+  std::string look_first;
   bool write_dir_fixed = false;  // --write-dir given: no moving the data folder
   // mw3launcher (docs/launcher.md, The two programs): MECHWARRIOR 3 starts
   // this program as a child, `game_bin <install> game_args... --ready-file F`,
