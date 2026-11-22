@@ -33,13 +33,19 @@ original.
 
 ### Coming in the next release
 
-- **The launcher downloads the games.** Its download is now the launcher
-  alone; each game's card shows INSTALL, or UPDATE TO x.y.z when a newer
-  version is out, and gets the game from its own release. Nothing downloads
-  until you press it, every download is checked, and your game files,
-  pilots, saves and mods are kept. Offline, installed games just play, and
-  INSTALL FROM FILE takes a game's download you already have.
-- MechWarrior 1 Remake gets a download of its own.
+Nothing yet.
+
+**1.3.0 (2026-11-22)** (the full notes are in
+[docs/release-notes-1.3.0.md](docs/release-notes-1.3.0.md)): the launcher
+downloads the games.
+
+- **The launcher's download is the launcher alone.** Each game's card shows
+  INSTALL, or UPDATE TO x.y.z when a newer version is out, and gets the game
+  from its own release. Nothing downloads until you press it, every download
+  is checked, and your game files, pilots, saves and mods are kept. Offline,
+  installed games just play, and INSTALL FROM FILE takes a game's download
+  you already have.
+- MechWarrior 1 Remake gets a download of its own (1.0.7).
 
 **1.2.4 (2026-11-22)** (the full notes are in
 [docs/release-notes-1.2.4.md](docs/release-notes-1.2.4.md)): a small fix.
