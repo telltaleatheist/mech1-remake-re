@@ -2579,6 +2579,14 @@ about 6 s with its speed up, moving 0 m, before it walked.
     armour. Every weapon on the company's side gets its type's steps, and no enemy gets anything, even with the same
     weapon. A lancemate is known by their AI pilot, so a reinforcement made later at their 'Mech's address isn't
     taken for them. `mw1_loop_kits_and_steps_the_lance_s_only_headless` checks it in a mission.
+  - **The supply screen (mw1-110-supply):** `mw1_supply_screen.h`, layout `mw1supply.zrd`, opened by the Mech
+    Complex's new SUPPLY (above BACK). FOR SALE lists the world's dealer stock, a rule, then the sink and armour kits
+    and a power and a range step for each weapon type the company owns, each at its next price. YOUR STORES lists the
+    stores' items at the selling price, the spare kits and the steps each type has. ASSIGN switches the lower list to
+    the company's 'Mechs and shows +SINK, -SINK, +ARMOUR and -ARMOUR. A kit or a step asks before buying, since it is
+    never sold back; a dealer's item doesn't. The Mech Complex's YOUR MECHS shows each 'Mech's kits in a KITS column on
+    the wide layout; 4:3's has no room, so its status line says the chosen one's.
+    `mw1_loop_supply_buy_assign_move_saved_headless` clicks it through and reloads the save.
 - **Owen (2026-11-20):** players can keep playing indefinitely without the story, like an Instant Action mod, and
   money needs something to buy. It's always on sale at the hub; nothing to hunt for. It applies to the player's side
   only, never to enemies.

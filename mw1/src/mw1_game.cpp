@@ -88,6 +88,7 @@
 #include "mw1_hud_art.h"
 #include "mw1_market.h"
 #include "mw1_market_screen.h"
+#include "mw1_supply_screen.h"
 #include "mw1_menu.h"
 #include "mw1_movie.h"
 #include "mw1_images.h"
@@ -559,6 +560,20 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         // market_mixed: funds for the cheapest only (3,000,000 on the start world's stock), the rest dimmed (item 41).
         if (std::string(s) == "market_mixed") company_.funds = 3000000, show_market();
       }
+      // MW1_SCREEN=supply, supply_assign (1.1.0, FIXES 122 and 118): the Mech Complex's SUPPLY. supply_assign: kits
+      // bought, some on the commander's 'Mech and some in the storehouse, steps on the first weapon type, then ASSIGN.
+      if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s).rfind("supply", 0) == 0) {
+        const std::string page = s;
+        if (page == "supply_assign") {
+          company_.upgrades.sinks_bought = 5, company_.upgrades.armour_bought = 21;
+          company_.kits = {3, 12}, company_.upgrades.store = {2, 9};
+          if (const std::vector<OwnedType> types = owned_weapon_types(company_); !types.empty())
+            company_.upgrades.steps.push_back({types[0].weapon, types[0].tech, 2, 1});
+        }
+        press(kHubMarket);
+        press_market(kMarketSupply);
+        if (page == "supply_assign") press_supply(kSupplyAssign);
+      }
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "travel") press(kHubTravel);
       // MW1_SCREEN=travel_pick: the map with a world chosen (MW1_TRAVEL_TO, a name; else the farthest of the first few).
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "travel_pick") {
@@ -925,6 +940,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     if (hub_engine_ == &ge && ge.menu_state_of(hub_) == hub_state_) return hub_ != 0;
     hub_engine_ = &ge, ge_ = &ge, hub_ = 0, hub_state_ = nullptr;
     market_ = 0, market_state_ = nullptr;
+    supply_ = 0, supply_state_ = nullptr;
     travel_ = 0, travel_state_ = nullptr;
     movie_ = 0, movie_state_ = nullptr;
     bar_ = 0, bar_state_ = nullptr;
@@ -1664,6 +1680,15 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       case kMarketLab:
         if (ge) screen_change([this, ge] { open_lab(*ge); });
         return;
+      case kMarketSupply:
+        // 1.1.0 (FIXES 122, 118): the supply screen in the Mech Complex's place (its BACK brings the Mech Complex back).
+        if (!ge || !supply(*ge)) return;
+        screen_change([this, ge] {
+          schoice_ = SupplyChoice{};
+          show_supply();
+          swap_to(*ge, supply_);
+        });
+        return;
       case kMarketStockUp: --m.stock, m.own_shown = false; break;
       case kMarketStockDown: ++m.stock, m.own_shown = false; break;
       case kMarketOwnUp: --m.owned, m.own_shown = true; break;
@@ -1691,9 +1716,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   }
 
   // BUY's and SELL's question in the game's box (FIXES.md item 60): true on YES. Without an engine (no box), yes.
-  bool deal_asked(const std::string& question) {
+  bool deal_asked(const std::string& question, const char* caption = kDealCaption) {
     if (!ge_) return true;
-    const bool yes = static_cast<int32_t>(ge_->message_box_words(kBoxYesNo, kDealCaption, question)) == kAnswerYes;
+    const bool yes = static_cast<int32_t>(ge_->message_box_words(kBoxYesNo, caption, question)) == kAnswerYes;
     std::printf("mw1: market: %s %s\n", question.c_str(), yes ? "YES" : "NO");
     return yes;
   }
@@ -1715,7 +1740,134 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
 
   void show_market() {
     clamp_choice(company_, choice_);
-    if (market_state_) market_state_->show(market_view(company_, choice_));
+    if (market_state_) market_state_->show(market_view(company_, choice_, wide_canvas()));
+  }
+  // The screens' wide layouts are used on a canvas wider than 4:3's (Mw1Screen).
+  bool wide_canvas() const { return ge_ && ge_->buffer_width() > 640; }
+
+  // ---- the supply screen (1.1.0, FIXES 122 and 118: mw1_dealer.h, mw1_upgrades.h, mw1_supply_screen.h) ----
+
+  bool supply(mech3::GameEngine& ge) {
+    if (supply_ && ge.menu_state_of(supply_) == supply_state_) return true;
+    if (!layout_there(kSupplyFile, kSupplyDialog)) {
+      std::printf("mw1: no supply layout (%s in MW1's data)\n", kSupplyFile);
+      return false;
+    }
+    supply_ = ge.adopt_state([this](zgame::Handle h) { return supply_state_ = new SupplyState(h, [this](int32_t id) { as_player([&] { press_supply(id); }); }); });
+    if (supply_state_) {
+      supply_state_->set_pointer(kSupplyListArea[0], kSupplyListArea[1], kSupplyListArea[2], kSupplyListArea[3],
+                                 [this](int32_t x, int32_t y, bool click) { supply_point(x, y, click); });
+      supply_state_->set_wheel_lists({{kSupplyPanelSale, kSupplySaleUp, kSupplySaleDown}, {kSupplyPanelOwn, kSupplyOwnUp, kSupplyOwnDown}});
+    }
+    return supply_ != 0;
+  }
+
+  void show_supply() {
+    clamp_choice(company_, schoice_);
+    if (supply_state_) supply_state_->show(supply_view(company_, schoice_));
+  }
+
+  // A click on a list's row chooses it (a rule never).
+  void supply_point(int32_t x, int32_t y, bool click) {
+    bool own = false;
+    int32_t row = 0;
+    if (!click || !supply_row_at(x, y, wide_canvas(), &own, &row)) return;
+    row += own ? schoice_.own_top : schoice_.sale_top;
+    const std::vector<SupplyRow> rows = own ? own_rows(company_, schoice_.assigning) : sale_rows(company_);
+    if (row < 0 || row >= static_cast<int32_t>(rows.size()) || rows[static_cast<size_t>(row)].kind == LineKind::kRule) return;
+    (own ? schoice_.own : schoice_.sale) = row;
+    schoice_.own_chosen = own;
+    schoice_.note.clear();
+    show_supply();
+  }
+
+  void press_supply(int32_t id) {
+    std::printf("mw1: supply: %s\n", supply_button_name(id));
+    mech3::GameEngine* ge = ge_;
+    SupplyChoice& s = schoice_;
+    std::vector<SupplyRow> rows;
+    bool done = false;
+    switch (id) {
+      case kSupplyBuy: {
+        const SupplyRow* chosen = chosen_sale(company_, s, &rows);
+        if (!chosen) return;
+        const SupplyRow r = *chosen;
+        const int64_t price = row_price(company_, r);
+        s.own_chosen = false;
+        if (r.kind == LineKind::kWare) {
+          const dealer::Trade t = dealer::buy(company_, r.index);
+          done = t == dealer::Trade::kDone;
+          s.note = done ? "Bought: " + ware_title(r.ware) + ", " + thousands(price) + " C-bills." : dealer::trade_words(t);
+          break;
+        }
+        // A kit or a step: never sold back, so asked first (the reason at once when it can't be).
+        if (row_at_most(company_, r)) {
+          s.note = upgrades::bought_words(upgrades::Bought::kAtMost);
+          break;
+        }
+        if (price > company_.funds) {
+          s.note = upgrades::bought_words(upgrades::Bought::kNoFunds);
+          break;
+        }
+        if (!deal_asked(buy_question(company_, r), "SUPPLY")) return;
+        const upgrades::Bought b =
+            r.kind == LineKind::kKit
+                ? upgrades::buy_kit(company_, r.kit)
+                : upgrades::buy_step(company_, r.weapon, r.tech, r.step,
+                                     r.step == upgrades::Step::kRange ? type_range_most(r.weapon, r.tech) : -1);
+        done = b == upgrades::Bought::kDone;
+        const std::string what = r.kind == LineKind::kKit ? (r.kit == upgrades::Kit::kSink ? "a sink kit" : "an armour kit")
+                                                          : type_title(r.weapon, r.tech) + (r.step == upgrades::Step::kPower ? " +POWER" : " +RANGE");
+        s.note = done ? "Bought: " + what + ", " + thousands(price) + " C-bills." : upgrades::bought_words(b);
+        break;
+      }
+      case kSupplySell: {
+        const SupplyRow* chosen = chosen_own(company_, s, &rows);
+        if (!chosen || chosen->kind != LineKind::kWare || s.assigning) return;
+        const dealer::Ware w = chosen->ware;
+        const int64_t got = dealer::sell_price(w, company_.tier);
+        const dealer::Trade t = dealer::sell(company_, w);
+        done = t == dealer::Trade::kDone;
+        s.note = done ? "Sold: " + ware_title(w) + ", " + thousands(got) + " C-bills." : dealer::trade_words(t);
+        s.own_chosen = true;
+        break;
+      }
+      case kSupplyAssign:
+        s.assigning = !s.assigning, s.own = 0, s.own_top = 0, s.own_chosen = s.assigning;
+        s.note.clear();
+        break;
+      case kSupplyAddSink:
+      case kSupplyTakeSink:
+      case kSupplyAddArmour:
+      case kSupplyTakeArmour: {
+        const SupplyRow* chosen = chosen_own(company_, s, &rows);
+        if (!s.assigning || !chosen || chosen->kind != LineKind::kMech) return;
+        const int32_t owned = chosen->index;
+        const bool sink = id == kSupplyAddSink || id == kSupplyTakeSink, on = id == kSupplyAddSink || id == kSupplyAddArmour;
+        const upgrades::Bought b = upgrades::assign(company_, owned, sink ? upgrades::Kit::kSink : upgrades::Kit::kArmour, on ? 1 : -1);
+        done = b == upgrades::Bought::kDone;
+        s.note = done ? std::string(sink ? "A sink kit " : "An armour kit ") + (on ? "onto the " : "off the ") +
+                            mech_title(owned_mech(company_, owned)) + (on ? "." : ", back in the storehouse.")
+                      : upgrades::bought_words(b);
+        s.own_chosen = true;
+        break;
+      }
+      case kSupplySaleUp: step_supply(company_, s, false, -1); break;
+      case kSupplySaleDown: step_supply(company_, s, false, 1); break;
+      case kSupplyOwnUp: step_supply(company_, s, true, -1); break;
+      case kSupplyOwnDown: step_supply(company_, s, true, 1); break;
+      case kSupplyBack:
+        if (!ge) return;
+        screen_change([this, ge] {
+          show_market();
+          swap_to(*ge, market_);
+        });
+        return;
+      default: return;
+    }
+    if (!s.note.empty()) std::printf("mw1: supply: %s\n", s.note.c_str());
+    if (done) save();
+    show_supply();
   }
 
   // MECH LAB (FIXES.md item 8): Pirate's Moon's lab, as the briefing's MECHLAB opens it, with a copy of the company's
@@ -3473,6 +3625,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   HubState* hub_state() const { return hub_state_; }
   MarketState* market_state() const { return market_state_; }
   const MarketChoice* market_choice() const { return &choice_; }
+  SupplyState* supply_state() const { return supply_state_; }
+  const SupplyChoice* supply_choice() const { return &schoice_; }
   int32_t market_panel_mech() const { return market_shown_mech(company_, choice_); }
   BarState* bar_state() const { return bar_state_; }
   OfficeState* office_state() const { return office_state_; }
@@ -4378,6 +4532,7 @@ static bool reach_ground(const std::string& structure, float out[3]) {
                         ? on(game_loop_event())
                     : p.rfind("hub", 0) == 0                ? on(game_loop_hub())
                     : p.rfind("market", 0) == 0             ? on(game_loop_market())
+                    : p.rfind("supply", 0) == 0             ? on(game_loop_supply())
                     : p.rfind("travel", 0) == 0             ? on(game_loop_travel())
                     : p.rfind("office", 0) == 0             ? on(game_loop_office())
                     : p.rfind("bar", 0) == 0 || p == "company" ? on(game_loop_bar())
@@ -4710,6 +4865,9 @@ static bool reach_ground(const std::string& structure, float out[3]) {
   mech3::ModelView model_view_;  // the Mech Complex's live 'Mech, open while the market is shown
   float market_turn_ = 0.0f;
   MarketChoice choice_;
+  zgame::Handle supply_ = 0;  // 1.1.0: the Mech Complex's SUPPLY
+  SupplyState* supply_state_ = nullptr;
+  SupplyChoice schoice_;
   int32_t lab_owned_ = -1;
   // FIXES.md item 14's render pass and its stage (render_pass_frame, render_stage).
   struct RenderPass {
@@ -4897,6 +5055,8 @@ void game_loop_offer_again() {
 bool game_loop_lance(const std::vector<int32_t>& slots) { return the_loop() && the_loop()->lance_for_tests(slots); }
 MarketState* game_loop_market() { return the_loop() ? the_loop()->market_state() : nullptr; }
 const MarketChoice* game_loop_market_choice() { return the_loop() ? the_loop()->market_choice() : nullptr; }
+SupplyState* game_loop_supply() { return the_loop() ? the_loop()->supply_state() : nullptr; }
+const SupplyChoice* game_loop_supply_choice() { return the_loop() ? the_loop()->supply_choice() : nullptr; }
 int32_t game_loop_market_panel_mech() { return the_loop() ? the_loop()->market_panel_mech() : -1; }
 TravelState* game_loop_travel() { return the_loop() ? the_loop()->travel_state() : nullptr; }
 const std::vector<AllyLaunch>& game_loop_ally_launches() {
