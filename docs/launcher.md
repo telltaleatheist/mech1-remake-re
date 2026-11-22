@@ -93,7 +93,7 @@ folder; your disc and any installed copy are left untouched."
 
 | plate | shown | what it does |
 | --- | --- | --- |
-| Find the game | always (one option, Owen 2026-11-02) | the finder (mw3.cfg's, the installer's places, a folder dropped beside the program) and a disc in a drive (`find_discs`) first. Only `<write dir>/install` (SETUP's own copy) or mw3.cfg's is used at once; anything else found is offered, never taken (Owen, 2026-11-21: the player always chooses): "USE THESE GAME FILES?", one plate naming the find (clicking it opens the picker for other files), its summary, INSTALL / BACK. From GAME FILES the copy in use is no answer: the picker opens, "In use: ...". With neither, "Not found on this computer or in a disc drive. Pick it: a disc image, a download, or Mech3.exe." and one file picker opens (.iso .cue .bin .zip .7z .rar .., Mech3.exe, any file). `pick_source`: an image or archive is the source; any other file stands for its folder (Mech3.exe or any file of an installed copy, zbd\\ and video\\ up one; a disc's folder), a .bin for its .cue. Then `source::map_source` on the worker ("LOOKING AT YOUR GAME", its bar, CANCEL): anything found (an installed copy on disk too, since 2026-11-21: copied in, so the original may be deleted; only `<write dir>/install` itself is used where it is) INSTALL / BACK under its summary and `setup::install_from_source` into `<write dir>/install`, a cue's music into `<write dir>/music`. SDL3 has no file-or-folder dialog on the three systems (none on the Mac's panel either through SDL 3.4), so a folder is picked by one of its files |
+| Find the game | always (one option, Owen 2026-11-02) | the finder (mw3.cfg's, the installer's places, a folder dropped beside the program) and a disc in a drive (`find_discs`) first. Only `<write dir>/install` (SETUP's own copy) or mw3.cfg's is used at once; anything else found is offered, never taken (Owen, 2026-11-21: the player always chooses): "USE THESE GAME FILES?", one plate naming the find (clicking it opens the picker for other files), its summary, INSTALL / BACK. From GAME FILES the copy in use is no answer: the picker opens, "In use: ...". Choosing again without the launcher: Shift held while the game starts (`held_keys.h`: Windows' key state, the Mac's event flags, X11's keymap; a Wayland-only session has no answer, so `mw3 --setup` there) opens this screen with "In use: ... FIND THE GAME to choose other files, or PLAY to go on", PLAY in QUIT's place. Pirate's Moon the same (2026-11-21): a copy the search finds (not PM's own `<its settings>/install`) is offered on PIRATE'S MOON's click and copied into its settings folder's install; LauncherOptions::pm is mw3pm's own start (on the `pm` branch), the screen as Pirate's Moon's, its choice saved as its own mw3.cfg's install=. With neither, "Not found on this computer or in a disc drive. Pick it: a disc image, a download, or Mech3.exe." and one file picker opens (.iso .cue .bin .zip .7z .rar .., Mech3.exe, any file). `pick_source`: an image or archive is the source; any other file stands for its folder (Mech3.exe or any file of an installed copy, zbd\\ and video\\ up one; a disc's folder), a .bin for its .cue. Then `source::map_source` on the worker ("LOOKING AT YOUR GAME", its bar, CANCEL): anything found (an installed copy on disk too, since 2026-11-21: copied in, so the original may be deleted; only `<write dir>/install` itself is used where it is) INSTALL / BACK under its summary and `setup::install_from_source` into `<write dir>/install`, a cue's music into `<write dir>/music`. SDL3 has no file-or-folder dialog on the three systems (none on the Mac's panel either through SDL 3.4), so a folder is picked by one of its files |
 | Back | always | the games (QUIT on a plain mw3 start) |
 
 Once found or installed the game starts at once (`use_install`, `play`).
@@ -477,15 +477,29 @@ the mw1 files just like mw3 and pm do"), in `frontend/sdl/mw1_files` (ours):
   MECH or MW beside the program (beside the Mac's .app, beside the
   AppImage), in the home folder or on the system drive, and under their
   Games, DOSBox or DOS folders. Only named folders: on the Mac a look into
-  Documents or Downloads would ask the player for permission. The one found
-  is kept as `mw1_game=`. `MW3_LAUNCHER_NO_MW1_SEARCH` (checks) skips it.
+  Documents or Downloads would ask the player for permission. Our own copy,
+  found, is kept as `mw1_game=`; anything else found is only offered, never
+  taken (2026-11-21, as MW3's: the player always chooses): MECHWARRIOR 1 (or
+  PLAY ORIGINAL) then shows MW3's find plate ("USE THESE GAME FILES?", the
+  find's name; clicking it opens the picker; INSTALL copies it in; BACK
+  leaves it), and its card line names the find. `MW3_LAUNCHER_NO_MW1_SEARCH`
+  (checks) skips the search; `MW3_SEARCH_PROGRAM_DIR` stands for the
+  program's folder; `MW3_LAUNCHER_GO` and `MW3_LAUNCHER_PICK_OTHER` press the
+  offer's INSTALL and its plate.
 - **A click** with none found opens the file picker (as MW3's one picker):
   `BTECH.EXE` or any file in the game's folder; a folder above it, one or two
   levels (a DOSBox drive folder); or the download it came in (.zip and the
   other archives SETUP reads), whose folder holding `BTECH.EXE` is unpacked
-  into the write dir's `mw1/game`. That folder carries our marker
-  (`mw3-launcher-unpacked.txt`); a later download replaces it, and a folder
-  there without the marker is never replaced. Entries that climb out
+  into the write dir's `mw1/game`. A folder picked (or a file's folder, or the
+  offered find) is copied there too (2026-11-21: once found, the original may
+  be deleted), by `mw1::copy_in` on the launcher's worker: the kit's
+  `copy_folder` into `mw1/game.copying` (room checked, links followed),
+  marked, then `swap_in_folder`, so the old copy stays until the new one is
+  in, and a failure or a cancel leaves nothing half-copied with `mw1_game=`
+  as it was. Our copy picked again is used where it is, never copied onto
+  itself. That folder carries our marker (`mw3-launcher-unpacked.txt`); a
+  later download or copy replaces it, and a folder there without the marker
+  is never replaced. Entries that climb out
   (`..`, absolute paths) are skipped. A pick that is not the game is said on
   the status line ("That download has no BTECH.EXE: it is not MechWarrior
   (1989).") and nothing changes. Without `MW_MAIN.EXE` beside it the game is

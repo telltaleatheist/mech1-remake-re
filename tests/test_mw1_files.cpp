@@ -165,3 +165,48 @@ TEST(mw1_files_refuses_a_damaged_download) {
   EXPECT(!fs::exists(mw1::unpacked_dir(wd)) && !fs::exists(mw1::unpacked_dir(wd) + ".unpacking"));
 }
 #endif
+
+// A picked or offered folder copied into the write dir's mw1/game (the kit's copy_folder, then swapped in), so the
+// player's own may be deleted afterwards: the copy plays on without it; a second pick replaces our copy; our copy
+// picked again is used where it is (no copy onto itself); a folder there we did not make is never replaced; a
+// cancel or a failure leaves nothing half-copied and the copy in use as it was.
+TEST(mw1_files_copies_a_picked_folder_into_the_write_dir) {
+  const std::string d = fresh("copy"), wd = d + "/wd", game = d + "/dos/MECHWAR";
+  put(fs::path(game) / "BTECH.EXE", "first");
+  put(fs::path(game) / "MW_MAIN.EXE", "main");
+  put(fs::path(game) / "SOUNDS" / "A.VOC", "voc");
+  std::string why;
+  const std::string out = mw1::copy_in(game, wd, &why);
+  EXPECT(out == mw1::unpacked_dir(wd) && why.empty());
+  EXPECT(read(fs::path(out) / "BTECH.EXE") == "first" && read(fs::path(out) / "SOUNDS" / "A.VOC") == "voc");
+  EXPECT(mw1::in_unpacked(out, wd) && mw1::in_unpacked((fs::path(out) / "SOUNDS").string(), wd) && !mw1::in_unpacked(game, wd));
+  EXPECT(!fs::exists(out + ".copying") && !fs::exists(out + ".old"));
+  std::error_code ec;
+  fs::remove_all(d + "/dos", ec);  // the original deleted: the copy is whole on its own
+  EXPECT(mw1::game_valid(out) && mw1::has_main(out));
+  // Our copy picked again (it, or a file in it): used where it is, nothing copied.
+  const auto before = fs::last_write_time(fs::path(out) / "BTECH.EXE");
+  EXPECT(mw1::copy_in(mw1::game_of_pick((fs::path(out) / "BTECH.EXE").string(), wd, &why), wd, &why) == out);
+  EXPECT(fs::last_write_time(fs::path(out) / "BTECH.EXE") == before && !fs::exists(out + ".copying"));
+  // Another folder picked: replaces our copy.
+  const std::string other = d + "/other/MW";
+  put(fs::path(other) / "BTECH.EXE", "second");
+  EXPECT(mw1::copy_in(other, wd, &why) == out && read(fs::path(out) / "BTECH.EXE") == "second");
+  EXPECT(!fs::exists(fs::path(out) / "SOUNDS"));  // the old copy gone whole, not merged
+  // A cancel part way: nothing half-copied, the copy in use as it was.
+  const std::string third = d + "/third/MW";
+  put(fs::path(third) / "BTECH.EXE", "third");
+  put(fs::path(third) / "B.DAT", std::string(4096, 'b'));
+  bool cancelled = false;
+  int calls = 0;
+  EXPECT(mw1::copy_in(third, wd, &why, [&](uint64_t, uint64_t, const std::string&) { return ++calls < 2; }, &cancelled).empty());
+  EXPECT(cancelled && calls >= 2 && !why.empty());
+  EXPECT(read(fs::path(out) / "BTECH.EXE") == "second" && !fs::exists(out + ".copying"));
+  // A folder there that we did not make: never replaced, nothing copied.
+  const std::string wd2 = d + "/wd2";
+  put(fs::path(mw1::unpacked_dir(wd2)) / "mine.txt", "the player's");
+  EXPECT(mw1::copy_in(other, wd2, &why).empty() && why.find("not one the launcher made") != std::string::npos);
+  EXPECT(read(fs::path(mw1::unpacked_dir(wd2)) / "mine.txt") == "the player's" && !fs::exists(mw1::unpacked_dir(wd2) + ".copying"));
+  // Not the game: refused before anything is copied.
+  EXPECT(mw1::copy_in(d + "/third", wd, &why).empty() && why.find("no BTECH.EXE") != std::string::npos);
+}

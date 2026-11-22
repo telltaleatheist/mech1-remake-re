@@ -7,6 +7,7 @@
 #include <fstream>
 
 #include "mech3/source_archive.h"
+#include "rekit/files.h"
 
 namespace fs = std::filesystem;
 
@@ -200,6 +201,48 @@ std::string unpack(const std::string& archive, const std::string& write_dir, std
   if (ec) {
     fs::remove_all(tmp, ec);
     return fail("Could not move the unpacked game into " + dest.string() + ".");
+  }
+  return dest.string();
+}
+
+bool in_unpacked(const std::string& dir, const std::string& write_dir) {
+  if (dir.empty() || write_dir.empty()) return false;
+  const std::string ours_dir = unpacked_dir(write_dir);
+  std::error_code ec;
+  return fs::equivalent(dir, ours_dir, ec) || rekit::path_inside(ours_dir, dir);
+}
+
+std::string copy_in(const std::string& game, const std::string& write_dir, std::string* error, const CopyProgress& progress,
+                    bool* cancelled) {
+  auto fail = [error](const std::string& why) {
+    if (error) *error = why;
+    return std::string();
+  };
+  if (cancelled) *cancelled = false;
+  if (!game_valid(game)) return fail("That folder has no BTECH.EXE: it is not MechWarrior (1989).");
+  if (in_unpacked(game, write_dir)) return game;  // ours already: used where it is
+  const fs::path dest = unpacked_dir(write_dir), tmp = dest.string() + ".copying";
+  std::error_code ec;
+  if (!clearable(dest)) return fail("The folder " + dest.string() + " is not one the launcher made: move it away first.");
+  if (!clearable(tmp)) return fail("The folder " + tmp.string() + " is not one the launcher made: move it away first.");
+  fs::remove_all(tmp, ec);  // a copy an earlier run left: ours
+  fs::create_directories(dest.parent_path(), ec);
+  const rekit::CopyResult c = rekit::copy_folder(game, tmp.string(), progress);
+  if (!c.ok) {  // copy_folder leaves nothing behind
+    if (cancelled) *cancelled = c.cancelled;
+    return fail(c.cancelled ? "Stopped. Nothing was copied; the game in use is as it was."
+                            : "Could not copy MechWarrior (1989) from " + game + ": " + c.error);
+  }
+  std::ofstream(tmp / kMarker) << "Copied by the launcher from " << game
+                               << ".\nThe launcher replaces this folder when another copy or download is picked.\n";
+  if (!game_valid(tmp.string())) {
+    fs::remove_all(tmp, ec);
+    return fail("The copy of " + game + " has no BTECH.EXE: nothing was changed.");
+  }
+  if (!rekit::swap_in_folder(tmp.string(), dest.string(), kMarker, ec)) {
+    const std::string why = ec.message();
+    fs::remove_all(tmp, ec);
+    return fail("Could not put the copy in " + dest.string() + " (" + why + "): nothing was changed.");
   }
   return dest.string();
 }

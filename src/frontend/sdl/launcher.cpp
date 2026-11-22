@@ -440,7 +440,7 @@ struct Work {
   mech3::setup::Result result;
   std::atomic<bool> cancel{false}, done{false};
   std::string title;
-  enum Kind { kOther, kLook, kInstallIt, kAddDisc, kConvert, kMoveData, kRemoveData, kUpdateCheck, kUpdateDownload } kind = kOther;  // a look, an install, ADD FROM MY DISC, the movies
+  enum Kind { kOther, kLook, kInstallIt, kAddDisc, kConvert, kMoveData, kRemoveData, kUpdateCheck, kUpdateDownload, kMw1Copy } kind = kOther;  // a look, an install, ADD FROM MY DISC, the movies
   ~Work() {
     cancel = true;
     if (th.joinable()) th.join();
@@ -501,6 +501,9 @@ class Launcher {
   bool notes_once(const std::vector<std::string>& notes, std::string* crc_kept, const char* key);
   void find_pm();
   void find_mw1_game();
+  void offer_mw1();                        // the search's MechWarrior (1989) offered on the find's plate
+  void copy_mw1(const std::string& game);  // copied into mw1::unpacked_dir on the worker, then take_mw1
+  void take_mw1(const std::string& dir);   // the folder in use from now: saved, then on as the pick goes
   void draw_card(const Card& c);
   // GAME FILES on Pirate's Moon (files_pm_): its settings folder as mw3pm
   // finds it, its usual one (MW3's sibling, "MicroProse/Pirate's Moon", made
@@ -577,6 +580,9 @@ class Launcher {
   }
   Install install_;
   std::string pm_dir_;  // Pirate's Moon's folder, kept as pm_install= in mw3.cfg
+  std::string pm_found_;  // the search's Pirate's Moon, not taken: offered when PIRATE'S MOON is chosen
+  bool have_files() const { return files_pm_ ? !pm_dir_.empty() : install_.ok; }
+  std::string files_dir() const { return files_pm_ ? pm_dir_ : install_.dir; }
   bool pm_last_ = false;  // the game last clicked: GAME FILES acts on it
   bool mw1_repick_ = false;  // the MW1 pick came from GAME FILES: kept, not played
   bool mw1_last_ = false;  // MW1's line last clicked: GAME FILES re-picks its folder
@@ -603,6 +609,8 @@ class Launcher {
   bool mw1_logged_ = false;  // MW1: its entry's line said once
   bool mw1_remake_ = false;  // MechWarrior 1 Remake's mw1 beside ours
   std::string mw1_exe_, mw1_game_;  // MechWarrior 1 Remake's program; the player's MechWarrior (1989) folder
+  std::string mw1_found_;  // the search's MechWarrior (1989), not taken: offered (confirm_go_ 5) until the player chooses
+  bool quit_after_mw1_ = false;  // --launcher-mw1 (checks): ended once its pick, copy and game are done
   std::string port_exe_;            // Elthial's port of the 1989 game, when the player has put it beside ours
   bool mw1_original_ = false;       // the MW1 run asked for is the original's (PLAY ORIGINAL)
   std::vector<Card> cards_;         // the main screen's (layout)
@@ -779,11 +787,54 @@ void Launcher::find_mw1_game() {
     return;
   }
   if (SDL_getenv("MW3_LAUNCHER_NO_MW1_SEARCH")) return;  // checks: only what they set up
-  const std::string found = sdlfe::mw1::search(o_.program_dir, o_.write_dir);
+  const char* beside = SDL_getenv("MW3_SEARCH_PROGRAM_DIR");  // checks: a drop-in laid out by a test, as MW3's search
+  const std::string found = sdlfe::mw1::search(beside ? beside : o_.program_dir, o_.write_dir);
   if (found.empty()) return;
-  mw1_game_ = found;
+  if (!sdlfe::mw1::in_unpacked(found, o_.write_dir)) {  // the player's own: only offered, never taken (the MW3 rule)
+    mw1_found_ = found;
+    std::printf("mw3: launcher: MechWarrior (1989) found at %s: offered, not taken\n", found.c_str());
+    return;
+  }
+  mw1_game_ = found;  // our own copy (an earlier pick's): in use as before
   save_config_value(o_.write_dir, "mw1_game", found);
   std::printf("mw3: launcher: MechWarrior (1989) found at %s\n", found.c_str());
+}
+
+// The search's find offered as MW3's are (0d5c6657's plate: its name; clicking it picks other files; INSTALL copies
+// it in, BACK leaves it), so the player always chooses and the original may be deleted after the copy.
+void Launcher::offer_mw1() {
+  found_name_ = fs::path(mw1_found_).filename().string();
+  if (found_name_.empty()) found_name_ = mw1_found_;
+  found_sub_ = "Click to pick other files";
+  confirm_text_ = "MechWarrior (1989) at " + mw1_found_ + ". It will be copied into " +
+                  fs::path(sdlfe::mw1::unpacked_dir(o_.write_dir)).make_preferred().string() +
+                  ". Your own files are only read, and may be deleted afterwards.";
+  std::printf("mw3: launcher: found plate: %s (MechWarrior (1989) at %s)\n", found_name_.c_str(), mw1_found_.c_str());
+  confirm_go_ = 5, screen_ = kConfirm, status_.clear();
+  layout();
+  if (pick_other_) {  // checks (MW3_LAUNCHER_PICK_OTHER): passed over for the pick
+    pick_other_ = false;
+    return activate(kPickOther);
+  }
+  if (SDL_getenv("MW3_LAUNCHER_GO")) activate(kGo);  // checks: its INSTALL pressed
+}
+
+void Launcher::copy_mw1(const std::string& game) {
+  work_ = std::make_unique<Work>();
+  work_->kind = Work::kMw1Copy;
+  const std::string wd = o_.write_dir;
+  work_->start("COPYING MECHWARRIOR (1989)", [game, wd](const mech3::setup::ProgressFn& f) {
+    mech3::setup::Result r;
+    std::string why;
+    bool cancelled = false;
+    const std::string dir = sdlfe::mw1::copy_in(game, wd, &why, [&](uint64_t done, uint64_t total, const std::string& file) {
+      return f(mech3::setup::Progress{"Copying", total ? static_cast<double>(done) / static_cast<double>(total) : 0.0, file});
+    }, &cancelled);
+    r.ok = !dir.empty(), r.cancelled = cancelled, r.install_dir = dir;
+    r.summary = r.ok ? "MechWarrior (1989) copied into " + dir + "." : why;
+    return r;
+  });
+  screen_ = kWorking, layout();
 }
 
 // The port started as its own script starts it (`mechwarrior <game dir>
@@ -795,7 +846,8 @@ void Launcher::find_mw1_game() {
 // Mac's bottles), each read by map_source so an MW3 folder is never taken,
 // the one found saved to mw3.cfg as pm_install= (docs/launcher.md).
 void Launcher::find_pm() {
-  if (o_.pm_bin.empty()) return;
+  if (o_.pm_bin.empty() && !o_.pm) return;
+  pm_found_.clear();
   if (!o_.cfg_pm_install.empty() && is_pm_install(mech3::source::map_source(o_.cfg_pm_install))) {
     pm_dir_ = o_.cfg_pm_install;
     std::printf("mw3: launcher: Pirate's Moon at %s: ready\n", pm_dir_.c_str());
@@ -808,8 +860,13 @@ void Launcher::find_pm() {
   for (const std::string& d : tries) {
     std::error_code ec;
     if (!fs::is_directory(d, ec) || !is_pm_install(mech3::source::map_source(d))) continue;
-    pm_dir_ = d;
-    sdlfe::save_config_value(o_.write_dir, "pm_install", d);
+    if (!fs::equivalent(d, fs::path(pm_wd()) / "install", ec)) {  // the player's own: offered, never taken (Owen, 2026-11-21)
+      pm_found_ = d;
+      std::printf("mw3: launcher: Pirate's Moon found at %s: offered, not taken\n", d.c_str());
+      return;
+    }
+    pm_dir_ = d;  // our own copy (an earlier install's): in use as before
+    if (!o_.pm) sdlfe::save_config_value(o_.write_dir, "pm_install", d);
     std::printf("mw3: launcher: Pirate's Moon found at %s\n", d.c_str());
     return;
   }
@@ -1198,6 +1255,7 @@ void Launcher::layout() {
         if (!mw1_logged_) {  // the line the round entry had, for the log and the checks
           const std::string line = !mw1_remake_            ? "Elthial's SDL port: " + (mw1_game_.empty() ? std::string("click to pick your MechWarrior folder") : mw1_game_)
                                    : !needs.empty()        ? "Not ready: " + needs
+                                   : mw1_game_.empty() && !mw1_found_.empty() ? "Found " + mw1_found_ + ": click to choose"
                                    : mw1_game_.empty()     ? "Not found yet: click to find your MechWarrior (1989)"
                                    : mw1_program_.empty()  ? "Ready: " + mw1_game_
                                                            : "Ready, " + mw1_program_ + ": " + mw1_game_;
@@ -1229,7 +1287,7 @@ void Launcher::layout() {
       if (files_pm_ ? !pm_dir_.empty() && (pm_lacks_music_ || pm_lacks_sounds_)
                     : install_.ok && (lacks_music_ || lacks_movies_))  // what the install in use lacks, from the disc
         add(kAddDisc, {130, 318, 380, 52}, "ADD FROM MY DISC", kAddDiscSub);
-      add(kBack, {250, 384, 140, 34}, o_.setup_only ? "QUIT" : "BACK");
+      add(kBack, {250, 384, 140, 34}, !o_.setup_only ? "BACK" : o_.choose_again && have_files() ? "PLAY" : "QUIT");
       break;
     }
     case kDataScreen:
@@ -1249,7 +1307,7 @@ void Launcher::layout() {
         break;
       }
       if (confirm_go_ == 2) add(kMoveGo, {170, 300, 140, 40}, "MOVE");
-      else if (confirm_go_ == 1) {  // one plate shows the find; clicking it picks other files (Owen, 2026-11-21)
+      else if (confirm_go_ == 1 || confirm_go_ == 5) {  // one plate shows the find (5: MechWarrior (1989)'s); clicking it picks other files (Owen, 2026-11-21)
         add(kPickOther, {130, 180, 380, 56}, found_name_, found_sub_);
         add(kGo, {170, 330, 140, 40}, "INSTALL");
         add(kBack, {330, 330, 140, 40}, "BACK");
@@ -1529,7 +1587,7 @@ void Launcher::draw(float dt) {
       break;
     }
     case kConfirm:
-      if (confirm_go_ == 1) {  // over and under the find's plate
+      if (confirm_go_ == 1 || confirm_go_ == 5) {  // over and under the find's plate
         text_.draw(canvas_, "USE THESE GAME FILES?", 18, kAmber, W / 2, 150);
         text_.draw_wrapped(canvas_, confirm_text_, 14, kWhite, W / 2, 256, 460);
       } else {
@@ -1678,26 +1736,8 @@ void Launcher::picked(int what, const std::string& path) {
       std::printf("mw3: launcher: MechWarrior (1989) not taken from %s: %s\n", path.c_str(), why.c_str());
       return layout();
     }
-    std::printf("mw3: launcher: MechWarrior (1989) at %s%s\n", dir.c_str(),
-                sdlfe::mw1::has_main(dir) ? "" : " (no MW_MAIN.EXE: the Bar's drinks and news stay greyed)");
-    mw1_game_ = dir;
-    save_config_value(o_.write_dir, "mw1_game", dir);
-    if (mw1_original_ && !mw1_repick_ && !sdlfe::mw1::original_supported(dir)) {  // kept for the remake; the original says why not
-      status_ = "Your BTECH.EXE isn't a revision Elthial's port supports, so PLAY ORIGINAL can't play it.", status_good_ = false;
-      std::printf("mw3: launcher: MechWarrior (1989) original: BTECH.EXE not a supported revision\n");
-      return layout();
-    }
-    if (std::exchange(mw1_repick_, false)) {  // GAME FILES: the new folder kept, PLAY left to the player
-      status_ = "MechWarrior (1989) is now " + dir + ".", status_good_ = true;
-      return layout();
-    }
-    layout();
-    if (!mw1_original_ && mw1_remake_ && !mw1_needs().empty()) {  // MW1: the other two games first, said
-      status_ = "MechWarrior 1 " + mw1_needs() + ".", status_good_ = false;
-      return layout();
-    }
-    run_mw1();
-    return;
+    if (!sdlfe::mw1::in_unpacked(dir, o_.write_dir)) return copy_mw1(dir);  // copied in first; ours used where it is
+    return take_mw1(dir);
   }
   if (what == kDataPick)
     return ask_move(mech3::data_folder::destination(path, files_usual(), files_pm_ ? "Pirate's Moon Data" : "MechWarrior 3 Data"));
@@ -1714,6 +1754,30 @@ void Launcher::picked(int what, const std::string& path) {
     screen_ = kWorking;
   }
   layout();
+}
+
+// The MechWarrior (1989) folder in use from now (a pick of our own copy, or the copy just made): saved, then on as
+// the pick goes (GAME FILES keeps it; MECHWARRIOR 1 plays it).
+void Launcher::take_mw1(const std::string& dir) {
+  std::printf("mw3: launcher: MechWarrior (1989) at %s%s\n", dir.c_str(),
+              sdlfe::mw1::has_main(dir) ? "" : " (no MW_MAIN.EXE: the Bar's drinks and news stay greyed)");
+  mw1_game_ = dir, mw1_found_.clear();
+  save_config_value(o_.write_dir, "mw1_game", dir);
+  if (mw1_original_ && !mw1_repick_ && !sdlfe::mw1::original_supported(dir)) {  // kept for the remake; the original says why not
+    status_ = "Your BTECH.EXE isn't a revision Elthial's port supports, so PLAY ORIGINAL can't play it.", status_good_ = false;
+    std::printf("mw3: launcher: MechWarrior (1989) original: BTECH.EXE not a supported revision\n");
+    return layout();
+  }
+  if (std::exchange(mw1_repick_, false)) {  // GAME FILES: the new folder kept, PLAY left to the player
+    status_ = "MechWarrior (1989) is now " + dir + ".", status_good_ = true;
+    return layout();
+  }
+  layout();
+  if (!mw1_original_ && mw1_remake_ && !mw1_needs().empty()) {  // MW1: the other two games first, said
+    status_ = "MechWarrior 1 " + mw1_needs() + ".", status_good_ = false;
+    return layout();
+  }
+  run_mw1();
 }
 
 // What the install lacks (the movies left on the CD, the music), taken from
@@ -1811,8 +1875,8 @@ std::string Launcher::pm_in_use() const {
 // longer pointed at, then back to the games (or, from its click, started).
 void Launcher::use_pm(const std::string& dir, const std::string& summary) {
   const std::string before = pm_dir_;
-  pm_dir_ = dir, o_.cfg_pm_install = dir;
-  save_config_value(o_.write_dir, "pm_install", dir);
+  pm_dir_ = dir, o_.cfg_pm_install = dir, pm_found_.clear();
+  save_config_value(o_.write_dir, o_.pm ? "install" : "pm_install", dir);  // mw3pm's own mw3.cfg: install=
   status_ = summary, status_good_ = true;
   const fs::path own = fs::path(pm_wd()) / "install";
   std::error_code ec;
@@ -1822,6 +1886,12 @@ void Launcher::use_pm(const std::string& dir, const std::string& summary) {
     fs::remove_all(own, ec);
   }
   pm_refresh();
+  if (o_.pm) {  // mw3pm's own start: on into the game with these files
+    std::printf("mw3: launcher: Pirate's Moon at %s: on into the game\n", dir.c_str());
+    choice_ = {LauncherChoice::kPlay, dir};
+    done_ = true;
+    return;
+  }
   // W13: back to the games after an install (or GAME FILES), Pirate's Moon started by its own click.
   from_files_ = false;
   screen_ = kMain, layout();
@@ -2091,18 +2161,19 @@ void Launcher::search() {
     const std::string had = pm_dir_;
     pm_dir_.clear(), o_.cfg_pm_install = had;
     find_pm();
-    if (!pm_dir_.empty() && !from_files_) return use_pm(pm_dir_, "Found Pirate's Moon at " + pm_dir_ + ".");
+    if (pm_dir_.empty() && !pm_found_.empty()) return look_at(pm_found_);  // offered, to copy in or pass over
+    if (!pm_dir_.empty() && !from_files_ && !o_.choose_again) return use_pm(pm_dir_, "Found Pirate's Moon at " + pm_dir_ + ".");
   } else {
     find_install();
   }
   if (!files_pm_ && install_.ok && install_.elsewhere) return look_at(install_.dir);  // offered, to copy in or pass over
-  if (!files_pm_ && install_.ok && !from_files_) {  // SETUP's own copy (or mw3.cfg's): in use as before
+  if (!files_pm_ && install_.ok && !from_files_ && !o_.choose_again) {  // SETUP's own copy (or mw3.cfg's): in use as before
     use_install(install_.dir, install_.version, install_.summary);
     return;
   }
   // GAME FILES, the player choosing again: the copy in use is no answer; the picker for another (Owen, 2026-11-21).
   const std::string in_use = files_pm_ ? pm_dir_ : install_.ok ? install_.dir : "";
-  if (from_files_ && !in_use.empty()) {
+  if ((from_files_ || o_.choose_again) && !in_use.empty()) {
     status_ = "In use: " + in_use + ". Pick another copy: a disc image, a download, or Mech3.exe.", status_good_ = true;
     screen_ = kSetupScreen, layout();
     ask_file(kPoint, kGameFiles, 2);
@@ -2137,6 +2208,14 @@ void Launcher::finish_work() {
     return;
   }
   if (kind == Work::kMoveData) return moved(r);
+  if (kind == Work::kMw1Copy) {  // copied: in use; else why (nothing half-copied left, the folder in use kept)
+    screen_ = kMain;
+    if (r.ok) return take_mw1(r.install_dir);
+    mw1_repick_ = false;
+    status_ = r.summary, status_good_ = r.cancelled;
+    layout();
+    return;
+  }
   if (kind == Work::kUpdateCheck) {  // a newer release: its notes and the question; else the verdict on the main screen
     std::printf("mw3: launcher: update: %s\n", r.summary.c_str());
     status_ = r.summary, status_good_ = r.ok;
@@ -2223,7 +2302,8 @@ void Launcher::finish_work() {
     screen_ = kSetupScreen, layout();
     return;
   }
-  if (r.ok && !r.install_dir.empty()) save_install(o_.write_dir, r.install_dir);
+  if (r.ok && !r.install_dir.empty())  // the new copy first in the search below, not the start's mw3.cfg
+    save_install(o_.write_dir, r.install_dir), o_.cfg_install = r.install_dir;
   find_install();
   if (kind == Work::kInstallIt && r.ok && install_.ok) return use_install(install_.dir, install_.version, status_);
   screen_ = install_.ok && r.ok ? kMain : kSetupScreen;
@@ -2345,7 +2425,11 @@ void Launcher::activate(int id) {
     case kPm:
       if (o_.pm_bin.empty()) break;
       pm_last_ = true, mw1_last_ = false;
-      if (pm_dir_.empty()) {  // its files to find first, as MechWarrior 3's
+      if (pm_dir_.empty() && !pm_found_.empty()) {  // the search's find: offered to be copied in
+        files_pm_ = true, from_files_ = false, status_.clear();
+        if (SDL_getenv("MW3_LAUNCHER_GO")) auto_go_ = auto_ok_ = true;  // checks: its INSTALL pressed
+        look_at(pm_found_);
+      } else if (pm_dir_.empty()) {  // its files to find first, as MechWarrior 3's
         files_pm_ = true, from_files_ = false, status_.clear();
         screen_ = kSetupScreen, layout();
       } else {
@@ -2357,6 +2441,8 @@ void Launcher::activate(int id) {
       if (port_exe_.empty()) {
         status_ = "PLAY ORIGINAL (MechWarrior as released in 1989) is coming later.", status_good_ = false;
         layout();
+      } else if (mw1_game_.empty() && !mw1_found_.empty()) {
+        offer_mw1();  // the search's find, offered; the player chooses
       } else if (mw1_game_.empty()) {
         status_ = "Pick your MechWarrior (1989): its BTECH.EXE, or the download it came in (.zip).", status_good_ = true;
         ask_file(kMw1, kMw1Files, 2);
@@ -2370,6 +2456,8 @@ void Launcher::activate(int id) {
       if (mw1_remake_ && !mw1_needs().empty()) {  // MW1: the other two games first, said (before its own folder too)
         status_ = "MechWarrior 1 " + mw1_needs() + ".", status_good_ = false;
         layout();
+      } else if (mw1_game_.empty() && !mw1_found_.empty()) {
+        offer_mw1();  // the search's find, offered; the player chooses
       } else if (mw1_game_.empty()) {
         status_ = "Pick your MechWarrior (1989): its BTECH.EXE, or the download it came in (.zip).", status_good_ = true;
         ask_file(kMw1, kMw1Files, 2);
@@ -2379,10 +2467,13 @@ void Launcher::activate(int id) {
       break;
     case kBack:
       if (screen_ == kNotes) return activate(kNotesOk);  // Escape on the notes: as OK
+      if (o_.setup_only && screen_ == kSetupScreen && o_.choose_again && have_files())  // Shift's: on with these
+        return files_pm_ ? use_pm(pm_dir_, pm_in_use()) : play();
       if (o_.setup_only && screen_ == kSetupScreen) done_ = true;  // a plain start's QUIT
       else if (screen_ == kConfirm && confirm_go_ == 3) return activate(kKeepOld);  // Escape: nothing removed
       else if (screen_ == kConfirm && confirm_go_ == 2) screen_ = kDataScreen, layout();
       else if (screen_ == kConfirm && confirm_go_ == 4) screen_ = kMain, layout();  // Vulkan's: the main screen
+      else if (screen_ == kConfirm && confirm_go_ == 5) screen_ = kMain, layout();  // MW1's find left: nothing taken
       else if (screen_ == kConfirm) screen_ = kSetupScreen, layout();
       else if (screen_ == kDataScreen) screen_ = kSetupScreen, status_.clear(), layout();
       else screen_ = kMain, from_files_ = false, status_.clear(), layout();
@@ -2403,6 +2494,12 @@ void Launcher::activate(int id) {
       break;
     case kFind: search(); break;  // the usual places and the drives first, then the one picker
     case kPickOther:  // the found copy passed over: the one picker
+      if (confirm_go_ == 5) {  // MechWarrior (1989)'s: its picker, from the main screen
+        status_ = "Pick your MechWarrior (1989): its BTECH.EXE, or the download it came in (.zip).", status_good_ = true;
+        screen_ = kMain, layout();
+        ask_file(kMw1, kMw1Files, 2);
+        break;
+      }
       status_ = "Pick the copy to use: a disc image, a download, or Mech3.exe.", status_good_ = true;
       screen_ = kSetupScreen, layout();
       ask_file(kPoint, kGameFiles, 2);
@@ -2420,6 +2517,10 @@ void Launcher::activate(int id) {
     }
     case kPatch: ask_file(kPatch, kZip, 2); break;  // unreachable: no plate (the patch is built in)
     case kGo: {
+      if (confirm_go_ == 5) {  // MechWarrior (1989)'s find: copied in
+        copy_mw1(mw1_found_);
+        break;
+      }
       work_ = std::make_unique<Work>();
       work_->kind = Work::kInstallIt;
       const auto found = found_;
@@ -2475,6 +2576,7 @@ LauncherChoice Launcher::run() {
   const bool vulkan_said = vulkan_ != Vulkan::kOk;
 
   find_mw1();
+  if (o_.pm) files_pm_ = true, o_.pm_write_dir = o_.write_dir, o_.cfg_pm_install = o_.cfg_install;  // mw3pm's own start
   find_pm();
   pm_refresh();
   // Each game's program's own version, read from its file (the package's
@@ -2543,6 +2645,9 @@ LauncherChoice Launcher::run() {
   // a plain mw3 start that found none shows that screen alone.
   if (o_.setup_only) screen_ = kSetupScreen;
   else if (install_.ok && !install_.elsewhere && first_start) screen_ = kNotes, mw3_notes_seen();  // a find elsewhere: after its copy
+  if (o_.choose_again && SDL_getenv("MW3_LAUNCHER_GO")) auto_go_ = auto_ok_ = true;  // checks: a pick's INSTALL (and notes' OK)
+  if (o_.choose_again && have_files())  // Shift at a plain start: what is in use, and the way on
+    status_ = "In use: " + files_dir() + ". FIND THE GAME to choose other files, or PLAY to go on.", status_good_ = true;
   if (vulkan_said) show_vulkan();  // ours: before anything else, so PLAY never reaches the game's box
   layout();
   // Not high pixel density: the game takes this window (one window into the
@@ -2602,11 +2707,15 @@ LauncherChoice Launcher::run() {
   if (o_.play_mw1) {
     // checks: the MW1 line's pick, as the picker would give it; without the remake, the port's (as before the cards)
     mw1_original_ = !mw1_remake_;
-    if (pick && mw1_game_.empty()) picked(kMw1, pick), done_ = true;
-    else activate(mw1_remake_ ? kMw1 : kMw1Original), done_ = !asking_;
+    if (pick && mw1_game_.empty()) picked(kMw1, pick);
+    else activate(mw1_remake_ ? kMw1 : kMw1Original);
+    done_ = !asking_ && !work_;
+    quit_after_mw1_ = !done_;  // a pick or a copy still to come: ended once done (the loop below)
   }
   if (o_.play_pm && !pm_pick) {  // never the picker: a check has nobody to answer it
-    if (pm_dir_.empty()) done_ = true;
+    if (pm_dir_.empty() && !pm_found_.empty() && SDL_getenv("MW3_LAUNCHER_GO"))  // checks: the find offered, INSTALL
+      auto_play_ = true, o_.quit_after_game = true, activate(kPm);           // pressed, copied in, then started
+    else if (pm_dir_.empty()) done_ = true;
     else auto_ok_ = true, activate(kPm), o_.quit_after_game = true, done_ = !game_;  // its notes' OK; refused: quit
   }
   while (!done_) {
@@ -2684,6 +2793,7 @@ LauncherChoice Launcher::run() {
       }
     }
     if (work_ && work_->done) finish_work();
+    if (quit_after_mw1_ && !asking_ && !ask_pending_ && !work_) done_ = true;
     watch_game();
     const Uint64 now = SDL_GetTicks();
     const float dt = std::min(0.1f, static_cast<float>(now - last) / 1000.0f);

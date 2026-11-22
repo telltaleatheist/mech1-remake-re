@@ -64,7 +64,7 @@ File vehicles() {
               {M, "rates", "list: two floats", "10 30", "", "Its acceleration rates."},
               {M, "friction", "list: three floats", "10000 10 0", "", "Its friction."},
               {M, "stopping", "float", "8", "", "How fast it stops."},
-              {M, "quicksand_slowdown", "float", "0.9", "", "Its speed in quicksand."},
+              {M, "quicksand_slowdown", "float", "0.9", "", "Its speed in quicksand (Recoil's; never used in MW3)."},
               {M, "lava_slowdown", "float", "0.8", "", "Its speed on lava."},
               {M, "turns", "list: two floats", "0.6 2", "", "How it turns."},
               {M, "turn_damping", "float", "30", "", "How its turning damps."},
