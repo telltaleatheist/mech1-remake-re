@@ -469,9 +469,11 @@ the enemies' centre (1).
 
 FIXES 136 adds the reach's route rule (a way there keeping 200 m from every
 enemy place, inside the yellow, at most twice the straight way, the start 150 m
-clear): MW3's IA towers stand among their defenders, so the mw3cN reach rows
-now name the hangar (mw3c2), the barracks (mw3c1), the warehouses (mw3c3) and
-the dock (mw3c4); c2 ia2's reach is dropped (FIXES.md item 136 has the table).
+clear), walked on the engine's walking grid: MW3's IA towers stand among their
+defenders, so the mw3cN reach rows now name the barracks (mw3c1), the
+warehouses (mw3c3) and the dock (mw3c4); c2 ia2's reach is dropped, and
+mw3c2 ia2's (its hangar in a pit 182 m below the start, which no walk reaches)
+(FIXES.md item 136 has the table).
 
 An attack's target or a reach's place needn't sit among the enemies: a
 project decision is that a player who tries may slip past them. The survey
