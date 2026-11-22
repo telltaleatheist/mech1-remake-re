@@ -67,6 +67,12 @@ Tick an item when it is merged into `main`.
   - Test: `mw1_loop_boundary_survey_headless` (all 48 rows with `MW1_BOUNDARY_SURVEY=1`) checks that every map has
     both lines drawn, that every start, enemy and structure lies inside the yellow (MW1's areas by 595 m, MW3's by
     150 m), that the voice plays past the yellow, and that the mission is lost past the red.
+- **Repeatable (mw1 dev 2, after 1.0.6; `mw1-survey-repeatable`):** dev 1 found two surveys on the same data giving
+  two files (c1 ia3's line-up 21 places, then 19). The cause: the launch picks each record at random among those of
+  its weight class (`crt_rand() % n`, seeded from the clock, as the original). The survey now logs every record the
+  launch may pick (the candidates), and `tools/mw1bounds.py` builds the areas from the starts, structures and
+  candidates only, so the same data gives the same file (`--repeat` checks it; `--launched` checks a run's places
+  against the file). Regenerated; the 595 m test now counts every candidate too, and passes on all 48 rows.
 
 ## 137. [x] A defence on the arctic map 1 again *(done: mw1-fix137-arctic-defence)*
 

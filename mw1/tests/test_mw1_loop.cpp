@@ -3,6 +3,7 @@
 // disabled, the mission's end, and back at the hub the settlement (the fee, the wrecks' salvage) in the company's
 // funds and the enemies' parts in its stores; the next offer declined, so PM's main menu stays. Failed, or quit
 // (no mission end), no fee and no salvage: the stores and the funds as the advance left them (VISION.md, the endings).
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <chrono>
@@ -125,6 +126,7 @@
 #include "mech3/app_hud.h"
 #include "mech3/zainet_region.h"
 #include "mech3/zai_valve.h"
+#include "mech3/zrdraiv.h"
 #include "mech3/zrdrvalve.h"
 #include "mw1_bounds.h"
 #include "gamez/zweapon/zweapon.h"
@@ -3062,6 +3064,8 @@ struct BoundarySurvey {
   std::vector<std::pair<mech3::ai::Valve*, int32_t>> valves;  // the boundary entries' valves, their last values
   float shallowest = 1e9f;   // the place nearest the yellow's side, how far inside (negative: outside)
   std::string shallowest_what;
+  std::string world;  // the row's map, for its MOVEs (mw1_bounds.h)
+  int32_t ia = 0;
 };
 // A region's corners as an outline (mw1_bounds.h's geometry: how far inside a place lies).
 std::vector<mw1::Point2> region_outline(mech3::ai::Region* r) {
@@ -3185,6 +3189,32 @@ bool boundary_frame(BoundarySurvey& b, int32_t frame) {
       std::snprintf(line, sizeof line, "%s %s (%.0f, %.0f) %s", ally ? "ally" : "enemy", ai[i].name ? ai[i].name : "?", p[0], p[2],
                     in(p, ai[i].name ? ai[i].name : "?").c_str());
       b.said.push_back(line);
+    }
+    // The candidates: every record the launch may pick (aiv.zrd's from the third; mobile HQs aside), on its side, where
+    // the launch would make it (a MOVE's FROM taken to its TO, as mw1_game's enemy_launching). The launch picks among
+    // them at random (crt_rand, seeded from the clock), so a run's enemy and ally lines are one draw of these; the
+    // areas are drawn from these (tools/mw1bounds.py), repeatably. An extra enemy is made 30-60 m beside one.
+    {
+      mech3::ai::AivRecord rec;
+      const int32_t records = mech3::ai::aiv_file().record_count();
+      for (int32_t j = 2; j < records; ++j) {
+        const char* name = nullptr;
+        mech3::ai::AivRecord* r = rec.read(j, &name);
+        if (!r || !name || std::strncmp(name, "mobilehq", 8) == 0) continue;
+        uint32_t mask = 0;
+        for (uint32_t t = static_cast<uint32_t>(r->team()); ; t >>= 5) {
+          mask |= 1u << (t & 31);
+          if (!(t >> 5)) break;
+        }
+        const bool ally = (mask & 2u) != 0;  // team 1: the player's side (zai_params.h)
+        float p[3] = {r->get<float>(0x08), r->get<float>(0x0c), r->get<float>(0x10)};
+        float tx = 0, tz = 0;
+        const bool moved = !ally && mw1::moved_place(b.world, b.ia, p[0], p[2], &tx, &tz);
+        if (moved) p[0] = tx, p[2] = tz;
+        std::snprintf(line, sizeof line, "candidate %s %s (%.0f, %.0f)%s %s", ally ? "ally" : "enemy", name, p[0], p[2],
+                      moved ? " moved" : "", in(p, std::string("candidate ") + name).c_str());
+        b.said.push_back(line);
+      }
     }
     float at[3] = {};
     std::string structure = "no structure";
@@ -3337,6 +3367,7 @@ TEST(mw1_loop_boundary_survey_headless) {
     }
     in_child([&] {
       BoundarySurvey b;
+      b.world = r.world, b.ia = r.ia;
       Run run;
       run.row = &r, run.worlds = worlds, run.stop_at_after_action = true, run.give_up = 2000;
       // Every enemy place the map has (as mw1_loop_every_map_row_is_there_headless): more enemies than any has places.
