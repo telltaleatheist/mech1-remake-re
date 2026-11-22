@@ -34,6 +34,7 @@
 #include "mw1_log.h"
 #include "mw1_layouts.h"
 #include "mw1_settings.h"
+#include "upgrades/valve_map/valve_map.h"
 #include "mech3/options_menu.h"
 #include "mech3/pause_menu.h"
 #include "gamez/zutil/zutl_reg.h"
@@ -1905,6 +1906,59 @@ void loop_run(Ending ending, Run* run = nullptr) {
                 for (int32_t i = 0; i < nd->child_count(); ++i) walk(nd->children[i], depth + 1);
               };
               walk(top, 0);
+            }
+            // MW1_OBJ_AUDIT (FIXES 136, measured): every objective item as our build leaves it, the map's own blocks with
+            // ours: its group, kind, words, and what it waits on (a valve watch's valve and value, a destroy's entity).
+            if (std::getenv("MW1_OBJ_AUDIT") && ge) {
+              std::set<std::string> audit_valves;
+              std::function<void(const mech3::Objective*, const std::string&)> said = [&](const mech3::Objective* o, const std::string& path) {
+                if (!o) return;
+                std::string what;
+                if (auto* v = dynamic_cast<const mech3::ValveChangeObjective*>(o)) {
+                  const void* vp = v->watch ? ge->object_of(v->watch) : nullptr;
+                  const char* vn = "?";
+                  for (const mech3::ai::Valve* q : mech3::ai::valves())
+                    if (q == vp && q->name) vn = q->name;
+                  if (std::strcmp(vn, "?") != 0) audit_valves.insert(vn);
+                  what = std::string(" valve ") + vn + " = " + std::to_string(v->target) + " (now " +
+                         std::to_string(oh.valve_value(v->watch)) + ")";
+                } else if (auto* d = dynamic_cast<const mech3::DestroyObjective*>(o)) {
+                  what = " destroy " + (d->name ? *d->name : std::string("?"));
+                } else if (dynamic_cast<const mech3::ReachAreaObjective*>(o)) {
+                  what = " reach";
+                }
+                const std::string me = path + "/" + (o->desc ? *o->desc : std::string("-"));
+                std::printf("  OBJ-AUDIT %s ia%d %s %s: %s kind %d%s%s\n", run->row ? run->row->world.c_str() : "-", run->row ? run->row->ia : 0,
+                            run->row ? kind_said(run->row->kind) : "-", run->row ? run->row->node.c_str() : "-", me.c_str(),
+                            static_cast<int>(o->kind), what.c_str(), o->done ? " DONE" : "");
+                if (auto* g = dynamic_cast<const mech3::ObjectiveGroup*>(o)) {
+                  for (const auto& i : g->items) said(i.get(), me);
+                  for (const auto& i : g->fails) said(i.get(), me + "/FAILS");
+                }
+              };
+              const mech3::Objectives& ob = mech3::mission_objectives();
+              said(ob.primary.get(), "primary"), said(ob.secondary.get(), "secondary"), said(ob.final.get(), "final"), said(ob.fail.get(), "fail");
+              // Who sets each watched valve (the valve map: valves.zrd, aiv.zrd's vlists, targets.zrd's health_below, nets).
+              const mech3::ValveMap vm = mech3::valve_map_collect(run->row ? run->row->world : "-", run->row ? run->row->world : "-", 0,
+                                                                  [&](uint32_t h) { return static_cast<const void*>(ge->object_of(h)); });
+              std::vector<std::string> todo(audit_valves.begin(), audit_valves.end());
+              for (size_t ti = 0; ti < todo.size(); ++ti) {
+                const std::string vn = todo[ti];
+                const auto it = vm.valves.find(vn);
+                if (it == vm.valves.end()) continue;
+                for (const std::string& line : it->second.sets)  // a computed valve's members, followed too
+                  for (size_t b = line.find('['); b != std::string::npos; b = line.find('[', b + 1))
+                    if (const size_t e = line.find("](#v-", b); e != std::string::npos) {
+                      const std::string mem = line.substr(b + 1, e - b - 1);
+                      if (std::find(todo.begin(), todo.end(), mem) == todo.end()) todo.push_back(mem);
+                    }
+                for (const std::string& line : it->second.sets)
+                  std::printf("  OBJ-SETTER %s ia%d %s: %s <- %s\n", run->row ? run->row->world.c_str() : "-", run->row ? run->row->ia : 0,
+                              run->row ? run->row->node.c_str() : "-", vn.c_str(), line.c_str());
+                for (const std::string& line : it->second.effects)
+                  std::printf("  OBJ-EFFECT %s ia%d %s: %s -> %s\n", run->row ? run->row->world.c_str() : "-", run->row ? run->row->ia : 0,
+                              run->row ? run->row->node.c_str() : "-", vn.c_str(), line.c_str());
+              }
             }
             if (const zgame::Handle he = oh.entity_find(k->structure.c_str()))
               for (mech3::ai::CZAiTarget* t : mech3::ai::target_list())
