@@ -10023,7 +10023,7 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
           if (mech3::max_mass(m) > best_mass) best_mass = mech3::max_mass(m), best = static_cast<int32_t>(i);
         }
         mw1::Company with = *c;
-        if (best >= 0) with.hangar.push_back(mw1::OwnedMech{c->market.stock[static_cast<size_t>(best)], nullptr, 0});
+        if (best >= 0) with.hangar.push_back(mw1::OwnedMech{c->market.stock[static_cast<size_t>(best)], nullptr, 0, {}});
         const mw1::MarketChoice* ch = mw1::game_loop_market_choice();
         if (best < 0 || !ch || best_lance_tons(with, pilots) <= best_lance_tons(*c, pilots)) {
           if (c->funds > 3000000) markets_no_better.insert(mw1::planet_index(c->planet_number));

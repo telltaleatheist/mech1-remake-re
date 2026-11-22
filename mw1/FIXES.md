@@ -2553,6 +2553,13 @@ about 6 s with its speed up, moving 0 m, before it walked.
 ## 118. [ ] Permanent upgrades bought with money *(planned for MW1 1.1.0; not in 1.0.0)*
 - **See also 122:** 1.1.0's arms dealer, the hub's other shop (weapons and equipment by world).
 - **The full plan, with open questions:** mw1/research/permanent-upgrades-plan.md.
+- **1.1.0's plan:** mw1/research/plan-1.1.0.md (its slices). Done so far:
+  - **Slice 2, the model and save 13 (mw1-110-upgrades):** `mw1_upgrades.h`. The kits in the storehouse and on each
+    'Mech (`Company::kits`, `OwnedMech::kits`), the weapon types' steps, the price ladders, buying and assigning. The
+    kits go with their 'Mech when the commander changes 'Mechs (PILOT, the lance screen) and back to the storehouse when
+    it is sold or lost. Save version 13 adds `kits`, `kits_bought`, `mech_kits`, `hangar<i>_kits` and `steps`; older
+    saves read as nothing bought. The prices are placeholders in `mw1_upgrades.h`; `MW1_PRICE_TABLE=1` with
+    `mw1_upgrades_the_ladders_climb_and_the_price_table` prints them. No screen and no engine hook yet.
 - **Owen (2026-11-20):** players can keep playing indefinitely without the story, like an Instant Action mod, and
   money needs something to buy. It's always on sale at the hub; nothing to hunt for. It applies to the player's side
   only, never to enemies.

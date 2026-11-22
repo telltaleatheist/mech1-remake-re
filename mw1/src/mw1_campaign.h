@@ -114,10 +114,33 @@ class Rng {
 
 
 // A mech the company owns but the commander doesn't pilot: the hangar's (mw1_market.h).
+// FIXES 118 (mw1_upgrades.h): permanent kits, on a 'Mech or in the storehouse. Bonuses outside the loadout (Config):
+// never in its .m3c, its armour cap or its sink count.
+struct Kits {
+  int32_t sinks = 0, armour = 0;
+  friend bool operator==(const Kits& a, const Kits& b) { return a.sinks == b.sinks && a.armour == b.armour; }
+};
+// FIXES 118: one weapon type's steps, every weapon of that type the company owns (PM's weapon id and its tech).
+struct WeaponSteps {
+  int32_t weapon = 0, tech = 0, power = 0, range = 0;
+  // Spelt out, not defaulted: mw1_campaign.h is also built as C++17 (a defaulted == is C++20's).
+  friend bool operator==(const WeaponSteps& a, const WeaponSteps& b) {
+    return a.weapon == b.weapon && a.tech == b.tech && a.power == b.power && a.range == b.range;
+  }
+};
+// FIXES 118: what the company has bought: the kits on no 'Mech, how many of each kit ever bought (their prices), the
+// weapon types' steps.
+struct Upgrades {
+  Kits store;
+  int32_t sinks_bought = 0, armour_bought = 0;
+  std::vector<WeaponSteps> steps;
+};
+
 struct OwnedMech {
   int32_t mech = kPmOwens;
   std::shared_ptr<mech3::Config> loadout;  // null: its stock loadout
   int32_t pilot = 0;  // the lancemate assigned to it (a pilot id, mw1_pilots.h), 0 none
+  Kits kits;          // FIXES 118: the kits on it
 };
 
 // MW1's 42 hireable pilots as the campaign leaves them (mw1_pilots.h; ids 1..42, 0 unused): their ratings once
@@ -227,6 +250,8 @@ struct Company {
   std::shared_ptr<mech3::Store> stores;
   // The mech's loadout as the lab last left it at a launch; null: the mech's stock loadout.
   std::shared_ptr<mech3::Config> loadout;
+  Kits kits;  // FIXES 118: the kits on the commander's mech (they go with the mech, as a hangar mech's)
+  Upgrades upgrades;  // FIXES 118 (mw1_upgrades.h)
   int32_t kills = 0;  // playerCombatCredit: enemy mechs disabled, all campaign long
   int32_t favor[kHouseCount] = {}, grievance[kHouseCount] = {};
   // Ours (FIXES.md item 84): the months since the company last fought each House (or since its last grievance
