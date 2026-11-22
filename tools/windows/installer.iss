@@ -71,7 +71,7 @@ Source: "{#Dist}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs creat
 ; MechWarrior 3 alone over the combined package: Pirate's Moon's program goes, so the launcher does not offer
 ; an old one (its settings, %APPDATA%\MicroProse\Pirate's Moon, stay).
 Type: files; Name: "{app}\mw3pm.exe"
-; and MechWarrior 1 Remake's (its settings and saves, %APPDATA%\MicroProse\MechWarrior 1 Critical Hit, stay).
+; and MechWarrior 1 Remake's (its settings and saves, %APPDATA%\MicroProse\MechWarrior 1 Remake, stay).
 Type: files; Name: "{app}\mw1.exe"
 Type: filesandordirs; Name: "{app}\mw1data"
 Type: files; Name: "{app}\README-MW1.txt"
