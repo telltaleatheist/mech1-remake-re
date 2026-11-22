@@ -184,7 +184,7 @@ TEST(mw1_dealer_buy_into_the_stores_and_sell_back) {
   EXPECT(dl::tier0_price({dl::kWeapon, weapon("ERLaser_Small"), kIs}) == 60000 &&
          dl::tier0_price({dl::kWeapon, weapon("ERLaser_Small"), kClan}) == 75000);  // the least, x1.5
   EXPECT(dl::tier0_price({dl::kAmmo, srm4, 0}) == 10000 && dl::ammo_lot(srm4) == 100);
-  EXPECT(dl::tier0_price({dl::kEquipment, masc, kIs}) == 60000);  // PM's table: 1 t
+  EXPECT(dl::tier0_price({dl::kEquipment, masc, kIs}) == 180000);  // PM's table (equip_weight): 3 t
   mw1::Company c = company_at(0, kRobinson);
   c.dealer.stock = {{dl::kWeapon, ppc, kIs, 2}, {dl::kAmmo, srm4, 0, 1}, {dl::kEquipment, masc, kIs, 1}};
   c.dealer.rolled = true;
@@ -198,7 +198,7 @@ TEST(mw1_dealer_buy_into_the_stores_and_sell_back) {
   EXPECT(dl::in_stores(c, {dl::kAmmo, srm4, 0}) == 1);
   EXPECT(dl::buy(c, 1) == dl::Trade::kDone && dl::in_stores(c, {dl::kEquipment, masc, kIs}) == 1 && c.dealer.stock.size() == 1);
   // SELL: one out of the stores at the tier's selling price, back into the stock.
-  EXPECT(dl::sell(c, {dl::kWeapon, ppc, kIs}) == dl::Trade::kDone && c.funds == 510000 + 378000 && c.dealer.stock[0].count == 2);
+  EXPECT(dl::sell(c, {dl::kWeapon, ppc, kIs}) == dl::Trade::kDone && c.funds == 390000 + 378000 && c.dealer.stock[0].count == 2);
   EXPECT(dl::in_stores(c, {dl::kWeapon, ppc, kIs}) == 0 && dl::sell(c, {dl::kWeapon, ppc, kIs}) == dl::Trade::kNoSuch);
   EXPECT(dl::sell(c, {dl::kAmmo, srm4, 0}) == dl::Trade::kDone && c.dealer.stock.size() == 2 && c.dealer.stock[1].kind == dl::kAmmo);
   // Ammunition sells only by whole lots: 99 rounds don't.

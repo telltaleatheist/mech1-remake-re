@@ -4,10 +4,12 @@
 #include <map>
 #include <string>
 
+#include "gamez/zgame/zgame_table.h"
 #include "gamez/zreader/zreader.h"
 #include "gamez/zweapon/zwep_init.h"
 #include "mech3/mech_names.h"
 #include "mech3/weapon.h"
+#include "pm/pm_game.h"
 
 namespace mw1_tests {
 
@@ -57,12 +59,22 @@ bool use_pm_weapon_labs() {
       return false;
     }
     std::fclose(f);
+    // PM's archive table (zgame's PM table, as mw1_loop's runs set it), then the game's as it was.
+    const zgame::Table& was = zgame::game();
+    zgame::set_game(pm::table());
     zrdr::init();
-    if (!zrdr::open_archive(path.c_str(), true)) return false;
-    read_weapons(zrdr::load("weapons.zrd"));
-    zrdr::close_archives(true);
+    if (zrdr::open_archive(path.c_str(), true)) {
+      read_weapons(zrdr::load("weapons.zrd"));
+      zrdr::close_archives(true);
+    } else {
+      std::printf("  (%s doesn't open: PM's weapon weights not read)\n", path.c_str());
+    }
+    zgame::set_game(was);
   }
-  if (labs().empty()) return false;
+  if (labs().empty()) {
+    std::printf("  (no weapon of PM's table in its weapons.zrd: PM's weapon weights not read)\n");
+    return false;
+  }
   mech3::set_weapon_lab(lab_of);
   return true;
 }
