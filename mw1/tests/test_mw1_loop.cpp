@@ -77,6 +77,7 @@
 #include "mech3/mech_names.h"
 #include "mech3/mech_objective.h"
 #include "mech3/zai_target.h"
+#include "mech3/zai_steps.h"
 #include "mech3/mission.h"
 #include "mech3/options.h"
 #include "mech3/pilot.h"
@@ -304,6 +305,14 @@ const char* kind_said(mw1::RowKind k) {
 // up past kWalkBudget cells (said: `expanded`). The path is every cell (4 m): driven close, as a corner cut between
 // sparser points walks into what the route goes round (mw3c3's 20 m block, mw3c1's ditch).
 constexpr int kWalkBudget = 4000000;
+// FIXES 136 (b), measured (MW1_NET_CLEAR=<m>): the patrol nets' points kept apart from the start places, with their own
+// clearance on the way and at the end (the start's own disc exempt, as for the places), not counted in start_clear.
+struct WalkPatrol {
+  std::vector<mw1::placement::Point> points;
+  std::vector<std::string> owner;  // whose net each point is
+  float clearance = 0;
+};
+const WalkPatrol* g_walk_patrol = nullptr;
 mw1::placement::Route walk_route(mw1::placement::Point a, float ay, mw1::placement::Point c, const std::vector<mw1::placement::Point>& enemies,
                                  const mw1::placement::Inside& inside, const mw1::placement::RouteRules& rules, int* tiles_built) {
   namespace nav = mech3::ai::nav;
@@ -317,6 +326,12 @@ mw1::placement::Route walk_route(mw1::placement::Point a, float ay, mw1::placeme
       if (best < 0 || d < best) best = d;
     }
     return best;
+  };
+  auto patrol_ok = [&](float x, float z) {
+    if (!g_walk_patrol) return true;
+    for (const mw1::placement::Point& e : g_walk_patrol->points)
+      if (std::hypot(x - e.x, z - e.z) < g_walk_patrol->clearance) return false;
+    return true;
   };
   r.start_clear = nearest(a.x, a.z), r.goal_clear = nearest(c.x, c.z);
   r.start_inside = !inside || inside(a.x, a.z), r.goal_inside = !inside || inside(c.x, c.z);
@@ -355,7 +370,7 @@ mw1::placement::Route walk_route(mw1::placement::Point a, float ay, mw1::placeme
     if (inside && !inside(x, z)) return false;
     if (std::hypot(x - a.x, z - a.z) < rules.clearance) return true;
     const float n = nearest(x, z);
-    return n < 0 || n >= rules.clearance;
+    return (n < 0 || n >= rules.clearance) && patrol_ok(x, z);
   };
   auto h = [&](int cx, int cz) { return std::max(0.0f, std::hypot(nav::centre_of(cx) - c.x, nav::centre_of(cz) - c.z) - rules.reach); };
   // In a mech's body (y the floor here): at (cx, cz) or a neighbour, a floor rising past a step, at any height. Grid::walkable
@@ -390,7 +405,7 @@ mw1::placement::Route walk_route(mw1::placement::Point a, float ay, mw1::placeme
     const float x = nav::centre_of(n.cx), z = nav::centre_of(n.cz);
     if (std::hypot(x - c.x, z - c.z) <= rules.reach) {
       const float e = nearest(x, z);
-      if (e < 0 || e >= rules.clearance) {
+      if ((e < 0 || e >= rules.clearance) && patrol_ok(x, z)) {
         end = k, reached = true;
         break;
       }
@@ -570,8 +585,16 @@ struct Run {
     int32_t team;
     std::string name;
     float at[3], ground;
+    std::vector<std::array<float, 2>> net;  // FIXES 136 (b): its patrol net's points (its orders' compiled nets' steps)
+    std::vector<int32_t> net_ids;           // those nets, once each
   };
   std::vector<Made> made;
+  int net_points = 0;  // the enemies' patrol points in the discs
+  float patrol_start = -1;  // MW1_NET_CLEAR: the nearest patrol point to the start
+  float patrol_path = -1;   // and to the route past the start's disc
+  std::string patrol_by;    // whose net that is
+  float patrol_goal = -1;   // and to the structure
+  std::string patrol_goal_by;
   int give_up = 1200;  // frames before the test stops waiting for the objectives (a quit)
   std::string objective_built;
   bool fell_back = false, structure_found = false, mission_ended = false, mission_lost = false;
@@ -1874,6 +1897,27 @@ void loop_run(Ending ending, Run* run = nullptr) {
               if (b && b->params.team() != 1) ++run->enemies_made;
               Run::Made m{b ? b->params.team() : -1, ma[i].name ? ma[i].name : "", {}, std::nanf("")};
               mech3::mech_world_position(ma[i].mech, m.at);
+              // Its patrol net: every step with a place in every net its orders walk (not the built-in net, not its own
+              // vehicle net).
+              for (size_t oi = 0; b && oi < b->orders.size(); ++oi) {
+                auto* nl = dynamic_cast<mech3::ai::NetLink*>(b->orders[oi].net.get());
+                if (!nl || nl->builtin || !nl->target) continue;
+                auto* cn = dynamic_cast<mech3::ai::CompiledNet*>(nl->target->as_compiled());
+                if (!cn || dynamic_cast<mech3::ai::VehicleNet*>(cn)) continue;
+                if (std::find(m.net_ids.begin(), m.net_ids.end(), cn->get_id()) != m.net_ids.end()) continue;  // the same net, a later order
+                m.net_ids.push_back(cn->get_id());
+                int with = 0;
+                float x0 = 1e9f, x1 = -1e9f, z0 = 1e9f, z1 = -1e9f;
+                for (int32_t si = 0; si < cn->count(); ++si)
+                  if (const mech3::ai::Behaviour* st = cn->step(si); st && st->position()) {
+                    m.net.push_back({st->position()[0], st->position()[2]});
+                    ++with, x0 = std::min(x0, st->position()[0]), x1 = std::max(x1, st->position()[0]);
+                    z0 = std::min(z0, st->position()[2]), z1 = std::max(z1, st->position()[2]);
+                  }
+                if (std::getenv("MW1_NET_LOG"))
+                  std::printf("  NET %s team %d order %zu/%zu: %s id %d, %d slots, %d with a place, x %.0f..%.0f z %.0f..%.0f, the mech at %.0f %.0f\n",
+                              m.name.c_str(), m.team, oi, b->orders.size(), cn->name(), cn->get_id(), cn->count(), with, x0, x1, z0, z1, m.at[0], m.at[2]);
+              }
               mech3::ai::nav::Floor f[mech3::ai::nav::kLevels];
               const int nf = mech3::ai::nav::zcls_world().ground(m.at[0], m.at[2], f, mech3::ai::nav::kLevels);
               for (int k = 0; k < nf; ++k)
@@ -1892,6 +1936,37 @@ void loop_run(Ending ending, Run* run = nullptr) {
                     m.name[o.name.size()] == '_')
                   extra = true;
               if (m.team != 1 && !extra) places.push_back({m.at[0], m.at[2]});
+            }
+            // FIXES 136 (b), measured: MW1_NETS, every point of each enemy's patrol net in the discs too; MW1_NET_CLEAR=<m>,
+            // the patrol points with their own clearance (WalkPatrol). Unset: the start places alone (the rule as shipped).
+            run->net_points = 0;
+            struct NetSpan {
+              std::string enemy;
+              size_t from, count;
+            };
+            std::vector<NetSpan> net_spans;  // which places are whose net (MW1_NET_BLAME)
+            static WalkPatrol patrol;
+            patrol = {};
+            g_walk_patrol = nullptr;
+            const char* net_clear = std::getenv("MW1_NET_CLEAR");
+            if (std::getenv("MW1_NETS") || net_clear) {  // measured, not yet the rule (FIXES 136 (b))
+              std::vector<int32_t> nets;  // each net once: an extra walks its record's
+              for (const Run::Made& m : run->made) {
+                if (m.team == 1 || m.net_ids.empty() || std::find(nets.begin(), nets.end(), m.net_ids[0]) != nets.end()) continue;
+                nets.insert(nets.end(), m.net_ids.begin(), m.net_ids.end());
+                net_spans.push_back({m.name, places.size(), m.net.size()});
+                for (const auto& q : m.net) {
+                  (net_clear ? patrol.points : places).push_back({q[0], q[1]}), ++run->net_points;
+                  if (net_clear) patrol.owner.push_back(m.name);
+                }
+              }
+            }
+            if (net_clear) {
+              patrol.clearance = static_cast<float>(std::atof(net_clear));
+              g_walk_patrol = &patrol;
+              run->patrol_start = 1e9f;
+              for (const mw1::placement::Point& q : patrol.points)
+                run->patrol_start = std::min(run->patrol_start, std::hypot(q.x - run->start_at[0], q.z - run->start_at[2]));
             }
             const mw1::placement::Ground ground = [](float x, float z) {
               zcls::GroundHits hits{};
@@ -1924,6 +1999,19 @@ void loop_run(Ending ending, Run* run = nullptr) {
               run->routed = true, run->route_area = yellow != nullptr;
               run->walk = walk_route({run->start_at[0], run->start_at[2]}, run->start_at[1], {run->structure_at[0], run->structure_at[2]},
                                      places, in, {}, &run->walk_tiles);
+              // MW1_NET_CLEAR: the nearest patrol point to the route past the start's disc, and whose net.
+              run->patrol_path = -1, run->patrol_by.clear(), run->patrol_goal = -1, run->patrol_goal_by.clear();
+              for (size_t q = 0; g_walk_patrol && q < patrol.points.size(); ++q)
+                if (const float d = std::hypot(run->structure_at[0] - patrol.points[q].x, run->structure_at[2] - patrol.points[q].z);
+                    run->patrol_goal < 0 || d < run->patrol_goal)
+                  run->patrol_goal = d, run->patrol_goal_by = patrol.owner[q];
+              if (g_walk_patrol && run->walk.found)
+                for (const mw1::placement::Point& w : run->walk.path) {
+                  if (std::hypot(w.x - run->start_at[0], w.z - run->start_at[2]) < kRouteClearance) continue;
+                  for (size_t q = 0; q < patrol.points.size(); ++q)
+                    if (const float d = std::hypot(w.x - patrol.points[q].x, w.z - patrol.points[q].z); run->patrol_path < 0 || d < run->patrol_path)
+                      run->patrol_path = d, run->patrol_by = patrol.owner[q];
+                }
               // MW1_WALK_PROBE=world:x,z0,z1[;...]: the grid's cells down that line (floors, flags, the step south) and the world's
               // wall test across each step at 0.5..12 m over the ground, to find what stops a mech the grid lets by.
               if (const char* wps = std::getenv("MW1_WALK_PROBE"); wps && run->walk.found)
@@ -2040,6 +2128,51 @@ void loop_run(Ending ending, Run* run = nullptr) {
                 for (size_t q = 0; q < pts.size(); ++q)
                   std::printf("  FIND-AT %.0f %.0f: the nearest %s, %.0f m\n", pts[q][0], pts[q][1], nearest[q].second.c_str(), nearest[q].first);
               }
+              // MW1_NET_BLAME: a reach row with no walking route (or its start within 150 m of a patrol point): each net left
+              // out in turn, whether the route is found and the start clear without it; the nearest patrol point to the start.
+              if (std::getenv("MW1_NET_BLAME") && run->row->kind == mw1::RowKind::kReach &&
+                  (!run->walk.found || run->walk.start_clear < kStartClear))
+                for (const NetSpan& ns : net_spans) {
+                  std::vector<mw1::placement::Point> less;
+                  for (size_t q = 0; q < places.size(); ++q)
+                    if (q < ns.from || q >= ns.from + ns.count) less.push_back(places[q]);
+                  int bt = 0;
+                  const mw1::placement::Route wb = walk_route({run->start_at[0], run->start_at[2]}, run->start_at[1],
+                                                              {run->structure_at[0], run->structure_at[2]}, less, in, {}, &bt);
+                  float near = 1e9f;
+                  for (size_t q = ns.from; q < ns.from + ns.count; ++q)
+                    near = std::min(near, std::hypot(places[q].x - run->start_at[0], places[q].z - run->start_at[2]));
+                  std::printf("  NET-BLAME %s ia%d %s: without %s's net (%zu points, the nearest %.0f m from the start): %s, start clear %.0f%s\n",
+                              run->row->world.c_str(), run->row->ia, run->row->node.c_str(), ns.enemy.c_str(), ns.count, near,
+                              wb.found ? "found" : "none", wb.start_clear,
+                              wb.found && wb.detour <= kRouteDetour && wb.start_clear >= kStartClear ? "  PASSES" : "");
+                }
+              // MW1_ALT_START=<world>iaN:x,z[;...]: on that row, the walking route from another start too (the same enemy
+              // places and yellow), to compare starts (FIXES 136 (b): mw3c4b ia1's before 137).
+              if (const char* as = std::getenv("MW1_ALT_START"))
+                for (std::string rest = as; !rest.empty();) {
+                  const size_t semi = rest.find(';');
+                  const std::string one = rest.substr(0, semi);
+                  rest = semi == std::string::npos ? std::string() : rest.substr(semi + 1);
+                  const size_t colon = one.find(':');
+                  float sx = 0, sz = 0;
+                  if (colon == std::string::npos || one.substr(0, colon) != run->row->world + "ia" + std::to_string(run->row->ia) ||
+                      std::sscanf(one.c_str() + colon + 1, "%f,%f", &sx, &sz) != 2)
+                    continue;
+                  float sy = run->start_at[1];
+                  {
+                    mech3::ai::nav::Floor fl[mech3::ai::nav::kLevels];
+                    const int nf = mech3::ai::nav::zcls_world().ground(sx, sz, fl, mech3::ai::nav::kLevels);
+                    if (nf > 0) sy = fl[nf - 1].y;
+                  }
+                  int at = 0;
+                  const mw1::placement::Route alt = walk_route({sx, sz}, sy, {run->structure_at[0], run->structure_at[2]}, places, in, {}, &at);
+                  std::printf("%-6s ia%d %-7s %-18s WALK from %.0f %.0f: %s  length %5.0f  detour %4.2f  clear: start %4.0f path %4.0f end %4.0f  "
+                              "start inside %d  cells %d, patrol points %d\n",
+                              run->row->world.c_str(), run->row->ia, kind_said(run->row->kind), run->row->node.c_str(), sx, sz,
+                              alt.found ? "found" : "NONE ", alt.length, alt.detour, alt.start_clear, alt.path_clear, alt.end_clear, alt.start_inside,
+                              alt.expanded, run->net_points);
+                }
               // MW1_WALK_WHY: when no walking route, the same without the enemies, then without the yellow too.
               if (!run->walk.found && std::getenv("MW1_WALK_WHY")) {
                 int t1 = 0, t2 = 0;
@@ -3191,9 +3324,11 @@ TEST(mw1_loop_every_map_row_is_there_headless) {
           std::strncat(line, more, sizeof line - std::strlen(line) - 1);
           const mw1::placement::Route& wk = run.walk;
           std::snprintf(more, sizeof more, "%-6s ia%d %-7s %-18s WALK  %s  length %5.0f  detour %4.2f  clear: start %4.0f path %4.0f end %4.0f  "
-                        "steepest %4.2f  cells %d%s, tiles %d\n",
+                        "steepest %4.2f  cells %d%s, tiles %d, patrol points %d, nearest to the start %.0f, to the route %.0f (%s), to the structure %.0f (%s)\n",
                         r.world.c_str(), r.ia, kind_said(r.kind), r.node.c_str(), wk.found ? "found" : "NONE ", wk.length, wk.detour, wk.start_clear,
-                        wk.path_clear, wk.end_clear, wk.steepest, wk.expanded, wk.expanded >= kWalkBudget ? " (GAVE UP)" : "", run.walk_tiles);
+                        wk.path_clear, wk.end_clear, wk.steepest, wk.expanded, wk.expanded >= kWalkBudget ? " (GAVE UP)" : "", run.walk_tiles,
+                        run.net_points, run.patrol_start, run.patrol_path, run.patrol_by.c_str(), run.patrol_goal,
+                        run.patrol_goal_by.c_str());
           std::strncat(line, more, sizeof line - std::strlen(line) - 1);
         }
         std::printf("  %s", line);
@@ -6893,7 +7028,10 @@ TEST(mw1_loop_lance_as_a_decoy_headless) {
   // MW1_DRIVE_ONLY: the walk alone (FIXES 136 (a)): the enemies disabled at frame 30, the lance following, once; does
   // the commander arrive along the walking grid's route?
   const bool drive_only = std::getenv("MW1_DRIVE_ONLY") != nullptr;
-  const std::vector<bool> runs = drive_only ? std::vector<bool>{false} : std::vector<bool>{true, false};
+  // MW1_LIVE (FIXES 136 (b)): the walk with the enemies alive and patrolling, the lance following, no orders, once: does
+  // the commander arrive, how near the living enemies came, how long any had him as its target, the damage he took.
+  const bool live = std::getenv("MW1_LIVE") != nullptr;
+  const std::vector<bool> runs = drive_only || live ? std::vector<bool>{false} : std::vector<bool>{true, false};
   int ran = 0;
   for (const mw1::MapRow& r : rows) {
     if (r.kind != mw1::RowKind::kReach) continue;
@@ -6911,12 +7049,35 @@ TEST(mw1_loop_lance_as_a_decoy_headless) {
         run.force = mw1::rung_force(mw1::kDarkWingRung, 0);
         run.lance = true, run.lance_count = 3;
         run.play = 1, run.follow_route = true, run.kill_enemies = drive_only, run.give_up = 40000;
-        int32_t on_me = 0, on_lance = 0, on_none = 0, first_on_me = -1, ordered = 0, enemies = 0;
-        float health_end = -1, nearest_enemy = 1e9f, last_at[3] = {};
+        int32_t on_me = 0, on_lance = 0, on_none = 0, first_on_me = -1, ordered = 0, enemies = 0, targeted = 0;
+        float health_end = -1, nearest_enemy = 1e9f, last_at[3] = {}, health_was = -1;
+        struct Hurt {
+          float damage = 0, near = 1e9f, far = 0;
+        };
+        std::map<std::string, Hurt> hurt;  // MW1_LIVE: who took the commander's health, and from how far
         run.watch = [&](int32_t frame) {
           void* me = mech3::mech_mission_player();
           if (!me) return;
           mech3::mech_world_position(me, last_at);
+          if (const float hnow = mech3::mech_health(me); health_was >= 0 && hnow < health_was - 1e-4f) {
+            std::string who = "unknown";
+            float d = -1;
+            if (void* by = mech3::mech_last_attacker(me)) {
+              int32_t na = 0;
+              const mech3::AiMechMade* am = mech3::mission_ai_mechs(&na);
+              who = "not an AI mech";
+              for (int32_t i = 0; i < na; ++i)
+                if (am[i].mech == by) who = am[i].name ? am[i].name : "an AI mech";
+              float q[3];
+              if (mech3::mech_world_position(by, q)) d = std::hypot(q[0] - last_at[0], q[2] - last_at[2]);
+            }
+            Hurt& hu = hurt[who];
+            hu.damage += health_was - hnow;
+            if (d >= 0) hu.near = std::min(hu.near, d), hu.far = std::max(hu.far, d);
+            health_was = hnow;
+          } else {
+            health_was = hnow;
+          }
           mech3::ai::BrainHooks& h = mech3::ai::brain_hooks();
           const zgame::Handle mine = h.vehicle_handle(me);
           int32_t n = 0;
@@ -6942,6 +7103,7 @@ TEST(mw1_loop_lance_as_a_decoy_headless) {
           if (frame % 30 != 0) return;
           float p[3] = {};
           mech3::mech_world_position(me, p);
+          bool any_on_me = false;
           for (int32_t i = 0; i < n; ++i) {
             const mech3::ai::Brain* b = static_cast<const mech3::ai::Brain*>(mech3::program_ai_mech_brain(ai[i].controls));
             if (!b || b->params.team() == 1 || mech3::mech_health(ai[i].mech) <= 0.0f) continue;
@@ -6953,7 +7115,7 @@ TEST(mw1_loop_lance_as_a_decoy_headless) {
             if (!c) {
               ++on_none;
             } else if (h.contact_vehicle(c) == mine) {
-              ++on_me;
+              ++on_me, any_on_me = true;
               if (first_on_me < 0) first_on_me = frame;
             } else if (contact_mech(c)) {
               ++on_lance;
@@ -6961,6 +7123,7 @@ TEST(mw1_loop_lance_as_a_decoy_headless) {
               ++on_none;
             }
           }
+          if (any_on_me) targeted += 30;
         };
         loop_run(kObjective, &run);
         const std::string got = run.mission_ended ? (run.mission_lost ? "lost" : "won") : "not ended";
@@ -6973,6 +7136,19 @@ TEST(mw1_loop_lance_as_a_decoy_headless) {
                     got.c_str(), run.ended_frame, health_end, run.player_down ? ", DOWN" : "");
         EXPECT(run.objective_built == "reach" && !run.fell_back);
         if (order) EXPECT(ordered == 3);
+        std::string hurt_by;
+        for (const auto& [who, hu] : hurt) {
+          char one[160];
+          std::snprintf(one, sizeof one, "%s%s %.0f%% (%.0f..%.0f m)", hurt_by.empty() ? "" : ", ", who.c_str(), 100.0f * hu.damage,
+                        hu.near > 1e8f ? -1.0f : hu.near, hu.far);
+          hurt_by += one;
+        }
+        if (live) std::printf("  LIVE-HURT %-6s ia%d seed %s: %s\n", r.world.c_str(), r.ia, replay ? replay : "1", hurt_by.empty() ? "none" : hurt_by.c_str());
+        if (live)
+          std::printf("  LIVE   %-6s ia%d %-12s seed %s: %s at frame %d; the nearest living enemy %.0f m; targeted %d frames (first %d); "
+                      "damage %.0f%%%s\n",
+                      r.world.c_str(), r.ia, r.node.c_str(), replay ? replay : "1", run.mission_ended && !run.mission_lost ? "ARRIVED" : "did not arrive",
+                      run.ended_frame, nearest_enemy, targeted, first_on_me, 100.0f * (1.0f - std::max(0.0f, health_end)), run.player_down ? ", DOWN" : "");
         if (drive_only)
           std::printf("  DRIVE  %-6s ia%d %-12s: the walking route %s, %.0f m, %zu waypoints; %s at frame %d; the commander last at %.0f %.0f\n",
                       r.world.c_str(), r.ia, r.node.c_str(), run.walk.found ? "found" : "NONE", run.walk.length, run.walk.path.size(),
