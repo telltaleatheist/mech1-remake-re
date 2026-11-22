@@ -301,9 +301,7 @@ void Mech::vehicle_response() {
     const Vec3 v = velocity;
     const uint32_t team = g_calls.entity_team ? g_calls.entity_team(ent) : 0;
     if (!(team & allies)) {
-      // FIX (B): per 1/30 s, not per collide (fixes.md, Frame rate: collision damage).
-      const float dmg = ((X(v.x) * v.x + X(v.z) * v.z) / (X(max_speed) * max_speed) * 20.0f).f() *  // 0x005bd3b0
-                        zfix::frame_steps(frame_dt);
+      const float dmg = ((X(v.x) * v.x + X(v.z) * v.z) / (X(max_speed) * max_speed) * 20.0f).f();  // 0x005bd3b0
       if (g_calls.entity_damage && g_calls.entity_damage(target, dmg)) return;
     }
     float* bv = g_calls.body_velocity ? g_calls.body_velocity(body) : nullptr;
@@ -333,9 +331,7 @@ void Mech::mech_response() {
   Mech* other = g_calls.node_mech ? g_calls.node_mech(e.hit.node) : nullptr;
   if (other && !(other->team & allies)) {
     const Vec3 v = velocity;
-    // FIX (B): per 1/30 s, not per collide (fixes.md, Frame rate: collision damage).
-    const float r = ((X(v.x) * v.x + X(v.z) * v.z) / (X(max_speed) * max_speed) * 0.02f).f() *  // 0x005bd3b8
-                    zfix::frame_steps(frame_dt);
+    const float r = ((X(v.x) * v.x + X(v.z) * v.z) / (X(max_speed) * max_speed) * 0.02f).f();  // 0x005bd3b8
     const float t_other = other->tonnage();
     const float sum = (X(tonnage()) + t_other).f();
     attacker = other;
