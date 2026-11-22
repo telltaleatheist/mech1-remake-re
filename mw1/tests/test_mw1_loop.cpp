@@ -1958,6 +1958,88 @@ void loop_run(Ending ending, Run* run = nullptr) {
                   }
                 }
               }
+              // MW1_ENGINE_PATH=<node>: on that row, the engine's own find_path (no enemies, no yellow, none of walk_route's
+              // added rules) from the start to the structure and to 8 points on its reach ring, the tiles built as it asks.
+              if (const char* ep = std::getenv("MW1_ENGINE_PATH"); ep && run->row->node == ep) {
+                namespace nav = mech3::ai::nav;
+                nav::Grid& g = nav::grid();
+                if (!g.world()) g.reset(&nav::zcls_world());
+                for (int k = -1; k < 8; ++k) {
+                  float to[3] = {run->structure_at[0], run->structure_at[1], run->structure_at[2]};
+                  if (k >= 0) {
+                    to[0] += mw1::placement::kReachRadius * std::sin(k * 0.785398f), to[2] += mw1::placement::kReachRadius * std::cos(k * 0.785398f);
+                    nav::Floor fl[nav::kLevels];
+                    const int nf = nav::zcls_world().ground(to[0], to[2], fl, nav::kLevels);
+                    float best = 1e9f;
+                    for (int q = 0; q < nf; ++q)
+                      if (std::fabs(fl[q].y - run->structure_at[1]) < best) best = std::fabs(fl[q].y - run->structure_at[1]), to[1] = fl[q].y;
+                  }
+                  nav::Way way;
+                  nav::Find got = nav::Find::kBuilding;
+                  int rounds = 0;
+                  for (; rounds < 4000; ++rounds) {
+                    got = nav::find_path(g, run->start_at, to, &way);
+                    if (got != nav::Find::kBuilding) break;
+                    std::vector<std::pair<int, int>> asked;
+                    asked.swap(g.queue);
+                    if (asked.empty()) break;
+                    for (const auto& [tx, tz] : asked) {
+                      int steps = 1 << 30;
+                      g.build(tx, tz, &steps);
+                    }
+                  }
+                  float len = 0;
+                  for (size_t q = 1; q < way.size(); ++q) len += std::hypot(way[q][0] - way[q - 1][0], way[q][2] - way[q - 1][2]);
+                  std::printf("  ENGINE-PATH %s ia%d %s to %s (%.0f %.0f %.0f): %s, %zu waypoints, %.0f m, ends %.0f m from the structure, "
+                              "%d rounds, %zu tiles\n",
+                              run->row->world.c_str(), run->row->ia, ep, k < 0 ? "the structure" : "the ring", to[0], to[1], to[2],
+                              got == nav::Find::kOk ? "FOUND" : got == nav::Find::kNone ? "NONE" : got == nav::Find::kBuilding ? "still building" : "working",
+                              way.size(), len, way.empty() ? -1.0f : std::hypot(way.back()[0] - run->structure_at[0], way.back()[2] - run->structure_at[2]),
+                              rounds, g.tiles());
+                }
+              }
+              // MW1_FIND_AT=x,z[;x,z...] (on MW1_FIND_ROW's row, <world>iaN): every node standing within 6 m of each point, by a
+              // walk of the world's tree (not node_find by name), with its parents up to the world, models and damage.
+              if (const char* fa = std::getenv("MW1_FIND_AT");
+                  fa && std::getenv("MW1_FIND_ROW") && run->row->world + "ia" + std::to_string(run->row->ia) == std::getenv("MW1_FIND_ROW")) {
+                std::vector<std::array<float, 2>> pts;
+                for (const char* q = fa; *q;) {
+                  float x = 0, z = 0;
+                  if (std::sscanf(q, "%f,%f", &x, &z) == 2) pts.push_back({x, z});
+                  const char* semi = std::strchr(q, ';');
+                  if (!semi) break;
+                  q = semi + 1;
+                }
+                auto said = [](zcls::Node* n) {
+                  std::string m = n->pm_model ? " model " + std::to_string(n->pm_model->count(0x0c)) + "/" + std::to_string(n->pm_model->count(0x10)) : "";
+                  zwep::DamageFn fn = nullptr;
+                  if (zwep::damage_object(n, &fn) && fn) m += " damage";
+                  return std::string(n->name()) + " (cls " + std::to_string(n->cls()) + ", children " + std::to_string(n->child_count()) + m + ")";
+                };
+                int visited = 0;
+                std::vector<std::pair<float, std::string>> nearest(pts.size(), {1e9f, ""});
+                std::function<void(zcls::Node*, int)> look = [&](zcls::Node* n, int depth) {
+                  if (!n || depth > 24) return;
+                  ++visited;
+                  if (n->data && n->cls() == 5) {
+                    float w[3] = {};
+                    zcls::node_world_position(n, w);
+                    for (size_t q = 0; q < pts.size(); ++q)
+                      if (const float d = std::hypot(w[0] - pts[q][0], w[2] - pts[q][1]); d < nearest[q].first) nearest[q] = {d, n->name()};
+                    for (const auto& pt : pts)
+                      if (std::hypot(w[0] - pt[0], w[2] - pt[1]) < 6.0f) {
+                        std::string up;
+                        for (zcls::Node* u = n; u && u->parent_count() > 0; u = u->parents[0]) up += " < " + said(u->parents[0]);
+                        std::printf("  FIND-AT %.0f %.0f: %s at %.0f %.0f %.0f%s\n", pt[0], pt[1], said(n).c_str(), w[0], w[1], w[2], up.c_str());
+                      }
+                  }
+                  for (int32_t i = 0; i < n->child_count(); ++i) look(n->children[i], depth + 1);
+                };
+                look(mech3::world_hooks().world, 0);
+                std::printf("  FIND-AT: %d nodes walked from %s\n", visited, mech3::world_hooks().world ? mech3::world_hooks().world->name() : "-");
+                for (size_t q = 0; q < pts.size(); ++q)
+                  std::printf("  FIND-AT %.0f %.0f: the nearest %s, %.0f m\n", pts[q][0], pts[q][1], nearest[q].second.c_str(), nearest[q].first);
+              }
               // MW1_WALK_WHY: when no walking route, the same without the enemies, then without the yellow too.
               if (!run->walk.found && std::getenv("MW1_WALK_WHY")) {
                 int t1 = 0, t2 = 0;
@@ -2035,6 +2117,21 @@ void loop_run(Ending ending, Run* run = nullptr) {
                                  "detour %4.2f  clear: path %4.0f end %4.0f\n",
                                  sn->n->name(), sn->n->cls(), sn->n->child_count(), model.c_str(), hit ? "damage" : "-", sn->at[0], sn->at[1],
                                  sn->at[2], std::hypot(sn->at[0] - a.x, sn->at[2] - a.z), rt.length, rt.detour, rt.path_clear, rt.end_clear);
+                    // Its parents up to the world (the node itself, not node_find by name: another of the name may come first).
+                    std::string up;
+                    for (zcls::Node* u = sn->n; u && u->parent_count() > 0 && up.size() < 400; u = u->parents[0]) {
+                      zcls::Node* pn = u->parents[0];
+                      zwep::DamageFn pf = nullptr;
+                      up += std::string(" < ") + pn->name() + " (cls " + std::to_string(pn->cls()) + ", children " + std::to_string(pn->child_count()) +
+                            (pn->pm_model ? ", model " + std::to_string(pn->pm_model->count(0x0c)) + "/" + std::to_string(pn->pm_model->count(0x10)) : "") +
+                            (zwep::damage_object(pn, &pf) && pf ? ", damage" : "") + ")";
+                    }
+                    std::string kids;
+                    for (int32_t i = 0; i < sn->n->child_count() && i < 8; ++i)
+                      kids += std::string(i ? ", " : "") + sn->n->children[i]->name() +
+                              (sn->n->children[i]->pm_model ? " (model " + std::to_string(sn->n->children[i]->pm_model->count(0x0c)) + "/" +
+                                                                  std::to_string(sn->n->children[i]->pm_model->count(0x10)) + ")" : "");
+                    std::fprintf(f, "      parents:%s\n      children: %s\n", up.c_str(), kids.c_str());
                   }
                   std::fclose(f);
                 }

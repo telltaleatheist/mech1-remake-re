@@ -58,11 +58,12 @@ MAP (WORLD ("mw3c4b") IA (2) CLIMATE ("ice") KIND ("attack") NODE ("ware01") WOR
 MAP (WORLD ("mw3c4b") IA (2) CLIMATE ("ice") KIND ("defend") NODE ("ware03") WORDS ("the south warehouse"))
 ; Reach (MW1's withdraw). Each reachable by keeping 200 m from the enemy (FIXES 136; the survey's route): MW3's IA
 ; towers stand among their defenders, so the mw3cN rows name another building; c2 ia2 has none clear of the enemy
-; (its portal gate 32 m from one), so no reach there.
+; (its portal gate 32 m from one), so no reach there. The route walked on the engine's walking grid (FIXES 136 (a)):
+; mw3c2 ia2's hangar stands 182 m below the start, in a pit no walk reaches (the engine's own pathfinder's too), and
+; no other building there is a place a player reads, so no reach on mw3c2.
 MAP (WORLD ("c2") IA (1) CLIMATE ("desert") KIND ("reach") NODE ("3twr1") WORDS ("the pump complex"))
 MAP (WORLD ("c3") IA (1) CLIMATE ("desert") KIND ("reach") NODE ("xslid01") WORDS ("the land bridge"))
 MAP (WORLD ("c4") IA (1) CLIMATE ("desert") KIND ("reach") NODE ("modA140") WORDS ("the support building"))
-MAP (WORLD ("mw3c2") IA (2) CLIMATE ("tropical") KIND ("reach") NODE ("noruff_hang") WORDS ("the hangar"))
 MAP (WORLD ("mw3c1") IA (2) CLIMATE ("tropical") KIND ("reach") NODE ("urbbar02") WORDS ("the barracks"))
 MAP (WORLD ("mw3c3") IA (2) CLIMATE ("tropical") KIND ("reach") NODE ("whsA01") WORDS ("the warehouses"))
 MAP (WORLD ("mw3c4") IA (2) CLIMATE ("desert") KIND ("reach") NODE ("dockfal") WORDS ("the dock"))

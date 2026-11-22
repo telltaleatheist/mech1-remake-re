@@ -145,8 +145,33 @@ Tick an item when it is merged into `main`.
     route kept 200 m from their start places. The rule wants the patrol nets in the discs.
   - The route grid knows only the enemies and the yellow, not walls, buildings or cliffs: on mw3c3 the commander
     stands against a wall at (−320, −4356) for the rest of the run (mw3c1's and mw3c2's runs too, once each). The
-    rule wants the walking floor (the AI nav ground, a step limit between cells).
-- **Still to do:** the two gaps above; point reach rows (a reach at a point, not a node); the attack targets chosen
+    rule wants the walking floor (the AI nav ground, a step limit between cells). Done below (walkable routes).
+- **Walkable routes (2026-11-21, the second gap):** the route walked on the engine's own walking grid
+  (`mech3/zai_nav.h`, the lancemates' pathing: 4 m cells, the floors, `Grid::step` with its climb of 0.7, tan 35
+  degrees, the skis' clamp; the wall casts; the 4 m body buffer), kTight cells weighed 3 times as `find_path` weighs
+  them, with the same clearance, reach, yellow and detour rule (`walk_route`, the survey's gate; the open-ground route
+  stays in the table). Structures as blocked cells: a cell is not walked where a floor beside it or over it rises
+  past a step at any height. The grid's buffer counts rises below kHead (12 m) only, a taller one taken for room
+  overhead: right under a bridge, wrong beside mw3c3's 20 m solid block with no floor under it, which a 'Mech's body
+  meets; and the wall casts miss a roof over open ground. (MW3's own nav behaviour: not raised upstream unless a
+  lancemate or AI 'Mech is seen stuck on one.)
+  - Every reach row passes on it but mw3c2 ia2's hangar: mw3c4b ia1 1518 m (detour 1.09, the path 200 m clear),
+    mw3c4b ia2 1100 (1.08), c2 ia1 1334 (1.07), c3 ia1 304 (1.06), c4 ia1 533 (1.04), mw3c1 ia2's barracks 1346
+    (1.05), mw3c3 ia2's warehouses 2244 (1.08), mw3c4 ia2's dock 401 (1.09).
+  - Driven (`MW1_DRIVE_ONLY=1` on the decoy test: the enemies disabled, the commander following the walking route
+    cell by cell): mw3c1, mw3c3 and mw3c4 arrive. The earlier "stuck" runs were the test's driver too: its escape
+    set itself again every frame and never steered again, and its sparse waypoints cut corners into mw3c1's 12 m
+    ditch and mw3c3's block.
+  - **mw3c2 ia2's reach dropped:** the hangar stands at y −173, 182 m below the start (y 9), in a pit no walk
+    reaches: neither `walk_route` (with no enemies and no yellow either, 4M cells) nor the engine's own `find_path`
+    (to the hangar and to 8 points on its 40 m ring; the same call finds mw3c1's barracks). The walkable candidates
+    there: a mine train (`train01`, g13), a vent's fans, a mine turret (an attack, read so), and a mobile HQ at a
+    mobile field base station (`mfb_station04` < `mob_hq03` < `mobile_hq`; route 2333 m, detour 1.14, the path 476 m
+    clear). The field base reads as a place, but a mobile HQ may be a working unit in MW3 (a repair stop, a vehicle
+    record), not brought into a reach contract untested: the option kept here. mw3c2 keeps its attack; tropical's
+    reach is mw3c1's and mw3c3's. The pools keep 70..80% (desert 75.8%, tropical 75.1%, ice 75.4%).
+- **Still to do:** the patrol nets in the discs (the first gap) and mw3c4b ia1's start compared with the one before
+  137; the decoy check again on both; point reach rows (a reach at a point, not a node); the attack targets chosen
   by the same scores.
 
 ## 135. [x] 'Mech prices vary a little *(done: mw1-fix135-price-variety)*
