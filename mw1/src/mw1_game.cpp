@@ -89,6 +89,7 @@
 #include "mw1_market.h"
 #include "mw1_market_screen.h"
 #include "mw1_supply_screen.h"
+#include "mw1_weapon_data.h"
 #include "mw1_menu.h"
 #include "mw1_movie.h"
 #include "mw1_images.h"
@@ -944,6 +945,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   bool hub(mech3::GameEngine& ge) {
     if (hub_engine_ == &ge && ge.menu_state_of(hub_) == hub_state_) return hub_ != 0;
     hub_engine_ = &ge, ge_ = &ge, hub_ = 0, hub_state_ = nullptr;
+    // 1.1.0: PM's weapon data for the hub (the dealer's tons, the range steps' limit): the engine has it only in a
+    // mission (mw1_weapon_data.h). Read once, from the archives mounted by now.
+    weapon_data::load();
     market_ = 0, market_state_ = nullptr;
     supply_ = 0, supply_state_ = nullptr;
     travel_ = 0, travel_state_ = nullptr;

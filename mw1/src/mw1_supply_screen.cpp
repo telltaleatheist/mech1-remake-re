@@ -5,13 +5,14 @@
 #include <cstdio>
 #include <cstring>
 
-#include "gamez/zweapon/zwep_init.h"
 #include "mech3/mech_config.h"
 #include "mech3/mech_ids.h"
 #include "mech3/mech_names.h"
+#include "mech3/pilot.h"
 #include "mw1_market.h"
 #include "mw1_pilots.h"
 #include "mw1_travel.h"
+#include "mw1_weapon_data.h"
 
 namespace mw1::supply_ui {
 namespace {
@@ -109,8 +110,8 @@ std::vector<OwnedType> owned_weapon_types(const Company& c) {
 
 int32_t type_range_most(int32_t weapon, int32_t tech) {
   (void)tech;  // one definition for both techs (the lab's two blocks): one RANGE
-  const zwep::WeaponDef* d = zwep::find_def(mech3::weapon_name(weapon));
-  return d && d->range > 0.0f ? upgrades::range_steps_most(d->range) : -1;
+  const float r = weapon_data::range(weapon);  // the engine's definition in a mission, else MW1's read at the hub
+  return r > 0.0f ? upgrades::range_steps_most(r) : -1;
 }
 
 std::vector<SupplyRow> sale_rows(const Company& c) {
@@ -202,14 +203,24 @@ const SupplyRow* chosen_own(const Company& c, const SupplyChoice& s, std::vector
   return choosable(*r) ? r : nullptr;
 }
 
-std::string type_title(int32_t weapon, int32_t tech) {
-  return spaced(mech3::weapon_name(weapon)) + (tech == mech3::kClan ? "*" : "");
+// The names PM's lab shows (Mech3Msg's, by the tables' message ids), else the table's name in words.
+static std::string weapon_words(int32_t weapon) {
+  const int32_t id = mech3::weapon_name_message(weapon);
+  const char* shown = id >= 0 ? mech3::pilot_hooks().message(id) : nullptr;
+  return shown && *shown ? shown : spaced(mech3::weapon_name(weapon));
 }
+static std::string equipment_words(int32_t kind) {
+  const int32_t id = mech3::equip_name_message(kind);
+  const char* shown = id >= 0 ? mech3::pilot_hooks().message(id) : nullptr;
+  return shown && *shown ? shown : equipment_title(kind);
+}
+
+std::string type_title(int32_t weapon, int32_t tech) { return weapon_words(weapon) + (tech == mech3::kClan ? "*" : ""); }
 
 std::string ware_title(const dealer::Ware& w) {
   if (w.kind == dealer::kWeapon) return type_title(w.id, w.tech);
-  if (w.kind == dealer::kAmmo) return "Ammo " + spaced(mech3::weapon_name(w.id));
-  return std::string(equipment_title(w.id)) + (w.tech == mech3::kClan ? "*" : "");
+  if (w.kind == dealer::kAmmo) return "Ammo " + weapon_words(w.id);
+  return equipment_words(w.id) + (w.tech == mech3::kClan ? "*" : "");
 }
 
 std::string steps_words(const WeaponSteps& s) {

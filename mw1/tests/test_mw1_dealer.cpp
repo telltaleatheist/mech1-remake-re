@@ -23,6 +23,11 @@
 #include "mw1_save.h"
 #include "mw1_travel.h"
 #include "pm_weapon_labs.h"
+#include "gamez/zgame/zgame_table.h"
+#include "gamez/zreader/zreader.h"
+#include "mw1_supply_screen.h"
+#include "mw1_weapon_data.h"
+#include "pm/pm_game.h"
 
 namespace dl = mw1::dealer;
 
@@ -261,4 +266,40 @@ TEST(mw1_dealer_price_table) {
   EXPECT(table.find("DEALER   weapon PPC ") != std::string::npos);
   if (std::getenv("MW1_PRICE_TABLE")) std::printf("%s", table.c_str());
   mw1_tests::stop_pm_weapon_labs();
+}
+
+// 1.1.0: the dealer at the hub as the live game has it. PM reads weapons.zrd into zWeapon's definitions only while a
+// mission loads and frees them after, so between missions the engine weighs every weapon 0 (every weapon was priced
+// at the floor in the first supply shots). With the engine's definitions cleared and no weapon lab set (nothing an
+// earlier test left can stand in), MW1's own read of the mounted weapons.zrd (mw1_weapon_data.h) gives the PPC its
+// 7 tons and its price, an ammunition lot its rounds and a weapon its RANGE (the range steps' limit).
+TEST(mw1_dealer_weights_at_the_hub_from_mw1_s_read) {
+  const std::string path = std::string(MW3PM_GAME_DIR) + "/zbd/reader.zbd";
+  if (std::FILE* f = std::fopen(path.c_str(), "rb")) std::fclose(f);
+  else return;
+  mw1_tests::clear_engine_weapons();  // the engine as between missions: no definitions, no weapon lab
+  mw1::weapon_data::clear();
+  const int32_t ppc = weapon("PPC"), srm4 = weapon("SRM4");
+  const dl::Ware ppc_ware{dl::kWeapon, ppc, kIs};
+  EXPECT(!mw1_tests::engine_has_weapon("PPC") && mech3::weapon_weight(ppc, kIs) == 0.0f);
+  EXPECT(dl::ware_tons(ppc_ware) == 0.0f && dl::buy_price(ppc_ware, 0) == dl::kPriceLeast);  // the bug, as it was
+  // The game's read at the hub: PM's archive mounted, weapons.zrd read, the archive closed (the table kept).
+  const zgame::Table& was = zgame::game();
+  zgame::set_game(pm::table());
+  zrdr::init();
+  bool read = false;
+  if (zrdr::open_archive(path.c_str(), true)) {
+    read = mw1::weapon_data::load();
+    zrdr::close_archives(true);
+  }
+  zgame::set_game(was);
+  std::printf("  MW1's read of weapons.zrd: %d weapons\n", mw1::weapon_data::count());
+  EXPECT(read && mw1::weapon_data::count() > 0 && !mw1_tests::engine_has_weapon("PPC"));
+  EXPECT(dl::ware_tons(ppc_ware) == 7.0f && dl::buy_price(ppc_ware, 0) == 7 * dl::kPricePerTon);
+  EXPECT(dl::ammo_lot(srm4) > 1 && mw1::weapon_data::range(ppc) > 0.0f && mw1::type_range_most(ppc, kIs) > 0);
+  int32_t weightless = 0;
+  for (const dl::Ware& w : dl::wares())
+    if (w.kind == dl::kWeapon && !(dl::ware_tons(w) > 0)) ++weightless, std::printf("  no weight: %s\n", dl::ware_name(w).c_str());
+  EXPECT(weightless == 0);
+  mw1::weapon_data::clear();  // nothing left for a later test
 }

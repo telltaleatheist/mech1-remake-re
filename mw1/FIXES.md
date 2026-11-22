@@ -2587,6 +2587,13 @@ about 6 s with its speed up, moving 0 m, before it walked.
     never sold back; a dealer's item doesn't. The Mech Complex's YOUR MECHS shows each 'Mech's kits in a KITS column on
     the wide layout; 4:3's has no room, so its status line says the chosen one's.
     `mw1_loop_supply_buy_assign_move_saved_headless` clicks it through and reloads the save.
+  - **The dealer's weights at the hub (found by the supply shots):** PM reads weapons.zrd into its weapon
+    definitions only as a world loads (a mission's, or the lab's world 6, which PM's lab and the Mech Complex's live
+    'Mech load), so at the hub the engine weighed every weapon 0 until one had. Without the live 'Mech (software
+    renderer, headless) or after a mission, the dealer priced every weapon at the floor and the range steps had no
+    limit. `mw1_weapon_data.h` reads the mounted weapons.zrd (a mod's overlaid) when the hub is made; the dealer's
+    tons, an ammunition lot's rounds and the range limit ask the engine first and use it when the engine has nothing.
+    The supply screen's names are the ones PM's lab shows (Mech3Msg's), the table's name when there's none.
 - **Owen (2026-11-20):** players can keep playing indefinitely without the story, like an Instant Action mod, and
   money needs something to buy. It's always on sale at the hub; nothing to hunt for. It applies to the player's side
   only, never to enemies.

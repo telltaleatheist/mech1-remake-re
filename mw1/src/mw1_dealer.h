@@ -51,7 +51,8 @@ Rarity rarity(const Ware& w);
 bool stocked_at(Rarity r, int32_t tier, int32_t planet_number);
 std::string ware_name(const Ware& w);  // PM's table name: "weapon PPC", "weapon LRM20 (Clan)", "ammo SRM4", "equipment masc"
 
-// The item's tons (PM's weapon and equipment tables: the weapons' need PM's weapon data loaded); ammunition 1.
+// The item's tons (PM's weapon and equipment tables; a weapon's from the engine in a mission, else from MW1's read of
+// weapons.zrd at the hub, mw1_weapon_data.h); ammunition 1.
 float ware_tons(const Ware& w);
 // An ammunition lot's rounds: a ton's (mech3::ammo_weight), at least 1.
 int32_t ammo_lot(int32_t weapon);

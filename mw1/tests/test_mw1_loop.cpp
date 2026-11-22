@@ -116,6 +116,8 @@
 #include "mw1_pilots.h"
 #include "mw1_kit_answers.h"
 #include "mw1_supply_screen.h"
+#include "mw1_weapon_data.h"
+#include "pm_weapon_labs.h"
 #include "mw1_upgrades.h"
 #include "mw1_results.h"
 #include "mw1_market_screen.h"
@@ -8520,6 +8522,16 @@ TEST(mw1_loop_supply_buy_assign_move_saved_headless) {
   in_child([&] {
     const int32_t ppc = mech3::weapon_index("PPC");
     const mw1::dealer::Ware ppc_ware{mw1::dealer::kWeapon, ppc, mech3::kInnerSphere};
+    // The hub as a fresh program has it: no weapon definitions and no weapon lab (the engine's startup clears the
+    // definitions too). PM loads them with a world: a mission's, or the lab's world 6, which the Mech Complex's live
+    // 'Mech (mech3/model_view.cpp) and PM's lab load. So the PPC priced right here before the fix, the live 'Mech having
+    // drawn first; the first supply shots pressed SUPPLY before the Mech Complex drew and priced every weapon at the
+    // floor. The tons are checked either way; test_mw1_dealer's weights test checks MW1's read with none loaded.
+    const bool defs = mw1_tests::engine_has_weapon("PPC");
+    std::printf("  before the run: PM's weapon definitions %s, a weapon lab %s\n", defs ? "loaded" : "none",
+                mech3::weapon_weight(ppc, mech3::kInnerSphere) > 0.0f && !defs ? "set" : "none");
+    mw1_tests::clear_engine_weapons();
+    mw1::weapon_data::clear();
     Run run;
     run.save = (dir / mw1::kSaveFile).string();
     int32_t step = 0, wait = 0, stores_before = -1, lab_ppc = -1;
@@ -8560,6 +8572,8 @@ TEST(mw1_loop_supply_buy_assign_move_saved_headless) {
           EXPECT(ch && ch->sale == 0 && !ch->assigning && sc->enabled(mw1::kSupplyBuy) && !sc->visible(mw1::kSupplyAddSink));
           funds_before = c->funds, stores_before = mw1::dealer::in_stores(*c, ppc_ware);
           ware_price = mw1::dealer::buy_price(ppc_ware, c->tier);
+          std::printf("  at the supply screen: PM's weapon definitions %s\n", mw1_tests::engine_has_weapon("PPC") ? "loaded (the lab's world)" : "none (MW1's read)");
+          EXPECT(mw1::dealer::ware_tons(ppc_ware) == 7.0f && ware_price >= 7 * mw1::dealer::kPricePerTon);  // no floor price
           sc->on_button(mw1::kSupplyBuy, 0, 0);
           EXPECT(c->funds == funds_before - ware_price && mw1::dealer::in_stores(*c, ppc_ware) == stores_before + 1 &&
                  c->dealer.stock.size() == 1 && c->dealer.stock[0].count == 1 && run.deal_questions.empty());
@@ -8671,7 +8685,9 @@ TEST(mw1_loop_supply_buy_assign_move_saved_headless) {
       return false;
     };
     const std::string in_stores = "In your stores: " + std::to_string(stores_before + 1);
-    EXPECT(has_line(stores_shown, "> PPC", "x") && has_line(stores_shown, "PPC", in_stores.c_str()) && has_line(kits_shown, "YOU", "+1 S +0 A"));
+    const std::string title = mw1::ware_title(ppc_ware), row = "> " + title;
+    EXPECT(has_line(stores_shown, row.c_str(), "x") && has_line(stores_shown, title.c_str(), in_stores.c_str()) &&
+           has_line(kits_shown, "YOU", "+1 S +0 A"));
   });
 }
 
