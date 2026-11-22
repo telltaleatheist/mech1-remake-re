@@ -176,9 +176,48 @@ Tick an item when it is merged into `main`.
     clear). The field base reads as a place, but a mobile HQ may be a working unit in MW3 (a repair stop, a vehicle
     record), not brought into a reach contract untested: the option kept here. mw3c2 keeps its attack; tropical's
     reach is mw3c1's and mw3c3's. The pools keep 70..80% (desert 75.8%, tropical 75.1%, ice 75.4%).
-- **Still to do:** the patrol nets in the discs (the first gap) and mw3c4b ia1's start compared with the one before
-  137; the decoy check again on both; point reach rows (a reach at a point, not a node); the attack targets chosen
-  by the same scores.
+- **1.0.6 as shipped:** c2 ia1, c3 ia1 and mw3c3 ia2 passed the static check and, by the first live drive below,
+  failed play (c2 and c3 unchanged from 1.0.5; mw3c3 replaced a guarded tower), so 1.0.6 is no worse than before.
+  The fixed driver later showed c3's and mw3c3's failures to be its own stalls under fire; c2 ia1 passes the rule
+  as set. Fixed in the next release.
+- **The patrol nets (2026-11-21, the first gap, measured):** each enemy's nets read from its brain's orders (a
+  NetLink to a compiled net, every step with a place), each net once (an extra walks its record's): arctic 4-point
+  loops, PM's and MW3's maps 2 to 76 points each, up to 2 km across.
+  - Every point in the 200 m discs (`MW1_NETS`): 5 of 8 reach rows fail (mw3c4b ia1 on Enemy_03's loop, mw3c4 ia2
+    on Enemy_02's, c2 ia1 and c4 ia1 with patrols ringing the start, 106 to 150 m; mw3c1 ia2's start 84 m from
+    one). PM's designers ran patrols past the player's start, so strict would take reach off PM's own maps.
+  - Patrol points with their own clearance, the start's disc exempt (`MW1_NET_CLEAR`): at 150 m and at 100 m,
+    c2 ia1 and c4 ia1 still fail; 100 and 150 differ only on mw3c4b ia1.
+  - mw3c4b ia1's two starts (137's, 757 m from the nearest place, and the one before, −600 300, 1077 m) both fail
+    with the nets, both pass without: the start was not the trouble, Enemy_03's loop by the depot was.
+- **The live drive (the measure closest to "reachable by avoiding the enemy"):** each reach row driven along its
+  walking route with the enemies alive and patrolling, the commander passive (not firing), the lance following
+  with no orders, the rolls seeded 1, 2, 3; arrival, down, the damage and who did it from how far.
+  - No clearance radius agreed with it: the first drive passed rows the discs failed (c4 ia1) and failed rows they
+    passed; fire came from 400 to 800 m, past any disc, and a long exposure counts that no disc sees.
+  - The driver's own faults, found on the way and fixed: its escape re-armed itself every frame (never steered
+    again); sparse waypoints and full throttle on a sharp turn overshot it (c4 ia1's 20%: the 'Mech drifted 12 m off
+    the route under an 11.6 m overhang, the engine's ceiling crush, every part at once, no attacker); its last leg
+    walked on into the structure. Now: every cell a waypoint, the nearest of the next 12 taken after an overshoot,
+    full throttle on the heading and half into a turn past 20 degrees, and the last leg to the route's end, held
+    there. c3 ia1's and mw3c3 ia2's failures were its stalls.
+- **The rule (2026-11-21, a project decision):** the live drive is the gate (`mw1_loop_every_reach_row_reached_live
+  _headless`): each reach row, three seeds, must arrive and never go down. Taking fire on the way, even from 800 m,
+  is the contract's challenge and its fun, so the damage is not gated; it is said each seed with its attackers and
+  their distances (the REACH-LIVE lines, `MW1_SURVEY_TABLE`), so a data change shows as a number. The static
+  walking route stays as the prefilter and the path driven.
+  - **mw3c4b ia1:** down on all three seeds (Enemy_03 63 to 71% from 136 to 593 m, Enemy_04 the rest). Enemy_03 and
+    its loop (our data, 137's map) moved from its post 246 m from the depot to (1900, 700)..(2020, 820), the far
+    east beside Enemy_07 and Enemy_08, 791 m from the depot: arrives on all three, 28, 41, 28% (Enemy_04 from 211
+    to 567 m). The attack (ware01, along 1.18, the nearest enemy 650 m) and the defence (ware03, along −0.05, the
+    enemy 511 m off) keep their geometry. ware01 and the depot stand 55 m apart, so the attack's enemies and the
+    reach's way pull against each other on this map. (Enemy_04 moved too gave 0%, before the rule dropped the
+    damage limit: not kept.)
+  - **The table (seeds 1, 2, 3; all arrive, none down):** mw3c4b ia1 28/41/28%; mw3c4b ia2 0/0/0; c2 ia1
+    60/50/48% (Enemy_11 from 53 to 519 m, Enemy_01, 03, 12); c3 ia1 0/0/0; c4 ia1 0/0/0; mw3c1 ia2 0/0/0; mw3c3 ia2
+    0/0/0; mw3c4 ia2 0/0/0.
+- **Still to do:** the decoy check again (a measurement); point reach rows (a reach at a point, not a node); the
+  attack targets chosen by the same scores.
 
 ## 135. [x] 'Mech prices vary a little *(done: mw1-fix135-price-variety)*
 
