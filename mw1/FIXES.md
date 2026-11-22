@@ -102,7 +102,7 @@ Tick an item when it is merged into `main`.
   only moves them a little each time). The pool test's exception is gone: ice is 75.4% mw3c4b, every pool 70% or
   more.
 
-## 136. [ ] Objectives on a triangle: the target off the line between you and the enemy *(design; after 1.0.5, done in full)*
+## 136. [x] Objectives on a triangle: the target off the line between you and the enemy *(done: mw1-fix136 routes, the decoy run, mw1-reach-points; in 1.0.6 and 1.0.7)*
 
 - **Rescoped (2026-11-21):** "it doesn't need to be a full triangle, but it should be reachable by avoiding the enemy." Then: "let's do it the
   right way." So 136 is done in full after 1.0.5 (point reach rows on open, reachable floor; targets among each map's
