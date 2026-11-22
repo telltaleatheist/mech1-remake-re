@@ -223,8 +223,8 @@ Tick an item when it is merged into `main`.
     the order draws some fire off the commander. mw3c1 ia2 2/2% on all three; mw3c4b ia2 0/0 (no enemy targets).
   - c3 ia1 15/7, 32/7, 21/23%: more on the commander with the order, on two seeds of three.
   - mw3c4b ia1 10/1% on all three, and the reach LOST with the order (the commander down at frames 3574, 4745,
-    4807), won without it (frame 4904). The lance sent off to attack leaves the commander alone on the depot's way
-    with Enemy_04; following, the lance takes 8 to 9% of the targeting there. The reach is won by the rule's own
+    4807), won without it (frame 4904). Following, the lance takes 8 to 9% of the targeting there; sent off to
+    attack, none (who then hits the commander is not yet attributed in this run: Enemy_04, by the live drive, likely). The reach is won by the rule's own
     drive (the lance following), so the row stays; a player who sends the lance away on this map pays for it.
   - Every other run won the reach, with the order and without.
 - **Still to do:** point reach rows (a reach at a point, not a node); the attack targets chosen by the same scores;
