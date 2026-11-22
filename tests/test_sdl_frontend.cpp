@@ -7998,7 +7998,9 @@ TEST(sdl_program_launcher_checks_for_updates) {
                                                    (dir / ours).string() + "\"},{\"name\":\"SHA256SUMS\",\"browser_download_url\":\"file://" +
                                                    (dir / "SHA256SUMS").string() + "\"}]");
   std::ofstream(dir / "newer.json") << "[" << rel("pm-v99.0.0", false) << "," << rel("v99.0.0", true) << "," << newest << "]";
-  std::ofstream(dir / "older.json") << "[" << rel("v0.0.1", false) << "]";
+  std::string older = newest;  // an older release with its bundle (one without is never the update)
+  older.replace(older.find("v98.1.0"), 7, "v0.0.1");
+  std::ofstream(dir / "older.json") << "[" << older << "]";
   std::ofstream(dir / "broken.json") << "<html>API rate limit exceeded</html>";
   setenv("MW3_LAUNCHER_FRAMES", "240", 1);
   setenv("MW3_LAUNCHER_NAV", "next,next,next,press", 1);  // MECHWARRIOR 3, GAME FILES, UPDATES (PM greyed, skipped)

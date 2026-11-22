@@ -775,7 +775,13 @@ program files are replaced.
    needed (`tag_name`, `draft`, `prerelease`, `body`, `assets[].name`,
    `assets[].browser_download_url`). The individual games' downloads may sit
    on the same release as extra assets: only the platform's package asset is
-   taken. `MW3_UPDATE_API` names another URL for
+   taken. Since 2026-11-21 (Owen: each game released on its own repo, its
+   builds bundled into the launcher's package on mw3-re) a release counts
+   only when it holds this platform's bundle (`MW3-Rebuild-...`), so a
+   game's own release on mech3-re (MW3-alone downloads) is never the update;
+   a game repo's release and the hub's bundle carry the same version, so the
+   1.2.2 copies (which still take the highest tag of either) find the
+   bundle first, on mw3-re, read first. `MW3_UPDATE_API` names another URL for
    checks (a `file://` JSON). Tests: newer, same, older, a dev build, no
    network, a broken answer: each said in plain words.
    **Done (2026-11-10):** `upgrades::update` (`parse_releases`, a small JSON

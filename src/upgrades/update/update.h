@@ -25,8 +25,11 @@ bool parse_releases(const std::string& json, std::vector<Release>* out, std::str
 // A package release's tag: a bare vX.Y.Z (pm-v*, v1.2.0-rc1 and the like are not).
 bool package_tag(const std::string& tag);
 
-// The newest package release: not a draft or a prerelease, the highest package_tag; null when none.
-const Release* newest_package(const std::vector<Release>& releases);
+// The newest package release: not a draft or a prerelease, the highest package_tag, holding the platform's bundle
+// (platform_asset): a game's own release (mech3-re's MW3-alone downloads, Owen 2026-11-21: each game released on its
+// own repo, the launcher's bundle on mw3-re's) is never taken. Null when none.
+enum class Platform { kWindows, kMac, kLinux };
+const Release* newest_package(const std::vector<Release>& releases, Platform p);
 
 // Two versions by their numbers part by part ("v1.2.0" < "v1.10.0"); a build between releases
 // ("v1.0.5-264-gHASH-dirty") counts as the release it follows. <0, 0, >0; a version without numbers is lowest.
@@ -40,12 +43,14 @@ struct Verdict {
 };
 // From what the fetch gave: `json` (empty when it failed, `fetch_error` saying why) against `current` (MW3_VERSION).
 Verdict judge(const std::string& current, const std::string& json, const std::string& fetch_error);
+// (Both judges look for this platform's bundle; the forms with `p`, for checks, another platform's.)
 // The same over several repos' lists (Owen 2026-11-21: the hub mw3-re and the game's own mech3-re, whichever has the
 // newest package): every list that reads counts; failed only when none does, saying the first one's reason.
 struct Answer {
   std::string json, fetch_error;
 };
 Verdict judge(const std::string& current, const std::vector<Answer>& answers);
+Verdict judge(const std::string& current, const std::vector<Answer>& answers, Platform p);
 
 // A release's notes (markdown) as plain lines for the launcher's screen: headings without their #, "- " and "* "
 // items as "• ", **bold**, *italic* and `code` marks dropped, [text](url) as its text, blank runs as one.
@@ -54,7 +59,6 @@ std::vector<std::string> notes_lines(const std::string& markdown);
 // The package each platform installs (docs/release.md, the packages' names): Windows' MW3-Rebuild-Setup-<v>.exe,
 // the Mac's MW3-Rebuild-<v>-mac.dmg, Linux's MW3-Rebuild-<v>-x86_64.AppImage. The games' own downloads on the same
 // release are other names, never taken.
-enum class Platform { kWindows, kMac, kLinux };
 Platform this_platform();
 const Asset* platform_asset(const Release& r, Platform p);
 const char* platform_package_words(Platform p);  // "the Windows Setup", for the words when it is missing
