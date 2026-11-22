@@ -2569,6 +2569,11 @@ about 6 s with its speed up, moving 0 m, before it walked.
     it is sold or lost. Save version 13 adds `kits`, `kits_bought`, `mech_kits`, `hangar<i>_kits` and `steps`; older
     saves read as nothing bought. The prices are placeholders in `mw1_upgrades.h`; `MW1_PRICE_TABLE=1` with
     `mw1_upgrades_the_ladders_climb_and_the_price_table` prints them. No screen and no engine hook yet.
+  - **Slice 1, the engine's hooks (mw1-110-hooks):** `src/upgrades/kits` (docs/upgrades-kits.md), an
+    "mw1 (engine, ours)" commit. Four hooks, null in MW3 and PM: extra sinks in the heat step, extra armour at a
+    part's setup, a weapon's damage scale and its extra range, per weapon (never the shared WeaponDef). They are off
+    in a network game, and damage is clamped to 4x and range to the weapon's own RANGE. MW1 doesn't set them yet
+    (slice 3).
 - **Owen (2026-11-20):** players can keep playing indefinitely without the story, like an Instant Action mod, and
   money needs something to buy. It's always on sale at the hub; nothing to hunt for. It applies to the player's side
   only, never to enemies.
