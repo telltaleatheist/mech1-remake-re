@@ -56,6 +56,8 @@ constexpr int W = 854, H = 480, kX = (W - 640) / 2;
 constexpr char kAddDiscSub[] = "A disc in a drive, or its image or any file of the disc";
 constexpr int kBadge = 76;  // a game's badge across, on the 640x480 canvas (the other screens' round entries)
 // The main screen's cards (layout C, the mockup's 1280x720 at two thirds): the header, the cards, the bottom row.
+// The setup screens' titles, by header_game(): each game's own, never the launcher's (Owen 2026-11-22).
+constexpr const char* kHeaderNames[] = {"MECHWARRIOR 3", "MECHWARRIOR 3: PIRATE'S MOON", "MECHWARRIOR 1 REMAKE", "MECHWARRIOR 1"};
 constexpr int kCardsW = 768, kCardsTop = 84, kCardsBottom = 416, kCardBadge = 100, kCardButtonH = 42;
 // The cards' screen (Owen, 1.2.0): the starfield zoomed so its drift reads round the cards, the cards a little see-through.
 constexpr float kStarZoom = 1.8f;
@@ -1553,7 +1555,7 @@ void Launcher::layout() {
     std::string labels;
     for (const Button& b : buttons_) labels += (labels.empty() ? "" : ", ") + b.log_name();
     std::printf("mw3: launcher: screen %s: %s\n", kNames[screen_], labels.c_str());
-    if (const int g = header_game(); g >= 0) std::printf("mw3: launcher: header %s\n", upgrades::update::game_info(upgrades::update::kGames[g]).name);
+    if (const int g = header_game(); g >= 0) std::printf("mw3: launcher: header %s\n", kHeaderNames[g]);
   }
   hot_ = focus_ = -1;
 }
@@ -1602,13 +1604,14 @@ void Launcher::background(float dt) {
   SDL_Rect l1{0, 96, W, 1}, l2{0, H - 49, W, 1};
   SDL_FillSurfaceRect(canvas_, &l1, amber), SDL_FillSurfaceRect(canvas_, &l2, amber);
   if (game >= 0) {  // a setup screen: the game it sets up, never the launcher's name (Owen: the kit names no game)
-    static const char* const kNames[] = {"MECHWARRIOR 3", "PIRATE'S MOON", "MECHWARRIOR 1"};
-    const int badge = 64, gap = 16, w = badge + gap + text_.width(kNames[game], 36), x = (W - w) / 2;
-    if (SDL_Surface* b = art_.badge[game]) {
+    const char* name = kHeaderNames[game];
+    const int size = text_.width(name, 36) > 520 ? 30 : 36;  // the longer titles kept off the hazard stripes
+    const int badge = 64, gap = 16, w = badge + gap + text_.width(name, size), x = (W - w) / 2;
+    if (SDL_Surface* b = art_.badge[game == 3 ? 2 : game]) {
       SDL_Rect e{x, 48 - badge / 2, badge, badge};
       SDL_BlitSurfaceScaled(b, nullptr, canvas_, &e, SDL_SCALEMODE_LINEAR);
     }
-    text_.draw(canvas_, kNames[game], 36, kWhite, x + badge + gap, 48, -1);
+    text_.draw(canvas_, name, size, kWhite, x + badge + gap, 48, -1);
   } else if (art_.title) {
     const int x = (W - art_.title->w - 84) / 2;
     if (art_.emblem) {
@@ -1622,15 +1625,15 @@ void Launcher::background(float dt) {
   }
 }
 
-// The game a screen sets up (0 MechWarrior 3, 1 Pirate's Moon, 2 MechWarrior 1), named in its header; -1 the
-// launcher's own (the cards, its update, a download picked before it is read), under the launcher's title.
+// The game a screen sets up (0 MechWarrior 3, 1 Pirate's Moon, 2 MW1 Remake, 3 MechWarrior (1989)), its full title in
+// the header (Owen 2026-11-22); -1 the launcher's own (the cards, its update, a download picked before it is read).
 int Launcher::header_game() const {
   switch (screen_) {
     case kMain:
     case kUpdateScreen: return -1;
     case kConfirm:
       if (confirm_go_ == 4 || confirm_go_ == 6) return -1;  // Vulkan's question; a game's download, checked
-      if (confirm_go_ == 5) return 2;                       // MechWarrior (1989) found
+      if (confirm_go_ == 5) return mw1_original_ ? 3 : 2;  // MechWarrior (1989) found, for the remake or PLAY ORIGINAL
       break;
     case kWorking:
       if (!work_) break;
@@ -1639,7 +1642,7 @@ int Launcher::header_game() const {
         case Work::kUpdateDownload:
         case Work::kGameFileCheck: return -1;
         case Work::kGameInstall: return work_game_;
-        case Work::kMw1Copy: return 2;
+        case Work::kMw1Copy: return mw1_original_ ? 3 : 2;
         default: break;
       }
       break;
@@ -2919,6 +2922,10 @@ LauncherChoice Launcher::run() {
       screen_ = kConfirm, confirm_go_ = 1, found_name_ = "MechWarrior 3", found_sub_ = "Click to pick other files";
       confirm_text_ = "An installed copy of MechWarrior 3 version 1.2. It will be copied into " +
                       (fs::path(files_wd()) / "install").make_preferred().string() + ". Your own files are only read, and may be deleted afterwards.";
+    }
+    if (o_.screen == "mw1found" || o_.screen == "mw1origfound") {  // MechWarrior (1989) offered, for the remake or PLAY ORIGINAL
+      mw1_original_ = o_.screen == "mw1origfound", mw1_found_ = (fs::path(files_wd()) / "BTECH").string();
+      offer_mw1();
     }
     if (o_.screen == "update") {  // the check (MW3_UPDATE_API in shots) and a newer release's screen
       update_ = std::make_shared<upgrades::update::Verdict>(check_for_updates(MW3_VERSION));
