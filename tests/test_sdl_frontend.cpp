@@ -8144,6 +8144,10 @@ TEST(sdl_program_launcher_finds_pirates_moon) {
 TEST(sdl_program_launcher_checks_mechwarrior3) {
   namespace fs = std::filesystem;
   std::error_code ec;
+  if (!fs::is_regular_file(std::string(MW3_GAME_DIR) + "/Mech3Msg.dll", ec)) {  // a checkout without game/ linked in
+    std::printf("launcher mw3 checks: no game/mw3-1.2: skipped\n");
+    return;
+  }
   const std::string dir = std::string(MW3_TEST_TMP) + "/launcher mw3 checks";
   fs::remove_all(dir, ec);
   fs::create_directories(dir + "/wd", ec);
@@ -8359,7 +8363,9 @@ TEST(sdl_program_launcher_checks_for_updates) {
                                                    (dir / ours).string() + "\"},{\"name\":\"SHA256SUMS\",\"browser_download_url\":\"file://" +
                                                    (dir / "SHA256SUMS").string() + "\"}]");
   std::ofstream(dir / "newer.json") << "[" << rel("pm-v99.0.0", false) << "," << rel("v99.0.0", true) << "," << newest << "]";
-  std::ofstream(dir / "older.json") << "[" << rel("v0.0.1", false) << "]";
+  std::string older = newest;  // an older release with its bundle (one without is never the update)
+  older.replace(older.find("v98.1.0"), 7, "v0.0.1");
+  std::ofstream(dir / "older.json") << "[" << older << "]";
   std::ofstream(dir / "broken.json") << "<html>API rate limit exceeded</html>";
   setenv("MW3_LAUNCHER_FRAMES", "240", 1);
   setenv("MW3_LAUNCHER_NAV", "next,next,next,press", 1);  // MECHWARRIOR 3, GAME FILES, UPDATES (PM greyed, skipped)

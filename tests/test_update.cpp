@@ -14,6 +14,8 @@ std::string release(const std::string& tag, bool draft = false, bool pre = false
   return "{\"url\":\"https://api.github.com/x\",\"id\":1,\"tag_name\":\"" + tag + "\",\"draft\":" + (draft ? "true" : "false") +
          ",\"prerelease\":" + (pre ? "true" : "false") + ",\"body\":\"" + body + "\",\"author\":{\"login\":\"a\",\"id\":2},\"assets\":[" +
          "{\"name\":\"MW3-Rebuild-" + tag + "-mac.dmg\",\"size\":10,\"browser_download_url\":\"https://github.com/r/" + tag + "/mac.dmg\"}," +
+         "{\"name\":\"MW3-Rebuild-Setup-" + tag + ".exe\",\"size\":10,\"browser_download_url\":\"https://github.com/r/" + tag + "/setup.exe\"}," +
+         "{\"name\":\"MW3-Rebuild-" + tag + "-x86_64.AppImage\",\"size\":10,\"browser_download_url\":\"https://github.com/r/" + tag + "/a.AppImage\"}," +
          "{\"name\":\"SHA256SUMS\",\"browser_download_url\":\"https://github.com/r/" + tag + "/SHA256SUMS\"}]}";
 }
 std::string list(const std::vector<std::string>& items) {
@@ -29,8 +31,8 @@ TEST(update_reads_the_releases_list) {
   EXPECT(u::parse_releases(list({release("v1.1.0", false, false, "## Fixes\\n- \\\"quoted\\\" \\u00e9 \\ud83d\\ude00 \\\\ done")}), &all, &error));
   EXPECT(all.size() == 1 && all[0].tag == "v1.1.0" && !all[0].draft && !all[0].prerelease);
   EXPECT(all[0].notes == "## Fixes\n- \"quoted\" \xc3\xa9 \xf0\x9f\x98\x80 \\ done");  // escapes, \u, a surrogate pair
-  EXPECT(all[0].assets.size() == 2 && all[0].assets[0].name == "MW3-Rebuild-v1.1.0-mac.dmg" &&
-         all[0].assets[1].url == "https://github.com/r/v1.1.0/SHA256SUMS");
+  EXPECT(all[0].assets.size() == 4 && all[0].assets[0].name == "MW3-Rebuild-v1.1.0-mac.dmg" &&
+         all[0].assets[3].url == "https://github.com/r/v1.1.0/SHA256SUMS");
   // Not a list, cut short, not JSON, text after it: each refused with where.
   for (const char* bad : {"{\"tag_name\":\"v1\"}", "[{\"tag_name\":\"v1.1.0\"", "<html>rate limited</html>", "[] x"}) {
     EXPECT(!u::parse_releases(bad, &all, &error) && !error.empty());
@@ -47,9 +49,9 @@ TEST(update_picks_the_newest_package_release) {
   EXPECT(u::parse_releases(list({release("pm-v9.0.0"), release("v1.9.0"), release("v1.10.0"), release("v2.0.0", true),
                                  release("v1.11.0", false, true), release("v1.10.1-rc1"), release("v1.2.0")}),
                            &all, &error));
-  const u::Release* newest = u::newest_package(all);
+  const u::Release* newest = u::newest_package(all, u::Platform::kMac);
   EXPECT(newest && newest->tag == "v1.10.0");  // not the draft, the prerelease, the rc or PM's; 1.10 above 1.9
-  EXPECT(!u::newest_package({}));
+  EXPECT(!u::newest_package({}, u::Platform::kMac));
 }
 
 TEST(update_compares_versions) {
@@ -91,6 +93,32 @@ TEST(update_takes_the_newest_from_either_repo) {
   EXPECT(u::judge("v1.2.2", {{"<html>", ""}, {game, ""}}).release.tag == "v1.3.0");     // one unreadable
   const u::Verdict none = u::judge("v1.2.2", {{"", "could not resolve host"}, {"", "timed out"}});
   EXPECT(none.kind == u::Verdict::kFailed && none.words == "Could not check for updates: could not resolve host. Is this computer online?");
+}
+
+// Owen, 2026-11-21: each game is released on its own repo too (mech3-re's v1.3.0 with MW3-alone downloads only),
+// the launcher's bundle on mw3-re's. A release without this platform's bundle is never the update, whatever its tag.
+TEST(update_never_takes_a_games_own_release) {
+  const std::string alone =
+      "[{\"tag_name\":\"v1.3.0\",\"draft\":false,\"prerelease\":false,\"body\":\"MW3 alone.\",\"assets\":["
+      "{\"name\":\"MW3-alone-Setup-v1.3.0.exe\",\"browser_download_url\":\"https://x/a.exe\"},"
+      "{\"name\":\"MW3-alone-v1.3.0-mac.dmg\",\"browser_download_url\":\"https://x/a.dmg\"},"
+      "{\"name\":\"MW3-alone-v1.3.0-x86_64.AppImage\",\"browser_download_url\":\"https://x/a.AppImage\"}]}]";
+  const std::string hub = list({release("v1.2.3")});
+  for (const u::Platform p : {u::Platform::kWindows, u::Platform::kMac, u::Platform::kLinux}) {
+    const u::Verdict v = u::judge("v1.2.2", {{hub, ""}, {alone, ""}}, p);
+    EXPECT(v.kind == u::Verdict::kNewer && v.release.tag == "v1.2.3");  // the hub's bundle, not mech3-re's v1.3.0
+    EXPECT(u::judge("v1.2.3", {{hub, ""}, {alone, ""}}, p).kind == u::Verdict::kUpToDate);
+  }
+  // Only a game's release answering: no bundle anywhere, said as such (never a download of the wrong thing).
+  const u::Verdict none = u::judge("v1.2.2", {{alone, ""}}, u::Platform::kMac);
+  std::printf("  %s\n", none.words.c_str());
+  EXPECT(none.kind == u::Verdict::kFailed);
+  // The Mac's bundle alone on a release: the Mac takes it, Windows does not.
+  const std::string mac_only =
+      "[{\"tag_name\":\"v1.2.4\",\"draft\":false,\"prerelease\":false,\"body\":\"x\",\"assets\":["
+      "{\"name\":\"MW3-Rebuild-v1.2.4-mac.dmg\",\"browser_download_url\":\"https://x/m.dmg\"}]}]";
+  EXPECT(u::judge("v1.2.3", {{hub, ""}, {mac_only, ""}}, u::Platform::kMac).release.tag == "v1.2.4");
+  EXPECT(u::judge("v1.2.3", {{hub, ""}, {mac_only, ""}}, u::Platform::kWindows).kind == u::Verdict::kUpToDate);
 }
 
 TEST(update_notes_as_plain_lines) {

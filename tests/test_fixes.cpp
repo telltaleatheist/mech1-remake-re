@@ -350,6 +350,28 @@ int unpause_plays(bool fix) {
 }
 }  // namespace
 
+// A flat sound (no 3D flag) given a place, as the stand-up's mech_crouch (0x00571f30): the exe
+// leaves the buffer at full volume; fixed, it takes its volume (the master's share) unplaced.
+TEST(fix_flat_sound_at_a_place_takes_its_volume) {
+  struct VolumeOutput : CountingOutput {
+    int32_t last = 1;
+    int32_t set_volume(platform::SoundBuffer, int32_t v) override { return last = v, 0; }
+  };
+  for (const bool fix : {true, false}) {
+    zfix::set_all(fix);
+    VolumeOutput out;
+    zsnd::hooks().output = &out;
+    zsnd::Sound s;
+    s.flags = zsnd::kLoaded;
+    s.voice.buffer = 1, s.voice.sound = &s, s.voice.volume = -1000;
+    const float at[3] = {10.0f, 0.0f, 5.0f};
+    EXPECT(zsnd::update_3d(&s.voice, at, nullptr, 0) == 1);
+    EXPECT(out.last == (fix ? -1000 : 1));
+    zsnd::hooks().output = nullptr;
+  }
+  zfix::set_all(true);
+}
+
 TEST(fix_sound_fade_to_a_partial_volume_ends) {
   EXPECT(fade_ends(true));
   EXPECT(!fade_ends(false));

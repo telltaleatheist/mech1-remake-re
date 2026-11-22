@@ -141,6 +141,10 @@ it is clear what the designers meant.
 - **Unpausing resumes the sounds that were playing,** from where they
   stopped, instead of restarting every copy of them, including ones that had
   already finished.
+- **Standing up from a crouch obeys the sound volume.** Some sounds without
+  3D placement were played at a place anyway, and the game then never set
+  their volume, so they played at full volume whatever the slider said. The
+  stand-up after a crouch was one of them.
 - **Volume fades finish.** A sound fading to a partial volume used to wobble
   around it forever; it now settles.
 - **3D sounds pan left and right.** The game asked the sound card for mono
@@ -725,7 +729,7 @@ Known quirks the rebuild deliberately keeps:
 - The launcher closes once MechWarrior 3 is on screen, instead of waiting hidden for the game to end; if the game fails to start it stays and says so.
 - The launcher is installed as "MechWarrior 3" (the Windows Start menu and desktop, the Mac's "MechWarrior 3.app", the Linux desktop entry); the game itself (mw3.exe) is installed too and starts directly, without a shortcut of its own.
 - Setting up the game copies what it needs into the game's own folder, so the copy, zip or disc image you gave it can be deleted afterwards. A game folder put next to the program is found whatever it is called. Whatever the game finds is only offered: "USE THESE GAME FILES?" names it on a button, and clicking that button lets you pick other files instead. GAME FILES in the launcher always lets you pick again, and so does holding Shift while the game starts (without the launcher). Pirate's Moon is set up the same way.
-- MechWarrior (1989), for MechWarrior 1, is taken the same way: the folder you pick (or the one the launcher finds and offers, which it never takes on its own) is copied into the launcher's own folder, so your copy can be deleted afterwards. Picking the copy already in use again keeps it as it is.
+- MechWarrior (1989), for MechWarrior 1, is taken the same way: the folder you pick (or the one the launcher finds and offers, which it never takes on its own) is copied into the launcher's own folder, so your copy can be deleted afterwards. Picking the copy already in use again keeps it as it is. A folder far bigger than the game (a whole Games folder or drive that happens to hold it) is refused with a message instead of copied.
 - The launcher shows the games, GAME FILES and Quit (Escape too). GAME FILES opens the "find your game" screen at any time, to pick another copy or refresh it, and to add what it lacks from the disc; a new copy replaces the old only once it is complete. The launcher works with the arrow keys and a gamepad's d-pad, A and B as well as the mouse.
 - Choosing a game whose files are not found opens a short "find your game" screen: FIND THE GAME searches the computer and the disc drives and uses what it finds; if nothing is there, one picker takes a disc image or download, or Mech3.exe (any file) of an installed copy. Once the game is found or installed it starts at once. The separate Setup, "a folder instead", "search again" and "apply the 1.2 patch" buttons are gone (1.0 plays as 1.2 by itself).
 - On the Mac and Linux the movies are converted by the launcher right after the game is set up, with a progress bar and Cancel, instead of the game's first start waiting on a status line. The file picker no longer takes long to open on the Mac.

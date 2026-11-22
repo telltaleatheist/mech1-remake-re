@@ -17,8 +17,9 @@ Running it
 ----------
 Make the AppImage executable (chmod +x) and run it. It needs your
 distribution's Vulkan driver. It opens a launcher: click MECHWARRIOR 3 or
-PIRATE'S MOON. On the first start it looks for your installed copy; if it
-finds none, FIND THE GAME takes whatever you have (the disc, a disc image, a
+PIRATE'S MOON. On the first start it looks for your installed copy and
+offers what it finds (INSTALL copies it in, so your copy can be deleted
+afterwards; clicking it picks other files); FIND THE GAME takes whatever you have (the disc, a disc image, a
 download, or Mech3.exe in an installed copy), installs it into a folder of
 its own and comes back to the launcher's games, so you can set up the other
 game too; click the game to play. It converts the game's movies once.

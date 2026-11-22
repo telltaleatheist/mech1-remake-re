@@ -23,8 +23,11 @@ right-click (or Control-click) the app, choose Open, then Open again. Or, after
 macOS has blocked it once: System Settings > Privacy & Security, and click
 "Open Anyway" beside its name. After that it starts normally.
 
-On the first start it looks for your installed copy and goes straight into
-the game when it finds one. If not, its setup screen's POINT TO YOUR GAME
+On the first start it looks for your installed copy and, when it finds one,
+asks USE THESE GAME FILES?: INSTALL copies it into the game's own folder (so
+your copy can be deleted afterwards), and clicking the found copy lets you
+pick other files. Hold Shift while the game starts to choose again later.
+If it finds none, its setup screen's POINT TO YOUR GAME
 takes whatever you have: the disc, a disc image (.iso, or .cue with its .bin
 files, whose CD audio becomes the music), the file you downloaded (.zip, .7z
 or .rar, even a zip inside a zip; nothing to unpack by hand), or a copy from

@@ -221,10 +221,11 @@ bool package_tag(const std::string& tag) {
   return numbers(tag).size() == 3 && rest.front() != '.' && rest.back() != '.' && rest.find("..") == std::string::npos;
 }
 
-const Release* newest_package(const std::vector<Release>& releases) {
+const Release* newest_package(const std::vector<Release>& releases, Platform p) {
   const Release* best = nullptr;
   for (const Release& r : releases)
-    if (!r.draft && !r.prerelease && package_tag(r.tag) && (!best || compare_versions(r.tag, best->tag) > 0)) best = &r;
+    if (!r.draft && !r.prerelease && package_tag(r.tag) && platform_asset(r, p) && (!best || compare_versions(r.tag, best->tag) > 0))
+      best = &r;
   return best;
 }
 
@@ -382,10 +383,12 @@ std::string plain_version(const std::string& tag) {
 }
 
 Verdict judge(const std::string& current, const std::string& json, const std::string& fetch_error) {
-  return judge(current, std::vector<Answer>{{json, fetch_error}});
+  return judge(current, std::vector<Answer>{{json, fetch_error}}, this_platform());
 }
 
-Verdict judge(const std::string& current, const std::vector<Answer>& answers) {
+Verdict judge(const std::string& current, const std::vector<Answer>& answers) { return judge(current, answers, this_platform()); }
+
+Verdict judge(const std::string& current, const std::vector<Answer>& answers, Platform p) {
   Verdict v;
   std::vector<Release> all;
   bool read = false;
@@ -408,7 +411,7 @@ Verdict judge(const std::string& current, const std::vector<Answer>& answers) {
     return v;
   }
   v.words.clear();
-  const Release* newest = newest_package(all);
+  const Release* newest = newest_package(all, p);
   if (!newest) {
     v.words = "Could not check for updates: no release of MechWarrior 3 Rebuild was found.";
     return v;

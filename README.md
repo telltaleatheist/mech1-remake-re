@@ -38,7 +38,21 @@ original.
 
 ### Coming in the next release
 
-Nothing yet.
+- Standing up from a crouch obeys the sound volume (the original played it at
+  full volume).
+
+**1.2.3 (2026-11-21)** (the full notes are in
+[docs/release-notes-1.2.3.md](docs/release-notes-1.2.3.md)): setting up your
+games is simpler, and always your choice.
+
+- **Your files are copied in**, so the copy, zip or disc image you set a game
+  up from can be deleted afterwards; a game folder put next to the program is
+  found whatever it is called.
+- **Always your choice**: what a game finds is only offered ("USE THESE GAME
+  FILES?"), and holding Shift at a game's start lets you choose again.
+- Pirate's Moon and MechWarrior (1989) are set up the same way.
+- MechWarrior 1 Remake 1.0.6: its new name on the window and save folder,
+  reach contracts that can be reached, the arctic defence contract back.
 
 **1.2.2 (2026-11-21)** (the full notes are in
 [docs/release-notes-1.2.2.md](docs/release-notes-1.2.2.md)): fixes from your
@@ -554,7 +568,8 @@ adds weapons to the original `Mech3.exe`'s mech lab. It isn't part of the rebuil
 It holds `mw3.cfg`, your pilots and saves, the settings, your mods, the
 converted movies and the music, and `mw3.log`. Pirate's Moon keeps its own
 beside it, in `MicroProse/Pirate's Moon`, and MechWarrior 1 Remake in
-`MicroProse/MechWarrior 1 Critical Hit`. Uninstalling the rebuild keeps
+`MicroProse/MechWarrior 1 Remake` (moved there by itself from the old
+`MicroProse/MechWarrior 1 Critical Hit` on its first start). Uninstalling the rebuild keeps
 them; deleting one starts that game over. The launcher's GAME FILES, MY DATA
 FOLDER moves a game's folder to another drive.
 
