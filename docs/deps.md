@@ -49,9 +49,21 @@ What is built:
   need none. TTF text depends on FreeType's version: 2.13.2 (the version
   SDL3_ttf 3.2.2 vendors, pinned here until 2026-11-23) differs from 2.14.3
   by about 11 pixels at glyph edges (MW1's office_offer canvas, fdd0ffb9
-  where the golden is 0eee21a1); HarfBuzz makes no difference to the
-  game's Latin text. 2.14.3 is the version the Mac's Homebrew SDL3_ttf
-  loads, so every platform draws the same. SDL3_ttf's release tarball does not carry its vendored
+  where the golden is 0eee21a1). 2.14.3 is the version the Mac's Homebrew
+  SDL3_ttf loads. HarfBuzz makes no difference to the game's text (the 2D
+  host draws with mono hinting and no kerning: the same pixels with and
+  without it, at both FreeType versions), but with SDL_ttf's defaults (the
+  launcher's: kerning on, Blended) it moves proportional text, so a
+  development build on Homebrew's SDL3_ttf draws the launcher's text a
+  little apart from the packages, which have none. On Windows,
+  `tools\windows\build_deps_ttf.cmd` builds the same SDL3_ttf and FreeType
+  into `deps\ttf`, which package.cmd requires: the `-VC.zip` release's DLL
+  carries FreeType 2.13.2 and HarfBuzz 8.5.0. Checked 2026-11-23 by
+  drawing four strings in the game's three fonts and our Liberation Sans,
+  Liberation Mono and Anton at eight sizes through each build: the Windows package's SDL3_ttf, the
+  AppImage's and a FreeType 2.14.3 + HarfBuzz 14.6.0 build (Homebrew's
+  versions) the same with the host's settings; the old Windows DLL the
+  same as Linux's vendored 2.13.2. SDL3_ttf's release tarball does not carry its vendored
   libraries (its `external/download.sh` clones them unpinned), so the
   signed FreeType release stands in.
 - **SDL3_ttf**: shared, without HarfBuzz (complex-script shaping) or
