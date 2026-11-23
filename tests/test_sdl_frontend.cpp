@@ -8319,7 +8319,10 @@ TEST(sdl_program_launcher_checks_for_updates) {
     EXPECT(pid > 0 && waitpid(pid, &status, 0) == pid && WIFEXITED(status) && WEXITSTATUS(status) == 0);
     if (tmp_was.empty()) unsetenv("TMPDIR");
     else setenv("TMPDIR", tmp_was.c_str(), 1);
-    if (is_newer) EXPECT(fs::exists(dir / "tmp" / "MW3-Rebuild-update" / ours, ec)), fs::remove(dir / "tmp" / "MW3-Rebuild-update" / ours, ec);
+    if (is_newer) {
+      EXPECT(fs::exists(dir / "tmp" / "MW3-Rebuild-update" / ours, ec));
+      fs::remove(dir / "tmp" / "MW3-Rebuild-update" / ours, ec);
+    }
     std::ifstream f(log);
     const std::string text((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
     if (text.find("launcher: update: ") == std::string::npos)  // where the steps went
