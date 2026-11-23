@@ -5,6 +5,21 @@ Tick an item when it is merged into `main`.
 
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 141. [ ] MechWarrior (1989)'s copy into MW1 Remake's own folder *(open; raised by the lead with pm-v1.2.4's layout, 2026-11-22)*
+- **What:** pm-v1.2.4's launcher keeps each game's files in a folder of its own (`games_<key>=`, `<folder>/install`,
+  marked `rebuild-game-folder.txt` with `game=mw1`); only pilots, saves, settings and mods stay in the user folder.
+  MW1's copy of the player's MechWarrior (1989) still goes to the user folder: `<write dir>/mw1/game`
+  (`sdlfe::mw1::unpacked_dir`, src/frontend/sdl/mw1_files.cpp), kept as `mw1_game=`.
+- **Wanted:** a new copy goes into MW1 Remake's folder when the player has one (`games_mw1=`, the folder its card's
+  INSTALL picked), e.g. `<folder>/install/mw1game`; without one, the user folder as now.
+- **The search:** looks in the new place first, then the old `<write dir>/mw1/game`, which stays readable for good:
+  a copy made before this keeps working where it is, and `mw1_game=` keeps pointing at it.
+- **Existing players' copies are never moved without asking.** At most the launcher offers to move one (the copy is
+  the launcher's own, so it may), and only when the player says yes; the player's own MechWarrior folder (only ever
+  read) is never touched.
+- **Checks:** the launcher's MW1 copy test (`sdl_program_launcher_starts_mechwarrior_1`) for a copy into the picked
+  folder, the old location still found, and nothing moved unasked.
+
 ## 140. [x] MW3's worlds have no mission map: wire MW3's own maps.zrd *(done: mw1-maps-140; in 1.0.8)*
 
 - **Found (2026-11-22, item 136's point search):** on MW3's worlds (mw3c1..mw3c4) Shift+R shows only the plain radar,
