@@ -855,6 +855,27 @@ program files are replaced.
    counts as its release), `update_says_what_it_found`,
    `sdl_update_fetch_by_curl`, `sdl_program_launcher_checks_for_updates`.
    Breaks: drafts kept, rc tags taken: each caught.
+   **At every start (Owen, 2026-11-23: so new games, features or a reworked
+   look reach players):** the same check runs quietly on a thread of its own
+   (`start_self_check`, collected each frame by `take_self_check`), both
+   repos in both homes as UPDATES asks them. The main screen never waits on
+   it and it never prompts. A newer release turns the footer's "BattleTech
+   launcher <v>" into an amber button, UPDATE LAUNCHER TO <v> (`kSelfUpdate`),
+   placed where the version was and after QUIT in the keys' and the pad's
+   order. Pressing it opens the same UPDATE screen as UPDATES (notes,
+   DOWNLOAD AND INSTALL, NOT NOW). Nothing is downloaded or installed until
+   the player presses DOWNLOAD AND INSTALL there. The same version, an older
+   one or a failed check leave the footer as it is; the verdict goes to the
+   log only ("update check at the start: ..."). A check run (`--hidden`)
+   without `MW3_UPDATE_API` asks nothing, as the games' check, so tests never
+   reach GitHub or git.owenmorgan.com; a shot asks before drawing.
+   `MW3_LAUNCHER_NAV_LATE=1` (checks) runs `MW3_LAUNCHER_NAV`'s steps once
+   that check has answered. Test:
+   `sdl_program_launcher_offers_its_own_update_at_start` (newer: the footer
+   line, the button in the main screen's list after QUIT, reached by the keys,
+   never opening anything by itself, pressed: the UPDATE screen and its notes,
+   nothing downloaded; the same version and a failed check: the footer kept,
+   the verdict in the log; a hidden run: nothing asked).
 2. **The notes and the question**: an UPDATE screen with the release's notes
    (its body, wrapped and paged, the markdown's `#` and `-` shown plainly),
    "Download and install MechWarrior 3 Rebuild 1.2.0?", DOWNLOAD AND

@@ -445,6 +445,7 @@ enum Id {
   kInstallTo, kPlaceGo,  // ours: CHANGE FOLDER (the game's folder, picked) and the card INSTALL's go once asked where
   kData = 40, kDataPick, kDataUsual, kMoveGo, kRemoveOld, kKeepOld,
   kUpdates = 49,
+  kSelfUpdate = 50,  // the footer's UPDATE LAUNCHER TO <v> when the start's check found one (Owen 2026-11-23)
   kUpdateGo = 80, kUpdateNotNow, kUpdatePrev, kUpdateNext,
   kVulkanAgain = 90,  // ours: the Vulkan check again (docs/linux.md)
   kMw1Original = 100,  // MW1's card: PLAY ORIGINAL, Elthial's port of the 1989 game
@@ -682,6 +683,23 @@ class Launcher {
     }
   };
   std::unique_ptr<GamesCheck> games_check_;
+  // The launcher's own update, asked at every start (Owen 2026-11-23): check_for_updates on a thread, both homes,
+  // never a prompt; a newer one turns the footer into UPDATE LAUNCHER TO <v> (kSelfUpdate), which opens the UPDATE
+  // screen. Nothing downloads until the player presses DOWNLOAD AND INSTALL there.
+  struct SelfCheck {
+    std::thread th;
+    std::atomic<bool> done{false};
+    upgrades::update::Verdict verdict;
+    ~SelfCheck() {
+      if (th.joinable()) th.join();
+    }
+  };
+  std::unique_ptr<SelfCheck> self_check_;
+  std::shared_ptr<upgrades::update::Verdict> self_update_;  // the start's verdict when it is kNewer, else null
+  void start_self_check();
+  void take_self_check();
+  void self_verdict(const upgrades::update::Verdict& v);
+  void nav_steps();
   std::shared_ptr<sdlfe::games::Done> game_done_;
   std::shared_ptr<sdlfe::games::FileCheck> file_check_;
   std::string install_file_;
@@ -894,6 +912,59 @@ void Launcher::start_games_check() {
       if (asks[i]) gc->result[i] = sdlfe::games::check(upgrades::update::kGames[i], tags[i]);
     gc->done = true;
   });
+}
+
+// The launcher's own update asked at the start (Owen 2026-11-23), quietly: a thread, the main screen never waiting
+// on it, nothing said on screen unless it is newer. A check run (hidden) asks only a stand-in (MW3_UPDATE_API),
+// never GitHub or git.owenmorgan.com, as the games' check; a shot asks first, so it is drawn.
+void Launcher::start_self_check() {
+  if (o_.hidden && !SDL_getenv("MW3_UPDATE_API")) {
+    std::printf("mw3: launcher: update check at the start: not asked in a check run\n");
+    return;
+  }
+  if (!o_.shot.empty()) {
+    self_verdict(check_for_updates(MW3_VERSION));
+    return;
+  }
+  self_check_ = std::make_unique<SelfCheck>();
+  SelfCheck* sc = self_check_.get();
+  sc->th = std::thread([sc] {
+    sc->verdict = check_for_updates(MW3_VERSION);
+    sc->done = true;
+  });
+}
+
+void Launcher::take_self_check() {
+  if (!self_check_ || !self_check_->done) return;
+  self_check_->th.join();
+  const upgrades::update::Verdict v = self_check_->verdict;
+  self_check_.reset();
+  self_verdict(v);
+  if (screen_ == kMain) layout();
+  if (SDL_getenv("MW3_LAUNCHER_NAV_LATE")) nav_steps();  // checks: the steps once the footer is what it will be
+}
+
+// MW3_LAUNCHER_NAV's steps (checks): keys or a pad as a list ("next,next,press"), each focus logged.
+void Launcher::nav_steps() {
+  const char* steps = SDL_getenv("MW3_LAUNCHER_NAV");
+  if (!steps) return;
+  const std::string all = steps;
+  for (size_t at = 0; at <= all.size();) {
+    const size_t comma = std::min(all.find(',', at), all.size());
+    const std::string s = all.substr(at, comma - at);
+    nav(s == "next" ? 1 : s == "prev" ? -1 : s == "press" ? 2 : s == "back" ? 3 : 0);
+    const int f = focus_;
+    if (f >= 0 && f < static_cast<int>(buttons_.size()) && s != "press" && s != "back")
+      std::printf("mw3: launcher: focus %s\n", buttons_[f].log_name().c_str());
+    at = comma + 1;
+  }
+}
+
+void Launcher::self_verdict(const upgrades::update::Verdict& v) {
+  std::printf("mw3: launcher: update check at the start: %s\n", v.words.c_str());  // a failure: the log only
+  if (v.kind != upgrades::update::Verdict::kNewer) return;
+  self_update_ = std::make_shared<upgrades::update::Verdict>(v);
+  std::printf("mw3: launcher: footer UPDATE LAUNCHER TO %s\n", upgrades::update::plain_version(v.release.tag).c_str());
 }
 
 void Launcher::take_games_check() {
@@ -1706,6 +1777,14 @@ void Launcher::layout() {
       } else {
         flat(kQuit, x0 + 232, 72, "QUIT");
       }
+      // The footer's version as a button when the start's check found a newer launcher (Owen 2026-11-23): amber,
+      // where the version is drawn, after QUIT for the keys and the pad; it opens the UPDATE screen.
+      if (self_update_ && !cards_.empty()) {
+        const int right = cards_.back().r.x + cards_.back().r.w, w = 212;
+        add(kSelfUpdate, {right - w - kX, kRowTop, w, 20}, "UPDATE LAUNCHER TO " + upgrades::update::plain_version(self_update_->release.tag), "",
+            !work_);
+        buttons_.back().style = Button::kAmber;  // logged and focused by its label, the version in it
+      }
       // The tabs last: the pad and the keys reach each card's PLAY first, as before the tabs.
       for (int k = 0; k < n; ++k) {
         const Card& c = cards_[k];
@@ -2116,7 +2195,8 @@ void Launcher::draw(float dt) {
           text_.draw(canvas_, lines[i], 12, col, W - 43, y0 + static_cast<int>(i) * lh, 1);
       }
       const int right = cards_.empty() ? W - 43 : cards_.back().r.x + cards_.back().r.w;
-      text_.draw(canvas_, package_words(), 12, kDim, right, kRowTop + 9, 1);  // the package's own version (the games' are on their cards)
+      if (!self_update_)  // else UPDATE LAUNCHER TO <v> stands there (a button)
+        text_.draw(canvas_, package_words(), 12, kDim, right, kRowTop + 9, 1);  // the package's own version (the games' are on their cards)
       text_.draw(canvas_, "Unofficial fan rebuild. MechWarrior is a trademark of Microsoft.", 10, kGrey, right, kRowTop + 23, 1);
       break;
     }
@@ -2848,7 +2928,7 @@ void Launcher::finish_work() {
     screen_ = kUpdateScreen, layout();
     if (r.ok && !SDL_getenv("MW3_UPDATE_NO_RESTART")) {  // checks keep this launcher
       const std::string next = update_file_ ? *update_file_ : std::string();
-      if (!next.empty() && !start_detached(next)) status_ = "Installed. Start MechWarrior 3 Rebuild again.";
+      if (!next.empty() && !start_detached(next)) status_ = "Installed. Start the BattleTech launcher again.";
       else done_ = true;  // Windows: the Setup replaces this program once it is gone
     }
     return;
@@ -3040,6 +3120,11 @@ void Launcher::activate(int id) {
       screen_ = kWorking, layout();
       break;
     }
+    case kSelfUpdate:  // the start's newer release: its notes and the question, as UPDATES would show them
+      if (!self_update_ || work_) break;
+      update_ = self_update_;
+      show_update();
+      break;
     case kUpdates: {  // GitHub's releases asked on the worker (the system's curl), the verdict on the status line
       work_ = std::make_unique<Work>();
       work_->kind = Work::kUpdateCheck;
@@ -3279,6 +3364,7 @@ LauncherChoice Launcher::run() {
   if (mw1_remake_) std::printf(", MechWarrior 1 %s", mw1_program_.empty() ? "unknown" : mw1_program_.c_str());
   std::printf("\n");
   start_games_check();
+  start_self_check();  // the launcher's own update, quietly (Owen 2026-11-23)
   std::printf("mw3: launcher: art %.0f ms, font %.0f ms, the install search %.0f ms\n", ms(t0, t_art), ms(t_art, t_font),
               ms(t_font, t_install));
   sounds_on_ = o_.sound && !shot;
@@ -3371,19 +3457,9 @@ LauncherChoice Launcher::run() {
   Uint64 last = SDL_GetTicks();
   SDL_InitSubSystem(SDL_INIT_GAMEPAD);  // a pad steps through the plates too (nav)
   if (o_.play) auto_ok_ = true, activate(kMw3);  // its notes' OK pressed too
-  // Checks: keys or a pad as a list ("next,next,press"), each step logged.
-  if (const char* steps = SDL_getenv("MW3_LAUNCHER_NAV")) {
-    std::string all = steps;
-    for (size_t at = 0; at <= all.size();) {
-      const size_t comma = std::min(all.find(',', at), all.size());
-      const std::string s = all.substr(at, comma - at);
-      nav(s == "next" ? 1 : s == "prev" ? -1 : s == "press" ? 2 : s == "back" ? 3 : 0);
-      const int f = focus_;
-      if (f >= 0 && f < static_cast<int>(buttons_.size()) && s != "press" && s != "back")
-        std::printf("mw3: launcher: focus %s\n", buttons_[f].log_name().c_str());
-      at = comma + 1;
-    }
-  }
+  // Checks: keys or a pad as a list ("next,next,press"), each step logged; with MW3_LAUNCHER_NAV_LATE, once the
+  // start's own update check has answered (its footer button is there to reach).
+  if (!SDL_getenv("MW3_LAUNCHER_NAV_LATE")) nav_steps();
   // Checks: GAME FILES opened on Pirate's Moon, as after a click on it.
   if (const char* g = SDL_getenv("MW3_LAUNCHER_FILES"); g && std::strcmp(g, "pm") == 0) pm_last_ = true, activate(kFiles);
   else if (g && std::strcmp(g, "mw1") == 0) mw1_last_ = true, activate(kFiles);  // checks: GAME FILES after MW1's line
@@ -3495,6 +3571,7 @@ LauncherChoice Launcher::run() {
     }
     if (work_ && work_->done) finish_work();
     take_games_check();
+    take_self_check();
     if (games_on_ && !install_file_asked_ && SDL_getenv("MW3_LAUNCHER_INSTALL_FILE") && screen_ == kMain && !work_)
       install_file_asked_ = true, activate(kInstallFile);  // checks: INSTALL FROM FILE pressed (the picker's MW3_LAUNCHER_PICKER)
     if (quit_after_mw1_ && !asking_ && !ask_pending_ && !work_) done_ = true;
