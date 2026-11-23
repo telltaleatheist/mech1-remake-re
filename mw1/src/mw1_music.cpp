@@ -23,6 +23,10 @@ bool g_faded_out = true;  // in a mission, the theme gone and PM's volume given 
 // the launch's pick (-1 none yet); a new launch's track not started yet; the bag the picks come from.
 constexpr int32_t kCueBase = 100;
 int32_t g_extra = -1, g_pick = -1, g_launches = 0, g_combat_starts = 0;
+// The owner's ruling (2026-11-23): in a mission each song gives way to the bag's next, never looped alone. The song
+// playing now (-1 none), the next one drawn from the bag and set as the extra track's file while the song plays (-1
+// none), and the songs that followed another.
+int32_t g_song = -1, g_queued = -1, g_songs_followed = 0;
 bool g_new_launch = false, g_combat_failed = false;  // the launch's track wouldn't play: not tried every frame
 CombatBag g_bag;
 std::minstd_rand g_rng{std::random_device{}()};
@@ -58,6 +62,14 @@ void use_extra(int32_t which) {
   g_extra = which;
   zsnd_cd::set_extra_track(file_of(which));
 }
+uint32_t roll() { return static_cast<uint32_t>(g_rng()); }
+// The combat song playing: the bag's next drawn (once) and made the extra track's file, so the song's end
+// (MM_MCINOTIFY: a looping track played again, zsnd_cd::notify) starts it in place of the song. g_extra stays the
+// song playing.
+void queue_next() {
+  if (g_queued < 0) g_queued = next_combat(g_bag, roll);
+  zsnd_cd::set_extra_track(kCombatFiles[g_queued]);
+}
 int32_t full_volume() { return static_cast<int32_t>(std::clamp(mech3::cd_volume(), 0.0f, 1.0f) * 65535.0); }
 void volume(int32_t v) {
   g_volume = std::clamp(v, 0, 0xFFFF);
@@ -70,6 +82,7 @@ void install(const std::string& write_dir) {
   g_dir = write_dir;
   g_level = 0, g_starts = 0, g_volume = 0, g_faded_out = true;
   g_pick = -1, g_launches = 0, g_combat_starts = 0, g_new_launch = g_combat_failed = false, g_bag = CombatBag{};
+  g_song = -1, g_queued = -1, g_songs_followed = 0;
   g_cue_asked = -1, g_cue_starts = 0, g_cue_ended_for_tests = false;
   g_cfg = read_cfg(write_dir).sound;
   use_extra(-1);
@@ -88,11 +101,13 @@ int32_t next_combat(CombatBag& bag, const std::function<uint32_t()>& roll) {
 }
 
 void launched() {
-  g_pick = next_combat(g_bag, [] { return static_cast<uint32_t>(g_rng()); });
+  // The song drawn to follow the last mission's and never played is the bag's next: this launch's.
+  g_pick = g_queued >= 0 ? g_queued : next_combat(g_bag, roll);
+  g_song = g_pick, g_queued = -1;
   g_new_launch = true, g_combat_failed = false, ++g_launches;
 }
 
-void set_last_combat_for_tests(int32_t last) { g_bag = CombatBag{}, g_bag.last = last; }
+void set_last_combat_for_tests(int32_t last) { g_bag = CombatBag{}, g_bag.last = last, g_queued = -1; }
 
 void cue(Cue c) { g_cue_asked = static_cast<int32_t>(c); }
 
@@ -171,17 +186,28 @@ void frame(Where where) {
     if (g_pick < 0) launched();  // in a mission without a launch seen (a test's own)
     if (g_new_launch && combat_on() >= 0 && combat_on() != g_pick) zsnd_cd::stop();  // a replay: its own pick
     g_new_launch = false;
+    // The song's end: the CD played the extra track again (mode Restart), now the queued song's file. That one is
+    // the song playing; the mode back to Loop (Restart and Loop end alike) so the next end is seen; the one after it
+    // queued.
+    if (combat_on() >= 0 && zsnd_cd::state().mode == zsnd_cd::Restart && g_queued >= 0) {
+      g_song = g_extra = g_queued, g_queued = -1, ++g_songs_followed;
+      zsnd_cd::state().mode = zsnd_cd::Loop;
+      std::printf("mw1: music: combat %s, next\n", kCombatFiles[g_song]);
+      queue_next();
+    }
     if (!on || g_combat_failed) return;
-    if (combat_on() < 0) {
-      use_extra(g_pick);
+    if (combat_on() < 0) {  // the launch's song, or the one that was playing when the music went off
+      if (g_song < 0) g_song = g_pick;
+      use_extra(g_song);
       volume(full_volume());
       if (!zsnd_cd::play_track(zsnd_cd::kExtraTrack, zsnd_cd::Loop)) {
-        std::printf("mw1: music: no %s\n", kCombatFiles[g_pick]);
+        std::printf("mw1: music: no %s\n", kCombatFiles[g_song]);
         g_combat_failed = true;
         return use_extra(-1);
       }
       ++g_combat_starts;
-      std::printf("mw1: music: combat %s\n", kCombatFiles[g_pick]);
+      std::printf("mw1: music: combat %s\n", kCombatFiles[g_song]);
+      queue_next();
     }
     g_faded_out = false, g_level = 1;
     volume(full_volume());
@@ -239,7 +265,7 @@ void frame(Where where) {
 
 Seen seen() {
   return {theme_playing(), g_level, g_starts, g_volume, combat_on(), g_pick, g_launches, g_combat_starts, cue_on(), g_cue_starts,
-          g_cue_asked};
+          g_cue_asked, g_queued, g_songs_followed};
 }
 
 }  // namespace mw1::music

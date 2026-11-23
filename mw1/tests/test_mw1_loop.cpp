@@ -9426,6 +9426,9 @@ TEST(mw1_music_theme_screens_mission_settings_and_quit_headless) {
     int step = 0, wait = 0, frames = 0;
     bool at_menu = false, at_intro = false, at_hub = false, kept = false, faded = false, gone_in_mission = false, back_after = false;
     bool combat = false, combat_follows = false;  // FIXES 116
+    // The owner's ruling (2026-11-23): a combat song's end starts the bag's next (two ends: three songs, each another).
+    std::vector<int32_t> songs;
+    bool next_follows = true;
     bool bar_cue = false, bar_kept = false, bar_gone = false, debrief = false, debrief_over = false;  // FIXES 142
     bool off_stops = false, off_saved = false, on_again = false, effects_saved = false, quit_asked = false, quit_stays = false, quits = false;
     int32_t plays_at_hub = 0, starts_at_hub = 0, quit_boxes = 0;
@@ -9536,8 +9539,21 @@ TEST(mw1_music_theme_screens_mission_settings_and_quit_headless) {
             mech3::set_cd_volume(0.3f);  // PM's slider (the pause's GRAPHICS & SOUND): the track follows
             return false;
           }
-          combat_follows = m.combat == m.picked && m.volume == static_cast<int32_t>(0.3f * 65535.0f);
-          mech3::set_cd_volume(0.5f);
+          if (frames == 91) {
+            combat_follows = m.combat == m.picked && m.volume == static_cast<int32_t>(0.3f * 65535.0f);
+            mech3::set_cd_volume(0.5f);
+          }
+          if (frames < 94) {  // the song's end, twice (the CD's MM_MCINOTIFY: the extra track's file played again)
+            if (frames > 91)
+              next_follows = next_follows && m.combat == songs.back() && m.followed == frames - 91 &&
+                             r.music->playing_path == mw1::music::kCombatFiles[m.combat] &&
+                             zsnd_cd::state().mode == zsnd_cd::Loop && m.combat_starts == 1;
+            next_follows = next_follows && m.combat >= 0 && m.queued >= 0 && m.queued != m.combat;
+            if (songs.empty()) songs.push_back(m.combat);
+            songs.push_back(m.queued);
+            if (frames < 93) zsnd_cd::on_output_finished();
+            return false;
+          }
           for (int32_t i = 0; i < na; ++i) {
             auto* b = static_cast<mech3::ai::Brain*>(mech3::program_ai_mech_brain(ai[i].controls));
             if (b && b->params.team() == 1) continue;
@@ -9634,7 +9650,9 @@ TEST(mw1_music_theme_screens_mission_settings_and_quit_headless) {
     menu_run(r);
     quits = step == 10 && r.game_ended;
     mw1::set_map_table({});
-    std::printf("  combat %d, follows the volume %d\n", combat, combat_follows);
+    std::printf("  combat %d, follows the volume %d; songs", combat, combat_follows);
+    for (int32_t g : songs) std::printf(" %d", g);
+    std::printf(" (the last queued), each the one before's next %d\n", next_follows);
     std::printf("  menu %d, intro %d, hub %d, kept %d; mission: faded %d (lowest %.2f), gone %d; after %d; off %d saved %d, effects %d, "
                 "on %d; quit asked %d (%d boxes), NO stays %d, OK quits %d\n",
                 at_menu, at_intro, at_hub, kept, faded, lowest, gone_in_mission, back_after, off_stops, off_saved, effects_saved, on_again,
@@ -9644,6 +9662,7 @@ TEST(mw1_music_theme_screens_mission_settings_and_quit_headless) {
                 bar_kept, bar_gone, debrief, debrief_over);
     EXPECT(faded && gone_in_mission && back_after);
     EXPECT(combat && combat_follows);
+    EXPECT(next_follows && songs.size() == 4 && songs[0] != songs[1] && songs[1] != songs[2] && songs[2] != songs[3]);
     EXPECT(bar_cue && bar_kept && bar_gone && debrief && debrief_over);
     EXPECT(off_stops && off_saved && effects_saved && on_again);
     EXPECT(quit_asked && quit_boxes == 2 && quit_stays && quits);

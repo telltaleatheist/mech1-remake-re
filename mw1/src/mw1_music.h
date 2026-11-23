@@ -1,9 +1,9 @@
 #pragma once
 // FIXES.md items 100, 116 and 142: MW1's music and its sound settings.
 //
-// The soundtrack (FIXES 142, a project decision): rock arrangements of MW1's five songs and six original combat
-// songs, both made with YuE2 (data/music/). They all play through the engine's CD music as zsnd_cd's extra track
-// (outside the disc's 1..99, so PM's mission music never picks it), its file swapped for each.
+// The soundtrack (FIXES 142, a project decision): MW1's five songs and six combat songs (data/music/). They all play
+// through the engine's CD music as zsnd_cd's extra track (outside the disc's 1..99, so PM's mission music never picks
+// it), its file swapped for each.
 //
 // The theme (theme.ogg, MW1's MECH) starts with the game (the title and the intro), plays on every screen out of a
 // mission, and loops; a screen change never restarts it. DEPLOY fades it out (the mission loads behind MW1's loading
@@ -25,11 +25,13 @@
 // sliders), so the mission's music and sounds follow and the two screens never disagree. A run no player hears
 // (--nosound, --hidden) plays nothing aloud (the engine's own rule: platform::SilentMusicOutput).
 //
-// The missions' music (FIXES 116, 142): the six combat songs, one each launch (a replay's too) from a shuffle bag
-// (CombatBag: none again until all six have played, never the same twice running). It plays from the launch, looped,
-// at the music volume (PM's, as OPTIONS sets it), paused with the game, until the mission's end stops the CD (as it
-// stopped PM's music); the theme fades in at the results. Pirate's Moon's own disc music never plays in MW1: MW1's CD
-// has no disc tracks (num_tracks 0, so PM's mission start picks none), and none of PM's player's music is read.
+// The missions' music (FIXES 116, 142): the six combat songs from a shuffle bag (CombatBag: none again until all six
+// have played, never the same twice running). Each launch (a replay's too) starts the bag's next; when a song ends the
+// bag's next follows it at once (the owner's ruling, 2026-11-23: one song never loops). They play at the music volume
+// (PM's, as OPTIONS sets it), paused with the game, until the mission's end stops the CD (as it stopped PM's music);
+// the theme fades in at the results. A song drawn to follow and not reached by the mission's end is the next launch's.
+// Pirate's Moon's own disc music never plays in MW1: MW1's CD has no disc tracks (num_tracks 0, so PM's mission start
+// picks none), and none of PM's player's music is read.
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -70,11 +72,11 @@ enum class Where { kMenus, kLoading, kMission, kEnded };
 // Each frame shown. Menus: a cue asked for started (the theme or a combat track still playing stopped first) and played
 // to its end; else the theme started (from silence) when it isn't playing, faded in. Loading: a cue stopped, the theme
 // faded out, then stopped, PM's music volume given back. Mission: the launch's combat track, playing (started again if
-// it stopped: music turned off and on), at the music volume. Ended: silence, the launch's track stopped if it still
-// plays and never started again (FIXES.md item 116b: the mission's end stops the CD, and the mission's own frames until
-// the results started it again from the top).
+// it stopped: music turned off and on), at the music volume; a song ended, the bag's next. Ended: silence, the
+// launch's track stopped if it still plays and never started again (FIXES.md item 116b: the mission's end stops the CD,
+// and the mission's own frames until the results started it again from the top).
 void frame(Where where);
-// Each launch (a replay's too): the bag's next combat track for it.
+// Each launch (a replay's too): the bag's next combat track for it (the one drawn to follow, if it never played).
 void launched();
 
 // A cue at its moment: played from its start at the next frame on MW1's screens (again from the start if it plays
@@ -107,6 +109,8 @@ struct Seen {
   int32_t cue = -1;           // the cue playing now (Cue's value), -1 none
   int32_t cue_starts = 0;     // times a cue was started
   int32_t cue_asked = -1;     // a cue asked for, not started yet, -1 none
+  int32_t queued = -1;        // the combat song drawn to follow the one playing, -1 none
+  int32_t followed = 0;       // combat songs that followed another (a song's end, not a launch)
 };
 Seen seen();
 void set_last_combat_for_tests(int32_t last);  // as if the last launch played this one, the bag empty

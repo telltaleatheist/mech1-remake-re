@@ -6,8 +6,8 @@ Tick an item when it is merged into `main`.
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
 ## 142. [x] The soundtrack: MW1's five songs as rock arrangements, six combat songs in a shuffle *(done: mw1-110-soundtrack, for 1.1.0)*
-A project decision (2026-11-23, via the lead): rock arrangements of MW1's five songs and six original combat songs,
-both made with YuE2, replace the menu theme and the three combat tracks (FIXES 100, 116).
+A project decision (2026-11-23, via the lead): MW1's five songs and six combat songs replace the menu theme and the
+three combat tracks (FIXES 100, 116).
 - **The files** (`data/music/`), encoded as FIXES 100's theme was (libvorbis q6, nominally 192 kbps, 48 kHz stereo,
   no tags); the FLAC masters stay in keep/mw1-critical-hit/music:
   - MW1's songs: `theme.ogg` (MECH), `bar.ogg` (MECHBAR), `debrief.ogg` (LAUNCH), `death.ogg` (DEATH), `ending.ogg`
@@ -52,7 +52,12 @@ both made with YuE2, replace the menu theme and the three combat tracks (FIXES 1
     before (MW1 had no song there).
 - **Combat** (FIXES 116's place): each launch, a replay's too, takes the next song of a shuffle bag of all six
   (`music::CombatBag`, `next_combat`, replacing `pick_combat`). None repeats until all six have played; a refilled
-  bag never starts with the song just played. It plays looped, as 116's did, until the mission's end.
+  bag never starts with the song just played. The owner's ruling (2026-11-23): one song never loops. When a song
+  ends, the bag's next follows it at once, until the mission's end. The next song is drawn while one plays and set
+  as the CD's extra track's file, so the song's end (MM_MCINOTIFY: the looping track played again) starts it with no
+  gap; MW1 sees the CD's mode go to Restart, makes that song the one playing and draws the one after. A song drawn
+  and never reached (the mission ended first) is the next launch's, so the bag stays fair. The owner also confirmed
+  the theme after a cue's end and the theme at a failed mission with no lancemate lost (both as above).
 - **Size:** mw1data/music/ goes from 22.6 to 22.5 MB (22,530,239 bytes, 38 KB less).
 - **Tests:**
   - `mw1_music_the_combat_bag_plays_all_six_and_never_one_twice_running`: six launches give six songs; 2000 bags in a
@@ -787,8 +792,7 @@ destroy-the-tower contract on mw3c1ia2.
 ## 116. [x] Our combat music in the missions *(done: mw1-combat-music)*
 Owen (2026-11-19, via the lead): the combat tracks he picked play in MW1's missions in place of Pirate's Moon's disc
 music. It's the release gate.
-- **The tracks** (`data/music/combat-7106.ogg`, `-7101.ogg`, `-7102.ogg`, ours; YuE2 "combat relentless", E minor,
-  140 BPM). 7106 is the soundtrack's pick, and 7101 and 7102 are "okay and usable". They are encoded as FIXES 100's
+- **The tracks** (`data/music/combat-7106.ogg`, `-7101.ogg`, `-7102.ogg`, ours; E minor, 140 BPM). 7106 is the soundtrack's pick, and 7101 and 7102 are "okay and usable". They are encoded as FIXES 100's
   theme was: libvorbis q6, 48 kHz stereo, with no tags. 7106 and 7101 already end in their own tail. 7102 stopped
   loud, so its last 5 s are faded out for the loop. The FLAC masters are in keep/mw1-critical-hit/music.
 - **Which one plays:**
@@ -2231,7 +2235,7 @@ The lead (2026-11-19): MW1 1.0.0 rides mw3-re v1.1.3; the launcher reads each pr
   Resources: never found there. It looks in mw1's own folder now (Contents/MacOS).
 
 ## 100. [x] Menu music, QUIT in the hub, the sound settings *(done: mw1-fix100-music)*
-- **Owen (2026-11-19, via the lead):** a YuE2 track he picked as the menu music. QUIT outside the main menu. Music
+- **Owen (2026-11-19, via the lead):** a track he picked as the menu music. QUIT outside the main menu. Music
   and effects settings in MW1's options.
 - **The theme** (`data/music/menu-theme.ogg`, ours, 7.8 MB; the lead faded its last 5 s; the FLAC master is in
   keep/mw1-critical-hit/music):
