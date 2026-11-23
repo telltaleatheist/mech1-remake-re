@@ -20,6 +20,12 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#else
+#include <cstdlib>
+namespace {
+int setenv(const char* name, const char* value, int) { return _putenv_s(name, value); }
+int unsetenv(const char* name) { return _putenv_s(name, ""); }
+}  // namespace
 #endif
 #include <set>
 #include <string>
@@ -28,8 +34,21 @@
 #include "check.h"
 #include "mw1_btech_stand_in.h"
 #if MW3_HAVE_LIBARCHIVE
+#if defined(_WIN32)  // archive_entry.h brings in <windows.h>: none of its macros (max, near, small) past here
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#endif
 #include <archive.h>
 #include <archive_entry.h>
+#if defined(_WIN32)
+#undef near
+#undef far
+#undef small
+#endif
 #endif
 #include "mech3/source_map.h"
 #include "mech3/patch_import.h"
@@ -8039,6 +8058,7 @@ TEST(sdl_program_launcher_checks_mechwarrior3) {
   fs::remove_all(dir, ec);
 }
 #endif
+#endif  // !_WIN32: the updater's own tests, from here to the Mac's install, run on Windows too (curl.exe, file://)
 
 // The updater's fetch (docs/launcher.md, Updates, sitting 1): the system's curl as a child, its arguments an array.
 // A file:// fixture read only when allowed (checks), a missing one said in curl's words, an http address refused.
@@ -8239,6 +8259,7 @@ TEST(sdl_update_download_falls_back_to_the_backup) {
   fs::remove_all(dir, ec);
 }
 
+#if !defined(_WIN32)  // the rest of the launcher's tests: posix_spawn, FIFOs
 #if defined(__APPLE__)
 // The Mac's install (sitting 4): a real DMG holding a new app, attached read-only, its app swapped in for the old
 // one (MW3_UPDATE_TARGET in place of the running app), detached; a target that is not our app, or a DMG without one,
