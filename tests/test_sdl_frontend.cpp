@@ -8042,6 +8042,35 @@ TEST(sdl_program_launcher_checks_mechwarrior3) {
 
 // The updater's fetch (docs/launcher.md, Updates, sitting 1): the system's curl as a child, its arguments an array.
 // A file:// fixture read only when allowed (checks), a missing one said in curl's words, an http address refused.
+// Owen 2026-11-23: the launcher's checks flashed a console for each curl on Windows. A helper program starts
+// quietly (on Windows SDL's background flag, CREATE_NO_WINDOW) and its real exit code still comes back (the flag
+// alone reports 0, and curl's code is how a failed check is told).
+TEST(sdl_update_helpers_start_quietly_with_their_exit_code) {
+#if defined(_WIN32)
+  const char* comspec = std::getenv("ComSpec");
+  const std::string shell = comspec ? comspec : "C:\\Windows\\System32\\cmd.exe";
+  const char* args[] = {shell.c_str(), "/c", "exit 3", nullptr};
+#else
+  const char* args[] = {"/bin/sh", "-c", "exit 3", nullptr};
+#endif
+  const SDL_PropertiesID props = SDL_CreateProperties();
+  SDL_SetPointerProperty(props, SDL_PROP_PROCESS_CREATE_ARGS_POINTER, const_cast<char**>(args));
+  SDL_SetNumberProperty(props, SDL_PROP_PROCESS_CREATE_STDIN_NUMBER, SDL_PROCESS_STDIO_NULL);
+  SDL_SetNumberProperty(props, SDL_PROP_PROCESS_CREATE_STDOUT_NUMBER, SDL_PROCESS_STDIO_APP);
+  SDL_Process* p = sdlfe::start_quiet(props);
+  SDL_DestroyProperties(props);
+  EXPECT(p != nullptr);
+  if (!p) return;
+#if defined(_WIN32)
+  EXPECT(SDL_GetBooleanProperty(SDL_GetProcessProperties(p), SDL_PROP_PROCESS_BACKGROUND_BOOLEAN, false));  // no console
+#endif
+  int code = -1;
+  EXPECT(sdlfe::wait_quiet(p, true, &code));
+  std::printf("  exit code %d\n", code);
+  EXPECT(code == 3);
+  SDL_DestroyProcess(p);
+}
+
 TEST(sdl_update_fetch_by_curl) {
   namespace fs = std::filesystem;
   std::error_code ec;

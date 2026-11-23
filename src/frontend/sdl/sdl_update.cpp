@@ -5,6 +5,15 @@
 #if defined(__APPLE__)
 #include <mach-o/dyld.h>
 #endif
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
 
 #include <SDL3/SDL.h>
 
@@ -55,6 +64,41 @@ std::atomic<bool> g_stop_asking{false};  // stop_asking(): the launcher closing
 
 void stop_asking(bool stop) { g_stop_asking = stop; }
 
+namespace {
+const char* const kExitHandle = "mw3.exit_handle";  // start_quiet's own handle on the process (Windows)
+#if defined(_WIN32)
+void SDLCALL close_exit_handle(void*, void* h) { CloseHandle(static_cast<HANDLE>(h)); }
+#endif
+}  // namespace
+
+SDL_Process* start_quiet(SDL_PropertiesID props) {
+#if defined(_WIN32)
+  SDL_SetBooleanProperty(props, SDL_PROP_PROCESS_CREATE_BACKGROUND_BOOLEAN, true);  // CREATE_NO_WINDOW
+#endif
+  SDL_Process* p = SDL_CreateProcessWithProperties(props);
+#if defined(_WIN32)
+  if (p) {
+    const SDL_PropertiesID pp = SDL_GetProcessProperties(p);
+    const DWORD pid = static_cast<DWORD>(SDL_GetNumberProperty(pp, SDL_PROP_PROCESS_PID_NUMBER, 0));
+    if (HANDLE h = pid ? OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid) : nullptr)
+      SDL_SetPointerPropertyWithCleanup(pp, kExitHandle, h, close_exit_handle, nullptr);
+  }
+#endif
+  return p;
+}
+
+bool wait_quiet(SDL_Process* p, bool block, int* code) {
+  int c = -1;
+  if (!SDL_WaitProcess(p, block, &c)) return false;
+#if defined(_WIN32)
+  DWORD rc = 0;
+  const HANDLE h = static_cast<HANDLE>(SDL_GetPointerProperty(SDL_GetProcessProperties(p), kExitHandle, nullptr));
+  c = h && GetExitCodeProcess(h, &rc) ? static_cast<int>(rc) : -1;
+#endif
+  if (code) *code = c;
+  return true;
+}
+
 bool curl_get(const std::string& url, int seconds, std::string* out, std::string* error, bool allow_file) {
   out->clear();
   if (g_stop_asking) return *error = "not asked: the launcher is closing", false;
@@ -77,7 +121,7 @@ bool curl_get(const std::string& url, int seconds, std::string* out, std::string
   SDL_SetNumberProperty(props, SDL_PROP_PROCESS_CREATE_STDIN_NUMBER, SDL_PROCESS_STDIO_NULL);
   SDL_SetNumberProperty(props, SDL_PROP_PROCESS_CREATE_STDOUT_NUMBER, SDL_PROCESS_STDIO_APP);
   SDL_SetBooleanProperty(props, SDL_PROP_PROCESS_CREATE_STDERR_TO_STDOUT_BOOLEAN, true);  // curl's reason
-  SDL_Process* p = SDL_CreateProcessWithProperties(props);
+  SDL_Process* p = start_quiet(props);
   SDL_DestroyProperties(props);
   if (!p) return *error = std::string("curl could not be started (") + SDL_GetError() + ")", false;
   // Its few lines read as they come (a full pipe would stall it), until it ends or our own limit passes.
@@ -86,7 +130,7 @@ bool curl_get(const std::string& url, int seconds, std::string* out, std::string
   bool ended = false;
   const Uint64 until = SDL_GetTicks() + static_cast<Uint64>(seconds + 5) * 1000;
   SDL_IOStream* io = SDL_GetProcessOutput(p);
-  while (!(ended = SDL_WaitProcess(p, false, &code)) && SDL_GetTicks() < until && !g_stop_asking) {
+  while (!(ended = wait_quiet(p, false, &code)) && SDL_GetTicks() < until && !g_stop_asking) {
     char buf[256];
     if (io) {
       const size_t n = SDL_ReadIO(io, buf, sizeof buf);
@@ -98,7 +142,7 @@ bool curl_get(const std::string& url, int seconds, std::string* out, std::string
   }
   if (!ended) {  // past our limit, or the launcher closing: curl stopped, never waited out
     SDL_KillProcess(p, true);
-    SDL_WaitProcess(p, true, &code);
+    wait_quiet(p, true, &code);
     SDL_DestroyProcess(p);
     fs::remove(body, ec);
     return *error = g_stop_asking ? "stopped: the launcher is closing" : "the server did not answer in time", false;
@@ -142,7 +186,7 @@ bool curl_download(const std::string& url, const std::string& to, uint64_t size,
   SDL_SetNumberProperty(props, SDL_PROP_PROCESS_CREATE_STDIN_NUMBER, SDL_PROCESS_STDIO_NULL);
   SDL_SetNumberProperty(props, SDL_PROP_PROCESS_CREATE_STDOUT_NUMBER, SDL_PROCESS_STDIO_APP);
   SDL_SetBooleanProperty(props, SDL_PROP_PROCESS_CREATE_STDERR_TO_STDOUT_BOOLEAN, true);
-  SDL_Process* p = SDL_CreateProcessWithProperties(props);
+  SDL_Process* p = start_quiet(props);
   SDL_DestroyProperties(props);
   if (!p) return *error = std::string("curl could not be started (") + SDL_GetError() + ")", false;
   std::string said;
@@ -152,13 +196,13 @@ bool curl_download(const std::string& url, const std::string& to, uint64_t size,
     const uint64_t got = fs::exists(part, ec) ? static_cast<uint64_t>(fs::file_size(part, ec)) : 0;
     if (g_stop_asking || (progress && !progress(size ? std::min(1.0, static_cast<double>(got) / static_cast<double>(size)) : 0.0))) {  // a cancel, or the launcher closing
       SDL_KillProcess(p, true);
-      SDL_WaitProcess(p, true, &code);
+      wait_quiet(p, true, &code);
       SDL_DestroyProcess(p);
       fs::remove(part, ec);
       *cancelled = true;
       return *error = "cancelled", false;
     }
-    if (SDL_WaitProcess(p, false, &code)) break;
+    if (wait_quiet(p, false, &code)) break;
     char buf[256];
     const size_t n = io ? SDL_ReadIO(io, buf, sizeof buf) : 0;
     said.append(buf, n);
@@ -320,20 +364,20 @@ int run_tool(const std::vector<std::string>& args, int seconds, std::string* sai
   SDL_SetNumberProperty(props, SDL_PROP_PROCESS_CREATE_STDIN_NUMBER, SDL_PROCESS_STDIO_NULL);
   SDL_SetNumberProperty(props, SDL_PROP_PROCESS_CREATE_STDOUT_NUMBER, SDL_PROCESS_STDIO_APP);
   SDL_SetBooleanProperty(props, SDL_PROP_PROCESS_CREATE_STDERR_TO_STDOUT_BOOLEAN, true);
-  SDL_Process* p = SDL_CreateProcessWithProperties(props);
+  SDL_Process* p = start_quiet(props);
   SDL_DestroyProperties(props);
   if (!p) return -1;
   int code = -1;
   bool ended = false;
   SDL_IOStream* io = SDL_GetProcessOutput(p);
   const Uint64 until = SDL_GetTicks() + static_cast<Uint64>(seconds) * 1000;
-  while (!(ended = SDL_WaitProcess(p, false, &code)) && SDL_GetTicks() < until) {
+  while (!(ended = wait_quiet(p, false, &code)) && SDL_GetTicks() < until) {
     char buf[256];
     const size_t n = io ? SDL_ReadIO(io, buf, sizeof buf) : 0;
     said->append(buf, n);
     if (n == 0) SDL_Delay(20);
   }
-  if (!ended) SDL_KillProcess(p, true), SDL_WaitProcess(p, true, &code), code = -1;
+  if (!ended) SDL_KillProcess(p, true), wait_quiet(p, true, &code), code = -1;
   if (io)
     for (char buf[256]; const size_t n = SDL_ReadIO(io, buf, sizeof buf);) said->append(buf, n);
   SDL_DestroyProcess(p);

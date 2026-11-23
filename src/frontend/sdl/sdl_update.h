@@ -2,6 +2,8 @@
 // Ours: the launcher's CHECK FOR UPDATES, the fetching part (docs/launcher.md, Updates). The system's curl, run as
 // a child with no shell, its arguments an array and a time limit: macOS and Linux have it, Windows 10 1803 and later
 // ship curl.exe, so no HTTP library is linked and HTTPS is the system's own.
+#include <SDL3/SDL_process.h>
+
 #include <functional>
 #include <string>
 #include <vector>
@@ -19,6 +21,13 @@ bool curl_get(const std::string& url, int seconds, std::string* out, std::string
 // so the checks' threads end and are joined in moments. `false` asks again: each Launcher's start (a process may
 // show the launcher's screens more than once, mw3's setup screen after another).
 void stop_asking(bool stop = true);
+
+// A helper program (curl, a game's --status) started with no console window (Owen 2026-11-23: consoles flashing at
+// the launcher's start look like an attack; none may show, not even for a moment). On Windows that is SDL's
+// background flag (CREATE_NO_WINDOW), which reports every exit as 0, so wait_quiet reads the real code from our own
+// handle on the process (SDL's open handle keeps its id from being reused). Elsewhere, SDL's own calls.
+SDL_Process* start_quiet(SDL_PropertiesID props);
+bool wait_quiet(SDL_Process* p, bool block, int* code);
 
 // A repo's releases lists in both homes, in the order they are asked (Owen 2026-11-22): git.owenmorgan.com's
 // (Forgejo, `limit`) then GitHub's (`per_page`, download_first: a download comes from it first). `env` replaces them
