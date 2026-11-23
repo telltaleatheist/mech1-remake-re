@@ -513,6 +513,11 @@ class Launcher {
  public:
   explicit Launcher(const LauncherOptions& o) : o_(o) {}
   ~Launcher() {
+    // A quit never waits on the network (lead 2026-11-23): the checks' curls stopped before their threads are
+    // joined (games_check_, self_check_), else a home that hangs held the quit for its timeouts.
+    sdlfe::stop_asking();
+    games_check_.reset();
+    self_check_.reset();
     if (canvas_) SDL_DestroySurface(canvas_);
     if (tex_) SDL_DestroyTexture(tex_);
     if (ren_) SDL_DestroyRenderer(ren_);
@@ -889,11 +894,11 @@ void Launcher::resolve_games() {
   }
 }
 
-// Each game's repo asked on a thread of its own, the cards saying "asking" meanwhile; a check run (hidden) asks
-// only a stand-in (MW3_GAMES_API), never GitHub.
+// Each game's repo asked on a thread of its own, the cards saying "asking" meanwhile; a check run (hidden, or a shot)
+// asks only a stand-in (MW3_GAMES_API), never GitHub or git.owenmorgan.com.
 void Launcher::start_games_check() {
   if (!games_on_) return;
-  if (o_.hidden && !SDL_getenv("MW3_GAMES_API")) {
+  if ((o_.hidden || !o_.shot.empty()) && !SDL_getenv("MW3_GAMES_API")) {  // a shot is a check run too
     for (auto& c : checks_) c.kind = upgrades::update::GameCheck::kFailed, c.words = "not asked in a check run";
     return;
   }

@@ -10,6 +10,7 @@
 
 #include <cstdio>
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
@@ -48,8 +49,15 @@ std::string curl_path() {
 
 }  // namespace
 
+namespace {
+std::atomic<bool> g_stop_asking{false};  // stop_asking(): the launcher closing
+}
+
+void stop_asking() { g_stop_asking = true; }
+
 bool curl_get(const std::string& url, int seconds, std::string* out, std::string* error, bool allow_file) {
   out->clear();
+  if (g_stop_asking) return *error = "not asked: the launcher is closing", false;
   const std::string curl = curl_path();
   if (curl.empty()) return *error = "this computer has no curl to ask for releases with", false;
   const bool file = url.rfind("file://", 0) == 0;
@@ -78,7 +86,7 @@ bool curl_get(const std::string& url, int seconds, std::string* out, std::string
   bool ended = false;
   const Uint64 until = SDL_GetTicks() + static_cast<Uint64>(seconds + 5) * 1000;
   SDL_IOStream* io = SDL_GetProcessOutput(p);
-  while (!(ended = SDL_WaitProcess(p, false, &code)) && SDL_GetTicks() < until) {
+  while (!(ended = SDL_WaitProcess(p, false, &code)) && SDL_GetTicks() < until && !g_stop_asking) {
     char buf[256];
     if (io) {
       const size_t n = SDL_ReadIO(io, buf, sizeof buf);
@@ -88,12 +96,12 @@ bool curl_get(const std::string& url, int seconds, std::string* out, std::string
       SDL_Delay(20);
     }
   }
-  if (!ended) {
+  if (!ended) {  // past our limit, or the launcher closing: curl stopped, never waited out
     SDL_KillProcess(p, true);
     SDL_WaitProcess(p, true, &code);
     SDL_DestroyProcess(p);
     fs::remove(body, ec);
-    return *error = "the server did not answer in time", false;
+    return *error = g_stop_asking ? "stopped: the launcher is closing" : "the server did not answer in time", false;
   }
   if (io)
     for (char buf[256]; const size_t n = SDL_ReadIO(io, buf, sizeof buf);) said.append(buf, n);
@@ -142,7 +150,7 @@ bool curl_download(const std::string& url, const std::string& to, uint64_t size,
   SDL_IOStream* io = SDL_GetProcessOutput(p);
   for (;;) {  // the bar (and a cancel) asked before each wait, so even a quick copy can be stopped
     const uint64_t got = fs::exists(part, ec) ? static_cast<uint64_t>(fs::file_size(part, ec)) : 0;
-    if (progress && !progress(size ? std::min(1.0, static_cast<double>(got) / static_cast<double>(size)) : 0.0)) {
+    if (g_stop_asking || (progress && !progress(size ? std::min(1.0, static_cast<double>(got) / static_cast<double>(size)) : 0.0))) {  // a cancel, or the launcher closing
       SDL_KillProcess(p, true);
       SDL_WaitProcess(p, true, &code);
       SDL_DestroyProcess(p);

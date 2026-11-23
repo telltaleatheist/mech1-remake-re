@@ -14,6 +14,11 @@ namespace sdlfe {
 // words (curl's own reason, or that curl is missing or timed out).
 bool curl_get(const std::string& url, int seconds, std::string* out, std::string* error, bool allow_file = false);
 
+// The launcher closing (lead 2026-11-23: a quit never waits on the network): every curl_get or curl_download running
+// is stopped at once (curl killed, the call failing with "the launcher is closing") and any later one fails at once,
+// so the checks' threads end and are joined in moments. Once set, for the rest of the process.
+void stop_asking();
+
 // A repo's releases lists in both homes, in the order they are asked (Owen 2026-11-22): git.owenmorgan.com's
 // (Forgejo, `limit`) then GitHub's (`per_page`, download_first: a download comes from it first). `env` replaces them
 // in checks (MW3_UPDATE_API, MW3_GAMES_API; {repo} in it becomes `repo`): one list, taken as GitHub's, or two
