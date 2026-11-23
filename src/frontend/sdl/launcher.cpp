@@ -527,6 +527,9 @@ class Launcher {
   std::string pm_usual() const;
   std::string pm_wd();
   std::string files_wd() { return files_pm_ ? pm_wd() : o_.write_dir; }
+  // Each game's music and converted movies: its own folder's when it has one, else the user folder (media_dir).
+  std::string media() const { return sdlfe::media_dir(install_.ok ? install_.dir : std::string(), o_.write_dir); }
+  std::string pm_media() { return sdlfe::media_dir(pm_dir_, pm_wd()); }
   std::string files_usual() const { return files_pm_ ? pm_usual() : usual_folder(); }
   void pm_refresh();
   std::string pm_in_use() const;
@@ -1250,7 +1253,7 @@ std::vector<std::string> Launcher::pm_notes(mech3::setup::Result* check) {
   std::vector<std::string> out = r.warnings;
   pm_refresh();
   if (r.ok && pm_lacks_music_) {
-    const std::string dir = (fs::path(wd) / "music").make_preferred().string();
+    const std::string dir = (fs::path(pm_media()) / "music").make_preferred().string();
     for (const std::string& n : launcher_notes("", false, true, text_.fit(dir, 14, 440))) out.push_back(n);
   }
   if (check) *check = std::move(r);
@@ -2151,7 +2154,7 @@ void Launcher::add_disc(const std::string& source) {
   work_->kind = Work::kAddDisc;
   if (files_pm_) {  // its music and its sounds (no movies), into its own folder
     const std::string wd = pm_wd();
-    const std::string music = pm_lacks_music_ ? (fs::path(wd) / "music").string() : std::string();
+    const std::string music = pm_lacks_music_ ? (fs::path(pm_media()) / "music").string() : std::string();
     const std::string sounds = pm_lacks_sounds_ ? wd : std::string();
     work_->start("ADDING FROM YOUR DISC", [source, music, sounds](const mech3::setup::ProgressFn& f) {
       return mech3::setup::add_pm_from_disc(source, music, sounds, f);
@@ -2159,8 +2162,8 @@ void Launcher::add_disc(const std::string& source) {
     screen_ = kWorking, layout();
     return;
   }
-  const std::string video = lacks_movies_ ? (fs::path(o_.write_dir) / "video").string() : std::string();
-  const std::string music = lacks_music_ ? (fs::path(o_.write_dir) / "music").string() : std::string();
+  const std::string video = lacks_movies_ ? (fs::path(media()) / "video").string() : std::string();
+  const std::string music = lacks_music_ ? (fs::path(media()) / "music").string() : std::string();
   work_->start("ADDING FROM YOUR DISC", [source, video, music](const mech3::setup::ProgressFn& f) {
     return mech3::setup::add_from_disc(source, video, music, f);
   });
@@ -2173,9 +2176,11 @@ void Launcher::notes_refresh() {
   notes_.clear();
   lacks_music_ = lacks_movies_ = false;
   if (!install_.ok) return;
-  const fs::path music = o_.write_dir.empty() ? fs::path("music") : fs::path(o_.write_dir) / "music";
-  lacks_music_ = !have_music({music.string(), (zutl::any_case(install_.dir, "music").empty() ? fs::path(install_.dir) / "music" : fs::path(zutl::any_case(install_.dir, "music"))).string()});
-  lacks_movies_ = !have_movies(install_.dir, o_.write_dir);
+  const std::string md = media();
+  const fs::path music = md.empty() ? fs::path("music") : fs::path(md) / "music";
+  lacks_music_ = !have_music({music.string(), (zutl::any_case(install_.dir, "music").empty() ? fs::path(install_.dir) / "music" : fs::path(zutl::any_case(install_.dir, "music"))).string(),
+                              o_.write_dir.empty() ? std::string() : (fs::path(o_.write_dir) / "music").string()});  // a rip put in the user folder still plays
+  lacks_movies_ = !have_movies(install_.dir, md);
   const std::string dir = fs::path(music).make_preferred().string();
   for (const std::string& n : launcher_notes(install_.version, !lacks_music_, !lacks_movies_, dir))
     std::printf("mw3: launcher: note: %s\n", n.c_str());
@@ -2218,7 +2223,7 @@ void Launcher::pm_refresh() {
   if (pm_dir_.empty()) return;
   const std::string wd = pm_wd();
   const std::string own = zutl::any_case(pm_dir_, "music");
-  pm_lacks_music_ = !have_music({(fs::path(wd) / "music").string(), own.empty() ? (fs::path(pm_dir_) / "music").string() : own});
+  pm_lacks_music_ = !have_music({(fs::path(pm_media()) / "music").string(), (fs::path(wd) / "music").string(), own.empty() ? (fs::path(pm_dir_) / "music").string() : own});
   const mech3::setup::Result c = mech3::setup::check_install(pm_dir_, wd, true);
   pm_data_ = c.version;
   for (const std::string& w : c.warnings)
@@ -2327,8 +2332,9 @@ int Launcher::movies_to_convert() const {
 #else
   if (!install_.ok || o_.no_import || SDL_getenv("MW3_NO_IMPORT") || importer_path().empty()) return 0;
   std::error_code ec;
-  const bool same = fs::equivalent(install_.dir, o_.write_dir, ec);
-  return movies_missing(install_.dir, o_.write_dir) + (same ? 0 : movies_missing(o_.write_dir, o_.write_dir));
+  const std::string md = media();
+  const bool same = fs::equivalent(install_.dir, md, ec);
+  return movies_missing(install_.dir, md) + (same ? 0 : movies_missing(md, md));
 #endif
 }
 
@@ -2338,7 +2344,7 @@ void Launcher::convert_movies(std::function<void()> then) {
   after_convert_ = std::move(then);
   work_ = std::make_unique<Work>();
   work_->kind = Work::kConvert;
-  const std::string install = install_.dir, wd = o_.write_dir;
+  const std::string install = install_.dir, wd = media();  // the converted movies beside the game files when they have their own folder
   std::error_code ec;
   const bool same = fs::equivalent(install, wd, ec);
   work_->start("CONVERTING THE MOVIES", [install, wd, same](const mech3::setup::ProgressFn& f) {
@@ -2956,7 +2962,7 @@ void Launcher::activate(int id) {
       work_ = std::make_unique<Work>();
       work_->kind = Work::kInstallIt;
       const auto found = found_;
-      const std::string wd = files_wd(), out = files_out(), music = (fs::path(wd) / "music").string();
+      const std::string wd = files_wd(), out = files_out(), music = (fs::path(files_into_.empty() ? wd : files_into_) / "music").string();
       work_->start(files_pm_ ? "INSTALLING PIRATE'S MOON" : "INSTALLING MECHWARRIOR 3", [found, out, music, wd](const mech3::setup::ProgressFn& f) {
         return mech3::setup::install_from_source(*found, out, "", music, wd, f);
       });

@@ -89,6 +89,13 @@ std::vector<std::string> install_candidates(bool pirates_moon) {
   return rekit::install_candidates(h, base ? base : "");
 }
 
+std::string media_dir(const std::string& install, const std::string& write_dir) {
+  if (install.empty()) return write_dir;
+  std::error_code ec;
+  const std::filesystem::path up = std::filesystem::path(install).parent_path();
+  return std::filesystem::is_regular_file(up / kGameFolderMark, ec) ? up.string() : write_dir;
+}
+
 bool save_install(const std::string& write_dir, const std::string& install) {
   // Absolute: a relative folder (mw3 --install-to game/x from the repo) means
   // nothing to the app, which starts in another directory (PR #1, dj0nes).
