@@ -136,7 +136,7 @@ the game's path is built into the programs.
       `mw3indeo.exe`, and with the helper renamed `mw3import.exe` converts
       the movies instead.
 - [ ] The uninstaller removes the program and keeps
-      `%APPDATA%\MicroProse\MechWarrior 3\`.
+      `%APPDATA%\BattleTech\MechWarrior 3\`.
 
 ### Mac
 

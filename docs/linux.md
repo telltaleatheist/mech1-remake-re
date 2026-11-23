@@ -64,7 +64,7 @@ movies need it: the 32-bit Indeo helper (`mw3indeo`) is Windows-only.
 
 - The write dir (settings, pilots, saves, the imported movies and music):
   `SDL_GetPrefPath("MicroProse", "MechWarrior 3")`, which is
-  `~/.local/share/MicroProse/MechWarrior 3/` (XDG_DATA_HOME's).
+  `~/.local/share/BattleTech/MechWarrior 3/` (XDG_DATA_HOME's).
 - The install finder (sdl_install.cpp, `install_candidates`) looks, besides
   mw3.cfg's `install=` and the program's own folder, in a Windows install
   under Wine, Proton or Lutris: `$WINEPREFIX` (else `~/.wine`), each Steam

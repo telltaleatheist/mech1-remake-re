@@ -5,7 +5,7 @@
 ; It installs to Program Files\MechWarrior 3 Rebuild with a Start-menu
 ; shortcut (a desktop one ticked by default) and an uninstaller. The game
 ; writes nothing there: the player's settings, saves, imported movies, music
-; and a disc install live in %APPDATA%\MicroProse\MechWarrior 3, which the
+; and a disc install live in %APPDATA%\BattleTech\MechWarrior 3, which the
 ; uninstaller leaves alone. No file of the original game is in the installer.
 
 #ifndef AppVersion
@@ -69,9 +69,9 @@ Source: "{#Dist}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs creat
 #if Stem == "MW3-alone"
 [InstallDelete]
 ; MechWarrior 3 alone over the combined package: Pirate's Moon's program goes, so the launcher does not offer
-; an old one (its settings, %APPDATA%\MicroProse\Pirate's Moon, stay).
+; an old one (its settings, %APPDATA%\BattleTech\Pirate's Moon, stay).
 Type: files; Name: "{app}\mw3pm.exe"
-; and MechWarrior 1 Remake's (its settings and saves, %APPDATA%\MicroProse\MechWarrior 1 Remake, stay).
+; and MechWarrior 1 Remake's (its settings and saves, %APPDATA%\MicroProse\MechWarrior 1 Remake until its own move to BattleTech, stay).
 Type: files; Name: "{app}\mw1.exe"
 Type: filesandordirs; Name: "{app}\mw1data"
 Type: files; Name: "{app}\README-MW1.txt"
@@ -116,8 +116,8 @@ Name: "{autodesktop}\{#Shortcut}"; Filename: "{app}\mw3launcher.exe"; WorkingDir
 Filename: "{app}\mw3launcher.exe"; Description: "{cm:LaunchProgram,{#Shortcut}}"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
-; Only what the installer put in {app}; %APPDATA%\MicroProse\MechWarrior 3 stays.
+; Only what the installer put in {app}; %APPDATA%\BattleTech\MechWarrior 3 stays.
 Type: dirifempty; Name: "{app}"
 
 [Messages]
-UninstalledAll=%1 was removed from your computer.%n%nYour settings, pilots and saved games, and any MechWarrior 3 installed from your disc, are kept in %APPDATA%\MicroProse\MechWarrior 3. Delete that folder to remove them too.
+UninstalledAll=%1 was removed from your computer.%n%nYour settings, pilots and saved games, and any MechWarrior 3 installed from your disc, are kept in %APPDATA%\BattleTech\MechWarrior 3. Delete that folder to remove them too.
