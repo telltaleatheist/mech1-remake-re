@@ -5,6 +5,59 @@ Tick an item when it is merged into `main`.
 
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 142. [x] The soundtrack: MW1's five songs as rock arrangements, six combat songs in a shuffle *(done: mw1-110-soundtrack, for 1.1.0)*
+A project decision (2026-11-23, via the lead): rock arrangements of MW1's five songs and six original combat songs,
+both made with YuE2, replace the menu theme and the three combat tracks (FIXES 100, 116).
+- **The files** (`data/music/`), encoded as FIXES 100's theme was (libvorbis q6, nominally 192 kbps, 48 kHz stereo,
+  no tags); the FLAC masters stay in keep/mw1-critical-hit/music:
+  - MW1's songs: `theme.ogg` (MECH), `bar.ogg` (MECHBAR), `debrief.ogg` (LAUNCH), `death.ogg` (DEATH), `ending.ogg`
+    (VICTORY).
+  - The combat songs: `combat-iron-stride`, `-cold-front`, `-blackwind`, `-firestorm`, `-long-range`, `-last-stand`.
+  - `menu-theme.ogg` and `combat-7101/7102/7106.ogg` are gone. The .abc scores aren't committed.
+- **Loudness** (integrated, EBU R128): the masters spread 2.7 LU (-12.1 to -14.8 LUFS), more than the ~2 LU allowed, so
+  the louder ones got gain only (no compression), down to -14 LUFS; none was raised. Before / gain / after:
+  theme -14.2 / 0 / -14.3; bar -13.2 / -0.8 / -14.0; debrief -14.1 / 0 / -14.1; death -14.8 / 0 / -14.8; ending
+  -12.4 / -1.6 / -14.1; iron-stride -12.1 / -1.9 / -14.1; cold-front -12.2 / -1.8 / -14.1; blackwind -12.9 / -1.1 /
+  -14.1; firestorm -12.6 / -1.4 / -14.1; long-range -12.6 / -1.4 / -14.1; last-stand -13.2 / -0.8 / -14.0. Spread
+  after: 0.8 LU. The old files measured -12.7 (menu theme) and -15.8, -13.8, -15.5 (7101, 7102, 7106).
+- **Where each plays,** as MW1 played its song (mech1-re's `docs/AUDIO.md`, "Campaign music cues", and
+  `src/Original/Campaign/MW_MAIN_081B_STARTUP.cpp`). MW1 looped none of them, so a cue plays once, from its start, at
+  the music volume, cutting the theme:
+  - `bar.ogg`: entering the Bar from the hub. The Bar's own pages keep it.
+  - `debrief.ogg`: the results of a contract or story battle won (not the Dark Wing's). MW1 started DEATH for each
+    lancemate lost and LAUNCH over it at once, so a win plays LAUNCH's, losses or not.
+  - `death.ogg`: the results of a mission not won that lost a lancemate (KILLED or MISSING; a mech down with its
+    pilot back isn't a loss). Also MW1's death event (its restart), over the page until it's read; FIXES 33 took the
+    commander's death out, so this is only the story's own death pages.
+  - `ending.ogg`: the Dark Wing beaten, over the victory's page and the credits.
+  - MW1 stopped its music entering the planet hub (081B:1909), so the hub's screen coming up ends a cue. A pending
+    event or the credits over the hub don't count (MW1's song played on over the events after the results).
+  - The theme (MECH) is FIXES 100's, a new recording: the title, the intro and every screen out of a mission, looped.
+    It comes back, fading in from the top, after a mission, a cue's stop and a cue's own end (where MW1 went silent).
+    The CD never says a track ended, so a cue's length (`kCueSeconds`, checked against the files) times it.
+  - DEPLOY's load stops a cue, as it stops the theme. A failed mission with no lancemate lost plays the theme, as
+    before (MW1 had no song there).
+- **Combat** (FIXES 116's place): each launch, a replay's too, takes the next song of a shuffle bag of all six
+  (`music::CombatBag`, `next_combat`, replacing `pick_combat`). None repeats until all six have played; a refilled
+  bag never starts with the song just played. It plays looped, as 116's did, until the mission's end.
+- **Size:** mw1data/music/ stays 22.6 MB (22,563,499 bytes, 4 KB less than before).
+- **Tests:**
+  - `mw1_music_the_combat_bag_plays_all_six_and_never_one_twice_running`: six launches give six songs; 2000 bags in a
+    row are each all six, with no song twice running across a refill, and each song comes first in some bags.
+  - `mw1_music_the_results_song_won_lost_and_the_dark_wing`: won, lost with a lancemate killed or missing, lost with
+    a mech down and its pilot back, and the Dark Wing's results.
+  - `mw1_music_files_there_and_the_cues_lengths_theirs`: every file there and longer than 20 s; each cue's length
+    as the file's.
+  - `mw1_music_theme_screens_mission_settings_and_quit_headless` now visits the Bar (its song, kept on its crew page,
+    stopped back at the hub with the theme again) and reads the won mission's results (the debrief's song, then the
+    theme at its end).
+  - `mw1_music_combat_once_a_launch_silent_after_the_end_and_a_new_pick_on_replay_headless`: the failure's results
+    play the theme, the win's the debrief's song.
+  - `mw1_story_the_dark_wing_won_and_lost_headless`: no song at the Dark Wing's results; won, the ending's song over
+    the credits, stopped at the hub; lost, none.
+- **Open for review:** most combat songs, the Bar's and the ending's end at full level (abrupt where they loop or
+  stop); the debrief's and death's true peaks are +0.3 and +0.2 dBTP after encoding (the gain was 0).
+
 ## 141. [ ] MechWarrior (1989)'s copy into MW1 Remake's own folder *(open; raised by the lead with pm-v1.2.4's layout, 2026-11-22)*
 - **What:** pm-v1.2.4's launcher keeps each game's files in a folder of its own (`games_<key>=`, `<folder>/install`,
   marked `rebuild-game-folder.txt` with `game=mw1`); only pilots, saves, settings and mods stay in the user folder.

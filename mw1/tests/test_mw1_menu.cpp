@@ -1,15 +1,23 @@
 // MW1's main menu and intro (src/mw1_menu.h): the narration read from the player's MW_MAIN.EXE, the intro's times;
 // MW1's image archive (src/mw1_images.h) read back through the engine's own reader. The menu and the intro in play: test_mw1_loop.cpp.
 #include <algorithm>
+#include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <functional>
+#include <iterator>
 #include <random>
+#include <set>
 #include <string>
 #include <vector>
 
 #include "check.h"
 #include "mw1_install.h"
+#include "mw1_campaign.h"
+#include "mw1_game.h"
+#include "mw1_ladder.h"
 #include "gamez/zimage/zimg_library.h"
 #include "gamez/zimage/zimg_texture.h"
 #include "mw1_images.h"
@@ -156,25 +164,90 @@ TEST(mw1_menu_the_image_archive_reads_back_through_the_engine) {
   std::fclose(in);
 }
 
-// FIXES.md item 116: a launch's combat track is any of the three at first, then never the last one, and every one
-// comes up.
-TEST(mw1_music_a_launch_never_plays_the_last_combat_track) {
-  int32_t last = -1, count[mw1::music::kCombatCount] = {};
-  bool repeated = false, in_range = true;
-  std::minstd_rand rng(116);
-  for (uint32_t i = 0; i < 3000; ++i) {
-    const uint32_t roll = static_cast<uint32_t>(rng());
-    const int32_t pick = mw1::music::pick_combat(last, roll);
-    in_range = in_range && pick >= 0 && pick < mw1::music::kCombatCount;
-    if (!in_range) break;
-    repeated = repeated || pick == last;
-    ++count[pick], last = pick;
+// FIXES.md items 116 and 142: the combat songs' shuffle bag. Six launches play the six songs, each bag of six is all of
+// them, and across many refills a song never plays twice running (the new order's first isn't the one just played).
+// FIXES 142: the results' song as MW1 chose it (081B:0299..0399): won, LAUNCH's (lancemates lost or not: MW1's DEATH
+// cut by LAUNCH at once); not won, DEATH's when a lancemate was KILLED or MISSING (a mech down and its pilot back:
+// none); the Dark Wing's results, none (its VICTORY comes with the victory's page).
+TEST(mw1_music_the_results_song_won_lost_and_the_dark_wing) {
+  using mw1::music::Cue;
+  const auto song = [](mw1::Outcome o, std::vector<mw1::LanceFate> lance, int32_t rung) {
+    mw1::AfterAction a;
+    a.outcome = o, a.lance = std::move(lance);
+    return mw1::results_song(a, rung);
+  };
+  mw1::LanceFate back, down, killed, missing;
+  back.id = 1, down.id = 2, down.destroyed = true;
+  killed = down, killed.killed = true;
+  missing = down, missing.missing = true;
+  const int32_t debrief = static_cast<int32_t>(Cue::kDebrief), death = static_cast<int32_t>(Cue::kDeath);
+  EXPECT(song(mw1::Outcome::kSuccess, {}, 1) == debrief && song(mw1::Outcome::kSuccess, {back, killed}, 3) == debrief);
+  EXPECT(song(mw1::Outcome::kFailure, {back, killed}, 1) == death && song(mw1::Outcome::kRetreat, {missing}, 2) == death);
+  EXPECT(song(mw1::Outcome::kFailure, {}, 1) == -1 && song(mw1::Outcome::kFailure, {back, down}, 1) == -1);
+  EXPECT(song(mw1::Outcome::kSuccess, {}, mw1::kDarkWingRung) == -1 && song(mw1::Outcome::kFailure, {killed}, mw1::kDarkWingRung) == -1);
+}
+
+TEST(mw1_music_the_combat_bag_plays_all_six_and_never_one_twice_running) {
+  constexpr int32_t n = mw1::music::kCombatCount;
+  std::minstd_rand rng(142);
+  const std::function<uint32_t()> roll = [&] { return static_cast<uint32_t>(rng()); };
+  mw1::music::CombatBag bag;
+  std::set<int32_t> first_six;
+  for (int32_t i = 0; i < n; ++i) first_six.insert(mw1::music::next_combat(bag, roll));
+  EXPECT(static_cast<int32_t>(first_six.size()) == n && *first_six.begin() == 0 && *first_six.rbegin() == n - 1);
+  bool every_bag_all = true, repeated = false, in_range = true;
+  int32_t last = bag.last, count[n] = {}, firsts[n] = {};
+  for (int32_t b = 0; b < 2000; ++b) {
+    std::set<int32_t> seen;
+    for (int32_t i = 0; i < n; ++i) {
+      const int32_t song = mw1::music::next_combat(bag, roll);
+      in_range = in_range && song >= 0 && song < n;
+      if (!in_range) break;
+      repeated = repeated || song == last;
+      seen.insert(song), ++count[song], last = song;
+      if (i == 0) ++firsts[song];
+    }
+    every_bag_all = every_bag_all && static_cast<int32_t>(seen.size()) == n;
   }
-  for (int32_t first = 0; first < mw1::music::kCombatCount; ++first)  // the first launch: each possible
-    EXPECT(mw1::music::pick_combat(-1, static_cast<uint32_t>(first)) == first);
-  std::printf("  picks: %d %d %d\n", count[0], count[1], count[2]);
-  EXPECT(in_range && !repeated);
-  for (int32_t c : count) EXPECT(c > 500);
+  std::printf("  songs:");
+  for (int32_t c : count) std::printf(" %d", c);
+  std::printf("; a bag's first:");
+  for (int32_t c : firsts) std::printf(" %d", c);
+  std::printf("\n");
+  EXPECT(in_range && every_bag_all && !repeated);
+  for (int32_t c : firsts) EXPECT(c > 200);  // every song comes first in some bags (2000 bags: about 333 each)
+  // An empty bag after a song (set_last_combat_for_tests' way): the next is another.
+  for (int32_t just = 0; just < n; ++just)
+    for (int32_t t = 0; t < 50; ++t) {
+      mw1::music::CombatBag fresh;
+      fresh.last = just;
+      EXPECT(mw1::music::next_combat(fresh, roll) != just);
+    }
+}
+
+// FIXES.md item 142: every music file is in mw1data, and each cue's length (its own clock: the CD never says a track
+// ended) is its file's: the last Ogg page's granule position over 48 kHz.
+TEST(mw1_music_files_there_and_the_cues_lengths_theirs) {
+  const fs::path dir = fs::path(MW1_DATA_DIR);
+  auto length = [](const fs::path& p) -> double {
+    std::ifstream in(p, std::ios::binary);
+    const std::string b((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    const size_t at = b.rfind("OggS");
+    if (at == std::string::npos || at + 14 > b.size()) return -1;
+    uint64_t granule = 0;
+    for (int i = 7; i >= 0; --i) granule = granule << 8 | static_cast<uint8_t>(b[at + 6 + static_cast<size_t>(i)]);
+    return static_cast<double>(granule) / 48000.0;
+  };
+  std::vector<std::string> files = {mw1::music::kThemeFile};
+  for (const char* f : mw1::music::kCombatFiles) files.push_back(f);
+  for (const char* f : mw1::music::kCueFiles) files.push_back(f);
+  for (const std::string& f : files) {
+    const double s = length(dir / f);
+    std::printf("  %s: %.3f s\n", f.c_str(), s);
+    EXPECT(s > 20.0);
+  }
+  for (int32_t c = 0; c < mw1::music::kCueCount; ++c)
+    EXPECT(std::fabs(length(dir / mw1::music::kCueFiles[c]) - mw1::music::kCueSeconds[c]) < 0.01);
 }
 
 // FIXES.md item 83 (the lead's sweep, 3): GRAPHICS & SOUND's RESOLUTION names every mode in one format, "W x H", the

@@ -5255,6 +5255,9 @@ struct DarkWingRun {
   bool victory_panel = false, won = false, arrest_seen = false, saved_won = false, asked_again = false, asked_late = false;
   bool not_redrawn = true, too_late = false, no_crest = false;  // FIXES 75: no House's crest
   bool credits = false, credits_shown = false, credits_over = false;  // won: the credits after the panel, then the hub
+  // FIXES 142: no song at the Dark Wing's results (not LAUNCH's); won, VICTORY's (ending.ogg) over the credits, stopped at
+  // the hub
+  bool results_quiet = true, ending_song = false, ending_gone = false;
   size_t credit_lines = 0;
   int32_t rung = 0, enemies = 0, made = 0, aims = 0, units_on = -1;
   std::string world, climate, map_climate;
@@ -5349,6 +5352,10 @@ void dark_wing_run(DarkWingRun& d) {
       case 4: {  // the results
         mw1::ResultsState* rs = mw1::game_loop_results();
         if (!showing(app, rs)) return false;
+        {
+          const mw1::music::Seen m = mw1::music::seen();
+          d.results_quiet = m.cue < 0 && m.cue_asked < 0;
+        }
         if (const mw1::ResultsPanel* p = mw1::game_loop_results_shown()) {
           d.results = true, d.replay = p->replay, d.message = !p->message.empty();
           d.no_fee = std::find(p->pay.begin(), p->pay.end(), "No fee: not a contract") != p->pay.end();
@@ -5368,13 +5375,15 @@ void dark_wing_run(DarkWingRun& d) {
         if (mw1::CreditsState* cs = mw1::game_loop_credits(); cs && showing(app, cs)) {
           d.credits = true, d.credit_lines = cs->lines();
           if (cs->lines_shown() > 0) d.credits_shown = true;
+          d.ending_song = d.ending_song || mw1::music::seen().cue == static_cast<int32_t>(mw1::music::Cue::kEnding);
           if (wait < 120) return false;  // two seconds' roll: lines up from the window's foot
           cs->escape();
           wait = 0;
           return false;
         }
-        if (!showing(app, hub)) return false;
+        if (!showing(app, hub) || wait < 5) return false;
         d.credits_over = d.credits && !mw1::game_loop_credits();
+        d.ending_gone = mw1::music::seen().cue < 0;
         d.won = c->story.dark_wing_won, d.arrest_seen = c->story.seen[mw1::kEventPortArrest] != 0, d.funds_after = c->funds;
         d.units_on = units(c->date) - date_at_launch;
         {
@@ -5438,6 +5447,8 @@ TEST(mw1_story_the_dark_wing_won_and_lost_headless) {
                   d.map_climate.c_str(), d.results, d.no_fee, d.replay, d.message, d.victory_panel, d.won, d.arrest_seen, d.saved_won,
                   d.credits, d.credit_lines, d.credits_shown, d.credits_over, static_cast<long long>(d.funds_before), static_cast<long long>(d.funds_after), d.units_on, !d.not_redrawn,
                   d.asked_late, d.too_late);
+      std::printf("  music (FIXES 142): the results quiet %d, the ending's song %d, gone at the hub %d\n", d.results_quiet,
+                  d.ending_song, d.ending_gone);
       EXPECT(d.asked && d.attack_live && d.launched && d.rung == mw1::kDarkWingRung);
       EXPECT(d.enemies == mw1::kRungMechs && d.made == d.enemies && d.aims == d.enemies);  // the commander alone: all 8
       // The planet's climate when the table has a map of it that holds the force; else any that does (story_battle's
@@ -5449,8 +5460,10 @@ TEST(mw1_story_the_dark_wing_won_and_lost_headless) {
       if (win) {
         EXPECT(d.victory_panel && d.won && d.arrest_seen && d.saved_won && d.units_on == 0 && d.not_redrawn && !d.asked_late);
         EXPECT(d.credits && d.credit_lines > 0 && d.credits_shown && d.credits_over);  // then play goes on: no QUIT
+        EXPECT(d.results_quiet && d.ending_song && d.ending_gone);  // FIXES 142
       } else {
         EXPECT(!d.victory_panel && !d.won && d.message && d.not_redrawn && d.asked_late && !d.credits);
+        EXPECT(d.results_quiet && !d.ending_song);  // FIXES 142: the commander alone lost no lancemate: no song
         EXPECT(d.units_on >= 0x1C);  // SPECIAL_ASSAULT_DEPLOYMENT_UNITS (and a month's turn's wages)
       }
     });
@@ -9413,6 +9426,7 @@ TEST(mw1_music_theme_screens_mission_settings_and_quit_headless) {
     int step = 0, wait = 0, frames = 0;
     bool at_menu = false, at_intro = false, at_hub = false, kept = false, faded = false, gone_in_mission = false, back_after = false;
     bool combat = false, combat_follows = false;  // FIXES 116
+    bool bar_cue = false, bar_kept = false, bar_gone = false, debrief = false, debrief_over = false;  // FIXES 142
     bool off_stops = false, off_saved = false, on_again = false, effects_saved = false, quit_asked = false, quit_stays = false, quits = false;
     int32_t plays_at_hub = 0, starts_at_hub = 0, quit_boxes = 0;
     float lowest = 1;
@@ -9440,14 +9454,52 @@ TEST(mw1_music_theme_screens_mission_settings_and_quit_headless) {
           mw1::game_loop_intro()->escape();
           ++step, wait = 0;
           return false;
-        case 2:  // the hub: the same play (never restarted); then the office, the market and back
-          if (!showing(app, hub) || wait < 10) return false;
-          if (hub->screen()->visible(mw1::kHubOk)) return hub->screen()->on_button(mw1::kHubOk, 0, 0), wait = 0, false;
-          at_hub = theme() && m.starts == 1 && r.music->plays == 1;
+        case 2: {  // the hub: the same play (never restarted); the Bar (FIXES 142: its song, kept on its pages, stopped back
+                   // at the hub, the theme again from its start); then the office
+          const auto bar_song = [&] {
+            return m.cue == static_cast<int32_t>(mw1::music::Cue::kBar) && r.music->playing_path == mw1::music::kCueFiles[0] && !m.playing;
+          };
+          if (mw1::EventState* ev = mw1::game_loop_event(); showing(app, ev)) {  // a Bar event: read (its first choice)
+            if (wait < 5) return false;
+            ev->screen()->on_button(ev->screen()->visible(mw1::kEventChoice1) ? mw1::kEventChoice1 : mw1::kEventNext, 0, 0);
+            return wait = 0, false;
+          }
+          if (frames == 0) {
+            if (!showing(app, hub) || wait < 10) return false;
+            if (hub->screen()->visible(mw1::kHubOk)) return hub->screen()->on_button(mw1::kHubOk, 0, 0), wait = 0, false;
+            at_hub = theme() && m.starts == 1 && r.music->plays == 1;
+            hub->screen()->on_button(mw1::kHubBar, 0, 0);
+            frames = 1, wait = 0;
+            return false;
+          }
+          if (frames == 1) {
+            if (!showing(app, mw1::game_loop_bar()) || wait < 10) return false;
+            bar_cue = bar_song() && m.cue_starts == 1 && m.volume == static_cast<int32_t>(mech3::cd_volume() * 65535.0f);
+            mw1::game_loop_bar()->screen()->on_button(mw1::kBarCrew, 0, 0);  // a page of its own
+            frames = 2, wait = 0;
+            return false;
+          }
+          if (frames == 2) {
+            if (wait < 20) return false;
+            bar_kept = bar_song() && m.cue_starts == 1;
+            mw1::game_loop_bar()->screen()->on_button(mw1::kBarDone, 0, 0);  // the page's DONE: the Bar's own menu
+            frames = 3, wait = 0;
+            return false;
+          }
+          if (frames == 3) {
+            if (wait < 10) return false;
+            bar_kept = bar_kept && bar_song() && m.cue_starts == 1;
+            mw1::game_loop_bar()->screen()->on_button(mw1::kBarBack, 0, 0);
+            frames = 4, wait = 0;
+            return false;
+          }
+          if (!showing(app, hub) || wait < 70) return false;
+          bar_gone = m.cue < 0 && theme() && m.level >= 1.0f && m.starts == 2;
           plays_at_hub = r.music->plays, starts_at_hub = m.starts;
           hub->screen()->on_button(mw1::kHubOffice, 0, 0);
-          ++step, wait = 0;
+          ++step, wait = 0, frames = 0;
           return false;
+        }
         case 3: {  // the office: REQUEST, ACCEPT (back to the hub; each a screen change)
           if (mw1::game_loop_contract() && mw1::game_loop_contract()->accepted && showing(app, hub)) return ++step, wait = 0, false;
           mw1::OfficeState* os = mw1::game_loop_office();
@@ -9465,7 +9517,7 @@ TEST(mw1_music_theme_screens_mission_settings_and_quit_headless) {
           if (!showing(app, hub) || wait < 10) return false;
           kept = theme() && m.starts == starts_at_hub && r.music->plays == plays_at_hub;
           if (!hub->screen()->visible(mw1::kHubDeploy)) return false;
-          mw1::music::set_last_combat_for_tests(0);  // FIXES 116: as if the last launch played 7106; this one mustn't
+          mw1::music::set_last_combat_for_tests(0);  // FIXES 116: as if the last launch played the first song; this one mustn't
           hub->screen()->on_button(mw1::kHubDeploy, 0, 0);
           ++step, wait = 0, frames = 0;
           return false;
@@ -9495,19 +9547,28 @@ TEST(mw1_music_theme_screens_mission_settings_and_quit_headless) {
           mech3::missions().ended = 1;
           for (int i = app.depth(); i > 0; --i) app.pop(1);
           app.replace(&mech3::states().ia_dummy, 0);
-          ++step, wait = 0;
+          ++step, wait = 0, frames = 0;
           return false;
         }
-        case 6: {  // the results: the theme again (a second start), fading in
+        case 6: {  // FIXES 142: the won mission's results: the debrief's song (LAUNCH's), no theme; at its end the theme
           mw1::ResultsState* rs = mw1::game_loop_results();
           if (!showing(app, rs) || wait < 20) return false;
-          back_after = theme() && m.starts == starts_at_hub + 1 && m.level > 0 && m.combat < 0 && r.music->playing_path == mw1::music::kThemeFile;
+          if (frames == 0) {
+            debrief = !theme() && m.cue == static_cast<int32_t>(mw1::music::Cue::kDebrief) && m.combat < 0 &&
+                      r.music->playing_path == mw1::music::kCueFiles[1] && zsnd_cd::state().mode == zsnd_cd::Once;
+            mw1::music::end_cue_for_tests();  // as if its 30 s had played
+            frames = 1, wait = 0;
+            return false;
+          }
+          if (wait < 30) return false;
+          debrief_over = m.cue < 0 && theme() && m.level > 0 && m.starts == starts_at_hub + 1;
           rs->screen()->on_button(mw1::kResultsContinue, 0, 0);
-          ++step, wait = 0;
+          ++step, wait = 0, frames = 0;
           return false;
         }
-        case 7:  // the hub (AFTER ACTION's OK), then OPTIONS
+        case 7:  // the hub (AFTER ACTION's OK): the theme on (not started again); then OPTIONS
           if (!showing(app, hub) || wait < 10) return false;
+          back_after = back_after || (theme() && m.starts == starts_at_hub + 1 && m.cue < 0);
           if (hub->screen()->visible(mw1::kHubOk)) return hub->screen()->on_button(mw1::kHubOk, 0, 0), wait = 0, false;
           hub->screen()->on_button(mw1::kHubOptions, 0, 0);
           ++step, wait = 0, frames = 0;
@@ -9579,8 +9640,11 @@ TEST(mw1_music_theme_screens_mission_settings_and_quit_headless) {
                 at_menu, at_intro, at_hub, kept, faded, lowest, gone_in_mission, back_after, off_stops, off_saved, effects_saved, on_again,
                 quit_asked, quit_boxes, quit_stays, quits);
     EXPECT(at_menu && at_intro && at_hub && kept);
+    std::printf("  bar: its song %d, kept on its page %d, gone at the hub %d; the debrief's %d, the theme after it %d\n", bar_cue,
+                bar_kept, bar_gone, debrief, debrief_over);
     EXPECT(faded && gone_in_mission && back_after);
     EXPECT(combat && combat_follows);
+    EXPECT(bar_cue && bar_kept && bar_gone && debrief && debrief_over);
     EXPECT(off_stops && off_saved && effects_saved && on_again);
     EXPECT(quit_asked && quit_boxes == 2 && quit_stays && quits);
   });
@@ -9793,7 +9857,8 @@ TEST(mw1_music_combat_once_a_launch_silent_after_the_end_and_a_new_pick_on_repla
     std::vector<int32_t> picks, starts_in_mission;
     int32_t launches = 0, starts_seen = 0, ends = 0, quiet_frames = 0, combat_after_end = 0, starts_after_end = 0;
     bool after_end = false, replay_offered = false, results_twice = false;
-    int32_t theme_at_results = 0;  // the results (the failure's, the win's) a second in: the theme, no combat track
+    int32_t theme_at_results = 0;  // the failure's results a second in: the theme, no combat track
+    bool debrief_at_win = false;   // FIXES 142: the win's: the debrief's song
     r.box = [&](const std::string& words) -> uint32_t { return words.find("?") != std::string::npos ? 6u : 1u; };
     // The mission ended by PM's Exit Mission (its end screen), failed or won (every enemy the commander's).
     auto end_mission = [&](mech3::Mech3App&, bool fail) {
@@ -9817,7 +9882,7 @@ TEST(mw1_music_combat_once_a_launch_silent_after_the_end_and_a_new_pick_on_repla
       if (m.launches != launches) launches = m.launches, picks.push_back(m.picked), starts_in_mission.push_back(0);
       const int32_t started = m.combat_starts - starts_seen;
       starts_seen = m.combat_starts;
-      if (after_end && m.playing) after_end = false;  // the theme: the end's silence over
+      if (after_end && (m.playing || m.cue >= 0)) after_end = false;  // the theme or a cue: the end's silence over
       if (after_end) ++quiet_frames, combat_after_end += m.combat >= 0, starts_after_end += started;
       else if (!starts_in_mission.empty()) starts_in_mission.back() += started;
       switch (step) {
@@ -9874,7 +9939,7 @@ TEST(mw1_music_combat_once_a_launch_silent_after_the_end_and_a_new_pick_on_repla
           mw1::ResultsState* rs = mw1::game_loop_results();
           if (!showing(app, rs)) return wait = 0, false;
           if (wait < 70) return false;
-          theme_at_results += m.playing && m.combat < 0;
+          debrief_at_win = !m.playing && m.combat < 0 && m.cue == static_cast<int32_t>(mw1::music::Cue::kDebrief);
           results_twice = true;
           return true;
         }
@@ -9885,14 +9950,14 @@ TEST(mw1_music_combat_once_a_launch_silent_after_the_end_and_a_new_pick_on_repla
     mw1::set_map_table({});
     std::printf("  launches %d, combat starts %d, picks", launches, starts_seen);
     for (size_t i = 0; i < picks.size(); ++i) std::printf(" %d (%d started)", picks[i], starts_in_mission[i]);
-    std::printf("; ends %d, replay %d, results twice %d (the theme at %d); after the ends %d frames, a combat track on in %d, "
-                "started %d\n",
-                ends, replay_offered, results_twice, theme_at_results, quiet_frames, combat_after_end, starts_after_end);
+    std::printf("; ends %d, replay %d, results twice %d (the theme at the failure's %d, the debrief's song at the win's %d); after the "
+                "ends %d frames, a combat track on in %d, started %d\n",
+                ends, replay_offered, results_twice, theme_at_results, debrief_at_win, quiet_frames, combat_after_end, starts_after_end);
     EXPECT(replay_offered && results_twice && ends == 2 && launches == 2 && picks.size() == 2);
     EXPECT(starts_in_mission.size() == 2 && starts_in_mission[0] == 1 && starts_in_mission[1] == 1 && starts_seen == 2);
     EXPECT(picks.size() == 2 && picks[0] >= 0 && picks[1] >= 0 && picks[0] != picks[1]);  // the replay's own
     EXPECT(quiet_frames > 0 && combat_after_end == 0 && starts_after_end == 0);
-    EXPECT(theme_at_results == 2);
+    EXPECT(theme_at_results == 1 && debrief_at_win);
   });
 }
 

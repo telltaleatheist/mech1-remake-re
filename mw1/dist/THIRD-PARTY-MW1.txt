@@ -36,7 +36,8 @@ Art, music and video
 --------------------
 MechWarrior 1 Remake's own pictures, music and the DropShip launch video were
 made for this project with locally run generative models, then chosen and
-edited by the author. They contain no art, music or footage from MechWarrior,
-MechWarrior 3 or Pirate's Moon. MW1's text, MechWarrior 3's and Pirate's Moon's
-'Mechs, worlds and sounds are read from the player's own installed games and
-are not included.
+edited by the author. The music is rock arrangements of MechWarrior's five
+songs and original combat songs, both made with YuE2. None of it contains art,
+recordings or footage from MechWarrior, MechWarrior 3 or Pirate's Moon. MW1's
+text, MechWarrior 3's and Pirate's Moon's 'Mechs, worlds and sounds are read
+from the player's own installed games and are not included.
