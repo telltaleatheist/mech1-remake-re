@@ -114,3 +114,35 @@ change:
 Seen meanwhile: at 1920x1080 the mission's opening fade darkens only the
 top-left quarter of the screen (the fade's still at the 960x540 canvas
 drawn into the 1920x1080 frame's corner).
+
+## Windows 10: the 256-byte rows (issue #2, 2026-11-23)
+
+A player on Windows 10 with an RTX 5070 reported about 16 frames a second
+at every resolution (1.3.1; in 1.0.3 at 1920x1080 and above). Their log
+showed nothing wrong, so the cause below is reasoned from the code, not
+measured on their machine.
+
+D3D12 copies a buffer into a texture only with rows 256 bytes apart and the
+data at a 512-byte offset, unless the device reports
+`UnrestrictedBufferTextureCopyPitchSupported` (D3D12 options 13: Windows 11,
+or Windows 10 with the Agility SDK, which we do not ship). Without it, SDL
+3.4's D3D12 backend (`D3D12_UploadToTexture`) makes a temporary upload
+buffer for each such copy (a committed resource), copies the rows into it
+one by one and releases it after the frame. The 2D layer is uploaded every
+frame a mission or menu draws it, at the canvas's size: 853x480 at every
+16:9 mode, 800x600 at 800x600, so rows of 3,412 and 3,200 bytes, neither a
+multiple of 256. Every mip level narrower than 64 pixels goes the same way
+at load. The reference PC runs Windows 11, so it never took this path.
+
+`SdlRender3D::upload` now lays each level out as D3D12 wants (rows padded
+to 256 bytes, levels at 512-byte offsets) and passes the padded pitch as
+`pixels_per_row`, under the D3D12 backend only: SDL 3.4's Metal backend
+ignores `pixels_per_row` (the picture came out sheared). Checked: the Mac's
+shots (Metal) identical to before; the padded layout forced on under
+Vulkan (MoltenVK, which honours `bufferRowLength`) gives shots identical
+to the plain one (c1m1 frame 700 and the main menu at 1920x1080).
+
+Also (ours): `SdlRender3D::note_frame_time` writes a line to mw3.log when
+300 shown frames came slower than 40 a second, splitting each frame into
+the game's own work and the wait for the swapchain's next image, at most
+five a run, so the next slow report's log says where the time went.

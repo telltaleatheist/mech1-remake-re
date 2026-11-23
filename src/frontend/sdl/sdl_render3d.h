@@ -84,6 +84,9 @@ class SdlRender3D : public platform::Render3D {
   std::vector<bool> mipped_;  // each texture's: made with its levels
   std::vector<uint64_t> tex_bytes_;  // each live texture's size with its levels (0 once released), for the count
   uint64_t presents_ = 0;
+  // Slow frames to mw3.log (ours, issue #2): the shown frames' spacing and the wait for the swapchain in it.
+  uint64_t slow_last_ = 0, slow_sum_ = 0, slow_wait_ = 0;
+  int slow_n_ = 0, slow_said_ = 0;
   uint64_t n_scenes_ = 0, n_uploads_ = 0, upload_bytes_ = 0, n_readbacks_ = 0, n_holds_ = 0;  // since the last count
   float mip_bias_ = 0.0f;     // set_mip_bias, to the shader (fog.w): Metal ignores the sampler's bias
   SDL_GPUTexture* depth_ = nullptr;
@@ -98,6 +101,7 @@ class SdlRender3D : public platform::Render3D {
   };
   Staging tex_staging_, vert_staging_;
   void* map_staging(Staging& s, uint32_t bytes);  // mapped, cycled when the GPU may still read it
+  void note_frame_time(Uint64 wait_from);
   void* map_tex_staging(uint32_t bytes, uint32_t* offset);  // the next free part, cycled when full
   std::vector<platform::TLVertex> vertices_;
   std::vector<Run> runs_;
