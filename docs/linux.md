@@ -185,3 +185,17 @@ text. Nothing is bundled (no lavapipe). MW3_VULKAN_CHECK=noloader|nodriver|ok an
 (`sdl_vulkan_help_names_the_packages`, `sdl_program_launcher_says_what_vulkan_needs_and_holds_play`).
 Under WSL the real check found Vulkan, and with VK_ICD_FILENAMES pointing at nothing said "no Vulkan
 driver".
+
+**Out of memory on NVIDIA (issue #7, 2026-11-23).** A player on Fedora with NVIDIA's 620 driver crashed
+entering a mission from the mech lab: "the frame's readback failed at its buffer: Failed to bind memory
+for buffer!", then a fault inside libnvidia-glcore. The cause was ours: each texture upload mapped the
+staging buffer with cycle, and with the uploads of a load all in flight SDL's Vulkan backend made and
+kept a new 1.2 MB transfer buffer for each (host-visible memory, never given back). Measured through
+MoltenVK (`SDL_GPU_DRIVER=vulkan`, docs/windows.md): 4,075 MB for c2m1 against 333 MB now; Metal 156 to
+142 MB. The uploads now go one after another into a 4 MB staging buffer, cycled only when it is full
+(`SdlRender3D::map_tex_staging`); c1m1 frame 700 identical before and after on Metal and Vulkan.
+
+For players' graphics reports: mw3.log's "GPU:" line names the card and driver (Vulkan and D3D12 give
+the driver's version; Metal none). MW3_GPU_DEBUG=1 asks for the backend's validation (Vulkan's layers,
+the D3D12 debug layer) where the system has it, and falls back without it. MW3_GPU_COUNT=N prints every
+N frames the textures alive, the uploads and readbacks since, and the process's memory.

@@ -8,6 +8,9 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
+#if defined(__APPLE__)
+#include <mach/mach.h>
+#endif
 #include <cstring>
 
 namespace sdlfe {
@@ -275,6 +278,7 @@ int32_t SdlRender3D::make_texture(int width, int height, const uint8_t* rgba, bo
   upload(t, width, height, rgba, levels > 1);
   textures_.push_back(t);
   mipped_.push_back(levels > 1);
+  tex_bytes_.push_back(static_cast<uint64_t>(width) * height * 4 * (levels > 1 ? 4 : 3) / 3);
   return static_cast<int32_t>(textures_.size() - 1);
 }
 
@@ -296,12 +300,39 @@ void* SdlRender3D::map_staging(Staging& s, uint32_t bytes) {
   return s.buf ? SDL_MapGPUTransferBuffer(dev_, s.buf, true) : nullptr;
 }
 
+// Texture uploads one after another in the staging buffer, cycled only when it is full (issue #7). One cycle an
+// upload made SDL's Vulkan backend keep a 1.2 MB buffer for each texture a load uploads (c1m2's 650: 880 MB of mapped
+// memory for 20 MB of textures), which NVIDIA's Linux driver ran out of. A part already written is never written
+// again before a cycle, so the GPU's copies still in flight read what they were given.
+void* SdlRender3D::map_tex_staging(uint32_t bytes, uint32_t* offset) {
+  Staging& s = tex_staging_;
+  uint32_t at = (s.used + 511u) & ~511u;  // D3D12's placement alignment
+  bool cycle = false;
+  if (!s.buf || s.size < bytes) {
+    if (s.buf) SDL_ReleaseGPUTransferBuffer(dev_, s.buf);
+    s.size = bytes < 4u << 20 ? 4u << 20 : bytes;
+    SDL_GPUTransferBufferCreateInfo tbi{SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD, s.size, 0};
+    s.buf = SDL_CreateGPUTransferBuffer(dev_, &tbi);
+    at = 0;
+  } else if (at > s.size - bytes) {
+    cycle = true, at = 0;
+  }
+  if (!s.buf) return nullptr;
+  auto* p = static_cast<uint8_t*>(SDL_MapGPUTransferBuffer(dev_, s.buf, cycle));
+  if (!p) return nullptr;
+  *offset = at;
+  s.used = at + bytes;
+  return p + at;
+}
+
 void SdlRender3D::upload(SDL_GPUTexture* t, int width, int height, const uint8_t* rgba, bool mips) {
   std::vector<platform::MipLevel> chain;
   if (mips) chain = platform::mip_chain(width, height, rgba);
   auto size = static_cast<uint32_t>(width * height * 4);
   for (const platform::MipLevel& m : chain) size += static_cast<uint32_t>(m.rgba.size());
-  auto* to = static_cast<uint8_t*>(map_staging(tex_staging_, size));
+  ++n_uploads_, upload_bytes_ += size;
+  uint32_t base = 0;
+  auto* to = static_cast<uint8_t*>(map_tex_staging(size, &base));
   if (!to) return;
   std::memcpy(to, rgba, static_cast<size_t>(width) * height * 4);
   uint32_t at = static_cast<uint32_t>(width * height * 4);
@@ -310,7 +341,7 @@ void SdlRender3D::upload(SDL_GPUTexture* t, int width, int height, const uint8_t
   SDL_UnmapGPUTransferBuffer(dev_, tb);
   SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(dev_);
   SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd);
-  uint32_t offset = 0;
+  uint32_t offset = base;
   for (size_t level = 0; level <= chain.size(); ++level) {
     const int w = level ? chain[level - 1].width : width, h = level ? chain[level - 1].height : height;
     SDL_GPUTextureTransferInfo src{tb, offset, 0, 0};
@@ -327,6 +358,7 @@ void SdlRender3D::release_texture(int32_t h) {
   if (h < 0 || h >= static_cast<int32_t>(textures_.size()) || !textures_[h]) return;
   SDL_ReleaseGPUTexture(dev_, textures_[h]);
   textures_[h] = nullptr;
+  tex_bytes_[static_cast<size_t>(h)] = 0;
 }
 
 void SdlRender3D::set_viewport(int x, int y, int w, int h) { vx_ = x, vy_ = y, vw_ = w, vh_ = h; }
@@ -471,6 +503,7 @@ void SdlRender3D::end_scene() {
     std::fprintf(stderr, "Render3D scene: %zu triangles in %zu runs, %zu textures, viewport %d %d %d %d\n",
                  vertices_.size() / 3, runs_.size(), textures_.size(), vx_, vy_, vw_, vh_);
   if (!ensure_frame()) return;
+  ++n_scenes_;
   SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(dev_);
   const auto bytes = static_cast<uint32_t>(vertices_.size() * sizeof(platform::TLVertex));
   void* to = bytes ? map_staging(vert_staging_, bytes) : nullptr;
@@ -569,6 +602,7 @@ bool SdlRender3D::read_back(std::vector<uint32_t>* argb, int* width, int* height
   if (!frame_) return false;
   const Uint32 w = frame_w_, h = frame_h_;
   if (w == 0 || h == 0) return false;
+  ++n_readbacks_;
   // Issue #7 (Linux, Vulkan: a crash inside SDL_DownloadFromGPUTexture at a
   // mission's start and in the mech lab): each step checked; a readback that
   // cannot be made is none (the fade starts from black, the grab is empty).
@@ -654,6 +688,7 @@ bool SdlRender3D::hold_frame() {
     held_w_ = frame_w_, held_h_ = frame_h_;
   }
   if (!held_) return false;
+  ++n_holds_;
   copy_texture(dev_, frame_, held_, frame_w_, frame_h_);
   return true;
 }
@@ -671,6 +706,40 @@ void SdlRender3D::drop_frame() {
 
 void SdlRender3D::present() {
   if (!frame_) return;
+  // MW3_GPU_COUNT=N (ours, issue #7): every N frames, the textures alive and their size, to see one that grows.
+  static const int count_every = [] {
+    const char* e = std::getenv("MW3_GPU_COUNT");
+    return e ? std::atoi(e) : 0;
+  }();
+  if (count_every > 0 && presents_++ % static_cast<uint64_t>(count_every) == 0) {
+    // The process's memory, which on the Mac (one memory) holds the GPU's too.
+    double process_mb = 0;
+#if defined(__APPLE__)
+    task_vm_info_data_t vm{};
+    mach_msg_type_number_t n = TASK_VM_INFO_COUNT;
+    if (task_info(mach_task_self(), TASK_VM_INFO, reinterpret_cast<task_info_t>(&vm), &n) == KERN_SUCCESS)
+      process_mb = vm.phys_footprint / 1048576.0;
+#elif defined(__linux__)
+    if (FILE* f = std::fopen("/proc/self/statm", "r")) {
+      long pages = 0, resident = 0;
+      if (std::fscanf(f, "%ld %ld", &pages, &resident) == 2) process_mb = resident * 4096.0 / 1048576.0;
+      std::fclose(f);
+    }
+#endif
+    size_t live = 0;
+    uint64_t bytes = 0;
+    for (size_t i = 0; i < textures_.size(); ++i)
+      if (textures_[i]) ++live, bytes += tex_bytes_[i];
+    std::printf("mw3: GPU count: frame %llu, %zu textures alive of %zu made, %.1f MB; pipelines %zu, samplers %zu; "
+                "since the last: %llu scenes, %llu uploads (%.1f MB), %llu readbacks, %llu holds; vertex buffer %.1f MB, "
+                "staging %.1f + %.1f MB; process %.0f MB\n",
+                static_cast<unsigned long long>(presents_ - 1), live, textures_.size(), bytes / 1048576.0,
+                pipelines_.size(), samplers_.size(), static_cast<unsigned long long>(n_scenes_),
+                static_cast<unsigned long long>(n_uploads_), upload_bytes_ / 1048576.0,
+                static_cast<unsigned long long>(n_readbacks_), static_cast<unsigned long long>(n_holds_),
+                vbuf_size_ / 1048576.0, tex_staging_.size / 1048576.0, vert_staging_.size / 1048576.0, process_mb);
+    n_scenes_ = n_uploads_ = upload_bytes_ = n_readbacks_ = n_holds_ = 0;
+  }
   SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(dev_);
   if (capture_path_) {
     SDL_SubmitGPUCommandBuffer(cmd);

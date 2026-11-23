@@ -404,6 +404,16 @@ void McbWaynet::command(Handle mech) {  // Pirate's Moon 1.0 @ 0x0047ca80: PM's 
     return;
   }
   if (step == 1) {
+    // FIX (bug), behind `fixed` (issue #10): N and Shift+N cycle onto element 0, the waynet's default behaviour (an
+    // empty op point). Asked for it, the exe sends the bases nowhere: they never report in, and the dock refuses
+    // every call for the rest of the mission. Here that press only repeats "wait for position".
+    if (zfix::options().fixed && this == h.mission_waynet()) {
+      znet::Element* e = current >= 0 && current < count() ? elems[static_cast<size_t>(current)] : nullptr;
+      if (!e || !as_point(static_cast<ai::AiElem*>(e)->as_behaviour())) {
+        h.say(4);  // +0x9c mcb_pos_wait
+        return;
+      }
+    }
     step = 2;
     h.dock_message(mech);  // 0x0045a500
     if (this != h.mission_waynet()) return;
