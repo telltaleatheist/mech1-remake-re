@@ -127,6 +127,14 @@ def evaluate(by):
             tag = "" if measured["ticks"] else " (UNVALIDATED: the measured run has no tick lines; its rule differs)"
             print(f"    validation, current curve against the measured {ladder} run{tag}: " + "; ".join(row))
             if measured["ticks"]:
+                # The curves again on the measured run's own income: a spending player's pace and windows already in it.
+                print(f"    on the measured {ladder} run's own income (seed {seed}; its pace already a spending player's):")
+                for base, ratio in curves:
+                    got2, broken2 = replay(measured["ticks"], base, ratio, measured["reserve"], max(ms))
+                    cells = "  ".join(f"{(str(got2[n]['contracts']) + ' (' + str(got2[n]['day']) + ')') if n in got2 else '-':>13}" for n in ms)
+                    mark = " (current)" if (base, ratio) == CURRENT[ladder] else ""
+                    warn = f"  BROKEN at contract {broken2['contracts']}" if broken2 else ""
+                    print(f"      {curve_name(base, ratio) + mark:<22}{cells}{warn}")
                 own, _ = replay(measured["ticks"], *CURRENT[ladder], measured["reserve"], max(ms))
                 same = all((n in own) == ((ladder, n) in measured["bought"]) and
                            (n not in own or own[n]["contracts"] == int(measured["bought"][(ladder, n)]["contracts"])) for n in ms)
