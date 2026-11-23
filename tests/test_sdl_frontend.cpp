@@ -8359,6 +8359,116 @@ TEST(sdl_program_launcher_checks_for_updates) {
   for (const char* k : {"MW3_LAUNCHER_FRAMES", "MW3_LAUNCHER_NAV", "MW3_UPDATE_API", "MW3_LAUNCHER_UPDATE_GO"}) unsetenv(k);
   fs::remove_all(dir, ec);
 }
+
+// The launcher's own update asked at every start (Owen 2026-11-23), on a thread, never a prompt: a newer release
+// turns the footer's "BattleTech launcher <v>" into an amber UPDATE LAUNCHER TO <v>, reached by the keys after QUIT
+// and opening the UPDATE screen; the same version, or a failed check, leaves the footer as it is (a failure in the
+// log only). A hidden run without MW3_UPDATE_API asks nothing.
+TEST(sdl_program_launcher_offers_its_own_update_at_start) {
+  namespace fs = std::filesystem;
+  namespace u = upgrades::update;
+  std::error_code ec;
+  const fs::path dir = fs::path(MW3_TEST_TMP) / "launcher_self_update";
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir / "wd", ec);
+  std::ofstream(dir / "wd" / "mw3.cfg") << "install=" << MW3_GAME_DIR << "\n";
+  // This build's own version, as the footer says it: the release "the same" carries it (a build between releases
+  // counts as its last release).
+  std::string version;
+  if (FILE* p = popen((std::string("'") + MW3_LAUNCHER_BIN + "' --version").c_str(), "r")) {
+    char buf[256] = {};
+    if (std::fgets(buf, sizeof buf, p)) version = buf;
+    pclose(p);
+  }
+  while (!version.empty() && (version.back() == '\n' || version.back() == '\r')) version.pop_back();
+  version = version.substr(version.rfind(' ') + 1);
+  std::string same_tag = version.substr(0, version.find('-'));
+  if (same_tag.empty() || same_tag[0] != 'v') same_tag = "v" + same_tag;
+  const char* names[] = {"MW3-Rebuild-Setup-%s.exe", "MW3-Rebuild-%s-mac.dmg", "MW3-Rebuild-%s-x86_64.AppImage"};
+  const char* name_f = names[u::this_platform() == u::Platform::kWindows ? 0 : u::this_platform() == u::Platform::kMac ? 1 : 2];
+  const auto rel = [&](const std::string& tag) {
+    char name[128];
+    std::snprintf(name, sizeof name, name_f, u::plain_version(tag).c_str());
+    return "[{\"tag_name\":\"" + tag + "\",\"draft\":false,\"prerelease\":false,\"body\":\"## New\\n- A new card\",\"assets\":[{\"name\":\"" +
+           name + "\",\"size\":10,\"browser_download_url\":\"file:///nowhere/" + name + "\"}]}]";
+  };
+  std::ofstream(dir / "newer.json") << rel("v98.1.0");
+  std::ofstream(dir / "same.json") << rel(same_tag);
+  const auto slurp = [](const fs::path& p) {
+    std::ifstream f(p);
+    return std::string((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+  };
+  const auto line_of = [](const std::string& text, const std::string& head) {
+    const size_t at = text.rfind(head);
+    return at == std::string::npos ? std::string() : text.substr(at, text.find('\n', at) - at);
+  };
+  unsetenv("MW3_PM_BIN");
+  // A run: the list (or none: "-"), the steps once the check has answered, its log.
+  const auto run = [&](const std::string& name, const std::string& list, const std::string& steps) {
+    if (list == "-") unsetenv("MW3_UPDATE_API");
+    else setenv("MW3_UPDATE_API", ("file://" + (dir / (list + ".json")).string()).c_str(), 1);
+    setenv("MW3_LAUNCHER_FRAMES", "400", 1);
+    if (steps.empty()) unsetenv("MW3_LAUNCHER_NAV"), unsetenv("MW3_LAUNCHER_NAV_LATE");
+    else setenv("MW3_LAUNCHER_NAV", steps.c_str(), 1), setenv("MW3_LAUNCHER_NAV_LATE", "1", 1);
+    const std::string log = (dir / (name + ".log")).string();
+    const pid_t pid = spawn_launcher({"--write-dir", (dir / "wd").string(), "--window", "640x480", "--hidden", "--nosound"}, log);
+    int status = 0;
+    EXPECT(pid > 0 && waited(pid, &status) && WIFEXITED(status) && WEXITSTATUS(status) == 0);
+    for (const char* k : {"MW3_UPDATE_API", "MW3_LAUNCHER_FRAMES", "MW3_LAUNCHER_NAV", "MW3_LAUNCHER_NAV_LATE"}) unsetenv(k);
+    return slurp(log);
+  };
+  // Newer: the footer is the button, in the main screen's list after QUIT; the keys reach it.
+  std::string steps;
+  for (int i = 0; i < 16; ++i) steps += i ? ",next" : "next";
+  const std::string newer = run("newer", "newer", steps);
+  const std::string main_list = line_of(newer, "screen main: ");
+  std::printf("  newer: %s\n  %s\n", line_of(newer, "update check at the start: ").c_str(), main_list.c_str());
+  EXPECT(has(newer, "launcher: update check at the start: MechWarrior 3 Rebuild 98.1.0 is out"));
+  EXPECT(has(newer, "launcher: footer UPDATE LAUNCHER TO 98.1.0\n"));
+  EXPECT(has(main_list, "QUIT, UPDATE LAUNCHER TO 98.1.0"));
+  int k = 0, reached = 0;
+  for (size_t at = newer.find("launcher: focus "); at != std::string::npos; at = newer.find("launcher: focus ", at + 1)) {
+    ++k;
+    if (newer.compare(at, 31, "launcher: focus UPDATE LAUNCHER") == 0) {
+      reached = k;
+      break;
+    }
+  }
+  std::printf("  reached by the keys after %d steps\n", reached);
+  EXPECT(reached > 0);
+  EXPECT(!has(newer, "screen update:"));  // never opened by itself
+  // Pressed: the UPDATE screen with the release's notes.
+  std::string press;
+  for (int i = 0; i < reached; ++i) press += "next,";
+  const std::string pressed = run("pressed", "newer", press + "press");
+  EXPECT(has(pressed, "screen update: <, >, DOWNLOAD AND INSTALL, NOT NOW\n") && has(pressed, "update notes: \xe2\x80\xa2 A new card\n"));
+  EXPECT(!has(pressed, "launcher: update: Downloaded"));  // nothing downloaded until the player says so
+  // The same version, and a failed check: the footer stays the version; the failure only in the log.
+  for (const char* list : {"same", "missing"}) {
+    const std::string text = run(list, list, "");
+    std::printf("  %s: %s\n", list, line_of(text, "update check at the start: ").c_str());
+    EXPECT(has(text, "launcher: update check at the start: "));
+    EXPECT(!has(text, "UPDATE LAUNCHER") && has(text, "launcher: footer BattleTech launcher"));
+  }
+  EXPECT(has(slurp(dir / "same.log"), "This is the newest MechWarrior 3 Rebuild ("));
+  EXPECT(has(slurp(dir / "missing.log"), "update check at the start: Could not check for updates"));
+  // A check run with no stand-in: nothing asked.
+  const std::string quiet = run("quiet", "-", "");
+  EXPECT(has(quiet, "update check at the start: not asked in a check run") && !has(quiet, "update check at file") &&
+         !has(quiet, "api.github.com") && !has(quiet, "git.owenmorgan.com"));
+  // A shot is a check run too (found when the screens' shot asked GitHub and drew the footer button).
+  {
+    const std::string log = (dir / "shot.log").string();
+    const pid_t pid = spawn_launcher({"--write-dir", (dir / "wd").string(), "--launcher-shot", (dir / "main.bmp").string(), "--launcher-screen", "main"}, log);
+    int status = 0;
+    EXPECT(pid > 0 && waited(pid, &status) && WIFEXITED(status) && WEXITSTATUS(status) == 0);
+    const std::string shot = slurp(log);
+    // (Its games' check still asks the network in a shot: that gate is the games', on --hidden only.)
+    EXPECT(has(shot, "update check at the start: not asked in a check run") && !has(shot, "UPDATE LAUNCHER") &&
+           !has(shot, "update check at https"));
+  }
+  fs::remove_all(dir, ec);
+}
 #endif
 
 #if !defined(_WIN32)  // posix_spawn (ours, not on Windows)

@@ -382,7 +382,7 @@ Installed install_update(const std::string& download) {
   // The new Setup, as a player would run it (Inno Setup, the same AppId: an upgrade in place); the launcher quits.
   if (!start_detached(download)) return in.words = "The new Setup could not be started: run it yourself from " + download + ".", in;
   in.ok = true;
-  in.words = "The new Setup is running: follow it, then start MechWarrior 3 Rebuild again.";
+  in.words = "The new Setup is running: follow it, and the BattleTech launcher opens again at its end (its last page's Launch box).";
   return in;
 #else
   const std::string target = running_package();
@@ -422,7 +422,7 @@ Installed install_update(const std::string& download) {
 #endif
   fs::remove(download, ec);
   in.ok = true;
-  in.words = "Installed. MechWarrior 3 Rebuild starts again now.";
+  in.words = "Installed. The BattleTech launcher starts again now.";
   return in;
 #endif
 }

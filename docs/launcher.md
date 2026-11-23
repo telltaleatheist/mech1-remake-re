@@ -855,6 +855,27 @@ program files are replaced.
    counts as its release), `update_says_what_it_found`,
    `sdl_update_fetch_by_curl`, `sdl_program_launcher_checks_for_updates`.
    Breaks: drafts kept, rc tags taken: each caught.
+   **At every start (Owen, 2026-11-23: so new games, features or a reworked
+   look reach players):** the same check runs quietly on a thread of its own
+   (`start_self_check`, collected each frame by `take_self_check`), both
+   repos in both homes as UPDATES asks them. The main screen never waits on
+   it and it never prompts. A newer release turns the footer's "BattleTech
+   launcher <v>" into an amber button, UPDATE LAUNCHER TO <v> (`kSelfUpdate`),
+   placed where the version was and after QUIT in the keys' and the pad's
+   order. Pressing it opens the same UPDATE screen as UPDATES (notes,
+   DOWNLOAD AND INSTALL, NOT NOW). Nothing is downloaded or installed until
+   the player presses DOWNLOAD AND INSTALL there. The same version, an older
+   one or a failed check leave the footer as it is; the verdict goes to the
+   log only ("update check at the start: ..."). A check run (`--hidden`, or
+   a `--launcher-shot`) without `MW3_UPDATE_API` asks nothing, so tests never
+   reach GitHub or git.owenmorgan.com; a shot with it asks before drawing.
+   `MW3_LAUNCHER_NAV_LATE=1` (checks) runs `MW3_LAUNCHER_NAV`'s steps once
+   that check has answered. Test:
+   `sdl_program_launcher_offers_its_own_update_at_start` (newer: the footer
+   line, the button in the main screen's list after QUIT, reached by the keys,
+   never opening anything by itself, pressed: the UPDATE screen and its notes,
+   nothing downloaded; the same version and a failed check: the footer kept,
+   the verdict in the log; a hidden run: nothing asked).
 2. **The notes and the question**: an UPDATE screen with the release's notes
    (its body, wrapped and paged, the markdown's `#` and `-` shown plainly),
    "Download and install MechWarrior 3 Rebuild 1.2.0?", DOWNLOAD AND
@@ -926,6 +947,44 @@ program files are replaced.
    detached: each caught. Windows' branch compile-checked with mingw; Linux's
    is not compiled on this Mac (its package build is the first), and the
    Windows Setup run waits for Owen's PC.
+   **Windows, run for real (owens-pc, 2026-11-23):** two launcher-only
+   packages from package.cmd: the old one from main 09da080e, the new one
+   from pc/launcher-self-update tagged v1.3.99 for the run (a local tag,
+   deleted after). Both Setups were built from a test-only variant of
+   installer.iss: another AppId and name ("BattleTech upgrade test"),
+   `PrivilegesRequired=lowest`, a scratch install folder, the
+   `MechWarrior 3.lnk` deletes and the desktop icon left out. Owen's own
+   per-machine 1.2.0 install, under the real AppId, would otherwise have been
+   the one upgraded. User folders: fake BattleTech ones, Owen's MicroProse
+   folder renamed aside and back. The run:
+   - the old Setup installed;
+   - the old launcher started with `MW3_UPDATE_API` at a `file://` list
+     naming the new Setup and its SHA256SUMS;
+   - UPDATES, then the UPDATE screen with the notes;
+   - DOWNLOAD AND INSTALL: "Downloaded and checked", the new Setup started
+     and the old launcher quit;
+   - the normal wizard (licence, the folder page offering the installed
+     folder, tasks, Ready, Install);
+   - Finish with the Launch box ticked by default.
+
+   Result:
+   - the new launcher opened by itself from the same folder, its corner
+     "BattleTech launcher 1.3.99-dirty", its start check saying it is the
+     newest;
+   - one uninstall entry, now v1.3.99, with the same `unins000`: upgraded in
+     place;
+   - every user file's SHA-256 the same before DOWNLOAD AND INSTALL and
+     after the new launcher was up (8 files: mw3.cfg, a pilot, a save, PM's
+     mw3.cfg and pilot, rebuild-games.txt, names-utf8.done; the log is
+     rewritten by each start);
+   - Owen's real install untouched (still v1.2.0).
+
+   Not covered: the admin (UAC) path with the real AppId over an existing
+   per-machine install; that needs Owen at the PC. Found on the way and
+   fixed: since the two homes, every Windows package built on this PC failed
+   `check_dist.ps1`, because the user name was inside git.owenmorgan.com's
+   API address. It and `tools/deps/check_paths.py` now allow the backup's
+   addresses, as they allow GitHub's.
 5. **Owen's hard rule, checked**: the upgrade test (`sdl_program_package_upgrade_keeps_the_players_files`)
    run through the updater's own swap, the settings folders unchanged by
    hash.
