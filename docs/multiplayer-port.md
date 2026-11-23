@@ -795,7 +795,7 @@ Ours, in three pieces:
   first NUL and at 63 characters, control characters as '?'. Tests:
   `net_enet_search_finds_a_host_on_the_lan_and_by_address` (the LAN's
   probe to loopback in the test: a socket bound there hears no broadcast;
-  a real broadcast on this Mac's LAN answered from 192.168.68.79),
+  a real broadcast on a LAN answered from the host's LAN address),
   `net_enet_search_drops_broken_answers` (six broken answers and a good
   one; a break caught), `net_enet_znet_finds_and_joins_a_game`. Not a
   reflector (the lead's review): a probe is padded to 128 bytes, at least
