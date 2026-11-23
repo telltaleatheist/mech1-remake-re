@@ -197,5 +197,10 @@ MoltenVK (`SDL_GPU_DRIVER=vulkan`, docs/windows.md): 4,075 MB for c2m1 against 3
 
 For players' graphics reports: mw3.log's "GPU:" line names the card and driver (Vulkan and D3D12 give
 the driver's version; Metal none). MW3_GPU_DEBUG=1 asks for the backend's validation (Vulkan's layers,
-the D3D12 debug layer) where the system has it, and falls back without it. MW3_GPU_COUNT=N prints every
+the D3D12 debug layer) where the system has it, and falls back without it; without the layer installed
+nothing validates though the device is made in debug mode (the log says "asked for"). On the reference PC
+(2026-11-23, RTX 3090 Ti): D3D12's debug layer reports only #820 (the frame target's clear colour is not
+its creation's), Vulkan had no layer; the old upload path took 4.2 GB under Vulkan there too and none
+extra under D3D12, which recycles the buffers. A Windows build has no SPIR-V without glslang, so Windows
+players are on D3D12. MW3_GPU_COUNT=N prints every
 N frames the textures alive, the uploads and readbacks since, and the process's memory.
