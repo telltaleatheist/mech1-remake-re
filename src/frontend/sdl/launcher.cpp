@@ -900,6 +900,7 @@ void Launcher::start_games_check() {
   if (!games_on_) return;
   if ((o_.hidden || !o_.shot.empty()) && !SDL_getenv("MW3_GAMES_API")) {  // a shot is a check run too
     for (auto& c : checks_) c.kind = upgrades::update::GameCheck::kFailed, c.words = "not asked in a check run";
+    std::printf("mw3: launcher: games: not asked in a check run\n");
     return;
   }
   if (!o_.shot.empty()) {  // a shot is drawn once: its answers first

@@ -17,6 +17,7 @@
 #if !defined(_WIN32)
 #include <fcntl.h>
 #include <spawn.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #endif
@@ -8467,6 +8468,39 @@ TEST(sdl_program_launcher_offers_its_own_update_at_start) {
     EXPECT(has(shot, "update check at the start: not asked in a check run") && !has(shot, "UPDATE LAUNCHER") &&
            !has(shot, "update check at https"));
   }
+  fs::remove_all(dir, ec);
+}
+
+// A quit never waits on the network (lead 2026-11-23): with both start checks stuck on a list that never answers
+// (a FIFO nobody writes, so curl waits in its open for good), the launcher quits in moments, not after the curl
+// timeouts (20 s for its own check, 15 s for each game's), the stuck curls stopped (stop_asking).
+TEST(sdl_program_launcher_quits_without_waiting_on_the_network) {
+  namespace fs = std::filesystem;
+  std::error_code ec;
+  const fs::path dir = fs::path(MW3_TEST_TMP) / "launcher_quit_stalled";
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir / "wd", ec);
+  std::ofstream(dir / "wd" / "mw3.cfg") << "install=" << MW3_GAME_DIR << "\n";
+  const fs::path fifo = dir / "never.json";
+  EXPECT(::mkfifo(fifo.c_str(), 0600) == 0);
+  setenv("MW3_UPDATE_API", ("file://" + fifo.string()).c_str(), 1);
+  setenv("MW3_GAMES_API", ("file://" + fifo.string()).c_str(), 1);
+  setenv("MW3_GAMES_DIR", (dir / "games").c_str(), 1);
+  setenv("MW3_LAUNCHER_FRAMES", "30", 1);  // quit about half a second in, both checks still waiting
+  unsetenv("MW3_PM_BIN");
+  const std::string log = (dir / "quit.log").string();
+  const auto t0 = std::chrono::steady_clock::now();
+  const pid_t pid = spawn_launcher({"--write-dir", (dir / "wd").string(), "--window", "640x480", "--hidden", "--nosound"}, log);
+  int status = 0;
+  const bool ended = pid > 0 && waited(pid, &status, 60);
+  const double s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+  for (const char* k : {"MW3_UPDATE_API", "MW3_GAMES_API", "MW3_GAMES_DIR", "MW3_LAUNCHER_FRAMES"}) unsetenv(k);
+  std::ifstream f(log);
+  const std::string text((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+  std::printf("  quit after %.1f s; stopped: %d\n", s, has(text, "the launcher is closing"));
+  EXPECT(ended && WIFEXITED(status) && WEXITSTATUS(status) == 0);
+  EXPECT(s < 5.0);
+  EXPECT(has(text, "update check at file://") && has(text, "the launcher is closing"));  // its own check: stopped
   fs::remove_all(dir, ec);
 }
 #endif
