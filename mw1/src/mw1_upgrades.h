@@ -18,13 +18,14 @@
 
 namespace mw1::upgrades {
 
-// The design's numbers: placeholders until the project settles them (plan-1.1.0.md section 4). Ratios in permille.
-inline constexpr int64_t kSinkBase = 500000;
-inline constexpr int32_t kSinkRatio = 1250;
-inline constexpr int64_t kArmourBase = 100000;
+// The prices, settled for 1.1.0 by a project decision (2026-11-22; plan-1.1.0.md section 4) and adjusted if play
+// asks for it: sinks 3M x 1.15^n, armour 500k x 1.05^n, steps 5M x 1.4^n. Ratios in permille.
+inline constexpr int64_t kSinkBase = 3000000;
+inline constexpr int32_t kSinkRatio = 1150;
+inline constexpr int64_t kArmourBase = 500000;
 inline constexpr int32_t kArmourRatio = 1050;
-inline constexpr int64_t kStepBase = 1000000;
-inline constexpr int32_t kStepRatio = 1500;
+inline constexpr int64_t kStepBase = 5000000;
+inline constexpr int32_t kStepRatio = 1400;
 // true: each weapon type has its own ladder (its power and range steps together); false: one ladder for all steps.
 inline constexpr bool kStepLadderPerType = true;
 inline constexpr int32_t kPowerStepPercent = 5;  // of the weapon's damage, each power step

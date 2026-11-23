@@ -378,6 +378,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         briefing_cursor_frame();
         if (std::getenv("MW1_FIT")) screen_fit_frame();
         render_pass_frame();
+        lab_frame();  // the lab's first slot shown, once its screen is up (nothing while no lab is open)
       };
     }
     // MW1_SCREEN=pause or pause_options (development: --shot pictures of the pause over a mission): the offer
@@ -1910,14 +1911,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     const auto at = std::find(lab_slots_.begin(), lab_slots_.end(), i);
     lab_show_ = at == lab_slots_.end() ? 0 : static_cast<int32_t>(at - lab_slots_.begin());
     ge.set_lab_lance([this](int32_t slot, int32_t m) { lab_swap(slot, m); }, true);
-    if (!lab_hook_) {  // the lab's first slot shown, once its screen is up (each frame shown, until it is)
-      lab_hook_ = true;
-      auto before = ge.on_present;
-      ge.on_present = [this, before](int f) {
-        if (before) before(f);
-        lab_frame();
-      };
-    }
+    // lab_frame runs from main_entered's frame hook. No hook is put on here: a lab opened from inside a frame (a
+    // test's or a shot's step) would replace the running on_present and free it.
     std::printf("mw1: market: the mech lab on the %s, %zu slots\n", mech3::mech_name(mech), lab_slots_.size());
     ge.pilot_chosen(p);  // the lab's pilot is the engine's current one ([0x0060861c])
     ge.mech_lab_open(ge.store_handle(&g->store), 0);
@@ -4905,7 +4900,6 @@ static bool reach_ground(const std::string& structure, float out[3]) {
   std::vector<int32_t> lab_slots_;
   std::vector<std::shared_ptr<mech3::Config>> lab_loadouts_;
   int32_t lab_show_ = 0;
-  bool lab_hook_ = false;
   static constexpr int32_t kLabCriticalsPage = 3;  // the criticals page: LOAD-OUT and the supplies (ICON_CRITICALS)
   std::shared_ptr<mech3::Store> salvage_;  // this mission's parts, the stores' on a win
   bool deployed_ = false, launched_ = false, ended_ = false, failed_ = false, own_wins_ = false;
