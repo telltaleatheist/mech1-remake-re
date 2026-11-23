@@ -45,6 +45,13 @@ std::vector<std::string> install_candidates(bool pirates_moon = false);
 // so the machine's own installs (registry, standard folders) stay out; null restores it.
 void set_install_candidates_hook(std::vector<std::string> (*fn)());
 
+// Ours (Owen 2026-11-22): a game's own folder, picked (sdl_games.h game_folder_in), carries this mark; its game
+// files are <folder>/install, and its music and converted movies <folder>/music and <folder>/video.
+constexpr const char* kGameFolderMark = "rebuild-game-folder.txt";
+// Where the game's music and converted movies go and are looked for: the folder above `install` when it is a
+// game's own folder (the mark), else the user folder `write_dir`, as before.
+std::string media_dir(const std::string& install, const std::string& write_dir);
+
 // mw3.cfg's install= line set to `install` (added, or replacing the old one),
 // the other lines kept; false when the file cannot be written.
 bool save_install(const std::string& write_dir, const std::string& install);
