@@ -40,6 +40,7 @@
 #include "platform/pause_hud.h"
 #include "platform/mode_labels.h"
 #include "platform/list_wheel.h"
+#include "platform/pointer_hands_off.h"
 #include "gamez/zutil/zutl_path.h"
 #include "frontend/sdl/crash_report.h"
 #include "frontend/sdl/sdl_platform.h"
@@ -109,6 +110,9 @@ bool convert_in_window(const zipkit::Options& o, std::string* error) {
   });
   SDL_Window* win = nullptr;
   SDL_Renderer* ren = nullptr;
+  // As mw3_main's start (the engine's, 2026-11-23): on the Mac a run no player is at stays a background process, never
+  // taking the keyboard from the app in front when it starts or exits. The game's own start (PM's program) sets it too.
+  if (platform::pointer_hands_off()) SDL_SetHint(SDL_HINT_MAC_BACKGROUND_APP, "1");
   const bool video = SDL_Init(SDL_INIT_VIDEO);
   if (video) SDL_CreateWindowAndRenderer("MechWarrior 1: converting MechWarrior 3's worlds", 480, 64, 0, &win, &ren);
   std::string shown;
