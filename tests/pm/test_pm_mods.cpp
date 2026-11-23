@@ -2,6 +2,7 @@
 // player's mech in PM's c1m1, and (env-gated) a real mod's files read and
 // played. MechWarrior 3's own checks are tests/test_mods.cpp and
 // test_program.cpp's mods_*_headless.
+#include <cmath>  // std::fabs: libstdc++ does not bring it in through the others
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -357,6 +358,9 @@ TEST(pm_mission_without_its_world_fails_headless) {
     mech3::mech_types_forget();
     mech3::options() = mech3::Options{};
   });
+  // Gone again: a folder one level inside the build dir is a drop-in install to the setup kit's search, and this
+  // one has no c1 world (mw3pmsdltests' screenshot run started on it).
+  fs::remove_all(copy, ec), fs::remove_all(wd, ec);  // the links, never what they name
 }
 
 // The mech lab's world (mission world 6, "lab") ships no gamez.zbd: its
