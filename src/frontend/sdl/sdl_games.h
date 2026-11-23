@@ -8,6 +8,7 @@
 #include <functional>
 #include <string>
 
+#include "rekit/status.h"
 #include "upgrades/update/games.h"
 
 namespace sdlfe::games {
@@ -64,6 +65,10 @@ std::string game_folder_in(const std::string& picked, u::Game g);
 // The folder made the game's before anything goes in: created when missing, marked as the launcher's games folder
 // (its program can go in) and as this game's. One holding anything else without the marks is never written to.
 bool claim_game_folder(const std::string& dir, u::Game g, std::string* error);
+
+// A kit game's answer to `bin --status` (re-setup-kit's launcher contract: one JSON object, exit 0, nothing on
+// screen; MechWarrior 1 Rebuild first): false when it did not answer in time or its answer is not one.
+bool kit_status(const std::string& bin, rekit::Status* out);
 
 // Whether `bin` is inside the AppImage this program runs from ($APPDIR), so goes away with it.
 bool in_own_mount(const std::string& bin);

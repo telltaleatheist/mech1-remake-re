@@ -476,7 +476,8 @@ Done install_file(const std::string& root, const std::string& file, const std::s
 }
 
 std::string game_folder_in(const std::string& picked, u::Game g) {
-  static const char* const kNames[] = {"MechWarrior 3", "Pirate's Moon", "MechWarrior 1 Remake"};
+  static const char* const kNames[] = {"MechWarrior 3", "Pirate's Moon", "MechWarrior 1 Remake", "MechWarrior 1 Rebuild",
+                                       "Inception Rebuild", "Inception Remake"};
   std::error_code ec;
   const fs::path p(picked), mark = p / kGameFolderMark;
   if (!fs::exists(p, ec) || fs::is_empty(p, ec)) return picked;
@@ -497,6 +498,13 @@ bool claim_game_folder(const std::string& dir, u::Game g, std::string* error) {
   if (!write_text(mark, "# A game's folder, made by the MechWarrior 3 Rebuild launcher or the game's setup: its program and its game files.\ngame=" + key + "\n"))
     return *error = dir + " could not be written to", false;
   return true;
+}
+
+bool kit_status(const std::string& bin, rekit::Status* out) {
+  std::string said;
+  if (bin.empty() || run_program({bin, "--status"}, 10, &said) != 0) return false;
+  const size_t a = said.find('{'), b = said.rfind('}');  // the object alone, should a log line come with it
+  return a != std::string::npos && b != std::string::npos && b > a && rekit::parse_status(said.substr(a, b - a + 1), out);
 }
 
 bool in_own_mount(const std::string& bin) {

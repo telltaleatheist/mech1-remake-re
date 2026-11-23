@@ -9,6 +9,9 @@ const GameInfo& game_info(Game g) {
       {"mw3", "MechWarrior 3", "mech3-re", "v", "mw3"},
       {"pm", "Pirate's Moon", "mech3-pm-re", "pm-v", "mw3pm"},
       {"mw1", "MechWarrior 1 Remake", "mech1-remake-re", "mw1-v", "mw1"},
+      {"mw1r", "MechWarrior 1 Rebuild", "mech1-re", "mw1r-v", "mw1r"},
+      {"chi", "Inception Rebuild", "inception-re", "chi-v", "chi"},
+      {"chirm", "Inception Remake", "inception-remake-re", "chirm-v", "chirm"},
   };
   return kInfo[static_cast<int>(g)];
 }
@@ -21,7 +24,12 @@ bool game_tag(Game g, const std::string& tag) {
 }
 
 std::string game_asset_name(Game g, const std::string& tag, Platform p) {
-  const char* stem = g == Game::kMw3 ? "MW3-alone" : g == Game::kPm ? (p == Platform::kWindows ? "mw3pm" : "PM-Rebuild") : "MW1-Remake";
+  const char* stem = g == Game::kMw3   ? "MW3-alone"
+                     : g == Game::kPm  ? (p == Platform::kWindows ? "mw3pm" : "PM-Rebuild")
+                     : g == Game::kMw1 ? "MW1-Remake"
+                     : g == Game::kMw1r ? "MW1-Rebuild"
+                     : g == Game::kChi  ? "CHI-Rebuild"
+                                        : "CHI-Remake";
   const char* tail = p == Platform::kWindows ? "-win64.zip" : p == Platform::kMac ? "-mac.dmg" : "-x86_64.AppImage";
   return std::string(stem) + "-" + tag + tail;
 }
