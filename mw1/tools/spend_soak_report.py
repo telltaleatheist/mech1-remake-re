@@ -57,9 +57,11 @@ def read(path):
 # price curves, with the game's own ladder arithmetic (mw1_upgrades.cpp ladder_price). Curves as (base, ratio permille);
 # the first of each is the current one. The baseline's income was tried first and breaks (its 'Mech buys for the early
 # rungs unaffordable after any curve's first purchases), so only the runs' own income is used.
-CURVES = {"sinks": [(500000, 1250), (2000000, 1150), (3000000, 1150), (2000000, 1200), (3000000, 1200)],
-          "armour": [(100000, 1050), (300000, 1050), (500000, 1050), (1000000, 1050), (500000, 1030)],
-          "steps": [(1000000, 1500), (3000000, 1500), (5000000, 1500), (8000000, 1500), (5000000, 1400)]}
+# The first of each is the game's (mw1_upgrades.h, settled 2026-11-22); the rest are the curves weighed against it,
+# the earliest placeholders (0.5M x 1.25, 0.1M x 1.05, 1M x 1.5) among them.
+CURVES = {"sinks": [(3000000, 1150), (500000, 1250), (2000000, 1150), (2000000, 1200), (3000000, 1200)],
+          "armour": [(500000, 1050), (100000, 1050), (300000, 1050), (1000000, 1050), (500000, 1030)],
+          "steps": [(5000000, 1400), (1000000, 1500), (3000000, 1500), (5000000, 1500), (8000000, 1500)]}
 CURRENT = {k: v[0] for k, v in CURVES.items()}
 EVAL_MILESTONES = {"sinks": (1, 3, 5, 10, 20, 30), "armour": (10, 25, 50, 100), "steps": (1, 3, 5, 10)}
 PRICE_AT = (1, 10, 20, 30)  # the single prices shown: the 1st, 10th, 20th and 30th item's
