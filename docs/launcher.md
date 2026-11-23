@@ -431,6 +431,10 @@ MECHWARRIOR 1 REMAKE TAB, INCEPTION ORIGINAL TAB, INCEPTION REMAKE TAB". Every
 game's entry line is logged once whichever tab shows, plus "entry INCEPTION
 ORIGINAL:" and "entry INCEPTION REMAKE:".
 
+The header says BATTLETECH (Owen, 2026-11-22: the family's launcher), on the cards
+and on the launcher's own screens, and the window is "BattleTech"; title.png's
+"MW3 REBUILD" is no longer drawn. A game's setup screen keeps its game's name.
+
 The section below is the card layout before the families (one card a game);
 its panel, badges, square buttons and bottom row are unchanged.
 

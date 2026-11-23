@@ -59,7 +59,9 @@ constexpr int kBadge = 76;  // a game's badge across, on the 640x480 canvas (the
 // The setup screens' titles, by header_game(): each game's own, never the launcher's (Owen 2026-11-22).
 constexpr const char* kHeaderNames[] = {"MECHWARRIOR 3", "MECHWARRIOR 3: PIRATE'S MOON", "MECHWARRIOR 1 REMAKE", "MECHWARRIOR 1"};
 constexpr int kCardsW = 768, kCardsTop = 84, kCardsBottom = 416, kCardBadge = 100, kCardButtonH = 42;
-constexpr int kCardTabY = 150, kCardTabH = 24;  // a card's game tabs, under its name (Owen 2026-11-22)
+constexpr int kCardTabY = 150, kCardTabH = 24;
+// The launcher's name in its header and window (Owen 2026-11-22: "Battletech" at the top, for the whole family).
+constexpr const char* kLauncherTitle = "BATTLETECH";  // a card's game tabs, under its name (Owen 2026-11-22)
 // Each card's games, its tabs left to right (upgrades::update::Game): MW3 | Pirate's Moon, MW1's ORIGINAL (the
 // Rebuild) | REMAKE, Inception's ORIGINAL | REMAKE. Originals on the left (Owen 2026-11-22).
 constexpr int kCardGames[3][2] = {{0, 1}, {3, 2}, {4, 5}};
@@ -1830,7 +1832,7 @@ void Launcher::background(float dt) {
       SDL_Rect e{43, 22, 46, 46};
       SDL_BlitSurfaceScaled(art_.emblem, nullptr, canvas_, &e, SDL_SCALEMODE_LINEAR);
     }
-    text_.draw(canvas_, "MW3 REBUILD", 30, kWhite, 101, 46, -1);
+    text_.draw(canvas_, kLauncherTitle, 30, kWhite, 101, 46, -1);
     return;
   }
   const int game = header_game();
@@ -1853,16 +1855,13 @@ void Launcher::background(float dt) {
       SDL_BlitSurfaceScaled(b, nullptr, canvas_, &e, SDL_SCALEMODE_LINEAR);
     }
     text_.draw(canvas_, name, size, kWhite, x + badge + gap, 48, -1);
-  } else if (art_.title) {
-    const int x = (W - art_.title->w - 84) / 2;
+  } else {  // the launcher's own screens: the emblem and its name, as the cards' header (title.png's "MW3 REBUILD" retired)
+    const int x = (W - text_.width(kLauncherTitle, 40) - 84) / 2;
     if (art_.emblem) {
       SDL_Rect e{x, 12, art_.emblem->w, art_.emblem->h};
       SDL_BlitSurface(art_.emblem, nullptr, canvas_, &e);
     }
-    SDL_Rect t{x + 84, 48 - art_.title->h / 2, art_.title->w, art_.title->h};
-    SDL_BlitSurface(art_.title, nullptr, canvas_, &t);
-  } else {
-    text_.draw(canvas_, "MW3 REBUILD", 40, kWhite, W / 2, 48);
+    text_.draw(canvas_, kLauncherTitle, 40, kWhite, x + 84, 48, -1);
   }
 }
 
@@ -3353,7 +3352,7 @@ LauncherChoice Launcher::run() {
   SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE;
   if (o_.fullscreen) flags |= SDL_WINDOW_FULLSCREEN;
   if (o_.hidden) flags |= SDL_WINDOW_HIDDEN;
-  win_ = SDL_CreateWindow("MechWarrior 3", o_.win_w, o_.win_h, flags);
+  win_ = SDL_CreateWindow(o_.setup_only || o_.pm ? (o_.pm ? "Pirate's Moon" : "MechWarrior 3") : "BattleTech", o_.win_w, o_.win_h, flags);
   if (!win_ || !(ren_ = SDL_CreateRenderer(win_, nullptr))) {
     std::fprintf(stderr, "mw3: launcher: no window (%s): straight to the game\n", SDL_GetError());
     return install_.ok ? LauncherChoice{LauncherChoice::kPlay, install_.dir} : LauncherChoice{};
