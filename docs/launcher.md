@@ -938,6 +938,55 @@ program files are replaced.
    folder beside the app the same way. Left for the release: the Windows
    Setup's upgrade over 1.0.x on Owen's PC (release.md, Windows).
 
+## Two homes for every release (Owen, 2026-11-22)
+
+Every family repo and its releases (with `SHA256SUMS`) are copied from GitHub
+to a read-only Forgejo at `git.owenmorgan.com`, under the same paths
+(`git.owenmorgan.com/telltaleatheist/<repo>`), by a sync job on triton every
+10 minutes. The launcher reads both, so it keeps working if one is forgotten
+or GitHub goes away.
+
+- **The lists.** Each repo is asked in both homes, git.owenmorgan.com first
+  (`https://git.owenmorgan.com/api/v1/repos/telltaleatheist/<repo>/releases?limit=40`:
+  Forgejo takes `limit`, not `per_page`), then GitHub. Forgejo's JSON has
+  the same fields `parse_releases` reads (`tag_name`, `body`, `draft`,
+  `prerelease`, `assets[name, browser_download_url, size]`). The update
+  check asks mw3-re and mech3-re in both homes, four lists in all
+  (`check_for_updates`); a game's card asks its repo in both
+  (`games::check`). `sdlfe::release_lists` builds them; `ask_lists` asks
+  them in turn.
+- **The judging.** Every list that reads counts, and the newest release on
+  any of them wins (`upgrades::update::read_homes`, then `judge` or
+  `judge_game` over all of them). One home down or unreadable is fine; the
+  check fails only when no list reads, saying the first one's reason.
+- **The download.** A release in both homes is downloaded from GitHub
+  first: triton's bandwidth is metered (2 TB a month), so it carries only
+  what GitHub can't. `with_homes` builds the chosen release from the
+  GitHub copy (an `Answer` marked `download_first`) and keeps the other
+  home's assets as `Release::other_homes`. `sdlfe::download_checked`
+  (used by the updater's `download_update` and the games'
+  `install_release`) tries each home in turn when the one before fails:
+  its file gone or cut short, or not its checksum. A newest release on only
+  one home downloads from that home. Each home's file is checked against
+  that home's `SHA256SUMS` line. A home without one (no `SHA256SUMS`, it
+  could not be fetched, or no line for the file) uses the other homes'
+  line when they agree, and nothing when they disagree. A cancel never
+  tries the other home. The log names the home that failed and the one
+  that served the file.
+- **Checks.** `MW3_UPDATE_API` and `MW3_GAMES_API` name one list (taken as
+  GitHub's) or two as `BACKUP|GITHUB` (`{repo}` in each for the games).
+  Tests: `update_reads_both_homes` and `games_read_both_homes` (the same
+  release in both: GitHub's file with the backup's behind it, in either
+  order; newest on GitHub only; newest on the backup only; either home
+  down; both down; a home without the platform's file; a draft is no
+  copy), `sdl_release_lists_both_homes` (the URLs, and both forms of the
+  variables), `sdl_update_download_falls_back_to_the_backup` (GitHub's
+  file gone, GitHub's file damaged, GitHub without `SHA256SUMS` checked
+  against the backup's line, no line anywhere, both gone, a cancel), and
+  `sdl_program_launcher_checks_for_updates` (the launcher with two lists:
+  newest on GitHub only, on the backup only, GitHub down, the backup
+  down, both failing).
+
 ## Games on demand (Owen, 2026-11-22)
 
 Owen: "make the launcher download the games when the player wants to play
