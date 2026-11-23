@@ -8456,6 +8456,16 @@ TEST(sdl_program_launcher_offers_its_own_update_at_start) {
   const std::string quiet = run("quiet", "-", "");
   EXPECT(has(quiet, "update check at the start: not asked in a check run") && !has(quiet, "update check at file") &&
          !has(quiet, "api.github.com") && !has(quiet, "git.owenmorgan.com"));
+  // A shot is a check run too (found when the screens' shot asked GitHub and drew the footer button).
+  {
+    const std::string log = (dir / "shot.log").string();
+    const pid_t pid = spawn_launcher({"--write-dir", (dir / "wd").string(), "--launcher-shot", (dir / "main.bmp").string(), "--launcher-screen", "main"}, log);
+    int status = 0;
+    EXPECT(pid > 0 && waited(pid, &status) && WIFEXITED(status) && WEXITSTATUS(status) == 0);
+    const std::string shot = slurp(log);
+    EXPECT(has(shot, "update check at the start: not asked in a check run") && !has(shot, "UPDATE LAUNCHER") &&
+           !has(shot, "api.github.com") && !has(shot, "git.owenmorgan.com"));
+  }
   fs::remove_all(dir, ec);
 }
 #endif
