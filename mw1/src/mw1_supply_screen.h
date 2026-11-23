@@ -107,7 +107,7 @@ std::string kits_words(const Kits& k);
 // A row's price to BUY now (FOR SALE's), and whether it can be bought at all (a step at its most: no).
 int64_t row_price(const Company& c, const SupplyRow& r);
 bool row_at_most(const Company& c, const SupplyRow& r);
-// BUY's question for a kit or a step, which is never sold back: "Buy a heat sink kit for 500,000 C-bills? ..."; ""
+// BUY's question for a kit or a step, which is never sold back: "Buy a heat sink kit for 3,000,000 C-bills? ..."; ""
 // for a dealer's item (bought at once: it sells back).
 std::string buy_question(const Company& c, const SupplyRow& r);
 // What the status line says of the chosen row, when no button has said anything since.
