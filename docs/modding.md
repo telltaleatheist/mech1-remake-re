@@ -33,8 +33,8 @@ registry lists is a key wherever it stands.
 ## A mod (M1, 2026-11-01)
 
 A folder in the settings folder's `mods\` (the write dir: on Windows
-`%APPDATA%\MicroProse\MechWarrior 3\mods`, on the Mac `~/Library/Application
-Support/MicroProse/MechWarrior 3/mods`), laid out like the install
+`%APPDATA%\BattleTech\MechWarrior 3\mods`, on the Mac `~/Library/Application
+Support/BattleTech/MechWarrior 3/mods`), laid out like the install
 (`zbd\...`, `video\...`), with a `mod.txt`:
 
 ```

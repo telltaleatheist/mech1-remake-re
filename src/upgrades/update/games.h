@@ -64,7 +64,10 @@ struct GameCheck {
   Platform platform = this_platform();
   std::string words;  // for the log and the status line
 };
-GameCheck judge_game(Game g, const std::string& installed, const Answer& answer, Platform p);
+// Over every home's answer for its repo (Owen 2026-11-22: git.owenmorgan.com and GitHub): the newest release on
+// either; failed only when no answer reads, saying the first one's reason. `release` carries the other home's copy
+// (other_homes) for the download to fall back on.
+GameCheck judge_game(Game g, const std::string& installed, const std::vector<Answer>& answers, Platform p);
 
 // A tag as a player reads it: "1.2.3" from "pm-v1.2.3", "1.0.7" from "mw1-v1.0.7".
 std::string game_version(const std::string& tag);

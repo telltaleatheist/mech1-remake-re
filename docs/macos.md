@@ -40,7 +40,7 @@ THIRD-PARTY.txt describes the `--deps` build.
   for releases.
 
 The game's files, settings and saves go to the write dir,
-`~/Library/Application Support/MicroProse/MechWarrior 3/`, as for the
+`~/Library/Application Support/BattleTech/MechWarrior 3/`, as for the
 development build; with no console, nothing else changes on the Mac (the
 terminal shows the output when it is started from one).
 

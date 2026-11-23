@@ -117,6 +117,7 @@ int main(int argc, char** argv) {
       return 2;
     }
   }
+  if (platform::pointer_hands_off()) SDL_SetHint(SDL_HINT_MAC_BACKGROUND_APP, "1");  // as mw3_main: no focus taken
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     std::fprintf(stderr, "mw3launcher: SDL_Init: %s\n", SDL_GetError());
     return 1;
