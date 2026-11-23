@@ -1061,8 +1061,30 @@ release.
   saying "Asking GitHub..." meanwhile. The newest release whose tag is the
   game's own (`vX.Y.Z`, `pm-vX.Y.Z`, `mw1-vX.Y.Z`), not a draft or a
   prerelease, with this platform's file, is the answer
-  (`upgrades::update::newest_game`). A check run (`--hidden`) asks only
-  `MW3_GAMES_API` (a URL with `{repo}`, `file://` allowed), never GitHub.
+  (`upgrades::update::newest_game`). A check run (`--hidden`, or a
+  `--launcher-shot` since 2026-11-23) asks only `MW3_GAMES_API` (a URL with
+  `{repo}`, `file://` allowed), never GitHub or git.owenmorgan.com; without
+  it the log says "games: not asked in a check run" and the cards show what
+  they show with no answer ("Can't reach the server").
+  **A quit never waits on the network (lead, 2026-11-23).** Both start checks
+  run on threads that the launcher joins as it closes. A home that hangs
+  would have held the quit for the curl limits: up to 4 lists × 20 s for its
+  own update, 6 games × 2 homes × 15 s for the games. Now `~Launcher` calls
+  `sdlfe::stop_asking()` first. Any curl running is killed at once, a
+  download too, and any later `curl_get` fails at once ("the launcher is
+  closing"), so the threads end and join in moments. Nothing is detached,
+  so no thread outlives the process's own teardown. Test:
+  `sdl_program_launcher_quits_without_waiting_on_the_network` (both checks
+  stuck on a FIFO list nobody writes: the quit took 1.1 s; with
+  `stop_asking` a no-op it took over 60 s and failed).
+  **The launcher-only package carries no FFmpeg.** The launcher loads none of
+  it: the movies' import runs an installed MechWarrior 3's own `mw3import`,
+  from that game's folder with its own DLLs. Until 2026-11-23 `package.cmd`'s
+  `for` loop matched `av*.dll`/`sw*.dll` in the current folder, not the
+  package's, so they shipped anyway. It now deletes them from the package,
+  and `check_dist.ps1 -LauncherOnly` fails a package that has them. The
+  installer's LauncherOnly delete of `{app}\av*.dll` and `sw*.dll` stays: it
+  clears an earlier package's copies on an upgrade.
 - **The files** (`game_asset_name`): Windows takes the zip, never the Setup
   (`MW3-alone-<v>-win64.zip`, `mw3pm-<pm v>-win64.zip`,
   `MW1-Remake-<mw1 v>-win64.zip`); the Mac the disk image (`MW3-alone-`,
