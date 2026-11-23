@@ -5512,7 +5512,7 @@ TEST(sdl_program_launcher_screens) {
     const char* hover;
     int edge_x, edge_y;
   };
-  for (const Shot& s : {Shot{"main", false, "screen main: MECHWARRIOR 3, MECHWARRIOR 1, INCEPTION ORIGINAL, GAME FILES, UPDATES, INSTALL FROM FILE, QUIT, MECHWARRIOR 3 TAB, PIRATE'S MOON TAB, MECHWARRIOR 1 ORIGINAL TAB, MECHWARRIOR 1 REMAKE TAB, INCEPTION ORIGINAL TAB, INCEPTION REMAKE TAB\n", "hover MECHWARRIOR 3: edge\n", 232, 362},
+  for (const Shot& s : {Shot{"main", false, "screen main: MECHWARRIOR 3, MECHWARRIOR 1, INCEPTION ORIGINAL, GAME FILES, UPDATES, ADD FROM FILE, QUIT, MECHWARRIOR 3 TAB, PIRATE'S MOON TAB, MECHWARRIOR 1 ORIGINAL TAB, MECHWARRIOR 1 REMAKE TAB, INCEPTION ORIGINAL TAB, INCEPTION REMAKE TAB\n", "hover MECHWARRIOR 3: edge\n", 232, 362},
                         Shot{"setup", true, "screen find: FIND THE GAME, BACK\n", "hover FIND THE GAME: edge\n", 427, 222},
                         Shot{"pick", true, "screen find: FIND THE GAME, BACK\n", "hover FIND THE GAME: edge\n", 427, 222},
                         Shot{"work", false, "launcher: Found MechWarrior 3", "hover CANCEL: edge\n", 427, 372},
@@ -6841,10 +6841,10 @@ TEST(sdl_program_launcher_finds_the_game_then_plays) {
   const auto none = std::vector<std::pair<std::string, std::string>>{{"MW3_FIND_INSTALL", "1"}, {"MW3_LAUNCHER_FRAMES", "20"}};
   // No install: the games, then the find screen; nothing started.
   const LauncherRun a = run_launcher_with("launcher_v1_none", "READY\nsleep 1", nullptr, none);
-  std::printf("no install: main %d, find %d, game started %d\n", screen(a.log, "screen main: MECHWARRIOR 3, MECHWARRIOR 1, INCEPTION ORIGINAL, GAME FILES, UPDATES, INSTALL FROM FILE, QUIT, MECHWARRIOR 3 TAB, PIRATE'S MOON TAB, MECHWARRIOR 1 ORIGINAL TAB, MECHWARRIOR 1 REMAKE TAB, INCEPTION ORIGINAL TAB, INCEPTION REMAKE TAB\n"),
+  std::printf("no install: main %d, find %d, game started %d\n", screen(a.log, "screen main: MECHWARRIOR 3, MECHWARRIOR 1, INCEPTION ORIGINAL, GAME FILES, UPDATES, ADD FROM FILE, QUIT, MECHWARRIOR 3 TAB, PIRATE'S MOON TAB, MECHWARRIOR 1 ORIGINAL TAB, MECHWARRIOR 1 REMAKE TAB, INCEPTION ORIGINAL TAB, INCEPTION REMAKE TAB\n"),
               screen(a.log, "screen find: FIND THE GAME, BACK\n"), !a.args.empty());
   EXPECT(a.exited && a.args.empty());
-  EXPECT(screen(a.log, "screen main: MECHWARRIOR 3, MECHWARRIOR 1, INCEPTION ORIGINAL, GAME FILES, UPDATES, INSTALL FROM FILE, QUIT, MECHWARRIOR 3 TAB, PIRATE'S MOON TAB, MECHWARRIOR 1 ORIGINAL TAB, MECHWARRIOR 1 REMAKE TAB, INCEPTION ORIGINAL TAB, INCEPTION REMAKE TAB\n") && screen(a.log, "screen find: FIND THE GAME, BACK\n"));
+  EXPECT(screen(a.log, "screen main: MECHWARRIOR 3, MECHWARRIOR 1, INCEPTION ORIGINAL, GAME FILES, UPDATES, ADD FROM FILE, QUIT, MECHWARRIOR 3 TAB, PIRATE'S MOON TAB, MECHWARRIOR 1 ORIGINAL TAB, MECHWARRIOR 1 REMAKE TAB, INCEPTION ORIGINAL TAB, INCEPTION REMAKE TAB\n") && screen(a.log, "screen find: FIND THE GAME, BACK\n"));
   for (const char* gone : {"SETUP", "SEARCH AGAIN", "A FOLDER INSTEAD", "APPLY THE 1.2 PATCH", "POINT TO YOUR GAME",
                            "A DISC IMAGE OR DOWNLOAD", ", A FOLDER,", "THE DISC'S FOLDER"})
     EXPECT(!screen(a.log, gone));
@@ -6975,7 +6975,7 @@ TEST(sdl_program_launcher_splits_play_with_its_update) {
 }
 
 // The family cards (Owen 2026-11-22, docs/launcher.md): a game whose repo has no release says COMING SOON (MW1's
-// ORIGINAL here), one whose repo has one offers INSTALL (Inception Remake), and a game on the setup kit's contract
+// ORIGINAL here), one whose repo has one offers DOWNLOAD (Inception Remake), and a game on the setup kit's contract
 // beside the launcher (Inception Rebuild, a stand-in) shows its --status; its PLAY starts it plain, and a tab's press
 // is kept in mw3.cfg for the next start.
 TEST(sdl_program_launcher_family_cards) {
@@ -7024,7 +7024,7 @@ TEST(sdl_program_launcher_family_cards) {
               entry("INCEPTION REMAKE").c_str());
   EXPECT(entry("MECHWARRIOR 1 ORIGINAL") == "entry MECHWARRIOR 1 ORIGINAL: Coming soon");
   EXPECT(entry("INCEPTION ORIGINAL") == "entry INCEPTION ORIGINAL: Ready \xc2\xb7 0.1.0: /games/chi");
-  EXPECT(entry("INCEPTION REMAKE").rfind("entry INCEPTION REMAKE: Not installed: INSTALL downloads 0.1.0", 0) == 0);
+  EXPECT(entry("INCEPTION REMAKE").rfind("entry INCEPTION REMAKE: Not installed: DOWNLOAD gets 0.1.0", 0) == 0);
   EXPECT(has(shot, "games: chi: status ready"));
   // Run: Inception's PLAY (MW3's PLAY, then it: MW1's REMAKE has no release, greyed and skipped) starts the stand-in
   // plain; then the last button, Inception's REMAKE tab, pressed and kept.
@@ -7417,7 +7417,7 @@ TEST(sdl_program_launcher_game_files_repicks) {
   std::printf("GAME FILES by keys: focus %d, find screen %d\n", seen(a.log, "focus GAME FILES"),
               seen(a.log, "screen find: FIND THE GAME, ADD FROM MY DISC, BACK\n"));
   EXPECT(a.exited && a.args.empty());
-  EXPECT(seen(a.log, "screen main: MECHWARRIOR 3, MECHWARRIOR 1, INCEPTION ORIGINAL, GAME FILES, UPDATES, INSTALL FROM FILE, QUIT, MECHWARRIOR 3 TAB, PIRATE'S MOON TAB, MECHWARRIOR 1 ORIGINAL TAB, MECHWARRIOR 1 REMAKE TAB, INCEPTION ORIGINAL TAB, INCEPTION REMAKE TAB\n") && seen(a.log, "focus MECHWARRIOR 3\n") &&
+  EXPECT(seen(a.log, "screen main: MECHWARRIOR 3, MECHWARRIOR 1, INCEPTION ORIGINAL, GAME FILES, UPDATES, ADD FROM FILE, QUIT, MECHWARRIOR 3 TAB, PIRATE'S MOON TAB, MECHWARRIOR 1 ORIGINAL TAB, MECHWARRIOR 1 REMAKE TAB, INCEPTION ORIGINAL TAB, INCEPTION REMAKE TAB\n") && seen(a.log, "focus MECHWARRIOR 3\n") &&
          seen(a.log, "focus GAME FILES\n") && seen(a.log, "screen find: FIND THE GAME, ADD FROM MY DISC, BACK\n"));
   // GAME FILES, then the development copy picked (copied in).
   const auto repick = std::vector<std::pair<std::string, std::string>>{{"MW3_FIND_INSTALL", "1"},
@@ -7650,7 +7650,7 @@ TEST(sdl_program_launcher_starts_mechwarrior_1) {
   EXPECT(text.find(", MechWarrior 1 mw1-v1.0.0\n") != std::string::npos);
   EXPECT(text.find("MechWarrior 1 exited (0)") != std::string::npos);
   // No port and no MW1 Rebuild: its INSTALL (greyed here: a check run asks no server).
-  EXPECT(text.find("entry MECHWARRIOR 1 ORIGINAL: Not installed: Can't reach the server: INSTALL FROM FILE") != std::string::npos);
+  EXPECT(text.find("entry MECHWARRIOR 1 ORIGINAL: Not installed: Can't reach the server: ADD FROM FILE") != std::string::npos);
   EXPECT(args.rfind("--install " + pm + " --mw3-install ", 0) == 0);
   EXPECT(args.find(" --mw1-game " + dir + "/game --no-launcher") != std::string::npos);
   // No MW3 named (Pirate's Moon may still be found on this machine): said on its line, and a press starts nothing.
@@ -7726,7 +7726,7 @@ TEST(sdl_program_launcher_starts_mechwarrior_1) {
     std::string pargs;
     std::getline(pf, pargs);
     std::printf("launcher mw1 original: given \"%s\"\n", pargs.c_str());
-    EXPECT(text.find("screen main: MECHWARRIOR 3, MECHWARRIOR 1 ORIGINAL, INCEPTION ORIGINAL, GAME FILES, UPDATES, INSTALL FROM FILE, QUIT, MECHWARRIOR 3 TAB") !=
+    EXPECT(text.find("screen main: MECHWARRIOR 3, MECHWARRIOR 1 ORIGINAL, INCEPTION ORIGINAL, GAME FILES, UPDATES, ADD FROM FILE, QUIT, MECHWARRIOR 3 TAB") !=
            std::string::npos);
     EXPECT(text.find("focus MECHWARRIOR 1 ORIGINAL") != std::string::npos);
     EXPECT(text.find("MechWarrior (1989) exited (0)") != std::string::npos);
@@ -8335,7 +8335,7 @@ TEST(sdl_program_launcher_checks_for_updates) {
     return std::string("{\"tag_name\":\"") + tag + "\",\"draft\":" + (draft ? "true" : "false") +
            ",\"prerelease\":false,\"body\":\"## Fixes\\r\\n- **Lasers** hit again\\n- The `c1m2` crash\",\"assets\":[]}";
   };
-  // The newer release with this platform's package and its SHA256SUMS (sitting 3: DOWNLOAD AND INSTALL pressed).
+  // The newer release with this platform's package and its SHA256SUMS (sitting 3: DOWNLOAD AND UPDATE pressed).
   namespace u = upgrades::update;
   const char* names[] = {"MW3-Rebuild-Setup-98.1.0.exe", "MW3-Rebuild-98.1.0-mac.dmg", "MW3-Rebuild-98.1.0-x86_64.AppImage"};
   const std::string ours = names[u::this_platform() == u::Platform::kWindows ? 0 : u::this_platform() == u::Platform::kMac ? 1 : 2];
@@ -8389,7 +8389,7 @@ TEST(sdl_program_launcher_checks_for_updates) {
     const std::string said = at == std::string::npos ? "(none)" : text.substr(at + 18, text.find('\n', at) - at - 18);
     std::printf("  %s: %s\n", spec, said.c_str());
     if (is_newer)  // sitting 2: the notes and the question
-      EXPECT(text.find("screen update: <, >, DOWNLOAD AND INSTALL, NOT NOW\n") != std::string::npos &&
+      EXPECT(text.find("screen update: <, >, DOWNLOAD AND UPDATE, NOT NOW\n") != std::string::npos &&
              text.find("update notes: Fixes\n") != std::string::npos && text.find("update notes: \xe2\x80\xa2 Lasers hit again\n") != std::string::npos &&
              text.find("update notes: \xe2\x80\xa2 The c1m2 crash\n") != std::string::npos &&
              text.find("launcher: update: Downloaded and checked: " + ours + ".\n") != std::string::npos &&
@@ -8412,7 +8412,7 @@ TEST(sdl_program_launcher_checks_for_updates) {
 }
 
 // The launcher's own update asked at every start (Owen 2026-11-23), on a thread, never a prompt: a newer release
-// turns the footer's "BattleTech launcher <v>" into an amber UPDATE LAUNCHER TO <v>, reached by the keys after QUIT
+// shows an amber UPDATE AVAILABLE <v> in the header's top right, reached by the keys after QUIT
 // and opening the UPDATE screen; the same version, or a failed check, leaves the footer as it is (a failure in the
 // log only). A hidden run without MW3_UPDATE_API asks nothing.
 TEST(sdl_program_launcher_offers_its_own_update_at_start) {
@@ -8475,12 +8475,12 @@ TEST(sdl_program_launcher_offers_its_own_update_at_start) {
   const std::string main_list = line_of(newer, "screen main: ");
   std::printf("  newer: %s\n  %s\n", line_of(newer, "update check at the start: ").c_str(), main_list.c_str());
   EXPECT(has(newer, "launcher: update check at the start: MechWarrior 3 Rebuild 98.1.0 is out"));
-  EXPECT(has(newer, "launcher: footer UPDATE LAUNCHER TO 98.1.0\n"));
-  EXPECT(has(main_list, "QUIT, UPDATE LAUNCHER TO 98.1.0"));
+  EXPECT(has(newer, "launcher: header UPDATE AVAILABLE 98.1.0\n"));
+  EXPECT(has(main_list, "QUIT, UPDATE AVAILABLE 98.1.0"));
   int k = 0, reached = 0;
   for (size_t at = newer.find("launcher: focus "); at != std::string::npos; at = newer.find("launcher: focus ", at + 1)) {
     ++k;
-    if (newer.compare(at, 31, "launcher: focus UPDATE LAUNCHER") == 0) {
+    if (newer.compare(at, 32, "launcher: focus UPDATE AVAILABLE") == 0) {
       reached = k;
       break;
     }
@@ -8492,14 +8492,14 @@ TEST(sdl_program_launcher_offers_its_own_update_at_start) {
   std::string press;
   for (int i = 0; i < reached; ++i) press += "next,";
   const std::string pressed = run("pressed", "newer", press + "press");
-  EXPECT(has(pressed, "screen update: <, >, DOWNLOAD AND INSTALL, NOT NOW\n") && has(pressed, "update notes: \xe2\x80\xa2 A new card\n"));
+  EXPECT(has(pressed, "screen update: <, >, DOWNLOAD AND UPDATE, NOT NOW\n") && has(pressed, "update notes: \xe2\x80\xa2 A new card\n"));
   EXPECT(!has(pressed, "launcher: update: Downloaded"));  // nothing downloaded until the player says so
   // The same version, and a failed check: the footer stays the version; the failure only in the log.
   for (const char* list : {"same", "missing"}) {
     const std::string text = run(list, list, "");
     std::printf("  %s: %s\n", list, line_of(text, "update check at the start: ").c_str());
     EXPECT(has(text, "launcher: update check at the start: "));
-    EXPECT(!has(text, "UPDATE LAUNCHER") && has(text, "launcher: footer BattleTech launcher"));
+    EXPECT(!has(text, "UPDATE AVAILABLE") && has(text, "launcher: footer BattleTech launcher"));
   }
   EXPECT(has(slurp(dir / "same.log"), "This is the newest MechWarrior 3 Rebuild ("));
   EXPECT(has(slurp(dir / "missing.log"), "update check at the start: Could not check for updates"));
@@ -8515,7 +8515,7 @@ TEST(sdl_program_launcher_offers_its_own_update_at_start) {
     EXPECT(pid > 0 && waited(pid, &status) && WIFEXITED(status) && WEXITSTATUS(status) == 0);
     const std::string shot = slurp(log);
     // (Its games' check still asks the network in a shot: that gate is the games', on --hidden only.)
-    EXPECT(has(shot, "update check at the start: not asked in a check run") && !has(shot, "UPDATE LAUNCHER") &&
+    EXPECT(has(shot, "update check at the start: not asked in a check run") && !has(shot, "UPDATE AVAILABLE") &&
            !has(shot, "update check at https"));
   }
   fs::remove_all(dir, ec);

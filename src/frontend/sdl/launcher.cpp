@@ -70,6 +70,7 @@ constexpr const char* kCardKeys[3] = {"mw3", "mw1", "inception"};  // mw3.cfg's 
 constexpr float kStarZoom = 1.8f;
 constexpr Uint8 kCardAlpha = 196;
 constexpr int kRowTop = 428, kRowH = 30;
+constexpr int kPillW = 236, kPillH = 30, kPillY = 31;  // UPDATE AVAILABLE <v>, the header's top right
 
 // ---- art ----
 
@@ -329,7 +330,7 @@ const SDL_DialogFileFilter kGameFiles[] = {
     {"All files", "*"}};
 const SDL_DialogFileFilter kMw1Files[] = {
     {"MechWarrior (1989): BTECH.EXE, or a download", "exe;zip;7z;rar;tar;gz;tgz;xz"}, {"All files", "*"}};
-// INSTALL FROM FILE's: a game's own download for this computer (sdl_games.h).
+// ADD FROM FILE's: a game's own download for this computer (sdl_games.h).
 const SDL_DialogFileFilter kPackageFiles[] = {{"A game's download (.zip, .dmg, .AppImage)", "zip;dmg;AppImage"}, {"All files", "*"}};
 const SDL_DialogFileFilter kDiscFiles[] = {{"Your disc: its image (.cue, .iso) or any file of it", "cue;iso;bin;img"},
                                            {"All files", "*"}};
@@ -445,13 +446,13 @@ enum Id {
   kInstallTo, kPlaceGo,  // ours: CHANGE FOLDER (the game's folder, picked) and the card INSTALL's go once asked where
   kData = 40, kDataPick, kDataUsual, kMoveGo, kRemoveOld, kKeepOld,
   kUpdates = 49,
-  kSelfUpdate = 50,  // the footer's UPDATE LAUNCHER TO <v> when the start's check found one (Owen 2026-11-23)
+  kSelfUpdate = 50,  // the header's UPDATE AVAILABLE <v> when the start's check found one (Owen 2026-11-23)
   kUpdateGo = 80, kUpdateNotNow, kUpdatePrev, kUpdateNext,
   kVulkanAgain = 90,  // ours: the Vulkan check again (docs/linux.md)
   kMw1Original = 100,  // MW1's card: PLAY ORIGINAL, Elthial's port of the 1989 game
   kGameInstall = 110,  // ours, games on demand (sdl_games.h): + the game (upgrades::update::Game), INSTALL
   kGameUpdate = 120,   // + the game: UPDATE
-  kInstallFile = 130, kInstallFileGo,  // INSTALL FROM FILE; its INSTALL ANYWAY for a file without SHA256SUMS
+  kInstallFile = 130, kInstallFileGo,  // ADD FROM FILE; its ADD ANYWAY for a file without SHA256SUMS
   kTab = 140,      // + card * 2 + tab: a card's game tabs (Owen 2026-11-22)
   kKitPlay = 150,  // + the game: PLAY for a game on the setup kit's contract (MW1 Rebuild, Inception's two)
 };
@@ -633,7 +634,7 @@ class Launcher {
   bool pm_lacks_music_ = false, pm_lacks_sounds_ = false;  // pm_refresh
   std::shared_ptr<upgrades::update::Verdict> update_;  // the last CHECK FOR UPDATES' verdict
   std::vector<std::string> update_lines_;  // its release's notes wrapped to the screen (show_update)
-  std::shared_ptr<std::string> update_file_;  // after DOWNLOAD AND INSTALL: the program to start next (empty: none)
+  std::shared_ptr<std::string> update_file_;  // after DOWNLOAD AND UPDATE: the program to start next (empty: none)
   size_t update_page_ = 0;
   static constexpr int kUpdateTop = 150, kUpdateBottom = 322, kUpdateWidth = 500;
   size_t update_per_page() { return static_cast<size_t>(std::max(1, (kUpdateBottom - kUpdateTop) / std::max(1, text_.line_skip(13)))); }
@@ -689,8 +690,8 @@ class Launcher {
   };
   std::unique_ptr<GamesCheck> games_check_;
   // The launcher's own update, asked at every start (Owen 2026-11-23): check_for_updates on a thread, both homes,
-  // never a prompt; a newer one turns the footer into UPDATE LAUNCHER TO <v> (kSelfUpdate), which opens the UPDATE
-  // screen. Nothing downloads until the player presses DOWNLOAD AND INSTALL there.
+  // never a prompt; a newer one shows UPDATE AVAILABLE <v> in the header (kSelfUpdate), which opens the UPDATE
+  // screen. Nothing downloads until the player presses DOWNLOAD AND UPDATE there.
   struct SelfCheck {
     std::thread th;
     std::atomic<bool> done{false};
@@ -970,7 +971,7 @@ void Launcher::self_verdict(const upgrades::update::Verdict& v) {
   std::printf("mw3: launcher: update check at the start: %s\n", v.words.c_str());  // a failure: the log only
   if (v.kind != upgrades::update::Verdict::kNewer) return;
   self_update_ = std::make_shared<upgrades::update::Verdict>(v);
-  std::printf("mw3: launcher: footer UPDATE LAUNCHER TO %s\n", upgrades::update::plain_version(v.release.tag).c_str());
+  std::printf("mw3: launcher: header UPDATE AVAILABLE %s\n", upgrades::update::plain_version(v.release.tag).c_str());
 }
 
 void Launcher::take_games_check() {
@@ -993,11 +994,11 @@ std::string Launcher::game_words(int i) const {
   const C& c = checks_[i];
   switch (c.kind) {
     case C::kAsking: return "Asking GitHub for the newest version...";
-    case C::kFailed: return "Can't reach the server:\nINSTALL FROM FILE takes a download";
+    case C::kFailed: return "Can't reach the server:\nADD FROM FILE takes a download";
     case C::kNoRelease: return "No download for this computer yet";
     default: {
       const upgrades::update::Asset* a = c.asset();
-      return "INSTALL downloads " + upgrades::update::game_version(c.release.tag) + (a && a->size ? " (" + upgrades::update::size_words(a->size) + ")" : "");
+      return "DOWNLOAD gets " + upgrades::update::game_version(c.release.tag) + (a && a->size ? " (" + upgrades::update::size_words(a->size) + ")" : "");
     }
   }
 }
@@ -1033,7 +1034,7 @@ void Launcher::install_game_now(int i) {
   const Release r = checks_[i].release;
   const std::string root = place_game_ == i ? (place_.empty() ? games_root_ : place_) : game_root(i);
   work_game_ = i;
-  std::string title = std::string(update ? "UPDATING " : "INSTALLING ") + game_info(g).name;
+  std::string title = std::string(update ? "UPDATING " : "DOWNLOADING ") + game_info(g).name;
   for (char& ch : title) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
   work_->start(title, [done, g, r, root](const mech3::setup::ProgressFn& f) {
     *done = sdlfe::games::install_release(root, g, r, [&](double x, const std::string& w) { return f(mech3::setup::Progress{w, x, ""}); });
@@ -1051,7 +1052,7 @@ void Launcher::install_file_go() {
   work_->kind = Work::kGameInstall;
   auto done = game_done_ = std::make_shared<sdlfe::games::Done>();
   const std::string root = games_root_, file = install_file_, sha = file_check_ ? file_check_->sha256 : std::string();
-  work_->start("INSTALLING FROM FILE", [done, root, file, sha](const mech3::setup::ProgressFn& f) {
+  work_->start("ADDING FROM FILE", [done, root, file, sha](const mech3::setup::ProgressFn& f) {
     *done = sdlfe::games::install_file(root, file, sha, [&](double x, const std::string& w) { return f(mech3::setup::Progress{w, x, ""}); });
     mech3::setup::Result res;
     res.ok = done->ok, res.cancelled = done->cancelled, res.summary = done->words;
@@ -1067,7 +1068,7 @@ void Launcher::game_installed(const sdlfe::games::Done& d) {
   const std::string key = std::string("games_") + game_info(d.game).key;
   if (place_game_ == i && work_game_ == i) {  // a card's INSTALL: its folder kept for UPDATE and the game files
     games_place_[i] = place_, save_config_value(o_.write_dir, key, place_);
-  } else if (work_game_ < 0 && !games_place_[i].empty()) {  // INSTALL FROM FILE: into the games folder, now the one in use
+  } else if (work_game_ < 0 && !games_place_[i].empty()) {  // ADD FROM FILE: into the games folder, now the one in use
     games_place_[i].clear(), save_config_value(o_.write_dir, key, "");
   }
   place_game_ = -1;
@@ -1592,8 +1593,8 @@ void Launcher::layout() {
         p.lines.push_back("Update " + upgrades::update::game_version(checks_[i].release.tag) + " is ready");
         fix_keep(p);
       };
-      // Games on demand: a game not installed has INSTALL where PLAY goes. One whose repo has no release yet says
-      // COMING SOON and turns to INSTALL by itself once its first release is out (Owen 2026-11-22).
+      // Games on demand: a game not installed has DOWNLOAD where PLAY goes (Owen 2026-11-23, was INSTALL). One whose
+      // repo has no release yet says COMING SOON and turns to DOWNLOAD by itself once its first release is out.
       auto install = [&](Panel& p, int i, const char* name) {
         p.id = kGameInstall + i, p.name = name, p.upd = -1;
         if (checks_[i].kind == GC::kNoRelease) {
@@ -1604,7 +1605,7 @@ void Launcher::layout() {
           const size_t nl = w.find('\n');
           p.lines.push_back(w.substr(0, nl));
           if (nl != std::string::npos) p.lines.push_back(w.substr(nl + 1));
-          p.label = "INSTALL", p.on = checks_[i].kind == GC::kNewer && !work_;
+          p.label = "DOWNLOAD", p.on = checks_[i].kind == GC::kNewer && !work_;
         }
         p.keep.assign(p.lines.size(), 0);
       };
@@ -1778,17 +1779,18 @@ void Launcher::layout() {
       flat(kFiles, x0, 112, "GAME FILES");
       flat(kUpdates, x0 + 120, 104, "UPDATES");
       if (games_on_) {  // ours: a game's download from anywhere (a modder's build, no internet)
-        flat(kInstallFile, x0 + 232, 168, "INSTALL FROM FILE");
+        flat(kInstallFile, x0 + 232, 168, "ADD FROM FILE");
         flat(kQuit, x0 + 408, 72, "QUIT");
       } else {
         flat(kQuit, x0 + 232, 72, "QUIT");
       }
-      // The footer's version as a button when the start's check found a newer launcher (Owen 2026-11-23): amber,
-      // where the version is drawn, after QUIT for the keys and the pad; it opens the UPDATE screen.
+      // A newer launcher found by the start's check: an amber UPDATE AVAILABLE <v> in the header's top right, beside
+      // the mark, as Discord's and Chrome's (Owen 2026-11-23: the footer's button was too small to see). After QUIT
+      // for the keys and the pad; it opens the UPDATE screen.
       if (self_update_ && !cards_.empty()) {
-        const int right = cards_.back().r.x + cards_.back().r.w, w = 212;
-        add(kSelfUpdate, {right - w - kX, kRowTop, w, 20}, "UPDATE LAUNCHER TO " + upgrades::update::plain_version(self_update_->release.tag), "",
-            !work_);
+        const int right = cards_.back().r.x + cards_.back().r.w;
+        add(kSelfUpdate, {right - kPillW - kX, kPillY, kPillW, kPillH},
+            "UPDATE AVAILABLE " + upgrades::update::plain_version(self_update_->release.tag), "", !work_);
         buttons_.back().style = Button::kAmber;  // logged and focused by its label, the version in it
       }
       // The tabs last: the pad and the keys reach each card's PLAY first, as before the tabs.
@@ -1827,8 +1829,8 @@ void Launcher::layout() {
         add(kKeepOld, {385, 300, 140, 40}, "KEEP IT");
         break;
       }
-      if (confirm_go_ == 6) {  // ours: INSTALL FROM FILE, a file nothing could check
-        add(kInstallFileGo, {150, 330, 180, 40}, "INSTALL ANYWAY");
+      if (confirm_go_ == 6) {  // ours: ADD FROM FILE, a file nothing could check
+        add(kInstallFileGo, {150, 330, 180, 40}, "ADD ANYWAY");
         add(kBack, {350, 330, 140, 40}, "BACK");
         break;
       }
@@ -1849,8 +1851,8 @@ void Launcher::layout() {
           add(kBack, {330, 330, 140, 40}, "BACK");
         }
         break;
-      } else if (confirm_go_ == 7) {  // a card's first INSTALL: where to (Owen 2026-11-22)
-        add(kPlaceGo, {85, 330, 140, 40}, "INSTALL");
+      } else if (confirm_go_ == 7) {  // a card's first DOWNLOAD: where to (Owen 2026-11-22)
+        add(kPlaceGo, {85, 330, 140, 40}, "DOWNLOAD");
         add(kInstallTo, {240, 330, 160, 40}, "CHANGE FOLDER");
         add(kBack, {415, 330, 140, 40}, "BACK");
         break;
@@ -1864,7 +1866,7 @@ void Launcher::layout() {
       const size_t pages = (update_lines_.size() + update_per_page() - 1) / update_per_page();
       add(kUpdatePrev, {70, 384, 50, 34}, "<", {}, update_page_ > 0);
       add(kUpdateNext, {126, 384, 50, 34}, ">", {}, update_page_ + 1 < pages);
-      add(kUpdateGo, {182, 384, 250, 34}, "DOWNLOAD AND INSTALL");
+      add(kUpdateGo, {182, 384, 250, 34}, "DOWNLOAD AND UPDATE");
       add(kUpdateNotNow, {438, 384, 132, 34}, "NOT NOW");
       break;
     }
@@ -2195,14 +2197,15 @@ void Launcher::draw(float dt) {
       for (const Card& c : cards_) draw_card(c);
       if (!status_.empty()) {  // in the header, right of the mark: the cards stay whole
         const SDL_Color col = status_good_ ? SDL_Color{200, 230, 200, 255} : SDL_Color{240, 190, 180, 255};
-        const std::vector<std::string> lines = text_.wrap(status_, 12, 470);
+        // Left of UPDATE AVAILABLE when it is there.
+        const int at = self_update_ && !cards_.empty() ? cards_.back().r.x + cards_.back().r.w - kPillW - 12 : W - 43;
+        const std::vector<std::string> lines = text_.wrap(status_, 12, self_update_ ? at - 262 : 470);
         const int lh = text_.line_skip(12), y0 = 46 - lh * static_cast<int>(std::min<size_t>(lines.size(), 3)) / 2 + lh / 2;
         for (size_t i = 0; i < lines.size() && i < 3; ++i)
-          text_.draw(canvas_, lines[i], 12, col, W - 43, y0 + static_cast<int>(i) * lh, 1);
+          text_.draw(canvas_, lines[i], 12, col, at, y0 + static_cast<int>(i) * lh, 1);
       }
       const int right = cards_.empty() ? W - 43 : cards_.back().r.x + cards_.back().r.w;
-      if (!self_update_)  // else UPDATE LAUNCHER TO <v> stands there (a button)
-        text_.draw(canvas_, package_words(), 12, kDim, right, kRowTop + 9, 1);  // the package's own version (the games' are on their cards)
+      text_.draw(canvas_, package_words(), 12, kDim, right, kRowTop + 9, 1);  // the package's own version (the games' are on their cards)
       text_.draw(canvas_, "Unofficial fan rebuild. MechWarrior is a trademark of Microsoft.", 10, kGrey, right, kRowTop + 23, 1);
       break;
     }
@@ -2234,7 +2237,7 @@ void Launcher::draw(float dt) {
         std::string name = upgrades::update::game_info(upgrades::update::kGames[place_game_]).name;
         for (char& ch : name) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
         const std::string version = upgrades::update::game_version(checks_[place_game_].release.tag);
-        text_.draw(canvas_, "INSTALL " + name + " " + version + "?", 18, kAmber, W / 2, 150);
+        text_.draw(canvas_, "DOWNLOAD " + name + " " + version + "?", 18, kAmber, W / 2, 150);
         const std::string where = place_.empty() ? (fs::path(games_root_) / upgrades::update::game_info(upgrades::update::kGames[place_game_]).key).make_preferred().string() : place_;
         text_.draw_wrapped(canvas_, "The game and its game files go into this folder. Your pilots, saves, settings and mods stay in your user folder.", 14, kWhite, W / 2, 196, 460);
         text_.draw(canvas_, text_.fit(where, 14, 440, 3), 14, kAmber, W / 2, 262);
@@ -2250,7 +2253,7 @@ void Launcher::draw(float dt) {
       const size_t per = update_per_page(), first = update_page_ * per;
       for (size_t i = first; i < update_lines_.size() && i < first + per; ++i)
         text_.draw(canvas_, update_lines_[i], 13, kWhite, kX + 70, kUpdateTop + static_cast<int>(i - first) * lh, -1);
-      const std::string ask = !status_.empty() ? status_ : "Download and install MechWarrior 3 Rebuild " + version + "? Your mods, pilots, saves and settings are kept.";
+      const std::string ask = !status_.empty() ? status_ : "Update the launcher to " + version + "? Your games, mods, pilots, saves and settings are kept.";
       text_.draw_wrapped(canvas_, ask, 13, status_.empty() || status_good_ ? kAmber : SDL_Color{240, 190, 180, 255}, W / 2, 338, 500);
       break;
     }
@@ -2604,7 +2607,7 @@ void Launcher::show_update() {
   for (const std::string& l : update_lines_) std::printf("mw3: launcher: update notes: %s\n", l.c_str());
   update_page_ = 0, status_.clear();
   screen_ = kUpdateScreen, layout();
-  if (SDL_getenv("MW3_LAUNCHER_UPDATE_GO")) activate(kUpdateGo);  // checks: DOWNLOAD AND INSTALL pressed
+  if (SDL_getenv("MW3_LAUNCHER_UPDATE_GO")) activate(kUpdateGo);  // checks: DOWNLOAD AND UPDATE pressed
 }
 
 // Ours (docs/linux.md, Vulkan): the game cannot draw without Vulkan on Linux; this screen says what
@@ -2918,7 +2921,7 @@ void Launcher::finish_work() {
     confirm_go_ = 6, screen_ = kConfirm, status_.clear();
     confirm_text_ = c.words + " Install it anyway? Only install a file from someone you trust.";
     layout();
-    if (SDL_getenv("MW3_LAUNCHER_INSTALL_ANYWAY")) activate(kInstallFileGo);  // checks: INSTALL ANYWAY pressed
+    if (SDL_getenv("MW3_LAUNCHER_INSTALL_ANYWAY")) activate(kInstallFileGo);  // checks: ADD ANYWAY pressed
     return;
   }
   if (kind == Work::kUpdateCheck) {  // a newer release: its notes and the question; else the verdict on the main screen
@@ -3208,7 +3211,7 @@ void Launcher::activate(int id) {
       status_ = "Pick a game's download: a .zip on Windows, a .dmg on the Mac, an .AppImage on Linux.", status_good_ = true;
       ask_file(kInstallFile, kPackageFiles, 2);
       break;
-    case kInstallFileGo:  // INSTALL ANYWAY: a file nothing could check, the player's choice
+    case kInstallFileGo:  // ADD ANYWAY: a file nothing could check, the player's choice
       install_file_go();
       break;
     case kBack:
@@ -3579,7 +3582,7 @@ LauncherChoice Launcher::run() {
     take_games_check();
     take_self_check();
     if (games_on_ && !install_file_asked_ && SDL_getenv("MW3_LAUNCHER_INSTALL_FILE") && screen_ == kMain && !work_)
-      install_file_asked_ = true, activate(kInstallFile);  // checks: INSTALL FROM FILE pressed (the picker's MW3_LAUNCHER_PICKER)
+      install_file_asked_ = true, activate(kInstallFile);  // checks: ADD FROM FILE pressed (the picker's MW3_LAUNCHER_PICKER)
     if (quit_after_mw1_ && !asking_ && !ask_pending_ && !work_) done_ = true;
     watch_game();
     const Uint64 now = SDL_GetTicks();

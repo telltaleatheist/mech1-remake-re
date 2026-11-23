@@ -39,7 +39,7 @@ Nothing yet.
 [docs/release-notes-1.3.1.md](docs/release-notes-1.3.1.md)): each game goes
 where you choose.
 
-- **Install each game where you want,** on any drive: the launcher's INSTALL
+- **Install each game where you want,** on any drive: the launcher's DOWNLOAD
   asks the first time, and each game's setup puts its game files, music and
   converted movies there too. Pilots, saves, settings and mods stay in your
   user folder.
@@ -50,10 +50,10 @@ where you choose.
 downloads the games.
 
 - **The launcher's download is the launcher alone.** Each game's card shows
-  INSTALL, or UPDATE TO x.y.z when a newer version is out, and gets the game
+  DOWNLOAD, or UPDATE TO x.y.z when a newer version is out, and gets the game
   from its own release. Nothing downloads until you press it, every download
   is checked, and your game files, pilots, saves and mods are kept. Offline,
-  installed games just play, and INSTALL FROM FILE takes a game's download
+  installed games just play, and ADD FROM FILE takes a game's download
   you already have.
 - MechWarrior 1 Remake gets a download of its own (1.0.7).
 
