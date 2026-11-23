@@ -19,8 +19,8 @@ SDL_ttf 3 (libSDL3_ttf), version 3.2.2
 --------------------------------------
 https://github.com/libsdl-org/SDL_ttf. Copyright (C) 1997-2025 Sam Lantinga
 and others. zlib licence. Built into it (no other library):
-- FreeType 2.13.2, under the FreeType License (FTL, licenses/libSDL3_ttf.0.dylib/
-  freetype-2.13.2/FTL.TXT), https://freetype.org/license.html. Portions of
+- FreeType 2.14.3, under the FreeType License (FTL, licenses/libSDL3_ttf.0.dylib/
+  freetype-2.14.3/FTL.TXT), https://freetype.org/license.html. Portions of
   this software are copyright (C) The FreeType Project (www.freetype.org).
   All rights reserved.
 

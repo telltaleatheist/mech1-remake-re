@@ -27,7 +27,7 @@ JOBS="${JOBS:-$( (sysctl -n hw.ncpu 2>/dev/null || nproc) )}"  # JOBS=4 to share
 # name | url | sha256
 PINS=(
   "SDL3-3.4.12.tar.gz|https://github.com/libsdl-org/SDL/releases/download/release-3.4.12/SDL3-3.4.12.tar.gz|f07b958a9ac5020fb7a44cadb957f658b2149c3c8abb4f63145fac9303249db7"
-  "freetype-2.13.2.tar.xz|https://download.savannah.gnu.org/releases/freetype/freetype-2.13.2.tar.xz|12991c4e55c506dd7f9b765933e62fd2be2e06d421505d7950a132e4f1bb484d"
+  "freetype-2.14.3.tar.xz|https://download.savannah.gnu.org/releases/freetype/freetype-2.14.3.tar.xz|36bc4f1cc413335368ee656c42afca65c5a3987e8768cc28cf11ba775e785a5f"
   "SDL3_ttf-3.2.2.tar.gz|https://github.com/libsdl-org/SDL_ttf/releases/download/release-3.2.2/SDL3_ttf-3.2.2.tar.gz|63547d58d0185c833213885b635a2c0548201cc8f301e6587c0be1a67e1e045d"
   "SDL3_sound-3.2.0.tar.gz|https://github.com/icculus/SDL_sound/releases/download/v3.2.0/SDL3_sound-3.2.0.tar.gz|3348f3ecc653e21f2b7ed8e409f07c67b179fbbfba3b99c85698e6e5d7b5924c"
   "ffmpeg-8.1.2.tar.xz|https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz|464beb5e7bf0c311e68b45ae2f04e9cc2af88851abb4082231742a74d97b524c"
@@ -77,10 +77,10 @@ cmake_build "$WORK/src/SDL3-3.4.12" -DSDL_SHARED=ON -DSDL_STATIC=OFF -DSDL_TEST_
 echo "built SDL3"
 
 # FreeType inside SDL3_ttf (static, position-independent), with none of its
-# optional libraries: the game's TrueType fonts need none of them.
-unpack freetype-2.13.2.tar.xz
-# Its cmake_minimum_required predates 3.5, which CMake 4 refuses: the policy floor raised.
-cmake_build "$WORK/src/freetype-2.13.2" -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DBUILD_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+# optional libraries: the game's TrueType fonts need none of them. 2.14.3, as
+# the Mac's Homebrew: TTF text depends on FreeType's version (docs/deps.md).
+unpack freetype-2.14.3.tar.xz
+cmake_build "$WORK/src/freetype-2.14.3" -DBUILD_SHARED_LIBS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -DFT_DISABLE_ZLIB=ON -DFT_DISABLE_BZIP2=ON -DFT_DISABLE_PNG=ON -DFT_DISABLE_HARFBUZZ=ON -DFT_DISABLE_BROTLI=ON
 echo "built FreeType"
 

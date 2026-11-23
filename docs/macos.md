@@ -72,7 +72,7 @@ README says so.
 ## Which macOS it runs on, and Intel Macs
 
 With `--deps` (2026-10-31): **macOS 12 or later, Apple silicon and Intel**.
-SDL3 3.4.12, SDL3_ttf 3.2.2 (FreeType 2.13.2 built in, no HarfBuzz) and
+SDL3 3.4.12, SDL3_ttf 3.2.2 (FreeType 2.14.3 built in, no HarfBuzz) and
 SDL3_sound 3.2.0, three libraries in place of Homebrew's ten. Checked: every
 binary in the bundle x86_64 + arm64 with minimum 12.0 (`LSMinimumSystemVersion`
 12.0), only the bundle's rpath, the signature ad hoc with no team; with
