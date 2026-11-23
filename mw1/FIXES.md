@@ -14,12 +14,25 @@ both made with YuE2, replace the menu theme and the three combat tracks (FIXES 1
     (VICTORY).
   - The combat songs: `combat-iron-stride`, `-cold-front`, `-blackwind`, `-firestorm`, `-long-range`, `-last-stand`.
   - `menu-theme.ogg` and `combat-7101/7102/7106.ogg` are gone. The .abc scores aren't committed.
-- **Loudness** (integrated, EBU R128): the masters spread 2.7 LU (-12.1 to -14.8 LUFS), more than the ~2 LU allowed, so
-  the louder ones got gain only (no compression), down to -14 LUFS; none was raised. Before / gain / after:
-  theme -14.2 / 0 / -14.3; bar -13.2 / -0.8 / -14.0; debrief -14.1 / 0 / -14.1; death -14.8 / 0 / -14.8; ending
-  -12.4 / -1.6 / -14.1; iron-stride -12.1 / -1.9 / -14.1; cold-front -12.2 / -1.8 / -14.1; blackwind -12.9 / -1.1 /
-  -14.1; firestorm -12.6 / -1.4 / -14.1; long-range -12.6 / -1.4 / -14.1; last-stand -13.2 / -0.8 / -14.0. Spread
-  after: 0.8 LU. The old files measured -12.7 (menu theme) and -15.8, -13.8, -15.5 (7101, 7102, 7106).
+- **Loudness** (integrated, EBU R128), gain only (no compression or limiting), none raised:
+  - The masters spread 2.7 LU (-12.1 to -14.8 LUFS), more than the ~2 LU allowed, so the louder ones came down to
+    -14 LUFS.
+  - Then each was trimmed further where needed so its encoded true peak is at most -1.0 dBTP.
+  - Before / total gain / after (LUFS, dBTP): theme -14.2 / -0.52 / -14.8, -1.2; bar -13.2 / -1.42 / -14.6, -1.1;
+    debrief -14.1 / -1.32 / -15.4, -1.1; death -14.8 / -1.22 / -16.0, -1.0; ending -12.4 / -1.6 / -14.1, -1.4;
+    iron-stride -12.1 / -1.9 / -14.1, -1.3; cold-front -12.2 / -1.8 / -14.2, -2.0; blackwind -12.9 / -1.22 / -14.2,
+    -1.1; firestorm -12.6 / -1.4 / -14.1, -1.1; long-range -12.6 / -1.4 / -14.0, -1.3; last-stand -13.2 / -1.22 /
+    -14.5, -1.1.
+  - Spread after: 2.0 LU. The peak trim is what widens it: death and debrief peaked hot and needed about 1.2-1.3 dB
+    each. Accepted (a project decision), since the extremes never meet: death is a slow cue that only ever cuts the
+    theme, 1.2 LU under it.
+  - The old files measured -12.7 (menu theme) and -15.8, -13.8, -15.5 (7101, 7102, 7106).
+- **Fades** (baked into the ends only; the starts and the lengths are unchanged):
+  - 2 s on the combat songs that held full level to their last sample: cold-front, blackwind, firestorm, long-range,
+    last-stand.
+  - 3 s on bar and ending.
+  - None on iron-stride, the theme and death (they end in their own tail), or on debrief (its own stop: full level
+    until 0.5 s from the end, then silence).
 - **Where each plays,** as MW1 played its song (mech1-re's `docs/AUDIO.md`, "Campaign music cues", and
   `src/Original/Campaign/MW_MAIN_081B_STARTUP.cpp`). MW1 looped none of them, so a cue plays once, from its start, at
   the music volume, cutting the theme:
@@ -40,7 +53,7 @@ both made with YuE2, replace the menu theme and the three combat tracks (FIXES 1
 - **Combat** (FIXES 116's place): each launch, a replay's too, takes the next song of a shuffle bag of all six
   (`music::CombatBag`, `next_combat`, replacing `pick_combat`). None repeats until all six have played; a refilled
   bag never starts with the song just played. It plays looped, as 116's did, until the mission's end.
-- **Size:** mw1data/music/ stays 22.6 MB (22,563,499 bytes, 4 KB less than before).
+- **Size:** mw1data/music/ goes from 22.6 to 22.5 MB (22,530,239 bytes, 38 KB less).
 - **Tests:**
   - `mw1_music_the_combat_bag_plays_all_six_and_never_one_twice_running`: six launches give six songs; 2000 bags in a
     row are each all six, with no song twice running across a refill, and each song comes first in some bags.
@@ -55,8 +68,6 @@ both made with YuE2, replace the menu theme and the three combat tracks (FIXES 1
     play the theme, the win's the debrief's song.
   - `mw1_story_the_dark_wing_won_and_lost_headless`: no song at the Dark Wing's results; won, the ending's song over
     the credits, stopped at the hub; lost, none.
-- **Open for review:** most combat songs, the Bar's and the ending's end at full level (abrupt where they loop or
-  stop); the debrief's and death's true peaks are +0.3 and +0.2 dBTP after encoding (the gain was 0).
 
 ## 141. [ ] MechWarrior (1989)'s copy into MW1 Remake's own folder *(open; raised by the lead with pm-v1.2.4's layout, 2026-11-22)*
 - **What:** pm-v1.2.4's launcher keeps each game's files in a folder of its own (`games_<key>=`, `<folder>/install`,
