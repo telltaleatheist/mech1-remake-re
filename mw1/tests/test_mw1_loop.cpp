@@ -10164,6 +10164,8 @@ struct SpendSoak {
   std::map<std::string, int32_t> trade_held;
   int64_t trade_spent = 0, trade_sold = 0, trade_profit = 0;  // profit: what the sold wares fetched less what they cost
   int32_t sell_visits = 0;  // arrivals at a tier 2 or 3 world holding wares
+  int64_t spent = 0;        // on the upgrades, so far (the evaluator's income: funds + spent + held wares' cost)
+  int32_t tick_fights = -1, tick_may = -1;
   std::string at_planet;
   bool on() const { return !mode.empty(); }
   bool buys(const char* ladder) const { return mode == ladder || mode == "mixed" || mode == "trader"; }
@@ -10219,6 +10221,7 @@ std::vector<std::string> soak_spend(mw1::Company& c, SpendSoak& s) {
                          : ladder == "armour" ? up::buy_kit(c, up::Kit::kArmour)
                                               : up::buy_step(c, type.first, type.second, up::Step::kPower);
     if (b != up::Bought::kDone) break;
+    s.spent += pick->price;
     bought.push_back(ladder);
   }
   return bought;
@@ -10565,6 +10568,14 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
         const bool building = !after_end && (!lance_ready(*c, next_rung) || (next_rung == mw1::kDarkWingRung && !c->story.dark_wing_won));
         const int64_t reserve_was = soak.reserve;
         if (building) soak.reserve = std::numeric_limits<int64_t>::max() / 4;
+        // The evaluator's stream (spend_soak_report.py): once a fight, and when may-spend flips, before this look's
+        // spending: the funds, what went on upgrades and into wares so far, and whether the player may spend now.
+        if (const int32_t f = contracts + story_battles, may = building ? 0 : 1; f != soak.tick_fights || may != soak.tick_may) {
+          soak.tick_fights = f, soak.tick_may = may;
+          std::printf("SOAK: tick contracts %d fights %d day %lld funds %lld spent %lld traded %lld may %d\n", contracts, f,
+                      static_cast<long long>(day_of(*c)), static_cast<long long>(c->funds), static_cast<long long>(soak.spent),
+                      static_cast<long long>(soak.trade_spent - soak.trade_sold), may);
+        }
         soak_trade(*c, soak);
         const std::vector<std::string> spent = soak_spend(*c, soak);
         soak.reserve = reserve_was;
