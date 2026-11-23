@@ -1451,6 +1451,12 @@ void Launcher::layout() {
       };
       // Games on demand: a game not installed has INSTALL where PLAY goes; an installed one with a newer release has
       // UPDATE TO above it (the launcher's own copies only; a package's game updates with the package).
+      // The split's version, on the card (the segment says UPDATE).
+      auto update_line = [&](Card& c, int i, const char* who = nullptr) {
+        if (!can_update(i)) return;
+        c.lines.push_back(std::string(who ? who : "") + "Update " + upgrades::update::game_version(checks_[i].release.tag) + " is ready");
+        c.keep.resize(c.lines.size(), 0);
+      };
       auto install = [&](Card& c, int i, const char* name) {
         c.lines = {"Not installed"};
         const std::string w = game_words(i);  // a line, or two at its '\n'
@@ -1471,6 +1477,7 @@ void Launcher::layout() {
         } else {
           if (install_.ok) c.lines = status_lines(ready, install_.dir), c.keep = {0, 0, 0};
           else c.lines = {"Not found yet:", "PLAY finds your game"};
+          update_line(c, 0);
           play(c, 1, kMw3, "PLAY", "", "MECHWARRIOR 3", Button::kAmber, true, 0);
         }
       }
@@ -1494,6 +1501,7 @@ void Launcher::layout() {
                         (pm_dir_.empty() ? "Not found yet: click to find your game" : pm_ready + pm_dir_).c_str());
         }
         if (!(o_.pm_bin.empty() && games_on_)) {
+          update_line(c, 1);
           play(c, 1, kPm, "PLAY", "", "PIRATE'S MOON", Button::kAmber, !o_.pm_bin.empty(), 1);
         }
       }
@@ -1526,6 +1534,7 @@ void Launcher::layout() {
         else if (!unsupported) c.lines.push_back("Original: Elthial's SDL port");
         else if (unsupported) c.lines.push_back("Your BTECH.EXE isn't a revision Elthial's port supports");
         if (c.keep.size() < c.lines.size()) c.keep.resize(c.lines.size(), 0);
+        update_line(c, 2, "Remake: ");
         play(c, 0, kMw1Original, "PLAY ORIGINAL", port_exe_.empty() ? "COMING LATER" : unsupported ? "BTECH.EXE NOT SUPPORTED" : "AS RELEASED, 1989",
                "MECHWARRIOR 1 ORIGINAL", Button::kGrey, !port_exe_.empty() && !unsupported);
         play(c, 1, kMw1, "PLAY REMAKE", mw1_remake_ ? "REMAKE, 3D" : "NOT IN THIS PACKAGE", "MECHWARRIOR 1", Button::kAmber,
@@ -1859,17 +1868,25 @@ void Launcher::plate(const Button& b, bool hot) {
       std::vector<SDL_Rect> g = {{ax - 1, ay, 3, 7}, {ax - 8, ay + 12, 17, 2}, {ax - 8, ay + 9, 2, 3}, {ax + 7, ay + 9, 2, 3}};
       for (int i = 0; i < 5; ++i) g.push_back({ax - 5 + i, ay + 5 + i, 11 - 2 * i, 1});
       SDL_FillSurfaceRects(canvas_, g.data(), static_cast<int>(g.size()), k);
-      const std::string v = b.label.rfind("UPDATE TO ", 0) == 0 ? b.label.substr(10) : b.label;
-      text_.draw(canvas_, text_.fit(v, 10, r.w - 6), 10, ink, cx, r.y + r.h - 9);
+      text_.draw(canvas_, "UPDATE", 10, ink, cx, r.y + r.h - 9);  // the version is on the card (Owen: "say update")
       return;
     }
+    // A split's PLAY: its words on the whole button's middle, as an unsplit one's (Owen: it looked off), unless they
+    // would reach the divider.
+    int mid = cx;
+    for (size_t i = 0; i + 1 < buttons_.size(); ++i)
+      if (&buttons_[i] == &b && buttons_[i + 1].seg) {
+        const int whole = r.x + (r.w + buttons_[i + 1].r.w) / 2;
+        const int half = std::max(text_.width(b.label, b.style == Button::kFlat ? 15 : 18), b.sub.empty() ? 0 : text_.width(b.sub, 11)) / 2;
+        mid = whole + half + 8 <= r.x + r.w ? whole : cx;
+      }
     const int big = b.style == Button::kFlat ? 15 : 18;
     if (b.sub.empty()) {
-      text_.draw(canvas_, b.label, big, ink, cx, cy + 1);
+      text_.draw(canvas_, b.label, big, ink, mid, cy + 1);
     } else {
-      text_.draw(canvas_, b.label, big, ink, cx, cy - 7);
+      text_.draw(canvas_, b.label, big, ink, mid, cy - 7);
       const SDL_Color dim = amber && b.enabled ? SDL_Color{0x3a, 0x2a, 0x10, 255} : b.enabled ? SDL_Color{0xb9, 0xbf, 0xc6, 255} : kGrey;
-      text_.draw(canvas_, b.sub, 11, dim, cx, cy + 11);
+      text_.draw(canvas_, b.sub, 11, dim, mid, cy + 11);
     }
     return;
   }
