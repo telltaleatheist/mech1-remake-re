@@ -78,8 +78,9 @@ rem MechWarrior.ini and licences\, and THIRD-PARTY-MW1989.txt beside ours.
 if defined MW3_PKG_MW1_PORT_DIR xcopy /e /i /q /y "%MW3_PKG_MW1_PORT_DIR%" "%DIST%\MechWarrior1989" >nul || exit /b 1
 if defined MW3_PKG_MW1_PORT_DIR copy /y tools\package\mw1port\THIRD-PARTY-MW1989.txt "%DIST%\" >nul || exit /b 1
 copy /y build-win-pkg\*.dll "%DIST%\" >nul || exit /b 1
-rem The launcher alone loads no FFmpeg (mw3import's): those DLLs stay out.
-if defined MW3_PKG_LAUNCHER_ONLY for %%f in (av*.dll sw*.dll) do if exist "%DIST%\%%f" del /q "%DIST%\%%f"
+rem The launcher alone loads no FFmpeg (mw3import's, run from an installed MechWarrior 3's own folder): those DLLs
+rem stay out. (Until 2026-11-23 a for loop matched av*/sw* in the current folder, not the package's: nothing went.)
+if defined MW3_PKG_LAUNCHER_ONLY del /q "%DIST%\av*.dll" "%DIST%\sw*.dll" 2>nul
 rem The Visual C++ runtime, app-local (a player may not have the redistributable).
 for /d %%d in ("%VCToolsRedistDir%x64\Microsoft.VC*.CRT") do (
   for %%f in (msvcp140.dll vcruntime140.dll vcruntime140_1.dll) do if exist "%%d\%%f" copy /y "%%d\%%f" "%DIST%\" >nul

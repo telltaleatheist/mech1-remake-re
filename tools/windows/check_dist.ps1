@@ -43,6 +43,9 @@ if ($LauncherOnly) {
   foreach ($exe in 'mw3.exe', 'mw3pm.exe', 'mw1.exe', 'mw3import.exe', 'mw3indeo.exe') {
     if (Test-Path -LiteralPath (Join-Path $Dist $exe)) { $missing += "$exe should not be in the launcher-only package" }
   }
+  # FFmpeg is mw3import's, which this package does not carry: the launcher loads none of it.
+  Get-ChildItem -LiteralPath $Dist -File -Filter '*.dll' | Where-Object { $_.Name -like 'av*.dll' -or $_.Name -like 'sw*.dll' } |
+    ForEach-Object { $missing += "$($_.Name) (FFmpeg's) should not be in the launcher-only package" }
 }
 $programs = @('mw3launcher.exe') + $(if (-not $LauncherOnly) { @('mw3.exe') } else { @() }) + $(if ($Pm) { @('mw3pm.exe') } else { @() }) + $(if ($Mw1) { @('mw1.exe') } else { @() })
 if ($Mw1Port) {
