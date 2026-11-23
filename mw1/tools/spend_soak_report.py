@@ -29,8 +29,10 @@ def fields(words, start):
 
 
 def read(path):
-    run = {"mode": None, "seed": None, "reserve": None, "bought": {}, "rungs": {}, "at": {}}
+    run = {"mode": None, "seed": None, "reserve": None, "bought": {}, "rungs": {}, "at": {}, "blocked": None}
     for line in open(path, errors="replace"):
+        if line.startswith("    BLOCK: ") and run["blocked"] is None:  # a run from before the SOAK blocked line
+            run["blocked"] = (-1, -1, line.split("BLOCK: ", 1)[1].strip())
         if not line.startswith("SOAK: "):
             continue
         w = line.split()[1:]
@@ -43,6 +45,8 @@ def read(path):
             run["rungs"][int(w[1])] = fields(w, 2)
         elif w[0] == "at":
             run["at"][w[1]] = fields(w, 2)
+        elif w[0] == "blocked":
+            run["blocked"] = (int(w[2]), int(w[4]), " ".join(w[6:]))
     return run
 
 
@@ -72,16 +76,16 @@ def table(run, base):
     print(f"\n## mode {run['mode']}, seed {run['seed']}, reserve {money(run['reserve'])}")
     end, twice = run["at"].get("end"), run["at"].get("twice")
     if not end:
-        print("  NOT FINISHED: no ending reached")
+        print("  NOT FINISHED: no ending reached" + (f" ({run['blocked'][2]})" if run["blocked"] else ""))
     ladders = LADDERS.get(run["mode"], ())
     if ladders:
-        print(f"  {'milestone':<12} {'contract':>8} {'fight':>6} {'day':>6}  {'date':<10} {'funds after':>14}  when")
+        print(f"  {'milestone':<12} {'contract':>8} {'fight':>6} {'day':>6}  {'date':<10} {'funds after the look':>21}  when")
         for ladder in ladders:
             for n in MILESTONES[ladder]:
                 f = run["bought"].get((ladder, n))
                 name = f"{ladder} {n}"
                 if f:
-                    print(f"  {name:<12} {f['contracts']:>8} {f['fights']:>6} {f['day']:>6}  {f['date']:<10} {money(f['funds']):>14}  {phase(run, f)}")
+                    print(f"  {name:<12} {f['contracts']:>8} {f['fights']:>6} {f['day']:>6}  {f['date']:<10} {money(f['funds']):>21}  {phase(run, f)}")
                 else:
                     print(f"  {name:<12} {'not by 2x':>8}")
     print(f"  {'rung':<6} {'fight':>6} {'contract':>8} {'day':>6} {'funds':>14}   against the baseline (fight, day)")
@@ -123,6 +127,20 @@ def main():
     for mode in MODES:
         for r in sorted(by.get(mode, []), key=lambda r: r["seed"]):
             table(r, base.get(r["seed"]))
+
+    strands = [read(f) for f in sorted(glob.glob(os.path.join(sys.argv[1], "strand_*.txt")))]
+    strands += [r for r in runs if r["blocked"]]
+    if strands:
+        print("\n# WARNING: a player spending to the reserve before the Dark Wing can strand")
+        for r in strands:
+            got = sorted(r["bought"], key=lambda k: int(r["bought"][k]["fights"]))
+            last = r["bought"][got[-1]] if got else None
+            reached = "; ".join(f"{ladder} {n} at contract {r['bought'][(ladder, n)]['contracts']}"
+                                for ladder in MILESTONES for n in MILESTONES[ladder] if (ladder, n) in r["bought"])
+            why = r["blocked"][2] if r["blocked"] else "not finished"
+            after = f" after contract {last['contracts']}" if last else ""
+            print(f"  {r['mode']}, seed {r['seed']}: {why}{after}, the Dark Wing never won; "
+                  f"rungs won {sorted(r['rungs'])}; milestones by then: {reached or 'none'}")
 
     print("\n# Median contract of each milestone, by mode (seeds that never got there in brackets: reached/seeds)")
     for mode in MODES:

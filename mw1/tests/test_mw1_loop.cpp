@@ -10144,7 +10144,9 @@ bool lance_ready(const mw1::Company& c, int32_t rung) {
 // them to get, in numbers: a player who spends past a reserve (MW1_SOAK_RESERVE, 3,000,000) at every hub look once
 // its lance is ready for the story's next battle, and after the ending. While it builds the lance up it saves: the
 // first try spent past the reserve always and never won rung 1 (1,775 contracts: its funds sat at the reserve, under
-// the light 'Mechs' 3.1-3.7M the build-up buys).
+// the light 'Mechs' 3.1-3.7M the build-up buys). It saves through the Dark Wing too, until it is won: a steps player
+// that spent to the reserve once its lance was ready for it was stranded by the first try's loss (the gauge loses it,
+// the commander's 'Mech with it; seed 5, contract 85).
 //   none     spends nothing (the baseline, with the soak's report);
 //   sinks, armour, steps   only that ladder (steps: power on the lance's most-carried weapon type);
 //   mixed    the cheapest next item of the three;
@@ -10339,6 +10341,7 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
     int battles_last = 0;
     auto block = [&](const std::string& w) {
       if (std::find(blocks.begin(), blocks.end(), w) == blocks.end()) blocks.push_back(w);
+      if (soak.on()) std::printf("SOAK: blocked contracts %d fights %d why %s\n", contracts, contracts + story_battles, w.c_str());
     };
     auto day_of = [&](const mw1::Company& co) { return (units_of(co.date) - units_of(start_date)) / 2; };  // 60 units a month
     auto soak_at = [&](const char* when, const mw1::Company& co) {
@@ -10557,7 +10560,8 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
         rung_seen = c->story.rung_won;
         if (!after_end && contracts + story_battles > 600) return block("the soak: no ending in 600 fights"), true;
         // Saving while the lance is built up for the story's next battle (the trader still sells).
-        const bool building = !after_end && !lance_ready(*c, mw1::journal::current_lead(*c).rung);
+        const int32_t next_rung = mw1::journal::current_lead(*c).rung;
+        const bool building = !after_end && (!lance_ready(*c, next_rung) || (next_rung == mw1::kDarkWingRung && !c->story.dark_wing_won));
         const int64_t reserve_was = soak.reserve;
         if (building) soak.reserve = std::numeric_limits<int64_t>::max() / 4;
         soak_trade(*c, soak);
