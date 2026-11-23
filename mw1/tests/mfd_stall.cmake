@@ -5,6 +5,8 @@
 # at 1080p. The damage display must have shown (its backdrop made) and its pictures been kept while away (the
 # backdrop still there 300 frames after the display was left).
 # cmake -DMW1_BIN=<mw1> -DDIR=<scratch> [-DBUDGET=20] -P mfd_stall.cmake
+# A -P script sets no policies of its own: without this, CMake 3.x drops a list's empty entries (CMP0007, OLD).
+cmake_minimum_required(VERSION 3.20)
 if(NOT BUDGET)
   set(BUDGET 20)
 endif()

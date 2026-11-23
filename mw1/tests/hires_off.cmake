@@ -7,6 +7,8 @@
 # The frames' MD5s (after the GPU) are printed against the "frame <platform>" lines as information only: another GPU
 # or driver may scale a pixel differently.
 # cmake -DPM_BIN=<mw3pm> -DMW1_BIN=<mw1> -DDIR=<scratch> -DGOLDEN=<hires_golden.txt> -DPLATFORM=<system-processor> -P hires_off.cmake
+# A -P script sets no policies of its own: without this, CMake 3.x drops a list's empty entries (CMP0007, OLD).
+cmake_minimum_required(VERSION 3.20)
 file(STRINGS "${GOLDEN}" golden)
 set(failed)
 # run name | golden name | program | InGameVMode | window | the program's own arguments (a comma list) | env (a comma list)

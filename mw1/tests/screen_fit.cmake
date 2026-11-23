@@ -3,6 +3,8 @@
 # frames into the page's MW1 screen every text must be inside the canvas (a status line past the edge at 4:3 was the
 # case); each outside is printed by place and length, never its words.
 # cmake -DMW1_BIN=<mw1> -DDIR=<scratch dir> -P screen_fit.cmake
+# A -P script sets no policies of its own: without this, CMake 3.x drops a list's empty entries (CMP0007, OLD).
+cmake_minimum_required(VERSION 3.20)
 set(pages hub hub_options market market_dealer market_full travel travel_pick company bar bar_note_long bar_recruit bar_drink office office_offer news event results loading loading_long)
 # FIXES.md item 12 (B4): at 1080p every text and picture drawn at the window's resolution. The draws still left to
 # the canvas, known and named: flat fills (nothing to lose magnified), the lab's
