@@ -1,15 +1,15 @@
 # MW1 Original: the scoping report (FIXES 130)
 
-Status: **scoping only, no code yet.** Written 2026-11-20 by mw1 dev 2 for the mw1 lead and Owen.
+Status: **scoping only, no code yet.** Written 2026-11-20 by mw1 dev 2 for the mw1 lead and the owner.
 
 The project rebuilds MechWarrior (1989) as our own C++ program, the way mw3-re rebuilt MW3.
-- **The base:** Owen's revised rule makes Elthial's SDL port the base. We fork it with its history and keep its LICENSE, NOTICE and MIT text as they are. Then we convert it to clean C++20, with classes, namespaces, plain names, no goto, and files organized by what they do. Each function notes the original's address.
+- **The base:** the owner's revised rule makes Elthial's SDL port the base. We fork it with its history and keep its LICENSE, NOTICE and MIT text as they are. Then we convert it to clean C++20, with classes, namespaces, plain names, no goto, and files organized by what they do. Each function notes the original's address.
 - **The content:** we pull as little from the exes as we can. Only MW1's creative content is extracted from the player's files at first run. Everything else is our code or our own data files.
 
 Inputs examined:
 - Elthial's port at e119a72a (`/Volumes/Callisto/claude-files/scratch/mw1-sdl-port/src`, 11 commits);
-- crescent-hawks-rebuild, the Inception rebuild (MIT, Owen's, C++20 and SDL3): its import, text, renderer and DOSBox-X reference rig, which its lead pointed us to;
-- Owen's install (`game/mw1-dos/mwarrior/MECHWAR` in the mw1-critical-hit checkout);
+- crescent-hawks-rebuild, the Inception rebuild (MIT, the owner's, C++20 and SDL3): its import, text, renderer and DOSBox-X reference rig, which its lead pointed us to;
+- The owner's install (`game/mw1-dos/mwarrior/MECHWAR` in the mw1-critical-hit checkout);
 - mw1's own exe readers (`mw1/src/mw1_story.h` and its neighbours).
 
 No MW1 words are quoted here.
@@ -28,7 +28,7 @@ The new rule makes the port's reconstructed game the base, and that part was nev
 - A fork with history makes that lineage explicit, which is right for credit but doesn't add a licence.
 - The MIT host layer (`src/SDL`, `src/Support`, the build files, about 3,000 lines) is fine to fork as it is.
 
-**Recommendation.** Before any conversion work is published, Owen (or the lead) asks Elthial for written permission to use `src/Original` as the base of a derived, publicly released project. MIT or a short explicit grant would do.
+**Recommendation.** Before any conversion work is published, the owner (or the lead) asks Elthial for written permission to use `src/Original` as the base of a derived, publicly released project. MIT or a short explicit grant would do.
 - Until then, the fork stays private and nothing from it ships.
 - If Elthial declines, we fall back to the earlier rule: their reconstruction is a reference only, and our code is written fresh against the exe addresses. The plan below works for either route; only phase 1 differs.
 
@@ -65,25 +65,25 @@ How the port works today:
 
 ## 2. The exes and data files
 
-Owen's install has 129 files. The exes, against the hashes Elthial's `docs/SUPPORTED_VERSIONS.md` reviews:
+The owner's install has 129 files. The exes, against the hashes Elthial's `docs/SUPPORTED_VERSIONS.md` reviews:
 
-| File | Size | Format | Owen's vs Elthial's | Role |
+| File | Size | Format | the owner's vs Elthial's | Role |
 |---|---|---|---|---|
 | MW.EXE | 4,096 | MZ, 4 relocs, 189-byte tail | same hash | Launcher: driver pick, runs MW_MAIN |
 | MW_MAIN.EXE | 137,871 | MZ, **not packed**, 125 relocs | same hash | The campaign: all screens, rules, the story script and its text |
-| BTECH.EXE | **174,533** | MZ, **EXEPACK** (B0/B2 backwards, 16 reloc groups) | **different** (Elthial's is 174,267, CRC 0x36A13E1A; Owen's CRC 0x7E06BB28) | The battle |
+| BTECH.EXE | **174,533** | MZ, **EXEPACK** (B0/B2 backwards, 16 reloc groups) | **different** (Elthial's is 174,267, CRC 0x36A13E1A; the owner's CRC 0x7E06BB28) | The battle |
 | MW_EGA.EXE, MW_TANDY.EXE, MW_CPICS.EXE | 5,599, 5,009, 3,566 | MZ drivers loaded as overlays (entry 0:0) | first two same, CPICS not listed | Graphics drivers (EGA, Tandy, CGA pictures) |
 | NEV_UNIV.EXE | 356,700 | MZ plus a 254 KB overlay | not listed | Not referenced by the game or the port; unidentified, ignore |
 
 **The BTECH revisions.**
-- I unpacked Owen's BTECH with a scratch EXEPACK decoder (the format is public). The rebuild itself will reuse Inception's
+- I unpacked the owner's BTECH with a scratch EXEPACK decoder (the format is public). The rebuild itself will reuse Inception's
   `src/formats/exepack.{h,cpp}` (`chr::formats::unexepack`, checked against its `tools/unexepack.py`) rather than a
   third decoder. The image is 0x2D3D0 bytes against Elthial's 0x2D2C0, so it's 0x110 (272) bytes larger.
 - From its far calls, every code segment after the first sits exactly 0x11 paragraphs later: 17FB→180D, 1ADF→1AF0, 1BF5→1C06, 2134→2145, 2176→2187 and 22B6→22C7.
-- The data segment moves the same way, 304E→305F (image offset 0x284F0 against 0x283E0). It has the same size (0x4EE0 bytes before BSS, matching Elthial's `BTECH_BSS_START` 0x4EDC), and its tables sit at the same offsets: four of the port's string pointer tables at DS:02B6..02FA resolve to text in Owen's copy.
+- The data segment moves the same way, 304E→305F (image offset 0x284F0 against 0x283E0). It has the same size (0x4EE0 bytes before BSS, matching Elthial's `BTECH_BSS_START` 0x4EDC), and its tables sit at the same offsets: four of the port's string pointer tables at DS:02B6..02FA resolve to text in the owner's copy.
 - **So the revisions differ only inside segment 0810, BTECH's main combat code, by about 272 bytes.** It is probably a bug-fix patch. What it changes needs a Ghidra diff of segment 0810 against the 174,267-byte BTECH, and **no copy of that revision is on this Mac** (searched all of Callisto). Elthial or another owner would need to supply one.
 - MW_MAIN, MW.EXE and the drivers are identical, so the campaign is the same.
-- **The port refuses Owen's BTECH at run time** (dev 1, FIXES 124, run in WSL). `BtechHostLoadInitialData` checks the exact packed size, 174,267, before the CRC. Owen's 174,533 fails and falls into the original's insert-disk prompt, printed to stdout only. So the port runs the campaign with Owen's files but **no combat**. Golden traces of combat need the 174,267 revision. Otherwise combat's oracle is DOSBox-X alone.
+- **The port refuses the owner's BTECH at run time** (dev 1, FIXES 124, run in WSL). `BtechHostLoadInitialData` checks the exact packed size, 174,267, before the CRC. The owner's 174,533 fails and falls into the original's insert-disk prompt, printed to stdout only. So the port runs the campaign with the owner's files but **no combat**. Golden traces of combat need the 174,267 revision. Otherwise combat's oracle is DOSBox-X alone.
 
 **Data files:**
 
@@ -101,11 +101,11 @@ Owen's install has 129 files. The exes, against the hashes Elthial's `docs/SUPPO
 - **MW_MAIN, data segment 1090:** the story script (event lists DS:6067, records DS:6121..655C), choice captions (DS:5CF4), planet records, pilot definitions and their dialogue, contract narratives and mission descriptions, after-action texts, intro panels, every menu label, and all the rules tables (prices, wages, tonnages, rolls). mw1's `mw1_story.h` already reads the script at these offsets.
 - **MW_MAIN, segment 1AA5:** the event text bank, 0x77 records.
 - **MW_MAIN, segment 28BE:** the music driver's state and the AdLib instrument patches.
-- **BTECH, data segment 304E (305F in Owen's):** mech templates, weapon definitions, combat tables, mission titles, enemy pilot names, cockpit and inspection labels, animation maps.
+- **BTECH, data segment 304E (305F in the owner's):** mech templates, weapon definitions, combat tables, mission titles, enemy pilot names, cockpit and inspection labels, animation maps.
 
 ## 3. Sorting every embedded string and table into three groups
 
-The port has almost no content literally in its source: there are no large array initializers, and its string literals are diagnostics and file names. It reads everything from the exes at load through `Original/Memory`. The sort below covers what those importers read, which is what the C++ game will need, by Owen's rule.
+The port has almost no content literally in its source: there are no large array initializers, and its string literals are diagnostics and file names. It reads everything from the exes at load through `Original/Memory`. The sort below covers what those importers read, which is what the C++ game will need, by the owner's rule.
 
 ### Extracted (the original's creative content only)
 
@@ -170,8 +170,8 @@ These are plain-text, versioned files. I propose `.zrd`, the format mw1 already 
 - **Plain files in the player's data folder,** as JSON with named fields: one place for every ID, readable and moddable.
 
 **Two departures from Inception:**
-- We import far less. Inception imports its rule tables (`rules/mechs.json` and the rest); by Owen's MW1 rule ours are our own data files (section 3).
-- Its step 1 accepts only one layout: header and relocations hash to one revision. For MW1 that step becomes a per-revision row of segment bases (section 2: Owen's BTECH has the same data layout 0x11 paragraphs later), so both known revisions pass the same piece hashes.
+- We import far less. Inception imports its rule tables (`rules/mechs.json` and the rest); by the owner's MW1 rule ours are our own data files (section 3).
+- Its step 1 accepts only one layout: header and relocations hash to one revision. For MW1 that step becomes a per-revision row of segment bases (section 2: the owner's BTECH has the same data layout 0x11 paragraphs later), so both known revisions pass the same piece hashes.
 
 **Format.** I first sketched a single chunked file, below. Following Inception's shape instead (plain JSON files under an `import.json` manifest) is better, for one tool chain across the two projects. The chunk list still names what goes in: It's a small chunked container (a 4-byte tag, a version and a length per chunk), so it can be checked and partly reloaded:
 - `META`: the source exes' hashes, the revision name, and the extractor's version (a new extractor re-extracts);
@@ -186,7 +186,7 @@ Art, models and maps stay in the player's install and are read in place by our d
 
 **Finding the content in each revision:**
 - **A layout table, in our repo, by exe hash:** segment bases plus each item's DS offset and count. Both known BTECH revisions share one data layout with different bases, so it's two rows.
-- **A signature fallback for unknown revisions.** Find the data segment by the Microsoft C runtime banner, which sits at DS:0008: this located Owen's 305F correctly. Find MW_MAIN's text bank by its 0x77-word directory. Then check each table structurally (pointers land on text, counts in range) before accepting it.
+- **A signature fallback for unknown revisions.** Find the data segment by the Microsoft C runtime banner, which sits at DS:0008: this located the owner's 305F correctly. Find MW_MAIN's text bank by its 0x77-word directory. Then check each table structurally (pointers land on text, counts in range) before accepting it.
 - **Revisions that fail the checks** are named in the launcher's message, as mw1 does today.
 - The extraction runs once, under a second, and is redone when the exes' hashes change.
 
@@ -233,7 +233,7 @@ Art, models and maps stay in the player's install and are read in place by our d
 - It shares little of MW3's engine.
 - mw3-re reaches it the way it reaches the port today: the packaging kit `tools/package/mw1port` (its `pins.txt`) builds it, and the launcher's MECHWARRIOR 1 entry gets a PLAY ORIGINAL action.
 
-**No shared library with Inception for now.** We copy its MIT code (EXEPACK, SHA-256, the import table, JSON, the text provider) with its notice. At this size, copying beats coupling; Owen decides if that changes.
+**No shared library with Inception for now.** We copy its MIT code (EXEPACK, SHA-256, the import table, JSON, the text provider) with its notice. At this size, copying beats coupling; the owner decides if that changes.
 
 The second choice is `git subtree add --prefix=mw1o/` into mw3-re's mw1 branch. It keeps history too, but mixes the licence question into mw3-re.
 
@@ -285,7 +285,7 @@ The second choice is `git subtree add --prefix=mw1o/` into mw3-re's mw1 branch. 
   - Munt and Nuked-OPL3 removed;
   - the speaker and bytecode player and the FM synth (section 5), compared by event logs since audio can't be bit-compared;
   - the fixed tick in place of the CPU budget.
-- **Phase 6. Revisions and acceptance** (2 weeks): Owen's BTECH (a Ghidra diff of segment 0810 against the 174,267 revision, any behaviour change as a revision switch), the signature fallback, a full campaign playthrough script, the launcher entry, and the high-resolution 3D option if wanted.
+- **Phase 6. Revisions and acceptance** (2 weeks): the owner's BTECH (a Ghidra diff of segment 0810 against the 174,267 revision, any behaviour change as a revision switch), the signature fallback, a full campaign playthrough script, the launcher entry, and the high-resolution 3D option if wanted.
 
 **Size:**
 - about 14-17 weeks of developer time, so roughly 2 to 2.5 months for two devs;
@@ -295,15 +295,15 @@ The second choice is `git subtree add --prefix=mw1o/` into mw3-re's mw1 branch. 
 **The risks:**
 1. **The licence of the base** (section 0): it must be settled first.
 2. **We inherit the port's gaps:** its own status says campaign acceptance is incomplete. The golden traces lock in its bugs as well as its behaviour, so the DOSBox save-file checks against the original are what catch them.
-3. **Owen's BTECH revision isn't the one the port reconstructs.** The 272 changed bytes in segment 0810 are unknown until we have the other exe to diff.
-4. **Timing:** the original's combat speed was partly CPU-bound. The fixed tick needs measuring and Owen's ear.
+3. **The owner's BTECH revision isn't the one the port reconstructs.** The 272 changed bytes in segment 0810 are unknown until we have the other exe to diff.
+4. **Timing:** the original's combat speed was partly CPU-bound. The fixed tick needs measuring and the owner's ear.
 5. **The native addressing is everywhere:** replacing it is where behaviour can slip, and the traces must cover enough to notice.
 6. **Music without MT-32 emulation won't sound like an MT-32.** That's accepted by the rule; the (c) and (d) options soften it.
 7. **No MW1 words in logs or tests:** the traces store hashes, never text.
 
-## 8. MW1 against Inception: formats and code (Owen's ask)
+## 8. MW1 against Inception: formats and code (the owner's ask)
 
-Inception is Westwood's (1988, Infocom) and MW1 is Dynamix's (1989, Activision); both main exes are BTECH.EXE. I checked crescent-hawks-rebuild's `docs/formats/` and `docs/original.md` against Owen's MW1 files, and compared the two unpacked BTECH images (and MW_MAIN) byte for byte. Inception's exe was unpacked with its own `tools/unexepack.py` and matches its documented SHA-256.
+Inception is Westwood's (1988, Infocom) and MW1 is Dynamix's (1989, Activision); both main exes are BTECH.EXE. I checked crescent-hawks-rebuild's `docs/formats/` and `docs/original.md` against the owner's MW1 files, and compared the two unpacked BTECH images (and MW_MAIN) byte for byte. Inception's exe was unpacked with its own `tools/unexepack.py` and matches its documented SHA-256.
 
 **They share nothing beyond EXEPACK and the Microsoft C 1988 runtime.**
 

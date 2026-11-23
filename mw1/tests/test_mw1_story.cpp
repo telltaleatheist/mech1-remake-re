@@ -241,7 +241,7 @@ TEST(mw1_story_runs_as_mw1_does) {
     EXPECT(has(fire(g, mw1::kClassArrival, rng), 0x4F));
   }
   // The Dark Wing's world after the disk (0x43): ATTACK / DELAY on arriving (ours: not each time the hub is drawn),
-  // never marked seen; no deadline (ours, Owen): after 19 March 3029 still asked, never too late (0x73).
+  // never marked seen; no deadline (ours, the owner): after 19 March 3029 still asked, never too late (0x73).
   {
     mw1::Company g = on_story(mw1::kPools[5][0]);
     g.story.seen[0x43] = 1;

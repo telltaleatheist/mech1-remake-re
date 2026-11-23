@@ -1,5 +1,5 @@
 #pragma once
-// MW1's travel animation back as a video (FIXES.md item 54, Owen 2026-11-18: "when you take off to a new location, it
+// MW1's travel animation back as a video (FIXES.md item 54, the owner 2026-11-18: "when you take off to a new location, it
 // shows an animation of the spaceship taking off"). MW1 played MwPlayHiredTransportAnimation (MW_MAIN 081B:6095) on a
 // paid trip; ours plays a clip of our own (an LTX take made from data-src/art/travel_dropship_launch.jpg), converted by
 // tools/mw1movie.sh to MPEG-1 video with MP2 sound in one .mpg, which pl_mpeg (third_party, the engine's movie
@@ -25,7 +25,7 @@ namespace mw1::movie {
 
 inline constexpr const char* kLaunchClip = "dropship_launch";  // mw1data/video/<name>.mpg
 inline constexpr const char* kFolder = "video";
-// FIXES.md item 55 (Owen: "it felt very sudden"), then item 65 (Owen: "no freeze frame. just be black for about a
+// FIXES.md item 55 (the owner: "it felt very sudden"), then item 65 (the owner: "no freeze frame. just be black for about a
 // second, and then fade in from black as it flies away"): black and silent this long after the screen change, then the
 // motion and the sound start together as the picture fades in from black over kFadeInSeconds.
 inline constexpr double kHoldSeconds = 1.0;

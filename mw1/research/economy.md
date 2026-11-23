@@ -67,7 +67,7 @@ a Phoenix Hawk (081B:ECONOMY `MwGenerateUnitStock`).
   1,000.
 - So a mech sells for 90% of the base at tier 0, 110% at tier 1, 120% at
   tier 2 and **140% at tier 3**. Buying at tier 0 and selling at tier 3 makes
-  **40%**: 601k on a Locust, 3.36M on a BattleMaster. That's the trick Owen
+  **40%**: 601k on a Locust, 3.36M on a BattleMaster. That's the trick the owner
   remembers.
 - The catch (081B:3314): at tier 2 and above the dealer only buys
   `rand(0..4−tier) + 1` mechs between market refreshes (tier 2: 1–3, tier 3:
@@ -86,7 +86,7 @@ a Phoenix Hawk (081B:ECONOMY `MwGenerateUnitStock`).
 - Ammo costs `(tier+1)×18 + rand(0..7)` percent over its base (18–25% at
   tier 0, 72–79% at tier 3).
 - Fewer recruits are on offer the higher the tier (081B:6C0C).
-- **Clan worlds (ours, provisional, pending Owen; mw1 dev 1, 2026-11-17).**
+- **Clan worlds (ours, provisional, pending the owner; mw1 dev 1, 2026-11-17).**
   VISION sells Clan mechs only at "a few edge worlds of Kurita and Steiner,
   near the Clan border". The pick for now: the tier 3 Kurita and Steiner
   worlds at the top of MW1's map (map y 60 or less): Anywhere (51) and
@@ -124,7 +124,7 @@ a Phoenix Hawk (081B:ECONOMY `MwGenerateUnitStock`).
   company on 1 April 3024 (DS:0479..047D, EVENT_UI). The market restocks each
   time its clock passes 14 units, and on arrival. Wages wait for the Bar
   (lancemates only, DS:2476: 400, 600, 1,000, 2,000 a month by tier).
-- **Provisional, pending Owen (one constant or flag each):**
+- **Provisional, pending the owner (one constant or flag each):**
   - *The DropShip*: left out; hired transport only (`Transport::kHired`;
     `kDropShip` and its 50,000 a distance unit are named but not sold).
   - *No contracts without a House office* (`kContractsNeedAnOffice`), MW1's

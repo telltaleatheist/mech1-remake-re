@@ -260,7 +260,7 @@ class Mw1Screen : public mech3::MenuScreen {
   std::function<void(int32_t, int32_t, bool)> on_canvas_;  // the pointer's: the canvas's places, made the layout's
 };
 
-// FIXES 102 (Owen: the wheel scrolls every list, as AFTER ACTION's salvage list): a list the mouse wheel scrolls. Over
+// FIXES 102 (the owner: the wheel scrolls every list, as AFTER ACTION's salvage list): a list the mouse wheel scrolls. Over
 // its `panel` (the layout's PANEL by place; -1: anywhere on the screen), a notch up presses `up` and a notch down
 // presses `down`, as a click on the list's own arrows (PREV and NEXT for a pager) does: a row (or a page) each notch,
 // and only when that button is shown and enabled, so the wheel stops at both ends as the arrows do.

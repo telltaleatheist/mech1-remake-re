@@ -165,7 +165,7 @@ quarter), so the extended battles come late, alongside the story's end.
    headless walk of 74, 6 (paid), 8; a choice's branch; once only.
 3. **The Bar's DRINK and the news** (classes 2, 3): the tips, the news screen
    or button. Tests: a paid tip; the dated news window.
-4. **The deaths and the ending's texts** per Owen's answers (below): the
+4. **The deaths and the ending's texts** per the owner's answers (below): the
    arrest, the late ending (73), CONTINUE / QUIT. Tests: each path.
 5. **The Dark Wing battle**, one stage first: ATTACK launches it on the Dark
    Wing's world's IA map with its force; won: the victory and the name
@@ -175,7 +175,7 @@ quarter), so the extended battles come late, alongside the story's end.
    Engine hook here if needed. Tests: a three-stage win, a loss at stage 2.
 7. **The major campaign's date window** for offers.
 
-## Questions for Owen (VISION is silent; nothing here is decided)
+## Questions for the owner (VISION is silent; nothing here is decided)
 
 1. **The story's deaths.** Seven choices kill the commander and restart the
    campaign (PLAY AGAIN / QUIT), and going home before the victory is death
@@ -222,16 +222,16 @@ Each is one constant or flag.
 - **Q7, the typos:** kept, since the words are read from the player's exe.
 - **Q8, the news:** the hub says each new story's headline under its panel
   ("NEWS: ..."), as it says wages and promotions; the Bar's NEWS shows the
-  stories live now in full. Owen may want a screen instead.
+  stories live now in full. The owner may want a screen instead.
 - **Q9, MW1's data mistakes:** kept, in one table (`kErrata`, off:
   `kFixErrata`). Correction: there are **five swapped dates and no
   duplicates.** Events 0x2D and 0x40 are each two records on purpose, two
   ways to reach the same step.
 - **Q10, DRINK:** MW1's prices, which are the tips' own funds actions.
 - **Q11, the pictures:** text panels.
-- **Q1, answered (Owen 2026-11-18):** you can't die in this one. A death's
+- **Q1, answered (the owner 2026-11-18):** you can't die in this one. A death's
   page shows and play goes on (FIXES.md item 33: the switch is gone).
-- **Q5, answered (the lead and Owen, 2026-11-18; FIXES.md 47):** built as step 5,
+- **Q5, answered (the lead and the owner, 2026-11-18; FIXES.md 47):** built as step 5,
   one stage (below).
 
 ## Built: steps 1-3 (2026-11-17)
@@ -318,7 +318,7 @@ How a stage could follow the last without the hub:
   ammunition carried over, need a `ProgramFlow` call at spawn that lets the
   program write them. Allies already have their launch hook
   (`ally_launching`), but it only sets AI parameters.
-- **A hub stop between stages** (Owen's other option) needs no engine hook:
+- **A hub stop between stages** (the owner's other option) needs no engine hook:
   the stage's damage becomes a repair bill, as now. The stage count and the
   next stage's map are ours to keep in the save.
 
@@ -348,7 +348,7 @@ player's install.
      quit).
 
   The pictures' content isn't decoded here.
-- **For Owen's art list (Q3, Q11):** one victory piece, still or animated,
+- **For the owner's art list (Q3, Q11):** one victory piece, still or animated,
   to stand in for MW1's sequence. Optionally a short victory track in place
   of VICTORY.MUS. Nothing else in the story needs new art; the panels stay
   text.
@@ -362,13 +362,13 @@ play (contracts, the market and the Bar only). It's cheap:
 - the save would keep it;
 - DRINK and NEWS already grey without the story.
 
-Whether it's worth having depends on Owen's answers to Q1 to Q3 (the deaths
+Whether it's worth having depends on the owner's answers to Q1 to Q3 (the deaths
 and the ending), so it isn't built.
 
 ## Built: step 5, the Dark Wing (2026-11-18)
 
 - **The ladder** (`src/mw1_ladder.h`, FIXES.md 47): one table, six rungs, each a
-  force and its pilots' aim. Rung 6 is the Dark Wing: Owen's force, MW1's text's
+  force and its pilots' aim. Rung 6 is the Dark Wing: the owner's force, MW1's text's
   Warhammer and four BattleMasters plus three Marauder escorts (635 t by MW1's
   tonnage), aim x0.4. Up to 8: 7 with a full lance (Instant Action's line-up has
   ten slots beside the player's; the escorts are trimmed first, logged).
@@ -376,7 +376,7 @@ and the ending), so it isn't built.
   all, on a map of the world's climate whose enemy places hold the force (every
   table map made all eight, `kMapPlaces`), no office, no pay.
 - **Ours:** 0x72 is asked on an arrival only, not each time the hub is drawn; and
-  no deadline (Owen): 0x72 whatever the date, 0x73 never.
+  no deadline (the owner): 0x72 whatever the date, 0x73 never.
 - **The enemy's aim:** the engine's `ProgramFlow::enemy_launching` (ours, opt-in).
 - **Won:** the results (no fee, no REPLAY, the salvage kept), CONTINUE, then MW1's
   victory text on the panel over its picture; the name cleared (won, 0x72 and 0x75

@@ -11172,7 +11172,7 @@ TEST(sdl_mouse_hold_decision) {
   EXPECT(!sdlfe::decide_mouse(m).want);
 }
 
-// Ours, MW1's FIXES 30 (Owen: the pointer warped to the main screen's centre): with the menus free, the menus never
+// Ours, MW1's FIXES 30 (the owner: the pointer warped to the main screen's centre): with the menus free, the menus never
 // hold the mouse nor move the pointer; a mission holds it and, left with the window in front, lets the pointer go
 // where it was taken, not where SDL put it (the window's centre); left by the focus going, it is not moved at all.
 // Off (MW3, PM): never moved.

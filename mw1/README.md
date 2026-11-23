@@ -30,7 +30,7 @@ own or with the MechWarrior 3 rebuild, as a third game on its launcher.
   model).
 - `src/`, `tests/`, `data/`, `data-src/`, `tools/`: the `mw1` program, its
   tests, its screens' layouts and its art (below, Building).
-- `FIXES.md`: what Owen's play-tests found, ticked as each is fixed.
+- `FIXES.md`: what the owner's play-tests found, ticked as each is fixed.
 - The engine is the rest of this repo: mw3-re's branch `mw1` is `pm`
   (Pirate's Moon) plus MW1 (VISION.md, "The code base").
 

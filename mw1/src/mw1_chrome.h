@@ -5,7 +5,7 @@
 // carries an alpha plane (the engine's kFullAlpha, blended over the scenery): a frame's window clear, a panel's body
 // dark and part see-through.
 //
-// The look: Owen's hub mockup's (mockups/mw1-hub.html): flat thin gunmetal frames (a lit top lip, a black outline)
+// The look: the owner's hub mockup's (mockups/mw1-hub.html): flat thin gunmetal frames (a lit top lip, a black outline)
 // round dark glass, a rivet at each end of a plaque, MW1's amber for a lit (hovered) edge, the terminal's green.
 #include <cstddef>
 #include <cstdint>
@@ -24,10 +24,10 @@ struct Drawn {
   std::vector<uint8_t> rgba;
 };
 
-// The pieces, by name in the archive. The look follows Owen's hub mockup (mockups/mw1-hub.html): flat, thin frames.
+// The pieces, by name in the archive. The look follows the owner's hub mockup (mockups/mw1-hub.html): flat, thin frames.
 inline constexpr const char* kPlaque = "mw1_plaque";            // the hub's world and date plaques
 inline constexpr int32_t kPlaqueW = 300, kPlaqueH = 60;  // two side by side on 4:3's 640
-// The hub's (FIXES.md item 16, Owen): on 4:3's 640 the world's and the date's plaques narrower, the company's strip
+// The hub's (FIXES.md item 16, the owner): on 4:3's 640 the world's and the date's plaques narrower, the company's strip
 // (C-BILLS, PAYROLL, KILLS) between them; the wide canvas keeps kPlaqueW's, the strip in the gap.
 inline constexpr const char* kPlaqueNarrow = "mw1_plaque_narrow";
 inline constexpr int32_t kPlaqueNarrowW = 208;
@@ -73,7 +73,7 @@ struct PanelSize {
 };
 std::string panel_name(int32_t w, int32_t h);
 std::string terminal_name(int32_t w, int32_t h);
-// A message's box at the screen's foot (FIXES.md item 42, Owen: unobtrusive, the picture above it clear): the
+// A message's box at the screen's foot (FIXES.md item 42, the owner: unobtrusive, the picture above it clear): the
 // terminal's look, sized to its text, a title row, 1..kBoxLinesMax lines and a row of buttons inside it. Each is
 // drawn at the foot of a kBoxCanvasH high picture, clear above it, so every size shares one place in a layout and a
 // box grows upward with its lines (mw1_box_<w>_<lines>).
@@ -204,7 +204,7 @@ inline constexpr int32_t kLabHelpY = kLabTrayY + 2, kLabHelpH = 11;
 inline constexpr int32_t kLabTabW = 60, kLabTabH = 48, kLabTabY = kLabHelpY + kLabHelpH + 2;
 inline constexpr int32_t kLabTabSpan0 = 6, kLabTabSpan1 = 634;
 inline constexpr int32_t kLabTabPages[4] = {0, 3, 4, 6};
-// FIXES 70 (Owen, option A): in pairs at the tray's ends, the chassis and criticals buttons at the left, groups and
+// FIXES 70 (the owner, option A): in pairs at the tray's ends, the chassis and criticals buttons at the left, groups and
 // ACCEPT at the right, kLabTabEdge in from the span's ends and kLabTabPairGap apart; the middle clear for the warnings.
 inline constexpr int32_t kLabTabEdge = 14, kLabTabPairGap = 16;
 inline constexpr int32_t lab_tab_x(int32_t i) {

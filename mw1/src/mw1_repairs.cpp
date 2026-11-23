@@ -186,7 +186,7 @@ MissionSettled settle_mission(Company& c, Contract& k, const AfterAction& a, Rng
   m.s = settle(c, k, a.outcome, a.wrecks, rng);
   if (a.outcome == Outcome::kSuccess && pay_override().pool >= 0) m.s.pool = pay_override().pool;  // shots only
   if (pay_override().term >= 0) m.term = pay_override().term;
-  // Every ending counts (FIXES.md item 75, Owen: a retreat too): the fates, then the repairs from the pool (none but
+  // Every ending counts (FIXES.md item 75, the owner: a retreat too): the fates, then the repairs from the pool (none but
   // a win's: a loss's or a retreat's repairs come out of funds).
   // FIXES 98: the mechs lost for good, at their value (the commander's too), before the fates take them off the hangar.
   int64_t lost_value = 0;

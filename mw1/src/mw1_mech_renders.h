@@ -1,7 +1,7 @@
 #pragma once
 // The mech pictures rendered from the game's own models (FIXES.md item 14): every chassis the market sells (sold_mech,
 // 24) drawn by the mech lab's renderer in its gunmetal camo, from the front on black, then cropped round the mech in
-// its own colours (Owen 2026-11-18: the loading screen's stored gunmetal render, not amber) at the slot's size. The models are the player's install's, so the pictures are made
+// its own colours (the owner 2026-11-18: the loading screen's stored gunmetal render, not amber) at the slot's size. The models are the player's install's, so the pictures are made
 // at the first run into an image archive in MW1's write dir (<kRenderLibrary>.zbd at its root, as mw1icons), with a
 // stamp beside it (<kRenderLibrary>.txt: kRenderVersion and the mechs); a stamp that differs makes them again.
 //

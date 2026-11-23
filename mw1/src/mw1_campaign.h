@@ -335,7 +335,7 @@ void roll_patience(Company& c, Rng& rng);
 // MwRequestMissionOfferContinuation): no contracts on its worlds.
 inline constexpr int32_t kGrievanceRefusal = 8;
 bool refuses(const Company& c, int32_t house);
-// Ours, not MW1's (FIXES.md item 84, waiting on Owen): a grudge fades. Every kGrudgeFadeMonths without a fight against
+// Ours, not MW1's (FIXES.md item 84, waiting on the owner): a grudge fades. Every kGrudgeFadeMonths without a fight against
 // a House, one of its grievances goes (never below 0), so a company working for one House stays welcome with the
 // others it fights now and then. A House that refused deals with the company again once under kGrievanceRefusal
 // (logged). A fight against the House starts its count again.
@@ -376,7 +376,7 @@ struct Wreck {
 // A mission back and not settled yet: what the hub's AFTER ACTION shows until OK settles it (or REPLAY plays the
 // contract again). Saved whole (mw1_save.h), so a restart shows it again: never settled twice, never lost.
 // A lancemate's mission (mw1_pilots.h): who flew, and whether their mech was destroyed.
-// FIXES 98 (Owen: losses rare, as in MW1): a downed lancemate's pilot rarely dies or goes missing; most come back. Their
+// FIXES 98 (the owner: losses rare, as in MW1): a downed lancemate's pilot rarely dies or goes missing; most come back. Their
 // mech is recovered on a win (rarely lost for good), lost on a loss or a retreat. All rolled once as the mission ends
 // (crew::roll_losses), so AFTER ACTION, its settlement and a save and reload agree.
 struct LanceFate {

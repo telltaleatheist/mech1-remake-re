@@ -1,5 +1,5 @@
 #pragma once
-// The journal (FIXES.md item 47, Owen 2026-11-18: "a journal that says how to do the next thing in the story and
+// The journal (FIXES.md item 47, the owner 2026-11-18: "a journal that says how to do the next thing in the story and
 // points right to the spot"): the STORY page's words. The chapters are every story event seen, MW1's own text; the
 // lead is our own short line naming the planet and the place of the next step; the strength is the step's battle's
 // expected force, from the ladder (mw1_ladder.h). No SDL and no screens here, and nothing written: the journal reads

@@ -39,7 +39,7 @@ MW1EVENTDIALOG (
     LINES (POSITION (124 104) FONT ("mw1_term_line") GAP (15) ANCHOR ("CENTRE"))
   )
 )
-; A message at the foot of the screen it fires over (FIXES.md item 42, Owen: unobtrusive, the artwork above it
+; A message at the foot of the screen it fires over (FIXES.md item 42, the owner: unobtrusive, the artwork above it
 ; clear and undimmed; revises item 34's side panels): MW1EVENTBOTTOM, the screen's own picture full-bleed behind
 ; (the screen names it), a box sized to its text (mw1_box_560_<lines>, its picture's foot at the canvas's foot less
 ; 10, so it grows upward; the screen names the size), the world and the place on its title row, the page's count at

@@ -286,7 +286,7 @@ int32_t wreck_value(const Company& c, const Wreck& w) {
 Settlement settle(Company& c, Contract& k, Outcome o, const std::vector<Wreck>& wrecks, Rng& rng) {
   Settlement s;
   const HouseRules& h = kHouses[c.planet_house];
-  if (o == Outcome::kSuccess) {  // the pool: every wreck counts (the original's overwrite fixed, Owen 2026-11-16)
+  if (o == Outcome::kSuccess) {  // the pool: every wreck counts (the original's overwrite fixed, the owner 2026-11-16)
     for (const Wreck& w : wrecks) s.pool += int64_t{wreck_value(c, w)} * 1000;
   }
   if (k.rung) {  // a story battle (FIXES.md 47, mw1_ladder.h): no fee, no deduction roll (MW1's Dark Wing), no standing

@@ -337,14 +337,14 @@ int main(int argc, char** argv) {
   std::printf("mw1: high-resolution 2D %s\n", platform::hires_2d() ? "on" : "off (MW1_HIRES=0)");
   // FIXES.md item 82: the HUD pictures' numbers and letters drawn as text in PM's HUD face above canvas size.
   if (platform::hires_2d()) mw1::use_hud_label_font();
-  // FIXES.md item 30 (Owen): the menus leave the mouse free fullscreen too (to a second screen), as MW3's do in a
+  // FIXES.md item 30 (the owner): the menus leave the mouse free fullscreen too (to a second screen), as MW3's do in a
   // window; a mission holds it.
   platform::set_menus_free_pointer(true);
   // FIXES.md item 83 (the lead): the pause's grab without the HUD's marker line (platform/pause_hud.h).
   platform::set_pause_hides_hud_marker(true);
   // FIXES.md item 83 (the lead): RESOLUTION's modes all "W x H", their own sizes (platform/mode_labels.h).
   platform::set_uniform_mode_labels(true);
-  // FIXES 102 (Owen): the wheel scrolls the Mech Lab's lists as the arrows do (platform/list_wheel.h).
+  // FIXES 102 (the owner): the wheel scrolls the Mech Lab's lists as the arrows do (platform/list_wheel.h).
   platform::set_list_wheel(true);
   // FIXES.md item 88: the pause test's count of the grab's recorded texts (the SDL host's lists).
   mw1::recorded_lines() = [](const void* owner, const int32_t r[4], uint32_t colour) {

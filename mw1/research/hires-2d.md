@@ -1,7 +1,7 @@
 # MW1's 2D at the window's resolution (FIXES.md item 12, step 2)
 
 A plan only: nothing here is built. Step 1's shots (1080p and 4K, the office, the Mech Complex and the lab) are in the
-outbox of 2026-11-17, `hires-step1/`. Owen picks between option A (a stopgap) and option B (the real fix), or both in
+outbox of 2026-11-17, `hires-step1/`. The owner picks between option A (a stopgap) and option B (the real fix), or both in
 turn.
 
 ## What happens today
@@ -54,7 +54,7 @@ change), so the fit guards stay valid. Check that mw1screenfit and mw1labfit sti
 **What it gives.** No hard squares: edges blend over about one canvas pixel, so at 4K the text reads as soft, slightly
 blurred type rather than blocks. It doesn't add detail. A canvas glyph is still 480-line-sized, so at 4K it is a
 smooth but fuzzy 4.5x enlargement. Pictures soften the same way. This is a reversal of a choice made on 2026-10-30
-(`resolution.md`, "Sharp scaling": the menus' layer used to be plain bilinear and was made sharp), so Owen should see
+(`resolution.md`, "Sharp scaling": the menus' layer used to be plain bilinear and was made sharp), so the owner should see
 both before picking.
 
 **Cost.** A1 is about half a day with its test. A2 is half a day to a day (the blend in `put`, and checking the fit
@@ -64,7 +64,7 @@ guards and the look tests). There is no data change and no archive change.
 
 ### B0. The canvas read-backs (mapped 2026-11-18)
 
-**Owen's pick (2026-11-18):** option B with no stopgap. PM's widget art stays canvas-sharp. Pictures are JPEG q90
+**The owner's pick (2026-11-18):** option B with no stopgap. PM's widget art stays canvas-sharp. Pictures are JPEG q90
 (scenes, portraits) and PNG (alpha or hard edges).
 
 **What B0 found.** ztwod text never draws straight onto the screen. A text object (`twod_wintext.cpp`, around line
@@ -233,7 +233,7 @@ building.
   clear instead (`before_layer`, 93438c22); `SdlScreen2D::overlay_16` passes that mask to the same `upload` as
   `present_16`. Measured with the HUD's pictures drawn (mw1_hud_art.h, MW1_SCREEN=mission at 4K, 2026-11-19): round
   the nav arrow, 0 of 3,931 arrow-coloured pixels more than 1.5 device pixels outside its true triangle (the canvas
-  alone: 10, the stairs' corners). The HUD's words are PM's fonts, left as they are until Owen decides.
+  alone: 10, the stairs' corners). The HUD's words are PM's fonts, left as they are until the owner decides.
 
 ### B2. The pictures at high resolution
 
@@ -265,7 +265,7 @@ The archive's entries would be the compressed files' bytes, decoded when a scree
 
 Recommendation: JPEG q90 for scenes and portraits, and PNG for anything with alpha or hard edges (tiles framed at pack
 time, the emblem, the chrome). Both the repo and the archive come out smaller than today. PNG-only is the no-new-code
-choice at about 5x the repo size. That trade-off is Owen's.
+choice at about 5x the repo size. That trade-off is the owner's.
 
 **Packing and load cost.**
 - Packing is at build time, as now. `mw1imgpack` copies the files' bytes instead of decoding to 565, so it gets
@@ -388,7 +388,7 @@ check is made where MW3 builds.
 A and B don't conflict. A could ship first as the interim, and B's flag would replace A's (A1's soft layer is moot
 once text and pictures are drawn at device pixels, but it still softens PM's widget art on MW1's screens).
 
-## For Owen
+## For the owner
 
 1. Option A now, option B, or A now and B after?
 2. If B: should the pictures be JPEG (small, one new header) or PNG (about 135 MB in the repo, no new code)?

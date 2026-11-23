@@ -1,5 +1,5 @@
 #pragma once
-// Pirate's Moon's mech outlines redrawn as lines (FIXES.md item 12, research/hires-2d.md B2 item 1; Owen 2026-11-18:
+// Pirate's Moon's mech outlines redrawn as lines (FIXES.md item 12, research/hires-2d.md B2 item 1; the owner 2026-11-18:
 // the outlines PM shows along the lab's top and on the MFB's salvage screen, drawn at the window's scale). PM ships
 // them at 41x50 only (rimage.zbd's icon_<mech>_<colour>), clean line art in three values: a bright line one pixel
 // wide, a dark fill, black clear. Each icon is turned once into its lines: the line pixels' centres joined into
