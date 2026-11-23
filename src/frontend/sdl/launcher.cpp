@@ -915,10 +915,10 @@ void Launcher::start_games_check() {
 }
 
 // The launcher's own update asked at the start (Owen 2026-11-23), quietly: a thread, the main screen never waiting
-// on it, nothing said on screen unless it is newer. A check run (hidden) asks only a stand-in (MW3_UPDATE_API),
-// never GitHub or git.owenmorgan.com, as the games' check; a shot asks first, so it is drawn.
+// on it, nothing said on screen unless it is newer. A check run (hidden, or a shot) asks only a stand-in
+// (MW3_UPDATE_API), never GitHub or git.owenmorgan.com; a shot with one asks first, so it is drawn.
 void Launcher::start_self_check() {
-  if (o_.hidden && !SDL_getenv("MW3_UPDATE_API")) {
+  if ((o_.hidden || !o_.shot.empty()) && !SDL_getenv("MW3_UPDATE_API")) {
     std::printf("mw3: launcher: update check at the start: not asked in a check run\n");
     return;
   }
