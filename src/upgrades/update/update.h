@@ -1,5 +1,5 @@
 #pragma once
-// Ours, not the original's: the launcher's CHECK FOR UPDATES (docs/launcher.md, Updates; Owen 2026-11-09, no
+// Ours, not the original's: the launcher's CHECK FOR UPDATES (docs/launcher.md, Updates; 2026-11-09, no
 // signing). This part is the logic only: GitHub's releases list read, the newest package release picked, versions
 // compared, what to say. The fetching (the system's curl) is the front end's (frontend/sdl/sdl_update.h).
 #include <cstdint>
@@ -18,7 +18,7 @@ struct Release {
   std::string notes;  // body: the release's notes (markdown)
   bool draft = false, prerelease = false;
   std::vector<Asset> assets;
-  // The same release in the other home (Owen 2026-11-22: GitHub and its copy at git.owenmorgan.com): that home's
+  // The same release in the other home (2026-11-22: GitHub and its copy at git.owenmorgan.com): that home's
   // assets, tried by a download after `assets` fails. Empty when only one home has it (with_homes).
   std::vector<std::vector<Asset>> other_homes;
 };
@@ -30,7 +30,7 @@ bool parse_releases(const std::string& json, std::vector<Release>* out, std::str
 bool package_tag(const std::string& tag);
 
 // The newest package release: not a draft or a prerelease, the highest package_tag, holding the platform's bundle
-// (platform_asset): a game's own release (mech3-re's MW3-alone downloads, Owen 2026-11-21: each game released on its
+// (platform_asset): a game's own release (mech3-re's MW3-alone downloads, 2026-11-21: each game released on its
 // own repo, the launcher's bundle on mw3-re's) is never taken. Null when none.
 enum class Platform { kWindows, kMac, kLinux };
 const Release* newest_package(const std::vector<Release>& releases, Platform p);
@@ -48,12 +48,12 @@ struct Verdict {
 // From what the fetch gave: `json` (empty when it failed, `fetch_error` saying why) against `current` (MW3_VERSION).
 Verdict judge(const std::string& current, const std::string& json, const std::string& fetch_error);
 // (Both judges look for this platform's bundle; the forms with `p`, for checks, another platform's.)
-// The same over several repos' lists (Owen 2026-11-21: the hub mw3-re and the game's own mech3-re, whichever has the
+// The same over several repos' lists (2026-11-21: the hub mw3-re and the game's own mech3-re, whichever has the
 // newest package): every list that reads counts; failed only when none does, saying the first one's reason.
-// Each repo is asked in both homes (Owen 2026-11-22): git.owenmorgan.com (Forgejo, a read-only copy of every family
+// Each repo is asked in both homes (2026-11-22): git.owenmorgan.com (Forgejo, a read-only copy of every family
 // repo and its releases, synced from GitHub) and GitHub; the newest release on either wins, so one forgotten or
 // gone leaves the other. `download_first` marks GitHub's answers: a release both have is downloaded from GitHub,
-// the other home only when that fails (git.owenmorgan.com's bandwidth is metered).
+// the other home only when that fails.
 struct Answer {
   std::string json, fetch_error;
   bool download_first = false;
@@ -81,7 +81,7 @@ Release with_homes(const Homes& h, const std::string& tag, const std::function<b
 std::vector<std::string> notes_lines(const std::string& markdown);
 
 // The package each platform installs (docs/release.md, the packages' names): Windows' MW3-Rebuild-Setup-<v>.exe,
-// the Mac's MW3-Rebuild-<v>-mac.dmg, Linux's MW3-Rebuild-<v>-x86_64.AppImage. The games' own downloads on the same
+// The Mac's MW3-Rebuild-<v>-mac.dmg, Linux's MW3-Rebuild-<v>-x86_64.AppImage. The games' own downloads on the same
 // release are other names, never taken.
 Platform this_platform();
 const Asset* platform_asset(const Release& r, Platform p);

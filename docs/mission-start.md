@@ -351,8 +351,8 @@ starts with the reactor coming on as the screen fades in; the power key
   -35.86; the pick leaves water out): the campaign opens with a wade
   ashore.
 
-**The step fix** (FIX (bug), Owen 2026-10-20, `zfix bugs`): the pick gets
-a step of 10, as its other callers' constants. Owen's condition: every
+**The step fix** (FIX (bug), 2026-10-20, `zfix bugs`): the pick gets
+a step of 10, as its other callers' constants. The condition: every
 shipped mech still lands where the designers put it. Checked with
 `placements_on_every_campaign_mission_headless` (mw3tests):
 
@@ -469,7 +469,7 @@ campaign's or a Pirate Missions game's: none, or no aiv record named
 its slots through its own vt+0x30 (slot i) and vt+0x34 (the count, asked
 again each turn), the paint from its slot 0 (+0x10); the rest as MW3's. The
 port had kept MW3's campaign-only version, so a Pirate Missions mission
-started with no lancemates (Owen's "nobody is in the mission with me"); the
+started with no lancemates (the player's "nobody is in the mission with me"); the
 port's `launch_lancemates` is PM's now, through `PlayerHooks::lance_game`,
 `lance_slot`, `lance_slot_count`. `test_pm_standalone_chain.py` checks each
 of the eleven missions starts with its lineup's lancemates.

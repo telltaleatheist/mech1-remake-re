@@ -1016,7 +1016,7 @@ int program(int argc, char** argv) {
   std::string look_first;  // a find to copy in (below)
   if (!a.ready_file.empty()) sdlfe::set_ready_file(a.ready_file);
   mech3::mods_other_game() = {a.other_write_dir, a.other_install};  // W15: a mod for the other game goes there
-  // Shift held at the start (ours, Owen 2026-11-21): the find screen, to choose other game files without a terminal.
+  // Shift held at the start (ours, 2026-11-21): the find screen, to choose other game files without a terminal.
   const bool choose_again = player_start && !a.no_launcher && !a.setup && sdlfe::shift_held_now();
   if (choose_again) {
     setup_only = true;
@@ -1031,7 +1031,7 @@ int program(int argc, char** argv) {
     bool searched = false;
     const std::string found = sdlfe::find_install(a.cfg_install, more, false, &searched);
     // Found by the search (the installer's places, a drop-in), not set up yet: the find screen offers to copy it
-    // in first (Owen, 2026-11-21: once found, the original may be deleted). mw3.cfg's and SETUP's own go straight in.
+    // in first (2026-11-21: once found, the original may be deleted). mw3.cfg's and SETUP's own go straight in.
     // Pirate's Moon (this branch): the find screen as its own (LauncherOptions::pm, below).
     const bool elsewhere = searched && std::find(more.begin(), more.end(), found) == more.end();
     if (!found.empty() && elsewhere) {
@@ -1121,7 +1121,7 @@ int program(int argc, char** argv) {
   std::error_code patch_ec;
   if (!patch_dir.empty() && std::filesystem::is_directory(patch_dir, patch_ec)) zutl::mount(patch_dir);
   zutl::mount(a.install);
-  // Ours (Owen 2026-11-22): a game's own folder, picked, holds its music and converted movies beside its game
+  // Ours (2026-11-22): a game's own folder, picked, holds its music and converted movies beside its game
   // files; searched after them (the user folder's as before, for an install without one).
   if (const std::string media = sdlfe::media_dir(a.install, a.write_dir); media != a.write_dir) zutl::mount(media);
   zutl::set_write_dir(a.write_dir);

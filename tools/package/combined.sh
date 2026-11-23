@@ -3,7 +3,7 @@
 # main, Pirate's Moon from a pm-vX.Y.Z tag on pm, MechWarrior 1 Remake from an mw1-vX.Y.Z tag on mw1, each built in a
 # clean worktree of its own, all in build-pkg/dist/<platform>/:
 #   MW3-Rebuild-<v>-mac.dmg / -x86_64.AppImage   the launcher alone (what the launcher's updater takes); it downloads
-#                                               each game from the game's own release (Owen, 2026-11-22;
+#                                               each game from the game's own release (2026-11-22;
 #                                               docs/launcher.md, Games on demand)
 #   MW3-alone-<v>-...                           the launcher and mw3: MechWarrior 3's own download
 #   PM-Rebuild-<pm v>-...                       mw3pm alone (branch pm's own package)

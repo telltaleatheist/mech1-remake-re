@@ -22,14 +22,14 @@ bool curl_get(const std::string& url, int seconds, std::string* out, std::string
 // show the launcher's screens more than once, mw3's setup screen after another).
 void stop_asking(bool stop = true);
 
-// A helper program (curl, a game's --status) started with no console window (Owen 2026-11-23: consoles flashing at
+// A helper program (curl, a game's --status) started with no console window (2026-11-23: consoles flashing at
 // the launcher's start look like an attack; none may show, not even for a moment). On Windows that is SDL's
 // background flag (CREATE_NO_WINDOW), which reports every exit as 0, so wait_quiet reads the real code from our own
 // handle on the process (SDL's open handle keeps its id from being reused). Elsewhere, SDL's own calls.
 SDL_Process* start_quiet(SDL_PropertiesID props);
 bool wait_quiet(SDL_Process* p, bool block, int* code);
 
-// A repo's releases lists in both homes, in the order they are asked (Owen 2026-11-22): git.owenmorgan.com's
+// A repo's releases lists in both homes, in the order they are asked (2026-11-22): git.owenmorgan.com's
 // (Forgejo, `limit`) then GitHub's (`per_page`, download_first: a download comes from it first). `env` replaces them
 // in checks (MW3_UPDATE_API, MW3_GAMES_API; {repo} in it becomes `repo`): one list, taken as GitHub's, or two
 // as "BACKUP|GITHUB".
@@ -50,8 +50,8 @@ upgrades::update::Verdict check_for_updates(const std::string& current);
 bool curl_download(const std::string& url, const std::string& to, uint64_t size, const std::function<bool(double)>& progress,
                    std::string* error, bool* cancelled, bool allow_file = false);
 
-// A release's file `name` into `path`, from its homes in order (Owen 2026-11-22): `r.assets` (GitHub's when it has
-// it), then each of `r.other_homes` (git.owenmorgan.com) only when the one before failed, so the metered home carries
+// A release's file `name` into `path`, from its homes in order (2026-11-22): `r.assets` (GitHub's when it has
+// it), then each of `r.other_homes` (git.owenmorgan.com) only when the one before failed, so the other home carries
 // only what GitHub cannot. Each home's file is checked against that home's SHA256SUMS line, or, when that home has
 // none (no SHA256SUMS, not fetched, no line), against the other homes' when they agree. Nothing is left at `path`
 // unless `ok`. `why` is the first home's failure (the one a player would have met with one home); `error` its

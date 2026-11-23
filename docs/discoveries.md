@@ -4699,7 +4699,7 @@ The screen after the pilot for INSTANT ACTION, 0x00488bc0 (details:
   is behind it, chosen by a flag on the texture itself. MechWarrior 3's renderer
   cannot. None of the textures in the four worlds has the flag when they load, so
   what it was meant for is still open. (docs/pm-map.md, gmod_matl.c)
-- Pirate's Moon's first missions are dark on purpose. In Owen's words: "the first few missions are very dark
+- Pirate's Moon's first missions are dark on purpose. In the words: "the first few missions are very dark
   intentionally, to show off the new feature: headlights". The code fits that: each headlight is a real light that throws a
   pool of light on the ground and walls (a light map), reaching 40 to 50 units, with a beam model on the mech. Only
   hardware mode builds them. That part is read from the code; the port does not draw them yet. (docs/pm-map.md)
@@ -5014,7 +5014,7 @@ The screen after the pilot for INSTANT ACTION, 0x00488bc0 (details:
   leaves turrets (the Anhur is one) and mission targets out of it, so a dead
   Anhur's wreck is solid only where its pieces are. (An early rebuild boxed
   turrets too, and a shot-down Anhur then left an invisible wall over c3m6's
-  land bridge; Owen's run of the original showed none. From the code:
+  land bridge; the player's run of the original showed none. From the code:
   0x00445c60, the turret's vt+0x48 0x00406ce0, anhur.zrd; docs/pm-tests.md
   item 37)
 - **The Anhur drops c3m6's land bridge (Pirate's Moon).** The bridge before
@@ -5024,7 +5024,7 @@ The screen after the pilot for INSTANT ACTION, 0x00488bc0 (details:
   went under it about 27 seconds in. So it's the Anhur's attack on you that
   brings the bridge down. (Seen in the rebuild: landbridges.zrd, hide_slid0*
   on the deck hslid0*.) In the original, with the Anhurs already shot down,
-  Owen's lasers brought the deck down; standing on it after an early kill
+  the player's lasers brought the deck down; standing on it after an early kill
   is still to be tried there.
 - **Typing in the chat can move your view.** The letters you type into the
   chat (or, in the rebuild, the cheat box) still reach the game's keys. If you
@@ -5049,7 +5049,7 @@ The screen after the pilot for INSTANT ACTION, 0x00488bc0 (details:
   the Medium and Large Pulse Lasers use the green and red lasers' flashes. The
   LB-X autocannons' scattered pellets name a missing animation too (`mac_fire`),
   so they fly without one. (From the data: weapons.zrd against every world's
-  anim.zbd. docs/fixes.md, Candidates for Owen)
+  anim.zbd. docs/fixes.md, Candidates)
 - **The developers left their own teleport spots in every operation.** Each
   world's reader.zbd holds a location.zrd, the list a hidden teleport tool
   read (a debug command no key reaches in the release). The spots:

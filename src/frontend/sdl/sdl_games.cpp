@@ -369,7 +369,7 @@ std::string program_version(const std::string& bin) {
 }
 
 u::GameCheck check(u::Game g, const std::string& installed_tag) {
-  // Both homes (Owen 2026-11-22): git.owenmorgan.com, then GitHub; the newest on either (release_lists).
+  // Both homes (2026-11-22): git.owenmorgan.com, then GitHub; the newest on either (release_lists).
   const std::vector<u::Answer> answers = ask_lists(release_lists(std::getenv("MW3_GAMES_API"), u::game_info(g).repo, 20), 15, allow_file(),
                                                    std::string("games: ") + u::game_info(g).key);
   return u::judge_game(g, installed_tag, answers, u::this_platform());

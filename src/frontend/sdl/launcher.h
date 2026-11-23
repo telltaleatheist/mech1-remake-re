@@ -27,7 +27,7 @@ struct LauncherOptions {
   bool sound = true;  // the main menu's rollover and select sounds from the install (off with --nosound)
   int win_w = 1280, win_h = 720;  // 16:9, as the canvas
   // The window's size from the program's --window, when one was given: else
-  // the 16:9 above (Owen, 2026-11-10: 16:9 everywhere by default), not the
+  // the 16:9 above (2026-11-10: 16:9 everywhere by default), not the
   // game's own 4:3 default, which letterboxed the canvas.
   void window_from(bool given, int w, int h) {
     if (given && w > 0 && h > 0) win_w = w, win_h = h;
@@ -39,11 +39,11 @@ struct LauncherOptions {
   // screen alone, straight on into the game once there is one.
   bool setup_only = false;
   // With setup_only: an install the plain start's search found elsewhere, looked at first and offered to be
-  // copied in (INSTALL), so the original may be deleted afterwards (Owen, 2026-11-21).
+  // copied in (INSTALL), so the original may be deleted afterwards (2026-11-21).
   std::string look_first;
   bool choose_again = false;
   // mw3pm's own start (setup_only): the find screen is Pirate's Moon's, its folder chosen into write_dir/install;
-  // cfg_install is its own mw3.cfg's install= (Owen, 2026-11-21: the player chooses in PM too).
+  // cfg_install is its own mw3.cfg's install= (2026-11-21: the player chooses in PM too).
   bool pm = false;  // Shift held at a plain start: the files in use offered again, PLAY goes on with them
   bool write_dir_fixed = false;  // --write-dir given: no moving the data folder
   // mw3launcher (docs/launcher.md, The two programs): MECHWARRIOR 3 starts

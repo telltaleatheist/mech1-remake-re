@@ -408,7 +408,7 @@ TEST(sdl_input_t16000m_twist_reaches_rz) {
     EXPECT(in.open(platform::Input::kJoystick));
     std::printf("  T.16000M: axes from %s\n", in.axis_source());
     static const char* const kFrom[3] = {"its HID descriptor", "the known sticks' table", "mw3.cfg's joystick_axes="};
-    EXPECT(std::string(in.axis_source()) == kFrom[how]);  // the log's word for it, each in its turn
+    EXPECT(std::string(in.axis_source()) == kFrom[how]);  // The log's word for it, each in its turn
     uint32_t flags = 0, axes = 0;
     in.joystick_caps(&flags, &axes);
     EXPECT(axes == 4);
@@ -521,7 +521,7 @@ TEST(sdl_input_stick_taken_out_reads_centred) {
   SDL_DetachVirtualJoystick(id);
 }
 
-// FIX (B) (Owen 2026-11-20, for MW1's remake too): a stick plugged in after the
+// FIX (B) (2026-11-20, for MW1's remake too): a stick plugged in after the
 // start is opened by zInput's poll with the users asked for meanwhile, the
 // arrival taken once; its buttons 11..15 read and bind as 1..10 do (the
 // original stops at 10, which the probes' path keeps).
@@ -1207,7 +1207,7 @@ TEST(sdl_issue15_mission_mouse_line_counts_slow_motion) {
   if (sw > 0 && sh > 0) zin::mouse_set_screen(sw, sh);
 }
 
-// Issue #15, RAW MOUSE (Owen, 2026-11-21; input.md section 14): on, a held
+// Issue #15, RAW MOUSE (2026-11-21; input.md section 14): on, a held
 // mouse asks SDL for the counts (the system scale hint "0"), off for the
 // system's speed ("1"), switched at once. With a raw source (the Mac's
 // GCMouse) its counts are the motion and SDL's (the system's curve) dropped;
@@ -1319,7 +1319,7 @@ TEST(sdl_editor_frees_the_mouse) {
   move(100, 230, 9, 9);
   EXPECT(in.mouse_state(&ms) == 0 && puts == 1 && cx == 100 && cy == 230 && ms.x == 0 && ms.y == 0);
   button(true);
-  EXPECT(in.mouse_state(&ms) == 0 && ms.buttons[0]);  // the click is the game's (the panel's pick)
+  EXPECT(in.mouse_state(&ms) == 0 && ms.buttons[0]);  // The click is the game's (the panel's pick)
   button(false);
   in.mouse_state(&ms);
   // The pause over the editor: not the mission, the menus' rules (fullscreen: held).
@@ -1745,7 +1745,7 @@ TEST(sdl_render3d_fog_colour_is_per_draw) {
 // through draw(), so the texture's colour alone darkens what is there. A white texture under a dark
 // diffuse leaves the ground as it was; a black one makes it black. (Through draw() the backend once
 // modulated by the diffuse, and an empty shadow became a dark quad.)
-// FIX (bug), Owen 2026-11-04: what no draw covers in a mission takes the fog's colour; black with fog off.
+// FIX (bug), 2026-11-04: what no draw covers in a mission takes the fog's colour; black with fog off.
 TEST(mission_frame_fill_is_the_fogs_colour) {
   const zmod::Fog kept = zmod::fog();
   const float tan[3] = {0.8f, 0.5f, 0.25f};
@@ -2535,7 +2535,7 @@ TEST(sdl_host_image_release_counts_and_frees) {
 // opaque by the overlay's rule (app_engine, sdl_platform's upload) at every
 // level, full health blue (hud.md section 16). Seven parts' blue outlines are
 // the colour of the translucent blue fill under them (0x001f); drawn
-// see-through until opaque writes ended the fill's record (Owen's playtest:
+// see-through until opaque writes ended the fill's record (the playtest:
 // only the right arm, 0x003f, showed).
 TEST(sdl_host_damage_diagram_shows_every_part) {
   if (!std::filesystem::exists(std::string(MW3_GAME_DIR) + "/zbd/rimage.zbd")) return;
@@ -3615,7 +3615,7 @@ bool waited(pid_t pid, int* status, int seconds = 120) {
 
 // The program confines its names (zutl::Mounts::confined): a dialog named
 // "..\\secret.zrd" is refused though the file sits beside the write dir, and
-// the log says so; a dialog the game has still loads.
+// The log says so; a dialog the game has still loads.
 TEST(sdl_program_names_stay_inside_the_game_folders) {
   if (!have_fonts()) return;
   const std::string root = std::string(MW3_TEST_TMP) + "/sdl_confined";
@@ -4325,7 +4325,7 @@ bool waited(pid_t pid, int* status, int seconds = 120) {
   return false;
 }
 
-// mw3pm's own start chooses its files as mw3 does (Owen, 2026-11-21; LauncherOptions::pm): a Pirate's Moon folder
+// mw3pm's own start chooses its files as mw3 does (2026-11-21; LauncherOptions::pm): a Pirate's Moon folder
 // dropped beside the program is offered on the find screen, as Pirate's Moon's (issue #13: never MW3's), copied
 // into the write dir's install (its mw3.cfg install=), started from the copy, the next start straight in; Shift
 // held shows what is in use, and FIND THE GAME's picker takes another copy, copied in instead.
@@ -4667,7 +4667,7 @@ TEST(sdl_program_multiplayer_mods_button_ticks_and_starts_again) {
 #endif
 
 #if !defined(_WIN32)  // posix_spawn, waitpid
-// Mods in multiplayer (Owen, 2026-11-11; upgrades/mods/ia_mods.h, mp_mods.h), the real program on loopback. A
+// Mods in multiplayer (2026-11-11; upgrades/mods/ia_mods.h, mp_mods.h), the real program on loopback. A
 // hosts from multiplayer's entry (--entry mp --entry-mp: the main menu opens MULTIPLAYER itself) with the mod
 // Big Guns ticked. Three joiners in turn, through the screens: one on a plain start (no mods) is turned back and
 // told it does not have Big Guns; one in the entry with another copy of the mod is told its copy differs; one in
@@ -4771,7 +4771,7 @@ TEST(sdl_two_processes_multiplayer_mods_match_or_turn_back) {
 #endif
 
 #if !defined(_WIN32) && !defined(MW3_PM_SUITE)  // posix_spawn, waitpid; MechWarrior 3's two versions (PM has one)
-// Owen, 2026-11-11: "we use the original for the assets only": which version of the original a player's files
+// 2026-11-11: "we use the original for the assets only": which version of the original a player's files
 // are never keeps two players apart; both play 1.2 as the rebuild makes it (mech3/patch12.h). The real program
 // on loopback, a host on 1.0's files and a joiner on 1.2's, then the other way round: the joiner gets into the
 // lobby (the session's version word is the rebuild's, the same on both; nothing compares the data), is not
@@ -5999,7 +5999,7 @@ TEST(sdl_program_bugfixes_switch) {
 // nothing to say for 1.2 data with music. 1.0's data and a mix need no note
 // either: they load as 1.2 (docs/patch12.md); only data of an unknown
 // version is told about the patch. The music is any CD track's file.
-// The launcher's window is 16:9 unless --window gave a size (Owen, 2026-11-10):
+// The launcher's window is 16:9 unless --window gave a size (2026-11-10):
 // the game's own 1280x960 default is not handed to it.
 TEST(launcher_window_is_16_9_by_default) {
   sdlfe::LauncherOptions lo;
@@ -6058,7 +6058,7 @@ TEST(launcher_long_path_fits_the_button) {
   EXPECT(sdlfe::fit_middle(ready + path, ready.size(), 10, chars) == ready + "...");  // too narrow: the words alone
 }
 
-// The launcher's one picker (Owen, 2026-11-02: one option): an image or a
+// The launcher's one picker (2026-11-02: one option): an image or a
 // download is itself the source; any other file stands for its folder
 // (Mech3.exe or any file of an installed copy, zbd\ and video\ up one, or a
 // disc's folder); a .bin with its .cue beside it is the .cue.
@@ -6164,7 +6164,7 @@ TEST(sdl_program_launcher_screens) {
   std::filesystem::remove_all(dir, ec);
   std::filesystem::create_directories(dir + "/wd", ec);
   std::filesystem::create_directories(dir + "/wd2", ec);
-  // The first entry hovered (Owen, the PC's fresh install): a square plate lights its edge (at edge_x, edge_y,
+  // The first entry hovered (the PC's fresh install): a square plate lights its edge (at edge_x, edge_y,
   // the plate's top, the 640 block 107 in) in amber. The main screen's cards (layout C, 2026-11-20): MW3's PLAY
   // lights its edge too, no ripple (two cards here: no MW1 program).
   struct Shot {
@@ -6207,21 +6207,21 @@ TEST(sdl_program_launcher_screens) {
                   text.find(s.says) != std::string::npos);
       if (c) SDL_DestroySurface(c);
     }
-    EXPECT(img && img->w == 854 && img->h == 480 && lit > n / 5);  // 16:9 (Owen, 2026-11-08): more dark sky, 24% lit at least
+    EXPECT(img && img->w == 854 && img->h == 480 && lit > n / 5);  // 16:9 (2026-11-08): more dark sky, 24% lit at least
     EXPECT(text.find(s.says) != std::string::npos);
     EXPECT(text.find(s.hover) != std::string::npos && edge);
-    // The setup screens name the game they set up, not the launcher (Owen 2026-11-22: the kit names no game); the cards keep its title.
+    // The setup screens name the game they set up, not the launcher (2026-11-22: the kit names no game); the cards keep its title.
     EXPECT((text.find("launcher: header MECHWARRIOR 3\n") != std::string::npos) == (std::string(s.screen) != "main"));
     if (img) SDL_DestroySurface(img);
   }
 }
 
-// BEFORE YOU PLAY by measure (Owen's playtest, W3): an install with no movies, no music and an empty
+// BEFORE YOU PLAY by measure (the playtest, W3): an install with no movies, no music and an empty
 // soundsH.zbd under a long settings folder (a long user name), ADD FROM MY DISC having answered "No disc in a
 // drive ...". The status line is under the notes and all of it above the button, at a size still read; before,
 // it was drawn at a fixed place over the notes' last lines. Three cases: those two notes; a third with them
 // (two operations' missions gone); Pirate's Moon's own notes (its empty soundsH.zbd and no music, the folder
-// in the music note longer still: Owen's own case).
+// in the music note longer still: the reported case).
 TEST(sdl_program_launcher_notes_fit_above_the_buttons) {
   namespace fs = std::filesystem;
   std::error_code ec;
@@ -6358,7 +6358,7 @@ TEST(sdl_program_plain_start_goes_straight_in_or_to_setup) {
 // line and exits 0 without a window or a log; --setup shows the find screen
 // alone whatever is found, exits 0 once a pick is installed (saved to
 // mw3.cfg), 1 when the player quits it.
-// A game's own folder (Owen 2026-11-22, the launcher's CHANGE FOLDER): <folder>/install its game files, its music in
+// A game's own folder (2026-11-22, the launcher's CHANGE FOLDER): <folder>/install its game files, its music in
 // <folder>/music beside them, found by the game (no "No music yet" note); the same layout without the folder's
 // mark is someone's folder, not looked in.
 TEST(sdl_program_finds_music_in_its_own_folder) {
@@ -6772,7 +6772,7 @@ TEST(sdl_program_mission_switch_stays_and_mods_comes_back_alive) {
   fs::remove_all(dir, ec);
 }
 
-// The MODS screen's six buttons (Owen's playtest, W5), in the real program at 4:3 and 16:9: the mouse over
+// The MODS screen's six buttons (the playtest, W5), in the real program at 4:3 and 16:9: the mouse over
 // IMPORT says its line in the two note lines; a click on a mod's name chooses it and changes no tick; a click
 // on its box ticks it for the campaign (written to that campaign's mods.txt); MISSIONS puts the campaign's
 // missions in the left box, BACK the campaigns again, INFO the campaign's info.
@@ -7201,7 +7201,7 @@ TEST(sdl_program_instant_action_mods_pilot_and_straight_in) {
   fs::remove_all(dir, ec);
 }
 
-// Playtest W6 (dev 4's steps, Owen's picture): Instant Action at 16:9, its MODS tab, BACK. The box's lines and the
+// Playtest W6 (dev 4's steps, the picture): Instant Action at 16:9, its MODS tab, BACK. The box's lines and the
 // map and scenario bars are one image the wide layout stretches; the button's own looks kept the 640 one, and its
 // refresh as the screen came back put it on, drawn at the 640 places (the labels stayed right). The screen logs the
 // width its images show: the same after MODS > BACK as before, with no mods (the empty tick screen) and with one, and
@@ -7330,7 +7330,7 @@ TEST(sdl_program_launcher_window_goes_on_to_the_game) {
 // stand-in with the install and this start's options, as `script` says
 // (it keeps its arguments; READY writes the ready file, DONE its end's
 // mark, which it also writes when it reaches the script's end). The launcher ends at
-// the game's first frame and leaves it running (Owen, 2026-11-01); a game
+// the game's first frame and leaves it running (2026-11-01); a game
 // that ends first or is slow leaves it up. Hidden, without sound.
 namespace {
 struct LauncherRun {
@@ -7493,7 +7493,7 @@ TEST(sdl_program_launcher_stays_when_the_game_fails_or_is_slow) {
   EXPECT(!has(again.log, "exited (93)") && !has(again.log, "closed with an error"));
 }
 
-// The launcher for v1.0 (Owen and the lead, 2026-11-02; docs/launcher.md):
+// The launcher for v1.0 (2026-11-02; docs/launcher.md):
 // the games and QUIT only; MECHWARRIOR 3 without its files opens the find
 // screen (FIND THE GAME, BACK; no Setup, Search, Folder or Patch); a game
 // found there starts at once, through the notes when the install lacks
@@ -7510,7 +7510,7 @@ TEST(sdl_program_launcher_finds_the_game_then_plays) {
   for (const char* gone : {"SETUP", "SEARCH AGAIN", "A FOLDER INSTEAD", "APPLY THE 1.2 PATCH", "POINT TO YOUR GAME",
                            "A DISC IMAGE OR DOWNLOAD", ", A FOLDER,", "THE DISC'S FOLDER"})
     EXPECT(!screen(a.log, gone));
-  // Found (an installed copy picked, copied into <write dir>/install: Owen, 2026-11-21), music there: straight
+  // Found (an installed copy picked, copied into <write dir>/install: 2026-11-21), music there: straight
   // into the game.
   auto copied = [](const char* name) { return std::string(MW3_TEST_TMP) + "/" + name + "/wd/install"; };
   const auto pick = std::vector<std::pair<std::string, std::string>>{{"MW3_FIND_INSTALL", "1"}, {"MW3_LAUNCHER_PICK", MW3_GAME_DIR},
@@ -7522,7 +7522,7 @@ TEST(sdl_program_launcher_finds_the_game_then_plays) {
   EXPECT(b.exited && !b.args.empty() && b.args[0] == copied("launcher_v1_music") && screen(b.log, "the game's first frame"));
   EXPECT(screen(b.log, "copied from"));
   EXPECT(!screen(b.log, "screen notes:"));
-  // CHANGE FOLDER (Owen 2026-11-22: the game where the player picks, pilots and saves in the user folder): a folder
+  // CHANGE FOLDER (2026-11-22: the game where the player picks, pilots and saves in the user folder): a folder
   // holding someone's file gets a "MechWarrior 3" folder of the game's own inside it, the copy there, its mark, the
   // user folder's mw3.cfg naming it; someone's file untouched. A "MechWarrior 3" folder that is not ours: refused.
   {
@@ -7566,7 +7566,7 @@ TEST(sdl_program_launcher_finds_the_game_then_plays) {
   EXPECT(c.exited && !c.args.empty() && c.args[0] == copied("launcher_v1_notes") && screen(c.log, "the game's first frame"));
   EXPECT(screen(c.log, "screen notes: ADD FROM MY DISC, OK\n") && screen(c.log, "note: No music yet"));
   EXPECT(c.log.find("screen notes:") < c.log.find("the game's first frame"));
-  // W13 (Owen, 2026-11-12): a player's pick (no check's click on MECHWARRIOR 3 after it) ends on the games,
+  // W13 (2026-11-12): a player's pick (no check's click on MECHWARRIOR 3 after it) ends on the games,
   // with nothing started, so Pirate's Moon can be added first; the notes' OK goes back to them too.
   auto stay = pick;
   stay.push_back({"MW3_LAUNCHER_NO_PLAY", "1"});
@@ -7595,7 +7595,7 @@ TEST(sdl_program_launcher_finds_the_game_then_plays) {
   std::filesystem::remove_all(cd, ec);
 }
 
-// A game with a newer release splits its card's button (Owen 2026-11-22: "the main button can be play, and there
+// A game with a newer release splits its card's button (2026-11-22: "the main button can be play, and there
 // can be a divider on the end"): PLAY, then that game's UPDATE as the next button, its end. Pirate's Moon (its tab
 // picked) and MW1 Remake installed older, their releases newer.
 TEST(sdl_program_launcher_splits_play_with_its_update) {
@@ -7636,7 +7636,7 @@ TEST(sdl_program_launcher_splits_play_with_its_update) {
   EXPECT(line.find("MECHWARRIOR 3 UPDATE") == std::string::npos);  // beside this program: no update of its own
 }
 
-// The family cards (Owen 2026-11-22, docs/launcher.md): a game whose repo has no release says COMING SOON (MW1's
+// The family cards (2026-11-22, docs/launcher.md): a game whose repo has no release says COMING SOON (MW1's
 // ORIGINAL here), one whose repo has one offers DOWNLOAD (Inception Remake), and a game on the setup kit's contract
 // beside the launcher (Inception Rebuild, a stand-in) shows its --status; its PLAY starts it plain, and a tab's press
 // is kept in mw3.cfg for the next start.
@@ -7707,7 +7707,7 @@ TEST(sdl_program_launcher_family_cards) {
   EXPECT(has(cfg, "tab_inception=chirm\n") && has(r.log, "focus INCEPTION REMAKE TAB\n"));
 }
 
-// The movies converted in the launcher (Owen's first start sat 44 s on
+// The movies converted in the launcher (a first start sat 44 s on
 // "Starting MechWarrior 3..." while mw3 did it): a found install's AVIs go
 // through the importer (here a stand-in, MW3_IMPORTER, as mw3import: its
 // "progress K N name" lines, the .fmv files) on the work screen before the
@@ -7742,7 +7742,7 @@ TEST(sdl_program_launcher_converts_the_movies_before_the_game) {
   EXPECT(r.exited && !r.args.empty() && seen(r.log, "work: CONVERTING THE MOVIES") && seen(r.log, "the game's first frame"));
   EXPECT(r.log.find("work: CONVERTING THE MOVIES") < r.log.find("the game's first frame"));
   EXPECT(std::filesystem::exists(wd + "/video/c1.fmv") && std::filesystem::exists(wd + "/video/intro.fmv"));
-  // The game files in a folder of the game's own (CHANGE FOLDER, Owen 2026-11-22): the converted movies there too,
+  // The game files in a folder of the game's own (CHANGE FOLDER, 2026-11-22): the converted movies there too,
   // beside install/, none in the user folder; the music looked for there as well (a track there: no notes).
   const std::string to = root + "/drive", game = to + "/MechWarrior 3";
   auto into = env;
@@ -7940,7 +7940,7 @@ TEST(sdl_program_launcher_says_the_picker_is_opening_before_it_asks) {
   std::filesystem::remove_all(dir, ec);
 }
 
-// Owen, 2026-11-21: an install the search finds (here a folder dropped beside the program) is offered to be
+// 2026-11-21: an install the search finds (here a folder dropped beside the program) is offered to be
 // copied into <write dir>/install before anything starts, so the original may be deleted; once copied, a plain
 // start goes straight in. Its plate, clicked, picks other files instead. mw3launcher's MECHWARRIOR 3 offers the same.
 TEST(sdl_program_a_found_install_is_copied_in_first) {
@@ -7975,7 +7975,7 @@ TEST(sdl_program_a_found_install_is_copied_in_first) {
   const std::string b = run({"--write-dir", dir + "/wd", "--window", "640x480", "--nosound"}, dir + "/b.log", &code);
   EXPECT(code == 0 && b.find("offers to copy") == std::string::npos &&
          b.find("mw3: start only: install " + dir + "/wd/install") != std::string::npos);
-  // The player's choice wins (Owen, 2026-11-21): the find's plate clicked, another copy picked, that one copied in.
+  // The player's choice wins (2026-11-21): the find's plate clicked, another copy picked, that one copied in.
   const std::string other = dir + "/Other Copy";
   fs::create_directories(other + "/video", ec);
   fs::create_directory_symlink(std::string(MW3_GAME_DIR) + "/zbd", other + "/zbd", ec);
@@ -8013,7 +8013,7 @@ TEST(sdl_program_a_found_install_is_copied_in_first) {
   fs::remove_all(dir, ec);
 }
 
-// Shift held at a plain start (Owen, 2026-11-21): the find screen with the files in use said and PLAY to go on
+// Shift held at a plain start (2026-11-21): the find screen with the files in use said and PLAY to go on
 // with them; FIND THE GAME opens the picker (the copy in use is no answer), and the pick is copied in and played.
 TEST(sdl_program_shift_at_start_chooses_the_files_again) {
   namespace fs = std::filesystem;
@@ -8057,11 +8057,11 @@ TEST(sdl_program_shift_at_start_chooses_the_files_again) {
   if (!check::failures) fs::remove_all(dir, ec);
 }
 
-// GAME FILES (Owen, 2026-11-02): the find screen at any time, by keys or a
+// GAME FILES (2026-11-02): the find screen at any time, by keys or a
 // pad as by the mouse (MW3_LAUNCHER_NAV); with the install in use lacking
 // its music, ADD FROM MY DISC there too. A repick of an installed copy:
 // copied in over the launcher's own earlier copy (<write dir>/install, its
-// marker; Owen, 2026-11-21), mw3.cfg pointing there, back to the games.
+// marker; 2026-11-21), mw3.cfg pointing there, back to the games.
 TEST(sdl_program_launcher_game_files_repicks) {
   auto seen = [](const std::string& log, const std::string& line) { return log.find(line) != std::string::npos; };
   const auto keys = std::vector<std::pair<std::string, std::string>>{
@@ -8590,7 +8590,7 @@ TEST(sdl_program_launcher_starts_pirates_moon) {
 // Pirate's Moon's folder name, MechWarrior 3's data again (searched first),
 // and a Mac CrossOver bottle holding Pirate's Moon. Each game's search lists its own places; read by
 // map_source, Pirate's Moon is the bottle's and never the MW3 copy. The
-// launcher with no pm_install= finds it and offers it (Owen, 2026-11-21: never
+// launcher with no pm_install= finds it and offers it (2026-11-21: never
 // taken on its own); INSTALL copies it into PM's settings folder's install,
 // saved as pm_install=, and starts it there.
 TEST(sdl_program_launcher_finds_pirates_moon) {
@@ -8726,7 +8726,7 @@ TEST(sdl_program_launcher_checks_mechwarrior3) {
 
 // The updater's fetch (docs/launcher.md, Updates, sitting 1): the system's curl as a child, its arguments an array.
 // A file:// fixture read only when allowed (checks), a missing one said in curl's words, an http address refused.
-// Owen 2026-11-23: the launcher's checks flashed a console for each curl on Windows. A helper program starts
+// 2026-11-23: the launcher's checks flashed a console for each curl on Windows. A helper program starts
 // quietly (on Windows SDL's background flag, CREATE_NO_WINDOW) and its real exit code still comes back (the flag
 // alone reports 0, and curl's code is how a failed check is told).
 TEST(sdl_update_helpers_start_quietly_with_their_exit_code) {
@@ -8833,7 +8833,7 @@ TEST(sdl_update_download_and_its_check) {
   fs::remove_all(dir, ec);
 }
 
-// The lists asked for a repo (Owen 2026-11-22): git.owenmorgan.com's Forgejo (limit=) then GitHub (per_page=, the
+// The lists asked for a repo (2026-11-22): git.owenmorgan.com's Forgejo (limit=) then GitHub (per_page=, the
 // home downloads come from first); in checks MW3_UPDATE_API / MW3_GAMES_API name one list (GitHub's) or two.
 TEST(sdl_release_lists_both_homes) {
   const auto l = sdlfe::release_lists(nullptr, "mech3-pm-re", 20);
@@ -8847,7 +8847,7 @@ TEST(sdl_release_lists_both_homes) {
          two[1].download_first);
 }
 
-// Both homes (Owen 2026-11-22): a release in both downloads from GitHub's copy (here gh/) and falls back to the
+// Both homes (2026-11-22): a release in both downloads from GitHub's copy (here gh/) and falls back to the
 // backup's (bk/, git.owenmorgan.com) only when GitHub's fails: its file gone, or not its checksum; GitHub's
 // SHA256SUMS missing, the backup's line used for GitHub's file; the homes' lines disagreeing, nothing taken; a cancel
 // never tries the other home.
@@ -9065,7 +9065,7 @@ TEST(sdl_program_launcher_checks_for_updates) {
   EXPECT(run("newer").rfind("MechWarrior 3 Rebuild 98.1.0 is out (this is ", 0) == 0);
   EXPECT(run("older").rfind("This is the newest MechWarrior 3 Rebuild (", 0) == 0);
   EXPECT(run("broken").find("the releases list could not be read") != std::string::npos);
-  // Both homes (Owen 2026-11-22), the backup's list then GitHub's: the newest on either; one home down is fine.
+  // Both homes (2026-11-22), the backup's list then GitHub's: the newest on either; one home down is fine.
   EXPECT(run("older|newer").rfind("MechWarrior 3 Rebuild 98.1.0 is out (this is ", 0) == 0);  // newest on GitHub only
   EXPECT(run("newer|older").rfind("MechWarrior 3 Rebuild 98.1.0 is out (this is ", 0) == 0);  // on the backup only
   EXPECT(run("newer|missing").rfind("MechWarrior 3 Rebuild 98.1.0 is out (this is ", 0) == 0);  // GitHub down
@@ -9075,7 +9075,7 @@ TEST(sdl_program_launcher_checks_for_updates) {
   fs::remove_all(dir, ec);
 }
 
-// The launcher's own update asked at every start (Owen 2026-11-23), on a thread, never a prompt: a newer release
+// The launcher's own update asked at every start (2026-11-23), on a thread, never a prompt: a newer release
 // shows an amber UPDATE AVAILABLE <v> in the header's top right, reached by the keys after QUIT
 // and opening the UPDATE screen; the same version, or a failed check, leaves the footer as it is (a failure in the
 // log only). A hidden run without MW3_UPDATE_API asks nothing.
@@ -9282,7 +9282,7 @@ TEST(sdl_program_package_layouts_find_both_games) {
 #endif
 
 #if !defined(_WIN32)  // posix_spawn (ours, not on Windows)
-// Owen's hard rule for the combined package (2026-11-09): reinstalling never touches a player's mods, pilots, saves,
+// The hard rule for the combined package (2026-11-09): reinstalling never touches a player's mods, pilots, saves,
 // settings or imported data. A package's program folder (launcher, mw3, mw3pm) used, then replaced by a new one through
 // the updater's own swap (upgrades::update::swap_in, as its install does), and both games started from each through PLAY: MechWarrior 3's data folder (moved
 // elsewhere by its pointer, MY DATA FOLDER) and Pirate's Moon's settings folder keep every file byte for byte, and
@@ -10709,7 +10709,7 @@ TEST(sdl_pm_program_restarts_into_and_out_of_its_entries) {
 
 #if defined(MW3_PM_SUITE)
 // Pirate's Moon's UPGRADES page saves its five switches and wide menus (WATER among them since Pirate's Moon's own
-// water switch, Owen 2026-11-10): a player's upgrade_water= line is replaced by the page's, once, and reads back.
+// water switch, 2026-11-10): a player's upgrade_water= line is replaced by the page's, once, and reads back.
 TEST(pm_upgrades_save_writes_the_water_key) {
   const std::string dir = std::string(MW3_TEST_TMP) + "/pm_upgrades_water";
   std::error_code ec;
@@ -10764,7 +10764,7 @@ std::string pm_bytes(const std::string& path) {
 }
 }  // namespace
 
-// Playtest W6 on Pirate's Moon (dev 4's steps, Owen's picture), the twin of
+// Playtest W6 on Pirate's Moon (dev 4's steps, the picture), the twin of
 // sdl_program_instant_action_mods_back_keeps_its_wide_pictures: Instant Action at 16:9, MODS, BACK; the screen's
 // pictures the same width after as before (the box's stretched look kept), with no mods and with one.
 TEST(sdl_pm_program_instant_action_mods_back_keeps_its_wide_pictures) {
@@ -10866,7 +10866,7 @@ TEST(sdl_pm_program_instant_action_mods) {
   if (!std::getenv("MW3_KEEP_TMP")) fs::remove_all(dir, ec);
 }
 
-// The six-button MODS screen and the mission switch on Pirate's Moon (Owen's playtest W1, W2, W5; the twins of
+// The six-button MODS screen and the mission switch on Pirate's Moon (the playtest W1, W2, W5; the twins of
 // sdl_program_mods_six_buttons, sdl_program_mission_switch_stays_and_mods_comes_back_alive and
 // sdl_program_editor_pointer_points_and_clicks). The real mw3pm, hidden:
 // A. MODS: IMPORT's hover line whole; a mod's name chooses it and flips nothing, its box ticks it for the Campaign
