@@ -779,7 +779,7 @@ int print_status(Args& a) {
       st.state = rekit::Status::kReady;
       if (r.version != "unknown") st.data = r.version;
 #if !defined(_WIN32)
-      if (!a.no_import && sdlfe::movies_missing(st.where, a.write_dir) > 0) st.pending.push_back("movies");
+      if (!a.no_import && sdlfe::movies_missing(st.where, sdlfe::media_dir(st.where, a.write_dir)) > 0) st.pending.push_back("movies");
 #endif
     } else {
       st.state = rekit::Status::kIncomplete;
@@ -1118,6 +1118,9 @@ int program(int argc, char** argv) {
   std::error_code patch_ec;
   if (!patch_dir.empty() && std::filesystem::is_directory(patch_dir, patch_ec)) zutl::mount(patch_dir);
   zutl::mount(a.install);
+  // Ours (Owen 2026-11-22): a game's own folder, picked, holds its music and converted movies beside its game
+  // files; searched after them (the user folder's as before, for an install without one).
+  if (const std::string media = sdlfe::media_dir(a.install, a.write_dir); media != a.write_dir) zutl::mount(media);
   zutl::set_write_dir(a.write_dir);
   zutl::mounts().confined = true;  // ours: names from data and the network stay inside these folders
   std::error_code ec;
@@ -1152,14 +1155,14 @@ int program(int argc, char** argv) {
   }
   // What a player may want to do about the data and the music: in the log
   // each start, in a box on the first (ours).
-  const std::vector<std::string> notes = start_notes(data, a.write_dir);
+  const std::vector<std::string> notes = start_notes(data, sdlfe::media_dir(a.install, a.write_dir));
   for (const std::string& n : notes) std::printf("mw3: note: %s\n", flat(n).c_str());
   if (plain && a.first_start && !notes.empty()) {
     std::string text;
     for (const std::string& n : notes) text += (text.empty() ? "" : "\n\n") + n;
     mech3::first_start_notes() = text;  // W16: in the game's box at the main menu, not a system box before the window
   }
-  if (a.force_import || (plain && !a.no_import && !vfw)) sdlfe::first_run_import(a.install, a.write_dir, a.force_import);
+  if (a.force_import || (plain && !a.no_import && !vfw)) sdlfe::first_run_import(a.install, sdlfe::media_dir(a.install, a.write_dir), a.force_import);
 
   // The network's session, before the game (ours, piece 4).
   std::unique_ptr<sdlfe::EnetTransport> net;

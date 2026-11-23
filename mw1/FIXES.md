@@ -5,6 +5,21 @@ Tick an item when it is merged into `main`.
 
 **How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 141. [ ] MechWarrior (1989)'s copy into MW1 Remake's own folder *(open; raised by the lead with pm-v1.2.4's layout, 2026-11-22)*
+- **What:** pm-v1.2.4's launcher keeps each game's files in a folder of its own (`games_<key>=`, `<folder>/install`,
+  marked `rebuild-game-folder.txt` with `game=mw1`); only pilots, saves, settings and mods stay in the user folder.
+  MW1's copy of the player's MechWarrior (1989) still goes to the user folder: `<write dir>/mw1/game`
+  (`sdlfe::mw1::unpacked_dir`, src/frontend/sdl/mw1_files.cpp), kept as `mw1_game=`.
+- **Wanted:** a new copy goes into MW1 Remake's folder when the player has one (`games_mw1=`, the folder its card's
+  INSTALL picked), e.g. `<folder>/install/mw1game`; without one, the user folder as now.
+- **The search:** looks in the new place first, then the old `<write dir>/mw1/game`, which stays readable for good:
+  a copy made before this keeps working where it is, and `mw1_game=` keeps pointing at it.
+- **Existing players' copies are never moved without asking.** At most the launcher offers to move one (the copy is
+  the launcher's own, so it may), and only when the player says yes; the player's own MechWarrior folder (only ever
+  read) is never touched.
+- **Checks:** the launcher's MW1 copy test (`sdl_program_launcher_starts_mechwarrior_1`) for a copy into the picked
+  folder, the old location still found, and nothing moved unasked.
+
 ## 140. [x] MW3's worlds have no mission map: wire MW3's own maps.zrd *(done: mw1-maps-140; in 1.0.8)*
 
 - **Found (2026-11-22, item 136's point search):** on MW3's worlds (mw3c1..mw3c4) Shift+R shows only the plain radar,
@@ -2572,8 +2587,28 @@ about 6 s with its speed up, moving 0 m, before it walked.
   - **Slice 1, the engine's hooks (mw1-110-hooks):** `src/upgrades/kits` (docs/upgrades-kits.md), an
     "mw1 (engine, ours)" commit. Four hooks, null in MW3 and PM: extra sinks in the heat step, extra armour at a
     part's setup, a weapon's damage scale and its extra range, per weapon (never the shared WeaponDef). They are off
-    in a network game, and damage is clamped to 4x and range to the weapon's own RANGE. MW1 doesn't set them yet
-    (slice 3).
+    in a network game, and damage is clamped to 4x and range to the weapon's own RANGE.
+  - **Slice 3, MW1 answers the hooks (mw1-110-answers):** `mw1_kit_answers.h`. Set up at each deploy from the company
+    as it is then, settled at the launch, and cleared at the hub. The commander's 'Mech and each flying lancemate's
+    get the kits on them, and an armour kit's points are spread over the locations in proportion to the 'Mech's own
+    armour. Every weapon on the company's side gets its type's steps, and no enemy gets anything, even with the same
+    weapon. A lancemate is known by their AI pilot, so a reinforcement made later at their 'Mech's address isn't
+    taken for them. `mw1_loop_kits_and_steps_the_lance_s_only_headless` checks it in a mission.
+  - **The supply screen (mw1-110-supply):** `mw1_supply_screen.h`, layout `mw1supply.zrd`, opened by the Mech
+    Complex's new SUPPLY (above BACK). FOR SALE lists the world's dealer stock, a rule, then the sink and armour kits
+    and a power and a range step for each weapon type the company owns, each at its next price. YOUR STORES lists the
+    stores' items at the selling price, the spare kits and the steps each type has. ASSIGN switches the lower list to
+    the company's 'Mechs and shows +SINK, -SINK, +ARMOUR and -ARMOUR. A kit or a step asks before buying, since it is
+    never sold back; a dealer's item doesn't. The Mech Complex's YOUR MECHS shows each 'Mech's kits in a KITS column on
+    the wide layout; 4:3's has no room, so its status line says the chosen one's.
+    `mw1_loop_supply_buy_assign_move_saved_headless` clicks it through and reloads the save.
+  - **The dealer's weights at the hub (found by the supply shots):** PM reads weapons.zrd into its weapon
+    definitions only as a world loads (a mission's, or the lab's world 6, which PM's lab and the Mech Complex's live
+    'Mech load), so at the hub the engine weighed every weapon 0 until one had. Without the live 'Mech (software
+    renderer, headless) or after a mission, the dealer priced every weapon at the floor and the range steps had no
+    limit. `mw1_weapon_data.h` reads the mounted weapons.zrd (a mod's overlaid) when the hub is made; the dealer's
+    tons, an ammunition lot's rounds and the range limit ask the engine first and use it when the engine has nothing.
+    The supply screen's names are the ones PM's lab shows (Mech3Msg's), the table's name when there's none.
 - **Owen (2026-11-20):** players can keep playing indefinitely without the story, like an Instant Action mod, and
   money needs something to buy. It's always on sale at the hub; nothing to hunt for. It applies to the player's side
   only, never to enemies.

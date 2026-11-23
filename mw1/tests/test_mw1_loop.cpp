@@ -114,6 +114,11 @@
 #include "mw1_mission_maps.h"
 #include "mw1_missions.h"
 #include "mw1_pilots.h"
+#include "mw1_kit_answers.h"
+#include "mw1_supply_screen.h"
+#include "mw1_weapon_data.h"
+#include "pm_weapon_labs.h"
+#include "mw1_upgrades.h"
 #include "mw1_results.h"
 #include "mw1_market_screen.h"
 #include "mw1_enemies.h"
@@ -832,6 +837,13 @@ struct Run {
   // FIXES.md item 72: called each mission frame from the 30th while it returns true (then the run's ending as before).
   std::function<bool(int32_t frame)> in_mission;
   int32_t in_mission_frames = 0;
+  // FIXES 118: with `lance`, called once the lance is assigned (before the contract): kits and steps put on the company.
+  std::function<void(mw1::Company& c)> kits;
+  // 1.1.0: the test's own screens. From the hub's first look (its messages read) each frame goes to `screens`, which
+  // drives whatever is up (the hub, the Mech Complex, the supply screen, the lab) itself, until it returns false: the
+  // run then ends there, as stop_at_after_action's does. No offer taken.
+  std::function<bool(mech3::Mech3App& app)> screens;
+  bool screens_started = false;
   int32_t pump_limit = 0;  // FIXES 106: the run's passes, when more than the pump's own (a long watch in the mission)
   std::vector<std::string> lance_downs;  // FIXES 106: the lancemates down as the log said them, at AFTER ACTION
   // FIXES 104: the force's chassis and loadouts (one each a kind in `force`); empty: the contract's own roll.
@@ -1046,7 +1058,8 @@ void loop_run(Ending ending, Run* run = nullptr) {
     EXPECT(app.init_instance());
     engine.on_message_box = [&](int32_t, int32_t, int32_t) -> uint32_t {
       const std::string& t = engine.last_box_text;
-      if (run && (t.rfind("Buy the ", 0) == 0 || t.rfind("Sell the ", 0) == 0)) {  // the Mech Complex's (item 60)
+      // The Mech Complex's (item 60), and the supply screen's for a kit or a step (1.1.0: "Buy a heat sink kit ...").
+      if (run && (t.rfind("Buy the ", 0) == 0 || t.rfind("Sell the ", 0) == 0 || t.rfind("Buy a", 0) == 0)) {
         run->deal_questions.push_back(t);
         std::printf("  asked: %s\n", t.c_str());
         return run->deal_no > 0 ? (--run->deal_no, 7u) : 6u;  // IDNO, IDYES
@@ -1148,6 +1161,10 @@ void loop_run(Ending ending, Run* run = nullptr) {
         mi->x = click_x, mi->y = click_y;
         mi->left = click_phase == 2 ? zin::kPressed : click_phase == 3 ? zin::kReleased : 0;
         click_phase = click_phase == 4 ? 0 : click_phase + 1;
+        return;
+      }
+      if (run && run->screens && run->screens_started) {
+        if (!run->screens(app)) back_at_main = true;  // the test's screens done: the run ends here
         return;
       }
       // The Mech Complex's MECH LAB (FIXES.md item 8): Pirate's Moon's lab over it, MECH LAB on the bought Firefly, a
@@ -1405,7 +1422,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
             EXPECT(has("piloted by you") && c->mech == mw1::kPmFirefly && c->hangar.size() == 1 && c->hangar[0].mech == mw1::kPmOwens);
             EXPECT(c->loadout != nullptr && c->stores->count() == run->lab_stores + 1);
             run->market_done = true;
-            button(3);
+            button(mw1::kMarketBack - 1);
             break;
           default: break;
         }
@@ -1532,6 +1549,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
                sc->picture(mw1::kBarPanelColumnFrame + static_cast<size_t>(n)) == mw1::frame_name(104, 136, true) &&
                sc->picture(mw1::kBarPanelColumnFrame + 1) == mw1::frame_name(104, 136, n == 1));
         if (n == 3) EXPECT(mw1::mech_of(*c, 2) == 2);
+        if (run->kits) run->kits(*c);
         run->lance_set = true;
         sc->on_button(mw1::kBarDone, 0, 0);  // LEAVE: the hub
         return;
@@ -1944,6 +1962,10 @@ void loop_run(Ending ending, Run* run = nullptr) {
           return;
         }
         if (!hub_checked && run && run->travel && run->plaque_after.empty()) run->plaque_after = shown.size() > 2 ? shown[0] + "|" + shown[2] : "";  // the planet, the date
+        if (run && run->screens) {  // the test drives its own screens from here (Run::screens)
+          run->screens_started = true;
+          return;
+        }
         if (!hub_checked && run && run->kill_player && !run->spare_set) {
           mw1::OwnedMech o;
           o.mech = mw1::kPmFirefly;
@@ -3079,7 +3101,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
               kSaid[ending], hubs, enemies, killed, static_cast<long long>(funds_at_offer), c ? static_cast<long long>(c->funds) : -1LL,
               items_at_offer, c ? c->stores->count() : -1, c ? c->kills : -1, c ? c->favor[c->planet_house] : -1);
   // A run stopped at AFTER ACTION, or started on one (the restart tests): what it left, checked by its test.
-  if (run && (run->stop_at_after_action || run->resume)) {
+  if (run && (run->stop_at_after_action || run->resume || run->screens)) {
     if (c) run->funds_end = c->funds, run->items_end = c->stores->count(), run->loadout_end = loadout_items(c), take_stores(run, c);
     EXPECT(back_at_main);
     mw1::uninstall_game_loop();
@@ -8482,6 +8504,308 @@ TEST(mw1_loop_a_lancemate_down_is_logged_by_whom_headless) {
       return false;
     };
     EXPECT(downed(first) && downed(second) && !downed(third));
+  });
+}
+
+// 1.1.0 (FIXES 122 and 118): the supply screen through its buttons, as the player has it. From the hub, the Mech
+// Complex's SUPPLY:
+// - a PPC bought from the dealer: paid, in the stores, and in the lab's store the MECH LAB fits from;
+// - a heat sink kit bought (asked first: it never sells back), ASSIGNed to the lancemate's Owens, then moved to the
+//   commander's 'Mech (a minus on one, a plus on the other);
+// - saved: the save read back holds it all; and a second run on that save shows it on the supply screen.
+TEST(mw1_loop_supply_buy_assign_move_saved_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_loop_supply";
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  in_child([&] {
+    const int32_t ppc = mech3::weapon_index("PPC");
+    const mw1::dealer::Ware ppc_ware{mw1::dealer::kWeapon, ppc, mech3::kInnerSphere};
+    // The hub as a fresh program has it: no weapon definitions and no weapon lab (the engine's startup clears the
+    // definitions too). PM loads them with a world: a mission's, or the lab's world 6, which the Mech Complex's live
+    // 'Mech (mech3/model_view.cpp) and PM's lab load. So the PPC priced right here before the fix, the live 'Mech having
+    // drawn first; the first supply shots pressed SUPPLY before the Mech Complex drew and priced every weapon at the
+    // floor. The tons are checked either way; test_mw1_dealer's weights test checks MW1's read with none loaded.
+    const bool defs = mw1_tests::engine_has_weapon("PPC");
+    std::printf("  before the run: PM's weapon definitions %s, a weapon lab %s\n", defs ? "loaded" : "none",
+                mech3::weapon_weight(ppc, mech3::kInnerSphere) > 0.0f && !defs ? "set" : "none");
+    mw1_tests::clear_engine_weapons();
+    mw1::weapon_data::clear();
+    Run run;
+    run.save = (dir / mw1::kSaveFile).string();
+    int32_t step = 0, wait = 0, stores_before = -1, lab_ppc = -1;
+    int64_t funds_before = 0, ware_price = 0, kit_price = 0;
+    std::vector<std::string> on_the_owens;
+    auto ready = [&] { return ++wait >= 10 && !mw1::fade::current().busy() ? (wait = 0, true) : false; };
+    run.screens = [&](mech3::Mech3App& app) -> bool {
+      if (!ready()) return true;
+      mw1::Company* c = mw1::game_loop_company_for_tests();
+      mw1::HubState* hub = mw1::game_loop_hub();
+      mw1::MarketState* ms = mw1::game_loop_market();
+      mw1::SupplyState* ss = mw1::game_loop_supply();
+      const mw1::SupplyChoice* ch = mw1::game_loop_supply_choice();
+      switch (step) {
+        case 0: {  // the hub: the funds, the dealer's PPCs and a lancemate in the Owens; the Mech Complex
+          if (!showing(app, hub)) return true;
+          c->funds = 30000000;
+          c->dealer.stock = {{mw1::dealer::kWeapon, ppc, mech3::kInnerSphere, 2}};
+          c->lance.push_back({1, 0});
+          mw1::OwnedMech o;
+          o.mech = mw1::kPmOwens, o.pilot = 1;
+          c->hangar.push_back(o);
+          hub->screen()->on_button(mw1::kHubMarket, 0, 0);
+          break;
+        }
+        case 1:
+          if (!showing(app, ms)) return true;
+          EXPECT(ms->screen()->enabled(mw1::kMarketSupply));
+          ms->screen()->on_button(mw1::kMarketSupply, 0, 0);
+          break;
+        case 2: {
+          if (!showing(app, ss)) return true;
+          mw1::Mw1Screen* sc = ss->screen();
+          std::printf("  supply:");
+          for (const std::string& l : sc->shown()) std::printf(" [%s]", l.c_str());
+          std::printf("\n");
+          // BUY on FOR SALE's first row, the dealer's PPC: paid, one more in the stores, one fewer on sale.
+          EXPECT(ch && ch->sale == 0 && !ch->assigning && sc->enabled(mw1::kSupplyBuy) && !sc->visible(mw1::kSupplyAddSink));
+          funds_before = c->funds, stores_before = mw1::dealer::in_stores(*c, ppc_ware);
+          ware_price = mw1::dealer::buy_price(ppc_ware, c->tier);
+          std::printf("  at the supply screen: PM's weapon definitions %s\n", mw1_tests::engine_has_weapon("PPC") ? "loaded (the lab's world)" : "none (MW1's read)");
+          EXPECT(mw1::dealer::ware_tons(ppc_ware) == 7.0f && ware_price >= 7 * mw1::dealer::kPricePerTon);  // no floor price
+          sc->on_button(mw1::kSupplyBuy, 0, 0);
+          EXPECT(c->funds == funds_before - ware_price && mw1::dealer::in_stores(*c, ppc_ware) == stores_before + 1 &&
+                 c->dealer.stock.size() == 1 && c->dealer.stock[0].count == 1 && run.deal_questions.empty());
+          // Down, over the rule, to the sink kit: asked, YES, in the storehouse.
+          sc->on_button(mw1::kSupplySaleDown, 0, 0);
+          std::vector<mw1::SupplyRow> rows;
+          const mw1::SupplyRow* r = mw1::chosen_sale(*c, *ch, &rows);
+          EXPECT(r && r->kind == mw1::LineKind::kKit && r->kit == mw1::upgrades::Kit::kSink);
+          kit_price = mw1::upgrades::kit_price(*c, mw1::upgrades::Kit::kSink);
+          sc->on_button(mw1::kSupplyBuy, 0, 0);
+          EXPECT(run.deal_questions.size() == 1 && run.deal_questions[0].rfind("Buy a heat sink kit", 0) == 0);
+          EXPECT(c->upgrades.store.sinks == 1 && c->upgrades.sinks_bought == 1 && c->funds == funds_before - ware_price - kit_price);
+          // ASSIGN: the 'Mechs; the kit onto the Owens (the second), then off it and onto the commander's.
+          sc->on_button(mw1::kSupplyAssign, 0, 0);
+          EXPECT(ch->assigning && sc->visible(mw1::kSupplyAddSink) && !sc->enabled(mw1::kSupplySell));
+          sc->on_button(mw1::kSupplyOwnDown, 0, 0);
+          EXPECT(ch->own == 1 && sc->enabled(mw1::kSupplyAddSink));
+          sc->on_button(mw1::kSupplyAddSink, 0, 0);
+          EXPECT(c->hangar.back().kits == (mw1::Kits{1, 0}) && c->upgrades.store.sinks == 0);
+          on_the_owens = sc->shown();
+          sc->on_button(mw1::kSupplyTakeSink, 0, 0);
+          sc->on_button(mw1::kSupplyOwnUp, 0, 0);
+          sc->on_button(mw1::kSupplyAddSink, 0, 0);
+          EXPECT(c->kits == (mw1::Kits{1, 0}) && c->hangar.back().kits == mw1::Kits{} && c->upgrades.store.sinks == 0);
+          sc->on_button(mw1::kSupplyBack, 0, 0);
+          break;
+        }
+        case 3:  // the Mech Complex again: MECH LAB on the commander's 'Mech
+          if (!showing(app, ms)) return true;
+          ms->screen()->on_button(mw1::kMarketLab, 0, 0);
+          break;
+        case 4: {  // the lab: the bought PPC in its store, to fit
+          if (app.current() != &mech3::states().lab) return true;
+          lab_ppc = 0;
+          if (mech3::Pilot* p = mech3::current_pilot(); p && p->action())
+            for (const mech3::ConfigItem* it : p->action()->store.items)
+              if (it->kind() == mw1::dealer::kWeapon && it->id() == ppc) lab_ppc += it->count;
+          mech3::states().lab.accept();
+          break;
+        }
+        case 5:
+          if (!showing(app, ms)) return true;
+          return false;  // done: the run ends at the Mech Complex
+        default: return false;
+      }
+      ++step;
+      return true;
+    };
+    loop_run(kObjective, &run);
+    std::printf("  supply: a PPC for %lld (the stores %d -> %d, the lab's store %d), a sink kit for %lld\n",
+                static_cast<long long>(ware_price), stores_before, stores_before + 1, lab_ppc, static_cast<long long>(kit_price));
+    EXPECT(step == 5 && lab_ppc == stores_before + 1);
+    bool shown_on_owens = false;
+    for (const std::string& l : on_the_owens) shown_on_owens = shown_on_owens || (l.find("Owens") != std::string::npos && l.find("+1 S +0 A") != std::string::npos);
+    EXPECT(shown_on_owens);
+    // The save read back: the PPC, the kit on the commander's 'Mech, none on the Owens or in the storehouse, one bought.
+    mw1::Company saved;
+    mw1::Contract k;
+    bool has = false;
+    std::string why;
+    EXPECT(mw1::load_file(run.save, saved, k, &has, &why) == mw1::Loaded::kLoaded);
+    EXPECT(mw1::dealer::in_stores(saved, ppc_ware) == stores_before + 1);
+    EXPECT(saved.kits == (mw1::Kits{1, 0}) && !saved.hangar.empty() && saved.hangar.back().kits == mw1::Kits{} &&
+           saved.upgrades.store == mw1::Kits{} && saved.upgrades.sinks_bought == 1);
+    // A second run on that save: the supply screen's 'Mechs show the commander's kit, the stores the PPC.
+    Run again;
+    again.save = run.save;
+    std::vector<std::string> stores_shown, kits_shown;
+    int32_t again_step = 0;
+    again.screens = [&](mech3::Mech3App& app) -> bool {
+      if (!ready()) return true;
+      mw1::HubState* hub = mw1::game_loop_hub();
+      mw1::MarketState* ms = mw1::game_loop_market();
+      mw1::SupplyState* ss = mw1::game_loop_supply();
+      switch (again_step) {
+        case 0:
+          if (!showing(app, hub)) return true;
+          hub->screen()->on_button(mw1::kHubMarket, 0, 0);
+          break;
+        case 1:
+          if (!showing(app, ms)) return true;
+          ms->screen()->on_button(mw1::kMarketSupply, 0, 0);
+          break;
+        case 2: {
+          if (!showing(app, ss)) return true;
+          // YOUR STORES down to the PPC (the starting stores' items before it): its row and the status line say it.
+          mw1::Company* c = mw1::game_loop_company_for_tests();
+          const mw1::SupplyChoice* ch = mw1::game_loop_supply_choice();
+          std::vector<mw1::SupplyRow> rows;
+          for (int32_t i = 0; i < 80; ++i) {
+            const mw1::SupplyRow* r = mw1::chosen_own(*c, *ch, &rows);
+            if (r && r->kind == mw1::LineKind::kWare && r->ware == ppc_ware) break;
+            ss->screen()->on_button(mw1::kSupplyOwnDown, 0, 0);
+          }
+          stores_shown = ss->screen()->shown();
+          ss->screen()->on_button(mw1::kSupplyAssign, 0, 0);
+          kits_shown = ss->screen()->shown();
+          return false;
+        }
+        default: return false;
+      }
+      ++again_step;
+      return true;
+    };
+    loop_run(kObjective, &again);
+    auto has_line = [](const std::vector<std::string>& ls, const char* a, const char* b) {
+      for (const std::string& l : ls)
+        if (l.find(a) != std::string::npos && l.find(b) != std::string::npos) return true;
+      return false;
+    };
+    const std::string in_stores = "In your stores: " + std::to_string(stores_before + 1);
+    const std::string title = mw1::ware_title(ppc_ware), row = "> " + title;
+    EXPECT(has_line(stores_shown, row.c_str(), "x") && has_line(stores_shown, title.c_str(), in_stores.c_str()) &&
+           has_line(kits_shown, "YOU", "+1 S +0 A"));
+  });
+}
+
+// FIXES 118 (1.1.0 slice 3, mw1_kit_answers.h): kits and steps in a mission, the company's side only. The
+// commander's 'Mech carries +10 sinks and +22 armour points, the first lancemate's +12 and +11, the second's none; every
+// weapon type has 4 power and 3 range steps. In the mission the engine's own reads show it:
+// - the commander's and the first lancemate's sinks cool faster, and their torsos carry the kit's points past the
+//   configuration's;
+// - every weapon of the lance from its loadout (the second lancemate's too) hits 20% harder and reaches 30 m further,
+//   as its max_range (the AI's range pick) says; a weapon not from the loadout (no item: the commander's Owens has one)
+//   has no type the steps reach, and stays as it was;
+// - no enemy's sinks, armour or weapons change, a weapon type the lance also carries included.
+// Back at the hub the answers are disarmed.
+TEST(mw1_loop_kits_and_steps_the_lance_s_only_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_loop_kits";
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  in_child([&] {
+    mw1::MapRow battle{"c4", 1, mw1::kDesert, mw1::RowKind::kAny, "", ""};
+    for (const mw1::MapRow& r : shipped_rows())
+      if (r.world == "c4" && r.ia == 1) battle.climate = r.climate;
+    Run run;
+    run.save = (dir / mw1::kSaveFile).string();
+    run.lance = true;
+    run.row = &battle, run.stop_at_after_action = true;
+    run.force = {mw1::kSlot45, mw1::kSlot85, mw1::kSlot55};
+    int32_t kitted = 0, bare = 0, types = 0;
+    run.kits = [&](mw1::Company& c) {
+      c.kits = {10, 22};
+      for (mw1::OwnedMech& o : c.hangar) {
+        if (o.pilot && !kitted) o.kits = {12, 11}, kitted = o.pilot;
+        else if (o.pilot && !bare) bare = o.pilot;
+      }
+      types = mech3::weapon_count();
+      for (int32_t w = 0; w < types; ++w)
+        for (int32_t t : {1, 2}) c.upgrades.steps.push_back({w, t, 4, 3});
+    };
+    using Report = mw1::kit_answers::MechReport;
+    Report commander;
+    std::vector<std::pair<std::string, Report>> mates;
+    std::vector<Report> enemies;
+    bool armed = false;
+    run.in_mission = [&](int32_t f) {
+      if (!mech3::mech_mission_player()) return f < 600;
+      if (mech3::missions().time < 2.0f) return true;
+      armed = mw1::kit_answers::armed();
+      commander = mw1::kit_answers::report(mech3::mech_mission_player());
+      int32_t n = 0;
+      const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+      for (int32_t i = 0; i < n; ++i)
+        if (const mech3::ai::Brain* b = brain_of(ai[i].mech)) {
+          if (b->params.team() == 1) mates.emplace_back(pilot_of(ai[i].mech), mw1::kit_answers::report(ai[i].mech));
+          else enemies.push_back(mw1::kit_answers::report(ai[i].mech));
+        }
+      return false;
+    };
+    loop_run(kObjective, &run);
+    const float power = 1.0f + static_cast<float>(4 * mw1::upgrades::kPowerStepPercent) / 100.0f;
+    const float reach = static_cast<float>(3 * mw1::upgrades::kRangeStepMetres);
+    auto scale = [](int32_t points) { return 1.0f / (static_cast<float>(points) * 0.01f); };
+    auto reaches = [](const Report::Gun& g, float add) {  // a beam under water reaches half, the kit's metres too
+      return g.max_range == g.type_range + add || g.max_range == g.type_range * 0.5f + add * 0.5f;
+    };
+    auto boosted = [&](const Report& r) {
+      bool all = false;
+      for (const Report::Gun& g : r.guns) all = all || g.weapon >= 0;  // some from the loadout
+      for (const Report::Gun& g : r.guns)
+        all = all && (g.weapon >= 0 ? g.damage_scale == power && reaches(g, reach) : g.damage_scale == 1.0f && reaches(g, 0.0f));
+      return all;
+    };
+    auto kitted_mech = [&](const Report& r) {
+      return r.sink_rate > r.own_sink_rate && r.torso_kit_points > 0 &&
+             r.torso_armour_scale == scale(r.torso_points + r.torso_kit_points);
+    };
+    auto plain_mech = [&](const Report& r) {
+      return r.sink_rate == r.own_sink_rate && r.torso_kit_points == 0 && r.torso_armour_scale == scale(r.torso_points);
+    };
+    std::printf("  kits: %d weapon types stepped; the commander's sinks %.3f (own %.3f), torso %d+%d points, %zu weapons\n",
+                types, static_cast<double>(commander.sink_rate), static_cast<double>(commander.own_sink_rate),
+                commander.torso_points, commander.torso_kit_points, commander.guns.size());
+    auto details = [&](const char* who, const Report& r) {  // each check's figures, for a failure's reading
+      std::printf("  %s: torso scale %.6f, its points' %.6f (%d+%d); weapons:", who, static_cast<double>(r.torso_armour_scale),
+                  static_cast<double>(scale(r.torso_points + r.torso_kit_points)), r.torso_points, r.torso_kit_points);
+      for (const Report::Gun& g : r.guns)
+        std::printf(" %s %d/%d x%.3f %.1f m (%.1f)", g.name.c_str(), g.weapon, g.tech, static_cast<double>(g.damage_scale),
+                    static_cast<double>(g.max_range), static_cast<double>(g.type_range));
+      std::printf("\n");
+    };
+    details("the commander", commander);
+    EXPECT(armed && types > 0 && kitted > 0 && bare > 0);
+    EXPECT(commander.found && commander.side == 0 && kitted_mech(commander) && boosted(commander));
+    EXPECT(mates.size() == 2);
+    for (const auto& [name, r] : mates) {
+      std::printf("  lancemate %s: side %d, sinks %.3f (own %.3f), torso %d+%d, %zu weapons\n", name.c_str(), r.side,
+                  static_cast<double>(r.sink_rate), static_cast<double>(r.own_sink_rate), r.torso_points, r.torso_kit_points,
+                  r.guns.size());
+      details(name.c_str(), r);
+      EXPECT(boosted(r));
+      if (name == mw1::pilot_title(kitted)) EXPECT(r.side == kitted && kitted_mech(r));
+      else EXPECT(name == mw1::pilot_title(bare) && r.side == bare && plain_mech(r));
+    }
+    EXPECT(enemies.size() >= 3);  // the contract's three (a map may add its own)
+    int32_t shared = 0;
+    for (const Report& r : enemies) {
+      EXPECT(r.found && r.side == -1 && plain_mech(r) && !r.guns.empty());
+      for (const Report::Gun& g : r.guns) {
+        EXPECT(g.damage_scale == 1.0f && reaches(g, 0.0f));
+        bool ours = false;
+        for (const Report::Gun& o : commander.guns) ours = ours || (o.weapon == g.weapon && o.tech == g.tech);
+        for (const auto& [name, m] : mates)
+          for (const Report::Gun& o : m.guns) ours = ours || (o.weapon == g.weapon && o.tech == g.tech);
+        shared += ours ? 1 : 0;
+      }
+    }
+    std::printf("  enemies: %zu, %d of their weapons a type the lance carries too (unchanged)\n", enemies.size(), shared);
+    EXPECT(!mw1::kit_answers::armed());  // back at the hub
   });
 }
 

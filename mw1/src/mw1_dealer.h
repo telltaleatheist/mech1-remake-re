@@ -19,12 +19,15 @@
 
 namespace mw1::dealer {
 
-// The design's numbers: placeholders until the project settles them (plan-1.1.0.md sections 4 and 5).
+// The design's numbers: placeholders until the project settles them (plan-1.1.0.md sections 4 and 5), but kBuysBack.
 inline constexpr int64_t kPricePerTon = 60000;
 inline constexpr int64_t kPriceLeast = 50000;
 inline constexpr int32_t kClanPercent = 150;
 inline constexpr int64_t kAmmoPerTon = 10000;
-inline constexpr bool kBuysBack = true;  // the dealer buys from the stores, at the market's selling percentages
+// Settled, a project decision: the dealer buys back from the stores at the market's selling percentages (90/110/120/
+// 140% of the tier 0 price), with no dealer limit. Buying low on one world and selling high on another is the original
+// game's own loophole, kept on purpose; the numbers stay.
+inline constexpr bool kBuysBack = true;
 // The stock: kKindsBase + rand(0..kKindsRoll) wares drawn (each kind once), each rand(1..kCountMost) of them; a draw
 // weighs a common ware kCommonWeight, an uncommon kUncommonWeight, a rare kRareWeight.
 inline constexpr int32_t kKindsBase = 6, kKindsRoll = 8, kCountMost = 3;
@@ -48,7 +51,8 @@ Rarity rarity(const Ware& w);
 bool stocked_at(Rarity r, int32_t tier, int32_t planet_number);
 std::string ware_name(const Ware& w);  // PM's table name: "weapon PPC", "weapon LRM20 (Clan)", "ammo SRM4", "equipment masc"
 
-// The item's tons (PM's weapon and equipment tables: the weapons' need PM's weapon data loaded); ammunition 1.
+// The item's tons (PM's weapon and equipment tables; a weapon's from the engine in a mission, else from MW1's read of
+// weapons.zrd at the hub, mw1_weapon_data.h); ammunition 1.
 float ware_tons(const Ware& w);
 // An ammunition lot's rounds: a ton's (mech3::ammo_weight), at least 1.
 int32_t ammo_lot(int32_t weapon);

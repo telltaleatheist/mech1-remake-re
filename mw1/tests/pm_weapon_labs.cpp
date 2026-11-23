@@ -81,4 +81,10 @@ bool use_pm_weapon_labs() {
 int use_pm_weapon_labs_count() { return static_cast<int>(labs().size()); }
 void stop_pm_weapon_labs() { mech3::set_weapon_lab(nullptr); }
 
+void clear_engine_weapons() {
+  zwep::shutdown(mech3::free_weapon_type);
+  mech3::set_weapon_lab(nullptr);
+}
+bool engine_has_weapon(const char* name) { return zwep::find_def(name) != nullptr; }
+
 }  // namespace mw1_tests

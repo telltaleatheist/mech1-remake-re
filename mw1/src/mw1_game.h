@@ -128,6 +128,14 @@ MarketState* game_loop_market();
 // FIXES.md item 58 (tests): the Mech Complex's chosen rows, and the 'Mech its live panel draws (-1 none).
 const MarketChoice* game_loop_market_choice();
 int32_t game_loop_market_panel_mech();
+// 1.1.0 (tests): the supply screen's state once the Mech Complex's SUPPLY has made it, and its choices.
+namespace supply_ui {
+class SupplyState;
+struct SupplyChoice;
+}
+using namespace supply_ui;
+SupplyState* game_loop_supply();
+const SupplyChoice* game_loop_supply_choice();
 // The travel screen's state once TRAVEL has made it (tests), else null.
 namespace travel_ui {
 class TravelState;
