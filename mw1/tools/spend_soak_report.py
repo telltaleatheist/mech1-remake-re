@@ -54,6 +54,20 @@ def pct(a, b):
     return f"{(a - b) * 100.0 / b:+.0f}%" if b else "n/a"
 
 
+def phase(run, f):
+    """when a purchase came: before rung 1, in the story (rung 1 to the ending), in the tail (the ending to twice it)"""
+    if not f:
+        return "not by 2x"
+    fight = int(f["fights"])
+    r1 = run["rungs"].get(1)
+    end = run["at"].get("end")
+    if not r1 or fight < int(r1["fights"]):
+        return "before rung 1"
+    if not end or fight <= int(end["fights"]):
+        return "story"
+    return "2x tail"
+
+
 def table(run, base):
     print(f"\n## mode {run['mode']}, seed {run['seed']}, reserve {money(run['reserve'])}")
     end, twice = run["at"].get("end"), run["at"].get("twice")
@@ -61,13 +75,13 @@ def table(run, base):
         print("  NOT FINISHED: no ending reached")
     ladders = LADDERS.get(run["mode"], ())
     if ladders:
-        print(f"  {'milestone':<12} {'contract':>8} {'fight':>6} {'day':>6}  {'date':<10} {'funds after':>14}")
+        print(f"  {'milestone':<12} {'contract':>8} {'fight':>6} {'day':>6}  {'date':<10} {'funds after':>14}  when")
         for ladder in ladders:
             for n in MILESTONES[ladder]:
                 f = run["bought"].get((ladder, n))
                 name = f"{ladder} {n}"
                 if f:
-                    print(f"  {name:<12} {f['contracts']:>8} {f['fights']:>6} {f['day']:>6}  {f['date']:<10} {money(f['funds']):>14}")
+                    print(f"  {name:<12} {f['contracts']:>8} {f['fights']:>6} {f['day']:>6}  {f['date']:<10} {money(f['funds']):>14}  {phase(run, f)}")
                 else:
                     print(f"  {name:<12} {'not by 2x':>8}")
     print(f"  {'rung':<6} {'fight':>6} {'contract':>8} {'day':>6} {'funds':>14}   against the baseline (fight, day)")
@@ -82,7 +96,8 @@ def table(run, base):
         if a:
             trade = ""
             if run["mode"] == "trader":
-                trade = f", traded {money(a['trade_spent'])} in, {money(a['trade_sold'])} out"
+                trade = (f", traded {money(a['trade_spent'])} in, {money(a['trade_sold'])} out, profit {money(a.get('trade_profit', 0))}, "
+                         f"{a.get('sell_visits', '?')} sell visits")
             print(f"  at {name:<7} day {a['day']:>5}, contract {a['contracts']:>4}, fight {a['fights']:>4}: funds {money(a['funds'])}, "
                   f"{a['mechs']} 'Mechs, {a['lancemates']} lancemates, sinks {a['sinks']}, armour {a['armour']}, steps {a['steps']}{trade}")
 
@@ -118,6 +133,25 @@ def main():
         for ladder in LADDERS[mode]:
             parts.append(ladder + " " + ", ".join(f"{n}: {median_contract(rs, ladder, n)}" for n in MILESTONES[ladder]))
         print(f"  {mode:<7} ({len(rs)} seeds)  " + " | ".join(parts))
+
+    print("\n# When each milestone came, by mode (per seed: before rung 1, story = rung 1 to the ending, 2x tail = the ending to twice its days)")
+    for mode in MODES:
+        rs = sorted(by.get(mode, []), key=lambda r: r["seed"])
+        if not rs or not LADDERS[mode]:
+            continue
+        print(f"  {mode} (seeds {', '.join(str(r['seed']) for r in rs)}):")
+        for ladder in LADDERS[mode]:
+            print("    " + "; ".join(f"{ladder} {n}: " + "/".join(phase(r, r["bought"].get((ladder, n))) for r in rs) for n in MILESTONES[ladder]))
+
+    if by.get("trader"):
+        print("\n# The trader's trade (no detours: it sells only where the story and the contracts take it)")
+        for r in sorted(by["trader"], key=lambda r: r["seed"]):
+            a = r["at"].get("twice") or r["at"].get("end") or {}
+            visits = int(a.get("sell_visits", 0))
+            print(f"  seed {r['seed']}: profit {money(a.get('trade_profit', 0))} from {money(a.get('trade_sold', 0))} sold, "
+                  f"{money(a.get('trade_spent', 0))} bought, {visits} sell visits to tier 2-3 worlds")
+            if visits < 5:
+                print("    UNDERSTATES THE LOOPHOLE: it barely reached a world to sell at; a player who detours to sell would make far more")
 
     print("\n# The rungs against the baseline, seed for seed (the plan's check: within about 10%)")
     for mode in MODES[1:]:

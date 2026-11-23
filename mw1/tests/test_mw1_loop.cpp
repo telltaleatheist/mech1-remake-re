@@ -10160,7 +10160,9 @@ struct SpendSoak {
   int64_t reserve = 3000000;
   std::map<std::string, int64_t> trade_cost;  // the trader's wares held: what they cost, by ware
   std::map<std::string, int32_t> trade_held;
-  int64_t trade_spent = 0, trade_sold = 0;
+  int64_t trade_spent = 0, trade_sold = 0, trade_profit = 0;  // profit: what the sold wares fetched less what they cost
+  int32_t sell_visits = 0;  // arrivals at a tier 2 or 3 world holding wares
+  std::string at_planet;
   bool on() const { return !mode.empty(); }
   bool buys(const char* ladder) const { return mode == ladder || mode == "mixed" || mode == "trader"; }
 };
@@ -10225,6 +10227,12 @@ void soak_trade(mw1::Company& c, SpendSoak& s) {
   namespace dl = mw1::dealer;
   if (s.mode != "trader") return;
   if (!c.dealer.rolled) dl::roll_stock(c);
+  if (c.planet != s.at_planet) {
+    s.at_planet = c.planet;
+    int32_t holding = 0;
+    for (const auto& [name, n] : s.trade_held) holding += n;
+    if (c.tier >= 2 && holding > 0) ++s.sell_visits;
+  }
   if (c.tier >= 2) {
     for (auto& [name, held] : s.trade_held)
       for (const dl::Ware& w : dl::wares()) {
@@ -10233,7 +10241,7 @@ void soak_trade(mw1::Company& c, SpendSoak& s) {
         while (held > 0 && dl::in_stores(c, w) > 0 && dl::sell_price(w, c.tier) > each) {
           const int64_t got = dl::sell_price(w, c.tier);
           if (dl::sell(c, w) != dl::Trade::kDone) break;
-          s.trade_sold += got, s.trade_cost[name] -= each, --held;
+          s.trade_sold += got, s.trade_profit += got - each, s.trade_cost[name] -= each, --held;
         }
       }
     return;
@@ -10336,9 +10344,10 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
     auto soak_at = [&](const char* when, const mw1::Company& co) {
       const mw1::Kits all = mw1::upgrades::all_kits(co);
       std::printf("SOAK: at %s day %lld contracts %d fights %d funds %lld mechs %zu lancemates %zu sinks %d armour %d steps %d "
-                  "trade_spent %lld trade_sold %lld\n", when, static_cast<long long>(day_of(co)), contracts, contracts + story_battles,
+                  "trade_spent %lld trade_sold %lld trade_profit %lld sell_visits %d\n", when, static_cast<long long>(day_of(co)), contracts, contracts + story_battles,
                   static_cast<long long>(co.funds), 1 + co.hangar.size(), co.lance.size(), all.sinks, all.armour, steps_bought(co),
-                  static_cast<long long>(soak.trade_spent), static_cast<long long>(soak.trade_sold));
+                  static_cast<long long>(soak.trade_spent), static_cast<long long>(soak.trade_sold),
+                  static_cast<long long>(soak.trade_profit), soak.sell_visits);
     };
     r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
       if (app.current() != last_state) last_state = app.current(), idle = 0;
