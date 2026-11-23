@@ -56,8 +56,9 @@ if ($Mw1Port) {
 foreach ($exe in $programs) {
   if (-not (Test-Path -LiteralPath (Join-Path $Dist $exe))) { $missing += "$exe (the program itself)" }
 }
-# The libraries linked into mw3.exe carry no file of their own: their licences must be there.
-foreach ($lib in 'libarchive-*', 'zlib-*', 'xz-*', 'imgui') {
+# The libraries linked into mw3.exe carry no file of their own: their licences must be there (and FreeType, inside
+# SDL3_ttf.dll, from build_deps_ttf.cmd).
+foreach ($lib in 'libarchive-*', 'zlib-*', 'xz-*', 'imgui', 'freetype-*', 'SDL3_ttf-*') {
   $dir = Get-ChildItem -LiteralPath (Join-Path $Dist 'licenses') -Directory -Filter $lib -ErrorAction SilentlyContinue
   if (-not $dir -or -not (Get-ChildItem -LiteralPath $dir[0].FullName -File)) { $missing += "licenses\$lib (its licence)" }
 }

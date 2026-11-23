@@ -26,7 +26,11 @@ for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\
 if not defined VS (echo No Visual Studio with the C++ tools found. & exit /b 1)
 call "%VS%\VC\Auxiliary\Build\vcvars64.bat" >nul || exit /b 1
 for /d %%d in (deps\SDL3-3*) do set SDL3_DIR=%CD%\%%d\cmake
-for /d %%d in (deps\SDL3_ttf-*) do set SDL3_ttf_DIR=%CD%\%%d\cmake
+rem SDL3_ttf with FreeType 2.14.3, as on the Mac and Linux (tools\windows\build_deps_ttf.cmd; its -VC.zip release's
+rem FreeType 2.13.2 draws TTF text a few pixels apart, docs/deps.md).
+if not exist deps\ttf\cmake\SDL3_ttfConfig.cmake (echo No deps\ttf: run tools\windows\build_deps_ttf.cmd first. & exit /b 1)
+if not exist deps\ttf\share\licenses\freetype-2.14.3\FTL.TXT (echo deps\ttf has no licences: run tools\windows\build_deps_ttf.cmd again. & exit /b 1)
+set SDL3_ttf_DIR=%CD%\deps\ttf\cmake
 for /d %%d in (deps\SDL3_sound-*) do set SDL3_sound_ROOT=%CD%\%%d
 if not defined SDL3_sound_ROOT echo Warning: no deps\SDL3_sound-*: the package's music plays .wav only.
 rem SETUP's archives (docs/setup-sources.md): a package always reads them.
@@ -95,12 +99,13 @@ copy /y assets\launcher\font.ttf "%DIST%\assets\launcher\" >nul || exit /b 1
 copy /y tools\windows\dist\THIRD-PARTY.txt "%DIST%\" >nul || exit /b 1
 if exist LICENSE copy /y LICENSE "%DIST%\LICENSE.txt" >nul
 rem libarchive, zlib and liblzma: linked into mw3.exe, their licences from
-rem tools\windows\build_deps_archive.cmd's prefix.
-for /d %%d in (deps\archive\share\licenses\*) do (
+rem tools\windows\build_deps_archive.cmd's prefix; SDL3_ttf's and its FreeType's from build_deps_ttf.cmd's.
+for /d %%d in (deps\archive\share\licenses\* deps\ttf\share\licenses\*) do (
   mkdir "%DIST%\licenses\%%~nxd" 2>nul
   copy /y "%%d\*" "%DIST%\licenses\%%~nxd\" >nul || exit /b 1
 )
-for /d %%d in (deps\*) do if /i not "%%~nxd"=="archive" (
+rem The other libraries' release folders (not a -VC.zip SDL3_ttf left in deps\: the package's is deps\ttf's).
+for /d %%d in (deps\*) do echo %%~nxd| findstr /i /r /c:"^archive$" /c:"^ttf$" /c:"^SDL3_ttf-" >nul || (
   mkdir "%DIST%\licenses\%%~nxd" 2>nul
   for %%f in ("%%d\LICENSE*" "%%d\COPYING*" "%%d\README-SDL.txt") do copy /y "%%f" "%DIST%\licenses\%%~nxd\" >nul
 )
