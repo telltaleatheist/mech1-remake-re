@@ -56,6 +56,8 @@ struct LauncherOptions {
   // its own install, settings and saves (docs/launcher.md).
   std::string pm_bin;
   std::string mw1_bin;  // MechWarrior 1 Remake's program beside ours (MW3_MW1_BIN for checks)
+  std::string mw1r_bin;  // MechWarrior 1 Rebuild's (mech1-re, MW1's ORIGINAL tab), beside ours or installed (MW3_MW1R_BIN)
+  std::string chi_bin, chirm_bin;  // Inception Rebuild's and Inception Remake's (MW3_CHI_BIN, MW3_CHIRM_BIN)
   std::vector<std::string> pm_args;
   std::vector<std::string> game_args;
   bool hidden = false;  // --hidden: the window never shown (checks), passed on to the game

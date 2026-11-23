@@ -10,8 +10,12 @@
 
 namespace upgrades::update {
 
-enum class Game { kMw3, kPm, kMw1 };
-constexpr Game kGames[] = {Game::kMw3, Game::kPm, Game::kMw1};
+// kMw1r: MechWarrior 1 Rebuild (mech1-re), the 1989 game rebuilt, MW1's card's ORIGINAL tab (Owen 2026-11-22).
+// kChi, kChirm: Inception Rebuild (inception-re) and Inception Remake (inception-remake-re), the INCEPTION card's
+// tabs: COMING SOON until their repos have a release, then INSTALL, with no launcher change (Owen 2026-11-22).
+enum class Game { kMw3, kPm, kMw1, kMw1r, kChi, kChirm };
+constexpr Game kGames[] = {Game::kMw3, Game::kPm, Game::kMw1, Game::kMw1r, Game::kChi, Game::kChirm};
+constexpr int kGameCount = 6;
 
 struct GameInfo {
   const char* key;      // "mw3", "pm", "mw1": its folder under the games folder, its record's game=
@@ -29,6 +33,9 @@ bool game_tag(Game g, const std::string& tag);
 //   MechWarrior 3   MW3-alone-<tag>-win64.zip    MW3-alone-<tag>-mac.dmg    MW3-alone-<tag>-x86_64.AppImage
 //   Pirate's Moon   mw3pm-<tag>-win64.zip        PM-Rebuild-<tag>-mac.dmg   PM-Rebuild-<tag>-x86_64.AppImage
 //   MW1 Remake      MW1-Remake-<tag>-win64.zip   MW1-Remake-<tag>-mac.dmg   MW1-Remake-<tag>-x86_64.AppImage
+//   MW1 Rebuild     MW1-Rebuild-<tag>-win64.zip  MW1-Rebuild-<tag>-mac.dmg  MW1-Rebuild-<tag>-x86_64.AppImage
+//   Inception Reb.  CHI-Rebuild-<tag>-win64.zip  CHI-Rebuild-<tag>-mac.dmg  CHI-Rebuild-<tag>-x86_64.AppImage
+//   Inception Rem.  CHI-Remake-<tag>-win64.zip   CHI-Remake-<tag>-mac.dmg   CHI-Remake-<tag>-x86_64.AppImage
 // Windows takes the zip, never the Setup: the launcher unpacks into a folder of its own.
 std::string game_asset_name(Game g, const std::string& tag, Platform p);
 const Asset* game_asset(Game g, const Release& r, Platform p);

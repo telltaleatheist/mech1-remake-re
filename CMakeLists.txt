@@ -24,6 +24,10 @@ option(MW3_BUILD_PM "Build Pirate's Moon (mw3pm)" ON)
 option(MW3_BUILD_MW3 "Build MechWarrior 3's programs, probe and tests from this branch too" OFF)
 option(MW3_PM_HITS "The first run's first-hit log of PM's AI (tools/pm-hits), scratch builds only" OFF)
 set(MW3PM_GAME_DIR "${CMAKE_SOURCE_DIR}/game/pm" CACHE PATH "The Pirate's Moon install the PM tests and tools read")
+if(MW3_PACKAGE)
+  # A player's build: the family folder's one-time move from MicroProse (data_folder_start.h) happens only here.
+  add_compile_definitions(MW3_PACKAGE_BUILD)
+endif()
 # The version mw3 --version and the Windows version resource give: git's
 # describe (a tag, or the commit) and the commit count.
 execute_process(COMMAND git describe --tags --match "pm-v[0-9]*" --always --dirty WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
