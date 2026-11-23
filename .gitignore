@@ -35,3 +35,6 @@ docs/drafts/
 CLAUDE.md
 docs/worklogs/
 docs/for-owen.md
+
+# The backup site's sync tool, kept outside the repo (2026-11-23).
+tools/mirror/
