@@ -426,7 +426,12 @@ bool SdlRender3D::ensure_frame() {
   ti.type = SDL_GPU_TEXTURETYPE_2D, ti.format = color_format_;
   ti.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
   ti.width = w, ti.height = h, ti.layer_count_or_depth = 1, ti.num_levels = 1;
+  // D3D12's optimized clear value, opaque black as end_scene clears (else the debug layer's warning #820 at
+  // every clear, the default being 0,0,0,0). Other backends ignore it.
+  ti.props = SDL_CreateProperties();
+  if (ti.props) SDL_SetFloatProperty(ti.props, SDL_PROP_GPU_TEXTURE_CREATE_D3D12_CLEAR_A_FLOAT, 1.0f);
   frame_ = SDL_CreateGPUTexture(dev_, &ti);
+  if (ti.props) SDL_DestroyProperties(ti.props);
   frame_w_ = w, frame_h_ = h;
   clear_pending_ = true;  // depth: a new back buffer's starts cleared
   frame_new_ = true;      // colour too, even with the colour clear off (end_scene)
