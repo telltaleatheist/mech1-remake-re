@@ -10166,6 +10166,7 @@ struct SpendSoak {
   int32_t sell_visits = 0;  // arrivals at a tier 2 or 3 world holding wares
   int64_t spent = 0;        // on the upgrades, so far (the evaluator's income: funds + spent + held wares' cost)
   int32_t tick_fights = -1, tick_may = -1;
+  std::pair<int32_t, int32_t> tick_type = {-2, 0};  // the steps' weapon type at the last tick ({-1, 0}: none)
   std::string at_planet;
   bool on() const { return !mode.empty(); }
   bool buys(const char* ladder) const { return mode == ladder || mode == "mixed" || mode == "trader"; }
@@ -10192,6 +10193,15 @@ std::pair<int32_t, int32_t> most_carried(const mw1::Company& c) {
   for (const auto& [k, v] : n)
     if (v > most) most = v, best = k;
   return best;
+}
+// The fare home: a trip to world `w` leaves the funds for the cheapest way out of it when its office won't deal with
+// the company (none, or its House refusing it), so the trip itself can't strand it there (seed 11 in the spending
+// soak: a market hop with 21 'Mechs took 6.2M of 6.36M to a world without contracts for it).
+bool trip_keeps_fare_home(const mw1::Company& c, int32_t w) {
+  mw1::Company there = c;
+  there.funds -= mw1::travel_cost(c, mw1::kPlanets[w]);
+  mw1::set_planet(there, w);
+  return there.funds >= 0 && !mw1::stranded(there);
 }
 int32_t steps_bought(const mw1::Company& c) {
   int32_t n = 0;
@@ -10574,11 +10584,15 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
         if (building) soak.reserve = std::numeric_limits<int64_t>::max() / 4;
         // The evaluator's stream (spend_soak_report.py): once a fight, and when may-spend flips, before this look's
         // spending: the funds, what went on upgrades and into wares so far, and whether the player may spend now.
-        if (const int32_t f = contracts + story_battles, may = building ? 0 : 1; f != soak.tick_fights || may != soak.tick_may) {
-          soak.tick_fights = f, soak.tick_may = may;
-          std::printf("SOAK: tick contracts %d fights %d day %lld funds %lld spent %lld traded %lld may %d\n", contracts, f,
+        // With steps bought: the weapon type this look's steps go on (most_carried, its own ladder: mw1_upgrades.h's
+        // kStepLadderPerType), and a tick whenever it changes, so the replay follows the run's switches.
+        const std::pair<int32_t, int32_t> type = soak.buys("steps") ? most_carried(*c) : std::pair<int32_t, int32_t>{-1, 0};
+        if (const int32_t f = contracts + story_battles, may = building ? 0 : 1;
+            f != soak.tick_fights || may != soak.tick_may || type != soak.tick_type) {
+          soak.tick_fights = f, soak.tick_may = may, soak.tick_type = type;
+          std::printf("SOAK: tick contracts %d fights %d day %lld funds %lld spent %lld traded %lld may %d weapon %d tech %d\n", contracts, f,
                       static_cast<long long>(day_of(*c)), static_cast<long long>(c->funds), static_cast<long long>(soak.spent),
-                      static_cast<long long>(soak.trade_spent - soak.trade_sold), may);
+                      static_cast<long long>(soak.trade_spent - soak.trade_sold), may, type.first, type.second);
         }
         soak_trade(*c, soak);
         const std::vector<std::string> spent = soak_spend(*c, soak);
@@ -10631,7 +10645,8 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
         // Money but nothing heavier here: the nearest richer market not yet looked at (a tier 2 or 3 world).
         if (c->funds > 6000000 && markets_no_better.count(here) && sc->enabled(mw1::kHubTravel))
           for (int32_t w : mw1::destinations(*c, -1))
-            if (mw1::kPlanets[w].tier >= 2 && !markets_no_better.count(w) && mw1::kPlanets[w].number != mw1::story_rules::kAndersMoon)  // its guards
+            if (mw1::kPlanets[w].tier >= 2 && !markets_no_better.count(w) && mw1::kPlanets[w].number != mw1::story_rules::kAndersMoon &&  // its guards
+                trip_keeps_fare_home(*c, w))
               return markets_no_better.insert(w), travel_to = w, sc->on_button(mw1::kHubTravel, 0, 0), false;
         if (mw1::earning_here(*c) && sc->visible(mw1::kHubOffice) && sc->enabled(mw1::kHubOffice)) return sc->on_button(mw1::kHubOffice, 0, 0), false;
         // No contracts here: the nearest world that has them.
@@ -10656,7 +10671,12 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
         default: {  // an arrival here: away to the nearest world and back
           const std::vector<int32_t> near = mw1::destinations(*c, -1);
           if (near.empty() || !sc->enabled(mw1::kHubTravel)) return block("an arrival lead with nowhere to go"), true;
-          travel_to = near[0];
+          travel_to = near[0];  // the nearest that keeps the fare home, else the nearest
+          for (int32_t w : near)
+            if (trip_keeps_fare_home(*c, w)) {
+              travel_to = w;
+              break;
+            }
           return sc->on_button(mw1::kHubTravel, 0, 0), false;
         }
       }

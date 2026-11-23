@@ -77,22 +77,35 @@ def ladder_price(base, ratio, bought):
     return PRICE_MOST if p >= PRICE_MOST else p // 1000 * 1000
 
 
-def replay(ticks, base, ratio, reserve, most):
+def typed(ticks):
+    """the ticks name the steps' weapon type (runs from 2026-11-23 on): the replay follows the run's switches"""
+    return any("weapon" in t for t in ticks)
+
+
+def replay(ticks, base, ratio, reserve, most, per_type=False):
     """each item's tick for a player buying one ladder on this income, the first purchase look's count (the burst),
-    and the first tick where the stream's own buys ('Mechs, repairs) would have taken its wallet below nothing"""
+    and the first tick where the stream's own buys ('Mechs, repairs) would have taken its wallet below nothing.
+    per_type: the steps, each weapon type its own ladder (mw1_upgrades.h kStepLadderPerType), bought on the tick's
+    type, as the run's bot buys on the lance's most carried; n still counts every step"""
     own, n, got, broken, burst = 0, 0, {}, None, 0
+    on_type = {}  # (weapon, tech): steps bought on it
     for t in ticks:
         wallet = t["funds"] + t["spent"] + t["traded"] - own  # the stream's money less this player's purchases
         if wallet < 0 and broken is None:
             broken = t
         if not t["may"]:
             continue
+        key = (t.get("weapon", -1), t.get("tech", 0))
+        if per_type and key[0] < 0:  # no weapon carried: no steps to buy
+            continue
         before = n
         while n < most:
-            price = ladder_price(base, ratio, n)
+            price = ladder_price(base, ratio, on_type.get(key, 0) if per_type else n)
             if wallet - price < reserve:
                 break
             wallet, own, n = wallet - price, own + price, n + 1
+            if per_type:
+                on_type[key] = on_type.get(key, 0) + 1
             got[n] = t
         if before == 0 and n > 0:
             burst = n
@@ -124,18 +137,21 @@ def evaluate(by):
             head = "  ".join(f"{n:>13}" for n in ms)
             prices = "  ".join(f"{'#' + str(n):>7}" for n in PRICE_AT)
             print(f"    {'curve':<22}{head}  burst  {prices}")
+            per_type = ladder == "steps" and typed(measured["ticks"])
+            if ladder == "steps" and not per_type:
+                print("    (no step types in this run's ticks: one ladder for every type, so the replay can't follow the run's switches)")
             for base, ratio in curves:
-                got, burst, broken = replay(measured["ticks"], base, ratio, measured["reserve"], max(ms))
+                got, burst, broken = replay(measured["ticks"], base, ratio, measured["reserve"], max(ms), per_type)
                 cells = "  ".join(f"{(str(got[n]['contracts']) + ' (' + str(got[n]['day']) + ')') if n in got else '-':>13}" for n in ms)
                 each = "  ".join(f"{short_money(ladder_price(base, ratio, n - 1)):>7}" for n in PRICE_AT)
                 mark = " (current)" if (base, ratio) == CURRENT[ladder] else ""
                 warn = f"  BROKEN at {broken['contracts']}" if broken else ""
                 print(f"    {curve_name(base, ratio) + mark:<22}{cells}  {burst:>5}  {each}{warn}")
             # Validation: the current curve on the run's own income must give the run's own milestones.
-            got, _, _ = replay(measured["ticks"], *CURRENT[ladder], measured["reserve"], max(ms))
+            got, _, _ = replay(measured["ticks"], *CURRENT[ladder], measured["reserve"], max(ms), per_type)
             same = all((n in got) == ((ladder, n) in measured["bought"]) and
                        (n not in got or got[n]["contracts"] == int(measured["bought"][(ladder, n)]["contracts"])) for n in ms)
-            print(f"    validation: the current curve's replay {'matches the measured run exactly' if same else 'DIFFERS from the measured run (a replay fault, or steps switched weapon type)'}")
+            print(f"    validation: the current curve's replay {'matches the measured run exactly' if same else 'DIFFERS from the measured run (a replay fault: its BROKEN flags are not to be trusted)'}")
 
 
 def money(v):
