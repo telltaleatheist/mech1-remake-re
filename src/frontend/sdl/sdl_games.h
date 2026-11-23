@@ -55,6 +55,16 @@ FileCheck check_file(const std::string& file);
 // put in place of that game's folder. `sha256` is the file's (check_file's).
 Done install_file(const std::string& root, const std::string& file, const std::string& sha256, const Progress& progress);
 
+// The player's own folder for a game (Owen 2026-11-22: "everything can be installed in the same location the user
+// picks"): its program (installed under it as under the games folder) and its game files (install/); pilots, saves,
+// settings and mods stay in the user folder. A picked folder is the game's when it is empty or already carries this
+// game's mark (rebuild-game-folder.txt), else a folder named for the game inside it ("MechWarrior 3", "Pirate's Moon",
+// "MechWarrior 1 Remake"), so a drive's top or someone's folder is never filled loose.
+std::string game_folder_in(const std::string& picked, u::Game g);
+// The folder made the game's before anything goes in: created when missing, marked as the launcher's games folder
+// (its program can go in) and as this game's. One holding anything else without the marks is never written to.
+bool claim_game_folder(const std::string& dir, u::Game g, std::string* error);
+
 // Whether `bin` is inside the AppImage this program runs from ($APPDIR), so goes away with it.
 bool in_own_mount(const std::string& bin);
 

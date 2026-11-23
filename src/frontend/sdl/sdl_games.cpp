@@ -24,6 +24,7 @@ namespace {
 
 constexpr const char* kRootMark = "rebuild-games.txt";   // the games folder is the launcher's
 constexpr const char* kStagingMark = ".rebuild-staging";  // a folder being filled, the launcher's
+constexpr const char* kGameFolderMark = "rebuild-game-folder.txt";  // a game's own folder (game_folder_in)
 constexpr const char* kIncoming = ".incoming";             // where a package is unpacked before it goes in place
 
 std::string lower(std::string s) {
@@ -472,6 +473,30 @@ Done install_file(const std::string& root, const std::string& file, const std::s
   d.program = program_in((fs::path(root) / u::game_info(g).key).string(), g);
   d.words = std::string(u::game_info(g).name) + (tag == "unknown" ? std::string() : " " + u::game_version(tag)) + " is installed from " + name + ".";
   return d;
+}
+
+std::string game_folder_in(const std::string& picked, u::Game g) {
+  static const char* const kNames[] = {"MechWarrior 3", "Pirate's Moon", "MechWarrior 1 Remake"};
+  std::error_code ec;
+  const fs::path p(picked), mark = p / kGameFolderMark;
+  if (!fs::exists(p, ec) || fs::is_empty(p, ec)) return picked;
+  if (fs::is_regular_file(mark, ec) && read_text(mark).find("game=" + std::string(u::game_info(g).key) + "\n") != std::string::npos) return picked;
+  return (p / kNames[static_cast<int>(g)]).string();
+}
+
+bool claim_game_folder(const std::string& dir, u::Game g, std::string* error) {
+  std::error_code ec;
+  const fs::path mark = fs::path(dir) / kGameFolderMark;
+  const std::string key = u::game_info(g).key;
+  if (fs::is_regular_file(mark, ec))
+    return read_text(mark).find("game=" + key + "\n") != std::string::npos ||
+           (*error = dir + " is another game's folder: pick another", false);
+  if (fs::exists(dir, ec) && !(fs::is_directory(dir, ec) && fs::is_empty(dir, ec)))  // the games folder itself included
+    return *error = dir + " holds files that are not this game's: pick an empty folder", false;
+  if (!own_root(dir, error)) return false;  // new or empty: the games folder's mark first
+  if (!write_text(mark, "# A game's folder, made by the MechWarrior 3 Rebuild launcher or the game's setup: its program and its game files.\ngame=" + key + "\n"))
+    return *error = dir + " could not be written to", false;
+  return true;
 }
 
 bool in_own_mount(const std::string& bin) {

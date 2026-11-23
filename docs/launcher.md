@@ -950,3 +950,49 @@ release.
   `MW3_LAUNCHER_GAME_INSTALL=<mw3|pm|mw1>` (INSTALL or UPDATE pressed once
   the answer is in), `MW3_LAUNCHER_INSTALL_FILE=1` with
   `MW3_LAUNCHER_PICKER=path:<file>`, `MW3_LAUNCHER_INSTALL_ANYWAY=1`.
+
+## Where a game goes (Owen, 2026-11-22)
+
+Owen: "everything can be installed in the same location the user picks", and
+the saves "should probably stay in the normal user folder, for modding
+purposes". So each game has a folder of its own that the player picks, holding
+its program and its game files; pilots, saves, settings and mods stay in the
+user folder (the write dir). Music from a disc and converted movies stay in the
+user folder for now (they need a mount of their own in the game to move).
+
+- **A card's first INSTALL** asks where (confirm 7: INSTALL, CHANGE FOLDER,
+  BACK), the default being the games folder above. The program goes under
+  the picked folder as under the games folder (`<folder>/<key>`), and the
+  folder is kept in mw3.cfg as `games_<key>=` (mw3, pm, mw1), read at every
+  start (in a game's own setup too). UPDATE goes where the game is, unasked.
+  INSTALL FROM FILE still installs into the games folder and forgets a picked
+  one (its unpacking is staged inside the games folder, and a rename does not
+  cross drives).
+- **"Use these game files?"** has CHANGE FOLDER beside INSTALL, in the
+  launcher and in each game's own setup (`mw3 --setup`, `mw3pm`). The game
+  files go into `<folder>/install` (mw3.cfg `install=`, `pm_install=` as
+  before), the default being the folder its card's INSTALL picked, else the
+  user folder's `install`. The line under the find says where, fitted to one
+  line.
+- **Whose folder.** A picked folder is the game's when it is empty or carries
+  this game's mark (`rebuild-game-folder.txt`, `game=<key>`), else a folder
+  named for the game inside it (`MechWarrior 3`, `Pirate's Moon`,
+  `MechWarrior 1 Remake`): a drive's top or someone's folder is never filled
+  loose. Before anything goes in, the folder is claimed
+  (`sdlfe::games::claim_game_folder`): made when missing, given the games
+  folder's mark and the game's; one holding anything else is refused and
+  nothing is written. `game_folder_in` and `claim_game_folder` are in
+  `sdl_games`; they move to the setup kit with the setup screen.
+- **The headers.** Each setup screen names the game it sets up, with its badge
+  (`kHeaderNames`: MECHWARRIOR 3, MECHWARRIOR 3: PIRATE'S MOON, MECHWARRIOR 1
+  REMAKE, MECHWARRIOR 1 for the 1989 game's PLAY ORIGINAL), never the
+  launcher's title (Owen: the kit is game-agnostic); the metal bands stay. The
+  cards, the launcher's own update and a checked download keep the launcher's.
+  Logged as `header <title>`.
+
+Checks: `MW3_LAUNCHER_INSTALL_TO=<folder>` (the card INSTALL's CHANGE FOLDER
+pick, with `MW3_LAUNCHER_GAME_INSTALL`), `MW3_LAUNCHER_FILES_TO=<folder>` (the
+game files' pick); shots `--launcher-screen place`, `found`, `mw1found`,
+`mw1origfound`. Test: `sdl_program_launcher_finds_the_game_then_plays` (CHANGE
+FOLDER into a folder holding someone's file; someone's own `MechWarrior 3`
+folder refused), the screens test and PM's GAME FILES test (the headers).
