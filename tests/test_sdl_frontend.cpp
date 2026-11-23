@@ -8183,12 +8183,18 @@ TEST(sdl_update_download_falls_back_to_the_backup) {
   fs::remove(dir / "gh" / "SHA256SUMS", ec), fs::remove(dir / "bk" / ours, ec);
   d = sdlfe::download_update(r, to, nullptr);
   EXPECT(d.ok);
-  // No sums anywhere for it, or the two homes' lines differing for a home without its own: nothing taken.
+  // No line for it anywhere (GitHub's SHA256SUMS listed but gone, the backup's without the file): nothing taken,
+  // GitHub's reason said.
   lay();
   fs::remove(dir / "gh" / "SHA256SUMS", ec), put("bk", "SHA256SUMS", sum + "  other.dmg\n");
   d = sdlfe::download_update(r, to, nullptr);
   std::printf("  no line: %s\n", d.words.c_str());
-  EXPECT(!d.ok && d.words.find("no SHA256SUMS") != std::string::npos);
+  EXPECT(!d.ok && d.words.rfind("Could not download the release's SHA256SUMS: ", 0) == 0 && !fs::exists(fs::path(to) / ours));
+  // Neither home lists a SHA256SUMS: nothing downloaded.
+  u::Release no_sums = r;
+  no_sums.assets.pop_back(), no_sums.other_homes[0].pop_back();
+  d = sdlfe::download_update(no_sums, to, nullptr);
+  EXPECT(!d.ok && d.words.find("no SHA256SUMS") != std::string::npos && !fs::exists(fs::path(to) / ours));
   // Both files gone: GitHub's reason.
   lay();
   fs::remove(dir / "gh" / ours, ec), fs::remove(dir / "bk" / ours, ec);
