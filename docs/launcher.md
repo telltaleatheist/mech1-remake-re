@@ -911,8 +911,12 @@ release.
 - **The card.** A game not installed shows INSTALL (with the version and the
   download's size) where PLAY goes; offline it says it can't reach the
   server and points to INSTALL FROM FILE. An installed game with a newer
-  release shows UPDATE TO x.y.z above PLAY (on MW1's card in place of the
-  greyed PLAY ORIGINAL). Nothing installs until the player presses one.
+  release splits its PLAY button (Owen, 2026-11-22: "the main button can
+  be play, and there can be a divider on the end"): PLAY, a short divider,
+  and at its end a download arrow over the version, which is that game's
+  UPDATE (its own button for clicks, focus and the checks, logged as
+  "<GAME> UPDATE"). MW1's card does the same on PLAY REMAKE, so its grey
+  slot stays PLAY ORIGINAL. Nothing installs until the player presses one.
 - **Where.** The launcher's own games folder, per user and writable without
   rights: `%LOCALAPPDATA%\MicroProse\BattleTech\games`,
   `~/Library/Application Support/MicroProse/BattleTech/games`,
