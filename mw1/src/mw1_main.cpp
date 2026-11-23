@@ -84,6 +84,20 @@ std::string usual_write_dir() {
 }  // namespace
 
 namespace {
+// A run no player is at, from the arguments for PM's game main. mw3_main.cpp's program() turns pointer_hands_off on
+// for --hidden, --frames N (N > 0), --campaign-chain and --action-chain; a --shot run is one too. Keep these in step
+// with mw3_main's (its Args, read only there). The Mac's alone uses it (SDL_MAC_BACKGROUND_APP, below).
+#if defined(__APPLE__)
+bool no_player_at(const std::vector<std::string>& rest) {
+  for (size_t i = 0; i < rest.size(); ++i) {
+    const std::string& s = rest[i];
+    if (s == "--hidden" || s == "--shot" || s == "--campaign-chain" || s == "--action-chain") return true;
+    if (s == "--frames" && i + 1 < rest.size() && std::atoi(rest[i + 1].c_str()) > 0) return true;
+  }
+  return false;
+}
+#endif
+
 // The conversion with a small window before PM's frontend: a bar, the step in its title (as mw3's first-run movie
 // import shows its own). The run in a thread, the window on this one; no window when SDL's video doesn't start.
 bool convert_in_window(const zipkit::Options& o, std::string* error) {
@@ -110,9 +124,6 @@ bool convert_in_window(const zipkit::Options& o, std::string* error) {
   });
   SDL_Window* win = nullptr;
   SDL_Renderer* ren = nullptr;
-  // As mw3_main's start (the engine's, 2026-11-23): on the Mac a run no player is at stays a background process, never
-  // taking the keyboard from the app in front when it starts or exits. The game's own start (PM's program) sets it too.
-  if (platform::pointer_hands_off()) SDL_SetHint(SDL_HINT_MAC_BACKGROUND_APP, "1");
   const bool video = SDL_Init(SDL_INIT_VIDEO);
   if (video) SDL_CreateWindowAndRenderer("MechWarrior 1: converting MechWarrior 3's worlds", 480, 64, 0, &win, &ren);
   std::string shown;
@@ -302,6 +313,14 @@ int main(int argc, char** argv) {
   const std::string worlds =
       !a.worlds.empty() ? a.worlds : a.write_dir.empty() ? std::string() : (std::filesystem::path(a.write_dir) / mw1::kWorldsFolder).string();
   const bool hidden = std::find(a.rest.begin(), a.rest.end(), "--hidden") != a.rest.end();
+  // As mw3_main's start (the engine's, 2026-11-23): on the Mac a run no player is at stays a background process, never
+  // taking the keyboard from the app in front when it starts or exits. Set here, before mw1's first SDL start (the
+  // worlds' converting window), from the same arguments as PM's program() reads later (MW3_POINTER_HANDS_OFF=1 too).
+  // As SDL_MAC_BACKGROUND_APP in the environment (tests/main.cpp's way), not SDL_SetHint: the converting window's
+  // SDL_Quit drops the hints set, and SDL reads the variable at the game's own start after it too.
+#if defined(__APPLE__)
+  if (platform::pointer_hands_off() || no_player_at(a.rest)) setenv("SDL_MAC_BACKGROUND_APP", "1", 1);
+#endif
   mw1::movie::set_hidden(hidden);  // FIXES.md item 54: no movie under --hidden (MW1_MOVIE=1 plays it anyway)
   const zipkit::Progress said = [](const std::string& world, const std::string& step, int done, int total) {
     std::printf("mw1:   %s: %s (%d of %d)\n", world.c_str(), step.c_str(), done + 1, total);
