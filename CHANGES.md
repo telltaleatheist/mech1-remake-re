@@ -440,6 +440,7 @@ Details: [`docs/protection.md`](docs/protection.md).
 These change how the game talks to the computer, not how it plays.
 
 - A Pirate's Moon bridge's weight limit takes the same time at any frame rate; the original's ran per frame.
+- The game uses the game files in the folder you installed it to, even when an earlier version left a copy somewhere else (another drive) that the settings still named; with no copy in the game's folder, the launcher offers to copy that one in (issue #10).
 - Loading a mission under Vulkan (Linux) no longer takes gigabytes of memory: each texture's upload kept a buffer of its own, about 4 GB for a mission, which crashed NVIDIA's Linux driver going from the mech lab into a mission (issue #7). The log now names the graphics card and its driver.
 - On Windows the game can be installed, and keep its data, in a folder whose name has any letters, and it works for a Windows user name with accents (Windows 10 version 1903 or later; before that, it says so and asks for plain English letters). A pilot or file name with accents from an earlier version of the rebuild is put right at the next start.
 - The graphics options no longer offer the software renderer, which the rebuild does not have: the video device list shows your graphics card only, and a setting saved by the original or an older rebuild that chose software starts on the card.

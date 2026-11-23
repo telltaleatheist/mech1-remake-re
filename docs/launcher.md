@@ -1170,6 +1170,13 @@ the movies again, once, there.
   before), the default being the folder its card's DOWNLOAD picked, else the
   user folder's `install`. The line under the find says where, fitted to one
   line.
+- **The game folder's own files first** (issue #10, 2026-11-23). A player put 1.3 on E: while an older
+  rebuild's copy of the game files stayed on C:, named by mw3.cfg's `install=`; the launcher used C:. The
+  lookup now tries `<the card's folder>/install` (`games_mw3=`) before `install=`; when the files are only
+  elsewhere they are offered as a find is ("Use these game files?", INSTALL copies them into the game's
+  folder), never used in place, and the old copy is never touched. mw3 started on its own does the same
+  (`sdlfe::own_game_files`: the nearest folder above the program carrying the game's mark). Test:
+  `sdl_program_launcher_takes_the_game_folders_own_files_first`.
 - **Whose folder.** A picked folder is the game's when it is empty or carries
   this game's mark (`rebuild-game-folder.txt`, `game=<key>`), else a folder
   named for the game inside it (`MechWarrior 3`, `Pirate's Moon`,

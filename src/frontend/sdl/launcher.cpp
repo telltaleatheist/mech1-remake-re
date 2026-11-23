@@ -768,9 +768,30 @@ class Launcher {
   bool sounds_on_ = false, sounds_tried_ = false;  // loaded once there is an install (at the start or once found)
 };
 
+namespace {
+// mw3.cfg's KEY= value, a path as the file keeps it; "" when none.
+std::string cfg_path(const std::string& write_dir, const std::string& key) {
+  std::ifstream f(fs::path(write_dir) / "mw3.cfg");
+  std::string line;
+  while (std::getline(f, line)) {
+    if (!line.empty() && line.back() == '\r') line.pop_back();
+    if (line.rfind(key + "=", 0) == 0) return zutl::path_from_config(line.substr(key.size() + 1));
+  }
+  return {};
+}
+}  // namespace
+
 void Launcher::find_install() {
   install_ = {};
   std::vector<std::string> tries;
+  // Where the player put the game (issue #10, 2026-11-23): the folder its card's INSTALL picked holds its game files
+  // as <folder>/install, looked at first. mw3.cfg's install= can name an older rebuild's copy elsewhere (a 1.0.x
+  // install left on C: when this one went on E:); that copy is offered to be copied in, as a find is, never taken.
+  std::string place = games_place_[0];
+  if (place.empty() && !o_.write_dir.empty())  // the start's lookup comes before resolve_games
+    place = cfg_path(o_.write_dir, std::string("games_") + upgrades::update::game_info(upgrades::update::kGames[0]).key);
+  const std::string own = place.empty() ? std::string() : (fs::path(place) / "install").make_preferred().string();
+  if (!own.empty()) tries.push_back(own);
   if (!o_.cfg_install.empty()) tries.push_back(o_.cfg_install);
   if (!o_.write_dir.empty()) tries.push_back((fs::path(o_.write_dir) / "install").string());
   const size_t searched_from = tries.size();
@@ -783,7 +804,13 @@ void Launcher::find_install() {
     if (!install_valid(d)) continue;
     const mech3::setup::Result r = mech3::setup::check_install(d, o_.write_dir, true);
     if (!r.ok) continue;
-    install_ = {true, r.install_dir.empty() ? d : r.install_dir, r.version, r.summary, i >= searched_from && i < searched_to};
+    // Not the game's own folder's copy while it has one: offered (searched, or an older place mw3.cfg remembers).
+    const bool not_own = !own.empty() && i > 0 && i < searched_to;  // tries[0] is the own copy
+    install_ = {true, r.install_dir.empty() ? d : r.install_dir, r.version, r.summary,
+                (i >= searched_from && i < searched_to) || not_own};
+    if (not_own && i < searched_from)
+      std::printf("mw3: launcher: the game files are at %s, not in the game's folder %s: offered to copy them in\n",
+                  d.c_str(), place.c_str());
     std::printf("mw3: launcher: %s\n", r.summary.c_str());
     return;
   }
@@ -844,18 +871,6 @@ using sdlfe::games::program_version;
 // Ours, games on demand (2026-11-22; docs/launcher.md, Games on demand): a game's program beside this one
 // is the package's own and is used as before; else the one the launcher installed in its games folder. The
 // launcher's own find screen inside mw3 and mw3pm has none of this.
-namespace {
-// mw3.cfg's KEY= value, a path as the file keeps it; "" when none.
-std::string cfg_path(const std::string& write_dir, const std::string& key) {
-  std::ifstream f(fs::path(write_dir) / "mw3.cfg");
-  std::string line;
-  while (std::getline(f, line)) {
-    if (!line.empty() && line.back() == '\r') line.pop_back();
-    if (line.rfind(key + "=", 0) == 0) return zutl::path_from_config(line.substr(key.size() + 1));
-  }
-  return {};
-}
-}  // namespace
 
 void Launcher::resolve_games() {
   games_on_ = !o_.setup_only && !o_.pm;

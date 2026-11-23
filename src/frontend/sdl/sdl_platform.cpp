@@ -43,7 +43,7 @@ bool SdlWindow::init(bool hidden_for_good, SDL_Window* adopt) {
                         SDL_PROP_GPU_DEVICE_DRIVER_INFO_STRING})
     if (const std::string v = prop(k); v != "?") driver += " " + v;
   std::printf("mw3: GPU: %s; driver%s; SDL GPU %s%s\n", prop(SDL_PROP_GPU_DEVICE_NAME_STRING).c_str(),
-              driver.empty() ? " not given" : driver.c_str(), backend ? backend : "?", debug ? ", validation on" : "");
+              driver.empty() ? " not given" : driver.c_str(), backend ? backend : "?", debug ? ", validation asked for (where its layer is installed)" : "");
   window_ = adopt ? adopt : SDL_CreateWindow("MechWarrior 3", 1280, 960, SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE);
   if (adopt) std::printf("mw3: the game took the launcher's window\n");
   if (!window_) return std::fprintf(stderr, "mw3: SDL_CreateWindow: %s\n", SDL_GetError()), false;
