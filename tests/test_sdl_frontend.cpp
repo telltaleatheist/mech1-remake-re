@@ -6808,6 +6808,45 @@ TEST(sdl_program_launcher_finds_the_game_then_plays) {
   EXPECT(b.exited && !b.args.empty() && b.args[0] == copied("launcher_v1_music") && screen(b.log, "the game's first frame"));
   EXPECT(screen(b.log, "copied from"));
   EXPECT(!screen(b.log, "screen notes:"));
+  // CHANGE FOLDER (Owen 2026-11-22: the game where the player picks, pilots and saves in the user folder): a folder
+  // holding someone's file gets a "MechWarrior 3" folder of the game's own inside it, the copy there, its mark, the
+  // user folder's mw3.cfg naming it; someone's file untouched. A "MechWarrior 3" folder that is not ours: refused.
+  {
+    namespace fs = std::filesystem;
+    const std::string to = std::string(MW3_TEST_TMP) + "/launcher_v1_to_drive", game = to + "/MechWarrior 3";
+    std::error_code ec;
+    fs::remove_all(to, ec);
+    fs::create_directories(to, ec);
+    std::ofstream(to + "/someone.txt") << "theirs";
+    auto into = pick;
+    into.push_back({"MW3_LAUNCHER_FILES_TO", to});
+    const LauncherRun e = run_launcher_with("launcher_v1_to", "READY\nsleep 2", nullptr, into, [](const std::string& d) {
+      std::filesystem::create_directories(d + "/wd/music");
+      std::ofstream(d + "/wd/music/track02.wav") << "x";
+    });
+    std::ifstream cfg(std::string(MW3_TEST_TMP) + "/launcher_v1_to/wd/mw3.cfg");
+    const std::string cfg_text((std::istreambuf_iterator<char>(cfg)), std::istreambuf_iterator<char>());
+    std::printf("CHANGE FOLDER: started from %s, marked %d, cfg %d\n", e.args.empty() ? "-" : e.args[0].c_str(),
+                fs::exists(game + "/rebuild-game-folder.txt", ec), cfg_text.find("install=" + game + "/install") != std::string::npos);
+    EXPECT(e.exited && !e.args.empty() && fs::equivalent(e.args[0], game + "/install", ec) && screen(e.log, "the game's first frame"));
+    EXPECT(fs::exists(game + "/install/mw3-install.txt", ec) && fs::exists(game + "/rebuild-game-folder.txt", ec));
+    EXPECT(cfg_text.find("install=" + game + "/install") != std::string::npos);
+    EXPECT(!fs::exists(std::string(MW3_TEST_TMP) + "/launcher_v1_to/wd/install", ec));  // nothing in the user folder
+    std::ifstream theirs(to + "/someone.txt");
+    std::string word;
+    theirs >> word;
+    EXPECT(word == "theirs");
+    // Someone's own "MechWarrior 3" folder in the picked one: refused, nothing copied, nothing started.
+    fs::remove_all(to, ec);
+    fs::create_directories(game, ec);
+    std::ofstream(game + "/notes.txt") << "theirs";
+    auto refuse = into;
+    refuse[2].second = "300";  // MW3_LAUNCHER_FRAMES
+    const LauncherRun f = run_launcher_with("launcher_v1_to_theirs", "READY\nsleep 2", nullptr, refuse);
+    EXPECT(f.exited && f.args.empty() && screen(f.log, "Nothing was copied") && !fs::exists(game + "/install", ec) &&
+           fs::exists(game + "/notes.txt", ec));
+    fs::remove_all(to, ec);
+  }
   // Found, no music: the notes first (ADD FROM MY DISC, OK), their OK the start.
   const LauncherRun c = run_launcher_with("launcher_v1_notes", "READY\nsleep 2", nullptr, pick);
   EXPECT(c.exited && !c.args.empty() && c.args[0] == copied("launcher_v1_notes") && screen(c.log, "the game's first frame"));
