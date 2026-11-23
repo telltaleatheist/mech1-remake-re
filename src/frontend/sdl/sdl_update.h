@@ -14,7 +14,20 @@ namespace sdlfe {
 // words (curl's own reason, or that curl is missing or timed out).
 bool curl_get(const std::string& url, int seconds, std::string* out, std::string* error, bool allow_file = false);
 
-// The releases list from GitHub (MW3_UPDATE_API names another, a file:// JSON in checks) judged against `current`.
+// A repo's releases lists in both homes, in the order they are asked (Owen 2026-11-22): git.owenmorgan.com's
+// (Forgejo, `limit`) then GitHub's (`per_page`, download_first: a download comes from it first). `env` replaces them
+// in checks (MW3_UPDATE_API, MW3_GAMES_API; {repo} in it becomes `repo`): one list, taken as GitHub's, or two
+// as "BACKUP|GITHUB".
+struct ReleaseList {
+  std::string url;
+  bool download_first = false;
+};
+std::vector<ReleaseList> release_lists(const char* env, const std::string& repo, int github_per_page);
+// Each list asked in turn (`seconds` each), its answer logged as "mw3: launcher: <log> at <url>: answered".
+std::vector<upgrades::update::Answer> ask_lists(const std::vector<ReleaseList>& lists, int seconds, bool allow_file, const std::string& log);
+
+// The package's releases lists (both repos, both homes; MW3_UPDATE_API names others, file:// JSON in checks)
+// judged against `current`.
 upgrades::update::Verdict check_for_updates(const std::string& current);
 
 // `url` into the file `to` (written as `to`.part, renamed once complete), `progress` told the fraction of `size`
@@ -22,8 +35,22 @@ upgrades::update::Verdict check_for_updates(const std::string& current);
 bool curl_download(const std::string& url, const std::string& to, uint64_t size, const std::function<bool(double)>& progress,
                    std::string* error, bool* cancelled, bool allow_file = false);
 
+// A release's file `name` into `path`, from its homes in order (Owen 2026-11-22): `r.assets` (GitHub's when it has
+// it), then each of `r.other_homes` (git.owenmorgan.com) only when the one before failed, so the metered home carries
+// only what GitHub cannot. Each home's file is checked against that home's SHA256SUMS line, or, when that home has
+// none (no SHA256SUMS, not fetched, no line), against the other homes' when they agree. Nothing is left at `path`
+// unless `ok`. `why` is the first home's failure (the one a player would have met with one home); `error` its
+// reason (curl's words), `want`/`got` a mismatch's sums. `log` heads the log's lines ("update", "games").
+struct Fetched {
+  enum Why { kOk, kCancelled, kNoSums, kSumsFailed, kNoLine, kStopped, kMismatch } why = kStopped;
+  std::string sha256, error, want, got;
+};
+Fetched download_checked(const upgrades::update::Release& r, const std::string& name, const std::string& path,
+                         const std::function<bool(double)>& progress, bool allow_file, const char* log);
+
 // Sitting 3: the release's package for this platform and its SHA256SUMS into `dir`, the package checked against its
-// line. `path` the checked file; on any failure nothing is left in `dir` and `words` say why in plain words.
+// line (download_checked: GitHub first, git.owenmorgan.com when it fails). `path` the checked file; on any failure
+// nothing is left in `dir` and `words` say why in plain words.
 struct Downloaded {
   bool ok = false, cancelled = false;
   std::string path, words;

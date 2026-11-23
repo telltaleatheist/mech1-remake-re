@@ -369,16 +369,10 @@ std::string program_version(const std::string& bin) {
 }
 
 u::GameCheck check(u::Game g, const std::string& installed_tag) {
-  const std::string repo = u::game_info(g).repo;
-  std::string url = std::string("https://api.github.com/repos/telltaleatheist/") + repo + "/releases?per_page=20";
-  if (const char* api = std::getenv("MW3_GAMES_API")) {
-    url = api;
-    if (const size_t at = url.find("{repo}"); at != std::string::npos) url.replace(at, 6, repo);
-  }
-  u::Answer a;
-  curl_get(url, 15, &a.json, &a.fetch_error, allow_file());
-  std::printf("mw3: launcher: games: %s at %s: %s\n", u::game_info(g).key, url.c_str(), a.json.empty() ? a.fetch_error.c_str() : "answered");
-  return u::judge_game(g, installed_tag, a, u::this_platform());
+  // Both homes (Owen 2026-11-22): git.owenmorgan.com, then GitHub; the newest on either (release_lists).
+  const std::vector<u::Answer> answers = ask_lists(release_lists(std::getenv("MW3_GAMES_API"), u::game_info(g).repo, 20), 15, allow_file(),
+                                                   std::string("games: ") + u::game_info(g).key);
+  return u::judge_game(g, installed_tag, answers, u::this_platform());
 }
 
 Done install_release(const std::string& root, u::Game g, const u::Release& r, const Progress& progress) {
@@ -389,30 +383,25 @@ Done install_release(const std::string& root, u::Game g, const u::Release& r, co
   if (!own_root(root, &error)) return d.words = "Nothing was installed: " + error + ".", d;
   const u::Asset* file = u::game_asset(g, r, u::this_platform());
   if (!file) return d.words = "This release of " + name + " has no file for this computer.", d;
-  const u::Asset* sums = nullptr;
-  for (const u::Asset& a : r.assets)
-    if (a.name == "SHA256SUMS") sums = &a;
-  if (!sums) return d.words = "This release of " + name + " has no SHA256SUMS to check the download against, so nothing was downloaded.", d;
-  std::string list;
-  if (!curl_get(sums->url, 60, &list, &error, allow_file())) return d.words = "Could not download the release's SHA256SUMS: " + error + ".", d;
-  const std::string want = u::sums_line(list, file->name);
-  if (want.empty()) return d.words = "The release's SHA256SUMS has no line for " + file->name + ", so nothing was downloaded.", d;
   std::error_code ec;
   const fs::path dl_dir = fs::temp_directory_path(ec) / "MW3-Rebuild-games";  // ours alone
   fs::create_directories(dl_dir, ec);
   const std::string path = (dl_dir / file->name).string();
-  bool cancelled = false;
-  if (!curl_download(file->url, path, file->size, [&](double x) { return !progress || progress(x * 0.8, "Downloading " + name + " " + version); },
-                     &error, &cancelled, allow_file())) {
-    d.cancelled = cancelled;
-    return d.words = cancelled ? "The download was cancelled. Nothing was installed." : "The download stopped: " + error + ". Nothing was installed.", d;
+  // GitHub first, git.owenmorgan.com when it fails (download_checked), each against its SHA256SUMS line.
+  const Fetched f = download_checked(r, file->name, path, [&](double x) { return !progress || progress(x * 0.8, "Downloading " + name + " " + version); },
+                                     allow_file(), "games");
+  switch (f.why) {
+    case Fetched::kOk: break;
+    case Fetched::kCancelled: d.cancelled = true; return d.words = "The download was cancelled. Nothing was installed.", d;
+    case Fetched::kNoSums:
+      return d.words = "This release of " + name + " has no SHA256SUMS to check the download against, so nothing was downloaded.", d;
+    case Fetched::kSumsFailed: return d.words = "Could not download the release's SHA256SUMS: " + f.error + ".", d;
+    case Fetched::kNoLine: return d.words = "The release's SHA256SUMS has no line for " + file->name + ", so nothing was downloaded.", d;
+    case Fetched::kStopped: return d.words = "The download stopped: " + f.error + ". Nothing was installed.", d;
+    case Fetched::kMismatch:
+      return d.words = "The download did not match its checksum, so nothing was installed. Try again; if it happens again, tell us.", d;
   }
-  const std::string got = mech3::sha256_file_hex(path);
-  if (got != want) {
-    fs::remove(path, ec);
-    std::printf("mw3: launcher: games: %s is %s, SHA256SUMS says %s\n", file->name.c_str(), got.c_str(), want.c_str());
-    return d.words = "The download did not match its checksum, so nothing was installed. Try again; if it happens again, tell us.", d;
-  }
+  const std::string got = f.sha256;
   const fs::path staged = fs::path(root) / kIncoming;
   if (!clear_ours(staged, kStagingMark, &error)) return fs::remove(path, ec), d.words = "Nothing was installed: " + error + ".", d;
   if (progress) progress(0.85, "Installing " + name + " " + version);

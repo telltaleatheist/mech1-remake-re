@@ -245,24 +245,24 @@ TEST(games_newest_for_the_platform) {
                                  game_release("pm-v1.2.5", {"PM-Rebuild-pm-v1.2.5-mac.dmg"}, true),
                                  game_release("pm-v1.2.3", {"PM-Rebuild-pm-v1.2.3-mac.dmg", "mw3pm-pm-v1.2.3-win64.zip", "SHA256SUMS"}),
                                  game_release("v1.2.4", {"MW3-Rebuild-v1.2.4-mac.dmg"})});
-  u::GameCheck c = u::judge_game(G::kPm, "", {json, ""}, u::Platform::kMac);
+  u::GameCheck c = u::judge_game(G::kPm, "", {{json, ""}}, u::Platform::kMac);
   EXPECT(c.kind == u::GameCheck::kNewer && c.release.tag == "pm-v1.2.3" && c.asset() && c.asset()->name == "PM-Rebuild-pm-v1.2.3-mac.dmg");
   std::printf("  %s\n", c.words.c_str());
-  c = u::judge_game(G::kPm, "", {json, ""}, u::Platform::kWindows);
+  c = u::judge_game(G::kPm, "", {{json, ""}}, u::Platform::kWindows);
   EXPECT(c.kind == u::GameCheck::kNewer && c.release.tag == "pm-v1.2.4");
-  EXPECT(u::judge_game(G::kPm, "pm-v1.2.3", {json, ""}, u::Platform::kMac).kind == u::GameCheck::kUpToDate);
-  EXPECT(u::judge_game(G::kPm, "pm-v1.2.2", {json, ""}, u::Platform::kMac).kind == u::GameCheck::kNewer);
-  EXPECT(u::judge_game(G::kPm, "pm-v1.2.4", {json, ""}, u::Platform::kMac).kind == u::GameCheck::kUpToDate);  // a newer one from a file
-  EXPECT(u::judge_game(G::kMw1, "", {json, ""}, u::Platform::kMac).kind == u::GameCheck::kNoRelease);
+  EXPECT(u::judge_game(G::kPm, "pm-v1.2.3", {{json, ""}}, u::Platform::kMac).kind == u::GameCheck::kUpToDate);
+  EXPECT(u::judge_game(G::kPm, "pm-v1.2.2", {{json, ""}}, u::Platform::kMac).kind == u::GameCheck::kNewer);
+  EXPECT(u::judge_game(G::kPm, "pm-v1.2.4", {{json, ""}}, u::Platform::kMac).kind == u::GameCheck::kUpToDate);  // a newer one from a file
+  EXPECT(u::judge_game(G::kMw1, "", {{json, ""}}, u::Platform::kMac).kind == u::GameCheck::kNoRelease);
   const std::string mw1 = list({game_release("mw1-v1.0.6", {"MW1-Remake-mw1-v1.0.6-mac.dmg"}),
                                 game_release("mw1-v1.0.7", {"MW1-Remake-mw1-v1.0.7-mac.dmg"})});
-  const u::GameCheck m = u::judge_game(G::kMw1, "mw1-v1.0.6", {mw1, ""}, u::Platform::kMac);
+  const u::GameCheck m = u::judge_game(G::kMw1, "mw1-v1.0.6", {{mw1, ""}}, u::Platform::kMac);
   EXPECT(m.kind == u::GameCheck::kNewer && m.release.tag == "mw1-v1.0.7");
   std::printf("  %s\n", m.words.c_str());
-  EXPECT(u::judge_game(G::kMw1, "mw1-v1.0.7", {mw1, ""}, u::Platform::kMac).kind == u::GameCheck::kUpToDate);
-  const u::GameCheck off = u::judge_game(G::kMw3, "v1.2.4", {"", "Could not resolve host"}, u::Platform::kMac);
+  EXPECT(u::judge_game(G::kMw1, "mw1-v1.0.7", {{mw1, ""}}, u::Platform::kMac).kind == u::GameCheck::kUpToDate);
+  const u::GameCheck off = u::judge_game(G::kMw3, "v1.2.4", {{"", "Could not resolve host"}}, u::Platform::kMac);
   EXPECT(off.kind == u::GameCheck::kFailed && off.words.find("Could not resolve host") != std::string::npos);
-  EXPECT(u::judge_game(G::kMw3, "", {"<html>", ""}, u::Platform::kMac).kind == u::GameCheck::kFailed);
+  EXPECT(u::judge_game(G::kMw3, "", {{"<html>", ""}}, u::Platform::kMac).kind == u::GameCheck::kFailed);
 }
 
 TEST(games_installed_record) {
