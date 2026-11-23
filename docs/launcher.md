@@ -883,3 +883,123 @@ program files are replaced.
    Mac's own install (`sdl_update_installs_the_mac_app`) checks the settings
    folder beside the app the same way. Left for the release: the Windows
    Setup's upgrade over 1.0.x on Owen's PC (release.md, Windows).
+
+## Games on demand (Owen, 2026-11-22)
+
+Owen: "make the launcher download the games when the player wants to play
+them, with an update button", like StarCraft 2's launcher; players choose to
+update; each game can still be downloaded and played on its own. So since
+1.3.0 the combined package (`MW3-Rebuild-...`, the one the updater takes) is
+**the launcher alone**, and each card installs its game from that game's own
+release.
+
+- **The check.** At the start each card's repo is asked for its releases
+  (`mech3-re` for MechWarrior 3, `mech3-pm-re` for Pirate's Moon,
+  `mech1-remake-re` for MechWarrior 1 Remake), on a thread, the cards
+  saying "Asking GitHub..." meanwhile. The newest release whose tag is the
+  game's own (`vX.Y.Z`, `pm-vX.Y.Z`, `mw1-vX.Y.Z`), not a draft or a
+  prerelease, with this platform's file, is the answer
+  (`upgrades::update::newest_game`). A check run (`--hidden`) asks only
+  `MW3_GAMES_API` (a URL with `{repo}`, `file://` allowed), never GitHub.
+- **The files** (`game_asset_name`): Windows takes the zip, never the Setup
+  (`MW3-alone-<v>-win64.zip`, `mw3pm-<pm v>-win64.zip`,
+  `MW1-Remake-<mw1 v>-win64.zip`); the Mac the disk image (`MW3-alone-`,
+  `PM-Rebuild-`, `MW1-Remake-` `...-mac.dmg`: attached read-only, its app
+  copied out); Linux the AppImage (unpacked with its own
+  `--appimage-extract`, no FUSE needed). Each is checked against its
+  release's `SHA256SUMS` line; nothing is installed without one.
+- **The card.** A game not installed shows INSTALL (with the version and the
+  download's size) where PLAY goes; offline it says it can't reach the
+  server and points to INSTALL FROM FILE. An installed game with a newer
+  release shows UPDATE TO x.y.z above PLAY (on MW1's card in place of the
+  greyed PLAY ORIGINAL). Nothing installs until the player presses one.
+- **Where.** The launcher's own games folder, per user and writable without
+  rights: `%LOCALAPPDATA%\MicroProse\BattleTech\games`,
+  `~/Library/Application Support/MicroProse/BattleTech/games`,
+  `~/.local/share/MicroProse/BattleTech/games` (`$XDG_DATA_HOME`). One
+  folder a game (`mw3`, `pm`, `mw1`), each with `rebuild-game.txt` (game,
+  tag, file, its SHA-256, github or file). The games folder carries
+  `rebuild-games.txt`; a folder is unpacked into `.incoming` (marked) and
+  swapped in, the old one moved aside and removed last. The launcher removes
+  or replaces only folders that carry its marks; anything else in the way
+  stops the install with a message.
+- **The player's files are never touched.** Each game copies what it needs
+  from the player's original into its own data folder (since 1.2.3), apart
+  from the program, so an update replaces only the program: the original is
+  never asked for again.
+- **A game beside the launcher wins.** A package or development build that
+  carries a game (MW3 alone, `build/`) starts that one, as before; its card
+  has no UPDATE (it updates with its package). The Windows Setup of the
+  launcher alone removes an earlier package's game programs from its folder
+  (installer.iss, `LauncherOnly`), so an update from 1.2.4 does not keep
+  starting old copies; the Mac app and the AppImage are replaced whole.
+- **INSTALL FROM FILE** (bottom row, always there): a game's download from
+  anywhere (a modder's build, no internet). A `SHA256SUMS` beside it is
+  checked: a match installs, a mismatch is refused; without one the player
+  is told it can't be checked and asked (INSTALL ANYWAY). Which game it is
+  comes from the program inside it; the full package (more than one game) is
+  refused.
+- **Started from there.** An installed game runs from its own folder, so the
+  AppImage launcher no longer waits for it to end (that wait was for a game
+  inside its own mount, `in_own_mount`). The movies' converter of an
+  installed MechWarrior 3 is used when the launcher has none beside it.
+- **Code.** `src/upgrades/update/games.{h,cpp}` (the logic: tags, files,
+  the record, a card's verdict; tests `games_*` in `test_update.cpp`),
+  `src/frontend/sdl/sdl_games.{h,cpp}` (the folder, check, download,
+  unpacking, swap). Checks: `MW3_GAMES_DIR`, `MW3_GAMES_API`,
+  `MW3_LAUNCHER_GAME_INSTALL=<mw3|pm|mw1>` (INSTALL or UPDATE pressed once
+  the answer is in), `MW3_LAUNCHER_INSTALL_FILE=1` with
+  `MW3_LAUNCHER_PICKER=path:<file>`, `MW3_LAUNCHER_INSTALL_ANYWAY=1`.
+
+## Where a game goes (Owen, 2026-11-22)
+
+Owen: "everything can be installed in the same location the user picks", and
+the saves "should probably stay in the normal user folder, for modding
+purposes". So each game has a folder of its own that the player picks, holding
+its program and its game files; pilots, saves, settings and mods stay in the
+user folder (the write dir). Its music and converted movies go there too
+(Owen: "we can have it look inside the game folder for movies and music"):
+`sdlfe::media_dir(install, write_dir)` is the folder above the install when it
+carries the game's mark, else the user folder as before; the game mounts it
+after the install (`music/`, `video/*.fmv`), and the conversions (the
+launcher's and the game's first-run one), ADD FROM MY DISC and a disc
+install's music write there. A rip the player put in the user folder's
+`music` still counts. Moving an install into a game's folder later converts
+the movies again, once, there.
+
+- **A card's first INSTALL** asks where (confirm 7: INSTALL, CHANGE FOLDER,
+  BACK), the default being the games folder above. The program goes under
+  the picked folder as under the games folder (`<folder>/<key>`), and the
+  folder is kept in mw3.cfg as `games_<key>=` (mw3, pm, mw1), read at every
+  start (in a game's own setup too). UPDATE goes where the game is, unasked.
+  INSTALL FROM FILE still installs into the games folder and forgets a picked
+  one (its unpacking is staged inside the games folder, and a rename does not
+  cross drives).
+- **"Use these game files?"** has CHANGE FOLDER beside INSTALL, in the
+  launcher and in each game's own setup (`mw3 --setup`, `mw3pm`). The game
+  files go into `<folder>/install` (mw3.cfg `install=`, `pm_install=` as
+  before), the default being the folder its card's INSTALL picked, else the
+  user folder's `install`. The line under the find says where, fitted to one
+  line.
+- **Whose folder.** A picked folder is the game's when it is empty or carries
+  this game's mark (`rebuild-game-folder.txt`, `game=<key>`), else a folder
+  named for the game inside it (`MechWarrior 3`, `Pirate's Moon`,
+  `MechWarrior 1 Remake`): a drive's top or someone's folder is never filled
+  loose. Before anything goes in, the folder is claimed
+  (`sdlfe::games::claim_game_folder`): made when missing, given the games
+  folder's mark and the game's; one holding anything else is refused and
+  nothing is written. `game_folder_in` and `claim_game_folder` are in
+  `sdl_games`; they move to the setup kit with the setup screen.
+- **The headers.** Each setup screen names the game it sets up, with its badge
+  (`kHeaderNames`: MECHWARRIOR 3, MECHWARRIOR 3: PIRATE'S MOON, MECHWARRIOR 1
+  REMAKE, MECHWARRIOR 1 for the 1989 game's PLAY ORIGINAL), never the
+  launcher's title (Owen: the kit is game-agnostic); the metal bands stay. The
+  cards, the launcher's own update and a checked download keep the launcher's.
+  Logged as `header <title>`.
+
+Checks: `MW3_LAUNCHER_INSTALL_TO=<folder>` (the card INSTALL's CHANGE FOLDER
+pick, with `MW3_LAUNCHER_GAME_INSTALL`), `MW3_LAUNCHER_FILES_TO=<folder>` (the
+game files' pick); shots `--launcher-screen place`, `found`, `mw1found`,
+`mw1origfound`. Test: `sdl_program_launcher_finds_the_game_then_plays` (CHANGE
+FOLDER into a folder holding someone's file; someone's own `MechWarrior 3`
+folder refused), the screens test and PM's GAME FILES test (the headers).
