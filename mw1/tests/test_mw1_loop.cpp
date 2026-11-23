@@ -4,6 +4,7 @@
 // funds and the enemies' parts in its stores; the next offer declined, so PM's main menu stays. Failed, or quit
 // (no mission end), no fee and no salvage: the stores and the funds as the advance left them (VISION.md, the endings).
 #include <algorithm>
+#include <limits>
 #include <array>
 #include <cmath>
 #include <chrono>
@@ -10140,15 +10141,20 @@ bool lance_ready(const mw1::Company& c, int32_t rung) {
 }
 
 // 1.1.0 (FIXES 118, 122): the spending soak, MW1_SOAK_SPEND on the playthrough. How hard the upgrades' prices make
-// them to get, in numbers: a player who spends past a reserve (MW1_SOAK_RESERVE, 3,000,000) at every hub look.
+// them to get, in numbers: a player who spends past a reserve (MW1_SOAK_RESERVE, 3,000,000) at every hub look once
+// its lance is ready for the story's next battle, and after the ending. While it builds the lance up it saves: the
+// first try spent past the reserve always and never won rung 1 (1,775 contracts: its funds sat at the reserve, under
+// the light 'Mechs' 3.1-3.7M the build-up buys).
 //   none     spends nothing (the baseline, with the soak's report);
 //   sinks, armour, steps   only that ladder (steps: power on the lance's most-carried weapon type);
 //   mixed    the cheapest next item of the three;
 //   trader   mixed, and the dealer's buy-low-sell-high between tiers (the market's own percentages, the original's
 //            loophole, kept): at a tier 0 or 1 world it buys the wares that sell for more at tier 3, at a tier 2 or 3
-//            world it sells them back, with no detours (only where the story and the contracts take it).
+//            world it sells them back, with no detours (only where the story and the contracts take it). It holds at
+//            most kTradeHeld of unsold wares (the first try's money sat in wares it never passed a tier 2-3 world to sell).
 // Played on past the ending to twice its game days. SOAK lines, numbers only; mw1/tools/spend_soak_report.py makes
 // the tables.
+inline constexpr int64_t kTradeHeld = 3000000;  // the trader's unsold wares, their cost at most
 struct SpendSoak {
   std::string mode;
   int64_t reserve = 3000000;
@@ -10240,14 +10246,16 @@ void soak_trade(mw1::Company& c, SpendSoak& s) {
     if (const int64_t m = dl::sell_price(w, 3) - dl::buy_price(w, c.tier); m > 0) lines.push_back({m, static_cast<int32_t>(i)});
   }
   std::sort(lines.rbegin(), lines.rend());
+  int64_t held = 0;
+  for (const auto& [name, cost] : s.trade_cost) held += cost;
   for (const auto& [margin, i] : lines)
     for (int guard = 0; guard < 8; ++guard) {
       const mw1::DealerItem d = c.dealer.stock[static_cast<size_t>(i)];
       const dl::Ware w{d.kind, d.id, d.tech};
       const int64_t price = dl::buy_price(w, c.tier);
-      if (d.count <= 0 || c.funds - price < s.reserve || dl::buy(c, i) != dl::Trade::kDone) break;
+      if (d.count <= 0 || c.funds - price < s.reserve || held + price > kTradeHeld || dl::buy(c, i) != dl::Trade::kDone) break;
       const std::string name = dl::ware_name(w);
-      s.trade_spent += price, s.trade_cost[name] += price, ++s.trade_held[name];
+      held += price, s.trade_spent += price, s.trade_cost[name] += price, ++s.trade_held[name];
     }
 }
 }  // namespace
@@ -10538,8 +10546,15 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
             std::printf("SOAK: rung %d fights %d contracts %d day %lld funds %lld\n", rung_seen, contracts + story_battles, contracts,
                         static_cast<long long>(day_of(*c)), static_cast<long long>(c->funds));
         rung_seen = c->story.rung_won;
+        if (!after_end && contracts + story_battles > 600) return block("the soak: no ending in 600 fights"), true;
+        // Saving while the lance is built up for the story's next battle (the trader still sells).
+        const bool building = !after_end && !lance_ready(*c, mw1::journal::current_lead(*c).rung);
+        const int64_t reserve_was = soak.reserve;
+        if (building) soak.reserve = std::numeric_limits<int64_t>::max() / 4;
         soak_trade(*c, soak);
-        for (const std::string& ladder : soak_spend(*c, soak)) {
+        const std::vector<std::string> spent = soak_spend(*c, soak);
+        soak.reserve = reserve_was;
+        for (const std::string& ladder : spent) {
           const int32_t n = ++ladder_count[ladder];
           std::printf("SOAK: bought %s %d contracts %d fights %d day %lld date %d-%02d-%02d funds %lld\n", ladder.c_str(), n, contracts,
                       contracts + story_battles, static_cast<long long>(day_of(*c)), c->date.year, c->date.month + 1,
