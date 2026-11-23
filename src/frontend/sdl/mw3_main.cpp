@@ -842,6 +842,9 @@ int program(int argc, char** argv) {
   // Ours (MW1's FIXES 30): a run no player is at never holds or moves the system's pointer (pointer_hands_off.h).
   if (a.hidden || a.frames > 0 || !a.chain.empty() || !a.modes.empty()) platform::set_pointer_hands_off(true);
   mech3::mods_program_version() = MW3_VERSION;  // game_version= in mod.txt (upgrades/mods/mod_needs.h)
+  // Ours (MW1 lead, 2026-11-23): on the Mac a run no player is at stays a background process: SDL's start makes
+  // every process a foreground app, which took the keyboard from the app in front at each start and exit.
+  if (platform::pointer_hands_off()) SDL_SetHint(SDL_HINT_MAC_BACKGROUND_APP, "1");
   if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK)) {
     sdlfe::fatal_box(std::string("MechWarrior 3 cannot start: ") + SDL_GetError(), a.hidden);
     if (a.setup) std::printf("{\"error\": \"SDL could not start\"}\n");

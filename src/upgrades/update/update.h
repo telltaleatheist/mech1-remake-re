@@ -3,6 +3,7 @@
 // signing). This part is the logic only: GitHub's releases list read, the newest package release picked, versions
 // compared, what to say. The fetching (the system's curl) is the front end's (frontend/sdl/sdl_update.h).
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -17,6 +18,9 @@ struct Release {
   std::string notes;  // body: the release's notes (markdown)
   bool draft = false, prerelease = false;
   std::vector<Asset> assets;
+  // The same release in the other home (Owen 2026-11-22: GitHub and its copy at git.owenmorgan.com): that home's
+  // assets, tried by a download after `assets` fails. Empty when only one home has it (with_homes).
+  std::vector<std::vector<Asset>> other_homes;
 };
 
 // GitHub's JSON for the releases list (an array of releases): false with `error` when it is not one.
@@ -46,11 +50,31 @@ Verdict judge(const std::string& current, const std::string& json, const std::st
 // (Both judges look for this platform's bundle; the forms with `p`, for checks, another platform's.)
 // The same over several repos' lists (Owen 2026-11-21: the hub mw3-re and the game's own mech3-re, whichever has the
 // newest package): every list that reads counts; failed only when none does, saying the first one's reason.
+// Each repo is asked in both homes (Owen 2026-11-22): git.owenmorgan.com (Forgejo, a read-only copy of every family
+// repo and its releases, synced from GitHub) and GitHub; the newest release on either wins, so one forgotten or
+// gone leaves the other. `download_first` marks GitHub's answers: a release both have is downloaded from GitHub,
+// the other home only when that fails (git.owenmorgan.com's bandwidth is metered).
 struct Answer {
   std::string json, fetch_error;
+  bool download_first = false;
 };
 Verdict judge(const std::string& current, const std::vector<Answer>& answers);
 Verdict judge(const std::string& current, const std::vector<Answer>& answers, Platform p);
+
+// Every answer's releases in one list (`first`: from a download_first answer, parallel). `read` counts the answers
+// that read; `failed` is the first that did not, `parse_error` set when it answered but could not be read.
+struct Homes {
+  std::vector<Release> releases;
+  std::vector<bool> first;
+  int read = 0;
+  const Answer* failed = nullptr;
+  std::string parse_error;
+};
+Homes read_homes(const std::vector<Answer>& answers);
+// `tag` as the homes have it: the release from the first home in download order (download_first ones, then the
+// rest in the answers' order) that `usable` accepts, the others with that tag as its other_homes. Drafts and
+// prereleases never count. A release with an empty tag when no home's is usable.
+Release with_homes(const Homes& h, const std::string& tag, const std::function<bool(const Release&)>& usable);
 
 // A release's notes (markdown) as plain lines for the launcher's screen: headings without their #, "- " and "* "
 // items as "• ", **bold**, *italic* and `code` marks dropped, [text](url) as its text, blank runs as one.
