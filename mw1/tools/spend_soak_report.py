@@ -221,15 +221,20 @@ def main():
     strands = [read(f) for f in sorted(glob.glob(os.path.join(sys.argv[1], "strand_*.txt")))]
     strands += [r for r in runs if r["blocked"]]
     if strands:
-        print("\n# WARNING: a player spending to the reserve before the Dark Wing can strand")
+        print("\n# WARNING: a player spending to the reserve can strand (in the story, or after the ending in the 2x tail)")
         for r in strands:
             got = sorted(r["bought"], key=lambda k: int(r["bought"][k]["fights"]))
             last = r["bought"][got[-1]] if got else None
             reached = "; ".join(f"{ladder} {n} at contract {r['bought'][(ladder, n)]['contracts']}"
                                 for ladder in MILESTONES for n in MILESTONES[ladder] if (ladder, n) in r["bought"])
             why = r["blocked"][2] if r["blocked"] else "not finished"
-            after = f" after contract {last['contracts']}" if last else ""
-            print(f"  {r['mode']}, seed {r['seed']}: {why}{after}, the Dark Wing never won; "
+            if r["blocked"] and r["blocked"][0] >= 0:  # the SOAK blocked line's own contract
+                where = f" at contract {r['blocked'][0]}"
+            else:  # a run from before that line: the last purchase is the latest contract known
+                where = f" after contract {last['contracts']}" if last else ""
+            end = r["at"].get("end")
+            story = f"after the ending (the Dark Wing won at contract {end['contracts']})" if end else "the Dark Wing never won"
+            print(f"  {r['mode']}, seed {r['seed']}: {why}{where}, {story}; "
                   f"rungs won {sorted(r['rungs'])}; milestones by then: {reached or 'none'}")
 
     print("\n# Median contract of each milestone, by mode (seeds that never got there in brackets: reached/seeds)")
