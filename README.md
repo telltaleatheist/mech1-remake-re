@@ -35,6 +35,16 @@ original.
 
 Nothing yet.
 
+**1.3.1 (2026-11-22)** (the full notes are in
+[docs/release-notes-1.3.1.md](docs/release-notes-1.3.1.md)): each game goes
+where you choose.
+
+- **Install each game where you want,** on any drive: the launcher's INSTALL
+  asks the first time, and each game's setup puts its game files, music and
+  converted movies there too. Pilots, saves, settings and mods stay in your
+  user folder.
+- Each game's setup shows its own name instead of "MW3 Rebuild".
+
 **1.3.0 (2026-11-22)** (the full notes are in
 [docs/release-notes-1.3.0.md](docs/release-notes-1.3.0.md)): the launcher
 downloads the games.
