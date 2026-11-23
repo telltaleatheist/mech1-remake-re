@@ -10301,7 +10301,8 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
     int64_t end_day = -1;
     int32_t rung_seen = 0;
     std::map<std::string, int32_t> ladder_count;  // the soak's purchases by ladder
-    if (soak.on()) std::printf("SOAK: mode %s seed %u reserve %lld\n", soak.mode.c_str(), seed, static_cast<long long>(soak.reserve));
+    if (soak.on())  // rule: when it may spend (saves while building, and through the Dark Wing until won)
+      std::printf("SOAK: mode %s seed %u reserve %lld rule saves-through-dark-wing\n", soak.mode.c_str(), seed, static_cast<long long>(soak.reserve));
     int dw_fights = -1, dw_contracts = -1, dw_month = -1;
     // The game time by what the player did since the last look (the hub's): fights, trips, the Bar, else.
     std::map<std::string, int64_t> time_by;

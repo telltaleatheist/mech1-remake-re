@@ -38,6 +38,7 @@ def read(path):
         w = line.split()[1:]
         if w[0] == "mode":
             run["mode"], run["seed"], run["reserve"] = w[1], int(w[3]), int(w[5])
+            run["rule"] = w[7] if len(w) > 7 else "earlier"
         elif w[0] == "bought":
             f = fields(w, 3)
             run["bought"][(w[1], int(w[2]))] = f
@@ -73,7 +74,9 @@ def phase(run, f):
 
 
 def table(run, base):
-    print(f"\n## mode {run['mode']}, seed {run['seed']}, reserve {money(run['reserve'])}")
+    rule = ("saves while building the lance and through the Dark Wing" if run.get("rule") == "saves-through-dark-wing"
+            else "earlier rule: saves while building, may spend once the Dark Wing's lance is ready")
+    print(f"\n## mode {run['mode']}, seed {run['seed']}, reserve {money(run['reserve'])} ({rule})")
     end, twice = run["at"].get("end"), run["at"].get("twice")
     if not end:
         print("  NOT FINISHED: no ending reached" + (f" ({run['blocked'][2]})" if run["blocked"] else ""))
