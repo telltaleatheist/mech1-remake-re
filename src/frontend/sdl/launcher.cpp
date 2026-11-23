@@ -49,24 +49,24 @@ double ready_wait_ms() {
   return e ? std::atof(e) : 20000.0;
 }
 namespace fs = std::filesystem;
-// 16:9 (Owen, 2026-11-08): the art across the width, the plates and boxes a
+// 16:9 (2026-11-08): the art across the width, the plates and boxes a
 // 640-wide block in the middle (kX in), as laid out for 640x480 before.
 constexpr int W = 854, H = 480, kX = (W - 640) / 2;
 // ADD FROM MY DISC's line under its name: short enough for the plate at its font (it was cut in the middle).
 constexpr char kAddDiscSub[] = "A disc in a drive, or its image or any file of the disc";
 constexpr int kBadge = 76;  // a game's badge across, on the 640x480 canvas (the other screens' round entries)
 // The main screen's cards (layout C, the mockup's 1280x720 at two thirds): the header, the cards, the bottom row.
-// The setup screens' titles, by header_game(): each game's own, never the launcher's (Owen 2026-11-22).
+// The setup screens' titles, by header_game(): each game's own, never the launcher's (2026-11-22).
 constexpr const char* kHeaderNames[] = {"MECHWARRIOR 3", "MECHWARRIOR 3: PIRATE'S MOON", "MECHWARRIOR 1 REMAKE", "MECHWARRIOR 1"};
 constexpr int kCardsW = 768, kCardsTop = 84, kCardsBottom = 416, kCardBadge = 100, kCardButtonH = 42;
 constexpr int kCardTabY = 150, kCardTabH = 24;
-// The launcher's name in its header and window (Owen 2026-11-22: "Battletech" at the top, for the whole family).
-constexpr const char* kLauncherTitle = "BATTLETECH";  // a card's game tabs, under its name (Owen 2026-11-22)
+// The launcher's name in its header and window (2026-11-22: "Battletech" at the top, for the whole family).
+constexpr const char* kLauncherTitle = "BATTLETECH";  // a card's game tabs, under its name (2026-11-22)
 // Each card's games, its tabs left to right (upgrades::update::Game): MW3 | Pirate's Moon, MW1's ORIGINAL (the
-// Rebuild) | REMAKE, Inception's ORIGINAL | REMAKE. Originals on the left (Owen 2026-11-22).
+// Rebuild) | REMAKE, Inception's ORIGINAL | REMAKE. Originals on the left (2026-11-22).
 constexpr int kCardGames[3][2] = {{0, 1}, {3, 2}, {4, 5}};
 constexpr const char* kCardKeys[3] = {"mw3", "mw1", "inception"};  // mw3.cfg's tab_<key>=
-// The cards' screen (Owen, 1.2.0): the starfield zoomed so its drift reads round the cards, the cards a little see-through.
+// The cards' screen (1.2.0): the starfield zoomed so its drift reads round the cards, the cards a little see-through.
 constexpr float kStarZoom = 1.8f;
 constexpr Uint8 kCardAlpha = 196;
 constexpr int kRowTop = 428, kRowH = 30;
@@ -187,7 +187,7 @@ SDL_Surface* scaled(SDL_Surface* s, int w, int h) {
 
 struct Art {
   SDL_Surface *stars = nullptr, *metal = nullptr, *plate = nullptr, *title = nullptr, *emblem = nullptr;
-  SDL_Surface* stars_big = nullptr;  // the cards' screen: the starfield at kStarZoom, so its drift shows (Owen, 1.2.0)
+  SDL_Surface* stars_big = nullptr;  // the cards' screen: the starfield at kStarZoom, so its drift shows (1.2.0)
   SDL_Surface* badge[4] = {};  // the games' round badges: MechWarrior 3, Pirate's Moon, MW1 Remake, MW1 Original
   ~Art() {
     for (SDL_Surface* s : {stars, stars_big, metal, plate, title, emblem, badge[0], badge[1], badge[2]})
@@ -252,7 +252,7 @@ struct Text {
     SDL_Rect r{x, y - t->h / 2, t->w, t->h};
     if (align == 0) r.x -= t->w / 2;
     if (align > 0) r.x -= t->w;
-    // A black shadow lifts light text; under dark text (the amber buttons' ink) it read as a doubled letter (Owen, 1.2.0).
+    // A black shadow lifts light text; under dark text (the amber buttons' ink) it read as a doubled letter (1.2.0).
     const bool dark = c.r * 3 + c.g * 6 + c.b < 1000;
     SDL_Surface* shadow = dark ? nullptr : TTF_RenderText_Blended(f, text.c_str(), 0, SDL_Color{0, 0, 0, 255});
     if (shadow) {
@@ -323,7 +323,7 @@ struct Text {
 
 const SDL_Color kWhite{228, 230, 232, 255}, kAmber{255, 176, 64, 255}, kGrey{120, 124, 130, 255}, kDim{190, 190, 180, 255};
 
-// The one picker's filters (Owen: one option): the sources first, any file
+// The one picker's filters (one option): the sources first, any file
 // as well (an installed copy or the disc's folder by one of its files).
 const SDL_DialogFileFilter kGameFiles[] = {
     {"Your game: a disc image, a download, or Mech3.exe", "iso;cue;bin;img;zip;7z;rar;tar;gz;tgz;xz;exe"},
@@ -335,7 +335,7 @@ const SDL_DialogFileFilter kPackageFiles[] = {{"A game's download (.zip, .dmg, .
 const SDL_DialogFileFilter kDiscFiles[] = {{"Your disc: its image (.cue, .iso) or any file of it", "cue;iso;bin;img"},
                                            {"All files", "*"}};
 
-// The find screen's words (Owen, 2026-11-02): what the game needs, and that
+// The find screen's words (2026-11-02): what the game needs, and that
 // nothing of the player's is changed.
 const char* const kFindWords =
     "MechWarrior 3 needs your own copy of the game. Show us your disc, a disc image or download (.iso, .cue, .zip), "
@@ -412,13 +412,13 @@ struct Button {
   bool enabled = true;
   size_t sub_keep = 0;  // the sub's start kept whole when it is shortened to fit
   int badge = -1;       // a game's entry: its round badge (Art::badge), the name beside it
-  // The cards (Owen, 2026-11-20, layout C): a card's amber PLAY, its grey PLAY ORIGINAL, the bottom row's
+  // The cards (2026-11-20, layout C): a card's amber PLAY, its grey PLAY ORIGINAL, the bottom row's
   // flat buttons; 0 the steel plate of the other screens.
-  // kTab: a card's game tab (Owen 2026-11-22), amber when `selected`; `dot`, its game has an update.
+  // kTab: a card's game tab (2026-11-22), amber when `selected`; `dot`, its game has an update.
   enum Style { kPlate, kAmber, kGrey, kFlat, kTab } style = kPlate;
   bool selected = false, dot = false;
   std::string name;  // what the log and the checks call it ("" the label): a card's PLAY by its game
-  // A split button's end (Owen, 2026-11-22): a game's UPDATE as a segment at the right of its PLAY, a divider and a
+  // A split button's end (2026-11-22): a game's UPDATE as a segment at the right of its PLAY, a divider and a
   // download arrow, the version under it. Its own button for clicks, focus and the checks; drawn joined to the one
   // before it.
   bool seg = false;
@@ -446,14 +446,14 @@ enum Id {
   kInstallTo, kPlaceGo,  // ours: CHANGE FOLDER (the game's folder, picked) and the card INSTALL's go once asked where
   kData = 40, kDataPick, kDataUsual, kMoveGo, kRemoveOld, kKeepOld,
   kUpdates = 49,
-  kSelfUpdate = 50,  // the header's UPDATE AVAILABLE <v> when the start's check found one (Owen 2026-11-23)
-  kUpdateGo = 80, kUpdateNotNow,  // the UPDATE screen: UPDATE and BACK (Owen 2026-11-23: no paging arrows)
+  kSelfUpdate = 50,  // the header's UPDATE AVAILABLE <v> when the start's check found one (2026-11-23)
+  kUpdateGo = 80, kUpdateNotNow,  // the UPDATE screen: UPDATE and BACK (2026-11-23: no paging arrows)
   kVulkanAgain = 90,  // ours: the Vulkan check again (docs/linux.md)
   kMw1Original = 100,  // MW1's card: PLAY ORIGINAL, Elthial's port of the 1989 game
   kGameInstall = 110,  // ours, games on demand (sdl_games.h): + the game (upgrades::update::Game), INSTALL
   kGameUpdate = 120,   // + the game: UPDATE
   kInstallFile = 130, kInstallFileGo,  // ADD FROM FILE; its ADD ANYWAY for a file without SHA256SUMS
-  kTab = 140,      // + card * 2 + tab: a card's game tabs (Owen 2026-11-22)
+  kTab = 140,      // + card * 2 + tab: a card's game tabs (2026-11-22)
   kKitPlay = 150,  // + the game: PLAY for a game on the setup kit's contract (MW1 Rebuild, Inception's two)
 };
 
@@ -461,7 +461,7 @@ struct Install {
   bool ok = false;
   std::string dir, version, summary;
   // Found by the search (the installer's places, a drop-in), not set up yet: MECHWARRIOR 3 offers to copy it in
-  // first (Owen, 2026-11-21: once found, the original may be deleted).
+  // first (2026-11-21: once found, the original may be deleted).
   bool elsewhere = false;
 };
 
@@ -663,12 +663,12 @@ class Launcher {
   void run_kit(int i);
   rekit::Status kit_status_[upgrades::update::kGameCount];
   bool kit_known_[upgrades::update::kGameCount] = {};
-  // Each card's selected tab (Owen 2026-11-22): MW3, MW1's REMAKE and Inception's ORIGINAL at first; the last pick
+  // Each card's selected tab (2026-11-22): MW3, MW1's REMAKE and Inception's ORIGINAL at first; the last pick
   // kept (mw3.cfg tab_<card>=).
   int tab_[3] = {0, 1, 0};
   bool games_on_ = false;  // mw3launcher (not mw3's or mw3pm's own find screen)
   std::string games_root_;
-  // Ours (Owen 2026-11-22): each game's own folder, picked: its program and its game files there, the user folder
+  // Ours (2026-11-22): each game's own folder, picked: its program and its game files there, the user folder
   // keeping pilots, saves, settings and mods. mw3.cfg's games_<key>=; empty: the games folder (program) and the
   // user folder (game files), as before.
   std::string games_place_[upgrades::update::kGameCount];
@@ -689,7 +689,7 @@ class Launcher {
     }
   };
   std::unique_ptr<GamesCheck> games_check_;
-  // The launcher's own update, asked at every start (Owen 2026-11-23): check_for_updates on a thread, both homes,
+  // The launcher's own update, asked at every start (2026-11-23): check_for_updates on a thread, both homes,
   // never a prompt; a newer one shows UPDATE AVAILABLE <v> in the header (kSelfUpdate), which opens the UPDATE
   // screen. Nothing downloads until the player presses UPDATE there.
   struct SelfCheck {
@@ -799,7 +799,7 @@ bool is_pm_install(const mech3::source::Found& f) {
 #define MW3_VERSION ""
 #endif
 
-// The label on a game's line (Owen, 2026-11-10: shown, never blocking): "official" when its data is a release's
+// The label on a game's line (2026-11-10: shown, never blocking): "official" when its data is a release's
 // (MW3 1.0 or 1.2, or 1.0 with the patch's files; PM 1.0), its program a release build (its tag a bare vX.Y.Z,
 // PM's pm-vX.Y.Z); else "modified (...)" naming which. Mods are a feature, not a change to the game: they are a
 // note of their own (versions_words; lead, 2026-11-10).
@@ -825,7 +825,7 @@ std::string official_words(const std::string& data, const std::string& program, 
 std::string package_words() {
   std::string v = MW3_VERSION;
   if (v.size() > 1 && v[0] == 'v' && v[1] >= '0' && v[1] <= '9') v.erase(0, 1);
-  return v.empty() ? "BattleTech launcher" : "BattleTech launcher " + v;  // Owen 2026-11-22 (was "MechWarrior 3 Rebuild")
+  return v.empty() ? "BattleTech launcher" : "BattleTech launcher " + v;  // 2026-11-22 (was "MechWarrior 3 Rebuild")
 }
 
 // A game's line's versions: its data's, then its program's ("data 1.2, program v1.1.0, "); a program
@@ -841,7 +841,7 @@ using sdlfe::games::program_version;
 
 }  // namespace
 
-// Ours, games on demand (Owen, 2026-11-22; docs/launcher.md, Games on demand): a game's program beside this one
+// Ours, games on demand (2026-11-22; docs/launcher.md, Games on demand): a game's program beside this one
 // is the package's own and is used as before; else the one the launcher installed in its games folder. The
 // launcher's own find screen inside mw3 and mw3pm has none of this.
 namespace {
@@ -921,7 +921,7 @@ void Launcher::start_games_check() {
   });
 }
 
-// The launcher's own update asked at the start (Owen 2026-11-23), quietly: a thread, the main screen never waiting
+// The launcher's own update asked at the start (2026-11-23), quietly: a thread, the main screen never waiting
 // on it, nothing said on screen unless it is newer. A check run (hidden, or a shot) asks only a stand-in
 // (MW3_UPDATE_API), never GitHub or git.owenmorgan.com; a shot with one asks first, so it is drawn.
 void Launcher::start_self_check() {
@@ -1011,7 +1011,7 @@ void Launcher::install_game(int i) {
   install_game_now(i);
 }
 
-// A card's first INSTALL (Owen 2026-11-22): where the game goes, the folder shown with CHANGE FOLDER; its pilots,
+// A card's first INSTALL (2026-11-22): where the game goes, the folder shown with CHANGE FOLDER; its pilots,
 // saves and settings stay in the user folder. MW3_LAUNCHER_INSTALL_TO (checks): that folder picked, then INSTALL.
 void Launcher::ask_place(int i) {
   place_game_ = i, place_ = games_place_[i];
@@ -1089,7 +1089,7 @@ void Launcher::game_installed(const sdlfe::games::Done& d) {
 }
 
 // MW1's card (docs/launcher.md, The cards): MechWarrior 1 Remake's `mw1` beside ours (PLAY REMAKE), and Elthial's
-// MechWarrior (1989) SDL port (PLAY ORIGINAL). Cut for now (Owen, 2026-11-20: he doesn't like how it runs; MW1
+// MechWarrior (1989) SDL port (PLAY ORIGINAL). Cut for now (2026-11-20: it does not run well enough yet; MW1
 // original may come with Crescent Hawk's Inception): PLAY ORIGINAL is greyed, COMING LATER, and the port is
 // looked for only where a check names it (MW3_MW1_PORT), so its start stays tested.
 // Both play the same MechWarrior (1989) folder. The card shows when either is there.
@@ -1209,7 +1209,7 @@ void Launcher::find_pm() {
   for (const std::string& d : tries) {
     std::error_code ec;
     if (!fs::is_directory(d, ec) || !is_pm_install(mech3::source::map_source(d))) continue;
-    if (!fs::equivalent(d, fs::path(pm_wd()) / "install", ec)) {  // the player's own: offered, never taken (Owen, 2026-11-21)
+    if (!fs::equivalent(d, fs::path(pm_wd()) / "install", ec)) {  // the player's own: offered, never taken (2026-11-21)
       pm_found_ = d;
       std::printf("mw3: launcher: Pirate's Moon found at %s: offered, not taken\n", d.c_str());
       return;
@@ -1419,7 +1419,7 @@ std::vector<std::string> Launcher::pm_notes(mech3::setup::Result* check) {
 // MechWarrior 3 as its own program (game_bin): the install and the options
 // passed on, the launcher kept on screen until the game's first frame
 // (mw3 --ready-file) so the switch shows no empty moment, then closed: the
-// game goes on alone (Owen, 2026-11-01).
+// game goes on alone (2026-11-01).
 void Launcher::start_game(bool pm) {
   std::error_code ec;
   game_name_ = pm ? "Pirate's Moon" : "MechWarrior 3";
@@ -1569,7 +1569,7 @@ void Launcher::layout() {
   }
   switch (screen_) {
     case kMain: {
-      // The cards (Owen, 2026-11-20, docs/launcher.md, The cards), one a family since 2026-11-22 (Owen: the mockups'
+      // The cards (2026-11-20, docs/launcher.md, The cards), one a family since 2026-11-22 (the mockups'
       // A): its badge, its name, its games as tabs (MECHWARRIOR 3 | PIRATE'S MOON; ORIGINAL | REMAKE), then the
       // selected game's status and its button along the bottom, PLAY split with its UPDATE when one is ready. The
       // badge follows the tab. Every game's line is logged once whichever tab shows (the checks read them).
@@ -1593,7 +1593,7 @@ void Launcher::layout() {
         p.lines.push_back("Update " + upgrades::update::game_version(checks_[i].release.tag) + " is ready");
         fix_keep(p);
       };
-      // Games on demand: a game not installed has DOWNLOAD where PLAY goes (Owen 2026-11-23, was INSTALL). One whose
+      // Games on demand: a game not installed has DOWNLOAD where PLAY goes (2026-11-23, was INSTALL). One whose
       // repo has no release yet says COMING SOON and turns to DOWNLOAD by itself once its first release is out.
       auto install = [&](Panel& p, int i, const char* name) {
         p.id = kGameInstall + i, p.name = name, p.upd = -1;
@@ -1667,7 +1667,7 @@ void Launcher::layout() {
       }
       if (!entries_logged_) std::printf("mw3: launcher: footer %s\n", package_words().c_str());
       entries_logged_ = true;  // once a run: the lines as first shown
-      // MechWarrior 1 Remake: it needs MW3 and Pirate's Moon first (Owen, 2026-11-16), and the 1989 game's folder.
+      // MechWarrior 1 Remake: it needs MW3 and Pirate's Moon first (2026-11-16), and the 1989 game's folder.
       const std::string needs = mw1_remake_ ? mw1_needs() : std::string();
       {
         Panel& p = pn[2];
@@ -1758,7 +1758,7 @@ void Launcher::layout() {
         cards_.push_back({{x0 + k * (cw + gap), kCardsTop, cw, kCardsBottom - kCardsTop}, p.badge, kCardNames[k], p.lines, p.keep, p.note, on});
         const Card& c = cards_.back();
         // Its button (rects on the canvas: add() shifts by kX, so it is taken off here); `upd`, a game with a newer
-        // release, splits it: PLAY and, at its end, that game's UPDATE (Owen 2026-11-22).
+        // release, splits it: PLAY and, at its end, that game's UPDATE (2026-11-22).
         SDL_Rect r{c.r.x + 12 - kX, c.r.y + c.r.h - 12 - kCardButtonH, c.r.w - 24, kCardButtonH};
         const bool split = p.upd >= 0 && can_update(p.upd);
         if (split) r.w -= kSegW;
@@ -1770,7 +1770,7 @@ void Launcher::layout() {
           buttons_.back().style = Button::kAmber, buttons_.back().seg = true, buttons_.back().name = p.name + " UPDATE";
         }
       }
-      // GAME FILES (Owen, 2026-11-02): the find screen at any time, to pick or refresh the game's files; UPDATES
+      // GAME FILES (2026-11-02): the find screen at any time, to pick or refresh the game's files; UPDATES
       // (docs/launcher.md, Updates); QUIT for fullscreen (Escape too). The mockup's bottom row, flat buttons.
       auto flat = [&](int id, int x, int w, const char* label) {
         add(id, {x - kX, kRowTop, w, kRowH}, label);
@@ -1785,7 +1785,7 @@ void Launcher::layout() {
         flat(kQuit, x0 + 232, 72, "QUIT");
       }
       // A newer launcher found by the start's check: an amber UPDATE AVAILABLE <v> in the header's top right, beside
-      // the mark, as Discord's and Chrome's (Owen 2026-11-23: the footer's button was too small to see). After QUIT
+      // the mark, as Discord's and Chrome's (2026-11-23: the footer's button was too small to see). After QUIT
       // for the keys and the pad; it opens the UPDATE screen.
       if (self_update_ && !cards_.empty()) {
         const int right = cards_.back().r.x + cards_.back().r.w;
@@ -1806,7 +1806,7 @@ void Launcher::layout() {
       break;
     }
     case kSetupScreen: {
-      // Find the game (Owen, 2026-11-02: one option): the search first (an
+      // Find the game (2026-11-02: one option): the search first (an
       // installed copy or a disc in a drive used at once), else one picker:
       // an image or a download, or any file of an installed copy (its
       // folder; pick_source). The 1.2 patch is built in (patch12.h).
@@ -1840,9 +1840,9 @@ void Launcher::layout() {
         break;
       }
       if (confirm_go_ == 2) add(kMoveGo, {170, 300, 140, 40}, "MOVE");
-      else if (confirm_go_ == 1 || confirm_go_ == 5) {  // one plate shows the find (5: MechWarrior (1989)'s); clicking it picks other files (Owen, 2026-11-21)
+      else if (confirm_go_ == 1 || confirm_go_ == 5) {  // one plate shows the find (5: MechWarrior (1989)'s); clicking it picks other files (2026-11-21)
         add(kPickOther, {130, 180, 380, 56}, found_name_, found_sub_);
-        if (confirm_go_ == 1) {  // ours: CHANGE FOLDER, the game files' own folder (Owen 2026-11-22)
+        if (confirm_go_ == 1) {  // ours: CHANGE FOLDER, the game files' own folder (2026-11-22)
           add(kGo, {85, 330, 140, 40}, "INSTALL");
           add(kInstallTo, {240, 330, 160, 40}, "CHANGE FOLDER");
           add(kBack, {415, 330, 140, 40}, "BACK");
@@ -1851,7 +1851,7 @@ void Launcher::layout() {
           add(kBack, {330, 330, 140, 40}, "BACK");
         }
         break;
-      } else if (confirm_go_ == 7) {  // a card's first DOWNLOAD: where to (Owen 2026-11-22)
+      } else if (confirm_go_ == 7) {  // a card's first DOWNLOAD: where to (2026-11-22)
         add(kPlaceGo, {85, 330, 140, 40}, "DOWNLOAD");
         add(kInstallTo, {240, 330, 160, 40}, "CHANGE FOLDER");
         add(kBack, {415, 330, 140, 40}, "BACK");
@@ -1863,7 +1863,7 @@ void Launcher::layout() {
       add(kCancel, {250, 372, 140, 34}, "CANCEL");
       break;
     case kUpdateScreen: {
-      // Two buttons (Owen 2026-11-23: "just a back and an update button"); long notes scroll with the wheel.
+      // Two buttons (2026-11-23: "just a back and an update button"); long notes scroll with the wheel.
       add(kUpdateGo, {170, 384, 140, 34}, "UPDATE");
       add(kUpdateNotNow, {330, 384, 140, 34}, "BACK");
       break;
@@ -1892,7 +1892,7 @@ void Launcher::background(float dt) {
   scroll_ += dt * 6.0f;  // a few pixels a second
   SDL_FillSurfaceRect(canvas_, nullptr, SDL_MapSurfaceRGB(canvas_, 8, 8, 12));
   const bool cards = screen_ == kMain;  // the mockup's: the starfield darkened, no metal bands, the mark top left
-  if (cards && art_.stars_big) {  // zoomed and lighter than the mockup's 45%, its drift seen round the cards (Owen, 1.2.0)
+  if (cards && art_.stars_big) {  // zoomed and lighter than the mockup's 45%, its drift seen round the cards (1.2.0)
     SDL_Surface* s = art_.stars_big;
     SDL_SetSurfaceColorMod(s, 255, 255, 255);
     const int sw = s->w, x = static_cast<int>(scroll_ * kStarZoom) % sw, y = (s->h - H) / 2;
@@ -1931,7 +1931,7 @@ void Launcher::background(float dt) {
   const uint32_t amber = SDL_MapSurfaceRGB(canvas_, 255, 176, 64);
   SDL_Rect l1{0, 96, W, 1}, l2{0, H - 49, W, 1};
   SDL_FillSurfaceRect(canvas_, &l1, amber), SDL_FillSurfaceRect(canvas_, &l2, amber);
-  if (game >= 0) {  // a setup screen: the game it sets up, never the launcher's name (Owen: the kit names no game)
+  if (game >= 0) {  // a setup screen: the game it sets up, never the launcher's name (the kit names no game)
     const char* name = kHeaderNames[game];
     const int size = text_.width(name, 36) > 520 ? 30 : 36;  // the longer titles kept off the hazard stripes
     const int badge = 64, gap = 16, w = badge + gap + text_.width(name, size), x = (W - w) / 2;
@@ -1951,7 +1951,7 @@ void Launcher::background(float dt) {
 }
 
 // The game a screen sets up (0 MechWarrior 3, 1 Pirate's Moon, 2 MW1 Remake, 3 MechWarrior (1989)), its full title in
-// the header (Owen 2026-11-22); -1 the launcher's own (the cards, its update, a download picked before it is read).
+// the header (2026-11-22); -1 the launcher's own (the cards, its update, a download picked before it is read).
 int Launcher::header_game() const {
   switch (screen_) {
     case kMain:
@@ -1977,7 +1977,7 @@ int Launcher::header_game() const {
   return files_pm_ ? 1 : 0;
 }
 
-// BEFORE YOU PLAY by measure (Owen's playtest, W3: the status line "No disc in a drive ..." was at a fixed
+// BEFORE YOU PLAY by measure (the playtest, W3: the status line "No disc in a drive ..." was at a fixed
 // place and landed on the last lines of a long note; several notes at once are the worst case). The buttons
 // keep their places (the frame's bottom edge is just under OK). The notes are drawn at the first of six
 // forms (wider first, then smaller) at which they and the status line (a line's room kept for it whenever ADD FROM MY DISC is there, so
@@ -2008,7 +2008,7 @@ Launcher::NotesLayout Launcher::notes_layout() {
 // badge on it with no box, the name, the status lines and a single game's words above its PLAY.
 void Launcher::draw_card(const Card& c) {
   const SDL_Rect& r = c.r;
-  // rgba(43,48,56) to rgba(26,29,34) over the stars at kCardAlpha: a little of the drift shows through (Owen, 1.2.0)
+  // rgba(43,48,56) to rgba(26,29,34) over the stars at kCardAlpha: a little of the drift shows through (1.2.0)
   SDL_Surface* row_s = SDL_CreateSurface(r.w, 1, SDL_PIXELFORMAT_RGBA32);
   if (row_s) SDL_SetSurfaceBlendMode(row_s, SDL_BLENDMODE_BLEND);
   for (int y = 0; y < r.h; ++y) {
@@ -2061,7 +2061,7 @@ void Launcher::draw_card(const Card& c) {
 
 void Launcher::plate(const Button& b, bool hot) {
   SDL_Rect r = b.r;
-  if (b.style != Button::kPlate) {  // the cards' screen: square, flat, its edge lit when hot (no ripple; Owen)
+  if (b.style != Button::kPlate) {  // the cards' screen: square, flat, its edge lit when hot (no ripple)
     const bool amber = b.style == Button::kAmber;
     auto colours = [&](const Button& x, bool h, SDL_Color* fill, SDL_Color* line, SDL_Color* ink) {
       const bool am = x.style == Button::kAmber || (x.style == Button::kTab && x.selected);
@@ -2111,10 +2111,10 @@ void Launcher::plate(const Button& b, bool hot) {
       std::vector<SDL_Rect> g = {{ax - 1, ay, 3, 7}, {ax - 8, ay + 12, 17, 2}, {ax - 8, ay + 9, 2, 3}, {ax + 7, ay + 9, 2, 3}};
       for (int i = 0; i < 5; ++i) g.push_back({ax - 5 + i, ay + 5 + i, 11 - 2 * i, 1});
       SDL_FillSurfaceRects(canvas_, g.data(), static_cast<int>(g.size()), k);
-      text_.draw(canvas_, "UPDATE", 10, ink, cx, r.y + r.h - 9);  // the version is on the card (Owen: "say update")
+      text_.draw(canvas_, "UPDATE", 10, ink, cx, r.y + r.h - 9);  // the version is on the card ("say update")
       return;
     }
-    // A split's PLAY: its words on the whole button's middle, as an unsplit one's (Owen: it looked off), unless they
+    // A split's PLAY: its words on the whole button's middle, as an unsplit one's (it looked off), unless they
     // would reach the divider.
     int mid = cx;
     for (size_t i = 0; i + 1 < buttons_.size(); ++i)
@@ -2166,7 +2166,7 @@ void Launcher::plate(const Button& b, bool hot) {
   } else {
     SDL_FillSurfaceRect(canvas_, &r, SDL_MapSurfaceRGB(canvas_, b.enabled ? 70 : 40, b.enabled ? 72 : 40, b.enabled ? 78 : 44));
   }
-  if (hot) {  // a square plate lights its edge in the frame's amber (the ripple is the round badges'; Owen)
+  if (hot) {  // a square plate lights its edge in the frame's amber (the ripple is the round badges')
     const uint32_t amber = SDL_MapSurfaceRGB(canvas_, 255, 176, 64), soft = SDL_MapSurfaceRGB(canvas_, 150, 104, 40);
     const SDL_Rect outer[4] = {{r.x, r.y, r.w, 1}, {r.x, r.y + r.h - 1, r.w, 1}, {r.x, r.y, 1, r.h}, {r.x + r.w - 1, r.y, 1, r.h}};
     const SDL_Rect inner[4] = {{r.x + 1, r.y + 1, r.w - 2, 1}, {r.x + 1, r.y + r.h - 2, r.w - 2, 1},
@@ -2460,7 +2460,7 @@ void Launcher::take_mw1(const std::string& dir) {
 }
 
 // What the install lacks (the movies left on the CD, the music), taken from
-// the disc, a disc image or the disc's folder (setup::add_from_disc).
+// The disc, a disc image or the disc's folder (setup::add_from_disc).
 void Launcher::add_disc(const std::string& source) {
   disc_back_ = screen_;
   work_ = std::make_unique<Work>();
@@ -2623,7 +2623,7 @@ void Launcher::show_vulkan() {
 void Launcher::play() {
   if (!mw3_ready()) return;
   if (vulkan_ != Vulkan::kOk && (vulkan_ = vulkan_check()) != Vulkan::kOk) return show_vulkan();  // installed meanwhile: on
-  // The movies converted here first, with the bar (Owen: a first start sat
+  // The movies converted here first, with the bar (a first start sat
   // 44 s on "Starting MechWarrior 3..." while mw3 did it); mw3's own import
   // stays the fallback for a start without the launcher.
   if (!converted_ && movies_to_convert() > 0) {
@@ -2769,7 +2769,7 @@ void Launcher::moved(const mech3::setup::Result& r) {
     activate(std::strcmp(a, "remove") == 0 ? kRemoveOld : kKeepOld);
 }
 
-// A found install used: saved to mw3.cfg, then back to the games (W13, Owen
+// A found install used: saved to mw3.cfg, then back to the games (W13
 // 2026-11-12, replacing 2026-11-02's straight on into the game); when it lacks
 // the movies or the music, or its data is odd, the notes first, their OK back.
 void Launcher::use_install(const std::string& dir, const std::string& version, const std::string& summary) {
@@ -2793,7 +2793,7 @@ void Launcher::use_install(const std::string& dir, const std::string& version, c
     screen_ = kMain, layout();
     return;
   }
-  // W13 (Owen, 2026-11-12): an install ends on the games, not in the game, so Pirate's Moon can be added
+  // W13 (2026-11-12): an install ends on the games, not in the game, so Pirate's Moon can be added
   // before playing either; the notes first when there are any, their OK back to the games. A plain mw3
   // start (setup_only: no games screen, only the find screen) goes on into the game as before.
   if (o_.setup_only && notes_.empty()) return play();
@@ -2857,7 +2857,7 @@ void Launcher::search() {
     use_install(install_.dir, install_.version, install_.summary);
     return;
   }
-  // GAME FILES, the player choosing again: the copy in use is no answer; the picker for another (Owen, 2026-11-21).
+  // GAME FILES, the player choosing again: the copy in use is no answer; the picker for another (2026-11-21).
   const std::string in_use = files_pm_ ? pm_dir_ : install_.ok ? install_.dir : "";
   if ((from_files_ || o_.choose_again) && !in_use.empty()) {
     status_ = "In use: " + in_use + ". Pick another copy: a disc image, a download, or Mech3.exe.", status_good_ = true;
@@ -3142,7 +3142,7 @@ void Launcher::activate(int id) {
       screen_ = kWorking, layout();
       break;
     }
-    case kFiles:  // the find screen at any time (Owen): repick or refresh the game's files
+    case kFiles:  // the find screen at any time: repick or refresh the game's files
       if (mw1_last_ && (mw1_remake_ || !port_exe_.empty())) {  // MW1's: its folder picked again (a cancel keeps the one in use)
         status_ = (mw1_game_.empty() ? std::string("Pick your MechWarrior (1989)")
                                      : "MechWarrior (1989) is at " + mw1_game_ + ". Pick another") +
@@ -3333,7 +3333,7 @@ void Launcher::nav(int action) {
 
 LauncherChoice Launcher::run() {
   const bool shot = !o_.shot.empty();
-  // Where the start's time goes (Owen: "pretty slow"), in the log.
+  // Where the start's time goes ("pretty slow"), in the log.
   const Uint64 t0 = SDL_GetTicksNS();
   auto ms = [](Uint64 a, Uint64 b) { return static_cast<double>(b - a) / 1e6; };
   const std::string dir = assets_dir();
@@ -3366,7 +3366,7 @@ LauncherChoice Launcher::run() {
   if (mw1_remake_) std::printf(", MechWarrior 1 %s", mw1_program_.empty() ? "unknown" : mw1_program_.c_str());
   std::printf("\n");
   start_games_check();
-  start_self_check();  // the launcher's own update, quietly (Owen 2026-11-23)
+  start_self_check();  // the launcher's own update, quietly (2026-11-23)
   std::printf("mw3: launcher: art %.0f ms, font %.0f ms, the install search %.0f ms\n", ms(t0, t_art), ms(t_art, t_font),
               ms(t_font, t_install));
   sounds_on_ = o_.sound && !shot;
@@ -3450,7 +3450,7 @@ LauncherChoice Launcher::run() {
     return install_.ok ? LauncherChoice{LauncherChoice::kPlay, install_.dir} : LauncherChoice{};
   }
   SDL_SetRenderLogicalPresentation(ren_, W, H, SDL_LOGICAL_PRESENTATION_LETTERBOX);
-  // Paced by the display (Owen: "pretty slow"): a fixed SDL_Delay(15) was
+  // Paced by the display ("pretty slow"): a fixed SDL_Delay(15) was
   // 16 to 31 ms on Windows' 15.6 ms timer, and no vsync let frames tear.
   // MW3_LAUNCHER_NOVSYNC (checks): the timed sleep instead, to compare.
   vsync_ = !SDL_getenv("MW3_LAUNCHER_NOVSYNC") && SDL_SetRenderVSync(ren_, 1);
@@ -3570,7 +3570,7 @@ LauncherChoice Launcher::run() {
         // While the panel is up the launcher stops drawing and waits in the
         // run loop: on the Mac the panel is another process answering through
         // the main run loop, which a vsync frame loop served once a frame
-        // (Owen: the picker took a long time to open).
+        // (the picker took a long time to open).
         SDL_WaitEventTimeout(nullptr, 50);
         continue;
       }

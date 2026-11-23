@@ -21,7 +21,7 @@ bool install_valid(const std::string& dir, std::string* missing = nullptr);
 // the file is in zbd/ or video/ (a picked reader.zbd).
 std::string install_of_pick(const std::string& file);
 
-// What the launcher's one picker means (Owen, 2026-11-02: one option): a
+// What the launcher's one picker means (2026-11-02: one option): a
 // file of one of `kinds` (extensions, lower case, no dot) is itself the
 // source; any other file stands for its folder (Mech3.exe, or any file in an
 // installed copy or a disc's folder: install_of_pick, zbd\ and video\ up
@@ -42,7 +42,7 @@ using rekit::install_of_program_value;
 // the kit's (rekit::install_candidates); these are its hints.
 std::vector<std::string> install_candidates(bool pirates_moon = false);
 
-// Ours (Owen 2026-11-22): a game's own folder, picked (sdl_games.h game_folder_in), carries this mark; its game
+// Ours (2026-11-22): a game's own folder, picked (sdl_games.h game_folder_in), carries this mark; its game
 // files are <folder>/install, and its music and converted movies <folder>/music and <folder>/video.
 constexpr const char* kGameFolderMark = "rebuild-game-folder.txt";
 // Where the game's music and converted movies go and are looked for: the folder above `install` when it is a

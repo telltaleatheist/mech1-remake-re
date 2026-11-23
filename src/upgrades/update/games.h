@@ -1,5 +1,5 @@
 #pragma once
-// Ours, not the original's: the launcher downloading each game from its own repo's Releases (Owen 2026-11-22,
+// Ours, not the original's: the launcher downloading each game from its own repo's Releases (2026-11-22,
 // docs/launcher.md, Games on demand). Each card asks its game's repo for the newest release; nothing is installed
 // until the player presses INSTALL or UPDATE. This part is the logic only (which repo, tag and file, the record of
 // an installed game, a card's verdict); the fetching and unpacking are the front end's (frontend/sdl/sdl_games.h).
@@ -10,9 +10,9 @@
 
 namespace upgrades::update {
 
-// kMw1r: MechWarrior 1 Rebuild (mech1-re), the 1989 game rebuilt, MW1's card's ORIGINAL tab (Owen 2026-11-22).
+// kMw1r: MechWarrior 1 Rebuild (mech1-re), the 1989 game rebuilt, MW1's card's ORIGINAL tab (2026-11-22).
 // kChi, kChirm: Inception Rebuild (inception-re) and Inception Remake (inception-remake-re), the INCEPTION card's
-// tabs: COMING SOON until their repos have a release, then INSTALL, with no launcher change (Owen 2026-11-22).
+// tabs: COMING SOON until their repos have a release, then INSTALL, with no launcher change (2026-11-22).
 enum class Game { kMw3, kPm, kMw1, kMw1r, kChi, kChirm };
 constexpr Game kGames[] = {Game::kMw3, Game::kPm, Game::kMw1, Game::kMw1r, Game::kChi, Game::kChirm};
 constexpr int kGameCount = 6;
@@ -64,7 +64,7 @@ struct GameCheck {
   Platform platform = this_platform();
   std::string words;  // for the log and the status line
 };
-// Over every home's answer for its repo (Owen 2026-11-22: git.owenmorgan.com and GitHub): the newest release on
+// Over every home's answer for its repo (2026-11-22: git.owenmorgan.com and GitHub): the newest release on
 // either; failed only when no answer reads, saying the first one's reason. `release` carries the other home's copy
 // (other_homes) for the download to fall back on.
 GameCheck judge_game(Game g, const std::string& installed, const std::vector<Answer>& answers, Platform p);

@@ -76,7 +76,7 @@ std::function<void()>& after_switch_for_test();
 // `path` under `from` as the same place under `to`; else as it was.
 std::string moved_path(const std::string& path, const std::string& from, const std::string& to);
 
-// The family folder (Owen, 2026-11-22; docs/program.md, The family folder): `usual` is
+// The family folder (2026-11-22; docs/program.md, The family folder): `usual` is
 // <base>/BattleTech/<Game>; a player's <base>/MicroProse/<Game> from before is renamed to it once
 // (rekit::move_once), a pointer left in the old place so an earlier version of any of the games still finds
 // the same data, and the saved paths in every family folder's mw3.cfg that named a moved folder made to name

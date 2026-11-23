@@ -65,7 +65,7 @@ build/mw3 [install-dir] [options] [-nofmv] [-seasick] [-cdN]
   goes through a pipe and a thread that writes the console's own handle and
   the file; at exit the handles are put back and the threads drained.
 - **The data folder** (ours, `mech3/data_folder.cpp`, `data_folder_start.h`;
-  Owen, 2026-11-04): the write dir on another drive, chosen in the launcher (GAME
+  2026-11-04): the write dir on another drive, chosen in the launcher (GAME
   FILES, MY DATA FOLDER). `data-folder.txt` in the usual folder names it, and
   `mw3-data-folder.txt` in the folder says it is ours; with no pointer nothing
   changes. mw3, mw3launcher and mw3import all read it, and `--write-dir` wins (and
@@ -573,7 +573,7 @@ checking were mission-plan.md items 12 to 15 and 17; the 30 s c1m1 census
 now lists none. A key
 joins the table only with its equivalent or reason verified.
 
-## The family folder (ours; Owen, 2026-11-22)
+## The family folder (ours; 2026-11-22)
 
 The games' user folders sit under one organisation folder, "BattleTech",
 since the family's games come from different studios: `BattleTech/MechWarrior

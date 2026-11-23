@@ -63,7 +63,7 @@ foreach ($lib in 'libarchive-*', 'zlib-*', 'xz-*', 'imgui') {
 }
 # No local path or user name in any file (release.md, Privacy; tools/deps/check_paths.py
 # on the Mac and Linux): every byte, as ASCII and UTF-16. The public release addresses are allowed:
-# github.com/<user>, the updater's api.github.com/repos/<user>, and the backup's (Owen 2026-11-22)
+# github.com/<user>, the updater's api.github.com/repos/<user>, and the backup's (2026-11-22)
 # git.owenmorgan.com/<user> and .../api/v1/repos/<user>, its host name included.
 $words = @('/Volumes/', '/Users/', '/home/', 'C:\Users\', 'C:/Users/') +
   @($env:USERNAME, (Split-Path -Leaf $env:USERPROFILE)) | Where-Object { $_ -and $_.Length -ge 4 } | Select-Object -Unique

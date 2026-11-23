@@ -17,7 +17,7 @@ names = {n for n in [getpass.getuser(), os.environ.get('SUDO_USER', ''),
 words = [b'/Volumes/', b'/Users/', b'/home/', b'C:\\Users\\', b'C:/Users/'] + [n.encode() for n in sorted(names)]
 pat = re.compile(b'|'.join(re.escape(w) for w in words))
 pat16 = re.compile(b'|'.join(re.escape(w.decode().encode('utf-16-le')) for w in words))
-# The backup's addresses too (Owen 2026-11-22, docs/launcher.md, Two homes): git.owenmorgan.com/<user> and the
+# The backup's addresses too (2026-11-22, docs/launcher.md, Two homes): git.owenmorgan.com/<user> and the
 # updater's .../api/v1/repos/<user>, and the name inside that host name itself.
 allowed = re.compile(rb'(?:github\.com/(?:repos/)?|git\.owenmorgan\.com/(?:api/v1/repos/)?)([A-Za-z0-9-]{0,16})$', re.I)
 BACKUP_HOST = b'git.owenmorgan.com'

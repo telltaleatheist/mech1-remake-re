@@ -12,7 +12,7 @@
 
 namespace sdlfe {
 
-// The usual place; MW3_USUAL_FOLDER names another (checks). The family's folder, BattleTech/<Game> (Owen
+// The usual place; MW3_USUAL_FOLDER names another (checks). The family's folder, BattleTech/<Game> (
 // 2026-11-22: no longer MicroProse), a player's earlier one moved across once (data_folder::family_move): in a
 // package only, so a development build never moves its developer's own folders.
 inline std::string usual_folder(const char* game = "MechWarrior 3") {

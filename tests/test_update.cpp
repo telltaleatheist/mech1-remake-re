@@ -82,7 +82,7 @@ TEST(update_says_what_it_found) {
   EXPECT(none.kind == u::Verdict::kFailed && none.words.find("no release") != std::string::npos);
 }
 
-// Two homes (Owen 2026-11-21): the hub mw3-re and mech3-re; the newest package on either wins, one failing is fine.
+// Two homes (2026-11-21): the hub mw3-re and mech3-re; the newest package on either wins, one failing is fine.
 TEST(update_takes_the_newest_from_either_repo) {
   const std::string hub = list({release("v1.2.2"), release("pm-v1.1.1")}), game = list({release("v1.3.0"), release("v1.4.0", true)});
   const u::Verdict both = u::judge("v1.2.2", {{hub, ""}, {game, ""}});
@@ -104,7 +104,7 @@ std::string on_backup(std::string json) {
 }
 }  // namespace
 
-// Both homes (Owen 2026-11-22): git.owenmorgan.com asked first, then GitHub (download_first); the newest release on
+// Both homes (2026-11-22): git.owenmorgan.com asked first, then GitHub (download_first); the newest release on
 // either wins, one home down is fine, and a release both have downloads from GitHub with the backup's copy behind it.
 TEST(update_reads_both_homes) {
   const std::string gh = list({release("v1.3.0"), release("v1.2.0")});
@@ -147,7 +147,7 @@ TEST(update_reads_both_homes) {
   EXPECT(drafted.release.tag == "v1.3.0" && drafted.release.other_homes.empty());
 }
 
-// Owen, 2026-11-21: each game is released on its own repo too (mech3-re's v1.3.0 with MW3-alone downloads only),
+// 2026-11-21: each game is released on its own repo too (mech3-re's v1.3.0 with MW3-alone downloads only),
 // the launcher's bundle on mw3-re's. A release without this platform's bundle is never the update, whatever its tag.
 TEST(update_never_takes_a_games_own_release) {
   const std::string alone =
@@ -316,7 +316,7 @@ TEST(games_newest_for_the_platform) {
   EXPECT(u::judge_game(G::kMw3, "", {{"<html>", ""}}, u::Platform::kMac).kind == u::GameCheck::kFailed);
 }
 
-// A game's repo in both homes (Owen 2026-11-22): the newest on either, one home down fine, GitHub's file first.
+// A game's repo in both homes (2026-11-22): the newest on either, one home down fine, GitHub's file first.
 TEST(games_read_both_homes) {
   using G = u::Game;
   const std::string gh = list({game_release("pm-v1.2.3", {"PM-Rebuild-pm-v1.2.3-mac.dmg", "SHA256SUMS"})});
