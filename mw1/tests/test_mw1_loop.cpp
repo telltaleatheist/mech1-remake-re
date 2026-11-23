@@ -10284,7 +10284,11 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
     for (const mw1::MapRow& m : shipped_rows())
       if (m.world.rfind("mw3", 0) != 0) rows.push_back(m);
     mw1::set_map_table(rows);
-    const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) / "mw1_playthrough";
+    // Each mode and seed its own folder, so runs side by side from one build don't wipe and load each other's saves
+    // (seeds 7 and 11 did, 2026-11-23); a run wipes only its own.
+    const char* mode = std::getenv("MW1_SOAK_SPEND");
+    const fs::path dir = fs::path(MW3_TEST_TMP_ROOT) /
+                         ("mw1_playthrough_" + std::string(mode ? mode : "play") + "_" + std::to_string(seed));
     fs::remove_all(dir, ec);
     fs::create_directories(dir, ec);
     MenuRun r;
