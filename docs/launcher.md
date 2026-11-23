@@ -317,9 +317,10 @@ single-game packages stay. One sitting each, each with its tests:
    **Done (2026-11-09):** GAME FILES opens on the game last clicked
    (`files_pm_`), and PIRATE'S MOON with none found opens its find screen
    as MECHWARRIOR 3 does (it asked for a folder before). On PM every screen
-   uses PM's own settings folder: "MicroProse/Pirate's Moon" beside MW3's
-   usual one, as SDL_GetPrefPath makes it for mw3pm (worked out here, not
-   created), or where its pointer leads.
+   uses PM's own settings folder: "BattleTech/Pirate's Moon" beside MW3's
+   usual one, as SDL_GetPrefPath makes it for mw3pm (a player's earlier
+   "MicroProse/Pirate's Moon" moved across once, program.md, The family
+   folder), or where its pointer leads.
    - FIND THE GAME searches as at the start (sitting 1, plus its own
      `install\`), then a disc in a drive, then the picker. A pick is
      installed into `<PM settings>\install`, its music into `music\`. An
@@ -385,6 +386,59 @@ apostrophes. Letters outside ASCII are the limit (`program.md`, The data
 folder): the code is UTF-8 throughout, but on Windows `fs::path` and `fopen` read
 narrow strings in the ANSI code page and `fs::path::string()` writes them in it.
 MY DATA FOLDER refuses such a name; the install has no such guard.
+
+## The family cards (Owen, 2026-11-22)
+
+Owen, 2026-11-22, from four mockups (the canvas "Launcher Families"): option
+A, "everything up front and center". One card a family, a tab a game in it:
+
+- **MECHWARRIOR 3**: MECHWARRIOR 3 | PIRATE'S MOON.
+- **MECHWARRIOR 1**: ORIGINAL (MechWarrior 1 Rebuild, mech1-re; Elthial's
+  port instead when a package carries it) | REMAKE (MechWarrior 1 Remake).
+- **INCEPTION**: ORIGINAL (Inception Rebuild, inception-re) | REMAKE
+  (Inception Remake, inception-remake-re).
+
+Originals on the left. The first tabs are MW3, MW1's REMAKE and Inception's
+ORIGINAL; the last pick is kept (`mw3.cfg` `tab_mw3=`, `tab_mw1=`,
+`tab_inception=`, the game's key). The badge follows the tab: MW3's, Pirate's
+Moon's, the remake's, and `badge_mw1o.png` for MW1's original (a pixel-art
+'Mech on green phosphor, `assets/launcher/README.md`); Inception has none
+yet (our own art only): a plain disc. Under the tabs, the selected game's
+status lines, then its button: PLAY (split with its UPDATE when one is
+ready), INSTALL, or COMING SOON. A tab whose game has an update carries a
+small mark.
+
+**COMING SOON by itself** (Owen: "as soon as the releases are on the github,
+it switches to play"): every game is asked of its repo's releases. A repo with
+no release (`GameCheck::kNoRelease`) greys that game's button as COMING SOON;
+once a release is out the same launcher shows INSTALL, then PLAY. The repos
+are public with no release until Owen says go (MW1 Rebuild and Inception
+Rebuild; Inception Remake's repo stays untouched until Inception is done). A
+card whose games are all COMING SOON or COMING LATER is greyed.
+
+MW1 Rebuild and Inception's two are on the setup kit's contract (below): the
+launcher reads their `--status` at the start and after each run or install
+(its state and note on the card) and PLAY starts them plain; their own setup
+screen opens when their game files are missing. Their names: `mw1r`
+(`mw1r-v`, `MW1-Rebuild-*`), `chi` (`chi-v`, `CHI-Rebuild-*`), `chirm`
+(`chirm-v`, `CHI-Remake-*`); `MW3_MW1R_BIN`, `MW3_CHI_BIN`, `MW3_CHIRM_BIN`
+for the checks.
+
+The log names each card's button by its game, the tabs after the bottom row
+(so the pad and the keys reach PLAY first): "screen main: MECHWARRIOR 3,
+MECHWARRIOR 1, INCEPTION ORIGINAL, GAME FILES, UPDATES, INSTALL FROM FILE,
+QUIT, MECHWARRIOR 3 TAB, PIRATE'S MOON TAB, MECHWARRIOR 1 ORIGINAL TAB,
+MECHWARRIOR 1 REMAKE TAB, INCEPTION ORIGINAL TAB, INCEPTION REMAKE TAB". Every
+game's entry line is logged once whichever tab shows, plus "entry INCEPTION
+ORIGINAL:" and "entry INCEPTION REMAKE:".
+
+The header says BATTLETECH (Owen, 2026-11-22: the family's launcher), on the cards
+and on the launcher's own screens, the window is "BattleTech", and the corner's
+version reads "BattleTech launcher <v>" (was "MechWarrior 3 Rebuild <v>"); title.png's
+"MW3 REBUILD" is no longer drawn. A game's setup screen keeps its game's name.
+
+The section below is the card layout before the families (one card a game);
+its panel, badges, square buttons and bottom row are unchanged.
 
 ## The cards (layout C, Owen 2026-11-20)
 
@@ -911,12 +965,18 @@ release.
 - **The card.** A game not installed shows INSTALL (with the version and the
   download's size) where PLAY goes; offline it says it can't reach the
   server and points to INSTALL FROM FILE. An installed game with a newer
-  release shows UPDATE TO x.y.z above PLAY (on MW1's card in place of the
-  greyed PLAY ORIGINAL). Nothing installs until the player presses one.
+  release splits its PLAY button (Owen, 2026-11-22: "the main button can
+  be play, and there can be a divider on the end"): PLAY, a short divider,
+  and at its end a download arrow over the version, which is that game's
+  UPDATE (its own button for clicks, focus and the checks, logged as
+  "<GAME> UPDATE"). Since the family cards each tab's game splits its own
+  button the same way. Nothing installs until the player presses one.
 - **Where.** The launcher's own games folder, per user and writable without
-  rights: `%LOCALAPPDATA%\MicroProse\BattleTech\games`,
-  `~/Library/Application Support/MicroProse/BattleTech/games`,
-  `~/.local/share/MicroProse/BattleTech/games` (`$XDG_DATA_HOME`). One
+  rights: `%LOCALAPPDATA%\BattleTech\games`,
+  `~/Library/Application Support/BattleTech/games`,
+  `~/.local/share/BattleTech/games` (`$XDG_DATA_HOME`); up to 1.3.1 under
+  `MicroProse/BattleTech`, moved across once (program.md, The family
+  folder). One
   folder a game (`mw3`, `pm`, `mw1`), each with `rebuild-game.txt` (game,
   tag, file, its SHA-256, github or file). The games folder carries
   `rebuild-games.txt`; a folder is unpacked into `.incoming` (marked) and

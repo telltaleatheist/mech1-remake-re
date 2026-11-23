@@ -5,7 +5,7 @@
 ; It installs to Program Files\Pirate's Moon Rebuild with a Start-menu
 ; shortcut (a desktop one ticked by default) and an uninstaller. The game
 ; writes nothing there: the player's settings, saves, imported movies, music
-; and a disc install live in %APPDATA%\MicroProse\Pirate's Moon, which the
+; and a disc install live in %APPDATA%\BattleTech\Pirate's Moon, which the
 ; uninstaller leaves alone. No file of the original game is in the installer.
 
 #ifndef AppVersion
@@ -63,8 +63,8 @@ Name: "{autodesktop}\Pirate's Moon"; Filename: "{app}\mw3pm.exe"; WorkingDir: "{
 Filename: "{app}\mw3pm.exe"; Description: "{cm:LaunchProgram,Pirate's Moon}"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
-; Only what the installer put in {app}; %APPDATA%\MicroProse\Pirate's Moon stays.
+; Only what the installer put in {app}; %APPDATA%\BattleTech\Pirate's Moon stays.
 Type: dirifempty; Name: "{app}"
 
 [Messages]
-UninstalledAll=%1 was removed from your computer.%n%nYour settings, pilots and saved games, and any MechWarrior 3 installed from your disc, are kept in %APPDATA%\MicroProse\MechWarrior 3. Delete that folder to remove them too.
+UninstalledAll=%1 was removed from your computer.%n%nYour settings, pilots and saved games, and any MechWarrior 3 installed from your disc, are kept in %APPDATA%\BattleTech\MechWarrior 3. Delete that folder to remove them too.

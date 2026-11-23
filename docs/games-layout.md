@@ -16,7 +16,7 @@ The plain build on `pm` is PM alone: `mw3pm`, `mw3pmtests`, `mw3pmsdltests` (the
 the ones that start MW3's programs do not apply) and `pmprobe`. `-DMW3_BUILD_MW3=ON` brings MW3's probe and tests
 back (not its programs, which build from `main`), for checking shared code (`pm-tests.md`). `mw3pm` goes to `--fly` when given it, else to the game (`mw3_main.cpp`, on PM's table). No launcher
 in PM's package for now; the combined package is Owen's later decision. The package scripts make PM alone, with its own
-Mac bundle id (`com.owenmorgan.mw3pmrebuild`), Windows AppId and write folder (`MicroProse/Pirate's Moon`).
+Mac bundle id (`com.owenmorgan.mw3pmrebuild`), Windows AppId and write folder (`BattleTech/Pirate's Moon`; `MicroProse/Pirate's Moon` up to 1.3.1, moved across once: program.md, The family folder).
 
 ## Three programs, one package
 

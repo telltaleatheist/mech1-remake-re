@@ -29,6 +29,7 @@
 #include "gamez/zgame/zgame_table.h"
 #include "gamez/zutil/zutl_path.h"
 #include "frontend/pm_debug_world.h"
+#include "frontend/sdl/data_folder_start.h"
 #include "frontend/sdl/sdl_platform.h"
 #include "pm/pm_game.h"
 
@@ -163,9 +164,9 @@ int main(int argc, char** argv) {
     return 1;
   }
   zgame::set_game(pm::table());
-  if (a.write_dir.empty()) {
-    if (char* p = SDL_GetPrefPath("MicroProse", "Pirate's Moon")) a.write_dir = p, SDL_free(p);
-  }
+  // The family folder, BattleTech/Pirate's Moon (Owen 2026-11-22), through its pointer as every start finds it: a
+  // package moves a player's MicroProse/Pirate's Moon across once (data_folder_start.h, docs/program.md).
+  if (a.write_dir.empty() && !sdlfe::data_folder_at_start(&a.write_dir, false, nullptr, "Pirate's Moon")) return 1;
   while (a.write_dir.size() > 1 && a.write_dir.back() == '/') a.write_dir.pop_back();
   if (!a.write_dir.empty()) {
     std::error_code ec;

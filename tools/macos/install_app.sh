@@ -61,7 +61,9 @@ tools/macos/make_app.sh
 BUILT="build-mac/dist/MechWarrior 3.app"
 
 # The player's own icon.
-CFG="$HOME/Library/Application Support/MicroProse/MechWarrior 3/mw3.cfg"
+# The family folder (Owen 2026-11-22), else the MicroProse one a development build never moves.
+CFG="$HOME/Library/Application Support/BattleTech/MechWarrior 3/mw3.cfg"
+[ -f "$CFG" ] || CFG="$HOME/Library/Application Support/MicroProse/MechWarrior 3/mw3.cfg"
 if [ -z "$EXE" ] && [ -f "$CFG" ]; then
   dir="$(sed -n 's/^install=//p' "$CFG" | head -1)"
   for n in Mech3.exe MECH3.EXE mech3.exe; do
