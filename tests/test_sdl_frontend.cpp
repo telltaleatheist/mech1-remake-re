@@ -8879,7 +8879,7 @@ TEST(sdl_program_launcher_shows_each_games_versions) {
 
 #if !defined(_WIN32)  // posix_spawn (ours, not on Windows)
 // GAME FILES for Pirate's Moon (docs/launcher.md, Pirate's Moon, sitting 4),
-// each button on PM's own folder ("MicroProse/Pirate's Moon" beside the usual
+// each button on PM's own folder ("BattleTech/Pirate's Moon" beside the usual
 // MechWarrior 3 folder), MechWarrior 3's settings and install untouched:
 // PIRATE'S MOON with none found installs the picked disc image and starts it;
 // MechWarrior 3 picked there is said, not taken; ADD FROM MY DISC brings back
