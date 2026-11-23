@@ -388,35 +388,59 @@ Verdict judge(const std::string& current, const std::string& json, const std::st
 
 Verdict judge(const std::string& current, const std::vector<Answer>& answers) { return judge(current, answers, this_platform()); }
 
-Verdict judge(const std::string& current, const std::vector<Answer>& answers, Platform p) {
-  Verdict v;
-  std::vector<Release> all;
-  bool read = false;
+Homes read_homes(const std::vector<Answer>& answers) {
+  Homes h;
   for (const Answer& a : answers) {
     std::vector<Release> some;
     std::string error;
     if (a.json.empty()) {
-      if (v.words.empty())
-        v.words = "Could not check for updates" + (a.fetch_error.empty() ? std::string(".") : ": " + a.fetch_error + ".") +
-                  " Is this computer online?";
+      if (!h.failed) h.failed = &a;
     } else if (!parse_releases(a.json, &some, &error)) {
-      if (v.words.empty()) v.words = "Could not check for updates: GitHub's answer could not be read (" + error + ").";
+      if (!h.failed) h.failed = &a, h.parse_error = error;
     } else {
-      read = true;
-      all.insert(all.end(), some.begin(), some.end());
+      ++h.read;
+      for (Release& r : some) h.releases.push_back(std::move(r)), h.first.push_back(a.download_first);
     }
   }
-  if (!read) {
-    if (v.words.empty()) v.words = "Could not check for updates.";
+  return h;
+}
+
+Release with_homes(const Homes& h, const std::string& tag, const std::function<bool(const Release&)>& usable) {
+  std::vector<size_t> order;
+  for (bool first : {true, false})
+    for (size_t i = 0; i < h.releases.size(); ++i)
+      if (h.first[i] == first && h.releases[i].tag == tag && !h.releases[i].draft && !h.releases[i].prerelease) order.push_back(i);
+  Release out;
+  size_t base = h.releases.size();
+  for (size_t i : order)
+    if (usable(h.releases[i])) {
+      base = i, out = h.releases[i];
+      break;
+    }
+  if (base == h.releases.size()) return {};
+  out.other_homes.clear();
+  for (size_t i : order)
+    if (i != base && !h.releases[i].assets.empty()) out.other_homes.push_back(h.releases[i].assets);
+  return out;
+}
+
+Verdict judge(const std::string& current, const std::vector<Answer>& answers, Platform p) {
+  Verdict v;
+  const Homes h = read_homes(answers);
+  if (h.read == 0) {
+    if (!h.failed) v.words = "Could not check for updates.";
+    else if (!h.parse_error.empty()) v.words = "Could not check for updates: the releases list could not be read (" + h.parse_error + ").";
+    else
+      v.words = "Could not check for updates" + (h.failed->fetch_error.empty() ? std::string(".") : ": " + h.failed->fetch_error + ".") +
+                " Is this computer online?";
     return v;
   }
-  v.words.clear();
-  const Release* newest = newest_package(all, p);
+  const Release* newest = newest_package(h.releases, p);
   if (!newest) {
     v.words = "Could not check for updates: no release of MechWarrior 3 Rebuild was found.";
     return v;
   }
-  v.release = *newest;
+  v.release = with_homes(h, newest->tag, [p](const Release& r) { return platform_asset(r, p) != nullptr; });
   if (numbers(current).empty() || compare_versions(newest->tag, current) > 0) {
     v.kind = Verdict::kNewer;
     v.words = "MechWarrior 3 Rebuild " + plain_version(newest->tag) + " is out (this is " + plain_version(current) + ").";
