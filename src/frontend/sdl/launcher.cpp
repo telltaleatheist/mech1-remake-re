@@ -447,7 +447,7 @@ enum Id {
   kData = 40, kDataPick, kDataUsual, kMoveGo, kRemoveOld, kKeepOld,
   kUpdates = 49,
   kSelfUpdate = 50,  // the header's UPDATE AVAILABLE <v> when the start's check found one (Owen 2026-11-23)
-  kUpdateGo = 80, kUpdateNotNow, kUpdatePrev, kUpdateNext,
+  kUpdateGo = 80, kUpdateNotNow,  // the UPDATE screen: UPDATE and BACK (Owen 2026-11-23: no paging arrows)
   kVulkanAgain = 90,  // ours: the Vulkan check again (docs/linux.md)
   kMw1Original = 100,  // MW1's card: PLAY ORIGINAL, Elthial's port of the 1989 game
   kGameInstall = 110,  // ours, games on demand (sdl_games.h): + the game (upgrades::update::Game), INSTALL
@@ -634,8 +634,8 @@ class Launcher {
   bool pm_lacks_music_ = false, pm_lacks_sounds_ = false;  // pm_refresh
   std::shared_ptr<upgrades::update::Verdict> update_;  // the last CHECK FOR UPDATES' verdict
   std::vector<std::string> update_lines_;  // its release's notes wrapped to the screen (show_update)
-  std::shared_ptr<std::string> update_file_;  // after DOWNLOAD AND UPDATE: the program to start next (empty: none)
-  size_t update_page_ = 0;
+  std::shared_ptr<std::string> update_file_;  // after UPDATE: the program to start next (empty: none)
+  size_t update_top_ = 0;  // the UPDATE screen: the notes' first line shown (the wheel scrolls them)
   static constexpr int kUpdateTop = 150, kUpdateBottom = 322, kUpdateWidth = 500;
   size_t update_per_page() { return static_cast<size_t>(std::max(1, (kUpdateBottom - kUpdateTop) / std::max(1, text_.line_skip(13)))); }
   void show_update();
@@ -691,7 +691,7 @@ class Launcher {
   std::unique_ptr<GamesCheck> games_check_;
   // The launcher's own update, asked at every start (Owen 2026-11-23): check_for_updates on a thread, both homes,
   // never a prompt; a newer one shows UPDATE AVAILABLE <v> in the header (kSelfUpdate), which opens the UPDATE
-  // screen. Nothing downloads until the player presses DOWNLOAD AND UPDATE there.
+  // screen. Nothing downloads until the player presses UPDATE there.
   struct SelfCheck {
     std::thread th;
     std::atomic<bool> done{false};
@@ -1863,11 +1863,9 @@ void Launcher::layout() {
       add(kCancel, {250, 372, 140, 34}, "CANCEL");
       break;
     case kUpdateScreen: {
-      const size_t pages = (update_lines_.size() + update_per_page() - 1) / update_per_page();
-      add(kUpdatePrev, {70, 384, 50, 34}, "<", {}, update_page_ > 0);
-      add(kUpdateNext, {126, 384, 50, 34}, ">", {}, update_page_ + 1 < pages);
-      add(kUpdateGo, {182, 384, 250, 34}, "DOWNLOAD AND UPDATE");
-      add(kUpdateNotNow, {438, 384, 132, 34}, "NOT NOW");
+      // Two buttons (Owen 2026-11-23: "just a back and an update button"); long notes scroll with the wheel.
+      add(kUpdateGo, {170, 384, 140, 34}, "UPDATE");
+      add(kUpdateNotNow, {330, 384, 140, 34}, "BACK");
       break;
     }
     case kNotes: {
@@ -2246,13 +2244,14 @@ void Launcher::draw(float dt) {
         text_.draw_wrapped(canvas_, confirm_text_, 16, kWhite, W / 2, 150, 460);
       }
       break;
-    case kUpdateScreen: {  // the newer release's notes, a page at a time, and the question
+    case kUpdateScreen: {  // the newer release's notes (the wheel scrolls them) and the question
       const std::string version = update_ ? upgrades::update::plain_version(update_->release.tag) : std::string();
-      text_.draw(canvas_, "MECHWARRIOR 3 REBUILD " + version, 22, kAmber, W / 2, 124);
+      text_.draw(canvas_, "BATTLETECH LAUNCHER " + version, 22, kAmber, W / 2, 124);
       const int lh = text_.line_skip(13);
-      const size_t per = update_per_page(), first = update_page_ * per;
+      const size_t per = update_per_page(), first = update_top_;
       for (size_t i = first; i < update_lines_.size() && i < first + per; ++i)
         text_.draw(canvas_, update_lines_[i], 13, kWhite, kX + 70, kUpdateTop + static_cast<int>(i - first) * lh, -1);
+      if (first + per < update_lines_.size()) text_.draw(canvas_, "Scroll for more", 11, kGrey, kX + 570, kUpdateTop + static_cast<int>(per) * lh - 4, 1);
       const std::string ask = !status_.empty() ? status_ : "Update the launcher to " + version + "? Your games, mods, pilots, saves and settings are kept.";
       text_.draw_wrapped(canvas_, ask, 13, status_.empty() || status_good_ ? kAmber : SDL_Color{240, 190, 180, 255}, W / 2, 338, 500);
       break;
@@ -2605,9 +2604,9 @@ void Launcher::show_update() {
   }
   if (update_lines_.empty()) update_lines_.push_back("(No notes with this release.)");
   for (const std::string& l : update_lines_) std::printf("mw3: launcher: update notes: %s\n", l.c_str());
-  update_page_ = 0, status_.clear();
+  update_top_ = 0, status_.clear();
   screen_ = kUpdateScreen, layout();
-  if (SDL_getenv("MW3_LAUNCHER_UPDATE_GO")) activate(kUpdateGo);  // checks: DOWNLOAD AND UPDATE pressed
+  if (SDL_getenv("MW3_LAUNCHER_UPDATE_GO")) activate(kUpdateGo);  // checks: UPDATE pressed
 }
 
 // Ours (docs/linux.md, Vulkan): the game cannot draw without Vulkan on Linux; this screen says what
@@ -3095,12 +3094,6 @@ void Launcher::activate(int id) {
       status_ = "The old copy stays in " + move_from_ + ".", status_good_ = true;
       from_files_ = false, screen_ = kMain, layout();
       break;
-    case kUpdatePrev:
-    case kUpdateNext:
-      if (id == kUpdatePrev && update_page_ > 0) --update_page_;
-      if (id == kUpdateNext && (update_page_ + 1) * update_per_page() < update_lines_.size()) ++update_page_;
-      layout();
-      break;
     case kUpdateNotNow:
       status_.clear(), screen_ = kMain, layout();
       break;
@@ -3533,6 +3526,10 @@ LauncherChoice Launcher::run() {
         }
       } else if (e.type == SDL_EVENT_MOUSE_BUTTON_UP && e.button.button == SDL_BUTTON_LEFT) {
         if (hot_ >= 0 && buttons_[hot_].enabled) activate(buttons_[hot_].id);
+      } else if (e.type == SDL_EVENT_MOUSE_WHEEL && screen_ == kUpdateScreen) {  // the notes, three lines a notch
+        const size_t per = update_per_page(), last = update_lines_.size() > per ? update_lines_.size() - per : 0;
+        const int step = static_cast<int>(-e.wheel.y * 3.0f);
+        update_top_ = static_cast<size_t>(std::clamp(static_cast<int>(update_top_) + step, 0, static_cast<int>(last)));
       } else if (e.type == SDL_EVENT_GAMEPAD_ADDED) {
         SDL_OpenGamepad(e.gdevice.which);  // closed with the subsystem
       } else if (e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {

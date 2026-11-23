@@ -864,8 +864,8 @@ program files are replaced.
    (Owen 2026-11-23, as Discord's and Chrome's; it was the footer's version
    turned into a button, too small to see), after QUIT in the keys' and the
    pad's order; the footer keeps the version. Pressing it opens the same UPDATE screen as UPDATES (notes,
-   DOWNLOAD AND UPDATE, NOT NOW). Nothing is downloaded or installed until
-   the player presses DOWNLOAD AND UPDATE there. The same version, an older
+   UPDATE, BACK). Nothing is downloaded or installed until
+   the player presses UPDATE there. The same version, an older
    one or a failed check show no button; the verdict goes to the
    log only ("update check at the start: ..."). A check run (`--hidden`, or
    a `--launcher-shot`) without `MW3_UPDATE_API` asks nothing, so tests never
@@ -879,14 +879,14 @@ program files are replaced.
    the verdict in the log; a hidden run: nothing asked).
 2. **The notes and the question**: an UPDATE screen with the release's notes
    (its body, wrapped and paged, the markdown's `#` and `-` shown plainly),
-   "Update the launcher to 1.2.0?" (was "Download and install MechWarrior 3 Rebuild 1.2.0?"), DOWNLOAD AND
-   UPDATE (was DOWNLOAD AND INSTALL) and NOT NOW. Tests: the screen's text from a fixture release.
+   "Update the launcher to 1.2.0?" (was "Download and install MechWarrior 3 Rebuild 1.2.0?"), UPDATE and BACK
+   (Owen 2026-11-23: two buttons, no paging arrows; long notes scroll with the wheel). Tests: the screen's text from a fixture release.
    **Done (2026-11-10):** a newer release opens the UPDATE screen
-   (`Launcher::show_update`): "MECHWARRIOR 3 REBUILD 1.2.0", its notes as
+   (`Launcher::show_update`): "BATTLETECH LAUNCHER 1.2.0", its notes as
    plain lines (`upgrades::update::notes_lines`: headings without #, items as
    bullets, **, * and ` marks dropped, links as their text) wrapped to 500 px
    and paged with < and >, the question with "Your mods, pilots, saves and
-   settings are kept.", DOWNLOAD AND UPDATE (sitting 3) and NOT NOW. Same or
+   settings are kept.", UPDATE (sitting 3) and BACK. Same or
    older: the main screen's status line, as sitting 1. `--launcher-screen
    update` shoots it (with `MW3_UPDATE_API`). Tests:
    `update_notes_as_plain_lines`, `sdl_program_launcher_checks_for_updates`
@@ -905,7 +905,7 @@ program files are replaced.
    complete; no total limit, a minute without data ends it; the bar from the
    file's size against the asset's; CANCEL kills curl and removes the part),
    `download_update` (SHA256SUMS first, then the package, hashed by
-   `mech3::sha256_file_hex` a megabyte at a time). DOWNLOAD AND UPDATE runs it
+   `mech3::sha256_file_hex` a megabyte at a time). UPDATE runs it
    on the worker into `<temp>/MW3-Rebuild-update` (never a settings folder);
    every failure removes the file and says why ("did not match its checksum,
    so nothing was installed", "has no SHA256SUMS", "has no line for ...",
@@ -962,7 +962,7 @@ program files are replaced.
    - the old launcher started with `MW3_UPDATE_API` at a `file://` list
      naming the new Setup and its SHA256SUMS;
    - UPDATES, then the UPDATE screen with the notes;
-   - DOWNLOAD AND UPDATE: "Downloaded and checked", the new Setup started
+   - UPDATE: "Downloaded and checked", the new Setup started
      and the old launcher quit;
    - the normal wizard (licence, the folder page offering the installed
      folder, tasks, Ready, Install);
@@ -974,7 +974,7 @@ program files are replaced.
      newest;
    - one uninstall entry, now v1.3.99, with the same `unins000`: upgraded in
      place;
-   - every user file's SHA-256 the same before DOWNLOAD AND UPDATE and
+   - every user file's SHA-256 the same before UPDATE and
      after the new launcher was up (8 files: mw3.cfg, a pilot, a save, PM's
      mw3.cfg and pilot, rebuild-games.txt, names-utf8.done; the log is
      rewritten by each start);

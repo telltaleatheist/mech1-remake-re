@@ -8389,7 +8389,7 @@ TEST(sdl_program_launcher_checks_for_updates) {
     const std::string said = at == std::string::npos ? "(none)" : text.substr(at + 18, text.find('\n', at) - at - 18);
     std::printf("  %s: %s\n", spec, said.c_str());
     if (is_newer)  // sitting 2: the notes and the question
-      EXPECT(text.find("screen update: <, >, DOWNLOAD AND UPDATE, NOT NOW\n") != std::string::npos &&
+      EXPECT(text.find("screen update: UPDATE, BACK\n") != std::string::npos &&
              text.find("update notes: Fixes\n") != std::string::npos && text.find("update notes: \xe2\x80\xa2 Lasers hit again\n") != std::string::npos &&
              text.find("update notes: \xe2\x80\xa2 The c1m2 crash\n") != std::string::npos &&
              text.find("launcher: update: Downloaded and checked: " + ours + ".\n") != std::string::npos &&
@@ -8492,7 +8492,7 @@ TEST(sdl_program_launcher_offers_its_own_update_at_start) {
   std::string press;
   for (int i = 0; i < reached; ++i) press += "next,";
   const std::string pressed = run("pressed", "newer", press + "press");
-  EXPECT(has(pressed, "screen update: <, >, DOWNLOAD AND UPDATE, NOT NOW\n") && has(pressed, "update notes: \xe2\x80\xa2 A new card\n"));
+  EXPECT(has(pressed, "screen update: UPDATE, BACK\n") && has(pressed, "update notes: \xe2\x80\xa2 A new card\n"));
   EXPECT(!has(pressed, "launcher: update: Downloaded"));  // nothing downloaded until the player says so
   // The same version, and a failed check: the footer stays the version; the failure only in the log.
   for (const char* list : {"same", "missing"}) {
