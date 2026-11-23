@@ -26,7 +26,9 @@
 #include <string>
 #include <typeinfo>
 
-#if !defined(_WIN32)
+#if defined(_WIN32)
+#include <process.h>
+#else
 #include <sys/wait.h>
 #include <unistd.h>
 #endif
@@ -4582,6 +4584,21 @@ struct MenuRun {
   bool settings = false;
   bool keep_wd = false;
 };
+// A fixture file written whole under a name of this process's, then renamed into place: runs side by side from one
+// build (the spending soak's three seeds, 2026-11-23) share mw1_menu_gen, and one read another's mw1art.zbd half
+// written. Every run writes the same bytes, so whichever rename lands last is the same file.
+void write_whole(const fs::path& to, const std::vector<uint8_t>& bytes) {
+#if defined(_WIN32)
+  const long me = static_cast<long>(_getpid());
+#else
+  const long me = static_cast<long>(getpid());
+#endif
+  const fs::path tmp = to.string() + "." + std::to_string(me);
+  std::ofstream(tmp, std::ios::binary).write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+  std::error_code ec;
+  fs::rename(tmp, to, ec);
+  if (ec) fs::remove(tmp, ec);  // the other run's file is in place (Windows: open there), the same bytes
+}
 void menu_run(MenuRun& r) {
   zgame::set_game(pm::table());
   zutl::mounts() = zutl::Mounts{};
@@ -4592,7 +4609,7 @@ void menu_run(MenuRun& r) {
   std::error_code ec;
   fs::create_directories(gen / "zbd", ec);
   const std::vector<uint8_t> b = mw1::pack({mw1::black(mw1::kBlackImage)});
-  std::ofstream(gen / "zbd" / "mw1image.zbd", std::ios::binary).write(reinterpret_cast<const char*>(b.data()), static_cast<std::streamsize>(b.size()));
+  write_whole(gen / "zbd" / "mw1image.zbd", b);
   zutl::mount(gen.string());
   // The intro's picture is art (FIXES.md items 83 and 88): its own file from data-src/art packed into an mw1art.zbd as
   // the build does (art.csv's row, the canvas size), and the art installed, so mw1_intro comes through the art store's
@@ -4610,7 +4627,7 @@ void menu_run(MenuRun& r) {
     std::ifstream in(art / file, std::ios::binary);
     const std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
     const std::vector<uint8_t> zbd = mw1::art::pack({{mw1::kIntroImage, 0, w, h}}, {bytes});
-    std::ofstream(gen / "zbd" / "mw1art.zbd", std::ios::binary).write(reinterpret_cast<const char*>(zbd.data()), static_cast<std::streamsize>(zbd.size()));
+    write_whole(gen / "zbd" / "mw1art.zbd", zbd);
     EXPECT(!file.empty() && !zbd.empty() && mw1::art::install((gen / "zbd" / "mw1art.zbd").string(), false));
   }
   if (!r.worlds.empty()) mw1::register_worlds(r.worlds);
