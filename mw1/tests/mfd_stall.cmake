@@ -5,6 +5,11 @@
 # at 1080p. The damage display must have shown (its backdrop made) and its pictures been kept while away (the
 # backdrop still there 300 frames after the display was left).
 # cmake -DMW1_BIN=<mw1> -DDIR=<scratch> [-DBUDGET=20] -P mfd_stall.cmake
+# Known WSL-only failure (2026-11-23): under WSL2 the game's SDL GPU device is Vulkan on llvmpipe (Mesa's lavapipe,
+# software on the CPU; the loader's only device there, no D3D12 layer installed), where the median frame is about
+# 95 ms at 4K and 29 ms at 1080p and D's worst frames run 14-61 ms over it. That's the environment, not a stall: the
+# budget stays 20 ms, and a WSL failure here is read as one only with a hardware Vulkan device
+# (MESA_VK_DEVICE_SELECT=list names the device).
 # A -P script sets no policies of its own: without this, CMake 3.x drops a list's empty entries (CMP0007, OLD).
 cmake_minimum_required(VERSION 3.20)
 if(NOT BUDGET)
