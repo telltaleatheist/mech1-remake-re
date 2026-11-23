@@ -4113,6 +4113,12 @@ The screen after the pilot for INSTANT ACTION, 0x00488bc0 (details:
   second press asks for the repair at the chosen point; a third cancels
   it. While a repair is running the first press only gets "occupied".
   (docs/vehicles.md, The mcbwaynet)
+- **The field bases' empty op point locks them for the mission.** Cycling
+  the field bases' points with N or Shift+N comes round to an empty entry
+  at the start of the list. Press MFB on it and the bases are sent nowhere:
+  they never arrive, and the dock refuses every call for the rest of the
+  mission. (The rebuild waits for a real point instead.) (issue #10;
+  docs/vehicles.md, The mcbwaynet)
 
 - **How a field base repair runs.** Once you ask for a repair, the bases
   first drive to their places; then the dock waits until you are within
