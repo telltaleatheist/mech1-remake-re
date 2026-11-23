@@ -5,6 +5,8 @@
 # shown again. FIXES.md item 88 (dev 1's review): and the picture, the grab at the line's rect without a pixel of the
 # line's colour (the frame before Escape has them, and so would a HUD drawing the hidden line). Both shapes.
 # cmake -DMW1_BIN=<mw1> -DDIR=<scratch> -P pause_grab.cmake
+# A -P script sets no policies of its own: without this, CMake 3.x drops a list's empty entries (CMP0007, OLD).
+cmake_minimum_required(VERSION 3.20)
 set(failed)
 # The runs with the high-resolution draw on are the picture's check (the HUD reaches the grab as its recorded draws:
 # with the opt-in off, one recorded line of the marker's colour over its rect); one with it off (MW1_HIRES=0) too, the
