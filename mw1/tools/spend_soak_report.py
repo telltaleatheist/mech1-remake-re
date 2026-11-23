@@ -53,13 +53,16 @@ def read(path):
     return run
 
 
-# The price evaluator: a single-ladder player replayed on a run's income stream (its SOAK tick lines) under other price
-# curves, the game's own ladder arithmetic (mw1_upgrades.cpp ladder_price). Curves as (base, ratio permille).
-CURVES = {"sinks": [(500000, 1250), (750000, 1250), (1000000, 1250), (750000, 1300)],
-          "armour": [(100000, 1050), (150000, 1050), (200000, 1050)],
-          "steps": [(1000000, 1500), (2000000, 1500), (3000000, 1500)]}
-CURRENT = {"sinks": (500000, 1250), "armour": (100000, 1050), "steps": (1000000, 1500)}
-EVAL_MILESTONES = {"sinks": (1, 5, 10, 20, 30), "armour": (10, 25, 50, 100), "steps": (1, 3, 5, 10)}
+# The price evaluator: a single-ladder player replayed on a measured run's own income (its SOAK tick lines) under other
+# price curves, with the game's own ladder arithmetic (mw1_upgrades.cpp ladder_price). Curves as (base, ratio permille);
+# the first of each is the current one. The baseline's income was tried first and breaks (its 'Mech buys for the early
+# rungs unaffordable after any curve's first purchases), so only the runs' own income is used.
+CURVES = {"sinks": [(500000, 1250), (2000000, 1150), (3000000, 1150), (2000000, 1200), (3000000, 1200)],
+          "armour": [(100000, 1050), (300000, 1050), (500000, 1050), (1000000, 1050), (500000, 1030)],
+          "steps": [(1000000, 1500), (3000000, 1500), (5000000, 1500), (8000000, 1500), (5000000, 1400)]}
+CURRENT = {k: v[0] for k, v in CURVES.items()}
+EVAL_MILESTONES = {"sinks": (1, 3, 5, 10, 20, 30), "armour": (10, 25, 50, 100), "steps": (1, 3, 5, 10)}
+PRICE_AT = (1, 10, 20, 30)  # the single prices shown: the 1st, 10th, 20th and 30th item's
 PRICE_MOST = 1 << 40
 
 
@@ -73,72 +76,64 @@ def ladder_price(base, ratio, bought):
 
 
 def replay(ticks, base, ratio, reserve, most):
-    """the milestones' ticks for a player buying one ladder on this income; and the first tick where the stream's own
-    buys ('Mechs, repairs) would have taken its wallet below nothing (the replay's assumption broken)"""
-    own, n, got, broken = 0, 0, {}, None
+    """each item's tick for a player buying one ladder on this income, the first purchase look's count (the burst),
+    and the first tick where the stream's own buys ('Mechs, repairs) would have taken its wallet below nothing"""
+    own, n, got, broken, burst = 0, 0, {}, None, 0
     for t in ticks:
         wallet = t["funds"] + t["spent"] + t["traded"] - own  # the stream's money less this player's purchases
         if wallet < 0 and broken is None:
             broken = t
         if not t["may"]:
             continue
+        before = n
         while n < most:
             price = ladder_price(base, ratio, n)
             if wallet - price < reserve:
                 break
             wallet, own, n = wallet - price, own + price, n + 1
             got[n] = t
-    return got, broken
+        if before == 0 and n > 0:
+            burst = n
+    return got, burst, broken
 
 
 def curve_name(base, ratio):
     return f"{base / 1e6:g}M x {ratio / 1000:g}^n"
 
 
+def short_money(v):
+    return f"{v / 1e6:.2f}M" if v < 1e9 else f"{v / 1e9:.2f}B"
+
+
 def evaluate(by):
-    base_runs = {r["seed"]: r for r in by.get("none", []) if r["ticks"]}
-    if not base_runs:
-        print("\n# Price evaluator: no baseline run with tick lines")
-        return
-    for seed, b in sorted(base_runs.items()):
-        print(f"\n# Price curves replayed on the baseline's income, seed {seed} (one seed)")
-        print("  A single-ladder player with the same reserve and saving rule, buying at each look the baseline may spend.")
-        print("  Limits: the baseline's 'Mech buys and story pace are kept fixed (a curve's spending doesn't slow them),")
-        print("  and its may-spend windows are the baseline's. Contract (game day) of each milestone; - = not by 2x.")
-        for ladder, curves in CURVES.items():
-            ms = EVAL_MILESTONES[ladder]
-            print(f"  {ladder}: " + "  ".join(f"{n:>13}" for n in ms))
-            for base, ratio in curves:
-                got, broken = replay(b["ticks"], base, ratio, b["reserve"], max(ms))
-                cells = "  ".join(f"{(str(got[n]['contracts']) + ' (' + str(got[n]['day']) + ')') if n in got else '-':>13}" for n in ms)
-                mark = " (current)" if (base, ratio) == CURRENT[ladder] else ""
-                warn = f"  BROKEN at contract {broken['contracts']}: the baseline's own buys unaffordable after this player's" if broken else ""
-                print(f"    {curve_name(base, ratio) + mark:<24}{cells}{warn}")
-            # Validation: the current curve's replay against the measured single-ladder run of this seed.
-            measured = next((r for r in by.get(ladder, []) if r["seed"] == seed), None)
-            if not measured:
-                print(f"    validation: no measured {ladder} run on seed {seed}")
+    print("\n# Price curves on each measured run's own income (the evaluator)")
+    print("  A single-ladder player with the run's reserve and saving rule, buying at each look the run may spend; its")
+    print("  income and pace are the measured run's, so a curve's own effect on the pace is not in it. BROKEN at N: from")
+    print("  contract N this curve's extra spending would have cost the run's own 'Mech buys, so later cells are approximate.")
+    print("  Cells: contract (game day); - = not by twice the ending. Burst: how many the first spending look buys (rung 1).")
+    for ladder, curves in CURVES.items():
+        ms = EVAL_MILESTONES[ladder]
+        for measured in sorted(by.get(ladder, []), key=lambda r: r["seed"]):
+            seed = measured["seed"]
+            if not measured["ticks"]:
+                print(f"\n  {ladder}, seed {seed}: UNVALIDATED, no tick lines in the measured run (no evaluator)")
                 continue
-            got, _ = replay(b["ticks"], *CURRENT[ladder], b["reserve"], max(ms))
-            row = []
-            for n in ms:
-                m = measured["bought"].get((ladder, n))
-                row.append(f"{n}: measured {m['contracts'] if m else '-'}, replayed {got[n]['contracts'] if n in got else '-'}")
-            tag = "" if measured["ticks"] else " (UNVALIDATED: the measured run has no tick lines; its rule differs)"
-            print(f"    validation, current curve against the measured {ladder} run{tag}: " + "; ".join(row))
-            if measured["ticks"]:
-                # The curves again on the measured run's own income: a spending player's pace and windows already in it.
-                print(f"    on the measured {ladder} run's own income (seed {seed}; its pace already a spending player's):")
-                for base, ratio in curves:
-                    got2, broken2 = replay(measured["ticks"], base, ratio, measured["reserve"], max(ms))
-                    cells = "  ".join(f"{(str(got2[n]['contracts']) + ' (' + str(got2[n]['day']) + ')') if n in got2 else '-':>13}" for n in ms)
-                    mark = " (current)" if (base, ratio) == CURRENT[ladder] else ""
-                    warn = f"  BROKEN at contract {broken2['contracts']}" if broken2 else ""
-                    print(f"      {curve_name(base, ratio) + mark:<22}{cells}{warn}")
-                own, _ = replay(measured["ticks"], *CURRENT[ladder], measured["reserve"], max(ms))
-                same = all((n in own) == ((ladder, n) in measured["bought"]) and
-                           (n not in own or own[n]["contracts"] == int(measured["bought"][(ladder, n)]["contracts"])) for n in ms)
-                print(f"    the replay on the measured run's own income: {'matches it exactly' if same else 'DIFFERS (the replay has a fault, or steps switched weapon type)'}")
+            print(f"\n  {ladder}, seed {seed} (one seed):")
+            head = "  ".join(f"{n:>13}" for n in ms)
+            prices = "  ".join(f"{'#' + str(n):>7}" for n in PRICE_AT)
+            print(f"    {'curve':<22}{head}  burst  {prices}")
+            for base, ratio in curves:
+                got, burst, broken = replay(measured["ticks"], base, ratio, measured["reserve"], max(ms))
+                cells = "  ".join(f"{(str(got[n]['contracts']) + ' (' + str(got[n]['day']) + ')') if n in got else '-':>13}" for n in ms)
+                each = "  ".join(f"{short_money(ladder_price(base, ratio, n - 1)):>7}" for n in PRICE_AT)
+                mark = " (current)" if (base, ratio) == CURRENT[ladder] else ""
+                warn = f"  BROKEN at {broken['contracts']}" if broken else ""
+                print(f"    {curve_name(base, ratio) + mark:<22}{cells}  {burst:>5}  {each}{warn}")
+            # Validation: the current curve on the run's own income must give the run's own milestones.
+            got, _, _ = replay(measured["ticks"], *CURRENT[ladder], measured["reserve"], max(ms))
+            same = all((n in got) == ((ladder, n) in measured["bought"]) and
+                       (n not in got or got[n]["contracts"] == int(measured["bought"][(ladder, n)]["contracts"])) for n in ms)
+            print(f"    validation: the current curve's replay {'matches the measured run exactly' if same else 'DIFFERS from the measured run (a replay fault, or steps switched weapon type)'}")
 
 
 def money(v):
@@ -266,7 +261,8 @@ def main():
 
     evaluate(by)
 
-    print("\n# The rungs against the baseline, seed for seed (the plan's check: within about 10%)")
+    print("\n# Story delay for a player who spends to the reserve: the rungs against the baseline, seed for seed")
+    print("  (the plan's 10% check; it measures a greedy player's choice, not a defect)")
     for mode in MODES[1:]:
         worst_f, worst_d, rows = [], [], 0
         for r in by.get(mode, []):
