@@ -53,7 +53,7 @@ namespace {
 std::atomic<bool> g_stop_asking{false};  // stop_asking(): the launcher closing
 }
 
-void stop_asking() { g_stop_asking = true; }
+void stop_asking(bool stop) { g_stop_asking = stop; }
 
 bool curl_get(const std::string& url, int seconds, std::string* out, std::string* error, bool allow_file) {
   out->clear();

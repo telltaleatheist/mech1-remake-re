@@ -511,7 +511,7 @@ struct Pick {
 
 class Launcher {
  public:
-  explicit Launcher(const LauncherOptions& o) : o_(o) {}
+  explicit Launcher(const LauncherOptions& o) : o_(o) { sdlfe::stop_asking(false); }  // an earlier one's quit set it
   ~Launcher() {
     // A quit never waits on the network (lead 2026-11-23): the checks' curls stopped before their threads are
     // joined (games_check_, self_check_), else a home that hangs held the quit for its timeouts.
