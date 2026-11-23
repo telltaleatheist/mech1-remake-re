@@ -432,7 +432,8 @@ game's entry line is logged once whichever tab shows, plus "entry INCEPTION
 ORIGINAL:" and "entry INCEPTION REMAKE:".
 
 The header says BATTLETECH (Owen, 2026-11-22: the family's launcher), on the cards
-and on the launcher's own screens, and the window is "BattleTech"; title.png's
+and on the launcher's own screens, the window is "BattleTech", and the corner's
+version reads "BattleTech launcher <v>" (was "MechWarrior 3 Rebuild <v>"); title.png's
 "MW3 REBUILD" is no longer drawn. A game's setup screen keeps its game's name.
 
 The section below is the card layout before the families (one card a game);

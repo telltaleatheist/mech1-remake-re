@@ -8471,8 +8471,8 @@ TEST(sdl_program_launcher_shows_each_games_versions) {
     const size_t at = text.find(head);
     std::string v = at == std::string::npos ? std::string() : text.substr(at + head.size(), text.find(',', at) - at - head.size());
     if (v.size() > 1 && v[0] == 'v') v.erase(0, 1);
-    std::printf("  footer: MechWarrior 3 Rebuild %s\n", v.c_str());
-    EXPECT(!v.empty() && text.find("footer MechWarrior 3 Rebuild " + v + "\n") != std::string::npos);
+    std::printf("  footer: BattleTech launcher %s\n", v.c_str());
+    EXPECT(!v.empty() && text.find("footer BattleTech launcher " + v + "\n") != std::string::npos);
   }
   // A program file without one (a script, an older build): left out, and never run.
   setenv("MW3_PM_BIN", program("mw3pm", "#!/bin/sh\necho ran > \"" + dir + "/ran.txt\"\n").c_str(), 1);

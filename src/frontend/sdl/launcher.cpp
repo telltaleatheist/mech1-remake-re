@@ -801,7 +801,7 @@ std::string official_words(const std::string& data, const std::string& program, 
 std::string package_words() {
   std::string v = MW3_VERSION;
   if (v.size() > 1 && v[0] == 'v' && v[1] >= '0' && v[1] <= '9') v.erase(0, 1);
-  return v.empty() ? "MechWarrior 3 Rebuild" : "MechWarrior 3 Rebuild " + v;
+  return v.empty() ? "BattleTech launcher" : "BattleTech launcher " + v;  // Owen 2026-11-22 (was "MechWarrior 3 Rebuild")
 }
 
 // A game's line's versions: its data's, then its program's ("data 1.2, program v1.1.0, "); a program
