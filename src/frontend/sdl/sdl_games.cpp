@@ -389,7 +389,7 @@ Done install_release(const std::string& root, u::Game g, const u::Release& r, co
   const std::string path = (dl_dir / file->name).string();
   // GitHub first, git.owenmorgan.com when it fails (download_checked), each against its SHA256SUMS line.
   const Fetched f = download_checked(r, file->name, path, [&](double x) { return !progress || progress(x * 0.8, "Downloading " + name + " " + version); },
-                                     allow_file(), "games");
+                                     allow_file(), "games download");
   switch (f.why) {
     case Fetched::kOk: break;
     case Fetched::kCancelled: d.cancelled = true; return d.words = "The download was cancelled. Nothing was installed.", d;

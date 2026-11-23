@@ -283,7 +283,7 @@ Downloaded download_update(const upgrades::update::Release& r, const std::string
   std::error_code ec;
   fs::create_directories(dir, ec);
   const std::string path = (fs::path(dir) / package->name).string();
-  const Fetched f = download_checked(r, package->name, path, progress, allow_file, "update");
+  const Fetched f = download_checked(r, package->name, path, progress, allow_file, "update download");
   switch (f.why) {
     case Fetched::kOk:
       d.ok = true, d.path = path;

@@ -8119,6 +8119,90 @@ TEST(sdl_update_download_and_its_check) {
   fs::remove_all(dir, ec);
 }
 
+// The lists asked for a repo (Owen 2026-11-22): git.owenmorgan.com's Forgejo (limit=) then GitHub (per_page=, the
+// home downloads come from first); in checks MW3_UPDATE_API / MW3_GAMES_API name one list (GitHub's) or two.
+TEST(sdl_release_lists_both_homes) {
+  const auto l = sdlfe::release_lists(nullptr, "mech3-pm-re", 20);
+  EXPECT(l.size() == 2 && l[0].url == "https://git.owenmorgan.com/api/v1/repos/telltaleatheist/mech3-pm-re/releases?limit=40" &&
+         !l[0].download_first && l[1].url == "https://api.github.com/repos/telltaleatheist/mech3-pm-re/releases?per_page=20" &&
+         l[1].download_first);
+  const auto one = sdlfe::release_lists("file:///t/{repo}.json", "mech1-re", 20);
+  EXPECT(one.size() == 1 && one[0].url == "file:///t/mech1-re.json" && one[0].download_first);
+  const auto two = sdlfe::release_lists("file:///b/{repo}.json|file:///g/{repo}.json", "mech1-re", 20);
+  EXPECT(two.size() == 2 && two[0].url == "file:///b/mech1-re.json" && !two[0].download_first && two[1].url == "file:///g/mech1-re.json" &&
+         two[1].download_first);
+}
+
+// Both homes (Owen 2026-11-22): a release in both downloads from GitHub's copy (here gh/) and falls back to the
+// backup's (bk/, git.owenmorgan.com) only when GitHub's fails: its file gone, or not its checksum; GitHub's
+// SHA256SUMS missing, the backup's line used for GitHub's file; the homes' lines disagreeing, nothing taken; a cancel
+// never tries the other home.
+TEST(sdl_update_download_falls_back_to_the_backup) {
+  namespace fs = std::filesystem;
+  namespace u = upgrades::update;
+  std::error_code ec;
+  const fs::path dir = fs::path(MW3_TEST_TMP) / "update_download_homes";
+  fs::remove_all(dir, ec);
+  const char* names[] = {"MW3-Rebuild-Setup-9.0.0.exe", "MW3-Rebuild-9.0.0-mac.dmg", "MW3-Rebuild-9.0.0-x86_64.AppImage"};
+  const std::string ours = names[u::this_platform() == u::Platform::kWindows ? 0 : u::this_platform() == u::Platform::kMac ? 1 : 2];
+  const std::string bytes(200000, 'q');
+  const std::string sum = mech3::sha256_hex(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
+  const auto put = [&](const char* home, const std::string& name, const std::string& text) {
+    fs::create_directories(dir / home, ec);
+    std::ofstream(dir / home / name, std::ios::binary) << text;
+  };
+  const auto url = [&](const char* home, const std::string& n) { return "file://" + (dir / home / n).string(); };
+  const auto lay = [&]() {
+    fs::remove_all(dir, ec);
+    for (const char* home : {"gh", "bk"}) put(home, ours, bytes), put(home, "SHA256SUMS", sum + "  " + ours + "\n");
+  };
+  u::Release r;
+  r.tag = "v9.0.0";
+  r.assets = {{ours, url("gh", ours), bytes.size()}, {"SHA256SUMS", url("gh", "SHA256SUMS"), 0}};
+  r.other_homes = {{{ours, url("bk", ours), bytes.size()}, {"SHA256SUMS", url("bk", "SHA256SUMS"), 0}}};
+  setenv("MW3_UPDATE_API", "file:///fixture", 1);
+  const std::string to = (dir / "download").string();
+  // Both there: GitHub's (the backup's file removed afterwards would not matter; its copy is never read).
+  lay();
+  fs::remove(dir / "bk" / ours, ec);
+  sdlfe::Downloaded d = sdlfe::download_update(r, to, nullptr);
+  EXPECT(d.ok);
+  // GitHub's file gone: the backup's.
+  lay();
+  fs::remove(dir / "gh" / ours, ec);
+  d = sdlfe::download_update(r, to, nullptr);
+  std::printf("  github's gone: %s\n", d.words.c_str());
+  EXPECT(d.ok && fs::file_size(d.path, ec) == bytes.size());
+  // GitHub's file damaged: not its checksum, the backup's taken.
+  lay();
+  put("gh", ours, std::string(200000, 'x'));
+  d = sdlfe::download_update(r, to, nullptr);
+  EXPECT(d.ok && mech3::sha256_file_hex(d.path) == sum);
+  // GitHub without SHA256SUMS: its file checked against the backup's line (the backup's file gone, so GitHub's served).
+  lay();
+  fs::remove(dir / "gh" / "SHA256SUMS", ec), fs::remove(dir / "bk" / ours, ec);
+  d = sdlfe::download_update(r, to, nullptr);
+  EXPECT(d.ok);
+  // No sums anywhere for it, or the two homes' lines differing for a home without its own: nothing taken.
+  lay();
+  fs::remove(dir / "gh" / "SHA256SUMS", ec), put("bk", "SHA256SUMS", sum + "  other.dmg\n");
+  d = sdlfe::download_update(r, to, nullptr);
+  std::printf("  no line: %s\n", d.words.c_str());
+  EXPECT(!d.ok && d.words.find("no SHA256SUMS") != std::string::npos);
+  // Both files gone: GitHub's reason.
+  lay();
+  fs::remove(dir / "gh" / ours, ec), fs::remove(dir / "bk" / ours, ec);
+  d = sdlfe::download_update(r, to, nullptr);
+  EXPECT(!d.ok && d.words.rfind("The download stopped: ", 0) == 0 && !fs::exists(fs::path(to) / ours));
+  // Cancelled on GitHub's: the backup is not tried.
+  lay();
+  int calls = 0;
+  d = sdlfe::download_update(r, to, [&](double) { return ++calls, false; });
+  EXPECT(!d.ok && d.cancelled && calls == 1);
+  unsetenv("MW3_UPDATE_API");
+  fs::remove_all(dir, ec);
+}
+
 #if defined(__APPLE__)
 // The Mac's install (sitting 4): a real DMG holding a new app, attached read-only, its app swapped in for the old
 // one (MW3_UPDATE_TARGET in place of the running app), detached; a target that is not our app, or a DMG without one,
@@ -8213,9 +8297,18 @@ TEST(sdl_program_launcher_checks_for_updates) {
   setenv("MW3_LAUNCHER_FRAMES", "240", 1);
   setenv("MW3_LAUNCHER_NAV", "next,next,next,press", 1);  // MECHWARRIOR 3, GAME FILES, UPDATES (PM greyed, skipped)
   unsetenv("MW3_PM_BIN");
-  auto run = [&](const char* name) {
-    setenv("MW3_UPDATE_API", ("file://" + (dir / (std::string(name) + ".json")).string()).c_str(), 1);
-    if (std::string(name) == "newer") setenv("MW3_LAUNCHER_UPDATE_GO", "1", 1);
+  // `name`: one list, or two as the backup's and GitHub's ("older|newer"; "missing" answers nothing).
+  auto run = [&](const char* spec) {
+    std::string api, name = spec;
+    for (size_t at = 0, bar; at <= name.size(); at = bar + 1) {
+      bar = name.find('|', at);
+      if (bar == std::string::npos) bar = name.size();
+      api += (at ? "|" : "") + ("file://" + (dir / (name.substr(at, bar - at) + ".json")).string());
+    }
+    std::replace(name.begin(), name.end(), '|', '_');
+    const bool is_newer = name.find("newer") != std::string::npos;  // 98.1.0 on either home
+    setenv("MW3_UPDATE_API", api.c_str(), 1);
+    if (is_newer) setenv("MW3_LAUNCHER_UPDATE_GO", "1", 1);
     else unsetenv("MW3_LAUNCHER_UPDATE_GO");
     const std::string tmp_was = std::getenv("TMPDIR") ? std::getenv("TMPDIR") : "";
     fs::create_directories(dir / "tmp", ec);
@@ -8226,7 +8319,7 @@ TEST(sdl_program_launcher_checks_for_updates) {
     EXPECT(pid > 0 && waitpid(pid, &status, 0) == pid && WIFEXITED(status) && WEXITSTATUS(status) == 0);
     if (tmp_was.empty()) unsetenv("TMPDIR");
     else setenv("TMPDIR", tmp_was.c_str(), 1);
-    if (std::string(name) == "newer") EXPECT(fs::exists(dir / "tmp" / "MW3-Rebuild-update" / ours, ec));
+    if (is_newer) EXPECT(fs::exists(dir / "tmp" / "MW3-Rebuild-update" / ours, ec)), fs::remove(dir / "tmp" / "MW3-Rebuild-update" / ours, ec);
     std::ifstream f(log);
     const std::string text((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
     if (text.find("launcher: update: ") == std::string::npos)  // where the steps went
@@ -8234,8 +8327,8 @@ TEST(sdl_program_launcher_checks_for_updates) {
         std::printf("    %s\n", text.substr(a, text.find('\n', a) - a).c_str());
     const size_t at = text.find("launcher: update: ");
     const std::string said = at == std::string::npos ? "(none)" : text.substr(at + 18, text.find('\n', at) - at - 18);
-    std::printf("  %s: %s\n", name, said.c_str());
-    if (std::string(name) == "newer")  // sitting 2: the notes and the question
+    std::printf("  %s: %s\n", spec, said.c_str());
+    if (is_newer)  // sitting 2: the notes and the question
       EXPECT(text.find("screen update: <, >, DOWNLOAD AND INSTALL, NOT NOW\n") != std::string::npos &&
              text.find("update notes: Fixes\n") != std::string::npos && text.find("update notes: \xe2\x80\xa2 Lasers hit again\n") != std::string::npos &&
              text.find("update notes: \xe2\x80\xa2 The c1m2 crash\n") != std::string::npos &&
@@ -8247,7 +8340,13 @@ TEST(sdl_program_launcher_checks_for_updates) {
   };
   EXPECT(run("newer").rfind("MechWarrior 3 Rebuild 98.1.0 is out (this is ", 0) == 0);
   EXPECT(run("older").rfind("This is the newest MechWarrior 3 Rebuild (", 0) == 0);
-  EXPECT(run("broken").find("GitHub's answer could not be read") != std::string::npos);
+  EXPECT(run("broken").find("the releases list could not be read") != std::string::npos);
+  // Both homes (Owen 2026-11-22), the backup's list then GitHub's: the newest on either; one home down is fine.
+  EXPECT(run("older|newer").rfind("MechWarrior 3 Rebuild 98.1.0 is out (this is ", 0) == 0);  // newest on GitHub only
+  EXPECT(run("newer|older").rfind("MechWarrior 3 Rebuild 98.1.0 is out (this is ", 0) == 0);  // on the backup only
+  EXPECT(run("newer|missing").rfind("MechWarrior 3 Rebuild 98.1.0 is out (this is ", 0) == 0);  // GitHub down
+  EXPECT(run("missing|older").rfind("This is the newest MechWarrior 3 Rebuild (", 0) == 0);  // the backup down
+  EXPECT(run("missing|broken").find("Could not check for updates") == 0);
   for (const char* k : {"MW3_LAUNCHER_FRAMES", "MW3_LAUNCHER_NAV", "MW3_UPDATE_API", "MW3_LAUNCHER_UPDATE_GO"}) unsetenv(k);
   fs::remove_all(dir, ec);
 }
