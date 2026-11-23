@@ -537,8 +537,8 @@ class Launcher {
   void take_mw1(const std::string& dir);   // the folder in use from now: saved, then on as the pick goes
   void draw_card(const Card& c);
   // GAME FILES on Pirate's Moon (files_pm_): its settings folder as mw3pm
-  // finds it, its usual one (MW3's sibling, "MicroProse/Pirate's Moon", made
-  // by mw3pm, not here), what it lacks, and the folder in use.
+  // finds it, its usual one ("BattleTech/Pirate's Moon", made by mw3pm, not
+  // here), what it lacks, and the folder in use.
   std::string pm_usual() const;
   std::string pm_wd();
   std::string files_wd() { return files_pm_ ? pm_wd() : o_.write_dir; }
@@ -846,7 +846,7 @@ void Launcher::resolve_games() {
     for (int i = 0; i < upgrades::update::kGameCount; ++i) kit_refresh(i);
     return;
   }
-  games_root_ = sdlfe::games::root(o_.hidden);
+  games_root_ = sdlfe::games::root_moved(sdlfe::games::root(o_.hidden), (fs::path(o_.write_dir) / "mw3.cfg").string());
   for (int i = 0; i < upgrades::update::kGameCount; ++i) {
     const upgrades::update::Game g = upgrades::update::kGames[i];
     beside_[i] = !game_bin(i).empty();
@@ -2427,11 +2427,15 @@ void Launcher::mw3_notes_seen() {
   save_config_value(o_.write_dir, "mw3_notes", crc);
 }
 
-// Pirate's Moon's usual settings folder: beside MechWarrior 3's under
-// MicroProse, as SDL_GetPrefPath makes it for mw3pm (not made here).
+// Pirate's Moon's usual settings folder, as mw3pm finds it: BattleTech/Pirate's Moon, a player's earlier
+// MicroProse/Pirate's Moon moved across once (usual_folder; MW3_USUAL_FOLDER's sibling in checks).
 std::string Launcher::pm_usual() const {
-  const std::string mw3 = usual_folder();
-  return mw3.empty() ? std::string() : (fs::path(mw3).parent_path() / "Pirate's Moon").string();
+  if (std::getenv("MW3_USUAL_FOLDER")) {
+    const std::string mw3 = usual_folder();
+    return mw3.empty() ? std::string() : (fs::path(mw3).parent_path() / "Pirate's Moon").string();
+  }
+  static const std::string pm = usual_folder("Pirate's Moon");  // moved at most once a run
+  return pm;
 }
 
 // Its folder in use: MW3_PM_WRITE_DIR (checks), else the usual one or where

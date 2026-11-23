@@ -3,7 +3,9 @@
 #include "frontend/sdl/sdl_update.h"
 #include "frontend/sdl/sdl_install.h"  // kGameFolderMark
 #include "mech3/patch_import.h"
+#include "mech3/data_folder.h"
 #include "rekit/archive.h"
+#include "rekit/family_folder.h"
 
 #include <SDL3/SDL.h>
 
@@ -271,17 +273,42 @@ std::string root(bool hidden) {
 #if defined(_WIN32)
   const char* base = std::getenv("LOCALAPPDATA");
   if (!base || !*base) return {};
-  return (fs::path(base) / "MicroProse" / "BattleTech" / "games").string();
+  return (fs::path(base) / "BattleTech" / "games").string();
 #elif defined(__APPLE__)
   const char* home = std::getenv("HOME");
   if (!home || !*home) return {};
-  return (fs::path(home) / "Library" / "Application Support" / "MicroProse" / "BattleTech" / "games").string();
+  return (fs::path(home) / "Library" / "Application Support" / "BattleTech" / "games").string();
 #else
   const char* xdg = std::getenv("XDG_DATA_HOME");
   const char* home = std::getenv("HOME");
   const fs::path base = xdg && *xdg ? fs::path(xdg) : home && *home ? fs::path(home) / ".local" / "share" : fs::path();
   if (base.empty()) return {};
-  return (base / "MicroProse" / "BattleTech" / "games").string();
+  return (base / "BattleTech" / "games").string();
+#endif
+}
+
+std::string root_moved(const std::string& root, const std::string& cfg) {
+  if (root.empty() || std::getenv("MW3_GAMES_DIR")) return root;
+  const fs::path base = fs::path(root).parent_path().parent_path();
+  const fs::path old = base / rekit::kOldOrg / "BattleTech" / "games";
+  std::error_code ec;
+  if (!fs::is_directory(old, ec)) return root;
+#if defined(MW3_PACKAGE_BUILD)
+  const rekit::FolderMove m = rekit::move_once(old.string(), root);
+  if (m.kind == rekit::FolderMove::kFailed) {
+    std::fprintf(stderr, "mw3: the games folder: %s; %s stays in use\n", m.error.c_str(), old.string().c_str());
+    return old.string();
+  }
+  if (m.kind == rekit::FolderMove::kMoved) {
+    mech3::data_folder::retarget_config(cfg, {{old.string(), root}});
+    rekit::remove_if_empty(old.parent_path().string(), 2);  // MicroProse/BattleTech, then MicroProse when empty
+    std::printf("mw3: the games folder: %s moved to %s\n", old.string().c_str(), root.c_str());
+  }
+  return root;
+#else
+  (void)cfg;
+  const bool fresh = !fs::exists(root, ec) || (fs::is_directory(root, ec) && fs::is_empty(root, ec));
+  return fresh ? old.string() : root;
 #endif
 }
 

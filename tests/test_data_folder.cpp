@@ -313,3 +313,47 @@ TEST(data_folder_nested_folders_are_refused) {
   EXPECT(!plan(s.usual, s.usual + "/inner", s.usual).error.empty());
   EXPECT(!plan(s.usual, s.root, s.usual).error.empty());
 }
+
+// The family folder (Owen, 2026-11-22): MicroProse/<Game> renamed to BattleTech/<Game> once, a pointer left
+// behind for earlier versions, every family folder's saved paths following, never over a folder in use.
+TEST(data_folder_family_move_from_microprose) {
+  const std::string root = fs::path(MW3_TEST_TMP).generic_string() + "/data_folder_family";
+  std::error_code ec;
+  fs::remove_all(root, ec);
+  const std::string old_mw3 = root + "/MicroProse/MechWarrior 3", old_pm = root + "/MicroProse/Pirate's Moon";
+  const std::string mw3 = root + "/BattleTech/MechWarrior 3", pm = root + "/BattleTech/Pirate's Moon";
+  put(old_mw3 + "/mw3.cfg", "install=" + old_mw3 + "/install\npm_install=" + old_pm + "/install\nwindowed=1\n");
+  put(old_mw3 + "/pilots/a.pil", "pilot");
+  put(old_pm + "/mw3.cfg", "install=" + old_pm + "/install\n");
+  fs::create_directories(mw3);  // as SDL_GetPrefPath makes it
+  // A development build: nothing moved, the old folder used while the new one is empty.
+  EXPECT(family_move(mw3, false) == old_mw3 && fs::exists(old_mw3 + "/pilots/a.pil"));
+  EXPECT(family_move(mw3) == mw3);
+  EXPECT(read(mw3 + "/pilots/a.pil") == "pilot" && fs::exists(mw3 + "/" + kMarker));
+  EXPECT(read(old_mw3 + "/" + kPointer) == mw3 + "\n" && resolve(old_mw3).dir == mw3 && resolve(old_mw3).error.empty());
+  EXPECT(read(mw3 + "/mw3.cfg") == "install=" + mw3 + "/install\npm_install=" + old_pm + "/install\nwindowed=1\n");
+  // Pirate's Moon's move, later: its own settings and MW3's pm_install follow.
+  EXPECT(family_move(pm) == pm && read(pm + "/mw3.cfg") == "install=" + pm + "/install\n");
+  EXPECT(read(mw3 + "/mw3.cfg") == "install=" + mw3 + "/install\npm_install=" + pm + "/install\nwindowed=1\n");
+  // Again: nothing more to do, and a development build now uses the new folder.
+  EXPECT(family_move(mw3) == mw3 && family_move(mw3, false) == mw3 && read(mw3 + "/pilots/a.pil") == "pilot");
+  // An old folder beside a new one in use: never merged.
+  put(old_mw3 + "/pilots/b.pil", "another");
+  EXPECT(family_move(mw3) == mw3 && !fs::exists(mw3 + "/pilots/b.pil") && fs::exists(old_mw3 + "/pilots/b.pil"));
+  // Not under BattleTech (a --write-dir, MW3_USUAL_FOLDER): left alone.
+  EXPECT(family_move(root + "/Elsewhere/MechWarrior 3") == root + "/Elsewhere/MechWarrior 3");
+}
+
+// A moved folder whose data was elsewhere already: the pointer left behind names the data, not the empty usual.
+TEST(data_folder_family_move_keeps_a_pointer_to_elsewhere) {
+  const std::string root = fs::path(MW3_TEST_TMP).generic_string() + "/data_folder_family_ptr";
+  std::error_code ec;
+  fs::remove_all(root, ec);
+  const std::string old_mw3 = root + "/MicroProse/MechWarrior 3", mw3 = root + "/BattleTech/MechWarrior 3", data = root + "/Drive/MW3 Data";
+  put(data + "/" + kMarker, "ours\n");
+  put(data + "/mw3.cfg", "install=" + old_mw3 + "/install\n");
+  put(old_mw3 + "/" + kPointer, data + "\n");
+  put(old_mw3 + "/mw3.log", "log");
+  EXPECT(family_move(mw3) == mw3 && resolve(mw3).dir == data && read(old_mw3 + "/" + kPointer) == data + "\n");
+  EXPECT(!fs::exists(mw3 + "/" + kMarker) && read(data + "/mw3.cfg") == "install=" + mw3 + "/install\n");
+}

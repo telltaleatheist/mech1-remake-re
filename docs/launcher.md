@@ -317,9 +317,10 @@ single-game packages stay. One sitting each, each with its tests:
    **Done (2026-11-09):** GAME FILES opens on the game last clicked
    (`files_pm_`), and PIRATE'S MOON with none found opens its find screen
    as MECHWARRIOR 3 does (it asked for a folder before). On PM every screen
-   uses PM's own settings folder: "MicroProse/Pirate's Moon" beside MW3's
-   usual one, as SDL_GetPrefPath makes it for mw3pm (worked out here, not
-   created), or where its pointer leads.
+   uses PM's own settings folder: "BattleTech/Pirate's Moon" beside MW3's
+   usual one, as SDL_GetPrefPath makes it for mw3pm (a player's earlier
+   "MicroProse/Pirate's Moon" moved across once, program.md, The family
+   folder), or where its pointer leads.
    - FIND THE GAME searches as at the start (sitting 1, plus its own
      `install\`), then a disc in a drive, then the picker. A pick is
      installed into `<PM settings>\install`, its music into `music\`. An
@@ -971,9 +972,11 @@ release.
   "<GAME> UPDATE"). Since the family cards each tab's game splits its own
   button the same way. Nothing installs until the player presses one.
 - **Where.** The launcher's own games folder, per user and writable without
-  rights: `%LOCALAPPDATA%\MicroProse\BattleTech\games`,
-  `~/Library/Application Support/MicroProse/BattleTech/games`,
-  `~/.local/share/MicroProse/BattleTech/games` (`$XDG_DATA_HOME`). One
+  rights: `%LOCALAPPDATA%\BattleTech\games`,
+  `~/Library/Application Support/BattleTech/games`,
+  `~/.local/share/BattleTech/games` (`$XDG_DATA_HOME`); up to 1.3.1 under
+  `MicroProse/BattleTech`, moved across once (program.md, The family
+  folder). One
   folder a game (`mw3`, `pm`, `mw1`), each with `rebuild-game.txt` (game,
   tag, file, its SHA-256, github or file). The games folder carries
   `rebuild-games.txt`; a folder is unpacked into `.incoming` (marked) and

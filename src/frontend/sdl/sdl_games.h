@@ -15,10 +15,17 @@ namespace sdlfe::games {
 
 namespace u = upgrades::update;
 
-// The games folder: MW3_GAMES_DIR (checks), else per user: %LOCALAPPDATA%\MicroProse\BattleTech\games,
-// ~/Library/Application Support/MicroProse/BattleTech/games, $XDG_DATA_HOME (~/.local/share)/MicroProse/BattleTech/
-// games. Empty for a hidden run (checks) without MW3_GAMES_DIR, so a check never sees the player's games.
+// The games folder: MW3_GAMES_DIR (checks), else per user: %LOCALAPPDATA%\BattleTech\games,
+// ~/Library/Application Support/BattleTech/games, $XDG_DATA_HOME (~/.local/share)/BattleTech/games (Owen
+// 2026-11-22: the family's folder, no longer MicroProse/BattleTech). Empty for a hidden run (checks) without
+// MW3_GAMES_DIR, so a check never sees the player's games.
 std::string root(bool hidden);
+
+// The games folder of 1.3.x, <base>/MicroProse/BattleTech/games for `root`'s <base>/BattleTech/games: renamed to
+// `root` once in a package (rekit::move_once), the saved paths in `cfg` that named it following, and the empty
+// MicroProse/BattleTech left behind removed. Returns the folder to use: `root`, or the old one while it cannot be
+// moved (a game running from it) or, in a development build, while it is the one with the games.
+std::string root_moved(const std::string& root, const std::string& cfg);
 
 // A game's program inside an unpacked package or an installed folder, wherever its package keeps it (Windows'
 // <dir>/mw3.exe, the Mac's <dir>/<name>.app/Contents/MacOS/mw3, Linux's <dir>/squashfs-root/usr/bin/mw3); empty

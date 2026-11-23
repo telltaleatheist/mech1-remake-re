@@ -53,10 +53,10 @@ build/mw3 [install-dir] [options] [-nofmv] [-seasick] [-cdN]
   The install is mounted (assets-layer.md); `--assets DIR` (or `assets=DIR`
   lines) mounts folders of replacement files in front of it.
 - **The write dir**: saves and settings, never the install. Default
-  `SDL_GetPrefPath("MicroProse", "MechWarrior 3")` (on macOS
-  `~/Library/Application Support/MicroProse/MechWarrior 3/`), or
+  `SDL_GetPrefPath("BattleTech", "MechWarrior 3")` (on macOS
+  `~/Library/Application Support/BattleTech/MechWarrior 3/`), or
   `--write-dir DIR`. It is searched before the mounts, so what the game wrote
-  wins.
+  wins. See The family folder below for the move from MicroProse.
 - **The log** (ours, `run_log.cpp`): from the moment the write dir is
   known, everything on stdout and stderr also goes to `<write dir>/mw3.log`
   (first line: the build's version and the log's path), made new at each
@@ -572,6 +572,41 @@ is unread or set before use (module-starts.md). The gaps found while
 checking were mission-plan.md items 12 to 15 and 17; the 30 s c1m1 census
 now lists none. A key
 joins the table only with its equivalent or reason verified.
+
+## The family folder (ours; Owen, 2026-11-22)
+
+The games' user folders sit under one organisation folder, "BattleTech",
+since the family's games come from different studios: `BattleTech/MechWarrior
+3`, `BattleTech/Pirate's Moon`, the launcher's `BattleTech/games`, and the
+other family games' own (MW1 Remake, MW1 Rebuild, Inception). Up to 1.3.1 it
+was "MicroProse" (`MicroProse/BattleTech/games` for the launcher's).
+
+The first start of a package build moves a player's old folder across once
+(`mech3::data_folder::family_move`, over the setup kit's
+`rekit::move_once`, which the other family games call too):
+
+- A rename on the same drive: nothing copied, nothing merged. Only when the
+  old folder has something in it and the new one is missing or empty (as
+  SDL_GetPrefPath makes it). A new folder already in use is never touched;
+  the old one then stays as it is.
+- A pointer (`data-folder.txt`) is left in the old place naming the folder
+  in use, and the moved folder gets the data-folder marker, so an earlier
+  version of any of the games (a launcher not yet updated starting mw3pm,
+  say) still finds the same data. A folder whose pointer already led to
+  another drive keeps it, and the pointer left behind names that drive.
+- Saved paths in every family folder's `mw3.cfg` that named a moved folder
+  (`install=` of a disc install, the launcher's `pm_install=`) are made to
+  name it where it is now.
+- A rename that fails (a file in use on Windows) leaves the old folder in
+  use for that start and tries again at the next.
+- The launcher's games folder moves the same way (`games::root_moved`); its
+  `games_<key>=` paths follow, and the empty `MicroProse/BattleTech` and
+  `MicroProse` folders are removed (only when empty).
+
+A development build moves nothing (the developer's own folders): it uses the
+old folder while the new one is empty. `MW3_USUAL_FOLDER`, `--write-dir` and
+`MW3_GAMES_DIR` skip all of it. Tests: `data_folder_family_move_*`
+(mw3tests), the kit's `family_folder_*`.
 
 ## The engine's reports (our addition)
 

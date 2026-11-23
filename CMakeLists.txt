@@ -16,6 +16,10 @@ set(MW3_GAME_DIR "${CMAKE_SOURCE_DIR}/game/mw3-1.2" CACHE PATH "The MechWarrior 
 # A build for other players (tools/windows/package.cmd): mw3 and mw3import
 # get no development copy to fall back on, only the player's own install.
 option(MW3_PACKAGE "Build mw3 and mw3import for players: no MW3_GAME_DIR in them" OFF)
+if(MW3_PACKAGE)
+  # A player's build: the family folder's one-time move from MicroProse (data_folder_start.h) happens only here.
+  add_compile_definitions(MW3_PACKAGE_BUILD)
+endif()
 # The version mw3 --version and the Windows version resource give: git's
 # describe (a tag, or the commit) and the commit count.
 execute_process(COMMAND git describe --tags --match "v[0-9]*" --always --dirty WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
