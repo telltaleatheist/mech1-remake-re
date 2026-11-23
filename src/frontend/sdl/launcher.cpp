@@ -408,6 +408,10 @@ struct Button {
   // flat buttons; 0 the steel plate of the other screens.
   enum Style { kPlate, kAmber, kGrey, kFlat } style = kPlate;
   std::string name;  // what the log and the checks call it ("" the label): a card's PLAY by its game
+  // A split button's end (Owen, 2026-11-22): a game's UPDATE as a segment at the right of its PLAY, a divider and a
+  // download arrow, the version under it. Its own button for clicks, focus and the checks; drawn joined to the one
+  // before it.
+  bool seg = false;
   const std::string& log_name() const { return name.empty() ? label : name; }
 };
 
@@ -541,6 +545,8 @@ class Launcher {
   void background(float dt);
   int header_game() const;
   void plate(const Button& b, bool hot);
+  bool prev_hot_ = false;  // the button drawn before this one is hot (a split button's segment keeps its edge)
+  static constexpr int kSegW = 46;  // a split button's UPDATE segment
   static constexpr int kNotesTop = 162;  // BEFORE YOU PLAY's first note
   struct NotesLayout {
     int size = 14, gap = 14;        // the notes' font and the space after each
@@ -1426,15 +1432,25 @@ void Launcher::layout() {
         return cards_.back();
       };
       // Each card's buttons: rects on the canvas (add() shifts by kX, so it is taken off here).
+      using GC = upgrades::update::GameCheck;
+      auto can_update = [&](int i) { return games_on_ && !beside_[i] && !game_bin(i).empty() && checks_[i].kind == GC::kNewer; };
+      // A card's button; `upd`, a game with a newer release, splits it: PLAY and, at its end, that game's UPDATE
+      // (Owen 2026-11-22: "the main button can be play, and there can be a divider on the end").
       auto play = [&](const Card& c, int slot, int id, const char* label, const char* sub, const char* name, Button::Style st,
-                      bool on) {
-        const SDL_Rect r{c.r.x + 12 - kX, c.r.y + c.r.h - 12 - (2 - slot) * kCardButtonH - (1 - slot) * 6, c.r.w - 24, kCardButtonH};
+                      bool on, int upd = -1) {
+        SDL_Rect r{c.r.x + 12 - kX, c.r.y + c.r.h - 12 - (2 - slot) * kCardButtonH - (1 - slot) * 6, c.r.w - 24, kCardButtonH};
+        const bool split = upd >= 0 && can_update(upd);
+        if (split) r.w -= kSegW;
         add(id, r, label, sub, on);
         buttons_.back().style = st, buttons_.back().name = name;
+        if (split) {
+          const std::string ulabel = "UPDATE TO " + upgrades::update::game_version(checks_[upd].release.tag);
+          add(kGameUpdate + upd, SDL_Rect{r.x + r.w, r.y, kSegW, r.h}, ulabel, "", !work_);
+          buttons_.back().style = st, buttons_.back().seg = true, buttons_.back().name = std::string(name) + " UPDATE";
+        }
       };
       // Games on demand: a game not installed has INSTALL where PLAY goes; an installed one with a newer release has
       // UPDATE TO above it (the launcher's own copies only; a package's game updates with the package).
-      using GC = upgrades::update::GameCheck;
       auto install = [&](Card& c, int i, const char* name) {
         c.lines = {"Not installed"};
         const std::string w = game_words(i);  // a line, or two at its '\n'
@@ -1443,11 +1459,6 @@ void Launcher::layout() {
         if (nl != std::string::npos) c.lines.push_back(w.substr(nl + 1));
         c.keep.assign(c.lines.size(), 0);
         play(c, 1, kGameInstall + i, "INSTALL", "", name, Button::kAmber, checks_[i].kind == GC::kNewer && !work_);
-      };
-      auto can_update = [&](int i) { return games_on_ && !beside_[i] && !game_bin(i).empty() && checks_[i].kind == GC::kNewer; };
-      auto update = [&](const Card& c, int i, const char* name) {
-        const std::string label = "UPDATE TO " + upgrades::update::game_version(checks_[i].release.tag);
-        play(c, 0, kGameUpdate + i, label.c_str(), "", name, Button::kGrey, !work_);
       };
       const std::string ready = "Ready, " + official_words(install_.version, mw3_program_, false) + ": " +
                                 versions_words(install_.version, mw3_program_);
@@ -1460,8 +1471,7 @@ void Launcher::layout() {
         } else {
           if (install_.ok) c.lines = status_lines(ready, install_.dir), c.keep = {0, 0, 0};
           else c.lines = {"Not found yet:", "PLAY finds your game"};
-          if (can_update(0)) update(c, 0, "MECHWARRIOR 3 UPDATE");
-          play(c, 1, kMw3, "PLAY", "", "MECHWARRIOR 3", Button::kAmber, true);
+          play(c, 1, kMw3, "PLAY", "", "MECHWARRIOR 3", Button::kAmber, true, 0);
         }
       }
       if (!entries_logged_)
@@ -1484,8 +1494,7 @@ void Launcher::layout() {
                         (pm_dir_.empty() ? "Not found yet: click to find your game" : pm_ready + pm_dir_).c_str());
         }
         if (!(o_.pm_bin.empty() && games_on_)) {
-          if (can_update(1)) update(c, 1, "PIRATE'S MOON UPDATE");
-          play(c, 1, kPm, "PLAY", "", "PIRATE'S MOON", Button::kAmber, !o_.pm_bin.empty());
+          play(c, 1, kPm, "PLAY", "", "PIRATE'S MOON", Button::kAmber, !o_.pm_bin.empty(), 1);
         }
       }
       if (!entries_logged_) std::printf("mw3: launcher: footer %s\n", package_words().c_str());
@@ -1517,12 +1526,10 @@ void Launcher::layout() {
         else if (!unsupported) c.lines.push_back("Original: Elthial's SDL port");
         else if (unsupported) c.lines.push_back("Your BTECH.EXE isn't a revision Elthial's port supports");
         if (c.keep.size() < c.lines.size()) c.keep.resize(c.lines.size(), 0);
-        if (can_update(2) && port_exe_.empty()) update(c, 2, "MECHWARRIOR 1 UPDATE");  // in place of the greyed original
-        else
-          play(c, 0, kMw1Original, "PLAY ORIGINAL", port_exe_.empty() ? "COMING LATER" : unsupported ? "BTECH.EXE NOT SUPPORTED" : "AS RELEASED, 1989",
+        play(c, 0, kMw1Original, "PLAY ORIGINAL", port_exe_.empty() ? "COMING LATER" : unsupported ? "BTECH.EXE NOT SUPPORTED" : "AS RELEASED, 1989",
                "MECHWARRIOR 1 ORIGINAL", Button::kGrey, !port_exe_.empty() && !unsupported);
         play(c, 1, kMw1, "PLAY REMAKE", mw1_remake_ ? "REMAKE, 3D" : "NOT IN THIS PACKAGE", "MECHWARRIOR 1", Button::kAmber,
-             mw1_remake_ && needs.empty());
+             mw1_remake_ && needs.empty(), 2);
         if (!mw1_logged_) {  // the line the round entry had, for the log and the checks
           const std::string line = !mw1_remake_            ? "Elthial's SDL port: " + (mw1_game_.empty() ? std::string("click to pick your MechWarrior folder") : mw1_game_)
                                    : !needs.empty()        ? "Not ready: " + needs
@@ -1804,13 +1811,18 @@ void Launcher::plate(const Button& b, bool hot) {
   SDL_Rect r = b.r;
   if (b.style != Button::kPlate) {  // the cards' screen: square, flat, its edge lit when hot (no ripple; Owen)
     const bool amber = b.style == Button::kAmber;
-    SDL_Color fill = amber ? SDL_Color{0xf0, 0xa0, 0x20, 255} : b.style == Button::kGrey ? SDL_Color{0x15, 0x18, 0x1c, 255}
-                                                                                        : SDL_Color{0x1c, 0x20, 0x26, 255};
-    SDL_Color line = amber ? fill : b.style == Button::kGrey ? SDL_Color{0x6b, 0x73, 0x7d, 255} : SDL_Color{0x45, 0x4c, 0x55, 255};
-    SDL_Color ink = amber ? SDL_Color{0x14, 0x10, 0x0a, 255} : kWhite;
-    if (!b.enabled) fill = {0x22, 0x25, 0x2a, 255}, line = {0x3a, 0x3f, 0x46, 255}, ink = kGrey;
-    else if (hot && amber) fill = {0xff, 0xb8, 0x4d, 255};
-    else if (hot) fill = {static_cast<Uint8>(fill.r + 14), static_cast<Uint8>(fill.g + 14), static_cast<Uint8>(fill.b + 16), 255};
+    auto colours = [&](const Button& x, bool h, SDL_Color* fill, SDL_Color* line, SDL_Color* ink) {
+      const bool am = x.style == Button::kAmber;
+      *fill = am ? SDL_Color{0xf0, 0xa0, 0x20, 255} : x.style == Button::kGrey ? SDL_Color{0x15, 0x18, 0x1c, 255}
+                                                                              : SDL_Color{0x1c, 0x20, 0x26, 255};
+      *line = am ? *fill : x.style == Button::kGrey ? SDL_Color{0x6b, 0x73, 0x7d, 255} : SDL_Color{0x45, 0x4c, 0x55, 255};
+      *ink = am ? SDL_Color{0x14, 0x10, 0x0a, 255} : kWhite;
+      if (!x.enabled) *fill = {0x22, 0x25, 0x2a, 255}, *line = {0x3a, 0x3f, 0x46, 255}, *ink = kGrey;
+      else if (h && am) *fill = {0xff, 0xb8, 0x4d, 255};
+      else if (h) *fill = {static_cast<Uint8>(fill->r + 14), static_cast<Uint8>(fill->g + 14), static_cast<Uint8>(fill->b + 16), 255};
+    };
+    SDL_Color fill, line, ink;
+    colours(b, hot, &fill, &line, &ink);
     SDL_FillSurfaceRect(canvas_, &r, SDL_MapSurfaceRGB(canvas_, line.r, line.g, line.b));
     const SDL_Rect in{r.x + 1, r.y + 1, r.w - 2, r.h - 2};
     SDL_FillSurfaceRect(canvas_, &in, SDL_MapSurfaceRGB(canvas_, fill.r, fill.g, fill.b));
@@ -1821,6 +1833,36 @@ void Launcher::plate(const Button& b, bool hot) {
       drew_edge_ = true;
     }
     const int cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+    if (b.seg) {  // the split's end: one face with the button before it, a short divider, the arrow and the version
+      const Button* main = nullptr;
+      for (size_t i = 1; i < buttons_.size(); ++i)
+        if (&buttons_[i] == &b) main = &buttons_[i - 1];
+      if (main) {
+        SDL_Color mf, ml, mi;
+        colours(*main, prev_hot_, &mf, &ml, &mi);
+        // The seam (the main's right frame, this one's left) as the faces, except where a lit edge runs.
+        if (!prev_hot_) {
+          const SDL_Rect a{r.x - 1, r.y + 1, 1, r.h - 2};
+          SDL_FillSurfaceRect(canvas_, &a, SDL_MapSurfaceRGB(canvas_, mf.r, mf.g, mf.b));
+        }
+        if (!hot) {
+          const SDL_Rect s{r.x, r.y + 1, 1, r.h - 2};
+          SDL_FillSurfaceRect(canvas_, &s, SDL_MapSurfaceRGB(canvas_, fill.r, fill.g, fill.b));
+        }
+        const SDL_Color d = amber && b.enabled ? SDL_Color{0x9a, 0x5c, 0x0c, 255} : SDL_Color{0x5a, 0x61, 0x6a, 255};
+        const SDL_Rect div{r.x, r.y + 8, 1, r.h - 16};
+        SDL_FillSurfaceRect(canvas_, &div, SDL_MapSurfaceRGB(canvas_, d.r, d.g, d.b));
+      }
+      // A download arrow onto a tray, then the version it updates to.
+      const uint32_t k = SDL_MapSurfaceRGB(canvas_, ink.r, ink.g, ink.b);
+      const int ax = cx, ay = r.y + 7;
+      std::vector<SDL_Rect> g = {{ax - 1, ay, 3, 7}, {ax - 8, ay + 12, 17, 2}, {ax - 8, ay + 9, 2, 3}, {ax + 7, ay + 9, 2, 3}};
+      for (int i = 0; i < 5; ++i) g.push_back({ax - 5 + i, ay + 5 + i, 11 - 2 * i, 1});
+      SDL_FillSurfaceRects(canvas_, g.data(), static_cast<int>(g.size()), k);
+      const std::string v = b.label.rfind("UPDATE TO ", 0) == 0 ? b.label.substr(10) : b.label;
+      text_.draw(canvas_, text_.fit(v, 10, r.w - 6), 10, ink, cx, r.y + r.h - 9);
+      return;
+    }
     const int big = b.style == Button::kFlat ? 15 : 18;
     if (b.sub.empty()) {
       text_.draw(canvas_, b.label, big, ink, cx, cy + 1);
@@ -1977,7 +2019,10 @@ void Launcher::draw(float dt) {
   }
   const int hot = focus_ >= 0 ? focus_ : hot_;
   drew_ripple_ = drew_edge_ = false;
-  for (size_t i = 0; i < buttons_.size(); ++i) plate(buttons_[i], static_cast<int>(i) == hot && buttons_[i].enabled);
+  for (size_t i = 0; i < buttons_.size(); ++i) {
+    prev_hot_ = i > 0 && static_cast<int>(i) - 1 == hot && buttons_[i - 1].enabled;
+    plate(buttons_[i], static_cast<int>(i) == hot && buttons_[i].enabled);
+  }
   // The main menu's own ripple (its step, mech3::menu_ripple_step, and its
   // draw 0x00558dd0) round the round button (a game's badge) under the
   // mouse, started afresh on each new one as SlideButton's on_enter does;

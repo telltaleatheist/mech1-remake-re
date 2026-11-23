@@ -6913,6 +6913,46 @@ TEST(sdl_program_launcher_finds_the_game_then_plays) {
   std::filesystem::remove_all(cd, ec);
 }
 
+// A game with a newer release splits its card's button (Owen 2026-11-22: "the main button can be play, and there
+// can be a divider on the end"): PLAY, then that game's UPDATE as the next button, its end; no UPDATE slot of its
+// own above PLAY, so MW1's card keeps its two. Pirate's Moon and MW1 Remake installed older, their releases newer.
+TEST(sdl_program_launcher_splits_play_with_its_update) {
+  const auto lay = [](const std::string& d) {
+    namespace fs = std::filesystem;
+    for (const auto& [key, prog, tag] : {std::tuple<std::string, std::string, std::string>{"pm", "mw3pm", "pm-v1.2.3"},
+                                        {"mw1", "mw1", "mw1-v1.0.7"}}) {
+      fs::create_directories(d + "/games/" + key);
+      std::ofstream(d + "/games/" + key + "/" + prog) << "#!/bin/sh\nexit 0\n";
+      fs::permissions(d + "/games/" + key + "/" + prog, fs::perms::owner_all);
+      std::ofstream(d + "/games/" + key + "/rebuild-game.txt") << "# x\ngame=" << key << "\ntag=" << tag << "\nfile=x\nsha256=x\nfrom=github\n";
+    }
+    fs::create_directories(d + "/api");
+    fs::create_directories(d + "/wd/music");  // music there: no notes screen before the cards
+    std::ofstream(d + "/wd/music/track02.wav") << "x";
+#if defined(__APPLE__)
+    const std::string tail = "-mac.dmg";
+#else
+    const std::string tail = "-x86_64.AppImage";
+#endif
+    for (const auto& [repo, tag, stem] : {std::tuple<std::string, std::string, std::string>{"mech3-pm-re", "pm-v1.2.5", "PM-Rebuild-"},
+                                         {"mech1-remake-re", "mw1-v1.0.9", "MW1-Remake-"}})
+      std::ofstream(d + "/api/" + repo + ".json") << "[{\"tag_name\": \"" << tag << "\", \"draft\": false, \"prerelease\": false, \"body\": \"x\", "
+                                                  << "\"assets\": [{\"name\": \"" << stem << tag << tail << "\", \"size\": 1000, \"browser_download_url\": \"file://" << d
+                                                  << "/x\"}, {\"name\": \"SHA256SUMS\", \"size\": 10, \"browser_download_url\": \"file://" << d << "/s\"}]}]";
+  };
+  const std::string dir = std::string(MW3_TEST_TMP) + "/launcher_split";
+  const LauncherRun r = run_launcher_with("launcher_split", "exit 0", nullptr,
+                                          {{"MW3_GAMES_API", "file://" + dir + "/api/{repo}.json"}, {"MW3_GAMES_DIR", dir + "/games"},
+                                           {"MW3_LAUNCHER_FRAMES", "240"}},
+                                          lay, false);
+  const size_t at = r.log.rfind("screen main: ");
+  const std::string line = at == std::string::npos ? std::string() : r.log.substr(at, r.log.find('\n', at) - at);
+  std::printf("split: %s\n", line.c_str());
+  EXPECT(line.find("PIRATE'S MOON, PIRATE'S MOON UPDATE, ") != std::string::npos);
+  EXPECT(line.find("MECHWARRIOR 1 ORIGINAL, MECHWARRIOR 1, MECHWARRIOR 1 UPDATE, ") != std::string::npos);
+  EXPECT(line.find("MECHWARRIOR 3 UPDATE") == std::string::npos);  // beside this program: no update of its own
+}
+
 // The movies converted in the launcher (Owen's first start sat 44 s on
 // "Starting MechWarrior 3..." while mw3 did it): a found install's AVIs go
 // through the importer (here a stand-in, MW3_IMPORTER, as mw3import: its
