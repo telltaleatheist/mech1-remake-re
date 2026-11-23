@@ -957,8 +957,15 @@ Owen: "everything can be installed in the same location the user picks", and
 the saves "should probably stay in the normal user folder, for modding
 purposes". So each game has a folder of its own that the player picks, holding
 its program and its game files; pilots, saves, settings and mods stay in the
-user folder (the write dir). Music from a disc and converted movies stay in the
-user folder for now (they need a mount of their own in the game to move).
+user folder (the write dir). Its music and converted movies go there too
+(Owen: "we can have it look inside the game folder for movies and music"):
+`sdlfe::media_dir(install, write_dir)` is the folder above the install when it
+carries the game's mark, else the user folder as before; the game mounts it
+after the install (`music/`, `video/*.fmv`), and the conversions (the
+launcher's and the game's first-run one), ADD FROM MY DISC and a disc
+install's music write there. A rip the player put in the user folder's
+`music` still counts. Moving an install into a game's folder later converts
+the movies again, once, there.
 
 - **A card's first INSTALL** asks where (confirm 7: INSTALL, CHANGE FOLDER,
   BACK), the default being the games folder above. The program goes under

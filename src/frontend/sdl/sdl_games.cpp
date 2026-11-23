@@ -1,6 +1,7 @@
 #include "frontend/sdl/sdl_games.h"
 
 #include "frontend/sdl/sdl_update.h"
+#include "frontend/sdl/sdl_install.h"  // kGameFolderMark
 #include "mech3/patch_import.h"
 #include "rekit/archive.h"
 
@@ -24,7 +25,6 @@ namespace {
 
 constexpr const char* kRootMark = "rebuild-games.txt";   // the games folder is the launcher's
 constexpr const char* kStagingMark = ".rebuild-staging";  // a folder being filled, the launcher's
-constexpr const char* kGameFolderMark = "rebuild-game-folder.txt";  // a game's own folder (game_folder_in)
 constexpr const char* kIncoming = ".incoming";             // where a package is unpacked before it goes in place
 
 std::string lower(std::string s) {

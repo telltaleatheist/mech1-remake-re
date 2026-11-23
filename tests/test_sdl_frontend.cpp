@@ -6037,6 +6037,38 @@ TEST(sdl_program_plain_start_goes_straight_in_or_to_setup) {
 // line and exits 0 without a window or a log; --setup shows the find screen
 // alone whatever is found, exits 0 once a pick is installed (saved to
 // mw3.cfg), 1 when the player quits it.
+// A game's own folder (Owen 2026-11-22, the launcher's CHANGE FOLDER): <folder>/install its game files, its music in
+// <folder>/music beside them, found by the game (no "No music yet" note); the same layout without the folder's
+// mark is someone's folder, not looked in.
+TEST(sdl_program_finds_music_in_its_own_folder) {
+  namespace fs = std::filesystem;
+  const std::string dir = std::string(MW3_TEST_TMP) + "/own_folder_music";
+  std::error_code ec;
+  fs::remove_all(dir, ec);
+  for (const char* g : {"/ours", "/theirs"}) {
+    fs::create_directories(dir + g + "/music", ec);
+    fs::create_directory_symlink(MW3_GAME_DIR, dir + g + "/install", ec);
+    std::ofstream(dir + g + "/music/track02.wav") << "x";
+  }
+  std::ofstream(dir + "/ours/rebuild-game-folder.txt") << "# x\ngame=mw3\n";
+  fs::create_directories(dir + "/wd", ec);
+  setenv("MW3_FIND_INSTALL", "1", 1);
+  auto run = [&](const std::string& g) {
+    int status = 0;
+    const std::string log = dir + g + ".log";
+    EXPECT(waited(spawn_mw3({"--install", dir + g + "/install", "--write-dir", dir + "/wd", "--hidden", "--nosound", "--frames", "10"}, log), &status) &&
+           WIFEXITED(status) && WEXITSTATUS(status) == 0);
+    std::ifstream f(log);
+    return std::string((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+  };
+  const std::string ours = run("/ours"), theirs = run("/theirs");
+  unsetenv("MW3_FIND_INSTALL");
+  std::printf("music in its own folder: found %d; without the mark, not looked in %d\n", ours.find("note: No music:") == std::string::npos,
+              theirs.find("note: No music:") != std::string::npos);
+  EXPECT(ours.find("note: No music:") == std::string::npos && theirs.find("note: No music:") != std::string::npos);
+  fs::remove_all(dir, ec);
+}
+
 TEST(sdl_program_status_and_setup_answer_the_launcher) {
   const std::string dir = std::string(MW3_TEST_TMP) + "/status_setup";
   std::error_code ec;
@@ -7277,6 +7309,24 @@ TEST(sdl_program_launcher_converts_the_movies_before_the_game) {
   EXPECT(r.exited && !r.args.empty() && seen(r.log, "work: CONVERTING THE MOVIES") && seen(r.log, "the game's first frame"));
   EXPECT(r.log.find("work: CONVERTING THE MOVIES") < r.log.find("the game's first frame"));
   EXPECT(std::filesystem::exists(wd + "/video/c1.fmv") && std::filesystem::exists(wd + "/video/intro.fmv"));
+  // The game files in a folder of the game's own (CHANGE FOLDER, Owen 2026-11-22): the converted movies there too,
+  // beside install/, none in the user folder; the music looked for there as well (a track there: no notes).
+  const std::string to = root + "/drive", game = to + "/MechWarrior 3";
+  auto into = env;
+  into.push_back({"MW3_LAUNCHER_FILES_TO", to});
+  const LauncherRun g = run_launcher_with("launcher_convert_to", "READY\nsleep 1", nullptr, into, [game](const std::string&) {
+    std::filesystem::create_directories(game + "/music");  // the game's folder as its card's INSTALL left it: ours, marked
+    std::ofstream(game + "/rebuild-games.txt") << "# x\n";
+    std::ofstream(game + "/rebuild-game-folder.txt") << "# x\ngame=mw3\n";
+    std::ofstream(game + "/music/track02.wav") << "x";
+  });
+  const std::string wd2 = std::string(MW3_TEST_TMP) + "/launcher_convert_to/wd";
+  std::printf("convert into the game's folder: .fmv there %d, none in the user folder %d, no music note %d\n",
+              std::filesystem::exists(game + "/video/c1.fmv") && std::filesystem::exists(game + "/video/intro.fmv"),
+              !std::filesystem::exists(wd2 + "/video", ec), !seen(g.log, "note: No music yet"));
+  EXPECT(g.exited && !g.args.empty() && seen(g.log, "work: CONVERTING THE MOVIES") && seen(g.log, "the game's first frame"));
+  EXPECT(std::filesystem::exists(game + "/video/c1.fmv") && std::filesystem::exists(game + "/video/intro.fmv"));
+  EXPECT(!std::filesystem::exists(wd2 + "/video", ec) && !seen(g.log, "note: No music yet"));
   std::filesystem::remove_all(root, ec);
 }
 
