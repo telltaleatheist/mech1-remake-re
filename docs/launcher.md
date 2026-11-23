@@ -866,9 +866,9 @@ program files are replaced.
    DOWNLOAD AND INSTALL, NOT NOW). Nothing is downloaded or installed until
    the player presses DOWNLOAD AND INSTALL there. The same version, an older
    one or a failed check leave the footer as it is; the verdict goes to the
-   log only ("update check at the start: ..."). A check run (`--hidden`)
-   without `MW3_UPDATE_API` asks nothing, as the games' check, so tests never
-   reach GitHub or git.owenmorgan.com; a shot asks before drawing.
+   log only ("update check at the start: ..."). A check run (`--hidden`, or
+   a `--launcher-shot`) without `MW3_UPDATE_API` asks nothing, so tests never
+   reach GitHub or git.owenmorgan.com; a shot with it asks before drawing.
    `MW3_LAUNCHER_NAV_LATE=1` (checks) runs `MW3_LAUNCHER_NAV`'s steps once
    that check has answered. Test:
    `sdl_program_launcher_offers_its_own_update_at_start` (newer: the footer
@@ -947,6 +947,44 @@ program files are replaced.
    detached: each caught. Windows' branch compile-checked with mingw; Linux's
    is not compiled on this Mac (its package build is the first), and the
    Windows Setup run waits for Owen's PC.
+   **Windows, run for real (owens-pc, 2026-11-23):** two launcher-only
+   packages from package.cmd: the old one from main 09da080e, the new one
+   from pc/launcher-self-update tagged v1.3.99 for the run (a local tag,
+   deleted after). Both Setups were built from a test-only variant of
+   installer.iss: another AppId and name ("BattleTech upgrade test"),
+   `PrivilegesRequired=lowest`, a scratch install folder, the
+   `MechWarrior 3.lnk` deletes and the desktop icon left out. Owen's own
+   per-machine 1.2.0 install, under the real AppId, would otherwise have been
+   the one upgraded. User folders: fake BattleTech ones, Owen's MicroProse
+   folder renamed aside and back. The run:
+   - the old Setup installed;
+   - the old launcher started with `MW3_UPDATE_API` at a `file://` list
+     naming the new Setup and its SHA256SUMS;
+   - UPDATES, then the UPDATE screen with the notes;
+   - DOWNLOAD AND INSTALL: "Downloaded and checked", the new Setup started
+     and the old launcher quit;
+   - the normal wizard (licence, the folder page offering the installed
+     folder, tasks, Ready, Install);
+   - Finish with the Launch box ticked by default.
+
+   Result:
+   - the new launcher opened by itself from the same folder, its corner
+     "BattleTech launcher 1.3.99-dirty", its start check saying it is the
+     newest;
+   - one uninstall entry, now v1.3.99, with the same `unins000`: upgraded in
+     place;
+   - every user file's SHA-256 the same before DOWNLOAD AND INSTALL and
+     after the new launcher was up (8 files: mw3.cfg, a pilot, a save, PM's
+     mw3.cfg and pilot, rebuild-games.txt, names-utf8.done; the log is
+     rewritten by each start);
+   - Owen's real install untouched (still v1.2.0).
+
+   Not covered: the admin (UAC) path with the real AppId over an existing
+   per-machine install; that needs Owen at the PC. Found on the way and
+   fixed: since the two homes, every Windows package built on this PC failed
+   `check_dist.ps1`, because the user name was inside git.owenmorgan.com's
+   API address. It and `tools/deps/check_paths.py` now allow the backup's
+   addresses, as they allow GitHub's.
 5. **Owen's hard rule, checked**: the upgrade test (`sdl_program_package_upgrade_keeps_the_players_files`)
    run through the updater's own swap, the settings folders unchanged by
    hash.
