@@ -314,7 +314,7 @@ TEST(data_folder_nested_folders_are_refused) {
   EXPECT(!plan(s.usual, s.root, s.usual).error.empty());
 }
 
-// The family folder (Owen, 2026-11-22): MicroProse/<Game> renamed to BattleTech/<Game> once, a pointer left
+// The family folder (2026-11-22): MicroProse/<Game> renamed to BattleTech/<Game> once, a pointer left
 // behind for earlier versions, every family folder's saved paths following, never over a folder in use.
 TEST(data_folder_family_move_from_microprose) {
   const std::string root = fs::path(MW3_TEST_TMP).generic_string() + "/data_folder_family";

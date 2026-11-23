@@ -45,7 +45,7 @@ TEST(pm_volley_counts_a_waiting_type) {
   }
 }
 
-// MW1's FIXES.md item 107 (Owen: a machine gun's sound came on and never stopped): a weapon's looped sound (U_LOOPED,
+// MW1's FIXES.md item 107 (a machine gun's sound came on and never stopped): a weapon's looped sound (U_LOOPED,
 // the machine gun's) plays from its trigger to its release. Outside group fire a group lets go of only its current
 // weapon, and the fire mode can change while the trigger is held (the mode key, the AI's pick): after a group
 // volley the group's other weapons were never released and their loops played on. Each weapon still sounding is let

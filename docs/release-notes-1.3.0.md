@@ -5,7 +5,7 @@ launcher alone (named BattleTech); each game comes from its own release.
 
 ## The launcher downloads the games
 
-Owen's request: "make the launcher download the games when the player wants
+The request: "make the launcher download the games when the player wants
 to play them, with an update button", and players choose when to update.
 
 - **INSTALL.** A game that isn't installed shows INSTALL on its card, with

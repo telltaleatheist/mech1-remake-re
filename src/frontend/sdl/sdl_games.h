@@ -16,7 +16,7 @@ namespace sdlfe::games {
 namespace u = upgrades::update;
 
 // The games folder: MW3_GAMES_DIR (checks), else per user: %LOCALAPPDATA%\BattleTech\games,
-// ~/Library/Application Support/BattleTech/games, $XDG_DATA_HOME (~/.local/share)/BattleTech/games (Owen
+// ~/Library/Application Support/BattleTech/games, $XDG_DATA_HOME (~/.local/share)/BattleTech/games (
 // 2026-11-22: the family's folder, no longer MicroProse/BattleTech). Empty for a hidden run (checks) without
 // MW3_GAMES_DIR, so a check never sees the player's games.
 std::string root(bool hidden);
@@ -63,7 +63,7 @@ FileCheck check_file(const std::string& file);
 // put in place of that game's folder. `sha256` is the file's (check_file's).
 Done install_file(const std::string& root, const std::string& file, const std::string& sha256, const Progress& progress);
 
-// The player's own folder for a game (Owen 2026-11-22: "everything can be installed in the same location the user
+// The player's own folder for a game (2026-11-22: "everything can be installed in the same location the user
 // picks"): its program (installed under it as under the games folder) and its game files (install/); pilots, saves,
 // settings and mods stay in the user folder. A picked folder is the game's when it is empty or already carries this
 // game's mark (rebuild-game-folder.txt), else a folder named for the game inside it ("MechWarrior 3", "Pirate's Moon",

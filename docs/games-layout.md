@@ -1,9 +1,9 @@
 # How the rebuild is organised: MW3, Pirate's Moon and the launcher
 
-Decided with Owen, 2026-10-31. (The original exe's own structure is
+Decided 2026-10-31. (The original exe's own structure is
 `architecture.md`; this page is about the rebuild.)
 
-**Replaced for Pirate's Moon (Owen, 2026-11-04): PM lives on the branch `pm`, which never merges to `main`.** It is
+**Replaced for Pirate's Moon (2026-11-04): PM lives on the branch `pm`, which never merges to `main`.** It is
 a complete copy of the game with PM's changes in place, as the original's `branchep1`. `src/mech3` and `src/gamez`
 on `pm` are PM's copies, changed directly; MW3 on `main` stays as shipped plus bug fixes. Fixes cross by git: MW3's merge
 from `main` into `pm`; a bug found on `pm` that MW3 also has goes on `main` as its own small commit, cherry-picked or
@@ -15,7 +15,7 @@ only when that code is being worked on anyway.
 The plain build on `pm` is PM alone: `mw3pm`, `mw3pmtests`, `mw3pmsdltests` (the render's window tests; `MW3_TEST=sdl_render`,
 the ones that start MW3's programs do not apply) and `pmprobe`. `-DMW3_BUILD_MW3=ON` brings MW3's probe and tests
 back (not its programs, which build from `main`), for checking shared code (`pm-tests.md`). `mw3pm` goes to `--fly` when given it, else to the game (`mw3_main.cpp`, on PM's table). No launcher
-in PM's package for now; the combined package is Owen's later decision. The package scripts make PM alone, with its own
+in PM's package for now; the combined package is a later decision. The package scripts make PM alone, with its own
 Mac bundle id (`com.owenmorgan.mw3pmrebuild`), Windows AppId and write folder (`BattleTech/Pirate's Moon`; `MicroProse/Pirate's Moon` up to 1.3.1, moved across once: program.md, The family folder).
 
 ## Three programs, one package
@@ -123,7 +123,7 @@ PM model, so a PM world never silently draws nothing.
 - **Not yet**: the packages carry no `mw3pm`, and the launcher's entry is
   still greyed. Both come when PM plays.
 
-## Which branch builds what (Owen, 2026-11-04, replacing the shared-engine plan)
+## Which branch builds what (2026-11-04, replacing the shared-engine plan)
 
 PM lives on the branch `pm`, which never merges into `main`: a complete copy
 of the game with PM's changes in place, as the original's `branchep1` was.
@@ -146,7 +146,7 @@ of the game with PM's changes in place, as the original's `branchep1` was.
   `main`'s merges into `pm` stay clean and a shared-code change on `pm` can
   be checked against MW3's tests (`pm-tests.md`, MW3's tests built from
   `pm`). Nothing is built or released from them.
-- MechWarrior 1 Remake (Owen, 2026-11-17: into mw3-re as the branch
+- MechWarrior 1 Remake (2026-11-17: into mw3-re as the branch
   `mw1`, public, packaged with the other two) takes PM's engine by merging
   `pm` into `mw1`, and never merges back. Its launcher entry is `main`'s
   launcher's (`launcher.md`, MechWarrior 1).

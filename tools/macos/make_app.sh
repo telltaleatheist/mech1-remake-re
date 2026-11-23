@@ -48,7 +48,7 @@ cmake --build build-mac-pkg --target mw3pm >/dev/null
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Frameworks" "$APP/Contents/Resources"
-# PM's package has no launcher for now: mw3pm is the app's executable (the combined package is Owen's later decision).
+# PM's package has no launcher for now: mw3pm is the app's executable (the combined package is a later decision).
 cp build-mac-pkg/mw3pm "$APP/Contents/MacOS/mw3pm"
 
 # Every library outside the system, followed through the ones they load:
@@ -193,7 +193,7 @@ cat > "$APP/Contents/Info.plist" <<EOF
 EOF
 
 # The name shown (Finder, Dock, Launchpad, the menu bar): Pirate's Moon alone keeps its own (main's combined package
-# shows BattleTech; Owen, 2026-11-20).
+# shows BattleTech; 2026-11-20).
 SHOWN="$NAME"
 mkdir -p "$APP/Contents/Resources/en.lproj"
 printf 'CFBundleName = "%s";\nCFBundleDisplayName = "%s";\n' "$SHOWN" "$SHOWN" > "$APP/Contents/Resources/en.lproj/InfoPlist.strings"

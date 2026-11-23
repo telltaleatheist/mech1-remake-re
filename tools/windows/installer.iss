@@ -54,7 +54,7 @@ Source: "{#Dist}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs creat
 
 [Icons]
 ; The launcher is the shortcut, named for the game; mw3.exe is installed
-; and starts alone too, but has no shortcut (Owen, 2026-11-02; launcher.md).
+; and starts alone too, but has no shortcut (2026-11-02; launcher.md).
 Name: "{autoprograms}\Pirate's Moon"; Filename: "{app}\mw3pm.exe"; WorkingDir: "{app}"
 Name: "{autoprograms}\Pirate's Moon Rebuild - Read me"; Filename: "{app}\README.txt"
 Name: "{autodesktop}\Pirate's Moon"; Filename: "{app}\mw3pm.exe"; WorkingDir: "{app}"; Tasks: desktopicon

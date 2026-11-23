@@ -363,7 +363,7 @@ void Mech::select_gait(float dt) {
   const bool ff = this == world().mission_player && world().force_feedback;
   if (d > h * kWadeStart) {
     if (zfix::options().water) {
-      // Ours, behind WATER (Owen, 2026-11-10; fixes.md): from full speed at a tenth of the height down to Pirate's
+      // Ours, behind WATER (2026-11-10; fixes.md): from full speed at a tenth of the height down to Pirate's
       // Moon's own 60% at full depth, where the exe drops to 60% in one step. Not MW3's fix (its 0.7 and the curve
       // that fell to a standstill): Pirate's Moon's exe has no such curve to mend.
       float frac = (d - h * kWadeStart) / (h - h * kWadeStart);

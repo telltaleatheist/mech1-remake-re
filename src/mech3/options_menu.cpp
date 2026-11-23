@@ -187,7 +187,7 @@ void UpgradesScreen::AcceptButton::on_left_up() {
 }
 
 // Pirate's Moon's page has the five switches as MechWarrior 3's: WATER gates the gradual slowing in Pirate's Moon's
-// own wading (mech_move.cpp, Pirate's Moon 0x00418fc0; Owen, 2026-11-10).
+// own wading (mech_move.cpp, Pirate's Moon 0x00418fc0; 2026-11-10).
 UpgradesScreen::UpgradesScreen(Engine& e, Handle s)
     : MenuScreen(e, s), accept(e), back(e), water(e), mfb_regroup(e), improved_ai(e), artemis(e), small_fixes(e),
       wide_menus(e), raw_mouse(e), small_list(e) {

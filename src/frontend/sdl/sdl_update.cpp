@@ -507,8 +507,8 @@ std::vector<upgrades::update::Answer> ask_lists(const std::vector<ReleaseList>& 
   return answers;
 }
 
-// Both repos of the package (Owen 2026-11-21): the hub mw3-re, where every copy up to 1.2.1 looks, and mech3-re,
-// MechWarrior 3's own repo after the split; each in both homes (Owen 2026-11-22: git.owenmorgan.com, then GitHub);
+// Both repos of the package (2026-11-21): the hub mw3-re, where every copy up to 1.2.1 looks, and mech3-re,
+// MechWarrior 3's own repo after the split; each in both homes (2026-11-22: git.owenmorgan.com, then GitHub);
 // the newest package on any of the four wins. MW3_UPDATE_API: one list or two (release_lists), for checks.
 upgrades::update::Verdict check_for_updates(const std::string& current) {
   const char* api = std::getenv("MW3_UPDATE_API");

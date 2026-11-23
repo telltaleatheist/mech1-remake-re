@@ -164,7 +164,7 @@ int main(int argc, char** argv) {
     return 1;
   }
   zgame::set_game(pm::table());
-  // The family folder, BattleTech/Pirate's Moon (Owen 2026-11-22), through its pointer as every start finds it: a
+  // The family folder, BattleTech/Pirate's Moon (2026-11-22), through its pointer as every start finds it: a
   // package moves a player's MicroProse/Pirate's Moon across once (data_folder_start.h, docs/program.md).
   if (a.write_dir.empty() && !sdlfe::data_folder_at_start(&a.write_dir, false, nullptr, "Pirate's Moon")) return 1;
   while (a.write_dir.size() > 1 && a.write_dir.back() == '/') a.write_dir.pop_back();

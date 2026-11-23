@@ -502,7 +502,7 @@ TEST(setup_install_pirates_moon_from_its_disc) {
   EXPECT(slurp(tmp + "/a/Mech3.exe") == slurp(kGame + "/pm/Mech3.exe"));
   EXPECT(slurp(tmp + "/a/zbd/reader.zbd") == slurp(kGame + "/pm/zbd/reader.zbd"));
   EXPECT(same_as_pm(tmp + "/a") && read_back(tmp + "/a"));
-  // An installed copy on disk is copied in (Owen, 2026-11-21: the original may then be deleted); the folder's
+  // An installed copy on disk is copied in (2026-11-21: the original may then be deleted); the folder's
   // own copy, picked again, is used where it is.
   const su::Result b = su::install_from_source(mech3::source::map_source(tmp + "/a"), tmp + "/copy", "", "", tmp + "/write",
                                                nullptr);
