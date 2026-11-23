@@ -60,7 +60,7 @@ def read(path):
 # The first of each is the game's (mw1_upgrades.h, settled 2026-11-22); the rest are the curves weighed against it,
 # the earliest placeholders (0.5M x 1.25, 0.1M x 1.05, 1M x 1.5) among them.
 CURVES = {"sinks": [(3000000, 1150), (500000, 1250), (2000000, 1150), (2000000, 1200), (3000000, 1200)],
-          "armour": [(500000, 1050), (100000, 1050), (300000, 1050), (1000000, 1050), (500000, 1030)],
+          "armour": [(500000, 1050), (100000, 1050), (300000, 1050), (1000000, 1050)],
           "steps": [(5000000, 1400), (1000000, 1500), (3000000, 1500), (5000000, 1500), (8000000, 1500)]}
 CURRENT = {k: v[0] for k, v in CURVES.items()}
 EVAL_MILESTONES = {"sinks": (1, 3, 5, 10, 20, 30), "armour": (10, 25, 50, 100), "steps": (1, 3, 5, 10)}
