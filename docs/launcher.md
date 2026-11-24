@@ -420,6 +420,31 @@ original. The cards' tabs are gone (an old `tab_<card>=` in mw3.cfg is ignored).
 The two sections below are the layouts before it; the game states, the COMING
 SOON rule, the kit's contract and the bottom row are unchanged.
 
+## The copies on this computer (2026-11-24)
+
+"The user should be able to pick what's used. Some copies have music and some
+don't ... Show if anything is missing." GAME FILES, then FIND THE GAME, with a
+copy in use (or Shift held at a game's start) lists every copy of the game the
+launcher finds (`find_copies`): the game's own folder's `install`, mw3.cfg's
+(`install=`, `pm_install=`), the user folder's `install`, the installer's
+places and a drop-in, each once, the one in use first. A row a copy: its
+folder; under it IN USE, the game and its data's version, and what the game
+would lack with it, or "nothing missing":
+
+- MechWarrior 3: music, movies, the 1.2 patch (data 1.0).
+- Pirate's Moon: music, full-quality sounds (a soundsH.zbd without them).
+
+Music and movies the game already has outside the copy (the game folder's,
+the user folder's) count for every copy. A row pressed: "Use these game
+files?" as any find, then copied into the game's folder whole, its music
+and movies with it. The row in use is greyed. PICK ANOTHER opens the one
+picker (a disc image, a download, Mech3.exe); BACK returns. Up to four rows.
+The log: "copy <folder>: <version>[, in use], missing <a> and <b>" (or
+"nothing missing") and "screen copies: IN USE, COPY 2, PICK ANOTHER, BACK".
+`--launcher-screen copies` / `pmcopies` draws it (checks:
+`sdl_program_launcher_lists_the_copies`). MechWarrior (1989) keeps its own
+picker: nothing of it can be missing that way.
+
 ## The family cards (2026-11-22, replaced by the panels 2026-11-24)
 
 2026-11-22, from four mockups (the canvas "Launcher Families"): option
@@ -468,7 +493,13 @@ ORIGINAL:" and "entry INCEPTION REMAKE:".
 The header says BATTLETECH (2026-11-22: the family's launcher), on the cards
 and on the launcher's own screens, the window is "BattleTech", and the corner's
 version reads "BattleTech launcher <v>" (was "MechWarrior 3 Rebuild <v>"); title.png's
-"MW3 REBUILD" is no longer drawn. A game's setup screen keeps its game's name.
+"MW3 REBUILD" is no longer drawn. A game's setup screen keeps its game's name. Since 2026-11-24 ("launcher yes, game
+no"): inside the launcher every screen is headed with the emblem and BATTLETECH,
+the game a setup screen is for named under it in amber; a game started on its
+own (mw3's or mw3pm's own setup, Shift at the start) keeps its badge and name.
+The log's "header <game>" line names the screen's game either way. Every
+button's words are fitted to it (cut in the middle when they must be): a
+plate's clear of its riveted ends (28 px each side), a flat button's 8 px in.
 
 The section below is the card layout before the families (one card a game);
 its panel, badges, square buttons and bottom row are unchanged.

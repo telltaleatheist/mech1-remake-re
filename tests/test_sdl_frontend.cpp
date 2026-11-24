@@ -7025,6 +7025,46 @@ TEST(sdl_program_launcher_splits_play_with_its_update) {
   EXPECT(line.find("MECHWARRIOR 3 UPDATE") == std::string::npos);  // beside this program: no update of its own
 }
 
+// GAME FILES' list (2026-11-24, docs/launcher.md, The copies on this computer): every copy found, the one in use
+// first and marked, each with what the game would lack with it. MW3: mw3.cfg's 1.0 copy in use (it lacks the 1.2
+// patch) and the development 1.2 copy found beside it; Pirate's Moon: mw3.cfg's copy, in use.
+TEST(sdl_program_launcher_lists_the_copies) {
+  namespace fs = std::filesystem;
+  const std::string dir = std::string(MW3_TEST_TMP) + "/launcher_copies";
+  const fs::path mw10 = fs::path(MW3_GAME_DIR).parent_path() / "mw3-1.0", pm = fs::path(MW3_GAME_DIR).parent_path() / "pm";
+  std::error_code ec;
+  if (!fs::is_directory(mw10 / "zbd", ec) || !fs::is_regular_file(pm / "Mech3.exe", ec)) {
+    std::printf("launcher copies: no game/mw3-1.0 or game/pm: skipped\n");
+    return;
+  }
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir + "/wd", ec);
+  std::ofstream(dir + "/wd/mw3.cfg") << "install=" << mw10.string() << "\npm_install=" << pm.string() << "\n";
+  const std::string pm_bin = dir + "/mw3pm";
+  std::ofstream(pm_bin) << "#!/bin/sh\nexit 0\n";
+  fs::permissions(pm_bin, fs::perms::owner_all, ec);
+  setenv("MW3_PM_WRITE_DIR", (dir + "/pmwd").c_str(), 1), setenv("MW3_PM_BIN", pm_bin.c_str(), 1);
+  auto shot = [&](const char* screen) {
+    const std::string log = dir + "/" + screen + ".log";
+    const pid_t pid = spawn_launcher({"--write-dir", dir + "/wd", "--launcher-shot", dir + "/" + screen + ".bmp", "--launcher-screen", screen}, log);
+    int status = 0;
+    EXPECT(waited(pid, &status) && WIFEXITED(status) && WEXITSTATUS(status) == 0);
+    std::ifstream f(log);
+    return std::string((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+  };
+  const std::string mw3 = shot("copies"), pmt = shot("pmcopies");
+  unsetenv("MW3_PM_WRITE_DIR"), unsetenv("MW3_PM_BIN");
+  const std::string in_use = "copy " + mw10.string() + ": 1.0, in use, missing ";
+  std::printf("launcher copies: MW3 in use listed %d (the 1.2 patch %d), the other %d; Pirate's Moon %d\n", has(mw3, in_use.c_str()),
+              has(mw3, "the 1.2 patch\n"), has(mw3, ("copy " + std::string(MW3_GAME_DIR) + ": 1.2").c_str()),
+              has(pmt, ("copy " + pm.string() + ": 1.0, in use").c_str()));
+  EXPECT(has(mw3, in_use.c_str()) && has(mw3, "the 1.2 patch\n"));
+  EXPECT(has(mw3, ("copy " + std::string(MW3_GAME_DIR) + ": 1.2").c_str()));
+  EXPECT(has(mw3, "screen copies: IN USE, COPY 2, PICK ANOTHER, BACK\n"));
+  EXPECT(has(pmt, ("copy " + pm.string() + ": 1.0, in use").c_str()) && has(pmt, "screen copies: IN USE, PICK ANOTHER, BACK\n"));
+  if (!check::failures) fs::remove_all(dir, ec);
+}
+
 // The panels (2026-11-24, docs/launcher.md): a game whose repo has no release says COMING SOON (MW1's ORIGINAL
 // here), one whose repo has one offers DOWNLOAD (Inception Remake, its own panel once it has a release), and a game
 // on the setup kit's contract beside the launcher (Inception Rebuild, a stand-in) shows its --status; its PLAY starts
@@ -7430,7 +7470,9 @@ TEST(sdl_program_shift_at_start_chooses_the_files_again) {
   const std::string a = run(args, dir + "/a.log", &code);
   EXPECT(code == 0 && a.find("Shift held at the start") != std::string::npos && a.find("FIND THE GAME, ADD FROM MY DISC, PLAY") != std::string::npos);
   EXPECT(a.find(std::string("mw3: start only: install ") + MW3_GAME_DIR) != std::string::npos);
-  setenv("MW3_LAUNCHER_NAV", "next,press", 1);  // FIND THE GAME: the picker, another copy, INSTALL
+  // FIND THE GAME: the copies on this computer (2026-11-24), their PICK ANOTHER (before BACK, the last), the picker,
+  // another copy, INSTALL.
+  setenv("MW3_LAUNCHER_NAV", "next,press,prev,prev,press", 1);
   setenv("MW3_LAUNCHER_PICKER", ("path:" + other + "/Mech3Msg.dll").c_str(), 1);
   setenv("MW3_LAUNCHER_GO", "1", 1);
   const std::string b = run(args, dir + "/b.log", &code);
@@ -7439,6 +7481,7 @@ TEST(sdl_program_shift_at_start_chooses_the_files_again) {
   std::printf("  shift: play on %d; find: picker %d, copied %d, started from it %d\n",
               a.find(std::string("start only: install ") + MW3_GAME_DIR) != std::string::npos, b.find("picker asked for") != std::string::npos,
               b.find("copied from Other Copy") != std::string::npos, b.find("start only: install " + dir + "/wd/install") != std::string::npos);
+  EXPECT(b.find("screen copies: IN USE") != std::string::npos && b.find("focus PICK ANOTHER") != std::string::npos);
   EXPECT(code == 0 && b.find("picker asked for") != std::string::npos && b.find("copied from Other Copy") != std::string::npos);
   EXPECT(b.find("mw3: start only: install " + dir + "/wd/install") != std::string::npos);
   if (!check::failures) fs::remove_all(dir, ec);

@@ -56,7 +56,8 @@ constexpr int W = 854, H = 480, kX = (W - 640) / 2;
 constexpr char kAddDiscSub[] = "A disc in a drive, or its image or any file of the disc";
 constexpr int kBadge = 76;  // a game's badge across, on the 640x480 canvas (the other screens' round entries)
 // The main screen's cards (layout C, the mockup's 1280x720 at two thirds): the header, the cards, the bottom row.
-// The setup screens' titles, by header_game(): each game's own, never the launcher's (2026-11-22).
+// The setup screens' game names, by header_game(): the header of a game's own start (2026-11-22); in the launcher
+// the line under BATTLETECH (2026-11-24).
 constexpr const char* kHeaderNames[] = {"MECHWARRIOR 3", "MECHWARRIOR 3: PIRATE'S MOON", "MECHWARRIOR 1 REMAKE", "MECHWARRIOR 1"};
 constexpr int kCardBadge = 100, kCardButtonH = 42;  // the badges as loaded; a panel's buttons' height
 // The main screen's panels (2026-11-24, the download page's look; docs/launcher.md, The panels): one a game, in a
@@ -459,6 +460,17 @@ enum Id {
   kGameUpdate = 120,   // + the game: UPDATE
   kInstallFile = 130, kInstallFileGo,  // ADD FROM FILE; its ADD ANYWAY for a file without SHA256SUMS
   kKitPlay = 150,  // + the game: PLAY for a game on the setup kit's contract (MW1 Rebuild, Inception's two)
+  kCopy = 160,     // + the row: GAME FILES' list of the copies on this computer (2026-11-24), one taken
+  kCopyPick,       // its PICK ANOTHER: the one picker
+};
+
+// A copy of a game's files on this computer, as GAME FILES lists them (2026-11-24: "the user should be able to pick
+// what's used. Some copies have music and some don't"): where, its data's version, whether it is the one in use, and
+// what the game would lack with it (the music and movies the user folder holds count for every copy).
+struct Copy {
+  std::string path, version;
+  bool in_use = false;
+  std::vector<std::string> missing;
 };
 
 struct Install {
@@ -619,7 +631,9 @@ class Launcher {
   Art art_;
   Text text_;
   Text body_;  // the panels' small lines (font_body.ttf)
-  enum Screen { kMain, kSetupScreen, kConfirm, kWorking, kNotes, kDataScreen, kUpdateScreen } screen_ = kMain;
+  enum Screen { kMain, kSetupScreen, kConfirm, kWorking, kNotes, kDataScreen, kUpdateScreen, kCopies } screen_ = kMain;
+  std::vector<Copy> copies_;  // kCopies' rows (find_copies)
+  void find_copies();
   std::vector<std::string> notes_;  // the first start's (launcher_notes)
   std::vector<Button> buttons_;
   int hot_ = -1, focus_ = -1;
@@ -1885,6 +1899,21 @@ void Launcher::layout() {
       add(kBack, {250, 384, 140, 34}, !o_.setup_only ? "BACK" : o_.choose_again && have_files() ? "PLAY" : "QUIT");
       break;
     }
+    case kCopies: {  // GAME FILES' list (2026-11-24): a row a copy, the one in use first, then PICK ANOTHER and BACK
+      const int n = std::min<int>(static_cast<int>(copies_.size()), 4);
+      for (int i = 0; i < n; ++i) {
+        const Copy& c = copies_[i];
+        std::string sub = (files_pm_ ? "Pirate's Moon " : "MechWarrior 3 ") + c.version;
+        sub += c.missing.empty() ? " \xc2\xb7 nothing missing" : " \xc2\xb7 missing: ";
+        for (size_t k = 0; k < c.missing.size(); ++k) sub += (k ? ", " : "") + c.missing[k];
+        if (c.in_use) sub = "IN USE \xc2\xb7 " + sub;
+        add(kCopy + i, {60, 150 + i * 54, 520, 48}, c.path, sub, !c.in_use);  // plate() fits the folder
+        buttons_.back().name = c.in_use ? "IN USE" : "COPY " + std::to_string(i + 1);
+      }
+      add(kCopyPick, {130, 150 + n * 54 + 8, 380, 44}, "PICK ANOTHER", "A disc image, a download (.zip .iso), or Mech3.exe");
+      add(kBack, {250, 150 + n * 54 + 60, 140, 34}, "BACK");
+      break;
+    }
     case kDataScreen:
       add(kDataPick, {130, 250, 380, 46}, "MOVE IT TO ANOTHER FOLDER", "Copied, checked, then switched. The old copy goes only if you say so");
       if (data_elsewhere()) add(kDataUsual, {130, 304, 380, 40}, "MOVE IT BACK TO THE USUAL FOLDER");
@@ -1946,7 +1975,7 @@ void Launcher::layout() {
     }
   }
   {  // the screen and its plates (the checks follow them)
-    static const char* const kNames[] = {"main", "find", "confirm", "work", "notes", "data", "update"};
+    static const char* const kNames[] = {"main", "find", "confirm", "work", "notes", "data", "update", "copies"};
     std::string labels;
     for (const Button& b : buttons_) labels += (labels.empty() ? "" : ", ") + b.log_name();
     std::printf("mw3: launcher: screen %s: %s\n", kNames[screen_], labels.c_str());
@@ -1998,7 +2027,9 @@ void Launcher::background(float dt) {
   const uint32_t amber = SDL_MapSurfaceRGB(canvas_, 255, 176, 64);
   SDL_Rect l1{0, 96, W, 1}, l2{0, H - 49, W, 1};
   SDL_FillSurfaceRect(canvas_, &l1, amber), SDL_FillSurfaceRect(canvas_, &l2, amber);
-  if (game >= 0) {  // a setup screen: the game it sets up, never the launcher's name (the kit names no game)
+  // A game's own setup (mw3 or mw3pm started without the launcher): headed with that game. In the launcher every
+  // screen is headed BATTLETECH, the game a screen is for named under it (2026-11-24: "launcher yes, game no").
+  if (game >= 0 && (o_.setup_only || o_.pm)) {  // the game's own start: its badge and name (the kit names no game)
     const char* name = kHeaderNames[game];
     const int size = text_.width(name, 36) > 520 ? 30 : 36;  // the longer titles kept off the hazard stripes
     const int badge = 64, gap = 16, w = badge + gap + text_.width(name, size), x = (W - w) / 2;
@@ -2009,11 +2040,20 @@ void Launcher::background(float dt) {
     text_.draw(canvas_, name, size, kWhite, x + badge + gap, 48, -1);
   } else {  // the launcher's own screens: the emblem and its name, as the cards' header (title.png's "MW3 REBUILD" retired)
     const int x = (W - text_.width(kLauncherTitle, 40) - 84) / 2;
-    if (art_.emblem) {
-      SDL_Rect e{x, 12, art_.emblem->w, art_.emblem->h};
-      SDL_BlitSurface(art_.emblem, nullptr, canvas_, &e);
+    if (game < 0) {
+      if (art_.emblem) {
+        SDL_Rect e{x, 12, art_.emblem->w, art_.emblem->h};
+        SDL_BlitSurface(art_.emblem, nullptr, canvas_, &e);
+      }
+      text_.draw(canvas_, kLauncherTitle, 40, kWhite, x + 84, 48, -1);
+    } else {  // the emblem a little smaller, the game this screen is for under the name
+      if (art_.emblem) {
+        SDL_Rect e{x + 4, 14, 66, 66};
+        SDL_BlitSurfaceScaled(art_.emblem, nullptr, canvas_, &e, SDL_SCALEMODE_LINEAR);
+      }
+      text_.draw(canvas_, kLauncherTitle, 38, kWhite, x + 84, 38, -1);
+      text_.draw(canvas_, kHeaderNames[game], 15, kAmber, x + 86, 72, -1);
     }
-    text_.draw(canvas_, kLauncherTitle, 40, kWhite, x + 84, 48, -1);
   }
 }
 
@@ -2288,12 +2328,13 @@ void Launcher::plate(const Button& b, bool hot) {
         mid = whole + half + 8 <= r.x + r.w ? whole : cx;
       }
     const int big = b.style == Button::kFlat ? 15 : 18;
+    const int room = r.w - 16;  // every word inside its button (2026-11-24), cut in the middle when it must be
     if (b.sub.empty()) {
-      text_.draw(canvas_, b.label, big, ink, mid, cy + 1);
+      text_.draw(canvas_, text_.fit(b.label, big, room, 3), big, ink, mid, cy + 1);
     } else {
-      text_.draw(canvas_, b.label, big, ink, mid, cy - 7);
+      text_.draw(canvas_, text_.fit(b.label, big, room, 3), big, ink, mid, cy - 7);
       const SDL_Color dim = amber && b.enabled ? SDL_Color{0x3a, 0x2a, 0x10, 255} : b.enabled ? SDL_Color{0xb9, 0xbf, 0xc6, 255} : kGrey;
-      text_.draw(canvas_, b.sub, 11, dim, mid, cy + 11);
+      text_.draw(canvas_, text_.fit(b.sub, 11, room, b.sub_keep), 11, dim, mid, cy + 11);
     }
     return;
   }
@@ -2337,13 +2378,15 @@ void Launcher::plate(const Button& b, bool hot) {
   const SDL_Color c = !b.enabled ? kGrey : hot ? kAmber : kWhite;
   const int cx = r.x + r.w / 2, cy = r.y + r.h / 2;
   const int big = r.h >= 50 ? 22 : r.h >= 40 ? 20 : 18;
+  // Every word inside the plate, clear of its riveted ends (2026-11-24): a long one (a folder) cut in the middle.
+  const int room = r.w - 56;
   if (b.sub.empty()) {
-    text_.draw(canvas_, b.label, big, c, cx, cy + 1);
+    text_.draw(canvas_, text_.fit(b.label, big, room, 3), big, c, cx, cy + 1);
   } else {
     // The line under the name stays inside the plate, above the art's rule along its bottom (it ran through
     // the letters; playtest W3).
-    text_.draw(canvas_, b.label, big, c, cx, cy - 11);
-    text_.draw(canvas_, text_.fit(b.sub, 12, r.w - 20, b.sub_keep), 12, b.enabled ? kDim : kGrey, cx, cy + 8);
+    text_.draw(canvas_, text_.fit(b.label, big, room, 3), big, c, cx, cy - 11);
+    text_.draw(canvas_, text_.fit(b.sub, 12, room, b.sub_keep), 12, b.enabled ? kDim : kGrey, cx, cy + 8);
   }
 }
 
@@ -2383,6 +2426,10 @@ void Launcher::draw(float dt) {
         text_.draw(canvas_, text_.fit(files_pm_ ? pm_in_use() : in_use(), 13, 480), 13, kDim, W / 2, 190);
       break;
     }
+    case kCopies:
+      text_.draw(canvas_, files_pm_ ? "PIRATE'S MOON ON THIS COMPUTER" : "MECHWARRIOR 3 ON THIS COMPUTER", 20, kAmber, W / 2, 112);
+      text_.draw(canvas_, "Pick the copy to use: it is copied into the game's folder, with its music and movies.", 13, kDim, W / 2, 134);
+      break;
     case kNotes: {
       text_.draw(canvas_, "BEFORE YOU PLAY", 24, kAmber, W / 2, 128);
       const NotesLayout l = notes_layout();
@@ -3010,6 +3057,65 @@ void Launcher::look_at(const std::string& path) {
   layout();
 }
 
+// GAME FILES' list (2026-11-24): every copy of the game this computer holds where the launcher looks (the game's own
+// folder, mw3.cfg's, the user folder's, the installer's places and a drop-in), each once, the one in use first; each
+// with what the game would lack with it: the music and the movies (MW3), the music and the full sounds (Pirate's
+// Moon). Music or movies the user folder already holds count for every copy.
+void Launcher::find_copies() {
+  copies_.clear();
+  std::vector<std::string> tries;
+  std::string in_use;
+  std::error_code ec;
+  const std::string games_key = std::string("games_") + upgrades::update::game_info(upgrades::update::kGames[files_pm_ ? 1 : 0]).key;
+  std::string place = games_place_[files_pm_ ? 1 : 0];
+  if (place.empty() && !o_.write_dir.empty()) place = cfg_path(o_.write_dir, games_key);
+  if (!place.empty()) tries.push_back((fs::path(place) / "install").make_preferred().string());
+  if (files_pm_) {
+    in_use = pm_dir_;
+    if (!o_.cfg_pm_install.empty()) tries.push_back(o_.cfg_pm_install);
+    if (!pm_wd().empty()) tries.push_back((fs::path(pm_wd()) / "install").string());
+    for (const std::string& c : sdlfe::install_candidates(true)) tries.push_back(c);
+  } else {
+    in_use = install_.ok ? install_.dir : std::string();
+    if (!o_.cfg_install.empty()) tries.push_back(o_.cfg_install);
+    if (!o_.write_dir.empty()) tries.push_back((fs::path(o_.write_dir) / "install").string());
+    for (const std::string& c : install_candidates()) tries.push_back(c);
+    for (const std::string& c : o_.more_installs) tries.push_back(c);
+  }
+  if (!in_use.empty()) tries.insert(tries.begin(), in_use);
+  const std::string wd = files_pm_ ? pm_wd() : o_.write_dir;
+  const std::string media_music = (fs::path(files_pm_ ? pm_media() : media()) / "music").string();
+  for (const std::string& d : tries) {
+    if (d.empty() || !fs::is_directory(d, ec)) continue;
+    bool seen = false;
+    for (const Copy& c : copies_) seen = seen || fs::equivalent(c.path, d, ec);
+    if (seen) continue;
+    if (files_pm_ ? !is_pm_install(mech3::source::map_source(d)) : !install_valid(d)) continue;
+    const mech3::setup::Result r = mech3::setup::check_install(d, wd, files_pm_);
+    if (!files_pm_ && !r.ok) continue;
+    Copy c;
+    c.path = d, c.version = r.version.empty() ? "unknown" : r.version;
+    c.in_use = !in_use.empty() && fs::equivalent(d, in_use, ec);
+    const std::string own_music = zutl::any_case(d, "music");
+    if (!have_music({own_music.empty() ? (fs::path(d) / "music").string() : own_music, media_music, (fs::path(wd) / "music").string()}))
+      c.missing.push_back("music");
+    if (files_pm_) {
+      for (const std::string& w : r.warnings)
+        if (w.find("soundsH.zbd") != std::string::npos) c.missing.push_back("full-quality sounds");
+    } else {
+      if (!have_movies(d, media())) c.missing.push_back("movies");  // as notes_refresh: the copy's video\, the game folder's
+      if (c.version == "1.0" || c.version == "1.0 with 1.2 files") c.missing.push_back("the 1.2 patch");
+    }
+    std::printf("mw3: launcher: copy %s: %s%s%s\n", d.c_str(), c.version.c_str(), c.in_use ? ", in use" : "",
+                c.missing.empty() ? ", nothing missing" : (", missing " + [&] {
+                  std::string m;
+                  for (const std::string& x : c.missing) m += (m.empty() ? "" : " and ") + x;
+                  return m;
+                }()).c_str());
+    copies_.push_back(std::move(c));
+  }
+}
+
 // The automatic search: an installed copy (mw3.cfg's, the installer's
 // places), else a disc in a drive (looked into as if picked).
 void Launcher::search() {
@@ -3029,10 +3135,10 @@ void Launcher::search() {
   }
   // GAME FILES, the player choosing again: the copy in use is no answer; the picker for another (2026-11-21).
   const std::string in_use = files_pm_ ? pm_dir_ : install_.ok ? install_.dir : "";
-  if ((from_files_ || o_.choose_again) && !in_use.empty()) {
-    status_ = "In use: " + in_use + ". Pick another copy: a disc image, a download, or Mech3.exe.", status_good_ = true;
-    screen_ = kSetupScreen, layout();
-    ask_file(kPoint, kGameFiles, 2);
+  if ((from_files_ || o_.choose_again) && !in_use.empty()) {  // every copy on this computer, what each lacks (2026-11-24)
+    find_copies();
+    status_.clear();
+    screen_ = kCopies, layout();
     return;
   }
   const std::vector<mech3::setup::DiscSource> discs = mech3::setup::find_discs();
@@ -3195,6 +3301,12 @@ void Launcher::activate(int id) {
     sounds_.play(Sounds::kSelect);
     mw1_last_ = id == kKitPlay + 3, pm_last_ = files_pm_ = false;
     return run_kit(id - kKitPlay);
+  }
+  if (id >= kCopy && id < kCopy + static_cast<int>(copies_.size()) && id < kCopyPick) {  // a copy from GAME FILES' list
+    sounds_.play(Sounds::kSelect);
+    const Copy& c = copies_[id - kCopy];
+    if (c.in_use) return;
+    return look_at(c.path);  // "Use these game files?", then copied in as any find
   }
   sounds_.play(Sounds::kSelect);
   static const SDL_DialogFileFilter kZip[] = {{"The 1.2 patch (.zip, .exe)", "zip;exe"}, {"All files", "*"}};
@@ -3377,6 +3489,7 @@ void Launcher::activate(int id) {
       else if (screen_ == kConfirm && confirm_go_ == 7) place_game_ = -1, screen_ = kMain, layout();  // INSTALL's where: nothing done
       else if (screen_ == kConfirm) screen_ = kSetupScreen, layout();
       else if (screen_ == kDataScreen) screen_ = kSetupScreen, status_.clear(), layout();
+      else if (screen_ == kCopies) screen_ = kSetupScreen, status_.clear(), layout();
       else screen_ = kMain, from_files_ = false, status_.clear(), layout();
       break;
     case kNotesOk:
@@ -3394,6 +3507,11 @@ void Launcher::activate(int id) {
       }
       break;
     case kFind: search(); break;  // the usual places and the drives first, then the one picker
+    case kCopyPick:
+      status_ = "Pick the copy to use: a disc image, a download, or Mech3.exe.", status_good_ = true;
+      screen_ = kSetupScreen, layout();
+      ask_file(kPoint, kGameFiles, 2);
+      break;
     case kPickOther:  // the found copy passed over: the one picker
       if (confirm_go_ == 5) {  // MechWarrior (1989)'s: its picker, from the main screen
         status_ = "Pick your MechWarrior (1989): its BTECH.EXE, or the download it came in (.zip).", status_good_ = true;
@@ -3568,6 +3686,8 @@ LauncherChoice Launcher::run() {
       if (update_->kind == upgrades::update::Verdict::kNewer) show_update();
     }
     if (o_.screen == "disc") status_ = "No disc in a drive. Pick its image (.cue .iso) or any file of the disc.";
+    if (o_.screen == "copies" || o_.screen == "pmcopies")  // GAME FILES' list, MW3's or Pirate's Moon's
+      files_pm_ = o_.screen == "pmcopies", from_files_ = true, find_copies(), screen_ = kCopies;
     if (o_.screen == "work") {
       screen_ = kWorking;
       work_ = std::make_unique<Work>();
