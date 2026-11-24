@@ -38,7 +38,7 @@ original.
 
 ### Coming in the next release
 
-Nothing yet.
+- **The launcher:** PLAY is centred beside UPDATE.
 
 **1.3.6 (2026-11-24)** (the full notes are in
 [docs/release-notes-1.3.6.md](docs/release-notes-1.3.6.md)): fixes: Linux with

@@ -2555,26 +2555,17 @@ void Launcher::plate(const Button& b, bool hot) {
       text_.draw(canvas_, "UPDATE", 10, ink, cx, r.y + r.h - 9);  // the version is on the card ("say update")
       return;
     }
-    // A split's PLAY: its words on the whole button's middle, as an unsplit one's (it looked off), unless they
-    // would reach the divider.
-    int mid = cx;
-    for (size_t i = 0; i + 1 < buttons_.size(); ++i)
-      if (&buttons_[i] == &b && buttons_[i + 1].seg) {
-        const int whole = r.x + (r.w + buttons_[i + 1].r.w) / 2;
-        const int half = std::max(text_.width(b.label, b.style == Button::kFlat ? 15 : 18), b.sub.empty() ? 0 : text_.width(b.sub, 11)) / 2;
-        mid = whole + half + 8 <= r.x + r.w ? whole : cx;
-      }
     const int big = b.style == Button::kFlat ? 15 : 18;
     const int room = r.w - 16;  // every word inside its button, smaller when it must be (2026-11-24)
     int z = big, zs = 11;
     const std::string label = text_.shrink(b.label, big, 11, room, &z, 3);
     if (b.sub.empty()) {
-      text_.draw(canvas_, label, z, ink, mid, cy + 1);
+      text_.draw(canvas_, label, z, ink, cx, cy + 1);
     } else {
-      text_.draw(canvas_, label, z, ink, mid, cy - 7);
+      text_.draw(canvas_, label, z, ink, cx, cy - 7);
       const SDL_Color dim = amber && b.enabled ? SDL_Color{0x3a, 0x2a, 0x10, 255} : b.enabled ? SDL_Color{0xb9, 0xbf, 0xc6, 255} : kGrey;
       const std::string sub = text_.shrink(b.sub, 11, 9, room, &zs, b.sub_keep);
-      text_.draw(canvas_, sub, zs, dim, mid, cy + 11);
+      text_.draw(canvas_, sub, zs, dim, cx, cy + 11);
     }
     return;
   }

@@ -1233,7 +1233,8 @@ release.
   download's size) where PLAY goes; offline it says it can't reach the
   server and points to ADD FROM FILE. An installed game with a newer
   release splits its PLAY button (2026-11-22: "the main button can
-  be play, and there can be a divider on the end"): PLAY, a short divider,
+  be play, and there can be a divider on the end"): PLAY (its word centred
+  in its own part, 2026-11-24), a short divider,
   and at its end a download arrow over the version, which is that game's
   UPDATE (its own button for clicks, focus and the checks, logged as
   "<GAME> UPDATE"). Since the family cards each tab's game splits its own
