@@ -79,6 +79,9 @@ view, the main menu, the lab; seeded, `--frame-ms 33`) and by mw3sdltests
    one for textures, one for vertices, mapped with cycle; they had been
    made and released per upload and per scene. Checked also in a visible
    4K window (the GPU busy): 60 fps as before.
+   Textures' uploads since go one after another into the buffer, cycled
+   only when it is full: one cycle an upload kept a buffer per texture
+   under Vulkan (4 GB for c2m1; docs/linux.md, Out of memory on NVIDIA).
 4. **The RGBA table**: 64K entries a format, made once. Test
    `sdl_layer_rgba_table_matches_the_bits` (all 65536 values of both
    formats; a 555 table built as 565 caught).

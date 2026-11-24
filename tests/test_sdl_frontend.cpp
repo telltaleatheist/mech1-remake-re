@@ -3022,6 +3022,22 @@ TEST(sdl_install_any_case_finds_the_files) {
   EXPECT(in_named_mount);
 }
 
+// Issue #10: mw3 started on its own finds its game folder's files first (the mark above its program).
+TEST(sdl_install_own_game_files_from_the_program) {
+  namespace fs = std::filesystem;
+  const std::string g = std::string(MW3_TEST_TMP) + "/own_files/MechWarrior 3", bin = g + "/mw3/mw3.app/Contents/Resources";
+  std::error_code ec;
+  fs::remove_all(std::string(MW3_TEST_TMP) + "/own_files", ec);
+  fs::create_directories(bin, ec);
+  EXPECT(sdlfe::own_game_files("mw3", bin).empty());  // no mark
+  std::ofstream(g + "/rebuild-game-folder.txt") << "# a game's folder\ngame=mw3\n";
+  EXPECT(sdlfe::own_game_files("mw3", bin).empty());  // no install/ yet
+  fs::create_directories(g + "/install", ec);
+  EXPECT(fs::path(sdlfe::own_game_files("mw3", bin)) == fs::path(g + "/install").make_preferred());
+  EXPECT(sdlfe::own_game_files("pm", bin).empty());  // another game's folder
+  fs::remove_all(std::string(MW3_TEST_TMP) + "/own_files", ec);
+}
+
 TEST(sdl_install_is_found_and_saved) {
   namespace fs = std::filesystem;
   const std::string game = MW3_GAME_DIR, tmp = std::string(MW3_TEST_TMP) + "/sdl_install";
@@ -7498,6 +7514,42 @@ TEST(sdl_program_launcher_stays_when_the_game_fails_or_is_slow) {
 // screen (FIND THE GAME, BACK; no Setup, Search, Folder or Patch); a game
 // found there starts at once, through the notes when the install lacks
 // movies or music (their ADD FROM MY DISC), the notes' OK the start.
+// Issue #10 (2026-11-23): the game installed on another drive (its card's folder, games_mw3=), mw3.cfg's install=
+// still naming an older rebuild's copy (left on C:). The game folder's own install/ is used first; without one,
+// the older copy is offered and copied in (MW3_LAUNCHER_GO presses INSTALL), never used in place or touched.
+TEST(sdl_program_launcher_takes_the_game_folders_own_files_first) {
+  namespace fs = std::filesystem;
+  auto setup = [](bool own) {
+    return [own](const std::string& d) {
+      const std::string g = d + "/drive/MechWarrior 3";
+      std::error_code ec;
+      fs::create_directories(g, ec);
+      std::ofstream(g + "/rebuild-game-folder.txt") << "# a game's folder\ngame=mw3\n";
+      if (own) fs::create_directory_symlink(MW3_GAME_DIR, g + "/install", ec);
+      std::ofstream(d + "/wd/mw3.cfg") << "install=" << MW3_GAME_DIR << "\ngames_mw3=" << g << "\n";
+    };
+  };
+  const auto env = std::vector<std::pair<std::string, std::string>>{{"MW3_FIND_INSTALL", "1"}, {"MW3_LAUNCHER_GO", "1"},
+                                                                  {"MW3_LAUNCHER_FRAMES", "1800"}};
+  const LauncherRun a = run_launcher_with("launcher_own_files", "READY\nsleep 2", nullptr, env, setup(true));
+  const std::string ga = std::string(MW3_TEST_TMP) + "/launcher_own_files/drive/MechWarrior 3";
+  std::printf("own files: started with %s\n", a.args.empty() ? "-" : a.args[0].c_str());
+  EXPECT(a.exited && !a.args.empty() && fs::path(a.args[0]) == fs::path(ga + "/install").make_preferred());
+  EXPECT(!has(a.log, "offered to copy them in") && !has(a.log, "copied from"));
+  const LauncherRun b = run_launcher_with("launcher_own_files_old", "READY\nsleep 2", nullptr, env, setup(false));
+  const std::string gb = std::string(MW3_TEST_TMP) + "/launcher_own_files_old/drive/MechWarrior 3";
+  std::error_code ec;
+  const std::string in_use = "Found MechWarrior 3 1.2 at " + fs::path(gb + "/install").make_preferred().string() + ".";
+  std::printf("old copy only: offered %d, copied %d, in use after %d\n", has(b.log, "offered to copy them in"),
+              has(b.log, "copied from"), has(b.log, in_use.c_str()));
+  // The copy's notes (no music yet) end on the games, as a player's pick does (W13): nothing started.
+  EXPECT(b.exited && has(b.log, "offered to copy them in") && has(b.log, "copied from") && has(b.log, in_use.c_str()));
+  EXPECT(fs::exists(gb + "/install/mw3-install.txt", ec) && fs::is_directory(std::string(MW3_GAME_DIR) + "/zbd", ec));
+  std::ifstream cfg(std::string(MW3_TEST_TMP) + "/launcher_own_files_old/wd/mw3.cfg");
+  const std::string cfg_text((std::istreambuf_iterator<char>(cfg)), std::istreambuf_iterator<char>());
+  EXPECT(cfg_text.find("install=" + gb + "/install") != std::string::npos);
+}
+
 TEST(sdl_program_launcher_finds_the_game_then_plays) {
   auto screen = [](const std::string& log, const char* line) { return log.find(line) != std::string::npos; };
   const auto none = std::vector<std::pair<std::string, std::string>>{{"MW3_FIND_INSTALL", "1"}, {"MW3_LAUNCHER_FRAMES", "20"}};

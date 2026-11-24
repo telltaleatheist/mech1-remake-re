@@ -51,6 +51,10 @@ constexpr const char* kGameFolderMark = "rebuild-game-folder.txt";
 // Where the game's music and converted movies go and are looked for: the folder above `install` when it is a
 // game's own folder (the mark), else the user folder `write_dir`, as before.
 std::string media_dir(const std::string& install, const std::string& write_dir);
+// The game files in this program's own game folder (issue #10, 2026-11-23): the nearest folder above `from` (this
+// program's folder when empty) carrying the mark with game=`key`, its install/; "" when there is none, the mark is
+// another game's, or it holds no install/ yet.
+std::string own_game_files(const std::string& key, const std::string& from = {});
 
 // mw3.cfg's install= line set to `install` (added, or replacing the old one),
 // the other lines kept; false when the file cannot be written.

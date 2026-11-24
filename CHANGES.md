@@ -220,6 +220,7 @@ unusual happens.
 - Salvaging a mech with a weapon that has no definition skips that weapon instead of crashing.
 - Losing a field base while carrying 64 or more spare mechs no longer overruns the game's list of them (which could crash).
 - Cycling the field bases' dock points (MFB, then N or Shift+N) onto the list's empty first entry no longer reads through nothing on the radar and the edge arrow (which could crash); no marker is shown there.
+- Sending the field bases to that empty first entry (MFB, N or Shift+N onto it, then MFB) no longer locks the field bases for the rest of the mission: they were sent nowhere, never arrived, and every later call was refused. The bases now answer "wait for position" until a real point is picked (issue #10).
 - A nav point file linking to a node that is not there no longer reads or writes past the game's lists (no shipped file does).
 - The waypoint arrows' images are all released at the end of a mission (two of the four sides were kept, a small leak each mission).
 - The waypoint arrow no longer keeps an image the last mission let go: the next mission's first arrow at the screen's right or bottom edge read that freed image's size, which on today's systems can crash the game.
@@ -439,6 +440,8 @@ Details: [`docs/protection.md`](docs/protection.md).
 These change how the game talks to the computer, not how it plays.
 
 - A Pirate's Moon bridge's weight limit takes the same time at any frame rate; the original's ran per frame.
+- The game uses the game files in the folder you installed it to, even when an earlier version left a copy somewhere else (another drive) that the settings still named; with no copy in the game's folder, the launcher offers to copy that one in (issue #10).
+- Loading a mission under Vulkan (Linux) no longer takes gigabytes of memory: each texture's upload kept a buffer of its own, about 4 GB for a mission, which crashed NVIDIA's Linux driver going from the mech lab into a mission (issue #7). The log now names the graphics card and its driver.
 - On Windows the game can be installed, and keep its data, in a folder whose name has any letters, and it works for a Windows user name with accents (Windows 10 version 1903 or later; before that, it says so and asks for plain English letters). A pilot or file name with accents from an earlier version of the rebuild is put right at the next start.
 - The graphics options no longer offer the software renderer, which the rebuild does not have: the video device list shows your graphics card only, and a setting saved by the original or an older rebuild that chose software starts on the card.
 - **Distant ground and walls no longer shimmer.** The original's textures had one size, so far away their detail broke into flickering speckles as you moved. Each texture now has smaller copies the graphics card blends between at a distance (mipmaps, with anisotropic filtering so ground seen at a slant keeps its grain). Trees, shrubs and fences keep their outline at a distance instead of fading or growing a dark halo; the menus, the HUD and the 2D screens are drawn as before.

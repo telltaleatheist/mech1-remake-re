@@ -108,6 +108,9 @@ class SdlRender3D : public platform::Render3D {
   std::map<uint32_t, SDL_GPUSampler*> samplers_;
   std::vector<SDL_GPUTexture*> textures_;
   std::vector<bool> mipped_;  // each texture's: made with its levels
+  std::vector<uint64_t> tex_bytes_;  // each live texture's size with its levels (0 once released), for the count
+  uint64_t presents_ = 0;
+  uint64_t n_scenes_ = 0, n_uploads_ = 0, upload_bytes_ = 0, n_readbacks_ = 0, n_holds_ = 0;  // since the last count
   float mip_bias_ = 0.0f;     // set_mip_bias, to the shader (fog.w): Metal ignores the sampler's bias
   SDL_GPUTexture* depth_ = nullptr;
   uint32_t depth_w_ = 0, depth_h_ = 0;
@@ -117,9 +120,11 @@ class SdlRender3D : public platform::Render3D {
   struct Staging {
     SDL_GPUTransferBuffer* buf = nullptr;
     uint32_t size = 0;
+    uint32_t used = 0;  // textures': bytes written since the last cycle
   };
   Staging tex_staging_, vert_staging_;
   void* map_staging(Staging& s, uint32_t bytes);  // mapped, cycled when the GPU may still read it
+  void* map_tex_staging(uint32_t bytes, uint32_t* offset);  // the next free part, cycled when full
   std::vector<platform::TLVertex> vertices_;
   std::vector<Run> runs_;
   int vx_ = 0, vy_ = 0, vw_ = 640, vh_ = 480;

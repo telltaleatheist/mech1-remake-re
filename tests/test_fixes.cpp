@@ -1709,6 +1709,53 @@ TEST(fix_waynet_arrow_lets_go_of_released_images) {
   zfix::set_all(saved_bugs);
 }
 
+// FIX (bug), issue #10: the MFB command's second press with the waynet's element 0 selected (its default behaviour,
+// shown as an empty op point that N cycles onto). The exe asks the dock for it and the bases never come; the fix keeps
+// the command waiting for a point. A real point is asked for either way.
+TEST(fix_mfb_command_waits_for_a_point) {
+  using namespace mech3;
+  struct Hooks : WaynetHooks {
+    Handle mission = nullptr;
+    int asked = 0, waits = 0;
+    void image_path(const char*) override {}
+    Handle icon_make(const char*) override { return nullptr; }
+    void icon_free(Handle) override {}
+    Handle image_get(const char*) override { return nullptr; }
+    void image_release(Handle) override {}
+    int32_t bases_alive() override { return 1; }
+    void dock_message(Handle) override { ++asked; }
+    void say(int32_t line) override { waits += line == 4; }
+    Handle mission_waynet() override { return mission; }
+    void set_mission_waynet(Handle w) override { mission = w; }
+  } hooks;
+  const bool saved_bugs = zfix::all();
+  const int32_t saved_icons = waynet_icons_count();
+  set_waynet_hooks(&hooks);
+  for (int fix = 0; fix < 2; ++fix) {
+    for (int empty = 0; empty < 2; ++empty) {
+      zfix::set_all(fix != 0);
+      waynet_icons_count() = 1;  // this waynet's own, never dropped here
+      auto* mcb = new McbWaynet(10050, "mcbwaynet");
+      const float at[3] = {10, 0, 20};
+      mcb->add(new WaynetPoint("p", "mfb1", at, nullptr, 0, 1, 0, 1, 0, 0));
+      EXPECT(mcb->count() == 2 && !as_point(mcb->elem(0)) && as_point(mcb->elem(1)));
+      mcb->current = empty ? 0 : 1;
+      mcb->step = 1;
+      hooks.mission = mcb, hooks.asked = hooks.waits = 0;
+      mcb->command(nullptr);
+      const bool waits = fix && empty;
+      EXPECT(hooks.asked == (waits ? 0 : 1));
+      EXPECT(mcb->step == (waits ? 1 : 2));
+      EXPECT(hooks.waits == (waits ? 1 : 0));
+      hooks.mission = nullptr;
+      delete mcb;
+    }
+  }
+  set_waynet_hooks(nullptr);
+  waynet_icons_count() = saved_icons;
+  zfix::set_all(saved_bugs);
+}
+
 // Artemis IV's double tracking (FIX (bug); weapons.md, Homing): a shot fired
 // locked with FCS carries 2 in its +0x5c0, which the exe's homing never reads
 // (it reads the global, reset to 1 by the spawn). The same five-missile salvo
