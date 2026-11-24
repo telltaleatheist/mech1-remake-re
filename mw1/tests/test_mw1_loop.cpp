@@ -6915,9 +6915,13 @@ TEST(mw1_balance_soak_campaigns_played_headless) {
           else ++bar_tries;
           return false;
         }
-        if (want && !sc->visible(mw1::kBarHire) && sc->visible(mw1::kBarCrew)) return ++bar_tries, sc->on_button(mw1::kBarCrew, 0, 0), false;
+        // RECRUIT CREW only with someone on offer: a world with no recruits shows HIRE greyed, and CREW, DONE, CREW ...
+        // went round for ever (the tries were reset at each DONE). DONE keeps the tries; only leaving the Bar resets them.
+        if (want && !c->recruits.empty() && !sc->visible(mw1::kBarHire) && sc->visible(mw1::kBarCrew))
+          return ++bar_tries, sc->on_button(mw1::kBarCrew, 0, 0), false;
+        if (sc->visible(mw1::kBarDone)) return sc->on_button(mw1::kBarDone, 0, 0), false;
         bar_tries = 0;
-        return sc->on_button(sc->visible(mw1::kBarDone) ? mw1::kBarDone : mw1::kBarBack, 0, 0), false;
+        return sc->on_button(mw1::kBarBack, 0, 0), false;
       }
       if (mw1::MarketState* ms = mw1::game_loop_market(); showing(app, ms)) return ms->escape(), false;
       if (mw1::OfficeState* os = mw1::game_loop_office(); showing(app, os)) {
@@ -10449,7 +10453,9 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
         const bool spare = c->hangar.size() > c->lance.size();
         if (spare && c->lance.size() < 3 && sc->visible(mw1::kBarHire) && sc->enabled(mw1::kBarHire) && c->funds > 600000)
           return ++hires, sc->on_button(mw1::kBarHire, 0, 0), false;
-        if (spare && c->lance.size() < 3 && !sc->visible(mw1::kBarHire) && sc->visible(mw1::kBarCrew) && c->funds > 600000)
+        // Only with someone on offer (as the balance soak): no recruits, CREW and DONE would go round for ever.
+        if (spare && c->lance.size() < 3 && !c->recruits.empty() && !sc->visible(mw1::kBarHire) && sc->visible(mw1::kBarCrew) &&
+            c->funds > 600000)
           return sc->on_button(mw1::kBarCrew, 0, 0), false;
         const bool ready = lance_ready(*c, l.rung);
         if (ready && l.place == mw1::journal::Place::kBar && (l.planet < 0 || l.planet == mw1::planet_index(c->planet_number)) &&
