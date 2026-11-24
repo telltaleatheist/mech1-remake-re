@@ -498,8 +498,11 @@ no"): inside the launcher every screen is headed with the emblem and BATTLETECH,
 the game a setup screen is for named under it in amber; a game started on its
 own (mw3's or mw3pm's own setup, Shift at the start) keeps its badge and name.
 The log's "header <game>" line names the screen's game either way. Every
-button's words are fitted to it (cut in the middle when they must be): a
-plate's clear of its riveted ends (28 px each side), a flat button's 8 px in.
+button's words fit inside it: drawn smaller, down to a floor (a plate's name
+13, its line 10; a flat button's 11 and 9), until they fit, and only what
+still does not fit at the floor (a long folder's path) is cut in the middle,
+never a button's own name ("it should never say CHANG...LDER"). A plate keeps
+16 px clear at each end for its rivets, a flat button 8.
 
 The section below is the card layout before the families (one card a game);
 its panel, badges, square buttons and bottom row are unchanged.

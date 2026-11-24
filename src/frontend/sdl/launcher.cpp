@@ -288,6 +288,14 @@ struct Text {
     };
     return fit_middle(s, keep, width, w_of);
   }
+  // A button's words at `size`, or the largest size down to `least` at which they fit `width` (2026-11-24: "shrink
+  // the text to make it fit ... it should never say CHANG...LDER"). Only what still does not fit at `least` (a
+  // folder's path) is cut in the middle. `*used` gets the size.
+  std::string shrink(const std::string& s, int size, int least, int width, int* used, size_t keep = 0) {
+    for (int z = size; z >= least; --z)
+      if (this->width(s, z) <= width) return *used = z, s;
+    return *used = least, fit(s, least, width, keep);
+  }
   // Wrapped to `width`, lines centred on x from y; the height drawn.
   // `s` as lines no wider than `width` (its own '\n's kept).
   std::vector<std::string> wrap(const std::string& s, int size, int width) {
@@ -2328,13 +2336,16 @@ void Launcher::plate(const Button& b, bool hot) {
         mid = whole + half + 8 <= r.x + r.w ? whole : cx;
       }
     const int big = b.style == Button::kFlat ? 15 : 18;
-    const int room = r.w - 16;  // every word inside its button (2026-11-24), cut in the middle when it must be
+    const int room = r.w - 16;  // every word inside its button, smaller when it must be (2026-11-24)
+    int z = big, zs = 11;
+    const std::string label = text_.shrink(b.label, big, 11, room, &z, 3);
     if (b.sub.empty()) {
-      text_.draw(canvas_, text_.fit(b.label, big, room, 3), big, ink, mid, cy + 1);
+      text_.draw(canvas_, label, z, ink, mid, cy + 1);
     } else {
-      text_.draw(canvas_, text_.fit(b.label, big, room, 3), big, ink, mid, cy - 7);
+      text_.draw(canvas_, label, z, ink, mid, cy - 7);
       const SDL_Color dim = amber && b.enabled ? SDL_Color{0x3a, 0x2a, 0x10, 255} : b.enabled ? SDL_Color{0xb9, 0xbf, 0xc6, 255} : kGrey;
-      text_.draw(canvas_, text_.fit(b.sub, 11, room, b.sub_keep), 11, dim, mid, cy + 11);
+      const std::string sub = text_.shrink(b.sub, 11, 9, room, &zs, b.sub_keep);
+      text_.draw(canvas_, sub, zs, dim, mid, cy + 11);
     }
     return;
   }
@@ -2378,15 +2389,19 @@ void Launcher::plate(const Button& b, bool hot) {
   const SDL_Color c = !b.enabled ? kGrey : hot ? kAmber : kWhite;
   const int cx = r.x + r.w / 2, cy = r.y + r.h / 2;
   const int big = r.h >= 50 ? 22 : r.h >= 40 ? 20 : 18;
-  // Every word inside the plate, clear of its riveted ends (2026-11-24): a long one (a folder) cut in the middle.
-  const int room = r.w - 56;
+  // Every word inside the plate, clear of the rivets in its corners, smaller when it must be (2026-11-24); only a
+  // folder's path too long even then is cut in the middle.
+  const int room = r.w - 32;
+  int z = big, zs = 12;
+  const std::string label = text_.shrink(b.label, big, 13, room, &z, 3);
   if (b.sub.empty()) {
-    text_.draw(canvas_, text_.fit(b.label, big, room, 3), big, c, cx, cy + 1);
+    text_.draw(canvas_, label, z, c, cx, cy + 1);
   } else {
     // The line under the name stays inside the plate, above the art's rule along its bottom (it ran through
     // the letters; playtest W3).
-    text_.draw(canvas_, text_.fit(b.label, big, room, 3), big, c, cx, cy - 11);
-    text_.draw(canvas_, text_.fit(b.sub, 12, room, b.sub_keep), 12, b.enabled ? kDim : kGrey, cx, cy + 8);
+    text_.draw(canvas_, label, z, c, cx, cy - 11);
+    const std::string sub = text_.shrink(b.sub, 12, 10, room, &zs, b.sub_keep);
+    text_.draw(canvas_, sub, zs, b.enabled ? kDim : kGrey, cx, cy + 8);
   }
 }
 
