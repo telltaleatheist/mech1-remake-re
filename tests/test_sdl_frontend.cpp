@@ -7738,6 +7738,21 @@ TEST(sdl_program_launcher_starts_mechwarrior_1) {
   EXPECT(zargs.find(" --mw1-game " + dir + "/wd/mw1/game --no-launcher") != std::string::npos);
   EXPECT(std::filesystem::is_regular_file(dir + "/wd/mw1/game/BTECH.EXE", ec));
   EXPECT(cfg_text.find("mw1_game=" + dir + "/wd/mw1/game") != std::string::npos);
+  // Our own copy first (2026-11-24, issue #10's rule): mw3.cfg naming an older copy elsewhere that still holds the
+  // game (dir/game), the one in our folder is started and mw3.cfg follows it.
+  {
+    const std::string own = run(true, "own");
+    std::ifstream of(dir + "/args.txt");
+    std::string oargs;
+    std::getline(of, oargs);
+    std::ifstream oc(dir + "/wd/mw3.cfg");
+    const std::string ocfg((std::istreambuf_iterator<char>(oc)), std::istreambuf_iterator<char>());
+    std::printf("launcher mw1 own copy first: given \"%s\"\n", oargs.c_str());
+    EXPECT(oargs.find(" --mw1-game " + dir + "/wd/mw1/game --no-launcher") != std::string::npos);
+    EXPECT(own.find("MechWarrior (1989) in our folder " + dir + "/wd/mw1/game, not " + dir + "/game: ours in use") != std::string::npos);
+    EXPECT(ocfg.find("mw1_game=" + dir + "/wd/mw1/game\n") != std::string::npos);
+    std::filesystem::remove_all(dir + "/wd/mw1/game", ec);  // the port's checks below use dir/game alone
+  }
 #endif
   // With Elthial's port beside the launcher too, MW1's ORIGINAL panel plays it: its PLAY (the third button: MW3's
   // PLAY, Pirate's Moon's, then it) starts the port on the same folder, not the remake.
@@ -7964,6 +7979,25 @@ TEST(sdl_program_launcher_starts_pirates_moon) {
   std::string line;
   std::getline(kept, line);
   EXPECT(line == "pm_install=" + dir + "/gone");
+  // Our own copy first (2026-11-24, issue #10's rule): with the game in Pirate's Moon's own folder (its install), an
+  // older pm_install= elsewhere that still holds it is passed over, and mw3.cfg follows ours.
+  std::filesystem::remove(dir + "/args.txt", ec);
+  std::filesystem::create_directories(dir + "/pmwd/install", ec);  // a folder of its own, its contents linked
+  for (const auto& e : std::filesystem::directory_iterator(install, ec))
+    std::filesystem::create_symlink(e.path(), dir + "/pmwd/install/" + e.path().filename().string(), ec);
+  cfg(install.string());
+  text = run("own");
+  args.clear();
+  {
+    std::ifstream af(dir + "/args.txt");
+    for (std::string a; std::getline(af, a);) args.push_back(a);
+  }
+  std::ifstream after(dir + "/wd/mw3.cfg");
+  const std::string after_cfg((std::istreambuf_iterator<char>(after)), std::istreambuf_iterator<char>());
+  std::printf("launcher pm own copy first: started on %s\n", args.size() > 1 ? args[1].c_str() : "?");
+  EXPECT(args.size() >= 2 && args[0] == "--install" && args[1] == dir + "/pmwd/install");
+  EXPECT(text.find("Pirate's Moon in our folder " + dir + "/pmwd/install, not " + install.string() + ": ours in use") != std::string::npos);
+  EXPECT(after_cfg.find("pm_install=" + dir + "/pmwd/install\n") != std::string::npos);
   unsetenv("MW3_PM_BIN");
   unsetenv("MW3_PM_WRITE_DIR");
 }

@@ -1143,6 +1143,19 @@ void Launcher::find_mw1() {
 // the usual places (sdlfe::mw1::search: our unpacked copy, beside this
 // program, the usual DOS folders), the one found saved as mw1_game=.
 void Launcher::find_mw1_game() {
+  // Our own copy first (issue #10's rule, 2026-11-24: "they should get the latest copy"): mw3.cfg's mw1_game= can
+  // name an older copy elsewhere that still holds the game; the copy in our folder is the one copied in last.
+  const std::string own = o_.write_dir.empty() ? std::string() : sdlfe::mw1::unpacked_dir(o_.write_dir);
+  if (!own.empty() && sdlfe::mw1::game_valid(own)) {
+    mw1_game_ = own;
+    std::error_code ec;
+    if (o_.cfg_mw1_game.empty() || !fs::equivalent(o_.cfg_mw1_game, own, ec)) {
+      if (!o_.cfg_mw1_game.empty())
+        std::printf("mw3: launcher: MechWarrior (1989) in our folder %s, not %s: ours in use\n", own.c_str(), o_.cfg_mw1_game.c_str());
+      save_config_value(o_.write_dir, "mw1_game", own);
+    }
+    return;
+  }
   if (sdlfe::mw1::game_valid(o_.cfg_mw1_game)) {
     mw1_game_ = o_.cfg_mw1_game;
     return;
@@ -1219,6 +1232,29 @@ void Launcher::copy_mw1(const std::string& game) {
 void Launcher::find_pm() {
   if (o_.pm_bin.empty() && !o_.pm) return;
   pm_found_.clear();
+  // Our own copy first (issue #10's rule, 2026-11-24: "they should get the latest copy"): the folder its DOWNLOAD
+  // picked, then the user folder's install; mw3.cfg's pm_install= can name an older copy elsewhere that still holds
+  // the game.
+  {
+    std::string place = games_place_[1];
+    if (place.empty() && !o_.write_dir.empty())
+      place = cfg_path(o_.write_dir, std::string("games_") + upgrades::update::game_info(upgrades::update::kGames[1]).key);
+    std::vector<std::string> own;
+    if (!place.empty()) own.push_back((fs::path(place) / "install").make_preferred().string());
+    if (!pm_wd().empty()) own.push_back((fs::path(pm_wd()) / "install").string());
+    std::error_code ec;
+    for (const std::string& d : own) {
+      if (!fs::is_directory(d, ec) || !is_pm_install(mech3::source::map_source(d))) continue;
+      pm_dir_ = d;
+      if (o_.cfg_pm_install.empty() || !fs::equivalent(o_.cfg_pm_install, d, ec)) {
+        if (!o_.cfg_pm_install.empty())
+          std::printf("mw3: launcher: Pirate's Moon in our folder %s, not %s: ours in use\n", d.c_str(), o_.cfg_pm_install.c_str());
+        if (!o_.pm) sdlfe::save_config_value(o_.write_dir, "pm_install", d);
+      }
+      std::printf("mw3: launcher: Pirate's Moon at %s: ready\n", pm_dir_.c_str());
+      return;
+    }
+  }
   if (!o_.cfg_pm_install.empty() && is_pm_install(mech3::source::map_source(o_.cfg_pm_install))) {
     pm_dir_ = o_.cfg_pm_install;
     std::printf("mw3: launcher: Pirate's Moon at %s: ready\n", pm_dir_.c_str());

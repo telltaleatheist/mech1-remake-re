@@ -558,7 +558,8 @@ arguments given, and the line when MW3 is not known);
 Taken the way MW3's and Pirate's Moon's are (2026-11-20: "it accepts
 the mw1 files just like mw3 and pm do"), in `frontend/sdl/mw1_files` (ours):
 
-- **At start**, `mw1_game=` while it still holds `BTECH.EXE`; else the usual
+- **At start**, our unpacked copy (the write dir's `mw1/game`) when it holds `BTECH.EXE` (2026-11-24, issue
+  #10's rule: ours first); then `mw1_game=` while it still holds `BTECH.EXE`; else the usual
   places, each looked into a level down: the write dir's `mw1/game` (our
   unpacked copy), folders named MechWarrior, MechWarrior1989, MW1, MECHWAR,
   MECH or MW beside the program (beside the Mac's .app, beside the
@@ -1210,6 +1211,12 @@ the movies again, once, there.
   folder), never used in place, and the old copy is never touched. mw3 started on its own does the same
   (`sdlfe::own_game_files`: the nearest folder above the program carrying the game's mark). Test:
   `sdl_program_launcher_takes_the_game_folders_own_files_first`.
+  Pirate's Moon and MechWarrior (1989) the same (2026-11-24: "they should get the latest copy"; found
+  by MW1's lead in the shared lookups): Pirate's Moon's `<its folder>/install` (`games_pm=`), then its
+  user folder's `install`, before `pm_install=`; MW1's `mw1/game` in the write dir before `mw1_game=`.
+  Ours found, mw3.cfg follows it ("<game> in our folder X, not Y: ours in use"); with none of ours, the
+  setting is used as before. Tests: `sdl_program_launcher_starts_pirates_moon`,
+  `sdl_program_launcher_starts_mechwarrior_1` (their own-copy-first parts).
 - **Whose folder.** A picked folder is the game's when it is empty or carries
   this game's mark (`rebuild-game-folder.txt`, `game=<key>`), else a folder
   named for the game inside it (`MechWarrior 3`, `Pirate's Moon`,
