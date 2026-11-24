@@ -2160,10 +2160,9 @@ void Launcher::layout() {
           {1, "PIRATE'S MOON", "The 1999 expansion, rebuilt from its own exe. Plays without MW3."},
           {3, "MECHWARRIOR 1 REVERSE ENGINEERED", "MechWarrior (1989), rebuilt in C++ from Elthial's SDL port."},
           {2, "MECHWARRIOR 1 REMAKE", "MechWarrior (1989)'s campaign, fought with MechWarrior 3's combat."},
-          {4, "THE CRESCENT HAWK'S INCEPTION", "BattleTech: The Crescent Hawk's Inception (1988)."}};
+          {4, "THE CRESCENT HAWK'S INCEPTION", "The 1988 game, rebuilt. Bring your own copy: DOS 1.03 or Amiga 2.3."}};
       // The remake's own panel once there is one to show: a release found, or it is here (never on a failed check).
       if (!pn[5].soon && (checks_[5].kind == GC::kNewer || checks_[5].kind == GC::kUpToDate || !game_bin(5).empty())) {
-        rows.back().blurb = "BattleTech: The Crescent Hawk's Inception (1988), rebuilt.";
         rows.push_back({5, "INCEPTION REMAKE", "The Crescent Hawk's Inception (1988), remade."});
       }
       const int n = static_cast<int>(rows.size()), view = kListBottom - kListTop;

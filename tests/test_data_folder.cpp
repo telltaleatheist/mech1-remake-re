@@ -381,6 +381,8 @@ TEST(data_folder_adopts_pirates_moons_nested_folder) {
   EXPECT(read(pm + "/pilots/Ace.mw3") == "new ace" && read(was + "/pilots/Ace.mw3") == "old ace" && read(pm + "/pilots/Bee.mw3") == "bee");
   EXPECT(read(pm + "/settings.reg") == "new" && read(was + "/settings.reg") == "old" && read(pm + "/mods/B/mod.json") == "b");
   EXPECT(!fs::exists(pm + "/mods/A/new.json") && !fs::exists(pm + "/install/extra.txt"));
+  fs::remove(pm + "/pilots/Ace.mw3", ec);  // deleted since: the old one never comes back
+  EXPECT(adopt_nested(pm) == 0 && !fs::exists(pm + "/pilots/Ace.mw3") && fs::exists(was + "/pilots/Ace.mw3"));
 
   // Its data elsewhere (a pointer), or not the family's folder: left alone.
   fs::remove_all(root, ec);
