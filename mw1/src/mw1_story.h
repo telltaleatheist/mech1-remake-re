@@ -113,7 +113,7 @@ struct Page {
   bool choices = false;
 };
 std::vector<Page> text_pages(int32_t id);
-// The commander's name MW1 starts with (DS:5CE2, a placeholder until Owen decides: research/story.md Q4); "" without it.
+// The commander's name MW1 starts with (DS:5CE2, a placeholder until the owner decides: research/story.md Q4); "" without it.
 std::string commander_name();
 
 // ---- Running it ----
@@ -124,7 +124,7 @@ inline constexpr bool kDarkWingBattle = true;
 // Ours (the lead, 2026-11-18): ATTACK / DELAY (0x72) asked on arriving at the Dark Wing's world, not each time the hub
 // is drawn (MW1's), so a loss or DELAY doesn't put it straight back: travel away and come back.
 inline constexpr bool kDarkWingOnArrival = true;
-// Ours (Owen, FIXES.md 47): no deadline. MW1's 20 March 3029 is dropped: 0x72 asked whatever the date (its window's
+// Ours (the owner, FIXES.md 47): no deadline. MW1's 20 March 3029 is dropped: 0x72 asked whatever the date (its window's
 // start kept), 0x73 (too late) never fires. The news keeps its dates.
 inline constexpr bool kNoDeadline = true;
 

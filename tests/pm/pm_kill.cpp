@@ -415,7 +415,7 @@ int pm_trigger_all(void* player, const float at[3]) {
   me->heat = 0.0f;
   wm->aim = Vec3f{at[0], at[1], at[2]};
   int fired = 0;
-  const bool beams = std::getenv("PM_BEAMS_ONLY") != nullptr;  // lasers alone, as Owen's loadout (pm-tests item 14)
+  const bool beams = std::getenv("PM_BEAMS_ONLY") != nullptr;  // lasers alone, as the player's loadout (pm-tests item 14)
   for (uint32_t i = 0; i < wm->count; ++i) {
     Weapon* w = wm->weapons[i];
     if (!w || (beams && !dynamic_cast<BeamWeapon*>(w))) continue;

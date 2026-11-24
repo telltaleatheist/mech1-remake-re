@@ -47,7 +47,7 @@ int32_t distance(const Planet& from, const Planet& to);
 int32_t mw1_root(uint32_t squared);  // 081B:5F5C's banded root
 
 // How the company travels (081B:5816). Only a hired transport now: the DropShip (50,000 a distance unit) waits
-// on Owen (research/economy.md, provisional).
+// on the owner (research/economy.md, provisional).
 enum class Transport { kHired, kDropShip };
 inline constexpr int32_t kHiredBase = 20000, kHiredPerDistance = 25000;  // per mech (campaign_travel)
 inline constexpr int32_t kDropShipPerDistance = 50000;

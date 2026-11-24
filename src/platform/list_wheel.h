@@ -1,6 +1,6 @@
 #pragma once
 #include <cstdint>
-// Ours (MW1: Critical Hit's FIXES 102, Owen 2026-11-19): the mouse wheel scrolls the menus' lists (FileList,
+// Ours (MW1: Critical Hit's FIXES 102, the owner 2026-11-19): the mouse wheel scrolls the menus' lists (FileList,
 // LabItemList: the Mech Lab's store, its weapons and its parts) under the pointer, a notch up as a click on the list's
 // UP arrow and a notch down as one on DOWN, only while that arrow is shown and enabled, so the wheel stops at both
 // ends as the arrows do. Off (MW3's and PM's programs): the wheel does nothing there, as ever.

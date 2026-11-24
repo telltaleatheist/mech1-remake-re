@@ -8,10 +8,10 @@ copy it to the others.
 
 | Repo | What it is | Its tags | Its Releases page holds |
 |---|---|---|---|
-| [mw3-re](https://github.com/telltaleatheist/mw3-re) | **The hub.** Where the project started; its code is frozen since 2026-11-21 | `vX.Y.Z` (the package's version) | **The download**: the combined package for every platform (the launcher and all three games), each game alone, and `SHA256SUMS`. The launcher's updates come from here |
+| [mw3-re](https://github.com/telltaleatheist/mw3-re) | **The hub.** Where the project started; its code is frozen since 2026-11-21 | `vX.Y.Z` (the package's version) | **The download**: the launcher's package for every platform (since 1.3.0 the launcher alone; it downloads each game from the game's repo), each game alone, and `SHA256SUMS`. The launcher's updates come from here |
 | [mech3-re](https://github.com/telltaleatheist/mech3-re) | MechWarrior 3 and the launcher (named BattleTech), and the packaging scripts that build the download | `vX.Y.Z` | MechWarrior 3 alone |
 | [mech3-pm-re](https://github.com/telltaleatheist/mech3-pm-re) | Pirate's Moon: a complete copy of the game with Pirate's Moon's changes in place | `pm-vX.Y.Z` | Pirate's Moon alone |
-| [mech1-remake-re](https://github.com/telltaleatheist/mech1-remake-re) | MechWarrior 1 Remake: MechWarrior (1989)'s campaign on this engine | `mw1-vX.Y.Z` | The combined package it plays from, and its notes |
+| [mech1-remake-re](https://github.com/telltaleatheist/mech1-remake-re) | MechWarrior 1 Remake: MechWarrior (1989)'s campaign on this engine | `mw1-vX.Y.Z` | MechWarrior 1 Remake alone (since mw1-v1.0.7) |
 | [re-setup-kit](https://github.com/telltaleatheist/re-setup-kit) | The shared "find your game files" kit: installed copies, discs, images and archives on Mac, Windows and Linux | none (pinned by commit) | nothing |
 
 Rebuilds on other engines, not part of the download (yet):
@@ -51,51 +51,61 @@ re-setup-kit  (a git submodule at extern/re-setup-kit in all three game repos)
 
 ## What a player downloads
 
-One package per platform, from mw3-re's Releases:
+From mw3-re's Releases, one package per platform:
 
-| Platform | The combined package (the one updates take) | MechWarrior 3 alone | Pirate's Moon alone |
-|---|---|---|---|
-| Windows | `MW3-Rebuild-Setup-<v>.exe` (or `-win64.zip`) | `MW3-alone-Setup-<v>.exe` | `PM-Rebuild-Setup-<pm v>.exe` |
-| Mac | `MW3-Rebuild-<v>-mac.dmg` | `MW3-alone-<v>-mac.dmg` | `PM-Rebuild-<pm v>-mac.dmg` |
-| Linux | `MW3-Rebuild-<v>-x86_64.AppImage` | `MW3-alone-<v>-x86_64.AppImage` | `PM-Rebuild-<pm v>-x86_64.AppImage` |
+| Platform | The launcher (the one updates take) | MechWarrior 3 alone | Pirate's Moon alone | MechWarrior 1 Remake alone |
+|---|---|---|---|---|
+| Windows | `MW3-Rebuild-Setup-<v>.exe` (or `-win64.zip`) | `MW3-alone-Setup-<v>.exe`, `MW3-alone-<v>-win64.zip` | `PM-Rebuild-Setup-<pm v>.exe`, `mw3pm-<pm v>-win64.zip` | `MW1-Remake-<mw1 v>-win64.zip` |
+| Mac | `MW3-Rebuild-<v>-mac.dmg` | `MW3-alone-<v>-mac.dmg` | `PM-Rebuild-<pm v>-mac.dmg` | `MW1-Remake-<mw1 v>-mac.dmg` |
+| Linux | `MW3-Rebuild-<v>-x86_64.AppImage` | `MW3-alone-<v>-x86_64.AppImage` | `PM-Rebuild-<pm v>-x86_64.AppImage` | `MW1-Remake-<mw1 v>-x86_64.AppImage` |
 
-The combined package is four programs side by side, each built from its own
-repo:
+**Since 1.3.0 the launcher's package (`MW3-Rebuild-...`, named BattleTech)
+holds the launcher alone.** Each game card installs its game from that
+game's own release (docs/launcher.md, Games on demand):
 
-| Program | Built from | Started by |
+| Program | Built from | Where the player gets it |
 |---|---|---|
-| `mw3launcher` (the icon, named BattleTech) | mech3-re, tag `vX.Y.Z` | the player |
-| `mw3` | mech3-re, the same tag | the launcher's MECHWARRIOR 3, or the player directly |
-| `mw3pm` | mech3-pm-re, tag `pm-vX.Y.Z` | the launcher's PIRATE'S MOON, or the player directly |
-| `mw1` and its `mw1data/` | mech1-remake-re, tag `mw1-vX.Y.Z` | the launcher's MECHWARRIOR 1 |
+| `mw3launcher` | mech3-re, tag `vX.Y.Z` | the launcher's package (and inside MW3 alone) |
+| `mw3` | mech3-re, the same tag | MW3 alone, which the launcher's MECHWARRIOR 3 INSTALL downloads from mech3-re |
+| `mw3pm` | mech3-pm-re, tag `pm-vX.Y.Z` | PM alone, downloaded by PIRATE'S MOON INSTALL from mech3-pm-re |
+| `mw1` and its `mw1data/` | mech1-remake-re, tag `mw1-vX.Y.Z` | MW1 Remake alone, downloaded by MECHWARRIOR 1 INSTALL from mech1-remake-re |
 
-- **The launcher pulls the games in when the package is built, not at run
-  time.** The packaging script checks out each repo's release tag, builds
-  each program from its own repo, and puts them beside the launcher. The
-  launcher finds each one in its own folder (`Contents/MacOS` in the Mac app,
-  `usr/bin` in the AppImage) and starts it as a separate program. A game
-  whose program isn't there shows greyed ("Coming later"), as in MW3 alone.
+- **The launcher asks each game's repo for its newest release when it
+  starts** and shows INSTALL (not installed) or UPDATE TO x.y.z (a newer
+  one). Nothing is downloaded until the player presses it. The file is
+  checked against the release's `SHA256SUMS`, unpacked into the launcher's
+  own games folder (per user: `%LOCALAPPDATA%\MicroProse\BattleTech\games`,
+  `~/Library/Application Support/MicroProse/BattleTech/games`,
+  `~/.local/share/MicroProse/BattleTech/games`), and started from there.
+  INSTALL FROM FILE takes a game's download from anywhere (offline, a
+  modder's build).
+- **So each game repo's release is now a contract with every launcher:**
+  its tag form, its file names above (Windows: the zip), and its
+  `SHA256SUMS`. A game released on its own repo reaches every player's
+  launcher at once, without a launcher release.
+- **A game beside the launcher is used as before** (MW3 alone, a development
+  build). The launcher-only Windows Setup removes an earlier package's game
+  programs from its folder.
 - **Each program carries its own version**, read from its repo's tag when it
   was built (`git describe`), stamped into the file and read back by the
-  launcher without running it. The launcher's footer shows the package's
-  version (mech3-re's tag), and each game's line shows its own ("official,
-  program pm-v1.2.2").
+  launcher without running it.
 - **No game files are ever in a package.** Each game sets itself up from the
-  player's own copy through the setup kit (`mw3 --status` / `--setup`, the
-  find screen) and copies what it needs into its own settings folder. (MW1
-  for now takes its installs from the launcher's finds or its `mw1.cfg`; its
-  own setup recipe comes later.)
+  player's own copy through the setup kit and copies what it needs into its
+  own settings folder, apart from the program, so updates never ask for the
+  original again.
 - Each game also starts on its own, without the launcher, and keeps its own
   settings, saves and mods.
 
 ## How updates work
 
-The launcher's UPDATES (src/upgrades/update, src/frontend/sdl/sdl_update.cpp):
+The launcher updates itself with UPDATES (src/upgrades/update,
+src/frontend/sdl/sdl_update.cpp); each game updates from its card (above).
+The launcher's own update:
 
 1. Asks GitHub for the releases of **mw3-re** and then **mech3-re** (`curl`,
    HTTPS only). One not answering is fine.
 2. Takes the highest bare `vX.Y.Z` tag that is not a draft or a prerelease
-   **and carries this platform's combined package** (`MW3-Rebuild-...`). A
+   **and carries this platform's launcher package** (`MW3-Rebuild-...`). A
    game's own release (mech3-re's MW3 alone, any `pm-v` or `mw1-v` tag) is
    never taken. Copies from 1.2.2 and earlier don't check for the package:
    they take the highest tag, mw3-re first, and on a tie they take mw3-re's.
@@ -110,9 +120,11 @@ The launcher's UPDATES (src/upgrades/update, src/frontend/sdl/sdl_update.cpp):
    old copy is removed only once the new one is in place. Settings, pilots,
    saves and mods are never touched.
 
-So the combined package, its name, its `SHA256SUMS` and the hub's Releases
-page are a contract with every copy already installed. Don't rename the
-assets, move the download off mw3-re, or publish without `SHA256SUMS`.
+So the launcher's package, its name, its `SHA256SUMS` and the hub's Releases
+page are a contract with every copy already installed (a 1.2.4 copy updates
+into the launcher-only package this way, then installs its games from their
+cards). Don't rename the assets, move the download off mw3-re, or publish
+without `SHA256SUMS`.
 
 ## Deploying a release
 
@@ -141,29 +153,37 @@ tags in a `git bundle`.
    - Linux (WSL on the PC, after Windows):
      `tools/package/combined.sh linux <v> <pm v> build-deps/linux/prefix ../deps --mw1 <mw1 v>`
 
-   Each builds the three packages in `build-pkg/dist/<platform>/` and runs its
+   Each builds the four packages (the launcher, MW3 alone, PM alone, MW1
+   Remake alone from `mw1/tools/package` on its tag) in `build-pkg/dist/<platform>/` and runs its
    checks: every library present, the licences, no game files, no local path
    or user name, and no version ending in `-dirty`. If a platform fails, fix
    it on the repo's main, move the local tag, and rebuild every platform from
    the new tags. Tags are pushed only once all three platforms build.
-5. **Gather and sum:** all twelve files in one folder, each checked against
+5. **Gather and sum:** all the files (fifteen with MW1 Remake alone) in one folder, each checked against
    its platform's `SHA256SUMS`, then `python3 -I tools/package/sums.py <folder>`
    writes the release's `SHA256SUMS`.
 6. **Push the tags** to their repos (`vX.Y.Z` to mech3-re and mw3-re,
    `pm-vX.Y.Z` to mech3-pm-re, `mw1-vX.Y.Z` to mech1-remake-re).
-7. **Publish the hub first:** the `vX.Y.Z` release on mw3-re with all twelve
+7. **Publish the hub first:** the `vX.Y.Z` release on mw3-re with all the
    files and `SHA256SUMS`, the page from `docs/release-page-<v>.md`, not a
    draft or a prerelease. It goes first because installed copies check the
    game repos too: a game's own release up before the hub's would be seen by
    1.2.2 copies with no package to download.
 8. **Then each game's own release:** MW3 alone on mech3-re (`vX.Y.Z`),
    Pirate's Moon alone on mech3-pm-re (`pm-vX.Y.Z`), and on mech1-remake-re
-   (`mw1-vX.Y.Z`) the combined package MW1 plays from, each with its files and
-   their lines of `SHA256SUMS`, and a link to the hub for the full package. Every game
-   release's version must match a bundle on the hub.
+   (`mw1-vX.Y.Z`) MW1 Remake alone, each with its files and
+   their lines of `SHA256SUMS`, and a link to the hub for the launcher.
+   MW3 alone's `vX.Y.Z` always matches a launcher release on the hub.
 9. **Check it live:** download every asset again and check its checksum, then
    run the previous release's launcher, press UPDATES, and confirm it finds
-   the new one on the hub.
+   the new one on the hub; and from the new launcher, INSTALL each game on a
+   clean games folder.
+
+**One game alone** (since 1.3.0): Pirate's Moon or MW1 Remake can be released
+on its own repo without a launcher release. Build its package with its own
+script (pm's `tools/<platform>` scripts; mw1's `mw1/tools/package`), publish
+it with its `SHA256SUMS` on its repo, and every launcher offers UPDATE at its
+next start.
 
 After a release: the game repos' mains already sit on their tags. Issue
 replies announcing it are the project owner's to approve.

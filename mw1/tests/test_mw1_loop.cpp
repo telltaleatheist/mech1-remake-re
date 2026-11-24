@@ -933,7 +933,7 @@ struct Run {
   int best_frame = 0, escape = 0, escapes = 0, round_to = 0, round_frame = 0, tried = 0;
   float round_best = 1e9f;
   float ended_time = -1;  // the mission's clock (missions().time) when it ended
-  // PM's own way out of a won mission (Owen's, 2026-11-17): its end screen; then (item 19) MW1's results, never PM's
+  // PM's own way out of a won mission (the owner's, 2026-11-17): its end screen; then (item 19) MW1's results, never PM's
   // debriefing. Were the debriefing reached, its CONTINUE and the next round's briefing's EXIT (stages 2 and 3).
   bool pm_end = false;
   int pm_end_stage = 0;  // 1 the end screen asked for, 2 CONTINUE pressed, 3 EXIT pressed
@@ -1349,7 +1349,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
             run->deal_no = 1;  // FIXES.md item 60: NO first
             button(0);
             break;
-          case 3:  // NO: nothing bought, nothing paid; asked as Owen wanted. BUY again, YES
+          case 3:  // NO: nothing bought, nothing paid; asked as the owner wanted. BUY again, YES
             EXPECT(c->hangar.empty() && funds == run->market_funds && c->market.stock.size() == 2);
             EXPECT(run->deal_questions.size() == 1 && run->deal_questions[0].rfind("Buy the Firefly for ", 0) == 0 &&
                    run->deal_questions[0].find(" C-bills?") != std::string::npos);
@@ -1491,7 +1491,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
                     over += note.size() > mw1::kStatusLetters;
                     no_lab += note.find("Mech Lab") == std::string::npos;
                   }
-            std::printf("  seat notes: %d, the longest %zu letters, %d in Owen's words; %d over, %d without the lab\n", notes,
+            std::printf("  seat notes: %d, the longest %zu letters, %d in the owner's words; %d over, %d without the lab\n", notes,
                         longest, owens_words, over, no_lab);
             EXPECT(notes > 0 && over == 0 && no_lab == 0);
           }
@@ -1809,7 +1809,7 @@ void loop_run(Ending ending, Run* run = nullptr) {
         if (mw1::script().there()) EXPECT(!has(mw1::kStoryOffNote));
         // Always: the plaque, the company, the later screens greyed, QUIT there.
         // (The company strip between the plaques, always there: its labels, then its values, C-BILLS, PAYROLL, KILLS;
-        // no stores or mechs on the hub: Owen on item 16.)
+        // no stores or mechs on the hub: the owner on item 16.)
         auto value_of = [&](const char* label) {
           for (size_t i = 0; i + 3 < shown.size(); ++i)
             if (shown[i] == "C-BILLS" && shown[i + 2] == "KILLS") {
@@ -3349,7 +3349,7 @@ TEST(mw1_loop_restart_at_after_action_then_ok_settles_once_headless) {
   });
 }
 
-// FIXES.md item 18 (Owen, 2026-11-17: "it should skip this page and just bring me to the game itself"): DEPLOY goes
+// FIXES.md item 18 (the owner, 2026-11-17: "it should skip this page and just bring me to the game itself"): DEPLOY goes
 // straight into the mission. PM's briefing (the Load state's screen) loads it but never draws a frame or starts its
 // script; MW1's loading screen is up instead (the world, the employer, the contract, LOADING), and the mission
 // launches by itself once loaded: won, settled, back at the hub.
@@ -3383,7 +3383,7 @@ TEST(mw1_loop_deploy_goes_straight_in_never_through_pms_briefing_headless) {
   });
 }
 
-// Owen's win settled as a Retreat (2026-11-17): won, then PM's own way out (its end screen's Exit Mission). The win is
+// The owner's win settled as a Retreat (2026-11-17): won, then PM's own way out (its end screen's Exit Mission). The win is
 // latched the frame it happens: settled as a Success, the fee and the salvage paid, the calendar on. Since FIXES.md
 // item 19 that way out never reaches PM's debriefing (ProgramFlow::skip_debriefing): the end screen's fade goes to
 // Instant Action's end, then MW1's results screen (VICTORY).
@@ -3676,7 +3676,7 @@ TEST(mw1_loop_a_full_lance_flies_on_a_pm_map_headless) {
 
 // Repairs (mw1_repairs.h) through the loop: the player's mech hit in a won mission, its repairs paid from the wrecks'
 // worth (FIXES.md item 51: no bill from the funds); a field base's repair (the engine's hook, ProgramFlow::mech_repaired) billed on
-// an accepted failure, and on a quit (FIXES.md item 75, Owen: a retreat bills its repairs).
+// an accepted failure, and on a quit (FIXES.md item 75, the owner: a retreat bills its repairs).
 TEST(mw1_loop_repairs_billed_won_failed_and_quit_headless) {
   std::error_code ec;
   if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
@@ -5797,7 +5797,7 @@ TEST(mw1_a_press_while_a_screen_change_is_queued_is_ignored_headless) {
   });
 }
 
-// FIXES 102 (Owen: the wheel scrolls every list): the LOG's pages by the wheel as PREV and NEXT: down to the last page
+// FIXES 102 (the owner: the wheel scrolls every list): the LOG's pages by the wheel as PREV and NEXT: down to the last page
 // and no further (NEXT gone there), up to the first and no further.
 TEST(mw1_wheel_pages_the_log_headless) {
   std::error_code ec;
@@ -6230,7 +6230,7 @@ const char* kind_name(mw1::LogKind k) {
 }
 }  // namespace
 
-// FIXES.md item 79 (the lead, 2026-11-19: Owen keeps finding things only in play): a long campaign played as a player
+// FIXES.md item 79 (the lead, 2026-11-19: the owner keeps finding things only in play): a long campaign played as a player
 // would, the story on, in legs over one save (each leg a new run that loads the last one's save: save and load in
 // between), every service: the office (requests, next offers, negotiation, accepting), the market (buy, sell), the
 // Bar (hire, fire, drinks, news), the lab's lance (lancemates put on spare mechs, as the lab's apply), the log, the
@@ -6622,7 +6622,7 @@ TEST(mw1_soak_a_campaign_through_every_service_and_restarts_headless) {
 // 'Mechs lost, pilots killed and missing, the cash it netted (the advance, the fee, the salvage, less the repairs; the
 // House's floor) against its pay, the enemies met (chassis, loadout, Clan), the wrecks' worth, and each lancemate
 // downed in the first minute (MW3's worlds apart: 106's question c). Per campaign the money curve; at the end which
-// of PM's items reached the stores and which never did. A report, no checks but the run's (no tuning: Owen's call).
+// of PM's items reached the stores and which never did. A report, no checks but the run's (no tuning: the owner's call).
 // Off by default (it plays real missions): MW1_BALANCE=n campaigns (seeds 0..n-1, MW1_BALANCE_FROM=k on), each
 // MW1_BALANCE_CONTRACTS (30) contracts; MW1_BALANCE_LOG=1 prints each contract.
 namespace {
@@ -7115,7 +7115,7 @@ TEST(mw1_travel_map_a_trip_by_the_keys_headless) {
   });
 }
 
-// FIXES.md item 35 (Owen: the main menu flashed at every screen change): one MW1 screen to the next in one step. The
+// FIXES.md item 35 (the owner: the main menu flashed at every screen change): one MW1 screen to the next in one step. The
 // app names each state it moves to (App::on_state_change); going from the hub to each of its screens and back, only
 // those screens are ever named, never the state the hub sits on (a pop, then a push, resumed and redrew it a frame).
 TEST(mw1_loop_screens_change_in_one_step_headless) {
@@ -7337,8 +7337,8 @@ TEST(mw1_travel_go_plays_the_launch_then_the_hub_headless) {
   }
 }
 
-// FIXES.md item 72 (Owen 2026-11-19): the lance orders' recipient follows W. The lancemates hired at the Bar just before
-// the contract (Owen's were brand new), each picked with W (the next friendly, PM's CMD_TARGET_NEXT_F) is the order's
+// FIXES.md item 72 (the owner 2026-11-19): the lance orders' recipient follows W. The lancemates hired at the Bar just before
+// the contract (the owner's were brand new), each picked with W (the next friendly, PM's CMD_TARGET_NEXT_F) is the order's
 // recipient (the HUD's blue name: the saved target, else a lancemate targeted); then E (an enemy) and ATTACK (attack my
 // target, order 10) reach that lancemate's brain and no other, and it walks toward the enemy.
 namespace {
@@ -8485,14 +8485,14 @@ TEST(mw1_loop_a_lancemate_down_is_logged_by_whom_headless) {
   });
 }
 
-// FIXES 106: Owen's lancemate Erin Falls ejected about 25 s into a destroy-all on c4ia1. Each Instant Action map of
+// FIXES 106: the owner's lancemate Erin Falls ejected about 25 s into a destroy-all on c4ia1. Each Instant Action map of
 // the table, a destroy-all with his lance (the Atlas, the Annihilator and a Centurion) against his contract's four
 // (a 45 t, two 85 t and a 55 t slot), the player standing at his start (invincible, never firing):
 // each lancemate's health a minute in, its last attacker, where the nearest enemy started, how far it walked, its first
 // hit (when, from how far). The game's rolls seeded (kSeed; MW1_TEST_SEED=<n> another). On PM's maps all three stand
 // (the lead, 2026-11-19). On MW3's worlds it's said, not required: there (mw3c1 ia1, mw3c4 ia1) the enemies start 700
 // to 970 m off, open fire from about 900 m within 10 s and close, and with the commander idle a lancemate can fall in
-// a fair fight (two of the enemies down by then); whether that's too harsh is Owen's call. By default PM's maps;
+// a fair fight (two of the enemies down by then); whether that's too harsh is the owner's call. By default PM's maps;
 // MW1_ALL_MAPS=1 MW3's worlds too (about two minutes), MW1_ROWS=<world>ia<n> that map only; MW1_BRAINS=1 adds each mech's brain (mode,
 // sight, engage, leash) and every mech's health and place each 10 s.
 TEST(mw1_loop_the_lance_lives_the_opening_minute_headless) {
@@ -8623,8 +8623,8 @@ TEST(mw1_loop_the_lance_lives_the_opening_minute_headless) {
   EXPECT(maps > 0);
 }
 
-// FIXES 113 (Owen: Erin Falls's Centurion "completely untouched, then dead" about 25 s into a destroy-all on c4ia1,
-// the lance bunched). Owen's lance on c4ia1 (the Atlas, the Annihilator, a Centurion), the commander standing
+// FIXES 113 (the owner: Erin Falls's Centurion "completely untouched, then dead" about 25 s into a destroy-all on c4ia1,
+// the lance bunched). The owner's lance on c4ia1 (the Atlas, the Annihilator, a Centurion), the commander standing
 // (invincible, never firing), the game's rolls seeded (113's run: seed 4). The Centurion is first hit about 11 s in
 // from near 800 m and worn down, hit after hit, all of it on the front of the centre torso, until it goes about 35 s
 // in: no critical, no ceiling's crush, the head whole. The death's line says so: the centre torso went, by a
@@ -8667,7 +8667,7 @@ TEST(mw1_loop_a_lancemate_s_death_says_what_went_headless) {
   });
 }
 
-// FIXES 97: Owen's defence of the tower on mw3c1ia3 (four enemies: a 55 t, a 70 t and two 75 t slots): three
+// FIXES 97: the owner's defence of the tower on mw3c1ia3 (four enemies: a 55 t, a 70 t and two 75 t slots): three
 // came; the fourth stood at its post all mission, fighting only when he came near. The map's Enemy_08 is MW3's guard: its
 // net (net_06) ends 56 m from where it starts, its pilot starts at mode 0 (won't engage), its engage range is 850 m and
 // it breaks off (leash, time) back to its post; from the company's start it never comes. A defence is won only when
@@ -8849,7 +8849,7 @@ TEST(mw1_loop_hud_art_is_pm_s_pictures_at_canvas_size) {
   });
 }
 
-// FIXES.md item 109 (Owen: the damage display showed a part or a few, an arm alone, over its grid): the display's
+// FIXES.md item 109 (the owner: the damage display showed a part or a few, an arm alone, over its grid): the display's
 // eight parts, each in its four states, drawn at the window's resolution as its background is. Left to the canvas
 // they were under the hires grid, and which showed varied by frame. In a mission, at 1080p's art scale (3) and 4K's
 // (5): every part's picture is drawn, its size its canvas size times the scale, and lit where PM's is (PM's opaque
@@ -9067,7 +9067,7 @@ TEST(mw1_loop_hud_labels_drawn_as_text_in_place) {
 }
 }  // namespace
 
-// FIXES.md item 100 (Owen): MW1's menu theme from the start (the menu, the intro), on through the screens without
+// FIXES.md item 100 (the owner): MW1's menu theme from the start (the menu, the intro), on through the screens without
 // restarting, faded out for a mission and in again after it; the hub's OPTIONS rows (music on or off, its volume and
 // the effects') applied at once to PM's own and kept in mw1.cfg; the hub's QUIT asks first (NO stays, OK quits). The
 // music is the run's silent output (what plays, never aloud).
@@ -9262,7 +9262,7 @@ TEST(mw1_music_theme_screens_mission_settings_and_quit_headless) {
   });
 }
 
-// FIXES 126 (Owen: "make the options menu more intuitive"): MW1's SETTINGS, opened over the hub as its SETTINGS opens
+// FIXES 126 (the owner: "make the options menu more intuitive"): MW1's SETTINGS, opened over the hub as its SETTINGS opens
 // it. In every section each row with a setting is changed by its own control (a choice's value, a list's arrow, a volume's
 // bar): the change is shown and applied at once (the engine's value read back), and saved (PM's settings.reg written,
 // mw1.cfg's sound, the switches' keys); the chosen value is lit (disabled) and the rest clickable. DEFAULTS gives back
@@ -9783,14 +9783,14 @@ TEST(mw1_loop_a_puma_primarys_targeting_computer_salvaged_off_a_standing_torso_h
   }
 }
 
-// FIXES.md item 93 (Owen: can the game be played start to finish, the storyline working?): a new campaign played
+// FIXES.md item 93 (the owner: can the game be played start to finish, the storyline working?): a new campaign played
 // through the real loop to MW1's ending, as a player would. At each hub the player reads the journal's lead. Before a
 // step's battle it builds the lance up to the expected force (the ladder's tons: contracts in the House offices, the
 // Mech Complex's heaviest 'Mech it can afford, the Bar's pilots for the spares, the heaviest in the lab's slots).
 // Then it takes STORY's GO THERE, visits the place the lead names, answers MW1's pages with the choices that carry
 // the trail on, and wins the battles. The Dark Wing is fought three times for the game's three endings: lost, then
 // withdrawn from (play goes on, the trail waits), then won: the victory's pages, the credits, then the hub again.
-// MW1 has no deadline here (Owen 2026-11-18: item 47) and no game over. Reports the game months, the contracts and
+// MW1 has no deadline here (the owner 2026-11-18: item 47) and no game over. Reports the game months, the contracts and
 // what blocked; MW1's words are never printed. Long: MW1_PLAYTHROUGH=1 runs it (MW1_PLAYTHROUGH_SEED: the seed).
 namespace {
 // The choices that carry the trail on (the commander lives and follows), by event: the journal walk's.
@@ -10191,7 +10191,7 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
   });
 }
 
-// FIXES 128 (Owen: "key binds and joystick should work in mw1 just like it does in mw3"): the keys, the mouse and a
+// FIXES 128 (the owner: "key binds and joystick should work in mw1 just like it does in mw3"): the keys, the mouse and a
 // stick as the tests give them (no device): keys queued as DirectInput's buffer, the mouse's buttons and a stick's
 // state as read each frame; the stick there only when `stick` is set.
 namespace {

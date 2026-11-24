@@ -1,6 +1,6 @@
 #pragma once
 // MW1's Mech Complex (the hub's MECH COMPLEX; mw1_market.h's rules) on MW1's screen template (mw1_screen.h), its
-// layout mw1market.zrd in MW1's data folder. Owen's shape (FIXES.md items 8 and 13): one page, MW1's buttons down
+// layout mw1market.zrd in MW1's data folder. The owner's shape (FIXES.md items 8 and 13): one page, MW1's buttons down
 // the left (BUY, SELL, MECH LAB, BACK, stacked at the column's top) and two lists, FOR SALE (the world's stock, the buying
 // prices) over YOUR MECHS (the company's, who pilots each, the selling prices). BUY takes FOR SALE's chosen mech;
 // SELL and MECH LAB act on YOUR MECHS' chosen one. MECH LAB is the lab's way in: Pirate's Moon's lab on that mech,
@@ -24,7 +24,7 @@ enum MarketButton : int32_t {
   kMarketStockUp, kMarketStockDown, kMarketOwnUp, kMarketOwnDown  // the lists' arrows
 };
 inline constexpr int32_t kMarketButtonCount = kMarketOwnDown;
-// The left column's buttons' tops (both layouts'): stacked from the top, the Bar's 38 apart (FIXES.md item 71, Owen:
+// The left column's buttons' tops (both layouts'): stacked from the top, the Bar's 38 apart (FIXES.md item 71, the owner:
 // "stack them up against the top").
 inline constexpr int32_t kMarketButtonTop[4] = {84, 122, 160, 198};
 const char* market_button_name(int32_t id);
@@ -34,7 +34,7 @@ enum MarketPanel : int32_t { kMarketPanelPlaque, kMarketPanelPlaque2, kMarketPan
                              kMarketPanelMechFrame, kMarketPanelMech, kMarketPanelCount };  // item 14: the chosen mech
 
 // The lists: each shows kMarketRows rows from its first shown (`*_top`), scrolled to keep the chosen one in view.
-// FIXES.md item 66 (Owen: the eighth row and its outline on the box's foot): the last row (15 high, its outline's
+// FIXES.md item 66 (the owner: the eighth row and its outline on the box's foot): the last row (15 high, its outline's
 // kRowIconH) ends inside the terminal with the title's margin above it, 10: rows from 52 below the terminal's top,
 // every 15, in its 172: 7 (the eighth's foot at 172, on the border).
 inline constexpr int32_t kMarketRows = 7;
@@ -51,11 +51,11 @@ struct MarketChoice {
 };
 // The choices kept inside the lists as they change, each list scrolled to show its chosen row.
 void clamp_choice(const Company& c, MarketChoice& m);
-// A deal done (FIXES.md item 58, Owen 2026-11-18: the panel kept the FOR SALE row's 'Mech after BUY): YOUR MECHS'
+// A deal done (FIXES.md item 58, the owner 2026-11-18: the panel kept the FOR SALE row's 'Mech after BUY): YOUR MECHS'
 // row chosen and shown, the bought one (the hangar's last) after BUY, the row in the sold one's place after SELL;
 // then clamped. The panel's 'Mech (market_shown_mech) is that row's.
 void deal_choice(const Company& c, MarketChoice& m, bool bought);
-// FIXES.md item 60 (Owen 2026-11-18): BUY and SELL ask first, in the game's box (YES / NO; Y or Enter, N or Escape).
+// FIXES.md item 60 (the owner 2026-11-18): BUY and SELL ask first, in the game's box (YES / NO; Y or Enter, N or Escape).
 // "Buy the Firefly for 2,605,000 C-bills?"; "Sell the Owens for 2,772,000 C-bills?", and selling the piloted one,
 // who you pilot after ("You will pilot the Firefly."). "" for a deal that can't be (its reason shown instead).
 std::string buy_question(const Company& c, int32_t stock_index);
@@ -74,11 +74,11 @@ bool market_row_at(int32_t x, int32_t y, bool wide, bool* own, int32_t* row);
 ScreenView market_view(const Company& c, const MarketChoice& m);
 // The 'Mech the panel shows: the chosen row's (YOUR MECHS' when it was the last chosen); -1 none.
 int32_t market_shown_mech(const Company& c, const MarketChoice& m);
-// The panel's 'Mech drawn live in gunmetal (FIXES.md item 12, Owen 2026-11-18; mech3/model_view.h): set by the
+// The panel's 'Mech drawn live in gunmetal (FIXES.md item 12, the owner 2026-11-18; mech3/model_view.h): set by the
 // program while its 3D view is up. Off (no 3D: headless, the software renderer), the stored render when there is one.
 void set_market_live(bool on);
 bool market_live();
-// Ready, off: the live 'Mech turns (degrees a second; Owen chose it still, the turning kept as an option).
+// Ready, off: the live 'Mech turns (degrees a second; the owner chose it still, the turning kept as an option).
 inline constexpr float kMarketMechTurn = 0.0f;
 
 // The Mech Complex's state: pushed in the hub's place by the loop. `resumed` hears it come back to the top (the

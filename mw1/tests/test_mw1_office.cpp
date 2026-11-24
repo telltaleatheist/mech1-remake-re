@@ -202,7 +202,7 @@ TEST(mw1_office_a_refusing_house_and_the_stuck_guard) {
     if (mw1::kPlanets[i].house != mw1::kDavion) EXPECT(!mw1::deals_with(picky, mw1::kPlanets[i]));
 }
 
-// FIXES.md item 84 (ours, waiting on Owen): a grudge fades, one grievance every kGrudgeFadeMonths without a fight
+// FIXES.md item 84 (ours, waiting on the owner): a grudge fades, one grievance every kGrudgeFadeMonths without a fight
 // against the House; a House that refused deals again under 8, and says so; a fight starts the count again; saved.
 TEST(mw1_office_a_grudge_fades_without_a_fight) {
   mw1::Company c = company_on(mw1::kKurita);
@@ -358,9 +358,9 @@ TEST(mw1_office_saved_and_a_version_6_save_read) {
   EXPECT(kb.salvage_ceiling == mw1::salvage_ceiling(back, mw1::kMarik) && kb.advance_ceiling == mw1::advance_ceiling(back, mw1::kMarik));
 }
 
-// FIXES.md item 50 (Owen 2026-11-18): the liaison's frame as wide as the buttons above it, its edges on theirs; its top a
+// FIXES.md item 50 (the owner 2026-11-18): the liaison's frame as wide as the buttons above it, its edges on theirs; its top a
 // button gap under LEAVE; the portrait inside the frame's border, its art that size and cut to it (never stretched: the
-// file's shape is the picture's). Item 56 (Owen 2026-11-18): the screen read top to bottom: LEAVE right under REQUEST
+// file's shape is the picture's). Item 56 (the owner 2026-11-18): the screen read top to bottom: LEAVE right under REQUEST
 // MISSION; the contract, then the terms a button gap under it, then NEGOTIATE and ACCEPT a button gap under the terms,
 // ACCEPT's right edge on the terms box's and NEGOTIATE a button gap to its left; the frame's foot on that row's. At
 // 4:3 and 16:9, to the pixel.

@@ -75,7 +75,7 @@ void HubState::show(const HubView& v) {
               at_place_down("PANEL_TITLE", {title}, dy), at_place_down("PANEL_LINES", lines, dy),
               at_place("STATUS_WORLD", {v.planet}),   at_place("STATUS", {v.status})};
   s.pictures = {"", "", chrome::box_name(kHubBoxWidth, n)};  // PANEL3, after the plaques
-  // The company's strip between the plaques (C-BILLS, PAYROLL, KILLS: Owen on item 16); the middle panel only with
+  // The company's strip between the plaques (C-BILLS, PAYROLL, KILLS: the owner on item 16); the middle panel only with
   // something to say, OK (and AFTER ACTION's REPLAY) under it.
   s.blocks.push_back(at_place("STRIP_LABELS", v.labels));
   s.blocks.push_back(at_place("STRIP_VALUES", v.values));

@@ -1,5 +1,5 @@
 #pragma once
-// The fade between MW1's screens (FIXES.md item 52, Owen 2026-11-18: "fade to black and fade back in to the new
+// The fade between MW1's screens (FIXES.md item 52, the owner 2026-11-18: "fade to black and fade back in to the new
 // screen ... maybe half a second"): out to black over half of kFadeSeconds, the change made on the first black frame,
 // then in over the other half. Input is ignored for the whole of it (a double click can't skip a screen). Pure: the
 // clock is the caller's (the engine's frame time); the screens draw the tint (mw1_screen.h's Mw1State, a tint quad

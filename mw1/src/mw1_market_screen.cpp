@@ -141,7 +141,7 @@ ScreenView market_view(const Company& c, const MarketChoice& m) {
   if (market_live() && shown >= 0) v.see_through.push_back({kMarketPanelMech, kRenderPanelW, kRenderPanelH});
   v.panels[kMarketPanelMechFrame] = v.panels[kMarketPanelMech] = market_live() && shown >= 0;
 
-  // FOR SALE: the stock at the buying price; a price over the funds dimmed (FIXES.md item 41, Owen: what he can
+  // FOR SALE: the stock at the buying price; a price over the funds dimmed (FIXES.md item 41, the owner: what he can
   // afford at a glance): its row in S_ROWS_DIM's darker green, a blank line in its place in S_ROWS (and the other way).
   std::vector<std::string> stock, stock_dim;
   bool any_clan = false;

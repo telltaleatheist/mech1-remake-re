@@ -11,15 +11,15 @@ minus the bugs and the problems it has on modern machines. It is a personal
 learning project: free, not sold, and not affiliated with or endorsed by
 Microsoft or MicroProse.
 
-The download holds three games on one launcher, named **BattleTech**:
+The launcher, named **BattleTech**, installs and updates three games:
 
 - **MechWarrior 3**, rebuilt as above;
 - **Pirate's Moon**, the expansion, rebuilt the same way from its own exe;
 - **MechWarrior 1 Remake** (formerly MW1: Critical Hit), a fan remake of MechWarrior (1989)'s mercenary
   campaign on MechWarrior 3's combat, worlds and 'Mechs.
 
-Each game also starts on its own, and MechWarrior 3 and Pirate's Moon come
-as separate downloads too.
+Each game also starts on its own, and each comes as a separate download
+too.
 
 **No game files are included.** You need your own copy of each game you play.
 
@@ -38,8 +38,35 @@ original.
 
 ### Coming in the next release
 
-- Standing up from a crouch obeys the sound volume (the original played it at
-  full volume).
+Nothing yet.
+
+**1.3.1 (2026-11-22)** (the full notes are in
+[docs/release-notes-1.3.1.md](docs/release-notes-1.3.1.md)): each game goes
+where you choose.
+
+- **Install each game where you want,** on any drive: the launcher's DOWNLOAD
+  asks the first time, and each game's setup puts its game files, music and
+  converted movies there too. Pilots, saves, settings and mods stay in your
+  user folder.
+- Each game's setup shows its own name instead of "MW3 Rebuild".
+
+**1.3.0 (2026-11-22)** (the full notes are in
+[docs/release-notes-1.3.0.md](docs/release-notes-1.3.0.md)): the launcher
+downloads the games.
+
+- **The launcher's download is the launcher alone.** Each game's card shows
+  DOWNLOAD, or UPDATE TO x.y.z when a newer version is out, and gets the game
+  from its own release. Nothing downloads until you press it, every download
+  is checked, and your game files, pilots, saves and mods are kept. Offline,
+  installed games just play, and ADD FROM FILE takes a game's download
+  you already have.
+- MechWarrior 1 Remake gets a download of its own (1.0.7).
+
+**1.2.4 (2026-11-22)** (the full notes are in
+[docs/release-notes-1.2.4.md](docs/release-notes-1.2.4.md)): a small fix.
+
+- Standing up from a crouch obeys the sound volume, in MechWarrior 3 and
+  Pirate's Moon (the original played it at full volume).
 
 **1.2.3 (2026-11-21)** (the full notes are in
 [docs/release-notes-1.2.3.md](docs/release-notes-1.2.3.md)): setting up your
@@ -561,15 +588,17 @@ adds weapons to the original `Mech3.exe`'s mech lab. It isn't part of the rebuil
 
 | | Folder |
 |---|---|
-| Windows | `%APPDATA%\MicroProse\MechWarrior 3\` |
-| Mac | `~/Library/Application Support/MicroProse/MechWarrior 3/` |
-| Linux | `~/.local/share/MicroProse/MechWarrior 3/` |
+| Windows | `%APPDATA%\BattleTech\MechWarrior 3\` |
+| Mac | `~/Library/Application Support/BattleTech/MechWarrior 3/` |
+| Linux | `~/.local/share/BattleTech/MechWarrior 3/` |
 
 It holds `mw3.cfg`, your pilots and saves, the settings, your mods, the
 converted movies and the music, and `mw3.log`. Pirate's Moon keeps its own
-beside it, in `MicroProse/Pirate's Moon`, and MechWarrior 1 Remake in
-`MicroProse/MechWarrior 1 Remake` (moved there by itself from the old
-`MicroProse/MechWarrior 1 Critical Hit` on its first start). Uninstalling the rebuild keeps
+beside it, in `BattleTech/Pirate's Moon`, and the other family games theirs.
+Versions up to 1.3.1 used `MicroProse` instead of `BattleTech`: the first
+start of a newer version moves your folder across by itself (nothing is
+copied or lost) and leaves a note in the old place so an older version still
+finds it. Uninstalling the rebuild keeps
 them; deleting one starts that game over. The launcher's GAME FILES, MY DATA
 FOLDER moves a game's folder to another drive.
 
@@ -628,7 +657,7 @@ shared engine, MechWarrior 3, Pirate's Moon and the launcher):
   and published by MicroProse in 1999. **MechWarrior** (1989) was made by
   Dynamix and published by Activision. All the games' content is theirs and
   comes from your own copies.
-- The rebuild is by Owen Morgan, under the [MIT licence](LICENSE). The
+- The rebuild is under the [MIT licence](LICENSE). The
   original's code was studied with Ghidra and
   [REA](https://github.com/morluto/rea), the data formats cross-checked with
   [mech3ax](https://github.com/TerranMechworks/mech3ax), and the port checked

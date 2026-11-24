@@ -80,7 +80,7 @@ TEST(mw1_market_prices_by_tonnage_tier_and_clan) {
          mw1::mech_class(mw1::kPmChampion) == 2 && mw1::mech_class(kAtlas) == 2 && !mw1::sold_mech(mech3::kElemental));
 }
 
-// FIXES 108 (Owen: by design, as MW1 had it): MW1's own formula pinned, every chassis at every tier. Buying is the tier 0
+// FIXES 108 (the owner: by design, as MW1 had it): MW1's own formula pinned, every chassis at every tier. Buying is the tier 0
 // price times the tier's percent (100/120/130/150), selling 10 points less (90/110/120/140), floored to 1,000 C-bills,
 // a Clan 'Mech's times kClanPriceFactor (1 since FIXES 115); so within one world selling always pays less than buying, and buying cheap at a low tier and
 // selling at a dearer world pays (MW1's trade, kept).
@@ -176,7 +176,7 @@ TEST(mw1_market_buy_sell_pilot_and_the_last_mech) {
   EXPECT(mw1::sell(c, 0) == mw1::Deal::kDone && c.mech == kFirefly && c.hangar.empty());
 }
 
-// FIXES.md item 53: the most mechs owned (kOwnedMost: MW1's 12, Owen's 30; the piloted one included): BUY refused at it after
+// FIXES.md item 53: the most mechs owned (kOwnedMost: MW1's 12, the owner's 30; the piloted one included): BUY refused at it after
 // the funds' check, nothing paid or taken from the stock; a sale makes room again. A save past it still loads (and
 // still refuses). The stores' items clamped at kStoreMost.
 TEST(mw1_market_the_hangar_holds_the_most) {
@@ -338,7 +338,7 @@ TEST(mw1_market_rows_by_the_mouse) {
   EXPECT(!mw1::market_row_at(210, stock + mw1::kMarketRows * gap, false, &own, &row));  // under FOR SALE's last row
 }
 
-// The Mech Complex's one page (Owen's shape): BUY, SELL, MECH LAB and BACK down the left (no REPAIR or RELOAD,
+// The Mech Complex's one page (the owner's shape): BUY, SELL, MECH LAB and BACK down the left (no REPAIR or RELOAD,
 // FIXES.md item 59); the lists
 // scrolled to keep the chosen row in view, kMarketRows of them shown.
 TEST(mw1_market_complex_page) {
@@ -366,7 +366,7 @@ TEST(mw1_market_complex_page) {
   EXPECT(m.stock == 11 && m.owned == 0 && m.owned_top == 0);
 }
 
-// The funds on the Mech Complex (FIXES.md item 41, Owen: he couldn't see what he could afford): on the plaque, the
+// The funds on the Mech Complex (FIXES.md item 41, the owner: he couldn't see what he could afford): on the plaque, the
 // sum after a purchase and after a sale the moment the page is drawn again; a price over the funds dimmed (its row in
 // S_ROWS_DIM, a blank in S_ROWS), an affordable one not.
 TEST(mw1_market_funds_shown_and_unaffordable_dimmed) {
@@ -408,7 +408,7 @@ TEST(mw1_market_funds_shown_and_unaffordable_dimmed) {
   EXPECT(block(v, "S_ROWS_DIM") == nullptr);
 }
 
-// The rows' mech outlines (research/hires-2d.md B2 item 1, Owen 2026-11-18): one after each shown row's cursor, on
+// The rows' mech outlines (research/hires-2d.md B2 item 1, the owner 2026-11-18): one after each shown row's cursor, on
 // that row's line in FOR SALE and YOUR MECHS (a dimmed row's in S_ROWS still), the chosen row's lit, the others dim.
 TEST(mw1_market_rows_show_their_outlines) {
   mw1::Company c = company_with_stores();
@@ -432,7 +432,7 @@ TEST(mw1_market_rows_show_their_outlines) {
   EXPECT(mw1::row_icon_image(kOwens, true) != mw1::row_icon_image(kOwens, false));
 }
 
-// FIXES.md item 58 (Owen 2026-11-18): the live panel's 'Mech follows the chosen row. FOR SALE's Atlas chosen, BUY the
+// FIXES.md item 58 (the owner 2026-11-18): the live panel's 'Mech follows the chosen row. FOR SALE's Atlas chosen, BUY the
 // Firefly by index: YOUR MECHS' new last row chosen and shown, the panel's the Firefly (it kept the FOR SALE row's).
 // SELL it: the row in its place (the commander's), shown.
 TEST(mw1_market_panel_follows_buy_and_sell) {
@@ -456,7 +456,7 @@ TEST(mw1_market_panel_follows_buy_and_sell) {
 }
 
 // FIXES.md item 60: BUY and SELL ask first, the reason at once when the deal can't be. can_buy / can_sell answer as
-// buy / sell would and change nothing; the questions in Owen's words.
+// buy / sell would and change nothing; the questions in the owner's words.
 TEST(mw1_market_asks_before_a_deal) {
   mw1::Company c = company_with_stores();
   c.mech = kOwens, c.tier = 0, c.funds = 1000;

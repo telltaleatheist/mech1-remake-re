@@ -3,7 +3,7 @@
 Research for `../VISION.md` (Combat: maps; `maps.md`, blocker 7), 2026-11-16.
 MW1 runs on Pirate's Moon's engine, but its snow map (MW3 `c4b`) and its green
 map (MW3 `c2`, Grasslands) are MechWarrior 3 worlds. PM's readers can't read
-MW3's files, so the plan (Owen, 2026-11-16) is a one-time conversion at first
+MW3's files, so the plan (the owner, 2026-11-16) is a one-time conversion at first
 run. It reads the player's MW3 install, never writes to it, and writes each
 world MW1 uses into mw1's own data folder under a new name (`mw3c2`,
 `mw3c4b`). The engine's readers stay as they are. This file measures how big

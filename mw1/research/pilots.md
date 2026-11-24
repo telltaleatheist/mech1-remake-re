@@ -75,12 +75,12 @@ mission start, without touching how the AI drives.
 `src/mw1_bar_screen.h` holds the Bar; and the engine's
 `ProgramFlow::ally_launching` (ours, mw3-re `docs/objectives.md`) names and
 aims the lancemates in a mission. Below are the mw1 lead's provisional
-answers for Owen (2026-11-17). Each is one constant or one function, so each
+answers for the owner (2026-11-17). Each is one constant or one function, so each
 is a one-line change:
 
 | Question | Provisional answer | Where to change it |
 |---|---|---|
-| Q1. Is a pilot killed when their mech is destroyed? | KILLED or MISSING (FIXES.md item 32, Owen 2026-11-18: MW1's own two), on a counted mission (won, or failed and accepted; never on a retreat or a replayed failure). MISSING by an even chance (MW1's odds aren't known), rolled once as the mission ends: out of the lance, back in the hiring pool with their ratings and record. The mech is lost either way. | `kMissingPercent` (50); `roll_missing()` |
+| Q1. Is a pilot killed when their mech is destroyed? | KILLED or MISSING (FIXES.md item 32, the owner 2026-11-18: MW1's own two), on a counted mission (won, or failed and accepted; never on a retreat or a replayed failure). MISSING by an even chance (MW1's odds aren't known), rolled once as the mission ends: out of the lance, back in the hiring pool with their ratings and record. The mech is lost either way. | `kMissingPercent` (50); `roll_missing()` |
 | Q2. Is the lancemate's destroyed mech lost? | Yes (VISION). The commander's never is. | `after_mission()` |
 | Q3. How are hangar mechs refitted? | PILOT the mech in the market, fit it in the briefing's lab and fly the mission, then PILOT yours back. The lancemate flies the mech left in that hangar slot meanwhile. The Bar's help line says so. | the Bar's `terms` |
 | Q4. Portraits? | None. MW1's EGA portraits aren't used. | `mw1bar.zrd` |

@@ -659,7 +659,7 @@ namespace {
 constexpr float kHalfPi = 1.5707964f;  // 0x005ea7b0
 
 // Pirate's Moon 1.0 @ 0x004a6ee0 on the firepoint's aim limits (mech3/dir_limits_pm). Quirk, left as the original
-// (Owen, 2026-11-10): a pitch out of range takes any top to pi/2 (fixes.md, A firepoint's aim cone).
+// (2026-11-10): a pitch out of range takes any top to pi/2 (fixes.md, A firepoint's aim cone).
 void cone_set(Firepoint& fp) {
   if (!(-kHalfPi <= fp.aim[1] && fp.aim[2] <= kHalfPi))
     g_hooks->report(0x100, 0x72, "Requires version of CZValidateDir that handles angles outside the range");

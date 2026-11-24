@@ -194,7 +194,7 @@ TEST(mw1_render_frame_mech_alone) {
   EXPECT(!mw1::frame_mech_alone(nullptr, w, h));
 }
 
-// The live 'Mech's framing (FIXES.md item 12, Owen 2026-11-18: about 85% of the panel's height; mech3/model_view.h):
+// The live 'Mech's framing (FIXES.md item 12, the owner 2026-11-18: about 85% of the panel's height; mech3/model_view.h):
 // a 'Mech's shape (a tall body, its feet reaching out toward the camera, so the near points look bigger) framed in
 // the Mech Complex's panel: its picture kFill of the height and centred, as seen through the camera's lens; a long
 // low shape in the same rect is held to kFill of the width instead.

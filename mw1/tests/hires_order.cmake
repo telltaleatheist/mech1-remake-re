@@ -9,6 +9,8 @@
 # hires_draw_text_over_a_picture_and_an_unrecorded_write).
 # cmake -DMW1_BIN=<mw1> -DCHECK_BIN=<mw1hirescheck> -DDIR=<scratch> -P hires_order.cmake
 # The box's rect on the 853x480 canvas, 4 texels in from its frame (MW1's load box, 16:9, centred).
+# A -P script sets no policies of its own: without this, CMake 3.x drops a list's empty entries (CMP0007, OLD).
+cmake_minimum_required(VERSION 3.20)
 set(box 222 96 631 384)
 function(shoot name screen env)
   set(wd "${DIR}/${name}")

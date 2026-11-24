@@ -1,5 +1,5 @@
 #pragma once
-// The company's log (FIXES.md items 62 and 63, Owen 2026-11-18): everything that happened to the company, newest
+// The company's log (FIXES.md items 62 and 63, the owner 2026-11-18): everything that happened to the company, newest
 // first, dated, saved: the news, the story's events, contracts, missions, payday, the crew's fates, buys and sells,
 // hires, travel. An entry keeps numbers and ids only (a pilot's id, a mech's, a news story's record), never words: its
 // words are built when it is shown (log_lines), from the game's own tables and the script, so the save holds none of

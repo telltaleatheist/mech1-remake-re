@@ -47,7 +47,7 @@ outline::Colour slot_colour(SlotLook look);  // each look's colour
 // Every chassis that fields as an enemy (the roster) and every PM mech's slot looks, from PM's libraries; the archive written under `write_dir` when it
 // differs from what is there. The count made (0: none of PM's icons found).
 int32_t make_mech_icons(const std::string& write_dir);
-// research/hires-2d.md B2 item 1 (Owen 2026-11-18): an icon made this run, as its outline redrawn (mw1_outline.h),
+// research/hires-2d.md B2 item 1 (the owner 2026-11-18): an icon made this run, as its outline redrawn (mw1_outline.h),
 // its colour, and how its canvas copy places it (`scale` canvas pixels an icon pixel, centred on canvas_w x canvas_h);
 // the 2D at the window's scale draws it so (mw1_art.h's set_drawn_art). Null when `name` isn't one.
 struct IconOutline {
@@ -56,7 +56,7 @@ struct IconOutline {
   int32_t scale = 1, canvas_w = 0, canvas_h = 0;
   bool fit = false;  // fitted into canvas_w x canvas_h (outline::draw_fit, lines at least kRowLineMin) instead
 };
-// The market's rows (Owen 2026-11-18): each mech's outline beside its name, kRowIconW x kRowIconH canvas pixels (a
+// The market's rows (the owner 2026-11-18): each mech's outline beside its name, kRowIconW x kRowIconH canvas pixels (a
 // row's height: the lists' GAP), lit on the chosen row, dim on the rest (SlotLook's colours). Its lines at least
 // kRowLineMin device pixels wide.
 inline constexpr int32_t kRowIconW = 12, kRowIconH = 15;
