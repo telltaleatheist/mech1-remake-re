@@ -10149,12 +10149,17 @@ int32_t best_lance_tons(const mw1::Company& c, size_t pilots) {
   for (size_t i = 0; i < tons.size() && i < pilots; ++i) t += tons[i];
   return t;
 }
+// The story-first soak's bar (MW1_SOAK_SPEND=story): the percent of a rung's force the lance must weigh, and no full
+// lance asked for. 100 and a full lance from rung 3 otherwise.
+int32_t g_ready_percent = 100;
+bool g_full_lance = true;
 // Ready for a step's battle: the lance as heavy as the force, but no lance outweighs 100 t a pilot (the Dark Wing's
-// 635 t meets four assault 'Mechs at most); from rung 3, a full lance.
+// 635 t meets four assault 'Mechs at most); from rung 3, a full lance. Story-first: g_ready_percent of that, any lance.
 bool lance_ready(const mw1::Company& c, int32_t rung) {
   const int32_t pilots = 1 + static_cast<int32_t>(c.lance.size());
-  const int32_t need = rung ? std::min(mw1::rung_tons(mw1::rung_force(rung, pilots - 1)), 100 * pilots - 10) : 0;
-  return best_lance_tons(c, static_cast<size_t>(pilots)) >= need && (rung < 3 || c.lance.size() >= 3);
+  const int32_t full = rung ? std::min(mw1::rung_tons(mw1::rung_force(rung, pilots - 1)), 100 * pilots - 10) : 0;
+  const int32_t need = full * g_ready_percent / 100;
+  return best_lance_tons(c, static_cast<size_t>(pilots)) >= need && (!g_full_lance || rung < 3 || c.lance.size() >= 3);
 }
 
 // 1.1.0 (FIXES 118, 122): the spending soak, MW1_SOAK_SPEND on the playthrough. How hard the upgrades' prices make
@@ -10167,6 +10172,10 @@ bool lance_ready(const mw1::Company& c, int32_t rung) {
 //   none     spends nothing (the baseline, with the soak's report);
 //   sinks, armour, steps   only that ladder (steps: power on the lance's most-carried weapon type);
 //   mixed    the cheapest next item of the three;
+//   story    story-first, for the ending's grade (1.1.0): spends nothing, and goes to each rung's battle once the lance
+//            weighs MW1_STORY_NEED percent (50) of its force, any lance size: a player who takes the story on early
+//            rather than the baseline's slow build-up to the force's full tons. Stops at the ending; a STORY line
+//            gives the days from rung 1 first offered (the grade's clock) and from rung 1 won, to the ending.
 //   trader   mixed, and the dealer's buy-low-sell-high between tiers (the market's own percentages, the original's
 //            loophole, kept): at a tier 0 or 1 world it buys the wares that sell for more at tier 3, at a tier 2 or 3
 //            world it sells them back, with no detours (only where the story and the contracts take it). It holds at
@@ -10331,6 +10340,13 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
     if (const char* m = std::getenv("MW1_SOAK_SPEND")) soak.mode = m;
     if (const char* rv = std::getenv("MW1_SOAK_RESERVE")) soak.reserve = std::max<int64_t>(0, std::atoll(rv));
     if (soak.on()) r.limit = 6000000;  // on to twice the ending's days
+    const bool story_first = soak.mode == "story";
+    if (story_first) {
+      g_ready_percent = 50, g_full_lance = false;
+      if (const char* n = std::getenv("MW1_STORY_NEED")) g_ready_percent = std::clamp(std::atoi(n), 1, 100);
+      std::printf("STORY: story-first seed %u need %d%% of each rung's force, any lance\n", seed, g_ready_percent);
+    }
+    int64_t rung1_offered = -1, rung1_won = -1;  // days: the grade's clock starts at the first, the baseline's table at the second
     bool after_end = false;
     int64_t end_day = -1;
     int32_t rung_seen = 0;
@@ -10585,6 +10601,12 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
       if (c->story.dark_wing_won && credits_over) {  // the end, and play goes on: the hub again
         if (!soak.on()) return done = true, true;
         if (!after_end) after_end = true, end_day = day_of(*c), soak_at("end", *c);
+        if (story_first) {  // the grade's clock stops at rung 6 won: the spans, and done
+          std::printf("STORY: seed %u rung 1 offered day %lld won day %lld ending day %lld: span from offered %lld days, from won %lld days\n", seed,
+                      static_cast<long long>(rung1_offered), static_cast<long long>(rung1_won), static_cast<long long>(end_day),
+                      static_cast<long long>(end_day - rung1_offered), static_cast<long long>(end_day - rung1_won));
+          return done = true, true;
+        }
         if (day_of(*c) >= 2 * std::max<int64_t>(end_day, 1)) return soak_at("twice", *c), done = true, true;
       }
       if (soak.on()) {  // the soak: rungs won, then the look's spending and trading
@@ -10593,6 +10615,8 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
             std::printf("SOAK: rung %d fights %d contracts %d day %lld funds %lld\n", rung_seen, contracts + story_battles, contracts,
                         static_cast<long long>(day_of(*c)), static_cast<long long>(c->funds));
         rung_seen = c->story.rung_won;
+        if (rung1_won < 0 && c->story.rung_won >= 1) rung1_won = day_of(*c);
+        if (rung1_offered < 0 && mw1::journal::current_lead(*c).rung >= 1) rung1_offered = day_of(*c);
         if (!after_end && contracts + story_battles > 600) return block("the soak: no ending in 600 fights"), true;
         // Saving while the lance is built up for the story's next battle (the trader still sells).
         const int32_t next_rung = mw1::journal::current_lead(*c).rung;
