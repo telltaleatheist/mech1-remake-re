@@ -9799,7 +9799,13 @@ TEST(sdl_program_issue19_menu_sounds) {
   EXPECT(has(picked, "icon_select plays"));
   std::vector<std::string> off = mission;
   off.push_back("--original");
-  EXPECT(between(run("off", off), "state Load State", nullptr).empty());
+  const std::string log_off = run("off", off);
+  EXPECT(between(log_off, "state Load State", "state Core State").empty());
+#if defined(MW3_PM_SUITE)
+  EXPECT(has(between(log_off, "state Pause State", nullptr), "menu_rollover plays"));  // PM's exe loads MENU for its pause (0x0049600b)
+#else
+  EXPECT(between(log_off, "state Pause State", nullptr).empty());
+#endif
   off = salvage, off.push_back("--original");
   EXPECT(between(run("salvage_off", off), "state Salvage State", nullptr).empty());
 }
