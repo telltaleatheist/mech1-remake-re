@@ -12,6 +12,10 @@ Visual Studio's headers and libraries.
   "C++ Clang tools" component).
 - SDL3 and SDL3_ttf: their `-VC.zip` development releases unpacked into
   `deps\` (git-ignored), e.g. `deps\SDL3-3.4.12`, `deps\SDL3_ttf-3.2.2`.
+  Then `tools\windows\build_deps_ttf.cmd` builds SDL3_ttf 3.2.2 with
+  FreeType 2.14.3 (as on the Mac and Linux) into `deps\ttf`, which
+  package.cmd requires and build.cmd prefers: the `-VC.zip` DLL's FreeType
+  2.13.2 draws TTF text a few pixels apart (docs/deps.md).
 - Optional, for .ogg, .flac and .mp3 music (without it the music plays
   `.wav` tracks only): SDL3_sound's `SDL3_sound-devel-3.2.0-VC.zip`
   (github.com/icculus/SDL_sound, releases) unpacked into `deps\` as

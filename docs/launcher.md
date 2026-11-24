@@ -387,7 +387,65 @@ folder): the code is UTF-8 throughout, but on Windows `fs::path` and `fopen` rea
 narrow strings in the ANSI code page and `fs::path::string()` writes them in it.
 MY DATA FOLDER refuses such a name; the install has no such guard.
 
-## The family cards (2026-11-22)
+## The panels (2026-11-24)
+
+The main screen as a list, the download page's look (owenmorgan.com/battletech;
+the mockup "BattleTech launcher: scrolling list", left board, picked on
+2026-11-23): one panel a game, top to bottom MECHWARRIOR 3, PIRATE'S MOON,
+MECHWARRIOR 1 REVERSE ENGINEERED, MECHWARRIOR 1 REMAKE, THE CRESCENT HAWK'S
+INCEPTION. Inception is one panel until its remake has a release (or is
+installed); then INCEPTION REMAKE gets its own and the first panel is the
+original. The cards' tabs are gone (an old `tab_<card>=` in mw3.cfg is ignored).
+
+- A panel (752x100 on the 854x480 canvas): the badge (76) at the left, dimmed
+  while the game is not out; the name (the lettering, 20); then three small
+  lines in the second font (`font_body.ttf`, Saira Condensed Medium, 12): the
+  status's first line in amber (its second joined with " · " when both fit),
+  the rest of the status, then a line about the game as room allows, cut at a
+  word. Its button at the right, upright in the middle: PLAY (split with its
+  UPDATE when one is ready), DOWNLOAD, COMING SOON. The panel whose button is
+  hot (mouse, keys, pad) gets an amber, doubled edge.
+- Inception has a badge (`badge_inception.png`, the hawk; README there).
+- The list scrolls between the header and the bottom row (y 80 to 418): about
+  three panels show. The mouse wheel scrolls (36 px a notch, a trackpad's parts
+  added up); the scrollbar at the list's right (an amber thumb on a dark track)
+  drags, and a click on its track pages. The keys and the pad scroll a focused
+  panel's button into the list. A shade at the list's top and bottom shows more
+  is there. Buttons are hit only inside the list.
+- The log names each panel's button by its game, then the bottom row, then
+  UPDATE AVAILABLE: "screen main: MECHWARRIOR 3, PIRATE'S MOON, MECHWARRIOR 1
+  ORIGINAL, MECHWARRIOR 1, INCEPTION ORIGINAL, GAME FILES, UPDATES, ADD FROM
+  FILE, QUIT". `MW3_LAUNCHER_LIST_Y=<px>` starts the list scrolled (shots).
+
+The two sections below are the layouts before it; the game states, the COMING
+SOON rule, the kit's contract and the bottom row are unchanged.
+
+## The copies on this computer (2026-11-24)
+
+"The user should be able to pick what's used. Some copies have music and some
+don't ... Show if anything is missing." GAME FILES, then FIND THE GAME, with a
+copy in use (or Shift held at a game's start) lists every copy of the game the
+launcher finds (`find_copies`): the game's own folder's `install`, mw3.cfg's
+(`install=`, `pm_install=`), the user folder's `install`, the installer's
+places and a drop-in, each once, the one in use first. A row a copy: its
+folder; under it IN USE, the game and its data's version, and what the game
+would lack with it, or "nothing missing":
+
+- MechWarrior 3: music, movies, the 1.2 patch (data 1.0).
+- Pirate's Moon: music, full-quality sounds (a soundsH.zbd without them).
+
+Music and movies the game already has outside the copy (the game folder's,
+the user folder's) count for every copy. A row pressed: "Use these game
+files?" as any find, then copied into the game's folder whole, its music
+and movies with it. The row in use is greyed. PICK ANOTHER opens the one
+picker (a disc image, a download, Mech3.exe); BACK returns. Up to four rows.
+The log: "copy <folder>: <version>[, in use], missing <a> and <b>" (or
+"nothing missing") and "screen copies: IN USE, COPY 2, PICK ANOTHER, BACK".
+`--launcher-screen copies` / `pmcopies` draws it (checks:
+`sdl_program_launcher_lists_the_copies`). MechWarrior (1989) keeps its own
+picker: nothing of it can be missing that way.
+
+## The family cards (2026-11-22, replaced by the panels 2026-11-24)
 
 2026-11-22, from four mockups (the canvas "Launcher Families"): option
 A, "everything up front and center". One card a family, a tab a game in it:
@@ -435,7 +493,13 @@ ORIGINAL:" and "entry INCEPTION REMAKE:".
 The header says BATTLETECH (2026-11-22: the family's launcher), on the cards
 and on the launcher's own screens, the window is "BattleTech", and the corner's
 version reads "BattleTech launcher <v>" (was "MechWarrior 3 Rebuild <v>"); title.png's
-"MW3 REBUILD" is no longer drawn. A game's setup screen keeps its game's name.
+"MW3 REBUILD" is no longer drawn. A game's setup screen keeps its game's name. Since 2026-11-24 ("launcher yes, game
+no"): inside the launcher every screen is headed with the emblem and BATTLETECH,
+the game a setup screen is for named under it in amber; a game started on its
+own (mw3's or mw3pm's own setup, Shift at the start) keeps its badge and name.
+The log's "header <game>" line names the screen's game either way. Every
+button's words are fitted to it (cut in the middle when they must be): a
+plate's clear of its riveted ends (28 px each side), a flat button's 8 px in.
 
 The section below is the card layout before the families (one card a game);
 its panel, badges, square buttons and bottom row are unchanged.
@@ -525,7 +589,8 @@ arguments given, and the line when MW3 is not known);
 Taken the way MW3's and Pirate's Moon's are (2026-11-20: "it accepts
 the mw1 files just like mw3 and pm do"), in `frontend/sdl/mw1_files` (ours):
 
-- **At start**, `mw1_game=` while it still holds `BTECH.EXE`; else the usual
+- **At start**, our unpacked copy (the write dir's `mw1/game`) when it holds `BTECH.EXE` (2026-11-24, issue
+  #10's rule: ours first); then `mw1_game=` while it still holds `BTECH.EXE`; else the usual
   places, each looked into a level down: the write dir's `mw1/game` (our
   unpacked copy), folders named MechWarrior, MechWarrior1989, MW1, MECHWAR,
   MECH or MW beside the program (beside the Mac's .app, beside the
@@ -1170,6 +1235,19 @@ the movies again, once, there.
   before), the default being the folder its card's DOWNLOAD picked, else the
   user folder's `install`. The line under the find says where, fitted to one
   line.
+- **The game folder's own files first** (issue #10, 2026-11-23). A player put 1.3 on E: while an older
+  rebuild's copy of the game files stayed on C:, named by mw3.cfg's `install=`; the launcher used C:. The
+  lookup now tries `<the card's folder>/install` (`games_mw3=`) before `install=`; when the files are only
+  elsewhere they are offered as a find is ("Use these game files?", INSTALL copies them into the game's
+  folder), never used in place, and the old copy is never touched. mw3 started on its own does the same
+  (`sdlfe::own_game_files`: the nearest folder above the program carrying the game's mark). Test:
+  `sdl_program_launcher_takes_the_game_folders_own_files_first`.
+  Pirate's Moon and MechWarrior (1989) the same (2026-11-24: "they should get the latest copy"; found
+  by MW1's lead in the shared lookups): Pirate's Moon's `<its folder>/install` (`games_pm=`), then its
+  user folder's `install`, before `pm_install=`; MW1's `mw1/game` in the write dir before `mw1_game=`.
+  Ours found, mw3.cfg follows it ("<game> in our folder X, not Y: ours in use"); with none of ours, the
+  setting is used as before. Tests: `sdl_program_launcher_starts_pirates_moon`,
+  `sdl_program_launcher_starts_mechwarrior_1` (their own-copy-first parts).
 - **Whose folder.** A picked folder is the game's when it is empty or carries
   this game's mark (`rebuild-game-folder.txt`, `game=<key>`), else a folder
   named for the game inside it (`MechWarrior 3`, `Pirate's Moon`,

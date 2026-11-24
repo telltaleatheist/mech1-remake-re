@@ -95,11 +95,20 @@ std::vector<std::string> stranded_lines(const Company& c) {
   const std::string why = !contracts_here(c)                ? "there are no contracts here"
                           : refuses(c, c.planet_house)      ? "House " + std::string(kHouses[c.planet_house].name) + " won't deal with you"
                                                             : "the House has broken off negotiations";
-  const int64_t out = cheapest_way_out(c);
   std::vector<std::string> l = {"You can't afford to leave, and " + why + "."};
+  // Truly stranded (no sale would pay the way out either): the working passage (mw1_travel.h), TAKE PASSAGE.
+  if (const int32_t pw = passage_world(c); truly_stranded(c) && pw >= 0) {
+    const int32_t units = passage_units(c, pw);
+    if (cheapest_way_out(c) < 0) l.push_back("No world's House office will deal with you yet.");
+    l.push_back("A merchant JumpShip will carry the company and its mechs to " + title_case_name(kPlanets[pw].name) +
+                " in return for work on board: no fare.");
+    l.push_back("Arrives " + date_words(date_after(c.date, units)) + ", " + days_words(units) + " on the way.");
+    return l;
+  }
+  const int64_t out = cheapest_way_out(c);
   l.push_back(out < 0 ? std::string("No world's House office will deal with you.")
                       : "The cheapest trip to a world whose House office will deal with you costs " + thousands(out) + ".");
-  l.push_back(owned_count(c) > 1 ? "Sell a mech in the market to pay for it." : "With one mech there is nothing to sell: load a save.");
+  if (owned_count(c) > 1) l.push_back("Sell a mech in the market to pay for it.");
   return l;
 }
 
@@ -214,7 +223,24 @@ ScreenView travel_view(const Company& c, const TravelChoice& t) {
   std::vector<std::string> detail;
   // The readout (FIXES.md item 21): the world under the mouse, else the chosen one.
   const int32_t shown = t.hover >= 0 && t.hover != here ? t.hover : wi;
-  if (shown >= 0) {
+  // Truly stranded: the working passage's world (mw1_travel.h); GO is TAKE PASSAGE while it, or nothing, is chosen.
+  const bool passage = truly_stranded(c);
+  const int32_t pw = passage ? passage_world(c) : -1;
+  if (shown >= 0 && shown == pw) {
+    const Planet& w = kPlanets[shown];
+    const int32_t units = passage_units(c, shown);
+    title = upper(title_case_name(w.name));
+    detail = world_lines(c, shown);
+    detail.push_back("");
+    detail.push_back("Distance " + std::to_string(distance(planet_here(c), w)));
+    detail.push_back("Working passage: no fare");
+    detail.push_back("Arrives " + date_words(date_after(c.date, units)));
+    detail.push_back("  " + days_words(units) + " on the way");
+    if (shown != wi && wi >= 0) detail.push_back("Click to choose it.");
+    for (auto gap = std::find(detail.begin(), detail.end(), std::string()); detail.size() > kReadoutLines && gap != detail.end();
+         gap = std::find(detail.begin(), detail.end(), std::string()))
+      detail.erase(gap);
+  } else if (shown >= 0) {
     const Planet& w = kPlanets[shown];
     const Planet& from = planet_here(c);
     const int64_t cost = travel_cost(c, w);
@@ -235,7 +261,9 @@ ScreenView travel_view(const Company& c, const TravelChoice& t) {
       after.funds -= cost;
       set_planet(after, shown);
       after.withdrawn = false;  // a broken-off negotiation stays behind
-      if (stranded(after)) detail.push_back(""), detail.push_back("You couldn't afford to leave it.");
+      if (stranded(after))
+        detail.push_back(""), detail.push_back(truly_stranded(after) ? "You couldn't afford to leave it: you'd have to work your passage out."
+                                                                      : "You couldn't afford to leave it without selling a mech.");
     }
     // The readout's 14 lines above GO: the tier's line (FIXES.md item 99) can make a long one 15; its gaps go first.
     for (auto gap = std::find(detail.begin(), detail.end(), std::string()); detail.size() > kReadoutLines && gap != detail.end();
@@ -266,6 +294,7 @@ ScreenView travel_view(const Company& c, const TravelChoice& t) {
   v.blocks.push_back({24, 420 - 16 * static_cast<int32_t>(note.size()), kNoteFont, note});
   v.buttons.resize(kTravelButtonCount);
   v.buttons[kTravelGo - 1].on = wi >= 0 && travel_cost(c, kPlanets[wi]) <= c.funds;
+  if (pw >= 0 && (wi < 0 || wi == pw)) v.buttons[kTravelGo - 1].on = true, v.buttons[kTravelGo - 1].words = "TAKE PASSAGE";
   v.buttons[kTravelFilter - 1].on = v.buttons[kTravelBack - 1].on = true;
   return v;
 }

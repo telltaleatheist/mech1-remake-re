@@ -13,6 +13,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 
 
 namespace sdlfe {
@@ -107,6 +108,27 @@ std::string media_dir(const std::string& install, const std::string& write_dir) 
   std::error_code ec;
   const std::filesystem::path up = std::filesystem::path(install).parent_path();
   return std::filesystem::is_regular_file(up / kGameFolderMark, ec) ? up.string() : write_dir;
+}
+
+std::string own_game_files(const std::string& key, const std::string& from) {
+  std::string start = from;
+  if (start.empty())
+    if (const char* base = SDL_GetBasePath()) start = base;
+  if (start.empty()) return {};
+  std::error_code ec;
+  fs::path p = fs::path(start);
+  for (int up = 0; up < 6 && !p.empty(); ++up, p = p.parent_path()) {  // a Mac app's Contents/Resources, then <key>
+    const fs::path mark = p / kGameFolderMark;
+    if (fs::is_regular_file(mark, ec)) {
+      std::ifstream in(mark);
+      const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+      if (text.find("game=" + key + "\n") == std::string::npos) return {};  // another game's folder
+      fs::path files = p / "install";
+      return fs::is_directory(files, ec) ? files.make_preferred().string() : std::string();
+    }
+    if (p == p.parent_path()) break;
+  }
+  return {};
 }
 
 bool save_install(const std::string& write_dir, const std::string& install) {
