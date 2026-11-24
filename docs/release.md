@@ -106,8 +106,9 @@ into `MW3_VERSION`, which `mw3 --version`, the Windows version resource, the
 Mac's Info.plist and every package's file name carry), and the commit count
 into `MW3_BUILD_NUMBER`.
 
-**Numbering (2026-11-05):** each part is one digit. 1.0.9 is followed by
-1.1.0 and 1.1.9 by 1.2.0, whatever is in the release; there is never a 1.1.10.
+**Numbering (2026-11-24):** the second number is for features, the third for
+bug fixes; a release with only fixes raises the third, past 9 if it comes to it
+(1.3.9, 1.3.10).
 
 - [ ] The commit is tagged (`git tag -a v0.1 -m ...`), or approves the tag.
       Until then the version is the commit's short hash.

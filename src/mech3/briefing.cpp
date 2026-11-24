@@ -10,6 +10,7 @@
 #include "gamez/zutil/zfix.h"
 #include "gamez/zvideo/zvid_format.h"
 #include "mech3/mech_reader.h"
+#include "upgrades/sounds/menu_sounds.h"
 
 #pragma STDC FP_CONTRACT OFF
 
@@ -285,6 +286,7 @@ BriefingScreen::BriefingScreen(Engine& e, const char* name, bool draw_now)
       loading(e, -1),
       realloc_ok(e, 7),
       realloc_list(e, 0, 5) {
+  menu_sounds.hold("MENU");  // ours (issue #19)
   lines.set_pos(300, 12);
   lines.set_font(ztwod::host().font_find("debug_font"));
   const int32_t fast = e.fast_menu();
@@ -316,6 +318,7 @@ BriefingScreen::BriefingScreen(Engine& e, const char* name, bool draw_now)
     for (const auto& x : bind) {
       x.b->id = x.id;
       ztwod::bind_button(this, dlg, x.b, x.name);
+      if (x.b != &loading) upgrades::menu_sounds_for_button(*x.b);  // ours (issue #19)
     }
   }
   for (HelpButton* b : {&abort_btn, &replay_btn, &lab_btn, &salvage_btn, &launch_btn, &loading}) b->enable(0);

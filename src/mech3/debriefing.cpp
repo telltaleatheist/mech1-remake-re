@@ -367,6 +367,7 @@ DebriefScreen::DebriefScreen(Engine& e, Handle state, int32_t mission, const uin
       won(w) {
   clean = e.mission_cheated() ? 0 : 1;
   const int32_t fast = e.exchange_fast_menu(0);
+  for (const char* set : {"MENU", "MECHLAB"}) menu_sounds.hold(set);  // ours (issue #19)
   if (load("dlgWin.zrd", "WINMENU", true)) {
     bind_primitive(&background, "WIN_BACKGROUND");
     abort_btn.id = kAbort;
@@ -375,6 +376,7 @@ DebriefScreen::DebriefScreen(Engine& e, Handle state, int32_t mission, const uin
     bind_button(&replay_btn, "ICON_REPLAY");
     continue_btn.id = kContinue;
     bind_button(&continue_btn, "ICON_CONTINUE");
+    for (HelpButton* b : {&abort_btn, &replay_btn, &continue_btn}) upgrades::menu_sounds_for_button(*b);  // ours (issue #19)
     static const char* const kCards[] = {"ICON_PLAYER0", "ICON_PLAYER1", "ICON_PLAYER2", "ICON_PLAYER3"};
     for (int i = 0; i < 4; ++i) bind_button(&cards[i], kCards[i]);
     bind_button(&title, "WIN_TITLE");

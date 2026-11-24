@@ -35,6 +35,7 @@ TEST(pm_small_fixes_list_matches_its_gates) {
       {"A weapon's loop sound stops when firing stops.", {{"mech3/weapon.cpp", 1}}},
       {"A mech re-placed where it stands keeps to its ground.", {{"mech3/mech_place.cpp", 1}}},
       {"Torso auto return keeps the torso within its twist.", {{"mech3/mech_part_update.cpp", 1}}},
+      {"Salvage and briefing buttons have sounds.", {{"upgrades/sounds/menu_sounds.cpp", 3}}},
       // Pirate's Moon's own copy of the file and the one it shares with MechWarrior 3's build.
       {"A mission's last animation can be waited for.", {{"pm/gamez/zeffect/zeff_anim_init.cpp", 1}, {"gamez/zeffect/zeff_anim_init.cpp", 1}}},
       {"An animation whose object is missing waits its turn.", {{"pm/gamez/zeffect/zeff_anim_init.cpp", 1}, {"gamez/zeffect/zeff_anim_init.cpp", 1}}},

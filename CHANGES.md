@@ -34,6 +34,7 @@ it is clear what the designers meant.
   strong the static should be and then, on a 3D card, draws it at full strength however hurt you are;
   now it grades with your health, as MechWarrior 3's does: faint at 15% health, a full sheet near death.
 - **Leaving the pause menu with Escape no longer silences the mission.** The pause stops every sound and only the RESUME button started them again: leaving with Escape left the wind, the ocean and your mech's engine hum silent for the rest of the mission. Escape now brings them back as RESUME does (the expansion did the same).
+- **The pause, briefing, debriefing and salvage buttons have sounds.** The original's pause and salvage asked for sounds that were not loaded there, or that the game does not have, and the other screens' buttons asked for none (issue #19). Under SMALL FIXES.
 - **TORSO AUTO RETURN with the mouse keeps the torso within its twist.** With the mouse on twist and pitch, a quick stroke swung the torso past its limit and all the way round (issue #10). Under SMALL FIXES.
 - **The Sunder's Alternate B loadout carries all its LRM 20 missiles.** A misplaced word in its file left 240 of the 360 unloaded. Under SMALL FIXES.
 - **The Strider has its recoil slide.** Its file gave the number as text ("1.5.0"), so it had none; it now has the 1.5 of the mechs beside it. Under SMALL FIXES.
