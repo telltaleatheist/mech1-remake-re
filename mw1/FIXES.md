@@ -23,11 +23,16 @@ Tick an item when it is merged into `main`.
   STARPORT." (the 4:3 line holds about 56 letters). Before a trip to a world the company couldn't leave, the
   readout warns either "You couldn't afford to leave it without selling a mech." or "You couldn't afford to leave
   it: you'd have to work your passage out."
-- **The soaks:** the 20-contract soak's 2 million C-bill gift when stranded is gone. Stranded, it sells its dearest
-  'Mech; truly stranded, it takes the passage through the STARPORT. A strand with neither is a failure.
+- **The soaks:** one rule in all three that met a strand (the 20-contract soak, the campaign soak and the balance
+  soak): the 2 million C-bill gift is gone. Stranded, the soak sells its dearest 'Mech, logged as SELL logs it;
+  truly stranded, it takes the passage through the STARPORT. A strand with neither is a failure. The campaign soak's
+  "locked out" (every House refusing) stays a failure, as it measures the grudges' fading, but its grievances are no
+  longer cleared: the passage takes the company out. The balance soak's money curves are now the play's own, and
+  `balance_report.py` names each strand's way out.
 - **Checks:** `test_mw1_office`'s passage tests (one 'Mech broke and withdrawn; a sale covering the fare; the
   dealer's limit; every House refusing; the travel screen; both warnings), `test_mw1_travel`'s stranded lines, and
   the loop test's broken-off world now leaving by TAKE PASSAGE.
+
 ## 142. [x] The soundtrack: MW1's five songs as rock arrangements, six combat songs in a shuffle *(done: mw1-110-soundtrack, for 1.1.0)*
 A project decision (2026-11-23, via the lead): MW1's five songs and six combat songs replace the menu theme and the
 three combat tracks (FIXES 100, 116).

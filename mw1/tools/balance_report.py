@@ -22,6 +22,7 @@ OBJ = {0: "destroy", 1: "reach", 2: "attack", 3: "defend"}
 
 def read(d):
     contracts, curves, chassis, loadouts, stored, offered, runs, stranded = [], {}, Counter(), Counter(), Counter(), set(), [], []
+    no_way_out = []
     files = sorted(glob.glob(os.path.join(d, "campaign_*.txt")))
     for f in files:
         for line in open(f, errors="replace"):
@@ -46,9 +47,11 @@ def read(d):
                 offered.add(" ".join(w[1:]))
             elif tag == "run":
                 runs.append(line.strip())
-            elif tag == "stranded":
-                stranded.append((os.path.basename(f), w[1], w[2]))
-    return files, contracts, curves, chassis, loadouts, stored, offered, runs, stranded
+            elif tag == "stranded":  # FIXES 144: the way out, "sold" or "passage"
+                stranded.append((os.path.basename(f), w[1], w[3] if len(w) > 3 else "?"))
+            elif tag == "no-way-out":
+                no_way_out.append((os.path.basename(f), w[1]))
+    return files, contracts, curves, chassis, loadouts, stored, offered, runs, stranded, no_way_out
 
 
 def net(c):
@@ -81,7 +84,7 @@ def table(title, groups):
 def main():
     if len(sys.argv) != 2:
         sys.exit(__doc__)
-    files, cs, curves, chassis, loadouts, stored, offered, runs, stranded = read(sys.argv[1])
+    files, cs, curves, chassis, loadouts, stored, offered, runs, stranded, no_way_out = read(sys.argv[1])
     print(f"{len(files)} campaigns, {len(cs)} contracts")
     for r in runs:
         print("  " + r)
@@ -124,7 +127,10 @@ def main():
         pts = cur[:: max(1, len(cur) // 10)]
         print(f"  campaign {seed}: " + " ".join(f"{v / 1e6:.1f}M" for v in pts) + (f" ... {cur[-1] / 1e6:.1f}M" if cur else ""))
     if stranded:
-        print(f"  stranded (2M given to go on): {len(stranded)}: " + ", ".join(f"{f} after {n}" for f, n, _ in stranded))
+        print(f"  stranded, out by a sale or the working passage: {len(stranded)}: " +
+              ", ".join(f"{f} after {n} ({way})" for f, n, way in stranded))
+    if no_way_out:
+        print(f"  STRANDED WITH NO WAY OUT: {len(no_way_out)}: " + ", ".join(f"{f} after {n}" for f, n in no_way_out))
 
     print(f"\nEnemies met: {sum(chassis.values())} over {len(chassis)} chassis")
     for name, n in chassis.most_common():
