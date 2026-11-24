@@ -38,14 +38,12 @@ original.
 
 ### Coming in the next release
 
-- **The launcher:** PLAY is centred beside UPDATE. The pickers show every
-  file (.zip downloads too), PICK A FOLDER and dropping a file on the window
-  work everywhere a game is asked for. ADD FROM MY DISC reads a .zip. A disc
-  without music is a question, not an error. DOWNLOAD is the big button in the
-  middle of its screen. Inception's game files are found and copied on the
-  launcher's own screens (with Inception's next version).
-- **Pirate's Moon (Windows):** pilots, mods, music and saves from versions up
-  to 1.3.1 are found again.
+Nothing yet.
+
+**1.4.0 (2026-11-24)** (the full notes are in
+[docs/release-notes-1.4.0.md](docs/release-notes-1.4.0.md)): the launcher sets up
+Inception on its own screens, shows every file in its pickers, reads zips in ADD
+FROM MY DISC, and finds Pirate's Moon's data from Windows versions up to 1.3.1.
 
 **1.3.6 (2026-11-24)** (the full notes are in
 [docs/release-notes-1.3.6.md](docs/release-notes-1.3.6.md)): fixes: Linux with
