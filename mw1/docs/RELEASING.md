@@ -58,6 +58,9 @@ numbers: the second is a feature update, the third is bug fixes.
 
 ## Traps when merging from Pirate's Moon
 
+- **The root `README.md`** is MW1 Remake's own page. Pirate's Moon's and MW3's
+  versions change on their side and will conflict here: keep this one
+  (`git checkout --ours README.md`).
 - **The shared `src/frontend/sdl/mw3_main.cpp`** is also MW1's main. Anything it
   does for "the program" (recording itself, its name in the log) must ask
   whether MW1 named itself: `record_self` is gated on `named.id.empty()`, or MW1
