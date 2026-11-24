@@ -35,6 +35,11 @@ original.
 
 Nothing yet.
 
+**1.3.4 (2026-11-24)** (the full notes are in
+[docs/release-notes-1.3.4.md](docs/release-notes-1.3.4.md)): GAME FILES lists
+every copy of a game on your computer and what each is missing, so you pick
+the one to use; every launcher screen says BATTLETECH.
+
 **1.3.3 (2026-11-24)** (the full notes are in
 [docs/release-notes-1.3.3.md](docs/release-notes-1.3.3.md)): the launcher
 lists the games as panels that scroll, like the download page.
