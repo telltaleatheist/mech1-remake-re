@@ -4,6 +4,11 @@ An unofficial fan rebuild of **MechWarrior 3** (Zipper Interactive and
 MicroProse, 1999) for today's computers: Windows 10 and 11, macOS and Linux,
 with no Wine, DirectX wrappers, DDrawCompat or dgVoodoo.
 
+| | |
+|---|---|
+| ![Outside view over an orange plain](docs/screenshots/pm-outside.jpg) | ![Outside view at night, between the domes](docs/screenshots/pm-night.jpg) |
+| ![The cockpit, firing on a 'Mech](docs/screenshots/pm-cockpit.jpg) | ![The cockpit under a red night sky](docs/screenshots/pm-red-sky.jpg) |
+
 It is not a remake. The original `Mech3.exe` (patch 1.2) was taken apart and
 its code rewritten function by function in C++, most of it checked against
 the original running in an emulator. The game plays the way it always did,

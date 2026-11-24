@@ -7492,6 +7492,32 @@ TEST(sdl_program_launcher_links_and_uninstalls) {
   std::printf("links: development build %d, a wrong pick %d\n", has(rb.log, "games: pm: not installed"), has(rb.log, ": not this game"));
   EXPECT(rb.exited && has(rb.log, "games: pm: not installed") && has(rb.log, "screen game: LINK AN INSTALL, BACK\n"));
   EXPECT(has(rb.log, "/api/mech3-re.json: not this game") && !has(cfg(b), "link_pm=/"));
+  // An AppImage carries its version packed: it is asked (--status). The launcher in MW3 alone's hands that to its game.
+  const std::string i = std::string(MW3_TEST_TMP) + "/launcher_links_i";
+  const LauncherRun ri = run_launcher_with("launcher_links_i", "exit 0", nullptr, env(i, "", ""),
+                                           [&](const std::string& d) {
+                                             lay(d, "/elsewhere/PM.AppImage", "");
+                                             std::ofstream(d + "/elsewhere/PM.AppImage")
+                                                 << "#!/bin/sh\n[ \"$1\" = --status ] || exit 2\necho '{\"kit\": 1, \"game\": \"mech3-pm\", \"version\": "
+                                                    "\"pm-v1.2.7\", \"files\": {\"state\": \"ready\"}}'\n";
+                                             fs::permissions(d + "/elsewhere/PM.AppImage", fs::perms::owner_all);
+                                           }, false);
+  EXPECT(ri.exited && has(ri.log, ("games: pm: found " + i + "/elsewhere/PM.AppImage (its record), linked").c_str()));
+  {
+    const std::string game = i + "/game.sh", out = i + "/handed.txt";
+    std::ofstream(game) << "#!/bin/sh\necho \"$@\" > '" << out << "'\n";
+    fs::permissions(game, fs::perms::owner_all);
+    setenv("MW3_GAME_BIN", game.c_str(), 1);
+    for (const char* args : {"--status", "/x/install --write-dir /x/wd --ready-file /x/r"}) {
+      fs::remove(out, ec);
+      const int rc = std::system(("'" + std::string(MW3_LAUNCHER_BIN) + "' " + args + " > /dev/null 2>&1").c_str());
+      std::ifstream f(out);
+      std::string line;
+      std::getline(f, line);
+      EXPECT(rc == 0 && line == args);
+    }
+    unsetenv("MW3_GAME_BIN");
+  }
   // UNLINK: forgotten, and its record no longer links it.
   const std::string c = std::string(MW3_TEST_TMP) + "/launcher_links_c";
   const LauncherRun rc = run_launcher_with("launcher_links_c", "exit 0", nullptr, env(c, gear + ",next,next,press", ""),

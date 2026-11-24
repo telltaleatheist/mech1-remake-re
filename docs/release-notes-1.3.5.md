@@ -11,6 +11,7 @@ page of its own: where it's installed, linking another copy, and uninstalling.
   (A copy is found once it has been started at least once with 1.3.5 or
   later; on Windows a copy from its Setup, and on a Mac one in Applications,
   is found straight away.)
+  MechWarrior 1 Remake on its own is found the same way from its 1.1.0.
 - **UPDATE on a linked copy** installs the new version into the launcher's
   own folder, and that one plays from then on. The launcher never writes
   into a folder it didn't make, so your own install is left as it was.
