@@ -325,18 +325,36 @@ void* SdlRender3D::map_tex_staging(uint32_t bytes, uint32_t* offset) {
   return p + at;
 }
 
+// Each level's rows 256 bytes apart and each level at a 512-byte offset: D3D12's copy rules, met here because
+// without UnrestrictedBufferTextureCopyPitchSupported (Windows 10 without the Agility SDK) SDL's D3D12 backend
+// makes a temporary buffer per upload and copies row by row otherwise (issue #2: the 2D layer every frame, 853
+// or 800 pixels wide; mip levels narrower than 64). D3D12 only: SDL 3.4's Metal backend ignores pixels_per_row.
 void SdlRender3D::upload(SDL_GPUTexture* t, int width, int height, const uint8_t* rgba, bool mips) {
   std::vector<platform::MipLevel> chain;
   if (mips) chain = platform::mip_chain(width, height, rgba);
-  auto size = static_cast<uint32_t>(width * height * 4);
-  for (const platform::MipLevel& m : chain) size += static_cast<uint32_t>(m.rgba.size());
+  static const bool d3d12 = [this] {
+    const char* d = SDL_GetGPUDeviceDriver(dev_);
+    return d && std::strcmp(d, "direct3d12") == 0;
+  }();
+  auto pitch_of = [](int w) { return d3d12 ? (static_cast<uint32_t>(w) * 4 + 255u) & ~255u : static_cast<uint32_t>(w) * 4; };
+  auto level_bytes = [&](int w, int h) {
+    const uint32_t b = pitch_of(w) * static_cast<uint32_t>(h);
+    return d3d12 ? (b + 511u) & ~511u : b;
+  };
+  uint32_t size = level_bytes(width, height);
+  for (const platform::MipLevel& m : chain) size += level_bytes(m.width, m.height);
   ++n_uploads_, upload_bytes_ += size;
   uint32_t base = 0;
   auto* to = static_cast<uint8_t*>(map_tex_staging(size, &base));
   if (!to) return;
-  std::memcpy(to, rgba, static_cast<size_t>(width) * height * 4);
-  uint32_t at = static_cast<uint32_t>(width * height * 4);
-  for (const platform::MipLevel& m : chain) std::memcpy(to + at, m.rgba.data(), m.rgba.size()), at += static_cast<uint32_t>(m.rgba.size());
+  uint32_t at = 0;
+  for (size_t level = 0; level <= chain.size(); ++level) {
+    const int w = level ? chain[level - 1].width : width, h = level ? chain[level - 1].height : height;
+    const uint8_t* from = level ? chain[level - 1].rgba.data() : rgba;
+    const uint32_t pitch = pitch_of(w), row = static_cast<uint32_t>(w) * 4;
+    for (int y = 0; y < h; ++y) std::memcpy(to + at + y * pitch, from + static_cast<size_t>(y) * row, row);
+    at += level_bytes(w, h);
+  }
   SDL_GPUTransferBuffer* tb = tex_staging_.buf;
   SDL_UnmapGPUTransferBuffer(dev_, tb);
   SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(dev_);
@@ -344,11 +362,11 @@ void SdlRender3D::upload(SDL_GPUTexture* t, int width, int height, const uint8_t
   uint32_t offset = base;
   for (size_t level = 0; level <= chain.size(); ++level) {
     const int w = level ? chain[level - 1].width : width, h = level ? chain[level - 1].height : height;
-    SDL_GPUTextureTransferInfo src{tb, offset, 0, 0};
+    SDL_GPUTextureTransferInfo src{tb, offset, d3d12 ? pitch_of(w) / 4 : 0u, d3d12 ? static_cast<Uint32>(h) : 0u};
     SDL_GPUTextureRegion dst{};
     dst.texture = t, dst.mip_level = static_cast<Uint32>(level), dst.w = w, dst.h = h, dst.d = 1;
     SDL_UploadToGPUTexture(copy, &src, &dst, false);
-    offset += static_cast<uint32_t>(w * h * 4);
+    offset += level_bytes(w, h);
   }
   SDL_EndGPUCopyPass(copy);
   SDL_SubmitGPUCommandBuffer(cmd);
@@ -489,7 +507,12 @@ bool SdlRender3D::ensure_frame() {
   ti.type = SDL_GPU_TEXTURETYPE_2D, ti.format = color_format_;
   ti.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
   ti.width = w, ti.height = h, ti.layer_count_or_depth = 1, ti.num_levels = 1;
+  // D3D12's optimized clear value, opaque black as end_scene clears (else the debug layer's warning #820 at
+  // every clear, the default being 0,0,0,0). Other backends ignore it.
+  ti.props = SDL_CreateProperties();
+  if (ti.props) SDL_SetFloatProperty(ti.props, SDL_PROP_GPU_TEXTURE_CREATE_D3D12_CLEAR_A_FLOAT, 1.0f);
   frame_ = SDL_CreateGPUTexture(dev_, &ti);
+  if (ti.props) SDL_DestroyProperties(ti.props);
   frame_w_ = w, frame_h_ = h;
   clear_pending_ = true;  // depth: a new back buffer's starts cleared
   frame_new_ = true;      // colour too, even with the colour clear off (end_scene)
@@ -704,6 +727,24 @@ void SdlRender3D::drop_frame() {
   held_ = nullptr, held_w_ = held_h_ = 0;
 }
 
+// Ours (issue #2, a player's frames at about 16 a second whatever the size): every 300 shown frames, if they came
+// under 40 a second, a line saying how long each took and how much of it was the wait for the window's next image
+// (the display, the driver or another program) rather than the game's own work. At most five a run.
+void SdlRender3D::note_frame_time(Uint64 wait_from) {
+  const Uint64 now = SDL_GetPerformanceCounter();
+  if (slow_last_) slow_sum_ += now - slow_last_, slow_wait_ += now - wait_from, ++slow_n_;
+  slow_last_ = now;
+  if (slow_n_ < 300) return;
+  const double freq = static_cast<double>(SDL_GetPerformanceFrequency());
+  const double each = slow_sum_ * 1000.0 / freq / slow_n_, wait = slow_wait_ * 1000.0 / freq / slow_n_;
+  if (each > 25.0 && slow_said_ < 5) {
+    ++slow_said_;
+    std::printf("mw3: slow frames: %d shown at %.1f a second (%.1f ms each: %.1f ms the game's own work, %.1f ms "
+                "waiting for the window's next image)\n", slow_n_, 1000.0 / each, each, each - wait, wait);
+  }
+  slow_n_ = 0, slow_sum_ = slow_wait_ = 0;
+}
+
 void SdlRender3D::present() {
   if (!frame_) return;
   // MW3_GPU_COUNT=N (ours, issue #7): every N frames, the textures alive and their size, to see one that grows.
@@ -770,7 +811,9 @@ void SdlRender3D::present() {
   SDL_GPUTexture* sc = nullptr;
   Uint32 w = 0, h = 0;
   const bool hidden = (SDL_GetWindowFlags(window_) & SDL_WINDOW_HIDDEN) != 0;
+  const Uint64 wait_from = SDL_GetPerformanceCounter();
   if (!hidden && SDL_WaitAndAcquireGPUSwapchainTexture(cmd, window_, &sc, &w, &h) && sc) {
+    note_frame_time(wait_from);
     SDL_GPUBlitInfo bi{};
     bi.source.texture = frame_, bi.source.w = frame_w_, bi.source.h = frame_h_;
     bi.destination.texture = sc, bi.destination.w = w, bi.destination.h = h;

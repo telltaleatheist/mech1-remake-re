@@ -859,6 +859,14 @@ From the weapon code (weapons.md).
   taunts ("you'll pay", "yeah right", "don't take", "not gonna", "can't do",
   "goodbye", "returning"), the "occupied" calls, the mech's eject voice, and
   36 lines of mission dialogue and one ambient loop. They simply stay silent.
+  When a sound is missing from the archives, the game looks for it as a loose
+  file in `../data/common/sounds`, a folder from the developers' own source
+  tree that no install has. So on the developers' machines these files most
+  likely played, and nobody noticed they were never packed into the archives.
+  Whether all 60 were recorded is unknown (numbered names like `ge5310` to
+  `ge5315` look like takes from a recording session). None are in the 1.0 or
+  1.2 install or in Pirate's Moon, so every copy of the game has been silent
+  there since 1999.
 - **Wingmen never say they are low or out of ammo.** The game looks up
   `dom_low_ammo`, `alan_out_of_ammo` and so on (0x4e7dc0, "%s_%s"), but in
   `sounds.zrd` those six groups list `"PLAY_COUNT" 2` after their name, and
