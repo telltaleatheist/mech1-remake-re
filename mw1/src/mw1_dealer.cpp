@@ -11,6 +11,7 @@
 #include "mech3/mech_names.h"
 #include "mech3/pilot.h"
 #include "mw1_market.h"
+#include "mw1_weapon_data.h"
 
 namespace mw1::dealer {
 
@@ -110,13 +111,13 @@ std::string ware_name(const Ware& w) {
 }
 
 float ware_tons(const Ware& w) {
-  if (w.kind == kWeapon) return mech3::weapon_weight(w.id, w.tech);
+  if (w.kind == kWeapon) return weapon_data::tons(w.id, w.tech);  // the engine's, else MW1's read at the hub
   if (w.kind == kEquipment) return mech3::equip_weight(w.id, w.tech);
   return 1.0f;
 }
 
 int32_t ammo_lot(int32_t weapon) {
-  const float per_round = mech3::ammo_weight(weapon);
+  const float per_round = weapon_data::round_tons(weapon);
   return per_round > 0 ? std::max(1, static_cast<int32_t>(std::lround(1.0f / per_round))) : 1;
 }
 

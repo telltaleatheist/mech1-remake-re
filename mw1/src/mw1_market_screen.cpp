@@ -10,12 +10,14 @@
 #include "mw1_mech_icons.h"
 #include "mw1_mech_renders.h"
 #include "mw1_pilots.h"
+#include "mw1_supply_screen.h"
 #include "mw1_travel.h"
+#include "mw1_upgrades.h"
 
 namespace mw1::market_ui {
 namespace {
 const std::vector<ScreenButton> kMarketButtons = {
-    {"BUY", "BUY"},           {"SELL", "SELL"},       {"LAB", "MECH LAB"}, {"BACK", "BACK"},
+    {"BUY", "BUY"},           {"SELL", "SELL"},       {"LAB", "MECH LAB"}, {"SUPPLY", "SUPPLY"}, {"BACK", "BACK"},
     {"STOCK_UP", "", true},   {"STOCK_DOWN", "", true}, {"OWN_UP", "", true},  {"OWN_DOWN", "", true}};
 constexpr size_t kNameWidth = 14;  // the lists' columns (the line font is fixed-width)
 constexpr size_t kWhoWidth = 11;
@@ -125,14 +127,19 @@ int32_t market_shown_mech(const Company& c, const MarketChoice& m) {
   return c.market.stock[static_cast<size_t>(m.stock)];
 }
 
-ScreenView market_view(const Company& c, const MarketChoice& m) {
+ScreenView market_view(const Company& c, const MarketChoice& m, bool wide) {
   ScreenView v;
+  const Kits* chosen_kits = m.own_shown ? upgrades::kits_on(c, m.owned) : nullptr;
+  std::string said = m.note;
+  if (said.empty() && !wide && chosen_kits && !kits_words(*chosen_kits).empty())
+    said = "Kits on the " + mech_title(owned_mech(c, m.owned)) + ": +" + std::to_string(chosen_kits->sinks) + " sinks, +" +
+           std::to_string(chosen_kits->armour) + " armour.";
   v.blocks = {at_place("PLANET", {upper(c.planet)}),
               at_place("HOUSE", {"HOUSE " + upper(kHouses[c.planet_house].name) + " \xB7 THE MECH COMPLEX"}),
               at_place("PLACE", {thousands(c.funds) + " C-BILLS"}),
               at_place("PLACE_SUB", {world_words(c)}),
               at_place("STATUS_WORLD", {upper(c.planet)}),
-              at_place("STATUS", {m.note.empty() ? "BUY from FOR SALE; SELL and MECH LAB on YOUR MECHS." : m.note})};
+              at_place("STATUS", {said.empty() ? "BUY from FOR SALE; SELL and MECH LAB on YOUR MECHS." : said})};
   v.panels.assign(kMarketPanelCount, true);
   // FIXES.md item 12: the chosen 'Mech under the buttons, drawn live in 3D (the panel left see-through); none without
   // the 3D (no stored picture of it: the renders are the loading screen's slot pictures only).
@@ -165,12 +172,15 @@ ScreenView market_view(const Company& c, const MarketChoice& m) {
   std::vector<std::string> owned;
   for (int32_t i = m.owned_top; i < owned_count(c) && i < m.owned_top + kMarketRows; ++i) {
     const int32_t mech = owned_mech(c, i);
-    owned.push_back(std::string(i == m.owned ? "> " : "  ") + kOutlineRoom + padded(listed(mech), kNameWidth) + tons(mech) +
-                    padded(pilot_of(c, i), kWhoWidth) + price_column(market_sell_price(c, mech)));
+    std::string line = std::string(i == m.owned ? "> " : "  ") + kOutlineRoom + padded(listed(mech), kNameWidth) + tons(mech) +
+                       padded(pilot_of(c, i), kWhoWidth) + price_column(market_sell_price(c, mech));
+    if (wide)
+      if (const Kits* k = upgrades::kits_on(c, i)) line += "  " + kits_words(*k);
+    owned.push_back(line);
     v.inline_pictures.push_back({"O_ROWS", i - m.owned_top, kRowIconH, "> ", row_icon_image(mech, i == m.owned)});
   }
   v.blocks.push_back(at_place("O_TITLE", {"YOUR MECHS"}));
-  v.blocks.push_back(at_place("O_HEAD", {"  " + std::string(kOutlineRoom) + padded("MECH", kNameWidth) + "TONS " + padded("PILOT", kWhoWidth) + "     VALUE"}));
+  v.blocks.push_back(at_place("O_HEAD", {"  " + std::string(kOutlineRoom) + padded("MECH", kNameWidth) + "TONS " + padded("PILOT", kWhoWidth) + "     VALUE" + (wide ? "  KITS" : "")}));
   v.blocks.push_back(at_place("O_ROWS", owned));
 
   v.buttons.resize(kMarketButtonCount);

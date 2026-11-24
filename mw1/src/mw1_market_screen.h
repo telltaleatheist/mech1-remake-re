@@ -20,13 +20,13 @@ inline constexpr const char* kMarketFile = "mw1market.zrd";
 inline constexpr const char* kMarketDialog = "MW1MARKETDIALOG";
 
 enum MarketButton : int32_t {
-  kMarketBuy = 1, kMarketSell, kMarketLab, kMarketBack,          // down the left
+  kMarketBuy = 1, kMarketSell, kMarketLab, kMarketSupply, kMarketBack,  // down the left (SUPPLY: FIXES 122, 118)
   kMarketStockUp, kMarketStockDown, kMarketOwnUp, kMarketOwnDown  // the lists' arrows
 };
 inline constexpr int32_t kMarketButtonCount = kMarketOwnDown;
 // The left column's buttons' tops (both layouts'): stacked from the top, the Bar's 38 apart (FIXES.md item 71, the owner:
-// "stack them up against the top").
-inline constexpr int32_t kMarketButtonTop[4] = {84, 122, 160, 198};
+// "stack them up against the top"). 1.1.0 (FIXES 122, 118): SUPPLY (mw1_supply_screen.h) under MECH LAB, BACK last.
+inline constexpr int32_t kMarketButtonTop[5] = {84, 122, 160, 198, 236};
 const char* market_button_name(int32_t id);
 
 // The layout's PANELs in order: the two plaques, the status bar, the two lists' terminals.
@@ -70,8 +70,10 @@ inline constexpr int32_t kMarketListTop[2] = {76, 256};              // FOR SALE
 inline constexpr int32_t kMarketRowsFrom = 52, kMarketRowGap = 15;   // a terminal's first row, from its top; the gap
 bool market_row_at(int32_t x, int32_t y, bool wide, bool* own, int32_t* row);
 
-// The screen's texts and buttons for the company's Mech Complex (pure: the tests read it).
-ScreenView market_view(const Company& c, const MarketChoice& m);
+// The screen's texts and buttons for the company's Mech Complex (pure: the tests read it). FIXES 118: the kits on each
+// of YOUR MECHS ("+3 S +12 A") in a KITS column on the wide layout (`wide`), which has the room; 4:3's has none, so
+// there the status line says the chosen one's kits (when no button has said anything since).
+ScreenView market_view(const Company& c, const MarketChoice& m, bool wide = false);
 // The 'Mech the panel shows: the chosen row's (YOUR MECHS' when it was the last chosen); -1 none.
 int32_t market_shown_mech(const Company& c, const MarketChoice& m);
 // The panel's 'Mech drawn live in gunmetal (FIXES.md item 12, the owner 2026-11-18; mech3/model_view.h): set by the

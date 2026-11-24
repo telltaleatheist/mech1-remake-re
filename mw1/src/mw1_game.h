@@ -92,6 +92,11 @@ class HubOptionsState;
 using namespace hub;
 // A mission back and not settled (the hub's AFTER ACTION), else null (tests).
 const AfterAction* game_loop_pending();
+// FIXES 142: the results' song, where MW1 played one (081B:0299..0399), as a music::Cue value, -1 none: a contract or
+// story battle won, LAUNCH's (debrief.ogg), lancemates lost or not (MW1 started DEATH for each one lost, then LAUNCH
+// over it at once); not won and a lancemate KILLED or MISSING, DEATH's; the Dark Wing's rung (its VICTORY comes with
+// the victory's page) and any other, none.
+int32_t results_song(const AfterAction& a, int32_t rung);
 // FIXES 106: the last launch's lancemates down, as the log said them (who had the kill, who hit last, heat) (tests).
 std::vector<std::string> game_loop_lance_downs();
 // FIXES.md item 78: the status line's words without MW1's MW_MAIN.EXE (ours): the Bar's greyed ORDER DRINK or NEWS
@@ -128,6 +133,14 @@ MarketState* game_loop_market();
 // FIXES.md item 58 (tests): the Mech Complex's chosen rows, and the 'Mech its live panel draws (-1 none).
 const MarketChoice* game_loop_market_choice();
 int32_t game_loop_market_panel_mech();
+// 1.1.0 (tests): the supply screen's state once the Mech Complex's SUPPLY has made it, and its choices.
+namespace supply_ui {
+class SupplyState;
+struct SupplyChoice;
+}
+using namespace supply_ui;
+SupplyState* game_loop_supply();
+const SupplyChoice* game_loop_supply_choice();
 // The travel screen's state once TRAVEL has made it (tests), else null.
 namespace travel_ui {
 class TravelState;
