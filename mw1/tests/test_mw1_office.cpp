@@ -57,6 +57,12 @@ std::vector<std::string> view_lines(const mw1::ScreenView& v) {
   for (const mw1::TextBlock& b : v.blocks) out.insert(out.end(), b.lines.begin(), b.lines.end());
   return out;
 }
+// The same as one text, the lines joined by spaces: a sentence the note wraps (kNoteColumns) is found whole.
+std::string view_text(const mw1::ScreenView& v) {
+  std::string out;
+  for (const std::string& l : view_lines(v)) out += (out.empty() ? "" : " ") + l;
+  return out;
+}
 // The nearest world from the company's that deals with it, never Anders Moon (the passage's, worked out plainly).
 int32_t nearest_dealing(const mw1::Company& c) {
   int32_t best = -1;
@@ -285,7 +291,7 @@ TEST(mw1_office_the_working_passage_on_the_travel_screen) {
   mw1::TravelChoice t;
   mw1::ScreenView v = mw1::travel_view(c, t);
   EXPECT(v.buttons[mw1::kTravelGo - 1].on && v.buttons[mw1::kTravelGo - 1].words == "TAKE PASSAGE");
-  EXPECT(has(view_lines(v), "in return for work on board: no fare."));
+  EXPECT(view_text(v).find("in return for work on board: no fare.") != std::string::npos);
   t.world = pw;
   v = mw1::travel_view(c, t);
   EXPECT(v.buttons[mw1::kTravelGo - 1].on && v.buttons[mw1::kTravelGo - 1].words == "TAKE PASSAGE");

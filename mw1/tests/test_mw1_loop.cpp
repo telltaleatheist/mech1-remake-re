@@ -5217,15 +5217,18 @@ TEST(mw1_office_terminated_on_a_stuck_poor_world_and_a_refusal_headless) {
           hub->screen()->on_button(mw1::kHubTravel, 0, 0);
           ++step, wait = 0;
           return false;
-        case 3:
+        case 3: {
           if (!showing(app, tr)) return false;
+          std::string said;  // the screen's lines as one text: the note wraps a sentence over lines
+          for (const std::string& l : tr->screen()->shown()) said += (said.empty() ? "" : " ") + l;
           travel_stuck = shows_line(tr->screen()->shown(), "broken off negotiations") &&
-                         shows_line(tr->screen()->shown(), "in return for work on board: no fare") &&
+                         said.find("in return for work on board: no fare") != std::string::npos &&
                          shows_line(tr->screen()->shown(), "TAKE PASSAGE") && tr->screen()->enabled(mw1::kTravelGo);
           stuck_at = mw1::game_loop_company_for_tests()->planet_number;
           tr->screen()->on_button(mw1::kTravelGo, 0, 0);
           ++step, wait = 0;
           return false;
+        }
         case 4: {
           if (!showing(app, hub)) return false;
           mw1::Company* c = mw1::game_loop_company_for_tests();
