@@ -5185,7 +5185,9 @@ TEST(mw1_office_counter_then_agreed_to_the_briefing_headless) {
 
 // Broken off on a world the company can't afford to leave (Kurita, patience 1, no funds): the office says MW1's
 // words and only BACK; the hub says the negotiations are over and the stuck guard's message with why, ACCEPT gone
-// (OFFICE still opens: a place, as MW1's); the travel screen says the same. Then a House that refuses (8 grievances): no offer, its words.
+// (OFFICE still opens: a place, as MW1's); the travel screen says the same. With one 'Mech and nothing to sell, truly
+// stranded: the hub offers the working passage, the travel screen says where and when, and TAKE PASSAGE carries the
+// company there for no fare (the log's line). Then a House that refuses (8 grievances): no offer, its words.
 TEST(mw1_office_terminated_on_a_stuck_poor_world_and_a_refusal_headless) {
   std::error_code ec;
   if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
@@ -5196,7 +5198,8 @@ TEST(mw1_office_terminated_on_a_stuck_poor_world_and_a_refusal_headless) {
     MenuRun r;
     r.save = (dir / mw1::kSaveFile).string(), r.start = mw1::Start::kHub;
     int step = 0, wait = 0;
-    bool office_over = false, hub_over = false, hub_stuck = false, travel_stuck = false, refused = false;
+    bool office_over = false, hub_over = false, hub_stuck = false, travel_stuck = false, passage = false, refused = false;
+    int32_t stuck_at = -1;
     std::vector<std::string> hub_lines;
     r.step = [&](mech3::Mech3App& app, mech3::GameEngine&) {
       mw1::HubState* hub = mw1::game_loop_hub();
@@ -5229,20 +5232,30 @@ TEST(mw1_office_terminated_on_a_stuck_poor_world_and_a_refusal_headless) {
           hub_lines = hub->screen()->shown();
           hub_over = shows_line(hub_lines, "Stranded") && hub->screen()->enabled(mw1::kHubOffice) &&
                      !hub->screen()->visible(mw1::kHubDeploy) && !mw1::game_loop_contract();
-          hub_stuck = shows_line(hub_lines, "Stranded: no fare out") && shows_line(hub_lines, "See the STARPORT");
+          hub_stuck = shows_line(hub_lines, "Stranded: a JumpShip offers passage") && shows_line(hub_lines, "See the STARPORT");
           hub->screen()->on_button(mw1::kHubTravel, 0, 0);
           ++step, wait = 0;
           return false;
-        case 3:
+        case 3: {
           if (!showing(app, tr)) return false;
-          travel_stuck = shows_line(tr->screen()->shown(), "broken off negotiations");
-          tr->screen()->on_button(mw1::kTravelBack, 0, 0);
+          std::string said;  // the screen's lines as one text: the note wraps a sentence over lines
+          for (const std::string& l : tr->screen()->shown()) said += (said.empty() ? "" : " ") + l;
+          travel_stuck = shows_line(tr->screen()->shown(), "broken off negotiations") &&
+                         said.find("in return for work on board: no fare") != std::string::npos &&
+                         shows_line(tr->screen()->shown(), "TAKE PASSAGE") && tr->screen()->enabled(mw1::kTravelGo);
+          stuck_at = mw1::game_loop_company_for_tests()->planet_number;
+          tr->screen()->on_button(mw1::kTravelGo, 0, 0);
           ++step, wait = 0;
           return false;
+        }
         case 4: {
           if (!showing(app, hub)) return false;
-          // A House that refuses: a world of Liao's, 8 grievances against the company.
           mw1::Company* c = mw1::game_loop_company_for_tests();
+          passage = c->planet_number != stuck_at && c->funds == 0 && mw1::earning_here(*c) &&
+                    std::any_of(c->log.begin(), c->log.end(), [&](const mw1::LogEntry& e) {
+                      return e.kind == mw1::LogKind::kWorkedPassage && e.b == mw1::planet_index(c->planet_number);
+                    });
+          // A House that refuses: a world of Liao's, 8 grievances against the company.
           mw1::set_planet(*c, world_of_house(mw1::kLiao));
           c->withdrawn = false, c->funds = 5000000, c->grievance[mw1::kLiao] = mw1::kGrievanceRefusal;
           mw1::game_loop_offer_again();
@@ -5256,8 +5269,9 @@ TEST(mw1_office_terminated_on_a_stuck_poor_world_and_a_refusal_headless) {
     };
     menu_run(r);
     for (const std::string& l : hub_lines) std::printf("  a hub line of %zu letters\n", l.size());  // MW1's words never printed
-    std::printf("  office over %d, hub over %d, stuck said %d, travel %d, refused %d\n", office_over, hub_over, hub_stuck, travel_stuck, refused);
-    EXPECT(step >= 4 && office_over && hub_over && hub_stuck && travel_stuck && refused);
+    std::printf("  office over %d, hub over %d, stuck said %d, travel %d, passage %d, refused %d\n", office_over, hub_over, hub_stuck,
+                travel_stuck, passage, refused);
+    EXPECT(step >= 4 && office_over && hub_over && hub_stuck && travel_stuck && passage && refused);
   });
 }
 
@@ -6019,12 +6033,30 @@ TEST(mw1_story_drinks_and_news_in_the_bar_headless) {
   });
 }
 
+namespace {
+// A stranded soak's way out by the market (mw1_travel.h's stranded, not truly): the dearest 'Mech the market would take,
+// sold as SELL sells it (its log line too). False when none would sell.
+bool soak_sell_dearest(mw1::Company& c) {
+  int32_t best = -1;
+  int64_t most = -1;
+  for (int32_t i = 0; i < mw1::owned_count(c); ++i)
+    if (mw1::can_sell(c, i) == mw1::Deal::kDone && mw1::market_sell_price(c, mw1::owned_mech(c, i)) > most)
+      best = i, most = mw1::market_sell_price(c, mw1::owned_mech(c, i));
+  if (best < 0) return false;
+  const int32_t mech = mw1::owned_mech(c, best);
+  if (mw1::sell(c, best) != mw1::Deal::kDone) return false;
+  mw1::log_add(c, mw1::LogKind::kSold, true, mech, 0, 0, 0, mw1::market_sell_price(c, mech));
+  return true;
+}
+}  // namespace
+
 // A soak: a seeded company plays 20 contracts in a row through the hub, the story on (even seeds rich, odd seeds poor). Each hub it accepts (or
 // declines, or goes to the market, the Bar, the office or travels first, at random); each mission is won or lost
 // at random; the AFTER ACTION settled. At every hub the invariants: funds never below 0; the save on disk reads back
 // and writes out byte for byte, and is the live company's; lancemates hired, alive, distinct and at most 3, each
-// hangar mech's pilot one of them and no pilot in two; stranded only with the guard's words shown. Nothing may sit
-// on one screen for long (a stuck state).
+// hangar mech's pilot one of them and no pilot in two; stranded only with the guard's words shown, and then out by
+// the market (the dearest 'Mech sold) or, truly stranded, by the working passage (TAKE PASSAGE); a strand with neither
+// is a failure. Nothing may sit on one screen for long (a stuck state).
 // Seeds 12 and 13 by default (a full lance and two hangar mechs; poor, stranded once, a full lance); MW1_SOAK_SEEDS=n
 // runs seeds 0..n-1 instead (a longer search: 24 seeds clean, 2026-11-17).
 TEST(mw1_soak_twenty_contracts_through_the_hub_headless) {
@@ -6048,7 +6080,7 @@ TEST(mw1_soak_twenty_contracts_through_the_hub_headless) {
     auto roll = [&](int n) { return static_cast<int>(rng() % static_cast<uint32_t>(n)); };
     int wait = 0, idle = 0, mission_frames = 0, loads_seen = 0;
     int settled = 0, won = 0, lost = 0, hubs = 0, trips = 0, markets = 0, bars = 0, offices = 0, events = 0, stranded = 0;
-    int bad_funds = 0, bad_save = 0, bad_live = 0, bad_lance = 0, bad_guard = 0, stuck = 0;
+    int bad_funds = 0, bad_save = 0, bad_live = 0, bad_lance = 0, bad_guard = 0, bad_passage = 0, stuck = 0, passages = 0;
     bool in_mission = false, win = false, stranded_once = false;
     size_t lance_max = 0, hangar_max = 0;
     const void* last_state = nullptr;
@@ -6140,6 +6172,16 @@ TEST(mw1_soak_twenty_contracts_through_the_hub_headless) {
       }
       if (mw1::TravelState* ts = mw1::game_loop_travel(); showing(app, ts)) {
         mw1::Mw1Screen* sc = ts->screen();
+        // Truly stranded: TAKE PASSAGE (its world chosen as the screen opened), for no fare.
+        if (mw1::truly_stranded(*c)) {
+          const std::string was = c->planet;
+          const int64_t funds_was = c->funds;
+          if (shows_line(sc->shown(), "TAKE PASSAGE") && sc->enabled(mw1::kTravelGo)) sc->on_button(mw1::kTravelGo, 0, 0);
+          if (c->planet != was && c->funds == funds_was) ++passages, ++trips;
+          else bad(bad_passage, "truly stranded on " + was + " and no passage taken at hub " + std::to_string(hubs));
+          if (c->planet == was) sc->on_button(mw1::kTravelBack, 0, 0);
+          return false;
+        }
         if (roll(3) == 0) return sc->on_button(mw1::kTravelBack, 0, 0), false;
         if (roll(4) == 0) sc->on_button(mw1::kTravelFilter, 0, 0);
         // A world near here, clicked on the map.
@@ -6208,13 +6250,19 @@ TEST(mw1_soak_twenty_contracts_through_the_hub_headless) {
         if (!ok) bad(bad_lance, "the lance and hangar disagree at hub " + std::to_string(hubs));
       }
       // The status line's (item 16), unless AFTER ACTION's own line is there (settling may pay the way out).
-      const bool guard = shows_line(shown, "Stranded: no fare out") || mw1::game_loop_pending();
+      const bool guard = shows_line(shown, "Stranded:") || mw1::game_loop_pending();
       if (mw1::stranded(*c)) {
-        ++stranded;
         if (!guard) bad(bad_guard, "stranded without the guard's words at hub " + std::to_string(hubs));
-        c->funds += 2000000;  // a way out (MW1 has none but a save to load), so the soak goes on
-        mw1::game_loop_offer_again();
-        return false;
+        // Out (once AFTER ACTION is settled: it may pay the way): the market's sale, else the working passage.
+        if (!mw1::game_loop_pending()) {
+          ++stranded;
+          if (!mw1::truly_stranded(*c)) {
+            if (!soak_sell_dearest(*c)) bad(bad_passage, "stranded with nothing sold and no passage at hub " + std::to_string(hubs));
+            return false;
+          }
+          if (!sc->enabled(mw1::kHubTravel)) return bad(bad_passage, "truly stranded, the STARPORT shut at hub " + std::to_string(hubs)), false;
+          return sc->on_button(mw1::kHubTravel, 0, 0), false;
+        }
       }
       if (mw1::game_loop_pending()) {
         ++settled, (mw1::game_loop_pending()->outcome == mw1::Outcome::kFailure ? ++lost : ++won);
@@ -6234,11 +6282,12 @@ TEST(mw1_soak_twenty_contracts_through_the_hub_headless) {
     };
     menu_run(r);
     std::printf("  soak %d: %d settled (%d won, %d lost), %d hubs, %d trips, %d markets, %d bars, %d offices, %d event presses, "
-                "%d stranded, lance up to %zu, hangar up to %zu; bad: funds %d, save %d, live %d, lance %d, guard %d, stuck %d%s%s\n",
-                seed, settled, won, lost, hubs, trips, markets, bars, offices, events, stranded, lance_max, hangar_max, bad_funds, bad_save, bad_live, bad_lance,
-                bad_guard, stuck, first_bad.empty() ? "" : "; first: ", first_bad.c_str());
+                "%d stranded (%d passages), lance up to %zu, hangar up to %zu; bad: funds %d, save %d, live %d, lance %d, guard %d, "
+                "passage %d, stuck %d%s%s\n",
+                seed, settled, won, lost, hubs, trips, markets, bars, offices, events, stranded, passages, lance_max, hangar_max, bad_funds, bad_save,
+                bad_live, bad_lance, bad_guard, bad_passage, stuck, first_bad.empty() ? "" : "; first: ", first_bad.c_str());
     EXPECT(settled == 20 && won > 0 && lost > 0);
-    EXPECT(!bad_funds && !bad_save && !bad_live && !bad_lance && !bad_guard && !stuck);
+    EXPECT(!bad_funds && !bad_save && !bad_live && !bad_lance && !bad_guard && !bad_passage && !stuck);
     for (size_t n : status_long) std::printf("  a status line of %zu letters (the room: %zu)\n", n, mw1::chrome::kStatusLetters);
     EXPECT(status_long.empty());
   });
@@ -6278,7 +6327,9 @@ int64_t logged_money(const mw1::LogEntry& e) {
 const char* kind_name(mw1::LogKind k) {
   static const char* const names[] = {"",       "news",     "story", "contract", "result",  "repairs", "wages",
                                       "unpaid", "lance left", "promoted", "mech lost", "MIA", "killed", "missing",
-                                      "bought", "sold",     "hired", "left",     "travelled", "test", "story funds", "turned away", "welcome again", "seated"};
+                                      "bought", "sold",     "hired", "left",     "travelled", "test", "story funds", "turned away", "welcome again", "seated",
+                                      "mech recovered", "house covers", "worked passage"};
+  static_assert(sizeof(names) / sizeof(names[0]) == mw1::kLogKindLast + 1, "a name for every log kind");
   const int32_t i = static_cast<int32_t>(k);
   return i >= 0 && i <= mw1::kLogKindLast ? names[i] : "?";
 }
@@ -6435,6 +6486,7 @@ TEST(mw1_soak_a_campaign_through_every_service_and_restarts_headless) {
               case mw1::LogKind::kLanceLeft: lance_left = true; break;
               case mw1::LogKind::kTravelled:
               case mw1::LogKind::kTurnedAway:
+              case mw1::LogKind::kWorkedPassage:
                 travelled_to_here = travelled_to_here || e.b == mw1::planet_index(c->planet_number);
                 break;
               default: break;
@@ -6535,6 +6587,15 @@ TEST(mw1_soak_a_campaign_through_every_service_and_restarts_headless) {
         }
         if (mw1::TravelState* ts = mw1::game_loop_travel(); showing(app, ts)) {
           mw1::Mw1Screen* sc = ts->screen();
+          // Truly stranded: TAKE PASSAGE (its world chosen as the screen opened), then BACK as after any trip.
+          if (mw1::truly_stranded(*c)) {
+            const std::string was = c->planet;
+            if (shows_line(sc->shown(), "TAKE PASSAGE") && sc->enabled(mw1::kTravelGo)) sc->on_button(mw1::kTravelGo, 0, 0);
+            if (c->planet != was) ++trips;
+            else finding("no way out", "leg " + std::to_string(leg) + " on " + was + ": truly stranded and no passage taken");
+            sc->on_button(mw1::kTravelBack, 0, 0);
+            return false;
+          }
           if (roll(4) == 0) return sc->on_button(mw1::kTravelBack, 0, 0), false;
           if (roll(4) == 0) sc->on_button(mw1::kTravelFilter, 0, 0);
           const std::vector<int32_t> near = mw1::destinations(*c, -1);
@@ -6593,20 +6654,26 @@ TEST(mw1_soak_a_campaign_through_every_service_and_restarts_headless) {
           for (int32_t h = 0; h < mw1::kHouseCount; ++h) refusing += mw1::refuses(*c, h) ? 1 : 0;
           refusing_peak = std::max(refusing_peak, refusing);
         }
-        if (mw1::stranded(*c)) {
+        // Stranded (once AFTER ACTION is settled: it may pay the way): out as a player gets out (FIXES 144), the
+        // dearest 'Mech sold (logged as SELL logs it, so the money and the mechs stay the log's), or truly stranded,
+        // the working passage through the STARPORT. Neither: a failure.
+        if (mw1::stranded(*c) && !mw1::game_loop_pending()) {
           if (mw1::cheapest_way_out(*c) < 0) {
-            // Every House with an office refuses the company (8+ grievances each): no money helps. A failure since
-            // the grudges fade (FIXES.md item 84); the grievances cleared so the soak goes on.
+            // Every House with an office refuses the company (8+ grievances each): a failure since the grudges fade
+            // (FIXES.md item 84). The passage takes the company to the House with the fewest.
             std::string g;
-            for (int32_t h = 0; h < mw1::kHouseCount; ++h) g += (h ? "," : "") + std::to_string(c->grievance[h]), c->grievance[h] = 0;
+            for (int32_t h = 0; h < mw1::kHouseCount; ++h) g += (h ? "," : "") + std::to_string(c->grievance[h]);
             finding("locked out", "leg " + std::to_string(leg) + " on " + c->planet + " after " + std::to_string(settled) +
                                       " settled: every House refuses (grievances " + g + ")");
-          } else {
-            finding("stranded", "leg " + std::to_string(leg) + " on " + c->planet + " (a way out given)");
-            c->funds += 2000000, funds_was = c->funds;
           }
-          mw1::game_loop_offer_again();
-          return false;
+          if (!mw1::truly_stranded(*c)) {
+            if (soak_sell_dearest(*c)) finding("stranded", "leg " + std::to_string(leg) + " on " + c->planet + " (a 'Mech sold)");
+            else finding("no way out", "leg " + std::to_string(leg) + " on " + c->planet + ": stranded, nothing sold");
+            return false;
+          }
+          finding("stranded", "leg " + std::to_string(leg) + " on " + c->planet + " (the working passage)");
+          if (!sc->enabled(mw1::kHubTravel)) return finding("no way out", "leg " + std::to_string(leg) + ": the STARPORT shut"), false;
+          return sc->on_button(mw1::kHubTravel, 0, 0), false;
         }
         if (mw1::game_loop_pending()) {
           ++settled, ++leg_settled;
@@ -6660,7 +6727,7 @@ TEST(mw1_soak_a_campaign_through_every_service_and_restarts_headless) {
     }
     EXPECT(settled >= legs * per_leg && won > 0 && (lost > 0 || retreated > 0));
     EXPECT(results_seen == settled);
-    for (const char* kind : {"money", "mechs", "pilots", "log", "date", "save", "fit", "stuck", "lab", "short", "locked out"})
+    for (const char* kind : {"money", "mechs", "pilots", "log", "date", "save", "fit", "stuck", "lab", "short", "locked out", "no way out"})
       EXPECT(!found.count(kind));
   });
 }
@@ -6768,6 +6835,7 @@ TEST(mw1_balance_soak_campaigns_played_headless) {
     std::set<void*> mates_seen;  // a lancemate's mech: when it went down (mission seconds)
     std::vector<mw1::LogEntry> log_at_deploy;
     int hires = 0, buys = 0, seats = 0, trips = 0, offices = 0, stuck = 0, offers_taken = 0, bar_tries = 0, bar_visits = 0;
+    int no_way = 0;  // stranded with neither a sale nor the passage (FIXES 144): a failure
     std::string stuck_on;
     auto note_stores = [&](const mech3::Store* s) {
       if (!s) return;
@@ -6934,9 +7002,13 @@ TEST(mw1_balance_soak_campaigns_played_headless) {
           else ++bar_tries;
           return false;
         }
-        if (want && !sc->visible(mw1::kBarHire) && sc->visible(mw1::kBarCrew)) return ++bar_tries, sc->on_button(mw1::kBarCrew, 0, 0), false;
+        // RECRUIT CREW only with someone on offer: a world with no recruits shows HIRE greyed, and CREW, DONE, CREW ...
+        // went round for ever (the tries were reset at each DONE). DONE keeps the tries; only leaving the Bar resets them.
+        if (want && !c->recruits.empty() && !sc->visible(mw1::kBarHire) && sc->visible(mw1::kBarCrew))
+          return ++bar_tries, sc->on_button(mw1::kBarCrew, 0, 0), false;
+        if (sc->visible(mw1::kBarDone)) return sc->on_button(mw1::kBarDone, 0, 0), false;
         bar_tries = 0;
-        return sc->on_button(sc->visible(mw1::kBarDone) ? mw1::kBarDone : mw1::kBarBack, 0, 0), false;
+        return sc->on_button(mw1::kBarBack, 0, 0), false;
       }
       if (mw1::MarketState* ms = mw1::game_loop_market(); showing(app, ms)) return ms->escape(), false;
       if (mw1::OfficeState* os = mw1::game_loop_office(); showing(app, os)) {
@@ -6947,6 +7019,15 @@ TEST(mw1_balance_soak_campaigns_played_headless) {
       }
       if (mw1::TravelState* ts = mw1::game_loop_travel(); showing(app, ts)) {
         mw1::Mw1Screen* sc = ts->screen();
+        // Truly stranded: TAKE PASSAGE (its world chosen as the screen opened), for no fare (FIXES 144).
+        if (mw1::truly_stranded(*c)) {
+          const std::string was = c->planet;
+          if (shows_line(sc->shown(), "TAKE PASSAGE") && sc->enabled(mw1::kTravelGo)) sc->on_button(mw1::kTravelGo, 0, 0);
+          if (c->planet != was) ++trips;
+          else ++no_way, out << "no-way-out " << settled << " " << c->funds << "\n";
+          sc->on_button(mw1::kTravelBack, 0, 0);
+          return false;
+        }
         const std::vector<int32_t> near = mw1::destinations(*c, -1);
         const int32_t want = std::min(mw1::record_band(c->kills), mw1::kTierCount - 1);
         int32_t pick = -1;
@@ -7008,11 +7089,18 @@ TEST(mw1_balance_soak_campaigns_played_headless) {
         cur = SoakContract{};
         if (++settled >= per) return true;
       }
-      if (mw1::stranded(*c)) {  // a way out (MW1 has none but a save), so the campaign goes on: noted
-        out << "stranded " << settled << " " << c->funds << "\n";
-        c->funds += 2000000;
-        mw1::game_loop_offer_again();
-        return false;
+      // Stranded: out as a player gets out (FIXES 144), noted with the way: the dearest 'Mech sold, or truly stranded,
+      // the working passage through the STARPORT (no money given, so the curves are the play's own).
+      if (mw1::stranded(*c)) {
+        if (!mw1::truly_stranded(*c)) {
+          const bool sold = soak_sell_dearest(*c);
+          if (!sold) ++no_way;
+          out << (sold ? "stranded " : "no-way-out ") << settled << " " << c->funds << (sold ? " sold" : "") << "\n";
+          return false;
+        }
+        out << "stranded " << settled << " " << c->funds << " passage\n";
+        if (!sc->enabled(mw1::kHubTravel)) return ++no_way, out << "no-way-out " << settled << " " << c->funds << "\n", false;
+        return sc->on_button(mw1::kHubTravel, 0, 0), false;
       }
       // The lance: hire to three, buy for a lancemate without a 'Mech, seat them.
       if (c->lance.size() < static_cast<size_t>(mw1::kLanceMax) && c->funds > 600000 && sc->enabled(mw1::kHubBar) &&
@@ -7107,9 +7195,9 @@ TEST(mw1_balance_soak_campaigns_played_headless) {
     for (const std::string& s : offered) out << "offered " << s << "\n";
     out << "run " << seed << " settled " << settled << " hires " << hires << " buys " << buys << " seats " << seats << " trips "
         << trips << " offices " << offices << " offers " << offers_taken << " gifted " << gifted << " stuck " << stuck << " " << stuck_on << "\n";
-    std::printf("  campaign %d: %d settled, %d hires, %d buys (%lld given), %d seated, %d trips, stuck %d%s%s\n", seed, settled, hires, buys,
-                static_cast<long long>(gifted), seats, trips, stuck, stuck ? " at " : "", stuck_on.c_str());
-    EXPECT(settled == per && !stuck);
+    std::printf("  campaign %d: %d settled, %d hires, %d buys (%lld given), %d seated, %d trips, stuck %d%s%s, no way out %d\n", seed, settled,
+                hires, buys, static_cast<long long>(gifted), seats, trips, stuck, stuck ? " at " : "", stuck_on.c_str(), no_way);
+    EXPECT(settled == per && !stuck && !no_way);
   });
   std::printf("  the campaigns' lines: %s (mw1/tools/balance_report.py sums them)\n", out_dir.string().c_str());
 }
@@ -10650,7 +10738,9 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
         const bool spare = c->hangar.size() > c->lance.size();
         if (spare && c->lance.size() < 3 && sc->visible(mw1::kBarHire) && sc->enabled(mw1::kBarHire) && c->funds > 600000)
           return ++hires, sc->on_button(mw1::kBarHire, 0, 0), false;
-        if (spare && c->lance.size() < 3 && !sc->visible(mw1::kBarHire) && sc->visible(mw1::kBarCrew) && c->funds > 600000)
+        // Only with someone on offer (as the balance soak): no recruits, CREW and DONE would go round for ever.
+        if (spare && c->lance.size() < 3 && !c->recruits.empty() && !sc->visible(mw1::kBarHire) && sc->visible(mw1::kBarCrew) &&
+            c->funds > 600000)
           return sc->on_button(mw1::kBarCrew, 0, 0), false;
         const bool ready = lance_ready(*c, l.rung);
         if (ready && l.place == mw1::journal::Place::kBar && (l.planet < 0 || l.planet == mw1::planet_index(c->planet_number)) &&

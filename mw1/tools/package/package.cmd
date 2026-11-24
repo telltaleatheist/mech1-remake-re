@@ -2,18 +2,24 @@
 rem MechWarrior 1 Remake alone, for Windows: the zip the launcher's INSTALL / UPDATE downloads from this repo's
 rem Releases (DEPLOY.md). One top folder, MW1-Remake-<mw1-vX.Y.Z>-win64\, holding mw1.exe, the DLLs it loads, the
 rem Visual C++ runtime, mw1data\ beside it (its own data), the engine's stand-in fonts in assets\fonts, the read-me
-rem and the notices. No installer (the launcher unpacks the zip). A package build (MW3_PACKAGE: no development game
-rem paths). Nothing from any game. PM's own tools\windows\package.cmd is left as it is, so merges from mech3-pm-re
-rem never meet this file.
+rem and the notices. Then the installer for players who download MW1 alone, MW1-Remake-Setup-<mw1-vX.Y.Z>.exe
+rem (Inno Setup, mw1\tools\package\installer.iss), from the same folder, so it holds the zip's files; the launcher
+rem takes the zip, never the Setup. A package build (MW3_PACKAGE: no development game paths). Nothing from any game.
+rem PM's own tools\windows\package.cmd and installer.iss are left as they are, so merges from mech3-pm-re never meet
+rem this file.
 rem Usage: mw1\tools\package\package.cmd   (from the repo root; deps\ as tools\windows\package.cmd wants it)
-rem Out:   build-mw1-win\dist\MW1-Remake-<mw1-vX.Y.Z>-win64\ and its .zip
+rem Out:   build-mw1-win\dist\MW1-Remake-<mw1-vX.Y.Z>-win64\, its .zip and MW1-Remake-Setup-<mw1-vX.Y.Z>.exe
 setlocal
 cd /d "%~dp0\..\..\.."
 for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set VS=%%i
 if not defined VS (echo No Visual Studio with the C++ tools found. & exit /b 1)
 call "%VS%\VC\Auxiliary\Build\vcvars64.bat" >nul || exit /b 1
 for /d %%d in (deps\SDL3-3*) do set SDL3_DIR=%CD%\%%d\cmake
-for /d %%d in (deps\SDL3_ttf-*) do set SDL3_ttf_DIR=%CD%\%%d\cmake
+rem SDL3_ttf with FreeType 2.14.3, as on the Mac and Linux (tools\windows\build_deps_ttf.cmd; its -VC.zip release's
+rem FreeType 2.13.2 draws TTF text a few pixels apart, docs/deps.md).
+if not exist deps\ttf\cmake\SDL3_ttfConfig.cmake (echo No deps\ttf: run tools\windows\build_deps_ttf.cmd first. & exit /b 1)
+if not exist deps\ttf\share\licenses\freetype-2.14.3\FTL.TXT (echo deps\ttf has no licences: run tools\windows\build_deps_ttf.cmd again. & exit /b 1)
+set SDL3_ttf_DIR=%CD%\deps\ttf\cmake
 for /d %%d in (deps\SDL3_sound-*) do set SDL3_sound_ROOT=%CD%\%%d
 if not defined SDL3_sound_ROOT echo Warning: no deps\SDL3_sound-*: the package's music plays .wav only.
 rem SETUP's archives (docs/setup-sources.md): a package always reads them.
@@ -48,12 +54,13 @@ copy /y mw1\dist\THIRD-PARTY-MW1.txt "%DIST%\" >nul || exit /b 1
 copy /y tools\windows\dist\THIRD-PARTY.txt "%DIST%\" >nul || exit /b 1
 if exist LICENSE copy /y LICENSE "%DIST%\LICENSE.txt" >nul
 rem libarchive, zlib and liblzma: linked into mw1.exe, their licences from
-rem tools\windows\build_deps_archive.cmd's prefix.
-for /d %%d in (deps\archive\share\licenses\*) do (
+rem tools\windows\build_deps_archive.cmd's prefix; SDL3_ttf's and its FreeType's from build_deps_ttf.cmd's.
+for /d %%d in (deps\archive\share\licenses\* deps\ttf\share\licenses\*) do (
   mkdir "%DIST%\licenses\%%~nxd" 2>nul
   copy /y "%%d\*" "%DIST%\licenses\%%~nxd\" >nul || exit /b 1
 )
-for /d %%d in (deps\*) do if /i not "%%~nxd"=="archive" (
+rem The other libraries' release folders (not a -VC.zip SDL3_ttf left in deps\: the package's is deps\ttf's).
+for /d %%d in (deps\*) do echo %%~nxd| findstr /i /r /c:"^archive$" /c:"^ttf$" /c:"^SDL3_ttf-" >nul || (
   mkdir "%DIST%\licenses\%%~nxd" 2>nul
   for %%f in ("%%d\LICENSE*" "%%d\COPYING*" "%%d\README-SDL.txt") do copy /y "%%f" "%DIST%\licenses\%%~nxd\" >nul
 )
@@ -82,3 +89,13 @@ if not "%VER:-dirty=%"=="%VER%" echo Warning: %VER%: a dirty tree, not for relea
 tar -a -c -f "build-mw1-win\dist\%NAME%.zip" -C build-mw1-win\dist "%NAME%" || exit /b 1
 echo Package: %DIST%
 echo Zip:     build-mw1-win\dist\%NAME%.zip
+
+rem The installer, with Inno Setup's compiler: iscc on the PATH (scoop's shim), else its usual folders.
+set ISCC=
+for %%i in (iscc.exe) do if not "%%~$PATH:i"=="" set "ISCC=%%~$PATH:i"
+for %%d in ("%LOCALAPPDATA%\Programs\Inno Setup 7" "%LOCALAPPDATA%\Programs\Inno Setup 6" "%ProgramFiles(x86)%\Inno Setup 7" "%ProgramFiles(x86)%\Inno Setup 6" "%ProgramFiles%\Inno Setup 7") do (
+  if not defined ISCC if exist "%%~d\ISCC.exe" set "ISCC=%%~d\ISCC.exe"
+)
+if not defined ISCC (echo Warning: Inno Setup's ISCC.exe not found, so no installer was made. & exit /b 0)
+"%ISCC%" /Qp "/DAppVersion=%VER%" "/DDist=%CD%\%DIST%" "/O%CD%\build-mw1-win\dist" mw1\tools\package\installer.iss || exit /b 1
+echo Setup:   build-mw1-win\dist\MW1-Remake-Setup-%VER%.exe

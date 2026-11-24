@@ -242,8 +242,9 @@ enum class LogKind : int32_t {
   // narrow win's costs down to the floor (n: C-bills).
   kMechRecovered,
   kHouseCovers,
+  kWorkedPassage,  // a: from (planet index), b: to: a working passage on a merchant JumpShip (mw1_travel.h)
 };
-inline constexpr int32_t kLogKindLast = static_cast<int32_t>(LogKind::kHouseCovers);
+inline constexpr int32_t kLogKindLast = static_cast<int32_t>(LogKind::kWorkedPassage);
 inline constexpr size_t kLogCap = 200;
 
 struct LogEntry {
