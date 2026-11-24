@@ -32,7 +32,18 @@
 #include <thread>
 #include <vector>
 #if defined(__APPLE__)
+#include <CoreFoundation/CoreFoundation.h>
 #include <mach-o/dyld.h>
+extern "C" CFStringRef NSHomeDirectory(void);  // Foundation's, its NSString a CFString
+#elif defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <shlobj.h>
 #endif
 
 #include "platform/hires_2d.h"
@@ -71,6 +82,31 @@ std::string pref_path(const char* org) {
   if (char* p = SDL_GetPrefPath(org, mw1::kApp)) dir = p, SDL_free(p);
   while (dir.size() > 1 && (dir.back() == '/' || dir.back() == '\\')) dir.pop_back();
   return dir;
+}
+
+// The same folder for --status, only named: SDL_GetPrefPath makes the folder it names. Its places: Windows' roaming
+// app data, the Mac's Application Support, Linux's XDG_DATA_HOME or ~/.local/share. "" when the system names none.
+std::string usual_folder_unmade() {
+  std::filesystem::path base;
+#if defined(_WIN32)
+  wchar_t wide[MAX_PATH];
+  if (FAILED(SHGetFolderPathW(nullptr, CSIDL_APPDATA, nullptr, SHGFP_TYPE_CURRENT, wide))) return {};
+  char utf8[MAX_PATH * 4];  // as SDL names it
+  if (WideCharToMultiByte(CP_UTF8, 0, wide, -1, utf8, sizeof utf8, nullptr, nullptr) <= 0) return {};
+  base = utf8;
+#elif defined(__APPLE__)
+  // Foundation's home, as NSSearchPathForDirectoriesInDomains (SDL's) reads it.
+  char home[4096];
+  if (!CFStringGetFileSystemRepresentation(NSHomeDirectory(), home, sizeof home)) return {};
+  base = std::filesystem::path(home) / "Library" / "Application Support";
+#else
+  const char* data = std::getenv("XDG_DATA_HOME");
+  const char* home = std::getenv("HOME");
+  if (data && *data) base = data;
+  else if (home && *home) base = std::filesystem::path(home) / ".local" / "share";
+  else return {};
+#endif
+  return (base / mw1::kOrg / mw1::kApp).string();
 }
 
 // The usual write dir, the family's BattleTech/MechWarrior 1 Remake, with the earlier folders moved to it
@@ -203,6 +239,14 @@ int main(int argc, char** argv) {
       return 0;
     }
   mw1::Args a = mw1::parse(argc, argv);
+  // --status (the launcher contract): answered here, before anything is made, moved, opened or shown, as the launcher
+  // asks an AppImage what it is. Nothing is written: the folder is found, not made (usual_folder_unmade).
+  if (std::find(a.rest.begin(), a.rest.end(), "--status") != a.rest.end()) {
+    const std::string usual = usual_folder_unmade();
+    const std::string folder = !a.write_dir.empty() ? a.write_dir : usual.empty() ? usual : mw1::settle_user_folder(usual, false).use;
+    std::printf("%s\n", rekit::status_json(mw1::status(folder, a.given, version)).c_str());
+    return std::fflush(stdout) == 0 ? 0 : 1;
+  }
   if (a.write_dir.empty()) a.write_dir = usual_write_dir();
   if (!a.write_dir.empty()) {
     std::error_code ec;
@@ -216,15 +260,11 @@ int main(int argc, char** argv) {
   // FIXES 145: an install saved inside a family folder that has since moved (MicroProse to BattleTech, the launcher
   // 1.3.2's and ours) is looked for where that folder is now, and saved there when it holds the game.
   auto follow = [](std::string& dir, const char* game, bool (*holds)(const std::string&)) {
-    if (dir.empty() || holds(dir)) return;
-    for (const std::string& place : mw1::moved_install_places(dir))
-      if (holds(place)) {
-        std::printf("mw1: %s: %s is now %s\n", game, dir.c_str(), place.c_str());
-        dir = place;
-        return;
-      }
+    const std::string place = mw1::follow_install(dir, holds);
+    if (place != dir) std::printf("mw1: %s: %s is now %s\n", game, dir.c_str(), place.c_str());
+    dir = place;
   };
-  follow(use.pm, "Pirate's Moon", [](const std::string& d) { return pm::install_kind(d) == pm::Install::kPm; });
+  follow(use.pm, "Pirate's Moon", mw1::is_pm_install);
   follow(use.mw3, "MechWarrior 3", mw1::is_mw3_install);
   follow(use.mw1, "MechWarrior (1989)", mw1::is_mw1_install);
   // A folder that is not the game it is given for is said and not used (nor saved).

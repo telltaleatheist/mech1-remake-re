@@ -302,6 +302,31 @@ std::vector<std::string> moved_install_places(const std::string& saved) {
   return out;
 }
 
+std::string follow_install(const std::string& dir, bool (*holds)(const std::string&)) {
+  if (dir.empty() || holds(dir)) return dir;
+  for (const std::string& place : moved_install_places(dir))
+    if (holds(place)) return place;
+  return dir;
+}
+
+bool is_pm_install(const std::string& dir) { return !dir.empty() && pm::install_kind(dir) == pm::Install::kPm; }
+
+rekit::Status status(const std::string& folder, const Installs& given, const std::string& version) {
+  rekit::Status s;
+  s.game = kStatusId, s.version = version;
+  s.needs = {"mech3-pm", "mech3", "mech1"};
+  const Installs use = merge(given, read_cfg(folder));
+  auto has = [&s](const std::string& dir, bool (*holds)(const std::string&), const char* game) {
+    const bool found = holds(follow_install(dir, holds));
+    if (!found) s.missing.push_back(game);
+    return found;
+  };
+  const int found = int(has(use.pm, is_pm_install, "Pirate's Moon")) + int(has(use.mw3, is_mw3_install, "MechWarrior 3")) +
+                    int(has(use.mw1, is_mw1_install, "MechWarrior (1989)"));
+  s.state = found == 3 ? rekit::Status::kReady : found ? rekit::Status::kIncomplete : rekit::Status::kMissing;
+  return s;
+}
+
 const char* moved_words(Moved how) {
   switch (how) {
     case Moved::kNothing: return "nothing to move";

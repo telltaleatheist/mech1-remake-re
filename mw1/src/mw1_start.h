@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+#include "rekit/status.h"
+
 namespace mw1 {
 
 // The program's folder under the platform's app data, apart from MW3's and Pirate's Moon's: the family's
@@ -116,6 +118,17 @@ UserFolder settle_user_folder(const std::string& usual, bool move = true);
 // pointer file names (data-folder.txt). The candidates in that order, unchecked (the caller checks each as an
 // install); none for a path inside no MicroProse folder.
 std::vector<std::string> moved_install_places(const std::string& saved);
+
+// The first of moved_install_places(`dir`) that `holds` the game; `dir` itself when it holds it or none does.
+std::string follow_install(const std::string& dir, bool (*holds)(const std::string&));
+bool is_pm_install(const std::string& dir);  // pm::install_kind's Pirate's Moon
+
+// `mw1 --status` (the launcher contract, re-setup-kit's DESIGN.md): what MW1 has. A pure read: `folder` is the user
+// folder in use (settle_user_folder with `move` false), where mw1.cfg is read, and `given` the command line's
+// installs. ready with all three games found, missing with none, else incomplete. The id is the Remake's own
+// ("mech1" is the 1989 game's rebuild); the version the program's tag, as --version and the record say it.
+inline constexpr const char* kStatusId = "mech1-remake";
+rekit::Status status(const std::string& folder, const Installs& given, const std::string& version);
 
 // The game main's argv: the program's name, --write-dir (unless given), then
 // `rest`, with --install added when only mw1.cfg named PM's.
