@@ -5,6 +5,16 @@ Tick an item when it is merged into `main`.
 
 **How this file works (the owner, 2026-11-17):** every bug and feature the owner raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 145. [ ] mw1 started on its own: Pirate's Moon's install after its folder moved to BattleTech *(open; a 1.1.0 candidate, raised by the lead with 1.0.9, 2026-11-24)*
+- **What:** the launcher 1.3.2 moves Pirate's Moon's user folder from MicroProse to BattleTech (a rename; a pointer
+  file left in the old place). An `install=` in mw1.cfg naming the old folder's `install` (the launcher's earlier
+  start saved it) then names a folder that is gone. The launcher's own start passes a fresh `--install`, so nothing
+  changes there; mw1 started on its own clears it and shows the "missing games" dialog, which offers the launcher.
+- **The candidate:** before giving up, mw1 on its own tries the same place under the new name (the path's
+  `MicroProse/Pirate's Moon` part as `BattleTech/Pirate's Moon`, or the old folder's pointer), checks it as any
+  install, and saves it to mw1.cfg when it holds the game.
+- Accepted for 1.0.9 as it is (the dialog offers the launcher).
+
 ## 142. [x] The soundtrack: MW1's five songs as rock arrangements, six combat songs in a shuffle *(done: mw1-110-soundtrack, for 1.1.0)*
 A project decision (2026-11-23, via the lead): MW1's five songs and six combat songs replace the menu theme and the
 three combat tracks (FIXES 100, 116).
