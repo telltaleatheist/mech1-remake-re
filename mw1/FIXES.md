@@ -33,6 +33,20 @@ Tick an item when it is merged into `main`.
   dealer's limit; every House refusing; the travel screen; both warnings), `test_mw1_travel`'s stranded lines, and
   the loop test's broken-off world now leaving by TAKE PASSAGE.
 
+## 143. [x] A Windows installer for MW1 Remake, like MW3's and PM's *(done: mw1-110-installer; in 1.0.9 by rel-109)*
+- **What:** a player downloading MW1 alone on Windows had only the zip. The owner asked for a Setup like MW3's and
+  PM's.
+- **Done:** `mw1\tools\package\package.cmd` builds `MW1-Remake-Setup-<mw1-vX.Y.Z>.exe` (Inno Setup,
+  `mw1/tools/package/installer.iss`) from the folder it has just zipped, so the two hold the same files. The zip
+  stays: the launcher installs MW1 from it, never from the Setup. The Setup installs to Program Files\MechWarrior 1
+  Remake with a Start-menu entry, an optional desktop one and an uninstaller. Its AppId, folder, shortcut names and
+  uninstall entry are MW1's own, so it installs and uninstalls apart from MW3's and PM's. The uninstaller leaves the
+  player's folder (%APPDATA%\MicroProse\MechWarrior 1 Remake) alone.
+- **The icon:** `mw1/tools/package/mw1.ico`, the badge the Mac app and the AppImage use (`make_ico.sh` writes it
+  from `mw1.png`), is the Setup's, the uninstall entry's and now `mw1.exe`'s own (it had MW3's placeholder).
+- **Checks:** on the PC, the Setup built from a test package, installed silently into a scratch folder, mw1.exe
+  started from there to its first screen, then uninstalled with nothing left behind.
+
 ## 142. [x] The soundtrack: MW1's five songs as rock arrangements, six combat songs in a shuffle *(done: mw1-110-soundtrack, for 1.1.0)*
 A project decision (2026-11-23, via the lead): MW1's five songs and six combat songs replace the menu theme and the
 three combat tracks (FIXES 100, 116).

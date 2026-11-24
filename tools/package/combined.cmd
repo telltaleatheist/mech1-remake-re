@@ -7,6 +7,7 @@ rem                                                              downloads each 
 rem   MW3-alone-Setup-<v>.exe and MW3-alone-<v>-win64.zip       the launcher and mw3: MechWarrior 3's own download
 rem   PM-Rebuild-Setup-<pm v>.exe and mw3pm-<pm v>-win64.zip     mw3pm alone (branch pm's own package)
 rem   MW1-Remake-<mw1 v>-win64.zip                               mw1 and mw1data\ (mw1\tools\package on mw1), with a third ref
+rem   MW1-Remake-Setup-<mw1 v>.exe                               its installer, when that ref's script makes one (from 1.1.0)
 rem and their SHA256SUMS (tools\package\sums.py; again over every platform's files once collected).
 rem Usage: tools\package\combined.cmd <main ref> <pm ref> [<mw1 ref>]   e.g. v1.3.0 pm-v1.2.4 mw1-v1.0.7
 rem The worktrees are build-pkg\main, build-pkg\pm and build-pkg\mw1 (ours, replaced each run); deps\ is joined into each.
@@ -36,6 +37,7 @@ if not "%~3"=="" (
   call mw1\tools\package\package.cmd || (popd & exit /b 1)
   popd
   copy /y "%W%\mw1\build-mw1-win\dist\MW1-Remake-*-win64.zip" "%OUT%\" >nul || exit /b 1
+  if exist "%W%\mw1\build-mw1-win\dist\MW1-Remake-Setup-*.exe" copy /y "%W%\mw1\build-mw1-win\dist\MW1-Remake-Setup-*.exe" "%OUT%\" >nul || exit /b 1
 )
 
 rem MechWarrior 3 alone, then the launcher alone from the same build.
