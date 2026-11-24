@@ -25,7 +25,7 @@ Things to spend your money on, a new soundtrack, a way out when you're stranded,
 
   The news no longer reports a succession that, with no deadline, never comes. Games saved in an earlier version keep working: if the hunt had already begun, its start is taken from your log.
 - **Your saves now live in a BattleTech folder:** there's nothing to do. Your settings and saved games move there by themselves the first time 1.1.0 starts. MechWarrior 1 started on its own also finds Pirate's Moon after the launcher moved its folder.
-- **Damaged saves on Windows:** a saved game that can't be read is now set aside as a .bad file, as on the Mac and Linux. Before, it stayed in its slot.
+- **Damaged saves on Windows:** a saved game that can't be read is now set aside as a .bad file, as on the Mac and Linux. Before, it stayed in its slot, where a new save could overwrite it.
 - **Saved games:** 1.1.0 reads saves from every earlier version. Saves written by 1.1.0 can't be loaded by an older version.
 
 You still need your own copies of MechWarrior (1989), MechWarrior 3 and Pirate's Moon.
