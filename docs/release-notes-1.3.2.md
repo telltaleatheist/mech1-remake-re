@@ -1,4 +1,4 @@
-# MechWarrior 3 Rebuild 1.3.2 (2026-11-24)
+# MechWarrior 3 Rebuild 1.3.2 (2026-11-23)
 
 The launcher becomes the BattleTech launcher, with a card for each game
 family, and it updates itself. Your folders move from MicroProse to
