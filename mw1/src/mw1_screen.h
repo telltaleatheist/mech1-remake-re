@@ -37,6 +37,7 @@
 #include <vector>
 
 #include "gamez/ztwod/twod.h"
+#include "upgrades/sounds/menu_sounds.h"
 #include "mech3/app_states.h"
 #include "mech3/menu_states.h"
 #include "mech3/menu_widgets.h"
@@ -234,6 +235,7 @@ class Mw1Screen : public mech3::MenuScreen {
   std::function<void(int32_t)> hover_;  // the buttons hold its address (set_hover)
   std::function<void(int32_t)> greyed_;  // and this one's (set_greyed)
   bool loaded_ = false;
+  ::upgrades::MenuSounds menu_sounds_;                          // the set MENU, while the screen is up (button sounds)
   std::vector<std::unique_ptr<mech3::HelpButton>> buttons_;   // by id - 1
   std::vector<std::unique_ptr<ztwod::Text>> labels_;          // the buttons' words, by id - 1
   std::vector<std::vector<std::unique_ptr<ztwod::Text>>> blocks_;

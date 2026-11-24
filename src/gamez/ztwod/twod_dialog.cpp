@@ -204,6 +204,10 @@ std::vector<LayoutName>& layout_images() {
   static std::vector<LayoutName> v;
   return v;
 }
+std::function<void(Control&)>& layout_control() {
+  static std::function<void(Control&)> f;
+  return f;
+}
 bool& layout_reading() {  // a program's layout read and bound now (Dialog::load to unload)
   static bool on = false;
   return on;
@@ -259,6 +263,10 @@ const char* layout_font(const char* name) { return name_now(layout_fonts(), name
 const char* layout_image(const char* name) { return name_now(layout_images(), name, nullptr); }
 void set_layout_label(const std::string& game_key, const std::string& text, const std::string& game_file) {
   set_name(layout_labels(), game_key, text, game_file);
+}
+void set_layout_control(std::function<void(Control&)> read) { layout_control() = std::move(read); }
+void layout_control_read(Control& c) {
+  if (layout_reading() && layout_control()) layout_control()(c);
 }
 const char* layout_label(const char* key) {
   const char* w = name_now(layout_labels(), key, nullptr);

@@ -67,6 +67,7 @@ class Mw1Button : public mech3::HelpButton {
   void on_press() override {
     HelpButton::on_press();
     if (!repeat_ || !enabled) return;
+    if (snd_activate) ztwod::host().sound_play(snd_activate, vol_activate);  // its release plays nothing
     held_ = 0.0f, next_ = kRepeatDelay;
     act();
   }
@@ -230,6 +231,7 @@ Mw1Screen::Mw1Screen(mech3::Engine& e, zgame::Handle state_handle, const char* f
         panels_.back()->set_pos(panels_.back()->x + shift(anchor_of(pn)) - from, panels_.back()->y);
       }
     }
+  menu_sounds_.hold("MENU");
   bool all = true;
   zrdr::Node* entries = zrdr::find(dlg, "BUTTONS");
   for (size_t i = 0; i < names_.size(); ++i) {
@@ -240,6 +242,7 @@ Mw1Screen::Mw1Screen(mech3::Engine& e, zgame::Handle state_handle, const char* f
       std::printf("mw1: the layout %s has no button %s\n", file, names_[i].name);
       all = false;
     }
+    ::upgrades::menu_sounds_for_button(*b);  // MW1's layouts name no sounds (under SMALL FIXES)
     // The words: at LABEL_AT in the button's entry (MW1's key), else just above it; in its LABEL_FONT. Both moved
     // with the button by its ANCHOR.
     int32_t at[2] = {b->x - from, b->y - 12};  // (in the layout's places, as LABEL_AT is)

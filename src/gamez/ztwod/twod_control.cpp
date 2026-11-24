@@ -310,6 +310,7 @@ bool Control::read_control(zrdr::Node* n, Dialog* d) {
     }
   }
   if (zrdr::Node* f = zrdr::find(n, "FLASH")) read_flash(f, &labels);
+  layout_control_read(*this);  // ours (set_layout_control)
   return true;
 }
 

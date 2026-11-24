@@ -69,6 +69,7 @@
 #include "gamez/zreader/zreader.h"
 #include "gamez/ztwod/twod.h"
 #include "gamez/ztwod/twod_host.h"
+#include "upgrades/sounds/menu_sounds.h"
 #include "gamez/zutil/zutl_path.h"
 #include "mw1_art.h"
 #include "mw1_bar_screen.h"
@@ -325,6 +326,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       if (layout_there(s.file, s.dialog))
         ztwod::set_layout(s.game_file, s.game_dialog, s.file, s.dialog, std::string(s.dialog) + kWideSuffix);
     for (const auto& [game_font, font] : kLayoutFonts) ztwod::set_layout_font(game_font, font);
+    // MW1's layouts name no sounds: their buttons take Pirate's Moon's menu sounds (under SMALL FIXES).
+    ztwod::set_layout_control([](ztwod::Control& c) {
+      if (!dynamic_cast<ztwod::Slider*>(&c) && !dynamic_cast<ztwod::ListBox*>(&c) && !dynamic_cast<mech3::FileList*>(&c)) ::upgrades::menu_sounds_for_button(c);
+    });
     // The lab's reskin (mw1_lab_skin.h): PM's layouts, our pictures and fonts while they are read.
     for (const std::vector<chrome::Reskin>* t : {&chrome::lab_pictures(), &chrome::filebox_pictures()})
       for (const chrome::Reskin& r : *t)

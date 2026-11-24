@@ -910,6 +910,9 @@ void set_layout_image(const std::string& game_image, const std::string& image, c
 // The same for a LABEL's message key, always for one game file: the program's words in place of the message (the
 // game's message table not read for it), e.g. a reskin's CANCEL for the game's NO on one dialog only.
 void set_layout_label(const std::string& game_key, const std::string& text, const std::string& game_file);
+// Each control read from a program's layout (Dialog's buttons, once read); unset by default.
+void set_layout_control(std::function<void(Control&)> read);
+void layout_control_read(Control& c);  // asked after a control's entry is read
 const char* layout_label(const char* key);   // the program's words for `key` now, else null
 const char* layout_font(const char* name);   // `name`, or the program's in its place now
 const char* layout_image(const char* name);  // the same for a picture
