@@ -146,3 +146,19 @@ Also (ours): `SdlRender3D::note_frame_time` writes a line to mw3.log when
 300 shown frames came slower than 40 a second, splitting each frame into
 the game's own work and the wait for the swapchain's next image, at most
 five a run, so the next slow report's log says where the time went.
+
+Checked on real D3D12 (the reference PC, Windows 11, RTX 3090 Ti,
+2026-11-23): the padded layout runs (it is gated on the driver name, not on
+the device's pitch support, which this PC has), and gives shots identical
+to the plain upload's at 16:9 (853 canvas), 800x600 (800 canvas), the main
+menu and the mech lab, with no "row pitch not aligned" warning from the
+debug layer and the same frame times (vsync-bound, 16.67 ms). The Windows
+10 path itself is untested until a player on Windows 10 tries it.
+
+The back buffer's optimized clear value is opaque black
+(`SDL_PROP_GPU_TEXTURE_CREATE_D3D12_CLEAR_A_FLOAT`), which silences the
+debug layer's warning #820 in the menus and the lab. A mission still gets
+it once a frame with bug fixes on: `video_clear_b` clears to the fog colour
+(`clear_rgb_`), not black. The layer calls such a clear only "typically
+slower"; making the fog colour the optimized value would mean recreating
+the back buffer whenever the colour changes, so it is left.
