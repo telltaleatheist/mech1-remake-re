@@ -90,6 +90,13 @@ if(TARGET mw3pm)
     target_compile_definitions(mw1 PRIVATE MW1_PM_GAME_DIR="${MW3PM_GAME_DIR}" MW1_MW3_GAME_DIR="${MW3_GAME_DIR}"
                                            MW1_DOS_GAME_DIR="${MW1_DOS_GAME_DIR}")
     # The lab's text fit (FIXES.md item 17): every lab text inside its panel, its four pages and load box, both shapes.
+    # Issue #10's rule on MW1's side: the launcher's copy of MechWarrior (1989) (--mw1-game) over an older one mw1.cfg
+    # names, saved and kept for a start on its own.
+    if(mw1_dos_main)  # the real game folder (MW_MAIN.EXE, any case): the dev fallback is the same folder
+      add_test(NAME mw1owncopy COMMAND ${CMAKE_COMMAND} -DMW1_BIN=$<TARGET_FILE:mw1> -DOWN=${MW1_DOS_GAME_DIR}
+                                       -DDIR=${CMAKE_CURRENT_BINARY_DIR}/mw1owncopy
+                                       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/own_copy.cmake)
+    endif()
     add_test(NAME mw1labfit COMMAND ${CMAKE_COMMAND} -DMW1_BIN=$<TARGET_FILE:mw1> -DDIR=${CMAKE_CURRENT_BINARY_DIR}/mw1labfit
                                     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/lab_fit.cmake)
     # MW1's own screens' text fit (FIXES.md items 3 and 5): every text inside the canvas, both shapes.
