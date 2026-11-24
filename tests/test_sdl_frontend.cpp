@@ -4085,7 +4085,8 @@ TEST(sdl_program_pm_offers_a_found_copy_and_shift_chooses_again) {
   const std::string b = run(dir + "/b.log", &code);
   EXPECT(code == 0 && b.find("screen find:") == std::string::npos && b.find("mw3: start only: install " + copy) != std::string::npos);
   setenv("MW3_SHIFT_HELD", "1", 1);
-  setenv("MW3_LAUNCHER_NAV", "next,press", 1);
+  // FIND THE GAME: the copies on this computer (2026-11-24), their PICK ANOTHER (before BACK), the picker.
+  setenv("MW3_LAUNCHER_NAV", "next,press,prev,prev,press", 1);
   setenv("MW3_LAUNCHER_GO", "1", 1);
   setenv("MW3_LAUNCHER_PICKER", ("path:" + dir + "/elsewhere/Other PM/Mech3.exe").c_str(), 1);
   const std::string c = run(dir + "/c.log", &code);
@@ -4095,6 +4096,8 @@ TEST(sdl_program_pm_offers_a_found_copy_and_shift_chooses_again) {
   std::printf("  pm shift: in use said %d, picker %d, copied %d\n", c.find("In use: ") != std::string::npos || c.find("PLAY") != std::string::npos,
               c.find("picker asked for") != std::string::npos, c.find("copied from Other PM") != std::string::npos);
   EXPECT(code == 0 && c.find("Shift held at the start") != std::string::npos && c.find("FIND THE GAME, ADD FROM MY DISC, PLAY") != std::string::npos);
+  // The test's copy is a partial one: listed as "incomplete", in use.
+  EXPECT(c.find("copy " + copy + ": incomplete, in use") != std::string::npos && c.find("screen copies: IN USE") != std::string::npos);
   EXPECT(c.find("picker asked for") != std::string::npos && c.find("copied from Other PM") != std::string::npos &&
          c.find("mw3: start only: install " + copy) != std::string::npos);
   if (!check::failures) fs::remove_all(dir, ec);
