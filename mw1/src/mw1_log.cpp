@@ -132,6 +132,8 @@ std::vector<std::string> log_lines(const Company& c, const LogEntry& e) {
     case LogKind::kStoryFunds:
       return {e.n < 0 ? "Paid " + thousands(-e.n) + " C-bills." : "Received " + thousands(e.n) + " C-bills."};
     case LogKind::kTurnedAway: return {"Turned away from " + planet_words(e.a) + " to " + planet_words(e.b) + "."};
+    case LogKind::kWorkedPassage:
+      return {"Worked passage from " + planet_words(e.a) + " to " + planet_words(e.b) + " on a merchant JumpShip."};
     case LogKind::kWelcomeAgain:
       return {"Time has cooled House " + house_words(e.a) + "'s anger: its offices will deal with the company again."};
     case LogKind::kSeated: return {pilot_title(e.a) + " takes the " + mech_title(e.b) + "."};

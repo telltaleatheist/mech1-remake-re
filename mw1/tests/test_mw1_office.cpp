@@ -12,12 +12,14 @@
 #include "check.h"
 #include "mw1_install.h"
 #include "mw1_log.h"
+#include "mw1_market.h"
 #include "mw1_campaign.h"
 #include "mw1_chrome.h"
 #include "mw1_office.h"
 #include "mw1_pilots.h"
 #include "mw1_start.h"
 #include "mw1_save.h"
+#include "mw1_scenery.h"
 #include "mw1_travel.h"
 #include "mw1_travel_screen.h"
 
@@ -48,6 +50,31 @@ bool has(const std::vector<std::string>& lines, const std::string& t) {
   for (const std::string& l : lines)
     if (l.find(t) != std::string::npos) return true;
   return false;
+}
+// Every line a travel view shows (its text blocks).
+std::vector<std::string> view_lines(const mw1::ScreenView& v) {
+  std::vector<std::string> out;
+  for (const mw1::TextBlock& b : v.blocks) out.insert(out.end(), b.lines.begin(), b.lines.end());
+  return out;
+}
+// The nearest world from the company's that deals with it, never Anders Moon (the passage's, worked out plainly).
+int32_t nearest_dealing(const mw1::Company& c) {
+  int32_t best = -1;
+  for (int32_t i = 0; i < mw1::kPlanetCount; ++i) {
+    const mw1::Planet& w = mw1::kPlanets[i];
+    if (i == mw1::here_index(c) || w.number == mw1::scenery::kAndersMoon || !mw1::deals_with(c, w)) continue;
+    if (best < 0 || mw1::distance(mw1::planet_here(c), w) < mw1::distance(mw1::planet_here(c), mw1::kPlanets[best])) best = i;
+  }
+  return best;
+}
+// The nearest world from the company's without a House office (a world to be stranded on).
+int32_t nearest_without_office(const mw1::Company& c) {
+  int32_t best = -1;
+  for (int32_t i = 0; i < mw1::kPlanetCount; ++i)
+    if (i != mw1::here_index(c) && !mw1::kPlanets[i].office &&
+        (best < 0 || mw1::distance(mw1::planet_here(c), mw1::kPlanets[i]) < mw1::distance(mw1::planet_here(c), mw1::kPlanets[best])))
+      best = i;
+  return best;
 }
 }  // namespace
 
@@ -170,6 +197,122 @@ TEST(mw1_office_the_standing_moves_the_salvage_and_advance) {
   const mw1::Contract kg = mw1::generate_contract(good, 0, r1), kb = mw1::generate_contract(bad, 0, r2);
   EXPECT(kg.salvage_ceiling == s0 + 10 && kg.salvage_percent == (s0 + 10) >> 2 && kb.salvage_ceiling == s0 - 10);
   EXPECT(kg.payment == kb.payment && kg.payment_ceiling == kb.payment_ceiling);
+}
+
+// The working passage (mw1_travel.h): one 'Mech, broke and broken off: truly stranded (nothing to sell), carried to the
+// nearest world that deals with the company, no fare taken and no wages charged on the way (a warned lance stays).
+TEST(mw1_office_the_working_passage_one_mech_broke_and_withdrawn) {
+  mw1::Company c = company_on(mw1::kKurita);
+  c.withdrawn = true, c.funds = 0;
+  c.date.units = mw1::kUnitsPerMonth - 1;  // the passage crosses a month's end: wages would fall due
+  c.lance.push_back({1, 0}), c.wage_warned = true;
+  EXPECT(mw1::owned_count(c) == 1 && mw1::stranded(c) && mw1::truly_stranded(c));
+  int32_t left = 0;
+  EXPECT(mw1::sale_value_but_last(c, &left) == 0 && left == 1);
+  const int32_t pw = mw1::passage_world(c), want = nearest_dealing(c);
+  EXPECT(pw >= 0 && want >= 0 && mw1::kPlanets[pw].number != mw1::scenery::kAndersMoon);
+  EXPECT(mw1::distance(mw1::planet_here(c), mw1::kPlanets[pw]) == mw1::distance(mw1::planet_here(c), mw1::kPlanets[want]));
+  EXPECT(mw1::passage_units(c, pw) == 2 * mw1::travel_units(mw1::planet_here(c), mw1::kPlanets[pw]));
+  const mw1::Date was = c.date;
+  mw1::Rng r(3);
+  EXPECT(mw1::work_passage(c, r) == mw1::Trip::kDone);
+  EXPECT(mw1::here_index(c) == pw && c.funds == 0 && c.lance.size() == 1 && !c.withdrawn && mw1::earning_here(c));
+  EXPECT(c.date.month != was.month || c.date.year != was.year);
+  EXPECT(!mw1::truly_stranded(c) && mw1::work_passage(c, r) == mw1::Trip::kNoSuch);  // not stranded: no passage
+}
+
+// Not truly stranded while a sale would pay the fare out: a second 'Mech the market takes.
+TEST(mw1_office_the_working_passage_not_when_a_sale_covers_the_fare) {
+  mw1::Company c = company_on(mw1::kKurita);
+  c.withdrawn = true, c.funds = 0;
+  c.hangar.push_back(mw1::OwnedMech{});
+  int32_t left = 0;
+  const int64_t sale = mw1::sale_value_but_last(c, &left);
+  const int32_t w = nearest_dealing(c);
+  std::printf("  a sale of %lld against the fare %lld\n", static_cast<long long>(sale), static_cast<long long>(mw1::fare(c, mw1::kPlanets[w], 1)));
+  EXPECT(left == 1 && sale == mw1::market_sell_price(c, mw1::owned_mech(c, 1)) && sale >= mw1::fare(c, mw1::kPlanets[w], 1));
+  EXPECT(mw1::stranded(c) && !mw1::truly_stranded(c) && mw1::passage_world(c) >= 0);
+  EXPECT(has(mw1::stranded_lines(c), "Sell a mech") && !has(mw1::stranded_lines(c), "merchant JumpShip"));
+  mw1::Rng r(3);
+  EXPECT(mw1::work_passage(c, r) == mw1::Trip::kNoSuch && c.withdrawn);
+}
+
+// The dealer's limit caps the sales counted: the dearest first, as many as the dealer still buys.
+TEST(mw1_office_the_working_passage_counts_sales_within_the_dealers_limit) {
+  mw1::Company c = company_on(mw1::kKurita);
+  c.withdrawn = true, c.funds = 0;
+  for (int i = 0; i < 3; ++i) c.hangar.push_back(mw1::OwnedMech{});
+  const int64_t one = mw1::market_sell_price(c, mw1::owned_mech(c, 1));
+  c.market.limit = -1;
+  int32_t left = 0;
+  EXPECT(mw1::sale_value_but_last(c, &left) == 3 * one && left == 1);  // every one but the last
+  c.market.limit = 3, c.market.sold = 2;
+  EXPECT(mw1::sale_value_but_last(c, &left) == one && left == 3);  // one more sale
+  c.market.sold = 3;
+  EXPECT(mw1::sale_value_but_last(c, &left) == 0 && left == 4);  // the dealer full: nothing counts
+  // The fare out is for the 'Mechs left: four of them, unpaid: truly stranded.
+  EXPECT(mw1::truly_stranded(c));
+}
+
+// Every House refusing: no world deals, so the passage goes to the office world of the House with the fewest
+// grievances (nearest first), and the months on board until that House's grudge has faded enough to deal.
+TEST(mw1_office_the_working_passage_when_every_house_refuses) {
+  mw1::Company c = company_on(mw1::kKurita);
+  c.funds = 0;
+  for (int h = 0; h < mw1::kHouseCount; ++h) c.grievance[h] = mw1::kGrievanceRefusal + 1;
+  c.grievance[mw1::kSteiner] = mw1::kGrievanceRefusal;
+  EXPECT(mw1::cheapest_way_out(c) < 0 && mw1::truly_stranded(c));
+  const int32_t pw = mw1::passage_world(c);
+  EXPECT(pw >= 0 && mw1::kPlanets[pw].house == mw1::kSteiner && mw1::kPlanets[pw].office);
+  const int32_t units = mw1::passage_units(c, pw);
+  EXPECT(units > 2 * mw1::travel_units(mw1::planet_here(c), mw1::kPlanets[pw]));
+  EXPECT(has(mw1::stranded_lines(c), "No world's House office will deal with you yet."));
+  mw1::Rng r(5);
+  EXPECT(mw1::work_passage(c, r) == mw1::Trip::kDone);
+  EXPECT(mw1::here_index(c) == pw && !mw1::refuses(c, mw1::kSteiner) && mw1::earning_here(c) && c.funds == 0);
+}
+
+// The travel screen, truly stranded: where the JumpShip goes and when it arrives, its world chosen, and GO is TAKE
+// PASSAGE (on, no fare); another world chosen, GO is GO again (and off: no funds).
+TEST(mw1_office_the_working_passage_on_the_travel_screen) {
+  mw1::Company c = company_on(mw1::kKurita);
+  c.withdrawn = true, c.funds = 0;
+  const int32_t pw = mw1::passage_world(c);
+  const std::vector<std::string> l = mw1::stranded_lines(c);
+  for (const std::string& line : l) std::printf("  stranded: a line of %zu letters\n", line.size());
+  EXPECT(has(l, "A merchant JumpShip will carry the company and its mechs to ") && has(l, " in return for work on board: no fare."));
+  EXPECT(has(l, "Arrives ") && has(l, " days on the way.") && !has(l, "load a save"));
+  mw1::TravelChoice t;
+  mw1::ScreenView v = mw1::travel_view(c, t);
+  EXPECT(v.buttons[mw1::kTravelGo - 1].on && v.buttons[mw1::kTravelGo - 1].words == "TAKE PASSAGE");
+  EXPECT(has(view_lines(v), "in return for work on board: no fare."));
+  t.world = pw;
+  v = mw1::travel_view(c, t);
+  EXPECT(v.buttons[mw1::kTravelGo - 1].on && v.buttons[mw1::kTravelGo - 1].words == "TAKE PASSAGE");
+  EXPECT(has(view_lines(v), "Working passage: no fare"));
+  for (int32_t i = 0; i < mw1::kPlanetCount; ++i)
+    if (i != pw && i != mw1::here_index(c)) {
+      t.world = i;
+      break;
+    }
+  v = mw1::travel_view(c, t);
+  EXPECT(!v.buttons[mw1::kTravelGo - 1].on && v.buttons[mw1::kTravelGo - 1].words != "TAKE PASSAGE");
+}
+
+// Warned before going to a world it couldn't leave: with one 'Mech, that it would have to work its passage out;
+// with a second the market would take for the fare, that it would have to sell one.
+TEST(mw1_office_the_working_passage_warnings_before_going) {
+  for (int mechs = 1; mechs <= 2; ++mechs) {
+    mw1::Company c = company_on(mw1::kKurita);
+    if (mechs == 2) c.hangar.push_back(mw1::OwnedMech{});
+    mw1::TravelChoice t;
+    t.world = nearest_without_office(c);
+    EXPECT(t.world >= 0);
+    c.funds = mw1::travel_cost(c, mw1::kPlanets[t.world]);  // just the fare there
+    const std::vector<std::string> l = view_lines(mw1::travel_view(c, t));
+    if (mechs == 1) EXPECT(has(l, "You couldn't afford to leave it: you'd have to work your passage out."));
+    else EXPECT(has(l, "You couldn't afford to leave it without selling a mech."));
+  }
 }
 
 TEST(mw1_office_a_refusing_house_and_the_stuck_guard) {

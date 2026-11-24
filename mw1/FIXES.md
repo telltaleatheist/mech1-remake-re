@@ -5,6 +5,29 @@ Tick an item when it is merged into `main`.
 
 **How this file works (the owner, 2026-11-17):** every bug and feature the owner raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 144. [x] Truly stranded: a working passage out, never a save to load *(done: mw1-110-passage, for 1.1.0)*
+- **What:** a company on a world with no contracts it could take, and too poor to leave, was stranded. MW1's only way
+  out was loading a save; ours said so ("load a save") when there was nothing to sell. A project decision for 1.1.0:
+  a stranded player gets a free trip, however long it takes.
+- **The rule** (`mw1_travel.h`): `truly_stranded` is stranded with no sale able to pay the way. That is, no world
+  deals with the company, or its funds plus the sale of every 'Mech but the cheapest (as many as the dealer still
+  buys, dearest first) are short of the fare for the 'Mechs that would be left. Stranded but not truly: the market is
+  the way, as before.
+- **The passage:** a merchant JumpShip carries the company and its 'Mechs to the nearest world that deals with it,
+  never Anders Moon. If no world deals, it goes to the office world of the House with the fewest grievances, nearest
+  first. No fare is taken and no wages are charged on the way. The trip takes twice the paid trip's time, plus whole
+  months until that House would deal again. The arrival is a paid trip's (premium, patience, the market restocked,
+  the arrival's events). The log says "Worked passage from <A> to <B> on a merchant JumpShip."
+- **The screens:** truly stranded, the travel screen says where the JumpShip goes and when it arrives; its world is
+  chosen and GO reads TAKE PASSAGE. The hub's status line says "Stranded: a JumpShip offers passage. See the
+  STARPORT." (the 4:3 line holds about 56 letters). Before a trip to a world the company couldn't leave, the
+  readout warns either "You couldn't afford to leave it without selling a mech." or "You couldn't afford to leave
+  it: you'd have to work your passage out."
+- **The soaks:** the 20-contract soak's 2 million C-bill gift when stranded is gone. Stranded, it sells its dearest
+  'Mech; truly stranded, it takes the passage through the STARPORT. A strand with neither is a failure.
+- **Checks:** `test_mw1_office`'s passage tests (one 'Mech broke and withdrawn; a sale covering the fare; the
+  dealer's limit; every House refusing; the travel screen; both warnings), `test_mw1_travel`'s stranded lines, and
+  the loop test's broken-off world now leaving by TAKE PASSAGE.
 ## 142. [x] The soundtrack: MW1's five songs as rock arrangements, six combat songs in a shuffle *(done: mw1-110-soundtrack, for 1.1.0)*
 A project decision (2026-11-23, via the lead): MW1's five songs and six combat songs replace the menu theme and the
 three combat tracks (FIXES 100, 116).

@@ -262,19 +262,21 @@ TEST(mw1_travel_screen_view_filter_and_stranded) {
   v = mw1::travel_view(c, t);
   EXPECT(mw1::days_words(72) == "36 days" && mw1::days_words(1) == "1 day");
   EXPECT(mw1::date_words(mw1::date_after(mw1::Date{50, 11, 3024}, 20)) == "JANUARY 3025");
-  // Stranded: Qandahar (no office) with less than the cheapest way out, and one mech: said plainly, with no sale to
-  // make; with a second mech, the market is the way.
+  // Stranded: Qandahar (no office) with less than the cheapest way out, and one mech: said plainly, nothing to sell,
+  // so the working passage (mw1_travel.h) and TAKE PASSAGE; with a second mech the market would take, the market is
+  // the way.
   mw1::Company q = company_at("QANDAHAR", 1000);
   const std::vector<std::string> l = mw1::stranded_lines(q);
   for (const std::string& line : l) std::printf("  stranded: %s\n", line.c_str());
-  EXPECT(l.size() == 3 && l[0].find("can't afford to leave") != std::string::npos && l[2].find("load a save") != std::string::npos);
+  EXPECT(l.size() == 3 && l[0].find("can't afford to leave") != std::string::npos &&
+         l[1].find("in return for work on board: no fare") != std::string::npos && l[2].find("Arrives ") == 0);
   v = mw1::travel_view(q, {});
   bool said = false;
   for (const mw1::TextBlock& b : v.blocks)
     for (const std::string& line : b.lines) said = said || line == l[0];
-  EXPECT(said && !v.buttons[mw1::kTravelGo - 1].on);
+  EXPECT(said && v.buttons[mw1::kTravelGo - 1].on && v.buttons[mw1::kTravelGo - 1].words == "TAKE PASSAGE");
   q.hangar.push_back(mw1::OwnedMech{});
-  EXPECT(mw1::stranded_lines(q).back().find("Sell a mech") != std::string::npos);
+  EXPECT(!mw1::truly_stranded(q) && mw1::stranded_lines(q).back().find("Sell a mech") != std::string::npos);
   // Warned before going: a world without an office that would leave the company stuck.
   mw1::Company w = company_at("ROBINSON", 50000);
   t = {};
@@ -286,7 +288,7 @@ TEST(mw1_travel_screen_view_filter_and_stranded) {
   v = mw1::travel_view(w, t);
   bool warned = false;
   for (const mw1::TextBlock& b : v.blocks)
-    for (const std::string& line : b.lines) warned = warned || line == "You couldn't afford to leave it.";
+    for (const std::string& line : b.lines) warned = warned || line.rfind("You couldn't afford to leave it", 0) == 0;
   EXPECT(warned);
 }
 
