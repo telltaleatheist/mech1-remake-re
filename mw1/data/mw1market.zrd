@@ -1,6 +1,6 @@
 ; MW1: Critical Hit's Mech Complex (src/mw1_market_screen.h), on MW1's screen
 ; template (src/mw1_screen.h; ANCHOR, LABEL_AT, LABEL_FONT, LABEL_OFF_FONT, TEXTS
-; and the _WIDE layout are ours). FIXES.md items 8 and 13, Owen's shape: one
+; and the _WIDE layout are ours). FIXES.md items 8 and 13, the owner's shape: one
 ; page, MW1's buttons down the left (BUY, SELL, MECH LAB,
 ; BACK), FOR SALE's terminal over YOUR MECHS', each list with its arrows; under the
 ; buttons the chosen mech's render (FIXES.md item 14, PANEL6 and 7). The funds

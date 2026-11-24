@@ -1,6 +1,6 @@
 """PM's zoom window as a picture, the real program twice in a hidden window: with Z held and without. Outside the window
 the two must match: strips skip the software side clip for Direct3D's viewport, and without the renderer's clip the
-zoomed world ran over the main view (sdl_render3d, set_clip; the exe's picture is Owen's shot).
+zoomed world ran over the main view (sdl_render3d, set_clip; the exe's picture is the shot).
 
     cmake --build build --target mw3pm && .venv/bin/python tests/differential/test_pm_zoom_picture.py
 """

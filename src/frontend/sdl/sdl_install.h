@@ -21,7 +21,7 @@ bool install_valid(const std::string& dir, std::string* missing = nullptr);
 // the file is in zbd/ or video/ (a picked reader.zbd).
 std::string install_of_pick(const std::string& file);
 
-// What the launcher's one picker means (Owen, 2026-11-02: one option): a
+// What the launcher's one picker means (2026-11-02: one option): a
 // file of one of `kinds` (extensions, lower case, no dot) is itself the
 // source; any other file stands for its folder (Mech3.exe, or any file in an
 // installed copy or a disc's folder: install_of_pick, zbd\ and video\ up
@@ -44,6 +44,13 @@ std::vector<std::string> install_candidates(bool pirates_moon = false);
 // Ours, for the tests: while set, install_candidates() returns fn() instead,
 // so the machine's own installs (registry, standard folders) stay out; null restores it.
 void set_install_candidates_hook(std::vector<std::string> (*fn)());
+
+// Ours (2026-11-22): a game's own folder, picked (sdl_games.h game_folder_in), carries this mark; its game
+// files are <folder>/install, and its music and converted movies <folder>/music and <folder>/video.
+constexpr const char* kGameFolderMark = "rebuild-game-folder.txt";
+// Where the game's music and converted movies go and are looked for: the folder above `install` when it is a
+// game's own folder (the mark), else the user folder `write_dir`, as before.
+std::string media_dir(const std::string& install, const std::string& write_dir);
 
 // mw3.cfg's install= line set to `install` (added, or replacing the old one),
 // the other lines kept; false when the file cannot be written.

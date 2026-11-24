@@ -24,6 +24,10 @@ option(MW3_BUILD_PM "Build Pirate's Moon (mw3pm)" ON)
 option(MW3_BUILD_MW3 "Build MechWarrior 3's programs, probe and tests from this branch too" OFF)
 option(MW3_PM_HITS "The first run's first-hit log of PM's AI (tools/pm-hits), scratch builds only" OFF)
 set(MW3PM_GAME_DIR "${PROJECT_SOURCE_DIR}/game/pm" CACHE PATH "The Pirate's Moon install the PM tests and tools read")
+if(MW3_PACKAGE)
+  # A player's build: the family folder's one-time move from MicroProse (data_folder_start.h) happens only here.
+  add_compile_definitions(MW3_PACKAGE_BUILD)
+endif()
 # The version mw3 --version and the Windows version resource give: git's
 # describe (a tag, or the commit) and the commit count.
 execute_process(COMMAND git describe --tags --match "pm-v[0-9]*" --always --dirty WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
@@ -408,6 +412,7 @@ add_library(mw3core STATIC
   src/upgrades/mods/mp_mods.cpp
   src/upgrades/mods/starter_mods.cpp
   src/upgrades/update/update.cpp
+  src/upgrades/update/games.cpp
   src/upgrades/reference/reference.cpp
   src/upgrades/reference/reference_mods.cpp
   src/upgrades/reference/reference_weapons.cpp
@@ -1105,6 +1110,7 @@ if(SDL3_FOUND)
       src/frontend/sdl/crash_report.cpp
       src/frontend/sdl/launcher.cpp
       src/frontend/sdl/sdl_update.cpp
+      src/frontend/sdl/sdl_games.cpp
       src/frontend/sdl/debug_states.cpp
       src/frontend/sdl/campaign_chain.cpp
       src/frontend/sdl/modes_chain.cpp
@@ -1150,6 +1156,7 @@ if(SDL3_FOUND)
       src/frontend/sdl/launcher_main.cpp
       src/frontend/sdl/launcher.cpp
       src/frontend/sdl/sdl_update.cpp
+      src/frontend/sdl/sdl_games.cpp
       src/frontend/sdl/run_log.cpp
       src/frontend/sdl/crash_report.cpp
     )
@@ -1194,6 +1201,7 @@ if(SDL3_FOUND)
         src/frontend/sdl/crash_report.cpp
         src/frontend/sdl/launcher.cpp
         src/frontend/sdl/sdl_update.cpp
+        src/frontend/sdl/sdl_games.cpp
         src/frontend/sdl/debug_states.cpp
         src/frontend/sdl/campaign_chain.cpp
         src/frontend/sdl/modes_chain.cpp
@@ -1240,6 +1248,7 @@ if(SDL3_FOUND)
       tests/test_win_cmdline.cpp
       tests/test_log_start.cpp
       src/frontend/sdl/sdl_update.cpp
+      src/frontend/sdl/sdl_games.cpp
       src/frontend/sdl/sdl_restart.cpp
       src/frontend/sdl/win_cmdline.cpp
       tests/test_net_enet.cpp
@@ -1261,7 +1270,7 @@ if(SDL3_FOUND)
     # PM's platform tests (input, window, render, text, net), in the same files. MW3_PM_SUITE
     # leaves out those that read MW3's data or start MW3's programs; a PM version comes with its feature.
     if(MW3_BUILD_PM)
-      add_executable(mw3pmsdltests tests/main.cpp tests/test_quiet_music.cpp tests/test_hires_draw.cpp tests/test_hires_readbacks.cpp tests/test_hires_text.cpp tests/test_sdl_frontend.cpp tests/test_sdl_new_world.cpp src/frontend/sdl/sdl_update.cpp tests/test_net_enet.cpp tests/test_net_upnp.cpp
+      add_executable(mw3pmsdltests tests/main.cpp tests/test_quiet_music.cpp tests/test_hires_draw.cpp tests/test_hires_readbacks.cpp tests/test_hires_text.cpp tests/test_sdl_frontend.cpp tests/test_sdl_new_world.cpp src/frontend/sdl/sdl_update.cpp src/frontend/sdl/sdl_games.cpp tests/test_net_enet.cpp tests/test_net_upnp.cpp
                      src/frontend/sdl/sdl_restart.cpp src/frontend/sdl/win_cmdline.cpp tests/test_win_cmdline.cpp tests/test_log_start.cpp)
       target_link_libraries(mw3pmsdltests PRIVATE mw3text mw3sdl pmcore mw3core SDL3::SDL3)
       target_compile_definitions(mw3pmsdltests PRIVATE MW3_PM_SUITE=1 MW3_GAME_DIR="${MW3PM_GAME_DIR}"

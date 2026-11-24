@@ -25,7 +25,7 @@ inline constexpr size_t kTravelPanelPlaques = 6, kTravelPanelCount = 9;
 inline constexpr int32_t kTravelButtonCount = 3;
 const char* travel_button_name(int32_t id);
 
-// The look, provisional until Owen answers (research/travel-map.md Q4, Q5; Q1 to Q3 are mw1_map_image.h's): the
+// The look, provisional until the owner answers (research/travel-map.md Q4, Q5; Q1 to Q3 are mw1_map_image.h's): the
 // names shown (the company's world, the chosen one and the one under the mouse always; the capitals too), and the
 // jump's line between the company's world and the chosen one.
 inline constexpr bool kCapitalNames = true;

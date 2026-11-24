@@ -108,7 +108,7 @@ std::vector<std::string> world_lines(const Company& c, int32_t world) {
   const Planet& w = kPlanets[world];
   // MW1's own panel (081B:56F9, FIXES.md item 64): the landscape, the population and the description, from the
   // player's exe; no prices and no dealer's limit (MW1 never said them: the Mech Complex shows the prices). The
-  // world's tier is ours (FIXES.md item 99, Owen 2026-11-19): MW1's own number (byte 2's (code - 1) / 3, 0 to 3), said
+  // world's tier is ours (FIXES.md item 99, the owner 2026-11-19): MW1's own number (byte 2's (code - 1) / 3, 0 to 3), said
   // here only, never what it does; the market and elsewhere stay tier-free.
   const WorldText t = world_text(world);
   std::vector<std::string> l = {"House " + std::string(kHouses[w.house].name) + (t.landscape.empty() ? "" : " \xB7 " + t.landscape),

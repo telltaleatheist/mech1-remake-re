@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "check.h"
+#include "upgrades/update/games.h"
 #include "upgrades/update/update.h"
 
 namespace u = upgrades::update;
@@ -81,7 +82,7 @@ TEST(update_says_what_it_found) {
   EXPECT(none.kind == u::Verdict::kFailed && none.words.find("no release") != std::string::npos);
 }
 
-// Two homes (Owen 2026-11-21): the hub mw3-re and mech3-re; the newest package on either wins, one failing is fine.
+// Two homes (2026-11-21): the hub mw3-re and mech3-re; the newest package on either wins, one failing is fine.
 TEST(update_takes_the_newest_from_either_repo) {
   const std::string hub = list({release("v1.2.2"), release("pm-v1.1.1")}), game = list({release("v1.3.0"), release("v1.4.0", true)});
   const u::Verdict both = u::judge("v1.2.2", {{hub, ""}, {game, ""}});
@@ -95,7 +96,58 @@ TEST(update_takes_the_newest_from_either_repo) {
   EXPECT(none.kind == u::Verdict::kFailed && none.words == "Could not check for updates: could not resolve host. Is this computer online?");
 }
 
-// Owen, 2026-11-21: each game is released on its own repo too (mech3-re's v1.3.0 with MW3-alone downloads only),
+namespace {
+// The same list as git.owenmorgan.com's Forgejo gives it: its own download addresses.
+std::string on_backup(std::string json) {
+  for (size_t at; (at = json.find("https://github.com/")) != std::string::npos;) json.replace(at, 19, "https://git.owenmorgan.com/");
+  return json;
+}
+}  // namespace
+
+// Both homes (2026-11-22): git.owenmorgan.com asked first, then GitHub (download_first); the newest release on
+// either wins, one home down is fine, and a release both have downloads from GitHub with the backup's copy behind it.
+TEST(update_reads_both_homes) {
+  const std::string gh = list({release("v1.3.0"), release("v1.2.0")});
+  const auto backup = [](const std::string& json) { return u::Answer{on_backup(json), "", false}; };
+  const auto github = [](const std::string& json) { return u::Answer{json, "", true}; };
+  const auto down = [](bool first) { return u::Answer{"", "Could not resolve host", first}; };
+  // The same newest on both: GitHub's file first, the backup's behind it, whatever order they answered in.
+  for (const auto& answers : {std::vector<u::Answer>{backup(gh), github(gh)}, std::vector<u::Answer>{github(gh), backup(gh)}}) {
+    const u::Verdict v = u::judge("v1.2.0", answers, u::Platform::kMac);
+    EXPECT(v.kind == u::Verdict::kNewer && v.release.tag == "v1.3.0");
+    EXPECT(v.release.assets.size() == 4 && v.release.assets[0].url == "https://github.com/r/v1.3.0/mac.dmg");
+    EXPECT(v.release.other_homes.size() == 1 && v.release.other_homes[0][0].url == "https://git.owenmorgan.com/r/v1.3.0/mac.dmg");
+  }
+  // Newest on GitHub only (the backup not synced yet): GitHub's, nothing behind it.
+  const u::Verdict gh_only = u::judge("v1.2.0", {backup(list({release("v1.2.0")})), github(gh)}, u::Platform::kMac);
+  EXPECT(gh_only.kind == u::Verdict::kNewer && gh_only.release.tag == "v1.3.0" && gh_only.release.other_homes.empty() &&
+         gh_only.release.assets[0].url == "https://github.com/r/v1.3.0/mac.dmg");
+  // Newest on the backup only (forgotten on GitHub, or GitHub gone): the backup's.
+  const u::Verdict b_only = u::judge("v1.2.0", {backup(list({release("v1.4.0"), release("v1.3.0")})), github(gh)}, u::Platform::kMac);
+  std::printf("  %s\n", b_only.words.c_str());
+  EXPECT(b_only.kind == u::Verdict::kNewer && b_only.release.tag == "v1.4.0" && b_only.release.other_homes.empty() &&
+         b_only.release.assets[0].url == "https://git.owenmorgan.com/r/v1.4.0/mac.dmg");
+  // One home down, either one: the other's answer is enough.
+  EXPECT(u::judge("v1.2.0", {down(false), github(gh)}, u::Platform::kMac).release.tag == "v1.3.0");
+  const u::Verdict gh_down = u::judge("v1.2.0", {backup(gh), down(true)}, u::Platform::kMac);
+  EXPECT(gh_down.kind == u::Verdict::kNewer && gh_down.release.assets[0].url == "https://git.owenmorgan.com/r/v1.3.0/mac.dmg");
+  EXPECT(u::judge("v1.3.0", {backup("<html>"), github(gh)}, u::Platform::kMac).kind == u::Verdict::kUpToDate);
+  // Both down: the first one's reason.
+  const u::Verdict none = u::judge("v1.2.0", {down(false), down(true)}, u::Platform::kMac);
+  EXPECT(none.kind == u::Verdict::kFailed && none.words == "Could not check for updates: Could not resolve host. Is this computer online?");
+  // GitHub's copy without this platform's file: the backup's is the release, GitHub's not behind it as a file.
+  const std::string no_mac =
+      "[{\"tag_name\":\"v1.3.0\",\"draft\":false,\"prerelease\":false,\"body\":\"x\",\"assets\":["
+      "{\"name\":\"SHA256SUMS\",\"browser_download_url\":\"https://github.com/r/v1.3.0/SHA256SUMS\"}]}]";
+  const u::Verdict partial = u::judge("v1.2.0", {backup(gh), github(no_mac)}, u::Platform::kMac);
+  EXPECT(partial.release.tag == "v1.3.0" && partial.release.assets[0].url == "https://git.owenmorgan.com/r/v1.3.0/mac.dmg" &&
+         partial.release.other_homes.size() == 1 && partial.release.other_homes[0].size() == 1);
+  // A draft on one home is no copy of the release.
+  const u::Verdict drafted = u::judge("v1.2.0", {backup(list({release("v1.3.0", true)})), github(gh)}, u::Platform::kMac);
+  EXPECT(drafted.release.tag == "v1.3.0" && drafted.release.other_homes.empty());
+}
+
+// 2026-11-21: each game is released on its own repo too (mech3-re's v1.3.0 with MW3-alone downloads only),
 // the launcher's bundle on mw3-re's. A release without this platform's bundle is never the update, whatever its tag.
 TEST(update_never_takes_a_games_own_release) {
   const std::string alone =
@@ -208,4 +260,93 @@ TEST(update_swaps_the_program_in_or_keeps_the_old) {
   fs::permissions(root / "ro", fs::perms::owner_all, ec);
   EXPECT(!done && text(root / "ro" / "MW3-Rebuild-x86_64.AppImage") == "kept" && !fs::exists(root / "ro" / "MW3-Rebuild-x86_64.AppImage.new"));
   fs::remove_all(root, ec);
+}
+
+// Games on demand (src/upgrades/update/games.h): each game's tags and files, the newest for a platform, the record.
+namespace {
+std::string game_release(const std::string& tag, const std::vector<std::string>& files, bool draft = false) {
+  std::string s = "{\"tag_name\":\"" + tag + "\",\"draft\":" + (draft ? "true" : "false") + ",\"prerelease\":false,\"body\":\"\",\"assets\":[";
+  for (size_t i = 0; i < files.size(); ++i)
+    s += std::string(i ? "," : "") + "{\"name\":\"" + files[i] + "\",\"size\":31457280,\"browser_download_url\":\"https://github.com/x/" + files[i] + "\"}";
+  return s + "]}";
+}
+}  // namespace
+
+TEST(games_tags_and_files) {
+  using G = u::Game;
+  EXPECT(u::game_tag(G::kMw3, "v1.2.4") && !u::game_tag(G::kMw3, "pm-v1.2.3") && !u::game_tag(G::kMw3, "v1.2.4-rc1"));
+  EXPECT(u::game_tag(G::kPm, "pm-v1.2.3") && !u::game_tag(G::kPm, "v1.2.3") && !u::game_tag(G::kPm, "mw1-v1.0.6"));
+  EXPECT(u::game_tag(G::kMw1, "mw1-v1.0.7") && !u::game_tag(G::kMw1, "mw1-v1.0"));
+  // The names the packaging gives them (docs/release.md); Windows' zip, never its Setup.
+  EXPECT(u::game_asset_name(G::kMw3, "v1.2.4", u::Platform::kWindows) == "MW3-alone-v1.2.4-win64.zip");
+  EXPECT(u::game_asset_name(G::kPm, "pm-v1.2.3", u::Platform::kWindows) == "mw3pm-pm-v1.2.3-win64.zip");
+  EXPECT(u::game_asset_name(G::kPm, "pm-v1.2.3", u::Platform::kMac) == "PM-Rebuild-pm-v1.2.3-mac.dmg");
+  EXPECT(u::game_asset_name(G::kMw1, "mw1-v1.0.7", u::Platform::kLinux) == "MW1-Remake-mw1-v1.0.7-x86_64.AppImage");
+  EXPECT(u::game_version("pm-v1.2.3") == "1.2.3" && u::game_version("v1.2.4") == "1.2.4");
+  // MW1's prefix has a digit of its own (found on the PC: "1-v1.0.7", and every mw1 tag compared equal).
+  EXPECT(u::game_version("mw1-v1.0.7") == "1.0.7" && u::compare_game("mw1-v1.0.7", "mw1-v1.0.6") > 0 &&
+         u::compare_game("mw1-v1.0.10", "mw1-v1.0.9") > 0 && u::compare_game("mw1-v1.0.7", "mw1-v1.0.7") == 0);
+  EXPECT(u::size_words(31457280) == "30 MB" && u::size_words(1000) == "under 1 MB");
+}
+
+TEST(games_newest_for_the_platform) {
+  using G = u::Game;
+  // PM's repo: a newer release without the Mac's file, a draft, and the hub-style combined files are passed over.
+  const std::string json = list({game_release("pm-v1.2.4", {"mw3pm-pm-v1.2.4-win64.zip", "SHA256SUMS"}),
+                                 game_release("pm-v1.2.5", {"PM-Rebuild-pm-v1.2.5-mac.dmg"}, true),
+                                 game_release("pm-v1.2.3", {"PM-Rebuild-pm-v1.2.3-mac.dmg", "mw3pm-pm-v1.2.3-win64.zip", "SHA256SUMS"}),
+                                 game_release("v1.2.4", {"MW3-Rebuild-v1.2.4-mac.dmg"})});
+  u::GameCheck c = u::judge_game(G::kPm, "", {{json, ""}}, u::Platform::kMac);
+  EXPECT(c.kind == u::GameCheck::kNewer && c.release.tag == "pm-v1.2.3" && c.asset() && c.asset()->name == "PM-Rebuild-pm-v1.2.3-mac.dmg");
+  std::printf("  %s\n", c.words.c_str());
+  c = u::judge_game(G::kPm, "", {{json, ""}}, u::Platform::kWindows);
+  EXPECT(c.kind == u::GameCheck::kNewer && c.release.tag == "pm-v1.2.4");
+  EXPECT(u::judge_game(G::kPm, "pm-v1.2.3", {{json, ""}}, u::Platform::kMac).kind == u::GameCheck::kUpToDate);
+  EXPECT(u::judge_game(G::kPm, "pm-v1.2.2", {{json, ""}}, u::Platform::kMac).kind == u::GameCheck::kNewer);
+  EXPECT(u::judge_game(G::kPm, "pm-v1.2.4", {{json, ""}}, u::Platform::kMac).kind == u::GameCheck::kUpToDate);  // a newer one from a file
+  EXPECT(u::judge_game(G::kMw1, "", {{json, ""}}, u::Platform::kMac).kind == u::GameCheck::kNoRelease);
+  const std::string mw1 = list({game_release("mw1-v1.0.6", {"MW1-Remake-mw1-v1.0.6-mac.dmg"}),
+                                game_release("mw1-v1.0.7", {"MW1-Remake-mw1-v1.0.7-mac.dmg"})});
+  const u::GameCheck m = u::judge_game(G::kMw1, "mw1-v1.0.6", {{mw1, ""}}, u::Platform::kMac);
+  EXPECT(m.kind == u::GameCheck::kNewer && m.release.tag == "mw1-v1.0.7");
+  std::printf("  %s\n", m.words.c_str());
+  EXPECT(u::judge_game(G::kMw1, "mw1-v1.0.7", {{mw1, ""}}, u::Platform::kMac).kind == u::GameCheck::kUpToDate);
+  const u::GameCheck off = u::judge_game(G::kMw3, "v1.2.4", {{"", "Could not resolve host"}}, u::Platform::kMac);
+  EXPECT(off.kind == u::GameCheck::kFailed && off.words.find("Could not resolve host") != std::string::npos);
+  EXPECT(u::judge_game(G::kMw3, "", {{"<html>", ""}}, u::Platform::kMac).kind == u::GameCheck::kFailed);
+}
+
+// A game's repo in both homes (2026-11-22): the newest on either, one home down fine, GitHub's file first.
+TEST(games_read_both_homes) {
+  using G = u::Game;
+  const std::string gh = list({game_release("pm-v1.2.3", {"PM-Rebuild-pm-v1.2.3-mac.dmg", "SHA256SUMS"})});
+  const std::string newer = list({game_release("pm-v1.2.4", {"PM-Rebuild-pm-v1.2.4-mac.dmg", "SHA256SUMS"}),
+                                  game_release("pm-v1.2.3", {"PM-Rebuild-pm-v1.2.3-mac.dmg", "SHA256SUMS"})});
+  const auto backup = [](const std::string& json) { return u::Answer{on_backup(json), "", false}; };
+  const auto github = [](const std::string& json) { return u::Answer{json, "", true}; };
+  // The same on both: GitHub's file, the backup's behind it.
+  u::GameCheck c = u::judge_game(G::kPm, "", {backup(gh), github(gh)}, u::Platform::kMac);
+  EXPECT(c.kind == u::GameCheck::kNewer && c.asset() && c.asset()->url == "https://github.com/x/PM-Rebuild-pm-v1.2.3-mac.dmg");
+  EXPECT(c.release.other_homes.size() == 1 && c.release.other_homes[0][0].url == "https://git.owenmorgan.com/x/PM-Rebuild-pm-v1.2.3-mac.dmg");
+  // Newer on the backup only, then on GitHub only.
+  c = u::judge_game(G::kPm, "pm-v1.2.3", {backup(newer), github(gh)}, u::Platform::kMac);
+  std::printf("  %s\n", c.words.c_str());
+  EXPECT(c.kind == u::GameCheck::kNewer && c.release.tag == "pm-v1.2.4" && c.asset()->url.rfind("https://git.owenmorgan.com/", 0) == 0);
+  c = u::judge_game(G::kPm, "pm-v1.2.3", {backup(gh), github(newer)}, u::Platform::kMac);
+  EXPECT(c.kind == u::GameCheck::kNewer && c.release.tag == "pm-v1.2.4" && c.asset()->url.rfind("https://github.com/", 0) == 0 &&
+         c.release.other_homes.empty());
+  // One home down, either one; both down: the first one's reason.
+  EXPECT(u::judge_game(G::kPm, "", {{"", "timed out", false}, github(gh)}, u::Platform::kMac).kind == u::GameCheck::kNewer);
+  EXPECT(u::judge_game(G::kPm, "", {backup(gh), {"", "404", true}}, u::Platform::kMac).kind == u::GameCheck::kNewer);
+  const u::GameCheck off = u::judge_game(G::kPm, "", {{"", "timed out", false}, {"", "404", true}}, u::Platform::kMac);
+  EXPECT(off.kind == u::GameCheck::kFailed && off.words.find("timed out") != std::string::npos);
+}
+
+TEST(games_installed_record) {
+  const u::InstalledGame in{"pm", "pm-v1.2.3", "PM-Rebuild-pm-v1.2.3-mac.dmg", "6c6b", "github"};
+  u::InstalledGame back;
+  EXPECT(u::parse_installed(u::installed_text(in), &back));
+  EXPECT(back.game == "pm" && back.tag == "pm-v1.2.3" && back.file == in.file && back.sha256 == "6c6b" && back.from == "github");
+  EXPECT(u::parse_installed("# x\r\ngame=mw3\r\ntag=v1.2.4\r\n", &back) && back.game == "mw3" && back.tag == "v1.2.4");  // CRLF
+  EXPECT(!u::parse_installed("tag=v1.2.4\n", &back));  // no game: not a record
 }

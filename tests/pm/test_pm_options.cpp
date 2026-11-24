@@ -482,7 +482,7 @@ TEST(pm_entry_mission_return_reopens_the_screen_and_one_back_leaves_headless) {
 }
 
 // Pirate's Moon's UPGRADES page has the five switches as MechWarrior 3's (docs/fixes.md, The Upgrades switches):
-// WATER MOVEMENT first (Pirate's Moon's own wading eased in, Owen 2026-11-10), MFB REGROUP, IMPROVED AI, ARTEMIS
+// WATER MOVEMENT first (Pirate's Moon's own wading eased in, 2026-11-10), MFB REGROUP, IMPROVED AI, ARTEMIS
 // TRACKING, SMALL FIXES, then WIDE MENUS. ACCEPT saves the five and wide menus; the Small fixes list is Pirate's
 // Moon's own; a host's word of five bits sets the five. WATER's default is asserted here and nowhere else.
 TEST(pm_upgrades_page_has_five_switches_headless) {

@@ -1,12 +1,12 @@
 #pragma once
-// The story's battles (FIXES.md item 47, Owen 2026-11-18): ours, MW1's steps being text choices but its last, the
+// The story's battles (FIXES.md item 47, the owner 2026-11-18): ours, MW1's steps being text choices but its last, the
 // Dark Wing's base. One table, the ladder, each rung a step's battle with its own fixed force and its pilots' aim,
 // so the numbers are tuned in one place. A story battle pays nothing; its salvage is kept. A loss is a retreat: the
 // step waits, offered again on the next arrival.
 //
 // MW1's own last battle (research/story.md, the story battles; the port's BTECH_0810_IMPORT as reference) fields three
 // 85 t 'Mechs and a 70 t, the most its battles hold, with the best pilots there are (gunnery and piloting target
-// numbers 0). Owen's rung 6 is the force MW1's story text tells of instead (a 70 t and four 85 t) and three 75 t
+// numbers 0). The owner's rung 6 is the force MW1's story text tells of instead (a 70 t and four 85 t) and three 75 t
 // escorts: eight, elite.
 #include <cstdint>
 #include <string>
@@ -35,7 +35,7 @@ struct Rung {
   // FIXES 114: a scripted force's chassis, slot by slot (-1 throughout: rolled as a contract's, kStoryBattlesRoll).
   int32_t chassis[kRungMechs] = {-1, -1, -1, -1, -1, -1, -1, -1};
 };
-// Provisional (Owen's numbers, FIXES.md 47): the forces by tonnage (kForceSlots), the aim rising with the rung.
+// Provisional (the owner's numbers, FIXES.md 47): the forces by tonnage (kForceSlots), the aim rising with the rung.
 // Rung 6's aim is past the best lancemate's (kAimErrorFactor[3], 0.6): MW1's target number 0, below any pilot's.
 inline constexpr Rung kLadder[kRungs] = {
     {1, 2, 2, {kSlot55, kSlot55}, 1.4f},                                      // Grig's men: 2 mediums, 110 t
@@ -44,7 +44,7 @@ inline constexpr Rung kLadder[kRungs] = {
     {4, 4, 4, {kSlot70, kSlot75, kSlot75, kSlot85}, 0.8f},                    // Kearney's address: 305 t
     {5, 6, 6, {kSlot55, kSlot60, kSlot60, kSlot70, kSlot75, kSlot75}, 0.6f},  // Matabushi: 395 t, veterans
     // The Dark Wing: a 70 t and four 85 t (as MW1's story text tells it), three 75 t escorts; 635 t, elite. Scripted
-    // (FIXES 114, Owen): MW1's text's 'Mechs as ours, a Thor and four Atlases, the escorts the 75 t record's
+    // (FIXES 114, the owner): MW1's text's 'Mechs as ours, a Thor and four Atlases, the escorts the 75 t record's
     // (mw1_text_names.h's kOurChassis, kOurs75).
     {6, 8, 5, {kSlot70, kSlot85, kSlot85, kSlot85, kSlot85, kSlot75, kSlot75, kSlot75}, 0.4f,
      {kPmThor, kPmAtlas, kPmAtlas, kPmAtlas, kPmAtlas, kOurs75, kOurs75, kOurs75}},

@@ -18,7 +18,7 @@
 ; PM's four worlds are desert at a stretch (c1 and c3 volcanic; research/maps.md), MW3's Grasslands (mw3c2) the
 ; one green map; no Instant Action map is ice yet (research/maps.md, "Arctic").
 (
-; Where each world's battles come from (FIXES.md item 46, agreed with Owen): MOSTLY about 75% of the time
+; Where each world's battles come from (FIXES.md item 46, agreed with the owner): MOSTLY about 75% of the time
 ; (mw1_missions.h kMostlyPercent), else SOMETIMES; never any other world. A planet's pool (Ander's Moon) comes
 ; before its climate's. The worlds: PM's c1..c4; MW3's mw3c1 Big Lake, mw3c2 Grasslands, mw3c3 Rolling Hills,
 ; mw3c4 Gorge, and mw3c4b the arctic (item 44, none yet: its MOSTLY then draws from SOMETIMES).

@@ -55,11 +55,11 @@ In multiplayer every player needs the same mods.
 
 Your settings and saves
 -----------------------
-In ~/.local/share/MicroProse/MechWarrior 3/ : mw3.cfg, your pilots and
+In ~/.local/share/BattleTech/MechWarrior 3/ : mw3.cfg, your pilots and
 saves, the settings, the installed game, its music, the converted movies,
 your mods and mw3.log (what the game reported while it ran; send it with a
 bug report). Pirate's Moon keeps its own beside it, in
-~/.local/share/MicroProse/Pirate's Moon/. Deleting the AppImage keeps
+~/.local/share/BattleTech/Pirate's Moon/. Deleting the AppImage keeps
 them, and a new version keeps your pilots, saves, settings and mods.
 
 Reporting a bug

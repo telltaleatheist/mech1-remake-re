@@ -536,7 +536,7 @@ aren't made yet (`entity_find` answers none there), so MW1 asks the mission's
 back to destroy all, said in the log. That check is the net; the survey is
 the gate.
 
-## An arctic map (finding for Owen, 2026-11-17)
+## An arctic map (finding for the owner, 2026-11-17)
 
 MW3's c4b, converted as `mw3c4b`, has no Instant Action archives
 (`readeria*`), only its campaign missions' `readerm4..m6`. Tried headless (a
@@ -568,4 +568,4 @@ own Instant Action archive for `mw3c4b` at conversion time, in MW1's worlds
 folder (never MW3's or PM's files; zipkit stays a plain converter): m4's or
 m6's layout as `readeria1.zbd`, with the valves that drive the story left
 out, plus an `ia1` block in a `world.zrd` of MW1's for the snow. That is a
-build; it waits for Owen's say.
+build; it waits for the owner's say.

@@ -5,7 +5,7 @@
 // by territory, too, so there are no holes), filled faintly with a thin outline where it meets another House or space. One plain, and one per House with the others dimmed
 // (FILTER's one House). The worlds themselves, the markers and the names are drawn live by the screen.
 //
-// The look is provisional, each a constant until Owen answers (research/travel-map.md, Q1 to Q3).
+// The look is provisional, each a constant until the owner answers (research/travel-map.md, Q1 to Q3).
 #include <cstdint>
 #include <string>
 #include <vector>

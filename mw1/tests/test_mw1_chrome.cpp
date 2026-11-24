@@ -154,7 +154,7 @@ TEST(mw1_chrome_lab_reskin_at_pirates_moons_sizes) {
     }
 }
 
-// FIXES.md item 17 (Owen): every frame of the lab's panels ends above the icons' tray line (the centre's ran down
+// FIXES.md item 17 (the owner): every frame of the lab's panels ends above the icons' tray line (the centre's ran down
 // through it, round the page icon), and the selection bar spans its row's dark panel, no more (it poked out of the
 // load-out's frame on the left). lab_panels and bar_piece draw from these; mw1labfit checks the lab as shown.
 TEST(mw1_chrome_lab_frames_above_the_tray_and_the_bar_in_its_row) {
@@ -328,7 +328,7 @@ TEST(mw1_chrome_geometry_pieces_are_finer_than_the_canvas_at_scale) {
   EXPECT(n == 33);
 }
 
-// FIXES.md item 101 (Owen): every arrow button's triangle inside its frame, a canvas pixel of glass at least between
+// FIXES.md item 101 (the owner): every arrow button's triangle inside its frame, a canvas pixel of glass at least between
 // them, and centred: as much room on the left as the right, above as below (a device pixel's slack). Each arrow at the
 // archive's scale and the 2D's (2 at 1080p, 4 at 4K); its still look, whose ink is told from the frame's greys.
 TEST(mw1_chrome_arrow_ink_inside_its_frame_and_centred) {

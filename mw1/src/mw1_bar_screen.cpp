@@ -54,7 +54,7 @@ std::string portrait_image(int32_t pilot, bool small) {
   return s.empty() ? "" : "mw1_recruit_" + s + (small ? "_s" : "");
 }
 std::string commander_image(bool small) { return small ? "mw1_char_gideon_s" : "mw1_char_gideon"; }
-// Owen (2026-11-18): the mech's outline (PM's, redrawn: mw1_mech_icons.h), any chassis the company can own.
+// The owner (2026-11-18): the mech's outline (PM's, redrawn: mw1_mech_icons.h), any chassis the company can own.
 std::string mech_image(int32_t pm_mech) { return pm_mech >= 0 ? mech_icon_image(pm_mech) : ""; }
 
 void clamp_choice(const Company& c, BarChoice& b) {

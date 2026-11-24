@@ -1,6 +1,6 @@
 # The travel map: what MW1 draws, and a plan (2026-11-17, for the mw1 lead's review)
 
-Owen: travel goes through a star map, not the list. Clean it up and
+The owner: travel goes through a star map, not the list. Clean it up and
 modernize it, drawn by our code from the worlds' data (`kPlanets`), not
 MW1's bitmap. Sources, read as reference (never copied): the port's
 `MW_MAIN_081B_TRAVEL.c`, `MW_MAIN_081B_RESOURCES.c` and `MW_EGA_0800.c`;
@@ -97,7 +97,7 @@ show for:
 - the world under the mouse;
 - the five capitals.
 
-A zoom could come later if Owen wants all the names.
+A zoom could come later if the owner wants all the names.
 
 ### Interaction
 
@@ -150,9 +150,9 @@ propose type-ahead: it's cheaper, and it needs no new widget.
   colour, the same way each time (a checksum).
 - **Headless.** A trip picked on the map: click a world, check that the
   panel shows it, GO, then arrive at the hub. Also the keyboard path.
-- **A `--shot`** of the map (MW1_SCREEN=travel), for Owen.
+- **A `--shot`** of the map (MW1_SCREEN=travel), for the owner.
 
-### Questions for Owen (look and feel)
+### Questions for the owner (look and feel)
 
 1. **Colours:** MW1's House colours, or BattleTech's usual ones?
    - MW1's: Kurita light blue, Steiner brown, Marik white, Liao light red,

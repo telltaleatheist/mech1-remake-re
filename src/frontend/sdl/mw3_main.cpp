@@ -779,7 +779,7 @@ int print_status(Args& a) {
       st.state = rekit::Status::kReady;
       if (r.version != "unknown") st.data = r.version;
 #if !defined(_WIN32)
-      if (!a.no_import && sdlfe::movies_missing(st.where, a.write_dir) > 0) st.pending.push_back("movies");
+      if (!a.no_import && sdlfe::movies_missing(st.where, sdlfe::media_dir(st.where, a.write_dir)) > 0) st.pending.push_back("movies");
 #endif
     } else {
       st.state = rekit::Status::kIncomplete;
@@ -853,6 +853,9 @@ int program(int argc, char** argv) {
   if (a.hidden || a.frames > 0 || !a.chain.empty() || !a.modes.empty()) platform::set_pointer_hands_off(true);
   if (a.verbose) mech3::ai::set_pm_ai_report(true);  // the PM AI's unanswered calls, as they come and at exit
   mech3::mods_program_version() = MW3_VERSION;  // game_version= in mod.txt (upgrades/mods/mod_needs.h)
+  // Ours (MW1 lead, 2026-11-23): on the Mac a run no player is at stays a background process: SDL's start makes
+  // every process a foreground app, which took the keyboard from the app in front at each start and exit.
+  if (platform::pointer_hands_off()) SDL_SetHint(SDL_HINT_MAC_BACKGROUND_APP, "1");
   if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK)) {
     sdlfe::fatal_box(std::string("MechWarrior 3 cannot start: ") + SDL_GetError(), a.hidden);
     if (a.setup) std::printf("{\"error\": \"SDL could not start\"}\n");
@@ -1013,7 +1016,7 @@ int program(int argc, char** argv) {
   std::string look_first;  // a find to copy in (below)
   if (!a.ready_file.empty()) sdlfe::set_ready_file(a.ready_file);
   mech3::mods_other_game() = {a.other_write_dir, a.other_install};  // W15: a mod for the other game goes there
-  // Shift held at the start (ours, Owen 2026-11-21): the find screen, to choose other game files without a terminal.
+  // Shift held at the start (ours, 2026-11-21): the find screen, to choose other game files without a terminal.
   const bool choose_again = player_start && !a.no_launcher && !a.setup && sdlfe::shift_held_now();
   if (choose_again) {
     setup_only = true;
@@ -1028,7 +1031,7 @@ int program(int argc, char** argv) {
     bool searched = false;
     const std::string found = sdlfe::find_install(a.cfg_install, more, false, &searched);
     // Found by the search (the installer's places, a drop-in), not set up yet: the find screen offers to copy it
-    // in first (Owen, 2026-11-21: once found, the original may be deleted). mw3.cfg's and SETUP's own go straight in.
+    // in first (2026-11-21: once found, the original may be deleted). mw3.cfg's and SETUP's own go straight in.
     // Pirate's Moon (this branch): the find screen as its own (LauncherOptions::pm, below).
     const bool elsewhere = searched && std::find(more.begin(), more.end(), found) == more.end();
     if (!found.empty() && elsewhere) {
@@ -1118,6 +1121,9 @@ int program(int argc, char** argv) {
   std::error_code patch_ec;
   if (!patch_dir.empty() && std::filesystem::is_directory(patch_dir, patch_ec)) zutl::mount(patch_dir);
   zutl::mount(a.install);
+  // Ours (2026-11-22): a game's own folder, picked, holds its music and converted movies beside its game
+  // files; searched after them (the user folder's as before, for an install without one).
+  if (const std::string media = sdlfe::media_dir(a.install, a.write_dir); media != a.write_dir) zutl::mount(media);
   zutl::set_write_dir(a.write_dir);
   zutl::mounts().confined = true;  // ours: names from data and the network stay inside these folders
   std::error_code ec;
@@ -1152,14 +1158,14 @@ int program(int argc, char** argv) {
   }
   // What a player may want to do about the data and the music: in the log
   // each start, in a box on the first (ours).
-  const std::vector<std::string> notes = start_notes(data, a.write_dir);
+  const std::vector<std::string> notes = start_notes(data, sdlfe::media_dir(a.install, a.write_dir));
   for (const std::string& n : notes) std::printf("mw3: note: %s\n", flat(n).c_str());
   if (plain && a.first_start && !notes.empty()) {
     std::string text;
     for (const std::string& n : notes) text += (text.empty() ? "" : "\n\n") + n;
     mech3::first_start_notes() = text;  // W16: in the game's box at the main menu, not a system box before the window
   }
-  if (a.force_import || (plain && !a.no_import && !vfw)) sdlfe::first_run_import(a.install, a.write_dir, a.force_import);
+  if (a.force_import || (plain && !a.no_import && !vfw)) sdlfe::first_run_import(a.install, sdlfe::media_dir(a.install, a.write_dir), a.force_import);
 
   // The network's session, before the game (ours, piece 4).
   std::unique_ptr<sdlfe::EnetTransport> net;

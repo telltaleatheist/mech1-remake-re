@@ -1,11 +1,11 @@
 ; MW1: Critical Hit's planet hub (src/mw1_hub.h), on MW1's screen template
 ; (src/mw1_screen.h, whose keys ANCHOR, LABEL_AT, LABEL_FONT, LABEL_OFF_FONT,
 ; TEXTS and the _WIDE layout are ours; the game's own readers ignore them).
-; The look is Owen's hub mockup's (mockups/mw1-hub.html), in MW1's layout:
+; The look is the owner's hub mockup's (mockups/mw1-hub.html), in MW1's layout:
 ; - the world's scenery full-bleed (the BACKGROUND; the hub names the world's,
 ;   mw1_scenery.h), drawn centred;
 ; - two plaques across the top: the world and its House, the date, and between
-;   them the company's strip (C-BILLS, PAYROLL, KILLS: Owen on item 16, MW1's
+;   them the company's strip (C-BILLS, PAYROLL, KILLS: the owner on item 16, MW1's
 ;   hub had no company box);
 ; - the services as picture tiles where MW1's hub tables put them (FIXES.md
 ;   item 11, MW_MAIN.EXE DS:1083): COMPANY, MECH COMPLEX and the world's House
@@ -14,7 +14,7 @@
 ;   gone (the hub hides what isn't there);
 ; - the middle panel only with something to say (item 16): AFTER ACTION, or
 ;   the messages (payday, the news, a contract taken), OK (and AFTER ACTION's
-;   REPLAY, or the messages' READ) under it; else the scenery and the tiles alone. Item 42 (Owen:
+;   REPLAY, or the messages' READ) under it; else the scenery and the tiles alone. Item 42 (the owner:
 ;   unobtrusive): a box at the foot between the tile columns, sized to its
 ;   lines (mw1_box_<w>_<lines>, grown upward from the status line; the hub
 ;   names the size and moves the texts down from the six-line box's places),

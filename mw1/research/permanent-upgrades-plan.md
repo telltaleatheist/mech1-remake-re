@@ -1,12 +1,12 @@
 # Permanent upgrades: the plan (MW1 1.1.0)
 
-Status: **planned, not started.** This is the design Owen set on 2026-11-20, kept here so we can expand on it and
+Status: **planned, not started.** This is the design the owner set on 2026-11-20, kept here so we can expand on it and
 build it later. FIXES.md item 118 tracks the work; item 122, the arms dealer, is the hub's other shop and ships
 with it.
 
 ## Why
 
-Owen wants players to be able to keep playing indefinitely without touching the story, "like an instant action
+The owner wants players to be able to keep playing indefinitely without touching the story, "like an instant action
 mod". Money piles up with nothing to spend it on, so this gives it somewhere to go. It is a slow, expensive,
 long-term sink, not a shortcut.
 
@@ -15,7 +15,7 @@ long-term sink, not a shortcut.
 ### 1. Permanent kits, one unit per purchase
 
 - **Heat sink kit:** +1 heat sink. It takes no critical slots and no tonnage.
-- **Armour kit:** +1 armour point, beyond the 'Mech's normal cap. Owen's example: "adding 50 more points
+- **Armour kit:** +1 armour point, beyond the 'Mech's normal cap. The owner's example: "adding 50 more points
   permanently to any mech", one point at a time.
 
 How kits work:
@@ -32,7 +32,7 @@ How kits work:
 - **Heat never changes.**
 - A step applies **by weapon type**, to every weapon of that type the company owns on any 'Mech. Buying range for
   "LRM 20" upgrades every LRM 20.
-- Owen's example of where it can go: a medium laser raised to an ER large laser's power, at a medium laser's heat.
+- The owner's example of where it can go: a medium laser raised to an ER large laser's power, at a medium laser's heat.
 
 ## Rules
 
@@ -40,11 +40,11 @@ How kits work:
 - **The player's side only:** the company and its lancemates. Never enemies, even of the same type.
 - **Balance:** "these upgrades could get out of hand fast". Every item has a high entry price and small increments
   (one point, one sink, +10 m), and each repeat purchase costs more than the last.
-- **Prices:** a price table goes to Owen for approval before it ships.
+- **Prices:** a price table goes to the owner for approval before it ships.
 
 ## Where the code goes
 
-Owen: "add the logic to the mw3/pm code as an upgrade, but let's not activate it in mw3 right now. Just in mw1."
+The owner: "add the logic to the mw3/pm code as an upgrade, but let's not activate it in mw3 right now. Just in mw1."
 
 - **Engine (shared):** the logic lives in mw3-re's shared code, off by default. MW3 and Pirate's Moon don't turn it
   on yet; only MW1 does.
@@ -85,7 +85,7 @@ The mw3 lead's rules for the engine part (2026-11-20):
 - **Caps:** is there any ceiling (for example, a weapon can't exceed the next weapon up, or N kits per 'Mech), or is
   the price curve the only limit?
 - **Step sizes per weapon type:** how much power per step for each weapon, and whether range steps differ between
-  short- and long-range weapons. Owen's "+10 range" is the example.
+  short- and long-range weapons. The owner's "+10 range" is the example.
 - **Moving kits:** free, or a small refit fee or time cost?
 - **Selling back:** can kits or steps be sold or refunded?
 - **The screens:** where the store sits in the hub, how assignment looks, and how the mech lab and the HUD show the

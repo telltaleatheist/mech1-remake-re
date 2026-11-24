@@ -76,7 +76,7 @@ TEST(pm_entries_are_the_two_campaigns_and_instant_action) {
   const std::vector<mech3::CampaignEntry> all = mech3::campaign_entries(wd.string());
   std::printf("  entries: %s\n", ids(all).c_str());
   EXPECT(ids(all) == "campaign,pirate,ia,mp,camp~night");  // the other game's mod left out
-  // A mod laid over the game's own files is a tick for either campaign and Instant Action, not a row (Owen, 2026-11-10).
+  // A mod laid over the game's own files is a tick for either campaign and Instant Action, not a row (2026-11-10).
   EXPECT(!mech3::find_entry(all, "rewrite"));
   EXPECT(!mech3::find_entry(all, "mw3"));  // MechWarrior 3's entry is not one of Pirate's Moon's
 }

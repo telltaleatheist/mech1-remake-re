@@ -93,7 +93,7 @@ TEST(quiet_music_a_hidden_run_opens_no_audio_device) {
   EXPECT(dynamic_cast<sdlfe::SdlMusicOutput*>(sdlfe::music_output_for(false, false).get()) != nullptr);
 }
 
-// FIXES.md item 103 (Owen: the theme played once and stopped): the extra track through the real output (SDL's, on
+// FIXES.md item 103 (the owner: the theme played once and stopped): the extra track through the real output (SDL's, on
 // its dummy driver: nothing aloud) and the real pump and app, as a player's run has them. At the file's end the
 // output posts its event, the pump hands it to the app (MM_MCINOTIFY), and zsnd_cd plays the track again; stopped
 // (MW1's fade for a mission, OPTIONS' OFF), no end comes and nothing starts.

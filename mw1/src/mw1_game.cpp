@@ -1597,7 +1597,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       market_state_->set_resumed([this] { lab_closed(); });
       // FIXES 102: the wheel over the stock or the owned list steps it as its arrows do.
       market_state_->set_wheel_lists({{kMarketPanelStock, kMarketStockUp, kMarketStockDown}, {kMarketPanelOwned, kMarketOwnUp, kMarketOwnDown}});
-      // FIXES.md item 12 (Owen 2026-11-18): the chosen 'Mech live in gunmetal in its panel, where the engine draws 3D.
+      // FIXES.md item 12 (the owner 2026-11-18): the chosen 'Mech live in gunmetal in its panel, where the engine draws 3D.
       set_market_live(ge.video_mode() != 0);
       if (market_live())
         market_state_->set_live([this](mech3::GameEngine& en, screens::Mw1Screen& s) { draw_market_mech(en, s); },
@@ -1719,7 +1719,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   }
 
   // MECH LAB (FIXES.md item 8): Pirate's Moon's lab, as the briefing's MECHLAB opens it, with a copy of the company's
-  // stores. FIXES 69 (Owen: assignment in the lab, MW3's way): the lance in its slots, you first, then each lancemate
+  // stores. FIXES 69 (the owner: assignment in the lab, MW3's way): the lance in its slots, you first, then each lancemate
   // (lance_slots), each with their mech and its loadout, a lancemate without one an empty slot; the spares' chassis in
   // the lab's store (YOUR MECHS lists them and the shown slot's). Picking one for a slot swaps (lab_swap), each mech
   // keeping its own loadout. The lab opens on the slot of the mech chosen in YOUR MECHS (a spare: yours, the spare
@@ -1906,7 +1906,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       l->layout();
     }
     u.long_size[1] -= kListUp, u.short_size[1] -= kListUp;
-    // FIXES.md item 40 (Owen's gap, item 39's review): 'MECH LOAD-OUT's header and rows a row higher, into the band
+    // FIXES.md item 40 (the owner's gap, item 39's review): 'MECH LOAD-OUT's header and rows a row higher, into the band
     // under its title's rule (where the supplies have their tabs), its down arrow where it was: a row more shown.
     {
       mech3::LabAssignedList& a = ls.assigned;
@@ -1930,7 +1930,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     shift_labels(et, 0, -kEngineUp);
     et.set_pos(et.x, et.y - kEngineUp);
     // MECH DATA's values and its internal structure's choice kDataLeft further left: the right arrow sat on the
-    // centre panel's frame. And all of it kDataUp higher: the centre's box ends above the tray now (Owen).
+    // centre panel's frame. And all of it kDataUp higher: the centre's box ends above the tray now (the owner).
     if (mech3::LabMechData* md = ls.mech_data) {
       md->width -= kDataLeft;
       shift_labels(*md, 0, -kDataUp);
@@ -2477,7 +2477,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       if (d.moved >= 0) ev_panel_.planet = upper(company_.planet);
       save();  // paid (and moved) now: a quit with the panel up keeps it
     } else if (s.restart) {
-      // MW1 restarts the campaign here (PLAY AGAIN / QUIT); ours never does (FIXES.md item 33, Owen: "you cant die in
+      // MW1 restarts the campaign here (PLAY AGAIN / QUIT); ours never does (FIXES.md item 33, the owner: "you cant die in
       // this one"): the page is shown and play goes on.
       std::printf("mw1: story: MW1 would restart here; play goes on (FIXES.md item 33)\n");
     } else {
@@ -2879,7 +2879,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // The day of the month (a month is MW1's 60 units: two to a day) and the wages' day, the month's turn.
     const int32_t day = company_.date.units / 2 + 1, days = kUnitsPerMonth / 2;
     v.day = "DAY " + std::to_string(day) + " \xB7 PAYDAY IN " + std::to_string(days - day + 1);
-    // The company's strip (Owen on item 16: the stores and the mechs are the COMPANY's and the Mech Complex's).
+    // The company's strip (the owner on item 16: the stores and the mechs are the COMPANY's and the Mech Complex's).
     v.labels = {"C-BILLS", "PAYROLL", "KILLS"};
     v.values = {thousands(company_.funds), company_.lance.empty() ? "NONE" : "-" + thousands(monthly_wages(company_)) + "/MO",
                 std::to_string(company_.kills)};
@@ -3255,7 +3255,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   // Instant Action's end (IA Dummy). Heard only when the mission is left without its own end (the pause screen's
   // QUIT): a mission that ended was latched the frame it did. PM's own way out of an ended mission (its debriefing's
   // CONTINUE, the next round's briefing, its EXIT) reaches IA Dummy only after the briefing has loaded the mission
-  // again, its end flag cleared: sampled there, a win was a Retreat (Owen's win on mw3c2ia3, 2026-11-17).
+  // again, its end flag cleared: sampled there, a win was a Retreat (the owner's win on mw3c2ia3, 2026-11-17).
   void mission_ending(mech3::Engine& e) override {
     if (!ending_latched_) latch_ending(e);
   }
@@ -3384,7 +3384,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
                   "state %d, action %d", pilot_title(id).c_str(), why, static_cast<double>(mech3::missions().time),
                   killer == victim ? "its own" : mech_named(killer).c_str(), mech_named(mech3::mech_last_attacker(victim)).c_str(),
                   static_cast<double>(got ? d.heat : 0), got ? d.anim_state : -1, got ? d.action : -1);
-    // FIXES 113 (Owen: did the head go or the centre torso?): the part whose destruction killed it, how the damage
+    // FIXES 113 (the owner: did the head go or the centre torso?): the part whose destruction killed it, how the damage
     // came (a weapon's hit, the ceiling's crush, a ram, or none of those), each location's armour and structure left.
     std::string cause = line;
     int32_t part = 0, path = 0;
@@ -4278,7 +4278,7 @@ static bool reach_ground(const std::string& structure, float out[3]) {
     const bool staged = stage_3d(ge, 0.0f) && !stage_hidden_.empty() && !l->cursor;
     const int32_t entry = ls.model_index(mech);
     bool shown = staged && entry >= 0 && static_cast<size_t>(entry) < ls.models_.size() && ls.model_ == ls.models_[static_cast<size_t>(entry)];
-    // In gunmetal (Owen 2026-11-18), whatever camo the lab showed it in: changed on its first shown frame, the settle
+    // In gunmetal (the owner 2026-11-18), whatever camo the lab showed it in: changed on its first shown frame, the settle
     // frames after it.
     if (shown && pass_.wait == 1) shown = !show_render_skin(ge, ls, mech);
     pass_.wait = shown ? pass_.wait + 1 : std::max(pass_.wait, 1);
@@ -4442,7 +4442,7 @@ static bool reach_ground(const std::string& structure, float out[3]) {
         out.push_back(std::to_string(a.text.size()) + " letters at " + span(a) + " over " + std::to_string(b.text.size()) +
                       " letters at " + span(b) + ": OVERLAP");
       }
-    // FIXES.md item 66 (Owen: FOR SALE's eighth row and its outline on the box's foot; the canvas check passed it):
+    // FIXES.md item 66 (the owner: FOR SALE's eighth row and its outline on the box's foot; the canvas check passed it):
     // a text, arrow or outline in a terminal (its middle inside) stays clear of its border, kTermEdge each side (the
     // chrome terminal's green edge and its dim inner line). Counted as outside.
     constexpr int32_t kTermEdge = 4;

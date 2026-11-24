@@ -10,6 +10,7 @@
 #include <system_error>
 
 #include "gamez/zutil/zutl_path.h"
+#include "rekit/family_folder.h"
 
 namespace fs = std::filesystem;
 
@@ -167,6 +168,59 @@ std::string moved_path(const std::string& path, const std::string& from, const s
   if (path.empty() || !fs::path(path).is_absolute() || !within(path, from)) return path;
   const std::string rest = clean(path).substr(clean(from).size());
   return (fs::path(to).generic_string() + rest);
+}
+
+void retarget_config(const std::string& cfg, const std::vector<std::pair<std::string, std::string>>& moved) {
+  std::ifstream f(cfg);
+  if (!f) return;
+  std::string text, line;
+  bool changed = false;
+  while (std::getline(f, line)) {
+    if (!line.empty() && line.back() == '\r') line.pop_back();
+    const size_t eq = line.find('=');
+    if (eq != std::string::npos)
+      for (const auto& [from, to] : moved) {
+        const std::string v = moved_path(line.substr(eq + 1), from, to);
+        if (v != line.substr(eq + 1)) line = line.substr(0, eq + 1) + v, changed = true;
+      }
+    text += line + "\n";
+  }
+  f.close();
+  if (changed) write_text(cfg, text);
+}
+
+std::string family_move(const std::string& usual, bool move) {
+  const std::string old = rekit::old_org_folder(usual);
+  std::error_code ec;
+  if (old.empty() || !fs::is_directory(old, ec)) return usual;
+  if (!move) {  // the old one while the new one is empty (as SDL_GetPrefPath makes it)
+    const bool fresh = !fs::exists(usual, ec) || (fs::is_directory(usual, ec) && fs::is_empty(usual, ec));
+    return fresh && !fs::exists(fs::path(old) / kPointer, ec) ? old : usual;
+  }
+  const rekit::FolderMove m = rekit::move_once(old, usual, {kPointer});
+  if (m.kind == rekit::FolderMove::kFailed) {
+    std::fprintf(stderr, "mw3: the family folder: %s; %s stays in use\n", m.error.c_str(), old.c_str());
+    return old;
+  }
+  if (m.kind == rekit::FolderMove::kNothing) return usual;
+  // Earlier versions look in the old place: a pointer there to the folder in use (the moved folder's own
+  // pointer's, when its data lives elsewhere), the moved folder marked as a data folder a pointer may name.
+  const Resolved r = resolve(usual);
+  if (!r.pointer && !fs::exists(fs::path(usual) / kMarker, ec))
+    write_text(fs::path(usual) / kMarker, "The MechWarrior 3 rebuild's data folder. Leave this file here.\n");
+  fs::create_directories(old, ec);
+  write_text(fs::path(old) / kPointer, (r.pointer ? r.dir : usual) + "\n");
+  // Saved paths: every moved family folder's old place, in every family folder's settings.
+  const fs::path org = fs::path(usual).parent_path(), old_org = fs::path(old).parent_path();
+  std::vector<std::pair<std::string, std::string>> moved;
+  for (fs::directory_iterator it(org, ec), end; !ec && it != end; it.increment(ec)) {
+    const fs::path was = old_org / it->path().filename();
+    if (it->is_directory() && fs::exists(was / kPointer)) moved.emplace_back(was.string(), it->path().string());
+  }
+  for (fs::directory_iterator it(org, ec), end; !ec && it != end; it.increment(ec))
+    if (it->is_directory()) retarget_config((fs::path(resolve(it->path().string()).dir) / "mw3.cfg").string(), moved);
+  std::printf("mw3: the family folder: %s moved to %s (a pointer left there for earlier versions)\n", old.c_str(), usual.c_str());
+  return usual;
 }
 
 std::string unusable(const std::string& dir) {

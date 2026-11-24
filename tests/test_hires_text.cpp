@@ -96,7 +96,7 @@ TEST(hires_text_on_the_canvas_pen) {
   }
   struct Case { const char* what; FontKey key; std::string text; };
   const std::string text = "MECH COMPLEX 1,029,000 Wages";
-  // Owen's objectives panel (FIXES.md item 94): "tow er", "Objec tives" crowded, "In Progress" uneven.
+  // The owner's objectives panel (FIXES.md item 94): "tow er", "Objec tives" crowded, "In Progress" uneven.
   const std::string objectives = "Destroy the tower  OP: Tower Primary Objectives In Progress";
   const std::string arial = std::string(MW3_GAME_DIR) + "/arial.ttf";
   std::vector<Case> cases = {
