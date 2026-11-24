@@ -500,6 +500,7 @@ Ran run_event(Company& c, int32_t record, int32_t cls, Rng& rng, Shown* out) {
   if (record < 0 || record >= static_cast<int32_t>(s.records.size())) return Ran::kNot;
   const Event& e = s.records[static_cast<size_t>(record)];
   if (kNoDeadline && e.id == kEventTooLate) return Ran::kNot;  // ours: never too late
+  if (kNoDeadline && e.id >= kEventSuccessionFirst && e.id <= kEventSuccessionLast) return Ran::kNot;  // FIXES 146
   // Ours (item 47): the step's battle first; a waiting step's hub event fires again on an arrival; Grig's men at
   // Land's End's Bar only.
   if (c.story.rung_won < step_gate(e.id)) return Ran::kNot;
@@ -587,6 +588,7 @@ Ran run_event(Company& c, int32_t record, int32_t cls, Rng& rng, Shown* out) {
   }
   // Ours (item 47, rung 1): Grig's men meet you at the Bar's door: FIGHT / RUN (MW1's captions) under its text.
   if (e.id == kEventGrigsMen && c.story.rung_won < 1) {
+    hunt_begins(c);  // FIXES 146: rung 1 offered, the hunt's clock started (once)
     std::vector<std::string> caps = fight_or_run();
     if (!caps.empty()) {
       sh.captions = caps, sh.branches = {-1, -1};
@@ -656,6 +658,71 @@ std::vector<Shown> fresh_news(Company& c, Rng& rng) {
     out.push_back(sh);
   }
   return out;
+}
+
+// ---- The graded endings (FIXES 146) ----
+
+int32_t days_between(const Date& from, const Date& to) {
+  auto units = [](const Date& d) { return (static_cast<int64_t>(d.year) * kMonthCount + d.month) * kUnitsPerMonth + d.units; };
+  return static_cast<int32_t>((units(to) - units(from)) / 2);
+}
+
+Grade grade(int32_t days) {
+  if (days <= kGradeExceptionalDays) return Grade::kExceptional;
+  if (days <= kGradeGoodDays) return Grade::kGood;
+  return Grade::kLate;
+}
+
+Grade grade(const Company& c) {
+  if (!c.story.hunt_begun || !c.story.hunt_ended) return Grade::kNone;
+  return grade(days_between(c.story.hunt_from, c.story.hunt_to));
+}
+
+const char* grade_name(Grade g) {
+  switch (g) {
+    case Grade::kExceptional: return "Exceptional";
+    case Grade::kGood: return "Good";
+    case Grade::kLate: return "Late";
+    case Grade::kNone: break;
+  }
+  return "";
+}
+
+void hunt_begins(Company& c) {
+  if (c.story.hunt_begun) return;
+  c.story.hunt_begun = true;
+  c.story.hunt_from = c.date;
+}
+
+void hunt_ends(Company& c) {
+  if (c.story.hunt_ended) return;
+  c.story.hunt_ended = true;
+  c.story.hunt_to = c.date;
+}
+
+std::vector<std::string> ending_lines(const Company& c) {
+  const Grade g = grade(c);
+  if (g == Grade::kNone) return {};
+  auto month_year = [](const Date& d) {
+    std::string m = kMonthNames[d.month % kMonthCount];
+    for (size_t i = 1; i < m.size(); ++i) m[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(m[i])));
+    return m + " " + std::to_string(d.year);
+  };
+  auto count = [](int32_t n, const char* one) { return std::to_string(n) + " " + one + (n == 1 ? "" : "s"); };
+  const int32_t months = std::max(0, days_between(c.story.hunt_from, c.story.hunt_to)) / 30;
+  const char* line = "";
+  switch (g) {
+    case Grade::kExceptional: line = "The Vandenburg name cleared within the five years the council allowed."; break;
+    case Grade::kGood: line = "The Vandenburg name cleared."; break;
+    case Grade::kLate: line = "The Vandenburg name cleared at last. Long years for a family waiting at home."; break;
+    case Grade::kNone: break;
+  }
+  return {std::string("Grade: ") + grade_name(g),
+          "",
+          "Hunt begun " + month_year(c.story.hunt_from) + " at Land's End; ended " + month_year(c.story.hunt_to) + ": " +
+              count(months / 12, "year") + ", " + count(months % 12, "month") + ".",
+          "",
+          line};
 }
 
 }  // namespace mw1::story_rules

@@ -162,7 +162,7 @@ TEST(mw1_upgrades_saved_as_version_13_and_older_saves_read_none) {
   c.upgrades.sinks_bought = 7, c.upgrades.armour_bought = 45;
   c.upgrades.steps = {{kMediumLaser, kIs, 3, 1}, {kLrm20, kClan, 0, 2}};
   const std::string text = mw1::save_text(c, nullptr);
-  EXPECT(text.rfind("version=13\n", 0) == 0);
+  EXPECT(text.rfind("version=" + std::to_string(mw1::kSaveVersion) + "\n", 0) == 0);
   EXPECT(text.find("\nkits=4:6\nkits_bought=7:45\nmech_kits=1:30\nhangar0_kits=2:0\nhangar1_kits=0:9\nsteps=17:2:3:1,26:1:0:2\n") !=
          std::string::npos);
   mw1::Company back;

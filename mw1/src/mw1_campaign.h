@@ -207,6 +207,10 @@ struct Story {
   // FIXES.md item 47: the highest rung of the ladder won (mw1_ladder.h; the rungs are won in order, 0 none). Dev 1's
   // step battles write it; the journal (mw1_journal.h) reads it.
   int32_t rung_won = 0;
+  // FIXES 146 (the graded endings, mw1_story.h): the hunt's clock, from rung 1's first offer (Grig's men's FIGHT / RUN)
+  // to the Dark Wing's defeat; each set once. A save before version 14: mw1_save's fallback for the start.
+  bool hunt_begun = false, hunt_ended = false;
+  Date hunt_from{}, hunt_to{};
   std::vector<int32_t> news_heard;
   bool arrived = false;
 };

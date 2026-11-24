@@ -51,6 +51,11 @@
 //                      (before 13): none. And the arms dealer (FIXES 122,
 //                      mw1_dealer.h): dealer_stock=kind:id:tech:count,...
 //                      once rolled; absent: rolled at the hub.
+//                      14 the hunt's clock (FIXES 146, mw1_story.h's
+//                      grade): story_hunt_from=units,month,year and
+//                      story_hunt_to=..., each once set. Before 14: a hunt
+//                      begun takes its start from the log's first page of
+//                      Grig's men (0x0C), else the load's date; no end.
 //                      Versions 1 to 4 still read (before 5: the world's
 //                      premium without its roll, a wreck's damage from its
 //                      condition, no bills);
@@ -73,7 +78,8 @@
 
 namespace mw1 {
 
-inline constexpr int32_t kSaveVersion = 13;  // 12: FIXES 135, the market's price shifts; 13: FIXES 118, the upgrades
+inline constexpr int32_t kSaveVersion = 14;  // 12: FIXES 135, the market's price shifts; 13: FIXES 118, the upgrades;
+                                             // 14: FIXES 146, the hunt's clock
 inline constexpr const char* kSaveFile = "mw1save.txt";
 inline constexpr const char* kPrevSaveFile = "mw1save.prev";  // the company NEW CAMPAIGN replaced, kept beside it
 

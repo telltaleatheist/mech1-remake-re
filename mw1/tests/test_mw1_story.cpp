@@ -566,6 +566,153 @@ TEST(mw1_story_saves_and_reads_back) {
   EXPECT(!mw1::load_text(signed_text(far), n0, k, &has, &why));
 }
 
+// FIXES 146, the graded endings (mw1_story.h): the hunt's clock starts once, at rung 1's first offer (Grig's men's FIGHT /
+// RUN at Land's End), and stops once at the Dark Wing's defeat; the grade's edges (1789 days, ten years); its page's
+// lines; the clock saved (version 14), an older save's start from the log's first page of Grig's men, else the load's
+// date; the late succession news (0x6D to 0x6F) never shown. MW1's words are never printed.
+namespace {
+bool same_date(const mw1::Date& a, const mw1::Date& b) { return a.units == b.units && a.month == b.month && a.year == b.year; }
+std::string signed_save(const std::string& body) {
+  uint32_t h = 2166136261u;
+  for (unsigned char ch : body) h = (h ^ ch) * 16777619u;
+  char ck[32];
+  std::snprintf(ck, sizeof ck, "check=%08x\n", h);
+  return body + ck;
+}
+// A save's text as an older version: its version line changed, the hunt's lines dropped, signed again.
+std::string as_version(const std::string& text, int32_t version) {
+  std::string out;
+  std::istringstream in(text.substr(0, text.rfind("check=")));
+  std::string line;
+  while (std::getline(in, line)) {
+    if (line.rfind("story_hunt_", 0) == 0) continue;
+    out += (line.rfind("version=", 0) == 0 ? "version=" + std::to_string(version) : line) + "\n";
+  }
+  return signed_save(out);
+}
+}  // namespace
+
+TEST(mw1_story_the_hunt_is_graded) {
+  // The grade's edges: MW1's five years (1 April 3024 to 20 March 3029) are 1789 days; ten years 3600.
+  EXPECT(mw1::days_between({1, 3, 3024}, {39, 2, 3029}) == mw1::kGradeExceptionalDays);
+  EXPECT(mw1::days_between({1, 3, 3024}, {1, 3, 3025}) == 360 && mw1::days_between({1, 3, 3025}, {1, 3, 3024}) == -360);
+  EXPECT(mw1::grade(0) == mw1::Grade::kExceptional && mw1::grade(1789) == mw1::Grade::kExceptional);
+  EXPECT(mw1::grade(1790) == mw1::Grade::kGood && mw1::grade(3600) == mw1::Grade::kGood);
+  EXPECT(mw1::grade(3601) == mw1::Grade::kLate && mw1::grade(20000) == mw1::Grade::kLate);
+  // Begun and ended once each; no grade until both.
+  mw1::Company c;
+  EXPECT(mw1::grade(c) == mw1::Grade::kNone && mw1::ending_lines(c).empty());
+  c.date = {1, 4, 3026};
+  mw1::hunt_begins(c);
+  c.date = {1, 9, 3027};
+  mw1::hunt_begins(c);
+  EXPECT(c.story.hunt_begun && same_date(c.story.hunt_from, {1, 4, 3026}) && mw1::grade(c) == mw1::Grade::kNone);
+  c.date = {1, 5, 3027};  // a year and a month on
+  mw1::hunt_ends(c);
+  c.date = {1, 5, 3040};
+  mw1::hunt_ends(c);
+  EXPECT(c.story.hunt_ended && same_date(c.story.hunt_to, {1, 5, 3027}) && mw1::grade(c) == mw1::Grade::kExceptional);
+  // The page: the grade, the hunt's span, the grade's line (our words, the owner's).
+  std::vector<std::string> l = mw1::ending_lines(c);
+  EXPECT(l.size() == 5 && l[0] == "Grade: Exceptional" && l[1].empty() && l[3].empty());
+  EXPECT(l[2] == "Hunt begun May 3026 at Land's End; ended June 3027: 1 year, 1 month.");
+  EXPECT(l[4] == "The Vandenburg name cleared within the five years the council allowed.");
+  c.story.hunt_to = {1, 4, 3034};  // eight years
+  l = mw1::ending_lines(c);
+  EXPECT(l[0] == "Grade: Good" && l[2].find(": 8 years, 0 months.") != std::string::npos && l[4] == "The Vandenburg name cleared.");
+  c.story.hunt_to = {1, 4, 3046};
+  l = mw1::ending_lines(c);
+  EXPECT(l[0] == "Grade: Late" && l[4] == "The Vandenburg name cleared at last. Long years for a family waiting at home.");
+  // Saved (version 14) and read back; out of range: refused.
+  mw1::Rng rng(1);
+  mw1::Company s = mw1::new_company(rng);
+  s.story.hunt_begun = s.story.hunt_ended = true, s.story.hunt_from = {7, 2, 3025}, s.story.hunt_to = {40, 11, 3031};
+  const std::string text = mw1::save_text(s, nullptr);
+  EXPECT(text.find("story_hunt_from=7,2,3025\n") != std::string::npos && text.find("story_hunt_to=40,11,3031\n") != std::string::npos);
+  mw1::Company back;
+  mw1::Contract k;
+  bool has = false;
+  std::string why;
+  EXPECT(mw1::load_text(text, back, k, &has, &why) && back.story.hunt_begun && back.story.hunt_ended);
+  EXPECT(same_date(back.story.hunt_from, s.story.hunt_from) && same_date(back.story.hunt_to, s.story.hunt_to));
+  EXPECT(mw1::save_text(back, nullptr) == text);
+  std::string bad = text.substr(0, text.rfind("check="));
+  bad.replace(bad.find("story_hunt_from=7,"), 17, "story_hunt_from=60");  // units 60: past a month's
+  why.clear();
+  EXPECT(!mw1::load_text(signed_save(bad), back, k, &has, &why) && why.find("hunt") != std::string::npos);
+  // Not begun: no lines, and none read.
+  mw1::Company fresh = mw1::new_company(rng);
+  const std::string none = mw1::save_text(fresh, nullptr);
+  EXPECT(none.find("story_hunt_") == std::string::npos && mw1::load_text(none, back, k, &has, &why) && !back.story.hunt_begun);
+  // An older save (version 13) past rung 1's offer: its start from the log's earliest page of Grig's men (the log is
+  // newest first), else the load's date; its end unknown. Not offered yet: not begun. A version 14 save without the line: not begun.
+  mw1::Company old = mw1::new_company(rng);
+  old.story.seen[mw1::kEventGrigsMen] = 1;
+  old.date = {10, 6, 3025};
+  mw1::log_add(old, mw1::LogKind::kStory, true, mw1::kEventGrigsMen, 0);
+  old.date = {20, 8, 3026};
+  mw1::log_add(old, mw1::LogKind::kStory, true, mw1::kEventGrigsMen, 0);
+  old.date = {0, 1, 3028};
+  EXPECT(mw1::load_text(as_version(mw1::save_text(old, nullptr), 13), back, k, &has, &why));
+  EXPECT(back.story.hunt_begun && same_date(back.story.hunt_from, {10, 6, 3025}) && !back.story.hunt_ended);
+  old.log.clear();
+  EXPECT(mw1::load_text(as_version(mw1::save_text(old, nullptr), 13), back, k, &has, &why));
+  EXPECT(back.story.hunt_begun && same_date(back.story.hunt_from, {0, 1, 3028}));
+  mw1::Company won1 = mw1::new_company(rng);
+  won1.story.rung_won = 1, won1.date = {3, 3, 3027};
+  EXPECT(mw1::load_text(as_version(mw1::save_text(won1, nullptr), 13), back, k, &has, &why) && back.story.hunt_begun &&
+         same_date(back.story.hunt_from, {3, 3, 3027}));
+  EXPECT(mw1::load_text(as_version(mw1::save_text(fresh, nullptr), 13), back, k, &has, &why) && !back.story.hunt_begun);
+  EXPECT(mw1::load_text(as_version(mw1::save_text(old, nullptr), 14), back, k, &has, &why) && !back.story.hunt_begun);
+}
+
+TEST(mw1_story_the_hunt_starts_at_grigs_men) {
+  if (mw1_test::no_mw1()) return;
+  mw1::set_mw1_game_dir(MW1_DOS_GAME_DIR);
+  mw1::Rng rng(5);
+  // Not on Land's End: Grig's men don't come, the clock doesn't start.
+  mw1::Company g = on_story(48);  // Dustball
+  g.story.seen[0x0B] = 1;
+  fire(g, mw1::kClassBarEntry, rng);
+  EXPECT(!g.story.hunt_begun);
+  // At Land's End's Bar: FIGHT / RUN offered, the clock started; RUN, and the next offer leaves it where it was.
+  mw1::Company l = on_story(mw1::kLandsEnd);
+  l.story.seen[0x0B] = 1;
+  l.date = {12, 7, 3025};
+  mw1::Dispatch d = mw1::start(mw1::kClassBarEntry);
+  mw1::Shown s;
+  EXPECT(mw1::next(l, d, rng, &s) && s.event == mw1::kEventGrigsMen && !s.captions.empty());
+  EXPECT(l.story.hunt_begun && same_date(l.story.hunt_from, {12, 7, 3025}));
+  mw1::choose(d, s, 1);
+  while (mw1::next(l, d, rng, &s)) {}
+  mw1::steps_wait(l);
+  l.date = {30, 2, 3027};
+  EXPECT(has(fire(l, mw1::kClassBarEntry, rng), mw1::kEventGrigsMen));
+  EXPECT(same_date(l.story.hunt_from, {12, 7, 3025}));
+}
+
+TEST(mw1_story_the_lost_succession_never_shows) {
+  if (mw1_test::no_mw1()) return;
+  mw1::set_mw1_game_dir(MW1_DOS_GAME_DIR);
+  // The three items are in MW1's script, dated, and never come under kNoDeadline: any half month from March 3029 to the
+  // end of 3030, whatever is seen.
+  for (int32_t id = mw1::kEventSuccessionFirst; id <= mw1::kEventSuccessionLast; ++id) EXPECT(record_of(id, mw1::kClassNews) >= 0);
+  mw1::Rng rng(6);
+  mw1::Company c = on_story(mw1::kPools[0][0]);
+  for (size_t id = 0; id < c.story.seen.size(); ++id) c.story.seen[id] = 1;
+  int32_t shown = 0, other = 0;
+  for (int32_t m = 2; m < 24; ++m)
+    for (int32_t u : {0, 30}) {
+      c.date = {u, m % mw1::kMonthCount, 3029 + m / mw1::kMonthCount};
+      for (const mw1::Shown& n : mw1::live_news(c, rng)) {
+        if (n.event >= mw1::kEventSuccessionFirst && n.event <= mw1::kEventSuccessionLast) ++shown;
+        else ++other;
+      }
+    }
+  std::printf("  the lost succession: shown %d times; other news %d times\n", shown, other);
+  EXPECT(shown == 0 && other > 0);
+}
+
 // FIXES.md item 47 (mw1_ladder.h): the ladder in one table: six rungs, their forces rising; rung 6 the Dark Wing's
 // eight (a 70 t and four 85 t, three escorts, 635 t), all eight with a full lance
 // (item 48's line-up of 16), the escorts trimmed past that (a lance the line-up can't hold) and never its core; a story battle a destroy-all with no pay on a map that holds it.

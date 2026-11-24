@@ -4,6 +4,7 @@
 #include "mw1_repairs.h"
 #include "mw1_ladder.h"
 #include "mw1_market.h"
+#include "mw1_story.h"
 #include "mw1_dealer.h"
 #include "mw1_upgrades.h"
 
@@ -175,6 +176,9 @@ std::string save_text(const Company& c, const Contract* offer, const AfterAction
   for (int32_t id = 0, n = 0; id < kEventIds; ++id)
     if (c.story.seen[static_cast<size_t>(id)] == kSeenWaiting) o << (n++ ? "," : "") << id;
   o << "\n";
+  // Version 14 (FIXES 146, the graded endings): the hunt's clock, each end once set (a line absent: not yet).
+  if (c.story.hunt_begun) o << "story_hunt_from=" << c.story.hunt_from.units << "," << c.story.hunt_from.month << "," << c.story.hunt_from.year << "\n";
+  if (c.story.hunt_ended) o << "story_hunt_to=" << c.story.hunt_to.units << "," << c.story.hunt_to.month << "," << c.story.hunt_to.year << "\n";
   o << "stores=" << (c.stores ? hex(bytes_of([&](std::FILE* f) { c.stores->save(f); })) : std::string()) << "\n";
   // Version 13 (FIXES 118, mw1_upgrades.h): the kits in the storehouse, how many of each ever bought, those on each
   // mech (the commander's, then the hangar's), and the weapon types' steps.
@@ -312,6 +316,7 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
   const bool v7 = n >= 7;  // negotiation; before it, the House's middle patience and the ceilings as they'd be now
   const bool v11 = n >= 11;  // FIXES 112: the force's slots; before it, MW1's kind numbers (slot_of_mw1_kind)
   const bool v12 = n >= 12;  // FIXES 135: the market's price shifts; before it, none (the base prices until a refresh)
+  const bool v14 = n >= 14;  // FIXES 146: the hunt's clock; before it, its start from the log (below)
   const bool v1 = n == 1;  // before the hangar and the market: a hangar of none, the market rolled at the next refresh
   Company c;
   const int64_t kMax = int64_t{1} << 40;
@@ -507,6 +512,25 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
     std::vector<int64_t> waiting;
     if (v.count("story_waiting") && !list("story_waiting", 0, kEventIds - 1, &waiting)) return fail("the story's waiting steps are out of range");
     for (int64_t id : waiting) c.story.seen[static_cast<size_t>(id)] = kSeenWaiting;
+    // Version 14 (FIXES 146): the hunt's clock, as the calendar's line.
+    auto date_line = [&](const char* key, Date* d) {
+      std::istringstream ds(v[key]);
+      std::string part;
+      int64_t f[3] = {};
+      const int64_t lo[3] = {0, 0, 0}, hi[3] = {kUnitsPerMonth - 1, kMonthCount - 1, 1 << 20};
+      for (int i = 0; i < 3; ++i)
+        if (!std::getline(ds, part, ',') || !to_int(part, lo[i], hi[i], &f[i])) return false;
+      *d = {static_cast<int32_t>(f[0]), static_cast<int32_t>(f[1]), static_cast<int32_t>(f[2])};
+      return true;
+    };
+    if (v.count("story_hunt_from")) {
+      if (!date_line("story_hunt_from", &c.story.hunt_from)) return fail("the hunt's start doesn't read");
+      c.story.hunt_begun = true;
+    }
+    if (v.count("story_hunt_to")) {
+      if (!date_line("story_hunt_to", &c.story.hunt_to)) return fail("the hunt's end doesn't read");
+      c.story.hunt_ended = true;
+    }
   }
   // Version 10: the log (none before it).
   if (int64_t count = 0; v.count("log_count")) {
@@ -776,6 +800,15 @@ bool load_text(const std::string& text, Company& out, Contract& offer_out, bool*
   }
   if (!v5) c.repair_premium = (c.tier + 1) * kPremiumStep;  // before version 5: the world's premium without its roll
   if (!v7) c.patience = kPatienceBase[c.planet_house] + kPatienceRollMax / 2;  // before 7: the House's middle patience
+  // Before version 14 (FIXES 146): a hunt already begun (rung 1 offered: Grig's men seen, or a rung won) takes its start
+  // from the log's earliest page of Grig's men (the log is newest first), else the load's date (lenient: the time
+  // before it isn't counted). Its end stays unknown: a Dark Wing beaten before it has no grade.
+  if (!v14 && !c.story.hunt_begun && (c.story.seen[static_cast<size_t>(kEventGrigsMen)] != 0 || c.story.rung_won >= 1)) {
+    c.story.hunt_begun = true;
+    c.story.hunt_from = c.date;
+    for (const LogEntry& e : c.log)
+      if (e.kind == LogKind::kStory && e.a == kEventGrigsMen && days_between(e.date, c.story.hunt_from) > 0) c.story.hunt_from = e.date;
+  }
   out = std::move(c);
   if (has) offer_out = std::move(k);
   if (has_offer) *has_offer = has != 0;

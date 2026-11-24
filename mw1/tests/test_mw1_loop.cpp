@@ -5272,6 +5272,9 @@ struct DarkWingRun {
   // FIXES 142: no song at the Dark Wing's results (not LAUNCH's); won, VICTORY's (ending.ogg) over the credits, stopped at
   // the hub
   bool results_quiet = true, ending_song = false, ending_gone = false;
+  // FIXES 146: won, the grade's page after MW1's text (the hunt begun at the launch's date: Exceptional), the hunt's end
+  // saved; lost, neither
+  bool graded_page = false, saved_hunt_end = false;
   size_t credit_lines = 0;
   int32_t rung = 0, enemies = 0, made = 0, aims = 0, units_on = -1;
   std::string world, climate, map_climate;
@@ -5308,6 +5311,7 @@ void dark_wing_run(DarkWingRun& d) {
         c->story.planets[5] = c->planet_number;
         c->story.rung_won = 5;  // the steps' battles won (item 47): only the Dark Wing's left
         c->story.arrived = true;
+        c->story.hunt_begun = true, c->story.hunt_from = c->date;  // FIXES 146: rung 1 offered today
         d.funds_before = c->funds;
         revisit(hub);
         ++step, wait = 0;
@@ -5382,6 +5386,8 @@ void dark_wing_run(DarkWingRun& d) {
       case 5:  // won: the victory's pages, the credits (rolling a while, then skipped), then the hub; lost: the hub at once
         if (showing(app, ev)) {
           d.victory_panel = d.victory_panel || shows_line(ev->screen()->shown(), "VICTORY");
+          d.graded_page = d.graded_page || (shows_line(ev->screen()->shown(), "Grade: Exceptional") &&
+                                            shows_line(ev->screen()->shown(), "the council allowed."));
           ev->screen()->on_button(mw1::kEventNext, 0, 0);
           wait = 0;
           return false;
@@ -5406,6 +5412,7 @@ void dark_wing_run(DarkWingRun& d) {
           bool has = false;
           std::string why;
           d.saved_won = mw1::load_file(r.save, saved, k, &has, &why) == mw1::Loaded::kLoaded && saved.story.dark_wing_won;
+          d.saved_hunt_end = saved.story.hunt_ended && mw1::grade(saved) == mw1::Grade::kExceptional;
         }
         revisit(hub);  // the hub drawn again (not an arrival): not asked
         ++step, wait = 0;
@@ -5463,6 +5470,7 @@ TEST(mw1_story_the_dark_wing_won_and_lost_headless) {
                   d.asked_late, d.too_late);
       std::printf("  music (FIXES 142): the results quiet %d, the ending's song %d, gone at the hub %d\n", d.results_quiet,
                   d.ending_song, d.ending_gone);
+      std::printf("  the grade (FIXES 146): its page %d, the hunt's end saved %d\n", d.graded_page, d.saved_hunt_end);
       EXPECT(d.asked && d.attack_live && d.launched && d.rung == mw1::kDarkWingRung);
       EXPECT(d.enemies == mw1::kRungMechs && d.made == d.enemies && d.aims == d.enemies);  // the commander alone: all 8
       // The planet's climate when the table has a map of it that holds the force; else any that does (story_battle's
@@ -5475,9 +5483,11 @@ TEST(mw1_story_the_dark_wing_won_and_lost_headless) {
         EXPECT(d.victory_panel && d.won && d.arrest_seen && d.saved_won && d.units_on == 0 && d.not_redrawn && !d.asked_late);
         EXPECT(d.credits && d.credit_lines > 0 && d.credits_shown && d.credits_over);  // then play goes on: no QUIT
         EXPECT(d.results_quiet && d.ending_song && d.ending_gone);  // FIXES 142
+        EXPECT(d.graded_page && d.saved_hunt_end);                  // FIXES 146
       } else {
         EXPECT(!d.victory_panel && !d.won && d.message && d.not_redrawn && d.asked_late && !d.credits);
         EXPECT(d.results_quiet && !d.ending_song);  // FIXES 142: the commander alone lost no lancemate: no song
+        EXPECT(!d.graded_page);                      // FIXES 146: no grade before the Dark Wing's defeat
         EXPECT(d.units_on >= 0x1C);  // SPECIAL_ASSAULT_DEPLOYMENT_UNITS (and a month's turn's wages)
       }
     });
@@ -10652,6 +10662,13 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
                 seed, done ? "the ending reached" : "NOT finished", months, c ? mw1::date_words(c->date).c_str() : "?", contracts,
                 contracts_won, story_battles, trips, buys, hires, lab_sets, journals, hubs, c ? static_cast<long long>(c->funds) : 0LL,
                 c ? 1 + c->hangar.size() : 0, c ? c->lance.size() : 0);
+    // FIXES 146: the seed's grade, as the ending page has it (none: not begun or not ended).
+    if (c && mw1::grade(*c) != mw1::Grade::kNone)
+      std::printf("GRADE: seed %u %s: %d days, %s to %s\n", seed, mw1::grade_name(mw1::grade(*c)),
+                  mw1::days_between(c->story.hunt_from, c->story.hunt_to), mw1::date_words(c->story.hunt_from).c_str(),
+                  mw1::date_words(c->story.hunt_to).c_str());
+    else
+      std::printf("GRADE: seed %u none (begun %d, ended %d)\n", seed, c ? c->story.hunt_begun : 0, c ? c->story.hunt_ended : 0);
     for (const auto& [step, at] : step_at) std::printf("    step %2d first led to at month %d, after %d contracts\n", step, at.first, at.second);
     for (const std::string& e : endings) std::printf("    the Dark Wing: %s\n", e.c_str());
     std::printf("    the credits %s; results pictures:", credits_seen ? (credits_over ? "rolled, then the hub" : "rolled") : "never");
@@ -10682,6 +10699,7 @@ TEST(mw1_story_a_whole_campaign_played_to_its_ending_headless) {
     EXPECT(done && blocks.empty() && missing == 0);
     EXPECT(endings.size() == 3 && endings[0].rfind("lost", 0) == 0 && endings[1].rfind("withdrawn", 0) == 0 && endings[2].rfind("won", 0) == 0);
     EXPECT(c && c->story.dark_wing_won && credits_seen && credits_over);
+    EXPECT(c && mw1::grade(*c) != mw1::Grade::kNone);  // FIXES 146: the hunt begun at Grig's men, ended at the victory
     // A long campaign doesn't grow: under 1 MB a battle after the first 25 (a PM world's unload leaked ~7 MB a
     // battle: node_drop_model kept PM's models, and the material cycles were never freed).
     if (battles_last > 25) std::printf("    memory: %ld MB at 25 battles, %ld MB at %d\n", mb_at_25, mb_last, battles_last);

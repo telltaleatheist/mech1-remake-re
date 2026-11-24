@@ -127,6 +127,28 @@ inline constexpr bool kDarkWingOnArrival = true;
 // Ours (the owner, FIXES.md 47): no deadline. MW1's 20 March 3029 is dropped: 0x72 asked whatever the date (its window's
 // start kept), 0x73 (too late) never fires. The news keeps its dates.
 inline constexpr bool kNoDeadline = true;
+// Ours (FIXES 146): the late succession news (0x6D, 0x6E, 0x6F, dated April to May 3029: the council's choice made,
+// the succession lost) never shows under kNoDeadline, as 0x73: with no deadline there is no lost succession to report.
+inline constexpr int32_t kEventSuccessionFirst = 0x6D, kEventSuccessionLast = 0x6F;
+
+// ---- The graded endings (ours: FIXES 146, a project decision of 2026-11-24) ----
+//
+// The hunt is timed from rung 1's first offer (Grig's men at Land's End's Bar: the player's own choice to begin) to the
+// Dark Wing's defeat; the build-up before it doesn't count. Days as the calendar's: 30 a month, 2 sub-month units each.
+// Exceptional: within MW1's own five years (1 April 3024 to 20 March 3029: 1789 days), now counted from the hunt's
+// start. Good: within ten years. Late: beyond.
+inline constexpr int32_t kGradeExceptionalDays = 1789;
+inline constexpr int32_t kGradeGoodDays = 10 * 12 * 30;
+enum class Grade { kNone, kExceptional, kGood, kLate };
+int32_t days_between(const Date& from, const Date& to);  // whole days, from `from` to `to` (negative: before)
+Grade grade(int32_t days);
+Grade grade(const Company& c);  // the hunt's; kNone until it has begun and ended
+const char* grade_name(Grade g);  // "Exceptional", "Good", "Late"; "" for none
+void hunt_begins(Company& c);    // the clock started, once: now
+void hunt_ends(Company& c);      // the clock stopped, once: now (begun or not)
+// The ending's page of ours, after MW1's victory text and before the credits: the grade, when the hunt began and
+// ended and how long it took, and the grade's line. Unwrapped; empty without a grade.
+std::vector<std::string> ending_lines(const Company& c);
 
 // ---- The step battles and the setbacks (ours: FIXES.md item 47, the mw1 lead's plan of 2026-11-18) ----
 //

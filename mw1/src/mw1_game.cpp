@@ -2774,14 +2774,18 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   }
   // After the Dark Wing's defeat (MW1's darkWingVictory): the name cleared (won, 0x72 and the arrest 0x75 seen), its
   // victory text from the exe on the panel over its picture, then the hub (MW1's CONTINUE; its QUIT dropped: play
-  // goes on, as item 33).
+  // goes on, as item 33). FIXES 146: the hunt's clock stopped, and a page of ours with its grade after MW1's text.
   void dark_wing_won() {
     company_.story.dark_wing_won = true;
     company_.story.rung_won = kDarkWingRung;
     company_.story.seen[static_cast<size_t>(kEventDarkWingAttack)] = 1;
     company_.story.seen[static_cast<size_t>(kEventPortArrest)] = 1;
+    hunt_ends(company_);
     save();
     std::printf("mw1: story: the Dark Wing defeated: the name cleared\n");
+    if (const Grade g = grade(company_); g != Grade::kNone)
+      std::printf("mw1: story: the hunt graded %s: %d days\n", grade_name(g),
+                  days_between(company_.story.hunt_from, company_.story.hunt_to));
     const std::string text = dark_wing_victory();
     if (!ge_ || !story_running() || event_up_ || text.empty()) return;
     ev_ = start(kClassArrival);
@@ -2797,6 +2801,14 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       pg.lines.push_back(l);
     }
     if (!pg.lines.empty()) pages.push_back(pg);
+    if (const std::vector<std::string> ours = ending_lines(company_); !ours.empty()) {  // FIXES 146: the grade's page
+      Page graded;
+      for (const std::string& para : ours) {  // a blank paragraph kept as a blank line (wrap drops it)
+        if (para.empty()) graded.lines.push_back("");
+        for (const std::string& l : wrap({para}, kMw1Columns)) graded.lines.push_back(l);
+      }
+      pages.push_back(graded);
+    }
     set_pages(pages);
     if (raise_event(*ge_)) credits_next_ = true, show_event(), music::cue(music::Cue::kEnding);  // FIXES 142: VICTORY's
   }

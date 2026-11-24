@@ -5,6 +5,27 @@ Tick an item when it is merged into `main`.
 
 **How this file works (the owner, 2026-11-17):** every bug and feature the owner raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 146. [x] Graded endings: no deadline, the hunt timed from rung 1 to the Dark Wing *(done: mw1-110-grade, for 1.1.0)*
+- **What:** with no story deadline (FIXES 47's kNoDeadline), the ending is graded by how fast the hunt went instead. A
+  project decision of 2026-11-23, the thresholds and lines settled 2026-11-24.
+- **The clock** (`mw1_story.h`): from rung 1's first offer (Grig's men's FIGHT / RUN at Land's End's Bar, the player's
+  own choice to begin) to the Dark Wing's defeat; the build-up before it doesn't count. Each end set once.
+- **The grade:** Exceptional within 1789 days (MW1's own five years, 1 April 3024 to 20 March 3029, now from the
+  hunt's start); Good within ten years (3600 days); Late beyond. Days are the calendar's, 30 a month.
+- **The page:** after MW1's victory text and before the credits, one page of ours: "Grade: <grade>", "Hunt begun
+  <Month Year> at Land's End; ended <Month Year>: <Y> years, <M> months.", and the grade's line:
+  - Exceptional: "The Vandenburg name cleared within the five years the council allowed."
+  - Good: "The Vandenburg name cleared."
+  - Late: "The Vandenburg name cleared at last. Long years for a family waiting at home."
+- **The save** (version 14): `story_hunt_from` and `story_hunt_to`. An older save already past rung 1's offer takes
+  the start from the log's earliest page of Grig's men, else the load's date (lenient); its end stays unknown, so a
+  Dark Wing beaten before 1.1.0 has no grade.
+- **The news:** MW1's late succession items (0x6D, 0x6E, 0x6F, April to May 3029: the council's choice made) never
+  show under kNoDeadline, as 0x73: with no deadline there is no lost succession to report.
+- **Checks:** `test_mw1_story`'s `the_hunt_is_graded` (the edges, the page's lines, the save and the old-save
+  fallback), `the_hunt_starts_at_grigs_men` and `the_lost_succession_never_shows`; the Dark Wing loop test's grade
+  page and saved end; the playthrough's `GRADE:` line per seed.
+
 ## 144. [x] Truly stranded: a working passage out, never a save to load *(done: mw1-110-passage, for 1.1.0)*
 - **What:** a company on a world with no contracts it could take, and too poor to leave, was stranded. MW1's only way
   out was loading a save; ours said so ("load a save") when there was nothing to sell. A project decision for 1.1.0:
