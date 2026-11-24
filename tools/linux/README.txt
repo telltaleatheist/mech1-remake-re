@@ -71,3 +71,5 @@ Licences
 --------
 The libraries this program uses and their licences are listed in
 THIRD-PARTY.txt beside this file; their own licence files are in licenses/.
+The AppImage's own start program, with libfuse (LGPL 2.1) in it:
+licenses/appimage-runtime/NOTICE.txt.

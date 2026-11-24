@@ -9,8 +9,8 @@
 # Usage: tools/linux/make-appimage.sh [PREFIX] [TOOLS]
 #   PREFIX: where SDL3, SDL3_ttf, SDL3_sound and FFmpeg are installed
 #           (tools/deps/build_deps.sh linux's build-deps/linux/prefix;
-#           default ../prefix); TOOLS: where linuxdeploy-x86_64.AppImage and
-#           appimagetool-x86_64.AppImage are (default ../deps).
+#           default ../prefix); TOOLS: the folder whose appimage-tools/ holds the AppImage
+#           tools, pinned and fetched by get_appimage_tools.sh (default ../deps).
 # For the combined package (tools/package/combined.sh, docs/release.md):
 #   MW3_PKG_PM_BIN=<mw3pm built on pm>  adds Pirate's Moon beside mw3 (its libraries gathered as mw3's)
 #   MW3_PKG_MW1_PORT_DIR=<staged port>  adds Elthial's MechWarrior (1989) SDL port (PLAY ORIGINAL) as
@@ -25,7 +25,9 @@
 set -e
 cd "$(dirname "$0")/../.."
 PREFIX=$(cd "${1:-../prefix}" && pwd)
-TOOLS=$(cd "${2:-../deps}" && pwd)
+TOOLS="${2:-../deps}"; mkdir -p "$TOOLS"; TOOLS=$(cd "$TOOLS" && pwd)
+TOOLS="$TOOLS/appimage-tools"  # pinned by checksum; downloaded here when missing
+sh tools/linux/get_appimage_tools.sh "$TOOLS"
 export APPIMAGE_EXTRACT_AND_RUN=1  # no FUSE needed (WSL, containers)
 # FFmpeg's libraries from the prefix too (tools/deps/build_deps.sh linux:
 # the minimal LGPL build mw3import needs), found through pkg-config.
@@ -125,6 +127,8 @@ else
   done
 fi
 
+# The AppImage's own start program and the libfuse in it (LGPL): its notice and licences.
+cp -R tools/linux/appimage-runtime "$APPDIR/usr/share/doc/mw3/licenses/appimage-runtime"
 # libarchive, zlib and liblzma are linked in: build_deps.sh keeps their licences in the prefix.
 [ -d "$PREFIX/share/licenses" ] && cp -R "$PREFIX/share/licenses/." "$APPDIR/usr/share/doc/mw3/licenses/"
 # The combined package is named BattleTech in menus (it holds more than MW3; 2026-11-20), found by its
@@ -155,5 +159,5 @@ grep -qx 'Exec=mw3launcher' "$APPDIR"/*.desktop || { echo "the AppImage does not
 python3 -I tools/deps/check_paths.py "$APPDIR" || exit 1
 mkdir -p build-linux-pkg/dist
 OUT="build-linux-pkg/dist/${MW3_PKG_STEM:-MW3-Rebuild}-$VER-x86_64.AppImage"
-ARCH=x86_64 "$TOOLS/appimagetool-x86_64.AppImage" "$APPDIR" "$OUT"
+ARCH=x86_64 "$TOOLS/appimagetool-x86_64.AppImage" --runtime-file "$TOOLS/runtime-x86_64" "$APPDIR" "$OUT"
 echo "$OUT"
