@@ -85,6 +85,7 @@
 #include "frontend/sdl/sdl_focus.h"
 #include "frontend/sdl/launcher.h"
 #include "frontend/sdl/held_keys.h"
+#include "frontend/sdl/sdl_games.h"
 #include "frontend/sdl/sdl_install.h"
 #include "frontend/sdl/movie_import.h"
 #include "rekit/status.h"
@@ -861,6 +862,8 @@ int program(int argc, char** argv) {
     std::printf("mw3 (MechWarrior 3 rebuild) %s, log %s\n", MW3_VERSION, run_log.path().c_str());
   zutl::repair_old_names(a.write_dir);
   if (!a.hidden && !a.write_dir.empty()) sdlfe::crash_report_install("mw3", a.write_dir + "/mw3.log", true);
+  // Ours (docs/launcher.md, Copies installed without the launcher): where this program is, for the launcher.
+  if (!a.hidden) sdlfe::games::record_self(a.write_dir, upgrades::update::Game::kMw3, MW3_VERSION);
   if (!a.write_dir.empty()) read_config(a.write_dir, a);
   // Ours (docs/mods-campaigns-plan.md): a plain start mounts no mods, the main menu plays the original;
   // mw3.cfg's mod= lines are only moved to the campaign entries (entries_migrate), mods mount for --entry

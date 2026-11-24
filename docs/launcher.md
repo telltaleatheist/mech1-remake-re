@@ -401,9 +401,11 @@ original. The cards' tabs are gone (an old `tab_<card>=` in mw3.cfg is ignored).
   while the game is not out; the name (the lettering, 20); then three small
   lines in the second font (`font_body.ttf`, Saira Condensed Medium, 12): the
   status's first line in amber (its second joined with " · " when both fit),
-  the rest of the status, then a line about the game as room allows, cut at a
-  word. Its button at the right, upright in the middle: PLAY (split with its
-  UPDATE when one is ready), DOWNLOAD, COMING SOON. The panel whose button is
+  the rest of the status, then a short line about the game only when it fits
+  whole (2026-11-24: "there's no way to read the full description"; a status
+  of three lines leaves no room, and it is left out). Its button at the right,
+  upright in the middle: PLAY (split with its UPDATE when one is ready),
+  DOWNLOAD, COMING SOON, with its gear to the left (A game's page). The panel whose button is
   hot (mouse, keys, pad) gets an amber, doubled edge.
 - Inception has a badge (`badge_inception.png`, the hawk; README there).
 - The list scrolls between the header and the bottom row (y 80 to 418): about
@@ -413,9 +415,9 @@ original. The cards' tabs are gone (an old `tab_<card>=` in mw3.cfg is ignored).
   panel's button into the list. A shade at the list's top and bottom shows more
   is there. Buttons are hit only inside the list.
 - The log names each panel's button by its game, then the bottom row, then
-  UPDATE AVAILABLE: "screen main: MECHWARRIOR 3, PIRATE'S MOON, MECHWARRIOR 1
-  ORIGINAL, MECHWARRIOR 1, INCEPTION ORIGINAL, GAME FILES, UPDATES, ADD FROM
-  FILE, QUIT". `MW3_LAUNCHER_LIST_Y=<px>` starts the list scrolled (shots).
+  UPDATE AVAILABLE: "screen main: MECHWARRIOR 3, MECHWARRIOR 3 SETTINGS,
+  PIRATE'S MOON, PIRATE'S MOON SETTINGS, ..., GAME FILES, UPDATES, ADD FROM
+  FILE, QUIT" (a gear is "<GAME> SETTINGS"). `MW3_LAUNCHER_LIST_Y=<px>` starts the list scrolled (shots).
 
 The two sections below are the layouts before it; the game states, the COMING
 SOON rule, the kit's contract and the bottom row are unchanged.
@@ -444,6 +446,70 @@ The log: "copy <folder>: <version>[, in use], missing <a> and <b>" (or
 `--launcher-screen copies` / `pmcopies` draws it (checks:
 `sdl_program_launcher_lists_the_copies`). MechWarrior (1989) keeps its own
 picker: nothing of it can be missing that way.
+
+## Copies installed without the launcher (2026-11-24)
+
+"If somebody downloads mech3-re and installs independently of the launcher
+... the launcher should automatically pick it up if it's one of ours." A
+game's program records where it is: each start of a released build writes
+`rebuild-program.txt` (game=, program=, version=) into its user folder
+(`sdlfe::games::record_self`; mw3 into BattleTech/MechWarrior 3, mw3pm into
+BattleTech/Pirate's Moon, MechWarrior 1 Remake from its 1.1.0 into
+BattleTech/MechWarrior 1 Remake, read by path only; the kit's games when their
+builds do it). The
+program is the file a player starts: `$APPIMAGE` for an AppImage, never a
+macOS App Translocation path. A development build (v1.3.1-29-g...) writes
+nothing.
+
+At the start, a game with nothing beside the launcher looks for such a copy
+(`find_link`, `sdlfe::games::found_elsewhere`): its record, Windows' uninstall
+entry for its Setup (the AppId's InstallLocation; MW3 and Pirate's Moon), and
+the Mac's /Applications and ~/Applications. Each is checked before it is
+trusted (`identify`): the file is there and its stamp
+(MW3-PROGRAM-VERSION) is this game's release, or, for an AppImage (its stamp
+compressed) and the kit's games, its `--status` names the game. The newest is
+linked (mw3.cfg `link_<key>=`) and logged "games: pm: found <program> (its
+record), linked". A check run (hidden, a shot) reads the record in its own
+folder only, never the computer's Applications or registry.
+
+PLAY starts the launcher's own copy or the linked one, whichever is newer
+(the launcher's on a tie). UPDATE on a linked copy installs the new version
+into the launcher's folder, which then plays; the player's own install is
+never written to (the launcher only writes folders it made). The log:
+"games: pm: linked pm-v1.2.6 at <program>".
+
+## A game's page (2026-11-24)
+
+"There should be a gear that pops up an option to link an existing install
+... they should have an uninstall option for every game." Every panel with a
+game (not COMING SOON) has a gear, a square left of its button
+(`Button::gear`, `kGear + game`), after PLAY and UPDATE in the focus order so
+a pad's first press is still PLAY; the log calls it "<GAME> SETTINGS". It
+opens the game's page (`kGamePage`, headed with the game's name): which copy
+plays and where, then
+
+- LINK AN INSTALL (LINK ANOTHER INSTALL once one is linked): the picker; the
+  game's program in what was picked (the program, its folder, a .app, an
+  AppImage; `program_of_pick`), checked as above, a development build
+  allowed. Not the game: "That isn't Pirate's Moon (the rebuild) ...".
+- UNLINK, for a linked copy: forgotten (`unlinked_<key>=`, so it is not
+  linked again by itself); its folder is not touched.
+- UNINSTALL, for the launcher's copy: a confirm with UNINSTALL (the program
+  only) and, when allowed, UNINSTALL AND REMOVE GAME FILES; KEEP IT (and
+  Escape) goes back. The program's folder goes only when it carries the
+  launcher's record (`sdlfe::games::uninstall`, moved aside first so a running
+  game is refused whole). The game files go only for MechWarrior 3 and
+  Pirate's Moon, only when no other copy of the game is left (no linked one,
+  none beside, no MechWarrior 1 Remake, which plays them), and only a folder
+  our copying made (its mw3-install.txt) in the user folder's or the game's
+  folder's `install` (`own_files`): never a copy of the original the player
+  pointed at. Pilots, saves, settings and mods always stay.
+- BACK.
+
+`--launcher-screen game:<key>` and `game:<key>:uninstall` draw it. Checks:
+`sdl_program_launcher_links_and_uninstalls` (found by its record, a
+development build not linked, a wrong pick, LINK, UNLINK, both uninstalls; the
+game files there are links to game/pm, which stays whole).
 
 ## The family cards (2026-11-22, replaced by the panels 2026-11-24)
 

@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <vector>
 
 #include "rekit/status.h"
 #include "upgrades/update/games.h"
@@ -79,5 +80,29 @@ bool kit_status(const std::string& bin, rekit::Status* out);
 
 // Whether `bin` is inside the AppImage this program runs from ($APPDIR), so goes away with it.
 bool in_own_mount(const std::string& bin);
+
+// Ours (2026-11-24, docs/launcher.md, Copies installed without the launcher): a game of ours installed by its own
+// Setup, disk image or AppImage is found and linked, and a player can link one by hand (a panel's gear).
+// Each of our programs keeps this file in its user folder: where it is and its version (rebuild-program.txt).
+constexpr const char* kProgramRecord = "rebuild-program.txt";
+// This program's file as a player starts it ($APPIMAGE for an AppImage); empty when it runs from somewhere that goes
+// away (the Mac's App Translocation, a disk image).
+std::string self_path();
+// The record written (only when it changed) for a released build: a development one never links itself.
+void record_self(const std::string& user_folder, u::Game g, const std::string& version);
+// What `prog` is as game g's program: its version from its stamp, else (when `may_run`) from its --status (an
+// AppImage's stamp is compressed); empty when it is not g's.
+std::string identify(const std::string& prog, u::Game g, bool may_run);
+// The program a player picked for g (the program, its folder, a .app, an AppImage); empty when none is there.
+std::string program_of_pick(const std::string& pick, u::Game g);
+struct Found {
+  std::string program, version, how;  // how: "its record", "its Setup", "Applications"
+};
+// g's released copies installed without the launcher, newest first: the record in `user_folder`, Windows' uninstall
+// entry for its Setup, the Mac's Applications folders (those two only when `system`: a check run reads its own folder
+// alone). Each checked (identify): present and g's.
+std::vector<Found> found_elsewhere(u::Game g, const std::string& user_folder, bool system);
+// The launcher's own copy of g under `root` removed: only a folder carrying the launcher's record. False with why.
+bool uninstall(const std::string& root, u::Game g, std::string* error);
 
 }  // namespace sdlfe::games
