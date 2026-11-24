@@ -13,7 +13,7 @@ prefix, at the Mac build's versions:
 | Library | Version | Source |
 | --- | --- | --- |
 | SDL3 | 3.4.12 | github.com/libsdl-org/SDL, release-3.4.12 |
-| SDL3_ttf | 3.2.2 | github.com/libsdl-org/SDL_ttf, release-3.2.2 (`-DSDLTTF_VENDORED=ON`: its own FreeType and HarfBuzz, fetched by its `external/download.sh`) |
+| SDL3_ttf | 3.2.2 | github.com/libsdl-org/SDL_ttf, release-3.2.2, with FreeType 2.14.3 built in (`tools/deps/build_deps.sh linux`, docs/deps.md). A `-DSDLTTF_VENDORED=ON` build (its own FreeType 2.13.2 and HarfBuzz 8.5.0) draws TTF text a few pixels apart from the Mac's and the package's (2026-11-23) |
 | SDL3_sound | 3.2.0 | github.com/icculus/SDL_sound, v3.2.0 |
 
 SDL3 needs the usual development headers for its X11, Wayland and audio
@@ -185,3 +185,22 @@ text. Nothing is bundled (no lavapipe). MW3_VULKAN_CHECK=noloader|nodriver|ok an
 (`sdl_vulkan_help_names_the_packages`, `sdl_program_launcher_says_what_vulkan_needs_and_holds_play`).
 Under WSL the real check found Vulkan, and with VK_ICD_FILENAMES pointing at nothing said "no Vulkan
 driver".
+
+**Out of memory on NVIDIA (issue #7, 2026-11-23).** A player on Fedora with NVIDIA's 620 driver crashed
+entering a mission from the mech lab: "the frame's readback failed at its buffer: Failed to bind memory
+for buffer!", then a fault inside libnvidia-glcore. The cause was ours: each texture upload mapped the
+staging buffer with cycle, and with the uploads of a load all in flight SDL's Vulkan backend made and
+kept a new 1.2 MB transfer buffer for each (host-visible memory, never given back). Measured through
+MoltenVK (`SDL_GPU_DRIVER=vulkan`, docs/windows.md): 4,075 MB for c2m1 against 333 MB now; Metal 156 to
+142 MB. The uploads now go one after another into a 4 MB staging buffer, cycled only when it is full
+(`SdlRender3D::map_tex_staging`); c1m1 frame 700 identical before and after on Metal and Vulkan.
+
+For players' graphics reports: mw3.log's "GPU:" line names the card and driver (Vulkan and D3D12 give
+the driver's version; Metal none). MW3_GPU_DEBUG=1 asks for the backend's validation (Vulkan's layers,
+the D3D12 debug layer) where the system has it, and falls back without it; without the layer installed
+nothing validates though the device is made in debug mode (the log says "asked for"). On the reference PC
+(2026-11-23, RTX 3090 Ti): D3D12's debug layer reports only #820 (the frame target's clear colour is not
+its creation's), Vulkan had no layer; the old upload path took 4.2 GB under Vulkan there too and none
+extra under D3D12, which recycles the buffers. A Windows build has no SPIR-V without glslang, so Windows
+players are on D3D12. MW3_GPU_COUNT=N prints every
+N frames the textures alive, the uploads and readbacks since, and the process's memory.

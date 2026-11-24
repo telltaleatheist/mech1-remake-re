@@ -40,6 +40,22 @@ original.
 
 Nothing yet.
 
+**1.3.3 (2026-11-24)** (the full notes are in
+[docs/release-notes-1.3.3.md](docs/release-notes-1.3.3.md)): the launcher
+lists the games as panels that scroll, like the download page.
+
+**1.3.2 (2026-11-23)** (the full notes are in
+[docs/release-notes-1.3.2.md](docs/release-notes-1.3.2.md)): the BattleTech
+launcher, and fixes.
+
+- **The BattleTech launcher:** one card for each game family, with its games
+  as tabs; it checks for its own updates.
+- **Your folders move from MicroProse to BattleTech** on the first start (a
+  rename, nothing copied).
+- **Fixes:** a crash starting a campaign mission on Linux, low frame rates on
+  Windows 10, the MFB command, game files from an older install on another
+  drive.
+
 **1.3.1 (2026-11-22)** (the full notes are in
 [docs/release-notes-1.3.1.md](docs/release-notes-1.3.1.md)): each game goes
 where you choose.

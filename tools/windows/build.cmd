@@ -11,6 +11,9 @@ if not defined VS (echo No Visual Studio with the C++ tools found. & exit /b 1)
 call "%VS%\VC\Auxiliary\Build\vcvars64.bat" >nul || exit /b 1
 for /d %%d in (deps\SDL3-3*) do set SDL3_DIR=%CD%\%%d\cmake
 for /d %%d in (deps\SDL3_ttf-*) do set SDL3_ttf_DIR=%CD%\%%d\cmake
+rem tools\windows\build_deps_ttf.cmd's SDL3_ttf (FreeType 2.14.3, as the packages) before the -VC.zip's (2.13.2,
+rem whose text is a few pixels apart; docs/deps.md). A build-win configured before keeps the one it found.
+if exist deps\ttf\cmake\SDL3_ttfConfig.cmake set SDL3_ttf_DIR=%CD%\deps\ttf\cmake
 rem SDL3_sound (optional: .ogg/.flac/.mp3 music; without it .wav only). A
 rem _ROOT is read on every configure, so an existing build-win finds it too.
 for /d %%d in (deps\SDL3_sound-*) do set SDL3_sound_ROOT=%CD%\%%d

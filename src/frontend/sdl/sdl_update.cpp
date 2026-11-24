@@ -65,8 +65,8 @@ std::atomic<bool> g_stop_asking{false};  // stop_asking(): the launcher closing
 void stop_asking(bool stop) { g_stop_asking = stop; }
 
 namespace {
-const char* const kExitHandle = "mw3.exit_handle";  // start_quiet's own handle on the process (Windows)
 #if defined(_WIN32)
+const char* const kExitHandle = "mw3.exit_handle";  // start_quiet's own handle on the process
 void SDLCALL close_exit_handle(void*, void* h) { CloseHandle(static_cast<HANDLE>(h)); }
 #endif
 }  // namespace
