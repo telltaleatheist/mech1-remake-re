@@ -101,6 +101,13 @@ more than the last: price n = base × ratio^n, with n counting purchases already
 
 - **What it means:** 100M (the funds by the Dark Wing) buys about 12 sinks, or about 49 armour points, or 6 steps of
   one weapon type. Each next one costs more than a contract pays, so it stays a sink.
+- **Confirmed by the owner after the spending soak (2026-11-23):** all three curves stay as above, and the soak changes
+  no price.
+  - Armour stays 500k × 1.05. The soak's 100th armour point came only in seed 5's run past the ending, and that's
+    fine. A player who gets rich reselling 'Mechs (the trade loophole) may become overpowered, and that's intended.
+    The × 1.03 candidate is dropped.
+  - The story coming later for a player who spends to the reserve (medians +8% to +17% against the baseline, past
+    the 10% check below) is accepted as the player's choice.
 - **Step sizes (to settle):** +5% of the weapon's damage per power step and +10 m per range step.
   - A medium laser up to an ER large's punch (the design's example) is about 12 power steps. That's about 700M for
     that one type, which is very slow, as asked.
@@ -195,7 +202,8 @@ an engine hook table. It stays opt-in and off unless MW1 sets it, as 118's rules
   Plus shots at 4:3, wide and high resolution, as the other screens have.
 - **Balance:** 111's soak is rerun with a test player who spends on the dealer and upgrades past a reserve. It
   checks:
-  - the story's rungs come within about 10% of when they come now;
+  - the story's rungs come within about 10% of when they come now (measured: past it for a greedy player, accepted;
+    see the prices above);
   - FIXES 111's gauge (`MW1_ITEM_SOURCES`) shows every item 122 lists as reachable.
 
 ## 8. Slices, each its own branch and gate
