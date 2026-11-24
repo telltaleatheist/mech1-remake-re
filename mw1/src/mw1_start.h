@@ -8,11 +8,14 @@
 
 namespace mw1 {
 
-// The program's folder name under the platform's app data, apart from MW3's
-// and Pirate's Moon's ("MicroProse/MechWarrior 1 Remake"; FIXES 139).
-inline constexpr const char* kOrg = "MicroProse";
+// The program's folder under the platform's app data, apart from MW3's and Pirate's Moon's: the family's
+// "BattleTech/MechWarrior 1 Remake" (FIXES 147: every game of the family under BattleTech, as PM's since the
+// launcher 1.3.2). Before 1.1.0 it was "MicroProse/MechWarrior 1 Remake", and before FIXES 139
+// "MicroProse/MechWarrior 1 Critical Hit": both moved to it at the start (settle_user_folder).
+inline constexpr const char* kOrg = "BattleTech";
+inline constexpr const char* kOldOrg = "MicroProse";  // before 1.1.0
 inline constexpr const char* kApp = "MechWarrior 1 Remake";
-inline constexpr const char* kOldApp = "MechWarrior 1 Critical Hit";  // before FIXES 139: moved to kApp's at the start
+inline constexpr const char* kOldApp = "MechWarrior 1 Critical Hit";  // before FIXES 139: under kOldOrg
 inline constexpr const char* kTitle = "MechWarrior 1 Remake";        // the window's title, the log's and the boxes'
 inline constexpr const char* kPmApp = "Pirate's Moon";  // PM's own write dir, beside ours (mw3pm's default)
 inline constexpr const char* kCfg = "mw1.cfg";
@@ -88,6 +91,28 @@ struct WriteDirMove {
 // `try_rename` false goes straight to the copy (the tests' way to reach it).
 WriteDirMove move_write_dir(const std::string& old_dir, const std::string& new_dir, bool try_rename = true);
 const char* moved_words(Moved how);
+
+// FIXES 147: the user folder settled at the start, `usual` being <base>/BattleTech/MechWarrior 1 Remake (the usual
+// folder only, never a --write-dir). In order:
+//  1. FIXES 139's move: <base>/MicroProse/MechWarrior 1 Critical Hit to <base>/MicroProse/MechWarrior 1 Remake
+//     (move_write_dir), unless `usual` holds something already. A failure uses the Critical Hit folder this run.
+//  2. <base>/MicroProse/MechWarrior 1 Remake renamed to `usual` once, as PM's own folder moved (rekit::move_once:
+//     never over a folder with something in it, never a copy), and the same pointer file PM leaves put in the old
+//     place (data-folder.txt, naming `usual`). A rename that fails (a file in use, a read-only parent) uses the
+//     old folder this run and is tried again at the next start.
+// A fresh install has neither old folder and starts in `usual`. `move` false (a development build, on the
+// developer's own folders): nothing is moved, and an old folder with the data is used while `usual` holds nothing.
+struct UserFolder {
+  std::string use;                // the write dir for this run
+  std::vector<std::string> said;  // the log's lines: what moved, what was kept, what failed
+};
+UserFolder settle_user_folder(const std::string& usual, bool move = true);
+
+// FIXES 145: where a saved install now is when a family folder it was inside has moved: for a path inside
+// <base>/MicroProse/<Game>, the same place inside <base>/BattleTech/<Game>, then inside the folder the old place's
+// pointer file names (data-folder.txt). The candidates in that order, unchecked (the caller checks each as an
+// install); none for a path inside no MicroProse folder.
+std::vector<std::string> moved_install_places(const std::string& saved);
 
 // The game main's argv: the program's name, --write-dir (unless given), then
 // `rest`, with --install added when only mw1.cfg named PM's.

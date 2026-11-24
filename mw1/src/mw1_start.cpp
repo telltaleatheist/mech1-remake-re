@@ -7,7 +7,9 @@
 #include <fstream>
 
 #include "gamez/zutil/zutl_path.h"
+#include "mech3/data_folder.h"
 #include "pm/pm_game.h"
+#include "rekit/family_folder.h"
 
 namespace fs = std::filesystem;
 
@@ -214,6 +216,86 @@ WriteDirMove move_write_dir(const std::string& old_dir, const std::string& new_d
   fs::remove_all(from, ec);
   if (ec) r.why = "the old folder could not be removed: " + ec.message();
   return r;
+}
+
+namespace {
+// Something in `d` besides what a move leaves (the pointer back) and the system's .DS_Store.
+bool holds_data(const fs::path& d) {
+  std::error_code ec;
+  if (!fs::is_directory(d, ec)) return false;
+  for (fs::directory_iterator it(d, ec), end; !ec && it != end; it.increment(ec)) {
+    const std::string name = it->path().filename().string();
+    if (name != ".DS_Store" && name != mech3::data_folder::kPointer) return true;
+  }
+  return false;
+}
+}  // namespace
+
+UserFolder settle_user_folder(const std::string& usual, bool move) {
+  UserFolder u;
+  u.use = usual;
+  const std::string old_remake = rekit::old_org_folder(usual);
+  if (usual.empty() || old_remake.empty()) return u;
+  const std::string critical = (fs::path(old_remake).parent_path() / kOldApp).string();
+  std::error_code ec;
+  if (!move) {
+    if (!holds_data(usual)) {
+      if (holds_data(old_remake) && !fs::exists(fs::path(old_remake) / mech3::data_folder::kPointer, ec)) u.use = old_remake;
+      else if (holds_data(critical)) u.use = critical;
+    }
+    return u;
+  }
+  // 1. FIXES 139's move first, inside the old family folder.
+  if (fs::is_directory(critical, ec) && !holds_data(usual)) {
+    const WriteDirMove m = move_write_dir(critical, old_remake);
+    if (m.how != Moved::kNothing)
+      u.said.push_back("the write dir's old folder " + critical + ": " + moved_words(m.how) + (m.why.empty() ? "" : ", " + m.why));
+    if (m.how == Moved::kBothKept) u.said.push_back(old_remake + " is used; the old folder is left as it is");
+    if (m.how == Moved::kFailed) {
+      u.said.push_back("the old folder is used for this run");
+      u.use = critical;
+      return u;
+    }
+  }
+  // 2. The family folder: MicroProse's renamed to BattleTech's once, a pointer left behind.
+  const rekit::FolderMove f = rekit::move_once(old_remake, usual, {mech3::data_folder::kPointer});
+  if (f.kind == rekit::FolderMove::kFailed) {
+    u.said.push_back("the family folder: " + f.error + "; " + old_remake + " is used for this run (tried again at the next start)");
+    u.use = old_remake;
+    return u;
+  }
+  if (f.kind == rekit::FolderMove::kMoved) {
+    make_writable(usual);
+    fs::create_directories(old_remake, ec);
+    std::ofstream pointer(fs::path(old_remake) / mech3::data_folder::kPointer, std::ios::binary);
+    pointer << usual << "\n";
+    pointer.close();
+    u.said.push_back("the family folder: " + old_remake + " moved to " + usual +
+                     (pointer ? " (a pointer left there)" : " (no pointer could be left there)"));
+  }
+  return u;
+}
+
+std::vector<std::string> moved_install_places(const std::string& saved) {
+  std::vector<std::string> out;
+  if (saved.empty()) return out;
+  const fs::path path = fs::path(saved).lexically_normal();
+  // The nearest <base>/MicroProse/<Game> holding the path.
+  for (fs::path game = path; game.has_relative_path() && game != game.parent_path(); game = game.parent_path()) {
+    const fs::path org = game.parent_path();
+    if (org.filename() != kOldOrg || org == org.parent_path()) continue;
+    const fs::path rest = path.lexically_relative(game);
+    auto inside = [&rest](const fs::path& d) { return (rest.empty() || rest == "." ? d : d / rest).string(); };
+    out.push_back(inside(org.parent_path() / kOrg / game.filename()));
+    std::ifstream f(game / mech3::data_folder::kPointer);
+    std::string line;
+    if (f && std::getline(f, line)) {
+      while (!line.empty() && (line.back() == '\r' || line.back() == ' ')) line.pop_back();
+      if (!line.empty()) out.push_back(inside(fs::path(zutl::path_from_config(line))));
+    }
+    break;
+  }
+  return out;
 }
 
 const char* moved_words(Moved how) {

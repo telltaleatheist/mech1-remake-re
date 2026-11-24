@@ -185,3 +185,134 @@ TEST(mw1_write_dir_failed_move_keeps_the_old) {
   EXPECT(fs::is_directory(to) && fs::is_empty(to));  // as SDL left it: the next start tries again
 }
 #endif
+
+// FIXES 147: the user folder settled at the start (mw1::settle_user_folder), in each platform's form of the app data
+// folder: Windows' AppData\Roaming, the Mac's Library/Application Support, Linux's .local/share.
+namespace {
+const char* const kAppDataForms[] = {"AppData/Roaming", "Library/Application Support", ".local/share"};
+struct Family {
+  fs::path usual, old_remake, critical;
+};
+Family family(const char* test, const char* form) {
+  const fs::path base = fresh(test) / form;
+  return {base / mw1::kOrg / mw1::kApp, base / mw1::kOldOrg / mw1::kApp, base / mw1::kOldOrg / mw1::kOldApp};
+}
+// The old place holds only the pointer, naming the folder in use.
+bool pointer_only(const fs::path& old, const fs::path& to) {
+  std::vector<std::string> names;
+  for (const auto& e : fs::directory_iterator(old)) names.push_back(e.path().filename().string());
+  return names == std::vector<std::string>{"data-folder.txt"} && got(old / "data-folder.txt") == to.string() + "\n";
+}
+}  // namespace
+
+TEST(mw1_user_folder_fresh_starts_in_battletech) {
+  for (const char* form : kAppDataForms) {
+    const Family f = family("mw1family_fresh", form);
+    fs::create_directories(f.usual);  // as SDL_GetPrefPath leaves it
+    const mw1::UserFolder u = mw1::settle_user_folder(f.usual.string());
+    EXPECT(u.use == f.usual.string() && u.said.empty());
+    EXPECT(!fs::exists(f.old_remake.parent_path()));  // nothing made under MicroProse
+  }
+}
+
+TEST(mw1_user_folder_old_critical_hit_moves_to_battletech) {
+  for (const char* form : kAppDataForms) {
+    const Family f = family("mw1family_crit", form);
+    player_folder(f.critical, "crit");
+    fs::create_directories(f.usual);
+    const mw1::UserFolder u = mw1::settle_user_folder(f.usual.string());
+    EXPECT(u.use == f.usual.string() && player_folder_is(f.usual, "crit") && u.said.size() == 2);
+    EXPECT(!fs::exists(f.critical) && pointer_only(f.old_remake, f.usual));
+    EXPECT(mw1::read_cfg(u.use).pm == "/pm-crit");
+  }
+}
+
+TEST(mw1_user_folder_old_microprose_moves_to_battletech) {
+  for (const char* form : kAppDataForms) {
+    const Family f = family("mw1family_mp", form);
+    player_folder(f.old_remake, "remake");
+    fs::create_directories(f.usual);
+    const mw1::UserFolder u = mw1::settle_user_folder(f.usual.string());
+    EXPECT(u.use == f.usual.string() && player_folder_is(f.usual, "remake") && u.said.size() == 1);
+    EXPECT(pointer_only(f.old_remake, f.usual));
+    // The next start: already moved, nothing more to do.
+    const mw1::UserFolder again = mw1::settle_user_folder(f.usual.string());
+    EXPECT(again.use == f.usual.string() && again.said.empty() && player_folder_is(f.usual, "remake"));
+    EXPECT(pointer_only(f.old_remake, f.usual));
+  }
+}
+
+TEST(mw1_user_folder_both_old_folders_the_remake_s_moves) {
+  for (const char* form : kAppDataForms) {
+    const Family f = family("mw1family_both", form);
+    player_folder(f.critical, "crit");
+    player_folder(f.old_remake, "remake");
+    fs::create_directories(f.usual);
+    const mw1::UserFolder u = mw1::settle_user_folder(f.usual.string());
+    // FIXES 139's rule: with files in both, the newer one is used and the Critical Hit folder left as it is.
+    EXPECT(u.use == f.usual.string() && player_folder_is(f.usual, "remake"));
+    EXPECT(player_folder_is(f.critical, "crit") && pointer_only(f.old_remake, f.usual));
+  }
+}
+
+TEST(mw1_user_folder_already_moved_is_left_alone) {
+  for (const char* form : kAppDataForms) {
+    const Family f = family("mw1family_moved", form);
+    player_folder(f.usual, "new");
+    put(f.old_remake / "data-folder.txt", f.usual.string() + "\n");
+    player_folder(f.critical, "crit");  // a stray older folder: never merged into one in use
+    const mw1::UserFolder u = mw1::settle_user_folder(f.usual.string());
+    EXPECT(u.use == f.usual.string() && u.said.empty() && player_folder_is(f.usual, "new"));
+    EXPECT(pointer_only(f.old_remake, f.usual) && player_folder_is(f.critical, "crit"));
+  }
+}
+
+TEST(mw1_user_folder_development_build_moves_nothing) {
+  const Family f = family("mw1family_dev", kAppDataForms[2]);
+  player_folder(f.old_remake, "remake");
+  fs::create_directories(f.usual);
+  const mw1::UserFolder u = mw1::settle_user_folder(f.usual.string(), false);
+  EXPECT(u.use == f.old_remake.string() && u.said.empty() && player_folder_is(f.old_remake, "remake"));
+  EXPECT(fs::is_empty(f.usual));
+}
+
+#ifndef _WIN32
+// A read-only parent: BattleTech can't be made beside MicroProse. The old folder is used, whole, and the move is
+// tried again at the next start. (POSIX only: a Windows folder has no read-only bit that stops a new folder in it.)
+TEST(mw1_user_folder_read_only_parent_keeps_the_old) {
+  if (geteuid() == 0) return;
+  for (const char* form : kAppDataForms) {
+    const Family f = family("mw1family_ro", form);
+    player_folder(f.old_remake, "remake");
+    const fs::path base = f.usual.parent_path().parent_path();
+    fs::permissions(base, fs::perms::owner_read | fs::perms::owner_exec);
+    const mw1::UserFolder u = mw1::settle_user_folder(f.usual.string());
+    fs::permissions(base, fs::perms::owner_all);
+    EXPECT(u.use == f.old_remake.string() && u.said.size() == 1 && player_folder_is(f.old_remake, "remake"));
+    EXPECT(!fs::exists(f.old_remake / "data-folder.txt") && !fs::exists(f.usual));
+    // Writable again: the next start moves it.
+    const mw1::UserFolder later = mw1::settle_user_folder(f.usual.string());
+    EXPECT(later.use == f.usual.string() && player_folder_is(f.usual, "remake") && pointer_only(f.old_remake, f.usual));
+  }
+}
+#endif
+
+// FIXES 145: a saved install inside a family folder that has moved, looked for where it is now.
+TEST(mw1_moved_install_places_battletech_then_the_pointer) {
+  for (const char* form : kAppDataForms) {
+    const fs::path base = fresh("mw1family_install") / form;
+    const fs::path old_pm = base / mw1::kOldOrg / "Pirate's Moon", new_pm = base / mw1::kOrg / "Pirate's Moon";
+    const fs::path elsewhere = fresh("mw1family_install_elsewhere") / "PM data";
+    put(old_pm / "data-folder.txt", elsewhere.string() + "\r\n");
+    const std::vector<std::string> places = mw1::moved_install_places((old_pm / "install").string());
+    EXPECT((places == std::vector<std::string>{(new_pm / "install").string(), (elsewhere / "install").string()}));
+    // The family folder itself, and a deeper path.
+    EXPECT(mw1::moved_install_places(old_pm.string()).front() == new_pm.string());
+    EXPECT(mw1::moved_install_places((old_pm / "install" / "zbd").string()).front() == (new_pm / "install" / "zbd").string());
+    // No pointer: BattleTech's place only. Inside no MicroProse folder: none.
+    fs::remove(old_pm / "data-folder.txt");
+    EXPECT(mw1::moved_install_places((old_pm / "install").string()) == std::vector<std::string>{(new_pm / "install").string()});
+    EXPECT(mw1::moved_install_places((new_pm / "install").string()).empty());
+    EXPECT(mw1::moved_install_places("").empty());
+  }
+}

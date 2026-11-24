@@ -5,6 +5,38 @@ Tick an item when it is merged into `main`.
 
 **How this file works (the owner, 2026-11-17):** every bug and feature the owner raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 147. [x] The user folder under BattleTech, as the family's *(done: rel-110, for 1.1.0)*
+- **What:** the family decision of 2026-11-22: every game's pilots, saves and settings under "BattleTech", no longer
+  "MicroProse" (PM's moved in the launcher 1.3.2). The mw3 lead asked for MW1's too.
+- **Done** (`mw1_start.h`'s `settle_user_folder`, called by `mw1_main.cpp`'s `usual_write_dir`): the usual folder is
+  `SDL_GetPrefPath("BattleTech", "MechWarrior 1 Remake")`. At the start, in order: FIXES 139's move of the
+  "Critical Hit" folder into MicroProse's "MechWarrior 1 Remake" (unless BattleTech's holds something already),
+  then MicroProse's "MechWarrior 1 Remake" renamed to BattleTech's once (`rekit::move_once`: never over a folder in
+  use, never a copy), with PM's pointer file (`data-folder.txt`, naming the new folder) left in the old place. A
+  fresh install starts in BattleTech's. A rename that fails (a file in use, a read-only parent) uses the old folder
+  for that run and is tried again at the next start; when BattleTech's folder can't even be made, MicroProse's is
+  used as before. In a package only: a development build moves nothing and uses an old folder with the data while
+  the new one is empty (as the engine's `family_move`).
+- **The installer** and `mw1/README.md` name the new folder.
+- **Checks:** `test_mw1_start`'s `mw1_user_folder_*` in each platform's app data form (Windows' AppData\Roaming, the
+  Mac's Library/Application Support, Linux's .local/share): fresh, the old Critical Hit folder, the old MicroProse
+  folder (then a second start: nothing more), both old folders, already moved, a development build, and (POSIX) a
+  read-only parent, then the move at the next start.
+
+## 145. [x] mw1 started on its own: Pirate's Moon's install after its folder moved to BattleTech *(done: rel-110, for 1.1.0)*
+- **What:** the launcher 1.3.2 moves Pirate's Moon's user folder from MicroProse to BattleTech (a rename; a pointer
+  file left in the old place). An `install=` in mw1.cfg naming the old folder's `install` (the launcher's earlier
+  start saved it) then names a folder that is gone. The launcher's own start passes a fresh `--install`, so nothing
+  changes there; mw1 started on its own cleared it and showed the "missing games" dialog, which offers the launcher.
+- **Done** (`mw1_start.h`'s `moved_install_places`, `mw1_main.cpp`): a saved install that no longer holds its game
+  and lies inside a `<base>/MicroProse/<Game>` folder is looked for at the same place inside
+  `<base>/BattleTech/<Game>`, then inside the folder the old place's pointer names. The first that holds the game
+  is used and saved to mw1.cfg, and the log says so. All three installs (Pirate's Moon, MechWarrior 3, MechWarrior
+  (1989)) are looked for the same way.
+- **Checks:** `mw1_moved_install_places_battletech_then_the_pointer` (each platform's form, the pointer's CRLF, a
+  deeper path, no pointer, a path inside no MicroProse folder); on the Mac, mw1 started with `install=` naming the
+  old place found the game under BattleTech and saved it.
+
 ## 146. [x] Graded endings: no deadline, the hunt timed from rung 1 to the Dark Wing *(done: mw1-110-grade, for 1.1.0)*
 - **What:** with no story deadline (FIXES 47's kNoDeadline), the ending is graded by how fast the hunt went instead. A
   project decision of 2026-11-23, the thresholds and lines settled 2026-11-24.

@@ -64,21 +64,31 @@ int mw3_game_main(int argc, char** argv);
 
 namespace {
 
-// The usual write dir, with the old name's folder moved to it (FIXES 139, mw1::move_write_dir). SDL makes the new
-// folder when asked for it, so an empty one counts as missing; the old one's path is its sibling, not made.
-std::string usual_write_dir() {
+// SDL's folder for `org`/MechWarrior 1 Remake, made when missing, without a trailing separator; "" when it can't be.
+std::string pref_path(const char* org) {
   std::string dir;
-  if (char* p = SDL_GetPrefPath(mw1::kOrg, mw1::kApp)) dir = p, SDL_free(p);
+  if (char* p = SDL_GetPrefPath(org, mw1::kApp)) dir = p, SDL_free(p);
   while (dir.size() > 1 && (dir.back() == '/' || dir.back() == '\\')) dir.pop_back();
-  if (dir.empty()) return dir;
-  const std::string old_dir = (std::filesystem::path(dir).parent_path() / mw1::kOldApp).string();
-  const mw1::WriteDirMove m = mw1::move_write_dir(old_dir, dir);
-  if (m.how == mw1::Moved::kNothing) return m.use;
-  std::printf("mw1: the write dir's old folder %s: %s%s%s\n", old_dir.c_str(), mw1::moved_words(m.how),
-              m.why.empty() ? "" : ", ", m.why.c_str());
-  if (m.how == mw1::Moved::kBothKept) std::printf("mw1: %s is used; the old folder is left as it is\n", dir.c_str());
-  if (m.how == mw1::Moved::kFailed) std::printf("mw1: the old folder is used for this run\n");
-  return m.use;
+  return dir;
+}
+
+// The usual write dir, the family's BattleTech/MechWarrior 1 Remake, with the earlier folders moved to it
+// (FIXES 139 and 147, mw1::settle_user_folder): in a package only, so a development build never moves its developer's
+// own folders. SDL makes the new folder when asked for it, so an empty one counts as missing. When even that can't be
+// made (a read-only app data folder), the earlier place, MicroProse's, as before 1.1.0.
+std::string usual_write_dir() {
+  const std::string dir = pref_path(mw1::kOrg);
+  if (dir.empty()) {
+    std::printf("mw1: the family folder %s/%s could not be made: the earlier folder is used\n", mw1::kOrg, mw1::kApp);
+    return pref_path(mw1::kOldOrg);
+  }
+#if defined(MW3_PACKAGE_BUILD)
+  const mw1::UserFolder u = mw1::settle_user_folder(dir);
+#else
+  const mw1::UserFolder u = mw1::settle_user_folder(dir, false);
+#endif
+  for (const std::string& line : u.said) std::printf("mw1: %s\n", line.c_str());
+  return u.use;
 }
 
 }  // namespace
@@ -199,6 +209,20 @@ int main(int argc, char** argv) {
   }
   const mw1::Installs saved = mw1::read_cfg(a.write_dir);
   mw1::Installs use = mw1::merge(a.given, saved);
+  // FIXES 145: an install saved inside a family folder that has since moved (MicroProse to BattleTech, the launcher
+  // 1.3.2's and ours) is looked for where that folder is now, and saved there when it holds the game.
+  auto follow = [](std::string& dir, const char* game, bool (*holds)(const std::string&)) {
+    if (dir.empty() || holds(dir)) return;
+    for (const std::string& place : mw1::moved_install_places(dir))
+      if (holds(place)) {
+        std::printf("mw1: %s: %s is now %s\n", game, dir.c_str(), place.c_str());
+        dir = place;
+        return;
+      }
+  };
+  follow(use.pm, "Pirate's Moon", [](const std::string& d) { return pm::install_kind(d) == pm::Install::kPm; });
+  follow(use.mw3, "MechWarrior 3", mw1::is_mw3_install);
+  follow(use.mw1, "MechWarrior (1989)", mw1::is_mw1_install);
   // A folder that is not the game it is given for is said and not used (nor saved).
   if (!use.pm.empty() && pm::install_kind(use.pm) != pm::Install::kPm) {
     std::fprintf(stderr, "mw1: %s is %s: not used for Pirate's Moon\n", use.pm.c_str(), pm::install_words(pm::install_kind(use.pm)));

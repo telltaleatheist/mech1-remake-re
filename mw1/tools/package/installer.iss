@@ -8,7 +8,7 @@
 ; an uninstaller. Its own AppId, folder, shortcut names and uninstall entry, none shared with MechWarrior 3
 ; Rebuild's or Pirate's Moon Rebuild's installers, so the three install, upgrade and uninstall apart. The game writes
 ; nothing in its folder: the player's settings, saves and the paths to the games live in
-; %APPDATA%\MicroProse\MechWarrior 1 Remake, which the uninstaller leaves alone. No file of any game is in the
+; %APPDATA%\BattleTech\MechWarrior 1 Remake (MicroProse's before 1.1.0), which the uninstaller leaves alone. No file of any game is in the
 ; installer. PM's own tools\windows\installer.iss is left as it is, so merges from mech3-pm-re never meet this file.
 
 #ifndef AppVersion
@@ -65,8 +65,8 @@ Name: "{autodesktop}\MechWarrior 1 Remake"; Filename: "{app}\mw1.exe"; WorkingDi
 Filename: "{app}\mw1.exe"; Description: "{cm:LaunchProgram,MechWarrior 1 Remake}"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
-; Only what the installer put in {app}; %APPDATA%\MicroProse\MechWarrior 1 Remake stays.
+; Only what the installer put in {app}; %APPDATA%\BattleTech\MechWarrior 1 Remake stays.
 Type: dirifempty; Name: "{app}"
 
 [Messages]
-UninstalledAll=%1 was removed from your computer.%n%nYour settings and saved games, and where your games are installed, are kept in %APPDATA%\MicroProse\MechWarrior 1 Remake. Delete that folder to remove them too.
+UninstalledAll=%1 was removed from your computer.%n%nYour settings and saved games, and where your games are installed, are kept in %APPDATA%\BattleTech\MechWarrior 1 Remake. Delete that folder to remove them too.

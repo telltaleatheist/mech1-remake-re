@@ -59,8 +59,9 @@ On Windows, the same route as mw3pm's (`tools\windows\build.cmd mw1`).
 
 `mw1` is Pirate's Moon's game main (`src/frontend/sdl/mw3_main.cpp`) started
 by `mw1/src/mw1_main.cpp`. It has its own settings and saves folder, SDL's
-app data for "MicroProse/MechWarrior 1 Remake", apart from MW3's and
-PM's. It takes the player's three installs; the launcher's MECHWARRIOR 1
+app data for "BattleTech/MechWarrior 1 Remake", apart from MW3's and
+PM's (the family's folder; before 1.1.0 "MicroProse/MechWarrior 1 Remake",
+moved there at the first start with a pointer left behind). It takes the player's three installs; the launcher's MECHWARRIOR 1
 icon passes them:
 
     mw1 [--install PM-DIR] [--mw3-install MW3-DIR] [--mw1-game MW1-DIR] [--write-dir DIR] [mw3pm's own flags]
