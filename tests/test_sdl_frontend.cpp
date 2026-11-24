@@ -9726,6 +9726,7 @@ TEST(sdl_program_valve_map_c1m1_and_c1m3) {
 }
 #endif
 
+#if !defined(_WIN32)  // posix_spawn (ours, not on Windows)
 // Issue #19 (ours, under SMALL FIXES): the briefing's, pause's and salvage's
 // buttons sound; with --original they are silent as the exe's (menus.md section 14).
 TEST(sdl_program_issue19_menu_sounds) {
@@ -9802,3 +9803,4 @@ TEST(sdl_program_issue19_menu_sounds) {
   off = salvage, off.push_back("--original");
   EXPECT(between(run("salvage_off", off), "state Salvage State", nullptr).empty());
 }
+#endif
