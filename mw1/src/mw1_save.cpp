@@ -844,7 +844,9 @@ Loaded load_file(const std::string& path, Company& c, Contract& offer, bool* has
   std::ifstream f(path, std::ios::binary);
   std::ostringstream all;
   all << f.rdbuf();
-  if (f.bad() || !load_text(all.str(), c, offer, has_offer, why, pending, has_pending)) {
+  const bool unread = f.bad();
+  f.close();  // before it is set aside: Windows renames no open file
+  if (unread || !load_text(all.str(), c, offer, has_offer, why, pending, has_pending)) {
     if (why && why->empty()) *why = "it doesn't read";
     const std::string bad = beside_save(path, ".bad");
     fs::remove(bad, ec);
