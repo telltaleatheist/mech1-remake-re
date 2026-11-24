@@ -59,6 +59,20 @@ found or installed. The launcher below is its own program, `mw3launcher`
 
 ## The find screen and the notes (v1.0, 2026-11-02)
 
+**Anything can be picked (2026-11-24).** The pickers had a filter that showed
+.bin and .iso first and hid the rest; they now show every file, and PICK A
+FOLDER is beside the picker on the find screen, in the list of copies and in
+the no-music dialog (the systems' pickers take files or folders, never both).
+A file or a folder dropped on the window is taken as a pick on every screen
+that asks for one (`dropped`). ADD FROM MY DISC takes a download too (.zip,
+.7z, .rar, .tar): its disc image is unpacked into `<media>/setup-staging`,
+read, and that folder removed (`disc_pick`).
+
+**NO MUSIC ADDED (2026-11-24, confirm 8).** A pick with no CD audio in it was
+shown as an error. It is a question now: PLAY WITHOUT MUSIC (first), PICK
+ANOTHER, PICK A FOLDER, BACK; what else the disc gave (sounds, movies) is kept
+and said. Check: `sdl_program_launcher_game_files_pirates_moon`'s end.
+
 **BEFORE YOU PLAY is laid out by measure (2026-11-11, the playtest W3).**
 The status line ("No disc in a drive. Pick its image ...") was drawn at a
 fixed row and landed on the last lines of a long note (a long settings
@@ -942,6 +956,23 @@ each game's recipe (DESIGN.md there):
 The launcher still finds the games itself; it switches to asking `--status`
 once mw3pm answers it too.
 
+**A kit game's files, on the launcher's screens (2026-11-24).** "I thought we
+manage the setup kits from the launcher": PLAY on Inception opened Inception's
+own setup window. A game whose status says `"setup": 1` answers `--setup
+--describe | --search | --look <pick> | --install <pick> [--folder <dir>]`
+with JSON lines (the kit's `rekit/sdl/setup_serve.h`; `sdlfe::games::kit_setup`
+runs it, a "cancel" line on its stdin for CANCEL). PLAY with its files missing
+opens the find screen with the game's words; FIND THE GAME is its search, then
+the picker; any pick goes to the game as it is (it knows what a pick holds);
+the find's plate, INSTALL and CHANGE FOLDER as MW3's, the default being the
+folder its DOWNLOAD picked, else the game's own. Installed, its status is read
+again and the game starts. GAME FILES after its PLAY, and its page's GAME
+FILES, open the same screens without starting it (`open_kit_files`,
+`kit_look`, `kit_looked`, `kit_install`, `kit_ready`; `kit_files_` says whose
+the screens are). A game without it is started plain, its own setup opening as
+before. The recipe stays the game's. `--launcher-screen chifiles` draws it.
+Check: `sdl_program_launcher_sets_a_kit_game_up` (a stand-in).
+
 ## Open
 
 - The working title ("MW3 REBUILD" on the title art) and the font: ours.
@@ -1233,7 +1264,8 @@ release.
   download's size) where PLAY goes; offline it says it can't reach the
   server and points to ADD FROM FILE. An installed game with a newer
   release splits its PLAY button (2026-11-22: "the main button can
-  be play, and there can be a divider on the end"): PLAY, a short divider,
+  be play, and there can be a divider on the end"): PLAY (its word centred
+  in its own part, 2026-11-24), a short divider,
   and at its end a download arrow over the version, which is that game's
   UPDATE (its own button for clicks, focus and the checks, logged as
   "<GAME> UPDATE"). Since the family cards each tab's game splits its own
@@ -1294,8 +1326,9 @@ install's music write there. A rip the player put in the user folder's
 `music` still counts. Moving an install into a game's folder later converts
 the movies again, once, there.
 
-- **A card's first DOWNLOAD** asks where (confirm 7: DOWNLOAD, CHANGE FOLDER,
-  BACK), the default being the games folder above. The program goes under
+- **A card's first DOWNLOAD** asks where (confirm 7: CHANGE FOLDER, then
+  DOWNLOAD, large, amber and focused in the middle, then BACK; INSTALL of the
+  game files is laid out the same, `add_go`, 2026-11-24), the default being the games folder above. The program goes under
   the picked folder as under the games folder (`<folder>/<key>`), and the
   folder is kept in mw3.cfg as `games_<key>=` (mw3, pm, mw1), read at every
   start (in a game's own setup too). UPDATE goes where the game is, unasked.
