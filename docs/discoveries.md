@@ -3299,6 +3299,7 @@ From the weapons' effects (details: `weapon-effects.md`):
 
 ## Menus
 
+- **The pause, briefing and salvage buttons are silent because their sounds are not there.** The pause dialog asks for `menu_rollover` and `menu_select`, which are in the MENU sound set; the game loads that set with the main menu (0x486580) and unloads it on leaving (0x4857b5), and no mission's set includes it. The salvage screen asks for `box_rollover` (also MENU), `icon_select` (MECHLAB, loaded only in the lab, 0x448984) and `lab_select`, and the briefing for `brief_rollover` and `brief_select`; `lab_select` and the two briefing sounds are defined nowhere in sounds.zrd. So all of them play nothing (issue #19; the rebuild does the same).
 - **Leaving the pause menu with Escape silences the mission.** The pause stops every sound that is playing, and only the RESUME button starts them again. Press Escape to leave the pause instead and the wind, the ocean and your own mech's engine hum stay silent from then on; new sounds (weapons, footsteps, hits) still play. Pirate's Moon made Escape do exactly what RESUME does. The rebuild brings the sounds back either way. (0x00493250, 0x00492d70; measured in the rebuild with the original's logic: 5 sounds playing in Op 1 Mission 1 before the pause, none two seconds after Escape.)
 
 From the 2D front end, zTwoD (details: `twod.md`).
