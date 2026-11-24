@@ -20,6 +20,18 @@
 #include <iterator>
 #include <vector>
 
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#elif defined(__APPLE__)
+#include <mach-o/dyld.h>
+#endif
+
 namespace fs = std::filesystem;
 
 namespace sdlfe::games {
@@ -529,6 +541,190 @@ bool in_own_mount(const std::string& bin) {
   if (!appdir || !*appdir) return true;  // an AppImage that does not say where it is mounted: as before, watched
   const std::string base = appdir;
   return bin.rfind(base, 0) == 0;
+}
+
+
+// ---- Copies installed without the launcher (2026-11-24) ----
+
+namespace {
+
+// A game's id in its --status (re-setup-kit's contract), where known: a stand-in for a stamp an AppImage hides.
+const char* kit_id(u::Game g) {
+  switch (g) {
+    case u::Game::kMw3: return "mech3";
+    case u::Game::kPm: return "mech3-pm";
+    default: return "";
+  }
+}
+
+#if defined(_WIN32)
+// Its Setup's uninstall entry (tools/windows/installer.iss: the AppId, the same every version), where known.
+const char* setup_id(u::Game g) {
+  switch (g) {
+    case u::Game::kMw3: return "{920C98A6-550D-41A3-839E-540B93B8F40D}_is1";
+    case u::Game::kPm: return "{797310CA-3FB8-4FBB-8D21-47E588714765}_is1";
+    default: return "";
+  }
+}
+#endif
+
+std::string program_file(u::Game g) {
+#if defined(_WIN32)
+  return std::string(u::game_info(g).program) + ".exe";
+#else
+  return u::game_info(g).program;
+#endif
+}
+
+bool released(u::Game g, const std::string& v) {
+  const std::string pre = u::game_info(g).prefix;
+  return v.rfind(pre, 0) == 0 && v.size() > pre.size() && std::isdigit(static_cast<unsigned char>(v[pre.size()]));
+}
+
+std::string record_value(const std::string& text, const std::string& key) {
+  for (size_t at = 0; at < text.size();) {
+    const size_t end = std::min(text.find('\n', at), text.size());
+    const std::string line = text.substr(at, end - at);
+    if (line.rfind(key + "=", 0) == 0) return line.substr(key.size() + 1);
+    at = end + 1;
+  }
+  return {};
+}
+
+}  // namespace
+
+std::string self_path() {
+  std::error_code ec;
+#if defined(_WIN32)
+  wchar_t buf[4096];
+  const DWORD n = GetModuleFileNameW(nullptr, buf, 4096);
+  return n > 0 && n < 4096 ? fs::path(std::wstring(buf, n)).string() : std::string();
+#elif defined(__APPLE__)
+  char buf[4096];
+  uint32_t n = sizeof buf;
+  if (_NSGetExecutablePath(buf, &n) != 0) return {};
+  const std::string p = fs::weakly_canonical(fs::path(buf), ec).string();
+  return ec || p.find("/AppTranslocation/") != std::string::npos ? std::string() : p;
+#else
+  const fs::path self = fs::read_symlink("/proc/self/exe", ec);
+  if (ec) return {};
+  const char *ai = std::getenv("APPIMAGE"), *mount = std::getenv("APPDIR");
+  if (ai && *ai && mount && *mount && self.string().rfind(std::string(mount) + "/", 0) == 0)
+    return fs::is_regular_file(ai, ec) ? std::string(ai) : std::string();
+  return self.string();
+#endif
+}
+
+bool launchers_own(const std::string& prog) {
+  std::error_code ec;
+  fs::path at = fs::weakly_canonical(prog, ec);
+  for (int up = 0; up < 8 && at.has_parent_path() && at != at.parent_path(); ++up) {
+    at = at.parent_path();  // the package's own layout inside the game's folder: <x>.app/Contents/MacOS, squashfs-root/usr/bin
+    if (fs::is_regular_file(at / u::kInstalledName, ec)) return true;
+  }
+  return false;
+}
+
+void record_self(const std::string& user_folder, u::Game g, const std::string& version) {
+  if (user_folder.empty() || !u::game_tag(g, version)) return;
+  const std::string self = self_path();
+  if (self.empty() || launchers_own(self)) return;
+  const std::string text = std::string("# Where this game is, for the BattleTech launcher (it links a copy installed without it).\n") +
+                           "game=" + u::game_info(g).key + "\nprogram=" + self + "\nversion=" + version + "\n";
+  const fs::path p = fs::path(user_folder) / kProgramRecord;
+  if (read_text(p) != text) write_text(p, text);
+}
+
+std::string identify(const std::string& prog, u::Game g, bool may_run) {
+  std::error_code ec;
+  if (prog.empty() || !fs::is_regular_file(prog, ec)) return {};
+  const std::string v = program_version(prog);
+  if (!v.empty()) return released(g, v) ? v : std::string();
+  if (!may_run) return {};
+  rekit::Status s;
+  if (!kit_status(prog, &s)) return {};
+  const std::string id = kit_id(g);
+  const bool ours = !id.empty() ? s.game == id : s.game != "mech3" && s.game != "mech3-pm";
+  return ours ? (s.version.empty() ? std::string("unknown") : s.version) : std::string();
+}
+
+std::string program_of_pick(const std::string& pick, u::Game g) {
+  std::error_code ec;
+  if (pick.empty()) return {};
+  const fs::path p(pick);
+  const std::string file = program_file(g);
+  if (fs::is_directory(p, ec)) {
+    if (lower(p.extension().string()) == ".app") {
+      const fs::path in = p / "Contents" / "MacOS" / file;
+      return fs::is_regular_file(in, ec) ? in.string() : std::string();
+    }
+    std::string in = program_in(pick, g);
+    if (in.empty()) in = program_in((p / u::game_info(g).key).string(), g);  // a launcher-style games folder
+    return in;
+  }
+  if (!fs::is_regular_file(p, ec)) return {};
+  const std::string name = lower(p.filename().string());
+  if (name == lower(file) || ends_with(name, ".appimage")) return pick;
+  return program_in(p.parent_path().string(), g);  // another file in its folder
+}
+
+std::vector<Found> found_elsewhere(u::Game g, const std::string& user_folder, bool system) {
+  std::vector<Found> out;
+  auto take = [&](const std::string& prog, const char* how, bool may_run) {
+    for (const Found& f : out)
+      if (f.program == prog) return;
+    if (launchers_own(prog)) return;
+    const std::string v = identify(prog, g, may_run);
+    // Released builds only: a development one (v1.3.1-29-g...) is linked by hand or not at all.
+    if (u::game_tag(g, v) || u::game_tag(g, u::game_info(g).prefix + v)) out.push_back({prog, v, how});
+  };
+  if (!user_folder.empty()) {  // the program's own record
+    const std::string text = read_text(fs::path(user_folder) / kProgramRecord);
+    const std::string prog = record_value(text, "program");
+    if (record_value(text, "game") == u::game_info(g).key && !prog.empty())
+      take(prog, "its record", ends_with(lower(prog), ".appimage"));
+  }
+#if defined(_WIN32)
+  if (system && *setup_id(g)) {
+    const std::string key = std::string("Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\") + setup_id(g);
+    for (HKEY hive : {HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER})
+      for (DWORD view : {static_cast<DWORD>(KEY_WOW64_64KEY), static_cast<DWORD>(KEY_WOW64_32KEY)}) {
+        char buf[2048];
+        DWORD size = sizeof buf;
+        if (RegGetValueA(hive, key.c_str(), "InstallLocation", RRF_RT_REG_SZ | view, nullptr, buf, &size) == ERROR_SUCCESS)
+          take(program_in(buf, g), "its Setup", false);
+      }
+  }
+#elif defined(__APPLE__)
+  std::vector<fs::path> apps;
+  if (system) apps.push_back("/Applications");
+  if (const char* home = std::getenv("HOME"); system && home && *home) apps.push_back(fs::path(home) / "Applications");
+  std::error_code ec;
+  for (const fs::path& dir : apps)
+    for (const auto& e : fs::directory_iterator(dir, ec))
+      if (e.path().extension() == ".app") {
+        const fs::path prog = e.path() / "Contents" / "MacOS" / program_file(g);
+        if (fs::is_regular_file(prog, ec)) take(prog.string(), "Applications", !*kit_id(g));
+      }
+#else
+  (void)system;
+#endif
+  std::stable_sort(out.begin(), out.end(), [](const Found& a, const Found& b) { return u::compare_game(a.version, b.version) > 0; });
+  return out;
+}
+
+bool uninstall(const std::string& root, u::Game g, std::string* error) {
+  std::error_code ec;
+  const fs::path dir = fs::path(root) / u::game_info(g).key, old = fs::path(root) / ("." + std::string(u::game_info(g).key) + ".old");
+  u::InstalledGame rec;
+  if (root.empty() || !fs::is_regular_file(dir / u::kInstalledName, ec) || !u::parse_installed(read_text(dir / u::kInstalledName), &rec) ||
+      rec.game != u::game_info(g).key)
+    return *error = dir.string() + " is not a game the launcher installed", false;
+  if (!clear_ours(old, u::kInstalledName, error)) return false;
+  fs::rename(dir, old, ec);  // aside first: a running game keeps its folder whole
+  if (ec) return *error = "it could not be removed (" + ec.message() + "): close the game and try again", false;
+  fs::remove_all(old, ec);  // a failure leaves .old, cleared by the next install or uninstall
+  return true;
 }
 
 }  // namespace sdlfe::games
