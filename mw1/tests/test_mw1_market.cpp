@@ -350,7 +350,7 @@ TEST(mw1_market_complex_page) {
   auto on = [](const mw1::ScreenView& v, int32_t id) { return v.buttons[static_cast<size_t>(id - 1)].on; };
   mw1::clamp_choice(c, m);
   mw1::ScreenView v = mw1::market_view(c, m);
-  EXPECT(on(v, mw1::kMarketBuy) && !on(v, mw1::kMarketSell) && v.buttons.size() == 8);
+  EXPECT(on(v, mw1::kMarketBuy) && !on(v, mw1::kMarketSell) && v.buttons.size() == 9);  // 1.1.0: SUPPLY too
   for (int32_t id = 1; id <= mw1::kMarketButtonCount; ++id)
     EXPECT(std::string(mw1::market_button_name(id)) != "REPAIR" && std::string(mw1::market_button_name(id)) != "RELOAD");
   EXPECT(on(v, mw1::kMarketLab) && on(v, mw1::kMarketBack) && !on(v, mw1::kMarketStockUp) && on(v, mw1::kMarketStockDown));

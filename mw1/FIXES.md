@@ -5,6 +5,75 @@ Tick an item when it is merged into `main`.
 
 **How this file works (the owner, 2026-11-17):** every bug and feature the owner raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 142. [x] The soundtrack: MW1's five songs as rock arrangements, six combat songs in a shuffle *(done: mw1-110-soundtrack, for 1.1.0)*
+A project decision (2026-11-23, via the lead): MW1's five songs and six combat songs replace the menu theme and the
+three combat tracks (FIXES 100, 116).
+- **The files** (`data/music/`), encoded as FIXES 100's theme was (libvorbis q6, nominally 192 kbps, 48 kHz stereo,
+  no tags); the FLAC masters stay in keep/mw1-critical-hit/music:
+  - MW1's songs: `theme.ogg` (MECH), `bar.ogg` (MECHBAR), `debrief.ogg` (LAUNCH), `death.ogg` (DEATH), `ending.ogg`
+    (VICTORY).
+  - The combat songs: `combat-iron-stride`, `-cold-front`, `-blackwind`, `-firestorm`, `-long-range`, `-last-stand`.
+  - `menu-theme.ogg` and `combat-7101/7102/7106.ogg` are gone. The .abc scores aren't committed.
+- **Loudness** (integrated, EBU R128), gain only (no compression or limiting), none raised:
+  - The masters spread 2.7 LU (-12.1 to -14.8 LUFS), more than the ~2 LU allowed, so the louder ones came down to
+    -14 LUFS.
+  - Then each was trimmed further where needed so its encoded true peak is at most -1.0 dBTP.
+  - Before / total gain / after (LUFS, dBTP): theme -14.2 / -0.52 / -14.8, -1.2; bar -13.2 / -1.42 / -14.6, -1.1;
+    debrief -14.1 / -1.32 / -15.4, -1.1; death -14.8 / -1.22 / -16.0, -1.0; ending -12.4 / -1.6 / -14.1, -1.4;
+    iron-stride -12.1 / -1.9 / -14.1, -1.3; cold-front -12.2 / -1.8 / -14.2, -2.0; blackwind -12.9 / -1.22 / -14.2,
+    -1.1; firestorm -12.6 / -1.4 / -14.1, -1.1; long-range -12.6 / -1.4 / -14.0, -1.3; last-stand -13.2 / -1.22 /
+    -14.5, -1.1.
+  - Spread after: 2.0 LU. The peak trim is what widens it: death and debrief peaked hot and needed about 1.2-1.3 dB
+    each. Accepted (a project decision), since the extremes never meet: death is a slow cue that only ever cuts the
+    theme, 1.2 LU under it.
+  - The old files measured -12.7 (menu theme) and -15.8, -13.8, -15.5 (7101, 7102, 7106).
+- **Fades** (baked into the ends only; the starts and the lengths are unchanged):
+  - 2 s on the combat songs that held full level to their last sample: cold-front, blackwind, firestorm, long-range,
+    last-stand.
+  - 3 s on bar and ending.
+  - None on iron-stride, the theme and death (they end in their own tail), or on debrief (its own stop: full level
+    until 0.5 s from the end, then silence).
+- **Where each plays,** as MW1 played its song (mech1-re's `docs/AUDIO.md`, "Campaign music cues", and
+  `src/Original/Campaign/MW_MAIN_081B_STARTUP.cpp`). MW1 looped none of them, so a cue plays once, from its start, at
+  the music volume, cutting the theme:
+  - `bar.ogg`: entering the Bar from the hub. The Bar's own pages keep it.
+  - `debrief.ogg`: the results of a contract or story battle won (not the Dark Wing's). MW1 started DEATH for each
+    lancemate lost and LAUNCH over it at once, so a win plays LAUNCH's, losses or not.
+  - `death.ogg`: the results of a mission not won that lost a lancemate (KILLED or MISSING; a mech down with its
+    pilot back isn't a loss). Also MW1's death event (its restart), over the page until it's read; FIXES 33 took the
+    commander's death out, so this is only the story's own death pages.
+  - `ending.ogg`: the Dark Wing beaten, over the victory's page and the credits.
+  - MW1 stopped its music entering the planet hub (081B:1909), so the hub's screen coming up ends a cue. A pending
+    event or the credits over the hub don't count (MW1's song played on over the events after the results).
+  - The theme (MECH) is FIXES 100's, a new recording: the title, the intro and every screen out of a mission, looped.
+    It comes back, fading in from the top, after a mission, a cue's stop and a cue's own end (where MW1 went silent).
+    The CD never says a track ended, so a cue's length (`kCueSeconds`, checked against the files) times it.
+  - DEPLOY's load stops a cue, as it stops the theme. A failed mission with no lancemate lost plays the theme, as
+    before (MW1 had no song there).
+- **Combat** (FIXES 116's place): each launch, a replay's too, takes the next song of a shuffle bag of all six
+  (`music::CombatBag`, `next_combat`, replacing `pick_combat`). None repeats until all six have played; a refilled
+  bag never starts with the song just played. The owner's ruling (2026-11-23): one song never loops. When a song
+  ends, the bag's next follows it at once, until the mission's end. The next song is drawn while one plays and set
+  as the CD's extra track's file, so the song's end (MM_MCINOTIFY: the looping track played again) starts it with no
+  gap; MW1 sees the CD's mode go to Restart, makes that song the one playing and draws the one after. A song drawn
+  and never reached (the mission ended first) is the next launch's, so the bag stays fair. The owner also confirmed
+  the theme after a cue's end and the theme at a failed mission with no lancemate lost (both as above).
+- **Size:** mw1data/music/ goes from 22.6 to 22.5 MB (22,530,239 bytes, 38 KB less).
+- **Tests:**
+  - `mw1_music_the_combat_bag_plays_all_six_and_never_one_twice_running`: six launches give six songs; 2000 bags in a
+    row are each all six, with no song twice running across a refill, and each song comes first in some bags.
+  - `mw1_music_the_results_song_won_lost_and_the_dark_wing`: won, lost with a lancemate killed or missing, lost with
+    a mech down and its pilot back, and the Dark Wing's results.
+  - `mw1_music_files_there_and_the_cues_lengths_theirs`: every file there and longer than 20 s; each cue's length
+    as the file's.
+  - `mw1_music_theme_screens_mission_settings_and_quit_headless` now visits the Bar (its song, kept on its crew page,
+    stopped back at the hub with the theme again) and reads the won mission's results (the debrief's song, then the
+    theme at its end).
+  - `mw1_music_combat_once_a_launch_silent_after_the_end_and_a_new_pick_on_replay_headless`: the failure's results
+    play the theme, the win's the debrief's song.
+  - `mw1_story_the_dark_wing_won_and_lost_headless`: no song at the Dark Wing's results; won, the ending's song over
+    the credits, stopped at the hub; lost, none.
+
 ## 141. [ ] MechWarrior (1989)'s copy into MW1 Remake's own folder *(open; raised by the lead with pm-v1.2.4's layout, 2026-11-22)*
 - **What:** pm-v1.2.4's launcher keeps each game's files in a folder of its own (`games_<key>=`, `<folder>/install`,
   marked `rebuild-game-folder.txt` with `game=mw1`); only pilots, saves, settings and mods stay in the user folder.
@@ -624,6 +693,15 @@ and pick the slot to overwrite".
   the funds and lands in the stores; the lab fits it. 111's gauge (`MW1_ITEM_SOURCES`, the ITEM lines) is rerun to
   show every item above reachable.
 - **Links:** 118 (the hub's other money sink), 121 (torso items lost to salvage), 111 (the weapons report).
+- **1.1.0's plan:** mw1/research/plan-1.1.0.md. Done so far:
+  - **Slice 4, the dealer's model (mw1-110-dealer):** `mw1_dealer.h`. The wares are PM's weapons in each tech, their
+    ammunition in one-ton lots, and the equipment the lab fits, except plain armour. Every item listed above is a
+    ware. Rarity: Clan wares are rare (tier 3 and the Clan worlds); the Inner Sphere items above are uncommon (tier 1
+    and up); the rest are common. The stock is rolled at each market refresh from its own seed (the world and the
+    date), so the campaign's dice are untouched. BUY puts one into the stores; SELL takes one out of them, at the
+    tier's percentages as a 'Mech's. Save 13 adds `dealer_stock`. The prices and the stock's numbers are placeholders
+    in `mw1_dealer.h`; `MW1_PRICE_TABLE=1` with `mw1_dealer_price_table` prints every ware's prices with PM's weights.
+    No screen yet.
 
 ## 121. [x] Clan targeting computers and AMSes almost never salvaged *(closed: by design, the exe's rule kept; mw1-fix121-salvage-tc-ams)*
 From dev 1's 111 weapons report (the lead, 2026-11-20):
@@ -714,8 +792,7 @@ destroy-the-tower contract on mw3c1ia2.
 ## 116. [x] Our combat music in the missions *(done: mw1-combat-music)*
 The owner (2026-11-19, via the lead): the combat tracks he picked play in MW1's missions in place of Pirate's Moon's disc
 music. It's the release gate.
-- **The tracks** (`data/music/combat-7106.ogg`, `-7101.ogg`, `-7102.ogg`, ours; YuE2 "combat relentless", E minor,
-  140 BPM). 7106 is the soundtrack's pick, and 7101 and 7102 are "okay and usable". They are encoded as FIXES 100's
+- **The tracks** (`data/music/combat-7106.ogg`, `-7101.ogg`, `-7102.ogg`, ours; E minor, 140 BPM). 7106 is the soundtrack's pick, and 7101 and 7102 are "okay and usable". They are encoded as FIXES 100's
   theme was: libvorbis q6, 48 kHz stereo, with no tags. 7106 and 7101 already end in their own tail. 7102 stopped
   loud, so its last 5 s are faded out for the loop. The FLAC masters are in keep/mw1-critical-hit/music.
 - **Which one plays:**
@@ -2158,7 +2235,7 @@ The lead (2026-11-19): MW1 1.0.0 rides mw3-re v1.1.3; the launcher reads each pr
   Resources: never found there. It looks in mw1's own folder now (Contents/MacOS).
 
 ## 100. [x] Menu music, QUIT in the hub, the sound settings *(done: mw1-fix100-music)*
-- **The owner (2026-11-19, via the lead):** a YuE2 track he picked as the menu music. QUIT outside the main menu. Music
+- **The owner (2026-11-19, via the lead):** a track he picked as the menu music. QUIT outside the main menu. Music
   and effects settings in MW1's options.
 - **The theme** (`data/music/menu-theme.ogg`, ours, 7.8 MB; the lead faded its last 5 s; the FLAC master is in
   keep/mw1-critical-hit/music):
@@ -2578,8 +2655,28 @@ about 6 s with its speed up, moving 0 m, before it walked.
   - **Slice 1, the engine's hooks (mw1-110-hooks):** `src/upgrades/kits` (docs/upgrades-kits.md), an
     "mw1 (engine, ours)" commit. Four hooks, null in MW3 and PM: extra sinks in the heat step, extra armour at a
     part's setup, a weapon's damage scale and its extra range, per weapon (never the shared WeaponDef). They are off
-    in a network game, and damage is clamped to 4x and range to the weapon's own RANGE. MW1 doesn't set them yet
-    (slice 3).
+    in a network game, and damage is clamped to 4x and range to the weapon's own RANGE.
+  - **Slice 3, MW1 answers the hooks (mw1-110-answers):** `mw1_kit_answers.h`. Set up at each deploy from the company
+    as it is then, settled at the launch, and cleared at the hub. The commander's 'Mech and each flying lancemate's
+    get the kits on them, and an armour kit's points are spread over the locations in proportion to the 'Mech's own
+    armour. Every weapon on the company's side gets its type's steps, and no enemy gets anything, even with the same
+    weapon. A lancemate is known by their AI pilot, so a reinforcement made later at their 'Mech's address isn't
+    taken for them. `mw1_loop_kits_and_steps_the_lance_s_only_headless` checks it in a mission.
+  - **The supply screen (mw1-110-supply):** `mw1_supply_screen.h`, layout `mw1supply.zrd`, opened by the Mech
+    Complex's new SUPPLY (above BACK). FOR SALE lists the world's dealer stock, a rule, then the sink and armour kits
+    and a power and a range step for each weapon type the company owns, each at its next price. YOUR STORES lists the
+    stores' items at the selling price, the spare kits and the steps each type has. ASSIGN switches the lower list to
+    the company's 'Mechs and shows +SINK, -SINK, +ARMOUR and -ARMOUR. A kit or a step asks before buying, since it is
+    never sold back; a dealer's item doesn't. The Mech Complex's YOUR MECHS shows each 'Mech's kits in a KITS column on
+    the wide layout; 4:3's has no room, so its status line says the chosen one's.
+    `mw1_loop_supply_buy_assign_move_saved_headless` clicks it through and reloads the save.
+  - **The dealer's weights at the hub (found by the supply shots):** PM reads weapons.zrd into its weapon
+    definitions only as a world loads (a mission's, or the lab's world 6, which PM's lab and the Mech Complex's live
+    'Mech load), so at the hub the engine weighed every weapon 0 until one had. Without the live 'Mech (software
+    renderer, headless) or after a mission, the dealer priced every weapon at the floor and the range steps had no
+    limit. `mw1_weapon_data.h` reads the mounted weapons.zrd (a mod's overlaid) when the hub is made; the dealer's
+    tons, an ammunition lot's rounds and the range limit ask the engine first and use it when the engine has nothing.
+    The supply screen's names are the ones PM's lab shows (Mech3Msg's), the table's name when there's none.
 - **The owner (2026-11-20):** players can keep playing indefinitely without the story, like an Instant Action mod, and
   money needs something to buy. It's always on sale at the hub; nothing to hunt for. It applies to the player's side
   only, never to enemies.

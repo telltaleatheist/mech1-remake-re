@@ -48,7 +48,9 @@
 //                      kits_bought=sinks:armour, mech_kits=sinks:armour
 //                      (the commander's mech), hangar<i>_kits,
 //                      steps=weapon:tech:power:range,... Each absent
-//                      (before 13): none.
+//                      (before 13): none. And the arms dealer (FIXES 122,
+//                      mw1_dealer.h): dealer_stock=kind:id:tech:count,...
+//                      once rolled; absent: rolled at the hub.
 //                      Versions 1 to 4 still read (before 5: the world's
 //                      premium without its roll, a wreck's damage from its
 //                      condition, no bills);

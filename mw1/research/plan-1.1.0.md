@@ -25,7 +25,7 @@ The hub keeps its six tiles. Both shops sit in the **Mech Complex**, where the '
 - **The Mech Complex** (`mw1_market_screen`) gets a fifth button in its left column, **SUPPLY**, under MECH LAB (top
   236, at the column's 38-pixel spacing). It opens the new screen.
 - **The supply screen** (new: `mw1_supply_screen.{h,cpp}`, layout `mw1supply.zrd`) uses MW1's screen template and
-  the Mech Complex's look. Its left column holds BUY, SELL (if buy-back is settled), ASSIGN and BACK. On the right
+  the Mech Complex's look. Its left column holds BUY, SELL (the dealer buys back), ASSIGN and BACK. On the right
   are two lists, as the Mech Complex has:
   - **FOR SALE:** this world's dealer stock (item, tech, price, how many), then a rule, then the upgrades that are
     always on sale: SINK KIT, ARMOUR KIT and the weapon steps, each with its next price.
@@ -83,25 +83,26 @@ What the money looks like now (FIXES 111's soaks, pay 100%):
   item is only part of a 'Mech.
 - **Clan items:** ×1.5.
 - **Ammunition:** 10k a ton.
-- **By tier:** the dealer's price is multiplied by the world's tier, as the market does (100/120/130/150%). If
-  buy-back is settled, it pays the market's selling percentages of that (90/110/120/140% of the tier 0 price).
+- **By tier:** the dealer's price is multiplied by the world's tier, as the market does (100/120/130/150%). Buying
+  back, it pays the market's selling percentages of that (90/110/120/140% of the tier 0 price).
 
 For example, at tier 0 a PPC (7 t) is 420k, an ER Laser (S) (1 t) 60k, an Ultra AC 20 (15 t) 900k and a Clan ER PPC
 (6 t) 540k. A small item costs a fraction of a contract's pay, a big one about three contracts.
 
-**Upgrade prices (to settle).** Each repeat costs more than the last: price n = base × ratio^n, with n counting
-purchases already made.
+**Upgrade prices (settled 2026-11-22, a project decision; adjusted later if play asks for it).** Each repeat costs
+more than the last: price n = base × ratio^n, with n counting purchases already made. The spending soak on seed 5
+(mw1/tools/spend_soak_report.py) was the evidence. The columns are what the first 10, 20 or 50 cost together.
 
 | Item | Base | Ratio | 10 bought | 20 bought | 50 bought |
 |---|---|---|---|---|---|
-| Sink kit | 500k | 1.25 | 16.6M | 171M | n/a |
-| Armour kit (1 point) | 100k | 1.05 | 1.3M | 3.3M | 20.9M |
-| Weapon step (per type) | 1M | 1.5 | 113M | n/a | n/a |
+| Sink kit | 3M | 1.15 | 60.9M | 307M | n/a |
+| Armour kit (1 point) | 500k | 1.05 | 6.3M | 16.5M | 105M |
+| Weapon step (per type) | 5M | 1.4 | 349M | n/a | n/a |
 
-- **What it means:** 100M (the funds by the Dark Wing) buys about 17 sinks, or about 80 armour points, or 10 steps of
+- **What it means:** 100M (the funds by the Dark Wing) buys about 12 sinks, or about 49 armour points, or 6 steps of
   one weapon type. Each next one costs more than a contract pays, so it stays a sink.
 - **Step sizes (to settle):** +5% of the weapon's damage per power step and +10 m per range step.
-  - A medium laser up to an ER large's punch (the design's example) is about 12 power steps. That's about 260M for
+  - A medium laser up to an ER large's punch (the design's example) is about 12 power steps. That's about 700M for
     that one type, which is very slow, as asked.
   - Range steps could be cheaper for short-range types, or the same: either way it's a table.
 - **Caps (to settle):** this plan's proposal is the price curve alone, no hard cap. The one exception: a range step
@@ -125,7 +126,9 @@ The table goes in `mw1_dealer.h`, rolled at each market refresh (`refresh_market
   heavy MG, Clan TC). The edge worlds are the five `kClanWorlds` that already sell Clan 'Mechs.
 - **Counts:** rand(1..3) of each item drawn. The number of kinds drawn is the market's kStockMax rule scaled for
   items (about 6 to 14).
-- **Buy-back (to settle):** the proposal is yes, at the market's selling percentages, with no dealer limit.
+- **Buy-back (settled, a project decision):** yes, at the market's selling percentages, with no dealer limit.
+  Buying low on one world and selling high on another is the original game's own loophole, kept on purpose, and the
+  numbers stay.
 
 A test runs a seeded stock across all 146 worlds and checks that every item 122 lists appears somewhere, and that the
 rare ones appear only where the table puts them.

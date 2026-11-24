@@ -1,0 +1,98 @@
+; MW1: Critical Hit's supply screen (src/mw1_supply_screen.h, FIXES 122 and 118,
+; research/plan-1.1.0.md section 2), the Mech Complex's SUPPLY, on MW1's screen
+; template (src/mw1_screen.h). The Mech Complex's look (mw1market.zrd): MW1's
+; buttons down the left (BUY, SELL, ASSIGN, BACK; while assigning +SINK, -SINK,
+; +ARMOUR, -ARMOUR under them), FOR SALE's terminal over YOUR STORES' (or, while
+; assigning, the 'Mechs' kits), each list with its arrows. The funds on the right
+; plaque (PLACE); FOR SALE's rows the company can't afford in S_ROWS_DIM's darker
+; green, at S_ROWS's place. All MW1's own art (mw1image.zbd).
+;
+; MW1SUPPLYDIALOG is 4:3's (640); MW1SUPPLYDIALOG_WIDE the 16:9 canvas's (853).
+(
+MW1SUPPLYDIALOG (
+  CURSOR (BITMAP ("mw1_cursor") CENTER (1))
+  PRIMITIVES (
+    BACKGROUND (POSITION (-107 0) BITMAP ("mw1_mechcomplex_hangar") ANCHOR ("CENTRE"))
+    PANEL (POSITION (12 8) BITMAP ("mw1_plaque"))
+    PANEL2 (POSITION (328 8) BITMAP ("mw1_plaque"))
+    PANEL3 (POSITION (-107 454) BITMAP ("mw1_statusbar") ANCHOR ("CENTRE"))
+    PANEL4 (POSITION (188 76) BITMAP ("mw1_term_436x172"))
+    PANEL5 (POSITION (188 256) BITMAP ("mw1_term_436x172"))
+  )
+  BUTTONS (
+    ; Down the left, MW1's way (their ids are mw1_supply_screen.h's, in this order).
+    BUY (POSITION (12 84) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 90) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    SELL (POSITION (12 122) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 128) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    ASSIGN (POSITION (12 160) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 166) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    BACK (POSITION (12 198) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 204) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    ; While assigning (ASSIGN): a kit onto the chosen 'Mech, or back to the storehouse.
+    ADD_SINK (POSITION (12 248) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 254) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    TAKE_SINK (POSITION (12 286) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 292) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    ADD_ARMOUR (POSITION (12 324) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 330) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    TAKE_ARMOUR (POSITION (12 362) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (104 368) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    ; Each list's arrows, inside its terminal's right edge.
+    SALE_UP (POSITION (590 104) BITMAP ("mw1_up") ROLLOVER (BITMAP ("mw1_up_lit")) ACTIVATE (BITMAP ("mw1_up_down")) DISABLE (BITMAP ("mw1_up_off")))
+    SALE_DOWN (POSITION (590 218) BITMAP ("mw1_dn") ROLLOVER (BITMAP ("mw1_dn_lit")) ACTIVATE (BITMAP ("mw1_dn_down")) DISABLE (BITMAP ("mw1_dn_off")))
+    OWN_UP (POSITION (590 284) BITMAP ("mw1_up") ROLLOVER (BITMAP ("mw1_up_lit")) ACTIVATE (BITMAP ("mw1_up_down")) DISABLE (BITMAP ("mw1_up_off")))
+    OWN_DOWN (POSITION (590 398) BITMAP ("mw1_dn") ROLLOVER (BITMAP ("mw1_dn_lit")) ACTIVATE (BITMAP ("mw1_dn_down")) DISABLE (BITMAP ("mw1_dn_off")))
+  )
+  TEXTS (
+    PLANET (POSITION (162 15) FONT ("mw1_plaque"))
+    HOUSE (POSITION (162 47) FONT ("mw1_plaque_sub"))
+    PLACE (POSITION (478 15) FONT ("mw1_plaque"))
+    PLACE_SUB (POSITION (478 47) FONT ("mw1_plaque_sub"))
+    STATUS_WORLD (POSITION (16 460) FONT ("mw1_status_world"))
+    STATUS (POSITION (132 461) FONT ("mw1_status"))
+    S_TITLE (POSITION (204 86) FONT ("mw1_term_title"))
+    S_HEAD (POSITION (204 108) FONT ("mw1_term_dim"))
+    S_ROWS (POSITION (204 128) FONT ("mw1_term_line") GAP (15))
+    S_ROWS_DIM (POSITION (204 128) FONT ("mw1_term_dim") GAP (15))
+    O_TITLE (POSITION (204 266) FONT ("mw1_term_title"))
+    O_HEAD (POSITION (204 288) FONT ("mw1_term_dim"))
+    O_ROWS (POSITION (204 308) FONT ("mw1_term_line") GAP (15))
+  )
+)
+MW1SUPPLYDIALOG_WIDE (
+  CURSOR (BITMAP ("mw1_cursor") CENTER (1))
+  PRIMITIVES (
+    BACKGROUND (POSITION (0 0) BITMAP ("mw1_mechcomplex_hangar") ANCHOR ("CENTRE"))
+    PANEL (POSITION (16 8) BITMAP ("mw1_plaque"))
+    PANEL2 (POSITION (537 8) BITMAP ("mw1_plaque") ANCHOR ("RIGHT"))
+    PANEL3 (POSITION (0 454) BITMAP ("mw1_statusbar") ANCHOR ("CENTRE"))
+    PANEL4 (POSITION (200 76) BITMAP ("mw1_term_637x172"))
+    PANEL5 (POSITION (200 256) BITMAP ("mw1_term_637x172"))
+  )
+  BUTTONS (
+    ; Down the left, MW1's way (their ids are mw1_supply_screen.h's, in this order).
+    BUY (POSITION (16 84) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 90) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    SELL (POSITION (16 122) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 128) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    ASSIGN (POSITION (16 160) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 166) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    BACK (POSITION (16 198) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 204) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    ; While assigning (ASSIGN): a kit onto the chosen 'Mech, or back to the storehouse.
+    ADD_SINK (POSITION (16 248) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 254) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    TAKE_SINK (POSITION (16 286) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 292) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    ADD_ARMOUR (POSITION (16 324) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 330) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    TAKE_ARMOUR (POSITION (16 362) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (108 368) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    ; Each list's arrows, inside its terminal's right edge.
+    SALE_UP (POSITION (803 104) BITMAP ("mw1_up") ROLLOVER (BITMAP ("mw1_up_lit")) ACTIVATE (BITMAP ("mw1_up_down")) DISABLE (BITMAP ("mw1_up_off")))
+    SALE_DOWN (POSITION (803 218) BITMAP ("mw1_dn") ROLLOVER (BITMAP ("mw1_dn_lit")) ACTIVATE (BITMAP ("mw1_dn_down")) DISABLE (BITMAP ("mw1_dn_off")))
+    OWN_UP (POSITION (803 284) BITMAP ("mw1_up") ROLLOVER (BITMAP ("mw1_up_lit")) ACTIVATE (BITMAP ("mw1_up_down")) DISABLE (BITMAP ("mw1_up_off")))
+    OWN_DOWN (POSITION (803 398) BITMAP ("mw1_dn") ROLLOVER (BITMAP ("mw1_dn_lit")) ACTIVATE (BITMAP ("mw1_dn_down")) DISABLE (BITMAP ("mw1_dn_off")))
+  )
+  TEXTS (
+    PLANET (POSITION (166 15) FONT ("mw1_plaque"))
+    HOUSE (POSITION (166 47) FONT ("mw1_plaque_sub"))
+    PLACE (POSITION (687 15) FONT ("mw1_plaque") ANCHOR ("RIGHT"))
+    PLACE_SUB (POSITION (687 47) FONT ("mw1_plaque_sub") ANCHOR ("RIGHT"))
+    STATUS_WORLD (POSITION (20 460) FONT ("mw1_status_world"))
+    STATUS (POSITION (136 461) FONT ("mw1_status"))
+    S_TITLE (POSITION (216 86) FONT ("mw1_term_title"))
+    S_HEAD (POSITION (216 108) FONT ("mw1_term_dim"))
+    S_ROWS (POSITION (216 128) FONT ("mw1_term_line") GAP (15))
+    S_ROWS_DIM (POSITION (216 128) FONT ("mw1_term_dim") GAP (15))
+    O_TITLE (POSITION (216 266) FONT ("mw1_term_title"))
+    O_HEAD (POSITION (216 288) FONT ("mw1_term_dim"))
+    O_ROWS (POSITION (216 308) FONT ("mw1_term_line") GAP (15))
+  )
+)
+)

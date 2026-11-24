@@ -7,8 +7,8 @@ rebuild. MW1's mercenary campaign comes to Pirate's Moon's game:
   long road to clearing your family's name;
 - MW3's combat, Mech Lab and salvage, with every 'Mech of MechWarrior 3 and
   Pirate's Moon;
-- new art and music for the screens between missions, and our own combat music
-  for the missions.
+- new art and music for the screens between missions, and combat music for the
+  missions.
 
 It is not a decompile of MW1 and not a copy of any game. It is a free,
 personal fan project. It is not sold, and it is not affiliated with or endorsed

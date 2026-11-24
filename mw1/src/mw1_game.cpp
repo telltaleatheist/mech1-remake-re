@@ -88,11 +88,14 @@
 #include "mw1_hud_art.h"
 #include "mw1_market.h"
 #include "mw1_market_screen.h"
+#include "mw1_supply_screen.h"
+#include "mw1_weapon_data.h"
 #include "mw1_menu.h"
 #include "mw1_movie.h"
 #include "mw1_images.h"
 #include "mw1_lab_skin.h"
 #include "mw1_layouts.h"
+#include "mw1_dealer.h"
 #include "mw1_mission_maps.h"
 #include "mw1_missions.h"
 #include "mw1_pilots.h"
@@ -111,6 +114,7 @@
 #include "mw1_placement.h"
 #include "mw1_enemies.h"
 #include "mw1_ladder.h"
+#include "mw1_kit_answers.h"
 
 namespace {
 // A case-insensitive compare that builds everywhere (strcasecmp is POSIX's, not the Windows toolchains').
@@ -366,6 +370,13 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       ge.on_present = [this, before](int f) {
         if (before) before(f);
         if (deployed_ && launched_ && !ending_latched_ && ge_ && ge_->mission_ended()) latch_ending(*ge_);
+        // FIXES 142: MW1 stopped its music entering the hub (081B:1909): the hub's screen coming up ends a cue. Not while
+        // an event's page or the credits are on their way over it (pushed a frame later): MW1's song played on over
+        // the events after the results, and VICTORY's over its page and the credits.
+        const bool hub_top = hub_state_ && !event_up_ && !credits_up_ && mech3::app_if_any() &&
+                             mech3::app_if_any()->current() == static_cast<zgame::State*>(hub_state_);
+        if (hub_top && !hub_was_top_) music::cue_end();
+        hub_was_top_ = hub_top;
         music::frame(!deployed_ ? music::Where::kMenus
                      : !launched_     ? music::Where::kLoading
                      : ending_latched_ ? music::Where::kEnded  // FIXES 116b: the track never started again after the end
@@ -374,6 +385,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         briefing_cursor_frame();
         if (std::getenv("MW1_FIT")) screen_fit_frame();
         render_pass_frame();
+        lab_frame();  // the lab's first slot shown, once its screen is up (nothing while no lab is open)
       };
     }
     // MW1_SCREEN=pause or pause_options (development: --shot pictures of the pause over a mission): the offer
@@ -458,6 +470,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     // Instant Action's own return (its screen reopened) does not follow (program_flow.h).
     const bool returning = deployed_;
     loading_.reset();  // a load aborted (or PM's next round's): its loading screen gone
+    kit_answers::disarm();  // FIXES 118: the mission over (or aborted): no kit answers outside it
     if (deployed_ && !launched_) {  // ABORT at the briefing: the company as it was, the contract still taken (a replay's failure still pending)
       deployed_ = false;
       std::printf("mw1: aborted before the launch: nothing changed\n");
@@ -533,6 +546,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       if (results_up_) {
         show_results();
         ge.push_state(results_, 0);
+        if (const int32_t c = results_song(*pending_, contract_.rung); c >= 0) music::cue(static_cast<music::Cue>(c));  // FIXES 142
       }
       // FIXES.md item 52: the first screen after a mission (or the start) in from black. Not under the shots' and
       // tests' screens (MW1_SCREEN): their pictures are of the screen itself.
@@ -555,6 +569,25 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         }
         // market_mixed: funds for the cheapest only (3,000,000 on the start world's stock), the rest dimmed (item 41).
         if (std::string(s) == "market_mixed") company_.funds = 3000000, show_market();
+      }
+      // MW1_SCREEN=supply, supply_assign (1.1.0, FIXES 122 and 118; the shots and mw1screenfit's pages): the Mech
+      // Complex's SUPPLY over a company with some of everything: the world's dealer stock and the starting stores as
+      // they are, a lancemate in a hangar Firefly, kits on both 'Mechs and spares in the storehouse, steps on the first
+      // two weapon types. supply_assign: ASSIGN pressed, the lancemate's 'Mech chosen.
+      if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s).rfind("supply", 0) == 0) {
+        const std::string page = s;
+        if (company_.lance.empty()) company_.lance.push_back({1, 0});
+        OwnedMech mate;
+        mate.mech = kPmFirefly, mate.pilot = company_.lance.front().id, mate.kits = {2, 6};
+        company_.hangar.push_back(mate);
+        company_.kits = {3, 12}, company_.upgrades.store = {2, 9};
+        company_.upgrades.sinks_bought = 7, company_.upgrades.armour_bought = 27;
+        const std::vector<OwnedType> types = owned_weapon_types(company_);
+        for (size_t i = 0; i < types.size() && i < 2; ++i)
+          company_.upgrades.steps.push_back({types[i].weapon, types[i].tech, i == 0 ? 2 : 1, i == 0 ? 1 : 0});
+        press(kHubMarket);
+        press_market(kMarketSupply);
+        if (page == "supply_assign") press_supply(kSupplyAssign), press_supply(kSupplyOwnDown);
       }
       if (const char* s = std::getenv("MW1_SCREEN"); s && std::string(s) == "travel") press(kHubTravel);
       // MW1_SCREEN=travel_pick: the map with a world chosen (MW1_TRAVEL_TO, a name; else the farthest of the first few).
@@ -921,7 +954,11 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   bool hub(mech3::GameEngine& ge) {
     if (hub_engine_ == &ge && ge.menu_state_of(hub_) == hub_state_) return hub_ != 0;
     hub_engine_ = &ge, ge_ = &ge, hub_ = 0, hub_state_ = nullptr;
+    // 1.1.0: PM's weapon data for the hub (the dealer's tons, the range steps' limit): the engine has it only in a
+    // mission (mw1_weapon_data.h). Read once, from the archives mounted by now.
+    weapon_data::load();
     market_ = 0, market_state_ = nullptr;
+    supply_ = 0, supply_state_ = nullptr;
     travel_ = 0, travel_state_ = nullptr;
     movie_ = 0, movie_state_ = nullptr;
     bar_ = 0, bar_state_ = nullptr;
@@ -1045,6 +1082,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
           bchoice_ = BarChoice{};
           show_bar();
           swap_to(*ge, bar_);
+          music::cue(music::Cue::kBar);  // FIXES 142: MECHBAR's, from its start each time the Bar is entered
           story_events(kClassBarEntry);
         });
         return;
@@ -1661,6 +1699,15 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       case kMarketLab:
         if (ge) screen_change([this, ge] { open_lab(*ge); });
         return;
+      case kMarketSupply:
+        // 1.1.0 (FIXES 122, 118): the supply screen in the Mech Complex's place (its BACK brings the Mech Complex back).
+        if (!ge || !supply(*ge)) return;
+        screen_change([this, ge] {
+          schoice_ = SupplyChoice{};
+          show_supply();
+          swap_to(*ge, supply_);
+        });
+        return;
       case kMarketStockUp: --m.stock, m.own_shown = false; break;
       case kMarketStockDown: ++m.stock, m.own_shown = false; break;
       case kMarketOwnUp: --m.owned, m.own_shown = true; break;
@@ -1688,9 +1735,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   }
 
   // BUY's and SELL's question in the game's box (FIXES.md item 60): true on YES. Without an engine (no box), yes.
-  bool deal_asked(const std::string& question) {
+  bool deal_asked(const std::string& question, const char* caption = kDealCaption) {
     if (!ge_) return true;
-    const bool yes = static_cast<int32_t>(ge_->message_box_words(kBoxYesNo, kDealCaption, question)) == kAnswerYes;
+    const bool yes = static_cast<int32_t>(ge_->message_box_words(kBoxYesNo, caption, question)) == kAnswerYes;
     std::printf("mw1: market: %s %s\n", question.c_str(), yes ? "YES" : "NO");
     return yes;
   }
@@ -1712,7 +1759,134 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
 
   void show_market() {
     clamp_choice(company_, choice_);
-    if (market_state_) market_state_->show(market_view(company_, choice_));
+    if (market_state_) market_state_->show(market_view(company_, choice_, wide_canvas()));
+  }
+  // The screens' wide layouts are used on a canvas wider than 4:3's (Mw1Screen).
+  bool wide_canvas() const { return ge_ && ge_->buffer_width() > 640; }
+
+  // ---- the supply screen (1.1.0, FIXES 122 and 118: mw1_dealer.h, mw1_upgrades.h, mw1_supply_screen.h) ----
+
+  bool supply(mech3::GameEngine& ge) {
+    if (supply_ && ge.menu_state_of(supply_) == supply_state_) return true;
+    if (!layout_there(kSupplyFile, kSupplyDialog)) {
+      std::printf("mw1: no supply layout (%s in MW1's data)\n", kSupplyFile);
+      return false;
+    }
+    supply_ = ge.adopt_state([this](zgame::Handle h) { return supply_state_ = new SupplyState(h, [this](int32_t id) { as_player([&] { press_supply(id); }); }); });
+    if (supply_state_) {
+      supply_state_->set_pointer(kSupplyListArea[0], kSupplyListArea[1], kSupplyListArea[2], kSupplyListArea[3],
+                                 [this](int32_t x, int32_t y, bool click) { supply_point(x, y, click); });
+      supply_state_->set_wheel_lists({{kSupplyPanelSale, kSupplySaleUp, kSupplySaleDown}, {kSupplyPanelOwn, kSupplyOwnUp, kSupplyOwnDown}});
+    }
+    return supply_ != 0;
+  }
+
+  void show_supply() {
+    clamp_choice(company_, schoice_);
+    if (supply_state_) supply_state_->show(supply_view(company_, schoice_));
+  }
+
+  // A click on a list's row chooses it (a rule never).
+  void supply_point(int32_t x, int32_t y, bool click) {
+    bool own = false;
+    int32_t row = 0;
+    if (!click || !supply_row_at(x, y, wide_canvas(), &own, &row)) return;
+    row += own ? schoice_.own_top : schoice_.sale_top;
+    const std::vector<SupplyRow> rows = own ? own_rows(company_, schoice_.assigning) : sale_rows(company_);
+    if (row < 0 || row >= static_cast<int32_t>(rows.size()) || rows[static_cast<size_t>(row)].kind == LineKind::kRule) return;
+    (own ? schoice_.own : schoice_.sale) = row;
+    schoice_.own_chosen = own;
+    schoice_.note.clear();
+    show_supply();
+  }
+
+  void press_supply(int32_t id) {
+    std::printf("mw1: supply: %s\n", supply_button_name(id));
+    mech3::GameEngine* ge = ge_;
+    SupplyChoice& s = schoice_;
+    std::vector<SupplyRow> rows;
+    bool done = false;
+    switch (id) {
+      case kSupplyBuy: {
+        const SupplyRow* chosen = chosen_sale(company_, s, &rows);
+        if (!chosen) return;
+        const SupplyRow r = *chosen;
+        const int64_t price = row_price(company_, r);
+        s.own_chosen = false;
+        if (r.kind == LineKind::kWare) {
+          const dealer::Trade t = dealer::buy(company_, r.index);
+          done = t == dealer::Trade::kDone;
+          s.note = done ? "Bought: " + ware_title(r.ware) + ", " + thousands(price) + " C-bills." : dealer::trade_words(t);
+          break;
+        }
+        // A kit or a step: never sold back, so asked first (the reason at once when it can't be).
+        if (row_at_most(company_, r)) {
+          s.note = upgrades::bought_words(upgrades::Bought::kAtMost);
+          break;
+        }
+        if (price > company_.funds) {
+          s.note = upgrades::bought_words(upgrades::Bought::kNoFunds);
+          break;
+        }
+        if (!deal_asked(buy_question(company_, r), "SUPPLY")) return;
+        const upgrades::Bought b =
+            r.kind == LineKind::kKit
+                ? upgrades::buy_kit(company_, r.kit)
+                : upgrades::buy_step(company_, r.weapon, r.tech, r.step,
+                                     r.step == upgrades::Step::kRange ? type_range_most(r.weapon, r.tech) : -1);
+        done = b == upgrades::Bought::kDone;
+        const std::string what = r.kind == LineKind::kKit ? (r.kit == upgrades::Kit::kSink ? "a sink kit" : "an armour kit")
+                                                          : type_title(r.weapon, r.tech) + (r.step == upgrades::Step::kPower ? " +POWER" : " +RANGE");
+        s.note = done ? "Bought: " + what + ", " + thousands(price) + " C-bills." : upgrades::bought_words(b);
+        break;
+      }
+      case kSupplySell: {
+        const SupplyRow* chosen = chosen_own(company_, s, &rows);
+        if (!chosen || chosen->kind != LineKind::kWare || s.assigning) return;
+        const dealer::Ware w = chosen->ware;
+        const int64_t got = dealer::sell_price(w, company_.tier);
+        const dealer::Trade t = dealer::sell(company_, w);
+        done = t == dealer::Trade::kDone;
+        s.note = done ? "Sold: " + ware_title(w) + ", " + thousands(got) + " C-bills." : dealer::trade_words(t);
+        s.own_chosen = true;
+        break;
+      }
+      case kSupplyAssign:
+        s.assigning = !s.assigning, s.own = 0, s.own_top = 0, s.own_chosen = s.assigning;
+        s.note.clear();
+        break;
+      case kSupplyAddSink:
+      case kSupplyTakeSink:
+      case kSupplyAddArmour:
+      case kSupplyTakeArmour: {
+        const SupplyRow* chosen = chosen_own(company_, s, &rows);
+        if (!s.assigning || !chosen || chosen->kind != LineKind::kMech) return;
+        const int32_t owned = chosen->index;
+        const bool sink = id == kSupplyAddSink || id == kSupplyTakeSink, on = id == kSupplyAddSink || id == kSupplyAddArmour;
+        const upgrades::Bought b = upgrades::assign(company_, owned, sink ? upgrades::Kit::kSink : upgrades::Kit::kArmour, on ? 1 : -1);
+        done = b == upgrades::Bought::kDone;
+        s.note = done ? std::string(sink ? "A sink kit " : "An armour kit ") + (on ? "onto the " : "off the ") +
+                            mech_title(owned_mech(company_, owned)) + (on ? "." : ", back in the storehouse.")
+                      : upgrades::bought_words(b);
+        s.own_chosen = true;
+        break;
+      }
+      case kSupplySaleUp: step_supply(company_, s, false, -1); break;
+      case kSupplySaleDown: step_supply(company_, s, false, 1); break;
+      case kSupplyOwnUp: step_supply(company_, s, true, -1); break;
+      case kSupplyOwnDown: step_supply(company_, s, true, 1); break;
+      case kSupplyBack:
+        if (!ge) return;
+        screen_change([this, ge] {
+          show_market();
+          swap_to(*ge, market_);
+        });
+        return;
+      default: return;
+    }
+    if (!s.note.empty()) std::printf("mw1: supply: %s\n", s.note.c_str());
+    if (done) save();
+    show_supply();
   }
 
   // MECH LAB (FIXES.md item 8): Pirate's Moon's lab, as the briefing's MECHLAB opens it, with a copy of the company's
@@ -1746,14 +1920,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     const auto at = std::find(lab_slots_.begin(), lab_slots_.end(), i);
     lab_show_ = at == lab_slots_.end() ? 0 : static_cast<int32_t>(at - lab_slots_.begin());
     ge.set_lab_lance([this](int32_t slot, int32_t m) { lab_swap(slot, m); }, true);
-    if (!lab_hook_) {  // the lab's first slot shown, once its screen is up (each frame shown, until it is)
-      lab_hook_ = true;
-      auto before = ge.on_present;
-      ge.on_present = [this, before](int f) {
-        if (before) before(f);
-        lab_frame();
-      };
-    }
+    // lab_frame runs from main_entered's frame hook. No hook is put on here: a lab opened from inside a frame (a
+    // test's or a shot's step) would replace the running on_present and free it.
     std::printf("mw1: market: the mech lab on the %s, %zu slots\n", mech3::mech_name(mech), lab_slots_.size());
     ge.pilot_chosen(p);  // the lab's pilot is the engine's current one ([0x0060861c])
     ge.mech_lab_open(ge.store_handle(&g->store), 0);
@@ -2448,6 +2616,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
 
   void next_event() {
     mech3::GameEngine* ge = ge_;
+    if (death_page_) death_page_ = false, music::cue_end();  // FIXES 142: MW1's death page read: its song stopped
     Shown s;
     if (!ge || !next(company_, ev_, rng_, &s)) return events_done();
     std::printf("mw1: story: event %#x (class %d)%s%s\n", s.event, ev_.cls, s.captions.empty() ? "" : ", a choice", s.restart ? ", a death" : "");
@@ -2477,6 +2646,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       // MW1 restarts the campaign here (PLAY AGAIN / QUIT); ours never does (FIXES.md item 33, the owner: "you cant die in
       // this one"): the page is shown and play goes on.
       std::printf("mw1: story: MW1 would restart here; play goes on (FIXES.md item 33)\n");
+      music::cue(music::Cue::kDeath), death_page_ = true;  // FIXES 142: DEATH's, over the page (MW1's restart event)
     } else {
       ev_panel_.captions = s.captions;
       if (s.event == kEventDarkWingAttack) ev_panel_.live = {kDarkWingBattle, true};  // ATTACK waits for its battle (Q5)
@@ -2497,6 +2667,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   void events_done() {
     mech3::GameEngine* ge = ge_;
     const bool was_up = event_up_;
+    if (death_page_) death_page_ = false, music::cue_end();  // FIXES 142: MW1's death page read
     if (event_up_ && ge) ge->pop_state(1);
     event_up_ = false, event_state_ = nullptr, news_.clear();
     steps_wait(company_);  // item 47: a step's event left without its battle won waits to fire again
@@ -2617,7 +2788,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     }
     if (!pg.lines.empty()) pages.push_back(pg);
     set_pages(pages);
-    if (raise_event(*ge_)) credits_next_ = true, show_event();
+    if (raise_event(*ge_)) credits_next_ = true, show_event(), music::cue(music::Cue::kEnding);  // FIXES 142: VICTORY's
   }
   static constexpr const char* kVictoryScene = "mw1_story_honor_restored";
   static constexpr size_t kVictoryPageLines = 12;
@@ -3202,6 +3373,10 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   }
   void mission_launched(mech3::Engine&) override {
     loading_.reset();  // the loading screen's job done
+    if (deployed_) {  // FIXES 118: every mech made, the sides known; the kits' answers cached per mech from now
+      kit_answers::settle();
+      std::printf("mw1: %s\n", kit_answers::summary().c_str());
+    }
     if (deployed_) add_boundary();
     // FIXES 140: an MW3 world's map (its briefing has none), for the radar's map mode and the waypoints.
     if (deployed_) {
@@ -3466,6 +3641,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   HubState* hub_state() const { return hub_state_; }
   MarketState* market_state() const { return market_state_; }
   const MarketChoice* market_choice() const { return &choice_; }
+  SupplyState* supply_state() const { return supply_state_; }
+  const SupplyChoice* supply_choice() const { return &schoice_; }
   int32_t market_panel_mech() const { return market_shown_mech(company_, choice_); }
   BarState* bar_state() const { return bar_state_; }
   OfficeState* office_state() const { return office_state_; }
@@ -3753,6 +3930,8 @@ static bool reach_ground(const std::string& structure, float out[3]) {
       switch (load_file(save_path_, company_, contract_, &has_offer, &why, pending.get(), &has_pending)) {
         case Loaded::kLoaded:
           if (!company_.market.rolled) refresh_world(company_, rng_);  // a version 1 save: no market yet
+          // FIXES 122: a save from before the arms dealer: its stock as this world and date roll it (its own seed).
+          if (!company_.dealer.rolled) dealer::roll_stock(company_);
           // Before version 4: no Bar yet. (Not on an empty list: a save whose recruits were all hired keeps none; FIXES 125's
           // LOAD reads the slot again over the company in play, and the soak found the redraw.)
           else if (company_.recruits_unsaved) refresh_recruits(company_, rng_), company_.recruits_unsaved = false;
@@ -4369,6 +4548,7 @@ static bool reach_ground(const std::string& structure, float out[3]) {
                         ? on(game_loop_event())
                     : p.rfind("hub", 0) == 0                ? on(game_loop_hub())
                     : p.rfind("market", 0) == 0             ? on(game_loop_market())
+                    : p.rfind("supply", 0) == 0             ? on(game_loop_supply())
                     : p.rfind("travel", 0) == 0             ? on(game_loop_travel())
                     : p.rfind("office", 0) == 0             ? on(game_loop_office())
                     : p.rfind("bar", 0) == 0 || p == "company" ? on(game_loop_bar())
@@ -4639,6 +4819,9 @@ static bool reach_ground(const std::string& structure, float out[3]) {
     g->store.add_all(*company_.stores);
     p->save();
     deployed_ = true, launched_ = false;
+    // FIXES 118: the company's kits and steps answer the engine's hooks for this mission, from before it loads (a
+    // part's armour is set as its 'Mech is built). Whose a mech is: the commander's, a lancemate's, or neither.
+    kit_answers::arm(company_, [this](const void* m) { return whose(const_cast<void*>(m)); });
     std::printf("mw1: deployed to %sia%d with the %s: loading\n", contract_.world.c_str(), contract_.ia,
                 mech3::mech_name(company_.mech));
     ge.replace_state(6);  // the Load state: the mission loaded behind MW1's loading screen, then launched
@@ -4675,6 +4858,8 @@ static bool reach_ground(const std::string& structure, float out[3]) {
   CreditsState* credits_state_ = nullptr;
   bool credits_next_ = false;  // the victory's panel up: the credits when it's read
   bool credits_up_ = false;
+  bool death_page_ = false;  // FIXES 142: MW1's death event's page up, its song (DEATH) over it
+  bool hub_was_top_ = false;  // FIXES 142: the hub's screen the top one at the last frame
   Start start_ = Start::kMenu;
   mech3::GameEngine* hub_engine_ = nullptr;
   mech3::GameEngine* ge_ = nullptr;
@@ -4698,6 +4883,9 @@ static bool reach_ground(const std::string& structure, float out[3]) {
   mech3::ModelView model_view_;  // the Mech Complex's live 'Mech, open while the market is shown
   float market_turn_ = 0.0f;
   MarketChoice choice_;
+  zgame::Handle supply_ = 0;  // 1.1.0: the Mech Complex's SUPPLY
+  SupplyState* supply_state_ = nullptr;
+  SupplyChoice schoice_;
   int32_t lab_owned_ = -1;
   // FIXES.md item 14's render pass and its stage (render_pass_frame, render_stage).
   struct RenderPass {
@@ -4726,7 +4914,6 @@ static bool reach_ground(const std::string& structure, float out[3]) {
   std::vector<int32_t> lab_slots_;
   std::vector<std::shared_ptr<mech3::Config>> lab_loadouts_;
   int32_t lab_show_ = 0;
-  bool lab_hook_ = false;
   static constexpr int32_t kLabCriticalsPage = 3;  // the criticals page: LOAD-OUT and the supplies (ICON_CRITICALS)
   std::shared_ptr<mech3::Store> salvage_;  // this mission's parts, the stores' on a win
   bool deployed_ = false, launched_ = false, ended_ = false, failed_ = false, own_wins_ = false;
@@ -4798,6 +4985,7 @@ void install_game_loop(uint32_t seed, const char* reach) {
   mech3::set_action_lineup_capacity(kLineupSlots);  // FIXES.md item 48: 16 past the commander (the exe's ten)
   mech3::set_objectives_extension(the_loop().get());
   mech3::ai::set_walk_keeps_going(true);  // FIXES 110: a walk under way doesn't brake at 10 degrees off (zai_walk_pm.h)
+  kit_answers::install();  // FIXES 118: the engine's upgrade hooks, answered while a contract is deployed
 }
 
 void uninstall_game_loop() {
@@ -4805,6 +4993,7 @@ void uninstall_game_loop() {
   mech3::set_action_lineup_capacity(mech3::ActionGame::kLineupExe);
   mech3::set_objectives_extension(nullptr);
   mech3::ai::set_walk_keeps_going(false);
+  kit_answers::uninstall();
   the_loop().reset();
 }
 
@@ -4854,6 +5043,14 @@ std::string game_loop_objective_built(bool* fell_back) {
 }
 
 const AfterAction* game_loop_pending() { return the_loop() ? the_loop()->pending() : nullptr; }
+
+int32_t results_song(const AfterAction& a, int32_t rung) {
+  if (rung == kDarkWingRung) return -1;
+  if (a.outcome == Outcome::kSuccess) return static_cast<int32_t>(music::Cue::kDebrief);
+  for (const LanceFate& f : a.lance)
+    if (pilot_killed(f) || pilot_missing(f)) return static_cast<int32_t>(music::Cue::kDeath);
+  return -1;
+}
 std::vector<std::string> game_loop_lance_downs() { return the_loop() ? the_loop()->lance_downs() : std::vector<std::string>{}; }
 HubState* game_loop_hub() { return the_loop() ? the_loop()->hub_state() : nullptr; }
 ResultsState* game_loop_results() { return the_loop() ? the_loop()->results_state() : nullptr; }
@@ -4883,6 +5080,8 @@ void game_loop_offer_again() {
 bool game_loop_lance(const std::vector<int32_t>& slots) { return the_loop() && the_loop()->lance_for_tests(slots); }
 MarketState* game_loop_market() { return the_loop() ? the_loop()->market_state() : nullptr; }
 const MarketChoice* game_loop_market_choice() { return the_loop() ? the_loop()->market_choice() : nullptr; }
+SupplyState* game_loop_supply() { return the_loop() ? the_loop()->supply_state() : nullptr; }
+const SupplyChoice* game_loop_supply_choice() { return the_loop() ? the_loop()->supply_choice() : nullptr; }
 int32_t game_loop_market_panel_mech() { return the_loop() ? the_loop()->market_panel_mech() : -1; }
 TravelState* game_loop_travel() { return the_loop() ? the_loop()->travel_state() : nullptr; }
 const std::vector<AllyLaunch>& game_loop_ally_launches() {

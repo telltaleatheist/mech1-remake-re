@@ -113,6 +113,7 @@ TEST(mw1_look_mw1_opens_only_its_own_layouts) {
       const std::string n = (*i)[1].str();
       if (n == "targets.zrd") continue;
       if (n == "maps.zrd") continue;  // MW3's mission maps, read from MW3's own reader.zbd (mw1_mission_maps.cpp, FIXES 140)
+      if (n == "weapons.zrd") continue;  // PM's weapon data, read from PM's mounted archives at the hub (mw1_weapon_data.cpp)
       if (n == "world.zrd" || n == "objectives.zrd") continue;  // the converted world's, our arctic blocks appended (mw1_arctic.cpp)
       if (n == "dlgPause.zrd" || n == "dlgOptions.zrd") continue;  // swapped away (mw1_layouts.h), not opened
       if (n == "dlgMechLabII.zrd" || n == "dlgLoadSave.zrd") continue;  // reskinned (mw1_lab_skin.h): PM's code reads them
