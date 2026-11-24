@@ -15,6 +15,10 @@ namespace fs = std::filesystem;
 
 namespace mw1 {
 
+bool records_program(const std::vector<std::string>& rest) {
+  return std::none_of(rest.begin(), rest.end(), [](const std::string& s) { return s == "--hidden" || s == "--status"; });
+}
+
 Args parse(int argc, char** argv) {
   Args a;
   for (int i = 1; i < argc; ++i) {

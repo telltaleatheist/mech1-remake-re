@@ -316,3 +316,15 @@ TEST(mw1_moved_install_places_battletech_then_the_pointer) {
     EXPECT(mw1::moved_install_places("").empty());
   }
 }
+
+// The launcher's record of where MW1 is (sdl_games.h's record_self): a player's start only.
+TEST(mw1_records_its_program_for_a_players_start) {
+  auto rest = [](std::vector<const char*> argv) {
+    argv.insert(argv.begin(), "mw1");
+    return mw1::parse(static_cast<int>(argv.size()), const_cast<char**>(argv.data())).rest;
+  };
+  EXPECT(mw1::records_program(rest({})));
+  EXPECT(mw1::records_program(rest({"--windowed", "--write-dir", "/w"})));
+  EXPECT(!mw1::records_program(rest({"--hidden"})));
+  EXPECT(!mw1::records_program(rest({"--write-dir", "/w", "--status"})));
+}

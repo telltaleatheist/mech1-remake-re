@@ -43,6 +43,7 @@
 #include "platform/pointer_hands_off.h"
 #include "gamez/zutil/zutl_path.h"
 #include "frontend/sdl/crash_report.h"
+#include "frontend/sdl/sdl_games.h"
 #include "frontend/sdl/sdl_platform.h"
 #include "frontend/sdl/sdl_twod_host.h"
 #include "gamez/ztwod/twod_host.h"
@@ -207,6 +208,9 @@ int main(int argc, char** argv) {
     std::error_code ec;
     std::filesystem::create_directories(a.write_dir, ec);
   }
+  // Where this program is, for the launcher (its rebuild-program.txt in the user folder, after the folder has moved):
+  // a copy installed without it is found and linked. A released build's only, never the launcher's own copy.
+  if (mw1::records_program(a.rest)) sdlfe::games::record_self(a.write_dir, upgrades::update::Game::kMw1, version);
   const mw1::Installs saved = mw1::read_cfg(a.write_dir);
   mw1::Installs use = mw1::merge(a.given, saved);
   // FIXES 145: an install saved inside a family folder that has since moved (MicroProse to BattleTech, the launcher

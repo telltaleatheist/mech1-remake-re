@@ -54,6 +54,9 @@ struct Args {
 // argv[1..] split into mw1's own and the game's. --install and --write-dir
 // are read and also left in `rest` (the game main takes them too).
 Args parse(int argc, char** argv);
+// Whether this start is recorded in the user folder for the launcher (its rebuild-program.txt, sdl_games.h): a
+// player's, so not a --hidden run or a --status answer.
+bool records_program(const std::vector<std::string>& rest);
 
 // mw1.cfg in the write dir: install=, mw3_install=, mw1_game=, the sound's music=, music_volume=, effects_volume=, and
 // save_slot= (FIXES 125) (a line each,
