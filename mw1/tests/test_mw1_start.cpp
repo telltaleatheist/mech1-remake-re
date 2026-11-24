@@ -300,20 +300,33 @@ TEST(mw1_user_folder_read_only_parent_keeps_the_old) {
 #endif
 
 // FIXES 145: a saved install inside a family folder that has moved, looked for where it is now.
+namespace {
+// The candidates as paths: their text is in the platform's own separators (Windows', whatever the saved path had).
+std::vector<fs::path> places_for(const fs::path& saved) {
+  std::vector<fs::path> out;
+  for (const std::string& p : mw1::moved_install_places(saved.string())) out.emplace_back(p);
+  return out;
+}
+std::vector<fs::path> normal(std::vector<fs::path> v) {
+  for (fs::path& p : v) p = p.lexically_normal();
+  return v;
+}
+}  // namespace
+
 TEST(mw1_moved_install_places_battletech_then_the_pointer) {
   for (const char* form : kAppDataForms) {
     const fs::path base = fresh("mw1family_install") / form;
     const fs::path old_pm = base / mw1::kOldOrg / "Pirate's Moon", new_pm = base / mw1::kOrg / "Pirate's Moon";
     const fs::path elsewhere = fresh("mw1family_install_elsewhere") / "PM data";
     put(old_pm / "data-folder.txt", elsewhere.string() + "\r\n");
-    const std::vector<std::string> places = mw1::moved_install_places((old_pm / "install").string());
-    EXPECT((places == std::vector<std::string>{(new_pm / "install").string(), (elsewhere / "install").string()}));
+    const std::vector<fs::path> places = places_for(old_pm / "install");
+    EXPECT((normal(places) == normal({new_pm / "install", elsewhere / "install"})));
     // The family folder itself, and a deeper path.
-    EXPECT(mw1::moved_install_places(old_pm.string()).front() == new_pm.string());
-    EXPECT(mw1::moved_install_places((old_pm / "install" / "zbd").string()).front() == (new_pm / "install" / "zbd").string());
+    EXPECT(normal(places_for(old_pm)).front() == new_pm.lexically_normal());
+    EXPECT(normal(places_for(old_pm / "install" / "zbd")).front() == (new_pm / "install" / "zbd").lexically_normal());
     // No pointer: BattleTech's place only. Inside no MicroProse folder: none.
     fs::remove(old_pm / "data-folder.txt");
-    EXPECT(mw1::moved_install_places((old_pm / "install").string()) == std::vector<std::string>{(new_pm / "install").string()});
+    EXPECT(normal(places_for(old_pm / "install")) == normal({new_pm / "install"}));
     EXPECT(mw1::moved_install_places((new_pm / "install").string()).empty());
     EXPECT(mw1::moved_install_places("").empty());
   }
