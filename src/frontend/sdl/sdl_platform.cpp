@@ -2,8 +2,10 @@
 #include "upgrades/game_boxes.h"
 
 #include <cmath>
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <string>
 
 #include "frontend/sdl/sdl_input.h"
 #include "gamez/zgame/zgameapp.h"
@@ -32,8 +34,29 @@ bool SdlWindow::init(bool hidden_for_good, SDL_Window* adopt) {
 #if defined(MW3_HAVE_SPIRV)
   formats |= SDL_GPU_SHADERFORMAT_SPIRV;
 #endif
-  device_ = SDL_CreateGPUDevice(formats, false, nullptr);
+  // MW3_GPU_DEBUG=1 (ours): the backend's validation (the D3D12 debug layer, Vulkan's validation layers, Metal's
+  // checks) where the system has it, its findings in the log; for players' graphics reports, never on by default.
+  const char* debug_env = std::getenv("MW3_GPU_DEBUG");
+  const bool debug = debug_env && *debug_env && std::strcmp(debug_env, "0") != 0;
+  device_ = SDL_CreateGPUDevice(formats, debug, nullptr);
+  if (!device_ && debug) {
+    std::printf("mw3: GPU: no device with validation (%s); without it\n", SDL_GetError());
+    device_ = SDL_CreateGPUDevice(formats, false, nullptr);
+  }
   if (!device_) return std::fprintf(stderr, "mw3: SDL_CreateGPUDevice: %s\n", SDL_GetError()), false;
+  // Which card and driver (ours, issues #2, #5, #17): a player's log says what the game draws with.
+  const SDL_PropertiesID gp = SDL_GetGPUDeviceProperties(device_);
+  auto prop = [gp](const char* name) {
+    const char* v = gp ? SDL_GetStringProperty(gp, name, nullptr) : nullptr;
+    return std::string(v && *v ? v : "?");
+  };
+  const char* backend = SDL_GetGPUDeviceDriver(device_);
+  std::string driver;  // Vulkan and D3D12 say; Metal does not
+  for (const char* k : {SDL_PROP_GPU_DEVICE_DRIVER_NAME_STRING, SDL_PROP_GPU_DEVICE_DRIVER_VERSION_STRING,
+                        SDL_PROP_GPU_DEVICE_DRIVER_INFO_STRING})
+    if (const std::string v = prop(k); v != "?") driver += " " + v;
+  std::printf("mw3: GPU: %s; driver%s; SDL GPU %s%s\n", prop(SDL_PROP_GPU_DEVICE_NAME_STRING).c_str(),
+              driver.empty() ? " not given" : driver.c_str(), backend ? backend : "?", debug ? ", validation asked for (where its layer is installed)" : "");
   window_ = adopt ? adopt : SDL_CreateWindow(shown_title("", "MechWarrior 3"), 1280, 960, SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE);
   if (adopt) std::printf("mw3: the game took the launcher's window\n");
   if (!window_) return std::fprintf(stderr, "mw3: SDL_CreateWindow: %s\n", SDL_GetError()), false;

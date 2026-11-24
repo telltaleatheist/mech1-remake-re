@@ -1063,6 +1063,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
         screen_change([this, ge] {
           tchoice_ = TravelChoice{};
           tchoice_.story = story_lead_world();
+          if (truly_stranded(company_)) tchoice_.world = passage_world(company_);  // TAKE PASSAGE's world, chosen
           show_travel();
           swap_to(*ge, travel_);
         });
@@ -1553,18 +1554,27 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     switch (id) {
       case kTravelGo: {
         const int32_t w = chosen_world(company_, tchoice_);
-        const int64_t cost = w >= 0 ? travel_cost(company_, kPlanets[w]) : 0;
         const int32_t from = planet_index(company_.planet_number);
-        const Trip t = mw1::travel(company_, w, rng_);
-        if (t == Trip::kDone) log_add(company_, LogKind::kTravelled, true, from, w, 0, 0, cost);
-        if (t != Trip::kDone) {
-          tchoice_.note = trip_words(t);
-          std::printf("mw1: travel: %s\n", tchoice_.note.c_str());
-          break;
+        // Truly stranded, GO is TAKE PASSAGE while the passage's world (or none) is chosen: the working passage
+        // (mw1_travel.h), no fare, no wages on the way.
+        if (const int32_t pw = passage_world(company_); truly_stranded(company_) && pw >= 0 && (w < 0 || w == pw)) {
+          if (work_passage(company_, rng_) != Trip::kDone) break;
+          log_add(company_, LogKind::kWorkedPassage, true, from, pw);
+          std::printf("mw1: worked passage to %s: %s, funds %s\n", company_.planet.c_str(), date_words(company_.date).c_str(),
+                      thousands(company_.funds).c_str());
+        } else {
+          const int64_t cost = w >= 0 ? travel_cost(company_, kPlanets[w]) : 0;
+          const Trip t = mw1::travel(company_, w, rng_);
+          if (t == Trip::kDone) log_add(company_, LogKind::kTravelled, true, from, w, 0, 0, cost);
+          if (t != Trip::kDone) {
+            tchoice_.note = trip_words(t);
+            std::printf("mw1: travel: %s\n", tchoice_.note.c_str());
+            break;
+          }
+          std::printf("mw1: travelled to %s for %s C-bills: %s, funds %s\n", company_.planet.c_str(), thousands(cost).c_str(),
+                      date_words(company_.date).c_str(), thousands(company_.funds).c_str());
         }
         // Arrived (081B:5F15): the new world's market (travel's); its offers at its House office; the hub.
-        std::printf("mw1: travelled to %s for %s C-bills: %s, funds %s\n", company_.planet.c_str(), thousands(cost).c_str(),
-                    date_words(company_.date).c_str(), thousands(company_.funds).c_str());
         clear_contract();
         if (!ge) return;
         screen_change([this] { launch_movie(); });  // the DropShip launches (FIXES.md item 54), then the hub
@@ -3091,7 +3101,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       return "Contract: " + objective_words(contract_) + " for " + kHouses[contract_.house].name + ". DEPLOY.";
     // Stranded (nothing to earn, no fare out): its own words, why and what to do (the STARPORT has the rest).
     const std::vector<std::string> stranded = stranded_lines(company_);
-    if (!stranded.empty()) return "Stranded: no fare out, no contracts. See the STARPORT.";
+    if (!stranded.empty())
+      return truly_stranded(company_) ? "Stranded: a JumpShip offers passage. See the STARPORT."  // mw1_travel.h
+                                      : "Stranded: no fare out, no contracts. See the STARPORT.";
     return !contracts_here(company_) ? "No House office here: TRAVEL to a world with one."
            : refuses(company_, company_.planet_house) ? "House " + house + " won't deal with you: TRAVEL on."
            : !earning_here(company_) ? "Negotiations here are over: TRAVEL on."

@@ -662,6 +662,14 @@ bool find_install(Args& a) {
   if (!std::getenv("MW3_FIND_INSTALL")) dev.push_back(MW3_GAME_DIR);  // a development build's copy (not with MW3_FIND_INSTALL=1)
 #endif
   bool searched = false;
+  // Where the player put the game first (issue #10): its own game folder's files, ahead of an older place mw3.cfg
+  // remembers (a 1.0.x install left on C: when this one went on E:).
+  const std::string own = sdlfe::own_game_files("pm");  // branch pm: mw3pm's own folder (game=pm)
+  if (!own.empty() && sdlfe::install_valid(own)) {
+    if (own != a.cfg_install) std::printf("mw3: the game folder's own files %s, not mw3.cfg's %s\n", own.c_str(), a.cfg_install.c_str());
+    a.install = own;
+    return true;
+  }
   a.install = sdlfe::find_install(a.cfg_install, dev, may_ask, &searched);
   a.first_start = searched;
   if (a.install.empty()) {

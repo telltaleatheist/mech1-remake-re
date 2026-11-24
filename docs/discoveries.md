@@ -832,6 +832,21 @@ From the weapon code (weapons.md).
 - **What FCS does for missiles is terrain following**: with FCS in the firing
   part (and no ECM on the target), missiles flying under 10 m with ground in
   the way climb (0x5859fb, likely).
+- **For modders: a weapon's speed must be typed as a decimal.** In
+  `weapons.zrd`, a whole number and a decimal sit in the same four bytes, and
+  the weapon loader reads `VELOCITY` as a decimal without asking which was
+  typed. `[900]` comes out as about 0.000...0013 (41 zeros after the point), so the shot never
+  leaves the gun under its own power and drifts with the mech that fired it,
+  muzzle flash, trail and all; `[900.0]` flies (0x583880, `zwep_init`).
+  The same holds for every number the stock file writes with a `.0`. (Found
+  2026-11-23 with a modder's new weapon.)
+- **For modders: a SALVO multiplies the ammo per ton.** A weapon's `MASS`
+  `ammo` is rounds per ton before the salvo: with a `SALVO`, the game
+  multiplies it by the salvo's `truecount` (the machine gun's 50 is really 200,
+  four rounds a pull). Take the SALVO away and each round weighs four times as
+  much. A loadout that then weighs more than its 'Mech (0.24 t of slack) fails
+  the game's check without a word, and the 'Mech is set up with nothing: no
+  weapons, the base heat sinks, no speed (0x4254d0, 0x414430; mechdef-head.md).
 
 ## Sound
 
@@ -859,6 +874,14 @@ From the weapon code (weapons.md).
   taunts ("you'll pay", "yeah right", "don't take", "not gonna", "can't do",
   "goodbye", "returning"), the "occupied" calls, the mech's eject voice, and
   36 lines of mission dialogue and one ambient loop. They simply stay silent.
+  When a sound is missing from the archives, the game looks for it as a loose
+  file in `../data/common/sounds`, a folder from the developers' own source
+  tree that no install has. So on the developers' machines these files most
+  likely played, and nobody noticed they were never packed into the archives.
+  Whether all 60 were recorded is unknown (numbered names like `ge5310` to
+  `ge5315` look like takes from a recording session). None are in the 1.0 or
+  1.2 install or in Pirate's Moon, so every copy of the game has been silent
+  there since 1999.
 - **Wingmen never say they are low or out of ammo.** The game looks up
   `dom_low_ammo`, `alan_out_of_ammo` and so on (0x4e7dc0, "%s_%s"), but in
   `sounds.zrd` those six groups list `"PLAY_COUNT" 2` after their name, and
@@ -4171,6 +4194,12 @@ The screen after the pilot for INSTANT ACTION, 0x00488bc0 (details:
   second press asks for the repair at the chosen point; a third cancels
   it. While a repair is running the first press only gets "occupied".
   (docs/vehicles.md, The mcbwaynet)
+- **The field bases' empty op point locks them for the mission.** Cycling
+  the field bases' points with N or Shift+N comes round to an empty entry
+  at the start of the list. Press MFB on it and the bases are sent nowhere:
+  they never arrive, and the dock refuses every call for the rest of the
+  mission. (The rebuild waits for a real point instead.) (issue #10;
+  docs/vehicles.md, The mcbwaynet)
 
 - **How a field base repair runs.** Once you ask for a repair, the bases
   first drive to their places; then the dock waits until you are within

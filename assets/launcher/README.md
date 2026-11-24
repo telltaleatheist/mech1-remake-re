@@ -46,6 +46,8 @@ are made again with an outpainted seam). "MW3 REBUILD" is a working title.
 `font.ttf` is not ours: Saira Condensed Bold by the Saira Project Authors,
 unchanged, under the SIL Open Font License 1.1 (`font-OFL.txt`; "Saira" is
 its reserved name), from github.com/google/fonts `ofl/sairacondensed`.
+`font_body.ttf` (2026-11-24, the panels' status lines and descriptions) is
+Saira Condensed Medium from the same place, under the same licence, unchanged.
 
 **MW1's ORIGINAL tab (2026-11-22):** `badge_mw1o.png`, MechWarrior 1
 Rebuild's badge (the 1989 game as released), shown when the MECHWARRIOR 1
@@ -57,5 +59,17 @@ flat colours, a humanoid war robot with a squat torso, stubby arms with gun
 barrels and thick legs, the pixel art set into embossed brushed steel with
 green phosphor enamel inlays like an old computer monitor, inside a thick
 circular brushed steel rim with small rivets around it, symmetrical, front
-view, centred on a pure black background, no text, no letters." Inception's
-card has no badge yet (a plain disc): its art must be our own too.
+view, centred on a pure black background, no text, no letters."
+
+**Inception's badge (2026-11-24):** `badge_inception.png`, the hawk made for the
+launcher mockups of 2026-11-19 and approved for Inception's icon on 2026-11-23.
+Qwen-Image 2.1, 768x768, 40 steps, seed 32, cut out with `tools/badge_cutout.py`:
+"A round military unit patch badge: the head of a hawk in side profile facing
+right, sharp hooked beak, fierce eye, nested inside the curve of a thin crescent
+moon, embossed brushed steel with deep crimson enamel inlays, inside a thick
+circular brushed steel rim with small rivets around it, symmetrical, front view,
+centred on a pure black background, no text, no letters."
+
+**The panels (2026-11-24):** the main screen lists one panel a game (the badge,
+the name, its status and a line about it, its button), the look of the download
+page; the cards and their tabs are gone, each game's badge is its own.
