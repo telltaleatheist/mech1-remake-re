@@ -135,6 +135,7 @@ SdlRender3D::SdlRender3D(SDL_GPUDevice* device, SDL_Window* window) : dev_(devic
 }
 
 SdlRender3D::~SdlRender3D() {
+  flush_uploads();
   if (last_frame_) SDL_WaitForGPUFences(dev_, true, &last_frame_, 1), SDL_ReleaseGPUFence(dev_, last_frame_);
   for (auto& [k, p] : pipelines_) SDL_ReleaseGPUGraphicsPipeline(dev_, p);
   for (auto& [k, s] : samplers_) SDL_ReleaseGPUSampler(dev_, s);
@@ -272,6 +273,7 @@ void* SdlRender3D::map_tex_staging(uint32_t bytes, uint32_t* offset) {
     s.buf = SDL_CreateGPUTransferBuffer(dev_, &tbi);
     at = 0;
   } else if (at > s.size - bytes) {
+    flush_uploads();
     cycle = true, at = 0;
   }
   if (!s.buf) return nullptr;
@@ -314,8 +316,8 @@ void SdlRender3D::upload(SDL_GPUTexture* t, int width, int height, const uint8_t
   }
   SDL_GPUTransferBuffer* tb = tex_staging_.buf;
   SDL_UnmapGPUTransferBuffer(dev_, tb);
-  SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(dev_);
-  SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd);
+  if (!upload_cmd_ && !(upload_cmd_ = SDL_AcquireGPUCommandBuffer(dev_))) return;
+  SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(upload_cmd_);
   uint32_t offset = base;
   for (size_t level = 0; level <= chain.size(); ++level) {
     const int w = level ? chain[level - 1].width : width, h = level ? chain[level - 1].height : height;
@@ -326,7 +328,17 @@ void SdlRender3D::upload(SDL_GPUTexture* t, int width, int height, const uint8_t
     offset += level_bytes(w, h);
   }
   SDL_EndGPUCopyPass(copy);
-  SDL_SubmitGPUCommandBuffer(cmd);
+  if (++upload_n_ >= 64) flush_uploads();
+}
+
+// Texture uploads share a command buffer (issue #7): one each, with no frame between them, a mission's load had some
+// 430 in flight at once, and NVIDIA's Linux driver holds open files for each one's memory (1,024 is a usual limit;
+// past it the next allocation, a readback's buffer, failed and the driver crashed).
+void SdlRender3D::flush_uploads() {
+  if (!upload_cmd_) return;
+  SDL_SubmitGPUCommandBuffer(upload_cmd_);
+  upload_cmd_ = nullptr, upload_n_ = 0;
+  ++n_batches_;
 }
 
 void SdlRender3D::release_texture(int32_t h) {
@@ -446,6 +458,7 @@ void SdlRender3D::end_scene() {
                  vertices_.size() / 3, runs_.size(), textures_.size(), vx_, vy_, vw_, vh_);
   if (!ensure_frame()) return;
   ++n_scenes_;
+  flush_uploads();
   SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(dev_);
   const auto bytes = static_cast<uint32_t>(vertices_.size() * sizeof(platform::TLVertex));
   void* to = bytes ? map_staging(vert_staging_, bytes) : nullptr;
@@ -517,12 +530,14 @@ bool SdlRender3D::read_back(std::vector<uint32_t>* argb, int* width, int* height
   const Uint32 w = frame_w_, h = frame_h_;
   if (w == 0 || h == 0) return false;
   ++n_readbacks_;
+  flush_uploads();
   // Issue #7 (Linux, Vulkan: a crash inside SDL_DownloadFromGPUTexture at a
   // mission's start and in the mech lab): each step checked; a readback that
   // cannot be made is none (the fade starts from black, the grab is empty).
   auto failed = [](const char* step) {
     static int said = 0;
-    if (said++ < 3) std::printf("mw3: render: the frame's readback failed at %s: %s\n", step, SDL_GetError());
+    if (said++ < 3)
+      std::printf("mw3: render: the frame's readback failed at %s: %s (open files %s)\n", step, SDL_GetError(), open_files().c_str());
     return false;
   };
   // The buffer at the frame's own texel size; a swapchain that is not 4 bytes
@@ -603,11 +618,13 @@ bool SdlRender3D::hold_frame() {
   }
   if (!held_) return false;
   ++n_holds_;
+  flush_uploads();
   copy_texture(dev_, frame_, held_, frame_w_, frame_h_);
   return true;
 }
 bool SdlRender3D::restore_frame() {
   if (!held_ || !ensure_frame() || held_w_ != frame_w_ || held_h_ != frame_h_) return false;
+  flush_uploads();
   copy_texture(dev_, held_, frame_, frame_w_, frame_h_);
   clear_pending_ = false;  // the next pass draws over it
   frame_new_ = false;
@@ -664,14 +681,16 @@ void SdlRender3D::present() {
       if (textures_[i]) ++live, bytes += tex_bytes_[i];
     std::printf("mw3: GPU count: frame %llu, %zu textures alive of %zu made, %.1f MB; pipelines %zu, samplers %zu; "
                 "since the last: %llu scenes, %llu uploads (%.1f MB), %llu readbacks, %llu holds; vertex buffer %.1f MB, "
-                "staging %.1f + %.1f MB; process %.0f MB\n",
+                "staging %.1f + %.1f MB; process %.0f MB; %llu upload batches; open files %s\n",
                 static_cast<unsigned long long>(presents_ - 1), live, textures_.size(), bytes / 1048576.0,
                 pipelines_.size(), samplers_.size(), static_cast<unsigned long long>(n_scenes_),
                 static_cast<unsigned long long>(n_uploads_), upload_bytes_ / 1048576.0,
                 static_cast<unsigned long long>(n_readbacks_), static_cast<unsigned long long>(n_holds_),
-                vbuf_size_ / 1048576.0, tex_staging_.size / 1048576.0, vert_staging_.size / 1048576.0, process_mb);
-    n_scenes_ = n_uploads_ = upload_bytes_ = n_readbacks_ = n_holds_ = 0;
+                vbuf_size_ / 1048576.0, tex_staging_.size / 1048576.0, vert_staging_.size / 1048576.0, process_mb,
+                static_cast<unsigned long long>(n_batches_), open_files().c_str());
+    n_batches_ = n_scenes_ = n_uploads_ = upload_bytes_ = n_readbacks_ = n_holds_ = 0;
   }
+  flush_uploads();
   SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(dev_);
   if (capture_path_) {
     SDL_SubmitGPUCommandBuffer(cmd);

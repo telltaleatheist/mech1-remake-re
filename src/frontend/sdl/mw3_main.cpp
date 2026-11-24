@@ -793,6 +793,7 @@ int main(int argc, char** argv) {
 namespace {
 int program(int argc, char** argv) {
   if (sdlfe::crash_box_main(argc, argv)) return 0;
+  sdlfe::raise_open_file_limit();
   // In order with the log on stderr. Windows' CRT has no line buffering (and takes size 0 as
   // an invalid argument): unbuffered there.
 #if defined(_WIN32)
