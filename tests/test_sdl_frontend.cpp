@@ -52,6 +52,7 @@ int unsetenv(const char* name) { return _putenv_s(name, ""); }
 #endif
 #include "mech3/source_map.h"
 #include "mech3/patch_import.h"
+#include "frontend/sdl/sdl_games.h"
 #include "frontend/sdl/sdl_update.h"
 #include "frontend/sdl/sdl_restart.h"
 #include "gamez/zutil/zutl_zar.h"
@@ -7142,6 +7143,8 @@ TEST(sdl_program_launcher_links_and_uninstalls) {
     fake(d + "/games/pm/mw3pm", "pm-v1.2.6");
     std::ofstream(d + "/games/pm/rebuild-game.txt") << "# x\ngame=pm\ntag=pm-v1.2.6\nfile=x\nsha256=x\nfrom=github\n";
     std::ofstream(d + "/games/rebuild-games.txt") << "# x\n";
+    // A record naming the launcher's own copy (a 1.3.5 game it started): never linked as one installed without it.
+    std::ofstream(d + "/pmwd/rebuild-program.txt") << "# x\ngame=pm\nprogram=" << d << "/games/pm/mw3pm\nversion=pm-v1.2.6\n";
     fs::create_directories(d + "/pmwd/install");  // the game files as our copying leaves them (links to game/pm here)
     for (const auto& e : fs::directory_iterator(pm_files)) fs::create_symlink(e.path(), d + "/pmwd/install/" + e.path().filename().string());
     std::ofstream(d + "/pmwd/install/mw3-install.txt") << "x\n";
@@ -7162,6 +7165,24 @@ TEST(sdl_program_launcher_links_and_uninstalls) {
   EXPECT(rf.exited && has(rf.log, "Pirate's Moon was uninstalled, with its game files.") && !fs::exists(f + "/games/pm", ec));
   EXPECT(!fs::exists(f + "/pmwd/install", ec) && !fs::exists(f + "/pmwd/.install.removing", ec) && fs::is_regular_file(pm_files + "/Mech3.exe", ec));
   EXPECT(!has(cfg(f), "pm_install=/"));
+  EXPECT(!has(re.log, "games: pm: found") && has(re.log, "games: pm: installed pm-v1.2.6"));
+  // One the player unlinked, still there, plays the same files: they are not offered.
+  const std::string g = std::string(MW3_TEST_TMP) + "/launcher_links_g";
+  const LauncherRun rg = run_launcher_with("launcher_links_g", "exit 0", nullptr, env(g, gear + ",next,next,press", ""),
+                                           [&](const std::string& d) {
+                                             installed(d);
+                                             std::ofstream(d + "/wd/mw3.cfg", std::ios::app) << "unlinked_pm=" << d << "/elsewhere/mw3pm\n";
+                                           }, false);
+  EXPECT(rg.exited && has(rg.log, "screen game: UNINSTALL, KEEP IT\n"));
+  // A program's record: a released build's only.
+  const std::string r = std::string(MW3_TEST_TMP) + "/launcher_links_r", rec = r + "/rebuild-program.txt";
+  fs::create_directories(r);
+  sdlfe::games::record_self(r, upgrades::update::Game::kPm, "pm-v1.2.7-3-gabc");
+  EXPECT(!fs::exists(rec, ec));
+  sdlfe::games::record_self(r, upgrades::update::Game::kPm, "pm-v1.2.7");
+  std::ifstream rf2(rec);
+  const std::string said((std::istreambuf_iterator<char>(rf2)), std::istreambuf_iterator<char>());
+  EXPECT(has(said, "game=pm\n") && has(said, ("program=" + sdlfe::games::self_path() + "\n").c_str()) && has(said, "version=pm-v1.2.7\n"));
 }
 
 // The panels (2026-11-24, docs/launcher.md): a game whose repo has no release says COMING SOON (MW1's ORIGINAL

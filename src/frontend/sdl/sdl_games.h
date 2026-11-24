@@ -85,10 +85,15 @@ bool in_own_mount(const std::string& bin);
 // Setup, disk image or AppImage is found and linked, and a player can link one by hand (a panel's gear).
 // Each of our programs keeps this file in its user folder: where it is and its version (rebuild-program.txt).
 constexpr const char* kProgramRecord = "rebuild-program.txt";
-// This program's file as a player starts it ($APPIMAGE for an AppImage); empty when it runs from somewhere that goes
+// This program's file as a player starts it ($APPIMAGE when it runs from that AppImage's mount, not one it inherited
+// from the launcher's); empty when it runs from somewhere that goes
 // away (the Mac's App Translocation, a disk image).
 std::string self_path();
-// The record written (only when it changed) for a released build: a development one never links itself.
+// Whether `prog` is in a game's folder the launcher made (its rebuild-game.txt in a folder above): never a copy
+// installed without it.
+bool launchers_own(const std::string& prog);
+// The record written (only when it changed) for a released build not the launcher's own copy: a development one never
+// links itself, and the launcher's copy never takes the place of one installed without it.
 void record_self(const std::string& user_folder, u::Game g, const std::string& version);
 // What `prog` is as game g's program: its version from its stamp, else (when `may_run`) from its --status (an
 // AppImage's stamp is compressed); empty when it is not g's.

@@ -606,16 +606,29 @@ std::string self_path() {
   const std::string p = fs::weakly_canonical(fs::path(buf), ec).string();
   return ec || p.find("/AppTranslocation/") != std::string::npos ? std::string() : p;
 #else
-  if (const char* ai = std::getenv("APPIMAGE"); ai && *ai) return fs::is_regular_file(ai, ec) ? std::string(ai) : std::string();
   const fs::path self = fs::read_symlink("/proc/self/exe", ec);
-  return ec ? std::string() : self.string();
+  if (ec) return {};
+  const char *ai = std::getenv("APPIMAGE"), *mount = std::getenv("APPDIR");
+  if (ai && *ai && mount && *mount && self.string().rfind(std::string(mount) + "/", 0) == 0)
+    return fs::is_regular_file(ai, ec) ? std::string(ai) : std::string();
+  return self.string();
 #endif
+}
+
+bool launchers_own(const std::string& prog) {
+  std::error_code ec;
+  fs::path at = fs::weakly_canonical(prog, ec);
+  for (int up = 0; up < 8 && at.has_parent_path() && at != at.parent_path(); ++up) {
+    at = at.parent_path();  // the package's own layout inside the game's folder: <x>.app/Contents/MacOS, squashfs-root/usr/bin
+    if (fs::is_regular_file(at / u::kInstalledName, ec)) return true;
+  }
+  return false;
 }
 
 void record_self(const std::string& user_folder, u::Game g, const std::string& version) {
   if (user_folder.empty() || !u::game_tag(g, version)) return;
   const std::string self = self_path();
-  if (self.empty()) return;
+  if (self.empty() || launchers_own(self)) return;
   const std::string text = std::string("# Where this game is, for the BattleTech launcher (it links a copy installed without it).\n") +
                            "game=" + u::game_info(g).key + "\nprogram=" + self + "\nversion=" + version + "\n";
   const fs::path p = fs::path(user_folder) / kProgramRecord;
@@ -660,6 +673,7 @@ std::vector<Found> found_elsewhere(u::Game g, const std::string& user_folder, bo
   auto take = [&](const std::string& prog, const char* how, bool may_run) {
     for (const Found& f : out)
       if (f.program == prog) return;
+    if (launchers_own(prog)) return;
     const std::string v = identify(prog, g, may_run);
     // Released builds only: a development one (v1.3.1-29-g...) is linked by hand or not at all.
     if (u::game_tag(g, v) || u::game_tag(g, u::game_info(g).prefix + v)) out.push_back({prog, v, how});

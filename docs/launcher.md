@@ -459,7 +459,8 @@ BattleTech/MechWarrior 1 Remake, read by path only; the kit's games when their
 builds do it). The
 program is the file a player starts: `$APPIMAGE` for an AppImage, never a
 macOS App Translocation path. A development build (v1.3.1-29-g...) writes
-nothing.
+nothing. Nor does a copy the launcher installed (`launchers_own`: its
+rebuild-game.txt above it), so it is never linked as one installed without it.
 
 At the start, a game with nothing beside the launcher looks for such a copy
 (`find_link`, `sdlfe::games::found_elsewhere`): its record, Windows' uninstall
@@ -500,7 +501,7 @@ plays and where, then
   launcher's record (`sdlfe::games::uninstall`, moved aside first so a running
   game is refused whole). The game files go only for MechWarrior 3 and
   Pirate's Moon, only when no other copy of the game is left (no linked one,
-  none beside, no MechWarrior 1 Remake, which plays them), and only a folder
+  none unlinked but still there, none beside, no MechWarrior 1 Remake, which plays them), and only a folder
   our copying made (its mw3-install.txt) in the user folder's or the game's
   folder's `install` (`own_files`): never a copy of the original the player
   pointed at. Pilots, saves, settings and mods always stay.

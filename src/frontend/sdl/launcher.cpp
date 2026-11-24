@@ -1055,10 +1055,8 @@ void Launcher::link_picked(const std::string& path) {
     status_ = "That isn't " + name + " (the rebuild): pick its program or the folder it is in.", status_good_ = false;
     return layout();
   }
-  std::error_code ec;
-  const std::string own = fs::weakly_canonical(fs::path(game_root(i)) / key, ec).string(), picked = fs::weakly_canonical(prog, ec).string();
-  if (has_installed_[i] && !own.empty() && picked.rfind(own, 0) == 0) {
-    status_ = "That is the copy the launcher installed: it is the one in use already.", status_good_ = true;
+  if (sdlfe::games::launchers_own(prog)) {
+    status_ = "That is a copy the launcher installed: there is nothing to link.", status_good_ = true;
     return layout();
   }
   save_config_value(o_.write_dir, "link_" + key, prog), save_config_value(o_.write_dir, "unlinked_" + key, "");
@@ -1083,13 +1081,15 @@ void Launcher::unlink_game() {
 }
 
 // The game files UNINSTALL may take with the program: MechWarrior 3's or Pirate's Moon's, only when the launcher's
-// copy is the last one here (no linked copy, nothing beside it, no MechWarrior 1 Remake, which plays them too), and
+// copy is the last one here (no linked copy, none unlinked but still there, nothing beside it, no MechWarrior 1 Remake, which plays them too), and
 // only a folder our own copying made (its mw3-install.txt) in the places the launcher puts them (the user folder's
 // install/, the game's picked folder's). Never a copy of the original the player pointed at.
 std::string Launcher::own_files(int i) {
   if ((i != 0 && i != 1) || !has_installed_[i] || !linked_[i].empty() || beside_[i] || !game_bin(2).empty()) return {};
+  std::error_code ec;  // one the player unlinked plays them too, while it is there
+  const std::string unlinked = cfg_path(o_.write_dir, std::string("unlinked_") + upgrades::update::game_info(upgrades::update::kGames[i]).key);
+  if (!unlinked.empty() && fs::exists(unlinked, ec)) return {};
   const std::string dir = i == 0 ? (install_.ok ? install_.dir : std::string()) : pm_dir_;
-  std::error_code ec;
   if (dir.empty() || !fs::is_regular_file(fs::path(dir) / "mw3-install.txt", ec)) return {};
   const fs::path at = fs::weakly_canonical(dir, ec);
   for (const std::string& base : {games_place_[i], i == 0 ? o_.write_dir : pm_wd()})
@@ -1117,7 +1117,9 @@ void Launcher::uninstall_go(bool files) {
       f(mech3::setup::Progress{"Removing the game files", 0.5, ""});
       std::error_code ec;
       const fs::path old = fs::path(fdir).parent_path() / ".install.removing";
-      if (fs::is_regular_file(fs::path(fdir) / "mw3-install.txt", ec)) fs::rename(fdir, old, ec);
+      if (!fs::is_regular_file(fs::path(fdir) / "mw3-install.txt", ec) || fs::exists(old, ec))  // asked again at the removal
+        return res.summary = "The program was removed; its game files were left alone: " + fdir, res;
+      fs::rename(fdir, old, ec);
       if (!ec) fs::remove_all(old, ec);
       if (ec) return res.summary = "The program was removed; its game files could not be (" + ec.message() + "): " + fdir, res;
     }
