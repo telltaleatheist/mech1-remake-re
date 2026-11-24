@@ -716,8 +716,11 @@ Kept:
   always on): its row is in the table, "The Small Pulse Laser's muzzle flash".
   The other three stay as they are.
 
-- **A beam freed while still on its weapon's list** (found 2026-11-13 in the PM audit, at 0x005a6650):
-  fixed, `zwep::beam_free` takes it off its def's list first, as PM does (its row is in the table).
+- **A beam freed while still on its weapon's list** (checked 2026-11-13; fixed, the table row "zWeapon beam free, 0x584b40"). A turret destroyed in play stops its
+  beam first (deactivate 0x004a7620). The case is the mission's end: the entities are freed (0x0049dc40) with a
+  laser turret mid-shot and, on CONTINUE within an op, the world stays up. MW3's cleanup kill (0x00584fe0)
+  cleared the BEAM def's list by writing into the freed beam; ours skips BEAM defs, so the next mission walked
+  the freed beam. The fix unlinks it in the free, as PM does.
 
 - **Message names the game's own text file lacks** (data, not code; found 2026-11-13 by
   `tools/analysis/msg_name_scan.py`, docs/port-audit-pm.md at 0x00447840). Both exes show an unknown
