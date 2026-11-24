@@ -1,6 +1,7 @@
 #include "upgrades/sounds/menu_sounds.h"
 
 #include <cstring>
+#include <map>
 
 #include "gamez/zsound/zsnd.h"
 #include "gamez/ztwod/twod.h"
@@ -9,15 +10,33 @@
 
 namespace upgrades {
 
+namespace {
+// The holds by set: the last one gone unloads it. MW3's load_set counts none
+// (a second load is refused), Pirate's Moon's counts every one.
+std::map<std::string, int32_t>& holds() {
+  static std::map<std::string, int32_t> m;
+  return m;
+}
+}  // namespace
+
 void MenuSounds::hold(const char* name) {
   if (!zfix::options().small_fixes || !zsnd::state().open) return;
   zsnd::Set* set = zsnd::find_set(name);
-  if (!set || set->loaded) return;
-  if (zsnd::load_set(set)) held_.push_back(name);
+  if (!set) return;
+  for (const std::string& h : held_)
+    if (h == name) return;
+  int32_t& n = holds()[name];
+  // Also when unloaded under the holds. MW3: a set the game loaded is refused, left to it.
+  if ((n == 0 || !set->loaded) && !zsnd::load_set(set)) return;
+  ++n;
+  held_.push_back(name);
 }
 
 MenuSounds::~MenuSounds() {
-  for (size_t i = held_.size(); i-- > 0;) zsnd::unload_set(held_[i].c_str());
+  for (size_t i = held_.size(); i-- > 0;) {
+    int32_t& n = holds()[held_[i]];
+    if (n > 0 && --n == 0) zsnd::unload_set(held_[i].c_str());
+  }
 }
 
 const char* menu_sound_for(const char* name) {

@@ -40,6 +40,7 @@
 #include "gamez/zvideo/zvid_dd.h"
 #include "mech3/hud.h"
 #include "upgrades/settings/upgrades.h"
+#include "upgrades/sounds/menu_sounds.h"
 #include "mech3/mech_config.h"
 #include "mech3/mech_reader.h"
 #include "mech3/message_panel.h"
@@ -2407,4 +2408,33 @@ TEST(fix_group_release_lets_every_loop_go) {
     }
   calls.stop_sound = was_stop;
   zfix::options() = saved;
+}
+
+// Issue #19 (ours): two screens holding a sound set (a debriefing, then the salvage): the first one gone leaves it to
+// the second, the last one gone unloads it; a screen asked twice holds it once; none with SMALL FIXES off.
+TEST(menu_sounds_holds_are_counted_between_screens) {
+  zsnd::State& st = zsnd::state();
+  const std::vector<zsnd::Set*> sets_was = st.sets;
+  const int32_t open_was = st.open, archives_was = st.archives_on;
+  const zfix::Options fix_was = zfix::options();
+  zsnd::Set set;
+  set.name = "HELD";
+  st.sets = {&set}, st.open = 1, st.archives_on = 0;
+  zfix::options().small_fixes = true;
+  auto* a = new upgrades::MenuSounds;
+  auto* b = new upgrades::MenuSounds;
+  a->hold("HELD"), a->hold("HELD"), b->hold("HELD"), b->hold("NONE");
+  EXPECT(set.loaded == 1);
+  delete a;
+  EXPECT(set.loaded == 1);
+  delete b;
+  EXPECT(set.loaded == 0);
+  zfix::options().small_fixes = false;
+  {
+    upgrades::MenuSounds c;
+    c.hold("HELD");
+    EXPECT(set.loaded == 0);
+  }
+  zfix::options() = fix_was;
+  st.sets = sets_was, st.open = open_was, st.archives_on = archives_was;
 }
