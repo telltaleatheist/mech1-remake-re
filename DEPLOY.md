@@ -55,7 +55,7 @@ From mw3-re's Releases, one package per platform:
 
 | Platform | The launcher (the one updates take) | MechWarrior 3 alone | Pirate's Moon alone | MechWarrior 1 Remake alone |
 |---|---|---|---|---|
-| Windows | `MW3-Rebuild-Setup-<v>.exe` (or `-win64.zip`) | `MW3-alone-Setup-<v>.exe`, `MW3-alone-<v>-win64.zip` | `PM-Rebuild-Setup-<pm v>.exe`, `mw3pm-<pm v>-win64.zip` | `MW1-Remake-<mw1 v>-win64.zip` |
+| Windows | `MW3-Rebuild-Setup-<v>.exe` (or `-win64.zip`) | `MW3-alone-Setup-<v>.exe`, `MW3-alone-<v>-win64.zip` | `PM-Rebuild-Setup-<pm v>.exe`, `mw3pm-<pm v>-win64.zip` | `MW1-Remake-Setup-<mw1 v>.exe` (from 1.1.0), `MW1-Remake-<mw1 v>-win64.zip` |
 | Mac | `MW3-Rebuild-<v>-mac.dmg` | `MW3-alone-<v>-mac.dmg` | `PM-Rebuild-<pm v>-mac.dmg` | `MW1-Remake-<mw1 v>-mac.dmg` |
 | Linux | `MW3-Rebuild-<v>-x86_64.AppImage` | `MW3-alone-<v>-x86_64.AppImage` | `PM-Rebuild-<pm v>-x86_64.AppImage` | `MW1-Remake-<mw1 v>-x86_64.AppImage` |
 
@@ -159,7 +159,7 @@ tags in a `git bundle`.
    or user name, and no version ending in `-dirty`. If a platform fails, fix
    it on the repo's main, move the local tag, and rebuild every platform from
    the new tags. Tags are pushed only once all three platforms build.
-5. **Gather and sum:** all the files (fifteen with MW1 Remake alone) in one folder, each checked against
+5. **Gather and sum:** all the files (fifteen with MW1 Remake alone, sixteen once it has a Windows Setup) in one folder, each checked against
    its platform's `SHA256SUMS`, then `python3 -I tools/package/sums.py <folder>`
    writes the release's `SHA256SUMS`.
 6. **Push the tags** to their repos (`vX.Y.Z` to mech3-re and mw3-re,
@@ -178,6 +178,15 @@ tags in a `git bundle`.
    run the previous release's launcher, press UPDATES, and confirm it finds
    the new one on the hub; and from the new launcher, INSTALL each game on a
    clean games folder.
+10. **Check the download page** (owenmorgan.com/battletech): it asks GitHub
+    for each repo's latest release on every visit, so a new release shows by
+    itself. Open it and confirm each button names the new version and its
+    links download. It needs an edit only when an asset's name pattern
+    changes or a game is added (the page's `game(id, repo, pattern)` lines);
+    its source is outside the repos, and a change goes up by the site's own
+    copy step (the lead's notes).
+11. **Tell the players:** issue replies and the release's announcement are the
+    project owner's to approve and post.
 
 **One game alone** (since 1.3.0): Pirate's Moon or MW1 Remake can be released
 on its own repo without a launcher release. Build its package with its own
@@ -185,8 +194,8 @@ script (pm's `tools/<platform>` scripts; mw1's `mw1/tools/package`), publish
 it with its `SHA256SUMS` on its repo, and every launcher offers UPDATE at its
 next start.
 
-After a release: the game repos' mains already sit on their tags. Issue
-replies announcing it are the project owner's to approve.
+After a release: the game repos' mains already sit on their tags. Copy this
+file unchanged to every repo that carries it when it changes.
 
 ## Rules that keep it working
 

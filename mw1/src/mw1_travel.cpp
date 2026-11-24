@@ -1,13 +1,16 @@
 #include "mw1_travel.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <cstdlib>
+#include <functional>
 #include <vector>
 
 #include "mw1_market.h"
 #include "mw1_pilots.h"
 #include "mw1_repairs.h"
+#include "mw1_scenery.h"
 
 namespace mw1::travel_rules {
 
@@ -222,15 +225,17 @@ int32_t distance(const Planet& a, const Planet& b) {
 
 Transport transport(const Company&) { return Transport::kHired; }
 
-int64_t travel_cost(const Company& c, const Planet& to) {
+int64_t travel_cost(const Company& c, const Planet& to) { return fare(c, to, owned_count(c)); }
+
+int64_t fare(const Company& c, const Planet& to, int32_t mechs) {
   const Planet& here = planet_here(c);
   if (&here == &to) return 0;
-  const int64_t d = distance(here, to), mechs = owned_count(c);
+  const int64_t d = distance(here, to), n = mechs;
   switch (transport(c)) {
     case Transport::kDropShip: return kDropShipPerDistance * d;
     case Transport::kHired: break;
   }
-  return mechs * kHiredBase + mechs * d * kHiredPerDistance;
+  return n * kHiredBase + n * d * kHiredPerDistance;
 }
 
 int32_t travel_units(const Planet& from, const Planet& to) {
@@ -239,7 +244,7 @@ int32_t travel_units(const Planet& from, const Planet& to) {
 
 std::string date_words(const Date& d) { return std::string(kMonthNames[d.month % kMonthCount]) + " " + std::to_string(d.year); }
 
-int32_t advance_time(Company& c, int32_t units, Rng& rng) {
+int32_t advance_time(Company& c, int32_t units, Rng& rng, bool wages) {
   Date& d = c.date;
   d.units += units;
   int32_t months = 0;
@@ -255,7 +260,7 @@ int32_t advance_time(Company& c, int32_t units, Rng& rng) {
     c.market_clock %= kMarketRefreshUnits;
     refresh_world(c, rng);
   }
-  charge_wages(c, months);
+  if (wages) charge_wages(c, months);
   fade_grudges(c, months);  // FIXES.md item 84
   return months;
 }
@@ -285,6 +290,21 @@ void set_planet(Company& c, int32_t i) {
   c.planet = title_case_name(w.name), c.planet_house = w.house, c.tier = w.tier, c.planet_number = w.number;
 }
 
+namespace {
+// The arrival, a paid trip's and a working passage's (081B:5F15): the new world, the time on the way, then what an
+// arrival rolls and refreshes.
+void arrive(Company& c, int32_t i, int32_t units, Rng& rng, bool wages) {
+  set_planet(c, i);
+  advance_time(c, units, rng, wages);
+  roll_premium(c, rng);   // the world's repair premium, rolled on arrival (PLANET 081B)
+  roll_patience(c, rng);  // and its House's patience (the same arrival, after the premium)
+  c.withdrawn = false;    // a broken-off negotiation's offers stay on the world left behind
+  c.story.arrived = true;  // the hub's next events are an arrival's (planetArrivalEventsPending, mw1_story.h)
+  refresh_world(c, rng);  // arrival restocks, whatever the clock did
+  c.market_clock = 0;
+}
+}  // namespace
+
 Trip travel(Company& c, int32_t i, Rng& rng) {
   if (i < 0 || i >= kPlanetCount) return Trip::kNoSuch;
   const Planet& here = planet_here(c);
@@ -293,15 +313,7 @@ Trip travel(Company& c, int32_t i, Rng& rng) {
   const int64_t cost = travel_cost(c, to);
   if (c.funds < cost) return Trip::kNoFunds;
   c.funds -= cost;
-  const int32_t units = travel_units(here, to);
-  set_planet(c, i);
-  advance_time(c, units, rng);
-  roll_premium(c, rng);   // the world's repair premium, rolled on arrival (PLANET 081B)
-  roll_patience(c, rng);  // and its House's patience (the same arrival, after the premium)
-  c.withdrawn = false;    // a broken-off negotiation's offers stay on the world left behind
-  c.story.arrived = true;  // the hub's next events are an arrival's (planetArrivalEventsPending, mw1_story.h)
-  refresh_world(c, rng);  // arrival restocks, whatever the clock did
-  c.market_clock = 0;
+  arrive(c, i, travel_units(here, to), rng, true);
   return Trip::kDone;
 }
 
@@ -326,6 +338,72 @@ bool stranded(const Company& c) {
   if (earning_here(c)) return false;
   const int64_t out = cheapest_way_out(c);
   return out < 0 || c.funds < out;
+}
+
+int64_t sale_value_but_last(const Company& c, int32_t* left) {
+  const int32_t owned = owned_count(c);
+  std::vector<int64_t> prices;  // what the market would pay for each 'Mech it would take
+  for (int32_t i = 0; i < owned; ++i)
+    if (can_sell(c, i) == Deal::kDone) prices.push_back(market_sell_price(c, owned_mech(c, i)));
+  std::sort(prices.begin(), prices.end(), std::greater<int64_t>());
+  // One 'Mech always stays (can_sell's kLastMech): the cheapest when every one would sell; the dealer's room.
+  int64_t most = std::min<int64_t>(static_cast<int64_t>(prices.size()), owned - 1);
+  if (c.market.limit >= 0) most = std::min<int64_t>(most, std::max(0, c.market.limit - c.market.sold));
+  int64_t sum = 0;
+  for (int64_t k = 0; k < most; ++k) sum += prices[static_cast<size_t>(k)];
+  if (left) *left = owned - static_cast<int32_t>(std::max<int64_t>(0, most));
+  return sum;
+}
+
+bool truly_stranded(const Company& c) {
+  if (earning_here(c)) return false;
+  int32_t left = 0;
+  const int64_t sale = sale_value_but_last(c, &left);
+  const Planet& here = planet_here(c);
+  int64_t out = -1;  // the fare out for the 'Mechs a sale would leave
+  for (const Planet& w : kPlanets)
+    if (&w != &here && deals_with(c, w)) {
+      const int64_t cost = fare(c, w, left);
+      if (out < 0 || cost < out) out = cost;
+    }
+  return out < 0 || c.funds + sale < out;
+}
+
+int32_t passage_world(const Company& c) {
+  const Planet& here = planet_here(c);
+  // The nearest world that deals with the company; none: the office world whose House holds the fewest grievances.
+  int32_t best = -1, best_dist = 0, best_grudge = 0;
+  for (int pass = 0; pass < 2 && best < 0; ++pass)
+    for (int32_t i = 0; i < kPlanetCount; ++i) {
+      const Planet& w = kPlanets[i];
+      if (&w == &here || w.number == scenery::kAndersMoon) continue;
+      if (pass == 0 ? !deals_with(c, w) : (kContractsNeedAnOffice && !w.office)) continue;
+      const int32_t d = distance(here, w), g = c.grievance[static_cast<size_t>(w.house)];
+      bool better = best < 0;
+      if (!better) better = pass == 0 ? d < best_dist : g < best_grudge || (g == best_grudge && d < best_dist);
+      if (better) best = i, best_dist = d, best_grudge = g;
+    }
+  return best;
+}
+
+int32_t passage_units(const Company& c, int32_t world) {
+  if (world < 0 || world >= kPlanetCount) return 0;
+  const Planet& to = kPlanets[world];
+  int32_t units = 2 * travel_units(planet_here(c), to);
+  if (!refuses(c, to.house)) return units;
+  // Whole months more until the House would deal again: the grudge's fading on a copy, as advance_time fades it.
+  Company sim = c;
+  fade_grudges(sim, (c.date.units + units) / kUnitsPerMonth);
+  while (refuses(sim, to.house)) units += kUnitsPerMonth, fade_grudges(sim, 1);
+  return units;
+}
+
+Trip work_passage(Company& c, Rng& rng) {
+  if (!truly_stranded(c)) return Trip::kNoSuch;
+  const int32_t to = passage_world(c);
+  if (to < 0) return Trip::kNoSuch;
+  arrive(c, to, passage_units(c, to), rng, false);
+  return Trip::kDone;
 }
 
 }  // namespace mw1::travel_rules

@@ -5,6 +5,48 @@ Tick an item when it is merged into `main`.
 
 **How this file works (the owner, 2026-11-17):** every bug and feature the owner raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 144. [x] Truly stranded: a working passage out, never a save to load *(done: mw1-110-passage, for 1.1.0)*
+- **What:** a company on a world with no contracts it could take, and too poor to leave, was stranded. MW1's only way
+  out was loading a save; ours said so ("load a save") when there was nothing to sell. A project decision for 1.1.0:
+  a stranded player gets a free trip, however long it takes.
+- **The rule** (`mw1_travel.h`): `truly_stranded` is stranded with no sale able to pay the way. That is, no world
+  deals with the company, or its funds plus the sale of every 'Mech but the cheapest (as many as the dealer still
+  buys, dearest first) are short of the fare for the 'Mechs that would be left. Stranded but not truly: the market is
+  the way, as before.
+- **The passage:** a merchant JumpShip carries the company and its 'Mechs to the nearest world that deals with it,
+  never Anders Moon. If no world deals, it goes to the office world of the House with the fewest grievances, nearest
+  first. No fare is taken and no wages are charged on the way. The trip takes twice the paid trip's time, plus whole
+  months until that House would deal again. The arrival is a paid trip's (premium, patience, the market restocked,
+  the arrival's events). The log says "Worked passage from <A> to <B> on a merchant JumpShip."
+- **The screens:** truly stranded, the travel screen says where the JumpShip goes and when it arrives; its world is
+  chosen and GO reads TAKE PASSAGE. The hub's status line says "Stranded: a JumpShip offers passage. See the
+  STARPORT." (the 4:3 line holds about 56 letters). Before a trip to a world the company couldn't leave, the
+  readout warns either "You couldn't afford to leave it without selling a mech." or "You couldn't afford to leave
+  it: you'd have to work your passage out."
+- **The soaks:** one rule in all three that met a strand (the 20-contract soak, the campaign soak and the balance
+  soak): the 2 million C-bill gift is gone. Stranded, the soak sells its dearest 'Mech, logged as SELL logs it;
+  truly stranded, it takes the passage through the STARPORT. A strand with neither is a failure. The campaign soak's
+  "locked out" (every House refusing) stays a failure, as it measures the grudges' fading, but its grievances are no
+  longer cleared: the passage takes the company out. The balance soak's money curves are now the play's own, and
+  `balance_report.py` names each strand's way out.
+- **Checks:** `test_mw1_office`'s passage tests (one 'Mech broke and withdrawn; a sale covering the fare; the
+  dealer's limit; every House refusing; the travel screen; both warnings), `test_mw1_travel`'s stranded lines, and
+  the loop test's broken-off world now leaving by TAKE PASSAGE.
+
+## 143. [x] A Windows installer for MW1 Remake, like MW3's and PM's *(done: mw1-110-installer; in 1.0.9 by rel-109)*
+- **What:** a player downloading MW1 alone on Windows had only the zip. The owner asked for a Setup like MW3's and
+  PM's.
+- **Done:** `mw1\tools\package\package.cmd` builds `MW1-Remake-Setup-<mw1-vX.Y.Z>.exe` (Inno Setup,
+  `mw1/tools/package/installer.iss`) from the folder it has just zipped, so the two hold the same files. The zip
+  stays: the launcher installs MW1 from it, never from the Setup. The Setup installs to Program Files\MechWarrior 1
+  Remake with a Start-menu entry, an optional desktop one and an uninstaller. Its AppId, folder, shortcut names and
+  uninstall entry are MW1's own, so it installs and uninstalls apart from MW3's and PM's. The uninstaller leaves the
+  player's folder (%APPDATA%\MicroProse\MechWarrior 1 Remake) alone.
+- **The icon:** `mw1/tools/package/mw1.ico`, the badge the Mac app and the AppImage use (`make_ico.sh` writes it
+  from `mw1.png`), is the Setup's, the uninstall entry's and now `mw1.exe`'s own (it had MW3's placeholder).
+- **Checks:** on the PC, the Setup built from a test package, installed silently into a scratch folder, mw1.exe
+  started from there to its first screen, then uninstalled with nothing left behind.
+
 ## 142. [x] The soundtrack: MW1's five songs as rock arrangements, six combat songs in a shuffle *(done: mw1-110-soundtrack, for 1.1.0)*
 A project decision (2026-11-23, via the lead): MW1's five songs and six combat songs replace the menu theme and the
 three combat tracks (FIXES 100, 116).

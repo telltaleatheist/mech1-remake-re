@@ -84,7 +84,7 @@ downloads from this repo's Releases, are built from an `mw1-vX.Y.Z` tag by
 | Platform | Script (from the repo root) | Out |
 |---|---|---|
 | Mac | `mw1/tools/package/make_app.sh --deps` | `build-mw1-mac/dist/MW1-Remake-<tag>-mac.dmg` ("MechWarrior 1 Remake.app": `Contents/MacOS/mw1`, `mw1data` in `Contents/Resources`) |
-| Windows | `mw1\tools\package\package.cmd` | `build-mw1-win\dist\MW1-Remake-<tag>-win64.zip` (one top folder: `mw1.exe`, its DLLs, `mw1data\`) |
+| Windows | `mw1\tools\package\package.cmd` | `build-mw1-win\dist\MW1-Remake-<tag>-win64.zip` (one top folder: `mw1.exe`, its DLLs, `mw1data\`; the launcher's) and `MW1-Remake-Setup-<tag>.exe` (the same files, installed to Program Files with a Start-menu entry and an uninstaller: `mw1/tools/package/installer.iss`) |
 | Linux | `mw1/tools/package/make_appimage.sh PREFIX TOOLS` | `build-mw1-linux/dist/MW1-Remake-<tag>-x86_64.AppImage` (`usr/bin/mw1`, `usr/bin/mw1data`) |
 
 The release carries a `SHA256SUMS` line for each (the launcher installs

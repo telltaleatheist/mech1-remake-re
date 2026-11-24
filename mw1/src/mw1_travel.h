@@ -53,6 +53,9 @@ inline constexpr int32_t kHiredBase = 20000, kHiredPerDistance = 25000;  // per 
 inline constexpr int32_t kDropShipPerDistance = 50000;
 Transport transport(const Company& c);
 int64_t travel_cost(const Company& c, const Planet& to);
+// The same trip's cost for `mechs` 'Mechs (travel_cost's for the company's own count): the working passage's rule
+// counts the fare for the 'Mechs a sale would leave.
+int64_t fare(const Company& c, const Planet& to, int32_t mechs);
 // The time a jump takes, in MW1's units (60 a month): (distance - 1) x 14 + 2 x the weights of both ends.
 inline constexpr int32_t kDistanceTimeUnits = 14;
 int32_t travel_units(const Planet& from, const Planet& to);
@@ -63,8 +66,9 @@ inline constexpr int32_t kMarketRefreshUnits = 14;               // MARKET_REFRE
 extern const char* const kMonthNames[kMonthCount];               // DS:4AAC
 std::string date_words(const Date& d);                          // "APRIL 3024"
 // Time passes (MwAdvanceCampaignTimeAndChargeWages): the date moves; the market and the Bar refresh each time its
-// clock passes 14 units; the lancemates' wages for each month begun (mw1_pilots.h). Returns the months begun.
-int32_t advance_time(Company& c, int32_t units, Rng& rng);
+// clock passes 14 units; the lancemates' wages for each month begun (mw1_pilots.h), unless `wages` is false (a working
+// passage: the lance works it too). Returns the months begun.
+int32_t advance_time(Company& c, int32_t units, Rng& rng, bool wages = true);
 // What MW1 refreshes together (on arrival, on the market's clock, on a mission's return): the market's stock and the
 // Bar's recruits (MwRefreshMarketUnitStock, MwRefreshAvailablePilotRecruits).
 void refresh_world(Company& c, Rng& rng);
@@ -88,11 +92,33 @@ bool earning_here(const Company& c);
 // A world whose office would deal with the company: an office, its House not refusing it.
 bool deals_with(const Company& c, const Planet& w);
 // Stuck: nothing to earn here (no office, refused, or the offers withdrawn) and no trip affordable to a world whose
-// office would deal with the company. MW1 has no escape (a save to load); the travel screen and the hub say so (mw1
-// lead 2026-11-17).
+// office would deal with the company. MW1 has no escape (a save to load); ours says so on the travel screen and the
+// hub, with the market's way out (sell a 'Mech), else the working passage below (mw1 lead 2026-11-17, 2026-11-23).
 bool stranded(const Company& c);
 // The cheapest trip from here to a world whose office would deal with the company: its cost (-1: none).
 int64_t cheapest_way_out(const Company& c);
+
+// ---- The working passage (ruling A, the owner via the lead, 2026-11-23: "a free trip... just make it work") ----
+//
+// What this market would pay for every 'Mech but one: the ones it would take (can_sell), the dearest first, as many
+// as the dealer's limit leaves room for, the cheapest kept when all of them would sell. `left`: the 'Mechs a sale
+// would leave.
+int64_t sale_value_but_last(const Company& c, int32_t* left = nullptr);
+// Truly stranded: nothing to earn here, and no world deals with the company, or the funds and that sale together
+// don't pay the fare out for the 'Mechs left. A one-'Mech company: exactly when stranded. Then a merchant JumpShip
+// carries the company free.
+bool truly_stranded(const Company& c);
+// Where the passage goes (a kPlanets index, -1 none): the nearest world whose office deals with the company (never
+// Anders Moon, whose guards wait); when none does, the office world whose House has the fewest grievances, nearest
+// first.
+int32_t passage_world(const Company& c);
+// Its time: twice the trip's (a merchant keeps its own schedule), and longer while the world's House would still
+// refuse the company: whole months until its grudge has faded under the refusal (fade_grudges), so the company
+// arrives where it can earn.
+int32_t passage_units(const Company& c, int32_t world);
+// TAKE PASSAGE: when truly stranded, the company and its 'Mechs to passage_world for no fare, the time passing with no
+// wages charged, and arrive as a trip does. kNoSuch when not truly stranded or there's nowhere to go.
+Trip work_passage(Company& c, Rng& rng);
 
 }  // namespace mw1::travel_rules
 
