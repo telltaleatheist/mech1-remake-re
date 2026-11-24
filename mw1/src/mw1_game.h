@@ -92,6 +92,11 @@ class HubOptionsState;
 using namespace hub;
 // A mission back and not settled (the hub's AFTER ACTION), else null (tests).
 const AfterAction* game_loop_pending();
+// FIXES 142: the results' song, where MW1 played one (081B:0299..0399), as a music::Cue value, -1 none: a contract or
+// story battle won, LAUNCH's (debrief.ogg), lancemates lost or not (MW1 started DEATH for each one lost, then LAUNCH
+// over it at once); not won and a lancemate KILLED or MISSING, DEATH's; the Dark Wing's rung (its VICTORY comes with
+// the victory's page) and any other, none.
+int32_t results_song(const AfterAction& a, int32_t rung);
 // FIXES 106: the last launch's lancemates down, as the log said them (who had the kill, who hit last, heat) (tests).
 std::vector<std::string> game_loop_lance_downs();
 // FIXES.md item 78: the status line's words without MW1's MW_MAIN.EXE (ours): the Bar's greyed ORDER DRINK or NEWS

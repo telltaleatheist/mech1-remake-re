@@ -370,6 +370,13 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       ge.on_present = [this, before](int f) {
         if (before) before(f);
         if (deployed_ && launched_ && !ending_latched_ && ge_ && ge_->mission_ended()) latch_ending(*ge_);
+        // FIXES 142: MW1 stopped its music entering the hub (081B:1909): the hub's screen coming up ends a cue. Not while
+        // an event's page or the credits are on their way over it (pushed a frame later): MW1's song played on over
+        // the events after the results, and VICTORY's over its page and the credits.
+        const bool hub_top = hub_state_ && !event_up_ && !credits_up_ && mech3::app_if_any() &&
+                             mech3::app_if_any()->current() == static_cast<zgame::State*>(hub_state_);
+        if (hub_top && !hub_was_top_) music::cue_end();
+        hub_was_top_ = hub_top;
         music::frame(!deployed_ ? music::Where::kMenus
                      : !launched_     ? music::Where::kLoading
                      : ending_latched_ ? music::Where::kEnded  // FIXES 116b: the track never started again after the end
@@ -539,6 +546,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       if (results_up_) {
         show_results();
         ge.push_state(results_, 0);
+        if (const int32_t c = results_song(*pending_, contract_.rung); c >= 0) music::cue(static_cast<music::Cue>(c));  // FIXES 142
       }
       // FIXES.md item 52: the first screen after a mission (or the start) in from black. Not under the shots' and
       // tests' screens (MW1_SCREEN): their pictures are of the screen itself.
@@ -1074,6 +1082,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
           bchoice_ = BarChoice{};
           show_bar();
           swap_to(*ge, bar_);
+          music::cue(music::Cue::kBar);  // FIXES 142: MECHBAR's, from its start each time the Bar is entered
           story_events(kClassBarEntry);
         });
         return;
@@ -2607,6 +2616,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
 
   void next_event() {
     mech3::GameEngine* ge = ge_;
+    if (death_page_) death_page_ = false, music::cue_end();  // FIXES 142: MW1's death page read: its song stopped
     Shown s;
     if (!ge || !next(company_, ev_, rng_, &s)) return events_done();
     std::printf("mw1: story: event %#x (class %d)%s%s\n", s.event, ev_.cls, s.captions.empty() ? "" : ", a choice", s.restart ? ", a death" : "");
@@ -2636,6 +2646,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
       // MW1 restarts the campaign here (PLAY AGAIN / QUIT); ours never does (FIXES.md item 33, the owner: "you cant die in
       // this one"): the page is shown and play goes on.
       std::printf("mw1: story: MW1 would restart here; play goes on (FIXES.md item 33)\n");
+      music::cue(music::Cue::kDeath), death_page_ = true;  // FIXES 142: DEATH's, over the page (MW1's restart event)
     } else {
       ev_panel_.captions = s.captions;
       if (s.event == kEventDarkWingAttack) ev_panel_.live = {kDarkWingBattle, true};  // ATTACK waits for its battle (Q5)
@@ -2656,6 +2667,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   void events_done() {
     mech3::GameEngine* ge = ge_;
     const bool was_up = event_up_;
+    if (death_page_) death_page_ = false, music::cue_end();  // FIXES 142: MW1's death page read
     if (event_up_ && ge) ge->pop_state(1);
     event_up_ = false, event_state_ = nullptr, news_.clear();
     steps_wait(company_);  // item 47: a step's event left without its battle won waits to fire again
@@ -2776,7 +2788,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     }
     if (!pg.lines.empty()) pages.push_back(pg);
     set_pages(pages);
-    if (raise_event(*ge_)) credits_next_ = true, show_event();
+    if (raise_event(*ge_)) credits_next_ = true, show_event(), music::cue(music::Cue::kEnding);  // FIXES 142: VICTORY's
   }
   static constexpr const char* kVictoryScene = "mw1_story_honor_restored";
   static constexpr size_t kVictoryPageLines = 12;
@@ -4846,6 +4858,8 @@ static bool reach_ground(const std::string& structure, float out[3]) {
   CreditsState* credits_state_ = nullptr;
   bool credits_next_ = false;  // the victory's panel up: the credits when it's read
   bool credits_up_ = false;
+  bool death_page_ = false;  // FIXES 142: MW1's death event's page up, its song (DEATH) over it
+  bool hub_was_top_ = false;  // FIXES 142: the hub's screen the top one at the last frame
   Start start_ = Start::kMenu;
   mech3::GameEngine* hub_engine_ = nullptr;
   mech3::GameEngine* ge_ = nullptr;
@@ -5029,6 +5043,14 @@ std::string game_loop_objective_built(bool* fell_back) {
 }
 
 const AfterAction* game_loop_pending() { return the_loop() ? the_loop()->pending() : nullptr; }
+
+int32_t results_song(const AfterAction& a, int32_t rung) {
+  if (rung == kDarkWingRung) return -1;
+  if (a.outcome == Outcome::kSuccess) return static_cast<int32_t>(music::Cue::kDebrief);
+  for (const LanceFate& f : a.lance)
+    if (pilot_killed(f) || pilot_missing(f)) return static_cast<int32_t>(music::Cue::kDeath);
+  return -1;
+}
 std::vector<std::string> game_loop_lance_downs() { return the_loop() ? the_loop()->lance_downs() : std::vector<std::string>{}; }
 HubState* game_loop_hub() { return the_loop() ? the_loop()->hub_state() : nullptr; }
 ResultsState* game_loop_results() { return the_loop() ? the_loop()->results_state() : nullptr; }
