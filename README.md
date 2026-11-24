@@ -40,6 +40,11 @@ original.
 
 Nothing yet.
 
+**1.3.6 (2026-11-24)** (the full notes are in
+[docs/release-notes-1.3.6.md](docs/release-notes-1.3.6.md)): fixes: Linux with
+NVIDIA loading a mission, the silent menu buttons, MechWarrior 1 Remake's
+buttons.
+
 **1.3.5 (2026-11-24)** (the full notes are in
 [docs/release-notes-1.3.5.md](docs/release-notes-1.3.5.md)): the launcher
 finds MechWarrior 3 and Pirate's Moon installed without it and links them,
