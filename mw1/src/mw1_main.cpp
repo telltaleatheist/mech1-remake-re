@@ -40,6 +40,7 @@
 #include "platform/pause_hud.h"
 #include "platform/mode_labels.h"
 #include "platform/list_wheel.h"
+#include "platform/pointer_hands_off.h"
 #include "gamez/zutil/zutl_path.h"
 #include "frontend/sdl/crash_report.h"
 #include "frontend/sdl/sdl_platform.h"
@@ -83,6 +84,20 @@ std::string usual_write_dir() {
 }  // namespace
 
 namespace {
+// A run no player is at, from the arguments for PM's game main. mw3_main.cpp's program() turns pointer_hands_off on
+// for --hidden, --frames N (N > 0), --campaign-chain and --action-chain; a --shot run is one too. Keep these in step
+// with mw3_main's (its Args, read only there). The Mac's alone uses it (SDL_MAC_BACKGROUND_APP, below).
+#if defined(__APPLE__)
+bool no_player_at(const std::vector<std::string>& rest) {
+  for (size_t i = 0; i < rest.size(); ++i) {
+    const std::string& s = rest[i];
+    if (s == "--hidden" || s == "--shot" || s == "--campaign-chain" || s == "--action-chain") return true;
+    if (s == "--frames" && i + 1 < rest.size() && std::atoi(rest[i + 1].c_str()) > 0) return true;
+  }
+  return false;
+}
+#endif
+
 // The conversion with a small window before PM's frontend: a bar, the step in its title (as mw3's first-run movie
 // import shows its own). The run in a thread, the window on this one; no window when SDL's video doesn't start.
 bool convert_in_window(const zipkit::Options& o, std::string* error) {
@@ -298,6 +313,14 @@ int main(int argc, char** argv) {
   const std::string worlds =
       !a.worlds.empty() ? a.worlds : a.write_dir.empty() ? std::string() : (std::filesystem::path(a.write_dir) / mw1::kWorldsFolder).string();
   const bool hidden = std::find(a.rest.begin(), a.rest.end(), "--hidden") != a.rest.end();
+  // As mw3_main's start (the engine's, 2026-11-23): on the Mac a run no player is at stays a background process, never
+  // taking the keyboard from the app in front when it starts or exits. Set here, before mw1's first SDL start (the
+  // worlds' converting window), from the same arguments as PM's program() reads later (MW3_POINTER_HANDS_OFF=1 too).
+  // As SDL_MAC_BACKGROUND_APP in the environment (tests/main.cpp's way), not SDL_SetHint: the converting window's
+  // SDL_Quit drops the hints set, and SDL reads the variable at the game's own start after it too.
+#if defined(__APPLE__)
+  if (platform::pointer_hands_off() || no_player_at(a.rest)) setenv("SDL_MAC_BACKGROUND_APP", "1", 1);
+#endif
   mw1::movie::set_hidden(hidden);  // FIXES.md item 54: no movie under --hidden (MW1_MOVIE=1 plays it anyway)
   const zipkit::Progress said = [](const std::string& world, const std::string& step, int done, int total) {
     std::printf("mw1:   %s: %s (%d of %d)\n", world.c_str(), step.c_str(), done + 1, total);
@@ -314,14 +337,14 @@ int main(int argc, char** argv) {
   std::printf("mw1: high-resolution 2D %s\n", platform::hires_2d() ? "on" : "off (MW1_HIRES=0)");
   // FIXES.md item 82: the HUD pictures' numbers and letters drawn as text in PM's HUD face above canvas size.
   if (platform::hires_2d()) mw1::use_hud_label_font();
-  // FIXES.md item 30 (Owen): the menus leave the mouse free fullscreen too (to a second screen), as MW3's do in a
+  // FIXES.md item 30 (the owner): the menus leave the mouse free fullscreen too (to a second screen), as MW3's do in a
   // window; a mission holds it.
   platform::set_menus_free_pointer(true);
   // FIXES.md item 83 (the lead): the pause's grab without the HUD's marker line (platform/pause_hud.h).
   platform::set_pause_hides_hud_marker(true);
   // FIXES.md item 83 (the lead): RESOLUTION's modes all "W x H", their own sizes (platform/mode_labels.h).
   platform::set_uniform_mode_labels(true);
-  // FIXES 102 (Owen): the wheel scrolls the Mech Lab's lists as the arrows do (platform/list_wheel.h).
+  // FIXES 102 (the owner): the wheel scrolls the Mech Lab's lists as the arrows do (platform/list_wheel.h).
   platform::set_list_wheel(true);
   // FIXES.md item 88: the pause test's count of the grab's recorded texts (the SDL host's lists).
   mw1::recorded_lines() = [](const void* owner, const int32_t r[4], uint32_t colour) {

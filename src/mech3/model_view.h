@@ -1,5 +1,5 @@
 #pragma once
-// Ours (MW1: Critical Hit, FIXES.md item 12, Owen 2026-11-18: the Mech Complex shows the chosen 'Mech live in
+// Ours (MW1: Critical Hit, FIXES.md item 12, the owner 2026-11-18: the Mech Complex shows the chosen 'Mech live in
 // gunmetal): a mech's own model drawn live in a rectangle of any screen, as the Mech Lab draws its chassis
 // (lab_view.h) but held by no state. It has its own world, window and camera; each chassis' tree is copied once and
 // skinned by a camo's name; it is drawn alone, with the zone test off, framed to its own box.

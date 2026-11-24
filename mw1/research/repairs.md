@@ -45,7 +45,7 @@ numbers come from `MW_MAIN.EXE`.
   and premium), never below scrap (tons × 10,000). The salvage percentage
   scales the sum, as before.
 
-## Provisional answers (mw1 lead, 2026-11-17), for Owen
+## Provisional answers (mw1 lead, 2026-11-17), for the owner
 
 Each is one constant:
 
@@ -87,6 +87,6 @@ repaired and armed and the repairs are billed at the debriefing (VISION.md,
 to do.
 
 **Provisional answer:** the Mech Complex keeps REPAIR and RELOAD down its
-left (Owen's list, FIXES.md items 8 and 13), greyed. MECH LAB beside them
+left (the owner's list, FIXES.md items 8 and 13), greyed. MECH LAB beside them
 takes the place of MW1's refits. If VISION ever brings back damage carried
 between missions, they are the buttons that would work it.

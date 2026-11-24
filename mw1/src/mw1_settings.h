@@ -1,8 +1,8 @@
 #pragma once
-// FIXES 126 (Owen, 2026-11-20: "make the options menu more intuitive"): MW1's SETTINGS, one screen in place of
+// FIXES 126 (the owner, 2026-11-20: "make the options menu more intuitive"): MW1's SETTINGS, one screen in place of
 // Pirate's Moon's option pages (GAME OPTIONS, GRAPHICS & SOUND, UPGRADES) and the hub's own sound rows.
 //
-// The look is the mockups Owen approved (outbox 2026-11-20/mw1-options-126): section tabs down the left (GAME,
+// The look is the mockups the owner approved (outbox 2026-11-20/mw1-options-126): section tabs down the left (GAME,
 // DISPLAY, SOUND, CONTROLS, ENHANCEMENTS), the chosen one lit; DEFAULTS (the section's) and DONE under them; the
 // section's rows in the panel, a plain label and its control:
 // - a choice of two or three: every value shown, the chosen one lit amber (a cheat's ON in red);

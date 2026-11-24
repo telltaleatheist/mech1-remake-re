@@ -1,7 +1,7 @@
 #pragma once
 // MW1's results screen, AFTER ACTION (FIXES.md items 19, 31 and 38), its layout mw1results.zrd in MW1's data folder: a
 // mission ends here, never on Pirate's Moon's debriefing (mech3/program_flow.h's skip_debriefing). Laid out as MW1's
-// own after-action screen (Owen, item 38), over the world's scenery dimmed:
+// own after-action screen (the owner, item 38), over the world's scenery dimmed:
 // - top left, the picture (item 31: by the outcome and the fates), the outcome (VICTORY, DEFEAT, RETREAT) and where
 //   under it: the world and the employer, the objective and how long it took;
 // - top right, the status: PAYMENT (the fee with any deduction, the salvage share, the repair bill, the total and the
@@ -49,7 +49,7 @@ inline constexpr const char* kLocationNames[6] = {"Head", "Torso", "Left arm", "
 
 // The picture: a win (and an uneventful garrison tour) the commander with a big gun (MW1's 0x4C); a failure with
 // nobody lost, a retreat, kicking a rock (0x4E); a failure with someone lost (a lancemate KILLED or MISSING, or the
-// commander's mech destroyed) the wrecked cockpit (0x48). Owen's picks (art: end_win, end_retreat, end_lost).
+// commander's mech destroyed) the wrecked cockpit (0x48). The owner's picks (art: end_win, end_retreat, end_lost).
 enum class Ending { kWin, kRetreat, kLost };
 Ending ending_of(Outcome o, bool anyone_lost);
 // Its image: "mw1_end_win", or the large one ("_l") the 16:9 page shows.
@@ -70,7 +70,7 @@ Deduction deduction_of(Outcome o, int32_t payout_percent, int32_t pick);
 std::vector<std::string> outcome_message(int32_t house, Outcome o, bool garrison, Deduction d);
 // The Dark Wing's (research/story.md, the story battles): MW1's attack-failed line (DS:1BBC) as the results' message
 // of a lost or withdrawn attack; and its victory text (DS:1A37), shown on the event panel after a win. "" without it.
-// FIXES 131 (Owen, 2026-11-20): MW1's settlement roll (DS:1241/124B) stays, but ours says plainly that the House
+// FIXES 131 (the owner, 2026-11-20): MW1's settlement roll (DS:1241/124B) stays, but ours says plainly that the House
 // did it, so a win paid short doesn't look like a bug. Our words, one line of at most kResultsNarrow.message letters
 // (it follows MW1's own lines in the message box): "House Kurita declared a breach: fee and salvage forfeit." or
 // "House Marik withheld 50% of your fee and salvage." "" when paid in full (or no such House).

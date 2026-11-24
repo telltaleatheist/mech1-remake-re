@@ -169,7 +169,7 @@ Result install_from_source(const source::Found& found, const std::string& out_di
   const std::string patch_for = pm ? std::string() : patch;
   const fs::path out(out_dir), staging = fs::path(write_dir) / "setup-staging";
   std::error_code ec;
-  // An installed copy on disk is copied in like one in an archive (Owen, 2026-11-21: once found, the original
+  // An installed copy on disk is copied in like one in an archive (2026-11-21: once found, the original
   // may be deleted); only this folder's own copy is used where it is.
   const bool copy_folder = found.on_disk && found.kind == Found::kInstall;
   if (copy_folder && fs::equivalent(found.path, out, ec)) return check_install(found.path, write_dir, pm);

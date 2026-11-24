@@ -2,6 +2,7 @@
 // player's mech in PM's c1m1, and (env-gated) a real mod's files read and
 // played. MechWarrior 3's own checks are tests/test_mods.cpp and
 // test_program.cpp's mods_*_headless.
+#include <cmath>  // std::fabs: libstdc++ does not bring it in through the others
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -302,12 +303,20 @@ TEST(pm_mission_without_its_world_fails_headless) {
   const std::string copy = std::string(MW3_TEST_TMP_ROOT) + "/pm_no_world", wd = copy + "-write";
   std::error_code ec;
   fs::remove_all(copy, ec), fs::remove_all(wd, ec);
+  // The copy's own folder first: a top-level file met before the first subfolder had no parent (MW1's Linux gate,
+  // 2026-11-23: ext4's order put Mech3Msg.dll first; on the Mac Mech3.exe went missing unnoticed). Every link checked.
+  fs::create_directories(copy, ec);
+  EXPECT(!ec);
+  int failed = 0;
   for (const auto& e : fs::recursive_directory_iterator(MW3PM_GAME_DIR)) {
     const std::string rel = fs::relative(e.path(), MW3PM_GAME_DIR).generic_string();
     if (rel == "zbd/c1/gamez.zbd") continue;
-    if (e.is_directory()) fs::create_directories(fs::path(copy) / rel, ec);
-    else fs::create_symlink(e.path(), fs::path(copy) / rel, ec);
+    std::error_code made;
+    if (e.is_directory()) fs::create_directories(fs::path(copy) / rel, made);
+    else fs::create_symlink(fs::absolute(e.path()), fs::path(copy) / rel, made);
+    if (made) ++failed, std::printf("  not copied: %s (%s)\n", rel.c_str(), made.message().c_str());
   }
+  EXPECT(failed == 0);
   fs::create_directories(wd, ec);
   zutl::mounts() = zutl::Mounts{};
   zutl::set_write_dir(wd.c_str());
@@ -357,6 +366,9 @@ TEST(pm_mission_without_its_world_fails_headless) {
     mech3::mech_types_forget();
     mech3::options() = mech3::Options{};
   });
+  // Gone again: a folder one level inside the build dir is a drop-in install to the setup kit's search, and this
+  // one has no c1 world (mw3pmsdltests' screenshot run started on it).
+  fs::remove_all(copy, ec), fs::remove_all(wd, ec);  // the links, never what they name
 }
 
 // The mech lab's world (mission world 6, "lab") ships no gamez.zbd: its

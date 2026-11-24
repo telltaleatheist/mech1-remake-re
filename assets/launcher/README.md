@@ -35,7 +35,7 @@ symmetrical, front view, centred on a pure black background, no text, no
 letters." Qwen-Image 2.1, 768x768, 40 steps. The rows above are the first
 badges'.
 
-The three badges (2026-10-31, Owen: the ripple belongs to a circle) are
+The three badges (2026-10-31: the ripple belongs to a circle) are
 the games' entries: MechWarrior 3, Pirate's Moon (greyed until it is
 supported) and MechWarrior (1989) (shown when its port is beside ours).
 
@@ -46,3 +46,16 @@ are made again with an outpainted seam). "MW3 REBUILD" is a working title.
 `font.ttf` is not ours: Saira Condensed Bold by the Saira Project Authors,
 unchanged, under the SIL Open Font License 1.1 (`font-OFL.txt`; "Saira" is
 its reserved name), from github.com/google/fonts `ofl/sairacondensed`.
+
+**MW1's ORIGINAL tab (2026-11-22):** `badge_mw1o.png`, MechWarrior 1
+Rebuild's badge (the 1989 game as released), shown when the MECHWARRIOR 1
+card's ORIGINAL tab is selected; each card's badge follows its tab. Qwen-Image
+2.1, 768x768, 40 steps, seed 62, cut out with `tools/badge_cutout.py`: "A round
+military medallion badge: a BattleMech walking in side view drawn as a chunky
+low-resolution 1980s EGA computer game sprite, big square pixels, only a few
+flat colours, a humanoid war robot with a squat torso, stubby arms with gun
+barrels and thick legs, the pixel art set into embossed brushed steel with
+green phosphor enamel inlays like an old computer monitor, inside a thick
+circular brushed steel rim with small rivets around it, symmetrical, front
+view, centred on a pure black background, no text, no letters." Inception's
+card has no badge yet (a plain disc): its art must be our own too.

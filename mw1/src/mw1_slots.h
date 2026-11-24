@@ -1,5 +1,5 @@
 #pragma once
-// FIXES 125: the save slots' screen (Owen, 2026-11-20: "three game save slots and they can overwrite any of them"),
+// FIXES 125: the save slots' screen (the owner, 2026-11-20: "three game save slots and they can overwrite any of them"),
 // on MW1's screen template (mw1_screen.h) with its own layout, mw1slots.zrd in MW1's data folder.
 //
 // One screen in three uses, each listing the three slots (mw1_save.h: mw1save1.txt..mw1save3.txt), each slot with

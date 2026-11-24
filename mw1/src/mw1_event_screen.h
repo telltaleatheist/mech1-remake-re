@@ -3,7 +3,7 @@
 // data folder: the world and the place on the plaque, the event's text page by page on the green terminal; a
 // choice's captions on MW1's buttons (MW1's words, from the player's exe); NEXT for the next page or OK. The Bar's
 // NEWS shows the news live now on it, story by story, with PREV, NEXT and BACK.
-// Where (FIXES.md item 42, Owen: unobtrusive, revising item 34's side panel): over the screen it fires on, that
+// Where (FIXES.md item 42, the owner: unobtrusive, revising item 34's side panel): over the screen it fires on, that
 // screen's own picture behind it, undimmed, the text in a box at the screen's foot sized to it (up to kBoxLinesMax
 // lines, then pages; boxed_pages); an event with its own art (event_art) a full page of its own (FIXES.md item 10),
 // that art dimmed behind it (the page is the picture).
@@ -84,7 +84,7 @@ std::vector<Page> boxed_pages(const std::vector<Page>& pages, size_t columns = k
 std::vector<std::string> rewrapped(const std::vector<std::string>& lines, size_t columns);
 
 // An event's own scene behind its text (FIXES.md item 10), by event id: "" none (the world's scenery then). The ones
-// with a full scene (854x480); the rest, the first arrival's crest among them (an emblem, not a scene), wait on Owen's
+// with a full scene (854x480); the rest, the first arrival's crest among them (an emblem, not a scene), wait on the owner's
 // art list (research/story.md Q11).
 std::string event_art(int32_t event);
 

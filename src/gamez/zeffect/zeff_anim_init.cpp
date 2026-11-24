@@ -195,7 +195,7 @@ bool fix_def(int32_t index, AnimDef& d, const char** prev_name) {
 }  // namespace
 
 // FIX (bug): only this entry goes; the def keeps waiting on the rest
-// (decided with Owen, docs/fixes.md). The count to meet comes down if
+// (decided, docs/fixes.md). The count to meet comes down if
 // fewer entries that count are left.
 void anim_drop_prerequisite(AnimDef& d, int k) {
   for (int j = k; j + 1 < d.count(0x110); ++j) d.prereqs[j] = d.prereqs[j + 1];

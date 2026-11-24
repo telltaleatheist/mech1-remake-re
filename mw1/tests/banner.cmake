@@ -4,6 +4,8 @@
 # after the crash report's line (crash_report.h); not --hidden, as a hidden run installs no crash report. No window
 # can open: SDL's dummy video, no box (MW3_LAUNCHER_WATCHES), and the run ends before any window would.
 # cmake -DMW1_BIN=<mw1> -DPM_BIN=<mw3pm> -DWANT=<MW1's describe> -DDIR=<scratch dir> -P banner.cmake
+# A -P script sets no policies of its own: without this, CMake 3.x drops a list's empty entries (CMP0007, OLD).
+cmake_minimum_required(VERSION 3.20)
 set(env SDL_VIDEO_DRIVER=dummy SDL_AUDIO_DRIVER=dummy MW3_CRASH_TEST=1 MW3_LAUNCHER_WATCHES=1)
 function(run name bin first_re crash_line)
   set(wd "${DIR}/${name}")

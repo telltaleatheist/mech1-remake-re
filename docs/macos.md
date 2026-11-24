@@ -31,16 +31,16 @@ THIRD-PARTY.txt describes the `--deps` build.
   git, `LSMinimumSystemVersion` from the binary (see below), games
   category.
 - Signed **ad hoc** (`codesign -s -`): the code is sealed, but no identity
-  or name is in the signature (Owen, 2026-10-30: the releases are not
+  or name is in the signature (2026-10-30: the releases are not
   Developer ID signed and not notarized, for his privacy; he publishes as
-  Owen Morgan). `tools/macos/mw3.entitlements` grants nothing: the app needs
+  the developer). `tools/macos/mw3.entitlements` grants nothing: the app needs
   no exception. The DMG is not signed.
 - An explicit opt-in, `--identity "<IDENTITY>"`, signs with a keychain
   identity, the hardened runtime and a secure timestamp instead; never used
   for releases.
 
 The game's files, settings and saves go to the write dir,
-`~/Library/Application Support/MicroProse/MechWarrior 3/`, as for the
+`~/Library/Application Support/BattleTech/MechWarrior 3/`, as for the
 development build; with no console, nothing else changes on the Mac (the
 terminal shows the output when it is started from one).
 

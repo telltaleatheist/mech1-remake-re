@@ -7,7 +7,7 @@ Each file goes in, is read and written back on both sides, and the bytes must ma
 a new pilot; a wrong version (PM wipes the file); crafted files with campaigns and
 the second campaign's ("standalone") record, whose bytes must also come back
 unchanged, since saving must not lose it while the mode is not ported; and a real
-pilot of Owen's where there is one, played on PM (its standalone record is empty, so
+pilot of the player's where there is one, played on PM (its standalone record is empty, so
 that record rests on the crafted files and what the exe's read and write do). Reading
 merges a campaign's salvage (0x435990), so a read and write is not byte-equal in
 general: the exe is the reference. The port's copy before a wipe (FIX (bug)) is beside the file, outside
@@ -265,7 +265,7 @@ def main():
     rng = random.Random(0x47b2f0)
     exe, port = Exe(), Port()
     runs = int(sys.argv[1]) if len(sys.argv) > 1 else 400
-    kept = dropped = records = owen = damaged = wiped = 0
+    kept = dropped = records = real = damaged = wiped = 0
     try:
         new = exe.fresh(NAME)
         check('a new pilot', (0, new), (0, port.fresh(NAME)))
@@ -294,8 +294,8 @@ def main():
             data = (OWEN / 'Deathstalker.mw3').read_bytes()
             a = exe.round('Deathstalker', data, ['Deathstalker02'])
             b = port.round('Deathstalker', data, ['Deathstalker02'])
-            check("Owen's save", a, b)
-            owen = a[0]
+            check("the real save", a, b)
+            real = a[0]
         else:
             print("no real pilot here: crafted files only")
 
@@ -315,7 +315,7 @@ def main():
     pm_floors.floors(copies=(copies, 4), kept=(kept, 100), dropped=(dropped, 50), records=(records, 100), damaged=(damaged, 100),
                      wiped=(wiped, 1))
     print(f'ok: {runs} crafted files the same as the exe ({kept} campaigns kept, {dropped} dropped, {records} with '
-          f'standalone progress, unchanged), a new pilot, another version wiped; Owen\'s save: {owen} campaigns; '
+          f'standalone progress, unchanged), a new pilot, another version wiped; the real save: {real} campaigns; '
           f'{damaged} damaged files read by the port; {copies} cases of a file kept before its wipe')
     return 0
 

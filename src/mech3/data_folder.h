@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace mech3::data_folder {
@@ -74,5 +75,17 @@ std::function<void()>& after_switch_for_test();
 
 // `path` under `from` as the same place under `to`; else as it was.
 std::string moved_path(const std::string& path, const std::string& from, const std::string& to);
+
+// The family folder (2026-11-22; docs/program.md, The family folder): `usual` is
+// <base>/BattleTech/<Game>; a player's <base>/MicroProse/<Game> from before is renamed to it once
+// (rekit::move_once), a pointer left in the old place so an earlier version of any of the games still finds
+// the same data, and the saved paths in every family folder's mw3.cfg that named a moved folder made to name
+// it where it is now. Returns the folder to use: `usual`, or the old one while it cannot be moved (a file in
+// use: tried again at the next start). `move` false (a development build, on the developer's own folders):
+// nothing moved, the old folder used while it is the one with the data.
+std::string family_move(const std::string& usual, bool move = true);
+
+// `cfg`'s saved paths under each moved pair's first folder made to name the same place under its second.
+void retarget_config(const std::string& cfg, const std::vector<std::pair<std::string, std::string>>& moved);
 
 }  // namespace mech3::data_folder

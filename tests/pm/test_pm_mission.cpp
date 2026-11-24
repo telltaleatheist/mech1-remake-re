@@ -812,7 +812,7 @@ static void kill_run(const char* which, bool quick) {
           if (mech3::program_mcb_point(i, q)) std::printf("  mcb point %d at %.0f %.0f %.0f\n", i, q[0], q[1], q[2]);
         }
       if ((t == 30 || t == 31) && std::getenv("PM_REPAIR_CALL")) mech3::program_mcb_command(player);
-      if (std::getenv("PM_REPAIR_AFTER") && brain) {  // the player repaired first, then her order (Owen's)
+      if (std::getenv("PM_REPAIR_AFTER") && brain) {  // the player repaired first, then her order (the player's)
         static int contact = -1, closed = -1, idle = -1, ordered = -1, last_front = -9;
         static float point[3];
         const mech3::DockSummary d = mech3::program_dock_summary();
@@ -1077,7 +1077,7 @@ static void kill_run(const char* which, bool quick) {
       done = true;
       return;
     }
-    // pm-tests 37: the player on the land bridge where Owen stood, anhur04 shot down as it passes (alive and back within 240 m
+    // pm-tests 37: the player on the land bridge where the player stood, anhur04 shot down as it passes (alive and back within 240 m
     // of him after its loop, about frame 1500 on its scripted flight under either AI), the segments a shot and a walk take toward its
     // fall 150 frames on. PM_ANHUR=frame kills it at that frame instead; PM_ANHUR_TRACK logs to 900 frames past the
     // kill, with the frame the deck (hslid01) gives way under the Anhur's fire.
@@ -1157,7 +1157,7 @@ static void kill_run(const char* which, bool quick) {
           *d = std::sqrt((h.point[0] - a[0]) * (h.point[0] - a[0]) + (h.point[1] - a[1]) * (h.point[1] - a[1]) + (h.point[2] - a[2]) * (h.point[2] - a[2]));
           return h.node;
         };
-        // Up past the falling wreck toward where the Anhur died, and along the deck at a mech's knee (Owen's "hit wall" at y 1.9).
+        // Up past the falling wreck toward where the Anhur died, and along the deck at a mech's knee (the player's "hit wall" at y 1.9).
         const float eye[3] = {1958.6f, 7.0f, -828.7f}, sky[3] = {1930.0f, 45.0f, -1000.0f};
         const float knee[3] = {1958.6f, 1.9f, -828.7f}, ahead[3] = {1958.6f, 1.9f, -900.0f};
         std::function<void(zcls::Node*, bool)> pieces = [&](zcls::Node* q, bool live) {
@@ -1294,7 +1294,7 @@ static void kill_run(const char* which, bool quick) {
       float me[3], cam[3], torso[3];
       mech3::mech_world_position(player, me);
       if (const char* stay = std::getenv("PM_WALL_STAY")) me[0] = sx, me[1] = static_cast<float>(std::atof(stay)), me[2] = sz;  // the player left be, the rays from there
-      if (std::getenv("PM_WALL_CAMERA")) {  // from the outside camera (view 3), as Owen's range reads
+      if (std::getenv("PM_WALL_CAMERA")) {  // from the outside camera (view 3), as the player's range reads
         pm_controls_set_view(player, 3);
         if (mech3::program_view_positions(cam, torso)) me[0] = cam[0], me[1] = cam[1] - 10.0f, me[2] = cam[2];
       }
@@ -2266,7 +2266,7 @@ static void kill_run(const char* which, bool quick) {
 
 // Always on: the same fall with the camera by the cockpit and outside: entering the cloud
 // tints the screen to its colour by the camera's height (docs/vehicles.md, The cloud's screen tint).
-// pm-tests 37, Owen's invisible wall in c3m6: an Anhur shot down over the land bridge left its root's box spanning
+// pm-tests 37, the player's invisible wall in c3m6: an Anhur shot down over the land bridge left its root's box spanning
 // where it died and its falling wreck. Our aim ray had boxed it as it flew near; PM's never boxes a turret (its
 // vt+0x48 is none, 0x00406ce0, as a target's), so nothing is left to stop a shot or a mech, bug fixes on or off.
 TEST(pm_c3m6_dead_anhur_leaves_no_wall) {
@@ -2809,7 +2809,7 @@ TEST(pm_canyon_death_band) {
 #endif
 }
 
-// pm-tests 35 (Owen's playtest: Epona Rhi stood still when ordered to repair), always on: in c1m1 under PM's AI the
+// pm-tests 35 (the playtest: Epona Rhi stood still when ordered to repair), always on: in c1m1 under PM's AI the
 // player calls the MFB and is repaired, then Epona, hurt, is ordered to repair (order 12). With bug fixes on she is
 // taken at the starbase (the dock-parking fix) and at a mobile dock, walks in on PM's repair state (0x004e0790),
 // goes down on the point and comes away repaired; with them off, at the starbase the exe's dock has let the bases
@@ -3969,7 +3969,7 @@ static int knock_run(int cause) {
   return fell_at;
 }
 
-// pm-tests 40 (Owen 2026-11-09: "PPCs don't seem to knock enemies back the way they knock him back"): PM's c1m1
+// pm-tests 40 (2026-11-09: "PPCs don't seem to knock enemies back the way they knock him back"): PM's c1m1
 // with PM's AI, its first enemy mech hit by the PPC from the player's place. One hit, then 8 s watched: the torso's
 // spin (+0xd8, 0x00464af0: 15 deg x the force held to 1 x 0.5 x the impulse's length), the rocking it drives (+0xe4
 // as the quaternion +0xf0, 0x00464e80) and the torso node as drawn (its 3x3 the pose x the shake, 0x004659c0;
@@ -4402,7 +4402,7 @@ TEST(pm_c1m2_lock_drops_on_a_new_target_headless) {
 #endif
 }
 
-// pm-tests item 36 (Owen 2026-11-09): "operation cwal" typed into the cheat
+// pm-tests item 36 (2026-11-09): "operation cwal" typed into the cheat
 // box took the mouse off the reticle. The box opened with Shift+Enter and
 // every key of the code pressed through the keyboard's path, L let go after
 // the Enter that shuts the box (typing rolls over), the mouse moved before

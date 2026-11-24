@@ -1062,7 +1062,7 @@ the Owens in mode 2 and fires: the hits wear a torso section's internal to
 intact. Headless runs load no 2D images, so the test gives the silhouette
 set distinct stand-ins first.
 
-**What it shows** (Owen's playtest, 2026-10-29: "only the left arm
+**What it shows** (the playtest, 2026-10-29: "only the left arm
 outlined (or the right one)"). Each part is an outline over the
 background's translucent fill (`dmg_bg_blue`, an alpha image of 0x001f;
 red or green for TARGET's enemy or neutral): blue at full health, green
@@ -1076,7 +1076,7 @@ colours differ and showed. Fixed in the cover, not here: an opaque write
 ends a pixel's record. mw3sdltests
 `sdl_host_damage_diagram_shows_every_part` draws the view with the shipped
 images at every band for each part and checks every outline texel opaque;
-with the cover unfixed it shows Owen's picture (seven parts with 0 texels
+with the cover unfixed it shows the picture (seven parts with 0 texels
 at full health). Shots: c1m1, `--tap 0x20@800` (all blue at frame 900);
 with `--vehicle-ahead 40 --vehicle-hold` the vehicle's hits turn the left
 arm and leg green by frame 2400.
@@ -1412,7 +1412,7 @@ MW3's; what changed:
   not used: any static above 0 draws the whole noise, so on hardware PM's
   static is on or off where MW3's thickened with the level. Without a device
   (not ported) MW3's fill. The port draws the quad through zvid's draw_quad;
-  with `bugs` on (FIX (bug), Owen 2026-11-04) its alpha is the add's ceiling
+  with `bugs` on (FIX (bug), 2026-11-04) its alpha is the add's ceiling
   for the health, (0.2 - h) x 5 clamped to 0..0.9, so the static grades with
   damage as MW3's does. The channels' eased level would not: +0.1 to one of
   four a frame against a fall of 2 x level a second settles near 0.375 at any
@@ -1421,7 +1421,7 @@ MW3's; what changed:
   corners go from the canvas onto the frame (`canvas_point_to_render`, as the
   panels' quads); at 16:9 (853x480 on 1920x1080) the static sat at canvas
   pixels, small patches above the compass and in the view and none on the
-  panels (Owen's shot 2026-11-08, pm-tests.md front-end item 13; MW3's fill
+  panels (the shot 2026-11-08, pm-tests.md front-end item 13; MW3's fill
   is on the 2D layer and was right). `pm_static_on_the_frame_at_16_9`.
 Checked by `test_pm_hud_static.py`: 4 noises (262,144 pixels), 200 quads and
 40 runs of 2,787 frames against PM's exe; 12 breaks caught. Not checked: which
@@ -1468,7 +1468,7 @@ turned to the centroid (0x00523ac0, 0x004f36b0); then, with the mech's
 see-through flag (object3d flag 2, 0x004fbb90) and an attached cockpit model
 (MechData +0x228's node under the torso's) off, the mech's node drawn alone
 (0x004428b0) between its vt+0x68(1) and (0). Mode 1 shows the player's own
-mech from the front, as Owen describes; mode 2 is the damage diagram, mode
+mech from the front, as remembered; mode 2 is the damage diagram, mode
 3 the armour bars (section 16).
 
 **TARGET's view of its target (hud-plan 6c3).** 0x00441410 in mode 1
@@ -1492,7 +1492,7 @@ mode 1 shows any target that is not hidden (vt+0xa8), so turrets as well
 as mechs and vehicles; targets.zrd's objects answer vt+0xa8 and show mode
 0. The program read every target's node as a mech's (`Mech::node`). A
 turret's `self` and `node` are 32-bit handles, so that read took the two
-handles for a pointer, and `render_subtree` crashed on it (Owen's Windows
+handles for a pointer, and `render_subtree` crashed on it (the Windows
 playtest, 2026-10-29: `Node::parent_count`). `object_node` now takes the
 node by class (`hud_object_node`, the sensors' lookup). A removed object
 resolves to null through its handle, and a dead mech keeps its node as

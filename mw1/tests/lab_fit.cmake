@@ -8,6 +8,8 @@
 # pressed 'Mech icon (icon_*_red, PM's). Any other (a text, a picture not listed) fails: a mission's HUD (hud_*, and
 # its toggler, PM's lab_toggle[lr]_* by its own name) is drawn from its shapes since (mw1_hud_art.h), so the results
 # page's first frames, the mission's, hold it to that too.
+# A -P script sets no policies of its own: without this, CMake 3.x drops a list's empty entries (CMP0007, OLD).
+cmake_minimum_required(VERSION 3.20)
 set(hires_known "^(mw1_clear|mw1_black|icon_[a-z0-9_]+_red)$")
 function(hires_short out_text result)
   set(bad "")
