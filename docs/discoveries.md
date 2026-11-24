@@ -832,6 +832,21 @@ From the weapon code (weapons.md).
 - **What FCS does for missiles is terrain following**: with FCS in the firing
   part (and no ECM on the target), missiles flying under 10 m with ground in
   the way climb (0x5859fb, likely).
+- **For modders: a weapon's speed must be typed as a decimal.** In
+  `weapons.zrd`, a whole number and a decimal sit in the same four bytes, and
+  the weapon loader reads `VELOCITY` as a decimal without asking which was
+  typed. `[900]` comes out as about 0.000...0013 (41 zeros after the point), so the shot never
+  leaves the gun under its own power and drifts with the mech that fired it,
+  muzzle flash, trail and all; `[900.0]` flies (0x583880, `zwep_init`).
+  The same holds for every number the stock file writes with a `.0`. (Found
+  2026-11-23 with a modder's new weapon.)
+- **For modders: a SALVO multiplies the ammo per ton.** A weapon's `MASS`
+  `ammo` is rounds per ton before the salvo: with a `SALVO`, the game
+  multiplies it by the salvo's `truecount` (the machine gun's 50 is really 200,
+  four rounds a pull). Take the SALVO away and each round weighs four times as
+  much. A loadout that then weighs more than its 'Mech (0.24 t of slack) fails
+  the game's check without a word, and the 'Mech is set up with nothing: no
+  weapons, the base heat sinks, no speed (0x4254d0, 0x414430; mechdef-head.md).
 
 ## Sound
 
