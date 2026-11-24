@@ -8,12 +8,14 @@
 # Usage: tools/linux/make-appimage.sh [PREFIX] [TOOLS]
 #   PREFIX: where SDL3, SDL3_ttf, SDL3_sound and FFmpeg are installed
 #           (tools/deps/build_deps.sh linux's build-deps/linux/prefix;
-#           default ../prefix); TOOLS: where linuxdeploy-x86_64.AppImage and
-#           appimagetool-x86_64.AppImage are (default ../deps).
+#           default ../prefix); TOOLS: the folder whose appimage-tools/ holds the AppImage
+#           tools, pinned and fetched by get_appimage_tools.sh (default ../deps).
 set -e
 cd "$(dirname "$0")/../.."
 PREFIX=$(cd "${1:-../prefix}" && pwd)
-TOOLS=$(cd "${2:-../deps}" && pwd)
+TOOLS="${2:-../deps}"; mkdir -p "$TOOLS"; TOOLS=$(cd "$TOOLS" && pwd)
+TOOLS="$TOOLS/appimage-tools"  # pinned by checksum; downloaded here when missing
+sh tools/linux/get_appimage_tools.sh "$TOOLS"
 export APPIMAGE_EXTRACT_AND_RUN=1  # no FUSE needed (WSL, containers)
 # FFmpeg's libraries from the prefix too (tools/deps/build_deps.sh linux:
 # the minimal LGPL build mw3import needs), found through pkg-config.
@@ -52,6 +54,8 @@ else
   done
 fi
 
+# The AppImage's own start program and the libfuse in it (LGPL): its notice and licences.
+cp -R tools/linux/appimage-runtime "$APPDIR/usr/share/doc/mw3pm/licenses/appimage-runtime"
 # libarchive, zlib and liblzma are linked in: build_deps.sh keeps their licences in the prefix.
 [ -d "$PREFIX/share/licenses" ] && cp -R "$PREFIX/share/licenses/." "$APPDIR/usr/share/doc/mw3pm/licenses/"
 # The libraries they load (SDL's from PREFIX), the desktop entry and icon.
@@ -64,5 +68,5 @@ grep -qx 'Exec=mw3pm' "$APPDIR"/*.desktop || { echo "the AppImage does not start
 python3 -I tools/deps/check_paths.py "$APPDIR" || exit 1
 mkdir -p build-linux-pkg/dist
 OUT="build-linux-pkg/dist/PM-Rebuild-$VER-x86_64.AppImage"
-ARCH=x86_64 "$TOOLS/appimagetool-x86_64.AppImage" "$APPDIR" "$OUT"
+ARCH=x86_64 "$TOOLS/appimagetool-x86_64.AppImage" --runtime-file "$TOOLS/runtime-x86_64" "$APPDIR" "$OUT"
 echo "$OUT"
