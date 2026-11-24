@@ -2,7 +2,7 @@
 
 The rebuild on Linux: the same program as on the Mac and Windows (SDL3, its
 GPU API through Vulkan), built with GCC, packaged as an AppImage. Checked in
-WSL2 (Ubuntu 24.04) on Owen's PC (2026-10-31).
+WSL2 (Ubuntu 24.04) on the reference PC (2026-10-31).
 
 ## Building
 
@@ -64,7 +64,7 @@ movies need it: the 32-bit Indeo helper (`mw3indeo`) is Windows-only.
 
 - The write dir (settings, pilots, saves, the imported movies and music):
   `SDL_GetPrefPath("MicroProse", "MechWarrior 3")`, which is
-  `~/.local/share/MicroProse/MechWarrior 3/` (XDG_DATA_HOME's).
+  `~/.local/share/BattleTech/MechWarrior 3/` (XDG_DATA_HOME's).
 - The install finder (sdl_install.cpp, `install_candidates`) looks, besides
   mw3.cfg's `install=` and the program's own folder, in a Windows install
   under Wine, Proton or Lutris: `$WINEPREFIX` (else `~/.wine`), each Steam
@@ -98,7 +98,7 @@ GitHub releases (continuous). In the AppDir:
   libraries' licence files;
 - the desktop entry and icon (tools/linux: `mw3.desktop`, `mw3.png`, our
   emblem at 256). The entry's Name is "MechWarrior 3" (the launcher
-  installed under the game's name, Owen 2026-11-01); the AppImage's file
+  installed under the game's name, 2026-11-01); the AppImage's file
   keeps MW3-Rebuild-... (release.md).
 
 Vulkan, X11, Wayland and the audio servers stay the system's: SDL loads them
@@ -133,7 +133,7 @@ shows.
 ## FFmpeg (mw3import)
 
 The package's FFmpeg is a minimal LGPL 2.1 build from its pinned release
-source (Owen, 2026-10-31): `tools/deps/build_deps.sh linux` (docs/deps.md)
+source (2026-10-31): `tools/deps/build_deps.sh linux` (docs/deps.md)
 builds it with SDL3, SDL3_ttf (FreeType inside) and SDL3_sound into
 `build-deps/linux/prefix`, which `make-appimage.sh` takes as PREFIX
 (pkg-config finds FFmpeg there; the licence files come from the sources).

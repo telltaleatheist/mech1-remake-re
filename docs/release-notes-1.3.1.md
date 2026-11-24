@@ -4,7 +4,7 @@ Each game goes where you choose, and each game's setup names its game.
 
 ## Each game goes where you choose
 
-Owen's request: games can be installed anywhere, on any drive, from the
+The request: games can be installed anywhere, on any drive, from the
 launcher or from a game's own setup, with "everything installed in the same
 location the user picks".
 

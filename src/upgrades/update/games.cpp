@@ -9,6 +9,9 @@ const GameInfo& game_info(Game g) {
       {"mw3", "MechWarrior 3", "mech3-re", "v", "mw3"},
       {"pm", "Pirate's Moon", "mech3-pm-re", "pm-v", "mw3pm"},
       {"mw1", "MechWarrior 1 Remake", "mech1-remake-re", "mw1-v", "mw1"},
+      {"mw1r", "MechWarrior 1 Rebuild", "mech1-re", "mw1r-v", "mw1r"},
+      {"chi", "Inception Rebuild", "inception-re", "chi-v", "chi"},
+      {"chirm", "Inception Remake", "inception-remake-re", "chirm-v", "chirm"},
   };
   return kInfo[static_cast<int>(g)];
 }
@@ -21,7 +24,12 @@ bool game_tag(Game g, const std::string& tag) {
 }
 
 std::string game_asset_name(Game g, const std::string& tag, Platform p) {
-  const char* stem = g == Game::kMw3 ? "MW3-alone" : g == Game::kPm ? (p == Platform::kWindows ? "mw3pm" : "PM-Rebuild") : "MW1-Remake";
+  const char* stem = g == Game::kMw3   ? "MW3-alone"
+                     : g == Game::kPm  ? (p == Platform::kWindows ? "mw3pm" : "PM-Rebuild")
+                     : g == Game::kMw1 ? "MW1-Remake"
+                     : g == Game::kMw1r ? "MW1-Rebuild"
+                     : g == Game::kChi  ? "CHI-Rebuild"
+                                        : "CHI-Remake";
   const char* tail = p == Platform::kWindows ? "-win64.zip" : p == Platform::kMac ? "-mac.dmg" : "-x86_64.AppImage";
   return std::string(stem) + "-" + tag + tail;
 }
@@ -76,29 +84,25 @@ const Asset* GameCheck::asset() const {
   return nullptr;
 }
 
-GameCheck judge_game(Game g, const std::string& installed, const Answer& answer, Platform p) {
+GameCheck judge_game(Game g, const std::string& installed, const std::vector<Answer>& answers, Platform p) {
   GameCheck c;
   c.platform = p;
   const std::string name = game_info(g).name;
-  std::vector<Release> all;
-  std::string error;
-  if (answer.json.empty()) {
+  const Homes h = read_homes(answers);
+  if (h.read == 0) {  // every home failed: the first one's reason
     c.kind = GameCheck::kFailed;
-    c.words = "Could not reach GitHub for " + name + (answer.fetch_error.empty() ? std::string(".") : ": " + answer.fetch_error + ".");
+    if (!h.failed) c.words = "Could not check for " + name + ".";
+    else if (!h.parse_error.empty()) c.words = "The releases list for " + name + " could not be read (" + h.parse_error + ").";
+    else c.words = "Could not reach the releases of " + name + (h.failed->fetch_error.empty() ? std::string(".") : ": " + h.failed->fetch_error + ".");
     return c;
   }
-  if (!parse_releases(answer.json, &all, &error)) {
-    c.kind = GameCheck::kFailed;
-    c.words = "GitHub's answer for " + name + " could not be read (" + error + ").";
-    return c;
-  }
-  const Release* newest = newest_game(g, all, p);
+  const Release* newest = newest_game(g, h.releases, p);
   if (!newest) {
     c.kind = GameCheck::kNoRelease;
     c.words = "No release of " + name + " for this computer yet.";
     return c;
   }
-  c.release = *newest;
+  c.release = with_homes(h, newest->tag, [g, p](const Release& r) { return game_asset(g, r, p) != nullptr; });
   if (installed.empty() || compare_game(newest->tag, installed) > 0) {
     c.kind = GameCheck::kNewer;
     c.words = installed.empty() ? name + " " + game_version(newest->tag) + " can be installed."

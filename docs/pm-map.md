@@ -266,7 +266,7 @@ and vtable offsets. Each module's tests are made to run on PM when that
 module is ported for PM (step 1 onwards), with the PM version beside the
 MW3 one.
 
-## Does PM need MW3? (Owen, 2026-11-02)
+## Does PM need MW3? (2026-11-02)
 
 No. PM's exe looks for nothing of MW3's, and the PM disc alone makes a
 complete install (game/pm). What the exe reaches outside its folder:
@@ -309,7 +309,7 @@ mech3ax reads PM (`GameType::PM`). Checked against the PM install's files:
 
 ## Shared types, forked logic
 
-**Replaced (Owen, 2026-11-04): this branch, `pm`, is PM's own copy and never merges to `main`** (`games-layout.md`).
+**Replaced (2026-11-04): this branch, `pm`, is PM's own copy and never merges to `main`** (`games-layout.md`).
 New work edits `src/gamez` and `src/mech3` in place, or forks where plainly easier; `src/pm/` and `zgame::Table`
 stay as they are and fold in only when that code is being worked on. A bug or port error MW3 also has goes to the lead
 as its own small commit. The section below is how the branch got here.
@@ -1050,7 +1050,7 @@ functions PM changed, and PM's new ones.
        +0x153c from (far - d) * 255. The fade is the 1.5 * 2^52 rounding, so at 24 bits
        it is only ever 0 or full; c3 runs at 53 bits to reach the values between.
        `light_map_sets` goes through `fpu53`, so the shipped default has the real fade.
-       **Open, for Owen's PC:** what the original shows, at the runtime's precision, and
+       **Open, for the reference PC:** what the original shows, at the runtime's precision, and
        on the three-stage path, which reads as losing the fade.
        **Traced, mirrored UVs at 53 bits:** a polygon whose camera-space normal has x
        exactly 0 takes 0x5381c0's first branch, axis (1, 0, 0) at full length. With x
@@ -1211,7 +1211,7 @@ functions PM changed, and PM's new ones.
        a light map and the first is not; otherwise the sets before leave theirs in the vertices.
        **All three "on" settings take this formula** (`fixes.md`). The three-stage path (option 1, or
        auto when the device has 3 stages) is read from the code only: stage 2 modulates the colour
-       by the diffuse but its alpha takes no diffuse, so it loses the fade. **Open, for Owen's PC:**
+       by the diffuse but its alpha takes no diffuse, so it loses the fade. **Open, for the reference PC:**
        what the original shows there.
        No world shows a light map yet: `LightSetLightMap` waits for the interpreter's item. To see one,
        `mw3pm --fly c1 --look 0 20 --map-light 2432 5 -2300 120` (debug only).
@@ -1312,7 +1312,7 @@ functions PM changed, and PM's new ones.
        black (`SdlRender3D`; it used to hold undefined memory, magenta on this Mac), so the gap is black in
        `--fly`, which stays depth-only like the mission: there it keeps what the last frame left, which is
        black until something draws there.
-       **For Owen's PC:** `docs/pm-eye-checks.md`, with the brightness of c1 and c3.
+       **For the reference PC:** `docs/pm-eye-checks.md`, with the brightness of c1 and c3.
      - **Eye check, settled here** (no original compared, only that the port draws what the data says):
        the sky: day and night differ as `night_day.zrd` says (`--fly c1 --pos 2432 25 -2688 --look 0 -25`: clouds
        and small stars; with `--variant m2`: large stars, dim clouds), c2 clouds over a fog-coloured horizon
@@ -1324,7 +1324,7 @@ functions PM changed, and PM's new ones.
        lights nothing on screen until its range reaches the frame's near edge. A long polygon near a small
        light (range 5, on the bridge) redraws whole, and 10,360 of its 10,363 changed pixels move by 1 level:
        the map's clamped edge texel is not quite 0.
-     - **Eye check, for Owen's PC:** `docs/pm-eye-checks.md`: what he does in the original, the port's picture beside it.
+     - **Eye check, for the reference PC:** `docs/pm-eye-checks.md`: what he does in the original, the port's picture beside it.
      - **Eye check, waiting:** a short light's pool on a regular polygon, on the mission's lights; a
        projected light over a light-mapped polygon, bugs on and off, on the caster's port; an axis-aligned
        wall's light map seam, on a mission's light on a wall (`--map-light` could stand in, not tried);
@@ -1501,7 +1501,7 @@ functions PM changed, and PM's new ones.
      The beacon is the `waypoint` model, a flat quad 0.5 above its node, put at the file's x, y, z (0x47bcb0, MW3's 0x479ac0):
      no ground query, so its height is data. c3m7's Able is at 20.53 over ground at 12.59, 7.9 high, and floats in the data;
      the other campaign points measured (c1, c2m3, c2m4, c2m8, c3m6) are within about 2.4 of the ground (2026-11-07). Kept as
-     the original's (Owen).
+     the original's.
    - **The boundary's areas: ported** (the variant 0x4cdb30, the loader 0x4cddb0, the match 0x4cdce0, the add 0x4cced0,
      the select 0x4ce290; `zainet_inout`, `test_pm_ai_inout.py`, 798 cases, 5 breaks): names by game type: 1 `inoutm` and
      5 `inoutsa` (ten areas by 0x435db0, the index the mission - 1), 2 `inoutia`, 4 `inoutt` (one). Before this every
@@ -1569,7 +1569,7 @@ functions PM changed, and PM's new ones.
 6. **The front end**: the load/save screens and saved games
    (`%s%02d.mw3`), the saved configurations (`.m3c`), the pilot and
    briefing screens; no movies (zFMV's 21 ported functions are gone).
-   **Keeping a PM campaign (2026-11-05):** the pilot file is PM's now (`test_pm_pilot.py`: exe against port, Owen's real save included, byte for byte after a read and write): the version 0x3e with a wipe on a mismatch, five games, the first campaign in the file, the strings, the mission alone, the default mech 5, Instant Action's settings per pilot with their -1 defaults. Multiplayer's fields have their place in the file; their names go by MW3's offsets + 0x18 and three of them have no reader yet (item 8). The standalone record is kept whole; Owen's own is empty, so its unchanged write-back rests on crafted files and what the exe's read and write do. The starting store 0x4351b0 was already ported. Restore (0x435d30) has run on Owen's real `Deathstalker02.mw3` through `--campaign-chain resume:1` to a win, no crash; the restored world is not compared with the exe's. `lance_keeps`: no PM function near the briefing compares the mission with a fixed one, its MW3 rule is never true now and stands, the twin not pinned by the address map. Seen on the way, not ported: 0x404a20's new lancemate warnings before a launch on game types 2 and 5 (messages 0x1e0, 0x1063). The whole `test_pilot` (the screens' calls on stores and games) stays to move.
+   **Keeping a PM campaign (2026-11-05):** the pilot file is PM's now (`test_pm_pilot.py`: exe against port, the player's real save included, byte for byte after a read and write): the version 0x3e with a wipe on a mismatch, five games, the first campaign in the file, the strings, the mission alone, the default mech 5, Instant Action's settings per pilot with their -1 defaults. Multiplayer's fields have their place in the file; their names go by MW3's offsets + 0x18 and three of them have no reader yet (item 8). The standalone record is kept whole; the player's own is empty, so its unchanged write-back rests on crafted files and what the exe's read and write do. The starting store 0x4351b0 was already ported. Restore (0x435d30) has run on the player's real `Deathstalker02.mw3` through `--campaign-chain resume:1` to a win, no crash; the restored world is not compared with the exe's. `lance_keeps`: no PM function near the briefing compares the mission with a fixed one, its MW3 rule is never true now and stands, the twin not pinned by the address map. Seen on the way, not ported: 0x404a20's new lancemate warnings before a launch on game types 2 and 5 (messages 0x1e0, 0x1063). The whole `test_pilot` (the screens' calls on stores and games) stays to move.
    **The pilot and save files: mapped** (2026-11-04, read-only, not ported; checked against one real save):
    - **Files.** `pilots\<name>.mw3` the pilot; `pilots//games//<name>%02d.mw3` (0x60559c) a saved world, by the
      mission alone (MW3: `%02d%02d`, operation and mission). `.m3c` is not a campaign file: `configs\<mech>\*.m3c`
@@ -1595,7 +1595,7 @@ functions PM changed, and PM's new ones.
      while its file exists (`_access`, 0x596ea0).
    - **Loading a world**: vt+0x24 (0x435d30) when the file exists; the mission load (0x493ca0) only logs the answer,
      so a false starts the mission on the unmodified world.
-   - **Checked on Owen's save** (7,322 + 12,388 bytes): header 1, 0x3e, 0; records parse at 0x58e (mission 1), 0xe01
+   - **Checked on the player's save** (7,322 + 12,388 bytes): header 1, 0x3e, 0; records parse at 0x58e (mission 1), 0xe01
      (mission 2, with `<name>02.mw3` on disk) and 0x17c2 (mission 3, no file), each followed by four stores that
      parse; the saved world starts 8, 2 (kind 2). The stores' strict parse found these three and only small false
      hits with empty stores; the walk from the file's start through the configurations (0x426000) was not done.

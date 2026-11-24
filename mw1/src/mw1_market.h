@@ -20,9 +20,9 @@ namespace mw1::market {
 // A mech's price at a tier 0 world, in thousands: VISION's straight line
 // through MW1's own prices (DS:305F, 75 to 100 per ton): 95 x tons - 245.
 inline constexpr int32_t kPricePerTon = 95, kPriceOffset = 245;
-// FIXES 115 (Owen, 2026-11-19: "clan mech worth should roughly mirror mw3"): MW3 and PM price no chassis by its
+// FIXES 115 (the owner, 2026-11-19: "clan mech worth should roughly mirror mw3"): MW3 and PM price no chassis by its
 // tech (no price or value field; the Clan's edge is its equipment), so a Clan 'Mech prices as an Inner Sphere one of
-// its tons, bought, sold and as a wreck. Was 2 (VISION, Owen 2026-11-16).
+// its tons, bought, sold and as a wreck. Was 2 (VISION, the owner 2026-11-16).
 inline constexpr int32_t kClanPriceFactor = 1;
 int32_t tier0_price(int32_t mech);              // thousands
 bool clan_mech(int32_t mech);                   // PM's table's tech (the Clint is Clan there)
@@ -59,7 +59,7 @@ bool sold_mech(int32_t mech);  // a mech the market deals in (PM's roster but th
 std::string mech_title(int32_t mech);
 
 // The worlds that sell Clan mechs (VISION: "a few edge worlds of Kurita and Steiner, near the Clan border").
-// Provisional, pending Owen (research/economy.md): the tier 3 Kurita and Steiner worlds at the top of MW1's map
+// Provisional, pending the owner (research/economy.md): the tier 3 Kurita and Steiner worlds at the top of MW1's map
 // (map y 60 or less), by planet number (the record's byte 0, DS:6570).
 struct ClanWorld {
   int32_t number;
@@ -82,7 +82,7 @@ int32_t dealer_most(int32_t tier);
 // The company's mechs, 0 the one the commander pilots (Company::mech), then the hangar's.
 int32_t owned_count(const Company& c);
 // FIXES.md item 53: the most mechs the company owns, the piloted one included. MW1's was 12 (MW_MAIN 081B:4674, BUY:
-// `cmp word [0530], 0Ch`, its table DS:0532 twelve words), raised to 30 by Owen on 2026-11-18. BUY refuses at it
+// `cmp word [0530], 0Ch`, its table DS:0532 twelve words), raised to 30 by the owner on 2026-11-18. BUY refuses at it
 // (Deal::kHangarFull; salvage never brings mechs). A save past it still loads (nothing is taken away).
 inline constexpr int32_t kOwnedMost = 30;
 // The most of one item the stores hold (each item's count, clamped where MW1 adds to them: salvage, a sale, the hub).
@@ -104,7 +104,7 @@ const mech3::Config* stock_loadout(int32_t mech);
 Deal can_buy(const Company& c, int32_t stock_index);
 Deal can_sell(const Company& c, int32_t owned_index, const StockLoadout& stock = stock_loadout);
 Deal buy(Company& c, int32_t stock_index);
-// SELL: owned mech i for its one price, put back to its stock loadout first (Owen 2026-11-17): what it carries
+// SELL: owned mech i for its one price, put back to its stock loadout first (the owner 2026-11-17): what it carries
 // beyond stock goes to the stores, what it lacks of stock comes from them, and when they don't hold it the sale is
 // refused ("refit it first"). Never the last mech (VISION), never past the dealer's limit. The mech joins this
 // world's stock (as MW1's sale, research/economy.md). Selling the piloted one moves the commander to the next.

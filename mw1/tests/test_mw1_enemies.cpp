@@ -175,7 +175,7 @@ TEST(mw1_enemies_older_saves_keep_their_stand_ins) {
   if (!why.empty()) std::printf("  %s\n", why.c_str());
 }
 
-// Story battles roll too (kStoryBattlesRoll); the Dark Wing's scripted force (FIXES 114, Owen) is MW1's text's
+// Story battles roll too (kStoryBattlesRoll); the Dark Wing's scripted force (FIXES 114, the owner) is MW1's text's
 // 'Mechs as ours: a Thor and four Atlases, the escorts the 75 t record's (kOurs75), on their Primary, its hardest's
 // extra one too.
 TEST(mw1_enemies_story_battles_roll_but_the_dark_wing) {
@@ -241,10 +241,10 @@ TEST(mw1_enemies_a_cut_roster_still_fields_every_slot) {
   EXPECT(mw1::roster().size() == std::size(mw1::kRoster));
 }
 
-// FIXES 112 (Owen: "only the original 8 mechs are showing up"): per tier, 2,000 contracts as the game rolls them
+// FIXES 112 (the owner: "only the original 8 mechs are showing up"): per tier, 2,000 contracts as the game rolls them
 // (the record bands across them), how many of the 24 chassis appear and what share of the enemies are the eight the
 // game fielded before 104. Most of the roster at every tier; the old eight no longer most of it. And each tier's
-// pool, by slot class (Inner Sphere and Clan, with tons), printed for Owen.
+// pool, by slot class (Inner Sphere and Clan, with tons), printed for the owner.
 TEST(mw1_enemies_every_tier_fields_most_of_the_roster) {
   const std::set<int32_t> eight = {mw1::kPmFirefly, mw1::kPmOwens,  mw1::kPmStrider, mw1::kPmBushwacker,
                                    mw1::kPmChampion, mw1::kPmAvatar, mw1::kPmOrion,   mw1::kPmAwesome};

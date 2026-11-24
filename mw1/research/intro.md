@@ -55,7 +55,7 @@ to the canvas's 854:480 at its own size (`data-src/art/intro.jpg`, art.csv's
 at the window's resolution. Its layout names `mw1_intro` as before. (It was
 `data-src/intro.bmp`, 640x366, in `mw1image.zbd`.)
 
-## The music (provisional, for Owen)
+## The music (provisional, for the owner)
 
 MW1's own opening music is `MECH.MUS`, in Dynamix's .MUS format for the
 AdLib and the Tandy: playing it needs a synthesizer. That's a later item.
@@ -68,7 +68,7 @@ log says once where the music came from. PM's disc has one audio track, so
 it's PM's menu music (the main menu's own cue) under MW1's menu and the
 narration alike.
 
-Owen's rule forbids changing the players' files, not reading them. To read
+The owner's rule forbids changing the players' files, not reading them. To read
 only PM's `music/` (a plain mount of PM's write dir would also bring in its
 settings, pilots and saved loadouts), the engine gained one small "ours"
 call on mw1-engine: `zutl::mount_only(dir, "music/")`, a read mount that

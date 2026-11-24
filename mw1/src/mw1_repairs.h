@@ -55,7 +55,7 @@ int64_t bill_of(const Company& c, const MechBill& b);
 // (provisional Q4).
 int64_t wreck_repairs(const Company& c, int32_t pm_mech, int32_t damage);
 
-// FIXES.md item 51 (Owen, 2026-11-18): a win's salvage pays after the repairs. The pool (the wrecks' worth) pays the
+// FIXES.md item 51 (the owner, 2026-11-18): a win's salvage pays after the repairs. The pool (the wrecks' worth) pays the
 // repairs first, the commander's mech's then the lancemates' in turn; the salvage term is paid on what's left (less
 // any deduction), and what the pool can't cover is billed as before. A story battle has no employer to split with:
 // all of what's left (the mw1 lead's default).
@@ -76,7 +76,7 @@ SalvageSum salvage_after_repairs(int64_t pool, const std::vector<int64_t>& bills
 // forgiven. The commander's destroyed mech is lost: they take the first idle hangar mech, else a lancemate's (who
 // stays behind); with none left, the last comes back fully repaired, on the bill (the commander's). The lines for
 // AFTER ACTION, the hub and DETAILS; `sum` the salvage's arithmetic (its pay not added here: settle_mission's).
-// FIXES.md item 57 (Owen 2026-11-18): the repairs are the mission's result, shown on AFTER ACTION in plain words, never
+// FIXES.md item 57 (the owner 2026-11-18): the repairs are the mission's result, shown on AFTER ACTION in plain words, never
 // as a hub message. Each mech repaired, in the pool's order: who flew it, its bill, the pool's part of it; `rebuilt`
 // the safety net's (the last mech recovered, a full repair).
 struct MechRepair {
@@ -110,7 +110,7 @@ Repairs settle_repairs(Company& c, const std::vector<MechBill>& bills, int64_t p
 // A mission settled, as CONTINUE settles it (and the results screen and the hub's lines show it, on copies): settle's
 // fee, standing and pool; on every ending (a retreat too, item 75) the lancemates' fates (after_mission) and the repairs
 // from the pool; then the salvage pay (Settlement::salvage) added to the funds.
-// FIXES 98 (Owen: a narrow win is still a win): a House contract won nets at least kWinFloorPercent of its payment:
+// FIXES 98 (the owner: a narrow win is still a win): a House contract won nets at least kWinFloorPercent of its payment:
 // the advance + the fee + the salvage pay - the repairs paid - the mechs lost for good (their value), the House covering the rest of
 // the costs (Repairs::house, never more than they came to). A loss or a retreat has no floor.
 inline constexpr int32_t kWinFloorPercent = 25;

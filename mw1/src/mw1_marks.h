@@ -1,5 +1,5 @@
 #pragma once
-// The travel map's marks as pictures (FIXES.md item 12, Owen 2026-11-18: "the right way, no shortcuts"): each world's
+// The travel map's marks as pictures (FIXES.md item 12, the owner 2026-11-18: "the right way, no shortcuts"): each world's
 // dot, its office's ring and its capital's square, the rings round here, the chosen world and the one under the
 // mouse, the story's square, the jump's line. They were ztwod's rings, lines and polylines, drawn straight into the
 // canvas, so at the window's resolution they stayed the canvas's pixels magnified beside the smooth backdrop. Now

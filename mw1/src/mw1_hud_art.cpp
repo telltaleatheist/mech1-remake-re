@@ -185,7 +185,7 @@ const std::map<std::string, ReadPiece>& read_pieces() {
       {"ret_over", {40, 48, Read::kReticle}},        {"ret_cant", {40, 48, Read::kReticle}},
       {"dmg_bg_blue", {75, 91, Read::kAlphaPixels}}, {"dmg_bg_grn", {75, 91, Read::kAlphaPixels}},
       {"dmg_bg_red", {75, 91, Read::kAlphaPixels}},
-      // FIXES.md item 109 (Owen: the damage display showed some parts, an arm alone): the eight parts' pictures in
+      // FIXES.md item 109 (the owner: the damage display showed some parts, an arm alone): the eight parts' pictures in
       // their four states (hud.cpp kParts; PM has no _blk), drawn here as the backgrounds are. Left to the canvas
       // they were under the hires grid, and which showed changed frame to frame.
       {"dmg_head_blue", {15, 10, Read::kAlphaPixels}}, {"dmg_head_grn", {15, 10, Read::kAlphaPixels}}, {"dmg_head_yel", {15, 10, Read::kAlphaPixels}}, {"dmg_head_red", {15, 10, Read::kAlphaPixels}},

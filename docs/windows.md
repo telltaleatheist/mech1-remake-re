@@ -39,9 +39,9 @@ to it. `mw3soundcheck --music FILE` plays a music file through the game's
 music player for 3 s and says whether this build decodes it.
 `tools\windows\build.cmd mw3 mw3import` also builds the importer, and its
 build copies FFmpeg's DLLs next to `mw3import.exe`; give a player the two
-exes and all the DLLs in one folder (FFmpeg's are four). On Owen's PC
+exes and all the DLLs in one folder (FFmpeg's are four). On the reference PC
 (2026-10-30): the 19 movies in 29 s; their `.wav` and `.fmv` files are
-the Mac's byte for byte, the `.m1v` differ by FFmpeg build but play either
+The Mac's byte for byte, the `.m1v` differ by FFmpeg build but play either
 way; `--cue` on his MW3 disc image gives track02 (191.9 s) and track03
 (186.1 s).
 
@@ -103,7 +103,7 @@ with a Start-menu shortcut to the launcher, mw3launcher.exe ("MechWarrior
 to the read-me, a desktop shortcut to the launcher, "MechWarrior 3" (ticked
 by default), the rebuild's `LICENSE.txt` as its licence page, and
 an uninstaller. The game writes nothing in that folder, so the uninstaller
-leaves `%APPDATA%\MicroProse\MechWarrior 3` (settings, pilots, saves, the
+leaves `%APPDATA%\BattleTech\MechWarrior 3` (settings, pilots, saves, the
 imported movies and music, a disc install) and says so. The same AppId
 every version: a new installer upgrades in place. Without Inno Setup
 `package.cmd` still makes the folder and zip and says no installer was
@@ -142,7 +142,7 @@ that the programs and every DLL load.
 
 
 - The install: `mw3.exe C:\path\to\MechWarrior3`, or an `install=` line in
-  `mw3.cfg` in the write dir (`%APPDATA%\MicroProse\MechWarrior 3\`).
+  `mw3.cfg` in the write dir (`%APPDATA%\BattleTech\MechWarrior 3\`).
 - Any version's data runs (assets.md, Data versions); `mw3` prints which at
   start ("data version 1.2", "1.0", "1.0 with 1.2 files" with the counts, or
   the files that are neither). An install with the 1.2 `Mech3.exe` copied

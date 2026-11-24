@@ -1,7 +1,7 @@
 #pragma once
-// FIXES.md item 100 (Owen, 2026-11-19): MW1's menu music and its sound settings.
+// FIXES.md item 100 (the owner, 2026-11-19): MW1's menu music and its sound settings.
 //
-// The theme (data/music/menu-theme.ogg, ours: a YuE2 track Owen picked, its last 5 s faded out) plays through the
+// The theme (data/music/menu-theme.ogg, ours: a YuE2 track the owner picked, its last 5 s faded out) plays through the
 // engine's CD music (zsnd_cd's extra track, outside the disc's 1..99, so PM's mission music never picks it). It starts
 // with the game (the title and the intro), plays on every screen out of a mission, and loops; it isn't restarted by
 // a screen change. DEPLOY fades it out (the mission loads behind MW1's loading screen); back at the results it fades
@@ -12,8 +12,8 @@
 // sliders), so the mission's music and sounds follow and the two screens never disagree. A run no player hears
 // (--nosound, --hidden) plays nothing aloud (the engine's own rule: platform::SilentMusicOutput).
 //
-// FIXES.md item 116 (Owen, 2026-11-20): the missions' music is ours too. Three combat tracks (data/music/combat-*.ogg,
-// YuE2 seeds Owen picked: 7106, the soundtrack's, and 7101 and 7102), one picked at each launch (a replay's too),
+// FIXES.md item 116 (the owner, 2026-11-20): the missions' music is ours too. Three combat tracks (data/music/combat-*.ogg,
+// YuE2 seeds the owner picked: 7106, the soundtrack's, and 7101 and 7102), one picked at each launch (a replay's too),
 // never the one the last launch played. It plays through the same extra track as the theme (its file swapped), from
 // the launch, looped, at the music volume (PM's, as OPTIONS sets it), paused with the game, until the mission's end
 // stops the CD (as it stopped PM's music); the theme fades in at the results. Pirate's Moon's own disc music never plays in MW1: MW1's CD has no disc tracks

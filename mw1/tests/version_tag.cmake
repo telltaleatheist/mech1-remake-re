@@ -3,6 +3,8 @@
 # own: a tag of MW1's (mw1-v...) or the bare commit, never the engine's (pm-v..., v...). --version prints the same,
 # that line alone (it answers before any write dir, install or window).
 # cmake -DMW1_BIN=<mw1> -DWANT=<describe> -P version_tag.cmake
+# A -P script sets no policies of its own: without this, CMake 3.x drops a list's empty entries (CMP0007, OLD).
+cmake_minimum_required(VERSION 3.20)
 file(STRINGS "${MW1_BIN}" tags REGEX "MW3-PROGRAM-VERSION:[!-~]+")
 set(found)
 foreach(t IN LISTS tags)

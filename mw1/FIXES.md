@@ -1,9 +1,9 @@
-# Fixes from Owen's first play (PC, 2026-11-17)
+# Fixes from the owner's first play (PC, 2026-11-17)
 
-Owen's list from playing the Windows build. One line each, then what it needs.
+The owner's list from playing the Windows build. One line each, then what it needs.
 Tick an item when it is merged into `main`.
 
-**How this file works (Owen, 2026-11-17):** every bug and feature Owen raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
+**How this file works (the owner, 2026-11-17):** every bug and feature the owner raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
 ## 141. [ ] MechWarrior (1989)'s copy into MW1 Remake's own folder *(open; raised by the lead with pm-v1.2.4's layout, 2026-11-22)*
 - **What:** pm-v1.2.4's launcher keeps each game's files in a folder of its own (`games_<key>=`, `<folder>/install`,
@@ -424,7 +424,7 @@ Tick an item when it is merged into `main`.
   - Story battles skip it (MW1 skips the Dark Wing base).
   - Ours already matched the original exactly: 0 to 100 inclusive, compared with `<=`, as MwRandomUpTo's
     `maximum + 1`.
-- **Owen (2026-11-20):** keep the roll, but say plainly that the employer did it. Ours:
+- **The owner (2026-11-20):** keep the roll, but say plainly that the employer did it. Ours:
   - **the message box:** after MW1's own lines, one line of ours, "House Kurita declared a breach: fee and salvage
     forfeit." or "House Marik withheld 50% of your fee and salvage." (`deduction_note`). It is shown even without
     the exe's words. With MW1's two paragraphs it fits the 6-line box at both widths; the tightest case is 6 of 6.
@@ -440,13 +440,13 @@ Tick an item when it is merged into `main`.
     every House's and deduction's MW1 text.
 
 ## 130. [ ] MW1 Original: the 1989 game rebuilt as our own C++ *(scoping: mw1-fix130-scoping; no code yet)*
-- **Owen (2026-11-20), via the lead:** rebuild MechWarrior (1989) as our own code, the way mw3-re rebuilt MW3.
+- **The owner (2026-11-20), via the lead:** rebuild MechWarrior (1989) as our own code, the way mw3-re rebuilt MW3.
   - **The base:** Elthial's SDL port, forked with history and converted to clean C++20 (classes, namespaces, plain names, no goto, organized by function, the original's address per function).
   - **No emulation libraries.**
   - **Pull as little from the exes as we can:** only MW1's creative content is extracted at first run; UI words and rules are ours, in our own data files.
 - **The report:** mw1/research/original-rebuild-scoping.md. It covers:
   - the port mapped (34.4k lines, 265 gotos, only 3k of it MIT);
-  - the exes (Owen's BTECH differs from the port's only inside segment 0810, about 272 bytes; the data layout is the same);
+  - the exes (the owner's BTECH differs from the port's only inside segment 0810, about 272 bytes; the data layout is the same);
   - every exe table sorted into extracted, ours and code;
   - the import, in Inception's shape;
   - the engine on SDL3;
@@ -456,7 +456,7 @@ Tick an item when it is merged into `main`.
 - **To settle first:** the port's src/Original is excluded from its MIT grant, so we need Elthial's permission to fork it as the base. A copy of the 174,267-byte BTECH.EXE is needed for the revision diff.
 
 ## 128. [x] Key bindings and a joystick in MW1 as in MW3 *(done: mw1-fix128-controls, tests only; for 1.0.2)*
-Owen: "key binds and joystick should work in mw1 just like it does in mw3". MW1 uses Pirate's Moon's key map, command
+The owner: "key binds and joystick should work in mw1 just like it does in mw3". MW1 uses Pirate's Moon's key map, command
 map and stick code unchanged (SETTINGS, CONTROLS, KEY BINDINGS opens PM's CTL_CFG_DIALOG in MW1's look), so the work
 was checking each part in MW1, against MW3/PM. Nothing in the game needed fixing; two tests now hold it.
 - **Rebinding:** KEY, KEY 2, a mouse button and a stick button each rebind through the screen, and each drives its
@@ -499,7 +499,7 @@ roster (the pocket commander's panel lists them), so PM's dispatcher, brains and
   answer, its state after, its walk).
 
 ## 126. [x] One SETTINGS screen in place of Pirate's Moon's option pages *(done: mw1-options-126, merged 7c989d2b; shipped in MW1 1.0.2)*
-- **Owen (2026-11-20), via the lead:** "lets make the options menu more intuitive. its currently based on mw1's
+- **The owner (2026-11-20), via the lead:** "lets make the options menu more intuitive. its currently based on mw1's
   options menu but it doesnt have to be." He approved the mockups ("those new options pages look good"; outbox
   2026-11-20/mw1-options-126/mockup). The lead's calls: (a) every change applies at once; (b) TEXTURES and MFB
   REGROUP hidden in MW1; (c) the cheats stay in GAME as their own red-headed group.
@@ -534,7 +534,7 @@ roster (the pocket commander's panel lists them), so PM's dispatcher, brains and
 - **Shots:** every section at 1080p (16:9 menus) and 4:3; `MW1_SCREEN=settings_<section>` shows one.
 
 ## 125. [x] Three save slots, each one overwritable *(done: mw1-fix125-save-slots; for MW1 1.0.2 with the launcher's 1.2.0)*
-Owen: "lets make it so people have three game save slots and they can overwrite any of them." Then: "save and load
+The owner: "lets make it so people have three game save slots and they can overwrite any of them." Then: "save and load
 both, yes. maybe it lists three slots and you pick one, and if you want to start a new game you can click new game
 and pick the slot to overwrite".
 - **The files:** `mw1save1.txt`, `mw1save2.txt` and `mw1save3.txt` in the write dir, each written atomically as
@@ -602,11 +602,11 @@ and pick the slot to overwrite".
     `mw3pm: crashed: …` as before.
 
 ## 122. [ ] An arms dealer: weapons and equipment for sale *(planned for MW1 1.1.0; not in 1.0.0)*
-- **Owen (2026-11-20), via the lead:** the weapons a campaign never meets come from an arms dealer, in 1.1.0. Today
+- **The owner (2026-11-20), via the lead:** the weapons a campaign never meets come from an arms dealer, in 1.1.0. Today
   MW1 has no item shop: items come only from the starting stores, the loadouts of 'Mechs bought, and salvage (111).
 - **What it is:** a hub shop that sells weapons and equipment into the company's stores, which the mech lab fits
   from. Stock varies by world: richer worlds and edge worlds carry rarer stock. It sits beside 118's permanent
-  upgrades, which are always on sale at the hub; the two can share one shop screen and one price table for Owen.
+  upgrades, which are always on sale at the hub; the two can share one shop screen and one price table for the owner.
 - **It must cover the items no fielded loadout carries** (dev 1's 111 report; none was seen in 10 runs to the Dark
   Wing, and none can be, short of the stores):
   - autocannons: AC 2, AC 5, LB-2X, LB-5X, LB-20X, Ultra AC 2, Ultra AC 10, Ultra AC 20;
@@ -616,7 +616,7 @@ and pick the slot to overwrite".
 - **And the items carried only by Alternates and Exotics,** never seen in those runs: the Clan AMS, Clan ECM, C3
   computer, Clan TAG, Clan heat sink and Clan heavy MG. The Clan targeting computer and Clan AMS are also lost to most
   kills by the exe's torso rule (121), so the dealer is their sure source whatever 121 decides.
-- **To settle with Owen before building:**
+- **To settle with the owner before building:**
   - which worlds count as rich or edge, and how rare each item is (the stock table);
   - prices against MW1's 'Mech prices and the pay (111: early contracts net 220-350k);
   - whether stock refreshes over game time or per visit, and whether the dealer buys items back.
@@ -665,7 +665,7 @@ From dev 1's 111 weapons report (the lead, 2026-11-20):
 - **Class:** not (a). Main and PM are faithful to the exe, and MW3 and PM players lose torso equipment the same way.
   Changing it in MW1 would have been an MW1 choice (b), such as keeping a torso item unless the mech died by its
   torso.
-- **Owen (2026-11-20, via the lead): kept as it is.** "everybody knows you have to knock the leg out to get good
+- **The owner (2026-11-20, via the lead): kept as it is.** "everybody knows you have to knock the leg out to get good
   salvage. we can keep the logic." MW1 keeps the exe's rule: torso equipment is salvaged only off a mech brought down
   by its legs. The test stays as the rule's pin, so a change to it fails there first.
 
@@ -721,7 +721,7 @@ destroy-the-tower contract on mw3c1ia2.
     (likely because recent libstdc++ maps with Lemire's method too; not checked further).
 
 ## 116. [x] Our combat music in the missions *(done: mw1-combat-music)*
-Owen (2026-11-19, via the lead): the combat tracks he picked play in MW1's missions in place of Pirate's Moon's disc
+The owner (2026-11-19, via the lead): the combat tracks he picked play in MW1's missions in place of Pirate's Moon's disc
 music. It's the release gate.
 - **The tracks** (`data/music/combat-7106.ogg`, `-7101.ogg`, `-7102.ogg`, ours; YuE2 "combat relentless", E minor,
   140 BPM). 7106 is the soundtrack's pick, and 7101 and 7102 are "okay and usable". They are encoded as FIXES 100's
@@ -777,11 +777,11 @@ Found in the 1.0.0 release check of 116 (dev 2, 2026-11-20). In the packaged mw1
   Only the log shows it: mw1 always passes `--install`, so the first start's box never shows it. MW1 has no flag
   that turns the note off, so silencing it needs an engine change (an opt-out in the game main, MW1 choice (b)).
 
-## 111. [x] The pace to the Dark Wing, and the weapons met on the way *(no change, Owen 2026-11-20)*
-- **Owen (2026-11-20), via the lead:** no change. The pace stays the original's: no rung-1 or contract-time change, and
+## 111. [x] The pace to the Dark Wing, and the weapons met on the way *(no change, the owner 2026-11-20)*
+- **The owner (2026-11-20), via the lead:** no change. The pace stays the original's: no rung-1 or contract-time change, and
   the pay stays at 100% (`kPayPercent`). The missing weapons wait for 1.1.0's arms dealer (122). The measurements
   below stay as the record, and the gauge stays in the playthrough test.
-Owen, via the lead (2026-11-20): about 40 fights to the Dark Wing, contracts plus story battles, about 7 hours, with
+The owner, via the lead (2026-11-20): about 40 fights to the Dark Wing, contracts plus story battles, about 7 hours, with
 a steady build-up, and about 5 game years. "Maybe we could just increase the money payout or something a bit." Also
 "make sure we're getting enough weapons over the course of the campaign".
 - **The knob:** `kPayPercent` (mw1_campaign.h, 100) scales the House's pay ceiling, so the opening, every
@@ -852,15 +852,15 @@ engine's warnings are left alone. No behaviour change.
   - With no narration, the intro goes straight to the picture.
   - mw1.exe opened without all three games says which are missing and offers to open the launcher beside it, which finds them.
 
-## 3. [x] Every screen between missions must look like MW1, with our generated art *(swept 2026-11-18: mw1-sweep-status, -overlap, -screens, -status-fit, -loadbox-style, -dev1; PM wordings left for Owen in 28)*
+## 3. [x] Every screen between missions must look like MW1, with our generated art *(swept 2026-11-18: mw1-sweep-status, -overlap, -screens, -status-fit, -loadbox-style, -dev1; PM wordings left for the owner in 28)*
 - **Seen:** the screens are text panels on Pirate's Moon's chrome. "There's no reason why this should play like Legend of the Red Dragon."
-- **Wanted:** MW1's layouts (Owen's reference shots), rebuilt with the art generated for this. The art is in `/Volumes/Callisto/claude-files/keep/mw1-remake/assets/mw3/` (142 images, catalogued in `CATALOG.md` there). `mockups/` has the hub and Bar mockup.
+- **Wanted:** MW1's layouts (the owner's reference shots), rebuilt with the art generated for this. The art is in `/Volumes/Callisto/claude-files/keep/mw1-remake/assets/mw3/` (142 images, catalogued in `CATALOG.md` there). `mockups/` has the hub and Bar mockup.
   - **Hub:** full-screen world scenery picked by the world's type (`hub_*`, 13 types plus Ander's Moon and Dustball). Riveted plaques across the top with the world's name and the date. Picture tiles down both sides for the services (`icon_*`: House office, starport/travel, Mech Complex, Bar, company, options), clicked to enter.
   - **Bar:** the bar scene (`bar_scene`) with a framed menu panel: ORDER DRINK / RECRUIT CREW / LEAVE.
   - **Crew:** MW1's grid. Portraits across the top (`recruit_*`, MW1's 42). NAME / GUNNERY / PILOTING / WAGE / MECH rows, then each pilot's mech picture underneath (`mech_*`), with DONE.
   - **Mech Complex, dealer, repair, ammo** (`mechcomplex_*`, `mech_*`), **House office and liaisons** (`office_liaison`, `liaison_<house>`), **NewsNet**, **company**, **travel sequence**, **story scenes** (`story_*`, `char_*`), **after action**, **endings**: one screen each, per CATALOG.md's 25.
   - **Chrome:** the plaques, frames and buttons are drawn by hand, sharp and in MW3's style, not generated.
-  - **Done so far:** the title screen and the hub, after Owen's mockup. Owen played it on the Mac (2026-11-17): "significantly better".
+  - **Done so far:** the title screen and the hub, after the owner's mockup. The owner played it on the Mac (2026-11-17): "significantly better".
 
 ## 4. [-] The briefing screen, rebuilt in MW1's style *(superseded by 18: no pre-launch screen)*
 - **Seen:** the contract goes straight into Pirate's Moon's Instant Action briefing.
@@ -869,10 +869,10 @@ engine's warnings are left alone. No behaviour change.
   - the buttons run down the **left side**, as in MW1, not along the bottom as in MW3;
   - MW1's LAUNCH button is there;
   - a **MECH LAB** button goes above LAUNCH and opens Pirate's Moon's mech lab, then returns to this screen.
-- **The rule for all of it (Owen):** completely rework MW3/PM's interface so it looks like an updated MW1. MW1's layouts win over MW3's wherever the two differ, for example buttons on the left, not the bottom.
+- **The rule for all of it (the owner):** completely rework MW3/PM's interface so it looks like an updated MW1. MW1's layouts win over MW3's wherever the two differ, for example buttons on the left, not the bottom.
 
-## 5. [x] No Pirate's Moon or MW3 dialogs, buttons or art left anywhere in MW1 *(swept 2026-11-18: mw1-sweep-status, -overlap, -screens, -status-fit, -loadbox-style, -dev1; PM wordings left for Owen in 28)*
-- **Seen (Owen, Mac, 2026-11-17):** after the new hub, PM's own dialogs, buttons and art still show. For example: PM's message boxes (the quit confirm: "Are you sure you want to quit?"), its buttons and frames, and its menus and screens around the mission.
+## 5. [x] No Pirate's Moon or MW3 dialogs, buttons or art left anywhere in MW1 *(swept 2026-11-18: mw1-sweep-status, -overlap, -screens, -status-fit, -loadbox-style, -dev1; PM wordings left for the owner in 28)*
+- **Seen (the owner, Mac, 2026-11-17):** after the new hub, PM's own dialogs, buttons and art still show. For example: PM's message boxes (the quit confirm: "Are you sure you want to quit?"), its buttons and frames, and its menus and screens around the mission.
 - **Wanted:** "remove all the mw3/pm assets and dialogs and buttons and stuff. switch it to mw1 style dialogs."
   - Every message box, confirm, notice and error goes through one MW1-style dialog: our chrome, our fonts, buttons in MW1's look.
   - No PM image, frame, button or font anywhere a player sees in MW1, apart from the 3D battle itself.
@@ -881,7 +881,7 @@ engine's warnings are left alone. No behaviour change.
 - **How to check:** a screen-by-screen pass with shots. A test that fails if an MW1 screen loads a PM dialog file or binds a PM button.
 
 ## 6. [x] The hub's scenery by MW1's landscape *(done: mw1-hub-landscape; the Bar has no landscape art yet)*
-- **Owen (Mac, 2026-11-17):** "In the original, it just showed you the background of whatever city you were in. If you're in an icy area, it shows an icy background. If you're in a tropical area it's very green."
+- **The owner (Mac, 2026-11-17):** "In the original, it just showed you the background of whatever city you were in. If you're in an icy area, it shows an icy background. If you're in a tropical area it's very green."
 - **MW1:** every world has a landscape: desert (48 worlds), tropical (79) or arctic (18) (research/economy.md, the planet record's code). The hub draws that landscape's picture. MW1 also uses it behind the Bar, the company and the options screens.
 - **Ours today:** the hub picks a scene by our own "world type" classification (agri, capital, industrial ...), which ignores the climate.
 - **Wanted:**
@@ -890,23 +890,23 @@ engine's warnings are left alone. No behaviour change.
   - The Bar's window view and the options backdrop follow the landscape where we have art.
 
 ## 7. [x] Contracts only through the House office, negotiated, as in MW1 *(done: mw1-hub-office)*
-- **Owen:** "As soon as you start a new campaign, it enters into the 'take this contract' screen. I want the contract screen to be accessible in the same way it was accessible on MW1. You had to go to the menu option to take a contract, and the contracts are negotiated."
+- **The owner:** "As soon as you start a new campaign, it enters into the 'take this contract' screen. I want the contract screen to be accessible in the same way it was accessible on MW1. You had to go to the menu option to take a contract, and the contracts are negotiated."
 - **Wanted:**
   - The hub shows no offer, and has no ACCEPT/DECLINE.
   - The House office is where contracts come from: ask for a mission, see the offer, move to the next offer, negotiate the terms, ACCEPT or LEAVE. That's MW1's CONTRACT_OFFICE, REQUEST_MISSION_OFFER, NEXT_MISSION_OFFER and NEGOTIATE_CONTRACT.
   - With a contract accepted, the hub shows the current contract in its panel and offers the deployment: MW1's hub has a deployment tile.
   - A new campaign starts on the hub, after the intro, with no offer up.
-- **Owen again (Mac, 2026-11-17, shot `keep/mw1-remake/reference/owen-play-hub-offer.png`):** the hub's CONTRACT ON OFFER with ACCEPT/DECLINE "pops up as soon as I start the game. Contracts are usually accepted within a specific screen, and should be accessible there."
+- **The owner again (Mac, 2026-11-17, shot `keep/mw1-remake/reference/owen-play-hub-offer.png`):** the hub's CONTRACT ON OFFER with ACCEPT/DECLINE "pops up as soon as I start the game. Contracts are usually accepted within a specific screen, and should be accessible there."
 
 ## 8. [x] The mech lab in the Mech Complex, beside repair *(done: mw1-mech-complex)*
-- **Owen:** "We need the mech lab available as an option, too. Probably in the same submenu as the repair item is in the original MW1."
+- **The owner:** "We need the mech lab available as an option, too. Probably in the same submenu as the repair item is in the original MW1."
 - **MW1:** Mech Complex, then OWNED MECHS, then the mech's status screen: REPAIR / REPAIR ALL / RELOAD / SELL / DONE.
 - **Wanted:**
   - MECH LAB goes on that status screen with the others. It opens PM's mech lab (in our reskin) for that mech and returns to the status screen.
   - The pre-launch screen keeps its MECH LAB above LAUNCH (item 4).
 
 ## 9. [x] The title screen's picture scrolls and tiles *(done: mw1-still-pictures + set_menus_still)*
-- **Owen (Mac, 2026-11-17, shot `keep/mw1-remake/reference/owen-play-title-scrolling.png`):** "The opening scene is scrolling but it doesn't really work for our images. We should make it still images instead."
+- **The owner (Mac, 2026-11-17, shot `keep/mw1-remake/reference/owen-play-title-scrolling.png`):** "The opening scene is scrolling but it doesn't really work for our images. We should make it still images instead."
   - The shot shows `title_bg` drifting and wrapping: its right and bottom edges repeat the picture, with hard seams.
   - "CRITICAL HIT" is drawn with broken letter spacing.
 - **Wanted:**
@@ -915,19 +915,19 @@ engine's warnings are left alone. No behaviour change.
   - Fix the subtitle's spacing.
 
 ## 10. [x] The story's event panel in MW1's look *(done: mw1-event-panel)*
-- **Owen (shot `keep/mw1-remake/reference/owen-play-event-panel.png`):** "This uses the standard PM button style in the far corner, and it also has the text in the top left for some reason. Maybe the text should be centred with a faded/darkened background image behind it."
+- **The owner (shot `keep/mw1-remake/reference/owen-play-event-panel.png`):** "This uses the standard PM button style in the far corner, and it also has the text in the top left for some reason. Maybe the text should be centred with a faded/darkened background image behind it."
 - **Wanted:**
   - The event's text centred on screen, in a framed terminal panel, over a darkened, faded scene picture: the event's own `story_*`/`char_*` art where we have it, else the world's hub scenery.
   - The world and ARRIVAL heading on our plaque.
   - NEXT/OK and a choice's captions as MW1 buttons: our chrome, not PM's ring button in the corner.
   - This was phase 5. It moves up, because every campaign opens on it.
-- **Owen again (2026-11-17, `owen-play-event-panel-2.png`):** on entering the game it's still "a 4:3 black screen ... with the same misplaced text in the top left and the same PM button in the bottom right." It's drawn as a 4:3 box over the title, with the title showing at both sides. "Buttons should match the intro style that we've established, not the PM style. We should be using the same NEW/LOAD button style."
+- **The owner again (2026-11-17, `owen-play-event-panel-2.png`):** on entering the game it's still "a 4:3 black screen ... with the same misplaced text in the top left and the same PM button in the bottom right." It's drawn as a 4:3 box over the title, with the title showing at both sides. "Buttons should match the intro style that we've established, not the PM style. We should be using the same NEW/LOAD button style."
   - The panel fills the screen at 16:9 (no 4:3 box, no title showing through).
   - **Every button in MW1 is the title's NEW/LOAD button** (`mw1_chrome`'s framed button): OK, NEXT, a choice's captions, the load box's OK/NO, and any other place PM's ring or dot buttons still show.
 
 ## 11. [x] The hub's tiles where MW1 puts them *(done: mw1-hub-office)*
-- **Owen (2026-11-17):** "I don't think the menu items are in the right spot. I think the bar was on the right side, the second menu option ... the contract spot is in the bottom left I think? I want to arrange everything correctly."
-- **MW1's own tables** (MW_MAIN.EXE DS:1083, 10D7 and 1101, decoded from Owen's copy; the port's MW_MAIN_081B_PLANET.c draws them). Two columns of three:
+- **The owner (2026-11-17):** "I don't think the menu items are in the right spot. I think the bar was on the right side, the second menu option ... the contract spot is in the bottom left I think? I want to arrange everything correctly."
+- **MW1's own tables** (MW_MAIN.EXE DS:1083, 10D7 and 1101, decoded from the owner's copy; the port's MW_MAIN_081B_PLANET.c draws them). Two columns of three:
 
   | | Left | Right |
   |---|---|---|
@@ -945,24 +945,24 @@ engine's warnings are left alone. No behaviour change.
   - MAIN MENU moves inside OPTIONS (MW1's options hold save, load and quit).
 
 ## 12. [x] Blocky, low-resolution text and pictures *(done: the 2D at window resolution (FIXES 90 with it); the windowed check passed 2026-11-21, "text looks sharp and fine now")*
-- **Owen (2026-11-17):** "The text looks like it's really low resolution. Chunky and blocky ... hard to read. I get the impression it's not the font itself, it's something else."
+- **The owner (2026-11-17):** "The text looks like it's really low resolution. Chunky and blocky ... hard to read. I get the impression it's not the font itself, it's something else."
 - **Cause:**
-  - It isn't the fonts (Saira Condensed and Share Tech Mono are sharp). PM's 2D layer draws every menu on a canvas 480 pixels high (854×480 at 16:9), and the window scales that canvas up: about 2.3× in Owen's 2000×1125 window, 4.5× at 4K.
+  - It isn't the fonts (Saira Condensed and Share Tech Mono are sharp). PM's 2D layer draws every menu on a canvas 480 pixels high (854×480 at 16:9), and the window scales that canvas up: about 2.3× in the owner's 2000×1125 window, 4.5× at 4K.
   - So the glyphs are rasterised at 480-line size and magnified, and so are the pictures (packed at 854×480 from 1344×768 sources).
-  - Phase 1 noted this limit and deferred a high-resolution 2D path until Owen found it soft. He has.
+  - Phase 1 noted this limit and deferred a high-resolution 2D path until the owner found it soft. He has.
 - **Wanted:**
   - MW1's 2D drawn at the window's own resolution. Layouts stay in canvas coordinates; text is rasterised at the scaled size; pictures are packed at a higher resolution (at least the 1344×768 sources, scaled down per window) and drawn at device pixels.
   - An "ours" engine path, opt-in, with MW3 and PM unchanged.
   - The image archive's size needs a plan (compressed pixels, or PNGs kept as PNGs) before the art is repacked at a higher resolution.
-- **Step 1 (2026-11-18, dev 2):** shots at 1080p and 4K in `outbox/2026-11-17/hires-step1/`. They confirm a nearest-neighbour upscale of the 480-line canvas (4.5× at 4K), while the 3D is drawn at full resolution. A possible stopgap is a linear filter on the canvas blit (softer, not sharper). For Owen: stopgap first, or straight to the real path?
-- **Owen (2026-11-18): "Real fix"** (option B in `research/hires-2d.md`, no stopgap). Pictures: JPEG q90 for scenes and portraits, PNG for alpha and hard edges (the plan's recommendation). PM's widget art stays canvas-sharp. Split: dev 2 takes B0, B1, B3 and B4 (the engine and text); dev 1 takes B2 (the pictures).
-- **Owen (2026-11-18), after the 4K audit:** "i want to do it the right way ... no shortcuts or band-aids."
+- **Step 1 (2026-11-18, dev 2):** shots at 1080p and 4K in `outbox/2026-11-17/hires-step1/`. They confirm a nearest-neighbour upscale of the 480-line canvas (4.5× at 4K), while the 3D is drawn at full resolution. A possible stopgap is a linear filter on the canvas blit (softer, not sharper). For the owner: stopgap first, or straight to the real path?
+- **The owner (2026-11-18): "Real fix"** (option B in `research/hires-2d.md`, no stopgap). Pictures: JPEG q90 for scenes and portraits, PNG for alpha and hard edges (the plan's recommendation). PM's widget art stays canvas-sharp. Split: dev 2 takes B0, B1, B3 and B4 (the engine and text); dev 1 takes B2 (the pictures).
+- **The owner (2026-11-18), after the 4K audit:** "i want to do it the right way ... no shortcuts or band-aids."
   - Everything on MW1's screens is drawn at the window's own resolution from a true source. No upscaling of small art stands in for that.
   - **Text:** already right. The fonts are real outline fonts (Saira Condensed, Share Tech Mono) rasterised at window size; no font change is needed.
-  - **'Mech icons (Owen, corrected):** PM's own amber outlines, not new art and not the 3D render. PM ships them only at 41x50 (rimage.zbd; the MFB salvage screen uses the same ones). So each is vectorised once into its line and fill layers (PM's exact three colours) and redrawn at window scale. An upscale is the last resort only (dev 1).
-  - **The Mech Complex's 'Mech (Owen, 2026-11-18):** "3d renders of the mechs from the front in gunmetal for that screen, not using image renders". The panel draws the 'Mech's 3D model live, front view, in PM's GUNMETAL skin, at window resolution, as the lab draws its 'Mech. That covers every sold chassis (it replaces the plan to pre-render all 24). The other screens using stored renders (market rows, Company, loading, briefing) are to be asked (dev 1 plans).
-  - **Owen's names (2026-11-18):** **mech outlines** are PM's amber outlines redrawn as vectors: small, they fit anywhere. **Gunmetal renders** are the full 3D 'Mech in GUNMETAL: they can spin.
-  - **Where each goes (Owen, 2026-11-18):**
+  - **'Mech icons (the owner, corrected):** PM's own amber outlines, not new art and not the 3D render. PM ships them only at 41x50 (rimage.zbd; the MFB salvage screen uses the same ones). So each is vectorised once into its line and fill layers (PM's exact three colours) and redrawn at window scale. An upscale is the last resort only (dev 1).
+  - **The Mech Complex's 'Mech (the owner, 2026-11-18):** "3d renders of the mechs from the front in gunmetal for that screen, not using image renders". The panel draws the 'Mech's 3D model live, front view, in PM's GUNMETAL skin, at window resolution, as the lab draws its 'Mech. That covers every sold chassis (it replaces the plan to pre-render all 24). The other screens using stored renders (market rows, Company, loading, briefing) are to be asked (dev 1 plans).
+  - **The owner's names (2026-11-18):** **mech outlines** are PM's amber outlines redrawn as vectors: small, they fit anywhere. **Gunmetal renders** are the full 3D 'Mech in GUNMETAL: they can spin.
+  - **Where each goes (the owner, 2026-11-18):**
     - Mech Complex panel: the gunmetal render, live, still and facing front; spinning is built as an option.
     - Company page: each pilot's 'Mech as its mech outline, under the pilot's name.
     - Mech Complex market: a mech outline next to each 'Mech's name in the list for sale.
@@ -986,15 +986,15 @@ engine's warnings are left alone. No behaviour change.
   - **The 2D at 4K is finished with item 89 (dev 2, 2026-11-19):** the radar's lines and circles are drawn
     anti-aliased at the window's scale.
     - A follow-up (FIXES 90: filled polygons and dashed lines, the same way) was built and tested, then merged on
-      2026-11-20 (Owen's OK, rebased by dev 1 as `mw1-fix90-fills-dashes-r`). It is opt-in through hires_2d, MW1 only.
+      2026-11-20 (the owner's OK, rebased by dev 1 as `mw1-fix90-fills-dashes-r`). It is opt-in through hires_2d, MW1 only.
       A probe of the mission, pause, results, travel, lab, hub, market and bar pages found only two host polygons,
       both whole-pixel quads on the mission HUD that look the same either way, and no dashed lines (nothing in the
       port sets a line's dash).
     - Nothing draws differently yet; the path is ready for a later screen that needs it.
-    - Still open in item 12: only the windowed check, which waits on Owen.
+    - Still open in item 12: only the windowed check, which waits on the owner.
 
 ## 13. [x] The Mech Complex's market: lists and buttons don't work; PM's look *(done: mw1-mech-complex)*
-- **Owen (2026-11-17, `keep/mw1-remake/reference/owen-play-market.png`):** "These buttons/lists don't seem to be working. Also, can we make the buttons, colours, and general style closer to the other MW1 style we've established?"
+- **The owner (2026-11-17, `keep/mw1-remake/reference/owen-play-market.png`):** "These buttons/lists don't seem to be working. Also, can we make the buttons, colours, and general style closer to the other MW1 style we've established?"
 - **The shot:** the House market (FOR SALE / YOUR MECHS) has PM's ring buttons along the bottom (BUY / SELL / PILOT / BACK), olive list boxes and PM's terminal font, with the title at the top left.
 - **Wanted:**
   - Find out why the lists and buttons don't respond, and fix it: clicking a row selects it, the arrows scroll, and BUY / SELL / PILOT act. Add a loop test that does each one by mouse.
@@ -1003,8 +1003,8 @@ engine's warnings are left alone. No behaviour change.
 
 ## 14. [x] Mech pictures rendered from the game's own models *(done: mw1-mech-renders, mw1-render-cover, mw1-render-pass)*
 - **Bug (2026-11-18, dev 2):** the first-run pass wrote archives holding a capture of the lab's 2D screen, not mechs, and stamped them current. Fixed (mw1-render-pass): zipkit's conversion left its nodes in the pool, so the lab skipped loading its world and models on a first run; the pool is now freed, renders are v2, and a capture sanity guard checks each picture.
-- **Owen's pick (2026-11-17, from `outbox/2026-11-17/mech-renders/`):** the amber-toned grade, front view.
-- **Owen (2026-11-17):** "Is there any way we could take the mech vertices and create a snapshot of them from the front to use as the images instead of the AI-generated images? The AI-generated images aren't very accurate."
+- **The owner's pick (2026-11-17, from `outbox/2026-11-17/mech-renders/`):** the amber-toned grade, front view.
+- **The owner (2026-11-17):** "Is there any way we could take the mech vertices and create a snapshot of them from the front to use as the images instead of the AI-generated images? The AI-generated images aren't very accurate."
 - **Wanted:**
   - Every picture of a specific mech (market rows, the Mech Complex, the crew grid, the hangar tile if it shows one mech, briefing enemies) is a render of that mech's own model by our engine. The renderer is the one the mech lab draws its mech with.
   - The camera is from the front (a slight three-quarter if it reads better), on a dark backdrop, in MW1's grade.
@@ -1016,7 +1016,7 @@ engine's warnings are left alone. No behaviour change.
   - Rendered at the item 12 resolution.
 
 ## 15. [x] A button's hover: the frame flashes once, the dot keeps blinking *(done: mw1-mech-complex)*
-- **Owen:** "When I hover over the buttons, the border blinks yellow for a split second and then it goes off, but the dot next to it blinks yellow consistently. Is that intended?"
+- **The owner:** "When I hover over the buttons, the border blinks yellow for a split second and then it goes off, but the dot next to it blinks yellow consistently. Is that intended?"
 - **Not intended.** It's PM's button states (a one-frame highlight, then the blinking lamp) showing through our chrome.
 - **Wanted:**
   - On hover, the frame lights amber and stays lit while the pointer is on it. The dot is lit steadily, with no blinking.
@@ -1024,17 +1024,17 @@ engine's warnings are left alone. No behaviour change.
   - One rule for every MW1 button.
 
 ## 16. [x] The hub's centre panel: a message you dismiss, then the whole scene *(done: mw1-hub-messages)*
-- **Owen (2026-11-17, `keep/mw1-remake/reference/owen-play-hub-panel.png`):** "In the original, sometimes messages pop up, but there's a dismiss button that makes it go away so you can see the whole background image."
+- **The owner (2026-11-17, `keep/mw1-remake/reference/owen-play-hub-panel.png`):** "In the original, sometimes messages pop up, but there's a dismiss button that makes it go away so you can see the whole background image."
 - **MW1:** the hub shows its notifications (MwShowPendingNotifications, on entry) in a box with a button. Once you've dismissed them, the hub is the landscape and its tiles.
 - **Ours today:** the big centre panel is always there. It shows the hovered tile's description (HOUSE OFFICE: ...), and it covers the scenery.
 - **Wanted:**
   - The centre panel appears only when there's something to say: arrival notices, payday, news, a contract's state change. It has an OK button (our framed button), and it's gone once dismissed.
   - With no message, the hub is the scene and the tiles.
   - A tile's description on hover goes to the bottom status line, which already says "Pick a service".
-  - The COMPANY readout stays (Owen's mockup has it), unless he says otherwise.
+  - The COMPANY readout stays (the owner's mockup has it), unless he says otherwise.
   - With a contract accepted, its summary shows in that readout or on the status line, not in a permanent centre panel.
 
-### Owen on items 8 and 13 (2026-11-17)
+### The owner on items 8 and 13 (2026-11-17)
 - "I was expecting entrance through the Mech Complex. We might not need the right-side menu in the Mech Complex. We can assign the pilots to their corresponding mechs in the mech lab. I guess the list on the right can show the mechs we currently own, that would be fine."
 - **So:**
   - The Mech Complex is where the mech lab is entered.
@@ -1042,7 +1042,7 @@ engine's warnings are left alone. No behaviour change.
   - Assigning pilots to mechs (today's PILOT) moves into the mech lab.
 
 ## 17. [x] The mech lab: readable, separated, nothing overlapping *(done: mw1-lab-legible + mw1-lab-17b)*
-- **Owen (2026-11-17, `keep/mw1-remake/reference/owen-play-lab.png` and `owen-play-lab-criticals.png`):** "I actually really like that a lot. But we have to do something about the font. Is the problem the resolution? It's really hard to read. We need more separators and we need to clean it up to make it easier to see what's happening. And some things are poorly positioned. Overlapping text and lines." On the criticals page: "the right side is coming out of the boxes."
+- **The owner (2026-11-17, `keep/mw1-remake/reference/owen-play-lab.png` and `owen-play-lab-criticals.png`):** "I actually really like that a lot. But we have to do something about the font. Is the problem the resolution? It's really hard to read. We need more separators and we need to clean it up to make it easier to see what's happening. And some things are poorly positioned. Overlapping text and lines." On the criticals page: "the right side is coming out of the boxes."
 - **Two causes:**
   1. **The resolution (item 12).**
   2. **Our font mapping.** PM's lab fonts were mapped to Saira Condensed, which at the lab's small heights crowds and breaks apart ("Inter nal St ruct ure"). The mapped fonts' widths also differ from PM's, so text sized for PM's fonts overruns PM's boxes.
@@ -1071,8 +1071,8 @@ engine's warnings are left alone. No behaviour change.
   - Guard test: every text object's measured width fits its panel.
 
 ## 18. [x] DEPLOY goes straight into the mission *(done: mw1-deploy-direct-2)*
-- **Owen (2026-11-17, `keep/mw1-remake/reference/owen-play-deploy-briefing.png`):** "When I hit deploy it takes me to this screen. This is a PM screen I believe, with the background removed. Instead, it should skip this page and just bring me to the game itself."
-- **Owen again (2026-11-17, `owen-play-deploy-briefing-2.png`):** "this page is still coming up too."
+- **The owner (2026-11-17, `keep/mw1-remake/reference/owen-play-deploy-briefing.png`):** "When I hit deploy it takes me to this screen. This is a PM screen I believe, with the background removed. Instead, it should skip this page and just bring me to the game itself."
+- **The owner again (2026-11-17, `owen-play-deploy-briefing-2.png`):** "this page is still coming up too."
 - **The shot:** PM's briefing (BriefingScreen) with its backdrop missing. It shows PM's page icons, PM's LOADING lettering, a PM mech, and "MechWarrior 3 Pirate's Moon 1.0.11.5".
 - **Wanted:**
   - DEPLOY launches the mission directly. PM's briefing is never shown in MW1.
@@ -1080,7 +1080,7 @@ engine's warnings are left alone. No behaviour change.
 - **Supersedes item 4's pre-launch screen.** The lab is now reached from the Mech Complex (items 8/13), so there's no MECH LAB above LAUNCH. The briefing's facts (objective, enemy, map) show on the loading screen and in the hub's contract readout.
 
 ## 19. [x] After a mission: MW1's own results screen, with the salvage *(done: mw1-results-screen)*
-- **Owen (2026-11-17, `keep/mw1-remake/reference/owen-play-debrief.png`):** "When I win, I was expecting it to show the salvage I got. Also, we should redesign this screen."
+- **The owner (2026-11-17, `keep/mw1-remake/reference/owen-play-debrief.png`):** "When I win, I was expecting it to show the salvage I got. Also, we should redesign this screen."
 - **The shot:** PM's Instant Action debrief, with three green PM columns ('MECH STATUS / MISSION RESULTS / SALVAGE FOUND), PM's icons, and PM's score ("Mission Total 300"). SALVAGE FOUND is empty because our salvage is collected by mw1 (program_salvage_mech into the mission's own store), not by PM's salvage.
 - **Wanted:**
   - PM's debrief is skipped in MW1, as its briefing is (item 18). The mission ends on MW1's own results screen, in our look over the dimmed climate scene, with our plaque (world, employer, VICTORY / DEFEAT / RETREAT).
@@ -1098,9 +1098,9 @@ engine's warnings are left alone. No behaviour change.
   - Our framed buttons: CONTINUE back to the hub.
   - It replaces the hub's AFTER ACTION panel; the hub then shows a short message (item 16) if anything is left to say.
 
-## 20. [x] Offers name the mechs you'll actually fight, by weight class, highlighted *(names: b3cd78b1; highlight: mw1-offer-highlight; colour for Owen to confirm, see 28)*
-- **Owen (2026-11-17, `keep/mw1-remake/reference/owen-play-offer.png`):** "This shows a 'Jenner' as the enemy. We aren't using MW1 mechs, we're using exclusively MW3 mechs right now. And in the original, it shows the enemies/objectives/etc highlighted in a brighter colour so you can easily scan through and see what you're taking on. Can we light up the number of mechs, or the types of mechs? Like I think the original said '2 heavy' or '2 medium'."
-- **Cause:** contracts are drawn from MW1's mech kinds (kMechKinds), and each spawns as its PM stand-in (Jenner → Owens, research/contracts.md). The text shows MW1's name, so Owen fought an "Owens" that the offer called a Jenner.
+## 20. [x] Offers name the mechs you'll actually fight, by weight class, highlighted *(names: b3cd78b1; highlight: mw1-offer-highlight; colour for the owner to confirm, see 28)*
+- **The owner (2026-11-17, `keep/mw1-remake/reference/owen-play-offer.png`):** "This shows a 'Jenner' as the enemy. We aren't using MW1 mechs, we're using exclusively MW3 mechs right now. And in the original, it shows the enemies/objectives/etc highlighted in a brighter colour so you can easily scan through and see what you're taking on. Can we light up the number of mechs, or the types of mechs? Like I think the original said '2 heavy' or '2 medium'."
+- **Cause:** contracts are drawn from MW1's mech kinds (kMechKinds), and each spawns as its PM stand-in (Jenner → Owens, research/contracts.md). The text shows MW1's name, so the owner fought an "Owens" that the offer called a Jenner.
 - **Wanted:**
   - Every player-facing mention of an enemy mech (offers, the hub's contract readout, the loading screen, the results screen) uses the PM mech's name.
   - MW1's own kind names stay internal: logs, tests, research.
@@ -1108,7 +1108,7 @@ engine's warnings are left alone. No behaviour change.
   - The key facts are drawn in a brighter highlight colour (white or bright amber) against the green-grey: the employer, the target, the objective, the map, the enemy count and class, and the pay.
   - Check MW1's own offer text in research/ for its exact wording of the class line.
 
-### Owen on item 16 (2026-11-17)
+### The owner on item 16 (2026-11-17)
 - "Still can't get rid of the big message here on the main page." Item 16 isn't merged yet.
 - "And the green box that records my kills, I don't think we need all that info. Where did that fit in the original? Maybe we keep C-bills, payroll, and kills at the top, between the GREELY and MAY 3024 boxes, so it's out of the way."
   - MW1's hub had no such box. Its hub is the landscape, the two plaques (world, date) and the six tiles. The company's figures were on the Company screen.
@@ -1120,7 +1120,7 @@ engine's warnings are left alone. No behaviour change.
   - The accepted contract's summary goes on the status line.
 
 ## 21. [x] Travel: every world findable, and each world's trade facts on the map *(done: mw1-travel-readout)*
-- **Owen (2026-11-17):** "Doesn't look like our map has every single planet available for travel. Does travel work? ... Can we make sure they have every single planet and every planet matches the attributes in the original? High mech sale price or cheaper prices, different contracts, etc. That's how a lot of people won this game originally. They travel, sell the Jenner, travel back, buy a Shadow Hawk ..."
+- **The owner (2026-11-17):** "Doesn't look like our map has every single planet available for travel. Does travel work? ... Can we make sure they have every single planet and every planet matches the attributes in the original? High mech sale price or cheaper prices, different contracts, etc. That's how a lot of people won this game originally. They travel, sell the Jenner, travel back, buy a Shadow Hawk ..."
 - **Today:**
   - All 145 of MW1's travel worlds are on the map (research/economy.md, mw1_travel.h). Each has MW1's own tier, House, office flag, position and travel weight, read from MW_MAIN.EXE.
   - MW1's trade rules are ported:
@@ -1135,17 +1135,17 @@ engine's warnings are left alone. No behaviour change.
   - **A test that the arbitrage loop works end to end:** buy at tier 0, travel to a tier 3 world, sell for a profit, travel back. Check with the dealer limit and the travel cost.
   - **Check the contracts per world:** the planet record's byte 3 (the biggest mission category there), against how mw1_missions picks a category. Use it if MW1 does.
 
-### Owen on item 17 again (2026-11-17, `owen-play-lab-2.png`)
+### The owner on item 17 again (2026-11-17, `owen-play-lab-2.png`)
 - "The mech lab is still poorly positioned. The box that contains data about run speed is too low and is being overlapped by other stuff. And the font is really poor quality. It looks all pixelated. Why is that? It's also overlapping the dividers/lines."
 - Item 17 moves to the front.
 
 ## 22. [x] Our cursor everywhere *(done: mw1-lab-17b)*
-- **Owen (2026-11-17):** "It's using the MW3 cursor now. I liked our other one."
+- **The owner (2026-11-17):** "It's using the MW3 cursor now. I liked our other one."
 - **The shots:** our amber crosshair on the hub and company screens; PM's small ring on the lab (`owen-play-lab-2.png`, left edge) and on PM screens.
 - **Wanted:** our crosshair on every screen in MW1, including PM's own (lab, settings, load box) and over the loading screen. One guard test.
 
 ## 23. [x] The Company screen shows PM's mech icons, not generated pictures *(done: mw1-company-icons)*
-- **Owen (`owen-play-company.png`):** "You know the icon that exists at the top of this, where I pick the mech for the individual? We should use those mech icons in the company screen instead of the generated images."
+- **The owner (`owen-play-company.png`):** "You know the icon that exists at the top of this, where I pick the mech for the individual? We should use those mech icons in the company screen instead of the generated images."
 - **That's** the lab's mech-slot icon: PM's line-art icon for each chassis, the yellow wireframe at the top of the lab.
 - **Wanted:**
   - Each mech on the Company screen is drawn with its chassis' PM icon, in our amber, read from the player's PM install at run time.
@@ -1154,7 +1154,7 @@ engine's warnings are left alone. No behaviour change.
 
 
 ## 24. [x] Hold an arrow to keep stepping *(done: mw1-hold-repeat)*
-- **Owen (2026-11-17):** "On the negotiation page, I can hold the arrow down and it'll go up or down as I hold."
+- **The owner (2026-11-17):** "On the negotiation page, I can hold the arrow down and it'll go up or down as I hold."
 - **Wanted:**
   - The office's term arrows (pay, salvage, advance) repeat while held: one step on the press, then repeating after about 0.4 s, and faster after 2 s.
   - The repeating stops when the button is released or the pointer leaves it.
@@ -1172,23 +1172,23 @@ engine's warnings are left alone. No behaviour change.
 - **Wanted:** the slot icons in our amber; no empty page reachable; the armour toggles placed with their own rows. mw1labfit still passes.
 
 ## 27. [x] Every mech picture: the PM line-art icon until item 14's renders *(done: mw1-company-icons)*
-- **Owen (2026-11-17):** "including the company -> mech images," together with item 23.
-- **Wanted:** wherever MW1 shows a picture of a specific mech (the Company screen first, then the Mech Complex rows if they get pictures, and the briefing/results screens), use PM's line-art chassis icon in our amber, not the AI `mech_*` pictures. Item 14 may later replace them with renders, screen by screen, once Owen has seen a test render.
+- **The owner (2026-11-17):** "including the company -> mech images," together with item 23.
+- **Wanted:** wherever MW1 shows a picture of a specific mech (the Company screen first, then the Mech Complex rows if they get pictures, and the briefing/results screens), use PM's line-art chassis icon in our amber, not the AI `mech_*` pictures. Item 14 may later replace them with renders, screen by screen, once the owner has seen a test render.
 
 ## 29. [x] The lab's bottom buttons: one size and shape *(done: mw1-lab-buttons)*
-- **Owen (2026-11-18, playing):** "the buttons on the bottom of the mech lab are different sizes and shapes. and the customize button isnt the right size. its overlapping. weapons grouping isnt too tall but its wider than the others i think. they should all be the same size/shape, including accept"
+- **The owner (2026-11-18, playing):** "the buttons on the bottom of the mech lab are different sizes and shapes. and the customize button isnt the right size. its overlapping. weapons grouping isnt too tall but its wider than the others i think. they should all be the same size/shape, including accept"
 - **Cause:** MW1's lab icons keep PM's four sizes: lab_icon1 (chassis) 51x58, lab_icon4 (criticals/customize) 55x49, lab_icon5 (groups) 65x48, lab_accept 60x49. They sit at PM's positions in dlgMechLabII.
 - **Wanted:** all four the same framed size and shape, evenly spaced along the bottom bar, with none overlapping, at both shapes. mw1labfit checks that they are equal and don't overlap.
-- **Changed by 70 (Owen 2026-11-19, option A):** not evenly spaced any more. The buttons are in pairs at the bar's ends (chassis and criticals left, groups and ACCEPT right; mw1_chrome.h's lab_tab_x), so the warnings get the clear middle. Same size, no overlap, labels centred over their buttons, as before.
+- **Changed by 70 (the owner 2026-11-19, option A):** not evenly spaced any more. The buttons are in pairs at the bar's ends (chassis and criticals left, groups and ACCEPT right; mw1_chrome.h's lab_tab_x), so the warnings get the clear middle. Same size, no overlap, labels centred over their buttons, as before.
 
 ## 30. [x] Don't hold the mouse: let it leave the window *(merged: mw1-pointer-hands-off, mw1-free-mouse-2; the feel check passed 2026-11-21)*
-- **Owen (2026-11-18, playing):** "lets make it so it doesnt hold the mouse. if i scroll the mouse out of the window (because i have 2 screens), or if i move it outside the viewport, it will move outside the viewport. mw3 works that way and its fine"
+- **The owner (2026-11-18, playing):** "lets make it so it doesnt hold the mouse. if i scroll the mouse out of the window (because i have 2 screens), or if i move it outside the viewport, it will move outside the viewport. mw3 works that way and its fine"
 - **Where:** SdlInput::capture puts the window in relative mouse mode (src/frontend/sdl/sdl_input.cpp), and `want` decides when (focused, acquired, mission, window, released).
 - **Wanted:** in MW1, the pointer leaves the window freely, as in MW3. Find which input decides it differently for MW1 (the menus at least; in missions, match whatever MW3 does) and make MW1 behave like MW3. Opt-in if it touches the engine; MW3 and PM unchanged.
 
 ## 31. [x] The results screen's picture: victory with a big gun, defeat kicking rocks *(with 38: the screen laid out like MW1's)*
-- **Owen (2026-11-18):** "can we use pc crucible to generate an image for end-of-game that looks like the original? if you were victorious you got a shot of yourself with a big gun ... if you failed youre kicking rocks" (MW1's two debrief pictures, beside CREW STATUS, MECH STATUS, SALVAGE and PAYMENT, with a line of text below).
-- **What MW1 shows (the port's after-action code, read as reference; the pictures decoded read-only from Owen's MW_PICS.BIN, `outbox/2026-11-18/mw1-original-debrief-pictures.png`):**
+- **The owner (2026-11-18):** "can we use pc crucible to generate an image for end-of-game that looks like the original? if you were victorious you got a shot of yourself with a big gun ... if you failed youre kicking rocks" (MW1's two debrief pictures, beside CREW STATUS, MECH STATUS, SALVAGE and PAYMENT, with a line of text below).
+- **What MW1 shows (the port's after-action code, read as reference; the pictures decoded read-only from the owner's MW_PICS.BIN, `outbox/2026-11-18/mw1-original-debrief-pictures.png`):**
   - **Three pictures, 149×127:**
     - 0x4C, a win, and also an uneventful garrison tour: the commander standing with a big gun beside his mech;
     - 0x4E, a failed mission with the whole crew alive (a retreat): kicking a rock;
@@ -1200,21 +1200,21 @@ engine's warnings are left alone. No behaviour change.
     - a failure, worded per House;
     - then, on a win paid short: the supply-overrun or "disappointment" deduction, or the breach of contract (no pay);
     - the "abandoned by the House transports" line.
-- **Owen's picks (2026-11-18):** the win is end_win_22, the retreat end_retreat_22 and the lost end_lost_11 (keep/mw1-remake/assets; prompts in endings.py, "you" worded from char_gideon).
-- **Art:** the lead is making victory and defeat candidates on Crucible (qwen-image-2.1, the mw3 style, the commander as char_gideon) for Owen to pick from.
+- **The owner's picks (2026-11-18):** the win is end_win_22, the retreat end_retreat_22 and the lost end_lost_11 (keep/mw1-remake/assets; prompts in endings.py, "you" worded from char_gideon).
+- **Art:** the lead is making victory and defeat candidates on Crucible (qwen-image-2.1, the mw3 style, the commander as char_gideon) for the owner to pick from.
 - **Then:** the results screen gets a picture panel (victory picture on a win; defeat picture on a loss or retreat), kept at source size for item 12. If MW1's exe holds the debrief lines ("A very boring and uneventful tour of garrison duty..."), read them from the player's exe as the pitches are, under the picture.
 
-## 28. [x] Decisions waiting for Owen (not bugs; asked in chat)
-- ~~Salvage on a loss~~ Owen: lost or retreated loses all salvage. Salvage cash: see 51.
+## 28. [x] Decisions waiting for the owner (not bugs; asked in chat)
+- ~~Salvage on a loss~~ the owner: lost or retreated loses all salvage. Salvage cash: see 51.
 - The morning list's open story questions (`outbox/2026-11-17/mw1-morning-decisions.md`): the deaths, the deadline, the ending, the commander's name, the Dark Wing battle, multi-stage battles, the major campaign's dates.
 - The travel map's seven look-and-feel questions, which will be folded into item 21's readout.
 - An arctic Instant Action layout built from MW3's snow world (m4/m6) at conversion time?
-- ~~Item 20's highlight colour~~ Owen: bright amber stays. Should the hub's status-line contract readout be highlighted too?
+- ~~Item 20's highlight colour~~ the owner: bright amber stays. Should the hub's status-line contract readout be highlighted too?
 - zipkit should free its own node pool (MW1 frees it after the conversion today, mw1_worlds.cpp); move the fix into zipkit?
 - For the mw3 lead, not MW1: on 16:9 the engine's widening shifts a centred dialog's list arrows by the 107 px margin once too often (PM's own load box shows it). MW1 works round it in MW1LOADSAVE_WIDE.
-- ~~The lab's remaining PM wordings~~ Owen: MW3's terms (Alternate, Primary, …) are fine; keep them. Was: the variant names ("Alternate A (incomplete)"), the Rename, Save and Delete links, "'Mech Name", and the SKINS cycle's camo names (GUNMETAL). Keep them, or use MW1 words?
-- ~~Bar hints~~ Owen: 4:3 is rare but supported; the short hints stand. Was: Dev 2 shortened three Bar hints to fit 4:3 ("Order a drink, read the news, or find pilots for hire.", etc.). Is the wording OK?
-- Item 19's results screen: Owen hasn't seen it in play yet (needs his rebuilt game). The shot is in `outbox/2026-11-17/results-screen/`; anything to change?
+- ~~The lab's remaining PM wordings~~ the owner: MW3's terms (Alternate, Primary, …) are fine; keep them. Was: the variant names ("Alternate A (incomplete)"), the Rename, Save and Delete links, "'Mech Name", and the SKINS cycle's camo names (GUNMETAL). Keep them, or use MW1 words?
+- ~~Bar hints~~ the owner: 4:3 is rare but supported; the short hints stand. Was: Dev 2 shortened three Bar hints to fit 4:3 ("Order a drink, read the news, or find pilots for hire.", etc.). Is the wording OK?
+- Item 19's results screen: the owner hasn't seen it in play yet (needs his rebuilt game). The shot is in `outbox/2026-11-17/results-screen/`; anything to change?
 - **AFTER ACTION review (dev 1, 2026-11-19, branch mw1-results-review):** every ending shot at 1080p and 4:3 (`outbox/2026-11-19/mw1-results-review-28/`): win, loss, retreat, a story battle, the Dark Wing lost, a fee paid short, a lancemate KILLED, MISSING on a retreat, your 'Mech lost with a spare, your only 'Mech lost, and DETAILS. Nothing is cut or overlapping at either size.
   - **Fixed (plain):**
     - A retreat settles no fates (settle_mission: a retreat isn't counted), but CREW STATUS said "destroyed, MISSING" or "KILLED" and the picture was the someone-lost one. Now it says "destroyed", and the picture is the retreat's.
@@ -1223,14 +1223,14 @@ engine's warnings are left alone. No behaviour change.
     - "Salvage: all of 9,804,683 = 9,804,683" (a story battle) is now "Salvage: all of 9,804,683".
     - "Next: you take the Firefly" when it's a spare (not a lancemate's) now says "the spare Firefly".
     - test_mw1_loop checks the fee and retreat wordings. MW1_RESULTS (development) now takes a comma list: win, loss, retreat, lost, mechlost, killed, missing, story, darkwing, docked.
-  - **For Owen:**
+  - **For the owner:**
     1. A retreat costs only standing: no repair bill, no mech lost, nobody killed or missing, even when a lancemate's 'Mech went down. Is that right, or should a retreat bill repairs and keep losses?
     2. A story battle pays all the wrecks' worth as salvage (kStorySalvagePercent): about 9.8 million C-bills in the shot, ten times a contract's pay. Intended?
     3. A story battle shows the world's House crest and the House's "WELL DONE!" line, though no House hired you. Keep them, or show no message and no crest?
     4. A win with a lancemate KILLED shows the victory picture (MW1's rule: the cockpit picture only on a failure). Keep it?
 
 ## 32. [x] Missing in action: a downed lancemate can come back to the hiring pool *(mw1-missing-pilots)*
-- **Owen (2026-11-18):** yes, add MW1's MISSING.
+- **The owner (2026-11-18):** yes, add MW1's MISSING.
 - **MW1:**
   - The after-action roster has KILLED and MISSING.
   - A MISSING pilot leaves the lance, but their unavailable flag is cleared (`PILOT_STATUS_RELEASE_AVAILABILITY`), so they can turn up in a Bar again.
@@ -1243,12 +1243,12 @@ engine's warnings are left alone. No behaviour change.
   - Old saves still load.
   - Tests.
 
-## 33. [x] The commander can't die: no campaign restart *(Owen 2026-11-18: "you cant die in this one. that was a weird mechanic")*
+## 33. [x] The commander can't die: no campaign restart *(the owner 2026-11-18: "you cant die in this one. that was a weird mechanic")*
 - MW1 restarts the campaign on a story death. Ours never does.
 - `kStoryDeathsRestart` stays off for good, and story.md's Q1 is answered. A dev can drop the switch when next in that code, but there's no behaviour change.
 
 ## 34. [x] A message over a screen keeps that screen's picture, the text in its free side *(mw1-message-in-place)*
-- **Owen (2026-11-18):** ORDER DRINK at Greely's Bar showed the tip full-screen, over the world's dimmed scenery (the snow), instead of over the Bar.
+- **The owner (2026-11-18):** ORDER DRINK at Greely's Bar showed the tip full-screen, over the world's dimmed scenery (the snow), instead of over the Bar.
 - **Wanted:** like the original, the message sits to one side with the screen's own picture still visible.
   - **At the Bar:** in the left area, the bartender's picture behind it, not dimmed.
 - **Applies to every message that fires over a screen with its own art:**
@@ -1260,18 +1260,18 @@ engine's warnings are left alone. No behaviour change.
 - **Done means:** shots of the Bar's drink, news and an event at 1080p and 4:3.
 
 ## 35. [x] The main menu (NEW / LOAD / EXIT, the mech behind) flashes between screens
-- **Owen (2026-11-18):** the main menu shows for a moment at every screen change, which is jarring.
+- **The owner (2026-11-18):** the main menu shows for a moment at every screen change, which is jarring.
 - **Wanted:** a screen change goes straight from one MW1 screen to the next, never showing the main menu under it.
   - Likely cause: the menu stack, since MW1's menu lies under the hub (mw1_game.cpp, "MW1's main menu over PM's ... under the hub").
 - **Done means:** a frame-by-frame capture of each change (hub to Bar, Bar to hub, hub to office, the office to the lab, a mission's return), with no menu frame in any of them.
 
 ## 36. [x] An arrow clicked again does nothing until the other arrow is clicked
-- **Owen (2026-11-18):** in the office's TERMS, clicking an arrow once works, and holding it repeats. A second click on the same arrow does nothing until the other arrow has been clicked.
+- **The owner (2026-11-18):** in the office's TERMS, clicking an arrow once works, and holding it repeats. A second click on the same arrow does nothing until the other arrow has been clicked.
 - **Wanted:** every click steps once, and holding repeats. This applies to every arrow pair: the office's terms, the lab's, and anywhere else PM's spinner arrows are used.
 - **Done means:** a test that clicks the same arrow three times and sees three steps.
 
 ## 37. [x] The lab's bottom buttons: their hover labels sit in the wrong places
-- **Owen (2026-11-18):** each button's label shows away from its button:
+- **The owner (2026-11-18):** each button's label shows away from its button:
   - "Select Chassis" lies over the orange line;
   - "Customize" sits to the right of its button;
   - "Weapon Grouping" overlaps the top of its button;
@@ -1286,7 +1286,7 @@ engine's warnings are left alone. No behaviour change.
   - a fit check: each label over its own button, inside the screen, overlapping nothing.
 
 ## 38. [x] AFTER ACTION laid out like MW1's, with a scrollable salvage list (and a salvage limit?)
-- **Owen (2026-11-18):** today's four green terminals (RESULTS, PAY, SALVAGE TO STORES, YOUR <MECH>) should follow MW1's arrangement:
+- **The owner (2026-11-18):** today's four green terminals (RESULTS, PAY, SALVAGE TO STORES, YOUR <MECH>) should follow MW1's arrangement:
   - **Top left:** the picture (item 31).
   - **Top right:** the status:
     - the flat payment near the top;
@@ -1294,28 +1294,28 @@ engine's warnings are left alone. No behaviour change.
     - under them, the full salvage list, scrollable (today it isn't, and a long list is cut).
   - **Along the bottom:** the outcome message (31's lines from the exe), with the House crest at the bottom right.
 - **Salvage choice:** today everything is collected, with no clicks.
-  - **If there's a limit** (Owen: "maybe there should be"): two lists like MW3's salvage screen. On the right, what the mission brought in; on the left, the keep list. Click to move items between them.
-  - **The lead's suggestion for Owen:** the limit is the contract's negotiated salvage term. Its percent of the salvage's value is what you may keep, so the term negotiated in the office means something on this screen.
-  - **Until Owen decides:** collect everything, scrollable.
-  - **Owen (2026-11-18): no tonnage limit** on the stores.
+  - **If there's a limit** (the owner: "maybe there should be"): two lists like MW3's salvage screen. On the right, what the mission brought in; on the left, the keep list. Click to move items between them.
+  - **The lead's suggestion for the owner:** the limit is the contract's negotiated salvage term. Its percent of the salvage's value is what you may keep, so the term negotiated in the office means something on this screen.
+  - **Until the owner decides:** collect everything, scrollable.
+  - **The owner (2026-11-18): no tonnage limit** on the stores.
 - **Done means:** shots of a win, a retreat and a lost mission at 1080p and 4:3, plus a long salvage list scrolled.
 
 ## 39. [x] The lab's 'MECH LOAD-OUT and AVAILABLE SUPPLIES lists sit off-centre in their boxes
-- **Owen (2026-11-18):**
+- **The owner (2026-11-18):**
   - in LOAD-OUT, the rows end well short of the box's right edge, leaving a wide empty strip, and the header sits high with a gap under it;
   - in AVAILABLE SUPPLIES, the list and the tabs start far right of the box's left edge.
 - **Wanted:** each list centred in its box with even margins, its columns spread to the box's width. The same at 16:9 and 4:3.
 - **Done means:** shots and a fit check (equal left and right margins within a few pixels).
 
 ## 40. [x] WEAPON GROUPING: something overlaps; and a group's weapons can't be reordered
-- **Owen (2026-11-18):**
+- **The owner (2026-11-18):**
   - "some kind of weird overlapping thing going on in weapons grouping". A screenshot has been asked for; until then, shoot the screen at 1080p and 4:3 and find it.
   - Weapons always go into a group in the same fixed order. He wanted the ER weapons at the end of a group and couldn't put them there.
 - **Wanted:** the order the player gives is kept, and the group's list shows it. Check whether PM's grouping screen allows reordering and MW1 lost it, or whether PM never had it, and say which.
 - **Done means:** shots before and after, and a test that a chosen order survives a save and reload.
 
 ## 41. [x] The Mech Complex shows the company's funds
-- **Owen (2026-11-18):** in the mech-buying area he can't see how much money he has, so he can't tell what he can afford.
+- **The owner (2026-11-18):** in the mech-buying area he can't see how much money he has, so he can't tell what he can afford.
 - **Wanted:**
   - funds shown on every Mech Complex page (buying, selling, the hangar, the stores), the way the Bar's plaque shows "1,231,995 C-BILLS";
   - updated the moment something is bought or sold;
@@ -1323,7 +1323,7 @@ engine's warnings are left alone. No behaviour change.
 - **Done means:** shots at 1080p and 4:3, and a test that the shown funds change with a purchase.
 
 ## 42. [x] Unobtrusive messages: a small box at the bottom, the artwork clear, nowhere a darkened screen
-- **Owen (2026-11-18, the arrival at Rasalhague on a build from before 34):**
+- **The owner (2026-11-18, the arrival at Rasalhague on a build from before 34):**
   - find every screen that hides its picture behind a darkened filter;
   - instead, put a small message box at the bottom of the screen, so the artwork can be seen while reading.
 - **This revises 34:**
@@ -1343,27 +1343,27 @@ engine's warnings are left alone. No behaviour change.
 - **Done means:** a shot of each screen found, at 1080p and 4:3.
 
 ## 43. [x] A "reach" contract has no nav point: the player can't find the place
-- **Owen (2026-11-18, Rasalhague):** the contract "reach the pump complex" on c2ia1 (Road to Madre) gave no nav point and no marked place. He couldn't tell where to go.
+- **The owner (2026-11-18, Rasalhague):** the contract "reach the pump complex" on c2ia1 (Road to Madre) gave no nav point and no marked place. He couldn't tell where to go.
 - **Cause:** our ReachAreaObjective (mw1_game.cpp, kReachStructure) checks the structure's node (`3twr1`), but nothing puts a nav point there. c2ia1's only nav is Start.
 - **Wanted:** every "reach" objective has its place as a nav point, named for it (e.g. "Pump complex"), selectable and on the map like MW3's and PM's. The same goes for any objective whose place isn't otherwise shown, such as a defended structure.
 - **Done means:** a test that every reach row in mw1maps.zrd gives a nav point at its node, and a shot of the nav display in that mission.
 
 ## 44. [x] An ice world's contract plays on a desert map
-- **Owen (2026-11-18):** Rasalhague (the north of Kurita's blue region) sent him to Road to Madre, a desert, though he took it for an arctic world.
+- **The owner (2026-11-18):** Rasalhague (the north of Kurita's blue region) sent him to Road to Madre, a desert, though he took it for an arctic world.
 - **Cause:** no Instant Action map is arctic (research/maps.md, "An arctic map"). A contract in the ice climate falls back to its kind anywhere, which here is the desert.
 - **To check:** that Rasalhague's battles really are ice in MW1's data.
-- **The choices, for Owen:**
+- **The choices, for the owner:**
   - (a) Build arctic IA maps from MW3's c4b snow missions (m4/m6). They load and play as IA today; they need an ia block with m4's snow, fog and light, and the campaign script stripped.
   - (b) Until then, put ice contracts on the coldest-looking map instead of the desert.
   - (c) Show the real climate in the offer, so it's no surprise.
 - **The lead's pick:** (a), with (c) at once.
-- **Owen (2026-11-18): (a), real arctic maps from MW3's snow missions.** Show the climate in the offer (c) meanwhile.
-- **Owen, refined (2026-11-18):** "a proper arctic instant action map for mw3 and/or pm rebuild ... the same as road to madre or any other once it's authored and shipped with the main games".
+- **The owner (2026-11-18): (a), real arctic maps from MW3's snow missions.** Show the climate in the offer (c) meanwhile.
+- **The owner, refined (2026-11-18):** "a proper arctic instant action map for mw3 and/or pm rebuild ... the same as road to madre or any other once it's authored and shipped with the main games".
   - **The plan:** an authored IA map. It's our own layout data in the repo (start, enemy records, nav points, the ia block's snow, fog and light, objectives, targets), laid on the snow terrain of the player's converted MW3 c4b. It isn't reconstructed by script from the campaign missions, and none of MW3's files are shipped.
   - **For MW1 first.** Listing it in MW3's and PM's own Instant Action is the mw3 lead's call; MW3's and PM's files are never modified (VISION).
 
 ## 45. [x] Every kind of contract is winnable: reach, attack, defend, withdraw, oppose withdrawal
-- **Owen (2026-11-18):** are the reach missions winnable now? Check every kind other than destroy-all.
+- **The owner (2026-11-18):** are the reach missions winnable now? Check every kind other than destroy-all.
 - **Today:**
   - 43's survey proves each structure row's nav point sits on its node;
   - the loop tests win one reach row (c2 ia2, the portal gate);
@@ -1377,9 +1377,9 @@ engine's warnings are left alone. No behaviour change.
 - **Done means:** a table with one line per row (won, how, time, closest approach). Every row is won, or dropped with its reason.
 
 ## 46. [x] Map variety: every IA map in play, weighted by the planet's climate
-- **Owen (2026-11-18):** a player will fly 30–50 missions, and the terrain mustn't get boring. Use every IA terrain we have, but favour the planet's environment: a cold world mostly arctic and never desert, the moon mostly Pirate's Moon. Grasslands is jungle enough.
+- **The owner (2026-11-18):** a player will fly 30–50 missions, and the terrain mustn't get boring. Use every IA terrain we have, but favour the planet's environment: a cold world mostly arctic and never desert, the moon mostly Pirate's Moon. Grasslands is jungle enough.
 - **Today:** mw1maps.zrd has PM c1–c4 and MW3 c2 only, 15 maps. MW3's Big Lake (c1), Rolling Hills (c3) and Gorge (c4), with three IA maps each, are missing.
-- **The pools (agreed with Owen):**
+- **The pools (agreed with the owner):**
   - **Desert world:**
     - about 75% from PM c1–c4, MW3 Big Lake and MW3 Gorge;
     - the rest from any other map but arctic;
@@ -1402,7 +1402,7 @@ engine's warnings are left alone. No behaviour change.
 - **Done means:** a test that draws 10,000 offers per climate and reports the shares, with never a forbidden pairing and never a repeat; plus the new rows passing 45.
 
 ## 47. [x] The story made overt and hard: a journal that points to the spot, and a battle at every step
-- **Owen (2026-11-18):** give the player something to do and something to look for. A journal that says how to do the next thing in the story and points right to the spot. Every step in the chain very hard, so even knowing what to do, the player has to build up a powerful army first. The final battle very hard, with a set number of mechs.
+- **The owner (2026-11-18):** give the player something to do and something to look for. A journal that says how to do the next thing in the story and points right to the spot. Every step in the chain very hard, so even knowing what to do, the player has to build up a powerful army first. The final battle very hard, with a set number of mechs.
 - **The journal (a STORY button on the hub, a page like the news):**
   - **Chapters:** every story step seen so far, in order, with MW1's own text read from the exe as now.
   - **The current lead:** our own short line saying where and what, e.g. "Go to the House office on Galedon V" or "Ask about the Stone Arrow in the Bar on Mosiro". It names the planet and the place (Bar, Mech Complex, office, arrival).
@@ -1423,15 +1423,15 @@ engine's warnings are left alone. No behaviour change.
   - The enemy pilots' skill rises with the step.
   - The pay for a story battle is none, but the salvage is kept (the reason to fight it).
 - **The old deaths (33):** each of MW1's seven death choices becomes a setback: a lost lancemate, a fine, or the step's battle at its hardest. The trail goes on.
-- **After the final battle (Owen 2026-11-18):** the credits play (MW1's own credits, read from the exe as the other texts, over our art), then play goes on. Extra content after the win is to be decided later. Nothing ever stops the player from playing on.
-- **No deadline (Owen 2026-11-18):** it takes as long as it takes, and the player can play on indefinitely. MW1's 20 Mar 3029 limit is dropped: 0x73 (too late) never fires, and ATTACK stays offered until won. The news still runs by date.
+- **After the final battle (the owner 2026-11-18):** the credits play (MW1's own credits, read from the exe as the other texts, over our art), then play goes on. Extra content after the win is to be decided later. Nothing ever stops the player from playing on.
+- **No deadline (the owner 2026-11-18):** it takes as long as it takes, and the player can play on indefinitely. MW1's 20 Mar 3029 limit is dropped: 0x73 (too late) never fires, and ATTACK stays offered until won. The news still runs by date.
 - **Done means:**
   - a headless walk of the whole chain through the journal's leads (each lead's planet and place correct, each battle launched with its force);
   - shots of the journal, the map marker and a step battle's offer;
   - the ladder in one table.
 
 ## 48. [x] Lift the 10-'Mech limit in a battle (MW1's line-up)
-- **Owen (2026-11-18):** there's no reason to keep a battle capped at 10 'Mechs. We may not want many more in play, but the cap shouldn't be the engine's.
+- **The owner (2026-11-18):** there's no reason to keep a battle capped at 10 'Mechs. We may not want many more in play, but the cap shouldn't be the engine's.
 - **Today:**
   - PM's ActionGame line-up holds 10 (lineup[10], add() refuses past 9; pilot_games.cpp:1012), the player included.
   - The IA maps have 8 enemy records each.
@@ -1454,10 +1454,10 @@ engine's warnings are left alone. No behaviour change.
   - MW3's horizon ring `g15055` is untextured and fog-coloured. Through PM's flat batch (pack_material) it gets alpha 0, and the --shot BMP keeps that alpha, so viewers lay it over white.
   - On screen it's MW3's own haze ring.
   - The fix is one line in the shared shot path, with a test; the patch is in outbox/2026-11-18/mw1-horizon. It's with the mw3 lead for main and pm, and mw1 takes it by merging pm.
-  - **Owen (2026-11-18): "looks correct".** The shot fix is enough; it's left to the mw3 lead to land.
+  - **The owner (2026-11-18): "looks correct".** The shot fix is enough; it's left to the mw3 lead to land.
 
 ## 50. [x] The office's liaison portrait: as wide as the buttons, its bottom on the terms box's bottom
-- **Owen (2026-11-18):** the portrait at the bottom left of the office (negotiation) screen leaves room unfilled.
+- **The owner (2026-11-18):** the portrait at the bottom left of the office (negotiation) screen leaves room unfilled.
 - **Wanted:**
   - the portrait as wide as the buttons above it (NEXT OFFER through LEAVE), left and right edges lined up with theirs;
   - its bottom edge on the bottom of the TERMS box;
@@ -1469,22 +1469,22 @@ engine's warnings are left alone. No behaviour change.
   - a fit check: the edges line up within 1 px.
 
 ## 51. [x] Salvage pays from what's left after your repairs; parts are always yours
-- **Owen (2026-11-18), answering 28's salvage questions:**
+- **The owner (2026-11-18), answering 28's salvage questions:**
   - **Lost or retreated:** you lose all salvage (cash and parts). That's today's rule; keep it.
   - **Parts:** every weapon, ammo, armour and equipment item salvaged on a win is yours to keep, with no limit (no tonnage limit, no pick list). So 38's "salvage limit" is not wanted.
   - **Cash, the new rule:**
     1. The pool is the destroyed enemy 'Mechs' worth (the wrecks' value, as today).
     2. Your own 'Mech's repairs come off the top of the pool.
     3. The contract's salvage term (the percent agreed in the office) is paid on what's left.
-    - Owen's example: a 3,000,000 wreck, 2,000,000 of damage to you, so 1,000,000 is left. At a 10% term you get 100,000, and your 'Mech is repaired.
-  - **Repairs over the pool:** if the repairs cost more than the pool, the pool covers what it can and the rest is billed as today. *(Lead's default; tell Owen.)*
-  - **Lancemates' 'Mechs:** repaired from the pool the same way, after yours. *(Lead's default; tell Owen.)*
+    - The owner's example: a 3,000,000 wreck, 2,000,000 of damage to you, so 1,000,000 is left. At a 10% term you get 100,000, and your 'Mech is repaired.
+  - **Repairs over the pool:** if the repairs cost more than the pool, the pool covers what it can and the rest is billed as today. *(Lead's default; tell the owner.)*
+  - **Lancemates' 'Mechs:** repaired from the pool the same way, after yours. *(Lead's default; tell the owner.)*
 - **AFTER ACTION's PAYMENT shows the sum:** the wrecks' worth, less repairs, = left; times the term = salvage pay; then the fee and the total.
 - **Story battles** pay no fee, but the salvage rule is the same (Dark Wing included).
-- **Done means:** a test with Owen's numbers (3,000,000 / 2,000,000 / 10% → 100,000, repaired, nothing billed); a test with repairs over the pool; and shots of the PAYMENT block.
+- **Done means:** a test with the owner's numbers (3,000,000 / 2,000,000 / 10% → 100,000, repaired, nothing billed); a test with repairs over the pool; and shots of the PAYMENT block.
 
 ## 52. [x] Fade to black and back between screens
-- **Owen (2026-11-18):** "when we switch screens, it jumps from one thing to another. can we have it fade to black and fade back in to the new screen ... maybe half a second fade in/out."
+- **The owner (2026-11-18):** "when we switch screens, it jumps from one thing to another. can we have it fade to black and fade back in to the new screen ... maybe half a second fade in/out."
 - **Wanted:** every change between MW1's own screens fades out to black and then in to the new screen. That covers the hub, Bar, Mech Complex, office, lab, starport, travel, the STORY page, AFTER ACTION, the loading screen and the main menu.
   - About half a second in all: 0.25 s out and 0.25 s in. The timing is one constant, so it can be tuned.
   - Input is ignored during the fade, so a double click can't skip a screen.
@@ -1494,34 +1494,34 @@ engine's warnings are left alone. No behaviour change.
 - **Done means:** a frame capture of hub → Bar → hub and hub → lab at 1080p, showing the ramp, no flash, and the half-second timing.
 
 ## 53. [x] A cap on 'Mechs owned
-- **Owen (2026-11-18):** "lets see if we can find an actual limit. if not, lets set the limit to 100 i suppose? or 255? i have to assume people are really going to try to break it, so we shouldnt leave it open ended."
+- **The owner (2026-11-18):** "lets see if we can find an actual limit. if not, lets set the limit to 100 i suppose? or 255? i have to assume people are really going to try to break it, so we shouldnt leave it open ended."
 - **Today:** the hangar (Company::hangar) has no limit.
 - **First:** find MW1's own limit in the original exe: the save's company 'Mech table, or a check in the Mech Complex's BUY. Report it with the address.
 - **Then:**
-  - If MW1 has a limit, use it (raise it if it's tiny; ask Owen).
-  - If not, the cap is 100 'Mechs owned, the piloted one included (Owen's first figure).
-  - BUY is refused at the cap with a short message. Salvage never brings in 'Mechs, only money and parts (Owen), so BUY is the only way in.
+  - If MW1 has a limit, use it (raise it if it's tiny; ask the owner).
+  - If not, the cap is 100 'Mechs owned, the piloted one included (the owner's first figure).
+  - BUY is refused at the cap with a short message. Salvage never brings in 'Mechs, only money and parts (the owner), so BUY is the only way in.
   - The hangar's list scrolls to the cap.
   - Saves past the cap still load.
-- **Also:** check the stores (no tonnage limit, Owen) for a count overflow. Clamp each item's quantity at a sane maximum (e.g. 9,999) and fit the lab's Qty column to it.
+- **Also:** check the stores (no tonnage limit, the owner) for a count overflow. Clamp each item's quantity at a sane maximum (e.g. 9,999) and fit the lab's Qty column to it.
 - **Done means:** the exe's answer with its address; a test buying to the cap; a shot of the full hangar list.
-- **Found:** MW1's limit is 12 (081B:4674, DS:0530). **Owen (2026-11-18): make it 30.**
-- **Owen (2026-11-18), on 51:** repairs stay cheap (kRepairScale unchanged).
+- **Found:** MW1's limit is 12 (081B:4674, DS:0530). **The owner (2026-11-18): make it 30.**
+- **The owner (2026-11-18), on 51:** repairs stay cheap (kRepairScale unchanged).
 
 ## 54. [x] The travel animation back, as a video: the DropShip launches on departure
-- **Owen (2026-11-18):** "in the original, when you take off to a new location, it shows an animation of the spaceship taking off ... we could use ltx to generate a 5 second video of the spaceship launching ... use the image as the first frame."
+- **The owner (2026-11-18):** "in the original, when you take off to a new location, it shows an animation of the spaceship taking off ... we could use ltx to generate a 5 second video of the spaceship launching ... use the image as the first frame."
 - **MW1:** MwPlayHiredTransportAnimation (MW_MAIN 081B:6095) on a paid trip. There's also an owned-DropShip version (60AD).
-- **The clips:** LTX-2.5 on the Mac, from data-src/art/travel_dropship_launch.jpg. Takes 11 and 22 are in outbox/2026-11-18/mw1-launch-video/. **Owen (2026-11-18): take 11.**
+- **The clips:** LTX-2.5 on the Mac, from data-src/art/travel_dropship_launch.jpg. Takes 11 and 22 are in outbox/2026-11-18/mw1-launch-video/. **The owner (2026-11-18): take 11.**
 - **Built (dev 1's plan):**
   - mw1_movie, MPEG-1 + MP2 via pl_mpeg (no new dependency), full window on the high-res 2D path;
   - plays at the paid departure; click or key skips; fades with 52;
   - skipped if the file is missing, or headless;
   - 1280x704 at 5 Mbit/s, about 3.2 MB.
-- **Later, if Owen wants:** a clip for the owned DropShip and the Dark Wing victory (the same player); the Mech Complex idle loop and the intro's background (needs loop + rectangle).
+- **Later, if the owner wants:** a clip for the owned DropShip and the Dark Wing victory (the same player); the Mech Complex idle loop and the intro's background (needs loop + rectangle).
 - **Done means:** GO → movie → hub with and without the file; skip by key and click; a 1080p capture of the fade in and out.
 
 ## 55. [x] The launch video: a pause before it, and its sound replaying at the end
-- **Owen (2026-11-18, in play):**
+- **The owner (2026-11-18, in play):**
   - "put a slight pause before the video plays showing the dropship taking off. it felt very sudden."
   - "it played the dropship sound for a split second after loading the new screen when the dropship animation was complete. like it was starting it over."
 - **Wanted:**
@@ -1530,7 +1530,7 @@ engine's warnings are left alone. No behaviour change.
 - **Done means:** the cause of the replay named; a test that no sound is playing after the movie ends or is skipped; a windowed check with sound on.
 
 ## 56. [x] The office: NEGOTIATE and ACCEPT under the terms they act on *(done: mw1-office-layout)*
-- **Owen (2026-11-18):** "lets move the negotiate and accept buttons down under the terms box. it isnt intuitive that youd have them where they are and know what to click." NEXT OFFER and LEAVE "can stay where they are ... or we can move them to a more intuitive spot."
+- **The owner (2026-11-18):** "lets move the negotiate and accept buttons down under the terms box. it isnt intuitive that youd have them where they are and know what to click." NEXT OFFER and LEAVE "can stay where they are ... or we can move them to a more intuitive spot."
 - **The layout (the lead's proposal, mock-up `outbox/2026-11-18/office-layout-mockup.png`):** the screen reads top to bottom, contract → terms → act.
   - **NEGOTIATE and ACCEPT** sit in one row right under TERMS, right-aligned to its edge.
     - ACCEPT is the primary action, framed in amber, at the far right where the eye ends.
@@ -1570,7 +1570,7 @@ engine's warnings are left alone. No behaviour change.
   - **Based on 78's branch**, for its greyed-button hook.
 
 ## 57. [x] The repair line belongs on the mission summary, not a hub message
-- **Owen (2026-11-18, in play):** a MESSAGES box on the hub after a mission said "Repairs: the Owens 4,963, from the wrecks". He asked "is this right? also, this should probably appear on the mission summary screen".
+- **The owner (2026-11-18, in play):** a MESSAGES box on the hub after a mission said "Repairs: the Owens 4,963, from the wrecks". He asked "is this right? also, this should probably appear on the mission summary screen".
 - **Right:** yes. The Owens's repairs (4,963) were paid from the wrecks' worth (51), so nothing was billed. But the wording is unclear, and a box after the fact is the wrong place for it.
 - **Wanted:**
   - The repairs show on the results screen (AFTER ACTION), in PAYMENT or right under it, one line per 'Mech, in plain words. For example: "Owens repaired: 4,963 C-bills, paid from salvage", or "... 400,000 billed to you" when the pool ran short.
@@ -1580,11 +1580,11 @@ engine's warnings are left alone. No behaviour change.
 - **Done means:** shots of the results screen (one 'Mech, a full lance, repairs over the pool) at 1080p and 4:3; no repair box on the hub; the tests updated.
 
 ## 58. [x] The Mech Complex's gunmetal render doesn't follow BUY
-- **Owen (2026-11-18, in play):** after buying a Firefly, the selection moved to it in YOUR MECHS, but the big panel still showed the Strider, the FOR SALE row chosen before. Switching rows corrected it.
+- **The owner (2026-11-18, in play):** after buying a Firefly, the selection moved to it in YOUR MECHS, but the big panel still showed the Strider, the FOR SALE row chosen before. Switching rows corrected it.
 - **Wanted:** the panel follows every change of the chosen 'Mech: BUY, SELL, the selection moving between lists, and the first entry. Add a test (dev 1).
 
 ## 59. [x] Remove REPAIR and RELOAD from the Mech Complex
-- **Owen (2026-11-18):** "lets get rid of the repair/reload buttons in the mech bay, too, since we dont need them".
+- **The owner (2026-11-18):** "lets get rid of the repair/reload buttons in the mech bay, too, since we dont need them".
 - **Why they're dead:** every mission starts with every 'Mech repaired and rearmed (MW3's rule), and the bill is settled from the mission (51/57), so the buttons do nothing useful.
 - **Wanted:**
   - The Mech Complex column is BUY, SELL, MECH LAB, BACK, evenly spaced. The live gunmetal panel keeps its place under BACK.
@@ -1594,17 +1594,17 @@ engine's warnings are left alone. No behaviour change.
 - **Done means:** shots at 1080p and 4:3, and mw1screenfit, labfit, hiresoff and smooth passing (update the goldens where the market changes).
 
 ## 60. [x] Confirm before buying or selling a 'Mech
-- **Owen (2026-11-18):** "lets put up a verify prompt when they buy a mech. you want to buy [x]? ... y/n".
+- **The owner (2026-11-18):** "lets put up a verify prompt when they buy a mech. you want to buy [x]? ... y/n".
 - **Wanted:**
   - BUY raises a box in the same style as the game's other boxes, e.g. "Buy the Firefly for 2,605,000 C-bills?", with YES and NO buttons. The Y and N keys work too, Enter means YES and Esc means NO.
   - The purchase happens only on YES; NO leaves everything unchanged.
   - The box covers the live 'Mech, as the quit box does.
   - When the buy can't happen (not enough C-bills, the hangar full at 30), say why instead of asking.
-- **SELL too (Owen: "yes, same thing for sell"):** "Sell the Owens for 2,772,000 C-bills?", same keys. Selling the piloted 'Mech stays allowed (today's rule), and the question names the 'Mech you'll pilot next: "... You'll pilot the Firefly." When the sale can't happen (the last 'Mech, a full dealer), say why.
+- **SELL too (the owner: "yes, same thing for sell"):** "Sell the Owens for 2,772,000 C-bills?", same keys. Selling the piloted 'Mech stays allowed (today's rule), and the question names the 'Mech you'll pilot next: "... You'll pilot the Firefly." When the sale can't happen (the last 'Mech, a full dealer), say why.
 - **Done means:** shots of both boxes at 1080p and 4:3, and tests that NO leaves the money and roster alone.
 
 ## 61. [x] AMS doesn't stop missiles (works; no fix needed)
-- **Owen (2026-11-18, in play):** "i dont think the ams is working. im getting hit with missiles and the ams dont appear to be stopping anything".
+- **The owner (2026-11-18, in play):** "i dont think the ams is working. im getting hit with missiles and the ams dont appear to be stopping anything".
 - **Where to start:** Mech::update_ams (src/mech3/mech.cpp, PM 0x00419200) fires only when the mech has an AMS fitted (equipment[0] > 0), m.ams exists and ams->on is true, and only when g_calls.equipment_update isn't set (mech_update.cpp:176). Check each in an MW1 mission:
   - Does the player's 'Mech actually carry an AMS and ammo (MW1's loadouts, the lab)?
   - Is the AMS on at the start, as in PM? Is its toggle key bound, and does the HUD show it?
@@ -1612,10 +1612,10 @@ engine's warnings are left alone. No behaviour change.
   - Compare with PM's own game on the same 'Mech.
 - **Done means:** the cause found and fixed, with a test or a scripted mission that shows missiles shot down. If it's PM's engine and PM is affected too, it goes to the mw3 lead.
 - **Closed (dev 2, hidden scripted mission):** the AMS is on from the first frame with 100 rounds. It found the hostile missiles and shot down 14 of 35 (rounds 100 to 86). But the stock Owens carries no AMS (equipment[0] = 0); it fires only once one is fitted in the lab. That likely explains the first report.
-- **Update (Owen, later the same session):** "i was in an owens. and it did work just now. might be false alarm". Lowered to a quick check: in one hidden scripted mission, confirm the AMS is on at the start and shoots down missiles, then close this or report.
+- **Update (the owner, later the same session):** "i was in an owens. and it did work just now. might be false alarm". Lowered to a quick check: in one hidden scripted mission, confirm the AMS is on at the start and shoots down missiles, then close this or report.
 
 ## 62. [x] A news headline at the hub doesn't say where to read it
-- **Owen (2026-11-18, in play):** "it said \"personal message from jordan rowe\" but im not seeing where to click to view it".
+- **The owner (2026-11-18, in play):** "it said \"personal message from jordan rowe\" but im not seeing where to click to view it".
 - **Cause:** hub_events adds "NEWS: <headline>" to the hub's messages, but the full text is only on the Bar's NEWS (NewsNet). Nothing on the hub points there.
 - **Wanted:**
   - The hub line names where to read it, e.g. "NEWS: Personal message from Jordan Rowe. Read it at the BAR, under NEWS."
@@ -1624,7 +1624,7 @@ engine's warnings are left alone. No behaviour change.
 - **Done means:** a shot of the hub with a news line; reading it from where the hub points; tests.
 
 ## 63. [x] A log of every message
-- **Owen (2026-11-18, in play):** "im getting messages like \"wanted - 50,000...\". not sure waht that means exactly but it would be useful to see a log of all the messages and everything somewhere".
+- **The owner (2026-11-18, in play):** "im getting messages like \"wanted - 50,000...\". not sure waht that means exactly but it would be useful to see a log of all the messages and everything somewhere".
 - **The WANTED line** is a NewsNet headline (story news 0x16 in his play.log). The hub showed only the headline; the story is at the BAR, under NEWS. 62 fixes the pointer.
 - **Wanted:** a message log the player can open any time, e.g. a LOG page off COMPANY or the hub. Newest first, each with its game date:
   - the hub's notices;
@@ -1638,7 +1638,7 @@ engine's warnings are left alone. No behaviour change.
 - **Done means:** shots of the log at 1080p and 4:3, a test that entries survive save and load, and the cap.
 
 ## 64. [x] Don't show market tiers; show what MW1's own travel panel showed *(done: mw1-no-tiers)*
-- **Owen (2026-11-18):** "i dont think we should show the tiers. let people figure it out" ... "unless the original said it. did it?"
+- **The owner (2026-11-18):** "i dont think we should show the tiers. let people figure it out" ... "unless the original said it. did it?"
 - **What MW1 showed:** it didn't. Its destination panel (SDL port MW_MAIN_081B_TRAVEL.c, ~081B:5600) draws:
   - the world's name and its House's crest;
   - its landscape label (travelLandscapeLabels[(code-1) % N], the same byte whose (code-1)/3 is the tier);
@@ -1660,11 +1660,11 @@ engine's warnings are left alone. No behaviour change.
   - **Tests:** test_mw1_travel_map (the filter cycle, no TIER); test_mw1_travel's readout (nothing of tiers with or without the exe; every world's three facts with it; every line ≤ 26 columns; every world's hover readout ≤ 14 lines, 14 at most now). MW1's words are checked, never printed.
 
 ## 65. [x] The launch video: black, then fading in as it flies, with no frozen first frame
-- **Owen (2026-11-18):** "instead of pausing on the first frame for a second, lets just have it fade in from black for that second and then take off. no freeze frame. just be black for about a second, and then fade in from black as it flies away".
+- **The owner (2026-11-18):** "instead of pausing on the first frame for a second, lets just have it fade in from black for that second and then take off. no freeze frame. just be black for about a second, and then fade in from black as it flies away".
 - **Done (lead):** after the screen change it stays black and silent for kHoldSeconds (1.0). Then the motion and the sound start together, and the picture fades in from black over kFadeInSeconds (1.0) (mw1_movie.h fade_in_black, MovieState::black()). test_mw1_loop checks no picture during the hold, a part-fade during the motion, and none after it.
 
 ## 66. [x] The FOR SALE list's last row overlaps the box's bottom edge
-- **Owen (2026-11-18, in play):** "the mechs in the purchase list overlap with the buttom of the box". Eight rows: the eighth (Awesome) and its outline sit on the box's bottom border.
+- **The owner (2026-11-18, in play):** "the mechs in the purchase list overlap with the buttom of the box". Eight rows: the eighth (Awesome) and its outline sit on the box's bottom border.
 - **Wanted:**
   - The visible rows end inside the box with a margin equal to the top one, so fewer rows show if needed; the arrows scroll.
   - The same check for YOUR MECHS.
@@ -1672,7 +1672,7 @@ engine's warnings are left alone. No behaviour change.
 - **Done means:** shots at 1080p, 4K and 4:3 with a full list; the fit check fails on the old layout.
 
 ## 67. [x] Several news lines read the same: "NEWS: BRIEF HEADLINES" three times
-- **Owen (2026-11-18, in play):** "i got a message that said: NEWS: BRIEF HEADLINES (x3) ... is that intentional". No.
+- **The owner (2026-11-18, in play):** "i got a message that said: NEWS: BRIEF HEADLINES (x3) ... is that intentional". No.
 - **Cause:** story_rules::headline() takes the line before a story's first blank line. Several of MW1's NewsNet stories are bulletins that share one title (news 0x66, 0x67 and 0x68 arrived together in his play.log), so the hub shows that title once per story.
 - **Wanted:**
   - A headline that tells stories apart. When a story's title line is one that other stories share, use its first item's line instead, or the title plus that line. This is all built at run time from the exe's text, as now.
@@ -1681,7 +1681,7 @@ engine's warnings are left alone. No behaviour change.
 - **Done means:** a test over the whole script: no two live news stories give the same hub line, or they're collapsed with a count.
 
 ## 68. [x] The Bar's hiring page: HIRE, PREV, NEXT, DONE (no DECLINE)
-- **Owen (2026-11-18):** "hire, decline, prev, next, done probably arent all necessary on the bar hiring page. can we reduce it to next/prev/hire/done".
+- **The owner (2026-11-18):** "hire, decline, prev, next, done probably arent all necessary on the bar hiring page. can we reduce it to next/prev/hire/done".
 - **Done (lead):**
   - DECLINE is gone: the button, its id, the game's case and the pilots rule decline(); recruits now just stay on offer.
   - The column reads HIRE, PREV, NEXT, then DONE set apart at its old place (DONE is shared with YOUR LANCE's column).
@@ -1689,14 +1689,14 @@ engine's warnings are left alone. No behaviour change.
   - mw1tests 181/0; mw1labfit, screenfit, hiresoff and smooth 4/4.
 
 ## 69. [x] The lab's top row: the lance's slots, not FUNDS; the lab assigns 'Mechs, not the Company page *(done: mw1-lab-slots)*
-- **Owen (2026-11-18, in play):** "i just hired two lancemates. but they arent showing in the mech lab. i dont think we need the \"funds\"/c-bills at the top, where the lancemates are normally listed. lets do it the way mw3 does - put blank slots at the top if i have pilots with no mechs, and no slots at all if there arent any pilots".
+- **The owner (2026-11-18, in play):** "i just hired two lancemates. but they arent showing in the mech lab. i dont think we need the \"funds\"/c-bills at the top, where the lancemates are normally listed. lets do it the way mw3 does - put blank slots at the top if i have pilots with no mechs, and no slots at all if there arent any pilots".
 - **Wanted:** the top row is PM's or MW3's lance strip, done as MW3 does it:
   - one slot per pilot (you, then each lancemate), showing the mech outline of their assigned 'Mech;
   - a blank slot for a pilot with no 'Mech;
   - no slots for pilots you don't have.
   - Clicking a slot picks that pilot's 'Mech, as in MW3; check how a blank slot behaves there.
   - FUNDS goes. If money must show somewhere in the lab, ask me first.
-- **More from Owen (2026-11-18):** "we can get rid of the \"pilot (you)\" area under the mech list now too since we're doing it differently. and we shouldnt haev to assign mechs on the company page. the company page should be for firing or looking at the stats of my company members".
+- **More from the owner (2026-11-18):** "we can get rid of the \"pilot (you)\" area under the mech list now too since we're doing it differently. and we shouldnt haev to assign mechs on the company page. the company page should be for firing or looking at the stats of my company members".
   - **The lab is where 'Mechs are assigned,** MW3's way: pick a pilot's slot at the top, then pick a 'Mech from YOUR MECHS. A 'Mech already held by another pilot moves over, or swaps, whichever MW3 does.
   - **The PILOT selector** (◀ YOU ▶) under YOUR MECHS goes.
   - **The Company page (COMPANY, the Bar's lance page)** keeps FIRE, PREV, NEXT and LEAVE for firing and the stats. ASSIGN goes, with its hint. Remove ASSIGN only once the lab assigns, so there is always a way.
@@ -1713,19 +1713,19 @@ engine's warnings are left alone. No behaviour change.
 - **Dev:** MW1_LAB_LANCE=<mates>:<their mechs>[:<spares>] and MW1_LAB_SLOT=<slot>[:<mech>|none] for --shot pictures.
 
 ## 70. [x] The lab's warnings are hidden behind the bottom buttons *(done: mw1-lab-slots)*
-- **Owen (2026-11-18, in play):** "the warning \"need [x] crits, only have [y]\" or the tonnage warning are both behind the buttons now. cant see the warnings". The shot shows "Not enough criticals free (need 14, have 10)" drawn across the third and fourth of the bottom icon buttons.
+- **The owner (2026-11-18, in play):** "the warning \"need [x] crits, only have [y]\" or the tonnage warning are both behind the buttons now. cant see the warnings". The shot shows "Not enough criticals free (need 14, have 10)" drawn across the third and fourth of the bottom icon buttons.
 - **Wanted:** every lab warning shows in full where it can be read: in clear space (e.g. above the button row, or in a panel's own status line), above everything, at 1080p, 4K and 4:3. labfit should check that the warning line isn't covered by a button.
 - **Done means:** shots of the crits and the tonnage warnings, and a labfit case that fails on the current layout.
 - **Why the first idea failed:** the lab's 3D view (210..430 x 52..288 of the layout) draws over the 2D, so a warning above the centre box sat under the 'Mech's feet and the reticle. The only clear 2D space in the centre column is the top strip, which 69's slots use.
-- **Owen chose option A (2026-11-19):** the tray buttons in pairs at the ends (item 29 updated), the warning in the clear middle. It is centred, as wide as its line, and wraps past 300 (kLabWarnW) onto a second line.
+- **The owner chose option A (2026-11-19):** the tray buttons in pairs at the ends (item 29 updated), the warning in the clear middle. It is centred, as wide as its line, and wraps past 300 (kLabWarnW) onto a second line.
 - **The check:** mw1labfit shows every lab warning at its longest (tonnage, the criticals for XL and endo steel, 16 weapons, heat sinks, jump jets). It fails any that leaves the layout, covers a tray button or its label, or crosses a panel's frame. On the old layout all 9 failed "over the groups button". Dev: MW1_LAB_WARN=0..8 holds one warning up for --shot pictures.
 
 ## 71. [x] The Mech Complex buttons stacked at the top
-- **Owen (2026-11-19):** "lets stack the buttons closer together so they dont look as spread out. stack them up against the top".
+- **The owner (2026-11-19):** "lets stack the buttons closer together so they dont look as spread out. stack them up against the top".
 - **Done (lead):** BUY, SELL, MECH LAB and BACK now sit at y 84, 122, 160 and 198 in both layouts (the Bar's 38 apart; was 84/147/211/274). The live 'Mech panel stays at the column's foot. kMarketButtonTop follows.
 
 ## 72. [x] Lancemates stand still and don't attack
-- **Owen (2026-11-19, in play):** "my lancemates arent attacking targets. were they bouncing against a awll or something? they were stationary".
+- **The owner (2026-11-19, in play):** "my lancemates arent attacking targets. were they bouncing against a awll or something? they were stationary".
 - **Unknown yet:** the log of that mission was overwritten when the game was restarted. The lancemates were freshly hired, and possibly without 'Mechs of their own (69).
 - **To find out, in a hidden scripted MW1 mission with two lancemates in 'Mechs:**
   - Are they spawned with PM's squad AI, or as plain AI 'Mechs?
@@ -1733,7 +1733,7 @@ engine's warnings are left alone. No behaviour change.
   - Do they follow, and do they engage on "attack my target" and on their own?
   - Is their path blocked at the drop zone (a wall, or an MW3 world's nav data)?
   - Compare an Instant Action mission in PM with lancemates on the same map.
-- **More from Owen (2026-11-19):** "i targeted one lancemate, john zoe, and then i targeted my other lancemate, alex veer ... when you target a lancemate with w, it puts their name in blue at the top because thats who youre giving orders to ... when i switched from john zoe to alex veer ... the top name remained john zoe, though it did target alex veer ... when i targeted enemies, it would only target them with john zoe".
+- **More from the owner (2026-11-19):** "i targeted one lancemate, john zoe, and then i targeted my other lancemate, alex veer ... when you target a lancemate with w, it puts their name in blue at the top because thats who youre giving orders to ... when i switched from john zoe to alex veer ... the top name remained john zoe, though it did target alex veer ... when i targeted enemies, it would only target them with john zoe".
   - So the order recipient sticks to the first lancemate chosen. Targeting the second lancemate with W moves the target, but not the recipient (the blue name at the top). Orders, such as attack, then go to the first lancemate only.
   - Find out whether this is MW1's lance setup (e.g. the squad's member list or slot numbers built wrong for MW1's lancemates) or PM's own recipient logic. Compare with PM's Instant Action with two lancemates.
 - **Done means:** the cause and the fix, with a test where lancemates move and fire, and where W on each lancemate in turn makes it the recipient and an attack order reaches it. If PM's engine is at fault, it goes to the mw3 lead.
@@ -1748,8 +1748,8 @@ engine's warnings are left alone. No behaviour change.
 - **Found in 64 (dev 1):** typing a world's name added a blank line and "Find: <typed>" under the readout. On the longest readouts (a world under the mouse with an office, battles, Clan mechs and a two-line description) that made 16 lines, two more than fit above GO.
 - **Done:** what's typed goes on the status line ("Find: THA"), over the last GO's line, and the readout gains nothing. test_mw1_travel checks every world under the mouse, affordable or not, typed or not: at most 14 readout lines, and the status line says what's typed. test_mw1_loop's typed-name walk still finds "Find: THA" on the screen.
 
-## 75. [x] AFTER ACTION: Owen's answers from the results review (28) *(done: mw1-retreat-counts)*
-- **Owen (2026-11-19), on dev 1's four questions:**
+## 75. [x] AFTER ACTION: the owner's answers from the results review (28) *(done: mw1-retreat-counts)*
+- **The owner (2026-11-19), on dev 1's four questions:**
   1. **A retreat:** "Bill repairs, keep losses". With no salvage, the repairs come out of funds. A 'Mech that went down is lost, and its pilot is KILLED or MISSING as on a loss. settle_mission must stop skipping retreats for the fates and the bill.
   2. **A story battle's salvage:** "Keep full value". No change.
   3. **A story battle's crest and message:** "No crest or House message". No House hired you.
@@ -1764,7 +1764,7 @@ engine's warnings are left alone. No behaviour change.
     - test_mw1_repairs `a_retreat_bills_repairs_and_settles_the_fates`, KILLED and MISSING: no fee or salvage, the repairs billed and paid from funds, the 'Mech gone, the pilot dead or free.
     - test_mw1_loop: the quit case's field-base repair is now billed (the test is renamed `..._won_failed_and_quit_headless`). The step and Dark Wing runs check no crest, and the step runs also check no message.
   - **The "-j4 flake" at test_mw1_loop.cpp:913 wasn't a flake.** DETAILS' kills title gets " (1-6 of N)" once a downed lancemate's repair rows pass six, and the check matched it exactly. The lance-orders run fails whenever its roll downs Holmaas. It now matches the title's start.
-  - **For Owen:** a story battle (no message) and play without the exe show an empty message box along the bottom. Hide the box when it's empty?
+  - **For the owner:** a story battle (no message) and play without the exe show an empty message box along the bottom. Hide the box when it's empty?
 
 ## 76. [x] AFTER ACTION: no message, no message box *(done: mw1-empty-message)*
 - **Found in 75 (dev 1); the lead: a plain fix.** A story battle has no message since 75, and play without the exe never had one. Either way an empty bordered box sat along the bottom.
@@ -1795,7 +1795,7 @@ engine's warnings are left alone. No behaviour change.
 - **Shots:** `outbox/2026-11-19/mw1-no-exe-hints-78/` (hub and Bar, 1080p and 4:3, with and without the exe).
 
 ## 79. [x] A campaign soak for play bugs *(done: mw1-soak)*
-- **The lead (2026-11-19):** Owen keeps finding things only in play. Play a long hidden headless campaign and check the invariants at each step: the money adds up, every 'Mech and pilot is accounted for, no lancemate without a slot, the log matches what happened, nothing leaves the screen.
+- **The lead (2026-11-19):** the owner keeps finding things only in play. Play a long hidden headless campaign and check the invariants at each step: the money adds up, every 'Mech and pilot is accounted for, no lancemate without a slot, the log matches what happened, nothing leaves the screen.
 - **The soak** (`mw1_soak_a_campaign_through_every_service_and_restarts_headless`, test_mw1_loop.cpp):
   - A campaign with the story on, played in legs over one save. Each later leg starts at MW1's menu and LOADs the last leg's save, so the game is saved and loaded between legs.
   - Every service: the office (requests, next offers, negotiating, accepting); the market (buy and sell, its questions answered yes); the Bar (hire, fire, drinks, news); the lab's lance (lancemates put on spare mechs, as the lab's DONE does); LOG, READ, the company page, travel, the hub's MAIN MENU and back, STORY.
@@ -1851,7 +1851,7 @@ so the log's money didn't add up to the funds.
 - **Shots:** `outbox/2026-11-19/mw1-hud-text-82/` (4K mission before and after: the compass, the scales, Heat and Coolant, the speed readout).
 
 ## 83. [x] The screen sweep's fixes *(done: mw1-fix83-sweep)*
-From the 2026-11-19 screen sweep (the lead's calls). Item 1 (the menu title over the mech's head) is Owen's call.
+From the 2026-11-19 screen sweep (the lead's calls). Item 1 (the menu title over the mech's head) is the owner's call.
 - **The pause (2):** the PAUSED panel is see-through over a grab of the mission's last frame, and the HUD's marker
   line ("OP: <name> [62m]", the radar's) read across its title. Now Escape draws that frame once more, the world
   not moved, with the line left out. The grab doesn't have it, and the line's own state comes back for the next
@@ -1930,7 +1930,7 @@ so this is an "mw1 (engine, ours)" change, used only with hires on.
   a boundary through the host and checks three recorded lines, drawn anti-aliased in their colour over the key. With
   the host's recording off, it fails.
 
-## 84. [x] A grudge fades *(done: mw1-grudge-fade; Owen: yes)*
+## 84. [x] A grudge fades *(done: mw1-grudge-fade; the owner: yes)*
 The soak's decision A: MW1's 8 grievances against a House is a refusal, never forgiven, and each contract adds +2
 against the House fought. In 11 of 40 long seeds every House with an office came to refuse after 26 to 48
 contracts: the company was stranded with nothing money could buy. The lead's recommendation, ours not MW1's:
@@ -1944,7 +1944,7 @@ contracts: the company was stranded with nothing money could buy. The lead's rec
 - Tests: `mw1_office_a_grudge_fades_without_a_fight`; the soak now fails on "locked out" and prints the peak of
   Houses refusing at once (`MW1_GRUDGE_MONTHS=n` tries another rate).
 
-## 85. [x] A hire or a buy seats the lancemates *(done: mw1-auto-assign; Owen: yes, the Mech Lab's slots rule, see 92)*
+## 85. [x] A hire or a buy seats the lancemates *(done: mw1-auto-assign; the owner: yes, the Mech Lab's slots rule, see 92)*
 The soak's decision B: a lancemate hired, or a 'Mech bought, wasn't put on anything; only the mech lab's lance
 assigned them, and a lancemate without a 'Mech doesn't fly. The lead's recommendation, ours not MW1's:
 - After a hire or a buy, each lancemate without a 'Mech takes the first spare in the hangar, in lance order
@@ -1965,21 +1965,21 @@ assigned them, and a lancemate without a 'Mech doesn't fly. The lead's recommend
 4. 6: the hub's scenery by landscape (the scenes are made), and the Bar and options backdrops.
 5. 25: PM's blinking buttons.
 6. 26: the lab's leftovers.
-7. 14: mech renders (a test render to Owen first).
+7. 14: mech renders (a test render to the owner first).
 
 **mw1 dev 2** (a mission's start and end, then the engine):
-1. 18: DEPLOY straight in, with an MW1 loading screen. Owen hits PM's briefing every mission.
+1. 18: DEPLOY straight in, with an MW1 loading screen. The owner hits PM's briefing every mission.
 2. 19: MW1's results screen, with the salvage.
 3. 20's rest: the offer's key facts highlighted.
 4. 12: high-resolution 2D (the jagged text). The approved plan is in the lead's notes to dev 1. Step 1 shots to the lead before step 2.
 5. 3 + 5: sweep every screen for anything still PM's.
 
-## 86. [x] The menu's title clear of the 'Mech's head *(done: mw1-menu-title-up; Owen picked "up")*
+## 86. [x] The menu's title clear of the 'Mech's head *(done: mw1-menu-title-up; the owner picked "up")*
 On the main menu MECHWARRIOR's last letters sat on the 'Mech's head (at 16:9 the R, at 4:3 the O).
 - **The two choices:** both were built as real layouts behind a development switch (branch mw1-menu-title):
   - "up": the title moved into the sky.
   - "low": the picture recut 1.25 times closer, so the head sits under the title.
-- **Owen's pick, "up":** MW1MENUDIALOG and MW1MENUDIALOG_WIDE (mw1menu.zrd) now carry it. MECHWARRIOR and CRITICAL
+- **The owner's pick, "up":** MW1MENUDIALOG and MW1MENUDIALOG_WIDE (mw1menu.zrd) now carry it. MECHWARRIOR and CRITICAL
   HIT sit 38 canvas pixels higher, in the sky above the head: TITLE at y -4, SUBTITLE at y 58. The sky over the head
   is only about 50 pixels, so the title sits near the top edge.
 - **Not merged:** the switch, the "low" layouts and their picture (title_bg_low, and mw1art.py's 1.25 cut).
@@ -2014,29 +2014,29 @@ at a mech 370 m away and walked 6 m in 450 frames; the other two walked as alway
     own look: a lancemate under orders shouldn't stand that long.
 
 ## 92. [x] The seat's status line points at the Mech Lab *(done: mw1-seat-lab)*
-Owen, on 85: assignments belong to the Mech Lab's slots along the top, as in MW3. So the seat may only fill a blank
+The owner, on 85: assignments belong to the Mech Lab's slots along the top, as in MW3. So the seat may only fill a blank
 slot the lab would show, never move anyone, and the status line should say where to change it.
 - **The seat, checked against the lab:** the lab's top row is you, then one slot per lancemate with their mech, or the
   empty frame without one (`lance_slots`). `seat_lancemates` only gives a lancemate who has no mech a hangar mech no
   one pilots (a spare, from the lab's store). It already met the rule: no change.
 - **The note:** `seated_note` replaces the hire's "X joins the lance." and the buy's "Bought: ..." when someone was
-  seated. A hire says "X joins in the Firefly", a buy "X takes the Firefly", and both end with Owen's
+  seated. A hire says "X joins in the Firefly", a buy "X takes the Firefly", and both end with the owner's
   "(change it in the Mech Lab)." when that fits the status line at 4:3 (`kStatusLetters`, 62). Otherwise they end
   with "; see the Mech Lab.". Several seated at once (only when lancemates had none before) is "N lancemates take
   spare 'Mechs; see the Mech Lab.". The price stays on the funds above. The log still records each seat.
 - **Tests:**
   - The loop's Bar check builds the note for every pilot in every mech the market sells, with PM's titles, hired
-    and bought (2016 notes). None is over the limit, every one names the Mech Lab, and 1911 are in Owen's words.
+    and bought (2016 notes). None is over the limit, every one names the Mech Lab, and 1911 are in the owner's words.
   - Its hire check now looks for " joins in the " and the lab.
   - The pilots test covers the forms.
 
 ## 94. [x] The sharp text's letters evenly spaced *(done: mw1-hires-advance)*
-Owen, in a mission's F12 objectives: "tow er" and "Tow er" had a gap after the w, "Objectives" had its "ti" crowded,
+The owner, in a mission's F12 objectives: "tow er" and "Tow er" had a gap after the w, "Objectives" had its "ti" crowded,
 and "In Progress" looked uneven.
 - **The cause** (`platform/hires_text.cpp`, FIXES 12's raster for every high-resolution line):
   - Each glyph was drawn from the font opened at the frame's size, but placed at the canvas font's pen times the
     scale. That pen is the 480-line font, MONO-hinted, in whole canvas pixels: a "w" a pixel wide, a "t" a pixel
-    narrow. Times 2.25 (1080p) to 4.5 (4K), a pixel of that rounding is 2 to 5 frame pixels. On Owen's Arial line
+    narrow. Times 2.25 (1080p) to 4.5 (4K), a pixel of that rounding is 2 to 5 frame pixels. On the owner's Arial line
     a letter-to-letter step was up to 6.4 frame pixels off the font's own at 4K.
   - Two smaller faults made it worse:
     - A glyph with a negative left bearing (a "j") was drawn that much to the right: 3 frame pixels at 4K, into its
@@ -2052,7 +2052,7 @@ and "In Progress" looked uneven.
   - Every high-resolution line goes through this: the HUD, the menus, MW1's screens and PM's.
   - With the opt-in off (PM, MW3, MW1_HIRES=0) nothing changes.
 - **Tests** (`hires_text_on_the_canvas_pen`, mw3pmsdltests):
-  - Fonts: MW1's two, PM's impact, and PM's arial at 12 and 14 bold on Owen's lines ("Destroy the tower  OP:
+  - Fonts: MW1's two, PM's impact, and PM's arial at 12 and 14 bold on the owner's lines ("Destroy the tower  OP:
     Tower Primary Objectives In Progress").
   - Scales: 1080p's, 1440p's and 4K's.
   - Each glyph's ink is exactly where the rule puts it, and each step is within a frame pixel of the font's own.
@@ -2064,7 +2064,7 @@ and "In Progress" looked uneven.
   two spaces, then its nav point's name as "OP: <name>". It reads as the originals do.
 
 ## 97. [x] A defence's enemy stood at its post all mission *(done: mw1-defend-guard)*
-Owen, defending the tower on mw3c1ia3 (4 enemies): three came; the fourth never moved, but fought when he came near.
+The owner, defending the tower on mw3c1ia3 (4 enemies): three came; the fourth never moved, but fought when he came near.
 - **Cause:** the map's Enemy_08 is MW3's Instant Action guard, in its aiv record:
   - Its net (`net_06`) is three nodes that end 56 m from where it starts, with no link on.
   - Its pilot starts at mode 0 (PM's `may_engage` wants 1).
@@ -2081,7 +2081,7 @@ Owen, defending the tower on mw3c1ia3 (4 enemies): three came; the fourth never 
   above its trot. Of the market's nine chassis only the Awesome reports it, and it walks under orders as the
   others do (a new lance-orders test).
 - **Tests:**
-  - `mw1_loop_defend_every_enemy_comes_headless`: Owen's mission and force (a 55 t, a 70 t and two 75 t slots)
+  - `mw1_loop_defend_every_enemy_comes_headless`: the owner's mission and force (a 55 t, a 70 t and two 75 t slots)
     with the player standing at his start. Every enemy must close 300 m on him in 2400 frames. Unfixed, the guard
     closes 56 m (and the slower Enemy_06 217 m). With mode 1 alone the guard closes about 230 m before the leash
     takes it back. Fixed, all four close 470 to 690 m.
@@ -2090,7 +2090,7 @@ Owen, defending the tower on mw3c1ia3 (4 enemies): three came; the fourth never 
 
 ## 93. [x] A new campaign played to its ending, headless *(done, mw1-fix93-playthrough; MW1_PLAYTHROUGH=1)*
 
-Owen: can the game be played start to finish, the storyline working? `mw1_story_a_whole_campaign_played_to_its_ending_headless`
+The owner: can the game be played start to finish, the storyline working? `mw1_story_a_whole_campaign_played_to_its_ending_headless`
 plays one through the real loop as a player would: the journal's lead at each hub, the lance built up for each
 step's battle (contracts, the Mech Complex, the Bar's pilots, the lab), STORY's GO THERE, MW1's pages answered to
 carry the trail on, the battles won. The Dark Wing three times, for the three endings: lost, withdrawn, won; then
@@ -2102,8 +2102,8 @@ the credits and the hub again. Long, so behind `MW1_PLAYTHROUGH=1` (`MW1_PLAYTHR
   - The Dark Wing's endings: lost (mw1_end_lost), withdrawn (mw1_end_retreat), won (mw1_end_win), each with its
     picture; the credits rolled, then the hub. The ending at month 262: the test rebuilds a 390 t lance between
     tries (a player could try again at once).
-- **Nothing blocks.** The story's questions (line 372): 1 to 3 and 5 Owen's; 4 (MW1's name), 6 (one stage) and 7
-  (the offers as built) stand as built for 1.0.0, the lead's call, for Owen's morning list.
+- **Nothing blocks.** The story's questions (line 372): 1 to 3 and 5 the owner's; 4 (MW1's name), 6 (one stage) and 7
+  (the offers as built) stand as built for 1.0.0, the lead's call, for the owner's morning list.
 - **Found, a real engine bug (for main and pm):** every Pirate's Moon world's unload leaked about 7 MB (246 MB at
   25 battles, 444 at 50; past 8 GB at 1,128). A PM node's model (pm_model) was never dropped, so its node, lists
   and data and the model stayed; and the material cycles were never freed. Fixed in the engine (its own commit and
@@ -2114,7 +2114,7 @@ the credits and the hub again. Long, so behind `MW1_PLAYTHROUGH=1` (`MW1_PLAYTHR
 
 ## 113. [x] A lancemate "untouched, then dead" on c4ia1 *(chased: a fair fight lost, unseen and unsaid; the death's line now says what went)*
 
-Owen (2026-11-19): Erin Falls's Centurion, bought new, about 25 s into a destroy-all on c4ia1, the lance bunched,
+The owner (2026-11-19): Erin Falls's Centurion, bought new, about 25 s into a destroy-all on c4ia1, the lance bunched,
 "completely untouched", then "I'm ejecting" and destroyed; no shot at her that he saw, no friendly-fire line.
 - **Ruled out, in MW3's and PM's code:**
   - *The ceiling's crush* (MW3 0x00423600, PM 0x00424ba0 with 0x00424d80): the one path that kills with no hit and
@@ -2130,7 +2130,7 @@ Owen (2026-11-19): Erin Falls's Centurion, bought new, about 25 s into a destroy
   4, 5 and 7 the Centurion is first hit about 11 s in, from 781 m, by one enemy (a Bushwacker), and worn down, 31 to
   41 hits in volleys of four, every one on the front of the centre torso, until it goes at 35 to 42 s. The head,
   arms and legs untouched; CT 0/0, the rest near full: "untouched" but for the centre torso, which the enemy's aim
-  takes after a first hit (the torso's node, damage.md). Owen's own right torso was hit before she fell in his log,
+  takes after a first hit (the torso's node, damage.md). The owner's own right torso was hit before she fell in his log,
   so the enemies were firing then.
 - **Why it looked sudden:** nothing told him. A lancemate under fire radios for help only with the player over 22 m
   off (PM 0x004fbc20, MW3 0x004ea520: dist2 > 500); bunched, she said nothing until the ejecting line.
@@ -2141,7 +2141,7 @@ Owen (2026-11-19): Erin Falls's Centurion, bought new, about 25 s into a destroy
   section before). Logging only: nothing plays differently.
 - **Test** (`mw1_loop_a_lancemate_s_death_says_what_went_headless`): his lance on c4ia1, seed 4: one death, "the
   centre torso went, by a weapon's hit", CT 0/0, head 100/100. With the hit's path unmarked it fails.
-- **Open, Owen's call:** whether a lancemate should call out under fire when close (PM's own rule says no), or
+- **Open, the owner's call:** whether a lancemate should call out under fire when close (PM's own rule says no), or
   whether the HUD should show the lance's damage.
 ## 105. [x] Release prep for MW1 1.0.0: its own version, packaged builds, where mw1data goes *(done, mw1-fix105-release)*
 
@@ -2167,7 +2167,7 @@ The lead (2026-11-19): MW1 1.0.0 rides mw3-re v1.1.3; the launcher reads each pr
   Resources: never found there. It looks in mw1's own folder now (Contents/MacOS).
 
 ## 100. [x] Menu music, QUIT in the hub, the sound settings *(done: mw1-fix100-music)*
-- **Owen (2026-11-19, via the lead):** a YuE2 track he picked as the menu music. QUIT outside the main menu. Music
+- **The owner (2026-11-19, via the lead):** a YuE2 track he picked as the menu music. QUIT outside the main menu. Music
   and effects settings in MW1's options.
 - **The theme** (`data/music/menu-theme.ogg`, ours, 7.8 MB; the lead faded its last 5 s; the FLAC master is in
   keep/mw1-critical-hit/music):
@@ -2199,7 +2199,7 @@ The lead (2026-11-19): MW1 1.0.0 rides mw3-re v1.1.3; the launcher reads each pr
 - **Shots:** the hub with QUIT, and OPTIONS, at 4:3 and 1080p: outbox/2026-11-19/mw1-fix100-music/.
 
 ## 99. [x] The starport says each world's tier *(done: mw1-fix99-travel-tier)*
-- **Owen (2026-11-19, via the lead):** show each world's tier in the travel page's readout, as MW1 numbers it, e.g.
+- **The owner (2026-11-19, via the lead):** show each world's tier in the travel page's readout, as MW1 numbers it, e.g.
   "Tier 2". Don't say what tiers do. This reverses item 64 for the starport only: the Mech Complex and the map's
   filters stay tier-free.
 - **MW1's numbers:** byte 2 of the planet record, (code - 1) / 3: 0 to 3 (44 worlds tier 0, 50 tier 1, 21 tier 2, 30
@@ -2214,9 +2214,9 @@ The lead (2026-11-19): MW1 1.0.0 rides mw3-re v1.1.3; the launcher reads each pr
   nothing says what a tier does (no %, dealer or buy/sell lines); every line fits the panel's 26 columns, and the
   readout still fits its 14 lines above GO.
 
-## 101. The side arrows' triangles fit their boxes (Owen, 2026-11-19)
+## 101. The side arrows' triangles fit their boxes (the owner, 2026-11-19)
 
-Owen's crop of the hub's OPTIONS: each ◀ ▶ ran into its frame (the ◀'s flat side on the box's right, the ▶'s on its
+The owner's crop of the hub's OPTIONS: each ◀ ▶ ran into its frame (the ◀'s flat side on the box's right, the ▶'s on its
 left), so it looked cut off and off-centre.
 
 - **The cause:** mw1_chrome.cpp side_arrow drew a triangle 16 rows high in the 18-row box, its base on the frame's
@@ -2233,7 +2233,7 @@ left), so it looked cut off and off-centre.
   and a 4K crop of the hub's arrows).
 
 ## 98. [x] Losses rare, and a narrow win still a win *(done: mw1-rare-losses)*
-Owen lost all three lancemates and their 'Mechs in one mission (about 15 million C-bills). He wants losses much rarer,
+The owner lost all three lancemates and their 'Mechs in one mission (about 15 million C-bills). He wants losses much rarer,
 as in MW1, and a narrow win never empty-handed.
 - **The rolls (`crew::roll_losses`, once as the mission ends):**
   - On a win, every company 'Mech that went down (the commander's too) is recovered, its repair billed as usual
@@ -2269,7 +2269,7 @@ as in MW1, and a narrow win never empty-handed.
 
 ## 102. [x] The mouse wheel scrolls every list *(done: mw1-wheel-lists)*
 
-Owen (2026-11-19): the wheel already scrolled AFTER ACTION's salvage list; scroll every list in MW1 the same way, the
+The owner (2026-11-19): the wheel already scrolled AFTER ACTION's salvage list; scroll every list in MW1 the same way, the
 list under the pointer, with the same step and direction.
 - **One handler** (`Mw1State::wheel`, mw1_screen.h's `WheelList`):
   - A screen names its lists: each with the PANEL it sits in (or anywhere on the screen) and its two arrows.
@@ -2303,9 +2303,9 @@ list under the pointer, with the same step and direction.
   - The LOG (`mw1_wheel_pages_the_log_headless`): 40 lines, down to the last page and no further (never back to the
     hub), up to the first.
 
-## 103. The menu theme loops (Owen, 2026-11-19)
+## 103. The menu theme loops (the owner, 2026-11-19)
 
-Owen's game (5e8bb062): the theme played once and stopped.
+The owner's game (5e8bb062): the theme played once and stopped.
 
 - **The cause:** the engine's SDL music output (sdl_music.cpp) waits for its stream's queue to empty before it posts
   a file's end, which the pump hands to zsnd_cd (MM_MCINOTIFY) to play a Loop track again. SDL3's stream resamples a
@@ -2321,7 +2321,7 @@ Owen's game (5e8bb062): the theme played once and stopped.
 
 ## 96. [x] The lab's empty lance slot shows MW3's placeholder 'Mech *(done: mw1-notmech-slot)*
 
-Owen (2026-11-19): the Mech Lab's top row showed an empty dashed box for a lancemate without a 'Mech; MW3 shows its
+The owner (2026-11-19): the Mech Lab's top row showed an empty dashed box for a lancemate without a 'Mech; MW3 shows its
 placeholder 'Mech there.
 - **What MW3 does:** a slot with no 'Mech asks for its 'Mech's icon by name, and `mech_name(-1)` is "notmech", so
   MechButton asks for `icon_notmech_<colour>`. PM's and MW3's image libraries both ship it (green, red and grey; no
@@ -2337,7 +2337,7 @@ placeholder 'Mech there.
 
 ## 109. [x] The damage display showed only some of the 'Mech's parts at high resolution *(done, mw1-fix109-dmg-hires)*
 
-Owen (2026-11-19, a crop of the bottom right): one arm's outline over the blue grid. The log: "8 draws left to the
+The owner (2026-11-19, a crop of the bottom right): one arm's outline over the blue grid. The log: "8 draws left to the
 canvas", the eight `dmg_<part>_<colour>` pictures.
 - **Why:** the hires pass draws the display's background (`dmg_bg_*`) from PM's pixels at the window's scale, but
   not its eight part pictures (hud.cpp `kParts`). Left to the canvas, they sat under the high-resolution grid; which
@@ -2356,23 +2356,23 @@ canvas", the eight `dmg_<part>_<colour>` pictures.
 
 ## 108. [x] A 'Mech sold dearer than it was bought *(closed: by design, MW1's own trade)*
 
-The lead (2026-11-19), from Owen's log: a Centurion bought for 4,505,000 sold for 6,307,000.
+The lead (2026-11-19), from the owner's log: a Centurion bought for 4,505,000 sold for 6,307,000.
 - **Why:** buying pays the tier 0 price times the world's tier percent (100/120/130/150); selling pays 10 points
-  less (90/110/120/140). That's MW1's own formula (081B:4645, 081B:32BA). Owen bought at a tier 0 world and sold at
+  less (90/110/120/140). That's MW1's own formula (081B:4645, 081B:32BA). The owner bought at a tier 0 world and sold at
   Skokie, tier 3.
 - Within one world selling always pays less than buying; between worlds it pays to buy cheap and sell dear, as in
-  MW1. Owen: keep it.
+  MW1. The owner: keep it.
 - **Test** (`mw1_market_mw1s_formula_pinned`): every chassis at every tier, buying is base × tier%, selling is
   base × (tier% − 10), floored to 1,000, a Clan 'Mech's doubled, and selling is under buying in the same world. A
   later change can't move it either way unnoticed.
 
 ## 106. [x] A lancemate ejected 25 s into a destroy-all on c4ia1 *(closed 2026-11-21: not reproduced; the log now names who downed a lancemate; reopen if it happens again)*
 
-Owen (2026-11-19): a contract, "destroy all enemy mechs" on c4ia1. About 25 s after the launch Erin Falls said "I'm
+The owner (2026-11-19): a contract, "destroy all enemy mechs" on c4ia1. About 25 s after the launch Erin Falls said "I'm
 ejecting". After the mission she was MISSING and her Centurion gone. His build predates 98: the old loss rule (his
 save: the Centurion lost, the pilot missing in action).
 - **Not reproduced on c4ia1:** with his lance and his contract's four, the commander standing, the enemies start
-  1,000 to 1,400 m off and the first hits come near 56 s, from under 100 m. Owen moved and pressed keys in those 25 s,
+  1,000 to 1,400 m off and the first hits come near 56 s, from under 100 m. The owner moved and pressed keys in those 25 s,
   so the fight likely started early; his log couldn't say who killed her.
 - **The log now says** (`mw1_game.cpp`, `log_lancemate_down`):
   - each lancemate's mech down, at what time, who had the kill (the commander, a lancemate, or an enemy by its
@@ -2390,13 +2390,13 @@ save: the Centurion lost, the pilot missing in action).
     lance and force, the commander idle, the rolls seeded: all three lancemates must stand (the lead, 2026-11-19; seeds
     106, 7 and 2026 all pass, about 70 s). MW1_ALL_MAPS=1 adds MW3's worlds, reported, not required: on mw3c1 ia1 and
     mw3c4 ia1 a lancemate can fall inside the minute (the enemies open fire from about 900 m within 10 s, then close,
-    and the lance trades fire with them, two enemies down by then). Whether that's too harsh is Owen's call.
+    and the lance trades fire with them, two enemies down by then). Whether that's too harsh is the owner's call.
 - **Looked at and left:** MW3's allied places engage at 100 m (PM's at 10,000 m). Raised to 10,000 m, the lance did
   no better (it holds by the commander and fires either way), so it's unchanged.
 
-## 107. A weapon's looped sound stops (Owen, 2026-11-19)
+## 107. A weapon's looped sound stops (the owner, 2026-11-19)
 
-Owen's c4ia1: the machine gun's sound came on and played to the mission's end.
+The owner's c4ia1: the machine gun's sound came on and played to the mission's end.
 
 - **The cause found:** a weapon's looped sound (U_LOOPED: the machine gun's) plays from its trigger to its release
   (weapon.cpp trigger and release). Outside group fire, a group lets go of only its current weapon (the exe's
@@ -2422,7 +2422,7 @@ Owen's c4ia1: the machine gun's sound came on and played to the mission's end.
 
 ## 95. [x] The Bar's recruit pitch in one quote, not each line in its own *(done: mw1-pitch-quote)*
 
-Owen (2026-11-19): RECRUIT CREW showed each line of a recruit's words in its own quote marks, as the exe breaks them.
+The owner (2026-11-19): RECRUIT CREW showed each line of a recruit's words in its own quote marks, as the exe breaks them.
 - **The fix** (`mw1_bar_screen.cpp`, `journal::quoted` in `mw1_journal.h`): the exe's lines joined by a space, one mark
   before the first word and one after the last, wrapped to the terminal (kPitchColumns, 20 letters at 4:3; at most
   kPitchLines, 10). MW1's words and case kept; nothing else added.
@@ -2435,14 +2435,14 @@ Owen (2026-11-19): RECRUIT CREW showed each line of a recruit's words in its own
 
 ## 104. [x] Every 'Mech of PM's as an enemy, in its real loadouts *(done: mw1-every-chassis)*
 
-Owen (for 1.0.0): the enemy fields all of Pirate's Moon's 'Mechs and their real variants, not only the stand-ins for
+The owner (for 1.0.0): the enemy fields all of Pirate's Moon's 'Mechs and their real variants, not only the stand-ins for
 MW1's kinds. The design the lead approved (2026-11-19), in `mw1_enemies.h/.cpp`:
 - **MW1's force roll unchanged** (the budget, the classes, at most four; the ladder's rungs). Each slot then gets a
   PM chassis within kSlotTons (10 t) of its MW1 kind's, Clan by kClanPercent per tier; the 100-tonners only in the
   heaviest (85 t) slot and only late (tier ≥ 2 or record band 3). A loadout from the chassis's stock ones: Primary 60%,
   Alternates 30%, Exotics 10% (no Alternates: 75/25). Its own generator, seeded by the company and the contract, so
   MW1's draws are untouched and the same offer rolls the same 'Mechs.
-- **Owen's four, each a named constant there:** kElementalsField (false), kClanPercent ({0, 10, 25, 40}), kWreckPay
+- **The owner's four, each a named constant there:** kElementalsField (false), kClanPercent ({0, 10, 25, 40}), kWreckPay
   (MW1's kind price), kStoryBattlesRoll (true; the Dark Wing's last rung keeps its stand-ins).
 - **Names real everywhere:** the offer ("2 Heavy, 1 Medium (Thor, Avatar, Centurion)": MW1's class words, the real
   chassis), the mission log, AFTER ACTION's kills, the wrecks and salvage, the main enemy's picture, the amber icons.
@@ -2455,29 +2455,29 @@ MW1's kinds. The design the lead approved (2026-11-19), in `mw1_enemies.h/.cpp`:
   config counts match the table.
 
 ## 115. [x] Clan 'Mechs priced as Inner Sphere ones *(done: mw1-clan-price)*
-Owen (earlier): "clan mech worth should roughly mirror mw3". The lead's research
+The owner (earlier): "clan mech worth should roughly mirror mw3". The lead's research
 (`keep/mw1-critical-hit/research/clan-vs-is-2026-11-19/`) found no Clan premium in MW3 or PM. There is no price or
 value field, the chassis are tech-blind, and the Clan's edge is only its equipment.
 - `kClanPriceFactor` is 1 (was 2, VISION 2026-11-16). A Clan 'Mech buys, sells and pays as a wreck as an Inner
   Sphere one of its tons. Nothing else doubled Clan: salvage parts go to the stores unpriced.
 - The market's header: "* Clan" marks the starred rows; "twice" is dropped. The travel screen's "Clan mechs for
   sale" stays: it's where they're sold, still rare and only at the five edge worlds.
-- VISION's 2026-11-16 line says Owen changed it on 2026-11-19.
+- VISION's 2026-11-16 line says the owner changed it on 2026-11-19.
 - The roster's Clan share stays flat (FIXES 112, ungated: about 50%, MW3's own 49% without the Elementals).
 - **Test** (`mw1_market_prices_by_tonnage_tier_and_clan`): the Mad Cat and the Orion, the Puma and the Owens, the
   Daishi and the Atlas price the same at every tier, bought and sold, and as wrecks when they pay by chassis.
   `mw1_market_mw1s_formula_pinned` takes the factor.
 
 ## 114. [x] MW1's words name our 'Mechs; the Dark Wing fields them *(done: mw1-text-names)*
-Owen (2026-11-19, through the lead, on 112's list of MW1's run-time text): "warhammers should be swapped out with
+The owner (2026-11-19, through the lead, on 112's list of MW1's run-time text): "warhammers should be swapped out with
 [the Thor] and battlemaster swapped out with atlas if theres scripted stuff."
 - **The words, as drawn** (`mw1_text_names.h`): MW1's story texts and choices (`text_pages`, the script's captions)
   and the Bar's pitches (`pitch`) show our names for MW1's. MW1's names are read from the player's exe too (its
   kind-name table, DS:2E86, ten names in its records' order), never kept here; the exe is never changed. Any case, a
   space or hyphen inside or none, a plural (Atlas: "Atlases") and a possessive, upper case kept, whole words only.
-- **The mapping** (`kOurChassis`, by MW1's kind record): Owen's, the 70 t record the **Thor**, the 85 t the
+- **The mapping** (`kOurChassis`, by MW1's kind record): the owner's, the 70 t record the **Thor**, the 85 t the
   **Atlas**, the first 20 t record the **Owens**; the 75 t record the **Mad Cat** (`kOurs75`). All four
-  Owen's (final, 2026-11-19). The rest, never drawn today, the nearest of ours by tons in the same PM
+  The owner's (final, 2026-11-19). The rest, never drawn today, the nearest of ours by tons in the same PM
   class, Inner Sphere on a tie: the other 20 t record the Firefly, 35 t the Owens, 45 t the Shadow Cat, 55 t the
   Bushwacker, 60 t the Champion. Drawn today: the Thor and the Atlas (story texts 0x2C and 0x43), the Owens (pilot
   8's pitch), the 75 t record's (pilots 13 and 35).
@@ -2489,7 +2489,7 @@ Owen (2026-11-19, through the lead, on 112's list of MW1's run-time text): "warh
   Dark Wing's texts name the Thor and the Atlas); `mw1_enemies_story_battles_roll_but_the_dark_wing` (its chassis).
 
 ## 112. [x] Our roster, not MW1's 'Mechs: the force in tonnage slots, one roster list *(done: mw1-roster)*
-Owen (2026-11-19, through the lead): "we dont have any phoenix hawks in this game … we're using the entire mw3+pm
+The owner (2026-11-19, through the lead): "we dont have any phoenix hawks in this game … we're using the entire mw3+pm
 roster, not mw1 mechs … make sure the phoenix hawk, shadow hawk, marauder, etc. names are all scrubbed from the
 codebase and it refers to the mechs that we actually have … if we ever want to drop back down to only 8 mechs … we
 can change that list."
@@ -2503,11 +2503,11 @@ can change that list."
 - **The roster** (`mw1_enemies.h`, `kRoster`): the one list of chassis an enemy can be. It defaults to all 25 of
   MW3's and PM's; the Elemental fields only by `kElementalsField` (still false). Cut it to any subset and the rest
   follows.
-- **All of them, from the first contract** (Owen: "i just tried to get a contract and only the original 8 mechs are
+- **All of them, from the first contract** (the owner: "i just tried to get a contract and only the original 8 mechs are
   showing up"; his tier-0 offer was three of the old stand-ins of four). 104's slots reached only within 10 t of
   MW1's kind, Clan was 0% at tier 0 and the 100-tonners came only at tier 2 in the 85 t slot, so tier 0 was mostly the
   old eight. Now a slot draws **uniformly from its whole weight class**, PM's own (`slot_class`: the 20 and 35 t slots
-  light, 45 and 55 medium, 60 to 75 heavy, 85 assault). **Clan and Inner Sphere alike** (Owen: "the clan mechs arent
+  light, 45 and 55 medium, 60 to 75 heavy, 85 assault). **Clan and Inner Sphere alike** (the owner: "the clan mechs arent
   that much better than the IS mechs"); `kClanGated` (false) puts a per-tier gate back, `kClanPercent`. The
   **100-tonners** go in any heavy or assault slot from tier 1 (`kHundredTonTier`, was 2) or record band 3. MW1's
   budget and class counts are unchanged, so the balance holds class by class. A slot with nothing on the roster
@@ -2520,7 +2520,7 @@ can change that list."
 - **Old saves** (save version 11): `offer_enemies` and a pending wreck's first number are slots now. Before 11 they
   were MW1's kind numbers and read as their slots (`slot_of_mw1_kind`).
 - **Scrubbed:** the names are out of code, comments, logs ("the 55 t slot"), tests, VISION.md, the hub mockups and
-  this file's own descriptions of our roster. Kept: Owen's quoted words, the history of item 20, the research notes
+  this file's own descriptions of our roster. Kept: the owner's quoted words, the history of item 20, the research notes
   (they describe MW1 itself), and VISION's BattleTech price citation.
 - **Tests:**
   - `mw1_campaign_slots_and_stand_ins`: slots against the exe records; the old kind numbers to slots; the stand-ins.
@@ -2532,7 +2532,7 @@ can change that list."
   - `mw1_save_a_version_10_save_reads_mw1s_kinds_as_slots`: a version 10 file's kinds read as slots, its pre-104
     wrecks pay as their old stand-ins, and it writes back as version 11.
 - **MW1's own text, read at run time from the player's MW_MAIN.EXE, that names those 'Mechs** (we can't change it;
-  Owen to decide: leave it, or show a mapped name where we draw it):
+  The owner to decide: leave it, or show a mapped name where we draw it):
   - Story texts 0x2C and 0x43 (segment 1AA5): a 70 t (both) and an 85 t (0x43), the Dark Wing's force. They show on
     the event panel.
   - The Bar's pitches (RECRUIT CREW) of pilots 8 (a 20 t), 13 and 35 (a 75 t).
@@ -2561,7 +2561,7 @@ about 6 s with its speed up, moving 0 m, before it walked.
   - Each turns within 49 frames of the order.
   - Its gait walks 13 to 57 frames after its throttle comes up. The step waits for a footfall before it walks.
   - The Awesome on seed 6 now walks at f+189 (before: f+311), and 2 m at f+214 (before: f+322).
-  - A Centurion, an Atlas and an Annihilator never stalled and are unchanged. Owen's Centurion on c4ia1 isn't this:
+  - A Centurion, an Atlas and an Annihilator never stalled and are unchanged. The owner's Centurion on c4ia1 isn't this:
     its turn rate (1.205) is near the Awesome's, but it never backed off on any seed.
   - A walk of 2 m isn't timed: PM ramps a heavy 'Mech's throttle with its carrot's distance, so the Annihilator
     (9 m/s) takes about 3 s to cover 2 m once its gait walks.
@@ -2621,7 +2621,7 @@ about 6 s with its speed up, moving 0 m, before it walked.
     - a table per run: each milestone's contract and day, and the rungs against `none` on the same seed;
     - a line per mode with the median contract of each milestone;
     - the plan's 10% check.
-- **Owen (2026-11-20):** players can keep playing indefinitely without the story, like an Instant Action mod, and
+- **The owner (2026-11-20):** players can keep playing indefinitely without the story, like an Instant Action mod, and
   money needs something to buy. It's always on sale at the hub; nothing to hunt for. It applies to the player's side
   only, never to enemies.
   - **Kits, one unit per purchase:**
@@ -2633,7 +2633,7 @@ about 6 s with its speed up, moving 0 m, before it walked.
     every weapon of that type the company owns (all LRM 20s). A medium laser can climb to an ER large laser's punch
     at a medium laser's heat.
   - **Balance:** high prices and slow increments. Each repeat purchase costs more than the last.
-- **Shared code (Owen):** "add the logic to the mw3/pm code as an upgrade, but let's not activate it in mw3 right
+- **Shared code (the owner):** "add the logic to the mw3/pm code as an upgrade, but let's not activate it in mw3 right
   now. Just in mw1." The mw3 lead agreed the split and set these rules (2026-11-20):
   1. It lives in `src/upgrades/kits/`, not `src/mech3/`. Ported functions get only a hook line and the comment "Ours:
      upgrade hook (src/upgrades/kits)". It is not a FIX, and CHANGES.md gets nothing until MW3 turns it on.
@@ -2655,10 +2655,10 @@ about 6 s with its speed up, moving 0 m, before it walked.
   7. A plain-words `docs/upgrades-kits.md` lists the hooks and says MW3 and PM don't turn it on yet.
   - **Route:** a mw1 dev writes the engine module as a clean main-targeted commit. The mw3 lead reviews it and lands
     it on main, then merges main into pm, and mw1 takes it from pm. mw1 then adds the store, the assignment screen,
-    the save and the price curve. The price table goes to Owen for approval.
+    the save and the price curve. The price table goes to the owner for approval.
 
 ## 127. [x] An Exotic loadout's id shown as its name: "Puma: MSG_CONFIG_EXOTIC_A" *(done: mw1-fix127-exotic-names, for 1.0.2)*
-- **Found by Owen (2026-11-20):** an enemy's target line read "Puma: MSG_CONFIG_EXOTIC_A".
+- **Found by the owner (2026-11-20):** an enemy's target line read "Puma: MSG_CONFIG_EXOTIC_A".
 - **Cause:** PM's reader.zbd has 42 Exotic loadouts, every one marked `hidden`. Neither PM's nor MW3's Mech3Msg.dll
   has a MSG_CONFIG_EXOTIC_* message, only MSG_CONFIG_PRIMARY and _ALTERNATE_A to _D. So the loader's localize keeps
   the id. PM never shows a hidden loadout, and MW3 has none. MW1 fields them (FIXES 104: about 10% of enemies), so

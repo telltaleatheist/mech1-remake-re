@@ -22,7 +22,7 @@ std::map<std::string, int>& missing_counts() {
 }
 }  // namespace
 
-// PM's own AI is the game's (Owen, 2026-11-08); PM_AI=0 runs MW3's in its place, for comparing.
+// PM's own AI is the game's (2026-11-08); PM_AI=0 runs MW3's in its place, for comparing.
 bool pm_ai_on() {
   static const bool on = [] {
     const char* v = std::getenv("PM_AI");

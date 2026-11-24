@@ -2,11 +2,11 @@
 // MW1's planet hub (VISION.md, the home base): the screen the company sits in
 // between missions, on MW1's screen template (mw1_screen.h) with MW1's own
 // layout, mw1hub.zrd in MW1's data folder, and MW1's own art (FIXES.md item 3:
-// Owen's hub mockup in MW1's layout): the world's scenery, the plaques, the
+// The owner's hub mockup in MW1's layout): the world's scenery, the plaques, the
 // services as picture tiles down both sides where MW1's hub tables put them
 // (FIXES.md item 11, MW_MAIN.EXE DS:1083 and 10D7), the middle panel only for
 // AFTER ACTION and messages, dismissed with OK (item 16), the company's strip
-// between the plaques (C-BILLS, PAYROLL, KILLS; Owen on item 16: MW1's hub had
+// between the plaques (C-BILLS, PAYROLL, KILLS; the owner on item 16: MW1's hub had
 // no company box) and the status line (what to do, a tile's description on
 // hover, the contract taken). Contracts come from the House office only
 // (item 7): the hub shows the one accepted and its DEPLOY.
