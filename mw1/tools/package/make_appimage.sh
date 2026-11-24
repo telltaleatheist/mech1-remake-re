@@ -7,12 +7,15 @@
 # any game. PM's own tools/linux/make-appimage.sh is left as it is, so merges from mech3-pm-re never meet this file.
 # Usage: mw1/tools/package/make_appimage.sh [PREFIX] [TOOLS]   (from the repo root, in WSL or on Linux)
 #   PREFIX: tools/deps/build_deps.sh linux's prefix (default ../prefix);
-#   TOOLS: where linuxdeploy-x86_64.AppImage and appimagetool-x86_64.AppImage are (default ../deps).
+#   TOOLS: the folder whose appimage-tools/ holds the AppImage tools, pinned and fetched by
+#   tools/linux/get_appimage_tools.sh (default ../deps).
 # Out: build-mw1-linux/dist/MW1-Remake-<mw1-vX.Y.Z>-x86_64.AppImage
 set -e
 cd "$(dirname "$0")/../../.."
 PREFIX=$(cd "${1:-../prefix}" && pwd)
-TOOLS=$(cd "${2:-../deps}" && pwd)
+TOOLS="${2:-../deps}"; mkdir -p "$TOOLS"; TOOLS=$(cd "$TOOLS" && pwd)
+TOOLS="$TOOLS/appimage-tools"  # pinned by checksum; downloaded here when missing
+sh tools/linux/get_appimage_tools.sh "$TOOLS"
 export APPIMAGE_EXTRACT_AND_RUN=1  # no FUSE needed (WSL, containers)
 export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
 
@@ -51,6 +54,8 @@ else
     find "$PREFIX/share" -ipath "*$lib*" \( -iname "LICENSE*" -o -iname "COPYING*" \) -exec cp {} "$DOC/licenses/$lib/" \; 2>/dev/null || true
   done
 fi
+# The AppImage's own start program and the libfuse in it (LGPL): its notice and licences.
+cp -R tools/linux/appimage-runtime "$DOC/licenses/appimage-runtime"
 # libarchive, zlib and liblzma are linked in: build_deps.sh keeps their licences in the prefix.
 [ -d "$PREFIX/share/licenses" ] && cp -R "$PREFIX/share/licenses/." "$DOC/licenses/"
 LD_LIBRARY_PATH="$PREFIX/lib:$LD_LIBRARY_PATH" "$TOOLS/linuxdeploy-x86_64.AppImage" --appdir "$APPDIR" \
@@ -63,5 +68,5 @@ case "$VER" in *-dirty) echo "warning: $VER: a dirty tree, not for release" >&2 
 python3 -I tools/deps/check_paths.py "$APPDIR" || exit 1
 mkdir -p build-mw1-linux/dist
 OUT="build-mw1-linux/dist/MW1-Remake-$VER-x86_64.AppImage"
-ARCH=x86_64 "$TOOLS/appimagetool-x86_64.AppImage" "$APPDIR" "$OUT"
+ARCH=x86_64 "$TOOLS/appimagetool-x86_64.AppImage" --runtime-file "$TOOLS/runtime-x86_64" "$APPDIR" "$OUT"
 echo "$OUT"
