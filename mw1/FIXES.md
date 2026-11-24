@@ -765,7 +765,7 @@ and pick the slot to overwrite".
     and its crash line `mw1: crashed: segmentation fault`; mw3pm's are `mw3pm (Pirate's Moon rebuild) …` and
     `mw3pm: crashed: …` as before.
 
-## 122. [ ] An arms dealer: weapons and equipment for sale *(planned for MW1 1.1.0; not in 1.0.0)*
+## 122. [x] An arms dealer: weapons and equipment for sale *(done: in 1.1.0)*
 - **The owner (2026-11-20), via the lead:** the weapons a campaign never meets come from an arms dealer, in 1.1.0. Today
   MW1 has no item shop: items come only from the starting stores, the loadouts of 'Mechs bought, and salvage (111).
 - **What it is:** a hub shop that sells weapons and equipment into the company's stores, which the mech lab fits
@@ -2737,7 +2737,7 @@ about 6 s with its speed up, moving 0 m, before it walked.
   - mw3pmtests `pm_walk_keeps_going_inside_thirty_degrees_only_when_asked`: the exe's brake when off; inside 30
     degrees it keeps going, and past them it brakes; standing still it needs 10 degrees to set off.
 
-## 118. [ ] Permanent upgrades bought with money *(planned for MW1 1.1.0; not in 1.0.0)*
+## 118. [x] Permanent upgrades bought with money *(done: in 1.1.0)*
 - **See also 122:** 1.1.0's arms dealer, the hub's other shop (weapons and equipment by world).
 - **The full plan, with open questions:** mw1/research/permanent-upgrades-plan.md.
 - **1.1.0's plan:** mw1/research/plan-1.1.0.md (its slices). Done so far:
