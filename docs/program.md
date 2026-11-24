@@ -602,6 +602,17 @@ The first start of a package build moves a player's old folder across once
 - The launcher's games folder moves the same way (`games::root_moved`); its
   `games_<key>=` paths follow, and the empty `MicroProse/BattleTech` and
   `MicroProse` folders are removed (only when empty).
+- Pirate's Moon's folder inside MechWarrior 3's (2026-11-24). Up to 1.3.1 on
+  Windows the launcher started mw3pm with `<MechWarrior 3's
+  folder>/Pirate's Moon` (its path ended in a backslash, which `parent_path`
+  took off instead of the folder), so pilots, mods, music and saves of those
+  versions were not found by 1.3.2 and later. A package's start moves what the
+  right folder lacks out of it, once (`mech3::data_folder::adopt_nested`),
+  never over a file; with files in both, the right folder's stay, unless only
+  the nested one has pilots, whose files then change places with them.
+  `install`, `mod-merged` and each mod move whole, saved paths follow, logs
+  stay, and a folder moved by the player (a pointer) is left alone. Check:
+  `data_folder_adopts_pirates_moons_nested_folder`.
 
 A development build moves nothing (the developer's own folders): it uses the
 old folder while the new one is empty. `MW3_USUAL_FOLDER`, `--write-dir` and

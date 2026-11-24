@@ -156,6 +156,8 @@ int main(int argc, char** argv) {
   zutl::repair_old_names(o.write_dir);
   std::printf("mw3launcher (MechWarrior 3 rebuild) %s, write dir %s\n", MW3_VERSION, o.write_dir.c_str());
   if (!hidden_log && !o.write_dir.empty()) sdlfe::crash_report_install("mw3launcher", o.write_dir + "/mw3launcher.log", true);
+  // Pirate's Moon's folder in place before its saved path is read (data_folder::adopt_nested, family_move).
+  if (!write_dir_given && !std::getenv("MW3_USUAL_FOLDER")) sdlfe::usual_folder("Pirate's Moon");
   read_config(o.write_dir, o);
 #ifdef MW3_GAME_DIR
   if (!std::getenv("MW3_FIND_INSTALL")) o.more_installs.push_back(MW3_GAME_DIR);

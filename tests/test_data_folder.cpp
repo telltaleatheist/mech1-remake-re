@@ -344,6 +344,53 @@ TEST(data_folder_family_move_from_microprose) {
   EXPECT(family_move(root + "/Elsewhere/MechWarrior 3") == root + "/Elsewhere/MechWarrior 3");
 }
 
+// Pirate's Moon's folder inside MechWarrior 3's (Windows launchers up to 1.3.1): what the right one lacks is moved to
+// it; a file in both stays in both, the used folder's in use; never a file lost; once; a pointer's folder left alone.
+TEST(data_folder_adopts_pirates_moons_nested_folder) {
+  const std::string root = fs::path(MW3_TEST_TMP).generic_string() + "/data_folder_nested_pm";
+  std::error_code ec;
+  fs::remove_all(root, ec);
+  const std::string mw3 = root + "/BattleTech/MechWarrior 3", pm = root + "/BattleTech/Pirate's Moon", was = mw3 + "/Pirate's Moon";
+  const std::string older = root + "/MicroProse/MechWarrior 3/Pirate's Moon";
+  EXPECT(adopt_nested(pm) == 0 && !fs::exists(pm));
+  // The old folder played in; the new one started once, with default settings.
+  put(was + "/pilots/Ace.mw3", "ace"), put(was + "/pilots/games/Ace1.sav", "save");
+  put(was + "/music/track02.wav", "music"), put(was + "/mods/A/mod.json", "a"), put(was + "/mod-merged/x.zbd", "merged");
+  put(was + "/install/Mech3.exe", "game"), put(was + "/settings.reg", "my keys"), put(was + "/mw3.log", "log");
+  put(was + "/configs/mine.mw3", "my own");
+  put(pm + "/settings.reg", "defaults"), put(pm + "/configs/annihilator.mw3", "default"), put(pm + "/mw3.log", "new log");
+  put(mw3 + "/mw3.cfg", "pm_install=" + was + "/install\ninstall=" + mw3 + "/install\n");
+  put(older + "/settings.reg", "older"), put(older + "/configs/clint.mw3", "older clint");
+  EXPECT(adopt_nested(pm) > 0);
+  EXPECT(read(pm + "/pilots/Ace.mw3") == "ace" && read(pm + "/pilots/games/Ace1.sav") == "save");
+  EXPECT(read(pm + "/music/track02.wav") == "music" && read(pm + "/mods/A/mod.json") == "a" && read(pm + "/mod-merged/x.zbd") == "merged");
+  EXPECT(read(pm + "/install/Mech3.exe") == "game" && read(pm + "/configs/mine.mw3") == "my own" && read(pm + "/configs/annihilator.mw3") == "default");
+  EXPECT(read(pm + "/settings.reg") == "my keys" && read(was + "/settings.reg") == "defaults");  // changed places
+  EXPECT(read(pm + "/mw3.log") == "new log" && read(was + "/mw3.log") == "log");
+  EXPECT(read(mw3 + "/mw3.cfg") == "pm_install=" + pm + "/install\ninstall=" + mw3 + "/install\n");
+  EXPECT(read(pm + "/configs/clint.mw3") == "older clint" && read(older + "/settings.reg") == "older");  // the folder played in keeps its own
+  // Again: nothing.
+  EXPECT(adopt_nested(pm) == 0 && read(pm + "/settings.reg") == "my keys" && read(was + "/settings.reg") == "defaults");
+
+  // Both played in: the right folder's own files kept, the others' names brought in, a mod and the game kept whole.
+  fs::remove_all(root, ec);
+  put(was + "/pilots/Ace.mw3", "old ace"), put(was + "/pilots/Bee.mw3", "bee"), put(was + "/settings.reg", "old");
+  put(was + "/mods/A/new.json", "x"), put(was + "/mods/B/mod.json", "b"), put(was + "/install/extra.txt", "x");
+  put(pm + "/pilots/Ace.mw3", "new ace"), put(pm + "/settings.reg", "new"), put(pm + "/mods/A/mod.json", "a"), put(pm + "/install/Mech3.exe", "g");
+  EXPECT(adopt_nested(pm) == 2);
+  EXPECT(read(pm + "/pilots/Ace.mw3") == "new ace" && read(was + "/pilots/Ace.mw3") == "old ace" && read(pm + "/pilots/Bee.mw3") == "bee");
+  EXPECT(read(pm + "/settings.reg") == "new" && read(was + "/settings.reg") == "old" && read(pm + "/mods/B/mod.json") == "b");
+  EXPECT(!fs::exists(pm + "/mods/A/new.json") && !fs::exists(pm + "/install/extra.txt"));
+
+  // Its data elsewhere (a pointer), or not the family's folder: left alone.
+  fs::remove_all(root, ec);
+  put(was + "/pilots/Ace.mw3", "ace"), put(pm + "/" + kPointer, root + "/drive\n");
+  EXPECT(adopt_nested(pm) == 0 && fs::exists(was + "/pilots/Ace.mw3"));
+  put(root + "/Else/MechWarrior 3/Pirate's Moon/pilots/Ace.mw3", "ace");
+  EXPECT(adopt_nested(root + "/Else/Pirate's Moon") == 0 && !fs::exists(root + "/Else/Pirate's Moon"));
+  fs::remove_all(root, ec);
+}
+
 // A moved folder whose data was elsewhere already: the pointer left behind names the data, not the empty usual.
 TEST(data_folder_family_move_keeps_a_pointer_to_elsewhere) {
   const std::string root = fs::path(MW3_TEST_TMP).generic_string() + "/data_folder_family_ptr";

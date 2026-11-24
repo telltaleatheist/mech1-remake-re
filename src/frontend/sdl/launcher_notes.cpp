@@ -15,14 +15,14 @@ std::vector<std::string> launcher_notes(const std::string& version, bool music, 
   const std::string rip = "or put your own rip of the music in " + music_dir + " as track02.ogg, track03.ogg and so on.";
   if (!movies && !music)
     out.push_back("Your install has no movies (they stayed on the CD) and no music (the original played it from the "
-                  "CD's audio tracks). ADD FROM MY DISC takes them from your disc in a drive, a disc image or the "
-                  "disc's folder (the music only from a .cue image and its .bin), " + rip);
+                  "CD's audio tracks). ADD FROM MY DISC takes them from your disc in a drive, a disc image, "
+                  "a download (.zip) or the disc's folder (the music only from a .cue image and its .bin), " + rip);
   else if (!movies)
     out.push_back("Your install has no movies: they stayed on the CD. ADD FROM MY DISC takes them from your disc in a "
-                  "drive, a disc image (.cue or .iso) or the disc's folder.");
+                  "drive, a disc image (.cue or .iso), a download (.zip) or the disc's folder.");
   else if (!music)
     out.push_back("No music yet: the original played it from the CD's audio tracks, which an install does not have. "
-                  "ADD FROM MY DISC takes it from your disc image (a .cue and its .bin), " + rip);
+                  "ADD FROM MY DISC takes it from your disc image (a .cue and its .bin, also in a .zip), " + rip);
   return out;
 }
 

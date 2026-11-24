@@ -21,7 +21,10 @@ inline std::string usual_folder(const char* game = "MechWarrior 3") {
   if (char* p = SDL_GetPrefPath("BattleTech", game)) dir = p, SDL_free(p);
   while (dir.size() > 1 && (dir.back() == '/' || dir.back() == '\\')) dir.pop_back();
 #if defined(MW3_PACKAGE_BUILD)
-  return dir.empty() ? dir : mech3::data_folder::family_move(dir);
+  if (dir.empty()) return dir;
+  const std::string used = mech3::data_folder::family_move(dir);
+  if (used == dir && std::string(game) == "Pirate's Moon") mech3::data_folder::adopt_nested(dir);
+  return used;
 #else
   return dir.empty() ? dir : mech3::data_folder::family_move(dir, false);
 #endif
