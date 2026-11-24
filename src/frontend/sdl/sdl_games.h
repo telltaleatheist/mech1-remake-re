@@ -78,6 +78,12 @@ bool claim_game_folder(const std::string& dir, u::Game g, std::string* error);
 // screen; MechWarrior 1 Rebuild first): false when it did not answer in time or its answer is not one.
 bool kit_status(const std::string& bin, rekit::Status* out);
 
+// A kit game's setup on the launcher's screens (its status says `setup`; re-setup-kit's rekit/sdl/setup_serve.h): runs
+// `bin --setup <args>` and follows its lines. `seconds` 0: as long as it takes. False: no answer (why in `out`'s
+// summary). A stopped one is told to stop and, after a wait, ended.
+bool kit_setup(const std::string& bin, const std::vector<std::string>& args, int seconds,
+               const std::function<bool(const rekit::SetupMessage&)>& progress, rekit::SetupMessage* out);
+
 // Whether `bin` is inside the AppImage this program runs from ($APPDIR), so goes away with it.
 bool in_own_mount(const std::string& bin);
 

@@ -154,6 +154,27 @@ Result install_from_disc(const std::string& source, const std::string& out_dir, 
   return r;
 }
 
+namespace {
+
+// The files of a staged folder into `to`, over the ones there; how many.
+int move_files_in(const std::string& from, const fs::path& to) {
+  int n = 0;
+  if (from.empty()) return n;
+  std::error_code ec;
+  fs::create_directories(to, ec);
+  for (const auto& e : fs::directory_iterator(from, ec)) {
+    const fs::path dst = to / e.path().filename();
+    std::error_code mv;
+    fs::remove(dst, mv);
+    fs::rename(e.path(), dst, mv);
+    if (mv) fs::copy_file(e.path(), dst, fs::copy_options::overwrite_existing, mv);  // another volume
+    n += !mv;
+  }
+  return n;
+}
+
+}  // namespace
+
 Result install_from_source(const source::Found& found, const std::string& out_dir, const std::string& patch,
                            const std::string& music_dir, const std::string& write_dir, const ProgressFn& progress) {
   using source::Found;
@@ -262,22 +283,8 @@ Result install_from_source(const source::Found& found, const std::string& out_di
                         s.video_dir, pm);
   r.detail = found.detail + r.detail;
   for (const std::string& l : s.log) r.detail += l + "\n";
-  auto move_in = [&](const std::string& from, const fs::path& to) {
-    int n = 0;
-    if (from.empty()) return n;
-    fs::create_directories(to, ec);
-    for (const auto& e : fs::directory_iterator(from, ec)) {
-      const fs::path dst = to / e.path().filename();
-      std::error_code mv;
-      fs::remove(dst, mv);
-      fs::rename(e.path(), dst, mv);
-      if (mv) fs::copy_file(e.path(), dst, fs::copy_options::overwrite_existing, mv);  // another volume
-      n += !mv;
-    }
-    return n;
-  };
   if (r.ok) {
-    if (!music_dir.empty()) r.music_tracks = move_in(s.music_dir, music_dir);
+    if (!music_dir.empty()) r.music_tracks = move_files_in(s.music_dir, music_dir);
     if (r.music_tracks < s.music && !music_dir.empty()) r.warnings.push_back("Some of the music could not be copied.");
     r.summary = version_words(r.version, pm) + " is installed in " + out_dir + " (" + std::to_string(r.files) + " files" +
                 (pm ? "" : " and " + std::to_string(r.movies) + " movies") + "), from " + fs::path(found.path).filename().string() + ".";
@@ -383,9 +390,82 @@ Result add_movies(const std::string& source, const std::string& video_dir, const
   return r;
 }
 
-Result add_from_disc(const std::string& source, const std::string& video_dir, const std::string& music_dir,
+namespace {
+
+// ADD FROM MY DISC's pick (2026-11-24): a disc, an image or a folder of one as it is; a disc somewhere under a folder
+// by its own path; an archive's disc unpacked into `staging` (the caller removes it). False with r.summary when there
+// is none of this game's.
+struct DiscPick {
+  std::string source;      // what add_movies, add_pm_sounds and add_music read; "" a staged one's
+  source::Staged staged;   // an archive's
+};
+bool disc_pick(const std::string& path, bool pm, const fs::path& staging, DiscPick* out, Result* r, const ProgressFn& p) {
+  using source::Found;
+  std::error_code ec;
+  std::string ext = fs::path(path).extension().string();
+  for (char& c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  out->source = path;
+  const bool dir = fs::is_directory(path, ec);
+  if (dir ? !zutl::any_case(path, "DATA1.HDR").empty() || !zutl::any_case(path, "video").empty()
+          : ext == ".cue" || ext == ".iso" || ext == ".img" || !fs::is_regular_file(path, ec))
+    return true;
+  const Found f = source::map_source(path, [&](double at, const std::string& entry) {
+    return p(Progress{"Looking in " + fs::path(path).filename().string(), at * 0.2, entry});
+  });
+  const std::string name = fs::path(path).filename().string();
+  if (f.cancelled) return r->cancelled = true, r->summary = "Cancelled. Nothing was changed.", false;
+  if (f.kind != Found::kDisc || f.game != (pm ? Found::kPiratesMoon : Found::kMw3)) {
+    if (dir && f.kind != Found::kDisc) return true;  // as before: said by what reads it
+    r->detail = f.detail;
+    r->summary = f.kind == Found::kDisc ? name + (f.game == Found::kMw3 ? " holds MechWarrior 3's disc" : f.game == Found::kPiratesMoon ? " holds Pirate's Moon's disc" : " holds another disc") +
+                                              (pm ? ", not Pirate's Moon's." : ", not MechWarrior 3's.")
+                 : f.kind == Found::kInstall ? name + " is an installed copy, which has no disc's music or movies in it."
+                                             : name + " has no disc of the game in it.";
+    return false;
+  }
+  if (f.on_disk) return out->source = f.path, true;
+  out->source.clear();
+  fs::remove_all(staging, ec);
+  out->staged = source::stage_source(f, staging.string(), "", [&](double at, const std::string& entry) {
+    return p(Progress{"Reading " + name, 0.2 + at * 0.6, entry});
+  });
+  if (out->staged.ok) return true;
+  r->detail = f.detail + out->staged.error + "\n";
+  r->cancelled = out->staged.failure == source::Staged::kCancelled;
+  r->summary = r->cancelled ? "Cancelled. Nothing was changed."
+               : out->staged.failure == source::Staged::kNoSpace ? "There is not enough free space to unpack " + name + "."
+                                                                 : name + " could not be read: it may be damaged or incomplete.";
+  return false;
+}
+
+const char kNoDiscMusic[] = "There is no music in that: only a disc image that kept the CD audio (a .cue with its .bin files) has it.";
+
+std::string tracks_words(int n) { return std::to_string(n) + (n == 1 ? " music track was" : " music tracks were") + " added."; }
+
+}  // namespace
+
+Result add_from_disc(const std::string& pick, const std::string& video_dir, const std::string& music_dir,
                      const ProgressFn& progress) {
   const ProgressFn p = forward_only(progress);
+  if (video_dir.empty() && music_dir.empty()) return {};
+  const fs::path staging = fs::path(video_dir.empty() ? music_dir : video_dir).parent_path() / "setup-staging";
+  std::error_code ec;
+  DiscPick d;
+  Result a;
+  if (!disc_pick(pick, false, staging, &d, &a, p)) return a;
+  if (d.source.empty()) {  // an archive's, unpacked
+    if (!video_dir.empty()) a.movies = move_files_in(d.staged.video_dir, video_dir);
+    if (!music_dir.empty()) a.music_tracks = move_files_in(d.staged.music_dir, music_dir);
+    fs::remove_all(staging, ec);
+    a.ok = a.movies > 0 || a.music_tracks > 0;
+    if (a.movies) a.summary = std::to_string(a.movies) + (a.movies == 1 ? " movie was added." : " movies were added.");
+    if (a.music_tracks) a.summary += (a.summary.empty() ? "" : " ") + tracks_words(a.music_tracks);
+    else if (!music_dir.empty()) a.ok ? a.warnings.push_back(kNoDiscMusic) : void(a.summary = kNoDiscMusic);
+    if (a.summary.empty()) a.summary = "That has no movies in it.";
+    p(Progress{"Done", 1, ""});
+    return a;
+  }
+  const std::string source = d.source;
   std::string ext = fs::path(source).extension().string();
   for (char& c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
   const bool both = !video_dir.empty() && !music_dir.empty();
@@ -398,7 +478,7 @@ Result add_from_disc(const std::string& source, const std::string& video_dir, co
   }
   if (music_dir.empty()) return r;
   if (ext != ".cue") {  // a drive, a folder or an .iso: no CD audio to read
-    const std::string why = "The music comes only from a disc image that kept the CD audio (a .cue with its .bin files).";
+    const std::string why = kNoDiscMusic;
     if (r.ok) r.warnings.push_back(why);
     else r.summary = why;
     return r;
@@ -460,9 +540,35 @@ Result add_music(const std::string& cue, const std::string& music_dir, const Pro
   return r;
 }
 
-Result add_pm_from_disc(const std::string& source, const std::string& music_dir, const std::string& write_dir,
+Result add_pm_from_disc(const std::string& pick, const std::string& music_dir, const std::string& write_dir,
                         const ProgressFn& progress) {
   const ProgressFn p = forward_only(progress);
+  if (music_dir.empty() && write_dir.empty()) return {};
+  const fs::path staging = (music_dir.empty() ? fs::path(write_dir) : fs::path(music_dir).parent_path()) / "setup-staging";
+  std::error_code ec;
+  DiscPick d;
+  Result a;
+  a.pirates_moon = true;
+  if (!disc_pick(pick, true, staging, &d, &a, p)) return a;
+  if (d.source.empty()) {  // an archive's, unpacked: its cabinet's sounds, its cue's music
+    bool sounds = false;
+    if (!write_dir.empty()) {
+      a = add_pm_sounds(d.staged.disc_dir, write_dir, [&](const Progress& g) {
+        return p(Progress{g.stage, 0.8 + g.fraction * 0.15, g.message});
+      });
+      sounds = a.ok;
+    }
+    if (!music_dir.empty() && !a.cancelled) {
+      a.music_tracks = move_files_in(d.staged.music_dir, music_dir);
+      if (a.music_tracks) a.summary += (a.summary.empty() ? "" : " ") + tracks_words(a.music_tracks), a.ok = true;
+      else if (sounds) a.warnings.push_back(kNoDiscMusic);
+      else a.summary += (a.summary.empty() ? "" : " ") + std::string(kNoDiscMusic);
+    }
+    fs::remove_all(staging, ec);
+    p(Progress{"Done", 1, ""});
+    return a;
+  }
+  const std::string source = d.source;
   std::string ext = fs::path(source).extension().string();
   for (char& c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
   const bool both = !music_dir.empty() && !write_dir.empty();
@@ -476,7 +582,7 @@ Result add_pm_from_disc(const std::string& source, const std::string& music_dir,
   }
   if (music_dir.empty()) return r;
   if (ext != ".cue") {  // a drive, a folder or an .iso: no CD audio to read
-    const std::string why = "The music comes only from a disc image that kept the CD audio (a .cue with its .bin files).";
+    const std::string why = kNoDiscMusic;
     if (r.ok) r.warnings.push_back(why);
     else r.summary = why;
     return r;

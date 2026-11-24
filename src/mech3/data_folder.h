@@ -85,6 +85,13 @@ std::string moved_path(const std::string& path, const std::string& from, const s
 // nothing moved, the old folder used while it is the one with the data.
 std::string family_move(const std::string& usual, bool move = true);
 
+// Pirate's Moon's folder as Windows launchers up to 1.3.1 had it, inside MechWarrior 3's (its path's end read wrong):
+// what `usual` (<base>/BattleTech/Pirate's Moon) lacks of <base>/BattleTech/MechWarrior 3/Pirate's Moon, and of the
+// same under MicroProse, moved to it, renamed on the same drive (2026-11-24). Never over a file: one in both stays in
+// both, the player's own kept in use (those of the folder with pilots, when the other has none: the two change
+// places). Once, a note left there; a folder whose data lives elsewhere (a pointer) is left alone. The files moved.
+int adopt_nested(const std::string& usual);
+
 // `cfg`'s saved paths under each moved pair's first folder made to name the same place under its second.
 void retarget_config(const std::string& cfg, const std::vector<std::pair<std::string, std::string>>& moved);
 

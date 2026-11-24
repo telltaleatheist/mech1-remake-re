@@ -416,6 +416,23 @@ TEST(setup_install_streams_from_archives) {
   EXPECT(d.ok && d.music_tracks == 1 && disc.installed(tmp + "/redump") && wav.size() == 44 + 50 * 2352 &&
          wav.compare(0, 4, "RIFF") == 0 && wav.substr(44) == std::string(50 * 2352, '\x11'));
   EXPECT(!std::filesystem::exists(tmp + "/write/setup-staging"));
+  // ADD FROM MY DISC takes what an install lacks from the same downloads (2026-11-24).
+  const su::Result add = su::add_from_disc(redump_zip, tmp + "/add/video", tmp + "/add/music", nullptr);
+  std::printf("  add from the zip: %s\n", add.summary.c_str());
+  EXPECT(add.ok && add.movies > 0 && add.music_tracks == 1 && slurp(tmp + "/add/music/track02.wav") == wav);
+  EXPECT(slurp(tmp + "/add/video/C1.AVI") == disc.movie && !std::filesystem::exists(tmp + "/add/setup-staging"));
+  const su::Result bare = su::add_from_disc(sevenz, "", tmp + "/bare/music", nullptr);  // an .iso's: no music in it
+  std::printf("  no music in it: %s\n", bare.summary.c_str());
+  EXPECT(!bare.ok && bare.music_tracks == 0 && bare.summary.find("no music") != std::string::npos);
+  const su::Result half = su::add_from_disc(sevenz, tmp + "/half/video", tmp + "/half/music", nullptr);  // the movies all the same
+  EXPECT(half.ok && half.movies > 0 && half.music_tracks == 0 && half.warnings.size() == 1);
+  const su::Result copy = su::add_from_disc(zip, "", tmp + "/copy/music2", nullptr);
+  EXPECT(!copy.ok && copy.summary.find("installed copy") != std::string::npos);
+  const su::Result wrong = su::add_pm_from_disc(redump_zip, tmp + "/pmadd/music", "", nullptr);
+  std::printf("  the other game's: %s\n", wrong.summary.c_str());
+  EXPECT(!wrong.ok && wrong.summary.find("not Pirate's Moon's") != std::string::npos && !std::filesystem::exists(tmp + "/pmadd"));
+  const su::Result stop = su::add_from_disc(redump_zip, "", tmp + "/stop/music", [](const su::Progress&) { return false; });
+  EXPECT(stop.cancelled && !stop.ok && !std::filesystem::exists(tmp + "/stop/music") && !std::filesystem::exists(tmp + "/stop/setup-staging"));
 }
 
 // A cancel, a damaged archive and too little space: nothing is left behind.
@@ -540,6 +557,11 @@ TEST(setup_install_pirates_moon_from_its_disc) {
   EXPECT(c.ok && c.pirates_moon && c.version == "1.0" && c.music_tracks == 0 && !fs::exists(tmp + "/write/setup-staging", ec));
   EXPECT(slurp(tmp + "/c/Mech3.exe") == slurp(kGame + "/pm/Mech3.exe"));
   EXPECT(same_as_pm(tmp + "/c") && read_back(tmp + "/c"));
+  // ADD FROM MY DISC from that zip: its cabinet's sounds; an .iso has no music.
+  const su::Result za = su::add_pm_from_disc(zip, tmp + "/za/music", tmp + "/za", nullptr);
+  std::printf("  add from the zip: %s\n", za.summary.c_str());
+  EXPECT(za.ok && za.music_tracks == 0 && za.warnings.size() == 1 && slurp(tmp + "/za/zbd/soundsH.zbd") == slurp(kGame + "/pm/zbd/soundsH.zbd"));
+  EXPECT(!fs::exists(tmp + "/za/music", ec) && !fs::exists(tmp + "/za/setup-staging", ec));
   // A Pirate's Moon disc installs as Pirate's Moon only when told: MW3's
   // checks on it are not 1.0's (the plain disc install, for mw3 --install-from).
   const mech3::DiscInstall d = mech3::install_from_disc(kGame + "/pm-disc/pm.iso", tmp + "/d", "", "", nullptr);

@@ -535,6 +535,56 @@ bool kit_status(const std::string& bin, rekit::Status* out) {
   return a != std::string::npos && b != std::string::npos && b > a && rekit::parse_status(said.substr(a, b - a + 1), out);
 }
 
+bool kit_setup(const std::string& bin, const std::vector<std::string>& args, int seconds,
+               const std::function<bool(const rekit::SetupMessage&)>& progress, rekit::SetupMessage* out) {
+  *out = {};
+  std::vector<const char*> argv{bin.c_str(), "--setup"};
+  for (const std::string& a : args) argv.push_back(a.c_str());
+  argv.push_back(nullptr);
+  SDL_Process* p = bin.empty() ? nullptr : SDL_CreateProcess(argv.data(), true);  // stdin and stdout ours
+  if (!p) return out->summary = std::string("It did not start: ") + SDL_GetError() + ".", false;
+  SDL_IOStream* io = SDL_GetProcessOutput(p);
+  std::string line;
+  bool answered = false, stopping = false, timed_out = false;
+  Uint64 until = seconds ? SDL_GetTicks() + static_cast<Uint64>(seconds) * 1000 : 0;
+  rekit::SetupMessage step;
+  int code = 0;
+  for (;;) {
+    const bool ended = SDL_WaitProcess(p, false, &code);  // before the read: what it wrote last is still read
+    size_t got = 0;
+    char buf[4096];
+    while (io && (got = SDL_ReadIO(io, buf, sizeof buf)) > 0)
+      for (size_t i = 0; i < got; ++i) {
+        if (buf[i] != '\n') {
+          if (line.size() < (1u << 16)) line += buf[i];
+          continue;
+        }
+        rekit::SetupMessage m;
+        if (rekit::parse_setup_message(line, &m)) {  // a log line among them is passed over
+          if (m.done) *out = m, answered = true;
+          else step = m;
+        }
+        line.clear();
+      }
+    if (ended) break;
+    if (!progress(step) && !stopping) {
+      stopping = true, until = SDL_GetTicks() + 30000;  // it stops at its next step and leaves nothing half done
+      if (SDL_IOStream* in = SDL_GetProcessInput(p)) SDL_WriteIO(in, "cancel\n", 7), SDL_FlushIO(in);
+    }
+    if (until && SDL_GetTicks() >= until) {
+      timed_out = true;
+      SDL_KillProcess(p, true), SDL_WaitProcess(p, true, &code);
+      break;
+    }
+    SDL_Delay(20);
+  }
+  SDL_DestroyProcess(p);
+  if (answered) return true;
+  out->cancelled = stopping;
+  out->summary = stopping ? "Stopped." : timed_out ? "Its setup did not answer." : "Its setup ended without an answer (" + std::to_string(code) + "): see its log.";
+  return false;
+}
+
 bool in_own_mount(const std::string& bin) {
   const char* appdir = std::getenv("APPDIR");
   if (!std::getenv("APPIMAGE")) return false;

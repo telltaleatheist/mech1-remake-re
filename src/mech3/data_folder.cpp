@@ -223,6 +223,96 @@ std::string family_move(const std::string& usual, bool move) {
   return usual;
 }
 
+namespace {
+
+const char kAdopted[] = "moved-to-BattleTech.txt";  // left in a nested folder once its data is moved
+
+// A pilot, or a saved game, in the folder's pilots.
+bool has_pilots(const fs::path& dir) {
+  std::error_code ec;
+  for (fs::recursive_directory_iterator it(dir / "pilots", ec), end; !ec && it != end; it.increment(ec))
+    if (it->is_regular_file(ec) && !not_data(it->path().filename().string())) return true;
+  return false;
+}
+
+struct Adopt {
+  bool swap = false;    // `to` is unused: a file in both changes places
+  int moved = 0, failed = 0;
+  void folder(const fs::path& from, const fs::path& to, bool top, bool whole) {
+    std::error_code ec;
+    std::vector<fs::path> names;
+    for (fs::directory_iterator it(from, ec), end; !ec && it != end; it.increment(ec)) names.push_back(it->path().filename());
+    failed += static_cast<bool>(ec);
+    std::sort(names.begin(), names.end(), [](const fs::path& a, const fs::path& b) {  // the pilots first
+      return (a == "pilots") != (b == "pilots") ? a == "pilots" : a < b;
+    });
+    for (const fs::path& n : names) {
+      if (top && (not_data(n.string()) || n == kAdopted)) continue;
+      const fs::path f = from / n, t = to / n;
+      std::error_code e;
+      const bool dir = fs::is_directory(f, e) && !fs::is_symlink(f, e);
+      if (!fs::exists(t, e) || (dir && fs::is_directory(t, e) && fs::is_empty(t, e))) {
+        if (fs::exists(t, e)) fs::remove(t, e);  // an empty folder only
+        fs::rename(f, t, e);
+        e ? ++failed : ++moved;
+        if (e && n == "pilots") return;  // nothing without them: again at the next start
+      } else if (dir && fs::is_directory(t, e)) {
+        // A game's files, a merged set and a mod each stay whole.
+        if (!whole && n != "install" && n != "mod-merged") folder(f, t, false, n == "mods");
+        rekit::remove_if_empty(f.string());
+      } else if (swap && !dir && fs::is_regular_file(t, e) && !same_bytes(f, t)) {
+        const fs::path away = to / (n.string() + ".swap");
+        fs::rename(t, away, e);
+        if (e) {
+          ++failed;
+          continue;
+        }
+        fs::rename(f, t, e);
+        if (e) {
+          fs::rename(away, t, e), ++failed;
+          continue;
+        }
+        fs::rename(away, f, e);
+        ++moved;
+      }
+    }
+  }
+};
+
+}  // namespace
+
+int adopt_nested(const std::string& usual) {
+  const fs::path to(usual), org = to.parent_path();
+  std::error_code ec;
+  if (org.filename() != rekit::kFamilyOrg || fs::exists(to / kPointer, ec)) return 0;
+  int all = 0;
+  std::vector<std::pair<std::string, std::string>> places;
+  for (const fs::path& base : {org, org.parent_path() / rekit::kOldOrg}) {
+    const fs::path from = base / "MechWarrior 3" / to.filename();
+    if (!fs::is_directory(from, ec) || fs::exists(from / kAdopted, ec) || fs::exists(from / kPointer, ec) || !holds_data(from.string())) continue;
+    Adopt a;
+    a.swap = has_pilots(from) && !has_pilots(to);
+    fs::create_directories(to, ec);
+    a.folder(from, to, true, false);
+    std::printf("mw3: Pirate's Moon's folder: %d of its things moved from %s to %s%s\n", a.moved, from.string().c_str(), usual.c_str(),
+                a.failed ? " (some could not be: tried again at the next start)" : "");
+    all += a.moved;
+    places.emplace_back(from.string(), usual);
+    if (!a.failed) {
+      write_text(from / kAdopted, "Pirate's Moon's pilots, mods and settings are now in " + usual + ".\n"
+                                  "What is still here was in both places: the game does not use it.\n");
+      rekit::remove_if_empty(from.string());
+    }
+  }
+  if (all)  // the saved paths of the game's files that moved with them
+    for (fs::directory_iterator it(org, ec), end; !ec && it != end; it.increment(ec))
+      if (it->is_directory()) {
+        const fs::path dir = resolve(it->path().string()).dir;
+        for (const char* cfg : {"mw3.cfg", "mw3pm.cfg", "mw1.cfg"}) retarget_config((dir / cfg).string(), places);
+      }
+  return all;
+}
+
 std::string unusable(const std::string& dir) {
   std::error_code ec;
   if (!fs::is_directory(dir, ec))
