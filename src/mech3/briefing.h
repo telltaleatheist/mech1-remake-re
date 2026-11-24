@@ -5,6 +5,7 @@
 
 #include "mech3/menu_widgets.h"
 #include "mech3/pilot.h"
+#include "upgrades/sounds/menu_sounds.h"
 
 // The briefing screen (docs/campaign.md section 2): C:\zipper\Mech3\
 // briefing.cpp (0x00404ae0..0x00406440) and its helpers after it
@@ -187,6 +188,7 @@ class BriefingScreen : public MenuScreen {
   ShellButton realloc_ok;            // +0x12638  REALLOC_OK (7)
   StoreList realloc_list;            // +0x12790  REALLOC_LIST (what did not fit)
   std::list<ztwod::Object2D*> objects;  // +0x12e60  the map's, deleted with the screen
+  upgrades::MenuSounds menu_sounds;  // ours (issue #19)
 };
 
 // The stores' sums: tons (0x00409fd0, each weight(-1) added as a float),

@@ -33,6 +33,7 @@ PauseScreen::PauseScreen(Engine& e, Handle s)
   backdrop.set_pos(0, 0);
   backdrop.set_image(ztwod::host().screen_grab(1));
   add(&backdrop);
+  menu_sounds.hold("MENU");  // ours (issue #19)
   if (load("dlgPause.zrd", "PAUSEDIALOG", false)) {
     bind_primitive(&title, "PAUSETEXT");
     bind_button(&quit, "QUIT");

@@ -2,6 +2,7 @@
 #include <cstdint>
 
 #include "mech3/menu_widgets.h"
+#include "upgrades/sounds/menu_sounds.h"
 
 // The pause screen (docs/menus.md, The pause screen): dlgPause.zrd's
 // PAUSEDIALOG over a grab of the mission's last frame. Escape in a mission
@@ -32,6 +33,7 @@ class PauseScreen : public MenuScreen {
   // mission the MODS screen launched only (editor_reachable).
   SlideButton editor;
   bool has_editor = false;
+  upgrades::MenuSounds menu_sounds;  // ours (issue #19)
 };
 
 }  // namespace mech3

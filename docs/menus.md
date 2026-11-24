@@ -1005,7 +1005,27 @@ mission from the row, the pilot not saved. Missed, and unobservable: the
 loadout lists shown at the making (the first enemy step hides or shows each
 again).
 
-## 14. Left
+## 14. The menus' missing sounds (issue #19, ours)
+
+The pause's buttons name `menu_rollover` and `menu_select` and the salvage's
+`box_rollover`, all in the set MENU, loaded only with the main menu (0x00486580,
+unloaded at 0x004857b5); the salvage's `icon_select` is in MECHLAB, the lab's
+(0x00448984); `lab_select` (the salvage's and debriefing's list arrows) and the
+route-edit dialog's `brief_rollover` / `brief_select` are defined nowhere. A
+sound that is not loaded is not found (0x0056fea0), so all were silent. The
+briefing's and debriefing's buttons, and taking or returning salvage, name no
+sound at all. The salvage lists name `box_rollover` under ITEMROLLOVER, whose
+SOUND the list does not read (it reads ROLLOVER_SOUND, 0x0048ccf0).
+
+Under SMALL FIXES (`src/upgrades/sounds/menu_sounds`): the pause and briefing
+hold MENU while they are up, the salvage and debriefing MENU and MECHLAB (a set
+already loaded is left to its owner); the undefined names play `icon_select`,
+`menu_rollover` and `menu_select`; the briefing's, debriefing's and ACCEPT's
+buttons without a sound take the menu's, and a moved item plays `icon_select`
+and a salvage row under the mouse `box_rollover`.
+Pirate's Moon's exe holds MENU for its pause itself (0x0049600b).
+
+## 15. Left
 
 - The mech lab's bar (0x0044bae4, vtable 0x005c14f0) and its lists
   (0x0044b215..0x0044bc5c), on the same widgets; the file list's layout with

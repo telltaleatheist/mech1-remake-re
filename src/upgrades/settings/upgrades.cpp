@@ -66,6 +66,7 @@ const std::vector<const char*>& small_fixes_list() {
       "A weapon's loop sound stops when firing stops.",
       "A mech re-placed where it stands keeps to its ground.",
       "Torso auto return keeps the torso within its twist.",
+      "Pause, salvage and briefing buttons have sounds.",
       "A mission's last animation can be waited for.",
       "An animation whose object is missing waits its turn.",
       "Leaving c4b mission 5's or 6's area fails it.",

@@ -50,13 +50,16 @@ SalvageScreen::SalvageScreen(Engine& e, Handle st)
       bays{LanceCard(e), LanceCard(e), LanceCard(e), LanceCard(e), LanceCard(e), LanceCard(e)},
       lance{LanceCard(e), LanceCard(e), LanceCard(e), LanceCard(e)} {
   const int32_t fast = e.exchange_fast_menu(0);
+  for (const char* set : {"MENU", "MECHLAB"}) menu_sounds.hold(set);  // ours (issue #19)
   if (load("dlgSalvage.zrd", "SALVAGEDIALOG", true)) {
     bind_primitive(&back, "BACKGROUND");
     bind_button(&mission, "MISSION_SALVAGE");
     bind_button(&player, "PLAYER_SALVAGE");
+    for (SalvageList* l : {&mission, &player}) l->sounds[0] = upgrades::menu_sound_find("box_rollover");  // ours (issue #19): ITEMROLLOVER names it, the list reads ROLLOVER_SOUND
     bind_button(&text, "SALVAGE_TEXT");
     accept.id = kAccept;
     bind_button(&accept, "ICON_ACCEPT");
+    upgrades::menu_sounds_for_button(accept);  // ours (issue #19)
     for (int32_t i = 0; i < 4; ++i) {  // in a row above
       lance[i].id = 4 + i;
       bind_button(&lance[i], "ICON_PILOT");
@@ -104,6 +107,7 @@ void SalvageScreen::on_button(int32_t id, int32_t a, int32_t row) {
     moved = salvage_to_player(e.store_of(player.store), e.store_of(mission.store), item_at(mission),
                               e.campaign_units());
   }
+  if (moved) upgrades::menu_sound_play("icon_select");  // ours (issue #19)
   if (moved) refill();
 }
 

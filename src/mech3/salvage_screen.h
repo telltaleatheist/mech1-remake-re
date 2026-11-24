@@ -3,6 +3,7 @@
 
 #include "mech3/debriefing.h"
 #include "mech3/menu_widgets.h"
+#include "upgrades/sounds/menu_sounds.h"
 
 // The salvage screen (docs/campaign.md section 10): the Salvage State's
 // (new(0x166a8), 0x0047d3b0, its press 0x0047e490), dlgSalvage.zrd's
@@ -42,6 +43,7 @@ class SalvageScreen : public MenuScreen {
   SalvageList mission{engine(), kMission};  // +0x15dd0  MISSION_SALVAGE
   ztwod::Image back{0};              // +0x164a0  BACKGROUND (its own, not MenuScreen's +0x110b0)
   WinTitle text;                     // +0x1655c  SALVAGE_TEXT: [3] used, [4] capacity, [5] the bases
+  upgrades::MenuSounds menu_sounds;  // ours (issue #19)
 };
 
 // 0x0047e110 (the lists' stores): from the player's store to the mission's,
