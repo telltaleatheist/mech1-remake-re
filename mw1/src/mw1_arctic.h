@@ -1,5 +1,5 @@
 #pragma once
-// MW1's own arctic Instant Action map (FIXES.md item 44, agreed with Owen
+// MW1's own arctic Instant Action map (FIXES.md item 44, agreed with the owner
 // 2026-11-17): laid at each start onto the MW3 world zipkit converted
 // (mw1_worlds.h, c4b as mw3c4b), never derived from MW3's mission data.
 //

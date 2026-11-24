@@ -4,6 +4,8 @@
 # until B1's fourth piece landed, proving the check fails first; "smooth" since). The same page with MW1_HIRES=0 must
 # still read blocky, so the check keeps telling the two apart. A run that makes no shot fails either way.
 # cmake -DMW1_BIN=<mw1> -DCHECK_BIN=<mw1hirescheck> -DDIR=<scratch> -DEXPECT=blocky|smooth -P hires_smooth.cmake
+# A -P script sets no policies of its own: without this, CMake 3.x drops a list's empty entries (CMP0007, OLD).
+cmake_minimum_required(VERSION 3.20)
 function(shoot name env want)
   set(wd "${DIR}/${name}")
   file(REMOVE_RECURSE "${wd}")

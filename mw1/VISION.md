@@ -13,7 +13,7 @@ on maps built from MW1's battlefields.
 
 ## Pillars
 
-1. **A remake, not a decompile** (Owen, 2026-11-16). MW1's campaign is the
+1. **A remake, not a decompile** (the owner, 2026-11-16). MW1's campaign is the
    design we start from: its rules, money, calendar, Houses, contracts,
    recruits, repairs, news, events and story, and its balance, taken from the
    reconstructed logic in Elthial's MechWarrior SDL port and the player's own
@@ -21,7 +21,7 @@ on maps built from MW1's battlefields.
    fixed, not kept**: unlike mw3-re, there's no faithful mode to preserve.
    Each change from MW1 is written down (what MW1 did, what we do, why), so
    the design stays traceable.
-2. **Pirate's Moon is the base; MW1's features are ported into it** (Owen,
+2. **Pirate's Moon is the base; MW1's features are ported into it** (the owner,
    2026-11-16). The game runs on mw3-re's Pirate's Moon (its `pm` branch:
    `src/pm/` over the shared engine), for PM's bigger roster and its more
    varied weapons. "MW3" in this file means that engine and its rules, PM's
@@ -33,19 +33,19 @@ on maps built from MW1's battlefields.
    wins unless this file says otherwise. `upstream`'s fixes keep merging in, from its `pm` branch.
 3. **New art, MW3's look.** Every screen is new art made for this project,
    built with zTwoD. Nothing is copied from either game's pictures.
-4. **The player brings all three: MW1, MW3 and Pirate's Moon** (Owen,
+4. **The player brings all three: MW1, MW3 and Pirate's Moon** (the owner,
    2026-11-16). MW3 and PM come as a pair and are easy to find; MW3's worlds
    give us its snow and green maps (`research/maps.md`). No MW1, MW3 or PM
    files go in the repository.
-6. **It ships with mw3-re, as "MechWarrior 1"** (Owen, 2026-11-16): a third
+6. **It ships with mw3-re, as "MechWarrior 1"** (the owner, 2026-11-16): a third
    icon on mw3-re's launcher beside MechWarrior 3 and Pirate's Moon, one
    package. It **replaces** the launcher's present MW1 entry, which starts
-   Elthial's SDL port of the original (Owen, 2026-11-16).
-5. **MW1 lives in mw3-re as its own branch, `mw1`** (Owen, 2026-11-17; it
+   Elthial's SDL port of the original (the owner, 2026-11-16).
+5. **MW1 lives in mw3-re as its own branch, `mw1`** (the owner, 2026-11-17; it
    was a repo of its own, mw1-critical-hit, from 2026-11-16, now archived).
    The branch is `pm` plus MW1, the way `pm` is the engine plus Pirate's
    Moon, and it is public under mw3-re's licence. **mw3-re's `main` and
-   `pm` stay a record of how MW3 and PM originally worked** (Owen,
+   `pm` stay a record of how MW3 and PM originally worked** (the owner,
    2026-11-16, then 11-17). On `mw1` we may change the engine in any way
    MW1 needs, but kept apart: in MW1's own files where it can be (hooks,
    wrappers, new files), and each engine change its own commit, marked as
@@ -69,17 +69,17 @@ on maps built from MW1's battlefields.
 - Until 2026-11-16 this repo was a full fork of mw3-re with MW1 in `mw1/`;
   that history is kept on the branch `archive/mw3-re-fork`.
 
-**MW3's worlds, converted** (Owen, 2026-11-16). MW3's world files are older
+**MW3's worlds, converted** (the owner, 2026-11-16). MW3's world files are older
 versions than PM's (archive v1 against v2, gamez 27 against 41, anim 39
 against 50), and the PM engine reads only its own. So the worlds MW1 uses
 from MW3 (c2's Grasslands, c4b's snow) are converted to PM's formats once,
 at first run, from the player's own MW3 install into MW1's data folder,
 under their own names (`mw3c2`, `mw3c4b`). The engine only ever sees PM
 data. Nothing converted is shipped.
-**The conversion tool** (Owen, 2026-11-16): a proper tool of our own, in
+**The conversion tool** (the owner, 2026-11-16): a proper tool of our own, in
 C++ like the rest, in mw3-re's `tools/`. It reads and writes MW3's and
-PM's files and converts between them. It's Owen's **zipkit**, built by the
-mw3 lead's team (Owen, 2026-11-16); MW1 calls it at first run and needs: MW3 to PM
+PM's files and converts between them. It's the owner's **zipkit**, built by the
+mw3 lead's team (the owner, 2026-11-16); MW1 calls it at first run and needs: MW3 to PM
 archives, gamez and scripts for c2 and c4b. It starts static, with no anim,
 and anim follows. It's built on mw3-re's own ported readers and writers,
 with mech3ax as the reference for what it does and its output as a check.
@@ -87,10 +87,10 @@ mech3ax's code (EUPL) isn't copied or translated. The smoke test
 (2026-11-16) played MW3's c2 in mw1 from a hand-converted gamez with no
 anim: the world draws and plays.
 
-The player's MW3 and PM files are **never modified** (Owen, 2026-11-16):
+The player's MW3 and PM files are **never modified** (the owner, 2026-11-16):
 they must stay playable in MW3 and PM. MW1 works only on its own copies.
 
-**The launcher** (Owen, 2026-11-16): the player points it at each game (a
+**The launcher** (the owner, 2026-11-16): the player points it at each game (a
 disc, an image, a zip or an installed copy), as it does now. Each icon
 becomes clickable once its game is loaded: MW3 for MechWarrior 3, PM for
 Pirate's Moon, and both for MechWarrior 1.
@@ -123,7 +123,7 @@ numbers and formulas are in `research/economy.md`.
   are" follows that tier: selling mechs, buying them, and the wrecks' pay
   after a mission (valued at the world the contract is on). If a wider
   spread plays better, the tiers' multipliers are where to change it.
-  **We keep MW1's spread** (Owen, 2026-11-16). The tier belongs to the
+  **We keep MW1's spread** (the owner, 2026-11-16). The tier belongs to the
   world, not the House: every House has core worlds that sell at 90% and edge
   worlds that pay 140% (Kurita has 7 core and 10 edge worlds, Steiner 7 and
   7).
@@ -143,7 +143,7 @@ salvage. What you can fit is what you've salvaged or bought.
 
 - **Enemies are ordinary mechs with their stock loadouts**, as in MW1. So
   MW3's salvage works as it is: what they carry is what you can take.
-- **You get both** (Owen, 2026-11-16): cash for each wreck (its sale price
+- **You get both** (the owner, 2026-11-16): cash for each wreck (its sale price
   less its repairs, see *Damage and repairs*) **and** MW3's item salvage. The mech lab is new, and salvage is how it
   fills. Taking items never reduces the cash.
 - **Salvage gives parts, never mechs.** Weapons, ammo and equipment go to the
@@ -154,32 +154,32 @@ salvage. What you can fit is what you've salvaged or bought.
 - **Mechs are bought and sold with MW1's logic**: its prices, market tiers,
   stock and dealer limits (`research/economy.md`). Money is how you get new
   mechs.
-- **No damaged stock** (Owen, 2026-11-16). MW1 sold battered mechs cheaper;
+- **No damaged stock** (the owner, 2026-11-16). MW1 sold battered mechs cheaper;
   with no damage kept outside a mission there's nothing to discount, so every
   mech is sold whole, take it or leave it.
-- **One price per mech** (Owen, 2026-11-16): sold with its stock loadout,
+- **One price per mech** (the owner, 2026-11-16): sold with its stock loadout,
   take it or leave it. No discounts for damage or for a stripped mech.
-- **The mech lab is MW3's, unchanged** (Owen, 2026-11-16): swap weapons in
+- **The mech lab is MW3's, unchanged** (the owner, 2026-11-16): swap weapons in
   and out, and a weapon with no ammo in the stores comes off until you have
   some. The one change is the stores' limit: MW3 holds 300 tons and 2 mechs
   per field base (900 tons and 6 mechs in practice, `docs/discoveries.md`),
   because its story is a unit carrying everything it owns to a dropship.
-  Ours has no such story, so the limit is **raised to 3,000 tons** (Owen,
+  Ours has no such story, so the limit is **raised to 3,000 tons** (the owner,
   2026-11-16; changed if it becomes a problem).
 - **The company starts as Pirate's Moon's campaign does**: PM's starting
   stores of weapons and equipment, with an **Owens** (35 tons) for the
   commander in place of PM's Centurion (50 tons), MW1's own starting 'Mech
   being a 35-ton light. Plus MW1's starting money and its random bonus.
-- **You can't sell your last mech** (Owen, 2026-11-16). MW1 allowed it and
+- **You can't sell your last mech** (the owner, 2026-11-16). MW1 allowed it and
   left a company with no mech and no money stuck for good
   (`research/economy.md`). Anything but the last one can be sold.
 
-## Damage and repairs (Owen, 2026-11-16)
+## Damage and repairs (the owner, 2026-11-16)
 
 MW1's lasting damage is dropped. That sidesteps the hardest part of the
 handoff, and repairs and reloading are things this game doesn't need.
 
-**In a mission, MW3 decides** (Owen, 2026-11-16). MW3's damage, repair and
+**In a mission, MW3 decides** (the owner, 2026-11-16). MW3's damage, repair and
 salvage logic is a fleshed-out engine that needs little tinkering, so we
 defer to it and only add money around it. What MW3 does, the remake does.
 For example, a field base doesn't rebuild a lost arm in the field; the arm
@@ -193,13 +193,13 @@ pay) is ours.
 - **The fight's cost is settled at the debriefing**, as one bill: a price
   per point of armor and structure repaired (at an MFB or at the end, the
   same rate). Only the mech's body: nothing else is on it.
-- **Weapons, ammo and equipment are never money** (Owen, 2026-11-16). They
+- **Weapons, ammo and equipment are never money** (the owner, 2026-11-16). They
   follow MW3's salvage and mech lab: ammo comes from salvage, and a weapon
   with no ammo in the stores can't be used. **What's lost in a fight is
   gone**: a part blown off takes its weapons with it (an LRM 20 on a lost
   arm is gone unless it turns up in salvage). The repair rebuilds the arm,
   not the LRM. MW1's rearm costs and ammo market don't come across.
-- **Damage is MW3's, by location** (Owen, 2026-11-16): left and right arm,
+- **Damage is MW3's, by location** (the owner, 2026-11-16): left and right arm,
   left and right torso, center torso, head, left and right leg. Not MW1's
   systems (engine, gyro, life
   support, actuators, damage tiers), which only made sense for MW1's own
@@ -208,7 +208,7 @@ pay) is ours.
   armor and structure each has, and each location's bill is the share of its
   points that was lost. The same bill, location by location, is what a
   wreck's pay is reduced by.
-- **Wrecks pay what they're worth, less their repairs** (Owen, 2026-11-16).
+- **Wrecks pay what they're worth, less their repairs** (the owner, 2026-11-16).
   Each enemy mech the lance brings down shows in the salvage and pays its
   sale price at this world (MW1's) minus what it would cost to repair (MW1's
   repair prices): a Firefly that sells for 10,000 and needs 1,000 of repairs
@@ -218,12 +218,12 @@ pay) is ours.
   say). MW1's negotiated salvage percentage is the natural scale for that.
 - **Few or no wrecks, and the repairs come out of the contract's fee**, then
   out of the company's money.
-- **Repairs always happen, and money never goes below 0** (Owen,
+- **Repairs always happen, and money never goes below 0** (the owner,
   2026-11-16). The bill takes what it can and the rest is forgiven: start
   with 2k, earn a 5k fee and no salvage, owe a 10k repair, and you end with
   a repaired mech and 0. A bad mission can empty the company, but it can't
   leave a mech broken or put the company in debt.
-- **A destroyed mech is lost** (Owen, 2026-11-16) when the mission counts
+- **A destroyed mech is lost** (the owner, 2026-11-16) when the mission counts
   (won, or failed and accepted). It's gone from the company, and its pilot's
   fate is the mission's. A replay or a quit loses nothing.
 - **Except the company's last mech, the safety net.** If the mission
@@ -231,7 +231,7 @@ pay) is ours.
   repaired at the mission's end, on the bill like any repair. With 0 in the
   bank it's repaired anyway. The company always has a mech to take a
   contract with.
-- **The commander never dies** (Owen, 2026-11-16). In MW1 losing the
+- **The commander never dies** (the owner, 2026-11-16). In MW1 losing the
   commander fires a story event that can restart the whole campaign
   (`MwEventTestPlayerCombatLoss`, `MwEventQueueCampaignRestart`, EVENTS
   081B:6562, 6588). We drop it: losing the commander's mech is a lost
@@ -240,7 +240,7 @@ pay) is ours.
 - How big the bill and the wrecks' pay are gets settled by playing (open
   questions).
 
-## Replay, quitting and field bases (Owen, 2026-11-16)
+## Replay, quitting and field bases (the owner, 2026-11-16)
 
 Trying a mission again and again is core to MW3, and it stays. What MW3
 does now (`docs/campaign.md` section 1, `controls.md`):
@@ -313,7 +313,7 @@ In combat:
   ones rarely do.
 - **The AI's driving is not changed.** Every lancemate moves, positions and
   follows orders with MW3's AI as it is, whatever their rating.
-- **Piloting isn't used in combat** (Owen, 2026-11-16): Gunnery alone
+- **Piloting isn't used in combat** (the owner, 2026-11-16): Gunnery alone
   sets a lancemate's aim. Piloting stays a rating on the pilot's record, as
   in MW1, where it only fed a recovery roll.
 - The pilots need new portraits: 21, the original's number, or one each.
@@ -345,7 +345,7 @@ Six things need new code in the `mw1` program, because a mod can't do them:
 6. **Salvage without mechs**: a wreck's salvage keeps its parts and drops
    the mech itself.
 
-## Starting the game (Owen, 2026-11-16)
+## Starting the game (the owner, 2026-11-16)
 
 MW1's start, in MW3's frame. What MW1 does (SDL port,
 `MW_MAIN_081B_STARTUP.c`, the campaign's entry and
@@ -372,7 +372,7 @@ Ours:
   Options, Credits, Quit, as MW3's menu does, with MW1's own options inside
   (save, restore, restart) as well.
 - **New Campaign plays MW1's intro**: the title, the narration over the
-  music, and the opening picture redrawn in new art (the picture Owen
+  music, and the opening picture redrawn in new art (the picture the owner
   remembers, 2026-11-16: a grizzled man in a teal flight suit and helmet,
   carrying a long rifle, walks out through a sci-fi door toward you, a younger
   woman with a pistol behind him, a warning light glowing over the door; ours, picked 2026-11-16: `mockups/intro.jpg`).
@@ -404,7 +404,7 @@ MW1 has five combat objectives (from BTECH.EXE):
 | --- | --- |
 | Eliminate opposition | Destroy all enemies |
 | Withdraw | Reach the exit/nav point |
-| Oppose withdrawal | Defend a structure (their drop pod or another): the enemy advance on it, and if they reach it you lose. In practice it's kill them all as they come at you (Owen, 2026-11-16) |
+| Oppose withdrawal | Defend a structure (their drop pod or another): the enemy advance on it, and if they reach it you lose. In practice it's kill them all as they come at you (the owner, 2026-11-16) |
 | Special target | Destroy the objective building |
 | Defend special target | Keep the objective building alive |
 
@@ -413,12 +413,12 @@ campaign, plus the story's extended offensive, defensive and siege battles.
 
 **Story battles** (the Dark Wing, the extended offensive, defensive and siege
 battles) play on the same Instant Action maps, with their own forces and
-objectives (Owen, 2026-11-16). Special maps for them can come later.
+objectives (the owner, 2026-11-16). Special maps for them can come later.
 
 ## Combat: maps
 
 **MW3's Instant Action and multiplayer maps, with MW1's objectives**
-(Owen, 2026-11-16). They're ready-made open battlefields, and they already
+(the owner, 2026-11-16). They're ready-made open battlefields, and they already
 have what Instant Action uses: the mech lab before the drop, field bases
 (Pirate's Moon's Instant Action repairs refill ammo free, `docs/discoveries.md`,
 which in ours comes from the stores instead), and enemies placed around the
@@ -427,7 +427,7 @@ Objectives" with nothing under it. So each contract adds one from MW1's:
 
 - **Destroy all the enemy mechs**, Instant Action's own rule. It pays best,
   since every wreck is salvage.
-- **Structures, as MW1 does it** (Owen, 2026-11-16): MW1's contracts turn
+- **Structures, as MW1 does it** (the owner, 2026-11-16): MW1's contracts turn
   on buildings, so the objectives are built around them, from MW3's own
   objective types (`docs/objectives.md`):
   - **Reach a structure**: get within 10 m of it and the mission is won
@@ -460,7 +460,7 @@ in ZStudio, after MW1's layouts, can come later.
 
 ## Combat: mechs
 
-**Pirate's Moon's mechs and weapons, not MW1's** (Owen, 2026-11-16). PM's
+**Pirate's Moon's mechs and weapons, not MW1's** (the owner, 2026-11-16). PM's
 whole roster, with their own models, stock loadouts, animations and sounds:
 no models to edit, no stand-ins. MW1's eight chassis don't appear.
 
@@ -502,9 +502,9 @@ Marauder 3D's 1,470 (Goonhammer), and the published cost of a 75-ton Mad
 Cat is about 24M C-bills against a 100-ton Atlas's 9.6M (Giant Bomb,
 remlab). Battle Value is the better guide, since it rates what a mech does
 in a fight, and the published C-bill prices are argued over even by fans.
-**To start** (Owen, 2026-11-16, tuned by playing): Clan mechs at ×2, rare
+**To start** (the owner, 2026-11-16, tuned by playing): Clan mechs at ×2, rare
 (about one in ten of a dealer's stock) and sold only at a few edge worlds of
-Kurita and Steiner, near the Clan border. **Changed** (Owen, 2026-11-19, FIXES
+Kurita and Steiner, near the Clan border. **Changed** (the owner, 2026-11-19, FIXES
 115): "clan mech worth should roughly mirror mw3". MW3 and PM price no chassis
 by its tech (the Clan's edge is its equipment), so Clan mechs now cost what an
 Inner Sphere mech of their tons does, bought, sold and as wrecks; still rare
@@ -512,7 +512,7 @@ and sold only at those edge worlds. Enemy lances field Clan and Inner Sphere
 alike (FIXES 112). The same tech
 rules MW3 already applies to weapons and armor stay as they are.
 
-## The first milestone: the thinnest playable loop (Owen, 2026-11-16)
+## The first milestone: the thinnest playable loop (the owner, 2026-11-16)
 
 Built first, then grown outward:
 
@@ -532,7 +532,7 @@ the main menu, the art.
 
 ## Not MW3's story
 
-None of MW3's story plays in MW1: Critical Hit (Owen, 2026-11-16). **No MW3
+None of MW3's story plays in MW1: Critical Hit (the owner, 2026-11-16). **No MW3
 movies**: not the campaign's opening, the before-mission movies (`c<op>m<n>`)
 or the ending (`c4win`), and no MW3 briefings, operations or mission
 voice-overs. MW3's custom-campaign file already makes every movie optional

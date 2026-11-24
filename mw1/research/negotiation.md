@@ -66,7 +66,7 @@ opens the office screen on the template:
 - ACCEPT (the current counter as it stands), BACK (to the hub, the counter
   kept; the patience count kept for that offer too: leaving doesn't reset
   it, as MW1's EXIT doesn't).
-- Patience shown? MW1 doesn't show it. Question for Owen (below).
+- Patience shown? MW1 doesn't show it. Question for the owner (below).
 
 **Data:** the Contract gains `salvage_ceiling`, `advance_ceiling`,
 `attempts`; the Company (or the world) `patience` rolled on arrival and
@@ -113,7 +113,7 @@ As planned, with these choices:
   and advance ceilings and its rounds. A version 6 save reads with the
   House's middle patience and the ceilings from the House and the standing.
 
-## Questions for Owen (provisional answers: mw1 lead 2026-11-17)
+## Questions for the owner (provisional answers: mw1 lead 2026-11-17)
 
 Each is one constant or flag to change.
 

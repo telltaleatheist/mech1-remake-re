@@ -103,7 +103,7 @@ TEST(mw1_repairs_damage_by_points_and_what_a_field_base_mended) {
 }
 
 TEST(mw1_repairs_the_bill_taken_forgiven_and_the_lost_mechs) {
-  // A typical bill beside a typical fee (for Owen, Q3): the Owens back with a quarter of its repairs and a Firefly
+  // A typical bill beside a typical fee (for the owner, Q3): the Owens back with a quarter of its repairs and a Firefly
   // with a tenth, at an 18% premium, against a tier 0 contract's 150,000.
   mw1::Company c = company();
   mw1::Repairs r = mw1::settle_repairs(c, {{0, mw1::kPmOwens, 2500, false}, {1, mw1::kPmFirefly, 1000, false}});
@@ -203,9 +203,9 @@ TEST(mw1_repairs_saved_and_a_version_4_save_read) {
   EXPECT(pend && old.repair_premium == (old.tier + 1) * 18 && po.wrecks.size() == 1 && po.wrecks[0].damage == 6000 && po.bills.empty());
 }
 
-// FIXES.md item 51 (Owen, 2026-11-18): the wrecks' worth pays the repairs first, the salvage term on what's left.
+// FIXES.md item 51 (the owner, 2026-11-18): the wrecks' worth pays the repairs first, the salvage term on what's left.
 TEST(mw1_repairs_salvage_after_repairs_owens_numbers) {
-  // Owen's example: 3,000,000 of wrecks, 2,000,000 of damage, a 10% term: 100,000 paid, the mech repaired, nothing
+  // The owner's example: 3,000,000 of wrecks, 2,000,000 of damage, a 10% term: 100,000 paid, the mech repaired, nothing
   // billed.
   mw1::SalvageSum m = mw1::salvage_after_repairs(3000000, {2000000}, 10, 100);
   EXPECT(m.repairs == 2000000 && m.covered == 2000000 && m.beyond == 0 && m.left == 1000000 && m.pay == 100000);
@@ -246,7 +246,7 @@ TEST(mw1_repairs_settled_from_the_pool) {
   std::vector<std::string> pl = mw1::repair_line_choices(r);
   EXPECT(pl.size() >= 2 && pl[0] == "2 'Mechs repaired: 20,904 C-bills, paid from salvage" && pl[1] == "2 'Mechs repaired: 20,904, paid from salvage");
   for (size_t i = 1; i < pl.size(); ++i) EXPECT(pl[i].size() < pl[i - 1].size());
-  // One mech: its own name (Owen's words).
+  // One mech: its own name (the owner's words).
   c = company();
   r = mw1::settle_repairs(c, {{0, mw1::kPmOwens, 2500, false}}, 100000, 10, 100);
   pl = mw1::repair_line_choices(r);
@@ -312,7 +312,7 @@ TEST(mw1_repairs_settle_mission_pays_after_the_repairs) {
   EXPECT(m.s.pool == 0 && m.s.salvage == 0 && m.r.sum.covered == 0 && m.r.billed == m.r.sum.repairs && c.funds == before3 - m.r.paid);
 }
 
-// FIXES.md item 75 (Owen): a retreat counts as a loss does: no fee and no salvage, the repairs billed from the funds,
+// FIXES.md item 75 (the owner): a retreat counts as a loss does: no fee and no salvage, the repairs billed from the funds,
 // and a downed lancemate's 'Mech lost and its pilot KILLED (or MISSING).
 TEST(mw1_repairs_a_retreat_bills_repairs_and_settles_the_fates) {
   mw1::Rng rng(7);
@@ -345,7 +345,7 @@ TEST(mw1_repairs_a_retreat_bills_repairs_and_settles_the_fates) {
   }
 }
 
-// FIXES 98 (Owen: losses rare, a narrow win still a win). A win recovers every downed mech of the company's (billed as
+// FIXES 98 (the owner: losses rare, a narrow win still a win). A win recovers every downed mech of the company's (billed as
 // repairs, said "recovered"); one lost for good counts at its value; the mission's net (fee + salvage pay - repairs paid
 // - mechs lost) never under kWinFloorPercent of the payment, the House covering the rest; a clean win nets more. A
 // loss keeps today's rule (no floor).

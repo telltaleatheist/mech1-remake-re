@@ -1,7 +1,7 @@
 # The launcher and the first-start setup (ours; design, 2026-10-30)
 
 Not original code: the rebuild's own front door, so a player installs,
-starts and plays with no command lines (Owen, 2026-10-30). The design
+starts and plays with no command lines (2026-10-30). The design
 sketch's screens: `assets/launcher/` holds the art (with its prompts);
 the mockups were handed over in the outbox (launcher-sketch).
 
@@ -17,7 +17,7 @@ found or installed. The launcher below is its own program, `mw3launcher`
 
 1. SDL, the write dir, mw3.log (as now).
 2. The window, made once and kept for the game: fullscreen at the desktop
-   size, its 854x480 frame (16:9 since 2026-11-08, Owen: it opened 4:3)
+   size, its 854x480 frame (16:9 since 2026-11-08: it opened 4:3)
    fitted as the menus are (sdl_fit), letterboxed on a 4:3 screen.
 3. The install, quietly: mw3.cfg's `install=`, then the finder's places
    (`sdlfe::install_candidates`), each through `setup::check_install`.
@@ -25,7 +25,7 @@ found or installed. The launcher below is its own program, `mw3launcher`
 4. **The launcher screen** (mockup 1). Entries:
    - **MechWarrior 3**: "Ready, official: data 1.2, program v1.1.0, <folder>"
      (each game's data version and its program's, sitting 5 of Pirate's Moon
-     below). The label (Owen, 2026-11-10: shown, never blocking) is
+     below). The label (2026-11-10: shown, never blocking) is
      "official" when the data is a release's (MW3 1.0, 1.2, or 1.0 with the
      patch's files; PM 1.0) and the program a release build (a bare vX.Y.Z
      tag, PM's pm-vX.Y.Z), else "modified (data, program)" naming which
@@ -35,12 +35,12 @@ found or installed. The launcher below is its own program, `mw3launcher`
      here (until 2026-11-10 a note "2 mods on" was): a game started from the
      launcher is the original, and mods are played from its MODS screen,
      each campaign with its own (mods-campaigns-plan.md). Or "Not found yet:
-     click to find your game" (a click opens the find screen; v1.0, Owen
+     click to find your game" (a click opens the find screen; v1.0,
      2026-11-02: only then, the launcher always opens on the games). A
      folder too long for the plate is
      shortened from the middle by its drawn width ("Ready, official: data 1.2, ...: "
      kept, more of the folder's end; `fit_middle`, text_fit.cpp): a long
-     path ran past both sides on Owen's PC (lead, 2026-10-31).
+     path ran past both sides on the reference PC (lead, 2026-10-31).
      `launcher_long_path_fits_the_button`.
    - **Pirate's Moon**: greyed, "Coming later", while `mw3pm` is not beside
      the launcher; with it, "Ready: <folder>" or "Not found yet: click to find
@@ -49,7 +49,7 @@ found or installed. The launcher below is its own program, `mw3launcher`
      MechWarrior 1), in place of the MechWarrior (1989) entry.
    - **MechWarrior (1989)**: without `mw1`, only when the MW1 port is found
      beside ours (below).
-   - **Game files** (Owen, 2026-11-02, after the rework): the find screen
+   - **Game files** (2026-11-02, after the rework): the find screen
      at any time, to repick or refresh the game's files (below), and
      **Quit** (for fullscreen; Escape too).
 5. MechWarrior 3 chosen: the launcher's textures are freed and the start
@@ -57,9 +57,9 @@ found or installed. The launcher below is its own program, `mw3launcher`
    movies helper or import, `run()`), so the intro movie is the next
    thing seen.
 
-## The find screen and the notes (v1.0, Owen and the lead, 2026-11-02)
+## The find screen and the notes (v1.0, 2026-11-02)
 
-**BEFORE YOU PLAY is laid out by measure (2026-11-11, Owen's playtest W3).**
+**BEFORE YOU PLAY is laid out by measure (2026-11-11, the playtest W3).**
 The status line ("No disc in a drive. Pick its image ...") was drawn at a
 fixed row and landed on the last lines of a long note (a long settings
 folder in the music note; several notes at once). `Launcher::notes_layout`
@@ -70,7 +70,7 @@ wide (the panel is the frame's whole width there), then 13, 12 and 11 px at
 whenever ADD FROM MY DISC is there, so the notes do not change form when it
 speaks. The buttons keep their places (the frame's bottom edge is just
 under OK). Nothing is cut: if even the smallest form ran into the button
-the log would say "into the buttons". A plate's second line is drawn 8
+The log would say "into the buttons". A plate's second line is drawn 8
 below its middle and its name 11 above (the art's rule along the bottom ran
 through the letters of a 46-high plate; ADD FROM MY DISC is 52 high now),
 and ADD FROM MY DISC's own is shorter ("A disc in a drive, or its image or
@@ -93,7 +93,7 @@ folder; your disc and any installed copy are left untouched."
 
 | plate | shown | what it does |
 | --- | --- | --- |
-| Find the game | always (one option, Owen 2026-11-02) | the finder (mw3.cfg's, the installer's places, a folder dropped beside the program) and a disc in a drive (`find_discs`) first. Only `<write dir>/install` (SETUP's own copy) or mw3.cfg's is used at once; anything else found is offered, never taken (Owen, 2026-11-21: the player always chooses): "USE THESE GAME FILES?", one plate naming the find (clicking it opens the picker for other files), its summary, INSTALL / BACK. From GAME FILES the copy in use is no answer: the picker opens, "In use: ...". Choosing again without the launcher: Shift held while the game starts (`held_keys.h`: Windows' key state, the Mac's event flags, X11's keymap; a Wayland-only session has no answer, so `mw3 --setup` there) opens this screen with "In use: ... FIND THE GAME to choose other files, or PLAY to go on", PLAY in QUIT's place. Pirate's Moon the same (2026-11-21): a copy the search finds (not PM's own `<its settings>/install`) is offered on PIRATE'S MOON's click and copied into its settings folder's install; LauncherOptions::pm is mw3pm's own start (on the `pm` branch), the screen as Pirate's Moon's, its choice saved as its own mw3.cfg's install=. With neither, "Not found on this computer or in a disc drive. Pick it: a disc image, a download, or Mech3.exe." and one file picker opens (.iso .cue .bin .zip .7z .rar .., Mech3.exe, any file). `pick_source`: an image or archive is the source; any other file stands for its folder (Mech3.exe or any file of an installed copy, zbd\\ and video\\ up one; a disc's folder), a .bin for its .cue. Then `source::map_source` on the worker ("LOOKING AT YOUR GAME", its bar, CANCEL): anything found (an installed copy on disk too, since 2026-11-21: copied in, so the original may be deleted; only `<write dir>/install` itself is used where it is) INSTALL / BACK under its summary and `setup::install_from_source` into `<write dir>/install`, a cue's music into `<write dir>/music`. SDL3 has no file-or-folder dialog on the three systems (none on the Mac's panel either through SDL 3.4), so a folder is picked by one of its files |
+| Find the game | always (one option, 2026-11-02) | the finder (mw3.cfg's, the installer's places, a folder dropped beside the program) and a disc in a drive (`find_discs`) first. Only `<write dir>/install` (SETUP's own copy) or mw3.cfg's is used at once; anything else found is offered, never taken (2026-11-21: the player always chooses): "USE THESE GAME FILES?", one plate naming the find (clicking it opens the picker for other files), its summary, INSTALL / BACK. From GAME FILES the copy in use is no answer: the picker opens, "In use: ...". Choosing again without the launcher: Shift held while the game starts (`held_keys.h`: Windows' key state, the Mac's event flags, X11's keymap; a Wayland-only session has no answer, so `mw3 --setup` there) opens this screen with "In use: ... FIND THE GAME to choose other files, or PLAY to go on", PLAY in QUIT's place. Pirate's Moon the same (2026-11-21): a copy the search finds (not PM's own `<its settings>/install`) is offered on PIRATE'S MOON's click and copied into its settings folder's install; LauncherOptions::pm is mw3pm's own start (on the `pm` branch), the screen as Pirate's Moon's, its choice saved as its own mw3.cfg's install=. With neither, "Not found on this computer or in a disc drive. Pick it: a disc image, a download, or Mech3.exe." and one file picker opens (.iso .cue .bin .zip .7z .rar .., Mech3.exe, any file). `pick_source`: an image or archive is the source; any other file stands for its folder (Mech3.exe or any file of an installed copy, zbd\\ and video\\ up one; a disc's folder), a .bin for its .cue. Then `source::map_source` on the worker ("LOOKING AT YOUR GAME", its bar, CANCEL): anything found (an installed copy on disk too, since 2026-11-21: copied in, so the original may be deleted; only `<write dir>/install` itself is used where it is) INSTALL / BACK under its summary and `setup::install_from_source` into `<write dir>/install`, a cue's music into `<write dir>/music`. SDL3 has no file-or-folder dialog on the three systems (none on the Mac's panel either through SDL 3.4), so a folder is picked by one of its files |
 | Back | always | the games (QUIT on a plain mw3 start) |
 
 Once found or installed the game starts at once (`use_install`, `play`).
@@ -109,7 +109,7 @@ starts the game; Escape as OK). They say what is missing (launcher_notes:
 
 The game finds movies in the write dir before the install's (zutl::find),
 so the Indeo helper plays the added AVIs on Windows. Elsewhere the movies
-are converted in the launcher (Owen's first start, 2026-11-02, sat 44 s on
+are converted in the launcher (a first start, 2026-11-02, sat 44 s on
 "Starting MechWarrior 3..." while mw3 did it with only a status line): before
 the game starts, and right after ADD FROM MY DISC, any AVI of the install or
 the write dir without its .fmv goes through mw3import on the work screen
@@ -120,7 +120,7 @@ window) stays the fallback for a start without the launcher. None on Windows,
 nor with --no-import (passed on to the game) or MW3_NO_IMPORT; MW3_IMPORTER
 names a stand-in for the checks. `sdl_program_launcher_converts_the_movies_before_the_game`.
 
-The file picker (Owen: very slow to open on macOS 26): SDL shows NSOpenPanel
+The file picker (very slow to open on macOS 26): SDL shows NSOpenPanel
 as a sheet on the launcher's window, and the panel is another process that
 answers through the main run loop, which the launcher's vsync frame loop
 served once a frame. While a picker is up the launcher draws nothing and
@@ -168,7 +168,7 @@ archive install into `<write dir>/install` is built in `install.new` and
 swapped in only once complete (`swap_in_folder`: the old copy set aside as
 `install.old`, removed after the rename, put back if it fails), so a cancel
 or a failure leaves the old one working and no second copy stays. An installed
-copy picked is copied in over the launcher's own earlier copy (Owen,
+copy picked is copied in over the launcher's own earlier copy (
 2026-11-21: once found, the original may be deleted). An older mw3.cfg
 pointing at a copy elsewhere still works; re-picking moves it in.
 `sdl_program_launcher_game_files_repicks`.
@@ -221,7 +221,7 @@ filtered to .iso/.cue, .zip, or Mech3.exe.
   of ours).
 - Mouse, keyboard (arrows, Enter, Escape) and a pad's d-pad and A/B.
 
-## Pirate's Moon (2026-11-06, Owen and the lead)
+## Pirate's Moon (2026-11-06)
 
 `mw3pm` is found in the launcher's own folder (`own_dir`, as `mw3`: a bundle's
 Contents/MacOS, the AppImage's usr/bin; `MW3_PM_BIN` for checks), the final
@@ -240,8 +240,8 @@ music (the image's track 2) are later too.
 
 ### Pirate's Moon as MechWarrior 3 (plan, 2026-11-09; toward the combined 1.1.0)
 
-The lead, from Owen: the launcher does for Pirate's Moon everything it does for
-MechWarrior 3. Owen's rules for all of it: open and easy (players may replace
+The launcher does for Pirate's Moon everything it does for
+MechWarrior 3. the rules for all of it: open and easy (players may replace
 the games' programs or data; no integrity or hash refusals, no automatic
 repair: the launcher re-detects what is there, shows it, and explains plainly
 only what truly cannot run); nothing it does touches a player's mods, pilots,
@@ -317,9 +317,10 @@ single-game packages stay. One sitting each, each with its tests:
    **Done (2026-11-09):** GAME FILES opens on the game last clicked
    (`files_pm_`), and PIRATE'S MOON with none found opens its find screen
    as MECHWARRIOR 3 does (it asked for a folder before). On PM every screen
-   uses PM's own settings folder: "MicroProse/Pirate's Moon" beside MW3's
-   usual one, as SDL_GetPrefPath makes it for mw3pm (worked out here, not
-   created), or where its pointer leads.
+   uses PM's own settings folder: "BattleTech/Pirate's Moon" beside MW3's
+   usual one, as SDL_GetPrefPath makes it for mw3pm (a player's earlier
+   "MicroProse/Pirate's Moon" moved across once, program.md, The family
+   folder), or where its pointer leads.
    - FIND THE GAME searches as at the start (sitting 1, plus its own
      `install\`), then a disc in a drive, then the picker. A pick is
      installed into `<PM settings>\install`, its music into `music\`. An
@@ -386,9 +387,62 @@ folder): the code is UTF-8 throughout, but on Windows `fs::path` and `fopen` rea
 narrow strings in the ANSI code page and `fs::path::string()` writes them in it.
 MY DATA FOLDER refuses such a name; the install has no such guard.
 
-## The cards (layout C, Owen 2026-11-20)
+## The family cards (2026-11-22)
 
-The main screen as the mockup Owen picked on 2026-11-19 (layout C, "Cards";
+2026-11-22, from four mockups (the canvas "Launcher Families"): option
+A, "everything up front and center". One card a family, a tab a game in it:
+
+- **MECHWARRIOR 3**: MECHWARRIOR 3 | PIRATE'S MOON.
+- **MECHWARRIOR 1**: ORIGINAL (MechWarrior 1 Rebuild, mech1-re; Elthial's
+  port instead when a package carries it) | REMAKE (MechWarrior 1 Remake).
+- **INCEPTION**: ORIGINAL (Inception Rebuild, inception-re) | REMAKE
+  (Inception Remake, inception-remake-re).
+
+Originals on the left. The first tabs are MW3, MW1's REMAKE and Inception's
+ORIGINAL; the last pick is kept (`mw3.cfg` `tab_mw3=`, `tab_mw1=`,
+`tab_inception=`, the game's key). The badge follows the tab: MW3's, Pirate's
+Moon's, the remake's, and `badge_mw1o.png` for MW1's original (a pixel-art
+'Mech on green phosphor, `assets/launcher/README.md`); Inception has none
+yet (our own art only): a plain disc. Under the tabs, the selected game's
+status lines, then its button: PLAY (split with its UPDATE when one is
+ready), DOWNLOAD, or COMING SOON. A tab whose game has an update carries a
+small mark.
+
+**COMING SOON by itself** ("as soon as the releases are on the github,
+it switches to play"): every game is asked of its repo's releases. A repo with
+no release (`GameCheck::kNoRelease`) greys that game's button as COMING SOON;
+once a release is out the same launcher shows DOWNLOAD, then PLAY. The repos
+are public with no release until it is approved (MW1 Rebuild and Inception
+Rebuild; Inception Remake's repo stays untouched until Inception is done). A
+card whose games are all COMING SOON or COMING LATER is greyed.
+
+MW1 Rebuild and Inception's two are on the setup kit's contract (below): the
+launcher reads their `--status` at the start and after each run or install
+(its state and note on the card) and PLAY starts them plain; their own setup
+screen opens when their game files are missing. Their names: `mw1r`
+(`mw1r-v`, `MW1-Rebuild-*`), `chi` (`chi-v`, `CHI-Rebuild-*`), `chirm`
+(`chirm-v`, `CHI-Remake-*`); `MW3_MW1R_BIN`, `MW3_CHI_BIN`, `MW3_CHIRM_BIN`
+for the checks.
+
+The log names each card's button by its game, the tabs after the bottom row
+(so the pad and the keys reach PLAY first): "screen main: MECHWARRIOR 3,
+MECHWARRIOR 1, INCEPTION ORIGINAL, GAME FILES, UPDATES, ADD FROM FILE,
+QUIT, MECHWARRIOR 3 TAB, PIRATE'S MOON TAB, MECHWARRIOR 1 ORIGINAL TAB,
+MECHWARRIOR 1 REMAKE TAB, INCEPTION ORIGINAL TAB, INCEPTION REMAKE TAB". Every
+game's entry line is logged once whichever tab shows, plus "entry INCEPTION
+ORIGINAL:" and "entry INCEPTION REMAKE:".
+
+The header says BATTLETECH (2026-11-22: the family's launcher), on the cards
+and on the launcher's own screens, the window is "BattleTech", and the corner's
+version reads "BattleTech launcher <v>" (was "MechWarrior 3 Rebuild <v>"); title.png's
+"MW3 REBUILD" is no longer drawn. A game's setup screen keeps its game's name.
+
+The section below is the card layout before the families (one card a game);
+its panel, badges, square buttons and bottom row are unchanged.
+
+## The cards (layout C, 2026-11-20)
+
+The main screen as the mockup picked on 2026-11-19 (layout C, "Cards";
 its source in claude-files/keep/mw3-rebuild/launcher-mockup-2026-11-19):
 the 1280x720 mockup at two thirds on the 854x480 canvas.
 
@@ -409,8 +463,8 @@ the 1280x720 mockup at two thirds on the 854x480 canvas.
   is missing short ("Remake needs MW3 and Pirate's Moon"; the whole sentence,
   with GAME FILES, cut in the middle on a fresh install: MW1 dev 2's 1.2.0
   pass); the status line and the log keep the whole sentence.
-- The original is cut for now (Owen, 2026-11-20: he doesn't like how
-  Elthial's port runs; MW1 original may come out with Crescent Hawk's
+- The original is cut for now (2026-11-20: Elthial's port does not
+  run well enough yet; MW1 original may come out with Crescent Hawk's
   Inception). PLAY ORIGINAL is greyed, "COMING LATER", with "Original: coming
   later" on the card. The port is looked for only at `MW3_MW1_PORT` (the
   checks), so its start below stays tested; the packaging is opt-in
@@ -454,7 +508,7 @@ folder>" ("Ready, mw1-v1.0.0: <MW1 folder>" when its file holds a version, read
 as mw3pm's is, from a `mw1-vX.Y.Z` tag on branch mw1; also on the log's
 programs line), "Not found yet: click to find your MechWarrior (1989)", or "Not ready:
 needs MechWarrior 3 and/or Pirate's Moon: find them (or it) in GAME FILES", greyed
-until both games are there (Owen, 2026-11-16: an icon follows what is loaded);
+until both games are there (2026-11-16: an icon follows what is loaded);
 then a click picks the MW1 folder or starts it. Started as `mw1 --install <PM>
 --mw3-install <MW3> --mw1-game <MW1> --no-launcher` plus this start's choices
 (`--windowed`, `--window`, `--nosound`, `--hidden`, `--no-import`), the
@@ -468,7 +522,7 @@ arguments given, and the line when MW3 is not known);
 
 ### MechWarrior 1's files (2026-11-20)
 
-Taken the way MW3's and Pirate's Moon's are (Owen, 2026-11-20: "it accepts
+Taken the way MW3's and Pirate's Moon's are (2026-11-20: "it accepts
 the mw1 files just like mw3 and pm do"), in `frontend/sdl/mw1_files` (ours):
 
 - **At start**, `mw1_game=` while it still holds `BTECH.EXE`; else the usual
@@ -566,7 +620,7 @@ Built 2026-10-31;
 
 The launcher had a MODS button and screen (the list, on and off, UP and
 DOWN, IMPORT, EXPORT, ADD FOLDER, MODS FOLDER, CHECK and a mod's report,
-on the game last clicked). Removed (Owen, 2026-11-10: "we don't need it
+on the game last clicked). Removed (2026-11-10: "we don't need it
 there anymore... if we're doing mods directly in the games"): each game's
 own MODS screen does all of it, and more (REPORT, TEST, custom campaigns,
 the editor; docs/modding.md). The shared code those screens use
@@ -581,7 +635,7 @@ count said nothing true.
 `mw3_main.cpp` for a player's plain start (not `--hidden`, `--frames`,
 `--shot`, a chain, `--mission`/`--fly`, `--movie`, `--dialog`, `-nofmv`, a
 named install or `--install-from`/`--patch`; `--no-launcher` skips it):
-- Its own SDL_Renderer window, always windowed since 1.2.0 (Owen, 2026-11-20: on the Mac a fullscreen launcher is a
+- Its own SDL_Renderer window, always windowed since 1.2.0 (2026-11-20: on the Mac a fullscreen launcher is a
   fullscreen game to macOS, its bundle in the games category, so Game Mode came on and slowed every other process,
   the file picker's among them: 7-12 s to open, about 1 s windowed; gamepolicyd's log showed Game Mode on exactly
   while the picker loaded). The games still go fullscreen.
@@ -613,7 +667,7 @@ named install or `--install-from`/`--patch`; `--no-launcher` skips it):
   an Arch player with none of the fixed paths got empty buttons), else a
   condensed system face (Bahnschrift on Windows, DIN Condensed on the Mac,
   docs/linux.md on Linux). A placeholder, as is the title art's "MW3 REBUILD".
-- The games are round badges (2026-10-31, Owen: the ripple is a circle's):
+- The games are round badges (2026-10-31: the ripple is a circle's):
   `badge_mw3.png`, `badge_pm.png`, `badge_mw1.png` (assets/launcher, ours,
   their prompts in its README), each with its name and line beside it,
   the ripple from the badge's centre.
@@ -624,18 +678,18 @@ named install or `--install-from`/`--patch`; `--no-launcher` skips it):
   and measured alike, in the launcher's one text path (`Text::shown`,
   `widen_spaces` in text_fit.h); the gap after "3" goes from 2 pixels to 4
   (the font's own "a g" is 3). `launcher_narrow_spaces_widen`.
-- Only the round badges ripple (2026-11-02, Owen after the PC's fresh
+- Only the round badges ripple (2026-11-02, after the PC's fresh
   install: the ripple belongs to a circle, as in the original's menus). A
   square plate hovered is brightened and lights its edge in the frame's
   amber (a line, a softer one inside); the rollover sound as before. The
   shot logs what the hovered entry drew (`hover <label>: ripple|edge`),
   and `sdl_program_launcher_screens` checks it on each screen with the
   edge's pixel.
-- The ripple is the main menu's own (Owen: "much slower than the original
+- The ripple is the main menu's own ("much slower than the original
   ripple"): `mech3::menu_ripple_step` (menu_ripple.h), the one SlideButton
   runs (0x00485650): from 20 pixels, 120 a second, the amplitude 7 less 0.3
   a 30 fps frame; drawn by 0x00558dd0. `launcher_ripple_matches_the_main_menus`.
-- Paced by vsync (else a precise sleep to 60 a second). Timed on Owen's PC
+- Paced by vsync (else a precise sleep to 60 a second). Timed on the reference PC
   (2026-10-31): the first frame drawn 306 ms after the start (art 86 ms,
   the install search 197 ms), shown in a window at 339 ms; 55.9 frames a
   second with vsync, 54.8 with the sleep, the draw 2.6 ms (direct3d11). The
@@ -679,7 +733,7 @@ anything is opened or made (2026-11-11: a package check wants all three programs
   launcher)" in the Start menu starts mw3.exe. Mac: "MechWarrior 3.app"'s
   own executable (CFBundleExecutable), mw3 beside it in Contents/MacOS.
   Linux: the AppImage's entry (mw3.desktop's Exec, its Name "MechWarrior
-  3"). The installed names are the game's (Owen, 2026-11-01); the release
+  3"). The installed names are the game's (2026-11-01); the release
   files keep MW3-Rebuild-... (release.md).
   Each package script checks both programs are in it.
 - MECHWARRIOR 3 starts `mw3` beside it (its own folder: `_NSGetExecutablePath`,
@@ -691,7 +745,7 @@ anything is opened or made (2026-11-11: a package check wants all three programs
   launcher stays on screen ("Starting MechWarrior 3...", input ignored)
   until the game writes F at its first frame with a swapchain image
   (`sdlfe::mark_ready`, sdl_render3d.cpp), so the switch shows no empty
-  moment, then **closes**, the game running on alone (Owen, 2026-11-01;
+  moment, then **closes**, the game running on alone (2026-11-01;
   until then it hid and came back when the game ended). A failed start
   leaves it up: a game that exits first has its exit code on the status
   line; no first frame in 20 s says so on the status line ("has not shown
@@ -703,7 +757,7 @@ anything is opened or made (2026-11-11: a package check wants all three programs
   "Importing your movies (first start only)..." with the count when the
   importer gives one, then "Starting MechWarrior 3..."; removed at the first
   frame). The launcher reads it four times a second and shows it on its
-  status line in place of the 20 s "not shown a picture yet" (Owen,
+  status line in place of the 20 s "not shown a picture yet" (
   2026-11-02: a first start sat a minute on "Starting MechWarrior 3...").
   Test: `sdl_program_launcher_shows_the_games_status`.
   Tests: `sdl_program_launcher_starts_mw3_as_its_own_program` (the
@@ -752,11 +806,11 @@ once mw3pm answers it too.
 
 ## Open
 
-- The working title ("MW3 REBUILD" on the title art) and the font: Owen's.
+- The working title ("MW3 REBUILD" on the title art) and the font: ours.
 - The calls are Mw3 dev's `mech3::setup` (game_setup.h, mac4/setup-api).
 - Once the GUI-subsystem build lands, mw3.log is the only console.
 
-## Updates (planned 2026-11-10; Owen 2026-11-09, no signing)
+## Updates (planned 2026-11-10; 2026-11-09, no signing)
 
 CHECK FOR UPDATES in the launcher, the same flow on all three platforms, never
 the settings folders (MW3's, PM's, or where their pointers lead): only the
@@ -765,7 +819,7 @@ program files are replaced.
 1. **Check**: GitHub's releases lists of both homes of the package
    (`api.github.com/repos/telltaleatheist/mw3-re/releases`, the hub every
    copy up to 1.2.1 asks, and `.../mech3-re/releases`, MechWarrior 3's own
-   repo after the split; Owen 2026-11-21), merged (one not answering is
+   repo after the split; 2026-11-21), merged (one not answering is
    fine; the check fails only when neither does), the highest
    bare `vX.Y.Z` tag of the releases that are neither drafts nor
    prereleases (`pm-v*` game releases and anything else left out; lead
@@ -778,7 +832,7 @@ program files are replaced.
    needed (`tag_name`, `draft`, `prerelease`, `body`, `assets[].name`,
    `assets[].browser_download_url`). The individual games' downloads may sit
    on the same release as extra assets: only the platform's package asset is
-   taken. Since 2026-11-21 (Owen: each game released on its own repo, its
+   taken. Since 2026-11-21 (each game released on its own repo, its
    builds bundled into the launcher's package on mw3-re) a release counts
    only when it holds this platform's bundle (`MW3-Rebuild-...`), so a
    game's own release on mech3-re (MW3-alone downloads) is never the update;
@@ -801,16 +855,38 @@ program files are replaced.
    counts as its release), `update_says_what_it_found`,
    `sdl_update_fetch_by_curl`, `sdl_program_launcher_checks_for_updates`.
    Breaks: drafts kept, rc tags taken: each caught.
+   **At every start (2026-11-23: so new games, features or a reworked
+   look reach players):** the same check runs quietly on a thread of its own
+   (`start_self_check`, collected each frame by `take_self_check`), both
+   repos in both homes as UPDATES asks them. The main screen never waits on
+   it and it never prompts. A newer release shows an amber button, UPDATE
+   AVAILABLE <v> (`kSelfUpdate`), in the header's top right beside the mark
+   (2026-11-23, as Discord's and Chrome's; it was the footer's version
+   turned into a button, too small to see), after QUIT in the keys' and the
+   pad's order; the footer keeps the version. Pressing it opens the same UPDATE screen as UPDATES (notes,
+   UPDATE, BACK). Nothing is downloaded or installed until
+   the player presses UPDATE there. The same version, an older
+   one or a failed check show no button; the verdict goes to the
+   log only ("update check at the start: ..."). A check run (`--hidden`, or
+   a `--launcher-shot`) without `MW3_UPDATE_API` asks nothing, so tests never
+   reach GitHub or git.owenmorgan.com; a shot with it asks before drawing.
+   `MW3_LAUNCHER_NAV_LATE=1` (checks) runs `MW3_LAUNCHER_NAV`'s steps once
+   that check has answered. Test:
+   `sdl_program_launcher_offers_its_own_update_at_start` (newer: the footer
+   line, the button in the main screen's list after QUIT, reached by the keys,
+   never opening anything by itself, pressed: the UPDATE screen and its notes,
+   nothing downloaded; the same version and a failed check: the footer kept,
+   the verdict in the log; a hidden run: nothing asked).
 2. **The notes and the question**: an UPDATE screen with the release's notes
    (its body, wrapped and paged, the markdown's `#` and `-` shown plainly),
-   "Download and install MechWarrior 3 Rebuild 1.2.0?", DOWNLOAD AND
-   INSTALL and NOT NOW. Tests: the screen's text from a fixture release.
+   "Update the launcher to 1.2.0?" (was "Download and install MechWarrior 3 Rebuild 1.2.0?"), UPDATE and BACK
+   (2026-11-23: two buttons, no paging arrows; long notes scroll with the wheel). Tests: the screen's text from a fixture release.
    **Done (2026-11-10):** a newer release opens the UPDATE screen
-   (`Launcher::show_update`): "MECHWARRIOR 3 REBUILD 1.2.0", its notes as
+   (`Launcher::show_update`): "BATTLETECH LAUNCHER 1.2.0", its notes as
    plain lines (`upgrades::update::notes_lines`: headings without #, items as
    bullets, **, * and ` marks dropped, links as their text) wrapped to 500 px
    and paged with < and >, the question with "Your mods, pilots, saves and
-   settings are kept.", DOWNLOAD AND INSTALL (sitting 3) and NOT NOW. Same or
+   settings are kept.", UPDATE (sitting 3) and BACK. Same or
    older: the main screen's status line, as sitting 1. `--launcher-screen
    update` shoots it (with `MW3_UPDATE_API`). Tests:
    `update_notes_as_plain_lines`, `sdl_program_launcher_checks_for_updates`
@@ -829,7 +905,7 @@ program files are replaced.
    complete; no total limit, a minute without data ends it; the bar from the
    file's size against the asset's; CANCEL kills curl and removes the part),
    `download_update` (SHA256SUMS first, then the package, hashed by
-   `mech3::sha256_file_hex` a megabyte at a time). DOWNLOAD AND INSTALL runs it
+   `mech3::sha256_file_hex` a megabyte at a time). UPDATE runs it
    on the worker into `<temp>/MW3-Rebuild-update` (never a settings folder);
    every failure removes the file and says why ("did not match its checksum,
    so nothing was installed", "has no SHA256SUMS", "has no line for ...",
@@ -849,7 +925,7 @@ program files are replaced.
    renamed over it). Then the new launcher is started and this one quits.
    Tests: the Mac and Linux swaps on scratch copies (a bundle, an AppImage
    file), a failure part way leaving the old program working; Windows
-   compile-checked with the mingw build and played on Owen's PC.
+   compile-checked with the mingw build and played on the reference PC.
    **Done (2026-11-10):** `upgrades::update::swap_in` (copied beside the old as
    .new, the old moved aside as .old, the new renamed in, the old removed last;
    any failure puts the old back; an earlier try's .new/.old cleared) and
@@ -871,8 +947,46 @@ program files are replaced.
    launcher refuses to replace itself). Breaks: any target taken, not
    detached: each caught. Windows' branch compile-checked with mingw; Linux's
    is not compiled on this Mac (its package build is the first), and the
-   Windows Setup run waits for Owen's PC.
-5. **Owen's hard rule, checked**: the upgrade test (`sdl_program_package_upgrade_keeps_the_players_files`)
+   Windows Setup run waits for the reference PC.
+   **Windows, run for real (owens-pc, 2026-11-23):** two launcher-only
+   packages from package.cmd: the old one from main 09da080e, the new one
+   from pc/launcher-self-update tagged v1.3.99 for the run (a local tag,
+   deleted after). Both Setups were built from a test-only variant of
+   installer.iss: another AppId and name ("BattleTech upgrade test"),
+   `PrivilegesRequired=lowest`, a scratch install folder, the
+   `MechWarrior 3.lnk` deletes and the desktop icon left out. The PC's own
+   per-machine 1.2.0 install, under the real AppId, would otherwise have been
+   the one upgraded. User folders: fake BattleTech ones, the real MicroProse
+   folder renamed aside and back. The run:
+   - the old Setup installed;
+   - the old launcher started with `MW3_UPDATE_API` at a `file://` list
+     naming the new Setup and its SHA256SUMS;
+   - UPDATES, then the UPDATE screen with the notes;
+   - UPDATE: "Downloaded and checked", the new Setup started
+     and the old launcher quit;
+   - the normal wizard (licence, the folder page offering the installed
+     folder, tasks, Ready, Install);
+   - Finish with the Launch box ticked by default.
+
+   Result:
+   - the new launcher opened by itself from the same folder, its corner
+     "BattleTech launcher 1.3.99-dirty", its start check saying it is the
+     newest;
+   - one uninstall entry, now v1.3.99, with the same `unins000`: upgraded in
+     place;
+   - every user file's SHA-256 the same before UPDATE and
+     after the new launcher was up (8 files: mw3.cfg, a pilot, a save, PM's
+     mw3.cfg and pilot, rebuild-games.txt, names-utf8.done; the log is
+     rewritten by each start);
+   - The real install untouched (still v1.2.0).
+
+   Not covered: the admin (UAC) path with the real AppId over an existing
+   per-machine install; that needs someone at the PC. Found on the way and
+   fixed: since the two homes, every Windows package built on this PC failed
+   `check_dist.ps1`, because the user name was inside git.owenmorgan.com's
+   API address. It and `tools/deps/check_paths.py` now allow the backup's
+   addresses, as they allow GitHub's.
+5. **the hard rule, checked**: the upgrade test (`sdl_program_package_upgrade_keeps_the_players_files`)
    run through the updater's own swap, the settings folders unchanged by
    hash.
    **Done (2026-11-10):** the test's new program folder is built beside and
@@ -882,11 +996,58 @@ program files are replaced.
    (the new copy never put in: the old programs started again): caught. The
    Mac's own install (`sdl_update_installs_the_mac_app`) checks the settings
    folder beside the app the same way. Left for the release: the Windows
-   Setup's upgrade over 1.0.x on Owen's PC (release.md, Windows).
+   Setup's upgrade over 1.0.x on the reference PC (release.md, Windows).
 
-## Games on demand (Owen, 2026-11-22)
+## Two homes for every release (2026-11-22)
 
-Owen: "make the launcher download the games when the player wants to play
+Every family repo and its releases (with `SHA256SUMS`) are copied from GitHub
+to a read-only Forgejo at `git.owenmorgan.com`, under the same paths
+(`git.owenmorgan.com/telltaleatheist/<repo>`). The launcher reads both, so it keeps working if one is forgotten
+or GitHub goes away.
+
+- **The lists.** Each repo is asked in both homes, git.owenmorgan.com first
+  (`https://git.owenmorgan.com/api/v1/repos/telltaleatheist/<repo>/releases?limit=40`:
+  Forgejo takes `limit`, not `per_page`), then GitHub. Forgejo's JSON has
+  the same fields `parse_releases` reads (`tag_name`, `body`, `draft`,
+  `prerelease`, `assets[name, browser_download_url, size]`). The update
+  check asks mw3-re and mech3-re in both homes, four lists in all
+  (`check_for_updates`); a game's card asks its repo in both
+  (`games::check`). `sdlfe::release_lists` builds them; `ask_lists` asks
+  them in turn.
+- **The judging.** Every list that reads counts, and the newest release on
+  any of them wins (`upgrades::update::read_homes`, then `judge` or
+  `judge_game` over all of them). One home down or unreadable is fine; the
+  check fails only when no list reads, saying the first one's reason.
+- **The download.** A release in both homes is downloaded from GitHub
+  first; the other home carries only what GitHub can't. `with_homes` builds the chosen release from the
+  GitHub copy (an `Answer` marked `download_first`) and keeps the other
+  home's assets as `Release::other_homes`. `sdlfe::download_checked`
+  (used by the updater's `download_update` and the games'
+  `install_release`) tries each home in turn when the one before fails:
+  its file gone or cut short, or not its checksum. A newest release on only
+  one home downloads from that home. Each home's file is checked against
+  that home's `SHA256SUMS` line. A home without one (no `SHA256SUMS`, it
+  could not be fetched, or no line for the file) uses the other homes'
+  line when they agree, and nothing when they disagree. A cancel never
+  tries the other home. The log names the home that failed and the one
+  that served the file.
+- **Checks.** `MW3_UPDATE_API` and `MW3_GAMES_API` name one list (taken as
+  GitHub's) or two as `BACKUP|GITHUB` (`{repo}` in each for the games).
+  Tests: `update_reads_both_homes` and `games_read_both_homes` (the same
+  release in both: GitHub's file with the backup's behind it, in either
+  order; newest on GitHub only; newest on the backup only; either home
+  down; both down; a home without the platform's file; a draft is no
+  copy), `sdl_release_lists_both_homes` (the URLs, and both forms of the
+  variables), `sdl_update_download_falls_back_to_the_backup` (GitHub's
+  file gone, GitHub's file damaged, GitHub without `SHA256SUMS` checked
+  against the backup's line, no line anywhere, both gone, a cancel), and
+  `sdl_program_launcher_checks_for_updates` (the launcher with two lists:
+  newest on GitHub only, on the backup only, GitHub down, the backup
+  down, both failing).
+
+## Games on demand (2026-11-22)
+
+"Make the launcher download the games when the player wants to play
 them, with an update button", like StarCraft 2's launcher; players choose to
 update; each game can still be downloaded and played on its own. So since
 1.3.0 the combined package (`MW3-Rebuild-...`, the one the updater takes) is
@@ -899,8 +1060,30 @@ release.
   saying "Asking GitHub..." meanwhile. The newest release whose tag is the
   game's own (`vX.Y.Z`, `pm-vX.Y.Z`, `mw1-vX.Y.Z`), not a draft or a
   prerelease, with this platform's file, is the answer
-  (`upgrades::update::newest_game`). A check run (`--hidden`) asks only
-  `MW3_GAMES_API` (a URL with `{repo}`, `file://` allowed), never GitHub.
+  (`upgrades::update::newest_game`). A check run (`--hidden`, or a
+  `--launcher-shot` since 2026-11-23) asks only `MW3_GAMES_API` (a URL with
+  `{repo}`, `file://` allowed), never GitHub or git.owenmorgan.com; without
+  it the log says "games: not asked in a check run" and the cards show what
+  they show with no answer ("Can't reach the server").
+  **A quit never waits on the network (lead, 2026-11-23).** Both start checks
+  run on threads that the launcher joins as it closes. A home that hangs
+  would have held the quit for the curl limits: up to 4 lists × 20 s for its
+  own update, 6 games × 2 homes × 15 s for the games. Now `~Launcher` calls
+  `sdlfe::stop_asking()` first. Any curl running is killed at once, a
+  download too, and any later `curl_get` fails at once ("the launcher is
+  closing"), so the threads end and join in moments. Nothing is detached,
+  so no thread outlives the process's own teardown. Test:
+  `sdl_program_launcher_quits_without_waiting_on_the_network` (both checks
+  stuck on a FIFO list nobody writes: the quit took 1.1 s; with
+  `stop_asking` a no-op it took over 60 s and failed).
+  **The launcher-only package carries no FFmpeg.** The launcher loads none of
+  it: the movies' import runs an installed MechWarrior 3's own `mw3import`,
+  from that game's folder with its own DLLs. Until 2026-11-23 `package.cmd`'s
+  `for` loop matched `av*.dll`/`sw*.dll` in the current folder, not the
+  package's, so they shipped anyway. It now deletes them from the package,
+  and `check_dist.ps1 -LauncherOnly` fails a package that has them. The
+  installer's LauncherOnly delete of `{app}\av*.dll` and `sw*.dll` stays: it
+  clears an earlier package's copies on an upgrade.
 - **The files** (`game_asset_name`): Windows takes the zip, never the Setup
   (`MW3-alone-<v>-win64.zip`, `mw3pm-<pm v>-win64.zip`,
   `MW1-Remake-<mw1 v>-win64.zip`); the Mac the disk image (`MW3-alone-`,
@@ -908,15 +1091,21 @@ release.
   copied out); Linux the AppImage (unpacked with its own
   `--appimage-extract`, no FUSE needed). Each is checked against its
   release's `SHA256SUMS` line; nothing is installed without one.
-- **The card.** A game not installed shows INSTALL (with the version and the
+- **The card.** A game not installed shows DOWNLOAD (2026-11-23: no "install" on the launcher's own buttons; was INSTALL) (with the version and the
   download's size) where PLAY goes; offline it says it can't reach the
-  server and points to INSTALL FROM FILE. An installed game with a newer
-  release shows UPDATE TO x.y.z above PLAY (on MW1's card in place of the
-  greyed PLAY ORIGINAL). Nothing installs until the player presses one.
+  server and points to ADD FROM FILE. An installed game with a newer
+  release splits its PLAY button (2026-11-22: "the main button can
+  be play, and there can be a divider on the end"): PLAY, a short divider,
+  and at its end a download arrow over the version, which is that game's
+  UPDATE (its own button for clicks, focus and the checks, logged as
+  "<GAME> UPDATE"). Since the family cards each tab's game splits its own
+  button the same way. Nothing installs until the player presses one.
 - **Where.** The launcher's own games folder, per user and writable without
-  rights: `%LOCALAPPDATA%\MicroProse\BattleTech\games`,
-  `~/Library/Application Support/MicroProse/BattleTech/games`,
-  `~/.local/share/MicroProse/BattleTech/games` (`$XDG_DATA_HOME`). One
+  rights: `%LOCALAPPDATA%\BattleTech\games`,
+  `~/Library/Application Support/BattleTech/games`,
+  `~/.local/share/BattleTech/games` (`$XDG_DATA_HOME`); up to 1.3.1 under
+  `MicroProse/BattleTech`, moved across once (program.md, The family
+  folder). One
   folder a game (`mw3`, `pm`, `mw1`), each with `rebuild-game.txt` (game,
   tag, file, its SHA-256, github or file). The games folder carries
   `rebuild-games.txt`; a folder is unpacked into `.incoming` (marked) and
@@ -933,10 +1122,10 @@ release.
   launcher alone removes an earlier package's game programs from its folder
   (installer.iss, `LauncherOnly`), so an update from 1.2.4 does not keep
   starting old copies; the Mac app and the AppImage are replaced whole.
-- **INSTALL FROM FILE** (bottom row, always there): a game's download from
+- **ADD FROM FILE** (bottom row, always there): a game's download from
   anywhere (a modder's build, no internet). A `SHA256SUMS` beside it is
   checked: a match installs, a mismatch is refused; without one the player
-  is told it can't be checked and asked (INSTALL ANYWAY). Which game it is
+  is told it can't be checked and asked (ADD ANYWAY). Which game it is
   comes from the program inside it; the full package (more than one game) is
   refused.
 - **Started from there.** An installed game runs from its own folder, so the
@@ -947,18 +1136,18 @@ release.
   the record, a card's verdict; tests `games_*` in `test_update.cpp`),
   `src/frontend/sdl/sdl_games.{h,cpp}` (the folder, check, download,
   unpacking, swap). Checks: `MW3_GAMES_DIR`, `MW3_GAMES_API`,
-  `MW3_LAUNCHER_GAME_INSTALL=<mw3|pm|mw1>` (INSTALL or UPDATE pressed once
+  `MW3_LAUNCHER_GAME_INSTALL=<mw3|pm|mw1>` (DOWNLOAD or UPDATE pressed once
   the answer is in), `MW3_LAUNCHER_INSTALL_FILE=1` with
   `MW3_LAUNCHER_PICKER=path:<file>`, `MW3_LAUNCHER_INSTALL_ANYWAY=1`.
 
-## Where a game goes (Owen, 2026-11-22)
+## Where a game goes (2026-11-22)
 
-Owen: "everything can be installed in the same location the user picks", and
+"Everything can be installed in the same location the user picks", and
 the saves "should probably stay in the normal user folder, for modding
 purposes". So each game has a folder of its own that the player picks, holding
 its program and its game files; pilots, saves, settings and mods stay in the
 user folder (the write dir). Its music and converted movies go there too
-(Owen: "we can have it look inside the game folder for movies and music"):
+("we can have it look inside the game folder for movies and music"):
 `sdlfe::media_dir(install, write_dir)` is the folder above the install when it
 carries the game's mark, else the user folder as before; the game mounts it
 after the install (`music/`, `video/*.fmv`), and the conversions (the
@@ -967,18 +1156,18 @@ install's music write there. A rip the player put in the user folder's
 `music` still counts. Moving an install into a game's folder later converts
 the movies again, once, there.
 
-- **A card's first INSTALL** asks where (confirm 7: INSTALL, CHANGE FOLDER,
+- **A card's first DOWNLOAD** asks where (confirm 7: DOWNLOAD, CHANGE FOLDER,
   BACK), the default being the games folder above. The program goes under
   the picked folder as under the games folder (`<folder>/<key>`), and the
   folder is kept in mw3.cfg as `games_<key>=` (mw3, pm, mw1), read at every
   start (in a game's own setup too). UPDATE goes where the game is, unasked.
-  INSTALL FROM FILE still installs into the games folder and forgets a picked
+  ADD FROM FILE still installs into the games folder and forgets a picked
   one (its unpacking is staged inside the games folder, and a rename does not
   cross drives).
 - **"Use these game files?"** has CHANGE FOLDER beside INSTALL, in the
   launcher and in each game's own setup (`mw3 --setup`, `mw3pm`). The game
   files go into `<folder>/install` (mw3.cfg `install=`, `pm_install=` as
-  before), the default being the folder its card's INSTALL picked, else the
+  before), the default being the folder its card's DOWNLOAD picked, else the
   user folder's `install`. The line under the find says where, fitted to one
   line.
 - **Whose folder.** A picked folder is the game's when it is empty or carries
@@ -993,7 +1182,7 @@ the movies again, once, there.
 - **The headers.** Each setup screen names the game it sets up, with its badge
   (`kHeaderNames`: MECHWARRIOR 3, MECHWARRIOR 3: PIRATE'S MOON, MECHWARRIOR 1
   REMAKE, MECHWARRIOR 1 for the 1989 game's PLAY ORIGINAL), never the
-  launcher's title (Owen: the kit is game-agnostic); the metal bands stay. The
+  launcher's title (the kit is game-agnostic); the metal bands stay. The
   cards, the launcher's own update and a checked download keep the launcher's.
   Logged as `header <title>`.
 

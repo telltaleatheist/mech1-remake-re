@@ -66,7 +66,7 @@ int32_t mech_of(const Company& c, int32_t lancemate);  // the hangar index of th
 // their own, a lancemate (their id) or nobody (-1, a spare) a hangar one's.
 inline constexpr int32_t kNobody = -1, kCommander = 0;
 int32_t pilot_now(const Company& c, int32_t owned);
-// FIXES 69 (Owen: assignment in the mech lab, MW3's way): the lab's lance, one slot per pilot, slot 0 the
+// FIXES 69 (the owner: assignment in the mech lab, MW3's way): the lab's lance, one slot per pilot, slot 0 the
 // commander's, slot k lance[k - 1]'s; each the owned mech in it (0 the commander's, then the hangar's from 1), -1 none.
 std::vector<int32_t> lance_slots(const Company& c);
 // The owned mech of chassis `mech` a slot can take: the first, in owned order, in none of `slots`; -1 none.
@@ -86,7 +86,7 @@ std::vector<Seated> seat_lancemates(Company& c);
 
 // The status line after a seat (FIXES.md item 92): who took which, and that the Mech Lab changes it, in the status
 // line's room at 4:3 (kStatusLetters, mw1_chrome.h). `hired`: the hire's note ("X joins in the Y ..."), else the
-// buy's ("X takes the Y ..."). Nobody seated: "". Owen's words when they fit, else shorter ones that do.
+// buy's ("X takes the Y ..."). Nobody seated: "". The owner's words when they fit, else shorter ones that do.
 std::string seated_note(const Company& c, const std::vector<Seated>& seated, bool hired);
 
 // Wages (DS:2476, by the wage tier) a month. Charged as the calendar's months begin (advance_time): the company
@@ -103,7 +103,7 @@ inline constexpr int32_t kPromotionMissions[3] = {3, 10, 15};
 // of the player's side) ran out before them. They didn't fly: no mission counted, never a casualty. Every shipped
 // Instant Action map has at least three (research/pilots.md), so only a mod's map leaves anyone behind.
 std::vector<int32_t> stayed_behind(const std::vector<int32_t>& deployed, const std::vector<LanceFate>& launched);
-// The losses (FIXES 98, Owen: rare, as in MW1; FIXES.md item 32's MISSING kept, rarer). As the mission ends, once
+// The losses (FIXES 98, the owner: rare, as in MW1; FIXES.md item 32's MISSING kept, rarer). As the mission ends, once
 // (so AFTER ACTION, its settlement and a save and reload all agree):
 // - each company mech that went down (`bills`, the commander's too): on a win recovered, its repairs billed as usual,
 //   unless lost for good by kMechLostPercent in 100; on a loss or a retreat lost (FIXES.md item 75);

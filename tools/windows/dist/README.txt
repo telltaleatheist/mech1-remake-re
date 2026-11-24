@@ -139,13 +139,13 @@ Saves, settings and the log
 ---------------------------
 Everything the game writes goes to:
 
-    %APPDATA%\MicroProse\MechWarrior 3\
+    %APPDATA%\BattleTech\MechWarrior 3\
 
 (paste that into Explorer's address bar). It holds mw3.cfg (the install
 folder, windowed=), your pilots and saves, the settings, the converted
 movies (video\) and music (music\), your mods (mods\) and mw3.log.
 Pirate's Moon keeps its own beside it, in
-%APPDATA%\MicroProse\Pirate's Moon\. Uninstalling the rebuild keeps
+%APPDATA%\BattleTech\Pirate's Moon\. Uninstalling the rebuild keeps
 these folders, and installing a new version keeps your pilots,
 saves, settings and mods. Your MechWarrior 3 install is only read, never changed.
 Deleting this folder resets everything. To keep it on another drive: in the

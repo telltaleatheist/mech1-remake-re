@@ -1,8 +1,8 @@
 #pragma once
-// FIXES 104 (Owen, for 1.0.0): every 'Mech of Pirate's Moon's as an enemy, in its real loadouts. MW1 rolls its force
+// FIXES 104 (the owner, for 1.0.0): every 'Mech of Pirate's Moon's as an enemy, in its real loadouts. MW1 rolls its force
 // as it always has (mw1_campaign.cpp: the budget, the classes, at most four, in tonnage slots; the ladder's rungs for
 // a story battle); each slot then gets a chassis of the roster from its whole weight class (FIXES 112: all of
-// Owen's 'Mechs, not those near MW1's own), and one of the chassis's stock loadouts. No engine: the tests roll it as the game does.
+// The owner's 'Mechs, not those near MW1's own), and one of the chassis's stock loadouts. No engine: the tests roll it as the game does.
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -11,7 +11,7 @@
 
 namespace mw1 {
 
-// ---- The roster (Owen, FIXES 112): every chassis an enemy can be, MW3's and PM's 'Mechs. The one list: cut it to any
+// ---- The roster (the owner, FIXES 112): every chassis an enemy can be, MW3's and PM's 'Mechs. The one list: cut it to any
 // subset and the rest follows (the slots field the nearest it has). The eight the game fielded before 104 were
 // kPmFirefly, kPmOwens, kPmStrider, kPmBushwacker, kPmChampion, kPmAvatar, kPmOrion, kPmAwesome. The Elemental is here
 // but fields only by kElementalsField. ----
@@ -23,11 +23,11 @@ inline constexpr int32_t kRoster[] = {
 const std::vector<int32_t>& roster();
 void set_roster_for_tests(const std::vector<int32_t>& chassis);
 
-// ---- Owen's four (the lead, 2026-11-19: the defaults approved, each his to change here) ----
+// ---- The owner's four (the lead, 2026-11-19: the defaults approved, each his to change here) ----
 
 // PM's Elemental (battle armour, 10 t, one loadout) fields as an enemy 'Mech: no, it isn't a 'Mech.
 inline constexpr bool kElementalsField = false;
-// Clan and Inner Sphere chassis alike (Owen, FIXES 112: "the clan mechs arent that much better than the IS mechs.
+// Clan and Inner Sphere chassis alike (the owner, FIXES 112: "the clan mechs arent that much better than the IS mechs.
 // they can be treated generally the same"): a slot draws from both. The switch puts the gate back: a slot is then Clan
 // by kClanPercent of the world's tier (0 to 3), else Inner Sphere.
 inline constexpr bool kClanGated = false;

@@ -67,11 +67,11 @@ In multiplayer every player needs the same mods.
 
 Your settings and saves
 -----------------------
-In ~/Library/Application Support/MicroProse/MechWarrior 3/ (in Finder: Go >
+In ~/Library/Application Support/BattleTech/MechWarrior 3/ (in Finder: Go >
 Go to Folder). It holds mw3.cfg, your pilots and saves, the settings, the
 installed game, its music, the converted movies, your mods and mw3.log (what
 the game reported while it ran; send it with a bug report). Pirate's Moon
-keeps its own beside it, in .../MicroProse/Pirate's Moon/. Deleting the app
+keeps its own beside it, in .../BattleTech/Pirate's Moon/. Deleting the app
 keeps this folder. To keep it on
 another drive: in the launcher, GAME FILES, MY DATA FOLDER.
 

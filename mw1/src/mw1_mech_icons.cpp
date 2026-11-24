@@ -208,7 +208,7 @@ int32_t make_mech_icons(const std::string& write_dir) {
     zimg::free_texture(t);
   }
   if (mechs == 0) return 0;
-  // FIXES 96 (Owen): a lancemate's slot with no 'Mech shows MW3's own placeholder 'Mech, icon_notmech (PM's and MW3's
+  // FIXES 96 (the owner): a lancemate's slot with no 'Mech shows MW3's own placeholder 'Mech, icon_notmech (PM's and MW3's
   // libraries: green, red, grey; mech_name(-1) is "notmech", so PM's MechButton asks for it by that name), in the
   // slot's three looks and drawn by its outline as the other slots are. The dashed frame only when it isn't there.
   zimg::Texture* none = nullptr;

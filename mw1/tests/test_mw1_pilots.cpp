@@ -198,7 +198,7 @@ TEST(mw1_pilots_hire_fire_assign) {
   EXPECT(!mw1::fire(c, 5));
 }
 
-// FIXES 69: the mech lab's lance (Owen: assignment in the lab, MW3's way). Its slots (you, then each lancemate), the
+// FIXES 69: the mech lab's lance (the owner: assignment in the lab, MW3's way). Its slots (you, then each lancemate), the
 // mech a slot can take (the same chassis by owned order), and the lab's lance made the company's: you on another mech
 // (your old one in its place), the lancemates on theirs, each mech's loadout kept with it.
 TEST(mw1_pilots_lab_lance) {

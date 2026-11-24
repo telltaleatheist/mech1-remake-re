@@ -2,13 +2,13 @@
 
 Not a port. Pirate's Moon (PM, the expansion) is read side by side with
 MW3 1.2 for what it tells us about MW3: the same studio, engine and code
-base, built eight weeks later. Started 2026-10-20 (Owen: "see if it has any
+base, built eight weeks later. Started 2026-10-20 ("see if it has any
 hidden files that could give us some extra insight ... discrepancies between
 mw3 and pm, which might connect dots").
 
 ## The copy
 
-- Source: `MW3 pirates moon.zip` from Owen's Win98 backups, a Redump-style
+- Source: `MW3 pirates moon.zip` from the Win98 backups, a Redump-style
   image: `Track 1.bin` (MODE1/2352, volume `MW3 PM`) and `Track 2.bin`
   (CD audio, about 9.4 minutes: the expansion's music).
 - Extracted under `game/` (git-ignored): `game/pm-disc/` (the bins, `pm.iso`
@@ -22,7 +22,7 @@ mw3 and pm, which might connect dots").
   was linked 1999-09-22. Sections: `.text` 0x401000 (0x1dca18, 140 KB more
   than MW3's), `.rdata` 0x5de000, `.data` 0x602000, `.rsrc` 0xb0f000; entry
   0x5cefe8. Window class `Mech3Ep1Class`, title "MechWarrior 3 EP1".
-- No official PM patch is in Owen's backups (only a third-party no-CD
+- No official PM patch is in the backups (only a third-party no-CD
   patcher, `MW3PM-NoCD.EXE`, in `MW3 patches and cracks.zip`), and none
   turned up in a web search. This is PM 1.0.
 - Also on the disc: DirectX 7 (PM requires it; MW3 needed 6),
@@ -336,7 +336,7 @@ The other gone ids are only in `patch12_text`'s 1.0 table. Text that changed wit
 
 Names: players call the first campaign **Inner Sphere** (the docs' "first campaign", the menu's CAMPAIGN) and the second **Pirate Missions** (the docs' "second campaign", the exe's "standalone"). Use both, so the docs match what players say.
 
-The exe calls it standalone (game type 5, `Standalone State`, `sa<n>`); it is the game's second campaign, where you play the other side (Owen): 11 of PM's 21 story missions, on the main menu as `MSG_STANDALONE_BTN` 0x1027. Its order by the descriptions in `Mech3Msg.dll`, as the lead read them, runs across worlds and is not the `readersa` numbering: c1sa1, c2sa1, c1sa2, c1sa3, c3sa1, c3sa2, c3sa3, c2sa2, c4sa1, c4sa2, then c1sa4 "Bonus Mission". To check against the exe when 0x40d000..0x40fa00 is read.
+The exe calls it standalone (game type 5, `Standalone State`, `sa<n>`); it is the game's second campaign, where you play the other side: 11 of PM's 21 story missions, on the main menu as `MSG_STANDALONE_BTN` 0x1027. Its order by the descriptions in `Mech3Msg.dll`, as the lead read them, runs across worlds and is not the `readersa` numbering: c1sa1, c2sa1, c1sa2, c1sa3, c3sa1, c3sa2, c3sa3, c2sa2, c4sa1, c4sa2, then c1sa4 "Bonus Mission". To check against the exe when 0x40d000..0x40fa00 is read.
 
 **Ported (2026-11-05): `mech3/pilot_standalone`, the menu's PIRATE MISSIONS. Not played: PM's AI is not running, and these missions depend on it, so a chain's win does not show a mission plays right.** Compared with the exe: the list and its order, the mission, what is listed, moving on, the mission's start and salvage block, the lineup (`test_pm_standalone`). From the screens: `test_pm_standalone_chain`, which rests on reading the exe for what the screens should show.
 

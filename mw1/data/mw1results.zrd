@@ -1,6 +1,6 @@
 ; MW1: Critical Hit's results screen, AFTER ACTION (src/mw1_results.h), on MW1's
 ; screen template (src/mw1_screen.h), FIXES.md items 19, 31 and 38: a mission
-; ends here, never on Pirate's Moon's debriefing. MW1's own arrangement (Owen,
+; ends here, never on Pirate's Moon's debriefing. MW1's own arrangement (the owner,
 ; item 38), over the world's scenery dimmed (the screen names it):
 ; - top left, the picture (the screen names it, by the outcome), framed; the
 ;   outcome and where under it;

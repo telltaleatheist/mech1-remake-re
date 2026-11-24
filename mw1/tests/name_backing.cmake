@@ -3,6 +3,8 @@
 # the travel page at both shapes; it reports the names backed and those whose backing fits the words as drawn (2 out
 # from each side, the line's height). Every one must fit, and at least two (here and a capital) be shown.
 # cmake -DMW1_BIN=<mw1> -DDIR=<scratch> -P name_backing.cmake
+# A -P script sets no policies of its own: without this, CMake 3.x drops a list's empty entries (CMP0007, OLD).
+cmake_minimum_required(VERSION 3.20)
 set(failed)
 foreach(shape "b|1920x1080|--wide-menus" "5|1280x960|")
   string(REPLACE "|" ";" f "${shape}")

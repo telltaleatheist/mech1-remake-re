@@ -117,6 +117,7 @@ int main(int argc, char** argv) {
       return 2;
     }
   }
+  if (platform::pointer_hands_off()) SDL_SetHint(SDL_HINT_MAC_BACKGROUND_APP, "1");  // as mw3_main: no focus taken
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     std::fprintf(stderr, "mw3launcher: SDL_Init: %s\n", SDL_GetError());
     return 1;
@@ -142,13 +143,16 @@ int main(int argc, char** argv) {
 #ifdef MW3_GAME_DIR
   if (!std::getenv("MW3_FIND_INSTALL")) o.more_installs.push_back(MW3_GAME_DIR);
 #endif
-  // Windowed always (Owen, 2026-11-20): on the Mac a fullscreen launcher is a fullscreen game to macOS (the bundle's
+  // Windowed always (2026-11-20): on the Mac a fullscreen launcher is a fullscreen game to macOS (the bundle's
   // games category), so Game Mode slowed the file picker to 7-12 s (docs/launcher.md). The games keep fullscreen.
   o.fullscreen = false;
   o.program_dir = own_dir().string();
   o.game_bin = beside("MW3_GAME_BIN", "mw3");
   o.pm_bin = beside("MW3_PM_BIN", "mw3pm");
   o.mw1_bin = beside("MW3_MW1_BIN", "mw1");  // MW1: the remake; when there, in place of Elthial's port
+  o.mw1r_bin = beside("MW3_MW1R_BIN", "mw1r");  // MW1 Rebuild (MW1's ORIGINAL tab)
+  o.chi_bin = beside("MW3_CHI_BIN", "chi");        // Inception Rebuild (INCEPTION's ORIGINAL tab)
+  o.chirm_bin = beside("MW3_CHIRM_BIN", "chirm");  // Inception Remake (its REMAKE tab)
   if (const char* d = std::getenv("MW3_PM_WRITE_DIR")) o.pm_write_dir = d;  // checks
   if (o.game_bin.empty()) std::printf("mw3launcher: no mw3 beside this program: MECHWARRIOR 3 cannot start\n");
   // The games get this start's choices; MW3 a named write dir too (Pirate's Moon has its own).

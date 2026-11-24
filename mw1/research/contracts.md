@@ -50,7 +50,7 @@ a third).
 bias, rounded and clamped. The opening offer is a quarter of the ceiling, and
 negotiation moves between them. Harder fights pay more.
 
-## PM's mechs for MW1's (Owen, 2026-11-17)
+## PM's mechs for MW1's (the owner, 2026-11-17)
 
 MW1 fights with Pirate's Moon's mechs. Each of MW1's kinds stands in as the
 PM **Inner Sphere** mech nearest its tonnage (a tie goes to the lighter), and
@@ -104,7 +104,7 @@ negotiated in the contract, of the value of the enemy mechs you disabled,
 - An original quirk: when a mech is valued above scrap, the routine overwrites
   the running total with the market tier (081B:STARTUP's comment, "32EB
   overwrites DI"). So only the mechs after the last above-scrap one fully
-  count. **Fixed in the remake** (Owen, 2026-11-16): every wreck counts.
+  count. **Fixed in the remake** (the owner, 2026-11-16): every wreck counts.
 
 ## Still to read
 
@@ -191,7 +191,7 @@ wins; the structure falling first is a failure, whatever dies after).
 | major campaign | 18 | eliminate | AN EXTENDED SIEGE CAMPAIGN |
 | major campaign | 19 | special target | RELIEF OF ENGAGED FORCES |
 
-**Oddities, for Owen** (the pairing is confirmed against the port's offer
+**Oddities, for the owner** (the pairing is confirmed against the port's offer
 screen, which prints the title at the record's +2, and BTECH's import, which
 fights `code − 1`; so these are MW1's own, kept as they are, mw1 lead
 2026-11-17):
@@ -211,7 +211,7 @@ comes out about: defend special target 51%, special target 27%, eliminate
 11%, oppose withdrawal 9%, withdraw 2%. So with oppose withdrawal, about
 three contracts in five are defences.
 
-### Provisional answers (mw1 lead, 2026-11-17), for Owen
+### Provisional answers (mw1 lead, 2026-11-17), for the owner
 
 | Question | Provisional answer | Where |
 |---|---|---|

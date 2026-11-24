@@ -496,7 +496,7 @@ images::Image arrow(bool up, int32_t state) {
 }
 
 images::Image side_arrow(bool right, int32_t state) {
-  // arrow()'s look on its side: the point to the left or the right. FIXES.md item 101 (Owen): the triangle as the
+  // arrow()'s look on its side: the point to the left or the right. FIXES.md item 101 (the owner): the triangle as the
   // up arrow's turned, a right angle at its point, its base kSideInkH rows with two of glass above and below inside
   // the frame (the up arrow's sides), the shape centred in the box both ways. It was 16 rows high in the 18, its base
   // on the frame, so it looked cut off and off-centre.
@@ -800,7 +800,7 @@ std::vector<std::pair<std::string, Canvas>> lab_panel_canvases(HangarSample samp
                      std::move(c));
     }
   // The centre: the hangar brighter round the mech, a glass box under it for its parts, data, icons and messages.
-  // Above the tray as the sides' (Owen, item 17: it ran down through the tray round the page icon).
+  // Above the tray as the sides' (the owner, item 17: it ran down through the tray round the page icon).
   Canvas c = strip(kLeft, kCentre, 80);
   box(c, kLabCentreBox.x0 - kLeft, kLabCentreBox.y0, kLabCentreBox.x1 - kLeft, kLabCentreBox.y1, 0);
   tray(c);

@@ -3,7 +3,9 @@
 #include "frontend/sdl/sdl_update.h"
 #include "frontend/sdl/sdl_install.h"  // kGameFolderMark
 #include "mech3/patch_import.h"
+#include "mech3/data_folder.h"
 #include "rekit/archive.h"
+#include "rekit/family_folder.h"
 
 #include <SDL3/SDL.h>
 
@@ -271,17 +273,42 @@ std::string root(bool hidden) {
 #if defined(_WIN32)
   const char* base = std::getenv("LOCALAPPDATA");
   if (!base || !*base) return {};
-  return (fs::path(base) / "MicroProse" / "BattleTech" / "games").string();
+  return (fs::path(base) / "BattleTech" / "games").string();
 #elif defined(__APPLE__)
   const char* home = std::getenv("HOME");
   if (!home || !*home) return {};
-  return (fs::path(home) / "Library" / "Application Support" / "MicroProse" / "BattleTech" / "games").string();
+  return (fs::path(home) / "Library" / "Application Support" / "BattleTech" / "games").string();
 #else
   const char* xdg = std::getenv("XDG_DATA_HOME");
   const char* home = std::getenv("HOME");
   const fs::path base = xdg && *xdg ? fs::path(xdg) : home && *home ? fs::path(home) / ".local" / "share" : fs::path();
   if (base.empty()) return {};
-  return (base / "MicroProse" / "BattleTech" / "games").string();
+  return (base / "BattleTech" / "games").string();
+#endif
+}
+
+std::string root_moved(const std::string& root, const std::string& cfg) {
+  if (root.empty() || std::getenv("MW3_GAMES_DIR")) return root;
+  const fs::path base = fs::path(root).parent_path().parent_path();
+  const fs::path old = base / rekit::kOldOrg / "BattleTech" / "games";
+  std::error_code ec;
+  if (!fs::is_directory(old, ec)) return root;
+#if defined(MW3_PACKAGE_BUILD)
+  const rekit::FolderMove m = rekit::move_once(old.string(), root);
+  if (m.kind == rekit::FolderMove::kFailed) {
+    std::fprintf(stderr, "mw3: the games folder: %s; %s stays in use\n", m.error.c_str(), old.string().c_str());
+    return old.string();
+  }
+  if (m.kind == rekit::FolderMove::kMoved) {
+    mech3::data_folder::retarget_config(cfg, {{old.string(), root}});
+    rekit::remove_if_empty(old.parent_path().string(), 2);  // MicroProse/BattleTech, then MicroProse when empty
+    std::printf("mw3: the games folder: %s moved to %s\n", old.string().c_str(), root.c_str());
+  }
+  return root;
+#else
+  (void)cfg;
+  const bool fresh = !fs::exists(root, ec) || (fs::is_directory(root, ec) && fs::is_empty(root, ec));
+  return fresh ? old.string() : root;
 #endif
 }
 
@@ -342,16 +369,10 @@ std::string program_version(const std::string& bin) {
 }
 
 u::GameCheck check(u::Game g, const std::string& installed_tag) {
-  const std::string repo = u::game_info(g).repo;
-  std::string url = std::string("https://api.github.com/repos/telltaleatheist/") + repo + "/releases?per_page=20";
-  if (const char* api = std::getenv("MW3_GAMES_API")) {
-    url = api;
-    if (const size_t at = url.find("{repo}"); at != std::string::npos) url.replace(at, 6, repo);
-  }
-  u::Answer a;
-  curl_get(url, 15, &a.json, &a.fetch_error, allow_file());
-  std::printf("mw3: launcher: games: %s at %s: %s\n", u::game_info(g).key, url.c_str(), a.json.empty() ? a.fetch_error.c_str() : "answered");
-  return u::judge_game(g, installed_tag, a, u::this_platform());
+  // Both homes (2026-11-22): git.owenmorgan.com, then GitHub; the newest on either (release_lists).
+  const std::vector<u::Answer> answers = ask_lists(release_lists(std::getenv("MW3_GAMES_API"), u::game_info(g).repo, 20), 15, allow_file(),
+                                                   std::string("games: ") + u::game_info(g).key);
+  return u::judge_game(g, installed_tag, answers, u::this_platform());
 }
 
 Done install_release(const std::string& root, u::Game g, const u::Release& r, const Progress& progress) {
@@ -362,30 +383,25 @@ Done install_release(const std::string& root, u::Game g, const u::Release& r, co
   if (!own_root(root, &error)) return d.words = "Nothing was installed: " + error + ".", d;
   const u::Asset* file = u::game_asset(g, r, u::this_platform());
   if (!file) return d.words = "This release of " + name + " has no file for this computer.", d;
-  const u::Asset* sums = nullptr;
-  for (const u::Asset& a : r.assets)
-    if (a.name == "SHA256SUMS") sums = &a;
-  if (!sums) return d.words = "This release of " + name + " has no SHA256SUMS to check the download against, so nothing was downloaded.", d;
-  std::string list;
-  if (!curl_get(sums->url, 60, &list, &error, allow_file())) return d.words = "Could not download the release's SHA256SUMS: " + error + ".", d;
-  const std::string want = u::sums_line(list, file->name);
-  if (want.empty()) return d.words = "The release's SHA256SUMS has no line for " + file->name + ", so nothing was downloaded.", d;
   std::error_code ec;
   const fs::path dl_dir = fs::temp_directory_path(ec) / "MW3-Rebuild-games";  // ours alone
   fs::create_directories(dl_dir, ec);
   const std::string path = (dl_dir / file->name).string();
-  bool cancelled = false;
-  if (!curl_download(file->url, path, file->size, [&](double x) { return !progress || progress(x * 0.8, "Downloading " + name + " " + version); },
-                     &error, &cancelled, allow_file())) {
-    d.cancelled = cancelled;
-    return d.words = cancelled ? "The download was cancelled. Nothing was installed." : "The download stopped: " + error + ". Nothing was installed.", d;
+  // GitHub first, git.owenmorgan.com when it fails (download_checked), each against its SHA256SUMS line.
+  const Fetched f = download_checked(r, file->name, path, [&](double x) { return !progress || progress(x * 0.8, "Downloading " + name + " " + version); },
+                                     allow_file(), "games download");
+  switch (f.why) {
+    case Fetched::kOk: break;
+    case Fetched::kCancelled: d.cancelled = true; return d.words = "The download was cancelled. Nothing was installed.", d;
+    case Fetched::kNoSums:
+      return d.words = "This release of " + name + " has no SHA256SUMS to check the download against, so nothing was downloaded.", d;
+    case Fetched::kSumsFailed: return d.words = "Could not download the release's SHA256SUMS: " + f.error + ".", d;
+    case Fetched::kNoLine: return d.words = "The release's SHA256SUMS has no line for " + file->name + ", so nothing was downloaded.", d;
+    case Fetched::kStopped: return d.words = "The download stopped: " + f.error + ". Nothing was installed.", d;
+    case Fetched::kMismatch:
+      return d.words = "The download did not match its checksum, so nothing was installed. Try again; if it happens again, tell us.", d;
   }
-  const std::string got = mech3::sha256_file_hex(path);
-  if (got != want) {
-    fs::remove(path, ec);
-    std::printf("mw3: launcher: games: %s is %s, SHA256SUMS says %s\n", file->name.c_str(), got.c_str(), want.c_str());
-    return d.words = "The download did not match its checksum, so nothing was installed. Try again; if it happens again, tell us.", d;
-  }
+  const std::string got = f.sha256;
   const fs::path staged = fs::path(root) / kIncoming;
   if (!clear_ours(staged, kStagingMark, &error)) return fs::remove(path, ec), d.words = "Nothing was installed: " + error + ".", d;
   if (progress) progress(0.85, "Installing " + name + " " + version);
@@ -476,7 +492,8 @@ Done install_file(const std::string& root, const std::string& file, const std::s
 }
 
 std::string game_folder_in(const std::string& picked, u::Game g) {
-  static const char* const kNames[] = {"MechWarrior 3", "Pirate's Moon", "MechWarrior 1 Remake"};
+  static const char* const kNames[] = {"MechWarrior 3", "Pirate's Moon", "MechWarrior 1 Remake", "MechWarrior 1 Rebuild",
+                                       "Inception Rebuild", "Inception Remake"};
   std::error_code ec;
   const fs::path p(picked), mark = p / kGameFolderMark;
   if (!fs::exists(p, ec) || fs::is_empty(p, ec)) return picked;
@@ -497,6 +514,13 @@ bool claim_game_folder(const std::string& dir, u::Game g, std::string* error) {
   if (!write_text(mark, "# A game's folder, made by the MechWarrior 3 Rebuild launcher or the game's setup: its program and its game files.\ngame=" + key + "\n"))
     return *error = dir + " could not be written to", false;
   return true;
+}
+
+bool kit_status(const std::string& bin, rekit::Status* out) {
+  std::string said;
+  if (bin.empty() || run_program({bin, "--status"}, 10, &said) != 0) return false;
+  const size_t a = said.find('{'), b = said.rfind('}');  // the object alone, should a log line come with it
+  return a != std::string::npos && b != std::string::npos && b > a && rekit::parse_status(said.substr(a, b - a + 1), out);
 }
 
 bool in_own_mount(const std::string& bin) {

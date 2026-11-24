@@ -1,6 +1,6 @@
 """PM's quit box as a picture, the real program in a hidden window: what test_twod_msgbox can't see. The box's buttons
 are alpha images over the panel; around each the panel must stay the panel. They had squares of the screen behind them
-(twod_dialog.cpp, the static grab), on every box. The port's own frames; the exe's are Owen's shot (2026-11-06).
+(twod_dialog.cpp, the static grab), on every box. The port's own frames; the exe's are the shot (2026-11-06).
 
     cmake --build build --target mw3pm && .venv/bin/python tests/differential/test_pm_msgbox_picture.py
 """
