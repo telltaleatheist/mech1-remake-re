@@ -5,6 +5,20 @@ Tick an item when it is merged into `main`.
 
 **How this file works (the owner, 2026-11-17):** every bug and feature the owner raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 143. [x] A Windows installer for MW1 Remake, like MW3's and PM's *(done: mw1-110-installer; in 1.0.9 by rel-109)*
+- **What:** a player downloading MW1 alone on Windows had only the zip. The owner asked for a Setup like MW3's and
+  PM's.
+- **Done:** `mw1\tools\package\package.cmd` builds `MW1-Remake-Setup-<mw1-vX.Y.Z>.exe` (Inno Setup,
+  `mw1/tools/package/installer.iss`) from the folder it has just zipped, so the two hold the same files. The zip
+  stays: the launcher installs MW1 from it, never from the Setup. The Setup installs to Program Files\MechWarrior 1
+  Remake with a Start-menu entry, an optional desktop one and an uninstaller. Its AppId, folder, shortcut names and
+  uninstall entry are MW1's own, so it installs and uninstalls apart from MW3's and PM's. The uninstaller leaves the
+  player's folder (%APPDATA%\MicroProse\MechWarrior 1 Remake) alone.
+- **The icon:** `mw1/tools/package/mw1.ico`, the badge the Mac app and the AppImage use (`make_ico.sh` writes it
+  from `mw1.png`), is the Setup's, the uninstall entry's and now `mw1.exe`'s own (it had MW3's placeholder).
+- **Checks:** on the PC, the Setup built from a test package, installed silently into a scratch folder, mw1.exe
+  started from there to its first screen, then uninstalled with nothing left behind.
+
 ## 141. [ ] MechWarrior (1989)'s copy into MW1 Remake's own folder *(open; raised by the lead with pm-v1.2.4's layout, 2026-11-22)*
 - **What:** pm-v1.2.4's launcher keeps each game's files in a folder of its own (`games_<key>=`, `<folder>/install`,
   marked `rebuild-game-folder.txt` with `game=mw1`); only pilots, saves, settings and mods stay in the user folder.

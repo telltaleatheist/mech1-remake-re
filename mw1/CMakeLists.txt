@@ -157,7 +157,7 @@ if(TARGET mw3pm)
     set(MW3_VERSION ${MW1_VERSION})  # the version resource's (this directory's scope; the engine's are its own)
     set(MW3_RC_NAME "MechWarrior 1 Remake")
     set(MW3_RC_FILE "mw1.exe")
-    set(MW3_RC_ICON "ICON_MAIN ICON \"${MW3RE_DIR}/tools/windows/mw3.ico\"")
+    set(MW3_RC_ICON "ICON_MAIN ICON \"${CMAKE_CURRENT_SOURCE_DIR}/tools/package/mw1.ico\"")  # make_ico.sh
     configure_file(${MW3RE_DIR}/tools/windows/version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/mw1.rc)
     target_sources(mw1 PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/mw1.rc ${MW3RE_DIR}/tools/windows/utf8.manifest)
     if(MW3_PACKAGE)
