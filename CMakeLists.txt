@@ -249,6 +249,7 @@ add_library(mw3core STATIC
   src/mech3/game_editor_net.cpp
   src/mech3/game_editor_tree.cpp
   src/mech3/game_editor_vehicles.cpp
+  src/upgrades/sounds/menu_sounds.cpp
   src/upgrades/editor/ddx.cpp
   src/upgrades/editor/form.cpp
   src/upgrades/editor/help.cpp

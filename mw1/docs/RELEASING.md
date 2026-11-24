@@ -92,5 +92,3 @@ numbers: the second is a feature update, the third is bug fixes.
   were not judged blocking.
 - **`--ready-file` on Windows and the Mac**, and pressing PLAY in the launcher on
   a linked copy, were not tried.
-- **check_dist's allow-list** takes any `/repos/` path. Tighten it to
-  `github.com/`, `api.github.com/repos/` and `/api/v1/repos/`.

@@ -32,6 +32,7 @@
 #include "gamez/zutil/zutl_path.h"
 #include "gamez/zvideo/zvid_format.h"
 #include "mech3/app_engine.h"
+#include "upgrades/sounds/menu_sounds.h"
 
 namespace sdlfe {
 
@@ -562,7 +563,10 @@ void SdlTwodHost::video_flip(const ztwod::Rect*, const ztwod::Rect*, int32_t, in
 // zSound, the messages, zInput's mouse
 
 int32_t SdlTwodHost::sound_find(const char* name) {
-  return engine_ ? static_cast<int32_t>(engine_->sound_find(name)) : 0;
+  if (!engine_) return 0;
+  int32_t found = static_cast<int32_t>(engine_->sound_find(name));
+  if (const char* other = found ? nullptr : upgrades::menu_sound_for(name)) found = static_cast<int32_t>(engine_->sound_find(other));  // ours (issue #19)
+  return found;
 }
 int32_t SdlTwodHost::sound_play(int32_t sound, float volume) {
   if (!engine_) return 0;

@@ -464,11 +464,14 @@ rebuild-game.txt above it), so it is never linked as one installed without it.
 
 At the start, a game with nothing beside the launcher looks for such a copy
 (`find_link`, `sdlfe::games::found_elsewhere`): its record, Windows' uninstall
-entry for its Setup (the AppId's InstallLocation; MW3 and Pirate's Moon), and
+entry for its Setup (the AppId's InstallLocation; MW3, Pirate's Moon and MW1
+Remake), and
 the Mac's /Applications and ~/Applications. Each is checked before it is
 trusted (`identify`): the file is there and its stamp
 (MW3-PROGRAM-VERSION) is this game's release, or, for an AppImage (its stamp
-compressed) and the kit's games, its `--status` names the game. The newest is
+compressed) and the kit's games, its `--status` names the game. (MW3 alone's
+AppImage starts mw3launcher: `--status`, `--setup` and `--ready-file` go to the
+mw3 beside it.) The newest is
 linked (mw3.cfg `link_<key>=`) and logged "games: pm: found <program> (its
 record), linked". A check run (hidden, a shot) reads the record in its own
 folder only, never the computer's Applications or registry.

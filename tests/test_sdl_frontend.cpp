@@ -7793,6 +7793,32 @@ TEST(sdl_program_launcher_links_and_uninstalls) {
   std::printf("links: development build %d, a wrong pick %d\n", has(rb.log, "games: pm: not installed"), has(rb.log, ": not this game"));
   EXPECT(rb.exited && has(rb.log, "games: pm: not installed") && has(rb.log, "screen game: LINK AN INSTALL, BACK\n"));
   EXPECT(has(rb.log, "/api/mech3-re.json: not this game") && !has(cfg(b), "link_pm=/"));
+  // An AppImage carries its version packed: it is asked (--status). The launcher in MW3 alone's hands that to its game.
+  const std::string i = std::string(MW3_TEST_TMP) + "/launcher_links_i";
+  const LauncherRun ri = run_launcher_with("launcher_links_i", "exit 0", nullptr, env(i, "", ""),
+                                           [&](const std::string& d) {
+                                             lay(d, "/elsewhere/PM.AppImage", "");
+                                             std::ofstream(d + "/elsewhere/PM.AppImage")
+                                                 << "#!/bin/sh\n[ \"$1\" = --status ] || exit 2\necho '{\"kit\": 1, \"game\": \"mech3-pm\", \"version\": "
+                                                    "\"pm-v1.2.7\", \"files\": {\"state\": \"ready\"}}'\n";
+                                             fs::permissions(d + "/elsewhere/PM.AppImage", fs::perms::owner_all);
+                                           }, false);
+  EXPECT(ri.exited && has(ri.log, ("games: pm: found " + i + "/elsewhere/PM.AppImage (its record), linked").c_str()));
+  {
+    const std::string game = i + "/game.sh", out = i + "/handed.txt";
+    std::ofstream(game) << "#!/bin/sh\necho \"$@\" > '" << out << "'\n";
+    fs::permissions(game, fs::perms::owner_all);
+    setenv("MW3_GAME_BIN", game.c_str(), 1);
+    for (const char* args : {"--status", "/x/install --write-dir /x/wd --ready-file /x/r"}) {
+      fs::remove(out, ec);
+      const int rc = std::system(("'" + std::string(MW3_LAUNCHER_BIN) + "' " + args + " > /dev/null 2>&1").c_str());
+      std::ifstream f(out);
+      std::string line;
+      std::getline(f, line);
+      EXPECT(rc == 0 && line == args);
+    }
+    unsetenv("MW3_GAME_BIN");
+  }
   // UNLINK: forgotten, and its record no longer links it.
   const std::string c = std::string(MW3_TEST_TMP) + "/launcher_links_c";
   const LauncherRun rc = run_launcher_with("launcher_links_c", "exit 0", nullptr, env(c, gear + ",next,next,press", ""),
@@ -11522,3 +11548,88 @@ TEST(sdl_lock_back_tells_the_hires_lists_its_buffer_was_cleared) {
   EXPECT(calls == 1 && told == s.pixels);
   engine.unlock_back(&s);
 }
+
+#if !defined(_WIN32)  // posix_spawn (ours, not on Windows)
+// Issue #19 (ours, under SMALL FIXES): the briefing's, pause's and salvage's
+// buttons sound; with --original they are silent as the exe's (menus.md section 16).
+TEST(sdl_program_issue19_menu_sounds) {
+  if (!have_fonts()) return;
+  const auto run = [](const char* name, std::vector<std::string> more) {
+    const std::string dir = std::string(MW3_TEST_TMP) + "/sdl_issue19_" + name;
+    std::filesystem::remove_all(dir);
+    std::filesystem::create_directories(dir);
+    std::vector<std::string> args = {MW3_BIN, "--install", MW3_GAME_DIR, "--no-launcher", "--hidden", "--no-mods", "--no-wide-menus",
+                                     "-nofmv", "--verbose", "--seed", "3", "--frame-ms", "33", "--write-dir", dir};
+    args.insert(args.end(), more.begin(), more.end());
+    std::vector<char*> argv;
+    for (std::string& a : args) argv.push_back(a.data());
+    argv.push_back(nullptr);
+    std::vector<std::string> env_s = {"SDL_AUDIODRIVER=dummy", "SDL_MAC_BACKGROUND_APP=1", "MW3_SOUND_LOG=1"};
+    for (char** e = environ; *e; ++e)
+      if (std::strncmp(*e, "SDL_AUDIODRIVER=", 16) != 0 && std::strncmp(*e, "MW3_SOUND_LOG=", 14) != 0) env_s.push_back(*e);
+    std::vector<char*> envp;
+    for (std::string& e : env_s) envp.push_back(e.data());
+    envp.push_back(nullptr);
+    const std::string out = dir + "/run.log";
+    posix_spawn_file_actions_t fa;
+    posix_spawn_file_actions_init(&fa);
+    posix_spawn_file_actions_addopen(&fa, 1, out.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    posix_spawn_file_actions_adddup2(&fa, 1, 2);
+    pid_t pid = 0;
+    const int err = posix_spawn(&pid, MW3_BIN, &fa, nullptr, argv.data(), envp.data());
+    posix_spawn_file_actions_destroy(&fa);
+    EXPECT(err == 0);
+    if (err) return std::string();
+    int status = 0;
+    bool quit = false;
+    const auto start = std::chrono::steady_clock::now();
+    while (!quit && std::chrono::steady_clock::now() - start < std::chrono::seconds(120)) {
+      quit = waitpid(pid, &status, WNOHANG) == pid;
+      if (!quit) std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    }
+    if (!quit) kill(pid, SIGKILL), waitpid(pid, &status, 0);
+    EXPECT(quit && WIFEXITED(status) && WEXITSTATUS(status) == 0);
+    std::ifstream f(out);
+    return std::string(std::istreambuf_iterator<char>(f), {});
+  };
+  // The sounds a menu asked for between two lines of the log.
+  const auto between = [](const std::string& log, const char* from, const char* to) {
+    const size_t a = log.find(from);
+    EXPECT(a != std::string::npos);
+    if (a == std::string::npos) return std::vector<std::string>();
+    const size_t b = to ? log.find(to, a) : std::string::npos;
+    std::vector<std::string> l;
+    std::istringstream s(log.substr(a, b == std::string::npos ? b : b - a));
+    for (std::string line; std::getline(s, line);)
+      if (line.rfind("mw3: menu sound ", 0) == 0) l.push_back(line.substr(16));
+    return l;
+  };
+  const auto has = [](const std::vector<std::string>& l, const char* s) { return std::find(l.begin(), l.end(), s) != l.end(); };
+  const std::vector<std::string> mission = {"--briefing", "c1m1", "--hover-at", "150,435@2450", "--click-at", "556,435@2600",
+                                            "--tap", "0x01@3000:3003", "--hover-at", "300,300@3100", "--hover-at", "58,63@3130",
+                                            "--click-at", "58,63@3200", "--frames", "3300"};
+  const std::vector<std::string> salvage = {"--briefing", "c1m2", "--click-at", "430,435@2600", "--hover-at", "60,130@2700",
+                                            "--click-at", "60,152@2760", "--click-at", "565,435@2900", "--frames", "3000"};
+  const std::string on = run("on", mission);
+  const auto brief = between(on, "state Load State", "state Core State"), pause = between(on, "state Pause State", nullptr);
+  std::printf("  briefing %zu sounds, pause %zu\n", brief.size(), pause.size());
+  EXPECT(has(brief, "menu_rollover plays") && has(brief, "menu_select plays"));
+  EXPECT(has(pause, "menu_rollover plays") && has(pause, "menu_select plays"));
+  const std::string sal = run("salvage", salvage);
+  const auto picked = between(sal, "state Salvage State", nullptr);
+  for (const std::string& s : picked) std::printf("  salvage: %s\n", s.c_str());
+  EXPECT(has(picked, "box_rollover plays"));
+  EXPECT(has(picked, "icon_select plays"));
+  std::vector<std::string> off = mission;
+  off.push_back("--original");
+  const std::string log_off = run("off", off);
+  EXPECT(between(log_off, "state Load State", "state Core State").empty());
+#if defined(MW3_PM_SUITE)
+  EXPECT(has(between(log_off, "state Pause State", nullptr), "menu_rollover plays"));  // PM's exe loads MENU for its pause (0x0049600b)
+#else
+  EXPECT(between(log_off, "state Pause State", nullptr).empty());
+#endif
+  off = salvage, off.push_back("--original");
+  EXPECT(between(run("salvage_off", off), "state Salvage State", nullptr).empty());
+}
+#endif

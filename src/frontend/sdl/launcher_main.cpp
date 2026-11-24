@@ -34,6 +34,9 @@
 #endif
 #include <windows.h>
 #endif
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 
 namespace {
 namespace fs = std::filesystem;
@@ -88,6 +91,20 @@ void read_config(const std::string& write_dir, sdlfe::LauncherOptions& o) {
 
 int main(int argc, char** argv) {
   if (sdlfe::crash_box_main(argc, argv)) return 0;
+#ifndef _WIN32
+  // MW3 alone's AppImage starts this launcher: asked its status, or started by another launcher that linked it
+  // (docs/launcher.md, Copies installed without the launcher), it is the game beside this one that answers.
+  for (int i = 1; i < argc; ++i)
+    if (const std::string s = argv[i]; s == "--status" || s == "--setup" || s == "--ready-file") {
+      if (const std::string game = beside("MW3_GAME_BIN", "mw3"); !game.empty()) {
+        argv[0] = const_cast<char*>(game.c_str());
+        execv(game.c_str(), argv);
+        std::perror("mw3launcher: the game beside it");
+        return 1;
+      }
+      break;
+    }
+#endif
   sdlfe::LauncherOptions o;
   bool windowed = false, window_given = false, hidden_log = false;
   for (int i = 1; i < argc; ++i) {

@@ -8,6 +8,7 @@
 #include "mech3/armor_display.h"
 #include "mech3/mech_ids.h"
 #include "mech3/menu_widgets.h"
+#include "upgrades/sounds/menu_sounds.h"
 
 // The debriefing screen (docs/campaign.md section 3): the Win State's
 // (new(0x13dbc), 0x0047b430, its press 0x0047d030), dlgWin.zrd's WINMENU.
@@ -100,6 +101,7 @@ class DebriefScreen : public MenuScreen {
   int32_t lance_scores[4] = {};      // +0x13be4  each pilot's mechs destroyed in the campaign (into +0xb4)
   uint8_t clean = 0;                 // no cheat ([0x00609994] clear; a local of 0x0047b430)
   bool lance_scored[4] = {};         // (ours) the record line written: lance_scores[i] is real
+  upgrades::MenuSounds menu_sounds;  // ours (issue #19)
 };
 
 // [0x00608bf8]: the lance's count the last results found (cards used).

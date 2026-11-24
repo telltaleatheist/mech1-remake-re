@@ -113,7 +113,10 @@ class SdlRender3D : public platform::Render3D {
   // Slow frames to mw3.log (ours, issue #2): the shown frames' spacing and the wait for the swapchain in it.
   uint64_t slow_last_ = 0, slow_sum_ = 0, slow_wait_ = 0;
   int slow_n_ = 0, slow_said_ = 0;
-  uint64_t n_scenes_ = 0, n_uploads_ = 0, upload_bytes_ = 0, n_readbacks_ = 0, n_holds_ = 0;  // since the last count
+  SDL_GPUCommandBuffer* upload_cmd_ = nullptr;  // texture uploads recorded, not submitted yet (issue #7)
+  int upload_n_ = 0;
+  void flush_uploads();  // submitted: before anything that may draw with them
+  uint64_t n_batches_ = 0, n_scenes_ = 0, n_uploads_ = 0, upload_bytes_ = 0, n_readbacks_ = 0, n_holds_ = 0;  // since the last count
   float mip_bias_ = 0.0f;     // set_mip_bias, to the shader (fog.w): Metal ignores the sampler's bias
   SDL_GPUTexture* depth_ = nullptr;
   uint32_t depth_w_ = 0, depth_h_ = 0;

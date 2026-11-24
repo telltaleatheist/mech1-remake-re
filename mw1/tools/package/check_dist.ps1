@@ -38,18 +38,22 @@ foreach ($lib in 'libarchive-*', 'zlib-*', 'xz-*', 'imgui') {
 }
 # No local path or user name in any file (release.md, Privacy; tools/deps/check_paths.py
 # on the Mac and Linux): every byte, as ASCII and UTF-16. The public release addresses are allowed:
-# github.com/<user>, the updater's api.github.com/repos/<user>, and the backup site's .../api/v1/repos/<user>
-# (the engine's update check carries it since the launcher 1.3.x: pm's own check allows it too).
+# github.com/<user>, the updater's api.github.com/repos/<user>, and the backup's git.owenmorgan.com/<user> and
+# .../api/v1/repos/<user>, its host name included (the same list as the engine's tools/windows/check_dist.ps1).
 $words = @('/Volumes/', '/Users/', '/home/', 'C:\Users\', 'C:/Users/') +
   @($env:USERNAME, (Split-Path -Leaf $env:USERPROFILE)) | Where-Object { $_ -and $_.Length -ge 4 } | Select-Object -Unique
 $rx = [regex](($words | ForEach-Object { [regex]::Escape($_) }) -join '|')
 $latin = [Text.Encoding]::GetEncoding(28591)
-$public = @('github.com/', '/repos/')
+$public = @('github.com/', 'github.com/repos/', 'git.owenmorgan.com/', 'git.owenmorgan.com/api/v1/repos/')
+$host_ = 'git.owenmorgan.com'
 function Test-Public($text, $m) {
   foreach ($p in $public) {
     if ($m.Index -ge $p.Length -and $text.Substring($m.Index - $p.Length, $p.Length) -ieq $p) { return $true }
   }
-  return $false
+  # the name inside the backup's own host name
+  $from = [Math]::Max(0, $m.Index - $host_.Length)
+  $at = $text.IndexOf($host_, $from, [Math]::Min($text.Length - $from, 2 * $host_.Length), [StringComparison]::OrdinalIgnoreCase)
+  return ($at -ge 0 -and $at -le $m.Index -and $m.Index + $m.Length -le $at + $host_.Length)
 }
 $leaks = @()
 foreach ($f in Get-ChildItem -LiteralPath $Dist -Recurse -File) {

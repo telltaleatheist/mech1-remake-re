@@ -553,6 +553,7 @@ const char* kit_id(u::Game g) {
   switch (g) {
     case u::Game::kMw3: return "mech3";
     case u::Game::kPm: return "mech3-pm";
+    case u::Game::kMw1: return "mech1-remake";  // MechWarrior 1 Rebuild's is "mech1"
     default: return "";
   }
 }
@@ -563,6 +564,7 @@ const char* setup_id(u::Game g) {
   switch (g) {
     case u::Game::kMw3: return "{920C98A6-550D-41A3-839E-540B93B8F40D}_is1";
     case u::Game::kPm: return "{797310CA-3FB8-4FBB-8D21-47E588714765}_is1";
+    case u::Game::kMw1: return "{C33F5AC5-1EFA-4952-81EA-A76A9A48AF28}_is1";  // mech1-remake-re's mw1/tools/package/installer.iss
     default: return "";
   }
 }
