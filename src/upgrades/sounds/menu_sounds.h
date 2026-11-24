@@ -12,8 +12,8 @@ class Control;
 
 namespace upgrades {
 
-// Sound sets a screen keeps loaded while it is up: a set already loaded is
-// left to whoever loaded it.
+// Sound sets a screen keeps loaded while it is up, counted between screens: one
+// going does not unload another's.
 class MenuSounds {
  public:
   MenuSounds() = default;
