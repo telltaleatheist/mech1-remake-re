@@ -35,6 +35,10 @@ original.
 
 Nothing yet.
 
+**1.3.3 (2026-11-24)** (the full notes are in
+[docs/release-notes-1.3.3.md](docs/release-notes-1.3.3.md)): the launcher
+lists the games as panels that scroll, like the download page.
+
 **1.3.2 (2026-11-23)** (the full notes are in
 [docs/release-notes-1.3.2.md](docs/release-notes-1.3.2.md)): the BattleTech
 launcher, and fixes.

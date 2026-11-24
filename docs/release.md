@@ -330,3 +330,31 @@ the Linux AppDir. Left, and why:
       as extra assets. Not a draft and not a prerelease once published (the
       updater skips both); the Latest flag does not matter to it.
 - [ ] Each upload downloaded again and its checksum checked.
+- [ ] **The download page** (owenmorgan.com/battletech, 2026-11-23): it asks
+      GitHub for each repo's latest release on every visit (the static links
+      are only its fallback), so a release shows there by itself. Open it
+      after publishing: each game's button names the new version and
+      downloads. Its asset patterns (`game(id, repo, pattern)` in the page)
+      change only when a package is renamed or a game is added; then its
+      source is edited and copied up (outside the repos; the lead's notes).
+
+### The deploy, start to finish (2026-11-24)
+
+The order every release follows (DEPLOY.md, Deploying a release, has the
+why of each):
+
+1. Each repo's main ready: the change, its tests passing (run the tests of
+   what changed, read every result line), `CHANGES.md`, the release notes
+   and page (`docs/release-notes-<v>.md`, `docs/release-page-<v>.md`), the
+   README's What's new.
+2. Pirate's Moon and MW1 Remake: a new tag only when they changed; an
+   unchanged game's assets come from its last release.
+3. Tags made locally, not pushed.
+4. Built on all three platforms from the tags: the Mac here, Windows on the
+   PC (a git bundle of the tags), Linux in WSL after Windows.
+5. Every file in one folder, checked against its platform's sums, then
+   `python3 -I tools/package/sums.py <folder>`.
+6. Tags pushed; the hub's release published first, then each game's own.
+7. Every asset downloaded again and checked; the previous launcher's update
+   check finds the new release; the download page shows it.
+8. Replies and announcements wait for the project owner.

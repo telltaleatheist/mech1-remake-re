@@ -31,7 +31,7 @@ foreach ($folder in $folders) {
   }
 }
 # Our free fonts are the only .ttf a package may hold (assets\launcher, assets\fonts); the game's are not.
-$ours = 'font.ttf', 'LiberationSans-Regular.ttf', 'LiberationMono-Regular.ttf', 'Anton-Regular.ttf'
+$ours = 'font.ttf', 'font_body.ttf', 'LiberationSans-Regular.ttf', 'LiberationMono-Regular.ttf', 'Anton-Regular.ttf'
 # By the full path: package.cmd passes the folder relative, the files come back absolute.
 $mw1data = (Join-Path (Resolve-Path -LiteralPath $Dist).Path 'mw1data') + [IO.Path]::DirectorySeparatorChar
 $game = Get-ChildItem -LiteralPath $Dist -Recurse -File |

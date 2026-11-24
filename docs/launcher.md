@@ -387,7 +387,40 @@ folder): the code is UTF-8 throughout, but on Windows `fs::path` and `fopen` rea
 narrow strings in the ANSI code page and `fs::path::string()` writes them in it.
 MY DATA FOLDER refuses such a name; the install has no such guard.
 
-## The family cards (2026-11-22)
+## The panels (2026-11-24)
+
+The main screen as a list, the download page's look (owenmorgan.com/battletech;
+the mockup "BattleTech launcher: scrolling list", left board, picked on
+2026-11-23): one panel a game, top to bottom MECHWARRIOR 3, PIRATE'S MOON,
+MECHWARRIOR 1 REVERSE ENGINEERED, MECHWARRIOR 1 REMAKE, THE CRESCENT HAWK'S
+INCEPTION. Inception is one panel until its remake has a release (or is
+installed); then INCEPTION REMAKE gets its own and the first panel is the
+original. The cards' tabs are gone (an old `tab_<card>=` in mw3.cfg is ignored).
+
+- A panel (752x100 on the 854x480 canvas): the badge (76) at the left, dimmed
+  while the game is not out; the name (the lettering, 20); then three small
+  lines in the second font (`font_body.ttf`, Saira Condensed Medium, 12): the
+  status's first line in amber (its second joined with " · " when both fit),
+  the rest of the status, then a line about the game as room allows, cut at a
+  word. Its button at the right, upright in the middle: PLAY (split with its
+  UPDATE when one is ready), DOWNLOAD, COMING SOON. The panel whose button is
+  hot (mouse, keys, pad) gets an amber, doubled edge.
+- Inception has a badge (`badge_inception.png`, the hawk; README there).
+- The list scrolls between the header and the bottom row (y 80 to 418): about
+  three panels show. The mouse wheel scrolls (36 px a notch, a trackpad's parts
+  added up); the scrollbar at the list's right (an amber thumb on a dark track)
+  drags, and a click on its track pages. The keys and the pad scroll a focused
+  panel's button into the list. A shade at the list's top and bottom shows more
+  is there. Buttons are hit only inside the list.
+- The log names each panel's button by its game, then the bottom row, then
+  UPDATE AVAILABLE: "screen main: MECHWARRIOR 3, PIRATE'S MOON, MECHWARRIOR 1
+  ORIGINAL, MECHWARRIOR 1, INCEPTION ORIGINAL, GAME FILES, UPDATES, ADD FROM
+  FILE, QUIT". `MW3_LAUNCHER_LIST_Y=<px>` starts the list scrolled (shots).
+
+The two sections below are the layouts before it; the game states, the COMING
+SOON rule, the kit's contract and the bottom row are unchanged.
+
+## The family cards (2026-11-22, replaced by the panels 2026-11-24)
 
 2026-11-22, from four mockups (the canvas "Launcher Families"): option
 A, "everything up front and center". One card a family, a tab a game in it:

@@ -100,7 +100,7 @@ if [ -n "${MW3_PKG_MW1_DIR:-}" ]; then
   EXES="$EXES -e $APPDIR/usr/bin/mw1"
 fi
 # The launcher's art (ours): beside the program, where SDL_GetBasePath finds it.
-cp assets/launcher/*.png assets/launcher/font.ttf "$APPDIR/usr/bin/assets/launcher/"
+cp assets/launcher/*.png assets/launcher/font.ttf assets/launcher/font_body.ttf "$APPDIR/usr/bin/assets/launcher/"
 mkdir -p "$APPDIR/usr/bin/assets/fonts" "$APPDIR/usr/share/doc/mw3/licenses/liberation" "$APPDIR/usr/share/doc/mw3/licenses/anton"
 cp assets/fonts/*.ttf "$APPDIR/usr/bin/assets/fonts/"
 cp assets/fonts/Liberation-OFL.txt "$APPDIR/usr/share/doc/mw3/licenses/liberation/OFL.txt"

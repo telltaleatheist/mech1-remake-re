@@ -96,6 +96,7 @@ rem The launcher's art (ours, assets/launcher: generated, with its prompts).
 mkdir "%DIST%\assets\launcher"
 copy /y assets\launcher\*.png "%DIST%\assets\launcher\" >nul || exit /b 1
 copy /y assets\launcher\font.ttf "%DIST%\assets\launcher\" >nul || exit /b 1
+copy /y assets\launcher\font_body.ttf "%DIST%\assets\launcher\" >nul || exit /b 1
 copy /y tools\windows\dist\THIRD-PARTY.txt "%DIST%\" >nul || exit /b 1
 if exist LICENSE copy /y LICENSE "%DIST%\LICENSE.txt" >nul
 rem libarchive, zlib and liblzma: linked into mw3.exe, their licences from

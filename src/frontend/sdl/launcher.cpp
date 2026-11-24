@@ -58,14 +58,13 @@ constexpr int kBadge = 76;  // a game's badge across, on the 640x480 canvas (the
 // The main screen's cards (layout C, the mockup's 1280x720 at two thirds): the header, the cards, the bottom row.
 // The setup screens' titles, by header_game(): each game's own, never the launcher's (2026-11-22).
 constexpr const char* kHeaderNames[] = {"MECHWARRIOR 3", "MECHWARRIOR 3: PIRATE'S MOON", "MECHWARRIOR 1 REMAKE", "MECHWARRIOR 1"};
-constexpr int kCardsW = 768, kCardsTop = 84, kCardsBottom = 416, kCardBadge = 100, kCardButtonH = 42;
-constexpr int kCardTabY = 150, kCardTabH = 24;
+constexpr int kCardBadge = 100, kCardButtonH = 42;  // the badges as loaded; a panel's buttons' height
+// The main screen's panels (2026-11-24, the download page's look; docs/launcher.md, The panels): one a game, in a
+// list that scrolls between the header and the bottom row, its scrollbar at the right.
+constexpr int kListX = 43, kListW = 768, kListTop = 80, kListBottom = 418;
+constexpr int kPanelW = 752, kPanelH = 100, kPanelGap = 8, kPanelBadge = 76, kPanelButtonW = 176, kBarW = 6;
 // The launcher's name in its header and window (2026-11-22: "Battletech" at the top, for the whole family).
-constexpr const char* kLauncherTitle = "BATTLETECH";  // a card's game tabs, under its name (2026-11-22)
-// Each card's games, its tabs left to right (upgrades::update::Game): MW3 | Pirate's Moon, MW1's ORIGINAL (the
-// Rebuild) | REMAKE, Inception's ORIGINAL | REMAKE. Originals on the left (2026-11-22).
-constexpr int kCardGames[3][2] = {{0, 1}, {3, 2}, {4, 5}};
-constexpr const char* kCardKeys[3] = {"mw3", "mw1", "inception"};  // mw3.cfg's tab_<key>=
+constexpr const char* kLauncherTitle = "BATTLETECH";
 // The cards' screen (1.2.0): the starfield zoomed so its drift reads round the cards, the cards a little see-through.
 constexpr float kStarZoom = 1.8f;
 constexpr Uint8 kCardAlpha = 196;
@@ -117,6 +116,13 @@ std::string font_path(const std::string& dir) {
 #else
   return {};
 #endif
+}
+
+// The panels' small lines (2026-11-24): assets/launcher/font_body.ttf (Saira Condensed Medium), else the lettering's.
+std::string body_font_path(const std::string& dir) {
+  std::error_code ec;
+  if (!dir.empty() && fs::exists(fs::path(dir) / "font_body.ttf", ec)) return (fs::path(dir) / "font_body.ttf").string();
+  return font_path(dir);
 }
 
 SDL_Surface* load_png(const std::string& dir, const char* name) {
@@ -188,9 +194,10 @@ SDL_Surface* scaled(SDL_Surface* s, int w, int h) {
 struct Art {
   SDL_Surface *stars = nullptr, *metal = nullptr, *plate = nullptr, *title = nullptr, *emblem = nullptr;
   SDL_Surface* stars_big = nullptr;  // the cards' screen: the starfield at kStarZoom, so its drift shows (1.2.0)
-  SDL_Surface* badge[4] = {};  // the games' round badges: MechWarrior 3, Pirate's Moon, MW1 Remake, MW1 Original
+  // The games' round badges: MechWarrior 3, Pirate's Moon, MW1 Remake, MW1 Original (Rebuild), Inception (2026-11-24).
+  SDL_Surface* badge[5] = {};
   ~Art() {
-    for (SDL_Surface* s : {stars, stars_big, metal, plate, title, emblem, badge[0], badge[1], badge[2]})
+    for (SDL_Surface* s : {stars, stars_big, metal, plate, title, emblem, badge[0], badge[1], badge[2], badge[3], badge[4]})
       if (s) SDL_DestroySurface(s);
   }
   void load(const std::string& dir) {
@@ -207,8 +214,8 @@ struct Art {
     plate = cut_out(load_png(dir, "plate.png"), 24, false);
     if (SDL_Surface* t = cut_out(load_png(dir, "title.png"), 24, true)) title = scaled(t, 420, t->h * 420 / t->w), SDL_DestroySurface(t);
     if (SDL_Surface* e = cut_out(load_png(dir, "emblem.png"), 24, true)) emblem = scaled(e, 72, 72), SDL_DestroySurface(e);
-    const char* const badges[4] = {"badge_mw3.png", "badge_pm.png", "badge_mw1.png", "badge_mw1o.png"};
-    for (int i = 0; i < 4; ++i) {  // cut out already (tools/badge_cutout.py): their own alpha; an older black one cut here
+    const char* const badges[5] = {"badge_mw3.png", "badge_pm.png", "badge_mw1.png", "badge_mw1o.png", "badge_inception.png"};
+    for (int i = 0; i < 5; ++i) {  // cut out already (tools/badge_cutout.py): their own alpha; an older black one cut here
       SDL_Surface* b = load_png(dir, badges[i]);
       if (b && !has_alpha(b)) b = cut_out(b, 24, true);
       if (b) badge[i] = scaled(b, kCardBadge, kCardBadge), SDL_DestroySurface(b);
@@ -412,12 +419,10 @@ struct Button {
   bool enabled = true;
   size_t sub_keep = 0;  // the sub's start kept whole when it is shortened to fit
   int badge = -1;       // a game's entry: its round badge (Art::badge), the name beside it
-  // The cards (2026-11-20, layout C): a card's amber PLAY, its grey PLAY ORIGINAL, the bottom row's
-  // flat buttons; 0 the steel plate of the other screens.
-  // kTab: a card's game tab (2026-11-22), amber when `selected`; `dot`, its game has an update.
-  enum Style { kPlate, kAmber, kGrey, kFlat, kTab } style = kPlate;
-  bool selected = false, dot = false;
-  std::string name;  // what the log and the checks call it ("" the label): a card's PLAY by its game
+  // The main screen: a panel's amber PLAY, the bottom row's flat buttons; 0 the steel plate of the other screens.
+  enum Style { kPlate, kAmber, kGrey, kFlat } style = kPlate;
+  int card = -1;     // the main screen's panel it is on: it scrolls with the list and shows only inside it
+  std::string name;  // what the log and the checks call it ("" the label): a panel's PLAY by its game
   // A split button's end (2026-11-22): a game's UPDATE as a segment at the right of its PLAY, a divider and a
   // download arrow, the version under it. Its own button for clicks, focus and the checks; drawn joined to the one
   // before it.
@@ -425,16 +430,16 @@ struct Button {
   const std::string& log_name() const { return name.empty() ? label : name; }
 };
 
-// A game's card on the main screen (layout C): its badge on the starfield, its name, its status lines; its
-// buttons are Buttons.
+// A game's panel on the main screen (2026-11-24): its badge, its name, its status lines and a line about the game;
+// its buttons are Buttons. `r` is where it is drawn now (the list's scroll in it).
 struct Card {
   SDL_Rect r{};
-  int badge = 0;  // -1: none yet (Inception), a plain disc
+  int badge = 0;  // -1: none, a plain disc
   std::string name;
-  std::vector<std::string> lines;  // the status, a line each, the last of them shortened to fit
+  std::vector<std::string> lines;  // the status, a line each, shortened to fit
   std::vector<size_t> keep;        // each line's start kept whole when it is shortened (Text::fit)
-  std::string note;                // a single game's words above its PLAY
-  bool on = true;
+  std::string blurb;               // what the game is, under the status as room allows
+  bool on = true;                  // false: not out yet (its badge dimmed, its name grey)
 };
 
 enum Id {
@@ -453,7 +458,6 @@ enum Id {
   kGameInstall = 110,  // ours, games on demand (sdl_games.h): + the game (upgrades::update::Game), INSTALL
   kGameUpdate = 120,   // + the game: UPDATE
   kInstallFile = 130, kInstallFileGo,  // ADD FROM FILE; its ADD ANYWAY for a file without SHA256SUMS
-  kTab = 140,      // + card * 2 + tab: a card's game tabs (2026-11-22)
   kKitPlay = 150,  // + the game: PLAY for a game on the setup kit's contract (MW1 Rebuild, Inception's two)
 };
 
@@ -542,7 +546,17 @@ class Launcher {
   void offer_mw1();                        // the search's MechWarrior (1989) offered on the find's plate
   void copy_mw1(const std::string& game);  // copied into mw1::unpacked_dir on the worker, then take_mw1
   void take_mw1(const std::string& dir);   // the folder in use from now: saved, then on as the pick goes
-  void draw_card(const Card& c);
+  void draw_card(const Card& c, bool selected);
+  // The panels' list (2026-11-24): its scroll (0 to list_max_), the wheel's remainder, the scrollbar's drag.
+  int list_y_ = SDL_getenv("MW3_LAUNCHER_LIST_Y") ? std::atoi(SDL_getenv("MW3_LAUNCHER_LIST_Y")) : 0;  // checks: a shot scrolled
+  int list_max_ = 0, drag_grab_ = 0;
+  float wheel_left_ = 0, mouse_x_ = -1, mouse_y_ = -1;
+  bool dragging_ = false;
+  void scroll_list(int y);
+  void show_focus();
+  SDL_Rect list_thumb() const;
+  int hit(float x, float y) const;
+  void draw_list_edges();
   // GAME FILES on Pirate's Moon (files_pm_): its settings folder as mw3pm
   // finds it, its usual one ("BattleTech/Pirate's Moon", made by mw3pm, not
   // here), what it lacks, and the folder in use.
@@ -604,6 +618,7 @@ class Launcher {
   SDL_Surface* canvas_ = nullptr;
   Art art_;
   Text text_;
+  Text body_;  // the panels' small lines (font_body.ttf)
   enum Screen { kMain, kSetupScreen, kConfirm, kWorking, kNotes, kDataScreen, kUpdateScreen } screen_ = kMain;
   std::vector<std::string> notes_;  // the first start's (launcher_notes)
   std::vector<Button> buttons_;
@@ -663,9 +678,6 @@ class Launcher {
   void run_kit(int i);
   rekit::Status kit_status_[upgrades::update::kGameCount];
   bool kit_known_[upgrades::update::kGameCount] = {};
-  // Each card's selected tab (2026-11-22): MW3, MW1's REMAKE and Inception's ORIGINAL at first; the last pick
-  // kept (mw3.cfg tab_<card>=).
-  int tab_[3] = {0, 1, 0};
   bool games_on_ = false;  // mw3launcher (not mw3's or mw3pm's own find screen)
   std::string games_root_;
   // Ours (2026-11-22): each game's own folder, picked: its program and its game files there, the user folder
@@ -876,11 +888,6 @@ void Launcher::resolve_games() {
   games_on_ = !o_.setup_only && !o_.pm;
   for (int i = 0; i < upgrades::update::kGameCount && !o_.write_dir.empty(); ++i)  // a game's own setup too: its folder as the launcher's INSTALL picked it
     games_place_[i] = cfg_path(o_.write_dir, std::string("games_") + upgrades::update::game_info(upgrades::update::kGames[i]).key);
-  for (int k = 0; k < 3 && !o_.write_dir.empty(); ++k) {  // each card's last tab
-    const std::string v = cfg_path(o_.write_dir, std::string("tab_") + kCardKeys[k]);
-    for (int t = 0; t < 2; ++t)
-      if (v == upgrades::update::game_info(upgrades::update::kGames[kCardGames[k][t]]).key) tab_[k] = t;
-  }
   if (!games_on_) {
     for (int i = 0; i < upgrades::update::kGameCount; ++i) kit_refresh(i);
     return;
@@ -1594,7 +1601,6 @@ void Launcher::layout() {
       struct Panel {  // a game's part of its card
         std::vector<std::string> lines;
         std::vector<size_t> keep;
-        std::string note;
         int badge = -1;
         int id = 0;
         std::string label = "PLAY", name;
@@ -1646,7 +1652,7 @@ void Launcher::layout() {
       const std::string sub = install_.ok ? ready + install_.dir : "Not found yet: click to find your game";
       {  // MechWarrior 3
         Panel& p = pn[0];
-        p.badge = 0, p.note = "REBUILT ON ITS OWN ENGINE";
+        p.badge = 0;
         if (games_on_ && o_.game_bin.empty()) {
           install(p, 0, "MECHWARRIOR 3");
         } else {
@@ -1661,7 +1667,7 @@ void Launcher::layout() {
         std::printf("mw3: launcher: entry MECHWARRIOR 3: %s\n", games_on_ && o_.game_bin.empty() ? "Not installed" : sub.c_str());
       {  // Pirate's Moon: its program beside this one (a package with it) or installed
         Panel& p = pn[1];
-        p.badge = 1, p.note = "REBUILT ON ITS OWN ENGINE";
+        p.badge = 1;
         if (o_.pm_bin.empty() && games_on_) {
           install(p, 1, "PIRATE'S MOON");
           if (!entries_logged_) std::printf("mw3: launcher: entry PIRATE'S MOON: Not installed\n");
@@ -1729,9 +1735,10 @@ void Launcher::layout() {
           later(p, kMw1Original, "MECHWARRIOR 1 ORIGINAL");
         }
       }
-      for (int i : {4, 5}) {  // Inception's two: no badge yet (it must be our own art), a plain disc
+      for (int i : {4, 5}) {  // Inception's two: the hawk (2026-11-24)
         const char* name = i == 4 ? "INCEPTION ORIGINAL" : "INCEPTION REMAKE";
         Panel& p = pn[i];
+        p.badge = 4;
         if (!game_bin(i).empty()) kit(p, i, name);
         else if (games_on_) install(p, i, name);
         else later(p, kKitPlay + i, name);
@@ -1760,31 +1767,51 @@ void Launcher::layout() {
         std::printf("mw3: launcher: entry INCEPTION REMAKE: %s\n", words(5).c_str());
         mw1_logged_ = true;
       }
-      static const char* const kCardNames[3] = {"MECHWARRIOR 3", "MECHWARRIOR 1", "INCEPTION"};
-      static const char* const kTabWords[3][2] = {{"MECHWARRIOR 3", "PIRATE'S MOON"}, {"ORIGINAL", "REMAKE"}, {"ORIGINAL", "REMAKE"}};
-      static const char* const kTabNames[3][2] = {{"MECHWARRIOR 3 TAB", "PIRATE'S MOON TAB"},
-                                                  {"MECHWARRIOR 1 ORIGINAL TAB", "MECHWARRIOR 1 REMAKE TAB"},
-                                                  {"INCEPTION ORIGINAL TAB", "INCEPTION REMAKE TAB"}};
-      const int n = 3, gap = 12, cw = (kCardsW - gap * (n - 1)) / n;
-      const int x0 = (W - (cw * n + gap * (n - 1))) / 2;
+      // The panels (2026-11-24, the download page's look; docs/launcher.md, The panels): one a game, top to bottom
+      // as the page lists them, in a list that scrolls. Inception's remake gets its own once its first release is
+      // out (or it is installed); until then Inception is one panel.
+      struct Row {
+        int game;
+        const char* title;
+        const char* blurb;
+      };
+      std::vector<Row> rows = {
+          {0, "MECHWARRIOR 3", "Zipper Interactive and MicroProse, 1999. Rebuilt function by function from the original "
+                               "Mech3.exe: it plays the way it always did, minus the bugs."},
+          {1, "PIRATE'S MOON", "The expansion, rebuilt the same way from its own exe. Needs your own Pirate's Moon; it works "
+                               "without MechWarrior 3."},
+          {3, "MECHWARRIOR 1 REVERSE ENGINEERED", "The original MechWarrior (1989), rebuilt as modern C++ from Elthial's SDL "
+                                                  "port, every step checked against the original's own logic."},
+          {2, "MECHWARRIOR 1 REMAKE", "MechWarrior (1989)'s mercenary campaign, fought with MechWarrior 3's combat, worlds and 'Mechs."},
+          {4, "THE CRESCENT HAWK'S INCEPTION", "BattleTech: The Crescent Hawk's Inception (1988), rebuilt and remade."}};
+      // The remake's own panel once there is one to show: a release found, or it is here (never on a failed check).
+      if (!pn[5].soon && (checks_[5].kind == GC::kNewer || checks_[5].kind == GC::kUpToDate || !game_bin(5).empty())) {
+        rows.back().blurb = "BattleTech: The Crescent Hawk's Inception (1988), rebuilt from the original.";
+        rows.push_back({5, "INCEPTION REMAKE", "BattleTech: The Crescent Hawk's Inception (1988), remade."});
+      }
+      const int n = static_cast<int>(rows.size()), view = kListBottom - kListTop;
+      list_max_ = std::max(0, n * (kPanelH + kPanelGap) - kPanelGap - view);
+      list_y_ = std::clamp(list_y_, 0, list_max_);
       for (int k = 0; k < n; ++k) {
-        const Panel& p = pn[kCardGames[k][tab_[k]]];
-        const bool on = !(pn[kCardGames[k][0]].soon && pn[kCardGames[k][1]].soon);
-        cards_.push_back({{x0 + k * (cw + gap), kCardsTop, cw, kCardsBottom - kCardsTop}, p.badge, kCardNames[k], p.lines, p.keep, p.note, on});
+        const Panel& p = pn[rows[k].game];
+        cards_.push_back({{kListX, kListTop + k * (kPanelH + kPanelGap) - list_y_, kPanelW, kPanelH}, p.badge, rows[k].title,
+                          p.lines, p.keep, rows[k].blurb, !p.soon});
         const Card& c = cards_.back();
-        // Its button (rects on the canvas: add() shifts by kX, so it is taken off here); `upd`, a game with a newer
-        // release, splits it: PLAY and, at its end, that game's UPDATE (2026-11-22).
-        SDL_Rect r{c.r.x + 12 - kX, c.r.y + c.r.h - 12 - kCardButtonH, c.r.w - 24, kCardButtonH};
+        // Its button at the right, upright in the middle (rects on the canvas: add() shifts by kX, so it is taken
+        // off here); `upd`, a game with a newer release, splits it: PLAY and, at its end, that game's UPDATE.
+        SDL_Rect r{c.r.x + c.r.w - 14 - kPanelButtonW - kX, c.r.y + (c.r.h - kCardButtonH) / 2, kPanelButtonW, kCardButtonH};
         const bool split = p.upd >= 0 && can_update(p.upd);
         if (split) r.w -= kSegW;
         add(p.id, r, p.label, "", p.on);
-        buttons_.back().style = Button::kAmber, buttons_.back().name = p.name;
+        buttons_.back().style = Button::kAmber, buttons_.back().name = p.name, buttons_.back().card = k;
         if (split) {
           const std::string ulabel = "UPDATE TO " + upgrades::update::game_version(checks_[p.upd].release.tag);
           add(kGameUpdate + p.upd, SDL_Rect{r.x + r.w, r.y, kSegW, r.h}, ulabel, "", !work_);
           buttons_.back().style = Button::kAmber, buttons_.back().seg = true, buttons_.back().name = p.name + " UPDATE";
+          buttons_.back().card = k;
         }
       }
+      const int x0 = kListX;
       // GAME FILES (2026-11-02): the find screen at any time, to pick or refresh the game's files; UPDATES
       // (docs/launcher.md, Updates); QUIT for fullscreen (Escape too). The mockup's bottom row, flat buttons.
       auto flat = [&](int id, int x, int w, const char* label) {
@@ -1802,21 +1829,10 @@ void Launcher::layout() {
       // A newer launcher found by the start's check: an amber UPDATE AVAILABLE <v> in the header's top right, beside
       // the mark, as Discord's and Chrome's (2026-11-23: the footer's button was too small to see). After QUIT
       // for the keys and the pad; it opens the UPDATE screen.
-      if (self_update_ && !cards_.empty()) {
-        const int right = cards_.back().r.x + cards_.back().r.w;
-        add(kSelfUpdate, {right - kPillW - kX, kPillY, kPillW, kPillH},
+      if (self_update_) {
+        add(kSelfUpdate, {kListX + kListW - kPillW - kX, kPillY, kPillW, kPillH},
             "UPDATE AVAILABLE " + upgrades::update::plain_version(self_update_->release.tag), "", !work_);
         buttons_.back().style = Button::kAmber;  // logged and focused by its label, the version in it
-      }
-      // The tabs last: the pad and the keys reach each card's PLAY first, as before the tabs.
-      for (int k = 0; k < n; ++k) {
-        const Card& c = cards_[k];
-        const int tw = (c.r.w - 24) / 2;
-        for (int t = 0; t < 2; ++t) {
-          add(kTab + k * 2 + t, {c.r.x + 12 + t * (tw - 1) - kX, c.r.y + kCardTabY, t ? c.r.w - 24 - tw + 1 : tw, kCardTabH}, kTabWords[k][t]);
-          Button& b = buttons_.back();
-          b.style = Button::kTab, b.selected = tab_[k] == t, b.dot = can_update(kCardGames[k][t]), b.name = kTabNames[k][t];
-        }
       }
       break;
     }
@@ -2019,18 +2035,19 @@ Launcher::NotesLayout Launcher::notes_layout() {
   return l;
 }
 
-// A card (layout C): the mockup's panel (a dark gradient, a thin steel edge, an amber line along the bottom), the
-// badge on it with no box, the name, the status lines and a single game's words above its PLAY.
-void Launcher::draw_card(const Card& c) {
+// A game's panel (2026-11-24, the download page's look): a dark gradient a little see-through over the stars, a
+// steel edge (amber and doubled when its button is the one hot), the badge at the left, the name, then the status
+// in amber, the rest of the status and as much of the game's line as fits, its button at the right.
+void Launcher::draw_card(const Card& c, bool selected) {
   const SDL_Rect& r = c.r;
-  // rgba(43,48,56) to rgba(26,29,34) over the stars at kCardAlpha: a little of the drift shows through (1.2.0)
   SDL_Surface* row_s = SDL_CreateSurface(r.w, 1, SDL_PIXELFORMAT_RGBA32);
   if (row_s) SDL_SetSurfaceBlendMode(row_s, SDL_BLENDMODE_BLEND);
   for (int y = 0; y < r.h; ++y) {
     const float t = static_cast<float>(y) / static_cast<float>(r.h);
     const int inset = y == 0 || y == r.h - 1 ? 2 : y == 1 || y == r.h - 2 ? 1 : 0;  // the corners rounded a little
-    // lifted so that over the dark sky the card keeps the mockup's tone
-    const Uint8 cr = static_cast<Uint8>(50 - 20 * t), cg = static_cast<Uint8>(56 - 22 * t), cb = static_cast<Uint8>(65 - 26 * t);
+    const int lift = selected ? 8 : 0;
+    const Uint8 cr = static_cast<Uint8>(44 + lift - 18 * t), cg = static_cast<Uint8>(49 + lift - 20 * t),
+                cb = static_cast<Uint8>(58 + lift - 24 * t);
     SDL_Rect row{r.x + inset, r.y + y, r.w - inset * 2, 1};
     if (!row_s) {
       SDL_FillSurfaceRect(canvas_, &row, SDL_MapSurfaceRGB(canvas_, cr, cg, cb));
@@ -2041,19 +2058,21 @@ void Launcher::draw_card(const Card& c) {
     SDL_BlitSurface(row_s, &src, canvas_, &row);
   }
   if (row_s) SDL_DestroySurface(row_s);
-  const uint32_t edge = SDL_MapSurfaceRGB(canvas_, 0x45, 0x4c, 0x55), amber = SDL_MapSurfaceRGB(canvas_, 0xf0, 0xa0, 0x20);
-  const SDL_Rect sides[3] = {{r.x + 2, r.y, r.w - 4, 1}, {r.x, r.y + 2, 1, r.h - 4}, {r.x + r.w - 1, r.y + 2, 1, r.h - 4}};
-  SDL_FillSurfaceRects(canvas_, sides, 3, edge);
-  const SDL_Rect bottom{r.x + 2, r.y + r.h - 2, r.w - 4, 2};
-  SDL_FillSurfaceRect(canvas_, &bottom, amber);
-  const int cx = r.x + r.w / 2;
+  const uint32_t edge = selected ? SDL_MapSurfaceRGB(canvas_, 0xf0, 0xa0, 0x20) : SDL_MapSurfaceRGB(canvas_, 0x3c, 0x42, 0x4b);
+  for (int k = 0; k < (selected ? 2 : 1); ++k) {
+    const SDL_Rect sides[4] = {{r.x + 2, r.y + k, r.w - 4, 1}, {r.x + 2, r.y + r.h - 1 - k, r.w - 4, 1},
+                               {r.x + k, r.y + 2, 1, r.h - 4}, {r.x + r.w - 1 - k, r.y + 2, 1, r.h - 4}};
+    SDL_FillSurfaceRects(canvas_, sides, 4, edge);
+  }
+  const int bx = r.x + 12, by = r.y + (r.h - kPanelBadge) / 2;
   if (SDL_Surface* art = c.badge >= 0 ? art_.badge[c.badge] : nullptr) {
-    const uint8_t m = c.on ? 255 : 90;
+    const uint8_t m = c.on ? 255 : 110;
     SDL_SetSurfaceColorMod(art, m, m, m);
-    SDL_Rect d{cx - kCardBadge / 2, r.y + 12, kCardBadge, kCardBadge};
+    SDL_Rect d{bx, by, kPanelBadge, kPanelBadge};
     SDL_BlitSurfaceScaled(art, nullptr, canvas_, &d, SDL_SCALEMODE_LINEAR);
-  } else {  // no badge yet: a plain disc in a steel ring
-    const int rad = kCardBadge / 2 - 6, cy = r.y + 12 + kCardBadge / 2;
+    SDL_SetSurfaceColorMod(art, 255, 255, 255);
+  } else {  // no badge: a plain disc in a steel ring
+    const int rad = kPanelBadge / 2 - 4, cx = bx + kPanelBadge / 2, cy = by + kPanelBadge / 2;
     for (int y = -rad; y <= rad; ++y) {
       const int half = static_cast<int>(std::sqrt(static_cast<float>(rad * rad - y * y)));
       const int in = rad - 3 > std::abs(y) ? static_cast<int>(std::sqrt(static_cast<float>((rad - 3) * (rad - 3) - y * y))) : 0;
@@ -2065,13 +2084,107 @@ void Launcher::draw_card(const Card& c) {
       }
     }
   }
-  text_.draw(canvas_, text_.fit(c.name, 20, r.w - 16), 20, c.on ? kWhite : kGrey, cx, r.y + 136);
-  const int lh = text_.line_skip(12);
-  for (size_t i = 0; i < c.lines.size(); ++i)
-    text_.draw(canvas_, text_.fit(c.lines[i], 12, r.w - 20, i < c.keep.size() ? c.keep[i] : 0), 12,
-               SDL_Color{0xa7, 0xad, 0xb4, 255}, cx, r.y + kCardTabY + kCardTabH + 16 + static_cast<int>(i) * lh);
-  if (!c.note.empty() && c.lines.size() < 4)  // a fourth line (an update ready) takes its place
-    text_.draw(canvas_, c.note, 11, SDL_Color{0xa7, 0xad, 0xb4, 255}, cx, r.y + r.h - 12 - kCardButtonH - 12);
+  const int x0 = bx + kPanelBadge + 16, tw = r.x + r.w - 14 - kPanelButtonW - 16 - x0;
+  text_.draw(canvas_, text_.fit(c.name, 20, tw), 20, c.on ? kWhite : kGrey, x0, r.y + 22, -1);
+  // Three small lines under the name: the status's first line (with its second when both fit) in amber, the rest of
+  // it, then the game's line, cut at a word with "..." when the room runs out.
+  struct Line {
+    std::string s;
+    SDL_Color col;
+  };
+  std::vector<Line> rows;
+  const SDL_Color amber{0xf5, 0xc2, 0x7a, 255}, dim{0xb4, 0xba, 0xc4, 255}, soft{0x95, 0x9c, 0xa8, 255};
+  size_t i = 0;
+  if (!c.lines.empty()) {
+    std::string first = c.lines[0];
+    if (c.lines.size() > 1 && body_.width(first + " \xc2\xb7 " + c.lines[1], 12) <= tw) first += " \xc2\xb7 " + c.lines[1], i = 1;
+    rows.push_back({body_.fit(first, 12, tw, c.keep.empty() ? 0 : c.keep[0]), c.on ? amber : soft});
+    for (++i; i < c.lines.size() && rows.size() < 3; ++i)
+      rows.push_back({body_.fit(c.lines[i], 12, tw, i < c.keep.size() ? c.keep[i] : 0), dim});
+  }
+  const std::vector<std::string> words = body_.wrap(c.blurb, 12, tw);
+  for (size_t k = 0; k < words.size() && rows.size() < 3; ++k) {
+    std::string s = words[k];
+    if (rows.size() == 2 && k + 1 < words.size()) {  // the last row and more to say: cut at a word
+      std::string cut = s;
+      while (!cut.empty() && body_.width(cut + "...", 12) > tw) {
+        const size_t sp = cut.find_last_of(' ');
+        cut = sp == std::string::npos ? std::string() : cut.substr(0, sp);
+      }
+      s = cut.empty() ? s : cut + "...";
+    }
+    rows.push_back({s, soft});
+  }
+  for (size_t k = 0; k < rows.size(); ++k) body_.draw(canvas_, rows[k].s, 12, rows[k].col, x0, r.y + 46 + static_cast<int>(k) * 16, -1);
+}
+
+// The list's scroll set (0 to list_max_): the panels and their buttons move with it; under a still mouse the hot
+// button is the one now there.
+void Launcher::scroll_list(int y) {
+  y = std::clamp(y, 0, list_max_);
+  const int d = y - list_y_;
+  if (!d) return;
+  list_y_ = y;
+  for (Card& c : cards_) c.r.y -= d;
+  for (Button& b : buttons_)
+    if (b.card >= 0) b.r.y -= d;
+  if (focus_ < 0 && mouse_x_ >= 0) hot_ = hit(mouse_x_, mouse_y_);
+}
+
+// The focused button's panel brought wholly into the list (the keys and the pad step through them).
+void Launcher::show_focus() {
+  if (screen_ != kMain || focus_ < 0 || focus_ >= static_cast<int>(buttons_.size())) return;
+  const int k = buttons_[focus_].card;
+  if (k < 0 || k >= static_cast<int>(cards_.size())) return;
+  const SDL_Rect& r = cards_[k].r;
+  if (r.y < kListTop) scroll_list(list_y_ - (kListTop - r.y));
+  else if (r.y + r.h > kListBottom) scroll_list(list_y_ + (r.y + r.h - kListBottom));
+}
+
+// The scrollbar's thumb: as long as the share of the list shown, where the scroll is.
+SDL_Rect Launcher::list_thumb() const {
+  const int view = kListBottom - kListTop, all = view + list_max_;
+  const int h = std::max(28, view * view / std::max(1, all));
+  const int y = kListTop + (list_max_ > 0 ? (view - h) * list_y_ / list_max_ : 0);
+  return {kListX + kListW - kBarW, y, kBarW, h};
+}
+
+// The button under (x, y), -1 none; a panel's only inside the list (the part scrolled out of it is not there).
+int Launcher::hit(float x, float y) const {
+  int h = -1;
+  for (size_t i = 0; i < buttons_.size(); ++i) {
+    const Button& b = buttons_[i];
+    if (b.card >= 0 && (y < kListTop || y >= kListBottom)) continue;
+    if (x >= b.r.x && x < b.r.x + b.r.w && y >= b.r.y && y < b.r.y + b.r.h) h = static_cast<int>(i);
+  }
+  return h;
+}
+
+// The list's edges: a shade where more panels are scrolled out of it (so it reads as a list that goes on), and the
+// scrollbar, its amber thumb on a dark track, when the panels are more than it shows.
+void Launcher::draw_list_edges() {
+  if (list_max_ <= 0) return;
+  SDL_Surface* row_s = SDL_CreateSurface(kListW - kBarW - 4, 1, SDL_PIXELFORMAT_RGBA32);
+  if (row_s) {
+    SDL_SetSurfaceBlendMode(row_s, SDL_BLENDMODE_BLEND);
+    constexpr int kFade = 18;
+    for (int k = 0; k < kFade; ++k) {
+      SDL_FillSurfaceRect(row_s, nullptr, SDL_MapSurfaceRGBA(row_s, 6, 7, 10, static_cast<Uint8>(220 * (kFade - k) / kFade)));
+      if (list_y_ > 0) {
+        SDL_Rect top{kListX, kListTop + k, row_s->w, 1};
+        SDL_BlitSurface(row_s, nullptr, canvas_, &top);
+      }
+      if (list_y_ < list_max_) {
+        SDL_Rect bottom{kListX, kListBottom - 1 - k, row_s->w, 1};
+        SDL_BlitSurface(row_s, nullptr, canvas_, &bottom);
+      }
+    }
+    SDL_DestroySurface(row_s);
+  }
+  const SDL_Rect track{kListX + kListW - kBarW, kListTop, kBarW, kListBottom - kListTop}, thumb = list_thumb();
+  SDL_FillSurfaceRect(canvas_, &track, SDL_MapSurfaceRGB(canvas_, 0x22, 0x26, 0x2d));
+  const bool lit = dragging_ || (mouse_x_ >= track.x - 6 && mouse_y_ >= thumb.y && mouse_y_ < thumb.y + thumb.h);
+  SDL_FillSurfaceRect(canvas_, &thumb, lit ? SDL_MapSurfaceRGB(canvas_, 0xff, 0xb8, 0x4d) : SDL_MapSurfaceRGB(canvas_, 0xf0, 0xa0, 0x20));
 }
 
 void Launcher::plate(const Button& b, bool hot) {
@@ -2079,11 +2192,11 @@ void Launcher::plate(const Button& b, bool hot) {
   if (b.style != Button::kPlate) {  // the cards' screen: square, flat, its edge lit when hot (no ripple)
     const bool amber = b.style == Button::kAmber;
     auto colours = [&](const Button& x, bool h, SDL_Color* fill, SDL_Color* line, SDL_Color* ink) {
-      const bool am = x.style == Button::kAmber || (x.style == Button::kTab && x.selected);
-      const bool dark = x.style == Button::kGrey || x.style == Button::kTab;
+      const bool am = x.style == Button::kAmber;
+      const bool dark = x.style == Button::kGrey;
       *fill = am ? SDL_Color{0xf0, 0xa0, 0x20, 255} : dark ? SDL_Color{0x15, 0x18, 0x1c, 255} : SDL_Color{0x1c, 0x20, 0x26, 255};
       *line = am ? *fill : x.style == Button::kGrey ? SDL_Color{0x6b, 0x73, 0x7d, 255} : SDL_Color{0x45, 0x4c, 0x55, 255};
-      *ink = am ? SDL_Color{0x14, 0x10, 0x0a, 255} : x.style == Button::kTab ? SDL_Color{0xc9, 0xce, 0xd4, 255} : kWhite;
+      *ink = am ? SDL_Color{0x14, 0x10, 0x0a, 255} : kWhite;
       if (!x.enabled) *fill = {0x22, 0x25, 0x2a, 255}, *line = {0x3a, 0x3f, 0x46, 255}, *ink = kGrey;
       else if (h && am) *fill = {0xff, 0xb8, 0x4d, 255};
       else if (h) *fill = {static_cast<Uint8>(fill->r + 14), static_cast<Uint8>(fill->g + 14), static_cast<Uint8>(fill->b + 16), 255};
@@ -2138,12 +2251,7 @@ void Launcher::plate(const Button& b, bool hot) {
         const int half = std::max(text_.width(b.label, b.style == Button::kFlat ? 15 : 18), b.sub.empty() ? 0 : text_.width(b.sub, 11)) / 2;
         mid = whole + half + 8 <= r.x + r.w ? whole : cx;
       }
-    const int big = b.style == Button::kFlat ? 15 : b.style == Button::kTab ? 13 : 18;
-    if (b.dot) {  // a tab whose game has an update: a small mark after its words
-      const SDL_Color d = b.selected ? ink : SDL_Color{0xf0, 0xa0, 0x20, 255};
-      const SDL_Rect m{mid + text_.width(b.label, big) / 2 + 5, cy - 2, 5, 5};
-      SDL_FillSurfaceRect(canvas_, &m, SDL_MapSurfaceRGB(canvas_, d.r, d.g, d.b));
-    }
+    const int big = b.style == Button::kFlat ? 15 : 18;
     if (b.sub.empty()) {
       text_.draw(canvas_, b.label, big, ink, mid, cy + 1);
     } else {
@@ -2207,18 +2315,25 @@ void Launcher::draw(float dt) {
   background(dt);
   switch (screen_) {
     case kMain: {
-      for (const Card& c : cards_) draw_card(c);
-      if (!status_.empty()) {  // in the header, right of the mark: the cards stay whole
+      {  // the panels, inside the list; the one whose button is hot (the mouse, the keys, the pad) lit
+        const int at = focus_ >= 0 ? focus_ : hot_;
+        const int sel = at >= 0 && at < static_cast<int>(buttons_.size()) && buttons_[at].enabled ? buttons_[at].card : -1;
+        const SDL_Rect view{kListX, kListTop, kListW, kListBottom - kListTop};
+        SDL_SetSurfaceClipRect(canvas_, &view);
+        for (size_t k = 0; k < cards_.size(); ++k) draw_card(cards_[k], static_cast<int>(k) == sel);
+        SDL_SetSurfaceClipRect(canvas_, nullptr);
+      }
+      if (!status_.empty()) {  // in the header, right of the mark: the panels stay whole
         const SDL_Color col = status_good_ ? SDL_Color{200, 230, 200, 255} : SDL_Color{240, 190, 180, 255};
         // Left of UPDATE AVAILABLE when it is there.
-        const int at = self_update_ && !cards_.empty() ? cards_.back().r.x + cards_.back().r.w - kPillW - 12 : W - 43;
+        const int at = self_update_ ? kListX + kListW - kPillW - 12 : W - 43;
         const std::vector<std::string> lines = text_.wrap(status_, 12, self_update_ ? at - 262 : 470);
         const int lh = text_.line_skip(12), y0 = 46 - lh * static_cast<int>(std::min<size_t>(lines.size(), 3)) / 2 + lh / 2;
         for (size_t i = 0; i < lines.size() && i < 3; ++i)
           text_.draw(canvas_, lines[i], 12, col, at, y0 + static_cast<int>(i) * lh, 1);
       }
-      const int right = cards_.empty() ? W - 43 : cards_.back().r.x + cards_.back().r.w;
-      text_.draw(canvas_, package_words(), 12, kDim, right, kRowTop + 9, 1);  // the package's own version (the games' are on their cards)
+      const int right = kListX + kListW;
+      text_.draw(canvas_, package_words(), 12, kDim, right, kRowTop + 9, 1);  // the package's own version (the games' are on their panels)
       text_.draw(canvas_, "Unofficial fan rebuild. MechWarrior is a trademark of Microsoft.", 10, kGrey, right, kRowTop + 23, 1);
       break;
     }
@@ -2302,10 +2417,14 @@ void Launcher::draw(float dt) {
   }
   const int hot = focus_ >= 0 ? focus_ : hot_;
   drew_ripple_ = drew_edge_ = false;
+  const SDL_Rect list_view{kListX, kListTop, kListW, kListBottom - kListTop};
   for (size_t i = 0; i < buttons_.size(); ++i) {
     prev_hot_ = i > 0 && static_cast<int>(i) - 1 == hot && buttons_[i - 1].enabled;
+    SDL_SetSurfaceClipRect(canvas_, buttons_[i].card >= 0 ? &list_view : nullptr);  // a panel's: inside the list
     plate(buttons_[i], static_cast<int>(i) == hot && buttons_[i].enabled);
   }
+  SDL_SetSurfaceClipRect(canvas_, nullptr);
+  if (screen_ == kMain) draw_list_edges();
   // The main menu's own ripple (its step, mech3::menu_ripple_step, and its
   // draw 0x00558dd0) round the round button (a game's badge) under the
   // mouse, started afresh on each new one as SlideButton's on_enter does;
@@ -3036,22 +3155,6 @@ void Launcher::finish_work() {
 void Launcher::activate(int id) {
   if (id >= kGameInstall && id < kGameInstall + upgrades::update::kGameCount) return install_game(id - kGameInstall);
   if (id >= kGameUpdate && id < kGameUpdate + upgrades::update::kGameCount) return install_game(id - kGameUpdate);
-  if (id >= kTab && id < kTab + 6) {  // a card's tab: its game shown, the pick kept
-    const int k = (id - kTab) / 2, t = (id - kTab) % 2;
-    sounds_.play(Sounds::kSelect);
-    if (tab_[k] != t) {
-      tab_[k] = t;
-      if (!o_.write_dir.empty())
-        save_config_value(o_.write_dir, std::string("tab_") + kCardKeys[k],
-                          upgrades::update::game_info(upgrades::update::kGames[kCardGames[k][t]]).key);
-    }
-    const bool keys = focus_ >= 0;
-    layout();
-    if (keys)  // the pad or the keys stay on the tab
-      for (size_t b = 0; b < buttons_.size(); ++b)
-        if (buttons_[b].id == id) focus_ = static_cast<int>(b);
-    return;
-  }
   if (id >= kKitPlay && id < kKitPlay + upgrades::update::kGameCount) {
     sounds_.play(Sounds::kSelect);
     mw1_last_ = id == kKitPlay + 3, pm_last_ = files_pm_ = false;
@@ -3338,6 +3441,7 @@ void Launcher::nav(int action) {
       if (buttons_[f].enabled) break;
     }
     focus_ = f, hot_t_ = 0;
+    show_focus();  // a panel scrolled out of the list comes into it
     if (f >= 0) sounds_.play(Sounds::kRollover);
   } else if (action == 2 && at >= 0 && at < n && buttons_[at].enabled) {
     activate(buttons_[at].id);
@@ -3357,6 +3461,9 @@ LauncherChoice Launcher::run() {
   const std::string font = font_path(dir);
   text_.open(font);
   std::printf("mw3: launcher: font %s\n", font.empty() ? "none found: its text will be blank" : font.c_str());
+  const std::string body_font = body_font_path(dir);
+  body_.open(body_font);
+  std::printf("mw3: launcher: small lines' font %s\n", body_font.empty() ? "none found" : body_font.c_str());
   canvas_ = SDL_CreateSurface(W, H, SDL_PIXELFORMAT_RGB565);
   const Uint64 t_font = SDL_GetTicksNS();
   find_install();
@@ -3530,17 +3637,34 @@ LauncherChoice Launcher::run() {
         continue;
       }
       if (e.type == SDL_EVENT_MOUSE_MOTION) {
-        int h = -1;
-        for (size_t i = 0; i < buttons_.size(); ++i) {
-          const SDL_Rect& r = buttons_[i].r;
-          if (e.motion.x >= r.x && e.motion.x < r.x + r.w && e.motion.y >= r.y && e.motion.y < r.y + r.h) h = static_cast<int>(i);
+        mouse_x_ = e.motion.x, mouse_y_ = e.motion.y;
+        if (dragging_) {  // the scrollbar's thumb follows the mouse; the list with it
+          const SDL_Rect t = list_thumb();
+          const int room = std::max(1, kListBottom - kListTop - t.h);
+          scroll_list(list_max_ * (static_cast<int>(e.motion.y) - drag_grab_ - kListTop) / room);
+          continue;
         }
+        const int h = hit(e.motion.x, e.motion.y);
         if (h != hot_) {
           hot_ = h, hot_t_ = 0, focus_ = -1;
           if (h >= 0 && buttons_[h].enabled) sounds_.play(Sounds::kRollover);
         }
+      } else if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN && e.button.button == SDL_BUTTON_LEFT && screen_ == kMain &&
+                 list_max_ > 0 && e.button.x >= kListX + kListW - kBarW - 6 && e.button.x < kListX + kListW + 6 &&
+                 e.button.y >= kListTop && e.button.y < kListBottom) {
+        // The scrollbar: its thumb taken to drag, the track above or below it a page.
+        const SDL_Rect t = list_thumb();
+        const int y = static_cast<int>(e.button.y), page = kListBottom - kListTop - kPanelH / 2;
+        if (y >= t.y && y < t.y + t.h) dragging_ = true, drag_grab_ = y - t.y;
+        else scroll_list(list_y_ + (y < t.y ? -page : page));
       } else if (e.type == SDL_EVENT_MOUSE_BUTTON_UP && e.button.button == SDL_BUTTON_LEFT) {
-        if (hot_ >= 0 && buttons_[hot_].enabled) activate(buttons_[hot_].id);
+        if (dragging_) dragging_ = false;  // the drag's end, never a press
+        else if (hot_ >= 0 && buttons_[hot_].enabled) activate(buttons_[hot_].id);
+      } else if (e.type == SDL_EVENT_MOUSE_WHEEL && screen_ == kMain) {  // the panels, 36 px a notch (a trackpad's parts add up)
+        wheel_left_ += -e.wheel.y * 36.0f;
+        const int step = static_cast<int>(wheel_left_);
+        wheel_left_ -= static_cast<float>(step);
+        if (step) scroll_list(list_y_ + step);
       } else if (e.type == SDL_EVENT_MOUSE_WHEEL && screen_ == kUpdateScreen) {  // the notes, three lines a notch
         const size_t per = update_per_page(), last = update_lines_.size() > per ? update_lines_.size() - per : 0;
         const int step = static_cast<int>(-e.wheel.y * 3.0f);
