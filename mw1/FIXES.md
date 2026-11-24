@@ -5,6 +5,14 @@ Tick an item when it is merged into `main`.
 
 **How this file works (the owner, 2026-11-17):** every bug and feature the owner raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 148. [x] MW1's buttons are silent *(done 2026-11-24; in 1.1.1)*
+- **What:** none of MW1's layouts names a button sound, so no button made one, the pause's and the options' too
+  (mech3-re issue #19's gap on MW1's side).
+- **Done:** under SMALL FIXES a button whose layout names no sounds takes Pirate's Moon's `menu_rollover` and
+  `menu_select`: MW1's screens (`Mw1Screen`, which holds the set MENU while up) and the engine's dialogs read from MW1's
+  layouts (`ztwod::set_layout_control`). Sliders and lists stay quiet; the lab keeps Pirate's Moon's own sounds.
+- **Test:** ctest `mw1menusounds` (with `--original` nothing sounds).
+
 ## 147. [x] The user folder under BattleTech, as the family's *(done: rel-110, for 1.1.0)*
 - **What:** the family decision of 2026-11-22: every game's pilots, saves and settings under "BattleTech", no longer
   "MicroProse" (PM's moved in the launcher 1.3.2). The mw3 lead asked for MW1's too.
@@ -168,14 +176,6 @@ three combat tracks (FIXES 100, 116).
     play the theme, the win's the debrief's song.
   - `mw1_story_the_dark_wing_won_and_lost_headless`: no song at the Dark Wing's results; won, the ending's song over
     the credits, stopped at the hub; lost, none.
-
-## 142. [x] MW1's buttons are silent *(done 2026-11-24; in 1.1.1)*
-- **What:** none of MW1's layouts names a button sound, so no button made one, the pause's and the options' too
-  (mech3-re issue #19's gap on MW1's side).
-- **Done:** under SMALL FIXES a button whose layout names no sounds takes Pirate's Moon's `menu_rollover` and
-  `menu_select`: MW1's screens (`Mw1Screen`, which holds the set MENU while up) and the engine's dialogs read from MW1's
-  layouts (`ztwod::set_layout_control`). Sliders and lists stay quiet; the lab keeps Pirate's Moon's own sounds.
-- **Test:** ctest `mw1menusounds` (with `--original` nothing sounds).
 
 ## 141. [ ] MechWarrior (1989)'s copy into MW1 Remake's own folder *(open; raised by the lead with pm-v1.2.4's layout, 2026-11-22)*
 - **What:** pm-v1.2.4's launcher keeps each game's files in a folder of its own (`games_<key>=`, `<folder>/install`,

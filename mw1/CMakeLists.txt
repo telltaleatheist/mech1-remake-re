@@ -111,7 +111,7 @@ if(TARGET mw3pm)
     # The pause's backdrop without the HUD's marker line (FIXES.md item 83), both shapes.
     add_test(NAME mw1pausegrab COMMAND ${CMAKE_COMMAND} -DMW1_BIN=$<TARGET_FILE:mw1> -DDIR=${CMAKE_CURRENT_BINARY_DIR}/mw1pausegrab
                                        -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/pause_grab.cmake)
-    # The buttons' sounds (FIXES.md item 142).
+    # The buttons' sounds (FIXES.md item 148).
     add_test(NAME mw1menusounds COMMAND ${CMAKE_COMMAND} -DMW1_BIN=$<TARGET_FILE:mw1> -DDIR=${CMAKE_CURRENT_BINARY_DIR}/mw1menusounds
                                         -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/menu_sounds.cmake)
     # The high-resolution 2D (FIXES.md item 12, research/hires-2d.md B3 and B4). Off, every frame byte-identical to

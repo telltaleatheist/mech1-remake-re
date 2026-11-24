@@ -1,4 +1,4 @@
-# Issue #19 in MW1 (FIXES.md item 142): its layouts name no button sounds, so every button was silent; under SMALL
+# Issue #19 in MW1 (FIXES.md item 148): its layouts name no button sounds, so every button was silent; under SMALL
 # FIXES they take Pirate's Moon's menu sounds. The title, and the pause, QUIT, the results and the
 # hub after (the pause released its own sounds by then). With --original nothing sounds.
 # cmake -DMW1_BIN=<mw1> -DDIR=<scratch> -P menu_sounds.cmake
