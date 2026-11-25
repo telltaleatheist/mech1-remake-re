@@ -71,10 +71,10 @@ it.
 `mw1 --version` prints the version. Version numbers: the second number is a
 feature update, the third is bug fixes.
 
-## What's new in 1.1.1
+## What's new in 1.1.2
 
-Buttons have sounds, and a crash while a mission loads on Linux with an NVIDIA card should be fixed. The full notes are in
-[mw1/dist/RELEASE-NOTES-1.1.1.md](mw1/dist/RELEASE-NOTES-1.1.1.md).
+The enemies on the two ice maps no longer stand still, and in battles and defences every enemy comes for you, as in
+MechWarrior (1989). The full notes: [mw1/dist/RELEASE-NOTES-1.1.2.md](mw1/dist/RELEASE-NOTES-1.1.2.md).
 
 ## What's new in 1.1.0
 
