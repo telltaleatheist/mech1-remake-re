@@ -1,6 +1,6 @@
 # Do the enemies come? The survey (2026-11-25)
 
-Every destroy-all and defend row, seeds 1 to 3, 120 s, the player standing invincible at his start, the rule (FIXES 149)
+Every destroy-all and defend row, seeds 1 to 3, 120 s, the player standing invincible at the start, the rule (FIXES 149)
 on and off. "Off" also has no FIXES 97 block: the map's pilots alone. Three enemies a run (an Avatar, a Sunder, a Firefly in
 the fixed places, or the seed's); the table has only what is worse: more than 50 m farther at the end, or more than 10
 points more of the time standing (and not at the player). It is a reading of one machine's runs, not a claim about every

@@ -120,6 +120,7 @@ void pm_forget(Brain& b, zgame::Handle vehicle) {
   targets().erase(vehicle);
   pm_firing_forget(vehicle);
   pm_pending_forget(b);
+  far_sight_forget(b);  // ours
 }
 
 uint32_t pm_id(const void* p) {

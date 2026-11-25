@@ -14,8 +14,9 @@ inline constexpr float kFarEngage = 20000.0f;  // metres, squared in the params 
 
 void set_far_sight(bool on);  // off at start
 bool far_sight_on();
-// A pilot's pick when its sensors have none: the nearest of the player and his lancemates under orders (AiTarget +0x80,
+// A pilot's pick when its sensors have none: the nearest of the player and the lancemates under orders (AiTarget +0x80,
 // kept at any distance), for a pilot sent by far_sight_run; else null.
 Contact* far_pick(const Brain& b, zgame::Handle vehicle);
+void far_sight_forget(const Brain& b);  // the pilot gone: the next one at its address is looked at afresh
 void far_sight_run(Brain& b, BrainControls& c);  // each frame, before the orders run
 }  // namespace mech3::ai

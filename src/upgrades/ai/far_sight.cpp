@@ -4,7 +4,6 @@
 #include <cmath>
 #include <cstdio>
 #include <deque>
-#include <unordered_map>
 #include <unordered_set>
 
 #include "mech3/zai_brain.h"
@@ -17,7 +16,7 @@ namespace {
 constexpr int32_t kPlayerTeam = 1;
 constexpr float kNear = 500.0f;  // metres: a patrol that comes this near will meet the company
 bool g_on = false;
-std::unordered_map<const Brain*, bool> g_looked;  // brain, sent
+std::unordered_set<const Brain*> g_looked;
 }  // namespace
 
 void set_far_sight(bool on) {
@@ -25,6 +24,7 @@ void set_far_sight(bool on) {
   g_looked.clear();
 }
 bool far_sight_on() { return g_on; }
+void far_sight_forget(const Brain& b) { g_looked.erase(&b); }
 
 // The least distance to `p` of the steps the pilot may walk to from `from`.
 static float reach(Behaviour* from, const Pilot* pilot, const float p[3]) {
@@ -70,7 +70,7 @@ void far_sight_run(Brain& b, BrainControls& c) {
   const bool way = off <= kNear;
   std::printf("mw1: an enemy %.0f m off, its patrol comes within %.0f m of the company: %s\n", std::sqrt(who->dist2), off,
               way ? "as the map has it" : "comes");
-  g_looked[&b] = !way;
+  g_looked.insert(&b);
   if (way) return;
   b.params.put<int32_t>(0x3c, 1);
   b.params.put<float>(0x20, kFarEngage * kFarEngage);
