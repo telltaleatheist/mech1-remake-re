@@ -40,7 +40,7 @@ original.
 
 Nothing yet.
 
-**1.5.0 (2026-11-25)** (the full notes are in
+**1.5.0 (2026-11-24)** (the full notes are in
 [docs/release-notes-1.5.0.md](docs/release-notes-1.5.0.md)): the launcher is
 drawn sharp at any window size; each game's files and copies are on its gear
 page; CHECK FOR UPDATES checks every game and the launcher.

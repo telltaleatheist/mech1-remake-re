@@ -1,4 +1,4 @@
-# MechWarrior 3 Rebuild 1.5.0 (2026-11-25)
+# MechWarrior 3 Rebuild 1.5.0 (2026-11-24)
 
 The launcher, redrawn. MechWarrior 3 itself plays as in 1.4.1.
 
