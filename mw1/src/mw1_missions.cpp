@@ -276,6 +276,7 @@ int32_t choose_pool_row(const std::vector<MapRow>& rows, const MapPool& pool, Ro
 void set_map_table(std::vector<MapRow> rows) { g_rows = std::move(rows); }
 const std::vector<MapRow>& map_table() { return g_rows; }
 
+bool enemies_come(const Contract& c) { return c.objective != Objective::kAttackStructure && c.objective != Objective::kReachStructure; }
 RowKind kind_for(Mw1Objective o) {
   switch (o) {
     case Mw1Objective::kEliminate: return RowKind::kAny;

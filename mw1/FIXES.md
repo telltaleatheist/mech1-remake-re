@@ -15,6 +15,15 @@ Tick an item when it is merged into `main`.
   contracts on other maps came or patrolled.
 - **Fixed (data):** both maps' enemies carry MW3's own Instant Action `p6`, `p8`, `p9`, `p10` (its commonest), the
   lancemates theirs.
+- **The rule (MW1's, read from its reconstructed code, not run against the original; `mw1/research/enemy-orders.md`):**
+  destroy all and defend: an enemy that can't come near by its own patrol is given the attack from any distance
+  (`src/upgrades/ai/far_sight`, off in MW3 and PM); the rest keep the map's pilots. Item 97's forced engagement (mode 1,
+  3000 m, no break-offs) is replaced: it stood mw3c3 ia3's Enemy_08 on a hilltop at 772 m.
+- **Open, the owner's:** reach contracts (MW1's enemies come there too: with every enemy sent, the arctic
+  commander of 136 (b) goes down in 4 of 6 drives, where 6 of 6 arrive without), and the oppose-withdrawal contracts, played as
+  defences (MW1's enemies leave the map; item 97 has them come).
+- **Left:** mw3c4b ia1's Enemy_02 (1.2 km), ia2's Enemy_06 (1.6 km) and mw3c4 ia1's Enemy_10 (1.1 km) come nearer, then
+  stand; mw3c3 ia3's Enemy_06 may patrol at 1 km for minutes (`mw1/research/enemy-come-survey.md`, every row on 3 seeds).
 
 ## 148. [x] MW1's buttons are silent *(done 2026-11-24; in 1.1.1)*
 - **What:** none of MW1's layouts names a button sound, so no button made one, the pause's and the options' too
@@ -2258,6 +2267,7 @@ The owner, defending the tower on mw3c1ia3 (4 enemies): three came; the fourth n
 - **Fix (mw1_game.cpp, `enemy_launching`):** in a defence only, every enemy starts at mode 1, engages from 3 km at least
   (`kDefenceEngage`), and has no leash or time break-off, so each one comes for the company. Other contracts keep the
   map's own pilots. The log says each enemy it changed.
+- **Replaced by 149 (2026-11-25):** per pilot now; given to everyone, mode 1 jams mw3c3 ia3's Enemy_08 on its hilltop.
 - **Ruled out first:** the lancemates, and the Awesome's gait warning (PM's own report: run's bounds 3 to 3). Only
   assault chassis report it (awesome, atlas, annihilator, and MW3's own daishi and supernova): each has no run
   above its trot. Of the market's nine chassis only the Awesome reports it, and it walks under orders as the

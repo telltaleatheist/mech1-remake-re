@@ -9195,6 +9195,98 @@ TEST(mw1_loop_defend_every_enemy_comes_headless) {
 }
 
 
+// FIXES 149: MW1's rule (mw1/research/enemy-orders.md): destroy all and defend, every enemy comes whose own patrol
+// doesn't; the rest keep the map's pilots. The arctic maps' were asleep (our own aiv.zrd without MW3's p8), and their
+// nets are small loops; mw3c1 ia3's Enemy_08 stands at its post; and mw3c3 ia3's Enemy_08 and mw3c2 ia1's Eneny_08 (MW3's
+// spelling) come by their patrol, and jam on the ground when the attack is given at once, as FIXES 97 gave it.
+// mw3c4b ia1's Enemy_02 stops 1.2 km off with the rule too, and isn't asked here. Three enemies (an Avatar, a Sunder, a
+// Firefly), the player standing invincible. MW1_TEST_SEED=<n> replays a seed.
+TEST(mw1_loop_enemies_come_headless) {
+  std::error_code ec;
+  if (!fs::exists(fs::path(MW3PM_GAME_DIR) / "zbd" / "reader.zbd", ec)) return;
+  if (!fs::exists(fs::path(MW1_MW3_GAME_DIR) / "zbd" / "c2" / "gamez.zbd", ec)) return;
+  const std::vector<mw1::MapRow> rows = shipped_rows();
+  const std::string worlds = converted_worlds();
+  constexpr float kSeconds = 90.0f;
+  struct Want {
+    const char* name;
+    float most;  // metres off after kSeconds, at most
+  };
+  struct Case {
+    const char* map;
+    mw1::RowKind kind;
+    std::vector<Want> wants;
+  };
+  const Case cases[] = {
+      {"mw3c4bia1", mw1::RowKind::kDefend, {{"Enemy_08", 800}, {"Enemy_06", 450}}},
+      {"mw3c4bia2", mw1::RowKind::kAny, {{"Enemy_07", 450}, {"Enemy_08", 450}, {"Enemy_03", 450}}},
+      {"mw3c1ia3", mw1::RowKind::kDefend, {{"Enemy_08", 450}}},
+      {"mw3c3ia3", mw1::RowKind::kDefend, {{"Enemy_08", 600}}},
+      {"mw3c2ia1", mw1::RowKind::kAny, {{"Eneny_08", 400}}},
+      {"mw3c4bia1", mw1::RowKind::kAttack, {}},  // attack pilots are the map's: awake by the records (aiv.zrd)
+  };
+  const char* replay = std::getenv("MW1_TEST_SEED");
+  for (const Case& k : cases) {
+    const mw1::MapRow* row = nullptr;
+    for (const mw1::MapRow& r : rows)
+      if (!row && r.world + "ia" + std::to_string(r.ia) == k.map && r.kind == k.kind) row = &r;
+    EXPECT(row != nullptr);
+    if (!row) continue;
+    in_child([&] {
+      crt::rand_fixed_seed() = replay ? static_cast<uint32_t>(std::strtoul(replay, nullptr, 10)) : 1;
+      Run run;
+      run.row = row, run.worlds = worlds;
+      run.force = {mw1::kSlot70, mw1::kSlot85, mw1::kSlot20};
+      run.force_chassis = {2, 21, 12}, run.force_loadouts = {3, 0, 0};
+      run.pump_limit = 18000, run.survey = run.stop_at_after_action = true;
+      struct Enemy {
+        void* mech;
+        std::string name;
+        float from, last;
+        bool awake;
+      };
+      std::vector<Enemy> enemies;
+      float me_at[3] = {};
+      auto gap = [&](void* m) {
+        float p[3];
+        return mech3::mech_world_position(m, p) ? std::hypot(p[0] - me_at[0], p[2] - me_at[2]) : -1.0f;
+      };
+      run.in_mission = [&](int32_t f) {
+        void* me = mech3::mech_mission_player();
+        if (!me) return f < 600;
+        if (enemies.empty()) {
+          mech3::program_mech_set_invincible(me, true);
+          mech3::mech_world_position(me, me_at);
+          int32_t n = 0;
+          const mech3::AiMechMade* ai = mech3::mission_ai_mechs(&n);
+          for (int32_t i = 0; i < n; ++i)
+            if (const mech3::ai::Brain* b = brain_of(ai[i].mech); b && b->params.team() != 1)
+              enemies.push_back({ai[i].mech, ai[i].name ? ai[i].name : "", gap(ai[i].mech), 0, b->params.get<int32_t>(0x88) == 1});
+        }
+        for (Enemy& e : enemies) e.last = gap(e.mech);
+        return mech3::missions().time < kSeconds && !mech3::missions().ended;
+      };
+      loop_run(kObjective, &run);  // the contract may be lost: the enemies come and nobody fights
+      for (const Enemy& e : enemies) {
+        std::printf("  %-9s %-7s %-10s %5.0f m at the start, %5.0f after %.0f s: awake %d\n", k.map, kind_said(k.kind),
+                    e.name.c_str(), e.from, e.last, kSeconds, e.awake);
+        EXPECT(e.awake);
+      }
+      for (const Want& w : k.wants) {
+        bool found = false;
+        for (const Enemy& e : enemies)
+          if (e.name == w.name) {
+            found = true;
+            EXPECT(e.last >= 0 && e.last <= w.most);
+          }
+        if (!replay) EXPECT(found);  // another seed draws other enemies
+      }
+    });
+  }
+}
+
+
+
 namespace {
 // FIXES.md item 12: PM's mission HUD pictures drawn from their shapes (mw1_hud_art.h). At one device pixel a canvas
 // pixel each shape is PM's picture exactly, read from PM's own library in a mission (black: clear); the ones drawn

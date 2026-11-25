@@ -6,6 +6,7 @@
 #include "mech3/zai_wire_orders_pm.h"
 #include "mech3/zai_wire_walk_pm.h"
 #include "mech3/zai_wire_states_pm.h"
+#include "upgrades/ai/far_sight.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -229,7 +230,10 @@ class WiredTickPm final : public TickPmHooks {
   void steer_update(float dt, zgame::Handle v) override {  // +0x210's vt+0x04, whatever state runs
     pm_brain(b).steer.update(pm_walk(b, c), dt, v);
   }
-  zgame::Handle pick(zgame::Handle v) override { return pm_id(h.pick(v, kEnemy)); }
+  zgame::Handle pick(zgame::Handle v) override {
+    Contact* p = h.pick(v, kEnemy);
+    return pm_id(p ? p : far_pick(b, v));  // ours (upgrades/ai): none in MW3 or PM
+  }
   zgame::Handle player_contact(zgame::Handle v) override {
     const AiTarget* t = h.targetable(v);
     return t ? pm_id(t->player_contact) : 0;
@@ -255,6 +259,7 @@ class WiredTickPm final : public TickPmHooks {
   void vlist(zgame::Handle v, bool* was_picked, zgame::Handle* enemy) override {
     Contact* t = contact(*enemy);
     b.vlist(c, v, was_picked, &t);
+    if (*was_picked && !t) t = far_pick(b, v);  // ours (upgrades/ai): a valve's pick found none; none in MW3 or PM
     *enemy = pm_id(t);
   }
   bool hit_lately() override { return c.hit_lately(); }
@@ -302,6 +307,7 @@ class WiredTickPm final : public TickPmHooks {
   }
   int32_t rand_int() override { return h.rand(); }
   void run_orders(float dt) override {
+    far_sight_run(b, c);  // ours (upgrades/ai): nothing in MW3 or PM
     if (!pm_state_running(b)) {  // for the first runs: which of MW3's states still runs
       const BehaviourState* s = b.orders.empty() ? nullptr : b.current().state.get();
       pm_hook_missing((std::string("stand-in: MW3's orders, ") + (s ? typeid(*s).name() : "none")).c_str());

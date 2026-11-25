@@ -47,6 +47,7 @@
 #include "mech3/pilot.h"
 #include "mech3/program_flow.h"
 #include "mech3/zai_brain.h"
+#include "upgrades/ai/far_sight.h"
 #include "mech3/zai_target.h"
 #include "mech3/zai_valve.h"
 #include "mech3/zrdraiv.h"
@@ -143,9 +144,6 @@ constexpr const char* kDialogFile = "mw1dialog.zrd", *kDialogName = "MW1MESSAGEB
 constexpr uint32_t kOptionsStateGlobal = 0x609868;  // PM's main menu's Options state (its OPTIONS button pushes it)  // the message box's styles and answer (Win32's)
 constexpr uint32_t kGfxOptionsStateGlobal = 0x60986c, kControlsStateGlobal = 0x609870;
 constexpr uint32_t kControlsStateCtor = 0x42d9d0;  // "Controls Configure State" (menu_states.h), as the pause makes it  // its other pages' (MW1_SCREEN)
-// FIXES 97: a defence's enemies engage the company from this far (metres) at least: every enemy must come (an Instant
-// Action map's guards wait at a post until the player comes within their own range).
-constexpr float kDefenceEngage = 3000.0f;
 // FIXES 127: PM's Exotic loadouts are hidden in PM, and its message table has no words for their names (no
 // MSG_CONFIG_EXOTIC_*, in PM's or MW3's Mech3Msg.dll), so they keep their ids ("MSG_CONFIG_EXOTIC_A"), which the HUD's
 // target line showed. When MW1 fields one, it gets words in the Alternates' style: "Exotic A". Once, in place; a
@@ -476,6 +474,7 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
     const bool returning = deployed_;
     loading_.reset();  // a load aborted (or PM's next round's): its loading screen gone
     kit_answers::disarm();  // FIXES 118: the mission over (or aborted): no kit answers outside it
+    mech3::ai::set_far_sight(false);
     if (deployed_ && !launched_) {  // ABORT at the briefing: the company as it was, the contract still taken (a replay's failure still pending)
       deployed_ = false;
       std::printf("mw1: aborted before the launch: nothing changed\n");
@@ -3500,10 +3499,9 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   // Instant Action's launch offers each ally (program_flow.h): slot 1.. in deploy()'s order, flying_'s. The lancemate's
   // name and their Gunnery's aim (kAimErrorFactor on the record's aim error); they launched.
   // FIXES.md item 47: a story battle's enemies aim as its rung says (mw1_ladder.h); a contract's as their records.
-  // FIXES 97: a defence's enemies all come (for the structure or the company). An Instant Action map's record may start
-  // its pilot at mode 0 (+0x3c: MW3's guard, which won't engage until something hits it; mw3c1ia3's Enemy_08 does),
-  // and a defence is won only when every enemy is down: one left at its post a kilometre off stood all mission. Mode
-  // 1 from the start, as the map's other enemies have.
+  // FIXES 97, 149: an Instant Action map's pilot may be asleep (+0x88), at mode 0 (+0x3c: MW3's guard, which won't engage
+  // until something hits it; mw3c1ia3's Enemy_08), or on a patrol that never comes near. far_sight (upgrades/ai)
+  // decides per pilot once its net is known; here it is woken.
   void enemy_launching(int32_t slot, mech3::ai::AiParams& params) override {
     // FIXES 138: an enemy place the map puts outside its own area is moved inside it (mw1bounds.zrd's MOVE), onto the
     // highest dry ground there.
@@ -3519,18 +3517,8 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
                   params.get<float>(0x08), params.get<float>(0x10), to_x, to_z, found ? "" : ", no ground found there");
       params.put<float>(0x08, to_x), params.put<float>(0x0c, y), params.put<float>(0x10, to_z);
     }
-    if (deployed_ && contract_.objective == Objective::kDefendStructure) {
-      const int32_t mode = params.get<int32_t>(0x3c);
-      const float engage = params.get<float>(0x20);  // squared, as the brain reads it
-      const uint8_t flags = params.get<uint8_t>(0xcc);  // PM's break-offs: 1 the leash from where the fight began, 2 its time
-      if (mode != 1 || engage < kDefenceEngage * kDefenceEngage || (flags & 3)) {
-        std::printf("mw1: defence: the enemy in slot %d comes (mode %d, engage %.0f m, break-offs %d)\n", slot, mode,
-                    std::sqrt(double{engage}), flags & 3);
-        params.put<int32_t>(0x3c, 1);
-        params.put<float>(0x20, std::max(engage, kDefenceEngage * kDefenceEngage));
-        params.put<uint8_t>(0xcc, static_cast<uint8_t>(flags & ~3));
-      }
-    }
+    // FIXES 97, 149: MW1's enemies come (mw1_missions.h): awake from the start, far_sight's (upgrades/ai) after that.
+    if (deployed_ && enemies_come(contract_)) params.put<int32_t>(0x88, 1);
     if (!deployed_ || !contract_.rung) return;
     const float error = params.get<float>(0xb8) * story_aim(contract_);
     std::printf("mw1: story battle %d: enemy in slot %d, aim error %g\n", contract_.rung, slot, error);
@@ -4848,6 +4836,7 @@ static bool reach_ground(const std::string& structure, float out[3]) {
     g->store.add_all(*company_.stores);
     p->save();
     deployed_ = true, launched_ = false;
+    mech3::ai::set_far_sight(enemies_come(contract_));  // FIXES 149
     // FIXES 118: the company's kits and steps answer the engine's hooks for this mission, from before it loads (a
     // part's armour is set as its 'Mech is built). Whose a mech is: the commander's, a lancemate's, or neither.
     kit_answers::arm(company_, [this](const void* m) { return whose(const_cast<void*>(m)); });

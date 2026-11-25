@@ -109,6 +109,11 @@ const std::vector<MapRow>& map_table();
 // Ours for MW1's: eliminate a battle to destroy all, withdraw a reach, special target an attack, defend special
 // target and oppose withdrawal a defence (VISION).
 RowKind kind_for(Mw1Objective o);
+// FIXES 149: do the contract's enemies come for the company from the start, as MW1's do (mw1/research/enemy-orders.md)?
+// Destroy all and defend: yes (upgrades/ai/far_sight: each whose own patrol can't come near). Not a reach: MW1's
+// oppose it too, and that takes the arctic reach commanders down (the owner to say). Nor an attack: MW1's hold the
+// building's ground, the map's own pilots.
+bool enemies_come(const Contract& c);
 Objective objective_for(RowKind k);
 // A row for the mission: its kind in the battle's climate, else its kind anywhere; for a destroy-all any row's map
 // (the climate's first); -1 when the table has none of the kind (the contract is then a destroy-all).
