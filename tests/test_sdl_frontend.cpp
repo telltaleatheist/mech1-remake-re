@@ -7167,6 +7167,9 @@ TEST(sdl_program_launcher_starts_mw3_as_its_own_program) {
   EXPECT(has(r.log, "the game's first frame") && has(r.log, "the launcher closes") && !has(r.log, "MechWarrior 3 exited"));
 }
 
+#endif  // !_WIN32
+#endif  // !MW3_PM_SUITE
+#if !defined(_WIN32)  // posix_spawn; Pirate's Moon's suite too
 // The mouse's settings across starts (2026-11-25: a player's settings stay as set): MOUSE SENSITIVITY, RAW MOUSE and
 // INVERT MOUSE set on the real screens, each step its own program, the folder the usual one (MW3_USUAL_FOLDER).
 // A: the menus' options, then a battle (Instant Action), left by the pause's QUIT. B: a new start, another pilot, the
@@ -7222,7 +7225,7 @@ TEST(sdl_program_mouse_settings_stay_across_starts) {
   const char* const raw_c = raw0 ? "raw mouse on" : "raw mouse off";
   const std::string cfg_a = raw0 ? "rawmouse=0" : "rawmouse=1", cfg_c = raw0 ? "rawmouse=1" : "rawmouse=0";
   auto files = [&](const char* what, const char* x, const char* y, const std::string& cfg) {
-    const bool ok = saved("MouseAccelX") == x && saved("MouseAccelY") == y && has(text_of(wd + "/mw3.cfg"), cfg.c_str());
+    const bool ok = saved("MouseAccelX") == x && saved("MouseAccelY") == y && text_of(wd + "/mw3.cfg").find(cfg) != std::string::npos;
     std::printf("  %s: saved X %s Y %s, %s%s\n", what, saved("MouseAccelX").c_str(), saved("MouseAccelY").c_str(), cfg.c_str(), ok ? "" : " NOT AS SET");
     return ok;
   };
@@ -7265,6 +7268,7 @@ TEST(sdl_program_mouse_settings_stay_across_starts) {
   // E
   run("e", 200, {});
   EXPECT(files("E, nothing touched", k24, k24, cfg_c));
+#if !defined(MW3_PM_SUITE)  // the launcher is MW3's (it starts mw3pm on the folder resolved the same way)
   const std::string game = dir + "/game.sh", elog = dir + "/launched.log", end = dir + "/launched.done";
   std::ofstream(game) << "#!/bin/sh\n\"" << MW3_BIN << "\" \"$@\" -nofmv --frame-ms 33 --frames 200 > \"" << elog << "\" 2>&1\n: > \"" << end << "\"\n";
   fs::permissions(game, fs::perms::owner_all, ec);
@@ -7278,9 +7282,13 @@ TEST(sdl_program_mouse_settings_stay_across_starts) {
   EXPECT(fs::exists(end, ec) && has(text_of(elog), "mw3: closed, result 0"));
   EXPECT(has(text_of(elog), ("write dir " + wd + "\n").c_str()));  // the folder a direct start used
   EXPECT(files("E, through the launcher", k24, k24, cfg_c));
+#endif
   unsetenv("MW3_USUAL_FOLDER");
   fs::remove_all(dir, ec);
 }
+#endif  // !_WIN32
+#if !defined(MW3_PM_SUITE)
+#if !defined(_WIN32)
 
 // In an AppImage the launcher waits for the game: its end would unmount what
 // the game is running from (docs/linux.md, Packaging).
