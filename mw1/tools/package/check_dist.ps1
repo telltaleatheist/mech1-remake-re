@@ -20,8 +20,9 @@ foreach ($bin in Get-ChildItem -LiteralPath $Dist -File | Where-Object { $_.Exte
     $missing += "$($bin.Name) needs $d"
   }
 }
-# Our free fonts are the only .ttf outside mw1data a package may hold (assets\fonts); the game's are not.
-$ours = 'LiberationSans-Regular.ttf', 'LiberationMono-Regular.ttf', 'Anton-Regular.ttf'
+# Our free fonts are the only .ttf outside mw1data a package may hold (assets\fonts, assets\launcher); the game's
+# are not.
+$ours = 'font.ttf', 'font_body.ttf', 'LiberationSans-Regular.ttf', 'LiberationMono-Regular.ttf', 'Anton-Regular.ttf'
 # By the full path: package.cmd passes the folder relative, the files come back absolute.
 $mw1data = (Join-Path (Resolve-Path -LiteralPath $Dist).Path 'mw1data') + [IO.Path]::DirectorySeparatorChar
 $game = Get-ChildItem -LiteralPath $Dist -Recurse -File |
@@ -31,8 +32,12 @@ $game = Get-ChildItem -LiteralPath $Dist -Recurse -File |
 foreach ($f in 'mw1.exe', 'mw1data\zbd\mw1image.zbd', 'README.txt', 'THIRD-PARTY.txt', 'THIRD-PARTY-MW1.txt') {
   if (-not (Test-Path -LiteralPath (Join-Path $Dist $f))) { $missing += "$f (the package's own)" }
 }
+# The find screen's document, styles, fonts and pictures: without the document it cannot be drawn (launcher_ui.cpp).
+foreach ($f in 'ui\launcher.rml', 'ui\launcher.rcss', 'font.ttf', 'font_body.ttf', 'badge_pm.png', 'bg_metal.png', 'bg_stars.png', 'emblem.png') {
+  if (-not (Test-Path -LiteralPath (Join-Path $Dist "assets\launcher\$f"))) { $missing += "assets\launcher\$f (the find screen)" }
+}
 # The libraries linked into mw1.exe carry no file of their own: their licences must be there.
-foreach ($lib in 'libarchive-*', 'zlib-*', 'xz-*', 'imgui') {
+foreach ($lib in 'libarchive-*', 'zlib-*', 'xz-*', 'imgui', 'rmlui', 'saira-condensed') {
   $dir = Get-ChildItem -LiteralPath (Join-Path $Dist 'licenses') -Directory -Filter $lib -ErrorAction SilentlyContinue
   if (-not $dir -or -not (Get-ChildItem -LiteralPath $dir[0].FullName -File)) { $missing += "licenses\$lib (its licence)" }
 }

@@ -4387,8 +4387,8 @@ TEST(sdl_program_pm_offers_a_found_copy_and_shift_chooses_again) {
   const std::string b = run(dir + "/b.log", &code);
   EXPECT(code == 0 && b.find("screen find:") == std::string::npos && b.find("mw3: start only: install " + copy) != std::string::npos);
   setenv("MW3_SHIFT_HELD", "1", 1);
-  // FIND THE GAME: the copies on this computer (2026-11-24), their PICK ANOTHER (before BACK), the picker.
-  setenv("MW3_LAUNCHER_NAV", "next,press,prev,prev,press", 1);
+  // FIND THE GAME: the copies on this computer (2026-11-24), their PICK A FILE (before PICK A FOLDER and BACK), the picker.
+  setenv("MW3_LAUNCHER_NAV", "next,press,prev,prev,prev,press", 1);
   setenv("MW3_LAUNCHER_GO", "1", 1);
   setenv("MW3_LAUNCHER_PICKER", ("path:" + dir + "/elsewhere/Other PM/Mech3.exe").c_str(), 1);
   const std::string c = run(dir + "/c.log", &code);
@@ -4397,7 +4397,7 @@ TEST(sdl_program_pm_offers_a_found_copy_and_shift_chooses_again) {
     unsetenv(v);
   std::printf("  pm shift: in use said %d, picker %d, copied %d\n", c.find("In use: ") != std::string::npos || c.find("PLAY") != std::string::npos,
               c.find("picker asked for") != std::string::npos, c.find("copied from Other PM") != std::string::npos);
-  EXPECT(code == 0 && c.find("Shift held at the start") != std::string::npos && c.find("FIND THE GAME, ADD FROM MY DISC, PLAY") != std::string::npos);
+  EXPECT(code == 0 && c.find("Shift held at the start") != std::string::npos && c.find("FIND THE GAME, PICK A FILE, PICK A FOLDER, ADD FROM MY DISC, PLAY") != std::string::npos);
   // The test's copy is a partial one: listed as "incomplete", in use.
   EXPECT(c.find("copy " + copy + ": incomplete, in use") != std::string::npos && c.find("screen copies: IN USE") != std::string::npos);
   EXPECT(c.find("picker asked for") != std::string::npos && c.find("copied from Other PM") != std::string::npos &&
@@ -6194,9 +6194,9 @@ TEST(sdl_program_launcher_screens) {
     const char* hover;
     int edge_x, edge_y;
   };
-  for (const Shot& s : {Shot{"main", false, "screen main: MECHWARRIOR 3, MECHWARRIOR 3 SETTINGS, PIRATE'S MOON, PIRATE'S MOON SETTINGS, MECHWARRIOR 1 ORIGINAL, MECHWARRIOR 1 ORIGINAL SETTINGS, MECHWARRIOR 1, MECHWARRIOR 1 SETTINGS, INCEPTION ORIGINAL, INCEPTION ORIGINAL SETTINGS, GAME FILES, UPDATES, ADD FROM FILE, QUIT\n", "hover MECHWARRIOR 3: edge\n", 712, 110},
-                        Shot{"setup", true, "screen find: FIND THE GAME, PICK A FOLDER, BACK\n", "hover FIND THE GAME: edge\n", 427, 222},
-                        Shot{"pick", true, "screen find: FIND THE GAME, PICK A FOLDER, BACK\n", "hover FIND THE GAME: edge\n", 427, 222},
+  for (const Shot& s : {Shot{"main", false, "screen main: MECHWARRIOR 3, MECHWARRIOR 3 SETTINGS, PIRATE'S MOON, PIRATE'S MOON SETTINGS, MECHWARRIOR 1 ORIGINAL, MECHWARRIOR 1 ORIGINAL SETTINGS, MECHWARRIOR 1, MECHWARRIOR 1 SETTINGS, INCEPTION ORIGINAL, INCEPTION ORIGINAL SETTINGS, CHECK FOR UPDATES, QUIT\n", "hover MECHWARRIOR 3: edge\n", 712, 110},
+                        Shot{"setup", true, "screen find: FIND THE GAME, PICK A FILE, PICK A FOLDER, BACK\n", "hover FIND THE GAME: edge\n", 427, 222},
+                        Shot{"pick", true, "screen find: FIND THE GAME, PICK A FILE, PICK A FOLDER, BACK\n", "hover FIND THE GAME: edge\n", 427, 222},
                         Shot{"work", false, "launcher: Found MechWarrior 3", "hover CANCEL: edge\n", 427, 372},
                         Shot{"notes", false, "screen notes: ADD FROM MY DISC, OK\n", "hover ADD FROM MY DISC: edge\n", 427, 318},
                         Shot{"disc", false, "screen notes: ADD FROM MY DISC, OK\n", "hover ADD FROM MY DISC: edge\n", 427, 318}}) {
@@ -6234,6 +6234,49 @@ TEST(sdl_program_launcher_screens) {
     EXPECT((text.find("launcher: header MECHWARRIOR 3\n") != std::string::npos) == (std::string(s.screen) != "main"));
     if (img) SDL_DestroySurface(img);
   }
+}
+
+// The mouse on the launcher (2026-11-24): the panels scroll under it with the wheel and by the scrollbar, the button
+// it is over follows the list, a click opens a game's page and its BACK comes back to the list as it was scrolled, and
+// a scrollbar drag let go over PLAY starts nothing.
+TEST(sdl_program_launcher_follows_the_mouse) {
+  const std::string dir = std::string(MW3_TEST_TMP) + "/launcher_mouse";
+  std::error_code ec;
+  std::filesystem::remove_all(dir, ec);
+  std::filesystem::create_directories(dir + "/wd", ec);
+  setenv("MW3_LAUNCHER_FRAMES", "400", 1);
+  // A step prints what it found under the mouse as it came; the moves by a pixel let the list settle (it scrolls smoothly).
+  const std::string settle = "move 712,130;move 712,131;move 712,132;move 712,133;";
+  setenv("MW3_LAUNCHER_MOUSE",
+         ("click 427,395;" + settle + "move 1,1;"                     // BEFORE YOU PLAY's OK; over MW3's PLAY
+          "move 712,130;wheel -3;" + settle + "move 2,2;"                           // scrolled: another game's button
+          "move 712,130;wheel 20;" + settle + "move 3,3;"                           // back at the top
+          "down 808,130;move 808,131;up 712,130;" + settle + "move 4,4;"  // the scrollbar taken, let go over PLAY: no press
+          "down 808,130;move 808,260;up 808,260;" + settle + "move 5,5;"  // dragged down
+          "click 577,345;move 427,400;click 427,400;" + settle + "move 6,6")  // a gear, its page's BACK
+             .c_str(),
+         1);
+  const pid_t pid = spawn_launcher({"--write-dir", dir + "/wd", "--window", "854x480", "--nosound", "--hidden"}, dir + "/launcher.log");
+  unsetenv("MW3_LAUNCHER_MOUSE"), unsetenv("MW3_LAUNCHER_FRAMES");
+  int status = 0;
+  EXPECT(waited(pid, &status) && WIFEXITED(status) && WEXITSTATUS(status) == 0);
+  std::ifstream f(dir + "/launcher.log");
+  std::vector<std::string> over;  // what each step found under the mouse as it came, and the screens between
+  for (std::string line; std::getline(f, line);) {
+    if (const size_t at = line.find("mouse: "); at != std::string::npos) over.push_back(line.substr(at + 7));
+    else if (line.find("launcher: screen ") != std::string::npos) over.push_back(line.substr(line.find("screen "), 11));
+  }
+  for (const std::string& o : over) std::printf("  %s\n", o.c_str());
+  const auto at = [&](const char* step) {
+    for (const std::string& o : over)
+      if (o.rfind(std::string("move ") + step + ", ", 0) == 0) return o.substr(o.find("over ") + 5);
+    return std::string("no step");
+  };
+  EXPECT(at("1,1") == "MECHWARRIOR 3" && at("3,3") == "MECHWARRIOR 3" && at("4,4") == "MECHWARRIOR 3");
+  for (const char* scrolled : {"2,2", "5,5"}) EXPECT(at(scrolled) != "MECHWARRIOR 3" && at(scrolled) != "nothing" && at(scrolled) != "no step");
+  EXPECT(at("6,6") == at("5,5"));
+  EXPECT(std::count(over.begin(), over.end(), "screen game") == 1 && std::count(over.begin(), over.end(), "screen main") == 2);
+  EXPECT(std::none_of(over.begin(), over.end(), [](const std::string& o) { return o.rfind("screen work", 0) == 0; }));
 }
 
 // BEFORE YOU PLAY by measure (the playtest, W3): an install with no movies, no music and an empty
@@ -7559,10 +7602,10 @@ TEST(sdl_program_launcher_finds_the_game_then_plays) {
   const auto none = std::vector<std::pair<std::string, std::string>>{{"MW3_FIND_INSTALL", "1"}, {"MW3_LAUNCHER_FRAMES", "20"}};
   // No install: the games, then the find screen; nothing started.
   const LauncherRun a = run_launcher_with("launcher_v1_none", "READY\nsleep 1", nullptr, none);
-  std::printf("no install: main %d, find %d, game started %d\n", screen(a.log, "screen main: MECHWARRIOR 3, MECHWARRIOR 3 SETTINGS, PIRATE'S MOON, PIRATE'S MOON SETTINGS, MECHWARRIOR 1 ORIGINAL, MECHWARRIOR 1 ORIGINAL SETTINGS, MECHWARRIOR 1, MECHWARRIOR 1 SETTINGS, INCEPTION ORIGINAL, INCEPTION ORIGINAL SETTINGS, GAME FILES, UPDATES, ADD FROM FILE, QUIT\n"),
-              screen(a.log, "screen find: FIND THE GAME, PICK A FOLDER, BACK\n"), !a.args.empty());
+  std::printf("no install: main %d, find %d, game started %d\n", screen(a.log, "screen main: MECHWARRIOR 3, MECHWARRIOR 3 SETTINGS, PIRATE'S MOON, PIRATE'S MOON SETTINGS, MECHWARRIOR 1 ORIGINAL, MECHWARRIOR 1 ORIGINAL SETTINGS, MECHWARRIOR 1, MECHWARRIOR 1 SETTINGS, INCEPTION ORIGINAL, INCEPTION ORIGINAL SETTINGS, CHECK FOR UPDATES, QUIT\n"),
+              screen(a.log, "screen find: FIND THE GAME, PICK A FILE, PICK A FOLDER, BACK\n"), !a.args.empty());
   EXPECT(a.exited && a.args.empty());
-  EXPECT(screen(a.log, "screen main: MECHWARRIOR 3, MECHWARRIOR 3 SETTINGS, PIRATE'S MOON, PIRATE'S MOON SETTINGS, MECHWARRIOR 1 ORIGINAL, MECHWARRIOR 1 ORIGINAL SETTINGS, MECHWARRIOR 1, MECHWARRIOR 1 SETTINGS, INCEPTION ORIGINAL, INCEPTION ORIGINAL SETTINGS, GAME FILES, UPDATES, ADD FROM FILE, QUIT\n") && screen(a.log, "screen find: FIND THE GAME, PICK A FOLDER, BACK\n"));
+  EXPECT(screen(a.log, "screen main: MECHWARRIOR 3, MECHWARRIOR 3 SETTINGS, PIRATE'S MOON, PIRATE'S MOON SETTINGS, MECHWARRIOR 1 ORIGINAL, MECHWARRIOR 1 ORIGINAL SETTINGS, MECHWARRIOR 1, MECHWARRIOR 1 SETTINGS, INCEPTION ORIGINAL, INCEPTION ORIGINAL SETTINGS, CHECK FOR UPDATES, QUIT\n") && screen(a.log, "screen find: FIND THE GAME, PICK A FILE, PICK A FOLDER, BACK\n"));
   for (const char* gone : {"SETUP", "SEARCH AGAIN", "A FOLDER INSTEAD", "APPLY THE 1.2 PATCH", "POINT TO YOUR GAME",
                            "A DISC IMAGE OR DOWNLOAD", ", A FOLDER,", "THE DISC'S FOLDER"})
     EXPECT(!screen(a.log, gone));
@@ -7691,6 +7734,76 @@ TEST(sdl_program_launcher_splits_play_with_its_update) {
   EXPECT(line.find("MECHWARRIOR 3 UPDATE") == std::string::npos);  // beside this program: no update of its own
 }
 
+// CHECK FOR UPDATES on a launcher left open (2026-11-24): everything asked again in place. The launcher's and Pirate's
+// Moon's lists have nothing new at the start, then (before the press) something: the start finds nothing, the button finds both, the panel gets its UPDATE, and the box offers the launcher or all of it. UPDATE ALL
+// takes the games first (here a download that is not there: it stops, the launcher not touched).
+TEST(sdl_program_launcher_rechecks_while_open) {
+  namespace fs = std::filesystem;
+  std::error_code ec;
+#if defined(__APPLE__)
+  const std::string tail = "-mac.dmg";
+#else
+  const std::string tail = "-x86_64.AppImage";
+#endif
+  auto rel = [&](const std::string& tag, const std::string& stem) {
+    return "[{\"tag_name\": \"" + tag + "\", \"draft\": false, \"prerelease\": false, \"body\": \"x\", \"assets\": [{\"name\": \"" + stem + tail +
+           "\", \"size\": 1000, \"browser_download_url\": \"file:///nowhere/x\"}, {\"name\": \"SHA256SUMS\", \"size\": 10, \"browser_download_url\": \"file:///nowhere/s\"}]}]";
+  };
+  struct Case {
+    const char* name;
+    bool launcher, game, all;
+  };
+  for (const Case& c : {Case{"both", true, true, false}, Case{"all", true, true, true}, Case{"game", false, true, false}, Case{"none", false, false, false}}) {
+    const std::string name = std::string("launcher_recheck_") + c.name, d = std::string(MW3_TEST_TMP) + "/" + name;
+    std::vector<std::thread> feeds;
+    std::vector<std::pair<std::string, std::string>> env = {{"MW3_GAMES_API", "file://" + d + "/api/{repo}.json"}, {"MW3_GAMES_DIR", d + "/games"},
+                                                            {"MW3_UPDATE_API", "file://" + d + "/api/launcher.json"}, {"MW3_LAUNCHER_FRAMES", "400"},
+                                                            {"MW3_LAUNCHER_NAV", "next,prev,prev,press"}, {"MW3_LAUNCHER_NAV_LATE", d + "/go"}};
+    if (c.all) env.push_back({"MW3_LAUNCHER_UPDATE_ALL", "1"});
+    const LauncherRun r = run_launcher_with(
+        name, "exit 0", nullptr, env,
+        [&](const std::string& dir) {
+          fs::create_directories(dir + "/games/pm"), fs::create_directories(dir + "/api"), fs::create_directories(dir + "/wd/music");
+          std::ofstream(dir + "/wd/music/track02.wav") << "x";
+          std::ofstream(dir + "/games/pm/mw3pm") << "#!/bin/sh\nexit 0\n";
+          fs::permissions(dir + "/games/pm/mw3pm", fs::perms::owner_all);
+          std::ofstream(dir + "/games/pm/rebuild-game.txt") << "# x\ngame=pm\ntag=pm-v1.2.3\nfile=x\nsha256=x\nfrom=github\n";
+          std::ofstream(dir + "/games/rebuild-games.txt") << "# x\n";
+          for (const char* repo : {"mech3-re", "mech1-remake-re", "mech1-re", "inception-re", "inception-remake-re"}) std::ofstream(dir + "/api/" + repo + ".json") << "[]";
+          std::ofstream(dir + "/api/mech3-pm-re.json") << rel("pm-v1.2.3", "PM-Rebuild-pm-v1.2.3");
+          std::ofstream(dir + "/api/launcher.json") << rel("v0.0.1", "MW3-Rebuild-0.0.1");
+          feeds.emplace_back([dir, c, rel] {  // once the start has had its answers: the new releases, then the press
+            for (int i = 0; i < 400; ++i) {
+              std::ifstream f(dir + "/launcher.log");
+              const std::string log((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+              if (has(log, "Pirate's Moon 1.2.3 is the newest") && has(log, "update check at the start: ")) break;
+              std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            }
+            if (c.game) std::ofstream(dir + "/api/mech3-pm-re.json") << rel("pm-v1.2.5", "PM-Rebuild-pm-v1.2.5");
+            if (c.launcher) std::ofstream(dir + "/api/launcher.json") << rel("v98.1.0", "MW3-Rebuild-98.1.0");
+            std::ofstream(dir + "/go") << "x";
+          });
+        },
+        false);
+    for (std::thread& t : feeds) t.join();
+    const size_t pressed = r.log.find("launcher: update check at the start");
+    const std::string before = r.log.substr(0, std::min(pressed, r.log.size())), after = r.log.substr(std::min(pressed, r.log.size()));
+    const size_t at = r.log.find("launcher: updates: ");
+    std::printf("  %s: %s\n", c.name, at == std::string::npos ? "(nothing said)" : r.log.substr(at + 19, r.log.find('\n', at) - at - 19).c_str());
+    EXPECT(r.exited && has(before, "launcher: ") && !has(before, "PIRATE'S MOON UPDATE") && has(after, "CHECK FOR UPDATES, QUIT\n"));
+    EXPECT(has(after, "PIRATE'S MOON UPDATE, ") == c.game && has(after, "UPDATE AVAILABLE 98.1.0") == c.launcher);
+    EXPECT(has(after, "launcher: updates: Ready to update: Pirate's Moon 1.2.5.\n") == c.game);
+    EXPECT(has(after, "launcher: updates: Everything is up to date.\n") == (!c.game && !c.launcher));
+    EXPECT(has(after, "UPDATE AVAILABLE 98.1.0, UPDATE ALL, UPDATE LAUNCHER, NOT NOW\n") == c.launcher);
+    EXPECT(has(after, "screen work") == c.all && !has(r.log, "Downloaded and checked") && !has(after, "launcher: update: Could not"));
+    if (c.all) {  // Pirate's Moon's failed download ended it, on the games, the launcher not asked for
+      std::printf("    %s\n", after.substr(after.find("screen work"), 600).c_str());
+      EXPECT(has(after.substr(after.find("screen work")), "screen main: "));
+    }
+    if (!check::failures) fs::remove_all(d, ec);
+  }
+}
+
 // GAME FILES' list (2026-11-24, docs/launcher.md, The copies on this computer): every copy found, the one in use
 // first and marked, each with what the game would lack with it. MW3: mw3.cfg's 1.0 copy in use (it lacks the 1.2
 // patch) and the development 1.2 copy found beside it; Pirate's Moon: mw3.cfg's copy, in use.
@@ -7726,8 +7839,8 @@ TEST(sdl_program_launcher_lists_the_copies) {
               has(pmt, ("copy " + pm.string() + ": 1.0, in use").c_str()));
   EXPECT(has(mw3, in_use.c_str()) && has(mw3, "the 1.2 patch\n"));
   EXPECT(has(mw3, ("copy " + std::string(MW3_GAME_DIR) + ": 1.2").c_str()));
-  EXPECT(has(mw3, "screen copies: IN USE, COPY 2, PICK ANOTHER, PICK A FOLDER, BACK\n"));
-  EXPECT(has(pmt, ("copy " + pm.string() + ": 1.0, in use").c_str()) && has(pmt, "screen copies: IN USE, PICK ANOTHER, PICK A FOLDER, BACK\n"));
+  EXPECT(has(mw3, "screen copies: IN USE, COPY 2, PICK A FILE, PICK A FOLDER, BACK\n"));
+  EXPECT(has(pmt, ("copy " + pm.string() + ": 1.0, in use").c_str()) && has(pmt, "screen copies: IN USE, PICK A FILE, PICK A FOLDER, BACK\n"));
   if (!check::failures) fs::remove_all(dir, ec);
 }
 
@@ -7774,15 +7887,15 @@ TEST(sdl_program_launcher_links_and_uninstalls) {
     return std::string((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
   };
   const std::string gear = "next,next,next,next,press";  // MW3's PLAY and gear, Pirate's Moon's PLAY, its gear
-  // Its record: linked at the start; the gear's LINK ANOTHER INSTALL takes the newer one picked.
+  // Its record: linked at the start; the gear's LINK ANOTHER COPY takes the newer one picked.
   const std::string a = std::string(MW3_TEST_TMP) + "/launcher_links_a";
-  const LauncherRun ra = run_launcher_with("launcher_links_a", "exit 0", nullptr, env(a, gear + ",next,press", a + "/later"),
+  const LauncherRun ra = run_launcher_with("launcher_links_a", "exit 0", nullptr, env(a, gear + ",next,next,next,press", a + "/later"),
                                            [&](const std::string& d) { lay(d, "/elsewhere/mw3pm", ""); }, false);
-  std::printf("links: found %d, page %d, picked %d\n", has(ra.log, "games: pm: found "), has(ra.log, "screen game: LINK ANOTHER INSTALL, UNLINK, BACK"),
+  std::printf("links: found %d, page %d, picked %d\n", has(ra.log, "games: pm: found "), has(ra.log, "screen game: GAME FILES, UNLINK, LINK ANOTHER COPY, INSTALL FROM A DOWNLOADED FILE, BACK"),
               has(ra.log, ("link " + a + "/later: " + a + "/later/mw3pm pm-v1.2.7").c_str()));
   EXPECT(ra.exited && has(ra.log, ("games: pm: found " + a + "/elsewhere/mw3pm (its record), linked").c_str()));
   EXPECT(has(ra.log, ("games: mw1: found " + a + "/mw1home/mw1 (its record), linked").c_str()));
-  EXPECT(has(ra.log, "PIRATE'S MOON, PIRATE'S MOON SETTINGS, ") && has(ra.log, "screen game: LINK ANOTHER INSTALL, UNLINK, BACK\n"));
+  EXPECT(has(ra.log, "PIRATE'S MOON, PIRATE'S MOON SETTINGS, ") && has(ra.log, "screen game: GAME FILES, UNLINK, LINK ANOTHER COPY, INSTALL FROM A DOWNLOADED FILE, BACK\n"));
   EXPECT(has(ra.log, ("games: pm: link " + a + "/later: " + a + "/later/mw3pm pm-v1.2.7").c_str()));
   EXPECT(has(cfg(a), ("link_pm=" + a + "/later/mw3pm").c_str()));
   // A development build's record links nothing; a pick that is not the game links nothing. No repo asked (as offline):
@@ -7791,7 +7904,7 @@ TEST(sdl_program_launcher_links_and_uninstalls) {
   const LauncherRun rb = run_launcher_with("launcher_links_b", "exit 0", nullptr, env(b, "next,next,next,press,next,press", b + "/api/mech3-re.json", false),
                                            [&](const std::string& d) { lay(d, "/dev/mw3pm", ""); }, false);
   std::printf("links: development build %d, a wrong pick %d\n", has(rb.log, "games: pm: not installed"), has(rb.log, ": not this game"));
-  EXPECT(rb.exited && has(rb.log, "games: pm: not installed") && has(rb.log, "screen game: LINK AN INSTALL, BACK\n"));
+  EXPECT(rb.exited && has(rb.log, "games: pm: not installed") && has(rb.log, "screen game: LINK A COPY ALREADY INSTALLED, INSTALL FROM A DOWNLOADED FILE, BACK\n"));
   EXPECT(has(rb.log, "/api/mech3-re.json: not this game") && !has(cfg(b), "link_pm=/"));
   // An AppImage carries its version packed: it is asked (--status). The launcher in MW3 alone's hands that to its game.
   const std::string i = std::string(MW3_TEST_TMP) + "/launcher_links_i";
@@ -7845,7 +7958,7 @@ TEST(sdl_program_launcher_links_and_uninstalls) {
   std::printf("uninstall: confirm %d, done %d, program gone %d, files kept %d\n",
               has(re.log, "screen game: UNINSTALL, UNINSTALL AND REMOVE GAME FILES, KEEP IT"), has(re.log, "Pirate's Moon was uninstalled. "),
               !fs::exists(e + "/games/pm", ec), fs::is_regular_file(e + "/pmwd/install/mw3-install.txt", ec));
-  EXPECT(re.exited && has(re.log, "screen game: LINK AN INSTALL, UNINSTALL, BACK\n"));
+  EXPECT(re.exited && has(re.log, "screen game: GAME FILES, UNINSTALL, LINK A COPY ALREADY INSTALLED, INSTALL FROM A DOWNLOADED FILE, BACK\n"));
   EXPECT(has(re.log, "screen game: UNINSTALL, UNINSTALL AND REMOVE GAME FILES, KEEP IT\n") && has(re.log, "Pirate's Moon was uninstalled. "));
   EXPECT(!fs::exists(e + "/games/pm", ec) && !fs::exists(e + "/games/.pm.old", ec) && fs::is_regular_file(e + "/pmwd/install/mw3-install.txt", ec));
   // ... and with its game files: the folder of links goes, game/pm stays whole.
@@ -7865,6 +7978,55 @@ TEST(sdl_program_launcher_links_and_uninstalls) {
                                              std::ofstream(d + "/wd/mw3.cfg", std::ios::app) << "unlinked_pm=" << d << "/elsewhere/mw3pm\n";
                                            }, false);
   EXPECT(rg.exited && has(rg.log, "screen game: UNINSTALL, KEEP IT\n"));
+  // A linked copy uninstalled (2026-11-24): an AppImage goes to the trash (a check's here), its link with it, its game
+  // files kept; KEEP IT keeps it all.
+  for (const bool go : {true, false}) {
+    const std::string h = std::string(MW3_TEST_TMP) + (go ? "/launcher_links_h" : "/launcher_links_k");
+    const std::string app = h + "/elsewhere/PM.AppImage";
+    auto e2 = env(h, gear + ",next,next,next,press," + (go ? "next,press" : "prev,press"), "");
+    e2.push_back({"MW3_LAUNCHER_TRASH", h + "/trash"});
+    const LauncherRun rh = run_launcher_with(go ? "launcher_links_h" : "launcher_links_k", "exit 0", nullptr, e2,
+                                             [&](const std::string& d) {
+                                               installed(d);
+                                               fs::remove_all(d + "/games/pm"), fs::create_directories(d + "/trash");
+                                               std::ofstream(app) << "#!/bin/sh\n[ \"$1\" = --status ] || exit 2\necho '{\"kit\": 1, \"game\": \"mech3-pm\", \"version\": "
+                                                                     "\"pm-v1.2.7\", \"files\": {\"state\": \"ready\"}}'\n";
+                                               fs::permissions(app, fs::perms::owner_all);
+                                               std::ofstream(d + "/wd/mw3.cfg", std::ios::app) << "link_pm=" << app << "\n";
+                                             }, false);
+    std::printf("uninstall a linked copy: gone %d, in the trash %d\n", !fs::exists(app, ec), fs::exists(h + "/trash/PM.AppImage", ec));
+    EXPECT(rh.exited && has(rh.log, "screen game: GAME FILES, UNLINK, UNINSTALL LINKED, LINK ANOTHER COPY, INSTALL FROM A DOWNLOADED FILE, BACK\n"));
+    EXPECT(has(rh.log, "screen game: UNINSTALL, UNINSTALL AND REMOVE GAME FILES, KEEP IT\n") && fs::exists(h + "/pmwd/install/mw3-install.txt", ec));
+    EXPECT(fs::exists(app, ec) == !go && fs::exists(h + "/trash/PM.AppImage", ec) == go && has(cfg(h), "link_pm=/") == !go);
+    if (go) EXPECT(has(rh.log, "Pirate's Moon was uninstalled. ") && has(rh.log.substr(rh.log.find("screen game: UNINSTALL, ")), "games: pm: not installed"));
+  }
+  {  // how a copy would go: its whole package, its own uninstaller, or not from here
+    using Rm = sdlfe::games::Removal;
+    const auto kPm = upgrades::update::Game::kPm;
+    const std::string w = std::string(MW3_TEST_TMP) + "/launcher_removal";
+    fs::remove_all(w, ec);
+    auto put = [&](const std::string& f) { fs::create_directories(fs::path(w + "/" + f).parent_path()), std::ofstream(w + "/" + f) << "x"; return w + "/" + f; };
+#if defined(_WIN32)
+    const std::string pm = "mw3pm.exe", mw3 = "mw3.exe";
+#else
+    const std::string pm = "mw3pm", mw3 = "mw3";
+#endif
+    const std::string in_app = put("P.app/Contents/MacOS/" + pm), loose = put("loose/" + pm), setup = put("setup/" + pm);
+    const Rm a1 = sdlfe::games::removal_of(in_app, kPm);
+    EXPECT(a1.how == Rm::kTrash && fs::path(a1.path).filename() == "P.app");
+    put("P.app/Contents/MacOS/" + mw3);  // an older launcher's package: MechWarrior 3 in it too
+    EXPECT(sdlfe::games::removal_of(in_app, kPm).how == Rm::kNone && has(sdlfe::games::removal_of(in_app, kPm).why, "MechWarrior 3"));
+    put("loose/unins000.exe");  // no .dat: not a Setup's
+    EXPECT(sdlfe::games::removal_of(loose, kPm).how == Rm::kNone && !sdlfe::games::removal_of(loose, kPm).why.empty());
+    put("setup/unins000.exe"), put("setup/unins000.dat");
+    const Rm a2 = sdlfe::games::removal_of(setup, kPm);
+    EXPECT(a2.how == Rm::kSetup && fs::path(a2.path).filename() == "unins000.exe");
+    put("setup/rebuild-game.txt");  // the launcher's own folder: its UNINSTALL's, not this
+    EXPECT(sdlfe::games::removal_of(setup, kPm).how == Rm::kNone);
+    std::string err;
+    EXPECT(!sdlfe::games::remove_linked(setup, kPm, a2, &err) && fs::exists(setup, ec));  // asked again: not what it was
+    if (!check::failures) fs::remove_all(w, ec);
+  }
   // A program's record: a released build's only.
   const std::string r = std::string(MW3_TEST_TMP) + "/launcher_links_r", rec = r + "/rebuild-program.txt";
   fs::create_directories(r);
@@ -7928,7 +8090,7 @@ TEST(sdl_program_launcher_family_cards) {
   EXPECT(entry("INCEPTION ORIGINAL") == "entry INCEPTION ORIGINAL: Ready \xc2\xb7 0.1.0: /games/chi");
   EXPECT(entry("INCEPTION REMAKE").rfind("entry INCEPTION REMAKE: Not installed: DOWNLOAD gets 0.1.0", 0) == 0);
   EXPECT(has(shot, "games: chi: status ready"));
-  EXPECT(has(shot, "INCEPTION ORIGINAL, INCEPTION ORIGINAL SETTINGS, INCEPTION REMAKE, INCEPTION REMAKE SETTINGS, GAME FILES"));  // the remake's panel, its release out
+  EXPECT(has(shot, "INCEPTION ORIGINAL, INCEPTION ORIGINAL SETTINGS, INCEPTION REMAKE, INCEPTION REMAKE SETTINGS, CHECK FOR UPDATES"));  // the remake's panel, its release out
   // Run: Inception's PLAY (MW3's PLAY, then it: the games with no release greyed and skipped) starts the stand-in
   // plain. (The remake's own panel comes when its repo answers, on a thread: the shot above checks it.)
   const LauncherRun r = run_launcher_with("launcher_families_run", "exit 0", nullptr,
@@ -7975,7 +8137,8 @@ TEST(sdl_program_launcher_sets_a_kit_game_up) {
   };
   auto run = [](const std::string& root, const char* name, const std::string& nav, std::vector<std::pair<std::string, std::string>> more) {
     std::vector<std::pair<std::string, std::string>> env{{"MW3_GAMES_API", "file://" + root + "/api/{repo}.json"}, {"MW3_GAMES_DIR", root + "/games"},
-                                                         {"MW3_CHI_BIN", root + "/chi"}, {"MW3_LAUNCHER_FRAMES", "400"}, {"MW3_LAUNCHER_NAV", nav}};
+                                                         {"MW3_LAUNCHER_FRAMES", "400"}, {"MW3_LAUNCHER_NAV", nav}};
+    if (!std::filesystem::exists(root + "/games/chi")) env.push_back({"MW3_CHI_BIN", root + "/chi"});  // else the launcher's own copy
     for (auto& e : more) env.push_back(e);
     return run_launcher_with(name, "exit 0", nullptr, env, [](const std::string& d) {
       fs::create_directories(d + "/wd/music"), std::ofstream(d + "/wd/music/track02.wav") << "x";
@@ -7992,7 +8155,7 @@ TEST(sdl_program_launcher_sets_a_kit_game_up) {
   const LauncherRun r = run(a, "launcher_kit_a_run", "next,next,next,press,next,press", {{"MW3_LAUNCHER_GO", "1"}});
   const std::string asked = read(a + "/asked"), started = read(a + "/started");
   std::printf("kit setup: asked %d lines, started \"%s\"\n", static_cast<int>(std::count(asked.begin(), asked.end(), '\n')), started.c_str());
-  EXPECT(r.exited && has(r.log, "screen find: FIND THE GAME, PICK A FOLDER, BACK") && has(r.log, "found plate: CHI.zip (A download of Inception.)"));
+  EXPECT(r.exited && has(r.log, "screen find: FIND THE GAME, PICK A FILE, PICK A FOLDER, BACK") && has(r.log, "found plate: CHI.zip (A download of Inception.)"));
   EXPECT(has(r.log, "game files into /user/install") && has(r.log, "work: INSTALLING INCEPTION REBUILD") && has(r.log, "Inception is set up."));
   EXPECT(asked.find("--setup --search\n--setup --look /copy/CHI.zip\n--setup --install /copy/CHI.zip\n--status\n") != std::string::npos);
   EXPECT(started == "plain 0\n");
@@ -8011,7 +8174,31 @@ TEST(sdl_program_launcher_sets_a_kit_game_up) {
   stand_in(c, found.c_str(), "\"ok\": false, \"summary\": \"No copy of it there.\"");
   const LauncherRun n = run(c, "launcher_kit_c_run", "next,next,next,press,next,press", {{"MW3_LAUNCHER_GO", "1"}});
   EXPECT(n.exited && has(n.log, "No copy of it there.") && !has(read(c + "/asked"), "--install") && read(c + "/started").empty());
-  for (const std::string& d : {a, b, c})
+  // Its files in already (2026-11-24): the gear's GAME FILES opens a picker, never the search, which finds the copy in
+  // use and goes home; the pick, a .zip, is copied in. The same .zip given to LINK A COPY is game files too.
+  const std::string in_use = ", \"path\": \"/user/install\"";
+  std::string gone[2];
+  int which = 0;
+  for (const char* nav : {"next,next,next,next,press,next,press,next,press", "next,next,next,next,press,next,next,next,press"}) {
+    const std::string e = gone[which] = std::string(MW3_TEST_TMP) + "/launcher_kit_ready" + std::to_string(which);
+    stand_in(e, in_use.c_str(), look.c_str());
+    std::ofstream(e + "/done") << "x";
+    std::ofstream(e + "/CHI.zip") << "x";
+    if (which == 1) {  // installed by the launcher: LINK A COPY is there
+      fs::create_directories(e + "/games/chi");
+      fs::rename(e + "/chi", e + "/games/chi/chi");
+      std::ofstream(e + "/games/chi/rebuild-game.txt") << "# x\ngame=chi\ntag=chi-v1.0.0\nfile=x\nsha256=x\nfrom=github\n";
+      std::ofstream(e + "/games/rebuild-games.txt") << "# x\n";
+    }
+    const LauncherRun g = run(e, ("launcher_kit_ready_run" + std::to_string(which)).c_str(), nav,
+                              {{"MW3_LAUNCHER_GO", "1"}, {"MW3_LAUNCHER_PICKER", "path:" + e + "/CHI.zip"}});
+    const std::string asked_e = read(e + "/asked");
+    EXPECT(g.exited && has(g.log, which ? "screen game: GAME FILES, UNINSTALL, LINK A COPY ALREADY INSTALLED, INSTALL FROM A DOWNLOADED FILE, BACK\n" : "screen game: GAME FILES, BACK\n") && has(g.log, "screen find: PICK A FILE, PICK A FOLDER, BACK\n"));
+    EXPECT(has(g.log, "the file picker asked for") && !has(asked_e, "--search") && has(asked_e, ("--setup --install " + e + "/CHI.zip\n").c_str()));
+    EXPECT(has(g.log, "Inception is set up."));
+    ++which;
+  }
+  for (const std::string& d : {a, b, c, gone[0], gone[1]})
     if (!check::failures) fs::remove_all(d, ec);
 }
 
@@ -8349,9 +8536,9 @@ TEST(sdl_program_shift_at_start_chooses_the_files_again) {
   setenv("MW3_SHIFT_HELD", "1", 1);
   setenv("MW3_LAUNCHER_NAV", "prev,press", 1);  // PLAY: on with the files in use
   const std::string a = run(args, dir + "/a.log", &code);
-  EXPECT(code == 0 && a.find("Shift held at the start") != std::string::npos && a.find("FIND THE GAME, PICK A FOLDER, ADD FROM MY DISC, PLAY") != std::string::npos);
+  EXPECT(code == 0 && a.find("Shift held at the start") != std::string::npos && a.find("FIND THE GAME, PICK A FILE, PICK A FOLDER, ADD FROM MY DISC, PLAY") != std::string::npos);
   EXPECT(a.find(std::string("mw3: start only: install ") + MW3_GAME_DIR) != std::string::npos);
-  // FIND THE GAME: the copies on this computer (2026-11-24), their PICK ANOTHER (before BACK, the last), the picker,
+  // FIND THE GAME: the copies on this computer (2026-11-24), their PICK A FILE (before BACK, the last), the picker,
   // another copy, INSTALL.
   setenv("MW3_LAUNCHER_NAV", "next,press,prev,prev,prev,press", 1);
   setenv("MW3_LAUNCHER_PICKER", ("path:" + other + "/Mech3Msg.dll").c_str(), 1);
@@ -8362,7 +8549,7 @@ TEST(sdl_program_shift_at_start_chooses_the_files_again) {
   std::printf("  shift: play on %d; find: picker %d, copied %d, started from it %d\n",
               a.find(std::string("start only: install ") + MW3_GAME_DIR) != std::string::npos, b.find("picker asked for") != std::string::npos,
               b.find("copied from Other Copy") != std::string::npos, b.find("start only: install " + dir + "/wd/install") != std::string::npos);
-  EXPECT(b.find("screen copies: IN USE") != std::string::npos && b.find("focus PICK ANOTHER") != std::string::npos);
+  EXPECT(b.find("screen copies: IN USE") != std::string::npos && b.find("focus PICK A FILE") != std::string::npos);
   EXPECT(code == 0 && b.find("picker asked for") != std::string::npos && b.find("copied from Other Copy") != std::string::npos);
   EXPECT(b.find("mw3: start only: install " + dir + "/wd/install") != std::string::npos);
   if (!check::failures) fs::remove_all(dir, ec);
@@ -8376,7 +8563,7 @@ TEST(sdl_program_shift_at_start_chooses_the_files_again) {
 TEST(sdl_program_launcher_game_files_repicks) {
   auto seen = [](const std::string& log, const std::string& line) { return log.find(line) != std::string::npos; };
   const auto keys = std::vector<std::pair<std::string, std::string>>{
-      {"MW3_FIND_INSTALL", "1"}, {"MW3_LAUNCHER_FRAMES", "20"}, {"MW3_LAUNCHER_NAV", "next,prev,prev,prev,prev,press"}};  // MW3, then back round: QUIT, ADD FROM FILE, UPDATES, GAME FILES
+      {"MW3_FIND_INSTALL", "1"}, {"MW3_LAUNCHER_FRAMES", "20"}, {"MW3_LAUNCHER_NAV", "next,next,press,next,press"}};  // MW3's PLAY, its gear, its page's GAME FILES
   // The launcher's own copy in use: its data linked from the development copy.
   auto own_copy = [](const std::string& d) {
     std::error_code ec;
@@ -8388,14 +8575,14 @@ TEST(sdl_program_launcher_game_files_repicks) {
   };
   const LauncherRun a = run_launcher_with("launcher_files_keys", "READY", nullptr, keys, own_copy, false);
   std::printf("GAME FILES by keys: focus %d, find screen %d\n", seen(a.log, "focus GAME FILES"),
-              seen(a.log, "screen find: FIND THE GAME, PICK A FOLDER, ADD FROM MY DISC, BACK\n"));
+              seen(a.log, "screen find: FIND THE GAME, PICK A FILE, PICK A FOLDER, ADD FROM MY DISC, BACK\n"));
   EXPECT(a.exited && a.args.empty());
-  EXPECT(seen(a.log, "screen main: MECHWARRIOR 3, MECHWARRIOR 3 SETTINGS, PIRATE'S MOON, PIRATE'S MOON SETTINGS, MECHWARRIOR 1 ORIGINAL, MECHWARRIOR 1 ORIGINAL SETTINGS, MECHWARRIOR 1, MECHWARRIOR 1 SETTINGS, INCEPTION ORIGINAL, INCEPTION ORIGINAL SETTINGS, GAME FILES, UPDATES, ADD FROM FILE, QUIT\n") && seen(a.log, "focus MECHWARRIOR 3\n") &&
-         seen(a.log, "focus GAME FILES\n") && seen(a.log, "screen find: FIND THE GAME, PICK A FOLDER, ADD FROM MY DISC, BACK\n"));
+  EXPECT(seen(a.log, "screen main: MECHWARRIOR 3, MECHWARRIOR 3 SETTINGS, PIRATE'S MOON, PIRATE'S MOON SETTINGS, MECHWARRIOR 1 ORIGINAL, MECHWARRIOR 1 ORIGINAL SETTINGS, MECHWARRIOR 1, MECHWARRIOR 1 SETTINGS, INCEPTION ORIGINAL, INCEPTION ORIGINAL SETTINGS, CHECK FOR UPDATES, QUIT\n") && seen(a.log, "focus MECHWARRIOR 3\n") &&
+         seen(a.log, "focus GAME FILES\n") && seen(a.log, "screen find: FIND THE GAME, PICK A FILE, PICK A FOLDER, ADD FROM MY DISC, BACK\n"));
   // GAME FILES, then the development copy picked (copied in).
   const auto repick = std::vector<std::pair<std::string, std::string>>{{"MW3_FIND_INSTALL", "1"},
                                                                      {"MW3_LAUNCHER_FRAMES", "1800"},
-                                                                     {"MW3_LAUNCHER_NAV", "next,prev,prev,prev,prev,press"},
+                                                                     {"MW3_LAUNCHER_NAV", "next,next,press,next,press"},
                                                                      {"MW3_LAUNCHER_PICK", MW3_GAME_DIR}};
   const LauncherRun b = run_launcher_with("launcher_files_repick", "READY", nullptr, repick, own_copy, false);
   const std::string dir = std::string(MW3_TEST_TMP) + "/launcher_files_repick";
@@ -8623,7 +8810,7 @@ TEST(sdl_program_launcher_starts_mechwarrior_1) {
   EXPECT(text.find(", MechWarrior 1 mw1-v1.0.0\n") != std::string::npos);
   EXPECT(text.find("MechWarrior 1 exited (0)") != std::string::npos);
   // No port and no MW1 Rebuild: its INSTALL (greyed here: a check run asks no server).
-  EXPECT(text.find("entry MECHWARRIOR 1 ORIGINAL: Not installed: Can't reach the server: ADD FROM FILE") != std::string::npos);
+  EXPECT(text.find("entry MECHWARRIOR 1 ORIGINAL: Not installed: Can't reach the server: the gear") != std::string::npos);
   EXPECT(args.rfind("--install " + pm + " --mw3-install ", 0) == 0);
   EXPECT(args.find(" --mw1-game " + dir + "/game --no-launcher") != std::string::npos);
   // No MW3 named (Pirate's Moon may still be found on this machine): said on its line, and a press starts nothing.
@@ -8714,7 +8901,7 @@ TEST(sdl_program_launcher_starts_mechwarrior_1) {
     std::string pargs;
     std::getline(pf, pargs);
     std::printf("launcher mw1 original: given \"%s\"\n", pargs.c_str());
-    EXPECT(text.find("screen main: MECHWARRIOR 3, MECHWARRIOR 3 SETTINGS, PIRATE'S MOON, PIRATE'S MOON SETTINGS, MECHWARRIOR 1 ORIGINAL, MECHWARRIOR 1 ORIGINAL SETTINGS, MECHWARRIOR 1, MECHWARRIOR 1 SETTINGS, INCEPTION ORIGINAL, INCEPTION ORIGINAL SETTINGS, GAME FILES") !=
+    EXPECT(text.find("screen main: MECHWARRIOR 3, MECHWARRIOR 3 SETTINGS, PIRATE'S MOON, PIRATE'S MOON SETTINGS, MECHWARRIOR 1 ORIGINAL, MECHWARRIOR 1 ORIGINAL SETTINGS, MECHWARRIOR 1, MECHWARRIOR 1 SETTINGS, INCEPTION ORIGINAL, INCEPTION ORIGINAL SETTINGS, CHECK FOR UPDATES") !=
            std::string::npos);
     EXPECT(text.find("focus MECHWARRIOR 1 ORIGINAL") != std::string::npos);
     EXPECT(text.find("MechWarrior (1989) exited (0)") != std::string::npos);
@@ -9331,8 +9518,8 @@ TEST(sdl_update_installs_the_mac_app) {
 #endif
 
 #if !defined(_WIN32)  // posix_spawn (ours, not on Windows)
-// UPDATES on the main screen (sitting 1): the releases list asked (MW3_UPDATE_API, a fixture), its verdict on the
-// status line: a newer package release, none newer, an answer that isn't one; PM's releases and drafts left out.
+// CHECK FOR UPDATES on the main screen (sitting 1; in place since 2026-11-24): the releases list asked
+// (MW3_UPDATE_API, a fixture), its verdict in a box when newer, else on the status line: a newer package release, none newer, an answer that isn't one; PM's releases and drafts left out.
 TEST(sdl_program_launcher_checks_for_updates) {
   namespace fs = std::filesystem;
   std::error_code ec;
@@ -9361,7 +9548,7 @@ TEST(sdl_program_launcher_checks_for_updates) {
   std::ofstream(dir / "older.json") << "[" << older << "]";
   std::ofstream(dir / "broken.json") << "<html>API rate limit exceeded</html>";
   setenv("MW3_LAUNCHER_FRAMES", "240", 1);
-  setenv("MW3_LAUNCHER_NAV", "next,prev,prev,prev,press", 1);  // MECHWARRIOR 3, then back round: QUIT, ADD FROM FILE, UPDATES
+  setenv("MW3_LAUNCHER_NAV", "next,prev,prev,press", 1);  // MECHWARRIOR 3, then back round: QUIT, UPDATES
   unsetenv("MW3_PM_BIN");
   // `name`: one list, or two as the backup's and GitHub's ("older|newer"; "missing" answers nothing).
   auto run = [&](const char* spec) {
@@ -9398,13 +9585,13 @@ TEST(sdl_program_launcher_checks_for_updates) {
     const std::string said = at == std::string::npos ? "(none)" : text.substr(at + 18, text.find('\n', at) - at - 18);
     std::printf("  %s: %s\n", spec, said.c_str());
     if (is_newer)  // sitting 2: the notes and the question
-      EXPECT(text.find("screen update: UPDATE, BACK\n") != std::string::npos &&
+      EXPECT(text.find("QUIT, UPDATE AVAILABLE 98.1.0, UPDATE LAUNCHER, NOT NOW\n") != std::string::npos &&  // the box over the games
              text.find("update notes: Fixes\n") != std::string::npos && text.find("update notes: \xe2\x80\xa2 Lasers hit again\n") != std::string::npos &&
              text.find("update notes: \xe2\x80\xa2 The c1m2 crash\n") != std::string::npos &&
              text.find("launcher: update: Downloaded and checked: " + ours + ".\n") != std::string::npos &&
              text.find("cannot replace itself") != std::string::npos);  // run from the build, not an app or an AppImage: refused
     else
-      EXPECT(text.find("screen update:") == std::string::npos);
+      EXPECT(text.find("UPDATE LAUNCHER") == std::string::npos && text.find("screen update:") == std::string::npos);
     return said;
   };
   EXPECT(run("newer").rfind("MechWarrior 3 Rebuild 98.1.0 is out (this is ", 0) == 0);
@@ -9910,7 +10097,7 @@ TEST(sdl_program_launcher_game_files_pirates_moon) {
   log = run("nomusic", {{"MW3_LAUNCHER_FILES", "pm"}, {"MW3_LAUNCHER_ADD", (game / "pm-disc" / "pm.iso").string()},
                         {"MW3_LAUNCHER_NAV_DIALOG", "press"}, {"MW3_LAUNCHER_FRAMES", "600"}}, true);
   std::printf("  no music: asked %d, started %d\n", log.find("no music added: There is no music in that") != std::string::npos, !args().empty());
-  EXPECT(log.find("screen confirm: PLAY WITHOUT MUSIC, PICK ANOTHER, PICK A FOLDER, BACK") != std::string::npos);
+  EXPECT(log.find("screen confirm: PLAY WITHOUT MUSIC, PICK A FILE, PICK A FOLDER, BACK") != std::string::npos);
   EXPECT(!fs::exists(pmwd + "/music", ec) && args().size() >= 2 && args()[1] == install);
   fs::rename(pmwd + "/music-away", pmwd + "/music", ec);
 

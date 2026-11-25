@@ -50,6 +50,11 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Frameworks" "$APP/Contents/Resources"
 # PM's package has no launcher for now: mw3pm is the app's executable (the combined package is a later decision).
 cp build-mac-pkg/mw3pm "$APP/Contents/MacOS/mw3pm"
+# mw3pm's own find screen (--setup, Shift held, files found elsewhere) is drawn from its document: the launcher's art
+# (ours) in Resources, SDL's base path. Without assets/launcher/ui it cannot be drawn (1.5.0).
+mkdir -p "$APP/Contents/Resources/assets/launcher/ui"
+cp assets/launcher/ui/* "$APP/Contents/Resources/assets/launcher/ui/"
+cp assets/launcher/*.png assets/launcher/font.ttf assets/launcher/font_body.ttf "$APP/Contents/Resources/assets/launcher/"
 
 # Every library outside the system, followed through the ones they load:
 # copied by their real file, named by their install name's file, and every
@@ -205,6 +210,11 @@ mkdir -p "$APP/Contents/Resources/assets/fonts" "$APP/Contents/Resources/license
 cp assets/fonts/*.ttf "$APP/Contents/Resources/assets/fonts/"
 cp assets/fonts/Liberation-OFL.txt "$APP/Contents/Resources/licenses/liberation/OFL.txt"
 cp assets/fonts/Anton-OFL.txt "$APP/Contents/Resources/licenses/anton/OFL.txt"
+mkdir -p "$APP/Contents/Resources/licenses/saira-condensed"
+cp assets/launcher/font-OFL.txt "$APP/Contents/Resources/licenses/saira-condensed/OFL.txt"
+mkdir -p "$APP/Contents/Resources/licenses/rmlui"
+cp third_party/rmlui/LICENSE.txt "$APP/Contents/Resources/licenses/rmlui/"
+cp third_party/rmlui/Include/RmlUi/Core/Containers/LICENSE.txt "$APP/Contents/Resources/licenses/rmlui/LICENSE-containers.txt"
 cp tools/macos/THIRD-PARTY.txt "$APP/Contents/Resources/THIRD-PARTY.txt"
 # libarchive, zlib and liblzma: linked in with --deps (build_deps.sh keeps
 # their licences in the prefix); Homebrew's libarchive is a dylib, its

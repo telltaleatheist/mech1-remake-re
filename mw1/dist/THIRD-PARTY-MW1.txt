@@ -32,6 +32,16 @@ domain or MIT licence, at the user's choice; the licence text is at the end
 of the header. Unmodified. It decodes MW1's JPEG and PNG pictures.
 
 
+RmlUi 6.3 (built into mw1)
+--------------------------
+The engine's find screen, https://github.com/mikke89/RmlUi. MIT licence
+(licenses/rmlui/LICENSE.txt; the containers it carries, robin_hood and itlib,
+also MIT: LICENSE-containers.txt beside it). Its text is drawn with FreeType
+2.14.3, built into the program too (in THIRD-PARTY.txt, under SDL_ttf).
+Copyright (c) 2008-2014 CodePoint Ltd, Shift Technology Ltd, and contributors
+Copyright (c) 2019-2026 The RmlUi Team, and contributors
+
+
 Art and video
 -------------
 MechWarrior 1 Remake's own pictures and the DropShip launch video were made for

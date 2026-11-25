@@ -190,6 +190,14 @@ mkdir -p "$APP/Contents/Resources/assets/fonts" "$APP/Contents/Resources/license
 cp assets/fonts/*.ttf "$APP/Contents/Resources/assets/fonts/"
 cp assets/fonts/Liberation-OFL.txt "$APP/Contents/Resources/licenses/liberation/OFL.txt"
 cp assets/fonts/Anton-OFL.txt "$APP/Contents/Resources/licenses/anton/OFL.txt"
+# The engine's find screen (mw1 --setup) is drawn from its document: the launcher's art (the engine's own) in Resources, SDL's
+# base path.
+mkdir -p "$APP/Contents/Resources/assets/launcher/ui" "$APP/Contents/Resources/licenses/saira-condensed" "$APP/Contents/Resources/licenses/rmlui"
+cp assets/launcher/ui/* "$APP/Contents/Resources/assets/launcher/ui/"
+cp assets/launcher/*.png assets/launcher/font.ttf assets/launcher/font_body.ttf "$APP/Contents/Resources/assets/launcher/"
+cp assets/launcher/font-OFL.txt "$APP/Contents/Resources/licenses/saira-condensed/OFL.txt"
+cp third_party/rmlui/LICENSE.txt "$APP/Contents/Resources/licenses/rmlui/"
+cp third_party/rmlui/Include/RmlUi/Core/Containers/LICENSE.txt "$APP/Contents/Resources/licenses/rmlui/LICENSE-containers.txt"
 if [ -n "$DEPS" ]; then
   [ -d "$DEPS/share/licenses" ] || { echo "no licences in $DEPS/share/licenses: run tools/deps/build_deps.sh mac again" >&2; exit 1; }
   cp -R "$DEPS/share/licenses/." "$APP/Contents/Resources/licenses/"

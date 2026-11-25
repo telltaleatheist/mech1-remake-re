@@ -40,6 +40,14 @@ mkdir -p "$APPDIR/usr/bin/assets/fonts" "$DOC/licenses/liberation" "$DOC/license
 cp assets/fonts/*.ttf "$APPDIR/usr/bin/assets/fonts/"
 cp assets/fonts/Liberation-OFL.txt "$DOC/licenses/liberation/OFL.txt"
 cp assets/fonts/Anton-OFL.txt "$DOC/licenses/anton/OFL.txt"
+# The engine's find screen (mw1 --setup) is drawn from its document: the launcher's art (the engine's own) beside
+# the program, where SDL_GetBasePath finds it.
+mkdir -p "$APPDIR/usr/bin/assets/launcher/ui" "$DOC/licenses/saira-condensed" "$DOC/licenses/rmlui"
+cp assets/launcher/ui/* "$APPDIR/usr/bin/assets/launcher/ui/"
+cp assets/launcher/*.png assets/launcher/font.ttf assets/launcher/font_body.ttf "$APPDIR/usr/bin/assets/launcher/"
+cp assets/launcher/font-OFL.txt "$DOC/licenses/saira-condensed/OFL.txt"
+cp third_party/rmlui/LICENSE.txt "$DOC/licenses/rmlui/"
+cp third_party/rmlui/Include/RmlUi/Core/Containers/LICENSE.txt "$DOC/licenses/rmlui/LICENSE-containers.txt"
 # Each library's licence files: from its source tree when the prefix is build_deps.sh's, else what it installed.
 if [ -d "$PREFIX/../work/src" ]; then
   for d in "$PREFIX"/../work/src/*/; do

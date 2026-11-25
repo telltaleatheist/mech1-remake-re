@@ -20,6 +20,8 @@ rem FreeType 2.13.2 draws TTF text a few pixels apart, docs/deps.md).
 if not exist deps\ttf\cmake\SDL3_ttfConfig.cmake (echo No deps\ttf: run tools\windows\build_deps_ttf.cmd first. & exit /b 1)
 if not exist deps\ttf\share\licenses\freetype-2.14.3\FTL.TXT (echo deps\ttf has no licences: run tools\windows\build_deps_ttf.cmd again. & exit /b 1)
 set SDL3_ttf_DIR=%CD%\deps\ttf\cmake
+rem The same FreeType for the launcher's RmlUi (linked in, third_party/rmlui).
+set Freetype_ROOT=%CD%\deps\ttf
 for /d %%d in (deps\SDL3_sound-*) do set SDL3_sound_ROOT=%CD%\%%d
 if not defined SDL3_sound_ROOT echo Warning: no deps\SDL3_sound-*: the package's music plays .wav only.
 rem SETUP's archives (docs/setup-sources.md): a package always reads them.
@@ -71,6 +73,17 @@ mkdir "%DIST%\licenses\liberation"
 copy /y assets\fonts\Liberation-OFL.txt "%DIST%\licenses\liberation\OFL.txt" >nul || exit /b 1
 mkdir "%DIST%\licenses\anton"
 copy /y assets\fonts\Anton-OFL.txt "%DIST%\licenses\anton\OFL.txt" >nul || exit /b 1
+rem The engine's find screen (mw1 --setup) is drawn from its document: the launcher's art (the engine's own).
+mkdir "%DIST%\assets\launcher\ui"
+copy /y assets\launcher\ui\* "%DIST%\assets\launcher\ui\" >nul || exit /b 1
+copy /y assets\launcher\*.png "%DIST%\assets\launcher\" >nul || exit /b 1
+copy /y assets\launcher\font.ttf "%DIST%\assets\launcher\" >nul || exit /b 1
+copy /y assets\launcher\font_body.ttf "%DIST%\assets\launcher\" >nul || exit /b 1
+mkdir "%DIST%\licenses\saira-condensed"
+copy /y assets\launcher\font-OFL.txt "%DIST%\licenses\saira-condensed\OFL.txt" >nul || exit /b 1
+mkdir "%DIST%\licenses\rmlui"
+copy /y third_party\rmlui\LICENSE.txt "%DIST%\licenses\rmlui\" >nul || exit /b 1
+copy /y third_party\rmlui\Include\RmlUi\Core\Containers\LICENSE.txt "%DIST%\licenses\rmlui\LICENSE-containers.txt" >nul || exit /b 1
 mkdir "%DIST%\licenses\pl_mpeg"
 copy /y third_party\pl_mpeg\README.md "%DIST%\licenses\pl_mpeg\" >nul || exit /b 1
 mkdir "%DIST%\licenses\enet"

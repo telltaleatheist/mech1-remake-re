@@ -1,6 +1,7 @@
 #include "frontend/sdl/system_pickers.h"
 #include "frontend/sdl/vulkan_check.h"
 #include "frontend/sdl/launcher.h"
+#include "frontend/sdl/launcher_ui.h"
 #include "frontend/sdl/log_start.h"
 #include "frontend/sdl/sdl_focus.h"
 #include "frontend/sdl/data_folder_start.h"
@@ -10,7 +11,6 @@
 #include "frontend/sdl/text_fit.h"
 
 #include <SDL3/SDL.h>
-#include <SDL3_ttf/SDL_ttf.h>
 
 #include <algorithm>
 #include <atomic>
@@ -29,8 +29,6 @@
 #include "frontend/sdl/mw1_files.h"
 #include "frontend/sdl/sdl_install.h"
 #include "gamez/zutil/zutl_zar.h"
-#include "gamez/zrender/zrndr_ripple.h"
-#include "mech3/menu_ripple.h"
 #include "gamez/zrender/zrndr_tint.h"
 #include "mech3/game_setup.h"
 #include "frontend/sdl/sdl_update.h"
@@ -49,13 +47,10 @@ double ready_wait_ms() {
   return e ? std::atof(e) : 20000.0;
 }
 namespace fs = std::filesystem;
-// 16:9 (2026-11-08): the art across the width, the plates and boxes a
-// 640-wide block in the middle (kX in), as laid out for 640x480 before.
-constexpr int W = 854, H = 480, kX = (W - 640) / 2;
+// 16:9 (2026-11-08): a shot's size, and the layout's units (launcher_ui.h).
+constexpr int W = 854, H = 480;
 // ADD FROM MY DISC's line under its name: short enough for the plate at its font (it was cut in the middle).
 constexpr char kAddDiscSub[] = "A disc in a drive, its image, a download (.zip) or any file of it";
-constexpr int kBadge = 76;  // a game's badge across, on the 640x480 canvas (the other screens' round entries)
-// The main screen's cards (layout C, the mockup's 1280x720 at two thirds): the header, the cards, the bottom row.
 // The setup screens' game names, by header_game(): the header of a game's own start (2026-11-22); in the launcher
 // the line under BATTLETECH (2026-11-24).
 // A screen's game under BATTLETECH, by upgrades::update::Game (1.3.4 had four: Inception's download screens read past
@@ -63,19 +58,12 @@ constexpr int kBadge = 76;  // a game's badge across, on the 640x480 canvas (the
 constexpr const char* kHeaderNames[] = {"MECHWARRIOR 3",  "MECHWARRIOR 3: PIRATE'S MOON",  "MECHWARRIOR 1 REMAKE",
                                         "MECHWARRIOR 1", "THE CRESCENT HAWK'S INCEPTION", "INCEPTION REMAKE"};
 static_assert(sizeof kHeaderNames / sizeof *kHeaderNames == upgrades::update::kGameCount);
-constexpr int kCardBadge = 100, kCardButtonH = 42;  // the badges as loaded; a panel's buttons' height
-// The main screen's panels (2026-11-24, the download page's look; docs/launcher.md, The panels): one a game, in a
-// list that scrolls between the header and the bottom row, its scrollbar at the right.
-constexpr int kCopyRows = 4;  // GAME FILES' list: the copies shown (the rest by PICK ANOTHER)
-constexpr int kListX = 43, kListW = 768, kListTop = 80, kListBottom = 418;
-constexpr int kPanelW = 752, kPanelH = 100, kPanelGap = 8, kPanelBadge = 76, kPanelButtonW = 176, kBarW = 6;
+constexpr int kCopyRows = 4;  // GAME FILES' list: the copies shown (the rest by PICK A FILE)
+// A panel's words' width (assets/launcher/ui/launcher.rcss, .panel .about), its lines chosen by it.
+constexpr int kRowWidth = 640 - 2 - 28 - 2 * 112;  // a game page's row: its words beside two buttons
+constexpr int kAboutWidth = 752 - 2 - 12 - 76 - 16 - 16 - 224 - 14;
 // The launcher's name in its header and window (2026-11-22: "Battletech" at the top, for the whole family).
 constexpr const char* kLauncherTitle = "BATTLETECH";
-// The cards' screen (1.2.0): the starfield zoomed so its drift reads round the cards, the cards a little see-through.
-constexpr float kStarZoom = 1.8f;
-constexpr Uint8 kCardAlpha = 196;
-constexpr int kRowTop = 428, kRowH = 30;
-constexpr int kPillW = 236, kPillH = 30, kPillY = 31;  // UPDATE AVAILABLE <v>, the header's top right
 
 // ---- art ----
 
@@ -131,47 +119,6 @@ std::string body_font_path(const std::string& dir) {
   return font_path(dir);
 }
 
-SDL_Surface* load_png(const std::string& dir, const char* name) {
-  if (dir.empty()) return nullptr;
-  SDL_Surface* s = SDL_LoadPNG((fs::path(dir) / name).string().c_str());
-  if (!s) return nullptr;
-  SDL_Surface* c = SDL_ConvertSurface(s, SDL_PIXELFORMAT_ARGB8888);
-  SDL_DestroySurface(s);
-  return c;
-}
-// The picture's lit part (brighter than `thresh`), cropped; with `alpha`, its
-// near-black made see-through (the generated art is on black).
-SDL_Surface* cut_out(SDL_Surface* s, int thresh, bool alpha) {
-  if (!s) return nullptr;
-  int x0 = s->w, y0 = s->h, x1 = -1, y1 = -1;
-  for (int y = 0; y < s->h; ++y) {
-    const uint32_t* row = reinterpret_cast<const uint32_t*>(static_cast<uint8_t*>(s->pixels) + y * s->pitch);
-    for (int x = 0; x < s->w; ++x) {
-      const uint32_t p = row[x];
-      const int lum = std::max({int(p >> 16 & 0xff), int(p >> 8 & 0xff), int(p & 0xff)});
-      if (lum > thresh) x0 = std::min(x0, x), x1 = std::max(x1, x), y0 = std::min(y0, y), y1 = std::max(y1, y);
-    }
-  }
-  if (x1 < x0) return s;
-  SDL_Surface* c = SDL_CreateSurface(x1 - x0 + 1, y1 - y0 + 1, SDL_PIXELFORMAT_ARGB8888);
-  const SDL_Rect r{x0, y0, c->w, c->h};
-  SDL_SetSurfaceBlendMode(s, SDL_BLENDMODE_NONE);
-  SDL_BlitSurface(s, &r, c, nullptr);
-  SDL_DestroySurface(s);
-  if (alpha) {
-    for (int y = 0; y < c->h; ++y) {
-      uint32_t* row = reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(c->pixels) + y * c->pitch);
-      for (int x = 0; x < c->w; ++x) {
-        const uint32_t p = row[x];
-        const int lum = std::max({int(p >> 16 & 0xff), int(p >> 8 & 0xff), int(p & 0xff)});
-        const int a = std::clamp((lum - 18) * 255 / 42, 0, 255);
-        row[x] = (p & 0xffffffu) | (static_cast<uint32_t>(a) << 24);
-      }
-    }
-    SDL_SetSurfaceBlendMode(c, SDL_BLENDMODE_BLEND);
-  }
-  return c;
-}
 // A card's status from a ready line ("Ready, official: data 1.2, program v1.1.3, ") and the folder: the verdict,
 // the versions, the folder, a line each.
 std::vector<std::string> status_lines(const std::string& ready, const std::string& dir) {
@@ -181,142 +128,27 @@ std::vector<std::string> status_lines(const std::string& ready, const std::strin
   if (colon == std::string::npos) return {r, dir};
   return {r.substr(0, colon), r.substr(colon + 2), dir};
 }
-// Whether a picture has see-through pixels of its own (a cut-out badge).
-bool has_alpha(SDL_Surface* s) {
-  for (int y = 0; y < s->h; ++y) {
-    const uint32_t* row = reinterpret_cast<const uint32_t*>(static_cast<uint8_t*>(s->pixels) + y * s->pitch);
-    for (int x = 0; x < s->w; ++x)
-      if ((row[x] >> 24) != 0xff) return true;
-  }
-  return false;
-}
-SDL_Surface* scaled(SDL_Surface* s, int w, int h) {
-  if (!s) return nullptr;
-  SDL_Surface* r = SDL_ScaleSurface(s, w, h, SDL_SCALEMODE_LINEAR);
-  if (r) SDL_SetSurfaceBlendMode(r, SDL_BLENDMODE_BLEND);
-  return r;
-}
-
-struct Art {
-  SDL_Surface *stars = nullptr, *metal = nullptr, *plate = nullptr, *title = nullptr, *emblem = nullptr;
-  SDL_Surface* stars_big = nullptr;  // the cards' screen: the starfield at kStarZoom, so its drift shows (1.2.0)
-  // The games' round badges: MechWarrior 3, Pirate's Moon, MW1 Remake, MW1 Original (Rebuild), Inception (2026-11-24).
-  SDL_Surface* badge[5] = {};
-  ~Art() {
-    for (SDL_Surface* s : {stars, stars_big, metal, plate, title, emblem, badge[0], badge[1], badge[2], badge[3], badge[4]})
-      if (s) SDL_DestroySurface(s);
-  }
-  void load(const std::string& dir) {
-    if (SDL_Surface* s = load_png(dir, "bg_stars.png")) {
-      stars = scaled(s, s->w * H / s->h, H);
-      const int bh = static_cast<int>(H * kStarZoom);
-      stars_big = scaled(s, s->w * bh / s->h, bh);
-      SDL_DestroySurface(s);
-    }
-    if (stars_big) SDL_SetSurfaceBlendMode(stars_big, SDL_BLENDMODE_NONE);
-    if (SDL_Surface* s = load_png(dir, "bg_metal.png")) metal = scaled(s, s->w * 240 / s->h, 240), SDL_DestroySurface(s);
-    if (stars) SDL_SetSurfaceBlendMode(stars, SDL_BLENDMODE_NONE);
-    if (metal) SDL_SetSurfaceBlendMode(metal, SDL_BLENDMODE_NONE), SDL_SetSurfaceColorMod(metal, 190, 190, 190);
-    plate = cut_out(load_png(dir, "plate.png"), 24, false);
-    if (SDL_Surface* t = cut_out(load_png(dir, "title.png"), 24, true)) title = scaled(t, 420, t->h * 420 / t->w), SDL_DestroySurface(t);
-    if (SDL_Surface* e = cut_out(load_png(dir, "emblem.png"), 24, true)) emblem = scaled(e, 72, 72), SDL_DestroySurface(e);
-    const char* const badges[5] = {"badge_mw3.png", "badge_pm.png", "badge_mw1.png", "badge_mw1o.png", "badge_inception.png"};
-    for (int i = 0; i < 5; ++i) {  // cut out already (tools/badge_cutout.py): their own alpha; an older black one cut here
-      SDL_Surface* b = load_png(dir, badges[i]);
-      if (b && !has_alpha(b)) b = cut_out(b, 24, true);
-      if (b) badge[i] = scaled(b, kCardBadge, kCardBadge), SDL_DestroySurface(b);
-    }
-  }
-};
-
 // ---- text ----
 
+// Words measured as the screens draw them (launcher_ui.h), in the layout's units.
 struct Text {
-  std::string path;
-  std::map<int, TTF_Font*> fonts;
-  bool ok = false;
-  ~Text() {
-    for (auto& [k, f] : fonts) TTF_CloseFont(f);
-    if (ok) TTF_Quit();
-  }
-  void open(const std::string& p) {
-    path = p;
-    ok = !p.empty() && TTF_Init();
-  }
-  TTF_Font* font(int size) {
-    if (!ok) return nullptr;
-    auto it = fonts.find(size);
-    if (it != fonts.end()) return it->second;
-    return fonts[size] = TTF_OpenFont(path.c_str(), static_cast<float>(size));
-  }
-  // `s` as drawn and measured: a narrow space doubled (widen_spaces).
-  std::string shown(TTF_Font* f, int size, const std::string& s) {
-    int adv = 0;
-    if (!TTF_GetGlyphMetrics(f, ' ', nullptr, nullptr, nullptr, nullptr, &adv)) return s;
-    return widen_spaces(s, adv, size);
-  }
-  // `s` at (x, y): align -1 left, 0 centred, 1 right of x; y its middle.
-  void draw(SDL_Surface* dst, const std::string& s, int size, SDL_Color c, int x, int y, int align = 0) {
-    TTF_Font* f = font(size);
-    if (!f || s.empty()) return;
-    const std::string text = shown(f, size, s);
-    SDL_Surface* t = TTF_RenderText_Blended(f, text.c_str(), 0, c);
-    if (!t) return;
-    SDL_Rect r{x, y - t->h / 2, t->w, t->h};
-    if (align == 0) r.x -= t->w / 2;
-    if (align > 0) r.x -= t->w;
-    // A black shadow lifts light text; under dark text (the amber buttons' ink) it read as a doubled letter (1.2.0).
-    const bool dark = c.r * 3 + c.g * 6 + c.b < 1000;
-    SDL_Surface* shadow = dark ? nullptr : TTF_RenderText_Blended(f, text.c_str(), 0, SDL_Color{0, 0, 0, 255});
-    if (shadow) {
-      SDL_Rect sr{r.x + 1, r.y + 2, r.w, r.h};
-      SDL_BlitSurface(shadow, nullptr, dst, &sr), SDL_DestroySurface(shadow);
-    }
-    SDL_BlitSurface(t, nullptr, dst, &r);
-    SDL_DestroySurface(t);
-  }
-  int width(const std::string& s, int size) {
-    TTF_Font* f = font(size);
-    int w = 0, h = 0;
-    if (f) TTF_GetStringSize(f, shown(f, size, s).c_str(), 0, &w, &h);
-    return w;
-  }
+  LauncherUi* ui = nullptr;
+  bool body = false;  // the panels' small lines' font
+  int width(const std::string& s, int size) const { return ui->width(s, size, body); }  // a narrow space as it is drawn
+  int line_skip(int size) const { return ui->line_skip(size, body); }
   // `s` shortened from the middle with "..." until it is `width` across; its
   // first `keep` characters stay whole (a folder's start and end both show).
-  std::string fit(const std::string& s, int size, int width, size_t keep = 0) {
-    TTF_Font* f = font(size);
-    if (!f) return s;
-    auto w_of = [&](const std::string& t) {
-      int w = 0, h = 0;
-      TTF_GetStringSize(f, shown(f, size, t).c_str(), 0, &w, &h);
-      return w;
-    };
-    return fit_middle(s, keep, width, w_of);
+  std::string fit(const std::string& s, int size, int width, size_t keep = 0) const {
+    return fit_middle(s, keep, width, [&](const std::string& t) { return this->width(t, size); });
   }
-  // A button's words at `size`, or the largest size down to `least` at which they fit `width` (2026-11-24: "shrink
-  // the text to make it fit ... it should never say CHANG...LDER"). Only what still does not fit at `least` (a
-  // folder's path) is cut in the middle. `*used` gets the size.
-  std::string shrink(const std::string& s, int size, int least, int width, int* used, size_t keep = 0) {
-    for (int z = size; z >= least; --z)
-      if (this->width(s, z) <= width) return *used = z, s;
-    return *used = least, fit(s, least, width, keep);
-  }
-  // Wrapped to `width`, lines centred on x from y; the height drawn.
   // `s` as lines no wider than `width` (its own '\n's kept).
-  std::vector<std::string> wrap(const std::string& s, int size, int width) {
-    TTF_Font* f = font(size);
+  std::vector<std::string> wrap(const std::string& s, int size, int width) const {
     std::vector<std::string> lines;
-    if (!f) return lines;
     std::string line, word;
-    auto fits = [&](const std::string& t) {
-      int w = 0, h = 0;
-      TTF_GetStringSize(f, shown(f, size, t).c_str(), 0, &w, &h);
-      return w <= width;
-    };
     auto flush_word = [&] {
       if (word.empty()) return;
       const std::string tryl = line.empty() ? word : line + " " + word;
-      if (!fits(tryl) && !line.empty()) lines.push_back(line), line = word;
+      if (!line.empty() && this->width(tryl, size) > width) lines.push_back(line), line = word;
       else line = tryl;
       word.clear();
     };
@@ -329,28 +161,25 @@ struct Text {
     if (!line.empty()) lines.push_back(line);
     return lines;
   }
-  int line_skip(int size) {
-    TTF_Font* f = font(size);
-    return f ? TTF_GetFontLineSkip(f) : 0;
-  }
-  // `s` wrapped to `width` from (x, y), each line placed as draw's `align`; the height drawn.
-  int draw_wrapped(SDL_Surface* dst, const std::string& s, int size, SDL_Color c, int x, int y, int width, int align = 0) {
-    const std::vector<std::string> lines = wrap(s, size, width);
-    const int lh = line_skip(size);
-    for (size_t i = 0; i < lines.size(); ++i) draw(dst, lines[i], size, c, x, y + static_cast<int>(i) * lh, align);
-    return static_cast<int>(lines.size()) * lh;
-  }
 };
 
-const SDL_Color kWhite{228, 230, 232, 255}, kAmber{255, 176, 64, 255}, kGrey{120, 124, 130, 255}, kDim{190, 190, 180, 255};
 
-// The pickers' filters: one each, every file shown (2026-11-24: a filter hid the downloads, or every zip from ADD FROM
+
+// The pickers' filters: every file shown (2026-11-24: a filter hid the downloads, or every zip from ADD FROM
 // MY DISC); what a pick is comes from its content.
-const SDL_DialogFileFilter kGameFiles[] = {{"Your game: a disc image, a download (.zip), or any file of it", "*"}};
+// The first shows every file and is the one a picker opens with; the others narrow a full folder.
+const SDL_DialogFileFilter kGameFiles[] = {{"All files", "*"},
+                                           {"Downloads (.zip .7z .rar)", "zip;7z;rar;tar;gz;tgz;xz"},
+                                           {"Disc and disk images (.iso .cue .adf)", "iso;cue;bin;img;adf;ima;dsk"},
+                                           {"Programs (.exe)", "exe"}};
+constexpr int kGameFilesCount = 4;
 const SDL_DialogFileFilter kMw1Files[] = {{"MechWarrior (1989): BTECH.EXE, or a download (.zip)", "*"}};
-// ADD FROM FILE's: a game's own download for this computer (sdl_games.h).
+// INSTALL FROM A DOWNLOADED FILE's: a game's own download for this computer (sdl_games.h).
 const SDL_DialogFileFilter kPackageFiles[] = {{"A game's download (.zip, .dmg, .AppImage)", "*"}};
-const SDL_DialogFileFilter kDiscFiles[] = {{"Your disc: its image (.cue, .iso), a download (.zip) or any file of it", "*"}};
+const SDL_DialogFileFilter kDiscFiles[] = {{"All files", "*"},
+                                           {"Downloads (.zip .7z .rar)", "zip;7z;rar;tar;gz;tgz;xz"},
+                                           {"Disc images (.cue .iso)", "cue;iso;bin;img"}};
+constexpr int kDiscFilesCount = 3;
 
 // The find screen's words (2026-11-02): what the game needs, and that
 // nothing of the player's is changed.
@@ -424,59 +253,42 @@ struct Sounds {
 
 struct Button {
   int id = 0;
-  SDL_Rect r{};
+  std::string group;  // where the document has it (<x buttons="group">, assets/launcher/ui/launcher.rml)
   std::string label, sub;
   bool enabled = true;
   size_t sub_keep = 0;  // the sub's start kept whole when it is shortened to fit
-  int badge = -1;       // a game's entry: its round badge (Art::badge), the name beside it
-  // The main screen: a panel's amber PLAY, the bottom row's flat buttons; 0 the steel plate of the other screens.
-  enum Style { kPlate, kAmber, kGrey, kFlat } style = kPlate;
-  int card = -1;     // the main screen's panel it is on: it scrolls with the list and shows only inside it
+  const char* kind = "plate";  // plate (the other screens' steel), amber, flat (the bottom row), gear (a panel's, a
+                               // cog), seg (a split button's end, 2026-11-22: a game's UPDATE joined to its PLAY)
   std::string name;  // what the log and the checks call it ("" the label): a panel's PLAY by its game
-  // A split button's end (2026-11-22): a game's UPDATE as a segment at the right of its PLAY, a divider and a
-  // download arrow, the version under it. Its own button for clicks, focus and the checks; drawn joined to the one
-  // before it.
-  bool seg = false;
-  bool gear = false;  // a panel's gear (2026-11-24): a square left of its button, a cog drawn, no words
   const std::string& log_name() const { return name.empty() ? label : name; }
 };
 
-// A game's panel on the main screen (2026-11-24): its badge, its name, its status lines and a line about the game;
-// its buttons are Buttons. `r` is where it is drawn now (the list's scroll in it).
-struct Card {
-  SDL_Rect r{};
-  int badge = 0;  // -1: none, a plain disc
-  std::string name;
-  std::vector<std::string> lines;  // the status, a line each, shortened to fit
-  std::vector<size_t> keep;        // each line's start kept whole when it is shortened (Text::fit)
-  std::string blurb;               // what the game is, under the status as room allows
-  bool on = true;                  // false: not out yet (its badge dimmed, its name grey)
-};
-
 enum Id {
-  kMw3 = 1, kPm, kQuit, kMw1, kFiles,
+  kMw3 = 1, kPm, kQuit, kMw1,
   kFind = 10, kPoint, kBack,
   kPatch,  // the 1.2 patch's zip: unreachable since the patch is built in (patch12.h), its code kept
   kAddDisc = 20,
   kGo = 30, kCancel, kNotesOk, kPickOther,
-  kPickFolder, kPlayNoMusic,  // ours: PICK A FOLDER; the no-music dialog's PLAY WITHOUT MUSIC (2026-11-24)
+  kPickFile, kPickFolder, kPlayNoMusic,  // ours: PICK A FILE; PICK A FOLDER; the no-music dialog's PLAY WITHOUT MUSIC (2026-11-24)
   kInstallTo, kPlaceGo,  // ours: CHANGE FOLDER (the game's folder, picked) and the card INSTALL's go once asked where
   kData = 40, kDataPick, kDataUsual, kMoveGo, kRemoveOld, kKeepOld,
   kUpdates = 49,
   kSelfUpdate = 50,  // the header's UPDATE AVAILABLE <v> when the start's check found one (2026-11-23)
+  kUpdateLauncher = 78, kUpdateAll,  // CHECK FOR UPDATES' box (2026-11-24): the launcher alone, or the games first
   kUpdateGo = 80, kUpdateNotNow,  // the UPDATE screen: UPDATE and BACK (2026-11-23: no paging arrows)
   kVulkanAgain = 90,  // ours: the Vulkan check again (docs/linux.md)
   kMw1Original = 100,  // MW1's card: PLAY ORIGINAL, Elthial's port of the 1989 game
   kGameInstall = 110,  // ours, games on demand (sdl_games.h): + the game (upgrades::update::Game), INSTALL
   kGameUpdate = 120,   // + the game: UPDATE
-  kInstallFile = 130, kInstallFileGo,  // ADD FROM FILE; its ADD ANYWAY for a file without SHA256SUMS
+  kInstallFile = 130, kInstallFileGo,  // INSTALL FROM A DOWNLOADED FILE; its ADD ANYWAY for a file without SHA256SUMS
   kKitPlay = 150,  // + the game: PLAY for a game on the setup kit's contract (MW1 Rebuild, Inception's two)
   kCopy = 160,      // + the row (up to kCopyRows): GAME FILES' list of the copies on this computer (2026-11-24), one taken
   kCopyPick = 168,
   kGear = 170,       // + the game: a panel's gear, its game's page (2026-11-24, docs/launcher.md, A game's page)
   kGameLink = 180,   // the page's LINK AN INSTALL (a picker), UNLINK, UNINSTALL, BACK
   kGameUnlink, kGameUninstall, kGameFilesPick, kGameBack,
-  kUninstallGo, kUninstallAll, kUninstallBack,  // UNINSTALL's confirm: the program, the program and its game files, KEEP IT  // its PICK ANOTHER: the one picker (1.3.4 had it at kCopy + 1, the second row's id: that row opened the picker)
+  kGameRemove,  // UNINSTALL of the linked copy (2026-11-24)
+  kUninstallGo, kUninstallAll, kUninstallBack,  // UNINSTALL's confirm: the program, the program and its game files, KEEP IT  // its PICK A FILE: the one picker (1.3.4 had it at kCopy + 1, the second row's id: that row opened the picker)
 };
 
 // A copy of a game's files on this computer, as GAME FILES lists them (2026-11-24: "the user should be able to pick
@@ -504,7 +316,7 @@ struct Work {
   mech3::setup::Result result;
   std::atomic<bool> cancel{false}, done{false};
   std::string title;
-  enum Kind { kOther, kLook, kInstallIt, kAddDisc, kConvert, kMoveData, kRemoveData, kUpdateCheck, kUpdateDownload, kMw1Copy, kGameInstall, kGameFileCheck, kUninstall, kKitLook, kKitInstall } kind = kOther;  // a look, an install, ADD FROM MY DISC, the movies
+  enum Kind { kOther, kLook, kInstallIt, kAddDisc, kConvert, kMoveData, kRemoveData, kUpdateDownload, kMw1Copy, kGameInstall, kGameFileCheck, kUninstall, kKitLook, kKitInstall } kind = kOther;  // a look, an install, ADD FROM MY DISC, the movies
   ~Work() {
     cancel = true;
     if (th.joinable()) th.join();
@@ -550,8 +362,8 @@ class Launcher {
     sdlfe::stop_asking();
     games_check_.reset();
     self_check_.reset();
-    if (canvas_) SDL_DestroySurface(canvas_);
-    if (tex_) SDL_DestroyTexture(tex_);
+    SDL_RemoveEventWatch(&Launcher::exposed, this);
+    ui_.detach();
     if (ren_) SDL_DestroyRenderer(ren_);
     if (win_) SDL_DestroyWindow(win_);
   }
@@ -573,17 +385,8 @@ class Launcher {
   void offer_mw1();                        // the search's MechWarrior (1989) offered on the find's plate
   void copy_mw1(const std::string& game);  // copied into mw1::unpacked_dir on the worker, then take_mw1
   void take_mw1(const std::string& dir);   // the folder in use from now: saved, then on as the pick goes
-  void draw_card(const Card& c, bool selected);
-  // The panels' list (2026-11-24): its scroll (0 to list_max_), the wheel's remainder, the scrollbar's drag.
-  int list_y_ = SDL_getenv("MW3_LAUNCHER_LIST_Y") ? std::atoi(SDL_getenv("MW3_LAUNCHER_LIST_Y")) : 0;  // checks: a shot scrolled
-  int list_max_ = 0, drag_grab_ = 0;
-  float wheel_left_ = 0, mouse_x_ = -1, mouse_y_ = -1;
-  bool dragging_ = false;
-  void scroll_list(int y);
-  void show_focus();
-  SDL_Rect list_thumb() const;
-  int hit(float x, float y) const;
-  void draw_list_edges();
+  // The mouse is followed as the list scrolls under it (after a wheel or a drag, until the next screen).
+  bool follow_ = false, ui_stale_ = true;
   // GAME FILES on Pirate's Moon (files_pm_): its settings folder as mw3pm
   // finds it, its usual one ("BattleTech/Pirate's Moon", made by mw3pm, not
   // here), what it lacks, and the folder in use.
@@ -600,12 +403,18 @@ class Launcher {
   std::vector<std::string> pm_notes(mech3::setup::Result* check = nullptr);
   void watch_game();
   void layout();
-  void draw(float dt);
-  void background(float dt);
+  UiModel model();
+  void draw();
+  void sync_ui();
+  void save_frame(const std::string& path);
+  void mouse_steps();
+  static bool SDLCALL exposed(void* user, SDL_Event* e) {
+    auto* l = static_cast<Launcher*>(user);
+    if (e->type == SDL_EVENT_WINDOW_EXPOSED && e->window.data1 == 1 && l->ren_ && l->win_ && SDL_GetWindowID(l->win_) == e->window.windowID)
+      l->draw(), SDL_RenderPresent(l->ren_);
+    return true;
+  }
   int header_game() const;
-  void plate(const Button& b, bool hot);
-  bool prev_hot_ = false;  // the button drawn before this one is hot (a split button's segment keeps its edge)
-  static constexpr int kSegW = 46;  // a split button's UPDATE segment
   static constexpr int kNotesTop = 162;  // BEFORE YOU PLAY's first note
   struct NotesLayout {
     int size = 14, gap = 14;        // the notes' font and the space after each
@@ -636,58 +445,53 @@ class Launcher {
   void notes_refresh();
   std::string in_use() const;
   void add_disc(const std::string& source);
-  void present();
   void nav(int action);  // 1 next, -1 previous, 2 press, 3 back (keys and a pad)
 
   LauncherOptions o_;
   SDL_Window* win_ = nullptr;
   SDL_Renderer* ren_ = nullptr;
-  SDL_Texture* tex_ = nullptr;
-  SDL_Surface* canvas_ = nullptr;
-  Art art_;
-  Text text_;
-  Text body_;  // the panels' small lines (font_body.ttf)
+  LauncherUi ui_;
+  Text text_{&ui_, false};
+  Text body_{&ui_, true};  // the panels' small lines (font_body.ttf)
   enum Screen { kMain, kSetupScreen, kConfirm, kWorking, kNotes, kDataScreen, kUpdateScreen, kCopies, kGamePage } screen_ = kMain;
   std::vector<Copy> copies_;  // kCopies' rows (find_copies)
   void find_copies();
   std::vector<std::string> notes_;  // the first start's (launcher_notes)
   std::vector<Button> buttons_;
   int hot_ = -1, focus_ = -1;
-  float hot_t_ = 0, phase_ = 0, scroll_ = 0;
-  // The ripple (mech3::menu_ripple_step's state) and the button it is for.
   int frames_ = 0;                    // frames shown, and their draw and present times (the log)
   bool vsync_ = false;
   int quit_after_ = SDL_getenv("MW3_LAUNCHER_FRAMES") ? std::atoi(SDL_getenv("MW3_LAUNCHER_FRAMES")) : 0;
   double draw_ms_ = 0, present_ms_ = 0;
-  int ring_for_ = -1, ring_radius_ = 0;
-  bool drew_ripple_ = false, drew_edge_ = false;  // the last frame's hover (the shot's log)
-  float ring_carry_ = 0, ring_amp_ = 0, ring_phase_ = 0;
-  // The ripple's centre: a game's badge, else the plate's middle.
-  SDL_Point ring_centre(const Button& b) const {
-    if (b.badge >= 0) return {b.r.x + kBadge / 2 + 4, b.r.y + b.r.h / 2};
-    return {b.r.x + b.r.w / 2, b.r.y + b.r.h / 2};
-  }
   Install install_;
   std::string pm_dir_;  // Pirate's Moon's folder, kept as pm_install= in mw3.cfg
   std::string pm_found_;  // the search's Pirate's Moon, not taken: offered when PIRATE'S MOON is chosen
   bool have_files() const { return files_pm_ ? !pm_dir_.empty() : install_.ok; }
   std::string files_dir() const { return files_pm_ ? pm_dir_ : install_.dir; }
-  bool pm_last_ = false;  // the game last clicked: GAME FILES acts on it
   bool mw1_repick_ = false;  // the MW1 pick came from GAME FILES: kept, not played
-  bool mw1_last_ = false;  // MW1's line last clicked: GAME FILES re-picks its folder
-  bool files_pm_ = false;  // GAME FILES' screens are Pirate's Moon's (pm_last_ when they opened)
+  bool files_pm_ = false;  // GAME FILES' screens are Pirate's Moon's 
   bool pm_lacks_music_ = false, pm_lacks_sounds_ = false;  // pm_refresh
   std::shared_ptr<upgrades::update::Verdict> update_;  // the last CHECK FOR UPDATES' verdict
   std::vector<std::string> update_lines_;  // its release's notes wrapped to the screen (show_update)
   std::shared_ptr<std::string> update_file_;  // after UPDATE: the program to start next (empty: none)
-  size_t update_top_ = 0;  // the UPDATE screen: the notes' first line shown (the wheel scrolls them)
-  static constexpr int kUpdateTop = 150, kUpdateBottom = 322, kUpdateWidth = 500;
-  size_t update_per_page() { return static_cast<size_t>(std::max(1, (kUpdateBottom - kUpdateTop) / std::max(1, text_.line_skip(13)))); }
+  static constexpr int kUpdateWidth = 500;
   void show_update();
+  void read_update_notes();
   // Ours, games on demand (docs/launcher.md, Games on demand): each game's program beside this one (a package or
   // build that carries it), else the one the launcher installed under games_root_; each repo's answer on its card.
   void resolve_games();
   void start_games_check();
+  // CHECK FOR UPDATES (2026-11-24): both start checks asked again, the home screen staying; their answers said, and a
+  // box when the launcher itself has one.
+  void recheck();
+  void recheck_done();
+  bool rechecking_ = false, update_box_ = false, nav_late_ = false;
+  upgrades::update::Verdict::Kind self_kind_ = upgrades::update::Verdict::kFailed;  // the last answer about the launcher
+  std::string self_words_ = "Could not check for updates";
+  std::vector<int> game_updates() const;  // the games whose UPDATE is there
+  std::vector<int> update_queue_;         // UPDATE ALL: the games still to go, then the launcher
+  bool update_queue_self_ = false;
+  void next_update();
   void take_games_check();
   void install_game(int i);
   void install_game_now(int i);
@@ -714,7 +518,6 @@ class Launcher {
   void kit_looked(const mech3::setup::Result& r);
   void kit_install();
   void kit_ready(const std::string& summary);
-  int kit_last_ = -1;       // the kit game whose PLAY was last pressed: GAME FILES acts on it
   int kit_files_ = -1;      // the game the find screens are for, else MW3's or Pirate's Moon's
   bool kit_play_ = false;   // PLAY asked for them: the game starts once they are in
   rekit::SetupMessage kit_ask_;                     // its words
@@ -748,6 +551,13 @@ class Launcher {
   int page_game_ = -1;           // kGamePage's game
   bool uninstall_files_ = false;  // the running UNINSTALL takes the game files too
   bool page_confirm_ = false;    // its UNINSTALL asked: the confirm in its place
+  bool remove_linked_ = false;   // ... of the linked copy, not the launcher's
+  sdlfe::games::Removal removal_[upgrades::update::kGameCount];  // how the linked copy would go (open_game_page)
+  std::vector<UiPanel> rows_;    // the page's rows
+  int files_page_ = -1;          // the game page whose GAME FILES opened the find screen: its BACK
+  bool can_open_files(int i) const;
+  void open_files(int i);
+  UiPanel files_row(int i);
   void open_game_page(int i);
   void resolve_game(int i, bool refresh);
   std::string own_files(int i);  // the game files UNINSTALL may remove with the program (see its definition)
@@ -802,7 +612,7 @@ class Launcher {
   bool quit_after_mw1_ = false;  // --launcher-mw1 (checks): ended once its pick, copy and game are done
   std::string port_exe_;            // Elthial's port of the 1989 game, when the player has put it beside ours
   bool mw1_original_ = false;       // the MW1 run asked for is the original's (PLAY ORIGINAL)
-  std::vector<Card> cards_;         // the main screen's (layout)
+  std::vector<UiPanel> panels_;     // the main screen's (layout)
   std::string status_;
   bool status_good_ = true;
   Vulkan vulkan_ = Vulkan::kOk;  // ours (docs/linux.md, Vulkan): what the start found
@@ -1050,11 +860,69 @@ void Launcher::find_link(int i) {
 
 // A game's page, from its panel's gear (2026-11-24, docs/launcher.md, A game's page).
 void Launcher::open_game_page(int i) {
-  page_game_ = i, page_confirm_ = false, status_.clear(), screen_ = kGamePage;
+  page_game_ = i, page_confirm_ = false, files_page_ = -1, status_.clear(), screen_ = kGamePage;
   layout();
 }
 
-// LINK AN INSTALL's pick: the game's program in it, this game's by its stamp or its --status, linked; whichever of it
+// A game's GAME FILES (2026-11-24: on its page; before, a button for whichever game was last clicked): the player's own
+// copy of the original picked or refreshed. A game whose program does that itself has none here (PLAY asks).
+bool Launcher::can_open_files(int i) const {
+  if (i == 0) return true;
+  if (i == 1) return !o_.pm_bin.empty();
+  if (i == 2) return mw1_remake_;
+  if (i == 3 && !port_exe_.empty()) return true;
+  return kit_serves(i);
+}
+
+void Launcher::open_files(int i) {
+  if (!can_open_files(i)) return;
+  if (i == 2 || (i == 3 && !port_exe_.empty())) {  // MechWarrior (1989)'s folder (a cancel keeps the one in use)
+    status_ = (mw1_game_.empty() ? std::string("Pick your MechWarrior (1989)") : "MechWarrior (1989) is at " + mw1_game_ + ". Pick another") +
+              ": its BTECH.EXE, or the download it came in (.zip).";
+    status_good_ = true, mw1_repick_ = true;
+    return ask_file(kMw1, kMw1Files, 1);
+  }
+  const int page = screen_ == kGamePage ? i : -1;
+  if (i > 1) {
+    open_kit_files(i, false);
+  } else {
+    files_pm_ = i == 1;
+    if (files_pm_) pm_refresh();
+    from_files_ = true, status_.clear(), screen_ = kSetupScreen;
+  }
+  files_page_ = page;
+  layout();
+}
+
+// The page's GAME FILES row: what is in use and where; none for a game not here that says nothing of its files.
+UiPanel Launcher::files_row(int i) {
+  UiPanel p;
+  auto is = [&](const std::string& text, const std::string& path) { p.lines = {{text, ""}, {path, ""}}; };
+  const std::string none = "Not found yet", asks = "PLAY finds them, or pick them here";
+  auto lacks = [](std::string s, bool music, const char* other, bool it) {
+    if (music && it) return s + " \xc2\xb7 no music or " + other;
+    if (music) return s + " \xc2\xb7 no music";
+    return it ? s + " \xc2\xb7 no " + other : s;
+  };
+  auto data = [](const std::string& name, const std::string& v) { return v.empty() || v == "unknown" ? name : name + " " + v; };
+  if (i == 0) {
+    if (install_.ok) is(lacks(data("MechWarrior 3", install_.version), lacks_music_, "movies", lacks_movies_), install_.dir);
+    else is(none, asks);
+  } else if (i == 1 && can_open_files(1)) {
+    if (!pm_dir_.empty()) is(lacks(data("Pirate's Moon", pm_data_), pm_lacks_music_, "sounds", pm_lacks_sounds_), pm_dir_);
+    else is(none, asks);
+  } else if (can_open_files(i) && (i == 2 || (i == 3 && !port_exe_.empty()))) {
+    if (!mw1_game_.empty()) is("MechWarrior (1989)", mw1_game_);
+    else is(none, "Your MechWarrior (1989): PLAY finds it, or pick it here");
+  } else if (kit_game(i) && !game_bin(i).empty()) {
+    const rekit::Status& s = kit_status_[i];
+    if (kit_known_[i] && s.state == rekit::Status::kReady) is(s.data.empty() ? "Your copy of the game" : s.data, s.where);
+    else is(none, can_open_files(i) ? asks : "PLAY finds them");
+  }
+  return p;
+}
+
+// LINK A COPY's pick: the game's program in it, this game's by its stamp or its --status, linked; whichever of it
 // and the launcher's own copy is newer plays.
 void Launcher::link_picked(const std::string& path) {
   const int i = page_game_;
@@ -1064,8 +932,13 @@ void Launcher::link_picked(const std::string& path) {
   const std::string prog = sdlfe::games::program_of_pick(path, g);
   const std::string v = prog.empty() ? std::string() : sdlfe::games::identify(prog, g, true);
   std::printf("mw3: launcher: games: %s: link %s: %s\n", key.c_str(), path.c_str(), v.empty() ? "not this game" : (prog + " " + v).c_str());
-  if (v.empty()) {
-    status_ = "That isn't " + name + " (the rebuild): pick its program or the folder it is in.", status_good_ = false;
+  if (v.empty()) {  // not a program: perhaps the player's own copy of the game (2026-11-24: a .zip of it was picked here)
+    if (kit_serves(i) && !game_bin(i).empty()) {
+      open_kit_files(i, false);
+      if (screen_ == kSetupScreen) kit_look(path);
+      return;
+    }
+    status_ = "That isn't the rebuilt " + name + ". For your own copy of the original game, use GAME FILES.", status_good_ = false;
     return layout();
   }
   if (sdlfe::games::launchers_own(prog)) {
@@ -1089,16 +962,16 @@ void Launcher::unlink_game() {
   save_config_value(o_.write_dir, "link_" + key, ""), save_config_value(o_.write_dir, "unlinked_" + key, prog);
   std::printf("mw3: launcher: games: %s: unlinked %s\n", key.c_str(), prog.c_str());
   resolve_game(i, true);
-  status_ = "Unlinked. Its folder is as it was.", status_good_ = true;
+  status_ = "Unlinked. Nothing was deleted.", status_good_ = true;
   layout();
 }
 
-// The game files UNINSTALL may take with the program: MechWarrior 3's or Pirate's Moon's, only when the launcher's
-// copy is the last one here (no linked copy, none unlinked but still there, nothing beside it, no MechWarrior 1 Remake, which plays them too), and
+// The game files UNINSTALL may take with the program: MechWarrior 3's or Pirate's Moon's, only when the
+// copy going is the last one here (the launcher's or a linked one, none unlinked but still there, nothing beside it, no MechWarrior 1 Remake, which plays them too), and
 // only a folder our own copying made (its mw3-install.txt) in the places the launcher puts them (the user folder's
 // install/, the game's picked folder's). Never a copy of the original the player pointed at.
 std::string Launcher::own_files(int i) {
-  if ((i != 0 && i != 1) || !has_installed_[i] || !linked_[i].empty() || beside_[i] || !game_bin(2).empty()) return {};
+  if ((i != 0 && i != 1) || has_installed_[i] == !linked_[i].empty() || beside_[i] || !game_bin(2).empty()) return {};
   std::error_code ec;  // one the player unlinked plays them too, while it is there
   const std::string unlinked = cfg_path(o_.write_dir, std::string("unlinked_") + upgrades::update::game_info(upgrades::update::kGames[i]).key);
   if (!unlinked.empty() && fs::exists(unlinked, ec)) return {};
@@ -1110,10 +983,12 @@ std::string Launcher::own_files(int i) {
   return {};
 }
 
-// UNINSTALL: the launcher's copy (only its marked folder) and, when asked and allowed (own_files), its game files.
+// UNINSTALL: the launcher's copy (only its marked folder) or the linked one (removal_of), and, when asked and allowed
+// (own_files), its game files.
 void Launcher::uninstall_go(bool files) {
   const int i = page_game_;
-  if (i < 0 || work_ || !has_installed_[i]) return;
+  if (i < 0 || work_ || (remove_linked_ ? linked_[i].empty() || removal_[i].how == sdlfe::games::Removal::kNone : !has_installed_[i])) return;
+  if (remove_linked_ && o_.hidden && !SDL_getenv("MW3_LAUNCHER_TRASH")) return;  // a check run touches no real trash
   const upgrades::update::Game g = upgrades::update::kGames[i];
   const std::string root = game_root(i), fdir = files ? own_files(i) : std::string(), name = upgrades::update::game_info(g).name;
   uninstall_files_ = !fdir.empty();
@@ -1121,20 +996,22 @@ void Launcher::uninstall_go(bool files) {
   for (char& ch : title) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
   work_ = std::make_unique<Work>();
   work_->kind = Work::kUninstall;
-  work_->start(title, [root, g, fdir, name](const mech3::setup::ProgressFn& f) {
+  const std::string prog = remove_linked_ ? linked_[i] : std::string();
+  const sdlfe::games::Removal how = removal_[i];
+  work_->start(title, [root, g, fdir, name, prog, how](const mech3::setup::ProgressFn& f) {
     mech3::setup::Result res;
     std::string error;
-    f(mech3::setup::Progress{"Removing the program", 0.2, ""});
-    if (!sdlfe::games::uninstall(root, g, &error)) return res.summary = "Nothing was removed: " + error + ".", res;
+    f(mech3::setup::Progress{how.how == sdlfe::games::Removal::kSetup && !prog.empty() ? "Its uninstaller is running" : "Removing the game", 0.2, ""});
+    if (!prog.empty() ? !sdlfe::games::remove_linked(prog, g, how, &error) : !sdlfe::games::uninstall(root, g, &error)) return res.summary = "Nothing was removed: " + error + ".", res;
     if (!fdir.empty()) {
       f(mech3::setup::Progress{"Removing the game files", 0.5, ""});
       std::error_code ec;
       const fs::path old = fs::path(fdir).parent_path() / ".install.removing";
       if (!fs::is_regular_file(fs::path(fdir) / "mw3-install.txt", ec) || fs::exists(old, ec))  // asked again at the removal
-        return res.summary = "The program was removed; its game files were left alone: " + fdir, res;
+        return res.summary = "The game was removed; its game files were left alone: " + fdir, res;
       fs::rename(fdir, old, ec);
       if (!ec) fs::remove_all(old, ec);
-      if (ec) return res.summary = "The program was removed; its game files could not be (" + ec.message() + "): " + fdir, res;
+      if (ec) return res.summary = "The game was removed; its game files could not be (" + ec.message() + "): " + fdir, res;
     }
     res.ok = true;
     res.summary = name + (fdir.empty() ? " was uninstalled." : " was uninstalled, with its game files.") + " Your pilots, saves, settings and mods are kept.";
@@ -1202,7 +1079,7 @@ void Launcher::take_self_check() {
   self_check_.reset();
   self_verdict(v);
   if (screen_ == kMain) layout();
-  if (SDL_getenv("MW3_LAUNCHER_NAV_LATE")) nav_steps();  // checks: the steps once the footer is what it will be
+  recheck_done();
 }
 
 // MW3_LAUNCHER_NAV's steps (checks): keys or a pad as a list ("next,next,press"), each focus logged.
@@ -1224,7 +1101,8 @@ void Launcher::nav_steps(const char* steps) {
 }
 
 void Launcher::self_verdict(const upgrades::update::Verdict& v) {
-  std::printf("mw3: launcher: update check at the start: %s\n", v.words.c_str());  // a failure: the log only
+  self_kind_ = v.kind, self_words_ = v.words;
+  std::printf("mw3: launcher: update%s: %s\n", rechecking_ ? "" : " check at the start", v.words.c_str());  // at the start a failure is in the log only
   if (v.kind != upgrades::update::Verdict::kNewer) return;
   self_update_ = std::make_shared<upgrades::update::Verdict>(v);
   std::printf("mw3: launcher: header UPDATE AVAILABLE %s\n", upgrades::update::plain_version(v.release.tag).c_str());
@@ -1235,22 +1113,79 @@ void Launcher::take_games_check() {
   games_check_->th.join();
   for (int i = 0; i < upgrades::update::kGameCount; ++i) {
     if (beside_[i]) continue;
-    checks_[i] = games_check_->result[i];
+    using GC = upgrades::update::GameCheck;
+    const GC& now = games_check_->result[i];
+    if (now.kind == GC::kFailed && (checks_[i].kind == GC::kNewer || checks_[i].kind == GC::kUpToDate)) continue;  // asked again, not answered: as known
+    checks_[i] = now;
+    if ((now.kind == GC::kNewer || now.kind == GC::kUpToDate) && !now.release.tag.empty())  // installed or updated while it was asked
+      checks_[i].kind = tag_of(i).empty() || upgrades::update::compare_game(now.release.tag, tag_of(i)) > 0 ? GC::kNewer : GC::kUpToDate;
     std::printf("mw3: launcher: games: %s: %s\n", upgrades::update::game_info(upgrades::update::kGames[i]).key, checks_[i].words.c_str());
   }
   games_check_.reset();
   if (screen_ == kMain) layout();
+  recheck_done();
   if (const char* k = SDL_getenv("MW3_LAUNCHER_GAME_INSTALL"))  // checks: a card's INSTALL or UPDATE pressed once it can be
     for (int i = 0; i < upgrades::update::kGameCount; ++i)
       if (std::strcmp(k, upgrades::update::game_info(upgrades::update::kGames[i]).key) == 0) install_game(i);
+}
+
+std::vector<int> Launcher::game_updates() const {
+  std::vector<int> out;
+  for (int i = 0; i < upgrades::update::kGameCount; ++i)
+    if (games_on_ && !beside_[i] && source_[i] != kNoCopy && checks_[i].kind == upgrades::update::GameCheck::kNewer) out.push_back(i);
+  return out;
+}
+
+void Launcher::recheck() {
+  if (rechecking_ || work_) return;
+  rechecking_ = true;
+  status_ = "Checking for updates...", status_good_ = true;
+  if (!games_check_) start_games_check();  // the start's own still out: its answer is this one's
+  if (!self_check_) start_self_check();
+  layout();
+  recheck_done();
+}
+
+void Launcher::recheck_done() {
+  if (!rechecking_ || games_check_ || self_check_) return;
+  rechecking_ = false;
+  std::string games, unasked;
+  for (int i : game_updates())
+    games += (games.empty() ? "" : ", ") + std::string(upgrades::update::game_info(upgrades::update::kGames[i]).name) + " " +
+             upgrades::update::game_version(checks_[i].release.tag);
+  for (int i = 0; i < upgrades::update::kGameCount; ++i)
+    if (!beside_[i] && source_[i] != kNoCopy && checks_[i].kind == upgrades::update::GameCheck::kFailed)
+      unasked += (unasked.empty() ? "" : ", ") + std::string(upgrades::update::game_info(upgrades::update::kGames[i]).name);
+  if (self_kind_ == upgrades::update::Verdict::kFailed) unasked = unasked.empty() ? "the launcher" : "the launcher, " + unasked;
+  if (!games.empty()) status_ = "Ready to update: " + games + ".", status_good_ = true;
+  else if (self_update_) status_.clear();
+  else if (unasked.empty()) status_ = "Everything is up to date.", status_good_ = true;
+  else status_ = "Couldn't check " + unasked + ". Check your connection and try again.", status_good_ = false;
+  std::printf("mw3: launcher: updates: %s\n", status_.c_str());
+  if (screen_ != kMain || work_) return;
+  update_box_ = self_update_ != nullptr;
+  layout();
+  if (update_box_ && SDL_getenv("MW3_LAUNCHER_UPDATE_GO")) activate(kUpdateLauncher);  // checks: UPDATE LAUNCHER pressed
+  else if (update_box_ && SDL_getenv("MW3_LAUNCHER_UPDATE_ALL")) activate(kUpdateAll);  // checks: UPDATE ALL pressed
+}
+
+// UPDATE ALL's next: a game, its own UPDATE; the launcher last, as it restarts. A failure or a cancel stops it there.
+void Launcher::next_update() {
+  while (!update_queue_.empty()) {
+    const int i = update_queue_.front();
+    update_queue_.erase(update_queue_.begin());
+    install_game_now(i);
+    if (work_) return;
+  }
+  if (std::exchange(update_queue_self_, false) && self_update_) update_ = self_update_, read_update_notes(), activate(kUpdateGo);
 }
 
 std::string Launcher::game_words(int i) const {
   using C = upgrades::update::GameCheck;
   const C& c = checks_[i];
   switch (c.kind) {
-    case C::kAsking: return "Asking GitHub for the newest version...";
-    case C::kFailed: return "Can't reach the server:\nADD FROM FILE takes a download";
+    case C::kAsking: return "Checking for the newest version...";
+    case C::kFailed: return "Can't reach the server:\nthe gear can install from a file";
     case C::kNoRelease: return "No download for this computer yet";
     default: {
       const upgrades::update::Asset* a = c.asset();
@@ -1308,7 +1243,7 @@ void Launcher::install_file_go() {
   work_->kind = Work::kGameInstall;
   auto done = game_done_ = std::make_shared<sdlfe::games::Done>();
   const std::string root = games_root_, file = install_file_, sha = file_check_ ? file_check_->sha256 : std::string();
-  work_->start("ADDING FROM FILE", [done, root, file, sha](const mech3::setup::ProgressFn& f) {
+  work_->start("INSTALLING FROM A FILE", [done, root, file, sha](const mech3::setup::ProgressFn& f) {
     *done = sdlfe::games::install_file(root, file, sha, [&](double x, const std::string& w) { return f(mech3::setup::Progress{w, x, ""}); });
     mech3::setup::Result res;
     res.ok = done->ok, res.cancelled = done->cancelled, res.summary = done->words;
@@ -1324,7 +1259,7 @@ void Launcher::game_installed(const sdlfe::games::Done& d) {
   const std::string key = std::string("games_") + game_info(d.game).key;
   if (place_game_ == i && work_game_ == i) {  // a card's INSTALL: its folder kept for UPDATE and the game files
     games_place_[i] = place_, save_config_value(o_.write_dir, key, place_);
-  } else if (work_game_ < 0 && !games_place_[i].empty()) {  // ADD FROM FILE: into the games folder, now the one in use
+  } else if (work_game_ < 0 && !games_place_[i].empty()) {  // INSTALL FROM A DOWNLOADED FILE: into the games folder, now the one in use
     games_place_[i].clear(), save_config_value(o_.write_dir, key, "");
   }
   place_game_ = -1;
@@ -1680,7 +1615,7 @@ void Launcher::kit_looked(const mech3::setup::Result& r) {
     status_ = searched ? "Not found on this computer. Pick it: " + kit_ask_.pick_words + "." : r.summary;
     status_good_ = searched || r.cancelled;
     screen_ = kSetupScreen, layout();
-    if (searched) ask_file(kPoint, kGameFiles, 1);
+    if (searched) ask_file(kPoint, kGameFiles, kGameFilesCount);
     return;
   }
   if (kit_found_->in_place) return kit_ready(r.summary);  // the game's own copy, set up already
@@ -1951,19 +1886,24 @@ void Launcher::watch_game() {
 
 void Launcher::layout() {
   if (screen_ == kMain || screen_ == kGamePage) kit_files_ = -1;
+  if (screen_ == kMain) files_page_ = -1;
+  else update_box_ = false;
   buttons_.clear();
-  auto add = [&](int id, SDL_Rect r, std::string label, std::string sub = {}, bool on = true) {
-    r.x += kX;
-    buttons_.push_back({id, r, std::move(label), std::move(sub), on});
+  ui_stale_ = true;
+  auto add = [&](int id, const char* group, std::string label, std::string sub = {}, bool on = true) -> Button& {
+    Button b;
+    b.id = id, b.group = group, b.label = std::move(label), b.sub = std::move(sub), b.enabled = on;
+    buttons_.push_back(std::move(b));
+    return buttons_.back();
   };
   // A question's three: the way on in the middle, bigger and amber as a panel's PLAY, focused from the start; CHANGE
   // FOLDER and BACK alike on either side (2026-11-24).
   int first_focus = -1;
   auto add_go = [&](int go, const char* label) {
-    add(kInstallTo, {50, 344, 158, 36}, "CHANGE FOLDER");
-    add(go, {220, 334, 200, 56}, label);
-    buttons_.back().style = Button::kAmber, first_focus = static_cast<int>(buttons_.size()) - 1;
-    add(kBack, {432, 344, 158, 36}, "BACK");
+    add(kInstallTo, "go", "CHANGE FOLDER");
+    add(go, "go", label).kind = "amber";
+    first_focus = static_cast<int>(buttons_.size()) - 1;
+    add(kBack, "go", "BACK");
   };
   if (sounds_on_ && install_.ok && !sounds_tried_) {  // any screen, once there is an install
     sounds_tried_ = true;
@@ -1975,7 +1915,7 @@ void Launcher::layout() {
       // A): its badge, its name, its games as tabs (MECHWARRIOR 3 | PIRATE'S MOON; ORIGINAL | REMAKE), then the
       // selected game's status and its button along the bottom, PLAY split with its UPDATE when one is ready. The
       // badge follows the tab. Every game's line is logged once whichever tab shows (the checks read them).
-      cards_.clear();
+      panels_.clear();
       using GC = upgrades::update::GameCheck;
       auto can_update = [&](int i) { return games_on_ && !beside_[i] && !game_bin(i).empty() && checks_[i].kind == GC::kNewer; };
       struct Panel {  // a game's part of its card
@@ -2165,59 +2105,65 @@ void Launcher::layout() {
       if (!pn[5].soon && (checks_[5].kind == GC::kNewer || checks_[5].kind == GC::kUpToDate || !game_bin(5).empty())) {
         rows.push_back({5, "INCEPTION REMAKE", "The Crescent Hawk's Inception (1988), remade."});
       }
-      const int n = static_cast<int>(rows.size()), view = kListBottom - kListTop;
-      list_max_ = std::max(0, n * (kPanelH + kPanelGap) - kPanelGap - view);
-      list_y_ = std::clamp(list_y_, 0, list_max_);
-      for (int k = 0; k < n; ++k) {
+      for (size_t k = 0; k < rows.size(); ++k) {
         const Panel& p = pn[rows[k].game];
-        cards_.push_back({{kListX, kListTop + k * (kPanelH + kPanelGap) - list_y_, kPanelW, kPanelH}, p.badge, rows[k].title,
-                          p.lines, p.keep, rows[k].blurb, !p.soon});
-        const Card& c = cards_.back();
-        // Its button at the right, upright in the middle (rects on the canvas: add() shifts by kX, so it is taken
-        // off here); `upd`, a game with a newer release, splits it: PLAY and, at its end, that game's UPDATE.
-        SDL_Rect r{c.r.x + c.r.w - 14 - kPanelButtonW - kX, c.r.y + (c.r.h - kCardButtonH) / 2, kPanelButtonW, kCardButtonH};
+        UiPanel c;
+        const std::string group = "panel" + std::to_string(k);
+        c.buttons = group, c.title = rows[k].title, c.on = !p.soon;
+        static const char* const kBadges[] = {"badge_mw3.png?76", "badge_pm.png?76", "badge_mw1.png?76", "badge_mw1o.png?76", "badge_inception.png?76"};
+        if (p.badge >= 0) c.badge = kBadges[p.badge];
+        // Three small lines under the name: the status's first line (with its second when both fit) in amber, the rest
+        // of it, then the game's line only when it fits whole (2026-11-24: a cut one could not be read anywhere).
+        size_t i = 0;
+        if (!p.lines.empty()) {
+          std::string first = p.lines[0];
+          if (p.lines.size() > 1 && body_.width(first + " \xc2\xb7 " + p.lines[1], 12) <= kAboutWidth) first += " \xc2\xb7 " + p.lines[1], i = 1;
+          c.lines.push_back({first, c.on ? "amber" : "soft", p.keep.empty() ? 0 : static_cast<int>(p.keep[0])});
+          for (++i; i < p.lines.size() && c.lines.size() < 3; ++i)
+            c.lines.push_back({p.lines[i], "dim", i < p.keep.size() ? static_cast<int>(p.keep[i]) : 0});
+        }
+        const std::vector<std::string> words = body_.wrap(rows[k].blurb, 12, kAboutWidth);
+        if (c.lines.size() + words.size() <= 3)
+          for (const std::string& w : words) c.lines.push_back({w, "soft"});
+        panels_.push_back(std::move(c));
+        // Its button at the right; `upd`, a game with a newer release, splits it: PLAY and, at its end, that game's
+        // UPDATE.
         const bool split = p.upd >= 0 && can_update(p.upd);
-        if (split) r.w -= kSegW;
-        add(p.id, r, p.label, "", p.on);
-        buttons_.back().style = Button::kAmber, buttons_.back().name = p.name, buttons_.back().card = k;
+        {
+          Button& b = add(p.id, group.c_str(), p.label, "", p.on);
+          b.kind = split ? "amber split" : "amber", b.name = p.name;
+        }
         if (split) {
-          const std::string ulabel = "UPDATE TO " + upgrades::update::game_version(checks_[p.upd].release.tag);
-          add(kGameUpdate + p.upd, SDL_Rect{r.x + r.w, r.y, kSegW, r.h}, ulabel, "", !work_);
-          buttons_.back().style = Button::kAmber, buttons_.back().seg = true, buttons_.back().name = p.name + " UPDATE";
-          buttons_.back().card = k;
+          Button& b = add(kGameUpdate + p.upd, group.c_str(), "UPDATE TO " + upgrades::update::game_version(checks_[p.upd].release.tag), "", !work_);
+          b.kind = "seg", b.name = p.name + " UPDATE";
         }
         // Its gear (2026-11-24): the game's page (where it is, link an install, uninstall), a square left of the
         // button; after it in the focus order, so a pad's first press is still PLAY.
         // Not while its repo is still being asked about a game not here (it may turn out COMING SOON).
         const int gi = rows[k].game;
         if (games_on_ && !p.soon && (!game_bin(gi).empty() || checks_[gi].kind != GC::kAsking)) {
-          add(kGear + gi, SDL_Rect{r.x - 6 - kCardButtonH, r.y, kCardButtonH, r.h}, "", "", !work_);
-          buttons_.back().style = Button::kFlat, buttons_.back().gear = true, buttons_.back().name = p.name + " SETTINGS";
-          buttons_.back().card = k;
+          Button& b = add(kGear + gi, group.c_str(), "", "", !work_);
+          b.kind = "gear", b.name = p.name + " SETTINGS";
         }
       }
-      const int x0 = kListX;
-      // GAME FILES (2026-11-02): the find screen at any time, to pick or refresh the game's files; QUIT for
-      // fullscreen (Escape too). The mockup's bottom row, flat buttons. No UPDATES on branch pm: the updater takes
-      // MW3's newest vX.Y.Z and would put that package over this program; the combined package's mw3launcher updates both.
-      auto flat = [&](int id, int x, int w, const char* label) {
-        add(id, {x - kX, kRowTop, w, kRowH}, label);
-        buttons_.back().style = Button::kFlat;
-      };
-      flat(kFiles, x0, 112, "GAME FILES");
-      if (games_on_) {  // ours: a game's download from anywhere (a modder's build, no internet)
-        flat(kInstallFile, x0 + 120, 168, "ADD FROM FILE");
-        flat(kQuit, x0 + 296, 72, "QUIT");
-      } else {
-        flat(kQuit, x0 + 120, 72, "QUIT");
-      }
+      // QUIT where a window has no X (Escape too). GAME FILES and INSTALL FROM A DOWNLOADED FILE are on a game's page
+      // (2026-11-24). No CHECK FOR UPDATES on branch pm: the check takes MW3's newest vX.Y.Z and would put that package
+      // over this program; BattleTech's launcher updates both.
+      add(kQuit, "row", "QUIT").kind = "flat";
       // A newer launcher found by the start's check: an amber UPDATE AVAILABLE <v> in the header's top right, beside
       // the mark, as Discord's and Chrome's (2026-11-23: the footer's button was too small to see). After QUIT
       // for the keys and the pad; it opens the UPDATE screen.
       if (self_update_) {
-        add(kSelfUpdate, {kListX + kListW - kPillW - kX, kPillY, kPillW, kPillH},
-            "UPDATE AVAILABLE " + upgrades::update::plain_version(self_update_->release.tag), "", !work_);
-        buttons_.back().style = Button::kAmber;  // logged and focused by its label, the version in it
+        add(kSelfUpdate, "pill", "UPDATE AVAILABLE " + upgrades::update::plain_version(self_update_->release.tag), "", !work_).kind =
+            "amber";  // logged and focused by its label, the version in it
+      }
+      if (update_box_) {  // over the games, which wait
+        for (Button& b : buttons_) b.enabled = false;
+        const bool games = !game_updates().empty();
+        if (games) add(kUpdateAll, "box", "UPDATE ALL").kind = "amber", first_focus = static_cast<int>(buttons_.size()) - 1;
+        add(kUpdateLauncher, "box", "UPDATE LAUNCHER").kind = games ? "flat" : "amber";
+        if (!games) first_focus = static_cast<int>(buttons_.size()) - 1;
+        add(kUpdateNotNow, "box", "NOT NOW").kind = "flat";
       }
       break;
     }
@@ -2226,22 +2172,31 @@ void Launcher::layout() {
       // installed copy or a disc in a drive used at once), else one picker:
       // an image or a download, or any file of an installed copy (its
       // folder; pick_source). The 1.2 patch is built in (patch12.h).
-      add(kFind, {130, 222, 380, 52}, "FIND THE GAME",
-          kit_files_ >= 0 ? kit_ask_.find_sub : "A disc image, a download (.zip .iso), or Mech3.exe in an installed copy");
-      if (kit_files_ < 0 && from_files_ && (files_pm_ || !o_.write_dir_fixed)) {
-        add(kPickFolder, {130, 278, 186, 36}, "PICK A FOLDER");
-        add(kData, {324, 278, 186, 36}, "MY DATA FOLDER");
+      // PICK A FILE and PICK A FOLDER (2026-11-24) go to a picker whatever is on this computer. A kit game whose
+      // files are in: those are no answer, so its search (which would find them again) is not offered.
+      if (kit_files_ >= 0 && kit_status_[kit_files_].state == rekit::Status::kReady) {
+        add(kPickFile, "find", "PICK A FILE", kit_ask_.find_sub);
+        add(kPickFolder, "pick", "PICK A FOLDER");
       } else {
-        add(kPickFolder, {130, 278, 380, 36}, "PICK A FOLDER");
+        add(kFind, "find", "FIND THE GAME",
+            kit_files_ >= 0 ? kit_ask_.find_sub : "A disc image, a download (.zip .iso), or Mech3.exe in an installed copy");
+        if (kit_files_ < 0 && from_files_ && (files_pm_ || !o_.write_dir_fixed)) {
+          add(kPickFile, "pick", "PICK A FILE");
+          add(kPickFolder, "pick", "PICK A FOLDER");
+          add(kData, "pick", "MY DATA FOLDER");
+        } else {
+          add(kPickFile, "pick", "PICK A FILE");
+          add(kPickFolder, "pick", "PICK A FOLDER");
+        }
       }
       if (kit_files_ >= 0) {
       } else if (files_pm_ ? !pm_dir_.empty() && (pm_lacks_music_ || pm_lacks_sounds_)
                     : install_.ok && (lacks_music_ || lacks_movies_))  // what the install in use lacks, from the disc
-        add(kAddDisc, {130, 318, 380, 52}, "ADD FROM MY DISC", kAddDiscSub);
-      add(kBack, {250, 384, 140, 34}, !o_.setup_only ? "BACK" : o_.choose_again && have_files() ? "PLAY" : "QUIT");
+        add(kAddDisc, "disc", "ADD FROM MY DISC", kAddDiscSub);
+      add(kBack, "foot", !o_.setup_only ? "BACK" : o_.choose_again && have_files() ? "PLAY" : "QUIT");
       break;
     }
-    case kCopies: {  // GAME FILES' list (2026-11-24): a row a copy, the one in use first, then PICK ANOTHER and BACK
+    case kCopies: {  // GAME FILES' list (2026-11-24): a row a copy, the one in use first, then PICK A FILE and BACK
       const int n = std::min<int>(static_cast<int>(copies_.size()), kCopyRows);
       for (int i = 0; i < n; ++i) {
         const Copy& c = copies_[i];
@@ -2249,89 +2204,127 @@ void Launcher::layout() {
         sub += c.missing.empty() ? " \xc2\xb7 nothing missing" : " \xc2\xb7 missing: ";
         for (size_t k = 0; k < c.missing.size(); ++k) sub += (k ? ", " : "") + c.missing[k];
         if (c.in_use) sub = "IN USE \xc2\xb7 " + sub;
-        add(kCopy + i, {60, 150 + i * 54, 520, 48}, c.path, sub, !c.in_use);  // plate() fits the folder
-        buttons_.back().name = c.in_use ? "IN USE" : "COPY " + std::to_string(i + 1);
+        add(kCopy + i, "copies", c.path, sub, !c.in_use).name = c.in_use ? "IN USE" : "COPY " + std::to_string(i + 1);
       }
-      add(kCopyPick, {130, 150 + n * 54 + 8, 186, 44}, "PICK ANOTHER", "An image, a .zip, or Mech3.exe");
-      add(kPickFolder, {324, 150 + n * 54 + 8, 186, 44}, "PICK A FOLDER", "An installed copy's, or the disc's");
-      add(kBack, {250, 150 + n * 54 + 60, 140, 34}, "BACK");
+      add(kCopyPick, "pick", "PICK A FILE", "An image, a .zip, or Mech3.exe");
+      add(kPickFolder, "pick", "PICK A FOLDER", "An installed copy's, or the disc's");
+      add(kBack, "foot", "BACK");
       break;
     }
-    case kGamePage: {  // a game's page (its gear, 2026-11-24): link a copy, unlink it, uninstall the launcher's
+    case kGamePage: {  // a game's page (its gear, 2026-11-24): a row each for its game files and its copies, what each
+                       // is and its buttons at its right
       const int i = page_game_;
       if (i < 0) break;
+      const std::string key = upgrades::update::game_info(upgrades::update::kGames[i]).key;
+      removal_[i] = linked_[i].empty() ? sdlfe::games::Removal() : sdlfe::games::removal_of(linked_[i], upgrades::update::kGames[i]);
+      rows_.clear();
       if (page_confirm_) {
-        add(kUninstallGo, {130, 226, 380, 44}, "UNINSTALL", own_files(i).empty() ? "The program: your game files stay" : "The program only: the game files stay for a reinstall");
-        if (!own_files(i).empty()) add(kUninstallAll, {130, 276, 380, 44}, "UNINSTALL AND REMOVE GAME FILES", "Pilots, saves, settings and mods still stay");
-        add(kBack, {250, 384, 140, 34}, "KEEP IT");
+        const bool files = !own_files(i).empty();
+        add(kUninstallGo, "plates", "UNINSTALL", files || i > 1 ? "Your game files stay" : "");
+        if (files) add(kUninstallAll, "plates", "UNINSTALL AND REMOVE GAME FILES", "Your pilots, saves, settings and mods still stay");
+        add(kBack, "foot", "KEEP IT");
         buttons_.back().name = "KEEP IT";
         break;
       }
-      int y = 190;
+      auto row = [&](const char* title, const std::string& text, const std::string& path) {
+        UiPanel p;
+        p.title = title, p.buttons = "r" + std::to_string(rows_.size());
+        p.lines = {{text, "text"}, {path, "path", 3}};
+        rows_.push_back(p);
+      };
+      auto button = [&](int id, const char* label, const char* name = "", bool on = true) {
+        Button& b = add(id, ("r" + std::to_string(rows_.size() - 1)).c_str(), label, "", on && !work_);
+        b.kind = "flat", b.name = name;
+      };
+      auto ver = [](const std::string& t) { return t.empty() || t == "unknown" ? std::string() : "Version " + upgrades::update::game_version(t) + ", "; };
+      auto sentence = [](std::string t) { return t.empty() ? t : (t[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(t[0]))), t); };
+      if (const UiPanel f = files_row(i); !f.lines.empty()) {
+        row("GAME FILES", f.lines[0].text, f.lines[1].text);
+        if (can_open_files(i)) button(kGameFilesPick, "CHANGE", "GAME FILES");
+      }
+      auto own = [&](const char* title) {
+        row(title, sentence(ver(installed_[i].tag) + "installed by the launcher"), (fs::path(game_root(i)) / key).make_preferred().string());
+        button(kGameUninstall, "UNINSTALL");
+      };
+      auto linked = [&](const char* title, const char* words) {
+        std::string at = linked_[i];
+        if (const size_t in = at.find(".app/Contents/MacOS/"); in != std::string::npos) at.resize(in + 4);
+        row(title, sentence(ver(linked_tag_[i]) + words) + (removal_[i].why.empty() ? std::string() : " \xc2\xb7 " + removal_[i].why), at);
+        button(kGameUnlink, "UNLINK");
+        if (removal_[i].how != sdlfe::games::Removal::kNone) button(kGameRemove, "UNINSTALL", "UNINSTALL LINKED");
+      };
+      if (source_[i] == kBeside) {
+        row("INSTALLED GAME", sentence(ver(MW3_VERSION) + "part of this package"), game_bin(i));
+      } else if (source_[i] == kOwnCopy) {
+        own("INSTALLED GAME");
+        if (!linked_[i].empty()) linked("OTHER COPY", "linked, not in use");
+      } else if (source_[i] == kLinked) {
+        linked("INSTALLED GAME", "linked");
+        if (has_installed_[i]) own("OTHER COPY");
+      } else {
+        using GC = upgrades::update::GameCheck;
+        const GC& c = checks_[i];
+        row("INSTALLED GAME", "Not installed", c.kind == GC::kNewer ? "Version " + upgrades::update::game_version(c.release.tag) + " is available" : "");
+        if (c.kind == GC::kNewer) button(kGameInstall + i, "DOWNLOAD"), buttons_.back().kind = "amber";
+      }
       if (source_[i] != kBeside) {
-        add(kGameLink, {130, y, 380, 44}, linked_[i].empty() ? "LINK AN INSTALL" : "LINK ANOTHER INSTALL", "A copy you installed yourself: its program or folder", !work_);
-        y += 50;
+        add(kGameLink, "links", linked_[i].empty() ? "LINK A COPY ALREADY INSTALLED" : "LINK ANOTHER COPY", "", !work_).kind = "flat";
+        add(kInstallFile, "links", "INSTALL FROM A DOWNLOADED FILE", "", !work_).kind = "flat";
       }
-      if (!linked_[i].empty()) {
-        add(kGameUnlink, {130, y, 380, 44}, "UNLINK", "Its folder stays: remove it the way you installed it", !work_);
-        y += 50;
-      }
-      if (has_installed_[i]) add(kGameUninstall, {130, y, 380, 44}, "UNINSTALL", "The copy the launcher installed", !work_), y += 50;
-      if (kit_serves(i) && !game_bin(i).empty()) add(kGameFilesPick, {130, y, 380, 44}, "GAME FILES", "Find or change the game files it plays", !work_);
-      add(kBack, {250, 384, 140, 34}, "BACK");
+      add(kBack, "foot", "BACK");
       break;
     }
     case kDataScreen:
-      add(kDataPick, {130, 250, 380, 46}, "MOVE IT TO ANOTHER FOLDER", "Copied, checked, then switched. The old copy goes only if you say so");
-      if (data_elsewhere()) add(kDataUsual, {130, 304, 380, 40}, "MOVE IT BACK TO THE USUAL FOLDER");
-      add(kBack, {250, 384, 140, 34}, "BACK");
+      add(kDataPick, "plates", "MOVE IT TO ANOTHER FOLDER", "Copied, checked, then switched. The old copy goes only if you say so");
+      if (data_elsewhere()) add(kDataUsual, "plates", "MOVE IT BACK TO THE USUAL FOLDER");
+      add(kBack, "foot", "BACK");
       break;
     case kConfirm:
       if (confirm_go_ == 3) {
-        add(kRemoveOld, {115, 300, 260, 40}, "REMOVE THE OLD COPY");
-        add(kKeepOld, {385, 300, 140, 40}, "KEEP IT");
+        add(kRemoveOld, "go", "REMOVE THE OLD COPY");
+        add(kKeepOld, "go", "KEEP IT");
         break;
       }
-      if (confirm_go_ == 6) {  // ours: ADD FROM FILE, a file nothing could check
-        add(kInstallFileGo, {150, 330, 180, 40}, "ADD ANYWAY");
-        add(kBack, {350, 330, 140, 40}, "BACK");
+      if (confirm_go_ == 6) {  // ours: INSTALL FROM A DOWNLOADED FILE, a file nothing could check
+        add(kInstallFileGo, "go", "ADD ANYWAY");
+        add(kBack, "go", "BACK");
         break;
       }
       if (confirm_go_ == 4) {  // ours: Vulkan
-        add(kVulkanAgain, {170, 340, 140, 40}, "TRY AGAIN");
-        add(kBack, {330, 340, 140, 40}, "BACK");
+        add(kVulkanAgain, "go", "TRY AGAIN");
+        add(kBack, "go", "BACK");
         break;
       }
-      if (confirm_go_ == 2) add(kMoveGo, {170, 300, 140, 40}, "MOVE");
+      if (confirm_go_ == 2) add(kMoveGo, "go", "MOVE");
       else if (confirm_go_ == 1 || confirm_go_ == 5) {  // one plate shows the find (5: MechWarrior (1989)'s); clicking it picks other files (2026-11-21)
-        add(kPickOther, {130, 180, 380, 56}, found_name_, found_sub_);
+        add(kPickOther, "found", found_name_, found_sub_);
         if (confirm_go_ == 1) {  // ours: CHANGE FOLDER, the game files' own folder (2026-11-22)
           add_go(kGo, "INSTALL");
         } else {
-          add(kGo, {170, 330, 140, 40}, "INSTALL");
-          add(kBack, {330, 330, 140, 40}, "BACK");
+          add(kGo, "go", "INSTALL");
+          add(kBack, "go", "BACK");
         }
         break;
       } else if (confirm_go_ == 7) {  // a card's first DOWNLOAD: where to (2026-11-22)
         add_go(kPlaceGo, "DOWNLOAD");
         break;
       } else if (confirm_go_ == 8) {  // ours: no music came out of ADD FROM MY DISC's pick (2026-11-24)
-        add(kPlayNoMusic, {130, 250, 380, 52}, "PLAY WITHOUT MUSIC");
-        buttons_.back().style = Button::kAmber, first_focus = 0;
-        add(kPickOther, {130, 312, 186, 44}, "PICK ANOTHER", "An image, a .zip, or any file of it");
-        add(kPickFolder, {324, 312, 186, 44}, "PICK A FOLDER", "The disc's, or its image's");
-        add(kBack, {250, 384, 140, 34}, "BACK");
+        add(kPlayNoMusic, "plates", "PLAY WITHOUT MUSIC").kind = "amber";
+        first_focus = 0;
+        add(kPickOther, "pick", "PICK A FILE", "An image, a .zip, or any file of it");
+        add(kPickFolder, "pick", "PICK A FOLDER", "The disc's, or its image's");
+        add(kBack, "foot", "BACK");
         break;
       }
-      add(kBack, {330, 300, 140, 40}, "BACK");
+      add(kBack, "go", "BACK");
       break;
     case kWorking:
-      add(kCancel, {250, 372, 140, 34}, "CANCEL");
+      add(kCancel, "foot", "CANCEL");
       break;
     case kUpdateScreen: {
       // Two buttons (2026-11-23: "just a back and an update button"); long notes scroll with the wheel.
-      add(kUpdateGo, {170, 384, 140, 34}, "UPDATE");
-      add(kUpdateNotNow, {330, 384, 140, 34}, "BACK");
+      add(kUpdateGo, "foot", "UPDATE");
+      add(kUpdateNotNow, "foot", "BACK");
       break;
     }
     case kNotes: {
@@ -2339,8 +2332,8 @@ void Launcher::layout() {
       const NotesLayout n = notes_layout();
       std::printf("mw3: launcher: notes: %zu at size %d and width %d, the status line at y %d, ADD FROM MY DISC at %d, OK at %d, %s\n", notes_.size(), n.size,
                   n.width, n.status_y, n.add_y, n.ok_y, n.fits ? "above the buttons" : "into the buttons");  // for the checks
-      if (n.add_y >= 0) add(kAddDisc, {130, n.add_y, 380, 52}, "ADD FROM MY DISC", kAddDiscSub);
-      add(kNotesOk, {250, n.ok_y, 140, 34}, "OK");
+      if (n.add_y >= 0) add(kAddDisc, "disc", "ADD FROM MY DISC", kAddDiscSub);
+      add(kNotesOk, "foot", "OK");
       break;
     }
   }
@@ -2351,80 +2344,7 @@ void Launcher::layout() {
     std::printf("mw3: launcher: screen %s: %s\n", kNames[screen_], labels.c_str());
     if (const int g = header_game(); g >= 0) std::printf("mw3: launcher: header %s\n", kHeaderNames[g]);
   }
-  hot_ = -1, focus_ = first_focus;
-}
-
-void Launcher::background(float dt) {
-  scroll_ += dt * 6.0f;  // a few pixels a second
-  SDL_FillSurfaceRect(canvas_, nullptr, SDL_MapSurfaceRGB(canvas_, 8, 8, 12));
-  const bool cards = screen_ == kMain;  // the mockup's: the starfield darkened, no metal bands, the mark top left
-  if (cards && art_.stars_big) {  // zoomed and lighter than the mockup's 45%, its drift seen round the cards (1.2.0)
-    SDL_Surface* s = art_.stars_big;
-    SDL_SetSurfaceColorMod(s, 255, 255, 255);
-    const int sw = s->w, x = static_cast<int>(scroll_ * kStarZoom) % sw, y = (s->h - H) / 2;
-    SDL_Rect src{x, y, std::min(W, sw - x), H}, dst{0, 0, src.w, H};
-    SDL_BlitSurface(s, &src, canvas_, &dst);
-    if (src.w < W) {
-      SDL_Rect s2{0, y, W - src.w, H}, d2{src.w, 0, W - src.w, H};
-      SDL_BlitSurface(s, &s2, canvas_, &d2);
-    }
-  } else if (art_.stars) {
-    SDL_SetSurfaceColorMod(art_.stars, cards ? 115 : 255, cards ? 115 : 255, cards ? 118 : 255);
-    const int sw = art_.stars->w, x = static_cast<int>(scroll_) % sw;
-    SDL_Rect src{x, 0, std::min(W, sw - x), H}, dst{0, 0, src.w, H};
-    SDL_BlitSurface(art_.stars, &src, canvas_, &dst);
-    if (src.w < W) {
-      SDL_Rect s2{0, 0, W - src.w, H}, d2{src.w, 0, W - src.w, H};
-      SDL_BlitSurface(art_.stars, &s2, canvas_, &d2);
-    }
-  }
-  if (cards) {
-    if (art_.emblem) {
-      SDL_Rect e{43, 22, 46, 46};
-      SDL_BlitSurfaceScaled(art_.emblem, nullptr, canvas_, &e, SDL_SCALEMODE_LINEAR);
-    }
-    text_.draw(canvas_, kLauncherTitle, 30, kWhite, 101, 46, -1);
-    return;
-  }
-  const int game = header_game();
-  if (art_.metal) {
-    const int span = art_.metal->w - W - 200, o = span > 0 ? static_cast<int>(scroll_ / 3) % span : 0;
-    SDL_Rect top{o, 40, W, 96}, bot{o + 100, 150, W, 48};
-    SDL_Rect dt0{0, 0, W, 96}, db{0, H - 48, W, 48};
-    SDL_BlitSurface(art_.metal, &top, canvas_, &dt0);
-    SDL_BlitSurface(art_.metal, &bot, canvas_, &db);
-  }
-  const uint32_t amber = SDL_MapSurfaceRGB(canvas_, 255, 176, 64);
-  SDL_Rect l1{0, 96, W, 1}, l2{0, H - 49, W, 1};
-  SDL_FillSurfaceRect(canvas_, &l1, amber), SDL_FillSurfaceRect(canvas_, &l2, amber);
-  // A game's own setup (mw3 or mw3pm started without the launcher): headed with that game. In the launcher every
-  // screen is headed BATTLETECH, the game a screen is for named under it (2026-11-24: "launcher yes, game no").
-  if (game >= 0 && (o_.setup_only || o_.pm)) {  // the game's own start: its badge and name (the kit names no game)
-    const char* name = kHeaderNames[game];
-    const int size = text_.width(name, 36) > 520 ? 30 : 36;  // the longer titles kept off the hazard stripes
-    const int badge = 64, gap = 16, w = badge + gap + text_.width(name, size), x = (W - w) / 2;
-    if (SDL_Surface* b = art_.badge[game == 3 ? 2 : game]) {
-      SDL_Rect e{x, 48 - badge / 2, badge, badge};
-      SDL_BlitSurfaceScaled(b, nullptr, canvas_, &e, SDL_SCALEMODE_LINEAR);
-    }
-    text_.draw(canvas_, name, size, kWhite, x + badge + gap, 48, -1);
-  } else {  // the launcher's own screens: the emblem and its name, as the cards' header (title.png's "MW3 REBUILD" retired)
-    const int x = (W - text_.width(kLauncherTitle, 40) - 84) / 2;
-    if (game < 0) {
-      if (art_.emblem) {
-        SDL_Rect e{x, 12, art_.emblem->w, art_.emblem->h};
-        SDL_BlitSurface(art_.emblem, nullptr, canvas_, &e);
-      }
-      text_.draw(canvas_, kLauncherTitle, 40, kWhite, x + 84, 48, -1);
-    } else {  // the emblem a little smaller, the game this screen is for under the name
-      if (art_.emblem) {
-        SDL_Rect e{x + 4, 14, 66, 66};
-        SDL_BlitSurfaceScaled(art_.emblem, nullptr, canvas_, &e, SDL_SCALEMODE_LINEAR);
-      }
-      text_.draw(canvas_, kLauncherTitle, 38, kWhite, x + 84, 38, -1);
-      text_.draw(canvas_, kHeaderNames[game], 15, kAmber, x + 86, 72, -1);
-    }
-  }
+  hot_ = -1, focus_ = first_focus, follow_ = false;
 }
 
 // The game a screen sets up (0 MechWarrior 3, 1 Pirate's Moon, 2 MW1 Remake, 3 MechWarrior (1989)), its full title in
@@ -2443,7 +2363,6 @@ int Launcher::header_game() const {
     case kWorking:
       if (!work_) break;
       switch (work_->kind) {
-        case Work::kUpdateCheck:
         case Work::kUpdateDownload:
         case Work::kGameFileCheck: return -1;
         case Work::kGameInstall: return work_game_;
@@ -2484,476 +2403,192 @@ Launcher::NotesLayout Launcher::notes_layout() {
   return l;
 }
 
-// A game's panel (2026-11-24, the download page's look): a dark gradient a little see-through over the stars, a
-// steel edge (amber and doubled when its button is the one hot), the badge at the left, the name, then the status
-// in amber, the rest of the status and as much of the game's line as fits, its button at the right.
-void Launcher::draw_card(const Card& c, bool selected) {
-  const SDL_Rect& r = c.r;
-  SDL_Surface* row_s = SDL_CreateSurface(r.w, 1, SDL_PIXELFORMAT_RGBA32);
-  if (row_s) SDL_SetSurfaceBlendMode(row_s, SDL_BLENDMODE_BLEND);
-  for (int y = 0; y < r.h; ++y) {
-    const float t = static_cast<float>(y) / static_cast<float>(r.h);
-    const int inset = y == 0 || y == r.h - 1 ? 2 : y == 1 || y == r.h - 2 ? 1 : 0;  // the corners rounded a little
-    const int lift = selected ? 8 : 0;
-    const Uint8 cr = static_cast<Uint8>(44 + lift - 18 * t), cg = static_cast<Uint8>(49 + lift - 20 * t),
-                cb = static_cast<Uint8>(58 + lift - 24 * t);
-    SDL_Rect row{r.x + inset, r.y + y, r.w - inset * 2, 1};
-    if (!row_s) {
-      SDL_FillSurfaceRect(canvas_, &row, SDL_MapSurfaceRGB(canvas_, cr, cg, cb));
-      continue;
-    }
-    SDL_FillSurfaceRect(row_s, nullptr, SDL_MapSurfaceRGBA(row_s, cr, cg, cb, kCardAlpha));
-    SDL_Rect src{0, 0, row.w, 1};
-    SDL_BlitSurface(row_s, &src, canvas_, &row);
-  }
-  if (row_s) SDL_DestroySurface(row_s);
-  const uint32_t edge = selected ? SDL_MapSurfaceRGB(canvas_, 0xf0, 0xa0, 0x20) : SDL_MapSurfaceRGB(canvas_, 0x3c, 0x42, 0x4b);
-  for (int k = 0; k < (selected ? 2 : 1); ++k) {
-    const SDL_Rect sides[4] = {{r.x + 2, r.y + k, r.w - 4, 1}, {r.x + 2, r.y + r.h - 1 - k, r.w - 4, 1},
-                               {r.x + k, r.y + 2, 1, r.h - 4}, {r.x + r.w - 1 - k, r.y + 2, 1, r.h - 4}};
-    SDL_FillSurfaceRects(canvas_, sides, 4, edge);
-  }
-  const int bx = r.x + 12, by = r.y + (r.h - kPanelBadge) / 2;
-  if (SDL_Surface* art = c.badge >= 0 ? art_.badge[c.badge] : nullptr) {
-    const uint8_t m = c.on ? 255 : 110;
-    SDL_SetSurfaceColorMod(art, m, m, m);
-    SDL_Rect d{bx, by, kPanelBadge, kPanelBadge};
-    SDL_BlitSurfaceScaled(art, nullptr, canvas_, &d, SDL_SCALEMODE_LINEAR);
-    SDL_SetSurfaceColorMod(art, 255, 255, 255);
-  } else {  // no badge: a plain disc in a steel ring
-    const int rad = kPanelBadge / 2 - 4, cx = bx + kPanelBadge / 2, cy = by + kPanelBadge / 2;
-    for (int y = -rad; y <= rad; ++y) {
-      const int half = static_cast<int>(std::sqrt(static_cast<float>(rad * rad - y * y)));
-      const int in = rad - 3 > std::abs(y) ? static_cast<int>(std::sqrt(static_cast<float>((rad - 3) * (rad - 3) - y * y))) : 0;
-      SDL_Rect row{cx - half, cy + y, half * 2, 1};
-      SDL_FillSurfaceRect(canvas_, &row, SDL_MapSurfaceRGB(canvas_, 0x4a, 0x50, 0x58));
-      if (in > 0) {
-        SDL_Rect inner{cx - in, cy + y, in * 2, 1};
-        SDL_FillSurfaceRect(canvas_, &inner, SDL_MapSurfaceRGB(canvas_, 0x10, 0x13, 0x17));
-      }
-    }
-  }
-  const int x0 = bx + kPanelBadge + 16, tw = r.x + r.w - 14 - kPanelButtonW - 16 - (games_on_ ? kCardButtonH + 6 : 0) - x0;
-  text_.draw(canvas_, text_.fit(c.name, 20, tw), 20, c.on ? kWhite : kGrey, x0, r.y + 22, -1);
-  // Three small lines under the name: the status's first line (with its second when both fit) in amber, the rest of
-  // it, then the game's line only when it fits whole (2026-11-24: a cut one could not be read anywhere).
-  struct Line {
-    std::string s;
-    SDL_Color col;
-  };
-  std::vector<Line> rows;
-  const SDL_Color amber{0xf5, 0xc2, 0x7a, 255}, dim{0xb4, 0xba, 0xc4, 255}, soft{0x95, 0x9c, 0xa8, 255};
-  size_t i = 0;
-  if (!c.lines.empty()) {
-    std::string first = c.lines[0];
-    if (c.lines.size() > 1 && body_.width(first + " \xc2\xb7 " + c.lines[1], 12) <= tw) first += " \xc2\xb7 " + c.lines[1], i = 1;
-    rows.push_back({body_.fit(first, 12, tw, c.keep.empty() ? 0 : c.keep[0]), c.on ? amber : soft});
-    for (++i; i < c.lines.size() && rows.size() < 3; ++i)
-      rows.push_back({body_.fit(c.lines[i], 12, tw, i < c.keep.size() ? c.keep[i] : 0), dim});
-  }
-  const std::vector<std::string> words = body_.wrap(c.blurb, 12, tw);
-  if (rows.size() + words.size() <= 3)
-    for (const std::string& w : words) rows.push_back({w, soft});
-  for (size_t k = 0; k < rows.size(); ++k) body_.draw(canvas_, rows[k].s, 12, rows[k].col, x0, r.y + 46 + static_cast<int>(k) * 16, -1);
-}
-
-// The list's scroll set (0 to list_max_): the panels and their buttons move with it; under a still mouse the hot
-// button is the one now there.
-void Launcher::scroll_list(int y) {
-  y = std::clamp(y, 0, list_max_);
-  const int d = y - list_y_;
-  if (!d) return;
-  list_y_ = y;
-  for (Card& c : cards_) c.r.y -= d;
-  for (Button& b : buttons_)
-    if (b.card >= 0) b.r.y -= d;
-  if (focus_ < 0 && mouse_x_ >= 0) hot_ = hit(mouse_x_, mouse_y_);
-}
-
-// The focused button's panel brought wholly into the list (the keys and the pad step through them).
-void Launcher::show_focus() {
-  if (screen_ != kMain || focus_ < 0 || focus_ >= static_cast<int>(buttons_.size())) return;
-  const int k = buttons_[focus_].card;
-  if (k < 0 || k >= static_cast<int>(cards_.size())) return;
-  const SDL_Rect& r = cards_[k].r;
-  if (r.y < kListTop) scroll_list(list_y_ - (kListTop - r.y));
-  else if (r.y + r.h > kListBottom) scroll_list(list_y_ + (r.y + r.h - kListBottom));
-}
-
-// The scrollbar's thumb: as long as the share of the list shown, where the scroll is.
-SDL_Rect Launcher::list_thumb() const {
-  const int view = kListBottom - kListTop, all = view + list_max_;
-  const int h = std::max(28, view * view / std::max(1, all));
-  const int y = kListTop + (list_max_ > 0 ? (view - h) * list_y_ / list_max_ : 0);
-  return {kListX + kListW - kBarW, y, kBarW, h};
-}
-
-// The button under (x, y), -1 none; a panel's only inside the list (the part scrolled out of it is not there).
-int Launcher::hit(float x, float y) const {
-  int h = -1;
+// What the screens show now (assets/launcher/ui/launcher.rml places it).
+UiModel Launcher::model() {
+  static const char* const kNames[] = {"main", "find", "confirm", "work", "notes", "data", "update", "copies", "game"};
+  UiModel m;
+  m.screen = kNames[screen_];
   for (size_t i = 0; i < buttons_.size(); ++i) {
     const Button& b = buttons_[i];
-    if (b.card >= 0 && (y < kListTop || y >= kListBottom)) continue;
-    if (x >= b.r.x && x < b.r.x + b.r.w && y >= b.r.y && y < b.r.y + b.r.h) h = static_cast<int>(i);
+    m.buttons[b.group].push_back({static_cast<int>(i), b.label, b.sub, b.kind, b.enabled, static_cast<int>(b.sub_keep)});
   }
-  return h;
-}
-
-// The list's edges: a shade where more panels are scrolled out of it (so it reads as a list that goes on), and the
-// scrollbar, its amber thumb on a dark track, when the panels are more than it shows.
-void Launcher::draw_list_edges() {
-  if (list_max_ <= 0) return;
-  SDL_Surface* row_s = SDL_CreateSurface(kListW - kBarW - 4, 1, SDL_PIXELFORMAT_RGBA32);
-  if (row_s) {
-    SDL_SetSurfaceBlendMode(row_s, SDL_BLENDMODE_BLEND);
-    constexpr int kFade = 18;
-    for (int k = 0; k < kFade; ++k) {
-      SDL_FillSurfaceRect(row_s, nullptr, SDL_MapSurfaceRGBA(row_s, 6, 7, 10, static_cast<Uint8>(220 * (kFade - k) / kFade)));
-      if (list_y_ > 0) {
-        SDL_Rect top{kListX, kListTop + k, row_s->w, 1};
-        SDL_BlitSurface(row_s, nullptr, canvas_, &top);
-      }
-      if (list_y_ < list_max_) {
-        SDL_Rect bottom{kListX, kListBottom - 1 - k, row_s->w, 1};
-        SDL_BlitSurface(row_s, nullptr, canvas_, &bottom);
-      }
-    }
-    SDL_DestroySurface(row_s);
+  m.rows = rows_;
+  for (UiPanel& p : m.rows)
+    for (UiLine& l : p.lines) l.text = body_.fit(l.text, 12, kRowWidth, l.keep);
+  m.panels = panels_;  // kept on the other screens: the list stays as it was scrolled
+  m.status = status_, m.status_kind = status_good_ ? "good" : "bad";
+  // A game's own setup (mw3 or mw3pm started without the launcher): headed with that game, its badge and name (the kit
+  // names no game). In the launcher every screen is headed BATTLETECH, the game a screen is for named under it
+  // (2026-11-24: "launcher yes, game no").
+  const int game = header_game();
+  m.heading = kLauncherTitle, m.head = screen_ == kMain ? "main" : "launcher";
+  if (game >= 0 && (o_.setup_only || o_.pm)) {
+    static const char* const kBadges[] = {"badge_mw3.png?64", "badge_pm.png?64", "badge_mw1.png?64", "badge_mw1.png?64", "badge_inception.png?64", "badge_inception.png?64"};
+    m.head = "game", m.heading = kHeaderNames[game], m.badge = kBadges[game];
+    m.heading_kind = text_.width(m.heading, 36) > 520 ? "own long" : "own";  // the longer titles kept off the hazard stripes
+  } else if (game >= 0) {
+    m.game = kHeaderNames[game], m.heading_kind = "with";
   }
-  const SDL_Rect track{kListX + kListW - kBarW, kListTop, kBarW, kListBottom - kListTop}, thumb = list_thumb();
-  SDL_FillSurfaceRect(canvas_, &track, SDL_MapSurfaceRGB(canvas_, 0x22, 0x26, 0x2d));
-  const bool lit = dragging_ || (mouse_x_ >= track.x - 6 && mouse_y_ >= thumb.y && mouse_y_ < thumb.y + thumb.h);
-  SDL_FillSurfaceRect(canvas_, &thumb, lit ? SDL_MapSurfaceRGB(canvas_, 0xff, 0xb8, 0x4d) : SDL_MapSurfaceRGB(canvas_, 0xf0, 0xa0, 0x20));
-}
-
-void Launcher::plate(const Button& b, bool hot) {
-  SDL_Rect r = b.r;
-  if (b.style != Button::kPlate) {  // the cards' screen: square, flat, its edge lit when hot (no ripple)
-    const bool amber = b.style == Button::kAmber;
-    auto colours = [&](const Button& x, bool h, SDL_Color* fill, SDL_Color* line, SDL_Color* ink) {
-      const bool am = x.style == Button::kAmber;
-      const bool dark = x.style == Button::kGrey;
-      *fill = am ? SDL_Color{0xf0, 0xa0, 0x20, 255} : dark ? SDL_Color{0x15, 0x18, 0x1c, 255} : SDL_Color{0x1c, 0x20, 0x26, 255};
-      *line = am ? *fill : x.style == Button::kGrey ? SDL_Color{0x6b, 0x73, 0x7d, 255} : SDL_Color{0x45, 0x4c, 0x55, 255};
-      *ink = am ? SDL_Color{0x14, 0x10, 0x0a, 255} : kWhite;
-      if (!x.enabled) *fill = {0x22, 0x25, 0x2a, 255}, *line = {0x3a, 0x3f, 0x46, 255}, *ink = kGrey;
-      else if (h && am) *fill = {0xff, 0xb8, 0x4d, 255};
-      else if (h) *fill = {static_cast<Uint8>(fill->r + 14), static_cast<Uint8>(fill->g + 14), static_cast<Uint8>(fill->b + 16), 255};
-    };
-    SDL_Color fill, line, ink;
-    colours(b, hot, &fill, &line, &ink);
-    SDL_FillSurfaceRect(canvas_, &r, SDL_MapSurfaceRGB(canvas_, line.r, line.g, line.b));
-    const SDL_Rect in{r.x + 1, r.y + 1, r.w - 2, r.h - 2};
-    SDL_FillSurfaceRect(canvas_, &in, SDL_MapSurfaceRGB(canvas_, fill.r, fill.g, fill.b));
-    if (hot) {  // the frame's amber edge, as the plates' (an amber button shows it by its lighter face)
-      const uint32_t e = SDL_MapSurfaceRGB(canvas_, 255, 176, 64);
-      const SDL_Rect ring[4] = {{r.x, r.y, r.w, 1}, {r.x, r.y + r.h - 1, r.w, 1}, {r.x, r.y, 1, r.h}, {r.x + r.w - 1, r.y, 1, r.h}};
-      SDL_FillSurfaceRects(canvas_, ring, 4, e);
-      drew_edge_ = true;
-    }
-    const int cx = r.x + r.w / 2, cy = r.y + r.h / 2;
-    if (b.gear) {  // a cog: a ring of 8 teeth around a hole, a pixel row's runs at a time
-      const uint32_t k = SDL_MapSurfaceRGB(canvas_, ink.r, ink.g, ink.b);
-      std::vector<SDL_Rect> runs;
-      for (int y = -10; y <= 10; ++y)
-        for (int x = -10, start = 0, on = 0; x <= 11; ++x) {
-          bool in = false;
-          if (x <= 10) {
-            const float d = std::sqrt(static_cast<float>(x * x + y * y)), a = std::atan2(static_cast<float>(y), static_cast<float>(x));
-            const float t = std::fmod(a + 7.0f * 3.14159265f / 8.0f + 4.0f * 3.14159265f, 3.14159265f / 4.0f);  // 8 teeth
-            in = (d >= 3.5f && d <= 7.0f) || (d > 7.0f && d <= 10.0f && t < 3.14159265f / 8.0f);
-          }
-          if (in && !on) start = x, on = 1;
-          if (!in && on) runs.push_back({cx + start, cy + y, x - start, 1}), on = 0;
-        }
-      SDL_FillSurfaceRects(canvas_, runs.data(), static_cast<int>(runs.size()), k);
-      return;
-    }
-    if (b.seg) {  // the split's end: one face with the button before it, a short divider, the arrow and the version
-      const Button* main = nullptr;
-      for (size_t i = 1; i < buttons_.size(); ++i)
-        if (&buttons_[i] == &b) main = &buttons_[i - 1];
-      if (main) {
-        SDL_Color mf, ml, mi;
-        colours(*main, prev_hot_, &mf, &ml, &mi);
-        // The seam (the main's right frame, this one's left) as the faces, except where a lit edge runs.
-        if (!prev_hot_) {
-          const SDL_Rect a{r.x - 1, r.y + 1, 1, r.h - 2};
-          SDL_FillSurfaceRect(canvas_, &a, SDL_MapSurfaceRGB(canvas_, mf.r, mf.g, mf.b));
-        }
-        if (!hot) {
-          const SDL_Rect s{r.x, r.y + 1, 1, r.h - 2};
-          SDL_FillSurfaceRect(canvas_, &s, SDL_MapSurfaceRGB(canvas_, fill.r, fill.g, fill.b));
-        }
-        const SDL_Color d = amber && b.enabled ? SDL_Color{0x9a, 0x5c, 0x0c, 255} : SDL_Color{0x5a, 0x61, 0x6a, 255};
-        const SDL_Rect div{r.x, r.y + 8, 1, r.h - 16};
-        SDL_FillSurfaceRect(canvas_, &div, SDL_MapSurfaceRGB(canvas_, d.r, d.g, d.b));
-      }
-      // A download arrow onto a tray, then the version it updates to.
-      const uint32_t k = SDL_MapSurfaceRGB(canvas_, ink.r, ink.g, ink.b);
-      const int ax = cx, ay = r.y + 7;
-      std::vector<SDL_Rect> g = {{ax - 1, ay, 3, 7}, {ax - 8, ay + 12, 17, 2}, {ax - 8, ay + 9, 2, 3}, {ax + 7, ay + 9, 2, 3}};
-      for (int i = 0; i < 5; ++i) g.push_back({ax - 5 + i, ay + 5 + i, 11 - 2 * i, 1});
-      SDL_FillSurfaceRects(canvas_, g.data(), static_cast<int>(g.size()), k);
-      text_.draw(canvas_, "UPDATE", 10, ink, cx, r.y + r.h - 9);  // the version is on the card ("say update")
-      return;
-    }
-    const int big = b.style == Button::kFlat ? 15 : r.h >= 50 ? 24 : 18;
-    const int room = r.w - 16;  // every word inside its button, smaller when it must be (2026-11-24)
-    int z = big, zs = 11;
-    const std::string label = text_.shrink(b.label, big, 11, room, &z, 3);
-    if (b.sub.empty()) {
-      text_.draw(canvas_, label, z, ink, cx, cy + 1);
-    } else {
-      text_.draw(canvas_, label, z, ink, cx, cy - 7);
-      const SDL_Color dim = amber && b.enabled ? SDL_Color{0x3a, 0x2a, 0x10, 255} : b.enabled ? SDL_Color{0xb9, 0xbf, 0xc6, 255} : kGrey;
-      const std::string sub = text_.shrink(b.sub, 11, 9, room, &zs, b.sub_keep);
-      text_.draw(canvas_, sub, zs, dim, cx, cy + 11);
-    }
-    return;
-  }
-  if (b.badge >= 0) {  // a game: its badge, the name and its line beside it
-    const SDL_Point c = ring_centre(b);
-    SDL_Surface* art = art_.badge[b.badge];
-    const uint8_t m = !b.enabled ? 80 : hot ? 255 : 205;
-    if (art) {
-      SDL_SetSurfaceColorMod(art, m, m, m);
-      SDL_Rect d{c.x - kBadge / 2, c.y - kBadge / 2, kBadge, kBadge};
-      SDL_BlitSurface(art, nullptr, canvas_, &d);
-    } else {  // no art: a plain disc
-      for (int y = -kBadge / 2; y <= kBadge / 2; ++y) {
-        const int half = static_cast<int>(std::sqrt(static_cast<float>(kBadge * kBadge / 4 - y * y)));
-        SDL_Rect row{c.x - half, c.y + y, half * 2, 1};
-        SDL_FillSurfaceRect(canvas_, &row, SDL_MapSurfaceRGB(canvas_, m / 3, m / 3, m / 3 + 8));
-      }
-    }
-    const SDL_Color col = !b.enabled ? kGrey : hot ? kAmber : kWhite;
-    const int tx = c.x + kBadge / 2 + 18, tw = r.x + r.w - tx;
-    text_.draw(canvas_, b.label, 22, col, tx, c.y - 9, -1);
-    text_.draw(canvas_, text_.fit(b.sub, 12, tw, b.sub_keep), 12, b.enabled ? kDim : kGrey, tx, c.y + 14, -1);
-    return;
-  }
-  if (art_.plate) {
-    const uint8_t m = !b.enabled ? 90 : hot ? 255 : 215;
-    SDL_SetSurfaceColorMod(art_.plate, m, m, m);
-    SDL_BlitSurfaceScaled(art_.plate, nullptr, canvas_, &r, SDL_SCALEMODE_LINEAR);
-  } else {
-    SDL_FillSurfaceRect(canvas_, &r, SDL_MapSurfaceRGB(canvas_, b.enabled ? 70 : 40, b.enabled ? 72 : 40, b.enabled ? 78 : 44));
-  }
-  if (hot) {  // a square plate lights its edge in the frame's amber (the ripple is the round badges')
-    const uint32_t amber = SDL_MapSurfaceRGB(canvas_, 255, 176, 64), soft = SDL_MapSurfaceRGB(canvas_, 150, 104, 40);
-    const SDL_Rect outer[4] = {{r.x, r.y, r.w, 1}, {r.x, r.y + r.h - 1, r.w, 1}, {r.x, r.y, 1, r.h}, {r.x + r.w - 1, r.y, 1, r.h}};
-    const SDL_Rect inner[4] = {{r.x + 1, r.y + 1, r.w - 2, 1}, {r.x + 1, r.y + r.h - 2, r.w - 2, 1},
-                               {r.x + 1, r.y + 1, 1, r.h - 2}, {r.x + r.w - 2, r.y + 1, 1, r.h - 2}};
-    SDL_FillSurfaceRects(canvas_, outer, 4, amber);
-    SDL_FillSurfaceRects(canvas_, inner, 4, soft);
-    drew_edge_ = true;
-  }
-  const SDL_Color c = !b.enabled ? kGrey : hot ? kAmber : kWhite;
-  const int cx = r.x + r.w / 2, cy = r.y + r.h / 2;
-  const int big = r.h >= 50 ? 22 : r.h >= 40 ? 20 : 18;
-  // Every word inside the plate, clear of the rivets in its corners, smaller when it must be (2026-11-24); only a
-  // folder's path too long even then is cut in the middle.
-  const int room = r.w - 32;
-  int z = big, zs = 12;
-  const std::string label = text_.shrink(b.label, big, 13, room, &z, 3);
-  if (b.sub.empty()) {
-    text_.draw(canvas_, label, z, c, cx, cy + 1);
-  } else {
-    // The line under the name stays inside the plate, above the art's rule along its bottom (it ran through
-    // the letters; playtest W3).
-    text_.draw(canvas_, label, z, c, cx, cy - 11);
-    const std::string sub = text_.shrink(b.sub, 12, 10, room, &zs, b.sub_keep);
-    text_.draw(canvas_, sub, zs, b.enabled ? kDim : kGrey, cx, cy + 8);
-  }
-}
-
-void Launcher::draw(float dt) {
-  background(dt);
+  auto upper = [](std::string n) {
+    for (char& ch : n) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+    return n;
+  };
   switch (screen_) {
-    case kMain: {
-      {  // the panels, inside the list; the one whose button is hot (the mouse, the keys, the pad) lit
-        const int at = focus_ >= 0 ? focus_ : hot_;
-        const int sel = at >= 0 && at < static_cast<int>(buttons_.size()) && buttons_[at].enabled ? buttons_[at].card : -1;
-        const SDL_Rect view{kListX, kListTop, kListW, kListBottom - kListTop};
-        SDL_SetSurfaceClipRect(canvas_, &view);
-        for (size_t k = 0; k < cards_.size(); ++k) draw_card(cards_[k], static_cast<int>(k) == sel);
-        SDL_SetSurfaceClipRect(canvas_, nullptr);
+    case kMain:
+      m.package = package_words();  // the package's own version (the games' are on their panels)
+      if (update_box_ && self_update_) {
+        m.variant = "updates", m.title = "UPDATE NOW?";
+        m.lines.push_back({"BattleTech launcher " + upgrades::update::plain_version(self_update_->release.tag), ""});
+        for (int i : game_updates())
+          m.lines.push_back({std::string(upgrades::update::game_info(upgrades::update::kGames[i]).name) + " " + upgrades::update::game_version(checks_[i].release.tag), ""});
       }
-      if (!status_.empty()) {  // in the header, right of the mark: the panels stay whole
-        const SDL_Color col = status_good_ ? SDL_Color{200, 230, 200, 255} : SDL_Color{240, 190, 180, 255};
-        // Left of UPDATE AVAILABLE when it is there.
-        const int at = self_update_ ? kListX + kListW - kPillW - 12 : W - 43;
-        const std::vector<std::string> lines = text_.wrap(status_, 12, self_update_ ? at - 262 : 470);
-        const int lh = text_.line_skip(12), y0 = 46 - lh * static_cast<int>(std::min<size_t>(lines.size(), 3)) / 2 + lh / 2;
-        for (size_t i = 0; i < lines.size() && i < 3; ++i)
-          text_.draw(canvas_, lines[i], 12, col, at, y0 + static_cast<int>(i) * lh, 1);
-      }
-      const int right = kListX + kListW;
-      text_.draw(canvas_, package_words(), 12, kDim, right, kRowTop + 9, 1);  // the package's own version (the games' are on their panels)
-      text_.draw(canvas_, "Unofficial fan rebuild. MechWarrior is a trademark of Microsoft.", 10, kGrey, right, kRowTop + 23, 1);
       break;
-    }
-    case kSetupScreen: {
-      SDL_Rect box{kX + 70, 104, 500, 64};
-      SDL_FillSurfaceRect(canvas_, &box, SDL_MapSurfaceRGB(canvas_, 16, 18, 22));
-      text_.draw_wrapped(canvas_, kit_files_ >= 0 ? kit_ask_.find_words : std::string(files_pm_ ? kFindWordsPm : kFindWords), 13, kWhite, W / 2, 114, 480);
-      if (!status_.empty())
-        text_.draw_wrapped(canvas_, status_, 13, status_good_ ? kAmber : SDL_Color{240, 190, 180, 255}, W / 2, 184, 480);
-      else if (kit_files_ >= 0) {
+    case kSetupScreen:
+      m.words = kit_files_ >= 0 ? kit_ask_.find_words : std::string(files_pm_ ? kFindWordsPm : kFindWords);
+      if (!status_.empty()) break;
+      m.status_kind = "use";
+      if (kit_files_ >= 0) {
         if (kit_status_[kit_files_].state == rekit::Status::kReady)
-          text_.draw(canvas_, text_.fit("In use: " + kit_status_[kit_files_].where, 13, 480), 13, kDim, W / 2, 190);
-      } else if (files_pm_ ? !pm_dir_.empty() : install_.ok)  // GAME FILES: the one in use, and what it lacks
-        text_.draw(canvas_, text_.fit(files_pm_ ? pm_in_use() : in_use(), 13, 480), 13, kDim, W / 2, 190);
+          m.status = text_.fit("In use: " + (kit_status_[kit_files_].data.empty() ? std::string() : kit_status_[kit_files_].data + ", ") + kit_status_[kit_files_].where, 13, 480);
+      } else if (files_pm_ ? !pm_dir_.empty() : install_.ok) {  // GAME FILES: the one in use, and what it lacks
+        m.status = text_.fit(files_pm_ ? pm_in_use() : in_use(), 13, 480);
+      }
       break;
-    }
     case kGamePage: {
       const int i = page_game_;
       if (i < 0) break;
-      std::string name = upgrades::update::game_info(upgrades::update::kGames[i]).name;
-      for (char& ch : name) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
-      const std::string dot = " \xc2\xb7 ";
-      auto ver = [](const std::string& t) { return t.empty() || t == "unknown" ? std::string() : " \xc2\xb7 " + upgrades::update::game_version(t); };
+      const std::string name = upper(upgrades::update::game_info(upgrades::update::kGames[i]).name);
       const std::string own_dir = (fs::path(game_root(i)) / upgrades::update::game_info(upgrades::update::kGames[i]).key).make_preferred().string();
-      std::vector<std::pair<std::string, SDL_Color>> lines;
       if (page_confirm_) {
-        text_.draw(canvas_, "UNINSTALL " + name + "?", 20, kAmber, W / 2, 122);
-        lines.push_back({"Removes " + text_.fit(own_dir, 13, 400, 3), kWhite});
+        m.variant = "ask", m.title = "UNINSTALL " + name + "?";
+        using Rm = sdlfe::games::Removal;
+        if (!remove_linked_) m.lines.push_back({"Removes " + text_.fit(own_dir, 13, 400, 3), ""});
+        else if (removal_[i].how == Rm::kSetup) m.lines.push_back({"Runs its own uninstaller: " + text_.fit(removal_[i].path, 13, 320, 3), ""});
+        else m.lines.push_back({"Moves " + text_.fit(removal_[i].path, 13, 340, 3) + " to the trash", ""});
         const std::string files = own_files(i);
-        if (!files.empty()) lines.push_back({"Its game files: " + text_.fit(files, 13, 400, 3), kDim});
-        else if ((i == 0 || i == 1) && !game_bin(2).empty()) lines.push_back({"MechWarrior 1 Remake plays these game files too, so they stay.", kDim});
-        lines.push_back({"Your pilots, saves, settings and mods stay.", kDim});
-      } else {
-        if (source_[i] == kBeside) lines.push_back({"Part of this package" + ver(MW3_VERSION) + ": " + text_.fit(game_bin(i), 13, 300, 3), kWhite});
-        else if (source_[i] == kOwnCopy) lines.push_back({"Installed by the launcher" + ver(installed_[i].tag), kWhite}), lines.push_back({text_.fit(own_dir, 13, 470, 3), kWhite});
-        else if (source_[i] == kLinked) lines.push_back({"Linked, installed without the launcher" + ver(linked_tag_[i]), kWhite}), lines.push_back({text_.fit(linked_[i], 13, 470, 3), kWhite});
-        else lines.push_back({"Not installed: DOWNLOAD it on its panel, or link a copy you installed yourself.", kWhite});
-        if (source_[i] == kOwnCopy && !linked_[i].empty())
-          lines.push_back({"Also linked" + ver(linked_tag_[i]) + ", older: " + text_.fit(linked_[i], 13, 300, 3), kDim});
+        if (!files.empty()) m.lines.push_back({"Its game files: " + text_.fit(files, 13, 400, 3), "dim"});
+        else if ((i == 0 || i == 1) && !game_bin(2).empty()) m.lines.push_back({"MechWarrior 1 Remake plays these game files too, so they stay.", "dim"});
+        m.lines.push_back({std::string(has_installed_[i] && !linked_[i].empty() ? "Your other copy, p" : "Your p") + "ilots, saves, settings and mods stay.", "dim"});
       }
-      const int top = page_confirm_ ? 146 : 128;  // the page's lines under the header's name; the confirm's under its question
-      for (size_t k = 0; k < lines.size() && k < 3; ++k) text_.draw(canvas_, text_.fit(lines[k].first, 13, 480), 13, lines[k].second, W / 2, top + static_cast<int>(k) * 18);
-      if (!status_.empty()) text_.draw(canvas_, text_.fit(status_, 13, 480), 13, status_good_ ? kAmber : SDL_Color{240, 190, 180, 255}, W / 2, 358);
+      if (m.lines.size() > 3) m.lines.resize(3);
+      for (UiLine& l : m.lines) l.text = text_.fit(l.text, 13, 480);
+      m.status = text_.fit(status_, 13, 480);
       break;
     }
     case kCopies:
-      text_.draw(canvas_, files_pm_ ? "PIRATE'S MOON ON THIS COMPUTER" : "MECHWARRIOR 3 ON THIS COMPUTER", 20, kAmber, W / 2, 112);
-      text_.draw(canvas_, "Pick the copy to use: it is copied into the game's folder, with its music and movies.", 13, kDim, W / 2, 134);
+      m.title = files_pm_ ? "PIRATE'S MOON ON THIS COMPUTER" : "MECHWARRIOR 3 ON THIS COMPUTER";
+      m.words = "Pick the copy to use: it is copied into the game's folder, with its music and movies.";
       break;
     case kNotes: {
-      text_.draw(canvas_, "BEFORE YOU PLAY", 24, kAmber, W / 2, 128);
       const NotesLayout l = notes_layout();
-      int y = kNotesTop;
-      for (const std::string& n : notes_) y += text_.draw_wrapped(canvas_, n, l.size, kWhite, W / 2, y, l.width) + l.gap;
-      if (!status_.empty())  // what ADD FROM MY DISC did, or where to look: under the notes, above the buttons
-        text_.draw_wrapped(canvas_, status_, 13, status_good_ ? kAmber : SDL_Color{240, 190, 180, 255}, W / 2, l.status_y, 480);
+      m.notes = notes_;
+      m.notes_size = l.size, m.notes_width = l.width, m.notes_gap = l.gap, m.notes_line = text_.line_skip(l.size);
       break;
     }
     case kConfirm:
+      m.words = confirm_text_, m.variant = "ask";
+      if (confirm_go_ != 7) m.status.clear();
       if (confirm_go_ == 1 || confirm_go_ == 5) {  // over and under the find's plate; where to on a line of its own, fitted
-        text_.draw(canvas_, "USE THESE GAME FILES?", 18, kAmber, W / 2, 150);
-        const int h = text_.draw_wrapped(canvas_, confirm_text_, 14, kWhite, W / 2, 252, 460);
-        text_.draw(canvas_, "Into " + text_.fit(confirm_into_, 14, 440, 3), 14, kAmber, W / 2, std::min(252 + h + 12, 314));
+        m.variant = "found", m.title = "USE THESE GAME FILES?";
+        m.path = "Into " + text_.fit(confirm_into_, 14, 440, 3);
       } else if (confirm_go_ == 7 && place_game_ >= 0) {  // a card's first INSTALL: where to
-        std::string name = upgrades::update::game_info(upgrades::update::kGames[place_game_]).name;
-        for (char& ch : name) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
-        const std::string version = upgrades::update::game_version(checks_[place_game_].release.tag);
-        text_.draw(canvas_, "DOWNLOAD " + name + " " + version + "?", 18, kAmber, W / 2, 150);
-        const std::string where = place_.empty() ? (fs::path(games_root_) / upgrades::update::game_info(upgrades::update::kGames[place_game_]).key).make_preferred().string() : place_;
-        text_.draw_wrapped(canvas_, "The game and its game files go into this folder. Your pilots, saves, settings and mods stay in your user folder.", 14, kWhite, W / 2, 196, 460);
-        text_.draw(canvas_, text_.fit(where, 14, 440, 3), 14, kAmber, W / 2, 262);
-        if (!status_.empty()) text_.draw_wrapped(canvas_, status_, 13, status_good_ ? kAmber : SDL_Color{240, 190, 180, 255}, W / 2, 290, 480);
+        m.variant = "place";
+        m.title = "DOWNLOAD " + upper(upgrades::update::game_info(upgrades::update::kGames[place_game_]).name) + " " +
+                  upgrades::update::game_version(checks_[place_game_].release.tag) + "?";
+        m.words = "The game and its game files go into this folder. Your pilots, saves, settings and mods stay in your user folder.";
+        m.path = text_.fit(place_.empty() ? (fs::path(games_root_) / upgrades::update::game_info(upgrades::update::kGames[place_game_]).key).make_preferred().string() : place_, 14, 440, 3);
       } else if (confirm_go_ == 8) {
-        text_.draw(canvas_, "NO MUSIC ADDED", 22, kAmber, W / 2, 138);
-        text_.draw_wrapped(canvas_, confirm_text_, 15, kWhite, W / 2, 172, 480);
-      } else {
-        text_.draw_wrapped(canvas_, confirm_text_, 16, kWhite, W / 2, 150, 460);
+        m.variant = "nomusic", m.title = "NO MUSIC ADDED";
+      } else if (confirm_go_ == 4 || confirm_go_ == 6) {
+        m.variant = "ask long";
       }
       break;
     case kUpdateScreen: {  // the newer release's notes (the wheel scrolls them) and the question
       const std::string version = update_ ? upgrades::update::plain_version(update_->release.tag) : std::string();
-      text_.draw(canvas_, "BATTLETECH LAUNCHER " + version, 22, kAmber, W / 2, 124);
-      const int lh = text_.line_skip(13);
-      const size_t per = update_per_page(), first = update_top_;
-      for (size_t i = first; i < update_lines_.size() && i < first + per; ++i)
-        text_.draw(canvas_, update_lines_[i], 13, kWhite, kX + 70, kUpdateTop + static_cast<int>(i - first) * lh, -1);
-      if (first + per < update_lines_.size()) text_.draw(canvas_, "Scroll for more", 11, kGrey, kX + 570, kUpdateTop + static_cast<int>(per) * lh - 4, 1);
-      const std::string ask = !status_.empty() ? status_ : "Update the launcher to " + version + "? Your games, mods, pilots, saves and settings are kept.";
-      text_.draw_wrapped(canvas_, ask, 13, status_.empty() || status_good_ ? kAmber : SDL_Color{240, 190, 180, 255}, W / 2, 338, 500);
+      m.title = "BATTLETECH LAUNCHER " + version;
+      m.notes = update_lines_;
+      m.words = !status_.empty() ? status_ : "Update the launcher to " + version + "? Your games, mods, pilots, saves and settings are kept.";
+      if (status_.empty()) m.status_kind = "good";
       break;
     }
-    case kDataScreen: {
-      text_.draw_wrapped(canvas_, "Your settings, pilots, saved games and converted movies are in:", 16, kWhite, W / 2, 130, 480);
-      text_.draw_wrapped(canvas_, text_.fit(files_wd(), 14, 480), 14, kAmber, W / 2, 176, 480);
-      if (!status_.empty())
-        text_.draw_wrapped(canvas_, status_, 13, status_good_ ? kAmber : SDL_Color{240, 190, 180, 255}, W / 2, 350, 480);
+    case kDataScreen:
+      m.words = "Your settings, pilots, saved games and converted movies are in:";
+      m.path = text_.fit(files_wd(), 14, 480);
       break;
-    }
     case kWorking: {
       mech3::setup::Progress p;
-      std::string title;
       if (work_) {
         std::lock_guard<std::mutex> g(work_->m);
-        p = work_->progress, title = work_->title;
+        p = work_->progress, m.title = work_->title;
       }
-      text_.draw(canvas_, title, 26, kAmber, W / 2, 140);
-      SDL_Rect bar{kX + 120, 200, 400, 26}, in{kX + 123, 203, static_cast<int>(394 * std::clamp(p.fraction, 0.0, 1.0)), 20};
-      SDL_FillSurfaceRect(canvas_, &bar, SDL_MapSurfaceRGB(canvas_, 140, 100, 50));
-      SDL_Rect inner{kX + 122, 202, 396, 22};
-      SDL_FillSurfaceRect(canvas_, &inner, SDL_MapSurfaceRGB(canvas_, 10, 12, 14));
-      SDL_FillSurfaceRect(canvas_, &in, SDL_MapSurfaceRGB(canvas_, 214, 140, 40));
-      char pct[16];
-      std::snprintf(pct, sizeof pct, "%d%%", static_cast<int>(std::lround(p.fraction * 100)));
-      text_.draw(canvas_, pct, 14, kWhite, W / 2, 214);
-      text_.draw(canvas_, p.stage, 13, kWhite, W / 2, 246);
-      text_.draw(canvas_, p.message, 10, kGrey, W / 2, 266);
-      text_.draw(canvas_, "Cancel stops within a file and changes nothing.", 12, kDim, 16, H - 24, -1);
+      m.fraction = static_cast<float>(std::clamp(p.fraction, 0.0, 1.0));
+      m.percent = std::to_string(std::lround(p.fraction * 100)) + "%", m.stage = p.stage, m.message = p.message;
       break;
     }
   }
-  const int hot = focus_ >= 0 ? focus_ : hot_;
-  drew_ripple_ = drew_edge_ = false;
-  const SDL_Rect list_view{kListX, kListTop, kListW, kListBottom - kListTop};
-  for (size_t i = 0; i < buttons_.size(); ++i) {
-    prev_hot_ = i > 0 && static_cast<int>(i) - 1 == hot && buttons_[i - 1].enabled;
-    SDL_SetSurfaceClipRect(canvas_, buttons_[i].card >= 0 ? &list_view : nullptr);  // a panel's: inside the list
-    plate(buttons_[i], static_cast<int>(i) == hot && buttons_[i].enabled);
-  }
-  SDL_SetSurfaceClipRect(canvas_, nullptr);
-  if (screen_ == kMain) draw_list_edges();
-  // The main menu's own ripple (its step, mech3::menu_ripple_step, and its
-  // draw 0x00558dd0) round the round button (a game's badge) under the
-  // mouse, started afresh on each new one as SlideButton's on_enter does;
-  // a square plate lights its edge instead (plate).
-  hot_t_ += dt;
-  if (hot != ring_for_) {
-    ring_for_ = hot, ring_radius_ = mech3::MenuRipple::kStartRadius, ring_carry_ = 0.0f;
-    ring_amp_ = mech3::MenuRipple::kStartAmplitude, ring_phase_ = 0.0f;
-  }
-  if (hot >= 0 && hot < static_cast<int>(buttons_.size()) && buttons_[hot].enabled && buttons_[hot].badge >= 0 &&
-      mech3::menu_ripple_step(ring_radius_, ring_carry_, ring_amp_, ring_phase_, mech3::MenuRipple::kSpeed,
-                              mech3::MenuRipple::kWavelength, mech3::MenuRipple::kMaxRadius, dt)) {
-    const SDL_Point c = ring_centre(buttons_[hot]);
-    const float wl = mech3::MenuRipple::kWavelength;
-    zrndr::set_finish_target(static_cast<uint16_t*>(canvas_->pixels), W, H, canvas_->pitch);
-    zrndr::ripple(c.x, c.y, static_cast<int32_t>(static_cast<float>(ring_radius_) - wl * 3.0f), ring_radius_,
-                  static_cast<int32_t>(ring_amp_), wl, ring_phase_, nullptr, zrndr::X87::k53);
-    drew_ripple_ = true;
-  }
-  if (ask_pending_) {  // the frame left on screen while the system's picker comes up
-    SDL_Rect edge{W / 2 - 151, H - 42, 302, 32}, box{W / 2 - 150, H - 41, 300, 30};  // the bottom strip: no plate there
-    SDL_FillSurfaceRect(canvas_, &edge, SDL_MapSurfaceRGB(canvas_, 140, 100, 50));
-    SDL_FillSurfaceRect(canvas_, &box, SDL_MapSurfaceRGB(canvas_, 10, 12, 14));
-    text_.draw(canvas_, ask_is_folder_ ? "Opening the folder picker..." : "Opening the file picker...", 13, kAmber, W / 2, H - 26);
-  }
+  // Left on screen while the system's picker comes up.
+  if (ask_pending_) m.picker = ask_is_folder_ ? "Opening the folder picker..." : "Opening the file picker...";
+  return m;
 }
 
-void Launcher::present() {
-  SDL_UpdateTexture(tex_, nullptr, canvas_->pixels, canvas_->pitch);
-  SDL_SetRenderDrawColor(ren_, 0, 0, 0, 255);
-  SDL_RenderClear(ren_);
-  SDL_RenderTexture(ren_, tex_, nullptr, nullptr);
-  SDL_RenderPresent(ren_);
+// The screen as it is now, laid out and drawn (not yet shown).
+void Launcher::draw() {
+  sync_ui();
+  ui_.render();
+}
+
+// What the document shows brought up to date: before it is drawn, and before the mouse asks what it is over.
+void Launcher::sync_ui() {
+  if (follow_ && focus_ < 0) hot_ = ui_.over();
+  const int hot = focus_ >= 0 ? focus_ : hot_;
+  const int lit = hot >= 0 && hot < static_cast<int>(buttons_.size()) && buttons_[hot].enabled ? hot : -1;
+  ui_.show(model(), lit);
+  if (ui_.update()) ui_.show(model(), lit), ui_.update();
+  ui_stale_ = false;
+}
+
+// A frame at the layout's own size, saved (checks).
+void Launcher::save_frame(const std::string& path) {
+  SDL_Texture* t = SDL_CreateTexture(ren_, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, W, H);
+  SDL_SetRenderTarget(ren_, t);
+  draw();
+  SDL_Surface* s = t ? SDL_RenderReadPixels(ren_, nullptr) : nullptr;
+  SDL_SetRenderTarget(ren_, nullptr);
+  if (SDL_Surface* c = s ? SDL_ConvertSurface(s, SDL_PIXELFORMAT_XRGB8888) : nullptr) SDL_SaveBMP(c, path.c_str()), SDL_DestroySurface(c);
+  if (s) SDL_DestroySurface(s);
+  if (t) SDL_DestroyTexture(t);
+  sync_ui();
+}
+
+// MW3_LAUNCHER_MOUSE (checks): "move 712,130;click 712,130;wheel -2;down 800,120;up 800,300", a step a few frames, at
+// the layout's 854x480, as the window's own events.
+void Launcher::mouse_steps() {
+  static const char* const at = SDL_getenv("MW3_LAUNCHER_MOUSE");
+  static std::string left = at ? at : "";
+  if (left.empty() || frames_ % 6 != 5) return;
+  const size_t end = left.find(';');
+  const std::string step = left.substr(0, end);
+  left = end == std::string::npos ? std::string() : left.substr(end + 1);
+  char what[16] = {};
+  float x = 0, y = 0;
+  if (std::sscanf(step.c_str(), "%15s %f,%f", what, &x, &y) < 2) return;
+  int w = W, h = H;
+  SDL_GetWindowSize(win_, &w, &h);
+  const float k = std::min(static_cast<float>(w) / W, static_cast<float>(h) / H);
+  auto push = [&](Uint32 type) {
+    SDL_Event e{};
+    e.type = type;
+    if (type == SDL_EVENT_MOUSE_WHEEL) e.wheel.windowID = SDL_GetWindowID(win_), e.wheel.y = x;
+    else if (type == SDL_EVENT_MOUSE_MOTION) e.motion.windowID = SDL_GetWindowID(win_), e.motion.x = x * k, e.motion.y = y * k;
+    else e.button.windowID = SDL_GetWindowID(win_), e.button.button = SDL_BUTTON_LEFT, e.button.x = x * k, e.button.y = y * k;
+    SDL_PushEvent(&e);
+  };
+  const std::string_view v = what;
+  std::printf("mw3: launcher: mouse: %s, over %s\n", step.c_str(), hot_ >= 0 ? buttons_[hot_].log_name().c_str() : "nothing");
+  if (v == "wheel") return push(SDL_EVENT_MOUSE_WHEEL);
+  push(SDL_EVENT_MOUSE_MOTION);
+  if (v == "down" || v == "click") push(SDL_EVENT_MOUSE_BUTTON_DOWN);
+  if (v == "up" || v == "click") push(SDL_EVENT_MOUSE_BUTTON_UP);
 }
 
 void Launcher::ask_file(int what, const SDL_DialogFileFilter* filters, int n) {
@@ -2976,7 +2611,7 @@ void Launcher::ask_folder(int what) {
 // (=path:<file>, answered with that file);
 // MW3_LAUNCHER_PICKER_SHOT: the frame on screen at the ask, saved.
 void Launcher::open_picker() {
-  if (const char* shot = SDL_getenv("MW3_LAUNCHER_PICKER_SHOT")) SDL_SaveBMP(canvas_, shot);
+  if (const char* shot = SDL_getenv("MW3_LAUNCHER_PICKER_SHOT")) save_frame(shot);
   ask_pending_ = false, ask_at_ = SDL_GetTicksNS();
   std::printf("mw3: launcher: the %s picker asked for\n", ask_is_folder_ ? "folder" : "file");
   const char* check = SDL_getenv("MW3_LAUNCHER_PICKER");
@@ -3094,7 +2729,7 @@ void Launcher::take_mw1(const std::string& dir) {
 // What the install lacks (the movies left on the CD, the music), taken from
 // The disc, a disc image or the disc's folder (setup::add_from_disc).
 void Launcher::add_disc(const std::string& source) {
-  if (screen_ != kConfirm) disc_back_ = screen_;  // PICK ANOTHER on the no-music dialog: where the first pick came from
+  if (screen_ != kConfirm) disc_back_ = screen_;  // PICK A FILE on the no-music dialog: where the first pick came from
   disc_music_ = files_pm_ ? pm_lacks_music_ : lacks_music_;
   work_ = std::make_unique<Work>();
   work_->kind = Work::kAddDisc;
@@ -3227,19 +2862,19 @@ std::string Launcher::in_use() const {
 
 // A newer release found: its notes as plain lines wrapped to the screen, the first page, the question.
 void Launcher::show_update() {
-  update_lines_.clear();
-  for (const std::string& line : upgrades::update::notes_lines(update_->release.notes)) {
-    if (line.empty()) {
-      update_lines_.emplace_back();
-      continue;
-    }
-    for (const std::string& w : text_.wrap(line, 13, kUpdateWidth)) update_lines_.push_back(w);
-  }
-  if (update_lines_.empty()) update_lines_.push_back("(No notes with this release.)");
-  for (const std::string& l : update_lines_) std::printf("mw3: launcher: update notes: %s\n", l.c_str());
-  update_top_ = 0, status_.clear();
+  read_update_notes();
+  status_.clear();
   screen_ = kUpdateScreen, layout();
   if (SDL_getenv("MW3_LAUNCHER_UPDATE_GO")) activate(kUpdateGo);  // checks: UPDATE pressed
+}
+
+void Launcher::read_update_notes() {
+  update_lines_.clear();
+  for (const std::string& line : upgrades::update::notes_lines(update_->release.notes)) {
+    update_lines_.push_back(line);
+    for (const std::string& w : text_.wrap(line, 13, kUpdateWidth)) std::printf("mw3: launcher: update notes: %s\n", w.c_str());
+  }
+  if (update_lines_.empty()) update_lines_.push_back("(No notes with this release.)");
 }
 
 // Ours (docs/linux.md, Vulkan): the game cannot draw without Vulkan on Linux; this screen says what
@@ -3568,7 +3203,7 @@ void Launcher::search() {
   status_good_ = true;
   screen_ = kSetupScreen;
   layout();
-  ask_file(kPoint, kGameFiles, 1);  // the one picker (an installed copy by any of its files)
+  ask_file(kPoint, kGameFiles, kGameFilesCount);  // the one picker (an installed copy by any of its files)
 }
 
 void Launcher::finish_work() {
@@ -3609,6 +3244,7 @@ void Launcher::finish_work() {
         if (i == 0) save_config_value(o_.write_dir, "install", "");
         if (i == 1) save_config_value(o_.write_dir, "pm_install", ""), save_config_value(pm_wd(), "install", "");
       }
+      if (remove_linked_ && r.ok) save_config_value(o_.write_dir, std::string("link_") + upgrades::update::game_info(upgrades::update::kGames[i]).key, "");
       resolve_game(i, true);
     }
     status_ = r.summary, status_good_ = r.ok, page_confirm_ = false, screen_ = kGamePage;
@@ -3619,6 +3255,8 @@ void Launcher::finish_work() {
     status_ = r.summary, status_good_ = r.ok || r.cancelled, screen_ = kMain;
     if (r.ok && game_done_) game_installed(*game_done_);
     layout();
+    if (!r.ok) update_queue_.clear(), update_queue_self_ = false;
+    next_update();
     return;
   }
   if (kind == Work::kGameFileCheck) {  // matches: installed; no SHA256SUMS: asked; does not match: refused
@@ -3634,13 +3272,6 @@ void Launcher::finish_work() {
     confirm_text_ = c.words + " Install it anyway? Only install a file from someone you trust.";
     layout();
     if (SDL_getenv("MW3_LAUNCHER_INSTALL_ANYWAY")) activate(kInstallFileGo);  // checks: ADD ANYWAY pressed
-    return;
-  }
-  if (kind == Work::kUpdateCheck) {  // a newer release: its notes and the question; else the verdict on the main screen
-    std::printf("mw3: launcher: update: %s\n", r.summary.c_str());
-    status_ = r.summary, status_good_ = r.ok;
-    if (update_ && update_->kind == upgrades::update::Verdict::kNewer) return show_update();
-    screen_ = kMain, layout();
     return;
   }
   if (kind == Work::kUpdateDownload) {  // installed: the new launcher started and this one gone; else why, on the screen
@@ -3742,7 +3373,7 @@ void Launcher::activate(int id) {
   if (id >= kGameUpdate && id < kGameUpdate + upgrades::update::kGameCount) return install_game(id - kGameUpdate);
   if (id >= kKitPlay && id < kKitPlay + upgrades::update::kGameCount) {
     sounds_.play(Sounds::kSelect);
-    mw1_last_ = id == kKitPlay + 3, pm_last_ = files_pm_ = false, kit_last_ = id - kKitPlay;
+    files_pm_ = false;
     return run_kit(id - kKitPlay);
   }
   if (id >= kGear && id < kGear + upgrades::update::kGameCount) return sounds_.play(Sounds::kSelect), open_game_page(id - kGear);
@@ -3753,8 +3384,10 @@ void Launcher::activate(int id) {
       case kBack: screen_ = kMain, status_.clear(); return layout();
       case kGameLink: return ask_file(kGameLink, nullptr, 0);
       case kGameUnlink: return unlink_game();
-      case kGameFilesPick: return open_kit_files(page_game_, false);
-      case kGameUninstall: page_confirm_ = true, status_.clear(); return layout();
+      case kGameFilesPick: return open_files(page_game_);
+      case kGameUninstall:
+      case kGameRemove: page_confirm_ = true, remove_linked_ = id == kGameRemove, status_.clear(); return layout();
+      case kInstallFile: break;
       case kUninstallBack: page_confirm_ = false; return layout();
       case kUninstallGo:
       case kUninstallAll: return uninstall_go(id == kUninstallAll);
@@ -3771,7 +3404,7 @@ void Launcher::activate(int id) {
   static const SDL_DialogFileFilter kZip[] = {{"The 1.2 patch (.zip, .exe)", "zip;exe"}, {"All files", "*"}};
   switch (id) {
     case kMw3:
-      pm_last_ = files_pm_ = mw1_last_ = false, kit_last_ = -1;
+      files_pm_ = false;
       if (games_on_ && o_.game_bin.empty()) {  // not installed: its card's INSTALL (games on demand)
         status_ = "MechWarrior 3 isn't installed yet: press INSTALL on its card.", status_good_ = false;
         layout();
@@ -3820,7 +3453,7 @@ void Launcher::activate(int id) {
       from_files_ = false, screen_ = kMain, layout();
       break;
     case kUpdateNotNow:
-      status_.clear(), screen_ = kMain, layout();
+      update_box_ = false, status_.clear(), screen_ = kMain, layout();
       break;
     case kUpdateGo: {  // the platform's package and SHA256SUMS on the worker, the package checked against its line
       if (!update_) break;
@@ -3852,43 +3485,18 @@ void Launcher::activate(int id) {
       update_ = self_update_;
       show_update();
       break;
-    case kUpdates: {  // GitHub's releases asked on the worker (the system's curl), the verdict on the status line
-      work_ = std::make_unique<Work>();
-      work_->kind = Work::kUpdateCheck;
-      auto verdict = update_ = std::make_shared<upgrades::update::Verdict>();
-      work_->start("CHECKING FOR UPDATES", [verdict](const mech3::setup::ProgressFn& f) {
-        f(mech3::setup::Progress{"Asking GitHub for the newest release", 0.3, ""});
-        *verdict = check_for_updates(MW3_VERSION);
-        mech3::setup::Result r;
-        r.ok = verdict->kind != upgrades::update::Verdict::kFailed;
-        r.summary = verdict->words;
-        return r;
-      });
-      screen_ = kWorking, layout();
+    case kUpdates: recheck(); break;
+    case kUpdateLauncher:
+      if (!self_update_ || work_) break;
+      update_box_ = false, update_ = self_update_, read_update_notes(), activate(kUpdateGo);
       break;
-    }
-    case kFiles:  // the find screen at any time: repick or refresh the game's files
-      if (kit_last_ >= 0 && kit_serves(kit_last_) && !game_bin(kit_last_).empty()) {  // one that serves its setup
-        open_kit_files(kit_last_, false);
-        break;
-      }
-      if (mw1_last_ && (mw1_remake_ || !port_exe_.empty())) {  // MW1's: its folder picked again (a cancel keeps the one in use)
-        status_ = (mw1_game_.empty() ? std::string("Pick your MechWarrior (1989)")
-                                     : "MechWarrior (1989) is at " + mw1_game_ + ". Pick another") +
-                  ": its BTECH.EXE, or the download it came in (.zip).";
-        status_good_ = true;
-        mw1_repick_ = true;
-        ask_file(kMw1, kMw1Files, 1);
-        break;
-      }
-      files_pm_ = pm_last_ && !o_.pm_bin.empty();  // the game last clicked
-      if (files_pm_) pm_refresh();
-      from_files_ = true, status_.clear();
-      screen_ = kSetupScreen, layout();
+    case kUpdateAll:
+      if (!self_update_ || work_) break;
+      update_box_ = false, update_queue_ = game_updates(), update_queue_self_ = true;
+      next_update();
       break;
     case kPm:
       if (o_.pm_bin.empty()) break;
-      pm_last_ = true, mw1_last_ = false, kit_last_ = -1;
       if (pm_dir_.empty() && !pm_found_.empty()) {  // the search's find: offered to be copied in
         files_pm_ = true, from_files_ = false, status_.clear();
         if (SDL_getenv("MW3_LAUNCHER_GO")) auto_go_ = auto_ok_ = true;  // checks: its INSTALL pressed
@@ -3901,7 +3509,7 @@ void Launcher::activate(int id) {
       }
       break;
     case kMw1Original:  // Elthial's port (PLAY ORIGINAL): the same folder; it needs no other game
-      mw1_last_ = true, pm_last_ = false, mw1_original_ = true, kit_last_ = -1;
+      mw1_original_ = true;
       if (port_exe_.empty()) {
         status_ = "PLAY ORIGINAL (MechWarrior as released in 1989) is coming later.", status_good_ = false;
         layout();
@@ -3915,7 +3523,7 @@ void Launcher::activate(int id) {
       }
       break;
     case kMw1:
-      mw1_last_ = true, pm_last_ = false, mw1_original_ = false, kit_last_ = -1;
+      mw1_original_ = false;
       if (!mw1_remake_) break;  // no remake in this package: its button is greyed
       if (mw1_remake_ && !mw1_needs().empty()) {  // MW1: the other two games first, said (before its own folder too)
         status_ = "MechWarrior 1 " + mw1_needs() + ".", status_good_ = false;
@@ -3954,6 +3562,7 @@ void Launcher::activate(int id) {
       else if (screen_ == kConfirm) screen_ = kSetupScreen, layout();
       else if (screen_ == kDataScreen) screen_ = kSetupScreen, status_.clear(), layout();
       else if (screen_ == kCopies) screen_ = kSetupScreen, status_.clear(), layout();
+      else if (screen_ == kSetupScreen && files_page_ >= 0) from_files_ = false, open_game_page(files_page_);  // its page
       else screen_ = kMain, from_files_ = false, status_.clear(), layout();
       break;
     case kNotesOk:
@@ -3971,10 +3580,12 @@ void Launcher::activate(int id) {
       }
       break;
     case kFind: search(); break;  // the usual places and the drives first, then the one picker
+    case kPickFile:
     case kCopyPick:
-      status_ = "Pick the copy to use: a disc image, a download, or Mech3.exe.", status_good_ = true;
+      status_ = "Pick the copy to use: " + (kit_files_ >= 0 ? kit_ask_.pick_words : std::string("a disc image, a download, or Mech3.exe")) + ".";
+      status_good_ = true;
       screen_ = kSetupScreen, layout();
-      ask_file(kPoint, kGameFiles, 1);
+      ask_file(kPoint, kGameFiles, kGameFilesCount);
       break;
     case kPickFolder:  // a folder where the picker takes files only: an installed copy's, the disc's
       ask_folder(screen_ == kConfirm ? kAddDisc : kPoint);
@@ -3989,7 +3600,7 @@ void Launcher::activate(int id) {
       break;
     case kPickOther:  // the found copy passed over: the one picker
       if (confirm_go_ == 8) {  // another than the one without music
-        ask_file(kAddDisc, kDiscFiles, 1);
+        ask_file(kAddDisc, kDiscFiles, kDiscFilesCount);
         break;
       }
       if (confirm_go_ == 5) {  // MechWarrior (1989)'s: its picker, from the main screen
@@ -4001,7 +3612,7 @@ void Launcher::activate(int id) {
       status_ = "Pick the copy to use: " + (kit_files_ >= 0 ? kit_ask_.pick_words : std::string("a disc image, a download, or Mech3.exe")) + ".";
       status_good_ = true;
       screen_ = kSetupScreen, layout();
-      ask_file(kPoint, kGameFiles, 1);
+      ask_file(kPoint, kGameFiles, kGameFilesCount);
       break;
     case kAddDisc: {  // a disc in a drive first, then one picker: its image or any file of the disc
       const std::vector<mech3::setup::DiscSource> discs = mech3::setup::find_discs();
@@ -4010,7 +3621,7 @@ void Launcher::activate(int id) {
       } else {
         status_ = "No disc in a drive. Pick its image (.cue .iso), a download (.zip) or any file of the disc.", status_good_ = true;
         layout();
-        ask_file(kAddDisc, kDiscFiles, 1);
+        ask_file(kAddDisc, kDiscFiles, kDiscFilesCount);
       }
       break;
     }
@@ -4078,13 +3689,13 @@ void Launcher::nav(int action) {
       f = ((f < 0 ? (action > 0 ? -1 : 0) : f) + action + n) % n;
       if (buttons_[f].enabled) break;
     }
-    focus_ = f, hot_t_ = 0;
-    show_focus();  // a panel scrolled out of the list comes into it
+    focus_ = f;
+    if (f >= 0) sync_ui(), ui_.into_view(f);  // a panel scrolled out of the list comes into it
     if (f >= 0) sounds_.play(Sounds::kRollover);
   } else if (action == 2 && at >= 0 && at < n && buttons_[at].enabled) {
     activate(buttons_[at].id);
   } else if (action == 3) {
-    activate(screen_ == kMain ? kQuit : kBack);
+    activate(screen_ != kMain ? kBack : update_box_ ? kUpdateNotNow : kQuit);
   }
 }
 
@@ -4106,15 +3717,12 @@ LauncherChoice Launcher::run() {
   const Uint64 t0 = SDL_GetTicksNS();
   auto ms = [](Uint64 a, Uint64 b) { return static_cast<double>(b - a) / 1e6; };
   const std::string dir = assets_dir();
-  art_.load(dir);
   const Uint64 t_art = SDL_GetTicksNS();
   const std::string font = font_path(dir);
-  text_.open(font);
   std::printf("mw3: launcher: font %s\n", font.empty() ? "none found: its text will be blank" : font.c_str());
   const std::string body_font = body_font_path(dir);
-  body_.open(body_font);
   std::printf("mw3: launcher: small lines' font %s\n", body_font.empty() ? "none found" : body_font.c_str());
-  canvas_ = SDL_CreateSurface(W, H, SDL_PIXELFORMAT_RGB565);
+  if (!ui_.init(dir, font, body_font)) std::fprintf(stderr, "mw3: launcher: its screens cannot be set up (RmlUi)\n");
   const Uint64 t_font = SDL_GetTicksNS();
   find_install();
   const Uint64 t_install = SDL_GetTicksNS();
@@ -4185,7 +3793,11 @@ LauncherChoice Launcher::run() {
       update_ = std::make_shared<upgrades::update::Verdict>(check_for_updates(MW3_VERSION));
       if (update_->kind == upgrades::update::Verdict::kNewer) show_update();
     }
+    if (o_.screen == "updatebox") recheck();  // CHECK FOR UPDATES pressed (MW3_UPDATE_API)
     if (o_.screen == "disc") status_ = "No disc in a drive. Pick its image (.cue .iso), a download (.zip) or any file of the disc.";
+    if (o_.screen.rfind("game:", 0) == 0)  // a game's page (its gear): "game:" and its key
+      for (int i = 0; i < upgrades::update::kGameCount; ++i)
+        if (o_.screen.substr(5) == upgrades::update::game_info(upgrades::update::kGames[i]).key) open_game_page(i);
     if (o_.screen == "chifiles") open_kit_files(4, false);  // a kit game's find screen (MW3_CHI_BIN)
     if (o_.screen == "copies" || o_.screen == "pmcopies")  // GAME FILES' list, MW3's or Pirate's Moon's
       files_pm_ = o_.screen == "pmcopies", from_files_ = true, find_copies(), screen_ = kCopies;
@@ -4200,16 +3812,26 @@ LauncherChoice Launcher::run() {
       work_->progress = {"Copying the movies", 0.62, "VIDEO\\C1M3.AVI"};
     }
     layout();
-    if (!buttons_.empty()) hot_ = 0, hot_t_ = 0.4f;
-    scroll_ = 120.0f;
+    if (!buttons_.empty()) hot_ = 0;
     const Uint64 td = SDL_GetTicksNS();
-    draw(0.0f);
-    for (int i = 0; i < 6; ++i) draw(1.0f / 30.0f);  // 0.2 s on: the hovered entry's ripple spreading
+    // Drawn without a window; MW3_LAUNCHER_SHOT_SIZE (checks): as in a window of that many pixels (1708x960).
+    int sw = W, sh = H;
+    if (const char* size = SDL_getenv("MW3_LAUNCHER_SHOT_SIZE")) std::sscanf(size, "%dx%d", &sw, &sh);
+    SDL_Surface* canvas = SDL_CreateSurface(std::clamp(sw, 64, 8192), std::clamp(sh, 64, 8192), SDL_PIXELFORMAT_XRGB8888);
+    ren_ = canvas ? SDL_CreateSoftwareRenderer(canvas) : nullptr;
+    if (!ren_ || !ui_.attach(ren_)) std::fprintf(stderr, "mw3: launcher: its screens cannot be drawn\n");
+    draw();
+    if (const char* y = SDL_getenv("MW3_LAUNCHER_LIST_Y")) ui_.scroll_list(static_cast<float>(std::atof(y)));  // checks: a shot scrolled
+    draw();
+    SDL_RenderPresent(ren_);
     if (hot_ >= 0)
-      std::printf("mw3: launcher: hover %s:%s%s\n", buttons_[hot_].log_name().c_str(), drew_ripple_ ? " ripple" : "", drew_edge_ ? " edge" : "");
+      std::printf("mw3: launcher: hover %s:%s\n", buttons_[hot_].log_name().c_str(), buttons_[hot_].enabled ? " edge" : "");
     std::printf("mw3: launcher: first frame drawn %.0f ms after the start (its draw %.1f ms)\n", ms(t0, SDL_GetTicksNS()),
                 ms(td, SDL_GetTicksNS()));
-    SDL_SaveBMP(canvas_, o_.shot.c_str());
+    SDL_SaveBMP(canvas, o_.shot.c_str());
+    ui_.detach();
+    SDL_DestroyRenderer(ren_), ren_ = nullptr;
+    SDL_DestroySurface(canvas);
     work_.reset();
     return {};
   }
@@ -4222,32 +3844,32 @@ LauncherChoice Launcher::run() {
     status_ = "In use: " + files_dir() + ". FIND THE GAME to choose other files, or PLAY to go on.", status_good_ = true;
   if (vulkan_said) show_vulkan();  // ours: before anything else, so PLAY never reaches the game's box
   layout();
-  // Not high pixel density: the game takes this window (one window into the
+  // A game's own start is not high pixel density: the game takes that window (one window into the
   // game), and its sizes are the window's points (SdlWindow, SdlInput).
   SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE;
+  if (!o_.setup_only && !o_.pm) flags |= SDL_WINDOW_HIGH_PIXEL_DENSITY;
   if (o_.fullscreen) flags |= SDL_WINDOW_FULLSCREEN;
   if (o_.hidden) flags |= SDL_WINDOW_HIDDEN;
   win_ = SDL_CreateWindow(o_.setup_only || o_.pm ? (o_.pm ? "Pirate's Moon" : "MechWarrior 3") : "BattleTech", o_.win_w, o_.win_h, flags);
-  if (!win_ || !(ren_ = SDL_CreateRenderer(win_, nullptr))) {
+  if (!win_ || !(ren_ = SDL_CreateRenderer(win_, nullptr)) || !ui_.attach(ren_)) {
     std::fprintf(stderr, "mw3: launcher: no window (%s): straight to the game\n", SDL_GetError());
     return install_.ok ? LauncherChoice{LauncherChoice::kPlay, install_.dir} : LauncherChoice{};
   }
-  SDL_SetRenderLogicalPresentation(ren_, W, H, SDL_LOGICAL_PRESENTATION_LETTERBOX);
+  // Drawn while its edge is dragged too: the system holds the loop below then (the Mac, Windows) and only asks for the
+  // window's picture.
+  SDL_AddEventWatch(&Launcher::exposed, this);
   // Paced by the display ("pretty slow"): a fixed SDL_Delay(15) was
   // 16 to 31 ms on Windows' 15.6 ms timer, and no vsync let frames tear.
   // MW3_LAUNCHER_NOVSYNC (checks): the timed sleep instead, to compare.
   vsync_ = !SDL_getenv("MW3_LAUNCHER_NOVSYNC") && SDL_SetRenderVSync(ren_, 1);
-  tex_ = SDL_CreateTexture(ren_, SDL_PIXELFORMAT_RGB565, SDL_TEXTUREACCESS_STREAMING, W, H);
-  SDL_SetTextureScaleMode(tex_, SDL_SCALEMODE_LINEAR);
-  Uint64 last = SDL_GetTicks();
   SDL_InitSubSystem(SDL_INIT_GAMEPAD);  // a pad steps through the plates too (nav)
   if (o_.play) auto_ok_ = true, activate(kMw3);  // its notes' OK pressed too
   // Checks: keys or a pad as a list ("next,next,press"), each step logged; with MW3_LAUNCHER_NAV_LATE, once the
   // start's own update check has answered (its footer button is there to reach).
   if (!SDL_getenv("MW3_LAUNCHER_NAV_LATE")) nav_steps();
-  // Checks: GAME FILES opened on Pirate's Moon, as after a click on it.
-  if (const char* g = SDL_getenv("MW3_LAUNCHER_FILES"); g && std::strcmp(g, "pm") == 0) pm_last_ = true, activate(kFiles);
-  else if (g && std::strcmp(g, "mw1") == 0) mw1_last_ = true, activate(kFiles);  // checks: GAME FILES after MW1's line
+  // Checks: GAME FILES opened on Pirate's Moon, or MechWarrior 1's, as from its page.
+  if (const char* g = SDL_getenv("MW3_LAUNCHER_FILES"); g && std::strcmp(g, "pm") == 0) open_files(1);
+  else if (g && std::strcmp(g, "mw1") == 0) open_files(mw1_remake_ ? 2 : 3);
   // Checks: a pick as if made in the find screen's dialog (after any NAV
   // steps: GAME FILES), INSTALL and the notes' OK pressed.
   if (const char* to = SDL_getenv("MW3_LAUNCHER_MOVE_TO")) {  // checks: the data folder's move, its MOVE pressed
@@ -4292,9 +3914,11 @@ LauncherChoice Launcher::run() {
       }
       if (game_) continue;  // the game is starting or running
       if (asking_ || screen_ == kWorking) {
-        if (screen_ == kWorking && e.type == SDL_EVENT_MOUSE_BUTTON_UP && e.button.button == SDL_BUTTON_LEFT)
-          for (const Button& b : buttons_)
-            if (e.button.x >= b.r.x && e.button.x < b.r.x + b.r.w && e.button.y >= b.r.y && e.button.y < b.r.y + b.r.h) activate(b.id);
+        if (screen_ == kWorking && e.type == SDL_EVENT_MOUSE_BUTTON_UP && e.button.button == SDL_BUTTON_LEFT) {
+          sync_ui();
+          ui_.mouse_move(e.button.x, e.button.y);
+          if (const int h = ui_.over(); h >= 0) activate(buttons_[h].id);
+        }
         continue;
       }
       if (e.type == SDL_EVENT_DROP_FILE && e.drop.data) {  // a file or a folder dropped: as picked on this screen
@@ -4302,38 +3926,28 @@ LauncherChoice Launcher::run() {
         continue;
       }
       if (e.type == SDL_EVENT_MOUSE_MOTION) {
-        mouse_x_ = e.motion.x, mouse_y_ = e.motion.y;
-        if (dragging_) {  // the scrollbar's thumb follows the mouse; the list with it
-          const SDL_Rect t = list_thumb();
-          const int room = std::max(1, kListBottom - kListTop - t.h);
-          scroll_list(list_max_ * (static_cast<int>(e.motion.y) - drag_grab_ - kListTop) / room);
-          continue;
-        }
-        const int h = hit(e.motion.x, e.motion.y);
+        if (ui_stale_) sync_ui();
+        ui_.mouse_move(e.motion.x, e.motion.y);
+        const int h = ui_.over();
         if (h != hot_) {
-          hot_ = h, hot_t_ = 0, focus_ = -1;
+          hot_ = h, focus_ = -1;
           if (h >= 0 && buttons_[h].enabled) sounds_.play(Sounds::kRollover);
         }
-      } else if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN && e.button.button == SDL_BUTTON_LEFT && screen_ == kMain &&
-                 list_max_ > 0 && e.button.x >= kListX + kListW - kBarW - 6 && e.button.x < kListX + kListW + 6 &&
-                 e.button.y >= kListTop && e.button.y < kListBottom) {
-        // The scrollbar: its thumb taken to drag, the track above or below it a page.
-        const SDL_Rect t = list_thumb();
-        const int y = static_cast<int>(e.button.y), page = kListBottom - kListTop - kPanelH / 2;
-        if (y >= t.y && y < t.y + t.h) dragging_ = true, drag_grab_ = y - t.y;
-        else scroll_list(list_y_ + (y < t.y ? -page : page));
+      } else if (e.type == SDL_EVENT_WINDOW_MOUSE_LEAVE) {
+        ui_.mouse_leave();
+      } else if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN && e.button.button == SDL_BUTTON_LEFT) {
+        if (ui_stale_) sync_ui();
+        ui_.mouse_move(e.button.x, e.button.y);
+        ui_.mouse_button(true);
+        follow_ = ui_.over() < 0;  // the scrollbar, it may be
       } else if (e.type == SDL_EVENT_MOUSE_BUTTON_UP && e.button.button == SDL_BUTTON_LEFT) {
-        if (dragging_) dragging_ = false;  // the drag's end, never a press
-        else if (hot_ >= 0 && buttons_[hot_].enabled) activate(buttons_[hot_].id);
-      } else if (e.type == SDL_EVENT_MOUSE_WHEEL && screen_ == kMain) {  // the panels, 36 px a notch (a trackpad's parts add up)
-        wheel_left_ += -e.wheel.y * 36.0f;
-        const int step = static_cast<int>(wheel_left_);
-        wheel_left_ -= static_cast<float>(step);
-        if (step) scroll_list(list_y_ + step);
-      } else if (e.type == SDL_EVENT_MOUSE_WHEEL && screen_ == kUpdateScreen) {  // the notes, three lines a notch
-        const size_t per = update_per_page(), last = update_lines_.size() > per ? update_lines_.size() - per : 0;
-        const int step = static_cast<int>(-e.wheel.y * 3.0f);
-        update_top_ = static_cast<size_t>(std::clamp(static_cast<int>(update_top_) + step, 0, static_cast<int>(last)));
+        if (ui_stale_) sync_ui();
+        ui_.mouse_button(false);
+        // A press, never a scrollbar drag's end over a button.
+        if (!follow_ && hot_ >= 0 && buttons_[hot_].enabled) activate(buttons_[hot_].id);
+      } else if (e.type == SDL_EVENT_MOUSE_WHEEL) {  // the panels, the notes
+        ui_.mouse_wheel(e.wheel.y);
+        follow_ = screen_ == kMain;
       } else if (e.type == SDL_EVENT_GAMEPAD_ADDED) {
         SDL_OpenGamepad(e.gdevice.which);  // closed with the subsystem
       } else if (e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
@@ -4382,23 +3996,26 @@ LauncherChoice Launcher::run() {
     if (work_ && work_->done) finish_work();
     take_games_check();
     take_self_check();
+    if (const char* late = SDL_getenv("MW3_LAUNCHER_NAV_LATE"); late && !games_check_ && !self_check_ && !nav_late_) {  // checks: the steps once the start's checks have answered (a path: and that file is there)
+      std::error_code ec;
+      std::fflush(stdout);  // the check reads it as it goes
+      if (late[0] != '/' || fs::exists(late, ec)) nav_late_ = true, nav_steps();
+    }
     if (games_on_ && !install_file_asked_ && SDL_getenv("MW3_LAUNCHER_INSTALL_FILE") && screen_ == kMain && !work_)
-      install_file_asked_ = true, activate(kInstallFile);  // checks: ADD FROM FILE pressed (the picker's MW3_LAUNCHER_PICKER)
+      install_file_asked_ = true, activate(kInstallFile);  // checks: INSTALL FROM A DOWNLOADED FILE pressed (the picker's MW3_LAUNCHER_PICKER)
     if (quit_after_mw1_ && !asking_ && !ask_pending_ && !work_) done_ = true;
     watch_game();
-    const Uint64 now = SDL_GetTicks();
-    const float dt = std::min(0.1f, static_cast<float>(now - last) / 1000.0f);
-    last = now;
     const Uint64 ta = SDL_GetTicksNS();
-    draw(dt);
+    draw();
     const Uint64 tb = SDL_GetTicksNS();
-    present();
+    SDL_RenderPresent(ren_);
     const Uint64 tc = SDL_GetTicksNS();
     if (!frames_) std::printf("mw3: launcher: first frame shown %.0f ms after the start\n", ms(t0, tc));
     if (ask_pending_) {
       std::printf("mw3: launcher: the picker's notice shown\n");
       open_picker();
     }
+    mouse_steps();
     ++frames_, draw_ms_ += ms(ta, tb), present_ms_ += ms(tb, tc);
     if (quit_after_ > 0 && frames_ >= quit_after_) done_ = true;  // MW3_LAUNCHER_FRAMES (checks)
     if (!vsync_) {  // no vsync: the rest of a 60th of a second, to the nanosecond
@@ -4406,6 +4023,7 @@ LauncherChoice Launcher::run() {
       if (spent < frame) SDL_DelayPrecise(frame - spent);
     }
   }
+  if (const char* path = SDL_getenv("MW3_LAUNCHER_FRAME_SHOT")) save_frame(path);  // checks: the last frame, as this renderer draws it
   if (frames_) {
     const double secs = ms(t0, SDL_GetTicksNS()) / 1000.0;
     std::printf("mw3: launcher: %d frames, %.1f a second; the draw %.2f ms, the present %.2f ms a frame (%s)\n", frames_,
@@ -4421,7 +4039,8 @@ LauncherChoice Launcher::run() {
     save_install(o_.write_dir, choice_.install);
     // The window goes on to the game, its renderer freed first (a window
     // drawn by an SDL renderer cannot be the GPU device's too).
-    if (tex_) SDL_DestroyTexture(tex_), tex_ = nullptr;
+    SDL_RemoveEventWatch(&Launcher::exposed, this);
+    ui_.detach();
     if (ren_) SDL_DestroyRenderer(ren_), ren_ = nullptr;
     // Its window's events so far are the launcher's: a focus lost to another
     // app would reach the game as a deactivation and leave it waiting.
