@@ -359,6 +359,7 @@ class Launcher {
     sdlfe::stop_asking();
     games_check_.reset();
     self_check_.reset();
+    SDL_RemoveEventWatch(&Launcher::exposed, this);
     ui_.detach();
     if (ren_) SDL_DestroyRenderer(ren_);
     if (win_) SDL_DestroyWindow(win_);
@@ -404,6 +405,12 @@ class Launcher {
   void sync_ui();
   void save_frame(const std::string& path);
   void mouse_steps();
+  static bool SDLCALL exposed(void* user, SDL_Event* e) {
+    auto* l = static_cast<Launcher*>(user);
+    if (e->type == SDL_EVENT_WINDOW_EXPOSED && e->window.data1 == 1 && l->ren_ && l->win_ && SDL_GetWindowID(l->win_) == e->window.windowID)
+      l->draw(), SDL_RenderPresent(l->ren_);
+    return true;
+  }
   int header_game() const;
   static constexpr int kNotesTop = 162;  // BEFORE YOU PLAY's first note
   struct NotesLayout {
@@ -3673,7 +3680,9 @@ LauncherChoice Launcher::run() {
     std::fprintf(stderr, "mw3: launcher: no window (%s): straight to the game\n", SDL_GetError());
     return install_.ok ? LauncherChoice{LauncherChoice::kPlay, install_.dir} : LauncherChoice{};
   }
-  SDL_SetWindowMinimumSize(win_, W / 2, H / 2);
+  // Drawn while its edge is dragged too: the system holds the loop below then (the Mac, Windows) and only asks for the
+  // window's picture.
+  SDL_AddEventWatch(&Launcher::exposed, this);
   // Paced by the display ("pretty slow"): a fixed SDL_Delay(15) was
   // 16 to 31 ms on Windows' 15.6 ms timer, and no vsync let frames tear.
   // MW3_LAUNCHER_NOVSYNC (checks): the timed sleep instead, to compare.
@@ -3850,6 +3859,7 @@ LauncherChoice Launcher::run() {
     save_install(o_.write_dir, choice_.install);
     // The window goes on to the game, its renderer freed first (a window
     // drawn by an SDL renderer cannot be the GPU device's too).
+    SDL_RemoveEventWatch(&Launcher::exposed, this);
     ui_.detach();
     if (ren_) SDL_DestroyRenderer(ren_), ren_ = nullptr;
     // Its window's events so far are the launcher's: a focus lost to another
