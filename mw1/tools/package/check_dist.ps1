@@ -37,10 +37,12 @@ foreach ($f in 'ui\launcher.rml', 'ui\launcher.rcss', 'font.ttf', 'font_body.ttf
   if (-not (Test-Path -LiteralPath (Join-Path $Dist "assets\launcher\$f"))) { $missing += "assets\launcher\$f (the find screen)" }
 }
 # The libraries linked into mw1.exe carry no file of their own: their licences must be there.
-foreach ($lib in 'libarchive-*', 'zlib-*', 'xz-*', 'imgui', 'rmlui', 'saira-condensed') {
+foreach ($lib in 'libarchive-*', 'zlib-*', 'xz-*', 'imgui', 'rmlui', 'saira-condensed', 'freetype-*', 'SDL3_ttf-*') {
   $dir = Get-ChildItem -LiteralPath (Join-Path $Dist 'licenses') -Directory -Filter $lib -ErrorAction SilentlyContinue
   if (-not $dir -or -not (Get-ChildItem -LiteralPath $dir[0].FullName -File)) { $missing += "licenses\$lib (its licence)" }
 }
+# FreeType's own, the licence it is used under.
+if (-not (Get-ChildItem -Path (Join-Path $Dist 'licenses\freetype-*\FTL.TXT') -ErrorAction SilentlyContinue)) { $missing += 'licenses\freetype-*\FTL.TXT' }
 # No local path or user name in any file (release.md, Privacy; tools/deps/check_paths.py
 # on the Mac and Linux): every byte, as ASCII and UTF-16. The public release addresses are allowed:
 # github.com/<user>, the updater's api.github.com/repos/<user>, and the backup's git.owenmorgan.com/<user> and
