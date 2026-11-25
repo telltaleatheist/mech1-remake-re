@@ -5,6 +5,17 @@ Tick an item when it is merged into `main`.
 
 **How this file works (the owner, 2026-11-17):** every bug and feature the owner raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 149. [ ] The arctic maps' enemies stood like statues; MW1's enemies come *(branch mac5/remake-statues)*
+- **The owner (2026-11-24, 1.1.1, a defence on mw3c4b ia1):** the enemies stood still until he came near or hit them; he expected
+  them to come down on him. Then: act like MW1, on every map.
+- **Cause (the statues):** our own arctic records (`data/arctic/ia1`, `ia2`, item 44) had no `p8`. Pilot params +0x88
+  (awake) stayed 0, so a pilot was asleep until the player came within its sight (650 m): no patrol, no target. Every
+  shipped Instant Action enemy has `p8` with awake 1 (MW3's 108, PM's 144). It is the same under MW3's AI (`PM_AI=0`):
+  the rule is in both. Measured headless: on both maps, three of three enemies stood at throttle 0 for 40 s; four of five
+  contracts on other maps came or patrolled.
+- **Fixed (data):** both maps' enemies carry MW3's own Instant Action `p6`, `p8`, `p9`, `p10` (its commonest), the
+  lancemates theirs.
+
 ## 148. [x] MW1's buttons are silent *(done 2026-11-24; in 1.1.1)*
 - **What:** none of MW1's layouts names a button sound, so no button made one, the pause's and the options' too
   (mech3-re issue #19's gap on MW1's side).
