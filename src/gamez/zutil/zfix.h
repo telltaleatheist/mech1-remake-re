@@ -9,6 +9,14 @@ namespace zfix {
 // a step of x a frame becomes x * 30 a second.
 constexpr float kReferenceFps = 30.0f;
 
+// RAW MOUSE's default (issue #15): mw3.cfg's rawmouse=, else this. Off on the Mac: a Magic Mouse's counts are
+// several times the system pointer's pixels (2026-11-25, docs/input.md section 14).
+#if defined(__APPLE__)
+constexpr bool kRawMouseDefault = false;
+#else
+constexpr bool kRawMouseDefault = true;
+#endif
+
 struct Options {
   bool per_second = true;  // FIX (B): per-frame steps scaled by dt (fixes.md, Frame rate)
   // The fixes that are always on (docs/upgrades-sort.md, (a)): the game never
@@ -36,7 +44,7 @@ struct Options {
   // DirectInput gave the original, not the system pointer's speed curve; a
   // display-side choice like wide_menus: mw3.cfg's rawmouse=0, --no-raw-mouse
   // (input.md section 14).
-  bool raw_mouse = true;
+  bool raw_mouse = kRawMouseDefault;
   // Ours (W56, 2026-11-03), with `fixed`: a stick's throttle lever covers
   // reverse too (mech3::lever_throttle); mw3.cfg's throttle_reverse=0 keeps
   // the original's stop at the bottom.

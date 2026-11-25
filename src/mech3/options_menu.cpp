@@ -65,13 +65,14 @@ void GameOptionsScreen::UpgradesButton::on_left_up() {
 GameOptionsScreen::GameOptionsScreen(Engine& e, Handle s)
     : MenuScreen(e, s), accept(e), back(e), difficulty(e), camera(e), invincible(e, 1), infinite_ammo(e, 1),
       heat(e, 0), torso(e), throttle(e), jump_jets(e), invert_y(e), gfx_audio(e, 0x60986c),
-      controls(e, 0x609870), upgrades(e) {
+      controls(e, 0x609870), upgrades(e), raw_mouse(e) {
   target_buffers(e);
   const bool moving = !e.fast_menu();
   if (load("dlgOptions.zrd", "GAME_OPTION_DIALOG", moving)) {
     borrow_background(true);
     bind_primitive(&lines, "LINES");
     bind_primitive(&lines1, "LINES1");
+    if (options_sensitivity_slider()) bind_primitive(&raw_mouse_box, "RAW_MOUSE_BOX");  // ours
     bind_button(&accept, "ACCEPT");
     bind_button(&back, "BACK");
     bind_button(&gfx_audio, "GFX_AUDIO_OPTIONS");
@@ -82,6 +83,7 @@ GameOptionsScreen::GameOptionsScreen(Engine& e, Handle s)
       remove(&background);
       remove(&lines);
       remove(&lines1);
+      remove(&raw_mouse_box);
       accept.set_baked(true);
       back.set_baked(true);
       gfx_audio.set_baked(true);
@@ -98,6 +100,7 @@ GameOptionsScreen::GameOptionsScreen(Engine& e, Handle s)
     bind_button(&jump_jets, "MW2JJETS");
     bind_button(&invert_y, "CMD_INVERT_MOUSE_Y");
     if (options_sensitivity_slider()) has_sensitivity = bind_button(&sensitivity, "MOUSE_SENSITIVITY");  // ours
+    if (options_sensitivity_slider()) has_raw_mouse = bind_button(&raw_mouse, "RAW_MOUSE");               // ours
     unload();
   }
   set_flags_all(0);
@@ -129,6 +132,7 @@ void GameOptionsScreen::apply(int32_t to_options) {
     jump_jets.select(e.mw2_jump_jets() != 0);
     invert_y.select(e.mouse_accel_y() < 0.0f);
     if (has_sensitivity) sensitivity.set_value(slider_of_sensitivity(std::fabs(e.mouse_accel_x())));
+    if (has_raw_mouse) raw_mouse.select(zfix::options().raw_mouse);
     return;
   }
   e.set_game_intensity(difficulty.selected_value());
@@ -139,6 +143,10 @@ void GameOptionsScreen::apply(int32_t to_options) {
   e.set_torso_auto_return(torso.selected_value());
   e.set_throttle_const(throttle.selected_value());
   e.set_mw2_jump_jets(jump_jets.selected_value());
+  if (has_raw_mouse) {  // ours: at once (sdl_input.h, raw_mouse), saved to mw3.cfg
+    zfix::options().raw_mouse = raw_mouse.selected_value() != 0;
+    if (auto& save = options_upgrades_saver()) save("rawmouse", zfix::options().raw_mouse);
+  }
   if (has_sensitivity) {  // ours: X and Y's magnitude from the slider, Y's sign from the invert box
     const float s = sensitivity_of_slider(sensitivity.value);
     e.set_mouse_accel_x(s);
@@ -190,7 +198,7 @@ void UpgradesScreen::AcceptButton::on_left_up() {
 // own wading (mech_move.cpp, Pirate's Moon 0x00418fc0; 2026-11-10).
 UpgradesScreen::UpgradesScreen(Engine& e, Handle s)
     : MenuScreen(e, s), accept(e), back(e), water(e), mfb_regroup(e), improved_ai(e), artemis(e), small_fixes(e),
-      wide_menus(e), raw_mouse(e), small_list(e) {
+      wide_menus(e), small_list(e) {
   target_buffers(e);
   const bool moving = !e.fast_menu();
   if (load("dlgOptions.zrd", "UPGRADES_DIALOG", moving)) {
@@ -198,7 +206,7 @@ UpgradesScreen::UpgradesScreen(Engine& e, Handle s)
     bind_primitive(&lines, "LINES");
     bind_primitive(&lines1, "LINES1");
     char name[8];
-    for (int k = 0; k < 7; ++k) std::snprintf(name, sizeof(name), "BOX%d", k + 1), bind_primitive(&box[k], name);
+    for (int k = 0; k < 6; ++k) std::snprintf(name, sizeof(name), "BOX%d", k + 1), bind_primitive(&box[k], name);
     bind_button(&accept, "ACCEPT");
     bind_button(&back, "BACK");
     if (!moving) {
@@ -213,7 +221,6 @@ UpgradesScreen::UpgradesScreen(Engine& e, Handle s)
     static const char* const kNames[5] = {"WATER", "MFB_REGROUP", "IMPROVED_AI", "ARTEMIS", "SMALL_FIXES"};
     for (int k = 0; k < 5; ++k) bind_button(five[k], kNames[k]);
     bind_button(&wide_menus, "WIDE_MENUS");
-    bind_button(&raw_mouse, "RAW_MOUSE");
     bind_button(&small_list, "SMALL_LIST");
     unload();
   }
@@ -241,19 +248,16 @@ void UpgradesScreen::apply(int32_t to_options) {
   if (!to_options) {
     for (size_t k = 0; k < sw.size(); ++k) five[k]->select(o.*sw[k].field);
     wide_menus.select(o.wide_menus);
-    raw_mouse.select(o.raw_mouse);
     return;
   }
   const bool hosts = upgrades::hosts();
   if (!hosts)
     for (size_t k = 0; k < sw.size(); ++k) o.*sw[k].field = five[k]->selected_value() != 0;
   o.wide_menus = wide_menus.selected_value() != 0;
-  o.raw_mouse = raw_mouse.selected_value() != 0;  // the next capture takes it (sdl_input.h, raw_mouse)
   if (auto& save = options_upgrades_saver()) {
     if (!hosts)
       for (size_t k = 0; k < sw.size(); ++k) save((std::string("upgrade_") + sw[k].key).c_str(), o.*sw[k].field);
     save("widemenus", o.wide_menus);
-    save("rawmouse", o.raw_mouse);
   }
 }
 

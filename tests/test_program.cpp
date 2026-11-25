@@ -20708,16 +20708,23 @@ TEST(playtest_w40_controls_screen_accept_saves_cancel_does_not_headless) {
   EXPECT(w40_mouse(cancelled, kW40Trigger1) != 3);  // the cancelled change never saved
 }
 
-// MOUSE SENSITIVITY (ours, 2026-11-02): a slider on the graphics and
-// audio screen (our record edit among the volume sliders) sets MouseAccelX
-// and Y's magnitude, 0.5 to 5.0 in tenths (3.0 until issue #15's raw mouse), Y keeping its sign (the game
+// MOUSE SENSITIVITY (ours, 2026-11-02): a slider on the game options (our
+// record edit under INVERT MOUSE Y) sets MouseAccelX
+// and Y's magnitude, 0.1 to 5.0 in tenths (0.5 to 3.0 until issue #15's raw mouse), Y keeping its sign (the game
 // options' invert box, which keeps the magnitude); untouched, the original's 1.3. The mission's mouse reads scale by it (zInput's accel,
-// set from the options when a mission starts, 0x00480df0's 282).
+// set from the options when a mission starts, 0x00480df0's 282). RAW MOUSE
+// (moved here from the upgrades page 2026-11-25) is the row under it: at once on ACCEPT and saved, left by BACK.
 TEST(options_mouse_sensitivity_slider_headless) {
   if (!have_game()) return;
   EXPECT(mech3::sensitivity_of_slider(mech3::slider_of_sensitivity(1.3f)) == 1.3f);  // the default round-trips
-  EXPECT(mech3::sensitivity_of_slider(0.0f) == 0.5f && mech3::sensitivity_of_slider(1.0f) == 5.0f);
-  EXPECT(std::fabs(mech3::sensitivity_of_slider(0.5f) - 2.8f) < 1e-6f);  // tenths (2.75 rounded)
+  EXPECT(mech3::sensitivity_of_slider(0.0f) == mech3::kSensitivityLow && mech3::sensitivity_of_slider(1.0f) == 5.0f);
+  const float middle = mech3::sensitivity_of_slider(0.5f);  // in tenths
+  EXPECT(std::fabs(middle - (mech3::kSensitivityLow + mech3::kSensitivityHigh) / 2) < 0.0501f);
+  EXPECT(std::fabs(middle * 10.0f - std::round(middle * 10.0f)) < 1e-4f);
+  for (int t = 1; t <= 50; ++t) {  // every tenth comes back as itself, both ends too
+    const float s = static_cast<float>(t) / 10.0f;
+    EXPECT(mech3::sensitivity_of_slider(mech3::slider_of_sensitivity(s)) == s);
+  }
   SavedMounts keep;
   zutl::mounts() = zutl::Mounts{};
   zutl::mount(MW3_GAME_DIR);
@@ -20738,7 +20745,9 @@ TEST(options_mouse_sensitivity_slider_headless) {
   int stage = 0;
   bool bound = false, default_kept = false, set_both = false, invert_after = false, sens_after = false, click_moves = false;
   bool page = false, page_read = false, page_applied = false;
-  std::vector<std::string> saved;
+  bool raw_row = false, raw_read = false, raw_at_once = false, raw_back = false, page_left_raw = false;
+  const bool raw_was = zfix::options().raw_mouse;
+  std::vector<std::string> saved, raw_saved;
   mech3::options_upgrades_saver() = [&](const char* key, bool on) { saved.push_back(std::string(key) + "=" + (on ? "1" : "0")); };
   {
     mech3::GameEngine engine(p, "mech3.exe -nofmv");
@@ -20787,19 +20796,39 @@ TEST(options_mouse_sensitivity_slider_headless) {
           s.image = keep_image, s.fill = keep_fill, s.empty = keep_empty;
         }
         page = g->has_upgrades;
+        // RAW MOUSE: under the slider, left of BACK, read, then ACCEPT's apply the other way and saved.
+        raw_row = g->has_raw_mouse && g->raw_mouse.count() == 2 && g->raw_mouse.get_x() == g->invert_y.get_x() &&
+                  g->sensitivity.get_y() == 363 && g->raw_mouse.get_y() == 389 && g->raw_mouse_box.get_y() == 389;
+        g->apply(0);
+        raw_read = g->raw_mouse.selected_value() == (raw_was ? 1 : 0);
+        saved.clear();
+        g->raw_mouse.select(!raw_was);
+        g->apply(1);
+        raw_at_once = zfix::options().raw_mouse == !raw_was;
+        raw_saved = saved;
+        saved.clear();
+        g->raw_mouse.select(raw_was);
+        g->back.on_left_up();  // BACK: neither taken nor saved
+        raw_back = zfix::options().raw_mouse == !raw_was && saved.empty();
+        stage = 10;
+      } else if (stage == 10 && app.current() == &mech3::states().main && !app.pending() && mech3::main_menu()) {
+        const_cast<mech3::MainMenu*>(mech3::main_menu())->buttons[mech3::MainMenuButton::kOptions].on_left_up();
+        stage = 11;
+      } else if (stage == 11 && g) {  // entered again: the kept one, not the one BACK left
+        raw_back = raw_back && g->raw_mouse.selected_value() == (raw_was ? 0 : 1);
         g->upgrades.on_left_up();  // the UPGRADES page
         stage = 2;
       } else if (stage == 2 && u) {
         u->apply(0);  // the five off (set_all above), wide menus as they are
         page_read = u->wide_menus.selected_value() == (zfix::options().wide_menus ? 1 : 0) &&
-                    u->raw_mouse.selected_value() == (zfix::options().raw_mouse ? 1 : 0) && u->raw_mouse.count() == 2 &&
                     u->small_list.item_count() == static_cast<int32_t>(upgrades::small_fixes_list().size());
         for (mech3::OnOffCycle* c : u->five) page_read = page_read && c->selected_value() == 0;
-        u->water.select(1), u->small_fixes.select(1), u->wide_menus.select(0), u->raw_mouse.select(0);
+        u->water.select(1), u->small_fixes.select(1), u->wide_menus.select(0);
         u->apply(1);
         const zfix::Options& o = zfix::options();
+        page_left_raw = o.raw_mouse == !raw_was;
         page_applied = o.water && o.small_fixes && !o.mfb_regroup && !o.improved_ai && !o.artemis && !o.wide_menus &&
-                       !o.raw_mouse && !o.fixed;  // the page never touches the always-on fixes
+                       !o.fixed;  // the page never touches the always-on fixes
         stage = 3;
       }
     };
@@ -20822,9 +20851,13 @@ TEST(options_mouse_sensitivity_slider_headless) {
   std::printf("  upgrades: page %d, read %d, applied %d, saved %zu\n", page, page_read, page_applied, saved.size());
   EXPECT(stage == 3 && bound && default_kept && set_both && invert_after && sens_after);
   EXPECT(click_moves);
+  std::printf("  raw mouse: row %d, read %d, at once %d, left by BACK %d, kept by the page %d; saved %s\n", raw_row, raw_read, raw_at_once,
+              raw_back, page_left_raw, raw_saved.empty() ? "nothing" : raw_saved[0].c_str());
+  EXPECT(raw_row && raw_read && raw_at_once && raw_back && page_left_raw);
+  EXPECT(raw_saved == std::vector<std::string>({raw_was ? "rawmouse=0" : "rawmouse=1"}));
   EXPECT(page && page_read && page_applied);
   EXPECT(saved == std::vector<std::string>({"upgrade_water=1", "upgrade_mfb_regroup=0", "upgrade_improved_ai=0", "upgrade_artemis=0",
-                                            "upgrade_small_fixes=1", "widemenus=0", "rawmouse=0"}));
+                                            "upgrade_small_fixes=1", "widemenus=0"}));
   mech3::options_upgrades_saver() = nullptr;
   // The mission's step: zInput's read counts times the acceleration (cut toward zero).
   zin::State& st = zin::state();
@@ -20905,7 +20938,12 @@ TEST(options_our_records_take_the_dialogs_font) {
                 font("WIDE_MENUS").c_str(),
                 zrdr::find(r, "UPGRADES_DIALOG") != nullptr, zrdr::find(r, "MOUSE_SENSITIVITY") != nullptr);
     EXPECT(font("CONTROLS_CFG") == want && font("UPGRADES") == want && font("WIDE_MENUS") == want);
-    for (const char* k : {"WATER", "MFB_REGROUP", "IMPROVED_AI", "ARTEMIS", "SMALL_FIXES"}) EXPECT(font(k) == want);
+    for (const char* k : {"WATER", "MFB_REGROUP", "IMPROVED_AI", "ARTEMIS", "SMALL_FIXES", "RAW_MOUSE"}) EXPECT(font(k) == want);
+    // RAW MOUSE's one row is the game options', not the page's (2026-11-25).
+    zrdr::Node* page = zrdr::find(r, "UPGRADES_DIALOG");
+    zrdr::Node* game = zrdr::find(r, "GAME_OPTION_DIALOG");
+    EXPECT(page && !zrdr::find(page, "RAW_MOUSE") && !zrdr::find(page, "BOX7") && zrdr::find(page, "BOX6"));
+    EXPECT(game && zrdr::find(game, "RAW_MOUSE") && zrdr::find(game, "RAW_MOUSE_BOX"));
     EXPECT(zrdr::find(r, "UPGRADES_DIALOG") != nullptr && zrdr::find(r, "MOUSE_SENSITIVITY") != nullptr);
     zrdr::free_node(r);
     zrdr::close_archives(true);
@@ -26317,7 +26355,7 @@ namespace {
 struct OptionsPlace {
   int32_t game_origin = -1, gfx_origin = -1;
   int32_t accept[4] = {}, resolution[4] = {};
-  bool sensitivity = false, upgrades = false;  // ours on the game options: bound
+  bool sensitivity = false, raw_mouse = false, upgrades = false;  // ours on the game options: bound
   int32_t upgrades_origin = -1;                // the UPGRADES page, reached from them and left by BACK
 };
 OptionsPlace c1m1_options_place(int32_t mode) {
@@ -26403,7 +26441,7 @@ OptionsPlace c1m1_options_place(int32_t mode) {
         if (!g) return;
         out.game_origin = g->origin_x;
         rect(g->accept, out.accept);
-        out.sensitivity = g->has_sensitivity, out.upgrades = g->has_upgrades;
+        out.sensitivity = g->has_sensitivity, out.raw_mouse = g->has_raw_mouse, out.upgrades = g->has_upgrades;
         if (g->has_upgrades) g->upgrades.on_left_up(), step = 10;
         else g->gfx_audio.on_left_up(), step = 2;
       } else if (os->kind == mech3::OptionsState::kUpgrades && step == 10) {
@@ -26603,7 +26641,7 @@ TEST(mission_c1m1_options_from_the_pause_keep_the_menus_frame_headless) {
     std::printf("options from the pause at mode %d: origins %d %d, ACCEPT %d %d %d %d, RESOLUTION %d %d %d %d\n", mode,
                 v.game_origin, v.gfx_origin, v.accept[0], v.accept[1], v.accept[2], v.accept[3], v.resolution[0],
                 v.resolution[1], v.resolution[2], v.resolution[3]);
-    EXPECT(v.game_origin == 0 && v.gfx_origin == 0 && v.upgrades_origin == 0 && v.sensitivity && v.upgrades);
+    EXPECT(v.game_origin == 0 && v.gfx_origin == 0 && v.upgrades_origin == 0 && v.sensitivity && v.raw_mouse && v.upgrades);
     EXPECT(std::equal(v.accept, v.accept + 4, v5.accept) && std::equal(v.resolution, v.resolution + 4, v5.resolution));
   }
   EXPECT(v5.accept[2] > 0 || v5.accept[0] > 0);

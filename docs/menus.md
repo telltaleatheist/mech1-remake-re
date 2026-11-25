@@ -189,7 +189,8 @@ AUDIO on 11-07, pm-tests.md front-end item 3): the volumes' slider record
 under INVERT MOUSE Y, just below the panel's frame (the nine rows fill it),
 its label spaced as the original's ("M O U S E   S E N S I T I V I T Y",
 three spaces between words as "I N V E R T   M O U S E") at the column's x.
-It sets MouseAccelX and Y's magnitude, 0.5 to 3.0 in tenths, and INVERT
+It sets MouseAccelX and Y's magnitude, 0.1 to 5.0 in tenths (0.5 to 3.0 before
+RAW MOUSE; `kSensitivityLow`, `kSensitivityHigh`), and INVERT
 MOUSE Y only Y's sign, whatever the bug-fix switch (the original's reset to
 1.3 stays for a screen without the slider: the probes). It starts from
 MouseAccelX, the original's 1.3 untouched, so a player who never moves it
@@ -197,6 +198,19 @@ plays as the original; saved as MouseAccelX/Y with the other settings; a
 mission takes them at its start, the menus keep 1.3 (CoreState::leave).
 Bound only where the program turns it on (`options_sensitivity_slider`).
 Not behind the bug-fix switch: an option whose default is the original's.
+
+RAW MOUSE (ours, issue #15; input.md section 14) is the row under it since
+2026-11-25: on the Mac with a Magic Mouse it was about 6.5 times the system
+pointer, past what the slider's lowest could make up for, and on the UPGRADES
+page (2026-11-21 to 11-25) nobody looked for it. INVERT MOUSE Y's record
+at (245, 389), the column's pitch below the slider's label, on the shell's
+`textbox70` (RAW_MOUSE_BOX at (242, 389): 94 wide, the column's boxes are in
+`option1_lines` and 103), on a wide canvas in the left group with the rest.
+ACCEPT takes it at once (a held mouse too) and saves mw3.cfg's `rawmouse=`
+through `options_upgrades_saver`; BACK leaves it. Bound with the slider.
+`sdl_program_mouse_settings_stay_across_starts` sets the three mouse rows on
+the real screens, from the menus and the pause, and reads them back in new
+programs (another pilot, the controls' defaults, the launcher's start).
 
 **UPGRADES** (ours, 2026-11-07, item 4): a button under CONTROLS
 inside the screens' bracket (GRAPHICS & AUDIO's record at y 160), from the
@@ -207,10 +221,9 @@ options' `option1_lines` would leave seven of its nine boxes empty) and a
 `textbox70` under each switch's ON/OFF row, the arrows at the box's ends.
 Since 1.1.0 (2026-11-10; docs/upgrades-sort.md) it holds the five
 upgrades, WATER MOVEMENT, MFB REGROUP, IMPROVED AI, ARTEMIS TRACKING and SMALL
-FIXES (zfix's five, at once), WIDE MENUS (from the next screen made) and,
-since issue #15 (2026-11-21), RAW MOUSE (at once; input.md section 14), one
-column in the frame at y 64 to 244; ACCEPT saves them to mw3.cfg
-(`upgrade_<name>=`, `widemenus=`, `rawmouse=`). On the right, SMALL FIXES (our list record,
+FIXES (zfix's five, at once), and WIDE MENUS (from the next screen made), one
+column in the frame at y 64 to 214; ACCEPT saves them to mw3.cfg
+(`upgrade_<name>=`, `widemenus=`). On the right, SMALL FIXES (our list record,
 read only: no row lit or picked, 14 rows, the arrows scroll) lists the small
 fixes in plain words (`upgrades::small_fixes_list`), and a line under the
 frame says what off means, or, for a joiner in a network game, that the five
