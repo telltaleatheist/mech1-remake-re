@@ -644,8 +644,10 @@ the counts). Players of #15 and the playtest before W19 felt the curve: slow str
 shrink (SDL's copy of Windows' curve, about 0.57 px a count at the slowest;
 macOS's own, steeper), fast ones grow.
 
-RAW MOUSE (ours, the Upgrades page's seventh row, beside WIDE MENUS; on by
-default; mw3.cfg `rawmouse=0/1`, `--raw-mouse`, `--no-raw-mouse`;
+RAW MOUSE (ours, the game options' row under MOUSE SENSITIVITY, menus.md
+section 4; the Upgrades page's seventh row until 2026-11-25; on by default,
+off on the Mac since 2026-11-25, `zfix::kRawMouseDefault`; mw3.cfg
+`rawmouse=0/1`, `--raw-mouse`, `--no-raw-mouse`;
 `zfix::options().raw_mouse`, a display-side choice, not one of the five
 switches the network host sends): a held mouse is the counts.
 
@@ -665,7 +667,13 @@ switches the network host sends): a held mouse is the counts.
 The counts keep section 10's scale (the frame's width over the window's), so
 a count is a desktop pixel's worth as Windows moves the cursor with Enhance
 pointer precision off. MOUSE SENSITIVITY's top went from 3.0 to 5.0 for a
-low-resolution mouse. The mission's line (section 13) adds `raw mouse off`,
+low-resolution mouse. The other way, a Magic Mouse on the Mac (about 1,600
+counts an inch; a mission of 2026-11-25: 3,619 raw counts where SDL had 560
+pixels, 6.5 times) was too fast even at the slider's then lowest, 0.5: the
+slider goes to 0.1, and the Mac starts with RAW MOUSE off, the system
+pointer's speed (a saved `rawmouse=` wins either way). The mission's line said
+MOUSE SENSITIVITY 1.30 whatever was set until then: it was read after
+CoreState::leave's 1.3; it says the mission's own now. The mission's line (section 13) adds `raw mouse off`,
 `on`, `on, GCMouse` or `on, the system's motion` and the raw counts.
 
 Tests: `sdl_issue15_raw_mouse` (the hint both ways and at once; the source's
@@ -673,7 +681,9 @@ counts with SDL's accelerated motion dropped; a silent source's slow motion
 all taken; SDL's dropped again when it comes back; off, the source not
 read; breaking the hold, so SDL's motion passes beside the source's, reads
 170 for 20 and fails), `options_mouse_sensitivity_slider_headless` (the
-slider's 0.5..5.0 and the page's RAW MOUSE read, applied and saved). Not
+slider's 0.1..5.0; RAW MOUSE under it read, taken at once and saved by ACCEPT,
+left by BACK, and kept by the Upgrades page's ACCEPT; without the save it
+fails, and with the row on the page again). Not
 checked with a hand on a mouse: GCMouse's counts and their sign on the
 Mac, and the feel on Windows against the original.
 
