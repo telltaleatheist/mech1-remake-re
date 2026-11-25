@@ -485,8 +485,8 @@ rebuild-game.txt above it), so it is never linked as one installed without it.
 
 At the start, a game with nothing beside the launcher looks for such a copy
 (`find_link`, `sdlfe::games::found_elsewhere`): its record, Windows' uninstall
-entry for its Setup (the AppId's InstallLocation; MW3, Pirate's Moon and MW1
-Remake), and
+entry for its Setup (the AppId's InstallLocation; MW3, Pirate's Moon, MW1
+Remake, MW1 Rebuild and Inception), and
 the Mac's /Applications and ~/Applications. Each is checked before it is
 trusted (`identify`): the file is there and its stamp
 (MW3-PROGRAM-VERSION) is this game's release, or, for an AppImage (its stamp
@@ -591,7 +591,11 @@ card whose games are all COMING SOON or COMING LATER is greyed.
 MW1 Rebuild and Inception's two are on the setup kit's contract (below): the
 launcher reads their `--status` at the start and after each run or install
 (its state and note on the card) and PLAY starts them plain; their own setup
-screen opens when their game files are missing. Their names: `mw1r`
+screen opens when their game files are missing. One that serves its setup
+(`"setup": 1`) goes through the launcher's screens first while its files are
+not ready, or were only found by its own search and not set up (2026-11-25:
+ready with the note "found by the search, not set up yet", both games' words;
+`kit_set_up`). Their names: `mw1r`
 (`mw1r-v`, `MW1-Rebuild-*`), `chi` (`chi-v`, `CHI-Rebuild-*`), `chirm`
 (`chirm-v`, `CHI-Remake-*`); `MW3_MW1R_BIN`, `MW3_CHI_BIN`, `MW3_CHIRM_BIN`
 for the checks.
@@ -870,6 +874,10 @@ named install or `--install-from`/`--patch`; `--no-launcher` skips it):
   ripple"): `mech3::menu_ripple_step` (menu_ripple.h), the one SlideButton
   runs (0x00485650): from 20 pixels, 120 a second, the amplitude 7 less 0.3
   a 30 fps frame; drawn by 0x00558dd0. `launcher_ripple_matches_the_main_menus`.
+- Pacing: vsync never alone (2026-11-25). macOS does not hold a present back for a window not on screen (behind a
+  fullscreen game): 1.5.0 drew some 950 frames a second there, every one with new drawables, and took 25 to 55 GB.
+  A frame now takes at least 0.9 of the display's refresh, and a window the system calls covered or minimised waits
+  100 ms between frames, any event at once. `MW3_LAUNCHER_UNPACED` (checks) is a present that does not wait.
 - Paced by vsync (else a precise sleep to 60 a second). Timed on the reference PC
   (2026-10-31): the first frame drawn 306 ms after the start (art 86 ms,
   the install search 197 ms), shown in a window at 339 ms; 55.9 frames a
