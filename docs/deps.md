@@ -44,7 +44,8 @@ What is built:
   make_app.sh --deps and make-appimage.sh.
 - **SDL3**: shared, no tests or examples.
 - **FreeType** 2.14.3, static and
-  position-independent, inside SDL3_ttf, with none of its optional
+  position-independent, inside SDL3_ttf and, for the launcher's RmlUi
+  (`third_party/rmlui`, 2026-11-24), linked into the programs, with none of its optional
   libraries (zlib, bzip2, PNG, HarfBuzz, Brotli): the game's TrueType fonts
   need none. TTF text depends on FreeType's version: 2.13.2 (the version
   SDL3_ttf 3.2.2 vendors, pinned here until 2026-11-23) differs from 2.14.3

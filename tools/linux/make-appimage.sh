@@ -38,6 +38,16 @@ mkdir -p "$APPDIR/usr/bin/assets/fonts" "$APPDIR/usr/share/doc/mw3pm/licenses/li
 cp assets/fonts/*.ttf "$APPDIR/usr/bin/assets/fonts/"
 cp assets/fonts/Liberation-OFL.txt "$APPDIR/usr/share/doc/mw3pm/licenses/liberation/OFL.txt"
 cp assets/fonts/Anton-OFL.txt "$APPDIR/usr/share/doc/mw3pm/licenses/anton/OFL.txt"
+# mw3pm's own find screen (--setup, Shift held, files found elsewhere) is drawn from its document: the launcher's art
+# (ours) beside the program, where SDL_GetBasePath finds it. Without assets/launcher/ui it cannot be drawn (1.5.0).
+mkdir -p "$APPDIR/usr/bin/assets/launcher/ui"
+cp assets/launcher/ui/* "$APPDIR/usr/bin/assets/launcher/ui/"
+cp assets/launcher/*.png assets/launcher/font.ttf assets/launcher/font_body.ttf "$APPDIR/usr/bin/assets/launcher/"
+mkdir -p "$APPDIR/usr/share/doc/mw3pm/licenses/saira-condensed"
+cp assets/launcher/font-OFL.txt "$APPDIR/usr/share/doc/mw3pm/licenses/saira-condensed/OFL.txt"
+mkdir -p "$APPDIR/usr/share/doc/mw3pm/licenses/rmlui"
+cp third_party/rmlui/LICENSE.txt "$APPDIR/usr/share/doc/mw3pm/licenses/rmlui/"
+cp third_party/rmlui/Include/RmlUi/Core/Containers/LICENSE.txt "$APPDIR/usr/share/doc/mw3pm/licenses/rmlui/LICENSE-containers.txt"
 # Each library's licence files: from its source tree when the prefix is
 # build_deps.sh's (FFmpeg installs none), else what the prefix installed.
 if [ -d "$PREFIX/../work/src" ]; then

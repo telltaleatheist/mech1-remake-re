@@ -115,5 +115,17 @@ struct Found {
 std::vector<Found> found_elsewhere(u::Game g, const std::string& user_folder, bool system);
 // The launcher's own copy of g under `root` removed: only a folder carrying the launcher's record. False with why.
 bool uninstall(const std::string& root, u::Game g, std::string* error);
+// How a linked copy (not the launcher's) can be uninstalled from the launcher (2026-11-24): its own Setup's uninstaller
+// (Windows: unins*.exe beside it), or its app or AppImage moved to the trash, so it can be taken back. kNone, with why:
+// a program loose in a folder (what else is in there is not ours to say), one whose package holds another game of ours,
+// or this launcher.
+struct Removal {
+  enum How { kNone, kSetup, kTrash } how = kNone;
+  std::string path, why;  // the uninstaller; the .app or AppImage
+};
+Removal removal_of(const std::string& prog, u::Game g);
+// It, done (blocks: on a worker). `prog` gone is the answer, whatever the uninstaller said. A check run moves to
+// MW3_LAUNCHER_TRASH instead of the trash, and runs nothing.
+bool remove_linked(const std::string& prog, u::Game g, const Removal& r, std::string* error);
 
 }  // namespace sdlfe::games

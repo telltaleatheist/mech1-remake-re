@@ -327,7 +327,7 @@ TEST(data_folder_family_move_from_microprose) {
   put(old_pm + "/mw3.cfg", "install=" + old_pm + "/install\n");
   fs::create_directories(mw3);  // as SDL_GetPrefPath makes it
   // A development build: nothing moved, the old folder used while the new one is empty.
-  EXPECT(family_move(mw3, false) == old_mw3 && fs::exists(old_mw3 + "/pilots/a.pil"));
+  EXPECT(fs::path(family_move(mw3, false)) == fs::path(old_mw3) && fs::exists(old_mw3 + "/pilots/a.pil"));
   EXPECT(family_move(mw3) == mw3);
   EXPECT(read(mw3 + "/pilots/a.pil") == "pilot" && fs::exists(mw3 + "/" + kMarker));
   EXPECT(read(old_mw3 + "/" + kPointer) == mw3 + "\n" && resolve(old_mw3).dir == mw3 && resolve(old_mw3).error.empty());

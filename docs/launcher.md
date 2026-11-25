@@ -70,7 +70,7 @@ read, and that folder removed (`disc_pick`).
 
 **NO MUSIC ADDED (2026-11-24, confirm 8).** A pick with no CD audio in it was
 shown as an error. It is a question now: PLAY WITHOUT MUSIC (first), PICK
-ANOTHER, PICK A FOLDER, BACK; what else the disc gave (sounds, movies) is kept
+A FILE, PICK A FOLDER, BACK; what else the disc gave (sounds, movies) is kept
 and said. Check: `sdl_program_launcher_game_files_pirates_moon`'s end.
 
 **BEFORE YOU PLAY is laid out by measure (2026-11-11, the playtest W3).**
@@ -174,7 +174,7 @@ notice shown" and "the picker's call took N ms". For the checks
 `MW3_LAUNCHER_PICKER_SHOT` saves the frame on screen at the ask
 (`sdl_program_launcher_says_the_picker_is_opening_before_it_asks`).
 
-GAME FILES opens the same screen with the install in use ("Using
+GAME FILES (on the game's page since 2026-11-24) opens the same screen with the install in use ("Using
 MechWarrior 3 1.2 at <folder>. No music.") and, while it lacks movies or
 music, ADD FROM MY DISC (back to this screen after). A new pick goes back
 to the games, not into the game, its folder saved to mw3.cfg. A disc or
@@ -188,7 +188,7 @@ pointing at a copy elsewhere still works; re-picking moves it in.
 `sdl_program_launcher_game_files_repicks`.
 
 Keys and a pad (`nav`): the arrows, Tab or the d-pad step through the
-plates (GAME FILES and QUIT included), Enter, Space, A or Start press,
+plates (QUIT included), Enter, Space, A or Start press,
 Escape, B or Back go back. MW3_LAUNCHER_NAV (checks) feeds them as a list.
 
 Gone in v1.0: the old Setup screen, "A folder instead", "Search
@@ -212,28 +212,36 @@ File and folder pickers are SDL's (`SDL_ShowOpenFileDialog`,
 `SDL_ShowOpenFolderDialog`, as `sdl_install.cpp` waits on them now),
 filtered to .iso/.cue, .zip, or Mech3.exe.
 
-## Drawing it
+## How it is drawn (RmlUi, 2026-11-24)
 
-- An 854x480 16-bit (565) canvas each frame (16:9; 640x480 until
-  2026-11-08), as the game's 2D path. The art spans the width; the plates,
-  boxes and bar stay the 640-wide block they were laid out as, 107 in
-  (`kX`), the game rows widened to 500 for their longer lines: the
-  starfield scrolling slowly to the left (a few pixels a second, its ends
-  cross-faded), the metal bands top and bottom scrolling at a third of
-  that, the title and emblem, the plates.
-- Text: SDL3_ttf (already linked) with an OFL font shipped beside the art
-  (a condensed technical face, e.g. Saira Condensed or Rajdhani; OFL.txt in
-  licenses\ and THIRD-PARTY.txt). The mockups stand in DIN Condensed.
-- PNGs through SDL 3.4's `SDL_LoadPNG` (the PC's deps are 3.4.12): no new
-  library.
-- The hover ripple is the main menu's: `zrndr::ripple` (0x00558dd0,
-  ported) on the canvas around the hovered plate, its ring spreading and
-  fading as `PushButtonRipple` does (twod.md, Ripple; its radius, max
-  radius and speeds from the main menu's dialog values).
-- Sounds: with an install, the main menu dialog's rollover and select
-  sounds through zSnd from the install; without one, silent (no sounds
-  of ours).
+Until 1.4.1 the launcher painted an 854x480 16-bit canvas itself and the window
+showed it enlarged. Now its screens are a document (RmlUi 6.3, `third_party/rmlui`,
+MIT, vendored) drawn at the window's own pixels, so text and edges are sharp at any
+size and a larger window shows the same layout larger.
+
+- The layout is `assets/launcher/ui/launcher.rml` and `launcher.rcss` (HTML and
+  CSS's relatives): every screen of the launcher in one document, shown by its
+  name. A release needs both files beside the pictures and fonts.
+- The launcher (`launcher.cpp`) keeps its logic, its button names and its log. Each
+  frame it fills a `UiModel` (`launcher_ui.h`: the words, the status line, the
+  panels and rows, the buttons by group) and the document shows it;
+  `<x buttons="group">` is filled with that group's buttons. `LauncherUi`
+  (`launcher_ui.cpp`) is the only code that knows RmlUi.
+- Drawn through SDL_Renderer (its own render interface; no GPU API of its own),
+  with FreeType, the one SDL3_ttf is built with, linked into the programs.
+  `mw3` holds the launcher's setup screens, so it links both too.
+- Lengths are dp: pixels on the 854x480 canvas, scaled by the window.
+- Text that must fit (`<fit>`) goes smaller down to its least size, then is cut in
+  the middle; the notes before playing measure themselves (`notes_*`).
+- The stars scroll to the left; a hovered button lights its edge; no ripple.
+  Every button is the same flat kind (the steel plate is gone).
+- Drawn while the window's edge is dragged; the window has no least size.
+- Sounds: with an install, the main menu's rollover and select sounds through zSnd
+  from the install; without one, silent (no sounds of ours).
 - Mouse, keyboard (arrows, Enter, Escape) and a pad's d-pad and A/B.
+- Checks: `--launcher-shot` draws without a window (a software renderer);
+  `MW3_LAUNCHER_SHOT_SIZE=1708x960` at that size; `MW3_LAUNCHER_MOUSE` plays mouse
+  steps ("move 712,130;click 712,130;wheel -2;down 800,120;up 800,300").
 
 ## Pirate's Moon (2026-11-06)
 
@@ -247,7 +255,7 @@ a named one ignored), the window and sound choices, and `--ready-file`, never
 MW3's install or write dir; its settings and saves are its own. Its folder is
 `pm_install=` in the launcher's mw3.cfg, checked at start with `map_source`
 (a Pirate's Moon install, in a plain folder). A click on the entry starts it,
-or, with no folder yet, asks for one. GAME FILES acts on the game last clicked:
+or, with no folder yet, asks for one. GAME FILES acts on its page's game (until 2026-11-24 the game last clicked):
 for Pirate's Moon the same folder picker, which also keeps MY DATA FOLDER, ADD
 FROM MY DISC and SETUP out of it (later items). Installing from a disc and its
 music (the image's track 2) are later too.
@@ -423,18 +431,17 @@ original. The cards' tabs are gone (an old `tab_<card>=` in mw3.cfg is ignored).
   hot (mouse, keys, pad) gets an amber, doubled edge.
 - Inception has a badge (`badge_inception.png`, the hawk; README there).
 - The list scrolls between the header and the bottom row (y 80 to 418): about
-  three panels show. The mouse wheel scrolls (36 px a notch, a trackpad's parts
-  added up); the scrollbar at the list's right (an amber thumb on a dark track)
+  three panels show. The mouse wheel scrolls (80 px a notch, smoothly; a
+  trackpad's parts of one too); the scrollbar at the list's right (an amber thumb on a dark track)
   drags, and a click on its track pages. The keys and the pad scroll a focused
   panel's button into the list. A shade at the list's top and bottom shows more
   is there. Buttons are hit only inside the list.
 - The log names each panel's button by its game, then the bottom row, then
   UPDATE AVAILABLE: "screen main: MECHWARRIOR 3, MECHWARRIOR 3 SETTINGS,
-  PIRATE'S MOON, PIRATE'S MOON SETTINGS, ..., GAME FILES, UPDATES, ADD FROM
-  FILE, QUIT" (a gear is "<GAME> SETTINGS"). `MW3_LAUNCHER_LIST_Y=<px>` starts the list scrolled (shots).
+  PIRATE'S MOON, PIRATE'S MOON SETTINGS, ..., CHECK FOR UPDATES, QUIT" (a gear is "<GAME> SETTINGS"). `MW3_LAUNCHER_LIST_Y=<px>` starts the list scrolled (shots).
 
 The two sections below are the layouts before it; the game states, the COMING
-SOON rule, the kit's contract and the bottom row are unchanged.
+SOON rule and the kit's contract are unchanged.
 
 ## The copies on this computer (2026-11-24)
 
@@ -453,10 +460,10 @@ would lack with it, or "nothing missing":
 Music and movies the game already has outside the copy (the game folder's,
 the user folder's) count for every copy. A row pressed: "Use these game
 files?" as any find, then copied into the game's folder whole, its music
-and movies with it. The row in use is greyed. PICK ANOTHER opens the one
+and movies with it. The row in use is greyed. PICK A FILE opens the one
 picker (a disc image, a download, Mech3.exe); BACK returns. Up to four rows.
 The log: "copy <folder>: <version>[, in use], missing <a> and <b>" (or
-"nothing missing") and "screen copies: IN USE, COPY 2, PICK ANOTHER, BACK".
+"nothing missing") and "screen copies: IN USE, COPY 2, PICK A FILE, BACK".
 `--launcher-screen copies` / `pmcopies` draws it (checks:
 `sdl_program_launcher_lists_the_copies`). MechWarrior (1989) keeps its own
 picker: nothing of it can be missing that way.
@@ -503,31 +510,54 @@ never written to (the launcher only writes folders it made). The log:
 game (not COMING SOON) has a gear, a square left of its button
 (`Button::gear`, `kGear + game`), after PLAY and UPDATE in the focus order so
 a pad's first press is still PLAY; the log calls it "<GAME> SETTINGS". It
-opens the game's page (`kGamePage`, headed with the game's name): which copy
-plays and where, then
+opens the game's page (`kGamePage`, headed with the game's name): a row for
+each thing, what it is and where, its buttons at its right, then two small
+buttons and BACK. (Until the evening of 2026-11-24 the page was a column of
+plates, and GAME FILES and ADD FROM FILE were on the games' bottom row.)
 
-- LINK AN INSTALL (LINK ANOTHER INSTALL once one is linked): the picker; the
-  game's program in what was picked (the program, its folder, a .app, an
-  AppImage; `program_of_pick`), checked as above, a development build
-  allowed. Not the game: "That isn't Pirate's Moon (the rebuild) ...".
-- UNLINK, for a linked copy: forgotten (`unlinked_<key>=`, so it is not
-  linked again by itself); its folder is not touched.
-- UNINSTALL, for the launcher's copy: a confirm with UNINSTALL (the program
+- GAME FILES (`files_row`): the player's own copy in use and what it lacks;
+  CHANGE (logged GAME FILES) opens its find screen, whose BACK comes back
+  here (`open_files`, `files_page_`). MechWarrior 3's is there whether or not
+  the game is installed (Pirate's Moon's and MechWarrior 1 Remake's need
+  theirs); MechWarrior (1989)'s opens the picker. A kit game that does not
+  serve its setup shows the row alone: PLAY asks. One that does: with files
+  in use it has PICK A FILE and PICK A FOLDER and no FIND THE GAME, as the
+  search finds the copy in use, which is no answer.
+- INSTALLED GAME: the copy PLAY starts (the launcher's or the linked one,
+  the newer; the launcher's on a tie), its version and folder, or Not
+  installed with DOWNLOAD. OTHER COPY: the other, when both are here.
+- UNINSTALL, for the launcher's copy: a confirm with UNINSTALL (the game
   only) and, when allowed, UNINSTALL AND REMOVE GAME FILES; KEEP IT (and
-  Escape) goes back. The program's folder goes only when it carries the
-  launcher's record (`sdlfe::games::uninstall`, moved aside first so a running
-  game is refused whole). The game files go only for MechWarrior 3 and
-  Pirate's Moon, only when no other copy of the game is left (no linked one,
-  none unlinked but still there, none beside, no MechWarrior 1 Remake, which plays them), and only a folder
-  our copying made (its mw3-install.txt) in the user folder's or the game's
-  folder's `install` (`own_files`): never a copy of the original the player
-  pointed at. Pilots, saves, settings and mods always stay.
-- BACK.
+  Escape) goes back. The folder goes only when it carries the launcher's
+  record (`sdlfe::games::uninstall`, moved aside first so a running game is
+  refused whole). The game files go only for MechWarrior 3 and Pirate's
+  Moon, only when the copy going is the last one (none unlinked but still
+  there, none beside, no MechWarrior 1 Remake, which plays them), and only a
+  folder our copying made (its mw3-install.txt) in the user folder's or the
+  game's folder's `install` (`own_files`): never a copy of the original the
+  player pointed at. Pilots, saves, settings and mods always stay.
+- A linked copy has UNLINK (forgotten, `unlinked_<key>=`, so it is not linked
+  again by itself; nothing is deleted) and UNINSTALL (logged UNINSTALL
+  LINKED), with the same confirm (`removal_of`, `remove_linked`): a Mac .app
+  or a Linux AppImage is moved to the trash whole; on Windows its own Setup's
+  uninstaller (unins*.exe with its .dat beside the program) runs silently,
+  Windows asking for an administrator where its Setup did. None for a
+  program loose in a folder (what else is in there is not ours to say), one
+  in a package with another game of ours or with this launcher; the row says
+  so. Asked again at the removal; the answer is whether the program is gone.
+- LINK A COPY ALREADY INSTALLED (LINK ANOTHER COPY): the picker; the game's
+  program in what was picked (the program, its folder, a .app, an AppImage;
+  `program_of_pick`), checked as above, a development build allowed. Not the
+  game: for one that serves its setup the pick is looked at as its game files
+  instead (a .zip of the game was picked here), else said.
+- INSTALL FROM A DOWNLOADED FILE: a game's own download (any game's: the file
+  says which), as ADD FROM FILE did.
 
 `--launcher-screen game:<key>` and `game:<key>:uninstall` draw it. Checks:
 `sdl_program_launcher_links_and_uninstalls` (found by its record, a
-development build not linked, a wrong pick, LINK, UNLINK, both uninstalls; the
-game files there are links to game/pm, which stays whole).
+development build not linked, a wrong pick, LINK, UNLINK, every uninstall and
+`removal_of`'s answers; the game files there are links to game/pm, which
+stays whole). `MW3_LAUNCHER_TRASH=<dir>` is the checks' trash.
 
 ## The family cards (2026-11-22, replaced by the panels 2026-11-24)
 
@@ -628,7 +658,7 @@ the 1280x720 mockup at two thirds on the 854x480 canvas.
   battle; a pick made from PLAY ORIGINAL is kept for the remake and said.
   The checks use a stand-in of zeros with its last four bytes set to the
   CRC (`tests/mw1_btech_stand_in.h`): no game data.
-- The bottom row: GAME FILES, UPDATES, QUIT (flat buttons), the package's
+- The bottom row: CHECK FOR UPDATES, QUIT (flat buttons; GAME FILES and UPDATES until 2026-11-24), the package's
   version and the trademark line at the right.
 - Square buttons only: a hovered one lights its edge in amber (an amber
   button also brightens); no ripple. The click sound stays.
@@ -713,8 +743,7 @@ the mw1 files just like mw3 and pm do"), in `frontend/sdl/mw1_files` (ours):
   the status line ("That download has no BTECH.EXE: it is not MechWarrior
   (1989).") and nothing changes. Without `MW_MAIN.EXE` beside it the game is
   still taken (its Bar keeps ORDER DRINK and NEWS greyed), logged.
-- **GAME FILES** after MW1's line was clicked (as it acts on the game last
-  clicked for MW3 and Pirate's Moon) opens the same picker: the new folder is
+- **GAME FILES** on its page opens the same picker: the new folder is
   kept, nothing started; a cancel keeps the one in use. A kept folder that no
   longer holds the game is dropped at the next start and searched for again.
 - Its line says what it needs (MW3, Pirate's Moon) before asking for its
@@ -967,7 +996,7 @@ the picker; any pick goes to the game as it is (it knows what a pick holds);
 the find's plate, INSTALL and CHANGE FOLDER as MW3's, the default being the
 folder its DOWNLOAD picked, else the game's own. Installed, its status is read
 again and the game starts. GAME FILES after its PLAY, and its page's GAME
-FILES, open the same screens without starting it (`open_kit_files`,
+FILES CHANGE, open the same screens without starting it (`open_kit_files`,
 `kit_look`, `kit_looked`, `kit_install`, `kit_ready`; `kit_files_` says whose
 the screens are). A game without it is started plain, its own setup opening as
 before. The recipe stays the game's. `--launcher-screen chifiles` draws it.
@@ -1015,8 +1044,8 @@ program files are replaced.
    `sdlfe::curl_get` / `check_for_updates` (`frontend/sdl/sdl_update`; curl
    found at Windows' System32\curl.exe or /usr/bin/curl, never through
    PATH; `--proto =https`, `file://` only for `MW3_UPDATE_API`). UPDATES on
-   the main screen (GAME FILES, UPDATES, QUIT; MODS was there until 2026-11-10) asks on the worker and
-   says the verdict on the status line. Checked once against GitHub's real
+   the main screen (since 2026-11-24 CHECK FOR UPDATES, below) asked on the worker and
+   said the verdict on the status line. Checked once against GitHub's real
    list: v1.0.5 the newest package, this build up to date. Tests:
    `update_reads_the_releases_list` (escapes, \u, a surrogate pair, four broken
    answers), `update_picks_the_newest_package_release` (drafts, prereleases,
@@ -1027,12 +1056,12 @@ program files are replaced.
    **At every start (2026-11-23: so new games, features or a reworked
    look reach players):** the same check runs quietly on a thread of its own
    (`start_self_check`, collected each frame by `take_self_check`), both
-   repos in both homes as UPDATES asks them. The main screen never waits on
+   repos in both homes as CHECK FOR UPDATES asks them. The main screen never waits on
    it and it never prompts. A newer release shows an amber button, UPDATE
    AVAILABLE <v> (`kSelfUpdate`), in the header's top right beside the mark
    (2026-11-23, as Discord's and Chrome's; it was the footer's version
    turned into a button, too small to see), after QUIT in the keys' and the
-   pad's order; the footer keeps the version. Pressing it opens the same UPDATE screen as UPDATES (notes,
+   pad's order; the footer keeps the version. Pressing it opens the UPDATE screen (notes,
    UPDATE, BACK). Nothing is downloaded or installed until
    the player presses UPDATE there. The same version, an older
    one or a failed check show no button; the verdict goes to the
@@ -1046,6 +1075,15 @@ program files are replaced.
    never opening anything by itself, pressed: the UPDATE screen and its notes,
    nothing downloaded; the same version and a failed check: the footer kept,
    the verdict in the log; a hidden run: nothing asked).
+   **CHECK FOR UPDATES (2026-11-24: for a launcher left open for days; was UPDATES):** asks again for the launcher
+   and for every game, in place (`recheck`, collected by `recheck_done`; the main screen stays). Games with a newer
+   release get their UPDATE beside PLAY and are named on the status line ("Ready to update: Pirate's Moon 1.2.5.");
+   else "Everything is up to date." or what could not be reached. When the launcher has one, a box over the games
+   says what is ready: UPDATE LAUNCHER, UPDATE ALL (only when games have one too: the games first, the launcher last,
+   as it restarts; it stops at the first that fails), NOT NOW (Escape). The buttons beneath are off while it is up.
+   `--launcher-screen updatebox` draws it; `MW3_LAUNCHER_UPDATE_ALL` (checks) presses UPDATE ALL. Test:
+   `sdl_program_launcher_rechecks_while_open`. Two checks can run at once, so a temporary file's number is counted
+   atomically (they once shared one and an update could be missed).
 2. **The notes and the question**: an UPDATE screen with the release's notes
    (its body, wrapped and paged, the markdown's `#` and `-` shown plainly),
    "Update the launcher to 1.2.0?" (was "Download and install MechWarrior 3 Rebuild 1.2.0?"), UPDATE and BACK
@@ -1262,7 +1300,7 @@ release.
   release's `SHA256SUMS` line; nothing is installed without one.
 - **The card.** A game not installed shows DOWNLOAD (2026-11-23: no "install" on the launcher's own buttons; was INSTALL) (with the version and the
   download's size) where PLAY goes; offline it says it can't reach the
-  server and points to ADD FROM FILE. An installed game with a newer
+  server and points to its page's INSTALL FROM A DOWNLOADED FILE. An installed game with a newer
   release splits its PLAY button (2026-11-22: "the main button can
   be play, and there can be a divider on the end"): PLAY (its word centred
   in its own part, 2026-11-24), a short divider,
@@ -1292,7 +1330,7 @@ release.
   launcher alone removes an earlier package's game programs from its folder
   (installer.iss, `LauncherOnly`), so an update from 1.2.4 does not keep
   starting old copies; the Mac app and the AppImage are replaced whole.
-- **ADD FROM FILE** (bottom row, always there): a game's download from
+- **INSTALL FROM A DOWNLOADED FILE** (a game's page; ADD FROM FILE on the bottom row until 2026-11-24): a game's download from
   anywhere (a modder's build, no internet). A `SHA256SUMS` beside it is
   checked: a match installs, a mismatch is refused; without one the player
   is told it can't be checked and asked (ADD ANYWAY). Which game it is
@@ -1332,7 +1370,7 @@ the movies again, once, there.
   the picked folder as under the games folder (`<folder>/<key>`), and the
   folder is kept in mw3.cfg as `games_<key>=` (mw3, pm, mw1), read at every
   start (in a game's own setup too). UPDATE goes where the game is, unasked.
-  ADD FROM FILE still installs into the games folder and forgets a picked
+  INSTALL FROM A DOWNLOADED FILE still installs into the games folder and forgets a picked
   one (its unpacking is staged inside the games folder, and a rename does not
   cross drives).
 - **"Use these game files?"** has CHANGE FOLDER beside INSTALL, in the

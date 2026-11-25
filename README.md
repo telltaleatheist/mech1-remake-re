@@ -45,6 +45,15 @@ original.
 
 Nothing yet.
 
+**1.5.0 (2026-11-24)** (the full notes are in
+[docs/release-notes-1.5.0.md](docs/release-notes-1.5.0.md)): the launcher is
+drawn sharp at any window size; each game's files and copies are on its gear
+page; CHECK FOR UPDATES checks every game and the launcher.
+
+**1.4.1 (2026-11-24)** (the full notes are in
+[docs/release-notes-1.4.1.md](docs/release-notes-1.4.1.md)): a fix: Inception's
+game files can be changed at any time, and every find screen has PICK A FILE.
+
 **1.4.0 (2026-11-24)** (the full notes are in
 [docs/release-notes-1.4.0.md](docs/release-notes-1.4.0.md)): the launcher sets up
 Inception on its own screens, shows every file in its pickers, reads zips in ADD
@@ -297,7 +306,7 @@ for MechWarrior 1 Remake, now 1.0.4.
 **1.0.3 (2026-11-05)**
 
 - **Your data folder can live on another drive:** GAME FILES, MY DATA FOLDER in the
-  launcher copies it, checks the copy, then switches over, and removes the old
+  launcher (now on each game's gear page) copies it, checks the copy, then switches over, and removes the old
   copy only if you say so. If the drive is missing at start the game says so
   instead of starting afresh.
 - **Linux:** the game no longer closes at the end of the intro movies.
@@ -417,7 +426,7 @@ game:
   **Cancel**. An installed copy is used where it is. No Windows and no
   original installer needed. Versions 1.0 and 1.2 both work as they are:
   1.0 plays as 1.2. Pirate's Moon is found or installed the same way, from the
-  launcher's GAME FILES.
+  game's gear page in the launcher.
 
 If something is wrong (not enough space, a damaged download, a file that
 is not MechWarrior 3) it says so in plain words and changes nothing.
@@ -641,8 +650,8 @@ Versions up to 1.3.1 used `MicroProse` instead of `BattleTech`: the first
 start of a newer version moves your folder across by itself (nothing is
 copied or lost) and leaves a note in the old place so an older version still
 finds it. Uninstalling the rebuild keeps
-them; deleting one starts that game over. The launcher's GAME FILES, MY DATA
-FOLDER moves a game's folder to another drive.
+them; deleting one starts that game over. GAME FILES on a game's gear page in
+the launcher, then MY DATA FOLDER, moves a game's folder to another drive.
 
 ## Known issues
 

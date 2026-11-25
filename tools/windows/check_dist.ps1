@@ -20,7 +20,7 @@ foreach ($bin in Get-ChildItem -LiteralPath $Dist -File | Where-Object { $_.Exte
   }
 }
 # Our free fonts are the only .ttf a package may hold (assets\launcher, assets\fonts); the game's are not.
-$ours = 'font.ttf', 'LiberationSans-Regular.ttf', 'LiberationMono-Regular.ttf', 'Anton-Regular.ttf'
+$ours = 'font.ttf', 'font_body.ttf', 'LiberationSans-Regular.ttf', 'LiberationMono-Regular.ttf', 'Anton-Regular.ttf'
 $game = Get-ChildItem -LiteralPath $Dist -Recurse -File |
   Where-Object { $_.Extension -in '.zbd', '.avi', '.fmv', '.m1v', '.zrd', '.wav', '.ogg', '.flac' -or $_.Name -ieq 'mech3.exe' -or
                  ($_.Extension -ieq '.ttf' -and $_.Name -cnotin $ours) }
@@ -28,9 +28,13 @@ $game = Get-ChildItem -LiteralPath $Dist -Recurse -File |
 foreach ($exe in @('mw3pm.exe')) {
   if (-not (Test-Path -LiteralPath (Join-Path $Dist $exe))) { $missing += "$exe (the program itself)" }
 }
+# The find screen's document, styles and fonts: without them it cannot be drawn (launcher_ui.cpp).
+foreach ($f in 'ui\launcher.rml', 'ui\launcher.rcss', 'font.ttf', 'font_body.ttf', 'badge_pm.png', 'bg_metal.png', 'bg_stars.png', 'emblem.png') {
+  if (-not (Test-Path -LiteralPath (Join-Path $Dist "assets\launcher\$f"))) { $missing += "assets\launcher\$f (the find screen)" }
+}
 # The libraries linked into mw3.exe carry no file of their own: their licences must be there (and FreeType, inside
 # SDL3_ttf.dll, from build_deps_ttf.cmd).
-foreach ($lib in 'libarchive-*', 'zlib-*', 'xz-*', 'imgui', 'freetype-*', 'SDL3_ttf-*') {
+foreach ($lib in 'libarchive-*', 'zlib-*', 'xz-*', 'imgui', 'rmlui', 'saira-condensed', 'freetype-*', 'SDL3_ttf-*') {
   $dir = Get-ChildItem -LiteralPath (Join-Path $Dist 'licenses') -Directory -Filter $lib -ErrorAction SilentlyContinue
   if (-not $dir -or -not (Get-ChildItem -LiteralPath $dir[0].FullName -File)) { $missing += "licenses\$lib (its licence)" }
 }
