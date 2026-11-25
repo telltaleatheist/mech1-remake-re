@@ -70,7 +70,7 @@ read, and that folder removed (`disc_pick`).
 
 **NO MUSIC ADDED (2026-11-24, confirm 8).** A pick with no CD audio in it was
 shown as an error. It is a question now: PLAY WITHOUT MUSIC (first), PICK
-ANOTHER, PICK A FOLDER, BACK; what else the disc gave (sounds, movies) is kept
+A FILE, PICK A FOLDER, BACK; what else the disc gave (sounds, movies) is kept
 and said. Check: `sdl_program_launcher_game_files_pirates_moon`'s end.
 
 **BEFORE YOU PLAY is laid out by measure (2026-11-11, the playtest W3).**
@@ -453,10 +453,10 @@ would lack with it, or "nothing missing":
 Music and movies the game already has outside the copy (the game folder's,
 the user folder's) count for every copy. A row pressed: "Use these game
 files?" as any find, then copied into the game's folder whole, its music
-and movies with it. The row in use is greyed. PICK ANOTHER opens the one
+and movies with it. The row in use is greyed. PICK A FILE opens the one
 picker (a disc image, a download, Mech3.exe); BACK returns. Up to four rows.
 The log: "copy <folder>: <version>[, in use], missing <a> and <b>" (or
-"nothing missing") and "screen copies: IN USE, COPY 2, PICK ANOTHER, BACK".
+"nothing missing") and "screen copies: IN USE, COPY 2, PICK A FILE, BACK".
 `--launcher-screen copies` / `pmcopies` draws it (checks:
 `sdl_program_launcher_lists_the_copies`). MechWarrior (1989) keeps its own
 picker: nothing of it can be missing that way.
@@ -509,7 +509,14 @@ plays and where, then
 - LINK AN INSTALL (LINK ANOTHER INSTALL once one is linked): the picker; the
   game's program in what was picked (the program, its folder, a .app, an
   AppImage; `program_of_pick`), checked as above, a development build
-  allowed. Not the game: "That isn't Pirate's Moon (the rebuild) ...".
+  allowed. Not the game: "That isn't Pirate's Moon's program. ... use GAME
+  FILES." For a game that serves its setup (Inception) the pick is looked at
+  as its game files instead (a .zip of the game was picked here, 2026-11-24).
+- GAME FILES (first), for a game that serves its setup: its find screen. With
+  files in use it has PICK A FILE and PICK A FOLDER and no FIND THE GAME: the
+  search finds the copy in use, which is no answer (1.4.0 went home there
+  without a picker). "In use:" names their version. Every find screen has
+  PICK A FILE, whose picker opens on all files, types listed beside.
 - UNLINK, for a linked copy: forgotten (`unlinked_<key>=`, so it is not
   linked again by itself); its folder is not touched.
 - UNINSTALL, for the launcher's copy: a confirm with UNINSTALL (the program

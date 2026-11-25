@@ -66,7 +66,7 @@ static_assert(sizeof kHeaderNames / sizeof *kHeaderNames == upgrades::update::kG
 constexpr int kCardBadge = 100, kCardButtonH = 42;  // the badges as loaded; a panel's buttons' height
 // The main screen's panels (2026-11-24, the download page's look; docs/launcher.md, The panels): one a game, in a
 // list that scrolls between the header and the bottom row, its scrollbar at the right.
-constexpr int kCopyRows = 4;  // GAME FILES' list: the copies shown (the rest by PICK ANOTHER)
+constexpr int kCopyRows = 4;  // GAME FILES' list: the copies shown (the rest by PICK A FILE)
 constexpr int kListX = 43, kListW = 768, kListTop = 80, kListBottom = 418;
 constexpr int kPanelW = 752, kPanelH = 100, kPanelGap = 8, kPanelBadge = 76, kPanelButtonW = 176, kBarW = 6;
 // The launcher's name in its header and window (2026-11-22: "Battletech" at the top, for the whole family).
@@ -344,13 +344,21 @@ struct Text {
 
 const SDL_Color kWhite{228, 230, 232, 255}, kAmber{255, 176, 64, 255}, kGrey{120, 124, 130, 255}, kDim{190, 190, 180, 255};
 
-// The pickers' filters: one each, every file shown (2026-11-24: a filter hid the downloads, or every zip from ADD FROM
+// The pickers' filters: every file shown (2026-11-24: a filter hid the downloads, or every zip from ADD FROM
 // MY DISC); what a pick is comes from its content.
-const SDL_DialogFileFilter kGameFiles[] = {{"Your game: a disc image, a download (.zip), or any file of it", "*"}};
+// The first shows every file and is the one a picker opens with; the others narrow a full folder.
+const SDL_DialogFileFilter kGameFiles[] = {{"All files", "*"},
+                                           {"Downloads (.zip .7z .rar)", "zip;7z;rar;tar;gz;tgz;xz"},
+                                           {"Disc and disk images (.iso .cue .adf)", "iso;cue;bin;img;adf;ima;dsk"},
+                                           {"Programs (.exe)", "exe"}};
+constexpr int kGameFilesCount = 4;
 const SDL_DialogFileFilter kMw1Files[] = {{"MechWarrior (1989): BTECH.EXE, or a download (.zip)", "*"}};
 // ADD FROM FILE's: a game's own download for this computer (sdl_games.h).
 const SDL_DialogFileFilter kPackageFiles[] = {{"A game's download (.zip, .dmg, .AppImage)", "*"}};
-const SDL_DialogFileFilter kDiscFiles[] = {{"Your disc: its image (.cue, .iso), a download (.zip) or any file of it", "*"}};
+const SDL_DialogFileFilter kDiscFiles[] = {{"All files", "*"},
+                                           {"Downloads (.zip .7z .rar)", "zip;7z;rar;tar;gz;tgz;xz"},
+                                           {"Disc images (.cue .iso)", "cue;iso;bin;img"}};
+constexpr int kDiscFilesCount = 3;
 
 // The find screen's words (2026-11-02): what the game needs, and that
 // nothing of the player's is changed.
@@ -459,7 +467,7 @@ enum Id {
   kPatch,  // the 1.2 patch's zip: unreachable since the patch is built in (patch12.h), its code kept
   kAddDisc = 20,
   kGo = 30, kCancel, kNotesOk, kPickOther,
-  kPickFolder, kPlayNoMusic,  // ours: PICK A FOLDER; the no-music dialog's PLAY WITHOUT MUSIC (2026-11-24)
+  kPickFile, kPickFolder, kPlayNoMusic,  // ours: PICK A FILE; PICK A FOLDER; the no-music dialog's PLAY WITHOUT MUSIC (2026-11-24)
   kInstallTo, kPlaceGo,  // ours: CHANGE FOLDER (the game's folder, picked) and the card INSTALL's go once asked where
   kData = 40, kDataPick, kDataUsual, kMoveGo, kRemoveOld, kKeepOld,
   kUpdates = 49,
@@ -476,7 +484,7 @@ enum Id {
   kGear = 170,       // + the game: a panel's gear, its game's page (2026-11-24, docs/launcher.md, A game's page)
   kGameLink = 180,   // the page's LINK AN INSTALL (a picker), UNLINK, UNINSTALL, BACK
   kGameUnlink, kGameUninstall, kGameFilesPick, kGameBack,
-  kUninstallGo, kUninstallAll, kUninstallBack,  // UNINSTALL's confirm: the program, the program and its game files, KEEP IT  // its PICK ANOTHER: the one picker (1.3.4 had it at kCopy + 1, the second row's id: that row opened the picker)
+  kUninstallGo, kUninstallAll, kUninstallBack,  // UNINSTALL's confirm: the program, the program and its game files, KEEP IT  // its PICK A FILE: the one picker (1.3.4 had it at kCopy + 1, the second row's id: that row opened the picker)
 };
 
 // A copy of a game's files on this computer, as GAME FILES lists them (2026-11-24: "the user should be able to pick
@@ -1064,8 +1072,13 @@ void Launcher::link_picked(const std::string& path) {
   const std::string prog = sdlfe::games::program_of_pick(path, g);
   const std::string v = prog.empty() ? std::string() : sdlfe::games::identify(prog, g, true);
   std::printf("mw3: launcher: games: %s: link %s: %s\n", key.c_str(), path.c_str(), v.empty() ? "not this game" : (prog + " " + v).c_str());
-  if (v.empty()) {
-    status_ = "That isn't " + name + " (the rebuild): pick its program or the folder it is in.", status_good_ = false;
+  if (v.empty()) {  // not a program: perhaps the player's own copy of the game (2026-11-24: a .zip of it was picked here)
+    if (kit_serves(i) && !game_bin(i).empty()) {
+      open_kit_files(i, false);
+      if (screen_ == kSetupScreen) kit_look(path);
+      return;
+    }
+    status_ = "That isn't " + name + "'s program. For your own copy of the game, use GAME FILES.", status_good_ = false;
     return layout();
   }
   if (sdlfe::games::launchers_own(prog)) {
@@ -1674,7 +1687,7 @@ void Launcher::kit_looked(const mech3::setup::Result& r) {
     status_ = searched ? "Not found on this computer. Pick it: " + kit_ask_.pick_words + "." : r.summary;
     status_good_ = searched || r.cancelled;
     screen_ = kSetupScreen, layout();
-    if (searched) ask_file(kPoint, kGameFiles, 1);
+    if (searched) ask_file(kPoint, kGameFiles, kGameFilesCount);
     return;
   }
   if (kit_found_->in_place) return kit_ready(r.summary);  // the game's own copy, set up already
@@ -2220,13 +2233,22 @@ void Launcher::layout() {
       // installed copy or a disc in a drive used at once), else one picker:
       // an image or a download, or any file of an installed copy (its
       // folder; pick_source). The 1.2 patch is built in (patch12.h).
-      add(kFind, {130, 222, 380, 52}, "FIND THE GAME",
-          kit_files_ >= 0 ? kit_ask_.find_sub : "A disc image, a download (.zip .iso), or Mech3.exe in an installed copy");
-      if (kit_files_ < 0 && from_files_ && (files_pm_ || !o_.write_dir_fixed)) {
-        add(kPickFolder, {130, 278, 186, 36}, "PICK A FOLDER");
-        add(kData, {324, 278, 186, 36}, "MY DATA FOLDER");
-      } else {
+      // PICK A FILE and PICK A FOLDER (2026-11-24) go to a picker whatever is on this computer. A kit game whose
+      // files are in: those are no answer, so its search (which would find them again) is not offered.
+      if (kit_files_ >= 0 && kit_status_[kit_files_].state == rekit::Status::kReady) {
+        add(kPickFile, {130, 222, 380, 52}, "PICK A FILE", kit_ask_.find_sub);
         add(kPickFolder, {130, 278, 380, 36}, "PICK A FOLDER");
+      } else {
+        add(kFind, {130, 222, 380, 52}, "FIND THE GAME",
+            kit_files_ >= 0 ? kit_ask_.find_sub : "A disc image, a download (.zip .iso), or Mech3.exe in an installed copy");
+        if (kit_files_ < 0 && from_files_ && (files_pm_ || !o_.write_dir_fixed)) {
+          add(kPickFile, {130, 278, 120, 36}, "PICK A FILE");
+          add(kPickFolder, {256, 278, 122, 36}, "PICK A FOLDER");
+          add(kData, {384, 278, 126, 36}, "MY DATA FOLDER");
+        } else {
+          add(kPickFile, {130, 278, 186, 36}, "PICK A FILE");
+          add(kPickFolder, {324, 278, 186, 36}, "PICK A FOLDER");
+        }
       }
       if (kit_files_ >= 0) {
       } else if (files_pm_ ? !pm_dir_.empty() && (pm_lacks_music_ || pm_lacks_sounds_)
@@ -2235,7 +2257,7 @@ void Launcher::layout() {
       add(kBack, {250, 384, 140, 34}, !o_.setup_only ? "BACK" : o_.choose_again && have_files() ? "PLAY" : "QUIT");
       break;
     }
-    case kCopies: {  // GAME FILES' list (2026-11-24): a row a copy, the one in use first, then PICK ANOTHER and BACK
+    case kCopies: {  // GAME FILES' list (2026-11-24): a row a copy, the one in use first, then PICK A FILE and BACK
       const int n = std::min<int>(static_cast<int>(copies_.size()), kCopyRows);
       for (int i = 0; i < n; ++i) {
         const Copy& c = copies_[i];
@@ -2246,7 +2268,7 @@ void Launcher::layout() {
         add(kCopy + i, {60, 150 + i * 54, 520, 48}, c.path, sub, !c.in_use);  // plate() fits the folder
         buttons_.back().name = c.in_use ? "IN USE" : "COPY " + std::to_string(i + 1);
       }
-      add(kCopyPick, {130, 150 + n * 54 + 8, 186, 44}, "PICK ANOTHER", "An image, a .zip, or Mech3.exe");
+      add(kCopyPick, {130, 150 + n * 54 + 8, 186, 44}, "PICK A FILE", "An image, a .zip, or Mech3.exe");
       add(kPickFolder, {324, 150 + n * 54 + 8, 186, 44}, "PICK A FOLDER", "An installed copy's, or the disc's");
       add(kBack, {250, 150 + n * 54 + 60, 140, 34}, "BACK");
       break;
@@ -2262,8 +2284,12 @@ void Launcher::layout() {
         break;
       }
       int y = 190;
+      if (kit_serves(i) && !game_bin(i).empty()) {
+        add(kGameFilesPick, {130, y, 380, 44}, "GAME FILES", "Your own copy: pick a download (.zip), a disk image or a folder", !work_);
+        y += 50;
+      }
       if (source_[i] != kBeside) {
-        add(kGameLink, {130, y, 380, 44}, linked_[i].empty() ? "LINK AN INSTALL" : "LINK ANOTHER INSTALL", "A copy you installed yourself: its program or folder", !work_);
+        add(kGameLink, {130, y, 380, 44}, linked_[i].empty() ? "LINK AN INSTALL" : "LINK ANOTHER INSTALL", "The rebuild, installed without the launcher: its program", !work_);
         y += 50;
       }
       if (!linked_[i].empty()) {
@@ -2271,7 +2297,6 @@ void Launcher::layout() {
         y += 50;
       }
       if (has_installed_[i]) add(kGameUninstall, {130, y, 380, 44}, "UNINSTALL", "The copy the launcher installed", !work_), y += 50;
-      if (kit_serves(i) && !game_bin(i).empty()) add(kGameFilesPick, {130, y, 380, 44}, "GAME FILES", "Find or change the game files it plays", !work_);
       add(kBack, {250, 384, 140, 34}, "BACK");
       break;
     }
@@ -2312,7 +2337,7 @@ void Launcher::layout() {
       } else if (confirm_go_ == 8) {  // ours: no music came out of ADD FROM MY DISC's pick (2026-11-24)
         add(kPlayNoMusic, {130, 250, 380, 52}, "PLAY WITHOUT MUSIC");
         buttons_.back().style = Button::kAmber, first_focus = 0;
-        add(kPickOther, {130, 312, 186, 44}, "PICK ANOTHER", "An image, a .zip, or any file of it");
+        add(kPickOther, {130, 312, 186, 44}, "PICK A FILE", "An image, a .zip, or any file of it");
         add(kPickFolder, {324, 312, 186, 44}, "PICK A FOLDER", "The disc's, or its image's");
         add(kBack, {250, 384, 140, 34}, "BACK");
         break;
@@ -2796,7 +2821,7 @@ void Launcher::draw(float dt) {
         text_.draw_wrapped(canvas_, status_, 13, status_good_ ? kAmber : SDL_Color{240, 190, 180, 255}, W / 2, 184, 480);
       else if (kit_files_ >= 0) {
         if (kit_status_[kit_files_].state == rekit::Status::kReady)
-          text_.draw(canvas_, text_.fit("In use: " + kit_status_[kit_files_].where, 13, 480), 13, kDim, W / 2, 190);
+          text_.draw(canvas_, text_.fit("In use: " + (kit_status_[kit_files_].data.empty() ? std::string() : kit_status_[kit_files_].data + ", ") + kit_status_[kit_files_].where, 13, 480), 13, kDim, W / 2, 190);
       } else if (files_pm_ ? !pm_dir_.empty() : install_.ok)  // GAME FILES: the one in use, and what it lacks
         text_.draw(canvas_, text_.fit(files_pm_ ? pm_in_use() : in_use(), 13, 480), 13, kDim, W / 2, 190);
       break;
@@ -3088,7 +3113,7 @@ void Launcher::take_mw1(const std::string& dir) {
 // What the install lacks (the movies left on the CD, the music), taken from
 // The disc, a disc image or the disc's folder (setup::add_from_disc).
 void Launcher::add_disc(const std::string& source) {
-  if (screen_ != kConfirm) disc_back_ = screen_;  // PICK ANOTHER on the no-music dialog: where the first pick came from
+  if (screen_ != kConfirm) disc_back_ = screen_;  // PICK A FILE on the no-music dialog: where the first pick came from
   disc_music_ = files_pm_ ? pm_lacks_music_ : lacks_music_;
   work_ = std::make_unique<Work>();
   work_->kind = Work::kAddDisc;
@@ -3562,7 +3587,7 @@ void Launcher::search() {
   status_good_ = true;
   screen_ = kSetupScreen;
   layout();
-  ask_file(kPoint, kGameFiles, 1);  // the one picker (an installed copy by any of its files)
+  ask_file(kPoint, kGameFiles, kGameFilesCount);  // the one picker (an installed copy by any of its files)
 }
 
 void Launcher::finish_work() {
@@ -3965,10 +3990,12 @@ void Launcher::activate(int id) {
       }
       break;
     case kFind: search(); break;  // the usual places and the drives first, then the one picker
+    case kPickFile:
     case kCopyPick:
-      status_ = "Pick the copy to use: a disc image, a download, or Mech3.exe.", status_good_ = true;
+      status_ = "Pick the copy to use: " + (kit_files_ >= 0 ? kit_ask_.pick_words : std::string("a disc image, a download, or Mech3.exe")) + ".";
+      status_good_ = true;
       screen_ = kSetupScreen, layout();
-      ask_file(kPoint, kGameFiles, 1);
+      ask_file(kPoint, kGameFiles, kGameFilesCount);
       break;
     case kPickFolder:  // a folder where the picker takes files only: an installed copy's, the disc's
       ask_folder(screen_ == kConfirm ? kAddDisc : kPoint);
@@ -3983,7 +4010,7 @@ void Launcher::activate(int id) {
       break;
     case kPickOther:  // the found copy passed over: the one picker
       if (confirm_go_ == 8) {  // another than the one without music
-        ask_file(kAddDisc, kDiscFiles, 1);
+        ask_file(kAddDisc, kDiscFiles, kDiscFilesCount);
         break;
       }
       if (confirm_go_ == 5) {  // MechWarrior (1989)'s: its picker, from the main screen
@@ -3995,7 +4022,7 @@ void Launcher::activate(int id) {
       status_ = "Pick the copy to use: " + (kit_files_ >= 0 ? kit_ask_.pick_words : std::string("a disc image, a download, or Mech3.exe")) + ".";
       status_good_ = true;
       screen_ = kSetupScreen, layout();
-      ask_file(kPoint, kGameFiles, 1);
+      ask_file(kPoint, kGameFiles, kGameFilesCount);
       break;
     case kAddDisc: {  // a disc in a drive first, then one picker: its image or any file of the disc
       const std::vector<mech3::setup::DiscSource> discs = mech3::setup::find_discs();
@@ -4004,7 +4031,7 @@ void Launcher::activate(int id) {
       } else {
         status_ = "No disc in a drive. Pick its image (.cue .iso), a download (.zip) or any file of the disc.", status_good_ = true;
         layout();
-        ask_file(kAddDisc, kDiscFiles, 1);
+        ask_file(kAddDisc, kDiscFiles, kDiscFilesCount);
       }
       break;
     }
@@ -4180,6 +4207,9 @@ LauncherChoice Launcher::run() {
       if (update_->kind == upgrades::update::Verdict::kNewer) show_update();
     }
     if (o_.screen == "disc") status_ = "No disc in a drive. Pick its image (.cue .iso), a download (.zip) or any file of the disc.";
+    if (o_.screen.rfind("game:", 0) == 0)  // a game's page (its gear): "game:" and its key
+      for (int i = 0; i < upgrades::update::kGameCount; ++i)
+        if (o_.screen.substr(5) == upgrades::update::game_info(upgrades::update::kGames[i]).key) open_game_page(i);
     if (o_.screen == "chifiles") open_kit_files(4, false);  // a kit game's find screen (MW3_CHI_BIN)
     if (o_.screen == "copies" || o_.screen == "pmcopies")  // GAME FILES' list, MW3's or Pirate's Moon's
       files_pm_ = o_.screen == "pmcopies", from_files_ = true, find_copies(), screen_ = kCopies;
