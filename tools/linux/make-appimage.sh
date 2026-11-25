@@ -61,7 +61,7 @@ fi
 
 VER=$(git describe --tags --match 'v[0-9]*' --always --dirty 2>/dev/null || echo dev)
 APPDIR=build-linux-pkg/AppDir
-mkdir -p "$APPDIR/usr/bin/assets/launcher" "$APPDIR/usr/share/doc/mw3/licenses"
+mkdir -p "$APPDIR/usr/bin/assets/launcher/ui" "$APPDIR/usr/share/doc/mw3/licenses"
 # The launcher is the AppImage's entry (mw3.desktop's Exec); the game beside it.
 LAUNCHER_ONLY="${MW3_PKG_LAUNCHER_ONLY:-}"
 if [ -n "$LAUNCHER_ONLY" ] && { [ -n "${MW3_PKG_PM_BIN:-}" ] || [ -n "${MW3_PKG_MW1_DIR:-}" ] || [ -n "${MW3_PKG_MW1_PORT_DIR:-}" ]; }; then
@@ -102,6 +102,7 @@ if [ -n "${MW3_PKG_MW1_DIR:-}" ]; then
   EXES="$EXES -e $APPDIR/usr/bin/mw1"
 fi
 # The launcher's art (ours): beside the program, where SDL_GetBasePath finds it.
+cp assets/launcher/ui/* "$APPDIR/usr/bin/assets/launcher/ui/"
 cp assets/launcher/*.png assets/launcher/font.ttf assets/launcher/font_body.ttf "$APPDIR/usr/bin/assets/launcher/"
 mkdir -p "$APPDIR/usr/bin/assets/fonts" "$APPDIR/usr/share/doc/mw3/licenses/liberation" "$APPDIR/usr/share/doc/mw3/licenses/anton"
 cp assets/fonts/*.ttf "$APPDIR/usr/bin/assets/fonts/"
@@ -109,6 +110,9 @@ cp assets/fonts/Liberation-OFL.txt "$APPDIR/usr/share/doc/mw3/licenses/liberatio
 cp assets/fonts/Anton-OFL.txt "$APPDIR/usr/share/doc/mw3/licenses/anton/OFL.txt"
 mkdir -p "$APPDIR/usr/share/doc/mw3/licenses/saira-condensed"
 cp assets/launcher/font-OFL.txt "$APPDIR/usr/share/doc/mw3/licenses/saira-condensed/OFL.txt"
+mkdir -p "$APPDIR/usr/share/doc/mw3/licenses/rmlui"
+cp third_party/rmlui/LICENSE.txt "$APPDIR/usr/share/doc/mw3/licenses/rmlui/"
+cp third_party/rmlui/Include/RmlUi/Core/Containers/LICENSE.txt "$APPDIR/usr/share/doc/mw3/licenses/rmlui/LICENSE-containers.txt"
 cp tools/linux/README.txt tools/windows/dist/THIRD-PARTY.txt "$APPDIR/usr/share/doc/mw3/"
 [ -f LICENSE ] && cp LICENSE "$APPDIR/usr/share/doc/mw3/LICENSE.txt"
 # Each library's licence files: from its source tree when the prefix is

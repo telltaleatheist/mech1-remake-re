@@ -31,6 +31,8 @@ rem FreeType 2.13.2 draws TTF text a few pixels apart, docs/deps.md).
 if not exist deps\ttf\cmake\SDL3_ttfConfig.cmake (echo No deps\ttf: run tools\windows\build_deps_ttf.cmd first. & exit /b 1)
 if not exist deps\ttf\share\licenses\freetype-2.14.3\FTL.TXT (echo deps\ttf has no licences: run tools\windows\build_deps_ttf.cmd again. & exit /b 1)
 set SDL3_ttf_DIR=%CD%\deps\ttf\cmake
+rem The same FreeType for the launcher's RmlUi (linked in, third_party/rmlui).
+set Freetype_ROOT=%CD%\deps\ttf
 for /d %%d in (deps\SDL3_sound-*) do set SDL3_sound_ROOT=%CD%\%%d
 if not defined SDL3_sound_ROOT echo Warning: no deps\SDL3_sound-*: the package's music plays .wav only.
 rem SETUP's archives (docs/setup-sources.md): a package always reads them.
@@ -93,7 +95,8 @@ for /d %%d in ("%VCToolsRedistDir%x64\Microsoft.VC*.CRT") do (
 rem The read-me, the notices, and each library's own licence files.
 copy /y tools\windows\dist\README.txt "%DIST%\" >nul || exit /b 1
 rem The launcher's art (ours, assets/launcher: generated, with its prompts).
-mkdir "%DIST%\assets\launcher"
+mkdir "%DIST%\assets\launcher\ui"
+copy /y assets\launcher\ui\* "%DIST%\assets\launcher\ui\" >nul || exit /b 1
 copy /y assets\launcher\*.png "%DIST%\assets\launcher\" >nul || exit /b 1
 copy /y assets\launcher\font.ttf "%DIST%\assets\launcher\" >nul || exit /b 1
 copy /y assets\launcher\font_body.ttf "%DIST%\assets\launcher\" >nul || exit /b 1
@@ -129,6 +132,9 @@ mkdir "%DIST%\licenses\miniupnpc"
 copy /y third_party\miniupnpc\LICENSE "%DIST%\licenses\miniupnpc\" >nul || exit /b 1
 mkdir "%DIST%\licenses\imgui"
 copy /y third_party\imgui\LICENSE.txt "%DIST%\licenses\imgui\" >nul || exit /b 1
+mkdir "%DIST%\licenses\rmlui"
+copy /y third_party\rmlui\LICENSE.txt "%DIST%\licenses\rmlui\" >nul || exit /b 1
+copy /y third_party\rmlui\Include\RmlUi\Core\Containers\LICENSE.txt "%DIST%\licenses\rmlui\LICENSE-containers.txt" >nul || exit /b 1
 mkdir "%DIST%\licenses\miniz"
 copy /y extern\re-setup-kit\third_party\miniz\LICENSE "%DIST%\licenses\miniz\" >nul || exit /b 1
 

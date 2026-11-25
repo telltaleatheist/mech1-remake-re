@@ -101,7 +101,8 @@ if [ -n "$MW1_DIR" ]; then
   done
 fi
 # The launcher's art (ours, assets/launcher), where SDL's base path is: Resources.
-mkdir -p "$APP/Contents/Resources/assets/launcher"
+mkdir -p "$APP/Contents/Resources/assets/launcher/ui"
+cp assets/launcher/ui/* "$APP/Contents/Resources/assets/launcher/ui/"
 cp assets/launcher/*.png assets/launcher/font.ttf assets/launcher/font_body.ttf "$APP/Contents/Resources/assets/launcher/"
 
 # Every library outside the system, followed through the ones they load:
@@ -262,6 +263,9 @@ cp assets/fonts/Liberation-OFL.txt "$APP/Contents/Resources/licenses/liberation/
 cp assets/fonts/Anton-OFL.txt "$APP/Contents/Resources/licenses/anton/OFL.txt"
 mkdir -p "$APP/Contents/Resources/licenses/saira-condensed"
 cp assets/launcher/font-OFL.txt "$APP/Contents/Resources/licenses/saira-condensed/OFL.txt"
+mkdir -p "$APP/Contents/Resources/licenses/rmlui"
+cp third_party/rmlui/LICENSE.txt "$APP/Contents/Resources/licenses/rmlui/"
+cp third_party/rmlui/Include/RmlUi/Core/Containers/LICENSE.txt "$APP/Contents/Resources/licenses/rmlui/LICENSE-containers.txt"
 cp tools/macos/THIRD-PARTY.txt "$APP/Contents/Resources/THIRD-PARTY.txt"
 # Elthial's port: its code beside the launcher (found as MechWarrior1989/mechwarrior), its data and every licence
 # and source line build_port.sh staged in Resources, the launcher pointing it at the ini (MECHWARRIOR_TIMING_CONFIG).

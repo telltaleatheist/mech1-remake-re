@@ -194,6 +194,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 
+RmlUi 6.3 (built into the programs)
+-----------------------------------
+The launcher's screens, https://github.com/mikke89/RmlUi. MIT licence
+(licenses/rmlui/LICENSE.txt; the containers it carries, robin_hood
+and itlib, also MIT: LICENSE-containers.txt beside it). Its text is drawn
+with FreeType 2.14.3, built into the program too (under SDL_ttf above).
+Copyright (c) 2008-2014 CodePoint Ltd, Shift Technology Ltd, and contributors
+Copyright (c) 2019-2026 The RmlUi Team, and contributors
+
+
 MechWarrior 3
 -------------
 None of the game's files are in this app; the program reads your own copy.

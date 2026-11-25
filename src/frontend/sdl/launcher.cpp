@@ -2280,7 +2280,7 @@ void Launcher::layout() {
         add(kKeepOld, "go", "KEEP IT");
         break;
       }
-      if (confirm_go_ == 6) {  // ours: ADD FROM FILE, a file nothing could check
+      if (confirm_go_ == 6) {  // ours: INSTALL FROM A DOWNLOADED FILE, a file nothing could check
         add(kInstallFileGo, "go", "ADD ANYWAY");
         add(kBack, "go", "BACK");
         break;

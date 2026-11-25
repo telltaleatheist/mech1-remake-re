@@ -58,7 +58,7 @@ foreach ($exe in $programs) {
 }
 # The libraries linked into mw3.exe carry no file of their own: their licences must be there (and FreeType, inside
 # SDL3_ttf.dll, from build_deps_ttf.cmd).
-foreach ($lib in 'libarchive-*', 'zlib-*', 'xz-*', 'imgui', 'freetype-*', 'SDL3_ttf-*') {
+foreach ($lib in 'libarchive-*', 'zlib-*', 'xz-*', 'imgui', 'rmlui', 'freetype-*', 'SDL3_ttf-*') {
   $dir = Get-ChildItem -LiteralPath (Join-Path $Dist 'licenses') -Directory -Filter $lib -ErrorAction SilentlyContinue
   if (-not $dir -or -not (Get-ChildItem -LiteralPath $dir[0].FullName -File)) { $missing += "licenses\$lib (its licence)" }
 }
