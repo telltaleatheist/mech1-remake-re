@@ -431,8 +431,8 @@ original. The cards' tabs are gone (an old `tab_<card>=` in mw3.cfg is ignored).
   hot (mouse, keys, pad) gets an amber, doubled edge.
 - Inception has a badge (`badge_inception.png`, the hawk; README there).
 - The list scrolls between the header and the bottom row (y 80 to 418): about
-  three panels show. The mouse wheel scrolls (36 px a notch, a trackpad's parts
-  added up); the scrollbar at the list's right (an amber thumb on a dark track)
+  three panels show. The mouse wheel scrolls (80 px a notch, smoothly; a
+  trackpad's parts of one too); the scrollbar at the list's right (an amber thumb on a dark track)
   drags, and a click on its track pages. The keys and the pad scroll a focused
   panel's button into the list. A shade at the list's top and bottom shows more
   is there. Buttons are hit only inside the list.

@@ -881,8 +881,9 @@ bool remove_linked(const std::string& prog, u::Game g, const Removal& r, std::st
   std::error_code ec;
   const Removal now = removal_of(prog, g);  // asked again at the removal
   if (now.how == Removal::kNone || now.how != r.how || now.path != r.path) return *error = "it is not where it was", false;
-  if (const char* t = std::getenv("MW3_LAUNCHER_TRASH")) {  // checks
-    if (now.how == Removal::kTrash) fs::rename(now.path, fs::path(t) / fs::path(now.path).filename(), ec);
+  const char* t = std::getenv("MW3_LAUNCHER_TRASH");  // checks
+  if (t && now.how == Removal::kTrash) {
+    fs::rename(now.path, fs::path(t) / fs::path(now.path).filename(), ec);
   } else if (now.how == Removal::kTrash) {
 #if defined(_WIN32)
     return *error = "it is not a Windows program", false;

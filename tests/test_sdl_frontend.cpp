@@ -5571,6 +5571,49 @@ TEST(sdl_program_launcher_screens) {
   }
 }
 
+// The mouse on the launcher (2026-11-24): the panels scroll under it with the wheel and by the scrollbar, the button
+// it is over follows the list, a click opens a game's page and its BACK comes back to the list as it was scrolled, and
+// a scrollbar drag let go over PLAY starts nothing.
+TEST(sdl_program_launcher_follows_the_mouse) {
+  const std::string dir = std::string(MW3_TEST_TMP) + "/launcher_mouse";
+  std::error_code ec;
+  std::filesystem::remove_all(dir, ec);
+  std::filesystem::create_directories(dir + "/wd", ec);
+  setenv("MW3_LAUNCHER_FRAMES", "400", 1);
+  // A step prints what it found under the mouse as it came; the moves by a pixel let the list settle (it scrolls smoothly).
+  const std::string settle = "move 712,130;move 712,131;move 712,132;move 712,133;";
+  setenv("MW3_LAUNCHER_MOUSE",
+         ("click 427,395;" + settle + "move 1,1;"                     // BEFORE YOU PLAY's OK; over MW3's PLAY
+          "move 712,130;wheel -3;" + settle + "move 2,2;"                           // scrolled: another game's button
+          "move 712,130;wheel 20;" + settle + "move 3,3;"                           // back at the top
+          "down 808,130;move 808,131;up 712,130;" + settle + "move 4,4;"  // the scrollbar taken, let go over PLAY: no press
+          "down 808,130;move 808,260;up 808,260;" + settle + "move 5,5;"  // dragged down
+          "click 577,345;move 427,400;click 427,400;" + settle + "move 6,6")  // a gear, its page's BACK
+             .c_str(),
+         1);
+  const pid_t pid = spawn_launcher({"--write-dir", dir + "/wd", "--window", "854x480", "--nosound", "--hidden"}, dir + "/launcher.log");
+  unsetenv("MW3_LAUNCHER_MOUSE"), unsetenv("MW3_LAUNCHER_FRAMES");
+  int status = 0;
+  EXPECT(waited(pid, &status) && WIFEXITED(status) && WEXITSTATUS(status) == 0);
+  std::ifstream f(dir + "/launcher.log");
+  std::vector<std::string> over;  // what each step found under the mouse as it came, and the screens between
+  for (std::string line; std::getline(f, line);) {
+    if (const size_t at = line.find("mouse: "); at != std::string::npos) over.push_back(line.substr(at + 7));
+    else if (line.find("launcher: screen ") != std::string::npos) over.push_back(line.substr(line.find("screen "), 11));
+  }
+  for (const std::string& o : over) std::printf("  %s\n", o.c_str());
+  const auto at = [&](const char* step) {
+    for (const std::string& o : over)
+      if (o.rfind(std::string("move ") + step + ", ", 0) == 0) return o.substr(o.find("over ") + 5);
+    return std::string("no step");
+  };
+  EXPECT(at("1,1") == "MECHWARRIOR 3" && at("3,3") == "MECHWARRIOR 3" && at("4,4") == "MECHWARRIOR 3");
+  for (const char* scrolled : {"2,2", "5,5"}) EXPECT(at(scrolled) != "MECHWARRIOR 3" && at(scrolled) != "nothing" && at(scrolled) != "no step");
+  EXPECT(at("6,6") == at("5,5"));
+  EXPECT(std::count(over.begin(), over.end(), "screen game") == 1 && std::count(over.begin(), over.end(), "screen main") == 2);
+  EXPECT(std::none_of(over.begin(), over.end(), [](const std::string& o) { return o.rfind("screen work", 0) == 0; }));
+}
+
 // BEFORE YOU PLAY by measure (the playtest, W3): an install with no movies, no music and an empty
 // soundsH.zbd under a long settings folder (a long user name), ADD FROM MY DISC having answered "No disc in a
 // drive ...". The status line is under the notes and all of it above the button, at a size still read; before,
