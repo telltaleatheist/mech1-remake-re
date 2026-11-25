@@ -77,9 +77,7 @@ scrollbarvertical sliderarrowdec, scrollbarvertical sliderarrowinc { width: 0; h
 #bottom { height: 62dp; padding-top: 10dp; }
 #row { display: flex; width: 500dp; }
 #row btn { width: 72dp; flex: none; }
-#row btn.files { width: 112dp; }
 #row btn.updates { width: 104dp; }
-#row btn.add { width: 168dp; }
 #row btn { height: 30dp; margin-right: 8dp; }
 #bottom .legal { position: absolute; right: 0; top: 8dp; text-align: right; }
 .package { font-size: 12dp; line-height: 16dp; color: #bebeb4; }
@@ -178,12 +176,27 @@ btn.seg.off .divider { background: #5a616a; }
 .copies .col.small btn { height: 44dp; }
 .copies .foot { position: relative; bottom: auto; margin-top: 8dp; }
 
+/* a game's page: a row each for its game files and its copies, as the games' panels */
+.gamepage .rows { position: absolute; top: 11dp; left: 0; width: 640dp; text-align: left; }
+.gamepage .row { display: flex; align-items: center; width: 640dp; height: 62dp; margin-bottom: 7dp; padding: 0 12dp 0 14dp; border: 1dp #3c424b; border-radius: 2dp; decorator: vertical-gradient(#2c313ac4 #1a1d22c4); }
+.gamepage .row .about { flex: 1; min-width: 0; }
+.gamepage .row .title { color: #ffb040; font-size: 14dp; line-height: 19dp; }
+.gamepage .row .text, .gamepage .row .path { font-family: body; font-size: 12dp; line-height: 16dp; white-space: nowrap; color: #e4e6e8; }
+.gamepage .row .path { color: #959ca8; }
+.gamepage .row .buttons { flex: none; display: flex; justify-content: flex-end; }
+.gamepage .row btn { width: 104dp; height: 34dp; flex: none; margin-left: 8dp; }
+.gamepage .row btn .label { font-size: 15dp; }
+.gamepage .links { display: flex; justify-content: center; }
+.gamepage .links.empty { display: none; }
+.gamepage .links btn { height: 28dp; width: 260dp; flex: none; margin: 0 4dp; }
+.gamepage .links btn .label { font-size: 13dp; }
 .gamepage .lines { position: absolute; top: 22dp; left: 80dp; width: 480dp; line-height: 18dp; }
 .gamepage .plates { top: 93dp; }
 .gamepage fit.title { top: 10dp; }
 .gamepage.ask .lines { top: 40dp; }
 .gamepage.ask .plates { top: 129dp; }
 .part > .status.over { top: 251dp; }
+.gamepage > .status.over { left: 0; width: 640dp; top: 254dp; line-height: 17dp; }
 
 .data .words { position: absolute; top: 20dp; left: 80dp; width: 480dp; font-size: 16dp; }
 .data .path { position: absolute; top: 68dp; left: 80dp; width: 480dp; }

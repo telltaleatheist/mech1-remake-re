@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstring>
+#include <ctime>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -28,8 +29,11 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <shellapi.h>
 #elif defined(__APPLE__)
 #include <mach-o/dyld.h>
+#include <objc/message.h>
+#include <objc/runtime.h>
 #endif
 
 namespace fs = std::filesystem;
@@ -776,6 +780,129 @@ bool uninstall(const std::string& root, u::Game g, std::string* error) {
   fs::rename(dir, old, ec);  // aside first: a running game keeps its folder whole
   if (ec) return *error = "it could not be removed (" + ec.message() + "): close the game and try again", false;
   fs::remove_all(old, ec);  // a failure leaves .old, cleared by the next install or uninstall
+  return true;
+}
+
+// ---- A linked copy uninstalled (2026-11-24) ----
+
+namespace {
+
+#if defined(__APPLE__)
+// The system's trash, as dragging it there (NSFileManager trashItemAtURL:).
+bool to_trash(const std::string& path, std::string* error) {
+  auto cls = [](const char* n) { return reinterpret_cast<id>(objc_getClass(n)); };
+  auto sel = [](const char* n) { return sel_registerName(n); };
+  auto msg = reinterpret_cast<id (*)(id, SEL)>(objc_msgSend);
+  auto msg_s = reinterpret_cast<id (*)(id, SEL, const char*)>(objc_msgSend);
+  auto msg_o = reinterpret_cast<id (*)(id, SEL, id)>(objc_msgSend);
+  auto trash = reinterpret_cast<BOOL (*)(id, SEL, id, id*, id*)>(objc_msgSend);
+  auto utf8 = reinterpret_cast<const char* (*)(id, SEL)>(objc_msgSend);
+  id pool = msg(msg(cls("NSAutoreleasePool"), sel("alloc")), sel("init"));
+  id url = msg_o(cls("NSURL"), sel("fileURLWithPath:"), msg_s(cls("NSString"), sel("stringWithUTF8String:"), path.c_str()));
+  id err = nullptr;
+  const bool ok = trash(msg(cls("NSFileManager"), sel("defaultManager")), sel("trashItemAtURL:resultingItemURL:error:"), url, nullptr, &err);
+  if (!ok) {
+    const char* w = err ? utf8(msg(err, sel("localizedDescription")), sel("UTF8String")) : nullptr;
+    *error = w ? w : "the system would not move it to the trash";
+  }
+  msg(pool, sel("drain"));
+  return ok;
+}
+#elif !defined(_WIN32)
+// The desktop's trash (the freedesktop trash spec's home trash), on the same disk; else gio's, which knows the others.
+bool to_trash(const std::string& path, std::string* error) {
+  std::error_code ec;
+  const char *data = std::getenv("XDG_DATA_HOME"), *home = std::getenv("HOME");
+  if (data && *data ? false : !home || !*home) return *error = "there is no home folder", false;
+  const fs::path trash = (data && *data ? fs::path(data) : fs::path(home) / ".local/share") / "Trash";
+  fs::create_directories(trash / "files", ec), fs::create_directories(trash / "info", ec);
+  const std::string base = fs::path(path).filename().string();
+  std::string name = base;
+  for (int n = 2; fs::exists(trash / "files" / name, ec) || fs::exists(trash / "info" / (name + ".trashinfo"), ec); ++n) name = base + "." + std::to_string(n);
+  std::string enc;
+  for (const unsigned char c : path) {
+    char b[4];
+    if (std::isalnum(c) || std::strchr("/-_.~", c)) enc += static_cast<char>(c);
+    else std::snprintf(b, sizeof b, "%%%02X", c), enc += b;
+  }
+  const std::time_t now = std::time(nullptr);
+  char when[32] = "";
+  std::strftime(when, sizeof when, "%Y-%m-%dT%H:%M:%S", std::localtime(&now));
+  if (write_text(trash / "info" / (name + ".trashinfo"), "[Trash Info]\nPath=" + enc + "\nDeletionDate=" + when + "\n")) {
+    fs::rename(path, trash / "files" / name, ec);
+    if (!ec) return true;
+    std::error_code ig;
+    fs::remove(trash / "info" / (name + ".trashinfo"), ig);
+  }
+  const char* args[] = {"gio", "trash", path.c_str(), nullptr};
+  int code = -1;
+  if (SDL_Process* p = SDL_CreateProcess(args, false)) SDL_WaitProcess(p, true, &code), SDL_DestroyProcess(p);
+  return code == 0 || (*error = "it could not be moved to the trash", false);
+}
+#endif
+
+}  // namespace
+
+Removal removal_of(const std::string& prog, u::Game g) {
+  Removal r;
+  std::error_code ec;
+  if (prog.empty() || launchers_own(prog) || !fs::is_regular_file(prog, ec)) return r;
+  const fs::path p = fs::weakly_canonical(prog, ec), dir = p.parent_path();
+  fs::path whole;  // what would go
+  if (ends_with(lower(p.string()), ".appimage")) {
+    whole = p, r.how = Removal::kTrash;
+  } else if (dir.filename() == "MacOS" && dir.parent_path().filename() == "Contents" && lower(dir.parent_path().parent_path().extension().string()) == ".app") {
+    whole = dir.parent_path().parent_path(), r.how = Removal::kTrash;
+  } else {
+    fs::path un;
+    for (const auto& e : fs::directory_iterator(dir, ec)) {  // Inno Setup's: unins000.exe beside its unins000.dat
+      const std::string n = lower(e.path().filename().string());
+      fs::path dat = e.path();
+      if (n.rfind("unins", 0) == 0 && ends_with(n, ".exe") && fs::is_regular_file(dat.replace_extension(".dat"), ec) && e.path() > un) un = e.path();
+    }
+    if (un.empty()) return r.why = "It is in a folder of its own: delete that yourself", r;
+    whole = dir, r.how = Removal::kSetup, r.path = un.string();
+  }
+  if (r.how == Removal::kTrash) r.path = whole.string();
+  // A package of more than this game (an older launcher's), or this launcher's own: not from here.
+  if (whole != p)
+    for (u::Game o : u::kGames)
+      if (o != g && fs::is_regular_file(dir / program_file(o), ec)) return {Removal::kNone, "", std::string("It is in one package with ") + u::game_info(o).name};
+  const std::string self = self_path();
+  if (!self.empty()) {
+    const std::string at = fs::weakly_canonical(self, ec).string(), in = whole.string();
+    if (at == in || at.rfind(in + static_cast<char>(fs::path::preferred_separator), 0) == 0) return {Removal::kNone, "", "It is in one package with this launcher"};
+  }
+  return r;
+}
+
+bool remove_linked(const std::string& prog, u::Game g, const Removal& r, std::string* error) {
+  std::error_code ec;
+  const Removal now = removal_of(prog, g);  // asked again at the removal
+  if (now.how == Removal::kNone || now.how != r.how || now.path != r.path) return *error = "it is not where it was", false;
+  if (const char* t = std::getenv("MW3_LAUNCHER_TRASH")) {  // checks
+    if (now.how == Removal::kTrash) fs::rename(now.path, fs::path(t) / fs::path(now.path).filename(), ec);
+  } else if (now.how == Removal::kTrash) {
+#if defined(_WIN32)
+    return *error = "it is not a Windows program", false;
+#else
+    if (!to_trash(now.path, error)) return false;
+#endif
+  } else {
+#if defined(_WIN32)
+    // Asked already, so silent; Windows asks for an administrator itself where its Setup did.
+    const std::wstring exe = fs::path(now.path).wstring(), cwd = fs::temp_directory_path(ec).wstring();
+    SHELLEXECUTEINFOW x{};
+    x.cbSize = sizeof x, x.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC, x.lpVerb = L"open", x.lpFile = exe.c_str();
+    x.lpParameters = L"/SILENT /NORESTART", x.lpDirectory = cwd.c_str(), x.nShow = SW_SHOWNORMAL;
+    if (!ShellExecuteExW(&x)) return *error = GetLastError() == ERROR_CANCELLED ? "Windows was not allowed to" : "its uninstaller did not start", false;
+    if (x.hProcess) WaitForSingleObject(x.hProcess, 300000), CloseHandle(x.hProcess);
+    for (int i = 0; i < 300 && fs::exists(prog, ec); ++i) SDL_Delay(100);  // Inno's works on from a copy of itself
+#else
+    return *error = "its uninstaller is for Windows", false;
+#endif
+  }
+  if (fs::exists(prog, ec)) return *error = "it is still there: close the game and try again", false;
   return true;
 }
 

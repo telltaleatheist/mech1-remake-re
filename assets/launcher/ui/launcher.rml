@@ -77,6 +77,16 @@
     <div class="part gamepage" data-if="screen == 'game'" data-class-ask="variant == 'ask'">
       <fit class="title" data-if="title != ''" data-attr-text="title"/>
       <div class="lines"><div class="line" data-for="l : lines" data-attr-class="'line ' + l.kind">{{l.text}}</div></div>
+      <div class="rows">
+        <div class="row" data-for="r : rows">
+          <div class="about">
+            <div class="title">{{r.title}}</div>
+            <div data-for="l : r.lines" data-attr-class="l.kind">{{l.text}}</div>
+          </div>
+          <div class="buttons" data-attr-buttons="r.buttons"/>
+        </div>
+        <div class="links" buttons="links"/>
+      </div>
       <div class="col plates" buttons="plates"/>
       <div class="status over" data-attr-class="'status over ' + status_kind">{{status}}</div>
       <div class="foot" buttons="foot"/>

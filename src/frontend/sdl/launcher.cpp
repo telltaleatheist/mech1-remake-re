@@ -60,6 +60,7 @@ constexpr const char* kHeaderNames[] = {"MECHWARRIOR 3",  "MECHWARRIOR 3: PIRATE
 static_assert(sizeof kHeaderNames / sizeof *kHeaderNames == upgrades::update::kGameCount);
 constexpr int kCopyRows = 4;  // GAME FILES' list: the copies shown (the rest by PICK A FILE)
 // A panel's words' width (assets/launcher/ui/launcher.rcss, .panel .about), its lines chosen by it.
+constexpr int kRowWidth = 640 - 2 - 28 - 2 * 112;  // a game page's row: its words beside two buttons
 constexpr int kAboutWidth = 752 - 2 - 12 - 76 - 16 - 16 - 224 - 14;
 // The launcher's name in its header and window (2026-11-22: "Battletech" at the top, for the whole family).
 constexpr const char* kLauncherTitle = "BATTLETECH";
@@ -173,7 +174,7 @@ const SDL_DialogFileFilter kGameFiles[] = {{"All files", "*"},
                                            {"Programs (.exe)", "exe"}};
 constexpr int kGameFilesCount = 4;
 const SDL_DialogFileFilter kMw1Files[] = {{"MechWarrior (1989): BTECH.EXE, or a download (.zip)", "*"}};
-// ADD FROM FILE's: a game's own download for this computer (sdl_games.h).
+// INSTALL FROM A DOWNLOADED FILE's: a game's own download for this computer (sdl_games.h).
 const SDL_DialogFileFilter kPackageFiles[] = {{"A game's download (.zip, .dmg, .AppImage)", "*"}};
 const SDL_DialogFileFilter kDiscFiles[] = {{"All files", "*"},
                                            {"Downloads (.zip .7z .rar)", "zip;7z;rar;tar;gz;tgz;xz"},
@@ -263,7 +264,7 @@ struct Button {
 };
 
 enum Id {
-  kMw3 = 1, kPm, kQuit, kMw1, kFiles,
+  kMw3 = 1, kPm, kQuit, kMw1,
   kFind = 10, kPoint, kBack,
   kPatch,  // the 1.2 patch's zip: unreachable since the patch is built in (patch12.h), its code kept
   kAddDisc = 20,
@@ -278,13 +279,14 @@ enum Id {
   kMw1Original = 100,  // MW1's card: PLAY ORIGINAL, Elthial's port of the 1989 game
   kGameInstall = 110,  // ours, games on demand (sdl_games.h): + the game (upgrades::update::Game), INSTALL
   kGameUpdate = 120,   // + the game: UPDATE
-  kInstallFile = 130, kInstallFileGo,  // ADD FROM FILE; its ADD ANYWAY for a file without SHA256SUMS
+  kInstallFile = 130, kInstallFileGo,  // INSTALL FROM A DOWNLOADED FILE; its ADD ANYWAY for a file without SHA256SUMS
   kKitPlay = 150,  // + the game: PLAY for a game on the setup kit's contract (MW1 Rebuild, Inception's two)
   kCopy = 160,      // + the row (up to kCopyRows): GAME FILES' list of the copies on this computer (2026-11-24), one taken
   kCopyPick = 168,
   kGear = 170,       // + the game: a panel's gear, its game's page (2026-11-24, docs/launcher.md, A game's page)
   kGameLink = 180,   // the page's LINK AN INSTALL (a picker), UNLINK, UNINSTALL, BACK
   kGameUnlink, kGameUninstall, kGameFilesPick, kGameBack,
+  kGameRemove,  // UNINSTALL of the linked copy (2026-11-24)
   kUninstallGo, kUninstallAll, kUninstallBack,  // UNINSTALL's confirm: the program, the program and its game files, KEEP IT  // its PICK A FILE: the one picker (1.3.4 had it at kCopy + 1, the second row's id: that row opened the picker)
 };
 
@@ -465,10 +467,8 @@ class Launcher {
   std::string pm_found_;  // the search's Pirate's Moon, not taken: offered when PIRATE'S MOON is chosen
   bool have_files() const { return files_pm_ ? !pm_dir_.empty() : install_.ok; }
   std::string files_dir() const { return files_pm_ ? pm_dir_ : install_.dir; }
-  bool pm_last_ = false;  // the game last clicked: GAME FILES acts on it
   bool mw1_repick_ = false;  // the MW1 pick came from GAME FILES: kept, not played
-  bool mw1_last_ = false;  // MW1's line last clicked: GAME FILES re-picks its folder
-  bool files_pm_ = false;  // GAME FILES' screens are Pirate's Moon's (pm_last_ when they opened)
+  bool files_pm_ = false;  // GAME FILES' screens are Pirate's Moon's 
   bool pm_lacks_music_ = false, pm_lacks_sounds_ = false;  // pm_refresh
   std::shared_ptr<upgrades::update::Verdict> update_;  // the last CHECK FOR UPDATES' verdict
   std::vector<std::string> update_lines_;  // its release's notes wrapped to the screen (show_update)
@@ -505,7 +505,6 @@ class Launcher {
   void kit_looked(const mech3::setup::Result& r);
   void kit_install();
   void kit_ready(const std::string& summary);
-  int kit_last_ = -1;       // the kit game whose PLAY was last pressed: GAME FILES acts on it
   int kit_files_ = -1;      // the game the find screens are for, else MW3's or Pirate's Moon's
   bool kit_play_ = false;   // PLAY asked for them: the game starts once they are in
   rekit::SetupMessage kit_ask_;                     // its words
@@ -539,6 +538,13 @@ class Launcher {
   int page_game_ = -1;           // kGamePage's game
   bool uninstall_files_ = false;  // the running UNINSTALL takes the game files too
   bool page_confirm_ = false;    // its UNINSTALL asked: the confirm in its place
+  bool remove_linked_ = false;   // ... of the linked copy, not the launcher's
+  sdlfe::games::Removal removal_[upgrades::update::kGameCount];  // how the linked copy would go (open_game_page)
+  std::vector<UiPanel> rows_;    // the page's rows
+  int files_page_ = -1;          // the game page whose GAME FILES opened the find screen: its BACK
+  bool can_open_files(int i) const;
+  void open_files(int i);
+  UiPanel files_row(int i);
   void open_game_page(int i);
   void resolve_game(int i, bool refresh);
   std::string own_files(int i);  // the game files UNINSTALL may remove with the program (see its definition)
@@ -841,11 +847,69 @@ void Launcher::find_link(int i) {
 
 // A game's page, from its panel's gear (2026-11-24, docs/launcher.md, A game's page).
 void Launcher::open_game_page(int i) {
-  page_game_ = i, page_confirm_ = false, status_.clear(), screen_ = kGamePage;
+  page_game_ = i, page_confirm_ = false, files_page_ = -1, status_.clear(), screen_ = kGamePage;
   layout();
 }
 
-// LINK AN INSTALL's pick: the game's program in it, this game's by its stamp or its --status, linked; whichever of it
+// A game's GAME FILES (2026-11-24: on its page; before, a button for whichever game was last clicked): the player's own
+// copy of the original picked or refreshed. A game whose program does that itself has none here (PLAY asks).
+bool Launcher::can_open_files(int i) const {
+  if (i == 0) return true;
+  if (i == 1) return !o_.pm_bin.empty();
+  if (i == 2) return mw1_remake_;
+  if (i == 3 && !port_exe_.empty()) return true;
+  return kit_serves(i);
+}
+
+void Launcher::open_files(int i) {
+  if (!can_open_files(i)) return;
+  if (i == 2 || (i == 3 && !port_exe_.empty())) {  // MechWarrior (1989)'s folder (a cancel keeps the one in use)
+    status_ = (mw1_game_.empty() ? std::string("Pick your MechWarrior (1989)") : "MechWarrior (1989) is at " + mw1_game_ + ". Pick another") +
+              ": its BTECH.EXE, or the download it came in (.zip).";
+    status_good_ = true, mw1_repick_ = true;
+    return ask_file(kMw1, kMw1Files, 1);
+  }
+  const int page = screen_ == kGamePage ? i : -1;
+  if (i > 1) {
+    open_kit_files(i, false);
+  } else {
+    files_pm_ = i == 1;
+    if (files_pm_) pm_refresh();
+    from_files_ = true, status_.clear(), screen_ = kSetupScreen;
+  }
+  files_page_ = page;
+  layout();
+}
+
+// The page's GAME FILES row: what is in use and where; none for a game not here that says nothing of its files.
+UiPanel Launcher::files_row(int i) {
+  UiPanel p;
+  auto is = [&](const std::string& text, const std::string& path) { p.lines = {{text, ""}, {path, ""}}; };
+  const std::string none = "Not found yet", asks = "PLAY finds them, or pick them here";
+  auto lacks = [](std::string s, bool music, const char* other, bool it) {
+    if (music && it) return s + " \xc2\xb7 no music or " + other;
+    if (music) return s + " \xc2\xb7 no music";
+    return it ? s + " \xc2\xb7 no " + other : s;
+  };
+  auto data = [](const std::string& name, const std::string& v) { return v.empty() || v == "unknown" ? name : name + " " + v; };
+  if (i == 0) {
+    if (install_.ok) is(lacks(data("MechWarrior 3", install_.version), lacks_music_, "movies", lacks_movies_), install_.dir);
+    else is(none, asks);
+  } else if (i == 1 && can_open_files(1)) {
+    if (!pm_dir_.empty()) is(lacks(data("Pirate's Moon", pm_data_), pm_lacks_music_, "sounds", pm_lacks_sounds_), pm_dir_);
+    else is(none, asks);
+  } else if (can_open_files(i) && (i == 2 || (i == 3 && !port_exe_.empty()))) {
+    if (!mw1_game_.empty()) is("MechWarrior (1989)", mw1_game_);
+    else is(none, "Your MechWarrior (1989): PLAY finds it, or pick it here");
+  } else if (kit_game(i) && !game_bin(i).empty()) {
+    const rekit::Status& s = kit_status_[i];
+    if (kit_known_[i] && s.state == rekit::Status::kReady) is(s.data.empty() ? "Your copy of the game" : s.data, s.where);
+    else is(none, can_open_files(i) ? asks : "PLAY finds them");
+  }
+  return p;
+}
+
+// LINK A COPY's pick: the game's program in it, this game's by its stamp or its --status, linked; whichever of it
 // and the launcher's own copy is newer plays.
 void Launcher::link_picked(const std::string& path) {
   const int i = page_game_;
@@ -861,7 +925,7 @@ void Launcher::link_picked(const std::string& path) {
       if (screen_ == kSetupScreen) kit_look(path);
       return;
     }
-    status_ = "That isn't " + name + "'s program. For your own copy of the game, use GAME FILES.", status_good_ = false;
+    status_ = "That isn't the rebuilt " + name + ". For your own copy of the original game, use GAME FILES.", status_good_ = false;
     return layout();
   }
   if (sdlfe::games::launchers_own(prog)) {
@@ -885,16 +949,16 @@ void Launcher::unlink_game() {
   save_config_value(o_.write_dir, "link_" + key, ""), save_config_value(o_.write_dir, "unlinked_" + key, prog);
   std::printf("mw3: launcher: games: %s: unlinked %s\n", key.c_str(), prog.c_str());
   resolve_game(i, true);
-  status_ = "Unlinked. Its folder is as it was.", status_good_ = true;
+  status_ = "Unlinked. Nothing was deleted.", status_good_ = true;
   layout();
 }
 
-// The game files UNINSTALL may take with the program: MechWarrior 3's or Pirate's Moon's, only when the launcher's
-// copy is the last one here (no linked copy, none unlinked but still there, nothing beside it, no MechWarrior 1 Remake, which plays them too), and
+// The game files UNINSTALL may take with the program: MechWarrior 3's or Pirate's Moon's, only when the
+// copy going is the last one here (the launcher's or a linked one, none unlinked but still there, nothing beside it, no MechWarrior 1 Remake, which plays them too), and
 // only a folder our own copying made (its mw3-install.txt) in the places the launcher puts them (the user folder's
 // install/, the game's picked folder's). Never a copy of the original the player pointed at.
 std::string Launcher::own_files(int i) {
-  if ((i != 0 && i != 1) || !has_installed_[i] || !linked_[i].empty() || beside_[i] || !game_bin(2).empty()) return {};
+  if ((i != 0 && i != 1) || has_installed_[i] == !linked_[i].empty() || beside_[i] || !game_bin(2).empty()) return {};
   std::error_code ec;  // one the player unlinked plays them too, while it is there
   const std::string unlinked = cfg_path(o_.write_dir, std::string("unlinked_") + upgrades::update::game_info(upgrades::update::kGames[i]).key);
   if (!unlinked.empty() && fs::exists(unlinked, ec)) return {};
@@ -906,10 +970,12 @@ std::string Launcher::own_files(int i) {
   return {};
 }
 
-// UNINSTALL: the launcher's copy (only its marked folder) and, when asked and allowed (own_files), its game files.
+// UNINSTALL: the launcher's copy (only its marked folder) or the linked one (removal_of), and, when asked and allowed
+// (own_files), its game files.
 void Launcher::uninstall_go(bool files) {
   const int i = page_game_;
-  if (i < 0 || work_ || !has_installed_[i]) return;
+  if (i < 0 || work_ || (remove_linked_ ? linked_[i].empty() || removal_[i].how == sdlfe::games::Removal::kNone : !has_installed_[i])) return;
+  if (remove_linked_ && o_.hidden && !SDL_getenv("MW3_LAUNCHER_TRASH")) return;  // a check run touches no real trash
   const upgrades::update::Game g = upgrades::update::kGames[i];
   const std::string root = game_root(i), fdir = files ? own_files(i) : std::string(), name = upgrades::update::game_info(g).name;
   uninstall_files_ = !fdir.empty();
@@ -917,20 +983,22 @@ void Launcher::uninstall_go(bool files) {
   for (char& ch : title) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
   work_ = std::make_unique<Work>();
   work_->kind = Work::kUninstall;
-  work_->start(title, [root, g, fdir, name](const mech3::setup::ProgressFn& f) {
+  const std::string prog = remove_linked_ ? linked_[i] : std::string();
+  const sdlfe::games::Removal how = removal_[i];
+  work_->start(title, [root, g, fdir, name, prog, how](const mech3::setup::ProgressFn& f) {
     mech3::setup::Result res;
     std::string error;
-    f(mech3::setup::Progress{"Removing the program", 0.2, ""});
-    if (!sdlfe::games::uninstall(root, g, &error)) return res.summary = "Nothing was removed: " + error + ".", res;
+    f(mech3::setup::Progress{how.how == sdlfe::games::Removal::kSetup && !prog.empty() ? "Its uninstaller is running" : "Removing the game", 0.2, ""});
+    if (!prog.empty() ? !sdlfe::games::remove_linked(prog, g, how, &error) : !sdlfe::games::uninstall(root, g, &error)) return res.summary = "Nothing was removed: " + error + ".", res;
     if (!fdir.empty()) {
       f(mech3::setup::Progress{"Removing the game files", 0.5, ""});
       std::error_code ec;
       const fs::path old = fs::path(fdir).parent_path() / ".install.removing";
       if (!fs::is_regular_file(fs::path(fdir) / "mw3-install.txt", ec) || fs::exists(old, ec))  // asked again at the removal
-        return res.summary = "The program was removed; its game files were left alone: " + fdir, res;
+        return res.summary = "The game was removed; its game files were left alone: " + fdir, res;
       fs::rename(fdir, old, ec);
       if (!ec) fs::remove_all(old, ec);
-      if (ec) return res.summary = "The program was removed; its game files could not be (" + ec.message() + "): " + fdir, res;
+      if (ec) return res.summary = "The game was removed; its game files could not be (" + ec.message() + "): " + fdir, res;
     }
     res.ok = true;
     res.summary = name + (fdir.empty() ? " was uninstalled." : " was uninstalled, with its game files.") + " Your pilots, saves, settings and mods are kept.";
@@ -1039,8 +1107,8 @@ std::string Launcher::game_words(int i) const {
   using C = upgrades::update::GameCheck;
   const C& c = checks_[i];
   switch (c.kind) {
-    case C::kAsking: return "Asking GitHub for the newest version...";
-    case C::kFailed: return "Can't reach the server:\nADD FROM FILE takes a download";
+    case C::kAsking: return "Checking for the newest version...";
+    case C::kFailed: return "Can't reach the server:\nthe gear can install from a file";
     case C::kNoRelease: return "No download for this computer yet";
     default: {
       const upgrades::update::Asset* a = c.asset();
@@ -1098,7 +1166,7 @@ void Launcher::install_file_go() {
   work_->kind = Work::kGameInstall;
   auto done = game_done_ = std::make_shared<sdlfe::games::Done>();
   const std::string root = games_root_, file = install_file_, sha = file_check_ ? file_check_->sha256 : std::string();
-  work_->start("ADDING FROM FILE", [done, root, file, sha](const mech3::setup::ProgressFn& f) {
+  work_->start("INSTALLING FROM A FILE", [done, root, file, sha](const mech3::setup::ProgressFn& f) {
     *done = sdlfe::games::install_file(root, file, sha, [&](double x, const std::string& w) { return f(mech3::setup::Progress{w, x, ""}); });
     mech3::setup::Result res;
     res.ok = done->ok, res.cancelled = done->cancelled, res.summary = done->words;
@@ -1114,7 +1182,7 @@ void Launcher::game_installed(const sdlfe::games::Done& d) {
   const std::string key = std::string("games_") + game_info(d.game).key;
   if (place_game_ == i && work_game_ == i) {  // a card's INSTALL: its folder kept for UPDATE and the game files
     games_place_[i] = place_, save_config_value(o_.write_dir, key, place_);
-  } else if (work_game_ < 0 && !games_place_[i].empty()) {  // ADD FROM FILE: into the games folder, now the one in use
+  } else if (work_game_ < 0 && !games_place_[i].empty()) {  // INSTALL FROM A DOWNLOADED FILE: into the games folder, now the one in use
     games_place_[i].clear(), save_config_value(o_.write_dir, key, "");
   }
   place_game_ = -1;
@@ -1741,6 +1809,7 @@ void Launcher::watch_game() {
 
 void Launcher::layout() {
   if (screen_ == kMain || screen_ == kGamePage) kit_files_ = -1;
+  if (screen_ == kMain) files_page_ = -1;
   buttons_.clear();
   ui_stale_ = true;
   auto add = [&](int id, const char* group, std::string label, std::string sub = {}, bool on = true) -> Button& {
@@ -1999,11 +2068,9 @@ void Launcher::layout() {
           b.kind = "gear", b.name = p.name + " SETTINGS";
         }
       }
-      // GAME FILES (2026-11-02): the find screen at any time, to pick or refresh the game's files; UPDATES
-      // (docs/launcher.md, Updates); QUIT for fullscreen (Escape too). The mockup's bottom row, flat buttons.
-      add(kFiles, "row", "GAME FILES").kind = "flat files";
+      // UPDATES (docs/launcher.md, Updates); QUIT where a window has no X (Escape too). GAME FILES and INSTALL FROM A
+      // DOWNLOADED FILE are on a game's page (2026-11-24).
       add(kUpdates, "row", "UPDATES").kind = "flat updates";
-      if (games_on_) add(kInstallFile, "row", "ADD FROM FILE").kind = "flat add";  // ours: a game's download from anywhere (a modder's build, no internet)
       add(kQuit, "row", "QUIT").kind = "flat";
       // A newer launcher found by the start's check: an amber UPDATE AVAILABLE <v> in the header's top right, beside
       // the mark, as Discord's and Chrome's (2026-11-23: the footer's button was too small to see). After QUIT
@@ -2058,26 +2125,66 @@ void Launcher::layout() {
       add(kBack, "foot", "BACK");
       break;
     }
-    case kGamePage: {  // a game's page (its gear, 2026-11-24): link a copy, unlink it, uninstall the launcher's
+    case kGamePage: {  // a game's page (its gear, 2026-11-24): a row each for its game files and its copies, what each
+                       // is and its buttons at its right
       const int i = page_game_;
       if (i < 0) break;
+      const std::string key = upgrades::update::game_info(upgrades::update::kGames[i]).key;
+      removal_[i] = linked_[i].empty() ? sdlfe::games::Removal() : sdlfe::games::removal_of(linked_[i], upgrades::update::kGames[i]);
+      rows_.clear();
       if (page_confirm_) {
-        add(kUninstallGo, "plates", "UNINSTALL", own_files(i).empty() ? "The program: your game files stay" : "The program only: the game files stay for a reinstall");
-        if (!own_files(i).empty()) add(kUninstallAll, "plates", "UNINSTALL AND REMOVE GAME FILES", "Pilots, saves, settings and mods still stay");
+        const bool files = !own_files(i).empty();
+        add(kUninstallGo, "plates", "UNINSTALL", files || i > 1 ? "Your game files stay" : "");
+        if (files) add(kUninstallAll, "plates", "UNINSTALL AND REMOVE GAME FILES", "Your pilots, saves, settings and mods still stay");
         add(kBack, "foot", "KEEP IT");
         buttons_.back().name = "KEEP IT";
         break;
       }
-      if (kit_serves(i) && !game_bin(i).empty()) {
-        add(kGameFilesPick, "plates", "GAME FILES", "Your own copy: pick a download (.zip), a disk image or a folder", !work_);
+      auto row = [&](const char* title, const std::string& text, const std::string& path) {
+        UiPanel p;
+        p.title = title, p.buttons = "r" + std::to_string(rows_.size());
+        p.lines = {{text, "text"}, {path, "path", 3}};
+        rows_.push_back(p);
+      };
+      auto button = [&](int id, const char* label, const char* name = "", bool on = true) {
+        Button& b = add(id, ("r" + std::to_string(rows_.size() - 1)).c_str(), label, "", on && !work_);
+        b.kind = "flat", b.name = name;
+      };
+      auto ver = [](const std::string& t) { return t.empty() || t == "unknown" ? std::string() : "Version " + upgrades::update::game_version(t) + ", "; };
+      auto sentence = [](std::string t) { return t.empty() ? t : (t[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(t[0]))), t); };
+      if (const UiPanel f = files_row(i); !f.lines.empty()) {
+        row("GAME FILES", f.lines[0].text, f.lines[1].text);
+        if (can_open_files(i)) button(kGameFilesPick, "CHANGE", "GAME FILES");
+      }
+      auto own = [&](const char* title) {
+        row(title, sentence(ver(installed_[i].tag) + "installed by the launcher"), (fs::path(game_root(i)) / key).make_preferred().string());
+        button(kGameUninstall, "UNINSTALL");
+      };
+      auto linked = [&](const char* title, const char* words) {
+        std::string at = linked_[i];
+        if (const size_t in = at.find(".app/Contents/MacOS/"); in != std::string::npos) at.resize(in + 4);
+        row(title, sentence(ver(linked_tag_[i]) + words) + (removal_[i].why.empty() ? std::string() : " \xc2\xb7 " + removal_[i].why), at);
+        button(kGameUnlink, "UNLINK");
+        if (removal_[i].how != sdlfe::games::Removal::kNone) button(kGameRemove, "UNINSTALL", "UNINSTALL LINKED");
+      };
+      if (source_[i] == kBeside) {
+        row("INSTALLED GAME", sentence(ver(MW3_VERSION) + "part of this package"), game_bin(i));
+      } else if (source_[i] == kOwnCopy) {
+        own("INSTALLED GAME");
+        if (!linked_[i].empty()) linked("OTHER COPY", "linked, not in use");
+      } else if (source_[i] == kLinked) {
+        linked("INSTALLED GAME", "linked");
+        if (has_installed_[i]) own("OTHER COPY");
+      } else {
+        using GC = upgrades::update::GameCheck;
+        const GC& c = checks_[i];
+        row("INSTALLED GAME", "Not installed", c.kind == GC::kNewer ? "Version " + upgrades::update::game_version(c.release.tag) + " is available" : "");
+        if (c.kind == GC::kNewer) button(kGameInstall + i, "DOWNLOAD"), buttons_.back().kind = "amber";
       }
       if (source_[i] != kBeside) {
-        add(kGameLink, "plates", linked_[i].empty() ? "LINK AN INSTALL" : "LINK ANOTHER INSTALL", "The rebuild, installed without the launcher: its program", !work_);
+        add(kGameLink, "links", linked_[i].empty() ? "LINK A COPY ALREADY INSTALLED" : "LINK ANOTHER COPY", "", !work_).kind = "flat";
+        add(kInstallFile, "links", "INSTALL FROM A DOWNLOADED FILE", "", !work_).kind = "flat";
       }
-      if (!linked_[i].empty()) {
-        add(kGameUnlink, "plates", "UNLINK", "Its folder stays: remove it the way you installed it", !work_);
-      }
-      if (has_installed_[i]) add(kGameUninstall, "plates", "UNINSTALL", "The copy the launcher installed", !work_);
       add(kBack, "foot", "BACK");
       break;
     }
@@ -2220,6 +2327,9 @@ UiModel Launcher::model() {
     const Button& b = buttons_[i];
     m.buttons[b.group].push_back({static_cast<int>(i), b.label, b.sub, b.kind, b.enabled, static_cast<int>(b.sub_keep)});
   }
+  m.rows = rows_;
+  for (UiPanel& p : m.rows)
+    for (UiLine& l : p.lines) l.text = body_.fit(l.text, 12, kRowWidth, l.keep);
   m.panels = panels_;  // kept on the other screens: the list stays as it was scrolled
   m.status = status_, m.status_kind = status_good_ ? "good" : "bad";
   // A game's own setup (mw3 or mw3pm started without the launcher): headed with that game, its badge and name (the kit
@@ -2257,22 +2367,17 @@ UiModel Launcher::model() {
       const int i = page_game_;
       if (i < 0) break;
       const std::string name = upper(upgrades::update::game_info(upgrades::update::kGames[i]).name);
-      auto ver = [](const std::string& t) { return t.empty() || t == "unknown" ? std::string() : " \xc2\xb7 " + upgrades::update::game_version(t); };
       const std::string own_dir = (fs::path(game_root(i)) / upgrades::update::game_info(upgrades::update::kGames[i]).key).make_preferred().string();
       if (page_confirm_) {
         m.variant = "ask", m.title = "UNINSTALL " + name + "?";
-        m.lines.push_back({"Removes " + text_.fit(own_dir, 13, 400, 3), ""});
+        using Rm = sdlfe::games::Removal;
+        if (!remove_linked_) m.lines.push_back({"Removes " + text_.fit(own_dir, 13, 400, 3), ""});
+        else if (removal_[i].how == Rm::kSetup) m.lines.push_back({"Runs its own uninstaller: " + text_.fit(removal_[i].path, 13, 320, 3), ""});
+        else m.lines.push_back({"Moves " + text_.fit(removal_[i].path, 13, 340, 3) + " to the trash", ""});
         const std::string files = own_files(i);
         if (!files.empty()) m.lines.push_back({"Its game files: " + text_.fit(files, 13, 400, 3), "dim"});
         else if ((i == 0 || i == 1) && !game_bin(2).empty()) m.lines.push_back({"MechWarrior 1 Remake plays these game files too, so they stay.", "dim"});
-        m.lines.push_back({"Your pilots, saves, settings and mods stay.", "dim"});
-      } else {
-        if (source_[i] == kBeside) m.lines.push_back({"Part of this package" + ver(MW3_VERSION) + ": " + text_.fit(game_bin(i), 13, 300, 3), ""});
-        else if (source_[i] == kOwnCopy) m.lines.push_back({"Installed by the launcher" + ver(installed_[i].tag), ""}), m.lines.push_back({text_.fit(own_dir, 13, 470, 3), ""});
-        else if (source_[i] == kLinked) m.lines.push_back({"Linked, installed without the launcher" + ver(linked_tag_[i]), ""}), m.lines.push_back({text_.fit(linked_[i], 13, 470, 3), ""});
-        else m.lines.push_back({"Not installed: DOWNLOAD it on its panel, or link a copy you installed yourself.", ""});
-        if (source_[i] == kOwnCopy && !linked_[i].empty())
-          m.lines.push_back({"Also linked" + ver(linked_tag_[i]) + ", older: " + text_.fit(linked_[i], 13, 300, 3), "dim"});
+        m.lines.push_back({std::string(has_installed_[i] && !linked_[i].empty() ? "Your other copy, p" : "Your p") + "ilots, saves, settings and mods stay.", "dim"});
       }
       if (m.lines.size() > 3) m.lines.resize(3);
       for (UiLine& l : m.lines) l.text = text_.fit(l.text, 13, 480);
@@ -3044,6 +3149,7 @@ void Launcher::finish_work() {
         if (i == 0) save_config_value(o_.write_dir, "install", "");
         if (i == 1) save_config_value(o_.write_dir, "pm_install", ""), save_config_value(pm_wd(), "install", "");
       }
+      if (remove_linked_ && r.ok) save_config_value(o_.write_dir, std::string("link_") + upgrades::update::game_info(upgrades::update::kGames[i]).key, "");
       resolve_game(i, true);
     }
     status_ = r.summary, status_good_ = r.ok, page_confirm_ = false, screen_ = kGamePage;
@@ -3177,7 +3283,7 @@ void Launcher::activate(int id) {
   if (id >= kGameUpdate && id < kGameUpdate + upgrades::update::kGameCount) return install_game(id - kGameUpdate);
   if (id >= kKitPlay && id < kKitPlay + upgrades::update::kGameCount) {
     sounds_.play(Sounds::kSelect);
-    mw1_last_ = id == kKitPlay + 3, pm_last_ = files_pm_ = false, kit_last_ = id - kKitPlay;
+    files_pm_ = false;
     return run_kit(id - kKitPlay);
   }
   if (id >= kGear && id < kGear + upgrades::update::kGameCount) return sounds_.play(Sounds::kSelect), open_game_page(id - kGear);
@@ -3188,8 +3294,10 @@ void Launcher::activate(int id) {
       case kBack: screen_ = kMain, status_.clear(); return layout();
       case kGameLink: return ask_file(kGameLink, nullptr, 0);
       case kGameUnlink: return unlink_game();
-      case kGameFilesPick: return open_kit_files(page_game_, false);
-      case kGameUninstall: page_confirm_ = true, status_.clear(); return layout();
+      case kGameFilesPick: return open_files(page_game_);
+      case kGameUninstall:
+      case kGameRemove: page_confirm_ = true, remove_linked_ = id == kGameRemove, status_.clear(); return layout();
+      case kInstallFile: break;
       case kUninstallBack: page_confirm_ = false; return layout();
       case kUninstallGo:
       case kUninstallAll: return uninstall_go(id == kUninstallAll);
@@ -3206,7 +3314,7 @@ void Launcher::activate(int id) {
   static const SDL_DialogFileFilter kZip[] = {{"The 1.2 patch (.zip, .exe)", "zip;exe"}, {"All files", "*"}};
   switch (id) {
     case kMw3:
-      pm_last_ = files_pm_ = mw1_last_ = false, kit_last_ = -1;
+      files_pm_ = false;
       if (games_on_ && o_.game_bin.empty()) {  // not installed: its card's INSTALL (games on demand)
         status_ = "MechWarrior 3 isn't installed yet: press INSTALL on its card.", status_good_ = false;
         layout();
@@ -3292,7 +3400,7 @@ void Launcher::activate(int id) {
       work_->kind = Work::kUpdateCheck;
       auto verdict = update_ = std::make_shared<upgrades::update::Verdict>();
       work_->start("CHECKING FOR UPDATES", [verdict](const mech3::setup::ProgressFn& f) {
-        f(mech3::setup::Progress{"Asking GitHub for the newest release", 0.3, ""});
+        f(mech3::setup::Progress{"Checking for a newer version", 0.3, ""});
         *verdict = check_for_updates(MW3_VERSION);
         mech3::setup::Result r;
         r.ok = verdict->kind != upgrades::update::Verdict::kFailed;
@@ -3302,28 +3410,8 @@ void Launcher::activate(int id) {
       screen_ = kWorking, layout();
       break;
     }
-    case kFiles:  // the find screen at any time: repick or refresh the game's files
-      if (kit_last_ >= 0 && kit_serves(kit_last_) && !game_bin(kit_last_).empty()) {  // one that serves its setup
-        open_kit_files(kit_last_, false);
-        break;
-      }
-      if (mw1_last_ && (mw1_remake_ || !port_exe_.empty())) {  // MW1's: its folder picked again (a cancel keeps the one in use)
-        status_ = (mw1_game_.empty() ? std::string("Pick your MechWarrior (1989)")
-                                     : "MechWarrior (1989) is at " + mw1_game_ + ". Pick another") +
-                  ": its BTECH.EXE, or the download it came in (.zip).";
-        status_good_ = true;
-        mw1_repick_ = true;
-        ask_file(kMw1, kMw1Files, 1);
-        break;
-      }
-      files_pm_ = pm_last_ && !o_.pm_bin.empty();  // the game last clicked
-      if (files_pm_) pm_refresh();
-      from_files_ = true, status_.clear();
-      screen_ = kSetupScreen, layout();
-      break;
     case kPm:
       if (o_.pm_bin.empty()) break;
-      pm_last_ = true, mw1_last_ = false, kit_last_ = -1;
       if (pm_dir_.empty() && !pm_found_.empty()) {  // the search's find: offered to be copied in
         files_pm_ = true, from_files_ = false, status_.clear();
         if (SDL_getenv("MW3_LAUNCHER_GO")) auto_go_ = auto_ok_ = true;  // checks: its INSTALL pressed
@@ -3336,7 +3424,7 @@ void Launcher::activate(int id) {
       }
       break;
     case kMw1Original:  // Elthial's port (PLAY ORIGINAL): the same folder; it needs no other game
-      mw1_last_ = true, pm_last_ = false, mw1_original_ = true, kit_last_ = -1;
+      mw1_original_ = true;
       if (port_exe_.empty()) {
         status_ = "PLAY ORIGINAL (MechWarrior as released in 1989) is coming later.", status_good_ = false;
         layout();
@@ -3350,7 +3438,7 @@ void Launcher::activate(int id) {
       }
       break;
     case kMw1:
-      mw1_last_ = true, pm_last_ = false, mw1_original_ = false, kit_last_ = -1;
+      mw1_original_ = false;
       if (!mw1_remake_) break;  // no remake in this package: its button is greyed
       if (mw1_remake_ && !mw1_needs().empty()) {  // MW1: the other two games first, said (before its own folder too)
         status_ = "MechWarrior 1 " + mw1_needs() + ".", status_good_ = false;
@@ -3389,6 +3477,7 @@ void Launcher::activate(int id) {
       else if (screen_ == kConfirm) screen_ = kSetupScreen, layout();
       else if (screen_ == kDataScreen) screen_ = kSetupScreen, status_.clear(), layout();
       else if (screen_ == kCopies) screen_ = kSetupScreen, status_.clear(), layout();
+      else if (screen_ == kSetupScreen && files_page_ >= 0) from_files_ = false, open_game_page(files_page_);  // its page
       else screen_ = kMain, from_files_ = false, status_.clear(), layout();
       break;
     case kNotesOk:
@@ -3692,9 +3781,9 @@ LauncherChoice Launcher::run() {
   // Checks: keys or a pad as a list ("next,next,press"), each step logged; with MW3_LAUNCHER_NAV_LATE, once the
   // start's own update check has answered (its footer button is there to reach).
   if (!SDL_getenv("MW3_LAUNCHER_NAV_LATE")) nav_steps();
-  // Checks: GAME FILES opened on Pirate's Moon, as after a click on it.
-  if (const char* g = SDL_getenv("MW3_LAUNCHER_FILES"); g && std::strcmp(g, "pm") == 0) pm_last_ = true, activate(kFiles);
-  else if (g && std::strcmp(g, "mw1") == 0) mw1_last_ = true, activate(kFiles);  // checks: GAME FILES after MW1's line
+  // Checks: GAME FILES opened on Pirate's Moon, or MechWarrior 1's, as from its page.
+  if (const char* g = SDL_getenv("MW3_LAUNCHER_FILES"); g && std::strcmp(g, "pm") == 0) open_files(1);
+  else if (g && std::strcmp(g, "mw1") == 0) open_files(mw1_remake_ ? 2 : 3);
   // Checks: a pick as if made in the find screen's dialog (after any NAV
   // steps: GAME FILES), INSTALL and the notes' OK pressed.
   if (const char* to = SDL_getenv("MW3_LAUNCHER_MOVE_TO")) {  // checks: the data folder's move, its MOVE pressed
@@ -3822,7 +3911,7 @@ LauncherChoice Launcher::run() {
     take_games_check();
     take_self_check();
     if (games_on_ && !install_file_asked_ && SDL_getenv("MW3_LAUNCHER_INSTALL_FILE") && screen_ == kMain && !work_)
-      install_file_asked_ = true, activate(kInstallFile);  // checks: ADD FROM FILE pressed (the picker's MW3_LAUNCHER_PICKER)
+      install_file_asked_ = true, activate(kInstallFile);  // checks: INSTALL FROM A DOWNLOADED FILE pressed (the picker's MW3_LAUNCHER_PICKER)
     if (quit_after_mw1_ && !asking_ && !ask_pending_ && !work_) done_ = true;
     watch_game();
     const Uint64 ta = SDL_GetTicksNS();

@@ -503,38 +503,54 @@ never written to (the launcher only writes folders it made). The log:
 game (not COMING SOON) has a gear, a square left of its button
 (`Button::gear`, `kGear + game`), after PLAY and UPDATE in the focus order so
 a pad's first press is still PLAY; the log calls it "<GAME> SETTINGS". It
-opens the game's page (`kGamePage`, headed with the game's name): which copy
-plays and where, then
+opens the game's page (`kGamePage`, headed with the game's name): a row for
+each thing, what it is and where, its buttons at its right, then two small
+buttons and BACK. (Until the evening of 2026-11-24 the page was a column of
+plates, and GAME FILES and ADD FROM FILE were on the games' bottom row.)
 
-- LINK AN INSTALL (LINK ANOTHER INSTALL once one is linked): the picker; the
-  game's program in what was picked (the program, its folder, a .app, an
-  AppImage; `program_of_pick`), checked as above, a development build
-  allowed. Not the game: "That isn't Pirate's Moon's program. ... use GAME
-  FILES." For a game that serves its setup (Inception) the pick is looked at
-  as its game files instead (a .zip of the game was picked here, 2026-11-24).
-- GAME FILES (first), for a game that serves its setup: its find screen. With
-  files in use it has PICK A FILE and PICK A FOLDER and no FIND THE GAME: the
-  search finds the copy in use, which is no answer (1.4.0 went home there
-  without a picker). "In use:" names their version. Every find screen has
-  PICK A FILE, whose picker opens on all files, types listed beside.
-- UNLINK, for a linked copy: forgotten (`unlinked_<key>=`, so it is not
-  linked again by itself); its folder is not touched.
-- UNINSTALL, for the launcher's copy: a confirm with UNINSTALL (the program
+- GAME FILES (`files_row`): the player's own copy in use and what it lacks;
+  CHANGE (logged GAME FILES) opens its find screen, whose BACK comes back
+  here (`open_files`, `files_page_`). MechWarrior 3's is there whether or not
+  the game is installed (Pirate's Moon's and MechWarrior 1 Remake's need
+  theirs); MechWarrior (1989)'s opens the picker. A kit game that does not
+  serve its setup shows the row alone: PLAY asks. One that does: with files
+  in use it has PICK A FILE and PICK A FOLDER and no FIND THE GAME, as the
+  search finds the copy in use, which is no answer.
+- INSTALLED GAME: the copy PLAY starts (the launcher's or the linked one,
+  the newer; the launcher's on a tie), its version and folder, or Not
+  installed with DOWNLOAD. OTHER COPY: the other, when both are here.
+- UNINSTALL, for the launcher's copy: a confirm with UNINSTALL (the game
   only) and, when allowed, UNINSTALL AND REMOVE GAME FILES; KEEP IT (and
-  Escape) goes back. The program's folder goes only when it carries the
-  launcher's record (`sdlfe::games::uninstall`, moved aside first so a running
-  game is refused whole). The game files go only for MechWarrior 3 and
-  Pirate's Moon, only when no other copy of the game is left (no linked one,
-  none unlinked but still there, none beside, no MechWarrior 1 Remake, which plays them), and only a folder
-  our copying made (its mw3-install.txt) in the user folder's or the game's
-  folder's `install` (`own_files`): never a copy of the original the player
-  pointed at. Pilots, saves, settings and mods always stay.
-- BACK.
+  Escape) goes back. The folder goes only when it carries the launcher's
+  record (`sdlfe::games::uninstall`, moved aside first so a running game is
+  refused whole). The game files go only for MechWarrior 3 and Pirate's
+  Moon, only when the copy going is the last one (none unlinked but still
+  there, none beside, no MechWarrior 1 Remake, which plays them), and only a
+  folder our copying made (its mw3-install.txt) in the user folder's or the
+  game's folder's `install` (`own_files`): never a copy of the original the
+  player pointed at. Pilots, saves, settings and mods always stay.
+- A linked copy has UNLINK (forgotten, `unlinked_<key>=`, so it is not linked
+  again by itself; nothing is deleted) and UNINSTALL (logged UNINSTALL
+  LINKED), with the same confirm (`removal_of`, `remove_linked`): a Mac .app
+  or a Linux AppImage is moved to the trash whole; on Windows its own Setup's
+  uninstaller (unins*.exe with its .dat beside the program) runs silently,
+  Windows asking for an administrator where its Setup did. None for a
+  program loose in a folder (what else is in there is not ours to say), one
+  in a package with another game of ours or with this launcher; the row says
+  so. Asked again at the removal; the answer is whether the program is gone.
+- LINK A COPY ALREADY INSTALLED (LINK ANOTHER COPY): the picker; the game's
+  program in what was picked (the program, its folder, a .app, an AppImage;
+  `program_of_pick`), checked as above, a development build allowed. Not the
+  game: for one that serves its setup the pick is looked at as its game files
+  instead (a .zip of the game was picked here), else said.
+- INSTALL FROM A DOWNLOADED FILE: a game's own download (any game's: the file
+  says which), as ADD FROM FILE did.
 
 `--launcher-screen game:<key>` and `game:<key>:uninstall` draw it. Checks:
 `sdl_program_launcher_links_and_uninstalls` (found by its record, a
-development build not linked, a wrong pick, LINK, UNLINK, both uninstalls; the
-game files there are links to game/pm, which stays whole).
+development build not linked, a wrong pick, LINK, UNLINK, every uninstall and
+`removal_of`'s answers; the game files there are links to game/pm, which
+stays whole). `MW3_LAUNCHER_TRASH=<dir>` is the checks' trash.
 
 ## The family cards (2026-11-22, replaced by the panels 2026-11-24)
 
