@@ -38,7 +38,9 @@ original.
 
 ### Coming in the next release
 
-Nothing yet.
+- RAW MOUSE is on the Game Options screen, under MOUSE SENSITIVITY (it was on
+  the Upgrades page), and off to start on the Mac, where a Magic Mouse was much
+  too fast with it. MOUSE SENSITIVITY goes down to 0.1.
 
 **1.5.1 (2026-11-25)** (the full notes are in
 [docs/release-notes-1.5.1.md](docs/release-notes-1.5.1.md)): a launcher fix.

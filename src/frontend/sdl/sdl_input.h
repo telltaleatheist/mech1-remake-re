@@ -151,6 +151,7 @@ class SdlInput : public platform::Input {
     double sdl = 0, counts = 0;      // |x| + |y|: SDL's pixels, the counts handed to zInput
     double raw = 0;                  // |x| + |y| of the raw source's counts (the Mac's raw mouse)
     double moved_at_start = 0;       // zInput's `moved` when the mission began
+    float accel_x = 0, accel_y = 0;  // zInput's at its last read (leaving it, CoreState::leave has set the menus' 1.3)
   };
   const MotionStats& motion_stats() const { return stats_; }
 

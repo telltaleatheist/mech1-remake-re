@@ -1179,6 +1179,7 @@ TEST(sdl_issue15_mission_mouse_line_counts_slow_motion) {
     zin::mouse_read(false);
   }
   mission = false;
+  z.accel_x = z.accel_y = 1.3f;  // CoreState::leave's, before the line
   in.mouse_state(&ms);  // out of the mission: the line is said
   const sdlfe::SdlInput::MotionStats& st = in.motion_stats();
   const double moved = z.moved - st.moved_at_start;
@@ -1188,6 +1189,7 @@ TEST(sdl_issue15_mission_mouse_line_counts_slow_motion) {
   EXPECT(std::fabs(st.sdl - 160.0) < 0.01);
   EXPECT(std::fabs(st.counts - 80.0) <= 1.0);  // 400 x 0.4 x 640 / 1280
   EXPECT(std::fabs(moved - 40.0) <= 1.0);      // x 0.5
+  EXPECT(st.accel_x == 0.5f && st.accel_y == 0.5f);  // the mission's own in the line, not the menus' 1.3
   z.di = di_was, z.mouse_open = open_was, z.mouse_acquired = acq_was, z.accel_x = ax, z.accel_y = ay;
   z.frac_x = z.frac_y = 0.0f;
   if (sw > 0 && sh > 0) zin::mouse_set_screen(sw, sh);
@@ -6799,6 +6801,121 @@ TEST(sdl_program_launcher_starts_mw3_as_its_own_program) {
          r.args[7] == "--ready-file");
   EXPECT(r.exited && r.game_alive && r.game_finished);
   EXPECT(has(r.log, "the game's first frame") && has(r.log, "the launcher closes") && !has(r.log, "MechWarrior 3 exited"));
+}
+
+// The mouse's settings across starts (2026-11-25: a player's settings stay as set): MOUSE SENSITIVITY, RAW MOUSE and
+// INVERT MOUSE set on the real screens, each step its own program, the folder the usual one (MW3_USUAL_FOLDER).
+// A: the menus' options, then a battle (Instant Action), left by the pause's QUIT. B: a new start, another pilot, the
+// battle plays with A's. C: a third pilot, the pause's options changed, resumed, quit. D: both DEFAULT buttons of the
+// controls screen ACCEPTed, then a battle with C's. E: a start and an end with nothing touched, by itself and through
+// the launcher. After each, the two saved files hold them; CoreState::leave's 1.3 for the menus never reaches them.
+TEST(sdl_program_mouse_settings_stay_across_starts) {
+  namespace fs = std::filesystem;
+  const std::string dir = std::string(MW3_TEST_TMP) + "/mouse settings", wd = dir + "/usual";
+  std::error_code ec;
+  fs::remove_all(dir, ec);
+  fs::create_directories(wd, ec);
+  setenv("MW3_USUAL_FOLDER", wd.c_str(), 1);
+  auto text_of = [&](const std::string& path) {
+    std::ifstream in(path, std::ios::binary);
+    std::string t((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    t.erase(std::remove(t.begin(), t.end(), '\0'), t.end());  // settings.reg may be UTF-16
+    return t;
+  };
+  auto saved = [&](const char* name) -> std::string {  // settings.reg's value
+    const std::string t = text_of(wd + "/settings.reg"), key = std::string("\"") + name + "\"=hex:";
+    const size_t at = t.find(key);
+    return at == std::string::npos ? "" : t.substr(at + key.size(), 11);
+  };
+  auto click = [](int x, int y, int frame) {
+    return std::vector<std::string>{"--click-at", std::to_string(x) + "," + std::to_string(y) + "@" + std::to_string(frame)};
+  };
+  auto tap = [](int dik, int frame) { return std::vector<std::string>{"--tap", std::to_string(dik) + "@" + std::to_string(frame)}; };
+  using Steps = std::vector<std::vector<std::string>>;
+  // Instant Action from the main menu at `at`: a new pilot of one letter, ACCEPT twice, LAUNCH; in the battle by at + 1000.
+  auto battle = [&](Steps* v, int at, int letter) {
+    v->insert(v->end(), {click(60, 210, at), tap(letter, at + 50), click(420, 320, at + 80), click(420, 320, at + 180), click(570, 435, at + 700)});
+  };
+  // The game options' rows: the slider pressed `pixel` along its bar, INVERT MOUSE and RAW MOUSE turned over, ACCEPT.
+  auto set_rows = [&](Steps* v, int at, int pixel) {
+    v->insert(v->end(), {click(250 + pixel, 369, at), click(338, 310, at + 30), click(331, 399, at + 60), click(425, 320, at + 100)});
+  };
+  auto run = [&](const char* name, int frames, const Steps& steps) {
+    std::vector<std::string> args = {"--install", MW3_GAME_DIR, "-nofmv", "--hidden", "--nosound", "--no-import", "--frame-ms", "33",
+                                     "--seed", "1", "--frames", std::to_string(frames)};
+    for (const auto& st : steps) args.insert(args.end(), st.begin(), st.end());
+    const std::string log = dir + "/" + name + ".log";
+    int status = 0;
+    EXPECT(waited(spawn_mw3(args, log), &status, 240) && WIFEXITED(status) && WEXITSTATUS(status) == 0);
+    return text_of(log);
+  };
+  auto said = [](const std::string& log, const char* what) {  // the last mission line's
+    const size_t at = log.rfind("mw3: mouse over the mission:");
+    return at != std::string::npos && log.find(what, at) < log.find('\n', at);
+  };
+  const bool raw0 = zfix::kRawMouseDefault;
+  const char* const raw_a = raw0 ? "raw mouse off" : "raw mouse on";
+  const char* const raw_c = raw0 ? "raw mouse on" : "raw mouse off";
+  const std::string cfg_a = raw0 ? "rawmouse=0" : "rawmouse=1", cfg_c = raw0 ? "rawmouse=1" : "rawmouse=0";
+  auto files = [&](const char* what, const char* x, const char* y, const std::string& cfg) {
+    const bool ok = saved("MouseAccelX") == x && saved("MouseAccelY") == y && has(text_of(wd + "/mw3.cfg"), cfg.c_str());
+    std::printf("  %s: saved X %s Y %s, %s%s\n", what, saved("MouseAccelX").c_str(), saved("MouseAccelY").c_str(), cfg.c_str(), ok ? "" : " NOT AS SET");
+    return ok;
+  };
+  const char *const kTenth = "cd,cc,cc,3d", *const kMinusTenth = "cd,cc,cc,bd", *const k24 = "9a,99,19,40";
+
+  // A
+  Steps a = {click(60, 360, 60)};
+  set_rows(&a, 150, 2);
+  battle(&a, 400, 30);
+  a.insert(a.end(), {tap(1, 1400), click(133, 141, 1480)});
+  const std::string la = run("a", 1700, a);
+  EXPECT(said(la, "SENSITIVITY 0.10/-0.10") && said(la, raw_a));
+  EXPECT(files("A, the menus' options", kTenth, kMinusTenth, cfg_a));
+  // B
+  Steps b;
+  battle(&b, 120, 48);
+  b.insert(b.end(), {tap(1, 1120), click(133, 141, 1200)});
+  const std::string lb = run("b", 1400, b);
+  EXPECT(said(lb, "SENSITIVITY 0.10/-0.10") && said(lb, raw_a));
+  EXPECT(files("B, a new start, another pilot", kTenth, kMinusTenth, cfg_a));
+  // C
+  Steps c;
+  battle(&c, 120, 46);
+  c.insert(c.end(), {tap(1, 1120), click(133, 310, 1200)});  // the pause, OPTIONS
+  set_rows(&c, 1300, 94);                                    // 2.4, not inverted, RAW MOUSE back
+  c.insert(c.end(), {click(65, 57, 1500), tap(1, 1650), click(133, 141, 1730)});  // RESUME, the pause again, QUIT
+  const std::string lc = run("c", 1900, c);
+  const size_t first = lc.find("mw3: mouse over the mission:");  // into the pause: still A's
+  EXPECT(first != std::string::npos && lc.find("SENSITIVITY 0.10/-0.10", first) < lc.find('\n', first));
+  EXPECT(said(lc, "SENSITIVITY 2.40/2.40") && said(lc, raw_c));
+  EXPECT(files("C, the pause's options", k24, k24, cfg_c));
+  // D
+  Steps d = {click(60, 360, 60), click(420, 140, 150), click(44, 441, 260), click(423, 340, 320),   // CONTROLS, MOUSE DEFAULT, ACCEPT
+             click(420, 140, 440), click(200, 441, 550), click(423, 340, 610), click(493, 406, 730)};  // again, JOYSTICK DEFAULT; BACK
+  battle(&d, 850, 32);
+  d.insert(d.end(), {tap(1, 1850), click(133, 141, 1930)});
+  const std::string ld = run("d", 2100, d);
+  EXPECT(said(ld, "SENSITIVITY 2.40/2.40") && said(ld, raw_c));
+  EXPECT(files("D, the controls' defaults", k24, k24, cfg_c));
+  // E
+  run("e", 200, {});
+  EXPECT(files("E, nothing touched", k24, k24, cfg_c));
+  const std::string game = dir + "/game.sh", elog = dir + "/launched.log", end = dir + "/launched.done";
+  std::ofstream(game) << "#!/bin/sh\n\"" << MW3_BIN << "\" \"$@\" -nofmv --frame-ms 33 --frames 200 > \"" << elog << "\" 2>&1\n: > \"" << end << "\"\n";
+  fs::permissions(game, fs::perms::owner_all, ec);
+  setenv("MW3_GAME_BIN", game.c_str(), 1);
+  setenv("MW3_NO_IMPORT", "1", 1);
+  int status = 0;
+  EXPECT(waited(spawn_launcher({"--hidden", "--nosound", "--window", "640x480", "--launcher-play"}, dir + "/launcher.log"), &status, 120));
+  for (int i = 0; i < 300 && !fs::exists(end, ec); ++i) std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  unsetenv("MW3_GAME_BIN");
+  unsetenv("MW3_NO_IMPORT");
+  EXPECT(fs::exists(end, ec) && has(text_of(elog), "mw3: closed, result 0"));
+  EXPECT(has(text_of(elog), ("write dir " + wd + "\n").c_str()));  // the folder a direct start used
+  EXPECT(files("E, through the launcher", k24, k24, cfg_c));
+  unsetenv("MW3_USUAL_FOLDER");
+  fs::remove_all(dir, ec);
 }
 
 // In an AppImage the launcher waits for the game: its end would unmount what
