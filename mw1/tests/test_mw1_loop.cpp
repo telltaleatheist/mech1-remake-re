@@ -9207,7 +9207,7 @@ TEST(mw1_loop_enemies_come_headless) {
   if (!fs::exists(fs::path(MW1_MW3_GAME_DIR) / "zbd" / "c2" / "gamez.zbd", ec)) return;
   const std::vector<mw1::MapRow> rows = shipped_rows();
   const std::string worlds = converted_worlds();
-  constexpr float kSeconds = 90.0f;
+  constexpr float kSeconds = 90.0f, kWalked = 300.0f;
   struct Want {
     const char* name;
     float most;  // metres off after kSeconds, at most
@@ -9223,7 +9223,7 @@ TEST(mw1_loop_enemies_come_headless) {
       {"mw3c1ia3", mw1::RowKind::kDefend, {{"Enemy_08", 450}}},
       {"mw3c3ia3", mw1::RowKind::kDefend, {{"Enemy_08", 600}}},
       {"mw3c2ia1", mw1::RowKind::kAny, {{"Eneny_08", 400}}},
-      {"mw3c4bia1", mw1::RowKind::kAttack, {}},  // attack pilots are the map's: awake by the records (aiv.zrd)
+      {"mw3c4bia1", mw1::RowKind::kAttack, {}},  // the map's pilots, awake by the records (aiv.zrd): they patrol
   };
   const char* replay = std::getenv("MW1_TEST_SEED");
   for (const Case& k : cases) {
@@ -9244,6 +9244,7 @@ TEST(mw1_loop_enemies_come_headless) {
         std::string name;
         float from, last;
         bool awake;
+        float at[3] = {}, path = 0;  // metres walked
       };
       std::vector<Enemy> enemies;
       float me_at[3] = {};
@@ -9263,14 +9264,21 @@ TEST(mw1_loop_enemies_come_headless) {
             if (const mech3::ai::Brain* b = brain_of(ai[i].mech); b && b->params.team() != 1)
               enemies.push_back({ai[i].mech, ai[i].name ? ai[i].name : "", gap(ai[i].mech), 0, b->params.get<int32_t>(0x88) == 1});
         }
-        for (Enemy& e : enemies) e.last = gap(e.mech);
+        for (Enemy& e : enemies) {
+          e.last = gap(e.mech);
+          float p[3];
+          if (!mech3::mech_world_position(e.mech, p)) continue;
+          if (e.path > 0 || e.at[0] != 0 || e.at[2] != 0) e.path += std::hypot(p[0] - e.at[0], p[2] - e.at[2]);
+          std::copy(p, p + 3, e.at);
+        }
         return mech3::missions().time < kSeconds && !mech3::missions().ended;
       };
       loop_run(kObjective, &run);  // the contract may be lost: the enemies come and nobody fights
       for (const Enemy& e : enemies) {
-        std::printf("  %-9s %-7s %-10s %5.0f m at the start, %5.0f after %.0f s: awake %d\n", k.map, kind_said(k.kind),
-                    e.name.c_str(), e.from, e.last, kSeconds, e.awake);
+        std::printf("  %-9s %-7s %-10s %5.0f m at the start, %5.0f after %.0f s, %5.0f m walked: awake %d\n", k.map, kind_said(k.kind),
+                    e.name.c_str(), e.from, e.last, kSeconds, e.path, e.awake);
         EXPECT(e.awake);
+        if (k.kind == mw1::RowKind::kAttack) EXPECT(e.path >= kWalked);
       }
       for (const Want& w : k.wants) {
         bool found = false;
