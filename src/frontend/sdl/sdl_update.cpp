@@ -34,7 +34,7 @@ namespace {
 
 // A name part no other run of ours picks: the clock's nanoseconds and a count (SDL's ticks are 0 before its init).
 std::string unique_part() {
-  static int n = 0;
+  static std::atomic<int> n{0};  // asked from several threads at once: two once had one name, and each other's answer
   return std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + "-" + std::to_string(++n);
 }
 

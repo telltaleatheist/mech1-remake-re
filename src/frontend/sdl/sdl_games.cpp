@@ -10,6 +10,7 @@
 #include <SDL3/SDL.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <cstring>
 #include <ctime>
@@ -54,7 +55,7 @@ bool ends_with(const std::string& s, const char* e) {
   return s.size() >= n && s.compare(s.size() - n, n, e) == 0;
 }
 std::string unique_part() {
-  static int n = 0;
+  static std::atomic<int> n{0};
   return std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + "-" + std::to_string(++n);
 }
 std::string read_text(const fs::path& p) {

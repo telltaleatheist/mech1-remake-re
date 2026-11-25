@@ -43,6 +43,15 @@
     </div>
   </div>
 
+  <!-- CHECK FOR UPDATES found a launcher: over the games -->
+  <div id="cover" data-if="screen == 'main' &amp;&amp; variant == 'updates'">
+    <div class="box">
+      <div class="title">{{title}}</div>
+      <div data-for="l : lines">{{l.text}}</div>
+      <div class="buttons" buttons="box"/>
+    </div>
+  </div>
+
   <!-- Every other screen: the steel bands, the header, its part below -->
   <div id="page" data-if="screen != 'main'">
     <div class="band top"><img src="bg_metal.png"/></div>

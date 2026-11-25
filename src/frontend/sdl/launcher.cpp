@@ -274,6 +274,7 @@ enum Id {
   kData = 40, kDataPick, kDataUsual, kMoveGo, kRemoveOld, kKeepOld,
   kUpdates = 49,
   kSelfUpdate = 50,  // the header's UPDATE AVAILABLE <v> when the start's check found one (2026-11-23)
+  kUpdateLauncher = 78, kUpdateAll,  // CHECK FOR UPDATES' box (2026-11-24): the launcher alone, or the games first
   kUpdateGo = 80, kUpdateNotNow,  // the UPDATE screen: UPDATE and BACK (2026-11-23: no paging arrows)
   kVulkanAgain = 90,  // ours: the Vulkan check again (docs/linux.md)
   kMw1Original = 100,  // MW1's card: PLAY ORIGINAL, Elthial's port of the 1989 game
@@ -315,7 +316,7 @@ struct Work {
   mech3::setup::Result result;
   std::atomic<bool> cancel{false}, done{false};
   std::string title;
-  enum Kind { kOther, kLook, kInstallIt, kAddDisc, kConvert, kMoveData, kRemoveData, kUpdateCheck, kUpdateDownload, kMw1Copy, kGameInstall, kGameFileCheck, kUninstall, kKitLook, kKitInstall } kind = kOther;  // a look, an install, ADD FROM MY DISC, the movies
+  enum Kind { kOther, kLook, kInstallIt, kAddDisc, kConvert, kMoveData, kRemoveData, kUpdateDownload, kMw1Copy, kGameInstall, kGameFileCheck, kUninstall, kKitLook, kKitInstall } kind = kOther;  // a look, an install, ADD FROM MY DISC, the movies
   ~Work() {
     cancel = true;
     if (th.joinable()) th.join();
@@ -475,10 +476,22 @@ class Launcher {
   std::shared_ptr<std::string> update_file_;  // after UPDATE: the program to start next (empty: none)
   static constexpr int kUpdateWidth = 500;
   void show_update();
+  void read_update_notes();
   // Ours, games on demand (docs/launcher.md, Games on demand): each game's program beside this one (a package or
   // build that carries it), else the one the launcher installed under games_root_; each repo's answer on its card.
   void resolve_games();
   void start_games_check();
+  // CHECK FOR UPDATES (2026-11-24): both start checks asked again, the home screen staying; their answers said, and a
+  // box when the launcher itself has one.
+  void recheck();
+  void recheck_done();
+  bool rechecking_ = false, update_box_ = false, nav_late_ = false;
+  upgrades::update::Verdict::Kind self_kind_ = upgrades::update::Verdict::kFailed;  // the last answer about the launcher
+  std::string self_words_ = "Could not check for updates";
+  std::vector<int> game_updates() const;  // the games whose UPDATE is there
+  std::vector<int> update_queue_;         // UPDATE ALL: the games still to go, then the launcher
+  bool update_queue_self_ = false;
+  void next_update();
   void take_games_check();
   void install_game(int i);
   void install_game_now(int i);
@@ -1060,7 +1073,7 @@ void Launcher::take_self_check() {
   self_check_.reset();
   self_verdict(v);
   if (screen_ == kMain) layout();
-  if (SDL_getenv("MW3_LAUNCHER_NAV_LATE")) nav_steps();  // checks: the steps once the footer is what it will be
+  recheck_done();
 }
 
 // MW3_LAUNCHER_NAV's steps (checks): keys or a pad as a list ("next,next,press"), each focus logged.
@@ -1082,7 +1095,8 @@ void Launcher::nav_steps(const char* steps) {
 }
 
 void Launcher::self_verdict(const upgrades::update::Verdict& v) {
-  std::printf("mw3: launcher: update check at the start: %s\n", v.words.c_str());  // a failure: the log only
+  self_kind_ = v.kind, self_words_ = v.words;
+  std::printf("mw3: launcher: update%s: %s\n", rechecking_ ? "" : " check at the start", v.words.c_str());  // at the start a failure is in the log only
   if (v.kind != upgrades::update::Verdict::kNewer) return;
   self_update_ = std::make_shared<upgrades::update::Verdict>(v);
   std::printf("mw3: launcher: header UPDATE AVAILABLE %s\n", upgrades::update::plain_version(v.release.tag).c_str());
@@ -1093,14 +1107,71 @@ void Launcher::take_games_check() {
   games_check_->th.join();
   for (int i = 0; i < upgrades::update::kGameCount; ++i) {
     if (beside_[i]) continue;
-    checks_[i] = games_check_->result[i];
+    using GC = upgrades::update::GameCheck;
+    const GC& now = games_check_->result[i];
+    if (now.kind == GC::kFailed && (checks_[i].kind == GC::kNewer || checks_[i].kind == GC::kUpToDate)) continue;  // asked again, not answered: as known
+    checks_[i] = now;
+    if ((now.kind == GC::kNewer || now.kind == GC::kUpToDate) && !now.release.tag.empty())  // installed or updated while it was asked
+      checks_[i].kind = tag_of(i).empty() || upgrades::update::compare_game(now.release.tag, tag_of(i)) > 0 ? GC::kNewer : GC::kUpToDate;
     std::printf("mw3: launcher: games: %s: %s\n", upgrades::update::game_info(upgrades::update::kGames[i]).key, checks_[i].words.c_str());
   }
   games_check_.reset();
   if (screen_ == kMain) layout();
+  recheck_done();
   if (const char* k = SDL_getenv("MW3_LAUNCHER_GAME_INSTALL"))  // checks: a card's INSTALL or UPDATE pressed once it can be
     for (int i = 0; i < upgrades::update::kGameCount; ++i)
       if (std::strcmp(k, upgrades::update::game_info(upgrades::update::kGames[i]).key) == 0) install_game(i);
+}
+
+std::vector<int> Launcher::game_updates() const {
+  std::vector<int> out;
+  for (int i = 0; i < upgrades::update::kGameCount; ++i)
+    if (games_on_ && !beside_[i] && source_[i] != kNoCopy && checks_[i].kind == upgrades::update::GameCheck::kNewer) out.push_back(i);
+  return out;
+}
+
+void Launcher::recheck() {
+  if (rechecking_ || work_) return;
+  rechecking_ = true;
+  status_ = "Checking for updates...", status_good_ = true;
+  if (!games_check_) start_games_check();  // the start's own still out: its answer is this one's
+  if (!self_check_) start_self_check();
+  layout();
+  recheck_done();
+}
+
+void Launcher::recheck_done() {
+  if (!rechecking_ || games_check_ || self_check_) return;
+  rechecking_ = false;
+  std::string games, unasked;
+  for (int i : game_updates())
+    games += (games.empty() ? "" : ", ") + std::string(upgrades::update::game_info(upgrades::update::kGames[i]).name) + " " +
+             upgrades::update::game_version(checks_[i].release.tag);
+  for (int i = 0; i < upgrades::update::kGameCount; ++i)
+    if (!beside_[i] && source_[i] != kNoCopy && checks_[i].kind == upgrades::update::GameCheck::kFailed)
+      unasked += (unasked.empty() ? "" : ", ") + std::string(upgrades::update::game_info(upgrades::update::kGames[i]).name);
+  if (self_kind_ == upgrades::update::Verdict::kFailed) unasked = unasked.empty() ? "the launcher" : "the launcher, " + unasked;
+  if (!games.empty()) status_ = "Ready to update: " + games + ".", status_good_ = true;
+  else if (self_update_) status_.clear();
+  else if (unasked.empty()) status_ = "Everything is up to date.", status_good_ = true;
+  else status_ = "Couldn't check " + unasked + ". Check your connection and try again.", status_good_ = false;
+  std::printf("mw3: launcher: updates: %s\n", status_.c_str());
+  if (screen_ != kMain || work_) return;
+  update_box_ = self_update_ != nullptr;
+  layout();
+  if (update_box_ && SDL_getenv("MW3_LAUNCHER_UPDATE_GO")) activate(kUpdateLauncher);  // checks: UPDATE LAUNCHER pressed
+  else if (update_box_ && SDL_getenv("MW3_LAUNCHER_UPDATE_ALL")) activate(kUpdateAll);  // checks: UPDATE ALL pressed
+}
+
+// UPDATE ALL's next: a game, its own UPDATE; the launcher last, as it restarts. A failure or a cancel stops it there.
+void Launcher::next_update() {
+  while (!update_queue_.empty()) {
+    const int i = update_queue_.front();
+    update_queue_.erase(update_queue_.begin());
+    install_game_now(i);
+    if (work_) return;
+  }
+  if (std::exchange(update_queue_self_, false) && self_update_) update_ = self_update_, read_update_notes(), activate(kUpdateGo);
 }
 
 std::string Launcher::game_words(int i) const {
@@ -1810,6 +1881,7 @@ void Launcher::watch_game() {
 void Launcher::layout() {
   if (screen_ == kMain || screen_ == kGamePage) kit_files_ = -1;
   if (screen_ == kMain) files_page_ = -1;
+  else update_box_ = false;
   buttons_.clear();
   ui_stale_ = true;
   auto add = [&](int id, const char* group, std::string label, std::string sub = {}, bool on = true) -> Button& {
@@ -2070,7 +2142,8 @@ void Launcher::layout() {
       }
       // UPDATES (docs/launcher.md, Updates); QUIT where a window has no X (Escape too). GAME FILES and INSTALL FROM A
       // DOWNLOADED FILE are on a game's page (2026-11-24).
-      add(kUpdates, "row", "UPDATES").kind = "flat updates";
+      add(kUpdates, "row", rechecking_ ? "CHECKING..." : "CHECK FOR UPDATES", "", !work_ && !rechecking_).kind = "flat updates";
+      buttons_.back().name = "CHECK FOR UPDATES";
       add(kQuit, "row", "QUIT").kind = "flat";
       // A newer launcher found by the start's check: an amber UPDATE AVAILABLE <v> in the header's top right, beside
       // the mark, as Discord's and Chrome's (2026-11-23: the footer's button was too small to see). After QUIT
@@ -2078,6 +2151,14 @@ void Launcher::layout() {
       if (self_update_) {
         add(kSelfUpdate, "pill", "UPDATE AVAILABLE " + upgrades::update::plain_version(self_update_->release.tag), "", !work_).kind =
             "amber";  // logged and focused by its label, the version in it
+      }
+      if (update_box_) {  // over the games, which wait
+        for (Button& b : buttons_) b.enabled = false;
+        const bool games = !game_updates().empty();
+        if (games) add(kUpdateAll, "box", "UPDATE ALL").kind = "amber", first_focus = static_cast<int>(buttons_.size()) - 1;
+        add(kUpdateLauncher, "box", "UPDATE LAUNCHER").kind = games ? "flat" : "amber";
+        if (!games) first_focus = static_cast<int>(buttons_.size()) - 1;
+        add(kUpdateNotNow, "box", "NOT NOW").kind = "flat";
       }
       break;
     }
@@ -2277,7 +2358,6 @@ int Launcher::header_game() const {
     case kWorking:
       if (!work_) break;
       switch (work_->kind) {
-        case Work::kUpdateCheck:
         case Work::kUpdateDownload:
         case Work::kGameFileCheck: return -1;
         case Work::kGameInstall: return work_game_;
@@ -2351,6 +2431,12 @@ UiModel Launcher::model() {
   switch (screen_) {
     case kMain:
       m.package = package_words();  // the package's own version (the games' are on their panels)
+      if (update_box_ && self_update_) {
+        m.variant = "updates", m.title = "UPDATE NOW?";
+        m.lines.push_back({"BattleTech launcher " + upgrades::update::plain_version(self_update_->release.tag), ""});
+        for (int i : game_updates())
+          m.lines.push_back({std::string(upgrades::update::game_info(upgrades::update::kGames[i]).name) + " " + upgrades::update::game_version(checks_[i].release.tag), ""});
+      }
       break;
     case kSetupScreen:
       m.words = kit_files_ >= 0 ? kit_ask_.find_words : std::string(files_pm_ ? kFindWordsPm : kFindWords);
@@ -2771,15 +2857,19 @@ std::string Launcher::in_use() const {
 
 // A newer release found: its notes as plain lines wrapped to the screen, the first page, the question.
 void Launcher::show_update() {
+  read_update_notes();
+  status_.clear();
+  screen_ = kUpdateScreen, layout();
+  if (SDL_getenv("MW3_LAUNCHER_UPDATE_GO")) activate(kUpdateGo);  // checks: UPDATE pressed
+}
+
+void Launcher::read_update_notes() {
   update_lines_.clear();
   for (const std::string& line : upgrades::update::notes_lines(update_->release.notes)) {
     update_lines_.push_back(line);
     for (const std::string& w : text_.wrap(line, 13, kUpdateWidth)) std::printf("mw3: launcher: update notes: %s\n", w.c_str());
   }
   if (update_lines_.empty()) update_lines_.push_back("(No notes with this release.)");
-  status_.clear();
-  screen_ = kUpdateScreen, layout();
-  if (SDL_getenv("MW3_LAUNCHER_UPDATE_GO")) activate(kUpdateGo);  // checks: UPDATE pressed
 }
 
 // Ours (docs/linux.md, Vulkan): the game cannot draw without Vulkan on Linux; this screen says what
@@ -3160,6 +3250,8 @@ void Launcher::finish_work() {
     status_ = r.summary, status_good_ = r.ok || r.cancelled, screen_ = kMain;
     if (r.ok && game_done_) game_installed(*game_done_);
     layout();
+    if (!r.ok) update_queue_.clear(), update_queue_self_ = false;
+    next_update();
     return;
   }
   if (kind == Work::kGameFileCheck) {  // matches: installed; no SHA256SUMS: asked; does not match: refused
@@ -3175,13 +3267,6 @@ void Launcher::finish_work() {
     confirm_text_ = c.words + " Install it anyway? Only install a file from someone you trust.";
     layout();
     if (SDL_getenv("MW3_LAUNCHER_INSTALL_ANYWAY")) activate(kInstallFileGo);  // checks: ADD ANYWAY pressed
-    return;
-  }
-  if (kind == Work::kUpdateCheck) {  // a newer release: its notes and the question; else the verdict on the main screen
-    std::printf("mw3: launcher: update: %s\n", r.summary.c_str());
-    status_ = r.summary, status_good_ = r.ok;
-    if (update_ && update_->kind == upgrades::update::Verdict::kNewer) return show_update();
-    screen_ = kMain, layout();
     return;
   }
   if (kind == Work::kUpdateDownload) {  // installed: the new launcher started and this one gone; else why, on the screen
@@ -3363,7 +3448,7 @@ void Launcher::activate(int id) {
       from_files_ = false, screen_ = kMain, layout();
       break;
     case kUpdateNotNow:
-      status_.clear(), screen_ = kMain, layout();
+      update_box_ = false, status_.clear(), screen_ = kMain, layout();
       break;
     case kUpdateGo: {  // the platform's package and SHA256SUMS on the worker, the package checked against its line
       if (!update_) break;
@@ -3395,21 +3480,16 @@ void Launcher::activate(int id) {
       update_ = self_update_;
       show_update();
       break;
-    case kUpdates: {  // GitHub's releases asked on the worker (the system's curl), the verdict on the status line
-      work_ = std::make_unique<Work>();
-      work_->kind = Work::kUpdateCheck;
-      auto verdict = update_ = std::make_shared<upgrades::update::Verdict>();
-      work_->start("CHECKING FOR UPDATES", [verdict](const mech3::setup::ProgressFn& f) {
-        f(mech3::setup::Progress{"Checking for a newer version", 0.3, ""});
-        *verdict = check_for_updates(MW3_VERSION);
-        mech3::setup::Result r;
-        r.ok = verdict->kind != upgrades::update::Verdict::kFailed;
-        r.summary = verdict->words;
-        return r;
-      });
-      screen_ = kWorking, layout();
+    case kUpdates: recheck(); break;
+    case kUpdateLauncher:
+      if (!self_update_ || work_) break;
+      update_box_ = false, update_ = self_update_, read_update_notes(), activate(kUpdateGo);
       break;
-    }
+    case kUpdateAll:
+      if (!self_update_ || work_) break;
+      update_box_ = false, update_queue_ = game_updates(), update_queue_self_ = true;
+      next_update();
+      break;
     case kPm:
       if (o_.pm_bin.empty()) break;
       if (pm_dir_.empty() && !pm_found_.empty()) {  // the search's find: offered to be copied in
@@ -3610,7 +3690,7 @@ void Launcher::nav(int action) {
   } else if (action == 2 && at >= 0 && at < n && buttons_[at].enabled) {
     activate(buttons_[at].id);
   } else if (action == 3) {
-    activate(screen_ == kMain ? kQuit : kBack);
+    activate(screen_ != kMain ? kBack : update_box_ ? kUpdateNotNow : kQuit);
   }
 }
 
@@ -3708,6 +3788,7 @@ LauncherChoice Launcher::run() {
       update_ = std::make_shared<upgrades::update::Verdict>(check_for_updates(MW3_VERSION));
       if (update_->kind == upgrades::update::Verdict::kNewer) show_update();
     }
+    if (o_.screen == "updatebox") recheck();  // CHECK FOR UPDATES pressed (MW3_UPDATE_API)
     if (o_.screen == "disc") status_ = "No disc in a drive. Pick its image (.cue .iso), a download (.zip) or any file of the disc.";
     if (o_.screen.rfind("game:", 0) == 0)  // a game's page (its gear): "game:" and its key
       for (int i = 0; i < upgrades::update::kGameCount; ++i)
@@ -3910,6 +3991,11 @@ LauncherChoice Launcher::run() {
     if (work_ && work_->done) finish_work();
     take_games_check();
     take_self_check();
+    if (const char* late = SDL_getenv("MW3_LAUNCHER_NAV_LATE"); late && !games_check_ && !self_check_ && !nav_late_) {  // checks: the steps once the start's checks have answered (a path: and that file is there)
+      std::error_code ec;
+      std::fflush(stdout);  // the check reads it as it goes
+      if (late[0] != '/' || fs::exists(late, ec)) nav_late_ = true, nav_steps();
+    }
     if (games_on_ && !install_file_asked_ && SDL_getenv("MW3_LAUNCHER_INSTALL_FILE") && screen_ == kMain && !work_)
       install_file_asked_ = true, activate(kInstallFile);  // checks: INSTALL FROM A DOWNLOADED FILE pressed (the picker's MW3_LAUNCHER_PICKER)
     if (quit_after_mw1_ && !asking_ && !ask_pending_ && !work_) done_ = true;
