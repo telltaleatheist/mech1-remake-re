@@ -40,6 +40,10 @@ original.
 
 Nothing yet.
 
+**1.4.1 (2026-11-24)** (the full notes are in
+[docs/release-notes-1.4.1.md](docs/release-notes-1.4.1.md)): a fix: Inception's
+game files can be changed at any time, and every find screen has PICK A FILE.
+
 **1.4.0 (2026-11-24)** (the full notes are in
 [docs/release-notes-1.4.0.md](docs/release-notes-1.4.0.md)): the launcher sets up
 Inception on its own screens, shows every file in its pickers, reads zips in ADD
