@@ -43,8 +43,8 @@ def layout(name, dx):
         button("TAB_" + t, 16, y, "mw1_tab", (100, y + 6), off_font="mw1_label_on")
     button("DEFAULTS", 16, 352, "mw1_button", (100, 358))
     button("DONE", 16, 392, "mw1_button", (100, 398))
-    out.append("    ; CONTROLS' KEY BINDINGS, in its row (slot 2).")
-    button("KEYS", 356, row_y(2) - 5, "mw1_button", (440, row_y(2) + 1))
+    out.append("    ; CONTROLS' KEY BINDINGS, in its row (slot 3).")
+    button("KEYS", 356, row_y(3) - 5, "mw1_button", (440, row_y(3) + 1))
     for r in range(ROWS):
         y = row_y(r)
         out.append(f"    ; Row {r}: a choice's values (the chosen one disabled: _off), a list's arrows, a volume's cells.")

@@ -18,8 +18,8 @@ MW1SETTINGS (
     TAB_ENHANCEMENTS (POSITION (16 216) BITMAP ("mw1_tab") ROLLOVER (BITMAP ("mw1_tab_lit")) ACTIVATE (BITMAP ("mw1_tab_down")) DISABLE (BITMAP ("mw1_tab_off")) LABEL_AT (100 222) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_on"))
     DEFAULTS (POSITION (16 352) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (100 358) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
     DONE (POSITION (16 392) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (100 398) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
-    ; CONTROLS' KEY BINDINGS, in its row (slot 2).
-    KEYS (POSITION (356 157) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (440 163) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
+    ; CONTROLS' KEY BINDINGS, in its row (slot 3).
+    KEYS (POSITION (356 189) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (440 195) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off"))
     ; Row 0: a choice's values (the chosen one disabled: _off), a list's arrows, a volume's cells.
     SEG0_0 (POSITION (356 98) BITMAP ("mw1_seg") ROLLOVER (BITMAP ("mw1_seg_lit")) ACTIVATE (BITMAP ("mw1_seg_down")) DISABLE (BITMAP ("mw1_seg_off")) LABEL_AT (398 101) LABEL_FONT ("mw1_seg") LABEL_OFF_FONT ("mw1_seg_on"))
     SEG0_1 (POSITION (444 98) BITMAP ("mw1_seg") ROLLOVER (BITMAP ("mw1_seg_lit")) ACTIVATE (BITMAP ("mw1_seg_down")) DISABLE (BITMAP ("mw1_seg_off")) LABEL_AT (486 101) LABEL_FONT ("mw1_seg") LABEL_OFF_FONT ("mw1_seg_on"))
@@ -243,8 +243,8 @@ MW1SETTINGS_WIDE (
     TAB_ENHANCEMENTS (POSITION (123 216) BITMAP ("mw1_tab") ROLLOVER (BITMAP ("mw1_tab_lit")) ACTIVATE (BITMAP ("mw1_tab_down")) DISABLE (BITMAP ("mw1_tab_off")) LABEL_AT (207 222) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_on") ANCHOR ("CENTRE"))
     DEFAULTS (POSITION (123 352) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (207 358) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
     DONE (POSITION (123 392) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (207 398) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
-    ; CONTROLS' KEY BINDINGS, in its row (slot 2).
-    KEYS (POSITION (463 157) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (547 163) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
+    ; CONTROLS' KEY BINDINGS, in its row (slot 3).
+    KEYS (POSITION (463 189) BITMAP ("mw1_button") ROLLOVER (BITMAP ("mw1_button_lit")) ACTIVATE (BITMAP ("mw1_button_down")) DISABLE (BITMAP ("mw1_button_off")) LABEL_AT (547 195) LABEL_FONT ("mw1_label") LABEL_OFF_FONT ("mw1_label_off") ANCHOR ("CENTRE"))
     ; Row 0: a choice's values (the chosen one disabled: _off), a list's arrows, a volume's cells.
     SEG0_0 (POSITION (463 98) BITMAP ("mw1_seg") ROLLOVER (BITMAP ("mw1_seg_lit")) ACTIVATE (BITMAP ("mw1_seg_down")) DISABLE (BITMAP ("mw1_seg_off")) LABEL_AT (505 101) LABEL_FONT ("mw1_seg") LABEL_OFF_FONT ("mw1_seg_on") ANCHOR ("CENTRE"))
     SEG0_1 (POSITION (551 98) BITMAP ("mw1_seg") ROLLOVER (BITMAP ("mw1_seg_lit")) ACTIVATE (BITMAP ("mw1_seg_down")) DISABLE (BITMAP ("mw1_seg_off")) LABEL_AT (593 101) LABEL_FONT ("mw1_seg") LABEL_OFF_FONT ("mw1_seg_on") ANCHOR ("CENTRE"))

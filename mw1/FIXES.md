@@ -706,8 +706,8 @@ roster (the pocket commander's panel lists them), so PM's dispatcher, brains and
   - GAME: DIFFICULTY, CAMERA, TORSO RE-CENTRES, THROTTLE STAYS SET, JUMP ASSIST; CHEATS: INVINCIBLE, UNLIMITED AMMO,
     HEAT. DISPLAY: RESOLUTION; QUALITY: DETAIL, EFFECTS, LIGHTING, SHADOWS, SELF SHADOWS; MENUS: WIDE MENUS (taken
     at the next start). SOUND: MUSIC, MUSIC VOLUME, EFFECTS VOLUME, SOUND QUALITY. CONTROLS: MOUSE SENSITIVITY,
-    INVERT MOUSE, KEY BINDINGS (PM's key map, as it is). ENHANCEMENTS: IMPROVED AI, ARTEMIS TRACKING, WATER MOVEMENT,
-    SMALL FIXES and its list.
+    RAW MOUSE (2026-11-25, off to start on the Mac), INVERT MOUSE, KEY BINDINGS (PM's key map, as it is).
+    ENHANCEMENTS: IMPROVED AI, ARTEMIS TRACKING, WATER MOVEMENT, SMALL FIXES and its list.
   - Not offered: TEXTURES (set to the device's largest at each start, `settings::at_start`), MFB REGROUP (MW1 fields
     no MFB), and the video device (the SDL build has one; PM's own page shows a single entry too).
   - RESOLUTION is the battles' size (PM's in-game mode), taken when the next battle starts or the pause is left, so
@@ -723,6 +723,8 @@ roster (the pocket commander's panel lists them), so PM's dispatcher, brains and
   own control changes it: shown and applied at once, and saved (PM's settings written, mw1.cfg, the switches). The
   chosen value is lit, DEFAULTS gives back every row's default, every hint fits, DONE goes back, and the pause's
   hook opens the screen with PM's key map made for it.
+  ctest `mw1mousesettings`: the three mouse rows set from the hub and the pause stay as set across starts (real mw1
+  runs), the key map's defaults included.
 - **Shots:** every section at 1080p (16:9 menus) and 4:3; `MW1_SCREEN=settings_<section>` shows one.
 
 ## 125. [x] Three save slots, each one overwritable *(done: mw1-fix125-save-slots; for MW1 1.0.2 with the launcher's 1.2.0)*

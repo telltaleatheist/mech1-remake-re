@@ -8,6 +8,8 @@ Fixes.
 
 Reach and attack contracts keep their maps' own patrols.
 
+- **RAW MOUSE is in SETTINGS, CONTROLS, under MOUSE SENSITIVITY,** and off to start on the Mac, where a Magic Mouse was much too fast with it. MOUSE SENSITIVITY goes down to 0.1. What you set stays as you set it.
+
 Saved games are unchanged: 1.1.2 reads and writes the same saves as 1.1.1.
 
 You still need your own copies of MechWarrior (1989), MechWarrior 3 and Pirate's Moon.

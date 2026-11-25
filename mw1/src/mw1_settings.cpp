@@ -27,8 +27,10 @@ constexpr int32_t kLightingDefault = 2;  // LIGHT MAPS (3): the card's choice, P
 
 // MOUSE SENSITIVITY: PM's slider's range (kSensitivityLow..High) in tenths; 1.3 the original's.
 constexpr int32_t kSensSteps = static_cast<int32_t>((mech3::kSensitivityHigh - mech3::kSensitivityLow) * 10.0f + 0.5f) + 1;
-constexpr int32_t kSensDefault = 8;  // 1.3
-float sens_of(int32_t i) { return mech3::kSensitivityLow + static_cast<float>(std::clamp(i, 0, kSensSteps - 1)) / 10.0f; }
+constexpr int32_t kSensDefault = static_cast<int32_t>((1.3f - mech3::kSensitivityLow) * 10.0f + 0.5f);
+float sens_of(int32_t i) {  // the nearest tenth, as the slider's
+  return std::round(mech3::kSensitivityLow * 10.0f + static_cast<float>(std::clamp(i, 0, kSensSteps - 1))) / 10.0f;
+}
 int32_t index_of_sens(float s) {
   if (s == 0.0f) s = 1.3f;  // an old registry's zero, as PM's slider takes it
   return std::clamp(static_cast<int32_t>(std::lround((std::fabs(s) - mech3::kSensitivityLow) * 10.0f)), 0, kSensSteps - 1);
@@ -235,6 +237,13 @@ std::vector<Item> items(mech3::Engine& e, Tab t) {
       sens.put = [](mech3::Engine& e, int32_t v) { put_mouse(e, sens_of(v), e.mouse_accel_y() < 0.0f); };
       sens.def = kSensDefault;
       v.push_back(std::move(sens));
+      // mw3.cfg's rawmouse=, at once (a battle's held mouse too), as MW3's game options (its docs/input.md section 14).
+      v.push_back(on_off("RAW MOUSE", "RAW MOUSE: the mouse's own movement. OFF: your system's speed.", zfix::kRawMouseDefault,
+                         [](mech3::Engine&) { return zfix::options().raw_mouse ? 1 : 0; },
+                         [](mech3::Engine&, int32_t v) {
+                           zfix::options().raw_mouse = v != 0;
+                           save_switch("rawmouse", v != 0);
+                         }));
       v.push_back(on_off("INVERT MOUSE", "INVERT MOUSE: the mouse forward looks down.", false,
                          [](mech3::Engine& e) { return e.mouse_accel_y() < 0.0f ? 1 : 0; },
                          [](mech3::Engine& e, int32_t v) { put_mouse(e, sens_of(index_of_sens(e.mouse_accel_x())), v != 0); }));
