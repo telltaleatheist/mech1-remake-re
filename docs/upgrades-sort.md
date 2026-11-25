@@ -52,7 +52,9 @@ most visible; Small fixes.
 The bug-fix switch goes away: `bugfixes=` in mw3.cfg is read once, as all
 switches on or off, then dropped; `--original` turns every switch off for that
 run. The UPGRADES page (which today holds BUG FIXES and the wide menus) gets a
-line per switch, and Small fixes a button that shows its list.
+line per switch, and Small fixes a button that shows its list. (Since: the five
+and WIDE MENUS. RAW MOUSE, 2026-11-21 to 11-25 the page's seventh row, is on the
+game options under MOUSE SENSITIVITY: a mouse setting, not an upgrade.)
 
 ### Small fixes, as the in-game list would show them
 

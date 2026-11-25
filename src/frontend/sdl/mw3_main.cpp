@@ -1005,9 +1005,11 @@ int program(int argc, char** argv) {
   // The menus' 16:9 (a display choice, kept by --original): the command
   // line's, else mw3.cfg's widemenus=, else on.
   zfix::options().wide_menus = a.wide_menus >= 0 ? a.wide_menus != 0 : a.cfg_wide_menus != 0;
-  zfix::options().raw_mouse = a.raw_mouse >= 0 ? a.raw_mouse != 0 : a.cfg_raw_mouse != 0;  // the same (issue #15)
+  zfix::options().raw_mouse = a.raw_mouse >= 0 ? a.raw_mouse != 0
+                             : a.cfg_raw_mouse >= 0 ? a.cfg_raw_mouse != 0
+                                                    : zfix::kRawMouseDefault;  // the same (issue #15)
   zfix::options().throttle_reverse = a.cfg_throttle_reverse != 0;  // with fixed (lever_reverse_on)
-  // The options' UPGRADES page saves its switches here, beside the rest of mw3.cfg (ours).
+  // The options' UPGRADES page saves its switches here, beside the rest of mw3.cfg, and the game options RAW MOUSE (ours).
   // --original's five stay off for the run only: nothing of them saved.
   mech3::options_upgrades_saver() = [wd = a.write_dir, original = a.play_original](const char* key, bool on) {
     if (original && std::strncmp(key, "upgrade_", 8) == 0) return;
@@ -1252,7 +1254,7 @@ int run(const Args& a, platform::VideoForWindows* vfw) {
   input.window = window.sdl();
   int focus_at = 0, focus_passes = 0;  // MW3_FOCUS_AT (checks)
   input.shape = &window.shape();       // any_resolution: the frame's rect, not 640 (sdl_fit.h)
-  // Ours (issue #15): RAW MOUSE, the Upgrades page's (zfix raw_mouse); on the
+  // Ours (issue #15): RAW MOUSE, the game options' (zfix raw_mouse); on the
   // Mac its counts from GCMouse (sdl_rawmouse.h), not in a hidden run, whose
   // motion is the checks' own SDL events.
   input.raw_mouse = [] { return zfix::options().raw_mouse; };

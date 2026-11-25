@@ -423,8 +423,8 @@ void SdlInput::motion_report() {
               "the game, %.0f after MOUSE SENSITIVITY %.2f/%.2f; window %dx%d, frame %dx%d, %.3f counts a pixel; %s, "
               "system speed %s, raw mouse %s (%.0f raw counts), captured %d\n",
               static_cast<unsigned long long>(stats_.events), static_cast<unsigned long long>(stats_.small), stats_.sdl,
-              stats_.counts, z.moved - stats_.moved_at_start, static_cast<double>(z.accel_x),
-              static_cast<double>(z.accel_y), w, h, z.width, z.height, static_cast<double>(motion_scale()),
+              stats_.counts, z.moved - stats_.moved_at_start, static_cast<double>(stats_.accel_x),
+              static_cast<double>(stats_.accel_y), w, h, z.width, z.height, static_cast<double>(motion_scale()),
               drv ? drv : "no video driver", scaled ? scaled : "unset",
               !raw_wanted() ? "off" : !raw_counts ? "on" : raw_silent_ ? "on, the system's motion" : "on, GCMouse",
               stats_.raw, captured_ ? 1 : 0);
@@ -648,7 +648,10 @@ int32_t SdlInput::mouse_state(platform::MouseState* out) {
   }
   out->x = static_cast<int32_t>(dx_), out->y = static_cast<int32_t>(dy_), out->z = static_cast<int32_t>(dz_);
   dx_ -= out->x, dy_ -= out->y, dz_ -= out->z;  // the fractions carry over
-  if (mission_) stats_.counts += std::abs(out->x) + std::abs(out->y);
+  if (mission_) {
+    stats_.counts += std::abs(out->x) + std::abs(out->y);
+    stats_.accel_x = zin::state().accel_x, stats_.accel_y = zin::state().accel_y;
+  }
   // FIX (A): DirectInput's device state caught a click shorter than a frame
   // through its buffer; SDL's events can press and release between two reads,
   // so a press stays down for the read after it.

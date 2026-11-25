@@ -33,10 +33,10 @@ float mouse_y_accel(float current, bool inverted);
 
 // Ours (2026-11-02; moved 11-07 to the game options under INVERT
 // MOUSE Y, where a player meets it first): MOUSE SENSITIVITY, MouseAccelX and Y's magnitude (Y keeping its sign, the game
-// options' invert box), 0.5 to 5.0 in tenths, the original's 1.3 by default;
+// options' invert box), 0.1 to 5.0 in tenths, the original's 1.3 by default;
 // its slider (our record edit, patch12::apply_ours) bound only where the
 // program turns it on (the probes run the original's screens).
-constexpr float kSensitivityLow = 0.5f, kSensitivityHigh = 5.0f;  // 3.0 until the raw mouse (issue #15)
+constexpr float kSensitivityLow = 0.1f, kSensitivityHigh = 5.0f;  // 0.5 to 3.0 until the raw mouse (issue #15)
 float sensitivity_of_slider(float v);   // the slider's 0..1 to a magnitude, in tenths
 float slider_of_sensitivity(float s);   // and back
 bool& options_sensitivity_slider();     // on in the program (GameEngine)
@@ -105,6 +105,9 @@ class GameOptionsScreen : public MenuScreen {
   ztwod::Image lines1{0};            // +0x13fc0  LINES1
   SensitivitySlider sensitivity;     // ours: MOUSE_SENSITIVITY (options_sensitivity_slider)
   bool has_sensitivity = false;      // bound
+  OnOffCycle raw_mouse;              // ours: RAW_MOUSE under it (issue #15; with options_sensitivity_slider)
+  ztwod::Image raw_mouse_box{0};     // RAW_MOUSE_BOX, the row's box
+  bool has_raw_mouse = false;        // bound
   UpgradesButton upgrades;           // ours: UPGRADES (options_upgrades_page)
   bool has_upgrades = false;         // bound
 };
@@ -133,12 +136,11 @@ class UpgradesScreen : public MenuScreen {
   StateBackButton back;
   OnOffCycle water, mfb_regroup, improved_ai, artemis, small_fixes;  // the five, upgrades::switches()' order
   OnOffCycle wide_menus;             // WIDE_MENUS
-  OnOffCycle raw_mouse;              // RAW_MOUSE (ours, issue #15)
   ReadList small_list;               // SMALL_LIST: upgrades::small_fixes_list()
   ztwod::Image lines{0};             // LINES
   ztwod::Image lines1{0};            // LINES1
-  ztwod::Image box[7] = {ztwod::Image{0}, ztwod::Image{0}, ztwod::Image{0}, ztwod::Image{0},
-                         ztwod::Image{0}, ztwod::Image{0}, ztwod::Image{0}};  // BOX1..BOX7: each switch's box
+  ztwod::Image box[6] = {ztwod::Image{0}, ztwod::Image{0}, ztwod::Image{0},
+                         ztwod::Image{0}, ztwod::Image{0}, ztwod::Image{0}};  // BOX1..BOX6: each switch's box
   ztwod::Text note;                  // what off means, or that they are the host's
   bool note_placed = false;          // the layout's NOTE placed it (a program's layout, ztwod::set_layout)
   OnOffCycle* five[5] = {&water, &mfb_regroup, &improved_ai, &artemis, &small_fixes};
