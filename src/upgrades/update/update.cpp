@@ -8,6 +8,11 @@
 #include <cstring>
 #include <utility>
 
+#if defined(__APPLE__)
+#include <stdio.h>     // renamex_np
+#include <sys/time.h>  // utimes
+#endif
+
 namespace upgrades::update {
 namespace {
 
@@ -360,6 +365,17 @@ bool swap_in(const std::string& fresh, const std::string& target, std::string* e
     return *error = "the new copy could not be written beside the old one (" + why + ")", false;
   }
   fs::permissions(staged, fs::status(fresh, ec).permissions(), ec);  // an AppImage's execute bit
+#if defined(__APPLE__)
+  // A Mac app keeps its own folder and takes the new one's Contents, the two exchanged in one step: the Dock follows
+  // the folder it was shown, so one renamed to X.app.old became a plain folder there (docs/launcher.md). Where the
+  // disk can't exchange (or it may not), the whole folder is moved as before.
+  if (fs::is_directory(staged, ec) && fs::is_directory(staged / "Contents", ec) && fs::is_directory(to / "Contents", ec) &&
+      renamex_np((staged / "Contents").c_str(), (to / "Contents").c_str(), RENAME_SWAP) == 0) {
+    utimes(to.c_str(), nullptr);  // the Finder and the Dock read the new icon and name
+    fs::remove_all(staged, ec);   // the old Contents; a failure leaves a stale .new, cleared by the next update
+    return true;
+  }
+#endif
   fs::rename(to, old, ec);
   if (ec) {
     const std::string why = ec.message();
