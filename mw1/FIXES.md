@@ -17,7 +17,7 @@ Tick an item when it is merged into `main`.
   lancemates theirs.
 - **The rule (MW1's, read from its reconstructed code, not run against the original; `mw1/research/enemy-orders.md`):**
   destroy all and defend: an enemy that can't come near by its own patrol is given the attack from any distance
-  (`src/upgrades/ai/far_sight`, off in MW3 and PM); the rest keep the map's pilots. Item 97's forced engagement (mode 1,
+  (`src/upgrades/ai/far_sight`, off in PM, measured; off in MW3, by reading); the rest keep the map's pilots. Item 97's forced engagement (mode 1,
   3000 m, no break-offs) is replaced: it stood mw3c3 ia3's Enemy_08 on a hilltop at 772 m.
 - **Open, the owner's:** reach contracts (MW1's enemies come there too: with every enemy sent, the arctic
   commander of 136 (b) goes down in 4 of 6 drives, where 6 of 6 arrive without), and the oppose-withdrawal contracts, played as

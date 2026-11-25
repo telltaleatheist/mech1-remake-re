@@ -6,7 +6,7 @@ the fixed places, or the seed's); the table has only what is worse: more than 50
 points more of the time standing (and not at the player). It is a reading of one machine's runs, not a claim about every
 seed or layout; the enemies-come test (`mw1_loop_enemies_come_headless`) holds the cases that matter.
 
-252 enemy-runs: 179 the same on and off, 54 end 50 m or more nearer, 9 worse as above.
+252 enemy-runs: 178 the same on and off, 54 end 50 m or more nearer, 9 worse as above.
 
 | Row | Seed | Enemy | Start | End, on | End, off | Standing on / off |
 |---|---|---|---|---|---|---|
