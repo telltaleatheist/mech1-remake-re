@@ -771,6 +771,15 @@ if(SDL3_FOUND)
   target_link_libraries(mw3imgui PUBLIC SDL3::SDL3)
   target_compile_options(mw3imgui PRIVATE "$<IF:$<CXX_COMPILER_ID:MSVC>,/w,-w>")
   target_link_libraries(mw3sdl PUBLIC mw3imgui)
+  # RmlUi (third_party/rmlui, VERSION.txt): the launcher's screens (docs/launcher.md, How it is drawn); its fonts by
+  # FreeType, the one SDL3_ttf is built with.
+  find_package(Freetype REQUIRED)
+  file(GLOB_RECURSE rmlui_sources CONFIGURE_DEPENDS third_party/rmlui/Source/Core/*.cpp)
+  add_library(mw3rmlui STATIC ${rmlui_sources})
+  target_include_directories(mw3rmlui PUBLIC third_party/rmlui/Include)
+  target_compile_definitions(mw3rmlui PUBLIC RMLUI_STATIC_LIB PRIVATE RMLUI_FONT_ENGINE_FREETYPE RMLUI_VERSION="6.3")
+  target_compile_options(mw3rmlui PRIVATE "$<IF:$<CXX_COMPILER_ID:MSVC>,/w,-w>")
+  target_link_libraries(mw3rmlui PRIVATE Freetype::Freetype)
   # Windows: the Direct3D 12 shaders (sdl_render3d.hlsl), DXIL by the
   # Windows SDK's dxc, as headers the renderer includes.
   if(WIN32)
@@ -847,6 +856,7 @@ if(SDL3_FOUND)
       src/frontend/sdl/run_log.cpp
       src/frontend/sdl/crash_report.cpp
       src/frontend/sdl/launcher.cpp
+      src/frontend/sdl/launcher_ui.cpp
       src/frontend/sdl/sdl_update.cpp
       src/frontend/sdl/sdl_games.cpp
       src/frontend/sdl/debug_states.cpp
@@ -854,7 +864,7 @@ if(SDL3_FOUND)
       src/frontend/sdl/modes_chain.cpp
       src/frontend/sdl/first_run_import.cpp
     )
-    target_link_libraries(mw3 PRIVATE mw3text mw3sdl mw3core SDL3::SDL3)
+    target_link_libraries(mw3 PRIVATE mw3rmlui mw3text mw3sdl mw3core SDL3::SDL3)
     target_compile_definitions(mw3 PRIVATE MW3_VERSION="${MW3_VERSION}")
     # The launcher's art (assets/launcher) in a development build; a package
     # carries it beside the exe (tools/windows/package.cmd) or in the app's
@@ -893,12 +903,13 @@ if(SDL3_FOUND)
     add_executable(mw3launcher
       src/frontend/sdl/launcher_main.cpp
       src/frontend/sdl/launcher.cpp
+      src/frontend/sdl/launcher_ui.cpp
       src/frontend/sdl/sdl_update.cpp
       src/frontend/sdl/sdl_games.cpp
       src/frontend/sdl/run_log.cpp
       src/frontend/sdl/crash_report.cpp
     )
-    target_link_libraries(mw3launcher PRIVATE mw3text mw3sdl mw3core SDL3::SDL3)
+    target_link_libraries(mw3launcher PRIVATE mw3rmlui mw3text mw3sdl mw3core SDL3::SDL3)
     target_compile_definitions(mw3launcher PRIVATE MW3_VERSION="${MW3_VERSION}")
     if(NOT MW3_PACKAGE)
       target_compile_definitions(mw3launcher PRIVATE MW3_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets"
