@@ -60,7 +60,7 @@ bool has_alpha(SDL_Surface* s) {
   return false;
 }
 
-// A picture of assets/launcher by its name, ready to draw: the plate and the mark cropped, black made see-through
+// A picture of assets/launcher by its name, ready to draw: the mark cropped, black made see-through
 // where the picture has none of its own.
 SDL_Surface* picture(const std::string& dir, const std::string& name) {
   SDL_Surface* raw = SDL_LoadPNG((fs::path(dir) / name).string().c_str());
@@ -68,7 +68,6 @@ SDL_Surface* picture(const std::string& dir, const std::string& name) {
   SDL_Surface* s = SDL_ConvertSurface(raw, SDL_PIXELFORMAT_ARGB8888);
   SDL_DestroySurface(raw);
   if (!s) return nullptr;
-  if (name == "plate.png") return cut_out(s, 24, false);
   if (name == "emblem.png" || (name.rfind("badge_", 0) == 0 && !has_alpha(s))) return cut_out(s, 24, true);
   return s;
 }
@@ -219,7 +218,7 @@ Rml::String markup(const UiButton& b) {
   if (b.kind == "seg") return s + "<div class=\"divider\"/><img src=\"download.png?17\"/><div class=\"word\">UPDATE</div></btn>";
   s += "<fit class=\"label\" least=\"" + std::string(b.kind == "plate" ? "13" : "11") + "\" keep=\"3\" text=\"" + enc(b.label) + "\"/>";
   if (!b.sub.empty()) s += "<fit class=\"sub\" least=\"10\" keep=\"" + std::to_string(b.keep) + "\" text=\"" + enc(b.sub) + "\"/>";
-  return s + "<div class=\"edge\"><div/></div></btn>";
+  return s + "</btn>";
 }
 }  // namespace
 

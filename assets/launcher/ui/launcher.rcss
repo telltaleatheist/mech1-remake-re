@@ -85,17 +85,13 @@ scrollbarvertical sliderarrowdec, scrollbarvertical sliderarrowinc { width: 0; h
 
 /* ---- buttons ---- */
 btn { position: relative; text-align: center; line-height: 1.2; display: flex; flex-direction: column; justify-content: center; }
-btn .edge { display: none; position: absolute; top: -1dp; left: -1dp; right: -1dp; bottom: -1dp; border: 1dp #ffb040; pointer-events: none; }
-btn .edge div { position: absolute; top: 0; left: 0; right: 0; bottom: 0; border: 1dp #966828; }
 btn fit { width: 100%; }
 
-btn.plate { decorator: image(plate.png fill) border-box; image-color: #d7d7d7; border: 1dp #0000; padding: 0 15dp; }
-btn.plate.off { image-color: #5a5a5a; color: #787c82; }
-btn.plate.hot { image-color: #fff; color: #ffb040; }
-btn.plate.hot .edge { display: block; }
-btn.plate.two { padding-bottom: 5dp; }
+btn.plate { background: #1c2026; border: 1dp #454c55; padding: 0 15dp; }
+btn.plate.hot { background: #2a2e36; border-color: #ffb040; }
+btn.plate.off { background: #22252a; border-color: #3a3f46; color: #787c82; }
 btn.two .label { line-height: 1.0; }
-btn.plate .sub { font-size: 12dp; color: #bebeb4; line-height: 15dp; }
+btn.plate .sub { font-size: 12dp; color: #b4bac4; line-height: 15dp; }
 btn.plate.off .sub { color: #787c82; }
 
 btn.amber, btn.seg { background: #f0a020; border: 1dp #f0a020; color: #14100a; font-effect: none; padding: 0 7dp; }
@@ -186,10 +182,10 @@ btn.seg.off .divider { background: #5a616a; }
 .gamepage .row .buttons { flex: none; display: flex; justify-content: flex-end; }
 .gamepage .row btn { width: 104dp; height: 34dp; flex: none; margin-left: 8dp; }
 .gamepage .row btn .label { font-size: 15dp; }
-.gamepage .links { display: flex; justify-content: center; }
+.gamepage .links { display: flex; justify-content: space-between; column-gap: 8dp; }
 .gamepage .links.empty { display: none; }
-.gamepage .links btn { height: 28dp; width: 260dp; flex: none; margin: 0 4dp; }
-.gamepage .links btn .label { font-size: 13dp; }
+.gamepage .links btn { height: 30dp; flex: 1; min-width: 0; }
+.gamepage .links btn .label { font-size: 15dp; }
 .gamepage .lines { position: absolute; top: 22dp; left: 80dp; width: 480dp; line-height: 18dp; }
 .gamepage .plates { top: 93dp; }
 .gamepage fit.title { top: 10dp; }
