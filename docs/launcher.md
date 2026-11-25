@@ -874,6 +874,10 @@ named install or `--install-from`/`--patch`; `--no-launcher` skips it):
   ripple"): `mech3::menu_ripple_step` (menu_ripple.h), the one SlideButton
   runs (0x00485650): from 20 pixels, 120 a second, the amplitude 7 less 0.3
   a 30 fps frame; drawn by 0x00558dd0. `launcher_ripple_matches_the_main_menus`.
+- Pacing: vsync never alone (2026-11-25). macOS does not hold a present back for a window not on screen (behind a
+  fullscreen game): 1.5.0 drew some 950 frames a second there, every one with new drawables, and took 25 to 55 GB.
+  A frame now takes at least 0.9 of the display's refresh, and a window the system calls covered or minimised waits
+  100 ms between frames, any event at once. `MW3_LAUNCHER_UNPACED` (checks) is a present that does not wait.
 - Paced by vsync (else a precise sleep to 60 a second). Timed on the reference PC
   (2026-10-31): the first frame drawn 306 ms after the start (art 86 ms,
   the install search 197 ms), shown in a window at 339 ms; 55.9 frames a

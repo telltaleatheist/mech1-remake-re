@@ -40,6 +40,14 @@ original.
 
 Nothing yet.
 
+**1.5.1 (2026-11-25)** (the full notes are in
+[docs/release-notes-1.5.1.md](docs/release-notes-1.5.1.md)): a launcher fix.
+
+- On a Mac the launcher could use tens of gigabytes of memory while a
+  full-screen game covered it.
+- It finds MechWarrior 1 Rebuild and Inception installed by their own Setups,
+  and sets them up on its own screens.
+
 **1.5.0 (2026-11-24)** (the full notes are in
 [docs/release-notes-1.5.0.md](docs/release-notes-1.5.0.md)): the launcher is
 drawn sharp at any window size; each game's files and copies are on its gear

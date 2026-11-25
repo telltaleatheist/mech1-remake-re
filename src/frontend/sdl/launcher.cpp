@@ -402,6 +402,7 @@ class Launcher {
   void use_pm(const std::string& dir, const std::string& summary);
   std::vector<std::string> pm_notes(mech3::setup::Result* check = nullptr);
   void watch_game();
+  Uint64 display_frame() const;
   void layout();
   UiModel model();
   void draw();
@@ -3715,6 +3716,13 @@ void Launcher::dropped(const std::string& path) {
   if (what) picked(what, path);
 }
 
+// The least a vsynced frame takes: the display's refresh, a tenth under so that vsync does the pacing; 60 Hz unknown.
+Uint64 Launcher::display_frame() const {
+  const SDL_DisplayMode* m = SDL_GetCurrentDisplayMode(SDL_GetDisplayForWindow(win_));
+  const float hz = m && m->refresh_rate >= 24.0f ? std::min(m->refresh_rate, 500.0f) : 60.0f;
+  return static_cast<Uint64>(0.9e9 / hz);
+}
+
 LauncherChoice Launcher::run() {
   const bool shot = !o_.shot.empty();
   // Where the start's time goes ("pretty slow"), in the log.
@@ -3866,6 +3874,7 @@ LauncherChoice Launcher::run() {
   // 16 to 31 ms on Windows' 15.6 ms timer, and no vsync let frames tear.
   // MW3_LAUNCHER_NOVSYNC (checks): the timed sleep instead, to compare.
   vsync_ = !SDL_getenv("MW3_LAUNCHER_NOVSYNC") && SDL_SetRenderVSync(ren_, 1);
+  if (vsync_ && SDL_getenv("MW3_LAUNCHER_UNPACED")) SDL_SetRenderVSync(ren_, 0);  // checks: a present that does not wait, as a window not on screen
   SDL_InitSubSystem(SDL_INIT_GAMEPAD);  // a pad steps through the plates too (nav)
   if (o_.play) auto_ok_ = true, activate(kMw3);  // its notes' OK pressed too
   // Checks: keys or a pad as a list ("next,next,press"), each step logged; with MW3_LAUNCHER_NAV_LATE, once the
@@ -4022,10 +4031,13 @@ LauncherChoice Launcher::run() {
     mouse_steps();
     ++frames_, draw_ms_ += ms(ta, tb), present_ms_ += ms(tb, tc);
     if (quit_after_ > 0 && frames_ >= quit_after_) done_ = true;  // MW3_LAUNCHER_FRAMES (checks)
-    if (!vsync_) {  // no vsync: the rest of a 60th of a second, to the nanosecond
-      const Uint64 spent = SDL_GetTicksNS() - ta, frame = 1000000000ull / 60;
-      if (spent < frame) SDL_DelayPrecise(frame - spent);
-    }
+    // No vsync: the rest of a 60th of a second, to the nanosecond. With it, never faster than a little over the display:
+    // macOS does not hold a present back for a window not on screen (behind a fullscreen game), and at some 950 frames a
+    // second its drawables piled up to tens of gigabytes (2026-11-25, docs/launcher.md, Pacing).
+    const Uint64 spent = SDL_GetTicksNS() - ta, frame = vsync_ ? display_frame() : 1000000000ull / 60;
+    if (spent < frame) SDL_DelayPrecise(frame - spent);
+    // Covered or minimised: a few frames a second, any event at once.
+    if (!o_.hidden && (SDL_GetWindowFlags(win_) & (SDL_WINDOW_OCCLUDED | SDL_WINDOW_MINIMIZED))) SDL_WaitEventTimeout(nullptr, 100);
   }
   if (const char* path = SDL_getenv("MW3_LAUNCHER_FRAME_SHOT")) save_frame(path);  // checks: the last frame, as this renderer draws it
   if (frames_) {

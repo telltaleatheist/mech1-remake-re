@@ -7565,6 +7565,20 @@ TEST(sdl_program_launcher_sets_a_kit_game_up) {
     if (!check::failures) fs::remove_all(d, ec);
 }
 
+// A present that does not wait for the display (macOS: a window not on screen) does not run away: 1.5.0 drew some 950
+// frames a second behind a fullscreen game, and its drawables took tens of gigabytes. MW3_LAUNCHER_UNPACED stands in.
+TEST(sdl_program_launcher_never_runs_away) {
+  const LauncherRun r = run_launcher_with("launcher_unpaced", "exit 0", nullptr, {{"MW3_LAUNCHER_UNPACED", "1"}, {"MW3_LAUNCHER_FRAMES", "600"}},
+                                          [](const std::string& d) {
+                                            std::filesystem::create_directories(d + "/wd/music");
+                                            std::ofstream(d + "/wd/music/track02.wav") << "x";
+                                          }, false);
+  const size_t at = r.log.find("600 frames, ");
+  const double fps = at == std::string::npos ? -1 : std::atof(r.log.c_str() + at + 12);
+  std::printf("unpaced: %.1f frames a second\n", fps);
+  EXPECT(r.exited && fps > 10 && fps < 600);  // a tenth over the display's, at most a 500 Hz one's
+}
+
 // The movies converted in the launcher (a first start sat 44 s on
 // "Starting MechWarrior 3..." while mw3 did it): a found install's AVIs go
 // through the importer (here a stand-in, MW3_IMPORTER, as mw3import: its
