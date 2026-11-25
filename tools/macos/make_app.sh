@@ -222,6 +222,10 @@ cp tools/macos/THIRD-PARTY.txt "$APP/Contents/Resources/THIRD-PARTY.txt"
 if [ -n "$DEPS" ]; then
   [ -d "$DEPS/share/licenses/libarchive-3.7.9" ] || { echo "no licences in $DEPS/share/licenses: run tools/deps/build_deps.sh mac again" >&2; exit 1; }
   cp -R "$DEPS/share/licenses/." "$APP/Contents/Resources/licenses/"
+  # FreeType's, the version and the place THIRD-PARTY.txt says: an older prefix, or one without its source trees
+  # (work/src), left it out and the package was made all the same.
+  FTL="$APP/Contents/Resources/licenses/libSDL3_ttf.0.dylib/freetype-2.14.3/FTL.TXT"
+  [ -s "$FTL" ] || { echo "no FreeType licence in the app ($FTL): run tools/deps/build_deps.sh mac again" >&2; exit 1; }
 fi
 
 # Signing: the libraries first, then the app. Ad hoc by default (the

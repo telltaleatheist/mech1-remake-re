@@ -608,7 +608,9 @@ const char* kit_id(u::Game g) {
   switch (g) {
     case u::Game::kMw3: return "mech3";
     case u::Game::kPm: return "mech3-pm";
-    case u::Game::kMw1: return "mech1-remake";  // MechWarrior 1 Rebuild's is "mech1"
+    case u::Game::kMw1: return "mech1-remake";
+    case u::Game::kMw1r: return "mech1";
+    case u::Game::kChi: return "inception";
     default: return "";
   }
 }
@@ -620,6 +622,8 @@ const char* setup_id(u::Game g) {
     case u::Game::kMw3: return "{920C98A6-550D-41A3-839E-540B93B8F40D}_is1";
     case u::Game::kPm: return "{797310CA-3FB8-4FBB-8D21-47E588714765}_is1";
     case u::Game::kMw1: return "{C33F5AC5-1EFA-4952-81EA-A76A9A48AF28}_is1";  // mech1-remake-re's mw1/tools/package/installer.iss
+    case u::Game::kMw1r: return "{56BFB0C4-541E-42DD-909E-874C8EDA0D47}_is1";  // mech1-re's tools/package/installer.iss
+    case u::Game::kChi: return "{11AFD380-EF35-4002-81BC-7312A6971E0F}_is1";   // inception-re's
     default: return "";
   }
 }
