@@ -509,9 +509,10 @@ class Launcher {
   // their game files are missing).
   static bool kit_game(int i) { return i >= 3; }
   void kit_refresh(int i);
-  void run_kit(int i);
+  void run_kit(int i, bool set_up = false);
   // The setup of one that serves it (rekit/sdl/setup_serve.h), on the find screens as MW3's: its words, its search, its
   // look at a pick, its install; the recipe is the game's (2026-11-24).
+  bool kit_set_up(int i) const;  // its game files are ready, and its setup has been through
   bool kit_serves(int i) const { return kit_game(i) && kit_known_[i] && kit_status_[i].setup >= rekit::kServedSetup; }
   void open_kit_files(int i, bool play);
   void kit_look(const std::string& pick);  // "" its own search first
@@ -816,16 +817,17 @@ void Launcher::resolve_game(int i, bool refresh) {
 }
 
 // Game i's program records itself here (mw3 and mw3pm since 1.3.5; MechWarrior 1 Remake since its 1.1.0, in
-// BattleTech/MechWarrior 1 Remake beside MechWarrior 3's, read by path: the launcher never makes or moves it).
+// BattleTech/MechWarrior 1 Remake beside MechWarrior 3's, and MechWarrior 1 Rebuild since its 1.0.0, in its own there;
+// read by path: the launcher never makes or moves them).
 std::string Launcher::record_folder(int i) {
   // A check run (hidden, a shot) reads only folders it was given, never this computer's own.
   const bool check = o_.hidden || !o_.shot.empty();
   if (i == 0) return o_.write_dir;
   if (i == 1) return check && !SDL_getenv("MW3_PM_WRITE_DIR") && !SDL_getenv("MW3_USUAL_FOLDER") ? std::string() : pm_wd();
-  if (i == 2) {
+  if (i == 2 || i == 3) {
     if (check && !SDL_getenv("MW3_USUAL_FOLDER")) return {};
     const std::string mw3 = usual_folder();
-    return mw3.empty() ? std::string() : (fs::path(mw3).parent_path() / "MechWarrior 1 Remake").string();
+    return mw3.empty() ? std::string() : (fs::path(mw3).parent_path() / (i == 2 ? "MechWarrior 1 Remake" : "MechWarrior 1 Rebuild")).string();
   }
   return {};
 }
@@ -916,7 +918,7 @@ UiPanel Launcher::files_row(int i) {
     else is(none, "Your MechWarrior (1989): PLAY finds it, or pick it here");
   } else if (kit_game(i) && !game_bin(i).empty()) {
     const rekit::Status& s = kit_status_[i];
-    if (kit_known_[i] && s.state == rekit::Status::kReady) is(s.data.empty() ? "Your copy of the game" : s.data, s.where);
+    if (kit_known_[i] && kit_set_up(i)) is(s.data.empty() ? "Your copy of the game" : s.data, s.where);
     else is(none, can_open_files(i) ? asks : "PLAY finds them");
   }
   return p;
@@ -1532,13 +1534,19 @@ void Launcher::kit_refresh(int i) {
               kit_known_[i] ? rekit::state_name(kit_status_[i].state).c_str() : "no answer");
 }
 
+// A game whose own search came on its files says ready, with this note (inception-re and mech1-re, word for word): a
+// plain start would open its own setup window, so the launcher's screens come first (2026-11-25).
+bool Launcher::kit_set_up(int i) const {
+  return kit_status_[i].state == rekit::Status::kReady && kit_status_[i].note != "found by the search, not set up yet";
+}
+
 // PLAY on a game on the kit's contract: started plain (its own setup screen opens when its game files are missing),
 // this window hidden until it exits, as MechWarrior 1's are; its status read again after.
 // One that serves its setup has its game files found on the launcher's own screens first.
-void Launcher::run_kit(int i) {
+void Launcher::run_kit(int i, bool set_up) {
   const std::string bin = game_bin(i), name = upgrades::update::game_info(upgrades::update::kGames[i]).name;
   if (bin.empty() || work_) return;
-  if (kit_serves(i) && kit_status_[i].state != rekit::Status::kReady) return open_kit_files(i, true);
+  if (!set_up && kit_serves(i) && !kit_set_up(i)) return open_kit_files(i, true);
   const char* args[] = {bin.c_str(), nullptr};
   SDL_Process* p = SDL_CreateProcess(args, false);
   if (!p) {
@@ -1656,7 +1664,7 @@ void Launcher::kit_ready(const std::string& summary) {
   kit_refresh(i);
   status_ = summary, status_good_ = true;
   screen_ = kMain, layout();
-  if (play && kit_status_[i].state == rekit::Status::kReady) run_kit(i);
+  if (play && kit_status_[i].state == rekit::Status::kReady) run_kit(i, true);  // once through its setup: never asked twice
 }
 
 // MW1: what MechWarrior 1 still needs before it can start, in the player's words ("" when nothing).
@@ -1953,10 +1961,11 @@ void Launcher::layout() {
         const std::string ver = has_installed_[i] ? upgrades::update::game_version(installed_[i].tag) : s.version;
         const std::string dot = " \xc2\xb7 ";
         if (!kit_known_[i]) p.lines = {"Installed" + (ver.empty() ? std::string() : dot + ver), "PLAY sets it up"};
+        else if (s.state == rekit::Status::kReady && !kit_set_up(i)) p.lines = {"Game files found, not set up yet", "PLAY sets them up"};
         else if (s.state == rekit::Status::kReady) p.lines = {"Ready" + (ver.empty() ? std::string() : dot + ver), s.where};
         else if (s.state == rekit::Status::kMissing) p.lines = {"Game files not found yet", "PLAY finds them"};
         else p.lines = {"Game files not ready", !s.note.empty() ? s.note : !s.missing.empty() ? "Missing: " + s.missing.front() : "PLAY sets them up"};
-        if (kit_known_[i] && s.state == rekit::Status::kReady && !s.note.empty()) p.lines.push_back(s.note);
+        if (kit_known_[i] && kit_set_up(i) && !s.note.empty()) p.lines.push_back(s.note);
         fix_keep(p);
         update_line(p, i);
         p.id = kKitPlay + i, p.name = name, p.on = !work_, p.upd = i;
@@ -2092,7 +2101,7 @@ void Launcher::layout() {
       std::vector<Row> rows = {
           {0, "MECHWARRIOR 3", "Zipper and MicroProse, 1999, rebuilt from the original Mech3.exe."},
           {1, "PIRATE'S MOON", "The 1999 expansion, rebuilt from its own exe. Plays without MW3."},
-          {3, "MECHWARRIOR 1 REVERSE ENGINEERED", "MechWarrior (1989), rebuilt in C++ from Elthial's SDL port."},
+          {3, "MECHWARRIOR 1 REVERSE ENGINEERED", "MechWarrior (1989), from Elthial's SDL port. Bring your own DOS copy."},
           {2, "MECHWARRIOR 1 REMAKE", "MechWarrior (1989)'s campaign, fought with MechWarrior 3's combat."},
           {4, "THE CRESCENT HAWK'S INCEPTION", "The 1988 game, rebuilt. Bring your own copy: DOS 1.03 or Amiga 2.3."}};
       // The remake's own panel once there is one to show: a release found, or it is here (never on a failed check).
@@ -2169,7 +2178,7 @@ void Launcher::layout() {
       // folder; pick_source). The 1.2 patch is built in (patch12.h).
       // PICK A FILE and PICK A FOLDER (2026-11-24) go to a picker whatever is on this computer. A kit game whose
       // files are in: those are no answer, so its search (which would find them again) is not offered.
-      if (kit_files_ >= 0 && kit_status_[kit_files_].state == rekit::Status::kReady) {
+      if (kit_files_ >= 0 && kit_set_up(kit_files_)) {
         add(kPickFile, "find", "PICK A FILE", kit_ask_.find_sub);
         add(kPickFolder, "pick", "PICK A FOLDER");
       } else {
@@ -2443,7 +2452,7 @@ UiModel Launcher::model() {
       if (!status_.empty()) break;
       m.status_kind = "use";
       if (kit_files_ >= 0) {
-        if (kit_status_[kit_files_].state == rekit::Status::kReady)
+        if (kit_set_up(kit_files_))
           m.status = text_.fit("In use: " + (kit_status_[kit_files_].data.empty() ? std::string() : kit_status_[kit_files_].data + ", ") + kit_status_[kit_files_].where, 13, 480);
       } else if (files_pm_ ? !pm_dir_.empty() : install_.ok) {  // GAME FILES: the one in use, and what it lacks
         m.status = text_.fit(files_pm_ ? pm_in_use() : in_use(), 13, 480);

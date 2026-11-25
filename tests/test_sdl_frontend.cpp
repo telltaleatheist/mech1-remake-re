@@ -7207,6 +7207,9 @@ TEST(sdl_program_launcher_links_and_uninstalls) {
     fake(d + "/mw1home/mw1", "mw1-v1.1.0");  // MechWarrior 1 Remake's record, in BattleTech/MechWarrior 1 Remake beside MW3's
     fs::create_directories(d + "/usual/MechWarrior 1 Remake");
     std::ofstream(d + "/usual/MechWarrior 1 Remake/rebuild-program.txt") << "# x\ngame=mw1\nprogram=" << d << "/mw1home/mw1\nversion=x\n";
+    fake(d + "/mw1rhome/mw1r", "mw1r-v1.0.0");  // MechWarrior 1 Rebuild's (2026-11-25)
+    fs::create_directories(d + "/usual/MechWarrior 1 Rebuild");
+    std::ofstream(d + "/usual/MechWarrior 1 Rebuild/rebuild-program.txt") << "# x\ngame=mw1r\nprogram=" << d << "/mw1rhome/mw1r\nversion=x\n";
     std::ofstream(d + "/wd/mw3.cfg") << cfg;
   };
   auto env = [](const std::string& d, const std::string& nav, const std::string& pick, bool asked = true) {
@@ -7230,6 +7233,7 @@ TEST(sdl_program_launcher_links_and_uninstalls) {
               has(ra.log, ("link " + a + "/later: " + a + "/later/mw3pm pm-v1.2.7").c_str()));
   EXPECT(ra.exited && has(ra.log, ("games: pm: found " + a + "/elsewhere/mw3pm (its record), linked").c_str()));
   EXPECT(has(ra.log, ("games: mw1: found " + a + "/mw1home/mw1 (its record), linked").c_str()));
+  EXPECT(has(ra.log, ("games: mw1r: found " + a + "/mw1rhome/mw1r (its record), linked").c_str()));
   EXPECT(has(ra.log, "PIRATE'S MOON, PIRATE'S MOON SETTINGS, ") && has(ra.log, "screen game: GAME FILES, UNLINK, LINK ANOTHER COPY, INSTALL FROM A DOWNLOADED FILE, BACK\n"));
   EXPECT(has(ra.log, ("games: pm: link " + a + "/later: " + a + "/later/mw3pm pm-v1.2.7").c_str()));
   EXPECT(has(cfg(a), ("link_pm=" + a + "/later/mw3pm").c_str()));
@@ -7447,18 +7451,18 @@ TEST(sdl_program_launcher_family_cards) {
 TEST(sdl_program_launcher_sets_a_kit_game_up) {
   namespace fs = std::filesystem;
   std::error_code ec;
-  auto stand_in = [](const std::string& root, const char* found, const char* look) {
+  auto stand_in = [](const std::string& root, const char* found, const char* look, const char* key = "chi", const char* id = "inception") {
     std::error_code err;
     fs::remove_all(root, err);
     fs::create_directories(root + "/api"), fs::create_directories(root + "/games");
     for (const char* repo : {"mech3-re", "mech3-pm-re", "mech1-remake-re", "mech1-re", "inception-re", "inception-remake-re"})
       std::ofstream(root + "/api/" + repo + ".json") << "[]";
-    std::ofstream sh(root + "/chi");
+    std::ofstream sh(root + "/" + key);
     sh << "#!/bin/sh\nR='" << root << "'\necho \"$*\" >> \"$R/asked\"\n"
        << "case \"$1 $2\" in\n"
-          "'--status ') if [ -f \"$R/done\" ]; then ST=ready; else ST=missing; fi\n"
-          "  echo '{\"kit\": 1, \"game\": \"inception\", \"version\": \"0.2.0\", \"files\": {\"state\": \"'$ST'\"}, \"first_run\": "
-          "{\"pending\": []}, \"needs\": [], \"setup\": 1}';;\n"
+          "'--status ') NOTE=; if [ -f \"$R/done\" ]; then ST=ready; elif [ -f \"$R/searched\" ]; then ST=ready; NOTE='found by the search, not set up yet'; else ST=missing; fi\n"
+          "  echo '{\"kit\": 1, \"game\": \"" << id << "\", \"version\": \"0.2.0\", \"files\": {\"state\": \"'$ST'\"}, \"first_run\": "
+          "{\"pending\": []}, \"needs\": [], \"note\": \"'\"$NOTE\"'\", \"setup\": 1}';;\n"
           "'--setup --describe') echo '{\"done\": true, \"ok\": true, \"title\": \"T\", \"pick_words\": \"a download\", \"find_sub\": "
           "\"A download (.zip)\", \"find_words\": \"Show us your own copy.\"}';;\n"
           "'--setup --search') echo '{\"done\": true, \"ok\": true" << found << "}';;\n"
@@ -7468,7 +7472,7 @@ TEST(sdl_program_launcher_sets_a_kit_game_up) {
           "  echo '{\"done\": true, \"ok\": true, \"where\": \"/user/install\", \"summary\": \"Inception is set up.\"}';;\n"
           "*) echo \"plain $#\" >> \"$R/started\";;\nesac\nexit 0\n";
     sh.close();
-    fs::permissions(root + "/chi", fs::perms::owner_all);
+    fs::permissions(root + "/" + key, fs::perms::owner_all);
   };
   auto run = [](const std::string& root, const char* name, const std::string& nav, std::vector<std::pair<std::string, std::string>> more) {
     std::vector<std::pair<std::string, std::string>> env{{"MW3_GAMES_API", "file://" + root + "/api/{repo}.json"}, {"MW3_GAMES_DIR", root + "/games"},
@@ -7533,7 +7537,31 @@ TEST(sdl_program_launcher_sets_a_kit_game_up) {
     EXPECT(has(g.log, "Inception is set up."));
     ++which;
   }
-  for (const std::string& d : {a, b, c, gone[0], gone[1]})
+  // Found by its own search, not set up (2026-11-25): MechWarrior 1 Rebuild says ready with that note, and PLAY goes
+  // through the launcher's screens all the same; set up after, it starts.
+  const std::string s = std::string(MW3_TEST_TMP) + "/launcher_kit_searched";
+  stand_in(s, found.c_str(), look.c_str(), "mw1r", "mech1");
+  std::ofstream(s + "/searched") << "x";
+  const LauncherRun q = run(s, "launcher_kit_searched_run", "next,next,next,press,next,press", {{"MW3_LAUNCHER_GO", "1"}, {"MW3_CHI_BIN", ""}, {"MW3_MW1R_BIN", s + "/mw1r"}});
+  const std::string asked_s = read(s + "/asked"), started_s = read(s + "/started");
+  std::printf("kit setup, found by its search: started \"%s\"\n%s", started_s.c_str(), asked_s.c_str());
+  EXPECT(q.exited && has(q.log, "Game files found, not set up yet") && has(q.log, "screen find: FIND THE GAME, PICK A FILE, PICK A FOLDER, BACK"));
+  EXPECT(has(q.log, "work: INSTALLING MECHWARRIOR 1 REBUILD") && has(asked_s, "--setup --install /copy/CHI.zip\n--status\n") && started_s == "plain 0\n");
+  // A program is a game's own by its --status: Inception's is not MechWarrior 1 Rebuild's, whatever mw3.cfg says.
+  const std::string w = std::string(MW3_TEST_TMP) + "/launcher_kit_wrong";
+  stand_in(w, found.c_str(), look.c_str());
+  for (const char* game : {"mw1r", "chi"}) {
+    const LauncherRun l = run_launcher_with("launcher_kit_wrong_run", "exit 0", nullptr,
+                                            {{"MW3_GAMES_API", "file://" + w + "/api/{repo}.json"}, {"MW3_GAMES_DIR", w + "/games"}, {"MW3_LAUNCHER_FRAMES", "60"}},
+                                            [&](const std::string& d) {
+                                              fs::create_directories(d + "/wd/music"), std::ofstream(d + "/wd/music/track02.wav") << "x";
+                                              std::ofstream(d + "/wd/mw3.cfg") << "link_" << game << "=" << w << "/chi\n";
+                                            }, false);
+    const bool refused = has(l.log, ("the linked " + w + "/chi is gone or not this game's now").c_str());
+    std::printf("kit setup: Inception linked as %s: refused %d\n", game, refused);
+    EXPECT(l.exited && refused == !std::strcmp(game, "mw1r"));
+  }
+  for (const std::string& d : {a, b, c, gone[0], gone[1], s, w})
     if (!check::failures) fs::remove_all(d, ec);
 }
 
