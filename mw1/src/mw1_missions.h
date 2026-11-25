@@ -111,7 +111,7 @@ const std::vector<MapRow>& map_table();
 RowKind kind_for(Mw1Objective o);
 // FIXES 149: do the contract's enemies come for the company from the start, as MW1's do (mw1/research/enemy-orders.md)?
 // Destroy all and defend: yes (upgrades/ai/far_sight: each whose own patrol can't come near). Not a reach: MW1's
-// oppose it too, and that takes the arctic reach commanders down (the owner to say). Nor an attack: MW1's hold the
+// oppose it too, and that takes the arctic reach commanders down (decided 2026-11-25: they keep the map's). Nor an attack: MW1's hold the
 // building's ground, the map's own pilots.
 bool enemies_come(const Contract& c);
 Objective objective_for(RowKind k);

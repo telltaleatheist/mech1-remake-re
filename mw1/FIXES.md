@@ -5,7 +5,7 @@ Tick an item when it is merged into `main`.
 
 **How this file works (the owner, 2026-11-17):** every bug and feature the owner raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
-## 149. [ ] The arctic maps' enemies stood like statues; MW1's enemies come *(branch mac5/remake-statues)*
+## 149. [x] The arctic maps' enemies stood like statues; MW1's enemies come *(branch mac5/remake-statues)*
 - **The owner (2026-11-24, 1.1.1, a defence on mw3c4b ia1):** the enemies stood still until approached or hit; they were
   expected to come down on the player. Then: act like MW1, on every map.
 - **Cause (the statues):** our own arctic records (`data/arctic/ia1`, `ia2`, item 44) had no `p8`. Pilot params +0x88
@@ -19,9 +19,9 @@ Tick an item when it is merged into `main`.
   destroy all and defend: an enemy that can't come near by its own patrol is given the attack from any distance
   (`src/upgrades/ai/far_sight`, off in PM, measured; off in MW3, by reading); the rest keep the map's pilots. Item 97's forced engagement (mode 1,
   3000 m, no break-offs) is replaced: it stood mw3c3 ia3's Enemy_08 on a hilltop at 772 m.
-- **Open, the owner's:** reach contracts (MW1's enemies come there too: with every enemy sent, the arctic
-  commander of 136 (b) goes down in 4 of 6 drives, where 6 of 6 arrive without), and the oppose-withdrawal contracts, played as
-  defences (MW1's enemies leave the map; item 97 has them come).
+- **Decided (the owner, 2026-11-25):** reach contracts keep the map's own pilots (with every enemy sent, the arctic
+  commander of 136 (b) goes down in 4 of 6 drives; 6 of 6 arrive without), and the oppose-withdrawal contracts stay
+  defences (MW1's enemies leave the map; here they come).
 - **Left:** mw3c4b ia1's Enemy_02 (1.2 km), ia2's Enemy_06 (1.6 km) and mw3c4 ia1's Enemy_10 (1.1 km) come nearer, then
   stand; mw3c3 ia3's Enemy_06 may patrol at 1 km for minutes (`mw1/research/enemy-come-survey.md`, every row on 3 seeds).
 

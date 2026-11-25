@@ -22,10 +22,10 @@ Read from mech1-re (its `origin/main` at e7dc334, `src/Original/Combat/`), not r
 | Contract (Remake) | Player's rule | MW1's enemies | Here |
 |---|---|---|---|
 | destroy all | eliminate | come from the start | come (FIXES 149) |
-| reach | withdraw | oppose withdrawal: come from the start | the map's own pilots; open (the arctic reach) |
+| reach | withdraw | oppose withdrawal: come from the start | the map's own pilots (decided 2026-11-25) |
 | attack | special target | hold the building's ground | the map's own pilots, patrolling |
 | defend (MW1's defend special target) | defend it | charge the building | come for the company (FIXES 97, 149) |
-| defend (MW1's oppose withdrawal) | oppose withdrawal | walk to their edge of the map | come for the company; open |
+| defend (MW1's oppose withdrawal) | oppose withdrawal | walk to their edge of the map | come for the company (decided 2026-11-25) |
 
 Come, here: an enemy whose own patrol can reach a step within 500 m of the company is left to it, which brings it; one
 that can't is given the attack from any distance (`src/upgrades/ai/far_sight`). Attack at once for everyone is not MW1's
