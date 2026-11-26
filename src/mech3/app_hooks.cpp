@@ -155,8 +155,14 @@ int32_t Engine::menu_vmode() {
   // Wide means a shape wider than 4:3, not a bigger canvas: the original's
   // modes up to 10 (1600x1200) draw the 2D at full size, still 4:3.
   const bool wide = zfix::options().any_resolution && zfix::options().wide_menus && mech3::vmode_canvas(m, &w, &h) &&
-                    w > 640 && w * 3 > h * 4;
+                    w > 640 && w * 3 > h * 4 && w >= wide_menus_min_width();
   return menu_vmode_ = wide ? m : 5;
+}
+// 641 by default: any canvas wider than 4:3 (16:10's 768 too). A game whose own wide layouts are fixed at 16:9 sets
+// 853, and its menus stay 4:3 on a narrower shape.
+int32_t& Engine::wide_menus_min_width() {
+  static int32_t w = 641;
+  return w;
 }
 void Engine::menu_mode_picked() {
   const int32_t old = menu_vmode_;
