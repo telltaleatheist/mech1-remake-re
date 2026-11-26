@@ -15,6 +15,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -645,7 +646,12 @@ int export_mech(const std::string& zbd, const std::string& mech, const std::stri
   std::string leaky;
   int doubles = 0, crowded = 0;
   int loops = 0, panels = 0, open = 0;
-  for (const viewer::Mech::Part& p : m.parts(&pose)) {
+  const std::vector<viewer::Mech::Part> posed = m.parts(&pose);
+  std::set<std::string> foot_parts;  // the feet and toes, and every part under one (parents come first)
+  for (const viewer::Mech::Part& p : posed)
+    if (p.name.find("foot") != std::string::npos || p.name.find("toe") != std::string::npos || foot_parts.count(p.parent))
+      foot_parts.insert(p.name);
+  for (const viewer::Mech::Part& p : posed) {
     if (p.triangles.empty()) continue;
     std::vector<Vec> solid, normals;
     for (size_t t = 0; t < p.two_sided.size(); ++t)
@@ -682,8 +688,9 @@ int export_mech(const std::string& zbd, const std::string& mech, const std::stri
     Piece piece{p.name, solid, {}, {}};
     bounds(solid, piece.lo, piece.hi);
     pieces.push_back(std::move(piece));
-    const bool is_foot = p.name.find("foot") != std::string::npos || p.name.find("toe") != std::string::npos;
-    if (is_foot) feet.insert(feet.end(), solid.begin(), solid.end());
+    // A foot's mesh can hang below its node (Pirate's Moon's Centurion: rfoot draws through g107), so its children
+    // count too.
+    if (foot_parts.count(p.name)) feet.insert(feet.end(), solid.begin(), solid.end());
     if (p.name.find("calf") != std::string::npos) calves.insert(calves.end(), solid.begin(), solid.end());
     all.insert(all.end(), solid.begin(), solid.end());
   }
