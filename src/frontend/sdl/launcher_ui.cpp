@@ -103,7 +103,7 @@ struct Files : Rml::FileInterface {
 // Drawn by an SDL_Renderer (after RmlUi's own SDL backend, MIT): textured triangles, premultiplied alpha, a clip.
 struct Renderer : Rml::RenderInterface {
   SDL_Renderer* ren = nullptr;
-  std::string dir;
+  std::string dir, art;  // art: LauncherUi::art_from
   float scale = 1.0f;  // pixels in a dp: a picture's "?w" is in dp
   struct Geometry {
     Rml::Span<const Rml::Vertex> v;
@@ -162,7 +162,8 @@ struct Renderer : Rml::RenderInterface {
   Rml::TextureHandle LoadTexture(Rml::Vector2i& size, const Rml::String& source) override {
     const size_t q = source.find('?');
     SDL_Surface* s = picture(dir, source.substr(0, q));
-    if (!s) return {};
+    if (!s && !art.empty()) s = picture(art, source.substr(0, q));
+    if (!s) return std::printf("mw3: launcher: picture %s not found\n", source.substr(0, q).c_str()), Rml::TextureHandle{};
     uint8_t* row = static_cast<uint8_t*>(s->pixels);
     for (int y = 0; y < s->h && !straight; ++y, row += s->pitch)
       for (int x = 0; x < s->w; ++x) {
@@ -363,6 +364,8 @@ LauncherUi::~LauncherUi() {
   detach();
   if (p_->up) Rml::Shutdown();
 }
+
+void LauncherUi::art_from(const std::string& dir) { p_->renderer.art = dir; }
 
 bool LauncherUi::init(const std::string& dir, const std::string& font, const std::string& body_font) {
   p_->files.dir = dir, p_->renderer.dir = dir;

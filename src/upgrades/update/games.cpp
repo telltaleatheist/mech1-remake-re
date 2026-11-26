@@ -1,6 +1,10 @@
 #include "upgrades/update/games.h"
 
 #include <algorithm>
+#include <atomic>
+#include <cctype>
+#include <iterator>
+#include <mutex>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -44,7 +48,11 @@ struct Fields {
 
 }  // namespace
 
-bool parse_catalog(const std::string& json, Catalog* out, std::string* why) {
+namespace {
+
+// The catalog read; `ignored` null: the built-in's strict reading (any bad entry fails it all), else a fetched one's
+// (a bad entry left out, said there).
+bool read_catalog(const std::string& json, Catalog* out, std::string* why, std::vector<std::string>* ignored) {
   *out = {}, why->clear();
   detail::Reader r(json);
   Json root;
@@ -53,73 +61,211 @@ bool parse_catalog(const std::string& json, Catalog* out, std::string* why) {
   Fields top{root, "the catalog", why};
   if (!top.number("catalog", &out->version)) return false;
   if (out->version < 1) return top.fail("catalog is not a version");
+  if (out->version > 1) return top.fail("a newer catalog format (" + std::to_string(out->version) + ") than this launcher reads (1)");
+  if (const Json* rev = root.at("revision")) {
+    if (rev->type != Json::kNumber) return top.fail("revision is not a number");
+    out->revision = std::atoi(rev->s.c_str());
+  }
   const Json* families = root.at("families");
   const Json* games = root.at("games");
   if (!families || families->type != Json::kArray) return top.fail("no families list");
   if (!games || games->type != Json::kArray) return top.fail("no games list");
+  // A bad entry: the whole refused (strict) or the entry left out.
+  auto bad = [&]() {
+    if (!ignored) return false;
+    ignored->push_back(*why), why->clear();
+    return true;
+  };
   for (size_t i = 0; i < families->items.size(); ++i) {
     const Json& j = families->items[i];
     Fields f{j, "families[" + std::to_string(i) + "]", why};
-    if (j.type != Json::kObject) return f.fail("not an entry");
     CatalogFamily fam;
-    if (!f.text("key", &fam.key) || !f.text("name", &fam.name) || !f.number("order", &fam.order)) return false;
+    bool ok = j.type == Json::kObject ? f.text("key", &fam.key) && f.text("name", &fam.name) && f.number("order", &fam.order) : f.fail("not an entry");
     for (const CatalogFamily& o : out->families)
-      if (o.key == fam.key) return f.fail("the family " + fam.key + " twice");
-    out->families.push_back(std::move(fam));
+      if (ok && o.key == fam.key) ok = f.fail("the family " + fam.key + " twice");
+    if (ok) out->families.push_back(std::move(fam));
+    else if (!bad()) return false;
   }
   for (size_t i = 0; i < games->items.size(); ++i) {
     const Json& j = games->items[i];
     Fields f{j, "games[" + std::to_string(i) + "]", why};
-    if (j.type != Json::kObject) return f.fail("not an entry");
     CatalogGame g;
-    if (!f.text("key", &g.key)) return false;
-    f.where += " (" + g.key + ")";
-    std::string state;
-    if (!f.text("family", &g.family) || !f.number("order", &g.order) || !f.text("state", &state) || !f.text("name", &g.name) ||
-        !f.text("title", &g.title) || !f.text("heading", &g.heading) || !f.text("button", &g.button) ||
-        !f.text("description", &g.description) || !f.text("repo", &g.repo) || !f.text("tag_prefix", &g.tag_prefix) ||
-        !f.text("program", &g.program) || !f.text("badge", &g.badge) || !f.text("heading_badge", &g.heading_badge, false) ||
-        !f.text("card", &g.card, false) || !f.text("min_launcher", &g.min_launcher))
-      return false;
-    if (state == "coming_soon") g.state = CatalogGame::kComingSoon;
-    else if (state == "released") g.state = CatalogGame::kReleased;
-    else if (state == "removed") g.state = CatalogGame::kRemoved;
-    else return f.fail("state " + state + " is none of coming_soon, released, removed");
-    bool known = false;
-    for (const CatalogFamily& fam : out->families) known = known || fam.key == g.family;
-    if (!known) return f.fail("its family " + g.family + " is not listed");
-    for (const CatalogGame& o : out->games)
-      if (o.key == g.key) return f.fail("the key twice");
-    const Json* assets = j.at("assets");
-    if (!assets || assets->type != Json::kObject) return f.fail("no assets");
-    Fields a{*assets, f.where + " assets", why};
-    const char* const kPlatforms[] = {"windows", "mac", "linux"};  // Platform's order
-    for (int p = 0; p < 3; ++p) {
-      if (!a.text(kPlatforms[p], &g.asset[p])) return false;
-      if (g.asset[p].find("{tag}") == std::string::npos) return a.fail(std::string(kPlatforms[p]) + " has no {tag}");
-    }
-    if (const Json* needs = j.at("needs")) {
-      if (needs->type != Json::kArray) return f.fail("needs is not a list");
-      for (const Json& n : needs->items) {
-        if (n.type != Json::kString || n.s.empty()) return f.fail("needs holds a non-key");
-        g.needs.push_back(n.s);
+    const bool ok = [&] {
+      if (j.type != Json::kObject) return f.fail("not an entry");
+      if (!f.text("key", &g.key)) return false;
+      f.where += " (" + g.key + ")";
+      std::string state;
+      if (!f.text("family", &g.family) || !f.number("order", &g.order) || !f.text("state", &state) || !f.text("name", &g.name) ||
+          !f.text("title", &g.title) || !f.text("heading", &g.heading) || !f.text("button", &g.button) ||
+          !f.text("description", &g.description) || !f.text("repo", &g.repo) || !f.text("tag_prefix", &g.tag_prefix) ||
+          !f.text("program", &g.program) || !f.text("badge", &g.badge) || !f.text("heading_badge", &g.heading_badge, false) ||
+          !f.text("card", &g.card, false) || !f.text("min_launcher", &g.min_launcher))
+        return false;
+      if (state == "coming_soon") g.state = CatalogGame::kComingSoon;
+      else if (state == "released") g.state = CatalogGame::kReleased;
+      else if (state == "removed") g.state = CatalogGame::kRemoved;
+      else return f.fail("state " + state + " is none of coming_soon, released, removed");
+      bool known = false;
+      for (const CatalogFamily& fam : out->families) known = known || fam.key == g.family;
+      if (!known && !ignored) return f.fail("its family " + g.family + " is not listed");  // a fetched one's: at the merge (the built-in's families count)
+      for (const CatalogGame& o : out->games)
+        if (o.key == g.key) return f.fail("the key twice");
+      const Json* assets = j.at("assets");
+      if (!assets || assets->type != Json::kObject) return f.fail("no assets");
+      Fields a{*assets, f.where + " assets", why};
+      const char* const kPlatforms[] = {"windows", "mac", "linux"};  // Platform's order
+      for (int p = 0; p < 3; ++p) {
+        if (!a.text(kPlatforms[p], &g.asset[p])) return false;
+        if (g.asset[p].find("{tag}") == std::string::npos) return a.fail(std::string(kPlatforms[p]) + " has no {tag}");
       }
-    }
-    if (const Json* b = j.at("panel_before_release")) {
-      if (b->type != Json::kBool) return f.fail("panel_before_release is not true or false");
-      g.panel_before_release = b->b;
-    }
-    out->games.push_back(std::move(g));
+      if (const Json* needs = j.at("needs")) {
+        if (needs->type != Json::kArray) return f.fail("needs is not a list");
+        for (const Json& n : needs->items) {
+          if (n.type != Json::kString || n.s.empty()) return f.fail("needs holds a non-key");
+          g.needs.push_back(n.s);
+        }
+      }
+      if (const Json* b = j.at("panel_before_release")) {
+        if (b->type != Json::kBool) return f.fail("panel_before_release is not true or false");
+        g.panel_before_release = b->b;
+      }
+      return true;
+    }();
+    if (ok) out->games.push_back(std::move(g));
+    else if (!bad()) return false;
   }
-  for (const CatalogGame& g : out->games)
-    for (const std::string& n : g.needs) {
-      bool listed = false;
-      for (const CatalogGame& o : out->games) listed = listed || o.key == n;
-      if (!listed) return *why = "games (" + g.key + "): it needs " + n + ", which is not listed", false;
-    }
+  if (!ignored)  // a fetched one's needs may name the built-in's games: checked on the merged catalog's use
+    for (const CatalogGame& g : out->games)
+      for (const std::string& n : g.needs) {
+        bool listed = false;
+        for (const CatalogGame& o : out->games) listed = listed || o.key == n;
+        if (!listed) return *why = "games (" + g.key + "): it needs " + n + ", which is not listed", false;
+      }
   std::stable_sort(out->games.begin(), out->games.end(), [](const CatalogGame& a, const CatalogGame& b) { return a.order < b.order; });
   std::stable_sort(out->families.begin(), out->families.end(), [](const CatalogFamily& a, const CatalogFamily& b) { return a.order < b.order; });
   return true;
+}
+
+// A file name the launcher may fetch and keep beside the catalog: letters, digits, '_', '-', '.', ending .png.
+bool plain_png(const std::string& n) {
+  if (n.size() < 5 || n.size() > 64 || n.compare(n.size() - 4, 4, ".png") != 0 || n.find("..") != std::string::npos) return false;
+  for (char c : n)
+    if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_' && c != '-' && c != '.') return false;
+  return true;
+}
+
+// A release's version ("v1.5.2", "v1.5.2-16-gHASH-dirty", "1.5.2"); a build's "unknown" or bare commit is not one,
+// and takes every entry (a development build).
+bool release_version(const std::string& v) {
+  const size_t d = !v.empty() && v[0] == 'v' ? 1 : 0;
+  const size_t dot = v.find('.', d);
+  if (dot == std::string::npos || dot == d) return false;
+  for (size_t i = d; i < dot; ++i)
+    if (!std::isdigit(static_cast<unsigned char>(v[i]))) return false;
+  return dot + 1 < v.size() && std::isdigit(static_cast<unsigned char>(v[dot + 1]));
+}
+
+// The catalog in use this run, made once: its games by Game (the six known, then its others), their GameInfo.
+struct Active {
+  Catalog cat;
+  std::vector<const CatalogGame*> by_game;
+  std::vector<GameInfo> info;
+};
+std::mutex g_active_mutex;
+std::atomic<const Active*> g_active{nullptr};
+
+// Null when `c` lacks one of the six the code knows.
+const Active* make_active(const Catalog& c, std::string* missing) {
+  auto* a = new Active{c, {}, {}};  // kept for the run: GameInfo points into it
+  for (const char* k : kKeys) {
+    const CatalogGame* e = nullptr;
+    for (const CatalogGame& g : a->cat.games)
+      if (g.key == k) e = &g;
+    if (!e) return *missing = k, delete a, nullptr;
+    a->by_game.push_back(e);
+  }
+  for (const CatalogGame& g : a->cat.games) {
+    if (a->by_game.size() >= static_cast<size_t>(kMaxGames)) break;
+    if (std::find(std::begin(kKeys), std::end(kKeys), g.key) == std::end(kKeys)) a->by_game.push_back(&g);
+  }
+  for (const CatalogGame* e : a->by_game) a->info.push_back({e->key.c_str(), e->name.c_str(), e->repo.c_str(), e->tag_prefix.c_str(), e->program.c_str()});
+  return a;
+}
+
+const Active& active() {
+  if (const Active* a = g_active.load(std::memory_order_acquire)) return *a;
+  std::lock_guard<std::mutex> lock(g_active_mutex);
+  if (!g_active.load(std::memory_order_relaxed)) {
+    std::string missing;
+    const Active* a = make_active(builtin_catalog(), &missing);
+    if (!a) {  // a build's own data: the catalog test stops this first
+      std::fprintf(stderr, "the built-in games catalog (games.json) has no %s\n", missing.c_str());
+      std::abort();
+    }
+    g_active.store(a, std::memory_order_release);
+  }
+  return *g_active.load(std::memory_order_relaxed);
+}
+
+}  // namespace
+
+bool parse_catalog(const std::string& json, Catalog* out, std::string* why) { return read_catalog(json, out, why, nullptr); }
+
+bool read_fetched_catalog(const std::string& json, const std::string& launcher_version, Catalog* out,
+                          std::vector<std::string>* ignored, std::string* why) {
+  ignored->clear();
+  if (!read_catalog(json, out, why, ignored)) return false;
+  std::vector<CatalogGame> kept;
+  for (CatalogGame& g : out->games) {
+    const std::string where = "games (" + g.key + "): ";
+    const size_t slash = g.repo.find('/');
+    if (slash != std::string::npos && g.repo.substr(0, slash) != kCatalogOwner) {
+      ignored->push_back(where + "its repo " + g.repo + " is not under " + kCatalogOwner);
+      continue;
+    }
+    if (slash != std::string::npos) g.repo = g.repo.substr(slash + 1);
+    bool plain_repo = !g.repo.empty();
+    for (char c : g.repo) plain_repo = plain_repo && (std::isalnum(static_cast<unsigned char>(c)) || c == '-' || c == '_' || c == '.');
+    if (!plain_repo || g.repo.find("..") != std::string::npos) {
+      ignored->push_back(where + "its repo " + g.repo + " is not a repo's name");
+      continue;
+    }
+    if (release_version(launcher_version) && compare_versions(g.min_launcher, launcher_version) > 0) {
+      ignored->push_back(where + "it needs launcher " + g.min_launcher + " or newer (this is " + launcher_version + ")");
+      continue;
+    }
+    if (!plain_png(g.badge) || (!g.heading_badge.empty() && !plain_png(g.heading_badge)) || (!g.card.empty() && !plain_png(g.card))) {
+      ignored->push_back(where + "its art is not a plain .png name");
+      continue;
+    }
+    kept.push_back(std::move(g));
+  }
+  out->games = std::move(kept);
+  return true;
+}
+
+Catalog merged_catalog(const Catalog& builtin, const Catalog& fetched, std::vector<std::string>* ignored) {
+  if (fetched.revision <= builtin.revision) return builtin;
+  Catalog out = builtin;
+  out.revision = fetched.revision;
+  for (const CatalogFamily& f : fetched.families) {
+    auto at = std::find_if(out.families.begin(), out.families.end(), [&](const CatalogFamily& o) { return o.key == f.key; });
+    if (at != out.families.end()) *at = f;
+    else out.families.push_back(f);
+  }
+  for (const CatalogGame& g : fetched.games) {
+    const bool family = std::any_of(out.families.begin(), out.families.end(), [&](const CatalogFamily& o) { return o.key == g.family; });
+    if (!family) {
+      if (ignored) ignored->push_back("games (" + g.key + "): its family " + g.family + " is not listed");
+      continue;
+    }
+    auto at = std::find_if(out.games.begin(), out.games.end(), [&](const CatalogGame& o) { return o.key == g.key; });
+    if (at != out.games.end()) *at = g;
+    else out.games.push_back(g);
+  }
+  std::stable_sort(out.games.begin(), out.games.end(), [](const CatalogGame& a, const CatalogGame& b) { return a.order < b.order; });
+  std::stable_sort(out.families.begin(), out.families.end(), [](const CatalogFamily& a, const CatalogFamily& b) { return a.order < b.order; });
+  return out;
 }
 
 const std::string& builtin_catalog_text() {
@@ -140,37 +286,40 @@ const Catalog& builtin_catalog() {
   return c;
 }
 
+bool use_catalog(const Catalog& c) {
+  std::lock_guard<std::mutex> lock(g_active_mutex);
+  if (g_active.load(std::memory_order_relaxed)) return false;
+  std::string missing;
+  const Active* a = make_active(c, &missing);
+  if (!a) return false;
+  g_active.store(a, std::memory_order_release);
+  return true;
+}
+
+const Catalog& active_catalog() { return active().cat; }
+int game_count() { return static_cast<int>(active().by_game.size()); }
+Game game_at(int i) { return static_cast<Game>(i); }
+
 bool game_of_key(const std::string& key, Game* g) {
-  for (int i = 0; i < kGameCount; ++i)
-    if (key == kKeys[i]) return *g = kGames[i], true;
+  const Active& a = active();
+  for (size_t i = 0; i < a.by_game.size(); ++i)
+    if (a.by_game[i]->key == key) return *g = static_cast<Game>(i), true;
   return false;
 }
 
 const CatalogGame& catalog_game(Game g) {
-  static const std::vector<const CatalogGame*> by_game = [] {
-    std::vector<const CatalogGame*> out(kGameCount, nullptr);
-    for (const CatalogGame& e : builtin_catalog().games)
-      if (Game k; game_of_key(e.key, &k)) out[static_cast<int>(k)] = &e;
-    for (int i = 0; i < kGameCount; ++i)
-      if (!out[i]) {
-        std::fprintf(stderr, "the built-in games catalog (games.json) has no %s\n", kKeys[i]);
-        std::abort();
-      }
-    return out;
-  }();
-  return *by_game[static_cast<int>(g)];
+  const Active& a = active();
+  const size_t i = static_cast<size_t>(g);
+  if (i >= a.by_game.size()) {
+    std::fprintf(stderr, "games catalog: no game %zu this run (%zu)\n", i, a.by_game.size());
+    std::abort();
+  }
+  return *a.by_game[i];
 }
 
 const GameInfo& game_info(Game g) {
-  static const std::vector<GameInfo> info = [] {
-    std::vector<GameInfo> out;
-    for (Game k : kGames) {
-      const CatalogGame& e = catalog_game(k);
-      out.push_back({e.key.c_str(), e.name.c_str(), e.repo.c_str(), e.tag_prefix.c_str(), e.program.c_str()});
-    }
-    return out;
-  }();
-  return info[static_cast<int>(g)];
+  (void)catalog_game(g);  // the same check
+  return active().info[static_cast<size_t>(g)];
 }
 
 bool game_tag(Game g, const std::string& tag) {

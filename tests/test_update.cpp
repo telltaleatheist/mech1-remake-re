@@ -462,3 +462,78 @@ TEST(games_catalog_refuses_bad_entries) {
   std::string why;
   EXPECT(!u::parse_catalog("[]", &c, &why) && why == "not a catalog (an object)");
 }
+
+// A fetched catalog (b7): a bad or untrusted entry left out and the rest kept; merged over the built-in one only
+// when its revision is higher; the catalog in use never changes once a game is looked up.
+namespace {
+std::string catalog_entry(const std::string& key, const std::string& family, int order, const std::string& state, const std::string& repo,
+                          const std::string& min = "1.5.2", const std::string& badge = "badge_inception.png") {
+  return "{\"key\": \"" + key + "\", \"family\": \"" + family + "\", \"order\": " + std::to_string(order) + ", \"state\": \"" + state +
+         "\", \"name\": \"N " + key + "\", \"title\": \"T " + key + "\", \"heading\": \"H " + key + "\", \"button\": \"B " + key +
+         "\", \"description\": \"D " + key + "\", \"repo\": \"" + repo + "\", \"tag_prefix\": \"" + key + "-v\", \"program\": \"" + key +
+         "\", \"assets\": {\"windows\": \"" + key + "-{tag}-win64.zip\", \"mac\": \"" + key + "-{tag}-mac.dmg\", \"linux\": \"" + key +
+         "-{tag}-x86_64.AppImage\"}, \"badge\": \"" + badge + "\", \"min_launcher\": \"" + min + "\"}";
+}
+std::string fetched_catalog(int revision, int format = 1) {
+  return "{\"catalog\": " + std::to_string(format) + ", \"revision\": " + std::to_string(revision) +
+         ", \"families\": [{\"key\": \"inception\", \"name\": \"Inception\", \"order\": 3}, {\"key\": \"bt\", \"name\": \"BattleTech\", \"order\": 4}], "
+         "\"games\": [" +
+         catalog_entry("chi", "inception", 5, "removed", "inception-re") + ", " + catalog_entry("chirm", "inception", 6, "released", "inception-remake-re") +
+         ", " + catalog_entry("btech", "bt", 7, "released", "battletech-re", "1.5.2", "badge_btech.png") + ", " +
+         catalog_entry("owned", "bt", 8, "coming_soon", "telltaleatheist/owned-re") + ", " +
+         catalog_entry("evil", "bt", 9, "released", "someoneelse/evil-re") + ", " + catalog_entry("future", "bt", 10, "released", "future-re", "99.0.0") +
+         ", " + catalog_entry("art", "bt", 11, "released", "art-re", "1.5.2", "../badge.png") + ", " +
+         catalog_entry("lost", "nowhere", 12, "released", "lost-re") + ", " + catalog_entry("odd", "bt", 13, "gone", "odd-re") + "]}";
+}
+}  // namespace
+
+TEST(games_catalog_fetched_leaves_out_bad_entries) {
+  u::Catalog c;
+  std::vector<std::string> ignored;
+  std::string why;
+  EXPECT(u::read_fetched_catalog(fetched_catalog(2), "v1.5.2-16-g273545ba4-dirty", &c, &ignored, &why));
+  for (const std::string& i : ignored) std::printf("  left out: %s\n", i.c_str());
+  std::string keys;
+  for (const u::CatalogGame& g : c.games) keys += g.key + " ";
+  std::printf("  kept: %s\n", keys.c_str());
+  EXPECT(keys == "chi chirm btech owned lost " && c.revision == 2 && c.families.size() == 2);  // lost: its family at the merge
+  EXPECT(c.games.size() == 5 && c.games[3].repo == "owned-re");  // the owner's name taken off
+  EXPECT(ignored.size() == 4);
+  auto said = [&](const char* s) {
+    for (const std::string& i : ignored)
+      if (i.find(s) != std::string::npos) return true;
+    return false;
+  };
+  EXPECT(said("games (evil): its repo someoneelse/evil-re is not under telltaleatheist"));
+  EXPECT(said("games (future): it needs launcher 99.0.0 or newer (this is v1.5.2-16-g273545ba4-dirty)"));
+  EXPECT(said("games (art): its art is not a plain .png name"));
+  EXPECT(said("games[8] (odd): state gone is none of"));
+  // A build between releases' "unknown": every min_launcher taken.
+  EXPECT(u::read_fetched_catalog(fetched_catalog(2), "unknown", &c, &ignored, &why) && c.games.size() == 6 && ignored.size() == 3);
+  // Not a catalog this launcher reads: nothing taken.
+  EXPECT(!u::read_fetched_catalog(fetched_catalog(2, 2), "v1.5.2", &c, &ignored, &why) && why.find("a newer catalog format (2)") != std::string::npos);
+  EXPECT(!u::read_fetched_catalog("<html>", "v1.5.2", &c, &ignored, &why) && why.find("not JSON") != std::string::npos);
+}
+
+TEST(games_catalog_fetched_merges_over_the_built_in) {
+  const u::Catalog& builtin = u::builtin_catalog();
+  u::Catalog f;
+  std::vector<std::string> ignored;
+  std::string why;
+  EXPECT(u::read_fetched_catalog(fetched_catalog(2), "v1.5.2", &f, &ignored, &why));
+  std::vector<std::string> left;
+  const u::Catalog m = u::merged_catalog(builtin, f, &left);
+  std::string keys;
+  for (const u::CatalogGame& g : m.games) keys += g.key + " ";
+  std::printf("  merged: %s(revision %d, %d families)\n", keys.c_str(), m.revision, static_cast<int>(m.families.size()));
+  EXPECT(keys == "mw3 pm mw1r mw1 chi chirm btech owned " && m.revision == 2 && m.families.size() == 4);
+  EXPECT(left.size() == 1 && left[0] == "games (lost): its family nowhere is not listed");
+  EXPECT(m.games.size() == 8 && m.games[4].state == u::CatalogGame::kRemoved && m.games[5].state == u::CatalogGame::kReleased);
+  EXPECT(m.games.size() == 8 && m.games[0].title == "MECHWARRIOR 3" && m.games[4].title == "T chi" && m.families[2].name == "Inception");
+  // As old as the built-in, or older: the built-in as it is.
+  EXPECT(u::read_fetched_catalog(fetched_catalog(1), "v1.5.2", &f, &ignored, &why));
+  const u::Catalog same = u::merged_catalog(builtin, f);
+  EXPECT(same.games.size() == 6 && same.revision == builtin.revision && same.games[4].state == u::CatalogGame::kReleased);
+  // Once the games are looked up, the catalog in use stays for the run (GameInfo points into it).
+  EXPECT(u::game_count() == 6 && !u::use_catalog(m) && u::game_count() == 6 && u::active_catalog().revision == builtin.revision);
+}

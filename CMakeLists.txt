@@ -873,6 +873,7 @@ if(SDL3_FOUND)
       src/frontend/sdl/launcher_ui.cpp
       src/frontend/sdl/sdl_update.cpp
       src/frontend/sdl/sdl_games.cpp
+      src/frontend/sdl/sdl_catalog.cpp
       src/frontend/sdl/debug_states.cpp
       src/frontend/sdl/campaign_chain.cpp
       src/frontend/sdl/modes_chain.cpp
@@ -920,6 +921,7 @@ if(SDL3_FOUND)
       src/frontend/sdl/launcher_ui.cpp
       src/frontend/sdl/sdl_update.cpp
       src/frontend/sdl/sdl_games.cpp
+      src/frontend/sdl/sdl_catalog.cpp
       src/frontend/sdl/run_log.cpp
       src/frontend/sdl/crash_report.cpp
     )
@@ -964,6 +966,7 @@ if(SDL3_FOUND)
       tests/test_log_start.cpp
       src/frontend/sdl/sdl_update.cpp
       src/frontend/sdl/sdl_games.cpp
+      src/frontend/sdl/sdl_catalog.cpp
       src/frontend/sdl/sdl_restart.cpp
       src/frontend/sdl/win_cmdline.cpp
       tests/test_net_enet.cpp

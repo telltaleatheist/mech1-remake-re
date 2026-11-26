@@ -460,8 +460,8 @@ game's own setup shows when it differs (the MW1 Rebuild's
 `badge_mw1.png`, its panel's `badge_mw1o.png`, as before). The panels go
 by `order`; `panel_before_release: false` keeps a panel away until a
 release is found or the game is installed (Inception Remake). `state`,
-`needs` and `min_launcher` are read and checked but not acted on yet: the
-fetched catalog (b7) uses them. The code still knows each game by its
+`needs` and `min_launcher` are read and checked, and acted on since the
+fetched catalog (b7, below; `needs` not yet). The code still knows each game by its
 `Game` (games.h), linked to its entry by key; a built-in catalog without
 one of them stops the program at its first read (the test stops it
 first).
@@ -471,6 +471,52 @@ tables had it, the files' names on every platform) and
 `games_catalog_refuses_bad_entries` (mw3tests); every `--launcher-shot`
 screen, games on demand and an empty folder, byte for byte against the
 build before (66 shots, the version text pinned).
+
+### Fetched (2026-11-26, launcher-split.md b7)
+
+A newer catalog comes from the hub's main, `catalog/games.json` in mw3-re
+(git.owenmorgan.com's raw file first, then GitHub's raw file; both asked,
+the higher `revision` wins), with no word about the player sent. It is
+fetched on a thread while the launcher is open and cached in the write
+dir, `catalog/games.json`, with the art it names that the package does not
+carry (`catalog/art/<name>` beside it on the hub; kept only when it is a
+PNG). The next start reads the cache and merges it over the built-in
+catalog: an entry by its key replaces the built-in's, a new key adds a
+game, and anything it does not list stays as built in. Offline, the cache
+serves; with no cache, or one whose `revision` is not above the built-in's
+(the built-in has `"revision": 1`), the built-in catalog is used. The
+catalog in use is fixed for the run once a game is looked up
+(`use_catalog`); a check run (hidden, a shot) fetches first, and only from
+`MW3_CATALOG_URL` (one address, or `BACKUP|GITHUB`; `file://` there).
+
+What an entry does:
+
+- `released`: its repo is asked and its panel shown, as before.
+- `coming_soon`: its repo is still asked, and a release found turns it to
+  DOWNLOAD; with `panel_before_release: false` it has no panel until then.
+  Flipped to `released`, its panel shows at once (COMING SOON until its
+  repo has a release).
+- `removed`: no panel and its repo not asked, unless it is on this
+  computer: then it stays, plays and updates as before. No catalog change
+  touches an installed game.
+- A new game (up to `kMaxGames`, 10 in all) is a game on the setup kit's
+  contract: DOWNLOAD from its repo (still checked against SHA256SUMS),
+  then PLAY, its page and its links as the kit's games have them.
+
+Trust: an entry whose `repo` names another owner (`owner/repo`) is left
+out, so is one whose `min_launcher` is newer than this launcher (a build's
+"unknown" version takes every entry), and one whose art is not a plain
+`.png` name. A bad entry is left out and the rest read; a catalog that is
+not JSON, or in a newer format (`"catalog"` above 1), is not used at all.
+Each is said in the log (`catalog: ... left out: ...`). No signing yet.
+
+Checked: `games_catalog_fetched_leaves_out_bad_entries`,
+`games_catalog_fetched_merges_over_the_built_in` (mw3tests) and
+`sdl_program_launcher_takes_a_fetched_catalog` (a stand-in adds a game with
+its badge, flips Inception's remake to released, removes MechWarrior 1
+Rebuild and an installed Inception, which still plays; offline with the
+cache; offline with none). `tools/launcher/shots.sh` takes every screen for
+the byte-for-byte check: the built-in catalog's 66 shots are as before.
 
 ## The copies on this computer (2026-11-24)
 

@@ -7706,6 +7706,114 @@ TEST(sdl_program_launcher_family_cards) {
   EXPECT(args == "0");  // plain: its own setup opens when its game files are missing
 }
 
+// The games catalog fetched (b7, docs/launcher.md, The games catalog): a stand-in's catalog adds a game (its badge
+// fetched beside it), flips Inception's remake to released and removes MechWarrior 1 Rebuild (not installed: gone)
+// and Inception (installed: shown, and it still plays); an entry under another owner and one for a newer launcher
+// left out. Then offline with that cache, and offline with none (the built-in catalog).
+TEST(sdl_program_launcher_takes_a_fetched_catalog) {
+  namespace fs = std::filesystem;
+  const std::string dir = std::string(MW3_TEST_TMP) + "/launcher_catalog";
+  std::error_code ec;
+  fs::remove_all(dir, ec);
+  for (const char* d : {"/api", "/games", "/cat/art", "/wd/music", "/wd2/music"}) fs::create_directories(dir + d, ec);
+  for (const char* w : {"/wd", "/wd2"}) std::ofstream(dir + w + "/music/track02.wav") << "x";
+#if defined(__APPLE__)
+  const std::string tail = "-mac.dmg";
+#else
+  const std::string tail = "-x86_64.AppImage";
+#endif
+  for (const char* repo : {"mech3-pm-re", "mech1-remake-re", "mech1-re", "inception-re", "inception-remake-re"}) std::ofstream(dir + "/api/" + repo + ".json") << "[]";
+  std::ofstream(dir + "/api/battletech-re.json")
+      << "[{\"tag_name\": \"btech-v0.1.0\", \"draft\": false, \"prerelease\": false, \"body\": \"x\", \"assets\": [{\"name\": "
+      << "\"BT-btech-v0.1.0" << tail << "\", \"size\": 1000, \"browser_download_url\": \"file://" << dir << "/x\"}, "
+      << "{\"name\": \"SHA256SUMS\", \"size\": 10, \"browser_download_url\": \"file://" << dir << "/s\"}]}]";
+  fs::copy_file(std::string(MW3_ASSETS_FOR_TESTS) + "/launcher/badge_mw3.png", dir + "/cat/art/badge_bt.png", ec);
+  auto entry = [](const std::string& key, const std::string& family, int order, const std::string& state, const std::string& name,
+                  const std::string& title, const std::string& button, const std::string& repo, const std::string& prefix,
+                  const std::string& program, const std::string& stem, const std::string& badge, const std::string& min = "1.5.2") {
+    return "{\"key\": \"" + key + "\", \"family\": \"" + family + "\", \"order\": " + std::to_string(order) + ", \"state\": \"" + state +
+           "\", \"name\": \"" + name + "\", \"title\": \"" + title + "\", \"heading\": \"" + title + "\", \"button\": \"" + button +
+           "\", \"description\": \"A line.\", \"repo\": \"" + repo + "\", \"tag_prefix\": \"" + prefix + "\", \"program\": \"" + program +
+           "\", \"assets\": {\"windows\": \"" + stem + "-{tag}-win64.zip\", \"mac\": \"" + stem + "-{tag}-mac.dmg\", \"linux\": \"" + stem +
+           "-{tag}-x86_64.AppImage\"}, \"badge\": \"" + badge + "\", \"min_launcher\": \"" + min + "\"}";
+  };
+  std::ofstream(dir + "/cat/games.json")
+      << "{\"catalog\": 1, \"revision\": 2, \"families\": [{\"key\": \"bt\", \"name\": \"BattleTech\", \"order\": 4}], \"games\": ["
+      << entry("mw1r", "mw1", 3, "removed", "MechWarrior 1 Rebuild", "MECHWARRIOR 1: REVERSE ENGINEERED", "MECHWARRIOR 1 ORIGINAL", "mech1-re",
+               "mw1r-v", "mw1r", "MW1-Rebuild", "badge_mw1o.png")
+      << ", " << entry("chi", "inception", 5, "removed", "Inception Rebuild", "THE CRESCENT HAWK'S INCEPTION", "INCEPTION ORIGINAL",
+                       "inception-re", "chi-v", "chi", "CHI-Rebuild", "badge_inception.png")
+      << ", {\"panel_before_release\": false, " << entry("chirm", "inception", 6, "released", "Inception Remake", "INCEPTION REMAKE", "INCEPTION REMAKE",
+                                                           "inception-remake-re", "chirm-v", "chirm", "CHI-Remake", "badge_inception.png").substr(1)
+      << ", " << entry("btech", "bt", 7, "released", "BattleTech Rebuild", "BATTLETECH", "BATTLETECH", "battletech-re", "btech-v", "btech", "BT", "badge_bt.png")
+      << ", " << entry("evil", "bt", 8, "released", "E", "E", "EVIL", "someoneelse/evil-re", "e-v", "e", "E", "badge_bt.png")
+      << ", " << entry("future", "bt", 9, "released", "F", "F", "FUTURE", "future-re", "f-v", "f", "F", "badge_bt.png", "99.0.0") << "]}";
+  {
+    std::ofstream sh(dir + "/chi");
+    sh << "#!/bin/sh\nif [ \"$1\" = --status ]; then echo '{\"kit\": 1, \"game\": \"inception\", \"version\": \"0.1.0\", "
+          "\"files\": {\"state\": \"ready\", \"where\": \"/games/chi\"}, \"first_run\": {\"pending\": []}, \"needs\": []}'; exit 0; fi\n"
+       << "printf '%s\\n' \"$#\" > \"" << dir << "/chi-ran\"\nexit 0\n";
+  }
+  fs::permissions(dir + "/chi", fs::perms::owner_all);
+  auto read = [](const std::string& f) {
+    std::ifstream in(f);
+    return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  };
+  // The others' programs not taken from beside the launcher (a build folder may hold them).
+  static const char* const kOthers[] = {"MW3_PM_BIN", "MW3_MW1_BIN", "MW3_MW1R_BIN", "MW3_CHIRM_BIN"};
+  auto shot = [&](const std::string& wd, const std::string& url, const std::string& name) {
+    setenv("MW3_GAMES_API", ("file://" + dir + "/api/{repo}.json").c_str(), 1), setenv("MW3_GAMES_DIR", (dir + "/games").c_str(), 1);
+    setenv("MW3_CHI_BIN", (dir + "/chi").c_str(), 1), setenv("MW3_CATALOG_URL", url.c_str(), 1);
+    for (const char* v : kOthers) setenv(v, "", 1);
+    const pid_t pid = spawn_launcher({"--write-dir", wd, "--launcher-shot", dir + "/" + name + ".bmp", "--launcher-screen", "main"}, dir + "/" + name + ".log");
+    for (const char* v : {"MW3_GAMES_API", "MW3_GAMES_DIR", "MW3_CHI_BIN", "MW3_CATALOG_URL"}) unsetenv(v);
+    for (const char* v : kOthers) unsetenv(v);
+    int status = 0;
+    EXPECT(waited(pid, &status) && WIFEXITED(status) && WEXITSTATUS(status) == 0);
+    return read(dir + "/" + name + ".log");
+  };
+  auto line = [](const std::string& log, const std::string& head) {
+    const size_t at = log.find(head);
+    return at == std::string::npos ? std::string() : log.substr(at, log.find('\n', at) - at);
+  };
+  const std::string fetched = shot(dir + "/wd", "file://" + dir + "/cat/games.json", "fetched");
+  std::printf("fetched catalog:\n  %s\n  %s\n  %s\n  %s\n", line(fetched, "catalog: revision").c_str(), line(fetched, "entry BATTLETECH").c_str(),
+              line(fetched, "entry INCEPTION ORIGINAL").c_str(), line(fetched, "entry INCEPTION REMAKE").c_str());
+  EXPECT(has(fetched, "catalog: revision 2 cached") && has(fetched, "catalog: revision 2, fetched (7 games)"));
+  EXPECT(has(fetched, "left out: games (evil): its repo someoneelse/evil-re is not under telltaleatheist"));
+  EXPECT(has(fetched, "left out: games (future): it needs launcher 99.0.0 or newer"));
+  EXPECT(line(fetched, "entry BATTLETECH").rfind("entry BATTLETECH: Not installed: DOWNLOAD gets 0.1.0", 0) == 0);
+  EXPECT(line(fetched, "entry INCEPTION REMAKE") == "entry INCEPTION REMAKE: Coming soon");  // released in the catalog, its repo has none yet
+  EXPECT(line(fetched, "entry INCEPTION ORIGINAL") == "entry INCEPTION ORIGINAL: Ready \xc2\xb7 0.1.0: /games/chi");
+  const std::string main_screen = line(fetched, "screen main: ");
+  std::printf("  %s\n", main_screen.c_str());
+  EXPECT(has(main_screen, "INCEPTION ORIGINAL, INCEPTION ORIGINAL SETTINGS, INCEPTION REMAKE, BATTLETECH, BATTLETECH SETTINGS, CHECK FOR UPDATES"));
+  EXPECT(!main_screen.empty() && !has(main_screen, "MECHWARRIOR 1 ORIGINAL"));  // removed, not installed: no panel
+  EXPECT(fs::exists(dir + "/wd/catalog/games.json") && fs::exists(dir + "/wd/catalog/badge_bt.png"));
+  EXPECT(!has(fetched, "not found\n"));  // its badge drawn from the cache
+  // Offline with that cache: the same.
+  const std::string cached = shot(dir + "/wd", "file://" + dir + "/missing.json", "cached");
+  EXPECT(has(cached, "missing.json: ") && has(cached, "catalog: revision 2, fetched (7 games)") && line(cached, "screen main: ") == main_screen);
+  // Offline with none: the built-in one, as before.
+  const std::string none = shot(dir + "/wd2", "file://" + dir + "/missing.json", "builtin");
+  std::printf("  offline, no cache: %s\n", line(none, "catalog: the built-in").c_str());
+  std::printf("  %s\n", line(none, "screen main: ").c_str());
+  EXPECT(has(none, "catalog: the built-in one (revision 1)") && has(line(none, "screen main: "), "MECHWARRIOR 1 ORIGINAL, MECHWARRIOR 1, INCEPTION ORIGINAL, INCEPTION ORIGINAL SETTINGS, CHECK FOR UPDATES"));
+  EXPECT(!has(none, "BATTLETECH") && !has(line(none, "screen main: "), "INCEPTION REMAKE"));  // coming_soon, no release: no panel
+  // Inception, removed but installed, still plays: its PLAY (MW3's PLAY, its gear, then Inception: the others greyed).
+  const LauncherRun r = run_launcher_with("launcher_catalog_run", "exit 0", nullptr,
+                                          {{"MW3_GAMES_API", "file://" + dir + "/api/{repo}.json"}, {"MW3_GAMES_DIR", dir + "/games"},
+                                           {"MW3_CHI_BIN", dir + "/chi"}, {"MW3_CATALOG_URL", "file://" + dir + "/cat/games.json"},
+                                           {"MW3_LAUNCHER_FRAMES", "240"}, {"MW3_LAUNCHER_NAV", "next,next,next,press"}, {"MW3_PM_BIN", ""},
+                                           {"MW3_MW1_BIN", ""}, {"MW3_MW1R_BIN", ""}, {"MW3_CHIRM_BIN", ""}},
+                                          [&](const std::string& d) { fs::create_directories(d + "/wd/music"), std::ofstream(d + "/wd/music/track02.wav") << "x"; },
+                                          false);
+  std::printf("  removed, installed: started %d\n", static_cast<int>(fs::exists(dir + "/chi-ran")));
+  for (size_t at = 0; (at = r.log.find("focus ", at)) != std::string::npos; ++at) std::printf("    %s\n", r.log.substr(at, r.log.find('\n', at) - at).c_str());
+  EXPECT(r.exited && has(r.log, "catalog: revision 2, fetched (7 games)") && has(r.log, "focus INCEPTION ORIGINAL\n") && has(r.log, "Inception Rebuild exited (0)"));
+  if (!check::failures) fs::remove_all(dir, ec);
+}
+
 // A kit game that serves its setup (its status says `"setup": 1`; re-setup-kit's rekit/sdl/setup_serve.h) has its game
 // files found and copied in on the launcher's own screens; its own setup window never opens. A stand-in answers.
 TEST(sdl_program_launcher_sets_a_kit_game_up) {

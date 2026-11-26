@@ -32,6 +32,7 @@
 #include "gamez/zrender/zrndr_tint.h"
 #include "mech3/game_setup.h"
 #include "frontend/sdl/sdl_update.h"
+#include "frontend/sdl/sdl_catalog.h"
 #include "frontend/sdl/sdl_games.h"
 #include "upgrades/update/games.h"
 #include "mech3/source_map.h"
@@ -54,7 +55,7 @@ constexpr char kAddDiscSub[] = "A disc in a drive, its image, a download (.zip) 
 // The setup screens' game names, by header_game(): the header of a game's own start (2026-11-22); in the launcher
 // the line under BATTLETECH (2026-11-24).
 // A screen's game under BATTLETECH, by upgrades::update::Game: its catalog entry's heading (games.json).
-const char* header_name(int game) { return upgrades::update::catalog_game(upgrades::update::kGames[game]).heading.c_str(); }
+const char* header_name(int game) { return upgrades::update::catalog_game(upgrades::update::game_at(game)).heading.c_str(); }
 constexpr int kCopyRows = 4;  // GAME FILES' list: the copies shown (the rest by PICK A FILE)
 // A panel's words' width (assets/launcher/ui/launcher.rcss, .panel .about), its lines chosen by it.
 constexpr int kRowWidth = 640 - 2 - 28 - 2 * 112;  // a game page's row: its words beside two buttons
@@ -500,12 +501,17 @@ class Launcher {
   void game_installed(const sdlfe::games::Done& d);
   std::string game_words(int i) const;  // a card's line for a game not installed
   std::string& game_bin(int i) {
-    return i == 0 ? o_.game_bin : i == 1 ? o_.pm_bin : i == 2 ? o_.mw1_bin : i == 3 ? o_.mw1r_bin : i == 4 ? o_.chi_bin : o_.chirm_bin;
+    return i == 0 ? o_.game_bin : i == 1 ? o_.pm_bin : i == 2 ? o_.mw1_bin : i == 3 ? o_.mw1r_bin : i == 4 ? o_.chi_bin : i == 5 ? o_.chirm_bin : more_bin_[i];
   }
+  std::string more_bin_[upgrades::update::kMaxGames];  // a fetched catalog's new games (b7): their own copies or linked
   // The games on the setup kit's contract (re-setup-kit, rekit/status.h): MW1 Rebuild and Inception's two. Their
   // --status read at the start and after each run or install; PLAY starts them plain (their own setup opens when
   // their game files are missing).
-  static bool kit_game(int i) { return i >= 3; }
+  static bool kit_game(int i) { return i >= 3; }  // a fetched catalog's new games too: the kit's contract only
+  // Removed from the catalog and not on this computer: its repo is not asked, its panel not shown (b7).
+  bool removed_away(int i) {
+    return upgrades::update::catalog_game(upgrades::update::game_at(i)).state == upgrades::update::CatalogGame::kRemoved && game_bin(i).empty();
+  }
   void kit_refresh(int i);
   void run_kit(int i, bool set_up = false);
   // The setup of one that serves it (rekit/sdl/setup_serve.h), on the find screens as MW3's: its words, its search, its
@@ -521,26 +527,26 @@ class Launcher {
   bool kit_play_ = false;   // PLAY asked for them: the game starts once they are in
   rekit::SetupMessage kit_ask_;                     // its words
   std::shared_ptr<rekit::SetupMessage> kit_found_;  // the last look's or install's answer
-  rekit::Status kit_status_[upgrades::update::kGameCount];
-  bool kit_known_[upgrades::update::kGameCount] = {};
+  rekit::Status kit_status_[upgrades::update::kMaxGames];
+  bool kit_known_[upgrades::update::kMaxGames] = {};
   bool games_on_ = false;  // mw3launcher (not mw3's or mw3pm's own find screen)
   std::string games_root_;
   // Ours (2026-11-22): each game's own folder, picked: its program and its game files there, the user folder
   // keeping pilots, saves, settings and mods. mw3.cfg's games_<key>=; empty: the games folder (program) and the
   // user folder (game files), as before.
-  std::string games_place_[upgrades::update::kGameCount];
+  std::string games_place_[upgrades::update::kMaxGames];
   std::string game_root(int i) const { return games_place_[i].empty() ? games_root_ : games_place_[i]; }
   int place_game_ = -1;   // the card whose INSTALL asked where (confirm 7)
   std::string place_;     // that INSTALL's folder: the game's, the picked one, or "" for the games folder
   std::string files_into_;  // "Use these game files?"'s folder (CHANGE FOLDER); "" the user folder
   std::string files_words_, confirm_into_;  // what was found, and where it goes (drawn fitted to one line)
-  bool beside_[upgrades::update::kGameCount] = {}, has_installed_[upgrades::update::kGameCount] = {};
-  upgrades::update::InstalledGame installed_[upgrades::update::kGameCount];
+  bool beside_[upgrades::update::kMaxGames] = {}, has_installed_[upgrades::update::kMaxGames] = {};
+  upgrades::update::InstalledGame installed_[upgrades::update::kMaxGames];
   // Which copy PLAY starts (2026-11-24): the package's own beside this program, the launcher's (games folder or the
   // player's picked folder), or one installed without the launcher and linked (mw3.cfg link_<key>=, found at the
   // start or picked on the game's page; unlinked_<key>= keeps one the player unlinked from being linked again).
-  enum Source { kNoCopy, kBeside, kOwnCopy, kLinked } source_[upgrades::update::kGameCount] = {};
-  std::string linked_[upgrades::update::kGameCount], linked_tag_[upgrades::update::kGameCount];
+  enum Source { kNoCopy, kBeside, kOwnCopy, kLinked } source_[upgrades::update::kMaxGames] = {};
+  std::string linked_[upgrades::update::kMaxGames], linked_tag_[upgrades::update::kMaxGames];
   std::string tag_of(int i) const { return source_[i] == kOwnCopy ? installed_[i].tag : source_[i] == kLinked ? linked_tag_[i] : std::string(); }
   std::string record_folder(int i);  // where game i's program records itself (sdl_games.h kProgramRecord); "" not known
   void find_link(int i);
@@ -551,7 +557,7 @@ class Launcher {
   bool uninstall_files_ = false;  // the running UNINSTALL takes the game files too
   bool page_confirm_ = false;    // its UNINSTALL asked: the confirm in its place
   bool remove_linked_ = false;   // ... of the linked copy, not the launcher's
-  sdlfe::games::Removal removal_[upgrades::update::kGameCount];  // how the linked copy would go (open_game_page)
+  sdlfe::games::Removal removal_[upgrades::update::kMaxGames];  // how the linked copy would go (open_game_page)
   std::vector<UiPanel> rows_;    // the page's rows
   int files_page_ = -1;          // the game page whose GAME FILES opened the find screen: its BACK
   bool can_open_files(int i) const;
@@ -560,11 +566,11 @@ class Launcher {
   void open_game_page(int i);
   void resolve_game(int i, bool refresh);
   std::string own_files(int i);  // the game files UNINSTALL may remove with the program (see its definition)
-  upgrades::update::GameCheck checks_[upgrades::update::kGameCount];
+  upgrades::update::GameCheck checks_[upgrades::update::kMaxGames];
   struct GamesCheck {
     std::thread th;
     std::atomic<bool> done{false};
-    upgrades::update::GameCheck result[upgrades::update::kGameCount];
+    upgrades::update::GameCheck result[upgrades::update::kMaxGames];
     ~GamesCheck() {
       if (th.joinable()) th.join();
     }
@@ -677,7 +683,7 @@ void Launcher::find_install() {
   // install left on C: when this one went on E:); that copy is offered to be copied in, as a find is, never taken.
   std::string place = games_place_[0];
   if (place.empty() && !o_.write_dir.empty())  // the start's lookup comes before resolve_games
-    place = cfg_path(o_.write_dir, std::string("games_") + upgrades::update::game_info(upgrades::update::kGames[0]).key);
+    place = cfg_path(o_.write_dir, std::string("games_") + upgrades::update::game_info(upgrades::update::game_at(0)).key);
   const std::string own = place.empty() ? std::string() : (fs::path(place) / "install").make_preferred().string();
   if (!own.empty()) tries.push_back(own);
   if (!o_.cfg_install.empty()) tries.push_back(o_.cfg_install);
@@ -762,14 +768,14 @@ using sdlfe::games::program_version;
 
 void Launcher::resolve_games() {
   games_on_ = !o_.setup_only && !o_.pm;
-  for (int i = 0; i < upgrades::update::kGameCount && !o_.write_dir.empty(); ++i)  // a game's own setup too: its folder as the launcher's INSTALL picked it
-    games_place_[i] = cfg_path(o_.write_dir, std::string("games_") + upgrades::update::game_info(upgrades::update::kGames[i]).key);
+  for (int i = 0; i < upgrades::update::game_count() && !o_.write_dir.empty(); ++i)  // a game's own setup too: its folder as the launcher's INSTALL picked it
+    games_place_[i] = cfg_path(o_.write_dir, std::string("games_") + upgrades::update::game_info(upgrades::update::game_at(i)).key);
   if (!games_on_) {
-    for (int i = 0; i < upgrades::update::kGameCount; ++i) kit_refresh(i);
+    for (int i = 0; i < upgrades::update::game_count(); ++i) kit_refresh(i);
     return;
   }
   games_root_ = sdlfe::games::root_moved(sdlfe::games::root(o_.hidden), (fs::path(o_.write_dir) / "mw3.cfg").string());
-  for (int i = 0; i < upgrades::update::kGameCount; ++i) {
+  for (int i = 0; i < upgrades::update::game_count(); ++i) {
     beside_[i] = !game_bin(i).empty();
     resolve_game(i, false);
   }
@@ -788,7 +794,7 @@ void Launcher::resolve_games() {
 // Which copy of game i PLAY starts, decided again (at the start, and after a link, an unlink or an uninstall:
 // `refresh` then reads its version, files and status again, and its card's DOWNLOAD/UPDATE answer).
 void Launcher::resolve_game(int i, bool refresh) {
-  const upgrades::update::Game g = upgrades::update::kGames[i];
+  const upgrades::update::Game g = upgrades::update::game_at(i);
   std::string prog;
   has_installed_[i] = sdlfe::games::installed(game_root(i), g, &installed_[i], &prog);
   if (!beside_[i]) find_link(i);
@@ -835,7 +841,7 @@ std::string Launcher::record_folder(int i) {
 // Applications), linked from now on, unless it is the one the player unlinked. A check run looks only at the record
 // in its own folder, never this computer's Applications or registry.
 void Launcher::find_link(int i) {
-  const upgrades::update::Game g = upgrades::update::kGames[i];
+  const upgrades::update::Game g = upgrades::update::game_at(i);
   const std::string key = upgrades::update::game_info(g).key;
   linked_[i].clear(), linked_tag_[i].clear();
   const std::string prog = cfg_path(o_.write_dir, "link_" + key);
@@ -927,7 +933,7 @@ UiPanel Launcher::files_row(int i) {
 void Launcher::link_picked(const std::string& path) {
   const int i = page_game_;
   if (i < 0) return layout();
-  const upgrades::update::Game g = upgrades::update::kGames[i];
+  const upgrades::update::Game g = upgrades::update::game_at(i);
   const std::string key = upgrades::update::game_info(g).key, name = upgrades::update::game_info(g).name;
   const std::string prog = sdlfe::games::program_of_pick(path, g);
   const std::string v = prog.empty() ? std::string() : sdlfe::games::identify(prog, g, true);
@@ -958,7 +964,7 @@ void Launcher::link_picked(const std::string& path) {
 void Launcher::unlink_game() {
   const int i = page_game_;
   if (i < 0 || linked_[i].empty()) return;
-  const std::string key = upgrades::update::game_info(upgrades::update::kGames[i]).key, prog = linked_[i];
+  const std::string key = upgrades::update::game_info(upgrades::update::game_at(i)).key, prog = linked_[i];
   save_config_value(o_.write_dir, "link_" + key, ""), save_config_value(o_.write_dir, "unlinked_" + key, prog);
   std::printf("mw3: launcher: games: %s: unlinked %s\n", key.c_str(), prog.c_str());
   resolve_game(i, true);
@@ -973,7 +979,7 @@ void Launcher::unlink_game() {
 std::string Launcher::own_files(int i) {
   if ((i != 0 && i != 1) || has_installed_[i] == !linked_[i].empty() || beside_[i] || !game_bin(2).empty()) return {};
   std::error_code ec;  // one the player unlinked plays them too, while it is there
-  const std::string unlinked = cfg_path(o_.write_dir, std::string("unlinked_") + upgrades::update::game_info(upgrades::update::kGames[i]).key);
+  const std::string unlinked = cfg_path(o_.write_dir, std::string("unlinked_") + upgrades::update::game_info(upgrades::update::game_at(i)).key);
   if (!unlinked.empty() && fs::exists(unlinked, ec)) return {};
   const std::string dir = i == 0 ? (install_.ok ? install_.dir : std::string()) : pm_dir_;
   if (dir.empty() || !fs::is_regular_file(fs::path(dir) / "mw3-install.txt", ec)) return {};
@@ -989,7 +995,7 @@ void Launcher::uninstall_go(bool files) {
   const int i = page_game_;
   if (i < 0 || work_ || (remove_linked_ ? linked_[i].empty() || removal_[i].how == sdlfe::games::Removal::kNone : !has_installed_[i])) return;
   if (remove_linked_ && o_.hidden && !SDL_getenv("MW3_LAUNCHER_TRASH")) return;  // a check run touches no real trash
-  const upgrades::update::Game g = upgrades::update::kGames[i];
+  const upgrades::update::Game g = upgrades::update::game_at(i);
   const std::string root = game_root(i), fdir = files ? own_files(i) : std::string(), name = upgrades::update::game_info(g).name;
   uninstall_files_ = !fdir.empty();
   std::string title = "UNINSTALLING " + name;
@@ -1030,18 +1036,18 @@ void Launcher::start_games_check() {
     return;
   }
   if (!o_.shot.empty()) {  // a shot is drawn once: its answers first
-    for (int i = 0; i < upgrades::update::kGameCount; ++i)
-      if (!beside_[i]) checks_[i] = sdlfe::games::check(upgrades::update::kGames[i], tag_of(i));
+    for (int i = 0; i < upgrades::update::game_count(); ++i)
+      if (!beside_[i] && !removed_away(i)) checks_[i] = sdlfe::games::check(upgrades::update::game_at(i), tag_of(i));
     return;
   }
   games_check_ = std::make_unique<GamesCheck>();
   GamesCheck* gc = games_check_.get();
-  std::string tags[upgrades::update::kGameCount];
-  bool ask[upgrades::update::kGameCount];
-  for (int i = 0; i < upgrades::update::kGameCount; ++i) tags[i] = tag_of(i), ask[i] = !beside_[i];
-  gc->th = std::thread([gc, tags = std::vector<std::string>(tags, tags + upgrades::update::kGameCount), asks = std::vector<bool>(ask, ask + upgrades::update::kGameCount)] {
-    for (int i = 0; i < upgrades::update::kGameCount; ++i)
-      if (asks[i]) gc->result[i] = sdlfe::games::check(upgrades::update::kGames[i], tags[i]);
+  std::string tags[upgrades::update::kMaxGames];
+  bool ask[upgrades::update::kMaxGames];
+  for (int i = 0; i < upgrades::update::game_count(); ++i) tags[i] = tag_of(i), ask[i] = !beside_[i] && !removed_away(i);
+  gc->th = std::thread([gc, tags = std::vector<std::string>(tags, tags + upgrades::update::game_count()), asks = std::vector<bool>(ask, ask + upgrades::update::game_count())] {
+    for (int i = 0; i < upgrades::update::game_count(); ++i)
+      if (asks[i]) gc->result[i] = sdlfe::games::check(upgrades::update::game_at(i), tags[i]);
     gc->done = true;
   });
 }
@@ -1105,7 +1111,7 @@ void Launcher::self_verdict(const upgrades::update::Verdict& v) {
 void Launcher::take_games_check() {
   if (!games_check_ || !games_check_->done) return;
   games_check_->th.join();
-  for (int i = 0; i < upgrades::update::kGameCount; ++i) {
+  for (int i = 0; i < upgrades::update::game_count(); ++i) {
     if (beside_[i]) continue;
     using GC = upgrades::update::GameCheck;
     const GC& now = games_check_->result[i];
@@ -1113,19 +1119,19 @@ void Launcher::take_games_check() {
     checks_[i] = now;
     if ((now.kind == GC::kNewer || now.kind == GC::kUpToDate) && !now.release.tag.empty())  // installed or updated while it was asked
       checks_[i].kind = tag_of(i).empty() || upgrades::update::compare_game(now.release.tag, tag_of(i)) > 0 ? GC::kNewer : GC::kUpToDate;
-    std::printf("mw3: launcher: games: %s: %s\n", upgrades::update::game_info(upgrades::update::kGames[i]).key, checks_[i].words.c_str());
+    std::printf("mw3: launcher: games: %s: %s\n", upgrades::update::game_info(upgrades::update::game_at(i)).key, checks_[i].words.c_str());
   }
   games_check_.reset();
   if (screen_ == kMain) layout();
   recheck_done();
   if (const char* k = SDL_getenv("MW3_LAUNCHER_GAME_INSTALL"))  // checks: a card's INSTALL or UPDATE pressed once it can be
-    for (int i = 0; i < upgrades::update::kGameCount; ++i)
-      if (std::strcmp(k, upgrades::update::game_info(upgrades::update::kGames[i]).key) == 0) install_game(i);
+    for (int i = 0; i < upgrades::update::game_count(); ++i)
+      if (std::strcmp(k, upgrades::update::game_info(upgrades::update::game_at(i)).key) == 0) install_game(i);
 }
 
 std::vector<int> Launcher::game_updates() const {
   std::vector<int> out;
-  for (int i = 0; i < upgrades::update::kGameCount; ++i)
+  for (int i = 0; i < upgrades::update::game_count(); ++i)
     if (games_on_ && !beside_[i] && source_[i] != kNoCopy && checks_[i].kind == upgrades::update::GameCheck::kNewer) out.push_back(i);
   return out;
 }
@@ -1145,11 +1151,11 @@ void Launcher::recheck_done() {
   rechecking_ = false;
   std::string games, unasked;
   for (int i : game_updates())
-    games += (games.empty() ? "" : ", ") + std::string(upgrades::update::game_info(upgrades::update::kGames[i]).name) + " " +
+    games += (games.empty() ? "" : ", ") + std::string(upgrades::update::game_info(upgrades::update::game_at(i)).name) + " " +
              upgrades::update::game_version(checks_[i].release.tag);
-  for (int i = 0; i < upgrades::update::kGameCount; ++i)
+  for (int i = 0; i < upgrades::update::game_count(); ++i)
     if (!beside_[i] && source_[i] != kNoCopy && checks_[i].kind == upgrades::update::GameCheck::kFailed)
-      unasked += (unasked.empty() ? "" : ", ") + std::string(upgrades::update::game_info(upgrades::update::kGames[i]).name);
+      unasked += (unasked.empty() ? "" : ", ") + std::string(upgrades::update::game_info(upgrades::update::game_at(i)).name);
   if (self_kind_ == upgrades::update::Verdict::kFailed) unasked = unasked.empty() ? "the launcher" : "the launcher, " + unasked;
   if (!games.empty()) status_ = "Ready to update: " + games + ".", status_good_ = true;
   else if (self_update_) status_.clear();
@@ -1191,7 +1197,7 @@ std::string Launcher::game_words(int i) const {
 // INSTALL and UPDATE: the newest release's file, downloaded, checked and put in place on the worker.
 void Launcher::install_game(int i) {
   using namespace upgrades::update;
-  if (i < 0 || i >= upgrades::update::kGameCount || work_ || checks_[i].kind != GameCheck::kNewer) return;
+  if (i < 0 || i >= upgrades::update::game_count() || work_ || checks_[i].kind != GameCheck::kNewer) return;
   if (game_bin(i).empty()) return ask_place(i);  // a first install: where, asked (an UPDATE goes where it is)
   install_game_now(i);
 }
@@ -1210,8 +1216,8 @@ void Launcher::ask_place(int i) {
 
 void Launcher::install_game_now(int i) {
   using namespace upgrades::update;
-  if (i < 0 || i >= upgrades::update::kGameCount || work_ || checks_[i].kind != GameCheck::kNewer) return;
-  const Game g = kGames[i];
+  if (i < 0 || i >= upgrades::update::game_count() || work_ || checks_[i].kind != GameCheck::kNewer) return;
+  const Game g = upgrades::update::game_at(i);
   const bool update = !game_bin(i).empty();
   work_ = std::make_unique<Work>();
   work_->kind = Work::kGameInstall;
@@ -1402,7 +1408,7 @@ void Launcher::find_pm() {
   {
     std::string place = games_place_[1];
     if (place.empty() && !o_.write_dir.empty())
-      place = cfg_path(o_.write_dir, std::string("games_") + upgrades::update::game_info(upgrades::update::kGames[1]).key);
+      place = cfg_path(o_.write_dir, std::string("games_") + upgrades::update::game_info(upgrades::update::game_at(1)).key);
     std::vector<std::string> own;
     if (!place.empty()) own.push_back((fs::path(place) / "install").make_preferred().string());
     if (!pm_wd().empty()) own.push_back((fs::path(pm_wd()) / "install").string());
@@ -1528,7 +1534,7 @@ void Launcher::kit_refresh(int i) {
   if (!kit_game(i) || game_bin(i).empty()) return;
   kit_status_[i] = {};
   kit_known_[i] = sdlfe::games::kit_status(game_bin(i), &kit_status_[i]);
-  std::printf("mw3: launcher: games: %s: status %s\n", upgrades::update::game_info(upgrades::update::kGames[i]).key,
+  std::printf("mw3: launcher: games: %s: status %s\n", upgrades::update::game_info(upgrades::update::game_at(i)).key,
               kit_known_[i] ? rekit::state_name(kit_status_[i].state).c_str() : "no answer");
 }
 
@@ -1542,7 +1548,7 @@ bool Launcher::kit_set_up(int i) const {
 // this window hidden until it exits, as MechWarrior 1's are; its status read again after.
 // One that serves its setup has its game files found on the launcher's own screens first.
 void Launcher::run_kit(int i, bool set_up) {
-  const std::string bin = game_bin(i), name = upgrades::update::game_info(upgrades::update::kGames[i]).name;
+  const std::string bin = game_bin(i), name = upgrades::update::game_info(upgrades::update::game_at(i)).name;
   if (bin.empty() || work_) return;
   if (!set_up && kit_serves(i) && !kit_set_up(i)) return open_kit_files(i, true);
   const char* args[] = {bin.c_str(), nullptr};
@@ -1569,7 +1575,7 @@ void Launcher::run_kit(int i, bool set_up) {
 }
 
 void Launcher::open_kit_files(int i, bool play) {
-  const std::string name = upgrades::update::game_info(upgrades::update::kGames[i]).name;
+  const std::string name = upgrades::update::game_info(upgrades::update::game_at(i)).name;
   rekit::SetupMessage m;
   if (!sdlfe::games::kit_setup(game_bin(i), {"--describe"}, 10, [](const rekit::SetupMessage&) { return true; }, &m) || !m.ok) {
     status_ = name + ": " + (m.summary.empty() ? "its setup did not answer." : m.summary), status_good_ = false;
@@ -1580,7 +1586,7 @@ void Launcher::open_kit_files(int i, bool play) {
   kit_files_ = i, kit_play_ = play, kit_ask_ = m;
   files_pm_ = from_files_ = false, status_.clear();
   if (SDL_getenv("MW3_LAUNCHER_GO")) auto_go_ = true;  // checks: its find's INSTALL pressed
-  std::printf("mw3: launcher: games: %s: its game files, on the launcher's screens\n", upgrades::update::game_info(upgrades::update::kGames[i]).key);
+  std::printf("mw3: launcher: games: %s: its game files, on the launcher's screens\n", upgrades::update::game_info(upgrades::update::game_at(i)).key);
   screen_ = kSetupScreen, layout();
 }
 
@@ -1643,7 +1649,7 @@ void Launcher::kit_install() {
   work_ = std::make_unique<Work>();
   work_->kind = Work::kKitInstall;
   const std::string bin = game_bin(kit_files_);
-  std::string name = upgrades::update::game_info(upgrades::update::kGames[kit_files_]).name;
+  std::string name = upgrades::update::game_info(upgrades::update::game_at(kit_files_)).name;
   for (char& ch : name) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
   work_->start("INSTALLING " + name, [bin, args, answer](const mech3::setup::ProgressFn& f) {
     mech3::setup::Result r;
@@ -1926,9 +1932,9 @@ void Launcher::layout() {
         bool on = true, soon = false;  // soon: not out yet (a card greyed when all its games are)
         int upd = -1;                  // the game whose UPDATE splits the button
       };
-      Panel pn[upgrades::update::kGameCount];
+      Panel pn[upgrades::update::kMaxGames];
       auto fix_keep = [](Panel& p) { p.keep.resize(p.lines.size(), 0); };
-      auto button = [](int i) { return upgrades::update::catalog_game(upgrades::update::kGames[i]).button.c_str(); };
+      auto button = [](int i) { return upgrades::update::catalog_game(upgrades::update::game_at(i)).button.c_str(); };
       auto update_line = [&](Panel& p, int i) {  // the split's version, on the card (the segment says UPDATE)
         if (!can_update(i)) return;
         p.lines.push_back("Update " + upgrades::update::game_version(checks_[i].release.tag) + " is ready");
@@ -2052,7 +2058,7 @@ void Launcher::layout() {
           later(p, kMw1Original, button(3));
         }
       }
-      for (int i : {4, 5}) {  // Inception's two: the hawk (2026-11-24)
+      for (int i = 4; i < upgrades::update::game_count(); ++i) {  // Inception's two (the hawk, 2026-11-24), then a fetched catalog's new ones
         const char* name = button(i);
         Panel& p = pn[i];
         if (!game_bin(i).empty()) kit(p, i, name);
@@ -2081,23 +2087,27 @@ void Launcher::layout() {
                                                                                                     : words(3).c_str());
         std::printf("mw3: launcher: entry INCEPTION ORIGINAL: %s\n", words(4).c_str());
         std::printf("mw3: launcher: entry INCEPTION REMAKE: %s\n", words(5).c_str());
+        for (int i = 6; i < upgrades::update::game_count(); ++i) std::printf("mw3: launcher: entry %s: %s\n", button(i), words(i).c_str());
         mw1_logged_ = true;
       }
       // The panels (2026-11-24, the download page's look; docs/launcher.md, The panels): one a game, top to bottom
       // as the page lists them, in a list that scrolls. Inception's remake gets its own once its first release is
       // out (or it is installed); until then Inception is one panel.
-      // In the catalog's order (games.json): its title and blurb. One with panel_before_release false (Inception's
-      // remake) only once a release is found or it is installed (never on a failed check).
+      // In the catalog's order (games.json, or a fetched one over it): its title and blurb. A coming_soon one with
+      // panel_before_release false (Inception's remake) only once a release is found or it is installed (never on a
+      // failed check); a removed one only while it is installed, which keeps playing (b7).
       struct Row {
         int game;
         const upgrades::update::CatalogGame* entry;
       };
       std::vector<Row> rows;
-      for (const upgrades::update::CatalogGame& e : upgrades::update::builtin_catalog().games) {
+      for (const upgrades::update::CatalogGame& e : upgrades::update::active_catalog().games) {
         upgrades::update::Game g;
-        if (!upgrades::update::game_of_key(e.key, &g)) continue;
+        if (!upgrades::update::game_of_key(e.key, &g)) continue;  // past kMaxGames
         const int i = static_cast<int>(g);
-        if (!e.panel_before_release && (pn[i].soon || !(checks_[i].kind == GC::kNewer || checks_[i].kind == GC::kUpToDate || !game_bin(i).empty())))
+        if (e.state == upgrades::update::CatalogGame::kRemoved && game_bin(i).empty()) continue;
+        if (e.state == upgrades::update::CatalogGame::kComingSoon && !e.panel_before_release &&
+            (pn[i].soon || !(checks_[i].kind == GC::kNewer || checks_[i].kind == GC::kUpToDate || !game_bin(i).empty())))
           continue;
         rows.push_back({i, &e});
       }
@@ -2211,8 +2221,8 @@ void Launcher::layout() {
                        // is and its buttons at its right
       const int i = page_game_;
       if (i < 0) break;
-      const std::string key = upgrades::update::game_info(upgrades::update::kGames[i]).key;
-      removal_[i] = linked_[i].empty() ? sdlfe::games::Removal() : sdlfe::games::removal_of(linked_[i], upgrades::update::kGames[i]);
+      const std::string key = upgrades::update::game_info(upgrades::update::game_at(i)).key;
+      removal_[i] = linked_[i].empty() ? sdlfe::games::Removal() : sdlfe::games::removal_of(linked_[i], upgrades::update::game_at(i));
       rows_.clear();
       if (page_confirm_) {
         const bool files = !own_files(i).empty();
@@ -2419,7 +2429,7 @@ UiModel Launcher::model() {
   const int game = header_game();
   m.heading = kLauncherTitle, m.head = screen_ == kMain ? "main" : "launcher";
   if (game >= 0 && (o_.setup_only || o_.pm)) {
-    const upgrades::update::CatalogGame& e = upgrades::update::catalog_game(upgrades::update::kGames[game]);
+    const upgrades::update::CatalogGame& e = upgrades::update::catalog_game(upgrades::update::game_at(game));
     m.head = "game", m.heading = e.heading, m.badge = (e.heading_badge.empty() ? e.badge : e.heading_badge) + "?64";
     m.heading_kind = text_.width(m.heading, 36) > 520 ? "own long" : "own";  // the longer titles kept off the hazard stripes
   } else if (game >= 0) {
@@ -2436,7 +2446,7 @@ UiModel Launcher::model() {
         m.variant = "updates", m.title = "UPDATE NOW?";
         m.lines.push_back({"BattleTech launcher " + upgrades::update::plain_version(self_update_->release.tag), ""});
         for (int i : game_updates())
-          m.lines.push_back({std::string(upgrades::update::game_info(upgrades::update::kGames[i]).name) + " " + upgrades::update::game_version(checks_[i].release.tag), ""});
+          m.lines.push_back({std::string(upgrades::update::game_info(upgrades::update::game_at(i)).name) + " " + upgrades::update::game_version(checks_[i].release.tag), ""});
       }
       break;
     case kSetupScreen:
@@ -2453,8 +2463,8 @@ UiModel Launcher::model() {
     case kGamePage: {
       const int i = page_game_;
       if (i < 0) break;
-      const std::string name = upper(upgrades::update::game_info(upgrades::update::kGames[i]).name);
-      const std::string own_dir = (fs::path(game_root(i)) / upgrades::update::game_info(upgrades::update::kGames[i]).key).make_preferred().string();
+      const std::string name = upper(upgrades::update::game_info(upgrades::update::game_at(i)).name);
+      const std::string own_dir = (fs::path(game_root(i)) / upgrades::update::game_info(upgrades::update::game_at(i)).key).make_preferred().string();
       if (page_confirm_) {
         m.variant = "ask", m.title = "UNINSTALL " + name + "?";
         using Rm = sdlfe::games::Removal;
@@ -2489,10 +2499,10 @@ UiModel Launcher::model() {
         m.path = "Into " + text_.fit(confirm_into_, 14, 440, 3);
       } else if (confirm_go_ == 7 && place_game_ >= 0) {  // a card's first INSTALL: where to
         m.variant = "place";
-        m.title = "DOWNLOAD " + upper(upgrades::update::game_info(upgrades::update::kGames[place_game_]).name) + " " +
+        m.title = "DOWNLOAD " + upper(upgrades::update::game_info(upgrades::update::game_at(place_game_)).name) + " " +
                   upgrades::update::game_version(checks_[place_game_].release.tag) + "?";
         m.words = "The game and its game files go into this folder. Your pilots, saves, settings and mods stay in your user folder.";
-        m.path = text_.fit(place_.empty() ? (fs::path(games_root_) / upgrades::update::game_info(upgrades::update::kGames[place_game_]).key).make_preferred().string() : place_, 14, 440, 3);
+        m.path = text_.fit(place_.empty() ? (fs::path(games_root_) / upgrades::update::game_info(upgrades::update::game_at(place_game_)).key).make_preferred().string() : place_, 14, 440, 3);
       } else if (confirm_go_ == 8) {
         m.variant = "nomusic", m.title = "NO MUSIC ADDED";
       } else if (confirm_go_ == 4 || confirm_go_ == 6) {
@@ -2673,8 +2683,8 @@ void Launcher::picked(int what, const std::string& path) {
   if (what == kInstallTo) {  // the game's own folder: the card INSTALL's (confirm 7) or the game files' (confirm 1)
     const int game = confirm_go_ == 7 ? place_game_ : kit_files_ >= 0 ? kit_files_ : files_pm_ ? 1 : 0;
     if (game < 0) return layout();
-    const std::string dir = fs::path(sdlfe::games::game_folder_in(path, upgrades::update::kGames[game])).make_preferred().string();
-    std::printf("mw3: launcher: %s goes into %s\n", upgrades::update::game_info(upgrades::update::kGames[game]).name, dir.c_str());
+    const std::string dir = fs::path(sdlfe::games::game_folder_in(path, upgrades::update::game_at(game))).make_preferred().string();
+    std::printf("mw3: launcher: %s goes into %s\n", upgrades::update::game_info(upgrades::update::game_at(game)).name, dir.c_str());
     if (confirm_go_ == 7) place_ = dir;
     else files_into_ = dir, files_confirm_text();
     status_.clear();
@@ -3113,7 +3123,7 @@ void Launcher::find_copies() {
   std::vector<std::string> tries;
   std::string in_use;
   std::error_code ec;
-  const std::string games_key = std::string("games_") + upgrades::update::game_info(upgrades::update::kGames[files_pm_ ? 1 : 0]).key;
+  const std::string games_key = std::string("games_") + upgrades::update::game_info(upgrades::update::game_at(files_pm_ ? 1 : 0)).key;
   std::string place = games_place_[files_pm_ ? 1 : 0];
   if (place.empty() && !o_.write_dir.empty()) place = cfg_path(o_.write_dir, games_key);
   if (!place.empty()) tries.push_back((fs::path(place) / "install").make_preferred().string());
@@ -3240,7 +3250,7 @@ void Launcher::finish_work() {
         if (i == 0) save_config_value(o_.write_dir, "install", "");
         if (i == 1) save_config_value(o_.write_dir, "pm_install", ""), save_config_value(pm_wd(), "install", "");
       }
-      if (remove_linked_ && r.ok) save_config_value(o_.write_dir, std::string("link_") + upgrades::update::game_info(upgrades::update::kGames[i]).key, "");
+      if (remove_linked_ && r.ok) save_config_value(o_.write_dir, std::string("link_") + upgrades::update::game_info(upgrades::update::game_at(i)).key, "");
       resolve_game(i, true);
     }
     status_ = r.summary, status_good_ = r.ok, page_confirm_ = false, screen_ = kGamePage;
@@ -3365,14 +3375,14 @@ void Launcher::finish_work() {
 }
 
 void Launcher::activate(int id) {
-  if (id >= kGameInstall && id < kGameInstall + upgrades::update::kGameCount) return install_game(id - kGameInstall);
-  if (id >= kGameUpdate && id < kGameUpdate + upgrades::update::kGameCount) return install_game(id - kGameUpdate);
-  if (id >= kKitPlay && id < kKitPlay + upgrades::update::kGameCount) {
+  if (id >= kGameInstall && id < kGameInstall + upgrades::update::game_count()) return install_game(id - kGameInstall);
+  if (id >= kGameUpdate && id < kGameUpdate + upgrades::update::game_count()) return install_game(id - kGameUpdate);
+  if (id >= kKitPlay && id < kKitPlay + upgrades::update::game_count()) {
     sounds_.play(Sounds::kSelect);
     files_pm_ = false;
     return run_kit(id - kKitPlay);
   }
-  if (id >= kGear && id < kGear + upgrades::update::kGameCount) return sounds_.play(Sounds::kSelect), open_game_page(id - kGear);
+  if (id >= kGear && id < kGear + upgrades::update::game_count()) return sounds_.play(Sounds::kSelect), open_game_page(id - kGear);
   if (screen_ == kGamePage) {  // its page (Escape is BACK; on the confirm, KEEP IT)
     sounds_.play(Sounds::kSelect);
     if (id == kBack && page_confirm_) id = kUninstallBack;
@@ -3628,10 +3638,10 @@ void Launcher::activate(int id) {
       break;
     case kPlaceGo: {  // the card's INSTALL, once asked where
       const int i = place_game_;
-      if (i < 0 || i >= upgrades::update::kGameCount) break;
+      if (i < 0 || i >= upgrades::update::game_count()) break;
       if (!place_.empty()) {
         std::string error;
-        if (!sdlfe::games::claim_game_folder(place_, upgrades::update::kGames[i], &error)) {
+        if (!sdlfe::games::claim_game_folder(place_, upgrades::update::game_at(i), &error)) {
           status_ = "Nothing was installed: " + error + ".", status_good_ = false;
           std::printf("mw3: launcher: %s\n", status_.c_str());
           layout();
@@ -3652,7 +3662,7 @@ void Launcher::activate(int id) {
       }
       if (!files_into_.empty()) {  // the game's own folder, made the game's before anything goes in
         std::string error;
-        if (!sdlfe::games::claim_game_folder(files_into_, upgrades::update::kGames[files_pm_ ? 1 : 0], &error)) {
+        if (!sdlfe::games::claim_game_folder(files_into_, upgrades::update::game_at(files_pm_ ? 1 : 0), &error)) {
           status_ = "Nothing was copied: " + error + ".", status_good_ = false;
           std::printf("mw3: launcher: %s\n", status_.c_str());
           layout();
@@ -3726,6 +3736,7 @@ LauncherChoice Launcher::run() {
   const std::string body_font = body_font_path(dir);
   std::printf("mw3: launcher: small lines' font %s\n", body_font.empty() ? "none found" : body_font.c_str());
   if (!ui_.init(dir, font, body_font)) std::fprintf(stderr, "mw3: launcher: its screens cannot be set up (RmlUi)\n");
+  ui_.art_from(sdlfe::catalog::cache_dir(o_.write_dir));  // a fetched catalog's badges the package does not carry
   const Uint64 t_font = SDL_GetTicksNS();
   find_install();
   const Uint64 t_install = SDL_GetTicksNS();
@@ -3799,13 +3810,13 @@ LauncherChoice Launcher::run() {
     if (o_.screen == "updatebox") recheck();  // CHECK FOR UPDATES pressed (MW3_UPDATE_API)
     if (o_.screen == "disc") status_ = "No disc in a drive. Pick its image (.cue .iso), a download (.zip) or any file of the disc.";
     if (o_.screen.rfind("game:", 0) == 0)  // a game's page (its gear): "game:" and its key
-      for (int i = 0; i < upgrades::update::kGameCount; ++i)
-        if (o_.screen.substr(5) == upgrades::update::game_info(upgrades::update::kGames[i]).key) open_game_page(i);
+      for (int i = 0; i < upgrades::update::game_count(); ++i)
+        if (o_.screen.substr(5) == upgrades::update::game_info(upgrades::update::game_at(i)).key) open_game_page(i);
     if (o_.screen == "chifiles") open_kit_files(4, false);  // a kit game's find screen (MW3_CHI_BIN)
     if (o_.screen == "copies" || o_.screen == "pmcopies")  // GAME FILES' list, MW3's or Pirate's Moon's
       files_pm_ = o_.screen == "pmcopies", from_files_ = true, find_copies(), screen_ = kCopies;
-    for (int i = 0; i < upgrades::update::kGameCount; ++i)  // a game's page (its gear): game:<key>, game:<key>:uninstall
-      if (const std::string k = std::string("game:") + upgrades::update::game_info(upgrades::update::kGames[i]).key;
+    for (int i = 0; i < upgrades::update::game_count(); ++i)  // a game's page (its gear): game:<key>, game:<key>:uninstall
+      if (const std::string k = std::string("game:") + upgrades::update::game_info(upgrades::update::game_at(i)).key;
           o_.screen == k || o_.screen == k + ":uninstall")
         open_game_page(i), page_confirm_ = o_.screen != k;
     if (o_.screen == "work") {
@@ -4061,9 +4072,21 @@ LauncherChoice Launcher::run() {
 
 }  // namespace
 
+// The games catalog (b7): the cached fetched one in use from the start, before any game is looked up; a newer one
+// fetched meanwhile, on a thread, for the next start (a check run fetches first, from a stand-in only).
 LauncherChoice run_launcher(const LauncherOptions& o) {
-  Launcher l(o);
-  return l.run();
+  const catalog::Here here{o.write_dir, MW3_VERSION, assets_dir()};
+  const bool check_run = o.hidden || !o.shot.empty();
+  catalog::at_start(here, check_run);
+  std::thread fetch;
+  LauncherChoice c;
+  {
+    Launcher l(o);  // stop_asking(false): the fetch after it
+    if (!check_run && !o.write_dir.empty()) fetch = std::thread([here] { catalog::fetch(here, std::getenv("MW3_CATALOG_URL") != nullptr); });  // checks: a stand-in's file://
+    c = l.run();
+  }  // stop_asking(): a fetch still asking ends at once
+  if (fetch.joinable()) fetch.join();
+  return c;
 }
 
 }  // namespace sdlfe

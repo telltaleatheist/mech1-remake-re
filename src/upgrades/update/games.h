@@ -45,7 +45,8 @@ struct CatalogGame {
   bool panel_before_release = true;  // false: no panel until a release is found or it is installed
 };
 struct Catalog {
-  int version = 0;  // "catalog": 1
+  int version = 0;   // "catalog": 1, the format
+  int revision = 0;  // "revision": which wins, the built-in or a fetched one (the higher)
   std::vector<CatalogFamily> families;
   std::vector<CatalogGame> games;  // by order
 };
@@ -54,12 +55,35 @@ struct Catalog {
 bool parse_catalog(const std::string& json, Catalog* out, std::string* why);
 const std::string& builtin_catalog_text();  // games.json as built in
 const Catalog& builtin_catalog();
-// The catalog's entry of a game the launcher knows by its Game; the built-in catalog holds one for each.
+// The catalog in use this run (b7, 2026-11-26): the built-in one unless the launcher's start set another (the fetched
+// one cached, merged over it) before any game was looked up. A later use_catalog is refused (false): the catalog's
+// strings stay put for the run (GameInfo points into them).
+bool use_catalog(const Catalog& c);
+const Catalog& active_catalog();
+// Its games this run, kMaxGames at most: the six the code knows by their Game (kGames, in that order), then the
+// catalog's others (a fetched catalog's new games, on the setup kit's contract: their Game is their place, 6 and up).
+constexpr int kMaxGames = 10;  // the launcher's per-game button ids leave room for ten
+int game_count();
+Game game_at(int i);
+// The catalog's entry of a game this run; every one of game_count()'s has one.
 const CatalogGame& catalog_game(Game g);
-// The Game an entry's key names; false for a key this launcher does not know.
+// The Game an entry's key names this run; false for a key the catalog in use does not hold.
 bool game_of_key(const std::string& key, Game* g);
 
-// The catalog's entry as the code's older shape (its strings the built-in catalog's, alive for the program's run).
+// A fetched catalog (b7): read as parse_catalog does, but a bad entry is left out (said in `ignored`) and the rest
+// kept, and so is one the launcher must not trust: a repo under another GitHub owner than kCatalogOwner, a
+// min_launcher newer than `launcher_version` (a release's; a build's "unknown" checks none), art that is not a
+// plain .png name. Its families are checked at the merge. False with `why` only when the whole is not a catalog (not
+// JSON, no lists, a newer format).
+constexpr const char* kCatalogOwner = "telltaleatheist";
+bool read_fetched_catalog(const std::string& json, const std::string& launcher_version, Catalog* out,
+                          std::vector<std::string>* ignored, std::string* why);
+// `fetched` over `builtin` when its revision is higher, else `builtin` as it is: a family or game by its key
+// replaced, a new one added, the rest the built-in's. A game whose family neither lists is left out (in `ignored`).
+// (A fetched one need list only what it changes; the games past kMaxGames are left out when it is put in use.)
+Catalog merged_catalog(const Catalog& builtin, const Catalog& fetched, std::vector<std::string>* ignored = nullptr);
+
+// The catalog's entry as the code's older shape (its strings the catalog in use's, alive for the program's run).
 struct GameInfo {
   const char* key;      // "mw3", "pm", "mw1": its folder under the games folder, its record's game=
   const char* name;     // "Pirate's Moon", for the words

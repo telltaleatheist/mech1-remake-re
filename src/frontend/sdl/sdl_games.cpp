@@ -490,8 +490,8 @@ Done install_file(const std::string& root, const std::string& file, const std::s
     return fail("Nothing was installed: " + error + ".");
   // Which game: the one program of ours in it.
   std::vector<u::Game> found;
-  for (u::Game g : u::kGames)
-    if (!program_in(staged.string(), g).empty()) found.push_back(g);
+  for (int i = 0; i < u::game_count(); ++i)  // a fetched catalog's new games too (b7)
+    if (!program_in(staged.string(), u::game_at(i)).empty()) found.push_back(u::game_at(i));
   if (found.empty()) return fail(name + " holds none of the games (mw3, mw3pm or mw1), so nothing was installed.");
   if (found.size() > 1) return fail(name + " holds more than one game (the full package): pick one game's own download.");
   const u::Game g = found.front();
@@ -838,8 +838,8 @@ Removal removal_of(const std::string& prog, u::Game g) {
   if (r.how == Removal::kTrash) r.path = whole.string();
   // A package of more than this game (an older launcher's), or this launcher's own: not from here.
   if (whole != p)
-    for (u::Game o : u::kGames)
-      if (o != g && fs::is_regular_file(dir / program_file(o), ec)) return {Removal::kNone, "", std::string("It is in one package with ") + u::game_info(o).name};
+    for (int i = 0; i < u::game_count(); ++i)
+      if (const u::Game o = u::game_at(i); o != g && fs::is_regular_file(dir / program_file(o), ec)) return {Removal::kNone, "", std::string("It is in one package with ") + u::game_info(o).name};
   const std::string self = self_path();
   if (!self.empty()) {
     const std::string at = fs::weakly_canonical(self, ec).string(), in = whole.string();
