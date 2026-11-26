@@ -380,7 +380,7 @@ TEST(mw1_status_reads_the_folder_in_use_and_writes_nothing) {
       const rekit::Status s = mw1::status(folder, {}, "mw1-v1.1.0");
       if (mw1::read_cfg(folder).pm != c.pm) std::printf("%s: read %s\n", c.what, folder.c_str());
       EXPECT(mw1::read_cfg(folder).pm == c.pm);
-      EXPECT(s.state == rekit::Status::kMissing && s.missing.size() == 3);  // no such installs
+      EXPECT(s.state == rekit::Status::kMissing && s.missing.size() == 1);  // no MechWarrior (1989)
       EXPECT(tree(root) == before);
     }
 }
@@ -393,15 +393,16 @@ TEST(mw1_status_is_read_as_mw1_by_the_launcher) {
   EXPECT(rekit::parse_status(rekit::status_json(mw1::status("", {}, "mw1-v1.1.0")), &s, &error) && error.empty());
   EXPECT(s.game == "mech1-remake" && s.game != "mech3" && s.game != "mech3-pm" && s.game != "mech1");
   EXPECT(s.version == "mw1-v1.1.0" && upgrades::update::game_tag(upgrades::update::Game::kMw1, s.version));
-  EXPECT((s.needs == std::vector<std::string>{"mech3-pm", "mech3", "mech1"}));
-  EXPECT((s.missing == std::vector<std::string>{"Pirate's Moon", "MechWarrior 3", "MechWarrior (1989)"}));
+  EXPECT((s.needs == std::vector<std::string>{"mech3-pm", "mech3"}) && s.play == rekit::kPlayOptions && s.where.empty());
+  EXPECT((s.missing == std::vector<std::string>{"MechWarrior (1989)"}));  // its own files only: the needs never
   rekit::Status dev;
   EXPECT(rekit::parse_status(rekit::status_json(mw1::status("", {}, "mw1-v1.1.0-3-gabc1234")), &dev));
   EXPECT(!upgrades::update::game_tag(upgrades::update::Game::kMw1, dev.version));
 }
 
-// ready, incomplete and missing, from mw1.cfg, from the command line over it, and from a folder that has moved.
-TEST(mw1_status_ready_incomplete_and_missing) {
+// ready (on MechWarrior (1989)'s files, where their folder) and missing, from mw1.cfg, from the command line over it,
+// and from a folder that has moved; the other games' absence (needs) never in missing.
+TEST(mw1_status_ready_and_missing) {
   const fs::path dos = fresh("mw1status_dos");
   put(dos / "BTECH.EXE", "x");
   const fs::path wd = fresh("mw1status_wd");
@@ -410,7 +411,7 @@ TEST(mw1_status_ready_incomplete_and_missing) {
   mw1::write_cfg(wd.string(), in);
   const auto before = tree(wd);
   rekit::Status s = mw1::status(wd.string(), {}, "mw1-v1.1.0");
-  EXPECT(s.state == rekit::Status::kIncomplete && (s.missing == std::vector<std::string>{"Pirate's Moon", "MechWarrior 3"}));
+  EXPECT(s.state == rekit::Status::kReady && s.where == dos.string() && s.user == wd.string() && s.missing.empty());
   EXPECT(tree(wd) == before);
   // The command line's, over mw1.cfg's.
   mw1::Installs given;
@@ -421,14 +422,15 @@ TEST(mw1_status_ready_incomplete_and_missing) {
   put(base / mw1::kOrg / "DOS" / "BTECH.EXE", "x");
   in.mw1 = (base / mw1::kOldOrg / "DOS").string();
   mw1::write_cfg(wd.string(), in);
-  EXPECT(mw1::status(wd.string(), {}, "mw1-v1.1.0").state == rekit::Status::kIncomplete);
+  s = mw1::status(wd.string(), {}, "mw1-v1.1.0");
+  EXPECT(s.state == rekit::Status::kReady && s.where == (base / mw1::kOrg / "DOS").string());
   EXPECT(mw1::read_cfg(wd.string()).mw1 == in.mw1);
   // All three, where this machine has the games.
   if (mw1::is_pm_install(MW3PM_GAME_DIR) && mw1::is_mw3_install(MW1_MW3_GAME_DIR)) {
     in.pm = MW3PM_GAME_DIR, in.mw3 = MW1_MW3_GAME_DIR, in.mw1 = dos.string();
     mw1::write_cfg(wd.string(), in);
     s = mw1::status(wd.string(), {}, "mw1-v1.1.0");
-    EXPECT(s.state == rekit::Status::kReady && s.missing.empty());
+    EXPECT(s.state == rekit::Status::kReady && s.missing.empty() && s.where == dos.string());
   } else {
     std::printf("status: no game/pm or game/mw3: ready not tested\n");
   }

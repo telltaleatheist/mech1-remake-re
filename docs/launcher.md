@@ -1027,6 +1027,17 @@ each game's recipe (DESIGN.md there):
   says `"setup": 1`, and `--with <id>=<where>` (`mech3-pm`, `mech3`,
   `mech1`) hands it the other games. The launcher's own MECHWARRIOR 1 line
   is unchanged until b5 (it serves only its kit games). ctest `mw1setup`.
+- The Remake for b5 (2026-11-26): its files are MechWarrior (1989)'s, so the
+  status's `state` and `where` are theirs (mw1.cfg's `mw1_game=`, or an older
+  launcher's `--with mech1=`); its `needs` are the other two games only
+  (`mech3-pm`, `mech3`, as the catalog has them), never in its `missing`
+  (missing means not ready; a need given that does not hold its game is
+  logged to stderr); `user` is its user folder and `play` is 1 (PM's main
+  takes the shared start options and `--ready-file`). A setup ask with no
+  user folder (a system that names none) is refused: "The data folder cannot
+  be used." The finder is the Remake's own now, `mw1/src/mw1_game_files`
+  (`mw1::files`, with its checks in `mw1tests`), since the launcher's
+  `frontend/sdl/mw1_files` left mech3-re with its MW1 finder.
 The launcher still finds the games itself; it switches to asking `--status`
 once mw3pm answers it too.
 

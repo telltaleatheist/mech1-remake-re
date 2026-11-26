@@ -2,11 +2,10 @@
 
 #include <filesystem>
 
-#include "frontend/sdl/mw1_files.h"
+#include "mw1_game_files.h"
 #include "mw1_start.h"
 
 namespace fs = std::filesystem;
-namespace files = sdlfe::mw1;
 
 namespace mw1 {
 namespace {

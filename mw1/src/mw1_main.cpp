@@ -67,7 +67,7 @@ extern "C" CFStringRef NSHomeDirectory(void);  // Foundation's, its NSString a C
 #include "mw1_missions.h"
 #include "mw1_movie.h"
 #include "mw1_pilots.h"
-#include "frontend/sdl/mw1_files.h"
+#include "mw1_game_files.h"
 #include "mw1_recipe.h"
 #include "mw1_save.h"
 #include "mw1_music.h"
@@ -249,10 +249,16 @@ int main(int argc, char** argv) {
   if (const std::vector<std::string> ask = mw1::setup_ask(argc, argv, &folder_dropped); !ask.empty()) {
     const std::string usual = usual_folder_unmade();
     std::string folder = !a.write_dir.empty() ? a.write_dir : usual.empty() ? usual : mw1::settle_user_folder(usual, false).use;
+    if (folder.empty()) {  // no user folder to copy into or save in: said, nothing done
+      rekit::SetupMessage m;
+      m.done = true, m.summary = "The data folder cannot be used.";
+      std::printf("%s\n", rekit::setup_message_json(m).c_str());
+      return rekit::kSetupFailed;
+    }
     while (folder.size() > 1 && folder.back() == '/') folder.pop_back();
     if (folder_dropped) std::fprintf(stderr, "mw1: setup: --folder left out: MechWarrior (1989) goes into the user folder\n");
     rekit::sdl::SetupOptions o;
-    o.user_folder = folder, o.default_out = sdlfe::mw1::unpacked_dir(folder);
+    o.user_folder = folder, o.default_out = mw1::files::unpacked_dir(folder);
     mw1::Installs saved = mw1::read_cfg(folder);
     o.in_use = saved.mw1;
     if (const char* base = SDL_GetBasePath()) o.program_dir = base;

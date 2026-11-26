@@ -1,6 +1,6 @@
 // Ours: the Remake's recipe for the setup kit (re-setup-kit's rekit/sdl/setup_screen.h), so mw1 answers a launcher's
 // `--setup --describe | --search | --look | --install` for MechWarrior (1989)'s files itself (rekit/sdl/setup_serve.h;
-// mw3-re's docs/launcher-split.md, a5). The finds and the copy are mw1_files' (frontend/sdl/mw1_files.h): the game's
+// mw3-re's docs/launcher-split.md, a5). The finds and the copy are mw1_game_files' (mw1_game_files.h): the game's
 // folder, any file in it, a folder a level or two above it, or a download; copied or unpacked into <write dir>/mw1/game.
 #pragma once
 

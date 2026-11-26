@@ -212,7 +212,7 @@ three combat tracks (FIXES 100, 116).
 - **What:** pm-v1.2.4's launcher keeps each game's files in a folder of its own (`games_<key>=`, `<folder>/install`,
   marked `rebuild-game-folder.txt` with `game=mw1`); only pilots, saves, settings and mods stay in the user folder.
   MW1's copy of the player's MechWarrior (1989) still goes to the user folder: `<write dir>/mw1/game`
-  (`sdlfe::mw1::unpacked_dir`, src/frontend/sdl/mw1_files.cpp), kept as `mw1_game=`.
+  (`mw1::files::unpacked_dir`, mw1/src/mw1_game_files.cpp), kept as `mw1_game=`.
 - **Wanted:** a new copy goes into MW1 Remake's folder when the player has one (`games_mw1=`, the folder its card's
   INSTALL picked), e.g. `<folder>/install/mw1game`; without one, the user folder as now.
 - **The search:** looks in the new place first, then the old `<write dir>/mw1/game`, which stays readable for good:

@@ -3,7 +3,9 @@
 # any file in it and a folder one or two above it found, a file beside it not; MechWarrior 3 refused in its words; an
 # install copied into <write dir>/mw1/game and saved as mw1_game=, a --folder left out; our copy in place and found by
 # the search; a download unpacked (only the game's folder), a damaged or wrong one refused with the copy as it was; a
-# folder there we did not make never replaced. The status says setup 1 and takes the launcher's --with for its needs.
+# folder there we did not make never replaced. The status says setup 1 and takes the launcher's --with for its needs;
+# since b5 its needs are the other two games (never in its missing: a need given that does not hold its game is only
+# logged), its own state, where and missing MechWarrior (1989)'s files', with its user folder and play 1. Without a user folder (a system that names none) the setup refuses in words.
 # cmake -DMW1_BIN=<mw1> -DDIR=<scratch> [-DMW3=<MW3 install> -DPM=<PM install>] -P mw1_setup.cmake
 cmake_minimum_required(VERSION 3.20)
 set(failed)
@@ -35,10 +37,19 @@ function(expect name)
   endif()
 endfunction()
 
-ask(status 0 "\"state\": \"missing\".*\"needs\": \\[\"mech3-pm\", \"mech3\", \"mech1\"\\], \"setup\": 1" --status)
-ask(status_with_mw1 0 "\"state\": \"incomplete\", \"missing\": \\[\"Pirate's Moon\", \"MechWarrior 3\"\\]" --status --with "mech1=${game}")
+ask(status 0 "\"state\": \"missing\", \"missing\": \\[\"MechWarrior \\(1989\\)\"\\]}.*\"needs\": \\[\"mech3-pm\", \"mech3\"\\], \"setup\": 1, \"user\": \"${wd}\", \"play\": 1}$" --status)
+# An older launcher's --with mech1 still names the 1989 files: ready on them, the other two (needs) not in missing.
+ask(status_with_mw1 0 "\"state\": \"ready\", \"where\": \"${game}\"}" --status --with "mech1=${game}")
+# A need given that does not hold its game: logged, never in missing.
+execute_process(COMMAND "${MW1_BIN}" --status --with "mech3=${DIR}/nowhere" --with "mech1=${game}" --write-dir "${wd}"
+                RESULT_VARIABLE r OUTPUT_VARIABLE out ERROR_VARIABLE err TIMEOUT 120)
+message("status_bad_need: exit ${r}; ${err}")
+if(NOT r EQUAL 0 OR NOT out MATCHES "\"state\": \"ready\", \"where\": \"[^\"]*\"}" OR NOT err MATCHES "--with mech3=.*nowhere does not hold MechWarrior 3")
+  set(failed ${failed} status_bad_need)
+endif()
 if(MW3 AND PM AND EXISTS "${MW3}/zbd/reader.zbd" AND EXISTS "${PM}/zbd/reader.zbd")
-  ask(status_with_all 0 "\"state\": \"ready\"" --status --with "mech3-pm=${PM}" --with "mech3=${MW3}" --with "mech1=${game}")
+  ask(status_with_all 0 "\"state\": \"ready\", \"where\": \"${game}\"}" --status --with "mech3-pm=${PM}" --with "mech3=${MW3}" --with "mech1=${game}")
+  ask(status_with_needs 0 "\"state\": \"missing\", \"missing\": \\[\"MechWarrior \\(1989\\)\"\\]}" --status --with "mech3-pm=${PM}" --with "mech3=${MW3}")
   ask(mw3_refused 2 "\"ok\": false, \"summary\": \"This is MechWarrior 3, one of the other games" --setup --look "${MW3}")
 endif()
 ask(describe 0 "\"ok\": true, \"into\": \"${ours}\", \"title\": \"MechWarrior \\(1989\\)\"" --setup --describe)
@@ -57,6 +68,7 @@ expect(install_saved cfg STREQUAL want)
 expect(no_folder_claimed NOT EXISTS ${DIR}/elsewhere)
 file(READ "${ours}/SOUNDS/A.VOC" voc)
 expect(install_whole voc STREQUAL "voc" AND NOT EXISTS ${ours}.copying)
+ask(status_installed 0 "\"state\": \"ready\", \"where\": \"${ours}\"}" --status)
 file(REMOVE_RECURSE "${DIR}/dos")  # the original deleted: ours plays on
 ask(own_in_place 0 "\"ok\": true, \"in_place\": true, \"path\": \"${ours}\"" --setup --look "${ours}/btech.exe")
 ask(search 0 "\"ok\": true, \"path\": \"${ours}\"" --setup --search)
@@ -84,6 +96,18 @@ ask(not_ours 2 "\"ok\": false, .*not one the launcher made" --setup --install "$
 file(READ "${wd}/mw1/game/mine.txt" mine)
 set(want "the player's")
 expect(not_ours_kept mine STREQUAL want AND NOT EXISTS ${wd}/mw1.cfg)
+
+# No user folder (Linux with neither XDG_DATA_HOME nor HOME; the Mac's and Windows' always name one): refused in words,
+# nothing written.
+if(UNIX AND NOT APPLE)
+  execute_process(COMMAND env -u HOME -u XDG_DATA_HOME "${MW1_BIN}" --setup --install "${DIR}/mw.zip" RESULT_VARIABLE r
+                  OUTPUT_VARIABLE out ERROR_QUIET TIMEOUT 120)
+  string(STRIP "${out}" out)
+  message("no_folder: exit ${r}; ${out}")
+  if(NOT r EQUAL 2 OR NOT out MATCHES "\"ok\": false, \"summary\": \"The data folder cannot be used.\"}$")
+    set(failed ${failed} no_folder)
+  endif()
+endif()
 
 if(failed)
   message(FATAL_ERROR "mw1setup failed: ${failed}")

@@ -324,17 +324,25 @@ bool is_pm_install(const std::string& dir) { return !dir.empty() && pm::install_
 rekit::Status status(const std::string& folder, const Installs& given, const std::string& version) {
   rekit::Status s;
   s.game = kStatusId, s.version = version;
-  s.needs = {"mech3-pm", "mech3", "mech1"};
+  // The other two games are its needs, given by the launcher (--with), which knows their own statuses; MechWarrior
+  // (1989)'s files are its own (its served setup, mw1_game=): the state, where and missing are theirs alone (missing
+  // means not ready, launcher split b2/b5). A need given that does not hold its game is only logged.
+  s.needs = {"mech3-pm", "mech3"};
   s.setup = rekit::kServedSetup;  // MechWarrior (1989)'s files: mw1 --setup <ask> (mw1_recipe.h)
+  s.play = rekit::kPlayOptions;   // PM's main takes the shared start options and --ready-file
+  s.user = folder;
   const Installs use = merge(given, read_cfg(folder));
-  auto has = [&s](const std::string& dir, bool (*holds)(const std::string&), const char* game) {
-    const bool found = holds(follow_install(dir, holds));
-    if (!found) s.missing.push_back(game);
-    return found;
+  auto held = [](const std::string& dir, bool (*holds)(const std::string&)) {
+    const std::string at = follow_install(dir, holds);
+    return holds(at) ? at : std::string();
   };
-  const int found = int(has(use.pm, is_pm_install, "Pirate's Moon")) + int(has(use.mw3, is_mw3_install, "MechWarrior 3")) +
-                    int(has(use.mw1, is_mw1_install, "MechWarrior (1989)"));
-  s.state = found == 3 ? rekit::Status::kReady : found ? rekit::Status::kIncomplete : rekit::Status::kMissing;
+  if (!given.pm.empty() && held(given.pm, is_pm_install).empty())
+    std::fprintf(stderr, "mw1: status: --with mech3-pm=%s does not hold Pirate's Moon\n", given.pm.c_str());
+  if (!given.mw3.empty() && held(given.mw3, is_mw3_install).empty())
+    std::fprintf(stderr, "mw1: status: --with mech3=%s does not hold MechWarrior 3\n", given.mw3.c_str());
+  s.where = held(use.mw1, is_mw1_install);
+  s.state = s.where.empty() ? rekit::Status::kMissing : rekit::Status::kReady;
+  if (s.where.empty()) s.missing.push_back("MechWarrior (1989)");
   return s;
 }
 

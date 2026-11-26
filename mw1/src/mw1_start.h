@@ -125,8 +125,10 @@ bool is_pm_install(const std::string& dir);  // pm::install_kind's Pirate's Moon
 
 // `mw1 --status` (the launcher contract, re-setup-kit's DESIGN.md): what MW1 has. A pure read: `folder` is the user
 // folder in use (settle_user_folder with `move` false), where mw1.cfg is read, and `given` the command line's
-// installs. ready with all three games found, missing with none, else incomplete. The id is the Remake's own
-// ("mech1" is the 1989 game's rebuild); the version the program's tag, as --version and the record say it.
+// installs. Its files are MechWarrior (1989)'s (its served setup): ready with them (where: their folder), else missing
+// (missing: ["MechWarrior (1989)"]); the other two games are its needs (the launcher's --with), never in its missing (a
+// need given that does not hold its game is logged to stderr). play 1, its user folder (b5). The id is the Remake's own ("mech1" is the 1989 game's rebuild); the version the program's tag,
+// as --version and the record say it.
 inline constexpr const char* kStatusId = "mech1-remake";
 rekit::Status status(const std::string& folder, const Installs& given, const std::string& version);
 
