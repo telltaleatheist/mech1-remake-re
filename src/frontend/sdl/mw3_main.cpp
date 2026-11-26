@@ -813,7 +813,14 @@ int print_status(Args& a) {
       if (!a.write_dir.empty()) st.notes = sdlfe::mw3_notes(st.where, f.version, a.write_dir, &st.notes_once);
       st.lacks = sdlfe::mw3_lacks(st.where, f.version, a.write_dir);
 #if !defined(_WIN32)
-      if (!a.no_import && sdlfe::movies_missing(st.where, sdlfe::media_dir(st.where, a.write_dir)) > 0) st.pending.push_back("movies");
+      // Pending as the launcher counted them (b4): the copy's movies and those ADD FROM MY DISC put in the media
+      // folder's video\ (the first-run step converts both), and only with the importer beside this program.
+      if (!a.no_import && !sdlfe::importer_path().empty()) {
+        const std::string md = sdlfe::media_dir(st.where, a.write_dir);
+        std::error_code ec;
+        const bool same = std::filesystem::equivalent(st.where, md, ec);
+        if (sdlfe::movies_missing(st.where, md) + (same ? 0 : sdlfe::movies_missing(md, md)) > 0) st.pending.push_back("movies");
+      }
 #endif
     } else {
       st.state = rekit::Status::kIncomplete;

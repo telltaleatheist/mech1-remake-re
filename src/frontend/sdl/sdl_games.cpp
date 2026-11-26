@@ -2,7 +2,7 @@
 
 #include "frontend/sdl/sdl_update.h"
 #include "frontend/sdl/sdl_install.h"  // kGameFolderMark
-#include "mech3/patch_import.h"
+#include "rekit/hash.h"
 #include "mech3/data_folder.h"
 #include "rekit/archive.h"
 #include "rekit/family_folder.h"
@@ -451,7 +451,7 @@ Done install_release(const std::string& root, u::Game g, const u::Release& r, co
 
 FileCheck check_file(const std::string& file) {
   FileCheck c;
-  c.sha256 = mech3::sha256_file_hex(file);
+  c.sha256 = rekit::sha256_file_hex(file);
   std::error_code ec;
   const fs::path sums = fs::path(file).parent_path() / "SHA256SUMS";
   const std::string name = fs::path(file).filename().string();
@@ -490,8 +490,8 @@ Done install_file(const std::string& root, const std::string& file, const std::s
     return fail("Nothing was installed: " + error + ".");
   // Which game: the one program of ours in it.
   std::vector<u::Game> found;
-  for (u::Game g : u::kGames)
-    if (!program_in(staged.string(), g).empty()) found.push_back(g);
+  for (int i = 0; i < u::game_count(); ++i)  // a fetched catalog's new games too (b7)
+    if (!program_in(staged.string(), u::game_at(i)).empty()) found.push_back(u::game_at(i));
   if (found.empty()) return fail(name + " holds none of the games (mw3, mw3pm or mw1), so nothing was installed.");
   if (found.size() > 1) return fail(name + " holds more than one game (the full package): pick one game's own download.");
   const u::Game g = found.front();
@@ -534,15 +534,18 @@ bool claim_game_folder(const std::string& dir, u::Game g, std::string* error) {
   return true;
 }
 
-bool kit_status(const std::string& bin, rekit::Status* out) {
+bool kit_status(const std::string& bin, rekit::Status* out, const std::vector<std::string>& more) {
   std::string said;
-  if (bin.empty() || run_program({bin, "--status"}, 10, &said) != 0) return false;
+  std::vector<std::string> args = {bin, "--status"};
+  args.insert(args.end(), more.begin(), more.end());
+  if (bin.empty() || run_program(args, 10, &said) != 0) return false;
   const size_t a = said.find('{'), b = said.rfind('}');  // the object alone, should a log line come with it
   return a != std::string::npos && b != std::string::npos && b > a && rekit::parse_status(said.substr(a, b - a + 1), out);
 }
 
 bool kit_setup(const std::string& bin, const std::vector<std::string>& args, int seconds,
-               const std::function<bool(const rekit::SetupMessage&)>& progress, rekit::SetupMessage* out) {
+               const std::function<bool(const rekit::SetupMessage&)>& progress, rekit::SetupMessage* out,
+               const std::function<void(const rekit::SetupMessage&)>& each) {
   *out = {};
   std::vector<const char*> argv{bin.c_str(), "--setup"};
   for (const std::string& a : args) argv.push_back(a.c_str());
@@ -569,6 +572,7 @@ bool kit_setup(const std::string& bin, const std::vector<std::string>& args, int
         if (rekit::parse_setup_message(line, &m)) {  // a log line among them is passed over
           if (m.done) *out = m, answered = true;
           else step = m;
+          if (!m.done && each) each(m);
         }
         line.clear();
       }
@@ -602,9 +606,8 @@ bool in_own_mount(const std::string& bin) {
 
 // ---- Copies installed without the launcher (2026-11-24) ----
 
-namespace {
-
-// A game's id in its --status (re-setup-kit's contract), where known: a stand-in for a stamp an AppImage hides.
+// A game's id in its --status (re-setup-kit's contract), where known: a stand-in for a stamp an AppImage hides; the
+// launcher's --with names the needed games by it (b5).
 const char* kit_id(u::Game g) {
   switch (g) {
     case u::Game::kMw3: return "mech3";
@@ -615,6 +618,8 @@ const char* kit_id(u::Game g) {
     default: return "";
   }
 }
+
+namespace {
 
 #if defined(_WIN32)
 // Its Setup's uninstall entry (tools/windows/installer.iss: the AppId, the same every version), where known.
@@ -838,8 +843,8 @@ Removal removal_of(const std::string& prog, u::Game g) {
   if (r.how == Removal::kTrash) r.path = whole.string();
   // A package of more than this game (an older launcher's), or this launcher's own: not from here.
   if (whole != p)
-    for (u::Game o : u::kGames)
-      if (o != g && fs::is_regular_file(dir / program_file(o), ec)) return {Removal::kNone, "", std::string("It is in one package with ") + u::game_info(o).name};
+    for (int i = 0; i < u::game_count(); ++i)
+      if (const u::Game o = u::game_at(i); o != g && fs::is_regular_file(dir / program_file(o), ec)) return {Removal::kNone, "", std::string("It is in one package with ") + u::game_info(o).name};
   const std::string self = self_path();
   if (!self.empty()) {
     const std::string at = fs::weakly_canonical(self, ec).string(), in = whole.string();

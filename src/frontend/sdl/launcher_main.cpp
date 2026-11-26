@@ -20,6 +20,7 @@
 #include "frontend/sdl/crash_report.h"
 #include "frontend/sdl/data_folder_start.h"
 #include "frontend/sdl/launcher.h"
+#include "frontend/sdl/launcher_own.h"
 #include "frontend/sdl/run_log.h"
 #include "frontend/sdl/sdl_child.h"
 
@@ -79,9 +80,9 @@ void read_config(const std::string& write_dir, sdlfe::LauncherOptions& o) {
   std::string line;
   while (std::getline(f, line)) {
     if (!line.empty() && line.back() == '\r') line.pop_back();
-    if (line.rfind("install=", 0) == 0) o.cfg_install = zutl::path_from_config(line.substr(8));
-    if (line.rfind("mw1_game=", 0) == 0) o.cfg_mw1_game = zutl::path_from_config(line.substr(9));
-    if (line.rfind("pm_install=", 0) == 0) o.cfg_pm_install = zutl::path_from_config(line.substr(11));
+    if (line.rfind("install=", 0) == 0) o.cfg_install = sdlfe::own::path_from_config(line.substr(8));
+    if (line.rfind("mw1_game=", 0) == 0) o.cfg_mw1_game = sdlfe::own::path_from_config(line.substr(9));
+    if (line.rfind("pm_install=", 0) == 0) o.cfg_pm_install = sdlfe::own::path_from_config(line.substr(11));
     if (line.rfind("pm_notes=", 0) == 0) o.cfg_pm_notes = line.substr(9);
     if (line.rfind("mw3_notes=", 0) == 0) o.cfg_mw3_notes = line.substr(10);
   }
@@ -168,7 +169,7 @@ int main(int argc, char** argv) {
   o.program_dir = own_dir().string();
   o.game_bin = beside("MW3_GAME_BIN", "mw3");
   o.pm_bin = beside("MW3_PM_BIN", "mw3pm");
-  o.mw1_bin = beside("MW3_MW1_BIN", "mw1");  // MW1: the remake; when there, in place of Elthial's port
+  o.mw1_bin = beside("MW3_MW1_BIN", "mw1");  // MechWarrior 1 Remake, when there
   o.mw1r_bin = beside("MW3_MW1R_BIN", "mw1r");  // MW1 Rebuild (MW1's ORIGINAL tab)
   o.chi_bin = beside("MW3_CHI_BIN", "chi");        // Inception Rebuild (INCEPTION's ORIGINAL tab)
   o.chirm_bin = beside("MW3_CHIRM_BIN", "chirm");  // Inception Remake (its REMAKE tab)

@@ -17,6 +17,75 @@ enum class Game { kMw3, kPm, kMw1, kMw1r, kChi, kChirm };
 constexpr Game kGames[] = {Game::kMw3, Game::kPm, Game::kMw1, Game::kMw1r, Game::kChi, Game::kChirm};
 constexpr int kGameCount = 6;
 
+// The games catalog (docs/launcher-split.md, b0; 2026-11-26): the families and the games as data, games.json, built
+// into the launcher. A game's options and notes are not in it: they are its own --status's.
+struct CatalogFamily {
+  std::string key, name;  // "mw3", "MechWarrior 3"
+  int order = 0;
+};
+struct CatalogGame {
+  std::string key;          // "pm": its folder under the games folder, its record's game=, its page (game:<key>)
+  std::string family;       // a CatalogFamily's key
+  int order = 0;            // its panel's place, top to bottom
+  enum State { kComingSoon, kReleased, kRemoved } state = kReleased;  // read only, until the fetched catalog (b7)
+  std::string name;         // "Pirate's Moon", for the words
+  std::string title;        // its panel's name: "PIRATE'S MOON"
+  std::string heading;      // its screens' header: "MECHWARRIOR 3: PIRATE'S MOON"
+  std::string button;       // its panel button's name (the log's, a pad's): "PIRATE'S MOON"
+  std::string description;  // its panel's blurb
+  std::string repo;         // its GitHub repo (telltaleatheist/<repo>)
+  std::string tag_prefix;   // "pm-v": its tags are this and X.Y.Z
+  std::string program;      // its program's file name without .exe: "mw3pm"
+  std::string asset[3];     // each Platform's file in a release, "{tag}" standing for the tag
+  std::string badge;        // its panel's art (assets/launcher/ui)
+  std::string heading_badge;  // its own setup's header art; "" the badge
+  std::string card;         // a card's art, none yet
+  std::vector<std::string> needs;  // other games' keys it needs to play
+  std::string min_launcher;  // the oldest launcher version that reads the entry ("1.5.2")
+  bool panel_before_release = true;  // false: no panel until a release is found or it is installed
+};
+struct Catalog {
+  int version = 0;   // "catalog": 1, the format
+  int revision = 0;  // "revision": which wins, the built-in or a fetched one (the higher)
+  std::vector<CatalogFamily> families;
+  std::vector<CatalogGame> games;  // by order
+};
+// A catalog's JSON read and checked: every key once, each game's family listed, a known state, the fields the
+// launcher needs present. False and `why` (the entry and what is wrong) when not.
+bool parse_catalog(const std::string& json, Catalog* out, std::string* why);
+const std::string& builtin_catalog_text();  // games.json as built in
+const Catalog& builtin_catalog();
+// The catalog in use this run (b7, 2026-11-26): the built-in one unless the launcher's start set another (the fetched
+// one cached, merged over it) before any game was looked up. A later use_catalog is refused (false): the catalog's
+// strings stay put for the run (GameInfo points into them).
+bool use_catalog(const Catalog& c);
+const Catalog& active_catalog();
+// Its games this run, kMaxGames at most: the six the code knows by their Game (kGames, in that order), then the
+// catalog's others (a fetched catalog's new games, on the setup kit's contract: their Game is their place, 6 and up).
+constexpr int kMaxGames = 10;  // the launcher's per-game button ids leave room for ten
+int game_count();
+Game game_at(int i);
+// The catalog's entry of a game this run; every one of game_count()'s has one.
+const CatalogGame& catalog_game(Game g);
+// The Game an entry's key names this run; false for a key the catalog in use does not hold.
+bool game_of_key(const std::string& key, Game* g);
+
+// A fetched catalog (b7): read as parse_catalog does, but a bad entry is left out (said in `ignored`) and the rest
+// kept, and so is one the launcher must not trust: a repo under another GitHub owner than kCatalogOwner, a
+// min_launcher newer than `launcher_version` (a release's; a build's "unknown" checks none), art that is not a
+// plain .png name. Its families are checked at the merge. False with `why` only when the whole is not a catalog (not
+// JSON, no lists, a newer format).
+// Kept as its address so the program holds the name only there (the packages' privacy check allows it there).
+constexpr const char kCatalogOwnerAddress[] = "github.com/telltaleatheist";
+constexpr const char* kCatalogOwner = kCatalogOwnerAddress + 11;
+bool read_fetched_catalog(const std::string& json, const std::string& launcher_version, Catalog* out,
+                          std::vector<std::string>* ignored, std::string* why);
+// `fetched` over `builtin` when its revision is higher, else `builtin` as it is: a family or game by its key
+// replaced, a new one added, the rest the built-in's. A game whose family neither lists is left out (in `ignored`).
+// (A fetched one need list only what it changes; the games past kMaxGames are left out when it is put in use.)
+Catalog merged_catalog(const Catalog& builtin, const Catalog& fetched, std::vector<std::string>* ignored = nullptr);
+
+// The catalog's entry as the code's older shape (its strings the catalog in use's, alive for the program's run).
 struct GameInfo {
   const char* key;      // "mw3", "pm", "mw1": its folder under the games folder, its record's game=
   const char* name;     // "Pirate's Moon", for the words
@@ -29,7 +98,7 @@ const GameInfo& game_info(Game g);
 // A release tag of this game: its prefix and X.Y.Z, nothing after ("pm-v1.2.3"; not "pm-v1.2.3-rc1").
 bool game_tag(Game g, const std::string& tag);
 
-// The file a game's release has for a platform, as its packaging names it (docs/release.md):
+// The file a game's release has for a platform, as its packaging names it (docs/release.md; the catalog's `assets`):
 //   MechWarrior 3   MW3-alone-<tag>-win64.zip    MW3-alone-<tag>-mac.dmg    MW3-alone-<tag>-x86_64.AppImage
 //   Pirate's Moon   mw3pm-<tag>-win64.zip        PM-Rebuild-<tag>-mac.dmg   PM-Rebuild-<tag>-x86_64.AppImage
 //   MW1 Remake      MW1-Remake-<tag>-win64.zip   MW1-Remake-<tag>-mac.dmg   MW1-Remake-<tag>-x86_64.AppImage

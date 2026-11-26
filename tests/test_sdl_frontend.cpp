@@ -32,7 +32,6 @@ int unsetenv(const char* name) { return _putenv_s(name, ""); }
 #include <vector>
 
 #include "check.h"
-#include "mw1_btech_stand_in.h"
 #if MW3_HAVE_LIBARCHIVE
 #if defined(_WIN32)  // archive_entry.h brings in <windows.h>: none of its macros (max, near, small) past here
 #ifndef NOMINMAX
@@ -82,6 +81,7 @@ int unsetenv(const char* name) { return _putenv_s(name, ""); }
 #include "frontend/sdl/sdl_input.h"
 #include "mech3/controls_cfg.h"
 #include "frontend/sdl/sdl_install.h"
+#include "frontend/sdl/launcher_own.h"
 #include "mech3/game_setup.h"
 #include "mech3/source_map.h"
 #include "rekit/status.h"
@@ -236,6 +236,66 @@ TEST(config_value_keeps_line_endings) {
   EXPECT(text() == "k=v\n");
 #endif
   std::filesystem::remove_all(dir, ec);
+}
+
+// The launcher's own copies (launcher_own.h, launcher split b1) do what the game's do: mw3.cfg's line editor byte for
+// byte on the same files, crc32 on the same bytes, any_case on the same tree, path_from_config on the same lines.
+TEST(launcher_own_copies_do_as_the_games) {
+  namespace fs = std::filesystem;
+  const std::string dir = std::string(MW3_TEST_TMP) + "/launcher_own";
+  std::error_code ec;
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir + "/a", ec), fs::create_directories(dir + "/b", ec);
+  auto text = [](const std::string& d) {
+    std::ifstream f(d + "/mw3.cfg", std::ios::binary);
+    std::stringstream b;
+    b << f.rdbuf();
+    return b.str();
+  };
+  const char* const starts[] = {"install=X\r\nwidemenus=1\r\nmod=a\r\n", "install=X\nwidemenus=1\n", "a=1\r\nb=2\nc=3\r\nd=4", "", nullptr};
+  int same = 0, cases = 0;
+  for (const char* start : starts) {
+    for (const auto& [k, v] : std::vector<std::pair<std::string, std::string>>{{"widemenus", "0"}, {"b", "5"}, {"new", "1"}, {"install", ""}}) {
+      for (const char* d : {"/a", "/b"}) {
+        fs::remove(dir + d + "/mw3.cfg", ec);
+        if (start) std::ofstream(dir + d + "/mw3.cfg", std::ios::binary) << start;
+      }
+      const bool ra = sdlfe::save_config_value(dir + "/a", k, v), rb = sdlfe::own::save_config_value(dir + "/b", k, v);
+      ++cases, same += ra == rb && text(dir + "/a") == text(dir + "/b");
+    }
+  }
+  for (const char* in : {"rel/game", "/abs/../game", ""}) {
+    for (const char* d : {"/a", "/b"}) std::ofstream(dir + d + "/mw3.cfg", std::ios::binary) << "x=1\n";
+    const bool ra = sdlfe::save_install(dir + "/a", in), rb = sdlfe::own::save_install(dir + "/b", in);
+    ++cases, same += ra == rb && text(dir + "/a") == text(dir + "/b");
+  }
+  ++cases, same += sdlfe::own::save_config_value("", "k", "v") == sdlfe::save_config_value("", "k", "v");
+  std::printf("  mw3.cfg: %d of %d the same\n", same, cases);
+  EXPECT(same == cases);
+  // crc32: the notes' seen-once text and bytes of every value, from 0 and chained.
+  std::string bytes;
+  for (int i = 0; i < 4096; ++i) bytes.push_back(static_cast<char>((i * 131 + 7) & 0xff));
+  bool crc_same = true;
+  for (size_t n : {size_t(0), size_t(1), size_t(17), bytes.size()})
+    crc_same = crc_same && sdlfe::own::crc32(0, bytes.data(), n) == zutl_zar::crc32(0, bytes.data(), n) &&
+               sdlfe::own::crc32(0x12345678u, bytes.data(), n) == zutl_zar::crc32(0x12345678u, bytes.data(), n);
+  EXPECT(crc_same && sdlfe::own::crc32(0xffffffffu, "123456789", 9) == 0x0376e6e7u);  // CRC-32/MPEG-2's check value
+  // any_case: by its own name, by its letters, a root by its letters, none.
+  fs::create_directories(dir + "/game/ZBD/c1", ec), fs::create_directories(dir + "/game/Music", ec);
+  std::ofstream(dir + "/game/ZBD/SoundsL.zbd") << "x";
+  int found = 0, asked = 0;
+  for (const auto& [root, rel] : std::vector<std::pair<std::string, std::string>>{
+           {dir + "/game", "zbd/soundsl.zbd"}, {dir + "/game", "music"}, {dir + "/game", "MUSIC"}, {dir + "/game/zbd", "C1"},
+           {dir + "/game", "zbd/c2"}, {dir + "/game", ""}, {dir + "/GAME", "zbd"}, {dir + "/none", "zbd"}, {"", dir + "/game"}}) {
+    const std::string mine = sdlfe::own::any_case(root, rel), theirs = zutl::any_case(root, rel);
+    ++asked, found += mine == theirs;
+    if (mine != theirs) std::printf("  any_case %s + %s: %s, the game's %s\n", root.c_str(), rel.c_str(), mine.c_str(), theirs.c_str());
+  }
+  EXPECT(found == asked && !sdlfe::own::any_case(dir + "/game", "zbd/soundsl.zbd").empty());
+  for (const char* line : {"C:/Games/MW3", "/Users/x/Spiel \xc3\xa4", "\xe4\xf6", ""})
+    EXPECT(sdlfe::own::path_from_config(line) == zutl::path_from_config(line));
+  EXPECT(sdlfe::own::narrow_paths_utf8() == zutl::narrow_paths_utf8());
+  if (!check::failures) fs::remove_all(dir, ec);
 }
 
 TEST(sdl_input_scancodes_map_to_dik_codes) {
@@ -3304,6 +3364,13 @@ bool bmp_shares(const std::string& path, int* w, int* h, double* lit, double* gr
   *lit = static_cast<double>(l) / n, *green = static_cast<double>(g) / n;
   return true;
 }
+// (spawn_bin and spawn_mw3 are above, shared with Pirate's Moon's suite.)
+// A stand-in mw3's first line: the launcher's asks, its --status (b2: MechWarrior 3's panel) and its --setup (b3: GAME
+// FILES' look, install, copies and add), answered by the real mw3, so the stand-in's own steps (its log, its args.txt)
+// are only a start's. Its last line is our program version (kVersionLine), without which the launcher never runs a
+// program for its status.
+const std::string kAsksAsMw3 = std::string("case \"$1\" in --status|--setup) exec \"") + MW3_BIN + "\" \"$@\";; esac\n";
+const std::string kVersionLine = std::string("# MW3-PROGRAM") + "-VERSION:v0.0.0-test" + std::string(1, '\0') + "\n";
 // mw3launcher, the launcher's own program (docs/launcher.md, The two programs).
 // A stale mw3pm beside the build's launcher would make PIRATE'S MOON a live
 // entry and move every key walk: none, unless a test names its stand-in.
@@ -6245,6 +6312,87 @@ TEST(sdl_program_status_and_setup_answer_the_launcher) {
   std::filesystem::remove_all(dir, ec);
 }
 
+// The status looks where the launcher looked (2026-11-26, docs/launcher-split.md b2): the start check's notes first
+// (notes_once), what the copy lacks as its --copies row says it, a copy offered rather than taken noted, the card
+// INSTALL's folder and this program's own marked game folder ahead of mw3.cfg's; and a --status with --setup beside
+// it answers the status alone (a launcher's child never reaches a screen or a served ask).
+TEST(sdl_program_status_finds_as_the_launcher) {
+  namespace fs = std::filesystem;
+  const std::string dir = std::string(MW3_TEST_TMP) + "/status_finds", game = MW3_GAME_DIR;
+  std::error_code ec;
+  fs::remove_all(dir, ec);
+  auto run = [&](const std::string& bin, const std::vector<std::string>& args, const std::string& name, int* code) {
+    int status = 0;
+    const std::string log = dir + "/" + name + ".log";
+    *code = waited(spawn_bin(bin.c_str(), args, log), &status) && WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+    std::ifstream f(log);
+    return std::string((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+  };
+  // A copy without its zbd\soundsH.zbd: the start check's one warning.
+  const std::string x = dir + "/x";
+  fs::create_directories(x + "/zbd", ec);
+  for (const auto& e : fs::directory_iterator(game, ec)) {
+    const std::string n = e.path().filename().string();
+    if (n != "zbd" && n != "video") fs::create_symlink(e.path(), x + "/" + n, ec);
+  }
+  for (const auto& e : fs::directory_iterator(game + "/zbd", ec)) {
+    std::string n = e.path().filename().string(), low = n;
+    for (char& c : low) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    if (low != "soundsh.zbd") fs::create_symlink(e.path(), x + "/zbd/" + n, ec);
+  }
+  fs::create_directories(dir + "/wd", ec);
+  std::ofstream(dir + "/wd/mw3.cfg") << "install=" << x << "\n";
+  setenv("MW3_FIND_INSTALL", "1", 1);
+  int code = -1;
+  rekit::Status st;
+  const std::string a = run(MW3_BIN, {"--status", "--write-dir", dir + "/wd"}, "a", &code);
+  std::printf("  status: %s", a.c_str());
+  EXPECT(code == 0 && rekit::parse_status(a, &st) && st.where == x && st.note.empty() && st.notes_once == 1 && st.notes.size() == 2);
+  if (st.notes.size() == 2) EXPECT(st.notes[0].find("Its zbd\\soundsH.zbd is missing") == 0 && st.notes[1].find("Your install has no movies") == 0);
+  EXPECT(st.lacks == std::vector<std::string>({"music", "movies"}) && st.missing.empty());
+  {  // the same words as its --copies row, from the same code
+    rekit::SetupMessage m, row;
+    const std::string c = run(MW3_BIN, {"--setup", "--copies", "--write-dir", dir + "/wd"}, "copies", &code);
+    for (size_t at = 0; at < c.size();) {
+      const size_t end = std::min(c.find('\n', at), c.size());
+      if (rekit::parse_setup_message(c.substr(at, end - at), &m) && !m.done && m.copy == x) row = m;
+      at = end + 1;
+    }
+    EXPECT(row.copy == x && row.copy_missing == st.lacks);
+  }
+  // The card INSTALL's folder set but empty: mw3.cfg's copy is offered, not taken; with its install/, that one.
+  fs::create_directories(dir + "/g", ec);
+  std::ofstream(dir + "/wd/mw3.cfg") << "install=" << x << "\ngames_mw3=" << dir << "/g\n";
+  EXPECT(rekit::parse_status(run(MW3_BIN, {"--status", "--write-dir", dir + "/wd"}, "b", &code), &st) && st.where == x &&
+         st.note == "found by the search, not set up yet");
+  fs::create_directory_symlink(game, dir + "/g/install", ec);
+  EXPECT(rekit::parse_status(run(MW3_BIN, {"--status", "--write-dir", dir + "/wd"}, "c", &code), &st) &&
+         st.where == dir + "/g/install" && st.note.empty() && st.notes_once == 0);
+  // This program in a marked game folder: its install/ first, ahead of mw3.cfg's; another game's mark, not.
+  const std::string own = dir + "/games/MechWarrior 3", bin = own + "/mw3-status-own";
+  fs::create_directories(own, ec);
+  fs::copy_file(MW3_BIN, bin, ec);
+  fs::permissions(bin, fs::perms::owner_all, ec);
+  fs::create_directory_symlink(game, own + "/install", ec);
+  std::ofstream(dir + "/wd/mw3.cfg") << "install=" << x << "\n";
+  std::ofstream(own + "/" + sdlfe::kGameFolderMark) << "game=mw3\n";
+  EXPECT(rekit::parse_status(run(bin, {"--status", "--write-dir", dir + "/wd"}, "d", &code), &st) && fs::equivalent(st.where, own + "/install", ec) &&
+         st.note.empty());
+  std::ofstream(own + "/" + sdlfe::kGameFolderMark) << "game=pm\n";
+  EXPECT(rekit::parse_status(run(bin, {"--status", "--write-dir", dir + "/wd"}, "e", &code), &st) && st.where == x);
+  fs::remove(own + "/" + sdlfe::kGameFolderMark, ec);
+  EXPECT(rekit::parse_status(run(bin, {"--status", "--write-dir", dir + "/wd"}, "f", &code), &st) && st.where == x);
+  // --status beside --setup, either order: the status line alone, nothing opened or written.
+  for (const auto& args : {std::vector<std::string>{"--status", "--setup", "--write-dir", dir + "/wd2"},
+                           std::vector<std::string>{"--setup", "--search", "--status", "--write-dir", dir + "/wd2"}}) {
+    const std::string s = run(MW3_BIN, args, "g", &code);
+    EXPECT(code == 0 && rekit::parse_status(s, &st) && st.game == "mech3" && s.find("\"done\"") == std::string::npos &&
+           !fs::exists(dir + "/wd2", ec));
+  }
+  unsetenv("MW3_FIND_INSTALL");
+  if (!check::failures) fs::remove_all(dir, ec);
+}
+
 // A launcher's extras served by mw3 (2026-11-25, docs/launcher-split.md a3): the status's notes, user and play; GAME
 // FILES' copies; ADD FROM MY DISC from a cue sheet (the music); the movies converted as a first-run step through the
 // importer's stand-in (MW3_IMPORTER); an unknown step refused.
@@ -6282,13 +6430,27 @@ TEST(sdl_program_serves_the_launchers_extras) {
   fs::create_directory_symlink(std::string(MW3_GAME_DIR) + "/zbd", dir + "/cd/zbd", ec);
   for (const char* m : {"/cd/video/C1.AVI", "/cd/video/INTRO.AVI"}) std::ofstream(dir + m) << "x";
   fs::create_directories(dir + "/wd", ec);
-  fs::create_directories(dir + "/games", ec);  // the launcher's card INSTALL's folder, another copy (its own install)
-  fs::create_directory_symlink(MW3_GAME_DIR, dir + "/games/install", ec);
-  std::ofstream(dir + "/wd/mw3.cfg") << "install=" << dir << "/cd\ngames_mw3=" << dir << "/games\n";
+  // The launcher's card INSTALL's folder holds the cd as its own install/, in use (b2: the launcher's order); mw3.cfg's
+  // install= another copy.
+  fs::create_directories(dir + "/games", ec);
+  fs::create_directory_symlink(dir + "/cd", dir + "/games/install", ec);
+  fs::create_directory_symlink(MW3_GAME_DIR, dir + "/other", ec);
+  std::ofstream(dir + "/wd/mw3.cfg") << "install=" << dir << "/other\ngames_mw3=" << dir << "/games\n";
+  const std::string cd = dir + "/games/install";
   setenv("MW3_FIND_INSTALL", "1", 1);
   int code = -1;
   rekit::Status st;
+  const std::string importer = dir + "/mw3import";
+  std::ofstream(importer) << "#!/bin/sh\nS=; W=\nwhile [ $# -gt 0 ]; do case \"$1\" in --install) S=$2; shift;; --write-dir) W=$2; shift;; esac; shift; done\n"
+                             "mkdir -p \"$W/video\"; echo progress 0 2; K=0\nfor F in \"$S\"/video/*.AVI; do N=$(basename \"$F\" .AVI | tr A-Z a-z); "
+                             ": > \"$W/video/$N.fmv\"; K=$((K+1)); echo progress $K 2 $N; done\n";
+  fs::permissions(importer, fs::perms::owner_all, ec);
+  // No importer beside the program: nothing pending (b4: the launcher's own count had it so).
+  setenv("MW3_IMPORTER", "", 1);
+  EXPECT(rekit::parse_status(run({"--status", "--write-dir", dir + "/wd"}, "status none", &code), &st) && code == 0 && st.pending.empty());
+  setenv("MW3_IMPORTER", importer.c_str(), 1);
   EXPECT(rekit::parse_status(run({"--status", "--write-dir", dir + "/wd"}, "status", &code), &st) && code == 0);
+  unsetenv("MW3_IMPORTER");
   std::printf("  notes %zu, user %d, play %d, pending %zu\n", st.notes.size(), st.user == dir + "/wd", st.play, st.pending.size());
   EXPECT(st.play == rekit::kPlayOptions && st.user == dir + "/wd" && !st.notes.empty() && st.notes[0].find("No music yet") == 0);
   EXPECT(st.pending == std::vector<std::string>({"movies"}));
@@ -6297,8 +6459,9 @@ TEST(sdl_program_serves_the_launchers_extras) {
   Said c = said(run({"--setup", "--copies", "--write-dir", dir + "/wd"}, "copies", &code));
   EXPECT(code == rekit::kSetupReady && c.done.ok && !c.rows.empty());
   if (!c.rows.empty())
-    EXPECT(c.rows[0].copy == dir + "/cd" && c.rows[0].copy_in_use && c.rows[0].copy_missing == std::vector<std::string>({"music", "the 1.2 patch"}));
-  EXPECT(c.rows.size() == 2 && c.rows.back().copy == dir + "/games/install" && !c.rows.back().copy_in_use && c.rows.back().copy_data == "1.2");
+    EXPECT(c.rows[0].copy == cd && c.rows[0].copy_in_use && c.rows[0].copy_missing == std::vector<std::string>({"music", "the 1.2 patch"}) &&
+           c.rows[0].copy_missing == st.lacks);
+  EXPECT(c.rows.size() == 2 && c.rows.back().copy == dir + "/other" && !c.rows.back().copy_in_use && c.rows.back().copy_data == "1.2");
   // ADD FROM MY DISC: a cue sheet's audio track as the music; asked again, nothing is lacking.
   fs::create_directories(dir + "/disc", ec);
   {
@@ -6317,11 +6480,6 @@ TEST(sdl_program_serves_the_launchers_extras) {
   c = said(run({"--setup", "--copies", "--write-dir", dir + "/wd"}, "copies2", &code));
   EXPECT(!c.rows.empty() && c.rows[0].copy_missing == std::vector<std::string>({"the 1.2 patch"}));  // the music added counts
   // The movies, through the importer's stand-in, as the launcher's convert_movies does.
-  const std::string importer = dir + "/mw3import";
-  std::ofstream(importer) << "#!/bin/sh\nS=; W=\nwhile [ $# -gt 0 ]; do case \"$1\" in --install) S=$2; shift;; --write-dir) W=$2; shift;; esac; shift; done\n"
-                             "mkdir -p \"$W/video\"; echo progress 0 2; K=0\nfor F in \"$S\"/video/*.AVI; do N=$(basename \"$F\" .AVI | tr A-Z a-z); "
-                             ": > \"$W/video/$N.fmv\"; K=$((K+1)); echo progress $K 2 $N; done\n";
-  fs::permissions(importer, fs::perms::owner_all, ec);
   setenv("MW3_IMPORTER", importer.c_str(), 1);
   const Said f = said(run({"--setup", "--first-run", "movies", "--write-dir", dir + "/wd"}, "movies", &code));
   unsetenv("MW3_IMPORTER");
@@ -6329,6 +6487,15 @@ TEST(sdl_program_serves_the_launchers_extras) {
          f.steps.back().stage == "Converting the movies (2 of 2)");
   EXPECT(fs::exists(dir + "/wd/video/c1.fmv") && fs::exists(dir + "/wd/video/intro.fmv"));
   EXPECT(rekit::parse_status(run({"--status", "--write-dir", dir + "/wd"}, "status2", &code), &st) && st.pending.empty() && st.notes.empty());
+  // A movie ADD FROM MY DISC put in the user folder's video\ (b4: as the launcher counted them): pending again, then
+  // converted by the same step.
+  std::ofstream(dir + "/wd/video/C2.AVI") << "x";
+  setenv("MW3_IMPORTER", importer.c_str(), 1);
+  EXPECT(rekit::parse_status(run({"--status", "--write-dir", dir + "/wd"}, "status3", &code), &st) && st.pending == std::vector<std::string>({"movies"}));
+  const Said f2 = said(run({"--setup", "--first-run", "movies", "--write-dir", dir + "/wd"}, "movies2", &code));
+  EXPECT(f2.done.ok && fs::exists(dir + "/wd/video/c2.fmv") &&
+         rekit::parse_status(run({"--status", "--write-dir", dir + "/wd"}, "status4", &code), &st) && st.pending.empty());
+  unsetenv("MW3_IMPORTER");
   const Said bad = said(run({"--setup", "--first-run", "maps", "--write-dir", dir + "/wd"}, "maps", &code));
   EXPECT(code == rekit::kSetupFailed && !bad.done.ok && bad.done.summary == "There is no first-run step maps.");
   // Nothing set up: nothing to add to, said.
@@ -7261,7 +7428,7 @@ LauncherRun run_launcher_with(const std::string& name, const std::string& script
     for (size_t at; (at = body.find("STATUS")) != std::string::npos;)  // the game's status line, beside the ready file
       body.replace(at, 6, "R=; P=; for A in \"$@\"; do [ \"$P\" = --ready-file ] && R=$A; P=$A; done; "
                           "printf 'Importing your movies (first start only): 3 of 19...' > \"$R.status\"");
-    sh << "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"" << dir << "/args.txt\"\n" << body << "\n: > \"" << done << "\"\n";
+    sh << "#!/bin/sh\n" << kAsksAsMw3 << "printf '%s\\n' \"$@\" > \"" << dir << "/args.txt\"\n" << body << "\n: > \"" << done << "\"\n" << kVersionLine;
   }
   std::filesystem::permissions(game, std::filesystem::perms::owner_all, ec);
   setenv("MW3_GAME_BIN", game.c_str(), 1);
@@ -7412,7 +7579,7 @@ TEST(sdl_program_mouse_settings_stay_across_starts) {
   EXPECT(files("E, nothing touched", k24, k24, cfg_c));
 #if !defined(MW3_PM_SUITE)  // the launcher is MW3's (it starts mw3pm on the folder resolved the same way)
   const std::string game = dir + "/game.sh", elog = dir + "/launched.log", end = dir + "/launched.done";
-  std::ofstream(game) << "#!/bin/sh\n\"" << MW3_BIN << "\" \"$@\" -nofmv --frame-ms 33 --frames 200 > \"" << elog << "\" 2>&1\n: > \"" << end << "\"\n";
+  std::ofstream(game) << "#!/bin/sh\n" << kAsksAsMw3 << "\"" << MW3_BIN << "\" \"$@\" -nofmv --frame-ms 33 --frames 200 > \"" << elog << "\" 2>&1\n: > \"" << end << "\"\n" << kVersionLine;
   fs::permissions(game, fs::perms::owner_all, ec);
   setenv("MW3_GAME_BIN", game.c_str(), 1);
   setenv("MW3_NO_IMPORT", "1", 1);
@@ -7487,7 +7654,7 @@ TEST(sdl_program_data_folder_pointer_and_move) {
   EXPECT(text(to + "/pilots/a.pil") == "pilot" && !std::filesystem::exists(usual + "/pilots"));
   // The next launcher reads the pointer and passes the folder to the game.
   const std::string game = dir + "/game.sh", args = dir + "/args.txt";
-  std::ofstream(game) << "#!/bin/sh\necho \"$@\" > " << args << "\nexit 0\n";
+  std::ofstream(game) << "#!/bin/sh\n" << kAsksAsMw3 << "echo \"$@\" > " << args << "\nexit 0\n" << kVersionLine;
   std::filesystem::permissions(game, std::filesystem::perms::owner_all, ec);
   setenv("MW3_GAME_BIN", game.c_str(), 1);
   setenv("MW3_NO_IMPORT", "1", 1);
@@ -7624,7 +7791,7 @@ TEST(sdl_program_launcher_finds_the_game_then_plays) {
     refuse[2].second = "300";  // MW3_LAUNCHER_FRAMES
     const LauncherRun f = run_launcher_with("launcher_v1_to_theirs", "READY\nsleep 2", nullptr, refuse);
     EXPECT(f.exited && f.args.empty() && screen(f.log, "Nothing was copied") && !fs::exists(game + "/install", ec) &&
-           fs::exists(game + "/notes.txt", ec));
+           fs::exists(game + "/notes.txt", ec) && !fs::exists(game + "/rebuild-game-folder.txt", ec));
     fs::remove_all(to, ec);
   }
   // Found, no music: the notes first (ADD FROM MY DISC, OK), their OK the start.
@@ -7815,6 +7982,29 @@ TEST(sdl_program_launcher_lists_the_copies) {
 // links it at the start (a development build's never); its gear's page links another by hand, unlinks one (not
 // linked again by itself) and uninstalls the launcher's copy, with its game files only when asked and only a folder
 // our copying made (here the files are links to game/pm, which stays whole).
+// INSTALL FROM A DOWNLOADED FILE's check (sdlfe::games::check_file, rekit's SHA-256 since b6): the file's sum, and
+// the SHA256SUMS beside it matched, mismatched or missing.
+TEST(sdl_games_check_file_reads_its_sums) {
+  namespace fs = std::filesystem;
+  using FC = sdlfe::games::FileCheck;
+  const std::string dir = std::string(MW3_TEST_TMP) + "/games_check_file";
+  std::error_code ec;
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  const std::string file = dir + "/Game-x.zip", abc = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+  std::ofstream(file, std::ios::binary) << "abc";
+  const FC none = sdlfe::games::check_file(file);
+  EXPECT(none.kind == FC::kNoSums && none.sha256 == abc && none.words.find("no SHA256SUMS") != std::string::npos);
+  std::ofstream(dir + "/SHA256SUMS") << abc << "  Game-x.zip\n";
+  const FC ok = sdlfe::games::check_file(file);
+  EXPECT(ok.kind == FC::kMatches && ok.sha256 == abc);
+  std::ofstream(dir + "/SHA256SUMS") << std::string(64, '0') << "  Game-x.zip\n";
+  EXPECT(sdlfe::games::check_file(file).kind == FC::kMismatch);
+  std::ofstream(dir + "/SHA256SUMS") << abc << "  Other.zip\n";
+  EXPECT(sdlfe::games::check_file(file).kind == FC::kNoSums);
+  if (!check::failures) fs::remove_all(dir, ec);
+}
+
 TEST(sdl_program_launcher_links_and_uninstalls) {
   namespace fs = std::filesystem;
   const std::string pm_files = (fs::path(MW3_GAME_DIR).parent_path() / "pm").string();
@@ -7890,7 +8080,8 @@ TEST(sdl_program_launcher_links_and_uninstalls) {
   EXPECT(ri.exited && has(ri.log, ("games: pm: found " + i + "/elsewhere/PM.AppImage (its record), linked").c_str()));
   {
     const std::string game = i + "/game.sh", out = i + "/handed.txt";
-    std::ofstream(game) << "#!/bin/sh\necho \"$@\" > '" << out << "'\n";
+    // Not kAsksAsMw3: this game records what it is handed, --status included (the launcher passes it on).
+    std::ofstream(game) << "#!/bin/sh\n" << "echo \"$@\" > '" << out << "'\n" << kVersionLine;
     fs::permissions(game, fs::perms::owner_all);
     setenv("MW3_GAME_BIN", game.c_str(), 1);
     for (const char* args : {"--status", "/x/install --write-dir /x/wd --ready-file /x/r"}) {
@@ -8078,6 +8269,114 @@ TEST(sdl_program_launcher_family_cards) {
   EXPECT(args == "0");  // plain: its own setup opens when its game files are missing
 }
 
+// The games catalog fetched (b7, docs/launcher.md, The games catalog): a stand-in's catalog adds a game (its badge
+// fetched beside it), flips Inception's remake to released and removes MechWarrior 1 Rebuild (not installed: gone)
+// and Inception (installed: shown, and it still plays); an entry under another owner and one for a newer launcher
+// left out. Then offline with that cache, and offline with none (the built-in catalog).
+TEST(sdl_program_launcher_takes_a_fetched_catalog) {
+  namespace fs = std::filesystem;
+  const std::string dir = std::string(MW3_TEST_TMP) + "/launcher_catalog";
+  std::error_code ec;
+  fs::remove_all(dir, ec);
+  for (const char* d : {"/api", "/games", "/cat/art", "/wd/music", "/wd2/music"}) fs::create_directories(dir + d, ec);
+  for (const char* w : {"/wd", "/wd2"}) std::ofstream(dir + w + "/music/track02.wav") << "x";
+#if defined(__APPLE__)
+  const std::string tail = "-mac.dmg";
+#else
+  const std::string tail = "-x86_64.AppImage";
+#endif
+  for (const char* repo : {"mech3-pm-re", "mech1-remake-re", "mech1-re", "inception-re", "inception-remake-re"}) std::ofstream(dir + "/api/" + repo + ".json") << "[]";
+  std::ofstream(dir + "/api/battletech-re.json")
+      << "[{\"tag_name\": \"btech-v0.1.0\", \"draft\": false, \"prerelease\": false, \"body\": \"x\", \"assets\": [{\"name\": "
+      << "\"BT-btech-v0.1.0" << tail << "\", \"size\": 1000, \"browser_download_url\": \"file://" << dir << "/x\"}, "
+      << "{\"name\": \"SHA256SUMS\", \"size\": 10, \"browser_download_url\": \"file://" << dir << "/s\"}]}]";
+  fs::copy_file(std::string(MW3_ASSETS_FOR_TESTS) + "/launcher/badge_mw3.png", dir + "/cat/art/badge_bt.png", ec);
+  auto entry = [](const std::string& key, const std::string& family, int order, const std::string& state, const std::string& name,
+                  const std::string& title, const std::string& button, const std::string& repo, const std::string& prefix,
+                  const std::string& program, const std::string& stem, const std::string& badge, const std::string& min = "1.5.2") {
+    return "{\"key\": \"" + key + "\", \"family\": \"" + family + "\", \"order\": " + std::to_string(order) + ", \"state\": \"" + state +
+           "\", \"name\": \"" + name + "\", \"title\": \"" + title + "\", \"heading\": \"" + title + "\", \"button\": \"" + button +
+           "\", \"description\": \"A line.\", \"repo\": \"" + repo + "\", \"tag_prefix\": \"" + prefix + "\", \"program\": \"" + program +
+           "\", \"assets\": {\"windows\": \"" + stem + "-{tag}-win64.zip\", \"mac\": \"" + stem + "-{tag}-mac.dmg\", \"linux\": \"" + stem +
+           "-{tag}-x86_64.AppImage\"}, \"badge\": \"" + badge + "\", \"min_launcher\": \"" + min + "\"}";
+  };
+  std::ofstream(dir + "/cat/games.json")
+      << "{\"catalog\": 1, \"revision\": 2, \"families\": [{\"key\": \"bt\", \"name\": \"BattleTech\", \"order\": 4}], \"games\": ["
+      << entry("mw1r", "mw1", 3, "removed", "MechWarrior 1 Rebuild", "MECHWARRIOR 1: REVERSE ENGINEERED", "MECHWARRIOR 1 ORIGINAL", "mech1-re",
+               "mw1r-v", "mw1r", "MW1-Rebuild", "badge_mw1o.png")
+      << ", " << entry("chi", "inception", 5, "removed", "Inception Rebuild", "THE CRESCENT HAWK'S INCEPTION", "INCEPTION ORIGINAL",
+                       "inception-re", "chi-v", "chi", "CHI-Rebuild", "badge_inception.png")
+      << ", {\"panel_before_release\": false, " << entry("chirm", "inception", 6, "released", "Inception Remake", "INCEPTION REMAKE", "INCEPTION REMAKE",
+                                                           "inception-remake-re", "chirm-v", "chirm", "CHI-Remake", "badge_inception.png").substr(1)
+      << ", " << entry("btech", "bt", 7, "released", "BattleTech Rebuild", "BATTLETECH", "BATTLETECH", "battletech-re", "btech-v", "btech", "BT", "badge_bt.png")
+      << ", " << entry("evil", "bt", 8, "released", "E", "E", "EVIL", "someoneelse/evil-re", "e-v", "e", "E", "badge_bt.png")
+      << ", " << entry("future", "bt", 9, "released", "F", "F", "FUTURE", "future-re", "f-v", "f", "F", "badge_bt.png", "99.0.0") << "]}";
+  {
+    std::ofstream sh(dir + "/chi");
+    sh << "#!/bin/sh\nif [ \"$1\" = --status ]; then echo '{\"kit\": 1, \"game\": \"inception\", \"version\": \"0.1.0\", "
+          "\"files\": {\"state\": \"ready\", \"where\": \"/games/chi\"}, \"first_run\": {\"pending\": []}, \"needs\": []}'; exit 0; fi\n"
+       << "printf '%s\\n' \"$#\" > \"" << dir << "/chi-ran\"\nexit 0\n";
+  }
+  fs::permissions(dir + "/chi", fs::perms::owner_all);
+  auto read = [](const std::string& f) {
+    std::ifstream in(f);
+    return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  };
+  // The others' programs not taken from beside the launcher (a build folder may hold them).
+  static const char* const kOthers[] = {"MW3_PM_BIN", "MW3_MW1_BIN", "MW3_MW1R_BIN", "MW3_CHIRM_BIN"};
+  auto shot = [&](const std::string& wd, const std::string& url, const std::string& name) {
+    setenv("MW3_GAMES_API", ("file://" + dir + "/api/{repo}.json").c_str(), 1), setenv("MW3_GAMES_DIR", (dir + "/games").c_str(), 1);
+    setenv("MW3_CHI_BIN", (dir + "/chi").c_str(), 1), setenv("MW3_CATALOG_URL", url.c_str(), 1);
+    for (const char* v : kOthers) setenv(v, "", 1);
+    const pid_t pid = spawn_launcher({"--write-dir", wd, "--launcher-shot", dir + "/" + name + ".bmp", "--launcher-screen", "main"}, dir + "/" + name + ".log");
+    for (const char* v : {"MW3_GAMES_API", "MW3_GAMES_DIR", "MW3_CHI_BIN", "MW3_CATALOG_URL"}) unsetenv(v);
+    for (const char* v : kOthers) unsetenv(v);
+    int status = 0;
+    EXPECT(waited(pid, &status) && WIFEXITED(status) && WEXITSTATUS(status) == 0);
+    return read(dir + "/" + name + ".log");
+  };
+  auto line = [](const std::string& log, const std::string& head) {
+    const size_t at = log.find(head);
+    return at == std::string::npos ? std::string() : log.substr(at, log.find('\n', at) - at);
+  };
+  const std::string fetched = shot(dir + "/wd", "file://" + dir + "/cat/games.json", "fetched");
+  std::printf("fetched catalog:\n  %s\n  %s\n  %s\n  %s\n", line(fetched, "catalog: revision").c_str(), line(fetched, "entry BATTLETECH").c_str(),
+              line(fetched, "entry INCEPTION ORIGINAL").c_str(), line(fetched, "entry INCEPTION REMAKE").c_str());
+  EXPECT(has(fetched, "catalog: revision 2 cached") && has(fetched, "catalog: revision 2, fetched (7 games)"));
+  EXPECT(has(fetched, "left out: games (evil): its repo someoneelse/evil-re is not under telltaleatheist"));
+  EXPECT(has(fetched, "left out: games (future): it needs launcher 99.0.0 or newer"));
+  EXPECT(line(fetched, "entry BATTLETECH").rfind("entry BATTLETECH: Not installed: DOWNLOAD gets 0.1.0", 0) == 0);
+  EXPECT(line(fetched, "entry INCEPTION REMAKE") == "entry INCEPTION REMAKE: Coming soon");  // released in the catalog, its repo has none yet
+  EXPECT(line(fetched, "entry INCEPTION ORIGINAL") == "entry INCEPTION ORIGINAL: Ready \xc2\xb7 0.1.0: /games/chi");
+  const std::string main_screen = line(fetched, "screen main: ");
+  std::printf("  %s\n", main_screen.c_str());
+  EXPECT(has(main_screen, "INCEPTION ORIGINAL, INCEPTION ORIGINAL SETTINGS, INCEPTION REMAKE, BATTLETECH, BATTLETECH SETTINGS, CHECK FOR UPDATES"));
+  EXPECT(!main_screen.empty() && !has(main_screen, "MECHWARRIOR 1 ORIGINAL"));  // removed, not installed: no panel
+  EXPECT(fs::exists(dir + "/wd/catalog/games.json") && fs::exists(dir + "/wd/catalog/badge_bt.png"));
+  EXPECT(!has(fetched, "not found\n"));  // its badge drawn from the cache
+  // Offline with that cache: the same.
+  const std::string cached = shot(dir + "/wd", "file://" + dir + "/missing.json", "cached");
+  EXPECT(has(cached, "missing.json: ") && has(cached, "catalog: revision 2, fetched (7 games)") && line(cached, "screen main: ") == main_screen);
+  // Offline with none: the built-in one, as before.
+  const std::string none = shot(dir + "/wd2", "file://" + dir + "/missing.json", "builtin");
+  std::printf("  offline, no cache: %s\n", line(none, "catalog: the built-in").c_str());
+  std::printf("  %s\n", line(none, "screen main: ").c_str());
+  EXPECT(has(none, "catalog: the built-in one (revision 1)") && has(line(none, "screen main: "), "MECHWARRIOR 1 ORIGINAL, MECHWARRIOR 1, INCEPTION ORIGINAL, INCEPTION ORIGINAL SETTINGS, CHECK FOR UPDATES"));
+  EXPECT(!has(none, "BATTLETECH") && !has(line(none, "screen main: "), "INCEPTION REMAKE"));  // coming_soon, no release: no panel
+  // Inception, removed but installed, still plays: its PLAY (MW3's PLAY, its gear, then Inception: the others greyed).
+  const LauncherRun r = run_launcher_with("launcher_catalog_run", "exit 0", nullptr,
+                                          {{"MW3_GAMES_API", "file://" + dir + "/api/{repo}.json"}, {"MW3_GAMES_DIR", dir + "/games"},
+                                           {"MW3_CHI_BIN", dir + "/chi"}, {"MW3_CATALOG_URL", "file://" + dir + "/cat/games.json"},
+                                           {"MW3_LAUNCHER_FRAMES", "240"}, {"MW3_LAUNCHER_NAV", "next,next,next,press"}, {"MW3_PM_BIN", ""},
+                                           {"MW3_MW1_BIN", ""}, {"MW3_MW1R_BIN", ""}, {"MW3_CHIRM_BIN", ""}},
+                                          [&](const std::string& d) { fs::create_directories(d + "/wd/music"), std::ofstream(d + "/wd/music/track02.wav") << "x"; },
+                                          false);
+  std::printf("  removed, installed: started %d\n", static_cast<int>(fs::exists(dir + "/chi-ran")));
+  for (size_t at = 0; (at = r.log.find("focus ", at)) != std::string::npos; ++at) std::printf("    %s\n", r.log.substr(at, r.log.find('\n', at) - at).c_str());
+  EXPECT(r.exited && has(r.log, "catalog: revision 2, fetched (7 games)") && has(r.log, "focus INCEPTION ORIGINAL\n") && has(r.log, "Inception Rebuild exited (0)"));
+  if (!check::failures) fs::remove_all(dir, ec);
+}
+
 // A kit game that serves its setup (its status says `"setup": 1`; re-setup-kit's rekit/sdl/setup_serve.h) has its game
 // files found and copied in on the launcher's own screens; its own setup window never opens. A stand-in answers.
 TEST(sdl_program_launcher_sets_a_kit_game_up) {
@@ -8246,6 +8545,16 @@ TEST(sdl_program_launcher_converts_the_movies_before_the_game) {
   EXPECT(r.exited && !r.args.empty() && seen(r.log, "work: CONVERTING THE MOVIES") && seen(r.log, "the game's first frame"));
   EXPECT(r.log.find("work: CONVERTING THE MOVIES") < r.log.find("the game's first frame"));
   EXPECT(std::filesystem::exists(wd + "/video/c1.fmv") && std::filesystem::exists(wd + "/video/intro.fmv"));
+  // b4: through mw3's --setup --first-run movies, its stages as the launcher's own convert said them.
+  EXPECT(seen(r.log, "games: mw3: --setup --first-run") && seen(r.log, "work stage: Converting the movies (2 of 2)\n") &&
+         seen(r.log, "2 movies converted for this computer."));
+  // Told not to (MW3_NO_IMPORT, as --no-import): the status's pending movies left alone, the game started.
+  auto plain = env;
+  plain.push_back({"MW3_NO_IMPORT", "1"});
+  const LauncherRun n = run_launcher_with("launcher_convert_none", "READY\nsleep 1", nullptr, plain, music);
+  const std::string nwd = std::string(MW3_TEST_TMP) + "/launcher_convert_none/wd";
+  EXPECT(n.exited && !n.args.empty() && !seen(n.log, "work: CONVERTING THE MOVIES") && !seen(n.log, "--setup --first-run") &&
+         !std::filesystem::exists(nwd + "/video/c1.fmv"));
   // The game files in a folder of the game's own (CHANGE FOLDER, 2026-11-22): the converted movies there too,
   // beside install/, none in the user folder; the music looked for there as well (a track there: no notes).
   const std::string to = root + "/drive", game = to + "/MechWarrior 3";
@@ -8404,18 +8713,20 @@ TEST(sdl_program_launcher_says_the_picker_is_opening_before_it_asks) {
   std::filesystem::remove_all(dir, ec);
   std::filesystem::create_directories(dir + "/wd", ec);
   const std::string shot = dir + "/ask.bmp";
-  std::ofstream(dir + "/mechwarrior") << "#!/bin/sh\nexit 0\n";  // a stand-in port: PLAY ORIGINAL asks for the folder
-  setenv("MW3_MW1_PORT", (dir + "/mechwarrior").c_str(), 1);
-  setenv("MW3_MW1_BIN", "", 1);
+  // INSTALL FROM A DOWNLOADED FILE pressed on the main screen (b5: before, the raw port's PLAY ORIGINAL asked for its
+  // folder here); music there, so no first notes come before it.
+  std::filesystem::create_directories(dir + "/wd/music", ec);
+  std::ofstream(dir + "/wd/music/track02.wav") << "x";
+  setenv("MW3_LAUNCHER_INSTALL_FILE", "1", 1);
+  setenv("MW3_GAMES_DIR", (dir + "/games").c_str(), 1);  // never this computer's own games folder
   setenv("MW3_LAUNCHER_PICKER", "cancel", 1);
   setenv("MW3_LAUNCHER_PICKER_SHOT", shot.c_str(), 1);
   setenv("MW3_LAUNCHER_FRAMES", "20", 1);
-  const pid_t pid = spawn_launcher({"--write-dir", dir + "/wd", "--launcher-mw1", "--window", "640x480", "--nosound", "--hidden"},
-                                   dir + "/launcher.log");
+  const pid_t pid = spawn_launcher({"--write-dir", dir + "/wd", "--window", "640x480", "--nosound", "--hidden"}, dir + "/launcher.log");
   unsetenv("MW3_LAUNCHER_FRAMES");
   unsetenv("MW3_LAUNCHER_PICKER_SHOT");
   unsetenv("MW3_LAUNCHER_PICKER");
-  unsetenv("MW3_MW1_PORT"), unsetenv("MW3_MW1_BIN");
+  unsetenv("MW3_GAMES_DIR"), unsetenv("MW3_LAUNCHER_INSTALL_FILE");
   int status = 0;
   const bool exited = waited(pid, &status) && WIFEXITED(status) && WEXITSTATUS(status) == 0;
   std::ifstream f(dir + "/launcher.log");
@@ -8714,311 +9025,176 @@ TEST(sdl_program_mouse_waits_for_the_focus) {
 }
 
 #if !defined(_WIN32)
-// The MechWarrior (1989) entry (lead's launcher list, item 3;
-// docs/launcher.md): shown when Elthial's port is found (here a stand-in
-// script by MW3_MW1_PORT), started as its own script starts it
-// (`mechwarrior <game dir> <capture dir>`, the saves in
-// MECHWARRIOR_SAVE_DIRECTORY, both under the write dir's mw1) with the
-// folder mw3.cfg's mw1_game= keeps; the launcher waits for it. Without
-// MechWarrior 1 Remake's `mw1` beside the launcher (MW3_MW1_BIN empty here, as a
-// plain mw3-re package), the entry is the port's, as it always was.
-TEST(sdl_program_launcher_starts_mechwarrior_1989) {
-  const std::string dir = std::string(MW3_TEST_TMP) + "/launcher_mw1";
-  std::error_code ec;
-  std::filesystem::remove_all(dir, ec);
-  std::filesystem::create_directories(dir + "/wd", ec);
-  std::filesystem::create_directories(dir + "/game", ec);
-  std::ofstream(dir + "/game/BTECH.EXE", std::ios::binary) << mw1_port_btech_stand_in();  // a revision the port plays
-  {
-    std::ofstream cfg(dir + "/wd/mw3.cfg");
-    cfg << "mw1_game=" << dir << "/game\n";
-  }
-  const std::string port = dir + "/mechwarrior";
-  {
-    std::ofstream sh(port);
-    sh << "#!/bin/sh\necho \"$1|$2|$MECHWARRIOR_SAVE_DIRECTORY\" > \"$2/args.txt\"\nexit 0\n";
-  }
-  std::filesystem::permissions(port, std::filesystem::perms::owner_all, ec);
-  setenv("MW3_MW1_PORT", port.c_str(), 1);
-  setenv("MW3_MW1_BIN", "", 1);  // no mw1 beside us, whatever this build put there
-  const std::string log = dir + "/mw1.log";
-  const pid_t pid = spawn_launcher({"--write-dir", dir + "/wd", "--launcher-mw1", "--window", "640x480", "--nosound", "--hidden"}, log);
-  unsetenv("MW3_MW1_PORT");
-  unsetenv("MW3_MW1_BIN");
-  int status = 0;
-  EXPECT(pid > 0 && waitpid(pid, &status, 0) == pid && WIFEXITED(status) && WEXITSTATUS(status) == 0);
-  std::ifstream f(log);
-  const std::string text((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-  std::ifstream af(dir + "/wd/mw1/captures/args.txt");
-  std::string args;
-  std::getline(af, args);
-  std::printf("launcher mw1: found %d, started %d, exited %d; it was given \"%s\"\n",
-              text.find("MechWarrior (1989) port at") != std::string::npos, text.find("MechWarrior (1989) started") != std::string::npos,
-              text.find("MechWarrior (1989) exited (0)") != std::string::npos, args.c_str());
-  EXPECT(text.find("MechWarrior (1989) port at " + port) != std::string::npos);
-  EXPECT(text.find("MechWarrior 1 at") == std::string::npos && text.find("entry MECHWARRIOR 1") == std::string::npos);
-  EXPECT(text.find("MechWarrior (1989) exited (0)") != std::string::npos);
-  EXPECT(args == dir + "/game|" + dir + "/wd/mw1/captures|" + dir + "/wd/mw1/saves");
-}
-#endif
-
-#if !defined(_WIN32)
-// MW1 (for MechWarrior 1 Remake, 2026-11-16): the launcher's MechWarrior 1 entry starts `mw1` in place of
-// Elthial's port (docs/launcher.md, MechWarrior 1): found beside ours (here a stand-in script by MW3_MW1_BIN),
-// given the three installs (Pirate's Moon's, MW3's, the MW1 folder mw3.cfg's mw1_game= keeps); the launcher waits
-// for it. Without MW3 found its line says what it needs, it is greyed, and a press starts nothing.
+// MECHWARRIOR 1 (MechWarrior 1 Remake's `mw1` beside the launcher, here a stand-in script by MW3_MW1_BIN; docs/launcher.md,
+// MechWarrior 1). It needs MW3 and Pirate's Moon, as the launcher sees them (greyed and said otherwise), and the 1989
+// game. A Remake that serves its setup (its status says setup 1, launcher split b5) has its MechWarrior (1989) found
+// and copied in on the launcher's screens through its own setup, and is started with the others' copies (--with). An
+// older one is started with the three installs as before, mw3.cfg's mw1_game= taken as it is; without one, its PLAY
+// offers its update (the finder that gave it one went with the raw port in b5), or says so. Nothing else is started.
 TEST(sdl_program_launcher_starts_mechwarrior_1) {
+  namespace fs = std::filesystem;
   const std::string dir = std::string(MW3_TEST_TMP) + "/launcher_mw1";
-  const std::string mw3 = MW3_GAME_DIR, pm = (std::filesystem::path(MW3_GAME_DIR).parent_path() / "pm").string();
+  const std::string mw3 = MW3_GAME_DIR, pm = (fs::path(MW3_GAME_DIR).parent_path() / "pm").string();
   std::error_code ec;
-  if (!std::filesystem::is_regular_file(pm + "/Mech3.exe", ec)) {
+  if (!fs::is_regular_file(pm + "/Mech3.exe", ec)) {
     std::printf("launcher mw1: no game/pm: skipped\n");
     return;
   }
-  std::filesystem::remove_all(dir, ec);
-  std::filesystem::create_directories(dir + "/wd", ec);
-  std::filesystem::create_directories(dir + "/game", ec);
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir + "/wd", ec);
+  fs::create_directories(dir + "/game", ec);
   std::ofstream(dir + "/game/BTECH.EXE") << "x";
   const std::string mw1 = dir + "/mw1", pm_bin = dir + "/mw3pm";
+  // The stand-in: its status (only with `served` there: an older Remake answers none), its served setup's asks, and a
+  // plain start's arguments, each logged.
   {
     std::ofstream sh(mw1);
-    sh << "#!/bin/sh\necho \"$*\" > \"" << dir << "/args.txt\"\nexit 0\n";
+    sh << "#!/bin/sh\nR='" << dir << "'\n"
+       << "case \"$1\" in\n"
+          "--status) echo \"$*\" >> \"$R/asked\"; [ -f \"$R/served\" ] || exit 0\n"
+          "  if [ -f \"$R/has1989\" ]; then F='{\"state\": \"ready\", \"where\": \"'$R'/game\"}'; "
+          "else F='{\"state\": \"missing\", \"missing\": [\"MechWarrior (1989)\"]}'; fi\n"
+          "  echo '{\"kit\": 1, \"game\": \"mech1-remake\", \"version\": \"mw1-v1.2.0\", \"files\": '\"$F\"', \"first_run\": {\"pending\": []}, "
+          "\"needs\": [\"mech3-pm\", \"mech3\"], \"setup\": 1, \"play\": 1}'; exit 0;;\n"
+          "--setup) echo \"$*\" >> \"$R/asked\"; case \"$2\" in\n"
+          "  --describe) echo '{\"done\": true, \"ok\": true, \"title\": \"MechWarrior (1989)\", \"pick_words\": \"its folder or a download\", "
+          "\"find_sub\": \"A download (.zip)\", \"find_words\": \"Show us your MechWarrior (1989).\"}';;\n"
+          "  --search) echo '{\"done\": true, \"ok\": true}';;\n"
+          "  --look) echo '{\"done\": true, \"ok\": true, \"words\": \"MechWarrior (1989) folder.\", \"into\": \"'$R'/game\"}';;\n"
+          "  --install) : > \"$R/has1989\"; echo '{\"done\": true, \"ok\": true, \"where\": \"'$R'/game\", \"summary\": \"MechWarrior (1989) is set up.\"}';;\n"
+          "  esac; exit 0;;\nesac\necho \"$*\" > \"$R/args.txt\"\nexit 0\n";
     sh << "MW3-PROGRAM" << "-VERSION:mw1-v1.0.0" << '\0';  // its version as a build holds it, read by the launcher
   }
   std::ofstream(pm_bin) << "#!/bin/sh\nexit 0\n";
-  std::filesystem::permissions(mw1, std::filesystem::perms::owner_all, ec);
-  std::filesystem::permissions(pm_bin, std::filesystem::perms::owner_all, ec);
+  fs::permissions(mw1, fs::perms::owner_all, ec);
+  fs::permissions(pm_bin, fs::perms::owner_all, ec);
   setenv("MW3_PM_WRITE_DIR", (dir + "/pmwd").c_str(), 1);  // never the player's own
-  auto run = [&](bool installs, const char* name, bool mw1_set = true) {
+  auto read = [](const std::string& f) {
+    std::ifstream in(f);
+    return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  };
+  auto seen = [](const std::string& log, const std::string& w) { return log.find(w) != std::string::npos; };
+  // --launcher-mw1: MECHWARRIOR 1 pressed once. `served`: the stand-in answers as a b5 Remake; `extra`: more env.
+  auto run = [&](bool installs, const char* name, bool mw1_set, bool served, std::vector<std::pair<std::string, std::string>> extra = {}) {
     {
       std::ofstream cfg(dir + "/wd/mw3.cfg", std::ios::trunc);
       if (mw1_set) cfg << "mw1_game=" << dir << "/game\n";
       if (installs) cfg << "install=" << mw3 << "\npm_install=" << pm << "\n";
     }
-    std::filesystem::remove(dir + "/args.txt", ec);
-    setenv("MW3_MW1_BIN", mw1.c_str(), 1);
-    setenv("MW3_PM_BIN", pm_bin.c_str(), 1);
-    setenv("MW3_FIND_INSTALL", "1", 1);  // no development copy: only what mw3.cfg names
+    for (const char* f : {"/args.txt", "/asked", "/served"}) fs::remove(dir + f, ec);
+    if (served) std::ofstream(dir + "/served") << "x";
+    std::vector<std::pair<std::string, std::string>> env{{"MW3_MW1_BIN", mw1}, {"MW3_PM_BIN", pm_bin}, {"MW3_FIND_INSTALL", "1"}};
+    for (auto& e : extra) env.push_back(e);
+    for (auto& [k, v] : env) setenv(k.c_str(), v.c_str(), 1);
     const std::string log = dir + "/" + name + ".log";
     const pid_t pid = spawn_launcher({"--write-dir", dir + "/wd", "--launcher-mw1", "--window", "640x480", "--nosound", "--hidden"}, log);
-    unsetenv("MW3_MW1_BIN"), unsetenv("MW3_PM_BIN"), unsetenv("MW3_FIND_INSTALL");
+    for (auto& e : env) unsetenv(e.first.c_str());
     int status = 0;
     EXPECT(waited(pid, &status) && WIFEXITED(status) && WEXITSTATUS(status) == 0);
-    std::ifstream f(log);
-    return std::string((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    return read(log);
   };
-  const std::string text = run(true, "ready");
-  std::ifstream af(dir + "/args.txt");
-  std::string args;
-  std::getline(af, args);
-  std::printf("launcher mw1: found %d, started %d, exited %d; it was given \"%s\"\n",
-              text.find("MechWarrior 1 at") != std::string::npos, text.find("MechWarrior 1 started") != std::string::npos,
-              text.find("MechWarrior 1 exited (0)") != std::string::npos, args.c_str());
-  EXPECT(text.find("MechWarrior 1 at " + mw1) != std::string::npos);
-  EXPECT(text.find("entry MECHWARRIOR 1: Ready, mw1-v1.0.0: " + dir + "/game") != std::string::npos);
-  EXPECT(text.find(", MechWarrior 1 mw1-v1.0.0\n") != std::string::npos);
-  EXPECT(text.find("MechWarrior 1 exited (0)") != std::string::npos);
-  // No port and no MW1 Rebuild: its INSTALL (greyed here: a check run asks no server).
-  EXPECT(text.find("entry MECHWARRIOR 1 ORIGINAL: Not installed: Can't reach the server: the gear") != std::string::npos);
-  EXPECT(args.rfind("--install " + pm + " --mw3-install ", 0) == 0);
-  EXPECT(args.find(" --mw1-game " + dir + "/game --no-launcher") != std::string::npos);
+  // An older Remake (no status answer), the three there: started with them, as before.
+  {
+    const std::string text = run(true, "ready", true, false);
+    const std::string args = read(dir + "/args.txt");
+    std::printf("launcher mw1 older: given \"%s\"\n", args.substr(0, args.find('\n')).c_str());
+    EXPECT(seen(text, "MechWarrior 1 at " + mw1) && seen(text, "entry MECHWARRIOR 1: Ready, mw1-v1.0.0: " + dir + "/game"));
+    EXPECT(seen(text, ", MechWarrior 1 mw1-v1.0.0\n") && seen(text, "MechWarrior 1 exited (0)"));
+    // No MW1 Rebuild: its INSTALL (greyed here: a check run asks no server).
+    EXPECT(seen(text, "entry MECHWARRIOR 1 ORIGINAL: Not installed: Can't reach the server: the gear"));
+    EXPECT(args.rfind("--install " + pm + " --mw3-install ", 0) == 0 && seen(args, " --mw1-game " + dir + "/game --no-launcher"));
+  }
   // No MW3 named (Pirate's Moon may still be found on this machine): said on its line, and a press starts nothing.
-  const std::string none = run(false, "needs");
-  EXPECT(none.find("entry MECHWARRIOR 1: Not ready: needs MechWarrior 3") != std::string::npos);
-  EXPECT(none.find("MechWarrior 1 started") == std::string::npos && !std::filesystem::exists(dir + "/args.txt"));
-  // No MW1 folder either: its line still says what it needs first (mw1 dev 2's new-player check, 2026-11-20).
-  setenv("MW3_LAUNCHER_NO_MW1_SEARCH", "1", 1);
-  const std::string bare = run(false, "bare", false);
-  unsetenv("MW3_LAUNCHER_NO_MW1_SEARCH");
-  EXPECT(bare.find("entry MECHWARRIOR 1: Not ready: needs MechWarrior 3") != std::string::npos);
-#if MW3_HAVE_LIBARCHIVE
-  // None picked yet and a download picked on its line (the picker's answer by MW3_LAUNCHER_PICK): unpacked into the
-  // write dir's mw1/game, kept as mw1_game=, and started with it (docs/launcher.md, MechWarrior 1's files).
   {
-    archive* a = archive_write_new();
-    archive_write_set_format_zip(a);
-    archive_write_open_filename(a, (dir + "/mw1.zip").c_str());
-    for (const char* n : {"MW/BTECH.EXE", "MW/MW_MAIN.EXE"}) {
-      archive_entry* e = archive_entry_new();
-      archive_entry_set_pathname(e, n), archive_entry_set_size(e, 1), archive_entry_set_filetype(e, AE_IFREG);
-      archive_entry_set_perm(e, 0644), archive_write_header(a, e), archive_write_data(a, "x", 1), archive_entry_free(e);
-    }
-    archive_write_close(a), archive_write_free(a);
+    const std::string text = run(false, "needs", true, false);
+    EXPECT(seen(text, "entry MECHWARRIOR 1: Not ready: needs MechWarrior 3") && !seen(text, "MechWarrior 1 started"));
+    EXPECT(!fs::exists(dir + "/args.txt"));
   }
-  setenv("MW3_LAUNCHER_PICK", (dir + "/mw1.zip").c_str(), 1);
-  setenv("MW3_LAUNCHER_NO_MW1_SEARCH", "1", 1);  // only the pick, whatever this machine holds
-  const std::string zipped = run(true, "zip", false);
-  unsetenv("MW3_LAUNCHER_PICK"), unsetenv("MW3_LAUNCHER_NO_MW1_SEARCH");
-  std::ifstream zf(dir + "/args.txt");
-  std::string zargs;
-  std::getline(zf, zargs);
-  std::ifstream kept(dir + "/wd/mw3.cfg");
-  const std::string cfg_text((std::istreambuf_iterator<char>(kept)), std::istreambuf_iterator<char>());
-  std::printf("launcher mw1 zip: given \"%s\"\n", zargs.c_str());
-  EXPECT(zargs.find(" --mw1-game " + dir + "/wd/mw1/game --no-launcher") != std::string::npos);
-  EXPECT(std::filesystem::is_regular_file(dir + "/wd/mw1/game/BTECH.EXE", ec));
-  EXPECT(cfg_text.find("mw1_game=" + dir + "/wd/mw1/game") != std::string::npos);
-  // Our own copy first (2026-11-24, issue #10's rule): mw3.cfg naming an older copy elsewhere that still holds the
-  // game (dir/game), the one in our folder is started and mw3.cfg follows it.
+  // The three there but no MechWarrior (1989) kept: an older Remake can't be given one now. Said on its line and on
+  // PLAY (no update known in a check run: no server), nothing started.
   {
-    const std::string own = run(true, "own");
-    std::ifstream of(dir + "/args.txt");
-    std::string oargs;
-    std::getline(of, oargs);
-    std::ifstream oc(dir + "/wd/mw3.cfg");
-    const std::string ocfg((std::istreambuf_iterator<char>(oc)), std::istreambuf_iterator<char>());
-    std::printf("launcher mw1 own copy first: given \"%s\"\n", oargs.c_str());
-    EXPECT(oargs.find(" --mw1-game " + dir + "/wd/mw1/game --no-launcher") != std::string::npos);
-    EXPECT(own.find("MechWarrior (1989) in our folder " + dir + "/wd/mw1/game, not " + dir + "/game: ours in use") != std::string::npos);
-    EXPECT(ocfg.find("mw1_game=" + dir + "/wd/mw1/game\n") != std::string::npos);
-    std::filesystem::remove_all(dir + "/wd/mw1/game", ec);  // the port's checks below use dir/game alone
+    const std::string text = run(true, "too_old", false, false);
+    EXPECT(seen(text, "entry MECHWARRIOR 1: Not set up: update MechWarrior 1 Remake to find your MechWarrior (1989)"));
+    EXPECT(seen(text, "MechWarrior 1 Remake mw1-v1.0.0 cannot be given its MechWarrior (1989): said"));
+    EXPECT(!seen(text, "MechWarrior 1 started") && !fs::exists(dir + "/args.txt"));
   }
-#endif
-  // With Elthial's port beside the launcher too, MW1's ORIGINAL panel plays it: its PLAY (the third button: MW3's
-  // PLAY, Pirate's Moon's, then it) starts the port on the same folder, not the remake.
+  // A Remake that serves its setup, its 1989 game in: its status asked with the others' copies, started with them;
+  // no install of the launcher's own given.
   {
-    const std::string port = dir + "/mechwarrior";
-    {
-      std::ofstream sh(port);
-      sh << "#!/bin/sh\necho \"$1|$2\" > \"" << dir << "/port-args.txt\"\nexit 0\n";
-    }
-    std::filesystem::permissions(port, std::filesystem::perms::owner_all, ec);
-    {
-      std::ofstream cfg(dir + "/wd/mw3.cfg", std::ios::trunc);
-      cfg << "mw1_game=" << dir << "/game\ninstall=" << mw3 << "\npm_install=" << pm << "\n";
-    }
-    auto run_original = [&](const char* name) {
-      std::filesystem::remove(dir + "/args.txt", ec), std::filesystem::remove(dir + "/port-args.txt", ec);
-      setenv("MW3_MW1_BIN", mw1.c_str(), 1), setenv("MW3_PM_BIN", pm_bin.c_str(), 1), setenv("MW3_FIND_INSTALL", "1", 1);
-      setenv("MW3_MW1_PORT", port.c_str(), 1), setenv("MW3_LAUNCHER_NAV", "next,next,next,next,next,press", 1), setenv("MW3_LAUNCHER_FRAMES", "30", 1);  // past MW3's and PM's gears
-      const std::string log = dir + "/" + name + ".log";
-      const pid_t pid = spawn_launcher({"--write-dir", dir + "/wd", "--window", "640x480", "--nosound", "--hidden"}, log);
-      for (const char* v : {"MW3_MW1_BIN", "MW3_PM_BIN", "MW3_FIND_INSTALL", "MW3_MW1_PORT", "MW3_LAUNCHER_NAV", "MW3_LAUNCHER_FRAMES"}) unsetenv(v);
-      int status = 0;
-      EXPECT(waited(pid, &status) && WIFEXITED(status) && WEXITSTATUS(status) == 0);
-      std::ifstream lf(log);
-      return std::string((std::istreambuf_iterator<char>(lf)), std::istreambuf_iterator<char>());
-    };
-    // The 1-byte stand-in is no revision the port plays: PLAY ORIGINAL greyed and said (the press goes to the next
-    // button that takes it), the port never started.
-    const std::string refused = run_original("unsupported");
-    EXPECT(refused.find("entry MECHWARRIOR 1 ORIGINAL: BTECH.EXE not a revision the port supports") != std::string::npos);
-    EXPECT(refused.find("focus MECHWARRIOR 1 ORIGINAL\n") == std::string::npos && !std::filesystem::exists(dir + "/port-args.txt"));
-    std::ofstream(dir + "/game/BTECH.EXE", std::ios::binary | std::ios::trunc) << mw1_port_btech_stand_in();
-    const std::string text = run_original("original");
-    std::ifstream pf(dir + "/port-args.txt");
-    std::string pargs;
-    std::getline(pf, pargs);
-    std::printf("launcher mw1 original: given \"%s\"\n", pargs.c_str());
-    EXPECT(text.find("screen main: MECHWARRIOR 3, MECHWARRIOR 3 SETTINGS, PIRATE'S MOON, PIRATE'S MOON SETTINGS, MECHWARRIOR 1 ORIGINAL, MECHWARRIOR 1 ORIGINAL SETTINGS, MECHWARRIOR 1, MECHWARRIOR 1 SETTINGS, INCEPTION ORIGINAL, INCEPTION ORIGINAL SETTINGS, CHECK FOR UPDATES") !=
-           std::string::npos);
-    EXPECT(text.find("focus MECHWARRIOR 1 ORIGINAL") != std::string::npos);
-    EXPECT(text.find("MechWarrior (1989) exited (0)") != std::string::npos);
-    EXPECT(pargs == dir + "/game|" + dir + "/wd/mw1/captures");
-    EXPECT(text.find("MechWarrior 1 started") == std::string::npos && !std::filesystem::exists(dir + "/args.txt"));
-    std::filesystem::remove(port, ec);
+    std::ofstream(dir + "/has1989") << "x";
+    const std::string text = run(true, "served", false, true);
+    const std::string args = read(dir + "/args.txt"), asked = read(dir + "/asked");
+    std::printf("launcher mw1 served: asked \"%s\", given \"%s\"\n", asked.substr(0, asked.find('\n')).c_str(), args.substr(0, args.find('\n')).c_str());
+    EXPECT(seen(asked, "--status --with mech3=") && seen(asked, " --with mech3-pm=" + pm + "\n"));
+    EXPECT(seen(text, "entry MECHWARRIOR 1: Ready, mw1-v1.0.0: " + dir + "/game") && seen(text, "MechWarrior 1 exited (0)"));
+    EXPECT(args.rfind("--with mech3=", 0) == 0 && seen(args, " --with mech3-pm=" + pm + " --no-launcher --window 640x480 --nosound --hidden"));
+    EXPECT(!seen(args, "--mw1-game") && !seen(args, "--mw3-install") && !seen(asked, "--setup"));
+    // Without MW3 the launcher's own view says what it needs, whatever the Remake's status says of its own files.
+    const std::string none = run(false, "served_needs", false, true);
+    EXPECT(seen(none, "entry MECHWARRIOR 1: Not ready: needs MechWarrior 3") && !fs::exists(dir + "/args.txt"));
   }
-  // GAME FILES after MW1's line (MW3_LAUNCHER_FILES=mw1, the picker's answer by MW3_LAUNCHER_PICKER): `pick` taken as
-  // its folder, copied in unless it is our copy; nothing started. Returns the log.
-  auto repick = [&](const std::string& wd, const std::string& cfg_game, const std::string& pick, const char* name) {
-    {
-      std::ofstream cfg(wd + "/mw3.cfg", std::ios::trunc);
-      cfg << "mw1_game=" << cfg_game << "\ninstall=" << mw3 << "\npm_install=" << pm << "\n";
-    }
-    std::filesystem::remove(dir + "/args.txt", ec);
-    setenv("MW3_MW1_BIN", mw1.c_str(), 1), setenv("MW3_PM_BIN", pm_bin.c_str(), 1), setenv("MW3_FIND_INSTALL", "1", 1);
-    setenv("MW3_LAUNCHER_FILES", "mw1", 1), setenv("MW3_LAUNCHER_PICKER", ("path:" + pick).c_str(), 1);
-    setenv("MW3_LAUNCHER_FRAMES", "60", 1);
-    const std::string log = dir + "/" + name + ".log";
-    const pid_t pid = spawn_launcher({"--write-dir", wd, "--window", "640x480", "--nosound", "--hidden"}, log);
-    for (const char* v : {"MW3_MW1_BIN", "MW3_PM_BIN", "MW3_FIND_INSTALL", "MW3_LAUNCHER_FILES", "MW3_LAUNCHER_PICKER", "MW3_LAUNCHER_FRAMES"})
-      unsetenv(v);
-    int status = 0;
-    EXPECT(waited(pid, &status) && WIFEXITED(status) && WEXITSTATUS(status) == 0);
-    std::ifstream lf(log);
-    return std::string((std::istreambuf_iterator<char>(lf)), std::istreambuf_iterator<char>());
-  };
-  auto read_text = [](const std::string& path) {
-    std::ifstream f(path, std::ios::binary);
-    return std::string((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-  };
-  auto cfg_of = [&](const std::string& wd) {
-    std::ifstream kept(wd + "/mw3.cfg");
-    return std::string((std::istreambuf_iterator<char>(kept)), std::istreambuf_iterator<char>());
-  };
-  const std::string copy = dir + "/wd/mw1/game";
-  // A folder above the game picked: copied into the write dir's mw1/game (so the player's own may be deleted), kept.
+  // Its 1989 game not in yet: PLAY opens its own setup on the launcher's screens; the pick (MW3_LAUNCHER_PICK) looked
+  // at and installed by the Remake itself, then the game started.
   {
-    std::filesystem::create_directories(dir + "/other/MECHWAR", ec);
-    std::ofstream(dir + "/other/MECHWAR/BTECH.EXE") << "other";
-    const std::string text = repick(dir + "/wd", dir + "/game", dir + "/other", "repick");
-    EXPECT(text.find("work: COPYING MECHWARRIOR (1989)") != std::string::npos);
-    EXPECT(cfg_of(dir + "/wd").find("mw1_game=" + copy + "\n") != std::string::npos);
-    EXPECT(text.find("MechWarrior (1989) at " + copy) != std::string::npos && read_text(copy + "/BTECH.EXE") == "other");
-    EXPECT(text.find("MechWarrior 1 started") == std::string::npos && !std::filesystem::exists(dir + "/args.txt"));
+    fs::remove(dir + "/has1989", ec);
+    const std::string text = run(true, "served_setup", false, true, {{"MW3_LAUNCHER_PICK", dir + "/game"}});
+    const std::string asked = read(dir + "/asked"), args = read(dir + "/args.txt");
+    EXPECT(seen(text, "entry MECHWARRIOR 1: Not found yet: click to find your MechWarrior (1989)"));
+    EXPECT(seen(text, "games: mw1: its game files, on the launcher's screens") && seen(text, "work: INSTALLING MECHWARRIOR 1 REMAKE"));
+    EXPECT(seen(asked, "--setup --describe\n") && seen(asked, "--setup --look " + dir + "/game\n") && seen(asked, "--setup --install " + dir + "/game"));
+    EXPECT(seen(text, "MechWarrior (1989) is set up.") && seen(args, "--with mech3-pm=" + pm));
   }
-  // A file in a folder picked (its MW_MAIN.EXE): that folder copied in, over our last copy.
+  // GAME FILES (MW3_LAUNCHER_FILES=mw1) on a Remake that serves its setup: its own setup, on the launcher's screens.
   {
-    std::filesystem::create_directories(dir + "/third/MW", ec);
-    std::ofstream(dir + "/third/MW/BTECH.EXE") << "third";
-    std::ofstream(dir + "/third/MW/MW_MAIN.EXE") << "main";
-    const std::string text = repick(dir + "/wd", copy, dir + "/third/MW/MW_MAIN.EXE", "repick_file");
-    EXPECT(text.find("work: COPYING MECHWARRIOR (1989)") != std::string::npos);
-    EXPECT(read_text(copy + "/BTECH.EXE") == "third" && read_text(copy + "/MW_MAIN.EXE") == "main");
-    EXPECT(cfg_of(dir + "/wd").find("mw1_game=" + copy + "\n") != std::string::npos);
-  }
-  // The copy in use picked again: used where it is, never copied onto itself.
-  {
-    const std::string text = repick(dir + "/wd", copy, copy + "/BTECH.EXE", "repick_ours");
-    EXPECT(text.find("work: COPYING") == std::string::npos && text.find("MechWarrior (1989) at " + copy) != std::string::npos);
-    EXPECT(read_text(copy + "/BTECH.EXE") == "third" && cfg_of(dir + "/wd").find("mw1_game=" + copy + "\n") != std::string::npos);
-  }
-  // A copy that fails (a folder of the player's where the copy goes): nothing changed, the setting kept, said.
-  {
-    std::filesystem::create_directories(dir + "/wd3/mw1/game", ec);
-    std::ofstream(dir + "/wd3/mw1/game/mine.txt") << "the player's";
-    const std::string text = repick(dir + "/wd3", dir + "/game", dir + "/other", "repick_fails");
-    EXPECT(text.find("not one the launcher made") != std::string::npos);
-    EXPECT(cfg_of(dir + "/wd3").find("mw1_game=" + dir + "/game\n") != std::string::npos);
-    EXPECT(read_text(dir + "/wd3/mw1/game/mine.txt") == "the player's" && !std::filesystem::exists(dir + "/wd3/mw1/game.copying"));
-  }
-  // None picked yet: the search's find (a MechWarrior folder beside the program, by MW3_SEARCH_PROGRAM_DIR) is only
-  // offered on the find's plate, never taken. INSTALL (MW3_LAUNCHER_GO): copied in, then played on the copy.
-  // The plate clicked (MW3_LAUNCHER_PICK_OTHER): the picker, and its answer copied in instead.
-  {
-    std::filesystem::create_directories(dir + "/beside/MechWarrior", ec);
-    std::ofstream(dir + "/beside/MechWarrior/BTECH.EXE") << "found";
-    auto offered = [&](const char* how, const char* name, const std::string& picker) {
-      std::filesystem::remove_all(dir + "/wd/mw1", ec);  // no copy of ours yet (it would be in use, not offered)
-      setenv("MW3_SEARCH_PROGRAM_DIR", (dir + "/beside").c_str(), 1);
-      setenv(how, "1", 1);
-      if (!picker.empty()) setenv("MW3_LAUNCHER_PICKER", ("path:" + picker).c_str(), 1);
-      const std::string text = run(true, name, false);
-      unsetenv("MW3_SEARCH_PROGRAM_DIR"), unsetenv(how), unsetenv("MW3_LAUNCHER_PICKER");
-      return text;
-    };
-    const std::string taken = offered("MW3_LAUNCHER_GO", "offer_go", "");
-    std::ifstream oa(dir + "/args.txt");
-    std::string oargs;
-    std::getline(oa, oargs);
-    std::printf("launcher mw1 offer: given \"%s\"\n", oargs.c_str());
-    EXPECT(taken.find("MechWarrior (1989) found at " + dir + "/beside/MechWarrior: offered, not taken") != std::string::npos);
-    EXPECT(taken.find("found plate: MechWarrior (MechWarrior (1989) at " + dir + "/beside/MechWarrior)") != std::string::npos);
-    EXPECT(taken.find("work: COPYING MECHWARRIOR (1989)") != std::string::npos && read_text(copy + "/BTECH.EXE") == "found");
-    EXPECT(oargs.find(" --mw1-game " + copy + " --no-launcher") != std::string::npos);
-    EXPECT(cfg_of(dir + "/wd").find("mw1_game=" + copy + "\n") != std::string::npos);
-    const std::string other = offered("MW3_LAUNCHER_PICK_OTHER", "offer_other", dir + "/other");
-    EXPECT(other.find("found plate: MechWarrior") != std::string::npos && read_text(copy + "/BTECH.EXE") == "other");
-    EXPECT(cfg_of(dir + "/wd").find("mw1_game=" + copy + "\n") != std::string::npos);
-    // Neither pressed: the plate shown and nothing taken (no copy, no mw1_game=).
-    std::filesystem::remove_all(dir + "/wd/mw1", ec);
-    setenv("MW3_SEARCH_PROGRAM_DIR", (dir + "/beside").c_str(), 1);
-    const std::string left = run(true, "offer_left", false);
-    unsetenv("MW3_SEARCH_PROGRAM_DIR");
-    EXPECT(left.find("found plate: MechWarrior") != std::string::npos && left.find("work: COPYING") == std::string::npos);
-    EXPECT(!std::filesystem::exists(copy) && cfg_of(dir + "/wd").find("mw1_game=") == std::string::npos);
+    const std::string text = run(true, "served_files", false, true, {{"MW3_LAUNCHER_FILES", "mw1"}, {"MW3_LAUNCHER_FRAMES", "30"}});
+    EXPECT(seen(text, "games: mw1: its game files, on the launcher's screens"));
   }
   unsetenv("MW3_PM_WRITE_DIR");
+}
+
+// An older Remake without its MechWarrior (1989) and a newer release out (here a stand-in list, MW3_GAMES_API): its
+// PLAY starts its update, not a dead end (b5).
+TEST(sdl_program_launcher_offers_an_older_remake_its_update) {
+  namespace fs = std::filesystem;
+  const std::string mw3 = MW3_GAME_DIR, pm = (fs::path(MW3_GAME_DIR).parent_path() / "pm").string();
+  std::error_code ec;
+  if (!fs::is_regular_file(pm + "/Mech3.exe", ec)) {
+    std::printf("launcher mw1 update: no game/pm: skipped\n");
+    return;
+  }
+  const std::string dir = std::string(MW3_TEST_TMP) + "/launcher_mw1_update";
+  const auto lay = [&](const std::string& d) {
+    fs::create_directories(d + "/games/mw1");
+    std::ofstream(d + "/games/mw1/mw1") << "#!/bin/sh\necho \"$*\" >> \"" << d << "/mw1-ran\"\nexit 0\n";
+    fs::permissions(d + "/games/mw1/mw1", fs::perms::owner_all);
+    std::ofstream(d + "/games/mw1/rebuild-game.txt") << "# x\ngame=mw1\ntag=mw1-v1.0.7\nfile=x\nsha256=x\nfrom=github\n";
+    fs::create_directories(d + "/api");
+    for (const char* repo : {"mech3-re", "mech3-pm-re", "mech1-re", "inception-re", "inception-remake-re"}) std::ofstream(d + "/api/" + repo + ".json") << "[]";
+#if defined(__APPLE__)
+    const std::string tail = "-mac.dmg";
+#else
+    const std::string tail = "-x86_64.AppImage";
+#endif
+    std::ofstream(d + "/api/mech1-remake-re.json") << "[{\"tag_name\": \"mw1-v1.0.9\", \"draft\": false, \"prerelease\": false, \"body\": \"x\", "
+                                                   << "\"assets\": [{\"name\": \"MW1-Remake-mw1-v1.0.9" << tail << "\", \"size\": 1000, \"browser_download_url\": \"file://" << d
+                                                   << "/x\"}, {\"name\": \"SHA256SUMS\", \"size\": 10, \"browser_download_url\": \"file://" << d << "/s\"}]}]";
+    fs::create_directories(d + "/wd/music");
+    std::ofstream(d + "/wd/music/track02.wav") << "x";
+    std::ofstream(d + "/wd/mw3.cfg") << "install=" << mw3 << "\npm_install=" << pm << "\n";
+  };
+  const std::string pm_bin = dir + "-pm";
+  std::ofstream(pm_bin) << "#!/bin/sh\nexit 0\n";
+  fs::permissions(pm_bin, fs::perms::owner_all, ec);
+  const LauncherRun r = run_launcher_with("launcher_mw1_update", "exit 0", nullptr,
+                                          {{"MW3_GAMES_API", "file://" + dir + "/api/{repo}.json"}, {"MW3_GAMES_DIR", dir + "/games"},
+                                           {"MW3_PM_BIN", pm_bin}, {"MW3_PM_WRITE_DIR", dir + "/pmwd"}, {"MW3_MW1_BIN", ""},
+                                           {"MW3_FIND_INSTALL", "1"}, {"MW3_LAUNCHER_FRAMES", "300"}, {"MW3_LAUNCHER_NAV_LATE", "1"},
+                                           {"MW3_LAUNCHER_NAV", "next,next,next,next,next,press"}},  // MW1 ORIGINAL greyed: passed over
+                                          lay, false);
+  for (size_t at = 0; (at = r.log.find("focus ", at)) != std::string::npos; ++at) std::printf("    %s\n", r.log.substr(at, r.log.find('\n', at) - at).c_str());
+  EXPECT(r.exited && r.log.find("focus MECHWARRIOR 1\n") != std::string::npos);
+  EXPECT(r.log.find("cannot be given its MechWarrior (1989): its update offered") != std::string::npos);
+  EXPECT(r.log.find("work: UPDATING MECHWARRIOR 1 REMAKE") != std::string::npos && !fs::exists(dir + "/mw1-ran"));
 }
 #endif
 
@@ -9229,8 +9405,12 @@ TEST(sdl_program_launcher_checks_mechwarrior3) {
     return to.string();
   };
   const std::string game = dir + "/mw3";
-  std::ofstream(game) << "#!/bin/sh\necho started >> \"" << dir << "/started.txt\"\nexit 0\n";
-  fs::permissions(game, fs::perms::owner_all, ec);
+  auto stand_in = [&](bool ours) {  // ours: answers its status as mw3 (b2); else an older program, checked as before
+    std::ofstream(game) << "#!/bin/sh\n" << (ours ? kAsksAsMw3 : "") << "echo started >> \"" << dir << "/started.txt\"\nexit 0\n"
+                        << (ours ? kVersionLine : "");
+    fs::permissions(game, fs::perms::owner_all, ec);
+  };
+  stand_in(false);
   setenv("MW3_GAME_BIN", game.c_str(), 1);
   setenv("MW3_NO_IMPORT", "1", 1);
   setenv("MW3_LAUNCHER_FRAMES", "300", 1);  // a refused start ends here
@@ -9249,14 +9429,20 @@ TEST(sdl_program_launcher_checks_mechwarrior3) {
     std::ifstream f(log);
     return std::string((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
   };
-  std::string text = run(copy("nomsg", "Mech3Msg.dll"), "nomsg");
+  const std::string nomsg = copy("nomsg", "Mech3Msg.dll");
+  std::string text = run(nomsg, "nomsg");
   EXPECT(text.find("MechWarrior 3 cannot start") != std::string::npos && starts() == 1);  // mw3's own box says it
+  // From its status (b2): its find takes the copy, its start check's refusal is mw3's own to say; started, no notes.
+  stand_in(true);
+  text = run(nomsg, "nomsg status");
+  EXPECT(text.find("games: mw3: status ready") != std::string::npos && text.find("Found MechWarrior 3 at " + nomsg + ".") != std::string::npos &&
+         text.find("notes shown") == std::string::npos && starts() == 2);
   const std::string noc2 = copy("noc2", "zbd/c2/gamez.zbd");
   text = run(noc2, "first");
   EXPECT(text.find("note: The missions of operation 2 are missing") != std::string::npos &&
-         text.find("MechWarrior 3's notes shown") != std::string::npos && starts() == 2);
+         text.find("MechWarrior 3's notes shown") != std::string::npos && starts() == 3);
   text = run(noc2, "second");
-  EXPECT(text.find("note: The missions of operation 2") != std::string::npos && text.find("notes shown") == std::string::npos && starts() == 3);
+  EXPECT(text.find("note: The missions of operation 2") != std::string::npos && text.find("notes shown") == std::string::npos && starts() == 4);
   for (const char* k : {"MW3_GAME_BIN", "MW3_NO_IMPORT", "MW3_LAUNCHER_FRAMES"}) unsetenv(k);
   fs::remove_all(dir, ec);
 }
@@ -10218,6 +10404,249 @@ TEST(sdl_program_launcher_checks_pirates_moon) {
   unsetenv("MW3_PM_BIN");
   unsetenv("MW3_PM_WRITE_DIR");
   fs::remove_all(dir, ec);
+}
+#endif
+
+#if !defined(_WIN32)  // posix_spawn (ours, not on Windows)
+// MechWarrior 3's and Pirate's Moon's panels from their --status (b2, docs/launcher-split.md): stand-ins answering
+// "setup": 1 with what the real games say. Pirate's Moon's notes shown once under the same pm_notes= hash the
+// launcher's own check gave (saved hashes stay valid), the copy and what it lacks as reported, ours followed in
+// mw3.cfg; MechWarrior 3's copy offered when its note says its search found it, its notes in the order before (the
+// start check's last). An answer without "setup": 1 (an older program) is checked by the launcher as before.
+TEST(sdl_program_launcher_panels_from_the_status) {
+  namespace fs = std::filesystem;
+  const fs::path game = fs::path(MW3_GAME_DIR).parent_path() / "pm";
+  std::error_code ec;
+  if (!fs::is_regular_file(game / "Mech3.exe", ec)) return;
+  const std::string dir = std::string(MW3_TEST_TMP) + "/launcher status panels", wd = dir + "/wd", pmwd = dir + "/pmwd";
+  fs::remove_all(dir, ec);
+  fs::create_directories(wd, ec);
+  const std::string quiet = dir + "/quiet";  // Pirate's Moon with its soundsH.zbd emptied
+  fs::create_directories(quiet, ec);
+  for (const auto& e : fs::recursive_directory_iterator(game)) {
+    const std::string rel = fs::relative(e.path(), game).generic_string();
+    if (e.is_directory()) fs::create_directories(fs::path(quiet) / rel);
+    else if (rel == "zbd/soundsH.zbd") std::fclose(std::fopen((fs::path(quiet) / rel).string().c_str(), "wb"));
+    else fs::create_symlink(e.path(), fs::path(quiet) / rel);
+  }
+  auto stand_in = [&](const std::string& name) {  // its status from <name>.json, a start counted in started.txt
+    const std::string bin = dir + "/" + name;
+    std::ofstream(bin) << "#!/bin/sh\nif [ \"$1\" = --status ]; then cat \"" << dir << "/" << name << ".json\"; exit 0; fi\n"
+                       << "echo " << name << " >> \"" << dir << "/started.txt\"\nexit 0\n" << kVersionLine;
+    fs::permissions(bin, fs::perms::owner_all, ec);
+    return bin;
+  };
+  auto answer = [&](const std::string& name, const rekit::Status& st) { std::ofstream(dir + "/" + name + ".json") << rekit::status_json(st) << "\n"; };
+  auto starts = [&]() {
+    std::ifstream f(dir + "/started.txt");
+    int n = 0;
+    for (std::string l; std::getline(f, l);) ++n;
+    return n;
+  };
+  auto run = [&](std::vector<std::string> args, const char* name) {
+    args.insert(args.begin(), {"--write-dir", wd});
+    const std::string log = dir + "/" + name + ".log";
+    const pid_t pid = spawn_launcher(args, log);
+    int status = 0;
+    EXPECT(pid > 0 && waited(pid, &status) && WIFEXITED(status) && WEXITSTATUS(status) == 0);
+    std::ifstream f(log);
+    return std::string((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+  };
+  auto cfg = [&](const std::string& key) {
+    std::ifstream f(wd + "/mw3.cfg");
+    for (std::string l; std::getline(f, l);)
+      if (l.rfind(key + "=", 0) == 0) return l.substr(key.size() + 1);
+    return std::string();
+  };
+  const std::vector<std::string> pm_play = {"--launcher-pm", "--window", "640x480", "--hidden", "--nosound"};
+  setenv("MW3_PM_BIN", stand_in("mw3pm").c_str(), 1);
+  setenv("MW3_PM_WRITE_DIR", pmwd.c_str(), 1);
+  setenv("MW3_FIND_INSTALL", "1", 1);
+  // What the real mw3pm says of it: check_install's warning and the music's note, all shown once; what it lacks.
+  rekit::Status pm;
+  pm.game = "mech3-pm", pm.version = "pm-v9.9.9", pm.state = rekit::Status::kReady, pm.where = quiet, pm.data = "1.0";
+  pm.setup = rekit::kServedSetup, pm.play = rekit::kPlayOptions, pm.user = pmwd;
+  pm.notes = mech3::setup::check_install(quiet, pmwd, true).warnings;
+  for (const std::string& n : sdlfe::launcher_notes("", false, true, (fs::path(pmwd) / "music").make_preferred().string())) pm.notes.push_back(n);
+  pm.notes_once = static_cast<int>(pm.notes.size()), pm.lacks = {"music", "full-quality sounds"};
+  // An older mw3pm: no "setup": 1, its files not found; mw3.cfg's pm_install= checked by the launcher as before.
+  rekit::Status older;
+  older.game = "mech3-pm", older.version = "pm-v1.2.10";
+  answer("mw3pm", older);
+  std::ofstream(wd + "/mw3.cfg") << "pm_install=" << quiet << "\n";
+  std::string text = run(pm_play, "older");
+  const std::string hash = cfg("pm_notes");
+  EXPECT(text.find("Pirate's Moon's notes shown") != std::string::npos && starts() == 1 && !hash.empty() &&
+         text.find("games: pm: lacks") == std::string::npos);
+  // Its status: the same notes, so not shown again; once forgotten, shown and kept under the same hash.
+  answer("mw3pm", pm);
+  text = run(pm_play, "status");
+  EXPECT(text.find("games: pm: status ready") != std::string::npos && text.find("games: pm: lacks music, full-quality sounds") != std::string::npos &&
+         text.find("note: Its zbd\\soundsH.zbd is empty") != std::string::npos && text.find("notes shown") == std::string::npos && starts() == 2);
+  std::ofstream(wd + "/mw3.cfg") << "pm_install=" << quiet << "\n";
+  text = run(pm_play, "status again");
+  std::printf("  pm_notes= %s by the launcher's check, %s from the status\n", hash.c_str(), cfg("pm_notes").c_str());
+  EXPECT(text.find("Pirate's Moon's notes shown") != std::string::npos && starts() == 3 && cfg("pm_notes") == hash);
+  // Where its status says, with no pm_install=: in use, and mw3.cfg follows it; found by its search: offered.
+  std::ofstream(wd + "/mw3.cfg") << "";
+  text = run({"--launcher-shot", dir + "/main.bmp", "--launcher-screen", "main"}, "where");
+  EXPECT(text.find("Pirate's Moon at " + quiet + ": ready") != std::string::npos &&
+         text.find("entry PIRATE'S MOON: Ready") != std::string::npos && cfg("pm_install") == quiet);
+  rekit::Status found = pm;
+  found.note = "found by the search, not set up yet";
+  answer("mw3pm", found);
+  std::ofstream(wd + "/mw3.cfg") << "";
+  text = run({"--launcher-shot", dir + "/main.bmp", "--launcher-screen", "main"}, "found");
+  EXPECT(text.find("Pirate's Moon found at " + quiet + ": offered, not taken") != std::string::npos && cfg("pm_install").empty());
+  unsetenv("MW3_PM_BIN");
+  // MechWarrior 3: its copy as reported (offered by its note), its notes screen in the order before, the check's last.
+  rekit::Status mw3;
+  mw3.game = "mech3", mw3.version = "v9.9.9", mw3.state = rekit::Status::kReady, mw3.where = MW3_GAME_DIR, mw3.data = "1.2";
+  mw3.setup = rekit::kServedSetup, mw3.play = rekit::kPlayOptions, mw3.user = wd, mw3.lacks = {"music"};
+  mw3.notes = {"A start check's note."};
+  for (const std::string& n : sdlfe::launcher_notes("1.2", false, true, (fs::path(wd) / "music").make_preferred().string())) mw3.notes.push_back(n);
+  mw3.notes_once = 1;
+  answer("mw3", mw3);
+  setenv("MW3_GAME_BIN", stand_in("mw3").c_str(), 1);
+  text = run({"--launcher-shot", dir + "/notes.bmp", "--launcher-screen", "notes"}, "mw3 notes");
+  const size_t music = text.find("note: No music yet"), check = text.find("note: A start check's note.");
+  EXPECT(text.find("games: mw3: status ready") != std::string::npos && text.find("games: mw3: lacks music") != std::string::npos &&
+         text.find(std::string("Found MechWarrior 3 1.2 at ") + MW3_GAME_DIR + ".") != std::string::npos &&
+         music != std::string::npos && check != std::string::npos && music < check);
+  mw3.note = "found by the search, not set up yet";
+  answer("mw3", mw3);
+  text = run({"--launcher-shot", dir + "/main.bmp", "--launcher-screen", "main"}, "mw3 found");
+  EXPECT(text.find(std::string("the game files at ") + MW3_GAME_DIR + ": offered to copy them in") != std::string::npos);
+  EXPECT(starts() == 3);  // no stand-in started by a status or a shot
+  for (const char* k : {"MW3_GAME_BIN", "MW3_PM_WRITE_DIR", "MW3_FIND_INSTALL"}) unsetenv(k);
+  if (!check::failures) fs::remove_all(dir, ec);
+}
+#endif
+
+#if !defined(_WIN32)  // posix_spawn (ours, not on Windows)
+// GAME FILES through the game (b3, docs/launcher-split.md): MechWarrior 3's ADD FROM MY DISC by the real mw3 (its
+// --setup --add, the launcher's own screens): a cue sheet's music added; a data-only image, no audio tracks: NO MUSIC
+// ADDED asked, the status still wanting the music; a stopped add: never asked. Pirate's Moon by a scripted mw3pm
+// (its answers files the test writes): a look, then GO: its --install with its own user folder, pm_install= after;
+// MechWarrior 3 shown there: its sentence, nothing installed; its --copies on the list; an add whose disc has no
+// music: asked; a stopped one: not.
+TEST(sdl_program_launcher_game_files_through_the_game) {
+  namespace fs = std::filesystem;
+  std::error_code ec;
+  const std::string dir = std::string(MW3_TEST_TMP) + "/launcher files served", wd = dir + "/wd", pmwd = dir + "/pmwd";
+  fs::remove_all(dir, ec);
+  for (const std::string& d : {wd, pmwd, dir + "/disc", dir + "/home"}) fs::create_directories(d, ec);
+  auto text = [](const std::string& path) {
+    std::ifstream in(path);
+    return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  };
+  auto run = [&](const char* name, const std::vector<std::pair<const char*, std::string>>& env, std::vector<std::string> more = {}) {
+    for (const auto& [k, v] : env) setenv(k, v.c_str(), 1);
+    std::vector<std::string> args = {"--write-dir", wd, "--window", "640x480", "--hidden", "--nosound"};
+    args.insert(args.end(), more.begin(), more.end());
+    const std::string log = dir + "/" + name + ".log";
+    int status = 0;
+    EXPECT(waited(spawn_launcher(args, log), &status) && WIFEXITED(status) && WEXITSTATUS(status) == 0);
+    for (const auto& [k, v] : env) unsetenv(k);
+    return text(log);
+  };
+  const std::string home_was = std::getenv("HOME") ? std::getenv("HOME") : "";
+  setenv("HOME", (dir + "/home").c_str(), 1);  // nothing of this computer's for a search to find
+  setenv("MW3_NO_IMPORT", "1", 1);
+  std::ofstream(wd + "/mw3.cfg") << "install=" << MW3_GAME_DIR << "\n";
+
+  // MechWarrior 3 through the real mw3: no music anywhere, so ADD FROM MY DISC wants it.
+  {
+    std::string audio(2352 * 160, '\0');
+    for (size_t i = 0; i < audio.size(); ++i) audio[i] = static_cast<char>(i * 7);
+    std::ofstream(dir + "/disc/t1.bin", std::ios::binary) << std::string(2352 * 30, '\0');
+    std::ofstream(dir + "/disc/t2.bin", std::ios::binary) << audio;
+    std::ofstream(dir + "/disc/music.cue") << "FILE \"t1.bin\" BINARY\n  TRACK 01 MODE1/2352\n    INDEX 01 00:00:00\n"
+                                              "FILE \"t2.bin\" BINARY\n  TRACK 02 AUDIO\n    INDEX 01 00:00:00\n";
+    std::ofstream(dir + "/disc/data.cue") << "FILE \"t1.bin\" BINARY\n  TRACK 01 MODE1/2352\n    INDEX 01 00:00:00\n";
+  }
+  const std::string mw3 = dir + "/mw3", stopped = dir + "/mw3-stopped";
+  std::ofstream(mw3) << "#!/bin/sh\n" << kAsksAsMw3 << "exit 0\n" << kVersionLine;
+  rekit::SetupMessage stop;
+  stop.done = true, stop.cancelled = true, stop.summary = "Stopped.";
+  std::ofstream(stopped) << "#!/bin/sh\n[ \"$1 $2\" = \"--setup --add\" ] && { echo '" << rekit::setup_message_json(stop) << "'; exit 1; }\n"
+                         << kAsksAsMw3 << "exit 0\n" << kVersionLine;
+  for (const std::string& b : {mw3, stopped}) fs::permissions(b, fs::perms::owner_all, ec);
+  setenv("MW3_GAME_BIN", mw3.c_str(), 1);
+  std::string log = run("mw3 data only", {{"MW3_LAUNCHER_ADD", dir + "/disc/data.cue"}, {"MW3_LAUNCHER_FRAMES", "600"}});
+  std::printf("  mw3 data-only disc: asked %d\n", log.find("no music added:") != std::string::npos);
+  EXPECT(log.find("games: mw3: --setup --add") != std::string::npos && log.find("no music added:") != std::string::npos &&
+         log.find("screen confirm: PLAY WITHOUT MUSIC") != std::string::npos && !fs::exists(wd + "/music", ec));
+  setenv("MW3_GAME_BIN", stopped.c_str(), 1);
+  log = run("mw3 stopped", {{"MW3_LAUNCHER_ADD", dir + "/disc/music.cue"}, {"MW3_LAUNCHER_FRAMES", "600"}});
+  EXPECT(log.find("games: mw3: --setup --add") != std::string::npos && log.find("no music added:") == std::string::npos &&
+         log.find("PLAY WITHOUT MUSIC") == std::string::npos && !fs::exists(wd + "/music", ec));
+  setenv("MW3_GAME_BIN", mw3.c_str(), 1);
+  log = run("mw3 music", {{"MW3_LAUNCHER_ADD", dir + "/disc/music.cue"}, {"MW3_LAUNCHER_FRAMES", "600"}});
+  std::printf("  mw3 cue's music: added %d\n", log.find("1 music track was added.") != std::string::npos);
+  EXPECT(log.find("1 music track was added.") != std::string::npos && log.find("no music added:") == std::string::npos &&
+         fs::is_regular_file(wd + "/music/track02.wav", ec) && log.find("games: mw3: status ready") != std::string::npos);
+  unsetenv("MW3_GAME_BIN");
+
+  // Pirate's Moon through a scripted mw3pm: each ask's answer from <verb>.json, its asks in asks.txt; a <verb>.after
+  // becomes its status once it answers (an install sets it up).
+  const std::string pm = dir + "/mw3pm", picked = dir + "/pm-pick", where = dir + "/pm-installed";
+  fs::create_directories(picked, ec);
+  std::ofstream(pm) << "#!/bin/sh\nD='" << dir << "'\n"
+                    << "if [ \"$1\" = --status ]; then cat \"$D/status.json\"; exit 0; fi\n"
+                    << "if [ \"$1\" = --setup ]; then shift; echo \"$@\" >> \"$D/asks.txt\"; v=${1#--}\n"
+                    << "  [ -f \"$D/$v.after\" ] && cp \"$D/$v.after\" \"$D/status.json\"; cat \"$D/$v.json\"; exit 0; fi\n"
+                    << "echo \"$@\" > \"$D/started.txt\"\nexit 0\n" << kVersionLine;
+  fs::permissions(pm, fs::perms::owner_all, ec);
+  auto put = [&](const std::string& name, const std::string& json) { std::ofstream(dir + "/" + name) << json << "\n"; };
+  rekit::Status none;
+  none.game = "mech3-pm", none.version = "pm-v9.9.9", none.state = rekit::Status::kMissing, none.setup = rekit::kServedSetup;
+  none.play = rekit::kPlayOptions, none.user = pmwd;
+  rekit::Status ready = none;
+  ready.state = rekit::Status::kReady, ready.where = where, ready.data = "1.0", ready.lacks = {"music"};
+  put("status.json", rekit::status_json(none));
+  put("install.after", rekit::status_json(ready));
+  rekit::SetupMessage look, install;
+  look.done = look.ok = true, look.words = "The Pirate's Moon disc.", look.path = picked, look.into = pmwd + "/install";
+  install.done = install.ok = true, install.words = look.words, install.where = where;
+  install.summary = "MechWarrior 3: Pirate's Moon 1.0 is installed in " + where + ".";
+  put("look.json", rekit::setup_message_json(look));
+  put("install.json", rekit::setup_message_json(install));
+  setenv("MW3_PM_BIN", pm.c_str(), 1);
+  setenv("MW3_PM_WRITE_DIR", pmwd.c_str(), 1);
+  log = run("pm install", {{"MW3_LAUNCHER_FILES", "pm"}, {"MW3_LAUNCHER_PICK", picked}, {"MW3_LAUNCHER_GO", "1"}, {"MW3_LAUNCHER_FRAMES", "600"}});
+  const std::string asks = text(dir + "/asks.txt");
+  std::printf("  pm asks: %s", asks.c_str());
+  EXPECT(asks == "--look " + picked + " --write-dir " + pmwd + "\n--install " + picked + " --write-dir " + pmwd + "\n");
+  EXPECT(log.find("found plate: pm-pick (The Pirate's Moon disc.)") != std::string::npos &&
+         log.find(install.summary) != std::string::npos && text(wd + "/mw3.cfg").find("pm_install=" + where + "\n") != std::string::npos &&
+         !fs::exists(dir + "/started.txt", ec));
+  // MechWarrior 3 shown in Pirate's Moon's GAME FILES: its own sentence, nothing installed.
+  fs::remove(dir + "/asks.txt", ec);
+  rekit::SetupMessage other;
+  other.done = true, other.summary = "This is MechWarrior 3, not Pirate's Moon: give it under MECHWARRIOR 3's GAME FILES.";
+  put("look.json", rekit::setup_message_json(other));
+  log = run("pm other", {{"MW3_LAUNCHER_FILES", "pm"}, {"MW3_LAUNCHER_PICK", MW3_GAME_DIR}, {"MW3_LAUNCHER_GO", "1"}, {"MW3_LAUNCHER_FRAMES", "300"}});
+  EXPECT(log.find(other.summary) != std::string::npos && text(dir + "/asks.txt").find("--install") == std::string::npos);
+  // Its copies on GAME FILES' list.
+  rekit::SetupMessage row, end;
+  row.copy = where, row.copy_data = "1.0", row.copy_in_use = true, row.copy_missing = {"music"};
+  end.done = end.ok = true;
+  put("copies.json", rekit::setup_message_json(row) + "\n" + rekit::setup_message_json(end));
+  log = run("pm copies", {}, {"--launcher-shot", dir + "/copies.bmp", "--launcher-screen", "pmcopies"});
+  EXPECT(log.find("copy " + where + ": 1.0, in use, missing music") != std::string::npos);
+  // ADD FROM MY DISC: a disc with no music, asked; a stopped add, not.
+  rekit::SetupMessage added;
+  added.done = added.ok = true, added.summary = "There is no music on that disc.";
+  put("add.json", rekit::setup_message_json(added));
+  log = run("pm add", {{"MW3_LAUNCHER_FILES", "pm"}, {"MW3_LAUNCHER_ADD", picked}, {"MW3_LAUNCHER_FRAMES", "300"}});
+  EXPECT(log.find("games: pm: --setup --add") != std::string::npos && log.find("no music added: There is no music on that disc.") != std::string::npos);
+  put("add.json", rekit::setup_message_json(stop));
+  log = run("pm add stopped", {{"MW3_LAUNCHER_FILES", "pm"}, {"MW3_LAUNCHER_ADD", picked}, {"MW3_LAUNCHER_FRAMES", "300"}});
+  EXPECT(log.find("games: pm: --setup --add") != std::string::npos && log.find("no music added:") == std::string::npos);
+  for (const char* k : {"MW3_PM_BIN", "MW3_PM_WRITE_DIR", "MW3_NO_IMPORT"}) unsetenv(k);
+  setenv("HOME", home_was.c_str(), 1);
+  if (!check::failures) fs::remove_all(dir, ec);
 }
 #endif
 

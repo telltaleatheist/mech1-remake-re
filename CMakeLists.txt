@@ -49,6 +49,18 @@ endif()
 
 # The rebuilt game and engine. No platform or engine types in here: the front end
 # (SDL3, with Godot as the fallback) talks to it through src/platform.
+# The games catalog (ours, docs/launcher-split.md b0): src/upgrades/update/games.json built into the launcher as text,
+# written again when the file changes (a configure re-run). One raw literal: MSVC takes up to 16380 bytes in one.
+set(MW3_CATALOG_JSON ${CMAKE_CURRENT_SOURCE_DIR}/src/upgrades/update/games.json)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${MW3_CATALOG_JSON})
+file(READ ${MW3_CATALOG_JSON} MW3_CATALOG_TEXT)
+string(LENGTH "${MW3_CATALOG_TEXT}" MW3_CATALOG_SIZE)
+if(MW3_CATALOG_SIZE GREATER 16000 OR MW3_CATALOG_TEXT MATCHES "\\)mw3catalog\"")
+  message(FATAL_ERROR "games.json: ${MW3_CATALOG_SIZE} bytes, or it holds the literal's end: split the literal")
+endif()
+file(CONFIGURE OUTPUT ${CMAKE_BINARY_DIR}/games_catalog.cpp
+     CONTENT "// Written by CMake from src/upgrades/update/games.json: do not edit.\nnamespace upgrades::update {\nextern const char kBuiltinCatalog[];\nconst char kBuiltinCatalog[] = R\"mw3catalog(@MW3_CATALOG_TEXT@)mw3catalog\";\n}  // namespace upgrades::update\n"
+     @ONLY)
 add_library(mw3core STATIC
   src/crt/msvc_math.cpp
   src/crt/msvc_rand.cpp
@@ -409,6 +421,7 @@ add_library(mw3core STATIC
   src/upgrades/mods/starter_mods.cpp
   src/upgrades/update/update.cpp
   src/upgrades/update/games.cpp
+  ${CMAKE_BINARY_DIR}/games_catalog.cpp  # games.json built in (below)
   src/upgrades/reference/reference.cpp
   src/upgrades/reference/reference_mods.cpp
   src/upgrades/reference/reference_weapons.cpp
@@ -985,7 +998,6 @@ if(SDL3_FOUND)
     src/frontend/sdl/sdl_force.cpp
     src/frontend/sdl/sdl_install.cpp
     src/frontend/sdl/held_keys.cpp
-    src/frontend/sdl/mw1_files.cpp  # ours: the launcher's MechWarrior (1989) intake
     src/frontend/sdl/sdl_music.cpp
     src/frontend/sdl/sdl_platform.cpp
     src/frontend/sdl/sdl_mods.cpp
@@ -1110,8 +1122,11 @@ if(SDL3_FOUND)
       src/frontend/sdl/crash_report.cpp
       src/frontend/sdl/launcher.cpp
       src/frontend/sdl/launcher_ui.cpp
+      src/frontend/sdl/launcher_own.cpp
+      src/frontend/sdl/launcher_mw3_setup.cpp
       src/frontend/sdl/sdl_update.cpp
       src/frontend/sdl/sdl_games.cpp
+      src/frontend/sdl/sdl_catalog.cpp
       src/frontend/sdl/debug_states.cpp
       src/frontend/sdl/campaign_chain.cpp
       src/frontend/sdl/modes_chain.cpp
@@ -1157,8 +1172,11 @@ if(SDL3_FOUND)
       src/frontend/sdl/launcher_main.cpp
       src/frontend/sdl/launcher.cpp
       src/frontend/sdl/launcher_ui.cpp
+      src/frontend/sdl/launcher_own.cpp
+      src/frontend/sdl/launcher_mw3_setup.cpp
       src/frontend/sdl/sdl_update.cpp
       src/frontend/sdl/sdl_games.cpp
+      src/frontend/sdl/sdl_catalog.cpp
       src/frontend/sdl/run_log.cpp
       src/frontend/sdl/crash_report.cpp
     )
@@ -1203,8 +1221,11 @@ if(SDL3_FOUND)
         src/frontend/sdl/crash_report.cpp
         src/frontend/sdl/launcher.cpp
         src/frontend/sdl/launcher_ui.cpp
+        src/frontend/sdl/launcher_own.cpp
+        src/frontend/sdl/launcher_mw3_setup.cpp
         src/frontend/sdl/sdl_update.cpp
         src/frontend/sdl/sdl_games.cpp
+        src/frontend/sdl/sdl_catalog.cpp
         src/frontend/sdl/debug_states.cpp
         src/frontend/sdl/campaign_chain.cpp
         src/frontend/sdl/modes_chain.cpp
@@ -1246,12 +1267,13 @@ if(SDL3_FOUND)
       tests/main.cpp
       tests/test_quiet_music.cpp  # ours: no music aloud in a run no player hears
       tests/test_sdl_frontend.cpp
-      tests/test_mw1_files.cpp
       tests/test_sdl_new_world.cpp
       tests/test_win_cmdline.cpp
       tests/test_log_start.cpp
       src/frontend/sdl/sdl_update.cpp
       src/frontend/sdl/sdl_games.cpp
+      src/frontend/sdl/sdl_catalog.cpp
+      src/frontend/sdl/launcher_own.cpp
       src/frontend/sdl/sdl_restart.cpp
       src/frontend/sdl/win_cmdline.cpp
       tests/test_net_enet.cpp
@@ -1273,7 +1295,7 @@ if(SDL3_FOUND)
     # PM's platform tests (input, window, render, text, net), in the same files. MW3_PM_SUITE
     # leaves out those that read MW3's data or start MW3's programs; a PM version comes with its feature.
     if(MW3_BUILD_PM)
-      add_executable(mw3pmsdltests tests/main.cpp tests/test_sdl_frontend.cpp tests/test_sdl_new_world.cpp src/frontend/sdl/sdl_update.cpp src/frontend/sdl/sdl_games.cpp tests/test_net_enet.cpp tests/test_net_upnp.cpp
+      add_executable(mw3pmsdltests tests/main.cpp tests/test_sdl_frontend.cpp tests/test_sdl_new_world.cpp src/frontend/sdl/sdl_update.cpp src/frontend/sdl/sdl_games.cpp src/frontend/sdl/sdl_catalog.cpp src/frontend/sdl/launcher_own.cpp tests/test_net_enet.cpp tests/test_net_upnp.cpp
                      src/frontend/sdl/sdl_restart.cpp src/frontend/sdl/win_cmdline.cpp tests/test_win_cmdline.cpp tests/test_log_start.cpp
                      tests/test_quiet_music.cpp)  # ours: no music aloud in a run no player hears
       target_link_libraries(mw3pmsdltests PRIVATE mw3text mw3sdl pmcore mw3core SDL3::SDL3)

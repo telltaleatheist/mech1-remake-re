@@ -18,8 +18,10 @@ words = [b'/Volumes/', b'/Users/', b'/home/', b'C:\\Users\\', b'C:/Users/'] + [n
 pat = re.compile(b'|'.join(re.escape(w) for w in words))
 pat16 = re.compile(b'|'.join(re.escape(w.decode().encode('utf-16-le')) for w in words))
 # The backup's addresses too (2026-11-22, docs/launcher.md, Two homes): git.owenmorgan.com/<user> and the
-# updater's .../api/v1/repos/<user>, and the name inside that host name itself.
-allowed = re.compile(rb'(?:github\.com/(?:repos/)?|git\.owenmorgan\.com/(?:api/v1/repos/)?)([A-Za-z0-9-]{0,16})$', re.I)
+# updater's .../api/v1/repos/<user>, and the name inside that host name itself. The games catalog's
+# raw.githubusercontent.com/<user> too (2026-11-26, docs/launcher-split.md, b7).
+allowed = re.compile(rb'(?:github\.com/(?:repos/)?|raw\.githubusercontent\.com/|git\.owenmorgan\.com/(?:api/v1/repos/)?)'
+                     rb'([A-Za-z0-9-]{0,16})$', re.I)
 BACKUP_HOST = b'git.owenmorgan.com'
 
 
@@ -36,7 +38,7 @@ for d, _, files in os.walk(root):
             continue
         data = open(p, 'rb').read()
         for m in pat.finditer(data):
-            a = allowed.search(data[max(0, m.start() - 40):m.start()])
+            a = allowed.search(data[max(0, m.start() - 48):m.start()])
             if a and m.group().lower().startswith(a.group(1).lower()):
                 continue
             if in_backup_host(data, m):

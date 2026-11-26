@@ -107,6 +107,8 @@ std::vector<DiscSource> find_discs();
 // `pirates_moon`: start_check's, with its data's version ("1.0", "unknown",
 // "incomplete").
 Result check_install(const std::string& dir, const std::string& write_dir, bool pirates_moon = false);
+// The game and its data's version in the summaries' words ("MechWarrior 3 1.2", "MechWarrior 3: Pirate's Moon").
+std::string game_version_words(const std::string& version, bool pirates_moon = false);
 
 // Before a start, either game (the launcher's PLAY): `ok` false only when the game cannot start (an empty or
 // missing zbd/reader.zbd, no Mech3Msg.dll), with `summary` saying so; `warnings` the missions that cannot load
