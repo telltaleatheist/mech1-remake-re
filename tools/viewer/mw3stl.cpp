@@ -4,7 +4,7 @@
 //   mw3stl --assets <zbd dir> --parts <mech>     the part tree, with sizes
 //   mw3stl --assets <zbd dir> --stats            holes, panels and sizes of every mech
 //   mw3stl --assets <zbd dir> --frames <mech> <motion>
-//   mw3stl --assets <zbd dir> --out <dir> [--scale 100] [--twist 25] [--pitch 3] [--no-base] [--smooth 0..3] [mech ...]
+//   mw3stl --assets <zbd dir> --out <dir> [--scale 100] [--twist 25] [--pitch 3] [--no-base] [--smooth 0..3] [--raw] [mech ...]
 // The stance: the walk's widest stride with both soles down, the torso twisted and the arms raised; holes closed,
 // single-sided panels given 0.8 mm, a bevelled hex base under the feet. Millimetres, Z up, facing -Y. --smooth
 // subdivides where the game's own normals smooth the shading, keeping its hard edges.
@@ -12,6 +12,7 @@
 #include <array>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <map>
 #include <string>
@@ -76,6 +77,8 @@ int list_parts(const std::string& zbd, const std::string& mech) {
 // corners wind outward, counter-clockwise from outside).
 struct Shape {
   int open = 0;
+  int crowded = 0;     // edges of more than two faces
+  int unbalanced = 0;  // edges used more often one way round than the other: not sealed (Cura's X-ray sees these)
   double volume = 0;
 };
 Shape shape(const std::vector<Vec>& tris) {
@@ -84,17 +87,18 @@ Shape shape(const std::vector<Vec>& tris) {
     const std::array<long, 3> k{std::lround(v[0] * 1000), std::lround(v[1] * 1000), std::lround(v[2] * 1000)};
     return id.try_emplace(k, static_cast<int>(id.size())).first->second;
   };
-  std::map<std::pair<int, int>, int> edges;
+  std::map<std::pair<int, int>, int> edges, way;  // way: uses u->v minus v->u, u < v
   Shape s;
   for (size_t t = 0; t + 2 < tris.size(); t += 3) {
     const int a = key(tris[t]), b = key(tris[t + 1]), c = key(tris[t + 2]);
     for (auto [u, v] : {std::pair{a, b}, std::pair{b, c}, std::pair{c, a}})
-      if (u != v) ++edges[{std::min(u, v), std::max(u, v)}];
+      if (u != v) ++edges[{std::min(u, v), std::max(u, v)}], way[{std::min(u, v), std::max(u, v)}] += u < v ? 1 : -1;
     const Vec &p = tris[t], &q = tris[t + 1], &r = tris[t + 2];
     s.volume += (p[0] * (q[1] * r[2] - q[2] * r[1]) - p[1] * (q[0] * r[2] - q[2] * r[0]) +
                  p[2] * (q[0] * r[1] - q[1] * r[0])) / 6.0;
   }
-  for (const auto& e : edges) s.open += e.second == 1;
+  for (const auto& e : edges) s.open += e.second == 1, s.crowded += e.second > 2;
+  for (const auto& w : way) s.unbalanced += w.second != 0;
   return s;
 }
 
@@ -232,6 +236,37 @@ viewer::Pose stance(const viewer::Mech& m, const std::string& zbd, const std::st
   return best;
 }
 
+// Drops doubled faces: the same three corners twice the same way round keeps one; twice opposite ways (a sheet of
+// no thickness) keeps neither. Some models store a face twice (the Thor's torso).
+int drop_doubles(std::vector<Vec>& tris) {
+  auto key = [](const Vec& v) {
+    return std::array<long, 3>{std::lround(v[0] * 1000), std::lround(v[1] * 1000), std::lround(v[2] * 1000)};
+  };
+  using K = std::array<long, 3>;
+  std::map<std::array<K, 3>, int> seen;  // corners in order from the smallest, value: +1 / -1 per winding
+  std::vector<std::array<K, 3>> order;
+  for (size_t t = 0; t + 2 < tris.size(); t += 3) {
+    std::array<K, 3> c{key(tris[t]), key(tris[t + 1]), key(tris[t + 2])};
+    const int m = static_cast<int>(std::min_element(c.begin(), c.end()) - c.begin());
+    std::rotate(c.begin(), c.begin() + m, c.end());
+    order.push_back(c);
+  }
+  std::map<std::array<K, 3>, int> count;
+  for (const auto& c : order) ++count[c];
+  std::vector<Vec> out;
+  std::map<std::array<K, 3>, int> kept;
+  int dropped = 0;
+  for (size_t i = 0; i < order.size(); ++i) {
+    const auto& c = order[i];
+    const std::array<K, 3> rev{c[0], c[2], c[1]};
+    if (count.count(rev) && count[rev] > 0 && rev != c) { ++dropped; continue; }  // a face and its back: neither
+    if (kept[c]++ > 0) { ++dropped; continue; }
+    out.insert(out.end(), tris.begin() + 3 * i, tris.begin() + 3 * i + 3);
+  }
+  tris = std::move(out);
+  return dropped;
+}
+
 // Closes each part's holes (the faces the game never drew, hidden inside the next part) with a fan from each
 // boundary loop's middle, keeping the winding outward.
 int close_holes(std::vector<Vec>& tris) {
@@ -249,10 +284,13 @@ int close_holes(std::vector<Vec>& tris) {
     if (a == b || b == c || c == a) continue;
     ++directed[{a, b}], ++directed[{b, c}], ++directed[{c, a}];
   }
-  // A boundary edge a->b has no b->a; the hole runs b->a.
+  // A boundary edge a->b has more uses than b->a (none, or fewer where three faces meet on one edge, as in the
+  // Thor's torso notch); the hole runs b->a, once for each unmatched use.
   std::multimap<int, int> next;
-  for (const auto& [e, n] : directed)
-    if (!directed.count({e.second, e.first})) next.emplace(e.second, e.first);
+  for (const auto& [e, n] : directed) {
+    const auto back = directed.find({e.second, e.first});
+    for (int k = n - (back == directed.end() ? 0 : back->second); k > 0; --k) next.emplace(e.second, e.first);
+  }
   int loops = 0;
   while (!next.empty()) {
     std::vector<int> loop{next.begin()->first};
@@ -558,6 +596,7 @@ struct Options {
   float twist = 25, pitch = 3;
   bool base = true;
   int smooth = 0;  // Loop subdivision levels (each: triangles x4)
+  bool raw = false;  // the polygons as the game has them: no hole closed, no strut, no base (to look at, not print)
 };
 
 int export_mech(const std::string& zbd, const std::string& mech, const std::string& dir, const Options& o) {
@@ -569,6 +608,8 @@ int export_mech(const std::string& zbd, const std::string& mech, const std::stri
   const float mm = 1000 / o.scale, thick = 0.8f / mm;  // panels 0.8 mm deep as printed
   std::vector<Vec> all, feet, calves;
   std::vector<Piece> pieces;
+  std::string leaky;
+  int doubles = 0, crowded = 0;
   int loops = 0, panels = 0, open = 0;
   for (const viewer::Mech::Part& p : m.parts(&pose)) {
     if (p.triangles.empty()) continue;
@@ -579,10 +620,31 @@ int export_mech(const std::string& zbd, const std::string& mech, const std::stri
         solid.insert(solid.end(), p.triangles.begin() + 3 * t, p.triangles.begin() + 3 * t + 3);
         normals.insert(normals.end(), p.normals.begin() + 3 * t, p.normals.begin() + 3 * t + 3);
       }
-    loops += close_holes(solid);
+    if (!o.raw) {
+      std::vector<Vec> before = solid;
+      doubles += drop_doubles(solid);
+      if (solid.size() != before.size()) {  // keep the normals with their triangles
+        std::map<std::array<long, 9>, size_t> where;
+        auto k9 = [](const Vec* t) {
+          std::array<long, 9> k{};
+          for (int i = 0; i < 9; ++i) k[i] = std::lround(t[i / 3][i % 3] * 1000);
+          return k;
+        };
+        for (size_t t = 0; t + 2 < before.size(); t += 3) where.emplace(k9(&before[t]), t);
+        std::vector<Vec> kept_normals;
+        for (size_t t = 0; t + 2 < solid.size(); t += 3) {
+          const size_t from = where[k9(&solid[t])];
+          kept_normals.insert(kept_normals.end(), normals.begin() + from, normals.begin() + from + 3);
+        }
+        normals = std::move(kept_normals);
+      }
+      loops += close_holes(solid);
+    }
     normals.resize(solid.size(), Vec{0, 0, 0});  // the caps: no normals, so their rims stay sharp
     if (o.smooth > 0) solid = smooth(solid, normals, o.smooth);
-    open += shape(solid).open;
+    const Shape sh = shape(solid);
+    if (sh.unbalanced > 0) leaky += " " + p.name + "(" + std::to_string(sh.unbalanced) + ")";
+    open += sh.unbalanced, crowded += sh.crowded;
     Piece piece{p.name, solid, {}, {}};
     bounds(solid, piece.lo, piece.hi);
     pieces.push_back(std::move(piece));
@@ -592,7 +654,7 @@ int export_mech(const std::string& zbd, const std::string& mech, const std::stri
     all.insert(all.end(), solid.begin(), solid.end());
   }
   std::string loose;
-  const int rods = struts(pieces, 0.02f, 1.0f / mm, all, &loose);
+  const int rods = o.raw ? 0 : struts(pieces, 0.02f, 1.0f / mm, all, &loose);
   Vec lo, hi;
   bounds(all, lo, hi);
   if (o.base) {
@@ -611,9 +673,9 @@ int export_mech(const std::string& zbd, const std::string& mech, const std::stri
   for (Vec& v : all) v[0] -= cx, v[1] -= lo[1], v[2] -= cz;
   const std::string path = dir + "/" + mech + ".stl";
   if (!write_stl(path, all, mm, "mw3stl " + mech)) return std::fprintf(stderr, "could not write %s\n", path.c_str()), 1;
-  std::printf("%-12s %6.1f mm tall  %5zu triangles  %3d holes closed  %2d panels thickened  %3d open edges left  "
-              "%d struts%s\n", mech.c_str(), (hi[1] - lo[1]) * mm, all.size() / 3, loops, panels, open, rods,
-              loose.c_str());
+  std::printf("%-12s %6.1f mm tall  %5zu triangles  %3d holes closed  %d doubled faces dropped  %2d panels thickened  "
+              "%d struts%s  left: %d unsealed edges%s%s (%d shared by 3+ faces, sealed)\n", mech.c_str(), (hi[1] - lo[1]) * mm, all.size() / 3,
+              loops, doubles, panels, rods, loose.c_str(), open, leaky.empty() ? "" : " in", leaky.c_str(), crowded);
   return 0;
 }
 
@@ -633,6 +695,7 @@ int main(int argc, char** argv) {
     else if (a == "--twist" && i + 1 < argc) opt.twist = std::stof(argv[++i]);
     else if (a == "--pitch" && i + 1 < argc) opt.pitch = std::stof(argv[++i]);
     else if (a == "--no-base") opt.base = false;
+    else if (a == "--raw") opt.raw = true, opt.base = false;
     else if (a == "--smooth" && i + 1 < argc) opt.smooth = std::stoi(argv[++i]);
     else if (a == "--frames" && i + 2 < argc) return frames(zbd, argv[i + 1], argv[i + 2]);
     else only.push_back(a);
