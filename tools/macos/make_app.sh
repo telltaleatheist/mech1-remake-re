@@ -54,7 +54,7 @@ cp build-mac-pkg/mw3pm "$APP/Contents/MacOS/mw3pm"
 # (ours) in Resources, SDL's base path. Without assets/launcher/ui it cannot be drawn (1.5.0).
 mkdir -p "$APP/Contents/Resources/assets/launcher/ui"
 cp assets/launcher/ui/* "$APP/Contents/Resources/assets/launcher/ui/"
-cp assets/launcher/*.png assets/launcher/font.ttf assets/launcher/font_body.ttf "$APP/Contents/Resources/assets/launcher/"
+cp assets/launcher/*.png assets/launcher/font.ttf assets/launcher/font_body.ttf assets/launcher/click.wav assets/launcher/hover.wav "$APP/Contents/Resources/assets/launcher/"
 
 # Every library outside the system, followed through the ones they load:
 # copied by their real file, named by their install name's file, and every

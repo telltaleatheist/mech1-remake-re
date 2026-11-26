@@ -70,6 +70,7 @@ TEST(controls_defaults_save_and_load_round_trip) {
 // player rebound on purpose stay as they are.
 TEST(controls_repair_mouse_fire_only_mends_the_quit_boxs_damage) {
   fresh();
+  zin::init(0xb0, "DefaultCmdMap");  // Pirate's Moon's 0xb0 commands (f0cb43d74), which the repair reads on pm
   mech3::controls_set_defaults();
   EXPECT(!mech3::controls_repair_mouse_fire());  // the defaults: nothing to mend
   zin::bind_mouse(0, 0x3e);                       // as the quit box (0x0048e2d0) unbinds it

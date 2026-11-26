@@ -42,7 +42,7 @@ cp assets/fonts/Anton-OFL.txt "$APPDIR/usr/share/doc/mw3pm/licenses/anton/OFL.tx
 # (ours) beside the program, where SDL_GetBasePath finds it. Without assets/launcher/ui it cannot be drawn (1.5.0).
 mkdir -p "$APPDIR/usr/bin/assets/launcher/ui"
 cp assets/launcher/ui/* "$APPDIR/usr/bin/assets/launcher/ui/"
-cp assets/launcher/*.png assets/launcher/font.ttf assets/launcher/font_body.ttf "$APPDIR/usr/bin/assets/launcher/"
+cp assets/launcher/*.png assets/launcher/font.ttf assets/launcher/font_body.ttf assets/launcher/click.wav assets/launcher/hover.wav "$APPDIR/usr/bin/assets/launcher/"
 mkdir -p "$APPDIR/usr/share/doc/mw3pm/licenses/saira-condensed"
 cp assets/launcher/font-OFL.txt "$APPDIR/usr/share/doc/mw3pm/licenses/saira-condensed/OFL.txt"
 mkdir -p "$APPDIR/usr/share/doc/mw3pm/licenses/rmlui"

@@ -767,6 +767,8 @@ Result check_pm(const std::string& dir, const std::string& write_dir) {
 }
 }  // namespace
 
+std::string game_version_words(const std::string& version, bool pirates_moon) { return version_words(version, pirates_moon); }
+
 Result check_install(const std::string& dir, const std::string& write_dir, bool pirates_moon) {
   Result r;
   r.install_dir = dir, r.pirates_moon = pirates_moon;

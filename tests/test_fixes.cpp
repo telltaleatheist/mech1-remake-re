@@ -82,6 +82,8 @@ float lava_heat(float fps, bool per_second) {
   mech3::Foot feet[2];
   mech3::Leg legs[2];
   mech3::Mech m{};
+  mech3::Skis skis{};  // Pirate's Moon 0x0041a100 reads the water's depth at the skis first (138d6ffb2)
+  m.skis = &skis;
   for (int i = 0; i < 2; ++i) legs[i].foot = &feet[i], m.legs[i] = &legs[i];
   feet[0].soil = 8;
   const int frames = static_cast<int>(fps / 2);  // half a second, under the overheat line
@@ -109,11 +111,15 @@ float smoke_speed(float fps, bool per_second) {
 
 }  // namespace
 
+// Pirate's Moon's heat (0x0041a100) is its own (test_pm_heat.py against the exe), so its half second on lava is not
+// MW3's 0.75; the fix is the same: as much at 144 fps as at 30, the exe's own at 30, nearly 5x at 144 without it.
 TEST(fix_lava_heat_per_second) {
-  EXPECT(std::fabs(lava_heat(30, true) - 0.75f) < 1e-3f);
-  EXPECT(std::fabs(lava_heat(144, true) - 0.75f) < 1e-3f);
-  EXPECT(std::fabs(lava_heat(30, false) - 0.75f) < 1e-3f);  // the exe at 30 fps
-  EXPECT(lava_heat(144, false) > 3.5f * 0.75f / 2.0f);       // and nearly 5x at 144
+  const float at30 = lava_heat(30, true), at144 = lava_heat(144, true), exe30 = lava_heat(30, false), exe144 = lava_heat(144, false);
+  std::printf("  half a second on lava: %.4f at 30 fps, %.4f at 144; the exe's %.4f and %.4f\n", at30, at144, exe30, exe144);
+  EXPECT(at30 > 0.0f);
+  EXPECT(std::fabs(at144 - at30) < at30 * 5e-3f);  // PM also cools each step: finer steps land 0.2% apart
+  EXPECT(std::fabs(exe30 - at30) < 1e-3f);  // the exe at 30 fps
+  EXPECT(exe144 > 3.5f * at30 / 2.0f);       // and nearly 5x at 144
 }
 
 TEST(fix_smoke_drag_per_second) {
@@ -1738,7 +1744,8 @@ TEST(fix_mfb_command_waits_for_a_point) {
     for (int empty = 0; empty < 2; ++empty) {
       zfix::set_all(fix != 0);
       waynet_icons_count() = 1;  // this waynet's own, never dropped here
-      auto* mcb = new McbWaynet(10050, "mcbwaynet");
+      // Pirate's Moon 0x0047ca80 counts the docks first (0x0045b120): the mcbwaynet must be the made one.
+      McbWaynet* mcb = mcb_waynet_make();
       const float at[3] = {10, 0, 20};
       mcb->add(new WaynetPoint("p", "mfb1", at, nullptr, 0, 1, 0, 1, 0, 0));
       EXPECT(mcb->count() == 2 && !as_point(mcb->elem(0)) && as_point(mcb->elem(1)));
@@ -1751,7 +1758,7 @@ TEST(fix_mfb_command_waits_for_a_point) {
       EXPECT(mcb->step == (waits ? 1 : 2));
       EXPECT(hooks.waits == (waits ? 1 : 0));
       hooks.mission = nullptr;
-      delete mcb;
+      mcb_waynet_free();
     }
   }
   set_waynet_hooks(nullptr);

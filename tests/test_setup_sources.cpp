@@ -282,9 +282,10 @@ TEST(setup_map_finds_the_game_inside_archives) {
   Found e = mech3::source::map_source(
       temp_file("pm.zip", write_archive("zip", {{"pm/disc.zip", write_archive("zip", {{"PM.iso", pm_iso}})}})));
   EXPECT(e.game == Found::kPiratesMoon && e.summary.find("click PIRATE'S MOON") != std::string::npos);
-  // Both games' discs in one download, Pirate's Moon's first: MechWarrior 3's is taken.
-  Found both = mech3::source::map_source(temp_file("both.zip", write_archive("zip", {{"a/PM.iso", pm_iso}, {"b/MW3.iso", iso}})));
-  EXPECT(both.game == Found::kMw3 && both.steps.size() == 1 && both.steps[0].entry == "b/MW3.iso");
+  // Both games' discs in one download, MechWarrior 3's first: Pirate's Moon's is taken (pm ranks its own game
+  // first, d79ccdc28; MW3's program takes MW3's).
+  Found both = mech3::source::map_source(temp_file("both.zip", write_archive("zip", {{"a/MW3.iso", iso}, {"b/PM.iso", pm_iso}})));
+  EXPECT(both.game == Found::kPiratesMoon && both.steps.size() == 1 && both.steps[0].entry == "b/PM.iso");
   // The look stopped from its progress (SETUP's CANCEL): nothing found, said so.
   int asked = 0;
   Found s = mech3::source::map_source(temp_file("stop.zip", write_archive("zip", redump(iso, "Stop"))),

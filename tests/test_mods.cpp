@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "check.h"
+#include "mods_game_mw3.h"
 #include "upgrades/mods/campaign_entries.h"
 #include "zip_write.h"
 #include "gamez/zreader/zreader.h"
@@ -1173,6 +1174,7 @@ TEST(mods_pm_anim_files_it_does_not_read_are_said) {
 // needed); an off mod's as if turned on; a row with one flagged, its note
 // saying it first. Nothing refuses a mod.
 TEST(mods_needs_warn_never_block) {
+  const ModsGameMw3 mw3;  // MW3's names (tests/mods_game_mw3.h)
   mech3::ModInfo m;
   EXPECT(mech3::mod_parse("name=X\nneeds=Green HUD 1.2\nneeds=base\nneeds=Pack v2\nconflicts=Red HUD\ngame_version=1.1.0\n", &m));
   EXPECT((m.needs == std::vector<std::pair<std::string, std::string>>{{"Green HUD", "1.2"}, {"base", ""}, {"Pack", "v2"}}));
@@ -2725,7 +2727,9 @@ TEST(mods_check_mod_reports_what_the_game_would_refuse) {
   EXPECT(text.find("zbd/reader/fmv.zrd.json: added") != std::string::npos && text.find("zbd/reader.zip: added") != std::string::npos);
   EXPECT(text.find("zbd/motion/madcat_walk.json: added") != std::string::npos && text.find("zbd/motion.zip: added") != std::string::npos);
   EXPECT(text.find("zbd/mechlib/materials.json: added") != std::string::npos && text.find("zbd/mechlib.zip: added") != std::string::npos);
-  EXPECT(text.find("its animations read from unzbd's JSON") != std::string::npos);
+  // Pirate's Moon reads no animation JSON, def or node files (1299fce5d): said so, and the anim.zip not looked into.
+  const std::string not_read = "zbd/t1/anim/metadata.json: added\n  not read by Pirate's Moon, whose animations come from";
+  EXPECT(text.find(not_read) != std::string::npos);
   EXPECT(text.find("its world read from unzbd's JSON") != std::string::npos);
   if (fs::exists(install + "/zbd/c1/readerm1.zbd", ec))
     EXPECT(text.find("zbd/c1/readerm1.zbd: replaces the game's") != std::string::npos && text.find("0 errors") != std::string::npos);
@@ -2785,11 +2789,11 @@ TEST(mods_check_mod_reports_what_the_game_would_refuse) {
          text.find("warning: zbd/motion.zip:madcat_run.json: line 1 (at $.loop_time): not above 0") != std::string::npos);
   EXPECT(text.find("warning: zbd/mechlib/materials.json: line 2 (at $[0].Colored.alpha): 300: past 0..255") != std::string::npos &&
          text.find("warning: zbd/mechlib.zip:mech_x.flt.json: line 1 (at $): no \"models\"") != std::string::npos);
-  EXPECT(text.find("warning: zbd/t1/anim.zip: gone.json: not there") != std::string::npos);
+  EXPECT(text.find("zbd/t1/anim.zip: added\n  not read by Pirate's Moon") != std::string::npos && text.find("gone.json") == std::string::npos);
   EXPECT(text.find("warning: zbd/c1/gamez.zip: nodes.json: line 1 (at $[0]): an empty node has one parent") != std::string::npos);
   EXPECT(text.find("warning: zbd/c2/gamez/: metadata.json: line 1 (at $): no \"model_array_size\"") != std::string::npos);
   // One refuses the mod: its mod.txt. The rest are warnings.
-  EXPECT(errors == 1 && text.find("17 files, 4 archives, 11 reader entries checked; 1 errors, 17 warnings") != std::string::npos);
+  EXPECT(errors == 1 && text.find("17 files, 4 archives, 10 reader entries checked; 1 errors, 16 warnings") != std::string::npos);
   EXPECT(text.find("warning: zbd/mechlib.zbd: its version, format or materials cannot be read. The rebuild: IMPORT leaves this file out; the "
                    "game's own, if it has one, is used. The original game: not known.") != std::string::npos &&
          text.find("warning: zbd/motion.zbd: its motion walk cannot be read. The rebuild: IMPORT leaves this file out") != std::string::npos);
@@ -2969,20 +2973,22 @@ TEST(mods_screen_campaign_rows_ticks_order_and_conflicts) {
   std::string rows;
   for (const mech3::ModsCampaignRow& r : c) rows += r.entry + ":" + mech3::mods_campaign_row_text(r) + "|";
   std::printf("  campaigns: %s\n", rows.c_str());
-  EXPECT(rows == "mw3:MechWarrior 3|camp~lost:Lost Frontier|camp~bad:bad.txt !|campmech~drills:Drills|edit:My Edit|gone~far:Far Away !|");
-  if (c.size() == 6) {
-    EXPECT(c[0].mod.empty() && c[0].error.empty() && c[1].error.empty() && c[3].error.empty());
-    EXPECT(c[2].error.find("line 1") != std::string::npos);
-    EXPECT(mech3::mods_campaign_details(c[1]) == "Someone, version 1.2");
-    EXPECT(c[4].copy_of == "Lost Frontier" && c[4].error.empty() && c[1].copy_of.empty());
-    EXPECT(c[5].error.find("its mod is not in the mods folder any more") == 0);
+  // Pirate's Moon's two campaigns first (616518a04; MW3's one "mw3:MechWarrior 3").
+  EXPECT(rows == "campaign:Campaign|pirate:Pirate Missions|camp~lost:Lost Frontier|camp~bad:bad.txt !|campmech~drills:Drills|"
+                 "edit:My Edit|gone~far:Far Away !|");
+  if (c.size() == 7) {
+    EXPECT(c[0].mod.empty() && c[0].error.empty() && c[1].mod.empty() && c[1].error.empty() && c[2].error.empty() && c[4].error.empty());
+    EXPECT(c[3].error.find("line 1") != std::string::npos);
+    EXPECT(mech3::mods_campaign_details(c[2]) == "Someone, version 1.2");
+    EXPECT(c[5].copy_of == "Lost Frontier" && c[5].error.empty() && c[2].copy_of.empty());
+    EXPECT(c[6].error.find("its mod is not in the mods folder any more") == 0);
   }
   // A campaign with a ticked mod gone: its row says which.
   const std::vector<mech3::CampaignEntry> all = mech3::campaign_entries(wd);
-  const mech3::CampaignEntry* own = mech3::find_entry(all, "mw3");
+  const mech3::CampaignEntry* own = mech3::find_entry(all, "campaign");
   EXPECT(own && mech3::entry_save_ticks(wd, *own, {"a", "nowhere"}));
   c = mech3::mods_entry_rows(wd);
-  EXPECT(!c.empty() && mech3::mods_campaign_row_text(c[0]) == "MechWarrior 3 !" && c[0].error.find(": nowhere") != std::string::npos);
+  EXPECT(!c.empty() && mech3::mods_campaign_row_text(c[0]) == "Campaign !" && c[0].error.find(": nowhere") != std::string::npos);
   // MODS for the game's own campaign: its ticks first in their order, then the rest; campaign mods are not rows.
   auto mods_rows = [&](const std::vector<std::string>& on, std::vector<mech3::ModsListEntry>* out) {
     std::string text;
@@ -3006,8 +3012,8 @@ TEST(mods_screen_campaign_rows_ticks_order_and_conflicts) {
   mech3::mods_toggle(on, "b");
   mech3::mods_toggle(on, "off");
   EXPECT((on == std::vector<std::string>{"a", "off"}));
-  EXPECT(mech3::entry_save_ticks(wd, *own, on) && mech3::entry_ticks(wd, "mw3") == on && mech3::entry_ticks(wd, "camp~lost").empty());
-  EXPECT(mods_rows(mech3::entry_ticks(wd, "mw3"), &m) == "[x] A|[x] Off|[ ] B|");
+  EXPECT(mech3::entry_save_ticks(wd, *own, on) && mech3::entry_ticks(wd, "campaign") == on && mech3::entry_ticks(wd, "camp~lost").empty());
+  EXPECT(mods_rows(mech3::entry_ticks(wd, "campaign"), &m) == "[x] A|[x] Off|[ ] B|");
   EXPECT(mech3::mods_enabled(wd).empty());  // mw3.cfg is not where ticks live
 }
 

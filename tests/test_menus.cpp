@@ -84,7 +84,7 @@ TEST(still_menu_background_on_a_tall_screen) {
   mech3::ScrollImage bg(e);
   bg.image = &p.t;
   bg.src = &bg.view;  // as borrow_background leaves it
-  EXPECT(bg.view.right == 40 && bg.view.bottom == 32);
+  EXPECT(bg.view.right == 40 && bg.view.bottom == 31);  // Pirate's Moon 0x00488470: the view one row short (abd81951c)
   bg.draw();
   for (int y = 0; y < 32; ++y)
     for (int x = 0; x < 40; ++x) {

@@ -77,13 +77,17 @@ bool claim_game_folder(const std::string& dir, u::Game g, std::string* error);
 
 // A kit game's answer to `bin --status` (re-setup-kit's launcher contract: one JSON object, exit 0, nothing on
 // screen; MechWarrior 1 Rebuild first): false when it did not answer in time or its answer is not one.
-bool kit_status(const std::string& bin, rekit::Status* out);
+bool kit_status(const std::string& bin, rekit::Status* out, const std::vector<std::string>& more = {});  // more: after --status
+// A game's id in its --status ("mech3", "mech3-pm", ...), "" when the launcher knows none (b5: --with names them).
+const char* kit_id(upgrades::update::Game g);
 
 // A kit game's setup on the launcher's screens (its status says `setup`; re-setup-kit's rekit/sdl/setup_serve.h): runs
 // `bin --setup <args>` and follows its lines. `seconds` 0: as long as it takes. False: no answer (why in `out`'s
-// summary). A stopped one is told to stop and, after a wait, ended.
+// summary). A stopped one is told to stop and, after a wait, ended. `each` (optional) gets every line before the
+// answer, in order: --copies' rows (progress sees only the latest line of a read).
 bool kit_setup(const std::string& bin, const std::vector<std::string>& args, int seconds,
-               const std::function<bool(const rekit::SetupMessage&)>& progress, rekit::SetupMessage* out);
+               const std::function<bool(const rekit::SetupMessage&)>& progress, rekit::SetupMessage* out,
+               const std::function<void(const rekit::SetupMessage&)>& each = nullptr);
 
 // Whether `bin` is inside the AppImage this program runs from ($APPDIR), so goes away with it.
 bool in_own_mount(const std::string& bin);

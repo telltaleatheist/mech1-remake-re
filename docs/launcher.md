@@ -59,6 +59,14 @@ found or installed. The launcher below is its own program, `mw3launcher`
 
 ## The find screen and the notes (v1.0, 2026-11-02)
 
+Since launcher split b6 (2026-11-26) this screen, its checks and its notes are
+the games' own: built into mw3 (and mw3pm) only, behind `MW3_GAME_FIND_SCREEN`,
+until d1 replaces it with the kit's setup screen. mw3launcher reaches a game's
+files only through its served `--setup`; for an older program (no `setup: 1`)
+it takes mw3.cfg's `install=` / `pm_install=` unchecked, and its GAME FILES and
+PLAY with no copy say to update the game (launcher-split.md, b6 piece 1). The
+checks below run through `mw3 --launcher-shot F --launcher-screen S`.
+
 **Anything can be picked (2026-11-24).** The pickers had a filter that showed
 .bin and .iso first and hid the rest; they now show every file, and PICK A
 FOLDER is beside the picker on the find screen, in the list of copies and in
@@ -445,6 +453,94 @@ that port; mech1-re credits it). The cards' tabs are gone (an old `tab_<card>=` 
 The two sections below are the layouts before it; the game states, the COMING
 SOON rule and the kit's contract are unchanged.
 
+## The games catalog (2026-11-26, launcher-split.md b0)
+
+The families and the games are data: `src/upgrades/update/games.json`,
+built into the launcher as text (CMake writes `games_catalog.cpp` from it)
+and read once by `parse_catalog` (games.h). It replaced games.cpp's table
+(key, name, repo, tag prefix, program), the release files' names
+(`assets`, `{tag}` for the tag) and launcher.cpp's panel rows, badges,
+blurbs, buttons' names and screen headers. Each game has four names:
+`name` for the words ("Pirate's Moon"), `title` on its panel, `heading`
+over its screens ("MECHWARRIOR 3: PIRATE'S MOON") and `button`, its panel
+button's name in the log and for a pad. `heading_badge` is the badge a
+game's own setup shows when it differs from its panel's (none does: the MW1
+Rebuild's setup showed the Remake's `badge_mw1.png` until 2026-11-26, now its
+panel's `badge_mw1o.png`). The panels go
+by `order`; `panel_before_release: false` keeps a panel away until a
+release is found or the game is installed (Inception Remake). `state`,
+`needs` and `min_launcher` are read and checked, and acted on since the
+fetched catalog (b7, below; `needs` not yet). The code still knows each game by its
+`Game` (games.h), linked to its entry by key; a built-in catalog without
+one of them stops the program at its first read (the test stops it
+first).
+
+Checked: `games_catalog_built_in_as_the_tables_were` (every value as the
+tables had it, the files' names on every platform) and
+`games_catalog_refuses_bad_entries` (mw3tests); every `--launcher-shot`
+screen, games on demand and an empty folder, byte for byte against the
+build before (66 shots, the version text pinned).
+
+### Fetched (2026-11-26, launcher-split.md b7)
+
+A newer catalog comes from the hub's main, `catalog/games.json` in mw3-re
+(git.owenmorgan.com's raw file first, then GitHub's raw file; both asked,
+the higher `revision` wins), with no word about the player sent. It is
+fetched on a thread while the launcher is open and cached in the write
+dir, `catalog/games.json`, with the art it names that the package does not
+carry (`catalog/art/<name>` beside it on the hub; kept only when it is a
+PNG). The next start reads the cache and merges it over the built-in
+catalog: an entry by its key replaces the built-in's, a new key adds a
+game, and anything it does not list stays as built in. Offline, the cache
+serves; with no cache, or one whose `revision` is not above the built-in's
+(the built-in has `"revision": 1`), the built-in catalog is used. The
+catalog in use is fixed for the run once a game is looked up
+(`use_catalog`); a check run (hidden, a shot) fetches first, and only from
+`MW3_CATALOG_URL` (one address, or `BACKUP|GITHUB`; `file://` there).
+
+What an entry does:
+
+- `released`: its repo is asked and its panel shown, as before.
+- `coming_soon`: its repo is still asked, and a release found turns it to
+  DOWNLOAD; with `panel_before_release: false` it has no panel until then.
+  Flipped to `released`, its panel shows at once (COMING SOON until its
+  repo has a release).
+- `removed`: no panel and its repo not asked, unless it is on this
+  computer: then it stays, plays and updates as before. No catalog change
+  touches an installed game.
+- A new game (up to `kMaxGames`, 10 in all) is a game on the setup kit's
+  contract: DOWNLOAD from its repo (still checked against SHA256SUMS),
+  then PLAY, its page and its links as the kit's games have them.
+
+Trust: an entry whose `repo` names another owner (`owner/repo`) is left
+out, so is one whose `min_launcher` is newer than this launcher (a build's
+"unknown" version takes every entry), and one whose art is not a plain
+`.png` name. A bad entry is left out and the rest read; a catalog that is
+not JSON, or in a newer format (`"catalog"` above 1), is not used at all.
+Each is said in the log (`catalog: ... left out: ...`). No signing yet.
+
+Checked: `games_catalog_fetched_leaves_out_bad_entries`,
+`games_catalog_fetched_merges_over_the_built_in` (mw3tests) and
+`sdl_program_launcher_takes_a_fetched_catalog` (a stand-in adds a game with
+its badge, flips Inception's remake to released, removes MechWarrior 1
+Rebuild and an installed Inception, which still plays; offline with the
+cache; offline with none). `tools/launcher/shots.sh` takes every screen for
+the byte-for-byte check: the built-in catalog's 66 shots are as before.
+
+## The launcher's own small copies (2026-11-26, launcher-split.md b1)
+
+What the launcher took from the game's code for its own use is its own now, in `launcher_own.h` (`sdlfe::own`):
+the Work types (`Progress`, `ProgressFn`, `Result`, were `mech3::setup`'s), mw3.cfg's line editor
+(`save_config_value`, `save_install`), `crc32` (the notes' seen-once check), `any_case` and `path_from_config` (with
+`narrow_paths_utf8`). Each is a copy that does what the game's does. MW3's setup calls the launcher still makes
+(`check_install`, `start_check`, `install_from_source`, `add_from_disc`, `add_pm_from_disc`, `apply_patch`,
+`find_discs`) go through `launcher_mw3_setup.h`, which turns their types into the launcher's; it is the one place
+that names `mech3::setup`, and it goes when b2 and b3 put those calls behind the games' served verbs.
+
+Checked: `launcher_own_copies_do_as_the_games` (mw3sdltests: mw3.cfg byte for byte against sdl_install's on the
+same files, crc32 against zutl_zar's, any_case against zutl's on one tree, path_from_config); every
+`--launcher-shot` screen byte for byte as before (`tools/launcher/shots.sh`, 66 shots).
+
 ## The copies on this computer (2026-11-24)
 
 "The user should be able to pick what's used. Some copies have music and some
@@ -664,6 +760,8 @@ the 1280x720 mockup at two thirds on the 854x480 canvas.
   battle; a pick made from PLAY ORIGINAL is kept for the remake and said.
   The checks use a stand-in of zeros with its last four bytes set to the
   CRC (`tests/mw1_btech_stand_in.h`): no game data.
+- b5 (2026-11-26): the port's path is out of the launcher (MechWarrior 1's
+  files and Elthial's port, below).
 - The bottom row: CHECK FOR UPDATES, QUIT (flat buttons; GAME FILES and UPDATES until 2026-11-24), the package's
   version and the trademark line at the right.
 - Square buttons only: a hovered one lights its edge in amber (an amber
@@ -682,126 +780,71 @@ the 1280x720 mockup at two thirds on the 854x480 canvas.
 - The other screens (find, notes, data, updates, working) keep their
   metal-band look for now.
 
-## MechWarrior 1 (MechWarrior 1 Remake's fork, 2026-11-16)
+## MechWarrior 1 (MechWarrior 1 Remake, through the contract since b5, 2026-11-26)
 
-In the MW1 fork the entry starts MechWarrior 1 Remake in
-place of Elthial's port: the same badge (`badge_mw1.png`) and place, the label
-MECHWARRIOR 1. Shown when `mw1` (`mw1.exe`) is beside the launcher
-(`MW3_MW1_BIN` names it, for checks). It needs three folders: the player's
-MW1 (`BTECH.EXE`, picked and kept as `mw1_game=` as before), Pirate's Moon's
-(`pm_install=`, as PIRATE'S MOON finds it) and MechWarrior 3's (the install
-MECHWARRIOR 3 uses). Its line is "Ready: <MW1
-folder>" ("Ready, mw1-v1.0.0: <MW1 folder>" when its file holds a version, read
-as mw3pm's is, from a `mw1-vX.Y.Z` tag on branch mw1; also on the log's
-programs line), "Not found yet: click to find your MechWarrior (1989)", or "Not ready:
-needs MechWarrior 3 and/or Pirate's Moon: find them (or it) in GAME FILES", greyed
-until both games are there (2026-11-16: an icon follows what is loaded);
-then a click picks the MW1 folder or starts it. Started as `mw1 --install <PM>
---mw3-install <MW3> --mw1-game <MW1> --no-launcher` plus this start's choices
-(`--windowed`, `--window`, `--nosound`, `--hidden`, `--no-import`), the
-launcher hidden until it exits. `mw1` keeps the three in its own `mw1.cfg`
-(MechWarrior 1 Remake's src/mw1_main.cpp). Without `mw1` beside the launcher
-(a plain mw3-re package) nothing changes: the entry is Elthial's port's,
-searched for and started as below.
-`sdl_program_launcher_starts_mechwarrior_1` (a stand-in `mw1`: the
-arguments given, and the line when MW3 is not known);
-`sdl_program_launcher_starts_mechwarrior_1989` (no `mw1`: the port's entry).
+The panel MECHWARRIOR 1 starts MechWarrior 1 Remake (mech1-remake-re). It is
+shown when `mw1` (`mw1.exe`) is beside the launcher or installed by it
+(`MW3_MW1_BIN` names it, for checks). It needs MechWarrior 3 and Pirate's Moon
+(the catalog's `needs`), and its own files are the player's MechWarrior (1989),
+`BTECH.EXE`'s folder.
 
-### MechWarrior 1's files (2026-11-20)
+- **Its needs** are the launcher's own view: MW3's install and Pirate's
+  Moon's as their panels have them. Without one the panel says "Needs ..."
+  and its line "Not ready: needs MechWarrior 3 and/or Pirate's Moon", PLAY
+  starts nothing. Never the Remake's `missing`, which holds only its own files'
+  gaps (launcher split b5: missing means not ready).
+- **A Remake that serves its setup** (its `--status` says `"setup": 1`; the
+  Remake's mw1/src/mw1_start.cpp) is asked with the needs' copies,
+  `--status --with mech3=<MW3> --with mech3-pm=<PM>`. Its status gives the 1989
+  game's state and `where`. Without them its line says "Not found yet: click
+  to find your MechWarrior (1989)", and PLAY or GAME FILES opens its setup on
+  the launcher's screens as a kit game's (find, the picker, look, install:
+  the Remake's own finder and copy-in, mw1/src/mw1_game_files). A game-files
+  pick given to LINK A COPY goes there too. Set up, PLAY starts it with the
+  same `--with` pair, `--no-launcher` and this start's choices (`--windowed`,
+  `--window`, `--nosound`, `--hidden`, `--no-import`); `play: 1`.
+- **An older Remake** (no status, or one without `"setup": 1`) is started as
+  before: `--install <PM> --mw3-install <MW3> --mw1-game <MW1> --no-launcher`
+  and the choices, with mw3.cfg's `mw1_game=` read as it is (unchecked). With
+  no `mw1_game=` the launcher can no longer give it one (its MW1 finder went
+  with the port in b5): its line says "Not set up: update MechWarrior 1 Remake
+  to find your MechWarrior (1989)", its page's GAME FILES row says the same
+  with no CHANGE, and PLAY starts its UPDATE when a newer release is known, or
+  says so on the status line. This is why the new launcher and the new Remake
+  ship together (docs/launcher-split.md, c4).
+- Its line is "Ready: <MW1 folder>" ("Ready, mw1-v1.0.0: <MW1 folder>" when its
+  file holds a version, read as mw3pm's is), also on the log's programs line;
+  the launcher is hidden until it exits, then its status is asked again.
+- Checks: `sdl_program_launcher_starts_mechwarrior_1` (a stand-in `mw1`: an
+  older one's arguments, the needs, an older one without `mw1_game=`, a served
+  one's status and start, its setup through the launcher's screens, GAME
+  FILES), `sdl_program_launcher_offers_an_older_remake_its_update` (PLAY on an
+  older one with a newer release known: its UPDATE). `MW3_LAUNCHER_FILES=mw1`
+  opens its GAME FILES; `MW3_LAUNCHER_PICK` with `--launcher-mw1` answers its
+  picker.
 
-Taken the way MW3's and Pirate's Moon's are (2026-11-20: "it accepts
-the mw1 files just like mw3 and pm do"), in `frontend/sdl/mw1_files` (ours):
+### MechWarrior 1's files and Elthial's port (removed from the launcher in b5)
 
-- **At start**, our unpacked copy (the write dir's `mw1/game`) when it holds `BTECH.EXE` (2026-11-24, issue
-  #10's rule: ours first); then `mw1_game=` while it still holds `BTECH.EXE`; else the usual
-  places, each looked into a level down: the write dir's `mw1/game` (our
-  unpacked copy), folders named MechWarrior, MechWarrior1989, MW1, MECHWAR,
-  MECH or MW beside the program (beside the Mac's .app, beside the
-  AppImage), in the home folder or on the system drive, and under their
-  Games, DOSBox or DOS folders. Only named folders: on the Mac a look into
-  Documents or Downloads would ask the player for permission. Our own copy,
-  found, is kept as `mw1_game=`; anything else found is only offered, never
-  taken (2026-11-21, as MW3's: the player always chooses): MECHWARRIOR 1 (or
-  PLAY ORIGINAL) then shows MW3's find plate ("USE THESE GAME FILES?", the
-  find's name; clicking it opens the picker; INSTALL copies it in; BACK
-  leaves it), and its card line names the find. `MW3_LAUNCHER_NO_MW1_SEARCH`
-  (checks) skips the search; `MW3_SEARCH_PROGRAM_DIR` stands for the
-  program's folder; `MW3_LAUNCHER_GO` and `MW3_LAUNCHER_PICK_OTHER` press the
-  offer's INSTALL and its plate.
-- **A click** with none found opens the file picker (as MW3's one picker):
-  `BTECH.EXE` or any file in the game's folder; a folder above it, one or two
-  levels (a DOSBox drive folder); or the download it came in (.zip and the
-  other archives SETUP reads), whose folder holding `BTECH.EXE` is unpacked
-  into the write dir's `mw1/game`. A folder picked (or a file's folder, or the
-  offered find) is copied there too (2026-11-21: once found, the original may
-  be deleted), by `mw1::copy_in` on the launcher's worker: the kit's
-  `copy_folder` into `mw1/game.copying` (room checked, links followed),
-  marked, then `swap_in_folder`, so the old copy stays until the new one is
-  in, and a failure or a cancel leaves nothing half-copied with `mw1_game=`
-  as it was. Our copy picked again is used where it is, never copied onto
-  itself. A folder holding more than 512 MB (the game is about 1 MB; a Games
-  folder or a drive's root that holds `BTECH.EXE` among other things) is
-  refused before anything is copied, with a status line asking for a folder
-  of the game's own. That folder carries our marker (`mw3-launcher-unpacked.txt`); a
-  later download or copy replaces it, and a folder there without the marker
-  is never replaced. Entries that climb out
-  (`..`, absolute paths) are skipped. A pick that is not the game is said on
-  the status line ("That download has no BTECH.EXE: it is not MechWarrior
-  (1989).") and nothing changes. Without `MW_MAIN.EXE` beside it the game is
-  still taken (its Bar keeps ORDER DRINK and NEWS greyed), logged.
-- **GAME FILES** on its page opens the same picker: the new folder is
-  kept, nothing started; a cancel keeps the one in use. A kept folder that no
-  longer holds the game is dropped at the next start and searched for again.
-- Its line says what it needs (MW3, Pirate's Moon) before asking for its
-  folder, and a press then opens no picker.
-- `MW3_LAUNCHER_PICK` with `--launcher-mw1` (checks) stands for the picker's
-  answer; `MW3_LAUNCHER_PICKER=path:<file>` answers any ask with that file;
-  `MW3_LAUNCHER_FILES=mw1` opens GAME FILES as after MW1's line. `test_mw1_files.cpp`; the zip pick in
-  `sdl_program_launcher_starts_mechwarrior_1`.
+From 2026-11-20 to b5 the launcher found, offered and copied in MechWarrior
+(1989) itself (`frontend/sdl/mw1_files`, `test_mw1_files.cpp`; the find plate
+shots `mw1found`, `mw1origfound`). That finder is the Remake's own now
+(mw1/src/mw1_game_files, mw1tests' `mw1_game_files_*`), served through
+`--setup`, and its rules (ours first, the named folders, the 512 MB refusal,
+the marker, the zip picks) are documented there.
 
-## MechWarrior (1989)
-
-Elthial's MechWarrior SDL port (github.com/Elthial/Mechwarrior-sdl-port).
-Since the cards it is MW1's PLAY ORIGINAL (above); before them it was the
-MECHWARRIOR (1989) entry. Found when
-`mechwarrior.exe` (`mechwarrior` elsewhere) is beside `mw3` or in a
-`MechWarrior1989\` folder beside it (`MW3_MW1_PORT` names it, for checks).
-It needs the player's MW1 folder (`BTECH.EXE`, any case): picked once with
-a folder picker and kept as `mw1_game=` in mw3.cfg (`save_config_value`).
-Started with `SDL_CreateProcess` as its own script (Run-MechWarrior.ps1)
-does: `mechwarrior <game dir> <capture dir>`, the capture dir
-`<write dir>/mw1/captures` (made first: the port wants it existing; F12's
-shots land there, never in the game folder) and
-MECHWARRIOR_SAVE_DIRECTORY `<write dir>/mw1/saves`. Its MechWarrior.ini is
-named in MECHWARRIOR_TIMING_CONFIG: beside it, or in the Mac app's
-`Resources/MechWarrior1989/` (SDL's base path inside an app is the app's).
-The release build applies the kit's proposed patches, so the player's game
-folder is opened read-only (mw1 dev 1, 2026-11-20: nothing but saves is ever
-written, and saves go to the save dir).
-
-The package (built 2026-11-20, opt-in since the cut the same day): `tools/package/mw1port/build_port.sh`
-(mw1 dev 1's kit: the port, Munt and Nuked-OPL3 at the commits in
-`pins.txt`, its patches, SDL3) builds and stages it; `combined.sh mac ...
---mw1 <ref> --mw1-port` builds it with `--proposed` and `make_app.sh` puts the program
-and its libraries in `Contents/MacOS/MechWarrior1989/` (code only, signed)
-and MechWarrior.ini, `licences/` (the port's LICENSE, MIT and NOTICE
-unchanged, the LGPL texts, SDL's, and SOURCES.txt with every commit) and
-`THIRD-PARTY-MW1989.txt` in `Contents/Resources`. The two LGPL libraries
-stay separate, replaceable shared libraries. Linux: `combined.sh linux ...
---mw1` builds it against make-appimage.sh's prefix and the AppImage carries
-the staged folder whole in `usr/bin/MechWarrior1989/` (its libraries by
-`$ORIGIN`, not through linuxdeploy; glibc 2.38 or later, as the AppImage).
-Windows: `combined.cmd`'s third ref runs `build_port.cmd` (clang-cl, its VC
-runtime app-local: Windows does not look in the launcher's folder for a
-program in a subfolder) and `package.cmd` copies it to `MechWarrior1989\`;
-`check_dist.ps1 -Mw1Port` checks its DLLs against its own folder and its
-licences. mechwarrior.exe is a console program, so the launcher starts it in
-SDL's background mode on Windows (no console window; its exit then reads 0).
-The MW3-alone installer leaves `MechWarrior1989\` alone: a port the player
-put there is theirs.
-Built 2026-10-31;
-`--launcher-mw1` presses it at once (checks);
-`sdl_program_launcher_starts_mechwarrior_1989` (a stand-in script).
+Elthial's MechWarrior SDL port (github.com/Elthial/Mechwarrior-sdl-port) was
+the MECHWARRIOR (1989) entry from 2026-10-31, then MW1's PLAY ORIGINAL, cut to
+COMING LATER on 2026-11-20 and looked for only at `MW3_MW1_PORT`. b5 (Decided,
+6 in launcher-split.md) took its path out: the port's start, PLAY ORIGINAL,
+the BTECH.EXE revision check (`original_supported`, CRC-32 0x36A13E1A) and
+its words, and `sdl_program_launcher_starts_mechwarrior_1989`. MECHWARRIOR 1
+ORIGINAL is MechWarrior 1 Rebuild's (mech1-re) alone. The port's opt-in
+packaging went right after: `tools/package/mw1port/` (build_port.sh/.cmd,
+its pins and patches, THIRD-PARTY-MW1989.txt), `MW3_PKG_MW1_PORT_DIR` in
+make_app.sh, make-appimage.sh and package.cmd, and `check_dist.ps1 -Mw1Port`
+(combined.sh's `--mw1-port` and combined.cmd's `MW3_PKG_WITH_PORT` had gone
+already). The Windows installer still removes `{app}\MechWarrior1989` and
+`THIRD-PARTY-MW1989.txt` from an older install it is put over.
 
 ## Mods (2026-11-08, removed 2026-11-10)
 
@@ -886,14 +929,15 @@ named install or `--install-from`/`--patch`; `--no-launcher` skips it):
   second with vsync, 54.8 with the sleep, the draw 2.6 ms (direct3d11). The
   start was never slow: the old ripple was (80 pixels a second, 2 s long).
   The log gives these at every start and quit.
-- The hover ripple is `zrndr::ripple` on the canvas. The sounds are the
-  main menu's own (2026-10-31): sounds.zrd's MAINMENU set, menu_rollover
-  (sfx_button2.wav at 0.7) when the hovered or focused button changes and
-  menu_select (sfx_button6.wav) on a press, read from the install's
-  soundsL.zbd (else soundsH.zbd) as zSnd reads them, through an SDL audio
-  stream. None without an install (loaded once one is known, after SETUP
-  too) or with `--nosound`; `MW3_LAUNCHER_MUTE` plays them at no volume
-  (checks). `sdl_program_launcher_plays_the_menus_sounds`.
+- The hover ripple went with the cards (2026-11-24). The sounds are the
+  launcher's own since b6 (2026-11-26; assets/launcher/README.md, how they
+  were made): `hover.wav` at 0.7 when the hovered or focused button changes
+  and `click.wav` on a press, the gains of the main menu's (sounds.zrd's
+  MAINMENU set), through an SDL audio stream, from the first screen with no
+  install needed. Before, they were the game's own sfx_button2.wav and
+  sfx_button6.wav, read from the install's soundsL.zbd or soundsH.zbd (none
+  without an install). None with `--nosound`; `MW3_LAUNCHER_MUTE` plays them
+  at no volume (checks). `sdl_program_launcher_plays_the_menus_sounds`.
 - Mouse, arrows/Tab, Enter/Space, Escape (back, or quit on the main
   screen).
 - The first start's notes (2026-10-31): with no `install=` in mw3.cfg yet
@@ -1010,6 +1054,20 @@ each game's recipe (DESIGN.md there):
   to do). The status also carries `notes` (launcher_notes' and the start
   check's), `user` (the write dir) and `"play": 1`.
   `sdl_program_serves_the_launchers_extras`.
+- What the panels need (b2, 2026-11-26): the status looks where the launcher
+  looked (`mw3_status_find`): the card INSTALL's folder's `install/` and
+  this program's own marked game folder's (`own_game_files`: the mark must
+  name `mw3`), mw3.cfg's `install=`, the user folder's `install/`, the
+  installer's places, the development copy. A copy from the installer's
+  places, or any other while the game's own folder is set, gets the note
+  `found by the search, not set up yet` (the kit games' words: offered to be
+  copied in, never taken). `--copies`, `--add` and `--first-run` use the same
+  copy in use. The start check's warnings come first in `notes`, counted in
+  `notes_once` (the launcher shows them once, by `mw3_notes=`'s hash), then
+  launcher_notes' every time. `files.lacks` says what the copy lacks
+  (`music`, `movies`, `the 1.2 patch`) from the code its `--copies` row
+  uses. `--status` wins over `--setup` and its asks, in any order: a
+  launcher's child never reaches a screen. `sdl_program_status_finds_as_the_launcher`.
 - On `pm` (a4): mw3pm answers the same asks with Pirate's Moon's recipe,
   game `mech3-pm`: its words ("An installed copy of Pirate's Moon."),
   MechWarrior 3's files refused in the launcher's sentence, its copies'
@@ -1038,8 +1096,94 @@ each game's recipe (DESIGN.md there):
   be used." The finder is the Remake's own now, `mw1/src/mw1_game_files`
   (`mw1::files`, with its checks in `mw1tests`), since the launcher's
   `frontend/sdl/mw1_files` left mech3-re with its MW1 finder.
-The launcher still finds the games itself; it switches to asking `--status`
-once mw3pm answers it too.
+- What the panels need (b2, 2026-11-26), on `pm`: the status looks where
+  the launcher's find_pm looked (`mw3_status_find`): the card's folder's
+  `install/` (`games_pm=`), this program's own marked game folder's (the
+  mark must name `pm`), the user folder's `install/`, then mw3.cfg's
+  `install=`, the installer's places (noted `found by the search, not set
+  up yet`: offered, never taken), the development copy. check_install's
+  warnings (the full sounds) come first in `notes`, then the music's;
+  `notes_once` counts them all, since the launcher's `pm_notes=` hash has
+  always covered the music's note too. `files.lacks`
+  (`music`, `full-quality sounds`) is the code its `--copies` row uses, and
+  `--copies`, `--add` and `--first-run` take the same copy in use.
+  `--status` wins over `--setup`. `sdl_pm_program_status_finds_as_the_launcher`.
+**MechWarrior 3's and Pirate's Moon's panels from their status (b2,
+2026-11-26).** The launcher asks every game's `--status`: MechWarrior 3's
+with its own user folder (they share it), Pirate's Moon's with `pm_wd()`,
+the kit games' as before. MechWarrior 3's and Pirate's Moon's programs are
+asked only when their file carries our program version (the tag the panels'
+"program" words come from): a file without one, a script or not ours, is
+never run, as before. At the start all are asked at once, each on its
+own thread, beside the fonts and the Vulkan check, and collected where the
+checks of the files were (`status_collect`), so the first frame has every
+panel's lines and nothing flickers. Measured on the Mac (a shot, five runs):
+the first frame at about 1.16 s with both programs answering, 3.2 s with
+neither (the older path's own checks, Pirate's Moon's search the slow part);
+Pirate's Moon's ask adds nothing. After the start a status is asked again
+when a panel's lines are made, at most once a frame (`status_fresh_`), so a
+change the launcher made (an install, a link, ADD FROM MY DISC) shows. From
+the status: the copy in use and its data (`find_install`, `find_pm`; the
+note `found by the search, not set up yet` makes it an offer), what it
+lacks (`files.lacks`: the panel's "no music" and the like), the notes (the
+start check's `notes_once` hashed under `mw3_notes=` / `pm_notes=` as
+before, so saved hashes stay valid; the music's folder shortened to fit).
+A copy that only `pm_install=` names is still looked at by the launcher.
+MechWarrior 3's start check is the status's too: its notes come as
+`notes_once`; a copy it refuses (no Mech3Msg.dll) is started and mw3 says so
+in its own box, as before, but the launcher's log no longer has the check's
+"cannot start" line on that path.
+**The older programs' path:** a status without `"setup": 1` (a game
+released before), no answer, a program without our version, a copy in use the status does not name, and
+mw3's own find screen and mw3pm's own start (no program of their own to
+ask) keep the launcher's own checks (`find_install_older` and the like),
+unchanged; they end at b6 (docs/launcher-split.md). Panels and PLAY are
+otherwise the same code; MechWarrior 3 and Pirate's Moon become kit games
+(their GAME FILES and PLAY through the game) at b3 and b4. Tests:
+`sdl_program_launcher_panels_from_the_status` (stand-ins answering as the
+games do; the older path's hash equal to the status's), the launcher tests
+through the real mw3's status and setup (`kAsksAsMw3` and `kVersionLine` in the
+stand-ins; Pirate's Moon's stand-ins carry no version, so they test the
+older path).
+
+**GAME FILES through the game (b3, 2026-11-26).** MechWarrior 3's and
+Pirate's Moon's GAME FILES keep their own screens (the find screen's words
+and buttons, the copies list, USE THESE GAME FILES?, the notes, NO MUSIC
+ADDED), and what the screens do underneath is asked of the game's program
+when it answers for its files (`files_served`, the status's `"setup": 1`),
+each ask with its user folder (`--write-dir`): the copies list from
+`--setup --copies`, a disc in a drive from `--search` (its copy is the
+status's already), a pick looked at by `--look` (the user folder's own copy
+taken in place, anything else on the plate with the game's words), GO's copy
+by `--install <pick> [--folder]` (the launcher claims the folder first, as
+before, so a folder of someone else's is refused before anything starts; the
+game claims it too), ADD FROM MY DISC by `--add`. The game saves `install=`;
+the launcher asks its status again after each. `--add` says only whether it
+worked, so NO MUSIC ADDED comes from the status: the music wanted before and
+still wanted after (never for a stopped add); the movies an add brought are
+converted when the status has `pending: ["movies"]`. The launcher still
+removes its own earlier copy when GAME FILES moves to another (marked
+folders only); that moves into the game's `--install` at b6. The older path
+(no program to ask: mw3's own find screen, mw3pm's own start; an older
+program) is unchanged. Test: `sdl_program_launcher_game_files_through_the_game`
+(the real mw3's `--add` with a cue sheet's music, a data-only image and a
+stopped add; a scripted mw3pm's look, install, copies and adds); the stand-ins
+pass `--setup` to the real mw3 (`kAsksAsMw3`).
+
+**PLAY through the game (b4, 2026-11-26).** Before MechWarrior 3 starts,
+the movies its status lists as pending (`first_run.pending: ["movies"]`)
+are converted by the game, `--setup --first-run movies`, on the same work
+screen (CONVERTING THE MOVIES, its stages "Converting the movies (K of N)"
+as before; every step the game sends is shown, a quick one's too), unless
+this launcher was told not to (`--no-import`, `MW3_NO_IMPORT`). The same
+after ADD FROM MY DISC brought movies. mw3's status counts them as the
+launcher did: the copy's own and those in the media folder's `video\`, and
+only with the importer beside the program. The start options `play: 1`
+names were already passed (window, sound, hidden, the user folder, the
+ready file, and `--no-import`); the copy in use is passed too, until b6
+settles how the game's own find and the status's agree
+(docs/launcher-split.md, b6). Each work screen's stage is logged once
+(`work stage:`) for the checks.
 
 **A kit game's files, on the launcher's screens (2026-11-24).** "I thought we
 manage the setup kits from the launcher": PLAY on Inception opened Inception's
@@ -1472,7 +1616,7 @@ the movies again, once, there.
 
 Checks: `MW3_LAUNCHER_INSTALL_TO=<folder>` (the card INSTALL's CHANGE FOLDER
 pick, with `MW3_LAUNCHER_GAME_INSTALL`), `MW3_LAUNCHER_FILES_TO=<folder>` (the
-game files' pick); shots `--launcher-screen place`, `found`, `mw1found`,
-`mw1origfound`. Test: `sdl_program_launcher_finds_the_game_then_plays` (CHANGE
+game files' pick); shots `--launcher-screen place`, `found` (`mw1found` and
+`mw1origfound` until b5). Test: `sdl_program_launcher_finds_the_game_then_plays` (CHANGE
 FOLDER into a folder holding someone's file; someone's own `MechWarrior 3`
 folder refused), the screens test and PM's GAME FILES test (the headers).

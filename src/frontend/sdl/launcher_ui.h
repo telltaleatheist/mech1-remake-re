@@ -57,6 +57,7 @@ class LauncherUi {
   ~LauncherUi();
   // The fonts, for measuring too (before there is a window); `dir` assets/launcher.
   bool init(const std::string& dir, const std::string& font, const std::string& body_font);
+  void art_from(const std::string& dir);  // a second folder for pictures not in `dir` (a fetched catalog's cache)
   bool attach(SDL_Renderer* ren);
   void detach();  // before the renderer goes
   bool ready() const;

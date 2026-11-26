@@ -1,5 +1,6 @@
 // Mods by campaign: REPORT on a copy (upgrades/mods/mod_report, mod_copy_changes): what a campaign saved
 // from another changes from it, over the base= chain and then the game's own files. Built folders.
+// On pm the game's own campaign entry is Pirate's Moon's "campaign", shown as Campaign (616518a04), not MW3's "mw3".
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -54,7 +55,7 @@ Layout layout(const char* name) {
   put(l.wd / "mods/copy2/night.txt", "name=Long Night\nop=Op 1\nmission=c1 2\n");  // copy1's, changed
   put(l.wd / "mods/copy2/zbd/w1/anim.zbd", "camp's anim");           // two down, the same
   put(l.wd / "mods/copy2/zbd/w1/gamez.zbd", "my world again");       // copy1's, changed
-  put(l.wd / "mods/own/mod.txt", "name=My MechWarrior\nbase=mw3\n");
+  put(l.wd / "mods/own/mod.txt", "name=My MechWarrior\nbase=campaign\n");
   put(l.wd / "mods/own/zbd/reader.zbd", "my reader");
   put(l.wd / "mods/own/zbd/c9/new.zbd", "new");
   put(l.wd / "mods/plain/mod.txt", "name=Plain\nweapon=LBX tech=clan\n");
@@ -90,7 +91,7 @@ TEST(mod_copy_report_says_what_a_copy_changes_from_its_base) {
   EXPECT(d.replaced_game.empty() && d.added.empty() && d.rows_changed.empty() && d.rows_added.empty());
   // A copy of the game's own campaign: nothing under it but the game.
   const mech3::CopyChanges o = mech3::mod_copy_changes(l.wd.string(), l.install.string(), "own");
-  EXPECT(o.is_copy && o.base == "mw3" && o.base_name == "MechWarrior 3" && o.under.empty() && o.missing.empty());
+  EXPECT(o.is_copy && o.base == "campaign" && o.base_name == "Campaign" && o.under.empty() && o.missing.empty());
   EXPECT((o.replaced_game == V{"zbd/reader.zbd"}) && (o.added == V{"zbd/c9/new.zbd"}) && o.replaced.empty());
   // With no install given the game's files are not looked at: such a file counts as added.
   const mech3::CopyChanges n = mech3::mod_copy_changes(l.wd.string(), "", "own");

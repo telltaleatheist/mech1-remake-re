@@ -75,24 +75,76 @@ Lacks lacks(const std::string& install, const std::string& wd) {
   return l;
 }
 
-// The copy in use: mw3.cfg's install= while it holds the game, else the start's search.
-std::string in_use(const RecipePlaces& at) {
-  bool searched = false;
-  const std::string found = find_install(at.cfg_install, at.more, false, &searched);
-  return !found.empty() && mech3::setup::check_install(found, at.write_dir, true).ok ? found : std::string();
+// pm: what copy `d` lacks and plays without, in a --copies row's words: its own music\, the media folder's or the
+// user folder's (`media` of the copy in use), and the full sounds (check_install's soundsH.zbd warning, `warnings`).
+std::vector<std::string> lacks_words(const std::string& d, const std::vector<std::string>& warnings, const Lacks& media,
+                                     const std::string& wd) {
+  std::vector<std::string> out;
+  const std::string own = zutl::any_case(d, "music");
+  std::vector<std::string> music = {own.empty() ? (fs::path(d) / "music").string() : own, media.music_dir};
+  if (!wd.empty()) music.push_back((fs::path(wd) / "music").string());
+  if (!have_music(music)) out.push_back("music");
+  for (const std::string& w : warnings)
+    if (w.find("soundsH.zbd") != std::string::npos) out.push_back("full-quality sounds");
+  return out;
 }
 
 }  // namespace
 
-// pm: the launcher's pm_notes: the check's own notes (the full sounds), then the music's when it lacks it.
-std::vector<std::string> mw3_notes(const std::string& install, const std::string&, const std::string& write_dir) {
+// pm: the launcher's pm_notes: the check's own notes (the full sounds), then the music's when it lacks it; all of them
+// shown once (`once`: the launcher's pm_notes= hash has always covered the music's too).
+std::vector<std::string> mw3_notes(const std::string& install, const std::string&, const std::string& write_dir, int* once) {
   const mech3::setup::Result r = mech3::setup::check_install(install, write_dir, true);
   std::vector<std::string> notes = r.warnings;
   const Lacks l = lacks(install, write_dir);
   if (r.ok && l.music)
     for (const std::string& n : launcher_notes("", false, true, l.music_dir)) notes.push_back(n);
+  if (once) *once = static_cast<int>(notes.size());
   return notes;
 }
+
+std::vector<std::string> mw3_lacks(const std::string& install, const std::string&, const std::string& write_dir) {
+  return lacks_words(install, mech3::setup::check_install(install, write_dir, true).warnings, lacks(install, write_dir), write_dir);
+}
+
+StatusFind mw3_status_find(const RecipePlaces& at) {
+  StatusFind out;
+  // pm: the launcher's order for Pirate's Moon (its find_pm before b2): the game's own copies (the card's folder, the
+  // marked folder this program is in, the user folder's install/), mw3.cfg's install=, the installer's places
+  // (offered, not taken), the development copy.
+  std::vector<std::string> tries;
+  if (!at.games_place.empty()) tries.push_back((fs::path(at.games_place) / "install").make_preferred().string());
+  if (const std::string mine = own_game_files("pm"); !mine.empty()) tries.push_back(mine);
+  const size_t own_count = tries.size();  // the game's own folders (the card's, this program's): never saved as mw3.cfg's
+  if (!at.write_dir.empty()) tries.push_back((fs::path(at.write_dir) / "install").string());
+  if (!at.cfg_install.empty()) tries.push_back(at.cfg_install);
+  const size_t searched_from = tries.size();
+  for (const std::string& c : install_candidates(true)) tries.push_back(c);
+  const size_t searched_to = tries.size();
+  for (const std::string& c : at.more) tries.push_back(c);
+  for (size_t i = 0; i < tries.size(); ++i) {
+    const std::string& d = tries[i];
+    if (d.empty() || !install_valid(d)) continue;
+    const mech3::setup::Result r = mech3::setup::check_install(d, at.write_dir, true);
+    if (!r.ok) {
+      if (out.dir.empty()) out.dir = d, out.summary = r.summary;  // incomplete, unless a later one is whole
+      continue;
+    }
+    out.ok = true, out.dir = r.install_dir.empty() ? d : r.install_dir, out.version = r.version, out.summary = r.summary;
+    out.offered = i >= searched_from && i < searched_to;
+    out.own = i < own_count;
+    return out;
+  }
+  return out;
+}
+
+namespace {
+// The copy in use: the status's (b2), as the launcher shows it in use.
+std::string in_use(const RecipePlaces& at) {
+  const StatusFind f = mw3_status_find(at);
+  return f.ok ? f.dir : std::string();
+}
+}  // namespace
 
 rekit::sdl::Game mw3_recipe(const RecipePlaces& at) {
   const std::string write_dir = at.write_dir, cfg_install = at.cfg_install;
@@ -143,11 +195,7 @@ rekit::sdl::Game mw3_recipe(const RecipePlaces& at) {
       rekit::sdl::CopyRow c;
       c.path = d, c.data = r.version == "unknown" ? std::string() : r.version;
       c.in_use = !use.empty() && fs::equivalent(d, use, ec);
-      const std::string own = zutl::any_case(d, "music");
-      if (!have_music({own.empty() ? (fs::path(d) / "music").string() : own, media.music_dir, (fs::path(at.write_dir) / "music").string()}))
-        c.missing.push_back("music");
-      for (const std::string& w : r.warnings)
-        if (w.find("soundsH.zbd") != std::string::npos) c.missing.push_back("full-quality sounds");
+      c.missing = lacks_words(d, r.warnings, media, at.write_dir);
       rows.push_back(std::move(c));
     }
     return rows;

@@ -1,6 +1,7 @@
 // Mods by campaign: a saved game belongs to its entry (upgrades/mods/save_mods, docs/mods-campaigns-plan.md).
 // A game saved inside a campaign entry holds "Mods/entry" (the entry, what it is built on, its ticks) in place
 // of the mod list; the load says when it was saved in another campaign or the entry's ticks or files changed.
+// On pm the game's own campaign entry is Pirate's Moon's "campaign", shown as Campaign (616518a04), not MW3's "mw3".
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -71,18 +72,18 @@ TEST(save_entry_identity_from_the_entry_its_bases_and_ticks) {
   mods(wd);
   Keep keep;
   const std::vector<mech3::CampaignEntry> all = mech3::campaign_entries(wd);
-  const mech3::CampaignEntry* own = mech3::find_entry(all, "mw3");
+  const mech3::CampaignEntry* own = mech3::find_entry(all, "campaign");
   const mech3::CampaignEntry* copy = mech3::find_entry(all, "copy~night");
   EXPECT(own && copy);
   if (!own || !copy) return;
   // The game's own with no tick: nothing of gameplay mounted.
   mech3::save_entry_set(wd, *own);
-  EXPECT(mech3::save_entry().id == "mw3" && mech3::save_entry().ticks_hash == 0 && mech3::save_entry().mounted_hash == 0);
+  EXPECT(mech3::save_entry().id == "campaign" && mech3::save_entry().ticks_hash == 0 && mech3::save_entry().mounted_hash == 0);
   // Ticks: the gameplay ones named, in order; the looks-only one changes nothing.
   EXPECT(mech3::entry_save_ticks(wd, *own, {"weps", "tex", "guns"}));
   mech3::save_entry_set(wd, *own);
   const mech3::SaveEntry a = mech3::save_entry();
-  EXPECT(a.name == "MechWarrior 3" && a.bases.empty() && a.ticks_hash != 0 && a.mounted_hash == a.ticks_hash);
+  EXPECT(a.name == "Campaign" && a.bases.empty() && a.ticks_hash != 0 && a.mounted_hash == a.ticks_hash);
   EXPECT((a.ticks == std::vector<std::string>{"Freako Weapons", "Big Guns"}));
   EXPECT(mech3::entry_save_ticks(wd, *own, {"weps", "guns"}));
   mech3::save_entry_set(wd, *own);
@@ -110,7 +111,7 @@ TEST(save_entry_saved_game_says_when_its_campaign_or_ticks_changed) {
   Keep keep;
   mech3::mods_identity() = mech3::ModsIdentity{};
   const std::vector<mech3::CampaignEntry> all = mech3::campaign_entries(wd);
-  const mech3::CampaignEntry* own = mech3::find_entry(all, "mw3");
+  const mech3::CampaignEntry* own = mech3::find_entry(all, "campaign");
   const mech3::CampaignEntry* camp = mech3::find_entry(all, "camp~night");
   const mech3::CampaignEntry* copy = mech3::find_entry(all, "copy~night");
   EXPECT(own && camp && copy);
@@ -147,10 +148,10 @@ TEST(save_entry_saved_game_says_when_its_campaign_or_ticks_changed) {
   const std::string d = loaded(plain, own, {"weps"}), e = loaded(weps, nullptr, {}), f = loaded(plain, camp, {});
   std::printf("  %s\n  %s\n  %s\n  %s\n  %s\n  %s\n", a.c_str(), b.c_str(), c.c_str(), d.c_str(), e.c_str(), f.c_str());
   EXPECT(a == "This campaign's mods changed since the save: then Freako Weapons; now Freako Weapons, Big Guns");
-  EXPECT(b == "Saved in the campaign MechWarrior 3 with its mods; none now");  // unticked: the entry mounts nothing now
-  EXPECT(c == "Saved in another campaign (MechWarrior 3); this is Long Night");
-  EXPECT(d == "Saved without mods; the campaign MechWarrior 3 now has: Freako Weapons");  // a pilot copied over
-  EXPECT(e == "Saved in the campaign MechWarrior 3 with its mods; none now");
+  EXPECT(b == "Saved in the campaign Campaign with its mods; none now");  // unticked: the entry mounts nothing now
+  EXPECT(c == "Saved in another campaign (Campaign); this is Long Night");
+  EXPECT(d == "Saved without mods; the campaign Campaign now has: Freako Weapons");  // a pilot copied over
+  EXPECT(e == "Saved in the campaign Campaign with its mods; none now");
   EXPECT(f == "Saved without mods; the campaign Long Night now has: its own files");
   EXPECT(mech3::save_mods_note().empty());  // said once
   // The campaign's own files changed since the save (the same ticks): said.
@@ -165,5 +166,5 @@ TEST(save_entry_saved_game_says_when_its_campaign_or_ticks_changed) {
   const std::string old = wd + "/old.mw3";
   EXPECT(zsave::save(old.c_str(), 2) && has(old, "Mods/identity") && !has(old, "Mods/entry"));
   mech3::mods_identity() = mech3::ModsIdentity{};
-  EXPECT(loaded(old, own, {"weps"}) == "Saved with mods: Big Guns; now in the campaign MechWarrior 3");
+  EXPECT(loaded(old, own, {"weps"}) == "Saved with mods: Big Guns; now in the campaign Campaign");
 }

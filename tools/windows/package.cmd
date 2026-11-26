@@ -63,6 +63,9 @@ copy /y assets\launcher\ui\* "%DIST%\assets\launcher\ui\" >nul || exit /b 1
 copy /y assets\launcher\*.png "%DIST%\assets\launcher\" >nul || exit /b 1
 copy /y assets\launcher\font.ttf "%DIST%\assets\launcher\" >nul || exit /b 1
 copy /y assets\launcher\font_body.ttf "%DIST%\assets\launcher\" >nul || exit /b 1
+rem The menu's two sounds (ours: assets\launcher\README.md).
+copy /y assets\launcher\click.wav "%DIST%\assets\launcher\" >nul || exit /b 1
+copy /y assets\launcher\hover.wav "%DIST%\assets\launcher\" >nul || exit /b 1
 copy /y tools\windows\dist\THIRD-PARTY.txt "%DIST%\" >nul || exit /b 1
 if exist LICENSE copy /y LICENSE "%DIST%\LICENSE.txt" >nul
 rem libarchive, zlib and liblzma: linked into mw3.exe, their licences from

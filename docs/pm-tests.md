@@ -228,16 +228,22 @@ the switch on (they start MW3's programs, built from `main`), and `mw3pmsdltests
 `ninja` builds the whole tree. `mission_c1m1_tag_fires_from_the_mech_headless` crashes loading MW3's mission, with the
 mission tests below.
 
-Each of MW3's 254 non-mission tests run alone (`MW3_TEST=<name> MW3_SKIP=headless`): 233 pass. These 19 test code
-that `pm` holds as PM's, so they fail here by design (not each traced): the mechlib reads and fuzz (PM's tree copy;
-they crash in mark_moved), `mech_dfn_bad_version_does_not_save` (PM reads no version), `data_version_names_the_install`,
-`patch_import_upgrades_10_data_from_the_official_patch`, `program_starts_like_the_game_to_the_main_state`, the three
-`setup_*` archive and probe tests (PM's install and titles), `fix_lava_heat_per_second` (crashes in PM's heat),
-`fix_jet_cap_per_second`, `fix_deep_water_curve`, `fix_foot_uses_its_middle_probe`, `fix_lab_sort_by_name`,
-`fix_unpause_resumes_only_the_kept_voices`, the two `game_editor_*` and
-`controls_repair_mouse_fire_only_mends_the_quit_boxs_damage`. Of MW3's differential tests, `test_pocket_frame` and
-`test_pocket_panel` fail here by design too ("dumps differ", at seed 199 and before the frame's port as well): `pm`'s
-pocket frame and panel are PM's, tested by `test_pm_pocket_frame`, `test_pm_pocket_panel` and `test_pm_pocket_lines`.
+MW3's non-mission tests on `pm` read "0 failed" plus one line, "left out on pm: N (tests/pm_left_out.h)": that
+table lists each MW3 test whose code is Pirate's Moon's here, with the PM test that covers it and the PM commit or
+address that makes it differ, and `mw3tests` leaves those out (`MW3_RUN_LEFT_OUT=1` runs them anyway). Anything not
+in the table that fails is a real failure. A test whose code is the same with only PM's names or sequence (its
+entries "campaign" and "pirate", its two-digit saves, its 0xb0 commands, its install and table) is rewritten on
+`pm` to PM's instead; a fix MW3 has and PM's code lacks is fixed in the code, not listed. Of MW3's differential
+tests, `test_pocket_frame` and `test_pocket_panel` fail here by design ("dumps differ", at seed 199 and before the
+frame's port as well): `pm`'s pocket frame and panel are PM's, tested by `test_pm_pocket_frame`,
+`test_pm_pocket_panel` and `test_pm_pocket_lines`.
+
+Run one `mw3tests` (or `mw3pmtests`) at a time per build folder: two at once there (say PM_AI 0 and 1 side by
+side) fail each other's tests (2026-11-26: five failures, all passing alone). `MW3_TEST_TMP` is the process's own
+(`test-tmp/<pid>`), but `MW3_TEST_TMP_ROOT` is the build folder itself, and the tests that write fixed folders under
+it (`net_save_into_the_editors_own_mod` and the `editor_save*` tests' `net_save`, `save_as`, `save_as_entries`,
+`save_as_export`; several PM mods tests' too) share them, and `save_temp_falls_back_to_a_scratch_file` counts the
+system temp folder's files. Each setting in turn, or each in its own build folder.
 
 MW3's headless lobby, network and mission tests, run alone from `build-mw3` (2026-11-08, the same with the parent
 commit's lobby files): these 13 fail or crash here by design.

@@ -1,6 +1,6 @@
 #include "frontend/sdl/sdl_update.h"
 
-#include "mech3/patch_import.h"
+#include "rekit/hash.h"
 
 #if defined(__APPLE__)
 #include <mach-o/dyld.h>
@@ -309,7 +309,7 @@ Fetched download_checked(const upgrades::update::Release& r, const std::string& 
       fail(f, k, "the download stopped: " + error);
       continue;
     }
-    const std::string got = mech3::sha256_file_hex(path);
+    const std::string got = rekit::sha256_file_hex(path);
     if (got != want) {
       fs::remove(path, ec);
       f.why = Fetched::kMismatch, f.want = want, f.got = got;
