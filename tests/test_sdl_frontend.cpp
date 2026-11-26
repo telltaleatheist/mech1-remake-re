@@ -10664,7 +10664,8 @@ TEST(sdl_pm_status_checks_its_copy) {
   });
   EXPECT(pmbin::in(disc, "\"state\": \"ready\"") && !pmbin::in(disc, "soundsH.zbd is empty"));
   const std::string changed = status(copy("changed", "", "", "force_eff.ifr"), "changed");
-  EXPECT(pmbin::in(changed, "\"state\": \"ready\"") && pmbin::in(changed, "\"data\": \"unknown\""));
+  // A changed file: ready, its data's version unknown, which a status leaves out (the kit's "" is unknown).
+  EXPECT(pmbin::in(changed, "\"state\": \"ready\"") && !pmbin::in(changed, "\"data\": "));
   EXPECT(listing(quiet) == before && fs::file_size(quiet + "/zbd/soundsH.zbd", ec) == 0);
   if (!check::failures) fs::remove_all(dir, ec);
 }
