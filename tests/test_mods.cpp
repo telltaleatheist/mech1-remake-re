@@ -2971,20 +2971,22 @@ TEST(mods_screen_campaign_rows_ticks_order_and_conflicts) {
   std::string rows;
   for (const mech3::ModsCampaignRow& r : c) rows += r.entry + ":" + mech3::mods_campaign_row_text(r) + "|";
   std::printf("  campaigns: %s\n", rows.c_str());
-  EXPECT(rows == "mw3:MechWarrior 3|camp~lost:Lost Frontier|camp~bad:bad.txt !|campmech~drills:Drills|edit:My Edit|gone~far:Far Away !|");
-  if (c.size() == 6) {
-    EXPECT(c[0].mod.empty() && c[0].error.empty() && c[1].error.empty() && c[3].error.empty());
-    EXPECT(c[2].error.find("line 1") != std::string::npos);
-    EXPECT(mech3::mods_campaign_details(c[1]) == "Someone, version 1.2");
-    EXPECT(c[4].copy_of == "Lost Frontier" && c[4].error.empty() && c[1].copy_of.empty());
-    EXPECT(c[5].error.find("its mod is not in the mods folder any more") == 0);
+  // Pirate's Moon's two campaigns first (616518a04; MW3's one "mw3:MechWarrior 3").
+  EXPECT(rows == "campaign:Campaign|pirate:Pirate Missions|camp~lost:Lost Frontier|camp~bad:bad.txt !|campmech~drills:Drills|"
+                 "edit:My Edit|gone~far:Far Away !|");
+  if (c.size() == 7) {
+    EXPECT(c[0].mod.empty() && c[0].error.empty() && c[1].mod.empty() && c[1].error.empty() && c[2].error.empty() && c[4].error.empty());
+    EXPECT(c[3].error.find("line 1") != std::string::npos);
+    EXPECT(mech3::mods_campaign_details(c[2]) == "Someone, version 1.2");
+    EXPECT(c[5].copy_of == "Lost Frontier" && c[5].error.empty() && c[2].copy_of.empty());
+    EXPECT(c[6].error.find("its mod is not in the mods folder any more") == 0);
   }
   // A campaign with a ticked mod gone: its row says which.
   const std::vector<mech3::CampaignEntry> all = mech3::campaign_entries(wd);
-  const mech3::CampaignEntry* own = mech3::find_entry(all, "mw3");
+  const mech3::CampaignEntry* own = mech3::find_entry(all, "campaign");
   EXPECT(own && mech3::entry_save_ticks(wd, *own, {"a", "nowhere"}));
   c = mech3::mods_entry_rows(wd);
-  EXPECT(!c.empty() && mech3::mods_campaign_row_text(c[0]) == "MechWarrior 3 !" && c[0].error.find(": nowhere") != std::string::npos);
+  EXPECT(!c.empty() && mech3::mods_campaign_row_text(c[0]) == "Campaign !" && c[0].error.find(": nowhere") != std::string::npos);
   // MODS for the game's own campaign: its ticks first in their order, then the rest; campaign mods are not rows.
   auto mods_rows = [&](const std::vector<std::string>& on, std::vector<mech3::ModsListEntry>* out) {
     std::string text;
@@ -3008,8 +3010,8 @@ TEST(mods_screen_campaign_rows_ticks_order_and_conflicts) {
   mech3::mods_toggle(on, "b");
   mech3::mods_toggle(on, "off");
   EXPECT((on == std::vector<std::string>{"a", "off"}));
-  EXPECT(mech3::entry_save_ticks(wd, *own, on) && mech3::entry_ticks(wd, "mw3") == on && mech3::entry_ticks(wd, "camp~lost").empty());
-  EXPECT(mods_rows(mech3::entry_ticks(wd, "mw3"), &m) == "[x] A|[x] Off|[ ] B|");
+  EXPECT(mech3::entry_save_ticks(wd, *own, on) && mech3::entry_ticks(wd, "campaign") == on && mech3::entry_ticks(wd, "camp~lost").empty());
+  EXPECT(mods_rows(mech3::entry_ticks(wd, "campaign"), &m) == "[x] A|[x] Off|[ ] B|");
   EXPECT(mech3::mods_enabled(wd).empty());  // mw3.cfg is not where ticks live
 }
 
