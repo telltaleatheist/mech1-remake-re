@@ -7236,7 +7236,7 @@ TEST(sdl_program_mouse_settings_stay_across_starts) {
   // An older version's file: ACCEPT saved rawmouse=1 for players who never chose it. The Mac starts from its
   // default, off, so A's turn sets it on (and B keeps it on); elsewhere rawmouse=1 is read, so A's turn sets it off.
   std::ofstream(wd + "/mw3.cfg") << "rawmouse=1\n";
-  auto old_line_kept = [&] { return !zfix::kRawMouseMac || has(text_of(wd + "/mw3.cfg"), "\nrawmouse=1\n"); };
+  auto old_line_kept = [&] { return !zfix::kRawMouseMac || text_of(wd + "/mw3.cfg").find("\nrawmouse=1\n") != std::string::npos; };
   // A
   Steps a = {click(60, 360, 60)};
   set_rows(&a, 150, 2);
