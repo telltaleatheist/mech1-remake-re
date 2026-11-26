@@ -456,8 +456,9 @@ blurbs, buttons' names and screen headers. Each game has four names:
 `name` for the words ("Pirate's Moon"), `title` on its panel, `heading`
 over its screens ("MECHWARRIOR 3: PIRATE'S MOON") and `button`, its panel
 button's name in the log and for a pad. `heading_badge` is the badge a
-game's own setup shows when it differs (the MW1 Rebuild's
-`badge_mw1.png`, its panel's `badge_mw1o.png`, as before). The panels go
+game's own setup shows when it differs from its panel's (none does: the MW1
+Rebuild's setup showed the Remake's `badge_mw1.png` until 2026-11-26, now its
+panel's `badge_mw1o.png`). The panels go
 by `order`; `panel_before_release: false` keeps a panel away until a
 release is found or the game is installed (Inception Remake). `state`,
 `needs` and `min_launcher` are read and checked, and acted on since the

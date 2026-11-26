@@ -383,7 +383,7 @@ TEST(games_catalog_built_in_as_the_tables_were) {
   const Was was[] = {{"mw3", "MechWarrior 3", "mech3-re", "v", "mw3", "MECHWARRIOR 3", "badge_mw3.png"},
                      {"pm", "Pirate's Moon", "mech3-pm-re", "pm-v", "mw3pm", "MECHWARRIOR 3: PIRATE'S MOON", "badge_pm.png"},
                      {"mw1", "MechWarrior 1 Remake", "mech1-remake-re", "mw1-v", "mw1", "MECHWARRIOR 1 REMAKE", "badge_mw1.png"},
-                     {"mw1r", "MechWarrior 1 Rebuild", "mech1-re", "mw1r-v", "mw1r", "MECHWARRIOR 1", "badge_mw1.png"},
+                     {"mw1r", "MechWarrior 1 Rebuild", "mech1-re", "mw1r-v", "mw1r", "MECHWARRIOR 1", "badge_mw1o.png"},
                      {"chi", "Inception Rebuild", "inception-re", "chi-v", "chi", "THE CRESCENT HAWK'S INCEPTION", "badge_inception.png"},
                      {"chirm", "Inception Remake", "inception-remake-re", "chirm-v", "chirm", "INCEPTION REMAKE", "badge_inception.png"}};
   for (int i = 0; i < u::kGameCount; ++i) {

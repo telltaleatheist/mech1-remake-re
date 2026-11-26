@@ -30,7 +30,7 @@
       "description": "MechWarrior (1989), reverse engineered and rebuilt. Bring your own DOS copy.",
       "repo": "mech1-re", "tag_prefix": "mw1r-v", "program": "mw1r",
       "assets": {"windows": "MW1-Rebuild-{tag}-win64.zip", "mac": "MW1-Rebuild-{tag}-mac.dmg", "linux": "MW1-Rebuild-{tag}-x86_64.AppImage"},
-      "badge": "badge_mw1o.png", "heading_badge": "badge_mw1.png", "needs": [], "min_launcher": "1.5.2"
+      "badge": "badge_mw1o.png", "needs": [], "min_launcher": "1.5.2"
     },
     {
       "key": "mw1", "family": "mw1", "order": 4, "state": "released",
