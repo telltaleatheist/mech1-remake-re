@@ -12,10 +12,11 @@ namespace upgrades {
 
 namespace {
 // The holds by set: the last one gone unloads it. MW3's load_set counts none
-// (a second load is refused), Pirate's Moon's counts every one.
+// (a second load is refused), Pirate's Moon's counts every one. Never freed: a
+// screen held in a static (MW1's) is destroyed after a function's static would be.
 std::map<std::string, int32_t>& holds() {
-  static std::map<std::string, int32_t> m;
-  return m;
+  static auto* m = new std::map<std::string, int32_t>;
+  return *m;
 }
 }  // namespace
 
@@ -35,7 +36,7 @@ void MenuSounds::hold(const char* name) {
 MenuSounds::~MenuSounds() {
   for (size_t i = held_.size(); i-- > 0;) {
     int32_t& n = holds()[held_[i]];
-    if (n > 0 && --n == 0) zsnd::unload_set(held_[i].c_str());
+    if (n > 0 && --n == 0 && zsnd::state().open) zsnd::unload_set(held_[i].c_str());
   }
 }
 
