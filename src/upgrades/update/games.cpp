@@ -154,6 +154,14 @@ bool plain_png(const std::string& n) {
   return true;
 }
 
+// A name a fetched entry puts in a path (its key, its program, its assets): letters, digits and `extra`, no "..".
+bool plain_name(const std::string& n, const char* extra) {
+  if (n.empty() || n.size() > 96 || n.find("..") != std::string::npos) return false;
+  for (char c : n)
+    if (!std::isalnum(static_cast<unsigned char>(c)) && !std::strchr(extra, c)) return false;
+  return true;
+}
+
 // A release's version ("v1.5.2", "v1.5.2-16-gHASH-dirty", "1.5.2"); a build's "unknown" or bare commit is not one,
 // and takes every entry (a development build).
 bool release_version(const std::string& v) {
@@ -228,6 +236,12 @@ bool read_fetched_catalog(const std::string& json, const std::string& launcher_v
     for (char c : g.repo) plain_repo = plain_repo && (std::isalnum(static_cast<unsigned char>(c)) || c == '-' || c == '_' || c == '.');
     if (!plain_repo || g.repo.find("..") != std::string::npos) {
       ignored->push_back(where + "its repo " + g.repo + " is not a repo's name");
+      continue;
+    }
+    bool plain = plain_name(g.key, "_-") && plain_name(g.program, "_-") && plain_name(g.tag_prefix, "_-.");
+    for (const std::string& asset : g.asset) plain = plain && plain_name(asset, "_-.{}");
+    if (!plain) {
+      ignored->push_back(where + "its key, program, tag prefix or an asset is not a plain name");
       continue;
     }
     if (release_version(launcher_version) && compare_versions(g.min_launcher, launcher_version) > 0) {

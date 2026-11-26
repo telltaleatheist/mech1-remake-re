@@ -334,8 +334,7 @@ only kit games (`i >= 3`).
   mirror's first, then GitHub's. The last one fetched is cached, so the
   launcher works offline. It is fetched without asking the player: it is
   data, and the request sends nothing about them. Where (2026-11-26): the
-  file `catalog/games.json` on mw3-re's main, read raw
-  (`git.owenmorgan.com/telltaleatheist/mw3-re/raw/branch/main/catalog/games.json`,
+  file `catalog/games.json` on mw3-re's main, read raw (the mirror's copy,
   then `raw.githubusercontent.com/telltaleatheist/mw3-re/main/catalog/games.json`),
   its art in `catalog/art/`. The file goes onto mw3-re's main with (c);
   until then both answer "not found" and the built-in catalog is used. A

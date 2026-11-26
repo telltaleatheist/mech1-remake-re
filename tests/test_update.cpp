@@ -515,6 +515,23 @@ TEST(games_catalog_fetched_leaves_out_bad_entries) {
   EXPECT(!u::read_fetched_catalog("<html>", "v1.5.2", &c, &ignored, &why) && why.find("not JSON") != std::string::npos);
 }
 
+// A fetched entry's names go into paths (the program run, the install and removal folders, the downloaded file):
+// one that is not a plain name is left out.
+TEST(games_catalog_fetched_leaves_out_names_that_are_paths) {
+  auto with = [](std::string e, const std::string& from, const std::string& to) { return e.replace(e.find(from), from.size(), to); };
+  const std::string text = "{\"catalog\": 1, \"revision\": 2, \"families\": [{\"key\": \"bt\", \"name\": \"BT\", \"order\": 4}], \"games\": [" +
+                           catalog_entry("fine", "bt", 7, "released", "fine-re") + ", " + catalog_entry("up/key", "bt", 8, "released", "key-re") + ", " +
+                           with(catalog_entry("prog", "bt", 9, "released", "prog-re"), "\"program\": \"prog\"", "\"program\": \"../prog\"") + ", " +
+                           with(catalog_entry("asset", "bt", 10, "released", "asset-re"), "asset-{tag}-mac.dmg", "../asset-{tag}-mac.dmg") + "]}";
+  u::Catalog c;
+  std::vector<std::string> ignored;
+  std::string why;
+  EXPECT(u::read_fetched_catalog(text, "v1.5.2", &c, &ignored, &why));
+  for (const std::string& i : ignored) std::printf("  left out: %s\n", i.c_str());
+  EXPECT(c.games.size() == 1 && c.games[0].key == "fine" && ignored.size() == 3);
+  for (const std::string& i : ignored) EXPECT(i.find("is not a plain name") != std::string::npos);
+}
+
 TEST(games_catalog_fetched_merges_over_the_built_in) {
   const u::Catalog& builtin = u::builtin_catalog();
   u::Catalog f;
