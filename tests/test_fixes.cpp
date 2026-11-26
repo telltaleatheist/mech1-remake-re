@@ -1738,7 +1738,8 @@ TEST(fix_mfb_command_waits_for_a_point) {
     for (int empty = 0; empty < 2; ++empty) {
       zfix::set_all(fix != 0);
       waynet_icons_count() = 1;  // this waynet's own, never dropped here
-      auto* mcb = new McbWaynet(10050, "mcbwaynet");
+      // Pirate's Moon 0x0047ca80 counts the docks first (0x0045b120): the mcbwaynet must be the made one.
+      McbWaynet* mcb = mcb_waynet_make();
       const float at[3] = {10, 0, 20};
       mcb->add(new WaynetPoint("p", "mfb1", at, nullptr, 0, 1, 0, 1, 0, 0));
       EXPECT(mcb->count() == 2 && !as_point(mcb->elem(0)) && as_point(mcb->elem(1)));
@@ -1751,7 +1752,7 @@ TEST(fix_mfb_command_waits_for_a_point) {
       EXPECT(mcb->step == (waits ? 1 : 2));
       EXPECT(hooks.waits == (waits ? 1 : 0));
       hooks.mission = nullptr;
-      delete mcb;
+      mcb_waynet_free();
     }
   }
   set_waynet_hooks(nullptr);
