@@ -773,7 +773,7 @@ int print_status(Args& a) {
   dup2(2, 1);
 #endif
   rekit::Status st;
-  st.game = "mech3-pm", st.version = MW3_VERSION;  // Pirate's Moon's branch
+  st.game = "mech3-pm", st.version = MW3_VERSION, st.setup = rekit::kServedSetup;  // Pirate's Moon's branch
   if (a.write_dir.empty() && !sdlfe::data_folder_at_start(&a.write_dir, false)) st.note = "the data folder cannot be used";
   if (!a.write_dir.empty()) read_config(a.write_dir, a);
   std::vector<std::string> more;
@@ -812,8 +812,8 @@ int print_status(Args& a) {
   return 0;
 }
 
-// --setup with an ask (ours: the launcher contract, rekit/sdl/setup_serve.h; 2026-11-25): MechWarrior 3's recipe
-// (mw3_recipe.h) answers it as JSON lines on stdout, no window. The user folder is the start's; the copy a look finds
+// --setup with an ask (ours: the launcher contract, rekit/sdl/setup_serve.h; 2026-11-25): the game's recipe
+// (mw3_recipe.h; pm: Pirate's Moon's) answers it as JSON lines on stdout, no window. The user folder is the start's; the copy a look finds
 // in place, or an install puts there, is saved as mw3.cfg's install=. Exit as the setup screen's.
 int serve_setup_ask(Args& a) {
   if (a.write_dir.empty() && !sdlfe::data_folder_at_start(&a.write_dir, false)) {
@@ -837,11 +837,11 @@ int serve_setup_ask(Args& a) {
   o.log = [](const std::string& line) { std::fprintf(stderr, "mw3: setup: %s\n", line.c_str()); };
   sdlfe::RecipePlaces at;
   at.write_dir = a.write_dir, at.cfg_install = a.cfg_install, at.more = more;
-  {  // the launcher's games folder for MW3 (its card's INSTALL), a line it keeps in the same mw3.cfg
+  {  // the launcher's games folder for the game (its card's INSTALL), a line it keeps in the game's mw3.cfg
     std::ifstream f(std::filesystem::path(a.write_dir) / "mw3.cfg");
     for (std::string line; std::getline(f, line);) {
       if (!line.empty() && line.back() == '\r') line.pop_back();
-      if (line.rfind("games_mw3=", 0) == 0) at.games_place = zutl::path_from_config(line.substr(10));
+      if (line.rfind("games_pm=", 0) == 0) at.games_place = zutl::path_from_config(line.substr(9));  // pm: its own key
     }
   }
   const rekit::sdl::SetupResult r = rekit::sdl::serve_setup(sdlfe::mw3_recipe(at), o, a.setup_ask);

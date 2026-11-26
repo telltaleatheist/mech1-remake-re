@@ -2,6 +2,7 @@
 // answers a launcher's `--setup --describe | --search | --look | --install` itself (rekit/sdl/setup_serve.h;
 // docs/launcher-split.md, a2). The finds are map_source's, the install install_from_source's, the search the start's.
 // Its extras (a3): --copies (GAME FILES' list), --add <disc> (ADD FROM MY DISC), --first-run movies.
+// pm: Pirate's Moon's recipe here (a4): game "mech3-pm", its words, add_pm_from_disc, the full sounds.
 #pragma once
 
 #include <string>

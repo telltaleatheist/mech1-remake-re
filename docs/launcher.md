@@ -1010,6 +1010,12 @@ each game's recipe (DESIGN.md there):
   to do). The status also carries `notes` (launcher_notes' and the start
   check's), `user` (the write dir) and `"play": 1`.
   `sdl_program_serves_the_launchers_extras`.
+- On `pm` (a4): mw3pm answers the same asks with Pirate's Moon's recipe,
+  game `mech3-pm`: its words ("An installed copy of Pirate's Moon."),
+  MechWarrior 3's files refused in the launcher's sentence, its copies'
+  lacks (music, full-quality sounds), `add_pm_from_disc` for ADD FROM MY
+  DISC, pm_notes' notes, `games_pm=` for the games folder. The status says
+  `"setup": 1`. `sdl_pm_program_serves_its_setup` (mw3pmsdltests).
 The launcher still finds the games itself; it switches to asking `--status`
 once mw3pm answers it too.
 

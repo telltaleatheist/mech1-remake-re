@@ -14,33 +14,35 @@
 
 namespace fs = std::filesystem;
 
+// pm: Pirate's Moon's recipe, in MechWarrior 3's place (docs/launcher-split.md a4): its finds, its words, its disc's
+// music and full sounds (add_pm_from_disc), its copies' lacks as the launcher's pm_refresh has them.
 namespace sdlfe {
 namespace {
 
 namespace src = mech3::source;
 
-// The contract's names for what source_rules calls "mw3" and "pm".
-constexpr const char* kId = "mech3";
-constexpr const char* kPmId = "mech3-pm";
+// The contract's names for what source_rules calls "pm" (this game) and "mw3".
+constexpr const char* kId = "mech3-pm";
+constexpr const char* kMw3Id = "mech3";
 
-// Pirate's Moon judged in the last walk: the words for a pick of it (recognise is given only the path). Cleared by
+// MechWarrior 3 judged in the last walk: the words for a pick of it (recognise is given only the path). Cleared by
 // the words of a find; one look at a time (a served ask is one).
-std::atomic<bool> pm_seen{false};
+std::atomic<bool> mw3_seen{false};
 
 rekit::SourceRules contract_rules() {
   rekit::SourceRules r = src::source_rules();
   for (rekit::Clue& c : r.clues)
     c.judge = [judge = c.judge](const std::vector<uint8_t>& bytes) {
       rekit::Identity id = judge(bytes);
-      if (id.game == "mw3") id.game = kId;
-      if (id.game == "pm") id.game = kPmId, pm_seen = true;
+      if (id.game == "pm") id.game = kId;
+      if (id.game == "mw3") id.game = kMw3Id, mw3_seen = true;
       return id;
     };
   return r;
 }
 
 src::Found ours(rekit::Found k) {
-  k.game = k.game == kId ? "mw3" : k.game == kPmId ? "pm" : k.game;
+  k.game = k.game == kId ? "pm" : k.game == kMw3Id ? "mw3" : k.game;
   return src::from_kit(k);
 }
 
@@ -54,20 +56,21 @@ mech3::setup::ProgressFn to_ours(const rekit::sdl::ProgressFn& p) {
   return [p](const mech3::setup::Progress& q) { return p(rekit::sdl::Progress{q.stage, q.fraction, q.message}); };
 }
 
-// What an install lacks, as the launcher's notes have it: music in the media folder, the install's own music\ or the
-// user folder's (a rip put there still plays); movies in the install's or the media folder's video\.
+// What an install lacks that its disc has, as the launcher's pm_refresh: music in the media folder, the user folder's
+// or the install's own music\; a soundsH.zbd with sounds in it (check_install's note).
 struct Lacks {
-  bool music = false, movies = false;
+  bool music = false, sounds = false;
   std::string media, music_dir;
 };
 Lacks lacks(const std::string& install, const std::string& wd) {
   Lacks l;
   l.media = media_dir(install, wd);
-  const fs::path music = l.media.empty() ? fs::path("music") : fs::path(l.media) / "music";
+  if (l.media.empty()) return l;  // no user folder: nothing to look in, and nowhere to add to
+  const fs::path music = fs::path(l.media) / "music";
   const std::string own = zutl::any_case(install, "music");
-  l.music = !have_music({music.string(), own.empty() ? (fs::path(install) / "music").string() : own,
-                         wd.empty() ? std::string() : (fs::path(wd) / "music").string()});
-  l.movies = !have_movies(install, l.media);
+  l.music = !have_music({music.string(), (fs::path(wd) / "music").string(), own.empty() ? (fs::path(install) / "music").string() : own});
+  for (const std::string& w : mech3::setup::check_install(install, wd, true).warnings)
+    if (w.find("soundsH.zbd") != std::string::npos) l.sounds = true;
   l.music_dir = fs::path(music).make_preferred().string();
   return l;
 }
@@ -76,17 +79,18 @@ Lacks lacks(const std::string& install, const std::string& wd) {
 std::string in_use(const RecipePlaces& at) {
   bool searched = false;
   const std::string found = find_install(at.cfg_install, at.more, false, &searched);
-  return !found.empty() && mech3::setup::check_install(found, at.write_dir).ok ? found : std::string();
+  return !found.empty() && mech3::setup::check_install(found, at.write_dir, true).ok ? found : std::string();
 }
 
 }  // namespace
 
-std::vector<std::string> mw3_notes(const std::string& install, const std::string& version, const std::string& write_dir) {
+// pm: the launcher's pm_notes: the check's own notes (the full sounds), then the music's when it lacks it.
+std::vector<std::string> mw3_notes(const std::string& install, const std::string&, const std::string& write_dir) {
+  const mech3::setup::Result r = mech3::setup::check_install(install, write_dir, true);
+  std::vector<std::string> notes = r.warnings;
   const Lacks l = lacks(install, write_dir);
-  std::vector<std::string> notes = launcher_notes(version, !l.music, !l.movies, l.music_dir);
-  const mech3::setup::Result c = mech3::setup::start_check(install, write_dir, false);
-  if (c.ok)
-    for (const std::string& w : c.warnings) notes.push_back(w);
+  if (r.ok && l.music)
+    for (const std::string& n : launcher_notes("", false, true, l.music_dir)) notes.push_back(n);
   return notes;
 }
 
@@ -94,7 +98,7 @@ rekit::sdl::Game mw3_recipe(const RecipePlaces& at) {
   const std::string write_dir = at.write_dir, cfg_install = at.cfg_install;
   const std::vector<std::string> more = at.more;
   rekit::sdl::Game g;
-  g.id = kId, g.title = "MechWarrior 3", g.folder_key = "mw3", g.folder_name = "MechWarrior 3", g.program = "Mech3.exe";
+  g.id = kId, g.title = "Pirate's Moon", g.folder_key = "pm", g.folder_name = "Pirate's Moon", g.program = "Mech3.exe";
   g.rules = contract_rules();
   // As FIND THE GAME: an installed copy (mw3.cfg's, the start's places, the installer's), else a disc in a drive.
   g.search = [cfg_install, more] {
@@ -104,21 +108,20 @@ rekit::sdl::Game mw3_recipe(const RecipePlaces& at) {
     const std::vector<mech3::setup::DiscSource> discs = mech3::setup::find_discs();
     return discs.empty() ? std::string() : discs.front().path;
   };
-  g.describe = [](const rekit::Found& k) {
-    pm_seen = false;
-    return src::game_words(ours(k));
+  g.describe = [](const rekit::Found& k) {  // the launcher's look_at words for Pirate's Moon
+    mw3_seen = false;
+    return std::string(k.kind == rekit::Found::kInstall ? "An installed copy of Pirate's Moon." : "The Pirate's Moon disc.");
   };
   g.recognise = [](const std::string&) {
-    const bool pm = pm_seen.exchange(false);
-    src::Found f;
-    f.game = src::Found::kPiratesMoon;
-    return pm ? src::game_words(f) : std::string();
+    return mw3_seen.exchange(false) ? std::string("This is MechWarrior 3, not Pirate's Moon: give it under MECHWARRIOR 3's GAME "
+                                                  "FILES. Pick Pirate's Moon's own disc, image or folder here.")
+                                    : std::string();
   };
   g.install = [write_dir](const rekit::Found& k, const std::string& out, const std::string& media, const rekit::sdl::ProgressFn& p) {
     return from(mech3::setup::install_from_source(ours(k), out, "", (fs::path(media) / "music").string(), write_dir, to_ours(p)));
   };
-  // GAME FILES' list (the launcher's find_copies): every copy where the start and the launcher look, each once, the one
-  // in use first, with what the game would lack with it. Music or movies the media folder holds count for every copy.
+  // GAME FILES' list (the launcher's find_copies for Pirate's Moon): every copy where the start and the launcher look,
+  // each once, the one in use first, with what the game would lack with it: the music, the full sounds.
   g.copies = [at](const rekit::sdl::SetupOptions&) {
     std::vector<rekit::sdl::CopyRow> rows;
     const std::string use = in_use(at);
@@ -127,34 +130,33 @@ rekit::sdl::Game mw3_recipe(const RecipePlaces& at) {
     if (!at.games_place.empty()) tries.push_back((fs::path(at.games_place) / "install").make_preferred().string());
     if (!at.cfg_install.empty()) tries.push_back(at.cfg_install);
     if (!at.write_dir.empty()) tries.push_back((fs::path(at.write_dir) / "install").string());
-    for (const std::string& c : install_candidates()) tries.push_back(c);
+    for (const std::string& c : install_candidates(true)) tries.push_back(c);
     for (const std::string& c : at.more) tries.push_back(c);
     const Lacks media = lacks(use, at.write_dir);  // the media folder's music, for every copy
     std::error_code ec;
     for (const std::string& d : tries) {
-      if (d.empty() || !fs::is_directory(d, ec) || !install_valid(d)) continue;
+      if (d.empty() || !fs::is_directory(d, ec) || !install_valid(d)) continue;  // pm: Pirate's Moon's folders only
       bool seen = false;
       for (const rekit::sdl::CopyRow& c : rows) seen = seen || fs::equivalent(c.path, d, ec);
       if (seen) continue;
-      const mech3::setup::Result r = mech3::setup::check_install(d, at.write_dir);
-      if (!r.ok) continue;
+      const mech3::setup::Result r = mech3::setup::check_install(d, at.write_dir, true);
       rekit::sdl::CopyRow c;
       c.path = d, c.data = r.version == "unknown" ? std::string() : r.version;
       c.in_use = !use.empty() && fs::equivalent(d, use, ec);
       const std::string own = zutl::any_case(d, "music");
       if (!have_music({own.empty() ? (fs::path(d) / "music").string() : own, media.music_dir, (fs::path(at.write_dir) / "music").string()}))
         c.missing.push_back("music");
-      if (!have_movies(d, media.media)) c.missing.push_back("movies");
-      if (r.version == "1.0" || r.version == "1.0 with 1.2 files") c.missing.push_back("the 1.2 patch");
+      for (const std::string& w : r.warnings)
+        if (w.find("soundsH.zbd") != std::string::npos) c.missing.push_back("full-quality sounds");
       rows.push_back(std::move(c));
     }
     return rows;
   };
-  // ADD FROM MY DISC: what the copy in use lacks (its movies, a cue's music) from a disc, its image or download; ""
-  // asks for the disc in a drive.
+  // ADD FROM MY DISC: what the copy in use lacks (a cue's music, the disc's soundsH.zbd) from its disc, image or
+  // download; "" asks for the disc in a drive.
   g.add = [at](const std::string& pick, const rekit::sdl::SetupOptions&, const rekit::sdl::ProgressFn& p) {
     const std::string use = in_use(at);
-    if (use.empty()) throw std::runtime_error("MechWarrior 3 is not set up yet: there is nothing to add to.");
+    if (use.empty()) throw std::runtime_error("Pirate's Moon is not set up yet: there is nothing to add to.");
     std::string source = pick;
     if (source.empty()) {
       const std::vector<mech3::setup::DiscSource> discs = mech3::setup::find_discs();
@@ -162,16 +164,16 @@ rekit::sdl::Game mw3_recipe(const RecipePlaces& at) {
       source = discs.front().path;
     }
     const Lacks l = lacks(use, at.write_dir);
-    if (!l.music && !l.movies) {
+    if (!l.music && !l.sounds) {
       rekit::sdl::InstallResult r;
       r.ok = true, r.summary = "The game files in use lack nothing a disc has.";
       return r;
     }
-    return from(mech3::setup::add_from_disc(source, l.movies ? (fs::path(l.media) / "video").string() : std::string(),
-                                            l.music ? (fs::path(l.media) / "music").string() : std::string(), to_ours(p)));
+    return from(mech3::setup::add_pm_from_disc(source, l.music ? (fs::path(l.media) / "music").string() : std::string(),
+                                               l.sounds ? at.write_dir : std::string(), to_ours(p)));
   };
   // The status's pending "movies" (the launcher's convert_movies): the AVIs of the copy in use, and of the media
-  // folder's video\ (added from a disc), through mw3import into the media folder. Windows plays the AVIs as they are.
+  // folder's video\, through mw3import into the media folder. Windows plays the AVIs as they are.
   g.first_run = [at](const std::string& step, const rekit::sdl::SetupOptions&, const rekit::sdl::ProgressFn& p) {
     if (step != "movies") throw std::runtime_error("There is no first-run step " + step + ".");
     rekit::sdl::InstallResult r;
@@ -180,7 +182,7 @@ rekit::sdl::Game mw3_recipe(const RecipePlaces& at) {
     r.ok = true, r.summary = "The movies play as they are on Windows.";
 #else
     const std::string use = in_use(at);
-    if (use.empty()) throw std::runtime_error("MechWarrior 3 is not set up yet: there are no movies to convert.");
+    if (use.empty()) throw std::runtime_error("Pirate's Moon is not set up yet: there are no movies to convert.");
     const std::string wd = media_dir(use, at.write_dir);
     std::error_code ec;
     const bool same = fs::equivalent(use, wd, ec);

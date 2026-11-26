@@ -11774,3 +11774,112 @@ TEST(sdl_program_issue19_menu_sounds) {
   EXPECT(between(run("salvage_off", off), "state Salvage State", nullptr).empty());
 }
 #endif
+
+#if defined(MW3_PM_SUITE) && !defined(_WIN32)
+// Pirate's Moon serves its own setup and extras (2026-11-25, docs/launcher-split.md a4): MechWarrior 3's checks
+// (sdl_program_status_and_setup_answer_the_launcher, sdl_program_serves_the_launchers_extras) in PM's words, with
+// MechWarrior 3's files refused.
+TEST(sdl_pm_program_serves_its_setup) {
+  namespace fs = std::filesystem;
+  const std::string dir = std::string(MW3_TEST_TMP) + "/pm_served";
+  std::error_code ec;
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  auto run = [&](const std::vector<std::string>& args, const std::string& name, int* code) {
+    int status = 0;
+    const std::string log = dir + "/" + name + ".log";
+    *code = waited(spawn_mw3(args, log), &status) && WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+    std::ifstream f(log);
+    return std::string((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+  };
+  struct Said {
+    rekit::SetupMessage done;
+    std::vector<rekit::SetupMessage> rows, steps;
+  };
+  auto said = [](const std::string& log) {
+    Said s;
+    rekit::SetupMessage m;
+    for (size_t at = 0; at < log.size();) {
+      const size_t end = std::min(log.find('\n', at), log.size());
+      if (rekit::parse_setup_message(log.substr(at, end - at), &m)) {
+        if (m.done) s.done = m;
+        else (m.copy.empty() ? s.steps : s.rows).push_back(m);
+      }
+      at = end + 1;
+    }
+    return s;
+  };
+  const std::string game = MW3_GAME_DIR, wd = dir + "/wd", into = (fs::path(wd) / "install").make_preferred().string();
+  int code_of_last = -1;
+  auto ask = [&](std::vector<std::string> what, const char* name, const std::string& in = "") {
+    what.insert(what.begin(), "--setup");
+    what.push_back("--write-dir"), what.push_back(in.empty() ? wd : in);
+    return said(run(what, name, &code_of_last));
+  };
+  int code = -1;
+  rekit::Status st;
+  EXPECT(rekit::parse_status(run({"--status", "--write-dir", wd}, "status", &code), &st) && code == 0);
+  EXPECT(st.game == "mech3-pm" && st.setup == rekit::kServedSetup && st.play == rekit::kPlayOptions && st.user == wd &&
+         st.state == rekit::Status::kReady && !st.notes.empty() && st.notes[0].find("No music yet") == 0);
+  Said m = ask({"--describe"}, "describe");
+  EXPECT(code_of_last == rekit::kSetupReady && m.done.ok && m.done.title == "Pirate's Moon" && m.done.into == into);
+  m = ask({"--look", game + "/Mech3.exe"}, "look");
+  EXPECT(code_of_last == rekit::kSetupReady && m.done.ok && !m.done.in_place && m.done.words == "An installed copy of Pirate's Moon.");
+  EXPECT(!fs::exists(wd, ec));
+  const std::string mw3 = (fs::path(game).parent_path() / "mw3-1.2").string();
+  if (fs::is_regular_file(mw3 + "/zbd/reader.zbd")) {
+    m = ask({"--install", mw3}, "mw3");
+    EXPECT(code_of_last == rekit::kSetupFailed && !m.done.ok && m.done.summary.find("This is MechWarrior 3, not Pirate's Moon") == 0 && !fs::exists(wd, ec));
+  }
+  m = ask({"--install", game}, "install");
+  std::printf("  pm served install: exit %d, %s\n", code_of_last, m.done.summary.c_str());
+  EXPECT(code_of_last == rekit::kSetupReady && m.done.ok && m.done.where == into && fs::is_regular_file(into + "/zbd/reader.zbd"));
+  {
+    std::ifstream saved(wd + "/mw3.cfg");
+    EXPECT(std::string((std::istreambuf_iterator<char>(saved)), std::istreambuf_iterator<char>()).find("install=" + into + "\n") != std::string::npos);
+  }
+  m = ask({"--look", into}, "own");
+  EXPECT(code_of_last == rekit::kSetupReady && m.done.ok && m.done.in_place && m.done.where == into);
+  // The extras: the copies (the new one in use, without music), the music from a cue sheet, nothing more to add.
+  setenv("MW3_FIND_INSTALL", "1", 1);
+  Said c = ask({"--copies"}, "copies");
+  EXPECT(code_of_last == rekit::kSetupReady && c.done.ok && !c.rows.empty());
+  if (!c.rows.empty()) EXPECT(c.rows[0].copy == into && c.rows[0].copy_in_use && c.rows[0].copy_missing == std::vector<std::string>({"music"}));
+  fs::create_directories(dir + "/disc", ec);
+  {
+    std::string audio(2352 * 160, '\0');
+    for (size_t i = 0; i < audio.size(); ++i) audio[i] = static_cast<char>(i * 7);
+    std::ofstream(dir + "/disc/t1.bin", std::ios::binary) << std::string(2352 * 30, '\0');
+    std::ofstream(dir + "/disc/t2.bin", std::ios::binary) << audio;
+    std::ofstream(dir + "/disc/disc.cue") << "FILE \"t1.bin\" BINARY\n  TRACK 01 MODE1/2352\n    INDEX 01 00:00:00\n"
+                                             "FILE \"t2.bin\" BINARY\n  TRACK 02 AUDIO\n    INDEX 01 00:00:00\n";
+  }
+  Said a = ask({"--add", dir + "/disc/disc.cue"}, "add");
+  std::printf("  pm add: exit %d, %s\n", code_of_last, a.done.summary.c_str());
+  EXPECT(code_of_last == rekit::kSetupReady && a.done.ok && fs::is_regular_file(dir + "/wd/music/track02.wav"));
+  a = ask({"--add", dir + "/disc/disc.cue"}, "add2");
+  EXPECT(code_of_last == rekit::kSetupReady && a.done.ok && a.done.summary == "The game files in use lack nothing a disc has.");
+  // The movies through the importer's stand-in, on a cd folder with PM's zbd, its messages and two AVIs.
+  fs::create_directories(dir + "/cd/video", ec);
+  fs::create_directory_symlink(game + "/zbd", dir + "/cd/zbd", ec);
+  fs::create_symlink(game + "/Mech3Msg.dll", dir + "/cd/Mech3Msg.dll", ec);
+  for (const char* v : {"/cd/video/C1.AVI", "/cd/video/INTRO.AVI"}) std::ofstream(dir + v) << "x";
+  fs::create_directories(dir + "/wd2", ec);
+  std::ofstream(dir + "/wd2/mw3.cfg") << "install=" << dir << "/cd\n";
+  const std::string importer = dir + "/mw3import";
+  std::ofstream(importer) << "#!/bin/sh\nS=; W=\nwhile [ $# -gt 0 ]; do case \"$1\" in --install) S=$2; shift;; --write-dir) W=$2; shift;; esac; shift; done\n"
+                             "mkdir -p \"$W/video\"; echo progress 0 2; K=0\nfor F in \"$S\"/video/*.AVI; do N=$(basename \"$F\" .AVI | tr A-Z a-z); "
+                             ": > \"$W/video/$N.fmv\"; K=$((K+1)); echo progress $K 2 $N; done\n";
+  fs::permissions(importer, fs::perms::owner_all, ec);
+  EXPECT(rekit::parse_status(run({"--status", "--write-dir", dir + "/wd2"}, "status2", &code), &st) && st.pending == std::vector<std::string>({"movies"}));
+  setenv("MW3_IMPORTER", importer.c_str(), 1);
+  const Said f = ask({"--first-run", "movies"}, "movies", dir + "/wd2");
+  unsetenv("MW3_IMPORTER");
+  EXPECT(code_of_last == rekit::kSetupReady && f.done.ok && f.done.summary == "2 movies converted for this computer.");
+  EXPECT(fs::exists(dir + "/wd2/video/c1.fmv") && fs::exists(dir + "/wd2/video/intro.fmv"));
+  const Said bad = ask({"--first-run", "maps"}, "maps");
+  EXPECT(code_of_last == rekit::kSetupFailed && bad.done.summary == "There is no first-run step maps.");
+  unsetenv("MW3_FIND_INSTALL");
+  if (!check::failures) fs::remove_all(dir, ec);
+}
+#endif
