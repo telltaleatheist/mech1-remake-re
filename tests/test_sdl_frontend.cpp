@@ -7610,6 +7610,29 @@ TEST(sdl_program_launcher_lists_the_copies) {
 // links it at the start (a development build's never); its gear's page links another by hand, unlinks one (not
 // linked again by itself) and uninstalls the launcher's copy, with its game files only when asked and only a folder
 // our copying made (here the files are links to game/pm, which stays whole).
+// INSTALL FROM A DOWNLOADED FILE's check (sdlfe::games::check_file, rekit's SHA-256 since b6): the file's sum, and
+// the SHA256SUMS beside it matched, mismatched or missing.
+TEST(sdl_games_check_file_reads_its_sums) {
+  namespace fs = std::filesystem;
+  using FC = sdlfe::games::FileCheck;
+  const std::string dir = std::string(MW3_TEST_TMP) + "/games_check_file";
+  std::error_code ec;
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir, ec);
+  const std::string file = dir + "/Game-x.zip", abc = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+  std::ofstream(file, std::ios::binary) << "abc";
+  const FC none = sdlfe::games::check_file(file);
+  EXPECT(none.kind == FC::kNoSums && none.sha256 == abc && none.words.find("no SHA256SUMS") != std::string::npos);
+  std::ofstream(dir + "/SHA256SUMS") << abc << "  Game-x.zip\n";
+  const FC ok = sdlfe::games::check_file(file);
+  EXPECT(ok.kind == FC::kMatches && ok.sha256 == abc);
+  std::ofstream(dir + "/SHA256SUMS") << std::string(64, '0') << "  Game-x.zip\n";
+  EXPECT(sdlfe::games::check_file(file).kind == FC::kMismatch);
+  std::ofstream(dir + "/SHA256SUMS") << abc << "  Other.zip\n";
+  EXPECT(sdlfe::games::check_file(file).kind == FC::kNoSums);
+  if (!check::failures) fs::remove_all(dir, ec);
+}
+
 TEST(sdl_program_launcher_links_and_uninstalls) {
   namespace fs = std::filesystem;
   const std::string pm_files = (fs::path(MW3_GAME_DIR).parent_path() / "pm").string();

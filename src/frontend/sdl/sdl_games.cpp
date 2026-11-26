@@ -2,7 +2,7 @@
 
 #include "frontend/sdl/sdl_update.h"
 #include "frontend/sdl/sdl_install.h"  // kGameFolderMark
-#include "mech3/patch_import.h"
+#include "rekit/hash.h"
 #include "mech3/data_folder.h"
 #include "rekit/archive.h"
 #include "rekit/family_folder.h"
@@ -451,7 +451,7 @@ Done install_release(const std::string& root, u::Game g, const u::Release& r, co
 
 FileCheck check_file(const std::string& file) {
   FileCheck c;
-  c.sha256 = mech3::sha256_file_hex(file);
+  c.sha256 = rekit::sha256_file_hex(file);
   std::error_code ec;
   const fs::path sums = fs::path(file).parent_path() / "SHA256SUMS";
   const std::string name = fs::path(file).filename().string();
