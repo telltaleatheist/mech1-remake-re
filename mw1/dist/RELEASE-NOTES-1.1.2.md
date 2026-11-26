@@ -8,8 +8,8 @@ Fixes.
 
 Reach and attack contracts keep their maps' own patrols.
 
-- **RAW MOUSE is in SETTINGS, CONTROLS, under MOUSE SENSITIVITY,** and off to start on the Mac, where a Magic Mouse was much too fast with it. MOUSE SENSITIVITY goes down to 0.1. What you set stays as you set it.
-- **RAW MOUSE is switched off once on the Mac with this update.** After that, your own choice is kept.
+- **RAW MOUSE is in SETTINGS, CONTROLS, under MOUSE SENSITIVITY.** On the Mac it is off to start, and this update switches it off once there: a Magic Mouse was several times too fast with it. Turn it back on if you liked it; your choice is kept from then on.
+- **MOUSE SENSITIVITY goes down to 0.1.**
 
 Saved games are unchanged: 1.1.2 reads and writes the same saves as 1.1.1.
 

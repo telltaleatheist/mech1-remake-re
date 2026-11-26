@@ -74,7 +74,8 @@ feature update, the third is bug fixes.
 ## What's new in 1.1.2
 
 The enemies on the two ice maps no longer stand still, and in battles and defences the enemies come for you, as in
-MechWarrior (1989). The full notes: [mw1/dist/RELEASE-NOTES-1.1.2.md](mw1/dist/RELEASE-NOTES-1.1.2.md).
+MechWarrior (1989). RAW MOUSE is under MOUSE SENSITIVITY in SETTINGS, CONTROLS, off on the Mac, and MOUSE SENSITIVITY
+goes down to 0.1. The full notes: [mw1/dist/RELEASE-NOTES-1.1.2.md](mw1/dist/RELEASE-NOTES-1.1.2.md).
 
 ## What's new in 1.1.1
 
