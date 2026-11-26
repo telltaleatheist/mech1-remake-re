@@ -871,6 +871,8 @@ if(SDL3_FOUND)
       src/frontend/sdl/crash_report.cpp
       src/frontend/sdl/launcher.cpp
       src/frontend/sdl/launcher_ui.cpp
+      src/frontend/sdl/launcher_own.cpp
+      src/frontend/sdl/launcher_mw3_setup.cpp
       src/frontend/sdl/sdl_update.cpp
       src/frontend/sdl/sdl_games.cpp
       src/frontend/sdl/sdl_catalog.cpp
@@ -919,6 +921,8 @@ if(SDL3_FOUND)
       src/frontend/sdl/launcher_main.cpp
       src/frontend/sdl/launcher.cpp
       src/frontend/sdl/launcher_ui.cpp
+      src/frontend/sdl/launcher_own.cpp
+      src/frontend/sdl/launcher_mw3_setup.cpp
       src/frontend/sdl/sdl_update.cpp
       src/frontend/sdl/sdl_games.cpp
       src/frontend/sdl/sdl_catalog.cpp
@@ -967,6 +971,7 @@ if(SDL3_FOUND)
       src/frontend/sdl/sdl_update.cpp
       src/frontend/sdl/sdl_games.cpp
       src/frontend/sdl/sdl_catalog.cpp
+      src/frontend/sdl/launcher_own.cpp
       src/frontend/sdl/sdl_restart.cpp
       src/frontend/sdl/win_cmdline.cpp
       tests/test_net_enet.cpp

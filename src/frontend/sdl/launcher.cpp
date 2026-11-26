@@ -30,13 +30,13 @@
 #include "frontend/sdl/sdl_install.h"
 #include "gamez/zutil/zutl_zar.h"
 #include "gamez/zrender/zrndr_tint.h"
-#include "mech3/game_setup.h"
+#include "frontend/sdl/launcher_mw3_setup.h"
+#include "frontend/sdl/launcher_own.h"
 #include "frontend/sdl/sdl_update.h"
 #include "frontend/sdl/sdl_catalog.h"
 #include "frontend/sdl/sdl_games.h"
 #include "upgrades/update/games.h"
 #include "mech3/source_map.h"
-#include "gamez/zutil/zutl_path.h"
 
 namespace sdlfe {
 
@@ -211,7 +211,7 @@ struct Sounds {
     for (const char* arc : {"soundsL.zbd", "soundsH.zbd"}) {
       zutl_zar::Archive a;
       zutl_zar::init(a);
-      const std::string path = zutl::any_case(install, std::string("zbd/") + arc);
+      const std::string path = own::any_case(install, std::string("zbd/") + arc);
       if (path.empty() || !fs::is_regular_file(path) || !zutl_zar::open(a, path.c_str())) {
         zutl_zar::destroy(a);
         continue;
@@ -306,12 +306,12 @@ struct Install {
   bool elsewhere = false;
 };
 
-// An operation on a worker thread (mech3::setup's calls run on the caller's).
+// An operation on a worker thread (MW3's setup calls, launcher_mw3_setup.h, run on the caller's).
 struct Work {
   std::thread th;
   std::mutex m;
-  mech3::setup::Progress progress;
-  mech3::setup::Result result;
+  own::Progress progress;
+  own::Result result;
   std::atomic<bool> cancel{false}, done{false};
   std::string title;
   enum Kind { kOther, kLook, kInstallIt, kAddDisc, kConvert, kMoveData, kRemoveData, kUpdateDownload, kMw1Copy, kGameInstall, kGameFileCheck, kUninstall, kKitLook, kKitInstall } kind = kOther;  // a look, an install, ADD FROM MY DISC, the movies
@@ -319,11 +319,11 @@ struct Work {
     cancel = true;
     if (th.joinable()) th.join();
   }
-  void start(std::string t, std::function<mech3::setup::Result(const mech3::setup::ProgressFn&)> op) {
+  void start(std::string t, std::function<own::Result(const own::ProgressFn&)> op) {
     title = std::move(t);
     std::printf("mw3: launcher: work: %s\n", title.c_str());  // the checks follow it
     th = std::thread([this, op] {
-      mech3::setup::Result r = op([this](const mech3::setup::Progress& p) {
+      own::Result r = op([this](const own::Progress& p) {
         std::lock_guard<std::mutex> g(m);
         progress = p;
         return !cancel.load();
@@ -398,7 +398,7 @@ class Launcher {
   void pm_refresh();
   std::string pm_in_use() const;
   void use_pm(const std::string& dir, const std::string& summary);
-  std::vector<std::string> pm_notes(mech3::setup::Result* check = nullptr);
+  std::vector<std::string> pm_notes(own::Result* check = nullptr);
   void watch_game();
   Uint64 display_frame() const;
   void layout();
@@ -436,7 +436,7 @@ class Launcher {
   bool data_elsewhere();
   void ask_move(const std::string& to);
   void start_move();
-  void moved(const mech3::setup::Result& r);
+  void moved(const own::Result& r);
   void play();
   int movies_to_convert() const;
   void convert_movies(std::function<void()> then);
@@ -520,7 +520,7 @@ class Launcher {
   bool kit_serves(int i) const { return kit_game(i) && kit_known_[i] && kit_status_[i].setup >= rekit::kServedSetup; }
   void open_kit_files(int i, bool play);
   void kit_look(const std::string& pick);  // "" its own search first
-  void kit_looked(const mech3::setup::Result& r);
+  void kit_looked(const own::Result& r);
   void kit_install();
   void kit_ready(const std::string& summary);
   int kit_files_ = -1;      // the game the find screens are for, else MW3's or Pirate's Moon's
@@ -669,7 +669,7 @@ std::string cfg_path(const std::string& write_dir, const std::string& key) {
   std::string line;
   while (std::getline(f, line)) {
     if (!line.empty() && line.back() == '\r') line.pop_back();
-    if (line.rfind(key + "=", 0) == 0) return zutl::path_from_config(line.substr(key.size() + 1));
+    if (line.rfind(key + "=", 0) == 0) return own::path_from_config(line.substr(key.size() + 1));
   }
   return {};
 }
@@ -696,7 +696,7 @@ void Launcher::find_install() {
   for (size_t i = 0; i < tries.size(); ++i) {
     const std::string& d = tries[i];
     if (!install_valid(d)) continue;
-    const mech3::setup::Result r = mech3::setup::check_install(d, o_.write_dir);
+    const own::Result r = mw3setup::check_install(d, o_.write_dir);
     if (!r.ok) continue;
     // Not the game's own folder's copy while it has one: offered (searched, or an older place mw3.cfg remembers).
     const bool not_own = !own.empty() && i > 0 && i < searched_to;  // tries[0] is the own copy
@@ -858,7 +858,7 @@ void Launcher::find_link(int i) {
   for (const sdlfe::games::Found& f : sdlfe::games::found_elsewhere(g, record_folder(i), system)) {
     if (f.program == skip) continue;
     linked_[i] = f.program, linked_tag_[i] = f.version;
-    save_config_value(o_.write_dir, "link_" + key, f.program);
+    own::save_config_value(o_.write_dir, "link_" + key, f.program);
     std::printf("mw3: launcher: games: %s: found %s (%s), linked\n", key.c_str(), f.program.c_str(), f.how.c_str());
     return;
   }
@@ -951,7 +951,7 @@ void Launcher::link_picked(const std::string& path) {
     status_ = "That is a copy the launcher installed: there is nothing to link.", status_good_ = true;
     return layout();
   }
-  save_config_value(o_.write_dir, "link_" + key, prog), save_config_value(o_.write_dir, "unlinked_" + key, "");
+  own::save_config_value(o_.write_dir, "link_" + key, prog), own::save_config_value(o_.write_dir, "unlinked_" + key, "");
   resolve_game(i, true);
   const std::string shown = upgrades::update::game_version(v);
   status_ = source_[i] == kLinked ? "Linked " + shown + ": PLAY starts it."
@@ -965,7 +965,7 @@ void Launcher::unlink_game() {
   const int i = page_game_;
   if (i < 0 || linked_[i].empty()) return;
   const std::string key = upgrades::update::game_info(upgrades::update::game_at(i)).key, prog = linked_[i];
-  save_config_value(o_.write_dir, "link_" + key, ""), save_config_value(o_.write_dir, "unlinked_" + key, prog);
+  own::save_config_value(o_.write_dir, "link_" + key, ""), own::save_config_value(o_.write_dir, "unlinked_" + key, prog);
   std::printf("mw3: launcher: games: %s: unlinked %s\n", key.c_str(), prog.c_str());
   resolve_game(i, true);
   status_ = "Unlinked. Nothing was deleted.", status_good_ = true;
@@ -1004,13 +1004,13 @@ void Launcher::uninstall_go(bool files) {
   work_->kind = Work::kUninstall;
   const std::string prog = remove_linked_ ? linked_[i] : std::string();
   const sdlfe::games::Removal how = removal_[i];
-  work_->start(title, [root, g, fdir, name, prog, how](const mech3::setup::ProgressFn& f) {
-    mech3::setup::Result res;
+  work_->start(title, [root, g, fdir, name, prog, how](const own::ProgressFn& f) {
+    own::Result res;
     std::string error;
-    f(mech3::setup::Progress{how.how == sdlfe::games::Removal::kSetup && !prog.empty() ? "Its uninstaller is running" : "Removing the game", 0.2, ""});
+    f(own::Progress{how.how == sdlfe::games::Removal::kSetup && !prog.empty() ? "Its uninstaller is running" : "Removing the game", 0.2, ""});
     if (!prog.empty() ? !sdlfe::games::remove_linked(prog, g, how, &error) : !sdlfe::games::uninstall(root, g, &error)) return res.summary = "Nothing was removed: " + error + ".", res;
     if (!fdir.empty()) {
-      f(mech3::setup::Progress{"Removing the game files", 0.5, ""});
+      f(own::Progress{"Removing the game files", 0.5, ""});
       std::error_code ec;
       const fs::path old = fs::path(fdir).parent_path() / ".install.removing";
       if (!fs::is_regular_file(fs::path(fdir) / "mw3-install.txt", ec) || fs::exists(old, ec))  // asked again at the removal
@@ -1227,9 +1227,9 @@ void Launcher::install_game_now(int i) {
   work_game_ = i;
   std::string title = std::string(update ? "UPDATING " : "DOWNLOADING ") + game_info(g).name;
   for (char& ch : title) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
-  work_->start(title, [done, g, r, root](const mech3::setup::ProgressFn& f) {
-    *done = sdlfe::games::install_release(root, g, r, [&](double x, const std::string& w) { return f(mech3::setup::Progress{w, x, ""}); });
-    mech3::setup::Result res;
+  work_->start(title, [done, g, r, root](const own::ProgressFn& f) {
+    *done = sdlfe::games::install_release(root, g, r, [&](double x, const std::string& w) { return f(own::Progress{w, x, ""}); });
+    own::Result res;
     res.ok = done->ok, res.cancelled = done->cancelled, res.summary = done->words;
     return res;
   });
@@ -1243,9 +1243,9 @@ void Launcher::install_file_go() {
   work_->kind = Work::kGameInstall;
   auto done = game_done_ = std::make_shared<sdlfe::games::Done>();
   const std::string root = games_root_, file = install_file_, sha = file_check_ ? file_check_->sha256 : std::string();
-  work_->start("INSTALLING FROM A FILE", [done, root, file, sha](const mech3::setup::ProgressFn& f) {
-    *done = sdlfe::games::install_file(root, file, sha, [&](double x, const std::string& w) { return f(mech3::setup::Progress{w, x, ""}); });
-    mech3::setup::Result res;
+  work_->start("INSTALLING FROM A FILE", [done, root, file, sha](const own::ProgressFn& f) {
+    *done = sdlfe::games::install_file(root, file, sha, [&](double x, const std::string& w) { return f(own::Progress{w, x, ""}); });
+    own::Result res;
     res.ok = done->ok, res.cancelled = done->cancelled, res.summary = done->words;
     return res;
   });
@@ -1258,9 +1258,9 @@ void Launcher::game_installed(const sdlfe::games::Done& d) {
   const int i = static_cast<int>(d.game);
   const std::string key = std::string("games_") + game_info(d.game).key;
   if (place_game_ == i && work_game_ == i) {  // a card's INSTALL: its folder kept for UPDATE and the game files
-    games_place_[i] = place_, save_config_value(o_.write_dir, key, place_);
+    games_place_[i] = place_, own::save_config_value(o_.write_dir, key, place_);
   } else if (work_game_ < 0 && !games_place_[i].empty()) {  // INSTALL FROM A DOWNLOADED FILE: into the games folder, now the one in use
-    games_place_[i].clear(), save_config_value(o_.write_dir, key, "");
+    games_place_[i].clear(), own::save_config_value(o_.write_dir, key, "");
   }
   place_game_ = -1;
   std::string prog;
@@ -1321,7 +1321,7 @@ void Launcher::find_mw1_game() {
     if (o_.cfg_mw1_game.empty() || !fs::equivalent(o_.cfg_mw1_game, own, ec)) {
       if (!o_.cfg_mw1_game.empty())
         std::printf("mw3: launcher: MechWarrior (1989) in our folder %s, not %s: ours in use\n", own.c_str(), o_.cfg_mw1_game.c_str());
-      save_config_value(o_.write_dir, "mw1_game", own);
+      own::save_config_value(o_.write_dir, "mw1_game", own);
     }
     return;
   }
@@ -1339,7 +1339,7 @@ void Launcher::find_mw1_game() {
     return;
   }
   mw1_game_ = found;  // our own copy (an earlier pick's): in use as before
-  save_config_value(o_.write_dir, "mw1_game", found);
+  own::save_config_value(o_.write_dir, "mw1_game", found);
   std::printf("mw3: launcher: MechWarrior (1989) found at %s\n", found.c_str());
 }
 
@@ -1377,12 +1377,12 @@ void Launcher::copy_mw1(const std::string& game) {
   work_ = std::make_unique<Work>();
   work_->kind = Work::kMw1Copy;
   const std::string wd = o_.write_dir;
-  work_->start("COPYING MECHWARRIOR (1989)", [game, wd](const mech3::setup::ProgressFn& f) {
-    mech3::setup::Result r;
+  work_->start("COPYING MECHWARRIOR (1989)", [game, wd](const own::ProgressFn& f) {
+    own::Result r;
     std::string why;
     bool cancelled = false;
     const std::string dir = sdlfe::mw1::copy_in(game, wd, &why, [&](uint64_t done, uint64_t total, const std::string& file) {
-      return f(mech3::setup::Progress{"Copying", total ? static_cast<double>(done) / static_cast<double>(total) : 0.0, file});
+      return f(own::Progress{"Copying", total ? static_cast<double>(done) / static_cast<double>(total) : 0.0, file});
     }, &cancelled);
     r.ok = !dir.empty(), r.cancelled = cancelled, r.install_dir = dir;
     r.summary = r.ok ? "MechWarrior (1989) copied into " + dir + "." : why;
@@ -1419,7 +1419,7 @@ void Launcher::find_pm() {
       if (o_.cfg_pm_install.empty() || !fs::equivalent(o_.cfg_pm_install, d, ec)) {
         if (!o_.cfg_pm_install.empty())
           std::printf("mw3: launcher: Pirate's Moon in our folder %s, not %s: ours in use\n", d.c_str(), o_.cfg_pm_install.c_str());
-        if (!o_.pm) sdlfe::save_config_value(o_.write_dir, "pm_install", d);
+        if (!o_.pm) own::save_config_value(o_.write_dir, "pm_install", d);
       }
       std::printf("mw3: launcher: Pirate's Moon at %s: ready\n", pm_dir_.c_str());
       return;
@@ -1443,7 +1443,7 @@ void Launcher::find_pm() {
       return;
     }
     pm_dir_ = d;  // our own copy (an earlier install's): in use as before
-    if (!o_.pm) sdlfe::save_config_value(o_.write_dir, "pm_install", d);
+    if (!o_.pm) own::save_config_value(o_.write_dir, "pm_install", d);
     std::printf("mw3: launcher: Pirate's Moon found at %s\n", d.c_str());
     return;
   }
@@ -1597,10 +1597,10 @@ void Launcher::kit_look(const std::string& pick) {
   work_ = std::make_unique<Work>();
   work_->kind = Work::kKitLook;
   const std::string bin = game_bin(kit_files_);
-  work_->start("LOOKING AT YOUR GAME", [bin, pick, answer](const mech3::setup::ProgressFn& f) {
-    auto step = [&f](const rekit::SetupMessage& m) { return f(mech3::setup::Progress{m.stage, m.fraction, m.message}); };
+  work_->start("LOOKING AT YOUR GAME", [bin, pick, answer](const own::ProgressFn& f) {
+    auto step = [&f](const rekit::SetupMessage& m) { return f(own::Progress{m.stage, m.fraction, m.message}); };
     std::string at = pick;
-    mech3::setup::Result r;
+    own::Result r;
     bool said = true;
     if (at.empty()) {
       said = sdlfe::games::kit_setup(bin, {"--search"}, 120, step, answer.get());
@@ -1615,7 +1615,7 @@ void Launcher::kit_look(const std::string& pick) {
   screen_ = kWorking, layout();
 }
 
-void Launcher::kit_looked(const mech3::setup::Result& r) {
+void Launcher::kit_looked(const own::Result& r) {
   if (!r.ok) {
     const bool searched = pending_source_.empty() && r.summary.empty();  // nothing on this computer: the picker
     status_ = searched ? "Not found on this computer. Pick it: " + kit_ask_.pick_words + "." : r.summary;
@@ -1651,10 +1651,10 @@ void Launcher::kit_install() {
   const std::string bin = game_bin(kit_files_);
   std::string name = upgrades::update::game_info(upgrades::update::game_at(kit_files_)).name;
   for (char& ch : name) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
-  work_->start("INSTALLING " + name, [bin, args, answer](const mech3::setup::ProgressFn& f) {
-    mech3::setup::Result r;
+  work_->start("INSTALLING " + name, [bin, args, answer](const own::ProgressFn& f) {
+    own::Result r;
     const bool said = sdlfe::games::kit_setup(
-        bin, args, 0, [&f](const rekit::SetupMessage& m) { return f(mech3::setup::Progress{m.stage, m.fraction, m.message}); }, answer.get());
+        bin, args, 0, [&f](const rekit::SetupMessage& m) { return f(own::Progress{m.stage, m.fraction, m.message}); }, answer.get());
     r.ok = said && answer->ok, r.cancelled = answer->cancelled, r.summary = answer->summary;
     return r;
   });
@@ -1684,7 +1684,7 @@ std::string Launcher::mw1_needs() const {
 // before (pm_notes=, their CRC) once on BEFORE YOU PLAY, whose OK starts it.
 // Its settings folder as mw3pm finds its own; nothing is written to it here.
 void Launcher::start_pm() {
-  mech3::setup::Result r;
+  own::Result r;
   const std::vector<std::string> notes = pm_notes(&r);
   std::printf("mw3: launcher: %s\n", r.summary.c_str());
   for (const std::string& w : notes) std::printf("mw3: launcher: note: %s\n", w.c_str());
@@ -1706,10 +1706,10 @@ bool Launcher::notes_once(const std::vector<std::string>& notes, std::string* cr
   std::string all;
   for (const std::string& n : notes) all += n + "\n";
   char crc[16];
-  std::snprintf(crc, sizeof crc, "%08x", zutl_zar::crc32(0, reinterpret_cast<const uint8_t*>(all.data()), all.size()));
+  std::snprintf(crc, sizeof crc, "%08x", own::crc32(0, reinterpret_cast<const uint8_t*>(all.data()), all.size()));
   if (notes.empty() || *crc_kept == crc) return false;
   *crc_kept = crc;
-  save_config_value(o_.write_dir, key, crc);
+  own::save_config_value(o_.write_dir, key, crc);
   notes_ = notes;
   std::printf("mw3: launcher: %s's notes shown\n", pm_after_notes_ ? "Pirate's Moon" : "MechWarrior 3");
   play_after_notes_ = true, status_.clear();
@@ -1726,7 +1726,7 @@ bool Launcher::notes_once(const std::vector<std::string>& notes, std::string* cr
 // original does ("Cannot read mech3Msg.dll from the game folder."). False: not started now.
 bool Launcher::mw3_ready() {
   if (!install_.ok) return true;  // the find screen's own path
-  const mech3::setup::Result r = mech3::setup::start_check(install_.dir, o_.write_dir, false);
+  const own::Result r = mw3setup::start_check(install_.dir, o_.write_dir, false);
   std::printf("mw3: launcher: %s\n", r.summary.c_str());
   for (const std::string& w : r.warnings) std::printf("mw3: launcher: note: %s\n", w.c_str());
   if (!r.ok) return true;
@@ -1736,9 +1736,9 @@ bool Launcher::mw3_ready() {
 
 // Pirate's Moon's notes before a start: the check's, and no music as
 // MechWarrior 3's (launcher_notes); `check` gets the check.
-std::vector<std::string> Launcher::pm_notes(mech3::setup::Result* check) {
+std::vector<std::string> Launcher::pm_notes(own::Result* check) {
   const std::string wd = pm_wd();
-  mech3::setup::Result r = mech3::setup::check_install(pm_dir_, wd, true);
+  own::Result r = mw3setup::check_install(pm_dir_, wd, true);
   std::vector<std::string> out = r.warnings;
   pm_refresh();
   if (r.ok && pm_lacks_music_) {
@@ -1779,7 +1779,7 @@ void Launcher::start_game(bool pm) {
   std::string line;
   for (const std::string& a : args) argv.push_back(a.c_str()), line += (line.empty() ? "" : " ") + a;
   argv.push_back(nullptr);
-  if (!pm) save_install(o_.write_dir, install_.dir);
+  if (!pm) own::save_install(o_.write_dir, install_.dir);
   game_click_ = SDL_GetTicksNS(), game_slow_ = false, game_status_.clear(), status_read_ms_ = -1e9;
   // Its own stdio, none of ours: the game writes mw3.log itself, and our
   // log's pipe in its stdout would hold this program's exit until the game's.
@@ -2522,7 +2522,7 @@ UiModel Launcher::model() {
       m.path = text_.fit(files_wd(), 14, 480);
       break;
     case kWorking: {
-      mech3::setup::Progress p;
+      own::Progress p;
       if (work_) {
         std::lock_guard<std::mutex> g(work_->m);
         p = work_->progress, m.title = work_->title;
@@ -2634,9 +2634,8 @@ void Launcher::open_picker() {
 
 // A picked path: what the button that asked does with it.
 void Launcher::picked(int what, const std::string& path) {
-  using namespace mech3::setup;
   // Before Windows 10 1903 such a name cannot be used (docs/program.md, Names on Windows).
-  if (!zutl::narrow_paths_utf8() && !std::all_of(path.begin(), path.end(), [](char c) { return static_cast<unsigned char>(c) < 0x80; })) {
+  if (!own::narrow_paths_utf8() && !std::all_of(path.begin(), path.end(), [](char c) { return static_cast<unsigned char>(c) < 0x80; })) {
     status_ = "This version of Windows needs a folder with plain English letters in its name.", status_good_ = false;
     layout();
     return;
@@ -2649,7 +2648,7 @@ void Launcher::picked(int what, const std::string& path) {
       return;
     }
     pm_dir_ = fs::is_regular_file(path) ? fs::path(path).parent_path().string() : path;
-    save_config_value(o_.write_dir, "pm_install", pm_dir_);
+    own::save_config_value(o_.write_dir, "pm_install", pm_dir_);
     status_.clear();
     layout();
     return;
@@ -2670,10 +2669,10 @@ void Launcher::picked(int what, const std::string& path) {
     work_ = std::make_unique<Work>();
     work_->kind = Work::kGameFileCheck;
     auto check = file_check_ = std::make_shared<sdlfe::games::FileCheck>();
-    work_->start("CHECKING THE FILE", [path, check](const mech3::setup::ProgressFn& f) {
-      f(mech3::setup::Progress{"Checking " + fs::path(path).filename().string(), 0.5, ""});
+    work_->start("CHECKING THE FILE", [path, check](const own::ProgressFn& f) {
+      f(own::Progress{"Checking " + fs::path(path).filename().string(), 0.5, ""});
       *check = sdlfe::games::check_file(path);
-      mech3::setup::Result r;
+      own::Result r;
       r.ok = check->kind != sdlfe::games::FileCheck::kMismatch, r.summary = check->words;
       return r;
     });
@@ -2702,7 +2701,7 @@ void Launcher::picked(int what, const std::string& path) {
   } else if (what == kPatch) {  // unreachable (kPatch has no plate since the patch is built in); kept
     work_ = std::make_unique<Work>();
     const std::string wd = o_.write_dir;
-    work_->start("APPLYING THE 1.2 PATCH", [path, wd](const ProgressFn& f) { return apply_patch(path, wd, f); });
+    work_->start("APPLYING THE 1.2 PATCH", [path, wd](const own::ProgressFn& f) { return mw3setup::apply_patch(path, wd, f); });
     screen_ = kWorking;
   }
   layout();
@@ -2714,7 +2713,7 @@ void Launcher::take_mw1(const std::string& dir) {
   std::printf("mw3: launcher: MechWarrior (1989) at %s%s\n", dir.c_str(),
               sdlfe::mw1::has_main(dir) ? "" : " (no MW_MAIN.EXE: the Bar's drinks and news stay greyed)");
   mw1_game_ = dir, mw1_found_.clear();
-  save_config_value(o_.write_dir, "mw1_game", dir);
+  own::save_config_value(o_.write_dir, "mw1_game", dir);
   if (mw1_original_ && !mw1_repick_ && !sdlfe::mw1::original_supported(dir)) {  // kept for the remake; the original says why not
     status_ = "Your BTECH.EXE isn't a revision Elthial's port supports, so PLAY ORIGINAL can't play it.", status_good_ = false;
     std::printf("mw3: launcher: MechWarrior (1989) original: BTECH.EXE not a supported revision\n");
@@ -2743,16 +2742,16 @@ void Launcher::add_disc(const std::string& source) {
     const std::string wd = pm_wd();
     const std::string music = pm_lacks_music_ ? (fs::path(pm_media()) / "music").string() : std::string();
     const std::string sounds = pm_lacks_sounds_ ? wd : std::string();
-    work_->start("ADDING FROM YOUR DISC", [source, music, sounds](const mech3::setup::ProgressFn& f) {
-      return mech3::setup::add_pm_from_disc(source, music, sounds, f);
+    work_->start("ADDING FROM YOUR DISC", [source, music, sounds](const own::ProgressFn& f) {
+      return mw3setup::add_pm_from_disc(source, music, sounds, f);
     });
     screen_ = kWorking, layout();
     return;
   }
   const std::string video = lacks_movies_ ? (fs::path(media()) / "video").string() : std::string();
   const std::string music = lacks_music_ ? (fs::path(media()) / "music").string() : std::string();
-  work_->start("ADDING FROM YOUR DISC", [source, video, music](const mech3::setup::ProgressFn& f) {
-    return mech3::setup::add_from_disc(source, video, music, f);
+  work_->start("ADDING FROM YOUR DISC", [source, video, music](const own::ProgressFn& f) {
+    return mw3setup::add_from_disc(source, video, music, f);
   });
   screen_ = kWorking;
   layout();
@@ -2765,7 +2764,7 @@ void Launcher::notes_refresh() {
   if (!install_.ok) return;
   const std::string md = media();
   const fs::path music = md.empty() ? fs::path("music") : fs::path(md) / "music";
-  lacks_music_ = !have_music({music.string(), (zutl::any_case(install_.dir, "music").empty() ? fs::path(install_.dir) / "music" : fs::path(zutl::any_case(install_.dir, "music"))).string(),
+  lacks_music_ = !have_music({music.string(), (own::any_case(install_.dir, "music").empty() ? fs::path(install_.dir) / "music" : fs::path(own::any_case(install_.dir, "music"))).string(),
                               o_.write_dir.empty() ? std::string() : (fs::path(o_.write_dir) / "music").string()});  // a rip put in the user folder still plays
   lacks_movies_ = !have_movies(install_.dir, md);
   const std::string dir = fs::path(music).make_preferred().string();
@@ -2773,7 +2772,7 @@ void Launcher::notes_refresh() {
     std::printf("mw3: launcher: note: %s\n", n.c_str());
   notes_ = launcher_notes(install_.version, !lacks_music_, !lacks_movies_, text_.fit(dir, 14, 440));  // a long folder shortened
   // The start check's notes on the same screen, so PLAY does not show a second one (mw3_ready).
-  const mech3::setup::Result c = mech3::setup::start_check(install_.dir, o_.write_dir, false);
+  const own::Result c = mw3setup::start_check(install_.dir, o_.write_dir, false);
   mw3_check_notes_ = c.ok ? c.warnings : std::vector<std::string>{};
   for (const std::string& n : mw3_check_notes_) std::printf("mw3: launcher: note: %s\n", n.c_str()), notes_.push_back(n);
 }
@@ -2783,10 +2782,10 @@ void Launcher::mw3_notes_seen() {
   std::string all;
   for (const std::string& n : mw3_check_notes_) all += n + "\n";
   char crc[16];
-  std::snprintf(crc, sizeof crc, "%08x", zutl_zar::crc32(0, reinterpret_cast<const uint8_t*>(all.data()), all.size()));
+  std::snprintf(crc, sizeof crc, "%08x", own::crc32(0, reinterpret_cast<const uint8_t*>(all.data()), all.size()));
   if (mw3_check_notes_.empty() || o_.cfg_mw3_notes == crc) return;
   o_.cfg_mw3_notes = crc;
-  save_config_value(o_.write_dir, "mw3_notes", crc);
+  own::save_config_value(o_.write_dir, "mw3_notes", crc);
 }
 
 // Pirate's Moon's usual settings folder, as mw3pm finds it: BattleTech/Pirate's Moon, a player's earlier
@@ -2813,9 +2812,9 @@ void Launcher::pm_refresh() {
   pm_lacks_music_ = pm_lacks_sounds_ = false;
   if (pm_dir_.empty()) return;
   const std::string wd = pm_wd();
-  const std::string own = zutl::any_case(pm_dir_, "music");
+  const std::string own = own::any_case(pm_dir_, "music");
   pm_lacks_music_ = !have_music({(fs::path(pm_media()) / "music").string(), (fs::path(wd) / "music").string(), own.empty() ? (fs::path(pm_dir_) / "music").string() : own});
-  const mech3::setup::Result c = mech3::setup::check_install(pm_dir_, wd, true);
+  const own::Result c = mw3setup::check_install(pm_dir_, wd, true);
   pm_data_ = c.version;
   for (const std::string& w : c.warnings)
     if (w.find("soundsH.zbd") != std::string::npos) pm_lacks_sounds_ = true;
@@ -2835,7 +2834,7 @@ std::string Launcher::pm_in_use() const {
 void Launcher::use_pm(const std::string& dir, const std::string& summary) {
   const std::string before = pm_dir_;
   pm_dir_ = dir, o_.cfg_pm_install = dir, pm_found_.clear();
-  save_config_value(o_.write_dir, o_.pm ? "install" : "pm_install", dir);  // mw3pm's own mw3.cfg: install=
+  own::save_config_value(o_.write_dir, o_.pm ? "install" : "pm_install", dir);  // mw3pm's own mw3.cfg: install=
   status_ = summary, status_good_ = true;
   const fs::path own = fs::path(pm_wd()) / "install";
   std::error_code ec;
@@ -2938,14 +2937,14 @@ void Launcher::convert_movies(std::function<void()> then) {
   const std::string install = install_.dir, wd = media();  // the converted movies beside the game files when they have their own folder
   std::error_code ec;
   const bool same = fs::equivalent(install, wd, ec);
-  work_->start("CONVERTING THE MOVIES", [install, wd, same](const mech3::setup::ProgressFn& f) {
-    mech3::setup::Result r;
+  work_->start("CONVERTING THE MOVIES", [install, wd, same](const own::ProgressFn& f) {
+    own::Result r;
     const int a = movies_missing(install, wd), b = same ? 0 : movies_missing(wd, wd), total = a + b;
     int base = 0, code = 0;
     for (const auto& [src, n] : {std::pair<std::string, int>{install, a}, std::pair<std::string, int>{wd, b}}) {
       if (n == 0) continue;
       code = run_importer(src, wd, [&](int done, int, const std::string& name) {
-        return f(mech3::setup::Progress{"Converting the movies (" + std::to_string(base + done) + " of " + std::to_string(total) + ")",
+        return f(own::Progress{"Converting the movies (" + std::to_string(base + done) + " of " + std::to_string(total) + ")",
                                         total ? static_cast<double>(base + done) / total : 0, name});
       });
       if (code != 0) break;
@@ -2991,10 +2990,10 @@ void Launcher::start_move() {
   move_from_ = from;
   auto copied = std::make_shared<std::vector<std::string>>();
   move_copied_out_ = copied;
-  work_->start("MOVING YOUR DATA", [from, to, usual, copied](const mech3::setup::ProgressFn& f) {
-    mech3::setup::Result r;
+  work_->start("MOVING YOUR DATA", [from, to, usual, copied](const own::ProgressFn& f) {
+    own::Result r;
     const mech3::data_folder::Moved m = mech3::data_folder::move_data(from, to, usual, [&](double at, const std::string& name) {
-      return f(mech3::setup::Progress{"Copying and checking", at, name});
+      return f(own::Progress{"Copying and checking", at, name});
     });
     *copied = m.copied;
     r.ok = m.ok, r.cancelled = m.cancelled;
@@ -3006,7 +3005,7 @@ void Launcher::start_move() {
 
 // The move done: this run goes on with the new folder (its own log stays in
 // the old one until the next start), and the old copy is the player's to remove.
-void Launcher::moved(const mech3::setup::Result& r) {
+void Launcher::moved(const own::Result& r) {
   if (!r.ok) {
     status_ = r.summary, status_good_ = r.cancelled;
     screen_ = kDataScreen, layout();
@@ -3017,7 +3016,7 @@ void Launcher::moved(const mech3::setup::Result& r) {
   const std::string from = move_from_, to = move_to_;
   if (files_pm_) {  // Pirate's Moon's: its install inside it follows; mw3pm finds the folder by its pointer
     const std::string dir = moved_path(pm_dir_, from, to);
-    if (dir != pm_dir_) pm_dir_ = o_.cfg_pm_install = dir, save_config_value(o_.write_dir, "pm_install", dir);
+    if (dir != pm_dir_) pm_dir_ = o_.cfg_pm_install = dir, own::save_config_value(o_.write_dir, "pm_install", dir);
     o_.pm_write_dir = to;
     pm_refresh();
     confirm_text_ = r.summary + "\n\nThe old copy is still in " + from + ".\nRemove it? Log files stay there.";
@@ -3049,7 +3048,7 @@ void Launcher::moved(const mech3::setup::Result& r) {
 void Launcher::use_install(const std::string& dir, const std::string& version, const std::string& summary) {
   const std::string before = install_.ok ? install_.dir : std::string();
   install_ = {true, dir, version, summary};
-  save_install(o_.write_dir, dir);
+  own::save_install(o_.write_dir, dir);
   status_ = summary, status_good_ = true;
   // GAME FILES moved to a copy used where it is: the launcher's own earlier
   // copy (<write dir>/install) is no longer pointed at, so it goes (a disc
@@ -3095,12 +3094,12 @@ void Launcher::look_at(const std::string& path) {
   auto found = found_;
   const std::string name = fs::path(path).filename().string();
   const bool pm = files_pm_;  // the game GAME FILES is for; the other one is said, not taken
-  work_->start("LOOKING AT YOUR GAME", [path, found, name, pm](const mech3::setup::ProgressFn& f) {
+  work_->start("LOOKING AT YOUR GAME", [path, found, name, pm](const own::ProgressFn& f) {
     using mech3::source::Found;
     *found = mech3::source::map_source(path, [&](double at, const std::string& entry) {
-      return f(mech3::setup::Progress{"Looking into " + (name.empty() ? path : name), at, entry});
+      return f(own::Progress{"Looking into " + (name.empty() ? path : name), at, entry});
     });
-    mech3::setup::Result r;
+    own::Result r;
     r.ok = found->game == (pm ? Found::kPiratesMoon : Found::kMw3), r.cancelled = found->cancelled;
     r.summary = found->summary, r.detail = found->detail;
     if (pm && found->game == Found::kMw3)
@@ -3148,12 +3147,12 @@ void Launcher::find_copies() {
     for (const Copy& c : copies_) seen = seen || fs::equivalent(c.path, d, ec);
     if (seen) continue;
     if (files_pm_ ? !is_pm_install(mech3::source::map_source(d)) : !install_valid(d)) continue;
-    const mech3::setup::Result r = mech3::setup::check_install(d, wd, files_pm_);
+    const own::Result r = mw3setup::check_install(d, wd, files_pm_);
     if (!files_pm_ && !r.ok) continue;
     Copy c;
     c.path = d, c.version = r.version.empty() ? "unknown" : r.version;
     c.in_use = !in_use.empty() && fs::equivalent(d, in_use, ec);
-    const std::string own_music = zutl::any_case(d, "music");
+    const std::string own_music = own::any_case(d, "music");
     if (!have_music({own_music.empty() ? (fs::path(d) / "music").string() : own_music, media_music, (fs::path(wd) / "music").string()}))
       c.missing.push_back("music");
     if (files_pm_) {
@@ -3199,9 +3198,9 @@ void Launcher::search() {
     screen_ = kCopies, layout();
     return;
   }
-  const std::vector<mech3::setup::DiscSource> discs = mech3::setup::find_discs();
+  const std::vector<std::string> discs = mw3setup::find_discs();
   if (!discs.empty()) {
-    look_at(discs.front().path);
+    look_at(discs.front());
     return;
   }
   status_ = std::string(files_pm_ ? "Pirate's Moon was not" : "Not") +
@@ -3213,7 +3212,7 @@ void Launcher::search() {
 }
 
 void Launcher::finish_work() {
-  mech3::setup::Result r;
+  own::Result r;
   {
     std::lock_guard<std::mutex> g(work_->m);
     r = work_->result;
@@ -3247,10 +3246,10 @@ void Launcher::finish_work() {
     const int i = page_game_;
     if (i >= 0) {
       if (uninstall_files_ && r.ok) {  // the removed game files no longer named as the ones in use
-        if (i == 0) save_config_value(o_.write_dir, "install", "");
-        if (i == 1) save_config_value(o_.write_dir, "pm_install", ""), save_config_value(pm_wd(), "install", "");
+        if (i == 0) own::save_config_value(o_.write_dir, "install", "");
+        if (i == 1) own::save_config_value(o_.write_dir, "pm_install", ""), own::save_config_value(pm_wd(), "install", "");
       }
-      if (remove_linked_ && r.ok) save_config_value(o_.write_dir, std::string("link_") + upgrades::update::game_info(upgrades::update::game_at(i)).key, "");
+      if (remove_linked_ && r.ok) own::save_config_value(o_.write_dir, std::string("link_") + upgrades::update::game_info(upgrades::update::game_at(i)).key, "");
       resolve_game(i, true);
     }
     status_ = r.summary, status_good_ = r.ok, page_confirm_ = false, screen_ = kGamePage;
@@ -3327,7 +3326,7 @@ void Launcher::finish_work() {
       screen_ = kSetupScreen;
     } else if (std::error_code same; f.kind == mech3::source::Found::kInstall && f.on_disk &&
                                      fs::equivalent(f.path, fs::path(files_wd()) / "install", same)) {  // this folder's own copy
-      const mech3::setup::Result c = mech3::setup::check_install(f.path, files_wd(), files_pm_);
+      const own::Result c = mw3setup::check_install(f.path, files_wd(), files_pm_);
       const std::string dir = c.install_dir.empty() ? f.path : c.install_dir;
       if (c.ok && files_pm_) return use_pm(fs::is_regular_file(dir) ? fs::path(dir).parent_path().string() : dir, c.summary);
       if (c.ok) return use_install(dir, c.version, c.summary);
@@ -3367,7 +3366,7 @@ void Launcher::finish_work() {
     return;
   }
   if (r.ok && !r.install_dir.empty())  // the new copy first in the search below, not the start's mw3.cfg
-    save_install(o_.write_dir, r.install_dir), o_.cfg_install = r.install_dir;
+    own::save_install(o_.write_dir, r.install_dir), o_.cfg_install = r.install_dir;
   find_install();
   if (kind == Work::kInstallIt && r.ok && install_.ok) return use_install(install_.dir, install_.version, status_);
   screen_ = install_.ok && r.ok ? kMain : kSetupScreen;
@@ -3435,8 +3434,8 @@ void Launcher::activate(int id) {
       work_->kind = Work::kRemoveData;
       const std::string old = move_from_, now = files_wd(), usual = files_usual();
       const std::vector<std::string> copied = move_copied_;
-      work_->start("REMOVING THE OLD COPY", [old, now, usual, copied](const mech3::setup::ProgressFn&) {
-        mech3::setup::Result r;
+      work_->start("REMOVING THE OLD COPY", [old, now, usual, copied](const own::ProgressFn&) {
+        own::Result r;
         const mech3::data_folder::Removed d = mech3::data_folder::remove_old(old, now, copied, usual);
         r.ok = d.error.empty() && d.failed.empty();
         r.summary = !d.error.empty()     ? d.error
@@ -3469,15 +3468,15 @@ void Launcher::activate(int id) {
       auto file = update_file_ = std::make_shared<std::string>();
       std::error_code ec;
       const std::string dir = (fs::temp_directory_path(ec) / "MW3-Rebuild-update").string();  // ours alone, never a settings folder
-      work_->start("DOWNLOADING THE UPDATE", [release, dir, file](const mech3::setup::ProgressFn& f) {
+      work_->start("DOWNLOADING THE UPDATE", [release, dir, file](const own::ProgressFn& f) {
         const Downloaded d = download_update(release, dir, [&](double x) {
-          return f(mech3::setup::Progress{"Downloading MechWarrior 3 Rebuild " + upgrades::update::plain_version(release.tag), x * 0.9, ""});
+          return f(own::Progress{"Downloading MechWarrior 3 Rebuild " + upgrades::update::plain_version(release.tag), x * 0.9, ""});
         });
-        mech3::setup::Result r;
+        own::Result r;
         r.ok = d.ok, r.cancelled = d.cancelled, r.summary = d.words;
         if (!d.ok) return r;
         std::printf("mw3: launcher: update: %s\n", d.words.c_str());
-        f(mech3::setup::Progress{"Installing", 0.95, ""});  // sitting 4: the platform's own way
+        f(own::Progress{"Installing", 0.95, ""});  // sitting 4: the platform's own way
         const Installed in = install_update(d.path);
         r.ok = in.ok, r.summary = in.words;
         *file = in.restart;
@@ -3621,9 +3620,9 @@ void Launcher::activate(int id) {
       ask_file(kPoint, kGameFiles, kGameFilesCount);
       break;
     case kAddDisc: {  // a disc in a drive first, then one picker: its image or any file of the disc
-      const std::vector<mech3::setup::DiscSource> discs = mech3::setup::find_discs();
+      const std::vector<std::string> discs = mw3setup::find_discs();
       if (!discs.empty()) {
-        add_disc(discs.front().path);
+        add_disc(discs.front());
       } else {
         status_ = "No disc in a drive. Pick its image (.cue .iso), a download (.zip) or any file of the disc.", status_good_ = true;
         layout();
@@ -3673,8 +3672,8 @@ void Launcher::activate(int id) {
       work_->kind = Work::kInstallIt;
       const auto found = found_;
       const std::string wd = files_wd(), out = files_out(), music = (fs::path(files_into_.empty() ? wd : files_into_) / "music").string();
-      work_->start(files_pm_ ? "INSTALLING PIRATE'S MOON" : "INSTALLING MECHWARRIOR 3", [found, out, music, wd](const mech3::setup::ProgressFn& f) {
-        return mech3::setup::install_from_source(*found, out, "", music, wd, f);
+      work_->start(files_pm_ ? "INSTALLING PIRATE'S MOON" : "INSTALLING MECHWARRIOR 3", [found, out, music, wd](const own::ProgressFn& f) {
+        return mw3setup::install_from_source(*found, out, "", music, wd, f);
       });
       screen_ = kWorking, layout();
       break;
@@ -4054,7 +4053,7 @@ LauncherChoice Launcher::run() {
     game_ = nullptr;
   }
   if (choice_.kind == LauncherChoice::kPlay) {
-    save_install(o_.write_dir, choice_.install);
+    own::save_install(o_.write_dir, choice_.install);
     // The window goes on to the game, its renderer freed first (a window
     // drawn by an SDL renderer cannot be the GPU device's too).
     SDL_RemoveEventWatch(&Launcher::exposed, this);

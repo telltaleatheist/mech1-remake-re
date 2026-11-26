@@ -518,6 +518,20 @@ Rebuild and an installed Inception, which still plays; offline with the
 cache; offline with none). `tools/launcher/shots.sh` takes every screen for
 the byte-for-byte check: the built-in catalog's 66 shots are as before.
 
+## The launcher's own small copies (2026-11-26, launcher-split.md b1)
+
+What the launcher took from the game's code for its own use is its own now, in `launcher_own.h` (`sdlfe::own`):
+the Work types (`Progress`, `ProgressFn`, `Result`, were `mech3::setup`'s), mw3.cfg's line editor
+(`save_config_value`, `save_install`), `crc32` (the notes' seen-once check), `any_case` and `path_from_config` (with
+`narrow_paths_utf8`). Each is a copy that does what the game's does. MW3's setup calls the launcher still makes
+(`check_install`, `start_check`, `install_from_source`, `add_from_disc`, `add_pm_from_disc`, `apply_patch`,
+`find_discs`) go through `launcher_mw3_setup.h`, which turns their types into the launcher's; it is the one place
+that names `mech3::setup`, and it goes when b2 and b3 put those calls behind the games' served verbs.
+
+Checked: `launcher_own_copies_do_as_the_games` (mw3sdltests: mw3.cfg byte for byte against sdl_install's on the
+same files, crc32 against zutl_zar's, any_case against zutl's on one tree, path_from_config); every
+`--launcher-shot` screen byte for byte as before (`tools/launcher/shots.sh`, 66 shots).
+
 ## The copies on this computer (2026-11-24)
 
 "The user should be able to pick what's used. Some copies have music and some

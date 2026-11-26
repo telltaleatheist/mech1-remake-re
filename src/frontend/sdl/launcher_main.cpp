@@ -20,6 +20,7 @@
 #include "frontend/sdl/crash_report.h"
 #include "frontend/sdl/data_folder_start.h"
 #include "frontend/sdl/launcher.h"
+#include "frontend/sdl/launcher_own.h"
 #include "frontend/sdl/run_log.h"
 #include "frontend/sdl/sdl_child.h"
 
@@ -79,9 +80,9 @@ void read_config(const std::string& write_dir, sdlfe::LauncherOptions& o) {
   std::string line;
   while (std::getline(f, line)) {
     if (!line.empty() && line.back() == '\r') line.pop_back();
-    if (line.rfind("install=", 0) == 0) o.cfg_install = zutl::path_from_config(line.substr(8));
-    if (line.rfind("mw1_game=", 0) == 0) o.cfg_mw1_game = zutl::path_from_config(line.substr(9));
-    if (line.rfind("pm_install=", 0) == 0) o.cfg_pm_install = zutl::path_from_config(line.substr(11));
+    if (line.rfind("install=", 0) == 0) o.cfg_install = sdlfe::own::path_from_config(line.substr(8));
+    if (line.rfind("mw1_game=", 0) == 0) o.cfg_mw1_game = sdlfe::own::path_from_config(line.substr(9));
+    if (line.rfind("pm_install=", 0) == 0) o.cfg_pm_install = sdlfe::own::path_from_config(line.substr(11));
     if (line.rfind("pm_notes=", 0) == 0) o.cfg_pm_notes = line.substr(9);
     if (line.rfind("mw3_notes=", 0) == 0) o.cfg_mw3_notes = line.substr(10);
   }

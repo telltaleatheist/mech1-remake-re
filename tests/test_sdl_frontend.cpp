@@ -78,6 +78,7 @@ int unsetenv(const char* name) { return _putenv_s(name, ""); }
 #include "frontend/sdl/sdl_input.h"
 #include "mech3/controls_cfg.h"
 #include "frontend/sdl/sdl_install.h"
+#include "frontend/sdl/launcher_own.h"
 #include "rekit/status.h"
 #include "upgrades/settings/upgrades.h"
 #include "frontend/sdl/sdl_platform.h"
@@ -230,6 +231,66 @@ TEST(config_value_keeps_line_endings) {
   EXPECT(text() == "k=v\n");
 #endif
   std::filesystem::remove_all(dir, ec);
+}
+
+// The launcher's own copies (launcher_own.h, launcher split b1) do what the game's do: mw3.cfg's line editor byte for
+// byte on the same files, crc32 on the same bytes, any_case on the same tree, path_from_config on the same lines.
+TEST(launcher_own_copies_do_as_the_games) {
+  namespace fs = std::filesystem;
+  const std::string dir = std::string(MW3_TEST_TMP) + "/launcher_own";
+  std::error_code ec;
+  fs::remove_all(dir, ec);
+  fs::create_directories(dir + "/a", ec), fs::create_directories(dir + "/b", ec);
+  auto text = [](const std::string& d) {
+    std::ifstream f(d + "/mw3.cfg", std::ios::binary);
+    std::stringstream b;
+    b << f.rdbuf();
+    return b.str();
+  };
+  const char* const starts[] = {"install=X\r\nwidemenus=1\r\nmod=a\r\n", "install=X\nwidemenus=1\n", "a=1\r\nb=2\nc=3\r\nd=4", "", nullptr};
+  int same = 0, cases = 0;
+  for (const char* start : starts) {
+    for (const auto& [k, v] : std::vector<std::pair<std::string, std::string>>{{"widemenus", "0"}, {"b", "5"}, {"new", "1"}, {"install", ""}}) {
+      for (const char* d : {"/a", "/b"}) {
+        fs::remove(dir + d + "/mw3.cfg", ec);
+        if (start) std::ofstream(dir + d + "/mw3.cfg", std::ios::binary) << start;
+      }
+      const bool ra = sdlfe::save_config_value(dir + "/a", k, v), rb = sdlfe::own::save_config_value(dir + "/b", k, v);
+      ++cases, same += ra == rb && text(dir + "/a") == text(dir + "/b");
+    }
+  }
+  for (const char* in : {"rel/game", "/abs/../game", ""}) {
+    for (const char* d : {"/a", "/b"}) std::ofstream(dir + d + "/mw3.cfg", std::ios::binary) << "x=1\n";
+    const bool ra = sdlfe::save_install(dir + "/a", in), rb = sdlfe::own::save_install(dir + "/b", in);
+    ++cases, same += ra == rb && text(dir + "/a") == text(dir + "/b");
+  }
+  ++cases, same += sdlfe::own::save_config_value("", "k", "v") == sdlfe::save_config_value("", "k", "v");
+  std::printf("  mw3.cfg: %d of %d the same\n", same, cases);
+  EXPECT(same == cases);
+  // crc32: the notes' seen-once text and bytes of every value, from 0 and chained.
+  std::string bytes;
+  for (int i = 0; i < 4096; ++i) bytes.push_back(static_cast<char>((i * 131 + 7) & 0xff));
+  bool crc_same = true;
+  for (size_t n : {size_t(0), size_t(1), size_t(17), bytes.size()})
+    crc_same = crc_same && sdlfe::own::crc32(0, bytes.data(), n) == zutl_zar::crc32(0, bytes.data(), n) &&
+               sdlfe::own::crc32(0x12345678u, bytes.data(), n) == zutl_zar::crc32(0x12345678u, bytes.data(), n);
+  EXPECT(crc_same && sdlfe::own::crc32(0xffffffffu, "123456789", 9) == 0x0376e6e7u);  // CRC-32/MPEG-2's check value
+  // any_case: by its own name, by its letters, a root by its letters, none.
+  fs::create_directories(dir + "/game/ZBD/c1", ec), fs::create_directories(dir + "/game/Music", ec);
+  std::ofstream(dir + "/game/ZBD/SoundsL.zbd") << "x";
+  int found = 0, asked = 0;
+  for (const auto& [root, rel] : std::vector<std::pair<std::string, std::string>>{
+           {dir + "/game", "zbd/soundsl.zbd"}, {dir + "/game", "music"}, {dir + "/game", "MUSIC"}, {dir + "/game/zbd", "C1"},
+           {dir + "/game", "zbd/c2"}, {dir + "/game", ""}, {dir + "/GAME", "zbd"}, {dir + "/none", "zbd"}, {"", dir + "/game"}}) {
+    const std::string mine = sdlfe::own::any_case(root, rel), theirs = zutl::any_case(root, rel);
+    ++asked, found += mine == theirs;
+    if (mine != theirs) std::printf("  any_case %s + %s: %s, the game's %s\n", root.c_str(), rel.c_str(), mine.c_str(), theirs.c_str());
+  }
+  EXPECT(found == asked && !sdlfe::own::any_case(dir + "/game", "zbd/soundsl.zbd").empty());
+  for (const char* line : {"C:/Games/MW3", "/Users/x/Spiel \xc3\xa4", "\xe4\xf6", ""})
+    EXPECT(sdlfe::own::path_from_config(line) == zutl::path_from_config(line));
+  EXPECT(sdlfe::own::narrow_paths_utf8() == zutl::narrow_paths_utf8());
+  if (!check::failures) fs::remove_all(dir, ec);
 }
 
 TEST(sdl_input_scancodes_map_to_dik_codes) {
