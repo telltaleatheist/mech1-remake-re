@@ -5,6 +5,17 @@ Tick an item when it is merged into `main`.
 
 **How this file works (the owner, 2026-11-17):** every bug and feature the owner raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 150. [x] The hub ran past the right edge on a 16:10 screen with WIDE MENUS *(branch lead/remake-fixes)*
+- **Reported (mech1-remake-re issue #1, 2026-11-25):** at 1680x1050 with WIDE MENUS on, the hub's tiles went off the
+  right of the screen.
+- **Cause:** the engine's wide menus take any canvas wider than 4:3, so 16:10 gets a 768x480 canvas. MW1's wide
+  layouts (the `_WIDE` dialogs, the hub's columns) are placed for 854 (16:9), so on 768 they ran past the edge.
+- **Fix:** the engine's optional hook `mech3::Engine::wide_menus_min_width()` (mech3-re a5a86a883, default 641: any
+  canvas wider than 4:3). MW1 sets 853 in `mw1_main` before the game starts (the menus' mode is chosen once, early),
+  so a shape narrower than 16:9 keeps the 4:3 menus. MW3 and Pirate's Moon are unchanged.
+- **Test:** `mw1screenfit` gains a 16:10 shape (1680x1050, the player's own size). The report must say 640x480 there.
+  Without the line it said 768x480 and failed (the text-only check had passed it: the hub's tiles aren't texts).
+
 ## 149. [x] The arctic maps' enemies stood like statues; MW1's enemies come *(branch mac5/remake-statues)*
 - **The owner (2026-11-24, 1.1.1, a defence on mw3c4b ia1):** the enemies stood still until approached or hit; they were
   expected to come down on the player. Then: act like MW1, on every map.

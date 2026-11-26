@@ -58,6 +58,7 @@ extern "C" CFStringRef NSHomeDirectory(void);  // Foundation's, its NSString a C
 #include "frontend/sdl/sdl_platform.h"
 #include "frontend/sdl/sdl_twod_host.h"
 #include "gamez/ztwod/twod_host.h"
+#include "mech3/app_hooks.h"
 #include "platform/hires_lists.h"
 #include "mw1_game.h"
 #include "mw1_hud_labels.h"
@@ -425,6 +426,10 @@ int main(int argc, char** argv) {
              !platform::hires::intersect(c.rect, platform::hires::Rect{r[0], r[1], r[2], r[3]}).empty();
     return n;
   };
+  // MW1's wide layouts (the _WIDE dialogs, the hub's columns) are placed for 854: on a narrower wide shape (16:10's
+  // 768) they ran past the right edge (mech1-remake-re issue #1), so its menus stay 4:3 there. Before the game
+  // starts: the menus' mode is chosen once, early.
+  mech3::Engine::wide_menus_min_width() = 853;
   // The rest is PM's game main, on its own write dir and PM install.
   std::vector<std::string> args = mw1::game_args(argv[0], a, use);
   std::vector<char*> raw;

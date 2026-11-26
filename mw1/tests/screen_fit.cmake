@@ -1,7 +1,8 @@
 # MW1's screens' text fit (FIXES.md items 3 and 5): mw1 with MW1_FIT=1 and MW1_SCREEN=<page> at 4:3 (640x480), 16:9
-# (854x480) and 16:9 in a 1920x1080 window (item 12: none of the 2D left to the canvas), each on a new write dir. 40
-# frames into the page's MW1 screen every text must be inside the canvas (a status line past the edge at 4:3 was the
-# case); each outside is printed by place and length, never its words.
+# (854x480), 16:9 in a 1920x1080 window (item 12: none of the 2D left to the canvas) and 16:10 in a 1680x1050 window
+# (mech1-remake-re issue #1: the wide layouts ran past a 768 canvas; the menus must be 4:3 there, so its report says
+# 640x480), each on a new write dir. 40 frames into the page's MW1 screen every text must be inside the canvas (a status
+# line past the edge at 4:3 was the case); each outside is printed by place and length, never its words.
 # cmake -DMW1_BIN=<mw1> -DDIR=<scratch dir> -P screen_fit.cmake
 # A -P script sets no policies of its own: without this, CMake 3.x drops a list's empty entries (CMP0007, OLD).
 cmake_minimum_required(VERSION 3.20)
@@ -32,22 +33,31 @@ function(hires_short out_text result)
   set(${result} "${bad}" PARENT_SCOPE)
 endfunction()
 set(failed)
-foreach(shape 43 wide wide1080)
+foreach(shape 43 wide wide1080 wide1610)
   foreach(page IN LISTS pages)
     set(wd "${DIR}/${shape}-${page}")
     file(REMOVE_RECURSE "${wd}")
     file(MAKE_DIRECTORY "${wd}")
     set(args)
     set(mode 5)  # InGameVMode: 640x480
+    set(size "")
     if(shape MATCHES "^wide")
       set(mode b)  # 854x480
       set(args --wide-menus)
       if(shape STREQUAL "wide1080")  # FIXES.md item 12 (B4): at a real window, the text drawn at its resolution
         list(APPEND args --window 1920x1080)
+      elseif(shape STREQUAL "wide1610")  # the player's own size (mode 16): 1680x1050, a 768x480 canvas
+        set(mode 10)
+        set(size "\"ScreenWidth\"=dword:00000690\n\"ScreenHeight\"=dword:0000041a\n")
+        list(APPEND args --window 1680x1050)
       endif()
     endif()
+    string(LENGTH "${mode}" mode_len)
+    if(mode_len EQUAL 1)
+      set(mode "0${mode}")
+    endif()
     file(WRITE "${wd}/settings.reg" "Windows Registry Editor Version 5.00\n\n"
-               "[HKEY_CURRENT_USER\\SOFTWARE\\MicroProse\\MechWarrior 3 EP1\\1.0]\n\"InGameVMode\"=dword:0000000${mode}\n")
+               "[HKEY_CURRENT_USER\\SOFTWARE\\MicroProse\\MechWarrior 3 EP1\\1.0]\n\"InGameVMode\"=dword:000000${mode}\n${size}")
     # A run that ends 0 with no report was the timing flake (under load, a few pages at a time, never the same twice):
     # the program's _Exit beat the run log's thread to the report (end_fit_run, mw1_game.cpp, quits instead now).
     # Kept as a guard: that one run again, once. An OUTSIDE, a crash or a timeout is never retried.
@@ -65,7 +75,7 @@ foreach(shape 43 wide wide1080)
         file(REMOVE_RECURSE "${wd}")
         file(MAKE_DIRECTORY "${wd}")
         file(WRITE "${wd}/settings.reg" "Windows Registry Editor Version 5.00\n\n"
-                   "[HKEY_CURRENT_USER\\SOFTWARE\\MicroProse\\MechWarrior 3 EP1\\1.0]\n\"InGameVMode\"=dword:0000000${mode}\n")
+                   "[HKEY_CURRENT_USER\\SOFTWARE\\MicroProse\\MechWarrior 3 EP1\\1.0]\n\"InGameVMode\"=dword:000000${mode}\n${size}")
       endif()
     endforeach()
     foreach(line IN LISTS bad)
@@ -84,9 +94,14 @@ foreach(shape 43 wide wide1080)
     endif()
     # 16:9's status bar has the room for the world's name and its words (a _long page's note is made to overflow) (the starport's 640 layout, centred, too:
     # fit_status measured it against 640 once, so its name went).
-    if(shape MATCHES "^wide" AND NOT page MATCHES "_long$" AND out MATCHES "the status line hides the world's name")
+    if(shape MATCHES "^wide" AND NOT shape STREQUAL "wide1610" AND NOT page MATCHES "_long$" AND out MATCHES "the status line hides the world's name")
       message("${shape} ${page}: FAILED, the status line hid the world's name")
       list(APPEND failed "${shape} ${page} (status)")
+    endif()
+    # 16:10's menus are 4:3 (its canvas would be 768, narrower than the wide layouts' 854): the page at 640x480.
+    if(shape STREQUAL "wide1610" AND NOT done MATCHES "done at 640x480 ")
+      message("${shape} ${page}: FAILED, the menus not 4:3 on 16:10: ${done}")
+      list(APPEND failed "${shape} ${page} (16:10)")
     endif()
     hires_short("${out}" short)
     if(shape STREQUAL "wide1080" AND (short OR NOT out MATCHES "high-resolution 2D on"))
