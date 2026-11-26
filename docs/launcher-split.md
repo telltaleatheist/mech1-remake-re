@@ -74,7 +74,7 @@ small copy that is the launcher's own.
 
 | Piece | Used for | Goes to |
 |---|---|---|
-| `frontend/sdl/mw1_files` (through `mech3/source_archive.h`, which is the kit's archive reader now) | MechWarrior (1989)'s files for the Remake: `search`, `game_of_pick`, `copy_in` into `<write dir>/mw1`, `game_valid`, `has_main`, `in_unpacked`, `unpacked_dir`. Also `original_supported`, for Elthial's port (PLAY ORIGINAL, `kMw1Original`) when it sits beside the launcher. | The Remake: its own served setup (step a5). Elthial's port: a decision (open question 1). |
+| `frontend/sdl/mw1_files` (through `mech3/source_archive.h`, which is the kit's archive reader now) | MechWarrior (1989)'s files for the Remake: `search`, `game_of_pick`, `copy_in` into `<write dir>/mw1`, `game_valid`, `has_main`, `in_unpacked`, `unpacked_dir`. Also `original_supported`, for Elthial's port (PLAY ORIGINAL, `kMw1Original`) when it sits beside the launcher. | The Remake: its own served setup (step a5). The raw port's own path: out in b5 (Decided, 6). |
 | The Remake's start | The launcher passes `--install <PM> --mw3-install <MW3> --mw1-game <MW1> --no-launcher`. The Remake's status already says `needs: ["mech3-pm", "mech3", "mech1"]` and keeps the three in mw1.cfg. | Kit: an optional way to hand a needed game's folder (section 2, Needs). |
 
 **The launcher's own, free of game code: they move with it to the hub.**
@@ -302,8 +302,9 @@ only kit games (`i >= 3`).
   - `window_goes_on_to_the_game`;
   - `starts_pirates_moon`;
   - `never_runs_away`.
-- **b5.** The Remake through the contract, with `--with` for its needs, and
-  Elthial's port as decided (open question 1). Tests:
+- **b5.** The Remake through the contract, with `--with` for its needs. The
+  raw port's own path (Elthial's port as a launcher entry, PLAY ORIGINAL)
+  comes out (Decided, 6), with its BTECH.EXE finder. Tests:
   `sdl_program_launcher_starts_mechwarrior_1`, `starts_mechwarrior_1989`,
   `family_cards`.
 - **b6.** The game code leaves the launcher's target. `mw3launcher` links
@@ -405,7 +406,13 @@ setup in the launcher, on MW3_GAME_DIR, behind a shell stand-in for mw3
   the recipe a2 made. Its screens are redrawn without RmlUi, so they are
   close, not identical. Before d1 lands: shots of the old screen against the
   new, side by side. A game started alone without its files uses this
-  screen itself.
+  screen itself. Two kit hooks it wants (small, optional, general):
+  - recognise a folder the player picks as a copy of the game without a full
+    look, so the launcher can ask a game about a pick cheaply;
+  - words for a find of another game the rules know (Pirate's Moon picked
+    under MechWarrior 3), given the Found, not only the path. a2 carries that
+    sentence through a flag set by the rules' judge, which holds for one
+    served ask a process, not for a screen's several looks.
 - **d2.** The `mw3launcher` target comes out of mech3-re, with launcher.cpp,
   launcher_ui, sdl_update, sdl_games, upgrades/update, and their tests (moved
   to the hub in c2). mw3 keeps `record_self` (now the kit's) and its version
@@ -520,10 +527,7 @@ reads only mech3-re for MechWarrior 3, and takes only `MW3-alone-*`.
 
 ## Open questions (before the steps they block)
 
-1. **Before b5:** what happens to Elthial's port (PLAY ORIGINAL beside the
-   launcher)? Now that MW1 Rebuild is MW1's ORIGINAL tab, the port could go.
-   Or it keeps a small finder for BTECH.EXE of the launcher's own.
-2. **Before c4:** do the names stay (no bridge), or does the launcher get its
+1. **Before c4:** do the names stay (no bridge), or does the launcher get its
    own names (one bridge release)? Recommended: they stay.
 
 ## Decided (2026-11-25)
@@ -542,3 +546,8 @@ reads only mech3-re for MechWarrior 3, and takes only `MW3-alone-*`.
    the kit's setup itself.
 5. **A games catalog:** a data file of the families and games, built in and
    fetched, so a new game or a release needs no launcher build (b0, b7).
+6. **The raw port (2026-11-25):** its own launcher path comes out in b5. The
+   game players see is "MechWarrior 1: Reverse Engineered", "MW1 Rebuild" for
+   short (-re stands for reverse engineered). The port's credit stays in its
+   repo, not in player text. b0's built-in entry carries the same name and
+   blurb as the panel row on main.
