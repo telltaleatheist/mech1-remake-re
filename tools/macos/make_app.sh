@@ -20,10 +20,6 @@
 #   MW3_PKG_PM_BIN=<mw3pm built on pm>  adds Pirate's Moon beside mw3 (bundled, signed and checked as mw3)
 #   MW3_PKG_MW1_DIR=<mw1's build tree>  adds MechWarrior 1 Remake: mw1 beside the launcher, its mw1data/ in
 #                                       Resources (where SDL_GetBasePath points mw1)
-#   MW3_PKG_MW1_PORT_DIR=<staged port>  adds Elthial's MechWarrior (1989) SDL port (PLAY ORIGINAL), as
-#                                       tools/package/mw1port/build_port.sh stages it: the program and its libraries
-#                                       in MacOS/MechWarrior1989, MechWarrior.ini and licences/ in
-#                                       Resources/MechWarrior1989 (2026-11-20)
 #   MW3_PKG_STEM=<stem>                 the DMG's name: <stem>-<version>-mac.dmg (default MW3-Rebuild; MW3 alone is
 #                                       MW3-alone, which the launcher's updater never takes)
 #   MW3_PKG_KEEP_BUILD=1                reuse build-mac-pkg (a second package from the same build)
@@ -56,10 +52,6 @@ MW1_DIR="${MW3_PKG_MW1_DIR:-}"
 if [ -n "$MW1_DIR" ] && { [ ! -x "$MW1_DIR/mw1" ] || [ ! -f "$MW1_DIR/mw1data/zbd/mw1image.zbd" ]; }; then
   echo "MW3_PKG_MW1_DIR: no mw1 and mw1data/zbd/mw1image.zbd in $MW1_DIR" >&2; exit 1
 fi
-PORT_DIR="${MW3_PKG_MW1_PORT_DIR:-}"
-if [ -n "$PORT_DIR" ] && { [ ! -x "$PORT_DIR/mechwarrior" ] || [ ! -f "$PORT_DIR/MechWarrior.ini" ] || [ ! -f "$PORT_DIR/licences/SOURCES.txt" ]; }; then
-  echo "MW3_PKG_MW1_PORT_DIR: no mechwarrior, MechWarrior.ini and licences/SOURCES.txt in $PORT_DIR" >&2; exit 1
-fi
 
 # The build, from scratch, as package.cmd does on Windows.
 [ -n "${MW3_PKG_KEEP_BUILD:-}" ] || rm -rf build-mac-pkg
@@ -81,8 +73,8 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Frameworks" "$APP/Contents/Resourc
 # and on its own (docs/games-layout.md).
 cp build-mac-pkg/mw3launcher "$APP/Contents/MacOS/mw3launcher"
 LAUNCHER_ONLY="${MW3_PKG_LAUNCHER_ONLY:-}"
-if [ -n "$LAUNCHER_ONLY" ] && { [ -n "$PM_BIN" ] || [ -n "$MW1_DIR" ] || [ -n "$PORT_DIR" ]; }; then
-  echo "MW3_PKG_LAUNCHER_ONLY carries no game: no MW3_PKG_PM_BIN, MW3_PKG_MW1_DIR or MW3_PKG_MW1_PORT_DIR" >&2; exit 1
+if [ -n "$LAUNCHER_ONLY" ] && { [ -n "$PM_BIN" ] || [ -n "$MW1_DIR" ]; }; then
+  echo "MW3_PKG_LAUNCHER_ONLY carries no game: no MW3_PKG_PM_BIN or MW3_PKG_MW1_DIR" >&2; exit 1
 fi
 if [ -z "$LAUNCHER_ONLY" ]; then
   cp build-mac-pkg/mw3 "$APP/Contents/MacOS/mw3"
@@ -267,15 +259,6 @@ mkdir -p "$APP/Contents/Resources/licenses/rmlui"
 cp third_party/rmlui/LICENSE.txt "$APP/Contents/Resources/licenses/rmlui/"
 cp third_party/rmlui/Include/RmlUi/Core/Containers/LICENSE.txt "$APP/Contents/Resources/licenses/rmlui/LICENSE-containers.txt"
 cp tools/macos/THIRD-PARTY.txt "$APP/Contents/Resources/THIRD-PARTY.txt"
-# Elthial's port: its code beside the launcher (found as MechWarrior1989/mechwarrior), its data and every licence
-# and source line build_port.sh staged in Resources, the launcher pointing it at the ini (MECHWARRIOR_TIMING_CONFIG).
-if [ -n "$PORT_DIR" ]; then
-  mkdir -p "$APP/Contents/MacOS/MechWarrior1989" "$APP/Contents/Resources/MechWarrior1989"
-  cp "$PORT_DIR/mechwarrior" "$PORT_DIR"/*.dylib "$APP/Contents/MacOS/MechWarrior1989/"
-  cp "$PORT_DIR/MechWarrior.ini" "$APP/Contents/Resources/MechWarrior1989/"
-  cp -R "$PORT_DIR/licences" "$APP/Contents/Resources/MechWarrior1989/licences"
-  cp tools/package/mw1port/THIRD-PARTY-MW1989.txt "$APP/Contents/Resources/THIRD-PARTY-MW1989.txt"
-fi
 # libarchive, zlib and liblzma: linked in with --deps (build_deps.sh keeps
 # their licences in the prefix); Homebrew's libarchive is a dylib, its
 # licences copied with it above.
@@ -296,10 +279,6 @@ done
 for p in mw3 mw3import mw3pm mw1; do
   if [ -f "$APP/Contents/MacOS/$p" ]; then codesign "${SIGN[@]}" --entitlements tools/macos/mw3.entitlements "$APP/Contents/MacOS/$p"; fi
 done
-if [ -n "$PORT_DIR" ]; then  # its libraries, then the program
-  for f in "$APP"/Contents/MacOS/MechWarrior1989/*.dylib; do codesign "${SIGN[@]}" "$f"; done
-  codesign "${SIGN[@]}" --entitlements tools/macos/mw3.entitlements "$APP/Contents/MacOS/MechWarrior1989/mechwarrior"
-fi
 codesign "${SIGN[@]}" --entitlements tools/macos/mw3.entitlements "$APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
 # The package carries both programs, the launcher as the app's executable.
@@ -312,10 +291,6 @@ if [ -n "$PM_BIN" ]; then PROGRAMS="$PROGRAMS mw3pm"; fi
 if [ -n "$MW1_DIR" ]; then
   PROGRAMS="$PROGRAMS mw1"
   [ -f "$APP/Contents/Resources/mw1data/zbd/mw1image.zbd" ] || { echo "no mw1data in the app" >&2; exit 1; }
-fi
-if [ -n "$PORT_DIR" ]; then
-  PROGRAMS="$PROGRAMS MechWarrior1989/mechwarrior"
-  [ -f "$APP/Contents/Resources/MechWarrior1989/licences/MechWarrior-sdl-port-LICENSE.txt" ] || { echo "no port licence in the app" >&2; exit 1; }
 fi
 for p in $PROGRAMS; do [ -x "$APP/Contents/MacOS/$p" ] || { echo "no $p in the app" >&2; exit 1; }; done
 [ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Contents/Info.plist")" = mw3launcher ] || { echo "the app does not start the launcher" >&2; exit 1; }

@@ -97,6 +97,8 @@ Type: files; Name: "{app}\mw3indeo.exe"
 Type: files; Name: "{app}\mw3pm.exe"
 Type: files; Name: "{app}\mw1.exe"
 Type: filesandordirs; Name: "{app}\mw1data"
+; Elthial's MechWarrior (1989) port, which earlier packages could carry (opt-in): no package carries it now
+; (launcher split b5), so this folder and THIRD-PARTY-MW1989.txt below are removed only for older installs.
 Type: filesandordirs; Name: "{app}\MechWarrior1989"
 Type: files; Name: "{app}\README-MW1.txt"
 Type: files; Name: "{app}\THIRD-PARTY-MW1.txt"

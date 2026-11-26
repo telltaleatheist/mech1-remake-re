@@ -830,10 +830,12 @@ COMING LATER on 2026-11-20 and looked for only at `MW3_MW1_PORT`. b5 (Decided,
 the BTECH.EXE revision check (`original_supported`, CRC-32 0x36A13E1A) and
 its words, and `sdl_program_launcher_starts_mechwarrior_1989`. MECHWARRIOR 1
 ORIGINAL is MechWarrior 1 Rebuild's (mech1-re) alone. The port's opt-in
-packaging (`tools/package/mw1port/`, `combined.sh --mw1-port`,
-`check_dist.ps1 -Mw1Port`, make_app.sh's and make-appimage.sh's
-`MechWarrior1989` folder) is still in the tree, unused by the launcher. The
-Windows uninstaller still removes `{app}\MechWarrior1989` (older installs).
+packaging went right after: `tools/package/mw1port/` (build_port.sh/.cmd,
+its pins and patches, THIRD-PARTY-MW1989.txt), `MW3_PKG_MW1_PORT_DIR` in
+make_app.sh, make-appimage.sh and package.cmd, and `check_dist.ps1 -Mw1Port`
+(combined.sh's `--mw1-port` and combined.cmd's `MW3_PKG_WITH_PORT` had gone
+already). The Windows installer still removes `{app}\MechWarrior1989` and
+`THIRD-PARTY-MW1989.txt` from an older install it is put over.
 
 ## Mods (2026-11-08, removed 2026-11-10)
 

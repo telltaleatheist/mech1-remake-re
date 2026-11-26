@@ -13,9 +13,6 @@
 #           tools, pinned and fetched by get_appimage_tools.sh (default ../deps).
 # For the combined package (tools/package/combined.sh, docs/release.md):
 #   MW3_PKG_PM_BIN=<mw3pm built on pm>  adds Pirate's Moon beside mw3 (its libraries gathered as mw3's)
-#   MW3_PKG_MW1_PORT_DIR=<staged port>  adds Elthial's MechWarrior (1989) SDL port (PLAY ORIGINAL) as
-#                                       tools/package/mw1port/build_port.sh stages it, in usr/bin/MechWarrior1989 (its
-#                                       libraries beside it by $ORIGIN, not through linuxdeploy; 2026-11-20)
 #   MW3_PKG_MW1_DIR=<mw1's build tree>  adds MechWarrior 1 Remake: mw1 and its mw1data/ beside the launcher
 #   MW3_PKG_STEM=<stem>                 the AppImage's name: <stem>-<version>-x86_64.AppImage (default MW3-Rebuild;
 #                                       MW3 alone is MW3-alone, which the launcher's updater never takes)
@@ -64,8 +61,8 @@ APPDIR=build-linux-pkg/AppDir
 mkdir -p "$APPDIR/usr/bin/assets/launcher/ui" "$APPDIR/usr/share/doc/mw3/licenses"
 # The launcher is the AppImage's entry (mw3.desktop's Exec); the game beside it.
 LAUNCHER_ONLY="${MW3_PKG_LAUNCHER_ONLY:-}"
-if [ -n "$LAUNCHER_ONLY" ] && { [ -n "${MW3_PKG_PM_BIN:-}" ] || [ -n "${MW3_PKG_MW1_DIR:-}" ] || [ -n "${MW3_PKG_MW1_PORT_DIR:-}" ]; }; then
-  echo "MW3_PKG_LAUNCHER_ONLY carries no game: no MW3_PKG_PM_BIN, MW3_PKG_MW1_DIR or MW3_PKG_MW1_PORT_DIR" >&2; exit 1
+if [ -n "$LAUNCHER_ONLY" ] && { [ -n "${MW3_PKG_PM_BIN:-}" ] || [ -n "${MW3_PKG_MW1_DIR:-}" ]; }; then
+  echo "MW3_PKG_LAUNCHER_ONLY carries no game: no MW3_PKG_PM_BIN or MW3_PKG_MW1_DIR" >&2; exit 1
 fi
 cp build-linux-pkg/mw3launcher "$APPDIR/usr/bin/"
 EXES="-e $APPDIR/usr/bin/mw3launcher"
@@ -81,13 +78,6 @@ fi
 if [ -n "${MW3_PKG_PM_BIN:-}" ]; then
   cp "$MW3_PKG_PM_BIN" "$APPDIR/usr/bin/mw3pm"
   EXES="$EXES -e $APPDIR/usr/bin/mw3pm"
-fi
-# Elthial's port beside the launcher, whole as staged (program, libraries, MechWarrior.ini, licences/).
-PORT_DIR="${MW3_PKG_MW1_PORT_DIR:-}"
-if [ -n "$PORT_DIR" ]; then
-  [ -x "$PORT_DIR/mechwarrior" ] && [ -f "$PORT_DIR/licences/SOURCES.txt" ] || { echo "MW3_PKG_MW1_PORT_DIR: no staged port in $PORT_DIR" >&2; exit 1; }
-  cp -R "$PORT_DIR" "$APPDIR/usr/bin/MechWarrior1989"
-  cp tools/package/mw1port/THIRD-PARTY-MW1989.txt "$APPDIR/usr/share/doc/mw3/"
 fi
 # MechWarrior 1 Remake, its data beside it (SDL_GetBasePath()/mw1data).
 if [ -n "${MW3_PKG_MW1_DIR:-}" ]; then
@@ -156,7 +146,6 @@ if [ -n "${MW3_PKG_MW1_DIR:-}" ]; then
   PROGRAMS="$PROGRAMS mw1"
   [ -f "$APPDIR/usr/bin/mw1data/zbd/mw1image.zbd" ] || { echo "no mw1data in the AppDir" >&2; exit 1; }
 fi
-[ -z "$PORT_DIR" ] || PROGRAMS="$PROGRAMS MechWarrior1989/mechwarrior"
 for p in $PROGRAMS; do [ -x "$APPDIR/usr/bin/$p" ] || { echo "no $p in the AppDir" >&2; exit 1; }; done
 grep -qx 'Exec=mw3launcher' "$APPDIR"/*.desktop || { echo "the AppImage does not start the launcher" >&2; exit 1; }
 # No local path or user name in anything shipped (release.md, Privacy).

@@ -6,16 +6,14 @@
 # -Pm: the combined package, mw3pm.exe required too (its DLLs checked as every program's).
 # -Mw1: MechWarrior 1 Remake in it too, mw1.exe required; its own mw1data\ (MW1's .zrd screens and the
 # image archive packed from its repo's art) is ours, not a game file.
-# -Mw1Port: Elthial's MechWarrior (1989) port in MechWarrior1989\, its program and licences required, its DLLs
-# checked against its own folder (Windows looks there first for a program in it).
 # -LauncherOnly: the combined package since the launcher downloads each game (launcher.md, Games on demand):
 # mw3launcher.exe and no game program.
-param([Parameter(Mandatory = $true)][string]$Dist, [switch]$Pm, [switch]$Mw1, [switch]$Mw1Port, [switch]$LauncherOnly)
+param([Parameter(Mandatory = $true)][string]$Dist, [switch]$Pm, [switch]$Mw1, [switch]$LauncherOnly)
 $ErrorActionPreference = 'Stop'
 $sys = Join-Path $env:SystemRoot 'System32'
 $runtime = '^(vcruntime|msvcp|concrt|vccorlib)\d'
 $missing = @()
-$folders = @($Dist) + $(if ($Mw1Port) { @(Join-Path $Dist 'MechWarrior1989') } else { @() })
+$folders = @($Dist)
 foreach ($folder in $folders) {
   if (-not (Test-Path -LiteralPath $folder)) { continue }
   $here = Get-ChildItem -LiteralPath $folder -File | ForEach-Object { $_.Name.ToLowerInvariant() }
@@ -48,11 +46,6 @@ if ($LauncherOnly) {
     ForEach-Object { $missing += "$($_.Name) (FFmpeg's) should not be in the launcher-only package" }
 }
 $programs = @('mw3launcher.exe') + $(if (-not $LauncherOnly) { @('mw3.exe') } else { @() }) + $(if ($Pm) { @('mw3pm.exe') } else { @() }) + $(if ($Mw1) { @('mw1.exe') } else { @() })
-if ($Mw1Port) {
-  $programs += 'MechWarrior1989\mechwarrior.exe', 'MechWarrior1989\MechWarrior.ini', 'THIRD-PARTY-MW1989.txt',
-    'MechWarrior1989\licences\SOURCES.txt', 'MechWarrior1989\licences\MechWarrior-sdl-port-LICENSE.txt',
-    'MechWarrior1989\licences\libmt32emu-LICENSE.txt', 'MechWarrior1989\licences\Nuked-OPL3-LICENSE.txt'
-}
 foreach ($exe in $programs) {
   if (-not (Test-Path -LiteralPath (Join-Path $Dist $exe))) { $missing += "$exe (the program itself)" }
 }
