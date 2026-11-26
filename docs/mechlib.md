@@ -435,6 +435,28 @@ the texture word written as 1 rather than an address (fixes.md); `test_s14_misc.
 - 0x518c60 writes `\0` over the texture name's last `.` while it looks the
   texture up, then puts it back.
 
+## 3D printing (`mw3stl`, 2026-11-26)
+
+`tools/viewer/mw3stl.cpp` (ours, a development tool beside `mw3view`) writes each of the 19 mechs of the player's own
+`mechlib.zbd` as a binary STL, posed through the viewer's scene code (`viewer::Mech::parts`). The stance: the
+mech's `_walk` (48 samples) with both feet levelled (each foot turned to its rest-pose world rotation under its
+parent, the toes at rest), at the frame scoring the widest stride against the soles' height difference (20 to 1,
+over 0.15 m ruled out; under 0.8 mm at 1:100 on every mech), the `torso` turned
+25 degrees about its pivot, each arm (`larm`, `rarm`) pitched until its barrel line (a `firepoint`'s parent to the
+firepoint) rises 3 degrees. Then for printing: each part's open boundary loops closed with a fan (every mech has
+50-158 open edges, the faces the game never drew), flag 0x100's single-sided panels made 0.8 mm slabs (Orion,
+Owens), groups of parts that touch nothing else strutted to the body (the Vulture's gun pods hang free), and a
+bevelled hex base under the feet. 1:100 by default, millimetres, Z up, facing -Y. `--stats` lists the open edges,
+panels and sizes; `--frames <mech> <motion>` the soles through a motion. The feet: `lfoot`/`rfoot` and their toes,
+or the calf when the foot node has no polygons (the Elemental draws its feet with its calves). `--smooth N` runs N
+levels of Loop subdivision (triangles x4 each) where the game smooths its shading: an edge stays a crease where the
+two polygons' normals (flag 0x200; 171 of the Mad Cat's 237 polygons have them) differ at either end by more than
+about 5 degrees, either polygon has none, or it is not shared by two. Level 3 rounds the Mad Cat's nose, calves and
+barrels and keeps its boxes square (36k triangles). But the game also shades smooth some shapes built square (the
+Sunder's legs, the Mad Cat's faceted canopy): `--sharp D` keeps every edge whose faces meet at more than D degrees
+too. `--smooth 3 --sharp 20` keeps the designed corners and facets and softens only the gentle bends; at 30 the Mad
+Cat's canopy rounds again. One level alone (x4) comes out crumpled, not rounded.
+
 ## Porting order (leaves first)
 
 1. `Material`: 0x4fc470 / 0x4fc570 (read), 0x4fc490 (free). Leaf apart from

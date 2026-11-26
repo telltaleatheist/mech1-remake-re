@@ -29,6 +29,7 @@
 #include "check.h"
 #include "gamez/zgame/zgame_table.h"
 #include "gamez/zsound/zsnd.h"
+#include "pm_left_out.h"
 #include "platform/pointer_hands_off.h"
 
 namespace check {
@@ -251,9 +252,21 @@ int main() {
     if (skip && any_in(skip, name)) return false;
     return !only || any_in(only, name);
   };
-  size_t ran = 0;
+  // MW3's tests that do not apply on pm (tests/pm_left_out.h; empty on main), by whole name.
+  const bool run_left_out = std::getenv("MW3_RUN_LEFT_OUT") != nullptr;
+  auto left_out = [&](const char* name) {
+    if (run_left_out) return false;
+    for (const check::LeftOut* l = check::kPmLeftOut; l->test; ++l)
+      if (std::strcmp(l->test, name) == 0) return true;
+    return false;
+  };
+  size_t ran = 0, left = 0;
   for (const check::Test& t : check::registry()) {
     if (!wanted(t.name)) continue;
+    if (left_out(t.name)) {
+      ++left;
+      continue;
+    }
     ++ran;
     if (std::getenv("MW3_TEST_TRACE")) std::fprintf(stderr, "start %s\n", t.name);
     const int before = check::failures;
@@ -288,6 +301,7 @@ int main() {
     }
 #endif
   }
+  if (left) std::printf("left out on pm: %zu (tests/pm_left_out.h)\n", left);
   std::printf("%zu tests, %d failed checks\n", ran, check::failures);
   return check::failures == 0 ? 0 : 1;
 }

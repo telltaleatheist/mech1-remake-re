@@ -307,6 +307,59 @@ void Mech::build(Scene& out, const Pose* pose) const {
   }
 }
 
+std::vector<Mech::Part> Mech::parts(const Pose* pose) const {
+  std::vector<Part> out;
+  std::vector<zcls::Node*> todo{d_->root};
+  while (!todo.empty()) {
+    zcls::Node* n = todo.back();
+    todo.pop_back();
+    for (int c = n->child_count() - 1; c >= 0 && n->children; --c) todo.push_back(n->children[c]);
+    Part part;
+    part.name = n->name();
+    if (n->parent_count() > 0 && n->parents && n->parents[0]) part.parent = n->parents[0]->name();
+    const Xform l = local_xform(n);
+    std::copy(l.m, l.m + 9, part.local.begin());
+    std::copy(l.t, l.t + 3, part.local.begin() + 9);
+    const Xform w = world_xform(n, pose);
+    std::copy(w.t, w.t + 3, part.origin.begin());
+    std::copy(w.m, w.m + 9, part.axes.begin());
+    if (n->cls() == kObject3d && n->model && !under_marker(n)) {
+      const zmod::Model& m = *n->model;
+      const Xform x = world_xform(n, pose);
+      const uint32_t vcount = m.count(0x14);
+      for (uint32_t p = 0; p < m.count(0x10) && m.polygons; ++p) {
+        const zmod::Polygon& poly = m.polygons[p];
+        const uint32_t k = poly.flags & 0xff;
+        if (k < 3 || !poly.vertex_indices) continue;
+        const zcls::Material* mat =
+            poly.material_index < d_->mats.size() ? &d_->mats[poly.material_index] : nullptr;
+        const bool textured = mat && mat->raw && (mat->raw[1] & 1) && poly.uvs;
+        if (!textured && mat && mat->raw && mat->raw[0] == 0) continue;  // alpha 0 draws nothing
+        auto corner = [&](uint32_t j) {
+          std::array<float, 3> v{};
+          if (poly.vertex_indices[j] < vcount) apply(x, m.vertices + 3 * poly.vertex_indices[j], v.data());
+          return v;
+        };
+        const uint32_t ncount = m.count(0x18);
+        auto normal = [&](uint32_t j) {  // turned with the part, not moved; zero when the polygon has none
+          std::array<float, 3> v{};
+          if (!(poly.flags & 0x200) || !poly.normal_indices || !m.normals || poly.normal_indices[j] >= ncount) return v;
+          const float* q = m.normals + 3 * poly.normal_indices[j];
+          for (int a = 0; a < 3; ++a) v[a] = q[0] * x.m[a] + q[1] * x.m[3 + a] + q[2] * x.m[6 + a];
+          return v;
+        };
+        for (uint32_t j = 1; j + 1 < k; ++j) {
+          part.normals.push_back(normal(0)), part.normals.push_back(normal(j)), part.normals.push_back(normal(j + 1));
+          part.triangles.push_back(corner(0)), part.triangles.push_back(corner(j)), part.triangles.push_back(corner(j + 1));
+          part.two_sided.push_back((poly.flags & 0x100) != 0);
+        }
+      }
+    }
+    out.push_back(std::move(part));
+  }
+  return out;
+}
+
 struct Motion::Data {
   zsis::Script script;
 };

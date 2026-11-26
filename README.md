@@ -25,8 +25,9 @@ installs and updates each game of the family:
 - **MechWarrior 3**, rebuilt from its own exe
   ([mech3-re](https://github.com/telltaleatheist/mech3-re), with the launcher);
 - **Pirate's Moon**, the expansion, rebuilt as above (this repo);
-- **MechWarrior 1 Reverse Engineered**, MechWarrior (1989) rebuilt in C++
-  from Elthial's SDL port
+- **MechWarrior 1: Reverse Engineered** (MW1 Rebuild for short), MechWarrior
+  (1989) reverse engineered and rebuilt in C++, built on
+  [Elthial's SDL port](https://github.com/Elthial/Mechwarrior-sdl-port)
   ([mech1-re](https://github.com/telltaleatheist/mech1-re));
 - **MechWarrior 1 Remake** (formerly MW1: Critical Hit), a fan remake of
   MechWarrior (1989)'s mercenary campaign on MechWarrior 3's combat, worlds

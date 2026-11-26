@@ -403,7 +403,7 @@ TEST(games_catalog_built_in_as_the_tables_were) {
   const Row rows[] = {
       {"mw3", "MECHWARRIOR 3", "Zipper and MicroProse, 1999, rebuilt from the original Mech3.exe.", "badge_mw3.png", "MECHWARRIOR 3", true},
       {"pm", "PIRATE'S MOON", "The 1999 expansion, rebuilt from its own exe. Plays without MW3.", "badge_pm.png", "PIRATE'S MOON", true},
-      {"mw1r", "MECHWARRIOR 1: REVERSE ENGINEERED", "MechWarrior (1989), reverse engineered and rebuilt. Bring your own DOS copy.",
+      {"mw1r", "MECHWARRIOR 1: REVERSE ENGINEERED", "MechWarrior (1989), reverse engineered and rebuilt. Built on Elthial's SDL port. Bring your own DOS copy.",
        "badge_mw1o.png", "MECHWARRIOR 1 ORIGINAL", true},
       {"mw1", "MECHWARRIOR 1 REMAKE", "MechWarrior (1989)'s campaign, fought with MechWarrior 3's combat.", "badge_mw1.png", "MECHWARRIOR 1", true},
       {"chi", "THE CRESCENT HAWK'S INCEPTION", "The 1988 game, rebuilt. Bring your own copy: DOS 1.03 or Amiga 2.3.", "badge_inception.png",
