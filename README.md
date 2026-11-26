@@ -145,7 +145,7 @@ the ignored `game/` folder, or those named by `-DMW3_GAME_DIR=`,
   Zipper Interactive and published by MicroProse in 1999. All the games'
   content is theirs and comes from your own copies.
 - The engine is the MechWarrior 3 rebuild,
-  [mw3-re](https://github.com/telltaleatheist/mw3-re), by Owen Morgan, under the
+  [mech3-re](https://github.com/telltaleatheist/mech3-re), by Owen Morgan, under the
   [MIT licence](LICENSE). The original's code was studied with Ghidra and
   [REA](https://github.com/morluto/rea), the data formats cross-checked with
   [mech3ax](https://github.com/TerranMechworks/mech3ax), and the port checked
