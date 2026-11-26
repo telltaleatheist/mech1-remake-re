@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <string>
 #include <utility>
 
@@ -540,7 +541,9 @@ void SettingsState::refresh() {
   }
   if (tab_ == Tab::kEnhancements) {  // the small fixes' list under the switches (upgrades::small_fixes_list)
     std::vector<std::string> lines;
-    for (const char* l : upgrades::small_fixes_list()) lines.push_back(l);
+    // The wheel's line is left out: MW1 has the wheel always on (FIXES 102), so the switch doesn't turn it off here.
+    for (const char* l : upgrades::small_fixes_list())
+      if (std::strcmp(l, "The mouse wheel scrolls the menus' lists.") != 0) lines.push_back(l);
     s.blocks.push_back(at_place("LIST", lines));
   }
   if (tab_ == Tab::kDisplay) s.blocks.push_back(at_place("NOTE", {"Texture memory is set to your card's largest."}));

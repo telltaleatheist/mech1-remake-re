@@ -64,6 +64,7 @@ const std::vector<const char*>& small_fixes_list() {
       "A mech re-placed where it stands keeps to its ground.",
       "Torso auto return keeps the torso within its twist.",
       "Salvage and briefing buttons have sounds.",
+      "The mouse wheel scrolls the menus' lists.",
       "A mission's last animation can be waited for.",
       "An animation whose object is missing waits its turn.",
       "The Sunder Alternate B loads all 360 LRM 20 missiles.",

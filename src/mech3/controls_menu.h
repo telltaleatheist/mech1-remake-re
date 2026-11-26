@@ -34,8 +34,12 @@ class ControlsList : public ztwod::ListBox {
   int32_t value_at(int32_t i) const;  // items[i]'s command (unchecked in the original)
   ControlsScreen* screen();          // the dialog (+0xc8)
 
+  void on_enter() override;          // ours: the pointer over it, for the wheel (platform/list_wheel.h)
+  void on_leave() override;
+
   Kind kind;
   std::vector<int32_t> values;       // the items' second word, beside strings
+  bool pointer_over = false;         // ours
 };
 
 // ACCEPT, CANCEL, CMD_RESET_TO_MOUSE_BTN, CMD_RESET_TO_JSTICK_BTN and
@@ -125,6 +129,7 @@ class ControlsScreen : public MenuScreen {
   void fill(int32_t group);          // 0x0042c160: the lists of a group, the first selected
   void select_command(int32_t i);    // 0x0042c4e0: a row of every list, the arrows, the text
   int32_t step_command(int32_t by);  // 0x0042d1c0
+  void wheel();                      // ours (platform/list_wheel.h)
   void show_file_name();             // 0x0042bd90: "<message 0xfae>: <name> [*]"
   // The captures: a key, button or axis for the command in row `index`;
   // false when the reassignment was refused.
@@ -168,6 +173,8 @@ class ControlsScreen : public MenuScreen {
   LoadSavePopupState load_save_popup;  // +0x1677c
   ztwod::FontText file_name{nullptr, 0, 0};  // +0x16794  CURRENT_FILENAME
   int32_t mode = 0;                  // +0x16c44  0 idle, capturing 1 key A, 2 key B, 3 joystick, 4 mouse
+  int32_t wheel_z = 0;               // ours (platform/list_wheel.h): the wheel's position last read
+  bool wheel_read = false;
   float range[8][2] = {};            // +0x16c50  each stick source's lowest and highest reading in mode 3
   uint8_t dirty = 0;                 // +0x16c90  the map changed since the file was read or written
 

@@ -323,6 +323,9 @@ class FileListArrow : public ShellButton {
 // one at `top`, the selected one shown in its own row and font over a BAR
 // image, ITEMROLLOVER's image under the row the mouse is on; UP and DOWN
 // scroll, repeating while held. The game adds the items.
+// Ours (platform/list_wheel.h): the wheel scrolls the lists, under SMALL FIXES or where a game turns it on.
+bool list_wheel_on();
+
 class FileList : public ShellButton {
  public:
   struct Item {                      // 8 bytes, new'd (freed by 0x0044ed90)

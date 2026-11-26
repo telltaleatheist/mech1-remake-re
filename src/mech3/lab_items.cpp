@@ -570,8 +570,8 @@ void LabItemList::update(float dt) {
     down->refresh();
     down->update(dt);
   }
-  // Ours (platform/list_wheel.h, MW1's FIXES 102): the wheel over the list presses its arrow, shown and enabled.
-  if (platform::list_wheel())
+  // Ours (platform/list_wheel.h): the wheel over the list presses its arrow, shown and enabled.
+  if (list_wheel_on())
     if (const zin::MouseInfo* m = zin::mouse_info()) {
       const int32_t n = platform::list_wheel_notch(m->z, wheel_z, wheel_read);
       auto* a = n > 0 ? up : n < 0 ? down : nullptr;

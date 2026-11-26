@@ -1287,6 +1287,8 @@ void FileList::hide() {
   if (roll_image) roll_image->hide();
 }
 
+bool list_wheel_on() { return platform::list_wheel() || zfix::options().small_fixes; }
+
 // Mech3.exe 1.2 @ 0x0048c910: the arrows light under the cursor and repeat
 // while the left button is held on them (after repeat_delay, then every
 // repeat_rate seconds of the frame time); the rollover image follows the lit
@@ -1365,8 +1367,8 @@ void FileList::update(float dt) {
     down->refresh();
     down->update(dt);
   }
-  // Ours (platform/list_wheel.h, MW1's FIXES 102): the wheel over the list presses its arrow, shown and enabled.
-  if (platform::list_wheel())
+  // Ours (platform/list_wheel.h): the wheel over the list presses its arrow, shown and enabled.
+  if (list_wheel_on())
     if (const zin::MouseInfo* m = zin::mouse_info()) {
       const int32_t n = platform::list_wheel_notch(m->z, wheel_z, wheel_read);
       auto* a = n > 0 ? up : n < 0 ? down : nullptr;
