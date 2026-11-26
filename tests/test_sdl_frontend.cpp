@@ -11812,7 +11812,7 @@ TEST(sdl_pm_program_status_finds_as_the_launcher) {
   const std::string a = run(MW3_BIN, {"--status", "--write-dir", dir + "/wd"}, "a", &code);
   std::printf("  status: %s", a.c_str());
   EXPECT(code == 0 && rekit::parse_status(a, &st) && st.game == "mech3-pm" && st.where == x && st.note.empty() &&
-         st.notes_once == 1 && st.notes.size() == 2);
+         st.notes_once == 2 && st.notes.size() == 2);  // all shown once, the music's too (pm_notes= covers them)
   if (st.notes.size() == 2) EXPECT(st.notes[0].find("Its zbd\\soundsH.zbd is missing") == 0 && st.notes[1].find("No music yet") == 0);
   EXPECT(st.lacks == std::vector<std::string>({"music", "full-quality sounds"}) && st.missing.empty());
   {  // the same words as its --copies row, from the same code
@@ -11828,7 +11828,7 @@ TEST(sdl_pm_program_status_finds_as_the_launcher) {
   // The user folder's own install/: ahead of mw3.cfg's.
   fs::create_directory_symlink(game, dir + "/wd/install", ec);
   EXPECT(rekit::parse_status(run(MW3_BIN, {"--status", "--write-dir", dir + "/wd"}, "b", &code), &st) &&
-         st.where == dir + "/wd/install" && st.note.empty() && st.notes_once == 0);
+         st.where == dir + "/wd/install" && st.note.empty() && st.notes_once == static_cast<int>(st.notes.size()));
   fs::remove(dir + "/wd/install", ec);
   // This program in a marked game folder: its install/ first; MechWarrior 3's mark, not.
   const std::string own = dir + "/games/Pirate's Moon", bin = own + "/mw3pm-status-own";

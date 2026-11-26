@@ -1022,8 +1022,9 @@ each game's recipe (DESIGN.md there):
   mark must name `pm`), the user folder's `install/`, then mw3.cfg's
   `install=`, the installer's places (noted `found by the search, not set
   up yet`: offered, never taken), the development copy. check_install's
-  warnings (the full sounds) come first in `notes`, counted in `notes_once`
-  (the launcher's `pm_notes=` hash), then the music's. `files.lacks`
+  warnings (the full sounds) come first in `notes`, then the music's;
+  `notes_once` counts them all, since the launcher's `pm_notes=` hash has
+  always covered the music's note too. `files.lacks`
   (`music`, `full-quality sounds`) is the code its `--copies` row uses, and
   `--copies`, `--add` and `--first-run` take the same copy in use.
   `--status` wins over `--setup`. `sdl_pm_program_status_finds_as_the_launcher`.

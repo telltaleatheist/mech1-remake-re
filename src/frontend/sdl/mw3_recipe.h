@@ -20,9 +20,9 @@ struct RecipePlaces {
 };
 rekit::sdl::Game mw3_recipe(const RecipePlaces& places);
 
-// What the player should know before playing with `install` (the status's notes). pm: check_install's warnings first
-// (the full sounds), their count in `once` (the status's notes_once: a launcher shows those once until they change),
-// then the music's, shown every time.
+// What the player should know before playing with `install` (the status's notes). pm: check_install's warnings (the
+// full sounds), then the music's; `once` (the status's notes_once) counts them all: the launcher shows Pirate's Moon's
+// notes once until they change, the music's included, as its pm_notes= hash always has.
 std::vector<std::string> mw3_notes(const std::string& install, const std::string& version, const std::string& write_dir,
                                    int* once = nullptr);
 // What `install` lacks and plays without (the status's lacks), in the words of its --copies row's missing, from the

@@ -91,15 +91,15 @@ std::vector<std::string> lacks_words(const std::string& d, const std::vector<std
 
 }  // namespace
 
-// pm: the launcher's pm_notes: the check's own notes (the full sounds), shown once (`once`), then the music's when it
-// lacks it, every time.
+// pm: the launcher's pm_notes: the check's own notes (the full sounds), then the music's when it lacks it; all of them
+// shown once (`once`: the launcher's pm_notes= hash has always covered the music's too).
 std::vector<std::string> mw3_notes(const std::string& install, const std::string&, const std::string& write_dir, int* once) {
   const mech3::setup::Result r = mech3::setup::check_install(install, write_dir, true);
   std::vector<std::string> notes = r.warnings;
-  if (once) *once = static_cast<int>(notes.size());
   const Lacks l = lacks(install, write_dir);
   if (r.ok && l.music)
     for (const std::string& n : launcher_notes("", false, true, l.music_dir)) notes.push_back(n);
+  if (once) *once = static_cast<int>(notes.size());
   return notes;
 }
 
