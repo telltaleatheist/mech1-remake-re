@@ -13,6 +13,11 @@ struct LeftOut {
 };
 
 inline constexpr LeftOut kPmLeftOut[] = {
+    {"app_main_menu_idles_into_the_attract_movie",
+     "pm_main_menu_idles_without_the_attract_movie_and_p_opens_pirate_missions_headless",
+     "55e0de9fe: PM's main state 0x004896e0 only restarts the idle minute, no Attract (MW3's 0x00486d40 pushed it)"},
+    {"mech_dfn_bad_version_does_not_save", "pm_mech_dfn_reads_no_version",
+     "bdd74a5f4: PM's reader 0x0046d690 reads no version, so a bad one loads (MW3's 0x0046ba40 needed 2)"},
     {nullptr, nullptr, nullptr},  // the end
 };
 
