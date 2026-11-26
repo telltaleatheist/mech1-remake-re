@@ -27,7 +27,7 @@
       "key": "mw1r", "family": "mw1", "order": 3, "state": "released",
       "name": "MechWarrior 1 Rebuild", "title": "MECHWARRIOR 1: REVERSE ENGINEERED", "heading": "MECHWARRIOR 1",
       "button": "MECHWARRIOR 1 ORIGINAL",
-      "description": "MechWarrior (1989), reverse engineered and rebuilt. Bring your own DOS copy.",
+      "description": "MechWarrior (1989), reverse engineered and rebuilt. Built on Elthial's SDL port. Bring your own DOS copy.",
       "repo": "mech1-re", "tag_prefix": "mw1r-v", "program": "mw1r",
       "assets": {"windows": "MW1-Rebuild-{tag}-win64.zip", "mac": "MW1-Rebuild-{tag}-mac.dmg", "linux": "MW1-Rebuild-{tag}-x86_64.AppImage"},
       "badge": "badge_mw1o.png", "needs": [], "min_launcher": "1.5.2"

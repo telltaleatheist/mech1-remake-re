@@ -23,7 +23,8 @@ This repo is MechWarrior 3 and the launcher. The launcher, named
 - **Pirate's Moon**, the expansion, rebuilt the same way from its own exe
   ([mech3-pm-re](https://github.com/telltaleatheist/mech3-pm-re));
 - **MechWarrior 1: Reverse Engineered** (MW1 Rebuild for short), MechWarrior
-  (1989) reverse engineered and rebuilt in C++
+  (1989) reverse engineered and rebuilt in C++, built on
+  [Elthial's SDL port](https://github.com/Elthial/Mechwarrior-sdl-port)
   ([mech1-re](https://github.com/telltaleatheist/mech1-re));
 - **MechWarrior 1 Remake** (formerly MW1: Critical Hit), a fan remake of
   MechWarrior (1989)'s mercenary campaign on MechWarrior 3's combat, worlds
