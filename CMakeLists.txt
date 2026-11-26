@@ -53,6 +53,14 @@ endif()
 file(CONFIGURE OUTPUT ${CMAKE_BINARY_DIR}/games_catalog.cpp
      CONTENT "// Written by CMake from src/upgrades/update/games.json: do not edit.\nnamespace upgrades::update {\nextern const char kBuiltinCatalog[];\nconst char kBuiltinCatalog[] = R\"mw3catalog(@MW3_CATALOG_TEXT@)mw3catalog\";\n}  // namespace upgrades::update\n"
      @ONLY)
+# The update check and the games catalog (ours, src/upgrades/update; launcher split b6): no game code, so the launcher
+# links it alone; mw3core links it for the mods' needs (mod_needs.cpp).
+add_library(mw3update STATIC
+  src/upgrades/update/update.cpp
+  src/upgrades/update/games.cpp
+  ${CMAKE_BINARY_DIR}/games_catalog.cpp)  # games.json built in (above)
+target_include_directories(mw3update PUBLIC src)
+set_target_properties(mw3update PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(mw3core STATIC
   src/crt/msvc_math.cpp
   src/crt/msvc_rand.cpp
@@ -388,9 +396,6 @@ add_library(mw3core STATIC
   src/upgrades/mods/ia_mods_menu.cpp
   src/upgrades/mods/mp_mods.cpp
   src/upgrades/mods/starter_mods.cpp
-  src/upgrades/update/update.cpp
-  src/upgrades/update/games.cpp
-  ${CMAKE_BINARY_DIR}/games_catalog.cpp  # games.json built in (below)
   src/upgrades/reference/reference.cpp
   src/upgrades/reference/reference_mods.cpp
   src/upgrades/reference/reference_weapons.cpp
@@ -490,7 +495,7 @@ if(NOT EXISTS "${CMAKE_SOURCE_DIR}/extern/re-setup-kit/CMakeLists.txt")
   message(FATAL_ERROR "extern/re-setup-kit is empty: run git submodule update --init")
 endif()
 add_subdirectory(extern/re-setup-kit EXCLUDE_FROM_ALL)
-target_link_libraries(mw3core PUBLIC rekit)
+target_link_libraries(mw3core PUBLIC rekit mw3update)
 
 # The x87 never fuses a multiply and an add; clang does by default on arm64,
 # which rounds differently from the original (CLAUDE.md, FPU precision).

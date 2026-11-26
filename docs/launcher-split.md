@@ -501,6 +501,10 @@ only kit games (`i >= 3`).
     package.cmd), and check_dist.ps1 allows those two `.wav` and no other.
     `repair_old_names` is the launcher's own copy (`launcher_own`), and the
     `zrndr_tint` include and launcher.h's ripple line are gone.
+  - **Piece 7 done (2026-11-26): `upgrades/update` is its own library**,
+    `mw3update` (update.cpp, games.cpp and the built-in games.json), with no
+    game code: mw3core links it for the mods' needs (`mod_needs.cpp`), and
+    the launcher links it directly from piece 8.
 - **b7, the games catalog (fetched).** After b0, and it needs nothing else
   from (b), so it may move earlier. A newer catalog is fetched from mw3-re
   (its main, or a release asset) the same way as the update check: the
