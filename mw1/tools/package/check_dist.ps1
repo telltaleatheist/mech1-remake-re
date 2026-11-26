@@ -46,12 +46,14 @@ if (-not (Get-ChildItem -Path (Join-Path $Dist 'licenses\freetype-*\FTL.TXT') -E
 # No local path or user name in any file (release.md, Privacy; tools/deps/check_paths.py
 # on the Mac and Linux): every byte, as ASCII and UTF-16. The public release addresses are allowed:
 # github.com/<user>, the updater's api.github.com/repos/<user>, and the backup's git.owenmorgan.com/<user> and
-# .../api/v1/repos/<user>, its host name included (the same list as the engine's tools/windows/check_dist.ps1).
+# .../api/v1/repos/<user>, its host name included, and the games catalog's raw.githubusercontent.com/<user> (the
+# same list as the engine's tools/windows/check_dist.ps1).
 $words = @('/Volumes/', '/Users/', '/home/', 'C:\Users\', 'C:/Users/') +
   @($env:USERNAME, (Split-Path -Leaf $env:USERPROFILE)) | Where-Object { $_ -and $_.Length -ge 4 } | Select-Object -Unique
 $rx = [regex](($words | ForEach-Object { [regex]::Escape($_) }) -join '|')
 $latin = [Text.Encoding]::GetEncoding(28591)
-$public = @('github.com/', 'github.com/repos/', 'git.owenmorgan.com/', 'git.owenmorgan.com/api/v1/repos/')
+$public = @('github.com/', 'github.com/repos/', 'raw.githubusercontent.com/', 'git.owenmorgan.com/',
+  'git.owenmorgan.com/api/v1/repos/')
 $host_ = 'git.owenmorgan.com'
 function Test-Public($text, $m) {
   foreach ($p in $public) {
