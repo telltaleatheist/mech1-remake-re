@@ -33,13 +33,13 @@
 #include "gamez/zrender/zrndr_tint.h"
 #if defined(MW3_GAME_FIND_SCREEN)
 #include "frontend/sdl/launcher_mw3_setup.h"
+#include "mech3/source_map.h"
 #endif
 #include "frontend/sdl/launcher_own.h"
 #include "frontend/sdl/sdl_update.h"
 #include "frontend/sdl/sdl_catalog.h"
 #include "frontend/sdl/sdl_games.h"
 #include "upgrades/update/games.h"
-#include "mech3/source_map.h"
 
 namespace sdlfe {
 
@@ -672,7 +672,9 @@ class Launcher {
   std::shared_ptr<std::vector<std::string>> move_copied_out_;
   int confirm_go_ = 0;
   int work_game_ = -1;  // the game a kGameInstall work installs (-1: from a file, not read yet)
+#if defined(MW3_GAME_FIND_SCREEN)  // the games' own find screen until d1 (docs/launcher-split.md, b6)
   std::shared_ptr<mech3::source::Found> found_;  // the last look's (look_at)
+#endif
   bool auto_go_ = false;  // MW3_LAUNCHER_PICK (checks): its look's INSTALL pressed too
   bool auto_ok_ = false;
   bool pick_other_ = SDL_getenv("MW3_LAUNCHER_PICK_OTHER") != nullptr;  // checks: the first find's plate clicked (other files)  // and the notes' OK after it

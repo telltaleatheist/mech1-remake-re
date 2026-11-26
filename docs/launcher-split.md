@@ -481,6 +481,8 @@ only kit games (`i >= 3`).
     in use from its log (`started_on`), and
     `sdl_program_plain_start_takes_the_copy_the_status_shows` checks the
     plain start against `--status`.
+  - **Piece 3 done (2026-11-26): `mech3/source_map`** is included, and the
+    last look's `found_` kept, only under `MW3_GAME_FIND_SCREEN`.
 - **b7, the games catalog (fetched).** After b0, and it needs nothing else
   from (b), so it may move earlier. A newer catalog is fetched from mw3-re
   (its main, or a release asset) the same way as the update check: the
