@@ -579,7 +579,7 @@ TEST(pm_upgrades_page_has_five_switches_headless) {
   EXPECT(raw_row && raw_y == 389 && box_y == 389 && raw_taken && raw_kept);
   EXPECT(raw_saved == std::string(zfix::kRawMouseKey) + (raw_was ? "=0 " : "=1 "));  // the Mac's own key
   EXPECT(water_on_screen && water_shown_off);
-  EXPECT(lines == 13 && upgrades::small_fixes_list().size() == 13);
+  EXPECT(lines == 14 && upgrades::small_fixes_list().size() == 14);
   EXPECT(keys == "upgrade_water=1 upgrade_mfb_regroup=1 upgrade_improved_ai=1 upgrade_artemis=1 upgrade_small_fixes=0 widemenus=1 ");
   EXPECT(water_after && !small_after);  // each switch as the page left it
   // A host's word, the five bits (water the lowest), as MechWarrior 3's.
