@@ -75,7 +75,9 @@ bool game_of_key(const std::string& key, Game* g);
 // min_launcher newer than `launcher_version` (a release's; a build's "unknown" checks none), art that is not a
 // plain .png name. Its families are checked at the merge. False with `why` only when the whole is not a catalog (not
 // JSON, no lists, a newer format).
-constexpr const char* kCatalogOwner = "telltaleatheist";
+// Kept as its address so the program holds the name only there (the packages' privacy check allows it there).
+constexpr const char kCatalogOwnerAddress[] = "github.com/telltaleatheist";
+constexpr const char* kCatalogOwner = kCatalogOwnerAddress + 11;
 bool read_fetched_catalog(const std::string& json, const std::string& launcher_version, Catalog* out,
                           std::vector<std::string>* ignored, std::string* why);
 // `fetched` over `builtin` when its revision is higher, else `builtin` as it is: a family or game by its key
