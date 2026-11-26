@@ -41,6 +41,10 @@ inline constexpr LeftOut kPmLeftOut[] = {
      "419d1d219: the import itself passes on pm; only its 1.2 naming is MW3's data check (PM has no patch)"},
     {"fix_turret_turns_by_time", "pm_turret_turns_by_time",
      "PM's pick 0x004aa5a0 (pm-tests item 17) keeps the fix but has no turn count [0x00609a4c] for MW3's test to read"},
+    {"mods_anim_def_files_on_the_list_and_checked", "pm_mods_anim_files_pm_does_not_read_are_said",
+     "1299fce5d: PM reads no anim def or node files (its reader 0x00523140 takes a world's anim.zbd only)"},
+    {"mods_anim_node_files_bind_their_defs", "pm_mods_anim_files_pm_does_not_read_are_said",
+     "1299fce5d: MW3's anim read under MW3's table, which pm's programs never set (mw3pm_main.cpp, mw3_main.cpp)"},
     {nullptr, nullptr, nullptr},  // the end
 };
 
