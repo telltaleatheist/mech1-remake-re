@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "check.h"
+#include "mods_game_mw3.h"
 #include "upgrades/mods/campaign_entries.h"
 #include "zip_write.h"
 #include "gamez/zreader/zreader.h"
@@ -1173,6 +1174,7 @@ TEST(mods_pm_anim_files_it_does_not_read_are_said) {
 // needed); an off mod's as if turned on; a row with one flagged, its note
 // saying it first. Nothing refuses a mod.
 TEST(mods_needs_warn_never_block) {
+  const ModsGameMw3 mw3;  // MW3's names (tests/mods_game_mw3.h)
   mech3::ModInfo m;
   EXPECT(mech3::mod_parse("name=X\nneeds=Green HUD 1.2\nneeds=base\nneeds=Pack v2\nconflicts=Red HUD\ngame_version=1.1.0\n", &m));
   EXPECT((m.needs == std::vector<std::pair<std::string, std::string>>{{"Green HUD", "1.2"}, {"base", ""}, {"Pack", "v2"}}));

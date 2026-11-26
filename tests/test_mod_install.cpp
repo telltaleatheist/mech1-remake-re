@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "check.h"
+#include "mods_game_mw3.h"
 #include "gamez/zutil/zutl_zar.h"
 #include "mech3/mod_install.h"
 #include "mech3/mods.h"
@@ -200,6 +201,7 @@ TEST(mod_install_refuses_escapes_and_limits) {
 // Each layout: the root found, mod.txt kept or written, our marker in it,
 // listed in mods_list at once, the staging folder gone.
 TEST(mod_install_finds_each_layout) {
+  const ModsGameMw3 mw3;  // MW3's names (tests/mods_game_mw3.h)
   const std::string wd = tmp("mod_install_layouts"), src = tmp("mod_install_layouts_src");
   struct Case {
     const char* source;  // a .zip written, or a folder made
@@ -251,6 +253,7 @@ TEST(mod_install_finds_each_layout) {
 // lands under zbd, where the game reads it; the rest stays; the written mod.txt says so. With a mod.txt, with
 // no install to tell by, or with nothing the install's zbd folder has, a mod is laid as it is.
 TEST(mod_install_bare_zbd_contents_go_under_zbd) {
+  const ModsGameMw3 mw3;  // MW3's names (tests/mods_game_mw3.h)
   const std::string wd = tmp("mod_install_bare"), src = tmp("mod_install_bare_src"), inst = tmp("mod_install_bare_inst");
   put(inst + "/Mech3.exe", "the game");
   put(inst + "/zbd/reader.zbd", "the game's reader");
@@ -299,6 +302,7 @@ TEST(mod_install_bare_zbd_contents_go_under_zbd) {
 // A whole install: only the files that differ, no programs, nothing of the
 // player's own kind; all the same, refused.
 TEST(mod_install_full_install_reduced) {
+  const ModsGameMw3 mw3;  // MW3's names (tests/mods_game_mw3.h)
   const std::string wd = tmp("mod_install_full"), src = tmp("mod_install_full_src"), inst = tmp("mod_install_full_inst");
   put(inst + "/Mech3.exe", "original exe");
   put(inst + "/zbd/same.txt", "same");
@@ -436,6 +440,7 @@ std::vector<Entry> zip_entries(const std::string& path) {
 }  // namespace
 
 TEST(mod_export_round_trip) {
+  const ModsGameMw3 mw3;  // MW3's names (tests/mods_game_mw3.h)
   const std::string wd = tmp("mod_export_wd"), wd2 = tmp("mod_export_wd2"), out = tmp("mod_export_out");
   const fs::path mod = fs::path(wd) / "mods" / "Hard Rain";
   std::string bin;
@@ -511,6 +516,7 @@ TEST(mod_export_round_trip) {
 // folder with no mod.txt gets one in the zip (its folder's name, this game),
 // with its sum, never in the folder; IMPORT takes that zip back as a mod.
 TEST(mod_export_packs_checked_and_with_its_mod_txt) {
+  const ModsGameMw3 mw3;  // MW3's names (tests/mods_game_mw3.h)
   const std::string wd = tmp("mod_pack_wd"), wd2 = tmp("mod_pack_wd2"), out = tmp("mod_pack_out");
   const fs::path bad = fs::path(wd) / "mods" / "Bad";
   put(bad / "mod.txt", "name=Bad\nfor=mw3\nmech=broken\n");
@@ -542,6 +548,7 @@ TEST(mod_export_packs_checked_and_with_its_mod_txt) {
 }
 
 TEST(mod_export_checksums_refuse_a_changed_zip) {
+  const ModsGameMw3 mw3;  // MW3's names (tests/mods_game_mw3.h)
   const std::string wd = tmp("mod_export_sums_wd"), out = tmp("mod_export_sums_out");
   const fs::path mod = fs::path(wd) / "mods" / "Sums";
   put(mod / "mod.txt", "name=Sums\nfor=mw3\n");
