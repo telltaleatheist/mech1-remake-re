@@ -439,7 +439,9 @@ the texture word written as 1 rather than an address (fixes.md); `test_s14_misc.
 
 `tools/viewer/mw3stl.cpp` (ours, a development tool beside `mw3view`) writes each of the 19 mechs of the player's own
 `mechlib.zbd` as a binary STL, posed through the viewer's scene code (`viewer::Mech::parts`). The stance: the
-mech's `_walk` at its widest stride with both soles within 0.25 m of each other (48 samples), the `torso` turned
+mech's `_walk` (48 samples) with both feet levelled (each foot turned to its rest-pose world rotation under its
+parent, the toes at rest), at the frame scoring the widest stride against the soles' height difference (20 to 1,
+over 0.15 m ruled out; under 0.8 mm at 1:100 on every mech), the `torso` turned
 25 degrees about its pivot, each arm (`larm`, `rarm`) pitched until its barrel line (a `firepoint`'s parent to the
 firepoint) rises 3 degrees. Then for printing: each part's open boundary loops closed with a fan (every mech has
 50-158 open edges, the faces the game never drew), flag 0x100's single-sided panels made 0.8 mm slabs (Orion,

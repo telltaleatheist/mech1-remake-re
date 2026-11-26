@@ -64,6 +64,7 @@ class Mech {
     std::string name, parent;
     std::array<float, 12> local{};
     std::array<float, 3> origin{};  // its pivot, placed by `pose`
+    std::array<float, 9> axes{};    // its world rotation, rows (p * axes + origin), placed by `pose`
     std::vector<std::array<float, 3>> triangles;
     std::vector<std::array<float, 3>> normals;  // one per corner, the game's (flag 0x200), zero when none
     std::vector<bool> two_sided;  // one per triangle

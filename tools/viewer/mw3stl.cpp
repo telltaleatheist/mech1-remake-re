@@ -179,22 +179,46 @@ void turn(std::array<float, 12>& m, int axis, float degrees) {
   std::copy(out, out + 9, m.begin());
 }
 
-// The firing stance: the walk's widest stride with both soles down (within 0.25 m), the torso twisted and the arms
-// raised about their pivots. `low` is the higher sole: the base's top.
+// Both feet flat: each foot turned to lie as it does at rest (level, pointing ahead) under its parent, and its toes
+// back to their rest pose. The walk's stride stays; only the soles are levelled, so a print stands on both.
+void flatten_feet(const viewer::Mech& m, viewer::Pose& pose) {
+  std::map<std::string, std::array<float, 9>> rest_axes, axes_now;
+  std::map<std::string, std::string> parent_of;
+  const auto rest = m.parts(nullptr);
+  for (const auto& p : rest) {
+    rest_axes[p.name] = p.axes, parent_of[p.name] = p.parent;
+    if (p.name.find("toe") != std::string::npos) pose[p.name] = p.local;
+  }
+  for (const auto& p : m.parts(&pose)) axes_now[p.name] = p.axes;
+  for (const char* f : {"lfoot", "rfoot"}) {
+    if (!pose.count(f) || !axes_now.count(parent_of[f])) continue;
+    const auto& want = rest_axes[f];  // world = local * parent, so local = world * parent^T
+    const auto& par = axes_now[parent_of[f]];
+    for (int i = 0; i < 3; ++i)
+      for (int j = 0; j < 3; ++j)
+        pose[f][3 * i + j] = want[3 * i] * par[3 * j] + want[3 * i + 1] * par[3 * j + 1] + want[3 * i + 2] * par[3 * j + 2];
+  }
+}
+
+// The firing stance: the walk's widest stride with both levelled soles at nearly one height, the torso twisted and
+// the arms aimed. `low` is the higher sole (the base's top), `sink` how far the other goes into the base.
 viewer::Pose stance(const viewer::Mech& m, const std::string& zbd, const std::string& mech, float twist, float pitch,
-                    float* low) {
+                    float* low, float* sink) {
   viewer::Pose pose, best;
   viewer::Motion walk;
   float score = -1e9f;
-  *low = 0;
+  *low = 0, *sink = 0;
   if (walk.load(zbd, mech + "_walk").empty())
     for (int i = 0; i < 48; ++i) {
       pose.clear();
       walk.pose(walk.loop_time() * i / 48, pose);
+      flatten_feet(m, pose);
       const auto parts = m.parts(&pose);
       const Foot l = foot(parts, "lfoot"), r = foot(parts, "rfoot");
-      const float dl = std::fabs(l.low - r.low), sc = std::fabs(l.z - r.z) - (dl > 0.25f ? 100 : 0) - 2 * dl;
-      if (sc > score) score = sc, best = pose, *low = std::max(l.low, r.low);
+      // A wide stride with both levelled soles at one height (what sinks into the base): 1 m of stride is worth
+      // 5 cm of sink, and more than 15 cm is out.
+      const float dl = std::fabs(l.low - r.low), sc = std::fabs(l.z - r.z) - (dl > 0.15f ? 100 : 0) - 20 * dl;
+      if (sc > score) score = sc, best = pose, *low = std::max(l.low, r.low), *sink = dl;
     }
   for (const viewer::Mech::Part& p : m.parts(nullptr))
     if (!best.count(p.name)) best[p.name] = p.local;
@@ -613,8 +637,8 @@ int export_mech(const std::string& zbd, const std::string& mech, const std::stri
   viewer::Mech m;
   const std::string err = m.load(zbd, "mech_" + mech + ".flt");
   if (!err.empty()) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
-  float low = 0;
-  const viewer::Pose pose = stance(m, zbd, mech, o.twist, o.pitch, &low);
+  float low = 0, sink = 0;
+  const viewer::Pose pose = stance(m, zbd, mech, o.twist, o.pitch, &low, &sink);
   const float mm = 1000 / o.scale, thick = 0.8f / mm;  // panels 0.8 mm deep as printed
   std::vector<Vec> all, feet, calves;
   std::vector<Piece> pieces;
@@ -683,6 +707,7 @@ int export_mech(const std::string& zbd, const std::string& mech, const std::stri
   for (Vec& v : all) v[0] -= cx, v[1] -= lo[1], v[2] -= cz;
   const std::string path = dir + "/" + mech + ".stl";
   if (!write_stl(path, all, mm, "mw3stl " + mech)) return std::fprintf(stderr, "could not write %s\n", path.c_str()), 1;
+  std::printf("%-12s feet flat, %.1f mm sunk  ", mech.c_str(), sink * mm);
   std::printf("%-12s %6.1f mm tall  %5zu triangles  %3d holes closed  %d doubled faces dropped  %2d panels thickened  "
               "%d struts%s  left: %d unsealed edges%s%s (%d shared by 3+ faces, sealed)\n", mech.c_str(), (hi[1] - lo[1]) * mm, all.size() / 3,
               loops, doubles, panels, rods, loose.c_str(), open, leaky.empty() ? "" : " in", leaky.c_str(), crowded);

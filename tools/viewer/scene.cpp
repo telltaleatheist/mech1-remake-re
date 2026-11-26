@@ -322,6 +322,7 @@ std::vector<Mech::Part> Mech::parts(const Pose* pose) const {
     std::copy(l.t, l.t + 3, part.local.begin() + 9);
     const Xform w = world_xform(n, pose);
     std::copy(w.t, w.t + 3, part.origin.begin());
+    std::copy(w.m, w.m + 9, part.axes.begin());
     if (n->cls() == kObject3d && n->model && !under_marker(n)) {
       const zmod::Model& m = *n->model;
       const Xform x = world_xform(n, pose);
