@@ -16,7 +16,6 @@
 #include <vector>
 
 #include "platform/pointer_hands_off.h"
-#include "gamez/zutil/zutl_path.h"
 #include "frontend/sdl/crash_report.h"
 #include "frontend/sdl/launcher_folder.h"
 #include "frontend/sdl/launcher.h"
@@ -154,7 +153,7 @@ int main(int argc, char** argv) {
   sdlfe::RunLog run_log;
   if (!hidden_log && !sdlfe::log_to_file(o.write_dir, "mw3launcher") && !o.write_dir.empty())
     run_log.open(o.write_dir, "mw3launcher");
-  zutl::repair_old_names(o.write_dir);
+  sdlfe::own::repair_old_names(o.write_dir);
   std::printf("mw3launcher (MechWarrior 3 rebuild) %s, write dir %s\n", MW3_VERSION, o.write_dir.c_str());
   if (!hidden_log && !o.write_dir.empty()) sdlfe::crash_report_install("mw3launcher", o.write_dir + "/mw3launcher.log", true);
   // Pirate's Moon's folder in place before its saved path is read (family_move; its old nested folder mw3pm's own).

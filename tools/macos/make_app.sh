@@ -95,7 +95,7 @@ fi
 # The launcher's art (ours, assets/launcher), where SDL's base path is: Resources.
 mkdir -p "$APP/Contents/Resources/assets/launcher/ui"
 cp assets/launcher/ui/* "$APP/Contents/Resources/assets/launcher/ui/"
-cp assets/launcher/*.png assets/launcher/font.ttf assets/launcher/font_body.ttf "$APP/Contents/Resources/assets/launcher/"
+cp assets/launcher/*.png assets/launcher/font.ttf assets/launcher/font_body.ttf assets/launcher/click.wav assets/launcher/hover.wav "$APP/Contents/Resources/assets/launcher/"
 
 # Every library outside the system, followed through the ones they load:
 # copied by their real file, named by their install name's file, and every

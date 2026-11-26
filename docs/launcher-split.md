@@ -493,6 +493,14 @@ only kit games (`i >= 3`).
     path up to 1.3.1): mw3pm does at its every start, its `--status`
     included, before the launcher reads where its data is. mw3 and mw3import
     keep `data_folder_start.h`.
+  - **Piece 6 done (2026-11-26): zar, zutl_path and zrndr_tint leave.** The
+    menu's sounds are `assets/launcher/hover.wav` and `click.wav` (Stable
+    Audio 3.0 Small SFX on the Mac's Crucible; prompts, seed and processing
+    in assets/launcher/README.md), loaded from the first screen with no
+    install; every package carries them (make_app.sh, make-appimage.sh,
+    package.cmd), and check_dist.ps1 allows those two `.wav` and no other.
+    `repair_old_names` is the launcher's own copy (`launcher_own`), and the
+    `zrndr_tint` include and launcher.h's ripple line are gone.
 - **b7, the games catalog (fetched).** After b0, and it needs nothing else
   from (b), so it may move earlier. A newer catalog is fetched from mw3-re
   (its main, or a release asset) the same way as the update check: the

@@ -49,6 +49,9 @@ std::string any_case(const std::string& root, const std::string& rel);
 // As zutl's.
 bool narrow_paths_utf8();
 std::string path_from_config(const std::string& s);
+// Files of `write_dir` an earlier build named wrongly on Windows (UTF-8 through the code page's calls), put right once
+// per settings folder; nothing elsewhere. As zutl's.
+void repair_old_names(const std::string& write_dir);
 
 // A game's data in words, as the game's own setup says it (mech3::setup's version_words; b6): "MechWarrior 3 1.2",
 // "MechWarrior 3 (partly patched to 1.2)", "MechWarrior 3: Pirate's Moon 1.0". found_words: "Found <that> at <dir>."

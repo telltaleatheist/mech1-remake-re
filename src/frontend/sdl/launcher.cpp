@@ -29,8 +29,6 @@
 #include <thread>
 
 #include "frontend/sdl/sdl_install.h"
-#include "gamez/zutil/zutl_zar.h"
-#include "gamez/zrender/zrndr_tint.h"
 #if defined(MW3_GAME_FIND_SCREEN)
 #include "frontend/sdl/launcher_mw3_setup.h"
 #include "mech3/source_map.h"
@@ -192,10 +190,9 @@ const char* const kFindWordsPm =
     "or a folder where it's installed. We copy what the game needs into its own user folder; your disc and any "
     "installed copy are left untouched.";
 
-// The main menu's own sounds (sounds.zrd's MAINMENU set: menu_rollover,
-// sfx_button2.wav at 0.7; menu_select, sfx_button6.wav), read from the
-// player's sound archive as zSnd reads it; none without an install (we ship
-// no sounds of our own).
+// The menu's sounds, the launcher's own (b6, 2026-11-26; assets/launcher/README.md): hover.wav on a rollover at 0.7
+// and click.wav on a select, the gains of the main menu's (sounds.zrd's MAINMENU set). Before b6 they were the game's
+// own sfx_button2 and sfx_button6, read from the install's sound archive.
 struct Sounds {
   enum { kRollover, kSelect };
   SDL_AudioStream* stream[2] = {};
@@ -207,39 +204,19 @@ struct Sounds {
       SDL_free(audio[i]);
     }
   }
-  bool load(const std::string& install) {
-    static const char* const kFiles[2] = {"sfx_button2.wav", "sfx_button6.wav"};
+  bool load(const std::string& dir) {
+    static const char* const kFiles[2] = {"hover.wav", "click.wav"};
     static const float kGain[2] = {0.7f, 1.0f};
-    for (const char* arc : {"soundsL.zbd", "soundsH.zbd"}) {
-      zutl_zar::Archive a;
-      zutl_zar::init(a);
-      const std::string path = own::any_case(install, std::string("zbd/") + arc);
-      if (path.empty() || !fs::is_regular_file(path) || !zutl_zar::open(a, path.c_str())) {
-        zutl_zar::destroy(a);
-        continue;
-      }
-      int got = 0;
-      for (int i = 0; i < 2; ++i) {
-        const int e = zutl_zar::find(a, kFiles[i]);
-        uint32_t size = 0;
-        if (e < 0) continue;
-        zutl_zar::read(a, e, nullptr, &size);
-        std::vector<Uint8> bytes(size);
-        if (!size || zutl_zar::read(a, e, bytes.data(), &size) != 0) continue;
-        SDL_AudioSpec spec{};
-        if (!SDL_LoadWAV_IO(SDL_IOFromConstMem(bytes.data(), bytes.size()), true, &spec, &audio[i], &len[i])) continue;
-        stream[i] = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr);
-        // MW3_LAUNCHER_MUTE (checks): loaded and played at no volume.
-        if (stream[i]) SDL_SetAudioStreamGain(stream[i], SDL_getenv("MW3_LAUNCHER_MUTE") ? 0.0f : kGain[i]), ++got;
-      }
-      zutl_zar::close(a);
-      zutl_zar::destroy(a);
-      if (got) {
-        std::printf("mw3: launcher: the menu's sounds from %s (%d of 2)\n", path.c_str(), got);
-        return true;
-      }
+    int got = 0;
+    for (int i = 0; i < 2 && !dir.empty(); ++i) {
+      SDL_AudioSpec spec{};
+      if (!SDL_LoadWAV((fs::path(dir) / kFiles[i]).string().c_str(), &spec, &audio[i], &len[i])) continue;
+      stream[i] = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr);
+      // MW3_LAUNCHER_MUTE (checks): loaded and played at no volume.
+      if (stream[i]) SDL_SetAudioStreamGain(stream[i], SDL_getenv("MW3_LAUNCHER_MUTE") ? 0.0f : kGain[i]), ++got;
     }
-    return false;
+    if (got) std::printf("mw3: launcher: the menu's sounds from %s (%d of 2)\n", dir.c_str(), got);
+    return got > 0;
   }
   void play(int i) {
     if (!stream[i]) return;
@@ -690,7 +667,7 @@ class Launcher {
   LauncherChoice choice_;
   bool done_ = false;
   Sounds sounds_;
-  bool sounds_on_ = false, sounds_tried_ = false;  // loaded once there is an install (at the start or once found)
+  bool sounds_on_ = false, sounds_tried_ = false;  // loaded with the first screen
 };
 
 namespace {
@@ -2061,9 +2038,9 @@ void Launcher::layout() {
     first_focus = static_cast<int>(buttons_.size()) - 1;
     add(kBack, "go", "BACK");
   };
-  if (sounds_on_ && install_.ok && !sounds_tried_) {  // any screen, once there is an install
+  if (sounds_on_ && !sounds_tried_) {  // the first screen's
     sounds_tried_ = true;
-    if (SDL_InitSubSystem(SDL_INIT_AUDIO)) sounds_.load(install_.dir);
+    if (SDL_InitSubSystem(SDL_INIT_AUDIO)) sounds_.load(assets_dir());
   }
   switch (screen_) {
     case kMain: {

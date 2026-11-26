@@ -8586,10 +8586,9 @@ TEST(sdl_program_launcher_shows_the_games_status) {
          !has(r.log, "no first frame from the game after") && has(r.log, "the launcher closes"));
 }
 
-// The launcher's sounds (lead's launcher list, item 4; docs/launcher.md):
-// the main menu's own rollover and select (sounds.zrd's MAINMENU set:
-// sfx_button2.wav, sfx_button6.wav) read from the install's sound archive,
-// none of ours. Skipped where the machine has no audio device.
+// The launcher's sounds (lead's launcher list, item 4; docs/launcher.md): its own rollover and select since b6
+// (assets/launcher's hover.wav and click.wav, 2026-11-26; before, the game's sfx_button2 and sfx_button6 from the
+// install's sound archive), with no install found. Skipped where the machine has no audio device.
 TEST(sdl_program_launcher_plays_the_menus_sounds) {
   if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) return;
   const bool device = SDL_GetNumAudioDrivers() > 0 && std::string(SDL_GetCurrentAudioDriver() ? SDL_GetCurrentAudioDriver() : "") != "dummy";
@@ -8602,7 +8601,13 @@ TEST(sdl_program_launcher_plays_the_menus_sounds) {
   const std::string log = dir + "/sounds.log";
   setenv("MW3_LAUNCHER_MUTE", "1", 1);  // played at no volume (the machine may be streaming)
   setenv("MW3_LAUNCHER_FRAMES", "5", 1);
+  setenv("MW3_FIND_INSTALL", "1", 1);  // no game files: the sounds need none
+  const std::string home_was = std::getenv("HOME") ? std::getenv("HOME") : "";
+  std::filesystem::create_directories(dir + "/home", ec);
+  setenv("HOME", (dir + "/home").c_str(), 1);  // nothing of this computer's for a search to find
   const pid_t pid = spawn_launcher({"--write-dir", dir + "/wd", "--window", "640x480", "--hidden"}, log);
+  setenv("HOME", home_was.c_str(), 1);
+  unsetenv("MW3_FIND_INSTALL");
   unsetenv("MW3_LAUNCHER_FRAMES");
   unsetenv("MW3_LAUNCHER_MUTE");
   int status = 0;
@@ -8611,7 +8616,9 @@ TEST(sdl_program_launcher_plays_the_menus_sounds) {
   const std::string text((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
   const size_t at = text.find("the menu's sounds from ");
   std::printf("launcher sounds: %s\n", at == std::string::npos ? "none" : text.substr(at, text.find('\n', at) - at).c_str());
-  EXPECT(at != std::string::npos && text.find("(2 of 2)", at) != std::string::npos && text.find("/zbd/sounds", at) != std::string::npos);
+  const size_t eol = at == std::string::npos ? at : text.find('\n', at);
+  EXPECT(at != std::string::npos && text.substr(at, eol - at).find("assets/launcher (2 of 2)") != std::string::npos);
+  EXPECT(text.find("Found MechWarrior 3 at") == std::string::npos);  // and no game files were found
 }
 
 // A check that loses its window's focus still runs to its end (lead, after

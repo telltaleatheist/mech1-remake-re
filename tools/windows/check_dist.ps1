@@ -30,10 +30,13 @@ foreach ($folder in $folders) {
 }
 # Our free fonts are the only .ttf a package may hold (assets\launcher, assets\fonts); the game's are not.
 $ours = 'font.ttf', 'font_body.ttf', 'LiberationSans-Regular.ttf', 'LiberationMono-Regular.ttf', 'Anton-Regular.ttf'
+# The launcher's own menu sounds (generated: assets\launcher\README.md), the only .wav a package may hold.
+$ourWavs = (Join-Path (Resolve-Path -LiteralPath $Dist).Path 'assets\launcher\click.wav'), (Join-Path (Resolve-Path -LiteralPath $Dist).Path 'assets\launcher\hover.wav')
 # By the full path: package.cmd passes the folder relative, the files come back absolute.
 $mw1data = (Join-Path (Resolve-Path -LiteralPath $Dist).Path 'mw1data') + [IO.Path]::DirectorySeparatorChar
 $game = Get-ChildItem -LiteralPath $Dist -Recurse -File |
   Where-Object { -not ($Mw1 -and $_.FullName.StartsWith($mw1data, [StringComparison]::OrdinalIgnoreCase)) } |
+  Where-Object { $_.FullName -notin $ourWavs } |
   Where-Object { $_.Extension -in '.zbd', '.avi', '.fmv', '.m1v', '.zrd', '.wav', '.ogg', '.flac' -or $_.Name -ieq 'mech3.exe' -or
                  ($_.Extension -ieq '.ttf' -and $_.Name -cnotin $ours) }
 # The launcher (the main shortcut) and the game it starts.

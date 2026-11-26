@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -94,6 +95,21 @@ std::string to_utf8(const std::wstring& w) {
                         nullptr);
   return s;
 }
+// What an earlier build meant by this name: it passed UTF-8 to calls that read the system's code page, so "é" reached
+// the disk as "Ã©". Empty when the name is not such a one.
+std::wstring meant_by(const std::wstring& name, UINT cp) {
+  BOOL lost = FALSE;
+  const int n = WideCharToMultiByte(cp, WC_NO_BEST_FIT_CHARS, name.data(), static_cast<int>(name.size()), nullptr, 0,
+                                    nullptr, &lost);
+  if (n <= 0 || lost) return {};
+  std::string bytes(static_cast<size_t>(n), '\0');
+  WideCharToMultiByte(cp, WC_NO_BEST_FIT_CHARS, name.data(), static_cast<int>(name.size()), bytes.data(), n, nullptr,
+                      &lost);
+  bool plain = true;
+  for (const char c : bytes) plain = plain && static_cast<unsigned char>(c) < 0x80;
+  if (plain || lost || !valid_utf8(bytes)) return {};
+  return to_wide(CP_UTF8, bytes);
+}
 #endif
 
 }  // namespace
@@ -169,9 +185,40 @@ std::string path_from_config(const std::string& s) {
   if (!narrow_paths_utf8() || valid_utf8(s)) return s;
   return to_utf8(to_wide(system_code_page(), s));
 }
+// Once per settings folder (its mark stays in it). Only our own folders inside it, not following a link or junction
+// out; renames only, each logged, never over a file; a name that cannot be mapped stays.
+void repair_old_names(const std::string& write_dir) {
+  if (!narrow_paths_utf8() || write_dir.empty()) return;
+  const UINT cp = system_code_page();
+  if (cp == CP_UTF8) return;  // nothing to undo: earlier builds wrote UTF-8 there too
+  std::error_code ec;
+  const fs::path mark = fs::path(write_dir) / L"names-utf8.done";
+  if (fs::exists(mark, ec)) return;
+  for (const char* folder : {"pilots", "configs", "keys", "export", "import"}) {
+    const fs::path root = fs::path(write_dir) / folder;
+    if (fs::symlink_status(root, ec).type() != fs::file_type::directory) continue;
+    std::vector<fs::path> paths;
+    for (fs::recursive_directory_iterator it(root, ec), end; !ec && it != end; it.increment(ec)) paths.push_back(it->path());
+    ec.clear();
+    for (auto p = paths.rbegin(); p != paths.rend(); ++p) {  // files before their folders
+      const std::wstring meant = meant_by(p->filename().native(), cp);
+      if (meant.empty()) continue;
+      const fs::path to = p->parent_path() / meant;
+      if (fs::exists(to, ec)) {
+        std::printf("mw3: an old name left alone, the right one is taken: %s\n", to_utf8(p->native()).c_str());
+        continue;
+      }
+      fs::rename(*p, to, ec);
+      std::printf(ec ? "mw3: an old name could not be put right: %s\n" : "mw3: an old name put right: %s\n",
+                  to_utf8(ec ? p->native() : to.native()).c_str());
+    }
+  }
+  if (std::FILE* f = _wfopen(mark.c_str(), L"wb")) std::fclose(f);
+}
 #else
 bool narrow_paths_utf8() { return true; }
 std::string path_from_config(const std::string& s) { return s; }
+void repair_old_names(const std::string&) {}
 #endif
 
 std::string game_words(const std::string& v, bool pirates_moon) {
