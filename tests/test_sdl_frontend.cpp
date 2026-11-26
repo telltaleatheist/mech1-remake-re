@@ -9982,7 +9982,8 @@ TEST(sdl_program_launcher_quits_without_waiting_on_the_network) {
 // The combined package's layouts (release.md, Packages with Pirate's Moon): the launcher with mw3 and mw3pm beside it
 // in a program folder (Windows' and a zip's), a Mac app's Contents/MacOS (with its Info.plist; SDL's base path is
 // Resources there, the launcher looks beside its own executable), and an AppImage's usr/bin. Each shows both games
-// with their programs' versions (read from the files) and starts each.
+// with their programs' versions (read from the files) and their data (from their status: since b6 the launcher reads
+// no game files, so the stand-ins serve their setup as the games do) and starts each.
 TEST(sdl_program_package_layouts_find_both_games) {
   namespace fs = std::filesystem;
   std::error_code ec;
@@ -10012,10 +10013,19 @@ TEST(sdl_program_package_layouts_find_both_games) {
                                                            "<key>CFBundleExecutable</key><string>mw3launcher</string></dict></plist>\n";
     }
     fs::copy_file(MW3_LAUNCHER_BIN, l.bin / "mw3launcher", fs::copy_options::overwrite_existing, ec);
-    for (const auto& [game, version] : {std::pair<const char*, const char*>{"mw3", "v1.1.0"}, {"mw3pm", "pm-v1.0.1"}}) {
-      // A script that says which ran, its file carrying the version tag after a comment.
-      std::ofstream(l.bin / game, std::ios::binary) << "#!/bin/sh\necho " << game << " >> \"" << (l.bin / "started.txt").string() << "\"\nexit 0\n# "
-                                                    << tag << version << std::string(1, '\0') << "\n";
+    struct Stand {
+      const char *game, *version, *id, *data;
+      fs::path install;
+    };
+    for (const Stand& g : {Stand{"mw3", "v1.1.0", "mech3", "1.2", MW3_GAME_DIR}, Stand{"mw3pm", "pm-v1.0.1", "mech3-pm", "1.0", pm_game}}) {
+      // A script that answers its status (ready, its data) and says when it was started, its file carrying the
+      // version tag after a comment.
+      std::ofstream(l.bin / g.game, std::ios::binary)
+          << "#!/bin/sh\nif [ \"$1\" = --status ]; then echo '{\"kit\": 1, \"game\": \"" << g.id << "\", \"version\": \"" << g.version
+          << "\", \"files\": {\"state\": \"ready\", \"where\": \"" << g.install.string() << "\", \"data\": \"" << g.data
+          << "\"}, \"first_run\": {\"pending\": []}, \"needs\": [], \"setup\": 1, \"play\": 1}'; exit 0; fi\n"
+          << "echo " << g.game << " >> \"" << (l.bin / "started.txt").string() << "\"\nexit 0\n# " << tag << g.version << std::string(1, '\0') << "\n";
+      const char* game = g.game;
       fs::permissions(l.bin / game, fs::perms::owner_all, ec);
     }
     std::string text;
@@ -11130,7 +11140,8 @@ TEST(sdl_pm_status_checks_its_copy) {
   });
   EXPECT(pmbin::in(disc, "\"state\": \"ready\"") && !pmbin::in(disc, "soundsH.zbd is empty"));
   const std::string changed = status(copy("changed", "", "", "force_eff.ifr"), "changed");
-  EXPECT(pmbin::in(changed, "\"state\": \"ready\"") && pmbin::in(changed, "\"data\": \"unknown\""));
+  // A changed file: ready, its data's version unknown, which a status leaves out (the kit's "" is unknown).
+  EXPECT(pmbin::in(changed, "\"state\": \"ready\"") && !pmbin::in(changed, "\"data\": "));
   EXPECT(listing(quiet) == before && fs::file_size(quiet + "/zbd/soundsH.zbd", ec) == 0);
   if (!check::failures) fs::remove_all(dir, ec);
 }
