@@ -169,7 +169,7 @@ int main(int argc, char** argv) {
   o.program_dir = own_dir().string();
   o.game_bin = beside("MW3_GAME_BIN", "mw3");
   o.pm_bin = beside("MW3_PM_BIN", "mw3pm");
-  o.mw1_bin = beside("MW3_MW1_BIN", "mw1");  // MW1: the remake; when there, in place of Elthial's port
+  o.mw1_bin = beside("MW3_MW1_BIN", "mw1");  // MechWarrior 1 Remake, when there
   o.mw1r_bin = beside("MW3_MW1R_BIN", "mw1r");  // MW1 Rebuild (MW1's ORIGINAL tab)
   o.chi_bin = beside("MW3_CHI_BIN", "chi");        // Inception Rebuild (INCEPTION's ORIGINAL tab)
   o.chirm_bin = beside("MW3_CHIRM_BIN", "chirm");  // Inception Remake (its REMAKE tab)

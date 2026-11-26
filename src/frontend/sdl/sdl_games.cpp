@@ -606,9 +606,8 @@ bool in_own_mount(const std::string& bin) {
 
 // ---- Copies installed without the launcher (2026-11-24) ----
 
-namespace {
-
-// A game's id in its --status (re-setup-kit's contract), where known: a stand-in for a stamp an AppImage hides.
+// A game's id in its --status (re-setup-kit's contract), where known: a stand-in for a stamp an AppImage hides; the
+// launcher's --with names the needed games by it (b5).
 const char* kit_id(u::Game g) {
   switch (g) {
     case u::Game::kMw3: return "mech3";
@@ -619,6 +618,8 @@ const char* kit_id(u::Game g) {
     default: return "";
   }
 }
+
+namespace {
 
 #if defined(_WIN32)
 // Its Setup's uninstall entry (tools/windows/installer.iss: the AppId, the same every version), where known.

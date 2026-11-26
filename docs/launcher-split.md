@@ -74,8 +74,8 @@ small copy that is the launcher's own.
 
 | Piece | Used for | Goes to |
 |---|---|---|
-| `frontend/sdl/mw1_files` (through `mech3/source_archive.h`, which is the kit's archive reader now) | MechWarrior (1989)'s files for the Remake: `search`, `game_of_pick`, `copy_in` into `<write dir>/mw1`, `game_valid`, `has_main`, `in_unpacked`, `unpacked_dir`. Also `original_supported`, for Elthial's port (PLAY ORIGINAL, `kMw1Original`) when it sits beside the launcher. | The Remake: its own served setup (step a5). The raw port's own path: out in b5 (Decided, 6). |
-| The Remake's start | The launcher passes `--install <PM> --mw3-install <MW3> --mw1-game <MW1> --no-launcher`. The Remake's status already says `needs: ["mech3-pm", "mech3", "mech1"]` and keeps the three in mw1.cfg. | Kit: an optional way to hand a needed game's folder (section 2, Needs). |
+| `frontend/sdl/mw1_files` (through `mech3/source_archive.h`, which is the kit's archive reader now) | MechWarrior (1989)'s files for the Remake: `search`, `game_of_pick`, `copy_in` into `<write dir>/mw1`, `game_valid`, `has_main`, `in_unpacked`, `unpacked_dir`. Also `original_supported`, for Elthial's port (PLAY ORIGINAL, `kMw1Original`) when it sits beside the launcher. | The Remake: its own copy, `mw1/src/mw1_game_files` (namespace `mw1::files`, without `original_supported`), behind its served setup (b5). Deleted from mech3-re in b5 with `test_mw1_files` (its checks are the Remake's `mw1_game_files_*`) and `tests/mw1_btech_stand_in.h`. The raw port's own path: out in b5 (Decided, 6). |
+| The Remake's start | The launcher passes `--install <PM> --mw3-install <MW3> --mw1-game <MW1> --no-launcher`. The Remake's status already says `needs: ["mech3-pm", "mech3", "mech1"]` and keeps the three in mw1.cfg. | Kit: an optional way to hand a needed game's folder (section 2, Needs). Done in b5: a Remake with `"setup": 1` is given `--with mech3=<MW3> --with mech3-pm=<PM>` for its status and its start; its needs are `["mech3-pm", "mech3"]`, never in its `missing`; an older one keeps the three flags. |
 
 **The launcher's own, free of game code: they move with it to the hub.**
 
@@ -246,6 +246,8 @@ only kit games (`i >= 3`).
   its needs. Tests: mw1's ctest `mw1mousesettings` pattern for a new
   `mw1setup` (stand-in BTECH.EXE folders, as `test_mw1_files` has them), and
   `test_mw1_files`' six checks moved there.
+  Done with b5 (mech1-remake-re 285cf63ac): `mw1/src/mw1_game_files`,
+  `mw1setup`, `test_mw1_game_files`; an empty user folder refused in words.
 
 ### (b) The launcher on the contract for every game
 
@@ -307,6 +309,16 @@ only kit games (`i >= 3`).
   comes out (Decided, 6), with its BTECH.EXE finder. Tests:
   `sdl_program_launcher_starts_mechwarrior_1`, `starts_mechwarrior_1989`,
   `family_cards`.
+  Done (2026-11-26). The launcher's MW1 finder and copy (`find_mw1_game`,
+  `offer_mw1`, `copy_mw1`, `kMw1Files`, `Work::kMw1Copy`, `mw1_files.{h,cpp}`)
+  and the port's path (`port_exe_`, `run_mw1`, `kMw1Original`, PLAY
+  ORIGINAL's confirm, the BTECH.EXE check, the shots `mw1found` and
+  `mw1origfound`) are out; `starts_mechwarrior_1989` is retired,
+  `starts_mechwarrior_1` rewritten for a served and an older Remake, and
+  `offers_an_older_remake_its_update` added (an older Remake with no
+  `mw1_game=` gets its UPDATE, not a dead PLAY). The port's opt-in packaging
+  scripts are still in the tree (docs/launcher.md, MechWarrior 1's files and
+  Elthial's port).
 - **b6.** The game code leaves the launcher's target. `mw3launcher` links
   rekit, rekit_sdl, RmlUi and its own sources, with no `mw3core`, `mw3sdl` or
   `mw3text`. MY DATA FOLDER runs on the kit's `rekit/data_folder` with the
@@ -433,6 +445,11 @@ setup in the launcher, on MW3_GAME_DIR, behind a shell stand-in for mw3
   `MW3-Rebuild-*` release whose launcher takes both names. From c4 on,
   mech3-re's releases carry no `MW3-Rebuild-*` asset; otherwise a launcher
   built from mech3-re's copy with a higher tag would win the update check.
+  **The new launcher and the new Remake ship together** (b5): the launcher's
+  MW1 finder is gone, so an older Remake whose player has no `mw1_game=` yet
+  can only be offered its UPDATE. Publish the Remake with `"setup": 1`
+  (mech1-remake-re 285cf63ac or later) in the same release as the first
+  launcher with b5.
 
 ### (d) The old copy out of mech3-re
 

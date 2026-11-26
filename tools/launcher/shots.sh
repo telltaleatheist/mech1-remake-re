@@ -20,7 +20,7 @@ clear_ours() {  # an empty or missing folder, or one with our marker: cleared an
   rm -rf "$1"; mkdir -p "$1"; : > "$1/.launcher-shots"
 }
 clear_ours "$O"; clear_ours "$S"
-SCREENS="main setup pick files notes disc pmnotes pmdisc data found place nomusic mw1found mw1origfound update updatebox chifiles copies pmcopies work"
+SCREENS="main setup pick files notes disc pmnotes pmdisc data found place nomusic update updatebox chifiles copies pmcopies work"
 for k in mw3 pm mw1 mw1r chi chirm; do SCREENS="$SCREENS game:$k game:$k:uninstall"; done
 # Setup A: games on demand against stand-in releases (an update for PM, MW1 Rebuild out, Inception not, its remake out).
 A=$S/A; mkdir -p $A/api $A/games/pm $A/games/mw1 $A/wd/music $A/pmwd; printf x > $A/wd/music/track02.wav
