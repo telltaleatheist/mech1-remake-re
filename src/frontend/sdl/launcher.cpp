@@ -4,7 +4,7 @@
 #include "frontend/sdl/launcher_ui.h"
 #include "frontend/sdl/log_start.h"
 #include "frontend/sdl/sdl_focus.h"
-#include "frontend/sdl/data_folder_start.h"
+#include "frontend/sdl/launcher_folder.h"
 #include "frontend/sdl/font_search.h"
 #if defined(MW3_GAME_FIND_SCREEN)
 #include "frontend/sdl/launcher_notes.h"
@@ -400,7 +400,7 @@ class Launcher {
   // Each game's music and converted movies: its own folder's when it has one, else the user folder (media_dir).
   std::string media() const { return sdlfe::media_dir(install_.ok ? install_.dir : std::string(), o_.write_dir); }
   std::string pm_media() { return sdlfe::media_dir(pm_dir_, pm_wd()); }
-  std::string files_usual() const { return files_pm_ ? pm_usual() : usual_folder(); }
+  std::string files_usual() const { return files_pm_ ? pm_usual() : own::usual_folder(); }
   void pm_refresh();
   void pm_refresh_older();
   std::string pm_in_use() const;
@@ -907,7 +907,7 @@ std::string Launcher::record_folder(int i) {
   if (i == 1) return check && !SDL_getenv("MW3_PM_WRITE_DIR") && !SDL_getenv("MW3_USUAL_FOLDER") ? std::string() : pm_wd();
   if (i == 2 || i == 3) {
     if (check && !SDL_getenv("MW3_USUAL_FOLDER")) return {};
-    const std::string mw3 = usual_folder();
+    const std::string mw3 = own::usual_folder();
     return mw3.empty() ? std::string() : (fs::path(mw3).parent_path() / (i == 2 ? "MechWarrior 1 Remake" : "MechWarrior 1 Rebuild")).string();
   }
   return {};
@@ -2816,7 +2816,7 @@ void Launcher::picked(int what, const std::string& path) {
     return layout();
   }
   if (what == kDataPick)
-    return ask_move(mech3::data_folder::destination(path, files_usual(), files_pm_ ? "Pirate's Moon Data" : "MechWarrior 3 Data"));
+    return ask_move(rekit::data_folder::destination(path, files_usual(), files_pm_ ? "Pirate's Moon Data" : "MechWarrior 3 Data"));
   if (what == kPoint && kit_files_ >= 0) return kit_look(path);  // the game knows what a pick is
 #if defined(MW3_GAME_FIND_SCREEN)
   if (what == kPoint) {  // an image or archive as it is, any other file for its folder
@@ -2930,17 +2930,17 @@ void Launcher::mw3_notes_seen() {
 // MicroProse/Pirate's Moon moved across once (usual_folder; MW3_USUAL_FOLDER's sibling in checks).
 std::string Launcher::pm_usual() const {
   if (std::getenv("MW3_USUAL_FOLDER")) {
-    const std::string mw3 = usual_folder();
+    const std::string mw3 = own::usual_folder();
     return mw3.empty() ? std::string() : (fs::path(mw3).parent_path() / "Pirate's Moon").string();
   }
-  static const std::string pm = usual_folder("Pirate's Moon");  // moved at most once a run
+  static const std::string pm = own::usual_folder("Pirate's Moon");  // moved at most once a run
   return pm;
 }
 
 // Its folder in use: MW3_PM_WRITE_DIR (checks), else the usual one or where
-// its pointer leads (mech3/data_folder.h), as mw3pm resolves it.
+// its pointer leads (rekit/data_folder.h), as mw3pm resolves it.
 std::string Launcher::pm_wd() {
-  if (o_.pm_write_dir.empty() && !pm_usual().empty()) o_.pm_write_dir = mech3::data_folder::resolve(pm_usual()).dir;
+  if (o_.pm_write_dir.empty() && !pm_usual().empty()) o_.pm_write_dir = rekit::data_folder::resolve(pm_usual(), own::data_game()).dir;
   return o_.pm_write_dir;
 }
 
@@ -3141,7 +3141,7 @@ bool Launcher::data_elsewhere() {
 // The player's folder to `to` (docs/program.md, The data folder): asked first,
 // with the sizes; a move that cannot be done is said and nothing starts.
 void Launcher::ask_move(const std::string& to) {
-  const mech3::data_folder::Plan p = mech3::data_folder::plan(files_wd(), to, files_usual());
+  const rekit::data_folder::Plan p = rekit::data_folder::plan(files_wd(), to, files_usual(), own::data_game());
   if (!p.error.empty()) {
     status_ = p.error, status_good_ = false;
     screen_ = kDataScreen, layout();
@@ -3165,7 +3165,7 @@ void Launcher::start_move() {
   move_copied_out_ = copied;
   work_->start("MOVING YOUR DATA", [from, to, usual, copied](const own::ProgressFn& f) {
     own::Result r;
-    const mech3::data_folder::Moved m = mech3::data_folder::move_data(from, to, usual, [&](double at, const std::string& name) {
+    const rekit::data_folder::Moved m = rekit::data_folder::move_data(from, to, usual, own::data_game(), [&](double at, const std::string& name) {
       return f(own::Progress{"Copying and checking", at, name});
     });
     *copied = m.copied;
@@ -3185,7 +3185,7 @@ void Launcher::moved(const own::Result& r) {
     return;
   }
   move_copied_ = *move_copied_out_;
-  using mech3::data_folder::moved_path;
+  using rekit::data_folder::moved_path;
   const std::string from = move_from_, to = move_to_;
   if (files_pm_) {  // Pirate's Moon's: its install inside it follows; mw3pm finds the folder by its pointer
     const std::string dir = moved_path(pm_dir_, from, to);
@@ -3701,7 +3701,7 @@ void Launcher::activate(int id) {
       const std::vector<std::string> copied = move_copied_;
       work_->start("REMOVING THE OLD COPY", [old, now, usual, copied](const own::ProgressFn&) {
         own::Result r;
-        const mech3::data_folder::Removed d = mech3::data_folder::remove_old(old, now, copied, usual);
+        const rekit::data_folder::Removed d = rekit::data_folder::remove_old(old, now, copied, usual, own::data_game());
         r.ok = d.error.empty() && d.failed.empty();
         r.summary = !d.error.empty()     ? d.error
                     : d.failed.empty()   ? "The old copy is removed."

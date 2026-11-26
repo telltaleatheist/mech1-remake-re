@@ -483,6 +483,16 @@ only kit games (`i >= 3`).
     plain start against `--status`.
   - **Piece 3 done (2026-11-26): `mech3/source_map`** is included, and the
     last look's `found_` kept, only under `MW3_GAME_FIND_SCREEN`.
+  - **Piece 4 done (2026-11-26): the data folder on the kit.** The launcher's
+    start and MY DATA FOLDER call `rekit::data_folder` directly
+    (`launcher_folder.{h,cpp}`, the launcher's own: `usual_folder`,
+    `data_folder_at_start` and MechWarrior 3's `Game` record, the same one
+    `mech3::data_folder` gives the kit); sdl_games' games-folder move calls
+    `rekit::data_folder::retarget_config`. The launcher no longer adopts
+    Pirate's Moon's old nested folder (`adopt_nested`, a Windows launcher's
+    path up to 1.3.1): mw3pm does at its every start, its `--status`
+    included, before the launcher reads where its data is. mw3 and mw3import
+    keep `data_folder_start.h`.
 - **b7, the games catalog (fetched).** After b0, and it needs nothing else
   from (b), so it may move earlier. A newer catalog is fetched from mw3-re
   (its main, or a release asset) the same way as the update check: the
