@@ -241,6 +241,7 @@ struct Args {
   bool no_launcher = false;   // --no-launcher (ours: launcher.h): no find screen, the old dialog if there is no install
   bool status = false, setup = false;  // --status, --setup (ours: the launcher contract, rekit/status.h)
   std::vector<std::string> setup_ask;  // --setup --look X ...: an ask the kit serves (rekit/sdl/setup_serve.h), no screen
+  std::string launcher_shot, launcher_screen = "main";  // --launcher-shot F [--launcher-screen S]: the find screen's (checks)
   std::string ready_file;     // --ready-file F (ours, sdl_child.h): written at the first frame shown, for mw3launcher
   std::string other_write_dir, other_install;  // --other-write-dir, --other-install (ours, W15): the other game's, from mw3launcher
   std::string vfw_helper;     // --vfw-helper EXE (ours, sdl_vfw.h): the movies' Video for Windows helper; "-" none
@@ -308,7 +309,7 @@ void usage() {
       "mw3 [install-dir] [--install DIR | --install-from DISC|ISO|CUE [--install-to DIR]] [--assets DIR]... [--write-dir DIR] [--version]\n"
       "    [--mission NAME [--valve-map DIR] | --fly NAME [--variant BLOCK]] [--pos X Y Z] [--look YAW PITCH] [--vehicle-ahead M [--vehicle-hold]] [--turret-ahead M] [--mech-ahead M] [--dialog FILE NAME]\n"
       "    [--shot FILE.bmp [--shot-frame N] [--shot-any] [--shot-series K]] [--fire N [--fire-group 1..5]] [--objectives N] [--hurt F@N] [--win N] [--lose N] [--lab-mech N]\n"
-      "    [--windowed] [--original] [--import | --no-import] [--no-launcher] [--status] [--setup] [--debug-camera] [--wide-menus | --no-wide-menus] [--raw-mouse | --no-raw-mouse] [--mod NAME]... [--no-mods] [--mods] [--entry ID [--entry-play | --entry-ia | --entry-mission WORLD N [--edit]]] [--entry-pilot NAME] [--open-mods [--mods-entry ID] | --open-ia] [--check-mod DIR] [--mod-report DIR] [--build-anim DIR] [--make-starter mech|weapon|translation|mission|salvage] [--reference FILE] [--editor-guide FILE] [--pick PATH] [--save-pick PATH] [--patch ZIP|DIR] [--vfw-helper EXE | --no-vfw-helper] [--briefing c1m2] [--click N[:M]] [--click-at X,Y@N]... [--mouse-at X,Y@N[c]]... [--then ...] [--click-players X,Y@N/P]... [--click-sessions X,Y@N/S]... [--click-return X,Y@N]... [--walk] [--tap DIK@N[:M]]... [--frames N] [--frame-ms N] [--frame-times N] [--seed N] [--window WxH] [--nosound] [--hidden] [--verbose]\n"
+      "    [--windowed] [--original] [--import | --no-import] [--no-launcher] [--status] [--setup] [--launcher-shot F [--launcher-screen S]] [--debug-camera] [--wide-menus | --no-wide-menus] [--raw-mouse | --no-raw-mouse] [--mod NAME]... [--no-mods] [--mods] [--entry ID [--entry-play | --entry-ia | --entry-mission WORLD N [--edit]]] [--entry-pilot NAME] [--open-mods [--mods-entry ID] | --open-ia] [--check-mod DIR] [--mod-report DIR] [--build-anim DIR] [--make-starter mech|weapon|translation|mission|salvage] [--reference FILE] [--editor-guide FILE] [--pick PATH] [--save-pick PATH] [--patch ZIP|DIR] [--vfw-helper EXE | --no-vfw-helper] [--briefing c1m2] [--click N[:M]] [--click-at X,Y@N]... [--mouse-at X,Y@N[c]]... [--then ...] [--click-players X,Y@N/P]... [--click-sessions X,Y@N/S]... [--click-return X,Y@N]... [--walk] [--tap DIK@N[:M]]... [--frames N] [--frame-ms N] [--frame-times N] [--seed N] [--window WxH] [--nosound] [--hidden] [--verbose]\n"
       "    [-nofmv] [-seasick] [-cdN]\n"
       "See docs/program.md.\n");
 }
@@ -462,6 +463,8 @@ bool parse(int argc, char** argv, Args& a) {
     else if (s == "--windowed") a.windowed = true;
     else if (s == "--no-import") a.no_import = true;
     else if (s == "--no-launcher") a.no_launcher = true;
+    else if (s == "--launcher-shot" && next(1)) a.launcher_shot = argv[++i];
+    else if (s == "--launcher-screen" && next(1)) a.launcher_screen = argv[++i];
     else if (s == "--status") a.status = true;
     else if (s == "--setup") {
       a.setup = true;
@@ -899,7 +902,7 @@ int program(int argc, char** argv) {
   }
   if (a.status) return print_status(a);
   if (!a.setup_ask.empty()) return serve_setup_ask(a);
-  if (!a.shot.empty()) a.hidden = true;
+  if (!a.shot.empty() || !a.launcher_shot.empty()) a.hidden = true;
   // Ours (MW1's FIXES 30): a run no player is at never holds or moves the system's pointer (pointer_hands_off.h).
   if (a.hidden || a.frames > 0 || !a.chain.empty() || !a.modes.empty()) platform::set_pointer_hands_off(true);
   mech3::mods_program_version() = MW3_VERSION;  // game_version= in mod.txt (upgrades/mods/mod_needs.h)
@@ -1060,7 +1063,7 @@ int program(int argc, char** argv) {
                             a.mission.empty() && !a.fly && a.dialog_file.empty() && a.movie.empty() && a.install.empty() &&
                             a.install_from.empty() && a.patch.empty() && a.original.find("-nofmv") == std::string::npos;
   // --setup (the launcher contract): the find screen alone, whatever is found.
-  bool setup_only = a.setup;
+  bool setup_only = a.setup || !a.launcher_shot.empty();  // a shot of the find screen: drawn once, then quit
   std::string look_first;  // a find to copy in (below)
   if (!a.ready_file.empty()) sdlfe::set_ready_file(a.ready_file);
   mech3::mods_other_game() = {a.other_write_dir, a.other_install};  // W15: a mod for the other game goes there
@@ -1096,6 +1099,7 @@ int program(int argc, char** argv) {
   if (setup_only) {
     sdlfe::LauncherOptions lo;
     lo.setup_only = setup_only;
+    lo.shot = a.launcher_shot, lo.screen = a.launcher_screen;
     lo.look_first = look_first;
     lo.choose_again = choose_again;
     lo.write_dir_fixed = write_dir_given;

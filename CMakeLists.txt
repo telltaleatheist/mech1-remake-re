@@ -882,6 +882,9 @@ if(SDL3_FOUND)
     )
     target_link_libraries(mw3 PRIVATE mw3rmlui mw3text mw3sdl mw3core SDL3::SDL3)
     target_compile_definitions(mw3 PRIVATE MW3_VERSION="${MW3_VERSION}")
+    # The games' own find screen until d1 (docs/launcher-split.md): launcher.cpp's older path (finding, checking and
+    # copying in the game files itself) is built into mw3 (and mw3pm), not into mw3launcher.
+    target_compile_definitions(mw3 PRIVATE MW3_GAME_FIND_SCREEN=1)
     # The launcher's art (assets/launcher) in a development build; a package
     # carries it beside the exe (tools/windows/package.cmd) or in the app's
     # Resources (tools/macos/make_app.sh), and keeps no path of this machine.
@@ -921,7 +924,6 @@ if(SDL3_FOUND)
       src/frontend/sdl/launcher.cpp
       src/frontend/sdl/launcher_ui.cpp
       src/frontend/sdl/launcher_own.cpp
-      src/frontend/sdl/launcher_mw3_setup.cpp
       src/frontend/sdl/sdl_update.cpp
       src/frontend/sdl/sdl_games.cpp
       src/frontend/sdl/sdl_catalog.cpp

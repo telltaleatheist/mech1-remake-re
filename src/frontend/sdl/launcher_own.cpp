@@ -174,4 +174,19 @@ bool narrow_paths_utf8() { return true; }
 std::string path_from_config(const std::string& s) { return s; }
 #endif
 
+std::string game_words(const std::string& v, bool pirates_moon) {
+  if (pirates_moon) return v.empty() ? "MechWarrior 3: Pirate's Moon" : "MechWarrior 3: Pirate's Moon " + v;
+  if (v == "1.2" || v == "1.0") return "MechWarrior 3 " + v;
+  if (v == "1.0 with 1.2 files") return "MechWarrior 3 (partly patched to 1.2)";
+  return "MechWarrior 3 (a version we don't know, perhaps modded)";
+}
+
+std::string found_words(const std::string& version, const std::string& dir, bool pirates_moon) {
+  return "Found " + game_words(pirates_moon ? std::string() : version, pirates_moon) + " at " + dir + ".";
+}
+
+std::string start_found_words(const std::string& dir, bool pirates_moon) {
+  return "Found " + (pirates_moon ? game_words("", true) : std::string("MechWarrior 3")) + " at " + dir + ".";
+}
+
 }  // namespace sdlfe::own

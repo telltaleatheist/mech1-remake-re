@@ -59,6 +59,14 @@ found or installed. The launcher below is its own program, `mw3launcher`
 
 ## The find screen and the notes (v1.0, 2026-11-02)
 
+Since launcher split b6 (2026-11-26) this screen, its checks and its notes are
+the games' own: built into mw3 (and mw3pm) only, behind `MW3_GAME_FIND_SCREEN`,
+until d1 replaces it with the kit's setup screen. mw3launcher reaches a game's
+files only through its served `--setup`; for an older program (no `setup: 1`)
+it takes mw3.cfg's `install=` / `pm_install=` unchecked, and its GAME FILES and
+PLAY with no copy say to update the game (launcher-split.md, b6 piece 1). The
+checks below run through `mw3 --launcher-shot F --launcher-screen S`.
+
 **Anything can be picked (2026-11-24).** The pickers had a filter that showed
 .bin and .iso first and hid the rest; they now show every file, and PICK A
 FOLDER is beside the picker on the find screen, in the list of copies and in

@@ -432,6 +432,36 @@ only kit games (`i >= 3`).
     tests as one batch, `test_update` and mingw.
   - **Shots** change where an older game's panel loses its found words.
     They get listed when b6 is done.
+  - **Piece 1 done (2026-11-26): the older path behind `MW3_GAME_FIND_SCREEN`.**
+    mw3's (and mw3pm's) own find screen is still launcher.cpp's, so the older
+    path cannot be deleted before d1 replaces that screen with the kit's
+    `run_setup`. Until then it is compiled only where `MW3_GAME_FIND_SCREEN`
+    is defined: the `mw3` target (and `mw3pm` on `pm`), never `mw3launcher`,
+    which no longer builds `launcher_mw3_setup.cpp`. Each block is a whole
+    function or a whole branch, with the launcher's collapsed version in its
+    `#else`: an older MW3 or Pirate's Moon (no `setup: 1`) gets its status's
+    ready `where`, else mw3.cfg's `install=` / `pm_install=`, unchecked, with
+    no notes and no movie conversion; GAME FILES, and PLAY with no copy, say to
+    update it, or start its UPDATE when one is known (`older_game`).
+    `found_words`, `start_found_words` and the version words are the
+    launcher's own (`launcher_own`). The find screen's checks run through the
+    game's program (`mw3 --launcher-shot F --launcher-screen S`; mw3pm's on
+    `pm`, `MW3PM_BIN`), and `takes_older_games_unchecked` runs untagged
+    stand-ins through mw3launcher. What the launcher checked for Pirate's
+    Moon before is mw3pm's now, tested against it on `pm` (`MW3PM_BIN`,
+    outside the PM suite's MW3-only regions): `sdl_pm_status_checks_its_copy`
+    (its `--status`), `sdl_pm_find_screen_game_files` (install, an MW3 pick,
+    ADD FROM MY DISC, no music), `sdl_pm_find_screen_lists_its_copy` and
+    `sdl_pm_find_screen_notes_fit_above_the_buttons`.
+    Shots (tools/launcher/shots.sh, both builds in one folder): 8 of 62
+    change, all setup A's Pirate's Moon, an untagged stand-in, so an older
+    program: its panel line loses "data 1.0" (main, main_big, chifiles,
+    updatebox), its GAME FILES row its version and lacks (game_pm), its copies
+    list its copy (pmcopies), its notes screens their note (pmdisc, pmnotes).
+    game_mw3 in both setups differs only in the program path drawn on it.
+    **d1: delete every `MW3_GAME_FIND_SCREEN` block** (the `#if` side, keeping
+    the `#else`), the define in CMakeLists.txt, `launcher_mw3_setup.{h,cpp}`,
+    and mw3's `--launcher-shot` once the find screen is the kit's.
 - **b7, the games catalog (fetched).** After b0, and it needs nothing else
   from (b), so it may move earlier. A newer catalog is fetched from mw3-re
   (its main, or a release asset) the same way as the update check: the
