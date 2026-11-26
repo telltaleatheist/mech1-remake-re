@@ -1173,6 +1173,21 @@ program) is unchanged. Test: `sdl_program_launcher_game_files_through_the_game`
 stopped add; a scripted mw3pm's look, install, copies and adds); the stand-ins
 pass `--setup` to the real mw3 (`kAsksAsMw3`).
 
+**PLAY through the game (b4, 2026-11-26).** Before MechWarrior 3 starts,
+the movies its status lists as pending (`first_run.pending: ["movies"]`)
+are converted by the game, `--setup --first-run movies`, on the same work
+screen (CONVERTING THE MOVIES, its stages "Converting the movies (K of N)"
+as before; every step the game sends is shown, a quick one's too), unless
+this launcher was told not to (`--no-import`, `MW3_NO_IMPORT`). The same
+after ADD FROM MY DISC brought movies. mw3's status counts them as the
+launcher did: the copy's own and those in the media folder's `video\`, and
+only with the importer beside the program. The start options `play: 1`
+names were already passed (window, sound, hidden, the user folder, the
+ready file, and `--no-import`); the copy in use is passed too, until b6
+settles how the game's own find and the status's agree
+(docs/launcher-split.md, b6). Each work screen's stage is logged once
+(`work stage:`) for the checks.
+
 **A kit game's files, on the launcher's screens (2026-11-24).** "I thought we
 manage the setup kits from the launcher": PLAY on Inception opened Inception's
 own setup window. A game whose status says `"setup": 1` answers `--setup

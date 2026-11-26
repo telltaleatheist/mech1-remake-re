@@ -322,6 +322,22 @@ only kit games (`i >= 3`).
   the game's `--install`, which saves `install=` and so knows the old copy,
   with the same guard: only a folder carrying our mark (`mw3-install.txt`)
   is ever removed, never anything else `install=` pointed at.
+  **Open at b6: the copy PLAY passes.** Through b4 the launcher still starts
+  MW3 with the copy in use (the status's `where`) and Pirate's Moon with
+  `--install <where> --no-launcher`. It cannot drop the copy until this is
+  settled: mw3's and mw3pm's own find at a start (own game files, then
+  mw3.cfg's `install=` and the installer's places) is not the status's
+  order (`mw3_status_find`: `games_mw3=` place, own game files, mw3.cfg,
+  `<user folder>/install`, the search, the development copy), so with a
+  `games_mw3=` place set, or a copy only in `<user folder>/install`, a start
+  without the copy opens another copy than the panel shows. Two ways, for
+  the owner to pick (the first changes a plain start):
+  - the start's find uses `mw3_status_find` when no copy is given, so a
+    plain start and the launcher agree (recommended);
+  - the contract carries the copy back generically: an optional "pass
+    where" in `play: 1`, so the launcher hands any kit game its status's
+    `where` in the same form.
+  Nothing changes in a plain start before then.
   By then MW3 and Pirate's Moon releases that answer `setup: 1` have
   shipped with the new launcher (one release), so only a player who has
   not updated a game sees the thinner panel, and it offers UPDATE.

@@ -6077,7 +6077,17 @@ TEST(sdl_program_serves_the_launchers_extras) {
   setenv("MW3_FIND_INSTALL", "1", 1);
   int code = -1;
   rekit::Status st;
+  const std::string importer = dir + "/mw3import";
+  std::ofstream(importer) << "#!/bin/sh\nS=; W=\nwhile [ $# -gt 0 ]; do case \"$1\" in --install) S=$2; shift;; --write-dir) W=$2; shift;; esac; shift; done\n"
+                             "mkdir -p \"$W/video\"; echo progress 0 2; K=0\nfor F in \"$S\"/video/*.AVI; do N=$(basename \"$F\" .AVI | tr A-Z a-z); "
+                             ": > \"$W/video/$N.fmv\"; K=$((K+1)); echo progress $K 2 $N; done\n";
+  fs::permissions(importer, fs::perms::owner_all, ec);
+  // No importer beside the program: nothing pending (b4: the launcher's own count had it so).
+  setenv("MW3_IMPORTER", "", 1);
+  EXPECT(rekit::parse_status(run({"--status", "--write-dir", dir + "/wd"}, "status none", &code), &st) && code == 0 && st.pending.empty());
+  setenv("MW3_IMPORTER", importer.c_str(), 1);
   EXPECT(rekit::parse_status(run({"--status", "--write-dir", dir + "/wd"}, "status", &code), &st) && code == 0);
+  unsetenv("MW3_IMPORTER");
   std::printf("  notes %zu, user %d, play %d, pending %zu\n", st.notes.size(), st.user == dir + "/wd", st.play, st.pending.size());
   EXPECT(st.play == rekit::kPlayOptions && st.user == dir + "/wd" && !st.notes.empty() && st.notes[0].find("No music yet") == 0);
   EXPECT(st.pending == std::vector<std::string>({"movies"}));
@@ -6107,11 +6117,6 @@ TEST(sdl_program_serves_the_launchers_extras) {
   c = said(run({"--setup", "--copies", "--write-dir", dir + "/wd"}, "copies2", &code));
   EXPECT(!c.rows.empty() && c.rows[0].copy_missing == std::vector<std::string>({"the 1.2 patch"}));  // the music added counts
   // The movies, through the importer's stand-in, as the launcher's convert_movies does.
-  const std::string importer = dir + "/mw3import";
-  std::ofstream(importer) << "#!/bin/sh\nS=; W=\nwhile [ $# -gt 0 ]; do case \"$1\" in --install) S=$2; shift;; --write-dir) W=$2; shift;; esac; shift; done\n"
-                             "mkdir -p \"$W/video\"; echo progress 0 2; K=0\nfor F in \"$S\"/video/*.AVI; do N=$(basename \"$F\" .AVI | tr A-Z a-z); "
-                             ": > \"$W/video/$N.fmv\"; K=$((K+1)); echo progress $K 2 $N; done\n";
-  fs::permissions(importer, fs::perms::owner_all, ec);
   setenv("MW3_IMPORTER", importer.c_str(), 1);
   const Said f = said(run({"--setup", "--first-run", "movies", "--write-dir", dir + "/wd"}, "movies", &code));
   unsetenv("MW3_IMPORTER");
@@ -6119,6 +6124,15 @@ TEST(sdl_program_serves_the_launchers_extras) {
          f.steps.back().stage == "Converting the movies (2 of 2)");
   EXPECT(fs::exists(dir + "/wd/video/c1.fmv") && fs::exists(dir + "/wd/video/intro.fmv"));
   EXPECT(rekit::parse_status(run({"--status", "--write-dir", dir + "/wd"}, "status2", &code), &st) && st.pending.empty() && st.notes.empty());
+  // A movie ADD FROM MY DISC put in the user folder's video\ (b4: as the launcher counted them): pending again, then
+  // converted by the same step.
+  std::ofstream(dir + "/wd/video/C2.AVI") << "x";
+  setenv("MW3_IMPORTER", importer.c_str(), 1);
+  EXPECT(rekit::parse_status(run({"--status", "--write-dir", dir + "/wd"}, "status3", &code), &st) && st.pending == std::vector<std::string>({"movies"}));
+  const Said f2 = said(run({"--setup", "--first-run", "movies", "--write-dir", dir + "/wd"}, "movies2", &code));
+  EXPECT(f2.done.ok && fs::exists(dir + "/wd/video/c2.fmv") &&
+         rekit::parse_status(run({"--status", "--write-dir", dir + "/wd"}, "status4", &code), &st) && st.pending.empty());
+  unsetenv("MW3_IMPORTER");
   const Said bad = said(run({"--setup", "--first-run", "maps", "--write-dir", dir + "/wd"}, "maps", &code));
   EXPECT(code == rekit::kSetupFailed && !bad.done.ok && bad.done.summary == "There is no first-run step maps.");
   // Nothing set up: nothing to add to, said.
@@ -8137,6 +8151,16 @@ TEST(sdl_program_launcher_converts_the_movies_before_the_game) {
   EXPECT(r.exited && !r.args.empty() && seen(r.log, "work: CONVERTING THE MOVIES") && seen(r.log, "the game's first frame"));
   EXPECT(r.log.find("work: CONVERTING THE MOVIES") < r.log.find("the game's first frame"));
   EXPECT(std::filesystem::exists(wd + "/video/c1.fmv") && std::filesystem::exists(wd + "/video/intro.fmv"));
+  // b4: through mw3's --setup --first-run movies, its stages as the launcher's own convert said them.
+  EXPECT(seen(r.log, "games: mw3: --setup --first-run") && seen(r.log, "work stage: Converting the movies (2 of 2)\n") &&
+         seen(r.log, "2 movies converted for this computer."));
+  // Told not to (MW3_NO_IMPORT, as --no-import): the status's pending movies left alone, the game started.
+  auto plain = env;
+  plain.push_back({"MW3_NO_IMPORT", "1"});
+  const LauncherRun n = run_launcher_with("launcher_convert_none", "READY\nsleep 1", nullptr, plain, music);
+  const std::string nwd = std::string(MW3_TEST_TMP) + "/launcher_convert_none/wd";
+  EXPECT(n.exited && !n.args.empty() && !seen(n.log, "work: CONVERTING THE MOVIES") && !seen(n.log, "--setup --first-run") &&
+         !std::filesystem::exists(nwd + "/video/c1.fmv"));
   // The game files in a folder of the game's own (CHANGE FOLDER, 2026-11-22): the converted movies there too,
   // beside install/, none in the user folder; the music looked for there as well (a track there: no notes).
   const std::string to = root + "/drive", game = to + "/MechWarrior 3";

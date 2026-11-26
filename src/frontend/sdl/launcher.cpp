@@ -325,6 +325,7 @@ struct Work {
     th = std::thread([this, op] {
       own::Result r = op([this](const own::Progress& p) {
         std::lock_guard<std::mutex> g(m);
+        if (p.stage != progress.stage) std::printf("mw3: launcher: work stage: %s\n", p.stage.c_str());  // the checks: its words
         progress = p;
         return !cancel.load();
       });
@@ -554,10 +555,12 @@ class Launcher {
   // GAME FILES' operations (b3): through the game's served setup when its program answers for its files (the
   // screens stay MechWarrior 3's and Pirate's Moon's own); else the older path, in this program (ends at b6).
   bool files_served() const { return status_for(files_pm_ ? 1 : 0); }
-  std::vector<std::string> served_args(std::vector<std::string> ask);
-  void served_work(int kind, const std::string& title, std::vector<std::string> ask);
+  std::vector<std::string> served_args(std::vector<std::string> ask, int game = -1);
+  void served_work(int kind, const std::string& title, std::vector<std::string> ask, int game = -1);
+  bool movies_pending();  // b4: the movies to convert before the game (its status's pending step, or our count)
   std::shared_ptr<rekit::SetupMessage> served_said_;  // the served ask's answer (look: words, in place, path)
   bool served_work_ = false;                          // the work running is a served ask
+  int served_game_ = 0;                               // whose (0 MechWarrior 3, 1 Pirate's Moon)
   void found_plate(const std::string& path, const std::string& words);
   void find_copies_served();
   bool games_on_ = false;  // mw3launcher (not mw3's or mw3pm's own find screen)
@@ -3082,7 +3085,7 @@ void Launcher::play() {
   // The movies converted here first, with the bar (a first start sat
   // 44 s on "Starting MechWarrior 3..." while mw3 did it); mw3's own import
   // stays the fallback for a start without the launcher.
-  if (!converted_ && movies_to_convert() > 0) {
+  if (!converted_ && movies_pending()) {
     converted_ = true;
     convert_movies([this] { play(); });
     return;
@@ -3113,8 +3116,19 @@ int Launcher::movies_to_convert() const {
 
 // mw3import on the worker, the bar following its "progress" lines; CANCEL
 // stops it (the movies done stay; the rest wait for the next start).
+// b4: its status's pending "movies" (setup: 1), unless this launcher was told not to (--no-import, MW3_NO_IMPORT);
+// else the launcher's own count (the older programs' path, ends at b6).
+bool Launcher::movies_pending() {
+  if (!status_for(0, install_.dir)) return movies_to_convert() > 0;
+  if (o_.no_import || SDL_getenv("MW3_NO_IMPORT")) return false;
+  status_refresh(0);
+  const std::vector<std::string>& p = kit_status_[0].pending;
+  return std::find(p.begin(), p.end(), "movies") != p.end();
+}
+
 void Launcher::convert_movies(std::function<void()> then) {
   after_convert_ = std::move(then);
+  if (status_for(0, install_.dir)) return served_work(Work::kConvert, "CONVERTING THE MOVIES", {"--first-run", "movies"}, 0);  // b4
   work_ = std::make_unique<Work>();
   work_->kind = Work::kConvert;
   const std::string install = install_.dir, wd = media();  // the converted movies beside the game files when they have their own folder
@@ -3358,26 +3372,31 @@ void Launcher::find_copies() {
 }
 
 // b3: the served asks of GAME FILES (docs/launcher-split.md): the game's --setup verb with its user folder.
-std::vector<std::string> Launcher::served_args(std::vector<std::string> ask) {
-  for (const std::string& a : status_args(files_pm_ ? 1 : 0)) ask.push_back(a);
+std::vector<std::string> Launcher::served_args(std::vector<std::string> ask, int game) {
+  for (const std::string& a : status_args(game >= 0 ? game : files_pm_ ? 1 : 0)) ask.push_back(a);
   return ask;
 }
 
 // A served ask on the worker, its stages on the work screen: a look's answer is its words, an install's or an
 // add's its summary; the answer kept (served_said_) for its finish.
-void Launcher::served_work(int kind, const std::string& title, std::vector<std::string> ask) {
+void Launcher::served_work(int kind, const std::string& title, std::vector<std::string> ask, int game) {
+  if (game < 0) game = files_pm_ ? 1 : 0;
   auto said = served_said_ = std::make_shared<rekit::SetupMessage>();
-  served_work_ = true;
+  served_work_ = true, served_game_ = game;
   work_ = std::make_unique<Work>();
   work_->kind = static_cast<Work::Kind>(kind);
-  const std::string bin = game_bin(files_pm_ ? 1 : 0);
+  const std::string bin = game_bin(game);
   const bool look = kind == Work::kLook;
-  ask = served_args(std::move(ask));
-  std::printf("mw3: launcher: games: %s: --setup %s\n", files_pm_ ? "pm" : "mw3", ask.front().c_str());
+  ask = served_args(std::move(ask), game);
+  std::printf("mw3: launcher: games: %s: --setup %s\n", game == 1 ? "pm" : "mw3", ask.front().c_str());
   work_->start(title, [bin, ask, said, look](const own::ProgressFn& f) {
     own::Result r;
+    // Every step on the work screen, as the launcher's own work had them (a quick one's steps come in one read).
     const bool answered = sdlfe::games::kit_setup(
-        bin, ask, 0, [&f](const rekit::SetupMessage& m) { return f(own::Progress{m.stage, m.fraction, m.message}); }, said.get());
+        bin, ask, 0, [&f](const rekit::SetupMessage& m) { return f(own::Progress{m.stage, m.fraction, m.message}); }, said.get(),
+        [&f](const rekit::SetupMessage& m) {
+          if (m.copy.empty()) f(own::Progress{m.stage, m.fraction, m.message});
+        });
     r.ok = answered && said->ok, r.cancelled = said->cancelled;
     r.summary = r.ok && look ? said->words : said->summary, r.install_dir = said->where;
     return r;
@@ -3457,7 +3476,7 @@ void Launcher::finish_work() {
   const Work::Kind kind = work_->kind;
   work_.reset();
   const bool served = std::exchange(served_work_, false);
-  if (served) status_fresh_[files_pm_ ? 1 : 0] = false;  // what the game did: its status asked again
+  if (served) status_fresh_[served_game_] = false;  // what the game did: its status asked again
   std::printf("mw3: launcher: %s%s%s\n", r.summary.c_str(), r.detail.empty() ? "" : " | ", r.detail.c_str());
   if (kind == Work::kRemoveData) {
     status_ = r.summary, status_good_ = r.ok;
@@ -3554,7 +3573,7 @@ void Launcher::finish_work() {
     const bool movies = served ? !files_pm_ && std::find(kit_status_[0].pending.begin(), kit_status_[0].pending.end(), "movies") !=
                                                    kit_status_[0].pending.end()
                                : r.movies > 0;  // Pirate's Moon has none
-    if (r.ok && movies && movies_to_convert() > 0) {  // the movies just added, converted at once
+    if (r.ok && movies && (served ? movies_pending() : movies_to_convert() > 0)) {  // the movies just added, converted at once
       const std::string said = status_;
       convert_movies([this, back, said] { status_ = said, screen_ = back, layout(); });  // the dialog (kConfirm) after
       return;
