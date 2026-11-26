@@ -2727,7 +2727,9 @@ TEST(mods_check_mod_reports_what_the_game_would_refuse) {
   EXPECT(text.find("zbd/reader/fmv.zrd.json: added") != std::string::npos && text.find("zbd/reader.zip: added") != std::string::npos);
   EXPECT(text.find("zbd/motion/madcat_walk.json: added") != std::string::npos && text.find("zbd/motion.zip: added") != std::string::npos);
   EXPECT(text.find("zbd/mechlib/materials.json: added") != std::string::npos && text.find("zbd/mechlib.zip: added") != std::string::npos);
-  EXPECT(text.find("its animations read from unzbd's JSON") != std::string::npos);
+  // Pirate's Moon reads no animation JSON, def or node files (1299fce5d): said so, and the anim.zip not looked into.
+  const std::string not_read = "zbd/t1/anim/metadata.json: added\n  not read by Pirate's Moon, whose animations come from";
+  EXPECT(text.find(not_read) != std::string::npos);
   EXPECT(text.find("its world read from unzbd's JSON") != std::string::npos);
   if (fs::exists(install + "/zbd/c1/readerm1.zbd", ec))
     EXPECT(text.find("zbd/c1/readerm1.zbd: replaces the game's") != std::string::npos && text.find("0 errors") != std::string::npos);
@@ -2787,11 +2789,11 @@ TEST(mods_check_mod_reports_what_the_game_would_refuse) {
          text.find("warning: zbd/motion.zip:madcat_run.json: line 1 (at $.loop_time): not above 0") != std::string::npos);
   EXPECT(text.find("warning: zbd/mechlib/materials.json: line 2 (at $[0].Colored.alpha): 300: past 0..255") != std::string::npos &&
          text.find("warning: zbd/mechlib.zip:mech_x.flt.json: line 1 (at $): no \"models\"") != std::string::npos);
-  EXPECT(text.find("warning: zbd/t1/anim.zip: gone.json: not there") != std::string::npos);
+  EXPECT(text.find("zbd/t1/anim.zip: added\n  not read by Pirate's Moon") != std::string::npos && text.find("gone.json") == std::string::npos);
   EXPECT(text.find("warning: zbd/c1/gamez.zip: nodes.json: line 1 (at $[0]): an empty node has one parent") != std::string::npos);
   EXPECT(text.find("warning: zbd/c2/gamez/: metadata.json: line 1 (at $): no \"model_array_size\"") != std::string::npos);
   // One refuses the mod: its mod.txt. The rest are warnings.
-  EXPECT(errors == 1 && text.find("17 files, 4 archives, 11 reader entries checked; 1 errors, 17 warnings") != std::string::npos);
+  EXPECT(errors == 1 && text.find("17 files, 4 archives, 10 reader entries checked; 1 errors, 16 warnings") != std::string::npos);
   EXPECT(text.find("warning: zbd/mechlib.zbd: its version, format or materials cannot be read. The rebuild: IMPORT leaves this file out; the "
                    "game's own, if it has one, is used. The original game: not known.") != std::string::npos &&
          text.find("warning: zbd/motion.zbd: its motion walk cannot be read. The rebuild: IMPORT leaves this file out") != std::string::npos);
