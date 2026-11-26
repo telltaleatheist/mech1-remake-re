@@ -107,7 +107,7 @@ TEST(app_main_menu_idles_into_the_attract_movie) {
   f.app->activate();
   m.update();
   EXPECT(f.app->pending() == 1);
-  EXPECT(f.app->pending_list().front().state == &mech3::states().attract);
+  EXPECT(!f.app->pending_list().empty() && f.app->pending_list().front().state == &mech3::states().attract);
   EXPECT(m.idle_ == 60.0f);
 }
 
