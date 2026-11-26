@@ -371,6 +371,67 @@ only kit games (`i >= 3`).
   `sdl_program_launcher_plays_the_menus_sounds` then plays those, with no
   game files. MW3 alone's Linux AppImage keeps passing `--status`, `--setup`
   and `--ready-file` to the mw3 beside it.
+- **b6's plan (2026-11-26, after b5).** First, the owner's question (above): with
+  no copy given, does a plain start find the copy the panel shows
+  (`mw3_status_find`, recommended), or does `play: 1` carry `where` back? Until
+  it is answered PLAY keeps passing the copy, and b6 can go ahead without it.
+  Every piece of game code still in `mw3launcher`'s target, as of b5:
+  - **Links and build:** `mw3core`, `mw3sdl`, `mw3text` (and `mw3rmlui`, SDL3);
+    `add_dependencies(mw3launcher mw3)`; `MW3_GAME_DIR` in development builds.
+    Go: links become rekit, rekit_sdl, RmlUi and its own sources. The
+    dependency and the define go, and the tests' stand-ins take their place.
+  - **`launcher_mw3_setup.{h,cpp}` → `mech3/game_setup`** (`check_install`,
+    `start_check`, `found_words` / `start_found_words` through
+    `game_version_words`, `find_discs`, `add_from_disc`, `add_pm_from_disc`,
+    `apply_patch`, `install_from_source`): the older programs' path from b2
+    and b3. Collapses: for a status without `setup: 1`, `install=` /
+    `pm_install=` are read unchecked and the panel offers UPDATE. Discs,
+    patches and sources go only through the game's served `--setup`. Both
+    files are deleted.
+  - **`mech3/source_map`** (`map_source`, `Found`): `is_pm_install` in
+    `find_pm`'s search, the pick's check and the files search. Collapses:
+    Pirate's Moon's `where` from its status (b2). A pick is classified by the
+    game's `--setup --look`, and an older PM's `pm_install=` is read
+    unchecked.
+  - **`mech3/data_folder` through `data_folder_start.h`** (`usual_folder`,
+    `data_folder_at_start`, `resolve`, `plan`, `move_data`, `destination`,
+    `remove_old`, `moved_path`; `retarget_config` in sdl_games): MY DATA
+    FOLDER and the start's family move. Goes to the kit's `rekit/data_folder`
+    with the status's `user` (as above).
+  - **`mech3/patch_import`'s `sha256_file_hex`** (sdl_games, sdl_update: a
+    download's checksum). Goes to the kit's `rekit/hash.h`.
+  - **`gamez/zutil/zutl_zar`** (`zar::open/find/read`: the menu's sounds,
+    read from the game's own archive; `crc32`). Goes: the launcher's own two
+    WAVs (Decided, 3). `crc32` is the launcher's own copy (b1).
+  - **`gamez/zutil/zutl_path`** (`repair_old_names` in launcher_main; the
+    rest has had its own copies since b1). Goes to the launcher's own copy.
+  - **`gamez/zrender/zrndr_tint`**: only included now (the cards dropped the
+    ripple). The include and launcher.h's comment go.
+  - **`upgrades/update`** (`games.cpp`, `update.cpp`: the catalog, `judge`,
+    `swap_in`, the versions): not game code, but built in `mw3core`. Goes to
+    the launcher's own sources, and to the hub with them in (c).
+  - **mw3sdl's `sdl_install`** (`find_install`, `install_candidates`,
+    `install_valid`, `pick_source`, `save_install`, `media_dir`): MW3's own
+    find, for the older path. Collapses with `launcher_mw3_setup`.
+    `save_config_value` is already b1's line editor. `media_dir` comes from
+    the status's `data`.
+  - **mw3text's `launcher_notes`** (`have_music`, `have_movies`,
+    `launcher_notes`; it includes `mech3/data_version.h`): the older path's
+    notes. Collapses: the notes come from the status's `notes` (b2), and an
+    older game has none.
+  - **mw3text's `movie_import`** (`importer_path`, `movies_missing`,
+    `run_importer`): the launcher's own conversion for an older MW3.
+    Collapses: the served `--first-run movies` (b4). An older game converts
+    on its own start.
+  - **No game code, but built in the game's libraries:** `log_start`,
+    `sdl_child`, `sdl_focus` (mw3sdl); `font_search`, `text_fit`,
+    `vulkan_check` (mw3text); `crash_report.cpp` (built into mw3 too). They
+    go to the launcher's own sources, or to rekit_sdl where another game
+    wants them.
+  - **Checks**, as in b6 above: the link walk, the size, the launcher's
+    tests as one batch, `test_update` and mingw.
+  - **Shots** change where an older game's panel loses its found words.
+    They get listed when b6 is done.
 - **b7, the games catalog (fetched).** After b0, and it needs nothing else
   from (b), so it may move earlier. A newer catalog is fetched from mw3-re
   (its main, or a release asset) the same way as the update check: the
