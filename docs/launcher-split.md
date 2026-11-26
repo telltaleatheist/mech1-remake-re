@@ -18,8 +18,9 @@ The order, each step shippable on its own:
   one is needed.
 - **(d)** The old copy comes out of mech3-re.
 
-This is a survey and a plan. No code has changed yet. It was surveyed on
-mech3-re main at fbe9dcfd8.
+This is a survey and a plan. It was surveyed on mech3-re main at fbe9dcfd8.
+Done since: a1 (re-setup-kit main 78e1a76) and a2 (mech3-re branch
+mac5/mw3-recipe). The decisions of 2026-11-25 are in Decided, at the end.
 
 ## 1. Where the launcher reaches into game code
 
@@ -65,7 +66,7 @@ small copy that is the launcher's own.
 
 | Piece | Used for | Goes to |
 |---|---|---|
-| `gamez/zutil/zutl_zar` | The main menu's two sounds (`Sounds::load`): sfx_button2.wav and sfx_button6.wav from the player's soundsL.zbd or soundsH.zbd. Also `crc32`, for BEFORE YOU PLAY's seen-once check (`notes_once`). | `crc32`: own. The sounds: a decision (open question 3). Either a small read-only archive reader of the launcher's own (about 80 of zutl_zar's 253 lines), or the game hands two WAV files. |
+| `gamez/zutil/zutl_zar` | The main menu's two sounds (`Sounds::load`): sfx_button2.wav and sfx_button6.wav from the player's soundsL.zbd or soundsH.zbd. Also `crc32`, for BEFORE YOU PLAY's seen-once check (`notes_once`). | `crc32`: own. The sounds: the launcher's own, made for it (Decided, 3); nothing of zutl_zar stays. |
 | `gamez/zutil/zutl_path` | `any_case` (music/, zbd/ in any case), `path_from_config` (mw3.cfg's paths), `narrow_paths_utf8` (Windows before 1903), `repair_old_names` (launcher_main). | Own (small). The kit's `rekit/files.h` has none of these. |
 | `mech3/data_folder` (and `data_folder_start.h`) | Its own write dir at the start (`resolve`, through the pointer). `family_move`: MicroProse to BattleTech, once. `adopt_nested`: Pirate's Moon's old folder inside MW3's. MY DATA FOLDER, for MW3 and Pirate's Moon (`destination`, `plan`, `move_data`, `remove_old`, `moved_path`). `retarget_config`: the games folder's move. | Kit: `rekit/data_folder`, a general piece that keeps the file names (`data-folder.txt`, `mw3-data-folder.txt`, `mw3-data-copying.txt`) so every copy still reads the same folders. mw3, mw3pm and the launcher each use it. |
 
@@ -73,7 +74,7 @@ small copy that is the launcher's own.
 
 | Piece | Used for | Goes to |
 |---|---|---|
-| `frontend/sdl/mw1_files` (through `mech3/source_archive.h`, which is the kit's archive reader now) | MechWarrior (1989)'s files for the Remake: `search`, `game_of_pick`, `copy_in` into `<write dir>/mw1`, `game_valid`, `has_main`, `in_unpacked`, `unpacked_dir`. Also `original_supported`, for Elthial's port (PLAY ORIGINAL, `kMw1Original`) when it sits beside the launcher. | The Remake: its own served setup (step a5). Elthial's port: a decision (open question 4). |
+| `frontend/sdl/mw1_files` (through `mech3/source_archive.h`, which is the kit's archive reader now) | MechWarrior (1989)'s files for the Remake: `search`, `game_of_pick`, `copy_in` into `<write dir>/mw1`, `game_valid`, `has_main`, `in_unpacked`, `unpacked_dir`. Also `original_supported`, for Elthial's port (PLAY ORIGINAL, `kMw1Original`) when it sits beside the launcher. | The Remake: its own served setup (step a5). Elthial's port: a decision (open question 1). |
 | The Remake's start | The launcher passes `--install <PM> --mw3-install <MW3> --mw1-game <MW1> --no-launcher`. The Remake's status already says `needs: ["mech3-pm", "mech3", "mech1"]` and keeps the three in mw1.cfg. | Kit: an optional way to hand a needed game's folder (section 2, Needs). |
 
 **The launcher's own, free of game code: they move with it to the hub.**
@@ -248,6 +249,18 @@ only kit games (`i >= 3`).
 
 ### (b) The launcher on the contract for every game
 
+- **b0, the games catalog (built in).** A JSON data file lists the families
+  and the games, and replaces today's hard-coded tables: games.cpp's table,
+  and launcher.cpp's panel rows, badges and descriptions. Each game's entry:
+  `key`, `family`, `name`, `description`, `order`; `state` (`coming_soon`,
+  `released` or `removed`); `repo`, `tag_prefix` and the asset name for each
+  system; `badge` and `card` art; `needs[]`; and `min_launcher`, the oldest
+  launcher version that understands the entry. A game's options and notes are
+  not in it: they stay in the game's own `--status`. Here the catalog is a
+  copy built into the launcher only, with the same entries as today's tables,
+  so nothing changes for players. Tests: the built-in catalog read alone
+  (every family and game as today), and every `--launcher-shot` screen
+  compared byte for byte with the shots from before.
 - **b1.** The launcher's own small copies: the `Work` types, the mw3.cfg line
   editor, `crc32`, `any_case` and `path_from_config`. No change in
   behaviour; launcher.cpp stops naming `mech3::setup` types. Tests: the
@@ -290,7 +303,7 @@ only kit games (`i >= 3`).
   - `starts_pirates_moon`;
   - `never_runs_away`.
 - **b5.** The Remake through the contract, with `--with` for its needs, and
-  Elthial's port as decided (open question 4). Tests:
+  Elthial's port as decided (open question 1). Tests:
   `sdl_program_launcher_starts_mechwarrior_1`, `starts_mechwarrior_1989`,
   `family_cards`.
 - **b6.** The game code leaves the launcher's target. `mw3launcher` links
@@ -305,9 +318,35 @@ only kit games (`i >= 3`).
   - `test_update`;
   - the mingw cross-check of the touched files.
 
-  The menu's sounds as decided (open question 3), and
-  `sdl_program_launcher_plays_the_menus_sounds`. MW3 alone's Linux AppImage
-  keeps passing `--status`, `--setup` and `--ready-file` to the mw3 beside it.
+  The menu's sounds are the launcher's own (Decided, 3): a soft click and a
+  hover sound, two WAV files in `assets/launcher`, made with the sound-effect
+  generator on the Mac (Crucible, its audio generation's small-SFX model;
+  check it is not busy first). They are committed with a line saying how
+  they were made, prompt included. zutl_zar's sound read leaves the launcher;
+  only `crc32` stays, as the launcher's own.
+  `sdl_program_launcher_plays_the_menus_sounds` then plays those, with no
+  game files. MW3 alone's Linux AppImage keeps passing `--status`, `--setup`
+  and `--ready-file` to the mw3 beside it.
+- **b7, the games catalog (fetched).** After b0, and it needs nothing else
+  from (b), so it may move earlier. A newer catalog is fetched from mw3-re
+  (its main, or a release asset) the same way as the update check: the
+  mirror's first, then GitHub's. The last one fetched is cached, so the
+  launcher works offline. It is fetched without asking the player: it is
+  data, and the request sends nothing about them. How entries act:
+  - `removed` hides the card for new players. An installed game stays and
+    keeps working: no catalog change ever touches installed files.
+  - A new game, a description change or a release needs no launcher build.
+  - Trust: an entry whose `repo` is not under the owner's GitHub account is
+    ignored, and so is one whose `min_launcher` is newer than this launcher.
+    Downloads are still checked against SHA256SUMS. The art comes from the
+    same repo and is cached beside the catalog. No signing for now.
+
+  Tests: a fetched catalog that adds a game, flips one from `coming_soon` to
+  `released` and removes one (an installed copy stays and still plays); a
+  bad entry (another owner's repo, a too-new `min_launcher`) ignored while
+  the rest is read; offline with a cache; offline with none (the built-in
+  copy). The fetch goes to a `file://` stand-in, as `test_update`'s releases
+  do (`MW3_GAMES_API`).
 
 **The tests that start mw3 beside the launcher.** Today they run the real
 setup in the launcher, on MW3_GAME_DIR, behind a shell stand-in for mw3
@@ -318,18 +357,18 @@ setup in the launcher, on MW3_GAME_DIR, behind a shell stand-in for mw3
 - **What is checked:** what the launcher shows and passes on.
 - **What moves to the games:** what is copied, patched or converted moves to
   mech3-re's and mech3-pm-re's own `--setup` tests.
-- **Still needing game files:** only the menu-sounds test needs MW3_GAME_DIR,
-  and only if the launcher keeps reading the archive. Later it can run where
-  no game files are.
+- **Still needing game files:** none. The menu-sounds test plays the
+  launcher's own sounds (b6), so the launcher's tests run where no game
+  files are.
 
 ### (c) The launcher's code to mw3-re main
 
-- **c1, decision first.** The hub's main still holds the whole tree as it was
-  frozen on 2026-11-21. Its README promises "Its code is frozen as it was at
-  the split, so old clones and links keep working." One choice is a
-  `launcher/` folder beside the frozen tree, which keeps that promise, with
-  the hub's root CMakeLists left alone or pointed at it. The other is to
-  replace the tree with the launcher's. (Open question 1.)
+- **c1, the frozen tree to an archive (Decided, 1).** The hub's main still
+  holds the whole tree as it was frozen on 2026-11-21. That tree goes to an
+  archive branch and a tag, and main becomes the launcher only. The README's
+  promise ("Its code is frozen as it was at the split, so old clones and
+  links keep working") is reworded to name the archive branch and tag, so
+  old links still have somewhere to land.
 - **c2, the tree.**
   - **Code:** the launcher's sources and its tests (a `tests/launcher` suite,
     stand-ins only), `assets/launcher`, `third_party/rmlui`, and the kit as a
@@ -360,13 +399,13 @@ setup in the launcher, on MW3_GAME_DIR, behind a shell stand-in for mw3
 
 ### (d) The old copy out of mech3-re
 
-- **d1, decision first: mw3's and mw3pm's own find screen.** Today it is
-  launcher.cpp's (`setup_only`). One choice is the kit's `run_setup` with
-  MW3's theme (the launcher's art and font), as MW1 Rebuild and Inception
-  use. Its screens are the launcher's moved into the kit, but redrawn without
-  RmlUi, so they are close, not identical. The other is a trimmed copy of
-  launcher.cpp's setup screens kept in the game. Shots of both, side by side,
-  for the decision. (Open question 2.)
+- **d1, mw3's and mw3pm's own find screen (Decided, 2).** Today it is
+  launcher.cpp's (`setup_only`). It becomes the kit's `run_setup` with MW3's
+  look (the launcher's art and font), as MW1 Rebuild and Inception use, over
+  the recipe a2 made. Its screens are redrawn without RmlUi, so they are
+  close, not identical. Before d1 lands: shots of the old screen against the
+  new, side by side. A game started alone without its files uses this
+  screen itself.
 - **d2.** The `mw3launcher` target comes out of mech3-re, with launcher.cpp,
   launcher_ui, sdl_update, sdl_games, upgrades/update, and their tests (moved
   to the hub in c2). mw3 keeps `record_self` (now the kit's) and its version
@@ -481,16 +520,25 @@ reads only mech3-re for MechWarrior 3, and takes only `MW3-alone-*`.
 
 ## Open questions (before the steps they block)
 
-1. **Before c1:** does the hub's frozen tree stay, with the launcher in a
-   folder beside it, or is it replaced?
-2. **Before d1:** do mw3's and mw3pm's own find screens become the kit's,
-   with MW3's theme (close to today, not identical), or does the game keep a
-   trimmed copy of today's?
-3. **Before b6:** where do the menu's two sounds come from? One choice is the
-   launcher's own small read of MW3's sound archive, which is unchanged for
-   players. The other is the game handing two WAV files. Or the sounds go.
-4. **Before b5:** what happens to Elthial's port (PLAY ORIGINAL beside the
+1. **Before b5:** what happens to Elthial's port (PLAY ORIGINAL beside the
    launcher)? Now that MW1 Rebuild is MW1's ORIGINAL tab, the port could go.
    Or it keeps a small finder for BTECH.EXE of the launcher's own.
-5. **Before c4:** do the names stay (no bridge), or does the launcher get its
-   own names (one bridge release)?
+2. **Before c4:** do the names stay (no bridge), or does the launcher get its
+   own names (one bridge release)? Recommended: they stay.
+
+## Decided (2026-11-25)
+
+1. **The hub's frozen tree:** main becomes the launcher only; the frozen tree
+   goes to an archive branch and tag (c1).
+2. **mw3's and mw3pm's own setup screens:** the kit's `run_setup` with MW3's
+   look, shots of old against new before d1.
+3. **The menu's sounds:** MW3's sounds go from the launcher (they were a
+   jarring sound for it). It gets its own soft click and hover sound, made
+   with the sound-effect generator on the Mac and committed with how they
+   were made, prompt included; no third-party files (b6).
+4. **The shape:** the kit covers every game, MW3 and Pirate's Moon included.
+   Each game's own extras live in its repo. The launcher drives a game's setup
+   by asking the game's program. A game started alone without its files uses
+   the kit's setup itself.
+5. **A games catalog:** a data file of the families and games, built in and
+   fetched, so a new game or a release needs no launcher build (b0, b7).
