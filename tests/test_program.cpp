@@ -31,6 +31,8 @@
 #include "crt/msvc_rand.h"
 #include "crt/msvc_string.h"
 #include "check.h"
+#include "gamez/zgame/zgame_table.h"
+#include "pm/pm_game.h"
 #include "gamez/zsave/zsave.h"
 #include "gamez/zmodel/gmod_light.h"
 #include "gamez/zmodel/gmod_puff.h"
@@ -1049,10 +1051,13 @@ TEST(each_flip_counts_a_frame) {
 }  // namespace
 
 TEST(program_starts_like_the_game_to_the_main_state) {
-  if (!have_game()) return;
+  // Pirate's Moon's game, as mw3pm starts it: PM's install under PM's table (mw3pm_main.cpp).
+  std::error_code pm_ec;
+  if (!std::filesystem::exists(std::string(MW3PM_GAME_DIR) + "/zbd/reader.zbd", pm_ec)) return;
   SavedMounts keep;
+  zgame::set_game(pm::table());
   zutl::mounts() = zutl::Mounts{};
-  zutl::mount(MW3_GAME_DIR);
+  zutl::mount(MW3PM_GAME_DIR);
   zutl::set_write_dir(temp_dir("program_write"));
   mech3::reset_states();
   reset_process_state();  // as a new process: zSound not yet initialised
@@ -1074,7 +1079,7 @@ TEST(program_starts_like_the_game_to_the_main_state) {
     mech3::set_app(&app);
     EXPECT(app.init_instance());
     EXPECT(alert.shown.empty());
-    EXPECT(window.title == "MechWarrior 3 1.2");  // message 7 and the version
+    EXPECT(window.title == "MechWarrior 3 Pirate's Moon");  // PM 0x00485952: message 5 alone (MW3's 7 and the version)
     EXPECT(window.shown);
     EXPECT(app.fmv() == 0);
     EXPECT(engine.video_mode() == 1);              // Direct3D: the GPU is the 3D card
@@ -1091,9 +1096,9 @@ TEST(program_starts_like_the_game_to_the_main_state) {
     EXPECT(menu != nullptr);
     if (menu) {
       EXPECT(menu->buttons[0].base_x == 20 && menu->buttons[0].base_y == 170);  // INSTANTACTION
-      EXPECT(menu->buttons[6].base_x == 432 && menu->buttons[6].base_y == 395);  // QUIT
+      EXPECT(menu->buttons[6].base_x == 360 && menu->buttons[6].base_y == 320);  // QUIT, in PM's MAINMENU
       EXPECT(menu->buttons[0].max_radius == 200 && menu->buttons[0].wavelength == 12.0f);
-      EXPECT(std::string(menu->version.text) == "MechWarrior 3 1.2");
+      EXPECT(std::string(menu->version.text) == "MechWarrior 3 Pirate's Moon 1.0.11.5");  // the exe's file version (0x004b30b0)
       EXPECT(menu->head != nullptr && menu->active == 1);
     }
     // The Action State's screen (menus.md, The Action screen): ACTIONDIALOG,
@@ -1106,7 +1111,7 @@ TEST(program_starts_like_the_game_to_the_main_state) {
         EXPECT(as->worlds.dialog == as && as->worlds.count() == 4 && as->scenarios.count() == 5);
         EXPECT(as->descriptions.count() == 5 && as->scenarios.index == 0 && as->fixed == 1);
         EXPECT(as->allies[4].dialog == as && as->allies[1].get_y() != as->allies[0].get_y());
-        EXPECT(as->enemies[5].dialog == as && as->enemies[0].count() == 19 && as->enemies[1].count() == 20);
+        EXPECT(as->enemies[5].dialog == as && as->enemies[0].count() == 25 && as->enemies[1].count() == 26);  // PM's 25 mechs
       }
     }
     // The pilot screen (menus.md, The pilot screen) is made with its state:
@@ -1171,6 +1176,7 @@ TEST(program_starts_like_the_game_to_the_main_state) {
   mech3::missions() = mech3::Missions{};  // as a new process starts: no mission up
   mech3::mech_types_forget();             // and no mech type cached
   mech3::options() = mech3::Options{};
+  zgame::set_game(zgame::mw3_table());
 }
 
 namespace {
