@@ -450,7 +450,10 @@ or the calf when the foot node has no polygons (the Elemental draws its feet wit
 levels of Loop subdivision (triangles x4 each) where the game smooths its shading: an edge stays a crease where the
 two polygons' normals (flag 0x200; 171 of the Mad Cat's 237 polygons have them) differ at either end by more than
 about 5 degrees, either polygon has none, or it is not shared by two. Level 3 rounds the Mad Cat's nose, calves and
-barrels and keeps its boxes square (36k triangles).
+barrels and keeps its boxes square (36k triangles). But the game also shades smooth some shapes built square (the
+Sunder's legs, the Mad Cat's faceted canopy): `--sharp D` keeps every edge whose faces meet at more than D degrees
+too. `--smooth 3 --sharp 20` keeps the designed corners and facets and softens only the gentle bends; at 30 the Mad
+Cat's canopy rounds again. One level alone (x4) comes out crumpled, not rounded.
 
 ## Porting order (leaves first)
 

@@ -4,7 +4,7 @@
 //   mw3stl --assets <zbd dir> --parts <mech>     the part tree, with sizes
 //   mw3stl --assets <zbd dir> --stats            holes, panels and sizes of every mech
 //   mw3stl --assets <zbd dir> --frames <mech> <motion>
-//   mw3stl --assets <zbd dir> --out <dir> [--scale 100] [--twist 25] [--pitch 3] [--no-base] [--smooth 0..3] [--raw] [mech ...]
+//   mw3stl --assets <zbd dir> --out <dir> [--scale 100] [--twist 25] [--pitch 3] [--no-base] [--smooth 0..3 [--sharp deg]] [--raw] [mech ...]
 // The stance: the walk's widest stride with both soles down, the torso twisted and the arms raised; holes closed,
 // single-sided panels given 0.8 mm, a bevelled hex base under the feet. Millimetres, Z up, facing -Y. --smooth
 // subdivides where the game's own normals smooth the shading, keeping its hard edges.
@@ -334,7 +334,7 @@ void slab(const Vec& p, const Vec& q, const Vec& r, float thick, std::vector<Vec
 // Loop subdivision with creases, `levels` times: each triangle becomes four, smooth where the game smooths. An edge
 // stays sharp (a crease) where the game shades it hard: the two triangles' normals differ at either end (the
 // artist's split), either has none (no flag 0x200, or a hole's cap), or it is not shared by exactly two.
-std::vector<Vec> smooth(const std::vector<Vec>& tris, const std::vector<Vec>& normals, int levels) {
+std::vector<Vec> smooth(const std::vector<Vec>& tris, const std::vector<Vec>& normals, int levels, float sharp) {
   using Edge = std::pair<int, int>;
   auto edge = [](int a, int b) { return a < b ? Edge{a, b} : Edge{b, a}; };
   std::vector<Vec> v;
@@ -349,7 +349,7 @@ std::vector<Vec> smooth(const std::vector<Vec>& tris, const std::vector<Vec>& no
   };
   // Each edge's triangles, with the normals at its two ends as each triangle has them.
   struct Side {
-    Vec nu, nv;
+    Vec nu, nv, face;  // face: the triangle's own normal
   };
   std::map<Edge, std::vector<Side>> sides;
   for (size_t i = 0; i + 2 < tris.size(); i += 3) {
@@ -360,7 +360,8 @@ std::vector<Vec> smooth(const std::vector<Vec>& tris, const std::vector<Vec>& no
       const int a = c[e], b = c[(e + 1) % 3];
       const Vec& na = normals[i + e];
       const Vec& nb = normals[i + (e + 1) % 3];
-      sides[edge(a, b)].push_back(a < b ? Side{na, nb} : Side{nb, na});
+      const Vec f = cross(sub(tris[i + 1], tris[i]), sub(tris[i + 2], tris[i]));
+      sides[edge(a, b)].push_back(a < b ? Side{na, nb, f} : Side{nb, na, f});
     }
   }
   auto same = [](const Vec& a, const Vec& b) {
@@ -368,8 +369,16 @@ std::vector<Vec> smooth(const std::vector<Vec>& tris, const std::vector<Vec>& no
     return la > 0 && lb > 0 && dot(a, b) / (la * lb) > 0.996f;  // within about 5 degrees
   };
   std::map<Edge, bool> crease;
+  // With `sharp` > 0, also every edge whose faces meet at more than `sharp` degrees: the shape's own corners (the
+  // Sunder's square legs, the Mad Cat's faceted canopy), which the game shades smooth but built square.
+  const float bend = sharp > 0 ? std::cos(sharp * 3.14159265f / 180) : -2;
+  auto folded = [&](const Vec& a, const Vec& b) {
+    const float la = std::sqrt(dot(a, a)), lb = std::sqrt(dot(b, b));
+    return la > 0 && lb > 0 && dot(a, b) / (la * lb) < bend;
+  };
   for (const auto& [e, list] : sides)
-    crease[e] = list.size() != 2 || !same(list[0].nu, list[1].nu) || !same(list[0].nv, list[1].nv);
+    crease[e] = list.size() != 2 || !same(list[0].nu, list[1].nu) || !same(list[0].nv, list[1].nv) ||
+                folded(list[0].face, list[1].face);
   for (int level = 0; level < levels; ++level) {
     std::map<Edge, std::vector<int>> opp;
     for (const auto& c : t)
@@ -596,6 +605,7 @@ struct Options {
   float twist = 25, pitch = 3;
   bool base = true;
   int smooth = 0;  // Loop subdivision levels (each: triangles x4)
+  float sharp = 0;  // with smooth: edges folded more than this many degrees stay sharp (0: the game's normals only)
   bool raw = false;  // the polygons as the game has them: no hole closed, no strut, no base (to look at, not print)
 };
 
@@ -641,7 +651,7 @@ int export_mech(const std::string& zbd, const std::string& mech, const std::stri
       loops += close_holes(solid);
     }
     normals.resize(solid.size(), Vec{0, 0, 0});  // the caps: no normals, so their rims stay sharp
-    if (o.smooth > 0) solid = smooth(solid, normals, o.smooth);
+    if (o.smooth > 0) solid = smooth(solid, normals, o.smooth, o.sharp);
     const Shape sh = shape(solid);
     if (sh.unbalanced > 0) leaky += " " + p.name + "(" + std::to_string(sh.unbalanced) + ")";
     open += sh.unbalanced, crowded += sh.crowded;
@@ -697,6 +707,7 @@ int main(int argc, char** argv) {
     else if (a == "--no-base") opt.base = false;
     else if (a == "--raw") opt.raw = true, opt.base = false;
     else if (a == "--smooth" && i + 1 < argc) opt.smooth = std::stoi(argv[++i]);
+    else if (a == "--sharp" && i + 1 < argc) opt.sharp = std::stof(argv[++i]);
     else if (a == "--frames" && i + 2 < argc) return frames(zbd, argv[i + 1], argv[i + 2]);
     else only.push_back(a);
   }
