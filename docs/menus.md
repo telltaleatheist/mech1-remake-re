@@ -206,7 +206,7 @@ page (2026-11-21 to 11-25) nobody looked for it. INVERT MOUSE Y's record
 at (245, 389), the column's pitch below the slider's label, on the shell's
 `textbox70` (RAW_MOUSE_BOX at (242, 389): 94 wide, the column's boxes are in
 `option1_lines` and 103), on a wide canvas in the left group with the rest.
-ACCEPT takes it at once (a held mouse too) and saves mw3.cfg's `rawmouse=`
+ACCEPT takes it at once (a held mouse too) and saves mw3.cfg's `rawmouse=` (the Mac's `rawmouse_mac=`, input.md section 14)
 through `options_upgrades_saver`; BACK leaves it. Bound with the slider.
 `sdl_program_mouse_settings_stay_across_starts` sets the three mouse rows on
 the real screens, from the menus and the pause, and reads them back in new

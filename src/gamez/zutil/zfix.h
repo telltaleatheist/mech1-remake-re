@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string_view>
+
 // The rebuild's switches for fixes that change play against the original
 // (docs/fixes.md). Not original code. The probes turn them off, so the
 // differential tests check the original path.
@@ -9,13 +11,24 @@ namespace zfix {
 // a step of x a frame becomes x * 30 a second.
 constexpr float kReferenceFps = 30.0f;
 
-// RAW MOUSE's default (issue #15): mw3.cfg's rawmouse=, else this. Off on the Mac: a Magic Mouse's counts are
+// RAW MOUSE's default (issue #15): mw3.cfg's line, else this. Off on the Mac: a Magic Mouse's counts are
 // several times the system pointer's pixels (2026-11-25, docs/input.md section 14).
 #if defined(__APPLE__)
-constexpr bool kRawMouseDefault = false;
+constexpr bool kRawMouseMac = true;
 #else
-constexpr bool kRawMouseDefault = true;
+constexpr bool kRawMouseMac = false;
 #endif
+constexpr bool kRawMouseDefault = !kRawMouseMac;
+// mw3.cfg's RAW MOUSE key. The Mac's is its own (2026-11-25): ACCEPT on the options had saved rawmouse=1 for
+// Mac players who never chose it, so each starts once from the default; rawmouse= stays, read elsewhere only.
+constexpr const char* raw_mouse_key(bool mac) { return mac ? "rawmouse_mac" : "rawmouse"; }
+constexpr const char* kRawMouseKey = raw_mouse_key(kRawMouseMac);
+// A mw3.cfg line's RAW MOUSE: 0 or 1, -1 when it is not the system's key's.
+constexpr int raw_mouse_of_line(std::string_view line, bool mac = kRawMouseMac) {
+  const std::string_view key = raw_mouse_key(mac);
+  if (line.size() != key.size() + 2 || line.substr(0, key.size()) != key || line[key.size()] != '=') return -1;
+  return line.back() == '0' ? 0 : line.back() == '1' ? 1 : -1;
+}
 
 struct Options {
   bool per_second = true;  // FIX (B): per-frame steps scaled by dt (fixes.md, Frame rate)

@@ -20854,7 +20854,14 @@ TEST(options_mouse_sensitivity_slider_headless) {
   std::printf("  raw mouse: row %d, read %d, at once %d, left by BACK %d, kept by the page %d; saved %s\n", raw_row, raw_read, raw_at_once,
               raw_back, page_left_raw, raw_saved.empty() ? "nothing" : raw_saved[0].c_str());
   EXPECT(raw_row && raw_read && raw_at_once && raw_back && page_left_raw);
-  EXPECT(raw_saved == std::vector<std::string>({raw_was ? "rawmouse=0" : "rawmouse=1"}));
+  EXPECT(raw_saved == std::vector<std::string>({std::string(zfix::kRawMouseKey) + (raw_was ? "=0" : "=1")}));
+  // mw3.cfg's lines: the Mac reads its own key alone (an old rawmouse=1 starts it from the default, once), the
+  // others rawmouse= as before.
+  EXPECT(std::string(zfix::raw_mouse_key(false)) == "rawmouse" && std::string(zfix::raw_mouse_key(true)) == "rawmouse_mac");
+  EXPECT(zfix::raw_mouse_of_line("rawmouse=1", false) == 1 && zfix::raw_mouse_of_line("rawmouse=0", false) == 0);
+  EXPECT(zfix::raw_mouse_of_line("rawmouse_mac=1", false) == -1 && zfix::raw_mouse_of_line("rawmouse=1", true) == -1);
+  EXPECT(zfix::raw_mouse_of_line("rawmouse_mac=1", true) == 1 && zfix::raw_mouse_of_line("rawmouse_mac=0", true) == 0);
+  EXPECT(zfix::raw_mouse_of_line("rawmouse=2", false) == -1 && zfix::raw_mouse_of_line("rawmouse=10", false) == -1);
   EXPECT(page && page_read && page_applied);
   EXPECT(saved == std::vector<std::string>({"upgrade_water=1", "upgrade_mfb_regroup=0", "upgrade_improved_ai=0", "upgrade_artemis=0",
                                             "upgrade_small_fixes=1", "widemenus=0"}));

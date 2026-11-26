@@ -1143,7 +1143,13 @@ program files are replaced.
    compile-checked with the mingw build and played on the reference PC.
    **Done (2026-11-10):** `upgrades::update::swap_in` (copied beside the old as
    .new, the old moved aside as .old, the new renamed in, the old removed last;
-   any failure puts the old back; an earlier try's .new/.old cleared) and
+   any failure puts the old back; an earlier try's .new/.old cleared); since 2026-11-25 a
+   Mac app keeps its own folder and exchanges its `Contents` with the new one's
+   in one step (renamex_np RENAME_SWAP; the whole-folder move only where that
+   fails), because the Dock follows the folder: renamed to X.app.old it was
+   seen as a plain folder, a click listing "Contents". Found on 1.5.1, the disk
+   and Launch Services right (an application bundle, one path), so the Dock's
+   own memory; the rename as its cause is inferred, not seen happening) and
    `sdlfe::install_update`: Windows starts the new Setup and the launcher quits;
    the Mac attaches the DMG (`hdiutil attach -nobrowse -readonly -noautoopen`
    on a mount point of our own), swaps its app in for the running one (found

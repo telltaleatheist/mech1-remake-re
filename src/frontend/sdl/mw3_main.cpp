@@ -195,7 +195,7 @@ struct Args {
   std::string cfg_install;  // mw3.cfg's install= (the command line's wins)
   std::string cfg_mw1_game;  // mw3.cfg's mw1_game= (ours: the launcher's MechWarrior 1989 folder)
   std::string cfg_joystick, cfg_joystick_axes;  // mw3.cfg's joystick=, joystick_axes= (ours, W54: sdl_input.h)
-  int raw_mouse = -1, cfg_raw_mouse = -1;   // --raw-mouse / --no-raw-mouse, mw3.cfg's rawmouse= (ours, issue #15)
+  int raw_mouse = -1, cfg_raw_mouse = -1;   // --raw-mouse / --no-raw-mouse, mw3.cfg's rawmouse= (rawmouse_mac= on the Mac; ours, issue #15)
   int wide_menus = -1, cfg_wide_menus = -1;  // --wide-menus / --no-wide-menus, mw3.cfg's widemenus= (ours)
   bool debug_camera = false;  // --debug-camera (ours, docs/editor.md S4): the game editor anywhere; developers only
   std::vector<std::string> assets;
@@ -551,8 +551,7 @@ void read_config(const std::string& dir, Args& a) {
     }
     else if (line == "widemenus=0") a.cfg_wide_menus = 0;
     else if (line == "widemenus=1") a.cfg_wide_menus = 1;
-    else if (line == "rawmouse=0") a.cfg_raw_mouse = 0;
-    else if (line == "rawmouse=1") a.cfg_raw_mouse = 1;
+    else if (zfix::raw_mouse_of_line(line) >= 0) a.cfg_raw_mouse = zfix::raw_mouse_of_line(line);  // the Mac's own key
     else if (line == "throttle_reverse=0") a.cfg_throttle_reverse = 0;
     else if (line == "throttle_reverse=1") a.cfg_throttle_reverse = 1;
   }
