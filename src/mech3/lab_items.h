@@ -139,6 +139,8 @@ class LabItemList : public ShellButton {
   Handle store = 0;                  // +0x220  what refill lists
   Handle x224 = 0;                   // +0x224
   bool (*filter)(Engine& e, Handle item) = nullptr;  // +0x228  (thiscall on the item) none: all
+  int32_t wheel_z = 0;               // ours (platform/list_wheel.h): the wheel's position last read
+  bool wheel_read = false;
 };
 
 // 0x0048c0b0 on any flashing text (FileRow::flash's body).

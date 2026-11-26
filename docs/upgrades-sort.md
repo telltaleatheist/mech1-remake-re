@@ -103,6 +103,7 @@ Pirate's Moon).
 21. A weapon's looped sound (the machine gun's) stops when firing stops, though the fire mode changed while the trigger was held (WeaponGroup::release, weapon.cpp; MW1's FIXES 107).
 22. Torso auto return keeps the torso within its twist limit with the mouse on twist and pitch (issue #10 item 2; Torso::update, 0x00464e80).
 23. The pause, salvage, debriefing and briefing buttons have sounds (issue #19; `src/upgrades/sounds`, menus.md section 16).
+24. The mouse wheel scrolls the menus' lists under the pointer as their arrows do, and steps the controls screen's commands as NEXT and PREV (issue #20, 2026-11-25; `platform/list_wheel.h`, `mech3::list_wheel_on`; MW1's Remake has it always on, its FIXES 102).
 
 ## The answers (2026-11-10)
 

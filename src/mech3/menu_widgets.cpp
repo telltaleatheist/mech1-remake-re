@@ -13,6 +13,8 @@
 #include "gamez/zimage/zimg_library.h"
 #include "gamez/zreader/zreader.h"
 #include "gamez/zutil/zfix.h"
+#include "gamez/zinput/zinput.h"
+#include "platform/list_wheel.h"
 
 #pragma STDC FP_CONTRACT OFF
 
@@ -1269,12 +1271,17 @@ void FileList::hide() {
   if (roll_image) roll_image->hide();
 }
 
+bool list_wheel_on() { return platform::list_wheel() || zfix::options().small_fixes; }
+
 // Mech3.exe 1.2 @ 0x0048c910: the arrows light under the cursor and repeat
 // while the left button is held on them (after repeat_delay, then every
 // repeat_rate seconds of the frame time); the rollover image follows the lit
 // row; UP is enabled past the first item, DOWN while items are below.
 void FileList::update(float dt) {
-  if (flags & ztwod::kHidden) return;
+  if (flags & ztwod::kHidden) {
+    wheel_read = false;  // ours: shown again, the wheel's turns meanwhile aren't this list's
+    return;
+  }
   Object2D::update(dt);
   if (!inside) {
     repeating = 0;
@@ -1344,6 +1351,13 @@ void FileList::update(float dt) {
     down->refresh();
     down->update(dt);
   }
+  // Ours (platform/list_wheel.h): the wheel over the list presses its arrow, shown and enabled.
+  if (list_wheel_on())
+    if (const zin::MouseInfo* m = zin::mouse_info()) {
+      const int32_t n = platform::list_wheel_notch(m->z, wheel_z, wheel_read);
+      auto* a = n > 0 ? up : n < 0 ? down : nullptr;
+      if (a && inside && !(a->flags & ztwod::kHidden) && a->enabled) a->on_left_up();
+    }
 }
 
 // ---- the game's edit bar ----

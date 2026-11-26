@@ -315,6 +315,9 @@ class FileListArrow : public ShellButton {
 // one at `top`, the selected one shown in its own row and font over a BAR
 // image, ITEMROLLOVER's image under the row the mouse is on; UP and DOWN
 // scroll, repeating while held. The game adds the items.
+// Ours (platform/list_wheel.h): the wheel scrolls the lists, under SMALL FIXES or where a game turns it on.
+bool list_wheel_on();
+
 class FileList : public ShellButton {
  public:
   struct Item {                      // 8 bytes, new'd (freed by 0x0044ed90)
@@ -392,6 +395,8 @@ class FileList : public ShellButton {
   float repeat_timer = 0.5f;         // +0x1f0
   float repeat_delay = 0.5f;         // +0x1f4  before an arrow held repeats
   float repeat_rate = 0.15f;         // +0x1f8  then a step each
+  int32_t wheel_z = 0;               // ours (platform/list_wheel.h): the wheel's position last read
+  bool wheel_read = false;
   uint8_t repeating = 0;             // +0x1fc
   uint8_t no_repeat = 0;             // +0x1fd  (nothing sets it)
 };

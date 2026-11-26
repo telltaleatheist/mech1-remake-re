@@ -11,6 +11,8 @@
 #include "mech3/app_hooks.h"
 #include "mech3/mech_config.h"
 #include "mech3/pilot.h"
+#include "gamez/zinput/zinput.h"
+#include "platform/list_wheel.h"
 
 #pragma STDC FP_CONTRACT OFF
 
@@ -494,7 +496,10 @@ void LabItemList::on_left_up() {
 // rollover image follows the lit row; UP is enabled past the first item,
 // DOWN while items are below the last shown.
 void LabItemList::update(float dt) {
-  if (flags & ztwod::kHidden) return;
+  if (flags & ztwod::kHidden) {
+    wheel_read = false;  // ours: shown again, the wheel's turns meanwhile aren't this list's
+    return;
+  }
   Object2D::update(dt);
   if (!inside) {
     repeating = 0;
@@ -565,6 +570,13 @@ void LabItemList::update(float dt) {
     down->refresh();
     down->update(dt);
   }
+  // Ours (platform/list_wheel.h): the wheel over the list presses its arrow, shown and enabled.
+  if (list_wheel_on())
+    if (const zin::MouseInfo* m = zin::mouse_info()) {
+      const int32_t n = platform::list_wheel_notch(m->z, wheel_z, wheel_read);
+      auto* a = n > 0 ? up : n < 0 ? down : nullptr;
+      if (a && inside && !(a->flags & ztwod::kHidden) && a->enabled) a->on_left_up();
+    }
 }
 
 }  // namespace mech3
