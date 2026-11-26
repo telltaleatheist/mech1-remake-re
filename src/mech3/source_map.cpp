@@ -88,9 +88,11 @@ rekit::Identity identity(Found::Game game, const std::string& version, const std
   return id;
 }
 
+}  // namespace
+
 // MechWarrior 3's and Pirate's Moon's recipe for the kit's walk: an installed
 // copy's zbd/reader.zbd, a disc's DATA1.HDR.
-const rekit::SourceRules& rules() {
+const rekit::SourceRules& source_rules() {
   static const rekit::SourceRules r = [] {
     rekit::SourceRules x;
     x.clues.push_back({rekit::Clue::kInstall, "zbd/reader.zbd", 64u << 20, [](const std::vector<uint8_t>& b) {
@@ -111,8 +113,6 @@ const rekit::SourceRules& rules() {
   return r;
 }
 
-}  // namespace
-
 std::string game_words(const Found& f) {
   if (f.game == Found::kPiratesMoon)
     return "This is MechWarrior 3: Pirate's Moon, a game of its own: in the launcher, click PIRATE'S MOON, then GAME FILES, and give it there.";
@@ -125,8 +125,7 @@ std::string game_words(const Found& f) {
   return s + ".";
 }
 
-Found map_source(const std::string& path, const MapProgress& progress) {
-  const rekit::Found k = rekit::find_source(path, rules(), progress);
+Found from_kit(const rekit::Found& k) {
   Found f;
   f.kind = static_cast<Found::Kind>(k.kind);
   f.game = game_of(k.game);
@@ -148,6 +147,10 @@ Found map_source(const std::string& path, const MapProgress& progress) {
     f.summary = game_words(f);
   }
   return f;
+}
+
+Found map_source(const std::string& path, const MapProgress& progress) {
+  return from_kit(rekit::find_source(path, source_rules(), progress));
 }
 
 }  // namespace mech3::source

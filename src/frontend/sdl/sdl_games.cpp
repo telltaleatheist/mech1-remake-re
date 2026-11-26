@@ -6,6 +6,7 @@
 #include "mech3/data_folder.h"
 #include "rekit/archive.h"
 #include "rekit/family_folder.h"
+#include "rekit/program_record.h"
 
 #include <SDL3/SDL.h>
 
@@ -20,6 +21,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <string_view>
 #include <vector>
 
 #if defined(_WIN32)
@@ -32,7 +34,6 @@
 #include <windows.h>
 #include <shellapi.h>
 #elif defined(__APPLE__)
-#include <mach-o/dyld.h>
 #include <objc/message.h>
 #include <objc/runtime.h>
 #endif
@@ -654,46 +655,12 @@ std::string record_value(const std::string& text, const std::string& key) {
 
 }  // namespace
 
-std::string self_path() {
-  std::error_code ec;
-#if defined(_WIN32)
-  wchar_t buf[4096];
-  const DWORD n = GetModuleFileNameW(nullptr, buf, 4096);
-  return n > 0 && n < 4096 ? fs::path(std::wstring(buf, n)).string() : std::string();
-#elif defined(__APPLE__)
-  char buf[4096];
-  uint32_t n = sizeof buf;
-  if (_NSGetExecutablePath(buf, &n) != 0) return {};
-  const std::string p = fs::weakly_canonical(fs::path(buf), ec).string();
-  return ec || p.find("/AppTranslocation/") != std::string::npos ? std::string() : p;
-#else
-  const fs::path self = fs::read_symlink("/proc/self/exe", ec);
-  if (ec) return {};
-  const char *ai = std::getenv("APPIMAGE"), *mount = std::getenv("APPDIR");
-  if (ai && *ai && mount && *mount && self.string().rfind(std::string(mount) + "/", 0) == 0)
-    return fs::is_regular_file(ai, ec) ? std::string(ai) : std::string();
-  return self.string();
-#endif
-}
-
-bool launchers_own(const std::string& prog) {
-  std::error_code ec;
-  fs::path at = fs::weakly_canonical(prog, ec);
-  for (int up = 0; up < 8 && at.has_parent_path() && at != at.parent_path(); ++up) {
-    at = at.parent_path();  // the package's own layout inside the game's folder: <x>.app/Contents/MacOS, squashfs-root/usr/bin
-    if (fs::is_regular_file(at / u::kInstalledName, ec)) return true;
-  }
-  return false;
-}
-
+// The kit's since 2026-11-25 (rekit/program_record.h): the same file and lines.
+static_assert(std::string_view(u::kInstalledName) == rekit::kInstalledMark);
+std::string self_path() { return rekit::self_path(); }
+bool launchers_own(const std::string& prog) { return rekit::launchers_own(prog); }
 void record_self(const std::string& user_folder, u::Game g, const std::string& version) {
-  if (user_folder.empty() || !u::game_tag(g, version)) return;
-  const std::string self = self_path();
-  if (self.empty() || launchers_own(self)) return;
-  const std::string text = std::string("# Where this game is, for the BattleTech launcher (it links a copy installed without it).\n") +
-                           "game=" + u::game_info(g).key + "\nprogram=" + self + "\nversion=" + version + "\n";
-  const fs::path p = fs::path(user_folder) / kProgramRecord;
-  if (read_text(p) != text) write_text(p, text);
+  if (!user_folder.empty() && u::game_tag(g, version)) rekit::record_program(user_folder, u::game_info(g).key, version);
 }
 
 std::string identify(const std::string& prog, u::Game g, bool may_run) {

@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "rekit/program_record.h"
 #include "rekit/status.h"
 #include "upgrades/update/games.h"
 
@@ -90,7 +91,7 @@ bool in_own_mount(const std::string& bin);
 // Ours (2026-11-24, docs/launcher.md, Copies installed without the launcher): a game of ours installed by its own
 // Setup, disk image or AppImage is found and linked, and a player can link one by hand (a panel's gear).
 // Each of our programs keeps this file in its user folder: where it is and its version (rebuild-program.txt).
-constexpr const char* kProgramRecord = "rebuild-program.txt";
+using rekit::kProgramRecord;  // "rebuild-program.txt", the kit's (rekit/program_record.h)
 // This program's file as a player starts it ($APPIMAGE when it runs from that AppImage's mount, not one it inherited
 // from the launcher's); empty when it runs from somewhere that goes
 // away (the Mac's App Translocation, a disk image).
