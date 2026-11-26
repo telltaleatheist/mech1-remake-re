@@ -505,6 +505,19 @@ only kit games (`i >= 3`).
     `mw3update` (update.cpp, games.cpp and the built-in games.json), with no
     game code: mw3core links it for the mods' needs (`mod_needs.cpp`), and
     the launcher links it directly from piece 8.
+  - **Piece 8 done (2026-11-26): the links.** `mw3launcher` links
+    `rekit_sdl` (and rekit with it), `mw3rmlui`, `mw3update` and SDL, plus
+    Foundation on the Mac (sdl_games' Dock and Finder calls), and none of
+    `mw3core`, `mw3sdl` or `mw3text`. The game libraries' files with no game
+    code that it used are compiled into it too: `log_start`, `sdl_child`,
+    `sdl_focus` (mw3sdl), `text_fit`, `vulkan_check` (mw3text). sdl_install's
+    `media_dir` (the notes' music folder, shortened to fit) is the
+    launcher's own (`launcher_own`), and `sdl_install.h` is included only
+    under the switch. No `add_dependencies(mw3launcher mw3)` and no
+    `MW3_GAME_DIR` for it (its dev copy was read only by the older path).
+    A static libarchive's `bcrypt` (Windows) is linked onto the kit's target,
+    as mw3core had it. The link walk: no `mech3::`, `zutl`, `zrndr` or other
+    game symbol in the binary; 10.8 MB on the Mac, 27.5 MB before b6.
 - **b7, the games catalog (fetched).** After b0, and it needs nothing else
   from (b), so it may move earlier. A newer catalog is fetched from mw3-re
   (its main, or a release asset) the same way as the update check: the

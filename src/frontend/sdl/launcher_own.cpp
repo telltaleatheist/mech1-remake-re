@@ -1,6 +1,8 @@
 // The launcher's own small copies (launcher split b1); launcher_own.h.
 #include "frontend/sdl/launcher_own.h"
 
+#include "rekit/game_folder.h"
+
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
@@ -113,6 +115,13 @@ std::wstring meant_by(const std::wstring& name, UINT cp) {
 #endif
 
 }  // namespace
+
+std::string media_dir(const std::string& install, const std::string& write_dir) {
+  if (install.empty()) return write_dir;
+  std::error_code ec;
+  const fs::path up = fs::path(install).parent_path();
+  return fs::is_regular_file(up / rekit::kGameFolderMark, ec) ? up.string() : write_dir;
+}
 
 bool save_config_value(const std::string& write_dir, const std::string& key, const std::string& value) {
   if (write_dir.empty()) return false;

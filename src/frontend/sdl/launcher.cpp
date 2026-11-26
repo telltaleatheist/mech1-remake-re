@@ -28,9 +28,9 @@
 #include <utility>
 #include <thread>
 
-#include "frontend/sdl/sdl_install.h"
 #if defined(MW3_GAME_FIND_SCREEN)
 #include "frontend/sdl/launcher_mw3_setup.h"
+#include "frontend/sdl/sdl_install.h"
 #include "mech3/source_map.h"
 #endif
 #include "frontend/sdl/launcher_own.h"
@@ -375,8 +375,8 @@ class Launcher {
   std::string pm_wd();
   std::string files_wd() { return files_pm_ ? pm_wd() : o_.write_dir; }
   // Each game's music and converted movies: its own folder's when it has one, else the user folder (media_dir).
-  std::string media() const { return sdlfe::media_dir(install_.ok ? install_.dir : std::string(), o_.write_dir); }
-  std::string pm_media() { return sdlfe::media_dir(pm_dir_, pm_wd()); }
+  std::string media() const { return own::media_dir(install_.ok ? install_.dir : std::string(), o_.write_dir); }
+  std::string pm_media() { return own::media_dir(pm_dir_, pm_wd()); }
   std::string files_usual() const { return files_pm_ ? pm_usual() : own::usual_folder(); }
   void pm_refresh();
   void pm_refresh_older();

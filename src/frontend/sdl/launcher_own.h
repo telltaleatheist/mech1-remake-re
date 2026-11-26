@@ -53,6 +53,10 @@ std::string path_from_config(const std::string& s);
 // per settings folder; nothing elsewhere. As zutl's.
 void repair_old_names(const std::string& write_dir);
 
+// Where a game's music and converted movies are: the folder above `install` when it is a game's own folder (the
+// kit's rebuild-game-folder.txt), else `write_dir`. As sdl_install's media_dir.
+std::string media_dir(const std::string& install, const std::string& write_dir);
+
 // A game's data in words, as the game's own setup says it (mech3::setup's version_words; b6): "MechWarrior 3 1.2",
 // "MechWarrior 3 (partly patched to 1.2)", "MechWarrior 3: Pirate's Moon 1.0". found_words: "Found <that> at <dir>."
 // for a copy a game's --status reported; start_found_words: PLAY's line (MechWarrior 3 without its version).
