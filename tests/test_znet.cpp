@@ -315,8 +315,10 @@ TEST(net_mission_over_the_hub) {
   c.now_ms = [] { return 1234u; };
   g_states = g_craters = g_freed = 0;
   const size_t before = znet::session().handlers.size();  // zNetwork's own (0xd)
-  mech3::net_start();
-  EXPECT(mech3::net_game().running && znet::session().handlers.size() == before + 18);
+  mech3::net_start();  // Pirate's Moon 0x0046ef80 registers nothing (MW3's start registered its 18)
+  EXPECT(mech3::net_game().running && znet::session().handlers.size() == before);
+  mech3::net_register();  // the launch's, PM 0x0046f030: the 15 routed, 6, 1, 0xe and 0xd's host move
+  EXPECT(znet::session().handlers.size() == before + 19);
   uint8_t state[16] = {0x0f, 0, 16, 0};
   const float x = 42.5f;
   std::memcpy(state + 4, &x, 4);
