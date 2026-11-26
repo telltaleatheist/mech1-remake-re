@@ -350,6 +350,14 @@ only kit games (`i >= 3`).
     where" in `play: 1`, so the launcher hands any kit game its status's
     `where` in the same form.
   Nothing changes in a plain start before then.
+  **Decided 2026-11-26: the first.** mw3's start with no copy given takes
+  `mw3_status_find`'s (`find_install`, and the player's plain start: a copy
+  the status offers goes to the find screen to be copied in, an incomplete
+  one straight in so the game's own box says what is missing), and PLAY
+  passes no copy to a game whose status serves it (`setup: 1`): MW3 gets
+  no install and mw3.cfg's `install=` is not rewritten; Pirate's Moon gets
+  `--no-launcher` without `--install`. An older program is still handed its
+  copy. (b6 piece 2.)
   By then MW3 and Pirate's Moon releases that answer `setup: 1` have
   shipped with the new launcher (one release), so only a player who has
   not updated a game sees the thinner panel, and it offers UPDATE.
@@ -375,6 +383,7 @@ only kit games (`i >= 3`).
   no copy given, does a plain start find the copy the panel shows
   (`mw3_status_find`, recommended), or does `play: 1` carry `where` back? Until
   it is answered PLAY keeps passing the copy, and b6 can go ahead without it.
+  Answered 2026-11-26: the plain start finds it (piece 2, above).
   Every piece of game code still in `mw3launcher`'s target, as of b5:
   - **Links and build:** `mw3core`, `mw3sdl`, `mw3text` (and `mw3rmlui`, SDL3);
     `add_dependencies(mw3launcher mw3)`; `MW3_GAME_DIR` in development builds.
@@ -462,6 +471,16 @@ only kit games (`i >= 3`).
     **d1: delete every `MW3_GAME_FIND_SCREEN` block** (the `#if` side, keeping
     the `#else`), the define in CMakeLists.txt, `launcher_mw3_setup.{h,cpp}`,
     and mw3's `--launcher-shot` once the find screen is the kit's.
+  - **Piece 2 done (2026-11-26): PLAY passes a served game no copy.** mw3's
+    plain start finds the copy its status shows (`mw3_status_find`: the
+    game's own folders, mw3.cfg's `install=`, the search), saving only a
+    searched one to mw3.cfg, never the game folder's own files; mw3pm is
+    given no `--install`. A copy only offered (an older copy beside own
+    folders) opens the find screen with it in view. An older program still
+    gets its copy passed. The launcher's checks of the start read the copy
+    in use from its log (`started_on`), and
+    `sdl_program_plain_start_takes_the_copy_the_status_shows` checks the
+    plain start against `--status`.
 - **b7, the games catalog (fetched).** After b0, and it needs nothing else
   from (b), so it may move earlier. A newer catalog is fetched from mw3-re
   (its main, or a release asset) the same way as the update check: the

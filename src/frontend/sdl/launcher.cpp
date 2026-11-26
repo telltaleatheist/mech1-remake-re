@@ -1902,14 +1902,20 @@ void Launcher::start_game(bool pm) {
   fs::remove(ready_file_, ec);
   // PM has its own install, settings and saves: nothing of MW3's goes to it.
   std::vector<std::string> args;
+  // b6 (decided 2026-11-26): a game that serves its setup finds the copy its status shows on its own (mw3_status_find),
+  // so PLAY passes none; an older program is handed the copy, as before.
+  const bool served = status_for(pm ? 1 : 0);
   if (pm) {
-    args = {o_.pm_bin, "--install", pm_dir_, "--no-launcher"};
+    args = {o_.pm_bin};
+    if (!served) args.insert(args.end(), {"--install", pm_dir_});
+    args.push_back("--no-launcher");
     // Its own folder as this launcher knows it (MW3_PM_WRITE_DIR, a MY DATA FOLDER move, else the usual one or its
     // pointer's): mw3pm left alone fell back to the usual folder, a named one ignored.
     if (const std::string wd = pm_wd(); !wd.empty()) args.push_back("--write-dir"), args.push_back(wd);
     args.insert(args.end(), o_.pm_args.begin(), o_.pm_args.end());
   } else {
-    args = {o_.game_bin, install_.dir};
+    args = {o_.game_bin};
+    if (!served) args.push_back(install_.dir);
     args.insert(args.end(), o_.game_args.begin(), o_.game_args.end());
   }
   args.push_back("--ready-file"), args.push_back(ready_file_);
@@ -1921,7 +1927,7 @@ void Launcher::start_game(bool pm) {
   std::string line;
   for (const std::string& a : args) argv.push_back(a.c_str()), line += (line.empty() ? "" : " ") + a;
   argv.push_back(nullptr);
-  if (!pm) own::save_install(o_.write_dir, install_.dir);
+  if (!pm && !served) own::save_install(o_.write_dir, install_.dir);
   game_click_ = SDL_GetTicksNS(), game_slow_ = false, game_status_.clear(), status_read_ms_ = -1e9;
   // Its own stdio, none of ours: the game writes mw3.log itself, and our
   // log's pipe in its stdout would hold this program's exit until the game's.
