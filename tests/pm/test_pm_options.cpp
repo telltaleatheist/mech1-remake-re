@@ -578,7 +578,7 @@ TEST(pm_upgrades_page_has_five_switches_headless) {
   EXPECT(stage == 3 && rows[0] == 64 && rows[1] == 94 && rows[2] == 124 && rows[3] == 154 && rows[4] == 184 && rows[5] == 214);
   std::printf("  raw mouse: row %d at %d, box %d, taken %d, kept by the page %d; saved %s\n", raw_row, raw_y, box_y, raw_taken, raw_kept, raw_saved.c_str());
   EXPECT(raw_row && raw_y == 389 && box_y == 389 && raw_taken && raw_kept);
-  EXPECT(raw_saved == (raw_was ? "rawmouse=0 " : "rawmouse=1 "));
+  EXPECT(raw_saved == std::string(zfix::kRawMouseKey) + (raw_was ? "=0 " : "=1 "));  // the Mac's own key
   EXPECT(water_on_screen && water_shown_off);
   EXPECT(lines == 13 && upgrades::small_fixes_list().size() == 13);
   EXPECT(keys == "upgrade_water=1 upgrade_mfb_regroup=1 upgrade_improved_ai=1 upgrade_artemis=1 upgrade_small_fixes=0 widemenus=1 ");

@@ -146,7 +146,7 @@ void GameOptionsScreen::apply(int32_t to_options) {
   e.set_mw2_jump_jets(jump_jets.selected_value());
   if (has_raw_mouse) {  // ours: at once (sdl_input.h, raw_mouse), saved to mw3.cfg
     zfix::options().raw_mouse = raw_mouse.selected_value() != 0;
-    if (auto& save = options_upgrades_saver()) save("rawmouse", zfix::options().raw_mouse);
+    if (auto& save = options_upgrades_saver()) save(zfix::kRawMouseKey, zfix::options().raw_mouse);
   }
   if (has_sensitivity) {  // ours: X and Y's magnitude from the slider, Y's sign from the invert box
     const float s = sensitivity_of_slider(sensitivity.value);

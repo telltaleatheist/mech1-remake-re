@@ -208,6 +208,9 @@ TEST(update_picks_the_platforms_package_and_its_sum) {
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#if defined(__APPLE__)
+#include <sys/stat.h>
+#endif
 
 // Sitting 4's swap: a folder (a Mac app) and a file (an AppImage, its execute bit kept) put in place; the old kept
 // whenever it cannot be done; an earlier try's leftovers cleared; nothing beside touched.
@@ -237,7 +240,18 @@ TEST(update_swaps_the_program_in_or_keeps_the_old) {
          text(root / "Apps" / "MW3 Rebuild.app.new" / "notes.txt") == "theirs" &&
          text(root / "Apps" / "MW3 Rebuild.app" / "Contents" / "MacOS" / "mw3launcher") == "old");
   fs::remove_all(root / "Apps" / "MW3 Rebuild.app.new", ec);
+#if defined(__APPLE__)
+  const auto inode = [](const fs::path& p) {
+    struct stat st = {};
+    return stat(p.c_str(), &st) == 0 ? st.st_ino : 0;
+  };
+  const ino_t was = inode(root / "Apps" / "MW3 Rebuild.app");
+#endif
   EXPECT(u::swap_in((root / "dmg" / "MW3 Rebuild.app").string(), (root / "Apps" / "MW3 Rebuild.app").string(), &error));
+#if defined(__APPLE__)
+  // The Dock follows the app's own folder: the same one after the update, never renamed to .old.
+  EXPECT(was != 0 && inode(root / "Apps" / "MW3 Rebuild.app") == was);
+#endif
   EXPECT(text(root / "Apps" / "MW3 Rebuild.app" / "Contents" / "MacOS" / "mw3launcher") == "new" &&
          !fs::exists(root / "Apps" / "MW3 Rebuild.app" / "Contents" / "MacOS" / "only-in-old"));
   EXPECT(!fs::exists(root / "Apps" / "MW3 Rebuild.app.old") && !fs::exists(root / "Apps" / "MW3 Rebuild.app.new"));
