@@ -18,6 +18,8 @@ inline constexpr LeftOut kPmLeftOut[] = {
      "55e0de9fe: PM's main state 0x004896e0 only restarts the idle minute, no Attract (MW3's 0x00486d40 pushed it)"},
     {"mech_dfn_bad_version_does_not_save", "pm_mech_dfn_reads_no_version",
      "bdd74a5f4: PM's reader 0x0046d690 reads no version, so a bad one loads (MW3's 0x0046ba40 needed 2)"},
+    {"mods_test_reads_edited_weapons_and_mechs_again", "pm_mods_test_reads_edited_weapons_and_mechs_again",
+     "bdd74a5f4, 0x0046d690: PM's dfn reader needs PM's table and files (mw3tests runs MW3's table on MW3's install)"},
     {nullptr, nullptr, nullptr},  // the end
 };
 

@@ -5,6 +5,7 @@
 #include <cmath>  // std::fabs: libstdc++ does not bring it in through the others
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -36,6 +37,7 @@
 #include "mech3/app_states.h"
 #include "mech3/mech_control.h"
 #include "mech3/mech_ids.h"
+#include "mech3/mech_names.h"
 #include "mech3/mech_config.h"
 #include "mech3/mech_reader.h"
 #include "mech3/mod_campaign.h"
@@ -918,4 +920,115 @@ TEST(pm_net_game_has_no_turrets_c1m1_headless) {
     EXPECT(a.core && b.core && in_net == 0 && after > 0);
     zgame::set_game(zgame::mw3_table());
   });
+}
+
+namespace {
+// A tree as the text reader reads it back (tests/test_mods.cpp's).
+std::string reload_zrd_text(const zrdr::Node& n) {
+  char b[64];
+  switch (n.type) {
+    case zrdr::List: {
+      std::string s = "(";
+      for (int i = 1; i < n.list[0].i; ++i) s += (i > 1 ? " " : "") + reload_zrd_text(n.list[i]);
+      return s + ")";
+    }
+    case zrdr::String: return std::string("\"") + (n.s ? n.s : "") + "\"";
+    case zrdr::Float:
+      std::snprintf(b, sizeof b, "%.9g", static_cast<double>(n.f));
+      if (std::strchr(b, 'e')) std::snprintf(b, sizeof b, "%.9f", static_cast<double>(n.f));
+      if (!std::strchr(b, '.')) std::strcat(b, ".0");
+      return b;
+    default:
+      return std::to_string(n.i);
+  }
+}
+void reload_put(const fs::path& p, const std::string& text) {
+  std::error_code ec;
+  fs::create_directories(p.parent_path(), ec);
+  std::ofstream(p, std::ios::binary) << text;
+}
+}  // namespace
+
+// MW3's mods_test_reads_edited_weapons_and_mechs_again on Pirate's Moon's files, table and reader (0x0046d690):
+// between two TESTs a modder edits a mod's loose weapons.zrd and a mech's dfn; the next TEST reads both, weapons.zrd
+// at every mission load, the dfn once TEST's start has let the cached definitions go (mod_test_reload).
+TEST(pm_mods_test_reads_edited_weapons_and_mechs_again) {
+  const std::string install = MW3PM_GAME_DIR;
+  std::error_code ec;
+  if (!fs::exists(install + "/zbd/reader.zbd", ec)) return;
+  MountsBack back;
+  zgame::set_game(pm::table());
+  const zwep::InitHooks hooks = zwep::init_hooks();
+  zwep::init_hooks() = zwep::InitHooks{};
+  const std::string wd = std::string(MW3_TEST_TMP_ROOT) + "/pm_mods_test_reload";
+  fs::remove_all(wd, ec);
+  fs::create_directories(wd, ec);
+  const std::string mech = mech3::mech_name(9), dfn_file = "dfn_" + mech + ".zrd";
+  zrdr::init();
+  zutl::mounts() = zutl::Mounts{};
+  zutl::set_write_dir(wd);
+  zutl::mount(install);
+  EXPECT(zrdr::open_archive("zbd\\reader.zbd", true));
+  zrdr::Node* weapons = zrdr::load("weapons.zrd");
+  zrdr::Node* dfn = zrdr::load(dfn_file.c_str());
+  EXPECT(weapons && dfn);
+  const auto edited = [&](float velocity, float accel) {
+    if (zrdr::Node* v = weapons ? zrdr::find(zrdr::find(weapons, "PPC"), "VELOCITY") : nullptr)
+      if (v->type == zrdr::List && v->list[0].i > 1) v->list[1].f = velocity;
+    if (zrdr::Node* a = dfn ? zrdr::find(dfn, "accel_rate") : nullptr) {
+      if (a->type == zrdr::List && a->list[0].i > 1) a = &a->list[1];
+      a->type = zrdr::Float, a->f = accel;
+    }
+    std::string w, d;
+    for (int i = 1; weapons && i < weapons->list[0].i; ++i) w += reload_zrd_text(weapons->list[i]) + "\n";
+    for (int i = 1; dfn && i < dfn->list[0].i; ++i) d += reload_zrd_text(dfn->list[i]) + "\n";
+    reload_put(wd + "/mods/tune/zbd/weapons.zrd", w);
+    reload_put(wd + "/mods/tune/zbd/" + dfn_file, d);
+  };
+  reload_put(wd + "/mods/tune/mod.txt", "name=Tune\nfor=mw3pm\n");
+  edited(1234.5f, 0.77f);
+  zrdr::close_archives(true);
+  const auto mount = [&] {
+    zutl::mounts() = zutl::Mounts{};
+    zutl::set_write_dir(wd);
+    mech3::mods_mount(wd, {"tune"}, {install});
+    zutl::mount(install);
+    zrdr::init();
+    zrdr::open_archive("zbd\\reader.zbd", true);
+  };
+  mount();
+  const auto mission = [&](float* velocity, float* accel) {
+    *velocity = -1, *accel = -1;
+    zwep::init(nullptr, "weapons.zrd", 0, nullptr);
+    if (const zwep::WeaponDef* d = zwep::find_def("PPC")) *velocity = d->velocity;
+    zwep::shutdown(nullptr);
+    if (mech3::MechDfn* m = mech3::mech_dfn(9); m && mech3::read_dfn(*m) && m->configs && !m->configs->configs.empty())
+      *accel = m->configs->configs[0]->accel_rate;
+  };
+  float v1, a1, v2, a2, v3, a3;
+  mech3::mod_test_reload();  // TEST
+  mission(&v1, &a1);
+  zrdr::close_archives(true);
+  zutl::mounts() = zutl::Mounts{};
+  zutl::mount(install);
+  zrdr::init();
+  zrdr::open_archive("zbd\\reader.zbd", true);
+  zrdr::free_node(weapons), zrdr::free_node(dfn);
+  weapons = zrdr::load("weapons.zrd"), dfn = zrdr::load(dfn_file.c_str());
+  edited(2345.5f, 0.88f);
+  zrdr::close_archives(true);
+  mount();
+  mission(&v2, &a2);         // without TEST's reload: the mech as first read
+  mech3::mod_test_reload();  // TEST again
+  mission(&v3, &a3);
+  std::printf("  first TEST: PPC velocity %.1f, %s accel %.2f; edited, no reload: %.1f, %.2f; TEST again: %.1f, %.2f\n", v1,
+              mech.c_str(), a1, v2, a2, v3, a3);
+  EXPECT(v1 == 1234.5f && a1 == 0.77f);
+  EXPECT(v2 == 2345.5f && a2 == 0.77f);
+  EXPECT(v3 == 2345.5f && a3 == 0.88f);
+  zrdr::free_node(weapons), zrdr::free_node(dfn);
+  mech3::mod_test_reload();
+  zrdr::close_archives(true);
+  zwep::init_hooks() = hooks;
+  zgame::set_game(zgame::mw3_table());
 }
