@@ -5,8 +5,10 @@
 #include <cstring>
 #include <string>
 
+#include "gamez/zinput/zinput.h"
 #include "gamez/zutil/zfix.h"
 #include "mech3/controls_cfg.h"
+#include "platform/list_wheel.h"
 
 #pragma STDC FP_CONTRACT OFF
 
@@ -456,9 +458,11 @@ ControlsScreen::~ControlsScreen() = default;
 // 1.0 since the capture began (half its travel).
 void ControlsScreen::update(float dt) {
   Window::update(dt);
+  if (mode != 0) wheel_read = false;  // ours: a capture's turns of the wheel aren't steps
   switch (mode) {
     case 0:
       --g_mouse_guard;
+      wheel();
       return;
     case 1: {
       key_b.set_checked(0);
@@ -606,6 +610,29 @@ void ControlsScreen::select_command(int32_t i) {
 int32_t ControlsScreen::current_command() const { return commands.value_at(commands.first); }
 
 // Mech3.exe 1.2 @ 0x0042d1c0
+// Ours (platform/list_wheel.h): the wheel over any of the lists steps the commands as NEXT (down) and PREV (up),
+// while that button is shown and enabled.
+void ControlsScreen::wheel() {
+  const zin::MouseInfo* m = zin::mouse_info();
+  if (!m) return;
+  const int32_t n = platform::list_wheel_notch(m->z, wheel_z, wheel_read);
+  if (!n || !list_wheel_on()) return;
+  if (!commands.pointer_over && !key_a.pointer_over && !key_b.pointer_over && !joy.pointer_over && !mouse.pointer_over)
+    return;
+  ControlsArrow& a = n > 0 ? prev : next;
+  if (!(a.flags & ztwod::kHidden) && a.enabled) a.on_left_up();
+}
+
+void ControlsList::on_enter() {
+  pointer_over = true;
+  ztwod::ListBox::on_enter();
+}
+
+void ControlsList::on_leave() {
+  pointer_over = false;
+  ztwod::ListBox::on_leave();
+}
+
 int32_t ControlsScreen::step_command(int32_t by) {
   const int32_t i = by + commands.first;
   if (i >= 0 && i < static_cast<int32_t>(commands.strings.size())) commands.ListBox::select(i);

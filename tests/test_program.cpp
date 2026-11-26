@@ -28953,6 +28953,110 @@ TEST(message_box_over_a_gpu_frame_keeps_it_after_an_empty_lock) {
 // and OK on the throttle binds it stop-to-full as the defaults do, whatever
 // the lever's place at OK (the lever map then gives reverse); a slider scaled
 // from DirectInput's 0..65535.
+// Issue #20 (2026-11-25): under SMALL FIXES the mouse wheel over a menu's list does what its arrows do
+// (platform/list_wheel.h). The campaign's pilot list, padded with blank rows so it can scroll: down a notch a frame
+// to its foot and no further, then up to its head; with SMALL FIXES off a notch does nothing. Then the controls
+// screen: a notch down over its lists steps to the next command, a notch up back, and nothing with SMALL FIXES off.
+TEST(issue20_mouse_wheel_scrolls_the_menus_lists_headless) {
+  if (!have_game()) return;
+  W40Setup w("wheel_write");
+  int stage = 0, wait = 0, notch = 0, real = 0, notches = 0, moves = 0;
+  bool over = false, placed = false;
+  int32_t last_top = 0, foot = -1, head = -1, off_top = -1, cmd0 = -1, cmd_down = -1, cmd_up = -1, cmd_off = -1;
+  w40_run(w.dir, nullptr, nullptr, [&](mech3::GameEngine& engine, mech3::Mech3App& app) {
+    zin::MouseInfo* mi = zin::mouse_info();
+    if (!mi) return true;
+    zgame::State* now = app.current();
+    auto* ps = dynamic_cast<mech3::PilotState*>(now);
+    mech3::PilotScreen* p = ps ? ps->screen : nullptr;
+    auto* os = dynamic_cast<mech3::OptionsState*>(now);
+    auto* c = os ? dynamic_cast<mech3::ControlsScreen*>(engine.screen_of(os->screen_)) : nullptr;
+    if (stage == 0 && at_main_menu(app)) {
+      const_cast<mech3::MainMenu*>(mech3::main_menu())->buttons[mech3::MainMenuButton::kNewCampaign].on_left_up();
+      stage = 1;
+    } else if (stage == 1 && p) {
+      mech3::FileList& l = p->pilots;
+      if (l.flags & ztwod::kHidden) return false;
+      real = l.item_count();
+      while (l.item_count() < static_cast<int32_t>(l.rows.size()) + 4) l.add_item("", -1);
+      l.layout();
+      notches = l.item_count() + 3;
+      l.on_enter();  // the pointer over it, as Window::update says it (headless rows have no width to hit)
+      stage = 2, wait = 0;
+    } else if (stage == 2 && p) {
+      mech3::FileList& l = p->pilots;
+      if (++wait < 3) {  // the pointer over it first
+        last_top = l.top;
+        return false;
+      }
+      moves += last_top != l.top;  // the previous frame's notch, taken by the list's update since
+      last_top = l.top;
+      if (notch == notches) foot = l.top;
+      if (notch < 2 * notches) {
+        mi->z += notch < notches ? -1 : 1;
+        ++notch;
+        return false;
+      }
+      head = l.top;
+      zfix::options().small_fixes = false;  // off: a notch is nothing
+      l.top = 0, l.layout();
+      mi->z -= 1;
+      stage = 3;
+    } else if (stage == 3 && p) {
+      mech3::FileList& l = p->pilots;
+      off_top = l.top;
+      zfix::options().small_fixes = true;
+      while (l.item_count() > real) {
+        std::free(l.items.back()->text);
+        delete l.items.back();
+        l.items.pop_back();
+      }
+      l.top = 0, l.layout();
+      p->on_button(0x17, 0, 0);  // CANCEL
+      stage = 4;
+    } else if (stage == 4 && at_main_menu(app)) {
+      const_cast<mech3::MainMenu*>(mech3::main_menu())->buttons[mech3::MainMenuButton::kOptions].on_left_up();
+      stage = 5;
+    } else if (stage == 5 && os) {
+      auto* g = dynamic_cast<mech3::GameOptionsScreen*>(engine.screen_of(os->screen_));
+      if (!g) return false;
+      g->controls.on_left_up();
+      stage = 6, wait = 0;
+    } else if (stage == 6 && c) {
+      if (!placed) {
+        placed = true, wait = 0;
+        c->key_b.on_enter();  // over a list, as Window::update says it (headless lists have no rect to hit)
+      }
+      if (++wait < 3) return false;
+      cmd0 = c->commands.first;
+      over = c->key_b.pointer_over;
+      mi->z -= 1;
+      stage = 7;
+    } else if (stage == 7 && c) {
+      cmd_down = c->commands.first;
+      mi->z += 1;
+      stage = 8;
+    } else if (stage == 8 && c) {
+      cmd_up = c->commands.first;
+      zfix::options().small_fixes = false;
+      mi->z -= 1;
+      stage = 9;
+    } else if (stage == 9 && c) {
+      cmd_off = c->commands.first;
+      zfix::options().small_fixes = true;
+      return true;
+    }
+    return ++wait > 600;
+  });
+  std::printf("  pilots: %d notches, %d moves, foot %d, head %d, off %d; commands %d -> %d -> %d, off %d\n", notches, moves,
+              foot, head, off_top, cmd0, cmd_down, cmd_up, cmd_off);
+  EXPECT(stage == 9);
+  EXPECT(over);
+  EXPECT(foot > 0 && moves == 2 * foot && head == 0);  // down to the foot and no further, then all the way back
+  EXPECT(off_top == 0);
+  EXPECT(cmd0 >= 0 && cmd_down == cmd0 + 1 && cmd_up == cmd0 && cmd_off == cmd0);
+}
+
 TEST(controls_axis_popup_binds_a_slider_to_the_throttle_headless) {
   if (!have_game()) return;
   for (const bool bugs : {true, false}) {
