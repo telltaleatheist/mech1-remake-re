@@ -339,7 +339,16 @@ std::vector<Mech::Part> Mech::parts(const Pose* pose) const {
           if (poly.vertex_indices[j] < vcount) apply(x, m.vertices + 3 * poly.vertex_indices[j], v.data());
           return v;
         };
+        const uint32_t ncount = m.count(0x18);
+        auto normal = [&](uint32_t j) {  // turned with the part, not moved; zero when the polygon has none
+          std::array<float, 3> v{};
+          if (!(poly.flags & 0x200) || !poly.normal_indices || !m.normals || poly.normal_indices[j] >= ncount) return v;
+          const float* q = m.normals + 3 * poly.normal_indices[j];
+          for (int a = 0; a < 3; ++a) v[a] = q[0] * x.m[a] + q[1] * x.m[3 + a] + q[2] * x.m[6 + a];
+          return v;
+        };
         for (uint32_t j = 1; j + 1 < k; ++j) {
+          part.normals.push_back(normal(0)), part.normals.push_back(normal(j)), part.normals.push_back(normal(j + 1));
           part.triangles.push_back(corner(0)), part.triangles.push_back(corner(j)), part.triangles.push_back(corner(j + 1));
           part.two_sided.push_back((poly.flags & 0x100) != 0);
         }

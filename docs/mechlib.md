@@ -446,7 +446,11 @@ firepoint) rises 3 degrees. Then for printing: each part's open boundary loops c
 Owens), groups of parts that touch nothing else strutted to the body (the Vulture's gun pods hang free), and a
 bevelled hex base under the feet. 1:100 by default, millimetres, Z up, facing -Y. `--stats` lists the open edges,
 panels and sizes; `--frames <mech> <motion>` the soles through a motion. The feet: `lfoot`/`rfoot` and their toes,
-or the calf when the foot node has no polygons (the Elemental draws its feet with its calves).
+or the calf when the foot node has no polygons (the Elemental draws its feet with its calves). `--smooth N` runs N
+levels of Loop subdivision (triangles x4 each) where the game smooths its shading: an edge stays a crease where the
+two polygons' normals (flag 0x200; 171 of the Mad Cat's 237 polygons have them) differ at either end by more than
+about 5 degrees, either polygon has none, or it is not shared by two. Level 3 rounds the Mad Cat's nose, calves and
+barrels and keeps its boxes square (36k triangles).
 
 ## Porting order (leaves first)
 

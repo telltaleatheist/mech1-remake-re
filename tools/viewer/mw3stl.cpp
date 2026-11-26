@@ -4,9 +4,10 @@
 //   mw3stl --assets <zbd dir> --parts <mech>     the part tree, with sizes
 //   mw3stl --assets <zbd dir> --stats            holes, panels and sizes of every mech
 //   mw3stl --assets <zbd dir> --frames <mech> <motion>
-//   mw3stl --assets <zbd dir> --out <dir> [--scale 100] [--twist 25] [--pitch 3] [--no-base] [mech ...]
+//   mw3stl --assets <zbd dir> --out <dir> [--scale 100] [--twist 25] [--pitch 3] [--no-base] [--smooth 0..3] [mech ...]
 // The stance: the walk's widest stride with both soles down, the torso twisted and the arms raised; holes closed,
-// single-sided panels given 0.8 mm, a bevelled hex base under the feet. Millimetres, Z up, facing -Y.
+// single-sided panels given 0.8 mm, a bevelled hex base under the feet. Millimetres, Z up, facing -Y. --smooth
+// subdivides where the game's own normals smooth the shading, keeping its hard edges.
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -41,6 +42,7 @@ std::vector<std::string> mech_names(const std::string& zbd) {
 
 Vec sub(const Vec& a, const Vec& b) { return {a[0] - b[0], a[1] - b[1], a[2] - b[2]}; }
 Vec cross(const Vec& a, const Vec& b) { return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]}; }
+float dot(const Vec& a, const Vec& b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
 
 void bounds(const std::vector<Vec>& tris, Vec& lo, Vec& hi) {
   lo = {1e9f, 1e9f, 1e9f}, hi = {-1e9f, -1e9f, -1e9f};
@@ -291,6 +293,96 @@ void slab(const Vec& p, const Vec& q, const Vec& r, float thick, std::vector<Vec
   }
 }
 
+// Loop subdivision with creases, `levels` times: each triangle becomes four, smooth where the game smooths. An edge
+// stays sharp (a crease) where the game shades it hard: the two triangles' normals differ at either end (the
+// artist's split), either has none (no flag 0x200, or a hole's cap), or it is not shared by exactly two.
+std::vector<Vec> smooth(const std::vector<Vec>& tris, const std::vector<Vec>& normals, int levels) {
+  using Edge = std::pair<int, int>;
+  auto edge = [](int a, int b) { return a < b ? Edge{a, b} : Edge{b, a}; };
+  std::vector<Vec> v;
+  std::vector<std::array<int, 3>> t;
+  std::map<std::array<long, 3>, int> id;
+  for (const Vec& p : tris) {
+    const std::array<long, 3> k{std::lround(p[0] * 1000), std::lround(p[1] * 1000), std::lround(p[2] * 1000)};
+    if (id.try_emplace(k, static_cast<int>(v.size())).second) v.push_back(p);
+  }
+  auto at = [&](const Vec& p) {
+    return id[{std::lround(p[0] * 1000), std::lround(p[1] * 1000), std::lround(p[2] * 1000)}];
+  };
+  // Each edge's triangles, with the normals at its two ends as each triangle has them.
+  struct Side {
+    Vec nu, nv;
+  };
+  std::map<Edge, std::vector<Side>> sides;
+  for (size_t i = 0; i + 2 < tris.size(); i += 3) {
+    const std::array<int, 3> c{at(tris[i]), at(tris[i + 1]), at(tris[i + 2])};
+    if (c[0] == c[1] || c[1] == c[2] || c[2] == c[0]) continue;
+    t.push_back(c);
+    for (int e = 0; e < 3; ++e) {
+      const int a = c[e], b = c[(e + 1) % 3];
+      const Vec& na = normals[i + e];
+      const Vec& nb = normals[i + (e + 1) % 3];
+      sides[edge(a, b)].push_back(a < b ? Side{na, nb} : Side{nb, na});
+    }
+  }
+  auto same = [](const Vec& a, const Vec& b) {
+    const float la = std::sqrt(dot(a, a)), lb = std::sqrt(dot(b, b));
+    return la > 0 && lb > 0 && dot(a, b) / (la * lb) > 0.996f;  // within about 5 degrees
+  };
+  std::map<Edge, bool> crease;
+  for (const auto& [e, list] : sides)
+    crease[e] = list.size() != 2 || !same(list[0].nu, list[1].nu) || !same(list[0].nv, list[1].nv);
+  for (int level = 0; level < levels; ++level) {
+    std::map<Edge, std::vector<int>> opp;
+    for (const auto& c : t)
+      for (int e = 0; e < 3; ++e) opp[edge(c[e], c[(e + 1) % 3])].push_back(c[(e + 2) % 3]);
+    std::vector<std::vector<int>> nb(v.size()), cn(v.size());
+    for (const auto& [e, o] : opp) {
+      nb[e.first].push_back(e.second), nb[e.second].push_back(e.first);
+      const auto it = crease.find(e);
+      if (o.size() != 2 || (it != crease.end() && it->second))
+        cn[e.first].push_back(e.second), cn[e.second].push_back(e.first);
+    }
+    std::vector<Vec> nv(v.size());
+    for (size_t i = 0; i < v.size(); ++i) {
+      const auto n = nb[i].size();
+      if (cn[i].size() > 2 || n < 3) nv[i] = v[i];  // a corner: stays
+      else if (cn[i].size() == 2)
+        for (int a = 0; a < 3; ++a) nv[i][a] = 0.75f * v[i][a] + 0.125f * (v[cn[i][0]][a] + v[cn[i][1]][a]);
+      else {
+        const float beta = n == 3 ? 3.0f / 16 : 3.0f / (8 * static_cast<float>(n));
+        for (int a = 0; a < 3; ++a) {
+          float sum = 0;
+          for (int j : nb[i]) sum += v[j][a];
+          nv[i][a] = (1 - static_cast<float>(n) * beta) * v[i][a] + beta * sum;
+        }
+      }
+    }
+    std::map<Edge, int> mid;
+    std::map<Edge, bool> next_crease;
+    for (const auto& [e, o] : opp) {
+      const auto it = crease.find(e);
+      const bool sharp = o.size() != 2 || (it != crease.end() && it->second);
+      Vec m;
+      for (int a = 0; a < 3; ++a)
+        m[a] = sharp ? (v[e.first][a] + v[e.second][a]) / 2
+                     : 0.375f * (v[e.first][a] + v[e.second][a]) + 0.125f * (v[o[0]][a] + v[o[1]][a]);
+      mid[e] = static_cast<int>(nv.size());
+      nv.push_back(m);
+      next_crease[edge(e.first, mid[e])] = sharp, next_crease[edge(mid[e], e.second)] = sharp;
+    }
+    std::vector<std::array<int, 3>> nt;
+    for (const auto& c : t) {
+      const int ab = mid[edge(c[0], c[1])], bc = mid[edge(c[1], c[2])], ca = mid[edge(c[2], c[0])];
+      nt.push_back({c[0], ab, ca}), nt.push_back({c[1], bc, ab}), nt.push_back({c[2], ca, bc}), nt.push_back({ab, bc, ca});
+    }
+    v = std::move(nv), t = std::move(nt), crease = std::move(next_crease);
+  }
+  std::vector<Vec> out;
+  for (const auto& c : t) out.insert(out.end(), {v[c[0]], v[c[1]], v[c[2]]});
+  return out;
+}
+
 // A group of parts that touches nothing else gets a strut to the body: a six-sided rod `radius` thick between the
 // two closest corners. The Vulture's gun pods hang free of its body, which
 // the screen hides and a print cannot.
@@ -318,8 +410,6 @@ void rod(const Vec& a, const Vec& b, float radius, std::vector<Vec>& out) {
     out.insert(out.end(), {ra[i], rb[j], rb[i], ra[i], ra[j], rb[j], a, ra[j], ra[i], b, rb[i], rb[j]});
   }
 }
-float dot(const Vec& a, const Vec& b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
-
 // Segment p..q through triangle a, b, c (Moller-Trumbore, t in [0, 1]).
 bool crosses(const Vec& p, const Vec& q, const Vec& a, const Vec& b, const Vec& c) {
   const Vec d = sub(q, p), e1 = sub(b, a), e2 = sub(c, a), h = cross(d, e2);
@@ -467,6 +557,7 @@ struct Options {
   float scale = 100;  // 1:scale, game metres to millimetres
   float twist = 25, pitch = 3;
   bool base = true;
+  int smooth = 0;  // Loop subdivision levels (each: triangles x4)
 };
 
 int export_mech(const std::string& zbd, const std::string& mech, const std::string& dir, const Options& o) {
@@ -481,11 +572,16 @@ int export_mech(const std::string& zbd, const std::string& mech, const std::stri
   int loops = 0, panels = 0, open = 0;
   for (const viewer::Mech::Part& p : m.parts(&pose)) {
     if (p.triangles.empty()) continue;
-    std::vector<Vec> solid;
+    std::vector<Vec> solid, normals;
     for (size_t t = 0; t < p.two_sided.size(); ++t)
       if (p.two_sided[t]) slab(p.triangles[3 * t], p.triangles[3 * t + 1], p.triangles[3 * t + 2], thick, all), ++panels;
-      else solid.insert(solid.end(), p.triangles.begin() + 3 * t, p.triangles.begin() + 3 * t + 3);
+      else {
+        solid.insert(solid.end(), p.triangles.begin() + 3 * t, p.triangles.begin() + 3 * t + 3);
+        normals.insert(normals.end(), p.normals.begin() + 3 * t, p.normals.begin() + 3 * t + 3);
+      }
     loops += close_holes(solid);
+    normals.resize(solid.size(), Vec{0, 0, 0});  // the caps: no normals, so their rims stay sharp
+    if (o.smooth > 0) solid = smooth(solid, normals, o.smooth);
     open += shape(solid).open;
     Piece piece{p.name, solid, {}, {}};
     bounds(solid, piece.lo, piece.hi);
@@ -537,6 +633,7 @@ int main(int argc, char** argv) {
     else if (a == "--twist" && i + 1 < argc) opt.twist = std::stof(argv[++i]);
     else if (a == "--pitch" && i + 1 < argc) opt.pitch = std::stof(argv[++i]);
     else if (a == "--no-base") opt.base = false;
+    else if (a == "--smooth" && i + 1 < argc) opt.smooth = std::stoi(argv[++i]);
     else if (a == "--frames" && i + 2 < argc) return frames(zbd, argv[i + 1], argv[i + 2]);
     else only.push_back(a);
   }
