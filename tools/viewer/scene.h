@@ -58,6 +58,17 @@ class Mech {
   std::string load(const std::string& zbd_dir, const std::string& entry);
   void build(Scene& out, const Pose* pose) const;
 
+  // Every part of the tree with its own local transform, and for the ones with a model its triangles placed by
+  // `pose` (world space, three corners each; flag 0x100's two-sided ones marked). For mw3stl.
+  struct Part {
+    std::string name, parent;
+    std::array<float, 12> local{};
+    std::array<float, 3> origin{};  // its pivot, placed by `pose`
+    std::vector<std::array<float, 3>> triangles;
+    std::vector<bool> two_sided;  // one per triangle
+  };
+  std::vector<Part> parts(const Pose* pose) const;
+
  private:
   struct Data;
   std::unique_ptr<Data> d_;

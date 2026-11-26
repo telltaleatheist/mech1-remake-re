@@ -307,6 +307,49 @@ void Mech::build(Scene& out, const Pose* pose) const {
   }
 }
 
+std::vector<Mech::Part> Mech::parts(const Pose* pose) const {
+  std::vector<Part> out;
+  std::vector<zcls::Node*> todo{d_->root};
+  while (!todo.empty()) {
+    zcls::Node* n = todo.back();
+    todo.pop_back();
+    for (int c = n->child_count() - 1; c >= 0 && n->children; --c) todo.push_back(n->children[c]);
+    Part part;
+    part.name = n->name();
+    if (n->parent_count() > 0 && n->parents && n->parents[0]) part.parent = n->parents[0]->name();
+    const Xform l = local_xform(n);
+    std::copy(l.m, l.m + 9, part.local.begin());
+    std::copy(l.t, l.t + 3, part.local.begin() + 9);
+    const Xform w = world_xform(n, pose);
+    std::copy(w.t, w.t + 3, part.origin.begin());
+    if (n->cls() == kObject3d && n->model && !under_marker(n)) {
+      const zmod::Model& m = *n->model;
+      const Xform x = world_xform(n, pose);
+      const uint32_t vcount = m.count(0x14);
+      for (uint32_t p = 0; p < m.count(0x10) && m.polygons; ++p) {
+        const zmod::Polygon& poly = m.polygons[p];
+        const uint32_t k = poly.flags & 0xff;
+        if (k < 3 || !poly.vertex_indices) continue;
+        const zcls::Material* mat =
+            poly.material_index < d_->mats.size() ? &d_->mats[poly.material_index] : nullptr;
+        const bool textured = mat && mat->raw && (mat->raw[1] & 1) && poly.uvs;
+        if (!textured && mat && mat->raw && mat->raw[0] == 0) continue;  // alpha 0 draws nothing
+        auto corner = [&](uint32_t j) {
+          std::array<float, 3> v{};
+          if (poly.vertex_indices[j] < vcount) apply(x, m.vertices + 3 * poly.vertex_indices[j], v.data());
+          return v;
+        };
+        for (uint32_t j = 1; j + 1 < k; ++j) {
+          part.triangles.push_back(corner(0)), part.triangles.push_back(corner(j)), part.triangles.push_back(corner(j + 1));
+          part.two_sided.push_back((poly.flags & 0x100) != 0);
+        }
+      }
+    }
+    out.push_back(std::move(part));
+  }
+  return out;
+}
+
 struct Motion::Data {
   zsis::Script script;
 };

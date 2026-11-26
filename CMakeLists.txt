@@ -995,6 +995,10 @@ if(SDL3_FOUND)
   target_link_libraries(mw3view PRIVATE mw3core mw3sdl SDL3::SDL3)
   target_include_directories(mw3view PRIVATE tools/viewer)
   target_compile_definitions(mw3view PRIVATE MW3_GAME_DIR="${MW3_GAME_DIR}")
+  # Each mech of the player's own mechlib.zbd as an STL, posed, for 3D printing (tools/viewer/mw3stl.cpp).
+  add_executable(mw3stl tools/viewer/mw3stl.cpp tools/viewer/scene.cpp)
+  target_link_libraries(mw3stl PRIVATE mw3core)
+  target_include_directories(mw3stl PRIVATE tools/viewer)
   # The importer's movies (docs/fmv.md, The imported movies): only with FFmpeg's
   # libraries (Indeo 5 decoding, the MPEG-1 encoder); not needed to build the game.
   # pkg-config's (brew install ffmpeg), else a prebuilt shared build's include\

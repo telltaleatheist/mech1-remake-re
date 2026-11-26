@@ -435,6 +435,19 @@ the texture word written as 1 rather than an address (fixes.md); `test_s14_misc.
 - 0x518c60 writes `\0` over the texture name's last `.` while it looks the
   texture up, then puts it back.
 
+## 3D printing (`mw3stl`, 2026-11-26)
+
+`tools/viewer/mw3stl.cpp` (ours, a development tool beside `mw3view`) writes each of the 19 mechs of the player's own
+`mechlib.zbd` as a binary STL, posed through the viewer's scene code (`viewer::Mech::parts`). The stance: the
+mech's `_walk` at its widest stride with both soles within 0.25 m of each other (48 samples), the `torso` turned
+25 degrees about its pivot, each arm (`larm`, `rarm`) pitched until its barrel line (a `firepoint`'s parent to the
+firepoint) rises 3 degrees. Then for printing: each part's open boundary loops closed with a fan (every mech has
+50-158 open edges, the faces the game never drew), flag 0x100's single-sided panels made 0.8 mm slabs (Orion,
+Owens), groups of parts that touch nothing else strutted to the body (the Vulture's gun pods hang free), and a
+bevelled hex base under the feet. 1:100 by default, millimetres, Z up, facing -Y. `--stats` lists the open edges,
+panels and sizes; `--frames <mech> <motion>` the soles through a motion. The feet: `lfoot`/`rfoot` and their toes,
+or the calf when the foot node has no polygons (the Elemental draws its feet with its calves).
+
 ## Porting order (leaves first)
 
 1. `Material`: 0x4fc470 / 0x4fc570 (read), 0x4fc490 (free). Leaf apart from

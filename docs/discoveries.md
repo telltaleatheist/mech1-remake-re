@@ -4554,4 +4554,6 @@ The screen after the pilot for INSTANT ACTION, 0x00488bc0 (details:
   weapon list names them right, from a table of its own. (From the data and
   Mech3Msg.dll: tools/analysis/msg_name_scan.py. docs/fixes.md)
 - **The game carries a weapons section for saved games that is switched off.** The weapon code can save a count of hits that no one fired ("WeaponData") in a section of its own, but the game turns that section off at start-up before the weapons start, so no saved game has ever held it; Pirate's Moon does the same. (0x00583750, 0x004802b1.)
-
+- **The Vulture's gun pods are not attached to it.** Its two arm pods hang beside its body with a gap, joined to
+  nothing; in play the distance and the motion hide it. Found while turning the mechs into 3D prints, where the pods
+  need a strut to stay on (docs/mechlib.md, 3D printing).
