@@ -59,6 +59,14 @@ found or installed. The launcher below is its own program, `mw3launcher`
 
 ## The find screen and the notes (v1.0, 2026-11-02)
 
+Since launcher split b6 (2026-11-26) this screen, its checks and its notes are
+the games' own: built into mw3 (and mw3pm) only, behind `MW3_GAME_FIND_SCREEN`,
+until d1 replaces it with the kit's setup screen. mw3launcher reaches a game's
+files only through its served `--setup`; for an older program (no `setup: 1`)
+it takes mw3.cfg's `install=` / `pm_install=` unchecked, and its GAME FILES and
+PLAY with no copy say to update the game (launcher-split.md, b6 piece 1). The
+checks below run through `mw3 --launcher-shot F --launcher-screen S`.
+
 **Anything can be picked (2026-11-24).** The pickers had a filter that showed
 .bin and .iso first and hid the rest; they now show every file, and PICK A
 FOLDER is beside the picker on the find screen, in the list of copies and in
@@ -921,14 +929,15 @@ named install or `--install-from`/`--patch`; `--no-launcher` skips it):
   second with vsync, 54.8 with the sleep, the draw 2.6 ms (direct3d11). The
   start was never slow: the old ripple was (80 pixels a second, 2 s long).
   The log gives these at every start and quit.
-- The hover ripple is `zrndr::ripple` on the canvas. The sounds are the
-  main menu's own (2026-10-31): sounds.zrd's MAINMENU set, menu_rollover
-  (sfx_button2.wav at 0.7) when the hovered or focused button changes and
-  menu_select (sfx_button6.wav) on a press, read from the install's
-  soundsL.zbd (else soundsH.zbd) as zSnd reads them, through an SDL audio
-  stream. None without an install (loaded once one is known, after SETUP
-  too) or with `--nosound`; `MW3_LAUNCHER_MUTE` plays them at no volume
-  (checks). `sdl_program_launcher_plays_the_menus_sounds`.
+- The hover ripple went with the cards (2026-11-24). The sounds are the
+  launcher's own since b6 (2026-11-26; assets/launcher/README.md, how they
+  were made): `hover.wav` at 0.7 when the hovered or focused button changes
+  and `click.wav` on a press, the gains of the main menu's (sounds.zrd's
+  MAINMENU set), through an SDL audio stream, from the first screen with no
+  install needed. Before, they were the game's own sfx_button2.wav and
+  sfx_button6.wav, read from the install's soundsL.zbd or soundsH.zbd (none
+  without an install). None with `--nosound`; `MW3_LAUNCHER_MUTE` plays them
+  at no volume (checks). `sdl_program_launcher_plays_the_menus_sounds`.
 - Mouse, arrows/Tab, Enter/Space, Escape (back, or quit on the main
   screen).
 - The first start's notes (2026-10-31): with no `install=` in mw3.cfg yet

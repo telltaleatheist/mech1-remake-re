@@ -3,7 +3,7 @@
 #include "frontend/sdl/sdl_update.h"
 #include "frontend/sdl/sdl_install.h"  // kGameFolderMark
 #include "rekit/hash.h"
-#include "mech3/data_folder.h"
+#include "rekit/data_folder.h"
 #include "rekit/archive.h"
 #include "rekit/family_folder.h"
 #include "rekit/program_record.h"
@@ -318,7 +318,7 @@ std::string root_moved(const std::string& root, const std::string& cfg) {
     return old.string();
   }
   if (m.kind == rekit::FolderMove::kMoved) {
-    mech3::data_folder::retarget_config(cfg, {{old.string(), root}});
+    rekit::data_folder::retarget_config(cfg, {{old.string(), root}});
     rekit::remove_if_empty(old.parent_path().string(), 2);  // MicroProse/BattleTech, then MicroProse when empty
     std::printf("mw3: the games folder: %s moved to %s\n", old.string().c_str(), root.c_str());
   }

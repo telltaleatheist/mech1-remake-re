@@ -126,6 +126,7 @@ StatusFind mw3_status_find(const RecipePlaces& at) {
     out.ok = true, out.dir = r.install_dir.empty() ? d : r.install_dir, out.version = r.version, out.summary = r.summary;
     // Offered, not taken: a find of the search, or any other copy while the game's own folder is set.
     out.offered = (i >= searched_from && i < searched_to) || (has_own && i >= own_count && i < searched_to);
+    out.own = i < own_count;
     return out;
   }
   return out;

@@ -1,6 +1,7 @@
 #pragma once
 // The usual folder and, through the pointer (mech3/data_folder.h), the player's
-// data folder, as every program starts: mw3, mw3launcher, mw3import.
+// data folder, as the game's programs start: mw3, mw3import (the launcher's own:
+// launcher_folder.h, on the kit).
 #include <SDL3/SDL.h>
 
 #include <cstdio>
