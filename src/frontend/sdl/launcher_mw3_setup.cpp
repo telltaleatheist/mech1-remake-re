@@ -27,6 +27,12 @@ own::Result check_install(const std::string& dir, const std::string& write_dir, 
 own::Result start_check(const std::string& dir, const std::string& write_dir, bool pirates_moon) {
   return ours(mech3::setup::start_check(dir, write_dir, pirates_moon));
 }
+std::string found_words(const std::string& version, const std::string& dir, bool pirates_moon) {
+  return "Found " + mech3::setup::game_version_words(pirates_moon ? std::string() : version, pirates_moon) + " at " + dir + ".";
+}
+std::string start_found_words(const std::string& dir, bool pirates_moon) {
+  return "Found " + (pirates_moon ? mech3::setup::game_version_words("", true) : std::string("MechWarrior 3")) + " at " + dir + ".";
+}
 own::Result install_from_source(const mech3::source::Found& found, const std::string& out_dir, const std::string& patch,
                                 const std::string& music_dir, const std::string& write_dir, const own::ProgressFn& progress) {
   return ours(mech3::setup::install_from_source(found, out_dir, patch, music_dir, write_dir, theirs(progress)));

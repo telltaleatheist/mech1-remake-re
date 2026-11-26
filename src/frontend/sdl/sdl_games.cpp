@@ -534,9 +534,11 @@ bool claim_game_folder(const std::string& dir, u::Game g, std::string* error) {
   return true;
 }
 
-bool kit_status(const std::string& bin, rekit::Status* out) {
+bool kit_status(const std::string& bin, rekit::Status* out, const std::vector<std::string>& more) {
   std::string said;
-  if (bin.empty() || run_program({bin, "--status"}, 10, &said) != 0) return false;
+  std::vector<std::string> args = {bin, "--status"};
+  args.insert(args.end(), more.begin(), more.end());
+  if (bin.empty() || run_program(args, 10, &said) != 0) return false;
   const size_t a = said.find('{'), b = said.rfind('}');  // the object alone, should a log line come with it
   return a != std::string::npos && b != std::string::npos && b > a && rekit::parse_status(said.substr(a, b - a + 1), out);
 }

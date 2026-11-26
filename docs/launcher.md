@@ -1111,8 +1111,43 @@ each game's recipe (DESIGN.md there):
   (`music`, `movies`, `the 1.2 patch`) from the code its `--copies` row
   uses. `--status` wins over `--setup` and its asks, in any order: a
   launcher's child never reaches a screen. `sdl_program_status_finds_as_the_launcher`.
-The launcher still finds the games itself; it switches to asking `--status`
-once mw3pm answers it too.
+**MechWarrior 3's and Pirate's Moon's panels from their status (b2,
+2026-11-26).** The launcher asks every game's `--status`: MechWarrior 3's
+with its own user folder (they share it), Pirate's Moon's with `pm_wd()`,
+the kit games' as before. MechWarrior 3's and Pirate's Moon's programs are
+asked only when their file carries our program version (the tag the panels'
+"program" words come from): a file without one, a script or not ours, is
+never run, as before. At the start all are asked at once, each on its
+own thread, beside the fonts and the Vulkan check, and collected where the
+checks of the files were (`status_collect`), so the first frame has every
+panel's lines and nothing flickers. Measured on the Mac (a shot, five runs):
+the first frame at about 1.16 s with both programs answering, 3.2 s with
+neither (the older path's own checks, Pirate's Moon's search the slow part);
+Pirate's Moon's ask adds nothing. After the start a status is asked again
+when a panel's lines are made, at most once a frame (`status_fresh_`), so a
+change the launcher made (an install, a link, ADD FROM MY DISC) shows. From
+the status: the copy in use and its data (`find_install`, `find_pm`; the
+note `found by the search, not set up yet` makes it an offer), what it
+lacks (`files.lacks`: the panel's "no music" and the like), the notes (the
+start check's `notes_once` hashed under `mw3_notes=` / `pm_notes=` as
+before, so saved hashes stay valid; the music's folder shortened to fit).
+A copy that only `pm_install=` names is still looked at by the launcher.
+MechWarrior 3's start check is the status's too: its notes come as
+`notes_once`; a copy it refuses (no Mech3Msg.dll) is started and mw3 says so
+in its own box, as before, but the launcher's log no longer has the check's
+"cannot start" line on that path.
+**The older programs' path:** a status without `"setup": 1` (a game
+released before), no answer, a program without our version, a copy in use the status does not name, and
+mw3's own find screen and mw3pm's own start (no program of their own to
+ask) keep the launcher's own checks (`find_install_older` and the like),
+unchanged; they end at b6 (docs/launcher-split.md). Panels and PLAY are
+otherwise the same code; MechWarrior 3 and Pirate's Moon become kit games
+(their GAME FILES and PLAY through the game) at b3 and b4. Tests:
+`sdl_program_launcher_panels_from_the_status` (stand-ins answering as the
+games do; the older path's hash equal to the status's), the launcher tests
+through the real mw3's status (`kStatusAsMw3` and `kVersionLine` in the
+stand-ins; Pirate's Moon's stand-ins carry no version, so they test the
+older path).
 
 **A kit game's files, on the launcher's screens (2026-11-24).** "I thought we
 manage the setup kits from the launcher": PLAY on Inception opened Inception's

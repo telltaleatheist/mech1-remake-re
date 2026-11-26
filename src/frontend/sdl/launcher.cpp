@@ -364,11 +364,14 @@ class Launcher {
     ui_.detach();
     if (ren_) SDL_DestroyRenderer(ren_);
     if (win_) SDL_DestroyWindow(win_);
+    for (std::thread& t : status_ask_)
+      if (t.joinable()) t.join();
   }
   LauncherChoice run();
 
  private:
   void find_install();
+  void find_install_older();  // the older programs' path (b2): below
   void find_mw1();
   void run_mw1();
   void run_mw1_remake();          // MW1: the remake's start
@@ -379,6 +382,7 @@ class Launcher {
   void mw3_notes_seen();
   bool notes_once(const std::vector<std::string>& notes, std::string* crc_kept, const char* key);
   void find_pm();
+  void find_pm_older();
   void find_mw1_game();
   void offer_mw1();                        // the search's MechWarrior (1989) offered on the find's plate
   void copy_mw1(const std::string& game);  // copied into mw1::unpacked_dir on the worker, then take_mw1
@@ -396,6 +400,7 @@ class Launcher {
   std::string pm_media() { return sdlfe::media_dir(pm_dir_, pm_wd()); }
   std::string files_usual() const { return files_pm_ ? pm_usual() : usual_folder(); }
   void pm_refresh();
+  void pm_refresh_older();
   std::string pm_in_use() const;
   void use_pm(const std::string& dir, const std::string& summary);
   std::vector<std::string> pm_notes(own::Result* check = nullptr);
@@ -442,6 +447,7 @@ class Launcher {
   void convert_movies(std::function<void()> then);
   void show_vulkan();  // ours: what to install for Vulkan, TRY AGAIN and BACK
   void notes_refresh();
+  void notes_refresh_older();
   std::string in_use() const;
   void add_disc(const std::string& source);
   void nav(int action);  // 1 next, -1 previous, 2 press, 3 back (keys and a pad)
@@ -529,6 +535,22 @@ class Launcher {
   std::shared_ptr<rekit::SetupMessage> kit_found_;  // the last look's or install's answer
   rekit::Status kit_status_[upgrades::update::kMaxGames];
   bool kit_known_[upgrades::update::kMaxGames] = {};
+  // Each game's --status (b2, docs/launcher-split.md): MechWarrior 3's and Pirate's Moon's too, for their panels.
+  // At the start all are asked at once (starting_: each on its own thread, collected before the first frame); after,
+  // when a panel's lines are made, once a frame at most (status_fresh_, cleared at each frame).
+  bool starting_ = false, status_fresh_[upgrades::update::kMaxGames] = {};
+  std::thread status_ask_[upgrades::update::kMaxGames];
+  rekit::Status status_said_[upgrades::update::kMaxGames];
+  bool status_ok_[upgrades::update::kMaxGames] = {};
+  std::vector<std::string> status_args(int i);
+  void status_collect();
+  void status_refresh(int i) {
+    if (!status_fresh_[i]) kit_refresh(i);
+  }
+  // MechWarrior 3's or Pirate's Moon's program answers for its files ("setup": 1) about the copy in use (`dir`, ""
+  // any). Else, an older program or the game's own find screen (no program of its own to ask), the launcher checks
+  // the files itself as before: the older programs' path, which ends at b6 (docs/launcher-split.md).
+  bool status_for(int i, const std::string& dir = {}) const;
   bool games_on_ = false;  // mw3launcher (not mw3's or mw3pm's own find screen)
   std::string games_root_;
   // Ours (2026-11-22): each game's own folder, picked: its program and its game files there, the user folder
@@ -675,7 +697,25 @@ std::string cfg_path(const std::string& write_dir, const std::string& key) {
 }
 }  // namespace
 
+// MechWarrior 3's copy from its status (b2): the one it reports ready, offered (not taken) when its note says its
+// search found it; the summary as check_install's.
 void Launcher::find_install() {
+  status_refresh(0);
+  if (!status_for(0)) return find_install_older();
+  install_ = {};
+  const rekit::Status& s = kit_status_[0];
+  if (s.state != rekit::Status::kReady || s.where.empty()) {
+    std::printf("mw3: launcher: no MechWarrior 3 install found\n");
+    return;
+  }
+  const std::string v = s.data.empty() ? "unknown" : s.data;
+  install_ = {true, s.where, v, mw3setup::found_words(v, s.where, false), s.note == "found by the search, not set up yet"};
+  if (install_.elsewhere) std::printf("mw3: launcher: the game files at %s: offered to copy them in\n", s.where.c_str());
+  std::printf("mw3: launcher: %s\n", install_.summary.c_str());
+}
+
+// The older programs' path (b2, docs/launcher-split.md): mw3 without "setup": 1, or the game's own find screen.
+void Launcher::find_install_older() {
   install_ = {};
   std::vector<std::string> tries;
   // Where the player put the game (issue #10, 2026-11-23): the folder its card's INSTALL picked holds its game files
@@ -1399,8 +1439,36 @@ void Launcher::copy_mw1(const std::string& game) {
 // registry key, the usual folders, Wine, Proton and Lutris prefixes, the
 // Mac's bottles), each read by map_source so an MW3 folder is never taken,
 // the one found saved to mw3.cfg as pm_install= (docs/launcher.md).
+// Pirate's Moon's copy from its status (b2), as find_pm_older took it: the one ready, offered when its search found it;
+// mw3.cfg's pm_install= follows ours. A copy only pm_install= names (mw3pm's own mw3.cfg says nothing of it) is still
+// looked at as before.
 void Launcher::find_pm() {
   if (o_.pm_bin.empty() && !o_.pm) return;
+  status_refresh(1);
+  const rekit::Status& s = kit_status_[1];
+  const bool ready = s.state == rekit::Status::kReady && !s.where.empty();
+  if (!status_for(1) || (!ready && !o_.cfg_pm_install.empty())) return find_pm_older();
+  pm_found_.clear();
+  if (!ready) {
+    std::printf("mw3: launcher: no Pirate's Moon install found\n");
+    return;
+  }
+  if (s.note == "found by the search, not set up yet") {
+    pm_found_ = s.where;
+    std::printf("mw3: launcher: Pirate's Moon found at %s: offered, not taken\n", s.where.c_str());
+    return;
+  }
+  pm_dir_ = s.where;
+  std::error_code ec;
+  if (o_.cfg_pm_install.empty() || !fs::equivalent(o_.cfg_pm_install, s.where, ec)) {
+    if (!o_.cfg_pm_install.empty())
+      std::printf("mw3: launcher: Pirate's Moon in our folder %s, not %s: ours in use\n", s.where.c_str(), o_.cfg_pm_install.c_str());
+    if (!o_.pm) own::save_config_value(o_.write_dir, "pm_install", s.where);
+  }
+  std::printf("mw3: launcher: Pirate's Moon at %s: ready\n", pm_dir_.c_str());
+}
+
+void Launcher::find_pm_older() {
   pm_found_.clear();
   // Our own copy first (issue #10's rule, 2026-11-24: "they should get the latest copy"): the folder its DOWNLOAD
   // picked, then the user folder's install; mw3.cfg's pm_install= can name an older copy elsewhere that still holds
@@ -1528,14 +1596,64 @@ void Launcher::run_mw1_remake() {
   if (win_ && !o_.hidden) SDL_ShowWindow(win_), SDL_RaiseWindow(win_);
 }
 
-// A game on the setup kit's contract: its --status, for its card (rekit/status.h).
+// A game's --status (rekit/status.h): a kit game's for its card; MechWarrior 3's and Pirate's Moon's for their panels
+// (b2), with the user folder the launcher knows for each. At the start (starting_) only asked, on its own thread:
+// status_collect takes the answers.
 void Launcher::kit_refresh(int i) {
-  kit_known_[i] = false;
-  if (!kit_game(i) || game_bin(i).empty()) return;
+  kit_known_[i] = false, status_fresh_[i] = false;
+  if ((!kit_game(i) && i > 1) || game_bin(i).empty()) return;
   kit_status_[i] = {};
-  kit_known_[i] = sdlfe::games::kit_status(game_bin(i), &kit_status_[i]);
+  // MechWarrior 3's and Pirate's Moon's programs asked only when they carry our version (a program file without one,
+  // a script or not ours, is never run: sdl_program_launcher_shows_each_games_versions); the older path checks them.
+  auto ask = [i](const std::string& bin, rekit::Status* out, const std::vector<std::string>& args) {
+    return (i > 1 || !program_version(bin).empty()) && sdlfe::games::kit_status(bin, out, args);
+  };
+  if (starting_) {
+    if (status_ask_[i].joinable()) status_ask_[i].join();
+    status_ask_[i] = std::thread([this, i, ask, bin = game_bin(i), args = status_args(i)] {
+      status_said_[i] = {};
+      status_ok_[i] = ask(bin, &status_said_[i], args);
+    });
+    return;
+  }
+  kit_known_[i] = ask(game_bin(i), &kit_status_[i], status_args(i));
+  status_fresh_[i] = true;
   std::printf("mw3: launcher: games: %s: status %s\n", upgrades::update::game_info(upgrades::update::game_at(i)).key,
               kit_known_[i] ? rekit::state_name(kit_status_[i].state).c_str() : "no answer");
+}
+
+// MechWarrior 3's status for the launcher's own user folder (they share it), Pirate's Moon's for its own (pm_wd);
+// a kit game's in its own (nothing passed).
+std::vector<std::string> Launcher::status_args(int i) {
+  const std::string wd = i == 0 ? o_.write_dir : i == 1 ? pm_wd() : std::string();
+  return wd.empty() ? std::vector<std::string>{} : std::vector<std::string>{"--write-dir", wd};
+}
+
+// The start's asks, each waited for (the first frame waits as it did for the checks in this program), then logged.
+void Launcher::status_collect() {
+  starting_ = false;
+  for (int i = 0; i < upgrades::update::game_count(); ++i) {
+    if (!status_ask_[i].joinable()) continue;
+    status_ask_[i].join();
+    kit_status_[i] = status_said_[i], kit_known_[i] = status_ok_[i], status_fresh_[i] = true;
+    std::printf("mw3: launcher: games: %s: status %s\n", upgrades::update::game_info(upgrades::update::game_at(i)).key,
+                kit_known_[i] ? rekit::state_name(kit_status_[i].state).c_str() : "no answer");
+  }
+}
+
+namespace {
+std::string own_join(const std::vector<std::string>& v) {  // "music, movies"
+  std::string out;
+  for (const std::string& w : v) out += (out.empty() ? "" : ", ") + w;
+  return out;
+}
+}  // namespace
+
+bool Launcher::status_for(int i, const std::string& dir) const {
+  if (i > 1 || !kit_known_[i] || kit_status_[i].setup < rekit::kServedSetup) return false;
+  if (dir.empty()) return true;
+  std::error_code ec;
+  return !kit_status_[i].where.empty() && fs::equivalent(kit_status_[i].where, dir, ec);
 }
 
 // A game whose own search came on its files says ready, with this note (inception-re and mech1-re, word for word): a
@@ -1726,6 +1844,15 @@ bool Launcher::notes_once(const std::vector<std::string>& notes, std::string* cr
 // original does ("Cannot read mech3Msg.dll from the game folder."). False: not started now.
 bool Launcher::mw3_ready() {
   if (!install_.ok) return true;  // the find screen's own path
+  status_refresh(0);
+  if (status_for(0, install_.dir)) {  // b2: its status's start check (notes_once of its notes); what stops it, mw3's
+    const rekit::Status& s = kit_status_[0];
+    const std::vector<std::string> warnings(s.notes.begin(), s.notes.begin() + s.notes_once);
+    std::printf("mw3: launcher: %s\n", mw3setup::start_found_words(install_.dir, false).c_str());
+    for (const std::string& w : warnings) std::printf("mw3: launcher: note: %s\n", w.c_str());
+    files_pm_ = pm_after_notes_ = false;
+    return !notes_once(warnings, &o_.cfg_mw3_notes, "mw3_notes");
+  }
   const own::Result r = mw3setup::start_check(install_.dir, o_.write_dir, false);
   std::printf("mw3: launcher: %s\n", r.summary.c_str());
   for (const std::string& w : r.warnings) std::printf("mw3: launcher: note: %s\n", w.c_str());
@@ -1737,10 +1864,24 @@ bool Launcher::mw3_ready() {
 // Pirate's Moon's notes before a start: the check's, and no music as
 // MechWarrior 3's (launcher_notes); `check` gets the check.
 std::vector<std::string> Launcher::pm_notes(own::Result* check) {
+  pm_refresh();
+  if (status_for(1, pm_dir_)) {  // its status's notes (b2), the music's folder fitted as below
+    const rekit::Status& s = kit_status_[1];
+    own::Result r;
+    r.ok = s.state == rekit::Status::kReady, r.install_dir = pm_dir_;
+    r.summary = r.ok ? mw3setup::found_words("", pm_dir_, true) : s.missing.empty() ? std::string() : s.missing.front();
+    const std::string dir = (fs::path(pm_media()) / "music").make_preferred().string();
+    std::vector<std::string> out;
+    for (std::string n : s.notes) {
+      if (const size_t at = n.find(dir); at != std::string::npos) n.replace(at, dir.size(), text_.fit(dir, 14, 440));
+      out.push_back(n);
+    }
+    if (check) *check = std::move(r);
+    return out;
+  }
   const std::string wd = pm_wd();
   own::Result r = mw3setup::check_install(pm_dir_, wd, true);
   std::vector<std::string> out = r.warnings;
-  pm_refresh();
   if (r.ok && pm_lacks_music_) {
     const std::string dir = (fs::path(pm_media()) / "music").make_preferred().string();
     for (const std::string& n : launcher_notes("", false, true, text_.fit(dir, 14, 440))) out.push_back(n);
@@ -2762,6 +2903,28 @@ void Launcher::notes_refresh() {
   notes_.clear();
   lacks_music_ = lacks_movies_ = false;
   if (!install_.ok) return;
+  status_refresh(0);
+  if (!status_for(0, install_.dir)) return notes_refresh_older();
+  // b2: its status's: the start check's notes_once first, then launcher_notes', shown here in the order before (the
+  // music's folder shortened to fit), the check's last.
+  const rekit::Status& s = kit_status_[0];
+  lacks_music_ = std::find(s.lacks.begin(), s.lacks.end(), "music") != s.lacks.end();
+  lacks_movies_ = std::find(s.lacks.begin(), s.lacks.end(), "movies") != s.lacks.end();
+  if (!s.lacks.empty()) std::printf("mw3: launcher: games: mw3: lacks %s\n", own_join(s.lacks).c_str());
+  const std::string md = media();
+  const std::string dir = (md.empty() ? fs::path("music") : fs::path(md) / "music").make_preferred().string();
+  const size_t once = static_cast<size_t>(s.notes_once);
+  mw3_check_notes_.assign(s.notes.begin(), s.notes.begin() + static_cast<std::ptrdiff_t>(once));
+  for (size_t k = once; k < s.notes.size(); ++k) {
+    std::string n = s.notes[k];
+    std::printf("mw3: launcher: note: %s\n", n.c_str());
+    if (const size_t at = n.find(dir); at != std::string::npos) n.replace(at, dir.size(), text_.fit(dir, 14, 440));
+    notes_.push_back(n);
+  }
+  for (const std::string& n : mw3_check_notes_) std::printf("mw3: launcher: note: %s\n", n.c_str()), notes_.push_back(n);
+}
+
+void Launcher::notes_refresh_older() {
   const std::string md = media();
   const fs::path music = md.empty() ? fs::path("music") : fs::path(md) / "music";
   lacks_music_ = !have_music({music.string(), (own::any_case(install_.dir, "music").empty() ? fs::path(install_.dir) / "music" : fs::path(own::any_case(install_.dir, "music"))).string(),
@@ -2811,6 +2974,16 @@ std::string Launcher::pm_wd() {
 void Launcher::pm_refresh() {
   pm_lacks_music_ = pm_lacks_sounds_ = false;
   if (pm_dir_.empty()) return;
+  status_refresh(1);
+  if (!status_for(1, pm_dir_)) return pm_refresh_older();
+  const rekit::Status& s = kit_status_[1];  // b2: what it lacks in its --copies words
+  pm_lacks_music_ = std::find(s.lacks.begin(), s.lacks.end(), "music") != s.lacks.end();
+  pm_lacks_sounds_ = std::find(s.lacks.begin(), s.lacks.end(), "full-quality sounds") != s.lacks.end();
+  pm_data_ = s.data.empty() ? "unknown" : s.data;
+  if (!s.lacks.empty()) std::printf("mw3: launcher: games: pm: lacks %s\n", own_join(s.lacks).c_str());
+}
+
+void Launcher::pm_refresh_older() {
   const std::string wd = pm_wd();
   const std::string own = own::any_case(pm_dir_, "music");
   pm_lacks_music_ = !have_music({(fs::path(pm_media()) / "music").string(), (fs::path(wd) / "music").string(), own.empty() ? (fs::path(pm_dir_) / "music").string() : own});
@@ -3728,6 +3901,11 @@ LauncherChoice Launcher::run() {
   // Where the start's time goes ("pretty slow"), in the log.
   const Uint64 t0 = SDL_GetTicksNS();
   auto ms = [](Uint64 a, Uint64 b) { return static_cast<double>(b - a) / 1e6; };
+  // Each game's program and its --status first (b2): the asks run beside the fonts and the rest, and are waited for
+  // where the checks of MechWarrior 3's and Pirate's Moon's files were, so the first frame has every panel's lines.
+  if (o_.pm) files_pm_ = true, o_.pm_write_dir = o_.write_dir, o_.cfg_pm_install = o_.cfg_install;  // mw3pm's own start
+  starting_ = true;
+  resolve_games();
   const std::string dir = assets_dir();
   const Uint64 t_art = SDL_GetTicksNS();
   const std::string font = font_path(dir);
@@ -3737,15 +3915,13 @@ LauncherChoice Launcher::run() {
   if (!ui_.init(dir, font, body_font)) std::fprintf(stderr, "mw3: launcher: its screens cannot be set up (RmlUi)\n");
   ui_.art_from(sdlfe::catalog::cache_dir(o_.write_dir));  // a fetched catalog's badges the package does not carry
   const Uint64 t_font = SDL_GetTicksNS();
-  find_install();
-  const Uint64 t_install = SDL_GetTicksNS();
   // Ours: the game draws with Vulkan on Linux, this window does not; said here, before PLAY.
   vulkan_ = vulkan_check();
   const bool vulkan_said = vulkan_ != Vulkan::kOk;
-
-  resolve_games();
+  status_collect();
+  find_install();
+  const Uint64 t_install = SDL_GetTicksNS();
   find_mw1();
-  if (o_.pm) files_pm_ = true, o_.pm_write_dir = o_.write_dir, o_.cfg_pm_install = o_.cfg_install;  // mw3pm's own start
   find_pm();
   pm_refresh();
   // Each game's program's own version, read from its file (the package's
@@ -3760,8 +3936,8 @@ LauncherChoice Launcher::run() {
   std::printf("\n");
   start_games_check();
   start_self_check();  // the launcher's own update, quietly (2026-11-23)
-  std::printf("mw3: launcher: art %.0f ms, font %.0f ms, the install search %.0f ms\n", ms(t0, t_art), ms(t_art, t_font),
-              ms(t_font, t_install));
+  std::printf("mw3: launcher: art %.0f ms, font %.0f ms, the statuses and the install search %.0f ms\n", ms(t0, t_art),
+              ms(t_art, t_font), ms(t_font, t_install));
   sounds_on_ = o_.sound && !shot;
   // The first start's notes (no install= in mw3.cfg yet: PLAY saves one),
   // on their own screen before the main one; logged on every start.
@@ -3917,6 +4093,7 @@ LauncherChoice Launcher::run() {
     else auto_ok_ = true, activate(kPm), o_.quit_after_game = true, done_ = !game_;  // its notes' OK; refused: quit
   }
   while (!done_) {
+    for (bool& f : status_fresh_) f = false;  // a status asked again when a panel's lines are made after now (b2)
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
       SDL_ConvertEventToRenderCoordinates(ren_, &e);
