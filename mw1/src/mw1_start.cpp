@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -28,6 +29,15 @@ Args parse(int argc, char** argv) {
     else if (s == "--mw1-game" && more) a.given.mw1 = argv[++i];
     else if (s == "--new-company") a.new_company = true;
     else if (s == "--mw1-worlds" && more) a.worlds = argv[++i];
+    else if (s == "--with" && more) {  // the launcher's needs (kit contract: <id>=<where>, from each one's status)
+      const std::string w = argv[++i];
+      const size_t eq = w.find('=');
+      const std::string id = w.substr(0, eq), where = eq == std::string::npos ? std::string() : w.substr(eq + 1);
+      if (id == "mech3-pm") a.given.pm = where;
+      else if (id == "mech3") a.given.mw3 = where;
+      else if (id == "mech1") a.given.mw1 = where;
+      else std::printf("mw1: --with %s: not a game the Remake needs\n", w.c_str());
+    }
     else {
       // The game main's own; --install and --write-dir read here as well.
       if (s == "--install" && more) a.given.pm = argv[i + 1];
@@ -315,6 +325,7 @@ rekit::Status status(const std::string& folder, const Installs& given, const std
   rekit::Status s;
   s.game = kStatusId, s.version = version;
   s.needs = {"mech3-pm", "mech3", "mech1"};
+  s.setup = rekit::kServedSetup;  // MechWarrior (1989)'s files: mw1 --setup <ask> (mw1_recipe.h)
   const Installs use = merge(given, read_cfg(folder));
   auto has = [&s](const std::string& dir, bool (*holds)(const std::string&), const char* game) {
     const bool found = holds(follow_install(dir, holds));

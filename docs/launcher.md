@@ -1016,6 +1016,17 @@ each game's recipe (DESIGN.md there):
   lacks (music, full-quality sounds), `add_pm_from_disc` for ADD FROM MY
   DISC, pm_notes' notes, `games_pm=` for the games folder. The status says
   `"setup": 1`. `sdl_pm_program_serves_its_setup` (mw3pmsdltests).
+- The Remake (a5): `mw1 --setup <ask>` serves MechWarrior (1989)'s files
+  with its own recipe (`mw1/src/mw1_recipe`, on mw1_files): the game's
+  folder, any file in it, a folder one or two above it, or a download;
+  copied or unpacked into `<write dir>/mw1/game` and saved as `mw1_game=`.
+  A `--folder` is left out (nothing claimed). Before this, the ask went on
+  into a plain start: the missing-games box when a game was missing, else
+  Pirate's Moon's main, which answered as Pirate's Moon (an `--install`
+  pick read first as Pirate's Moon's install). The status
+  says `"setup": 1`, and `--with <id>=<where>` (`mech3-pm`, `mech3`,
+  `mech1`) hands it the other games. The launcher's own MECHWARRIOR 1 line
+  is unchanged until b5 (it serves only its kit games). ctest `mw1setup`.
 The launcher still finds the games itself; it switches to asking `--status`
 once mw3pm answers it too.
 

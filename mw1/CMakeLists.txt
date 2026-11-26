@@ -80,7 +80,7 @@ if(TARGET mw3pm)
     endif()
     list(APPEND mw1_sources "${f}")
   endforeach()
-  add_executable(mw1 src/mw1_main.cpp src/mw1_hud_labels.cpp ${mw1_sources})
+  add_executable(mw1 src/mw1_main.cpp src/mw1_hud_labels.cpp src/mw1_recipe.cpp ${mw1_sources})
   target_include_directories(mw1 PRIVATE ${MW3RE_DIR}/src)
   get_target_property(mw1_libs mw3pm LINK_LIBRARIES)
   target_link_libraries(mw1 PRIVATE mw1core ${mw1_libs})
@@ -114,6 +114,9 @@ if(TARGET mw3pm)
     # The buttons' sounds (FIXES.md item 148).
     add_test(NAME mw1menusounds COMMAND ${CMAKE_COMMAND} -DMW1_BIN=$<TARGET_FILE:mw1> -DDIR=${CMAKE_CURRENT_BINARY_DIR}/mw1menusounds
                                         -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/menu_sounds.cmake)
+    # MechWarrior (1989)'s files served to a launcher (mw1 --setup <ask>, mw1_recipe.h; the status's setup and --with).
+    add_test(NAME mw1setup COMMAND ${CMAKE_COMMAND} -DMW1_BIN=$<TARGET_FILE:mw1> -DDIR=${CMAKE_CURRENT_BINARY_DIR}/mw1setup
+                                   -DMW3=${MW3_GAME_DIR} -DPM=${MW3PM_GAME_DIR} -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/mw1_setup.cmake)
     # The mouse's settings stay as set across starts (FIXES.md item 126).
     add_test(NAME mw1mousesettings COMMAND ${CMAKE_COMMAND} -DMW1_BIN=$<TARGET_FILE:mw1> -DDIR=${CMAKE_CURRENT_BINARY_DIR}/mw1mousesettings
                                            -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/mouse_settings.cmake)

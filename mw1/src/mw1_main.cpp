@@ -67,10 +67,13 @@ extern "C" CFStringRef NSHomeDirectory(void);  // Foundation's, its NSString a C
 #include "mw1_missions.h"
 #include "mw1_movie.h"
 #include "mw1_pilots.h"
+#include "frontend/sdl/mw1_files.h"
+#include "mw1_recipe.h"
 #include "mw1_save.h"
 #include "mw1_music.h"
 #include "mw1_start.h"
 #include "mw1_worlds.h"
+#include "rekit/sdl/setup_serve.h"
 #include "pm/pm_game.h"
 
 int mw3_game_main(int argc, char** argv);
@@ -240,6 +243,30 @@ int main(int argc, char** argv) {
       return 0;
     }
   mw1::Args a = mw1::parse(argc, argv);
+  // --setup with a launcher's ask (the kit contract, rekit/sdl/setup_serve.h; 2026-11-26): MechWarrior (1989)'s files,
+  // found and copied by the Remake's recipe (mw1_recipe.h), before anything else; never PM's (mw3_game_main's) setup.
+  bool folder_dropped = false;
+  if (const std::vector<std::string> ask = mw1::setup_ask(argc, argv, &folder_dropped); !ask.empty()) {
+    const std::string usual = usual_folder_unmade();
+    std::string folder = !a.write_dir.empty() ? a.write_dir : usual.empty() ? usual : mw1::settle_user_folder(usual, false).use;
+    while (folder.size() > 1 && folder.back() == '/') folder.pop_back();
+    if (folder_dropped) std::fprintf(stderr, "mw1: setup: --folder left out: MechWarrior (1989) goes into the user folder\n");
+    rekit::sdl::SetupOptions o;
+    o.user_folder = folder, o.default_out = sdlfe::mw1::unpacked_dir(folder);
+    mw1::Installs saved = mw1::read_cfg(folder);
+    o.in_use = saved.mw1;
+    if (const char* base = SDL_GetBasePath()) o.program_dir = base;
+    o.log_prefix = "mw1: setup: ";
+    o.log = [](const std::string& line) { std::fprintf(stderr, "mw1: setup: %s\n", line.c_str()); };
+    const rekit::sdl::SetupResult r = rekit::sdl::serve_setup(mw1::files_recipe(folder, o.program_dir), o, ask);
+    if (!r.install_dir.empty()) {  // the files in use from now: mw1.cfg's mw1_game=, as the start keeps them
+      std::error_code ec;
+      std::filesystem::create_directories(folder, ec);
+      saved.mw1 = r.install_dir;
+      if (mw1::write_cfg(folder, saved)) std::fprintf(stderr, "mw1: MechWarrior (1989) %s saved to %s\n", r.install_dir.c_str(), mw1::kCfg);
+    }
+    return r.exit;
+  }
   // --status (the launcher contract): answered here, before anything is made, moved, opened or shown, as the launcher
   // asks an AppImage what it is. Nothing is written: the folder is found, not made (usual_folder_unmade).
   if (std::find(a.rest.begin(), a.rest.end(), "--status") != a.rest.end()) {

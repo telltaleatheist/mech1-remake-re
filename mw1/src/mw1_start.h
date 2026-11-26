@@ -46,7 +46,7 @@ struct Installs {
 
 // What mw1 takes before handing the rest to the game main.
 struct Args {
-  Installs given;                 // --install, --mw3-install, --mw1-game
+  Installs given;                 // --install, --mw3-install, --mw1-game; the launcher's --with <id>=<where>
   std::string write_dir;          // --write-dir, else the usual folder
   bool new_company = false;       // --new-company: start over (mw1's own)
   std::string worlds;             // --mw1-worlds: MW3's converted worlds' folder, else <write dir>/worlds
