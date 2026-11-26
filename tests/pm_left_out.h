@@ -45,6 +45,11 @@ inline constexpr LeftOut kPmLeftOut[] = {
      "1299fce5d: PM reads no anim def or node files (its reader 0x00523140 takes a world's anim.zbd only)"},
     {"mods_anim_node_files_bind_their_defs", "pm_mods_anim_files_pm_does_not_read_are_said",
      "1299fce5d: MW3's anim read under MW3's table, which pm's programs never set (mw3pm_main.cpp, mw3_main.cpp)"},
+    {"found_worlds_imported_from_a_folder_a_zip_and_a_game_folder", "pm_found_worlds_import_keeps_a_pm_world",
+     "2f5745fd1: PM reads its own worlds only (version 41); an MW3 world is refused at IMPORT (mod_install.cpp)"},
+    {"mod_export_new_world_and_its_editor_copy_unpack_as_mounted",
+     "pm_mod_export_new_world_and_its_editor_copy_unpack_as_mounted",
+     "2f5745fd1: MW3's c1 as a new world is refused on PM; PM's test makes it from PM's own c1"},
     {nullptr, nullptr, nullptr},  // the end
 };
 
