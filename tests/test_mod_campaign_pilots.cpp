@@ -86,8 +86,9 @@ TEST(mod_campaign_pilots_and_games) {
   auto* g2 = dynamic_cast<mech3::ModCampaignGame*>(ace->current);
   EXPECT(g2 && g2->mission == 2 && g2->operation() == 1 && g2->mission_number() == 2 && g2->world_index() == 0);
   EXPECT(g2 && std::string(g2->name()) == "Op A, Mission 2");
-  EXPECT(h.saved.size() == 1 && h.saved.back() == "campaigns\\m~hard\\pilots//games//Ace0102.mw3");
-  EXPECT(fs::is_regular_file(own / "games/Ace0102.mw3"));
+  // Pirate's Moon's save name: the mission alone, two digits (PM 0x00435680; MW3's Ace0102).
+  EXPECT(h.saved.size() == 1 && h.saved.back() == "campaigns\\m~hard\\pilots//games//Ace02.mw3");
+  EXPECT(fs::is_regular_file(own / "games/Ace02.mw3"));
   EXPECT(!ace->record_mission(true));
   auto* g3 = dynamic_cast<mech3::ModCampaignGame*>(ace->current);
   EXPECT(g3 && g3->mission == 3 && g3->operation() == 4 && g3->mission_number() == 5 && g3->world_index() == 4);
@@ -165,11 +166,12 @@ TEST(mod_campaign_advance_over_the_list) {
                                &c));
   EXPECT(c.missions.size() == 7);
 
-  // The original's: Op 1 Mission 4 goes on to Op 2 Mission 1 with its bases reset.
+  // Pirate's Moon's: Mission 4 goes on to Mission 5 (0x00435dc0), in world 0's operation, its bases carried
+  // (0x004359e0; MW3's Op 2 Mission 1 with its bases reset to 3).
   mech3::CampaignGame orig(nullptr, 1, 4);
   int32_t op = orig.campaign, m = orig.mission, bases = 0;
   orig.a8 = 1;
-  EXPECT(!orig.advance(op, m, bases) && op == 2 && m == 1 && bases == 3);
+  EXPECT(!orig.advance(op, m, bases) && op == 1 && m == 5 && bases == 1);
   EXPECT(std::string(mech3::CampaignGame(nullptr, 1, 1).intro_movie()) == "campaign");
   EXPECT(mech3::CampaignGame(nullptr, 1, 2).intro_movie() == nullptr);
 
