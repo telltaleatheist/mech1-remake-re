@@ -89,6 +89,8 @@
 #include "frontend/sdl/sdl_games.h"
 #include "frontend/sdl/sdl_install.h"
 #include "frontend/sdl/movie_import.h"
+#include "frontend/sdl/mw3_recipe.h"
+#include "rekit/sdl/setup_serve.h"
 #include "rekit/status.h"
 #if defined(_WIN32)
 #include <io.h>
@@ -252,6 +254,7 @@ struct Args {
   bool no_import = false, force_import = false;  // --no-import, --import (ours: first_run_import.h)
   bool no_launcher = false;   // --no-launcher (ours: launcher.h): no find screen, the old dialog if there is no install
   bool status = false, setup = false;  // --status, --setup (ours: the launcher contract, rekit/status.h)
+  std::vector<std::string> setup_ask;  // --setup --look X ...: an ask the kit serves (rekit/sdl/setup_serve.h), no screen
   std::string ready_file;     // --ready-file F (ours, sdl_child.h): written at the first frame shown, for mw3launcher
   std::string other_write_dir, other_install;  // --other-write-dir, --other-install (ours, W15): the other game's, from mw3launcher
   std::string vfw_helper;     // --vfw-helper EXE (ours, sdl_vfw.h): the movies' Video for Windows helper; "-" none
@@ -483,7 +486,18 @@ bool parse(int argc, char** argv, Args& a) {
     else if (s == "--no-import") a.no_import = true;
     else if (s == "--no-launcher") a.no_launcher = true;
     else if (s == "--status") a.status = true;
-    else if (s == "--setup") a.setup = true;
+    else if (s == "--setup") {
+      a.setup = true;
+      // A launcher's ask (2026-11-25): its verb, its argument, and a --folder with its folder.
+      const std::string verb = next(1) ? argv[i + 1] : "";
+      const int with = verb == "--describe" || verb == "--search" || verb == "--copies" ? 1
+                       : verb == "--look" || verb == "--install" || verb == "--add" || verb == "--first-run" ? 2 : 0;
+      if (with && next(with)) {
+        for (int k = 1; k <= with; ++k) a.setup_ask.push_back(argv[i + k]);
+        i += with;
+        if (next(2) && std::strcmp(argv[i + 1], "--folder") == 0) a.setup_ask.push_back(argv[i + 1]), a.setup_ask.push_back(argv[i + 2]), i += 2;
+      }
+    }
     else if (s == "--ready-file" && next(1)) a.ready_file = argv[++i];
     else if (s == "--other-write-dir" && next(1)) a.other_write_dir = argv[++i];
     else if (s == "--other-install" && next(1)) a.other_install = argv[++i];
@@ -775,6 +789,7 @@ int print_status(Args& a) {
     if (r.ok) {
       st.state = rekit::Status::kReady;
       if (r.version != "unknown") st.data = r.version;
+      if (!a.write_dir.empty()) st.notes = sdlfe::mw3_notes(st.where, r.version, a.write_dir);
 #if !defined(_WIN32)
       if (!a.no_import && sdlfe::movies_missing(st.where, sdlfe::media_dir(st.where, a.write_dir)) > 0) st.pending.push_back("movies");
 #endif
@@ -783,6 +798,8 @@ int print_status(Args& a) {
       st.missing.push_back(r.summary);
     }
   }
+  st.user = a.write_dir;
+  st.play = rekit::kPlayOptions;  // --windowed, --window, --nosound, --hidden, --write-dir, --ready-file: mw3's own
   std::fflush(stdout);
 #if defined(_WIN32)
   _dup2(out, 1);
@@ -793,6 +810,47 @@ int print_status(Args& a) {
 #endif
   std::printf("%s\n", rekit::status_json(st).c_str());
   return 0;
+}
+
+// --setup with an ask (ours: the launcher contract, rekit/sdl/setup_serve.h; 2026-11-25): MechWarrior 3's recipe
+// (mw3_recipe.h) answers it as JSON lines on stdout, no window. The user folder is the start's; the copy a look finds
+// in place, or an install puts there, is saved as mw3.cfg's install=. Exit as the setup screen's.
+int serve_setup_ask(Args& a) {
+  if (a.write_dir.empty() && !sdlfe::data_folder_at_start(&a.write_dir, false)) {
+    rekit::SetupMessage m;
+    m.done = true, m.summary = "The data folder cannot be used.";
+    std::printf("%s\n", rekit::setup_message_json(m).c_str());
+    return rekit::kSetupFailed;
+  }
+  while (a.write_dir.size() > 1 && a.write_dir.back() == '/') a.write_dir.pop_back();
+  read_config(a.write_dir, a);
+  std::vector<std::string> more;
+#ifdef MW3_GAME_DIR
+  if (!std::getenv("MW3_FIND_INSTALL")) more.push_back(MW3_GAME_DIR);
+#endif
+  more.push_back(a.write_dir + "/install");
+  rekit::sdl::SetupOptions o;
+  o.user_folder = a.write_dir, o.default_out = (std::filesystem::path(a.write_dir) / "install").make_preferred().string();
+  o.in_use = a.cfg_install;
+  if (const char* base = SDL_GetBasePath()) o.program_dir = base;
+  o.log_prefix = "mw3: setup: ";
+  o.log = [](const std::string& line) { std::fprintf(stderr, "mw3: setup: %s\n", line.c_str()); };
+  sdlfe::RecipePlaces at;
+  at.write_dir = a.write_dir, at.cfg_install = a.cfg_install, at.more = more;
+  {  // the launcher's games folder for MW3 (its card's INSTALL), a line it keeps in the same mw3.cfg
+    std::ifstream f(std::filesystem::path(a.write_dir) / "mw3.cfg");
+    for (std::string line; std::getline(f, line);) {
+      if (!line.empty() && line.back() == '\r') line.pop_back();
+      if (line.rfind("games_mw3=", 0) == 0) at.games_place = zutl::path_from_config(line.substr(10));
+    }
+  }
+  const rekit::sdl::SetupResult r = rekit::sdl::serve_setup(sdlfe::mw3_recipe(at), o, a.setup_ask);
+  if (!r.install_dir.empty()) {
+    std::error_code ec;
+    std::filesystem::create_directories(a.write_dir, ec);
+    if (sdlfe::save_install(a.write_dir, r.install_dir)) std::fprintf(stderr, "mw3: install %s saved to mw3.cfg\n", r.install_dir.c_str());
+  }
+  return r.exit;
 }
 
 // On Pirate's Moon's branch this is the game's main under mw3pm_main.cpp, which takes --fly first.
@@ -846,6 +904,7 @@ int program(int argc, char** argv) {
     return refused ? 1 : 0;
   }
   if (a.status) return print_status(a);
+  if (!a.setup_ask.empty()) return serve_setup_ask(a);
   if (!a.shot.empty()) a.hidden = true;
   if (a.verbose) mech3::ai::set_pm_ai_report(true);  // the PM AI's unanswered calls, as they come and at exit
   // Ours (MW1's FIXES 30): a run no player is at never holds or moves the system's pointer (pointer_hands_off.h).
