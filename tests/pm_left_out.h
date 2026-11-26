@@ -50,6 +50,8 @@ inline constexpr LeftOut kPmLeftOut[] = {
     {"mod_export_new_world_and_its_editor_copy_unpack_as_mounted",
      "pm_mod_export_new_world_and_its_editor_copy_unpack_as_mounted",
      "2f5745fd1: MW3's c1 as a new world is refused on PM; PM's test makes it from PM's own c1"},
+    {"ai_drop_target_on_the_entity", "pm_wire_drop_target_stands_pm_firing_down",
+     "PM 0x004faa40 stands PM's firing down (0x004faa20 -> 0x004ba8c0) under PM_AI=1; the PM test checks both settings"},
     {nullptr, nullptr, nullptr},  // the end
 };
 
