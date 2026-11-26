@@ -224,11 +224,15 @@ bool read_fetched_catalog(const std::string& json, const std::string& launcher_v
   ignored->clear();
   if (!read_catalog(json, out, why, ignored)) return false;
   std::vector<CatalogGame> kept;
+  // Read through a volatile pointer: clang folded the compare with the constant into the name's bytes as immediates
+  // in the code, outside its address (mw3pm pm-v1.2.11, check_paths.py).
+  static const char* const volatile owner_at = kCatalogOwner;
+  const std::string owner = owner_at;
   for (CatalogGame& g : out->games) {
     const std::string where = "games (" + g.key + "): ";
     const size_t slash = g.repo.find('/');
-    if (slash != std::string::npos && g.repo.substr(0, slash) != kCatalogOwner) {
-      ignored->push_back(where + "its repo " + g.repo + " is not under " + kCatalogOwner);
+    if (slash != std::string::npos && g.repo.substr(0, slash) != owner) {
+      ignored->push_back(where + "its repo " + g.repo + " is not under " + owner);
       continue;
     }
     if (slash != std::string::npos) g.repo = g.repo.substr(slash + 1);
