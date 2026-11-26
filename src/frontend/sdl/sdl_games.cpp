@@ -544,7 +544,8 @@ bool kit_status(const std::string& bin, rekit::Status* out, const std::vector<st
 }
 
 bool kit_setup(const std::string& bin, const std::vector<std::string>& args, int seconds,
-               const std::function<bool(const rekit::SetupMessage&)>& progress, rekit::SetupMessage* out) {
+               const std::function<bool(const rekit::SetupMessage&)>& progress, rekit::SetupMessage* out,
+               const std::function<void(const rekit::SetupMessage&)>& each) {
   *out = {};
   std::vector<const char*> argv{bin.c_str(), "--setup"};
   for (const std::string& a : args) argv.push_back(a.c_str());
@@ -571,6 +572,7 @@ bool kit_setup(const std::string& bin, const std::vector<std::string>& args, int
         if (rekit::parse_setup_message(line, &m)) {  // a log line among them is passed over
           if (m.done) *out = m, answered = true;
           else step = m;
+          if (!m.done && each) each(m);
         }
         line.clear();
       }

@@ -551,6 +551,15 @@ class Launcher {
   // any). Else, an older program or the game's own find screen (no program of its own to ask), the launcher checks
   // the files itself as before: the older programs' path, which ends at b6 (docs/launcher-split.md).
   bool status_for(int i, const std::string& dir = {}) const;
+  // GAME FILES' operations (b3): through the game's served setup when its program answers for its files (the
+  // screens stay MechWarrior 3's and Pirate's Moon's own); else the older path, in this program (ends at b6).
+  bool files_served() const { return status_for(files_pm_ ? 1 : 0); }
+  std::vector<std::string> served_args(std::vector<std::string> ask);
+  void served_work(int kind, const std::string& title, std::vector<std::string> ask);
+  std::shared_ptr<rekit::SetupMessage> served_said_;  // the served ask's answer (look: words, in place, path)
+  bool served_work_ = false;                          // the work running is a served ask
+  void found_plate(const std::string& path, const std::string& words);
+  void find_copies_served();
   bool games_on_ = false;  // mw3launcher (not mw3's or mw3pm's own find screen)
   std::string games_root_;
   // Ours (2026-11-22): each game's own folder, picked: its program and its game files there, the user folder
@@ -2877,6 +2886,7 @@ void Launcher::take_mw1(const std::string& dir) {
 void Launcher::add_disc(const std::string& source) {
   if (screen_ != kConfirm) disc_back_ = screen_;  // PICK A FILE on the no-music dialog: where the first pick came from
   disc_music_ = files_pm_ ? pm_lacks_music_ : lacks_music_;
+  if (files_served()) return served_work(Work::kAddDisc, "ADDING FROM YOUR DISC", {"--add", source});
   work_ = std::make_unique<Work>();
   work_->kind = Work::kAddDisc;
   if (files_pm_) {  // its music and its sounds (no movies), into its own folder
@@ -3261,6 +3271,7 @@ void Launcher::use_install(const std::string& dir, const std::string& version, c
 // can take seconds: the MW3 disc's installer header is 209 MB into its image).
 void Launcher::look_at(const std::string& path) {
   pending_source_ = path;
+  if (files_served()) return served_work(Work::kLook, "LOOKING AT YOUR GAME", {"--look", path});
   found_ = std::make_shared<mech3::source::Found>();
   work_ = std::make_unique<Work>();
   work_->kind = Work::kLook;
@@ -3291,6 +3302,7 @@ void Launcher::look_at(const std::string& path) {
 // with what the game would lack with it: the music and the movies (MW3), the music and the full sounds (Pirate's
 // Moon). Music or movies the user folder already holds count for every copy.
 void Launcher::find_copies() {
+  if (files_served()) return find_copies_served();
   copies_.clear();
   std::vector<std::string> tries;
   std::string in_use;
@@ -3345,6 +3357,53 @@ void Launcher::find_copies() {
   }
 }
 
+// b3: the served asks of GAME FILES (docs/launcher-split.md): the game's --setup verb with its user folder.
+std::vector<std::string> Launcher::served_args(std::vector<std::string> ask) {
+  for (const std::string& a : status_args(files_pm_ ? 1 : 0)) ask.push_back(a);
+  return ask;
+}
+
+// A served ask on the worker, its stages on the work screen: a look's answer is its words, an install's or an
+// add's its summary; the answer kept (served_said_) for its finish.
+void Launcher::served_work(int kind, const std::string& title, std::vector<std::string> ask) {
+  auto said = served_said_ = std::make_shared<rekit::SetupMessage>();
+  served_work_ = true;
+  work_ = std::make_unique<Work>();
+  work_->kind = static_cast<Work::Kind>(kind);
+  const std::string bin = game_bin(files_pm_ ? 1 : 0);
+  const bool look = kind == Work::kLook;
+  ask = served_args(std::move(ask));
+  std::printf("mw3: launcher: games: %s: --setup %s\n", files_pm_ ? "pm" : "mw3", ask.front().c_str());
+  work_->start(title, [bin, ask, said, look](const own::ProgressFn& f) {
+    own::Result r;
+    const bool answered = sdlfe::games::kit_setup(
+        bin, ask, 0, [&f](const rekit::SetupMessage& m) { return f(own::Progress{m.stage, m.fraction, m.message}); }, said.get());
+    r.ok = answered && said->ok, r.cancelled = said->cancelled;
+    r.summary = r.ok && look ? said->words : said->summary, r.install_dir = said->where;
+    return r;
+  });
+  screen_ = kWorking, layout();
+}
+
+// GAME FILES' list from the game (--copies): each copy's folder, data, whether in use and what it lacks.
+void Launcher::find_copies_served() {
+  copies_.clear();
+  rekit::SetupMessage done;
+  const bool said = sdlfe::games::kit_setup(
+      game_bin(files_pm_ ? 1 : 0), served_args({"--copies"}), 60, [](const rekit::SetupMessage&) { return true; }, &done,
+      [this](const rekit::SetupMessage& m) {
+        if (m.copy.empty()) return;
+        Copy c;
+        c.path = m.copy, c.version = m.copy_data.empty() ? "unknown" : m.copy_data, c.in_use = m.copy_in_use, c.missing = m.copy_missing;
+        std::string missing;
+        for (const std::string& x : c.missing) missing += (missing.empty() ? "" : " and ") + x;
+        std::printf("mw3: launcher: copy %s: %s%s%s\n", c.path.c_str(), c.version.c_str(), c.in_use ? ", in use" : "",
+                    c.missing.empty() ? ", nothing missing" : (", missing " + missing).c_str());
+        copies_.push_back(std::move(c));
+      });
+  if (!said || !done.ok) std::printf("mw3: launcher: games: %s: --copies: %s\n", files_pm_ ? "pm" : "mw3", done.summary.c_str());
+}
+
 // The automatic search: an installed copy (mw3.cfg's, the installer's
 // places), else a disc in a drive (looked into as if picked).
 void Launcher::search() {
@@ -3371,8 +3430,12 @@ void Launcher::search() {
     screen_ = kCopies, layout();
     return;
   }
-  const std::vector<std::string> discs = mw3setup::find_discs();
-  if (!discs.empty()) {
+  if (files_served()) {  // the game's search (its copy, else a disc in a drive); its copy is the status's, so a disc
+    rekit::SetupMessage found;
+    if (sdlfe::games::kit_setup(game_bin(files_pm_ ? 1 : 0), served_args({"--search"}), 120, [](const rekit::SetupMessage&) { return true; }, &found) &&
+        found.ok && !found.path.empty())
+      return look_at(found.path);
+  } else if (const std::vector<std::string> discs = mw3setup::find_discs(); !discs.empty()) {
     look_at(discs.front());
     return;
   }
@@ -3393,6 +3456,8 @@ void Launcher::finish_work() {
   if (work_->th.joinable()) work_->th.join();
   const Work::Kind kind = work_->kind;
   work_.reset();
+  const bool served = std::exchange(served_work_, false);
+  if (served) status_fresh_[files_pm_ ? 1 : 0] = false;  // what the game did: its status asked again
   std::printf("mw3: launcher: %s%s%s\n", r.summary.c_str(), r.detail.empty() ? "" : " | ", r.detail.c_str());
   if (kind == Work::kRemoveData) {
     status_ = r.summary, status_good_ = r.ok;
@@ -3478,12 +3543,18 @@ void Launcher::finish_work() {
       if (disc_back_ == kNotes) notes_ = pm_notes();
     }
     Screen back = disc_back_ == kSetupScreen ? kSetupScreen : kNotes;
-    if (disc_music_ && r.music_tracks == 0 && !r.cancelled) {  // no error: the game plays without it (2026-11-24)
+    // Served (b3): no count of what came; the status says whether the music is still wanting.
+    const bool no_music = served ? disc_music_ && !r.cancelled && (files_pm_ ? pm_lacks_music_ : lacks_music_)
+                                 : disc_music_ && r.music_tracks == 0 && !r.cancelled;
+    if (no_music) {  // no error: the game plays without it (2026-11-24)
       confirm_text_ = status_ + " The game plays fine without its music.";
       std::printf("mw3: launcher: no music added: %s\n", status_.c_str());
       status_.clear(), confirm_go_ = 8, back = kConfirm;
     }
-    if (r.ok && r.movies > 0 && movies_to_convert() > 0) {  // the movies just added, converted at once
+    const bool movies = served ? !files_pm_ && std::find(kit_status_[0].pending.begin(), kit_status_[0].pending.end(), "movies") !=
+                                                   kit_status_[0].pending.end()
+                               : r.movies > 0;  // Pirate's Moon has none
+    if (r.ok && movies && movies_to_convert() > 0) {  // the movies just added, converted at once
       const std::string said = status_;
       convert_movies([this, back, said] { status_ = said, screen_ = back, layout(); });  // the dialog (kConfirm) after
       return;
@@ -3491,6 +3562,21 @@ void Launcher::finish_work() {
     screen_ = back, layout();
     if (back == kConfirm) nav_steps(SDL_getenv("MW3_LAUNCHER_NAV_DIALOG"));  // checks: the dialog's own keys
     return;
+  }
+  if (kind == Work::kLook && served) {  // b3: the game's look
+    const rekit::SetupMessage& m = *served_said_;
+    if (!r.ok) {
+      status_ = r.summary, status_good_ = r.cancelled, screen_ = kSetupScreen;
+      return layout();
+    }
+    if (m.in_place) {  // this folder's own copy: in use as it is
+      const int i = files_pm_ ? 1 : 0;
+      status_refresh(i);
+      const std::string v = kit_status_[i].data.empty() ? "unknown" : kit_status_[i].data;
+      if (files_pm_) return use_pm(m.where, mw3setup::found_words("", m.where, true));
+      return use_install(m.where, v, mw3setup::found_words(v, m.where, false));
+    }
+    return found_plate(m.path.empty() ? pending_source_ : m.path, r.summary);
   }
   if (kind == Work::kLook) {
     const mech3::source::Found& f = *found_;
@@ -3505,28 +3591,7 @@ void Launcher::finish_work() {
       if (c.ok) return use_install(dir, c.version, c.summary);
       status_ = c.summary, status_good_ = false, screen_ = kSetupScreen;
     } else {
-      const std::string words = files_pm_ ? r.summary : f.summary;
-      found_name_ = fs::path(f.path).filename().string();
-      if (found_name_.empty()) found_name_ = f.path;  // a drive's top ("D:\\")
-      found_sub_ = "Click to pick other files";
-      std::printf("mw3: launcher: found plate: %s (%s)\n", found_name_.c_str(), words.c_str());
-      files_words_ = words;
-      files_into_ = games_place_[files_pm_ ? 1 : 0];  // where its card's INSTALL put the program, if it was asked
-      files_confirm_text();
-      confirm_go_ = 1;
-      if (const char* to = SDL_getenv("MW3_LAUNCHER_FILES_TO"); to && *to) picked(kInstallTo, to);  // checks: CHANGE FOLDER's pick
-      screen_ = kConfirm;
-      if (pick_other_) {  // checks (MW3_LAUNCHER_PICK_OTHER, with MW3_LAUNCHER_PICKER=path:): passed over for the pick
-        pick_other_ = false;
-        layout();
-        activate(kPickOther);
-        return;
-      }
-      if (auto_go_) {
-        auto_go_ = false;
-        activate(kGo);
-        return;
-      }
+      return found_plate(f.path, files_pm_ ? r.summary : f.summary);
     }
     layout();
     return;
@@ -3543,6 +3608,32 @@ void Launcher::finish_work() {
   find_install();
   if (kind == Work::kInstallIt && r.ok && install_.ok) return use_install(install_.dir, install_.version, status_);
   screen_ = install_.ok && r.ok ? kMain : kSetupScreen;
+  layout();
+}
+
+// USE THESE GAME FILES? for a find (`path`, said in `words`): copied in by GO.
+void Launcher::found_plate(const std::string& path, const std::string& words) {
+  found_name_ = fs::path(path).filename().string();
+  if (found_name_.empty()) found_name_ = path;  // a drive's top ("D:\\")
+  found_sub_ = "Click to pick other files";
+  std::printf("mw3: launcher: found plate: %s (%s)\n", found_name_.c_str(), words.c_str());
+  files_words_ = words;
+  files_into_ = games_place_[files_pm_ ? 1 : 0];  // where its card's INSTALL put the program, if it was asked
+  files_confirm_text();
+  confirm_go_ = 1;
+  if (const char* to = SDL_getenv("MW3_LAUNCHER_FILES_TO"); to && *to) picked(kInstallTo, to);  // checks: CHANGE FOLDER's pick
+  screen_ = kConfirm;
+  if (pick_other_) {  // checks (MW3_LAUNCHER_PICK_OTHER, with MW3_LAUNCHER_PICKER=path:): passed over for the pick
+    pick_other_ = false;
+    layout();
+    activate(kPickOther);
+    return;
+  }
+  if (auto_go_) {
+    auto_go_ = false;
+    activate(kGo);
+    return;
+  }
   layout();
 }
 
@@ -3840,6 +3931,12 @@ void Launcher::activate(int id) {
           layout();
           break;
         }
+      }
+      if (files_served()) {  // the game copies its files in (the folder claimed above, as it claims it too)
+        std::vector<std::string> ask{"--install", pending_source_};
+        if (!files_into_.empty()) ask.insert(ask.end(), {"--folder", files_into_});
+        served_work(Work::kInstallIt, files_pm_ ? "INSTALLING PIRATE'S MOON" : "INSTALLING MECHWARRIOR 3", ask);
+        break;
       }
       work_ = std::make_unique<Work>();
       work_->kind = Work::kInstallIt;

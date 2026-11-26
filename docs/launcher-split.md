@@ -314,6 +314,14 @@ only kit games (`i >= 3`).
   `"setup": 1` gets the launcher's own checks, through `mech3::setup`)
   cannot stay: it collapses to mw3.cfg's `install=` / `pm_install=` read
   unchecked, as the fallback for a copy that answers without `setup: 1`.
+  The panels' words go with it: b2's `mw3setup::found_words` calls
+  `mech3::setup::game_version_words` (game code), to be replaced by the
+  launcher's own copy or the status's own words.
+  The launcher's removal of its earlier copy (`use_install` / `use_pm`:
+  `<user folder>/install` once GAME FILES moves to another copy) moves into
+  the game's `--install`, which saves `install=` and so knows the old copy,
+  with the same guard: only a folder carrying our mark (`mw3-install.txt`)
+  is ever removed, never anything else `install=` pointed at.
   By then MW3 and Pirate's Moon releases that answer `setup: 1` have
   shipped with the new launcher (one release), so only a player who has
   not updated a game sees the thinner panel, and it offers UPDATE.

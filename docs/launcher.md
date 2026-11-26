@@ -1145,9 +1145,33 @@ otherwise the same code; MechWarrior 3 and Pirate's Moon become kit games
 (their GAME FILES and PLAY through the game) at b3 and b4. Tests:
 `sdl_program_launcher_panels_from_the_status` (stand-ins answering as the
 games do; the older path's hash equal to the status's), the launcher tests
-through the real mw3's status (`kStatusAsMw3` and `kVersionLine` in the
+through the real mw3's status and setup (`kAsksAsMw3` and `kVersionLine` in the
 stand-ins; Pirate's Moon's stand-ins carry no version, so they test the
 older path).
+
+**GAME FILES through the game (b3, 2026-11-26).** MechWarrior 3's and
+Pirate's Moon's GAME FILES keep their own screens (the find screen's words
+and buttons, the copies list, USE THESE GAME FILES?, the notes, NO MUSIC
+ADDED), and what the screens do underneath is asked of the game's program
+when it answers for its files (`files_served`, the status's `"setup": 1`),
+each ask with its user folder (`--write-dir`): the copies list from
+`--setup --copies`, a disc in a drive from `--search` (its copy is the
+status's already), a pick looked at by `--look` (the user folder's own copy
+taken in place, anything else on the plate with the game's words), GO's copy
+by `--install <pick> [--folder]` (the launcher claims the folder first, as
+before, so a folder of someone else's is refused before anything starts; the
+game claims it too), ADD FROM MY DISC by `--add`. The game saves `install=`;
+the launcher asks its status again after each. `--add` says only whether it
+worked, so NO MUSIC ADDED comes from the status: the music wanted before and
+still wanted after (never for a stopped add); the movies an add brought are
+converted when the status has `pending: ["movies"]`. The launcher still
+removes its own earlier copy when GAME FILES moves to another (marked
+folders only); that moves into the game's `--install` at b6. The older path
+(no program to ask: mw3's own find screen, mw3pm's own start; an older
+program) is unchanged. Test: `sdl_program_launcher_game_files_through_the_game`
+(the real mw3's `--add` with a cue sheet's music, a data-only image and a
+stopped add; a scripted mw3pm's look, install, copies and adds); the stand-ins
+pass `--setup` to the real mw3 (`kAsksAsMw3`).
 
 **A kit game's files, on the launcher's screens (2026-11-24).** "I thought we
 manage the setup kits from the launcher": PLAY on Inception opened Inception's
