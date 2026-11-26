@@ -27285,6 +27285,16 @@ TEST(menus_wide_follow_the_selected_aspect) {
     mech3::options().screen_w = shape[0], mech3::options().screen_h = shape[1];
     EXPECT(menus_at(mech3::kCustomVMode) == mech3::kCustomVMode);
   }
+  // 16:10 (1680x1050: a 768 canvas) is wide by default; with a game's minimum of 853 (MechWarrior 1 Remake's wide
+  // layouts are fixed at 16:9) it stays 4:3, while 16:9 and 21:9 are still wide.
+  mech3::options().screen_w = 1680, mech3::options().screen_h = 1050;
+  EXPECT(menus_at(mech3::kCustomVMode) == mech3::kCustomVMode);
+  mech3::Engine::wide_menus_min_width() = 853;
+  EXPECT(menus_at(mech3::kCustomVMode) == 5);
+  EXPECT(menus_at(13) == 13);
+  mech3::options().screen_w = 3440, mech3::options().screen_h = 1440;
+  EXPECT(menus_at(mech3::kCustomVMode) == mech3::kCustomVMode);
+  mech3::Engine::wide_menus_min_width() = 641;
   mech3::options() = saved_options;
   zfix::options().wide_menus = false;
   const int32_t off = menus_at(13);
