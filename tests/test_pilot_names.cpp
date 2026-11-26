@@ -82,10 +82,14 @@ TEST(fix_campaign_save_after_the_question) {
 // The mech lab's SORT_CHASSISNAME (0x004496c0, docs/fixes.md): with the fix
 // by the names shown, without by the mechs' numbers as the exe.
 #include "mech3/lab_screen.h"
+#include "mech3/mech_names.h"
 namespace {
 struct NameEngine : mech3::Engine {
   uint32_t unported(const char*, std::initializer_list<mech3::Arg>) override { return 0; }
-  const char* message(int32_t id) override { return id == 0xd82 + 3 ? "Avatar" : id == 0xd82 + 1 ? "Zeus" : "X"; }
+  // The names by the game's own message ids (MW3's 0xd82 + n; Pirate's Moon's on the branch pm).
+  const char* message(int32_t id) override {
+    return id == mech3::mech_name_message(3) ? "Avatar" : id == mech3::mech_name_message(1) ? "Zeus" : "X";
+  }
 };
 }  // namespace
 TEST(fix_lab_sort_by_name) {
