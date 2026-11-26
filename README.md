@@ -36,13 +36,11 @@ Every release's full notes are on the [Releases](../../releases) page, and
 [CHANGES.md](CHANGES.md) lists everything the rebuild changes from the
 original.
 
-### Coming in the next release
-
-- RAW MOUSE is on the Game Options screen, under MOUSE SENSITIVITY (it was on
-  the Upgrades page), and off to start on the Mac, where a Magic Mouse was much
-  too fast with it. MOUSE SENSITIVITY goes down to 0.1.
-- RAW MOUSE is switched off once on the Mac with this update; after that, your
-  own choice is kept.
+**1.5.2 (2026-11-25)** (the full notes are in
+[docs/release-notes-1.5.2.md](docs/release-notes-1.5.2.md)): RAW MOUSE is on
+the Game Options screen under MOUSE SENSITIVITY, off on the Mac (switched off
+once with this update), and MOUSE SENSITIVITY goes down to 0.1; on a Mac the
+Dock no longer shows the updated launcher as a folder.
 
 **1.5.1 (2026-11-25)** (the full notes are in
 [docs/release-notes-1.5.1.md](docs/release-notes-1.5.1.md)): a launcher fix.
