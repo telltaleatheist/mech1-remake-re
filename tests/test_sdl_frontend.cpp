@@ -6809,6 +6809,7 @@ TEST(sdl_program_launcher_starts_mw3_as_its_own_program) {
 // battle plays with A's. C: a third pilot, the pause's options changed, resumed, quit. D: both DEFAULT buttons of the
 // controls screen ACCEPTed, then a battle with C's. E: a start and an end with nothing touched, by itself and through
 // the launcher. After each, the two saved files hold them; CoreState::leave's 1.3 for the menus never reaches them.
+// The folder starts with an older version's rawmouse=1, which the Mac ignores (its own key, rawmouse_mac=).
 TEST(sdl_program_mouse_settings_stay_across_starts) {
   namespace fs = std::filesystem;
   const std::string dir = std::string(MW3_TEST_TMP) + "/mouse settings", wd = dir + "/usual";
@@ -6856,7 +6857,8 @@ TEST(sdl_program_mouse_settings_stay_across_starts) {
   const bool raw0 = zfix::kRawMouseDefault;
   const char* const raw_a = raw0 ? "raw mouse off" : "raw mouse on";
   const char* const raw_c = raw0 ? "raw mouse on" : "raw mouse off";
-  const std::string cfg_a = raw0 ? "rawmouse=0" : "rawmouse=1", cfg_c = raw0 ? "rawmouse=1" : "rawmouse=0";
+  const std::string key = zfix::kRawMouseKey;
+  const std::string cfg_a = key + (raw0 ? "=0" : "=1"), cfg_c = key + (raw0 ? "=1" : "=0");
   auto files = [&](const char* what, const char* x, const char* y, const std::string& cfg) {
     const bool ok = saved("MouseAccelX") == x && saved("MouseAccelY") == y && has(text_of(wd + "/mw3.cfg"), cfg.c_str());
     std::printf("  %s: saved X %s Y %s, %s%s\n", what, saved("MouseAccelX").c_str(), saved("MouseAccelY").c_str(), cfg.c_str(), ok ? "" : " NOT AS SET");
@@ -6864,6 +6866,10 @@ TEST(sdl_program_mouse_settings_stay_across_starts) {
   };
   const char *const kTenth = "cd,cc,cc,3d", *const kMinusTenth = "cd,cc,cc,bd", *const k24 = "9a,99,19,40";
 
+  // An older version's file: ACCEPT saved rawmouse=1 for players who never chose it. The Mac starts from its
+  // default, off, so A's turn sets it on (and B keeps it on); elsewhere rawmouse=1 is read, so A's turn sets it off.
+  std::ofstream(wd + "/mw3.cfg") << "rawmouse=1\n";
+  auto old_line_kept = [&] { return !zfix::kRawMouseMac || has(text_of(wd + "/mw3.cfg"), "\nrawmouse=1\n"); };
   // A
   Steps a = {click(60, 360, 60)};
   set_rows(&a, 150, 2);
@@ -6914,6 +6920,7 @@ TEST(sdl_program_mouse_settings_stay_across_starts) {
   EXPECT(fs::exists(end, ec) && has(text_of(elog), "mw3: closed, result 0"));
   EXPECT(has(text_of(elog), ("write dir " + wd + "\n").c_str()));  // the folder a direct start used
   EXPECT(files("E, through the launcher", k24, k24, cfg_c));
+  EXPECT(old_line_kept());  // the Mac leaves the old line as it was
   unsetenv("MW3_USUAL_FOLDER");
   fs::remove_all(dir, ec);
 }

@@ -647,7 +647,7 @@ macOS's own, steeper), fast ones grow.
 RAW MOUSE (ours, the game options' row under MOUSE SENSITIVITY, menus.md
 section 4; the Upgrades page's seventh row until 2026-11-25; on by default,
 off on the Mac since 2026-11-25, `zfix::kRawMouseDefault`; mw3.cfg
-`rawmouse=0/1`, `--raw-mouse`, `--no-raw-mouse`;
+`rawmouse=0/1`, the Mac's `rawmouse_mac=0/1`, `--raw-mouse`, `--no-raw-mouse`;
 `zfix::options().raw_mouse`, a display-side choice, not one of the five
 switches the network host sends): a held mouse is the counts.
 
@@ -671,7 +671,11 @@ low-resolution mouse. The other way, a Magic Mouse on the Mac (about 1,600
 counts an inch; a mission of 2026-11-25: 3,619 raw counts where SDL had 560
 pixels, 6.5 times) was too fast even at the slider's then lowest, 0.5: the
 slider goes to 0.1, and the Mac starts with RAW MOUSE off, the system
-pointer's speed (a saved `rawmouse=` wins either way). The mission's line said
+pointer's speed (a saved line wins either way). The Mac's line has its own key,
+`rawmouse_mac=` (`zfix::kRawMouseKey`), and an older version's `rawmouse=` is
+left in the file unread there: the options' ACCEPT had saved `rawmouse=1` for
+most Mac players who never chose it, so each starts once with it off; Windows
+and Linux read `rawmouse=` as before. The mission's line said
 MOUSE SENSITIVITY 1.30 whatever was set until then: it was read after
 CoreState::leave's 1.3; it says the mission's own now. The mission's line (section 13) adds `raw mouse off`,
 `on`, `on, GCMouse` or `on, the system's motion` and the raw counts.
