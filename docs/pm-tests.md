@@ -238,6 +238,13 @@ tests, `test_pocket_frame` and `test_pocket_panel` fail here by design ("dumps d
 frame's port as well): `pm`'s pocket frame and panel are PM's, tested by `test_pm_pocket_frame`,
 `test_pm_pocket_panel` and `test_pm_pocket_lines`.
 
+Run one `mw3tests` (or `mw3pmtests`) at a time per build folder: two at once there (say PM_AI 0 and 1 side by
+side) fail each other's tests (2026-11-26: five failures, all passing alone). `MW3_TEST_TMP` is the process's own
+(`test-tmp/<pid>`), but `MW3_TEST_TMP_ROOT` is the build folder itself, and the tests that write fixed folders under
+it (`net_save_into_the_editors_own_mod` and the `editor_save*` tests' `net_save`, `save_as`, `save_as_entries`,
+`save_as_export`; several PM mods tests' too) share them, and `save_temp_falls_back_to_a_scratch_file` counts the
+system temp folder's files. Each setting in turn, or each in its own build folder.
+
 MW3's headless lobby, network and mission tests, run alone from `build-mw3` (2026-11-08, the same with the parent
 commit's lobby files): these 13 fail or crash here by design.
 - `net_lobby_screen_headless`: PM's worlds (the list holds PM's maps, not MW3's 11).
