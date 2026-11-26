@@ -2102,7 +2102,7 @@ void Launcher::layout() {
       std::vector<Row> rows = {
           {0, "MECHWARRIOR 3", "Zipper and MicroProse, 1999, rebuilt from the original Mech3.exe."},
           {1, "PIRATE'S MOON", "The 1999 expansion, rebuilt from its own exe. Plays without MW3."},
-          {3, "MECHWARRIOR 1 REVERSE ENGINEERED", "MechWarrior (1989), from Elthial's SDL port. Bring your own DOS copy."},
+          {3, "MECHWARRIOR 1: REVERSE ENGINEERED", "MechWarrior (1989), reverse engineered and rebuilt. Bring your own DOS copy."},
           {2, "MECHWARRIOR 1 REMAKE", "MechWarrior (1989)'s campaign, fought with MechWarrior 3's combat."},
           {4, "THE CRESCENT HAWK'S INCEPTION", "The 1988 game, rebuilt. Bring your own copy: DOS 1.03 or Amiga 2.3."}};
       // The remake's own panel once there is one to show: a release found, or it is here (never on a failed check).

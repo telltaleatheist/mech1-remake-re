@@ -414,10 +414,12 @@ MY DATA FOLDER refuses such a name; the install has no such guard.
 The main screen as a list, the download page's look (owenmorgan.com/battletech;
 the mockup "BattleTech launcher: scrolling list", left board, picked on
 2026-11-23): one panel a game, top to bottom MECHWARRIOR 3, PIRATE'S MOON,
-MECHWARRIOR 1 REVERSE ENGINEERED, MECHWARRIOR 1 REMAKE, THE CRESCENT HAWK'S
+MECHWARRIOR 1: REVERSE ENGINEERED, MECHWARRIOR 1 REMAKE, THE CRESCENT HAWK'S
 INCEPTION. Inception is one panel until its remake has a release (or is
 installed); then INCEPTION REMAKE gets its own and the first panel is the
-original. The cards' tabs are gone (an old `tab_<card>=` in mw3.cfg is ignored).
+original. MW1's first panel names MechWarrior 1 Rebuild (mech1-re) by its full
+name, its blurb without the port it began from (2026-11-25: the game is no longer
+that port; mech1-re credits it). The cards' tabs are gone (an old `tab_<card>=` in mw3.cfg is ignored).
 
 - A panel (752x100 on the 854x480 canvas): the badge (76) at the left, dimmed
   while the game is not out; the name (the lettering, 20); then three small
