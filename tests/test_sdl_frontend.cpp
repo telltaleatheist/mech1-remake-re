@@ -7671,7 +7671,8 @@ TEST(sdl_program_launcher_links_and_uninstalls) {
   EXPECT(ri.exited && has(ri.log, ("games: pm: found " + i + "/elsewhere/PM.AppImage (its record), linked").c_str()));
   {
     const std::string game = i + "/game.sh", out = i + "/handed.txt";
-    std::ofstream(game) << "#!/bin/sh\n" << kStatusAsMw3 << "echo \"$@\" > '" << out << "'\n" << kVersionLine;
+    // Not kStatusAsMw3: this game records what it is handed, --status included (the launcher passes it on).
+    std::ofstream(game) << "#!/bin/sh\n" << "echo \"$@\" > '" << out << "'\n" << kVersionLine;
     fs::permissions(game, fs::perms::owner_all);
     setenv("MW3_GAME_BIN", game.c_str(), 1);
     for (const char* args : {"--status", "/x/install --write-dir /x/wd --ready-file /x/r"}) {
