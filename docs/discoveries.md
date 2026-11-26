@@ -193,8 +193,15 @@ From the port of the damage code, checked in an emulator against the original
   (docs/playtest.md, S1)
 - **Mechs do get bullet holes, where you hit them.** Every hit on a mech
   stamps one of seven hole shapes (8 or 16 pixels across) into the texture
-  it struck, at the exact spot, copying in that part of the mech's matching
-  "damaged" texture. An eighth hole shape is in the data but is picked only
+  it struck, at the exact spot, copying in that part of a shared "damage"
+  texture of the same size: one set of exposed-machinery images
+  (`mech_damage128x128`, `mech_damage64x128` and so on) that every mech
+  uses, not a damaged copy of each mech's own art. Only the textures a mech's
+  definition pairs with one can take holes: the Thor's 6 of 23 (its `thor_d0x`
+  panels on the torso front and back and one leg), the Firefly's 15 of 29,
+  the Avatar, Blackhawk, Cauldron, Champion, Vulture and Supernova only 4, the
+  Elemental none. Each mech keeps its own copy of those textures, so its
+  holes stay with it for the mission. An eighth hole shape is in the data but is picked only
   once in 32,768 hits, because of how the random pick is scaled. The holes
   only appear on a full install with a 3D card of 8 MB or more. With only
   the 2 MB card textures installed (or a smaller card), the game loads the
