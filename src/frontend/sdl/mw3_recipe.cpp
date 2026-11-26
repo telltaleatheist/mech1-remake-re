@@ -72,23 +72,72 @@ Lacks lacks(const std::string& install, const std::string& wd) {
   return l;
 }
 
-// The copy in use: mw3.cfg's install= while it holds the game, else the start's search.
-std::string in_use(const RecipePlaces& at) {
-  bool searched = false;
-  const std::string found = find_install(at.cfg_install, at.more, false, &searched);
-  return !found.empty() && mech3::setup::check_install(found, at.write_dir).ok ? found : std::string();
+// What copy `d` (data `version`) lacks and plays without, in a --copies row's words: its own music\, the media
+// folder's or the user folder's (`media` of the copy in use; a rip put there plays with any copy), its movies.
+std::vector<std::string> lacks_words(const std::string& d, const std::string& version, const Lacks& media, const std::string& wd) {
+  std::vector<std::string> out;
+  const std::string own = zutl::any_case(d, "music");
+  std::vector<std::string> music = {own.empty() ? (fs::path(d) / "music").string() : own, media.music_dir};
+  if (!wd.empty()) music.push_back((fs::path(wd) / "music").string());
+  if (!have_music(music)) out.push_back("music");
+  if (!have_movies(d, media.media)) out.push_back("movies");
+  if (version == "1.0" || version == "1.0 with 1.2 files") out.push_back("the 1.2 patch");
+  return out;
 }
 
 }  // namespace
 
-std::vector<std::string> mw3_notes(const std::string& install, const std::string& version, const std::string& write_dir) {
+std::vector<std::string> mw3_notes(const std::string& install, const std::string& version, const std::string& write_dir, int* once) {
   const Lacks l = lacks(install, write_dir);
-  std::vector<std::string> notes = launcher_notes(version, !l.music, !l.movies, l.music_dir);
   const mech3::setup::Result c = mech3::setup::start_check(install, write_dir, false);
-  if (c.ok)
-    for (const std::string& w : c.warnings) notes.push_back(w);
+  std::vector<std::string> notes = c.ok ? c.warnings : std::vector<std::string>{};
+  if (once) *once = static_cast<int>(notes.size());
+  for (const std::string& n : launcher_notes(version, !l.music, !l.movies, l.music_dir)) notes.push_back(n);
   return notes;
 }
+
+std::vector<std::string> mw3_lacks(const std::string& install, const std::string& version, const std::string& write_dir) {
+  return lacks_words(install, version, lacks(install, write_dir), write_dir);
+}
+
+StatusFind mw3_status_find(const RecipePlaces& at) {
+  StatusFind out;
+  // The launcher's order (its find_install before b2): the game's own folder's copy (the card INSTALL's folder, then
+  // the marked folder this program is in), mw3.cfg's, the user folder's, the installer's places, the development copy.
+  std::vector<std::string> tries;
+  size_t own_count = 0;
+  if (!at.games_place.empty()) tries.push_back((fs::path(at.games_place) / "install").make_preferred().string()), ++own_count;
+  if (const std::string mine = own_game_files("mw3"); !mine.empty()) tries.push_back(mine), ++own_count;
+  const bool has_own = own_count > 0;
+  if (!at.cfg_install.empty()) tries.push_back(at.cfg_install);
+  if (!at.write_dir.empty()) tries.push_back((fs::path(at.write_dir) / "install").string());
+  const size_t searched_from = tries.size();
+  for (const std::string& c : install_candidates()) tries.push_back(c);
+  const size_t searched_to = tries.size();
+  for (const std::string& c : at.more) tries.push_back(c);
+  for (size_t i = 0; i < tries.size(); ++i) {
+    const std::string& d = tries[i];
+    if (d.empty() || !install_valid(d)) continue;
+    const mech3::setup::Result r = mech3::setup::check_install(d, at.write_dir);
+    if (!r.ok) {
+      if (out.dir.empty()) out.dir = d, out.summary = r.summary;  // incomplete, unless a later one is whole
+      continue;
+    }
+    out.ok = true, out.dir = r.install_dir.empty() ? d : r.install_dir, out.version = r.version, out.summary = r.summary;
+    // Offered, not taken: a find of the search, or any other copy while the game's own folder is set.
+    out.offered = (i >= searched_from && i < searched_to) || (has_own && i >= own_count && i < searched_to);
+    return out;
+  }
+  return out;
+}
+
+namespace {
+// The copy in use: the status's (b2), as the launcher shows it in use.
+std::string in_use(const RecipePlaces& at) {
+  const StatusFind f = mw3_status_find(at);
+  return f.ok ? f.dir : std::string();
+}
+}  // namespace
 
 rekit::sdl::Game mw3_recipe(const RecipePlaces& at) {
   const std::string write_dir = at.write_dir, cfg_install = at.cfg_install;
@@ -141,11 +190,7 @@ rekit::sdl::Game mw3_recipe(const RecipePlaces& at) {
       rekit::sdl::CopyRow c;
       c.path = d, c.data = r.version == "unknown" ? std::string() : r.version;
       c.in_use = !use.empty() && fs::equivalent(d, use, ec);
-      const std::string own = zutl::any_case(d, "music");
-      if (!have_music({own.empty() ? (fs::path(d) / "music").string() : own, media.music_dir, (fs::path(at.write_dir) / "music").string()}))
-        c.missing.push_back("music");
-      if (!have_movies(d, media.media)) c.missing.push_back("movies");
-      if (r.version == "1.0" || r.version == "1.0 with 1.2 files") c.missing.push_back("the 1.2 patch");
+      c.missing = lacks_words(d, r.version, media, at.write_dir);
       rows.push_back(std::move(c));
     }
     return rows;

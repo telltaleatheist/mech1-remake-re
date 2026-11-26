@@ -1097,6 +1097,20 @@ each game's recipe (DESIGN.md there):
   to do). The status also carries `notes` (launcher_notes' and the start
   check's), `user` (the write dir) and `"play": 1`.
   `sdl_program_serves_the_launchers_extras`.
+- What the panels need (b2, 2026-11-26): the status looks where the launcher
+  looked (`mw3_status_find`): the card INSTALL's folder's `install/` and
+  this program's own marked game folder's (`own_game_files`: the mark must
+  name `mw3`), mw3.cfg's `install=`, the user folder's `install/`, the
+  installer's places, the development copy. A copy from the installer's
+  places, or any other while the game's own folder is set, gets the note
+  `found by the search, not set up yet` (the kit games' words: offered to be
+  copied in, never taken). `--copies`, `--add` and `--first-run` use the same
+  copy in use. The start check's warnings come first in `notes`, counted in
+  `notes_once` (the launcher shows them once, by `mw3_notes=`'s hash), then
+  launcher_notes' every time. `files.lacks` says what the copy lacks
+  (`music`, `movies`, `the 1.2 patch`) from the code its `--copies` row
+  uses. `--status` wins over `--setup` and its asks, in any order: a
+  launcher's child never reaches a screen. `sdl_program_status_finds_as_the_launcher`.
 The launcher still finds the games itself; it switches to asking `--status`
 once mw3pm answers it too.
 

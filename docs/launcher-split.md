@@ -310,7 +310,14 @@ only kit games (`i >= 3`).
 - **b6.** The game code leaves the launcher's target. `mw3launcher` links
   rekit, rekit_sdl, RmlUi and its own sources, with no `mw3core`, `mw3sdl` or
   `mw3text`. MY DATA FOLDER runs on the kit's `rekit/data_folder` with the
-  game's `user`. Checks:
+  game's `user`. The older programs' path from b2 (a status without
+  `"setup": 1` gets the launcher's own checks, through `mech3::setup`)
+  cannot stay: it collapses to mw3.cfg's `install=` / `pm_install=` read
+  unchecked, as the fallback for a copy that answers without `setup: 1`.
+  By then MW3 and Pirate's Moon releases that answer `setup: 1` have
+  shipped with the new launcher (one release), so only a player who has
+  not updated a game sees the thinner panel, and it offers UPDATE.
+  Checks:
   - the link walk above shows no game object;
   - the size is noted;
   - the launcher's tests once, as one batch: the 50 named `*launcher*`,
