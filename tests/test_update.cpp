@@ -364,3 +364,101 @@ TEST(games_installed_record) {
   EXPECT(u::parse_installed("# x\r\ngame=mw3\r\ntag=v1.2.4\r\n", &back) && back.game == "mw3" && back.tag == "v1.2.4");  // CRLF
   EXPECT(!u::parse_installed("tag=v1.2.4\n", &back));  // no game: not a record
 }
+
+// The games catalog built in (games.json; docs/launcher-split.md b0, 2026-11-26): every family and game as the code's
+// tables had them before it (copied here as they were), read alone.
+TEST(games_catalog_built_in_as_the_tables_were) {
+  u::Catalog c;
+  std::string why;
+  EXPECT(u::parse_catalog(u::builtin_catalog_text(), &c, &why) && why.empty());
+  std::printf("  catalog %d: %zu families, %zu games%s%s\n", c.version, c.families.size(), c.games.size(), why.empty() ? "" : ": ", why.c_str());
+  EXPECT(c.version == 1 && c.families.size() == 3 && c.games.size() == 6);
+  if (c.families.size() == 3)
+    EXPECT(c.families[0].key == "mw3" && c.families[0].name == "MechWarrior 3" && c.families[1].key == "mw1" &&
+           c.families[1].name == "MechWarrior 1" && c.families[2].key == "inception" && c.families[2].name == "The Crescent Hawk's Inception");
+  // games.cpp's game_info table, launcher.cpp's kHeaderNames and the own setup's badges, by Game.
+  struct Was {
+    const char *key, *name, *repo, *prefix, *program, *heading, *heading_badge;
+  };
+  const Was was[] = {{"mw3", "MechWarrior 3", "mech3-re", "v", "mw3", "MECHWARRIOR 3", "badge_mw3.png"},
+                     {"pm", "Pirate's Moon", "mech3-pm-re", "pm-v", "mw3pm", "MECHWARRIOR 3: PIRATE'S MOON", "badge_pm.png"},
+                     {"mw1", "MechWarrior 1 Remake", "mech1-remake-re", "mw1-v", "mw1", "MECHWARRIOR 1 REMAKE", "badge_mw1.png"},
+                     {"mw1r", "MechWarrior 1 Rebuild", "mech1-re", "mw1r-v", "mw1r", "MECHWARRIOR 1", "badge_mw1.png"},
+                     {"chi", "Inception Rebuild", "inception-re", "chi-v", "chi", "THE CRESCENT HAWK'S INCEPTION", "badge_inception.png"},
+                     {"chirm", "Inception Remake", "inception-remake-re", "chirm-v", "chirm", "INCEPTION REMAKE", "badge_inception.png"}};
+  for (int i = 0; i < u::kGameCount; ++i) {
+    const u::GameInfo& g = u::game_info(u::kGames[i]);
+    const u::CatalogGame& e = u::catalog_game(u::kGames[i]);
+    EXPECT(std::string(g.key) == was[i].key && std::string(g.name) == was[i].name && std::string(g.repo) == was[i].repo &&
+           std::string(g.prefix) == was[i].prefix && std::string(g.program) == was[i].program);
+    EXPECT(e.heading == was[i].heading && (e.heading_badge.empty() ? e.badge : e.heading_badge) == was[i].heading_badge);
+    u::Game back;
+    EXPECT(u::game_of_key(was[i].key, &back) && back == u::kGames[i]);
+  }
+  // launcher.cpp's panel rows (top to bottom), their badges and its panel buttons' names.
+  struct Row {
+    const char *key, *title, *blurb, *badge, *button;
+    bool before_release;
+  };
+  const Row rows[] = {
+      {"mw3", "MECHWARRIOR 3", "Zipper and MicroProse, 1999, rebuilt from the original Mech3.exe.", "badge_mw3.png", "MECHWARRIOR 3", true},
+      {"pm", "PIRATE'S MOON", "The 1999 expansion, rebuilt from its own exe. Plays without MW3.", "badge_pm.png", "PIRATE'S MOON", true},
+      {"mw1r", "MECHWARRIOR 1: REVERSE ENGINEERED", "MechWarrior (1989), reverse engineered and rebuilt. Bring your own DOS copy.",
+       "badge_mw1o.png", "MECHWARRIOR 1 ORIGINAL", true},
+      {"mw1", "MECHWARRIOR 1 REMAKE", "MechWarrior (1989)'s campaign, fought with MechWarrior 3's combat.", "badge_mw1.png", "MECHWARRIOR 1", true},
+      {"chi", "THE CRESCENT HAWK'S INCEPTION", "The 1988 game, rebuilt. Bring your own copy: DOS 1.03 or Amiga 2.3.", "badge_inception.png",
+       "INCEPTION ORIGINAL", true},
+      {"chirm", "INCEPTION REMAKE", "The Crescent Hawk's Inception (1988), remade.", "badge_inception.png", "INCEPTION REMAKE", false}};
+  for (size_t i = 0; i < c.games.size() && i < 6; ++i) {
+    const u::CatalogGame& e = c.games[i];
+    EXPECT(e.key == rows[i].key && e.title == rows[i].title && e.description == rows[i].blurb && e.badge == rows[i].badge &&
+           e.button == rows[i].button && e.panel_before_release == rows[i].before_release && e.min_launcher == "1.5.2");
+  }
+  EXPECT(c.games.size() == 6 && c.games[3].needs == std::vector<std::string>({"mw3", "pm"}) && c.games[0].needs.empty());
+  EXPECT(c.games.size() == 6 && c.games[5].state == u::CatalogGame::kComingSoon && c.games[4].state == u::CatalogGame::kReleased);
+  // The files of a release, as game_asset_name made them before the catalog.
+  auto was_asset = [](u::Game g, const std::string& tag, u::Platform p) {
+    const char* stem = g == u::Game::kMw3    ? "MW3-alone"
+                       : g == u::Game::kPm   ? (p == u::Platform::kWindows ? "mw3pm" : "PM-Rebuild")
+                       : g == u::Game::kMw1  ? "MW1-Remake"
+                       : g == u::Game::kMw1r ? "MW1-Rebuild"
+                       : g == u::Game::kChi  ? "CHI-Rebuild"
+                                             : "CHI-Remake";
+    const char* tail = p == u::Platform::kWindows ? "-win64.zip" : p == u::Platform::kMac ? "-mac.dmg" : "-x86_64.AppImage";
+    return std::string(stem) + "-" + tag + tail;
+  };
+  for (u::Game g : u::kGames)
+    for (u::Platform p : {u::Platform::kWindows, u::Platform::kMac, u::Platform::kLinux})
+      EXPECT(u::game_asset_name(g, "x-v1.2.3", p) == was_asset(g, "x-v1.2.3", p));
+}
+
+// A catalog that is not one the launcher can use is refused, saying which entry and what.
+TEST(games_catalog_refuses_bad_entries) {
+  const std::string good = u::builtin_catalog_text();
+  auto refused = [&](const std::string& from, const std::string& to, const char* says) {
+    std::string text = good;
+    const size_t at = text.find(from);
+    EXPECT(at != std::string::npos);
+    if (at == std::string::npos) return;
+    text.replace(at, from.size(), to);
+    u::Catalog c;
+    std::string why;
+    const bool ok = u::parse_catalog(text, &c, &why);
+    std::printf("  %s -> %s\n", says, why.c_str());
+    EXPECT(!ok && why.find(says) != std::string::npos);
+  };
+  refused("\"state\": \"coming_soon\"", "\"state\": \"soon\"", "games[5] (chirm): state soon is none of");
+  refused("\"family\": \"inception\", \"order\": 6", "\"family\": \"inceptoin\", \"order\": 6", "its family inceptoin is not listed");
+  refused("\"key\": \"chirm\"", "\"key\": \"chi\"", "games[5] (chi): the key twice");
+  refused("\"title\": \"PIRATE'S MOON\", ", "", "games[1] (pm): no title");
+  refused("\"mac\": \"PM-Rebuild-{tag}-mac.dmg\"", "\"mac\": \"PM-Rebuild-mac.dmg\"", "(pm) assets: mac has no {tag}");
+  refused("\"needs\": [\"mw3\", \"pm\"]", "\"needs\": [\"mw3\", \"mw5\"]", "games (mw1): it needs mw5, which is not listed");
+  refused("\"panel_before_release\": false", "\"panel_before_release\": \"no\"", "panel_before_release is not true or false");
+  refused("{\"key\": \"mw1\", \"name\": \"MechWarrior 1\", \"order\": 2}", "{\"key\": \"mw1\", \"name\": \"MechWarrior 1\"}",
+          "families[1]: no order number");
+  refused("\"catalog\": 1", "\"catalog\": 0", "catalog is not a version");
+  refused("\"games\": [", "\"games\": [,", "not JSON at byte");
+  u::Catalog c;
+  std::string why;
+  EXPECT(!u::parse_catalog("[]", &c, &why) && why == "not a catalog (an object)");
+}

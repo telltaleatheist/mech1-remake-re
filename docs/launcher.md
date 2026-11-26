@@ -445,6 +445,33 @@ that port; mech1-re credits it). The cards' tabs are gone (an old `tab_<card>=` 
 The two sections below are the layouts before it; the game states, the COMING
 SOON rule and the kit's contract are unchanged.
 
+## The games catalog (2026-11-26, launcher-split.md b0)
+
+The families and the games are data: `src/upgrades/update/games.json`,
+built into the launcher as text (CMake writes `games_catalog.cpp` from it)
+and read once by `parse_catalog` (games.h). It replaced games.cpp's table
+(key, name, repo, tag prefix, program), the release files' names
+(`assets`, `{tag}` for the tag) and launcher.cpp's panel rows, badges,
+blurbs, buttons' names and screen headers. Each game has four names:
+`name` for the words ("Pirate's Moon"), `title` on its panel, `heading`
+over its screens ("MECHWARRIOR 3: PIRATE'S MOON") and `button`, its panel
+button's name in the log and for a pad. `heading_badge` is the badge a
+game's own setup shows when it differs (the MW1 Rebuild's
+`badge_mw1.png`, its panel's `badge_mw1o.png`, as before). The panels go
+by `order`; `panel_before_release: false` keeps a panel away until a
+release is found or the game is installed (Inception Remake). `state`,
+`needs` and `min_launcher` are read and checked but not acted on yet: the
+fetched catalog (b7) uses them. The code still knows each game by its
+`Game` (games.h), linked to its entry by key; a built-in catalog without
+one of them stops the program at its first read (the test stops it
+first).
+
+Checked: `games_catalog_built_in_as_the_tables_were` (every value as the
+tables had it, the files' names on every platform) and
+`games_catalog_refuses_bad_entries` (mw3tests); every `--launcher-shot`
+screen, games on demand and an empty folder, byte for byte against the
+build before (66 shots, the version text pinned).
+
 ## The copies on this computer (2026-11-24)
 
 "The user should be able to pick what's used. Some copies have music and some

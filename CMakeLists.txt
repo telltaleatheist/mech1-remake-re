@@ -41,6 +41,18 @@ endif()
 
 # The rebuilt game and engine. No platform or engine types in here: the front end
 # (SDL3, with Godot as the fallback) talks to it through src/platform.
+# The games catalog (ours, docs/launcher-split.md b0): src/upgrades/update/games.json built into the launcher as text,
+# written again when the file changes (a configure re-run). One raw literal: MSVC takes up to 16380 bytes in one.
+set(MW3_CATALOG_JSON ${CMAKE_CURRENT_SOURCE_DIR}/src/upgrades/update/games.json)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${MW3_CATALOG_JSON})
+file(READ ${MW3_CATALOG_JSON} MW3_CATALOG_TEXT)
+string(LENGTH "${MW3_CATALOG_TEXT}" MW3_CATALOG_SIZE)
+if(MW3_CATALOG_SIZE GREATER 16000 OR MW3_CATALOG_TEXT MATCHES "\\)mw3catalog\"")
+  message(FATAL_ERROR "games.json: ${MW3_CATALOG_SIZE} bytes, or it holds the literal's end: split the literal")
+endif()
+file(CONFIGURE OUTPUT ${CMAKE_BINARY_DIR}/games_catalog.cpp
+     CONTENT "// Written by CMake from src/upgrades/update/games.json: do not edit.\nnamespace upgrades::update {\nextern const char kBuiltinCatalog[];\nconst char kBuiltinCatalog[] = R\"mw3catalog(@MW3_CATALOG_TEXT@)mw3catalog\";\n}  // namespace upgrades::update\n"
+     @ONLY)
 add_library(mw3core STATIC
   src/crt/msvc_math.cpp
   src/crt/msvc_rand.cpp
@@ -378,6 +390,7 @@ add_library(mw3core STATIC
   src/upgrades/mods/starter_mods.cpp
   src/upgrades/update/update.cpp
   src/upgrades/update/games.cpp
+  ${CMAKE_BINARY_DIR}/games_catalog.cpp  # games.json built in (below)
   src/upgrades/reference/reference.cpp
   src/upgrades/reference/reference_mods.cpp
   src/upgrades/reference/reference_weapons.cpp

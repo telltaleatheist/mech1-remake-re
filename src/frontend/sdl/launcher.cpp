@@ -53,11 +53,8 @@ constexpr int W = 854, H = 480;
 constexpr char kAddDiscSub[] = "A disc in a drive, its image, a download (.zip) or any file of it";
 // The setup screens' game names, by header_game(): the header of a game's own start (2026-11-22); in the launcher
 // the line under BATTLETECH (2026-11-24).
-// A screen's game under BATTLETECH, by upgrades::update::Game (1.3.4 had four: Inception's download screens read past
-// the end).
-constexpr const char* kHeaderNames[] = {"MECHWARRIOR 3",  "MECHWARRIOR 3: PIRATE'S MOON",  "MECHWARRIOR 1 REMAKE",
-                                        "MECHWARRIOR 1", "THE CRESCENT HAWK'S INCEPTION", "INCEPTION REMAKE"};
-static_assert(sizeof kHeaderNames / sizeof *kHeaderNames == upgrades::update::kGameCount);
+// A screen's game under BATTLETECH, by upgrades::update::Game: its catalog entry's heading (games.json).
+const char* header_name(int game) { return upgrades::update::catalog_game(upgrades::update::kGames[game]).heading.c_str(); }
 constexpr int kCopyRows = 4;  // GAME FILES' list: the copies shown (the rest by PICK A FILE)
 // A panel's words' width (assets/launcher/ui/launcher.rcss, .panel .about), its lines chosen by it.
 constexpr int kRowWidth = 640 - 2 - 28 - 2 * 112;  // a game page's row: its words beside two buttons
@@ -1924,7 +1921,6 @@ void Launcher::layout() {
       struct Panel {  // a game's part of its card
         std::vector<std::string> lines;
         std::vector<size_t> keep;
-        int badge = -1;
         int id = 0;
         std::string label = "PLAY", name;
         bool on = true, soon = false;  // soon: not out yet (a card greyed when all its games are)
@@ -1932,6 +1928,7 @@ void Launcher::layout() {
       };
       Panel pn[upgrades::update::kGameCount];
       auto fix_keep = [](Panel& p) { p.keep.resize(p.lines.size(), 0); };
+      auto button = [](int i) { return upgrades::update::catalog_game(upgrades::update::kGames[i]).button.c_str(); };
       auto update_line = [&](Panel& p, int i) {  // the split's version, on the card (the segment says UPDATE)
         if (!can_update(i)) return;
         p.lines.push_back("Update " + upgrades::update::game_version(checks_[i].release.tag) + " is ready");
@@ -1976,27 +1973,25 @@ void Launcher::layout() {
       const std::string sub = install_.ok ? ready + install_.dir : "Not found yet: click to find your game";
       {  // MechWarrior 3
         Panel& p = pn[0];
-        p.badge = 0;
         if (games_on_ && o_.game_bin.empty()) {
-          install(p, 0, "MECHWARRIOR 3");
+          install(p, 0, button(0));
         } else {
           if (install_.ok) p.lines = status_lines(ready, install_.dir);
           else p.lines = {"Not found yet:", "PLAY finds your game"};
           fix_keep(p);
           update_line(p, 0);
-          p.id = kMw3, p.name = "MECHWARRIOR 3", p.upd = 0;
+          p.id = kMw3, p.name = button(0), p.upd = 0;
         }
       }
       if (!entries_logged_)
         std::printf("mw3: launcher: entry MECHWARRIOR 3: %s\n", games_on_ && o_.game_bin.empty() ? "Not installed" : sub.c_str());
       {  // Pirate's Moon: its program beside this one (a package with it) or installed
         Panel& p = pn[1];
-        p.badge = 1;
         if (o_.pm_bin.empty() && games_on_) {
-          install(p, 1, "PIRATE'S MOON");
+          install(p, 1, button(1));
           if (!entries_logged_) std::printf("mw3: launcher: entry PIRATE'S MOON: Not installed\n");
         } else if (o_.pm_bin.empty()) {
-          later(p, kPm, "PIRATE'S MOON");
+          later(p, kPm, button(1));
         } else {
           const std::string pm_ready = "Ready, " + official_words(pm_data_, pm_program_, true) + ": " +
                                        versions_words(pm_data_, pm_program_);
@@ -2007,7 +2002,7 @@ void Launcher::layout() {
             std::printf("mw3: launcher: entry PIRATE'S MOON: %s\n",
                         (pm_dir_.empty() ? "Not found yet: click to find your game" : pm_ready + pm_dir_).c_str());
           update_line(p, 1);
-          p.id = kPm, p.name = "PIRATE'S MOON", p.upd = 1;
+          p.id = kPm, p.name = button(1), p.upd = 1;
         }
       }
       if (!entries_logged_) std::printf("mw3: launcher: footer %s\n", package_words().c_str());
@@ -2016,12 +2011,11 @@ void Launcher::layout() {
       const std::string needs = mw1_remake_ ? mw1_needs() : std::string();
       {
         Panel& p = pn[2];
-        p.badge = 2;
         if (games_on_ && !mw1_remake_) {
-          install(p, 2, "MECHWARRIOR 1");
+          install(p, 2, button(2));
           if (!p.soon) p.lines.push_back("Needs MW3 and Pirate's Moon to play"), fix_keep(p);
         } else if (!mw1_remake_) {
-          later(p, kMw1, "MECHWARRIOR 1");
+          later(p, kMw1, button(2));
         } else {
           p.lines.push_back("Remake " + (mw1_program_.empty() ? std::string("ready") : upgrades::update::game_version(mw1_program_)) +
                             " \xc2\xb7 " + (mw1_game_.empty() ? "1989 game not found yet" : "1989 game found"));
@@ -2035,7 +2029,7 @@ void Launcher::layout() {
           }
           fix_keep(p);
           update_line(p, 2);
-          p.id = kMw1, p.name = "MECHWARRIOR 1", p.on = needs.empty(), p.upd = 2;
+          p.id = kMw1, p.name = button(2), p.on = needs.empty(), p.upd = 2;
         }
       }
       // MW1's ORIGINAL: Elthial's port when a package carries it, else MechWarrior 1 Rebuild (mech1-re). The port's
@@ -2044,25 +2038,23 @@ void Launcher::layout() {
       const bool unsupported = !port_exe_.empty() && !mw1_game_.empty() && !sdlfe::mw1::original_supported(mw1_game_);
       {
         Panel& p = pn[3];
-        p.badge = 3;
         if (!port_exe_.empty()) {
           p.lines = {"Elthial's SDL port", unsupported            ? std::string("Your BTECH.EXE isn't a revision the port supports")
                                            : !mw1_game_.empty() ? mw1_game_
                                                                 : std::string("PLAY finds your MechWarrior (1989)")};
           fix_keep(p);
-          p.id = kMw1Original, p.name = "MECHWARRIOR 1 ORIGINAL", p.on = !unsupported;
+          p.id = kMw1Original, p.name = button(3), p.on = !unsupported;
         } else if (!game_bin(3).empty()) {
-          kit(p, 3, "MECHWARRIOR 1 ORIGINAL");
+          kit(p, 3, button(3));
         } else if (games_on_) {
-          install(p, 3, "MECHWARRIOR 1 ORIGINAL");
+          install(p, 3, button(3));
         } else {
-          later(p, kMw1Original, "MECHWARRIOR 1 ORIGINAL");
+          later(p, kMw1Original, button(3));
         }
       }
       for (int i : {4, 5}) {  // Inception's two: the hawk (2026-11-24)
-        const char* name = i == 4 ? "INCEPTION ORIGINAL" : "INCEPTION REMAKE";
+        const char* name = button(i);
         Panel& p = pn[i];
-        p.badge = 4;
         if (!game_bin(i).empty()) kit(p, i, name);
         else if (games_on_) install(p, i, name);
         else later(p, kKitPlay + i, name);
@@ -2094,28 +2086,27 @@ void Launcher::layout() {
       // The panels (2026-11-24, the download page's look; docs/launcher.md, The panels): one a game, top to bottom
       // as the page lists them, in a list that scrolls. Inception's remake gets its own once its first release is
       // out (or it is installed); until then Inception is one panel.
+      // In the catalog's order (games.json): its title and blurb. One with panel_before_release false (Inception's
+      // remake) only once a release is found or it is installed (never on a failed check).
       struct Row {
         int game;
-        const char* title;
-        const char* blurb;
+        const upgrades::update::CatalogGame* entry;
       };
-      std::vector<Row> rows = {
-          {0, "MECHWARRIOR 3", "Zipper and MicroProse, 1999, rebuilt from the original Mech3.exe."},
-          {1, "PIRATE'S MOON", "The 1999 expansion, rebuilt from its own exe. Plays without MW3."},
-          {3, "MECHWARRIOR 1: REVERSE ENGINEERED", "MechWarrior (1989), reverse engineered and rebuilt. Bring your own DOS copy."},
-          {2, "MECHWARRIOR 1 REMAKE", "MechWarrior (1989)'s campaign, fought with MechWarrior 3's combat."},
-          {4, "THE CRESCENT HAWK'S INCEPTION", "The 1988 game, rebuilt. Bring your own copy: DOS 1.03 or Amiga 2.3."}};
-      // The remake's own panel once there is one to show: a release found, or it is here (never on a failed check).
-      if (!pn[5].soon && (checks_[5].kind == GC::kNewer || checks_[5].kind == GC::kUpToDate || !game_bin(5).empty())) {
-        rows.push_back({5, "INCEPTION REMAKE", "The Crescent Hawk's Inception (1988), remade."});
+      std::vector<Row> rows;
+      for (const upgrades::update::CatalogGame& e : upgrades::update::builtin_catalog().games) {
+        upgrades::update::Game g;
+        if (!upgrades::update::game_of_key(e.key, &g)) continue;
+        const int i = static_cast<int>(g);
+        if (!e.panel_before_release && (pn[i].soon || !(checks_[i].kind == GC::kNewer || checks_[i].kind == GC::kUpToDate || !game_bin(i).empty())))
+          continue;
+        rows.push_back({i, &e});
       }
       for (size_t k = 0; k < rows.size(); ++k) {
         const Panel& p = pn[rows[k].game];
         UiPanel c;
         const std::string group = "panel" + std::to_string(k);
-        c.buttons = group, c.title = rows[k].title, c.on = !p.soon;
-        static const char* const kBadges[] = {"badge_mw3.png?76", "badge_pm.png?76", "badge_mw1.png?76", "badge_mw1o.png?76", "badge_inception.png?76"};
-        if (p.badge >= 0) c.badge = kBadges[p.badge];
+        c.buttons = group, c.title = rows[k].entry->title, c.on = !p.soon;
+        c.badge = rows[k].entry->badge + "?76";
         // Three small lines under the name: the status's first line (with its second when both fit) in amber, the rest
         // of it, then the game's line only when it fits whole (2026-11-24: a cut one could not be read anywhere).
         size_t i = 0;
@@ -2126,7 +2117,7 @@ void Launcher::layout() {
           for (++i; i < p.lines.size() && c.lines.size() < 3; ++i)
             c.lines.push_back({p.lines[i], "dim", i < p.keep.size() ? static_cast<int>(p.keep[i]) : 0});
         }
-        const std::vector<std::string> words = body_.wrap(rows[k].blurb, 12, kAboutWidth);
+        const std::vector<std::string> words = body_.wrap(rows[k].entry->description, 12, kAboutWidth);
         if (c.lines.size() + words.size() <= 3)
           for (const std::string& w : words) c.lines.push_back({w, "soft"});
         panels_.push_back(std::move(c));
@@ -2347,7 +2338,7 @@ void Launcher::layout() {
     std::string labels;
     for (const Button& b : buttons_) labels += (labels.empty() ? "" : ", ") + b.log_name();
     std::printf("mw3: launcher: screen %s: %s\n", kNames[screen_], labels.c_str());
-    if (const int g = header_game(); g >= 0) std::printf("mw3: launcher: header %s\n", kHeaderNames[g]);
+    if (const int g = header_game(); g >= 0) std::printf("mw3: launcher: header %s\n", header_name(g));
   }
   hot_ = -1, focus_ = first_focus, follow_ = false;
 }
@@ -2428,11 +2419,11 @@ UiModel Launcher::model() {
   const int game = header_game();
   m.heading = kLauncherTitle, m.head = screen_ == kMain ? "main" : "launcher";
   if (game >= 0 && (o_.setup_only || o_.pm)) {
-    static const char* const kBadges[] = {"badge_mw3.png?64", "badge_pm.png?64", "badge_mw1.png?64", "badge_mw1.png?64", "badge_inception.png?64", "badge_inception.png?64"};
-    m.head = "game", m.heading = kHeaderNames[game], m.badge = kBadges[game];
+    const upgrades::update::CatalogGame& e = upgrades::update::catalog_game(upgrades::update::kGames[game]);
+    m.head = "game", m.heading = e.heading, m.badge = (e.heading_badge.empty() ? e.badge : e.heading_badge) + "?64";
     m.heading_kind = text_.width(m.heading, 36) > 520 ? "own long" : "own";  // the longer titles kept off the hazard stripes
   } else if (game >= 0) {
-    m.game = kHeaderNames[game], m.heading_kind = "with";
+    m.game = header_name(game), m.heading_kind = "with";
   }
   auto upper = [](std::string n) {
     for (char& ch : n) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
