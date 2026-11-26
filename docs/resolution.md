@@ -510,6 +510,13 @@ places set it off (`mission_c1m1_options_from_the_pause_keep_the_menus_frame_hea
 are laid out when they are made (an OptionsState makes its screen in its
 constructor), so screens already made stay at their width.
 
+A game can ask for a wider canvas before its menus go wide
+(`Engine::wide_menus_min_width()`, 2026-11-26): 641 by default, so 16:10's
+768x480 is wide and MW3's groups spread over it. MechWarrior 1 Remake's own
+wide layouts are fixed at 854, and on 16:10 its hub ran past the right edge
+(mech1-remake-re issue #1); it sets 853, so its menus stay 4:3 on a shape
+narrower than 16:9 (`menus_wide_follow_the_selected_aspect`).
+
 A mode picked in the menus takes hold in them at once (2026-11-10, playtest
 1.1.0 item 3; until then it reached the menus at the next start, and
 going from a saved 4:3 mode to 1920x1080, saw 4:3 menus still). GRAPHICS'
