@@ -237,12 +237,13 @@ std::vector<Item> items(mech3::Engine& e, Tab t) {
       sens.put = [](mech3::Engine& e, int32_t v) { put_mouse(e, sens_of(v), e.mouse_accel_y() < 0.0f); };
       sens.def = kSensDefault;
       v.push_back(std::move(sens));
-      // mw3.cfg's rawmouse=, at once (a battle's held mouse too), as MW3's game options (its docs/input.md section 14).
+      // mw3.cfg's rawmouse= (the Mac's rawmouse_mac=), at once (a battle's held mouse too), as MW3's game options (its
+      // docs/input.md section 14).
       v.push_back(on_off("RAW MOUSE", "RAW MOUSE: the mouse's own movement. OFF: your system's speed.", zfix::kRawMouseDefault,
                          [](mech3::Engine&) { return zfix::options().raw_mouse ? 1 : 0; },
                          [](mech3::Engine&, int32_t v) {
                            zfix::options().raw_mouse = v != 0;
-                           save_switch("rawmouse", v != 0);
+                           save_switch(zfix::kRawMouseKey, v != 0);
                          }));
       v.push_back(on_off("INVERT MOUSE", "INVERT MOUSE: the mouse forward looks down.", false,
                          [](mech3::Engine& e) { return e.mouse_accel_y() < 0.0f ? 1 : 0; },

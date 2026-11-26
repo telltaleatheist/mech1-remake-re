@@ -706,7 +706,7 @@ roster (the pocket commander's panel lists them), so PM's dispatcher, brains and
   - GAME: DIFFICULTY, CAMERA, TORSO RE-CENTRES, THROTTLE STAYS SET, JUMP ASSIST; CHEATS: INVINCIBLE, UNLIMITED AMMO,
     HEAT. DISPLAY: RESOLUTION; QUALITY: DETAIL, EFFECTS, LIGHTING, SHADOWS, SELF SHADOWS; MENUS: WIDE MENUS (taken
     at the next start). SOUND: MUSIC, MUSIC VOLUME, EFFECTS VOLUME, SOUND QUALITY. CONTROLS: MOUSE SENSITIVITY,
-    RAW MOUSE (2026-11-25, off to start on the Mac), INVERT MOUSE, KEY BINDINGS (PM's key map, as it is).
+    RAW MOUSE (2026-11-25, off to start on the Mac, and off once there: its line is rawmouse_mac=), INVERT MOUSE, KEY BINDINGS (PM's key map, as it is).
     ENHANCEMENTS: IMPROVED AI, ARTEMIS TRACKING, WATER MOVEMENT, SMALL FIXES and its list.
   - Not offered: TEXTURES (set to the device's largest at each start, `settings::at_start`), MFB REGROUP (MW1 fields
     no MFB), and the video device (the SDL build has one; PM's own page shows a single entry too).

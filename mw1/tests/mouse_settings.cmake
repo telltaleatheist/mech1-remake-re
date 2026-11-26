@@ -1,13 +1,15 @@
 # The mouse's settings across starts (FIXES.md item 126, 2026-11-25): MOUSE SENSITIVITY, RAW MOUSE and INVERT MOUSE
 # set on SETTINGS from the hub (A) and from a battle's pause (C), each step its own mw1 on one write dir: B a new
 # start's battle with A's, D the key map's MOUSE and JOYSTICK DEFAULTS ACCEPTed, E a plain start, F a battle with C's.
-# After each, settings.reg and mw3.cfg hold them; the battle's end prints the sensitivity it played with.
+# After each, settings.reg and mw3.cfg hold them; the battle's end prints the sensitivity it played with. The write dir
+# starts with an older version's rawmouse=1, which the Mac leaves unread (its own key, rawmouse_mac=: RAW MOUSE off once).
 # cmake -DMW1_BIN=<mw1> -DDIR=<scratch> -P mouse_settings.cmake
 cmake_minimum_required(VERSION 3.20)
 set(failed)
 set(wd "${DIR}/wd")
 file(REMOVE_RECURSE "${wd}")
 file(MAKE_DIRECTORY "${wd}")
+file(WRITE "${wd}/mw3.cfg" "rawmouse=1\n")
 # step(name screen frames clicks what-the-battle-says X Y rawmouse)
 function(step name screen frames args says x y raw)
   separate_arguments(list UNIX_COMMAND "${args}")
@@ -28,10 +30,10 @@ function(step name screen frames args says x y raw)
     file(STRINGS "${wd}/settings.reg" reg REGEX "MouseAccel")
   endif()
   if(EXISTS "${wd}/mw3.cfg")
-    file(STRINGS "${wd}/mw3.cfg" cfg REGEX "^rawmouse=")
+    file(STRINGS "${wd}/mw3.cfg" cfg REGEX "^${key}=")
   endif()
   message("${name}: exit ${r}; battle \"${battle}\"; ${reg}; ${cfg}")
-  if(NOT r EQUAL 0 OR NOT battle STREQUAL says OR NOT cfg STREQUAL "rawmouse=${raw}"
+  if(NOT r EQUAL 0 OR NOT battle STREQUAL says OR NOT cfg STREQUAL "${key}=${raw}"
      OR NOT reg MATCHES "\"MouseAccelX\"=hex:${x}" OR NOT reg MATCHES "\"MouseAccelY\"=hex:${y}")
     set(failed ${failed} "${name}" PARENT_SCOPE)
   endif()
@@ -45,10 +47,12 @@ function(clicks out place at times)
   endforeach()
   set(${out} "${s}" PARENT_SCOPE)
 endfunction()
-# RAW MOUSE from its default (off on the Mac, on elsewhere) to the other and back: the choice's two buttons.
+# RAW MOUSE from its default (off on the Mac, the old rawmouse=1 unread; on elsewhere) to the other and back: the
+# choice's two buttons.
 set(on "486,140")
 set(off "400,140")
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
+  set(key rawmouse_mac)
   set(flip "${on}")
   set(back "${off}")
   set(raw_a 1)
@@ -56,6 +60,7 @@ if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
   set(said_a on)
   set(said_c off)
 else()
+  set(key rawmouse)
   set(flip "${off}")
   set(back "${on}")
   set(raw_a 0)
@@ -79,6 +84,12 @@ step(D MW1_SCREEN=settings_controls 1700 "--click-at 440,204@1200 --click-at 100
      ${two4} ${two4} ${raw_c})
 step(E "" 300 "" "" ${two4} ${two4} ${raw_c})
 step(F MW1_SCREEN=pause 1500 "" "MOUSE SENSITIVITY 2.40/2.40, raw mouse ${said_c}" ${two4} ${two4} ${raw_c})
+if(key STREQUAL "rawmouse_mac")  # the old line as it was
+  file(STRINGS "${wd}/mw3.cfg" old REGEX "^rawmouse=")
+  if(NOT old STREQUAL "rawmouse=1")
+    set(failed ${failed} "the old line")
+  endif()
+endif()
 if(failed)
   message(FATAL_ERROR "the mouse's settings: ${failed} (${wd})")
 endif()
