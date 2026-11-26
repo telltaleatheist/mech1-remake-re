@@ -1,6 +1,7 @@
 // Mods by campaign, step 4c (upgrades/mods/mods_delete, docs/mods-campaigns-plan.md,
 // Deleting and resetting): the one remover's refusals, and DELETE and RESET by
 // the row chosen, each on built folders.
+// On pm the game's own campaign entry is Pirate's Moon's "campaign", shown as Campaign (616518a04), not MW3's "mw3".
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
@@ -65,7 +66,7 @@ fs::path world(const char* name) {
   put(wd / "mods/mine2" / mech3::ai::kEditorMarker, "the editor's\n");
   put(wd / "mods/byhand/mod.txt", "name=By Hand\n");
   put(wd / "mods/byhand/zbd/x.zbd", "theirs");
-  for (const char* id : {"mw3", "camp~night", "mine", "gone~far"}) {
+  for (const char* id : {"campaign", "camp~night", "mine", "gone~far"}) {
     put(wd / "campaigns" / id / mech3::kCampaignMarker, std::string("\"") + (std::string(id) == "gone~far" ? "Far Away" : id) + "\" (" + id + ")\n");
     put(wd / "campaigns" / id / "pilots/Ace.mw3", "ace");
     put(wd / "campaigns" / id / "pilots/Bo.mw3", "bo");
@@ -74,7 +75,7 @@ fs::path world(const char* name) {
     put(wd / "campaigns" / id / "pilots/games/Bo0101.mw3", "s3");
     put(wd / "campaigns" / id / "configs/Bushwacker.mw3", "loadouts");
   }
-  put(wd / "campaigns/mw3/mods.txt", "mod=weps\n");
+  put(wd / "campaigns/campaign/mods.txt", "mod=weps\n");
   put(wd / "campaigns/camp~night/mods.txt", "mod=weps\n");
   put(wd / "campaigns/ia" / mech3::kCampaignMarker, "ia\n");
   put(wd / "campaigns/ia/mods.txt", "mod=weps\n");
@@ -180,11 +181,11 @@ TEST(mods_delete_by_the_row_chosen) {
     const fs::path wd = world("delete_asset");
     const std::string w = wd.string();
     DeletePlan p = mech3::delete_plan_for_mod(w, "weps");
-    EXPECT(p.kind == DeletePlan::kImportedMod && p.question == "Delete Freako Weapons? It is ticked for: MechWarrior 3, Instant Action, Long Night.");
+    EXPECT(p.kind == DeletePlan::kImportedMod && p.question == "Delete Freako Weapons? It is ticked for: Campaign, Instant Action, Long Night.");
     const std::string campaigns = snapshot(wd / "campaigns");
     EXPECT(mech3::delete_run(w, p, &why) && !fs::exists(wd / "mods/weps") && snapshot(wd / "campaigns") == campaigns);
     const std::vector<mech3::CampaignEntry> all = mech3::campaign_entries(w);
-    const mech3::CampaignEntry* own = mech3::find_entry(all, "mw3");
+    const mech3::CampaignEntry* own = mech3::find_entry(all, "campaign");
     EXPECT(own && (mech3::entry_missing_mods(w, *own) == std::vector<std::string>{"weps"}));
     // One not ticked anywhere; one made by hand: no DELETE, the note says where to remove it.
     put(wd / "mods/hud/mod.txt", "name=Green HUD\n");
@@ -201,17 +202,17 @@ TEST(mods_delete_by_the_row_chosen) {
   {  // The game's own campaign: RESET. Ticks, pilots, saved games and saved mechs cleared; the folder as a first start makes it.
     const fs::path wd = world("delete_reset");
     const std::string w = wd.string();
-    DeletePlan p = mech3::delete_plan_for_entry(w, "mw3");
+    DeletePlan p = mech3::delete_plan_for_entry(w, "campaign");
     EXPECT(p.kind == DeletePlan::kReset && p.label == "RESET" &&
-           p.question == "Reset MechWarrior 3 to the original? Its ticked mods are cleared. Its 2 pilots and 3 saved games here go with it. "
+           p.question == "Reset Campaign to the original? Its ticked mods are cleared. Its 2 pilots and 3 saved games here go with it. "
                          "Your pilots in the main game are not changed.");
     const std::string main_pilots = snapshot(wd / "pilots"), others = snapshot(wd / "campaigns/camp~night") + snapshot(wd / "mods");
     EXPECT(mech3::delete_run(w, p, &why));
-    EXPECT(fs::is_regular_file(wd / "campaigns/mw3" / mech3::kCampaignMarker) && fs::is_directory(wd / "campaigns/mw3/pilots/games") &&
-           fs::is_directory(wd / "campaigns/mw3/configs"));
-    EXPECT(mech3::entry_ticks(w, "mw3").empty() && !fs::exists(wd / "campaigns/mw3/pilots/Ace.mw3") && !fs::exists(wd / "campaigns/mw3/configs/Bushwacker.mw3"));
+    EXPECT(fs::is_regular_file(wd / "campaigns/campaign" / mech3::kCampaignMarker) && fs::is_directory(wd / "campaigns/campaign/pilots/games") &&
+           fs::is_directory(wd / "campaigns/campaign/configs"));
+    EXPECT(mech3::entry_ticks(w, "campaign").empty() && !fs::exists(wd / "campaigns/campaign/pilots/Ace.mw3") && !fs::exists(wd / "campaigns/campaign/configs/Bushwacker.mw3"));
     EXPECT(snapshot(wd / "pilots") == main_pilots && snapshot(wd / "campaigns/camp~night") + snapshot(wd / "mods") == others);
-    EXPECT(mech3::delete_plan_for_entry(w, "mw3").question.find("It has no pilots or saved games here.") != std::string::npos);  // counted at that moment, and none said plainly
+    EXPECT(mech3::delete_plan_for_entry(w, "campaign").question.find("It has no pilots or saved games here.") != std::string::npos);  // counted at that moment, and none said plainly
     // Never: the campaign the run is inside; Instant Action's entry (ALL OFF is its way).
     p = mech3::delete_plan_for_entry(w, "camp~night", "camp~night");
     EXPECT(p.kind == DeletePlan::kNone && p.refused == "Long Night is being played: leave it first.");
