@@ -414,10 +414,12 @@ MY DATA FOLDER refuses such a name; the install has no such guard.
 The main screen as a list, the download page's look (owenmorgan.com/battletech;
 the mockup "BattleTech launcher: scrolling list", left board, picked on
 2026-11-23): one panel a game, top to bottom MECHWARRIOR 3, PIRATE'S MOON,
-MECHWARRIOR 1 REVERSE ENGINEERED, MECHWARRIOR 1 REMAKE, THE CRESCENT HAWK'S
+MECHWARRIOR 1: REVERSE ENGINEERED, MECHWARRIOR 1 REMAKE, THE CRESCENT HAWK'S
 INCEPTION. Inception is one panel until its remake has a release (or is
 installed); then INCEPTION REMAKE gets its own and the first panel is the
-original. The cards' tabs are gone (an old `tab_<card>=` in mw3.cfg is ignored).
+original. MW1's first panel names MechWarrior 1 Rebuild (mech1-re) by its full
+name, its blurb without the port it began from (2026-11-25: the game is no longer
+that port; mech1-re credits it). The cards' tabs are gone (an old `tab_<card>=` in mw3.cfg is ignored).
 
 - A panel (752x100 on the 854x480 canvas): the badge (76) at the left, dimmed
   while the game is not out; the name (the lettering, 20); then three small
@@ -990,6 +992,30 @@ each game's recipe (DESIGN.md there):
 - `mw3 --setup`: the find screen alone, whatever is found; exit 0 once a pick
   is installed and saved to mw3.cfg, 1 when the player quits it, 2 when SDL
   cannot start. `sdl_program_status_and_setup_answer_the_launcher`.
+- `mw3 --setup --describe | --search | --look <pick> | --install <pick>
+  [--folder <dir>]` (2026-11-25, docs/launcher-split.md a2): the same asks a
+  kit game answers, through MechWarrior 3's recipe (`frontend/sdl/mw3_recipe`:
+  map_source's rules named `mech3` and `mech3-pm`, the start's search then a
+  disc in a drive, install_from_source). No window; the copy a look finds in
+  place, or an install puts in `<write dir>/install`, is saved as `install=`.
+  A Pirate's Moon pick is refused in its words. The status says `"setup": 1`;
+  the launcher asks it only once MW3 is one of its kit games (a later step).
+  The data folder and `rebuild-program.txt` are the kit's too
+  (`rekit/data_folder.h`, `rekit/program_record.h`), with the same files.
+- Its extras (a3): `--setup --copies` (GAME FILES' list, as find_copies:
+  each copy once, the one in use first, what it lacks: music, movies, the 1.2
+  patch), `--add <pick>` (ADD FROM MY DISC: what the copy in use lacks, from a
+  disc, its image or download; `""` takes the disc in a drive) and
+  `--first-run movies` (the importer, as convert_movies; on Windows nothing
+  to do). The status also carries `notes` (launcher_notes' and the start
+  check's), `user` (the write dir) and `"play": 1`.
+  `sdl_program_serves_the_launchers_extras`.
+- On `pm` (a4): mw3pm answers the same asks with Pirate's Moon's recipe,
+  game `mech3-pm`: its words ("An installed copy of Pirate's Moon."),
+  MechWarrior 3's files refused in the launcher's sentence, its copies'
+  lacks (music, full-quality sounds), `add_pm_from_disc` for ADD FROM MY
+  DISC, pm_notes' notes, `games_pm=` for the games folder. The status says
+  `"setup": 1`. `sdl_pm_program_serves_its_setup` (mw3pmsdltests).
 The launcher still finds the games itself; it switches to asking `--status`
 once mw3pm answers it too.
 

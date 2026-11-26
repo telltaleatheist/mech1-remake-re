@@ -63,7 +63,7 @@ class Engine : public zgame::AppHooks {
   // picked in the menus applies to them at the next start.
   int32_t menu_vmode();
   int32_t menu_vmode_ = -1;
-  // Ours: the narrowest canvas the wide menus take (set_wide_menus_min_width).
+  // Ours: the narrowest canvas the wide menus take; a game sets it at start (MW1: 853).
   static int32_t& wide_menus_min_width();
   // Ours: an ACCEPT that may change the menus' mode (GRAPHICS' resolution,
   // UPGRADES' wide menus). From the main menu the menus are made again in the

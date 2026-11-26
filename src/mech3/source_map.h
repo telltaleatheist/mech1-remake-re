@@ -49,6 +49,11 @@ using MapProgress = std::function<bool(double fraction, const std::string& entry
 // header (DATA1.HDR, about 200 MB in on the MW3 disc) and no further.
 Found map_source(const std::string& path, const MapProgress& progress = nullptr);
 
+// The rules map_source walks with (rekit/sources.h): the games "mw3" and "pm".
+const rekit::SourceRules& source_rules();
+// A walk's find with those rules as map_source's (its summary in the player's words).
+Found from_kit(const rekit::Found& k);
+
 // Plain words for a game found, for the player.
 std::string game_words(const Found& f);
 

@@ -1106,6 +1106,7 @@ if(SDL3_FOUND)
     add_library(mw3text STATIC src/frontend/sdl/sdl_twod_host.cpp src/frontend/sdl/hires_draw.cpp src/frontend/sdl/font_search.cpp
                 src/frontend/sdl/gdi_font_size.cpp
                 src/frontend/sdl/text_fit.cpp src/frontend/sdl/launcher_notes.cpp src/frontend/sdl/movie_import.cpp
+                src/frontend/sdl/mw3_recipe.cpp
                 src/frontend/sdl/vulkan_check.cpp
                 src/platform/hires_text.cpp)  # ours: MW1's high-resolution 2D, the text at the frame's scale (FIXES 12; SDL_ttf, so here, not mw3core)
     target_link_libraries(mw3text PUBLIC mw3sdl SDL3_ttf::SDL3_ttf)
