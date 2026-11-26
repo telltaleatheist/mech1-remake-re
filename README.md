@@ -46,6 +46,13 @@ Every release's full notes are on the [Releases](../../releases) page, and
 [CHANGES.md](CHANGES.md) lists everything the rebuild changes from the
 original.
 
+**1.6.0 (2026-11-26)** (the full notes are in
+[docs/release-notes-1.6.0.md](docs/release-notes-1.6.0.md)): the mouse wheel
+scrolls the menus' lists (issue #20, under SMALL FIXES); each game sets
+itself up and the launcher only asks it, with its own menu sounds and less
+than half the size; new games can appear in the launcher without an update.
+After updating the launcher, press UPDATE ALL.
+
 **1.5.2 (2026-11-25)** (the full notes are in
 [docs/release-notes-1.5.2.md](docs/release-notes-1.5.2.md)): RAW MOUSE is on
 the Game Options screen under MOUSE SENSITIVITY, off on the Mac (switched off
