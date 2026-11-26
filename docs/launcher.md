@@ -1000,6 +1000,14 @@ each game's recipe (DESIGN.md there):
   the launcher asks it only once MW3 is one of its kit games (a later step).
   The data folder and `rebuild-program.txt` are the kit's too
   (`rekit/data_folder.h`, `rekit/program_record.h`), with the same files.
+- Its extras (a3): `--setup --copies` (GAME FILES' list, as find_copies:
+  each copy once, the one in use first, what it lacks: music, movies, the 1.2
+  patch), `--add <pick>` (ADD FROM MY DISC: what the copy in use lacks, from a
+  disc, its image or download; `""` takes the disc in a drive) and
+  `--first-run movies` (the importer, as convert_movies; on Windows nothing
+  to do). The status also carries `notes` (launcher_notes' and the start
+  check's), `user` (the write dir) and `"play": 1`.
+  `sdl_program_serves_the_launchers_extras`.
 The launcher still finds the games itself; it switches to asking `--status`
 once mw3pm answers it too.
 

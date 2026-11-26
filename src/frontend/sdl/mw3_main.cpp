@@ -770,6 +770,7 @@ int print_status(Args& a) {
     if (r.ok) {
       st.state = rekit::Status::kReady;
       if (r.version != "unknown") st.data = r.version;
+      if (!a.write_dir.empty()) st.notes = sdlfe::mw3_notes(st.where, r.version, a.write_dir);
 #if !defined(_WIN32)
       if (!a.no_import && sdlfe::movies_missing(st.where, sdlfe::media_dir(st.where, a.write_dir)) > 0) st.pending.push_back("movies");
 #endif
@@ -778,6 +779,8 @@ int print_status(Args& a) {
       st.missing.push_back(r.summary);
     }
   }
+  st.user = a.write_dir;
+  st.play = rekit::kPlayOptions;  // --windowed, --window, --nosound, --hidden, --write-dir, --ready-file: mw3's own
   std::fflush(stdout);
 #if defined(_WIN32)
   _dup2(out, 1);
@@ -813,7 +816,16 @@ int serve_setup_ask(Args& a) {
   if (const char* base = SDL_GetBasePath()) o.program_dir = base;
   o.log_prefix = "mw3: setup: ";
   o.log = [](const std::string& line) { std::fprintf(stderr, "mw3: setup: %s\n", line.c_str()); };
-  const rekit::sdl::SetupResult r = rekit::sdl::serve_setup(sdlfe::mw3_recipe(a.write_dir, a.cfg_install, more), o, a.setup_ask);
+  sdlfe::RecipePlaces at;
+  at.write_dir = a.write_dir, at.cfg_install = a.cfg_install, at.more = more;
+  {  // the launcher's games folder for MW3 (its card's INSTALL), a line it keeps in the same mw3.cfg
+    std::ifstream f(std::filesystem::path(a.write_dir) / "mw3.cfg");
+    for (std::string line; std::getline(f, line);) {
+      if (!line.empty() && line.back() == '\r') line.pop_back();
+      if (line.rfind("games_mw3=", 0) == 0) at.games_place = zutl::path_from_config(line.substr(10));
+    }
+  }
+  const rekit::sdl::SetupResult r = rekit::sdl::serve_setup(sdlfe::mw3_recipe(at), o, a.setup_ask);
   if (!r.install_dir.empty()) {
     std::error_code ec;
     std::filesystem::create_directories(a.write_dir, ec);
