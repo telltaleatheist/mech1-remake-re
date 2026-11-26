@@ -1016,6 +1016,17 @@ each game's recipe (DESIGN.md there):
   lacks (music, full-quality sounds), `add_pm_from_disc` for ADD FROM MY
   DISC, pm_notes' notes, `games_pm=` for the games folder. The status says
   `"setup": 1`. `sdl_pm_program_serves_its_setup` (mw3pmsdltests).
+- What the panels need (b2, 2026-11-26), on `pm`: the status looks where
+  the launcher's find_pm looked (`mw3_status_find`): the card's folder's
+  `install/` (`games_pm=`), this program's own marked game folder's (the
+  mark must name `pm`), the user folder's `install/`, then mw3.cfg's
+  `install=`, the installer's places (noted `found by the search, not set
+  up yet`: offered, never taken), the development copy. check_install's
+  warnings (the full sounds) come first in `notes`, counted in `notes_once`
+  (the launcher's `pm_notes=` hash), then the music's. `files.lacks`
+  (`music`, `full-quality sounds`) is the code its `--copies` row uses, and
+  `--copies`, `--add` and `--first-run` take the same copy in use.
+  `--status` wins over `--setup`. `sdl_pm_program_status_finds_as_the_launcher`.
 The launcher still finds the games itself; it switches to asking `--status`
 once mw3pm answers it too.
 

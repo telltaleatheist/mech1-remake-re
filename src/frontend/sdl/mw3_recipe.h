@@ -20,8 +20,23 @@ struct RecipePlaces {
 };
 rekit::sdl::Game mw3_recipe(const RecipePlaces& places);
 
-// What the player should know before playing with `install` (the status's notes): launcher_notes' (the data's
-// version, the music, the movies) and the start check's.
-std::vector<std::string> mw3_notes(const std::string& install, const std::string& version, const std::string& write_dir);
+// What the player should know before playing with `install` (the status's notes). pm: check_install's warnings first
+// (the full sounds), their count in `once` (the status's notes_once: a launcher shows those once until they change),
+// then the music's, shown every time.
+std::vector<std::string> mw3_notes(const std::string& install, const std::string& version, const std::string& write_dir,
+                                   int* once = nullptr);
+// What `install` lacks and plays without (the status's lacks), in the words of its --copies row's missing, from the
+// same code. pm: "music", "full-quality sounds".
+std::vector<std::string> mw3_lacks(const std::string& install, const std::string& version, const std::string& write_dir);
+
+// The copy the status reports (docs/launcher-split.md, b2), in the order the launcher looked before. pm: the card's
+// folder's install/, this program's own marked game folder's and the user folder's install/, mw3.cfg's install=, the
+// installer's places, `more`. The first whole one (check_install) is taken; `offered` when it came from the
+// installer's places: the launcher offers to copy it in.
+struct StatusFind {
+  bool ok = false, offered = false;
+  std::string dir, version, summary;  // dir and summary also when only an incomplete copy was found
+};
+StatusFind mw3_status_find(const RecipePlaces& places);
 
 }  // namespace sdlfe

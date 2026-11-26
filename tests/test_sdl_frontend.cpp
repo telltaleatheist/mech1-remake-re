@@ -11776,6 +11776,81 @@ TEST(sdl_program_issue19_menu_sounds) {
 #endif
 
 #if defined(MW3_PM_SUITE) && !defined(_WIN32)
+// Pirate's Moon's status looks where the launcher looked (2026-11-26, docs/launcher-split.md b2), as
+// sdl_program_status_finds_as_the_launcher on main: the check's notes first (notes_once), what the copy lacks as its
+// --copies row says it, the user folder's install/ and this program's own marked game folder ahead of mw3.cfg's; a
+// --status beside --setup answers the status alone.
+TEST(sdl_pm_program_status_finds_as_the_launcher) {
+  namespace fs = std::filesystem;
+  const std::string dir = std::string(MW3_TEST_TMP) + "/pm_status_finds", game = MW3_GAME_DIR;
+  std::error_code ec;
+  fs::remove_all(dir, ec);
+  auto run = [&](const std::string& bin, const std::vector<std::string>& args, const std::string& name, int* code) {
+    int status = 0;
+    const std::string log = dir + "/" + name + ".log";
+    *code = waited(spawn_bin(bin.c_str(), args, log), &status) && WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+    std::ifstream f(log);
+    return std::string((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+  };
+  // A copy without its zbd\soundsH.zbd: the check's one warning.
+  const std::string x = dir + "/x";
+  fs::create_directories(x + "/zbd", ec);
+  for (const auto& e : fs::directory_iterator(game, ec)) {
+    const std::string n = e.path().filename().string();
+    if (n != "zbd") fs::create_symlink(e.path(), x + "/" + n, ec);
+  }
+  for (const auto& e : fs::directory_iterator(game + "/zbd", ec)) {
+    std::string n = e.path().filename().string(), low = n;
+    for (char& c : low) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    if (low != "soundsh.zbd") fs::create_symlink(e.path(), x + "/zbd/" + n, ec);
+  }
+  fs::create_directories(dir + "/wd", ec);
+  std::ofstream(dir + "/wd/mw3.cfg") << "install=" << x << "\n";
+  setenv("MW3_FIND_INSTALL", "1", 1);
+  int code = -1;
+  rekit::Status st;
+  const std::string a = run(MW3_BIN, {"--status", "--write-dir", dir + "/wd"}, "a", &code);
+  std::printf("  status: %s", a.c_str());
+  EXPECT(code == 0 && rekit::parse_status(a, &st) && st.game == "mech3-pm" && st.where == x && st.note.empty() &&
+         st.notes_once == 1 && st.notes.size() == 2);
+  if (st.notes.size() == 2) EXPECT(st.notes[0].find("Its zbd\\soundsH.zbd is missing") == 0 && st.notes[1].find("No music yet") == 0);
+  EXPECT(st.lacks == std::vector<std::string>({"music", "full-quality sounds"}) && st.missing.empty());
+  {  // the same words as its --copies row, from the same code
+    rekit::SetupMessage m, row;
+    const std::string c = run(MW3_BIN, {"--setup", "--copies", "--write-dir", dir + "/wd"}, "copies", &code);
+    for (size_t at = 0; at < c.size();) {
+      const size_t end = std::min(c.find('\n', at), c.size());
+      if (rekit::parse_setup_message(c.substr(at, end - at), &m) && !m.done && m.copy == x) row = m;
+      at = end + 1;
+    }
+    EXPECT(row.copy == x && row.copy_missing == st.lacks);
+  }
+  // The user folder's own install/: ahead of mw3.cfg's.
+  fs::create_directory_symlink(game, dir + "/wd/install", ec);
+  EXPECT(rekit::parse_status(run(MW3_BIN, {"--status", "--write-dir", dir + "/wd"}, "b", &code), &st) &&
+         st.where == dir + "/wd/install" && st.note.empty() && st.notes_once == 0);
+  fs::remove(dir + "/wd/install", ec);
+  // This program in a marked game folder: its install/ first; MechWarrior 3's mark, not.
+  const std::string own = dir + "/games/Pirate's Moon", bin = own + "/mw3pm-status-own";
+  fs::create_directories(own, ec);
+  fs::copy_file(MW3_BIN, bin, ec);
+  fs::permissions(bin, fs::perms::owner_all, ec);
+  fs::create_directory_symlink(game, own + "/install", ec);
+  std::ofstream(own + "/" + sdlfe::kGameFolderMark) << "game=pm\n";
+  EXPECT(rekit::parse_status(run(bin, {"--status", "--write-dir", dir + "/wd"}, "c", &code), &st) && fs::equivalent(st.where, own + "/install", ec));
+  std::ofstream(own + "/" + sdlfe::kGameFolderMark) << "game=mw3\n";
+  EXPECT(rekit::parse_status(run(bin, {"--status", "--write-dir", dir + "/wd"}, "d", &code), &st) && st.where == x);
+  // --status beside --setup, either order: the status line alone, nothing opened or written.
+  for (const auto& args : {std::vector<std::string>{"--status", "--setup", "--write-dir", dir + "/wd2"},
+                           std::vector<std::string>{"--setup", "--search", "--status", "--write-dir", dir + "/wd2"}}) {
+    const std::string s = run(MW3_BIN, args, "e", &code);
+    EXPECT(code == 0 && rekit::parse_status(s, &st) && st.game == "mech3-pm" && s.find("\"done\"") == std::string::npos &&
+           !fs::exists(dir + "/wd2", ec));
+  }
+  unsetenv("MW3_FIND_INSTALL");
+  if (!check::failures) fs::remove_all(dir, ec);
+}
+
 // Pirate's Moon serves its own setup and extras (2026-11-25, docs/launcher-split.md a4): MechWarrior 3's checks
 // (sdl_program_status_and_setup_answer_the_launcher, sdl_program_serves_the_launchers_extras) in PM's words, with
 // MechWarrior 3's files refused.
