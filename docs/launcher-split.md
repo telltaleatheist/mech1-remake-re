@@ -393,9 +393,7 @@ setup in the launcher, on MW3_GAME_DIR, behind a shell stand-in for mw3
 `update.cpp`):
 
 - **Where it asks:** the releases of `mw3-re` and `mech3-re`, each first at
-  `https://git.owenmorgan.com/api/v1/repos/telltaleatheist/<repo>/releases?limit=40`,
-  then at
-  `https://api.github.com/repos/telltaleatheist/<repo>/releases?per_page=40`.
+  the mirror's releases API, then GitHub's (40 releases a list).
   Copies up to 1.2.1 ask mw3-re only. The user agent is
   `MW3-Rebuild-launcher`.
 - **What it takes:** the newest release that is not a draft or a prerelease,
