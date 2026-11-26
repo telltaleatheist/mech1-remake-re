@@ -39,6 +39,8 @@ inline constexpr LeftOut kPmLeftOut[] = {
      "419d1d219: PM's data check knows PM's files, not MW3's 1.0 and 1.2"},
     {"patch_import_upgrades_10_data_from_the_official_patch", "pm_data_version_knows_its_own_files",
      "419d1d219: the import itself passes on pm; only its 1.2 naming is MW3's data check (PM has no patch)"},
+    {"fix_turret_turns_by_time", "pm_turret_turns_by_time",
+     "PM's pick 0x004aa5a0 (pm-tests item 17) keeps the fix but has no turn count [0x00609a4c] for MW3's test to read"},
     {nullptr, nullptr, nullptr},  // the end
 };
 
