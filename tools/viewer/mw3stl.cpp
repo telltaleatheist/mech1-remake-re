@@ -19,7 +19,9 @@
 #include <string>
 #include <vector>
 
+#include "gamez/zgame/zgame_table.h"
 #include "gamez/zutil/zutl_zar.h"
+#include "pm/pm_game.h"
 #include "scene.h"
 
 namespace {
@@ -723,13 +725,23 @@ int export_mech(const std::string& zbd, const std::string& mech, const std::stri
 
 }  // namespace
 
+// Pirate's Moon's files (zArchive version 2: the table ends "2, count, checksum") read with its loaders.
+void pick_game(const std::string& zbd) {
+  std::FILE* f = std::fopen((zbd + "/mechlib.zbd").c_str(), "rb");
+  uint32_t tail[3] = {};
+  const bool ok = f && std::fseek(f, -12, SEEK_END) == 0 && std::fread(tail, 4, 3, f) == 3;
+  if (f) std::fclose(f);
+  zgame::set_game(ok && tail[0] == 2 && tail[1] != 1 ? pm::table() : zgame::mw3_table());
+}
+
 int main(int argc, char** argv) {
   std::string zbd = "game/mw3-1.2/zbd", out, parts;
   std::vector<std::string> only;
   Options opt;
+  pick_game(zbd);
   for (int i = 1; i < argc; ++i) {
     const std::string a = argv[i];
-    if (a == "--assets" && i + 1 < argc) zbd = argv[++i];
+    if (a == "--assets" && i + 1 < argc) zbd = argv[++i], pick_game(zbd);
     else if (a == "--out" && i + 1 < argc) out = argv[++i];
     else if (a == "--parts" && i + 1 < argc) parts = argv[++i];
     else if (a == "--stats") return stats(zbd);

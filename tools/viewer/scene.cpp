@@ -16,6 +16,9 @@
 #include "gamez/zmodel/gmod_matl.h"
 #include "gamez/zsiscript/si_script.h"
 #include "gamez/zutil/zutl_zar.h"
+#include "gamez/zgame/zgame_table.h"
+#include "pm/gamez/zclass/cls_mechlib.h"
+#include "pm/gamez/zmodel/gmod_const.h"
 
 namespace viewer {
 namespace {
@@ -243,6 +246,8 @@ struct Mech::Data {
   std::vector<zcls::Material> mats;
   zcls::Node* root = nullptr;
   std::vector<zimg::Library*> libs;
+  zcls::MechLib lib;  // Pirate's Moon's (mechlib 41): its materials stay the file's
+  bool pm = false;
 };
 
 Mech::Mech() : d_(new Data) {}
@@ -250,6 +255,18 @@ Mech::~Mech() = default;
 
 std::string Mech::load(const std::string& zbd_dir, const std::string& entry) {
   const std::string& dir = dir_slash(zbd_dir);
+  if (zgame::game().zcls_mechlib_open == &pm::zcls::mechlib_open) {
+    d_->pm = true;
+    zcls::MechLib& lib = d_->lib;
+    zutl_zar::init(lib.archive);
+    if (!zutl_zar::open(lib.archive, (dir + "mechlib.zbd").c_str())) return "could not open " + dir + "mechlib.zbd";
+    zcls::mechlib_read_materials(lib);
+    std::FILE* f = zutl_zar::seek(lib.archive, zutl_zar::find(lib.archive, entry.c_str()), nullptr);
+    if (!f) return "no " + entry + " in mechlib.zbd";
+    zcls::nodes() = zcls::NodePool{};
+    d_->root = pm::zcls::read_tree(lib.reader, f, nullptr);
+    return d_->root ? std::string{} : "could not read " + entry;
+  }
   zutl_zar::Archive& a = d_->archive;
   zutl_zar::init(a);
   if (!zutl_zar::open(a, (dir + "mechlib.zbd").c_str())) return "could not open " + dir + "mechlib.zbd";
@@ -313,7 +330,10 @@ std::vector<Mech::Part> Mech::parts(const Pose* pose) const {
   while (!todo.empty()) {
     zcls::Node* n = todo.back();
     todo.pop_back();
-    for (int c = n->child_count() - 1; c >= 0 && n->children; --c) todo.push_back(n->children[c]);
+    if (n->cls() == 6) {  // a LOD: its first (nearest) level only
+      if (n->child_count() > 0 && n->children) todo.push_back(n->children[0]);
+    } else
+      for (int c = n->child_count() - 1; c >= 0 && n->children; --c) todo.push_back(n->children[c]);
     Part part;
     part.name = n->name();
     if (n->parent_count() > 0 && n->parents && n->parents[0]) part.parent = n->parents[0]->name();
@@ -323,7 +343,45 @@ std::vector<Mech::Part> Mech::parts(const Pose* pose) const {
     const Xform w = world_xform(n, pose);
     std::copy(w.t, w.t + 3, part.origin.begin());
     std::copy(w.m, w.m + 9, part.axes.begin());
-    if (n->cls() == kObject3d && n->model && !under_marker(n)) {
+    if (d_->pm && n->cls() == kObject3d && n->pm_model && !under_marker(n)) {
+      const pm::zmod::Model& m = *n->pm_model;
+      const Xform x = world_xform(n, pose);
+      const uint32_t vcount = m.count(0x14), ncount = m.count(0x18);
+      for (int32_t p = 0; p < m.count(0x10) && m.polygons; ++p) {
+        const pm::zmod::Polygon& poly = m.polygons[p];
+        const uint32_t k = poly.flags & 0x3ff;
+        if (k < 3 || !poly.vertex_indices) continue;
+        const int32_t mi = poly.material_count > 0 && poly.library_indices ? poly.library_indices[0] : -1;
+        const zcls::Material* mat = mi >= 0 && static_cast<size_t>(mi) < d_->lib.materials.size() ? d_->lib.materials[mi] : nullptr;
+        const bool textured = mat && mat->raw && (mat->raw[1] & 1) && poly.file_uvs;
+        if (!textured && mat && mat->raw && mat->raw[0] == 0) continue;
+        auto corner = [&](uint32_t j) {
+          std::array<float, 3> v{};
+          if (poly.vertex_indices[j] < vcount) apply(x, m.vertices + 3 * poly.vertex_indices[j], v.data());
+          return v;
+        };
+        auto normal = [&](uint32_t j) {
+          std::array<float, 3> v{};
+          if (!(poly.flags & 0x1000) || !poly.normal_indices || !m.normals || poly.normal_indices[j] >= ncount) return v;
+          const float* q = m.normals + 3 * poly.normal_indices[j];
+          for (int a = 0; a < 3; ++a) v[a] = q[0] * x.m[a] + q[1] * x.m[3 + a] + q[2] * x.m[6 + a];
+          return v;
+        };
+        auto tri = [&](uint32_t a, uint32_t b, uint32_t c) {
+          if (poly.vertex_indices[a] == poly.vertex_indices[b] || poly.vertex_indices[a] == poly.vertex_indices[c] ||
+              poly.vertex_indices[b] == poly.vertex_indices[c])
+            return;
+          part.normals.push_back(normal(a)), part.normals.push_back(normal(b)), part.normals.push_back(normal(c));
+          part.triangles.push_back(corner(a)), part.triangles.push_back(corner(b)), part.triangles.push_back(corner(c));
+          part.two_sided.push_back((poly.flags & 0x400) != 0);
+        };
+        if (poly.flags & 0x2000)  // a strip: PM's own winding (0x005726f0)
+          for (uint32_t i = 0; i + 2 < k; ++i) tri(i, (i + 1) | 1, (i + 2) & ~1u);
+        else
+          for (uint32_t j = 1; j + 1 < k; ++j) tri(0, j, j + 1);
+      }
+    }
+    if (!d_->pm && n->cls() == kObject3d && n->model && !under_marker(n)) {
       const zmod::Model& m = *n->model;
       const Xform x = world_xform(n, pose);
       const uint32_t vcount = m.count(0x14);
