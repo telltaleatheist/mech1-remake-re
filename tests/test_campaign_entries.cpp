@@ -1,6 +1,7 @@
 // Mods by campaign, step 1 (upgrades/mods/campaign_entries, docs/mods-campaigns-plan.md):
 // the entries listed from the mods folder, a mod's kind, each entry's folder
 // and ticks, what it mounts, and the first start's move of mw3.cfg's mod= lines.
+// On pm the game's own entries are Pirate's Moon's "campaign" and "pirate" (616518a04), not MW3's "mw3".
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -74,7 +75,7 @@ TEST(campaign_entries_listed_by_kind) {
   mods(wd);
   const std::vector<mech3::CampaignEntry> all = mech3::campaign_entries(wd.string());
   std::printf("  entries: %s\n", ids(all).c_str());
-  EXPECT(ids(all) == "mw3,ia,mp,camp~night,camp~dawn,copy~night,rewrite");
+  EXPECT(ids(all) == "campaign,pirate,ia,mp,camp~night,camp~dawn,copy~night,rewrite");
   const mech3::CampaignEntry* night = mech3::find_entry(all, "camp~night");
   const mech3::CampaignEntry* dawn = mech3::find_entry(all, "camp~dawn");
   const mech3::CampaignEntry* copy = mech3::find_entry(all, "copy~night");
@@ -82,7 +83,7 @@ TEST(campaign_entries_listed_by_kind) {
   EXPECT(night && night->kind == mech3::CampaignEntry::kImported && night->name == "Long Night" && night->error.empty());
   EXPECT(dawn && !dawn->error.empty());  // listed with why it cannot be played
   EXPECT(copy && copy->kind == mech3::CampaignEntry::kCopy && copy->base == "camp~night");
-  EXPECT(rewrite && rewrite->campaign.empty() && rewrite->base == "mw3" && rewrite->name == "Campaign Rewrite");  // kind=campaign said
+  EXPECT(rewrite && rewrite->campaign.empty() && rewrite->base == "campaign" && rewrite->name == "Campaign Rewrite");  // kind=campaign said
   // A mod laid over the game's own files with no campaign of its own makes no entry: it is ticked for campaigns.
   EXPECT(!mech3::find_entry(all, "overlay") && !mech3::find_entry(all, "c1skin"));
   for (const mech3::ModInfo& m : mech3::mods_found(wd.string()))
@@ -92,7 +93,7 @@ TEST(campaign_entries_listed_by_kind) {
   put(wd / "campaigns/gone~x/pilots/Ace.mw3", "pilot");
   put(wd / "campaigns/stranger/notes.txt", "theirs");
   const std::vector<mech3::CampaignEntry> again = mech3::campaign_entries(wd.string());
-  EXPECT(ids(again) == "mw3,ia,mp,camp~night,camp~dawn,copy~night,rewrite,gone~x!");
+  EXPECT(ids(again) == "campaign,pirate,ia,mp,camp~night,camp~dawn,copy~night,rewrite,gone~x!");
   const mech3::CampaignEntry* gone = mech3::find_entry(again, "gone~x");
   EXPECT(gone && gone->missing && gone->mod == "gone" && gone->campaign == "x" && !gone->error.empty());
 }
@@ -101,19 +102,19 @@ TEST(campaign_entries_folder_ticks_and_mounts) {
   const fs::path wd = tmp("entries_ticks");
   mods(wd);
   const std::vector<mech3::CampaignEntry> all = mech3::campaign_entries(wd.string());
-  const mech3::CampaignEntry* mw3 = mech3::find_entry(all, "mw3");
+  const mech3::CampaignEntry* own = mech3::find_entry(all, "campaign");
   const mech3::CampaignEntry* copy = mech3::find_entry(all, "copy~night");
   const mech3::CampaignEntry* rewrite = mech3::find_entry(all, "rewrite");
-  EXPECT(mw3 && copy && rewrite);
-  if (!mw3 || !copy || !rewrite) return;
+  EXPECT(own && copy && rewrite);
+  if (!own || !copy || !rewrite) return;
   // Its folder with our marker and pilots\games; ticks written and read back in order.
-  EXPECT(mech3::entry_ticks(wd.string(), "mw3").empty());
-  EXPECT(mech3::entry_save_ticks(wd.string(), *mw3, {"tex", "weps", "nosuch"}));
-  EXPECT(fs::is_regular_file(wd / "campaigns/mw3" / mech3::kCampaignMarker) && fs::is_directory(wd / "campaigns/mw3/pilots/games"));
-  EXPECT((mech3::entry_ticks(wd.string(), "mw3") == std::vector<std::string>{"tex", "weps", "nosuch"}));
-  EXPECT(mech3::entry_pilots_folder("mw3") == "campaigns\\mw3\\pilots");
+  EXPECT(mech3::entry_ticks(wd.string(), "campaign").empty());
+  EXPECT(mech3::entry_save_ticks(wd.string(), *own, {"tex", "weps", "nosuch"}));
+  EXPECT(fs::is_regular_file(wd / "campaigns/campaign" / mech3::kCampaignMarker) && fs::is_directory(wd / "campaigns/campaign/pilots/games"));
+  EXPECT((mech3::entry_ticks(wd.string(), "campaign") == std::vector<std::string>{"tex", "weps", "nosuch"}));
+  EXPECT(mech3::entry_pilots_folder("campaign") == "campaigns\\campaign\\pilots");
   // The game's own: its ticks alone (a tick whose mod is gone left out).
-  EXPECT((mech3::entry_mount_list(wd.string(), *mw3) == std::vector<std::string>{"tex", "weps"}));
+  EXPECT((mech3::entry_mount_list(wd.string(), *own) == std::vector<std::string>{"tex", "weps"}));
   // A copy: itself, what it was saved from, what that needs (tex, and weps for tex), then its ticks; those locked.
   EXPECT(mech3::entry_save_ticks(wd.string(), *copy, {"c1skin", "weps"}));
   std::vector<std::string> locked;
@@ -121,7 +122,7 @@ TEST(campaign_entries_folder_ticks_and_mounts) {
   EXPECT((m == std::vector<std::string>{"copy", "camp", "tex", "weps", "c1skin"}));
   EXPECT((locked == std::vector<std::string>{"copy", "camp", "tex", "weps"}));
   // A ticked mod not in the mods folder: said, so the entry does not start (its ticks and pilots kept).
-  EXPECT((mech3::entry_missing_mods(wd.string(), *mw3) == std::vector<std::string>{"nosuch"}));
+  EXPECT((mech3::entry_missing_mods(wd.string(), *own) == std::vector<std::string>{"nosuch"}));
   EXPECT(mech3::entry_missing_mods(wd.string(), *copy).empty());
   put(wd / "mods/orphan/mod.txt", "name=Orphan\nbase=gone~x\n");  // a copy of a campaign that is gone
   const std::vector<mech3::CampaignEntry> with = mech3::campaign_entries(wd.string());
@@ -137,7 +138,7 @@ TEST(campaign_entries_folder_ticks_and_mounts) {
   EXPECT(!mech3::entry_ensure(wd.string(), *rewrite, &why) && why.find("did not put there") != std::string::npos);
   EXPECT(!mech3::entry_save_ticks(wd.string(), *rewrite, {"weps"}) && !fs::exists(wd / "campaigns/rewrite/mods.txt"));
   // Mods never serve a campaign entry's files.
-  EXPECT(!zutl::mod_may_serve("campaigns/mw3/mods.txt") && !zutl::mod_may_serve("Campaigns/mw3/pilots/A.mw3"));
+  EXPECT(!zutl::mod_may_serve("campaigns/campaign/mods.txt") && !zutl::mod_may_serve("Campaigns/campaign/pilots/A.mw3"));
 }
 
 // A mod laid over the game's own files (a mission's reader, the main reader,
@@ -152,7 +153,7 @@ TEST(campaign_entries_an_overlay_mod_is_ticked_for_any_campaign_and_instant_acti
   mods(wd);
   put(wd / "mods/camp/zbd/c1/readerm1.zbd", "camp's");  // the campaign's own copy of the file the overlay also holds
   const std::vector<mech3::CampaignEntry> all = mech3::campaign_entries(wd.string());
-  for (const char* id : {"mw3", "ia", "camp~night"}) {
+  for (const char* id : {"campaign", "pirate", "ia", "camp~night"}) {
     const mech3::CampaignEntry* e = mech3::find_entry(all, id);
     EXPECT(e && mech3::entry_save_ticks(wd.string(), *e, V{"overlay"}));
     if (!e) continue;
@@ -206,7 +207,8 @@ TEST(campaign_entries_first_start_moves_the_mods) {
   put(wd / "pilots/Orig.mw3", "orig");
   const std::vector<std::string> log = mech3::entries_migrate(wd.string());
   for (const std::string& l : log) std::printf("  %s\n", l.c_str());
-  EXPECT((mech3::entry_ticks(wd.string(), "mw3") == std::vector<std::string>{"weps", "tex"}));
+  EXPECT((mech3::entry_ticks(wd.string(), "campaign") == std::vector<std::string>{"weps", "tex"}));
+  EXPECT((mech3::entry_ticks(wd.string(), "pirate") == std::vector<std::string>{"weps", "tex"}));  // PM: both campaigns
   EXPECT((mech3::entry_ticks(wd.string(), "camp~night") == std::vector<std::string>{"weps", "tex"}));
   EXPECT((mech3::entry_ticks(wd.string(), "camp~dawn") == std::vector<std::string>{"weps", "tex"}));
   EXPECT(mech3::entry_ticks(wd.string(), "rewrite").empty() && !fs::exists(wd / "campaigns/rewrite"));  // it was off
@@ -218,9 +220,9 @@ TEST(campaign_entries_first_start_moves_the_mods) {
   EXPECT(text_of(wd / "pilots/mods/camp/dawn/Mine.mw3") == "not ours: no marker" && text_of(wd / "pilots/Orig.mw3") == "orig");
   // Once: a second start, the ticks changed meanwhile, nothing moves again.
   const std::vector<mech3::CampaignEntry> all = mech3::campaign_entries(wd.string());
-  EXPECT(mech3::entry_save_ticks(wd.string(), *mech3::find_entry(all, "mw3"), {"tex"}));
+  EXPECT(mech3::entry_save_ticks(wd.string(), *mech3::find_entry(all, "campaign"), {"tex"}));
   EXPECT(mech3::entries_migrate(wd.string()).empty());
-  EXPECT((mech3::entry_ticks(wd.string(), "mw3") == std::vector<std::string>{"tex"}) && text_of(wd / "mw3.cfg") == cfg + "\r\nmods_moved=1\r\n");
+  EXPECT((mech3::entry_ticks(wd.string(), "campaign") == std::vector<std::string>{"tex"}) && text_of(wd / "mw3.cfg") == cfg + "\r\nmods_moved=1\r\n");
 }
 
 // Step 2 (docs/mods-campaigns-plan.md): an entry's saved loadouts are its
@@ -337,6 +339,6 @@ TEST(campaign_entry_plays_the_games_own_campaign_or_not) {
     EXPECT(e != nullptr);
     return e && mech3::entry_plays_own_campaign(wd.string(), *e);
   };
-  EXPECT(own("mw3") && own("rewrite") && own("mine"));
+  EXPECT(own("campaign") && own("rewrite") && own("mine"));
   EXPECT(!own("ia") && !own("camp~night") && !own("nightedit") && !own("orphan"));
 }
