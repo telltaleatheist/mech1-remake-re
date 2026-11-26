@@ -16,9 +16,8 @@
 #include <vector>
 
 #include "platform/pointer_hands_off.h"
-#include "gamez/zutil/zutl_path.h"
 #include "frontend/sdl/crash_report.h"
-#include "frontend/sdl/data_folder_start.h"
+#include "frontend/sdl/launcher_folder.h"
 #include "frontend/sdl/launcher.h"
 #include "frontend/sdl/launcher_own.h"
 #include "frontend/sdl/run_log.h"
@@ -143,7 +142,7 @@ int main(int argc, char** argv) {
   const bool write_dir_given = !o.write_dir.empty();
   o.write_dir_fixed = write_dir_given;
   bool pointer = false;  // --write-dir wins; else the usual folder, or the one its pointer names
-  if (!write_dir_given && !sdlfe::data_folder_at_start(&o.write_dir, !hidden_log && !o.hidden, &pointer)) {
+  if (!write_dir_given && !sdlfe::own::data_folder_at_start(&o.write_dir, !hidden_log && !o.hidden, &pointer)) {
     SDL_Quit();
     return 1;
   }
@@ -154,15 +153,12 @@ int main(int argc, char** argv) {
   sdlfe::RunLog run_log;
   if (!hidden_log && !sdlfe::log_to_file(o.write_dir, "mw3launcher") && !o.write_dir.empty())
     run_log.open(o.write_dir, "mw3launcher");
-  zutl::repair_old_names(o.write_dir);
+  sdlfe::own::repair_old_names(o.write_dir);
   std::printf("mw3launcher (MechWarrior 3 rebuild) %s, write dir %s\n", MW3_VERSION, o.write_dir.c_str());
   if (!hidden_log && !o.write_dir.empty()) sdlfe::crash_report_install("mw3launcher", o.write_dir + "/mw3launcher.log", true);
-  // Pirate's Moon's folder in place before its saved path is read (data_folder::adopt_nested, family_move).
-  if (!write_dir_given && !std::getenv("MW3_USUAL_FOLDER")) sdlfe::usual_folder("Pirate's Moon");
+  // Pirate's Moon's folder in place before its saved path is read (family_move; its old nested folder mw3pm's own).
+  if (!write_dir_given && !std::getenv("MW3_USUAL_FOLDER")) sdlfe::own::usual_folder("Pirate's Moon");
   read_config(o.write_dir, o);
-#ifdef MW3_GAME_DIR
-  if (!std::getenv("MW3_FIND_INSTALL")) o.more_installs.push_back(MW3_GAME_DIR);
-#endif
   // Windowed always (2026-11-20): on the Mac a fullscreen launcher is a fullscreen game to macOS (the bundle's
   // games category), so Game Mode slowed the file picker to 7-12 s (docs/launcher.md). The games keep fullscreen.
   o.fullscreen = false;

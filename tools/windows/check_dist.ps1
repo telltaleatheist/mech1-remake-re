@@ -21,7 +21,10 @@ foreach ($bin in Get-ChildItem -LiteralPath $Dist -File | Where-Object { $_.Exte
 }
 # Our free fonts are the only .ttf a package may hold (assets\launcher, assets\fonts); the game's are not.
 $ours = 'font.ttf', 'font_body.ttf', 'LiberationSans-Regular.ttf', 'LiberationMono-Regular.ttf', 'Anton-Regular.ttf'
+# The launcher's own menu sounds (generated: assets\launcher\README.md), the only .wav a package may hold.
+$ourWavs = (Join-Path (Resolve-Path -LiteralPath $Dist).Path 'assets\launcher\click.wav'), (Join-Path (Resolve-Path -LiteralPath $Dist).Path 'assets\launcher\hover.wav')
 $game = Get-ChildItem -LiteralPath $Dist -Recurse -File |
+  Where-Object { $_.FullName -notin $ourWavs } |
   Where-Object { $_.Extension -in '.zbd', '.avi', '.fmv', '.m1v', '.zrd', '.wav', '.ogg', '.flac' -or $_.Name -ieq 'mech3.exe' -or
                  ($_.Extension -ieq '.ttf' -and $_.Name -cnotin $ours) }
 # The program (PM's package has no launcher for now).

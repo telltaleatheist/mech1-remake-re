@@ -115,6 +115,7 @@ StatusFind mw3_status_find(const RecipePlaces& at) {
   std::vector<std::string> tries;
   if (!at.games_place.empty()) tries.push_back((fs::path(at.games_place) / "install").make_preferred().string());
   if (const std::string mine = own_game_files("pm"); !mine.empty()) tries.push_back(mine);
+  const size_t own_count = tries.size();  // the game's own folders (the card's, this program's): never saved as mw3.cfg's
   if (!at.write_dir.empty()) tries.push_back((fs::path(at.write_dir) / "install").string());
   if (!at.cfg_install.empty()) tries.push_back(at.cfg_install);
   const size_t searched_from = tries.size();
@@ -131,6 +132,7 @@ StatusFind mw3_status_find(const RecipePlaces& at) {
     }
     out.ok = true, out.dir = r.install_dir.empty() ? d : r.install_dir, out.version = r.version, out.summary = r.summary;
     out.offered = i >= searched_from && i < searched_to;
+    out.own = i < own_count;
     return out;
   }
   return out;

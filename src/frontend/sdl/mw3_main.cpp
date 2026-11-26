@@ -255,6 +255,7 @@ struct Args {
   bool no_launcher = false;   // --no-launcher (ours: launcher.h): no find screen, the old dialog if there is no install
   bool status = false, setup = false;  // --status, --setup (ours: the launcher contract, rekit/status.h)
   std::vector<std::string> setup_ask;  // --setup --look X ...: an ask the kit serves (rekit/sdl/setup_serve.h), no screen
+  std::string launcher_shot, launcher_screen = "main";  // --launcher-shot F [--launcher-screen S]: the find screen's (checks)
   std::string ready_file;     // --ready-file F (ours, sdl_child.h): written at the first frame shown, for mw3launcher
   std::string other_write_dir, other_install;  // --other-write-dir, --other-install (ours, W15): the other game's, from mw3launcher
   std::string vfw_helper;     // --vfw-helper EXE (ours, sdl_vfw.h): the movies' Video for Windows helper; "-" none
@@ -324,7 +325,7 @@ void usage() {
       "mw3 [install-dir] [--install DIR | --install-from DISC|ISO|CUE [--install-to DIR]] [--assets DIR]... [--write-dir DIR] [--version]\n"
       "    [--mission NAME [--valve-map DIR] | --fly NAME [--variant BLOCK]] [--pos X Y Z] [--look YAW PITCH] [--vehicle-ahead M [--vehicle-hold]] [--turret-ahead M] [--node-ahead NAME M] [--mech-ahead M] [--dialog FILE NAME]\n"
       "    [--shot FILE.bmp [--shot-frame N] [--shot-any] [--shot-series K]] [--fire N [--fire-group 1..5]] [--objectives N] [--hurt F@N] [--win N] [--lose N] [--lab-mech N]\n"
-      "    [--windowed] [--original] [--import | --no-import] [--no-launcher] [--status] [--setup] [--debug-camera] [--wide-menus | --no-wide-menus] [--raw-mouse | --no-raw-mouse] [--mod NAME]... [--no-mods] [--mods] [--entry ID [--entry-play | --entry-ia | --entry-mission WORLD N [--edit]]] [--entry-pilot NAME] [--open-mods [--mods-entry ID] | --open-ia] [--check-mod DIR] [--mod-report DIR] [--build-anim DIR] [--make-starter mech|weapon|translation|mission|salvage] [--reference FILE] [--editor-guide FILE] [--pick PATH] [--save-pick PATH] [--patch ZIP|DIR] [--vfw-helper EXE | --no-vfw-helper] [--briefing c1m2] [--click N[:M]] [--click-at X,Y@N]... [--mouse-at X,Y@N[c]]... [--then ...] [--click-players X,Y@N/P]... [--click-sessions X,Y@N/S]... [--click-return X,Y@N]... [--walk] [--tap DIK@N[:M]]... [--frames N] [--frame-ms N] [--frame-times N] [--seed N] [--window WxH] [--nosound] [--hidden] [--verbose]\n"
+      "    [--windowed] [--original] [--import | --no-import] [--no-launcher] [--status] [--setup] [--launcher-shot F [--launcher-screen S]] [--debug-camera] [--wide-menus | --no-wide-menus] [--raw-mouse | --no-raw-mouse] [--mod NAME]... [--no-mods] [--mods] [--entry ID [--entry-play | --entry-ia | --entry-mission WORLD N [--edit]]] [--entry-pilot NAME] [--open-mods [--mods-entry ID] | --open-ia] [--check-mod DIR] [--mod-report DIR] [--build-anim DIR] [--make-starter mech|weapon|translation|mission|salvage] [--reference FILE] [--editor-guide FILE] [--pick PATH] [--save-pick PATH] [--patch ZIP|DIR] [--vfw-helper EXE | --no-vfw-helper] [--briefing c1m2] [--click N[:M]] [--click-at X,Y@N]... [--mouse-at X,Y@N[c]]... [--then ...] [--click-players X,Y@N/P]... [--click-sessions X,Y@N/S]... [--click-return X,Y@N]... [--walk] [--tap DIK@N[:M]]... [--frames N] [--frame-ms N] [--frame-times N] [--seed N] [--window WxH] [--nosound] [--hidden] [--verbose]\n"
       "    [-nofmv] [-seasick] [-cdN]\n"
       "See docs/program.md.\n");
 }
@@ -485,6 +486,8 @@ bool parse(int argc, char** argv, Args& a) {
     else if (s == "--windowed") a.windowed = true;
     else if (s == "--no-import") a.no_import = true;
     else if (s == "--no-launcher") a.no_launcher = true;
+    else if (s == "--launcher-shot" && next(1)) a.launcher_shot = argv[++i];
+    else if (s == "--launcher-screen" && next(1)) a.launcher_screen = argv[++i];
     else if (s == "--status") a.status = true;
     else if (s == "--setup") {
       a.setup = true;
@@ -654,26 +657,54 @@ bool install_from_disc(Args& a) {
   return true;
 }
 
-// No install named on the command line: mw3.cfg's, else the search and the
-// dialog (sdl_install.h; ours, FIX (A)); one found by search is saved to
-// mw3.cfg. Checks and shots never ask. False: quit (cancelled, or none found
-// with no dialog allowed, reported).
+// The places the status and the served asks look (ours): mw3.cfg's install= (read_config), the development copy, the
+// user folder's install/, and the launcher's games folder for the game (its card's INSTALL), a line in the game's mw3.cfg.
+sdlfe::RecipePlaces recipe_places(const Args& a) {
+  sdlfe::RecipePlaces at;
+  at.write_dir = a.write_dir, at.cfg_install = a.cfg_install;
+#ifdef MW3_GAME_DIR
+  if (!std::getenv("MW3_FIND_INSTALL")) at.more.push_back(MW3_GAME_DIR);
+#endif
+  if (!a.write_dir.empty()) {
+    at.more.push_back(a.write_dir + "/install");
+    std::ifstream f(std::filesystem::path(a.write_dir) / "mw3.cfg");
+    for (std::string line; std::getline(f, line);) {
+      if (!line.empty() && line.back() == '\r') line.pop_back();
+      if (line.rfind("games_pm=", 0) == 0) at.games_place = zutl::path_from_config(line.substr(9));  // pm: its own key
+    }
+  }
+  return at;
+}
+// The same folder, as written (mw3.cfg's) or as found.
+bool same_folder(const std::string& x, const std::string& y) {
+  std::error_code ec;
+  return !x.empty() && !y.empty() && (x == y || std::filesystem::equivalent(x, y, ec));
+}
+
+// No install named on the command line: the copy the launcher's panel shows (the status's order, mw3_status_find:
+// the game's own folders, mw3.cfg's, the user folder's, the installer's places, the development copy; launcher split
+// b6, decided 2026-11-26), so a plain start and PLAY take the same one; an incomplete one too (the game's own box then
+// says what is missing, as the original's). None: the dialog (sdl_install.h; ours, FIX (A)). One not mw3.cfg's (nor
+// the development copy) is saved to mw3.cfg. Checks and shots never ask. False: quit (cancelled, or none found with no
+// dialog allowed, reported).
 bool find_install(Args& a) {
   const bool may_ask = !a.hidden && a.frames == 0 && a.shot.empty() && a.chain.empty() && a.modes.empty();
-  std::vector<std::string> dev;
+  std::string dev;
 #ifdef MW3_GAME_DIR
-  if (!std::getenv("MW3_FIND_INSTALL")) dev.push_back(MW3_GAME_DIR);  // a development build's copy (not with MW3_FIND_INSTALL=1)
+  if (!std::getenv("MW3_FIND_INSTALL")) dev = MW3_GAME_DIR;  // a development build's copy (not with MW3_FIND_INSTALL=1)
 #endif
+  const sdlfe::StatusFind f = sdlfe::mw3_status_find(recipe_places(a));
   bool searched = false;
-  // Where the player put the game first (issue #10): its own game folder's files, ahead of an older place mw3.cfg
-  // remembers (a 1.0.x install left on C: when this one went on E:).
-  const std::string own = sdlfe::own_game_files("pm");  // branch pm: mw3pm's own folder (game=pm)
-  if (!own.empty() && sdlfe::install_valid(own)) {
-    if (own != a.cfg_install) std::printf("mw3: the game folder's own files %s, not mw3.cfg's %s\n", own.c_str(), a.cfg_install.c_str());
-    a.install = own;
-    return true;
+  if (!f.dir.empty()) {
+    a.install = f.dir;
+    searched = !same_folder(f.dir, a.cfg_install);
+    if (f.own) {  // issue #10: where the player put the game first, ahead of an older place mw3.cfg remembers
+      if (searched) std::printf("mw3: the game folder's own files %s, not mw3.cfg's %s\n", f.dir.c_str(), a.cfg_install.c_str());
+      return true;
+    }
+  } else {
+    a.install = may_ask ? sdlfe::find_install("", {}, true, &searched) : std::string();  // the dialog
   }
-  a.install = sdlfe::find_install(a.cfg_install, dev, may_ask, &searched);
   a.first_start = searched;
   if (a.install.empty()) {
     if (may_ask) std::printf("mw3: no install chosen\n");
@@ -681,7 +712,7 @@ bool find_install(Args& a) {
                                 "values and folders). Start mw3 with the folder: mw3 \"DIR\" (README.txt).\n");
     return false;
   }
-  if (searched && (dev.empty() || a.install != dev[0]) && sdlfe::save_install(a.write_dir, a.install))
+  if (searched && !same_folder(a.install, dev) && sdlfe::save_install(a.write_dir, a.install))
     std::printf("mw3: install %s saved to mw3.cfg\n", a.install.c_str());
   return true;
 }
@@ -759,24 +790,6 @@ int program(int argc, char** argv);
 // Ours (sdl_restart.h): the run, then, when it asked, the program again into
 // a MODS campaign entry or back out of one, once everything of the run (its
 // log, SDL, its helpers) is gone.
-// The places the status and the served asks look (ours): mw3.cfg's install= (read_config), the development copy, the
-// user folder's install/, and the launcher's games folder for the game (its card's INSTALL), a line in the game's mw3.cfg.
-sdlfe::RecipePlaces recipe_places(const Args& a) {
-  sdlfe::RecipePlaces at;
-  at.write_dir = a.write_dir, at.cfg_install = a.cfg_install;
-#ifdef MW3_GAME_DIR
-  if (!std::getenv("MW3_FIND_INSTALL")) at.more.push_back(MW3_GAME_DIR);
-#endif
-  if (!a.write_dir.empty()) {
-    at.more.push_back(a.write_dir + "/install");
-    std::ifstream f(std::filesystem::path(a.write_dir) / "mw3.cfg");
-    for (std::string line; std::getline(f, line);) {
-      if (!line.empty() && line.back() == '\r') line.pop_back();
-      if (line.rfind("games_pm=", 0) == 0) at.games_place = zutl::path_from_config(line.substr(9));  // pm: its own key
-    }
-  }
-  return at;
-}
 
 // --status (ours: the launcher contract, re-setup-kit's DESIGN.md): what this
 // game has, as one JSON line on stdout, exit 0; no window, no log, nothing
@@ -920,7 +933,7 @@ int program(int argc, char** argv) {
   }
   if (a.status) return print_status(a);
   if (!a.setup_ask.empty()) return serve_setup_ask(a);
-  if (!a.shot.empty()) a.hidden = true;
+  if (!a.shot.empty() || !a.launcher_shot.empty()) a.hidden = true;
   if (a.verbose) mech3::ai::set_pm_ai_report(true);  // the PM AI's unanswered calls, as they come and at exit
   // Ours (MW1's FIXES 30): a run no player is at never holds or moves the system's pointer (pointer_hands_off.h).
   if (a.hidden || a.frames > 0 || !a.chain.empty() || !a.modes.empty()) platform::set_pointer_hands_off(true);
@@ -1082,7 +1095,7 @@ int program(int argc, char** argv) {
                             a.mission.empty() && !a.fly && a.dialog_file.empty() && a.movie.empty() && a.install.empty() &&
                             a.install_from.empty() && a.patch.empty() && a.original.find("-nofmv") == std::string::npos;
   // --setup (the launcher contract): the find screen alone, whatever is found.
-  bool setup_only = a.setup;
+  bool setup_only = a.setup || !a.launcher_shot.empty();  // a shot of the find screen: drawn once, then quit
   std::string look_first;  // a find to copy in (below)
   if (!a.ready_file.empty()) sdlfe::set_ready_file(a.ready_file);
   mech3::mods_other_game() = {a.other_write_dir, a.other_install};  // W15: a mod for the other game goes there
@@ -1093,24 +1106,15 @@ int program(int argc, char** argv) {
     std::printf("mw3: Shift held at the start: the find screen, to choose the game files\n");
   }
   if (player_start && !a.no_launcher && !a.setup && !choose_again) {
-    std::vector<std::string> more;
-#ifdef MW3_GAME_DIR
-    if (!std::getenv("MW3_FIND_INSTALL")) more.push_back(MW3_GAME_DIR);
-#endif
-    if (!a.write_dir.empty()) more.push_back(a.write_dir + "/install");  // SETUP's own
-    bool searched = false;
-    const std::string found = sdlfe::find_install(a.cfg_install, more, false, &searched);
-    // Found by the search (the installer's places, a drop-in), not set up yet: the find screen offers to copy it
-    // in first (2026-11-21: once found, the original may be deleted). mw3.cfg's and SETUP's own go straight in.
-    // Pirate's Moon (this branch): the find screen as its own (LauncherOptions::pm, below).
-    const bool elsewhere = searched && std::find(more.begin(), more.end(), found) == more.end();
-    if (!found.empty() && elsewhere) {
-      setup_only = true, look_first = found;
-      std::printf("mw3: found %s: the find screen offers to copy it in\n", found.c_str());
-    } else if (!found.empty()) {
-      a.install = found, a.first_start = searched;
-      if (searched && !a.write_dir.empty() && sdlfe::save_install(a.write_dir, found))
-        std::printf("mw3: install %s saved to mw3.cfg\n", found.c_str());
+    // The copy the launcher's panel shows (mw3_status_find, as find_install). Offered by the status (a find of the
+    // installer's places, or any other while the game's own folder is set): the find screen offers to copy it in
+    // first (2026-11-21: once found, the original may be deleted). Others go straight in.
+    const sdlfe::StatusFind f = sdlfe::mw3_status_find(recipe_places(a));
+    if (f.ok && f.offered) {
+      setup_only = true, look_first = f.dir;
+      std::printf("mw3: found %s: the find screen offers to copy it in\n", f.dir.c_str());
+    } else if (!f.dir.empty()) {
+      find_install(a);  // the same find: taken, saved as find_install does
     } else {
       // FIX (bug), issue #13: the launcher's find screen is MechWarrior 3's (it
       // asked for MW3's disc and would install MW3 over Pirate's Moon's
@@ -1122,6 +1126,7 @@ int program(int argc, char** argv) {
   if (setup_only) {
     sdlfe::LauncherOptions lo;
     lo.setup_only = setup_only;
+    lo.shot = a.launcher_shot, lo.screen = a.launcher_screen;
     lo.look_first = look_first;
     lo.choose_again = choose_again;
     lo.pm = true;  // this branch's program is mw3pm: the find screen is Pirate's Moon's (issue #13: never MW3's)

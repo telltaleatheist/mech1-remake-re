@@ -35,6 +35,7 @@ std::vector<std::string> mw3_lacks(const std::string& install, const std::string
 // installer's places: the launcher offers to copy it in.
 struct StatusFind {
   bool ok = false, offered = false;
+  bool own = false;  // from the game's own folders (the card INSTALL's, this program's): never saved as mw3.cfg's
   std::string dir, version, summary;  // dir and summary also when only an incomplete copy was found
 };
 StatusFind mw3_status_find(const RecipePlaces& places);

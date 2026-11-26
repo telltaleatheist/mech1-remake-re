@@ -61,6 +61,14 @@ endif()
 file(CONFIGURE OUTPUT ${CMAKE_BINARY_DIR}/games_catalog.cpp
      CONTENT "// Written by CMake from src/upgrades/update/games.json: do not edit.\nnamespace upgrades::update {\nextern const char kBuiltinCatalog[];\nconst char kBuiltinCatalog[] = R\"mw3catalog(@MW3_CATALOG_TEXT@)mw3catalog\";\n}  // namespace upgrades::update\n"
      @ONLY)
+# The update check and the games catalog (ours, src/upgrades/update; launcher split b6): no game code, so the launcher
+# links it alone; mw3core links it for the mods' needs (mod_needs.cpp).
+add_library(mw3update STATIC
+  src/upgrades/update/update.cpp
+  src/upgrades/update/games.cpp
+  ${CMAKE_BINARY_DIR}/games_catalog.cpp)  # games.json built in (above)
+target_include_directories(mw3update PUBLIC src)
+set_target_properties(mw3update PROPERTIES POSITION_INDEPENDENT_CODE ON)
 add_library(mw3core STATIC
   src/crt/msvc_math.cpp
   src/crt/msvc_rand.cpp
@@ -419,9 +427,6 @@ add_library(mw3core STATIC
   src/upgrades/mods/ia_mods_menu.cpp
   src/upgrades/mods/mp_mods.cpp
   src/upgrades/mods/starter_mods.cpp
-  src/upgrades/update/update.cpp
-  src/upgrades/update/games.cpp
-  ${CMAKE_BINARY_DIR}/games_catalog.cpp  # games.json built in (below)
   src/upgrades/reference/reference.cpp
   src/upgrades/reference/reference_mods.cpp
   src/upgrades/reference/reference_weapons.cpp
@@ -522,7 +527,11 @@ if(NOT EXISTS "${CMAKE_SOURCE_DIR}/extern/re-setup-kit/CMakeLists.txt")
   message(FATAL_ERROR "extern/re-setup-kit is empty: run git submodule update --init")
 endif()
 add_subdirectory(extern/re-setup-kit EXCLUDE_FROM_ALL)
-target_link_libraries(mw3core PUBLIC rekit)
+if(WIN32 AND LIBARCHIVE_LIB MATCHES "\\.(a|lib)$")
+  # A static libarchive's BCryptGenRandom: on the kit's target, as mw3core has it, so the launcher (no mw3core) links.
+  target_link_libraries(rekit PUBLIC bcrypt)
+endif()
+target_link_libraries(mw3core PUBLIC rekit mw3update)
 
 # The x87 never fuses a multiply and an add; clang does by default on arm64,
 # which rounds differently from the original (CLAUDE.md, FPU precision).
@@ -1123,6 +1132,7 @@ if(SDL3_FOUND)
       src/frontend/sdl/launcher.cpp
       src/frontend/sdl/launcher_ui.cpp
       src/frontend/sdl/launcher_own.cpp
+      src/frontend/sdl/launcher_folder.cpp
       src/frontend/sdl/launcher_mw3_setup.cpp
       src/frontend/sdl/sdl_update.cpp
       src/frontend/sdl/sdl_games.cpp
@@ -1134,6 +1144,9 @@ if(SDL3_FOUND)
     )
     target_link_libraries(mw3 PRIVATE mw3rmlui mw3text mw3sdl mw3core SDL3::SDL3)
     target_compile_definitions(mw3 PRIVATE MW3_VERSION="${MW3_VERSION}")
+    # The games' own find screen until d1 (docs/launcher-split.md): launcher.cpp's older path (finding, checking and
+    # copying in the game files itself) is built into mw3 (and mw3pm), not into mw3launcher.
+    target_compile_definitions(mw3 PRIVATE MW3_GAME_FIND_SCREEN=1)
     # The launcher's art (assets/launcher) in a development build; a package
     # carries it beside the exe (tools/windows/package.cmd) or in the app's
     # Resources (tools/macos/make_app.sh), and keeps no path of this machine.
@@ -1173,20 +1186,29 @@ if(SDL3_FOUND)
       src/frontend/sdl/launcher.cpp
       src/frontend/sdl/launcher_ui.cpp
       src/frontend/sdl/launcher_own.cpp
-      src/frontend/sdl/launcher_mw3_setup.cpp
+      src/frontend/sdl/launcher_folder.cpp
       src/frontend/sdl/sdl_update.cpp
       src/frontend/sdl/sdl_games.cpp
       src/frontend/sdl/sdl_catalog.cpp
       src/frontend/sdl/run_log.cpp
       src/frontend/sdl/crash_report.cpp
+      # No game code, built in the game's libraries too (mw3sdl, mw3text): the launcher's own copies of them.
+      src/frontend/sdl/log_start.cpp
+      src/frontend/sdl/sdl_child.cpp
+      src/frontend/sdl/sdl_focus.cpp
+      src/frontend/sdl/text_fit.cpp
+      src/frontend/sdl/vulkan_check.cpp
     )
-    target_link_libraries(mw3launcher PRIVATE mw3rmlui mw3text mw3sdl mw3core SDL3::SDL3)
+    # No game code (launcher split b6, docs/launcher-split.md): the setup kit (rekit_sdl, rekit with it), RmlUi, the
+    # update check and SDL.
+    target_link_libraries(mw3launcher PRIVATE mw3rmlui mw3update rekit_sdl SDL3::SDL3)
+    if(APPLE)
+      target_link_libraries(mw3launcher PRIVATE "-framework Foundation")  # sdl_games' Dock and Finder calls (objc)
+    endif()
     target_compile_definitions(mw3launcher PRIVATE MW3_VERSION="${MW3_VERSION}")
     if(NOT MW3_PACKAGE)
-      target_compile_definitions(mw3launcher PRIVATE MW3_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets"
-                                                     MW3_GAME_DIR="${MW3_GAME_DIR}")
+      target_compile_definitions(mw3launcher PRIVATE MW3_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets")
     endif()
-    add_dependencies(mw3launcher mw3)
     if(WIN32)
       set(MW3_RC_NAME "MW3 Rebuild")
       set(MW3_RC_FILE "mw3launcher.exe")
@@ -1222,6 +1244,7 @@ if(SDL3_FOUND)
         src/frontend/sdl/launcher.cpp
         src/frontend/sdl/launcher_ui.cpp
         src/frontend/sdl/launcher_own.cpp
+        src/frontend/sdl/launcher_folder.cpp
         src/frontend/sdl/launcher_mw3_setup.cpp
         src/frontend/sdl/sdl_update.cpp
         src/frontend/sdl/sdl_games.cpp
@@ -1233,6 +1256,8 @@ if(SDL3_FOUND)
       )
       target_link_libraries(mw3pm PRIVATE mw3rmlui mw3text mw3sdl pmcore mw3core SDL3::SDL3)
       target_compile_definitions(mw3pm PRIVATE MW3_VERSION="${MW3_VERSION}" MW3_PM=1)
+      # Its own find screen until d1 (docs/launcher-split.md, b6): launcher.cpp's older path, as mw3's on main.
+      target_compile_definitions(mw3pm PRIVATE MW3_GAME_FIND_SCREEN=1)
       if(WIN32)
         set(MW3_RC_NAME "Pirate's Moon rebuild")
         set(MW3_RC_FILE "mw3pm.exe")
@@ -1274,6 +1299,7 @@ if(SDL3_FOUND)
       src/frontend/sdl/sdl_games.cpp
       src/frontend/sdl/sdl_catalog.cpp
       src/frontend/sdl/launcher_own.cpp
+      src/frontend/sdl/launcher_folder.cpp
       src/frontend/sdl/sdl_restart.cpp
       src/frontend/sdl/win_cmdline.cpp
       tests/test_net_enet.cpp
@@ -1302,6 +1328,7 @@ if(SDL3_FOUND)
       target_compile_definitions(mw3pmsdltests PRIVATE MW3_PM_SUITE=1 MW3_GAME_DIR="${MW3PM_GAME_DIR}"
                                                        MW3_TEST_TMP_ROOT="${CMAKE_BINARY_DIR}"
                                                        MW3_BIN="$<TARGET_FILE:mw3pm>"
+                                                       MW3PM_BIN="$<TARGET_FILE:mw3pm>"  # b6: mw3pm's own find screen's tests
                                                        MW3_LAUNCHER_BIN=""
                                                        MW3_FAKE_INDEO=""
                                                        MW3_IMPORT_BIN="")

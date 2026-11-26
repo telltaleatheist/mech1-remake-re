@@ -4,9 +4,9 @@
 // movie. It finds the MechWarrior 3 install quietly and offers the games; a
 // game without its files opens the find screen (find it, install from the
 // disc, an image or a download), and the notes offer what an install lacks
-// (the movies, the music) from the disc, over mech3::setup. Its art
-// is ours (assets/launcher); the ripple under the mouse is the main menu's
-// (zrndr::ripple, 0x00558dd0).
+// (the movies, the music) from the disc, through the game's own --setup
+// (the games' find screen until d1: docs/launcher-split.md, b6). Its art and
+// sounds are ours (assets/launcher).
 #include <string>
 #include <vector>
 

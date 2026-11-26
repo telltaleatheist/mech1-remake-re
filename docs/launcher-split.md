@@ -350,6 +350,14 @@ only kit games (`i >= 3`).
     where" in `play: 1`, so the launcher hands any kit game its status's
     `where` in the same form.
   Nothing changes in a plain start before then.
+  **Decided 2026-11-26: the first.** mw3's start with no copy given takes
+  `mw3_status_find`'s (`find_install`, and the player's plain start: a copy
+  the status offers goes to the find screen to be copied in, an incomplete
+  one straight in so the game's own box says what is missing), and PLAY
+  passes no copy to a game whose status serves it (`setup: 1`): MW3 gets
+  no install and mw3.cfg's `install=` is not rewritten; Pirate's Moon gets
+  `--no-launcher` without `--install`. An older program is still handed its
+  copy. (b6 piece 2.)
   By then MW3 and Pirate's Moon releases that answer `setup: 1` have
   shipped with the new launcher (one release), so only a player who has
   not updated a game sees the thinner panel, and it offers UPDATE.
@@ -375,6 +383,7 @@ only kit games (`i >= 3`).
   no copy given, does a plain start find the copy the panel shows
   (`mw3_status_find`, recommended), or does `play: 1` carry `where` back? Until
   it is answered PLAY keeps passing the copy, and b6 can go ahead without it.
+  Answered 2026-11-26: the plain start finds it (piece 2, above).
   Every piece of game code still in `mw3launcher`'s target, as of b5:
   - **Links and build:** `mw3core`, `mw3sdl`, `mw3text` (and `mw3rmlui`, SDL3);
     `add_dependencies(mw3launcher mw3)`; `MW3_GAME_DIR` in development builds.
@@ -432,6 +441,83 @@ only kit games (`i >= 3`).
     tests as one batch, `test_update` and mingw.
   - **Shots** change where an older game's panel loses its found words.
     They get listed when b6 is done.
+  - **Piece 1 done (2026-11-26): the older path behind `MW3_GAME_FIND_SCREEN`.**
+    mw3's (and mw3pm's) own find screen is still launcher.cpp's, so the older
+    path cannot be deleted before d1 replaces that screen with the kit's
+    `run_setup`. Until then it is compiled only where `MW3_GAME_FIND_SCREEN`
+    is defined: the `mw3` target (and `mw3pm` on `pm`), never `mw3launcher`,
+    which no longer builds `launcher_mw3_setup.cpp`. Each block is a whole
+    function or a whole branch, with the launcher's collapsed version in its
+    `#else`: an older MW3 or Pirate's Moon (no `setup: 1`) gets its status's
+    ready `where`, else mw3.cfg's `install=` / `pm_install=`, unchecked, with
+    no notes and no movie conversion; GAME FILES, and PLAY with no copy, say to
+    update it, or start its UPDATE when one is known (`older_game`).
+    `found_words`, `start_found_words` and the version words are the
+    launcher's own (`launcher_own`). The find screen's checks run through the
+    game's program (`mw3 --launcher-shot F --launcher-screen S`; mw3pm's on
+    `pm`, `MW3PM_BIN`), and `takes_older_games_unchecked` runs untagged
+    stand-ins through mw3launcher. What the launcher checked for Pirate's
+    Moon before is mw3pm's now, tested against it on `pm` (`MW3PM_BIN`,
+    outside the PM suite's MW3-only regions): `sdl_pm_status_checks_its_copy`
+    (its `--status`), `sdl_pm_find_screen_game_files` (install, an MW3 pick,
+    ADD FROM MY DISC, no music), `sdl_pm_find_screen_lists_its_copy` and
+    `sdl_pm_find_screen_notes_fit_above_the_buttons`.
+    Shots (tools/launcher/shots.sh, both builds in one folder): 8 of 62
+    change, all setup A's Pirate's Moon, an untagged stand-in, so an older
+    program: its panel line loses "data 1.0" (main, main_big, chifiles,
+    updatebox), its GAME FILES row its version and lacks (game_pm), its copies
+    list its copy (pmcopies), its notes screens their note (pmdisc, pmnotes).
+    game_mw3 in both setups differs only in the program path drawn on it.
+    **d1: delete every `MW3_GAME_FIND_SCREEN` block** (the `#if` side, keeping
+    the `#else`), the define in CMakeLists.txt, `launcher_mw3_setup.{h,cpp}`,
+    and mw3's `--launcher-shot` once the find screen is the kit's.
+  - **Piece 2 done (2026-11-26): PLAY passes a served game no copy.** mw3's
+    plain start finds the copy its status shows (`mw3_status_find`: the
+    game's own folders, mw3.cfg's `install=`, the search), saving only a
+    searched one to mw3.cfg, never the game folder's own files; mw3pm is
+    given no `--install`. A copy only offered (an older copy beside own
+    folders) opens the find screen with it in view. An older program still
+    gets its copy passed. The launcher's checks of the start read the copy
+    in use from its log (`started_on`), and
+    `sdl_program_plain_start_takes_the_copy_the_status_shows` checks the
+    plain start against `--status`.
+  - **Piece 3 done (2026-11-26): `mech3/source_map`** is included, and the
+    last look's `found_` kept, only under `MW3_GAME_FIND_SCREEN`.
+  - **Piece 4 done (2026-11-26): the data folder on the kit.** The launcher's
+    start and MY DATA FOLDER call `rekit::data_folder` directly
+    (`launcher_folder.{h,cpp}`, the launcher's own: `usual_folder`,
+    `data_folder_at_start` and MechWarrior 3's `Game` record, the same one
+    `mech3::data_folder` gives the kit); sdl_games' games-folder move calls
+    `rekit::data_folder::retarget_config`. The launcher no longer adopts
+    Pirate's Moon's old nested folder (`adopt_nested`, a Windows launcher's
+    path up to 1.3.1): mw3pm does at its every start, its `--status`
+    included, before the launcher reads where its data is. mw3 and mw3import
+    keep `data_folder_start.h`.
+  - **Piece 6 done (2026-11-26): zar, zutl_path and zrndr_tint leave.** The
+    menu's sounds are `assets/launcher/hover.wav` and `click.wav` (Stable
+    Audio 3.0 Small SFX on the Mac's Crucible; prompts, seed and processing
+    in assets/launcher/README.md), loaded from the first screen with no
+    install; every package carries them (make_app.sh, make-appimage.sh,
+    package.cmd), and check_dist.ps1 allows those two `.wav` and no other.
+    `repair_old_names` is the launcher's own copy (`launcher_own`), and the
+    `zrndr_tint` include and launcher.h's ripple line are gone.
+  - **Piece 7 done (2026-11-26): `upgrades/update` is its own library**,
+    `mw3update` (update.cpp, games.cpp and the built-in games.json), with no
+    game code: mw3core links it for the mods' needs (`mod_needs.cpp`), and
+    the launcher links it directly from piece 8.
+  - **Piece 8 done (2026-11-26): the links.** `mw3launcher` links
+    `rekit_sdl` (and rekit with it), `mw3rmlui`, `mw3update` and SDL, plus
+    Foundation on the Mac (sdl_games' Dock and Finder calls), and none of
+    `mw3core`, `mw3sdl` or `mw3text`. The game libraries' files with no game
+    code that it used are compiled into it too: `log_start`, `sdl_child`,
+    `sdl_focus` (mw3sdl), `text_fit`, `vulkan_check` (mw3text). sdl_install's
+    `media_dir` (the notes' music folder, shortened to fit) is the
+    launcher's own (`launcher_own`), and `sdl_install.h` is included only
+    under the switch. No `add_dependencies(mw3launcher mw3)` and no
+    `MW3_GAME_DIR` for it (its dev copy was read only by the older path).
+    A static libarchive's `bcrypt` (Windows) is linked onto the kit's target,
+    as mw3core had it. The link walk: no `mech3::`, `zutl`, `zrndr` or other
+    game symbol in the binary; 10.8 MB on the Mac, 27.5 MB before b6.
 - **b7, the games catalog (fetched).** After b0, and it needs nothing else
   from (b), so it may move earlier. A newer catalog is fetched from mw3-re
   (its main, or a release asset) the same way as the update check: the

@@ -72,3 +72,24 @@ centred on a pure black background, no text, no letters."
 **The panels (2026-11-24):** the main screen lists one panel a game (the badge,
 the name, its status and a line about it, its button), the look of the download
 page; the cards and their tabs are gone, each game's badge is its own.
+
+**The menu's sounds (2026-11-26, launcher split b6):** `hover.wav` (a rollover,
+played at 0.7) and `click.wav` (a select), the launcher's own in place of the
+game's `sfx_button2.wav` and `sfx_button6.wav` (read from the player's
+`soundsL/H.zbd` before), so the launcher needs no game files to sound. Made
+with the local Crucible server's sound effects model, Stable Audio 3.0 Small
+SFX (`stable-audio-3-small-sfx`, mlx-darwin), 1 s each, seed 1 (seeds 2 and 3
+made too, not used), its default steps and guidance:
+
+- `click.wav`: "TrackType: SFX. A soft short user-interface click: a muted
+  plastic button press with a tiny metallic tick, close mic, dry, no reverb,
+  quick clean decay."
+- `hover.wav`: "TrackType: SFX. A faint subtle user-interface hover blip: a
+  very short airy high tick of brushed metal, quiet, close mic, dry, no
+  reverb."
+
+Then each was made 16-bit mono 44.1 kHz, cut to its first 120 ms (the sound
+is over by 20-45 ms), faded in over 0.5 ms and out over the last 10 ms, and
+its peak set to -6 dBFS (click) and -9 dBFS (hover; with the 0.7, about -12).
+The game's own two peak at about -5 dBFS and last 150-190 ms: these are
+softer and shorter on purpose.
