@@ -990,6 +990,16 @@ each game's recipe (DESIGN.md there):
 - `mw3 --setup`: the find screen alone, whatever is found; exit 0 once a pick
   is installed and saved to mw3.cfg, 1 when the player quits it, 2 when SDL
   cannot start. `sdl_program_status_and_setup_answer_the_launcher`.
+- `mw3 --setup --describe | --search | --look <pick> | --install <pick>
+  [--folder <dir>]` (2026-11-25, docs/launcher-split.md a2): the same asks a
+  kit game answers, through MechWarrior 3's recipe (`frontend/sdl/mw3_recipe`:
+  map_source's rules named `mech3` and `mech3-pm`, the start's search then a
+  disc in a drive, install_from_source). No window; the copy a look finds in
+  place, or an install puts in `<write dir>/install`, is saved as `install=`.
+  A Pirate's Moon pick is refused in its words. The status says `"setup": 1`;
+  the launcher asks it only once MW3 is one of its kit games (a later step).
+  The data folder and `rebuild-program.txt` are the kit's too
+  (`rekit/data_folder.h`, `rekit/program_record.h`), with the same files.
 The launcher still finds the games itself; it switches to asking `--status`
 once mw3pm answers it too.
 

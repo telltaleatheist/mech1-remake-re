@@ -5835,6 +5835,49 @@ TEST(sdl_program_status_and_setup_answer_the_launcher) {
   }
   unsetenv("MW3_FIND_INSTALL");
   unsetenv("MW3_LAUNCHER_FRAMES");
+  // The asks a launcher serves through mw3 itself (2026-11-25; rekit/sdl/setup_serve.h): no window, JSON lines, the
+  // last one done; nothing written but by an install (and its install=).
+  EXPECT(rekit::parse_status(a, &st) && st.setup == rekit::kServedSetup);
+  auto said = [](const std::string& log) {
+    rekit::SetupMessage m, line;
+    for (size_t at = 0; at < log.size();) {
+      const size_t end = std::min(log.find('\n', at), log.size());
+      if (rekit::parse_setup_message(log.substr(at, end - at), &line) && line.done) m = line;
+      at = end + 1;
+    }
+    return m;
+  };
+  namespace fs = std::filesystem;
+  const std::string wd = dir + "/wd5", into = (fs::path(wd) / "install").make_preferred().string(), game = MW3_GAME_DIR;
+  auto ask = [&](std::vector<std::string> what, const char* name) {
+    what.insert(what.begin(), "--setup");
+    for (const char* x : {"--write-dir", wd.c_str()}) what.push_back(x);
+    return said(run(what, dir + "/" + name + ".log", &code));
+  };
+  rekit::SetupMessage m = ask({"--describe"}, "describe");
+  EXPECT(code == rekit::kSetupReady && m.ok && m.title == "MechWarrior 3" && m.into == into && m.pick_words.find("Mech3.exe") != std::string::npos);
+  m = ask({"--search"}, "search");  // the start's places: the development copy here
+  EXPECT(code == rekit::kSetupReady && m.ok && fs::equivalent(m.path, game, ec));
+  m = ask({"--look", game + "/Mech3.exe"}, "look");
+  EXPECT(code == rekit::kSetupReady && m.ok && !m.in_place && m.words.find("An installed copy of MechWarrior 3") == 0 && m.into == into);
+  EXPECT(!fs::exists(wd, ec));
+  m = ask({"--look", dir + "/wd"}, "nothing");
+  EXPECT(code == rekit::kSetupFailed && !m.ok && m.summary.find("No copy of MechWarrior 3 was found in wd.") == 0);
+  if (fs::exists(game + "/../pm/zbd/reader.zbd")) {
+    m = ask({"--install", game + "/../pm"}, "pm");
+    EXPECT(code == rekit::kSetupFailed && !m.ok && m.summary.find("This is MechWarrior 3: Pirate's Moon, a game of its own") == 0 && !fs::exists(wd, ec));
+  }
+  m = ask({"--install", game}, "install");
+  std::printf("  served install: exit %d, %s\n", code, m.summary.c_str());
+  EXPECT(code == rekit::kSetupReady && m.ok && m.where == into && fs::is_regular_file(into + "/zbd/reader.zbd"));
+  std::ifstream saved(wd + "/mw3.cfg");
+  EXPECT(std::string((std::istreambuf_iterator<char>(saved)), std::istreambuf_iterator<char>()).find("install=" + into + "\n") != std::string::npos);
+  m = ask({"--look", into}, "own");
+  EXPECT(code == rekit::kSetupReady && m.ok && m.in_place && m.where == into);
+  setenv("MW3_FIND_INSTALL", "1", 1);
+  const std::string f = run({"--status", "--write-dir", wd}, dir + "/f.log", &code);
+  unsetenv("MW3_FIND_INSTALL");
+  EXPECT(code == 0 && rekit::parse_status(f, &st) && st.state == rekit::Status::kReady && st.where == into);
   std::filesystem::remove_all(dir, ec);
 }
 

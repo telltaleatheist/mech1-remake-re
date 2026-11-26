@@ -733,6 +733,7 @@ if(SDL3_FOUND)
     src/frontend/sdl/sdl_input.cpp
     src/frontend/sdl/sdl_force.cpp
     src/frontend/sdl/sdl_install.cpp
+    src/frontend/sdl/mw3_recipe.cpp
     src/frontend/sdl/held_keys.cpp
     src/frontend/sdl/mw1_files.cpp  # ours: the launcher's MechWarrior (1989) intake
     src/frontend/sdl/sdl_music.cpp
