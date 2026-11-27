@@ -55,11 +55,16 @@ Every release's full notes are on the [Releases](../../releases) page, and
 [CHANGES.md](CHANGES.md) lists everything the rebuild changes from the
 original.
 
+**1.6.1 (2026-11-27)** (the full notes are in
+[docs/release-notes-1.6.1.md](docs/release-notes-1.6.1.md)): the Mac app is
+signed and notarized, so it opens like any other app; the release's checksums
+are signed, so the launcher can take it from the mirror. Nothing in play changes.
+
 **1.6.0 (2026-11-26)** (the full notes are in
 [docs/release-notes-1.6.0.md](docs/release-notes-1.6.0.md)): the mouse wheel
 scrolls the menus' lists (issue #20, under SMALL FIXES); each game sets
-itself up and the launcher only asks it, with its own menu sounds and less
-than half the size; new games can appear in the launcher without an update.
+itself up and the launcher only asks it, with its own menu sounds and a
+download about 40% smaller; new games can appear in the launcher without an update.
 After updating the launcher, press UPDATE ALL.
 
 **1.5.2 (2026-11-25)** (the full notes are in
@@ -406,7 +411,7 @@ takes its `BTECH.EXE`, its folder or the `.zip` it came in.
 ## Download
 
 The launcher is on the [mw3-re Releases](https://github.com/telltaleatheist/mw3-re/releases)
-page (and [owenmorgan.com/battletech](https://owenmorgan.com/battletech/)); it
+page (and [reverse-engineered.com](https://reverse-engineered.com)); it
 downloads each game when you press its DOWNLOAD:
 
 | | File | |
@@ -418,9 +423,10 @@ downloads each game when you press its DOWNLOAD:
 This repo's [Releases](../../releases) hold Pirate's Moon alone
 (`PM-Rebuild-*`), without the launcher.
 
-**On a Mac, the first time:** the app is not signed by Apple, so macOS stops
-it the first time you open it ("BattleTech Not Opened"; click **Done**,
-not Move to Trash).
+**On a Mac:** from 1.6.1 the app is signed and notarized by Apple, so it
+opens like any other app. A copy of 1.6.0 or older is not signed, and macOS
+stops it the first time you open it ("Not Opened"; click **Done**, not Move
+to Trash).
 
 - **macOS 15 Sequoia and later:** open **System Settings > Privacy &
   Security**, scroll down to the line about BattleTech, click **Open
@@ -495,8 +501,15 @@ Your MechWarrior 3 files are only ever read, never changed.
 The original played its music from the CD's audio tracks, which an
 installed copy does not have. Two ways to get it back:
 
-- With a disc image (a `.cue` and its `.bin`): **Add from my disc** on the
-  notes before your first game (installing from the `.cue` takes it at once).
+- From a disc image that kept the CD audio (a `.cue` with its `.bin`
+  files): in the launcher, the gear beside MechWarrior 3, **GAME FILES**,
+  then **ADD FROM MY DISC** (there while the music is missing), and pick the
+  `.cue`, or the `.zip` that holds it with its `.bin` files. Its audio
+  tracks become the music. Installing the game from the `.cue` (**PICK A
+  FILE** on the same screen) brings the music in at once. An `.iso` has no
+  music: it keeps only the data track. The Internet Archive has MechWarrior
+  3 disc images in `.cue`/`.bin` with the original music
+  ([archive.org](https://archive.org/search?query=mechwarrior+3)).
 - Your own rip: put the tracks in the rebuild's `music` folder (below) as
   `track02.ogg`, `track03.ogg` and so on (or `.flac`, `.wav`, `.mp3`),
   numbered as on the CD.

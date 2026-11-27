@@ -160,8 +160,9 @@ tags in a `git bundle`.
    it on the repo's main, move the local tag, and rebuild every platform from
    the new tags. Tags are pushed only once all three platforms build.
 5. **Gather and sum:** all the files (fifteen with MW1 Remake alone, sixteen once it has a Windows Setup) in one folder, each checked against
-   its platform's `SHA256SUMS`, then `python3 -I tools/package/sums.py <folder>`
-   writes the release's `SHA256SUMS`.
+   its platform's `SHA256SUMS`, then `MW3_SIGNING_KEY=<key file> python3 -I tools/package/sums.py <folder>`
+   writes the release's `SHA256SUMS` and `SHA256SUMS.sig` (the key kept outside every repo; without it the
+   sums are unsigned as before, and a launcher takes the release only from GitHub).
 6. **Push the tags** to their repos (`vX.Y.Z` to mech3-re and mw3-re,
    `pm-vX.Y.Z` to mech3-pm-re, `mw1-vX.Y.Z` to mech1-remake-re).
 7. **Publish the hub first:** the `vX.Y.Z` release on mw3-re with all the
@@ -172,7 +173,7 @@ tags in a `git bundle`.
 8. **Then each game's own release:** MW3 alone on mech3-re (`vX.Y.Z`),
    Pirate's Moon alone on mech3-pm-re (`pm-vX.Y.Z`), and on mech1-remake-re
    (`mw1-vX.Y.Z`) MW1 Remake alone, each with its files and
-   their lines of `SHA256SUMS`, and a link to the hub for the launcher.
+   `SHA256SUMS` and `SHA256SUMS.sig`, and a link to the hub for the launcher.
    MW3 alone's `vX.Y.Z` always matches a launcher release on the hub.
 9. **Check it live:** download every asset again and check its checksum, then
    run the previous release's launcher, press UPDATES, and confirm it finds
