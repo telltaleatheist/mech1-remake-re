@@ -67,6 +67,8 @@ int unsetenv(const char* name) { return _putenv_s(name, ""); }
 #include "frontend/sdl/sdl_fit.h"
 #include "frontend/sdl/font_search.h"
 #include "frontend/sdl/launcher.h"
+#include "rekit/hash.h"
+#include "test_keys.h"
 #include "frontend/sdl/movie_import.h"
 #include "frontend/sdl/vulkan_check.h"
 #include "frontend/sdl/launcher_notes.h"
@@ -5733,10 +5735,13 @@ TEST(sdl_program_plain_start_goes_straight_in_or_to_setup) {
   const std::string b = run({"--write-dir", dir + "/wd2", "--window", "640x480", "--nosound"}, dir + "/b.log", true);
   EXPECT(run({"--launcher", "--write-dir", dir + "/wd2"}, dir + "/b2.log") == "(failed)");
   EXPECT(b.find("launcher: Found MechWarrior 3") != std::string::npos && b.find("start only") == std::string::npos);
-  // None: the find screen alone (QUIT after 20 frames: no game).
+  // None: the find screen alone (QUIT after 20 frames: no game). No catalog asked (the original files' check below).
   setenv("MW3_FIND_INSTALL", "1", 1);
+  setenv("MW3_ORIGINAL_CATALOG", "", 1);
   const std::string c = run({"--write-dir", dir + "/wd3", "--window", "640x480", "--nosound"}, dir + "/c.log");
+  unsetenv("MW3_ORIGINAL_CATALOG");
   EXPECT(c.find("no install found: the find screen") != std::string::npos && c.find("start only") == std::string::npos);
+  EXPECT(c.find("original: not asked (MW3_ORIGINAL_CATALOG)") != std::string::npos);
   // None, and a disc's files picked: looked at, installed, on into the game.
   const std::string patch = std::string(MW3_GAME_DIR) + "/../patch-1.2/MechWarrior-3_Patch_Win_EN_Patch-12-US";
   if (std::filesystem::exists(patch + "/data1.cab")) {
@@ -5757,6 +5762,70 @@ TEST(sdl_program_plain_start_goes_straight_in_or_to_setup) {
   unsetenv("MW3_FIND_INSTALL");
   unsetenv("MW3_LAUNCHER_FRAMES");
   unsetenv("MW3_START_ONLY");
+}
+
+// A player's own start without game files (ours, 2026-11-27; docs/launcher.md, The original game files): the search
+// first; nothing found, the find screen asks about the original game files the launcher's signed catalog lists, and
+// DOWNLOAD fetches them (size and SHA-256 checked), installs them as a pick, plays, and deletes the download. A local
+// catalog stands in (MW3_ORIGINAL_CATALOG, file:///, signed by a test key); the 1.2 patch's disc files, zipped, for
+// the original.
+TEST(sdl_program_plain_start_downloads_the_original_files) {
+  const std::string patch = std::string(MW3_GAME_DIR) + "/../patch-1.2/MechWarrior-3_Patch_Win_EN_Patch-12-US";
+  if (!std::filesystem::exists(patch + "/data1.cab")) return;
+  const std::string dir = std::string(MW3_TEST_TMP) + "/plain_download";
+  std::error_code ec;
+  std::filesystem::remove_all(dir, ec);
+  std::filesystem::create_directories(dir + "/wd", ec);
+  std::filesystem::create_directories(dir + "/served", ec);
+  const std::string zip = dir + "/served/MW3-disc.zip";
+  {
+    struct archive* a = archive_write_new();
+    archive_write_set_format_zip(a);
+    EXPECT(archive_write_open_filename(a, zip.c_str()) == ARCHIVE_OK);
+    for (const char* n : {"data1.hdr", "data1.cab"}) {
+      std::ifstream in(patch + "/" + n, std::ios::binary);
+      const std::string bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+      struct archive_entry* e = archive_entry_new();
+      std::string upper = n;
+      for (char& c : upper) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+      archive_entry_set_pathname(e, upper.c_str());
+      archive_entry_set_size(e, static_cast<la_int64_t>(bytes.size()));
+      archive_entry_set_filetype(e, AE_IFREG);
+      archive_entry_set_perm(e, 0644);
+      archive_write_header(a, e);
+      archive_write_data(a, bytes.data(), bytes.size());
+      archive_entry_free(e);
+    }
+    archive_write_close(a);
+    archive_write_free(a);
+  }
+  const std::string sum = rekit::sha256_file_hex(zip);
+  const std::string text = "{\"revision\": 1, \"games\": [{\"key\": \"mw3\", \"original\": [{\"url\": \"file://" + zip +
+                           "\", \"sha256\": \"" + sum + "\", \"size\": " + std::to_string(std::filesystem::file_size(zip)) +
+                           ", \"name\": \"MW3-disc.zip\", \"note\": \"a check\"}]}]}";
+  const std::string cat = dir + "/catalog.json";
+  std::ofstream(cat, std::ios::binary) << text;
+  std::ofstream(cat + ".sig", std::ios::binary) << test_keys::sign(text, 1);
+  setenv("MW3_START_ONLY", "1", 1);
+  setenv("MW3_FIND_INSTALL", "1", 1);
+  setenv("MW3_LAUNCHER_FRAMES", "1800", 1);  // about 30 s: a launcher that never goes on quits and fails, not hangs
+  setenv("MW3_ORIGINAL_CATALOG", ("file://" + cat).c_str(), 1);
+  setenv("MW3_ORIGINAL_KEY", test_keys::public_key(1).c_str(), 1);
+  setenv("MW3_LAUNCHER_DOWNLOAD", "1", 1);
+  const std::string log = dir + "/run.log";
+  const pid_t pid = spawn_mw3({"--write-dir", dir + "/wd", "--window", "640x480", "--nosound"}, log);
+  for (const char* v : {"MW3_START_ONLY", "MW3_FIND_INSTALL", "MW3_LAUNCHER_FRAMES", "MW3_ORIGINAL_CATALOG", "MW3_ORIGINAL_KEY", "MW3_LAUNCHER_DOWNLOAD"})
+    unsetenv(v);
+  int status = 0;
+  EXPECT(waited(pid, &status) && WIFEXITED(status) && WEXITSTATUS(status) == 0);
+  std::ifstream f(log);
+  const std::string t((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+  const auto has = [&t](const std::string& w) { return t.find(w) != std::string::npos; };
+  EXPECT(has("no install found: the find screen") && has("original: 1 sources offered") && has("original: no copy found on this computer"));
+  EXPECT(has("original: downloaded MW3-disc.zip") && has("original: MW3-disc.zip deleted"));
+  EXPECT(has("mw3: start only: install " + dir + "/wd/install") && std::filesystem::exists(dir + "/wd/install/mw3-install.txt"));
+  EXPECT(!std::filesystem::exists(std::filesystem::temp_directory_path() / "rekit-original-mech3"));  // the kit's folder gone
+  if (!has("mw3: start only: install ")) std::printf("%s\n", t.substr(t.size() > 3000 ? t.size() - 3000 : 0).c_str());
 }
 
 // Launcher split b6 piece 2 (decided 2026-11-26): a start with no copy named takes the copy the launcher's panel shows
