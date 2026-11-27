@@ -106,6 +106,7 @@ TEST(mw1_game_files_unpacks_a_download_into_the_write_dir) {
   write_zip(zip, {{"MechWarrior (1989)/readme.txt", "notes"},
                   {"MechWarrior (1989)/MW/BTECH.EXE", "btech"},
                   {"MechWarrior (1989)/MW/MW_MAIN.EXE", "main"},
+                  {"MechWarrior (1989)/MW/NEV_UNIV.EXE", "tool"},
                   {"MechWarrior (1989)/MW/DATA/MAP.DAT", "map"},
                   {"MechWarrior (1989)/MW/../../escape.txt", "no"},
                   {"MechWarrior (1989)/extra/BTECH.EXE", "deeper copy, not taken"}});
@@ -115,6 +116,7 @@ TEST(mw1_game_files_unpacks_a_download_into_the_write_dir) {
   EXPECT(game == mf::unpacked_dir(wd));
   EXPECT(read(fs::path(game) / "BTECH.EXE") == "btech" && read(fs::path(game) / "MW_MAIN.EXE") == "main");
   EXPECT(read(fs::path(game) / "DATA" / "MAP.DAT") == "map");
+  EXPECT(!fs::exists(fs::path(game) / "NEV_UNIV.EXE"));                     // the download's tool, not the game's
   EXPECT(!fs::exists(fs::path(game) / "readme.txt"));                       // only the game's folder
   EXPECT(!fs::exists(fs::path(d) / "escape.txt") && !fs::exists(fs::path(wd) / "escape.txt") &&
          !fs::exists(fs::path(wd) / "mw1" / "escape.txt"));                 // nothing climbs out
@@ -164,9 +166,11 @@ TEST(mw1_game_files_copies_a_picked_folder_into_the_write_dir) {
   put(fs::path(game) / "BTECH.EXE", "first");
   put(fs::path(game) / "MW_MAIN.EXE", "main");
   put(fs::path(game) / "SOUNDS" / "A.VOC", "voc");
+  put(fs::path(game) / "nev_univ.exe", "tool");
   std::string why;
   const std::string out = mf::copy_in(game, wd, &why);
   EXPECT(out == mf::unpacked_dir(wd) && why.empty());
+  EXPECT(!fs::exists(fs::path(out) / "nev_univ.exe") && fs::exists(fs::path(out) / "MW_MAIN.EXE"));  // the tool left out
   EXPECT(read(fs::path(out) / "BTECH.EXE") == "first" && read(fs::path(out) / "SOUNDS" / "A.VOC") == "voc");
   EXPECT(mf::in_unpacked(out, wd) && mf::in_unpacked((fs::path(out) / "SOUNDS").string(), wd) && !mf::in_unpacked(game, wd));
   EXPECT(!fs::exists(out + ".copying") && !fs::exists(out + ".old"));

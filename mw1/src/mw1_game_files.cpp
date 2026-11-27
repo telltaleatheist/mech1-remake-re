@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <vector>
 
 #include "mech3/source_archive.h"
 #include "rekit/files.h"
@@ -15,6 +16,9 @@ namespace mw1::files {
 namespace {
 
 const char* const kMarker = "mw3-launcher-unpacked.txt";  // in a folder our unpacking made, and only there
+// Files a copy or a download of MechWarrior (1989) holds that are not the game's: NEV_UNIV.EXE, a tool the download
+// carries beside BTECH.EXE (nothing in the game names it). Left out of both the unpacking and the copy.
+const std::vector<rekit::LeaveOut> kLeaveOut = {{"NEV_UNIV.EXE", ""}};
 constexpr int64_t kMaxUnpack = int64_t(512) << 20;     // the DOS game is about 1 MB; a download far past this is not it
 
 std::string upper(std::string s) {
@@ -172,6 +176,7 @@ std::string unpack(const std::string& archive, const std::string& write_dir, std
   while (!bad && r.next(&e)) {
     if (e.other || !relative_parts(e.path, prefix, &parts) || parts.empty()) continue;
     if (upper(parts.back()) == upper(kMarker)) continue;
+    if (!e.dir && rekit::left_out(kLeaveOut, parts.back(), nullptr)) continue;
     fs::path out = tmp;
     for (const std::string& p : parts) out /= p;
     if (e.dir) {
@@ -227,7 +232,7 @@ std::string copy_in(const std::string& game, const std::string& write_dir, std::
   if (!clearable(tmp)) return fail("The folder " + tmp.string() + " is not one the launcher made: move it away first.");
   fs::remove_all(tmp, ec);  // a copy an earlier run left: ours
   fs::create_directories(dest.parent_path(), ec);
-  const rekit::CopyResult c = rekit::copy_folder(game, tmp.string(), progress);
+  const rekit::CopyResult c = rekit::copy_folder(game, tmp.string(), progress, kLeaveOut);
   if (!c.ok) {  // copy_folder leaves nothing behind
     if (cancelled) *cancelled = c.cancelled;
     return fail(c.cancelled ? "Stopped. Nothing was copied; the game in use is as it was."
