@@ -278,9 +278,11 @@ notes, the README) is checked before it goes up.
 - [ ] **No legal name.** Search each package's text and binaries (LICENSE,
       the README, `THIRD-PARTY.txt`, the installer, the Info.plist, the
       release notes) for the author's legal name and email addresses (`strings -a`, `grep -ri`); there must
-      be no match.
-- [x] **No team ID or signing identity.** The Mac app is signed ad hoc
-      (above); the Windows files carry no certificate.
+      be no match outside the Mac code signature (next item).
+- [x] **The signing identity only in the signature** (2026-11-26). The Mac packages are Developer ID signed
+      (macos.md, Signing): the legal name and team ID appear only in the Developer ID signature of the Mac
+      packages; nowhere else, never in the repo's text, docs, commits or READMEs. The Windows files carry no
+      certificate.
 - [x] **No local paths.** No machine's folders in the binaries or the text:
       `strings -a <each binary> | grep -E '/Users/|/Volumes/|/home/|C:\\Users\\|E:\\'`
       must print nothing. (`MW3_PACKAGE=ON` keeps the game folder out; the
