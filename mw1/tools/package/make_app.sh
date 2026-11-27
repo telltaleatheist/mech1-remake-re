@@ -3,16 +3,23 @@
 # INSTALL / UPDATE downloads from this repo's Releases (DEPLOY.md). mw1 is the app's executable, mw1data/ in
 # Contents/Resources (where SDL_GetBasePath points mw1, as in the combined package), the engine's stand-in fonts in
 # Resources/assets/fonts, the libraries it loads in Contents/Frameworks with their paths rewritten to @rpath, its
-# own bundle id, every binary signed ad hoc. A package build (MW3_PACKAGE: no development game paths). Nothing from
+# own bundle id, every binary signed and the DMG notarized (below). A package build (MW3_PACKAGE: no development game paths). Nothing from
 # any game. PM's own tools/macos/make_app.sh is left as it is, so merges from mech3-pm-re never meet this file.
 #
 #   mw1/tools/package/make_app.sh                    run from the repo root; Homebrew's libraries (not for release)
 #   mw1/tools/package/make_app.sh --deps [PREFIX]    the release form: universal (arm64, x86_64), macOS 12 and
 #        later, against tools/deps/build_deps.sh mac's libraries (default build-deps/mac/prefix)
 #
+# Signing (2026-11-26: releases are Developer ID signed and notarized) is the setup kit's
+# (extern/re-setup-kit/tools/macos/sign_notarize.sh, its header and README), from the environment, so no name or
+# team is ever in the repo: RE_SIGN_IDENTITY (the keychain's Developer ID Application identity, its name or SHA-1;
+# unset: ad hoc), RE_NOTARY_PROFILE (a notarytool keychain profile), RE_ALLOW_UNSIGNED=1 for a build that will not be
+# notarized (refused without it, so an unnotarized DMG never reaches a release). The MW3_ names are read too.
+#
 # Out: build-mw1-mac/dist/MechWarrior 1 Remake.app and build-mw1-mac/dist/MW1-Remake-<mw1-vX.Y.Z>-mac.dmg
 set -euo pipefail
 cd "$(dirname "$0")/../../.."
+SIGNER=extern/re-setup-kit/tools/macos/sign_notarize.sh
 DEPS=""
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -22,6 +29,9 @@ while [ $# -gt 0 ]; do
   esac
 done
 if [ -n "$DEPS" ] && [ ! -d "$DEPS/lib" ]; then echo "no $DEPS/lib: run tools/deps/build_deps.sh mac first" >&2; exit 1; fi
+# Notarized, or said why not, before anything is built.
+[ -x "$SIGNER" ] || { echo "no $SIGNER: git submodule update --init" >&2; exit 1; }
+"$SIGNER" check >/dev/null  # refused here unless it will be notarized or RE_ALLOW_UNSIGNED=1
 if [ -z "$DEPS" ]; then
   echo "note: Homebrew's libraries (this Mac's macOS, arm64 only): not for release" >&2
 fi
@@ -207,13 +217,9 @@ if [ -n "$DEPS" ]; then
   [ -s "$FTL" ] || { echo "no FreeType licence in the app ($FTL): run tools/deps/build_deps.sh mac again" >&2; exit 1; }
 fi
 
-# Signing, ad hoc (no identity, so no name in the signature): the libraries, the program, then the app.
-for f in "$APP"/Contents/Frameworks/*.dylib; do
-  codesign --force --sign - "$f"
-done
-codesign --force --sign - --entitlements tools/macos/mw3.entitlements "$APP/Contents/MacOS/mw1"
-codesign --force --sign - --entitlements tools/macos/mw3.entitlements "$APP"
-codesign --verify --deep --strict --verbose=2 "$APP"
+# Signing (the kit's script): every Mach-O inside first (the libraries), then the app, whose own executable, mw1, is
+# signed with it. tools/macos/mw3.entitlements grants nothing.
+"$SIGNER" app "$APP" --entitlements tools/macos/mw3.entitlements
 [ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Contents/Info.plist")" = mw1 ] || { echo "the app does not start mw1" >&2; exit 1; }
 [ -f "$APP/Contents/Resources/mw1data/zbd/mw1image.zbd" ] || { echo "no mw1data in the app" >&2; exit 1; }
 case "$VER" in *-dirty) echo "warning: $VER: a dirty tree, not for release" >&2 ;; esac
@@ -228,5 +234,8 @@ cp mw1/dist/README-MW1.txt "$STAGE/Read me.txt"
 # No local path or user name in anything shipped.
 python3 -I tools/deps/check_paths.py "$STAGE" || exit 1
 hdiutil create -volname "$NAME" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
+# The DMG signed; when notarizing, its ticket stapled to it and to the app here, Gatekeeper's verdict on both, and a
+# rejection stops the build with Apple's log (the kit's script).
+"$SIGNER" dmg "$DMG" "$APP"
 echo "App: $APP"
 echo "DMG: $DMG"
