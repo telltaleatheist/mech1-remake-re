@@ -131,7 +131,9 @@ def make(a):
     # The movies: pictures through VP9, sound through FLAC, the importer's header kept.
     vdir = next((os.path.join(inst, d) for d in os.listdir(inst) if d.lower() == 'video'), None)
     imp = os.path.join(work, 'import')
-    if vdir:
+    if vdir and any(n.lower().endswith('.avi') for n in os.listdir(vdir)):
+        if not a.mw3import:
+            sys.exit('make_compact: this game has movies: give --mw3import')
         shutil.rmtree(imp, ignore_errors=True)
         run([a.mw3import, '--install', inst, '--write-dir', imp])
         for n in sorted(os.listdir(vdir)):
@@ -213,7 +215,8 @@ def setup_install(a, pick, wd):
         sys.exit(f'make_compact: the setup did not install {pick}: {last[-1] if last else r.stdout[-400:]}')
     print(f'    {last[-1].get("words", "")} -> {last[-1].get("summary", "")}')
     inst = os.path.join(wd, 'install')
-    run([a.mw3import, '--install', inst, '--write-dir', wd])
+    if any(f.lower().endswith(('.avi', '.webm')) for f in tree(inst)):  # Pirate's Moon has no movies
+        run([a.mw3import, '--install', inst, '--write-dir', wd])
     raw = json.loads(subprocess.run([a.mw3, '--status', '--install', inst, '--write-dir', wd, '--nosound', '--hidden'],
                                     capture_output=True, text=True).stdout.strip().splitlines()[-1])
     files = raw.get('files', {})
@@ -341,7 +344,7 @@ def main():
         p.add_argument('--game', choices=sorted(SOURCES), required=True)
         p.add_argument('--zip', required=True)
         p.add_argument('--mw3', required=True, help='the game program (mw3, or mw3pm for Pirate\'s Moon)')
-        p.add_argument('--mw3import', required=True)
+        p.add_argument('--mw3import', help='the importer (MechWarrior 3; Pirate\'s Moon has no movies)')
         p.add_argument('--ffmpeg', default='ffmpeg', help='an FFmpeg with libvpx-vp9 (ours on the players\' side only decodes)')
         p.add_argument('--work', default='compact-work')
     m.add_argument('--out', required=True)

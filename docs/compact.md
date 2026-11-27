@@ -133,3 +133,17 @@ compact's (19 movies, every frame):
 These compare two MPEG-1 encodes of nearly the same pictures, so they are
 lower than VP9 against the Indeo decode above. The frame grabs (disc left,
 compact right) show no visible difference.
+
+### Pirate's Moon 1.0 (2026-11-27, branch pm)
+
+Pirate's Moon has no movies (its install's `video` folder is empty), so its
+compact is the install less the same left-out files, with its one CD track
+as `music/track02.flac`. `mw3pm`'s look names it from the manifest (its
+recipe's `describe`), and its setup checks it as MechWarrior 3's does, for
+`"game": "pm"`.
+
+From `MechWarrior 3 - Pirate's Moon (Expansion Pack) (USA).zip`
+(323,446,564 bytes, sha256 1b7a6b8f...935d): `pm-compact-1.0.tar.xz`,
+167,214,200 bytes, 85 files, 19 left out, made in 4 minutes. `check` passed,
+0 failed: 84 install files identical, the music track the same sound, and
+`--status` on both ready, data 1.0, nothing pending.
