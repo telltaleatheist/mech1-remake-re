@@ -109,6 +109,7 @@
 #include "mech3/mp_connect.h"
 #include "mech3/options_menu.h"
 #include "mech3/game_setup.h"
+#include "mech3/source_map.h"
 #include "frontend/sdl/sdl_force.h"
 #include "frontend/sdl/sdl_rawmouse.h"
 #include "frontend/sdl/sdl_input.h"
@@ -839,6 +840,15 @@ int print_status(Args& a) {
       st.state = rekit::Status::kIncomplete;
       st.missing.push_back(f.summary);
     }
+  } else if (a.install.empty()) {
+    // No copy where it looks: this game's disc in a drive (2026-11-27; its DATA1.HDR's list, a few KB), offered as the
+    // search's finds are, never taken; looked at no further (its version and movies are the setup's look). So the
+    // launcher fetches nothing a disc in the drive has.
+    for (const mech3::setup::DiscSource& d : mech3::setup::find_discs())
+      if (mech3::source::disc_game(d.path) == mech3::source::Found::kMw3) {
+        st.state = rekit::Status::kReady, st.where = d.path, st.note = "found by the search, not set up yet";
+        break;
+      }
   }
   st.user = a.write_dir;
   st.play = rekit::kPlayOptions;  // --windowed, --window, --nosound, --hidden, --write-dir, --ready-file: mw3's own
