@@ -1097,6 +1097,7 @@ int program(int argc, char** argv) {
   // --setup (the launcher contract): the find screen alone, whatever is found.
   bool setup_only = a.setup || !a.launcher_shot.empty();  // a shot of the find screen: drawn once, then quit
   std::string look_first;  // a find to copy in (below)
+  bool offer_download = false;  // no install found at a player's start: the find screen may offer the download
   if (!a.ready_file.empty()) sdlfe::set_ready_file(a.ready_file);
   mech3::mods_other_game() = {a.other_write_dir, a.other_install};  // W15: a mod for the other game goes there
   // Shift held at the start (ours, 2026-11-21): the find screen, to choose other game files without a terminal.
@@ -1116,11 +1117,12 @@ int program(int argc, char** argv) {
     } else if (!f.dir.empty()) {
       find_install(a);  // the same find: taken, saved as find_install does
     } else {
-      // FIX (bug), issue #13: the launcher's find screen is MechWarrior 3's (it
-      // asked for MW3's disc and would install MW3 over Pirate's Moon's
-      // folder); started directly, mw3pm asks for its own folder instead
-      // (find_install below: Pirate's Moon's dialog, its Mech3.exe checked).
-      std::printf("mw3: no Pirate's Moon install found: its find dialog\n");
+      // No copy found (issue #13 first gave mw3pm its own find dialog here, the launcher's find screen being
+      // MechWarrior 3's then; LauncherOptions::pm made that screen Pirate's Moon's): the find screen searches at once
+      // and, nothing found, offers Pirate's Moon's original files from the launcher's signed catalog (docs/launcher.md,
+      // The original game files).
+      setup_only = offer_download = true;
+      std::printf("mw3: no Pirate's Moon install found: the find screen\n");
     }
   }
   if (setup_only) {
@@ -1128,6 +1130,7 @@ int program(int argc, char** argv) {
     lo.setup_only = setup_only;
     lo.shot = a.launcher_shot, lo.screen = a.launcher_screen;
     lo.look_first = look_first;
+    lo.offer_download = offer_download;
     lo.choose_again = choose_again;
     lo.pm = true;  // this branch's program is mw3pm: the find screen is Pirate's Moon's (issue #13: never MW3's)
     lo.write_dir_fixed = write_dir_given;

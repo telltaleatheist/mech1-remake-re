@@ -27,10 +27,12 @@ Mac bundle id (`com.owenmorgan.mw3pmrebuild`), Windows AppId and write folder (`
 - **`mw3`**: MechWarrior 3. Started directly, it goes straight into the
   game.
 - **`mw3pm`**: Pirate's Moon (after MW3 `v1.0`). Started directly, it goes
-  straight into PM. With no Pirate's Moon install found it asks for its own
-  folder (PM's find dialog, its Mech3.exe checked), not the launcher's find
-  screen, which is MechWarrior 3's: before 1.2.2 it asked for MW3's disc and
-  offered to install MW3 over PM's folder (issue #13).
+  straight into PM. With no Pirate's Moon install found it opens Pirate's
+  Moon's own find screen (`LauncherOptions::pm`), which searches and, finding
+  nothing, offers PM's original game files from the launcher's catalog
+  (launcher.md, The original game files). Before 1.2.2 the find screen was
+  MechWarrior 3's, asked for MW3's disc and offered to install MW3 over PM's
+  folder (issue #13); PM had its own find dialog here until 2026-11-27.
 
 A release has one download per platform (the Windows installer, the Mac
 DMG, the Linux AppImage) holding all three. The installer's main shortcut

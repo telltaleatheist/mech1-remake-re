@@ -38,6 +38,7 @@
 #include "frontend/sdl/sdl_catalog.h"
 #include "frontend/sdl/sdl_games.h"
 #include "upgrades/update/games.h"
+#include "rekit/sdl/setup_original.h"
 
 namespace sdlfe {
 
@@ -248,6 +249,7 @@ enum Id {
   kGo = 30, kCancel, kNotesOk, kPickOther,
   kPickFile, kPickFolder, kPlayNoMusic,  // ours: PICK A FILE; PICK A FOLDER; the no-music dialog's PLAY WITHOUT MUSIC (2026-11-24)
   kInstallTo, kPlaceGo,  // ours: CHANGE FOLDER (the game's folder, picked) and the card INSTALL's go once asked where
+  kGetOriginal,  // ours: DOWNLOAD THE GAME FILES (o_.offer_download, 2026-11-27)
   kData = 40, kDataPick, kDataUsual, kMoveGo, kRemoveOld, kKeepOld,
   kUpdates = 49,
   kSelfUpdate = 50,  // the header's UPDATE AVAILABLE <v> when the start's check found one (2026-11-23)
@@ -292,7 +294,7 @@ struct Work {
   own::Result result;
   std::atomic<bool> cancel{false}, done{false};
   std::string title;
-  enum Kind { kOther, kLook, kInstallIt, kAddDisc, kConvert, kMoveData, kRemoveData, kUpdateDownload, kGameInstall, kGameFileCheck, kUninstall, kKitLook, kKitInstall } kind = kOther;  // a look, an install, ADD FROM MY DISC, the movies
+  enum Kind { kOther, kLook, kInstallIt, kAddDisc, kConvert, kMoveData, kRemoveData, kUpdateDownload, kGameInstall, kGameFileCheck, kUninstall, kKitLook, kKitInstall, kGetOriginal } kind = kOther;  // a look, an install, ADD FROM MY DISC, the movies
   ~Work() {
     cancel = true;
     if (th.joinable()) th.join();
@@ -330,6 +332,13 @@ struct Pick {
   }
 };
 
+// Where a player's own start asks for the original game files (o_.offer_download; ours, 2026-11-27): the
+// launcher's signed catalog (the hub's DEPLOY.md, The catalog), its own site first, then the hub's copy on GitHub,
+// read only when signed by this key; MechWarrior 3's entry ("mw3") names the sources, archive.org first.
+const std::vector<std::string> kOriginalCatalogs = {"https://reverse-engineered.com/launcher/catalog.json",
+                                                    "https://raw.githubusercontent.com/telltaleatheist/mw3-re/main/catalog/games.json"};
+const std::vector<std::string> kOriginalKeys = {"4e2d26a76ab9f92876ca86aa915b9d61de1ed93b854610be07c70179136bfced"};
+
 class Launcher {
  public:
   explicit Launcher(const LauncherOptions& o) : o_(o) { sdlfe::stop_asking(false); }  // an earlier one's quit set it
@@ -345,6 +354,10 @@ class Launcher {
     if (win_) SDL_DestroyWindow(win_);
     for (std::thread& t : status_ask_)
       if (t.joinable()) t.join();
+    catalog_stop_ = true;
+    if (catalog_th_.joinable()) catalog_th_.join();
+    drop_download();
+    if (!original_dir_.empty()) rekit::sdl::tidy_original_dir(original_dir_);
   }
   LauncherChoice run();
 
@@ -414,6 +427,19 @@ class Launcher {
   void open_picker();
   void picked(int what, const std::string& path);
   void finish_work();
+  // The original game files (o_.offer_download): the catalog asked on a thread at the start, its answer taken, the
+  // question, the download (a pick once in), and the downloaded file removed after its install.
+  void ask_catalog();
+  void take_catalog();
+  std::string download_question() const;
+  void get_original();
+  void drop_download();
+  std::thread catalog_th_;
+  std::mutex catalog_m_;
+  std::atomic<bool> catalog_stop_{false}, catalog_done_{false};
+  std::vector<rekit::OriginalSource> offer_, catalog_answer_;
+  std::string catalog_why_, original_dir_, downloaded_;
+  bool none_here_ = false, catalog_asked_ = false, allow_file_ = false;
   void look_at(const std::string& path);
   void search();
   void use_install(const std::string& dir, const std::string& version, const std::string& summary);
@@ -2302,6 +2328,12 @@ void Launcher::layout() {
       if (kit_files_ >= 0 && kit_set_up(kit_files_)) {
         add(kPickFile, "find", "PICK A FILE", kit_ask_.find_sub);
         add(kPickFolder, "pick", "PICK A FOLDER");
+      } else if (none_here_ && !offer_.empty()) {  // ours (o_.offer_download): nothing here, the download asked about
+        char mb[32];
+        std::snprintf(mb, sizeof mb, "%.0f MB", static_cast<double>(offer_.front().size) / 1e6);
+        add(kGetOriginal, "find", "DOWNLOAD THE GAME FILES", std::string(mb) + (offer_.front().note.empty() ? "" : " from " + offer_.front().note));
+        add(kPickFile, "pick", "PICK MY OWN COPY");
+        add(kPickFolder, "pick", "PICK A FOLDER");
       } else {
         add(kFind, "find", "FIND THE GAME",
             kit_files_ >= 0 ? kit_ask_.find_sub : "A disc image, a download (.zip .iso), or Mech3.exe in an installed copy");
@@ -3425,12 +3457,114 @@ void Launcher::search() {
     return;
   }
 #endif
+  if (catalog_asked_ || !offer_.empty()) {  // a player's own start (o_.offer_download): the question, not the picker
+    none_here_ = true;
+    status_ = offer_.empty() ? std::string("No copy of ") + (files_pm_ ? "Pirate's Moon" : "MechWarrior 3") + " was found on this computer."
+                             : download_question();
+    status_good_ = true;
+    std::printf("mw3: launcher: original: no copy found on this computer\n");
+    screen_ = kSetupScreen;
+    layout();
+    if (!offer_.empty() && SDL_getenv("MW3_LAUNCHER_DOWNLOAD")) auto_ok_ = true, activate(kGetOriginal);  // checks: DOWNLOAD (and the notes' OK) pressed
+    return;
+  }
   status_ = std::string(files_pm_ ? "Pirate's Moon was not" : "Not") +
             " found on this computer or in a disc drive. Pick it: a disc image, a download, or Mech3.exe.";
   status_good_ = true;
   screen_ = kSetupScreen;
   layout();
   ask_file(kPoint, kGameFiles, kGameFilesCount);  // the one picker (an installed copy by any of its files)
+}
+
+// The original game files (o_.offer_download; ours, 2026-11-27, docs/launcher.md, The original game files): the
+// launcher's signed catalog asked on a thread (re-setup-kit's catalog_sources: its sources for this game, each
+// address's .sig checked against kOriginalKeys), so the search and the screen never wait on the network.
+// MW3_ORIGINAL_CATALOG (checks): that one address instead, file:/// allowed, signed by MW3_ORIGINAL_KEY; "" asks none.
+void Launcher::ask_catalog() {
+  std::vector<std::string> catalogs = kOriginalCatalogs, keys = kOriginalKeys;
+  if (const char* c = SDL_getenv("MW3_ORIGINAL_CATALOG")) {
+    if (!*c) return (void)std::printf("mw3: launcher: original: not asked (MW3_ORIGINAL_CATALOG)\n");
+    catalogs = {c}, allow_file_ = true;
+    keys = {SDL_getenv("MW3_ORIGINAL_KEY") ? SDL_getenv("MW3_ORIGINAL_KEY") : ""};
+  }
+  std::string why;
+  original_dir_ = rekit::sdl::original_dir("", files_pm_ ? "mech3-pm" : "mech3", &why);
+  if (original_dir_.empty()) return (void)std::printf("mw3: launcher: original: not asked: %s\n", why.c_str());
+  catalog_asked_ = true;
+  const std::string dir = original_dir_, key = files_pm_ ? "pm" : "mw3";
+  const bool allow = allow_file_;
+  std::printf("mw3: launcher: original: asking %s for %s\n", catalogs.front().c_str(), key.c_str());
+  catalog_th_ = std::thread([this, dir, key, catalogs, keys, allow] {
+    std::vector<rekit::OriginalSource> got;
+    std::string w;
+    rekit::sdl::catalog_sources(catalogs, keys, key, dir, allow, [this](double) { return !catalog_stop_.load(); }, &got, &w,
+                                MW3_VERSION);
+    std::lock_guard<std::mutex> g(catalog_m_);
+    catalog_answer_ = std::move(got), catalog_why_ = w;
+    catalog_done_ = true;
+  });
+}
+
+// Its answer, once (the frame loop): the sources kept for the question; none, and the screen stays as it is.
+void Launcher::take_catalog() {
+  if (!catalog_done_.exchange(false)) return;
+  if (catalog_th_.joinable()) catalog_th_.join();
+  catalog_asked_ = false;
+  {
+    std::lock_guard<std::mutex> g(catalog_m_);
+    offer_ = catalog_answer_;
+    if (offer_.empty()) std::printf("mw3: launcher: original: none offered: %s\n", catalog_why_.c_str());
+  }
+  if (offer_.empty()) {
+    rekit::sdl::tidy_original_dir(original_dir_), original_dir_.clear();
+    if (none_here_ && screen_ == kSetupScreen && !work_) ask_file(kPoint, kGameFiles, kGameFilesCount);  // as before
+    return;
+  }
+  std::printf("mw3: launcher: original: %d sources offered\n", static_cast<int>(offer_.size()));
+  if (none_here_ && screen_ == kSetupScreen && !work_) {
+    status_ = download_question(), status_good_ = true, layout();
+    if (SDL_getenv("MW3_LAUNCHER_DOWNLOAD")) auto_ok_ = true, activate(kGetOriginal);  // checks: DOWNLOAD (and the notes' OK) pressed
+  }
+}
+
+// "No copy of MechWarrior 3 was found on this computer. Download the original game files from the Internet Archive
+// (625 MB)?": the first source's, the one tried first.
+std::string Launcher::download_question() const {
+  if (offer_.empty()) return {};
+  const rekit::OriginalSource& o = offer_.front();
+  char mb[32];
+  std::snprintf(mb, sizeof mb, "%.0f MB", static_cast<double>(o.size) / 1e6);
+  return std::string("No copy of ") + (files_pm_ ? "Pirate's Moon" : "MechWarrior 3") +
+         " was found on this computer. Download the original game files" + (o.note.empty() ? "" : " from " + o.note) + " (" + mb + ")?";
+}
+
+// DOWNLOAD THE GAME FILES: each source in turn (re-setup-kit's fetch_original: HTTPS, its size and SHA-256 checked),
+// then looked at and installed as a pick of it would be, without the question (the press is the go).
+void Launcher::get_original() {
+  if (offer_.empty() || original_dir_.empty()) return;
+  const std::vector<rekit::OriginalSource> sources = offer_;
+  const std::string dir = original_dir_;
+  const bool allow = allow_file_;
+  work_ = std::make_unique<Work>();
+  work_->kind = Work::kGetOriginal;
+  work_->start("GETTING THE ORIGINAL GAME FILES", [sources, dir, allow](const own::ProgressFn& f) {
+    const rekit::sdl::InstallResult r = rekit::sdl::fetch_original(sources, dir, allow, [&f](const rekit::sdl::Progress& p) {
+      return f(own::Progress{p.stage, p.fraction, p.message});
+    });
+    own::Result res;
+    res.ok = r.ok, res.cancelled = r.cancelled, res.summary = r.summary, res.install_dir = r.install_dir;
+    return res;
+  });
+  screen_ = kWorking, layout();
+}
+
+// The downloaded file gone (installed, refused or passed over): only ever the kit's own, in its marked folder.
+void Launcher::drop_download() {
+  if (downloaded_.empty()) return;
+  std::error_code ec;
+  fs::remove(downloaded_, ec);
+  std::printf("mw3: launcher: original: %s deleted\n", fs::path(downloaded_).filename().string().c_str());
+  downloaded_.clear();
 }
 
 void Launcher::finish_work() {
@@ -3451,6 +3585,18 @@ void Launcher::finish_work() {
     return;
   }
   if (kind == Work::kMoveData) return moved(r);
+  if (kind == Work::kInstallIt || (kind == Work::kLook && !r.ok)) drop_download();  // its files copied in, or refused
+  if (kind == Work::kGetOriginal) {  // the download in: looked at and installed as a pick (the press was the go)
+    std::printf("mw3: launcher: original: %s\n", r.ok ? ("downloaded " + fs::path(r.install_dir).filename().string()).c_str() : r.summary.c_str());
+    if (!r.ok) {
+      status_ = r.cancelled ? "The download was canceled. " + download_question() : "The original game files could not be downloaded (" + r.summary + "). Pick your own copy.";
+      status_good_ = r.cancelled, screen_ = kSetupScreen;
+      return layout();
+    }
+    downloaded_ = r.install_dir;
+    auto_go_ = true;
+    return look_at(downloaded_);
+  }
   if (kind == Work::kKitLook) return kit_looked(r);
   if (kind == Work::kKitInstall) {
     if (r.ok) return kit_ready(r.summary);
@@ -3820,7 +3966,8 @@ void Launcher::activate(int id) {
         screen_ = kMain, layout();
       }
       break;
-    case kFind: search(); break;  // the usual places and the drives first, then the one picker
+    case kFind: search(); break;
+    case kGetOriginal: get_original(); break;  // the usual places and the drives first, then the one picker
     case kPickFile:
     case kCopyPick:
       status_ = "Pick the copy to use: " + (kit_files_ >= 0 ? kit_ask_.pick_words : std::string("a disc image, a download, or Mech3.exe")) + ".";
@@ -4154,6 +4301,12 @@ LauncherChoice Launcher::run() {
     else if (pm_dir_.empty()) done_ = true;
     else auto_ok_ = true, activate(kPm), o_.quit_after_game = true, done_ = !game_;  // its notes' OK; refused: quit
   }
+  // A player's own start without game files (ours): the catalog asked, and the search at once; nothing found, the
+  // find screen asks about the download (docs/launcher.md, The original game files).
+  if (o_.offer_download && o_.setup_only && !o_.choose_again && o_.look_first.empty() && o_.shot.empty() && !work_ && screen_ == kSetupScreen) {
+    ask_catalog();
+    search();
+  }
   while (!done_) {
     for (bool& f : status_fresh_) f = false;  // a status asked again when a panel's lines are made after now (b2)
     SDL_Event e;
@@ -4246,6 +4399,7 @@ LauncherChoice Launcher::run() {
       }
     }
     if (work_ && work_->done) finish_work();
+    take_catalog();
     take_games_check();
     take_self_check();
     if (const char* late = SDL_getenv("MW3_LAUNCHER_NAV_LATE"); late && !games_check_ && !self_check_ && !nav_late_) {  // checks: the steps once the start's checks have answered (a path: and that file is there)
