@@ -83,6 +83,17 @@ From the heat update at 0x4192f0 (details: `heat.md`).
   mech actually shuts off once its animation reaches a stop pose (states 1, 12
   or 13), and a power-down asked for while a flag at +0x584 is set (likely
   mid-air) is ignored.
+- **Shut down on the move and your torso and free look keep turning until you
+  stop.** The power-down zeroes the throttle, the leg turn and the pitch, but
+  not the torso twist or the free look. From the moment you ask, the game stops
+  reading your controls, so the last twist and look you gave carry on (a mouse
+  stroke keeps going, a held key stays held) until the legs come to a stand and
+  the mech actually shuts off, several seconds at speed; the torso stops at its
+  twist limit. Free look can be switched on while shut down, but the look
+  stays still: every control is held at zero until you power up. The legs
+  coast to a stop in about a second. (From the code: the stop 0x426c10, the
+  controls' update 0x426960, the player's 0x427d60. Reported on the rebuild as
+  issue #10; kept as the original.)
 - **Heat can't kill you in multiplayer.** In multiplayer, heat is always on,
   but reaching critical heat never destroys your torso: it only shuts you down
   and resets your heat. In campaign, instant action and training, critical heat

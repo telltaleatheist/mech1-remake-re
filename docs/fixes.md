@@ -699,6 +699,17 @@ Kept:
 
 ## Candidates
 
+- **The torso twist and free look carry on through a power-down** (issue #10 item 7, 2026-11-27;
+  discoveries.md, Heat). Asked to power down, the controls' stop 0x426c10 zeroes the throttle,
+  turn and pitch (+0x14, +0x18, +0x24, +0x28) but not the twist (+0x1c) or the look axes
+  (+0x2c, +0x30); the player's update 0x427d60 then reads nothing while vt+0xa0 is set, and
+  0x426960 zeroes every rate only once +0xde is (the stop pose reached). Measured in c1m1,
+  shut down at a quarter throttle: 3.6 s of the last mouse twist (the torso -0.34 to -1.54 rad)
+  and the last look rate before the mech was down; the legs' heading coasted about 1 s. The
+  port matches the exe (test_controls.py, test_player.py). Not changed: whether a power-down
+  was meant to hold the torso as it was is a guess. A fix would zero +0x1c, +0x2c and +0x30
+  in the stop (or ease them to 0 while vt+0xa0 is set), under SMALL FIXES.
+
 - **Effects named in weapons.zrd that no world has** (data, not code; found
   2026-11-10 by the check below in modding.md, Animations a def at a time,
   step 4). Four of the 64 animation names weapons.zrd uses have no
