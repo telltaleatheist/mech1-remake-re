@@ -12851,8 +12851,8 @@ TEST(sdl_pm_program_serves_its_setup) {
                              "mkdir -p \"$W/video\"; echo progress 0 2; K=0\nfor F in \"$S\"/video/*.AVI; do N=$(basename \"$F\" .AVI | tr A-Z a-z); "
                              ": > \"$W/video/$N.fmv\"; K=$((K+1)); echo progress $K 2 $N; done\n";
   fs::permissions(importer, fs::perms::owner_all, ec);
+  setenv("MW3_IMPORTER", importer.c_str(), 1);  // the stand-in decides pending too (no mw3import need be built beside mw3pm)
   EXPECT(rekit::parse_status(run({"--status", "--write-dir", dir + "/wd2"}, "status2", &code), &st) && st.pending == std::vector<std::string>({"movies"}));
-  setenv("MW3_IMPORTER", importer.c_str(), 1);
   const Said f = ask({"--first-run", "movies"}, "movies", dir + "/wd2");
   unsetenv("MW3_IMPORTER");
   EXPECT(code_of_last == rekit::kSetupReady && f.done.ok && f.done.summary == "2 movies converted for this computer.");
